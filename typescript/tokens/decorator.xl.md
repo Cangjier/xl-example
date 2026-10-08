@@ -212,7 +212,7 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
 原来这个节点没有任何队列，`Data` 收进来就不再动，于是 `Component(...)` 停在
 「`Identifier` + `Bracket`」两个散单元上、**没有调用节点**（当时那把对齐尺子的
 `CallExpression` 缺 13 处全是装饰器）。挂上通用队列之后，`MethodCloseRule` 会把
-「名字 + 括号」收成 `<Method>` ✓，与 TS 的 `CallExpression` 一对一。
+「名字 + 括号」收成 `<Method>`，与 TS 的 `CallExpression` 一对一。
 
 挂的是**通用队列**（`CloseRuleTemplate.Get(this.constructor)` 的默认值），不是类型队列：
 装饰器里是值表达式，类型队列那几条（方括号 / 运算符 / 字面量）都不该在这里跑。

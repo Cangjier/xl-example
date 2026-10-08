@@ -99,18 +99,18 @@ if (previous instanceof SymbolToken && (previous.Is(":") || previous.Is("?:"))) 
   if (this.EnclosingObjectLiteral(current)) {
     return true;
   }
-  // **值三元的冒号也不是类型标注** ✓（第 364/365 轮 ✓，**实测撞到的** ✓）：
-  // `flag ? (a: number) => a + 1 : (a: number) => a - 1` 里那个 `(` 往前看紧挨着**三元的 `:`** ✓，
-  // 照上面那条一律判「类型标注 ⇒ 不是形参表」✗ ⇒ `FindParameters` 给 `-1` ✗ ⇒ 紧邻的
-  // `FunctionTypeCloseRule`（它排在 `Lamda` **之前** ✓）把**假值段那个箭头**收成**函数类型** ✗
-  // ⇒ 降级层报 `unimplemented: expression FunctionType` ✓。
-  // **判据与本文件下面那条同源** ✓（`?` 那一支用的就是 `HasExtendsMarker` ✓）：
-  // 「左边有平级的 `?` 而且**没有** `extends`」是值三元 ✓、有 `extends` 才是条件类型 ✓
-  //（`T extends U ? () => A : B` 里那个 `() => A` **确实是**函数类型 ✓，所以不能一刀切 ✗）。
-  // **"没有 extends" 要看整张列表** ✓（第 365 轮 ✓，**收窄到第四次才对** ✗）：
-  // 第一版借的是 \`HasExtendsMarker\` ✓（它只看一段窗口 ✓）——而条件类型的 \`extends\`
-  // 可能落在窗口外面 ✗ ⇒ 那个**类型箭头**被当成了值箭头 ✗ ⇒ 语料里少 3 个、多 1 个 ✗
-  //（实测 \`real\` 那一趟复现 ✓、\`cases\` 那一趟干净 ✓ —— 所以只有真语料才露 ✗）。
+  // **值三元的冒号也不是类型标注**（第 364/365 轮，**实测撞到的**）：
+  // `flag ? (a: number) => a + 1 : (a: number) => a - 1` 里那个 `(` 往前看紧挨着**三元的 `:`**，
+  // 照上面那条一律判「类型标注 ⇒ 不是形参表」 ⇒ `FindParameters` 给 `-1` ⇒ 紧邻的
+  // `FunctionTypeCloseRule`（它排在 `Lamda` **之前**）把**假值段那个箭头**收成**函数类型**
+  // ⇒ 降级层报 `unimplemented: expression FunctionType`。
+  // **判据与本文件下面那条同源**（`?` 那一支用的就是 `HasExtendsMarker`）：
+  // 「左边有平级的 `?` 而且**没有** `extends`」是值三元、有 `extends` 才是条件类型
+  //（`T extends U ? () => A : B` 里那个 `() => A` **确实是**函数类型，所以不能一刀切）。
+  // **"没有 extends" 要看整张列表**（第 365 轮，**收窄到第四次才对**）：
+  // 第一版借的是 \`HasExtendsMarker\`（它只看一段窗口）——而条件类型的 \`extends\`
+  // 可能落在窗口外面 ⇒ 那个**类型箭头**被当成了值箭头 ⇒ 语料里少 3 个、多 1 个
+  //（实测 \`real\` 那一趟复现、\`cases\` 那一趟干净 —— 所以只有真语料才露）。
   let sawExtendsAnywhere = false;
   for (let k = 0; k < previousIndex; k++) {
     const u = Get(units, k);
@@ -126,15 +126,15 @@ if (previous instanceof SymbolToken && (previous.Is(":") || previous.Is("?:"))) 
       if (item instanceof SymbolToken && item.Is("?")) {
         return true;
       }
-      // **真值段那个箭头横在中间** ✓：`? (a) => a + 1 : …` 的 `=>` 与它的形参括号
-      // 正好夹在 `?` 与 `:` 之间 ✓ ⇒ 这两个都**不算停靠** ✓（探针现场：`previousIndex=13` ✓、
-      // `ext=false` ✓、可回溯在索引 9 的 `=>` 上停住 ✓ ⇒ 判据恒为假 ✗）。
-      // **括号只在「紧跟 `?`」时才跨** ✓：那正是「它是真值段的形参表」✓。
+      // **真值段那个箭头横在中间**：`? (a) => a + 1 : …` 的 `=>` 与它的形参括号
+      // 正好夹在 `?` 与 `:` 之间 ⇒ 这两个都**不算停靠**（探针现场：`previousIndex=13`、
+      // `ext=false`、可回溯在索引 9 的 `=>` 上停住 ⇒ 判据恒为假）。
+      // **括号只在「紧跟 `?`」时才跨**：那正是「它是真值段的形参表」。
       if (item instanceof Bracket) {
-        // **三个条件一起才算「真值段的形参表」** ✓（第 365 轮 ✓，**收窄到第三次才对** ✗）：
-        // ① 括号左边紧挨着 `?` ✓、② 括号右边紧跟着 `=>` ✓（那才是箭头 ✓）、
-        // ③ 中间没有别的边界 ✓。少了②，别的形状也会被放开 ✗（实测 `real` 那一趟语料里
-        // 仍旧「缺 3 / 多 1」✗）。
+        // **三个条件一起才算「真值段的形参表」**（第 365 轮，**收窄到第三次才对**）：
+        // ① 括号左边紧挨着 `?`、② 括号右边紧跟着 `=>`（那才是箭头）、
+        // ③ 中间没有别的边界。少了②，别的形状也会被放开（实测 `real` 那一趟语料里
+        // 仍旧「缺 3 / 多 1」）。
         const beforeBracket = SkipPreviousWrapSymbol(units, scan);
         const beforeUnit = Get(units, beforeBracket);
         const afterBracket = SkipNextWrapSymbol(units, scan);
@@ -680,19 +680,19 @@ parameters.TryToClose();
 
 let endIndex = SkipNextTrivia(units, index);
 const next = Get(units, endIndex);
-// **`=>` 与体之间跨过的注释要收下**（第 595 轮）：只有**花括号体**这一支需要显式收 ✓
-//（表达式体那一支把 `index+1 … endIndex` 整段搬进体 ✓，注释本来就在里面 ✓）；
-// 它们落在本单元被替换掉的那一段里 ✗，不收就等于删掉 ✓。
-// **收在体之前** ✓：`CreateBody` 把体追加在末尾 ✓ ⇒ 先收注释、后建体，XML 里就是源序 ✓。
-// 收进体里 ✗ 不行：体有自己的收尾规则队列 ✓，一条光秃秃的注释会被包成一个 `Statement` 壳 ✗
-// ⇒ 投影以为体里是「一条语句」而不是花括号块 ✗（实测 `Block` 缺 1 + 字段名 1）。
+// **`=>` 与体之间跨过的注释要收下**（第 595 轮）：只有**花括号体**这一支需要显式收
+//（表达式体那一支把 `index+1 … endIndex` 整段搬进体，注释本来就在里面）；
+// 它们落在本单元被替换掉的那一段里，不收就等于删掉。
+// **收在体之前**：`CreateBody` 把体追加在末尾 ⇒ 先收注释、后建体，XML 里就是源序。
+// 收进体里 不行：体有自己的收尾规则队列，一条光秃秃的注释会被包成一个 `Statement` 壳
+// ⇒ 投影以为体里是「一条语句」而不是花括号块（实测 `Block` 缺 1 + 字段名 1）。
 if (next instanceof Bracket && next.startBracket === "{") {
   result.AddRange(CommentsIn(units, index + 1, endIndex));
 }
 const body = result.CreateBody();
 if (next instanceof Bracket && next.startBracket === "{") {
-  // **是花括号体：那一对花括号当场记进字段** ✓（第 595 轮那一格，第 647 轮带上整段 ✓）：
-  // 投影于是不必回原文里猜「`=>` 之后第一个非空白字符是不是 `{`」 ✗（见 `Lamda.BodyBrace` ✓）。
+  // **是花括号体：那一对花括号当场记进字段**（第 595 轮那一格，第 647 轮带上整段）：
+  // 投影于是不必回原文里猜「`=>` 之后第一个非空白字符是不是 `{`」（见 `Lamda.BodyBrace`）。
   result.BodyBrace.Set(next.SourceRange.Start!.Index, next.SourceRange);
   try {
     next.MoveDataTo(body);
@@ -703,13 +703,13 @@ if (next instanceof Bracket && next.startBracket === "{") {
     throw e;
   }
 } else {
-  // **数组字面量里的表达式体也要在逗号前收住**（第 178 轮）✓：`[() => 1, () => 2]` 里
-  // 第一个箭头的体原来一路吃到**行尾** ✓（`Statement.SearchStatementEnd` ✓），
-  // 把**那个逗号**也吞进了 `<LamdaBody>` ✗——于是数组元素的分割线不见了 ✓：
-  // 投影按顶层逗号切元素 ✓，切不出来就把两个 `Lamda` 当成**一个**元素 ✓，
-  // 结果是 `xs.length` 给 `1`、`xs[1]` 给 `undefined` ✗（**静默错值** ✗，Node 给两个函数 ✓）。
-  // 对象字面量与实参表早就有这一支 ✓（`IsObject` / `IsMethod` ✓），数组字面量是**同一件事**
-  //（逗号分隔的元素表 ✓），所以并进这一条判据 ✓——`IsArray` 与 `IsObject` 同源 ✓。
+  // **数组字面量里的表达式体也要在逗号前收住**（第 178 轮）：`[() => 1, () => 2]` 里
+  // 第一个箭头的体原来一路吃到**行尾**（`Statement.SearchStatementEnd`），
+  // 把**那个逗号**也吞进了 `<LamdaBody>`——于是数组元素的分割线不见了：
+  // 投影按顶层逗号切元素，切不出来就把两个 `Lamda` 当成**一个**元素，
+  // 结果是 `xs.length` 给 `1`、`xs[1]` 给 `undefined`（**静默错值**，Node 给两个函数）。
+  // 对象字面量与实参表早就有这一支（`IsObject` / `IsMethod`），数组字面量是**同一件事**
+  //（逗号分隔的元素表），所以并进这一条判据——`IsArray` 与 `IsObject` 同源。
   if (JsonObjectCloseRule.Instance.IsObject(current?.Parent ?? null)
     || JsonArrayCloseRule.Instance.IsArray(current?.Parent ?? null)
     || LamdaCloseRule.IsMethod(current?.Parent ?? null)) {
@@ -728,27 +728,27 @@ if (next instanceof Bracket && next.startBracket === "{") {
   } else {
     endIndex = Statement.SearchStatementEnd(units, index);
   }
-  // **三元的那个 `:` 不属于箭头的体** ✓（第 351 轮 ✓，**实测撞到的** ✓）：
-  // `flag ? () => "yes" : () => "no"` 里体原来一路吃到**行尾** ✓
-  //（`Statement.SearchStatementEnd` ✓），把 `: () => "no"` 整段吞进了 `<LamdaBody>` ✗——
-  // 于是 `TernaryOperatorCloseRule` **再也看不到那个 `:`** ✓：实测 token 流里只有
-  // `SymbolToken("?")` + **一个 `Lamda`** ✓、**没有 `TernaryOperator`** ✗，
-  // 降级层拿到一个光秃秃的 `?` ✓ ⇒ 运行时报「binary operator ?」✓
-  //（**一句话里没有一个字提到箭头** ✗）。
+  // **三元的那个 `:` 不属于箭头的体**（第 351 轮，**实测撞到的**）：
+  // `flag ? () => "yes" : () => "no"` 里体原来一路吃到**行尾**
+  //（`Statement.SearchStatementEnd`），把 `: () => "no"` 整段吞进了 `<LamdaBody>`——
+  // 于是 `TernaryOperatorCloseRule` **再也看不到那个 `:`**：实测 token 流里只有
+  // `SymbolToken("?")` + **一个 `Lamda`**、**没有 `TernaryOperator`**，
+  // 降级层拿到一个光秃秃的 `?` ⇒ 运行时报「binary operator ?」
+  //（**一句话里没有一个字提到箭头**）。
   //
-  // **判据与三元那一条同源** ✓：这一层（`units` ✓）里、箭头**左边**最近的那个平级标点是 `?`
-  // ⇒ 这个箭头就落在三元的**真值段**上 ✓ ⇒ 体必须在**下一个平级 `:`** 之前收住 ✓
-  //（扫描时先遇到 `:` 就说明左边那个 `?` 已经被配掉了 ✓，与三元重组里
-  // `questionSinceColon` 那条纪律**同一个形状** ✓）。
-  // **只看平级** ✓：形参括号 / 花括号 / 方括号里的 `?:` 是**另一个单元** ✓（到不了这一层 ✓）——
-  // 这与三元重组里「逗号与冒号都必须是边界」是同一条纪律 ✓。
+  // **判据与三元那一条同源**：这一层（`units`）里、箭头**左边**最近的那个平级标点是 `?`
+  // ⇒ 这个箭头就落在三元的**真值段**上 ⇒ 体必须在**下一个平级 `:`** 之前收住
+  //（扫描时先遇到 `:` 就说明左边那个 `?` 已经被配掉了，与三元重组里
+  // `questionSinceColon` 那条纪律**同一个形状**）。
+  // **只看平级**：形参括号 / 花括号 / 方括号里的 `?:` 是**另一个单元**（到不了这一层）——
+  // 这与三元重组里「逗号与冒号都必须是边界」是同一条纪律。
   let arrowInTernary = false;
   for (let i = rangeStart - 1; i >= 0; i--) {
     const prev = Get(units, i);
-    // **空位要跳过、不能停** ✗（**实测踩到过** ✓）：`units` 里被摘掉的软换行留下的是**空位** ✓，
-    // `Get` 在那些位置返回 `null` ✓——第一版写成 `break` ✓，于是扫描**第一步就停** ✓，
-    // 判据永远为假 ✓、`TernaryOperator` 照样成形可体还是把 `:` 吞了 ✗
-    //（实测 token 流：`TernaryOperator` 有了 ✓、可 `Lamda` 的体里仍旧带着 `FunctionType` ✗）。
+    // **空位要跳过、不能停**（**实测踩到过**）：`units` 里被摘掉的软换行留下的是**空位**，
+    // `Get` 在那些位置返回 `null`——第一版写成 `break`，于是扫描**第一步就停**，
+    // 判据永远为假、`TernaryOperator` 照样成形可体还是把 `:` 吞了
+    //（实测 token 流：`TernaryOperator` 有了、可 `Lamda` 的体里仍旧带着 `FunctionType`）。
     if (prev === null) continue;
     if (!(prev instanceof SymbolToken)) continue;
     if (prev.Is(":")) break;
@@ -757,15 +757,15 @@ if (next instanceof Bracket && next.startBracket === "{") {
       break;
     }
   }
-  // **「没找到语句尾」那一档要先兜底，再扫三元的 `:`** ✗（第 593 轮 ✓，**实测撞到的** ✓）：
-  // `const add = flag ? (a: number) => a + 1 : (a: number) => a - 1;` 走到这里时**那个 `;` 还没到** ✓
-  //（它正是触发本规则那一格 ✓）⇒ `Statement.SearchStatementEnd` 给 `-1` ✗ ⇒ 下面那个
-  // `for (i = index + 1; i <= endIndex; …)` **一次都不转** ✓ ⇒ `:` 没被剪掉 ✓
-  // ⇒ 体一路吃到**第二个箭头** ✓（实测产物：`LamdaBody` 里除了 `a + 1` 还有一个
-  // `TypeDefine > FunctionType` ✓，而 TS 那边是 `ConditionalExpression` 两支各一个
-  // `ArrowFunction` ✓）⇒ 降级层报 `unimplemented: binary operator ?` ✓（`c330-ex-ternary-arrow-branches` ✓）。
-  // **次序反过来就好** ✓：`endIndex` 的兜底（「没找到 ⇒ 到列表末尾」✓）与后面的用途无关 ✓，
-  // 先做它，那个 `:` 扫描才有界 ✓。
+  // **「没找到语句尾」那一档要先兜底，再扫三元的 `:`**（第 593 轮，**实测撞到的**）：
+  // `const add = flag ? (a: number) => a + 1 : (a: number) => a - 1;` 走到这里时**那个 `;` 还没到**
+  //（它正是触发本规则那一格）⇒ `Statement.SearchStatementEnd` 给 `-1` ⇒ 下面那个
+  // `for (i = index + 1; i <= endIndex; …)` **一次都不转** ⇒ `:` 没被剪掉
+  // ⇒ 体一路吃到**第二个箭头**（实测产物：`LamdaBody` 里除了 `a + 1` 还有一个
+  // `TypeDefine > FunctionType`，而 TS 那边是 `ConditionalExpression` 两支各一个
+  // `ArrowFunction`）⇒ 降级层报 `unimplemented: binary operator ?`（`c330-ex-ternary-arrow-branches`）。
+  // **次序反过来就好**：`endIndex` 的兜底（「没找到 ⇒ 到列表末尾」）与后面的用途无关，
+  // 先做它，那个 `:` 扫描才有界。
   if (endIndex === -1) {
     endIndex = units.length - 1;
   }
@@ -815,11 +815,11 @@ Lambda 表达式。
 
 **`=>` 在产物树里没有单元**（`Lamda` 只收 `parameters` 与 `body` 两段），
 而 TS 那边 `equalsGreaterThanToken` 是子节点——所以这里**合成**一个。
-位置**直读字段** `ArrowAt`（第 621 轮 ✓，「token 出字段、投影直读」）：
-它由重组那一刻当场记下来 ✓（触发本规则的那一格就是它 ✓）——
-原来拿 `indexOf("=>", 最后一个形参的终点)` **回原文里找** ✗（那是**第二份位置答案**：
-`(a: number) /* => */ => a` 会命中注释里那个箭头 ✓）；而它**占两个字符，不是零宽** ✓。
-**字段是 `-1`** 时（理论上不该有 ✓）照旧退回那条按原文找的路 ✓。
+位置**直读字段** `ArrowAt`（第 621 轮，「token 出字段、投影直读」）：
+它由重组那一刻当场记下来（触发本规则的那一格就是它）——
+原来拿 `indexOf("=>", 最后一个形参的终点)` **回原文里找**（那是**第二份位置答案**：
+`(a: number) /* => */ => a` 会命中注释里那个箭头）；而它**占两个字符，不是零宽**。
+**字段是 `-1`** 时（理论上不该有）照旧退回那条按原文找的路。
 
 **空形参表 `() => x`**（第 141 轮）：这时 `unwrapNodes(参数段).pop()` 是 `undefined`，
 那条兜底路要从**参数段自己**的末尾往后搜，否则 `equalsGreaterThanToken` 整个缺。
@@ -859,19 +859,19 @@ Lambda 表达式。
   let braceAt = -1;
   let braceEnd = -1;
   // **体是不是花括号块，问 token 的字段**（第 595 轮）：`BodyBrace` 是打包那一刻
-  // 当场记下来的（那个括号就在手上 ✓）。原来这里回原文里找（`arrowAt + 2` 起跳空白 ✓、
-  // 看第一个字符是不是 `{` ✓）——那是**第二份位置答案** ✗：`() => /* c */ { }` 里
-  // `arrowAt + 2` 撞上的是注释的 `/` ✗ ⇒ 判成表达式体 ⇒ 整个 `Block` 连同体里的语句一起丢 ✓
+  // 当场记下来的（那个括号就在手上）。原来这里回原文里找（`arrowAt + 2` 起跳空白、
+  // 看第一个字符是不是 `{`）——那是**第二份位置答案**：`() => /* c */ { }` 里
+  // `arrowAt + 2` 撞上的是注释的 `/` ⇒ 判成表达式体 ⇒ 整个 `Block` 连同体里的语句一起丢
   // （实测 `Block` 缺 1 + 字段名 1）。
   const rawBodyBrace = ctx.Attr(v, "bodyBraceAt");
   if (typeof rawBodyBrace === "number" && rawBodyBrace >= 0) {
     braced = true;
     braceAt = rawBodyBrace;
   }
-  // **右端也读字段** ✗（第 647 轮 ✓）：`BodyBrace` 把**整对括号**一起带出来 ✓
-  //（与 `While` / `For` / `IfSegment` / `Try` 同一条口径 ✓）——
-  // 原来那一支写的是 `ctx.EndOf(v)` ✓，那背后是「**本单元的终点恰好是那个 `}`**」
-  // 这个**没被记下来的约定** ✗（它今天成立 ✓，可换个记法就会静默错位 ✗）。
+  // **右端也读字段**（第 647 轮）：`BodyBrace` 把**整对括号**一起带出来
+  //（与 `While` / `For` / `IfSegment` / `Try` 同一条口径）——
+  // 原来那一支写的是 `ctx.EndOf(v)`，那背后是「**本单元的终点恰好是那个 `}`**」
+  // 这个**没被记下来的约定**（它今天成立，可换个记法就会静默错位）。
   const rawBodyBraceRange = ctx.Attr(v, "bodyBraceRange");
   if (typeof rawBodyBraceRange === "string" && rawBodyBraceRange.includes(",")) {
     const bodyBraceSpan = rawBodyBraceRange.split(",");
@@ -890,9 +890,9 @@ Lambda 表达式。
     raw.push(unit);
   }
   if (braced) {
-    // **两端都读字段** ✓（第 647 轮 ✓）：`BodyBrace` 记的就是那对括号的整段 ✓，
-    // 所以这里既不必回原文里配一次括号 ✓、也不必假设本单元的终点落在那个 `}` 上 ✓
-    //（字段缺了——克隆体之外不该出现 ✓——才退回本单元的终点 ✓）。
+    // **两端都读字段**（第 647 轮）：`BodyBrace` 记的就是那对括号的整段，
+    // 所以这里既不必回原文里配一次括号、也不必假设本单元的终点落在那个 `}` 上
+    //（字段缺了——克隆体之外不该出现——才退回本单元的终点）。
     props.body = {
       kind: "Block",
       statements: ctx.ProjectEach(raw, "Block"),
@@ -923,25 +923,25 @@ Lambda 表达式。
 **体是花括号块时，那一对花括号的起点（`Value`）与整段（`Range`）**；体是表达式时未记过。
 
 **为什么让 token 记着**（用户口径：token 出字段、投影直读）：`LamdaCloseRule.Process`
-在 `next instanceof Bracket && next.startBracket === "{"` 那一支里**括号就在手上** ✓
-（`next.SourceRange` ✓）⇒ 当场把**两端**都记下来 ✓。投影原来回原文里找 ✗
-（`arrowAt + 2` 起跳空白看第一个字符 ✓），`() => /* c */ { }` 会撞上注释的 `/` ✗
-⇒ 判成表达式体 ⇒ 整个 `Block` 丢 ✓。
+在 `next instanceof Bracket && next.startBracket === "{"` 那一支里**括号就在手上**
+（`next.SourceRange`）⇒ 当场把**两端**都记下来。投影原来回原文里找
+（`arrowAt + 2` 起跳空白看第一个字符），`() => /* c */ { }` 会撞上注释的 `/`
+⇒ 判成表达式体 ⇒ 整个 `Block` 丢。
 
-**第 647 轮从「只有起点」（`BodyBraceAt:int`）换成了 `TokenField`** ✓（与
-`While.BodyBrace` / `For.BodyBrace` / `IfSegment.BodyBrace` / `Try.TryBrace` **同一条口径** ✓）：
-投影画那个 `Block` 时**右端也读这一格** ✓——原来写的是 `ctx.EndOf(v)` ✓，
-那背后是「**本单元的终点恰好是那个 `}`**」这个没被记下来的约定 ✗
-（它今天成立 ✓，可它是一处**隐含前提** ✓，而不是一条事实 ✓）。
+**第 647 轮从「只有起点」（`BodyBraceAt:int`）换成了 `TokenField`**（与
+`While.BodyBrace` / `For.BodyBrace` / `IfSegment.BodyBrace` / `Try.TryBrace` **同一条口径**）：
+投影画那个 `Block` 时**右端也读这一格**——原来写的是 `ctx.EndOf(v)`，
+那背后是「**本单元的终点恰好是那个 `}`**」这个没被记下来的约定
+（它今天成立，可它是一处**隐含前提**，而不是一条事实）。
 
 ## field ArrowAt:int = -1
 
 **那个 `=>` 的下标**（第 621 轮）。
 
 **为什么让 token 记着**（用户口径：token 出字段、投影直读）：`LamdaCloseRule.Process`
-就是被 `=>` 触发的那一格 ✓（`Get(units, index)` 正是它 ✓）⇒ 当场记下来 ✓。
-投影原来用 `indexOf("=>", 最后一个形参的终点)` **回原文里找** ✗——那是**第二份位置答案** ✓
-（`(a: number) /* => */ => a` 会命中注释里那个箭头 ✓）。
+就是被 `=>` 触发的那一格（`Get(units, index)` 正是它）⇒ 当场记下来。
+投影原来用 `indexOf("=>", 最后一个形参的终点)` **回原文里找**——那是**第二份位置答案**
+（`(a: number) /* => */ => a` 会命中注释里那个箭头）。
 
 ## constructor:(Template:Template)=>void
 

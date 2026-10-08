@@ -30,9 +30,9 @@ import { LamdaCloseRule } from "./lamda/lamda.xl.md"
 **一条规则管两个运算符**，优先级靠**收进去的那一段再跑一趟**表达——`&` 比 `|` 紧：
 
 - 收集 `|` 时允许穿过 `&`（`A | B & C` 先整段收成 `UnionType`，它内部的 `&` 再由
-  这个 `UnionType` 自己的那一趟折成 `IntersectionType` ✓ 得到 `A | (B & C)`）；
+  这个 `UnionType` 自己的那一趟折成 `IntersectionType` 得到 `A | (B & C)`）；
 - 收集 `&` 时**遇到 `|` 就停**（`A & B | C` 先收成 `IntersectionType(A & B)`，
-  外层再收成 `UnionType(A & B | C)` ✓ 得到 `(A & B) | C`）。
+  外层再收成 `UnionType(A & B | C)` 得到 `(A & B) | C`）。
 
 两个节点都挂**类型队列**（`ParsePipeline.InitialKeywordCloseRuleQueue`）：收进去的那一段
 会再跑一趟这条规则（内层的紧运算符就是这样成形的），队列里的 `KeywordCloseRule`
@@ -147,27 +147,27 @@ return false;
 `../text-common-util.xl.md` 的 `IsTypeBracketPosition`（`generic-type.xl.md` 也要用同一个答案，
 不能各写一份近似）。
 
-**但 `=>` 那一格要先问一句**（第 147 轮）✗：`IsTypeBracketPosition` 里
-「前一个实义单元是 `=>` ⇒ 类型位」✓ 是给**函数类型的返回段**写的
-（`type F = (a: A) => (B & C)` ✓），而**箭头函数的体**紧跟在同一个 `=>` 后面 ✗——
-于是 `(n) => (n | 0)` 里那个括号被判成类型位 ✓，`n | 0` 当场折成一个 `UnionType` ✓，
-降级层报 `unimplemented: expression UnionType` ✓（实测：`map((n) => (n & 1))` 同一个形状 ✓）。
-**块体也一样** ✗：`(n) => { return (n & 2) === 2; }` 里那个 `{` 的判据也是这一条 ✓
-（插桩实测：`owner=Root at=5 before=SymbolToken/=>` ✓），所以块里的位运算一起遭殃 ✓。
+**但 `=>` 那一格要先问一句**（第 147 轮）：`IsTypeBracketPosition` 里
+「前一个实义单元是 `=>` ⇒ 类型位」 是给**函数类型的返回段**写的
+（`type F = (a: A) => (B & C)`），而**箭头函数的体**紧跟在同一个 `=>` 后面——
+于是 `(n) => (n | 0)` 里那个括号被判成类型位，`n | 0` 当场折成一个 `UnionType`，
+降级层报 `unimplemented: expression UnionType`（实测：`map((n) => (n & 1))` 同一个形状）。
+**块体也一样**：`(n) => { return (n & 2) === 2; }` 里那个 `{` 的判据也是这一条
+（插桩实测：`owner=Root at=5 before=SymbolToken/=>`），所以块里的位运算一起遭殃。
 
-**问谁**：形参表是不是**箭头函数的**形参表 ✓——那件事 `LamdaCloseRule.IsLambdaParameters`
-已经答过 ✓（它自己那一串判据：前面是 `:` / `?:` / `new` / `extends` / 类型别名赋值 ⇒ 函数类型 ✓，
-否则是箭头 ✓）。**这里问它，不自己写一份近似** ✗：这一格写歪的症状是
-「函数类型的返回段被判成值位」✗（`type F = (a) => (B | C)` 丢掉联合节点 ✓）——
-比现在这个症状更难查 ✓。
+**问谁**：形参表是不是**箭头函数的**形参表——那件事 `LamdaCloseRule.IsLambdaParameters`
+已经答过（它自己那一串判据：前面是 `:` / `?:` / `new` / `extends` / 类型别名赋值 ⇒ 函数类型，
+否则是箭头）。**这里问它，不自己写一份近似**：这一格写歪的症状是
+「函数类型的返回段被判成值位」（`type F = (a) => (B | C)` 丢掉联合节点）——
+比现在这个症状更难查。
 
-**为什么这段写在 `type-union.xl.md`、不写在 `text-common-util.xl.md` 里** ✓：
-`lamda.xl.md` **import 了** `text-common-util.xl.md` ✗（它要用 `SkipPreviousWrapSymbol`
-与 `IsTypeContainerUnit` ✓），再反向 import 就是一个**模块环** ✗。
-本文件与 lamda 之间**没有**这个环 ✓（lamda 不 import 本文件 ✓），所以这一句放在这里 ✓。
-`generic-type.xl.md` 与 lamda 之间**有**环 ✗（lamda import 了它 ✓）——那一侧的同一个形状
-（箭头体里的 `A<B>`）今天实测是好的 ✓（`(a, b) => (a < b)` 正常 ✓），
-所以没有跟着改 ✓；真要改，得把这条判据提到一个两边都能 import 的地方 ✓。
+**为什么这段写在 `type-union.xl.md`、不写在 `text-common-util.xl.md` 里**：
+`lamda.xl.md` **import 了** `text-common-util.xl.md`（它要用 `SkipPreviousWrapSymbol`
+与 `IsTypeContainerUnit`），再反向 import 就是一个**模块环**。
+本文件与 lamda 之间**没有**这个环（lamda 不 import 本文件），所以这一句放在这里。
+`generic-type.xl.md` 与 lamda 之间**有**环（lamda import 了它）——那一侧的同一个形状
+（箭头体里的 `A<B>`）今天实测是好的（`(a, b) => (a < b)` 正常），
+所以没有跟着改；真要改，得把这条判据提到一个两边都能 import 的地方。
 
 ```ts
 if (this.IsArrowBodyBracket(bracket, owner)) {
@@ -178,10 +178,10 @@ return IsTypeBracketPosition(owner, bracket);
 
 ## private method IsArrowBodyBracket:(bracket:Bracket, owner:Token)=>bool
 
-`bracket` 前面那个 `=>` 是不是**箭头函数**的（而不是函数类型的）⇒ 这个括号是**值位**的体 ✓。
+`bracket` 前面那个 `=>` 是不是**箭头函数**的（而不是函数类型的）⇒ 这个括号是**值位**的体。
 
-`owner.Data` 是那一刻的列表 ✓（形参表、`=>`、体都还在同一层 ✓——插桩实测过 ✓），
-所以往左退两格就够：`=>` ✓，再退一格是形参 ✓。
+`owner.Data` 是那一刻的列表（形参表、`=>`、体都还在同一层——插桩实测过），
+所以往左退两格就够：`=>`，再退一格是形参。
 
 ```ts
 const at = owner.Data.indexOf(bracket);
@@ -201,8 +201,8 @@ if (param === null) {
 if (param instanceof Bracket && param.startBracket === "(") {
   return LamdaCloseRule.Instance.IsLambdaParameters(owner.Data, paramIndex);
 }
-// **裸形参**（`n => (…)` ✓）：函数类型的形参表**必须带括号** ✓，所以这一格只可能是箭头函数 ✓
-//（`type F = n => B` 不是合法的 TS ✓）。
+// **裸形参**（`n => (…)`）：函数类型的形参表**必须带括号**，所以这一格只可能是箭头函数
+//（`type F = n => B` 不是合法的 TS）。
 return true;
 ```
 
@@ -280,7 +280,7 @@ return this.IsTypeOperand(Get(units, SkipNextWrapSymbol(units, index)));
 `Identifier` / `Keyword`，**也是**类型操作数——于是一路吃到 `extends` 左边去：
 
     type X = A extends B | C ? D : E;
-    → UnionType[«A extends B | C»]                        ✗
+    → UnionType[«A extends B | C»]                       
     TS：ConditionalType[«A extends B | C ? D : E»] > UnionType[«B | C»]
 
 而 `UnionType` 是**不透明单元**，条件类型规则回扫 `extends` 时撞上它就再也找不到
@@ -348,7 +348,7 @@ return false;
   `A | B` 收成 `UnionType` 之后，那一趟又会在同一段上看到同一个 `|`——
   不挡就是**无限递归**（实测 `RangeError: Maximum call stack size exceeded`）。
   判据是「起点在本层第 0 格、终点之后只剩软换行」：`A | B & C` 里的内层 `&`
-  只覆盖第 2–4 格，不属于这一条，照常折成 `IntersectionType` ✓。
+  只覆盖第 2–4 格，不属于这一条，照常折成 `IntersectionType`。
 
 ```ts
 const current = Get(units, index);
@@ -366,15 +366,15 @@ let startIndex = index;
 let scan = SkipPreviousWrapSymbol(units, index);
 while (scan >= 0) {
   const item = Get(units, scan);
-  // **`extends` 是左扫的硬边界** ✓（第 586 轮 ✓）：`T extends | A | B`（泛型形参的约束 ✓）与
-  // `A extends B | C ? D : E`（条件类型 ✓）两处，联合都**不含**那个 `extends` ✓ ——
-  // TS 那边它属于 `TypeParameter` / `ConditionalType` ✓，从不落在 `UnionType` 里 ✓。
-  // **原来只在「同一段里还有 `?`」时才挡** ✗（见 `IsConditionalAhead` ✓），
-  // 于是泛型形参那一族把 `T extends` 整段吞进联合 ✓
+  // **`extends` 是左扫的硬边界**（第 586 轮）：`T extends | A | B`（泛型形参的约束）与
+  // `A extends B | C ? D : E`（条件类型）两处，联合都**不含**那个 `extends` ——
+  // TS 那边它属于 `TypeParameter` / `ConditionalType`，从不落在 `UnionType` 里。
+  // **原来只在「同一段里还有 `?`」时才挡**（见 `IsConditionalAhead`），
+  // 于是泛型形参那一族把 `T extends` 整段吞进联合
   //（实测 `interface A<T extends` 换行 `| string` 换行 `| number>` 的产物是
-  // `UnionType > [Identifier(T), Keyword(extends), |, string, |, number]` ✗，
-  // 而 TS 那边 `UnionType` **只从那个 `|` 起** ✓，`T` 是 `TypeParameter.name` ✓）。
-  // 真实语料 `vm.d.ts` / `fs.d.ts` / `querystring.d.ts` 那一族 14 + 18 + 3 处漂移全是它 ✓。
+  // `UnionType > [Identifier(T), Keyword(extends), |, string, |, number]`，
+  // 而 TS 那边 `UnionType` **只从那个 `|` 起**，`T` 是 `TypeParameter.name`）。
+  // 真实语料 `vm.d.ts` / `fs.d.ts` / `querystring.d.ts` 那一族 14 + 18 + 3 处漂移全是它。
   if (this.IsExtendsWord(item)) {
     break;
   }

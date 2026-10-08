@@ -41,7 +41,7 @@ TypeScript 那边它是**两层**：`InferType > TypeParameter > Identifier X (+
 
 **两种形态都要认**：类型队列里 `KeywordCloseRule` 排在最后，所以此刻它可能是
 还没升级的 `Identifier`；通用队列里它可能已经被升级成 `Keyword`（那一趟跑过）。
-`WordText` 对两种都给文本 ✓。
+`WordText` 对两种都给文本。
 
 ```ts
 if (item === null) {
@@ -62,7 +62,7 @@ return false;
 
 `?` / `:` 是**条件类型**的边界（`T extends infer U extends string ? U : never`），
 `;` / `,` / `=` / `)` / `]` / `>` 是语句、实参、形参与泛型段的边界。
-`|` / `&` **不是**终点：`infer U extends A | B` 的约束就是那个联合 ✓。
+`|` / `&` **不是**终点：`infer U extends A | B` 的约束就是那个联合。
 
 ```ts
 if (item instanceof SymbolToken) {
@@ -107,7 +107,7 @@ return Get(units, SkipNextWrapSymbol(units, index)) instanceof Identifier;
 **返回新的下标**。
 
 两层一起造：`InferType > TypeParameter > (X extends Y)`。外层收 `infer` 与内层，
-内层收名字与约束——与 TS 的形状一对一 ✓。
+内层收名字与约束——与 TS 的形状一对一。
 
 **`Replace` 之前不许先 `Add`**（`type-bracket.xl.md` 记过这个坑）：`Token.Replace` 读的是
 `this.Parent.Data`，先 `AddAndCloseLast` 会把 `Parent` 改成新节点。
@@ -220,7 +220,7 @@ return false;
 
 转调基类构造器。
 
-**不挂队列**：内容已经全部成形（词 + 类型参数），`TypeParameter` 自己会跑它的队列 ✓。
+**不挂队列**：内容已经全部成形（词 + 类型参数），`TypeParameter` 自己会跑它的队列。
 
 ```ts
 super(template);

@@ -24,10 +24,10 @@ TypeScript 那边它是一个**独立的类型节点**（`TypePredicate`：`para
 `is` 只是一个关键词、**「这是类型谓词」这件事没有节点**。
 
 **锚在容器的第一个实义单元上**（不是锚在 `is` 上）：`asserts x` 那一支根本没有 `is`
-（TS 允许只断言「真」），只认 `is` 会漏掉它。判据因此是「这一格的内容**整体**长成谓词形状」✓。
+（TS 允许只断言「真」），只认 `is` 会漏掉它。判据因此是「这一格的内容**整体**长成谓词形状」。
 
-**容器必须是类型容器，而且内容整段都是谓词**：参数标注 `x: unknown` 的内容只有一个词 ✗、
-返回类型 `: Promise<void>` 也没有 `is` ✗——两者都不成形，不会误伤。
+**容器必须是类型容器，而且内容整段都是谓词**：参数标注 `x: unknown` 的内容只有一个词、
+返回类型 `: Promise<void>` 也没有 `is`——两者都不成形，不会误伤。
 
 # class TypePredicateCloseRule extends CloseRule
 
@@ -92,7 +92,7 @@ if (word === "" || word === "asserts" || word === "is") {
 }
 const next = Get(units, cursor + 1);
 if (next === null) {
-  // `asserts x`：整段到这里结束 ✓（单独的 `x` 不是谓词——所以必须见过 `asserts`）
+  // `asserts x`：整段到这里结束（单独的 `x` 不是谓词——所以必须见过 `asserts`）
   return cursor > index;
 }
 if (this.IsPredicateWord(next, "is") === false) {
@@ -221,7 +221,7 @@ return ReplaceCountAt(units, index, units.length - index, result);
 
 转调基类构造器，并挂**通用队列**——谓词里的类型要继续成形
 （`x is A | B` 是 `TypePredicate > UnionType`，`x is (…)=>void` 是函数类型……）。
-通用队列**包含**类型队列的全部成员，所以挂它不会丢东西 ✓。
+通用队列**包含**类型队列的全部成员，所以挂它不会丢东西。
 
 ```ts
 super(template);

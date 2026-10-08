@@ -28,7 +28,7 @@ TypeScript 那边的形状（实测 AST）：
       NamedTupleMember «...rest: E[]» ← 具名的变长元素（`...` 在成员里面）
 
 本工程原来把整张表摊平成散单元（`A` / `?` / `,` / `...` / `B` ……），
-上面四种形状全都看不出来。**普通元素照旧不包**——TS 也不给它们节点 ✓。
+上面四种形状全都看不出来。**普通元素照旧不包**——TS 也不给它们节点。
 
 规则排在**通用队列**（`TupleType` 用默认队列），锚在元组内容的第一个实义单元上，
 一次按顶层逗号切完整张表——与 `type-parameter.xl.md` / `enum-member.xl.md` 同一套做法。
@@ -46,7 +46,7 @@ TypeScript 那边的形状（实测 AST）：
 `index` 处这一格该由哪个容器来切；不是元组类型就给 `null`。
 
 只认 `TupleType`：`TupleType` 是 `type-bracket.xl.md` 造出来的，方括号本身已经消费掉了，
-元素直接挂在它下面 ✓。
+元素直接挂在它下面。
 
 ```ts
 const current = Get(units, index);
@@ -165,7 +165,7 @@ if (visible.length === 0) {
 const first = visible[0];
 const last = visible[visible.length - 1];
 // **`...` 可能已经被 `SpreadCloseRule` 收成一个 `Spread` 节点**（它排在通用队列更前面），
-// 所以两种形态都要认：裸的 `...` 符号、或者已经成形的 `Spread` ✓。
+// 所以两种形态都要认：裸的 `...` 符号、或者已经成形的 `Spread`。
 const isRest =
   (first instanceof SymbolToken && first.Is("...")) || first.constructor.name === "Spread";
 let hasColon = false;
@@ -221,7 +221,7 @@ TS 那边 `name: D?` 的形状是 `NamedTupleMember > [Identifier name, Optional
 
 - `?` 就在成员那一层（裸符号）⇒ 把「类型 + `?`」包成 `OptionalType`；
 - `?` 在成员里的 `TypeDefine` 里 ⇒ 把那个 `TypeDefine` 的**内容**包成 `OptionalType`
-  （`TypeDefine` 是本工程自己的包装，装在里面同样与 TS 的区间对齐 ✓）。
+  （`TypeDefine` 是本工程自己的包装，装在里面同样与 TS 的区间对齐）。
 
 少了这一步，当时那把对齐尺子会报 `OptionalType` 缺 1 处（实测 `[name: D?]`）。
 
@@ -282,7 +282,7 @@ optional.TryToClose();
 
 TS 那边 `RestType` 的子节点就是 `DotDotDotToken` 与类型本身——留着 `Spread` 会让
 当时那把对齐尺子报 `Spread in RestType`（实测 4 处）。`Spread` 是**表达式层**的构造，
-类型位的它属于 `RestType` ✓。
+类型位的它属于 `RestType`。
 
 ```ts
 if (content.length === 0) {
@@ -340,7 +340,7 @@ return node;
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**——元素本身还是类型文本
-（`A?` 的 `A` 可能是 `(A | B)` / `T[]` ……）。通用队列包含类型队列的全部成员 ✓。
+（`A?` 的 `A` 可能是 `(A | B)` / `T[]` ……）。通用队列包含类型队列的全部成员。
 
 ```ts
 super(template);
@@ -405,7 +405,7 @@ return result;
 
 元组里的具名元素（`name: T` / `name?: T` / `...name: T`）。类名必须与产物的标签名一致。
 
-名字与 `:` 都留在自己身上（TS 那边名字是成员的子节点 ✓）。
+名字与 `:` 都留在自己身上（TS 那边名字是成员的子节点）。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 

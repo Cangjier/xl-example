@@ -83,17 +83,17 @@ for (let i = 0; i < programs.length; i++) {
     info.Name = original.Name;
     info.IsGenerator = original.IsGenerator;
     info.IsAsync = original.IsAsync;
-    // **`HasRest` 也要跟着走**（第 133 轮）✗：漏了这一行，链接之后
-    // **每一份带剩余参数的函数都变成「没有剩余参数」** ✓——症状是 `...rest` 拿到
-    // `undefined` ✓（判据现场：`function f(...all) { return all.length }` 给 `undefined` ✓）。
-    // **这个漏法是结构性的** ✗：`FunctionInfo` 每加一个字段，**每个「重建函数表」的地方**
-    // 都要跟着加一行 ✓（`link.xl.md` 是一处，`Decode` 是另一处 ✓）——
-    // 而**这一处没人提醒** ✗：它不在 `ir.xl.md` 里 ✓。所以这一条写在这里 ✓。
+    // **`HasRest` 也要跟着走**（第 133 轮）：漏了这一行，链接之后
+    // **每一份带剩余参数的函数都变成「没有剩余参数」**——症状是 `...rest` 拿到
+    // `undefined`（判据现场：`function f(...all) { return all.length }` 给 `undefined`）。
+    // **这个漏法是结构性的**：`FunctionInfo` 每加一个字段，**每个「重建函数表」的地方**
+    // 都要跟着加一行（`link.xl.md` 是一处，`Decode` 是另一处）——
+    // 而**这一处没人提醒**：它不在 `ir.xl.md` 里。所以这一条写在这里。
     info.HasRest = original.HasRest;
-    // **`NeedsArguments` 也是同一条** ✓（第 332 轮 ✓）：它把「这一帧要一个 `arguments`」
-    // 从被链接进来的那一份带到这一份 ✓——漏了这一行，跨模块调用的函数
-    // **`arguments` 拿到的是上一格里的垃圾** ✓（不是 `undefined` ✓，因为那一格
-    // 可能刚被别的实参铺过 ✓——**静默错值** ✓）。第 133 轮那一条写的规矩在这里又走一遍 ✓。
+    // **`NeedsArguments` 也是同一条**（第 332 轮）：它把「这一帧要一个 `arguments`」
+    // 从被链接进来的那一份带到这一份——漏了这一行，跨模块调用的函数
+    // **`arguments` 拿到的是上一格里的垃圾**（不是 `undefined`，因为那一格
+    // 可能刚被别的实参铺过——**静默错值**）。第 133 轮那一条写的规矩在这里又走一遍。
     info.NeedsArguments = original.NeedsArguments;
     linked.Functions.push(info);
   }

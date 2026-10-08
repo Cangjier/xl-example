@@ -100,8 +100,8 @@ return this;
 **空文档直接返回**（第 64 轮补）：一个位置都没有时，循环体一次都不跑，
 `Root` 既没签入也没签出，`TryToClose()` 会抛
 `SourceException: SourceRange.Start == null || SourceRange.End == null`
-——**一个空的 `.ts` 文件整份解析失败** ✗（实测）。
-空文档的产物就该是一个空的 `<Root></Root>`，与「只有换行」「只有注释」的文件一致 ✓，
+——**一个空的 `.ts` 文件整份解析失败**（实测）。
+空文档的产物就该是一个空的 `<Root></Root>`，与「只有换行」「只有注释」的文件一致，
 所以这里提前返回，不碰 `TryToClose`。
 
 ```ts

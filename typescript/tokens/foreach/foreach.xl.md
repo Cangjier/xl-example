@@ -54,7 +54,7 @@ import { ForeachEnumable } from "./foreach-enumable.xl.md"
 注意 `for` 与 `(` 之间只有 `await` 需要跳——`for (…)` 本身不能多跳。
 
 **跨 trivia 而不是只跨软换行**（第 595 轮）：`for /* c */ (const x of xs) { }` 在 TypeScript 里
-是 `ForOfStatement` ✓，只跳软换行会撞上注释 ✗ ⇒ 整条语句退化成一个 `ExpressionStatement` ✓。
+是 `ForOfStatement`，只跳软换行会撞上注释 ⇒ 整条语句退化成一个 `ExpressionStatement`。
 
 ```ts
 const unit = Get(units, index);
@@ -118,7 +118,7 @@ if (awaitUnit !== null) {
   result.AddAndCloseLast(awaitUnit);
 }
 const conditionBracket = Get(units, currentIndex) as Bracket;
-// **头部那个 `)` 当场记进 `HeaderCloseAt`** ✓（第 634 轮 ✓，与 `while.xl.md` / `for.xl.md` 同一条 ✓）。
+// **头部那个 `)` 当场记进 `HeaderCloseAt`**（第 634 轮，与 `while.xl.md` / `for.xl.md` 同一条）。
 result.HeaderCloseAt = conditionBracket.SourceRange.End!.Index;
 const defineEnd = SearchBack(conditionBracket.Data, -1, (x) => IsWordUnit(x, "in") || IsWordUnit(x, "of"));
 if (defineEnd === -1) {
@@ -126,7 +126,7 @@ if (defineEnd === -1) {
 }
 // **那个词是 `in` 还是 `of`，当场记进字段**（第 631 轮）：投影从前是拿
 // `source.slice(定义段末尾, 枚举对象开头)` 做 `/\bin\b/` 正则——注释里写个 `in`
-// （`for (const a /* in */ of [1])`）就把它判成 `ForInStatement` ✗。词在这一刻就在手上。
+// （`for (const a /* in */ of [1])`）就把它判成 `ForInStatement`。词在这一刻就在手上。
 result.IsForIn = IsWordUnit(conditionBracket.Data[defineEnd], "in");
 const define = result.CreateDefine();
 define.SignIn(conditionBracket.Data[0].SourceRange.Start!);
@@ -149,16 +149,16 @@ let endIndex = currentIndex;
 let emptyBody = false;
 currentIndex = SkipNextWrapSymbol(units, currentIndex);
 const forBody = result.CreateBody();
-// **体那一格的右端**（与 `for` / `while` 同一处口径 ✓）：两个分支各自赋值 ✓。
+// **体那一格的右端**（与 `for` / `while` 同一处口径）：两个分支各自赋值。
 let tailEnd = current.SourceRange.End!;
 const statementCandidate = Get(units, currentIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
   const statementBracket = statementCandidate;
-  // **体那一对花括号当场记进 `BodyBrace`** ✓（第 619 轮那一格，第 641 轮带上整段 ✓，
-  // 与 `For` / `While` 同一条口径 ✓）：
-  // `for (const x of xs) {}` 的空块在 `ToList` 里**整个摊掉**了 ✓，
-  // 而 TS 那边 `ForOfStatement.statement` 仍有一个**空 `Block`** ✓——
-  // 投影原来靠「配对头部 `)` + `indexOf("{")` + `MatchingBrace`」**回原文重扫** ✗。
+  // **体那一对花括号当场记进 `BodyBrace`**（第 619 轮那一格，第 641 轮带上整段，
+  // 与 `For` / `While` 同一条口径）：
+  // `for (const x of xs) {}` 的空块在 `ToList` 里**整个摊掉**了，
+  // 而 TS 那边 `ForOfStatement.statement` 仍有一个**空 `Block`**——
+  // 投影原来靠「配对头部 `)` + `indexOf("{")` + `MatchingBrace`」**回原文重扫**。
   result.BodyBrace.Set(statementBracket.SourceRange.Start!.Index, statementBracket.SourceRange);
   statementBracket.MoveDataTo(forBody);
   forBody.SignIn(statementBracket.SourceRange.Start!);
@@ -172,7 +172,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
     // `SearchStatementEnd` 给不出结尾——那是语句写完了，不是语法错误。
     endIndex = Statement.LastMeaningfulIndex(units, currentIndex);
   }
-  // **空体：`foreach/for (…);`**（第 589 轮 ✓，与 `for.xl.md` 那一处一字不差 ✓）：
+  // **空体：`foreach/for (…);`**（第 589 轮，与 `for.xl.md` 那一处一字不差）：
   // 规则由 `;` 触发，而那一刻 `;` 还没进 `units` ⇒ 两个找尾的都给 `-1`。
   // 体为空、`endIndex` 退到 `)` 那一格；`;` 由投影侧按原文补成 `EmptyStatement`。
   if (endIndex === -1) {
@@ -185,9 +185,9 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   } else {
     forBody.SignIn(Get(units, endIndex)!.SourceRange.End!);
   }
-  // **体是单语句时，尾分号要算进来** ✓（与 `for` 第 572 轮那一处同一条口径 ✓）：
-  // `;` 被 `Statement.FormFrom` **切进壳体的区间**、却不放进 `Data` ✗
-  // ⇒ `Get(units, endIndex).SourceRange.End` 比 TS 少一格 ✓。
+  // **体是单语句时，尾分号要算进来**（与 `for` 第 572 轮那一处同一条口径）：
+  // `;` 被 `Statement.FormFrom` **切进壳体的区间**、却不放进 `Data`
+  // ⇒ `Get(units, endIndex).SourceRange.End` 比 TS 少一格。
   tailEnd = Get(units, endIndex)!.SourceRange.End!;
   const owner = current.Parent;
   const ownerEnd = owner !== null && owner.constructor.name === "Statement" ? owner.SourceRange.End : null;
@@ -222,21 +222,21 @@ return index;
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
-**体那一对花括号的整段区间** ✓（值取 `{` 的下标 ✓）；体不是花括号块时**没记过** ✓（`IsSet` 为假 ✓）。
+**体那一对花括号的整段区间**（值取 `{` 的下标）；体不是花括号块时**没记过**（`IsSet` 为假）。
 
-与 `For.BodyBrace` / `While.BodyBrace` **同一个来由、同一份形状** ✓：
-`for (const x of xs) {}` 的空块在 `ToList` 时**整个摊掉**了 ✓，
-而 TS 那边 `ForOfStatement.statement` 仍有一个空 `Block` ✓。
-**两端都在手上** ✓（第 641 轮换成了 `TokenField` ✓）⇒ 投影不必回原文配对 ✓。
+与 `For.BodyBrace` / `While.BodyBrace` **同一个来由、同一份形状**：
+`for (const x of xs) {}` 的空块在 `ToList` 时**整个摊掉**了，
+而 TS 那边 `ForOfStatement.statement` 仍有一个空 `Block`。
+**两端都在手上**（第 641 轮换成了 `TokenField`）⇒ 投影不必回原文配对。
 
 ## field HeaderCloseAt:int = -1
 
-**头部那个 `)` 的下标** ✓（第 634 轮 ✓，与 `For.HeaderCloseAt` / `While.HeaderCloseAt` 同一条 ✓）。
+**头部那个 `)` 的下标**（第 634 轮，与 `For.HeaderCloseAt` / `While.HeaderCloseAt` 同一条）。
 
-**为什么要有它** ✗：`Process` 里那个括号**就在手上** ✓（`conditionBracket` ✓），
-而投影原来拿 `ctx.MatchingParen(ctx.source, v.start)` **从 `for` 往后扫原文** ✓——
-同一件事的第二份近似 ✗（括号里的字符串与注释它一样会数 ✓）。
-**只在「体段一个可见子单元都没有、也不是空块 / 空语句」那条兜底支里用它** ✓。
+**为什么要有它**：`Process` 里那个括号**就在手上**（`conditionBracket`），
+而投影原来拿 `ctx.MatchingParen(ctx.source, v.start)` **从 `for` 往后扫原文**——
+同一件事的第二份近似（括号里的字符串与注释它一样会数）。
+**只在「体段一个可见子单元都没有、也不是空块 / 空语句」那条兜底支里用它**。
 
 ## field IsForIn:bool = false
 
@@ -263,11 +263,11 @@ return index;
   const props: any = {};
   const define = ctx.KidsOf(v, "define").filter((k: any) => !ctx.Invisible.has(k.get("type")));
   if (define.length > 0) {
-    // **没有 `Let` 的那一档**（第 545 轮 ✓）：`for (const v of xs)` 的声明段在产物里是
-    // `[Keyword(const), Identifier(v)]` 两格平铺 ✗ —— 解析期的 `LetBranch` 只在
-    // `=` / `:` / `;` / `,` / 换行那几格进门 ✓，`of` / `in` 不在其中 ✗。
-    // TS 那边 `initializer` 同样是 `VariableDeclarationList` ✓（不套 `VariableStatement` ✓），
-    // 所以现造一个 ✓（见 `print-ast-common.xl.md` 的 `projectHeadDeclare` ✓）。
+    // **没有 `Let` 的那一档**（第 545 轮）：`for (const v of xs)` 的声明段在产物里是
+    // `[Keyword(const), Identifier(v)]` 两格平铺 —— 解析期的 `LetBranch` 只在
+    // `=` / `:` / `;` / `,` / 换行那几格进门，`of` / `in` 不在其中。
+    // TS 那边 `initializer` 同样是 `VariableDeclarationList`（不套 `VariableStatement`），
+    // 所以现造一个（见 `print-ast-common.xl.md` 的 `projectHeadDeclare`）。
     if (define[0].get("type") === "Let") {
       props.initializer = ctx.LetFrom(define, v).list;
     } else {
@@ -293,10 +293,10 @@ return index;
   if (emptyAt >= 0) {
     statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
   } else {
-    // **体那一对花括号直读字段** ✓（第 619 轮那一格，第 641 轮带上整段 ✓，与 `While` 同一条 ✓）：
-    // 两端都是**挂体那一刻**的事实 ✓ ⇒ `BodyBlockOf` 拿到它就**直接**给出那个 `Block` ✓
-    //（空块 `for (const x of y) {}` 也在内 ✓），回原文找 `{` 再配对那一趟**一步都不走** ✓。
-    // **头部那个 `)` 也先读字段** ✓（第 634 轮 ✓）：收尾规则把它当场记下了 ✓。
+    // **体那一对花括号直读字段**（第 619 轮那一格，第 641 轮带上整段，与 `While` 同一条）：
+    // 两端都是**挂体那一刻**的事实 ⇒ `BodyBlockOf` 拿到它就**直接**给出那个 `Block`
+    //（空块 `for (const x of y) {}` 也在内），回原文找 `{` 再配对那一趟**一步都不走**。
+    // **头部那个 `)` 也先读字段**（第 634 轮）：收尾规则把它当场记下了。
     const rawHeader = v.attrs !== undefined && typeof v.attrs.get === "function"
       ? v.attrs.get("headerCloseAt")
       : undefined;
@@ -410,7 +410,7 @@ result.set("define", this.Define.ToList());
 result.set("enumable", this.Enumable.ToList());
 result.set("body", this.Body.ToList());
 result.set("emptyBodyAt", this.EmptyBodyAt);
-// **体那个 `{` 的位置也写出去** ✓（第 619 轮 ✓，与 `While` / `DoWhile` 同一条 ✓）。
+// **体那个 `{` 的位置也写出去**（第 619 轮，与 `While` / `DoWhile` 同一条）。
 if (this.BodyBrace.IsSet) {
   result.set("bodyBraceAt", this.BodyBrace.File());
   const braceRange = this.BodyBrace.Range;
@@ -421,7 +421,7 @@ if (this.BodyBrace.IsSet) {
 // **`in` / `of` 那一格也写出去**（第 631 轮）：投影靠它分 `ForInStatement` / `ForOfStatement`——
 // 与 `emptyBodyAt` / `bodyBraceRange` 同一条纪律：判据在收尾规则那一处算得起，这里只出字段。
 result.set("isForIn", this.IsForIn);
-// **头部那个 `)` 也写出去** ✓（第 634 轮 ✓，与 `For` / `While` 同一条 ✓）。
+// **头部那个 `)` 也写出去**（第 634 轮，与 `For` / `While` 同一条）。
 result.set("headerCloseAt", this.HeaderCloseAt);
 const children: Array<any> = [];
 for (const item of this.Data) {

@@ -62,11 +62,11 @@ if (current.Parent !== null && current.Parent.constructor.name === "BindingEleme
   return false;
 }
 // **`case` / `default` 那个标签冒号不是类型标注**（第 553 轮）：`case 1: { … }` 里冒号后面
-// 本该是一个 `Block`，可这一趟会把整对花括号收成 `TypeLiteral` ⇒ 段的体整段丢 ✗
+// 本该是一个 `Block`，可这一趟会把整对花括号收成 `TypeLiteral` ⇒ 段的体整段丢
 // （实测 `st-switch-block-case.ts`：`SwitchSegment > SwitchCase > [Identifier(1), TypeDefine > TypeLiteral > …]`，
-// `Block` / `VariableStatement` / `BreakStatement` 一个都没有 ✓）。
-// 判据在 `text-common-util.xl.md` 的 `IsSwitchLabelColon` ✓——`type-literal.xl.md` 的
-// `IsTypePosition` 与 `label.xl.md` 的 `Previous` 问的是**同一句** ✓（三处都要挡 ✓）。
+// `Block` / `VariableStatement` / `BreakStatement` 一个都没有）。
+// 判据在 `text-common-util.xl.md` 的 `IsSwitchLabelColon`——`type-literal.xl.md` 的
+// `IsTypePosition` 与 `label.xl.md` 的 `Previous` 问的是**同一句**（三处都要挡）。
 if (IsSwitchLabelColon(units, index)) {
   return false;
 }
@@ -155,7 +155,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 `StringKeyword` 149）在 TS 侧对不上，而产物侧还多出一层。
 
 > 原来那些**直调**这个函数的地方（成员 / 形参 / 字段的 `type` 段）现在一律走
-> `ctx.Project(那个单元)`——`projectNode` 会先问本类的 `PrintAst` ✓，
+> `ctx.Project(那个单元)`——`projectNode` 会先问本类的 `PrintAst`，
 > 与直调输入相同、结果逐字节一样，而且不再依赖共享层里那份实现。
 
 ```ts

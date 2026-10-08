@@ -51,7 +51,7 @@ import { DefineAccessorId } from "./typescript-exec/builtins/install.xl.md"
 **唯一的例外是「语言层」那两种失败**（写在明处，别以为它不抛）：源文**解析不了**
 （`SyntaxException`）与**降级不了的构造**（`unimplemented: …`）会**原样抛出来**。
 理由：它们**不是脚本的结局**——那时程序根本还没被装起来，
-硬塞进 `HostOutcome` 会让「一次脚本调用的结局」这张表多出一个不属于它的成员 ✗
+硬塞进 `HostOutcome` 会让「一次脚本调用的结局」这张表多出一个不属于它的成员
 （那个枚举是跨目标的契约，`host-abi.xl.md`）。**命令行接住它们**（`RunMain`），
 判据也一样：`try` 里调运行器。
 
@@ -242,14 +242,14 @@ for (let i = 0; i < modules.length; i++) {
   programs.push(modules[i].Program);
 }
 const linked = LinkPrograms(programs);
-// **步数预算只有一个答案** ✓（第 372 轮修的 ✗）：这里原来**写死 1000000** ✗，
-// 而宿主那一侧宣告的是 `Limits.Default()`（`10000000` ✓，`host-abi.xl.md` ✓）——
-// 于是两份上限同时在，**小的那一份说了算** ✓，而它离现场很远 ✗
-//（症状是「一份普通 `.ts` 跑到一半报 `step budget exhausted`」✓，
-//  看起来像脚本自己有问题 ✗——第 371 轮那批端到端语料里当场量到 3 条 ✓：
-//  两万次分配的 churn ✓、3999 次罗马数字换算 ✓、一个实操规模的排序 ✓）。
-// **改成从宿主那一份取** ✓：上限仍然是一层安全（`vm.xl.md` 第 10 节第 4 层 ✓），
-// 只是**不再有两个数** ✓（两个数的账本仓最贵 ✗：改了一个、另一个还在原地 ✓）。
+// **步数预算只有一个答案**（第 372 轮修的）：这里原来**写死 1000000**，
+// 而宿主那一侧宣告的是 `Limits.Default()`（`10000000`，`host-abi.xl.md`）——
+// 于是两份上限同时在，**小的那一份说了算**，而它离现场很远
+//（症状是「一份普通 `.ts` 跑到一半报 `step budget exhausted`」，
+//  看起来像脚本自己有问题——第 371 轮那批端到端语料里当场量到 3 条：
+//  两万次分配的 churn、3999 次罗马数字换算、一个实操规模的排序）。
+// **改成从宿主那一份取**：上限仍然是一层安全（`vm.xl.md` 第 10 节第 4 层），
+// 只是**不再有两个数**（两个数的账本仓最贵：改了一个、另一个还在原地）。
 const machine = new Vm(table, 1 << 20, Limits.Default().StepBudget);
 const host = new Host(machine, Limits.Default());
 // **把机器与表交给宿主**（见 `RunResult` 那两个字段的说明）：宿主才是事件循环。
@@ -272,36 +272,36 @@ if (protos === null) {
   return result;
 }
 host.DeclarePrototypeKey(Units("prototype"));
-// **符号上的 `description` 也走同一条** ✓（第 241 轮 ✓）：符号不是对象 ✓
-//（没有属性表 ✓、没有原型那一格 ✓），所以那一格**只能由引擎在 `get_prop` 处特判** ✓——
-// 而引擎不认识「description」这几个字母 ✗，名字由这里给 ✓（与上一行一字不差 ✓）。
+// **符号上的 `description` 也走同一条**（第 241 轮）：符号不是对象
+//（没有属性表、没有原型那一格），所以那一格**只能由引擎在 `get_prop` 处特判**——
+// 而引擎不认识「description」这几个字母，名字由这里给（与上一行一字不差）。
 host.DeclareDescriptionKey(Units("description"));
-// **符号上的 `toString` 也走同一条** ✓（第 277 轮 ✓）——它是 `DeclareDescriptionKey` 的**兄弟** ✓，
-// 差别只有「交出去的是一个**能被调的东西**」✗：所以这一句多带一个**能力号** ✓
-//（`SymbolToString` ✓，在 `globals.xl.md` 里 ✓）。引擎不认识那个号 ✓，与不认识
-// 「description」这几个字母是同一件事 ✓。
+// **符号上的 `toString` 也走同一条**（第 277 轮）——它是 `DeclareDescriptionKey` 的**兄弟**，
+// 差别只有「交出去的是一个**能被调的东西**」：所以这一句多带一个**能力号**
+//（`SymbolToString`，在 `globals.xl.md` 里）。引擎不认识那个号，与不认识
+// 「description」这几个字母是同一件事。
 host.DeclareSymbolToString(Units("toString"), SymbolToString);
 // **建库与宿主要在第 0 份模块求值之前装好**（第 119 轮改的顺序）：模块**顶层的语句**
-// 也是脚本，它一样会 `console.log` / `arr.push` / 造对象字面量的访问器 ✗——
-// 原来这四步排在 `Evaluate` **之后** ✗，于是「直接跑一个 .ts 文件」这种最普通的形状
+// 也是脚本，它一样会 `console.log` / `arr.push` / 造对象字面量的访问器——
+// 原来这四步排在 `Evaluate` **之后**，于是「直接跑一个 .ts 文件」这种最普通的形状
 // （顶层就有日志）报的是 `calling a host function with no host installed`，
-// 而那句话听起来像宿主配置错了，其实是**装晚了** ✗。
+// 而那句话听起来像宿主配置错了，其实是**装晚了**。
 // 顺带把「能力注册」也提到前面：注册只认**已装载**的那张表（`host.Load` 过了），
-// 与求值没有先后关系 ✓。
+// 与求值没有先后关系。
 InstallBuiltins(host, protos);
-// **错误工厂**（第 127 轮）：rt 层的失败（`a + b` 遇到对象那种 ✓）也变成**脚本接得住**的异常 ✓——
-// 用的是**同一个** `NewError` ✓，所以「宿主函数失败」与「rt 层失败」在脚本看来是一种东西 ✓。
-// 少了这一行，`try { left + right } catch { … }` 里的 `catch` 走不到 ✗（判据现场那一条 ✓）。
+// **错误工厂**（第 127 轮）：rt 层的失败（`a + b` 遇到对象那种）也变成**脚本接得住**的异常——
+// 用的是**同一个** `NewError`，所以「宿主函数失败」与「rt 层失败」在脚本看来是一种东西。
+// 少了这一行，`try { left + right } catch { … }` 里的 `catch` 走不到（判据现场那一条）。
 //
-// **`kind` 那一格是第 139 轮加的** ✓：引擎报「这是哪一类失败」✓，
-// **这一行把它翻成名字** ✓（`ErrorKindType` → `TypeError` ✓）——
-// 于是 `try { null.y } catch (e) { e instanceof TypeError }` 与 Node 一致 ✓。
-// **引擎仍然不认识 `"TypeError"` 这几个字母** ✗（那一格是数字 ✓，见 `ErrorKindType` ✓）。
+// **`kind` 那一格是第 139 轮加的**：引擎报「这是哪一类失败」，
+// **这一行把它翻成名字**（`ErrorKindType` → `TypeError`）——
+// 于是 `try { null.y } catch (e) { e instanceof TypeError }` 与 Node 一致。
+// **引擎仍然不认识 `"TypeError"` 这几个字母**（那一格是数字，见 `ErrorKindType`）。
 //
-// **`ErrorKindRange` → `RangeError`** 是第 228 轮补的 ✓：理由与 `ErrorKindType` 那一条
-// 一字不差 ✓——引擎自己认出来的那一档（`Guard` 现在按**宿主异常的类**认 ✓）
-// 也要翻成正确的族 ✓，不然 `"x" + Symbol()` 那一抛（`TypeError` ✓）在脚本里
-// 会变成一个普通的 `Error` ✗。
+// **`ErrorKindRange` → `RangeError`** 是第 228 轮补的：理由与 `ErrorKindType` 那一条
+// 一字不差——引擎自己认出来的那一档（`Guard` 现在按**宿主异常的类**认）
+// 也要翻成正确的族，不然 `"x" + Symbol()` 那一抛（`TypeError`）在脚本里
+// 会变成一个普通的 `Error`。
 host.Machine.SetErrorFactory((kind, text) => {
   if (kind === ErrorKindType) {
     return NewErrorLike(host.Machine.Room(), table, protos, protos.TypeError, "TypeError", text);
@@ -314,28 +314,28 @@ host.Machine.SetErrorFactory((kind, text) => {
 host.InstallHost((target, self, args, room, constructThis) => {
   const id = table.Get(target.Ref).AsHost().CapabilityId;
   // **宿主这条通道的兜底**（第 121 轮）：内建（或客户能力）失败时，把**宿主异常**
-  // 抬成**脚本异常**——脚本的 `try { … } catch { … }` 才接得住 ✓。
-  // 少了这一层，`try { Object.keys(null) } catch {}` 里的 `catch` **永远走不到** ✗：
+  // 抬成**脚本异常**——脚本的 `try { … } catch { … }` 才接得住。
+  // 少了这一层，`try { Object.keys(null) } catch {}` 里的 `catch` **永远走不到**：
   // 宿主异常直接冒出 `Run()`，整份程序以「语言层错误」收场（判据现场就是这么红的）。
   try {
     const answered = answer(room, id, self, args);
     if (answered !== null) return answered;
-    // **第 199 轮加了两样服务** ✓（与 `schedule` / `settle` 同一个形状 ✓）：
-    // `IteratorDrainer()` 是「把可迭代物走完、收成数组」✓（生成器那一条 ✓）、
-    // `RootKeeper()` 是「把语言层造的中间数组挂进根集」✓——
-    // 后者是**实测逼出来的** ✓：6 万项的 `[...o]` 在 `invalid handle` 上炸过 ✓。
-    // **`CallFailed` 也要包一层箭头函数** ✓（第 228 轮）：与方法引用**同一条纪律** ✓
-    //（`Scheduler()` 那一段实测过 ✓：方法引用**不带接收者** ✓，到了建库层手里 `this` 是
-    // `undefined` ✓，报的是 `Cannot read properties of undefined` ✗——那句话离现场很远 ✓）。
-    // **第 285 轮又加了两样** ✓（同一条形状 ✓、同一条纪律 ✓）：
-    // `Invoker()` 是「**同步**调一个脚本值」✓（`new Promise(执行器)` 那一格 ✓）——
-    // `call` 那个通道是**反的** ✗（宿主被调 ✓），内建主动调要另给一格 ✓；
-    // `ThrownTaker()` 是「刚才那一调抛了吗、抛的是什么」✓（执行器自己抛 ⇒ 结果承诺被拒绝 ✓）。
-    // 与前面几样一样：**方法引用会丢 `this`** ✗，两样都包一层箭头函数 ✓。
+    // **第 199 轮加了两样服务**（与 `schedule` / `settle` 同一个形状）：
+    // `IteratorDrainer()` 是「把可迭代物走完、收成数组」（生成器那一条）、
+    // `RootKeeper()` 是「把语言层造的中间数组挂进根集」——
+    // 后者是**实测逼出来的**：6 万项的 `[...o]` 在 `invalid handle` 上炸过。
+    // **`CallFailed` 也要包一层箭头函数**（第 228 轮）：与方法引用**同一条纪律**
+    //（`Scheduler()` 那一段实测过：方法引用**不带接收者**，到了建库层手里 `this` 是
+    // `undefined`，报的是 `Cannot read properties of undefined`——那句话离现场很远）。
+    // **第 285 轮又加了两样**（同一条形状、同一条纪律）：
+    // `Invoker()` 是「**同步**调一个脚本值」（`new Promise(执行器)` 那一格）——
+    // `call` 那个通道是**反的**（宿主被调），内建主动调要另给一格；
+    // `ThrownTaker()` 是「刚才那一调抛了吗、抛的是什么」（执行器自己抛 ⇒ 结果承诺被拒绝）。
+    // 与前面几样一样：**方法引用会丢 `this`**，两样都包一层箭头函数。
     return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native(), host.Machine.Scheduler(), host.Machine.Settler(), host.Machine.IteratorDrainer(), host.Machine.RootKeeper(), () => host.Machine.CallFailed(), host.Machine.HostConstructing, host.Machine.Invoker(), host.Machine.ThrownTaker(), constructThis);
   } catch (error) {
     // **抬不动就原样冒出去**（`RaiseFromHost` 给假：多半是连错误对象都开不出来）——
-    // 响亮地失败，比假装抛了一个空错误好 ✓。
+    // 响亮地失败，比假装抛了一个空错误好。
     if (!RaiseFromHost(host.Machine, error)) throw error;
     return Value.Undefined();
   }
@@ -383,9 +383,9 @@ for (let i = 1; i < modules.length; i++) {
   }
   machine.Run();
   // **结局一律由 `Classify` 翻**（第 119 轮改）：这里原来是
-  // `if (machine.Status !== VmStatus.Halted) → OutOfSteps` ✗——脚本**抛出**也走那一支，
-  // 于是宿主看到的是「步数用尽 / 没跑完」**两个都错**的说法 ✗，抛出的值也丢了 ✗。
-  // `Classify` 的顺序本来就是「异常与限额先判」（`host-abi.xl.md`），照它翻就对了 ✓。
+  // `if (machine.Status !== VmStatus.Halted) → OutOfSteps`——脚本**抛出**也走那一支，
+  // 于是宿主看到的是「步数用尽 / 没跑完」**两个都错**的说法，抛出的值也丢了。
+  // `Classify` 的顺序本来就是「异常与限额先判」（`host-abi.xl.md`），照它翻就对了。
   const evaluated = host.Classify();
   if (evaluated.Outcome !== HostOutcome.Ok) {
     result.Outcome = evaluated.Outcome;
@@ -418,8 +418,8 @@ if (request.Entry !== "") {
   while (request.DriveLoop && machine.Frames.Depth() === 0 && machine.Microtasks.length > 0) {
     machine.DrainMicrotasks();
   }
-  // **微任务里抛出来的也要收敛**（第 119 轮补）：原来这一段只检查了「挂起」✗——
-  // 一个在 `await` 之后抛出的异常会让宿主拿到 `Ok` + 一个空结果 ✗（最坏的那种：静默）。
+  // **微任务里抛出来的也要收敛**（第 119 轮补）：原来这一段只检查了「挂起」——
+  // 一个在 `await` 之后抛出的异常会让宿主拿到 `Ok` + 一个空结果（最坏的那种：静默）。
   const invoked = host.Classify();
   if (invoked.Outcome === HostOutcome.ScriptThrew || invoked.Outcome === HostOutcome.OutOfSteps
     || invoked.Outcome === HostOutcome.OutOfMemory) {
@@ -508,10 +508,10 @@ while (index < args.length) {
     index = index + 2;
     continue;
   }
-  // **`--batch 清单.json`：一个进程跑多条用例** ✓（第 319 轮 ✓，用户口径
-  // 「一次 tsrun，一个进程跑多个 case，同时起 CPU 核心数那么多个」✓）。
-  // 清单是 `[{id, path}]` ✓；每一条的 stdout 被**逐条捕获** ✓、按 JSON 一行一条交出去 ✓
-  // （见 `RunBatch` ✓）——所以这个选项与 `Input` 是**两选一** ✓。
+  // **`--batch 清单.json`：一个进程跑多条用例**（第 319 轮，用户口径
+  // 「一次 tsrun，一个进程跑多个 case，同时起 CPU 核心数那么多个」）。
+  // 清单是 `[{id, path}]`；每一条的 stdout 被**逐条捕获**、按 JSON 一行一条交出去
+  // （见 `RunBatch`）——所以这个选项与 `Input` 是**两选一**。
   if (item === "--batch") {
     if (index + 1 >= args.length) {
       options.Error = item + " 需要一个清单文件";
@@ -577,9 +577,9 @@ process.stderr.write(text);
 
 **宿主异常 → 一句话**（读文件失败、解析失败、降级期「还没实现的构造」那几种）。
 
-**它就是 `HostErrorText`**（`builtins/install.xl.md`）✓——那一条同时服务「内建失败被抬成
-脚本异常」那条路 ✓。**两处各写一套**会让同一种异常在两条路上得到两种文字 ✗，
-所以这里只留一层皮 ✓。
+**它就是 `HostErrorText`**（`builtins/install.xl.md`）——那一条同时服务「内建失败被抬成
+脚本异常」那条路。**两处各写一套**会让同一种异常在两条路上得到两种文字，
+所以这里只留一层皮。
 
 ```ts
 return HostErrorText(error);
@@ -589,17 +589,17 @@ return HostErrorText(error);
 
 **脚本抛出来的值 → 一句话**。
 
-**第 124 轮之后它简单多了** ✓：语言层有了「任意值 → 文本」（`text.xl.md` 的 `ValueText` ✓），
-所以**浮点与数组也照常渲染** ✓（`throw 1.5` 给 `"1.5"` ✓、`throw [1, 2]` 给 `"1,2"` ✓）——
+**第 124 轮之后它简单多了**：语言层有了「任意值 → 文本」（`text.xl.md` 的 `ValueText`），
+所以**浮点与数组也照常渲染**（`throw 1.5` 给 `"1.5"`、`throw [1, 2]` 给 `"1,2"`）——
 原来那两句「一个非整数（本层没有它的文本形态）」/「一个对象（没有 message 属性）」
-现在只剩后者有意义 ✓。
+现在只剩后者有意义。
 
-**两条规矩照旧** ✓：
-- **对象先看 `message` 数据属性** ✓（`{ message: "boom" }`、`Error` 实例 ✓）——
-  **访问器跳过** ✓（读它要重入执行器，而这里只是给人打一行字 ✓）；
-- **它不抛** ✓（报错路径上再抛一次，原来的错就没了 ✗）——所以
+**两条规矩照旧**：
+- **对象先看 `message` 数据属性**（`{ message: "boom" }`、`Error` 实例）——
+  **访问器跳过**（读它要重入执行器，而这里只是给人打一行字）；
+- **它不抛**（报错路径上再抛一次，原来的错就没了）——所以
   **函数 / 闭包 / 符号 / 宿主值**这几个 `ValueText` 也不认的形状，
-  在这里先接住并给一句「说得出形状」的话 ✓。
+  在这里先接住并给一句「说得出形状」的话。
 
 ```ts
 if (value.Tag === ValueTag.Object) {
@@ -671,7 +671,7 @@ if (options.Version) {
   process.exitCode = 1;
   return;
 }
-// **批量那一路先判** ✓（第 319 轮 ✓）：它与 `Input` 是两选一 ✓（见 `RunParseArguments` ✓）。
+// **批量那一路先判**（第 319 轮）：它与 `Input` 是两选一（见 `RunParseArguments`）。
 if (options.Batch !== "") {
   RunBatch(options.Batch);
   return;
@@ -728,29 +728,29 @@ if (result.Outcome !== HostOutcome.Ok) {
 
 # method RunBatch:(manifestPath:string)=>void
 
-**一个进程跑多条用例** ✓（第 319 轮 ✓）——用户的口径是
-「一次 tsrun（一个进程跑多个 case），同时起 CPU 核心数那么多个」✓。
+**一个进程跑多条用例**（第 319 轮）——用户的口径是
+「一次 tsrun（一个进程跑多个 case），同时起 CPU 核心数那么多个」。
 
-**为什么它比「一个进程一条」快** ✗：实测一条用例要起**两个** `node` ✓，
-而 `tsrun` 那一侧 ~265ms 里**大半是进程启动**（裸 `node -e 0` 就要 130ms ✓）
-——1111 条就是 1111 次启动 ✓。合成一批之后，**启动次数 = 批数** ✓
-（分 16 批就是 16 次 ✓），每条用例只剩**真正的解析 + 降级 + 执行** ✓。
+**为什么它比「一个进程一条」快**：实测一条用例要起**两个** `node`，
+而 `tsrun` 那一侧 ~265ms 里**大半是进程启动**（裸 `node -e 0` 就要 130ms）
+——1111 条就是 1111 次启动。合成一批之后，**启动次数 = 批数**
+（分 16 批就是 16 次），每条用例只剩**真正的解析 + 降级 + 执行**。
 
-**每一批内部是串行的** ✗（一批一个进程 ✓），所以提速靠的是**批与批并行** ✓：
-调用方起 `min(核数, …)` 个进程 ✓（`tests/coverage/run.mjs` 的 `--jobs` ✓）。
+**每一批内部是串行的**（一批一个进程），所以提速靠的是**批与批并行**：
+调用方起 `min(核数, …)` 个进程（`tests/coverage/run.mjs` 的 `--jobs`）。
 
-**协议**（父进程按行读 ✓）：每跑完一条，**往 stdout 打一行 JSON** ✓：
-`{"id": …, "status": 0|1, "stdout": …, "stderr": …}` ✓。
-**用例自己的输出一律被 `sink` 捕获** ✓（不落到 stdout ✓）——
-否则一行 JSON 里会混进用户的 `console.log` ✓，父进程再也分不清哪一行是什么 ✗
-（这正是「日志的形态由宿主决定」那条：`RunSources` 收的是一个 sink ✓，命令行给它什么就写什么 ✓）。
+**协议**（父进程按行读）：每跑完一条，**往 stdout 打一行 JSON**：
+`{"id": …, "status": 0|1, "stdout": …, "stderr": …}`。
+**用例自己的输出一律被 `sink` 捕获**（不落到 stdout）——
+否则一行 JSON 里会混进用户的 `console.log`，父进程再也分不清哪一行是什么
+（这正是「日志的形态由宿主决定」那条：`RunSources` 收的是一个 sink，命令行给它什么就写什么）。
 
-**先出一行 `{"begin": true}`** ✓：父进程拿它确认「这一批真的开跑了」✓——
-批量模式最坏的一种失败是**父进程以为跑了、其实子进程早就死了** ✗，
-有这一行就分得清 ✓（`run.mjs` 用它决定要不要按单条重跑 ✓）。
+**先出一行 `{"begin": true}`**：父进程拿它确认「这一批真的开跑了」——
+批量模式最坏的一种失败是**父进程以为跑了、其实子进程早就死了**，
+有这一行就分得清（`run.mjs` 用它决定要不要按单条重跑）。
 
-**退出码** ✓：批量模式**总是 0** ✓（除非清单本身读不了 ✓）——
-每一条的成败在它自己那一行里 ✓；某一批里有失败不该让整批的协议作废 ✗。
+**退出码**：批量模式**总是 0**（除非清单本身读不了）——
+每一条的成败在它自己那一行里；某一批里有失败不该让整批的协议作废。
 
 ```ts
 let manifestText = "";
@@ -788,8 +788,8 @@ for (let index = 0; index < items.length; index++) {
         lines.push(line);
       }, RunAnswer);
     } catch (error) {
-      // **与单条那一路说同一句话** ✓（第 121 轮那条口径 ✓）：父进程拿到的 stderr
-      // 与「一条一条跑」时**逐字相同** ✓——不然台账里那些「为什么没过」会换一套说法 ✗。
+      // **与单条那一路说同一句话**（第 121 轮那条口径）：父进程拿到的 stderr
+      // 与「一条一条跑」时**逐字相同**——不然台账里那些「为什么没过」会换一套说法。
       failure = "tsrun: 还没实现的构造或语言层错误：" + RunErrorText(error);
       status = 1;
     }
@@ -842,9 +842,9 @@ return process.getBuiltinModule("node:path") as typeof import("node:path");
 **启动：把命令行参数交给 `RunMain`——但只在这个文件被「直接执行」时。**
 
 **为什么要有那道判断**：本文件**同时是库**（`tests/runtime/check.mjs` 与客户宿主
-`import` 它的 `RunSources` / `RunRequest`）✗——不加判断的话，**谁 import 它谁就等于
+`import` 它的 `RunSources` / `RunRequest`）——不加判断的话，**谁 import 它谁就等于
 在命令行上跑了一次 tsrun**：`process.argv` 是**别人的**参数（判据进程的参数），
-`process.exitCode` 会被置成 1，判据于是莫名其妙地红 ✗。
+`process.exitCode` 会被置成 1，判据于是莫名其妙地红。
 `require.main === module` 是 CommonJS 里「我被直接执行」的判据，而产物就是 CommonJS
 （`tsconfig.json` 的 `module: commonjs`）。
 

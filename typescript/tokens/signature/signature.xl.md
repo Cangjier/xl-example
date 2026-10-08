@@ -315,7 +315,7 @@ let abstractUnit: Token | null = null;
 if (isConstruct || isNewUnit) {
   // **`abstract` 与 `new` 之间可以夹注释**：`SkipPreviousWrapSymbol` 只跳软换行，
   // 注释是一个实义单元（`AreaAnnotation`），于是 `abstract /* new */ new (): A` 里
-  // 那个 `abstract` 认不出来，整条签名落成裸 `ConstructSignature` ✗
+  // 那个 `abstract` 认不出来，整条签名落成裸 `ConstructSignature`
   //（TS 那边是 `MethodSignature` + `AbstractKeyword`）。这里要的是**上一个实义单元**，
   // 所以用 `SkipPreviousTrivia`（注释也算 trivia）。
   const beforeIndex = SkipPreviousTrivia(units, index);

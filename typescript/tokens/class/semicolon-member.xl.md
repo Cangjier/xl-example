@@ -21,15 +21,15 @@ class C { ; x = 1; ; m() {} }
           SemicolonClassElement
 ```
 
-**它为什么漏着** ✗：类体的成员位由**语句成形器**管 ✓，而 `;` 在成形器那里是**终结符** ✓
-（`SymbolTemplate.IsStatementSymbol` ✓）——它给上一条成员收尾 ✓、自己不进任何节点 ✓；
-**上一条成员都没有**时（`{ ;` 开头）它连收尾的对象都没有 ✓ ⇒ 只剩一个裸 `SymbolToken` ✓，
-投影侧于是多出一个 `SemicolonToken` ✓、少一个 `SemicolonClassElement` ✓。
+**它为什么漏着**：类体的成员位由**语句成形器**管，而 `;` 在成形器那里是**终结符**
+（`SymbolTemplate.IsStatementSymbol`）——它给上一条成员收尾、自己不进任何节点；
+**上一条成员都没有**时（`{ ;` 开头）它连收尾的对象都没有 ⇒ 只剩一个裸 `SymbolToken`，
+投影侧于是多出一个 `SemicolonToken`、少一个 `SemicolonClassElement`。
 
-**只认「宿主是 `ClassBody` 且这一格是裸 `;`」** ✗：
-- 字段 / 方法**自己吃掉**的那个分号（`x = 1;` 的 `;`）**不是**这个节点 ✓ ——
-  它已经被收进成员里了 ✓（验收：`class C { x = 1; }` 里 `SemicolonClassElement` 一个都不该有 ✓）；
-- 语句位上的 `;`（`;;;`）也**不是** ✓——那里宿主不是 `ClassBody` ✓。
+**只认「宿主是 `ClassBody` 且这一格是裸 `;`」**：
+- 字段 / 方法**自己吃掉**的那个分号（`x = 1;` 的 `;`）**不是**这个节点 ——
+  它已经被收进成员里了（验收：`class C { x = 1; }` 里 `SemicolonClassElement` 一个都不该有）；
+- 语句位上的 `;`（`;;;`）也**不是**——那里宿主不是 `ClassBody`。
 
 规则排在**通用队列**，动作就是把那一格换成一个 `SemicolonClassElement`。
 
@@ -47,8 +47,8 @@ class C { ; x = 1; ; m() {} }
 
 两条：这一格是裸 `;`；它的父亲是 `ClassBody`。
 
-**父亲判据不能省** ✗：`;` 到处都是 ✓，只有类体成员位上那一档才是 TS 的成员节点 ✓。
-父亲此刻一定已经认过 ✓（`Token.ApplyCloseRules` 收尾时会补 `null` 的那一格 ✓）。
+**父亲判据不能省**：`;` 到处都是，只有类体成员位上那一档才是 TS 的成员节点。
+父亲此刻一定已经认过（`Token.ApplyCloseRules` 收尾时会补 `null` 的那一格）。
 
 ```ts
 const current = Get(units, index);
@@ -82,15 +82,15 @@ return ReplaceCountAt(units, index, 1, result);
 
 类体里的空成员（一个单独的 `;`）。类名必须与产物的标签名一致。
 
-**内容为空** ✓（那个 `;` 自己不进去 ✓）：TS 那边 `SemicolonClassElement` 是一个**叶子节点**
-（`forEachChild` 一个孩子都不给 ✓，`;` 只是它的区间 ✓）——把 `;` 装进来会多出一个 `SemicolonToken` ✓。
+**内容为空**（那个 `;` 自己不进去）：TS 那边 `SemicolonClassElement` 是一个**叶子节点**
+（`forEachChild` 一个孩子都不给，`;` 只是它的区间）——把 `;` 装进来会多出一个 `SemicolonToken`。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
-`;` → `SemicolonClassElement`（第 623 轮 ✓）。
+`;` → `SemicolonClassElement`（第 623 轮）。
 
-**token 直出 ast**：这一格由本 token 自己出 ✓，不走通用支的三张表 ✓
-（`KIND_BY_TAG` / `WRAPPER_FIELDS` / `FIELD_BY_KIND` 都不认识它 ✓）。
+**token 直出 ast**：这一格由本 token 自己出，不走通用支的三张表
+（`KIND_BY_TAG` / `WRAPPER_FIELDS` / `FIELD_BY_KIND` 都不认识它）。
 
 ```ts
   return ctx.NodeHead("SemicolonClassElement", {}, v);
@@ -110,8 +110,8 @@ super(template);
 
 自己出 XML：**没有属性、没有子单元**，所以是一个自闭合的 `<SemicolonClassElement />`。
 
-不覆写的话 `Token.ToXmlString` 会展开 `Data`（空的 ✓）⇒ 产物里出现一对空标签 ✓ ——
-那对标签在 XML 上是合法的 ✓，但这一格的形状就是「光秃秃一个成员」✓，自闭合更贴近它 ✓。
+不覆写的话 `Token.ToXmlString` 会展开 `Data`（空的）⇒ 产物里出现一对空标签 ——
+那对标签在 XML 上是合法的，但这一格的形状就是「光秃秃一个成员」，自闭合更贴近它。
 
 ```ts
 return "<" + this.constructor.name + " />";

@@ -116,9 +116,9 @@ return null;
 
 两条：跟一个 `Identifier` 名字；头**恰好用完**（扫完之后下一格必须是空）。
 
-**每一跳都跨 trivia**（第 595 轮）：`enum E /* c */ { }` 在 TypeScript 里是 `EnumDeclaration` ✓
-（注释是 trivia ✓），只跳软换行会让「头恰好用完」永远不成立 ✗ ⇒ 整个枚举退化成一个
-`ExpressionStatement` ✓。跨过的注释仍在头那一段里 ✓，`TakeHead` 会一起搬走 ✓。
+**每一跳都跨 trivia**（第 595 轮）：`enum E /* c */ { }` 在 TypeScript 里是 `EnumDeclaration`
+（注释是 trivia），只跳软换行会让「头恰好用完」永远不成立 ⇒ 整个枚举退化成一个
+`ExpressionStatement`。跨过的注释仍在头那一段里，`TakeHead` 会一起搬走。
 
 ```ts
 const nameIndex = SkipNextTrivia(units, index);

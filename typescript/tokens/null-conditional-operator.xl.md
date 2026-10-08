@@ -80,18 +80,18 @@ const endIndex = SearchBackIndexed(units, index + 1, (itemIndex, item) => {
     return Statement.IsLineBreakBoundary(units, itemIndex);
   }
   if (item instanceof SymbolToken) {
-    // **链上只允许两种符号**（第 155 轮）✓：`.`（成员访问 ✓）与 `!`（非空断言 ✓，
-    // 它被 `NotNullCloseRule` 折进 NCO **里面** ✓，见 `print-ast-common` 里那一支 ✓）。
-    // **其余任何符号都是断点** ✓——原来只列了 `?? && || ; ,` 与比较符号 ✗，
-    // 于是**算术运算符不在断点里** ✗：`a?.b` 后面跟一个 `+` 时，
-    // `+` 连同右边一起被收进 NCO ✓，接着二元运算符重组在**里面**折成一个 `BinaryOperator` ✓，
-    // 投影只好把它当成**成员名** ✗（`PropertyAccessExpression` 的 `name` 是个二元式 ✓），
-    // 降级层于是报 `unimplemented: private or computed property name` ✗——
-    // **整份文件进不来** ✗。而 `o?.k + 1` / `s?.length * 2` 这种写法遍地都是 ✓。
+    // **链上只允许两种符号**（第 155 轮）：`.`（成员访问）与 `!`（非空断言，
+    // 它被 `NotNullCloseRule` 折进 NCO **里面**，见 `print-ast-common` 里那一支）。
+    // **其余任何符号都是断点**——原来只列了 `?? && || ; ,` 与比较符号，
+    // 于是**算术运算符不在断点里**：`a?.b` 后面跟一个 `+` 时，
+    // `+` 连同右边一起被收进 NCO，接着二元运算符重组在**里面**折成一个 `BinaryOperator`，
+    // 投影只好把它当成**成员名**（`PropertyAccessExpression` 的 `name` 是个二元式），
+    // 降级层于是报 `unimplemented: private or computed property name`——
+    // **整份文件进不来**。而 `o?.k + 1` / `s?.length * 2` 这种写法遍地都是。
     //
-    // **为什么不一个一个列运算符** ✗：列全了要认识算术 / 位运算 / 移位 / 赋值 / `=>` …… ✓，
-    // 漏一个就是同一类静默错值 ✗。链上**该出现的符号只有那两个** ✓，
-    // 所以规矩反过来写 ✓：**不是那两个就是断点** ✓——将来多出新的运算符也不必回来改 ✓。
+    // **为什么不一个一个列运算符**：列全了要认识算术 / 位运算 / 移位 / 赋值 / `=>` ……，
+    // 漏一个就是同一类静默错值。链上**该出现的符号只有那两个**，
+    // 所以规矩反过来写：**不是那两个就是断点**——将来多出新的运算符也不必回来改。
     if (item.Is("?.")) {
       return true;
     }

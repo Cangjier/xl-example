@@ -18,14 +18,14 @@ import { Vm } from "../../runtime/vm.xl.md"
 | 属性 | 是什么 |
 | --- | --- |
 | `__v` | 一个**数组**，按插入顺序放值（**可以是任何值**） |
-| `size` | 原型上的**只读访问器**（第 613 轮 ✓）——getter 返回 `__v` 的长度 ✓，**不是**实例上的数据格 ✗ |
+| `size` | 原型上的**只读访问器**（第 613 轮）——getter 返回 `__v` 的长度，**不是**实例上的数据格 |
 
 **它和 `Map` 共用三件小工具**（`NameValue` / `ReadOwn` / `WriteOwn`，从 `map.xl.md` import）——
 那不是「谁属于谁」，而是这两个集合的**内部表示是同一件事**（一个对象 + 一个数组）。
 **将来若要给它们换表示（比如真的哈希表），就一起换。**
 
-**键相等用 `SameValueZero`** ✓（第 207 轮改 ✓，与 `Map` 同一个表 ✓，`rt.xl.md` 那张具名的 ✓）——
-它不是 `===` ✗：`new Set([NaN]).has(NaN)` 在 JS 里是**真** ✓（那个 `NaN` 字面量第 206 轮才装得上 ✓）。
+**键相等用 `SameValueZero`**（第 207 轮改，与 `Map` 同一个表，`rt.xl.md` 那张具名的）——
+它不是 `===`：`new Set([NaN]).has(NaN)` 在 JS 里是**真**（那个 `NaN` 字面量第 206 轮才装得上）。
 
 **`values()` 返回数组**（不是迭代器）：引擎的迭代只认数组与生成器，所以
 `for (const x of s.values())` 能用，而 `for (const x of s)` **直接迭代 Set 不支持**——
@@ -52,47 +52,47 @@ import { Vm } from "../../runtime/vm.xl.md"
 # const SetClear:int = 618
 `clear()` 的号（清空并返回 `undefined`）。
 # const SetForEach:int = 619
-`forEach(回调)` 的号——与 `Map` 同一条路（靠 `NativeCall` 重入分派循环 ✓）。
-**回调收 `(值, 值, 集合)` 三格** ✓（第 288 轮补齐 ✓——前两格是同一个值 ✓，第三格是接收者 ✓）。
+`forEach(回调)` 的号——与 `Map` 同一条路（靠 `NativeCall` 重入分派循环）。
+**回调收 `(值, 值, 集合)` 三格**（第 288 轮补齐——前两格是同一个值，第三格是接收者）。
 
 # const SetUnion:int = 620
 
-**`union(另一个集合)`**（第 324 轮 ✓）——号**追加在集合段里** ✓（`611..659` ✓，
-第 130 轮开这一段时就留着空号 ✓）。
+**`union(另一个集合)`**（第 324 轮）——号**追加在集合段里**（`611..659`，
+第 130 轮开这一段时就留着空号）。
 
 # const SetIntersection:int = 621
 
-**`intersection(另一个集合)`**（第 324 轮 ✓）。
+**`intersection(另一个集合)`**（第 324 轮）。
 
 # const SetDifference:int = 622
 
-**`difference(另一个集合)`**（第 324 轮 ✓）。
+**`difference(另一个集合)`**（第 324 轮）。
 
 # const SetSymmetricDifference:int = 623
 
-**`symmetricDifference(另一个集合)`**（第 324 轮 ✓）。
+**`symmetricDifference(另一个集合)`**（第 324 轮）。
 
 # const SetSubsetOf:int = 624
 
-**`isSubsetOf(另一个集合)`**（第 324 轮 ✓）。
+**`isSubsetOf(另一个集合)`**（第 324 轮）。
 
 # const SetDisjointFrom:int = 625
-**`isDisjointFrom(另一个集合)`**（第 324 轮 ✓）。
+**`isDisjointFrom(另一个集合)`**（第 324 轮）。
 
 # const SetSupersetOf:int = 626
 
-**`isSupersetOf(另一个集合)`**（第 647 轮 ✓）——ES2025 那一族的**第七个** ✓。
+**`isSupersetOf(另一个集合)`**（第 647 轮）——ES2025 那一族的**第七个**。
 
-**为什么第 324 轮漏了它** ✗：那一轮把六个名字一次做齐 ✓，而 `isSupersetOf` 与 `isSubsetOf`
-**是一对反过来问的话** ✓——一个遍历自己、一个遍历对方 ✓，写的时候只写了前者 ✓。
-漏掉它的症状**不是**「报错说没实现」✗，而是 `typeof s.isSupersetOf` 给 `"undefined"` ✓
-⇒ `s.isSupersetOf(t)` 当场抛 `cannot call a non-closure value` ✓（与第 308 轮
-`Array.prototype[Symbol.iterator]` 同一副面孔 ✓：**没人往那一格挂东西** ✗）。
+**为什么第 324 轮漏了它**：那一轮把六个名字一次做齐，而 `isSupersetOf` 与 `isSubsetOf`
+**是一对反过来问的话**——一个遍历自己、一个遍历对方，写的时候只写了前者。
+漏掉它的症状**不是**「报错说没实现」，而是 `typeof s.isSupersetOf` 给 `"undefined"`
+⇒ `s.isSupersetOf(t)` 当场抛 `cannot call a non-closure value`（与第 308 轮
+`Array.prototype[Symbol.iterator]` 同一副面孔：**没人往那一格挂东西**）。
 
 # const SetSizeGet:int = 662
-**`Set.prototype.size` 那个 getter 的号** ✓（第 613 轮 ✓）——**不是脚本看得到的名字** ✗：
-它是 `InstallSetPrototype` 自己挂上去的一个宿主引用 ✓。号落在 `661`（`MapSizeGet`）后面 ✓，
-理由与 `Map.groupBy` 那一段一字不差 ✓（`611..659` 那一段满了 ✓）。
+**`Set.prototype.size` 那个 getter 的号**（第 613 轮）——**不是脚本看得到的名字**：
+它是 `InstallSetPrototype` 自己挂上去的一个宿主引用。号落在 `661`（`MapSizeGet`）后面，
+理由与 `Map.groupBy` 那一段一字不差（`611..659` 那一段满了）。
 
 # method SetMethodNameOf:(id:int)=>string
 
@@ -107,9 +107,9 @@ if (id === SetKeys) return "keys";
 if (id === SetEntries) return "entries";
 if (id === SetClear) return "clear";
 if (id === SetForEach) return "forEach";
-// **第 324 轮那六个** ✓（ES2025 的集合运算 ✓）——它们是**另一件事** ✓：
-// 前八个改的是**接收者自己** ✓，这六个**不改接收者** ✗（造一个新的 ✓、或答一个是非 ✓）——
-// 但它们的**号与名字**照旧挂在这一张表上 ✓（`install.xl.md` 与这一层共用它 ✓）。
+// **第 324 轮那六个**（ES2025 的集合运算）——它们是**另一件事**：
+// 前八个改的是**接收者自己**，这六个**不改接收者**（造一个新的、或答一个是非）——
+// 但它们的**号与名字**照旧挂在这一张表上（`install.xl.md` 与这一层共用它）。
 if (id === SetUnion) return "union";
 if (id === SetIntersection) return "intersection";
 if (id === SetDifference) return "difference";
@@ -122,20 +122,20 @@ throw new Error("unimplemented: set method id " + id);
 
 # method InstallSetMethods:(room:RoomChecker, table:HeapTable, target:Value)=>void
 
-**把方法挂到一个对象上**（每个值都是带本模块号的宿主引用）✓。
+**把方法挂到一个对象上**（每个值都是带本模块号的宿主引用）。
 
-**第 341 轮：调用点从「每个实例」改成了「原型那一格」** ✗——理由与 `map.xl.md`
-`InstallMapMethods` 那一段**一字不差** ✓（`Object.getOwnPropertyNames(new Set())`
-在 Node 里是**空数组** ✓、本仓原来列出十四个方法名 ✗）。**函数体不必改** ✗：
-它们读的是 `self.__v` ✓，而 `DoCallMethod` 递进去的 `self` 仍然是**那个实例** ✓。
+**第 341 轮：调用点从「每个实例」改成了「原型那一格」**——理由与 `map.xl.md`
+`InstallMapMethods` 那一段**一字不差**（`Object.getOwnPropertyNames(new Set())`
+在 Node 里是**空数组**、本仓原来列出十四个方法名）。**函数体不必改**：
+它们读的是 `self.__v`，而 `DoCallMethod` 递进去的 `self` 仍然是**那个实例**。
 
 ```ts
 const ids = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear, SetForEach,
-  // **第 324 轮那六个也要挂** ✓：与上面八个**同一个循环** ✓——少挂一格就是
-  // `cannot call a non-closure value` ✓（**那句话听起来像「集合运算还没做」** ✗，
-  // 其实只是**没人往那一格挂东西** ✓，与第 308 轮 `Array.prototype[Symbol.iterator]` 同一副面孔 ✓）。
+  // **第 324 轮那六个也要挂**：与上面八个**同一个循环**——少挂一格就是
+  // `cannot call a non-closure value`（**那句话听起来像「集合运算还没做」**，
+  // 其实只是**没人往那一格挂东西**，与第 308 轮 `Array.prototype[Symbol.iterator]` 同一副面孔）。
   SetUnion, SetIntersection, SetDifference, SetSymmetricDifference, SetSubsetOf, SetDisjointFrom,
-  // **第 647 轮补齐第七个** ✓：`isSupersetOf` 与上面那一对是同一件事的三个方向 ✓。
+  // **第 647 轮补齐第七个**：`isSupersetOf` 与上面那一对是同一件事的三个方向。
   SetSupersetOf];
 for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
@@ -145,26 +145,26 @@ for (let i = 0; i < ids.length; i++) {
 
 # method InstallSetPrototype:(vm:Vm, protos:Protos)=>void
 
-**把 Set 那一族的方法装到 `Protos.Set` 上** ✓（第 341 轮 ✓）——与 `InstallMapPrototype`
-同一个位置、同一个形状 ✓。
+**把 Set 那一族的方法装到 `Protos.Set` 上**（第 341 轮）——与 `InstallMapPrototype`
+同一个位置、同一个形状。
 
-**`size` 从第 613 轮起也挂在这里** ✓（原来只是**实例上的一个数据格** ✗）——
-理由与 `map.xl.md` 的 `InstallMapPrototype` 那一段**一字不差** ✓（JS 里它是原型上的只读访问器 ✓，
-而本仓那一格根本不在原型上 ✗）。
+**`size` 从第 613 轮起也挂在这里**（原来只是**实例上的一个数据格**）——
+理由与 `map.xl.md` 的 `InstallMapPrototype` 那一段**一字不差**（JS 里它是原型上的只读访问器，
+而本仓那一格根本不在原型上）。
 
 ```ts
 InstallSetMethods(vm.Room(), vm.Table, Value.FromObject(protos.Set));
-// **`Set.prototype.size` 的 getter** ✓（第 613 轮 ✓）：与 `Map` 那一格同形 ✓——
-// **也必须走 `DefineAccessor`** ✗（`SetProperty` 造的是数据属性 ✓，
-// 理由写在 `map.xl.md` 那一处 ✓）。
+// **`Set.prototype.size` 的 getter**（第 613 轮）：与 `Map` 那一格同形——
+// **也必须走 `DefineAccessor`**（`SetProperty` 造的是数据属性，
+// 理由写在 `map.xl.md` 那一处）。
 DefineAccessor(vm.Room(), vm.Table, Value.FromObject(protos.Set), NameValue(vm.Table, "size"),
   Value.FromRef(ValueTag.HostRef, vm.Table.CreateHostRef(SetSizeGet, 0)), Value.Undefined(), false);
 ```
 
 # method SetSizeOf:(table:HeapTable, self:Value)=>Value
 
-**`size` 那个 getter 的正身** ✓（第 613 轮 ✓）——读 `__v` 的长度 ✓，
-与 `Map` 那一格**同一个形状** ✓（那边读的是 `__k` ✓）。
+**`size` 那个 getter 的正身**（第 613 轮）——读 `__v` 的长度，
+与 `Map` 那一格**同一个形状**（那边读的是 `__k`）。
 
 ```ts
 const values = ReadOwn(NeverRoom, table, self, "__v");
@@ -184,18 +184,18 @@ if (id === SetCtor) {
   // 而 TS 那边是 `Identifier`——对拍尺子会当场点出来（第 60 轮实测）。
   // 这是投影层的 bug，记在台账里；这里先绕开，让它不影响别的判据。
   const created = NewPlainObject(room, table, protos);
-  // **实例挂在 `Protos.Set` 上**（第 138 轮）——理由与 `map.xl.md` 那一句一字不差 ✓
-  // （`new Set() instanceof Set` 要在链上找到那一格 ✓）。
+  // **实例挂在 `Protos.Set` 上**（第 138 轮）——理由与 `map.xl.md` 那一句一字不差
+  // （`new Set() instanceof Set` 要在链上找到那一格）。
   table.Get(created.Ref).Proto = protos.Set;
   WriteOwn(room, NeverCall, table, created, "__v", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, created, "size", Value.FromInt(0));
-  // **初始值**（第 130 轮）：`new Set([1, 2])` ✓——实参是**数组**的那一种 ✓
-  // （`new Set(Array.from(x))` / `new Set([...])` 都是这个形状 ✓；**注意**后者的 `[...]`
-  // 还要展开语法 ✓，那是降级层的事 ✓）。**复用 `add` 那条路** ✓：去重与 `size` 都不必写第二遍 ✓。
-  // **生成器第 199 轮通了** ✓：`new Set(生成器)` 原来**静默给空集** ✗（JS 给全部产出 ✓）——
-  // 收成数组那一步在**号段翻译那一层** ✓（`install.xl.md` 的 `InvokeWithSink` ✓，
-  // 因为这一块**不能** import 它 ✓，会成环 ✗）。所以到这里 `args[0]` **一定是数组** ✓
-  // （或者 `null` / `undefined` ✓ = 空集 ✓）——**这一支一个字都没改** ✓。
+  // **初始值**（第 130 轮）：`new Set([1, 2])`——实参是**数组**的那一种
+  // （`new Set(Array.from(x))` / `new Set([...])` 都是这个形状；**注意**后者的 `[...]`
+  // 还要展开语法，那是降级层的事）。**复用 `add` 那条路**：去重与 `size` 都不必写第二遍。
+  // **生成器第 199 轮通了**：`new Set(生成器)` 原来**静默给空集**（JS 给全部产出）——
+  // 收成数组那一步在**号段翻译那一层**（`install.xl.md` 的 `InvokeWithSink`，
+  // 因为这一块**不能** import 它，会成环）。所以到这里 `args[0]` **一定是数组**
+  // （或者 `null` / `undefined` = 空集）——**这一支一个字都没改**。
   if (args.length > 0 && args[0].Tag === ValueTag.Array) {
     const items = table.Get(args[0].Ref).AsArray();
     for (let i = 0; i < items.GetLength(); i++) {
@@ -206,7 +206,7 @@ if (id === SetCtor) {
   return created;
 }
 const values = ReadOwn(room, table, self, "__v");
-// **`size` 那个 getter** ✓（第 613 轮 ✓）：读 `__v` 的长度 ✓——见 `SetSizeOf` ✓。
+// **`size` 那个 getter**（第 613 轮）：读 `__v` 的长度——见 `SetSizeOf`。
 if (id === SetSizeGet) return SetSizeOf(table, self);
 // **查找要用到才做**：`values()` 没有参数，若把 `IndexOfSetValue(..., args[0])` 提到
 // 分支之前，这里就会拿 `undefined` 去比相等——报出来的是
@@ -245,9 +245,9 @@ if (id === SetValues || id === SetKeys) {
     if (source.IsHole(i)) continue;
     table.Get(out.Ref).AsArray().Push(source.GetAt(i));
   }
-  // **真迭代器那一套也要挂上** ✓（第 331 轮 ✓）：`set.keys().next()` 与 `Map` 那一族
-  // **是同一件事** ✓ ⇒ 用**同一个** `AttachArrayIterator` ✓（第 279 轮做出的那两格 ✓，
-  // 见 `array.xl.md` 那一段的理由 ✓——**抄第二遍就是第二处会漂的答案** ✗）。
+  // **真迭代器那一套也要挂上**（第 331 轮）：`set.keys().next()` 与 `Map` 那一族
+  // **是同一件事** ⇒ 用**同一个** `AttachArrayIterator`（第 279 轮做出的那两格，
+  // 见 `array.xl.md` 那一段的理由——**抄第二遍就是第二处会漂的答案**）。
   AttachArrayIterator(room, table, out.Ref);
   return out;
 }
@@ -267,20 +267,20 @@ if (id === SetEntries) {
   return out;
 }
 if (id === SetForEach) {
-  // **回调脚本**（与 `Map` 同一条路 ✓）。快照一次长度：回调里可以改这个集合 ✓。
-  // **`call` 也要判空**：宿主没接回调通道时，这里必须**响亮**说清（而不是「调用了非闭包」）✗。
+  // **回调脚本**（与 `Map` 同一条路）。快照一次长度：回调里可以改这个集合。
+  // **`call` 也要判空**：宿主没接回调通道时，这里必须**响亮**说清（而不是「调用了非闭包」）。
   if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
     throw new Error("forEach needs a function and a call channel (the host must pass one)");
   }
   const eachTotal = table.Get(values.Ref).AsArray().GetLength();
   for (let i = 0; i < eachTotal; i++) {
     if (table.Get(values.Ref).AsArray().IsHole(i)) continue;
-    // **三格**（第 288 轮 ✓）：JS 的签名是 `(值, 值, 集合)` ✓——前两格是**同一个值** ✓
-    //（`s.forEach((v, k) => …)` 里 `k === v` ✓），第三格是**这个 Set 自己** ✓
-    //（给的就是接收者 `self` ✓，不是另造一个包装 ✓）。判据 `set-methods-and-iteration` ✓。
+    // **三格**（第 288 轮）：JS 的签名是 `(值, 值, 集合)`——前两格是**同一个值**
+    //（`s.forEach((v, k) => …)` 里 `k === v`），第三格是**这个 Set 自己**
+    //（给的就是接收者 `self`，不是另造一个包装）。判据 `set-methods-and-iteration`。
     call(args[0], Value.Undefined(), [table.Get(values.Ref).AsArray().GetAt(i),
       table.Get(values.Ref).AsArray().GetAt(i), self]);
-    // **回调抛出就收摊** ✓（第 228 轮 ✓，与 `Map.forEach` / `Array.prototype.forEach` 同一条口径 ✓）。
+    // **回调抛出就收摊**（第 228 轮，与 `Map.forEach` / `Array.prototype.forEach` 同一条口径）。
     if (failed !== null && failed()) return Value.Undefined();
   }
   return Value.Undefined();
@@ -292,13 +292,13 @@ if (id === SetClear) {
 }
 // ---- 第 324 轮：ES2025 的集合运算（第 647 轮补齐第七个）----
 //
-// **它们与上面八个是两件事** ✓：上面那些改的是**接收者自己** ✓（`add` / `delete` / `clear` ✓），
-// 这七个**一个都不改** ✗——造一个**新的 `Set`** ✓（四个）或答**一个是非** ✓（三个）。
+// **它们与上面八个是两件事**：上面那些改的是**接收者自己**（`add` / `delete` / `clear`），
+// 这七个**一个都不改**——造一个**新的 `Set`**（四个）或答**一个是非**（三个）。
 //
-// **另一个集合到这一层已经是数组** ✓（`install.xl.md` 那一趟 `IterDrain` ✓，
-// 与 `new Set(生成器)` 同一条路 ✓）——所以这里只需要**线性找** ✓
-// （`SameValueZero` ✓，与 `has` / `delete` 同一个表 ✓，`NaN` 于是也对 ✓）。
-// **`null` / `undefined` 按空集算** ✓（与 `new Set(undefined)` 同一条口径 ✓）。
+// **另一个集合到这一层已经是数组**（`install.xl.md` 那一趟 `IterDrain`，
+// 与 `new Set(生成器)` 同一条路）——所以这里只需要**线性找**
+// （`SameValueZero`，与 `has` / `delete` 同一个表，`NaN` 于是也对）。
+// **`null` / `undefined` 按空集算**（与 `new Set(undefined)` 同一条口径）。
 if (id === SetUnion || id === SetIntersection || id === SetDifference
   || id === SetSymmetricDifference || id === SetSubsetOf || id === SetDisjointFrom
   || id === SetSupersetOf) {
@@ -306,9 +306,9 @@ if (id === SetUnion || id === SetIntersection || id === SetDifference
   if (args.length > 0 && args[0].Tag === ValueTag.Array) other = table.Get(args[0].Ref).AsArray();
   const mine = table.Get(values.Ref).AsArray();
   if (id === SetSubsetOf || id === SetDisjointFrom) {
-    // **两格是一对反过来的问法** ✓：`isSubsetOf` 问「我每一个都在不在它里面」✓、
-    // `isDisjointFrom` 问「有没有一个在它里面」✓——**共用一个循环** ✓，
-    // 分开写就是两处会漂的答案 ✓（`!shared` 与 `missing` 是同一件事的两种说法 ✓）。
+    // **两格是一对反过来的问法**：`isSubsetOf` 问「我每一个都在不在它里面」、
+    // `isDisjointFrom` 问「有没有一个在它里面」——**共用一个循环**，
+    // 分开写就是两处会漂的答案（`!shared` 与 `missing` 是同一件事的两种说法）。
     let shared = false;
     let missing = false;
     for (let i = 0; i < mine.GetLength(); i++) {
@@ -318,10 +318,10 @@ if (id === SetUnion || id === SetIntersection || id === SetDifference
     }
     return Value.FromBool(id === SetSubsetOf ? !missing : !shared);
   }
-  // **`isSupersetOf` 是上面那一问的**反向** ✓（第 647 轮 ✓）：遍历的是**另一个集合** ✓，
-  // 而「在不在」查的是**我自己** ✓——两处只差方向 ✓，判据仍是 `SetArrayHas` ✓
-  //（`SameValueZero` 一份 ✓，`NaN` 于是也对 ✓）。
-  // **不能拿 `isSubsetOf` 的取值范围去凑** ✗：`a ⊇ b` 与 `a ⊆ b` 只有 `a === b` 时才同真 ✓。
+  // **`isSupersetOf` 是上面那一问的**反向**（第 647 轮）：遍历的是**另一个集合**，
+  // 而「在不在」查的是**我自己**——两处只差方向，判据仍是 `SetArrayHas`
+  //（`SameValueZero` 一份，`NaN` 于是也对）。
+  // **不能拿 `isSubsetOf` 的取值范围去凑**：`a ⊇ b` 与 `a ⊆ b` 只有 `a === b` 时才同真。
   if (id === SetSupersetOf) {
     if (other !== null) {
       for (let i = 0; i < other.GetLength(); i++) {
@@ -332,9 +332,9 @@ if (id === SetUnion || id === SetIntersection || id === SetDifference
     return Value.FromBool(true);
   }
   const created = InvokeSet(room, protos, table, null, SetCtor, Value.Undefined(), []);
-  // **一趟走自己那一侧** ✓：`union` 全要 ✓、`intersection` 要两边都有的 ✓、
-  // `difference` 要**只有自己有**的 ✓、`symmetricDifference` 先要「只有自己有」的 ✓
-  //（另一半在下面那一趟补 ✓）。
+  // **一趟走自己那一侧**：`union` 全要、`intersection` 要两边都有的、
+  // `difference` 要**只有自己有**的、`symmetricDifference` 先要「只有自己有」的
+  //（另一半在下面那一趟补）。
   for (let i = 0; i < mine.GetLength(); i++) {
     if (mine.IsHole(i)) continue;
     const value = mine.GetAt(i);
@@ -345,9 +345,9 @@ if (id === SetUnion || id === SetIntersection || id === SetDifference
     if (!keep) continue;
     InvokeSet(room, protos, table, null, SetAdd, created, [value]);
   }
-  // **`union` / `symmetricDifference` 的另一半** ✓（只在它俩身上 ✓）：
-  // 把「只有另一边有」的那些补进来 ✓——`add` 自己会去重 ✓（`union` 里两边都有的那些
-  // 于是不会进两次 ✓），所以这里**不必自己判重** ✓。
+  // **`union` / `symmetricDifference` 的另一半**（只在它俩身上）：
+  // 把「只有另一边有」的那些补进来——`add` 自己会去重（`union` 里两边都有的那些
+  // 于是不会进两次），所以这里**不必自己判重**。
   if ((id === SetUnion || id === SetSymmetricDifference) && other !== null) {
     for (let i = 0; i < other.GetLength(); i++) {
       if (other.IsHole(i)) continue;
@@ -363,10 +363,10 @@ throw new Error("unimplemented: set id " + id);
 
 # method SetArrayHas:(table:HeapTable, source:HeapArray | null, value:Value)=>bool
 
-**在「另一个集合」那个数组里找一格**（第 324 轮 ✓）——集合运算六个共用它 ✓。
+**在「另一个集合」那个数组里找一格**（第 324 轮）——集合运算六个共用它。
 
-**为什么要有它** ✗：四个运算与两个是非各写一遍「线性找」就是**六处会漂的判据** ✓，
-而它们要的**是同一个问题** ✓（`SameValueZero` ✓，`NaN` 也算在里面 ✓）。
+**为什么要有它**：四个运算与两个是非各写一遍「线性找」就是**六处会漂的判据**，
+而它们要的**是同一个问题**（`SameValueZero`，`NaN` 也算在里面）。
 
 ```ts
 if (source === null) return false;

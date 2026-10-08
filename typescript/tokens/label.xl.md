@@ -46,11 +46,11 @@ import { SymbolToken } from "./symbol-token.xl.md"
 三种都算：
 
 - **循环 / 分支关键字**：`for` / `foreach` / `while` / `do` / `switch` / `try` / `if`。
-  **第 392 轮起，其中 `if` 那一支要改成「认已经成形的语句单元」** ✗：`if` 现在是**解析期向导**
-  （`tokens/if/if-set.xl.md`）造出来的 ✓，它比本规则**更早**成形 ✓
-  ⇒ `outer: if (...) {...}` 走到这里时，冒号后面已经是一个 `IfSet` ✓，不再是散着的 `Identifier` ✗
-  （实测漏了这一格时 `decl-label-if` 报「缺 8 个节点、多出 `TypeDefine`」✓——
-  冒号被更晚的 `TypeDefineCloseRule` 当成类型标注收走了 ✓）。
+  **第 392 轮起，其中 `if` 那一支要改成「认已经成形的语句单元」**：`if` 现在是**解析期向导**
+  （`tokens/if/if-set.xl.md`）造出来的，它比本规则**更早**成形
+  ⇒ `outer: if (...) {...}` 走到这里时，冒号后面已经是一个 `IfSet`，不再是散着的 `Identifier`
+  （实测漏了这一格时 `decl-label-if` 报「缺 8 个节点、多出 `TypeDefine`」——
+  冒号被更晚的 `TypeDefineCloseRule` 当成类型标注收走了）。
 - **一个 `{` 括号**（块语句）：`outer: { … }` / `block: { … }`。
 - **任意 `Identifier`**（表达式语句，或又一个标签）：`done: f()` / `a: b: for(;;) { … }`。
 
@@ -72,11 +72,11 @@ if (item instanceof SymbolToken && item.Is("{")) {
 if (item instanceof Bracket) {
   return item.startBracket === "{";
 }
-// **已经成形的语句单元也要认** ✗（第 392 轮）——名单与上面那串关键字**一一对应** ✓，
-// 所以往后每把一条控制流规则改成向导，这里一个字都不用动 ✓。
+// **已经成形的语句单元也要认**（第 392 轮）——名单与上面那串关键字**一一对应**，
+// 所以往后每把一条控制流规则改成向导，这里一个字都不用动。
 //
-// 按**类名**判而不是 `instanceof` ✗：`statement.xl.md` 自己 import 本文件 ✓，
-// 反过来 import 会绕出环 ✓（与 `statement.xl.md` 用类名认 `StaticBlock` / `Namespace` 同一条理由 ✓）。
+// 按**类名**判而不是 `instanceof`：`statement.xl.md` 自己 import 本文件，
+// 反过来 import 会绕出环（与 `statement.xl.md` 用类名认 `StaticBlock` / `Namespace` 同一条理由）。
 const formed = item.constructor.name;
 if (
   formed === "IfSet" ||
@@ -120,9 +120,9 @@ if (!(colon instanceof SymbolToken) || !colon.Is(":")) {
   return false;
 }
 // **`switch` 段头里的冒号不是标签冒号**（第 553 轮）：`case 1: { … }` 里
-// 「`1` + `:` + `{`」三条全中 ⇒ 被收成 `<Label label="1" />` + 块 ✗ ——
-// `case` 段的体于是整段丢掉（实测 `st-switch-block-case.ts` 从 7 缺变成 8 缺 ✓）。
-// 判据在 `text-common-util.xl.md`（`type-define.xl.md` / `type-literal.xl.md` 问的是同一句 ✓）。
+// 「`1` + `:` + `{`」三条全中 ⇒ 被收成 `<Label label="1" />` + 块 ——
+// `case` 段的体于是整段丢掉（实测 `st-switch-block-case.ts` 从 7 缺变成 8 缺）。
+// 判据在 `text-common-util.xl.md`（`type-define.xl.md` / `type-literal.xl.md` 问的是同一句）。
 if (IsSwitchLabelColon(units, colonIndex)) {
   return false;
 }
@@ -142,11 +142,11 @@ return this.IsLabeledStatement(units, statementIndex);
 `Identifier`，块里一个节点都收不到。补队列的时机在这里是安全的：块括号早就关闭了，
 但它此刻还没有跑过任何重组（没有队列就不会跑），`TryToClose` 之后这一条队列才生效。
 
-**收尾规则那次显式调用不能省**（与 `BlockCloseRule` 同款，第 561 轮从 `Reorganize()` 换成 `ApplyCloseRules()` ✓）：
+**收尾规则那次显式调用不能省**（与 `BlockCloseRule` 同款，第 561 轮从 `Reorganize()` 换成 `ApplyCloseRules()`）：
 装队列只是装，「谁来跑」得自己叫——原来少了这一句，
 块里的内容全靠后面某趟的**顺带**（那时块还是个 `ObjectLiteral`）才成形，
 一旦块正确地保持成 `Bracket`（见 `text-common-util.xl.md` 的 `IsStatementList` 那一节），
-里面的 `let` / `break` 就全成了散单元 ✗。实测三条标签块的用例（`decl-label-block` /
+里面的 `let` / `break` 就全成了散单元。实测三条标签块的用例（`decl-label-block` /
 `st-label-block` / `stmt-label-block`）正是这样报出来的。
 
 ```ts

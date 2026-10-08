@@ -526,20 +526,20 @@ new Map([
 ```ts
   // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
   // 由这条统一合成（见 `leafKindOfText` 的同一条判据），产物那边它只是一个普通文本块。
-  // **位置用「原文」，`text` 用解开的** ✗（第 381 轮 ✓）——两件事要的字符串不一样：
-  // `\u0066` 这个名字在源码里占 **6 个字符** ✓（`indexOf` 与 `end` 都按它算 ✓），
-  // 而它的**名字**是 `f` ✓（TS 的 AST `text` 也是 `f` ✓）。
-  // **这一格踩过** ✗：第一版在调用点就把名字解开了 ✓ ⇒ `end` 按解开的长度算 ✓
-  // ⇒ 函数声明的名字区间短一截 ✓ ⇒ 参数表跟着错位 ✓（`function f\u0066() {}` 报
-  // `unimplemented: parameter without a name` ✓）。
+  // **位置用「原文」，`text` 用解开的**（第 381 轮）——两件事要的字符串不一样：
+  // `\u0066` 这个名字在源码里占 **6 个字符**（`indexOf` 与 `end` 都按它算），
+  // 而它的**名字**是 `f`（TS 的 AST `text` 也是 `f`）。
+  // **这一格踩过**：第一版在调用点就把名字解开了 ⇒ `end` 按解开的长度算
+  // ⇒ 函数声明的名字区间短一截 ⇒ 参数表跟着错位（`function f\u0066() {}` 报
+  // `unimplemented: parameter without a name`）。
   const nameText = Translate.DecodeIdentifierEscapes(name);
   const nameKind = nameText.length > 1 && nameText[0] === "#" ? "PrivateIdentifier" : "Identifier";
   if (name === "") return undefined;
-  // **名字那一格的整段区间**（`nameRange`，第 645 轮 ✓）：闭区间 `"起,止"`、**引号也在里面** ✓——
-  // 与 `bodyBraceRange` 同一形状 ✓。有它就能**按那一格自己**推出文本区间：
-  // 开头是引号 ⇒ 引号名，文本在引号之间 ✓；否则整格就是文本 ✓。
-  // **这是「token 出字段、投影直读」那一格** ✓：`Namespace` 的字符串模块名、`Field` 的字符串名
-  // 都从这里出 ✓——它们原先只能回原文 `indexOf(名字文本)` 猜 ✗，而带转义的名字 `indexOf` 根本找不到 ✗。
+  // **名字那一格的整段区间**（`nameRange`，第 645 轮）：闭区间 `"起,止"`、**引号也在里面**——
+  // 与 `bodyBraceRange` 同一形状。有它就能**按那一格自己**推出文本区间：
+  // 开头是引号 ⇒ 引号名，文本在引号之间；否则整格就是文本。
+  // **这是「token 出字段、投影直读」那一格**：`Namespace` 的字符串模块名、`Field` 的字符串名
+  // 都从这里出——它们原先只能回原文 `indexOf(名字文本)` 猜，而带转义的名字 `indexOf` 根本找不到。
   const unitSpan = braceSpanOf(v.attrs.get("nameRange"));
   if (unitSpan !== null) {
     const head = ctx.source[unitSpan[0]];
@@ -694,7 +694,7 @@ new Map([
   // 在 TS 那边是一个 `Identifier`（`undefined` 不是保留字），只有**类型位**的 `: undefined`
   // 才是 `UndefinedKeyword`。这条表管的是**叶子**（值位标识符），把它算成 `UndefinedKeyword`
   // 会同时记「多出 `UndefinedKeyword` 147 + 缺 `Identifier` 一大片」。
-  // 类型位那一边由 `PRIMITIVE_TYPE_KIND` 负责（那里面有 `undefined` ✓）。
+  // 类型位那一边由 `PRIMITIVE_TYPE_KIND` 负责（那里面有 `undefined`）。
   return "Identifier";
 ```
 
@@ -759,11 +759,11 @@ new Map([
       // 终点是下一个常量段的末尾再加一：那个 `ConstString` 已经把 `$` 收进去了，
       // 后面紧跟的 `{`（或尾段的那个反引号）是它的后面一格。
       //
-      // **起点取那个 `}` 本身，不取内插表达式的终点** ✗（第 623 轮 ✓）：两者只在
-      // 「表达式与 `}` 紧挨着」时相等 ✓ —— `` `${ `b${1}` }c` `` 里表达式终点落在
-      // 内层反引号之后一格（那个空格上 ✓），照它给起点就**多吞一个空格** ✓
-      //（实测 `op-template-nested`：`TemplateTail` 漂一格 ✓）。
-      // `InterpolationString` 的区间**到 `}` 为止** ✓（`$` 起、`}` 收 ✓）⇒ 减一就是它 ✓。
+      // **起点取那个 `}` 本身，不取内插表达式的终点**（第 623 轮）：两者只在
+      // 「表达式与 `}` 紧挨着」时相等 —— `` `${ `b${1}` }c` `` 里表达式终点落在
+      // 内层反引号之后一格（那个空格上），照它给起点就**多吞一个空格**
+      //（实测 `op-template-nested`：`TemplateTail` 漂一格）。
+      // `InterpolationString` 的区间**到 `}` 为止**（`$` 起、`}` 收）⇒ 减一就是它。
       pos: endOf(interps[i]) - 1,
       // 尾段后面没有常量段时（`` `${a}` ``）终点就是整个字符串的终点（含那个反引号）。
       end: consts[i + 1] === undefined ? v.end : endOf(consts[i + 1]) + 1,
@@ -851,12 +851,12 @@ new Map([
 
 ```ts
   const type = node.get("type");
-  // **裸块的花括号是节点，不是包装** ✗：`(` / `[` 只是分组 ✓，内容提上去正好 ✓；
-  // 而语句位那个 `{ … }` 在 TS 里是一个 `Block` ✓（`projectNode` 里为它写了一支 ✓）。
-  // 当包装提上去会把块里的语句**并到父节点语句表的末尾** ✗ —— 顺序于是与源码相反 ✓，
-  // 而块里的语句是**按顺序执行**的 ✗（**静默错值** ✓：实测
-  // `function f() { { console.log("in") } console.log("out") }` 印出 `out / in` ✓）。
-  // 值位的花括号到不了这里 ✓：对象字面量是 `ObjectLiteral` ✓、类型字面量是 `TypeLiteral` ✓。
+  // **裸块的花括号是节点，不是包装**：`(` / `[` 只是分组，内容提上去正好；
+  // 而语句位那个 `{ … }` 在 TS 里是一个 `Block`（`projectNode` 里为它写了一支）。
+  // 当包装提上去会把块里的语句**并到父节点语句表的末尾** —— 顺序于是与源码相反，
+  // 而块里的语句是**按顺序执行**的（**静默错值**：实测
+  // `function f() { { console.log("in") } console.log("out") }` 印出 `out / in`）。
+  // 值位的花括号到不了这里：对象字面量是 `ObjectLiteral`、类型字面量是 `TypeLiteral`。
   if (type === "Bracket" && String(node.get("startBracket") ?? "") === "{") {
     return undefined;
   }
@@ -1058,14 +1058,14 @@ new Map([
   if (ctx.expressionPosition === true) {
     if (v.type === "Function") kind = "FunctionExpression";
     else if (v.type === "Class") kind = "ClassExpression";
-    // **用完就还回去**（第 134 轮修的）：这个标记说的是「**这一个**节点在表达式位」✓，
-    // 不是「它的整棵子树也在」✗。不还的话，`(function () { function f() { … } … })()`
-    // 里**体里那条函数声明会被当成表达式** ✗——它投成 `FunctionExpression`，
-    // 降级层于是报 `unimplemented: statement FunctionExpression` ✓。
-    // 而那是**普通代码里遍地都是**的形状 ✗（匿名 IIFE 里写一个辅助函数 ✓）。
-    // **为什么以前没露**：只有 `kids.length === 1` 那一条才会置这个标记 ✓，
-    // 而**带名字**的函数声明有两个子单元（名字 + 体 ✓）——于是「声明里套声明」一直是对的 ✓，
-    // 只有**匿名**的 IIFE（一个子单元 ✓）才把标记漏下去 ✓。
+    // **用完就还回去**（第 134 轮修的）：这个标记说的是「**这一个**节点在表达式位」，
+    // 不是「它的整棵子树也在」。不还的话，`(function () { function f() { … } … })()`
+    // 里**体里那条函数声明会被当成表达式**——它投成 `FunctionExpression`，
+    // 降级层于是报 `unimplemented: statement FunctionExpression`。
+    // 而那是**普通代码里遍地都是**的形状（匿名 IIFE 里写一个辅助函数）。
+    // **为什么以前没露**：只有 `kids.length === 1` 那一条才会置这个标记，
+    // 而**带名字**的函数声明有两个子单元（名字 + 体）——于是「声明里套声明」一直是对的，
+    // 只有**匿名**的 IIFE（一个子单元）才把标记漏下去。
     ctx.expressionPosition = false;
   }
   else if (
@@ -1080,19 +1080,19 @@ new Map([
     // `ConstructorDeclaration` 在这个 TypeScript 里是 `undefined`——按后者投，
     // 尺子上 269 处构造签名会一直算作「缺 `Constructor`」）。
     //
-    // **`ClassExpression` 是第 301 轮补上的** ✗——原来只认 `ClassDeclaration` ✓，
-    // 于是**类表达式里的 `constructor` 一直是 `MethodDeclaration`** ✗
-    //（判据 `ex-index-and-call-signatures` 现场红的 ✓：`const K: Ctor = class { n: number;
-    //  constructor(n) { this.n = n } }` 之后 `new K(4).n` 给 `undefined` ✓，
-    //  Node 给 `4` ✓）。**TS 那边两种都投 `Constructor`** ✓（`ClassExpression` 的成员
-    // 就是 `ConstructorDeclaration` ✓）——所以这是**投影漏了一格** ✗，不是「两种口径」✗。
+    // **`ClassExpression` 是第 301 轮补上的**——原来只认 `ClassDeclaration`，
+    // 于是**类表达式里的 `constructor` 一直是 `MethodDeclaration`**
+    //（判据 `ex-index-and-call-signatures` 现场红的：`const K: Ctor = class { n: number;
+    //  constructor(n) { this.n = n } }` 之后 `new K(4).n` 给 `undefined`，
+    //  Node 给 `4`）。**TS 那边两种都投 `Constructor`**（`ClassExpression` 的成员
+    // 就是 `ConstructorDeclaration`）——所以这是**投影漏了一格**，不是「两种口径」。
     //
-    // **不补这一格的后果离现场很远** ✗：降级层按 `NodeKind(members[i]) === "Constructor"`
-    // 找显式构造函数 ✓（`LowerClass` ✓）——找不到就**合成一个空的** ✓，
-    // 于是**写着的构造函数整条不跑** ✗，字段初始化式还照常发 ✓
-    // ⇒ `n: number`（无初始化式 ✓）留下 `undefined` ✓、`n = 1` 把构造函数的赋值**盖掉** ✓
-    //（实测 `class { n = 1; constructor(v) { this.n = v } }` 给 `1` ✓，Node 给 `7` ✓）。
-    // **一句异常都没有** ✗——只有与 `node` 逐字节对拍才看得见 ✓。
+    // **不补这一格的后果离现场很远**：降级层按 `NodeKind(members[i]) === "Constructor"`
+    // 找显式构造函数（`LowerClass`）——找不到就**合成一个空的**，
+    // 于是**写着的构造函数整条不跑**，字段初始化式还照常发
+    // ⇒ `n: number`（无初始化式）留下 `undefined`、`n = 1` 把构造函数的赋值**盖掉**
+    //（实测 `class { n = 1; constructor(v) { this.n = v } }` 给 `1`，Node 给 `7`）。
+    // **一句异常都没有**——只有与 `node` 逐字节对拍才看得见。
     kind = "Constructor";
   }
   // **取值器 / 设值器**（`get x(): A { … }` / `set x(v) { … }`，第 93 轮）：
@@ -1387,8 +1387,8 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
       }
       const statement = j < items.length ? projectNode(items[j], ctx, parentKind) : undefined;
       if (statement !== undefined) {
-        // **体必须是「语句」** ✓（第 566 轮 ✓，与 `projectStatement` 那一支同一句 ✓）：
-        // 这一路是根列表 / 段 ✓，手里没有语句壳 ✓ ⇒ 终点就取体自己的 ✓。
+        // **体必须是「语句」**（第 566 轮，与 `projectStatement` 那一支同一句）：
+        // 这一路是根列表 / 段，手里没有语句壳 ⇒ 终点就取体自己的。
         let wrapped = asStatement(statement, statement.end ?? 0);
         for (let k = labels.length - 1; k >= 0; k--) {
           wrapped = labeled(labels[k], wrapped, ctx);
@@ -1502,22 +1502,22 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
 
 # private method asStatement:(body:any, end:int)=>any
 
-**标签右边那一格必须是「语句」** ✓（第 566 轮 ✓）：TS 的 `LabeledStatement.statement` 是
-`Statement` ✓ —— 体是**表达式**时（`done: f()` ✓、`{ a: 1 }` 里的 `a: 1` ✓）那边是
-`ExpressionStatement > 表达式` ✓，而产物给的是「`Label` 平级兄弟 + 裸表达式」✗
-⇒ 少一整层壳 ✓（实测三份用例各缺一个 `ExpressionStatement` ✓：
-`stmt-label-statement` ✓、`am-object-vs-block` ✓、`stmt-object-vs-block` ✓）。
+**标签右边那一格必须是「语句」**（第 566 轮）：TS 的 `LabeledStatement.statement` 是
+`Statement` —— 体是**表达式**时（`done: f()`、`{ a: 1 }` 里的 `a: 1`）那边是
+`ExpressionStatement > 表达式`，而产物给的是「`Label` 平级兄弟 + 裸表达式」
+⇒ 少一整层壳（实测三份用例各缺一个 `ExpressionStatement`：
+`stmt-label-statement`、`am-object-vs-block`、`stmt-object-vs-block`）。
 
-**判据是 kind 的后缀** ✓ 而不是那张表 ✓：`STATEMENT_KINDS` 是「**单个子单元**是它时不再套壳」的
-名单 ✓，它漏了 `ExpressionStatement` 自己 ✓、`ForInStatement` ✓、`WithStatement` ✓ 这些
-（`projectStatement` 那一支只在「`kids.length === 1`」时才用它 ✓，这里的体是**投影结果** ✓，
-范围大得多 ✓）。TS 那边「本来就是语句」的 kind 只有三类 ✓：`*Statement` ✓、`*Declaration` ✓、
-以及 `Block` / `ModuleBlock` ✓ —— 表达式 kind 一个都不沾这三类 ✓，所以后缀判据不会误判 ✓。
+**判据是 kind 的后缀** 而不是那张表：`STATEMENT_KINDS` 是「**单个子单元**是它时不再套壳」的
+名单，它漏了 `ExpressionStatement` 自己、`ForInStatement`、`WithStatement` 这些
+（`projectStatement` 那一支只在「`kids.length === 1`」时才用它，这里的体是**投影结果**，
+范围大得多）。TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declaration`、
+以及 `Block` / `ModuleBlock` —— 表达式 kind 一个都不沾这三类，所以后缀判据不会误判。
 
-**`end` 由调用方给** ✓：壳体那一路（`projectStatement` ✓）给的是
-`max(壳的投影终点, 体的终点)` 再吃一个尾分号 ✓ —— `done: f();` 的
-`ExpressionStatement` 在 TS 那边**含那个 `;`** ✓；根列表那一路（`projectEach` ✓）没有壳 ✓，
-就从体自己的终点算 ✓。
+**`end` 由调用方给**：壳体那一路（`projectStatement`）给的是
+`max(壳的投影终点, 体的终点)` 再吃一个尾分号 —— `done: f();` 的
+`ExpressionStatement` 在 TS 那边**含那个 `;`**；根列表那一路（`projectEach`）没有壳，
+就从体自己的终点算。
 
 ```ts
   if (body === undefined || body === null) {
@@ -1702,7 +1702,7 @@ new Set([
 | `export default enum E { A }` | 缺 3 / 多 3 | 缺 3 / 多 3 |
 
 后两种本来就**不是合法 TS**（`export default enum` 两个词实测在 `ts.createSourceFile`
-那边是**一个 `ExportAssignment`**：`MISS ExportAssignment TS[0,14)` + `MISS Identifier TS[14,14)` ✓），
+那边是**一个 `ExportAssignment`**：`MISS ExportAssignment TS[0,14)` + `MISS Identifier TS[14,14)`），
 两版都不可能是零；而「漂移」比「缺 + 多」难收拾（一个区间要挪、两个节点要挪），
 所以**这一轮不动名单**——只把「哪一格问哪一份」这件事收成一份。
 
@@ -1780,15 +1780,15 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   }
   const head = kids[0];
   const headType = head.get("type");
-  // **带标签的语句：壳里是 `[Label, 被标的语句]`**（第 536 轮 ✓）——
-  // 与 `projectEach` 里那条「连续标签从右往左套」**同一件事** ✓，只是那一条只在
-  // **顶层列表 / 段**上跑 ✓（`Root.ToList()` 那一层 ✓），而这里的 `Statement` 壳
-  // **整条被当成一个单元**递进来 ✓ ⇒ 那一条永远看不到它 ✗。
+  // **带标签的语句：壳里是 `[Label, 被标的语句]`**（第 536 轮）——
+  // 与 `projectEach` 里那条「连续标签从右往左套」**同一件事**，只是那一条只在
+  // **顶层列表 / 段**上跑（`Root.ToList()` 那一层），而这里的 `Statement` 壳
+  // **整条被当成一个单元**递进来 ⇒ 那一条永远看不到它。
   //
-  // **少了它会怎样** ✗（实测 `decl-label-break-continue.ts` 一族 **19 份**文件 ✓）：
-  // 整条落进通用支 ✓ ⇒ 投出 `ExpressionStatement > LabeledStatement(只盖标签)` ✗
-  // ⇒ 被标的那条语句（`ForStatement` / `WhileStatement` …）连它整棵子树一起丢 ✗
-  //（一鱼多吃：`BreakStatement` 22 份 + `Block` 20 份 + `CallExpression` 23 份都在这一族里 ✓）。
+  // **少了它会怎样**（实测 `decl-label-break-continue.ts` 一族 **19 份**文件）：
+  // 整条落进通用支 ⇒ 投出 `ExpressionStatement > LabeledStatement(只盖标签)`
+  // ⇒ 被标的那条语句（`ForStatement` / `WhileStatement` …）连它整棵子树一起丢
+  //（一鱼多吃：`BreakStatement` 22 份 + `Block` 20 份 + `CallExpression` 23 份都在这一族里）。
   if (headType === "Label" && kids.length >= 2) {
     const labels = [];
     let at = 0;
@@ -1798,9 +1798,9 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     }
     const body = at < kids.length ? projectNode(kids[at], ctx) : undefined;
     if (body !== undefined) {
-      // **体必须是「语句」** ✓（第 566 轮 ✓）：表达式要套一层 `ExpressionStatement` ✓
-      //（`done: f()` / `a: 1` ✓）；终点取壳体与体里更远的那个 ✓、再吃一个尾分号 ✓
-      //（`done: f();` 的那层壳在 TS 那边含 `;` ✓，见 `asStatement` ✓）。
+      // **体必须是「语句」**（第 566 轮）：表达式要套一层 `ExpressionStatement`
+      //（`done: f()` / `a: 1`）；终点取壳体与体里更远的那个、再吃一个尾分号
+      //（`done: f();` 的那层壳在 TS 那边含 `;`，见 `asStatement`）。
       let wrapped = asStatement(
         body,
         semicolonEndOf(Math.max(stmtEndOf(v, ctx), body.end ?? 0), ctx),
@@ -1819,8 +1819,8 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // 于是括号里每个单元（含 `as` / `type` 两个词）都成了平级子节点，
   // 而 `ExportSpecifier` 一个也没投出来。
   if (headType === "Export" && kids.length >= 1) {
-    // **语句那一格的终点**要一起递进去（第 548 轮 ✓）：具名导出的尾分号不在
-    // `Export` 单元自己的区间里 ✗（见 `projectExport` ✓）。
+    // **语句那一格的终点**要一起递进去（第 548 轮）：具名导出的尾分号不在
+    // `Export` 单元自己的区间里（见 `projectExport`）。
     return projectExport(head, ctx, kids.slice(1), stmtEndOf(v, ctx));
   }
   if (headType === "Let") {
@@ -1906,13 +1906,13 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       // 单个子单元**本身就是语句**（`if` / `class` / `import`…）⇒ 不再套壳；
       // 是**表达式**（`f(1)` / `a + b` / `new X`）⇒ TS 那边是 `ExpressionStatement > 表达式`。
       //
-      // **类型别名要把尾分号吃进来**（第 535 轮 ✓）：`type F = (a) => B;` 在 TS 那边
-      // `TypeAliasDeclaration` 的区间是 `[239,281)` ✓（**含 `;`** ✓，`Node.end` 就是分号之后 ✓），
-      // 而产物这边 `TypeAssign` 自己的区间只到 `B` ✓ ⇒ 差一格 ✓
-      //（实测 `expr-arrow-body-nested-ternary.ts` 一族 **21 份**文件各一处 ✓，
-      //  修完全语料 850 → **871** ✓）。别的语句族（`if` / `class` / `import` / `function`…）
-      // **不能**这么吃 ✗ —— 它们的尾分号 TS 那边不算在自己身上 ✓（`class A {};` 的
-      // `ClassDeclaration` 到 `}` 为止 ✓），所以只对 `TypeAliasDeclaration` 开这一档 ✓。
+      // **类型别名要把尾分号吃进来**（第 535 轮）：`type F = (a) => B;` 在 TS 那边
+      // `TypeAliasDeclaration` 的区间是 `[239,281)`（**含 `;`**，`Node.end` 就是分号之后），
+      // 而产物这边 `TypeAssign` 自己的区间只到 `B` ⇒ 差一格
+      //（实测 `expr-arrow-body-nested-ternary.ts` 一族 **21 份**文件各一处，
+      //  修完全语料 850 → **871**）。别的语句族（`if` / `class` / `import` / `function`…）
+      // **不能**这么吃 —— 它们的尾分号 TS 那边不算在自己身上（`class A {};` 的
+      // `ClassDeclaration` 到 `}` 为止），所以只对 `TypeAliasDeclaration` 开这一档。
       if (STATEMENT_KINDS.has(kind)) {
         if (kind === "TypeAliasDeclaration") {
           projected.end = semicolonEndOf(
@@ -1997,15 +1997,15 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
 只认 `SymbolToken` 时会整类丢两侧操作数（实测 `x in o` 只剩一个 `operatorToken`，
 真实语料 1118 处「产物只有 operatorToken、TS 有 left/right」都是这一条）。
 
-**`Identifier` 那一态也要认** ✗（第 550 轮 ✓）：关掉 reorg 之后，
-`in` / `instanceof` 是**由 `KeywordCloseRule` 在关前那一趟升上去的** ✓ ——
-可那一趟**排在最后** ✓，而二元折叠造出来的那个单元是**自己又往下钻了一层** ✗
-（`ApplyCloseRules` 里 `Depth >= 8` 那道临时硬界 ✓，第 496 轮 ✓）——
-界那一层**不再跑规则** ✗ ⇒ 最里面那一层的运算符**永远停在 `Identifier`** ✗。
-于是投影侧按 `Keyword` 判就**一格也认不出来** ✓：整个 `x in o` 只剩下第一个操作数 ✗
-（实测 `expr-in-array-literal.ts` 一份缺 38 ✓——`BinaryExpression` + `InKeyword` +
-两侧操作数整族 ✓；`a instanceof b` 同样只投出 `a` ✓）。
-**按文本认词** ✓ 与 `WordText` 那条口径同一条 ✓（同一个词两态都要认 ✓）。
+**`Identifier` 那一态也要认**（第 550 轮）：关掉 reorg 之后，
+`in` / `instanceof` 是**由 `KeywordCloseRule` 在关前那一趟升上去的** ——
+可那一趟**排在最后**，而二元折叠造出来的那个单元是**自己又往下钻了一层**
+（`ApplyCloseRules` 里 `Depth >= 8` 那道临时硬界，第 496 轮）——
+界那一层**不再跑规则** ⇒ 最里面那一层的运算符**永远停在 `Identifier`**。
+于是投影侧按 `Keyword` 判就**一格也认不出来**：整个 `x in o` 只剩下第一个操作数
+（实测 `expr-in-array-literal.ts` 一份缺 38——`BinaryExpression` + `InKeyword` +
+两侧操作数整族；`a instanceof b` 同样只投出 `a`）。
+**按文本认词** 与 `WordText` 那条口径同一条（同一个词两态都要认）。
 
 ```ts
   const type = node.get("type");
@@ -2016,12 +2016,12 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
 
 # private method operatorTokenOf:(op:any, ctx:any)=>any
 
-运算符那一格的**叶子节点**（第 550 轮 ✓）。
+运算符那一格的**叶子节点**（第 550 轮）。
 
-`Keyword` 那一态走现成的通用投影 ✓（`KEYWORD_KIND` 把它们映射成 `InKeyword` /
-`InstanceOfKeyword` ✓）；`Identifier` 那一态**必须按文本自己定 kind** ✗ ——
-照通用投影会投成 `Identifier("in")` ✗，于是同一个节点在账上**同时**记一笔「缺 `InKeyword`」
-与一笔「多出 `Identifier`」✓。
+`Keyword` 那一态走现成的通用投影（`KEYWORD_KIND` 把它们映射成 `InKeyword` /
+`InstanceOfKeyword`）；`Identifier` 那一态**必须按文本自己定 kind** ——
+照通用投影会投成 `Identifier("in")`，于是同一个节点在账上**同时**记一笔「缺 `InKeyword`」
+与一笔「多出 `Identifier`」。
 
 ```ts
   const text = textOfNode(op, ctx);
@@ -2071,21 +2071,21 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // **泛型箭头函数不走这里**（`<T>(x: T): T => x` 也是 `[GenericType, Lamda]` 两格）——
   // 那一支在后面，这里先让开（判据是第二格是不是 `Lamda`）。
   if (kids[0].get("type") === "GenericType" && kids.length >= 2 && kids[1].get("type") !== "Lamda") {
-    // **被断言的是「一个一元表达式」，不是后面全部** ✗（第 379 轮 ✓）。
+    // **被断言的是「一个一元表达式」，不是后面全部**（第 379 轮）。
     //
-    // TS 里 `<T>expr` 是**前缀**那一档 ✓（与 `!x` / `typeof x` 同一档 ✓）——
-    // 所以 `<number>a + b` 是 `(<number>a) + b` ✓，**不是** `<number>(a + b)` ✗。
-    // **原来把后面整段都吞了** ✗（`projectExpression(kids.slice(1))` ✓）：`<number>a + <number>b`
-    // 于是投成「一个断言套住整个加法」✓——**值看着一样** ✓（两边都算 `3` ✓），
-    // 可节点形状与区间都错 ✓，落到降级层就报 `name is not a local or a capture: number` ✓
-    //（判据 `c371-ex-type-assertions-in-operands` ✓、`ex-angle-bracket-assertion` 那一族 ✓）。
+    // TS 里 `<T>expr` 是**前缀**那一档（与 `!x` / `typeof x` 同一档）——
+    // 所以 `<number>a + b` 是 `(<number>a) + b`，**不是** `<number>(a + b)`。
+    // **原来把后面整段都吞了**（`projectExpression(kids.slice(1))`）：`<number>a + <number>b`
+    // 于是投成「一个断言套住整个加法」——**值看着一样**（两边都算 `3`），
+    // 可节点形状与区间都错，落到降级层就报 `name is not a local or a capture: number`
+    //（判据 `c371-ex-type-assertions-in-operands`、`ex-angle-bracket-assertion` 那一族）。
     //
-    // **修法**：断言只吃**一个操作数** ✓（前缀运算符连着算 ✓），剩下那几格交给
-    // `foldBinaryFrom` ✓——第 141 / 180 轮那两处用的就是它 ✓（这里不另写一份折叠 ✗）。
+    // **修法**：断言只吃**一个操作数**（前缀运算符连着算），剩下那几格交给
+    // `foldBinaryFrom`——第 141 / 180 轮那两处用的就是它（这里不另写一份折叠）。
     const asserted = projectTypeExpression(projectableKids(view(kids[0])), ctx);
-    // **操作数有多长** ✓：前缀运算符一串 ✓，然后**一格**就是整个操作数 ✓——
-    // 后缀链（`.b` / `(…)` / `[…]`）在产物里**已经折成一格**了 ✓
-    //（`PropertyAccess` / `Method` / `Bracket` ✓），所以不必在这里再拼后缀 ✓。
+    // **操作数有多长**：前缀运算符一串，然后**一格**就是整个操作数——
+    // 后缀链（`.b` / `(…)` / `[…]`）在产物里**已经折成一格**了
+    //（`PropertyAccess` / `Method` / `Bracket`），所以不必在这里再拼后缀。
     let operandEnd = 1;
     while (operandEnd < kids.length && isPrefixOperatorUnit(kids[operandEnd], ctx)) {
       operandEnd += 1;
@@ -2276,32 +2276,32 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     const named = kids[2];
     // `import.meta.url` 的 `meta.url` 被收成了一个 `PropertyAccess`；`new.target` 只是名字。
     //
-    // **名字那一格也可能是一个 `BinaryOperator`**（第 539 轮实测 ✓）：关掉 reorg 之后
-    // `new.target === A` 里 `target === A` 被折成了一个 `BinaryOperator` ✓
-    //（`new` 不再当链底之后 ✓，二元那条规则把 `target` 与它右边整段收在一起 ✓）。
-    // 照整格投影会把 `=== A` 一起卷进 `MetaProperty` ✗ ⇒ **只取它的第一个操作数** ✓
-    //（运算符左边那一格就是名字 ✓）。探针现场（`tmp/recon/probe-meta.cjs` ✓）：
+    // **名字那一格也可能是一个 `BinaryOperator`**（第 539 轮实测）：关掉 reorg 之后
+    // `new.target === A` 里 `target === A` 被折成了一个 `BinaryOperator`
+    //（`new` 不再当链底之后，二元那条规则把 `target` 与它右边整段收在一起）。
+    // 照整格投影会把 `=== A` 一起卷进 `MetaProperty` ⇒ **只取它的第一个操作数**
+    //（运算符左边那一格就是名字）。探针现场（`tmp/recon/probe-meta.cjs`）：
     //
     //     MP1DBG kids=Keyword(new),SymbolToken(.),BinaryOperator()
     const namedKids = named.get("type") === "PropertyAccess" ? projectableKids(view(named)) : [named];
-    // **「名字那一格是不是被折进了二元单元」要单独记下来** ✗（第 560 轮 ✓）：
-    // 下面那个「一直往左走到不是二元运算符为止」的循环只有在**第一格就是二元单元**时才有意义 ✓
-    //（`new.target === A` ✓：`target === A` 被折成一格 ✓，名字要从它左边取 ✓）。
-    // 原来那一句 `inner` 的写法**没有把这件事记下来** ✗ —— 它写的是
-    // 「`firstName` 不是二元单元 ⇒ `inner = [firstName]`」✓，而那对**普通名字**也成立 ✗
-    // ⇒ `import.meta.url` 的 `meta.url` 是**一个 `PropertyAccess`** ✓、`namedKids` 是
-    // `[meta, ., url]` ✓，`firstName` 就是那个 `meta` ✓ ⇒ `inner` 被砍成 `[meta]` ✗
-    // ⇒ 下面那个「往后接 `.名字`」的循环一格都接不上 ✗ ⇒ 投出来只有 `MetaProperty(meta)` ✗
+    // **「名字那一格是不是被折进了二元单元」要单独记下来**（第 560 轮）：
+    // 下面那个「一直往左走到不是二元运算符为止」的循环只有在**第一格就是二元单元**时才有意义
+    //（`new.target === A`：`target === A` 被折成一格，名字要从它左边取）。
+    // 原来那一句 `inner` 的写法**没有把这件事记下来** —— 它写的是
+    // 「`firstName` 不是二元单元 ⇒ `inner = [firstName]`」，而那对**普通名字**也成立
+    // ⇒ `import.meta.url` 的 `meta.url` 是**一个 `PropertyAccess`**、`namedKids` 是
+    // `[meta, ., url]`，`firstName` 就是那个 `meta` ⇒ `inner` 被砍成 `[meta]`
+    // ⇒ 下面那个「往后接 `.名字`」的循环一格都接不上 ⇒ 投出来只有 `MetaProperty(meta)`
     //（实测 `expr-call-import-meta.ts` / `ex-meta-props.ts`：缺 `PropertyAccessExpression`
-    //  + `Identifier(url)` 两个 ✓ ——而 `[PropertyAccessExpression, Identifier]` 正好是
-    //  「`.url` 整段丢了」的形状 ✓）。
+    //  + `Identifier(url)` 两个 ——而 `[PropertyAccessExpression, Identifier]` 正好是
+    //  「`.url` 整段丢了」的形状）。
     const headIsBinary =
       namedKids.length > 0 &&
       namedKids[0] instanceof Map &&
       namedKids[0].get("type") === "BinaryOperator";
-    // **一直往左走到不是二元运算符为止** ✗（第 539 轮实测 ✓）：那个 `BinaryOperator` 是**嵌套**的 ✓
-    //（`target === A` 折了好几层 ✓，探针打出来 `first` 仍然是 `BinaryOperator` ✗）——
-    // 只剥一层不够 ✓，要剥到最左边那个真正的名字 ✓。
+    // **一直往左走到不是二元运算符为止**（第 539 轮实测）：那个 `BinaryOperator` 是**嵌套**的
+    //（`target === A` 折了好几层，探针打出来 `first` 仍然是 `BinaryOperator`）——
+    // 只剥一层不够，要剥到最左边那个真正的名字。
     let firstName = namedKids.length > 0 ? namedKids[0] : undefined;
     let guard = 0;
     while (
@@ -2314,9 +2314,9 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       firstName = down[0];
       guard = guard + 1;
     }
-    // **只有「剥过」才把 `inner` 收成一格** ✓：`new.target === A` 的名字是剥出来的那一格 ✓
-    //（运算符与右操作数属于**外面**那一折 ✓，第 539 轮把区间修对 ✓、接运算符那一截是另一笔账 ✓）；
-    // 其余情形 `inner` 就是**整个 `namedKids`** ✓ ——`meta.url` 那两格要在下面接上 ✓。
+    // **只有「剥过」才把 `inner` 收成一格**：`new.target === A` 的名字是剥出来的那一格
+    //（运算符与右操作数属于**外面**那一折，第 539 轮把区间修对、接运算符那一截是另一笔账）；
+    // 其余情形 `inner` 就是**整个 `namedKids`** ——`meta.url` 那两格要在下面接上。
     const inner = headIsBinary && firstName !== undefined ? [firstName] : namedKids;
     let meta: any = {
       kind: "MetaProperty",
@@ -2337,12 +2337,12 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       };
       at += 2;
     }
-    // **后面那些 `.名字` 也要继续接上** ✗（第 346 轮 ✓，**实测撞到的** ✓）：
-    // 原来到这里直接 `kids.slice(3)` 丢给 `foldBinaryFrom` ✓——而 `.` 在那一支里
-    // 会当成**二元运算符** ✗ ⇒ `new.target.name` 投出来是一个**光秃秃的 `Identifier(name)`** ✗
-    //（症状：降级期报「name is not a local or a capture: name」✓——
-    //  **一句话里没有一个字提到 `new.target`** ✗）。
-    // 所以先把点号链**走完** ✓，再把手里的余下部分交给二元那一支 ✓。
+    // **后面那些 `.名字` 也要继续接上**（第 346 轮，**实测撞到的**）：
+    // 原来到这里直接 `kids.slice(3)` 丢给 `foldBinaryFrom`——而 `.` 在那一支里
+    // 会当成**二元运算符** ⇒ `new.target.name` 投出来是一个**光秃秃的 `Identifier(name)`**
+    //（症状：降级期报「name is not a local or a capture: name」——
+    //  **一句话里没有一个字提到 `new.target`**）。
+    // 所以先把点号链**走完**，再把手里的余下部分交给二元那一支。
     let after = 3;
     while (after + 1 < kids.length && isSymbol(kids[after], ".")) {
       const member = kids[after + 1];
@@ -2356,21 +2356,21 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       after += 2;
     }
     const rest = kids.slice(after);
-    // **`new.target === A`：运算符那一截要接回来** ✓（第 580 轮 ✓，第 539 轮把区间修对时
-    // 把这一条留给了后面的轮次 ✓）：
+    // **`new.target === A`：运算符那一截要接回来**（第 580 轮，第 539 轮把区间修对时
+    // 把这一条留给了后面的轮次）：
     //
-    // 名字那一格被折成 `BinaryOperator(target === A)` 之后 ✓，`kids.slice(after)` 里
-    // **只剩运算符本身** ✗（`===` 与 `A` 在那一格的 `Data` 里 ✓）⇒ 照「`rest` 为空就
-    // `return meta`」收尾就是**把整个右半截丢掉** ✗。实测（第 580 轮 ✓，
-    // `decl-class-new-target.ts`）：投影只投出一个 `MetaProperty [112,122)` ✓，
-    // 缺 `BinaryExpression` / `EqualsEqualsEqualsToken` / `Identifier(A)` 三个 ✓
-    // ——TS 那边是 `BinaryExpression [112,128) > [MetaProperty, «===», Identifier(A)]` ✓。
+    // 名字那一格被折成 `BinaryOperator(target === A)` 之后，`kids.slice(after)` 里
+    // **只剩运算符本身**（`===` 与 `A` 在那一格的 `Data` 里）⇒ 照「`rest` 为空就
+    // `return meta`」收尾就是**把整个右半截丢掉**。实测（第 580 轮，
+    // `decl-class-new-target.ts`）：投影只投出一个 `MetaProperty [112,122)`，
+    // 缺 `BinaryExpression` / `EqualsEqualsEqualsToken` / `Identifier(A)` 三个
+    // ——TS 那边是 `BinaryExpression [112,128) > [MetaProperty, «===», Identifier(A)]`。
     //
-    // 取法：从那一格二元单元**最左边那条脊**（一直往左的第一格 ✓）递归收它的**其余兄弟** ✓，
-    // 收出来的正是 `foldBinaryFrom` 要的 `[运算符, 操作数, …]` ✓（与下面 `.名字` 那一支同源 ✓）。
-    // **必须递归** ✗：这条脊是左嵌套的（`a === b === c` 折成 `(a === b) === c` ✓）——
-    // 逐层往下 `push` 会把两层的顺序搞反 ✓（`[===, c, ===, b]` ✗），而
-    // `[…内层, 本层运算符, 本层右操作数]` 这个顺序正好就是它 ✓。
+    // 取法：从那一格二元单元**最左边那条脊**（一直往左的第一格）递归收它的**其余兄弟**，
+    // 收出来的正是 `foldBinaryFrom` 要的 `[运算符, 操作数, …]`（与下面 `.名字` 那一支同源）。
+    // **必须递归**：这条脊是左嵌套的（`a === b === c` 折成 `(a === b) === c`）——
+    // 逐层往下 `push` 会把两层的顺序搞反（`[===, c, ===, b]`），而
+    // `[…内层, 本层运算符, 本层右操作数]` 这个顺序正好就是它。
     const binaryTail = (unit: any, depth: int): any[] => {
       if (depth > 32 || unit instanceof Map === false) return [];
       if (unit.get("type") !== "BinaryOperator") return [];
@@ -2634,8 +2634,8 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // 通用支只投第一格，于是**标签模板与后缀整片丢**：
   // `` const r = tag`abc`.length `` 投出来是 `VariableDeclaration{ Identifier r, Identifier tag }`，
   // 降级层拿到一个光秃秃的 `tag`，于是运行时给的是**函数本身**
-  //（Node 给 `3` ✓、本仓给 `[Function (anonymous)]` ✗——`runtime:cli` 第 53 份语料是绿的，
-  // 因为它只钉了不带后缀的 `` tag`abc` `` ✓）。
+  //（Node 给 `3`、本仓给 `[Function (anonymous)]`——`runtime:cli` 第 53 份语料是绿的，
+  // 因为它只钉了不带后缀的 `` tag`abc` ``）。
   //
   // 判据与 0b 同源，只是往里走一层：第二格是 `PropertyAccess`、它**第一个**可投影子单元
   // 是**反引号开头**的 `String`（普通字符串是 `"` / `'`，`projectString` 靠这个分岔）。
@@ -2651,7 +2651,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // 外加值位括号）：`1 + t`abc`` 的产物也是 `[BinaryOperator(1, +, t), PropertyAccess(…)]`
   // 这种「模板单元在第二格」的形状，但那里的标签是**那个二元单元的最后一个操作数**
   //（`t`），不是整个 `1 + t`——认错的话 `1 + t`abc`` 会变成 `(1 + t)`abc``，
-  // 静默算成另一个值 ✗。那一族（模板单元**跟在运算符单元后面**）记在台账里，本轮不做。
+  // 静默算成另一个值。那一族（模板单元**跟在运算符单元后面**）记在台账里，本轮不做。
   const tagUnit = kids[0];
   const tagIsComplete =
     IsChainBaseNode(tagUnit) ||
@@ -2739,17 +2739,17 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   //
   // `xs[0]() + 1` 的产物是
   // `[PropertyAccess(xs, [0]), BinaryOperator(Bracket(空), +, 1)]`——
-  // **被调方在外面，它那一对空括号却在二元单元的最左边** ✓。
-  // 投影的二元那一支会把这个 `()` 当成左操作数（`ParenthesizedExpression(空)` ✗），
-  // 被调方那一段于是只剩 `xs[0]` ✓——`console.log(xs[0]() + 1)` 打出来的是**函数本身** ✗
-  //（Node 给 `2` ✓，**静默错值** ✗）。
+  // **被调方在外面，它那一对空括号却在二元单元的最左边**。
+  // 投影的二元那一支会把这个 `()` 当成左操作数（`ParenthesizedExpression(空)`），
+  // 被调方那一段于是只剩 `xs[0]`——`console.log(xs[0]() + 1)` 打出来的是**函数本身**
+  //（Node 给 `2`，**静默错值**）。
   //
-  // 判据：沿**二元单元的左脊柱**往下走，找到「第一个子单元是**空的 `(` 括号**」那一层 ✓
-  // ——那个括号是**前一个兄弟（被调方）的实参表** ✓。先把前一个兄弟投出来 ✓、
-  // 套一层零实参的 `CallExpression` ✓，再把沿途每一层的 `(运算符, 右操作数)`
-  // **从里往外**交给 `foldBinaryFrom` ✓（与 0d 那一支同一个折法 ✓）。
+  // 判据：沿**二元单元的左脊柱**往下走，找到「第一个子单元是**空的 `(` 括号**」那一层
+  // ——那个括号是**前一个兄弟（被调方）的实参表**。先把前一个兄弟投出来、
+  // 套一层零实参的 `CallExpression`，再把沿途每一层的 `(运算符, 右操作数)`
+  // **从里往外**交给 `foldBinaryFrom`（与 0d 那一支同一个折法）。
   //
-  // 脊柱上任何一层不满足就整个让开 ✓——宁可维持原来的错，也不能把别的形状认成调用 ✓。
+  // 脊柱上任何一层不满足就整个让开——宁可维持原来的错，也不能把别的形状认成调用。
   if (
     kids.length >= 2 &&
     (kids[1].get("type") === "BinaryOperator" || kids[1].get("type") === "LogicalOperator")
@@ -2796,23 +2796,23 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // ---- 0f. 赋值后面跟着逗号（第 180 轮）----
   //
   // `a = 1, 5` 的产物是 `[Identifier(a), SymbolToken(=), BinaryOperator(1, «,», 5)]`——
-  // **逗号单元最左边那一格 `1` 其实是赋值号的右操作数** ✓，而 `a` `=` 还在外面 ✓。
-  // TS 那边是 `BinaryExpression( BinaryExpression(a = 1), «,», 5 )` ✓。
-  // 照通用支走会拼成 `a = (1, 5)` ✗——实测 `const c = (a = 1, 5)` 里那个 `a` 变成 **5** ✓
-  //（Node 给 **1** ✓，**静默错值** ✗）；`(a = 1, a = 2)` 则干脆报
-  // `unimplemented: assignment to a non-identifier` ✓（形状这一层就错了 ✓）。
+  // **逗号单元最左边那一格 `1` 其实是赋值号的右操作数**，而 `a` `=` 还在外面。
+  // TS 那边是 `BinaryExpression( BinaryExpression(a = 1), «,», 5 )`。
+  // 照通用支走会拼成 `a = (1, 5)`——实测 `const c = (a = 1, 5)` 里那个 `a` 变成 **5**
+  //（Node 给 **1**，**静默错值**）；`(a = 1, a = 2)` 则干脆报
+  // `unimplemented: assignment to a non-identifier`（形状这一层就错了）。
   //
-  // **判据两头都要** ✓：
-  //   · 前面那一格是**赋值号** ✓（`=` / `+=` / …）——`a = b + 1` 的产物也是
-  //     `[a, =, BinaryOperator(b, +, 1)]` ✓，但那里的单元**不是逗号** ✓，
-  //     照这条认会把 `a = b + 1` 拆成 `(a = b) + 1` ✗；
-  //   · 这个单元的运算符是 **`,`** ✓（只有逗号比赋值更松 ✓，也才会这样分家 ✓）。
+  // **判据两头都要**：
+  //   · 前面那一格是**赋值号**（`=` / `+=` / …）——`a = b + 1` 的产物也是
+  //     `[a, =, BinaryOperator(b, +, 1)]`，但那里的单元**不是逗号**，
+  //     照这条认会把 `a = b + 1` 拆成 `(a = b) + 1`；
+  //   · 这个单元的运算符是 **`,`**（只有逗号比赋值更松，也才会这样分家）。
   //
-  // **逗号是左结合的，所以最左边那一格可能要往下走几层** ✓：
-  // `a = 1, b, c` 的产物是 `[a, =, BIN(BIN(1, «,», b), «,», c)]` ✓——
-  // 沿**左脊柱**一路走到「第一个子单元**不是**逗号单元」那一层 ✓，
-  // 那一格才是赋值号的右操作数 ✓。然后把沿途每一层的 `(运算符, 右操作数)`
-  // **从里往外**交给 `foldBinaryFrom` ✓（与 0d / 0e 同一个折法 ✓）。
+  // **逗号是左结合的，所以最左边那一格可能要往下走几层**：
+  // `a = 1, b, c` 的产物是 `[a, =, BIN(BIN(1, «,», b), «,», c)]`——
+  // 沿**左脊柱**一路走到「第一个子单元**不是**逗号单元」那一层，
+  // 那一格才是赋值号的右操作数。然后把沿途每一层的 `(运算符, 右操作数)`
+  // **从里往外**交给 `foldBinaryFrom`（与 0d / 0e 同一个折法）。
   if (kids.length >= 2) {
     for (let at = 1; at < kids.length; at++) {
       const unit = kids[at];
@@ -2858,40 +2858,40 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       return foldBinaryFrom(assigned, rest, ctx);
     }
   }
-  // ---- 0b2. 标签模板**后面还跟着后缀**：第 173 轮在这里加过一条判据 ✗——**退回来了** ✗ ----
+  // ---- 0b2. 标签模板**后面还跟着后缀**：第 173 轮在这里加过一条判据——**退回来了** ----
   //
-  // 判据写的是「第二格是 `PropertyAccess` 且它第一个子单元是反引号 String」✓，
-  // 拼法是把标签模板拼好后按 `dottedExpression` 那条形状挂成员 ✓。
-  // **实测它一次都没生效** ✗：`cases:tsast` 照样 1434/1434 ✓、
-  // `` tag`abc`.length `` 照样给 `[Function (anonymous)]` ✗、
-  // AST 照样是 `VariableDeclaration{ Identifier r, Identifier tag }` ✗
-  //（标签模板与 `.length` 全丢 ✓）。**没被验证过的改动不留** ✗ → 撤回 ✓。
+  // 判据写的是「第二格是 `PropertyAccess` 且它第一个子单元是反引号 String」，
+  // 拼法是把标签模板拼好后按 `dottedExpression` 那条形状挂成员。
+  // **实测它一次都没生效**：`cases:tsast` 照样 1434/1434、
+  // `` tag`abc`.length `` 照样给 `[Function (anonymous)]`、
+  // AST 照样是 `VariableDeclaration{ Identifier r, Identifier tag }`
+  //（标签模板与 `.length` 全丢）。**没被验证过的改动不留** → 撤回。
   //
-  // **这一轮我重犯了第 168 轮那个错** ✗：没插桩就加分支 ✓（「先插桩、再下结论」✗）。
-  // **下一轮的入口** ✓：给 `projectExpression` 插一行探针 ✓，把
-  // `[Identifier tag, PropertyAccess{…}]` 这种 kids **到底落在哪一支**打出来 ✓——
-  // 现在已知的是：**这一支不是它** ✗（那一段入口更早 ✓）。
-  // 另外这一轮**证实了一件事** ✓：第 172 轮那次「结果挪一格」的试验是在
-  // **AST 还错着**的时候做的 ✗，所以它当时**什么也证明不了** ✓——
-  // 等 AST 修对之后，那个槽位假设**要重新量一遍** ✓（不能拿它当已否证的结论 ✗）。
-  // ---- 0b1. 标签模板**后面还跟着后缀**：第 173 / 174 轮各试过一次 ✗——**都退回来了** ✗ ----
+  // **这一轮我重犯了第 168 轮那个错**：没插桩就加分支（「先插桩、再下结论」）。
+  // **下一轮的入口**：给 `projectExpression` 插一行探针，把
+  // `[Identifier tag, PropertyAccess{…}]` 这种 kids **到底落在哪一支**打出来——
+  // 现在已知的是：**这一支不是它**（那一段入口更早）。
+  // 另外这一轮**证实了一件事**：第 172 轮那次「结果挪一格」的试验是在
+  // **AST 还错着**的时候做的，所以它当时**什么也证明不了**——
+  // 等 AST 修对之后，那个槽位假设**要重新量一遍**（不能拿它当已否证的结论）。
+  // ---- 0b1. 标签模板**后面还跟着后缀**：第 173 / 174 轮各试过一次——**都退回来了** ----
   //
-  // **判据是对的、取子单元的办法也找到了** ✓（第 174 轮探针 ✓）：
-  // 这个形状确实是 `projectLetFrom → projectExpression` ✓，kids 正是
-  // `Identifier,PropertyAccess` ✓；而取子单元要用 **`projectableKids`** ✓
-  //（第 173 轮用 `view(...)` ✗ → 分支**静默不成立** ✗，所以那次「没生效」✗）。
+  // **判据是对的、取子单元的办法也找到了**（第 174 轮探针）：
+  // 这个形状确实是 `projectLetFrom → projectExpression`，kids 正是
+  // `Identifier,PropertyAccess`；而取子单元要用 **`projectableKids`**
+  //（第 173 轮用 `view(...)` → 分支**静默不成立**，所以那次「没生效」）。
   //
-  // **换成 `projectableKids` 之后分支生效了** ✓（AST 立刻变对：标签模板与 `.length` 都在 ✓），
-  // **但降级层当场报新错** ✗：`v.segments is not iterable` ✓——
-  // 说明这一支里对那个 `String` 单元调 `projectNode(…)` ✗ **拿到的不是投影期待的那种节点** ✓
-  //（`v.segments` 是投影内部 `String` 视图上的字段 ✓，见本文件 4527 / 5380 那两处 ✓）。
-  // **没被验证过的改动不留** ✗ → 第二次也撤回 ✓。
+  // **换成 `projectableKids` 之后分支生效了**（AST 立刻变对：标签模板与 `.length` 都在），
+  // **但降级层当场报新错**：`v.segments is not iterable`——
+  // 说明这一支里对那个 `String` 单元调 `projectNode(…)` **拿到的不是投影期待的那种节点**
+  //（`v.segments` 是投影内部 `String` 视图上的字段，见本文件 4527 / 5380 那两处）。
+  // **没被验证过的改动不留** → 第二次也撤回。
   //
-  // **下一轮的第一件事** ✓：把**已经在用的**那条 0b 判据（`` tag`abc` `` 整句那条 ✓，
-  // 第 137 轮 ✓）里 `projectNode(kids[1], ctx)` 的 **`kids[1]` 到底是什么形状**打出来 ✓
-  //（`allKids` / `view` / `kidsOf(…, "children")` 各给什么 ✓），
-  // 再拿同一个形状去投属性访问里的那个 `String` ✓——**照抄那条已经跑通的路** ✓，
-  // 不再自己另找一条 ✓。
+  // **下一轮的第一件事**：把**已经在用的**那条 0b 判据（`` tag`abc` `` 整句那条，
+  // 第 137 轮）里 `projectNode(kids[1], ctx)` 的 **`kids[1]` 到底是什么形状**打出来
+  //（`allKids` / `view` / `kidsOf(…, "children")` 各给什么），
+  // 再拿同一个形状去投属性访问里的那个 `String`——**照抄那条已经跑通的路**，
+  // 不再自己另找一条。
   // ---- 0b. 展开实参（第 114 轮）----
   //
   // `f(...xs)` 的产物把 `...` 与目标分成**两格**，而 `...` 是 `SymbolToken`
@@ -2921,22 +2921,22 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // **第 70 轮**：token 层新增了 `PropertyAccess`（成员访问链在 token 层就折成一个单元），
   // 所以这里的两条输入路径都要认——`PropertyAccess` 单元走同一个递归（见 `projectNode`），
   // 而**值位里散着的平铺链**（类型位、`?.` 让路之后的残留）仍走这一支。
-  // **`!` 后面那个下标被收成了「数组字面量」兄弟** ✗（第 303 轮 ✓）：
+  // **`!` 后面那个下标被收成了「数组字面量」兄弟**（第 303 轮）：
   // `o.b![1]` 的产物是 `<NotNull(PropertyAccess(o.b), !)>` 与 `<ArrayLiteral(1)>`
-  // **两个平级单元** ✓——`!` 那一格只把**左边**包起来 ✓，后面那个 `[` 谁也不认它 ✓
-  // （它不是下标位、也不是数组字面量位 ✓，于是**按数组字面量成形** ✗）。
-  // 于是原来的链分支进不来 ✓（它要求 `kids[1]` 是 `.` 或**真下标** ✓），
-  // `NotNull` 单独投影 ✓ ⇒ **`[1]` 整个丢掉** ✗：
-  // `o.b![1]` 在 Node 里是 `2` ✓，本仓给的是**那个数组本身** ✓——**静默错值** ✗
-  // （判据 `ex-nonnull-chain-index` / `ex-nonnull-and-as-chain` ✓）。
+  // **两个平级单元**——`!` 那一格只把**左边**包起来，后面那个 `[` 谁也不认它
+  // （它不是下标位、也不是数组字面量位，于是**按数组字面量成形**）。
+  // 于是原来的链分支进不来（它要求 `kids[1]` 是 `.` 或**真下标**），
+  // `NotNull` 单独投影 ⇒ **`[1]` 整个丢掉**：
+  // `o.b![1]` 在 Node 里是 `2`，本仓给的是**那个数组本身**——**静默错值**
+  // （判据 `ex-nonnull-chain-index` / `ex-nonnull-and-as-chain`）。
   if (
     kids.length >= 2 &&
     (isSymbol(kids[1], ".") || isIndexBracket(kids[1]) ||
       (kids[0].get("type") === "NotNull" && kids[1].get("type") === "ArrayLiteral") ||
-      // **`!` 后面那一格以一次下标开头** ✗（第 333 轮 ✓）：`[1]!` ✓ 与 `[0].id` ✓
-      // 两种外壳（`NotNull` ✓ / `PropertyAccess` ✓）都要认 ✓——判据与理由见
-      // `isIndexFirstUnit` 那一段 ✓。少了它，`o.b![1]![0]` 与 `data.list![0].id`
-      // **整条链都进不来** ✗（后两个方括号连着丢 ✓）。
+      // **`!` 后面那一格以一次下标开头**（第 333 轮）：`[1]!` 与 `[0].id`
+      // 两种外壳（`NotNull` / `PropertyAccess`）都要认——判据与理由见
+      // `isIndexFirstUnit` 那一段。少了它，`o.b![1]![0]` 与 `data.list![0].id`
+      // **整条链都进不来**（后两个方括号连着丢）。
       (kids[0].get("type") === "NotNull" && isIndexFirstUnit(kids[1], ctx)))
   ) {
     // **嵌套的链要摊平**（第 86 轮）：产物偶尔把**一整条链**塞进另一条链的成员位——
@@ -2971,15 +2971,15 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       }
       ck.push(k);
     }
-    // **`!` 后面那一格「以一次下标开头」的单元要摊开** ✗（第 333 轮 ✓）：
-    // `data.list![0].id` 的 token 形状是 `[NotNull(data.list), PropertyAccess(ArrayLiteral(0), ., id)]` ✓
-    // ——第二格的外壳是**属性访问** ✓，而它要落的其实是**两件事** ✓：
-    // 先按那个方括号下标 ✓、再把 `.id` 接上去 ✓。
-    // **不摊开的话**：循环看到的是一个 `PropertyAccess` ✓ ⇒ 既不是下标 ✓、也不是点号 ✓
-    // ⇒ `break` ✗ ⇒ 后面整段丢 ✓（`data.list![0].id` 于是给**整个数组** ✓，
-    // 而 Node 给 `1` ✓——**静默错值** ✓，判据 `c331-ex-nonnull-and-optional-mix` ✓）。
-    // **`NotNull` 那一档不在这里摊** ✗：它自带「断言」那一半 ✓，
-    // 摊成两格反而会把那个 `!` 丢成一枚裸符号 ✗——它由循环里那一支一起办 ✓（见下面 ✓）。
+    // **`!` 后面那一格「以一次下标开头」的单元要摊开**（第 333 轮）：
+    // `data.list![0].id` 的 token 形状是 `[NotNull(data.list), PropertyAccess(ArrayLiteral(0), ., id)]`
+    // ——第二格的外壳是**属性访问**，而它要落的其实是**两件事**：
+    // 先按那个方括号下标、再把 `.id` 接上去。
+    // **不摊开的话**：循环看到的是一个 `PropertyAccess` ⇒ 既不是下标、也不是点号
+    // ⇒ `break` ⇒ 后面整段丢（`data.list![0].id` 于是给**整个数组**，
+    // 而 Node 给 `1`——**静默错值**，判据 `c331-ex-nonnull-and-optional-mix`）。
+    // **`NotNull` 那一档不在这里摊**：它自带「断言」那一半，
+    // 摊成两格反而会把那个 `!` 丢成一枚裸符号——它由循环里那一支一起办（见下面）。
     const headAssert = kids.length > 0 && kids[0].get("type") === "NotNull";
     if (headAssert && ck.length > 0) {
       const flattened: Array<any> = [];
@@ -3002,21 +3002,21 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       ck[0].get("type") === "Bracket" && ck[0].get("startBracket") === "("
         ? parenthesizedOf(ck[0], ctx)
         : projectNode(ck[0], ctx);
-    // **这一条链上出现过非空断言**（第 303 轮 ✓）：出现过之后 ✓，
-    // 后面那些「按数组字面量成形的方括号」**每一格都是下标** ✓——
-    // `o.b![1]![0]` 里**两个** `[` 都是这种形状 ✓（第二个的前一格是**已经折好的**
-    // `ElementAccessExpression` ✗，不再挨着那个 `NotNull` ✓）。
-    // 只看「前一格是不是 `NotNull`」的话，第二个下标会**整段丢掉** ✗
-    //（判据 `c303-nonnull-then-index` 第二版量的就是它 ✓）。
+    // **这一条链上出现过非空断言**（第 303 轮）：出现过之后，
+    // 后面那些「按数组字面量成形的方括号」**每一格都是下标**——
+    // `o.b![1]![0]` 里**两个** `[` 都是这种形状（第二个的前一格是**已经折好的**
+    // `ElementAccessExpression`，不再挨着那个 `NotNull`）。
+    // 只看「前一格是不是 `NotNull`」的话，第二个下标会**整段丢掉**
+    //（判据 `c303-nonnull-then-index` 第二版量的就是它）。
     let sawNullAssert = ck[0].get("type") === "NotNull";
     let i = 1;
     while (i < ck.length) {
       // **下标链接**：`a[i]` → `ElementAccessExpression`（第 80 轮）。
       //
-      // **紧跟在一个「非空断言」后面的 `ArrayLiteral` 也是下标** ✗（第 303 轮 ✓，理由见上面
-      // 那一段 ✓）：`o.b![1]` 里那个 `[1]` 是按**数组字面量**成形的 ✓，
-      // 而它在**链上**（前一格是 `NotNull` ✓）就只能是下标 ✓——
-      // 数组字面量不会紧跟在表达式后面出现 ✓（`o.b [1]` 在 JS 里就是 `o.b[1]` ✓）。
+      // **紧跟在一个「非空断言」后面的 `ArrayLiteral` 也是下标**（第 303 轮，理由见上面
+      // 那一段）：`o.b![1]` 里那个 `[1]` 是按**数组字面量**成形的，
+      // 而它在**链上**（前一格是 `NotNull`）就只能是下标——
+      // 数组字面量不会紧跟在表达式后面出现（`o.b [1]` 在 JS 里就是 `o.b[1]`）。
       const indexLike = isIndexBracket(ck[i]) ||
         (ck[i].get("type") === "ArrayLiteral" && sawNullAssert);
       if (indexLike) {
@@ -3031,19 +3031,19 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         i += 1;
         continue;
       }
-      // **调用括号也是链上的一格** ✓（第 309 轮 ✓）——`o["m"]()` 的产物是
-      // `[Identifier(o), Bracket([m]), Bracket(())]` ✓（**下标那一格是平级的** ✓，
-      // 与 `o.m()` 不同 ✗：那个形状里 `(` 会被折进 `Method` ✓）。
-      // 上面那一支替 `[m]` 建出 `ElementAccessExpression` ✓ 之后，紧跟的 `()` 是
-      // **对它的调用** ✓——少了这一格，循环在这里 `break` ✓ ⇒ 只剩 `ElementAccessExpression` ✓
-      // ⇒ **那次调用整格消失** ✗（`typeof (o["m"]())` 于是算的是**方法本身** ✓、
-      // 给 `"function"` ✗，Node 给 `"object"` ✓——**静默错值** ✗；
-      // 判据 `c307-rt-typeof-element-call-in-args` ✓）。
-      // **做法与上面下标那一支同款** ✓（先把左边折好，再套一层 ✓），
-      // 与 `projectExpression` 里那条「末尾是 `(` 括号」的规则（3b）**是同一件事** ✓
-      // ——区别只是这里在处理**一条已经开始的链** ✓。
-      // **它必须排在下标那一支之后** ✗：`a[i]` 与 `a(i)` 长得像 ✓，
-      // 而那个 `[` / `(` 的分别正是 `startBracket` 那一格 ✓。
+      // **调用括号也是链上的一格**（第 309 轮）——`o["m"]()` 的产物是
+      // `[Identifier(o), Bracket([m]), Bracket(())]`（**下标那一格是平级的**，
+      // 与 `o.m()` 不同：那个形状里 `(` 会被折进 `Method`）。
+      // 上面那一支替 `[m]` 建出 `ElementAccessExpression` 之后，紧跟的 `()` 是
+      // **对它的调用**——少了这一格，循环在这里 `break` ⇒ 只剩 `ElementAccessExpression`
+      // ⇒ **那次调用整格消失**（`typeof (o["m"]())` 于是算的是**方法本身**、
+      // 给 `"function"`，Node 给 `"object"`——**静默错值**；
+      // 判据 `c307-rt-typeof-element-call-in-args`）。
+      // **做法与上面下标那一支同款**（先把左边折好，再套一层），
+      // 与 `projectExpression` 里那条「末尾是 `(` 括号」的规则（3b）**是同一件事**
+      // ——区别只是这里在处理**一条已经开始的链**。
+      // **它必须排在下标那一支之后**：`a[i]` 与 `a(i)` 长得像，
+      // 而那个 `[` / `(` 的分别正是 `startBracket` 那一格。
       if (ck[i].get("type") === "Bracket" && ck[i].get("startBracket") === "(") {
         left = {
           kind: "CallExpression",
@@ -3063,14 +3063,14 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         // 包成 `NonNullExpression`，链再照常往下接。不认它的话循环在这里 break，
         // 后面那整段链会掉成平级节点（实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
         if (ck[i].get("type") === "NotNull") {
-          // **`[1]!` 这种「先下标、再断言」的一格** ✗（第 333 轮 ✓）：见 `isIndexFirstUnit`
-          // 那一段的表 ✓——中间那一格的外壳是 `NotNull` ✓，里层却是一个方括号 ✓。
-          // **次序是语义** ✗：TS 是 `((o.b!)[1])!` ✓——先下标、再把 `!` 套在那个结果上 ✓。
-          // 原来无条件写成「把 `left` 整个包进 `NonNullExpression`」✗ ⇒ 断言套在了**下标之前** ✓
-          // ⇒ 值一样 ✓（断言不改值 ✓）可**区间与层数都对不上** ✗，
-          // 而后面那个 `[0]` 又因为 `sawNullAssert` 已经置真而接上 ✓——
-          // 表面上跑得通 ✓，`cases:tsast` 一比就漂 ✓（实测 `arr![0]![0]`：缺两个
-          // `ElementAccessExpression` + 两个 `NumericLiteral` ✓、`NonNullExpression` 漂 4 ✓）。
+          // **`[1]!` 这种「先下标、再断言」的一格**（第 333 轮）：见 `isIndexFirstUnit`
+          // 那一段的表——中间那一格的外壳是 `NotNull`，里层却是一个方括号。
+          // **次序是语义**：TS 是 `((o.b!)[1])!`——先下标、再把 `!` 套在那个结果上。
+          // 原来无条件写成「把 `left` 整个包进 `NonNullExpression`」 ⇒ 断言套在了**下标之前**
+          // ⇒ 值一样（断言不改值）可**区间与层数都对不上**，
+          // 而后面那个 `[0]` 又因为 `sawNullAssert` 已经置真而接上——
+          // 表面上跑得通，`cases:tsast` 一比就漂（实测 `arr![0]![0]`：缺两个
+          // `ElementAccessExpression` + 两个 `NumericLiteral`、`NonNullExpression` 漂 4）。
           const bangKids = projectableKids(view(ck[i]));
           if (bangKids.length >= 1 && isIndexFirstUnit(bangKids[0], ctx)) {
             const bracket = bangKids[0];
@@ -3188,21 +3188,21 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         // 那个 `Method` 盖住的是 `log(1)`，而**名字**只占开头的几个字符，
         // 所以这里按名字宽度切一段 `Identifier` 出来（TS 的 `Identifier(log)` 正是这一段）。
         const name = String(next.get("name") ?? "");
-        // **空名字的 `Method` = 「把左边那个值再调一次」** ✓（第 366 轮 ✓，**实测撞到的** ✓）：
+        // **空名字的 `Method` = 「把左边那个值再调一次」**（第 366 轮，**实测撞到的**）：
         // `x.get()()` 的产物是
         // `PropertyAccess{ Identifier(x), ., Method(name="", child=Method(name="get")) }`
-        // （实测 `cjcli` 打出来的单元树 ✓）——**外层那个 `Method` 的名字是空的** ✗，
-        // 而这条链支（`projectExpression` 里按 `projectableKids` 直接走的那一条 ✓）
-        // **正是它走的路** ✓（在 `projectNode` 入口按形状拦的探针**没响** ✓——
-        // 所以第 348 / 362 两轮一直在**旁边那份副本**上找 ✗）。
-        // 照下面那条走会造出一个 `Identifier("")` 的成员 ✗ ⇒ 语义变成「取一个空名字的属性」✗
-        // ⇒ 降级层报 `cannot call a non-closure value` ✓（**一句话里没有一个字提到空名字** ✗）。
-        // 正确的形状是 `CallExpression{ expression: <左边那一段>, arguments: […] }` ✓。
+        // （实测 `cjcli` 打出来的单元树）——**外层那个 `Method` 的名字是空的**，
+        // 而这条链支（`projectExpression` 里按 `projectableKids` 直接走的那一条）
+        // **正是它走的路**（在 `projectNode` 入口按形状拦的探针**没响**——
+        // 所以第 348 / 362 两轮一直在**旁边那份副本**上找）。
+        // 照下面那条走会造出一个 `Identifier("")` 的成员 ⇒ 语义变成「取一个空名字的属性」
+        // ⇒ 降级层报 `cannot call a non-closure value`（**一句话里没有一个字提到空名字**）。
+        // 正确的形状是 `CallExpression{ expression: <左边那一段>, arguments: […] }`。
         if (name === "") {
-          // **两步** ✓（第 366 轮 ✓，**实测撞到的** ✓）：外层那个 `Method` 的**名字是空的** ✓，
-          // 而它的第一个子单元就是**内层那一格**（`Method(name="get")` ✓）——
-          // 直接 `projectNode(外层)` 得到的是**被调者为空**的调用 ✗（那一格要靠下面这段填 ✓），
-          // 所以先把**内层**当成普通的成员调用折一遍 ✓、再把「调用这个结果」套上去 ✓。
+          // **两步**（第 366 轮，**实测撞到的**）：外层那个 `Method` 的**名字是空的**，
+          // 而它的第一个子单元就是**内层那一格**（`Method(name="get")`）——
+          // 直接 `projectNode(外层)` 得到的是**被调者为空**的调用（那一格要靠下面这段填），
+          // 所以先把**内层**当成普通的成员调用折一遍、再把「调用这个结果」套上去。
           const innerKids = projectableKids(view(next));
           const innerMethod = innerKids.length > 0 && innerKids[0].get("type") === "Method" ? innerKids[0] : undefined;
           if (innerMethod !== undefined) {
@@ -3394,7 +3394,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // ---- 3. 二元 / 赋值 ----
   //
   // **切在优先级最低的那个运算符上**（第 88 轮）：`x && y || z` 的 TS 是 `(x && y) || z`，
-  // 按**第一个**运算符切会得到 `x && (y || z)` ✗（优先级反了）。同级取**最左**（左结合）。
+  // 按**第一个**运算符切会得到 `x && (y || z)`（优先级反了）。同级取**最左**（左结合）。
   // 实测这一族是「多出来」与「漂移」两榜的最大来源（`BinaryExpression` 654 / 657）。
   let opIndex = -1;
   let bestRank = 999;
@@ -3541,24 +3541,24 @@ return (
 
 # method isIndexFirstUnit:(unit:any, ctx:any)=>bool
 
-**这一格是不是「以一次下标开头」** ✓（第 333 轮 ✓）——`isIndexFirstUnit` 是给
-**非空断言后面那一串**用的判据 ✓。
+**这一格是不是「以一次下标开头」**（第 333 轮）——`isIndexFirstUnit` 是给
+**非空断言后面那一串**用的判据。
 
-**为什么需要它** ✗：`!` 是一个**单元** ✓，它只把**左边**包起来 ✓，而**右边**那一格
-谁也不认 ✓（它不是下标位、也不是数组字面量位 ✓）——于是 token 层会按**它能认的那个形状**
-成形 ✓。三种都实测到了 ✓：
+**为什么需要它**：`!` 是一个**单元**，它只把**左边**包起来，而**右边**那一格
+谁也不认（它不是下标位、也不是数组字面量位）——于是 token 层会按**它能认的那个形状**
+成形。三种都实测到了：
 
 | 写法 | token 层给的形状 |
 | --- | --- |
-| `o.b![1]` | `[NotNull(o.b), ArrayLiteral(1)]` ✓（数组字面量当兄弟 ✓） |
-| `o.b![1]![0]` | `[NotNull(o.b), NotNull(ArrayLiteral(1)), ArrayLiteral(0)]` ✓（`[1]!` 又是一格 ✓） |
-| `data.list![0].id` | `[NotNull(data.list), PropertyAccess(ArrayLiteral(0), ., id)]` ✓（`.id` 折到了那个方括号上 ✓） |
+| `o.b![1]` | `[NotNull(o.b), ArrayLiteral(1)]`（数组字面量当兄弟） |
+| `o.b![1]![0]` | `[NotNull(o.b), NotNull(ArrayLiteral(1)), ArrayLiteral(0)]`（`[1]!` 又是一格） |
+| `data.list![0].id` | `[NotNull(data.list), PropertyAccess(ArrayLiteral(0), ., id)]`（`.id` 折到了那个方括号上） |
 
-三者的**头一格都是下标** ✓——所以链那一支要认的不只是「兄弟是个方括号」✗，
-而是「这一格**以**一次下标开头」✓（里面可能再套一层 `!` ✓、也可能后面还接着 `.id` ✓）。
+三者的**头一格都是下标**——所以链那一支要认的不只是「兄弟是个方括号」，
+而是「这一格**以**一次下标开头」（里面可能再套一层 `!`、也可能后面还接着 `.id`）。
 
-**`PropertyAccess` 也要往里看** ✗：`[0].id` 那一格的外壳是属性访问 ✓，
-而它的**第一格**才是那个方括号 ✓——判据递归一层就够 ✓。
+**`PropertyAccess` 也要往里看**：`[0].id` 那一格的外壳是属性访问，
+而它的**第一格**才是那个方括号——判据递归一层就够。
 
 ```ts
 const kind = unit.get("type");
@@ -3586,8 +3586,8 @@ return false;
 ```ts
   const kids = projectableKids(view(unit));
   const first = kids.length > 0 ? kids[0] : undefined;
-  // **`?.` 就在这一格的起点上** ✓：调用方递进来的 `unit` **一定是** `NullConditionalOperator` ✓
-  //（`Process` 里 `SignInToken(那个 ?. 符号)` ✓），所以不用回原文找 ✗。
+  // **`?.` 就在这一格的起点上**：调用方递进来的 `unit` **一定是** `NullConditionalOperator`
+  //（`Process` 里 `SignInToken(那个 ?. 符号)`），所以不用回原文找。
   const dot = startOf(unit);
   const questionDot =
     typeof dot === "number" && dot >= 0
@@ -3609,17 +3609,17 @@ return false;
     const call = projectNode(first, ctx);
     return Object.assign({}, call, { expression: member, pos: member.pos, end: endOf(unit) });
   }
-  // **`o.m?.().k`**（第 154 轮）：NCO 里的第一格是**属性访问**，而它的第一格是实参括号 ✓——
-  // 那是 token 层的属性访问重组把 `( ) . k` 折成了一个 `PropertyAccess` ✓
-  //（XML 实测：`<NCO><PropertyAccess><Bracket/><.><k/></PropertyAccess></NCO>` ✓；
-  //  插桩也确认了：`chainWithOptional` 收到的 `first` 是 `PropertyAccess` 而不是 `Bracket` ✗）。
+  // **`o.m?.().k`**（第 154 轮）：NCO 里的第一格是**属性访问**，而它的第一格是实参括号——
+  // 那是 token 层的属性访问重组把 `( ) . k` 折成了一个 `PropertyAccess`
+  //（XML 实测：`<NCO><PropertyAccess><Bracket/><.><k/></PropertyAccess></NCO>`；
+  //  插桩也确认了：`chainWithOptional` 收到的 `first` 是 `PropertyAccess` 而不是 `Bracket`）。
   //
-  // **语义上是先调用、再取属性** ✓：`o.m?.()` 是调用 ✓，`.k` 挂在它的**结果**上 ✓。
-  // 所以这里自己把那一格拆开 ✓：拿**头一个**实参括号建 `CallExpression` ✓，
-  // 再把括号**之后**的成员逐个接上去 ✓——
-  // 不拆的话它会落到下面「按成员名折属性访问」那一支 ✓，
-  // 把括号当成名字 ✓，投出一个名叫 `()` 的属性访问 ✗（实测就是这个形状 ✓），
-  // 运行期于是**静默**给 `undefined` ✗（JS 给 `3` ✓）。
+  // **语义上是先调用、再取属性**：`o.m?.()` 是调用，`.k` 挂在它的**结果**上。
+  // 所以这里自己把那一格拆开：拿**头一个**实参括号建 `CallExpression`，
+  // 再把括号**之后**的成员逐个接上去——
+  // 不拆的话它会落到下面「按成员名折属性访问」那一支，
+  // 把括号当成名字，投出一个名叫 `()` 的属性访问（实测就是这个形状），
+  // 运行期于是**静默**给 `undefined`（JS 给 `3`）。
   if (first !== undefined && first.get("type") === "PropertyAccess") {
     const inner = projectableKids(view(first));
     const head = inner.length > 0 ? inner[0] : undefined;
@@ -3634,9 +3634,9 @@ return false;
         end: endOf(head),
       };
       if (questionDot !== undefined) call.questionDotToken = questionDot;
-      // **括号之后剩下的成员**（`.k` / `[i]` / `.k` 连着的几格 ✓）：逐个往链上挂 ✓。
-      // 名字取那一格的 `Identifier` ✓（token 层已经把成员名收成一个单元 ✓）；
-      // 下标那一格是 `[` 括号 ✓——两种都按下面「按成员名折」那一段的同一口径写 ✓。
+      // **括号之后剩下的成员**（`.k` / `[i]` / `.k` 连着的几格）：逐个往链上挂。
+      // 名字取那一格的 `Identifier`（token 层已经把成员名收成一个单元）；
+      // 下标那一格是 `[` 括号——两种都按下面「按成员名折」那一段的同一口径写。
       let node: any = call;
       for (let i = 1; i < inner.length; i++) {
         const member = inner[i];
@@ -3894,16 +3894,16 @@ return false;
       i += 1;
       continue;
     }
-    // **紧跟一个「按数组字面量成形的方括号」⇒ 那就是一次下标** ✗（第 333 轮 ✓）。
+    // **紧跟一个「按数组字面量成形的方括号」⇒ 那就是一次下标**（第 333 轮）。
     //
-    // **为什么它一定不是数组字面量** ✓：这一条路只在**链的续格**上走 ✓——
-    // 一个值后面紧跟着 `[` 在 JS 里就是下标 ✓（`a [1]` 与 `a[1]` 是一回事 ✓）。
-    // 而 token 层在**非空断言后面那一格**正好会给这个形状 ✓：
-    // `o?.a.b![0]` 的 NCO 里是 `[NotNull(PropertyAccess(a.b)), ArrayLiteral(0)]` ✓——
-    // `[0]` 谁也不认它 ✓ ⇒ 按数组字面量成形 ✓、与前面那一格**平级** ✗。
-    // 不认它的话这个下标**整段丢掉** ✗：Node 给 `7` ✓、本仓给 `[7]` ✓——**静默错值** ✓
-    //（判据 `c323-ex-nonnull-in-chains` 现场量的就是它 ✓）。
-    // **做法与上面那一支一字不差** ✓（只有「从哪个形状取实参」不同 ✓）。
+    // **为什么它一定不是数组字面量**：这一条路只在**链的续格**上走——
+    // 一个值后面紧跟着 `[` 在 JS 里就是下标（`a [1]` 与 `a[1]` 是一回事）。
+    // 而 token 层在**非空断言后面那一格**正好会给这个形状：
+    // `o?.a.b![0]` 的 NCO 里是 `[NotNull(PropertyAccess(a.b)), ArrayLiteral(0)]`——
+    // `[0]` 谁也不认它 ⇒ 按数组字面量成形、与前面那一格**平级**。
+    // 不认它的话这个下标**整段丢掉**：Node 给 `7`、本仓给 `[7]`——**静默错值**
+    //（判据 `c323-ex-nonnull-in-chains` 现场量的就是它）。
+    // **做法与上面那一支一字不差**（只有「从哪个形状取实参」不同）。
     if (unit.get("type") === "ArrayLiteral") {
       const argument = projectExpression(projectableKids(view(unit)), ctx);
       left = {
@@ -3935,17 +3935,17 @@ return false;
       continue;
     }
     if (!isDot(unit, ctx) || i + 1 >= units.length) break;
-    // **点号后面那一格可能自带一个 `!`** ✗（第 333 轮 ✓）：`o?.a!.b!` 的 NCO 里是
-    // `[NotNull(a), ., NotNull(b)]` ✓——那个 `!` 与成员名**在同一格里** ✓
-    //（token 层把「名字 + 非空断言」折成了一个 `NotNull` ✓）。
-    // **不拆开的话**：下面那三支都不认 `NotNull` ✓ ⇒ 落到最后那个 `else` ✓ ⇒
-    // `nameOf(NotNull)` 把整段「名字 + `!`」当成**一个名字** ✗
-    //（实测：多出一个 `Identifier` 值叫 `"b!"` ✓、`NonNullExpression` 与
-    // `PropertyAccessExpression` 各漂 2 ✓），运行期于是给 `undefined` ✓
-    //（`+ 1` 变成 `NaN` ✓——**静默错值** ✓，判据 `c305-ex-optional-chain-nonnull-mix` ✓）。
+    // **点号后面那一格可能自带一个 `!`**（第 333 轮）：`o?.a!.b!` 的 NCO 里是
+    // `[NotNull(a), ., NotNull(b)]`——那个 `!` 与成员名**在同一格里**
+    //（token 层把「名字 + 非空断言」折成了一个 `NotNull`）。
+    // **不拆开的话**：下面那三支都不认 `NotNull` ⇒ 落到最后那个 `else` ⇒
+    // `nameOf(NotNull)` 把整段「名字 + `!`」当成**一个名字**
+    //（实测：多出一个 `Identifier` 值叫 `"b!"`、`NonNullExpression` 与
+    // `PropertyAccessExpression` 各漂 2），运行期于是给 `undefined`
+    //（`+ 1` 变成 `NaN`——**静默错值**，判据 `c305-ex-optional-chain-nonnull-mix`）。
     //
-    // **次序是语义** ✗：先把**成员**接上 ✓，再把 `!` 套在**整条链**上 ✓
-    //（TS 是 `NonNull(PropertyAccess(…, b))` ✓，不是「名字叫 `b!`」✗）。
+    // **次序是语义**：先把**成员**接上，再把 `!` 套在**整条链**上
+    //（TS 是 `NonNull(PropertyAccess(…, b))`，不是「名字叫 `b!`」）。
     let bangUnit: any = undefined;
     let next = units[i + 1];
     if (next.get("type") === "NotNull") {
@@ -4001,7 +4001,7 @@ return false;
         end: endOf(next),
       };
     }
-    // **那一格自带 `!` 的话，断言套在整条链上** ✓（见上面那一段 ✓）。
+    // **那一格自带 `!` 的话，断言套在整条链上**（见上面那一段）。
     if (bangUnit !== undefined) {
       left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(bangUnit) };
     }
@@ -4012,17 +4012,17 @@ return false;
 
 # private method isPrefixOperatorUnit:(node:any, ctx:any)=>bool
 
-**这一格是不是一个前缀运算符** ✓（第 379 轮 ✓）——只给「尖括号断言要吃多长」那一处用 ✓。
+**这一格是不是一个前缀运算符**（第 379 轮）——只给「尖括号断言要吃多长」那一处用。
 
-**为什么需要它** ✗：`<T>expr` 是**前缀**那一档 ✓，所以它的操作数是「一个**一元表达式**」✓：
-`<number>-x` 里断言管的是 `-x` ✓（不是 `-` 自己 ✓），`<number>a + b` 里断言管到 `a` 就停 ✓。
-判「到哪里停」要认得出前缀运算符那一串 ✓。
+**为什么需要它**：`<T>expr` 是**前缀**那一档，所以它的操作数是「一个**一元表达式**」：
+`<number>-x` 里断言管的是 `-x`（不是 `-` 自己），`<number>a + b` 里断言管到 `a` 就停。
+判「到哪里停」要认得出前缀运算符那一串。
 
-**只认**：单元型 `UnaryOperator` ✓（`!x` / `typeof x` / `void x` / `delete x` / `await x` 与
-`++i` / `--i` 在产物里都是它 ✓），以及**裸符号** `!` `~` `+` `-` `++` `--` ✓
-（`+` / `-` 在操作数位置上不会落成 `BinaryOperator` ✓）。
-**二元运算符不在这里** ✓——它们住在 `BinaryOperator` / `LogicalOperator` 单元里 ✓，
-不是一个裸符号 ✓，所以 `a + b` 的那个 `+` 撞不到这一支 ✓。
+**只认**：单元型 `UnaryOperator`（`!x` / `typeof x` / `void x` / `delete x` / `await x` 与
+`++i` / `--i` 在产物里都是它），以及**裸符号** `!` `~` `+` `-` `++` `--`
+（`+` / `-` 在操作数位置上不会落成 `BinaryOperator`）。
+**二元运算符不在这里**——它们住在 `BinaryOperator` / `LogicalOperator` 单元里，
+不是一个裸符号，所以 `a + b` 的那个 `+` 撞不到这一支。
 
 ```ts
   const type = node.get("type");
@@ -4056,12 +4056,12 @@ return false;
   if (firstRank === 0) {
     // 赋值：右结合，交给递归。
     //
-    // **但逗号比赋值更松**（第 180 轮）✓：`a = 1, a = 2` 的 TS 形状是
-    // `BinaryExpression( BinaryExpression(a = 1), «,», BinaryExpression(a = 2) )` ✓——
-    // 赋值的**右操作数只到下一个顶层逗号为止** ✓。
-    // 少了这一格，右操作数会把逗号一起吃掉 ✓：实测 `(a = 1, a = 2)` 投成
-    // `a = (1, a) = 2` ✗（降级层于是报 `assignment to a non-identifier` ✓，
-    // 而**形状这一层**错得更早 ✓——`cases:tsast` 一量就红 ✓）。
+    // **但逗号比赋值更松**（第 180 轮）：`a = 1, a = 2` 的 TS 形状是
+    // `BinaryExpression( BinaryExpression(a = 1), «,», BinaryExpression(a = 2) )`——
+    // 赋值的**右操作数只到下一个顶层逗号为止**。
+    // 少了这一格，右操作数会把逗号一起吃掉：实测 `(a = 1, a = 2)` 投成
+    // `a = (1, a) = 2`（降级层于是报 `assignment to a non-identifier`，
+    // 而**形状这一层**错得更早——`cases:tsast` 一量就红）。
     let commaAt = rest.length;
     for (let k = 1; k < rest.length; k++) {
       if (isOperatorUnit(rest[k], ctx) && textOfNode(rest[k], ctx) === ",") {
@@ -4098,15 +4098,15 @@ return false;
       }
       return { ...node, left: stripped, pos: stripped.pos, end: node.end };
     };
-    // **后缀壳要能穿透**（第 290 轮）✓：`u += 2 as number` 的展开式是
-    // `u = (u + 2) as number` ✓（`As` 是**语句级**最后一个单元 ✓），
-    // 而 TypeScript 要的是 `u += (2 as number)` ✓——`as` 贴的是**复合赋值右操作数**那一段 ✓
-    //（实测 `ts.createSourceFile`：`BinaryExpression(u, «+=», AsExpression(2))` ✓）。
-    // 原来的剥自己那一格只认**最外层就是 `BinaryExpression`** ✗
-    // ⇒ 包着壳时一格都没剥 ✓ ⇒ 下游拿到 `u += (u + 2)` ✓ ⇒ **静默错值** ✗
-    //（`total += xs.shift() as number` 实测从 499500 变成 `1.07e+301` ✓）。
-    // 判据：壳（`As` / `Satisfies` / `!`）里那一格剥完，壳**照原样罩回去** ✓；
-    // 壳里剥不动就整个不动 ✗（`u += (2 as number)` 那一格本来就没问题 ✓）。
+    // **后缀壳要能穿透**（第 290 轮）：`u += 2 as number` 的展开式是
+    // `u = (u + 2) as number`（`As` 是**语句级**最后一个单元），
+    // 而 TypeScript 要的是 `u += (2 as number)`——`as` 贴的是**复合赋值右操作数**那一段
+    //（实测 `ts.createSourceFile`：`BinaryExpression(u, «+=», AsExpression(2))`）。
+    // 原来的剥自己那一格只认**最外层就是 `BinaryExpression`**
+    // ⇒ 包着壳时一格都没剥 ⇒ 下游拿到 `u += (u + 2)` ⇒ **静默错值**
+    //（`total += xs.shift() as number` 实测从 499500 变成 `1.07e+301`）。
+    // 判据：壳（`As` / `Satisfies` / `!`）里那一格剥完，壳**照原样罩回去**；
+    // 壳里剥不动就整个不动（`u += (2 as number)` 那一格本来就没问题）。
     const stripSelfThrough = (node) => {
       if (node === undefined) return undefined;
       if (node.kind === "AsExpression" || node.kind === "SatisfiesExpression" || node.kind === "NonNullExpression") {
@@ -4191,7 +4191,7 @@ return false;
       pos: left.pos,
       end: right ? right.end : endOf(rest[0]),
     };
-    // **剩下的那一串逗号接着折** ✓（左结合 ✓，`a = 1, b = 2, c = 3` 折成三层 ✓）。
+    // **剩下的那一串逗号接着折**（左结合，`a = 1, b = 2, c = 3` 折成三层）。
     if (commaAt < rest.length) return foldBinaryFrom(assigned, rest.slice(commaAt), ctx);
     return assigned;
   }
@@ -4206,17 +4206,17 @@ return false;
     // 下一个「同级或更低优先级」的运算符就是这一段的终点。
     let stop = rest.length;
     for (let k = i + 1; k < rest.length; k++) {
-      // **尖括号断言那一组不是运算符** ✗（第 379 轮 ✓）。
+      // **尖括号断言那一组不是运算符**（第 379 轮）。
       //
-      // `x < <number>y` 与 `<number>a < <number>a` 里都有「一个 `<` 起的是**断言**」✓——
-      // 把它当成比较运算符就会在这一格切段 ✓ ⇒ 右操作数是**空的** ✓
-      // ⇒ 折出一个**没有 `right` 的 `BinaryExpression`** ✗，降级层报
-      // `ast node BinaryExpression has no child right` ✓（**形状层的内部错误** ✗，
-      // 比「读错了值」更难查 ✓）。
+      // `x < <number>y` 与 `<number>a < <number>a` 里都有「一个 `<` 起的是**断言**」——
+      // 把它当成比较运算符就会在这一格切段 ⇒ 右操作数是**空的**
+      // ⇒ 折出一个**没有 `right` 的 `BinaryExpression`**，降级层报
+      // `ast node BinaryExpression has no child right`（**形状层的内部错误**，
+      // 比「读错了值」更难查）。
       //
-      // **只在操作数位置上认** ✓：`k` 前面那一格是运算符（或它就是这一段的第一格 ✓）
-      // ⇒ 这个 `<` 前面**没有左操作数** ✓ ⇒ 只可能是断言 ✓。
-      // 比较式 `a < b < c` 的第二个 `<` 前面是 `b`（一个名字 ✓）⇒ 这里不跳 ✓，照旧切段 ✓。
+      // **只在操作数位置上认**：`k` 前面那一格是运算符（或它就是这一段的第一格）
+      // ⇒ 这个 `<` 前面**没有左操作数** ⇒ 只可能是断言。
+      // 比较式 `a < b < c` 的第二个 `<` 前面是 `b`（一个名字）⇒ 这里不跳，照旧切段。
       if ((k === 0 || isOperatorUnit(rest[k - 1], ctx)) && angleAssertionLength(rest, k, ctx) > 0) {
         k += angleAssertionLength(rest, k, ctx) - 1;
         continue;
@@ -4230,8 +4230,8 @@ return false;
     node = {
       kind: "BinaryExpression",
       left: node,
-      // **运算符那一格按文本定 kind** ✓（第 550 轮 ✓）：`in` / `instanceof` 在深度界那一层
-      // 还是 `Identifier` ✗，见 `operatorTokenOf` ✓。
+      // **运算符那一格按文本定 kind**（第 550 轮）：`in` / `instanceof` 在深度界那一层
+      // 还是 `Identifier`，见 `operatorTokenOf`。
       operatorToken: operatorTokenOf(op, ctx),
       right,
       pos: node.pos,
@@ -4244,20 +4244,20 @@ return false;
 
 # private method angleAssertionLength:(kids:Array<any>, at:int, ctx:any)=>int
 
-**从 `at` 起是不是一个「平的尖括号断言」**（`<T>操作数` ✓），是的话返回它有多长 ✓；
-不是就返回 `0` ✓（第 379 轮 ✓）。
+**从 `at` 起是不是一个「平的尖括号断言」**（`<T>操作数`），是的话返回它有多长；
+不是就返回 `0`（第 379 轮）。
 
-**为什么需要它** ✗：`x < <number>y` 里的第二个 `<` 在产物里是**平的符号** ✓
-（它不在表达式的最开头 ✓，所以 token 层没把它收成 `GenericType` ✗——
-第 379 轮把「运算符之后」那一档也放行了 ✓，于是**现在多半已经收起来了** ✓，
-可**收不起来的那些**（后继闸没过 ✓）仍然会走到这里 ✓）。
-把它当成比较运算符就会切出空的右操作数 ✓ ⇒ 折出一个没有 `right` 的节点 ✗
-（实测 `ast node BinaryExpression has no child right` ✓）。
+**为什么需要它**：`x < <number>y` 里的第二个 `<` 在产物里是**平的符号**
+（它不在表达式的最开头，所以 token 层没把它收成 `GenericType`——
+第 379 轮把「运算符之后」那一档也放行了，于是**现在多半已经收起来了**，
+可**收不起来的那些**（后继闸没过）仍然会走到这里）。
+把它当成比较运算符就会切出空的右操作数 ⇒ 折出一个没有 `right` 的节点
+（实测 `ast node BinaryExpression has no child right`）。
 
-**判据只看形状** ✓：`<` ✓、配对到 `>` ✓、`>` 后面**还有一格操作数** ✓
-（前缀运算符可以连着几格 ✓，与断言那一支同一口径 ✓）。
-**「这个 `<` 前面有没有左操作数」由调用方判** ✗（那一格信息只有它手上有 ✓）——
-所以这里不做位置判断 ✓，只回答「这一组长得像不像断言」✓。
+**判据只看形状**：`<`、配对到 `>`、`>` 后面**还有一格操作数**
+（前缀运算符可以连着几格，与断言那一支同一口径）。
+**「这个 `<` 前面有没有左操作数」由调用方判**（那一格信息只有它手上有）——
+所以这里不做位置判断，只回答「这一组长得像不像断言」。
 
 ```ts
   if (at >= kids.length) {
@@ -4281,7 +4281,7 @@ return false;
       }
     }
   }
-  // **`<T>` 里至少要有一样东西，后面至少要跟着一格操作数** ✓（`< > x` 那种空段不算 ✓）。
+  // **`<T>` 里至少要有一样东西，后面至少要跟着一格操作数**（`< > x` 那种空段不算）。
   if (close <= at + 1 || close + 1 >= kids.length) {
     return 0;
   }
@@ -4346,7 +4346,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 `VariableDeclarationList`**（不套 `VariableStatement`）。可产物在这一档里**没有 `Let`**：
 解析期的 `LetBranch` 只在 `=` / `:` / `;` / `,` / 换行那几格进门，`of` / `in` 不在其中，
 所以声明段一直是 `[Keyword(const), Identifier(v)]` **两格平铺**——投影那一支
-（`foreach.xl.md` 的 `PrintAst` ✓）只认「第一个子单元是 `Let`」⇒ 整段被当表达式投
+（`foreach.xl.md` 的 `PrintAst`）只认「第一个子单元是 `Let`」⇒ 整段被当表达式投
 ⇒ `initializer` 成了 `Identifier("const")`（实测 6 份：`st-for-of` / `stmt-for-of-call` /
 `stmt-for-of-no-block` / `st-for-await` / `stmt-for-await` / `fn-async-generator`）。
 
@@ -4354,7 +4354,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 按形态分派给 `nameOf` / `projectBindingPattern`；列表的标志位从头顶那个词读
 （`flagsOf` 读的是 `modifiers` 属性，这一档没有那个属性）。
 
-**名字那一格的判据与 `isNameNode` 同一条**（第 598 轮）：`Keyword` 也算名字 ✗ 不是风格问题 ✗——
+**名字那一格的判据与 `isNameNode` 同一条**（第 598 轮）：`Keyword` 也算名字 不是风格问题——
 `for (const set of xs)` 里那个 `set` 会被 `KeywordCloseRule` 升成 `<Keyword>set</Keyword>`
 （`keyword.xl.md` 的 `IsUpgradable`），只认 `Identifier` 就**整段找不到名字** ⇒ 本方法给
 `undefined` ⇒ `initializer` 整格消失 ⇒ 降级层报
@@ -4365,9 +4365,9 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 ```ts
   const inner = kids.filter((k) => !INVISIBLE.has(k.get("type")));
   if (inner.length === 0) return undefined;
-  // **名字那一格从后往前找** ✓：`const` / `let` / `var` / `using` 与 `await` 都可能还是
-  // `Identifier`（关键字升级在本单元的那一趟里跑 ✓，投影这一趟是**之后**的事 ✓）——
-  // 从前往后找会把那个词当成名字 ✗。
+  // **名字那一格从后往前找**：`const` / `let` / `var` / `using` 与 `await` 都可能还是
+  // `Identifier`（关键字升级在本单元的那一趟里跑，投影这一趟是**之后**的事）——
+  // 从前往后找会把那个词当成名字。
   const isPatternKid = (k: any) =>
     k.get("type") === "ArrayLiteral" ||
     k.get("type") === "ObjectLiteral" ||
@@ -4386,14 +4386,14 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   }
   if (nameKid === undefined) return undefined;
   const declared = isPatternKid(nameKid) ? projectBindingPattern(nameKid, ctx) : nameOf(nameKid, ctx);
-  // **列表的起点是那个声明词** ✗、不是段里的第一格 ✓：`for await (const v of xs)` 的段里
-  // `await` 排在 `const` 前面 ✓（TS 那边它是 `ForOfStatement.awaitModifier` ✓、
-  // 不是列表的一部分 ✓）——**所以这个声明词要从后往前找** ✓（第 546 轮 ✓）：
-  // 从前往后找时 `await` 自己就是 `Identifier`、`textOfNode` 也答 `"await"` ✗，
-  // 可 `inner.find` 只认「是不是声明词」✗ ⇒ 第一格 `await` 被当成起点 ✗
-  // ⇒ 列表区间从 `await` 起 ✗（实测 `st-for-await` / `stmt-for-await` / `fn-async-generator`
-  // 三份都是 `[82,96)` 对 TS 的 `[89,96)` ✗）。声明词在名字前面、`await` 更靠前 ✓，
-  // 从后往前找拿到的就是**离名字最近**的那个声明词 ✓（判据 `isDeclareWord` 与上面共用 ✓）。
+  // **列表的起点是那个声明词**、不是段里的第一格：`for await (const v of xs)` 的段里
+  // `await` 排在 `const` 前面（TS 那边它是 `ForOfStatement.awaitModifier`、
+  // 不是列表的一部分）——**所以这个声明词要从后往前找**（第 546 轮）：
+  // 从前往后找时 `await` 自己就是 `Identifier`、`textOfNode` 也答 `"await"`，
+  // 可 `inner.find` 只认「是不是声明词」 ⇒ 第一格 `await` 被当成起点
+  // ⇒ 列表区间从 `await` 起（实测 `st-for-await` / `stmt-for-await` / `fn-async-generator`
+  // 三份都是 `[82,96)` 对 TS 的 `[89,96)`）。声明词在名字前面、`await` 更靠前，
+  // 从后往前找拿到的就是**离名字最近**的那个声明词（判据 `isDeclareWord` 与上面共用）。
   let declareKid = undefined;
   for (let at = inner.length - 1; at >= 0; at--) {
     if (isDeclareWord(inner[at])) {
@@ -4641,13 +4641,13 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     k.get("type") === "ArrayLiteral" ||
     k.get("type") === "ObjectLiteral" ||
     (k.get("type") === "Bracket" && (k.get("startBracket") === "[" || k.get("startBracket") === "{"));
-  // **默认值那一侧的括号不算绑定名** ✗（第 355 轮 ✓，**实测撞到的** ✓）：
-  // `{ tags = [] as string[] }` 里 `=` **右边**那个 `[]` 是**默认值**（值位 ✓），
-  // 而照「第一个像模式的单元」找会把它当成**绑定名** ✗ ⇒ 投出一个**没有 text** 的
-  // `ArrayBindingPattern` ✓ ⇒ 降级期报 `ast node ArrayBindingPattern has no text` ✓
-  //（**那条消息原来不带区间** ✗，第 355 轮才补上 ✓——补上之后一眼看出是哪个 `[]`
-  // （`at 46..48` ✓），**这一步省掉了一整轮插桩** ✓）。
-  // 判据与上面 `colonIndex` 那一支同一条纪律 ✓：**切分点左边才是名字** ✓。
+  // **默认值那一侧的括号不算绑定名**（第 355 轮，**实测撞到的**）：
+  // `{ tags = [] as string[] }` 里 `=` **右边**那个 `[]` 是**默认值**（值位），
+  // 而照「第一个像模式的单元」找会把它当成**绑定名** ⇒ 投出一个**没有 text** 的
+  // `ArrayBindingPattern` ⇒ 降级期报 `ast node ArrayBindingPattern has no text`
+  //（**那条消息原来不带区间**，第 355 轮才补上——补上之后一眼看出是哪个 `[]`
+  // （`at 46..48`），**这一步省掉了一整轮插桩**）。
+  // 判据与上面 `colonIndex` 那一支同一条纪律：**切分点左边才是名字**。
   const beforeEq = eqIndex >= 0 ? kids.slice(0, eqIndex) : kids;
   const patternKid = beforeEq.find(isPatternLike);
   const props = {};
@@ -4833,15 +4833,15 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
 
 # private method nameOf:(node:any, ctx:any)=>string
 
-**一个名字单元 → `Identifier` 节点**（第 4463 行这一格是 `ctx.NameOf` 的实现 ✓，
-对象字面量的键、限定名的右半、类型引用的名字都走它 ✓）。
+**一个名字单元 → `Identifier` 节点**（第 4463 行这一格是 `ctx.NameOf` 的实现，
+对象字面量的键、限定名的右半、类型引用的名字都走它）。
 
-**位置用原文、`text` 用解开的** ✗（第 382 轮 ✓）：`{ \u0061: 1 }` 那个键在源码里占
-**6 个字符** ✓（`end` 要按它算 ✓），而它的**名字**是 `a` ✓（TS 的 AST `text` 也是 `a` ✓）。
-**这一格第 381 轮漏了** ✗——那时候改的是 `Identifier.PrintAst`（**子单元**那条路 ✓）
-与投影读**属性**那三处 ✓，而对象字面量这一支是**自己拿文本合一个节点**的 ✓
-（`ctx.NameOf(nameUnits[0])` ✓），压根不经过前两条 ✓ ⇒
-`Object.keys({ \u0061: 1 })` 给 `["\u0061"]` ✓、`x.a` 给 `undefined` ✓（**静默错值** ✗）。
+**位置用原文、`text` 用解开的**（第 382 轮）：`{ \u0061: 1 }` 那个键在源码里占
+**6 个字符**（`end` 要按它算），而它的**名字**是 `a`（TS 的 AST `text` 也是 `a`）。
+**这一格第 381 轮漏了**——那时候改的是 `Identifier.PrintAst`（**子单元**那条路）
+与投影读**属性**那三处，而对象字面量这一支是**自己拿文本合一个节点**的
+（`ctx.NameOf(nameUnits[0])`），压根不经过前两条 ⇒
+`Object.keys({ \u0061: 1 })` 给 `["\u0061"]`、`x.a` 给 `undefined`（**静默错值**）。
 
 ```ts
   const text = textOfNode(node, ctx);
@@ -5070,7 +5070,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   if (list.length === 2 && list[0].get("type") === "GenericType" && list[1].get("type") === "FunctionType") {
     const typeParams = unwrapNodes(list[0]).filter((k) => k.get("type") === "TypeParameter");
     // **走通用分派而不是直调那个函数**（第 188 轮）：`FunctionType` 的投影已经搬进
-    // `tokens/function-type.xl.md` 的 `PrintAst`，而 `projectNode` 会先问它 ✓——
+    // `tokens/function-type.xl.md` 的 `PrintAst`，而 `projectNode` 会先问它——
     // 输入与原来那次直调完全相同，产出的节点逐字节一样。
     const fn = projectNode(list[1], ctx);
     if (typeParams.length > 0) {
@@ -5406,11 +5406,11 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 
 ```ts
   const rawName = v.attrs.get("name") ?? v.attrs.get("fieldName") ?? v.attrs.get("namespace");
-  // **属性里那个名字也要解转义** ✗（第 381 轮 ✓）：`const \u0061bc = 1` 的名字住在
-  // `Let.fieldName` 这个**属性**上 ✓（不是子单元 ✓），`x.\u0061` 的键同理 ✓。
-  // **与 `Identifier.PrintAst` 共用一份解码** ✓（`text-common-util.xl.md` 的
-  // `DecodeIdentifierEscapes` ✓）——两处各写一份就是两处会漂的答案 ✗（这一轮第一版
-  // 只改了标识符那一格 ✓，于是 `function f\u0066()` 绿了 ✓、`const \u0061bc` 还是红的 ✓）。
+  // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
+  // `Let.fieldName` 这个**属性**上（不是子单元），`x.\u0061` 的键同理。
+  // **与 `Identifier.PrintAst` 共用一份解码**（`text-common-util.xl.md` 的
+  // `DecodeIdentifierEscapes`）——两处各写一份就是两处会漂的答案（这一轮第一版
+  // 只改了标识符那一格，于是 `function f\u0066()` 绿了、`const \u0061bc` 还是红的）。
   const name = typeof rawName === "string" ? rawName : "";
   const computed = computedNameUnit(v, ctx);
   if (computed !== null) {
@@ -5442,14 +5442,14 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   }
   const before = at.pos > 0 ? ctx.source[at.pos - 1] : "";
   if ((before === '"' || before === "'") && ctx.source[at.end] === before) {
-    // **`text` 是引号里的那段，不含引号**（第 183 轮修 ✓）：TS 那边字符串字面量名字的
-    // `text` 是**解码后的值** ✓（`{ "x-y"() {} }` 的名字文本就是 `x-y` ✓），
-    // 而这里原来切的是 `[pos-1, end+1)` ✗——**把两个引号也带上了** ✗。
-    // 后果不在解析侧（尺子只比 kind / 区间 / 字段名 ✓，不比字段**值** ✗），
-    // 而在**降级层**：`{ "x-y"() {} }` 于是存在**键 `"x-y"`（带引号）**上 ✓，
-    // 按 `o["x-y"]` 永远取不到 ✗（实测 ✓：`Object.keys` 印出来是 `"x-y"` ✓）。
-    // **转义还没解** ✗（`{ "a\nb"() {} }` 的文本是 `a\nb` 四个字符 ✓，TS 给一个真换行 ✓）——
-    // 属性名里罕见 ✓，记在台账里 ✓。
+    // **`text` 是引号里的那段，不含引号**（第 183 轮修）：TS 那边字符串字面量名字的
+    // `text` 是**解码后的值**（`{ "x-y"() {} }` 的名字文本就是 `x-y`），
+    // 而这里原来切的是 `[pos-1, end+1)`——**把两个引号也带上了**。
+    // 后果不在解析侧（尺子只比 kind / 区间 / 字段名，不比字段**值**），
+    // 而在**降级层**：`{ "x-y"() {} }` 于是存在**键 `"x-y"`（带引号）**上，
+    // 按 `o["x-y"]` 永远取不到（实测：`Object.keys` 印出来是 `"x-y"`）。
+    // **转义还没解**（`{ "a\nb"() {} }` 的文本是 `a\nb` 四个字符，TS 给一个真换行）——
+    // 属性名里罕见，记在台账里。
     return {
       name: {
         kind: "StringLiteral",
@@ -5801,8 +5801,8 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   // **没有语句的分支（贯穿到下一条 `case`）**：区间到那个 `:` 为止（第 97 轮）。
   // `SwitchSegment` 自己的尾巴比 TS 多一个字符——实测 `case ",":` 产物 [1129,1139)
   // vs TS [1129,1138)：108 处漂移 + 108 处「多出来」是同一个节点两边各记一次。
-  // **位置由 token 自己记**（`SwitchSegment.ColonPos`，第 615 轮 ✓）：认下这一段那一刻
-  // 那个 `SymbolToken` 就在手上 ✓ ⇒ 这里直读字段 ✓，不再回原文 `lastIndexOf(":")` 猜 ✗。
+  // **位置由 token 自己记**（`SwitchSegment.ColonPos`，第 615 轮）：认下这一段那一刻
+  // 那个 `SymbolToken` 就在手上 ⇒ 这里直读字段，不再回原文 `lastIndexOf(":")` 猜。
   if (last === undefined) {
     const colonPos = sv.attrs.get("colonPos");
     if (typeof colonPos === "number" && colonPos >= sv.start) end = colonPos + 1;
@@ -5828,9 +5828,9 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 判据：那个 `Export` 单元后面还有子单元（`export { a }` / `import` 那一族没有）——
 有就跟上来的整段收成 `expression`，区间从 `export` 到表达式末尾。
 
-`stmtEnd` 是**外头那一格 `Statement` 的终点**（`projectStatement` 递进来的 ✓）：
-具名导出的尾分号算在 `ExportDeclaration` 里 ✓，可它**不在 `Export` 单元的区间里** ✗ ——
-解析期 `Export.Process` 一遇到 `;` 就停 ✓，把那一个字符留给了语句 ✓（见 `tokens/export.xl.md` ✓）。
+`stmtEnd` 是**外头那一格 `Statement` 的终点**（`projectStatement` 递进来的）：
+具名导出的尾分号算在 `ExportDeclaration` 里，可它**不在 `Export` 单元的区间里** ——
+解析期 `Export.Process` 一遇到 `;` 就停，把那一个字符留给了语句（见 `tokens/export.xl.md`）。
 
 ```ts
   const view_ = v.attrs === undefined ? view(v) : v;
@@ -5868,15 +5868,15 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     }
   }
   const rest = kids.filter((k) => !(k.get("type") === "Keyword" && textOfNode(k, ctx) === "export"));
-  // **`export = X` / `export default X` 的 `Export` 单元自己就是一格**（第 534 轮实测 ✓）：
-  // 关掉 reorg 之后这一支走的是「解析期只把**前缀两个词**收进 `Export`」那条路 ✓
-  //（`export.xl.md` 的构造函数那一段写着这条路 ✓），所以 `rest` 里那一格的文本是
-  // **`"export default"` / `"export ="`** ✓，而不是两格 `Keyword` ✗ ——
-  // 原来那句「`rest` 里有 `Keyword(default)`」于是永远为假 ✗ ⇒ 整条落到最后的
-  // `ExportDeclaration` ✗（实测 `am-declare-module-css.ts`：缺 `ExportAssignment` +
-  // 缺它的 `Identifier(c)` ✓、多出 `ExportDeclaration` ✓）。
-  // **判据改成「那一格的文本里有没有 `default` / `=` 这个尾词」** ✓：
-  // 两种形状（`Export` 一格 / 两格 `Keyword`）都认 ✓，判的仍是「这是不是赋值式导出」✓。
+  // **`export = X` / `export default X` 的 `Export` 单元自己就是一格**（第 534 轮实测）：
+  // 关掉 reorg 之后这一支走的是「解析期只把**前缀两个词**收进 `Export`」那条路
+  //（`export.xl.md` 的构造函数那一段写着这条路），所以 `rest` 里那一格的文本是
+  // **`"export default"` / `"export ="`**，而不是两格 `Keyword` ——
+  // 原来那句「`rest` 里有 `Keyword(default)`」于是永远为假 ⇒ 整条落到最后的
+  // `ExportDeclaration`（实测 `am-declare-module-css.ts`：缺 `ExportAssignment` +
+  // 缺它的 `Identifier(c)`、多出 `ExportDeclaration`）。
+  // **判据改成「那一格的文本里有没有 `default` / `=` 这个尾词」**：
+  // 两种形状（`Export` 一格 / 两格 `Keyword`）都认，判的仍是「这是不是赋值式导出」。
   const wordTail = (k: any) => {
     const parts = textOfNode(k, ctx).trim().split(/\s+/);
     return parts[parts.length - 1];
@@ -5914,11 +5914,11 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   // 具名导出（`export { a as b, c, type D }`）与模块名走 `namedExportClause`（第 87 轮）：
   // 尾分号算在 `ExportDeclaration` 里（TS 的 `export { a };` 是 [0,14)，含 `;`）。
   //
-  // **终点取的是语句那一格** ✓（第 548 轮 ✓）：那个 `;` 不在 `Export` 单元自己的区间里 ✗
-  // （`Export.Process` 遇到 `;` 就停 ✓，字符留给语句 ✓）——照抄单元自己的终点会**差一格** ✗。
-  // 少了这一条实测怎样 ✗：`export { a };` 一族 **九份**文件各得一处**漂移** + 一处**多出来** ✓
-  //（`mod-export-named-list.ts` / `mod-export-star.ts` / `mod-export-named-alias.ts` … ✓，
-  // 全是同一个形状：产物 `[71,83)` 对 TS `[71,84)` ✓）。
+  // **终点取的是语句那一格**（第 548 轮）：那个 `;` 不在 `Export` 单元自己的区间里
+  // （`Export.Process` 遇到 `;` 就停，字符留给语句）——照抄单元自己的终点会**差一格**。
+  // 少了这一条实测怎样：`export { a };` 一族 **九份**文件各得一处**漂移** + 一处**多出来**
+  //（`mod-export-named-list.ts` / `mod-export-star.ts` / `mod-export-named-alias.ts` …，
+  // 全是同一个形状：产物 `[71,83)` 对 TS `[71,84)`）。
   return {
     kind: "ExportDeclaration",
     pos: view_.start,
@@ -5926,7 +5926,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     // 而 `stmtEndOf` 读的是 `v.start` / `v.end` —— 原始 Map 上这两个属性都是 `undefined`
     // （它们在 `range` 里），于是终点变成 `undefined`、投影出来的 `ExportDeclaration`
     // 成了零宽区间：实测 108 处漂移 + 108 处「多出来」（同一个节点两边各记一次）。
-    // **起点仍从视图取** ✓（`stmtEnd` 已经是算好的整数 ✓，不再经过原始 Map ✓）。
+    // **起点仍从视图取**（`stmtEnd` 已经是算好的整数，不再经过原始 Map）。
     end: stmtEnd,
     ...namedExportClause(view_, ctx),
   };
@@ -6009,25 +6009,25 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 
 **循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
 
-**第一判据是 token 记下的整对花括号**（第 641 轮 ✓，`braceRange` = 产物字典里的
-`bodyBraceRange` ✓）：`While.BodyBrace` 在挂体那一刻就把那对括号记下了 ✓，
-有它 ⇒ TS 那边就是一个 `Block` ✓（**空块也在内** ✓），下面那一套「找 `{` + `MatchingBrace`」
-一步都不跑 ✓。
+**第一判据是 token 记下的整对花括号**（第 641 轮，`braceRange` = 产物字典里的
+`bodyBraceRange`）：`While.BodyBrace` 在挂体那一刻就把那对括号记下了，
+有它 ⇒ TS 那边就是一个 `Block`（**空块也在内**），下面那一套「找 `{` + `MatchingBrace`」
+一步都不跑。
 
 与 `blockOfBody` 的分工：那一支的 `kids` 里已经有成形的语句、靠「第一个语句之前有没有 `{`」
 判断；而 `for` / `while` / `do…while` / `for…of` 的体段在 `ToList` 里**只有语句**
 （花括号那层壳不在树里），所以**没有字段时**括号只能**从原文找**——`from` 传头部结束的位置。
 
-**这一格今天四个循环体全都记了** ✓（`While` / `For` / `Foreach` / `DoWhile` 各自的 `BodyBrace` ✓，
-第 618 / 619 / 598 / 641 轮陆续补齐 ✓ ⇒ 下面那套「找 `{` + `MatchingBrace`」是**兜底** ✓，
-给还没记字段的 token 与克隆体留着 ✓）。
+**这一格今天四个循环体全都记了**（`While` / `For` / `Foreach` / `DoWhile` 各自的 `BodyBrace`，
+第 618 / 619 / 598 / 641 轮陆续补齐 ⇒ 下面那套「找 `{` + `MatchingBrace`」是**兜底**，
+给还没记字段的 token 与克隆体留着）。
 
 ```ts
   const list = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   const projections = projectEach(list, ctx);
-  // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下 ✓
-  //（`While.BodyBrace` 的 `CaptureBodyBrace` 那一处就是这个条件 ✓），
-  // 所以有它 ⇒ TS 那边就是一个 `Block` ✓——空块那一档（`while (c) {}` ✓）也一并落在这里 ✓。
+  // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
+  //（`While.BodyBrace` 的 `CaptureBodyBrace` 那一处就是这个条件），
+  // 所以有它 ⇒ TS 那边就是一个 `Block`——空块那一档（`while (c) {}`）也一并落在这里。
   const knownBrace = braceSpanOf(braceRange);
   if (knownBrace !== null) {
     return { kind: "Block", statements: projections, pos: knownBrace[0], end: knownBrace[1] + 1 };
@@ -6067,13 +6067,13 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 
 一个段的体 → `Block`（或没有花括号时的单条语句）。
 
-**第一判据是 token 记下的整对花括号**（第 641 轮 ✓，`braceRange` = 产物字典里的
-`bodyBraceRange` ✓）：`IfSegment.BodyBrace` 在挂体那一刻就把那对括号记下了 ✓，
-有它就**直接**是那个 `Block` ✓——下面那套「找 `{` + `MatchingBrace` + 比对语句表」
-一步都不跑 ✓（那套是回原文猜的第二份答案 ✓）。
+**第一判据是 token 记下的整对花括号**（第 641 轮，`braceRange` = 产物字典里的
+`bodyBraceRange`）：`IfSegment.BodyBrace` 在挂体那一刻就把那对括号记下了，
+有它就**直接**是那个 `Block`——下面那套「找 `{` + `MatchingBrace` + 比对语句表」
+一步都不跑（那套是回原文猜的第二份答案）。
 
-**没有字段时才回原文猜**（`For` / `While` / `DoWhile` / `Foreach` 的体段**今天也都记了这一格** ✓，
-所以这一支是留给克隆体与还没记字段的 token 的兜底 ✓）：
+**没有字段时才回原文猜**（`For` / `While` / `DoWhile` / `Foreach` 的体段**今天也都记了这一格**，
+所以这一支是留给克隆体与还没记字段的 token 的兜底）：
 判据（两处都得看，不能只看第一个 `{`）：先找**第一个语句起点之前**的那个 `{`，
 再要求它配对出来的 `}` **不早于最后一个语句的终点**——
 `if (a) b(); { c(); }` 里那个 `{` 属于**下一条语句**，第一个语句的终点在它之前，
@@ -6083,9 +6083,9 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 ```ts
   const list = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   const projections = projectEach(list, ctx);
-  // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下 ✓
-  //（`CaptureBodyBrace` / `Try` 那两处都是这个条件 ✓），所以有它 ⇒ TS 那边就是一个 `Block` ✓，
-  // 连空体那一档（`if (a) {}` ✓）也一并落在这里 ✓。
+  // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
+  //（`CaptureBodyBrace` / `Try` 那两处都是这个条件），所以有它 ⇒ TS 那边就是一个 `Block`，
+  // 连空体那一档（`if (a) {}`）也一并落在这里。
   const known = braceSpanOf(braceRange);
   if (known !== null) {
     return {
@@ -6353,11 +6353,11 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   // 「字段名对拍」就多一处看不出根因的假差异。
   // 命名空间是唯一的例外：它的名字落在 `namespace` 属性上（不是 `name`）。
   const rawName = v.attrs.get("name") ?? v.attrs.get("fieldName") ?? v.attrs.get("namespace");
-  // **属性里那个名字也要解转义** ✗（第 381 轮 ✓）：`const \u0061bc = 1` 的名字住在
-  // `Let.fieldName` 这个**属性**上 ✓（不是子单元 ✓），`x.\u0061` 的键同理 ✓。
-  // **与 `Identifier.PrintAst` 共用一份解码** ✓（`text-common-util.xl.md` 的
-  // `DecodeIdentifierEscapes` ✓）——两处各写一份就是两处会漂的答案 ✗（这一轮第一版
-  // 只改了标识符那一格 ✓，于是 `function f\u0066()` 绿了 ✓、`const \u0061bc` 还是红的 ✓）。
+  // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
+  // `Let.fieldName` 这个**属性**上（不是子单元），`x.\u0061` 的键同理。
+  // **与 `Identifier.PrintAst` 共用一份解码**（`text-common-util.xl.md` 的
+  // `DecodeIdentifierEscapes`）——两处各写一份就是两处会漂的答案（这一轮第一版
+  // 只改了标识符那一格，于是 `function f\u0066()` 绿了、`const \u0061bc` 还是红的）。
   const name = typeof rawName === "string" ? rawName : "";
   let nameNode = null;
   // 计算属性名的那个单元（`[Symbol.toPrimitive]`）；它在下面的段循环里要**跳过**。
@@ -6434,15 +6434,15 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
       // **体节点**：改字段名，但自己仍是一个节点（见 `BODY_FIELDS`）。
       const body = BODY_FIELDS.get(x.get("type"));
       if (body !== undefined) {
-        // **`Namespace` 那一档只在「点号命名空间的嵌套」里成立** ✓（第 367 轮 ✓，
-        // **第 292 轮那股改动的另一半** ✓）：
-        // `namespace A.B.C { … }` 的产物是**三层 `Namespace` 套着** ✓ ⇒ 内层字段名是
-        // `body` ✓（TS 的 `ModuleDeclaration.body` 就是里面那层 ✓）；
+        // **`Namespace` 那一档只在「点号命名空间的嵌套」里成立**（第 367 轮，
+        // **第 292 轮那股改动的另一半**）：
+        // `namespace A.B.C { … }` 的产物是**三层 `Namespace` 套着** ⇒ 内层字段名是
+        // `body`（TS 的 `ModuleDeclaration.body` 就是里面那层）；
         // 而 `namespace O { export namespace I { … } }` 里那个内层 `Namespace` 是
-        // 外层 **`ModuleBlock` 的孩子** ✓ ⇒ TS 那边它躺在 `statements` 里 ✓。
-        // 一律收成 `body` 的后果（第 292 轮实测 ✓）：降级层 `ListOf(block, "statements")`
-        // **一个语句都取不到** ✗ ⇒ 内层命名空间根本没建 ✓ ⇒ 脚本报
-        // `cannot read properties of undefined` ✓（**离现场很远** ✗）。
+        // 外层 **`ModuleBlock` 的孩子** ⇒ TS 那边它躺在 `statements` 里。
+        // 一律收成 `body` 的后果（第 292 轮实测）：降级层 `ListOf(block, "statements")`
+        // **一个语句都取不到** ⇒ 内层命名空间根本没建 ⇒ 脚本报
+        // `cannot read properties of undefined`（**离现场很远**）。
         const nestedNamespaceInBody = x.get("type") === "Namespace" && kind !== "ModuleDeclaration";
         if (nestedNamespaceInBody === false) {
           props[body] = projectNode(x, ctx);
@@ -6511,9 +6511,9 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   //   - `` `${1}` `` / `` `a${1}` `` / `` `${1}b` `` → 文本段**照样**各给一个
   //     （**包括空段**：那个 `ConstString` 的值就是空串）；
   //   - `""` / `''` / `` `` `` → **一个都没有**。
-  // 所以「一个都没有」只可能是**空串**，不是「值是一对引号」✗。
+  // 所以「一个都没有」只可能是**空串**，不是「值是一对引号」。
   //
-  // **原来这里退到「原样切源码」**✗：那给出的是**带引号的原文**（`""`）——
+  // **原来这里退到「原样切源码」**：那给出的是**带引号的原文**（`""`）——
   // 于是空串与非空串在降级层分不开，判据报的是
   // `unimplemented: an empty string literal is reported in quoted form`，
   // 而 `let s = ""` 这种遍地都是的写法直接跑不起来（`parsing-gaps` 里记了几十轮）。
@@ -6671,9 +6671,9 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     IsTypeParameterModifier: (node) => isTypeParameterModifier(node, ctx),
     MemberInObject: MEMBER_IN_OBJECT,
     NumericLiteral: NUMERIC_LITERAL,
-    // **运算符那一格的叶子节点** ✓（第 550 轮 ✓）：`in` / `instanceof` 在深度界那一层
-    // 还是 `Identifier` ✗，照 `Project` 投会投成 `Identifier("in")` ✗ ——
-    // `BinaryOperator.PrintAst` 那一支正需要它 ✓（见 `operatorTokenOf` ✓）。
+    // **运算符那一格的叶子节点**（第 550 轮）：`in` / `instanceof` 在深度界那一层
+    // 还是 `Identifier`，照 `Project` 投会投成 `Identifier("in")` ——
+    // `BinaryOperator.PrintAst` 那一支正需要它（见 `operatorTokenOf`）。
     OperatorNode: (unit) => operatorTokenOf(unit, ctx),
   };
   const statements = projectEach(exported, ctx);

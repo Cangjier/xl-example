@@ -50,12 +50,12 @@ JSON 的形状照抄上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`：
 
 ## field CloseRuleQueue:Sequence<CloseRule> | null = null
 
-本单元关闭之后 `ApplyCloseRules` 要跑的规则队列（第 562 轮从 `CloseRuleQueue` 改名 ✓）。
+本单元关闭之后 `ApplyCloseRules` 要跑的规则队列（第 562 轮从 `CloseRuleQueue` 改名）。
 
-它从前是**全局重组那一趟**的输入 ✓，第 561 轮把那一趟删掉之后只剩 `ApplyCloseRules` 这一个读点 ✓
-⇒ 名字里那个「重组」不再指向任何还活着的东西 ✗，所以改掉 ✓。
+它从前是**全局重组那一趟**的输入，第 561 轮把那一趟删掉之后只剩 `ApplyCloseRules` 这一个读点
+⇒ 名字里那个「重组」不再指向任何还活着的东西，所以改掉。
 
-`null` = 这个类没有收尾规则 ✓ —— 收敛环对它就一条规则都不跑 ✓（`FormStatement` 那条钩子照旧跑 ✓）。
+`null` = 这个类没有收尾规则 —— 收敛环对它就一条规则都不跑（`FormStatement` 那条钩子照旧跑）。
 
 ## field Parent:Token | null = null
 
@@ -127,17 +127,17 @@ throw new Error("abstract member: Close");
 
 约定：`SourceRange` 只能赋值一次；`Close` 之前它必须已赋值；新建单元时上一个单元必须已关闭。
 
-**`ApplyCloseRules` 的位置**（第 487–488 轮 ✓）：夹在 `Close` 的**后面** ✓ ——
-那几条规则在全局那一趟里跑的就是「每个单元关闭时、在它自己的 `Data` 上」✓，
-放这里与当初**同一时机** ✓；而解析期那些端口（`LetBranch` 那一族）跑在关闭**之前** ✓，
-所以它们照旧看得见升级前的形状（`Identifier` 形态的 `let` / `const` ✓）。
-**放进 `Close` 之前会当场踩到那一片** ✗。
+**`ApplyCloseRules` 的位置**（第 487–488 轮）：夹在 `Close` 的**后面** ——
+那几条规则在全局那一趟里跑的就是「每个单元关闭时、在它自己的 `Data` 上」，
+放这里与当初**同一时机**；而解析期那些端口（`LetBranch` 那一族）跑在关闭**之前**，
+所以它们照旧看得见升级前的形状（`Identifier` 形态的 `let` / `const`）。
+**放进 `Close` 之前会当场踩到那一片**。
 
-**这里曾经还有一句 `this.Reorganize()`** ✗（第 561 轮删掉 ✓，按用户指示逐步移除 reorg ✓）：
-那是「全局重组那一趟」的**唯一入口** ✓ —— 单元关闭之后、在自己的子单元列表上把
-相邻的若干单元合并成更高层的结构 ✓。它默认就关着（`DSH_XL_REORG=1` 才恢复 ✓，第 471 轮 ✓），
-第 561 轮把入口本身与那两个环境开关一起摘掉 ✓ ⇒ 现在**没有第二条成形路径** ✓：
-产物就是 `ApplyCloseRules` 这一趟长出来的样子 ✓。
+**这里曾经还有一句 `this.Reorganize()`**（第 561 轮删掉，按用户指示逐步移除 reorg）：
+那是「全局重组那一趟」的**唯一入口** —— 单元关闭之后、在自己的子单元列表上把
+相邻的若干单元合并成更高层的结构。它默认就关着（`DSH_XL_REORG=1` 才恢复，第 471 轮），
+第 561 轮把入口本身与那两个环境开关一起摘掉 ⇒ 现在**没有第二条成形路径**：
+产物就是 `ApplyCloseRules` 这一趟长出来的样子。
 
 ```ts
 if (this.SourceRange.Start === null || this.SourceRange.End === null) {
@@ -151,25 +151,25 @@ this.ApplyCloseRules();
 
 **关闭之后**的一次机会：把规则的收敛环在这一层上跑一遍（第 487–488 轮）。
 
-**只转发给成形器** ✓：`core` 这一层不认识 `Keyword` / `Function` / `TypeDefine` 那些 ✗
-（见 `token-former.xl.md` ✓）。
+**只转发给成形器**：`core` 这一层不认识 `Keyword` / `Function` / `TypeDefine` 那些
+（见 `token-former.xl.md`）。
 
-**第 561 轮起它就是唯一那一趟** ✓：从前这里有一道 `DSH_XL_REORG === "1"` 的早退 ✓
-（对照态里由全局重组那一趟跑同一批规则 ✓，两趟都跑会改掉彼此的输入 ✗ ——
-实测不关的对照态从 855 / 1037 掉到 **401** ✗）；全局那一趟随 `Reorganize` 一起删掉之后 ✓，
-「对照态」这个档位不再存在 ✓，那道早退也就没有了对象 ✓（`FormStatement` 那条钩子照旧不关 ✓：
-实测让它照跑反而更好，855 对 692 ✓，见 `typescript/tokens/statement.xl.md` ✓）。
+**第 561 轮起它就是唯一那一趟**：从前这里有一道 `DSH_XL_REORG === "1"` 的早退
+（对照态里由全局重组那一趟跑同一批规则，两趟都跑会改掉彼此的输入 ——
+实测不关的对照态从 855 / 1037 掉到 **401**）；全局那一趟随 `Reorganize` 一起删掉之后，
+「对照态」这个档位不再存在，那道早退也就没有了对象（`FormStatement` 那条钩子照旧不关：
+实测让它照跑反而更好，855 对 692，见 `typescript/tokens/statement.xl.md`）。
 
-**收尾之后补一次 `Parent`** ✓（第 623 轮 ✓）：规则用 `ReplaceCountAt` 把一段单元换成一个新节点 ✓，
-而那是核心的 `splice` ✓、**不设 `Parent`** ✓（只有 `Add` / `AddRange` 才设 ✓）⇒ 换进来的节点
-`Parent` 仍是 `null` ✗。凡是从「当前单元的父亲」推容器的规则（`TupleMemberCloseRule.TupleOf` ✓、
-`type-bracket` 的 `IsTypeContainerUnit(current.Parent)` ✓ …）都会因此**判不出容器** ✗。
-实测：`type E = [infer U, ...string[]]` 的第一个实义单元是替换出来的 `InferType`（`Parent` 为 `null` ✓）
-⇒ 元组成员那一条的锚点找不到 ✓ ⇒ `...string[]` 只剩一个裸 `...` ✓（缺 `RestType` / `ArrayType` ✓）。
+**收尾之后补一次 `Parent`**（第 623 轮）：规则用 `ReplaceCountAt` 把一段单元换成一个新节点，
+而那是核心的 `splice`、**不设 `Parent`**（只有 `Add` / `AddRange` 才设）⇒ 换进来的节点
+`Parent` 仍是 `null`。凡是从「当前单元的父亲」推容器的规则（`TupleMemberCloseRule.TupleOf`、
+`type-bracket` 的 `IsTypeContainerUnit(current.Parent)` …）都会因此**判不出容器**。
+实测：`type E = [infer U, ...string[]]` 的第一个实义单元是替换出来的 `InferType`（`Parent` 为 `null`）
+⇒ 元组成员那一条的锚点找不到 ⇒ `...string[]` 只剩一个裸 `...`（缺 `RestType` / `ArrayType`）。
 
-**只补 `null`** ✗（不覆盖已有的值 ✓）：一个单元已经指着别的父亲，说明它**故意**挂在那儿 ✓
-（挂载链 / 共享单元 ✓），这里不替它改主意 ✓。这条不变式的另一面是 `Add` ✓：
-`Data` 里的单元要么指 `this`、要么还没认过父亲 ✓ —— 后者只可能来自 `splice` ✓。
+**只补 `null`**（不覆盖已有的值）：一个单元已经指着别的父亲，说明它**故意**挂在那儿
+（挂载链 / 共享单元），这里不替它改主意。这条不变式的另一面是 `Add`：
+`Data` 里的单元要么指 `this`、要么还没认过父亲 —— 后者只可能来自 `splice`。
 
 ```ts
 Token.Former.ApplyCloseRules(this);
@@ -253,12 +253,12 @@ return this.Parent;
 
 默认 `false`：绝大多数单元没有这样的字符（`Root` 永不结束、`Statement` 那一族由重组收尾）。
 
-**为什么要有这一条** ✗：一个单元一旦成了父单元的 `MountedUnit`，父单元就**再也看不到任何字符**了 ✓
-（`UnitToken.Process` 第一句就是「有挂载单元就转给它」✓）。所以挂在别人下面的**解析期单元**
-（`PendingUnit` / 各种向导 ✓）必须能问出「外层还有没有人在等这个字符」✓，否则外层的 `}` 会被它吞掉 ✓、
-父括号永远等不到自己的结束符 ✓，整棵树**停在那里** ✗——不抛错、也不出节点 ✓，是那种最难查的静默故障 ✓。
+**为什么要有这一条**：一个单元一旦成了父单元的 `MountedUnit`，父单元就**再也看不到任何字符**了
+（`UnitToken.Process` 第一句就是「有挂载单元就转给它」）。所以挂在别人下面的**解析期单元**
+（`PendingUnit` / 各种向导）必须能问出「外层还有没有人在等这个字符」，否则外层的 `}` 会被它吞掉、
+父括号永远等不到自己的结束符，整棵树**停在那里**——不抛错、也不出节点，是那种最难查的静默故障。
 
-问法是**往上走一遍**（见 `IfGuide.OwnedByAncestor` ✓），不在这一层做聚合 ✓。
+问法是**往上走一遍**（见 `IfGuide.OwnedByAncestor`），不在这一层做聚合。
 
 ```ts
 return false;
@@ -268,19 +268,19 @@ return false;
 
 **成形器**（第 486–488 轮）：`FormStatement` 与 `ApplyCloseRules` 的落地实现。
 
-默认就是抽象那一份（调用即抛 ✗）——`ParsePipeline.Install` 会把 `TokenFormerImpl.Instance` 装进来 ✓。
-「装配是调用方的责任」这句与模板那一套是同一条口径 ✓：解析不可能早于 `Install` ✓
-（`typescript/tokens/root.xl.md` 的构造器里那条契约检查管着 ✓）。
+默认就是抽象那一份（调用即抛）——`ParsePipeline.Install` 会把 `TokenFormerImpl.Instance` 装进来。
+「装配是调用方的责任」这句与模板那一套是同一条口径：解析不可能早于 `Install`
+（`typescript/tokens/root.xl.md` 的构造器里那条契约检查管着）。
 
 ## method FormStatement:(terminator:Token)=>void
 
 终结符（`;` / 软换行）**已经进 `Data` 之后**的一次机会：宿主可以据此把刚才那一段收成一条语句壳。
 
-**它是空钩子，但转发给成形器** ✓：`core` 这一层不认识 `typescript` 的语句类 ✗（见
-`token-former.xl.md` 那一处说明 ✓），所以这里只问 `Token.Former` ✓。
+**它是空钩子，但转发给成形器**：`core` 这一层不认识 `typescript` 的语句类（见
+`token-former.xl.md` 那一处说明），所以这里只问 `Token.Former`。
 两个调用点在 `typescript/tokens/symbol-token.xl.md` 与 `line-wrap.xl.md` 的 appender 里，
-**紧跟 append 之后** ✓ —— 那是唯一同时满足「轮得到」「终结符已在列」「切片口径正确」三条的位置 ✓
-（第 481–486 轮逐条量出来的 ✓）。
+**紧跟 append 之后** —— 那是唯一同时满足「轮得到」「终结符已在列」「切片口径正确」三条的位置
+（第 481–486 轮逐条量出来的）。
 
 ```ts
 Token.Former.FormStatement(this, terminator);
@@ -452,11 +452,11 @@ this.Parent.Data.splice(index, 1);
 
 标签名取 `this.constructor.name`，所以类名就是它产出的 XML 标签名。
 
-**标签名就是全部** ✓：从前这里还有一个 `DSH_XL_TRACE=1` 的诊断档 ✓ ——
-它把「这个单元是谁造的」打进标签（`xl:born="…"` ✓），而那个口径的两端**都已经不在了** ✗：
-写点随第 561 轮删掉全局重组那一趟一起消失 ✓（`Token.CreatedByRule` 从此恒为空串 ✓），
-读点也就只能打出一个**与标签名一模一样**的值 ✓ —— 一个什么都换不来的环境开关 ✓
-⇒ 第 565 轮连同那两个字段一起摘掉 ✓（与本仓删 `DSH_XL_REORG` / `DSH_XL_NO_REORG` 同一条口径 ✓）。
+**标签名就是全部**：从前这里还有一个 `DSH_XL_TRACE=1` 的诊断档 ——
+它把「这个单元是谁造的」打进标签（`xl:born="…"`），而那个口径的两端**都已经不在了**：
+写点随第 561 轮删掉全局重组那一趟一起消失（`Token.CreatedByRule` 从此恒为空串），
+读点也就只能打出一个**与标签名一模一样**的值 —— 一个什么都换不来的环境开关
+⇒ 第 565 轮连同那两个字段一起摘掉（与本仓删 `DSH_XL_REORG` / `DSH_XL_NO_REORG` 同一条口径）。
 
 ```ts
 const name = this.constructor.name;
@@ -538,14 +538,14 @@ return this.WithRangeOf(this.ToDictionary(), this.Data);
   第 70 轮实测 255 个节点缺坐标，全是这一类）。
 - 同一个字典项集合里可能有**同名的多个节点**（`Statement` 里两条 `Identifier`），
   所以配对要**边配边销**（`used` 数组）——不然同一个子单元会被配到两次、把坐标抄错。
-- **光看类型名还不够**（第 546 轮 ✓）：段数组里的节点可能**与 `Data` 不在同一层** ✗，
-  这时 `Data` 里排在前面的那个同名单元会**顶替**段里的那一格 ✗。实测
-  `for await (const v of xs)`：`Foreach.children` 里是 `await`（`Data[0]` ✓），
-  而 `ForeachDefine` 里是 `const`（**不是** `Foreach.Data` 的直接成员 ✗）——
-  两者类型名都是 `Keyword` ✓ ⇒ `await` 那格抢在 `const` 前面配上了 ✓
-  ⇒ `segments.define[0]` 拿到的坐标是 82–86 而**值是 const** ✗（`TextOf` 于是答 `"await"` ✗）。
-  所以配对时**先要求区间也相同** ✓，配不上再退回「只按类型名」✓ ——
-  既有的那些段（`Data` 与段同一层）本来就区间相同 ✓，行为一个字节都不变 ✓。
+- **光看类型名还不够**（第 546 轮）：段数组里的节点可能**与 `Data` 不在同一层**，
+  这时 `Data` 里排在前面的那个同名单元会**顶替**段里的那一格。实测
+  `for await (const v of xs)`：`Foreach.children` 里是 `await`（`Data[0]`），
+  而 `ForeachDefine` 里是 `const`（**不是** `Foreach.Data` 的直接成员）——
+  两者类型名都是 `Keyword` ⇒ `await` 那格抢在 `const` 前面配上了
+  ⇒ `segments.define[0]` 拿到的坐标是 82–86 而**值是 const**（`TextOf` 于是答 `"await"`）。
+  所以配对时**先要求区间也相同**，配不上再退回「只按类型名」 ——
+  既有的那些段（`Data` 与段同一层）本来就区间相同，行为一个字节都不变。
 
 配不上的字典项**原样留着**（它拿不到坐标，但不至于把别的节点也连累），
 这是「宁可少补一个，也不要补错一个」的取舍：补错的坐标会让 `cases:tsast` 报出**假**分歧。
@@ -602,12 +602,12 @@ for (const [key, value] of node.entries()) {
     taken.push(null);
     used.push(false);
   }
-  // **两趟配对**（第 546 轮）：第一趟要求「类型名 + 区间」都对上 ✓，
-  // 第二趟只放宽「字典格还没有区间」的那一种 ✓（还没签入签出的格子只能这样配 ✓）。
-  // **第二趟不要再放宽到「区间不同也能配」** ✗：段数组里的节点与 `Data` 不在同一层时
-  // （`ForeachDefine` 里的 `const` 对 `Foreach` 自己的 `await` ✗），两个都是 `Keyword` ✓、
-  // 区间却不同 ✓ —— 只按类型名配就会**张冠李戴** ✗，段里的那一格于是顶着 `await` 的坐标 ✗
-  // （`st-for-await` / `stmt-for-await` / `fn-async-generator` 三份实测都是这样 ✓）。
+  // **两趟配对**（第 546 轮）：第一趟要求「类型名 + 区间」都对上，
+  // 第二趟只放宽「字典格还没有区间」的那一种（还没签入签出的格子只能这样配）。
+  // **第二趟不要再放宽到「区间不同也能配」**：段数组里的节点与 `Data` 不在同一层时
+  // （`ForeachDefine` 里的 `const` 对 `Foreach` 自己的 `await`），两个都是 `Keyword`、
+  // 区间却不同 —— 只按类型名配就会**张冠李戴**，段里的那一格于是顶着 `await` 的坐标
+  // （`st-for-await` / `stmt-for-await` / `fn-async-generator` 三份实测都是这样）。
   for (const token of children) {
     const tokenSpan = spanOf(token);
     for (let round = 0; round < 2; round++) {

@@ -32,7 +32,7 @@ Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)  Identifier(z)
 产物变成 `Identifier(x) . BinaryOperator(y !== z)`：**点号被劈开，链的两头各挂在一处**，
 投影层再怎么拼也拼不回 TypeScript 的形状（那一半节点整片消失，实测真实语料
 `PropertyAccessExpression` 缺 4071、`CallExpression` 缺 1263）。
-折链之后运算符看到的是**一个完整的操作数**，`x.y` 与 `!== z` 各归各位 ✓。
+折链之后运算符看到的是**一个完整的操作数**，`x.y` 与 `!== z` 各归各位。
 
 **它与 `MethodCloseRule` / `NullConditionalOperatorCloseRule` 的分工**：
 
@@ -93,24 +93,24 @@ if (unit instanceof Identifier) {
     text === "continue" ||
     text === "yield" ||
     text === "import" ||
-    // **`new` 也不是链底**（第 538 轮 ✓）：`new.target` 不是「`new` 这个操作数的成员访问」✗，
+    // **`new` 也不是链底**（第 538 轮）：`new.target` 不是「`new` 这个操作数的成员访问」，
     // 它在 TS 那边是 **`MetaProperty`**（`print-ast-common.xl.md` 的「0。`import.meta` /
-    // `new.target`」那一支 ✓）——那一支要看到的是 `[Keyword(new), ., …]` 三格 ✓。
-    // 折成链之后 `new` 被包进 `PropertyAccess` ✗ ⇒ 投影只能投出 `PropertyAccessExpression`
-    // 并多一个 `Identifier(new)` ✗（实测 `cls-super-newtarget.ts` 一族：缺 `MetaProperty` +
-    // 多出 `PropertyAccessExpression` / `Identifier` ✓）。
-    // `import` 本来就在名单里 ✓，理由与它**同源** ✓（`import.meta` 归另一条规则 ✓）。
+    // `new.target`」那一支）——那一支要看到的是 `[Keyword(new), ., …]` 三格。
+    // 折成链之后 `new` 被包进 `PropertyAccess` ⇒ 投影只能投出 `PropertyAccessExpression`
+    // 并多一个 `Identifier(new)`（实测 `cls-super-newtarget.ts` 一族：缺 `MetaProperty` +
+    // 多出 `PropertyAccessExpression` / `Identifier`）。
+    // `import` 本来就在名单里，理由与它**同源**（`import.meta` 归另一条规则）。
     text === "new" ||
-    // **声明词也不是链底**（第 533 轮 ✓，第 532 轮试出来的方向 ✓）：
-    // `let` / `const` / `var` 开头的是一段**声明** ✓，后面那对方括号是**解构模式**（`const [a] = …` ✓），
-    // 不是下标访问 ✗。**这三个词永远不是合法的链底** ✓（`let.x` / `const[0]` / `var[0]` 在 JS 里
-    // 本来就是语法错 ✓），所以这一条没有副作用 ✓。
+    // **声明词也不是链底**（第 533 轮，第 532 轮试出来的方向）：
+    // `let` / `const` / `var` 开头的是一段**声明**，后面那对方括号是**解构模式**（`const [a] = …`），
+    // 不是下标访问。**这三个词永远不是合法的链底**（`let.x` / `const[0]` / `var[0]` 在 JS 里
+    // 本来就是语法错），所以这一条没有副作用。
     //
-    // **少了它会怎样** ✗（第 532 轮实测 ✓）：`const` 这时还是 `Identifier` ✓ ⇒ 链在这里起头 ✓
-    // ⇒ `const [a = 1, b = a]` 被收成一个 `PropertyAccess` ✗ ⇒ 那段声明的形状全变 ✗
-    //（`LetBranch` 再也认不出 ✓、`JsonArrayCloseRule` 也再也看不到那个 `[` ✓ ——
-    //  它的上一个实义单元成了 `PropertyAccess` ✗，正是 `IsArrayAt` 里「已经是操作数 ⇒ 只能是下标」
-    //  那一条 ✓）。**这两件事是连锁的** ✗：链一起头，解构括号就同时失去两种身份 ✓。
+    // **少了它会怎样**（第 532 轮实测）：`const` 这时还是 `Identifier` ⇒ 链在这里起头
+    // ⇒ `const [a = 1, b = a]` 被收成一个 `PropertyAccess` ⇒ 那段声明的形状全变
+    //（`LetBranch` 再也认不出、`JsonArrayCloseRule` 也再也看不到那个 `[` ——
+    //  它的上一个实义单元成了 `PropertyAccess`，正是 `IsArrayAt` 里「已经是操作数 ⇒ 只能是下标」
+    //  那一条）。**这两件事是连锁的**：链一起头，解构括号就同时失去两种身份。
     text === "let" ||
     text === "const" ||
     text === "var"
@@ -125,12 +125,12 @@ if (unit instanceof Method) {
 if (unit instanceof Bracket) {
   return unit.endBracket === ")" || unit.endBracket === "]";
 }
-// **`NotNull` 也是链底，但在 `NullConditionalOperator` 里面不折**（第 592 轮 ✓）：
-// `o?.a!.b` 的 `?.a!.b` 整段是 NCO 的 `Data` ✓，里面的 `a ! . b` 折成
-// `PropertyAccess[NotNull(a), ., b]` 之后 ✗，投影侧那条 NCO 支要的形状是
-// 「`NotNull` 里面装着**名字**」✓（`print-ast-common.xl.md` 的 `a?.b!` 那一支 ✓）——
-// 折成链会把它读成「一个成员名」✓ ⇒ `o?.a!.b` 静默给 `undefined` ✗
-//（实测 `c305-ex-optional-chain-nonnull-mix`：node 给 `1` ✓）。NCO 里面的那一格照旧平级 ✓。
+// **`NotNull` 也是链底，但在 `NullConditionalOperator` 里面不折**（第 592 轮）：
+// `o?.a!.b` 的 `?.a!.b` 整段是 NCO 的 `Data`，里面的 `a ! . b` 折成
+// `PropertyAccess[NotNull(a), ., b]` 之后，投影侧那条 NCO 支要的形状是
+// 「`NotNull` 里面装着**名字**」（`print-ast-common.xl.md` 的 `a?.b!` 那一支）——
+// 折成链会把它读成「一个成员名」 ⇒ `o?.a!.b` 静默给 `undefined`
+//（实测 `c305-ex-optional-chain-nonnull-mix`：node 给 `1`）。NCO 里面的那一格照旧平级。
 if (unit.constructor.name === "NotNull") {
   const holder:Token | null = unit.Parent;
   return !(holder !== null && holder.constructor.name === "NullConditionalOperator");
@@ -146,12 +146,12 @@ return (
 );
 ```
 
-**`NotNull` 也是链底**（第 592 轮 ✓）：`!` 比链**晚**一步成形 ✓（`NotNullCloseRule` 排在后面 ✓），
-收敛环会**再跑一整趟** ✓——第二趟时 `[NotNull, ., b]` 已就位 ✓，整条收成一个 `PropertyAccess` ✓。
-链的内容与原来平级那三格**逐字节相同** ✗（`ctx.Expression` 走的还是同一段折法 ✓），
-变的是**产物形状** ✓（`<PropertyAccess>` 里装着 `<NotNull>` ✓）——投影侧那几条
-「`NotNull` 接在链中间」的特判从此少了触发面 ✓。
-**唯一的例外是 `NullConditionalOperator` 里面** ✓（理由见上面那一格注释 ✓）。
+**`NotNull` 也是链底**（第 592 轮）：`!` 比链**晚**一步成形（`NotNullCloseRule` 排在后面），
+收敛环会**再跑一整趟**——第二趟时 `[NotNull, ., b]` 已就位，整条收成一个 `PropertyAccess`。
+链的内容与原来平级那三格**逐字节相同**（`ctx.Expression` 走的还是同一段折法），
+变的是**产物形状**（`<PropertyAccess>` 里装着 `<NotNull>`）——投影侧那几条
+「`NotNull` 接在链中间」的特判从此少了触发面。
+**唯一的例外是 `NullConditionalOperator` 里面**（理由见上面那一格注释）。
 
 ## private method IsMemberUnit:(unit:Token | null)=>bool
 
@@ -176,13 +176,13 @@ return unit.constructor.name === "Keyword";
 
 `.` 后面那一格是不是**私有名的井号**（`this.#n` 里的 `#`）。
 
-**为什么需要它**（第 205 轮 ✓）：产物把 `this.#n` 拆成**两格** ✓——`SymbolToken(#)` 与名字 ✓
-（与字段 / 方法声明那一处同一个形状 ✓，见 `field.xl.md` ✓）。而 `IsMemberUnit` 不认 `#` ✗，
-于是链在 `this` 处就断了 ✓、`#` 与 `n` 掉成两格平级 ✓——接着**二元运算符只吞走了 `n`** ✗
-（`n + 1` 成一格 ✓、`#` 留在外面 ✓），投影投出来 `name` 的文本是 **`"#n + 1"`** ✓
-（区间从 `#` 一路到 `1` ✓）。症状是 `this.#n + 1` 读成 `undefined` ✓（JS 给 `8` ✓）——
-**静默错值** ✓，第 205 轮的判据现场就是这么红的 ✓。
-**括号一加就好** ✓（`(this.#n) + 1` ✓）——括号给了投影另一条路 ✓，这一条正好当反证 ✓。
+**为什么需要它**（第 205 轮）：产物把 `this.#n` 拆成**两格**——`SymbolToken(#)` 与名字
+（与字段 / 方法声明那一处同一个形状，见 `field.xl.md`）。而 `IsMemberUnit` 不认 `#`，
+于是链在 `this` 处就断了、`#` 与 `n` 掉成两格平级——接着**二元运算符只吞走了 `n`**
+（`n + 1` 成一格、`#` 留在外面），投影投出来 `name` 的文本是 **`"#n + 1"`**
+（区间从 `#` 一路到 `1`）。症状是 `this.#n + 1` 读成 `undefined`（JS 给 `8`）——
+**静默错值**，第 205 轮的判据现场就是这么红的。
+**括号一加就好**（`(this.#n) + 1`）——括号给了投影另一条路，这一条正好当反证。
 
 ```ts
 if (unit === null) {
@@ -238,21 +238,21 @@ while (true) {
     current = nextIndex;
     continue;
   }
-  // **`fn!()` 的调用括号**（第 592 轮 ✓）：`MethodCloseRule` 只认 `Identifier` 当被调用者 ✗，
-  // 所以紧跟在一个 `NotNull` 之后的 `()` 从来没被折进 `Method` ✓，一直是一格裸括号 ✓。
-  // 不吞它的后果是**链从这里断** ✗ ⇒ `fn!().k` 在产物里是
-  // `[NotNull(fn), PropertyAccess(Bracket(), ., k)]` ✓ ⇒ 投影把 `()` 当成链底 ✓
-  // ⇒ TS 侧那三格（`CallExpression` / `PropertyAccessExpression` / `Identifier(k)`）整片消失 ✗
-  //（`tests/parse/cases/expressions/zz-probe-nonnull-chain.ts` 实测缺 3 ✓）。
-  // **只吞「紧跟在 `NotNull` 之后」的那一格** ✗：`o["m"]()` 那一族的既有形状是
-  // `[o, Bracket([m]), Bracket(())]` ✓（三格平级、靠投影折 ✓），放开会换掉它 ✓。
+  // **`fn!()` 的调用括号**（第 592 轮）：`MethodCloseRule` 只认 `Identifier` 当被调用者，
+  // 所以紧跟在一个 `NotNull` 之后的 `()` 从来没被折进 `Method`，一直是一格裸括号。
+  // 不吞它的后果是**链从这里断** ⇒ `fn!().k` 在产物里是
+  // `[NotNull(fn), PropertyAccess(Bracket(), ., k)]` ⇒ 投影把 `()` 当成链底
+  // ⇒ TS 侧那三格（`CallExpression` / `PropertyAccessExpression` / `Identifier(k)`）整片消失
+  //（`tests/parse/cases/expressions/zz-probe-nonnull-chain.ts` 实测缺 3）。
+  // **只吞「紧跟在 `NotNull` 之后」的那一格**：`o["m"]()` 那一族的既有形状是
+  // `[o, Bracket([m]), Bracket(())]`（三格平级、靠投影折），放开会换掉它。
   //
-  // **还得看它后面接不接得上** ✗：调用括号是**链的最后一格**时不能吞 ✓——
-  // `b!()` 的既有形状是 `<Method name="">[NotNull(b, !), Bracket(空)]</Method>` ✓
-  // （`MethodCloseRule` 认那个 `NotNull` 当被调用者 ✓，投影里有一条**专门**处理它的支 ✓）。
-  // 吞成 `PropertyAccess[NotNull, Bracket()]` 之后 ✓：`Method` 认不出被调用者 ✗
-  // ⇒ 投影多出一个 `Identifier("")` ✓（实测 `expr-nonnull-callee.ts` / `expr-optional-call-nodes.ts`
-  // 各一处 ✓）。所以只有**后面还有链环**（`.` 成员或 `[` 下标）时才吞 ✓。
+  // **还得看它后面接不接得上**：调用括号是**链的最后一格**时不能吞——
+  // `b!()` 的既有形状是 `<Method name="">[NotNull(b, !), Bracket(空)]</Method>`
+  // （`MethodCloseRule` 认那个 `NotNull` 当被调用者，投影里有一条**专门**处理它的支）。
+  // 吞成 `PropertyAccess[NotNull, Bracket()]` 之后：`Method` 认不出被调用者
+  // ⇒ 投影多出一个 `Identifier("")`（实测 `expr-nonnull-callee.ts` / `expr-optional-call-nodes.ts`
+  // 各一处）。所以只有**后面还有链环**（`.` 成员或 `[` 下标）时才吞。
   const here = Get(units, current);
   const nextUnit = Get(units, nextIndex);
   if (
@@ -274,11 +274,11 @@ while (true) {
   if (!(dot instanceof SymbolToken) || !dot.Is(".")) {
     return current;
   }
-  // **私有成员名是两格**（第 205 轮 ✓）：`.` 后面先是 `#`、再是名字 ✓——**两格都要进链** ✓
-  //（少进一格就是 `IsPrivateMark` 那段写的静默错值 ✗：`#` 留在链外、
-  //  二元运算符把名字单独吞走 ✓，`this.#n + 1` 的 `name` 于是成了 `"#n + 1"` ✗）。
-  // **`#` 后面不是成员名时不留步** ✓（原样 `return current` ✓）——`#` 也能开别的构造 ✓，
-  // 链规则不该把它一并吃掉 ✗。
+  // **私有成员名是两格**（第 205 轮）：`.` 后面先是 `#`、再是名字——**两格都要进链**
+  //（少进一格就是 `IsPrivateMark` 那段写的静默错值：`#` 留在链外、
+  //  二元运算符把名字单独吞走，`this.#n + 1` 的 `name` 于是成了 `"#n + 1"`）。
+  // **`#` 后面不是成员名时不留步**（原样 `return current`）——`#` 也能开别的构造，
+  // 链规则不该把它一并吃掉。
   const afterDot = SkipNextWrapSymbol(units, nextIndex);
   if (this.IsPrivateMark(Get(units, afterDot))) {
     const namedIndex = SkipNextWrapSymbol(units, afterDot);
@@ -320,17 +320,17 @@ const base = Get(units, index);
 if (this.IsChainBase(base) === false) {
   return false;
 }
-// **`fn!()` 那一格要等下一趟** ✗（第 592 轮 ✓）：链底若是 `(` 括号、而它**前面紧挨着 `!`** ✓，
-// 那个 `!` 这一趟还没收成 `NotNull` ✓（`NotNullCloseRule` 排在本规则之后 ✓）。
-// 这一趟就把 `()` 折成链底 ⇒ 产物定型成 `[NotNull(fn), PropertyAccess(Bracket(), ., k)]` ✗
-// ⇒ 断言与调用分成两截 ✓、投影侧那三格整片消失 ✗（`fn!().k` 实测缺 3 ✓）。
-// 让路之后下一趟 `NotNull` 自己当链底 ✓、`ChainEndIndex` 把那个 `(` 吞进来 ✓。
+// **`fn!()` 那一格要等下一趟**（第 592 轮）：链底若是 `(` 括号、而它**前面紧挨着 `!`**，
+// 那个 `!` 这一趟还没收成 `NotNull`（`NotNullCloseRule` 排在本规则之后）。
+// 这一趟就把 `()` 折成链底 ⇒ 产物定型成 `[NotNull(fn), PropertyAccess(Bracket(), ., k)]`
+// ⇒ 断言与调用分成两截、投影侧那三格整片消失（`fn!().k` 实测缺 3）。
+// 让路之后下一趟 `NotNull` 自己当链底、`ChainEndIndex` 把那个 `(` 吞进来。
 //
-// **但那个 `!` 必须是「非空断言」那一个** ✗：前缀取反后面也常跟一对括号 ✓
-// （`!(current as SymbolToken).Is("!")` ✓）。判据用 `IsChainBase` 问**断言者**那一格 ✓——
-// 它与 `NotNullCloseRule.Previous` 认的是同一族操作数 ✓（并且顺带排掉 `return` 这类语句关键字 ✓）。
-// 少了这一问，前缀取反那一格会让路 ✓ ⇒ 一元运算符先把 `!` 与括号折成一个单元 ✓
-// ⇒ 后面的 `.Is(…)` 再也接不上 ✓（实测 `dist/ts/typescript/tokens/not-null.ts`：漂 3 + 多 3 ✓）。
+// **但那个 `!` 必须是「非空断言」那一个**：前缀取反后面也常跟一对括号
+// （`!(current as SymbolToken).Is("!")`）。判据用 `IsChainBase` 问**断言者**那一格——
+// 它与 `NotNullCloseRule.Previous` 认的是同一族操作数（并且顺带排掉 `return` 这类语句关键字）。
+// 少了这一问，前缀取反那一格会让路 ⇒ 一元运算符先把 `!` 与括号折成一个单元
+// ⇒ 后面的 `.Is(…)` 再也接不上（实测 `dist/ts/typescript/tokens/not-null.ts`：漂 3 + 多 3）。
 if (base instanceof Bracket && base.startBracket === "(") {
   const bangIndex = SkipPreviousWrapSymbol(units, index);
   const before = Get(units, bangIndex);

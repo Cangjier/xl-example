@@ -231,16 +231,16 @@ if (item.Frame !== null) {
   if (item.Frame.Prev > 0) stack.push(item.Frame.Prev);
   if (item.Frame.Env > 0) stack.push(item.Frame.Env);
   if (item.Frame.Generator > 0) stack.push(item.Frame.Generator);
-  // **挂起的 async 帧靠这两格活着** ✓（第 285 轮 ✓）：它离开帧栈之后，
-  // 指着它的就是「它自己的那个承诺」（`AsyncPromise` ✓）与「它等的那个」（`Awaiting` ✓）。
-  // 漏了它们，症状是「某个 `await` 之后再也没醒过来」✗
-  //（只在堆压满时出现 ✓，最难复现的一种 ✓）。
+  // **挂起的 async 帧靠这两格活着**（第 285 轮）：它离开帧栈之后，
+  // 指着它的就是「它自己的那个承诺」（`AsyncPromise`）与「它等的那个」（`Awaiting`）。
+  // 漏了它们，症状是「某个 `await` 之后再也没醒过来」
+  //（只在堆压满时出现，最难复现的一种）。
   if (item.Frame.AsyncPromise > 0) stack.push(item.Frame.AsyncPromise);
   this.MarkValue(item.Frame.Awaiting, stack);
   this.MarkValue(item.Frame.This, stack);
-  // **`new.target` 那一格也是根** ✓（第 346 轮 ✓）：它是一个**值** ✓（构造函数本身 ✓），
-  // 与 `This` 同一形状 ✓——漏了它，症状是「某个构造函数里 `new.target` 某一天空了」✗
-  //（**只在回收之后出现** ✓，最难复现的一种 ✓）。
+  // **`new.target` 那一格也是根**（第 346 轮）：它是一个**值**（构造函数本身），
+  // 与 `This` 同一形状——漏了它，症状是「某个构造函数里 `new.target` 某一天空了」
+  //（**只在回收之后出现**，最难复现的一种）。
   this.MarkValue(item.Frame.NewTarget, stack);
   this.MarkValue(item.Frame.ResumeValue, stack);
   for (let i = 0; i < item.Frame.Slots.length; i++) {

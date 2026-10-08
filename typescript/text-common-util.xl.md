@@ -29,22 +29,22 @@ import { LineWrap } from "./tokens/line-wrap.xl.md"
 
 # method StartsWithTemplate:(unit:Token | null)=>bool
 
-**这一格是不是「模板开头」** ✓（第 321 轮 ✓，第 322 轮搬到这里共用 ✓）。
+**这一格是不是「模板开头」**（第 321 轮，第 322 轮搬到这里共用）。
 
-**为什么要有这一条** ✗：`` t`x` `` 在 token 层是**两格平级** ✓（标签一格、模板一格 ✓，
-或者模板与后缀合成一个 `PropertyAccess` ✓）——合成 `TaggedTemplateExpression` 是**投影**那一层的事 ✓
-（`print-ast-common` 的 0b / 0c ✓）。所以「二元 / 一元运算符该不该把右边收成操作数」这一类判断 ✓
-都要问同一个问题：**下一个单元是不是模板开头** ✓（是的话就**先放过** ✗，别把标签与模板拆开 ✓）。
+**为什么要有这一条**：`` t`x` `` 在 token 层是**两格平级**（标签一格、模板一格，
+或者模板与后缀合成一个 `PropertyAccess`）——合成 `TaggedTemplateExpression` 是**投影**那一层的事
+（`print-ast-common` 的 0b / 0c）。所以「二元 / 一元运算符该不该把右边收成操作数」这一类判断
+都要问同一个问题：**下一个单元是不是模板开头**（是的话就**先放过**，别把标签与模板拆开）。
 
-**判据为什么不看类名** ✓：写成 `unit instanceof PropertyAccess` 会在 util 这一层**引进一个环** ✗
-（`property-access.xl.md` 自己就 import 本文件 ✓）。改成**只看「最左边那个叶子是不是字符串」** ✓：
-`String` 自己算 ✓，否则往**第一个**非软换行子单元里走一层 ✓（`PropertyAccess(模板, ., length)`
-的第一个孩子就是模板 ✓）。这一条不需要认识任何容器类 ✓，而结论与「以模板开头」等价 ✓。
+**判据为什么不看类名**：写成 `unit instanceof PropertyAccess` 会在 util 这一层**引进一个环**
+（`property-access.xl.md` 自己就 import 本文件）。改成**只看「最左边那个叶子是不是字符串」**：
+`String` 自己算，否则往**第一个**非软换行子单元里走一层（`PropertyAccess(模板, ., length)`
+的第一个孩子就是模板）。这一条不需要认识任何容器类，而结论与「以模板开头」等价。
 
-**它为什么不会认错** ✓：字符串字面量**不可能**紧跟在一个操作数后面 ✗
-（`t "x"` 不是合法 JS ✓）——所以「操作数 + 字符串」这个相邻关系**只可能是** `` t`x` `` ✓。
-这与 `property-access.xl.md` 里「数组字面量不会紧跟在表达式后面」是**同一条推理** ✓
-（那里用它把 `o.b![1]` 的 `[1]` 认成下标 ✓）。
+**它为什么不会认错**：字符串字面量**不可能**紧跟在一个操作数后面
+（`t "x"` 不是合法 JS）——所以「操作数 + 字符串」这个相邻关系**只可能是** `` t`x` ``。
+这与 `property-access.xl.md` 里「数组字面量不会紧跟在表达式后面」是**同一条推理**
+（那里用它把 `o.b![1]` 的 `[1]` 认成下标）。
 
 ```ts
 if (unit === null) return false;
@@ -61,8 +61,8 @@ return false;
 `item` 是不是一条**注释或预处理指令**——`LineAnnotation` / `AreaAnnotation` / `PreprocessorDirectives`。
 
 **与 `IsTriviaUnit` 的分别只有一个**：**不含软换行**。要它的地方是那些「软换行有语义、注释没有」的
-相邻判定——字段的「名字后面紧跟延续符号」（`a` 换行是**只有名字的字段** ✓，
-而 `a /* c */ = 1` 里的注释不该把这条成员切断 ✗）、元组成员的「名字 + `?`/`:`」、
+相邻判定——字段的「名字后面紧跟延续符号」（`a` 换行是**只有名字的字段**，
+而 `a /* c */ = 1` 里的注释不该把这条成员切断）、元组成员的「名字 + `?`/`:`」、
 `new` 与类型名之间那一格。
 
 按**类名**判而不是 `instanceof`：与 `IsTriviaUnit` 同一条理由（向上 import 那些类会绕出环）。
@@ -286,7 +286,7 @@ return false;
 （第 32、34 轮连试三版都失败）。
 
 **改成在开括号那一刻判**：那时前文（同层的 `Identifier` / `SymbolToken`）**全都就位**，判定结果记在括号的
-`Context` 字段上，之后**不随时序变化** ✓。
+`Context` 字段上，之后**不随时序变化**。
 
 **前文可能不在宿主自己的 `Data` 里**：`type M<T> = { [K in keyof T]: T[K] }` 里那个 `[` 是在外层 `{`
 这个括号单元里开的，它自己的 `Data` 还是空的 —— 要看的是**外层 `{` 之前**那几个词。所以本方法会
@@ -311,7 +311,7 @@ return false;
 - 扫到头（含爬到顶）没有信号 → 值位（保守，与原来的默认一致）。
 
 **`bracket.Closed` 那一支是实测补的**：往上扫时会遇到**外层那个还没关闭的括号**，
-它不是操作数（只有**已关闭**的 `)` / `]` / `}` 才是），早期版本把它当成操作数直接判值位 ✗，
+它不是操作数（只有**已关闭**的 `)` / `]` / `}` 才是），早期版本把它当成操作数直接判值位，
 于是映射类型 `{ [K in keyof T]: T[K] }` 里那个 `[` 被判成了值位。
 
 ```ts
@@ -357,7 +357,7 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         // 冒号前面是已关闭的 `(`、当前开括号是 `{`。
         // 少了这一条，函数体的 `Context` 是 `"type"`，里面返回的数组字面量就被当成
         // 元组类型、字符串被包成 `LiteralType`（`cases:align` 实测 36 处）；
-        // 而 `const f = (a): { b: 1 } => y` 的 `{` 紧跟在冒号后面（sawUnit 为假）⇒ 类型 ✓。
+        // 而 `const f = (a): { b: 1 } => y` 的 `{` 紧跟在冒号后面（sawUnit 为假）⇒ 类型。
         if (openChar === "{" && sawUnit && beforeColon instanceof Bracket && beforeColon.Closed && beforeColon.startBracket === "(") {
           return "value";
         }
@@ -371,8 +371,8 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         // 判据是**外层那个 `{` 自己处在哪**（它的 `Context` 在它开括号那一刻就算好了，
         // 与上面「爬出花括号之前先停」用的是同一个依据）：
         //
-        //     const o = { a: kids[i + 1] }      → `{` 是值位（对象字面量）⇒ 值位 ✓
-        //     let x: { a: A[K] }                → `{` 是类型位（类型字面量）⇒ 类型位 ✓
+        //     const o = { a: kids[i + 1] }      → `{` 是值位（对象字面量）⇒ 值位
+        //     let x: { a: A[K] }                → `{` 是类型位（类型字面量）⇒ 类型位
         //
         // 类型位关键字（`as` / `satisfies` / `keyof` / `readonly`…）在扫描里**先于**冒号出现
         // （`{ a: b as C[D] }` 撞上的是 `as`），所以真的类型写法到不了这一支。
@@ -386,20 +386,20 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         return "value";
       }
       if (text === "|" || text === "&") {
-        // **`{` 上要继续往前扫** ✗（第 394 轮）：`public Get(…): Sequence<T> | null {` 里那个 `{`
-        // 是**方法体** ✓，而「是不是体」那一条判据（上面 `:` 那一支的三条 ✓）要**撞上 `:`** 才问得出 ✓
-        // ——`:` 在 `|` 的**更外面** ✓。原来这里一句话判死 ✗ ⇒ 联合返回类型的体被判成类型位 ✗。
+        // **`{` 上要继续往前扫**（第 394 轮）：`public Get(…): Sequence<T> | null {` 里那个 `{`
+        // 是**方法体**，而「是不是体」那一条判据（上面 `:` 那一支的三条）要**撞上 `:`** 才问得出
+        // ——`:` 在 `|` 的**更外面**。原来这里一句话判死 ⇒ 联合返回类型的体被判成类型位。
         //
-        // **它是怎么被发现的** ✗：第 393 轮把「`Context === "type"` 的 `{`」的跳转队列换成
-        // 成员列表队列 ✓（那里确实不该认 `if` 语句 ✓），于是这个误判**第一次承重** ✗ ⇒
-        // 方法体也拿不到 `IfGuide` ✓ ⇒ 而兜底规则已经删了 ✓ ⇒ 整个 `if` 变成裸单元 ✓。
-        // 实测 20 个文件不为零、缺 3858 个节点 ✓，**全部是 `dist/ts/**`** ✓——
-        // 正因为那些生成物里遍地都是 `): X | null {` 这种带联合返回类型的方法 ✓。
+        // **它是怎么被发现的**：第 393 轮把「`Context === "type"` 的 `{`」的跳转队列换成
+        // 成员列表队列（那里确实不该认 `if` 语句），于是这个误判**第一次承重** ⇒
+        // 方法体也拿不到 `IfGuide` ⇒ 而兜底规则已经删了 ⇒ 整个 `if` 变成裸单元。
+        // 实测 20 个文件不为零、缺 3858 个节点，**全部是 `dist/ts/**`**——
+        // 正因为那些生成物里遍地都是 `): X | null {` 这种带联合返回类型的方法。
         //
-        // 继续往前扫为什么安全 ✓：真的类型位那几种写法都有**更外面**的信号接住 ✓——
-        //   `type X = A | { b: 1 }`        ⇒ 撞上 `=` 之后是 `type` ⇒ 类型位 ✓
-        //   `let x: A | { b: 1 }`          ⇒ 撞上 `:`（前面不是形参表）⇒ 类型位 ✓
-        //   `function f(): A | { b: 1 } {` ⇒ 体那个 `{` 往回先撞上**已关闭的类型字面量括号** ⇒ 值位 ✓
+        // 继续往前扫为什么安全：真的类型位那几种写法都有**更外面**的信号接住——
+        //   `type X = A | { b: 1 }`        ⇒ 撞上 `=` 之后是 `type` ⇒ 类型位
+        //   `let x: A | { b: 1 }`          ⇒ 撞上 `:`（前面不是形参表）⇒ 类型位
+        //   `function f(): A | { b: 1 } {` ⇒ 体那个 `{` 往回先撞上**已关闭的类型字面量括号** ⇒ 值位
         if (openChar === "{") {
           i = i - 1;
           continue;
@@ -428,37 +428,37 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         }
         return "type";
       }
-      // **`of` / `in` 右边是值** ✓（第 589 轮 ✓）：`for (const v of { … })` 往回扫会
-      // 依次跨过 `of`、`v`，撞上 `const` ✓ ⇒ 按下面那句判成**类型位** ✗
-      // ⇒ 那个对象字面量被投成 `TypeLiteral` ✓ ⇒ 降级层报
-      // `unimplemented: expression TypeLiteral` ✓（**整份文件进不来** ✗，实测
-      // `c291-rt-iteration-protocol-forms` / `c304-ex-type-annotation-in-catch-and-loop` 两条 ✓）。
-      // 迭代头右边（`of` / `in` 的右操作数）**按定义就是一个值** ✓——与 `in` 运算符
-      // （`"a" in { … }` ✓）同一条 ✓；而 `in` 在类型位只出现在映射类型的**键那一侧**
-      // （`{ [K in keyof T]: … }` ✓），那时 `{` 往回先撞上的是 `=` / `:` ✓，走不到这里 ✓。
+      // **`of` / `in` 右边是值**（第 589 轮）：`for (const v of { … })` 往回扫会
+      // 依次跨过 `of`、`v`，撞上 `const` ⇒ 按下面那句判成**类型位**
+      // ⇒ 那个对象字面量被投成 `TypeLiteral` ⇒ 降级层报
+      // `unimplemented: expression TypeLiteral`（**整份文件进不来**，实测
+      // `c291-rt-iteration-protocol-forms` / `c304-ex-type-annotation-in-catch-and-loop` 两条）。
+      // 迭代头右边（`of` / `in` 的右操作数）**按定义就是一个值**——与 `in` 运算符
+      // （`"a" in { … }`）同一条；而 `in` 在类型位只出现在映射类型的**键那一侧**
+      // （`{ [K in keyof T]: … }`），那时 `{` 往回先撞上的是 `=` / `:`，走不到这里。
       if (text === "of" || text === "in") {
         return "value";
       }
-      // **`{` 上，只有在「开头就是类型」的那两个词上判死** ✗（第 397 轮）：
-      // `as` / `satisfies` 是**引出一个类型**的词 ✓（`y as { a: 1 }` 里那个 `{` 就是类型字面量 ✓），
-      // 所以它们照旧判 `"type"` ✓。
+      // **`{` 上，只有在「开头就是类型」的那两个词上判死**（第 397 轮）：
+      // `as` / `satisfies` 是**引出一个类型**的词（`y as { a: 1 }` 里那个 `{` 就是类型字面量），
+      // 所以它们照旧判 `"type"`。
       if (text === "as" || text === "satisfies") {
         return "type";
       }
-      // **其余那几个词在 `{` 上要继续往前扫** ✗——它们**都可能出现在返回类型里** ✓：
-      //   `): A extends B ? C : D {`   （条件类型当返回类型 ✓）
-      //   `): asserts x is string {`   （类型谓词 ✓）
-      //   `): keyof T {` / `): typeof x {` / `): readonly string[] {` ✓
-      // 而真正决定「这个 `{` 是不是类型字面量」的那一句，是**撞上 `:` 之后的函数体例外** ✓
-      // （`:` 在这些词的**更外面** ✓）。
+      // **其余那几个词在 `{` 上要继续往前扫**——它们**都可能出现在返回类型里**：
+      //   `): A extends B ? C : D {`   （条件类型当返回类型）
+      //   `): asserts x is string {`   （类型谓词）
+      //   `): keyof T {` / `): typeof x {` / `): readonly string[] {`
+      // 而真正决定「这个 `{` 是不是类型字面量」的那一句，是**撞上 `:` 之后的函数体例外**
+      // （`:` 在这些词的**更外面**）。
       //
-      // 原来这里一句话判死 ✗ ⇒ 带这类返回类型的**函数 / 方法体**被判成类型位 ✗
-      // ⇒ 体里的 `if` 拿不到向导 ✗（而兜底规则已经删了 ✗）⇒ 产物里是一个**裸的
-      // `<Keyword>if</Keyword>`** ✓ ⇒ 降级层报 `name is not a local or a capture: if` ✓
-      // （实测 `ex-assertion-function` ✓；与第 394 轮 `|` / `&` 那一格是同一个坑 ✓）。
+      // 原来这里一句话判死 ⇒ 带这类返回类型的**函数 / 方法体**被判成类型位
+      // ⇒ 体里的 `if` 拿不到向导（而兜底规则已经删了）⇒ 产物里是一个**裸的
+      // `<Keyword>if</Keyword>`** ⇒ 降级层报 `name is not a local or a capture: if`
+      // （实测 `ex-assertion-function`；与第 394 轮 `|` / `&` 那一格是同一个坑）。
       //
-      // **`declare class A {` 因此变成 `"value"`** ✓——那本来就更对 ✓（类体不是类型字面量 ✓），
-      // 而类体走的是 `ParsePipeline.IsMemberListHead` 里那三条规则自己的 `Previous` ✓，不靠这一格 ✓。
+      // **`declare class A {` 因此变成 `"value"`**——那本来就更对（类体不是类型字面量），
+      // 而类体走的是 `ParsePipeline.IsMemberListHead` 里那三条规则自己的 `Previous`，不靠这一格。
       if (
         text === "extends" ||
         text === "implements" ||
@@ -476,23 +476,23 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         }
         return "type";
       }
-      // **`new` 要分两种** ✗（第 375 轮 ✓）——它原来就在上面那张类型位名单里 ✓，
-      // 因为**构造签名** `new (a: string) => B` 是真的类型 ✓；
-      // 可它在**值位**上也遍地都是 ✗：`new Box({ n: 1 })` 里那个 `{` 是**对象字面量** ✗。
+      // **`new` 要分两种**（第 375 轮）——它原来就在上面那张类型位名单里，
+      // 因为**构造签名** `new (a: string) => B` 是真的类型；
+      // 可它在**值位**上也遍地都是：`new Box({ n: 1 })` 里那个 `{` 是**对象字面量**。
       //
-      // **判据是「`new` 与这个括号之间有没有跨过实义单元」** ✓（`sawUnit` ✓）：
-      //   · `new Box({ … })` ⇒ 回扫先撞上 `Box`（一个 `Identifier` ✓ ⇒ `sawUnit` 为真 ✓）
-      //     ⇒ 这是**`new` 表达式**（被构造者 + 实参表 ✓）⇒ **值位** ✓；
-      //   · `new (a: { x: number }) => void` ⇒ 括号**紧跟在 `new` 后面** ✓（`sawUnit` 为假 ✓）
-      //     ⇒ 这是**构造签名** ⇒ 类型位 ✓。
+      // **判据是「`new` 与这个括号之间有没有跨过实义单元」**（`sawUnit`）：
+      //   · `new Box({ … })` ⇒ 回扫先撞上 `Box`（一个 `Identifier` ⇒ `sawUnit` 为真）
+      //     ⇒ 这是**`new` 表达式**（被构造者 + 实参表）⇒ **值位**；
+      //   · `new (a: { x: number }) => void` ⇒ 括号**紧跟在 `new` 后面**（`sawUnit` 为假）
+      //     ⇒ 这是**构造签名** ⇒ 类型位。
       //
-      // **少了这一条会怎样** ✗：`new Box({ n: 3 })` 的 `{` 被判成类型位 ✓ ⇒ 投影出一个
-      // `TypeLiteral` ✗ ⇒ 降级层报 `unimplemented: expression TypeLiteral` ✓——
-      // **整份文件进不来** ✗（判据 `c371-e2e-sudoku-validator` / `c371-e2e-coordinate-geometry` /
-      // `c371-rt-class-static-and-instance-isolation` / `c371-ex-new-expression-type-args` 四条 ✓）。
-      // **为什么只有第一个实参中招** ✓：第二个实参前面隔着一个 `,` ✓，
-      // 而「其它符号 → 值位」那一条先把它接住了 ✓（实测 `new Box(1, { n: 3 })` 一直是好的 ✓；
-      // 外面多套一层括号 `new Box(({ n: 3 }))` 也是好的 ✓——判据 `c371-e2e-journal-and-undo` 那一族 ✓）。
+      // **少了这一条会怎样**：`new Box({ n: 3 })` 的 `{` 被判成类型位 ⇒ 投影出一个
+      // `TypeLiteral` ⇒ 降级层报 `unimplemented: expression TypeLiteral`——
+      // **整份文件进不来**（判据 `c371-e2e-sudoku-validator` / `c371-e2e-coordinate-geometry` /
+      // `c371-rt-class-static-and-instance-isolation` / `c371-ex-new-expression-type-args` 四条）。
+      // **为什么只有第一个实参中招**：第二个实参前面隔着一个 `,`，
+      // 而「其它符号 → 值位」那一条先把它接住了（实测 `new Box(1, { n: 3 })` 一直是好的；
+      // 外面多套一层括号 `new Box(({ n: 3 }))` 也是好的——判据 `c371-e2e-journal-and-undo` 那一族）。
       if (text === "new") {
         return sawUnit ? "value" : "type";
       }
@@ -565,7 +565,7 @@ return null;
 
 判据只看这个 `{` **前面那一格**（跳过软换行）：是符号（`=` / `(` / `,` / `:` / `[` / `;` …）
 或者 `return` / `typeof` 两个词 ⇒ 它在表达式里；是名字（类名 / 接口名 / 模块名字符串）⇒ 它在声明头后面。
-命名空间体前面是**字符串**、类体与接口体前面是**标识符**，都落在后一类 ✓。
+命名空间体前面是**字符串**、类体与接口体前面是**标识符**，都落在后一类。
 
 ```ts
 if (brace.Parent === null) {
@@ -598,12 +598,12 @@ return before instanceof Identifier && before.IsAny(["return", "typeof"]);
   `interface String { replace(searchValue: { [Symbol.replace](…): string }): string }`
   里那个**类型字面量**会被当成对象字面量，里面的 `(substring: string, …) => string` 会从
   函数类型变成箭头函数（实测 `lib.es2015.symbol.wellknown.d.ts` 1 处）。
-- **`ClassBody` 直接就是「声明体」** ✓（本轮补 ✓）：类体不再是那个 `{` 括号了 ✓
-  （`class` 由 `ClassBranch` 在 `{` 那一刻收成 `ClassBody` ✓），所以上面那条
-  「`startBracket === "{"`」永远撞不到它 ✓——不在这里显式截住的话，
-  上溯会**穿过类体**继续往外找 ✓，于是 `const o = { C: class { x: { a: 1 } } }` 里那个
-  类型字面量会被外层**对象字面量**的 `Context` 判成值位 ✗（对象的冒号与类型的冒号混在一起 ✓）。
-  类体里的冒号一律是**类型标注** ✓ ⇒ 这里给 `""` ✓，与接口体 / 枚举体 / 命名空间体同款 ✓。
+- **`ClassBody` 直接就是「声明体」**（本轮补）：类体不再是那个 `{` 括号了
+  （`class` 由 `ClassBranch` 在 `{` 那一刻收成 `ClassBody`），所以上面那条
+  「`startBracket === "{"`」永远撞不到它——不在这里显式截住的话，
+  上溯会**穿过类体**继续往外找，于是 `const o = { C: class { x: { a: 1 } } }` 里那个
+  类型字面量会被外层**对象字面量**的 `Context` 判成值位（对象的冒号与类型的冒号混在一起）。
+  类体里的冒号一律是**类型标注** ⇒ 这里给 `""`，与接口体 / 枚举体 / 命名空间体同款。
 
 ```ts
 let node:Token | null = host;
@@ -733,12 +733,12 @@ return sawReal === false;
 `[from, to)` 这一段里的**注释**单元（`LineAnnotation` / `AreaAnnotation`），按原序。
 
 **为什么需要它**（第 595 轮）：结构打包（`switch` / `try` / `while` / `for` / `foreach` / `if`
-那一族收尾规则 ✓）现在跨 **trivia** 找相邻的结构括号 ✓ ⇒ 夹在中间的注释会落在
-**被 `ReplaceCountAt` 替换掉的那一段**里 ✗——不显式收下就整个消失 ✓
-（实测 `switch (a) /* c */ { }` 在跳 trivia 之后，XML 里那条 `AreaAnnotation` 不见了 ✓）。
+那一族收尾规则）现在跨 **trivia** 找相邻的结构括号 ⇒ 夹在中间的注释会落在
+**被 `ReplaceCountAt` 替换掉的那一段**里——不显式收下就整个消失
+（实测 `switch (a) /* c */ { }` 在跳 trivia 之后，XML 里那条 `AreaAnnotation` 不见了）。
 
-**软换行不在此列** ✗：它本来就是排版 ✓，打包时丢掉是既有口径 ✓
-（收下它会让 `<Switch>` 里凭空多出 `<LineWrap/>` ✓，XML 逐字节比对当场变红 ✓）。
+**软换行不在此列**：它本来就是排版，打包时丢掉是既有口径
+（收下它会让 `<Switch>` 里凭空多出 `<LineWrap/>`，XML 逐字节比对当场变红）。
 
 ```ts
 const out: Array<Token> = [];
@@ -783,7 +783,7 @@ return (
 `index` 处的冒号是不是 `switch` 体里 `case` / `default` 的**标签冒号**（`case 1: …` / `default: …`）。
 
 它**既不是类型标注、不是类型位、也不是标签**（第 553 轮）——`case 1: { … }` 里冒号后面
-本该是一个 `Block`，可三处规则各自都会把它抢走，于是段的体整段丢 ✗：
+本该是一个 `Block`，可三处规则各自都会把它抢走，于是段的体整段丢：
 
 | 处 | 抢成什么 |
 | --- | --- |
@@ -792,18 +792,18 @@ return (
 | `tokens/label.xl.md` | `<Label label="1" />`（`名字 + 冒号 + {` 三条全中） |
 
 实测 `st-switch-block-case.ts`：`SwitchSegment > SwitchCase > [Identifier(1), TypeDefine > TypeLiteral > …]`，
-段里 `Block` / `VariableStatement` / `BreakStatement` 一个都没有 ✓。
+段里 `Block` / `VariableStatement` / `BreakStatement` 一个都没有。
 
 **放在这一层**（而不是 `statement.xl.md`）：三处都要问这一句，而 `label.xl.md` 不能 import
 `statement.xl.md`（它反过来 import `label.xl.md`，绕出环）；本文件是三者共同的下层，且不 import 它们。
 
 判据只看**同一层里已经读到的东西**：往前找 `case` / `default` 那个词
-（`Identifier` / `Keyword` 两种词形都认 —— 升级过的词不能再按 `Identifier` 找 ✓），
+（`Identifier` / `Keyword` 两种词形都认 —— 升级过的词不能再按 `Identifier` 找），
 中间**没有第二个冒号、也没有分号**就算命中 —— 有第二个冒号的话那个才是标签冒号
-（`case 1:` 换行 `const y: number` 里 `y` 那个冒号往前第一个冒号就是标签冒号，于是不挡 ✓）。
+（`case 1:` 换行 `const y: number` 里 `y` 那个冒号往前第一个冒号就是标签冒号，于是不挡）。
 
 外层必须是**语句那一层**（`Statement` 壳）：`interface I { default: string }` 这种成员名
-是**合法的类型标注**，它的父单元是 `Field`（不是 `Statement`），一并挡掉就把成员的类型丢了 ✗。
+是**合法的类型标注**，它的父单元是 `Field`（不是 `Statement`），一并挡掉就把成员的类型丢了。
 
 ```ts
 const current = Get(units, index);
@@ -886,37 +886,37 @@ if (previous === null) {
 if (previous instanceof Identifier || previous instanceof String) {
   return false;
 }
-// **`typeof { … }` 那个 `{` 也在表达式位**（第 233 轮 ✓）——**它前一个单元是 `Keyword`** ✗。
+// **`typeof { … }` 那个 `{` 也在表达式位**（第 233 轮）——**它前一个单元是 `Keyword`**。
 //
-// **为什么只认 `typeof` 一个词** ✗（而不是「凡是 `Keyword` 都不算语句开头」✓）：
-// 有些关键词**后面真的跟一个块** ✓——`else { … }` ✓、`try { … }` ✓、`finally { … }` ✓、
-// `do { … }` ✓。把整类 `Keyword` 一律算成「不是语句开头」✗，那些块的 `{` 就会被
-// `JsonObjectCloseRule` 收成**对象字面量** ✗（**静默错值** ✓：
-// `if (a) { … } else { … }` 的 else 分支当场换成别的形状 ✓）。所以只列**后面跟值的**那几个 ✓。
+// **为什么只认 `typeof` 一个词**（而不是「凡是 `Keyword` 都不算语句开头」）：
+// 有些关键词**后面真的跟一个块**——`else { … }`、`try { … }`、`finally { … }`、
+// `do { … }`。把整类 `Keyword` 一律算成「不是语句开头」，那些块的 `{` 就会被
+// `JsonObjectCloseRule` 收成**对象字面量**（**静默错值**：
+// `if (a) { … } else { … }` 的 else 分支当场换成别的形状）。所以只列**后面跟值的**那几个。
 //
-// **为什么必须在这里、而不在 `IsObjectAt` 那一支** ✗：那一支里**已经**有一个 `typeof` ✓
-//（`previous.IsAny(["return", "throw", "typeof"])` ✓），但那个判据**只在
-// `previous instanceof Identifier` 时成立** ✗——而 `typeof` 在树里是 **`Keyword`** ✓
-//（实测 `console.log(typeof {a: 1})` 的产物：`<Keyword>typeof</Keyword>` ✓）。
-// `return` / `throw` 在**语句开头**会被 `KeywordCloseRule` 收成 `Identifier` ✓，
-// 所以那一支对它们有效 ✓、对 `typeof` 一直无效 ✗。
+// **为什么必须在这里、而不在 `IsObjectAt` 那一支**：那一支里**已经**有一个 `typeof`
+//（`previous.IsAny(["return", "throw", "typeof"])`），但那个判据**只在
+// `previous instanceof Identifier` 时成立**——而 `typeof` 在树里是 **`Keyword`**
+//（实测 `console.log(typeof {a: 1})` 的产物：`<Keyword>typeof</Keyword>`）。
+// `return` / `throw` 在**语句开头**会被 `KeywordCloseRule` 收成 `Identifier`，
+// 所以那一支对它们有效、对 `typeof` 一直无效。
 //
-// **没量到的那两个词这一轮不改** ✗：`void { … }` 与 `delete` 后面的对象字面量
-// **一条判据都没有** ✓——**改了也没有证据说它对** ✗，缺口写在台账里 ✓。
+// **没量到的那两个词这一轮不改**：`void { … }` 与 `delete` 后面的对象字面量
+// **一条判据都没有**——**改了也没有证据说它对**，缺口写在台账里。
 if (previous instanceof Keyword && WordText(previous) === "typeof") {
   return false;
 }
 // **尖括号断言右操作数位置上的 `{`**（第 589 轮）：`const a = <{ n: number }>{ n: 1 }` 里
-// 第二个花括号的前一个实义单元是那个 `GenericType` ✓ ⇒ 照下面那句判成「语句开头」✗
-// ⇒ `BlockCloseRule` 抢在 `JsonObjectCloseRule` 前面给它补上语句队列 ✓
-// ⇒ 投影出来是一个 `Block` + `LabeledStatement` ✓，降级层报
-// `unimplemented: expression Block` ✓（**整份文件进不来** ✓）。
+// 第二个花括号的前一个实义单元是那个 `GenericType` ⇒ 照下面那句判成「语句开头」
+// ⇒ `BlockCloseRule` 抢在 `JsonObjectCloseRule` 前面给它补上语句队列
+// ⇒ 投影出来是一个 `Block` + `LabeledStatement`，降级层报
+// `unimplemented: expression Block`（**整份文件进不来**）。
 //
-// **判据要分开「泛型实参」与「尖括号断言」** ✗：`class A<T> {` / `interface I<T> {`
-// 里 `GenericType` 后面那个 `{` **真的是体** ✓，而 `<T>{ … }` 里的才是被断言的操作数 ✓。
-// 分开它们的是**那个 `<` 前面有没有左操作数** ✓（与 `generic-type.xl.md` 的
-// `IsOperandStartUnit`、以及 `IsObjectLiteralBrace` 里那一支**同一条判据** ✓）：
-// 前面是名字 ⇒ 泛型实参 ✓；前面是运算符 / `(` / 列表开头 / 引出一个值的词 ⇒ 断言 ✓。
+// **判据要分开「泛型实参」与「尖括号断言」**：`class A<T> {` / `interface I<T> {`
+// 里 `GenericType` 后面那个 `{` **真的是体**，而 `<T>{ … }` 里的才是被断言的操作数。
+// 分开它们的是**那个 `<` 前面有没有左操作数**（与 `generic-type.xl.md` 的
+// `IsOperandStartUnit`、以及 `IsObjectLiteralBrace` 里那一支**同一条判据**）：
+// 前面是名字 ⇒ 泛型实参；前面是运算符 / `(` / 列表开头 / 引出一个值的词 ⇒ 断言。
 if (previous !== null && previous.constructor.name === "GenericType") {
   const genericAt = units.indexOf(previous);
   const beforeGeneric = genericAt >= 0 ? GetSkipPrevious(units, genericAt, IsTriviaUnit) : null;
@@ -985,63 +985,63 @@ return true;
 
 `index` 处那个 `{` 是不是**值位的花括号**——对象字面量（也含类型字面量那种「装成员」的花括号）。
 
-**它是从 `JsonObjectCloseRule.IsObjectAt` 搬下来的** ✓（第 556 轮 ✓）：这一句**有两个用户** ✗ ——
-那条收尾规则问它「是不是对象」✓、两个**语句成形器**问它「要不要在里面收语句壳」✗，
-两边各写一份就会漂 ✓（一个说「是」、另一个说「不是」✓）。
-放在这一层是因为 `statement.xl.md` **不能** import `json/object-literal.xl.md` ✗
-（后者 import `parse-pipeline.xl.md` ✓，而那一份反过来 import `statement.xl.md` ✓，绕出环 ✓）——
-与 `IsSwitchLabelColon` 放在这里（第 553 轮 ✓）是同一条理由 ✓。
+**它是从 `JsonObjectCloseRule.IsObjectAt` 搬下来的**（第 556 轮）：这一句**有两个用户** ——
+那条收尾规则问它「是不是对象」、两个**语句成形器**问它「要不要在里面收语句壳」，
+两边各写一份就会漂（一个说「是」、另一个说「不是」）。
+放在这一层是因为 `statement.xl.md` **不能** import `json/object-literal.xl.md`
+（后者 import `parse-pipeline.xl.md`，而那一份反过来 import `statement.xl.md`，绕出环）——
+与 `IsSwitchLabelColon` 放在这里（第 553 轮）是同一条理由。
 
-第 556 轮补的两处盲点（都是**语句成形器**那一侧实测出来的 ✗）：
+第 556 轮补的两处盲点（都是**语句成形器**那一侧实测出来的）：
 
-- **`declare module "x" { … }` 前面是字符串** ✓ ⇒ 那是**模块体** ✓，不是对象字面量 ✗
-  （少了这一条：模块体里的 `const a: number;` 收不出 `VariableStatement` ✓，
-  实测 `mod-declare-module-const.ts` 从绿变红 ✓）；
-- **`outer: { … }` 的冒号是标签冒号** ✓ ⇒ 那一格是**块** ✗（里面装语句 ✓）。
-  它与 `{ a: { b: 1 } }` 里那个内层花括号词法同形 ✓（都是「名字 + 冒号 + `{`」✓），
-  分开它们的只有**外层花括号是不是值位** ✓ —— 于是递归问 `EnclosingBraceIsObject` ✓。
-  少了这一条：三个标签块的用例（`decl-label-block` / `st-label-block` / `stmt-label-block` ✓）
-  从绿变红 ✓。
+- **`declare module "x" { … }` 前面是字符串** ⇒ 那是**模块体**，不是对象字面量
+  （少了这一条：模块体里的 `const a: number;` 收不出 `VariableStatement`，
+  实测 `mod-declare-module-const.ts` 从绿变红）；
+- **`outer: { … }` 的冒号是标签冒号** ⇒ 那一格是**块**（里面装语句）。
+  它与 `{ a: { b: 1 } }` 里那个内层花括号词法同形（都是「名字 + 冒号 + `{`」），
+  分开它们的只有**外层花括号是不是值位** —— 于是递归问 `EnclosingBraceIsObject`。
+  少了这一条：三个标签块的用例（`decl-label-block` / `st-label-block` / `stmt-label-block`）
+  从绿变红。
 
-判定链条（任一条命中就**不是**值位的花括号）：**处在语句开头**（那是块语句 / `case` 段 ✓）；
-`export` 后面那个（导出列表 ✓）；前面是**字符串**（模块体 ✓）；`return` / `throw` **换行**之后那个
-（受限产生式 ⇒ 只能是块 ✓，同一行才是值位 ✓）；**标签冒号**后面那个（块 ✓）；
+判定链条（任一条命中就**不是**值位的花括号）：**处在语句开头**（那是块语句 / `case` 段）；
+`export` 后面那个（导出列表）；前面是**字符串**（模块体）；`return` / `throw` **换行**之后那个
+（受限产生式 ⇒ 只能是块，同一行才是值位）；**标签冒号**后面那个（块）；
 上一个跳过软换行的单元是 `Identifier` 且不属于 `return` / `throw` / `typeof`，**也不属于类型位那五个词**
-（第 567 轮 ✓：`extends` / `keyof` / `as` / `satisfies` / `is` ✓ —— 它们后面那个 `{` 装的是成员 ✓）；
-是 `Bracket`（那是它的体 ✓）；是 `GenericType`（泛型实参段后面的 `{` 是块 ✓）；
-是 `=>` 符号**且那个 `=>` 是箭头函数的**（第 567 轮 ✓：函数类型的 `=>` 后面那个 `{` 是类型字面量的体 ✓
-⇒ 装的是成员 ✓，判据 `IsFunctionTypeArrow` ✓）。
+（第 567 轮：`extends` / `keyof` / `as` / `satisfies` / `is` —— 它们后面那个 `{` 装的是成员）；
+是 `Bracket`（那是它的体）；是 `GenericType`（泛型实参段后面的 `{` 是块）；
+是 `=>` 符号**且那个 `=>` 是箭头函数的**（第 567 轮：函数类型的 `=>` 后面那个 `{` 是类型字面量的体
+⇒ 装的是成员，判据 `IsFunctionTypeArrow`）。
 
-**`GenericType` 按类名认** ✗（本文件不能 import 它 ✓ —— 与 `IsStatementList` 用类名白名单同一条理由 ✓）。
+**`GenericType` 按类名认**（本文件不能 import 它 —— 与 `IsStatementList` 用类名白名单同一条理由）。
 
 ```ts
 const current = Get(units, index);
 if (current instanceof Bracket && current.startBracket === "{") {
   // **「处在语句开头」是块与对象字面量的分界线**：`{ a: 1 }` 单独成句时读成**块语句**
-  // （里面 `a:` 是标签 ✓），只有出现在表达式里（`= { … }` / `f({ … })` / `return { … }` ✓）
-  // 才是对象字面量 ✓。判据由 `IsStatementStart` 给出（`LabelCloseRule` 用的是同一个 ✓）——
-  // `case 1: { … }` 也在这里被挡掉 ✓（`IsStatementStart` 自己认 `case` 段冒号 ✓）。
+  // （里面 `a:` 是标签），只有出现在表达式里（`= { … }` / `f({ … })` / `return { … }`）
+  // 才是对象字面量。判据由 `IsStatementStart` 给出（`LabelCloseRule` 用的是同一个）——
+  // `case 1: { … }` 也在这里被挡掉（`IsStatementStart` 自己认 `case` 段冒号）。
   if (IsStatementStart(units, index)) {
     return false;
   }
-  // **注释也是 trivia** ✓（第 125 / 556 轮 ✓）：`function f() /* between */ {` 里
-  // 上一个实义单元是 `)` ✓，可**只跳软换行**的话它会落到那格注释上 ✗ ⇒ 下面那条链一个分支都不命中 ✗
-  // ⇒ 函数体被判成**值位**✗ ⇒ 体里那条语句收不出壳 ✓（实测 `lex-comment-between-head-and-body.ts`
-  // 从绿变红 ✓）。`IsStatementStart` 用的是同一个跳过口径 ✓，这里与它对齐 ✓。
+  // **注释也是 trivia**（第 125 / 556 轮）：`function f() /* between */ {` 里
+  // 上一个实义单元是 `)`，可**只跳软换行**的话它会落到那格注释上 ⇒ 下面那条链一个分支都不命中
+  // ⇒ 函数体被判成**值位** ⇒ 体里那条语句收不出壳（实测 `lex-comment-between-head-and-body.ts`
+  // 从绿变红）。`IsStatementStart` 用的是同一个跳过口径，这里与它对齐。
   const previous = GetSkipPrevious(units, index, IsTriviaUnit);
-  // **`export` 后面那个花括号是导出列表，不是对象字面量** ✗（第 548 轮 ✓）：
-  // 下面那条链**只认 `Identifier`** ✗：`export` 一旦被 `KeywordCloseRule` 升成
-  // `Keyword` ✓ 就整个漏下去 ✓ ⇒ 这一格答「是对象」✗。所以按文本认词 ✓（`WordText` ✓）。
+  // **`export` 后面那个花括号是导出列表，不是对象字面量**（第 548 轮）：
+  // 下面那条链**只认 `Identifier`**：`export` 一旦被 `KeywordCloseRule` 升成
+  // `Keyword` 就整个漏下去 ⇒ 这一格答「是对象」。所以按文本认词（`WordText`）。
   if (previous !== null && WordText(previous) === "export") {
     return false;
   }
-  // **声明头后面那个 `{` 不是对象字面量** ✓（第 556 轮 ✓）：`declare module "x" { … }` 前面是
-  // **字符串** ✓（类体 / 接口体 / 枚举体前面是标识符 ✓，下面那条链本来就排掉了 ✓）。
+  // **声明头后面那个 `{` 不是对象字面量**（第 556 轮）：`declare module "x" { … }` 前面是
+  // **字符串**（类体 / 接口体 / 枚举体前面是标识符，下面那条链本来就排掉了）。
   if (previous instanceof String) {
     return false;
   }
-  // **`return` / `throw` 换行 `{` 是块语句**（第 149 轮 / 第 119 轮）：两者都是**受限产生式** ✓ ——
-  // 换行之后那个 `{` 不可能属于它 ✓，只能是块 ✓；同一行的 `return { a: 1 }` 才是对象字面量 ✓。
+  // **`return` / `throw` 换行 `{` 是块语句**（第 149 轮 / 第 119 轮）：两者都是**受限产生式** ——
+  // 换行之后那个 `{` 不可能属于它，只能是块；同一行的 `return { a: 1 }` 才是对象字面量。
   if (
     previous instanceof Identifier &&
     (previous.Is("return") || previous.Is("throw")) &&
@@ -1049,8 +1049,8 @@ if (current instanceof Bracket && current.startBracket === "{") {
   ) {
     return false;
   }
-  // **`:` 那一格要分开看** ✓（第 556 轮 ✓）：属性冒号 / 类型标注冒号 ⇒ 里面是**成员** ✓；
-  // 标签冒号 ⇒ 里面是**语句** ✓（块 ✓）。分界线是**外层花括号是不是值位** ✓。
+  // **`:` 那一格要分开看**（第 556 轮）：属性冒号 / 类型标注冒号 ⇒ 里面是**成员**；
+  // 标签冒号 ⇒ 里面是**语句**（块）。分界线是**外层花括号是不是值位**。
   if (previous instanceof SymbolToken && previous.Is(":")) {
     const colonIndex = SkipPreviousWrapSymbol(units, index);
     const nameIndex = SkipPreviousWrapSymbol(units, colonIndex);
@@ -1064,19 +1064,19 @@ if (current instanceof Bracket && current.startBracket === "{") {
     }
     return true;
   }
-  // **类型位那几个词后面不是块** ✓（第 567 轮 ✓）：这一支原来把**任何**标识符都判成块 ✓
-  // ——`class A {` / `interface I {` / `else {` / `do {` 那些靠的正是「前面是一个名字」✗，
-  // 可**类型位**也有一串词可以直接顶着一个花括号 ✓：`T extends { … }`（条件类型 / 泛型约束 ✓）、
-  // `x as { … }` / `x satisfies { … }`（类型运算 ✓）、`x is { … }`（类型谓词 ✓）、
-  // `keyof { … }`（类型运算符 ✓）—— 它们后面那个 `{` 装的是**成员** ✓，不是语句 ✓。
-  // 少了这一条实测两处 ✗：`T extends { a: infer A; b: () => infer B } ? …` 里
-  // `a: infer A;` 被收成 `LabeledStatement` + `ExpressionStatement` ✓
-  // （`PropertySignature` / `InferType` 整片缺 ✓，`type-combination-adversarial.ts` ✓）。
-  // **为什么不能直接用 `IsTypeIntroducerWord`** ✗：它里面还有 `class` / `interface` /
-  // `const` / `import` / `export` / `return` … ✓ —— 那些词后面跟的是**块**或**值** ✗
-  // （`import type { A } from "m"` 的导出列表更是绝不能当对象收 ✓）。
-  // **为什么默认仍必须是「标识符 ⇒ 块」** ✓：`class Foo {` / `interface Foo {` / `enum E {`
-  // 那几处前面是**任意名字** ✓，一张关键字表认不出来 ✓。
+  // **类型位那几个词后面不是块**（第 567 轮）：这一支原来把**任何**标识符都判成块
+  // ——`class A {` / `interface I {` / `else {` / `do {` 那些靠的正是「前面是一个名字」，
+  // 可**类型位**也有一串词可以直接顶着一个花括号：`T extends { … }`（条件类型 / 泛型约束）、
+  // `x as { … }` / `x satisfies { … }`（类型运算）、`x is { … }`（类型谓词）、
+  // `keyof { … }`（类型运算符）—— 它们后面那个 `{` 装的是**成员**，不是语句。
+  // 少了这一条实测两处：`T extends { a: infer A; b: () => infer B } ? …` 里
+  // `a: infer A;` 被收成 `LabeledStatement` + `ExpressionStatement`
+  // （`PropertySignature` / `InferType` 整片缺，`type-combination-adversarial.ts`）。
+  // **为什么不能直接用 `IsTypeIntroducerWord`**：它里面还有 `class` / `interface` /
+  // `const` / `import` / `export` / `return` … —— 那些词后面跟的是**块**或**值**
+  // （`import type { A } from "m"` 的导出列表更是绝不能当对象收）。
+  // **为什么默认仍必须是「标识符 ⇒ 块」**：`class Foo {` / `interface Foo {` / `enum E {`
+  // 那几处前面是**任意名字**，一张关键字表认不出来。
   if (previous instanceof Identifier && previous.IsAny(["return", "throw", "typeof"]) === false) {
     if (previous.IsAny(["extends", "keyof", "as", "satisfies", "is"]) === false) {
       return false;
@@ -1085,15 +1085,15 @@ if (current instanceof Bracket && current.startBracket === "{") {
     return false;
   } else if (previous !== null && previous.constructor.name === "GenericType") {
     // **泛型实参后面是体，尖括号断言后面是值位的对象字面量**（第 589 轮）：
-    // `class A<T> {` / `interface I<T> {` / `enum E` 那几处前面是那个 `GenericType` ✓
-    // ⇒ 花括号是**体** ✓（返回 `false` ✓，原来就是这一条 ✓）；
-    // 而 `const a = <{ n: number }>{ n: 1 }` 里那个 `{` 是**被断言的操作数** ✓ ⇒ 值位 ✓。
-    // **分开它们的是「那个 `<` 前面有没有左操作数」** ✓（与 `generic-type.xl.md` 的
-    // `IsOperandStartUnit` 同一条判据 ✓）：前面是名字 ⇒ 泛型实参 ✓；
-    // 前面是运算符 / `(` / 列表开头 / 引出一个值的词 ⇒ 断言 ✓。
-    // 少了这一条：`<T>{ … }` 的 `{` 被当成**块** ✓ ⇒ 投影出 `Block` + `LabeledStatement` ✓
-    // ⇒ 降级层报 `unimplemented: expression Block` ✓（实测 `c387-ex-angle-assertion-with-type-literal`
-    // 与 `c371-ex-assertion-forms` 两条 ✓）。
+    // `class A<T> {` / `interface I<T> {` / `enum E` 那几处前面是那个 `GenericType`
+    // ⇒ 花括号是**体**（返回 `false`，原来就是这一条）；
+    // 而 `const a = <{ n: number }>{ n: 1 }` 里那个 `{` 是**被断言的操作数** ⇒ 值位。
+    // **分开它们的是「那个 `<` 前面有没有左操作数」**（与 `generic-type.xl.md` 的
+    // `IsOperandStartUnit` 同一条判据）：前面是名字 ⇒ 泛型实参；
+    // 前面是运算符 / `(` / 列表开头 / 引出一个值的词 ⇒ 断言。
+    // 少了这一条：`<T>{ … }` 的 `{` 被当成**块** ⇒ 投影出 `Block` + `LabeledStatement`
+    // ⇒ 降级层报 `unimplemented: expression Block`（实测 `c387-ex-angle-assertion-with-type-literal`
+    // 与 `c371-ex-assertion-forms` 两条）。
     const genericAt = SkipPreviousWrapSymbol(units, index);
     const beforeGeneric = genericAt > 0 ? GetSkipPrevious(units, genericAt, IsTriviaUnit) : null;
     if (beforeGeneric === null || beforeGeneric instanceof SymbolToken || beforeGeneric instanceof Bracket) {
@@ -1120,12 +1120,12 @@ if (current instanceof Bracket && current.startBracket === "{") {
     }
     return false;
   } else if (previous instanceof SymbolToken) {
-    // **`=>` 有两种** ✓（第 567 轮 ✓）：**函数类型**的 `=>`（`type A3 = (opts: X) => { … }` ✓）
-    // 后面那个 `{` 是**类型字面量的体** ✓ ⇒ 装的是成员 ✓；**箭头函数**的 `=>`（`(a) => { return a }` ✓）
-    // 后面那个是**块** ✓ ⇒ 装的是语句 ✓。原来一见 `=>` 就答「块」✗ ⇒
-    // 函数类型的返回类型字面量里，分号结尾的成员被包进语句壳 ✓
-    // （`type-fn-return-typeliteral.ts` 的 `{ a: number; b: string }` ✓）。
-    // 判据见 `IsFunctionTypeArrow` ✓（与 `type-literal.xl.md` 的 `IsTypePosition` 同源 ✓）。
+    // **`=>` 有两种**（第 567 轮）：**函数类型**的 `=>`（`type A3 = (opts: X) => { … }`）
+    // 后面那个 `{` 是**类型字面量的体** ⇒ 装的是成员；**箭头函数**的 `=>`（`(a) => { return a }`）
+    // 后面那个是**块** ⇒ 装的是语句。原来一见 `=>` 就答「块」 ⇒
+    // 函数类型的返回类型字面量里，分号结尾的成员被包进语句壳
+    // （`type-fn-return-typeliteral.ts` 的 `{ a: number; b: string }`）。
+    // 判据见 `IsFunctionTypeArrow`（与 `type-literal.xl.md` 的 `IsTypePosition` 同源）。
     if (previous.Is("=>") && IsFunctionTypeArrow(units, SkipPreviousWrapSymbol(units, index)) === false) {
       return false;
     }
@@ -1137,38 +1137,38 @@ return false;
 
 # method IsFunctionTypeArrow:(units:Array<Token>, arrowIndex:number)=>bool
 
-`arrowIndex` 处那个 `=>` 是**函数类型**的箭头（类型位 ✓），还是**箭头函数**的箭头（值位 ✓）。
+`arrowIndex` 处那个 `=>` 是**函数类型**的箭头（类型位），还是**箭头函数**的箭头（值位）。
 
-**为什么必须有这一问** ✗（第 567 轮 ✓）：`=>` 右边那个 `{` 属于谁，全看这一点 ✓ ——
-函数类型的 `(opts: X) => { a: number; b: string }` 里它是**类型字面量的体** ✓（装成员 ✓），
-箭头函数的 `(a) => { return a }` 里它是**块** ✓（装语句 ✓）。原来两边都按「块」办 ✗ ⇒
-函数类型里用分号结尾的成员被 `Statement.FormFrom` 包成语句壳 ✓ ⇒ 成员永远成形不了 ✓
-（`type-fn-return-typeliteral.ts` 的 `a: number;` 变成「标签 + 裸类型」✗；
-`type-combination-adversarial.ts` 的 `T extends { a: infer A; … }` 同一形状 ✓）。
+**为什么必须有这一问**（第 567 轮）：`=>` 右边那个 `{` 属于谁，全看这一点 ——
+函数类型的 `(opts: X) => { a: number; b: string }` 里它是**类型字面量的体**（装成员），
+箭头函数的 `(a) => { return a }` 里它是**块**（装语句）。原来两边都按「块」办 ⇒
+函数类型里用分号结尾的成员被 `Statement.FormFrom` 包成语句壳 ⇒ 成员永远成形不了
+（`type-fn-return-typeliteral.ts` 的 `a: number;` 变成「标签 + 裸类型」；
+`type-combination-adversarial.ts` 的 `T extends { a: infer A; … }` 同一形状）。
 
-**判据与 `type-literal/type-literal.xl.md` 的 `IsTypePosition` 同源** ✓（它那一节把这条
-「跨过 `=>` 再跨过形参表、按形参表左边是什么下结论」的理由写全了 ✓）：这里只取其中
-**解析期问得出来**的那一半 ✓ —— 判据全在本单元自己的 `Data` 上往左看 ✓，
-不需要等规则跑完 ✓（这正是 `FormFrom` / `StatementBranch` 那一刻的处境 ✓）。
+**判据与 `type-literal/type-literal.xl.md` 的 `IsTypePosition` 同源**（它那一节把这条
+「跨过 `=>` 再跨过形参表、按形参表左边是什么下结论」的理由写全了）：这里只取其中
+**解析期问得出来**的那一半 —— 判据全在本单元自己的 `Data` 上往左看，
+不需要等规则跑完（这正是 `FormFrom` / `StatementBranch` 那一刻的处境）。
 
 三条：
 
-1. `=>` 左边跳过软换行必须是一个 `( … )` 括号（形参表 ✓）——不是就答否 ✓（保守 ✓）；
-2. 形参表左边是 `:` ⇒ **函数类型** ✓（`let f: (a: A) => { … }` ✓、
-   接口成员 `m(cb: () => { … }): void` ✓）—— **但只在箭头不长在花括号里时才下这个结论** ✗：
-   `{ next: () => { i++ } }` 里那个冒号是**成员键** ✓，与类型标注**词法同形** ✗，
-   分开它们要靠「外层花括号是不是成员括号」✓（那正是本方法回答不了的那一问 ✓）⇒ 这一档答否 ✓；
-3. 形参表左边是 `=` ⇒ 跨过赋值继续往左找**声明词** ✓：撞到 `type` ⇒ 函数类型 ✓
-   （`type A3 = (opts: X) => { … }` ✓）；撞到 `let` / `var` / `const` / `function` / `return`
-   或者列表头 ⇒ **箭头函数** ✓（`const f = (a) => { … }` ✓）。
+1. `=>` 左边跳过软换行必须是一个 `( … )` 括号（形参表）——不是就答否（保守）；
+2. 形参表左边是 `:` ⇒ **函数类型**（`let f: (a: A) => { … }`、
+   接口成员 `m(cb: () => { … }): void`）—— **但只在箭头不长在花括号里时才下这个结论**：
+   `{ next: () => { i++ } }` 里那个冒号是**成员键**，与类型标注**词法同形**，
+   分开它们要靠「外层花括号是不是成员括号」（那正是本方法回答不了的那一问）⇒ 这一档答否；
+3. 形参表左边是 `=` ⇒ 跨过赋值继续往左找**声明词**：撞到 `type` ⇒ 函数类型
+   （`type A3 = (opts: X) => { … }`）；撞到 `let` / `var` / `const` / `function` / `return`
+   或者列表头 ⇒ **箭头函数**（`const f = (a) => { … }`）。
 
-**答否的那些照样是原来的行为** ✓：`arr.map((a) => { … })` 形参表左边是调用括号 ✓ ⇒ 块 ✓。
-**没覆盖到的形状一律答否** ✓（上面那条花括号里的冒号 ✓、泛型实参里的 `A<(x) => { … }>` ✓）：
-宁可保持今天的行为 ✗，也不要把箭头函数的体误判成类型字面量 ✗ ——
-实测两种误判都咬过 ✓：放开 `=>` 那一档会让 1010 → **1005** ✓；
+**答否的那些照样是原来的行为**：`arr.map((a) => { … })` 形参表左边是调用括号 ⇒ 块。
+**没覆盖到的形状一律答否**（上面那条花括号里的冒号、泛型实参里的 `A<(x) => { … }>`）：
+宁可保持今天的行为，也不要把箭头函数的体误判成类型字面量 ——
+实测两种误判都咬过：放开 `=>` 那一档会让 1010 → **1005**；
 放开冒号那一档会让 `const o = { next: () => { … } }` 报
-`unimplemented: object literal member BinaryExpression` ✓（`tests/runtime/check.mjs` 第 199 轮那一条 ✓，
-`runtime:check` 239 → **238** ✗）。
+`unimplemented: object literal member BinaryExpression`（`tests/runtime/check.mjs` 第 199 轮那一条，
+`runtime:check` 239 → **238**）。
 
 ```ts
 const paramIndex = SkipPreviousWrapSymbol(units, arrowIndex);
@@ -1215,9 +1215,9 @@ return false;
 
 **包着 `units[index]` 的那个花括号自己是不是值位的**（对象字面量 / 类型字面量）；没有就 `false`。
 
-第 556 轮补：`outer: { … }`（标签 + 块 ✓）与 `{ a: { b: 1 } }`（对象里的对象 ✓）**词法同形** ✗ ——
-都是「名字 + 冒号 + `{`」✓，分开它们的只有**外面那一层花括号是什么** ✓，所以这一问递归回到
-`IsObjectLiteralBrace` ✓。每一层都往**祖先**走 ✓（`current.Parent` ✓），一定收敛 ✓。
+第 556 轮补：`outer: { … }`（标签 + 块）与 `{ a: { b: 1 } }`（对象里的对象）**词法同形** ——
+都是「名字 + 冒号 + `{`」，分开它们的只有**外面那一层花括号是什么**，所以这一问递归回到
+`IsObjectLiteralBrace`。每一层都往**祖先**走（`current.Parent`），一定收敛。
 
 ```ts
 const current = Get(units, index);
@@ -1331,15 +1331,15 @@ return (
 ```
 
 **`Statement` 必须在白名单里**——这一条是**实测抓出来的**：`{ let y = 2; }` 这条块语句，
-第一趟问 `IsObjectAt` 时括号的父亲还是 `Root`、`IsStatementStart` 给 `true`（判断正确 ✓），
+第一趟问 `IsObjectAt` 时括号的父亲还是 `Root`、`IsStatementStart` 给 `true`（判断正确），
 可 `StatementCloseRule` 排在很后面，它把这对方括号收进一个 `Statement` 之后，
 **同一个问题会被再问一次**（重组是「每条规则扫一遍所有下标」，后面的规则造出新单元又会引起来回扫），
 这一回父亲成了 `Statement`；它不在白名单里，`IsStatementStart` 于是给 `false`，
-那个 `{` 就被 `JsonObjectCloseRule` 抢走收成了对象 ✗（调试输出：
+那个 `{` 就被 `JsonObjectCloseRule` 抢走收成了对象（调试输出：
 `index=0 IsStatementStart=true parent=Root` 紧跟着 `index=0 IsStatementStart=false parent=Statement`）。
 
-加上 `Statement` 之后两条都对：块保持 `Bracket` ✓，
-`let o = { a: 1 }` 里那个 `{` 的前一个实义单元是 `=`（符号、不是 `;`）→ 仍是对象 ✓。
+加上 `Statement` 之后两条都对：块保持 `Bracket`，
+`let o = { a: 1 }` 里那个 `{` 的前一个实义单元是 `=`（符号、不是 `;`）→ 仍是对象。
 
 # method IsTypeModifier:(item:Token | null)=>bool
 
@@ -1422,23 +1422,23 @@ return false;
 
 **这个 `(` 括号是不是某次调用的实参表**（第 162 轮）。
 
-**为什么需要它** ✗：`IsTypeBracketPosition` 的判据里，`unit` 前面是 `,` 或 `(` 就判**类型位** ✓——
-那两条是给**类型**的成员表 / 参数表 / 元组写的 ✓（`type F = (a: A, b: B) => C` ✓、
-`[A, (B | C)]` ✓）。可是**实参表里也有逗号** ✓：`f("x", (a & b))` 里那个括号前面也是 `,` ✓，
-于是 `a & b` 被当成**交叉类型** ✓，降级层报
-`unimplemented: expression IntersectionType` ✗——**整份文件进不来** ✗。
+**为什么需要它**：`IsTypeBracketPosition` 的判据里，`unit` 前面是 `,` 或 `(` 就判**类型位**——
+那两条是给**类型**的成员表 / 参数表 / 元组写的（`type F = (a: A, b: B) => C`、
+`[A, (B | C)]`）。可是**实参表里也有逗号**：`f("x", (a & b))` 里那个括号前面也是 `,`，
+于是 `a & b` 被当成**交叉类型**，降级层报
+`unimplemented: expression IntersectionType`——**整份文件进不来**。
 
-**为什么只能看词法** ✓：问的时候括号刚关闭 ✓、外层还没成形 ✓
-（本文件 `DecideBracketContext` 那一节记着这条教训 ✓），所以「宿主是不是实参表」
-只能从**宿主前面那一格**认 ✓——那正是实参表与其它 `(` 的分界 ✓：
+**为什么只能看词法**：问的时候括号刚关闭、外层还没成形
+（本文件 `DecideBracketContext` 那一节记着这条教训），所以「宿主是不是实参表」
+只能从**宿主前面那一格**认——那正是实参表与其它 `(` 的分界：
 
 | 宿主 `(` 前面那一格 | 是什么 |
 | --- | --- |
-| 名字 / 方法 / 属性访问 / `)` / `]` | **一次调用**（`f(…)` / `o.m(…)` / `arr[i](…)` / `f()(…)`）✓ |
-| `:` / `=` / `,` / `\|` / `&` / `(` / `=>` / `<` | 类型位或分组 ✓（由上面那条判据照旧处理 ✓） |
+| 名字 / 方法 / 属性访问 / `)` / `]` | **一次调用**（`f(…)` / `o.m(…)` / `arr[i](…)` / `f()(…)`） |
+| `:` / `=` / `,` / `\|` / `&` / `(` / `=>` / `<` | 类型位或分组（由上面那条判据照旧处理） |
 
-`(` 这一条也一起挡 ✓：实参表里的括号只可能是**分组** ✓（`f((A | B))` 在 JS 里就是值 ✓），
-而类型那一边的 `((A | B))` ✓ 宿主前面是 `:` / `=` 之类 ✓，挡不到 ✓。
+`(` 这一条也一起挡：实参表里的括号只可能是**分组**（`f((A | B))` 在 JS 里就是值），
+而类型那一边的 `((A | B))` 宿主前面是 `:` / `=` 之类，挡不到。
 
 ```ts
 const parent = bracket.Parent;
@@ -1542,27 +1542,27 @@ if (!(before instanceof SymbolToken)) {
   return false;
 }
 const text = before.TempToString();
-// **实参表里的 `,` / `(` 是值位**（第 162 轮）✓：见 `IsCallArgumentsBracket` 那一段 ✓——
-// `f("x", (a & b))` 里那个括号前面也是 `,` ✓，不挡的话 `a & b` 会被当成交叉类型 ✗
-//（降级层报 `IntersectionType` ✓，整份文件进不来 ✗）。
+// **实参表里的 `,` / `(` 是值位**（第 162 轮）：见 `IsCallArgumentsBracket` 那一段——
+// `f("x", (a & b))` 里那个括号前面也是 `,`，不挡的话 `a & b` 会被当成交叉类型
+//（降级层报 `IntersectionType`，整份文件进不来）。
 if ((text === "," || text === "(") && owner instanceof Bracket
   && owner.startBracket === "(" && IsCallArgumentsBracket(owner)) {
   return false;
 }
-// **`=>` 要分两种**（第 178 轮）✓：它右边既可能是**函数类型的返回类型**
-// （`(a: A) => (B | C)` ✓），也可能是**箭头函数的体**（`(x) => (a < b ? 1 : 0)` ✓）。
-// 原来「前面是 `=>` ⇒ 类型位」是一刀切 ✗，于是箭头体里那个 `<` 被判成**泛型实参** ✓——
-// `(x, y) => (x < y ? -1 : x > y ? 1 : 0)` 这类**比较器的标准写法**给的是**静默错值** ✗
-//（Node 给 `-1` ✓、本仓给 `1` ✓，第 178 轮的账 ✓）。
+// **`=>` 要分两种**（第 178 轮）：它右边既可能是**函数类型的返回类型**
+// （`(a: A) => (B | C)`），也可能是**箭头函数的体**（`(x) => (a < b ? 1 : 0)`）。
+// 原来「前面是 `=>` ⇒ 类型位」是一刀切，于是箭头体里那个 `<` 被判成**泛型实参**——
+// `(x, y) => (x < y ? -1 : x > y ? 1 : 0)` 这类**比较器的标准写法**给的是**静默错值**
+//（Node 给 `-1`、本仓给 `1`，第 178 轮的账）。
 //
-// **分辨办法：递归问一次箭头自己的形参表** ✓——同一个函数、同一条判据 ✓：
-// 函数类型那一支的形参表前面是 `:`（`let g: (a: A) => …` ✓）、`=`→`type`
-//（`type F = (a: A) => …` ✓）、`<` ✓、`|` ✓、`&` ✓，都判类型位 ✓；
-// 箭头函数那一支前面是 `=`→`let` / `const`（`const f = (x, y) => …` ✓）、
-// 实参表的 `,` / `(`（`f((x) => …)` ✓）、数组的 `[`、语句开头（`at <= 0` ✓），都判值位 ✓。
+// **分辨办法：递归问一次箭头自己的形参表**——同一个函数、同一条判据：
+// 函数类型那一支的形参表前面是 `:`（`let g: (a: A) => …`）、`=`→`type`
+//（`type F = (a: A) => …`）、`<`、`|`、`&`，都判类型位；
+// 箭头函数那一支前面是 `=`→`let` / `const`（`const f = (x, y) => …`）、
+// 实参表的 `,` / `(`（`f((x) => …)`）、数组的 `[`、语句开头（`at <= 0`），都判值位。
 //
-// **没有括号的形参**（`x => (…)`）直接判值位 ✓：函数类型**必须**带括号 ✓，
-// 所以「形参不是括号」这件事本身就是答案 ✓。
+// **没有括号的形参**（`x => (…)`）直接判值位：函数类型**必须**带括号，
+// 所以「形参不是括号」这件事本身就是答案。
 if (text === "=>") {
   const arrowAt = SkipPreviousWrapSymbol(owner.Data, at);
   const parameterAt = SkipPreviousWrapSymbol(owner.Data, arrowAt);
@@ -1571,8 +1571,8 @@ if (text === "=>") {
     if (parameterAt > 0) {
       return IsTypeBracketPosition(owner, parameters);
     }
-    // **形参表正好在这一格的头部**（`((a: A) => (B | C))[]`）：位置问不出去 ✓，
-    // 退一步问「**这个容器自己**在不在类型位」✓——箭头与它的括号同处一地 ✓。
+    // **形参表正好在这一格的头部**（`((a: A) => (B | C))[]`）：位置问不出去，
+    // 退一步问「**这个容器自己**在不在类型位」——箭头与它的括号同处一地。
     if (owner.Parent === null) {
       return false;
     }
@@ -1581,45 +1581,45 @@ if (text === "=>") {
   return false;
 }
 if (text === "|" || text === "&") {
-  // **`1 | (2 & 3)` 与 `type X = A | (B & C)` 同形** ✗（第 384 轮 ✓）——
-  // 只看「这个括号前面是 `|` / `&`」判不出高下 ✗：两边一模一样 ✓。
-  // **判据要问那个运算符左边** ✓：把它的**左操作数那一格**当成一次新的询问 ✓（递归 ✓）——
-  //   · `type X = A | (B & C)` ⇒ 左操作数 `A` 前面是 `TypeAssign` ⇒ **类型位** ✓
-  //   · `const x = 1 | (2 & 3)` ⇒ 左操作数 `1` 前面是 `Let` ⇒ **值位** ✓
-  //（`IsTypeContainerUnit` 那张名单里**有** `TypeAssign` ✓、**没有** `Let` ✓，
-  //  所以两种情形各自走到该走的那一支 ✓。）
+  // **`1 | (2 & 3)` 与 `type X = A | (B & C)` 同形**（第 384 轮）——
+  // 只看「这个括号前面是 `|` / `&`」判不出高下：两边一模一样。
+  // **判据要问那个运算符左边**：把它的**左操作数那一格**当成一次新的询问（递归）——
+  //   · `type X = A | (B & C)` ⇒ 左操作数 `A` 前面是 `TypeAssign` ⇒ **类型位**
+  //   · `const x = 1 | (2 & 3)` ⇒ 左操作数 `1` 前面是 `Let` ⇒ **值位**
+  //（`IsTypeContainerUnit` 那张名单里**有** `TypeAssign`、**没有** `Let`，
+  //  所以两种情形各自走到该走的那一支。）
   //
-  // **为什么不能维持原来那句「`|` / `&` 一律类型位」** ✗：它是按**形状**判的 ✓，
-  // 而这一族的两个形状**完全一样** ✓。实测的现场 ✗：`const x = 1 | (2 & 3)` 报
-  // `unimplemented: expression IntersectionType` ✓（**整份文件进不来** ✗，
-  // 判据 `c371-e2e-binary-encoding` 拖的就是它 ✓——那里面 `(this.current << 1) | ((value >> i) & 1)`
-  // 与 `(sum + b) & 0xff` 都是这个形状 ✓）。
-  // **递归一定收敛** ✓：每一层都往前挪一个操作数 ✓，而左边到头时上面 `at <= 0` 那一句直接给值位 ✓。
+  // **为什么不能维持原来那句「`|` / `&` 一律类型位」**：它是按**形状**判的，
+  // 而这一族的两个形状**完全一样**。实测的现场：`const x = 1 | (2 & 3)` 报
+  // `unimplemented: expression IntersectionType`（**整份文件进不来**，
+  // 判据 `c371-e2e-binary-encoding` 拖的就是它——那里面 `(this.current << 1) | ((value >> i) & 1)`
+  // 与 `(sum + b) & 0xff` 都是这个形状）。
+  // **递归一定收敛**：每一层都往前挪一个操作数，而左边到头时上面 `at <= 0` 那一句直接给值位。
   //
-  // **同族的先例** ✓：第 162 轮在实参表那一档加过一条同类判据 ✓
-  //（`f("x", (a & b))` 里那个 `(` 前面是 `,` ✓），当时也是报 `IntersectionType` ✓——
-  // **同一句话、同一个形状、不同的位置** ✓，所以这里补的是那一格漏掉的另一半 ✓。
-  // **往左走，只在拿到「这是值位」的证据时才改口** ✓（第 384 轮 ✓）。
+  // **同族的先例**：第 162 轮在实参表那一档加过一条同类判据
+  //（`f("x", (a & b))` 里那个 `(` 前面是 `,`），当时也是报 `IntersectionType`——
+  // **同一句话、同一个形状、不同的位置**，所以这里补的是那一格漏掉的另一半。
+  // **往左走，只在拿到「这是值位」的证据时才改口**（第 384 轮）。
   //
-  // 原来的答案是一句「`|` / `&` ⇒ 类型位」✓——它对**类型位**那些写法是对的 ✓，
-  // 而对 `const x = 1 | (2 & 3)` 是错的 ✗（两边形状**一模一样** ✗）。
-  // **怎么改才安全** ✗：不能把「类型位」这个默认答案整个翻掉 ✗（第一版就是这么写的 ✓，
-  // 结果 `cases:tsast` 连报两次漂移 ✗✗）——只能**在找到证据时**改口 ✓：
-  //   · 一路往左跨过**操作数**与**同族的 `|` / `&`** ✓（名字两处都能站 ✓，所以不能停在它身上 ✗）；
-  //   · 撞上 `=` ✓ ⇒ 由链子那条老判据回答「这是类型别名右值（型 ✓）还是 `let`/`const`/`var` 右值（值 ✓）」✓；
-  //   · 撞上 `TypeAssign` / `TypeDefine` 这类**装类型的容器** ✓ ⇒ 类型位 ✓；
-  //   · 撞上 `:` / `?:` / `<` / `,` / `(` ✓ ⇒ 类型位 ✓；
-  //   · **其它一律维持「类型位」** ✓（没有证据就不动 ✓）——这一条是这一版与第一版的**全部区别** ✓。
+  // 原来的答案是一句「`|` / `&` ⇒ 类型位」——它对**类型位**那些写法是对的，
+  // 而对 `const x = 1 | (2 & 3)` 是错的（两边形状**一模一样**）。
+  // **怎么改才安全**：不能把「类型位」这个默认答案整个翻掉（第一版就是这么写的，
+  // 结果 `cases:tsast` 连报两次漂移）——只能**在找到证据时**改口：
+  //   · 一路往左跨过**操作数**与**同族的 `|` / `&`**（名字两处都能站，所以不能停在它身上）；
+  //   · 撞上 `=` ⇒ 由链子那条老判据回答「这是类型别名右值（型）还是 `let`/`const`/`var` 右值（值）」；
+  //   · 撞上 `TypeAssign` / `TypeDefine` 这类**装类型的容器** ⇒ 类型位；
+  //   · 撞上 `:` / `?:` / `<` / `,` / `(` ⇒ 类型位；
+  //   · **其它一律维持「类型位」**（没有证据就不动）——这一条是这一版与第一版的**全部区别**。
   //
-  // 实测的现场 ✗：`const x = 1 | (2 & 3)`（判据 `c371-e2e-binary-encoding` 里
-  // `(this.current << 1) | ((value >> i) & 1)` 与 `(sum + b) & 0xff` 都是它 ✓）
-  // 报 `unimplemented: expression IntersectionType` ✓——**整份文件进不来** ✗。
-  // **同族的先例** ✓：第 162 轮在实参表那一档加过一条同类判据 ✓
-  //（`f("x", (a & b))` 里那个 `(` 前面是 `,` ✓），当时同样是这句 `IntersectionType` ✓——
-  // 同一个症状、不同的位置 ✓，这里补的是那一格漏掉的另一半 ✓。
+  // 实测的现场：`const x = 1 | (2 & 3)`（判据 `c371-e2e-binary-encoding` 里
+  // `(this.current << 1) | ((value >> i) & 1)` 与 `(sum + b) & 0xff` 都是它）
+  // 报 `unimplemented: expression IntersectionType`——**整份文件进不来**。
+  // **同族的先例**：第 162 轮在实参表那一档加过一条同类判据
+  //（`f("x", (a & b))` 里那个 `(` 前面是 `,`），当时同样是这句 `IntersectionType`——
+  // 同一个症状、不同的位置，这里补的是那一格漏掉的另一半。
   const walkLimit = 64;
-  // **宿主是不是「一串实参」** ✓（实参是值 ✓）：调用在产物里是 `Method`（实参是它的**直接子单元** ✓），
-  // 也可能是一对 `(` 且 `IsCallArgumentsBracket` 说是调用实参 ✓。两种都算 ✓。
+  // **宿主是不是「一串实参」**（实参是值）：调用在产物里是 `Method`（实参是它的**直接子单元**），
+  // 也可能是一对 `(` 且 `IsCallArgumentsBracket` 说是调用实参。两种都算。
   const argsOwner =
     owner.constructor.name === "Method" ||
     (owner instanceof Bracket && owner.startBracket === "(" && IsCallArgumentsBracket(owner));
@@ -1628,11 +1628,11 @@ if (text === "|" || text === "&") {
     walkAt = SkipPreviousWrapSymbol(owner.Data, walkAt);
     const item = Get(owner.Data, walkAt);
     if (item === null) {
-      // **到头了要看容器** ✗：调用实参表里的到头 ⇒ **值位** ✓（实参是值 ✓）；
-      // 别的容器（类型别名右值、语句体…）⇒ 维持类型位 ✓。
-      // 实测的现场 ✗：`console.log(a | (b & c))` 里内层那个 `(` 的宿主是**外层的实参表** ✓
-      //（实参是 `Method` 的直接子单元 ✓），往左走到头就是它 ✓——
-      // 不认这一格的话 `a | (b & c)` 判成型 ✓、那个 `&` 被收成交叉 ✗。
+      // **到头了要看容器**：调用实参表里的到头 ⇒ **值位**（实参是值）；
+      // 别的容器（类型别名右值、语句体…）⇒ 维持类型位。
+      // 实测的现场：`console.log(a | (b & c))` 里内层那个 `(` 的宿主是**外层的实参表**
+      //（实参是 `Method` 的直接子单元），往左走到头就是它——
+      // 不认这一格的话 `a | (b & c)` 判成型、那个 `&` 被收成交叉。
       return argsOwner === false;
     }
     if (IsTypeContainerUnit(item)) {
@@ -1644,22 +1644,22 @@ if (text === "|" || text === "&") {
         continue;
       }
       if (itemText === "=") {
-        // **证据就在这一格** ✓：`IsTypeAliasAssignment` 的约定是「传 `=` 左边那一格」✓
-        //（链子末尾那一支传的是 `at - 2` ✓，正是在 `=` 左边 ✓）。
+        // **证据就在这一格**：`IsTypeAliasAssignment` 的约定是「传 `=` 左边那一格」
+        //（链子末尾那一支传的是 `at - 2`，正是在 `=` 左边）。
         return IsTypeAliasAssignment(owner.Data, walkAt - 1);
       }
       if (itemText === "," || itemText === "(") {
-        // **实参表里的 `,` / `(` ⇒ 值位** ✓（与第 162 轮 `IsCallArgumentsBracket` 那条同一个依据 ✓）。
-        // 实测的现场 ✗：`console.log(v, a | (b & c))`——第二格实参的左边是一个 `,` ✓，
-        // 不认它就会一路判成型 ✓ ⇒ 又是那句 `IntersectionType` ✓。
+        // **实参表里的 `,` / `(` ⇒ 值位**（与第 162 轮 `IsCallArgumentsBracket` 那条同一个依据）。
+        // 实测的现场：`console.log(v, a | (b & c))`——第二格实参的左边是一个 `,`，
+        // 不认它就会一路判成型 ⇒ 又是那句 `IntersectionType`。
         return argsOwner === false;
       }
       return true;
     }
-    // **引出值的那些词** ✗（第 384 轮 ✓）：走到它们说明左边是一条**值**语句 ✓——
-    // `return 1 | (2 & 3)` ✓（函数体里那个 ✓）、`case x | (y & z):` ✓ 等等 ✓。
-    // **少了这一格** ✗：`function f() { return 1 | (2 & 3); }` 一路走到函数体开头 ✓、
-    // 到头时容器不是实参表 ✓ ⇒ 判成型 ✗ ⇒ 又是那句 `IntersectionType` ✓。
+    // **引出值的那些词**（第 384 轮）：走到它们说明左边是一条**值**语句——
+    // `return 1 | (2 & 3)`（函数体里那个）、`case x | (y & z):` 等等。
+    // **少了这一格**：`function f() { return 1 | (2 & 3); }` 一路走到函数体开头、
+    // 到头时容器不是实参表 ⇒ 判成型 ⇒ 又是那句 `IntersectionType`。
     if (item instanceof Identifier || item.constructor.name === "Keyword") {
       const word = WordText(item);
       if (
@@ -1678,7 +1678,7 @@ if (text === "|" || text === "&") {
       }
       continue;
     }
-    // **别的操作数**：两处都能站 ✓ ⇒ 再往左一格 ✓。
+    // **别的操作数**：两处都能站 ⇒ 再往左一格。
   }
   return true;
 }
@@ -1816,28 +1816,28 @@ return true;
 一开始用 `ArrayLiteral.Context === "type"` 区分，**实测不可靠**：`DecideBracketContext` 的
 「往左看」在值位也会被误答成类型位（字段初始化式 `public static readonly X: T = new Foo([…])`
 里，`[` 往前扫会跨过 `=` 撞上标注的 `:` —— 实测 当时那把对齐尺子 27 处误包）。
-改成看**内容里有没有 `in`**：与「这个括号是不是映射类型的键」是同一件事，时序无关 ✓。
+改成看**内容里有没有 `in`**：与「这个括号是不是映射类型的键」是同一件事，时序无关。
 
 ```ts
 const isBracket = unit instanceof Bracket && unit.startBracket === "[";
 if (isBracket === false && unit.constructor.name !== "ArrayLiteral") {
   return false;
 }
-// **补一条「容器」判据**（第 165 轮 ✓，**第 163 轮猜错过一次** ✗）：
-// 映射键的 `[` 一定长在**类型字面量**里 ✓——要么还是那个 `{` 括号 ✓，
-// 要么 `{` 已经被重组成了 `TypeLiteral` 单元 ✓（**两种都要认** ✗：
-// 第 163 轮只认 `{` 括号 ✗，`cases:tsast` 当场从 1440/1441 掉到 1431/1441 ✗，
-// 缺节点 205 ✗——真映射键的父单元那时已经是 `TypeLiteral` 了 ✗）。
+// **补一条「容器」判据**（第 165 轮，**第 163 轮猜错过一次**）：
+// 映射键的 `[` 一定长在**类型字面量**里——要么还是那个 `{` 括号，
+// 要么 `{` 已经被重组成了 `TypeLiteral` 单元（**两种都要认**：
+// 第 163 轮只认 `{` 括号，`cases:tsast` 当场从 1440/1441 掉到 1431/1441，
+// 缺节点 205——真映射键的父单元那时已经是 `TypeLiteral` 了）。
 //
-// **放行的判据**：父单元是 `{` 括号 ✓ **或** `TypeLiteral` ✓；
-// **挡掉的**是值位那些容器 ✓：`Root` ✓ / `Statement` ✓ / `(` `[` 括号 ✓ / `Method` ✓——
-// `const r = [x in y, 2];` 里那个数组的父单元就是 `Root` ✓（插桩实测 ✓），
-// 于是它不再被认成映射键 ✓，整个数组也不再被投成 `TypeParameter` ✓。
+// **放行的判据**：父单元是 `{` 括号 **或** `TypeLiteral`；
+// **挡掉的**是值位那些容器：`Root` / `Statement` / `(` `[` 括号 / `Method`——
+// `const r = [x in y, 2];` 里那个数组的父单元就是 `Root`（插桩实测），
+// 于是它不再被认成映射键，整个数组也不再被投成 `TypeParameter`。
 //
-// **为什么必须带这一条** ✗：光看「里面有没有 `in`」把值位的 `in`（二元运算符 ✓）也算上了 ✗。
-// 插桩还确认了一件事 ✓：这个判据**也会被 `TypeParameter` 单元问到** ✓
-//（那时 `unit` 既不是括号也不是 `ArrayLiteral` ✓，上面那条早退就放走了 ✓）——
-// 所以这一条只影响「括号 / ArrayLiteral」那一支 ✓，不会牵动别的调用点 ✓。
+// **为什么必须带这一条**：光看「里面有没有 `in`」把值位的 `in`（二元运算符）也算上了。
+// 插桩还确认了一件事：这个判据**也会被 `TypeParameter` 单元问到**
+//（那时 `unit` 既不是括号也不是 `ArrayLiteral`，上面那条早退就放走了）——
+// 所以这一条只影响「括号 / ArrayLiteral」那一支，不会牵动别的调用点。
 const container = unit.Parent;
 if (container !== null) {
   const containerName = container.constructor.name;
@@ -1990,10 +1990,10 @@ return (
 类里的计算属性名 `[Symbol.iterator]()`、成员修饰词 `readonly a: T`——
 它们的开头都长着类型位的样子。判据是「左边只剩修饰词 / 成员分隔符」：
 
-- `{ a: [A, B] }` 里 `[` 左边是 `:` ⇒ **不是**成员开头（是属性类型 ✓）；
-- `{ readonly [K in T]: X }` 里 `[` 左边只有修饰词 ⇒ 是成员开头（不动它 ✓）；
-- `{ a: 1; [k: string]: T }` 里 `[` 左边先遇到 `;` ⇒ 是成员开头 ✓；
-- `interface I { readonly a: T }` 里的 `readonly` 是成员开头（是修饰词，不是类型运算符 ✓）。
+- `{ a: [A, B] }` 里 `[` 左边是 `:` ⇒ **不是**成员开头（是属性类型）；
+- `{ readonly [K in T]: X }` 里 `[` 左边只有修饰词 ⇒ 是成员开头（不动它）；
+- `{ a: 1; [k: string]: T }` 里 `[` 左边先遇到 `;` ⇒ 是成员开头；
+- `interface I { readonly a: T }` 里的 `readonly` 是成员开头（是修饰词，不是类型运算符）。
 
 成员列表按类名认（`{` 括号 / `InterfaceBody` / `TypeLiteralBody` / `ClassBody` / `MappedType` /
 `ObjectLiteral`）；别的父亲一律不是成员列表。`-readonly` / `+readonly` / `?` 这些映射类型修饰
@@ -2070,8 +2070,8 @@ return true;
 所以「这个 `String` 在它自己那一格前面是什么」问得出来（与括号、与
 `type-union.xl.md` 的 `IsTypeParen` 是同一个问法）：
 
-- `` type X = `a${"x" | "y"}b` ``：`String` 前面是 `=`，再往左是 `type` ⇒ **类型位** ✓；
-- `` const v = `${a | b}` ``：再往左是 `const` ⇒ **值位** ✓（值位的 `${a | b}` 不许变成联合，
+- `` type X = `a${"x" | "y"}b` ``：`String` 前面是 `=`，再往左是 `type` ⇒ **类型位**；
+- `` const v = `${a | b}` ``：再往左是 `const` ⇒ **值位**（值位的 `${a | b}` 不许变成联合，
   这是第 62 轮明确记下的取舍）。
 
 少了这一条，模板字面量类型里的联合 / 交叉永远不成形（当时那把对齐尺子一直挂着
@@ -2098,7 +2098,7 @@ return IsTypeBracketPosition(stringUnit.Parent, stringUnit);
 
 判据与 `type-union.xl.md` 里那条同一个思路：**这一段覆盖了整个父亲就不许再包**。
 `[[A], B]` 里的内层元组只覆盖父亲的一格、`keyof keyof T` 里的内层只覆盖两格，
-都不属于这一条，照常成形 ✓。
+都不属于这一条，照常成形。
 
 ```ts
 for (let i = 0; i < startIndex; i++) {

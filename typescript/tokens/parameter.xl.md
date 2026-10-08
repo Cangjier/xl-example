@@ -25,7 +25,7 @@ TypeScript 那边形参一律是 `Parameter` 节点（名字 + 可选的 `?` + �
 
 **规则锚在括号上**（不是锚在括号里）：这一层扫到的单元就是那个 `(` 括号本身，
 `Process` 改的是**括号自己的 `Data`**（把内容切成一个个 `Parameter`），外层列表不动，
-所以返回原来的下标 ✓。这一点与元组成员 / 枚举成员那两条（改容器内容）同款。
+所以返回原来的下标。这一点与元组成员 / 枚举成员那两条（改容器内容）同款。
 
 **只认形参表的五种宿主**（`current.Parent` 的类名）：
 
@@ -41,13 +41,13 @@ TypeScript 那边形参一律是 `Parameter` 节点（名字 + 可选的 `?` + �
     new Foo(1, 2)                     →  <New><NewType><Identifier>Foo</Identifier></NewType><NewArguments>1, 2</NewArguments>
 
 构造签名的 `NewType` 里装的是**形参括号**，值位 `new` 的 `NewType` 里装的是**被调者名字**——
-所以「`NewType` 的第一个实义子单元是括号、**而且括号里有顶层冒号**」才是构造签名 ✓
+所以「`NewType` 的第一个实义子单元是括号、**而且括号里有顶层冒号**」才是构造签名
 （第二条是必须的：`new (getCtor())()` / `new (class {})()` 把被调者括起来时，
-`NewType` 里同样是一个括号 ✗，只按「第一个是括号」判会把它们的实参误当成形参）。
+`NewType` 里同样是一个括号，只按「第一个是括号」判会把它们的实参误当成形参）。
 
 **箭头函数不在这里收**：`lamda.xl.md` 在造 `Lamda` 时已经把形参收进 `LamdaParameters` 了
-（宿主是 `LamdaParameters`，不在上面几个里 ✓ 不会重复收）。
-**值位 `new` 的实参表也不在这里收**（它在 `NewArguments` 里 ✗ 不在名单里 ✓）。
+（宿主是 `LamdaParameters`，不在上面几个里 不会重复收）。
+**值位 `new` 的实参表也不在这里收**（它在 `NewArguments` 里 不在名单里）。
 
 # class ParameterCloseRule extends CloseRule
 
@@ -135,12 +135,12 @@ return hasContent;
 
 按**顶层逗号**把形参表切成若干段，每段收成一个 `Parameter`，**返回原来的下标**。
 
-逗号留在原地（它属于形参表本身 ✓）。软换行**留在 `Parameter` 里**——形参表可以折行排版，
+逗号留在原地（它属于形参表本身）。软换行**留在 `Parameter` 里**——形参表可以折行排版，
 那条换行是源码内容的一部分（丢掉它会让 `cases:boundaries` 的 XML 定位器少一个叶子、
 整体错位；实测 `@types/node/url.d.ts` 因此报出过一处假阳性，虽然根因不在换行上，
 少一个叶子只会让定位更难）。
 
-**先拷出来再重建**：改的正是这个括号的 `Data`，边遍历边改会读到自己的写入 ✓。
+**先拷出来再重建**：改的正是这个括号的 `Data`，边遍历边改会读到自己的写入。
 
 ```ts
 const current = Get(units, index);
@@ -172,7 +172,7 @@ return index;
 把一段（一个形参的单元）收成 `Parameter`；空段（只有软换行）跳过。
 
 `Parameter` 自己挂通用队列（见 `./lamda/lamda-parameter.xl.md`），所以
-`name?: T = 默认值` 里的类型标注与默认值会在它自己那一趟里继续成形 ✓。
+`name?: T = 默认值` 里的类型标注与默认值会在它自己那一趟里继续成形。
 
 ```ts
 const content: Token[] = [];

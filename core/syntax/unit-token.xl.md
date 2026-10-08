@@ -32,15 +32,15 @@ super(template);
 
 `EndExclusive` 交回的那个字符**交给谁**；`null` 表示交给 `Quit()` 返回的父单元。
 
-**为什么需要它** ✗：字符是**经 `MountedUnit` 送来的**，而 `Parent` 是**树上那一格** ✓，两者可以不是同一个 ✓。
-于是「交回给某个特定的处理者」这件事在 `Quit()` 的返回里表达不出来 ✗，得显式指一下 ✓。
+**为什么需要它**：字符是**经 `MountedUnit` 送来的**，而 `Parent` 是**树上那一格**，两者可以不是同一个。
+于是「交回给某个特定的处理者」这件事在 `Quit()` 的返回里表达不出来，得显式指一下。
 
 ## protected method Close:()=>void
 
 关闭：只把自己标记为已关闭。
 
-**这是单元最通用的一次收尾** ✓——`Bracket` / `GuideToken` / 第 390 轮那个 `PendingUnit` 原先各写了一份
-一模一样的 ✓，第 399 轮收进本类 ✓。真的要多做点什么的单元自己覆写 ✓（`Root.Close` 会往下递归 ✓）。
+**这是单元最通用的一次收尾**——`Bracket` / `GuideToken` / 第 390 轮那个 `PendingUnit` 原先各写了一份
+一模一样的，第 399 轮收进本类。真的要多做点什么的单元自己覆写（`Root.Close` 会往下递归）。
 
 ```ts
 this.Closed = true;
@@ -50,15 +50,15 @@ this.Closed = true;
 
 判断当前字符是让本单元「退出」还是「前移」。
 
-**抽象方法，由各单元自己实现** ✓（第 405 轮把 `PendingStates` 与那份共用机件一起删掉了 ✗——
-那是本分支自己造的词汇 ✓，上游没有 ✓，用户口径：「删了，不要。」✓）。
-回到上游的形状：**谁收尾谁自己写** ✓——
-`Bracket` 直接比配对的结束括号 ✓、`RegexToken` 比 `/` ✓、`String` 比引号 ✓、
-`IfCondition` 比 `)` ✓、`IfStatement` 看自己的形态 ✓。
+**抽象方法，由各单元自己实现**（第 405 轮把 `PendingStates` 与那份共用机件一起删掉了——
+那是本分支自己造的词汇，上游没有，用户口径：「删了，不要。」）。
+回到上游的形状：**谁收尾谁自己写**——
+`Bracket` 直接比配对的结束括号、`RegexToken` 比 `/`、`String` 比引号、
+`IfCondition` 比 `)`、`IfStatement` 看自己的形态。
 
-「收尾但**不吃**当前字符、要交回」那一档只有一处用得上 ✓——`IfStatement` 的单语句体 ✓（ASI 那条边界 ✓）。
-要用时**自己写那几行** ✓：`SignOut(previous)` → `TryToClose()` → `Quit()` → 插一条 `ReloadMessage` ✓；
-交回给谁看 `ReloadOwner` ✓（`null` 就是 `Quit()` 返回的父单元 ✓）。
+「收尾但**不吃**当前字符、要交回」那一档只有一处用得上——`IfStatement` 的单语句体（ASI 那条边界）。
+要用时**自己写那几行**：`SignOut(previous)` → `TryToClose()` → `Quit()` → 插一条 `ReloadMessage`；
+交回给谁看 `ReloadOwner`（`null` 就是 `Quit()` 返回的父单元）。
 
 ```ts
 throw new Error("abstract member: ExitOrPre");

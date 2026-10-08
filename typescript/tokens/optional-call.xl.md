@@ -20,7 +20,7 @@ import { SymbolToken } from "./symbol-token.xl.md"
 **可选调用 / 非空断言调用**：`a?.()` / `a.b?.()` / `a?.b.c?.d?.()` / `b!()` 收成一个 `Method`。
 
 它们与普通调用**在 TypeScript 那边是同一个构造**（`CallExpression`，只是被调者上多了
-`questionDotToken` 或是一层 `NonNullExpression`），所以这里产出的也是同一个 `<Method>` 标签 ✓。
+`questionDotToken` 或是一层 `NonNullExpression`），所以这里产出的也是同一个 `<Method>` 标签。
 对不上的原因在**形状**：
 
 | 源码 | 原来 | TS |
@@ -33,8 +33,8 @@ import { SymbolToken } from "./symbol-token.xl.md"
 （判据只认 `Identifier` / 括号）。两者都不成形，当时那把对齐尺子因此缺 `CallExpression` 6 处。
 
 规则排在**通用队列里、`NotNullCloseRule` 之后**：那时 NCO（第 13 位）与
-`NotNull`（第 40 位附近）都已经成形 ✓。两条支路都靠**第二趟**兜住——
-重组的队列固定跑两趟，第一趟造出被调者、第二趟才能把它收进调用 ✓。
+`NotNull`（第 40 位附近）都已经成形。两条支路都靠**第二趟**兜住——
+重组的队列固定跑两趟，第一趟造出被调者、第二趟才能把它收进调用。
 
 # class OptionalCallCloseRule extends CloseRule
 
@@ -61,13 +61,13 @@ return item.startBracket === "(" && item.Closed;
 
 `index` 处的这个 `NullConditionalOperator` 是不是**可选调用**：它的 `Data` 末尾是一个实参括号。
 
-`a?.()` 里 `?.` 与括号一起进了 NCO（末尾就是括号）✓；`a?.b` 里 NCO 装的是属性名 `b` ✗
+`a?.()` 里 `?.` 与括号一起进了 NCO（末尾就是括号）；`a?.b` 里 NCO 装的是属性名 `b`
 （那是可选**成员访问**，不是调用，不该在这里收）。
 
-**第 153 轮试过放宽成「`Data` 里有实参括号」** ✗（想把 `o.m?.().k` 里那个
-「前面是括号、后面还挂着 `.k`」的形状也认下来 ✓）——**没有修成** ✗：
-放宽之后形状一点没变 ✓，说明这一格**根本没被问到** ✓（真正的原因在别处 ✓，
-最可能是那一步时括号还没关闭 ✓）。**已经改回来了** ✓，理由写在 `Previous` 那一段 ✓。
+**第 153 轮试过放宽成「`Data` 里有实参括号」**（想把 `o.m?.().k` 里那个
+「前面是括号、后面还挂着 `.k`」的形状也认下来）——**没有修成**：
+放宽之后形状一点没变，说明这一格**根本没被问到**（真正的原因在别处，
+最可能是那一步时括号还没关闭）。**已经改回来了**，理由写在 `Previous` 那一段。
 
 ```ts
 const current = Get(units, index);
@@ -145,7 +145,7 @@ return false;
 （`a.b.c?.()` 的起点是 `a`）。
 
 遇到不认识的单元就停——点号与标识符之外的任何东西（逗号、赋值、运算符、语句关键字）
-都是链的边界 ✓。
+都是链的边界。
 
 ```ts
 let start = index;
@@ -175,13 +175,13 @@ if (current === null) {
 // **已经在调用节点里就不再收**：`Method` 自己也挂通用队列，收完之后它那一趟会再看到
 // 里面的 NCO / 括号——不挡的话每次 `TryToClose` 都再包一层，直接爆栈
 // （实测 `Maximum call stack size exceeded`）。被调者与实参表进了 `Method`
-// 就说明这一次调用已经收好了 ✓。
+// 就说明这一次调用已经收好了。
 //
-// **第 153 轮试过加一条「关好了才算」** ✗（`&& current.Parent.Closed` ✓），
-// 想修的是 `o.m?.().k`（`.k` 被折进 NCO ✓）——**没有修成** ✗：
-// 加完之后形状一点没变 ✓，说明这一格**根本没被问到** ✓，真正的原因在别处 ✓
-//（最可能是那个实参括号**此刻还没关闭** ✓，`IsCallArguments` 要求 `Closed` ✓ → `-1` ✓）。
-// **已经改回来了** ✓（不留半截改动 ✓）；`o.m?.().k` 那一档继续记在台账里 ✓。
+// **第 153 轮试过加一条「关好了才算」**（`&& current.Parent.Closed`），
+// 想修的是 `o.m?.().k`（`.k` 被折进 NCO）——**没有修成**：
+// 加完之后形状一点没变，说明这一格**根本没被问到**，真正的原因在别处
+//（最可能是那个实参括号**此刻还没关闭**，`IsCallArguments` 要求 `Closed` → `-1`）。
+// **已经改回来了**（不留半截改动）；`o.m?.().k` 那一档继续记在台账里。
 if (current.Parent !== null && current.Parent.constructor.name === "Method") {
   return false;
 }
@@ -215,14 +215,14 @@ if (current === null) {
   throw new Error("OptionalCallCloseRule.Process: current is null");
 }
 let startIndex = index;
-// **实参括号之后的东西不是这次调用的** ✓（第 153 轮试过这条，**没成** ✗）：
-// 想法是 `o.m?.().k` 的 NCO 里装着 `[Bracket, ., k]` ✓，把 `.k` 摘出来挂到 `Method` 后面 ✓，
-// 后续的属性访问规则就会折成 `(o.m?.()).k` 那个**本来就对**的形状 ✓。
-// **实测形状一点没变** ✗——放宽判据也一样 ✓，说明这一格**根本没被问到** ✓
-//（不是「判据太窄」✗，是**根本没走到这里** ✓；最可能是那一步时实参括号还没关闭 ✓，
-//  而 `IsCallArguments` 要求 `Closed` ✓ → `-1` ✓）。
-// 改动**已经全部改回来** ✓；`o.m?.().k` 那一档继续记在台账里 ✓，下一轮从「谁在投影它」查起 ✓
-//（`Method.PrintAst` 的可选链那一支也在嫌疑里 ✓——第 147 轮刚在那儿改过 ✓）。
+// **实参括号之后的东西不是这次调用的**（第 153 轮试过这条，**没成**）：
+// 想法是 `o.m?.().k` 的 NCO 里装着 `[Bracket, ., k]`，把 `.k` 摘出来挂到 `Method` 后面，
+// 后续的属性访问规则就会折成 `(o.m?.()).k` 那个**本来就对**的形状。
+// **实测形状一点没变**——放宽判据也一样，说明这一格**根本没被问到**
+//（不是「判据太窄」，是**根本没走到这里**；最可能是那一步时实参括号还没关闭，
+//  而 `IsCallArguments` 要求 `Closed` → `-1`）。
+// 改动**已经全部改回来**；`o.m?.().k` 那一档继续记在台账里，下一轮从「谁在投影它」查起
+//（`Method.PrintAst` 的可选链那一支也在嫌疑里——第 147 轮刚在那儿改过）。
 if (current.constructor.name === "NullConditionalOperator") {
   startIndex = this.CalleeStart(units, SkipPreviousWrapSymbol(units, index));
 } else {

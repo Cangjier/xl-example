@@ -139,16 +139,16 @@ return false;
 `index` 处的 `{` 是不是处在**类型位**。
 
 **关于括号上的 `Context` 字段（方案 A，已铺好但暂未启用）**：`Bracket.Context` 是**开括号那一刻**
-算好的（见 `../text-common-util.xl.md` 的 `DecideBracketContext`），与重组时序无关 ✓。
+算好的（见 `../text-common-util.xl.md` 的 `DecideBracketContext`），与重组时序无关。
 本方法**曾经**改成「先读 `Context`、只有它是 `""` 时才落到下面这段老走法」，
-测试立刻报出 5 条用例失败 + **2 个语料文件解析失败** ✗ —— 根因是：
+测试立刻报出 5 条用例失败 + **2 个语料文件解析失败** —— 根因是：
 
 > 词法阶段是**平列表**，它分不出「`outer: { … }` 这种**标签的冒号**」与「`x: { … }` 这种**类型标注的冒号**」
 > —— 那正是**后来的规则**（`LabelCloseRule` 在 `TypeLiteralCloseRule` 之前跑）才带来的区分，
 > 老走法能对，是因为它跑的时候冒号已经被 `Label` 收走了。
 
 所以启用它之前，`DecideBracketContext` 还得把这个区分补上（判据在**宿主**的形态上：
-宿主是参数括号 → 类型标注 ✓；宿主是语句列表且冒号前是一个裸露的名字 → 标签 ✗）。
+宿主是参数括号 → 类型标注；宿主是语句列表且冒号前是一个裸露的名字 → 标签）。
 在那之前这段老走法继续当家。
 
 两条入口：
@@ -165,20 +165,20 @@ return false;
      里面 6 个成员一起丢 —— `lib.esnext.typedarrays.d.ts` 就是这么丢的）；
    - **已经跨过 `=` 之后再遇到 `:` 就是值位**：`const options: CliOptions = { Input: "" }` 里
      那个 `{` 往前扫会先跨过 `=`、再撞上变量标注的 `:`——题面看它像「冒号后面的类型」，
-     其实 `=` 之后的那个花括号是**值**（对象字面量）✗。
+     其实 `=` 之后的那个花括号是**值**（对象字面量）。
      不加这一条，对象字面量会被收成 `TypeLiteral`，它的成员接着被 `FieldCloseRule`
      当成字段收走（实测 `dist/ts/cjcli.ts`：一个 `CliOptions` 类型别名 5 个成员，
-     外加一处 `const options: CliOptions = { … }` 的 4 个成员，产物里 **9 个 `Field`** ✗，
+     外加一处 `const options: CliOptions = { … }` 的 4 个成员，产物里 **9 个 `Field`**，
      差分账上 `Field` 多出的 20 个正是这种形状）；
    - **`import` / `export` 后面的 `type` 不算类型位**：`import type { A } from "m"` 里那个 `{`
-     往前扫会撞到 `type`（在关键字表里）→ 被当成类型字面量 ✗，于是导入列表被收成
-     `TypeLiteral`，里面每个名字还成了一个 `Field` ✗（实测产物：`<Import><Identifier>type</Identifier>
+     往前扫会撞到 `type`（在关键字表里）→ 被当成类型字面量，于是导入列表被收成
+     `TypeLiteral`，里面每个名字还成了一个 `Field`（实测产物：`<Import><Identifier>type</Identifier>
      <TypeLiteral><TypeLiteralBody><Field fieldName="A" />`）——**AST 那边一个属性都没有**，
      这正是差分账上 `Field` 长期「多出来」的一个来源。
      **判据要两条齐全**：`type` 前面是 `import` / `export`，**而且 `type` 后面紧跟一个 `{` 括号**。
-     只看前一条会把 `export type CliOptions = { … }` 也挡掉 ✗（测试跑出来 `cjcli.ts`
+     只看前一条会把 `export type CliOptions = { … }` 也挡掉（测试跑出来 `cjcli.ts`
      的 5 个 `Field` 全丢、5 条 type-only 用例报 `缺 TypeLiteral`）——那种写法里 `type` 后面是
-     **别名**，花括号在 `=` 之后，属于正常的类型字面量 ✓；
+     **别名**，花括号在 `=` 之后，属于正常的类型字面量；
    - `=>` → **箭头**：先记下「正在跨箭头」，等把它的形参表也跨过去之后，再按形参表**左边**是什么下结论
      （见下一条）；
    - `|` / `&` → 类型位（联合 / 交叉类型的一项）；
@@ -210,7 +210,7 @@ return false;
 一律跳过、继续往左（`(a: A): T => B` 不是合法的函数类型写法，所以这一条不会误伤类型位）。
 `const f = (a): { x: number } => ({ x: 1 })` 里 `=>` 左边那个 `{ x: number }` 于是被当成形参表跨过去，
 再往左撞上 `:` 就判成类型位——判对了（它是**返回类型**），而 `=>` 右边那个表达式体
-由上面那条「括号紧跟 `=>` ⇒ 值位」挡住 ✓。
+由上面那条「括号紧跟 `=>` ⇒ 值位」挡住。
 
 判定与 `../generic-type.xl.md` 的 `IsTypePosition` 同源（那边判的是 `<` 处在类型位还是表达式位）；
 这里独立实现一份，因为两边看的是不同字符、也允许不同的保守程度。
@@ -237,9 +237,9 @@ if (current.Parent instanceof ObjectLiteral) {
 // `typescript.d.ts` 的 `ImportSpecifier & ({ readonly isTypeOnly: true } | { … })`、
 // `util.d.ts` 的 `{ [LongOption in keyof T["options"]]: … }`）。
 // 括号自己那一格问的是**外层列表**（括号是外公列表里的一项），所以递归问一次它：
-// `type T = ({ … })` 回扫 → `=` → `T` → `type` ⇒ 类型位 ✓；
-// `f({ … })` 回扫 → `Method` ⇒ 值位 ✓；`({ a, b }) => x` 回扫 → 列表开头 ⇒ 值位 ✓；
-// `(a) => ({ x: 1 })` 的括号紧跟 `=>`（箭头函数的体）⇒ 值位 ✓。
+// `type T = ({ … })` 回扫 → `=` → `T` → `type` ⇒ 类型位；
+// `f({ … })` 回扫 → `Method` ⇒ 值位；`({ a, b }) => x` 回扫 → 列表开头 ⇒ 值位；
+// `(a) => ({ x: 1 })` 的括号紧跟 `=>`（箭头函数的体）⇒ 值位。
 if (index === 0 && current.Parent instanceof Bracket && current.Parent.startBracket === "(") {
   const owner = current.Parent.Parent;
   if (owner !== null) {
@@ -258,10 +258,10 @@ if (index === 0 && current.Parent instanceof Bracket && current.Parent.startBrac
 }
 let crossedAssignment = false;
 let crossingArrow = false;
-// **「这一格与那个 `new` 之间跨过实义单元没有」** ✗（第 375 轮 ✓）——
-// 与 `text-common-util.xl.md` 的 `DecideBracketContext` 里那个 `sawUnit` **同一条判据** ✓
-//（两处是同一个判断的两份实现 ✓，本文件那一段注释里写着为什么不合并 ✓）。
-// 它只为 `new` 那一档服务 ✓（见下面 `text === "new"` 那一段 ✓）。
+// **「这一格与那个 `new` 之间跨过实义单元没有」**（第 375 轮）——
+// 与 `text-common-util.xl.md` 的 `DecideBracketContext` 里那个 `sawUnit` **同一条判据**
+//（两处是同一个判断的两份实现，本文件那一段注释里写着为什么不合并）。
+// 它只为 `new` 那一档服务（见下面 `text === "new"` 那一段）。
 let crossedUnit = false;
 for (let i = index - 1; i >= 0; i--) {
   const item = Get(units, i);
@@ -280,8 +280,8 @@ for (let i = index - 1; i >= 0; i--) {
     continue;
   }
   if (item instanceof GenericType) {
-    // **泛型实参段算「跨过一个实义单元」** ✓（`new Box<number>({ … })` 里那一段 ✓）——
-    // 它就在被构造者与实参表之间 ✓。
+    // **泛型实参段算「跨过一个实义单元」**（`new Box<number>({ … })` 里那一段）——
+    // 它就在被构造者与实参表之间。
     crossedUnit = true;
     continue;
   }
@@ -298,10 +298,10 @@ for (let i = index - 1; i >= 0; i--) {
         return false;
       }
       // **`case` / `default` 的标签冒号是值位**（第 553 轮）：`case 1: { … }` 里那个 `{`
-      // 往前扫先撞上标签冒号，按类型位判就把整段语句体收成 `TypeLiteral` ✗
-      // （实测 `st-switch-block-case.ts`：段里只剩一个冒号，`Block` 与里面的语句全丢 ✓）。
+      // 往前扫先撞上标签冒号，按类型位判就把整段语句体收成 `TypeLiteral`
+      // （实测 `st-switch-block-case.ts`：段里只剩一个冒号，`Block` 与里面的语句全丢）。
       // 判据与 `type-define.xl.md` / `label.xl.md` 那两处是**同一句**
-      // （`text-common-util.xl.md` 的 `IsSwitchLabelColon` ✓）。
+      // （`text-common-util.xl.md` 的 `IsSwitchLabelColon`）。
       if (IsSwitchLabelColon(units, i)) {
         return false;
       }
@@ -311,26 +311,26 @@ for (let i = index - 1; i >= 0; i--) {
       return this.HasExtendsMarker(units, i);
     }
     if (text === "|" || text === "&") {
-      // **正在跨箭头时，`|` / `&` 属于那个返回类型** ✗（第 375 轮 ✓）：
-      // `const check = (a: string): string | null => { … }` 从**块体**那个 `{` 回扫 ✓——
-      // `=>` 记下「正在跨箭头」✓ ⇒ `null` ✓ ⇒ `|` ✗。
-      // 少了这一条：`|` 在 `crossingArrow` 还亮着的时候就返回了**类型位** ✗
-      // ⇒ 箭头的块体被收成 `TypeLiteral` ✓（与 `number[]` 那个 `[` **同一个形状的第二半** ✗——
-      // 那一半是「返回类型是数组」，这一半是「返回类型是联合」✓）。
-      // **判据与 `:` 那一支对称** ✓（那里也先问 `crossingArrow` ✓）。
+      // **正在跨箭头时，`|` / `&` 属于那个返回类型**（第 375 轮）：
+      // `const check = (a: string): string | null => { … }` 从**块体**那个 `{` 回扫——
+      // `=>` 记下「正在跨箭头」 ⇒ `null` ⇒ `|`。
+      // 少了这一条：`|` 在 `crossingArrow` 还亮着的时候就返回了**类型位**
+      // ⇒ 箭头的块体被收成 `TypeLiteral`（与 `number[]` 那个 `[` **同一个形状的第二半**——
+      // 那一半是「返回类型是数组」，这一半是「返回类型是联合」）。
+      // **判据与 `:` 那一支对称**（那里也先问 `crossingArrow`）。
       if (crossingArrow) {
         continue;
       }
-      // **已经跨过 `=` 之后，`|` / `&` 说的是左边那份标注**（第 290 轮 ✓）：
-      // `const x: number | string = { a: 1 }` 从值位那个 `{` 回扫 ⇒ `=`（记住跨过赋值 ✓）
-      // ⇒ `string` ⇒ `|` ✓——`|` 属于**变量标注**、与这个 `{` 是值位还是类型位**无关** ✓。
-      // 原来在 `|` 处直接判「类型位」✗ ⇒ 对象字面量被收成 `TypeLiteral` ✓，
-      // 整份文件报 `unimplemented: expression TypeLiteral` ✗
-      // （实测：`const x: number | string = { a: 1 } as any` ✓、
-      //  `const x: { a: number } | number = { a: 1 }` ✓、`let m: { n: number } | null = { n: 1 }` ✓
-      //  ——**三条都是普通 `.ts` 里遍地都是的写法** ✓）。
-      // **判据是「跨过 `=` 之后」** ✓：`type X = A | { … }` 那一格回扫**先撞上 `|`** ✓
-      // （`=` 还在它更左边 ✓），`crossedAssignment` 还是假 ✓ ⇒ 照旧判类型位 ✓。
+      // **已经跨过 `=` 之后，`|` / `&` 说的是左边那份标注**（第 290 轮）：
+      // `const x: number | string = { a: 1 }` 从值位那个 `{` 回扫 ⇒ `=`（记住跨过赋值）
+      // ⇒ `string` ⇒ `|`——`|` 属于**变量标注**、与这个 `{` 是值位还是类型位**无关**。
+      // 原来在 `|` 处直接判「类型位」 ⇒ 对象字面量被收成 `TypeLiteral`，
+      // 整份文件报 `unimplemented: expression TypeLiteral`
+      // （实测：`const x: number | string = { a: 1 } as any`、
+      //  `const x: { a: number } | number = { a: 1 }`、`let m: { n: number } | null = { n: 1 }`
+      //  ——**三条都是普通 `.ts` 里遍地都是的写法**）。
+      // **判据是「跨过 `=` 之后」**：`type X = A | { … }` 那一格回扫**先撞上 `|`**
+      // （`=` 还在它更左边），`crossedAssignment` 还是假 ⇒ 照旧判类型位。
       if (crossedAssignment) {
         continue;
       }
@@ -348,20 +348,20 @@ for (let i = index - 1; i >= 0; i--) {
   }
   if (item instanceof Bracket) {
     if (crossingArrow) {
-      // **只有形参表那个 `(` 才收掉「正在跨箭头」这个状态** ✗（第 375 轮 ✓）。
+      // **只有形参表那个 `(` 才收掉「正在跨箭头」这个状态**（第 375 轮）。
       //
-      // 返回类型本身也可能是括号 ✗：`(): number[] => { … }`（数组类型 ✓）、
-      // `(): [number, string] => { … }`（元组 ✓）、`(): { a: number } => { … }`（类型字面量 ✓）。
-      // 原来**不分种类一律收掉** ✗ ⇒ `number[]` 那个 `[` 先把状态吃掉 ✓
-      // ⇒ 回扫再往前撞上的是**返回类型的冒号** ✓ ⇒ 走到 `:` 那一支时 `crossingArrow` 已经是假 ✗
-      // ⇒ 判成**类型位** ✗ ⇒ 箭头函数的**块体被收成一个 `TypeLiteral`** ✓
-      //（`constructing === undefined ? … : { kind: … }` 那种形状同理 ✓）。
+      // 返回类型本身也可能是括号：`(): number[] => { … }`（数组类型）、
+      // `(): [number, string] => { … }`（元组）、`(): { a: number } => { … }`（类型字面量）。
+      // 原来**不分种类一律收掉** ⇒ `number[]` 那个 `[` 先把状态吃掉
+      // ⇒ 回扫再往前撞上的是**返回类型的冒号** ⇒ 走到 `:` 那一支时 `crossingArrow` 已经是假
+      // ⇒ 判成**类型位** ⇒ 箭头函数的**块体被收成一个 `TypeLiteral`**
+      //（`constructing === undefined ? … : { kind: … }` 那种形状同理）。
       //
-      // **实测的现场** ✗：`const build = (list: number[]): number[] => { … }` ✓
-      // ⇒ 降级层报 `unimplemented: expression TypeLiteral` ✓（**整份文件进不来** ✗，
-      // 判据 `c371-e2e-coordinate-geometry` / `c371-e2e-sudoku-validator` 两条 ✓）。
-      // **对照** ✓：`(): number => { … }` ✓ 与 `(): Array<number> => { … }` ✓ 一直是好的 ✓——
-      // 它们没有那个 `[` ✓（`Array<…>` 是一个 `GenericType` ✓，在更上面那一支里 `continue` ✓）。
+      // **实测的现场**：`const build = (list: number[]): number[] => { … }`
+      // ⇒ 降级层报 `unimplemented: expression TypeLiteral`（**整份文件进不来**，
+      // 判据 `c371-e2e-coordinate-geometry` / `c371-e2e-sudoku-validator` 两条）。
+      // **对照**：`(): number => { … }` 与 `(): Array<number> => { … }` 一直是好的——
+      // 它们没有那个 `[`（`Array<…>` 是一个 `GenericType`，在更上面那一支里 `continue`）。
       if (item.startBracket === "(") {
         crossingArrow = false;
       }
@@ -413,26 +413,26 @@ for (let i = index - 1; i >= 0; i--) {
       text === "asserts" ||
       text === "is"
     ) {
-      // **`typeof` 是个例外：它也是值位的一元运算符** ✗（第 233 轮 ✓）。
+      // **`typeof` 是个例外：它也是值位的一元运算符**（第 233 轮）。
       //
-      // 上面那张名单里别的词**只出现在类型位** ✓（`keyof T` ✓、`infer U` ✓、`readonly` ✓），
-      // 而 `typeof` **两处都有** ✗：类型位是**类型查询**（`type T = typeof x` ✓），
-      // 值位是**一元运算符**（`typeof x` ✓）——而这里要判的是「**这个 `{` 是不是类型的开头**」✓。
+      // 上面那张名单里别的词**只出现在类型位**（`keyof T`、`infer U`、`readonly`），
+      // 而 `typeof` **两处都有**：类型位是**类型查询**（`type T = typeof x`），
+      // 值位是**一元运算符**（`typeof x`）——而这里要判的是「**这个 `{` 是不是类型的开头**」。
       //
-      // **怎么分**：`typeof x` 这个**类型查询**后面永远跟一个**标识符或一个成员链** ✓
-      //（`typeof globalThis` ✓、`typeof x.y` ✓）——**它从来不直接跟一个 `{`** ✗；
-      // 而紧跟 `{` 的那种只出现在**条件类型**里 ✓
-      //（`typeof x extends { a: 1 } ? T : F` ✓——那正是这一段最早要保的形状 ✓）。
-      // 所以判据是「**往前有没有一个 `extends`**」✓（`HasExtendsMarker` ✓，同一个文件里现成的 ✓）。
+      // **怎么分**：`typeof x` 这个**类型查询**后面永远跟一个**标识符或一个成员链**
+      //（`typeof globalThis`、`typeof x.y`）——**它从来不直接跟一个 `{`**；
+      // 而紧跟 `{` 的那种只出现在**条件类型**里
+      //（`typeof x extends { a: 1 } ? T : F`——那正是这一段最早要保的形状）。
+      // 所以判据是「**往前有没有一个 `extends`**」（`HasExtendsMarker`，同一个文件里现成的）。
       //
-      // **实测的现场** ✗：`console.log(typeof {a: 1})` 与 `typeof {a: 1}` 都被收成
-      // `TypeLiteral` ✓，投影于是给出一个**孤零零的 `TypeOfKeyword`** ✓
-      //（对象那一整棵子树**根本不在产物里** ✗）——判据 `op-typeof-forms` /
-      // `ex-typeof-value-expression` 现场红的 ✓，一句话指向投影 ✗，
-      // 而根子在这里（**`{` 走错了那一条重组** ✓）。
+      // **实测的现场**：`console.log(typeof {a: 1})` 与 `typeof {a: 1}` 都被收成
+      // `TypeLiteral`，投影于是给出一个**孤零零的 `TypeOfKeyword`**
+      //（对象那一整棵子树**根本不在产物里**）——判据 `op-typeof-forms` /
+      // `ex-typeof-value-expression` 现场红的，一句话指向投影，
+      // 而根子在这里（**`{` 走错了那一条重组**）。
       //
-      // **`index` 是那个 `{`、不是 `typeof`** ✓：`HasExtendsMarker` 从 `index` 往左扫 ✓，
-      // 中间隔着 `typeof`（一个 `Identifier` ✓，它那一支是 `continue` ✓）——正好 ✓。
+      // **`index` 是那个 `{`、不是 `typeof`**：`HasExtendsMarker` 从 `index` 往左扫，
+      // 中间隔着 `typeof`（一个 `Identifier`，它那一支是 `continue`）——正好。
       if (text === "typeof") {
         return this.HasExtendsMarker(units, index);
       }
@@ -441,27 +441,27 @@ for (let i = index - 1; i >= 0; i--) {
     if (text === "let" || text === "var" || text === "const") {
       return crossedAssignment === false;
     }
-    // **`new` 要分两种** ✗（第 375 轮 ✓）——它原来在上面那张类型位名单里 ✓，
-    // 因为**构造签名** `new (a: string) => B` 是真的类型 ✓；
-    // 而它在**值位**上也遍地都是 ✗：`new Box({ n: 1 })` 里那个 `{` 是**对象字面量** ✗。
+    // **`new` 要分两种**（第 375 轮）——它原来在上面那张类型位名单里，
+    // 因为**构造签名** `new (a: string) => B` 是真的类型；
+    // 而它在**值位**上也遍地都是：`new Box({ n: 1 })` 里那个 `{` 是**对象字面量**。
     //
-    // **判据**：`new` 与这个 `{` 之间**跨过实义单元**（`crossedUnit` ✓）就说明
-    // 它是**`new` 表达式**（被构造者 + 实参表 ✓）⇒ **值位** ✓；
-    // 括号**紧跟在 `new` 后面**才是构造签名 ⇒ 类型位 ✓。
+    // **判据**：`new` 与这个 `{` 之间**跨过实义单元**（`crossedUnit`）就说明
+    // 它是**`new` 表达式**（被构造者 + 实参表）⇒ **值位**；
+    // 括号**紧跟在 `new` 后面**才是构造签名 ⇒ 类型位。
     //
-    // **实测的现场** ✗：`new Box({ n: 3 })` 的 `{` 走到这里 ✓——它是括号里的**第一个**单元 ✓
-    // ⇒ 上面那条递归（`index === 0` 那一支 ✓）问的是**括号自己**在不在类型位 ✓，
-    // 回扫一路跨过 `Box` ✓、撞上 `new` ⇒ 判成类型位 ✗ ⇒ 收成 `TypeLiteral` ✗
-    // ⇒ 降级层报 `unimplemented: expression TypeLiteral` ✓（**整份文件进不来** ✗，
+    // **实测的现场**：`new Box({ n: 3 })` 的 `{` 走到这里——它是括号里的**第一个**单元
+    // ⇒ 上面那条递归（`index === 0` 那一支）问的是**括号自己**在不在类型位，
+    // 回扫一路跨过 `Box`、撞上 `new` ⇒ 判成类型位 ⇒ 收成 `TypeLiteral`
+    // ⇒ 降级层报 `unimplemented: expression TypeLiteral`（**整份文件进不来**，
     // 判据 `c371-e2e-sudoku-validator` / `c371-e2e-coordinate-geometry` /
-    // `c371-rt-class-static-and-instance-isolation` / `c371-ex-new-expression-type-args` 四条 ✓）。
-    // **为什么只有第一个实参中招** ✓：第二个实参前面隔着一个 `,` ✓，而符号那一支
-    // 「其它符号 → 值位」先把它接住了 ✓（实测 `new Box(1, { n: 3 })` 一直是好的 ✓）。
+    // `c371-rt-class-static-and-instance-isolation` / `c371-ex-new-expression-type-args` 四条）。
+    // **为什么只有第一个实参中招**：第二个实参前面隔着一个 `,`，而符号那一支
+    // 「其它符号 → 值位」先把它接住了（实测 `new Box(1, { n: 3 })` 一直是好的）。
     if (text === "new") {
       return crossedUnit === false;
     }
-    // **跨过了一个实义单元** ✓（被构造者那个名字 ✓、或者类型标注里别的名字 ✓）——
-    // 记下来给上面那一档用 ✓，然后照旧继续往前扫 ✓。
+    // **跨过了一个实义单元**（被构造者那个名字、或者类型标注里别的名字）——
+    // 记下来给上面那一档用，然后照旧继续往前扫。
     crossedUnit = true;
     continue;
   }
@@ -474,13 +474,13 @@ return false;
 
 `index` 处是不是一个类型字面量的开头。
 
-**`for (const { x, y } of items)` 那一格不是**（第 547 轮 ✓）：这条规则跑在
-**根那一层**（`Foreach` 还没成形 ✓），`( … )` 的内容是**根那个括号的 `Data`** ✗、
-`for` 在括号外面 ✗ ⇒ 回扫撞到的第一个实义词是 `const` ✓，而 `const` 那一支答的是
-`crossedAssignment === false` ⇒ **真** ✗ ⇒ `{ x, y }` 被收成 `TypeLiteral` ✗
-（实测产物是 `<TypeLiteral><TypeLiteralBody><Field name="x">…` ✗）。
-判据见下面 `IsForeachDeclareHead` ✓：**左边是 `const` / `let` / `var`、右边是 `of` / `in`**
-⇒ 这一格是**循环头里的声明段** ⇒ 绑定模式、不是类型 ✓。
+**`for (const { x, y } of items)` 那一格不是**（第 547 轮）：这条规则跑在
+**根那一层**（`Foreach` 还没成形），`( … )` 的内容是**根那个括号的 `Data`**、
+`for` 在括号外面 ⇒ 回扫撞到的第一个实义词是 `const`，而 `const` 那一支答的是
+`crossedAssignment === false` ⇒ **真** ⇒ `{ x, y }` 被收成 `TypeLiteral`
+（实测产物是 `<TypeLiteral><TypeLiteralBody><Field name="x">…`）。
+判据见下面 `IsForeachDeclareHead`：**左边是 `const` / `let` / `var`、右边是 `of` / `in`**
+⇒ 这一格是**循环头里的声明段** ⇒ 绑定模式、不是类型。
 
 ```ts
 const current = Get(units, index);
@@ -500,18 +500,18 @@ return this.IsTypePosition(units, index);
 
 `index` 处的 `{` 是不是 `for (const { … } of …)` 那个**循环头**里的绑定模式（第 547 轮）。
 
-**判据挂在右侧**（第 547 轮实测之后改的 ✓）：这一格回扫**看不到 `for`** ✗ ——
-规则跑在根那一层时，`for` 与 `( … )` 的内容**不在同一张表里** ✗（`( … )` 是根的一个括号 ✓，
-它的 `Data` 才是 `const { … } of items` ✓），所以「回扫找 `for`」这条初版判据**从来答否** ✗。
-能看见的是**右边** ✓：
+**判据挂在右侧**（第 547 轮实测之后改的）：这一格回扫**看不到 `for`** ——
+规则跑在根那一层时，`for` 与 `( … )` 的内容**不在同一张表里**（`( … )` 是根的一个括号，
+它的 `Data` 才是 `const { … } of items`），所以「回扫找 `for`」这条初版判据**从来答否**。
+能看见的是**右边**：
 
-1. 从 `{` 往左找第一个 `let` / `var` / `const` 那一格 ✓；
-2. 从 `{` 往右跳过它配对的 `}`（`SkipNextWrapSymbol` ✓）✓，下一格是不是 `of` / `in` ✓。
-   两个都成立 ⇒ **循环头里的声明段** ✓。
+1. 从 `{` 往左找第一个 `let` / `var` / `const` 那一格；
+2. 从 `{` 往右跳过它配对的 `}`（`SkipNextWrapSymbol`），下一格是不是 `of` / `in`。
+   两个都成立 ⇒ **循环头里的声明段**。
 
-**为什么「右边是 `of` / `in`」不会误伤类型位** ✓：类型位的对象类型后面只可能是
-`=` / `)` / `;` / `,` / `:` / `|` / `&` / `>` 这些 ✓ —— `of` / `in` 是**词** ✓，
-在类型里它们只能是属性名（那需要一个 `.` 或者前面是 `,` / `{` ✗），两种都过不了第 1 步 ✓。
+**为什么「右边是 `of` / `in`」不会误伤类型位**：类型位的对象类型后面只可能是
+`=` / `)` / `;` / `,` / `:` / `|` / `&` / `>` 这些 —— `of` / `in` 是**词**，
+在类型里它们只能是属性名（那需要一个 `.` 或者前面是 `,` / `{`），两种都过不了第 1 步。
 
 ```ts
 let wordAt = -1;
@@ -579,7 +579,7 @@ return ReplaceCountAt(units, index, 1, result);
 这对花括号的内容是不是**映射类型**的成员（`{ [K in T]: X }`）。
 
 判据：第一个实义单元是 `[` 括号，**而且那个括号里有 `in` 标记**（`HasInMarker`）。
-`{ [key: string]: number }`（索引签名）没有 `in`，仍然走 `TypeLiteral` ✓。
+`{ [key: string]: number }`（索引签名）没有 `in`，仍然走 `TypeLiteral`。
 
 括号**前面**的 `readonly` / `+` / `-` 修饰词要跳过：`{ readonly [K in T]: X }`、
 `{ -readonly [K in T]-?: X }` 都是映射类型（少了这一跳，带修饰词的映射类型整片认不出来）。

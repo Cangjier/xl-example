@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1852,
+  "matrix": 1854,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -68,8 +68,8 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 724,
-      "pass": 724,
+      "total": 726,
+      "pass": 726,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,

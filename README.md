@@ -306,7 +306,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1101 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1852 / 1852**：四层各 **100%**（runtime 515、exec 427、stdlib 724、e2e 186） |
+| `coverage` | **1854 / 1854**：四层各 **100%**（runtime 515、exec 427、stdlib 726、e2e 186） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口
@@ -346,6 +346,16 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   （[`expr-object-keyword-method-names.ts`](tests/parse/cases/expressions/expr-object-keyword-method-names.ts)）；
   这两个被更早的规则 / 解析期向导抢走，细节与「试过什么」见
   [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
+
+执行侧只剩一条：
+
+- **`using` / `await using` 只在 token 层成形，降级层不认它**：`using r = new Res()` 被当成普通
+  `const` 降级，块结束时**不会**调 `r[Symbol.dispose]()`（`await using` 同理欠 `Symbol.asyncDispose`）——
+  `node` 对这两个声明有运行期语义，`tsrun` 静默少一次释放。上面的 `Symbol.dispose` /
+  `Symbol.asyncDispose` 与符号键计算名的方法都已经能用（用例
+  [`c650-std-symbol-keyed-method`](tests/coverage/cases/stdlib.mjs)），缺的只是**声明本身的降级**。
+  解析侧的用例在 [`decl-using-basic.ts`](tests/parse/cases/declarations/decl-using-basic.ts)，
+  执行侧**还没有**用例，所以覆盖矩阵看不见它。
 
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）会在个别 JavaScript 专有形状上抛内部错误
 ——那是 JS 而不是 TypeScript，不在当前范围内。

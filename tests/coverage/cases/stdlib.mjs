@@ -6188,5 +6188,32 @@ console.log(typeof Error.isError, Error.prototype.constructor === Error);
     title: "localeCompare 的 ASCII 符号与排序用法",
     src: "\nconsole.log(\"a\".localeCompare(\"b\") < 0, \"b\".localeCompare(\"a\") > 0, \"a\".localeCompare(\"a\"));\nconsole.log(\"abc\".localeCompare(\"abd\") < 0, \"ab\".localeCompare(\"abc\") < 0);\nconsole.log([\"b\", \"a\", \"c\"].sort((x, y) => x.localeCompare(y)).join(\",\"));\n",
   },
+  {
+    id: "c650-std-symbol-dispose-known",
+    title: "Symbol.dispose / Symbol.asyncDispose：同一性、描述与字符串化",
+    src: `
+console.log(typeof Symbol.dispose, typeof Symbol.asyncDispose);
+console.log(Symbol.dispose === Symbol.dispose, Symbol.asyncDispose === Symbol.asyncDispose);
+console.log(String(Symbol.dispose), Symbol.dispose.toString(), String(Symbol.asyncDispose));
+`,
+  },
+  {
+    id: "c650-std-symbol-keyed-method",
+    title: "符号键计算名的方法：能挂能取、不进 Object.keys、能列进 getOwnPropertySymbols",
+    src: `
+class Res {
+  closed = false;
+  [Symbol.dispose]() {
+    this.closed = true;
+    return "disposed";
+  }
+}
+const r = new Res();
+console.log(Object.keys(r).join(",") === "closed", typeof r[Symbol.dispose], r[Symbol.dispose](), r.closed);
+const key = Symbol("k");
+const obj: any = { [key]: 1, plain: 2 };
+console.log(Object.keys(obj).join(","), obj[key], Object.getOwnPropertySymbols(obj).length);
+`,
+  },
 
 ];

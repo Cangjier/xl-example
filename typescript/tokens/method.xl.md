@@ -77,14 +77,14 @@ if (nameUnit instanceof Bracket && nameUnit.startBracket === "(") {
   const beforeIndex = SkipPreviousWrapSymbol(units, nameIndex);
   const before = Get(units, beforeIndex);
   if (before instanceof Identifier && before.IsAny(["if", "for", "foreach", "while", "switch", "catch", "function", "with"])) {
-    // **`.` 后面那个关键字是成员名，不是控制结构**（第 189 轮修 ✓）：
-    // `p.catch(cb)` / `p.finally(cb)` ✓——`catch` / `finally` 这些字**既是关键字、
-    // 又是合法的属性名** ✓。这一条原来只看「前一个单元是不是那几个字」✗，
-    // 于是在成员位上**把调用挡掉了** ✗：`Promise.resolve(1).catch(cb).then(cb2)` 的
-    // 产物里那一整个 `.catch(cb).then(cb2)` **整段消失** ✓（实测：语句只剩
-    // `Promise.resolve(1).catch` 一个 `PropertyAccessExpression` ✓），
-    // 运行期于是**一句话都不跑、也不报错** ✗（第 187 / 188 轮量到的两条链式形状 ✓）。
-    // **判据补一格就够** ✓：关键字前面是 `.`（或 `?.` ✓）时**放行** ✓。
+    // **`.` 后面那个关键字是成员名，不是控制结构**（第 189 轮修）：
+    // `p.catch(cb)` / `p.finally(cb)`——`catch` / `finally` 这些字**既是关键字、
+    // 又是合法的属性名**。这一条原来只看「前一个单元是不是那几个字」，
+    // 于是在成员位上**把调用挡掉了**：`Promise.resolve(1).catch(cb).then(cb2)` 的
+    // 产物里那一整个 `.catch(cb).then(cb2)` **整段消失**（实测：语句只剩
+    // `Promise.resolve(1).catch` 一个 `PropertyAccessExpression`），
+    // 运行期于是**一句话都不跑、也不报错**（第 187 / 188 轮量到的两条链式形状）。
+    // **判据补一格就够**：关键字前面是 `.`（或 `?.`）时**放行**。
     const dotIndex = SkipPreviousWrapSymbol(units, beforeIndex);
     const dot = Get(units, dotIndex);
     let isMemberName = false;
@@ -98,27 +98,27 @@ if (nameUnit instanceof Bracket && nameUnit.startBracket === "(") {
   }
   return true;
 }
-// **前一单元已经是一次调用**（第 134 轮补）：`f()()` ✓——**调用结果照样可以被调用** ✓。
+// **前一单元已经是一次调用**（第 134 轮补）：`f()()`——**调用结果照样可以被调用**。
 //
-// **为什么原来漏了** ✗：这一条只认「前一单元是 `Identifier`」与「前一单元是 `(` 括号」✓，
-// 而 `f()` 收成 `Method` 之后**两者都不是** ✗——于是第二个 `(` 谁也不认 ✓，
-// 投影里**少了一整个调用** ✓（实测：`console.log(f()())` 只投出一个 `f()` ✓，
-// 而 `const a = f()();` 却是对的 ✓——那条路走的是另一个收尾规则 ✓，
-// 所以这个缺口只在**实参位**露出来 ✓，`cases:tsast` 的语料里恰好没有这个形状 ✗）。
-// **带括号的 `(f())()` 一直是对的** ✓（前一单元是括号 ✓）——差别只在括号在不在 ✓。
+// **为什么原来漏了**：这一条只认「前一单元是 `Identifier`」与「前一单元是 `(` 括号」，
+// 而 `f()` 收成 `Method` 之后**两者都不是**——于是第二个 `(` 谁也不认，
+// 投影里**少了一整个调用**（实测：`console.log(f()())` 只投出一个 `f()`，
+// 而 `const a = f()();` 却是对的——那条路走的是另一个收尾规则，
+// 所以这个缺口只在**实参位**露出来，`cases:tsast` 的语料里恰好没有这个形状）。
+// **带括号的 `(f())()` 一直是对的**（前一单元是括号）——差别只在括号在不在。
 if (nameUnit instanceof Method) {
   return true;
 }
-// **`.` 后面的名字永远是成员名**（第 189 轮 ✓）：`p.catch(cb)` / `p.finally(cb)` ✓——
-// `catch` / `finally` / `with` / `function` 这些字**既是关键字、又是合法属性名** ✓，
-// 而 `MethodNameTemplate.IsMethodName` 那一张表是给**语句位**准备的 ✗
-// （它要挡的是 `if (x)` / `catch (e)` 这类控制结构 ✓）——**成员位不该受它管** ✓。
+// **`.` 后面的名字永远是成员名**（第 189 轮）：`p.catch(cb)` / `p.finally(cb)`——
+// `catch` / `finally` / `with` / `function` 这些字**既是关键字、又是合法属性名**，
+// 而 `MethodNameTemplate.IsMethodName` 那一张表是给**语句位**准备的
+// （它要挡的是 `if (x)` / `catch (e)` 这类控制结构）——**成员位不该受它管**。
 //
-// **漏了这一格的症状很远** ✗：`Promise.resolve(1).catch(cb).then(cb2)` 里
-// `catch` 后面的那对括号**谁也不认** ✓（`Previous` 不成立 ✓ → 不收成 `Method` ✓）→
-// 属性访问链在 `.catch` 处**收尾** ✓ → 投影出来的语句只剩 `Promise.resolve(1).catch`
-// 一个 `PropertyAccessExpression` ✓，**整个 `.catch(cb).then(cb2)` 消失** ✗
-// （实测 ✓），运行期于是**一句话都不跑、也不报错** ✗（第 187 / 188 轮量到的两条链式形状 ✓）。
+// **漏了这一格的症状很远**：`Promise.resolve(1).catch(cb).then(cb2)` 里
+// `catch` 后面的那对括号**谁也不认**（`Previous` 不成立 → 不收成 `Method`）→
+// 属性访问链在 `.catch` 处**收尾** → 投影出来的语句只剩 `Promise.resolve(1).catch`
+// 一个 `PropertyAccessExpression`，**整个 `.catch(cb).then(cb2)` 消失**
+// （实测），运行期于是**一句话都不跑、也不报错**（第 187 / 188 轮量到的两条链式形状）。
 if (nameUnit instanceof Identifier) {
   const dotIndex = SkipPreviousWrapSymbol(units, nameIndex);
   const dot = Get(units, dotIndex);
@@ -175,8 +175,8 @@ method.ParenAt = bracketUnit.SourceRange.Start!.Index;
 if (nameUnit instanceof Bracket) {
   method.AddAndCloseLast(nameUnit);
 }
-// **被调用者本身是一次调用**（`f()()`）：与上面那条括号同一条路 ✓——
-// 它作为**子单元**留在新的 `Method` 里，投影时成为那个调用节点的 `expression` ✓。
+// **被调用者本身是一次调用**（`f()()`）：与上面那条括号同一条路——
+// 它作为**子单元**留在新的 `Method` 里，投影时成为那个调用节点的 `expression`。
 if (nameUnit instanceof Method) {
   method.AddAndCloseLast(nameUnit);
 }
@@ -201,10 +201,10 @@ return index;
 
 ## static method CommaOperator:(ctx:any, kid:any)=>bool
 
-**这一格是不是「顶层逗号」**（第 302 轮 ✓）：类型是 `BinaryOperator`、且它里面有一枚 `,` 符号 ✓。
+**这一格是不是「顶层逗号」**（第 302 轮）：类型是 `BinaryOperator`、且它里面有一枚 `,` 符号。
 
-**为什么要问「里面」而不是问原文** ✗：这个单元的区间是**整段** `1, 2` ✓
-（实测 `ctx.TextOf` 给的就是 `"1, 2"` ✓），拿原文比 `","` 永远为假 ✓。
+**为什么要问「里面」而不是问原文**：这个单元的区间是**整段** `1, 2`
+（实测 `ctx.TextOf` 给的就是 `"1, 2"`），拿原文比 `","` 永远为假。
 
 ```ts
 if (kid.get("type") !== "BinaryOperator") return false;
@@ -216,31 +216,31 @@ return false;
 
 ## static method ArgumentGroups:(ctx:any, kids:Array<any>)=>Array<Array<any>>
 
-**实参按顶层逗号切组**（第 302 轮 ✓）——切在**两种**逗号上 ✗：
+**实参按顶层逗号切组**（第 302 轮）——切在**两种**逗号上：
 
-1. 一个独立的 `SymbolToken(",")` ✓（绝大多数形状 ✓，与 `ctx.Split(kids, ",")` 一致 ✓）；
-2. **一个「逗号算子单元」** ✗——即 `BinaryOperator` 类型、里面那枚符号是 `,` ✓。
+1. 一个独立的 `SymbolToken(",")`（绝大多数形状，与 `ctx.Split(kids, ",")` 一致）；
+2. **一个「逗号算子单元」**——即 `BinaryOperator` 类型、里面那枚符号是 `,`。
 
-**为什么第 2 种非有不可** ✗：逗号什么时候已经被折成**算子单元** ✓ 取决于**队列时序** ✗——
-`h(1, 2)` 里那对括号被 `MethodCloseRule` 收走时 ✓ 逗号还是**独立的符号** ✓；
+**为什么第 2 种非有不可**：逗号什么时候已经被折成**算子单元** 取决于**队列时序**——
+`h(1, 2)` 里那对括号被 `MethodCloseRule` 收走时 逗号还是**独立的符号**；
 而 `(h)(1, 2)` / `arr[0](1, 2)` / `((a, b) => a + b)(1, 2)` 这些**括号或成员链当被调用者**的形状，
-`Previous` 要等**前一个括号先闭合**才成立 ✓ ⇒ 那对实参括号里的逗号**先被折成了算子** ✓。
+`Previous` 要等**前一个括号先闭合**才成立 ⇒ 那对实参括号里的逗号**先被折成了算子**。
 
-**症状**（判据 `rt-iife-forms` / `ex-arrow-immediately-invoked-typed` ✓）：
-`((a, b) => a + b)(1, 2)` 投出来的 `arguments` **只有一格** ✓
-（那一格是 `BinaryExpression(left:1, right:2)` 带着 `CommaToken` ✓），
-降级层于是只铺**一个**实参 ✓ ⇒ 形参 `a` 拿到**最后一个**实参、`b` 是 `undefined` ✓ ⇒ `NaN` ✓
-——**一句异常都没有** ✗。
+**症状**（判据 `rt-iife-forms` / `ex-arrow-immediately-invoked-typed`）：
+`((a, b) => a + b)(1, 2)` 投出来的 `arguments` **只有一格**
+（那一格是 `BinaryExpression(left:1, right:2)` 带着 `CommaToken`），
+降级层于是只铺**一个**实参 ⇒ 形参 `a` 拿到**最后一个**实参、`b` 是 `undefined` ⇒ `NaN`
+——**一句异常都没有**。
 
-**那个算子单元要「摊开」而不是「当成一个分隔符」** ✗（第一版就是后者 ✓）：
-它的区间是**整段** `1, 2` ✓，按分隔符切只会切出两个**空组** ✓
-（实测 `groups` 给 `[[], []]` ✓、`arguments` 给 `[]` ✓——**比原来还少** ✗）。
-所以要把它**换成它的子单元**（摊开 ✓）之后再切 ✓，而且**要摊到没有为止** ✓
-（`1, 2, 3` 可能一层层折 ✓）。
+**那个算子单元要「摊开」而不是「当成一个分隔符」**（第一版就是后者）：
+它的区间是**整段** `1, 2`，按分隔符切只会切出两个**空组**
+（实测 `groups` 给 `[[], []]`、`arguments` 给 `[]`——**比原来还少**）。
+所以要把它**换成它的子单元**（摊开）之后再切，而且**要摊到没有为止**
+（`1, 2, 3` 可能一层层折）。
 
-**为什么这一刀是安全的** ✗：实参表里的**顶层**逗号**永远**是分隔符 ✓——
-真正的逗号运算符必须先有自己的括号 ✓（`f((1, 2))` 给**一个**实参 `2` ✓，
-而那一格是**嵌套的括号单元** ✓，摊不到这里 ✓）。
+**为什么这一刀是安全的**：实参表里的**顶层**逗号**永远**是分隔符——
+真正的逗号运算符必须先有自己的括号（`f((1, 2))` 给**一个**实参 `2`，
+而那一格是**嵌套的括号单元**，摊不到这里）。
 
 ```ts
 let pending: any[] = [];
@@ -302,10 +302,10 @@ return groups.filter((group) => group.length > 0);
   const ncos = kids.filter((k: any) => k.get("type") === "NullConditionalOperator");
   if (calleeText === "") {
     // **被调用者本身是一次调用**（`f()()`，第 134 轮）：产物把外面那次调用收成
-    // `Method(name="")`，而**里面那次调用是它的第一个子单元** ✓——与 IIFE 那条
-    // （子单元是一对括号 ✓）是同一个形状，只是「被调用者」换成了另一个 `Method` ✓。
-    // **外层那对括号不在树里**（与 IIFE 一字不差 ✓）：终点要**从被调用者之后重新配对** ✓，
-    // 否则 `f()()` 的区间只到 `f()` 为止 ✓（实测：投出来的外层调用终点短一截 ✓）。
+    // `Method(name="")`，而**里面那次调用是它的第一个子单元**——与 IIFE 那条
+    // （子单元是一对括号）是同一个形状，只是「被调用者」换成了另一个 `Method`。
+    // **外层那对括号不在树里**（与 IIFE 一字不差）：终点要**从被调用者之后重新配对**，
+    // 否则 `f()()` 的区间只到 `f()` 为止（实测：投出来的外层调用终点短一截）。
     const innerCall = kids.find((k: any) => k.get("type") === "Method");
     // **有 NCO 子单元时这一支也要让开**（第 630 轮）：`f()?.m?.()` 的第一个子单元
     // 正是内层那次调用（`Method(name="f")`），可它不是「对调用结果再调一次」——
@@ -339,7 +339,7 @@ return groups.filter((group) => group.length > 0);
     // `(a.b)?.c?.()` 的被调用者也是「名字为空 + 第一个子单元是括号」，但从
     // `OptionalCallCloseRule` 出来时**整条链都塞在 `Method` 里**
     // （`[被调用者, NCO(?.m), NCO(?.(…))]`）。原先这一支抢在下面那条链的支路前面，
-    // 于是把两个 NCO **当成实参**、投出一个 `(x as T)(?.m, ?.())` ✗（实测：缺
+    // 于是把两个 NCO **当成实参**、投出一个 `(x as T)(?.m, ?.())`（实测：缺
     // `PropertyAccessExpression` + 两个 `QuestionDotToken`，多出 `NullConditionalOperator`）。
     // IIFE（`(function () {})()`）的产物里只有那一对括号**一个**子单元，撞不到这里。
     if (ncos.length === 0 && brace !== undefined && ctx.Kids(brace).length > 0) {
@@ -367,42 +367,42 @@ return groups.filter((group) => group.length > 0);
   }
   const anonymousCallee =
     calleeText === "" ? kids.find((k: any) => k.get("type") === "NotNull") : undefined;
-  // **空括号只有「被调用者自己那一对」才要滤掉**（第 179 轮修）✓：
-  // 原来凡空括号一律滤 ✗，于是 **`f(xs[0]())` 里那个 `()` 被当成空实参表丢掉** ✓——
-  // 实参于是只剩一个 `xs[0]` ✓，投影出来是 `CallExpression(console.log, [ElementAccess])` ✗，
-  // **内层那次调用整个不见了** ✓（Node 给 `1` ✓、本仓给**函数本身** ✓——**静默错值** ✗）。
+  // **空括号只有「被调用者自己那一对」才要滤掉**（第 179 轮修）：
+  // 原来凡空括号一律滤，于是 **`f(xs[0]())` 里那个 `()` 被当成空实参表丢掉**——
+  // 实参于是只剩一个 `xs[0]`，投影出来是 `CallExpression(console.log, [ElementAccess])`，
+  // **内层那次调用整个不见了**（Node 给 `1`、本仓给**函数本身**——**静默错值**）。
   //
-  // **零实参的调用本身不贡献括号** ✓（实测：`f()` / `o.m()` 的产物是
-  // `<Method name="f"></Method>`，**一个子单元都没有** ✓）——所以一个 `(` 括号出现在
-  // `kids` 里，只可能是**实参自己那一段里的调用** ✓（`xs[0]()` 的 `()` ✓），
-  // 或者是**被调用者自己那一对**（IIFE / `f()()` 那些形状 ✓——它们在**上面两条分支**里
-  // 就已经返回了 ✓，走到这里的是「名字非空 / 没找到 IIFE 括号」的那些 ✓）。
-  // **后者永远在第一位** ✓（`(function () {})()` 的括号是 `kids[0]` ✓），
-  // 所以判据是「**空括号且不是第一个子单元** ⇒ 它是实参那一段的」✓。
+  // **零实参的调用本身不贡献括号**（实测：`f()` / `o.m()` 的产物是
+  // `<Method name="f"></Method>`，**一个子单元都没有**）——所以一个 `(` 括号出现在
+  // `kids` 里，只可能是**实参自己那一段里的调用**（`xs[0]()` 的 `()`），
+  // 或者是**被调用者自己那一对**（IIFE / `f()()` 那些形状——它们在**上面两条分支**里
+  // 就已经返回了，走到这里的是「名字非空 / 没找到 IIFE 括号」的那些）。
+  // **后者永远在第一位**（`(function () {})()` 的括号是 `kids[0]`），
+  // 所以判据是「**空括号且不是第一个子单元** ⇒ 它是实参那一段的」。
   //
-  // **还有一格：`b!()`**（第 179 轮实测，判据当场抓住 ✓）——它的产物是
-  // `<Method name="">[NotNull(b, !), Bracket(空)]</Method>` ✓：
-  // 被调用者是那个 `NotNull` ✓（`anonymousCallee` ✓），**那一对空括号是这次调用自己的实参表** ✗
-  // ——按「不是第一格」放过去会凭空多出一个 `ParenthesizedExpression(空)` 实参 ✓
-  //（实测 `expr-nonnull-callee.ts` / `expr-optional-call-nodes.ts` 各一处 ✓）。
-  // 所以「被调用者是 `NotNull`」这一支里，空括号照旧滤掉 ✓。
-  // **「第一个 `GenericType` 就是类型实参」这条要加一道判据** ✗（第 379 轮 ✓）。
+  // **还有一格：`b!()`**（第 179 轮实测，判据当场抓住）——它的产物是
+  // `<Method name="">[NotNull(b, !), Bracket(空)]</Method>`：
+  // 被调用者是那个 `NotNull`（`anonymousCallee`），**那一对空括号是这次调用自己的实参表**
+  // ——按「不是第一格」放过去会凭空多出一个 `ParenthesizedExpression(空)` 实参
+  //（实测 `expr-nonnull-callee.ts` / `expr-optional-call-nodes.ts` 各一处）。
+  // 所以「被调用者是 `NotNull`」这一支里，空括号照旧滤掉。
+  // **「第一个 `GenericType` 就是类型实参」这条要加一道判据**（第 379 轮）。
   //
-  // 真泛型调用里那个 `<T>` 坐在**被调用者与 `(` 之间** ✓（第 95 轮那条口径 ✓，
-  // 与第 23 / 160 行那两句一致 ✓）。可**实参自己**也可能是尖括号断言 `<T>x` ✓——
-  // token 层同样把它收成一个 `GenericType` ✓（表达式开头那个 `<` 本来就在
-  // `IsTypePosition` 的白名单里 ✓，见 `print-ast-common.xl.md` 第 1833 行那一段 ✓）。
-  // 两者在产物里**长得一模一样** ✗，位置才是判据 ✓：
-  // `calleeEnd` 与 `StartOf(generic)` 之间**有没有 `(`** ✓——
-  // 有 ⇒ 这个 `<T>` 已经在**实参表里面**了 ✓（它是第一个实参的开头 ✓）；
-  // 没有 ⇒ 它是调用自己的类型实参段 ✓。
+  // 真泛型调用里那个 `<T>` 坐在**被调用者与 `(` 之间**（第 95 轮那条口径，
+  // 与第 23 / 160 行那两句一致）。可**实参自己**也可能是尖括号断言 `<T>x`——
+  // token 层同样把它收成一个 `GenericType`（表达式开头那个 `<` 本来就在
+  // `IsTypePosition` 的白名单里，见 `print-ast-common.xl.md` 第 1833 行那一段）。
+  // 两者在产物里**长得一模一样**，位置才是判据：
+  // `calleeEnd` 与 `StartOf(generic)` 之间**有没有 `(`**——
+  // 有 ⇒ 这个 `<T>` 已经在**实参表里面**了（它是第一个实参的开头）；
+  // 没有 ⇒ 它是调用自己的类型实参段。
   //
-  // **少了这一条会怎样** ✗：`console.log(<number>a + <number>b)` 里**第一个** `<number>`
-  // 被当成调用的类型实参 ✓、从实参里**滤掉** ✗（下面那个 `filter` ✓）——
-  // 于是投影出来的是 `CallExpression{ typeArguments: [number], arguments: [a + <number>b] }` ✗，
-  // 而剩下那个 `<number>` 已经没机会成形了 ✓ ⇒ 它被读成**两个比较** `(a < number) > b` ✓
-  //（判据 `c371-ex-type-assertions-in-operands` ✓：Node 给 `3` ✓、本仓降级期就报
-  //  `name is not a local or a capture: number` ✓）。
+  // **少了这一条会怎样**：`console.log(<number>a + <number>b)` 里**第一个** `<number>`
+  // 被当成调用的类型实参、从实参里**滤掉**（下面那个 `filter`）——
+  // 于是投影出来的是 `CallExpression{ typeArguments: [number], arguments: [a + <number>b] }`，
+  // 而剩下那个 `<number>` 已经没机会成形了 ⇒ 它被读成**两个比较** `(a < number) > b`
+  //（判据 `c371-ex-type-assertions-in-operands`：Node 给 `3`、本仓降级期就报
+  //  `name is not a local or a capture: number`）。
   const generic = kids.find((k: any) => k.get("type") === "GenericType");
   // **实参表那个 `(` 的位置读字段**（`ParenAt`，`MethodCloseRule` 认下这次调用时当场记的）：
   // 原来这句是 `ctx.source.indexOf("(", calleeEnd)` **回原文里找**——`o.m /* ( */ ()`
@@ -419,20 +419,20 @@ return groups.filter((group) => group.length > 0);
       (k.get("type") !== "Bracket" ||
         (ctx.StartOf(k) >= calleeEnd && (ctx.Kids(k).length > 0 || (kids[0] !== k && anonymousCallee === undefined)))),
   );
-  // **这一支只认「被调用者自己带着可选链」那一形状** ✓（第 147 轮修）：
-  // 判据是**第一个子单元就是被调用者自己** ✓——`x?.y?.(1)` 的 `Identifier(x)` 与
-  // `name="x"` 同名 ✓，`f(g?.(1))` 里内层那个 `Method(name="g")` 也一样 ✓
-  //（两处的产物形状都在判据里钉着 ✓）。
+  // **这一支只认「被调用者自己带着可选链」那一形状**（第 147 轮修）：
+  // 判据是**第一个子单元就是被调用者自己**——`x?.y?.(1)` 的 `Identifier(x)` 与
+  // `name="x"` 同名，`f(g?.(1))` 里内层那个 `Method(name="g")` 也一样
+  //（两处的产物形状都在判据里钉着）。
   //
-  // **`f(o?.a)` 不同名** ✗：它的第一个子单元是**实参** `o` ✓，而 `name` 是 `f` ✓。
-  // 原来这里不看这一格，于是把**实参那条链**当成整条调用的投影返回 ✗——
-  // `f(o?.a)` 投出来只剩一个 `o?.a` ✓，`CallExpression` **整格没了** ✓
-  //（`cases:tsast` 就是这么报的：缺 `CallExpression` + `Identifier(f)` 漂移 ✓，
-  //  而 XML 产物一直是对的 ✓——只有投影这一层断了 ✓）。
+  // **`f(o?.a)` 不同名**：它的第一个子单元是**实参** `o`，而 `name` 是 `f`。
+  // 原来这里不看这一格，于是把**实参那条链**当成整条调用的投影返回——
+  // `f(o?.a)` 投出来只剩一个 `o?.a`，`CallExpression` **整格没了**
+  //（`cases:tsast` 就是这么报的：缺 `CallExpression` + `Identifier(f)` 漂移，
+  //  而 XML 产物一直是对的——只有投影这一层断了）。
   //
-  // 让开之后它落到下面那条路 ✓：实参按顶层逗号切组 ✓ →
+  // 让开之后它落到下面那条路：实参按顶层逗号切组 →
   // `projectExpression([o, NCO(a)])` → `print-ast-common.xl.md` 的 **0a0** 支
-  // 把基名接回链上 ✓（第 143 轮写的正是它 ✓，只是被这一支抢在前面了 ✗）。
+  // 把基名接回链上（第 143 轮写的正是它，只是被这一支抢在前面了）。
   const calleeKid = kids.length > 0 ? kids[0] : undefined;
   const calleeComesFirst =
     calleeText === "" ||

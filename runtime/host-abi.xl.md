@@ -73,14 +73,14 @@ import { GetIndex } from "./props.xl.md"
 
 指令条数上限。
 
-**第 358 轮从一百万抬到一千万** ✓（**实测撞到的** ✓）：判据 `gc-churn` 是一段
-**两万次迭代**、每次造一个小数组的循环 ✓（它量的就是**回收器在压力下的行为** ✓），
-而一百万条指令**跑不完它** ✗ ⇒ 报 `step budget exhausted` ✓——
-**一个正常长度的程序被资源上限挡在门外** ✗，而那不是「跑飞了」✓。
-**这个上限是给「跑飞」用的** ✓（安全第 4 层 ✓）：一千万条在实测里是**两三秒**量级 ✓，
-仍然远早于任何人愿意等的时间 ✓；真正死循环的程序照样被拦 ✓（只是拦得晚一点 ✓）。
-**没有改成按时间计** ✗：那会引入一只时钟 ✓（每一轮判定都要读它 ✓），
-而这个工程的口径是**同输入同结果** ✓——条数是**确定性**的 ✓，墙上时间不是 ✗。
+**第 358 轮从一百万抬到一千万**（**实测撞到的**）：判据 `gc-churn` 是一段
+**两万次迭代**、每次造一个小数组的循环（它量的就是**回收器在压力下的行为**），
+而一百万条指令**跑不完它** ⇒ 报 `step budget exhausted`——
+**一个正常长度的程序被资源上限挡在门外**，而那不是「跑飞了」。
+**这个上限是给「跑飞」用的**（安全第 4 层）：一千万条在实测里是**两三秒**量级，
+仍然远早于任何人愿意等的时间；真正死循环的程序照样被拦（只是拦得晚一点）。
+**没有改成按时间计**：那会引入一只时钟（每一轮判定都要读它），
+而这个工程的口径是**同输入同结果**——条数是**确定性**的，墙上时间不是。
 
 ## field HeapLimit:int = 16777216
 
@@ -264,12 +264,12 @@ this.Machine.SetPrototypeKey(this.Machine.Table.CreateString(units));
 
 ## method DeclareDescriptionKey:(units:Array<int>)=>void
 
-**告诉这台机器：`s.description` 里的 `description` 是哪个字符串**（第 241 轮 ✓）。
+**告诉这台机器：`s.description` 里的 `description` 是哪个字符串**（第 241 轮）。
 
-**为什么它也要走这一条** ✗：符号**不是一个对象** ✓（没有属性表 ✓、没有原型那一格 ✓），
-所以 `s.description` **只能由引擎在 `get_prop` 那一处特判** ✓——
-而引擎**不认识 `"description"` 这几个字母** ✗（与 `"prototype"` 一字不差 ✓）。
-**收的也是码元** ✓（同一个理由 ✓）。
+**为什么它也要走这一条**：符号**不是一个对象**（没有属性表、没有原型那一格），
+所以 `s.description` **只能由引擎在 `get_prop` 那一处特判**——
+而引擎**不认识 `"description"` 这几个字母**（与 `"prototype"` 一字不差）。
+**收的也是码元**（同一个理由）。
 
 ```ts
 this.Machine.SetDescriptionKey(this.Machine.Table.CreateString(units));
@@ -277,15 +277,15 @@ this.Machine.SetDescriptionKey(this.Machine.Table.CreateString(units));
 
 ## method DeclareSymbolToString:(units:Array<int>, methodId:int)=>void
 
-**告诉这台机器：符号上那一格叫 `toString`、该调哪个号**（第 277 轮 ✓）。
+**告诉这台机器：符号上那一格叫 `toString`、该调哪个号**（第 277 轮）。
 
-**为什么它比 `DeclareDescriptionKey` 多一格实参** ✗：`description` 那一支交出去的是**一个值** ✓
-（描述就在堆里 ✓），而 `toString` 那一支要交出一个**能被调的东西** ✓——一个 `HostRef` ✓——
-**而能力号是语言层的事** ✗（引擎不认识那些号 ✓，与 `ErrorKindType` 同一条道理 ✓），
-所以号只能从这里进去 ✓。
+**为什么它比 `DeclareDescriptionKey` 多一格实参**：`description` 那一支交出去的是**一个值**
+（描述就在堆里），而 `toString` 那一支要交出一个**能被调的东西**——一个 `HostRef`——
+**而能力号是语言层的事**（引擎不认识那些号，与 `ErrorKindType` 同一条道理），
+所以号只能从这里进去。
 
-**名字与号一次给** ✓（与 `SetToStringKeys` 那一处同一条理由 ✓）：
-分开给会留一段「键认得出、号还是 `0`」的窗口 ✓，那一段里 `s.toString` 是个假的调用目标 ✓。
+**名字与号一次给**（与 `SetToStringKeys` 那一处同一条理由）：
+分开给会留一段「键认得出、号还是 `0`」的窗口，那一段里 `s.toString` 是个假的调用目标。
 
 ```ts
 this.Machine.SetToStringKeys(this.Machine.Table.CreateString(units), methodId);

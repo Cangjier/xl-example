@@ -374,8 +374,8 @@ super(template);
 
 `import type …` 的 type-only 导入。
 
-**判据是收集到的第一个单元就是内容为 `type` 的 `Identifier`**：`import type { A } from "m"` ✓；
-`import { type A } from "m"`（逐项 type 修饰）不算整条 type-only ✓。
+**判据是收集到的第一个单元就是内容为 `type` 的 `Identifier`**：`import type { A } from "m"`；
+`import { type A } from "m"`（逐项 type 修饰）不算整条 type-only。
 
 那个 `type` 词**不进产物**（第 56 轮修的）：它已经由 `typeOnly="true"` 表达，
 再以一个 `<Identifier>type</Identifier>` 留在 `Import` 里是纯冗余
@@ -394,7 +394,7 @@ super(template);
 
 具名导入的**本地名**列表（`import { A, B as C } from "m"` → `A,C`）。
 
-取的是每一项的**最后一个 `Identifier`**：`A` 取 `A`、`B as C` 取 `C`、`type B` 取 `B` ✓。
+取的是每一项的**最后一个 `Identifier`**：`A` 取 `A`、`B as C` 取 `C`、`type B` 取 `B`。
 空列表表示这条导入没有具名子句（`import "m"` / 默认导入 / 命名空间导入）。
 
 ## field NamedBraceAt:int = -1

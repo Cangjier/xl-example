@@ -57,7 +57,7 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 也被算成「假值段里的 `?`」，一整个列表里只有最右边那个能成形：
 
     const o = { a: x ? 1 : 0, b: x ? 2 : 0, c: x ? 3 : 0 };
-    → 只有 `c` 那个成三元，前两个被 `BinaryOperator` 折成 `x ? 1` / `x ? 1 : 0`  ✗
+    → 只有 `c` 那个成三元，前两个被 `BinaryOperator` 折成 `x ? 1` / `x ? 1 : 0` 
 
 所以向前找 `?` 时要**在第一个 `,` / `;` 处停**：条件表达式的两个分支都是 `AssignmentExpression`，
 `?` 与 `:` 之间、`:` 与下一个分隔符之间都不可能夹着平级的逗号，那个 `,` 一定属于**外层列表**
@@ -101,7 +101,7 @@ if (current instanceof SymbolToken && current.Is(":")) {
   // `[A?, …]` 的 `A?` 与 `[name: D?]` 的 `name:` 会凑出一个假的三元对
   // （实测 `type T = [A?, ...B, C, name: D?, ...rest: E[]]` 整条被切成嵌套三元、
   // 元组元素结构全毁）。真正的三元问号后面一定跟着一个**表达式**，
-  // 而不是元素分隔符 ✓。
+  // 而不是元素分隔符。
   const afterQuestion = Get(units, SkipNextWrapSymbol(units, questionIndex));
   if (afterQuestion instanceof SymbolToken) {
     const text = afterQuestion.TempToString();
@@ -133,7 +133,7 @@ if (current instanceof SymbolToken && current.Is(":")) {
   //
   // 判据本身来自文法：条件表达式的两个分支都是 `AssignmentExpression`，而逗号运算符的优先级
   // **低于**条件表达式，所以 `?` 与它的 `:` 之间**不可能**出现一个平级的 `,` 或 `;`。
-  // 反过来，属性冒号与上一条属性之间一定隔着一个 `,` ✓。
+  // 反过来，属性冒号与上一条属性之间一定隔着一个 `,`。
   if (segmentEnd < index) {
     return false;
   }
@@ -194,7 +194,7 @@ return -1;
 
 - **父单元是类型容器**（`../text-common-util.xl.md` 的 `IsTypeContainerUnit`：
   `TypeDefine` / `TypeAssign` / `TupleType` / `MappedType` / `TypeParameter` / `InferType` …）——
-  类型里根本没有三元表达式 ✓；
+  类型里根本没有三元表达式；
 - 父单元是 `GenericType`——泛型实参段里的 `? :`（`Wrap<T extends U ? A : B>`）；
 - 父单元是**括号**、且括号里含 `extends`——`(T extends U ? A : B)` 这种**括号里的条件类型**。
 
@@ -209,7 +209,7 @@ return -1;
 （`TypeAssign` 要等更晚的通用队列才把它收走）。第一版就是按父单元判的，跑出来毫无效果。
 `extends` 是个够用的信号：它不是值运算符，值位的三元里不会出现
 （`(a instanceof B ? c : d)` 里是 `instanceof`，不是它）。
-`let x: A = (cond ? a : b)` 的括号里没有 `extends`，三元照旧成立 ✓。
+`let x: A = (cond ? a : b)` 的括号里没有 `extends`，三元照旧成立。
 
 **必须按文本判、不能只认 `Identifier`**（实测补的）：`extends` 在**第一趟**还是 `Identifier`，
 第一趟结束时已经被 `KeywordCloseRule` 收成 `Keyword`。只写
@@ -260,18 +260,18 @@ return parent.Data.some((item) => {
 if (current instanceof SymbolToken) {
   if (
     current.Template.SymbolTemplate.IsAssignmentSymbol(current.TempToString())
-    // **复合赋值的符号也是起点** ✓（第 373 轮 ✓）——**这是这一条真正要补的那一格** ✗。
+    // **复合赋值的符号也是起点**（第 373 轮）——**这是这一条真正要补的那一格**。
     //
-    // `IsAssignmentSymbol` 认的是 `AssignmentSymbols`，而那张表上**只有 `=`** ✓
-    //（`+=` / `*=` / `&&=` 那些在 `CompoundAssignmentSymbols` 上 ✓）⇒ 少了这一条，
-    // 回扫会**冲过** `+=` ✓、一路找到上一条语句的 `;` ✓ ⇒ 条件段收成 `a += c` ✗
-    // ⇒ 产物是 `(a += c) ? 2 : 3` ✗——**静默错值** ✓（实测 `a += c ? 2 : 3` 给 `2` ✓，JS 给 `3` ✓）。
-    // **判据要在这一层**（不是等展开之后看 `FromCompoundAssignment` ✓）：
-    // 规则是**按规则轮询、每条规则从左往右扫一遍所有下标** ✓（见 `core/syntax/token.xl.md` ✓），
-    // 而三元这一条**排在复合赋值展开之前** ✓——实测那一刻列表里还是 `Identifier += Identifier` ✓
-    //（插桩：`DBG ternary process q=11 start=7 list=… Identifier += Identifier ? …` ✓）。
-    // 下面那一条 `FromCompoundAssignment` 是**另一半** ✓：展开已经跑过的那一趟（同一趟里更靠后的三元 ✓、
-    // 或者下一趟 ✓）认的是标记 ✓——两条一起才把「`+=` 前面 / 后面」都盖住 ✓。
+    // `IsAssignmentSymbol` 认的是 `AssignmentSymbols`，而那张表上**只有 `=`**
+    //（`+=` / `*=` / `&&=` 那些在 `CompoundAssignmentSymbols` 上）⇒ 少了这一条，
+    // 回扫会**冲过** `+=`、一路找到上一条语句的 `;` ⇒ 条件段收成 `a += c`
+    // ⇒ 产物是 `(a += c) ? 2 : 3`——**静默错值**（实测 `a += c ? 2 : 3` 给 `2`，JS 给 `3`）。
+    // **判据要在这一层**（不是等展开之后看 `FromCompoundAssignment`）：
+    // 规则是**按规则轮询、每条规则从左往右扫一遍所有下标**（见 `core/syntax/token.xl.md`），
+    // 而三元这一条**排在复合赋值展开之前**——实测那一刻列表里还是 `Identifier += Identifier`
+    //（插桩：`DBG ternary process q=11 start=7 list=… Identifier += Identifier ? …`）。
+    // 下面那一条 `FromCompoundAssignment` 是**另一半**：展开已经跑过的那一趟（同一趟里更靠后的三元、
+    // 或者下一趟）认的是标记——两条一起才把「`+=` 前面 / 后面」都盖住。
     || current.Template.SymbolTemplate.IsCompoundAssignmentSymbol(current.TempToString())
     || current.Is(":")
     || current.Is("=>")
@@ -280,45 +280,45 @@ if (current instanceof SymbolToken) {
     // **上一个 `?` 也是起点**（第 127 轮）：左嵌套 `a ? b ? c : d : e` 里
     // 内层那个 `:` 往左找条件起点时会一直走到声明/语句的边界，把
     // `a ? b` 整段当成内层的条件（TS 的解是 `a ? (b ? c : d) : e`）。
-    // 把 `?` 也当边界之后，回扫在**外层的 `?`** 上停下，条件正好是 `b` ✓。
+    // 把 `?` 也当边界之后，回扫在**外层的 `?`** 上停下，条件正好是 `b`。
     // 右嵌套与普通三元不受影响：它们的回扫先撞上 `:` / `=` / `,` / `;`。
     || current.Is("?")
-    // **复合赋值展开出来的那一份运算符也是起点** ✓（第 373 轮 ✓）。
+    // **复合赋值展开出来的那一份运算符也是起点**（第 373 轮）。
     //
     // 理由与 `CompoundAssignmentOperatorCloseRule.IsCompoundAssignmentOperatorStart`
-    // 那一条**同源** ✓：`a += b` 会先被展开成单元序列 `a` `=` `a` `+` `b` ✓
-    //（见 `compound-assignment-operator.xl.md` ✓），而**插进来的那个 `+` 不是用户写的** ✓——
-    // 它表达的是「`op=` 这个符号」✓ ⇒ 它的**右操作数是整个赋值右侧** ✓
-    //（JS 里赋值右侧是一个完整的 AssignmentExpression ✓）。
+    // 那一条**同源**：`a += b` 会先被展开成单元序列 `a` `=` `a` `+` `b`
+    //（见 `compound-assignment-operator.xl.md`），而**插进来的那个 `+` 不是用户写的**——
+    // 它表达的是「`op=` 这个符号」 ⇒ 它的**右操作数是整个赋值右侧**
+    //（JS 里赋值右侧是一个完整的 AssignmentExpression）。
     //
-    // **少了这一条会怎样** ✗：`a += b ? c : d` 回扫从 `?` 往前先撞上 `=` ✓
-    // ⇒ 条件段收成 `a + b` ✗ ⇒ 产物是 `(a + b) ? c : d` ✗——**静默错值** ✓
-    //（实测 `a += c ? 2 : 3` 给 `2` ✓，JS 给 `3` ✓；`a += 1 < 2 ? 4 : 5` 给 `1` ✓，JS 给 `5` ✓）。
-    // 加上之后回扫在**标记运算符**上停下 ✓ ⇒ 条件正好是 `b` ✓ ⇒ 三元先成形 ✓、
-    // 插进来的 `+` 随后折它 ✓（与第 373 轮在二元那一侧加的「等右边长完」是**同一件事的两半** ✓：
-    // 那一半管 `*=` / `-=` 这类同层的 ✓，这一半管右边被三元切走的 ✓）。
+    // **少了这一条会怎样**：`a += b ? c : d` 回扫从 `?` 往前先撞上 `=`
+    // ⇒ 条件段收成 `a + b` ⇒ 产物是 `(a + b) ? c : d`——**静默错值**
+    //（实测 `a += c ? 2 : 3` 给 `2`，JS 给 `3`；`a += 1 < 2 ? 4 : 5` 给 `1`，JS 给 `5`）。
+    // 加上之后回扫在**标记运算符**上停下 ⇒ 条件正好是 `b` ⇒ 三元先成形、
+    // 插进来的 `+` 随后折它（与第 373 轮在二元那一侧加的「等右边长完」是**同一件事的两半**：
+    // 那一半管 `*=` / `-=` 这类同层的，这一半管右边被三元切走的）。
     //
-    // **它不会误伤** ✓：真正的三元里带复合赋值时，那一格总在**括号**自己的单元列表里 ✓
-    //（`x = (a += b) ? c : d` 的括号是一个单元 ✓，回扫撞到的是它 ✓），
-    // 而三元自己的真值段 / 假值段在 `?` 之后 ✓，回扫根本到不了 ✓。
+    // **它不会误伤**：真正的三元里带复合赋值时，那一格总在**括号**自己的单元列表里
+    //（`x = (a += b) ? c : d` 的括号是一个单元，回扫撞到的是它），
+    // 而三元自己的真值段 / 假值段在 `?` 之后，回扫根本到不了。
     || current.FromCompoundAssignment
   ) {
     return true;
   }
   return false;
 }
-// **`return` 那一档要按「受限产生式那个词」认，不能只看 `Identifier`** ✗
-// （第 360 轮 ✓，**实测撞到的** ✓）：产物里 `return` 是**一个 `Keyword`** ✓
-// （见 `print-ast-common.xl.md` 的 `KEYWORD_STATEMENT` ✓），而这一句原来只认
-// `Identifier` ✗ ⇒ 回扫**冲过** `return` ✓、一路没找到起点 ✓ ⇒ `SearchFront` 给 `-1` ✗
-// ⇒ `condition.AddRange(TakeRange(units, 0, …))` ✓ ⇒ **条件段把 `return` 那个词收进去了** ✗
-// ⇒ 投影出一个 `ConditionalExpression` 的**条件是一格 `Identifier("return")`** ✗
-// ⇒ 降级层报 **`name is not a local or a capture: return`** ✓
-//（**一句话里没有一个字提到三元** ✗）。判据 `rt-ternary-nesting-and-assign` 量的就是它 ✓：
-// `return n >= 90 ? "A" : n >= 80 ? "B" : n >= 70 ? "C" : "F"` ✓——**三层的链**才现形 ✓
-//（两层的链在**同一趟**里就成形了 ✓，根本走不到这条回扫 ✓，所以它藏了这么久 ✓）。
-// 复用 `Statement.IsRestrictedKeyword` ✓（`return` / `throw` / `break` / `continue` / `yield` ✓，
-// 它走的是 `Statement.WordOf` ✓，两种词形都认 ✓）——**不另写一份「哪些词算 return」的名单** ✗。
+// **`return` 那一档要按「受限产生式那个词」认，不能只看 `Identifier`**
+// （第 360 轮，**实测撞到的**）：产物里 `return` 是**一个 `Keyword`**
+// （见 `print-ast-common.xl.md` 的 `KEYWORD_STATEMENT`），而这一句原来只认
+// `Identifier` ⇒ 回扫**冲过** `return`、一路没找到起点 ⇒ `SearchFront` 给 `-1`
+// ⇒ `condition.AddRange(TakeRange(units, 0, …))` ⇒ **条件段把 `return` 那个词收进去了**
+// ⇒ 投影出一个 `ConditionalExpression` 的**条件是一格 `Identifier("return")`**
+// ⇒ 降级层报 **`name is not a local or a capture: return`**
+//（**一句话里没有一个字提到三元**）。判据 `rt-ternary-nesting-and-assign` 量的就是它：
+// `return n >= 90 ? "A" : n >= 80 ? "B" : n >= 70 ? "C" : "F"`——**三层的链**才现形
+//（两层的链在**同一趟**里就成形了，根本走不到这条回扫，所以它藏了这么久）。
+// 复用 `Statement.IsRestrictedKeyword`（`return` / `throw` / `break` / `continue` / `yield`，
+// 它走的是 `Statement.WordOf`，两种词形都认）——**不另写一份「哪些词算 return」的名单**。
 if (Statement.IsRestrictedKeyword(current)) {
   return true;
 }
@@ -337,7 +337,7 @@ return false;
 `const t = a ? 1 : 0, u = 2;` 的父单元是 `Statement`（不是 JSON 对象），于是假值段一路吃到 `;`：
 
     a ? 1 : 0, u = 2
-    → TernaryOperator(falseStatement = «0, u = 2»)     ✗
+    → TernaryOperator(falseStatement = «0, u = 2»)    
     TS：ConditionalExpression(whenFalse = «0»)，那个 `,` 是**声明符分隔符**
 
 实测的受害者是一整族：`const t = a ? 1 : 0, u = 2`（多声明符）、`f(a ? 1 : 0, b)`（实参表）、
@@ -491,11 +491,11 @@ TS 那边两个标点都不进子节点。两者形状极像、口径相反，�
 分段名（`trueStatement` / `falseStatement`）是上游 Cangjie 的叫法，
 TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
 
-标点的位置**由 token 自己记**（`QuestionPos` / `ColonPos`，第 614 轮 ✓）：
-`Process` 收三段那一刻两个 `SymbolToken` 就在手上、区间已经签好 ✓，
-所以这里直读字段 ✓。**从前是回原文量的** ✗——在两段区间之间扫那个标点 ✓（还要跳过注释 ✓），
-那是**第二份近似** ✓：同一件事（标点在哪）源码里只有一处，投影却要再推一遍 ✓。
-两个字段都由 `ToDictionary` 带到视图上 ✓。
+标点的位置**由 token 自己记**（`QuestionPos` / `ColonPos`，第 614 轮）：
+`Process` 收三段那一刻两个 `SymbolToken` 就在手上、区间已经签好，
+所以这里直读字段。**从前是回原文量的**——在两段区间之间扫那个标点（还要跳过注释），
+那是**第二份近似**：同一件事（标点在哪）源码里只有一处，投影却要再推一遍。
+两个字段都由 `ToDictionary` 带到视图上。
 
 ```ts
   const props: any = {
@@ -518,10 +518,10 @@ TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
 
 条件那个 `?` 在源码里的下标；还没记下来时是 `-1`。
 
-**为什么记下来** ✗：`?` 不进 `Data` ✓（`TernaryOperator` 只收三段 ✓），
-而 TS 的 `ConditionalExpression.questionToken` **是节点** ✓——
-不记的话投影只能回原文在「条件段末尾与真值段开头之间」扫 ✓，
-那既要知道 `endOf` 是闭区间 ✓、又要跳过注释与空白 ✓（第 88 / 143 轮各踩过一次 ✓）。
+**为什么记下来**：`?` 不进 `Data`（`TernaryOperator` 只收三段），
+而 TS 的 `ConditionalExpression.questionToken` **是节点**——
+不记的话投影只能回原文在「条件段末尾与真值段开头之间」扫，
+那既要知道 `endOf` 是闭区间、又要跳过注释与空白（第 88 / 143 轮各踩过一次）。
 
 ## field ColonPos:int = -1
 

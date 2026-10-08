@@ -112,7 +112,7 @@ return text;
 
 **那条「前一个是符号就续行」太粗**：函数类型的成员以 `>` 收尾
 （`a: () => Promise<B>` 换行 `b: () => Promise<C>`），`>` 是符号、于是被当成「没写完」，
-第二行乃至整张成员表都被吞进第一个字段 ✗。
+第二行乃至整张成员表都被吞进第一个字段。
 所以先问 `./declaration-common.xl.md` 的 `IsMemberBoundary`——
 它同时看「下一行像不像新成员」与「前一个是不是续行符号」（`>` 不在续行符号之列），
 判出边界就停。
@@ -120,10 +120,10 @@ return text;
 **判不出时不要退回「前一个是不是符号」那条粗判据**（第 61 轮改）：
 前导 `|` 的多行联合里，换行前一个是**标识符**
 （`importModuleDynamically?:` 换行 `| A` 换行 `| B` 换行 `| undefined`），粗判据当场判成
-「这一行写完了」，成员在 `| A` 之后被切断 ✗——剩下那半截落进 `<Statement>`，
+「这一行写完了」，成员在 `| A` 之后被切断——剩下那半截落进 `<Statement>`，
 `| B | undefined` 还被折成一个**值位**的 `BinaryOperator op="|"`（实测 `@types/node/vm.d.ts` 三处）。
 改成问 `Statement.IsLineBreakBoundary`（就是那条 ASI 判据）：换行后面是 `|` / `&` 这类
-**要左操作数**的运算符时它判「不是边界」✓；函数类型那个形状它照样判「是边界」✓，行为不变。
+**要左操作数**的运算符时它判「不是边界」；函数类型那个形状它照样判「是边界」，行为不变。
 
 ```ts
 let i = index + 1;
@@ -159,7 +159,7 @@ return units.length - 1;
 
 - 看不到 `;`（已经进了方法声明）；
 
-一路扫到**字段 B 的 `;`** 才停 ✗ —— B（乃至后面每一个成员）都被吞进 A。
+一路扫到**字段 B 的 `;`** 才停 —— B（乃至后面每一个成员）都被吞进 A。
 `New` 那条规则也没能成形（`new R(1)` 的 `R(1)` 先被当成方法声明的名字），
 所以产物里连 `<New>` 都没有。
 
@@ -167,7 +167,7 @@ return units.length - 1;
 与 `../text-common-util.xl.md` 的 `IsStatementList` 同一个理由：向上 import 这些类会绕出循环依赖。
 
 **后面那个词还得不是「续接词」**：`A: T = f(1) as B` 里 `f(1)` 是方法节点、后面跟着 `as`
-（已经是 `Keyword` 了）——按「后面像成员起点」会把它当成下一个成员、把这条字段**劈成两半** ✗。
+（已经是 `Keyword` 了）——按「后面像成员起点」会把它当成下一个成员、把这条字段**劈成两半**。
 所以**只要后面是 `Keyword` 就不算边界**（`as` / `satisfies` / `instanceof` / `in` / `of` / `typeof`
 这些词之后类型或表达式都还在继续），`Identifier` 里再点名排除同族的几个词。
 （这条是**加完第一版之后差分引擎报出 −20 个 Field 多出来**才定位到的：
@@ -204,7 +204,7 @@ return (
 第一版把 `Method` / `New` / `Lamda` / `ObjectLiteral` / `ArrayLiteral` 也放了进去，
 结果差分引擎报出**多出 20 个 `Field`**（`undici-types/websocket.d.ts` −4、`dist/ts/cjcli.ts` −4 …）——
 那些节点**不会**吃掉尾部分号，`;` 本来就在列表里看得见，把它们也算边界只会让
-`A: T = { … };` 这类字段**被劈成两半**（每一半都能凑出一个 `Field`，于是多出节点）✗。
+`A: T = { … };` 这类字段**被劈成两半**（每一半都能凑出一个 `Field`，于是多出节点）。
 收窄到 `MethodDeclaration` 一族之后两个问题一起解决：该停的停、不该劈的不劈。
 
 ## private method IsNameUnit:(unit:Token | null)=>bool
@@ -343,9 +343,9 @@ return false;
 
 **为什么这样够**（实测三种同形写法）：
 
-- 索引签名 `[k: string]: T` ⇒ 头两个是 `k` 与 `:` ✓；
-- 计算成员名 `[Symbol.iterator]: T` / `["m"]: T` ⇒ 头两个是 `Symbol` 与 `.`（或字符串）✗；
-- 计算成员名里的条件表达式 `[cond ? a : b]: T` ⇒ 头两个是 `cond` 与 `?` ✗
+- 索引签名 `[k: string]: T` ⇒ 头两个是 `k` 与 `:`；
+- 计算成员名 `[Symbol.iterator]: T` / `["m"]: T` ⇒ 头两个是 `Symbol` 与 `.`（或字符串）；
+- 计算成员名里的条件表达式 `[cond ? a : b]: T` ⇒ 头两个是 `cond` 与 `?`
   （只看「里面有没有 `:`」会把它误判成索引签名）。
 
 **两种来路都要认**：`FieldCloseRule` 排在 `JsonArrayCloseRule` **前面**，
@@ -421,25 +421,25 @@ if (result instanceof Field) {
   // **修饰词各自的位置**（见 `ModifierSpans`）：它们不进 `Data`，位置要在这一趟记下来。
   result.ModifierSpans = DeclarationModifierSpans(units, startIndex, index).join(",");
   // **名字的位置当场记进字段**（见 `NameAt` / `NameStart`）：只认**有自己区间**的两种名字——
-  // 普通标识符与字符串字面量 ✓。计算名的区间由投影那边按方括号自己分派 ✓，
-  // 索引签名不是字段名 ✓。
-  // **字符串名的整段（含引号）进 `NameAt`** ✓，文本区间（引号里那一段）由它推出来 ✓：
-  // 投影读到的仍旧是一对下标 ✓，而`"a-b"` 这种名字**不再回原文 `indexOf` 猜** ✗
-  // （带转义时 `indexOf` 根本找不到 ✓）。
+  // 普通标识符与字符串字面量。计算名的区间由投影那边按方括号自己分派，
+  // 索引签名不是字段名。
+  // **字符串名的整段（含引号）进 `NameAt`**，文本区间（引号里那一段）由它推出来：
+  // 投影读到的仍旧是一对下标，而`"a-b"` 这种名字**不再回原文 `indexOf` 猜**
+  // （带转义时 `indexOf` 根本找不到）。
   // 私有名的区间从 `#` 那一格算起（`fieldName` 记的是 `#x` 整个名字）。
   const plainName = name instanceof Identifier;
   const stringName = name instanceof String;
   if (plainName || stringName) {
-    // **文本区间**：字符串名去掉首尾两个引号 ✓；私有名从 `#` 那一格算起 ✓
-    //（`fieldName` 记的是 `#x` 整个名字 ✓）；其余形态就是名字那一格自己 ✓。
+    // **文本区间**：字符串名去掉首尾两个引号；私有名从 `#` 那一格算起
+    //（`fieldName` 记的是 `#x` 整个名字）；其余形态就是名字那一格自己。
     result.NameStart = stringName
       ? name.SourceRange.Start!.Index + 1
       : isPrivateName ? current.SourceRange.Start!.Index : name.SourceRange.Start!.Index;
     result.NameEnd = stringName
       ? name.SourceRange.End!.Index - 1
       : name.SourceRange.End!.Index;
-    // **名字那一格**（见 `NameAt`）：**私有名不给这一格** ✗——`#x` 是**两格**（`#` 与名字本体），
-    // 没有哪一格单独说得清 `fieldName` 记的那串 `#x` ✓；它的区间由上面那一对说了算 ✓。
+    // **名字那一格**（见 `NameAt`）：**私有名不给这一格**——`#x` 是**两格**（`#` 与名字本体），
+    // 没有哪一格单独说得清 `fieldName` 记的那串 `#x`；它的区间由上面那一对说了算。
     if (!isPrivateName) {
       result.NameAt.Set(name.SourceRange.Start!.Index, name.SourceRange);
     }
@@ -449,7 +449,7 @@ result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 if (result instanceof IndexSignature) {
   // 索引签名没有属性位：修饰词（`readonly`）与装饰器都作为**子单元**进来，
-  // 由它自己的队列把关键词升级成 `Keyword` ✓。
+  // 由它自己的队列把关键词升级成 `Keyword`。
   for (let i = startIndex; i < index; i++) {
     const item = Get(units, i);
     if (item !== null && !(item instanceof LineWrap)) {
@@ -467,14 +467,14 @@ if (result instanceof IndexSignature) {
 if (name instanceof Bracket || isIndexSignature) {
   if (isIndexSignature) {
     // **方括号消费掉**（与 `ArrayType` / `TupleType` 同一口径）：TS 那边
-    // `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型 ✓。
+    // `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型。
     // 名字第二趟可能已经是 `ArrayLiteral`（见 `IsIndexSignatureName`），
-    // 两种都按「把内容搬进来」处理 ✓。
+    // 两种都按「把内容搬进来」处理。
     //
     // **参数那一截再收成一个 `Parameter`**（第 66 轮第六批）：TS 那边
     // `IndexSignature` 的第一个子节点就是 `Parameter`（`[key: string]: T` 里的 `key: string`）。
-    // 此刻括号内容还是裸单元（`key` / `:` / `string`），整段就是那一个形参 ✓——
-    // 由一个 `Parameter` 收下，类型标注在它自己的队列里凑成 `TypeDefine` ✓。
+    // 此刻括号内容还是裸单元（`key` / `:` / `string`），整段就是那一个形参——
+    // 由一个 `Parameter` 收下，类型标注在它自己的队列里凑成 `TypeDefine`。
     const parameter = new Parameter(template);
     parameter.SignIn(name.SourceRange.Start!);
     const contents: Token[] = [];
@@ -604,11 +604,11 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 名字在源码里的起点（闭区间下标）；名字那一格不是普通标识符（计算名 / 索引签名）时是 `-1`。
 
-**字符串名也在内**（第 645 轮 ✓）：`"a-b" = 2` 的 `nameStart` / `nameEnd` 是**引号里那一段**
-（`a-b` 的两个下标）✓——投影拿到这两个下标之后，`source[nameStart-1]` 正是那个开引号 ✓，
-于是 `StringLiteral` 那一格照旧由它推出来 ✓，而**不必再回原文 `indexOf("a-b")` 猜** ✗
-（名字里带转义时 `indexOf` 根本找不到 ✓）。
-**整段名字（含引号）在 `NameAt` 那一格里** ✓，两样挨着、不会漂。
+**字符串名也在内**（第 645 轮）：`"a-b" = 2` 的 `nameStart` / `nameEnd` 是**引号里那一段**
+（`a-b` 的两个下标）——投影拿到这两个下标之后，`source[nameStart-1]` 正是那个开引号，
+于是 `StringLiteral` 那一格照旧由它推出来，而**不必再回原文 `indexOf("a-b")` 猜**
+（名字里带转义时 `indexOf` 根本找不到）。
+**整段名字（含引号）在 `NameAt` 那一格里**，两样挨着、不会漂。
 
 **私有名 `#x` 从 `#` 算起**——`fieldName` 记的是 `#x` 整个名字，投影合出来的也是
 一个 `PrivateIdentifier`，所以区间必须盖住那个 `#`。
@@ -632,7 +632,7 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 中间不需要任何推断。这就是「token 出字段、投影直读」的那条线。
 
 只认**有自己区间**的两种名字（普通标识符 / 字符串字面量）：计算名与索引签名各自成形，
-不走这一格。**私有名 `#x` 也不走** ✗——它是**两格**（`#` 与名字本体），
+不走这一格。**私有名 `#x` 也不走**——它是**两格**（`#` 与名字本体），
 没有哪一格单独说得清 `fieldName` 里那串 `#x`；那种形态的区间由 `NameStart` / `NameEnd` 说
 （`NameStart` 从 `#` 算起）。
 
@@ -676,8 +676,8 @@ result.set("modifiers", this.modifiers);
 // **名字的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
 result.set("nameStart", this.NameStart);
 result.set("nameEnd", this.NameEnd);
-// **名字那一格的整段区间**（见 `NameAt`）：字符串名的引号也在里面 ✓——
-// 投影要问「这个名字是怎么写出来的」时直读它 ✓（与 `bodyBraceRange` 同一形状：闭区间、`"起,止"`）。
+// **名字那一格的整段区间**（见 `NameAt`）：字符串名的引号也在里面——
+// 投影要问「这个名字是怎么写出来的」时直读它（与 `bodyBraceRange` 同一形状：闭区间、`"起,止"`）。
 if (this.NameAt.IsSet) {
   result.set("nameAt", this.NameAt.File());
   const nameRange = this.NameAt.Range;

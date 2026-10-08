@@ -63,24 +63,24 @@ bracket.Context = DecideBracketContext(unit, source.Value);
 unit.AddToMounted(bracket).Use(source.Value).SignIn(source);
 ```
 
-**这里原来还有一句「是成员列表就换队列」** ✗（第 393 轮立、第 394 轮改过一次形状，
+**这里原来还有一句「是成员列表就换队列」**（第 393 轮立、第 394 轮改过一次形状，
 第 415 轮删掉）：那时判据是回过头问 `ParsePipeline.IsMemberListHead`「这个 `{` 是不是
-`class` / `enum` / `interface` 的体」✓，是就把队列换成**成员列表队列**（通用队列去掉 `IfSetBranch` ✓）。
+`class` / `enum` / `interface` 的体」，是就把队列换成**成员列表队列**（通用队列去掉 `IfSetBranch`）。
 
-**现在不需要了** ✓：那三族的体**都不再走 `Bracket`** ✗——`class` / `enum` / `interface`
-各自由自己的解析期分支在 `{` 那一刻认下 ✓（`ClassBranch` / `EnumBranch` / `InterfaceBranch` ✓，
-都排在 `Bracket.JumpIn` 之前 ✓），体是它们各自建的 `ClassBody` / `EnumBody` / `InterfaceBody` ✓，
-而这三个单元的构造器里就挂好了成员列表队列 ✓。
-于是 `IsMemberListHead` 变成**永远为假** ✓——同一个问题不再有两处答案 ✓。
+**现在不需要了**：那三族的体**都不再走 `Bracket`**——`class` / `enum` / `interface`
+各自由自己的解析期分支在 `{` 那一刻认下（`ClassBranch` / `EnumBranch` / `InterfaceBranch`，
+都排在 `Bracket.JumpIn` 之前），体是它们各自建的 `ClassBody` / `EnumBody` / `InterfaceBody`，
+而这三个单元的构造器里就挂好了成员列表队列。
+于是 `IsMemberListHead` 变成**永远为假**——同一个问题不再有两处答案。
 
 **`Context` 在**开括号这一刻**就算好（方案 A）**：那时 `unit.Data` 里躺着的是**词法阶段的平列表** ——
 前文的 `Identifier` / `SymbolToken` 全都就位，没有任何「后来才建出来的节点」，所以这个判定
-**不随重组时序变化** ✓。
+**不随重组时序变化**。
 
 原来这件事是**事后**做的（`TypeLiteralCloseRule` / `BinaryOperatorCloseRule` /
 `SpreadCloseRule` 各自往上找祖先），而规则被询问时树还不是最终的树 ——
 实测同一个 `[` 在早期询问时 `Parent` 还指着 `Root`（`ArrayLiteral < Root`），
-最终树里却是 `TypeAssign < Statement < Root` ✗。祖先判据因此天然时序相关（第 32、34 轮三版皆败）。
+最终树里却是 `TypeAssign < Statement < Root`。祖先判据因此天然时序相关（第 32、34 轮三版皆败）。
 
 # class Bracket extends UnitToken
 
@@ -180,8 +180,8 @@ this.Closed = true;
 
 注意顺序是 `SignOut` → `TryToClose` → `Quit`。
 
-第 399～405 轮这四行曾经收在 `UnitToken` 的一份共用机件里 ✗（那时用 `PendingStates` 表达三档 ✓）；
-第 405 轮那份词汇按用户口径删掉了 ✓，于是它**回到这里** ✓——与上游一字不差 ✓。
+第 399～405 轮这四行曾经收在 `UnitToken` 的一份共用机件里（那时用 `PendingStates` 表达三档）；
+第 405 轮那份词汇按用户口径删掉了，于是它**回到这里**——与上游一字不差。
 
 ```ts
 if (source.Value === this.endBracket) {
@@ -196,15 +196,15 @@ return BranchStates.Undo;
 
 当前字符是不是本括号**配对的结束括号**。
 
-覆写基类（那里恒为 `false`）：这是一个真的「归我」的字符 ✓。
+覆写基类（那里恒为 `false`）：这是一个真的「归我」的字符。
 
-**它是给挂在括号下面的解析期单元用的** ✗：那些单元（`PendingUnit` / 向导 ✓）一旦挂成括号的 `MountedUnit`，
-括号自己就**再也看不到字符**了 ✓，连 `ExitOrPre` 都不会跑 ✓（`UnitToken.Process` 第一句就转给挂载单元 ✓）
-⇒ 结束括号会被它们吞掉 ✓、这个括号永远关不上 ✗。所以它们每收一个字符都要往上问一遍 ✓
-（见 `core/syntax/token.xl.md` 的 `Owns` ✓）。
+**它是给挂在括号下面的解析期单元用的**：那些单元（`PendingUnit` / 向导）一旦挂成括号的 `MountedUnit`，
+括号自己就**再也看不到字符**了，连 `ExitOrPre` 都不会跑（`UnitToken.Process` 第一句就转给挂载单元）
+⇒ 结束括号会被它们吞掉、这个括号永远关不上。所以它们每收一个字符都要往上问一遍
+（见 `core/syntax/token.xl.md` 的 `Owns`）。
 
-判据与 `ExitOrPre` 那一句**一字不差** ✓——两处说的是同一件事，写成两份只是为了不必让子单元去调
-`ExitOrPre`（那是「处理」不是「询问」✓）。
+判据与 `ExitOrPre` 那一句**一字不差**——两处说的是同一件事，写成两份只是为了不必让子单元去调
+`ExitOrPre`（那是「处理」不是「询问」）。
 
 ```ts
 return source.Value === this.endBracket;

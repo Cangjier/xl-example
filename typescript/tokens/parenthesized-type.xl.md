@@ -25,7 +25,7 @@ TypeScript 那边括号类型是**独立节点**（`ParenthesizedType > 括号�
 **位置判据与其它类型规则同源**：父单元必须是**纯类型容器**
 （`IsTypeContainerUnit`：`TypeAssign` / `TypeDefine` / `UnionType` / `ArrayType` /
 `FunctionType` / `TypeParameter` … 都在白名单里）。值位的括号（`(a + b) * c`）父亲是语句 /
-表达式节点，不在白名单里 ✓ 不会被收。
+表达式节点，不在白名单里 不会被收。
 
 **三条「这不是括号类型」的守卫**（都是实测出来的同形写法）：
 
@@ -108,7 +108,7 @@ return true;
 
 把这个括号收成一个 `ParenthesizedType`，**返回原来的下标**。
 
-括号**装进节点里**（TS 那边它就是这个节点的一部分 ✓），交给节点自己的队列继续跑
+括号**装进节点里**（TS 那边它就是这个节点的一部分），交给节点自己的队列继续跑
 （里面的联合 / 交叉 / 函数类型都已经成形了，那一趟只做软换行的收尾）。
 
 **换父之后要重跑一遍括号自己的队列**（第 67 轮）：括号里的类型文本（`(keyof T)` /
@@ -146,7 +146,7 @@ return ReplaceCountAt(units, index, 1, result);
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**类型队列**——括号里可能还有需要成形的类型文本
-（`((A | B) => C)` 这种嵌套里，内层括号也会在那一趟被收成 `ParenthesizedType` ✓）。
+（`((A | B) => C)` 这种嵌套里，内层括号也会在那一趟被收成 `ParenthesizedType`）。
 
 ```ts
 super(template);

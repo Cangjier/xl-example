@@ -39,15 +39,15 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 | 形状 | `...` 的父亲 | 收不收 |
 | --- | --- | --- |
-| `call(...args)` | `Method`（调用） | 收 ✓ |
-| `[...items]` | `ArrayLiteral` | 收 ✓ |
-| `{ ...base }` | `ObjectLiteral` | 收 ✓ |
-| `new Foo(...args)` | `NewArguments` | 收 ✓ |
-| `function f(...args: T[])` | 参数括号（`Bracket`） | 不收 ✗ |
-| `class C { m(...args: T[]) {} }` | 参数括号 | 不收 ✗ |
-| `(...args) => 1` | `LamdaParameter` | 不收 ✗ |
-| `type F = (...args: T[]) => void` | 类型位的括号 | 不收 ✗ |
-| `const [a, ...rest] = xs` | `[` 括号 | 不收 ✗（AST 里是绑定元素，不是 spread） |
+| `call(...args)` | `Method`（调用） | 收 |
+| `[...items]` | `ArrayLiteral` | 收 |
+| `{ ...base }` | `ObjectLiteral` | 收 |
+| `new Foo(...args)` | `NewArguments` | 收 |
+| `function f(...args: T[])` | 参数括号（`Bracket`） | 不收 |
+| `class C { m(...args: T[]) {} }` | 参数括号 | 不收 |
+| `(...args) => 1` | `LamdaParameter` | 不收 |
+| `type F = (...args: T[]) => void` | 类型位的括号 | 不收 |
+| `const [a, ...rest] = xs` | `[` 括号 | 不收（AST 里是绑定元素，不是 spread） |
 
 白名单是**父单元的类名**（`Method` / `ArrayLiteral` / `ObjectLiteral` / `NewArguments`）——
 注意尾随的 `}` 一定是**已经成形的容器**，所以本规则必须排在
@@ -77,7 +77,7 @@ return name === "Method" || name === "ArrayLiteral" || name === "ObjectLiteral" 
 
 **试过给 `[` 那一支再加一层判据、退回来了**：为了压掉下面那 16 个假阳性，
 试过「`ArrayLiteral` 的父亲不能是括号」「父亲的父亲必须是调用 / `new` / 数组 / 对象」两版，
-都让 **`f([...xs])` 变成 0 个 `Spread`** ✗ —— 真的数组展开拿不到节点，
+都让 **`f([...xs])` 变成 0 个 `Spread`** —— 真的数组展开拿不到节点，
 比多算几个更糟（假阴性会把一个真实的展开悄悄吞掉，假阳性只是计数偏大）。
 所以这一支保持成最简单的一条，把 16 个假阳性**留在差分账上**（见本节末尾的遗留说明）。
 `...` 与类型宿主之间隔着好几层壳，真正稳的判据还没找到——这需要先把祖先链完整打出来再看。
@@ -86,9 +86,9 @@ return name === "Method" || name === "ArrayLiteral" || name === "ObjectLiteral" 
 
 **已经被撤掉的判据**（保留说明以免重复踩）：给 `ArrayLiteral` 那一支加了一层「数组字面量的父亲不是括号」，
 想压掉调用签名里 rest 参数造成的假阳性。它确实把 `lib.es5.d.ts` 的 8 处压下去 5 处，
-但同时把 **`f([...xs])` 也压成了 0 个 `Spread`** ✗ ——
+但同时把 **`f([...xs])` 也压成了 0 个 `Spread`** ——
 那个数组字面量的父亲正好是调用的实参括号，两层之内分不出「实参括号」与「参数表括号」。
-撤掉之后：`call(...args)` / `[...items]` / `f([...xs])` / `{ ...base }` 全部 ✓，
+撤掉之后：`call(...args)` / `[...items]` / `f([...xs])` / `{ ...base }` 全部，
 代价是那 16 个假阳性留在差分账上。
 
 ```ts
@@ -166,9 +166,9 @@ return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
 
 判据**只看形状、不看祖先**：被操作数**紧跟一个空的 `[]` 括号**。
 
-- `[string, ...number[]]` —— `number` 后面是空的 `[]` → 数组类型后缀 → 元组剩余元素 ✗ 不收；
-- `[...items]` / `call(...args)` / `{ ...base }` / `new Foo(...parts)` —— 后面是 `]` / `)` / `}` ✗ 不命中 ✓ 照收；
-- `...a[0]`（真展开后面带下标）—— 那个 `[` **不空** ✗ 不命中 ✓ 照收。
+- `[string, ...number[]]` —— `number` 后面是空的 `[]` → 数组类型后缀 → 元组剩余元素 不收；
+- `[...items]` / `call(...args)` / `{ ...base }` / `new Foo(...parts)` —— 后面是 `]` / `)` / `}` 不命中 照收；
+- `...a[0]`（真展开后面带下标）—— 那个 `[` **不空** 不命中 照收。
 
 **为什么不用「祖先链里有没有 `TypeDefine`」**（第 32、34 轮试过三版都失败）：
 单元被上层规则收走之后 **`Parent` 指针是过期的** —— 调试打印里那个 `ArrayLiteral` 的祖先链是
@@ -194,9 +194,9 @@ return afterOperand.startBracket === "[" && afterOperand.Data.length === 0;
 
 判据只有一条：**被展开/声明的那个名字后面紧跟类型标注**（`:` / `?:` / `!:`）。
 
-- `(...args: A[])` —— `args` 后面是 `:` → rest 参数 ✗ 不收；
-- `(this: T, ...args: A) => R` / 函数类型里的 rest → 同上 ✗；
-- `call(...args)` / `[...items]` / `{ ...base }` / `new Foo(...parts)` —— 名字后面是 `)` / `]` / `}` ✓ 收。
+- `(...args: A[])` —— `args` 后面是 `:` → rest 参数 不收；
+- `(this: T, ...args: A) => R` / 函数类型里的 rest → 同上；
+- `call(...args)` / `[...items]` / `{ ...base }` / `new Foo(...parts)` —— 名字后面是 `)` / `]` / `}` 收。
 
 **这一条是这一族假阳性的正解**：先前试的两版判据都在「父亲是谁」上做文章（`ArrayLiteral` 的父亲、
 父亲的父亲……），而真正区分 rest 与展开的**不是位置、是后面有没有类型标注** ——
@@ -222,7 +222,7 @@ return text === ":" || text === "?:" || text === "!:";
 **`TypeDefine` 那一支是必须的**（与 `not-null.xl.md` 的 `IsDefiniteAssignment` 同一个坑）：
 本规则的位次在 `TypeDefineCloseRule` **之后**，那时 `: A[]` 已经收成一个 `TypeDefine` 节点，
 看到的不再是 `:` 符号。少了这一支，`call<T, A>(this: T, ...args: A): R` 这种
-「同一个参数表里既有函数类型的 rest、又有真 rest」的写法仍然会多出一个 `Spread` ✗。
+「同一个参数表里既有函数类型的 rest、又有真 rest」的写法仍然会多出一个 `Spread`。
 
 ## private method IsInTypePosition:(current:Token)=>bool
 
@@ -231,7 +231,7 @@ return text === ":" || text === "?:" || text === "!:";
 
 **这一条是实测补上的**：`lib.es5.d.ts` 里 `interface X { f(...args: A[]): void }` 这种
 **调用签名**的参数表，`A[]` 的 `[` 会先长成一个 `ArrayLiteral`，而参数表里那个 `...` 于是
-正好落进一个「`ArrayLiteral` 父亲」里 —— 按白名单看它像一个数组展开 ✗，
+正好落进一个「`ArrayLiteral` 父亲」里 —— 按白名单看它像一个数组展开，
 实测多出 16 个 `Spread`（`lib.es5.d.ts` 8 个、`sqlite.d.ts` 6 个、`events.d.ts` 与 `stream.d.ts` 各 1 个）。
 类型位里根本没有展开运算，撞到类型祖先就该退出。
 

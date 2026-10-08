@@ -84,20 +84,20 @@ return (
 
 `item` 是不是「**类型已经写完**之后出现的值位二元运算符」——遇到它就该收工。
 
-**这一问是第 288 轮补的** ✗，它量到的是一条**静默错值** ✓：
-`a as number + 1` 在 TypeScript 里是 **`(a as number) + 1`** ✓
-（实测 `ts.createSourceFile`：`BinaryExpression(AsExpression(a, number), +, 1)` ✓），
-而本规则原来把 `+ 1` **当成类型的一部分**吞进了 `As` ✗
-⇒ 降级之后那个 `+ 1` 整个没了 ✓，表达式退化成 `a` 本身 ✓。
+**这一问是第 288 轮补的**，它量到的是一条**静默错值**：
+`a as number + 1` 在 TypeScript 里是 **`(a as number) + 1`**
+（实测 `ts.createSourceFile`：`BinaryExpression(AsExpression(a, number), +, 1)`），
+而本规则原来把 `+ 1` **当成类型的一部分**吞进了 `As`
+⇒ 降级之后那个 `+ 1` 整个没了，表达式退化成 `a` 本身。
 
-**为什么 `+` 不可能是类型的续接** ✓：`as` 右边那一段走的是 TypeScript 的 `parseType()` ✓，
-而 `parseType` 见到 `+` 就停 ✓（`number + 1` 不是类型 ✗）；
-**能续接类型的符号是另一批** ✓——`.` / `[` / `<` / `|` / `&` / `=>` / `extends` / `?` / `:` ✓
-（它们已经在 `IsTypeContinuationAhead` 那张名单里 ✓）。
+**为什么 `+` 不可能是类型的续接**：`as` 右边那一段走的是 TypeScript 的 `parseType()`，
+而 `parseType` 见到 `+` 就停（`number + 1` 不是类型）；
+**能续接类型的符号是另一批**——`.` / `[` / `<` / `|` / `&` / `=>` / `extends` / `?` / `:`
+（它们已经在 `IsTypeContinuationAhead` 那张名单里）。
 
-**为什么名单里没有 `<<` / `>>` / `>>>`** ✗：那三个在**嵌套泛型的收尾**上会撞车 ✓
-（`as Array<Array<number>>` 的 `>>` ✓）——它们当值位运算符出现在 `as` 后面的写法极罕见 ✓，
-而误判一次就是**一整份文件解析崩** ✗，所以宁可漏 ✗。
+**为什么名单里没有 `<<` / `>>` / `>>>`**：那三个在**嵌套泛型的收尾**上会撞车
+（`as Array<Array<number>>` 的 `>>`）——它们当值位运算符出现在 `as` 后面的写法极罕见，
+而误判一次就是**一整份文件解析崩**，所以宁可漏。
 
 ```ts
 if (!(item instanceof SymbolToken)) {
@@ -188,10 +188,10 @@ for (let i = index + 1; i < units.length; i++) {
       endIndex = i - 1;
       break;
     }
-    // **类型已经写完、后面跟的是值位运算符** ⇒ 收工 ✓（第 288 轮 ✓）：
-    // `a as number + 1` 是 `(a as number) + 1` ✓，`+ 1` **不是类型** ✗。
-    // 判据是「**已经收到过东西**」✓——`as -1` 那种写法里 `-` 在**最前面** ✓，
-    // 那正是字面量类型的符号 ✓，不该在这里被截断 ✗。
+    // **类型已经写完、后面跟的是值位运算符** ⇒ 收工（第 288 轮）：
+    // `a as number + 1` 是 `(a as number) + 1`，`+ 1` **不是类型**。
+    // 判据是「**已经收到过东西**」——`as -1` 那种写法里 `-` 在**最前面**，
+    // 那正是字面量类型的符号，不该在这里被截断。
     if (items.length > 0 && this.IsValueOperatorAfterType(item)) {
       endIndex = i - 1;
       break;

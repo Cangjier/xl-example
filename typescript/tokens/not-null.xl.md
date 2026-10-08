@@ -64,14 +64,14 @@ if (this.IsDefiniteAssignment(units, index)) {
 if (this.IsStatementKeyword(previous)) {
   return false;
 }
-// **`ArrayLiteral` 也是「可以被断言的东西」** ✗（第 303 轮 ✓）——它在这里代表的是
-// **一次下标访问** ✓（`arr[0]!` 的产物把那个 `[0]` 收成 `<ArrayLiteral>` ✓，
-// 理由与投影那边那一段一字不差 ✓）。**不认它的后果** ✗：`x[1]![0]` 里第二个 `!`
-// 会**留在原地** ✓、被 `UnaryOperatorCloseRule` 收成**前缀取反** ✗
-//（实测产物：`<UnaryOperator op="!"><SymbolToken>!</SymbolToken><ArrayLiteral(0)></UnaryOperator>` ✓），
-// 后面那个 `[0]` 于是既不是下标、也不是数组字面量 ✓ ⇒ **整段丢掉** ✓
-// （判据 `c303-nonnull-then-index` 第三版量到的就是它 ✓：`deep!.a!.b![1]![0]` 给 `[3,4]` ✓，
-// Node 给 `3` ✓——**一句异常都没有** ✗）。
+// **`ArrayLiteral` 也是「可以被断言的东西」**（第 303 轮）——它在这里代表的是
+// **一次下标访问**（`arr[0]!` 的产物把那个 `[0]` 收成 `<ArrayLiteral>`，
+// 理由与投影那边那一段一字不差）。**不认它的后果**：`x[1]![0]` 里第二个 `!`
+// 会**留在原地**、被 `UnaryOperatorCloseRule` 收成**前缀取反**
+//（实测产物：`<UnaryOperator op="!"><SymbolToken>!</SymbolToken><ArrayLiteral(0)></UnaryOperator>`），
+// 后面那个 `[0]` 于是既不是下标、也不是数组字面量 ⇒ **整段丢掉**
+// （判据 `c303-nonnull-then-index` 第三版量到的就是它：`deep!.a!.b![1]![0]` 给 `[3,4]`，
+// Node 给 `3`——**一句异常都没有**）。
 return (
   previous instanceof Identifier ||
   previous instanceof Bracket ||
@@ -130,23 +130,23 @@ return (
 跑的时候类体未必已经成型，`Parent` 还指不到 `ClassBody`（实测那条判据一次都没命中）。
 形状判据不依赖树的成型时机。
 
-第二条把三元表达式的 `cond ? a! : b` 排除掉：那里的 `a` 前面是 `?`，不是成员起点 ✓。
+第二条把三元表达式的 `cond ? a! : b` 排除掉：那里的 `a` 前面是 `?`，不是成员起点。
 
 ```ts
 const after = Get(units, SkipNextWrapSymbol(units, index));
-// **`!` 后面紧跟一个 `.` ⇒ 这是非空断言，不是明确赋值断言**（第 638 轮 ✓）。
+// **`!` 后面紧跟一个 `.` ⇒ 这是非空断言，不是明确赋值断言**（第 638 轮）。
 //
-// 不挡会怎样 ✗：`this.V!.toString() + ","` 里 `PropertyAccessCloseRule`（比本条**早** ✓，
-// 见 `../parse-pipeline.xl.md` 的 `GeneralCloseRule` ✓）先把 `this.V!.toString` 认成
-// **属性访问 + 类型标注** ✓（成员名后面那个 `(` 于是被 `MethodCloseRule` 收成一次调用 ✓，
-// 整条链成了一次**类型位**的调用形状 ✓）⇒ 这一格拿到的是 `after instanceof TypeDefine` ✓、
-// 名字前面又是行首 ✓ ⇒ 判成明确赋值断言 ✓ ⇒ 整条链折成 `NotNull(this.V, !)`，
-// `.toString()` 被留在外面成了平级兄弟 ✗（实测产物：`<NotNull>…</NotNull><SymbolToken>.</SymbolToken>`
-// 之后才是一个装着 `Method` 的 `BinaryOperator` ✓）。
-// 而**明确赋值断言后面永远不可能跟 `.`** ✓——`a!: T` 的 `!` 与 `.` 是互斥的两种读法 ✓
-// ⇒ 这一格可以直接当判据 ✓。
-// 症状是**静默错值** ✓：TS 那边缺 `PlusToken` / `StringLiteral`、多出同名节点 ✓
-//（`return this.V!.toString() + "x";` 实测缺 3 / 漂移 3 / 多出 2 ✓）。
+// 不挡会怎样：`this.V!.toString() + ","` 里 `PropertyAccessCloseRule`（比本条**早**，
+// 见 `../parse-pipeline.xl.md` 的 `GeneralCloseRule`）先把 `this.V!.toString` 认成
+// **属性访问 + 类型标注**（成员名后面那个 `(` 于是被 `MethodCloseRule` 收成一次调用，
+// 整条链成了一次**类型位**的调用形状）⇒ 这一格拿到的是 `after instanceof TypeDefine`、
+// 名字前面又是行首 ⇒ 判成明确赋值断言 ⇒ 整条链折成 `NotNull(this.V, !)`，
+// `.toString()` 被留在外面成了平级兄弟（实测产物：`<NotNull>…</NotNull><SymbolToken>.</SymbolToken>`
+// 之后才是一个装着 `Method` 的 `BinaryOperator`）。
+// 而**明确赋值断言后面永远不可能跟 `.`**——`a!: T` 的 `!` 与 `.` 是互斥的两种读法
+// ⇒ 这一格可以直接当判据。
+// 症状是**静默错值**：TS 那边缺 `PlusToken` / `StringLiteral`、多出同名节点
+//（`return this.V!.toString() + "x";` 实测缺 3 / 漂移 3 / 多出 2）。
 if (after instanceof SymbolToken && after.TempToString() === ".") {
   return false;
 }
@@ -189,11 +189,11 @@ const current = Get(units, index);
 if (previous === null || current === null) {
   throw new Error("非空断言两侧缺单元");
 }
-// **新节点要继承被断言者的父亲**（第 592 轮 ✓）：`ReplaceCountAt` 只做 `splice` ✓，
-// 它**不设 `Parent`** ✗——不在这里补一句，新造的 `NotNull` 父亲是 `null` ✓。
-// `PropertyAccessCloseRule.Process` 一直都在设 ✓（`result.Parent = current.Parent` ✓），
-// 本条少了这一句 ⇒ 谁想问「这个 `NotNull` 住在哪」都问不到 ✓
-//（第 592 轮的链规则正是靠它分辨「在 `NullConditionalOperator` 里面」✓）。
+// **新节点要继承被断言者的父亲**（第 592 轮）：`ReplaceCountAt` 只做 `splice`，
+// 它**不设 `Parent`**——不在这里补一句，新造的 `NotNull` 父亲是 `null`。
+// `PropertyAccessCloseRule.Process` 一直都在设（`result.Parent = current.Parent`），
+// 本条少了这一句 ⇒ 谁想问「这个 `NotNull` 住在哪」都问不到
+//（第 592 轮的链规则正是靠它分辨「在 `NullConditionalOperator` 里面」）。
 const holder = previous.Parent;
 const notNull = new NotNull(template);
 notNull.Parent = holder;

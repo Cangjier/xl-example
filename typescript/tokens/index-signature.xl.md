@@ -25,7 +25,7 @@ TypeScript 那边它是**独立节点**（`IndexSignature`，内容是一个 `Pa
 判据写在那边（它手上才有名字单元），这里只负责节点本身。
 
 **方括号消费掉**（不进产物）：与 `ArrayType` / `TupleType` 同一条口径——
-TS 那边 `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型 ✓。
+TS 那边 `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型。
 
 # class IndexSignature extends IndependentToken
 

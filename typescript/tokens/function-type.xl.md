@@ -57,12 +57,12 @@ const current = Get(units, index);
 if (!(current instanceof SymbolToken) || current.Is("=>") === false) {
   return false;
 }
-// **已经在 `FunctionType` 里面了就不再折** ✓（第 509 轮 ✓）：折出来的单元**自己也会关一次** ✓
-// ⇒ 它自己的 `Data` 上又跑这一趟 ✗ ⇒ 同样的 `=>` 又被折一层 ✗ ——
-// 探针实测（`tmp/recon/r509-ftype-probe.cjs` ✓）：`abstract new () => A` 被折了 **8 次** ✓
-//（第 1 次容器是 `Statement` ✓、之后 7 次容器都是 `FunctionType` ✓ 且 `queue=set` ✗
-// ⇒ 第 508 轮那道「没有队列就不进」的闸拦不住它 ✓），而对照态只折 **1 次** ✓。
-// 用**类名**判定而不是 `instanceof` ✓（本文件引 `lamda` ✓，再引它会绕出环 ✓，与 `statement.xl.md` 里 `Let` 同一条纪律 ✓）。
+// **已经在 `FunctionType` 里面了就不再折**（第 509 轮）：折出来的单元**自己也会关一次**
+// ⇒ 它自己的 `Data` 上又跑这一趟 ⇒ 同样的 `=>` 又被折一层 ——
+// 探针实测（`tmp/recon/r509-ftype-probe.cjs`）：`abstract new () => A` 被折了 **8 次**
+//（第 1 次容器是 `Statement`、之后 7 次容器都是 `FunctionType` 且 `queue=set`
+// ⇒ 第 508 轮那道「没有队列就不进」的闸拦不住它），而对照态只折 **1 次**。
+// 用**类名**判定而不是 `instanceof`（本文件引 `lamda`，再引它会绕出环，与 `statement.xl.md` 里 `Let` 同一条纪律）。
 const owner = current.Parent;
 if (owner !== null && owner.constructor.name === "FunctionType") {
   return false;

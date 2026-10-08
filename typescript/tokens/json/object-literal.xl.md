@@ -33,9 +33,9 @@ Json 对象：把 `{...}` 这种字面量从「一个花括号 + 里面的内容
 
 `index` 处的 `{` 是不是一个 Json 对象的开头。
 
-**判据本体已经搬到 `../../text-common-util.xl.md` 的 `IsObjectLiteralBrace`** ✓（第 556 轮 ✓）：
-那一句现在有**两个用户** ✗（本规则 ✓ 与两个语句成形器 ✓），而 `statement.xl.md` 不能 import 本文件 ✓
-⇒ 判据必须住在两者都能 import 的那一层 ✓。这里只转调 ✓，判定链条、两处盲点与实测账都在那一处 ✓。
+**判据本体已经搬到 `../../text-common-util.xl.md` 的 `IsObjectLiteralBrace`**（第 556 轮）：
+那一句现在有**两个用户**（本规则 与两个语句成形器），而 `statement.xl.md` 不能 import 本文件
+⇒ 判据必须住在两者都能 import 的那一层。这里只转调，判定链条、两处盲点与实测账都在那一处。
 
 它与单参数版同名，所以多参数的这个叫 `IsObjectAt`（单参数版仍叫 `IsObject`，它被 `As` /
 `TypeDefine` / `TernaryOperator` / `Lamda` 四个文件调用）。
@@ -120,7 +120,7 @@ return index;
 `{ a: 1 }` 里的标签语句都退化成散着的 `Identifier`。
 补的时机也只能在这里：`LabelCloseRule` 能照顾「标签后面的块」，
 但**裸块**（没有标签的那些）只有本规则认得出来，而此刻它早已关闭、
-收尾规则那一趟（第 561 轮之前叫 `Reorganize()` ✓）只能由我们显式叫一次
+收尾规则那一趟（第 561 轮之前叫 `Reorganize()`）只能由我们显式叫一次
 （`TryToClose` 那次跑在没有队列的时候）。
 
 `Process` **不消费任何单元**（块括号原样留着，只是多了队列），所以返回 `index + 1` 往下走。

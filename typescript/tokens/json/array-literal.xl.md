@@ -39,7 +39,7 @@ Json 数组：把 `[...]` 这种字面量从「一个方括号 + 里面的内容
 判定链条（任一条命中就**不是**数组）：父单元是 `NullConditionalOperator` 且 `index == 0`（那是 `?.[` 空条件索引）；上一个跳过软换行的单元是 `Identifier` 且不属于 `return` / `typeof` / `of` / `in`；是 `Bracket`；是 `ArrayLiteral`；是 `String`；是 `Method`；是 `PropertyAccess`；是 `=>` 符号。
 
 **`PropertyAccess` 必须也在名单里**（成员访问链那一轮补）：`logicalOperator.Data[0]` 里那个 `[`
-前面本来是 `Identifier`（`Data`）✓ 判成元素访问；链在 token 层折成一个 `PropertyAccess`
+前面本来是 `Identifier`（`Data`） 判成元素访问；链在 token 层折成一个 `PropertyAccess`
 之后「前一个单元」换了一种类型，第一条就命不中了——
 `[0]` 于是被收成 `ArrayLiteral`（下标访问变成数组字面量）。
 它按**类名**判而不是 `instanceof`：与 `binary-operator.xl.md` 里那几处同款
@@ -53,17 +53,17 @@ if (current instanceof Bracket && current.startBracket === "[") {
     return false;
   }
   const previous = GetSkipPrevious(units, index, (item) => item instanceof LineWrap);
-  // **声明词后面那个 `[` 是解构模式，不是下标访问**（第 533 轮 ✓）：
-  // `const [a = 1, b = a] = …` 的方括号要照旧收成 `ArrayLiteral` ✓ ——
-  // 投影侧的 `projectLetFrom` 正是拿它当绑定模式用的 ✓
+  // **声明词后面那个 `[` 是解构模式，不是下标访问**（第 533 轮）：
+  // `const [a = 1, b = a] = …` 的方括号要照旧收成 `ArrayLiteral` ——
+  // 投影侧的 `projectLetFrom` 正是拿它当绑定模式用的
   //（`print-ast-common.xl.md` 那一段注释写着「解构声明的名字用产物自己的那个
-  // `ArrayLiteral` / `ObjectLiteral`」✓，`projectBindingPattern` 会把 kind 换成
-  // `ArrayBindingPattern` ✓）。
+  // `ArrayLiteral` / `ObjectLiteral`」，`projectBindingPattern` 会把 kind 换成
+  // `ArrayBindingPattern`）。
   //
-  // 判据与下面那一句**同源** ✓：那一句说的是「上一个实义单元是 `Identifier` 且**不属于**
-  // `return` / `typeof` / `of` / `in` ⇒ 这是下标访问」✓ —— 这里把**声明词**也加进豁免名单 ✓。
-  // 豁免名单里的词都不是操作数 ✓（`return [1]` / `typeof [1]` / `const [a]` 里那个 `[`
-  // 只能是别的东西 ✓），所以没有副作用 ✓。
+  // 判据与下面那一句**同源**：那一句说的是「上一个实义单元是 `Identifier` 且**不属于**
+  // `return` / `typeof` / `of` / `in` ⇒ 这是下标访问」 —— 这里把**声明词**也加进豁免名单。
+  // 豁免名单里的词都不是操作数（`return [1]` / `typeof [1]` / `const [a]` 里那个 `[`
+  // 只能是别的东西），所以没有副作用。
   const declarationWords = ["let", "const", "var", "using"];
   if (
     previous instanceof Identifier &&

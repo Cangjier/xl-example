@@ -115,10 +115,10 @@ return result;
 
 `Message` 为 `0` 就开一个新 `SymbolToken` 并签入，为 `1` 就追加到上一个。
 
-**append 之后立刻问一次宿主** ✓（第 486 轮）：`;` 这一类终结符**已经进 `Data`** ✓，
-语句壳此时才收得出含终结符的区间 ✓（见 `statement.xl.md` 的 `FormFrom` ✓）。
-钩子是基类上的空方法 ✓（`core/syntax/token.xl.md` 的 `FormStatement` ✓）——
-这一层**不能** import `statement.xl.md` ✗（会绕出环 ✓），所以只发问、不收束 ✓。
+**append 之后立刻问一次宿主**（第 486 轮）：`;` 这一类终结符**已经进 `Data`**，
+语句壳此时才收得出含终结符的区间（见 `statement.xl.md` 的 `FormFrom`）。
+钩子是基类上的空方法（`core/syntax/token.xl.md` 的 `FormStatement`）——
+这一层**不能** import `statement.xl.md`（会绕出环），所以只发问、不收束。
 
 ```ts
 if (result.Message === 0) {

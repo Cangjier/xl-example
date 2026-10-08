@@ -65,12 +65,12 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 **为什么用反向走法、而不是「跳过已成形的成员」**（第 434 轮实测，前向那版有两个坑）：
 
-1. **「哪些类是成员」这份名单必然失准** ✗：前向版只认 `ClassMember` 子类，
+1. **「哪些类是成员」这份名单必然失准**：前向版只认 `ClassMember` 子类，
    而方法签名 / 索引签名 / 静态块现在还是原来的 `IndependentToken`
    （`MethodDeclaration` / `Signature` / `StaticBlock`）⇒ 走到它们时提前 `break`，
    `start` 落在那个单元身上，而调用方紧接着 `data.length = start` 就把它**从产物里删掉**了
    ——`lib.dom.d.ts` 因此丢掉 **5399** 个 `MethodSignature`；
-2. **trivia 该不该推进起点** ✗：前向版一开始写「trivia 只跳过、不推进」，
+2. **trivia 该不该推进起点**：前向版一开始写「trivia 只跳过、不推进」，
    于是没有 `;` 的成员（`{\n  a: number\n}`）头从前导软换行起算，区间多出那几格
    （实测 `PropertySignature` 给 `[85,97)` 而 TS 是 `[88,97)`）。
 
@@ -101,11 +101,11 @@ while (start > 0) {
 return start;
 ```
 
-**这条前向走法有个陷阱**（第 434 轮实测，`lib.dom.d.ts` 因此丢掉 5399 个 `MethodSignature`）✗：
+**这条前向走法有个陷阱**（第 434 轮实测，`lib.dom.d.ts` 因此丢掉 5399 个 `MethodSignature`）：
 它把「已成形的成员」认成只有 `ClassMember` 子类，而**方法签名 / 索引签名 / 静态块**
-现在还是原来的 `IndependentToken`（`MethodDeclaration` / `Signature` / `StaticBlock`）✗ ⇒
+现在还是原来的 `IndependentToken`（`MethodDeclaration` / `Signature` / `StaticBlock`） ⇒
 走到它们时**提前 `break`**，`start` 落在那个单元身上，而调用方紧接着 `data.length = start`
-就把它**从产物里删掉**了 ✗。
+就把它**从产物里删掉**了。
 
 **所以判别符分支改用「从名字往前只吃修饰词」这条反向走法**（不需要认识成员种类的全集）
 ——它只问「前一格是不是修饰词」，那份「哪些类是成员」的名单不必维护。
@@ -132,13 +132,13 @@ if (newest instanceof SymbolToken && newest.Is(";")) {
   // 而 TS 那边成员的区间**含**这个 `;`（`… | undefined;` 的 `PropertySignature` 是 `[135,171)`）。
   // 所以：就地签出到它的终点、把它从 `Data` 里摘掉，`EndIndex` 推到末尾（没有多吃的要还）。
   // **`;` 不进产物，但要留在 `Data` 里让规则去摘**（第 437 轮实测改正）：
-  // 第一版在解析期就把它 `RemoveSelf` 掉 ✗——可是绿树上它是**留在成员里**、
-  // 由成员自己那一趟重组里的 `WrapSymbolCloseRule` 摘掉的 ✓
-  //（所以绿形状里看不到它 ✓）。提前摘掉有两个后果：体的语句层会把它包成一个空
-  // `<Statement>` ✗（还给体那一版），以及**重组里那些成员规则再也看不到它** ✗ ——
+  // 第一版在解析期就把它 `RemoveSelf` 掉——可是绿树上它是**留在成员里**、
+  // 由成员自己那一趟重组里的 `WrapSymbolCloseRule` 摘掉的
+  //（所以绿形状里看不到它）。提前摘掉有两个后果：体的语句层会把它包成一个空
+  // `<Statement>`（还给体那一版），以及**重组里那些成员规则再也看不到它** ——
   // 实测 `undici-types/eventsource.d.ts`：`close(): void` 那个方法签名（仍旧由重构造）
-  // 一路吞到文件末尾 ✗、后面 115 个节点全缺 ✗。
-  // 区间仍要**含**它：TS 那边成员区间含这个 `;`（`… | undefined;` 是 `[135,171)`）✓。
+  // 一路吞到文件末尾、后面 115 个节点全缺。
+  // 区间仍要**含**它：TS 那边成员区间含这个 `;`（`… | undefined;` 是 `[135,171)`）。
   this.Ended = true;
   if (newest.SourceRange.End !== null && this.SourceRange.End === null) {
     this.SignOut(newest.SourceRange.End);
@@ -163,14 +163,14 @@ if (this.PendingWrap >= 0 && (IsMemberBoundary(data, this.PendingWrap) || this.F
 
 **下一行是不是「名字 + 形参表」那种成员**（方法 / 方法签名 / 构造器……）。
 
-**为什么不能只靠 `IsMemberBoundary`** ✗（第 437 轮实测）：它要求换行后「跨过名字与修饰词紧跟
-`:` / `?:` / **`(`** / `=` / `;`」——`(` 那一支是按**符号单元**写的 ✗，
-可在解析期，`(` 早就被 `Bracket.JumpIn` 开成了一个**括号单元** ✗ ⇒ 那一条**永不成立** ✗，
+**为什么不能只靠 `IsMemberBoundary`**（第 437 轮实测）：它要求换行后「跨过名字与修饰词紧跟
+`:` / `?:` / **`(`** / `=` / `;`」——`(` 那一支是按**符号单元**写的，
+可在解析期，`(` 早就被 `Bracket.JumpIn` 开成了一个**括号单元** ⇒ 那一条**永不成立**，
 于是「字段在前、方法在后」时前一个成员不收尾（实测
-`lex-ident-underscore-positions.ts` 的 `IN_IT: number` 把 `_do_it(a_b: number): void` 整个吞了 ✗）。
+`lex-ident-underscore-positions.ts` 的 `IN_IT: number` 把 `_do_it(a_b: number): void` 整个吞了）。
 
-判据只看已经读到的单元：跳过换行后的名字与修饰词（最多 4 跳 ✗ 与共用那条同款），
-下一格是 `(` 开头的括号就算 ✓。
+判据只看已经读到的单元：跳过换行后的名字与修饰词（最多 4 跳 与共用那条同款），
+下一格是 `(` 开头的括号就算。
 
 ```ts
 let probe = SkipNextWrapSymbol(units, wrapIndex);
@@ -195,19 +195,19 @@ return next instanceof Bracket && next.startBracket === "(";
 
 **还回去的是「单元」不是「字符」**（第 434 轮实测改正）：第一版照 `IfStatement` 把**字符**逐个
 还回去、让上一层重新词法化——可 `Identifier.AppendIn` 会**跳过软换行往前接**（`a` 换行 `.b`
-那种续行正是它的正常用法），于是 `readonly c` 里的 `readonly` 与 `c` 被并成**一个词** ✗
-（实测 `itf-basic.ts` 第三个成员的名字成了 `readonlyc` ✗，投影里 `ReadonlyKeyword` 与
-`Identifier c` 双双丢失 ✗）。**词搬家**没有这一步：单元的形状已经定下来了，搬过去只换父亲
+那种续行正是它的正常用法），于是 `readonly c` 里的 `readonly` 与 `c` 被并成**一个词**
+（实测 `itf-basic.ts` 第三个成员的名字成了 `readonlyc`，投影里 `ReadonlyKeyword` 与
+`Identifier c` 双双丢失）。**词搬家**没有这一步：单元的形状已经定下来了，搬过去只换父亲
 （`IfSet.GiveBack` 用的正是这一套；**开着的词原样搬**，不在这里关它）。
 
 体那个 `}` 也走这里（成员挂上之后 `}` 只送得到成员手上，要还回去让体自己收尾）。
 
 ```ts
 if (source.Value === "}" && this.Ended === false) {
-  // **不要覆盖已经立起来的边界** ✗（第 434 轮实测）：换行那一支（ASI）可能**早就**把
+  // **不要覆盖已经立起来的边界**（第 434 轮实测）：换行那一支（ASI）可能**早就**把
   // `Ended` 立起来了，而退出要等「下一个字符」才发生——那个字符往往正是体的 `}`。
   // 无条件改写的话，`b?: string` 换行 `readonly c: boolean` 里的第一个成员
-  // 会把第二个成员整个吞掉（实测 `PropertySignature` 给 `[97,129)` 而 TS 是 `[97,107)`）✗。
+  // 会把第二个成员整个吞掉（实测 `PropertySignature` 给 `[97,129)` 而 TS 是 `[97,107)`）。
   this.EndIndex = this.Data.length - 1;
   this.Ended = true;
 }

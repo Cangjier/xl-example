@@ -49,7 +49,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 整份文件 → `SourceFile`（**从 `ts-ast.xl.md` 中央 `switch` 的 `case "Root"` 搬来**，第 192 轮）。
 
 根的子单元就是语句表（`Root > Statement*`），照 `children` 段逐条投成
-`SourceFile.statements` ✓（`pos` / `end` 由 `ctx.Node` 按这个单元自己的区间给）。
+`SourceFile.statements`（`pos` / `end` 由 `ctx.Node` 按这个单元自己的区间给）。
 
 ```ts
   return ctx.Node("SourceFile", { statements: ctx.ProjectEach(ctx.KidsOf(v, "children")) }, v);

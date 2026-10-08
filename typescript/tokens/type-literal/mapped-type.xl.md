@@ -20,7 +20,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 判定放在 `TypeLiteralCloseRule.Process` 里（**不新增规则**）：
 那对花括号已经在类型位、也已经由 `TypeLiteralCloseRule.Previous` 认领，
 区别只在这对括号的内容——**第一个实义单元是 `[` 括号、而那个括号里有顶层的 `in`** ⇒ 映射类型。
-`{ [key: string]: number }` 那种**索引签名**没有 `in`，仍然收成 `TypeLiteral` ✓。
+`{ [key: string]: number }` 那种**索引签名**没有 `in`，仍然收成 `TypeLiteral`。
 
 与 `TypeLiteral` 的另一处不同：映射类型的内容**直接装在自己身上**（它只有一个成员，
 再套一层 `TypeLiteralBody` 只是噪声），所以 `MappedType` 自己挂语句队列，成员在这里成形。

@@ -37,35 +37,35 @@ import { TryBody } from "./try-body.xl.md"
 
 `index` 处是不是 `try` 关键字。
 
-**只看「是不是这个名字」是不够的** ✗（第 331 轮 ✓）——**这一条是实测逼出来的** ✓。
-`try` 在 JS 里**合法地**能当属性名 ✓：`{ try: 1 }` ✓、`o.try` ✓、`o.try = 5` ✓，
-而 `Promise.try` 从 ES2025 起**是一个标准方法** ✓（第 331 轮刚把它做出来 ✓）。
-原来这一支只问「这个 `Identifier` 的文本是不是 `try`」✓ ⇒ 上面每一种写法都会被它**抢走** ✓，
-紧接着 `Process` 发现后面不是 `{` ⇒ 抛 `SyntaxException` ✓ ⇒
-**整份文件进不来** ✗（`throw by line 0 --->` ✓——**一句话里没有一个字提到 `try`** ✓，
-看起来像「语法层坏了」✗）。实测：`const o = { try: 1 }` ✓、`o.try = 5` ✓、
-`console.log(typeof Promise.try)` ✓ 三条**一起**是红的 ✓，
-而同族的 `catch` / `class` / `if` / `new` / `typeof` 当属性名**全是好的** ✓
-（它们的规则各有各的位置闸 ✓，只有这一支漏了 ✓）。
+**只看「是不是这个名字」是不够的**（第 331 轮）——**这一条是实测逼出来的**。
+`try` 在 JS 里**合法地**能当属性名：`{ try: 1 }`、`o.try`、`o.try = 5`，
+而 `Promise.try` 从 ES2025 起**是一个标准方法**（第 331 轮刚把它做出来）。
+原来这一支只问「这个 `Identifier` 的文本是不是 `try`」 ⇒ 上面每一种写法都会被它**抢走**，
+紧接着 `Process` 发现后面不是 `{` ⇒ 抛 `SyntaxException` ⇒
+**整份文件进不来**（`throw by line 0 --->`——**一句话里没有一个字提到 `try`**，
+看起来像「语法层坏了」）。实测：`const o = { try: 1 }`、`o.try = 5`、
+`console.log(typeof Promise.try)` 三条**一起**是红的，
+而同族的 `catch` / `class` / `if` / `new` / `typeof` 当属性名**全是好的**
+（它们的规则各有各的位置闸，只有这一支漏了）。
 
-**闸就架在「这一条规则自己要什么」上** ✓：`Process` 的第一件事是要求
-**紧跟一个 `{` 块** ✓（否则它自己就抛 `next is not Bracket` ✓）——
-所以「后面真的跟一个 `{` 块」本来就是这条规则的**前提** ✓，
-把前提提到 `Previous` 里，这一支就从「抢了再抛」变成「**不是我的让开**」✓。
-**没有另加一套位置判据** ✗（`IsStatementStart` 那一套在这里答不了 ✓：
-`o.try = 5` 里 `try` 前面是一个 `.` 符号 ✓、`{ try: 1 }` 里它前面是 `{` ✓，
-两处的「前一个单元」都不是 `Identifier`/`String` ✓ ⇒ 那一支会说「是语句开头」✗）。
+**闸就架在「这一条规则自己要什么」上**：`Process` 的第一件事是要求
+**紧跟一个 `{` 块**（否则它自己就抛 `next is not Bracket`）——
+所以「后面真的跟一个 `{` 块」本来就是这条规则的**前提**，
+把前提提到 `Previous` 里，这一支就从「抢了再抛」变成「**不是我的让开**」。
+**没有另加一套位置判据**（`IsStatementStart` 那一套在这里答不了：
+`o.try = 5` 里 `try` 前面是一个 `.` 符号、`{ try: 1 }` 里它前面是 `{`，
+两处的「前一个单元」都不是 `Identifier`/`String` ⇒ 那一支会说「是语句开头」）。
 
-**代价写在明处** ✗：`try` 后面**不是**块的那种输入（本来就非法 ✓，`try x;` ✓）
-从「一条语法异常」变成「这一支不管它」✓——它接下来会当成普通标识符 ✓。
+**代价写在明处**：`try` 后面**不是**块的那种输入（本来就非法，`try x;`）
+从「一条语法异常」变成「这一支不管它」——它接下来会当成普通标识符。
 
 ```ts
 const current = Get(units, index);
 if (current instanceof Identifier) {
   if (!current.Is("try")) return false;
-  // **后面必须真的跟一个 `{` 块** ✓（软换行**与注释**都要跳过去 ✓：
-  // `try` 与 `{` 之间夹一条注释是日常写法 ✓，而注释在 TypeScript 里是 trivia ✓
-  // ⇒ 只跳软换行会把 `try /* c */ { }` 判成「不是我的」✗，整条语句退化成一个 `ExpressionStatement` ✓）。
+  // **后面必须真的跟一个 `{` 块**（软换行**与注释**都要跳过去：
+  // `try` 与 `{` 之间夹一条注释是日常写法，而注释在 TypeScript 里是 trivia
+  // ⇒ 只跳软换行会把 `try /* c */ { }` 判成「不是我的」，整条语句退化成一个 `ExpressionStatement`）。
   const after = SkipNextTrivia(units, index);
   const next = Get(units, after);
   if (next === null) return false;
@@ -78,16 +78,16 @@ return false;
 
 执行重组：扫描并打包整个 `try` 结构，**返回新的下标**——`units` 在这里被就地改写，下标也变了。
 
-跳过 **trivia**（软换行与注释 ✓）找下一个单元一律走 `SkipNextTrivia(units, endIndex)`；
+跳过 **trivia**（软换行与注释）找下一个单元一律走 `SkipNextTrivia(units, endIndex)`；
 抛 `SyntaxException` 时第三个参数（内层异常）显式给 `null`。
 
 **为什么跳的是 trivia**（第 595 轮）：`try /* c */ { }` / `catch /* c */ { }` 在 TypeScript 里
-都是 `TryStatement` ✓，而只跳软换行会撞上注释 ✗ ⇒ `next is not Bracket` ⇒ 整条语句
-退化成一个 `ExpressionStatement` ✓（实测 `try /* c */ { } catch { }`：
+都是 `TryStatement`，而只跳软换行会撞上注释 ⇒ `next is not Bracket` ⇒ 整条语句
+退化成一个 `ExpressionStatement`（实测 `try /* c */ { } catch { }`：
 缺 `TryStatement` 1 + 两个 `Block` + `CatchClause`，多出 `ExpressionStatement` 1）。
-**跨过的注释由 `CommentsIn` 收进 `result`** ✓——不收就等于删掉 ✓（它们落在被替换的那一段里 ✓）。
-**没有 `finally` 时那一步回退也走 trivia** ✓：`endIndex--` 会退到注释上 ✗，
-而注释的右端在体之后 ⇒ `Try` 的范围被拉长 ✓。
+**跨过的注释由 `CommentsIn` 收进 `result`**——不收就等于删掉（它们落在被替换的那一段里）。
+**没有 `finally` 时那一步回退也走 trivia**：`endIndex--` 会退到注释上，
+而注释的右端在体之后 ⇒ `Try` 的范围被拉长。
 
 ```ts
 const current = Get(units, index)!;
@@ -109,8 +109,8 @@ tryBody.SignIn(bracket.SourceRange.Start!);
 tryBody.SignOut(bracket.SourceRange.End!);
 bracket.MoveDataTo(tryBody);
 tryBody.TryToClose();
-// **体的花括号当场记进字段** ✓（第 586 轮 ✓）：投影于是不用回原文里找那一对括号 ✓
-//（见下面 `Try.TryBrace` 那一处的说明 ✓）。
+// **体的花括号当场记进字段**（第 586 轮）：投影于是不用回原文里找那一对括号
+//（见下面 `Try.TryBrace` 那一处的说明）。
 result.TryBrace.Set(bracket.SourceRange.Start!.Index, bracket.SourceRange);
 // endIndex 就是 tryBody 的下标
 const tryBodyEndIndex = endIndex;
@@ -212,12 +212,12 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ## field TryBrace:TokenField<number> = new TokenField<number>(-1)
 
-`try` 体那一对花括号：**值是开括号的偏移** ✓，`Range` 是**整对括号**（含两边 ✓）。
+`try` 体那一对花括号：**值是开括号的偏移**，`Range` 是**整对括号**（含两边）。
 
-**为什么要有这一格** ✗：投影原来**回原文里找** ✓——`ctx.source.indexOf("{", tryAt)` 再 `ctx.MatchingBrace` ✓
-（见下面 `PrintAst` 第 586 轮之前那一版 ✓）。那是**第二份位置答案** ✗：块里的字符串与注释同样有
-花括号 ✓，而打包那一刻（`TryCloseRule.Process` ✓）**括号就在手上** ✓ ⇒ 当场记下来 ✓，
-投影只读这一格 ✓。`TokenField` 的「值 + 区间」正好装下「开括号在哪、整对到哪」 ✓。
+**为什么要有这一格**：投影原来**回原文里找**——`ctx.source.indexOf("{", tryAt)` 再 `ctx.MatchingBrace`
+（见下面 `PrintAst` 第 586 轮之前那一版）。那是**第二份位置答案**：块里的字符串与注释同样有
+花括号，而打包那一刻（`TryCloseRule.Process`）**括号就在手上** ⇒ 当场记下来，
+投影只读这一格。`TokenField` 的「值 + 区间」正好装下「开括号在哪、整对到哪」。
 
 ## field CatchWord:TokenField<number> = new TokenField<number>(-1)
 
@@ -259,11 +259,11 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
 ```ts
   const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !ctx.Invisible.has(k.get("type")));
   const props: any = {};
-  // **三段花括号的坐标全部读字段** ✓（第 586 轮 ✓）：`TryCloseRule.Process` 打包那一刻
-  // 括号就在手上 ✓ ⇒ 当场记进 `TryBrace` / `CatchBrace` / `FinallyBrace` ✓。
-  // **不再回原文里找** ✗：原来那两句是 `ctx.source.indexOf("{", …)` + `ctx.MatchingBrace` ✓，
-  // 而块里的字符串与注释同样有花括号 ✓ —— 那是**第二份位置答案** ✓（而且它与 token 的区间
-  // 可能不一致 ✓，尺子上就是「漂移 + 多出」成对出现 ✓）。
+  // **三段花括号的坐标全部读字段**（第 586 轮）：`TryCloseRule.Process` 打包那一刻
+  // 括号就在手上 ⇒ 当场记进 `TryBrace` / `CatchBrace` / `FinallyBrace`。
+  // **不再回原文里找**：原来那两句是 `ctx.source.indexOf("{", …)` + `ctx.MatchingBrace`，
+  // 而块里的字符串与注释同样有花括号 —— 那是**第二份位置答案**（而且它与 token 的区间
+  // 可能不一致，尺子上就是「漂移 + 多出」成对出现）。
   const blockOf = (field: any, statements: any) => {
     const range = field.Range;
     if (range === null || range.Start === null || range.End === null) return undefined;
@@ -295,8 +295,8 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
       }
     }
     if (catchBody !== undefined) inner.block = ctx.Project(catchBody);
-    // **`catch` 那个词的位置也读字段** ✓：`CatchWord` 是打包时记下的关键字偏移 ✓
-    //（原来用 `ctx.source.lastIndexOf("catch", anchor)` ✓ —— 同一个位置，但那是回原文找 ✓）。
+    // **`catch` 那个词的位置也读字段**：`CatchWord` 是打包时记下的关键字偏移
+    //（原来用 `ctx.source.lastIndexOf("catch", anchor)` —— 同一个位置，但那是回原文找）。
     const at = this.CatchWord.Value >= 0 ? this.CatchWord.Value : ctx.StartOf(catchDefine !== undefined ? catchDefine : catchBody);
     props.catchClause = {
       kind: "CatchClause",
@@ -305,9 +305,9 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
       ...inner,
     };
   }
-  // **空的 `finally { }` 也要造块** ✓（第 177 轮 ✓）：按语句数判会把它整个跳过 ✓，
-  // 而 TS 那边照样有一个空 `Block` ✓ —— 这一格现在由 `FinallyBrace` 直接给出 ✓，
-  // 与体里有没有语句无关 ✓（原来要在**原文里找** `finally` 那个词、还要与 `StmtEndOf` 比 ✓）。
+  // **空的 `finally { }` 也要造块**（第 177 轮）：按语句数判会把它整个跳过，
+  // 而 TS 那边照样有一个空 `Block` —— 这一格现在由 `FinallyBrace` 直接给出，
+  // 与体里有没有语句无关（原来要在**原文里找** `finally` 那个词、还要与 `StmtEndOf` 比）。
   const finallyBlock = blockOf(this.FinallyBrace, ctx.ProjectEach(seg("finally"), "Block"));
   if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
   return ctx.NodeHead("TryStatement", props, v);
@@ -440,8 +440,8 @@ return result;
 ```ts
 const result = new Try(this.Template);
 result.Sign(this);
-// **五个位置字段都要抄** ✓：漏了克隆体就丢掉那三段花括号的坐标 ✓，
-// 投影于是退回「一个 `Block` 都不出」✗（与 `class.xl.md` 的 `Clone` 同一口径 ✓）。
+// **五个位置字段都要抄**：漏了克隆体就丢掉那三段花括号的坐标，
+// 投影于是退回「一个 `Block` 都不出」（与 `class.xl.md` 的 `Clone` 同一口径）。
 result.TryBrace = this.TryBrace;
 result.CatchWord = this.CatchWord;
 result.CatchBrace = this.CatchBrace;

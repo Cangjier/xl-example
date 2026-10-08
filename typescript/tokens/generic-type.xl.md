@@ -99,8 +99,8 @@ unit.AddToMounted(new GenericType(unit.Template)).SignIn(source);
 里 `<` 是那条**成员**的第一个单元，前面什么都没有——上面三支都不成立（没有名字、也没有
 `=` / `:` / `;` 之类的操作数起点符号），于是 `<T>` 退回裸符号、类型参数规则看不到 `GenericType`，
 TS 那边的 `CallSignatureDeclaration > TypeParameter` 就一直缺（实测：类型字面量与接口体里的
-**泛型调用签名**；同一位置带 `new` 的构造签名本来就成形，因为 `new` 那个词在宿主里 ✓）。
-理由与第二支相同：这个位置上按定义还没有操作数，`<…>` 只可能是类型参数段 ✓
+**泛型调用签名**；同一位置带 `new` 的构造签名本来就成形，因为 `new` 那个词在宿主里）。
+理由与第二支相同：这个位置上按定义还没有操作数，`<…>` 只可能是类型参数段
 （`<T>x` 那种类型断言在语句开头也早就被第二支放行了，所以这条不新增风险面）。
 
 ```ts
@@ -186,7 +186,7 @@ return false;
 **`;` 只在括号组里放行**（`groupDepth > 0`）：类型实参里的类型字面量成员用 `;` 分隔，
 `Promise<{` 换行 `publicKey: string;` 换行 `privateKey: string;` 换行 `}>` 是最常见的写法之一，
 `;` 一律中止的话这些类型实参整段认不出来（`crypto.d.ts` 一处就有几十个）。
-组外的 `;` 仍然是语句边界，照样中止 ✓。
+组外的 `;` 仍然是语句边界，照样中止。
 
 **`|` 与 `&` 是必须放进字母表的**：TypeScript 的类型实参到处是联合与交叉——
 `Array<string | number>`、`<I extends null | Writable, O extends null | Readable>`。
@@ -411,28 +411,28 @@ return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
 位置答案在括号**自己那一层**，所以那一支换宿主、换起点再问一次。
 
 `bounded` 是那一支专用的收窄（**只在递归那一趟为真**）：只走**当前这一条声明**，
-括号与语句壳都是边界。不放它的话这一趟会走出声明之外 ✗——函数体在解析期是**摊平在 `Root` 上的
+括号与语句壳都是边界。不放它的话这一趟会走出声明之外——函数体在解析期是**摊平在 `Root` 上的
 一堆 `Statement`**（`((` 那一格往前全是别的语句），回扫会一路穿到**上一条声明的** `:` / `=` / `type` 上，
-把 `while (at < units.length && …)` 里的 `<` 判成类型位 ✗
+把 `while (at < units.length && …)` 里的 `<` 判成类型位
 （实测 `typescript-exec/builtins/globals.ts`：整份文件散架，缺 5385 个 `Identifier`）。
-类型位那一档（`type X = K[A<B, C>]` / `let v: K[A<B, C>]`）**根本走不到那些壳** ✓——
-它撞上的是 `=` / `:` ✓。
+类型位那一档（`type X = K[A<B, C>]` / `let v: K[A<B, C>]`）**根本走不到那些壳**——
+它撞上的是 `=` / `:`。
 
 规则：
 
 - 宿主自己就是 `GenericType` → 类型位（嵌套 `Array<Array<T>>`、`Map<String, Int64>` 的内层直接成立）。
-- **宿主是一对方括号，而括号自己在类型位** → 类型位（第 644 轮 ✓）：
-  `K[A<B, C>]` 里那个 `<` 被读进来时，宿主是还没成形的 `[`（`TypeBracketCloseRule` 要等括号关闭才动 ✓），
-  它的 `Data` 里只有 `K` / `A` 两个**操作数** ⇒ 本地回扫到头只能答「表达式位」✗。
+- **宿主是一对方括号，而括号自己在类型位** → 类型位（第 644 轮）：
+  `K[A<B, C>]` 里那个 `<` 被读进来时，宿主是还没成形的 `[`（`TypeBracketCloseRule` 要等括号关闭才动），
+  它的 `Data` 里只有 `K` / `A` 两个**操作数** ⇒ 本地回扫到头只能答「表达式位」。
   而这一格问的其实是**那个方括号在不在类型位**——答案在括号自己那一层（它的前一个实义单元是
-  类型名，再往前是 `=` → `type` / `:`）✓。所以这一支**换宿主、换起点**把同一个问题再问一次 ✓
-  （起点是括号在父单元里的下标减一 ✓，不能从父单元的末尾回扫 ✗：那里有括号**后面**的东西 ✓）。
-  **只会把「否」翻成「是」，不会翻回去** ✓：括号不在类型位时这一支一句话不说 ✓，
-  本地那一趟照旧（值位对象字面量里的 `<T>()` 缺的正是这一支的反面 ✓）。
-  **只认方括号** ✗：`(` / `{` 走这条会当场踩到**函数体那个 `{`** ——
-  它的前一个实义单元正是返回类型里的 `:` ⇒ 整个函数体被判成类型位 ✗
+  类型名，再往前是 `=` → `type` / `:`）。所以这一支**换宿主、换起点**把同一个问题再问一次
+  （起点是括号在父单元里的下标减一，不能从父单元的末尾回扫：那里有括号**后面**的东西）。
+  **只会把「否」翻成「是」，不会翻回去**：括号不在类型位时这一支一句话不说，
+  本地那一趟照旧（值位对象字面量里的 `<T>()` 缺的正是这一支的反面）。
+  **只认方括号**：`(` / `{` 走这条会当场踩到**函数体那个 `{`** ——
+  它的前一个实义单元正是返回类型里的 `:` ⇒ 整个函数体被判成类型位
   （实测 `typescript-exec/builtins/globals.ts`：`while (at < units.length)` 里的 `<` 成了泛型开头，
-  整份文件散架，缺 5385 个 `Identifier`）。这一格要的只是 `K[…]` 那种**下标访问** ✓。
+  整份文件散架，缺 5385 个 `Identifier`）。这一格要的只是 `K[…]` 那种**下标访问**。
 - 最近的边界是 `:` / `?:` 或 `->` / `=>` → 类型位（类型标注、可选成员的标注、返回类型、`<:` 约束、
   函数类型的返回类型）。**`=>` 是第 58 轮补的**：`type F = () => Iterable<T> | AsyncIterable<T>`
   里 `<T>` 的扫描会先撞上 `=>`，不认它的话返回类型整段退回比较运算符
@@ -449,15 +449,15 @@ return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
   于是 `<T>` 退回比较运算符、整个类型**劈成两半**
   （实测 `let x: X | Foo<Bar>` 的产物：`<UnionType>X | Foo</UnionType><SymbolToken>&lt;</SymbolToken>…`）。
   透明而不是「见到 `|` 就判类型位」是必须的：`let x = a | Foo<Bar>` 在**值位**同样是这个形状，
-  透明过去才会撞上 `=` → `let`，判回表达式位 ✓（TypeScript 自己在这里也按比较运算符读）。
+  透明过去才会撞上 `=` → `let`，判回表达式位（TypeScript 自己在这里也按比较运算符读）。
 - **`?` 也是透明的**（第 66 轮补）：**条件类型真分支里的类型实参**是这个形状的常客
   （`T extends U ? F<A, B> : C`、`ApplyOptionalModifiers<T["options"], { … }>`）。
   原来扫到 `?` 就判表达式位，于是那次试读只允许后继是 `(`，
   `F<A, B>` 后面跟着的 `:` 过不了闸门——**整个泛型实参段退回符号**，
   条件类型跟着在 `,` 处收尾（实测 `lib.es2019.array.d.ts` 的元组类型与
   `@types/node/util.d.ts` 的 `T["options"]`，当时那把对齐尺子的缺节点两处全是它）。
-  透明之后会继续往前找真正的边界：类型位的条件类型会撞上 `extends`（⇒ 类型位 ✓），
-  值位三元里的比较式会撞上 `=` → `let` / `const`（⇒ 表达式位 ✓，
+  透明之后会继续往前找真正的边界：类型位的条件类型会撞上 `extends`（⇒ 类型位），
+  值位三元里的比较式会撞上 `=` → `let` / `const`（⇒ 表达式位，
   那里后继闸只放行 `(`，`a ? b < c > d : e` 照旧读成比较）。
   `?:` 仍然是**边界**（上面那条）——它是可选成员 / 可选参数的标注符号，不是条件类型的 `?`。
 - 最近的边界是 `=` → 记下「跨过赋值」继续往前找：再遇到 `type` 就是类型位（`type X = Array<Int64>` 的右端是类型），遇到 `let` / `var` / `const` 则是表达式位（`let x = Array<Int64>(3)` 的右端是值）。两个 `=` 之间没有结论也算表达式位。
@@ -520,25 +520,25 @@ for (let i = from >= 0 ? from : unit.Data.length - 1; i >= 0; i--) {
     if (text === ":" || text === "?:" || text === "->") {
       return true;
     }
-    // **`=>` 分两种**（第 178 轮）✓：函数类型的返回类型 ⇒ 类型位 ✓；
-    // 箭头函数的体 ⇒ **不是边界，继续往前找** ✓（与 `.` / `,` / `|` / `&` / `?` 同一条口径 ✓）。
+    // **`=>` 分两种**（第 178 轮）：函数类型的返回类型 ⇒ 类型位；
+    // 箭头函数的体 ⇒ **不是边界，继续往前找**（与 `.` / `,` / `|` / `&` / `?` 同一条口径）。
     //
     // 第 58 轮补 `=>` 时写的是「值位的箭头体不受影响——那里没有配对的 `>`，
-    // 后继闸本来就过不了」✗。**嵌套三元推翻了这句话** ✗：`x < y ? -1 : x > y ? 1 : 0`
-    // 里配对的 `>` 就在同一个箭头体里 ✓（`x > y` 的那个 ✓），于是后继闸放行 ✓、
-    // 回扫又撞上 `=>` 判类型位 ✓——`<` 成了泛型实参 ✓，比较器的标准写法变成**静默错值** ✗。
+    // 后继闸本来就过不了」。**嵌套三元推翻了这句话**：`x < y ? -1 : x > y ? 1 : 0`
+    // 里配对的 `>` 就在同一个箭头体里（`x > y` 的那个），于是后继闸放行、
+    // 回扫又撞上 `=>` 判类型位——`<` 成了泛型实参，比较器的标准写法变成**静默错值**。
     //
-    // 分辨办法与 `text-common-util.xl.md` 的 `IsTypeBracketPosition` **同一句** ✓：
-    // 问箭头**自己的形参表**在不在类型位 ✓——在 ⇒ 函数类型的返回类型 ⇒ 类型位 ✓；
-    // 不在 ⇒ 箭头函数的体 ⇒ **跳过形参表**继续往前找 ✓
-    //（`const f = (x, y) => x < y ? …` 会继续撞上 `=`→`const` ⇒ 表达式位 ✓；
-    //  `type F = () => Iterable<T>` 的形参表前面是 `=`→`type` ⇒ 类型位 ✓）。
+    // 分辨办法与 `text-common-util.xl.md` 的 `IsTypeBracketPosition` **同一句**：
+    // 问箭头**自己的形参表**在不在类型位——在 ⇒ 函数类型的返回类型 ⇒ 类型位；
+    // 不在 ⇒ 箭头函数的体 ⇒ **跳过形参表**继续往前找
+    //（`const f = (x, y) => x < y ? …` 会继续撞上 `=`→`const` ⇒ 表达式位；
+    //  `type F = () => Iterable<T>` 的形参表前面是 `=`→`type` ⇒ 类型位）。
     //
-    // **形参表正好在这一格的头部时问不出去** ✗（`write?: ((…args) => Promise<boolean>) | undefined`
-    // 实测：`unit.Data` 是 `[Bracket(形参), =>, Promise]` ✓，形参表在下标 0 ✓）——
-    // 这一格**跳过**它 ✓，扫到头的兜底那句会问「这个容器自己在不在类型位」✓（`?:` ⇒ 类型位 ✓）。
-    // 少了这一条，`Promise<boolean>` 会退回比较运算符 ✓（实测三份 `.d.ts` 的 `TypeReference`
-    // 各缺一截、`UnionType` 还多带上 `typeArguments` ✓）。
+    // **形参表正好在这一格的头部时问不出去**（`write?: ((…args) => Promise<boolean>) | undefined`
+    // 实测：`unit.Data` 是 `[Bracket(形参), =>, Promise]`，形参表在下标 0）——
+    // 这一格**跳过**它，扫到头的兜底那句会问「这个容器自己在不在类型位」（`?:` ⇒ 类型位）。
+    // 少了这一条，`Promise<boolean>` 会退回比较运算符（实测三份 `.d.ts` 的 `TypeReference`
+    // 各缺一截、`UnionType` 还多带上 `typeArguments`）。
     if (text === "=>") {
       const parameterAt = SkipPreviousWrapSymbol(unit.Data, i);
       const parameters = parameterAt >= 0 ? unit.Data[parameterAt] : null;
@@ -558,14 +558,14 @@ for (let i = from >= 0 ? from : unit.Data.length - 1; i >= 0; i--) {
     // **语句边界的 `;`**（第 144 轮）：`<T>x;` 换行 `<T[]>xs` 这种写法里，第二个 `<` 回扫
     // 先撞上前一条语句的 `;`——而 `<` 左边一个操作数都没有，它只能是**类型断言的类型**
     // （一条语句以 `<` 开头时，TypeScript 只可能按类型断言读）。
-    // 有操作数时（`a;` 换行 `b < c > d`）`sawOperand` 已经为真，照旧判表达式位 ✓。
+    // 有操作数时（`a;` 换行 `b < c > d`）`sawOperand` 已经为真，照旧判表达式位。
     if (text === ";") {
       return sawOperand === false;
     }
     return false;
   }
   if (item instanceof Bracket) {
-    // **递归那一趟里括号就是边界**（第 644 轮）：见 `bounded` 那一段的账 ✓。
+    // **递归那一趟里括号就是边界**（第 644 轮）：见 `bounded` 那一段的账。
     if (bounded) {
       return false;
     }
@@ -627,7 +627,7 @@ for (let i = from >= 0 ? from : unit.Data.length - 1; i >= 0; i--) {
         // 尖括号类型断言整族因此站不住（实测 `ex-angle-cast.ts` / `expr-angle-assertion.ts`）。
         //
         // `sawOperand` 是分水岭：`let x = a < b` 回扫会先撞上那个 `a`（`sawOperand` 为真），
-        // 仍旧判表达式位 ✓；只有「`=` 到声明关键字之间**一个操作数都没有**」才翻成类型位——
+        // 仍旧判表达式位；只有「`=` 到声明关键字之间**一个操作数都没有**」才翻成类型位——
         // 那个位置上 `<…>` 只可能是类型参数段 / 类型断言的类型。
         return !crossedAssignment || sawOperand === false;
       default:
@@ -637,7 +637,7 @@ for (let i = from >= 0 ? from : unit.Data.length - 1; i >= 0; i--) {
     // 不是操作数：`const c = <string>x` 的回扫顺序是 `=` → `c` → `const`，
     // 把 `c` 记成「看见操作数」会让声明关键字那一支判回表达式位（第 144 轮）。
     // 判定只看**位置**（紧跟在 `=` 之后），所以 `let x = a < b` 里的 `a` 不受影响——
-    // 那个 `a` 在 `=` **之前**就被扫到了 ✓。
+    // 那个 `a` 在 `=` **之前**就被扫到了。
     if (justCrossedAssignment) {
       justCrossedAssignment = false;
       continue;
@@ -657,15 +657,15 @@ for (let i = from >= 0 ? from : unit.Data.length - 1; i >= 0; i--) {
   //
   // 放行的风险由「多找几格」兜住：回扫会一直走到真正的边界（`:` / `=` / `;` / 括号 / 语句关键词），
   // 那些边界给出的结论才是本方法要的答案。值位的比较式（`let x = a[0] < b`）会在
-  // 括号那一支停下、或者一路走到 `=` / `let` 判回表达式位 ✓。
+  // 括号那一支停下、或者一路走到 `=` / `let` 判回表达式位。
   //
   // **唯一的例外是「只装着注释的 `Statement`」**（第 144 轮）：`// xl:note …` 那种行在本工程
   // 是一层 `Statement` 包着一个注释单元，而 `<T>x;` 这类**语句开头**的类型断言前面正好是它。
   // 把它算成「看见操作数」，回扫就再也翻不成类型位（实测 `expr-angle-assertion.ts`）。
   const triviaOnly =
     item.constructor.name === "Statement" && item.Data.every((x) => IsTriviaUnit(x));
-  // **递归那一趟只走当前这一条声明**（第 644 轮）：语句壳不是操作数，是**边界** ✓——
-  // 见 `bounded` 那一段的账 ✓。
+  // **递归那一趟只走当前这一条声明**（第 644 轮）：语句壳不是操作数，是**边界**——
+  // 见 `bounded` 那一段的账。
   if (bounded) {
     return false;
   }
@@ -696,35 +696,35 @@ return false;
 
 ## private method IsOperandStartUnit:(unit:Token)=>bool
 
-**宿主这一格是不是「`<` 前面还没有左操作数」** ✓（第 379 轮 ✓）——名字闸与后继闸**共用它** ✓。
+**宿主这一格是不是「`<` 前面还没有左操作数」**（第 379 轮）——名字闸与后继闸**共用它**。
 
-**为什么需要它** ✗：`f<T>(…)` / `Array<T>` 这类泛型前面**有一个名字** ✓（走名字闸的第一支 ✓），
-而 `<T>x` 这种**尖括号断言**前面**什么都没有** ✓——它只可能出现在**操作数位置**上 ✓：
-语句（或实参）的开头 ✓、`=` / `=>` / `:` / `;` / `,` 之后 ✓、括号与软换行之后 ✓、
-以及**二元运算符之后** ✓（`a + <number>b` ✓——第 379 轮补的就是最后这一档 ✗）。
+**为什么需要它**：`f<T>(…)` / `Array<T>` 这类泛型前面**有一个名字**（走名字闸的第一支），
+而 `<T>x` 这种**尖括号断言**前面**什么都没有**——它只可能出现在**操作数位置**上：
+语句（或实参）的开头、`=` / `=>` / `:` / `;` / `,` 之后、括号与软换行之后、
+以及**二元运算符之后**（`a + <number>b`——第 379 轮补的就是最后这一档）。
 
-**原来只列了前几档** ✗：运算符之后那一格没列 ✓ ⇒ `a + <number>b` 里的 `<` 连名字闸都过不了 ✓
-⇒ 退回比较运算符 ✓ ⇒ `number` 被当成值 ✓（降级层报 `name is not a local or a capture: number` ✓）。
+**原来只列了前几档**：运算符之后那一格没列 ⇒ `a + <number>b` 里的 `<` 连名字闸都过不了
+⇒ 退回比较运算符 ⇒ `number` 被当成值（降级层报 `name is not a local or a capture: number`）。
 
-**列进运算符是安全的** ✓：那个位置上按定义**还没有操作数** ✓，
-所以 `< b > c` 只可能是断言 `<b>c` ✓，读不成「谁小于 b」✗——
-而真正的比较式 `a + b < c > d` 里 `<` 前面是 `b`（一个名字 ✓）⇒ 这一支不成立 ✓。
-**`<` / `>` 自己不列** ✗（`a < <T>b` 不是合法写法 ✓，列进去只会给比较链开口子 ✓）。
+**列进运算符是安全的**：那个位置上按定义**还没有操作数**，
+所以 `< b > c` 只可能是断言 `<b>c`，读不成「谁小于 b」——
+而真正的比较式 `a + b < c > d` 里 `<` 前面是 `b`（一个名字）⇒ 这一支不成立。
+**`<` / `>` 自己不列**（`a < <T>b` 不是合法写法，列进去只会给比较链开口子）。
 
 ```ts
-  // **宿主还是空的**（语句 / 实参的开头 ✓）：按定义还没有操作数 ✓。
+  // **宿主还是空的**（语句 / 实参的开头）：按定义还没有操作数。
   if (unit.Data.length === 0) {
     return true;
   }
   const last = unit.Last();
   if (last instanceof SymbolToken) {
-    // **赋值 / 声明那几档** ✓（原来就有的 ✓）——
-    // `let x = <T>…` ✓、`type X = <T>() => T` ✓、`f(a, <T>b)` ✓。
+    // **赋值 / 声明那几档**（原来就有的）——
+    // `let x = <T>…`、`type X = <T>() => T`、`f(a, <T>b)`。
     if (last.Is("=") || last.Is("=>") || last.Is(":") || last.Is(";") || last.Is(",")) {
       return true;
     }
-    // **运算符那一档** ✗（第 379 轮 ✓）：`a + <T>b` ✓、`a ? <T>b : c` ✓、`!<T>x` ✓。
-    // 只列**会带一个右操作数**的那些 ✓——`<` / `>` / `)` / `]` / `}` 都不列 ✓。
+    // **运算符那一档**（第 379 轮）：`a + <T>b`、`a ? <T>b : c`、`!<T>x`。
+    // 只列**会带一个右操作数**的那些——`<` / `>` / `)` / `]` / `}` 都不列。
     const symbolText = last.TempToString();
     if (
       symbolText === "+" || symbolText === "-" || symbolText === "*" || symbolText === "/"
@@ -739,12 +739,12 @@ return false;
       return true;
     }
   }
-  // **括号 / 软换行** ✓（原来就有的 ✓）：`(<T>x)` ✓、折行之后的 `<T>x` ✓。
+  // **括号 / 软换行**（原来就有的）：`(<T>x)`、折行之后的 `<T>x`。
   if (last instanceof Bracket || last instanceof LineWrap) {
     return true;
   }
-  // **关键词那一档** ✓：`typeof` / `void` / `delete` / `await` / `in` / `instanceof` /
-  // `return` / `case` / `do` / `else` 之后都是一个操作数 ✓。
+  // **关键词那一档**：`typeof` / `void` / `delete` / `await` / `in` / `instanceof` /
+  // `return` / `case` / `do` / `else` 之后都是一个操作数。
   if (last instanceof Keyword) {
     const word = last.Value;
     return word === "typeof" || word === "void" || word === "delete" || word === "await"
@@ -806,42 +806,42 @@ if (item === "/" && index + 1 < document.GetCount() && (document.GetValue(index 
   return isTypePosition;
 }
 if (!isTypePosition) {
-  // **表达式位里那个「只许 `(`」的例外：尖括号断言** ✗（第 379 轮 ✓）。
+  // **表达式位里那个「只许 `(`」的例外：尖括号断言**（第 379 轮）。
   //
-  // 那个「只许 `(`」的口径是给**比较式**用的 ✓（`a < b > (c)` 里 `<…>` 后面必须紧跟 `(` ✓，
-  // 这是 TS 在表达式位唯一敢认的泛型形状 ✓）。
-  // 可**操作数位置上**的 `<` 是另一回事 ✓：它前面**没有左操作数** ✓
-  // ⇒ 只可能是**尖括号断言** `<T>x` ✓（TS 自己就是这么读的 ✓，
-  // `print-ast-common.xl.md` 第 1833 / 1855 行那两条投影规则等的正是它 ✓）。
+  // 那个「只许 `(`」的口径是给**比较式**用的（`a < b > (c)` 里 `<…>` 后面必须紧跟 `(`，
+  // 这是 TS 在表达式位唯一敢认的泛型形状）。
+  // 可**操作数位置上**的 `<` 是另一回事：它前面**没有左操作数**
+  // ⇒ 只可能是**尖括号断言** `<T>x`（TS 自己就是这么读的，
+  // `print-ast-common.xl.md` 第 1833 / 1855 行那两条投影规则等的正是它）。
   //
-  // **少了这一条例外会怎样** ✗：`a + <number>b` 里那个 `<` 走不进泛型这一支 ✓
-  //（名字闸先把它挡了 ✓，见下面 `IsOperandStartUnit` 那一段 ✓），
-  // 于是它退回**比较运算符** ✓、`number` 变成一个**值** ✗ ⇒ 降级层报
-  // `name is not a local or a capture: number` ✓（判据 `c371-ex-type-assertions-in-operands` ✓）。
+  // **少了这一条例外会怎样**：`a + <number>b` 里那个 `<` 走不进泛型这一支
+  //（名字闸先把它挡了，见下面 `IsOperandStartUnit` 那一段），
+  // 于是它退回**比较运算符**、`number` 变成一个**值** ⇒ 降级层报
+  // `name is not a local or a capture: number`（判据 `c371-ex-type-assertions-in-operands`）。
   //
-  // **`<` 前面有左操作数时这一条不成立** ✓（`IsOperandStartUnit` 为假 ✓）——
-  // 所以 `a < b > c` 那种比较式一位都没动 ✓。
+  // **`<` 前面有左操作数时这一条不成立**（`IsOperandStartUnit` 为假）——
+  // 所以 `a < b > c` 那种比较式一位都没动。
   if (item === "(") {
     return true;
   }
   if (this.IsOperandStartUnit(unit)) {
-    // **`last` 是一个已关闭的括号时，左边其实有操作数** ✗（第 589 轮实测）：
+    // **`last` 是一个已关闭的括号时，左边其实有操作数**（第 589 轮实测）：
     // `IsOperandStartUnit` 那一支（`last instanceof Bracket ⇒ true`）本意是给
-    // 「`(<T>x)`」与「折行之后的 `<T>x`」用的 ✓，可它把**元素访问**也算进去了 ✗——
-    // `digits[d] < 48` 的 `<` 因此被当成操作数位上的断言 ✓ ⇒ 放行数字之后整条比较式
-    // 退化成断言 ✓（实测 `dist/ts/typescript-exec/builtins/array.ts` 缺 11）。
-    // 所以这里再问一句：`last` 是**已经关上的**括号 ⇒ 按「有左操作数」处理 ✓。
+    // 「`(<T>x)`」与「折行之后的 `<T>x`」用的，可它把**元素访问**也算进去了——
+    // `digits[d] < 48` 的 `<` 因此被当成操作数位上的断言 ⇒ 放行数字之后整条比较式
+    // 退化成断言（实测 `dist/ts/typescript-exec/builtins/array.ts` 缺 11）。
+    // 所以这里再问一句：`last` 是**已经关上的**括号 ⇒ 按「有左操作数」处理。
     const last = unit.Last();
     if (last instanceof Bracket && last.Closed) {
       return false;
     }
-    // **操作数位上的 `<T>` 后面跟什么都是被断言的那个操作数** ✓（第 589 轮 ✓）：
-    // `<T>x` / `<T>{ … }` / `<T>[ … ]` / `<T>( … )` / `<T>1` / `<T>"s"` 都是断言 ✓——
-    // 前面**没有左操作数** ✓ ⇒ 后面那一格只可能是操作数 ✓，不可能是比较式的右边 ✓。
+    // **操作数位上的 `<T>` 后面跟什么都是被断言的那个操作数**（第 589 轮）：
+    // `<T>x` / `<T>{ … }` / `<T>[ … ]` / `<T>( … )` / `<T>1` / `<T>"s"` 都是断言——
+    // 前面**没有左操作数** ⇒ 后面那一格只可能是操作数，不可能是比较式的右边。
     //
-    // **原来只放行「字母」** ✗：`<{ n: number }>{ n: 1 }` 的 `<` 于是退回比较运算符 ✓
-    // ⇒ 那个 `{` 按值位收成 `ObjectLiteral` ✓ ⇒ 投影出来的断言**类型**是一个
-    // `ObjectLiteralExpression` ✗（TS 那边是 `TypeLiteral` + `PropertySignature`）✓。
+    // **原来只放行「字母」**：`<{ n: number }>{ n: 1 }` 的 `<` 于是退回比较运算符
+    // ⇒ 那个 `{` 按值位收成 `ObjectLiteral` ⇒ 投影出来的断言**类型**是一个
+    // `ObjectLiteralExpression`（TS 那边是 `TypeLiteral` + `PropertySignature`）。
     return (
       unit.Template.SymbolTemplate.IsLetter(item) ||
       item === "_" ||
@@ -904,16 +904,16 @@ switch (item) {
 通用队列里那几条类型规则都要在；好处还有表内的软换行会被正常摘掉
 （注释则不再被摘掉，见 `../parse-pipeline.xl.md` 的 `GeneralCloseRule`）。
 
-**「泛型内部不会长出语句节点」这一句原来是错的** ✗（第 583 轮实测订正 ✓）：
-跳转队列取的是**通用跳转队列** ✓，而 `StatementBranch.JumpIn` 第 499 轮起**就在那条队列里** ✓
-（`../parse-pipeline.xl.md` 第 167 行 ✓，为的是让语句壳抢在 `LineWrap.AppendIn` 之前 ✓）
-⇒ 泛型实参段里的软换行**照样会收壳** ✗ ——
-`interface Folded<` 换行 `T extends B,` 换行 `U extends C` 换行 `>` 那一折被收成一个 `Statement` ✓，
-壳里那条逗号运算符规则再把 `B , U` 折成 `BinaryOperator op=","` ✗ ⇒
-`TypeParameterCloseRule` 按**顶层逗号**切时一个都找不到 ✗ ⇒ 两个形参被包成**一个** `TypeParameter` ✓。
-真正的护栏现在写在 `../tokens/statement.xl.md` 里 ✓（`FormFrom` 与 `StatementBranch.Condition`
-各一句「`owner === "GenericType"` ⇒ 不收壳」✓，与成员列表 / `[` `(` 括号 / `IfCondition`
-三条早退同一处、同一口径 ✓），不在这一层 ✓。
+**「泛型内部不会长出语句节点」这一句原来是错的**（第 583 轮实测订正）：
+跳转队列取的是**通用跳转队列**，而 `StatementBranch.JumpIn` 第 499 轮起**就在那条队列里**
+（`../parse-pipeline.xl.md` 第 167 行，为的是让语句壳抢在 `LineWrap.AppendIn` 之前）
+⇒ 泛型实参段里的软换行**照样会收壳** ——
+`interface Folded<` 换行 `T extends B,` 换行 `U extends C` 换行 `>` 那一折被收成一个 `Statement`，
+壳里那条逗号运算符规则再把 `B , U` 折成 `BinaryOperator op=","` ⇒
+`TypeParameterCloseRule` 按**顶层逗号**切时一个都找不到 ⇒ 两个形参被包成**一个** `TypeParameter`。
+真正的护栏现在写在 `../tokens/statement.xl.md` 里（`FormFrom` 与 `StatementBranch.Condition`
+各一句「`owner === "GenericType"` ⇒ 不收壳」，与成员列表 / `[` `(` 括号 / `IfCondition`
+三条早退同一处、同一口径），不在这一层。
 
 **两条表达式规则要单独挡在泛型实参段外面**（就地拒，而不是换队列）：
 `LetCloseRule`（`<const T>` 的 `const T` 会被当成变量声明）与

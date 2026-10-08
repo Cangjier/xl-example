@@ -44,10 +44,10 @@ import { Class } from "./class/class.xl.md"
 **优先级靠「注册多个实例 + 高优先级先跑」实现**：重组是**按规则**扫的，
 排在前面的规则整趟先跑完。于是把 `**` 排在 `*` 前面、`*` 排在 `+` 前面……
 `a + b * c` 里 `*` 先折叠成 `BinaryOperator(b, *, c)`，随后 `+` 折叠时它的右操作数
-正好就是这个节点 → 得到 `BinaryOperator(a, +, BinaryOperator(b, *, c))` ✓ 正确的树。
+正好就是这个节点 → 得到 `BinaryOperator(a, +, BinaryOperator(b, *, c))` 正确的树。
 
 **结合性靠「同一趟里从左到右」**：`a - b - c` 的同一个实例从左往右扫，
-先折 `a - b`、再折 `(a-b) - c` → 左结合 ✓（`**` 在 TypeScript 里是右结合，这里也按左结合处理，
+先折 `a - b`、再折 `(a-b) - c` → 左结合（`**` 在 TypeScript 里是右结合，这里也按左结合处理，
 连乘方连写在实际代码里极罕见，等真的需要时再单独给它一个从右往左的实例）。
 
 **运算符集刻意不含 `|` / `&` / `<` / `>`**：它们在类型位另有含义，
@@ -146,7 +146,7 @@ this.Operators = operators;
 空值合并 `a ?? b`。
 
 放在这一族里（而不是和 `&&` / `||` 一起）：那两个是 `LogicalOperator` 的活，
-而 `??` 与它们混写没有括号时本来就是语法错误，所以顺序上挨着谁都不影响正确性 ✓。
+而 `??` 与它们混写没有括号时本来就是语法错误，所以顺序上挨着谁都不影响正确性。
 
 **为什么现在才加**：差分引擎原来把**所有** `BinaryExpression` 都算在 `BinaryOperator` 的账上，
 `??` 的缺失被埋在那个虚高的差额里；第 39 轮把「另有归属的运算符」（`&&` / `||` / 赋值族）从账上剔掉之后，
@@ -208,11 +208,11 @@ return true;
 本规则看到的左边就是这个节点。不认它的话 `+` 会因为找不到左操作数而丢节点。
 
 **优先级的账**：段内的运算符由投影那一层按「最低优先级的那个运算符先切」折
-（`LogicalOperator.PrintAst` 的 `OperatorRank`），所以 `0 && 1 + 2` 折成 `0 && (1 + 2)` ✓
-（实测给 `0` ✓，JS 同）。**一处仍然不准确** ✗：段边界只认赋值符号与
-`FromCompoundAssignment` 那一份副本（第 603 轮 ✓），所以段里如果还躺着**别的东西**
+（`LogicalOperator.PrintAst` 的 `OperatorRank`），所以 `0 && 1 + 2` 折成 `0 && (1 + 2)`
+（实测给 `0`，JS 同）。**一处仍然不准确**：段边界只认赋值符号与
+`FromCompoundAssignment` 那一份副本（第 603 轮），所以段里如果还躺着**别的东西**
 （`a = b + c || d` 那种，左边那个 `+` 不在本段的运算数里）就得靠各条规则自己的
-「右操作数长完了没有」来挡——`ExtendsRightOperand` 那一套正在做这件事 ✓。
+「右操作数长完了没有」来挡——`ExtendsRightOperand` 那一套正在做这件事。
 
 **括号那一支看的是 `endBracket`，不是 `startBracket`**：`a = (4) / 2;` /
 `a = xs[0] - 1;` 里，操作数位置上的括号**左端**是 `(` / `[`，而「右端是 `)` / `]`」
@@ -240,35 +240,35 @@ if (unit instanceof Identifier) {
     text === "break" ||
     text === "continue" ||
     text === "yield" ||
-    // **与一元那份对齐**（第 167 轮）✓：`typeof` / `void` / `delete` 也**不算操作数** ✓——
-    // 不排的话 `typeof typeof x === "string"` 会被折成 `typeof (x === "string")` ✗，
-    // 而那是**值都变了** ✗（Node 给 `true` ✓、本仓给 `"boolean"` ✗）。
-    // **`new` / `await`**：第 288 行那段写着 `new` 为什么**不能排**（`new X * 2` ✓）。
-    // **`await` 是第 286 轮量出来的反例** ✗——它**必须排** ✓，而且这一条与
-    // `yield` 那条（上面）**同一条理由** ✓：`await` 是**前缀运算符** ✓，
-    // 永远不是某个二元运算符的右操作数 ✓——`t += await f(1)` 在 JS / TS 里是
-    // `t += (await f(1))` ✓，而这里认了它，`+` 就会把 `await` **整格吃掉** ✗。
+    // **与一元那份对齐**（第 167 轮）：`typeof` / `void` / `delete` 也**不算操作数**——
+    // 不排的话 `typeof typeof x === "string"` 会被折成 `typeof (x === "string")`，
+    // 而那是**值都变了**（Node 给 `true`、本仓给 `"boolean"`）。
+    // **`new` / `await`**：第 288 行那段写着 `new` 为什么**不能排**（`new X * 2`）。
+    // **`await` 是第 286 轮量出来的反例**——它**必须排**，而且这一条与
+    // `yield` 那条（上面）**同一条理由**：`await` 是**前缀运算符**，
+    // 永远不是某个二元运算符的右操作数——`t += await f(1)` 在 JS / TS 里是
+    // `t += (await f(1))`，而这里认了它，`+` 就会把 `await` **整格吃掉**。
     //
-    // **吃掉之后的样子**（实测 `tmp-ast3.ts` 的 XML ✓）：
+    // **吃掉之后的样子**（实测 `tmp-ast3.ts` 的 XML）：
     //
     // ```
     // <Identifier>t</Identifier>
     // <SymbolToken>=</SymbolToken>
     // <BinaryOperator op="+"><Identifier>t</Identifier><SymbolToken>+</SymbolToken><Keyword>await</Keyword></BinaryOperator>
-    // <Method name="f">…</Method>          ← **`f(1)` 掉在运算符外面** ✗
+    // <Method name="f">…</Method>          ← **`f(1)` 掉在运算符外面**
     // ```
     //
-    // 于是投影那边 `Keyword(await)` 的**下一格不是它的操作数** ✓
-    //（操作数在二元运算符外面 ✓），合成不出来 `AwaitExpression` ✓——
-    // 投出来的是 `AwaitKeyword` ✓，降级层报
-    // `unimplemented: expression AwaitKeyword` ✓（**离现场很远** ✗：
-    // 那句话听起来像「`await` 没人支持」✗，而 `const a = await f()` **一直是好的** ✓）。
+    // 于是投影那边 `Keyword(await)` 的**下一格不是它的操作数**
+    //（操作数在二元运算符外面），合成不出来 `AwaitExpression`——
+    // 投出来的是 `AwaitKeyword`，降级层报
+    // `unimplemented: expression AwaitKeyword`（**离现场很远**：
+    // 那句话听起来像「`await` 没人支持」，而 `const a = await f()` **一直是好的**）。
     //
-    // **为什么 `yield` 早就排了、`await` 却漏了** ✗：`yield` 那一条是当年实测补的 ✓
-    //（`yield a + b` 与 `t += yield f()` 同一个形状 ✓），`await` 是**同一个形状的另一个词** ✓
-    //——两条判据本该一起写 ✓（**同一个形状两处各写一遍就是两处会漂** ✗，
-    // 这一格漂了整整一个版本 ✓：`for (const n of xs) total += await f(n)`
-    // 是**最普通的一种 async 写法** ✓）。
+    // **为什么 `yield` 早就排了、`await` 却漏了**：`yield` 那一条是当年实测补的
+    //（`yield a + b` 与 `t += yield f()` 同一个形状），`await` 是**同一个形状的另一个词**
+    //——两条判据本该一起写（**同一个形状两处各写一遍就是两处会漂**，
+    // 这一格漂了整整一个版本：`for (const n of xs) total += await f(n)`
+    // 是**最普通的一种 async 写法**）。
     text === "await" ||
     text === "typeof" ||
     text === "void" ||
@@ -291,17 +291,17 @@ if (
   unit instanceof LogicalOperator ||
   unit instanceof NullConditionalOperator ||
   unit instanceof PropertyAccess ||
-  // **`As` / `Satisfies` 也是表达式** ✓（第 288 轮 ✗）：`a as number + 1` 在 TS 里是
-  // **`(a as number) + 1`** ✓——`as` 那一趟收工之后，`+` 的左边站的正是**折好的 `As` 单元** ✓。
-  // 这条与 `unary-operator.xl.md` 那份名单**必须对齐** ✓（那一份第 69 行的纪律 ✓）——
-  // 只补一边的话，`+` 会先被**一元**那一趟抢走 ✗（`UnaryOperator op="+"` ✓），
-  // 而这里也就永远收不到它 ✓（**静默少一个节点** ✗）。
+  // **`As` / `Satisfies` 也是表达式**（第 288 轮）：`a as number + 1` 在 TS 里是
+  // **`(a as number) + 1`**——`as` 那一趟收工之后，`+` 的左边站的正是**折好的 `As` 单元**。
+  // 这条与 `unary-operator.xl.md` 那份名单**必须对齐**（那一份第 69 行的纪律）——
+  // 只补一边的话，`+` 会先被**一元**那一趟抢走（`UnaryOperator op="+"`），
+  // 而这里也就永远收不到它（**静默少一个节点**）。
   unit instanceof As ||
   unit instanceof Satisfies ||
-  // **类表达式也是操作数** ✓（第 328 轮 ✓）：`x + class { }` 是合法的 JS ✓，
-  // 而 `typeof class C { }`（读那一半）靠的也是这一格的**对称补充** ✓——
-  // 两份名单**必须对齐** ✗（`unary-operator.xl.md` 第 69 行那条纪律 ✓）：
-  // 只补一边的话，`+` 会先被**一元**那一趟抢走 ✗（`UnaryOperator op="+"` ✓）。
+  // **类表达式也是操作数**（第 328 轮）：`x + class { }` 是合法的 JS，
+  // 而 `typeof class C { }`（读那一半）靠的也是这一格的**对称补充**——
+  // 两份名单**必须对齐**（`unary-operator.xl.md` 第 69 行那条纪律）：
+  // 只补一边的话，`+` 会先被**一元**那一趟抢走（`UnaryOperator op="+"`）。
   unit instanceof Class
 ) {
   return true;
@@ -321,26 +321,26 @@ return false;
 ```
 
 **`NullConditionalOperator` 也要认成操作数**：`a?.b ?? c` / `x.y.get(z)?.v ?? null` 里
-`?.` 已经收成一个节点，不认它的话 `??` 找不到左操作数 ✗ ——
+`?.` 已经收成一个节点，不认它的话 `??` 找不到左操作数 ——
 这是差分账上最后 34 个 `BinaryOperator` 的主要形状（取样里 `?.` 与 `.` 链各占一半，
 而**普通 `.` 链本来就能折**，差别正在这里）。
 
 **`Identifier` 那一支要排掉「语句关键字」**（这一条是实测补的）：本规则跑在 `KeywordCloseRule`
-（队列最后）**之前**，所以那时 `return` / `throw` 这些词**还是 `Identifier`** ✓ ——
+（队列最后）**之前**，所以那时 `return` / `throw` 这些词**还是 `Identifier`** ——
 按「是个 `Identifier` 就能当操作数」判，`return -1;` 会被折成
-`<BinaryOperator op="-"><Keyword>return</Keyword>…` ✗（实测产物就是这个），
+`<BinaryOperator op="-"><Keyword>return</Keyword>…`（实测产物就是这个），
 一元那一边因此永远拿不到它（差 38 个一元节点里的 29 个）。
 
 **只排「语句关键字」这一小组，不要用「在关键字表里」当判据**：
 第一版写成 `unit.Template.KeywordTemplate.IsKeyword(text)` 就一律拒收，结果
-**表达式类关键字**（`await` / `yield` / `new` / `typeof` …）也被拒 ✗ ——
+**表达式类关键字**（`await` / `yield` / `new` / `typeof` …）也被拒 ——
 差分账上 `BinaryOperator` 立刻多出 34 个缺口（实测），说明有 37 处本来能折的表达式折不动了。
 判据要窄：`return` / `throw` / `case` / `default` / `else` / `do` / `break` / `continue`
-这八个**只会出现在语句头**的词 ✓；`true` / `false` / `null` 不在关键字表里，仍是操作数 ✓。
+这八个**只会出现在语句头**的词；`true` / `false` / `null` 不在关键字表里，仍是操作数。
 
 **`yield` 是第九个例外，而且必须单列**（实测缺口）：它是**前缀运算符**，
 永远不是某个二元运算符的左操作数——`yield a + b` 在 TypeScript 里是
-`yield (a + b)`，那个 `+` 的左操作数是 `a`、不是 `yield` ✓（所以这条不会少折任何表达式）。
+`yield (a + b)`，那个 `+` 的左操作数是 `a`、不是 `yield`（所以这条不会少折任何表达式）。
 唯一「直接贴在 `yield` 右边」的运算符是**委托产生式** `yield* h()`：它照样会折出一个
 `BinaryOperator op="*"`，把 `yield` 当成乘法左操作数（AST 那边是带 `asteriskToken` 的
 `YieldExpression`，**没有任何 `BinaryExpression`**）。`await` / `new` / `typeof` 那三个
@@ -384,24 +384,24 @@ if (current.Parent instanceof Bracket && current.Parent.Context === "type") {
 if (current.Parent !== null && current.Parent.constructor.name === "TypeParameter") {
   return false;
 }
-// **`?.(` 里的逗号是实参分隔符，不是逗号运算符**（第 157 轮）✓：
-// 可选调用的实参表被 `NullConditionalOperator` 吞了 ✓（`optional-call.xl.md` 文首那张表 ✓），
-// 于是逗号规则跑的时候**还没有 `Method`、也还没有 NCO** ✓——它看到的只是一个光秃秃的 `(` ✓，
-// 就把 `1, 2` 折成了一个 `BinaryOperator op=","` ✗。
-// 症状是降级层报 `unimplemented: binary operator ,` ✗（`o.m?.(1, 2)` 整份文件进不来 ✗）。
+// **`?.(` 里的逗号是实参分隔符，不是逗号运算符**（第 157 轮）：
+// 可选调用的实参表被 `NullConditionalOperator` 吞了（`optional-call.xl.md` 文首那张表），
+// 于是逗号规则跑的时候**还没有 `Method`、也还没有 NCO**——它看到的只是一个光秃秃的 `(`，
+// 就把 `1, 2` 折成了一个 `BinaryOperator op=","`。
+// 症状是降级层报 `unimplemented: binary operator ,`（`o.m?.(1, 2)` 整份文件进不来）。
 //
-// **判据只能靠「紧挨着的前一格」** ✓：`DecideBracketContext` **不管 `(`** ✗
-//（`text-common-util.xl.md` 里写着第 57 轮试过、退回来了 ✓），
-// 而 `(` 的 `Context` 因此永远不是我们要的那一档 ✓。插桩也确认了这一点 ✓：
-// 那一刻的 `Parent`/祖父都是 `Bracket` ✓——**NCO 还没成形** ✓。
-// 但 `?.` 这个记号**已经在列表里了** ✓（它是一个 `SymbolToken` ✓，
-// `NullConditionalOperatorCloseRule.Previous` 就是靠 `item.Is("?.")` 认它的 ✓），
-// 所以问「括号前面那一个单元是不是 `?.`」在**任何时刻**都问得准 ✓。
+// **判据只能靠「紧挨着的前一格」**：`DecideBracketContext` **不管 `(`**
+//（`text-common-util.xl.md` 里写着第 57 轮试过、退回来了），
+// 而 `(` 的 `Context` 因此永远不是我们要的那一档。插桩也确认了这一点：
+// 那一刻的 `Parent`/祖父都是 `Bracket`——**NCO 还没成形**。
+// 但 `?.` 这个记号**已经在列表里了**（它是一个 `SymbolToken`，
+// `NullConditionalOperatorCloseRule.Previous` 就是靠 `item.Is("?.")` 认它的），
+// 所以问「括号前面那一个单元是不是 `?.`」在**任何时刻**都问得准。
 //
-// **为什么这条判据是准的** ✓：`?.(` 后面**只可能是实参表** ✓——
-// 想在可选调用的实参位写逗号运算符，非得多加一层括号 `o.m?.((1, 2))` ✓，
-// 那一层括号会让「紧挨着的前一格」变成内层括号的 `(` ✓，判据自然不成立 ✓（要的就是这样 ✓）。
-// 普通调用（`o.m(1, 2)`）不受影响 ✓：那时 `Method` 早就成形了 ✓。
+// **为什么这条判据是准的**：`?.(` 后面**只可能是实参表**——
+// 想在可选调用的实参位写逗号运算符，非得多加一层括号 `o.m?.((1, 2))`，
+// 那一层括号会让「紧挨着的前一格」变成内层括号的 `(`，判据自然不成立（要的就是这样）。
+// 普通调用（`o.m(1, 2)`）不受影响：那时 `Method` 早就成形了。
 if (current.Parent instanceof Bracket && current.Parent.startBracket === "(") {
   const owner = current.Parent.Parent;
   if (owner !== null) {
@@ -415,21 +415,21 @@ if (current.Parent instanceof Bracket && current.Parent.startBracket === "(") {
     }
   }
 }
-// **`for (const k in obj)` 头里那个 `in` 不是运算符** ✗（第 551 轮 ✓）。
+// **`for (const k in obj)` 头里那个 `in` 不是运算符**（第 551 轮）。
 //
-// 它是 `for…in` 的**分隔词** ✓ —— `ForeachCloseRule.Previous` 认的就是它 ✓
-// （见 `foreach.xl.md` ✓，那一条与 `ForCloseRule` 是**互补**的两半 ✓）。
-// 可括号**先关** ✗：括号自己那一趟里 `InInstance` 先把 `k in obj` 折成了一个
-// `BinaryOperator` ✗ ⇒ 轮到 `Foreach` 时括号里**已经没有那个词**了 ✗
-// ⇒ 整条 `for…in` 不成形 ✓（实测三份：`st-for-in.ts` 6 缺 ✓ /
-// `stmt-for-in-kinds.ts` 20 缺 ✓ / `lex-keyword-in-of.ts` 12 缺 ✓，
-// 缺的都是 `ForInStatement` 那一整条 ✓）。
+// 它是 `for…in` 的**分隔词** —— `ForeachCloseRule.Previous` 认的就是它
+// （见 `foreach.xl.md`，那一条与 `ForCloseRule` 是**互补**的两半）。
+// 可括号**先关**：括号自己那一趟里 `InInstance` 先把 `k in obj` 折成了一个
+// `BinaryOperator` ⇒ 轮到 `Foreach` 时括号里**已经没有那个词**了
+// ⇒ 整条 `for…in` 不成形（实测三份：`st-for-in.ts` 6 缺 /
+// `stmt-for-in-kinds.ts` 20 缺 / `lex-keyword-in-of.ts` 12 缺，
+// 缺的都是 `ForInStatement` 那一整条）。
 //
-// **判据**：父单元是 `(` 括号 ✓、括号**所属那一格的前面**就是 `for` / `foreach` ✓、
-// 而且括号里**一个 `;` 都没有** ✗ —— C 风格的头一定有分号 ✓，那种头里的 `in`
-// 是**真运算符** ✓（`for (x = "a" in obj; c; d)` ✓），不挡 ✗。
-// 与上面 `?.` 那一条同一个做法 ✓：问的都是「紧挨着的前一格 / 父单元」✓，
-// 与重组时序无关 ✓。
+// **判据**：父单元是 `(` 括号、括号**所属那一格的前面**就是 `for` / `foreach`、
+// 而且括号里**一个 `;` 都没有** —— C 风格的头一定有分号，那种头里的 `in`
+// 是**真运算符**（`for (x = "a" in obj; c; d)`），不挡。
+// 与上面 `?.` 那一条同一个做法：问的都是「紧挨着的前一格 / 父单元」，
+// 与重组时序无关。
 if (IsWordUnit(current, "in") && current.Parent instanceof Bracket) {
   const owner = current.Parent.Parent;
   if (owner !== null && current.Parent.startBracket === "(") {
@@ -453,28 +453,28 @@ if (this.IsCommaExpressionComma(units, index) === false) {
 if (this.IsOperator(current) === false) {
   return false;
 }
-// **左操作数必须真的在运算符左边** ✓（第 306 轮 ✓）——**次序**这一条与「是不是操作数」
-// 是两件事 ✗：上面那一句只问「那一格长得像不像操作数」✓，而这一条问的是
-// 「它**真的排在运算符前面**吗」✓。
+// **左操作数必须真的在运算符左边**（第 306 轮）——**次序**这一条与「是不是操作数」
+// 是两件事：上面那一句只问「那一格长得像不像操作数」，而这一条问的是
+// 「它**真的排在运算符前面**吗」。
 //
-// **不挡的话会折出一个语法上不可能的节点** ✗，实测的形状是**生成器 + 计算成员名** ✓：
-// `class A { *[k]() { … } }` 里那个 `*` 本该是**生成器标记** ✓，可它被当成了**乘法** ✗——
-// 折出来的 `<BinaryOperator op="*">` 左孩子是**计算名那个 `[k]`** ✓（它的起点在 `*`
-// **之后** ✓）、右孩子是**形参那对圆括号** ✓（被收成了空 `ArrayLiteral` ✓），
-// 于是方法声明那一格拿不到名字 ✓：`*[k]()` 的 `name` 成了 `"k"` ✓（`*[Symbol.iterator]()`
-// 干脆是空串 ✓），而降级层报 `ast node MethodDeclaration has no child name` ✓
-//（**整份文件进不来** ✗，判据 `c305-e2e-linked-list-ops` ✓）。
-// **与 `ts.createSourceFile` 对过** ✓（用户口径里那一句 ✓）：
-// TS 给的是 `MethodDeclaration(asteriskToken) > name: ComputedPropertyName` ✓——**名字在** ✓。
+// **不挡的话会折出一个语法上不可能的节点**，实测的形状是**生成器 + 计算成员名**：
+// `class A { *[k]() { … } }` 里那个 `*` 本该是**生成器标记**，可它被当成了**乘法**——
+// 折出来的 `<BinaryOperator op="*">` 左孩子是**计算名那个 `[k]`**（它的起点在 `*`
+// **之后**）、右孩子是**形参那对圆括号**（被收成了空 `ArrayLiteral`），
+// 于是方法声明那一格拿不到名字：`*[k]()` 的 `name` 成了 `"k"`（`*[Symbol.iterator]()`
+// 干脆是空串），而降级层报 `ast node MethodDeclaration has no child name`
+//（**整份文件进不来**，判据 `c305-e2e-linked-list-ops`）。
+// **与 `ts.createSourceFile` 对过**（用户口径里那一句）：
+// TS 给的是 `MethodDeclaration(asteriskToken) > name: ComputedPropertyName`——**名字在**。
 //
-// **为什么这一条是安全的** ✓：一个真正的二元表达式里，左操作数**必然**结束于运算符之前 ✓
-//（这是源码顺序决定的 ✓，与优先级、结合性都无关 ✓）。所以它只挡「本来就排错了的那一次折」✓。
-// **范围任一格没签**（`null` ✓）就照旧放行 ✓——不拿一个猜出来的位置当判据 ✓。
+// **为什么这一条是安全的**：一个真正的二元表达式里，左操作数**必然**结束于运算符之前
+//（这是源码顺序决定的，与优先级、结合性都无关）。所以它只挡「本来就排错了的那一次折」。
+// **范围任一格没签**（`null`）就照旧放行——不拿一个猜出来的位置当判据。
 //
-// **写成一片本地量、一层一层判空** ✓：这一段**自己也是 `cases:tsast` 的语料** ✓，
-// 一行里串三个 `x.End!.Index` 读起来远不如三句直白 ✓（第 303 / 304 轮那一族
-// 「非空断言串在成员链上」已经在第 598 轮的右操作数护栏里收掉了 ✓——
-// 现在写成 `x.End!.Index > y.Start!.Index` 也是对的 ✓，所以这里留着的理由只剩可读性 ✓）。
+// **写成一片本地量、一层一层判空**：这一段**自己也是 `cases:tsast` 的语料**，
+// 一行里串三个 `x.End!.Index` 读起来远不如三句直白（第 303 / 304 轮那一族
+// 「非空断言串在成员链上」已经在第 598 轮的右操作数护栏里收掉了——
+// 现在写成 `x.End!.Index > y.Start!.Index` 也是对的，所以这里留着的理由只剩可读性）。
 const opStart = current.SourceRange.Start;
 const leftUnit = Get(units, SkipPreviousWrapSymbol(units, index));
 if (leftUnit !== null && opStart !== null) {
@@ -486,20 +486,20 @@ if (leftUnit !== null && opStart !== null) {
 if (this.IsOperand(leftUnit) === false) {
   return false;
 }
-// **右结合的运算符要先折右边那一处**（第 164 轮）✓。
+// **右结合的运算符要先折右边那一处**（第 164 轮）。
 //
-// `**` 是**右结合** ✓：`2 ** 3 ** 2` 在 JS 里是 `2 ** (3 ** 2)` = **512** ✓。
-// 而这一趟是**从左往右**找第一处能折的 ✓——不挡的话先把左边那对折了 ✗，
-// 于是树成了 `(2 ** 3) ** 2` = **64** ✗（实测 XML：外层 `**` 的左子是内层 `**` ✓；
-// TS 那边恰好相反 ✓——**这是语义错，不是「不支持」** ✗）。
+// `**` 是**右结合**：`2 ** 3 ** 2` 在 JS 里是 `2 ** (3 ** 2)` = **512**。
+// 而这一趟是**从左往右**找第一处能折的——不挡的话先把左边那对折了，
+// 于是树成了 `(2 ** 3) ** 2` = **64**（实测 XML：外层 `**` 的左子是内层 `**`；
+// TS 那边恰好相反——**这是语义错，不是「不支持」**）。
 //
-// **挡法**：这一格的**右操作数之后还跟着同一个运算符**时先放过 ✓，
-// 让更右那一处先折 ✓；它折完再回来，这一格右边就已经是一个单元了 ✓。
-// 链更长时同理 ✓（每趟只折最右那一对 ✓，折到达成右结合为止 ✓）。
+// **挡法**：这一格的**右操作数之后还跟着同一个运算符**时先放过，
+// 让更右那一处先折；它折完再回来，这一格右边就已经是一个单元了。
+// 链更长时同理（每趟只折最右那一对，折到达成右结合为止）。
 //
-// **只列 `**`** ✗：JS 里右结合的二元运算符就它一个（赋值是另一套规则管的 ✓）——
-// 将来真有新的，照这里再加一个名字 ✓；别写成「所有运算符都这么办」✗
-//（那会反过来把 `a - b - c` 折成 `a - (b - c)` ✗，而它是左结合 ✓）。
+// **只列 `**`**：JS 里右结合的二元运算符就它一个（赋值是另一套规则管的）——
+// 将来真有新的，照这里再加一个名字；别写成「所有运算符都这么办」
+//（那会反过来把 `a - b - c` 折成 `a - (b - c)`，而它是左结合）。
 const rightAssociative =
   current instanceof SymbolToken && current.TempToString() === "**";
 if (rightAssociative) {
@@ -509,64 +509,64 @@ if (rightAssociative) {
     return false;
   }
 }
-// **右操作数后面紧跟一个字符串 ⇒ 那是「标签 + 模板」** ✓（第 321 轮 ✓）——
-// 这一格**先放过** ✗，交给**投影**去合成 `TaggedTemplateExpression` ✓
-//（`print-ast-common` 的 0b / 0c 两条 ✓：产物那边标签与模板是**两格平级** ✓）。
+// **右操作数后面紧跟一个字符串 ⇒ 那是「标签 + 模板」**（第 321 轮）——
+// 这一格**先放过**，交给**投影**去合成 `TaggedTemplateExpression`
+//（`print-ast-common` 的 0b / 0c 两条：产物那边标签与模板是**两格平级**）。
 //
-// **判据为什么成立** ✓：一个字符串字面量**不可能**紧跟在**一个操作数**后面出现 ✗
-//（`t "x"` 不是合法 JS ✓）——所以「操作数 + 字符串」这个相邻关系**只可能是**
-// `` t`x` `` ✓。这一条与 `property-access.xl.md` 里「数组字面量不会紧跟在表达式后面」
-// 是**同一条推理** ✓（那里用它把 `o.b![1]` 的 `[1]` 认成下标 ✓）。
+// **判据为什么成立**：一个字符串字面量**不可能**紧跟在**一个操作数**后面出现
+//（`t "x"` 不是合法 JS）——所以「操作数 + 字符串」这个相邻关系**只可能是**
+// `` t`x` ``。这一条与 `property-access.xl.md` 里「数组字面量不会紧跟在表达式后面」
+// 是**同一条推理**（那里用它把 `o.b![1]` 的 `[1]` 认成下标）。
 //
-// **不挡会怎样** ✗：这里先把 `1 + t` 折成一个 `BinaryOperator` ✓，
-// 于是标签与模板被**拆进两棵子树** ✓——投影拿到 `[BinaryOperator(1,+,t), PropertyAccess(模板,.,length)]` ✓
-// ⇒ 右操作数只剩 `t` ✓、后缀整片丢掉 ✗（实测：`` 1 + t`xy`.length `` 报
-// `unimplemented: ToPrimitive of a function` ✓，Node 给 `3` ✓——**静默错值** ✗）。
+// **不挡会怎样**：这里先把 `1 + t` 折成一个 `BinaryOperator`，
+// 于是标签与模板被**拆进两棵子树**——投影拿到 `[BinaryOperator(1,+,t), PropertyAccess(模板,.,length)]`
+// ⇒ 右操作数只剩 `t`、后缀整片丢掉（实测：`` 1 + t`xy`.length `` 报
+// `unimplemented: ToPrimitive of a function`，Node 给 `3`——**静默错值**）。
 //
-// **左操作数也得「能当标签」** ✗（第 638 轮 ✓）：上面那条推理只说了「字符串跟在操作数后面」，
-// 可**它只对「标签」这一种成立** ✓。`a.b() + "x" + "y"` 里左操作数是一次**调用** ✓
-// ——调用结果后面永远不可能跟模板 ✓ ⇒ 这里的 `+` 就是加法 ✓，不能放过 ✗。
-// 原来的判据只看右边 ✗ ⇒ 这一格每趟都放过 ✓ ⇒ 折不出来 ✓ ⇒ 后面那个 `"y"` 反而被
-// `PropertyAccessCloseRule` 当成成员链收了 ✗（实测 `this.V!.toString() + "x" + "y"`：
-// TS 那边缺 `CallExpression` / `PlusToken` / `StringLiteral`、产物这边多出两格 ✓）。
-// 所以补一条：**左操作数得是一个标识符（或一条以标识符开头的成员链）** ✓——
-// 那才是标签的形状 ✓；`a.b()` / `a!` / `a[0]` 这些都不是 ✓。
+// **左操作数也得「能当标签」**（第 638 轮）：上面那条推理只说了「字符串跟在操作数后面」，
+// 可**它只对「标签」这一种成立**。`a.b() + "x" + "y"` 里左操作数是一次**调用**
+// ——调用结果后面永远不可能跟模板 ⇒ 这里的 `+` 就是加法，不能放过。
+// 原来的判据只看右边 ⇒ 这一格每趟都放过 ⇒ 折不出来 ⇒ 后面那个 `"y"` 反而被
+// `PropertyAccessCloseRule` 当成成员链收了（实测 `this.V!.toString() + "x" + "y"`：
+// TS 那边缺 `CallExpression` / `PlusToken` / `StringLiteral`、产物这边多出两格）。
+// 所以补一条：**左操作数得是一个标识符（或一条以标识符开头的成员链）**——
+// 那才是标签的形状；`a.b()` / `a!` / `a[0]` 这些都不是。
 //
-// **两种形状都算** ✗（第一版只认 `String` ✓，实测不够 ✓）：
-// 模板后面**还跟着后缀**时（`` t`x`.length `` ✓），产物那一格是
-// **`PropertyAccess(模板, ., length)`** ✓——标签在外面、模板与后缀在同一个 `PropertyAccess` 里 ✓
-//（投影 0c 那一段写着这个形状 ✓）。所以判据是「**这个单元以模板开头**」✓：
-// 它自己就是 `String` ✓，或者它是一个 `PropertyAccess` 、**第一个可投影子单元是 `String`** ✓。
+// **两种形状都算**（第一版只认 `String`，实测不够）：
+// 模板后面**还跟着后缀**时（`` t`x`.length ``），产物那一格是
+// **`PropertyAccess(模板, ., length)`**——标签在外面、模板与后缀在同一个 `PropertyAccess` 里
+//（投影 0c 那一段写着这个形状）。所以判据是「**这个单元以模板开头**」：
+// 它自己就是 `String`，或者它是一个 `PropertyAccess` 、**第一个可投影子单元是 `String`**。
 const rightOperandIndex = SkipNextWrapSymbol(units, index);
 const afterOperand = Get(units, SkipNextWrapSymbol(units, rightOperandIndex));
 const leftOperandIndex = SkipPreviousWrapSymbol(units, index);
 if (StartsWithTemplate(afterOperand) && this.CanBeTag(Get(units, leftOperandIndex))) {
   return false;
 }
-// **右操作数后面还跟着一个 `.` ⇒ 这一格先放过** ✓（第 598 轮 ✓）——
-// 成员访问比**任何**二元运算符都紧 ✗，所以那个 `.` 与成员名属于**右边这一格** ✓
-// （`0 >= f()!.p` 里是 `0 >= (f()!.p)` ✓），要等 `PropertyAccessCloseRule` 先把
-// `f()! . p` 折成一个单元 ✓，这一格下一趟再折 ✓。
+// **右操作数后面还跟着一个 `.` ⇒ 这一格先放过**（第 598 轮）——
+// 成员访问比**任何**二元运算符都紧，所以那个 `.` 与成员名属于**右边这一格**
+// （`0 >= f()!.p` 里是 `0 >= (f()!.p)`），要等 `PropertyAccessCloseRule` 先把
+// `f()! . p` 折成一个单元，这一格下一趟再折。
 //
-// **不挡会怎样** ✗：`NotNull` 那一格比 `PropertyAccess` **晚**成形 ✓
-//（队列次序：`PropertyAccess` ✓ → … → `NotNull` ✓ → … → `BinaryOperator` ✓，
-// 见 `../parse-pipeline.xl.md` 的 `GeneralCloseRule` ✓）⇒ 同一趟里 `NotNullCloseRule`
-// 先折出 `f()!` ✓、紧接着本规则把它当成**完整的右操作数**吃掉 ✗ ⇒ `.p` 留在外面
-// 成了平级兄弟 ✓——树是 `(0 >= f()!).p` ✗，而 JS 是 `0 >= (f()!.p)` ✓。
-// 症状是降级层报 `name is not a local or a capture: p` ✓（**整份文件进不来** ✗，
-// 判据 `c371-e2e-multi-source-merge` ✓）；`0 + f()!.p` / `0 >= o!.p` 同一形状 ✓。
+// **不挡会怎样**：`NotNull` 那一格比 `PropertyAccess` **晚**成形
+//（队列次序：`PropertyAccess` → … → `NotNull` → … → `BinaryOperator`，
+// 见 `../parse-pipeline.xl.md` 的 `GeneralCloseRule`）⇒ 同一趟里 `NotNullCloseRule`
+// 先折出 `f()!`、紧接着本规则把它当成**完整的右操作数**吃掉 ⇒ `.p` 留在外面
+// 成了平级兄弟——树是 `(0 >= f()!).p`，而 JS 是 `0 >= (f()!.p)`。
+// 症状是降级层报 `name is not a local or a capture: p`（**整份文件进不来**，
+// 判据 `c371-e2e-multi-source-merge`）；`0 + f()!.p` / `0 >= o!.p` 同一形状。
 //
-// **为什么只问「`. ` 后面还有东西」** ✓：一个 `.` 后面**不可能**跟运算符 ✓，
-// 所以「右操作数 + `.` + 一个实义单元」这个相邻关系**只可能是**成员访问 ✓
-// ——与上面那条模板标签是同一条推理 ✓，也就不必在这里再抄一份
-// `property-access.xl.md` 的成员名判据 ✗。
+// **为什么只问「`. ` 后面还有东西」**：一个 `.` 后面**不可能**跟运算符，
+// 所以「右操作数 + `.` + 一个实义单元」这个相邻关系**只可能是**成员访问
+// ——与上面那条模板标签是同一条推理，也就不必在这里再抄一份
+// `property-access.xl.md` 的成员名判据。
 const afterMember = Get(units, SkipNextWrapSymbol(units, SkipNextWrapSymbol(units, rightOperandIndex)));
 if (afterOperand instanceof SymbolToken && afterOperand.Is(".") && afterMember !== null) {
   return false;
 }
-// **复合赋值展开出来的那一份运算符：要等右操作数先折成一个单元** ✓（第 373 轮 ✓）。
-// 判据与理由写在 `ExtendsRightOperand` 那一段 ✓（与上面 `**` 那条**同一个形状** ✓：
-// 「右边还没长完就先放过 ✓」）。
+// **复合赋值展开出来的那一份运算符：要等右操作数先折成一个单元**（第 373 轮）。
+// 判据与理由写在 `ExtendsRightOperand` 那一段（与上面 `**` 那条**同一个形状**：
+// 「右边还没长完就先放过」）。
 if (current instanceof SymbolToken && current.FromCompoundAssignment
   && this.ExtendsRightOperand(afterOperand)) {
   return false;
@@ -576,15 +576,15 @@ return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
 
 ## private method CanBeTag:(unit:Token | null)=>bool
 
-`unit` 能不能当**模板标签**（第 638 轮 ✓）——判据是「**一条从标识符开始的成员链**」。
+`unit` 能不能当**模板标签**（第 638 轮）——判据是「**一条从标识符开始的成员链**」。
 
-模板标签有两种写法：`` t`x` ``（`Identifier` ✓）与 `` a.b.c`x` ``（`PropertyAccess` 链 ✓）。
-链的**最内层**必须是 `Identifier` ✓，因为标签要绑定到一个名字 ✓
-（`Keyword` 不认 ✓：`this` 那种不是合法的模板标签 ✓）。
+模板标签有两种写法：`` t`x` ``（`Identifier`）与 `` a.b.c`x` ``（`PropertyAccess` 链）。
+链的**最内层**必须是 `Identifier`，因为标签要绑定到一个名字
+（`Keyword` 不认：`this` 那种不是合法的模板标签）。
 
-**为什么需要它** ✗：`StartsWithTemplate` 只看**右操作数** ✓，而「字符串紧跟操作数」
-这条相邻关系在**调用结果**后面也成立 ✗（`f() + "x" + "y"` ✓）——
-那种位置的 `+` 就是加法 ✓，放过它就折不出来 ✓（实测见 `Previous` 里那一段 ✓）。
+**为什么需要它**：`StartsWithTemplate` 只看**右操作数**，而「字符串紧跟操作数」
+这条相邻关系在**调用结果**后面也成立（`f() + "x" + "y"`）——
+那种位置的 `+` 就是加法，放过它就折不出来（实测见 `Previous` 里那一段）。
 
 ```ts
 if (unit === null) {
@@ -607,48 +607,48 @@ return false;
 
 ## private method ExtendsRightOperand:(unit:Token | null)=>bool
 
-`unit` 是不是「**还能把右边继续吃下去**」的那个东西（第 373 轮 ✓）——
-用来回答「这一格运算符的右操作数**长完了没有**」✓。
+`unit` 是不是「**还能把右边继续吃下去**」的那个东西（第 373 轮）——
+用来回答「这一格运算符的右操作数**长完了没有**」。
 
-**为什么需要这一问** ✗：`a += b` 会被 `CompoundAssignmentOperatorCloseRule` 展开成单元序列
-`a` `=` `a` `+` `b` ✓（见 `compound-assignment-operator.xl.md` ✓）——
-**插进来的那个 `+` 不是用户写的** ✓，它要表达的是「`op=` 这个符号」✓，
-所以它的**右操作数是整个赋值右侧** ✓（JS 里赋值右侧是一个完整的 AssignmentExpression ✓），
-也就必须**最后**才生效 ✓。而这一趟是**按优先级**折的 ✗ ⇒ 不挡的话 `a *= 1 + 2` 会先折 `a * 1` ✗
-⇒ 得到 `(a * 1) + 2` ✓——**静默错值** ✗（实测 `a *= 1 + 2` 给 `8` ✓，JS 给 `6` ✓；
-`t += cur < next ? -cur : cur` 给 `1` ✓，JS 给 `-1` ✓）。
+**为什么需要这一问**：`a += b` 会被 `CompoundAssignmentOperatorCloseRule` 展开成单元序列
+`a` `=` `a` `+` `b`（见 `compound-assignment-operator.xl.md`）——
+**插进来的那个 `+` 不是用户写的**，它要表达的是「`op=` 这个符号」，
+所以它的**右操作数是整个赋值右侧**（JS 里赋值右侧是一个完整的 AssignmentExpression），
+也就必须**最后**才生效。而这一趟是**按优先级**折的 ⇒ 不挡的话 `a *= 1 + 2` 会先折 `a * 1`
+⇒ 得到 `(a * 1) + 2`——**静默错值**（实测 `a *= 1 + 2` 给 `8`，JS 给 `6`；
+`t += cur < next ? -cur : cur` 给 `1`，JS 给 `-1`）。
 
-**挡法**：右操作数之后还跟着「能继续吃右边的东西」时**先放过** ✓，让右边先折 ✓、
-折完再回来 ✓（`**` 那条右结合用的是同一个套路 ✓）。
+**挡法**：右操作数之后还跟着「能继续吃右边的东西」时**先放过**，让右边先折、
+折完再回来（`**` 那条右结合用的是同一个套路）。
 
-**哪些算「能继续吃右边」** ✓——**除 `,` 以外的运算符** ✓ 加**三元那个 `?`** ✓：
+**哪些算「能继续吃右边」**——**除 `,` 以外的运算符** 加**三元那个 `?`**：
 
-- **除 `,` 是必须的** ✗：逗号（序列）表达式**比赋值还松** ✓，所以 `a += b, c` 在 JS 里是
-  `(a += b), c` ✓ ⇒ 遇到 `,` 必须**先折** `a + b` ✓（实测：把 `,` 也挡进去，
-  那条语句会变成 `t + (u, …)` ✗）。
-- **`?` 也要挡** ✓：三元的条件段是**整个**比 `+` 松的东西 ✓。
-- **`.` / `(` / `[` 不在判据里** ✗：它们是**后缀** ✓，实测那十几条形状
-  （`a += o.k` ✓ / `a += f(x)` ✓ / `a += xs[0]` ✓ / `a += (2, 3)` ✓ / `a += -o.k` ✓）
-  在这一刻**右边已经折成单元了** ✓ ⇒ 不必挡 ✓——**没被验证过的判断不留** ✗（本仓的规矩 ✓）。
+- **除 `,` 是必须的**：逗号（序列）表达式**比赋值还松**，所以 `a += b, c` 在 JS 里是
+  `(a += b), c` ⇒ 遇到 `,` 必须**先折** `a + b`（实测：把 `,` 也挡进去，
+  那条语句会变成 `t + (u, …)`）。
+- **`?` 也要挡**：三元的条件段是**整个**比 `+` 松的东西。
+- **`.` / `(` / `[` 不在判据里**：它们是**后缀**，实测那十几条形状
+  （`a += o.k` / `a += f(x)` / `a += xs[0]` / `a += (2, 3)` / `a += -o.k`）
+  在这一刻**右边已经折成单元了** ⇒ 不必挡——**没被验证过的判断不留**（本仓的规矩）。
 
 ```ts
 if (unit === null || !(unit instanceof SymbolToken)) {
   return false;
 }
 const text = unit.TempToString();
-// **`,` 是最松的** ✗（见上面那段 ✓）——碰到它就说明右操作数已经长完了 ✓。
+// **`,` 是最松的**（见上面那段）——碰到它就说明右操作数已经长完了。
 if (text === ",") {
   return false;
 }
-// **三元那个 `?`** ✓（本仓的 `?` 也是 `SymbolToken` ✓）。
+// **三元那个 `?`**（本仓的 `?` 也是 `SymbolToken`）。
 if (text === "?") {
   return true;
 }
-// **「是不是运算符」不能问 `this.Operators`** ✗：它只有**本实例那一档** ✓
-//（加法实例上只有 `+` `-` ✓），而这里要认的是**任何一个**运算符 ✓
-//（`a *= 1 + 2` 里那个 `+` 归加法实例 ✓、`a += b < c` 里那个 `<` 归比较那一段 ✓）。
-// 两张表都是**现成的** ✓：比较符号在 `SymbolTemplate.CompareSymbols` 上 ✓，
-// 其余（算术 / 移位 / 位 / 逻辑 / 空值合并 / `in` / `instanceof`）在下面那张**并集**上 ✓。
+// **「是不是运算符」不能问 `this.Operators`**：它只有**本实例那一档**
+//（加法实例上只有 `+` `-`），而这里要认的是**任何一个**运算符
+//（`a *= 1 + 2` 里那个 `+` 归加法实例、`a += b < c` 里那个 `<` 归比较那一段）。
+// 两张表都是**现成的**：比较符号在 `SymbolTemplate.CompareSymbols` 上，
+// 其余（算术 / 移位 / 位 / 逻辑 / 空值合并 / `in` / `instanceof`）在下面那张**并集**上。
 if (unit.Template.SymbolTemplate.IsCompareSymbol(text)) {
   return true;
 }
@@ -657,16 +657,16 @@ return BinaryOperatorCloseRule.AllOperatorTexts.indexOf(text) !== -1;
 
 ## static readonly field AllOperatorTexts:Array<string> = ["**", "*", "/", "%", "+", "-", "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof"]
 
-**所有二元运算符的文本，并成一张表**（第 373 轮 ✓）——给 `ExtendsRightOperand` 用 ✓
-（问「这一格之后还跟着运算符吗」✓）。
+**所有二元运算符的文本，并成一张表**（第 373 轮）——给 `ExtendsRightOperand` 用
+（问「这一格之后还跟着运算符吗」）。
 
-**它是那十几个实例的 `Operators` 的并集** ✓（`PowerInstance` ✓ … `InstanceofInstance` ✓），
-**不另立新的口径** ✓：`<` / `>` / `<=` / `>=` / `==` / `===` / `!=` / `!==` 那八个
-走 `SymbolTemplate.CompareSymbols` ✓（它们本来就在那儿 ✓），
-而 `,` **有意不收** ✗（它比赋值松 ✓，见 `ExtendsRightOperand` 那一段 ✓）。
+**它是那十几个实例的 `Operators` 的并集**（`PowerInstance` … `InstanceofInstance`），
+**不另立新的口径**：`<` / `>` / `<=` / `>=` / `==` / `===` / `!=` / `!==` 那八个
+走 `SymbolTemplate.CompareSymbols`（它们本来就在那儿），
+而 `,` **有意不收**（它比赋值松，见 `ExtendsRightOperand` 那一段）。
 
-**为什么需要一张并集** ✗：`IsOperator` 问的是**本实例**那一档 ✓（折的时候当然只认自己 ✓），
-而「右边还能不能长」问的是**所有**运算符 ✓——两件事 ✗。
+**为什么需要一张并集**：`IsOperator` 问的是**本实例**那一档（折的时候当然只认自己），
+而「右边还能不能长」问的是**所有**运算符——两件事。
 
 ## private method IsCommaExpressionComma:(units:Array<Token>, index:int)=>bool
 
@@ -812,31 +812,31 @@ if (outsideName === "Keyword") {
     return false;
   }
 }
-// **`new Foo<T>(a, b)` 的括号是实参表** ✓（第 374 轮 ✓）——
-// 判据：括号前面那一格是**类型实参段**（`GenericType` ✓）、而它左边（同一层往前 ✓）
-// 一路跨过类型名（`Foo` ✓ / `.` ✓ / `a.b.C` 那几格 ✓）之后是 **`new` 这个词** ✓。
+// **`new Foo<T>(a, b)` 的括号是实参表**（第 374 轮）——
+// 判据：括号前面那一格是**类型实参段**（`GenericType`）、而它左边（同一层往前）
+// 一路跨过类型名（`Foo` / `.` / `a.b.C` 那几格）之后是 **`new` 这个词**。
 //
-// **少了这一条会怎样** ✗：`new Q<number>(1, 2, 3)` 的顶层逗号被折成**一个逗号表达式** ✗
-//（插桩实测：`DBG comma-expr true: outside=GenericType owner=Root` ✓；
-//  投影出来的产物是「`NewExpression` 只有一个实参，内容是 `((1, 2), 3)`」✓）
-// ⇒ 构造函数**只收到一个实参**（那三个数合起来的值 ✓）⇒ 形参整体错位 ✓——
-// **静默错值** ✓，判据 `c371-e2e-lru-with-ttl` / `c371-e2e-object-pool` /
-// `c371-e2e-debounce-and-batch` / `c371-e2e-rate-limiting-window` 四条都是它 ✓
-//（它们都是「泛型类 + 参数属性 + 函数类型形参」，第 371 轮记成 #20 ✓——
-//  **真正的根子在这里** ✓，不在参数属性那一支 ✗）。
+// **少了这一条会怎样**：`new Q<number>(1, 2, 3)` 的顶层逗号被折成**一个逗号表达式**
+//（插桩实测：`DBG comma-expr true: outside=GenericType owner=Root`；
+//  投影出来的产物是「`NewExpression` 只有一个实参，内容是 `((1, 2), 3)`」）
+// ⇒ 构造函数**只收到一个实参**（那三个数合起来的值）⇒ 形参整体错位——
+// **静默错值**，判据 `c371-e2e-lru-with-ttl` / `c371-e2e-object-pool` /
+// `c371-e2e-debounce-and-batch` / `c371-e2e-rate-limiting-window` 四条都是它
+//（它们都是「泛型类 + 参数属性 + 函数类型形参」，第 371 轮记成 #20——
+//  **真正的根子在这里**，不在参数属性那一支）。
 //
-// **为什么泛型调用没这个毛病** ✗：`f<number>(1, 2)` 那一刻外面已经是一个 `Method` ✓
-//（实参表归它管 ✓，上面那条 `Method` 判据接住了 ✓），而 `new` 这一支在**实例化之前**
-// 还没有那层容器 ✓——所以只有 `new` 需要这一条 ✓。实测（第 374 轮）：
-// 泛型函数调用 ✓、泛型方法调用 ✓、不带类型实参的 `new` ✓ 全都对 ✓，只有 `new X<T>(…)` ✗。
+// **为什么泛型调用没这个毛病**：`f<number>(1, 2)` 那一刻外面已经是一个 `Method`
+//（实参表归它管，上面那条 `Method` 判据接住了），而 `new` 这一支在**实例化之前**
+// 还没有那层容器——所以只有 `new` 需要这一条。实测（第 374 轮）：
+// 泛型函数调用、泛型方法调用、不带类型实参的 `new` 全都对，只有 `new X<T>(…)`。
 if (outsideName === "GenericType") {
   const typeOwner = openBracket.Parent;
   if (typeOwner !== null) {
     let at = typeOwner.Data.indexOf(openBracket) - 1;
-    // **`new` 必须在跨类型名之前认** ✗（第一版写反了 ✓，实测没生效 ✓）：
-    // `new` 本身也是一个 `Identifier`（升级之后是 `Keyword` ✓）✓，
-    // 先按「类型名那一格」把它跨过去的话，它永远也认不到 ✓
-    //（插桩症状：判据走到了 ✓、`IsWordUnit` 那一句拿到的却是再往前那一格 ✗）。
+    // **`new` 必须在跨类型名之前认**（第一版写反了，实测没生效）：
+    // `new` 本身也是一个 `Identifier`（升级之后是 `Keyword`），
+    // 先按「类型名那一格」把它跨过去的话，它永远也认不到
+    //（插桩症状：判据走到了、`IsWordUnit` 那一句拿到的却是再往前那一格）。
     while (at > 0) {
       const before = typeOwner.Data[at - 1];
       if (IsWordUnit(before, "new")) {
@@ -868,9 +868,9 @@ return true;
 没有任何 `BinaryExpression`），而且 `= 2` 还落在了那个假表达式外面。
 判据只认「列表里已经有一个 `Let`」这一件事：
 
-- 真正的逗号表达式语句（`a, b;` / `i++, j--;`）里不会有 `Let` ✓；
-- `let a = (b, c)` / `let a = f(b, c)` 的逗号在括号里，压根不在这个列表上 ✓；
-- `for (let i = 0, j = 1; …)` 的逗号在 `for` 的括号里，被上面那条 `for` 判据让开了 ✓。
+- 真正的逗号表达式语句（`a, b;` / `i++, j--;`）里不会有 `Let`；
+- `let a = (b, c)` / `let a = f(b, c)` 的逗号在括号里，压根不在这个列表上；
+- `for (let i = 0, j = 1; …)` 的逗号在 `for` 的括号里，被上面那条 `for` 判据让开了。
 
 ```ts
 for (let i = 0; i < index; i++) {
@@ -937,25 +937,25 @@ const after = Get(units, afterIndex);
 if (before === null || after === null) {
   throw new Error("BinaryOperatorCloseRule.Process: 两侧缺操作数");
 }
-// **`?.` 链是一条链，不是一格**（第 156 轮）✗：`o?.b?.c ?? 0` 到这一步时，
-// 待处理的是 `Identifier(o)` / `NCO(b)` / `NCO(c)` / `??` / `0` ✓——
-// 只看「紧挨着的那一格」会把左操作数取成 `NCO(c)` ✗，
-// 于是 `??` 只跟链的**尾巴**结合 ✓，`o` 与 `NCO(b)` 留在外面 ✗
-//（实测 XML：`<Identifier>o</Identifier><NCO>b</NCO><BinaryOperator op="??"><NCO>c</NCO>…` ✓），
-// 投影投出来只剩前半截 ✓、**静默**给 `{ c: 2 }` ✗（JS 给 `2` ✓）。
+// **`?.` 链是一条链，不是一格**（第 156 轮）：`o?.b?.c ?? 0` 到这一步时，
+// 待处理的是 `Identifier(o)` / `NCO(b)` / `NCO(c)` / `??` / `0`——
+// 只看「紧挨着的那一格」会把左操作数取成 `NCO(c)`，
+// 于是 `??` 只跟链的**尾巴**结合，`o` 与 `NCO(b)` 留在外面
+//（实测 XML：`<Identifier>o</Identifier><NCO>b</NCO><BinaryOperator op="??"><NCO>c</NCO>…`），
+// 投影投出来只剩前半截、**静默**给 `{ c: 2 }`（JS 给 `2`）。
 //
-// **只对 NCO 往前多走** ✓：整条链在这里从来不是一格 ✓（`PropertyAccess` 那条路
-// 早就把整条链折成**一个**单元了 ✓，`chainWithOptional` 的注里写着这个不对称 ✓），
-// 所以要补的只有 NCO 这一种 ✓——**别的形状一个字都不动** ✓。
-// 走到头之后**再收一格**（基名：`Identifier` / `Method` / `PropertyAccess` … ✓），
-// 那才是这条链的起点 ✓。
+// **只对 NCO 往前多走**：整条链在这里从来不是一格（`PropertyAccess` 那条路
+// 早就把整条链折成**一个**单元了，`chainWithOptional` 的注里写着这个不对称），
+// 所以要补的只有 NCO 这一种——**别的形状一个字都不动**。
+// 走到头之后**再收一格**（基名：`Identifier` / `Method` / `PropertyAccess` …），
+// 那才是这条链的起点。
 let startIndex = beforeIndex;
-// **只在「NCO 前面还是 NCO」时才往前多走** ✓（第 156 轮第二版 ✓）：
-// 第一版对**所有** NCO 都往前收 ✓，`cases:tsast` 当场从 1430 掉到 **1428** ✗
-//（缺节点 31 / 区间漂移 5 / 多出来 3 ✓）——单条 `?.` 的形状**本来就有投影分支认它** ✓，
-// 把基名挪进 `BinaryOperator` 只是把那个形状换成了另一个 ✓，白改 ✗。
-// **多 NCO 那条链才是没被认过的** ✓（`o?.b?.c ?? 0` ✓），所以判据收紧到它 ✓：
-// 「前面那一格是 NCO ✓，而 NCO 前面**还是** NCO」✓——单条 `?.` 一个字节都不动 ✓。
+// **只在「NCO 前面还是 NCO」时才往前多走**（第 156 轮第二版）：
+// 第一版对**所有** NCO 都往前收，`cases:tsast` 当场从 1430 掉到 **1428**
+//（缺节点 31 / 区间漂移 5 / 多出来 3）——单条 `?.` 的形状**本来就有投影分支认它**，
+// 把基名挪进 `BinaryOperator` 只是把那个形状换成了另一个，白改。
+// **多 NCO 那条链才是没被认过的**（`o?.b?.c ?? 0`），所以判据收紧到它：
+// 「前面那一格是 NCO，而 NCO 前面**还是** NCO」——单条 `?.` 一个字节都不动。
 const beforeBefore = Get(units, SkipPreviousWrapSymbol(units, beforeIndex));
 if (before instanceof NullConditionalOperator && beforeBefore instanceof NullConditionalOperator) {
   let cursor = beforeIndex;
@@ -977,19 +977,19 @@ if (before instanceof NullConditionalOperator && beforeBefore instanceof NullCon
     throw new Error("BinaryOperatorCloseRule.Process: 链的起点没了");
   }
 }
-// **左操作数是 `As` / `Satisfies` 时要连它的基名一起收进来** ✓（第 288 轮 ✗）——
-// 与上面那条 NCO 的走法**同一个形状** ✓，理由也一样 ✓：
-// `As` 单元**不装自己的基名** ✗（`as.xl.md` 的 `Data` 只有 `as` **右边**那一段类型 ✓，
-// 基名是它在**外层**的前一个兄弟 ✓）。于是 `a as number + 1` 到这一步时是
-// `[a, As(number), +, 1]` ✓——只取紧挨着的那一格，`+` 的左操作数就成了 `As` ✗，
-// 而 `a` **留在外面** ✗ ⇒ 投影投出来缺整个 `AsExpression` ✓（`a` 与类型接不上 ✓）。
+// **左操作数是 `As` / `Satisfies` 时要连它的基名一起收进来**（第 288 轮）——
+// 与上面那条 NCO 的走法**同一个形状**，理由也一样：
+// `As` 单元**不装自己的基名**（`as.xl.md` 的 `Data` 只有 `as` **右边**那一段类型，
+// 基名是它在**外层**的前一个兄弟）。于是 `a as number + 1` 到这一步时是
+// `[a, As(number), +, 1]`——只取紧挨着的那一格，`+` 的左操作数就成了 `As`，
+// 而 `a` **留在外面** ⇒ 投影投出来缺整个 `AsExpression`（`a` 与类型接不上）。
 //
-// **TS 的口径**：`a as number + 1` 是 **`(a as number) + 1`** ✓——
-// 那个 `+` 的左边是**整条 `AsExpression`** ✓，所以这里必须把基名一起吞进去 ✓。
+// **TS 的口径**：`a as number + 1` 是 **`(a as number) + 1`**——
+// 那个 `+` 的左边是**整条 `AsExpression`**，所以这里必须把基名一起吞进去。
 //
-// **为什么往回走是安全的** ✗：`As` 的基名**必然是紧挨着的前一格** ✓
-//（`Process` 替换的是 `[as, …类型]` 那一段 ✓，左邻就是基名 ✓）；
-// 而 `a as B as C` 那种串写是**两格 `As`** ✓——`while` 会一路退到最前面那个基名 ✓。
+// **为什么往回走是安全的**：`As` 的基名**必然是紧挨着的前一格**
+//（`Process` 替换的是 `[as, …类型]` 那一段，左邻就是基名）；
+// 而 `a as B as C` 那种串写是**两格 `As`**——`while` 会一路退到最前面那个基名。
 let asCursor = startIndex;
 let asGuard = 0;
 while (asGuard < 64) {
@@ -1070,9 +1070,9 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
   }
   const opNode =
     opIndex >= 0
-      // **运算符那一格按文本定 kind** ✓（第 550 轮 ✓）：`in` / `instanceof` 在深度界那一层
-      // 还是 `Identifier` ✗，`ctx.Project` 会把它投成 `Identifier("in")` ✗
-      //（同一个节点同时记「缺 `InKeyword`」与「多出 `Identifier`」✓，见 `operatorTokenOf` ✓）。
+      // **运算符那一格按文本定 kind**（第 550 轮）：`in` / `instanceof` 在深度界那一层
+      // 还是 `Identifier`，`ctx.Project` 会把它投成 `Identifier("in")`
+      //（同一个节点同时记「缺 `InKeyword`」与「多出 `Identifier`」，见 `operatorTokenOf`）。
       ? ctx.OperatorNode(kids[opIndex])
       : {
           kind: ctx.TokenKind(typeof declaredOp === "string" ? declaredOp : "?"),

@@ -205,9 +205,9 @@ TS 那边那个词（`keyof` / `readonly` / `unique`）是节点的**属性**（
 `forEachChild` 只看 `type`。产物那边它与操作数是平级的两个单元，照通用投影会把它当成
 `type` 的一段——实测「多出来的节点」里两类都从这里来：
 
-- `readonly Uint8Array[]`：`type` 成了一个两格的数组（`ReadonlyKeyword` + `ArrayType`）✗，
+- `readonly Uint8Array[]`：`type` 成了一个两格的数组（`ReadonlyKeyword` + `ArrayType`），
   而 TS 的 `type` **就是那个 `ArrayType`**（`TypeOperator[17,38) > ArrayType[26,38)`）；
-- `unique symbol`：操作数被投成 `TypeReference > Identifier(symbol)` ✗，
+- `unique symbol`：操作数被投成 `TypeReference > Identifier(symbol)`，
   而 TS 那边是 `SymbolKeyword`（`TypeOperator[9,22) > SymbolKeyword[16,22)`）——
   所以操作数必须走**类型位投影**（`ctx.TypeExpression`），不是通用投影。
 

@@ -94,8 +94,8 @@ return i;
 里的 `function` 是**名字叫 `function` 的方法签名**（TypeScript 读成 `MethodSignature`），
 `function` 后面那个 `(` 就是它的形参表——不挡掉的话本规则会把它收成一个**没有名字的 `Function`**
 （实测 `@types/node/sqlite.d.ts` 的 `aggregate` 重载两处：产物里
-`<InterfaceBody><Function name="" …>` ✗）。类体同理：`class C { function() {} }` 是名字叫
-`function` 的方法。接口体 / 类型字面量体 / 类体里不可能有函数**声明** ✓。
+`<InterfaceBody><Function name="" …>`）。类体同理：`class C { function() {} }` 是名字叫
+`function` 的方法。接口体 / 类型字面量体 / 类体里不可能有函数**声明**。
 
 ```ts
 const current = Get(units, index);

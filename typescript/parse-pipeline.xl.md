@@ -87,10 +87,10 @@ import { LineWrap, WrapSymbolCloseRule } from "./tokens/line-wrap.xl.md"
 **解析流水线装配**：整棵 token 树的公共契约——跳转优先级与**收尾规则优先级**——都在这一个文件里，
 `TextContext` 在造根单元之前调一次 `ParsePipeline.Install`。
 
-**改名对照**（第 561–563 轮，按用户指示逐步移除 reorg ✓）：这一族从前叫**重组**（reorg），
-因为那是「**全局重组那一趟**」的规则——单元关闭之后，在一张平表上按队列把相邻单元合并成高层结构 ✓。
-那一趟在第 561 轮整段删掉 ✓（它从第 471 轮起就默认关着 ✓），于是这一族只剩
-`Token.ApplyCloseRules` 这一个调用点 ✓ ⇒ 名字一起改掉 ✓：
+**改名对照**（第 561–563 轮，按用户指示逐步移除 reorg）：这一族从前叫**重组**（reorg），
+因为那是「**全局重组那一趟**」的规则——单元关闭之后，在一张平表上按队列把相邻单元合并成高层结构。
+那一趟在第 561 轮整段删掉（它从第 471 轮起就默认关着），于是这一族只剩
+`Token.ApplyCloseRules` 这一个调用点 ⇒ 名字一起改掉：
 
 | 旧名 | 现名 | 时机 |
 | --- | --- | --- |
@@ -101,10 +101,10 @@ import { LineWrap, WrapSymbolCloseRule } from "./tokens/line-wrap.xl.md"
 | `ParsePipeline.GeneralReorganize` | `ParsePipeline.GeneralCloseRule` | 通用那张表 |
 | `InitialStatement/KeywordReorganizationQueue` | `InitialStatement/KeywordCloseRuleQueue` | 两张专用表的装配 |
 
-⇒ 于是全仓 `.xl.md` 里**不再有 `Reorganization` 这个词** ✓（只剩说明历史的散文 ✓）。
-规则本体一条都没删 ✗ —— `CloseRule` 的 `Previous` / `Process` 与从前逐字相同 ✓，
-读数因此一字未动 ✓（见 `docs/member-layer-plan.md` 第 561–563 轮 ✓）；
-「**哪几条其实已经没人用**」的清单与逐条删除是下一块 ✓。
+⇒ 于是全仓 `.xl.md` 里**不再有 `Reorganization` 这个词**（只剩说明历史的散文）。
+规则本体一条都没删 —— `CloseRule` 的 `Previous` / `Process` 与从前逐字相同，
+读数因此一字未动（见 `docs/member-layer-plan.md` 第 561–563 轮）；
+「**哪几条其实已经没人用**」的清单与逐条删除是下一块。
 
 把这两张表放在这里而不是摊在各 token 里，有三个好处：
 
@@ -137,17 +137,17 @@ import { LineWrap, WrapSymbolCloseRule } from "./tokens/line-wrap.xl.md"
 
 **`IfSetBranch.JumpIn` 只能紧挨在 `Identifier.AppendIn` 前面**（第 392 轮加）：
 
-- 它认的字符是 `i` ✓，而排在它前面的那些分支**没有一个会接手 `i`** ✓（正则 / 字符串 / 括号 / 泛型 / 软换行 / 符号 ✓），
-  所以插在这儿与插在队尾**只差一件事**：它必须在 `Identifier.AppendIn` **之前** ✓——
-  否则那个 `Identifier` 先被造出来 ✓、这个分支再也轮不到 ✓（`Identifier.AppendIn` 返回 `Done` ✓）。
-- 它自己带**两条位置闸**（前一个实义单元不是 `.` / `?.` / `NullConditionalOperator` ✓；
-  宿主那个 `{` 不是**值位花括号** ✓——`{ if(): T { … } }` 里那个 `if` 是**成员名** ✓，
-  第 647 轮补 ✓，见 `tokens/if/if-set.xl.md` ✓），所以放在这么靠前的位置**不会抢走别人认的词** ✓：
-  `a.if(x)` 的 `if` 仍然落到 `Identifier` 上 ✓，由 `MethodCloseRule` 收成调用 ✓
-  （它排在规则队列第 11 位 ✓，与这一条无关 ✓——**那是重组的位次，这里是跳转的位次** ✗，两张表各管各的 ✓）。
-- **「成员列表里不认 if 语句」不在这两条闸里** ✗：它由**跳转队列**保证 ✓
-  （`CreateMemberListQueue` 把 `IfSetBranch.JumpIn` 摘掉了 ✓，见本文那一节 ✓）——
-  队列那一侧一个闸都不用加 ✓。
+- 它认的字符是 `i`，而排在它前面的那些分支**没有一个会接手 `i`**（正则 / 字符串 / 括号 / 泛型 / 软换行 / 符号），
+  所以插在这儿与插在队尾**只差一件事**：它必须在 `Identifier.AppendIn` **之前**——
+  否则那个 `Identifier` 先被造出来、这个分支再也轮不到（`Identifier.AppendIn` 返回 `Done`）。
+- 它自己带**两条位置闸**（前一个实义单元不是 `.` / `?.` / `NullConditionalOperator`；
+  宿主那个 `{` 不是**值位花括号**——`{ if(): T { … } }` 里那个 `if` 是**成员名**，
+  第 647 轮补，见 `tokens/if/if-set.xl.md`），所以放在这么靠前的位置**不会抢走别人认的词**：
+  `a.if(x)` 的 `if` 仍然落到 `Identifier` 上，由 `MethodCloseRule` 收成调用
+  （它排在规则队列第 11 位，与这一条无关——**那是重组的位次，这里是跳转的位次**，两张表各管各的）。
+- **「成员列表里不认 if 语句」不在这两条闸里**：它由**跳转队列**保证
+  （`CreateMemberListQueue` 把 `IfSetBranch.JumpIn` 摘掉了，见本文那一节）——
+  队列那一侧一个闸都不用加。
 
 ```ts
 return new Sequence<Branch>([
@@ -163,65 +163,65 @@ return new Sequence<Branch>([
   InterfaceBranch.JumpIn,
   Bracket.JumpIn,
   GenericType.JumpIn,
-  // **语句壳（软换行那一档）必须排在 `LineWrap.AppendIn` 之前** ✓（第 499 轮 ✓）：
-  // 派发循环遇到第一个 `Done` 就 `return` ✓，而 `LineWrap.AppendIn`（`WrapSymbolBranch` ✓）
-  // 会把换行吃掉并返回 `Done` ✗ ⇒ 排在它之后的 `StatementBranch.JumpIn` **一次都没被问到** ✗
-  // （第 481–497 轮它一直是这样 ✗ —— 实测 `samples/hello.ts` 的 `let answer = 0` 换行那一格
-  // **根本没成壳** ✓，`=` 与 `0` 落到 `Root` 上成了平级兄弟 ✗）。这一支的 `Success` 本来就按
-  // 「终结符还没进 `Data`」写 ✓，挪到 appender 之前正好 ✓。
+  // **语句壳（软换行那一档）必须排在 `LineWrap.AppendIn` 之前**（第 499 轮）：
+  // 派发循环遇到第一个 `Done` 就 `return`，而 `LineWrap.AppendIn`（`WrapSymbolBranch`）
+  // 会把换行吃掉并返回 `Done` ⇒ 排在它之后的 `StatementBranch.JumpIn` **一次都没被问到**
+  // （第 481–497 轮它一直是这样 —— 实测 `samples/hello.ts` 的 `let answer = 0` 换行那一格
+  // **根本没成壳**，`=` 与 `0` 落到 `Root` 上成了平级兄弟）。这一支的 `Success` 本来就按
+  // 「终结符还没进 `Data`」写，挪到 appender 之前正好。
   StatementBranch.JumpIn,
   LineWrap.AppendIn,
-  // **`Let` 在解析期成形**：认的是 `=` / `:` / `;` / `,` / 换行 这几格 ✓，
-  // 所以只要排在 `SymbolToken.AppendIn` 之前就行 ✓（与 `IfSetBranch` 当初的加法同一处表 ✓）。
+  // **`Let` 在解析期成形**：认的是 `=` / `:` / `;` / `,` / 换行 这几格，
+  // 所以只要排在 `SymbolToken.AppendIn` 之前就行（与 `IfSetBranch` 当初的加法同一处表）。
   LetBranch.JumpIn,
-  // **语句壳在解析期成形** ✓（第 481 轮）：位置只有一格可行 ✓ —— **`SymbolToken.AppendIn` 之前** ✓。
-  // 派发循环遇到第一个 `Done` 就 `return` ✓（逐下标实测：`;` 在 `i=14 SymbolBranch` 那一格
-  // 被接手并返回 `Done` ✓ ⇒ 排在它之后的任何一格**一次都没被问到** ✓——第 478 / 480 两轮
-  // 都撞在这上面 ✓），所以壳必须排在 appender **之前** ✓；而那时 `;` 还没进 `Data` ✓，
-  // 于是判据与切片都按「终结符尚未入列」写 ✓（见 `tokens/statement.xl.md` 的 `Condition` / `Success` ✓）。
+  // **语句壳在解析期成形**（第 481 轮）：位置只有一格可行 —— **`SymbolToken.AppendIn` 之前**。
+  // 派发循环遇到第一个 `Done` 就 `return`（逐下标实测：`;` 在 `i=14 SymbolBranch` 那一格
+  // 被接手并返回 `Done` ⇒ 排在它之后的任何一格**一次都没被问到**——第 478 / 480 两轮
+  // 都撞在这上面），所以壳必须排在 appender **之前**；而那时 `;` 还没进 `Data`，
+  // 于是判据与切片都按「终结符尚未入列」写（见 `tokens/statement.xl.md` 的 `Condition` / `Success`）。
   SymbolToken.AppendIn,
   Identifier.AppendIn,
 ]);
 ```
 
-**`IfSetBranch.JumpIn` 排在 `Bracket.JumpIn` 之前** ✗（第 395 轮改，用户口径 ✓）：
-它的入口挪到了 **`(`** 那一格 ✓（那时 `if` 已经在宿主的平列表里 ✓，一个向前看的字符都不用读 ✓），
-而 `(` 正是 `Bracket.JumpIn` 认的字符 ✓——排在它后面就永远轮不到 ✓。
-`(` 照样会被开成一个括号 ✓，只是**晚一步** ✓：由向导的暂存单元照**宿主那条队列**开 ✓
-（那条队列里 `Bracket.JumpIn` 好好地在 ✓）。
+**`IfSetBranch.JumpIn` 排在 `Bracket.JumpIn` 之前**（第 395 轮改，用户口径）：
+它的入口挪到了 **`(`** 那一格（那时 `if` 已经在宿主的平列表里，一个向前看的字符都不用读），
+而 `(` 正是 `Bracket.JumpIn` 认的字符——排在它后面就永远轮不到。
+`(` 照样会被开成一个括号，只是**晚一步**：由向导的暂存单元照**宿主那条队列**开
+（那条队列里 `Bracket.JumpIn` 好好地在）。
 
-**`class` 也有自己的分支了** ✓（本轮）：`ClassBranch.JumpIn` 的入口在 **`{`** 那一格 ✓，
-与 `IfSetBranch` 同一条铁律 ✓——那时**整个类头都已经读到了** ✓，判据一个字符都不向前看 ✓。
-它排在 `Bracket.JumpIn` 之前，原因与 `IfSetBranch` 和 `(` 的关系**一模一样** ✓：
-`{` 正是 `Bracket.JumpIn` 认的字符 ✓，排在后面就永远轮不到 ✓。
+**`class` 也有自己的分支了**（本轮）：`ClassBranch.JumpIn` 的入口在 **`{`** 那一格，
+与 `IfSetBranch` 同一条铁律——那时**整个类头都已经读到了**，判据一个字符都不向前看。
+它排在 `Bracket.JumpIn` 之前，原因与 `IfSetBranch` 和 `(` 的关系**一模一样**：
+`{` 正是 `Bracket.JumpIn` 认的字符，排在后面就永远轮不到。
 
-**`interface` / `enum` 也各有一支了** ✓（第 414 / 415 轮）：`EnumBranch.JumpIn` 与
-`InterfaceBranch.JumpIn`，入口同样落在 **`{`** 上 ✓，同样排在 `Bracket.JumpIn` 之前 ✓。
-`if` 与 `interface` **首字母相同**那个冲突从来不存在 ✓：两个向导认的是 `(` 与 `{` ✓，不重叠 ✓
-——现在的形状下更无从谈起：`interface` 那个词由 `Identifier` 照常吃掉 ✓，
-分支在 `{` 那一刻**往回扫已经读到的单元** ✓（`FindInterfaceWord` ✓），根本不抢首字母 ✓。
+**`interface` / `enum` 也各有一支了**（第 414 / 415 轮）：`EnumBranch.JumpIn` 与
+`InterfaceBranch.JumpIn`，入口同样落在 **`{`** 上，同样排在 `Bracket.JumpIn` 之前。
+`if` 与 `interface` **首字母相同**那个冲突从来不存在：两个向导认的是 `(` 与 `{`，不重叠
+——现在的形状下更无从谈起：`interface` 那个词由 `Identifier` 照常吃掉，
+分支在 `{` 那一刻**往回扫已经读到的单元**（`FindInterfaceWord`），根本不抢首字母。
 
 ## static method CreateMemberListQueue:()=>Sequence<Branch>
 
 **成员列表的跳转队列**：通用队列**去掉 `IfSetBranch.JumpIn`**（第 393 轮加）。
 
-**为什么需要第二条队列** ✗：`class` / `interface` / `enum` 的体是一张成员列表 ✓，
-而成员位上的 `if(a) { }` 是一个**名叫 `if` 的成员** ✓——与 if 语句**形状一模一样** ✗，
-分它们的只有上下文 ✓。第 391 轮用一句词法推断（`Bracket.IsMemberList`）回答了它 ✓，
-而那是「这个 `{` 是不是成员列表」的**第二份答案** ✗（第一份在三条规则自己手里 ✓）。
+**为什么需要第二条队列**：`class` / `interface` / `enum` 的体是一张成员列表，
+而成员位上的 `if(a) { }` 是一个**名叫 `if` 的成员**——与 if 语句**形状一模一样**，
+分它们的只有上下文。第 391 轮用一句词法推断（`Bracket.IsMemberList`）回答了它，
+而那是「这个 `{` 是不是成员列表」的**第二份答案**（第一份在三条规则自己手里）。
 
-这一条把答案换成**结构** ✓：成员列表里的字符由这条队列处理 ✓，它里面**没有** `IfSetBranch.JumpIn` ✓
-⇒ 「成员列表里不认 if 语句」由**队列本身**保证 ✓，`if` 那一侧一个闸都不用加 ✓。
+这一条把答案换成**结构**：成员列表里的字符由这条队列处理，它里面**没有** `IfSetBranch.JumpIn`
+⇒ 「成员列表里不认 if 语句」由**队列本身**保证，`if` 那一侧一个闸都不用加。
 
-**这一条队列里不需要摘掉任何东西** ✓：成员位由**队列**保证 ✓，而不是靠某个分支自己让路 ✓。
-嵌套的成员列表（类里再写一个类 ✓）也走同一条路 ✓——里面那个体的括号由**它自己的体 token** 挂队列 ✓。
+**这一条队列里不需要摘掉任何东西**：成员位由**队列**保证，而不是靠某个分支自己让路。
+嵌套的成员列表（类里再写一个类）也走同一条路——里面那个体的括号由**它自己的体 token** 挂队列。
 
-**谁用它**（三个体，都是**体自己**在构造器里挂 ✓）：
+**谁用它**（三个体，都是**体自己**在构造器里挂）：
 `tokens/class/class-body.xl.md` / `tokens/interface/interface-body.xl.md` /
-`tokens/enum/enum-member.xl.md`（枚举成员那个还多摘/插一支，见 `CreateEnumMemberQueue` ✓）。
+`tokens/enum/enum-member.xl.md`（枚举成员那个还多摘/插一支，见 `CreateEnumMemberQueue`）。
 
-与 `CreateGeneralQueue` **同一条语义** ✓：每次访问都新建一份 ✓，模板之间不串味 ✓
-（所以几处各拿一份、互不影响 ✓；`Removed` 本身也是产出副本 ✓）。
+与 `CreateGeneralQueue` **同一条语义**：每次访问都新建一份，模板之间不串味
+（所以几处各拿一份、互不影响；`Removed` 本身也是产出副本）。
 
 ```ts
 return ParsePipeline.CreateGeneralQueue().Removed([IfSetBranch.JumpIn]);
@@ -231,48 +231,48 @@ return ParsePipeline.CreateGeneralQueue().Removed([IfSetBranch.JumpIn]);
 
 `units` 的**最后一个单元**是不是一张刚刚打开的成员列表的体。
 
-**它回答的是「这个 `{` 是不是成员列表」这个问题，而答案是「问那几条规则自己」** ✗——
-`InterfaceCloseRule` / `EnumCloseRule` 各自都有一份**自己的**头判据（`Previous` ✓），
-这里是唯一的调用点 ✓。
-**不另写一份「这是不是接口头」** ✗：第 391 轮那版就是这么走偏的（`Bracket.IsMemberList` 用一句词法推断
-去猜同一件事 ✓，等于同一个问题两份答案 ✓），第 393 轮把它换成了「向导收头 + 问那三条规则」✓，
-这一轮再简化一步：**连头都不用收** ✗。
+**它回答的是「这个 `{` 是不是成员列表」这个问题，而答案是「问那几条规则自己」**——
+`InterfaceCloseRule` / `EnumCloseRule` 各自都有一份**自己的**头判据（`Previous`），
+这里是唯一的调用点。
+**不另写一份「这是不是接口头」**：第 391 轮那版就是这么走偏的（`Bracket.IsMemberList` 用一句词法推断
+去猜同一件事，等于同一个问题两份答案），第 393 轮把它换成了「向导收头 + 问那三条规则」，
+这一轮再简化一步：**连头都不用收**。
 
-**`class` 已经不在这一问里了** ✓（本轮 ✓）：类体现在由 `ClassBranch` 在 `{` 那一刻**自己认领** ✓，
-那个括号根本走不到 `Bracket.JumpIn` ✓ ⇒ 这里再留一份「这是不是类头」就是**第二份答案** ✗。
-于是「是不是成员列表」这个问题只剩两个答案：接口 / 枚举各一条自己的 `Previous` ✓。
+**`class` 已经不在这一问里了**（本轮）：类体现在由 `ClassBranch` 在 `{` 那一刻**自己认领**，
+那个括号根本走不到 `Bracket.JumpIn` ⇒ 这里再留一份「这是不是类头」就是**第二份答案**。
+于是「是不是成员列表」这个问题只剩两个答案：接口 / 枚举各一条自己的 `Previous`。
 
-**为什么可以只看已经读到的单元** ✓（用户口径 ✓）：`interface` 那个词早就由 `Identifier` 照常吃掉了 ✓，
-它此刻就躺在**宿主自己的平列表**里 ✓；而这个 `{` 是**刚刚**由 `BracketBranch.Success` 挂上去的 ✓
-（调用点就在 `AddToMounted` 之后 ✓），所以那一刻**体括号已经在表里** ✓——
-那两条规则的 `Previous` 要的正是「头 + 体括号都在」这个形状 ✓。
-⇒ 不向前看一个字符 ✓、不开暂存单元 ✓、不交还 ✓、也不用抢首字母（`interface` 与 `if` 不再撞车 ✓）。
+**为什么可以只看已经读到的单元**（用户口径）：`interface` 那个词早就由 `Identifier` 照常吃掉了，
+它此刻就躺在**宿主自己的平列表**里；而这个 `{` 是**刚刚**由 `BracketBranch.Success` 挂上去的
+（调用点就在 `AddToMounted` 之后），所以那一刻**体括号已经在表里**——
+那两条规则的 `Previous` 要的正是「头 + 体括号都在」这个形状。
+⇒ 不向前看一个字符、不开暂存单元、不交还、也不用抢首字母（`interface` 与 `if` 不再撞车）。
 
-往回扫的边界（只看已经读到的 ✓）：
+往回扫的边界（只看已经读到的）：
 
-- `;` ⇒ 停（上一句已经完了 ✓）；
-- 另一个**花括号** ⇒ 停（换了一张表 ✓——`interface I { }` 换行 `if (x) { }` 里那个 `{`
-  往回扫会撞上前一个接口体 ✓，不该认成成员列表 ✓）；
-- **圆括号 / 方括号透明** ✓（类型参数段、继承表达式 ✓，与 `DecideMemberList` 当初那条实测同款 ✓）；
-- 名字 / `.` / `extends` / 修饰词 / 装饰器 ⇒ 继续往前 ✓；
-- 撞上 `interface` / `enum` ⇒ 就是它，交给对应那条规则 ✓；
-- 扫到头 ⇒ 不是成员列表 ✓。
+- `;` ⇒ 停（上一句已经完了）；
+- 另一个**花括号** ⇒ 停（换了一张表——`interface I { }` 换行 `if (x) { }` 里那个 `{`
+  往回扫会撞上前一个接口体，不该认成成员列表）；
+- **圆括号 / 方括号透明**（类型参数段、继承表达式，与 `DecideMemberList` 当初那条实测同款）；
+- 名字 / `.` / `extends` / 修饰词 / 装饰器 ⇒ 继续往前；
+- 撞上 `interface` / `enum` ⇒ 就是它，交给对应那条规则；
+- 扫到头 ⇒ 不是成员列表。
 
-**类型字面量那一支用 `Context`，不要用 `TypeLiteralCloseRule.Previous`** ✗——
-这一条是量出来的 ✓，第一版就是复用了它、当场判宽 ✓：
+**类型字面量那一支用 `Context`，不要用 `TypeLiteralCloseRule.Previous`**——
+这一条是量出来的，第一版就是复用了它、当场判宽：
 
-- `TypeLiteralCloseRule.IsTypePosition` 是**事后**判据 ✓，它自己文件里写着
-  「老走法能对，是因为它跑的时候 `LabelCloseRule` 已经把冒号收走了」✓
-  ——拿到**开括号那一刻**来问，宿主那张表还是词法阶段的平列表 ✓，
-  `outer: { … }` 那种标签冒号与类型标注的冒号还分不开 ✓（那正是 `DecideBracketContext` 记过的三次失败 ✓）；
-- 后果是**整块**的 ✓：普通 `{` 块被判成成员列表 ⇒ 块里的 `if` 拿不到向导 ⇒ 而兜底规则已经删了 ✗
-  ⇒ 整条 `if` 子树连同它的条件与体一起从产物里消失 ✓
-  （实测**缺 118599 个节点** ✓，而「多出来」只有 5660 ✓——比例正好是「一条 if 换一个 ExpressionStatement」✓）。
+- `TypeLiteralCloseRule.IsTypePosition` 是**事后**判据，它自己文件里写着
+  「老走法能对，是因为它跑的时候 `LabelCloseRule` 已经把冒号收走了」
+  ——拿到**开括号那一刻**来问，宿主那张表还是词法阶段的平列表，
+  `outer: { … }` 那种标签冒号与类型标注的冒号还分不开（那正是 `DecideBracketContext` 记过的三次失败）；
+- 后果是**整块**的：普通 `{` 块被判成成员列表 ⇒ 块里的 `if` 拿不到向导 ⇒ 而兜底规则已经删了
+  ⇒ 整条 `if` 子树连同它的条件与体一起从产物里消失
+  （实测**缺 118599 个节点**，而「多出来」只有 5660——比例正好是「一条 if 换一个 ExpressionStatement」）。
 
-`Context` 那一支是**开括号那一刻**算好的 ✓，与重组时序无关 ✓；
-它原先有一处判宽（`): A | B {` 被判成类型位 ✓），第 394 轮已经在
-`../text-common-util.xl.md` 的 `DecideBracketContext` 里修掉了 ✓（`|` / `&` 在 `{` 上继续往前扫 ✓）。
-修完之后全语料 **1451 / 1451** ✓——所以这一格是有判据守着的 ✓，不是「顺手换个写法」✓。
+`Context` 那一支是**开括号那一刻**算好的，与重组时序无关；
+它原先有一处判宽（`): A | B {` 被判成类型位），第 394 轮已经在
+`../text-common-util.xl.md` 的 `DecideBracketContext` 里修掉了（`|` / `&` 在 `{` 上继续往前扫）。
+修完之后全语料 **1451 / 1451**——所以这一格是有判据守着的，不是「顺手换个写法」。
 
 ```ts
 const bodyIndex = units.length - 1;
@@ -280,21 +280,21 @@ const body = Get(units, bodyIndex);
 if (!(body instanceof Bracket) || body.startBracket !== "{") {
   return false;
 }
-// **标签的块不是成员列表** ✗（第 396 轮，从 XML 查出来的 ✓）：`outer: { … }` 里那个 `{`
-// 的 `Context` 也会是 `"type"` ✓——`DecideBracketContext` 自己在文件里写着，
-// 词法阶段「分不出 `outer: { … }` 这种**标签的冒号**与 `x: { … }` 这种**类型标注的冒号**」✓；
-// 那个区分正是 `LabelCloseRule` 带来的 ✓，所以这里问它一句 ✓。
+// **标签的块不是成员列表**（第 396 轮，从 XML 查出来的）：`outer: { … }` 里那个 `{`
+// 的 `Context` 也会是 `"type"`——`DecideBracketContext` 自己在文件里写着，
+// 词法阶段「分不出 `outer: { … }` 这种**标签的冒号**与 `x: { … }` 这种**类型标注的冒号**」；
+// 那个区分正是 `LabelCloseRule` 带来的，所以这里问它一句。
 //
-// **必须问在 `Context` 之前** ✗：第一版把它塞在下面那个循环里 ✓，
-// 可 `Context` 那一句**在循环之前就返回了** ✗ ⇒ 永远到不了 ✗（改了等于没改 ✓，XML 一打就现形 ✓）。
+// **必须问在 `Context` 之前**：第一版把它塞在下面那个循环里，
+// 可 `Context` 那一句**在循环之前就返回了** ⇒ 永远到不了（改了等于没改，XML 一打就现形）。
 //
-// 症状（实测 `ex-labeled-block` / `rt-label-break-out-of-block` 等 8 条 ✓）：
-// 标签块的队列被换成了成员列表队列 ✓ ⇒ 块里的 `if` 拿不到向导 ✓
-// ⇒ 产物里是一个**裸的 `<Keyword>if</Keyword>`** ✓ ⇒ 降级层报
-// `name is not a local or a capture: if` ✓（它把 `if` 当成一个标识符去解析 ✓）。
+// 症状（实测 `ex-labeled-block` / `rt-label-break-out-of-block` 等 8 条）：
+// 标签块的队列被换成了成员列表队列 ⇒ 块里的 `if` 拿不到向导
+// ⇒ 产物里是一个**裸的 `<Keyword>if</Keyword>`** ⇒ 降级层报
+// `name is not a local or a capture: if`（它把 `if` 当成一个标识符去解析）。
 //
-// **`let x: { a: 1 }` 不会误伤** ✓：那种写法过不了 `Previous` 里的 `IsStatementStart` ✓
-// （它要求冒号前那个名字处在**语句开头** ✓）——这正是那条闸当初加的理由 ✓。
+// **`let x: { a: 1 }` 不会误伤**：那种写法过不了 `Previous` 里的 `IsStatementStart`
+// （它要求冒号前那个名字处在**语句开头**）——这正是那条闸当初加的理由。
 const colonIndex = SkipPreviousTrivia(units, bodyIndex);
 const colon = Get(units, colonIndex);
 if (colon instanceof SymbolToken && colon.Is(":")) {
@@ -307,12 +307,12 @@ if (colon instanceof SymbolToken && colon.Is(":")) {
 if (body.Context === "type") {
   return true;
 }
-// **这里原来还有一支「撞上 `interface` 就问它的 `Previous`」** ✗（第 415 轮删掉）：
-// `class` / `enum` / `interface` 三族的体现在都由各自的解析期分支在 `{` 那一刻认领 ✓
-// ⇒ 那三个体的括号**根本走不到 `Bracket.JumpIn`** ✓ ⇒ 再留一份「这是不是接口头」就是**第二份答案** ✗
-// （同一个问题两份答案，正是这一节开头在讲的毛病 ✓）。
-// 剩下这一支与上面那个 `Context === "type"` 才是这一问真正还要答的东西 ✓：
-// 类型字面量与标签块的 `{` 仍然由 `Bracket` 开 ✓，它们才需要成员列表队列 ✓。
+// **这里原来还有一支「撞上 `interface` 就问它的 `Previous`」**（第 415 轮删掉）：
+// `class` / `enum` / `interface` 三族的体现在都由各自的解析期分支在 `{` 那一刻认领
+// ⇒ 那三个体的括号**根本走不到 `Bracket.JumpIn`** ⇒ 再留一份「这是不是接口头」就是**第二份答案**
+// （同一个问题两份答案，正是这一节开头在讲的毛病）。
+// 剩下这一支与上面那个 `Context === "type"` 才是这一问真正还要答的东西：
+// 类型字面量与标签块的 `{` 仍然由 `Bracket` 开，它们才需要成员列表队列。
 return false;
 ```
 
@@ -368,46 +368,46 @@ return ParsePipeline.CreateMemberListQueue().InsertedBefore(StringGuide.JumpIn, 
 **顺序即语义**：语句级结构（`Let` / `Keyword` / …）先依次尝试，
 控制流（`For` / `Foreach` / `While` / `Try`）最后兜底。改顺序会直接改变 XML。
 
-**`IfSetCloseRule` 已经不在队里了** ✗（第 394 轮删掉 ✓）：`if` 现在由**解析期向导**
-（`tokens/if/if-set.xl.md` ✓）在读的时候造 ✓，它压根到不了这一趟 ✓。
-`if` 原来的位次（`Switch` 与 `For` 之间 ✓）从此空着 ✓。
+**`IfSetCloseRule` 已经不在队里了**（第 394 轮删掉）：`if` 现在由**解析期向导**
+（`tokens/if/if-set.xl.md`）在读的时候造，它压根到不了这一趟。
+`if` 原来的位次（`Switch` 与 `For` 之间）从此空着。
 
-**`ClassCloseRule` 也不在队里了** ✗（本轮删掉 ✓）：`class` 现在由**解析期分支**
-（`tokens/class/class.xl.md` 的 `ClassBranch` ✓）在 `{` 那一刻造 ✓。
-它原来的位次（队首第 2 位、`Decorator` 之后 ✓）从此空着 ✓——
-**一条一条把语句级结构从这张表里搬出去** ✓，这就是这条路在走的方向 ✓
-（下一批是 `Function` / `Enum` / `MethodDeclaration` ✓）。
+**`ClassCloseRule` 也不在队里了**（本轮删掉）：`class` 现在由**解析期分支**
+（`tokens/class/class.xl.md` 的 `ClassBranch`）在 `{` 那一刻造。
+它原来的位次（队首第 2 位、`Decorator` 之后）从此空着——
+**一条一条把语句级结构从这张表里搬出去**，这就是这条路在走的方向
+（下一批是 `Function` / `Enum` / `MethodDeclaration`）。
 
-**`StaticBlockCloseRule` 也不在队里了** ✗（本轮删掉 ✓）：类静态块现在由**解析期分支**
-（`tokens/class/static-block.xl.md` 的 `StaticBlockBranch` ✓）在 **`{`** 那一刻造 ✓
-——入口落在 `{` 上 ✓、那一刻 `static` 那个词与「宿主是 `ClassBody`」两样都已经读到 ✓，
-判据一个字符都不向前看 ✓。它原来那位（`Field` 之后 ✓）从此空着 ✓。
-**这一条是「成员层」的第一格** ✓：`Class` 在 `{` 那一刻把整个类头收下 ✓，
-`ClassBody` 自己吃 `{ … }` ✓，它下面的成员再一个一个搬 ✓（下一格是 `Field` / `MethodDeclaration` ✓）。
+**`StaticBlockCloseRule` 也不在队里了**（本轮删掉）：类静态块现在由**解析期分支**
+（`tokens/class/static-block.xl.md` 的 `StaticBlockBranch`）在 **`{`** 那一刻造
+——入口落在 `{` 上、那一刻 `static` 那个词与「宿主是 `ClassBody`」两样都已经读到，
+判据一个字符都不向前看。它原来那位（`Field` 之后）从此空着。
+**这一条是「成员层」的第一格**：`Class` 在 `{` 那一刻把整个类头收下，
+`ClassBody` 自己吃 `{ … }`，它下面的成员再一个一个搬（下一格是 `Field` / `MethodDeclaration`）。
 
-**`EnumCloseRule` 也不在队里了** ✗（本轮删掉 ✓）：枚举声明现在由**解析期分支**
-（`tokens/enum/enum.xl.md` 的 `EnumBranch` ✓）在 **`{`** 那一刻造 ✓（入口落在 `{` 上、
-那一刻 `enum` 那个词与名字都已经读到 ✓），`Enum` / `EnumBody` 与 `Class` / `ClassBody` 逐条对齐 ✓。
-`IsMemberListHead` 里的 `enum` 一支同时删掉 ✓——那个问题从此只剩接口一个答案 ✓。
-**类与枚举的「头」共用一份准备机件** ✓：`declaration-common` 的 `ReorganizeDeclarationDecorators` ✓
-（装饰器必须在算 `DeclarationStart` **之前**成形 ✓，这条次序两处都要 ✓）。
+**`EnumCloseRule` 也不在队里了**（本轮删掉）：枚举声明现在由**解析期分支**
+（`tokens/enum/enum.xl.md` 的 `EnumBranch`）在 **`{`** 那一刻造（入口落在 `{` 上、
+那一刻 `enum` 那个词与名字都已经读到），`Enum` / `EnumBody` 与 `Class` / `ClassBody` 逐条对齐。
+`IsMemberListHead` 里的 `enum` 一支同时删掉——那个问题从此只剩接口一个答案。
+**类与枚举的「头」共用一份准备机件**：`declaration-common` 的 `ReorganizeDeclarationDecorators`
+（装饰器必须在算 `DeclarationStart` **之前**成形，这条次序两处都要）。
 
 **已搬走的那一支还欠哪些 reorg**（第 415 轮量出来的清单）：
 
-`class` / `enum` / `interface` 的**声明本身**已经一处 reorg 都不挂了 ✓，但它们下面**还欠**这些
-（逐个用「摘掉队列 → 跑全语料」量过 ✓，不是猜的 ✓）：
+`class` / `enum` / `interface` 的**声明本身**已经一处 reorg 都不挂了，但它们下面**还欠**这些
+（逐个用「摘掉队列 → 跑全语料」量过，不是猜的）：
 
 | 还欠在哪 | 摘掉会怎样（实测） | 要等哪一层搬完 |
 | --- | --- | --- |
 | `ClassBody` / `EnumBody` / `InterfaceBody` / `StaticBlock` 的**语句队列** | 成员（`Field` / `MethodDeclaration` / `EnumMember` / `Statement`）全部不成形 | 成员层——**最大的一处**，四个体都靠它 |
 | `ExpressionWithTypeArguments` 的通用队列 | `extends mixin(B)` / `extends (Base)` 掉 `CallExpression` 与 `Identifier`（2 个文件） | 「调用表达式 / 成员访问」那一层 |
-| `Decorator` 的通用队列 | 装饰器的实参括号不成形 | 装饰器那一层（现在由 `ReorganizeDeclarationDecorators` **显式**调用 ✓） |
+| `Decorator` 的通用队列 | 装饰器的实参括号不成形 | 装饰器那一层（现在由 `ReorganizeDeclarationDecorators` **显式**调用） |
 | `GenericType` 的通用队列 | 类型参数段 / 类型实参段不成形 | 类型层 |
 
 **已经摘干净的两处**：`HeritageClause` 自己那一趟（子句词改由 `Keyword.FromIdentifier` 在
-`Take` 里当场升成 `<Keyword>` ✓，实测摘掉队列会让 `<Keyword>extends</Keyword>` 退回
-`<Identifier>extends</Identifier>`——补上这一句之后全语料一处不掉 ✓）；
-以及 `Class` / `Enum` / `Interface` 三个引导单元各自的兜底队列 ✓。
+`Take` 里当场升成 `<Keyword>`，实测摘掉队列会让 `<Keyword>extends</Keyword>` 退回
+`<Identifier>extends</Identifier>`——补上这一句之后全语料一处不掉）；
+以及 `Class` / `Enum` / `Interface` 三个引导单元各自的兜底队列。
 
 ## static method KeyWords:()=>Array<string>
 
@@ -576,9 +576,9 @@ return [
 ```ts
 template.Initialize((self: Template) => {
   // **成形器**（第 486–488 轮）：把 `Token.FormStatement` / `Token.ApplyCloseRules` 落到
-  // `typescript` 层那一份实现上（`token-former-impl.xl.md` ✓）。
-  // 它是**进程级的一份**（`Token` 上的静态字段 ✓），装一次就够 ✓——装在这里是因为
-  // 「装配是调用方的责任」这条口径只有这一个入口 ✓。
+  // `typescript` 层那一份实现上（`token-former-impl.xl.md`）。
+  // 它是**进程级的一份**（`Token` 上的静态字段），装一次就够——装在这里是因为
+  // 「装配是调用方的责任」这条口径只有这一个入口。
   Token.Former = TokenFormerImpl.Instance;
   self.BranchTemplate.DefaultValue = ParsePipeline.CreateGeneralQueue();
   self.CloseRuleTemplate.DefaultValue = ParsePipeline.GeneralCloseRule;
@@ -627,7 +627,7 @@ unit.CloseRuleQueue = new Sequence<CloseRule>([ImportTypeCloseRule.Instance, Typ
 把成员定下来）之后，条件类型才看得见那个 `extends`：
 
     收联合之前： [A, extends, B, «|», C, «?», D, :, E]   ← 回扫在 «|» 上停，FindExtendsIndex = -1
-    收联合之后： [A, extends, «UnionType(B|C)», «?», D, :, E]  ← UnionType 是透明的，找到 extends ✓
+    收联合之后： [A, extends, «UnionType(B|C)», «?», D, :, E]  ← UnionType 是透明的，找到 extends
 
 少了这一条，`lib.es5.d.ts` 的 `Awaited` 一整个类型别名、`typescript.d.ts` 的二十多条
 `… extends X | Y ? A : B` 全部落空（投影侧表现为「缺 `ConditionalType` + 缺它整个子树」）。
@@ -678,27 +678,27 @@ branch.AddStringChar("`");
 
 ## static method InitialCloseRuleQueue:(unit:Token)=>void
 
-给一个单元装上它的收尾规则队列：取**该单元类型**那一份（模板上没有专门注册就是通用规则队列 ✓）。
+给一个单元装上它的收尾规则队列：取**该单元类型**那一份（模板上没有专门注册就是通用规则队列）。
 
-**第 564 轮起这里只有这一句** ✓：从前它还要往队列里**插**两条语句规则
-（`StatementCloseRule2` / `StatementCloseRule3` ✓，插在 `WrapSymbolCloseRule` 之前 ✓），
-而那两条规则在 `RunCloseRules` 里是**显式跳过**的 ✗ ⇒ 插进去从来没被跑到过 ✓
-（第 564 轮量的账：全语料 `Previous` 调用 **0** 次 ✓）⇒ 插入连同那两条规则一起删掉 ✓。
+**第 564 轮起这里只有这一句**：从前它还要往队列里**插**两条语句规则
+（`StatementCloseRule2` / `StatementCloseRule3`，插在 `WrapSymbolCloseRule` 之前），
+而那两条规则在 `RunCloseRules` 里是**显式跳过**的 ⇒ 插进去从来没被跑到过
+（第 564 轮量的账：全语料 `Previous` 调用 **0** 次）⇒ 插入连同那两条规则一起删掉。
 
-**名字**（第 565 轮 ✓）：它从前叫 `InitialStatementCloseRuleQueue` ——
-名字里那半截指的是**插进去的两条语句规则** ✗，而那两条规则已经删掉 ✓（见上 ✓）⇒
-它现在装的**不是**「语句规则」✓，就是**这一族**通用的那一份 ✓ ⇒ 改名为 `InitialCloseRuleQueue` ✓
-（与基类 `CloseRule` ✓、字段 `CloseRuleQueue` ✓、模板 `CloseRuleTemplate` ✓ 同一族命名 ✓，
-**48 处**替换 ✓、27 个文件 ✓）。
+**名字**（第 565 轮）：它从前叫 `InitialStatementCloseRuleQueue` ——
+名字里那半截指的是**插进去的两条语句规则**，而那两条规则已经删掉（见上）⇒
+它现在装的**不是**「语句规则」，就是**这一族**通用的那一份 ⇒ 改名为 `InitialCloseRuleQueue`
+（与基类 `CloseRule`、字段 `CloseRuleQueue`、模板 `CloseRuleTemplate` 同一族命名，
+**48 处**替换、27 个文件）。
 
-**这条装配线本身留着** ✓：它现在与各单元构造器里那句
-`template.CloseRuleTemplate.Get(this.constructor)` **完全等价** ✓，本可以整体并掉 ✓ ——
-但那样会有 **22 份**「队列从哪来」的解释散到 22 个构造器里 ✗，而这里一份就说明白 ✓。
-它是**装配**（`ParsePipeline` 的口径 ✓：装默认队列、关键字表、两种队列 ✓），不是「重组」的残骸 ✓。
+**这条装配线本身留着**：它现在与各单元构造器里那句
+`template.CloseRuleTemplate.Get(this.constructor)` **完全等价**，本可以整体并掉 ——
+但那样会有 **22 份**「队列从哪来」的解释散到 22 个构造器里，而这里一份就说明白。
+它是**装配**（`ParsePipeline` 的口径：装默认队列、关键字表、两种队列），不是「重组」的残骸。
 
-**`Get` 用一个实参** ✓：单参用法取的就是 `CloseRuleTemplate.DefaultValue` ✓（`Install` 装的是
-`GeneralCloseRule` ✓），与从前那个「两个实参 + 原样返回默认值」的回调**内容完全一致** ✓ ——
-队列里的内容没变，只是少了一次插入 ✓。
+**`Get` 用一个实参**：单参用法取的就是 `CloseRuleTemplate.DefaultValue`（`Install` 装的是
+`GeneralCloseRule`），与从前那个「两个实参 + 原样返回默认值」的回调**内容完全一致** ——
+队列里的内容没变，只是少了一次插入。
 
 ```ts
 unit.CloseRuleQueue = unit.Template.CloseRuleTemplate.Get(unit.constructor);
@@ -706,13 +706,13 @@ unit.CloseRuleQueue = unit.Template.CloseRuleTemplate.Get(unit.constructor);
 
 # class TokenFormerImpl extends TokenFormer
 
-`Token` 那两条钩子的落地实现（第 486–488 轮 ✓）：装配时被装进 `Token.Former` ✓（见本文件 `Install` ✓）。
+`Token` 那两条钩子的落地实现（第 486–488 轮）：装配时被装进 `Token.Former`（见本文件 `Install`）。
 
-**为什么放在这一份文件里** ✗：它要同时用到 `Statement` 与四条规则（`Function` / `Parameter` /
-`TypeDefine` / 关键字 ✓），而 `type-define.xl.md` **反过来 import 本文件** ✗ ⇒
-把实现放进 `type-define` 那条链上的任何一份都会绕出环 ✗。
-放在这里刚合适 ✓：这四条规则本来就在这里 import ✓（`Install` 也在这里 ✓ ——
-「谁装配谁就有那一份实现」✓）。
+**为什么放在这一份文件里**：它要同时用到 `Statement` 与四条规则（`Function` / `Parameter` /
+`TypeDefine` / 关键字），而 `type-define.xl.md` **反过来 import 本文件** ⇒
+把实现放进 `type-define` 那条链上的任何一份都会绕出环。
+放在这里刚合适：这四条规则本来就在这里 import（`Install` 也在这里 ——
+「谁装配谁就有那一份实现」）。
 
 ## static readonly field Instance:TokenFormerImpl = new TokenFormerImpl()
 
@@ -720,19 +720,19 @@ unit.CloseRuleQueue = unit.Template.CloseRuleTemplate.Get(unit.constructor);
 
 ## static field Depth:int = 0
 
-**这一趟当前的递归深度**（第 496 轮 ✓，第 497 轮**留着** ✗）。
+**这一趟当前的递归深度**（第 496 轮，第 497 轮**留着**）。
 
-第 497 轮补上收敛环之后**试过撤掉它** ✗：实测**撤不掉** ✓ —— 撤掉之后 294 份语料当场炸 ✓
-（78 处栈溢出 ✓ + 216 处 `SourceException` 那一族 ✓，见 `tmp/recon/r497-final-off.txt` ✓）。
-⇒ 收敛环管的是「**一个单元内部**跑到不动为止」✓，管不住「单元造出来又往下钻」那条链 ✗ ——
-后者要的是「每个单元只在自己那一趟里收」那一道 ✓（第 495 轮记的第二条护栏 ✗，还没补 ✓）。
+第 497 轮补上收敛环之后**试过撤掉它**：实测**撤不掉** —— 撤掉之后 294 份语料当场炸
+（78 处栈溢出 + 216 处 `SourceException` 那一族，见 `tmp/recon/r497-final-off.txt`）。
+⇒ 收敛环管的是「**一个单元内部**跑到不动为止」，管不住「单元造出来又往下钻」那条链 ——
+后者要的是「每个单元只在自己那一趟里收」那一道（第 495 轮记的第二条护栏，还没补）。
 
-所以这道深度界**暂时留着** ✓：`Depth >= 8` 就跳过这一层 ✓（深层那几条规则不跑 ✓，
-形状与对照态因此不同 ✗ —— 这笔账还挂着 ✓）。
+所以这道深度界**暂时留着**：`Depth >= 8` 就跳过这一层（深层那几条规则不跑，
+形状与对照态因此不同 —— 这笔账还挂着）。
 
 ## method FormStatement:(unit:Token, terminator:Token)=>void
 
-转发给 `Statement.FormFrom`——判据、切片、区间只有那一份实现 ✓。
+转发给 `Statement.FormFrom`——判据、切片、区间只有那一份实现。
 
 ```ts
 Statement.FormFrom(unit, terminator);
@@ -740,63 +740,63 @@ Statement.FormFrom(unit, terminator);
 
 ## method ApplyCloseRules:(unit:Token)=>void
 
-**关闭之后那一趟**：按**规则队列的次序**跑**已经搬进解析期的那些规则** ✓。
+**关闭之后那一趟**：按**规则队列的次序**跑**已经搬进解析期的那些规则**。
 
-**第 561 轮起它是唯一那一趟** ✓：全局重组那一趟已经删掉 ✓（见 `core/syntax/token.xl.md` 的
-`TryToClose` ✓），所以这里不再有「对照态里别跑」那一道 ✓ ——`unit.CloseRuleQueue === null`
-仍是它的第一句 ✓（有些类**本来就没有队列** ✗，例如 `FunctionType` 那一族 ✓）。
+**第 561 轮起它是唯一那一趟**：全局重组那一趟已经删掉（见 `core/syntax/token.xl.md` 的
+`TryToClose`），所以这里不再有「对照态里别跑」那一道 ——`unit.CloseRuleQueue === null`
+仍是它的第一句（有些类**本来就没有队列**，例如 `FunctionType` 那一族）。
 
-**名字的现状** ✓（第 562 轮 ✓）：容器那一侧已经摘掉「重组」✓ ——
-`Token.CloseRuleQueue` ✓、`Template.CloseRuleTemplate` ✓；
-**规则本体那一侧还叫 `CloseRule`** ✗（基类 `core/syntax/close-rule.xl.md` ✓、
-`Sequence<CloseRule>` 那个类型名 ✓、各条 `XxxCloseRule` 类 ✓），
-按用户指示逐步搬 ✓，最后一块见 `docs/member-layer-plan.md` 的迁移账 ✓。
-所以下面这些注释、以及本文件里「队列」两个字，说的都是**这一趟**的规则表 ✓，
-与那条已经删掉的全局重组那一趟无关 ✓。
+**名字的现状**（第 562 轮）：容器那一侧已经摘掉「重组」 ——
+`Token.CloseRuleQueue`、`Template.CloseRuleTemplate`；
+**规则本体那一侧还叫 `CloseRule`**（基类 `core/syntax/close-rule.xl.md`、
+`Sequence<CloseRule>` 那个类型名、各条 `XxxCloseRule` 类），
+按用户指示逐步搬，最后一块见 `docs/member-layer-plan.md` 的迁移账。
+所以下面这些注释、以及本文件里「队列」两个字，说的都是**这一趟**的规则表，
+与那条已经删掉的全局重组那一趟无关。
 
-次序是硬的 ✗（两条都是实测出来的）：
+次序是硬的（两条都是实测出来的）：
 
-- **关键字升级必须最后** ✗：`function` 那个词一旦升成 `Keyword` ✓，
-  `FunctionCloseRule.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它 ✗
-  （规则队列里 `KeywordCloseRule` 也确实排在 `TypeDefineCloseRule` 之后 ✓）；
-- **`TypeDefine` 必须在 `Function` 之后** ✗：返回类型那个 `:` 少了 `Function` 先成形 ✓，
-  会一路吞到函数体里去 ✗ —— 实测 `tmp/recon/i42.ts`：只搬 `TypeDefine` 时 `Block` 与 `ReturnStatement`
-  当场从 OK 变 MISS ✗，与 `Function` 一起搬就是**四个方向全零** ✓。
-- **`TypeAssign`（第 35）排在 `TypeDefine`（第 37）之前** ✓（第 489 轮接上的 ✓）：
-  `type X = …` 的整段先收成别名 ✓，那条声明里的类型标注才轮到 `TypeDefine` ✓。
-- **`Let`（队列第 6）跳过** ✗（第 490 轮 ✓）：解析期已经有 `LetBranch` ✓，
-  再跑 `LetCloseRule` 会**两次成形** ✗ —— 那一格从此由解析期独占 ✓。
-- **成员那一簇照队列次序接上** ✓（第 490 轮 ✓）：`Decorator`(1) → `Function`(2) → `Signature`(3)
-  → `MethodDeclaration`(4) → `Label`(5) → `Field`(7) ✓；实测这一簇（连 `Decorator` ✓）
-  把读数从 221 推到 **290 / 1037** ✓。
-- **下游那一簇接在 `Field` 之后** ✓（第 491 轮 ✓）：`New`(8) → `Method`(9) →
+- **关键字升级必须最后**：`function` 那个词一旦升成 `Keyword`，
+  `FunctionCloseRule.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它
+  （规则队列里 `KeywordCloseRule` 也确实排在 `TypeDefineCloseRule` 之后）；
+- **`TypeDefine` 必须在 `Function` 之后**：返回类型那个 `:` 少了 `Function` 先成形，
+  会一路吞到函数体里去 —— 实测 `tmp/recon/i42.ts`：只搬 `TypeDefine` 时 `Block` 与 `ReturnStatement`
+  当场从 OK 变 MISS，与 `Function` 一起搬就是**四个方向全零**。
+- **`TypeAssign`（第 35）排在 `TypeDefine`（第 37）之前**（第 489 轮接上的）：
+  `type X = …` 的整段先收成别名，那条声明里的类型标注才轮到 `TypeDefine`。
+- **`Let`（队列第 6）跳过**（第 490 轮）：解析期已经有 `LetBranch`，
+  再跑 `LetCloseRule` 会**两次成形** —— 那一格从此由解析期独占。
+- **成员那一簇照队列次序接上**（第 490 轮）：`Decorator`(1) → `Function`(2) → `Signature`(3)
+  → `MethodDeclaration`(4) → `Label`(5) → `Field`(7)；实测这一簇（连 `Decorator`）
+  把读数从 221 推到 **290 / 1037**。
+- **下游那一簇接在 `Field` 之后**（第 491 轮）：`New`(8) → `Method`(9) →
   `NullConditionalOperator`(10) → `Namespace`(11) → `TypeLiteral`(12) → `Block`(13) →
-  `JsonObject`(14) → `TypeBracket`(15) ✓ —— 两次量的账：`New`/`Method`/`NullConditional`/`Namespace`
-  值 290 → **327** ✓，再加字面量与类型括号那四条值 → **349 / 1037** ✓。
-- **类型下半段接在 `TypeBracket` 之后** ✓（第 492 轮 ✓）：`ImportType`(16) → `TypePrefix`(17) →
+  `JsonObject`(14) → `TypeBracket`(15) —— 两次量的账：`New`/`Method`/`NullConditional`/`Namespace`
+  值 290 → **327**，再加字面量与类型括号那四条值 → **349 / 1037**。
+- **类型下半段接在 `TypeBracket` 之后**（第 492 轮）：`ImportType`(16) → `TypePrefix`(17) →
   `LiteralType`(18) → `JsonArray`(19) → `InferType`(20) → `TypeParameter`(21) → `TypePredicate`(22) →
-  `TupleMember`(23) → `ParenthesizedType`(24) ✓ —— 两次量的账：前四条值 349 → **381** ✓，
-  九条全上值 → **424 / 1037** ✓（**字段名那一栏从 115 掉回 26** ✓）。
-- **后半段接在 `ParenthesizedType` 之后** ✓（第 493 轮 ✓）：`HeritageClause`(26) → `BindingElement`(27)
-  → `Import`(28) → `Export`(29) → `NamespaceExport`(30) → `TypeUnion`(31) → `As`(32) ✓
-  —— 值 424 → **464 / 1037** ✓。
+  `TupleMember`(23) → `ParenthesizedType`(24) —— 两次量的账：前四条值 349 → **381**，
+  九条全上值 → **424 / 1037**（**字段名那一栏从 115 掉回 26**）。
+- **后半段接在 `ParenthesizedType` 之后**（第 493 轮）：`HeritageClause`(26) → `BindingElement`(27)
+  → `Import`(28) → `Export`(29) → `NamespaceExport`(30) → `TypeUnion`(31) → `As`(32)
+  —— 值 424 → **464 / 1037**。
 
-**每条规则还是它自己那一份实现** ✓：`XxxCloseRule.Instance.ApplyTo(unit)` ✓
-（那个循环只有一份 ✓，见 `core/syntax/close-rule.xl.md` ✓）——
-这一轮搬的是**调用时机** ✓，规则本体的逐条内联留到后面一块一块做 ✓。
+**每条规则还是它自己那一份实现**：`XxxCloseRule.Instance.ApplyTo(unit)`
+（那个循环只有一份，见 `core/syntax/close-rule.xl.md`）——
+这一轮搬的是**调用时机**，规则本体的逐条内联留到后面一块一块做。
 
 ```ts
-// **收敛环**（第 497 轮 ✓）：与当初全局重组那一趟**同款** ✓ ——
-// 「扫到列表不再变化为止，硬上界 16 趟」✓（第 127 轮的护栏 ✓）。
-// 少了它会怎样 ✗（第 494/495 轮实测）：这一趟只是「每条规则各扫一遍」✓，
-// 半成形的东西直接往下一层钻 ✓ ⇒ 两副面孔一起出现：**栈溢出**（99 处 ✓）与**堆爆**（4 GB / 91 秒 ✓）。
-// 有了它，一个单元内部就不会再自我触发 ✓；但**单元造出来又往下钻那条链它管不住** ✗ ——
-// 第 497 轮实测撤掉深度界：294 份语料当场炸 ✓（78 处栈溢出 + 216 处 `SourceException` ✓），
-// 所以第 496 轮那道临时的深度硬上界**暂时留着** ✗（要补的是「每个单元只在自己那一趟里收」那一道 ✓）。
-// **没有规则队列的单元不进这一趟** ✓（第 508 轮 ✓）：有些类**本来就没有队列** ✗
-// （`FunctionType` 那一族 ✓），它们的内容不该被再收一遍 ✓。
-// 少了这一句，规则造出来的单元**自己也会关一次** ✓ ⇒ 又跑整串规则 ✗ ⇒
-// 「自己套自己」那一族就是这么来的 ✓（第 502 / 507 轮各修了一处 ✓，这一句一次收掉其余 ✓）。
+// **收敛环**（第 497 轮）：与当初全局重组那一趟**同款** ——
+// 「扫到列表不再变化为止，硬上界 16 趟」（第 127 轮的护栏）。
+// 少了它会怎样（第 494/495 轮实测）：这一趟只是「每条规则各扫一遍」，
+// 半成形的东西直接往下一层钻 ⇒ 两副面孔一起出现：**栈溢出**（99 处）与**堆爆**（4 GB / 91 秒）。
+// 有了它，一个单元内部就不会再自我触发；但**单元造出来又往下钻那条链它管不住** ——
+// 第 497 轮实测撤掉深度界：294 份语料当场炸（78 处栈溢出 + 216 处 `SourceException`），
+// 所以第 496 轮那道临时的深度硬上界**暂时留着**（要补的是「每个单元只在自己那一趟里收」那一道）。
+// **没有规则队列的单元不进这一趟**（第 508 轮）：有些类**本来就没有队列**
+// （`FunctionType` 那一族），它们的内容不该被再收一遍。
+// 少了这一句，规则造出来的单元**自己也会关一次** ⇒ 又跑整串规则 ⇒
+// 「自己套自己」那一族就是这么来的（第 502 / 507 轮各修了一处，这一句一次收掉其余）。
 if (unit.CloseRuleQueue === null) {
   return;
 }
@@ -820,52 +820,52 @@ for (let pass = 0; pass < maxPasses; pass++) {
 
 ## method RunCloseRules:(unit:Token)=>void
 
-**那一串规则**（次序照规则队列 ✓，一条不多一条不少 ✓）——由收敛环反复调用 ✓。
+**那一串规则**（次序照规则队列，一条不多一条不少）——由收敛环反复调用。
 
-次序是硬的 ✗（三条都是实测出来的）：
+次序是硬的（三条都是实测出来的）：
 
-- **关键字升级必须最后** ✗：`function` 那个词一旦升成 `Keyword` ✓，
-  `FunctionCloseRule.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它 ✗
-  （规则队列里 `KeywordCloseRule` 也确实排在 `TypeDefineCloseRule` 之后 ✓）；
-- **`TypeDefine` 必须在 `Function` 之后** ✗：返回类型那个 `:` 少了 `Function` 先成形 ✓，
-  会一路吞到函数体里去 ✗ —— 实测 `tmp/recon/i42.ts`：只搬 `TypeDefine` 时 `Block` 与 `ReturnStatement`
-  当场从 OK 变 MISS ✗，与 `Function` 一起搬就是**四个方向全零** ✓；
-- **`BinaryOperator` 那一族必须排在 `WrapSymbol` 之后** ✗（第 496 轮 ✓）：它们在对照态的队列里排得很靠后 ✓，
-  前面那几十条规则先把形状收拢 ✓。
+- **关键字升级必须最后**：`function` 那个词一旦升成 `Keyword`，
+  `FunctionCloseRule.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它
+  （规则队列里 `KeywordCloseRule` 也确实排在 `TypeDefineCloseRule` 之后）；
+- **`TypeDefine` 必须在 `Function` 之后**：返回类型那个 `:` 少了 `Function` 先成形，
+  会一路吞到函数体里去 —— 实测 `tmp/recon/i42.ts`：只搬 `TypeDefine` 时 `Block` 与 `ReturnStatement`
+  当场从 OK 变 MISS，与 `Function` 一起搬就是**四个方向全零**；
+- **`BinaryOperator` 那一族必须排在 `WrapSymbol` 之后**（第 496 轮）：它们在对照态的队列里排得很靠后，
+  前面那几十条规则先把形状收拢。
 
 ```ts
-// **照着单元自己的队列跑** ✓（第 555 轮 ✓）：次序由队列给 ✓（那里本来就是
-// 「顺序即语义」的唯一定义 ✓），这一趟不再手抄第二份名单 ✗。
+// **照着单元自己的队列跑**（第 555 轮）：次序由队列给（那里本来就是
+// 「顺序即语义」的唯一定义），这一趟不再手抄第二份名单。
 //
-// **为什么必须照队列** ✗：单元的队列**不一定是**通用那一份 ✓ ——
+// **为什么必须照队列**：单元的队列**不一定是**通用那一份 ——
 // `PropertyAccess` / `TypeDefine` / `BinaryOperator` 那一族装的是**类型队列**
-//（`InitialKeywordCloseRuleQueue` ✓），对照态里它们**只跑那 15 条** ✓。
-// 手抄名单对谁都跑整串 ✗ ⇒ `PropertyAccessCloseRule` 在 `PropertyAccess` **自己**的
-// `Data` 上又匹配一次 ✗ ⇒ 一层套一层、直到深度界 ✓
-//（实测 `a.b.c` 在产物里是**八层同区间**的 `PropertyAccess` ✓，投影只看得见最里面那一格 ✗）。
+//（`InitialKeywordCloseRuleQueue`），对照态里它们**只跑那 15 条**。
+// 手抄名单对谁都跑整串 ⇒ `PropertyAccessCloseRule` 在 `PropertyAccess` **自己**的
+// `Data` 上又匹配一次 ⇒ 一层套一层、直到深度界
+//（实测 `a.b.c` 在产物里是**八层同区间**的 `PropertyAccess`，投影只看得见最里面那一格）。
 //
-// 解析期独有的两处偏差留在这里 ✓（原来散在名单里 ✓，第 564 轮从三处变两处 ✓）：
-// · `Export` 那一格上不跑导出 / `as` / 二元那一族 ✗（第 549 轮 ✓）、
-//   `{` 括号那一格上不跑 `Label` ✗（第 507 轮 ✓）。
+// 解析期独有的两处偏差留在这里（原来散在名单里，第 564 轮从三处变两处）：
+// · `Export` 那一格上不跑导出 / `as` / 二元那一族（第 549 轮）、
+//   `{` 括号那一格上不跑 `Label`（第 507 轮）。
 //
-// **从前还有两处「跳过」** ✗（第 564 轮删掉 ✓）：`Let`（第 490 轮 ✓）与两条语句规则 ✓ ——
-// 它们跳过的对象**已经在队列里不存在了** ✓（三个规则类随本轮一起删掉 ✓）⇒ 判断本身也没有对象 ✓。
+// **从前还有两处「跳过」**（第 564 轮删掉）：`Let`（第 490 轮）与两条语句规则 ——
+// 它们跳过的对象**已经在队列里不存在了**（三个规则类随本轮一起删掉）⇒ 判断本身也没有对象。
 const queue = unit.CloseRuleQueue;
 if (queue === null) {
   return;
 }
 const isExportUnit = unit.constructor.name === "Export";
-// **只有「值位的花括号」才不跑 `Label`** ✓（第 577 轮 ✓）：第 507 轮下这道闸时问的是
-// 「是不是 `{` 括号」✗ ⇒ **语句位的块**（`{ a: 1 }` ✓）也被一并挡住 ✗ ⇒
-// 块里的 `a:` 落在更晚的 `TypeDefineCloseRule` 手里 ✓ ⇒ 被收成「名字 + 类型标注」✗
-//（实测 `stmt-asi-return-newline-object.ts`：产物是 `Bracket > [Identifier(a), TypeDefine > LiteralType]` ✗，
-// TS 那边是 `Block > LabeledStatement(a: 1)` ✓）。第 507 轮那句注释里写的「块里的标签不受影响 ✓ ——
-// 块那一趟由语句队列负责 ✓」当时**没有兑现** ✗：块拿到的是**同一张通用队列** ✓，
-// 而这道闸是按**单元类型**下的 ✗、不看队列是谁 ✓。
+// **只有「值位的花括号」才不跑 `Label`**（第 577 轮）：第 507 轮下这道闸时问的是
+// 「是不是 `{` 括号」 ⇒ **语句位的块**（`{ a: 1 }`）也被一并挡住 ⇒
+// 块里的 `a:` 落在更晚的 `TypeDefineCloseRule` 手里 ⇒ 被收成「名字 + 类型标注」
+//（实测 `stmt-asi-return-newline-object.ts`：产物是 `Bracket > [Identifier(a), TypeDefine > LiteralType]`，
+// TS 那边是 `Block > LabeledStatement(a: 1)`）。第 507 轮那句注释里写的「块里的标签不受影响 ——
+// 块那一趟由语句队列负责」当时**没有兑现**：块拿到的是**同一张通用队列**，
+// 而这道闸是按**单元类型**下的、不看队列是谁。
 //
-// 判据换成 `IsObjectLiteralBrace` ✓：与 `JsonObjectCloseRule` 问的是**同一句** ✓ ——
-// 它正是第 556 轮从那条规则里搬出来的 ✓（「两个用户问同一句，各写一份会漂」✓），
-// 块 / 标签块 / 对象字面量 / 类型字面量四档在这一句上分得开 ✓。
+// 判据换成 `IsObjectLiteralBrace`：与 `JsonObjectCloseRule` 问的是**同一句** ——
+// 它正是第 556 轮从那条规则里搬出来的（「两个用户问同一句，各写一份会漂」），
+// 块 / 标签块 / 对象字面量 / 类型字面量四档在这一句上分得开。
 const isBraceBracket = unit.constructor.name === "Bracket" && (unit as Bracket).startBracket === "{";
 let isValueBrace = false;
 if (isBraceBracket) {
@@ -891,13 +891,13 @@ for (const rule of queue.Data) {
   }
   rule.ApplyTo(unit);
 }
-// **容器末尾那一条语句**（第 544 轮 ✓）：`\n` 与 `;` 两档都不响时（内容直接顶到 `}` / EOF ✓）
-// 由这一句补壳 ✓ —— 判据、白名单、切片都在 `Statement.FormTail` 那一份实现里 ✓
-//（排在最后 ✓：前面那几十条规则先把表达式收拢 ✓，壳里装的就是收拢后的形状 ✓）。
+// **容器末尾那一条语句**（第 544 轮）：`\n` 与 `;` 两档都不响时（内容直接顶到 `}` / EOF）
+// 由这一句补壳 —— 判据、白名单、切片都在 `Statement.FormTail` 那一份实现里
+//（排在最后：前面那几十条规则先把表达式收拢，壳里装的就是收拢后的形状）。
 Statement.FormTail(unit);
-// **壳里冒出一条语句级单元时，把它拆开** ✓（见 `Statement.SplitShell` 那一处的说明 ✓）：
-// 语句级单元（`Function` / `While` / `Try` …）是**这一趟**才成形的 ✓，而壳是**解析期**收的 ✓
-// ⇒ 一行里写完的「声明 + 后面那条语句」会挤在**同一个**壳里 ✗ ⇒ 后者被投影当成表达式丢掉 ✓。
-// 排在这里（一趟规则之后 ✓）：那一格已经成形了 ✓，拆出来的尾巴再走自己的那一趟 ✓。
+// **壳里冒出一条语句级单元时，把它拆开**（见 `Statement.SplitShell` 那一处的说明）：
+// 语句级单元（`Function` / `While` / `Try` …）是**这一趟**才成形的，而壳是**解析期**收的
+// ⇒ 一行里写完的「声明 + 后面那条语句」会挤在**同一个**壳里 ⇒ 后者被投影当成表达式丢掉。
+// 排在这里（一趟规则之后）：那一格已经成形了，拆出来的尾巴再走自己的那一趟。
 Statement.SplitShell(unit);
 ```

@@ -130,7 +130,7 @@ return i;
 **`export =` / `export default` 只收「前缀那两个词」**，后面那段表达式留在外面：
 它的体里是表达式（`export default (a: number) => a` 里是箭头），
 而 `Export` 装的是精简队列，表达式规则不在里面——收进来只会得到一个散单元。
-留在外面则由父单元的队列照常收成 `Lamda` / `Method` 等 ✓。
+留在外面则由父单元的队列照常收成 `Lamda` / `Method` 等。
 这也是构造器里「不装通用队列」那个取舍的配套做法。
 
 ```ts
@@ -274,8 +274,8 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 
 导出列表里每一项的**对外名**（`export { a as b, c }` → `b,c`）。
 
-取法与 `Import.imported` 对称、但取的是**最后一个** `Identifier`：`a as b` 对外是 `b` ✓，
-`c` 对外是 `c` ✓，`type D` 对外是 `D` ✓。空列表表示这条语句没有花括号列表。
+取法与 `Import.imported` 对称、但取的是**最后一个** `Identifier`：`a as b` 对外是 `b`，
+`c` 对外是 `c`，`type D` 对外是 `D`。空列表表示这条语句没有花括号列表。
 
 **为什么这些属性值得加**：与 `Import` 那边是同一个问题（`早期的缺口台账` 的
 `_notes.exports-no-node` 里剩的就是这一块）——原来 `Export` 只带 `From`，

@@ -12,60 +12,60 @@ import { DateParts, TextFrom } from "./globals.xl.md"
 
 **`console.log` 的形状：`util.inspect` 那一份**（第 131 轮）。
 
-**它为什么必须有** ✓：Node 的 `console.log` **不走 `ToString`** ✗，走的是 `util.inspect` ✓——
-`console.log([1, 2])` 印 `[ 1, 2 ]` ✓、`console.log({ a: 1 })` 印 `{ a: 1 }` ✓、
-数组里的字符串带**单引号** ✓（`[ 'a' ]` ✓），而本层原来印的是 `1,2` / `[object Object]` / 裸的 `a` ✗。
-于是**任何 `console.log(数组 / 对象)` 的普通程序都对不齐 stdout** ✗——
-这一层就是把那一格补上 ✓。之前 22 份语料是**绕开它**写的 ✓（那不是「已经对了」✗）。
+**它为什么必须有**：Node 的 `console.log` **不走 `ToString`**，走的是 `util.inspect`——
+`console.log([1, 2])` 印 `[ 1, 2 ]`、`console.log({ a: 1 })` 印 `{ a: 1 }`、
+数组里的字符串带**单引号**（`[ 'a' ]`），而本层原来印的是 `1,2` / `[object Object]` / 裸的 `a`。
+于是**任何 `console.log(数组 / 对象)` 的普通程序都对不齐 stdout**——
+这一层就是把那一格补上。之前 22 份语料是**绕开它**写的（那不是「已经对了」）。
 
-**口径是量出来的，不是猜的** ✓：下面每一条常量与每一处形状，
-都对着真 Node 逐条量过 ✓（`InspectBreak` = **80** 而不是文档写的 128 ✓——
-`util.inspect` 的实际默认值量出来是 80 ✓；`InspectDepth` = 2 ✓；
-`InspectMaxArray` = 100 ✓；`InspectEmptyGroup` = `-9` ✓）。
+**口径是量出来的，不是猜的**：下面每一条常量与每一处形状，
+都对着真 Node 逐条量过（`InspectBreak` = **80** 而不是文档写的 128——
+`util.inspect` 的实际默认值量出来是 80；`InspectDepth` = 2；
+`InspectMaxArray` = 100；`InspectEmptyGroup` = `-9`）。
 
-**这一层**不碰**引擎** ✓：它是纯语言层的一块 ✓（`runtime/` 一行未动 ✓），
-所以四个目标里只有「宿主字符串」这一层要重做 ✓。
+**这一层**不碰**引擎**：它是纯语言层的一块（`runtime/` 一行未动），
+所以四个目标里只有「宿主字符串」这一层要重做。
 
-**已知差**（写在明处 ✓，都是量出来的 ✓）：
+**已知差**（写在明处，都是量出来的）：
 
 | 差 | 依据 |
 | --- | --- |
-| **折行的预算在嵌套里更宽** | 顶层 `[ 'x'*65 ]`（71 字符）平铺 ✓、`'x'*66`（72）折行 ✓——**边界正好是 `breakLength - 9`** ✓。可是同一个数组放进对象里当下属（缩进 2）时，**140 甚至 1000 字符都还平铺** ✓。这一层**统一用顶层那条规则** ✓——于是**嵌套的容器比 Node 更容易折行** ✗。这是记着的一处差 ✓，不是没量 ✗ |
-| **循环引用** | Node 给 `<ref *1> { … [Circular *1] }` ✓；这一层靠**深度上限**兜住 ✓（不会转圈 ✓，宿主栈溢出是不可捕获的 ✗），形状上与 Node 不同 ✗ |
-| **类实例不带类名** | Node 给 `P { a: 1 }` ✓；这一层给 `{ a: 1 }` ✗（`prototype.constructor` 的回指还没做 ✓） |
-| **`[class P]` vs `[Function: P]`** | 第 613 轮做掉了 ✓（`HeapClosure.IsClass` 那一格 ✓，由降级层盖上 ✓） |
-| **`console.log(err)`** | Node 印的是**调用栈** ✗，这一层拿不到（`Error` 上没有 `stack` ✓）——只能记着 ✗ |
+| **折行的预算在嵌套里更宽** | 顶层 `[ 'x'*65 ]`（71 字符）平铺、`'x'*66`（72）折行——**边界正好是 `breakLength - 9`**。可是同一个数组放进对象里当下属（缩进 2）时，**140 甚至 1000 字符都还平铺**。这一层**统一用顶层那条规则**——于是**嵌套的容器比 Node 更容易折行**。这是记着的一处差，不是没量 |
+| **循环引用** | Node 给 `<ref *1> { … [Circular *1] }`；这一层靠**深度上限**兜住（不会转圈，宿主栈溢出是不可捕获的），形状上与 Node 不同 |
+| **类实例不带类名** | Node 给 `P { a: 1 }`；这一层给 `{ a: 1 }`（`prototype.constructor` 的回指还没做） |
+| **`[class P]` vs `[Function: P]`** | 第 613 轮做掉了（`HeapClosure.IsClass` 那一格，由降级层盖上） |
+| **`console.log(err)`** | Node 印的是**调用栈**，这一层拿不到（`Error` 上没有 `stack`）——只能记着 |
 
 # const InspectDepth:int = 2
 
-**展开到第几层**（Node 的默认值 ✓）。**超过**这一层就把容器**收成一个名字** ✓：
-`[Object]` / `[Array]` / `[Map]` / `[Set]` / `[Date]` / `[Function]` ✓。
+**展开到第几层**（Node 的默认值）。**超过**这一层就把容器**收成一个名字**：
+`[Object]` / `[Array]` / `[Map]` / `[Set]` / `[Date]` / `[Function]`。
 
-**判据是「`level > InspectDepth`」而不是「`>=`」** ✓（量出来的 ✓）：
-`{a:{b:{c:{d:1}}}}` 在默认参数下印成 `{ a: { b: { c: [Object] } } }` ✓——
-被收起的是**第四层**（`c` 的值 ✓），前三层是展开的 ✓。
-写成 `>=` 会**早收一层** ✗（印成 `{ a: { b: [Object] } }` ✗，判据当场点出来 ✓）。
+**判据是「`level > InspectDepth`」而不是「`>=`」**（量出来的）：
+`{a:{b:{c:{d:1}}}}` 在默认参数下印成 `{ a: { b: { c: [Object] } } }`——
+被收起的是**第四层**（`c` 的值），前三层是展开的。
+写成 `>=` 会**早收一层**（印成 `{ a: { b: [Object] } }`，判据当场点出来）。
 
-它同时是**循环引用的兜底** ✓：没有这一层，自引用对象会让渲染无限递归 ✗，
-而宿主栈溢出**不可捕获** ✗（`README` 的硬性约束第 2 条 ✓）。
+它同时是**循环引用的兜底**：没有这一层，自引用对象会让渲染无限递归，
+而宿主栈溢出**不可捕获**（`README` 的硬性约束第 2 条）。
 
 # const InspectBreak:int = 80
 
-**折行宽度**。Node 的 `util.inspect` **文档写的是 128** ✗，量出来是 **80** ✓
-（`{breakLength: 80}` 与不传参数的结果逐字符相同 ✓）。
+**折行宽度**。Node 的 `util.inspect` **文档写的是 128**，量出来是 **80**
+（`{breakLength: 80}` 与不传参数的结果逐字符相同）。
 
 # const InspectEmptyGroup:int = 9
 
-**平铺的余量**（量出来的 ✓）：单行长度 **≤ `InspectBreak - 9` = 71** 就平铺 ✓，
-72 就折行 ✓。这个 9 是 Node 内部分配给分隔符与括号的账 ✓，这里照抄那个**结果** ✓。
+**平铺的余量**（量出来的）：单行长度 **≤ `InspectBreak - 9` = 71** 就平铺，
+72 就折行。这个 9 是 Node 内部分配给分隔符与括号的账，这里照抄那个**结果**。
 
 # const InspectMaxArray:int = 100
 
-**数组最多印几项** ✓，其余收成一行 `... N more items` ✓。
+**数组最多印几项**，其余收成一行 `... N more items`。
 
 # const InspectMaxColumns:int = 12
 
-**分组时每行最多几列** ✓（量出来的 ✓，见 `BreakEntries` 那一段的说明 ✓）。
+**分组时每行最多几列**（量出来的，见 `BreakEntries` 那一段的说明）。
 
 # method Pad2:(value:int)=>string
 
@@ -90,11 +90,11 @@ return "000" + text;
 
 # method IsoDate:(ms:float)=>string
 
-**毫秒 → `1970-01-01T00:00:00.000Z`**（Node 印 `Date` 的形状 ✓，**不加引号** ✓）。
+**毫秒 → `1970-01-01T00:00:00.000Z`**（Node 印 `Date` 的形状，**不加引号**）。
 
-**负数毫秒要向下取整** ✓：`ms = -1` 的那一天是**前一天**的最后一毫秒 ✓
-（`Math.floor(-1 / 86400000)` 是 `-1` ✓），余数才是正的 ✓——
-用截断就会得到 `-1` 毫秒这个负数 ✗，然后时分会全歪 ✗。
+**负数毫秒要向下取整**：`ms = -1` 的那一天是**前一天**的最后一毫秒
+（`Math.floor(-1 / 86400000)` 是 `-1`），余数才是正的——
+用截断就会得到 `-1` 毫秒这个负数，然后时分会全歪。
 
 ```ts
 if (ms !== ms) return "Invalid Date";
@@ -112,19 +112,19 @@ return Pad4(parts[0]) + "-" + Pad2(parts[1] + 1) + "-" + Pad2(parts[2]) + "T"
 
 # method QuotedText:(units:Array<int>)=>string
 
-**容器里的字符串加引号** ✓（顶层不加以外的那些 ✓）。
+**容器里的字符串加引号**（顶层不加以外的那些）。
 
-**三种引号按内容挑**（量出来的 ✓，不是风格选择 ✗）：
+**三种引号按内容挑**（量出来的，不是风格选择）：
 
 | 内容 | Node 给什么 |
 | --- | --- |
-| 没有单引号 | **单引号** ✓（`'a b'` ✓） |
-| 有单引号、没有双引号 | **双引号** ✓（`"it's"` ✓——**不转义单引号** ✗） |
-| 两种都有 | **反引号** ✓（`` `a'b"c` `` ✓） |
+| 没有单引号 | **单引号**（`'a b'`） |
+| 有单引号、没有双引号 | **双引号**（`"it's"`——**不转义单引号**） |
+| 两种都有 | **反引号**（`` `a'b"c` `` ✓） |
 
-**转义表**（量出来的 ✓）：`\n` / `\t` / `\r` / `\\` 走两条字符的转义 ✓，
-其余控制字符（`< 0x20`）走 `\xNN` ✓（`"a\u0000b"` → `'a\x00b'` ✓），
-**非 ASCII 原样印** ✓（`'中文'` / `'😀'` 都不转 ✗）。
+**转义表**（量出来的）：`\n` / `\t` / `\r` / `\\` 走两条字符的转义，
+其余控制字符（`< 0x20`）走 `\xNN`（`"a\u0000b"` → `'a\x00b'`），
+**非 ASCII 原样印**（`'中文'` / `'😀'` 都不转）。
 
 ```ts
 let quote = "'";
@@ -170,10 +170,10 @@ return digits.charAt(Math.floor(unit / 16)) + digits.charAt(unit % 16);
 
 # method BareKey:(units:Array<int>)=>bool
 
-**这个属性名要不要加引号**（量出来的 ✓）：`abc` / `a_b` **不加** ✓，
-`a$b` / `1a` / `a b` / `''` / `中` **都加** ✓。
-所以规则是**窄的那一条**（首字符字母或下划线、其余只许字母数字下划线 ✓），
-不是 JS 标识符那一套 ✗（`$` 在 JS 里合法 ✗，Node 却给它加引号 ✓）。
+**这个属性名要不要加引号**（量出来的）：`abc` / `a_b` **不加**，
+`a$b` / `1a` / `a b` / `''` / `中` **都加**。
+所以规则是**窄的那一条**（首字符字母或下划线、其余只许字母数字下划线），
+不是 JS 标识符那一套（`$` 在 JS 里合法，Node 却给它加引号）。
 
 ```ts
 if (units.length === 0) return false;
@@ -191,7 +191,7 @@ return true;
 
 # method InspectKey:(units:Array<int>)=>string
 
-属性名的渲染：窄标识符原样 ✓，其余走引号那一条 ✓。
+属性名的渲染：窄标识符原样，其余走引号那一条。
 
 ```ts
 if (BareKey(units)) return InspectUnits(units);
@@ -212,7 +212,7 @@ return text;
 
 # method InspectMark:(kind:string, level:int)=>string
 
-**到一个容器该收起来的时候给它什么**（`level > InspectDepth` ✓）。
+**到一个容器该收起来的时候给它什么**（`level > InspectDepth`）。
 
 ```ts
 if (kind === "Array") return "[Array]";
@@ -225,22 +225,22 @@ return "[Object]";
 
 # method InspectFunction:(table:HeapTable, value:Value, level:int)=>string
 
-**函数值**。Node 给 `[Function: f]` ✓ / `[Function (anonymous)]` ✓ / **`[class C]`** ✓。
+**函数值**。Node 给 `[Function: f]` / `[Function (anonymous)]` / **`[class C]`**。
 
-**闭包与宿主函数的差别只在名字从哪来** ✓：脚本闭包的名字在 `HeapClosure.Name` 上 ✓，
-宿主函数在 `HeapFunction.Name` 上 ✓——两处都读同一件事 ✓。
+**闭包与宿主函数的差别只在名字从哪来**：脚本闭包的名字在 `HeapClosure.Name` 上，
+宿主函数在 `HeapFunction.Name` 上——两处都读同一件事。
 
-**类那一档读的是闭包上的一位** ✓（第 613 轮 ✓）：Node 的判据是
-`Function.prototype.toString` 以 `class` 开头 ✓，而本仓的运行期拿不到源码 ✓——
-那一位由降级层在造闭包时盖上 ✓（`HeapClosure.IsClass` ✓，见 `heap.xl.md` ✓）。
-**名字那一格照旧** ✓：`[class C]` 里的 `C` 还是 `Name` ✓——
-**类名与「是不是类」是两件事** ✗（匿名类表达式给 `[class ]` ✓，与 Node 一致 ✓）。
+**类那一档读的是闭包上的一位**（第 613 轮）：Node 的判据是
+`Function.prototype.toString` 以 `class` 开头，而本仓的运行期拿不到源码——
+那一位由降级层在造闭包时盖上（`HeapClosure.IsClass`，见 `heap.xl.md`）。
+**名字那一格照旧**：`[class C]` 里的 `C` 还是 `Name`——
+**类名与「是不是类」是两件事**（匿名类表达式给 `[class ]`，与 Node 一致）。
 
 ```ts
 if (level > InspectDepth) return "[Function]";
 if (value.Tag === ValueTag.Closure) {
   const name = table.Get(value.Ref).AsClosure().Name;
-  // **类那一档先答** ✓（它的形状不是 `[Function: …]` ✗）。
+  // **类那一档先答**（它的形状不是 `[Function: …]`）。
   if (table.Get(value.Ref).AsClosure().IsClass) {
     if (name > 0) return "[class " + TextFrom(table, Value.FromString(name)) + "]";
     return "[class ]";
@@ -258,7 +258,7 @@ return "[Function (anonymous)]";
 
 # method InspectSymbol:(table:HeapTable, value:Value, level:int)=>string
 
-**符号**：`Symbol(描述)` ✓（没有描述就是 `Symbol()` ✓）。
+**符号**：`Symbol(描述)`（没有描述就是 `Symbol()`）。
 
 ```ts
 const item = table.Get(value.Ref).AsSymbol();
@@ -270,11 +270,11 @@ return "Symbol()";
 
 # method InspectArrayBody:(table:HeapTable, item:HeapArray, level:int)=>Array<string>
 
-**数组的每一项渲染成一段文本**（洞**合并**成一条 `<N empty item(s)>` ✓——
-Node 的口径 ✓：连着两个洞是一条 `<2 empty items>` ✓，不是两条 `<1 empty item>` ✓）。
+**数组的每一项渲染成一段文本**（洞**合并**成一条 `<N empty item(s)>`——
+Node 的口径：连着两个洞是一条 `<2 empty items>`，不是两条 `<1 empty item>`）。
 
-**只渲染前 `InspectMaxArray` 项** ✓；多出来的那一行由调用方补 ✓
-（它**不参与分组** ✗——Node 的分组算法把它排除在外 ✓，这里同样 ✓）。
+**只渲染前 `InspectMaxArray` 项**；多出来的那一行由调用方补
+（它**不参与分组**——Node 的分组算法把它排除在外，这里同样）。
 
 ```ts
 const entries: string[] = [];
@@ -298,9 +298,9 @@ return entries;
 
 # method InspectObjectBody:(table:HeapTable, value:Value, level:int)=>Array<string>
 
-**普通对象的每一格**（自有、字符串键、**访问器跳过** ✓——`keys` / `values` 那一条口径 ✓）。
+**普通对象的每一格**（自有、字符串键、**访问器跳过**——`keys` / `values` 那一条口径）。
 
-**键值对之间的冒号后有一个空格** ✓（`{ a: 1 }` ✓）。
+**键值对之间的冒号后有一个空格**（`{ a: 1 }`）。
 
 ```ts
 const entries: string[] = [];
@@ -317,12 +317,12 @@ return entries;
 
 # method FlatText:(entries:Array<string>, open:string, close:string)=>string
 
-**单行形态**：`open` + 每项之间 `, ` + `close` ✓。
+**单行形态**：`open` + 每项之间 `, ` + `close`。
 
-**两头的空格是形状的一部分** ✓（量出来的 ✓）：`[ 1, 2, 3 ]` ✓ / `{ a: 1 }` ✓——
-不是 `[1, 2, 3]` ✗。**空的那一种不带空格** ✓（`[]` ✓ / `{}` ✓）——
-这一格单独判，是因为「有没有项」与「有几个项」是两件事 ✓，
-写成 `open + " " + joined + " " + close` 再为空时特判，比让空数组印成 `[  ]` 好 ✓。
+**两头的空格是形状的一部分**（量出来的）：`[ 1, 2, 3 ]` / `{ a: 1 }`——
+不是 `[1, 2, 3]`。**空的那一种不带空格**（`[]` / `{}`）——
+这一格单独判，是因为「有没有项」与「有几个项」是两件事，
+写成 `open + " " + joined + " " + close` 再为空时特判，比让空数组印成 `[  ]` 好。
 
 ```ts
 if (entries.length === 0) return open + close;
@@ -336,29 +336,29 @@ return text + " " + close;
 
 # method BreakEntries:(entries:Array<string>, open:string, close:string, kind:int, indent:int, more:int)=>string
 
-**折行的决定与排版**（这一层的核心 ✓）。
+**折行的决定与排版**（这一层的核心）。
 
-三条规则，顺序即语义 ✓：
+三条规则，顺序即语义：
 
-1. **先试平铺** ✓：长度 ≤ `InspectBreak - InspectEmptyGroup - indent` 就它了 ✓。
-   **数组还多一条**：**项数超过 6 就不许平铺** ✗（量出来的 ✓——
-   7 个空串才 30 字符，Node 照样折行 ✓）。
-2. **数组试着分组** ✓（每行几列，`groupArrayElements` 那一套 ✓）；
-   分不出来（列数算出来 ≤ 1）就**每行一项** ✓。
-3. **对象不分组** ✓（量出来的 ✓：`{ k0: 0, … }` 12 个短键，Node 是一行一项 ✓）。
+1. **先试平铺**：长度 ≤ `InspectBreak - InspectEmptyGroup - indent` 就它了。
+   **数组还多一条**：**项数超过 6 就不许平铺**（量出来的——
+   7 个空串才 30 字符，Node 照样折行）。
+2. **数组试着分组**（每行几列，`groupArrayElements` 那一套）；
+   分不出来（列数算出来 ≤ 1）就**每行一项**。
+3. **对象不分组**（量出来的：`{ k0: 0, … }` 12 个短键，Node 是一行一项）。
 
-**分组那一段是逐行对着 Node 量出来的** ✓：列数 =
-`min(round(sqrt(2.5 * 项数 / biasedMax)), floor((80 - indent) / 每项宽), InspectMaxColumns, 项数)` ✓，
-其中 `biasedMax = max(每项宽 - 3 - sqrt(每项宽 - 总长/项数), 1)` ✓。
-**平方根那一步看着像玄学，但它是 Node 的算法** ✓——照抄它，输出才逐字节相同 ✓
-（`[0..11]` 给 5 列 3 行、`[0,100,…,1900]` 给 5 列 4 行，两条都与 Node 逐字符相同 ✓）。
+**分组那一段是逐行对着 Node 量出来的**：列数 =
+`min(round(sqrt(2.5 * 项数 / biasedMax)), floor((80 - indent) / 每项宽), InspectMaxColumns, 项数)`，
+其中 `biasedMax = max(每项宽 - 3 - sqrt(每项宽 - 总长/项数), 1)`。
+**平方根那一步看着像玄学，但它是 Node 的算法**——照抄它，输出才逐字节相同
+（`[0..11]` 给 5 列 3 行、`[0,100,…,1900]` 给 5 列 4 行，两条都与 Node 逐字符相同）。
 
-**列数上限是量出来的 12** ✓（不是按公式猜的 ✗）：把 `[0..n]` 扫一遍，
-列数依次给 `7, 9, 10, 11, 12, 12, …` ✓——`n ≥ 60` 之后**钉在 12** ✓。
-它是 Node 里 `compact` 那个旋钮折算出来的 ✓，这里照抄**量到的那个数** ✓
-（猜成 9 会当场与 Node 差三列 ✗——`[0..99]` 那条判据现场就是这么红的 ✓）。
+**列数上限是量出来的 12**（不是按公式猜的）：把 `[0..n]` 扫一遍，
+列数依次给 `7, 9, 10, 11, 12, 12, …`——`n ≥ 60` 之后**钉在 12**。
+它是 Node 里 `compact` 那个旋钮折算出来的，这里照抄**量到的那个数**
+（猜成 9 会当场与 Node 差三列——`[0..99]` 那条判据现场就是这么红的）。
 
-**列是右对齐的** ✓（`padStart` ✓，量出来的 ✓：数字与字符串都往右靠 ✓）。
+**列是右对齐的**（`padStart`，量出来的：数字与字符串都往右靠）。
 
 ```ts
 let flat = FlatText(entries, open, close);
@@ -406,7 +406,7 @@ if (kind === 0) {
           if (c > 0) text = text + ", ";
           text = text + PadStartText(entries[at], widths[c]);
         }
-        // **除最后一行都要一个逗号** ✓（量出来的 ✓：`[\n  0, 1, 2, 3,\n  4, 5, 6\n]` ✓）。
+        // **除最后一行都要一个逗号**（量出来的：`[\n  0, 1, 2, 3,\n  4, 5, 6\n]`）。
         if (r + 1 < rows) text = text + ",";
       }
       if (more > 0) {
@@ -431,7 +431,7 @@ return text + "\n" + IndentOf(indent) + close;
 
 # method PadStartText:(text:string, width:int)=>string
 
-右对齐补空格 ✓（Node 的列对齐 ✓）。
+右对齐补空格（Node 的列对齐）。
 
 ```ts
 let padded = text;
@@ -441,7 +441,7 @@ return padded;
 
 # method IndentOf:(level:int)=>string
 
-每一层缩进**两格** ✓。
+每一层缩进**两格**。
 
 ```ts
 let text = "";
@@ -457,12 +457,12 @@ return text;
 
 **任意值 → `util.inspect` 的那段文本**（第 131 轮）。
 
-分派顺序就是 Node 的顺序 ✓：标量先走完 ✓，容器再看深度 ✓，
-`Object` 那一档要**先认出 `Date` / `Map` / `Set`**（它们在值模型里就是普通对象 ✓，
-靠各自的标记格认 ✓——与 `GetIterator` 认 `Map` / `Set` 是同一条先例 ✓）。
+分派顺序就是 Node 的顺序：标量先走完，容器再看深度，
+`Object` 那一档要**先认出 `Date` / `Map` / `Set`**（它们在值模型里就是普通对象，
+靠各自的标记格认——与 `GetIterator` 认 `Map` / `Set` 是同一条先例）。
 
-**`-0` 与 `NaN` / `±Infinity` 交给 `NumberToHostText`** ✓：那一处已经把符号名定死了 ✓
-（`console.log(-0)` 在 Node 里印 `-0` ✓，而 `String(-0)` 是 `"0"` ✗——所以**不能**走 `ToString` ✓）。
+**`-0` 与 `NaN` / `±Infinity` 交给 `NumberToHostText`**：那一处已经把符号名定死了
+（`console.log(-0)` 在 Node 里印 `-0`，而 `String(-0)` 是 `"0"`——所以**不能**走 `ToString`）。
 
 ```ts
 if (value.Tag === ValueTag.Undefined) return "undefined";
@@ -488,32 +488,32 @@ if (value.Tag === ValueTag.Array) {
   return BreakEntries(entries, "[", "]", 0, level * 2, more);
 }
 if (value.Tag === ValueTag.Object) {
-  // **可调用对象与函数同一条**（第 145 轮）✓：`String` / `Date` / `Array` 这些
-  // **既是对象又能被调** ✓，Node 的 `console.log(String)` 给 `[Function: String]` ✓——
-  // 名字那一格**宿主载荷里没有** ✗（`HeapHostRef` 只有能力号与不透明载荷 ✓），
-  // 所以给 `[Function (anonymous)]` ✓——与**宿主引用**那一档**同一个答案** ✓
-  //（`console.log(Map)` 今天就是这个 ✓），两个同类的东西不该有两种印法 ✗。
+  // **可调用对象与函数同一条**（第 145 轮）：`String` / `Date` / `Array` 这些
+  // **既是对象又能被调**，Node 的 `console.log(String)` 给 `[Function: String]`——
+  // 名字那一格**宿主载荷里没有**（`HeapHostRef` 只有能力号与不透明载荷），
+  // 所以给 `[Function (anonymous)]`——与**宿主引用**那一档**同一个答案**
+  //（`console.log(Map)` 今天就是这个），两个同类的东西不该有两种印法。
   if (table.Get(value.Ref).Host !== null) return InspectFunction(table, value, level);
-  // **`Error` 那一档** ✓（第 356 轮 ✓，**实测撞到的** ✓）：Node 的
-  // `console.log(new Error("boom"))` 印的是 **`Error: boom`** ✓（`util.inspect` 对错误
-  // 走的就是 `Error.prototype.toString` 那个文本 ✓），而本仓原来把它当**普通对象**印 ✓
-  // ⇒ `{ message: 'boom', name: 'Error' }` ✗（判据 `console-log-special` 第 3 行量的就是它 ✓）。
+  // **`Error` 那一档**（第 356 轮，**实测撞到的**）：Node 的
+  // `console.log(new Error("boom"))` 印的是 **`Error: boom`**（`util.inspect` 对错误
+  // 走的就是 `Error.prototype.toString` 那个文本），而本仓原来把它当**普通对象**印
+  // ⇒ `{ message: 'boom', name: 'Error' }`（判据 `console-log-special` 第 3 行量的就是它）。
   //
-  // **它排在那三样标记之前** ✓：错误对象上不会有 `__t` / `__k` / `__v` ✓，
-  // 所以顺序无所谓 ✓——放在前面只是因为它更常见 ✓。
-  // **判据是「沿链找到 `name` 且它是字符串 `Error`」** ✓——**这是近似** ✗：
-  // JS 问的是**内部槽** ✓（本仓没有内部槽 ✓，`Error.isError` 那一处第 343 轮记过同一条账 ✓）。
-  // **不引 `protos` 是故意的** ✗：`InspectValue` 那一族有七八个签名 ✓，
-  // 为一行文本把它们全穿一遍不划算 ✓；而「`name` 是 `Error`」正是本仓 `new Error(msg)`
-  // 造出来的形状 ✓（实测那一格印出来的自有属性就是 `{ message: 'boom', name: 'Error' }` ✓）。
-  // **消息为空时只印 `name`** ✓（与 JS 的 `Error.prototype.toString` 一字不差 ✓）。
+  // **它排在那三样标记之前**：错误对象上不会有 `__t` / `__k` / `__v`，
+  // 所以顺序无所谓——放在前面只是因为它更常见。
+  // **判据是「沿链找到 `name` 且它是字符串 `Error`」**——**这是近似**：
+  // JS 问的是**内部槽**（本仓没有内部槽，`Error.isError` 那一处第 343 轮记过同一条账）。
+  // **不引 `protos` 是故意的**：`InspectValue` 那一族有七八个签名，
+  // 为一行文本把它们全穿一遍不划算；而「`name` 是 `Error`」正是本仓 `new Error(msg)`
+  // 造出来的形状（实测那一格印出来的自有属性就是 `{ message: 'boom', name: 'Error' }`）。
+  // **消息为空时只印 `name`**（与 JS 的 `Error.prototype.toString` 一字不差）。
   const errorName = MarkerText(table, value, "name");
   if (errorName === "Error") {
     const errorMessage = MarkerText(table, value, "message");
     return errorMessage === "" ? "Error" : "Error: " + errorMessage;
   }
-  // **先认那三样**（第 131 轮）：`Date` / `Map` / `Set` 在值模型里都是普通对象 ✓，
-  // 分别挂着 `__t` / `__k` / `__v` ✓（`Date` 那一族与 `map.xl.md` / `set.xl.md` 造的就是这个形状 ✓）。
+  // **先认那三样**（第 131 轮）：`Date` / `Map` / `Set` 在值模型里都是普通对象，
+  // 分别挂着 `__t` / `__k` / `__v`（`Date` 那一族与 `map.xl.md` / `set.xl.md` 造的就是这个形状）。
   const marker = DateMarker(table, value);
   if (marker === "Date") {
     if (level > InspectDepth) return InspectMark("Date", level);
@@ -541,7 +541,7 @@ return "[Object]";
 
 # method InspectText:(table:HeapTable, value:Value)=>string
 
-**入口**：从第 0 层开始 ✓。
+**入口**：从第 0 层开始。
 
 ```ts
 return InspectValue(table, value, 0);
@@ -549,13 +549,13 @@ return InspectValue(table, value, 0);
 
 # method MarkerText:(table:HeapTable, value:Value, name:string)=>string
 
-**沿链找到的那一格字符串属性** ✓（第 356 轮 ✓）——给 `console.log(new Error(…))` 认
-`name` / `message` 用 ✓。
+**沿链找到的那一格字符串属性**（第 356 轮）——给 `console.log(new Error(…))` 认
+`name` / `message` 用。
 
-**与 `ReadMarker` / `MarkerArray` 同一形状** ✓（同一个 `MarkerKey` ✓、同一个 `FindProperty` ✓），
-差的只是**读出来是字符串** ✓（那两个分别要数字与数组 ✓）。
-**不是字符串就给空串** ✓（`{ name: 1 }` 不算错误 ✓）；**访问器也给空串** ✓
-（它没有格上的值 ✓，去调它会把 `console.log` 变成有副作用的东西 ✗）。
+**与 `ReadMarker` / `MarkerArray` 同一形状**（同一个 `MarkerKey`、同一个 `FindProperty`），
+差的只是**读出来是字符串**（那两个分别要数字与数组）。
+**不是字符串就给空串**（`{ name: 1 }` 不算错误）；**访问器也给空串**
+（它没有格上的值，去调它会把 `console.log` 变成有副作用的东西）。
 
 ```ts
 const found = FindProperty(NeverRoom, table, value.Ref, MarkerKey(table, name));
@@ -568,11 +568,11 @@ return TextFrom(table, prop.Value);
 
 # method DateMarker:(table:HeapTable, value:Value)=>string
 
-**认 `Date` / `Map` / `Set`** ✓——按**有没有那几格标记**认 ✓，不按名字认 ✗
-（`GetIterator` 认 `Map` / `Set` 是同一条先例 ✓）。
+**认 `Date` / `Map` / `Set`**——按**有没有那几格标记**认，不按名字认
+（`GetIterator` 认 `Map` / `Set` 是同一条先例）。
 
-**为什么顺序有意义**：三者的标记互不重叠 ✓，所以谁先谁后结果一样 ✓；
-写成一串 `if` 是因为**将来多一个集合多一格标记**时，只加一支 ✓。
+**为什么顺序有意义**：三者的标记互不重叠，所以谁先谁后结果一样；
+写成一串 `if` 是因为**将来多一个集合多一格标记**时，只加一支。
 
 ```ts
 if (FindProperty(NeverRoom, table, value.Ref, MarkerKey(table, "__t")) !== null) return "Date";
@@ -634,7 +634,7 @@ return null;
 
 # method InspectMapBody:(table:HeapTable, value:Value, level:int)=>Array<string>
 
-**`Map` 的每一项**：`键 => 值` ✓（Node 的形状 ✓）。
+**`Map` 的每一项**：`键 => 值`（Node 的形状）。
 
 ```ts
 const keys = MarkerArray(table, value, "__k");
@@ -651,7 +651,7 @@ return entries;
 
 # method InspectSetBody:(table:HeapTable, value:Value, level:int)=>Array<string>
 
-**`Set` 的每一项**：值本身 ✓。
+**`Set` 的每一项**：值本身。
 
 ```ts
 const values = MarkerArray(table, value, "__v");

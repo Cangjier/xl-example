@@ -255,28 +255,28 @@ for (let i = 0; i < keys.length; i++) {
 三种函数字面量、方法（`MethodDeclaration`）、**构造函数**（`Constructor`）、
 以及**访问器**（`GetAccessor` / `SetAccessor`）。
 
-**名单短一个就是错值** ✗，而且症状离现场很远——三次实测，**同一个症状、同一个根因**：
+**名单短一个就是错值**，而且症状离现场很远——三次实测，**同一个症状、同一个根因**：
 
-- 漏掉 `MethodDeclaration`（第 96 轮）→ 含**对象方法**的那一层不开环境 ✗ →
+- 漏掉 `MethodDeclaration`（第 96 轮）→ 含**对象方法**的那一层不开环境 →
   方法里的闭包从祖先帧读到一个**不属于环境的格子** → `new_closure needs an environment or undefined`；
 - 漏掉 `GetAccessor` / `SetAccessor`（第 99 轮）→ 构造换成了对象字面量的 `get x()`
-  （**类里的 `get x()` 也是同一个根因** ✓），报出来一个字都不差；
-- 漏掉 `Constructor`（第 128 轮）→ **构造函数体不算「内层函数」** ✗，于是
-  「构造函数里引用了模块作用域的名字」这件事**捕获分析看不见** ✗ →
-  模块那一层不为那个名字留格子 ✗，降级到构造函数体里报
-  `name is not a local or a capture: <名字>` ✓。
+  （**类里的 `get x()` 也是同一个根因**），报出来一个字都不差；
+- 漏掉 `Constructor`（第 128 轮）→ **构造函数体不算「内层函数」**，于是
+  「构造函数里引用了模块作用域的名字」这件事**捕获分析看不见** →
+  模块那一层不为那个名字留格子，降级到构造函数体里报
+  `name is not a local or a capture: <名字>`。
   **第 128 轮现场**：`class Box { static made = 0; constructor(n) { Box.made = … } }` ——
-  类名 `Box` 是在**构造函数体**里被引用的 ✓，而构造函数此前不算函数节点 ✗，
-  于是模块那一层压根不开环境 ✗（`captured` 是空 ✓），`Box` 谁都找不到 ✓。
+  类名 `Box` 是在**构造函数体**里被引用的，而构造函数此前不算函数节点，
+  于是模块那一层压根不开环境（`captured` 是空），`Box` 谁都找不到。
   **类字段把这一条逼出来了**：在此之前「构造函数体里引用模块作用域的名字」这条路上
-  恰好没有判据走过 ✓（方法和访问器早就在名单里，所以它们的同款引用一直是好的 ✓）。
+  恰好没有判据走过（方法和访问器早就在名单里，所以它们的同款引用一直是好的）。
 
 **三次都是合成判据逼出来的**（单独测哪一块都测不出来）。所以这里的名单**宁可多列**：
 漏一个不是「少开一格」，而是**整层不开环境**。
 
 **`Constructor` 与 `MethodDeclaration` 为什么必须一起在名单里**：它们都是「自己一层作用域」，
-而**类体本身不是作用域** ✓（`class C { m() {} }` 里 `m` 的体不是 `C` 的一层块 ✗）——
-所以类成员的体只能由**成员自己**当那一层 ✓。
+而**类体本身不是作用域**（`class C { m() {} }` 里 `m` 的体不是 `C` 的一层块）——
+所以类成员的体只能由**成员自己**当那一层。
 
 ```ts
 const kind = NodeKind(node);
@@ -285,10 +285,10 @@ return kind === "FunctionDeclaration" || kind === "FunctionExpression"
   || kind === "Constructor"
   || kind === "GetAccessor" || kind === "SetAccessor"
   // **静态块也是「自己一层作用域」**（第 196 轮）：降级层把 `static { … }` 落成
-  // 「造一个无参函数、用构造函数当 `this` 立刻调一次」，所以它**真的**是一层函数 ✓。
-  // 漏了它的症状与第 128 轮那条**一字不差** ✓：`class C { static x = 1; static { C.x = 5; } }`
-  // 报 `name is not a local or a capture: C` ✓——模块那一层不为 `C` 留格子 ✓，
-  // 而块里那个合成函数要读它 ✓。**同一个根因的第四次** ✓（名单短一个 ✗）。
+  // 「造一个无参函数、用构造函数当 `this` 立刻调一次」，所以它**真的**是一层函数。
+  // 漏了它的症状与第 128 轮那条**一字不差**：`class C { static x = 1; static { C.x = 5; } }`
+  // 报 `name is not a local or a capture: C`——模块那一层不为 `C` 留格子，
+  // 而块里那个合成函数要读它。**同一个根因的第四次**（名单短一个）。
   || kind === "ClassStaticBlockDeclaration";
 ```
 
@@ -321,25 +321,25 @@ WalkChildren(body, (child) => {
 **而不是枚举每一种可能带 `name` 的节点**（枚举漏一个就是少一个声明，
 后果是「以为是捕获、其实是本层变量」这种反过来的错）。
 
-**`EnumDeclaration` 是第 282 轮补进来的** ✗——漏了它的后果与上面那句**正好相反** ✗：
-不是「以为是捕获」，而是**「明明是本层声明的，却被当成不认识的名字」** ✓。
-症状很窄 ✓：**顶层用枚举是好的** ✓（那时 `BindName` 已经把名字放进了当前作用域 ✓），
-而**函数体里一提就报 `name is not a local or a capture: Color`** ✓
-（判据 `ex-enum-in-switch` 现场就是这句话 ✓）。**中间隔着一次「内层函数看外层」** ✗：
-那一趟要靠这张名单才认得出「这是捕获」✓，名单里没有它 ⇒ 这个引用**哪儿都不属于** ✗。
+**`EnumDeclaration` 是第 282 轮补进来的**——漏了它的后果与上面那句**正好相反**：
+不是「以为是捕获」，而是**「明明是本层声明的，却被当成不认识的名字」**。
+症状很窄：**顶层用枚举是好的**（那时 `BindName` 已经把名字放进了当前作用域），
+而**函数体里一提就报 `name is not a local or a capture: Color`**
+（判据 `ex-enum-in-switch` 现场就是这句话）。**中间隔着一次「内层函数看外层」**：
+那一趟要靠这张名单才认得出「这是捕获」，名单里没有它 ⇒ 这个引用**哪儿都不属于**。
 
-**为什么不顺手把「所有带 `name` 的节点」都收进来** ✗（那正是这条注释一直在挡的事 ✓）：
-`InterfaceDeclaration` / `TypeAliasDeclaration` **带 `name` 却不产生运行期东西** ✓——
-收进来会让「类型名当值用」从**响亮地报错** ✓变成「读到一个空槽」✓（**静默错值** ✗）。
-所以这一格是**按 kind 一个一个点名** ✓，不是按字段约定 ✓。
+**为什么不顺手把「所有带 `name` 的节点」都收进来**（那正是这条注释一直在挡的事）：
+`InterfaceDeclaration` / `TypeAliasDeclaration` **带 `name` 却不产生运行期东西**——
+收进来会让「类型名当值用」从**响亮地报错**变成「读到一个空槽」（**静默错值**）。
+所以这一格是**按 kind 一个一个点名**，不是按字段约定。
 
 ```ts
 const kind = NodeKind(body);
-// **环境声明里的名字不是运行期的名字**（第 148 轮）✗：`declare const AMBIENT: string;` 说的是
-// 「外面已经有它」✓——那份文件**跑起来并没有这个值** ✓（这才是 JS 的语义 ✓）。
-// 收进声明名单会让「用到它」报成 `name used before its declaration` ✗——
-// 那句话**指错了方向** ✓（它不在「声明之前」，它**根本没有** ✓）。
-// 排掉之后报的是 `name is not a local or a capture: AMBIENT` ✓，与真相一致 ✓。
+// **环境声明里的名字不是运行期的名字**（第 148 轮）：`declare const AMBIENT: string;` 说的是
+// 「外面已经有它」——那份文件**跑起来并没有这个值**（这才是 JS 的语义）。
+// 收进声明名单会让「用到它」报成 `name used before its declaration`——
+// 那句话**指错了方向**（它不在「声明之前」，它**根本没有**）。
+// 排掉之后报的是 `name is not a local or a capture: AMBIENT`，与真相一致。
 if (HasDeclareModifier(body)) return;
 if (kind === "VariableDeclaration" || kind === "FunctionDeclaration" || kind === "Parameter"
   || kind === "ClassDeclaration" || kind === "EnumDeclaration") {
@@ -349,13 +349,13 @@ if (kind === "VariableDeclaration" || kind === "FunctionDeclaration" || kind ===
   }
 }
 if (IsFunctionNode(body)) return;
-// **命名空间是作用域边界**（第 231 轮 ✓）：它的体里的名字**属于它自己那一层** ✓
-// （`namespace N { export const a = 1 }` 里的 `a` 在外面**看不见** ✓），
-// 所以这一趟**不往下走** ✓。
+// **命名空间是作用域边界**（第 231 轮）：它的体里的名字**属于它自己那一层**
+// （`namespace N { export const a = 1 }` 里的 `a` 在外面**看不见**），
+// 所以这一趟**不往下走**。
 //
-// **不收它自己的名字也不对** ✗：`namespace Outer { … }` 之后外面要用 `Outer` ✓——
-// 而那不是「收体里的名字」那一档 ✗：这一趟的**第一条判据**（`kind === "ModuleDeclaration"`
-// 那一条别处没有 ✓）要单独收**它的名字** ✓，见下面那一句 ✓。
+// **不收它自己的名字也不对**：`namespace Outer { … }` 之后外面要用 `Outer`——
+// 而那不是「收体里的名字」那一档：这一趟的**第一条判据**（`kind === "ModuleDeclaration"`
+// 那一条别处没有）要单独收**它的名字**，见下面那一句。
 if (kind === "ModuleDeclaration") {
   // **只有类型的 `namespace` 连名字都不产生**（第 596 轮）：`namespace T { export type A = number }`
   // 之后运行期**没有 `T`** —— `lowering.xl.md` 的 `LowerNamespace` 遇到这种体直接返回、
@@ -414,11 +414,11 @@ return true;
 
 **这个节点带 `declare` 吗**（第 148 轮）。
 
-**为什么这一层要自己判一次**：`lowering.xl.md` 里有一个同名判据 ✓，但那是**降级层**的
-（它按 `kind === "DeclareKeyword"` 读 `modifiers` ✓）；这一层是**作用域分析** ✓，
-两边的分界线是「要不要 import」（scope 不认识 lowering 的类 ✗），
-而这条判据只有**五行** ✓——为它造一条依赖比复制它更贵 ✓。
-（两处都要改的那一天，症状是「声明名单里多一个不存在的名字」✓，判据钉着那条 ✓。）
+**为什么这一层要自己判一次**：`lowering.xl.md` 里有一个同名判据，但那是**降级层**的
+（它按 `kind === "DeclareKeyword"` 读 `modifiers`）；这一层是**作用域分析**，
+两边的分界线是「要不要 import」（scope 不认识 lowering 的类），
+而这条判据只有**五行**——为它造一条依赖比复制它更贵。
+（两处都要改的那一天，症状是「声明名单里多一个不存在的名字」，判据钉着那条。）
 
 ```ts
 const modifiers = node["modifiers"];
@@ -446,26 +446,26 @@ const next = IsFunctionNode(body) ? inside + 1 : inside;
 if (kind === "Identifier" && inside > 0) {
   out.push(TextOf(body));
 }
-// **类字段的初始化式算「内层函数里的引用」** ✓（第 212 轮 ✓）：它**跑在构造函数那一帧**里 ✓
-//（`IsFunctionNode` 的名单里就写着 `Constructor` ✓）——所以**语义上它就是内层代码** ✓，
-// 只是**语法上**不在一层函数里 ✗（**类表达式**的构造函数是 `LowerClass` **合成**的 ✓、不在树里 ✗）。
+// **类字段的初始化式算「内层函数里的引用」**（第 212 轮）：它**跑在构造函数那一帧**里
+//（`IsFunctionNode` 的名单里就写着 `Constructor`）——所以**语义上它就是内层代码**，
+// 只是**语法上**不在一层函数里（**类表达式**的构造函数是 `LowerClass` **合成**的、不在树里）。
 //
-// **少了这一条**，`function make(k) { return class { v = k; }; }` 里 `k` **既不算捕获** ✗、
-// 外层也**压根不开环境** ✗ ⇒ 降级到构造函数体里报 `name is not a local or a capture: k` ✓
-//（判据 `ex-class-expr-field-capture` 现场红的 ✓）。**静态字段不受影响** ✓——
-// 它在**类声明那一处**求值 ✓，本来就在外层的体里 ✓。
+// **少了这一条**，`function make(k) { return class { v = k; }; }` 里 `k` **既不算捕获**、
+// 外层也**压根不开环境** ⇒ 降级到构造函数体里报 `name is not a local or a capture: k`
+//（判据 `ex-class-expr-field-capture` 现场红的）。**静态字段不受影响**——
+// 它在**类声明那一处**求值，本来就在外层的体里。
 //
-// **只走初始化式** ✓（不像别处那样再 `WalkChildren` 一遍 ✗）：`name` 是**属性名** ✗、
-// 类型位一律擦除 ✗——把它们当标识符收进来只会**多开一格** ✓（不致命，但没有理由 ✓）。
+// **只走初始化式**（不像别处那样再 `WalkChildren` 一遍）：`name` 是**属性名**、
+// 类型位一律擦除——把它们当标识符收进来只会**多开一格**（不致命，但没有理由）。
 //
-// **计算名是唯一那个例外** ✓（第 323 轮 ✓）：`[KEY] = 1` 的 `name` 那一格是
-// `ComputedPropertyName` ✓，**里面装的是一段真的会跑的表达式** ✓——它**不是**属性名 ✗。
-// 而**实例字段**的那一段是在**构造函数那一帧**里求值的 ✓（`EmitFieldInit` ✓，
-// 类表达式那一支甚至跑在别的函数体里 ✓）⇒ 它引用的外层名字**必须**被外层捕获 ✓，
-// 否则降级到那儿报 `name is not a local or a capture: KEY` ✓（**整份文件进不来** ✗，
-// 判据 `c323-ex-computed-class-field-names` 现场量的就是它 ✓）。
-// **`inside + 1` 与初始化式那一行同一个道理** ✓：它在语义上是**内层代码** ✓
-//（跑在构造函数那一帧里 ✓），语法上在不在函数里不是判据 ✓。
+// **计算名是唯一那个例外**（第 323 轮）：`[KEY] = 1` 的 `name` 那一格是
+// `ComputedPropertyName`，**里面装的是一段真的会跑的表达式**——它**不是**属性名。
+// 而**实例字段**的那一段是在**构造函数那一帧**里求值的（`EmitFieldInit`，
+// 类表达式那一支甚至跑在别的函数体里）⇒ 它引用的外层名字**必须**被外层捕获，
+// 否则降级到那儿报 `name is not a local or a capture: KEY`（**整份文件进不来**，
+// 判据 `c323-ex-computed-class-field-names` 现场量的就是它）。
+// **`inside + 1` 与初始化式那一行同一个道理**：它在语义上是**内层代码**
+//（跑在构造函数那一帧里），语法上在不在函数里不是判据。
 if (kind === "PropertyDeclaration") {
   const initializer = body["initializer"];
   if (initializer !== undefined && initializer !== null && typeof initializer === "object") {
@@ -507,16 +507,16 @@ WalkChildren(body, (child) => {
 
 # method ReferencesArguments:(body:AstNode)=>bool
 
-**这一层的代码用不用 `arguments`** ✓（第 332 轮 ✓）——用来问一句
-「这一帧要不要开那一格」✓。
+**这一层的代码用不用 `arguments`**（第 332 轮）——用来问一句
+「这一帧要不要开那一格」。
 
-**箭头要往下走** ✗：箭头**没有自己的 `arguments`** ✓，用的是**外层那一份** ✓
-（JS 的规矩 ✓）——所以「箭头里写了 `arguments`」等于「外层要用」✓。
-**别的函数不走** ✓：那份是它们自己的 ✓，进了它们的体就与本层无关 ✓。
+**箭头要往下走**：箭头**没有自己的 `arguments`**，用的是**外层那一份**
+（JS 的规矩）——所以「箭头里写了 `arguments`」等于「外层要用」。
+**别的函数不走**：那份是它们自己的，进了它们的体就与本层无关。
 
-**这一条只是「要不要开那一格」的判据** ✗：值本身由**开帧的人**收 ✓
-（`ir.xl.md` 的 `NeedsArguments` 那一段写着为什么 ✓——多出来的实参
-**在被调方自己的帧里没有格子** ✓）。
+**这一条只是「要不要开那一格」的判据**：值本身由**开帧的人**收
+（`ir.xl.md` 的 `NeedsArguments` 那一段写着为什么——多出来的实参
+**在被调方自己的帧里没有格子**）。
 
 ```ts
 const kind = NodeKind(body);
@@ -533,16 +533,16 @@ return found;
 
 **这个声明列表是不是 `var`**（第 135 轮）。
 
-**判据是 `flags === "None"`，不是 `"Var"`** ✗——这一条**以前写错了** ✓，
-而错的代价是**整条 `var` 提升一直是死代码** ✗：
-`var` 在 TS 的 `NodeFlags` 里是**没有标志**（`NodeFlags.None` ✓——
-只有 `let` / `const` 才有标志位 ✓），投影把它写成字符串 `"None"` ✓，
-而这里比的是 `"Var"` ✓——**那个值根本不存在** ✗。
+**判据是 `flags === "None"`，不是 `"Var"`**——这一条**以前写错了**，
+而错的代价是**整条 `var` 提升一直是死代码**：
+`var` 在 TS 的 `NodeFlags` 里是**没有标志**（`NodeFlags.None`——
+只有 `let` / `const` 才有标志位），投影把它写成字符串 `"None"`，
+而这里比的是 `"Var"`——**那个值根本不存在**。
 
-**为什么一直没露** ✗：`var` 的简单形状（`var y = 3; return y;`）**恰好与 `let` 同形** ✓
-（声明在前、用在后 ✓），所以「按 `let` 办」看不出差别 ✓；
-一旦**用在前、声明在后**（`console.log(typeof z); var z = 1;` ✓）
-或者**声明在块里、用在外面**（`if (true) { var y = 3; } return y;` ✓），差别就是**报错** ✓。
+**为什么一直没露**：`var` 的简单形状（`var y = 3; return y;`）**恰好与 `let` 同形**
+（声明在前、用在后），所以「按 `let` 办」看不出差别；
+一旦**用在前、声明在后**（`console.log(typeof z); var z = 1;`）
+或者**声明在块里、用在外面**（`if (true) { var y = 3; } return y;`），差别就是**报错**。
 
 ```ts
 return list["flags"] === "None";
@@ -553,34 +553,34 @@ return list["flags"] === "None";
 **这一层函数作用域里的 `var` 名字**：含嵌套块里的，**不进内层函数**。
 
 `var` 与 `let` 的区别就在这一条：`var` 属于**函数**，`let` 属于**块**。
-所以判定必须看**声明列表自己的 `flags`** ✓（判据收在 `IsVarList` 里 ✓——
-**不是**看它出现在哪一层 ✓：位置决定不了作用域，声明方式才决定 ✓）。
+所以判定必须看**声明列表自己的 `flags`**（判据收在 `IsVarList` 里——
+**不是**看它出现在哪一层：位置决定不了作用域，声明方式才决定）。
 
-**三种形状都要认**（第 135 轮补齐的两条写在下面 ✓）：
+**三种形状都要认**（第 135 轮补齐的两条写在下面）：
 
 | 形状 | 产物 |
 | --- | --- |
-| `var y = 3;` | `VariableStatement` 包一个列表 ✓ |
-| `for (var i = 0; …)` | 列表**没有那层壳** ✗（`print-ast-common` 那条注释写着 ✓） |
-| `var {a} = o;` | 名字在**绑定模式**里 ✓ |
+| `var y = 3;` | `VariableStatement` 包一个列表 |
+| `for (var i = 0; …)` | 列表**没有那层壳**（`print-ast-common` 那条注释写着） |
+| `var {a} = o;` | 名字在**绑定模式**里 |
 
-**只在「列表」这一格收** ✓——`VariableStatement` 那一层**不收** ✗：
-它下面就是列表 ✓，而 `WalkChildren` 会走到它 ✓——两层都收的话同一个名字会**进两次** ✓
-（第一版就是这么写的 ✓，判据当场报 `y,y` ✓。对提升本身无害 ✓——`Hoist` 会跳过已收的名字 ✓——
-但「收两次」这件事本身就是错的 ✓：将来谁拿这个名单去数个数就偏了 ✗）。
+**只在「列表」这一格收**——`VariableStatement` 那一层**不收**：
+它下面就是列表，而 `WalkChildren` 会走到它——两层都收的话同一个名字会**进两次**
+（第一版就是这么写的，判据当场报 `y,y`。对提升本身无害——`Hoist` 会跳过已收的名字——
+但「收两次」这件事本身就是错的：将来谁拿这个名单去数个数就偏了）。
 
 ```ts
 const kind = NodeKind(body);
 if (IsFunctionNode(body)) return;
-// **列表这一格是唯一入口** ✓：`var y = 3;` 从 `VariableStatement` 走下来 ✓，
-// `for (var i = …)` 直接就是它 ✓——两条路在**这里**合流 ✓。
+// **列表这一格是唯一入口**：`var y = 3;` 从 `VariableStatement` 走下来，
+// `for (var i = …)` 直接就是它——两条路在**这里**合流。
 if (kind === "VariableDeclarationList" && IsVarList(body)) {
   const declarations = ListOf(body, "declarations");
   for (let i = 0; i < declarations.length; i++) {
     const rawName = declarations[i]["name"];
     if (rawName === undefined || rawName === null || typeof rawName !== "object") continue;
-    // **名字要从绑定模式里挖出来** ✓（`var {a} = o` / `var [x] = a` ✓）——
-    // `CollectPatternNames` 对简单名与模式**是同一条路** ✓（它自己认 `Identifier` ✓）。
+    // **名字要从绑定模式里挖出来**（`var {a} = o` / `var [x] = a`）——
+    // `CollectPatternNames` 对简单名与模式**是同一条路**（它自己认 `Identifier`）。
     CollectPatternNames(rawName as AstNode, out);
   }
 }
@@ -694,43 +694,43 @@ return result;
 
 # method HasNamedExpression:(body:AstNode)=>bool
 
-**这一层里有没有「具名的函数 / 类表达式」** ✓（第 332 轮 ✓）——用来问一句
-「这一帧**必须**开一层环境吗」✓。
+**这一层里有没有「具名的函数 / 类表达式」**（第 332 轮）——用来问一句
+「这一帧**必须**开一层环境吗」。
 
-**为什么这件事要问在这一层** ✗：具名函数表达式 `const f = function self() { … self … }` 的
-`self` **只在该函数体里可见** ✓（JS 的 Named Evaluation 之外还有一条：函数表达式的名字
-是**它自己那一层**的绑定 ✓）。落地的办法是**给这个闭包单独开一层环境** ✓
-（`lowering.xl.md` 的 `EmitClosure` ✓：`env_new` → `new_closure` → `env_set` → `env_leave` ✓）——
-而 `env_leave` 要求这一层**有父亲** ✓（引擎那一条写着「没有父亲就响亮地抛」✗）。
-于是**外面的那一帧必须先有一层环境** ✓，否则那四步的最后一步当场抛 ✓。
+**为什么这件事要问在这一层**：具名函数表达式 `const f = function self() { … self … }` 的
+`self` **只在该函数体里可见**（JS 的 Named Evaluation 之外还有一条：函数表达式的名字
+是**它自己那一层**的绑定）。落地的办法是**给这个闭包单独开一层环境**
+（`lowering.xl.md` 的 `EmitClosure`：`env_new` → `new_closure` → `env_set` → `env_leave`）——
+而 `env_leave` 要求这一层**有父亲**（引擎那一条写着「没有父亲就响亮地抛」）。
+于是**外面的那一帧必须先有一层环境**，否则那四步的最后一步当场抛。
 
-**这就是「一问」的全部用处** ✓：只要**可能有**这样的表达式，就**保守地开一层** ✓
-（多开一层只是一个零格的环境对象 ✓，少开一层就是一条运行期异常 ✓——与两个循环、
-块那一层是同一条纪律 ✓）。
+**这就是「一问」的全部用处**：只要**可能有**这样的表达式，就**保守地开一层**
+（多开一层只是一个零格的环境对象，少开一层就是一条运行期异常——与两个循环、
+块那一层是同一条纪律）。
 
-**撞见一个就够** ✗（不用看它有没有名字）：`function () {}` 匿名时不落 `env_set` ✓，
-可这里多开一层没有代价 ✓；**少判一格**才是错的那一边 ✓。
+**撞见一个就够**（不用看它有没有名字）：`function () {}` 匿名时不落 `env_set`，
+可这里多开一层没有代价；**少判一格**才是错的那一边。
 
-**它不往内层函数体里走** ✗：那里面的具名表达式属于**它自己那一帧** ✓——
-那一帧降级时会**自己问一遍** ✓（`EnterFunctionBody` 每一层都调它 ✓）。
-不走进去还有一个好处 ✓：这一趟的代价是**这一层的子树一次** ✓，不是整棵树 ✓
-（`typescript/lib` 那几份大 `.d.ts` 有几千个函数 ✓，每层都扫整棵树是另一个量级 ✗）。
+**它不往内层函数体里走**：那里面的具名表达式属于**它自己那一帧**——
+那一帧降级时会**自己问一遍**（`EnterFunctionBody` 每一层都调它）。
+不走进去还有一个好处：这一趟的代价是**这一层的子树一次**，不是整棵树
+（`typescript/lib` 那几份大 `.d.ts` 有几千个函数，每层都扫整棵树是另一个量级）。
 
-**类的体要往下走** ✓（`ClassDeclaration` / `ClassExpression` 都在这一趟里继续 ✓）：
-它们的**静态字段初始化式**是在**外层这一帧**求值的 ✓
-（`class C { static v = function self() {} }` 里那个 `env_new` 就发在外层 ✓）——
-所以保守地收进来 ✓。**这一条与「方法体是另一帧」不冲突** ✗：方法体走到底也只是
-多开一层环境 ✓。
+**类的体要往下走**（`ClassDeclaration` / `ClassExpression` 都在这一趟里继续）：
+它们的**静态字段初始化式**是在**外层这一帧**求值的
+（`class C { static v = function self() {} }` 里那个 `env_new` 就发在外层）——
+所以保守地收进来。**这一条与「方法体是另一帧」不冲突**：方法体走到底也只是
+多开一层环境。
 
 ```ts
 const kind = NodeKind(body);
 if (kind === "FunctionExpression") {
-  // **它就是这一层直接求值的那个** ✓：有名字就落 `env_set` ✓、没有也不吃亏 ✓。
+  // **它就是这一层直接求值的那个**：有名字就落 `env_set`、没有也不吃亏。
   return true;
 }
 if (kind === "ArrowFunction" || kind === "FunctionDeclaration" || kind === "MethodDeclaration"
     || kind === "Constructor" || kind === "GetAccessor" || kind === "SetAccessor") {
-  // **体是另一帧** ✗：那里面自己会问一遍 ✓。
+  // **体是另一帧**：那里面自己会问一遍。
   return false;
 }
 let found = false;

@@ -23,9 +23,9 @@ import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
 
 `Previous` 认的是「内容被 `KeywordTemplate` 判定为关键字的 `Identifier`」。判定发生在字符块上，所以这一步只是**换个身份**：不产生新内容，只把普通字符块升级成关键字单元。
 
-**判据与替换都抽到了 `Keyword` 的静态方法上** ✓（第 487 轮 ✓）：解析期那一趟
-（`Token.TryToClose` → `TokenFormer.ApplyCloseRules` → 本规则 `ApplyTo` ✓）与这条规则走**同一份实现** ✓，
-所以「哪些词升级」「`as const` / `override` 两个例外」只有一处答案 ✓。
+**判据与替换都抽到了 `Keyword` 的静态方法上**（第 487 轮）：解析期那一趟
+（`Token.TryToClose` → `TokenFormer.ApplyCloseRules` → 本规则 `ApplyTo`）与这条规则走**同一份实现**，
+所以「哪些词升级」「`as const` / `override` 两个例外」只有一处答案。
 
 ## static readonly field Instance:KeywordCloseRule = new KeywordCloseRule()
 
@@ -33,7 +33,7 @@ import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
-转调 `Keyword.IsUpgradable` ✓（判定器取自那个 `Identifier` **自己的**模板 ✓，见那一处 ✓）。
+转调 `Keyword.IsUpgradable`（判定器取自那个 `Identifier` **自己的**模板，见那一处）。
 
 ```ts
 return Keyword.IsUpgradable(units, index);
@@ -41,7 +41,7 @@ return Keyword.IsUpgradable(units, index);
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
-转调 `Keyword.UpgradeAt` ✓：把这个 `Identifier` 换成一个 `Keyword`，**返回新的下标** ✓。
+转调 `Keyword.UpgradeAt`：把这个 `Identifier` 换成一个 `Keyword`，**返回新的下标**。
 
 ```ts
 return Keyword.UpgradeAt(units, index);
@@ -55,8 +55,8 @@ return Keyword.UpgradeAt(units, index);
 
 它覆写了 `ToXmlString`，且标签名是**写死的 `Keyword`**（不是运行时类名）——这一点与大多数 token 不同。
 
-**三个静态方法都在这个类上** ✓（第 487 轮抽出 ✓）：判据 `IsUpgradable`、替换 `UpgradeAt`、
-解析期那一趟（`Token.TryToClose` → `ApplyCloseRules` ✓）也用这一份 ✓。
+**三个静态方法都在这个类上**（第 487 轮抽出）：判据 `IsUpgradable`、替换 `UpgradeAt`、
+解析期那一趟（`Token.TryToClose` → `ApplyCloseRules`）也用这一份。
 
 ## static method IsUpgradable:(units:Array<Token>, index:int)=>bool
 
@@ -92,29 +92,29 @@ if (unit instanceof Identifier && unit.Parent !== null && unit.Parent.constructo
 if (unit instanceof Identifier && unit.Parent !== null && unit.Parent.constructor.name === "EnumMember") {
   return false;
 }
-// **`override` 是「上下文关键字」** ✗（第 383 轮 ✓）——与上面 `as const` 那一格**同一个形状** ✗
-// （都是「这个词在别的位置上不是关键字」✓，所以判据也放在同一处 ✓）。
+// **`override` 是「上下文关键字」**（第 383 轮）——与上面 `as const` 那一格**同一个形状**
+// （都是「这个词在别的位置上不是关键字」，所以判据也放在同一处）。
 //
-// 它只在**类成员 / 形参的修饰位**上才是关键字 ✓（`override foo() {}` ✓），
-// 而它同时是一个**完全合法的变量名** ✓——判据 `c371-e2e-permissions-matrix` 里
-// 就是这么写的：`const override = overrides[key];` ✓。
-// **少了这一条会怎样** ✗：`const override = 1; console.log(override + 1)` 里
-// **声明处**那个词活在 `Let.fieldName` 这个**属性**上 ✓（不受影响 ✓），
-// 而**使用处**被升成 `Keyword` ✗ ⇒ 降级层报
-// `unimplemented: expression OverrideKeyword` ✓（**整份文件进不来** ✗）。
+// 它只在**类成员 / 形参的修饰位**上才是关键字（`override foo() {}`），
+// 而它同时是一个**完全合法的变量名**——判据 `c371-e2e-permissions-matrix` 里
+// 就是这么写的：`const override = overrides[key];`。
+// **少了这一条会怎样**：`const override = 1; console.log(override + 1)` 里
+// **声明处**那个词活在 `Let.fieldName` 这个**属性**上（不受影响），
+// 而**使用处**被升成 `Keyword` ⇒ 降级层报
+// `unimplemented: expression OverrideKeyword`（**整份文件进不来**）。
 //
-// **判据看后一个有意义的单元** ✓：
-//   · 修饰位后面一定跟着一个**名字** ✓——`Identifier` ✓、引号名（`String` ✓）、
-//     生成器那个 `*` ✓；
-//   · 值位后面跟着的是 `=` ✓ / 运算符 ✓ / `;` ✓ / `,` ✓ / `[` ✓ 那一类 ✓。
-// **`[` 不算名字** ✗（第一版把它算进去了 ✓，当场踩到 ✓）：`override && override[action]`
-// 里那个 `override` 后面也是 `[` ✓，可那是**下标访问** ✓ 不是计算成员名 ✗——
-// 它一被算成名字就又升成 `Keyword` ✗（判据 `c371-e2e-permissions-matrix` 第二次红的就是它 ✓）。
-// **计算成员名那一档今天让掉** ✗：`override [k]()` 在真实语料里很少 ✓，
-// 而它的**修饰词收集是按文本做的** ✓（`declaration-common.xl.md` 的 `IsDeclarationModifier` ✓），
-// 所以让掉只影响那个 `OverrideKeyword` **节点** ✓，不影响「成员还是成员」✓。
-// **只在「后一格是名字」时升级** ✓——`override: number`（一个叫 `override` 的成员 ✓）
-// 后面是 `:` ✓ ⇒ 也不升级 ✓（TS 那边它是一个属性名 ✓）。
+// **判据看后一个有意义的单元**：
+//   · 修饰位后面一定跟着一个**名字**——`Identifier`、引号名（`String`）、
+//     生成器那个 `*`；
+//   · 值位后面跟着的是 `=` / 运算符 / `;` / `,` / `[` 那一类。
+// **`[` 不算名字**（第一版把它算进去了，当场踩到）：`override && override[action]`
+// 里那个 `override` 后面也是 `[`，可那是**下标访问** 不是计算成员名——
+// 它一被算成名字就又升成 `Keyword`（判据 `c371-e2e-permissions-matrix` 第二次红的就是它）。
+// **计算成员名那一档今天让掉**：`override [k]()` 在真实语料里很少，
+// 而它的**修饰词收集是按文本做的**（`declaration-common.xl.md` 的 `IsDeclarationModifier`），
+// 所以让掉只影响那个 `OverrideKeyword` **节点**，不影响「成员还是成员」。
+// **只在「后一格是名字」时升级**——`override: number`（一个叫 `override` 的成员）
+// 后面是 `:` ⇒ 也不升级（TS 那边它是一个属性名）。
 if (unit instanceof Identifier && unit.Is("override")) {
   const after = Get(units, SkipNextWrapSymbol(units, index));
   if (after === null) {
@@ -164,7 +164,7 @@ return ReplaceCountAt(units, index, 1, keyword);
 
 三个调用方：
 
-- `Keyword.UpgradeAt`（**替换那一格**）：重组那条规则与解析期那一趟都走它 ✓；
+- `Keyword.UpgradeAt`（**替换那一格**）：重组那条规则与解析期那一趟都走它；
 - `HeritageClause.Take`（**解析期**那一趟）：类头 / 接口头在 `{` 那一刻整理时，
   子句词当场升成 `<Keyword>`，所以 `HeritageClause` 自己**不用挂规则队列**。
 

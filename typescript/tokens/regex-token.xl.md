@@ -42,7 +42,7 @@ import { Identifier } from "./identifier.xl.md"
 判据直接查那个 `Identifier` 自己的模板（`last.Template.KeywordTemplate`）。
 不放行的话 `return /x/` 里的第一个 `/` 退化成除号，整条正则碎成 `SymbolToken` + `Identifier`
 （`expr-regex-after-return` / `lex-regex-after-return-same-line` 两条用例）。
-而 `a / b / c` 里 `a` 不是关键字，仍然按除号读 ✓。
+而 `a / b / c` 里 `a` 不是关键字，仍然按除号读。
 
 `Token.Last(index)` 的语义是「倒数第 `index` 个子单元」，所以写成 `unit.Last(1)`。返回值不是 `bool` 而是 `BranchConditionResult`，所以展开成「建结果、赋 `Success`」两步。
 

@@ -27,11 +27,11 @@ import { Identifier } from "../identifier.xl.md"
 但整个构造只是一个语句加一个括号，下游拿不到「这是一段类静态初始化」这件事
 （`README.md` 的「结构性缺口」里挂着它）。
 
-**入口落在 `{` 上** ✓（与 `IfSetBranch` 落在 `(`、`ClassBranch` 落在 `{` 同一条铁律 ✓）：
-那一刻两样东西都已经读到 ✓——`static` 那个词就在**宿主自己的平列表**里 ✓、宿主就是那个 `ClassBody` ✓。
-**它排在 `Bracket.JumpIn` 之前** ✗：`{` 正是后者认的字符 ✓，排在后面就永远轮不到 ✓。
+**入口落在 `{` 上**（与 `IfSetBranch` 落在 `(`、`ClassBranch` 落在 `{` 同一条铁律）：
+那一刻两样东西都已经读到——`static` 那个词就在**宿主自己的平列表**里、宿主就是那个 `ClassBody`。
+**它排在 `Bracket.JumpIn` 之前**：`{` 正是后者认的字符，排在后面就永远轮不到。
 
-`StaticBlockBranch` 写在 `StaticBlock` **之前**，与同目录其它 token 一致 ✓。
+`StaticBlockBranch` 写在 `StaticBlock` **之前**，与同目录其它 token 一致。
 
 # class StaticBlockBranch extends Branch
 
@@ -43,24 +43,24 @@ import { Identifier } from "../identifier.xl.md"
 
 `index` 处是不是静态块的那个 `{`。
 
-三条判据，全部只看**已经读到的单元** ✓：当前字符是 `{` ✓；
-它前面（跳过 trivia ✓）是内容为 `static` 的词 ✓；**宿主就是 `ClassBody`** ✓。
+三条判据，全部只看**已经读到的单元**：当前字符是 `{`；
+它前面（跳过 trivia）是内容为 `static` 的词；**宿主就是 `ClassBody`**。
 
-**上一个实义单元要跨过注释** ✓（第 595 轮）：`static /* c */ { }` 在 TypeScript 里
-**就是一个静态块** ✓（注释是 trivia ✓），而 `SkipPreviousWrapSymbol` 只跳软换行 ✗
-⇒ 撞上注释就判不出来 ✓ ⇒ 整段退化成 `StaticKeyword` + 一个游离的对象字面量 ✗
+**上一个实义单元要跨过注释**（第 595 轮）：`static /* c */ { }` 在 TypeScript 里
+**就是一个静态块**（注释是 trivia），而 `SkipPreviousWrapSymbol` 只跳软换行
+⇒ 撞上注释就判不出来 ⇒ 整段退化成 `StaticKeyword` + 一个游离的对象字面量
 （实测 `class A { static /* c */ { } }`：缺 `ClassStaticBlockDeclaration` 1 + `Block` 1，
-多出 `ObjectLiteralExpression` 1）。`SkipPreviousTrivia` 与它只差「注释也算 trivia」 ✓，
-而这里问的正是「紧挨着 `{` 的那个**词**是不是 `static`」 ✓。
+多出 `ObjectLiteralExpression` 1）。`SkipPreviousTrivia` 与它只差「注释也算 trivia」，
+而这里问的正是「紧挨着 `{` 的那个**词**是不是 `static`」。
 
-**宿主必须是类体** ✓：对象字面量里的 `{ static: 1 }` 也长着「`static` + 括号」的样子 ✗，
-但它的宿主是 `ObjectLiteral` ✓。
+**宿主必须是类体**：对象字面量里的 `{ static: 1 }` 也长着「`static` + 括号」的样子，
+但它的宿主是 `ObjectLiteral`。
 
-**为什么判据里不需要「成员规则先认领过」这一句** ✗（老写法里靠它把
-`static m() {}` / `static x = 1` 排除掉 ✓）：这里判的是**紧挨着 `{` 的那一个实义单元**
-是不是 `static` ✓——`static m() {}` 的 `{` 前面是形参表 `)` ✓、
-`static x = 1` 的 `{`（如果有）前面是 `=` ✓，两条都进不来 ✓。
-**判据从「谁先跑」挪到「谁紧挨着」** ✓，于是它与规则队列的位次彻底脱钩 ✓。
+**为什么判据里不需要「成员规则先认领过」这一句**（老写法里靠它把
+`static m() {}` / `static x = 1` 排除掉）：这里判的是**紧挨着 `{` 的那一个实义单元**
+是不是 `static`——`static m() {}` 的 `{` 前面是形参表 `)`、
+`static x = 1` 的 `{`（如果有）前面是 `=`，两条都进不来。
+**判据从「谁先跑」挪到「谁紧挨着」**，于是它与规则队列的位次彻底脱钩。
 
 ```ts
 const result = new BranchConditionResult();
@@ -81,15 +81,15 @@ return result;
 
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
-建 `StaticBlock`、把 `static` 那个词从宿主上摘掉（它不是 XML 节点 ✓）、
-把 `{` 交给它当**开口** ✓（与 `BracketBranch.Success` 对 `Bracket`、`ClassBranch` 对 `ClassBody` 同一个做法 ✓）。
+建 `StaticBlock`、把 `static` 那个词从宿主上摘掉（它不是 XML 节点）、
+把 `{` 交给它当**开口**（与 `BracketBranch.Success` 对 `Bracket`、`ClassBranch` 对 `ClassBody` 同一个做法）。
 
-**范围起点取 `static` 那个词** ✓（不是那个 `{` ✓）——`static` 是这段构造的一部分 ✓，
-所以它要从宿主上摘掉、并由 `StaticBlock` 自己签入 ✓。
+**范围起点取 `static` 那个词**（不是那个 `{`）——`static` 是这段构造的一部分，
+所以它要从宿主上摘掉、并由 `StaticBlock` 自己签入。
 
-**那个 `{` 当场记进 `BraceAt`** ✓（用户口径：token 出字段、投影直读 ✓）：`source` 就是它 ✓，
-而投影原来要 `ctx.source.indexOf("{", v.start)` **回原文里找** ✗——`static /* { */ { }`
-会命中**注释里**那个假括号 ✗ ⇒ 体的区间整个错位 ✓。
+**那个 `{` 当场记进 `BraceAt`**（用户口径：token 出字段、投影直读）：`source` 就是它，
+而投影原来要 `ctx.source.indexOf("{", v.start)` **回原文里找**——`static /* { */ { }`
+会命中**注释里**那个假括号 ⇒ 体的区间整个错位。
 
 ```ts
 const previous = Get(unit.Data, SkipPreviousTrivia(unit.Data, unit.Data.length));
@@ -113,10 +113,10 @@ unit.AddToMounted(block);
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<StaticBlock>体内语句</StaticBlock>`。
 
-**它是吃字符的单元** ✓（不再是「重组造出来、自己不消费字符」的 `IndependentToken` ✗）：
-`{` 由 `StaticBlockBranch` 消费并 `SignIn` ✓（开口由创建它的那一方消费 ✓），
-配对的 `}` 由它自己认 ✓ ⇒ 两个花括号都**不是子单元** ✓，
-与 `Bracket` / `IfBody` / `ClassBody` 同款 ✓；嵌套靠挂载链 ✓，**不数深度** ✗。
+**它是吃字符的单元**（不再是「重组造出来、自己不消费字符」的 `IndependentToken`）：
+`{` 由 `StaticBlockBranch` 消费并 `SignIn`（开口由创建它的那一方消费），
+配对的 `}` 由它自己认 ⇒ 两个花括号都**不是子单元**，
+与 `Bracket` / `IfBody` / `ClassBody` 同款；嵌套靠挂载链，**不数深度**。
 
 ## field BraceAt:int = -1
 
@@ -133,7 +133,7 @@ unit.AddToMounted(block);
 **从 `ts-ast.xl.md` 的 `projectStaticBlock` 搬来**，第 184 轮）。
 
 产物那边体括号不在树里（`StaticBlock > Statement*`），所以 `Block` 要**自己造**：
-开括号读 `BraceAt`，闭括号就是**本单元的终点**（`ExitOrPre` 在 `}` 上签出 ✓），
+开括号读 `BraceAt`，闭括号就是**本单元的终点**（`ExitOrPre` 在 `}` 上签出），
 不再回原文里找那一对括号（与 `projectTry` 里两个块同一套做法）。
 
 ```ts
@@ -174,8 +174,8 @@ return source.Value === "}";
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
-遇到配对的 `}` 就退出：签出到该字符 ✓、尝试关闭（关自己并跑那一趟收尾规则 ✓）、
-从父单元卸载自己 ✓。
+遇到配对的 `}` 就退出：签出到该字符、尝试关闭（关自己并跑那一趟收尾规则）、
+从父单元卸载自己。
 
 **与 `Bracket.ExitOrPre` 一字不差**（那边比的是 `endBracket`，这里写死 `}`）。
 
@@ -191,7 +191,7 @@ return BranchStates.Undo;
 
 ## protected method Default:(context:SyntaxContext, source:Source)=>void
 
-兜底处理：**空实现** ✓（字符全交给跳转队列与挂载的子单元）。
+兜底处理：**空实现**（字符全交给跳转队列与挂载的子单元）。
 
 ## method ToDictionary:()=>Map<string, any>
 

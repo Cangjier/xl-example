@@ -59,28 +59,28 @@ return true;
 
 ## static method DecodeIdentifierEscapes:(text:string)=>string
 
-**标识符里的 `\uXXXX` / `\u{…}` 解成真正的字符** ✓（第 381 轮 ✓）。
+**标识符里的 `\uXXXX` / `\u{…}` 解成真正的字符**（第 381 轮）。
 
-TypeScript 允许标识符写成转义形式 ✓（`const \u0061bc = 1` 里声明的名字就是 `abc` ✓），
-**而 TS 的 AST `text` 也是 `abc`** ✓——凡是**拿这个名字去比**的地方都要先解 ✓。
-实测的现场 ✗：投影直接把源码切片当名字 ✓ ⇒ 声明的是 `\u0061bc` ✓、用的是 `abc` ✓
-⇒ 降级层报 `name is not a local or a capture: abc` ✓；同一个毛病在**属性键**上是
-**静默错值** ✗（`x.\u0061` 给 `undefined` ✓，Node 给 `x.a` ✓）。
+TypeScript 允许标识符写成转义形式（`const \u0061bc = 1` 里声明的名字就是 `abc`），
+**而 TS 的 AST `text` 也是 `abc`**——凡是**拿这个名字去比**的地方都要先解。
+实测的现场：投影直接把源码切片当名字 ⇒ 声明的是 `\u0061bc`、用的是 `abc`
+⇒ 降级层报 `name is not a local or a capture: abc`；同一个毛病在**属性键**上是
+**静默错值**（`x.\u0061` 给 `undefined`，Node 给 `x.a`）。
 
-**为什么放在这一格** ✓：`Translate` 本来就是这个工程里**唯一**处理转义的地方 ✓
-（字符串字面量那条路 ✓，`IsHexText` 与 `FromCodePoint` 都在它自己身上 ✓），
-而且本文件**没有依赖** ✓ ⇒ 谁都能 import 它 ✓，不绕出循环 ✓。
-**不另写一份十六进制判据** ✗：`IsHexText` 那一段写着为什么不能拿 `parseInt` 是否为 `NaN` 顶替 ✓
-（`"\u00"` 那种写法会**静默**产出一个 NUL ✓）。
+**为什么放在这一格**：`Translate` 本来就是这个工程里**唯一**处理转义的地方
+（字符串字面量那条路，`IsHexText` 与 `FromCodePoint` 都在它自己身上），
+而且本文件**没有依赖** ⇒ 谁都能 import 它，不绕出循环。
+**不另写一份十六进制判据**：`IsHexText` 那一段写着为什么不能拿 `parseInt` 是否为 `NaN` 顶替
+（`"\u00"` 那种写法会**静默**产出一个 NUL）。
 
-**名字有两条出口** ✓（这就是为什么它得是**共用**的一份 ✗）：① 标识符自己那一格
-（`Identifier.PrintAst` ✓）；② **token 的属性**（`Let.fieldName` / `Field.fieldName` / `name` ✓，
-投影在 `print-ast-common.xl.md` 里读它们 ✓）。这一轮第一版只改了① ✓，
-于是 `function f\u0066()` 当场绿了 ✓、而 `const \u0061bc` 还是红的 ✓——**症状分叉**正是这么来的 ✓。
+**名字有两条出口**（这就是为什么它得是**共用**的一份）：① 标识符自己那一格
+（`Identifier.PrintAst`）；② **token 的属性**（`Let.fieldName` / `Field.fieldName` / `name`，
+投影在 `print-ast-common.xl.md` 里读它们）。这一轮第一版只改了①，
+于是 `function f\u0066()` 当场绿了、而 `const \u0061bc` 还是红的——**症状分叉**正是这么来的。
 
-**只解标识符合法的两种形态** ✓：`\uXXXX`（四位 ✓）与 `\u{…}`（至少一位 ✓）；
-别的形态**原样留着** ✓（不猜 ✗）——`Token.TempToString()` 是共用的 ✓，
-数字（`0x` / `1e5` ✓）与关键字匹配都靠它 ✓，在那里解会把「源码里真有一个反斜杠」的文本也改掉 ✗。
+**只解标识符合法的两种形态**：`\uXXXX`（四位）与 `\u{…}`（至少一位）；
+别的形态**原样留着**（不猜）——`Token.TempToString()` 是共用的，
+数字（`0x` / `1e5`）与关键字匹配都靠它，在那里解会把「源码里真有一个反斜杠」的文本也改掉。
 
 ```ts
 let out = "";

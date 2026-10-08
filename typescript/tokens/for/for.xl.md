@@ -50,8 +50,8 @@ C 风格 `for` 语句：把 `for` `(` … `)` `{` … `}` 这一串单元重组�
 三段判定：`Get(index)` 是内容为 `for` 的 `Identifier`；`GetSkipNextTrivia(index)` 是 `startBracket` 为 `(` 的 `Bracket`；且括号里**没有**任何内容为 `in` / `of` 的 `Identifier`。任一条不成立就返回 `false`。
 
 **为什么跨的是 trivia 而不是软换行**（第 595 轮）：`for /* c */ (;;) { }` 在 TypeScript 里是
-`ForStatement` ✓（注释是 trivia ✓），只跳软换行会撞上那条注释 ✗ ⇒ 整条语句退化成一个
-`ExpressionStatement` ✓（实测缺 `ForStatement` 1 + `Block` 1，多出 `ExpressionStatement` 1 +
+`ForStatement`（注释是 trivia），只跳软换行会撞上那条注释 ⇒ 整条语句退化成一个
+`ExpressionStatement`（实测缺 `ForStatement` 1 + `Block` 1，多出 `ExpressionStatement` 1 +
 `Identifier`(`for`) 1）。
 
 还要一条**结构性**判定：括号里得有 `;`——C 风格 `for` 头必然带分号（`for (;;)` 也带两个）。
@@ -104,7 +104,7 @@ currentIndex = SkipNextTrivia(units, currentIndex);
 // 不收就等于删掉（软换行不收，见 `CommentsIn`）。
 result.AddRange(CommentsIn(units, index + 1, currentIndex));
 const conditionBracket = Get(units, currentIndex) as Bracket;
-// **头部那个 `)` 当场记进 `HeaderCloseAt`** ✓（第 634 轮 ✓，与 `while.xl.md` 那一处同一条 ✓）。
+// **头部那个 `)` 当场记进 `HeaderCloseAt`**（第 634 轮，与 `while.xl.md` 那一处同一条）。
 result.HeaderCloseAt = conditionBracket.SourceRange.End!.Index;
 const initialEnd = SearchBack(conditionBracket.Data, -1, (x) => x instanceof SymbolToken && x.Is(";"));
 if (initialEnd === -1) {
@@ -140,8 +140,8 @@ let endIndex = currentIndex;
 let emptyBody = false;
 currentIndex = SkipNextWrapSymbol(units, currentIndex);
 const forBody = result.CreateBody();
-// **体的右端**（第 572 轮 ✓）：两个分支各自赋值 ✓，兜底值只是让类型定下来 ✓
-//（`for` 那个词自己一定是闭着的 ✓）。见下面「体那一格单语句时」那一段说明 ✓。
+// **体的右端**（第 572 轮）：两个分支各自赋值，兜底值只是让类型定下来
+//（`for` 那个词自己一定是闭着的）。见下面「体那一格单语句时」那一段说明。
 let tailEnd = unit.SourceRange.End!;
 const statementCandidate = Get(units, currentIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
@@ -163,7 +163,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
     // `SearchStatementEnd` 给不出结尾——那是语句写完了，不是语法错误（第 63 轮补）。
     endIndex = Statement.LastMeaningfulIndex(units, currentIndex);
   }
-  // **空体：`for (…);`**（第 589 轮 ✓）：这条规则由 `;` 触发，而触发那一刻
+  // **空体：`for (…);`**（第 589 轮）：这条规则由 `;` 触发，而触发那一刻
   // **`;` 还没进 `units`**——`for (;;);` 走到这里时列表只有 `for` 与那对括号两格
   // ⇒ `SearchStatementEnd` 与 `LastMeaningfulIndex` 都给 `-1`。
   // 从前这里抛错（`dist/ts/typescript/print-ast-common.ts` 那份 `for (…);` 就是它挡下的）。
@@ -179,14 +179,14 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   } else {
     forBody.SignIn(Get(units, endIndex)!.SourceRange.End!);
   }
-  // **体那一格单语句时，尾分号要算进来** ✓（第 572 轮 ✓，与第 569 轮 `do-while` 那一处同一条口径 ✓）：
-  // `;` 是语句终结符 ✓ —— `Statement.FormFrom` 把它**切进壳体的区间**却不放进 `Data` ✗
-  // ⇒ `Get(units, endIndex).SourceRange.End` 比 TS 少一格 ✓
+  // **体那一格单语句时，尾分号要算进来**（第 572 轮，与第 569 轮 `do-while` 那一处同一条口径）：
+  // `;` 是语句终结符 —— `Statement.FormFrom` 把它**切进壳体的区间**却不放进 `Data`
+  // ⇒ `Get(units, endIndex).SourceRange.End` 比 TS 少一格
   //（实测 `for (let i = 0, j = 3; i < j; i++, j--) s++;`：产物 `ForStatement [130,173)`
-  //  vs TS `[130,174)` ✓ —— 单看就是「漂移 1 + 多出 1」✓）。
-  // **只借宿主的右端** ✓：宿主是 `Statement` 时它比体多出来的那一格正是那个 `;` ✓；
-  // **只在体是列表最后一格时才借** ✗（后面还有单元说明壳里不止这一条 ✓）；
-  // 别的宿主（`Root` / 各种体 ✓）的右端是**整个容器**的末尾 ✗，照借会一路拉到文件尾 ✓。
+  //  vs TS `[130,174)` —— 单看就是「漂移 1 + 多出 1」）。
+  // **只借宿主的右端**：宿主是 `Statement` 时它比体多出来的那一格正是那个 `;`；
+  // **只在体是列表最后一格时才借**（后面还有单元说明壳里不止这一条）；
+  // 别的宿主（`Root` / 各种体）的右端是**整个容器**的末尾，照借会一路拉到文件尾。
   tailEnd = Get(units, endIndex)!.SourceRange.End!;
   const owner = unit.Parent;
   const ownerEnd = owner !== null && owner.constructor.name === "Statement" ? owner.SourceRange.End : null;
@@ -235,13 +235,13 @@ C 风格 `for` 语句单元。
 
 ## field HeaderCloseAt:int = -1
 
-**头部那个 `)` 的下标** ✓（第 634 轮 ✓，与 `While.HeaderCloseAt` / `Foreach.HeaderCloseAt` 同一条 ✓）。
+**头部那个 `)` 的下标**（第 634 轮，与 `While.HeaderCloseAt` / `Foreach.HeaderCloseAt` 同一条）。
 
-**为什么要有它** ✗：收尾规则里那个括号**就在手上** ✓（`conditionBracket` ✓），
-而投影原来拿 `ctx.MatchingParen(ctx.source, v.start)` **从 `for` 往后扫原文** ✓——
-同一件事的第二份近似 ✗（括号里的字符串与注释它一样会数 ✓）。
-**只在「体段既没有可见子单元、也没有 `emptyBodyAt`」那条兜底支里用它** ✓：
-正常那几支分别由 `BlockOfBody`（非空块 ✓）与 `emptyBodyAt`（空语句 ✓）说了算 ✓。
+**为什么要有它**：收尾规则里那个括号**就在手上**（`conditionBracket`），
+而投影原来拿 `ctx.MatchingParen(ctx.source, v.start)` **从 `for` 往后扫原文**——
+同一件事的第二份近似（括号里的字符串与注释它一样会数）。
+**只在「体段既没有可见子单元、也没有 `emptyBodyAt`」那条兜底支里用它**：
+正常那几支分别由 `BlockOfBody`（非空块）与 `emptyBodyAt`（空语句）说了算。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
@@ -282,11 +282,11 @@ C 风格 `for` 语句单元。
   }
   if (props.statement === undefined) {
     // **空体语句的 `;` 位置由 token 直接给出**（第 590 轮）：`ForCloseRule` 造这个单元时
-    // 就知道体是空的 ✓（`;` 触发规则那一刻它还没进列表 ✓，所以那边退到「借宿主右端」✓）——
-    // 把这个事实记成 `emptyBodyAt` ✓，投影**不必再拿 `MatchingParen` 重扫一遍原文** ✓
-    //（「token 出字段、投影直读」：判据只算一次，投影那一侧不做第二次近似 ✓）。
-    // **字段从 `attrs` 上读** ✗（与 `UnaryOperator.PrintAst` 的 `op` 同一个入口 ✓）：
-    // 投影收到的 `v` 是节点包装，`ToDictionary` 的键挂在 `v.attrs` 上 ✓（`v.get` 不存在 ✓）。
+    // 就知道体是空的（`;` 触发规则那一刻它还没进列表，所以那边退到「借宿主右端」）——
+    // 把这个事实记成 `emptyBodyAt`，投影**不必再拿 `MatchingParen` 重扫一遍原文**
+    //（「token 出字段、投影直读」：判据只算一次，投影那一侧不做第二次近似）。
+    // **字段从 `attrs` 上读**（与 `UnaryOperator.PrintAst` 的 `op` 同一个入口）：
+    // 投影收到的 `v` 是节点包装，`ToDictionary` 的键挂在 `v.attrs` 上（`v.get` 不存在）。
     const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
       ? v.attrs.get("emptyBodyAt")
       : undefined;

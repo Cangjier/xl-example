@@ -56,7 +56,7 @@ import { StringConcat, TemplateConcat, ObjectAssign, PowId } from "./builtins/gl
 | 变量声明（`let`/`const` 按块作用域、`var` 按函数作用域）、表达式语句、`return`、`throw`、`if`/`else`、`while`、`for(;;)`、**`for..of`（迭代协议）**、**`try`/`catch`/`finally`**、**`switch`/`break`/`continue`**、块、函数声明 | `for..in`、标签 |
 | 数字 / 字符串 / `true` / `false` / `null` / `this` / 标识符 / 括号 / 二元（算术 + 比较 + **`in`**）/ 赋值 / **复合赋值** / 调用 / **方法调用（`call_method`）** / 属性与下标（含 **`?.`**）/ **`??`** / **对象字面量** / **数组字面量（含洞）** / **箭头函数** / **函数表达式** / **`new`** / **`typeof`** | 一元运算符（等投影）、**模板串**（等投影带段文本）、解构默认值与剩余、`instanceof`、`for..in`、生成器函数 |
 | **提升**（函数声明与 `var` 名字提到函数顶）、**闭包捕获**（环境记录） | **TDZ**（见下）、块里的函数声明、**`for (let …)` 每次迭代新建绑定**（会静默给错值） |
-| **`finally` 三种路径**（正常 / 接住 / 没接住也跑完再重抛） | **`finally` 的代码发两遍**（共享要子过程跳转）；**带 `finally` 的 `try` 里 `return` / `break` / `continue` 要先把在册的 `finally` 各发一遍**（第 201 轮 ✓，见 `EmitPendingFinalies`） |
+| **`finally` 三种路径**（正常 / 接住 / 没接住也跑完再重抛） | **`finally` 的代码发两遍**（共享要子过程跳转）；**带 `finally` 的 `try` 里 `return` / `break` / `continue` 要先把在册的 `finally` 各发一遍**（第 201 轮，见 `EmitPendingFinalies`） |
 | **`for (let …)` 每次迭代新建绑定**（体里有函数值时走「每轮一个新环境 + 格值拷贝」） | 循环体里**没有**函数值时仍走槽（快路径）——这是**保守判据**：多建环境只是慢，少建一次就是错值 |
 | **箭头函数的 `this`**（含箭头的那一层留一格装接收者，箭头体里按普通捕获读） | **块里的函数声明**、`catch` 参数的块作用域之外，作用域这块还剩 TDZ |
 | **`await`**（挂起当前帧 + 恢复时接兑现值，算子早就在引擎里） | **async 的语义差**（见下）：调用者不等承诺、返回值不包承诺、`await` 非承诺抛 |
@@ -77,7 +77,7 @@ import { StringConcat, TemplateConcat, ObjectAssign, PowId } from "./builtins/gl
    但它**不是**「async 函数立刻返回承诺」那条 JS 语义。
 2. **返回值不包承诺**：`return v` 给出来的是 `v` 本身（宿主结清后从 `Result` 取），
    JS 给的是「已兑现为 `v` 的承诺」。
-3. **`await` 非承诺要抛**（引擎的规矩 ✓）；JS 会把它当成已经兑现的值。
+3. **`await` 非承诺要抛**（引擎的规矩）；JS 会把它当成已经兑现的值。
    这一条与第 2 条同源：**没有「把任意值包成承诺」这一步**。
 
 **箭头函数的 `this` 已经修好**：它没有自己的 `this`（取外层那个），所以降级器在
@@ -181,13 +181,13 @@ return value as AstNode[];
 
 节点的 `text`（标识符名、字面量原文、token 原文都走它）。
 
-**抛的时候要带上区间** ✓（第 355 轮 ✓，用户口径「举一反三」✓）：
-这条消息原来只说「谁**没有** text」✗（`ast node ArrayBindingPattern has no text` ✓）——
-**不说「在哪儿」** ✗，于是每一次都要重新插一遍探针才能找到那一格 ✓
-（第 354 轮那两条就是这样各花掉半轮 ✓）。
-`pos` / `end` 是投影层**每个节点都带**的 ✓（`cases:tsast` 那一门量着它们 ✓），
-所以把区间打出来**几乎是免费的** ✓：拿这两个数去源文件上一对，
-就知道是**哪一行、哪一个节点**在要文本 ✓——比再插一次探针便宜得多 ✓。
+**抛的时候要带上区间**（第 355 轮，用户口径「举一反三」）：
+这条消息原来只说「谁**没有** text」（`ast node ArrayBindingPattern has no text`）——
+**不说「在哪儿」**，于是每一次都要重新插一遍探针才能找到那一格
+（第 354 轮那两条就是这样各花掉半轮）。
+`pos` / `end` 是投影层**每个节点都带**的（`cases:tsast` 那一门量着它们），
+所以把区间打出来**几乎是免费的**：拿这两个数去源文件上一对，
+就知道是**哪一行、哪一个节点**在要文本——比再插一次探针便宜得多。
 
 ```ts
 const text = node["text"];
@@ -215,15 +215,15 @@ return units;
 
 # method UnitsText:(units:Array<int>)=>string
 
-**码元数组 → 宿主字符串**（`UnitsOf` 的逆 ✓，第 330 轮 ✓）。
+**码元数组 → 宿主字符串**（`UnitsOf` 的逆，第 330 轮）。
 
-**为什么要有它** ✗：属性名在树上有**两种形态** ✓——标识符（`text` 就是名字 ✓）
-与字符串字面量（`text` 是**带引号**的原文 ✗，见 `KeyUnitsOf` 那一段 ✓）。
-而 JS 的 NamedEvaluation 用的是**那个键本身** ✓：`{ "a-b": () => 1 }["a-b"].name` 是 `"a-b"` ✓，
-不是 `'"a-b"'` ✗——所以「属性名 → 一个名字」这件事只能从 `KeyUnitsOf` 走 ✓
-（那一条已经把两种形态收成一处了 ✓），而它给的是**码元** ✓ ⇒ 要转回来 ✓。
+**为什么要有它**：属性名在树上有**两种形态**——标识符（`text` 就是名字）
+与字符串字面量（`text` 是**带引号**的原文，见 `KeyUnitsOf` 那一段）。
+而 JS 的 NamedEvaluation 用的是**那个键本身**：`{ "a-b": () => 1 }["a-b"].name` 是 `"a-b"`，
+不是 `'"a-b"'`——所以「属性名 → 一个名字」这件事只能从 `KeyUnitsOf` 走
+（那一条已经把两种形态收成一处了），而它给的是**码元** ⇒ 要转回来。
 
-**宿主 API 在这一层是应该的** ✓，与 `UnitsOf` 一字不差的理由 ✓（读的是宿主解析出来的字符串 ✓）。
+**宿主 API 在这一层是应该的**，与 `UnitsOf` 一字不差的理由（读的是宿主解析出来的字符串）。
 
 ```ts
 let text = "";
@@ -237,29 +237,29 @@ return text;
 
 把数字字面量的**原文**变成数值（第 129 轮重写）。
 
-**认这五种形态**（TS 的 `NumericLiteral` 会给什么，它就认什么 ✓）：
+**认这五种形态**（TS 的 `NumericLiteral` 会给什么，它就认什么）：
 
 | 形态 | 例 | 口径 |
 | --- | --- | --- |
-| 十进制整数 / 小数 | `42` `3.14` `.5` `42.` | 十进制 ✓ |
-| 十进制指数 | `1e3` `1.5E-3` `2e+10` | 指数段必须全是指数（`e` 后面不许再有点 ✗）|
-| 十六 / 八 / 二进制 | `0x1F` `0o17` `0b1010` | **不接小数点与指数** ✗（TS 也不接 ✓）|
-| 数字分隔符 | `1_000` `0xFF_FF` `1_0.5` | 下划线只许**夹在两个数字之间** ✓（与 TS 同口径 ✓）|
-| **`BigInt`**（`123n`） | `123n` | **响亮地抛** ✓——它是 v1 的明确非目标 ✓（`docs/runtime-architecture.md` §15 ✓），静默当 `123` 是最坏的一种 ✓ |
+| 十进制整数 / 小数 | `42` `3.14` `.5` `42.` | 十进制 |
+| 十进制指数 | `1e3` `1.5E-3` `2e+10` | 指数段必须全是指数（`e` 后面不许再有点）|
+| 十六 / 八 / 二进制 | `0x1F` `0o17` `0b1010` | **不接小数点与指数**（TS 也不接）|
+| 数字分隔符 | `1_000` `0xFF_FF` `1_0.5` | 下划线只许**夹在两个数字之间**（与 TS 同口径）|
+| **`BigInt`**（`123n`） | `123n` | **响亮地抛**——它是 v1 的明确非目标（`docs/runtime-architecture.md` §15），静默当 `123` 是最坏的一种 |
 
-**两件事分开做，这是这一轮的核心** ✓：
+**两件事分开做，这是这一轮的核心**：
 
-1. **形态自己扫**（`ScanNumber`）✓——它决定**收不收** ✓，于是「不认的形态」是**响亮的一句**
-   ✓（`unimplemented: numeric literal 1n`）✓，而不是一个悄悄算错的数 ✗；
-2. **十进制 → 双精度的舍入交给宿主** ✓（`NumberFromHostText`，唯一的宿主借用，写在
-   `runtime/host-text.xl.md` ✓）。
+1. **形态自己扫**（`ScanNumber`）——它决定**收不收**，于是「不认的形态」是**响亮的一句**
+  （`unimplemented: numeric literal 1n`），而不是一个悄悄算错的数；
+2. **十进制 → 双精度的舍入交给宿主**（`NumberFromHostText`，唯一的宿主借用，写在
+   `runtime/host-text.xl.md`）。
 
-**为什么第 2 步不再自己算** ✗：老版本是 `sign * (whole + fraction / scale)` ✓，
-它**静默给错值** ✗——实测 20 万个「整.小数」里 **2 个**差 1 ulp ✓
-（`43.695449` 自算给 `43.695448999999996` ✓）。两次舍入（先除再加）不是一次舍入 ✗；
-把它改成一次除法只是在**一部分**字面量上对 ✓（`mantissa` 超过 2^53 就又不成立了 ✗）。
-正确舍入是 IEEE 754 的活儿 ✓——这一条与 `builtins/text.xl.md` 第 124 轮
-「浮点 → 文本借宿主」是**同一句理由** ✓，两个方向现在收在同一个文件里 ✓。
+**为什么第 2 步不再自己算**：老版本是 `sign * (whole + fraction / scale)`，
+它**静默给错值**——实测 20 万个「整.小数」里 **2 个**差 1 ulp
+（`43.695449` 自算给 `43.695448999999996`）。两次舍入（先除再加）不是一次舍入；
+把它改成一次除法只是在**一部分**字面量上对（`mantissa` 超过 2^53 就又不成立了）。
+正确舍入是 IEEE 754 的活儿——这一条与 `builtins/text.xl.md` 第 124 轮
+「浮点 → 文本借宿主」是**同一句理由**，两个方向现在收在同一个文件里。
 
 ```ts
 const shape = ScanNumber(text);
@@ -269,18 +269,18 @@ return NumberFromHostText(shape);
 # method ScanNumber:(text:string)=>string
 
 **形态扫描器**：收一个数字字面量的原文，返回它的**规范十进制文本**
-（去掉下划线分隔符 ✓、把十六 / 八 / 二进制翻成十进制 ✓、小数与指数原样留着给宿主 ✓）。
+（去掉下划线分隔符、把十六 / 八 / 二进制翻成十进制、小数与指数原样留着给宿主）。
 
-**分两段写**（自己算的进制 / 交给宿主的十进制）是刻意的 ✓：*收不收* 是这一层的语义 ✓，
-*舍入* 是宿主的活儿 ✓，中间那根线就是「返回值是一段十进制文本」✓。
+**分两段写**（自己算的进制 / 交给宿主的十进制）是刻意的：*收不收* 是这一层的语义，
+*舍入* 是宿主的活儿，中间那根线就是「返回值是一段十进制文本」。
 
-**抛就是拒绝** ✓：消息以 `unimplemented: ` 开头 ✓，且**带上原文** ✓——
-用户看见的是 `unimplemented: numeric literal 10n`，不是「某个地方出错了」✓。
+**抛就是拒绝**：消息以 `unimplemented: ` 开头，且**带上原文**——
+用户看见的是 `unimplemented: numeric literal 10n`，不是「某个地方出错了」。
 
-**分隔符那一段是三个循环里最容易被写歪的一格** ✗：下划线只许夹在**两个数字之间** ✓，
-而「数字」要看**当前进制** ✓（`0xF_F` 对 ✓，`1_e3` 不对 ✗——`e` 在十六进制里是数字 ✓、
-在十进制里不是 ✓）。所以每个循环都带一个「上一个消费掉的是不是数字」的标记 ✓，
-「下一个是不是这一进制的数字」也要问一遍 ✓——两次都问，`1__0` 与 `1_e3` 才都拒得掉 ✓。
+**分隔符那一段是三个循环里最容易被写歪的一格**：下划线只许夹在**两个数字之间**，
+而「数字」要看**当前进制**（`0xF_F` 对，`1_e3` 不对——`e` 在十六进制里是数字、
+在十进制里不是）。所以每个循环都带一个「上一个消费掉的是不是数字」的标记，
+「下一个是不是这一进制的数字」也要问一遍——两次都问，`1__0` 与 `1_e3` 才都拒得掉。
 
 ```ts
 let i = 0;
@@ -290,8 +290,8 @@ if (text.length > 0 && (text[0] === "-" || text[0] === "+")) {
   i = 1;
 }
 if (i >= text.length) throw new Error("unimplemented: numeric literal " + text);
-// **进制前缀** ✓：`0x` / `0o` / `0b` 三种各一个号 ✓，其余仍走十进制 ✓
-//（`0x1.5` / `0x1e3` 在 TS 里也不是数 ✗，这里靠「收集完必须正好到末尾」跟着拒 ✓）。
+// **进制前缀**：`0x` / `0o` / `0b` 三种各一个号，其余仍走十进制
+//（`0x1.5` / `0x1e3` 在 TS 里也不是数，这里靠「收集完必须正好到末尾」跟着拒）。
 let radix = 10;
 if (i + 1 < text.length && text[i] === "0") {
   const marker = text[i + 1];
@@ -316,9 +316,9 @@ if (radix !== 10) {
     }
     const digit = DigitValue(unit);
     if (digit < 0 || digit >= radix) break;
-    // **精确范围之外响亮地拒** ✓：`value * radix` 是精确的（radix 是 2 的幂 ✓），
-    // 但「加上一位」在 `value` 超过 2^53 之后会**静默舍入** ✗。再长的整数字面量要
-    // 多精度才转得对 ✓，那是 P2 类型层的事 ✓——这里给一句能读的话 ✓，不给一个近似的数 ✗。
+    // **精确范围之外响亮地拒**：`value * radix` 是精确的（radix 是 2 的幂），
+    // 但「加上一位」在 `value` 超过 2^53 之后会**静默舍入**。再长的整数字面量要
+    // 多精度才转得对，那是 P2 类型层的事——这里给一句能读的话，不给一个近似的数。
     if (value > (9007199254740991 - digit) / radix) {
       throw new Error("unimplemented: integer literal beyond the exact range needs the type layer: " + text);
     }
@@ -332,12 +332,12 @@ if (radix !== 10) {
     throw new Error("unimplemented: BigInt literal (v1 out of scope): " + text);
   }
   if (i !== text.length) throw new Error("unimplemented: numeric literal " + text);
-  // **按十进制文本交出去** ✓：进制已经在上面算完了 ✓，宿主那一头只认十进制 ✓
-  //（`NumberToHostText` 对整数给的就是那几位数字本身 ✓，没有舍入 ✓）。
+  // **按十进制文本交出去**：进制已经在上面算完了，宿主那一头只认十进制
+  //（`NumberToHostText` 对整数给的就是那几位数字本身，没有舍入）。
   return sign + NumberToHostText(value);
 }
-// **十进制**：整数段 → 小数段 → 指数段，三段各一个循环 ✓，谁都不许跳回来 ✓
-//（`1.2.3` / `1e2e3` / `1e2.5` 都在这三条上被拒 ✓）。
+// **十进制**：整数段 → 小数段 → 指数段，三段各一个循环，谁都不许跳回来
+//（`1.2.3` / `1e2e3` / `1e2.5` 都在这三条上被拒）。
 let whole = "";
 let lastDigit = false;
 while (i < text.length) {
@@ -405,16 +405,16 @@ if (i < text.length && (text[i] === "e" || text[i] === "E")) {
   if (digits.length === 0) throw new Error("unimplemented: numeric literal " + text);
   exponent = exponent + digits;
 }
-// **`n` 后缀是 `BigInt`** ✓：它走到这里说明前面是一段合法的十进制数字 ✓，那就指名道姓地拒 ✓
-//（不指名的话，用户看到的是「数字字面量不认」✗，而他要的信息是「`BigInt` 不支持」✓）。
+// **`n` 后缀是 `BigInt`**：它走到这里说明前面是一段合法的十进制数字，那就指名道姓地拒
+//（不指名的话，用户看到的是「数字字面量不认」，而他要的信息是「`BigInt` 不支持」）。
 if (i < text.length && text[i] === "n") {
   throw new Error("unimplemented: BigInt literal (v1 out of scope): " + text);
 }
 if (i !== text.length) throw new Error("unimplemented: numeric literal " + text);
 if (whole.length === 0) whole = "0";
-// **交给宿主的是「规范十进制」** ✓：`42` → `"42.0e0"`、`3.14` → `"3.14e0"`、
-// `.5` → `"0.5e0"`、`1e-3` → `"1.e-3"` ✓——这几种写法宿主都认 ✓，
-// 而它们**没有经过任何算术** ✓，所以舍入是**一次**、由宿主做 ✓。
+// **交给宿主的是「规范十进制」**：`42` → `"42.0e0"`、`3.14` → `"3.14e0"`、
+// `.5` → `"0.5e0"`、`1e-3` → `"1.e-3"`——这几种写法宿主都认，
+// 而它们**没有经过任何算术**，所以舍入是**一次**、由宿主做。
 return sign + whole + "." + fraction + "e" + (exponent === "" ? "0" : exponent);
 ```
 
@@ -422,9 +422,9 @@ return sign + whole + "." + fraction + "e" + (exponent === "" ? "0" : exponent);
 
 一个码元的数值：`0`-`9` / `a`-`f` / `A`-`F` 各给 `0`-`15`，其余给 `-1`。
 
-**为什么不借宿主的进制转换** ✗：那是**几条比较** ✓，不是 IEEE 754 的活儿 ✗——
-`host-text.xl.md` 借的是「正确舍入的十进制 ↔ 双精度」✓，不是「`parseInt`」✓。
-这一层自己扫，`0x1F` / `0o17` / `0b1010` 走到哪一位停下也才是我们说了算 ✓。
+**为什么不借宿主的进制转换**：那是**几条比较**，不是 IEEE 754 的活儿——
+`host-text.xl.md` 借的是「正确舍入的十进制 ↔ 双精度」，不是「`parseInt`」。
+这一层自己扫，`0x1F` / `0o17` / `0b1010` 走到哪一位停下也才是我们说了算。
 
 ```ts
 if (unit >= 48 && unit <= 57) return unit - 48;
@@ -446,8 +446,8 @@ if (operatorText === "-") return RtOp.Sub;
 if (operatorText === "*") return RtOp.Mul;
 if (operatorText === "/") return RtOp.Div;
 if (operatorText === "%") return RtOp.Mod;
-// **七条位运算**（第 147 轮）：它们的语义在引擎那一侧（`rt.xl.md` 的 `ToInt32Of` 那一段 ✓）——
-// 降级层只负责「这个文字对应哪一号」 ✓。
+// **七条位运算**（第 147 轮）：它们的语义在引擎那一侧（`rt.xl.md` 的 `ToInt32Of` 那一段）——
+// 降级层只负责「这个文字对应哪一号」。
 if (operatorText === "&") return RtOp.BitAnd;
 if (operatorText === "|") return RtOp.BitOr;
 if (operatorText === "^") return RtOp.BitXor;
@@ -464,25 +464,25 @@ if (operatorText === "==") return RtOp.CmpEqLoose;
 if (operatorText === "!=") return RtOp.CmpEqLoose;
 if (operatorText === "in") return RtOp.In;
 if (operatorText === "instanceof") return RtOp.Instanceof;
-// **`**` 落在这里是故意的** ✓：它**没有**走通用算子表 ✗——`pow` 的舍入
-// **没有标准定死** ✗（IEEE 754 没规定正确舍入 ✓，各目标的 `pow` 可能差最后一位 ✓），
-// 所以它属于**语言建库**那一层（与 `StringConcat` 同一条路 ✓），单独立一轮 ✓。
-// 在此之前**响亮地抛** ✓（不许静默给一个近似值 ✗）。
+// **`**` 落在这里是故意的**：它**没有**走通用算子表——`pow` 的舍入
+// **没有标准定死**（IEEE 754 没规定正确舍入，各目标的 `pow` 可能差最后一位），
+// 所以它属于**语言建库**那一层（与 `StringConcat` 同一条路），单独立一轮。
+// 在此之前**响亮地抛**（不许静默给一个近似值）。
 throw new Error("unimplemented: binary operator " + operatorText);
 ```
 
 # method CompoundBaseOf:(operatorText:string)=>string
 
-**复合赋值的「底」是哪个运算符**（第 147 轮）：`+=` 给 `"+"` ✓、`>>>=` 给 `">>>"` ✓、
-不是复合赋值给**空串** ✓。
+**复合赋值的「底」是哪个运算符**（第 147 轮）：`+=` 给 `"+"`、`>>>=` 给 `">>>"`、
+不是复合赋值给**空串**。
 
-**为什么要一个函数、而不是 `operatorText.slice(0, 1)`** ✗：那个写法对 `+=` / `&=` 恰好对 ✓，
-但对 `<<=` / `>>=` / `>>>=` **当场错** ✗（切出来是 `"<"` / `">"` ✓，
-而它们不是二元运算符 ✓）——症状是「两个字符的运算符被当成一个字符的」✓，
-报出来还停在 `unimplemented: binary operator <` ✓（离现场很远 ✗）。
+**为什么要一个函数、而不是 `operatorText.slice(0, 1)`**：那个写法对 `+=` / `&=` 恰好对，
+但对 `<<=` / `>>=` / `>>>=` **当场错**（切出来是 `"<"` / `">"`，
+而它们不是二元运算符）——症状是「两个字符的运算符被当成一个字符的」，
+报出来还停在 `unimplemented: binary operator <`（离现场很远）。
 
-**不在这张表里的照旧不走复合那条路** ✓：`&&=` / `||=` / `??=` 是**逻辑赋值**
-（右边可能不求值 ✓），语义与这一族不同 ✗，所以它们落进通用二元那条路**响亮地抛** ✓。
+**不在这张表里的照旧不走复合那条路**：`&&=` / `||=` / `??=` 是**逻辑赋值**
+（右边可能不求值），语义与这一族不同，所以它们落进通用二元那条路**响亮地抛**。
 
 ```ts
 if (operatorText === "+=") return "+";
@@ -496,8 +496,8 @@ if (operatorText === "^=") return "^";
 if (operatorText === "<<=") return "<<";
 if (operatorText === ">>=") return ">>";
 if (operatorText === ">>>=") return ">>>";
-// **`**=` 也在表里**（第 149 轮）✓：它的「算」那一步走**内建**那条 ✓
-//（见 `CombineValues` ✓），但**底运算符**照样是这里给的 ✓——两件事分开写 ✓。
+// **`**=` 也在表里**（第 149 轮）：它的「算」那一步走**内建**那条
+//（见 `CombineValues`），但**底运算符**照样是这里给的——两件事分开写。
 if (operatorText === "**=") return "**";
 return "";
 ```
@@ -518,10 +518,10 @@ return operatorText === "!==" || operatorText === "!=";
 不查的话，「忘了写」会变成**静默少跑父类的初始化**——那种错要到很久以后才显形。
 
 **两个节点要分开看**（第 128 轮）：调用点给的可能是**构造函数节点**（`Constructor`），
-也可能是它的**体**（`Block`）✓。而 `IsFunctionNode` 现在把 `Constructor` 也算内层 ✓
-（捕获分析要它 ✓）——直接问它，构造函数会被误判成「已经进了内层」✗，
-于是派生类被判成「没调 `super(...)`」✗（`05-classes.ts` 当场红 ✓）。
-所以 `Constructor` 要**先落回它的体**再往下走 ✓。
+也可能是它的**体**（`Block`）。而 `IsFunctionNode` 现在把 `Constructor` 也算内层
+（捕获分析要它）——直接问它，构造函数会被误判成「已经进了内层」，
+于是派生类被判成「没调 `super(...)`」（`05-classes.ts` 当场红）。
+所以 `Constructor` 要**先落回它的体**再往下走。
 
 ```ts
 if (NodeKind(body) === "CallExpression") {
@@ -774,92 +774,92 @@ return -1;
 
 ## field IsClass:bool = false
 
-**这一个函数体是一个类的构造函数** ✓（第 613 轮 ✓）。
+**这一个函数体是一个类的构造函数**（第 613 轮）。
 
-**它原样递给函数表** ✓（`FunctionInfo.IsClass` ✓ → `new_closure` 第四格的最低位 ✓ →
-`HeapClosure.IsClass` ✓ → `console.log` 印 `[class C]` ✓）。
+**它原样递给函数表**（`FunctionInfo.IsClass` → `new_closure` 第四格的最低位 →
+`HeapClosure.IsClass` → `console.log` 印 `[class C]`）。
 
-**为什么不能在运行期现认** ✗：类在值模型里就是一个普通闭包 ✓——
-`HeapClosure` 上那五格（代码 / 环境 / 名字 / 形参 / 源码）里没有一个说得清这件事 ✓，
-而 `Function.prototype.toString` 在本仓**拿不到源码** ✓（源码那一格是降级层切好放进去的 ✓，
-不是从函数对象里反读的 ✓）。**只有降级层知道** ✓（它手里正拿着类节点 ✓）。
+**为什么不能在运行期现认**：类在值模型里就是一个普通闭包——
+`HeapClosure` 上那五格（代码 / 环境 / 名字 / 形参 / 源码）里没有一个说得清这件事，
+而 `Function.prototype.toString` 在本仓**拿不到源码**（源码那一格是降级层切好放进去的，
+不是从函数对象里反读的）。**只有降级层知道**（它手里正拿着类节点）。
 
 ## field HasRest:bool = false
 
-**最后一个形参是不是剩余参数**（第 133 轮）——原样递给函数表那一位 ✓
-（`FunctionInfo.HasRest` ✓，理由见 `ir.xl.md` 那一段：**开帧的人**才知道「这次传了几个」✓）。
+**最后一个形参是不是剩余参数**（第 133 轮）——原样递给函数表那一位
+（`FunctionInfo.HasRest`，理由见 `ir.xl.md` 那一段：**开帧的人**才知道「这次传了几个」）。
 
 ## field PatternAt:Array<int> = []
 
-**哪几个形参是解构模式**（第 134 轮）——下标升序 ✓。
+**哪几个形参是解构模式**（第 134 轮）——下标升序。
 
 ## field Patterns:Array<AstNode> = []
 
-与 `PatternAt` 一一对应的那些模式 ✓。
+与 `PatternAt` 一一对应的那些模式。
 
 ## field Arity:int = 0
 
-**`fn.length` 的答案**（第 291 轮 ✓，第 292 轮搬到这一格 ✓）：形参里**第一个默认值 / 剩余之前**有几个 ✓
-（算它的是 `FunctionArity` ✓）。它**不属于** `ParamCount` ✗——那一格是「这一帧要铺几个参数」✓，
-而 `function f(a, b = 1, c)` 的 `ParamCount` 是 3 ✓、`length` 是 **1** ✓。
-两格混用就是**静默错值** ✓（`fn.length` 会变成形参个数 ✓），所以它们是两格 ✓。
+**`fn.length` 的答案**（第 291 轮，第 292 轮搬到这一格）：形参里**第一个默认值 / 剩余之前**有几个
+（算它的是 `FunctionArity`）。它**不属于** `ParamCount`——那一格是「这一帧要铺几个参数」，
+而 `function f(a, b = 1, c)` 的 `ParamCount` 是 3、`length` 是 **1**。
+两格混用就是**静默错值**（`fn.length` 会变成形参个数），所以它们是两格。
 
 ## field NeedsArguments:bool = false
 
-**这一帧要不要一个 `arguments`** ✓（第 332 轮 ✓）——由 `ReferencesArguments` 判 ✓
-（`scope.xl.md` ✓：箭头要往里走 ✓、别的函数不往里走 ✓）。
+**这一帧要不要一个 `arguments`**（第 332 轮）——由 `ReferencesArguments` 判
+（`scope.xl.md`：箭头要往里走、别的函数不往里走）。
 
-**箭头永远是假** ✗：它**没有自己的 `arguments`** ✓，用的是外层那一份 ✓——
-这一条写在 `LowerFunctionValue` 那一句上 ✓（`!item.IsArrow && …` ✓）。
+**箭头永远是假**：它**没有自己的 `arguments`**，用的是外层那一份——
+这一条写在 `LowerFunctionValue` 那一句上（`!item.IsArrow && …`）。
 
 ## field Source:string = ""
 
-**这个函数的源码文本** ✓（第 334 轮 ✓）——`f.toString()` 的答案 ✓
-（`HeapClosure.Source` 那一段写着为什么它挂在闭包上 ✓）。
+**这个函数的源码文本**（第 334 轮）——`f.toString()` 的答案
+（`HeapClosure.Source` 那一段写着为什么它挂在闭包上）。
 
-**从哪来** ✓：`SourceSliceOf` ✓——按节点的 `[pos, end)` 从 `SourceText` 里切 ✓。
-**空串 = 没有** ✓（合成出来的那些：`namespace` 的体 ✓、静态块 ✓——JS 里它们
-本来就没有「一段源码」对应 ✓）。**`new Lowering()` 那十几处（`tests/runtime/check.mjs` ✓）
-也没给源码** ✓ ⇒ 切出来是空串 ✓ ⇒ 闭包那一格留 `0` ✓ ⇒ `fn.toString()` 走
-「造不出来」那一档 ✓——那里量的是 IR 形状 ✓，不看它 ✓。
+**从哪来**：`SourceSliceOf`——按节点的 `[pos, end)` 从 `SourceText` 里切。
+**空串 = 没有**（合成出来的那些：`namespace` 的体、静态块——JS 里它们
+本来就没有「一段源码」对应）。**`new Lowering()` 那十几处（`tests/runtime/check.mjs`）
+也没给源码** ⇒ 切出来是空串 ⇒ 闭包那一格留 `0` ⇒ `fn.toString()` 走
+「造不出来」那一档——那里量的是 IR 形状，不看它。
 
-**为什么这件事必须写到函数表上** ✗：与 `HasRest` **一字不差** ✓——
-值是**开帧的人**收的 ✓（多出来的实参在被调方自己的帧里没有格子 ✓），
-原样递给 `FunctionInfo.NeedsArguments` ✓（`ir.xl.md` 那一段写着为什么 ✓）。
+**为什么这件事必须写到函数表上**：与 `HasRest` **一字不差**——
+值是**开帧的人**收的（多出来的实参在被调方自己的帧里没有格子），
+原样递给 `FunctionInfo.NeedsArguments`（`ir.xl.md` 那一段写着为什么）。
 
 ## field SelfName:string = ""
 
-**具名函数表达式自带的那个名字** ✓（第 332 轮 ✓）——`const f = function self() { … }` 里的 `self` ✓。
-空串 = 没有（箭头、匿名函数、函数声明、方法 ✓）。
-空串 = 没有（箭头、匿名函数、函数声明、方法 ✓）。
+**具名函数表达式自带的那个名字**（第 332 轮）——`const f = function self() { … }` 里的 `self`。
+空串 = 没有（箭头、匿名函数、函数声明、方法）。
+空串 = 没有（箭头、匿名函数、函数声明、方法）。
 
-**为什么它与 `Name` 是两格** ✗：`Name` 是**显示名** ✓（`fn.name` 与 `console.log` 用的 ✓，
-`const f = function self(){}` 两处都该是 `"self"` ✓、而 `const f = () => 1` 是 `"f"` ✓）；
-这一格是**词法绑定** ✓——`self` 在那个函数体里**是一个能取到的名字** ✓，
-而且**只在那里** ✓。`NamesFunctionValue` 那三档管的是前者 ✓，与这一格无关 ✓。
+**为什么它与 `Name` 是两格**：`Name` 是**显示名**（`fn.name` 与 `console.log` 用的，
+`const f = function self(){}` 两处都该是 `"self"`、而 `const f = () => 1` 是 `"f"`）；
+这一格是**词法绑定**——`self` 在那个函数体里**是一个能取到的名字**，
+而且**只在那里**。`NamesFunctionValue` 那三档管的是前者，与这一格无关。
 
 ## field IsNamespace:bool = false
 
-**这一帧是 `namespace` 的体**（第 292 轮 ✓）——它的形参表只有一格（那个对象 ✓），
-而**体内的导出要在降级时挂回对象上** ✓。
+**这一帧是 `namespace` 的体**（第 292 轮）——它的形参表只有一格（那个对象），
+而**体内的导出要在降级时挂回对象上**。
 
-**为什么它必须是一帧、而不是「把体塞进外层」** ✗：体内的名字属于**命名空间自己那一层** ✓
-（`scope.xl.md` 的 `CollectDeclaredNames` 从第 231 轮起就写着「命名空间是作用域边界」✓）——
-塞进外层只有两种错法 ✗：**泄漏到外面** ✓（静默错值 ✓）、或者体内函数读到**别的帧的槽号** ✓（垃圾值 ✓）。
-开一帧之后，体内那个 `f` 引用 `a` 走的是**捕获**那条既有路 ✓（`a` 是本帧的局部 ✓）。
+**为什么它必须是一帧、而不是「把体塞进外层」**：体内的名字属于**命名空间自己那一层**
+（`scope.xl.md` 的 `CollectDeclaredNames` 从第 231 轮起就写着「命名空间是作用域边界」）——
+塞进外层只有两种错法：**泄漏到外面**（静默错值）、或者体内函数读到**别的帧的槽号**（垃圾值）。
+开一帧之后，体内那个 `f` 引用 `a` 走的是**捕获**那条既有路（`a` 是本帧的局部）。
 
 ## field FieldDefaults:Array<AstNode> = []
 
 **这个构造函数开局要跑的实例字段初始化式**（第 128 轮补；只有构造函数非空）。
 
 **为什么挂在函数体上、而不是「就在类那一处发指令」**：字段初始化式跑在
-**构造函数自己的帧**里（它要写 `this` ✓），而类那一处的帧是**外层**的 ✗——
+**构造函数自己的帧**里（它要写 `this`），而类那一处的帧是**外层**的——
 在那里发 `set_prop` 会往**模块的 this** 上写（那多半是 `undefined`，报的是
-「assigning a property on a primitive receiver」，离现场很远 ✓）。
+「assigning a property on a primitive receiver」，离现场很远）。
 
-**顺序**：JS 的规矩是「字段初始化在**构造函数体之前**、参数默认值之后」✓；
-派生类里它跟在 **`super(...)` 之后**（`this` 在 `super()` 返回前不存在 ✓）——
-后者靠 `FieldInitDeferred` 那一位分开 ✓。
+**顺序**：JS 的规矩是「字段初始化在**构造函数体之前**、参数默认值之后」；
+派生类里它跟在 **`super(...)` 之后**（`this` 在 `super()` 返回前不存在）——
+后者靠 `FieldInitDeferred` 那一位分开。
 
 ## field FieldInitRan:bool = false
 
@@ -872,7 +872,7 @@ return -1;
 
 **为什么不能只看「有没有基类」**：`super(...)` 在体里可能**不在第一条语句**
 （`constructor(x) { this.check(x); super(x); }`）——按「体之前」发指令就会在
-`this` 还不存在时写它 ✗。所以派生类一律**推迟到 `super(...)` 那条语句之后**发 ✓。
+`this` 还不存在时写它。所以派生类一律**推迟到 `super(...)` 那条语句之后**发。
 
 ## field SuperName:string = ""
 
@@ -884,29 +884,29 @@ return -1;
 
 ## field SuperStatic:bool = false
 
-**这个函数体是**静态**成员吗**（第 278 轮 ✓）——`super.v` 与 `super.m()` 找起的**起点**由它决定 ✓。
+**这个函数体是**静态**成员吗**（第 278 轮）——`super.v` 与 `super.m()` 找起的**起点**由它决定。
 
-**为什么「父类名」不够** ✗：`super` 的起点在 JS 里分两种 ✓——
-**实例成员**从 `父类.prototype` 起读 ✓（`super.v` 读的是原型链 ✓），
-**静态成员**从**父类构造函数自己**起读 ✓（`super.kind` 读的是 `A.kind` ✓）。
-只存名字的话这两处**分不开** ✗，于是静态那一半会去读 `A.prototype.kind` ✓
-⇒ `undefined` ✓（判据 `rt-class-getter-static-and-inherit` 现场给的正是 `B+undefined` ✓）。
+**为什么「父类名」不够**：`super` 的起点在 JS 里分两种——
+**实例成员**从 `父类.prototype` 起读（`super.v` 读的是原型链），
+**静态成员**从**父类构造函数自己**起读（`super.kind` 读的是 `A.kind`）。
+只存名字的话这两处**分不开**，于是静态那一半会去读 `A.prototype.kind`
+⇒ `undefined`（判据 `rt-class-getter-static-and-inherit` 现场给的正是 `B+undefined`）。
 
 ## field IsStrict:bool = false
 
-**这个函数体是严格代码吗**（第 620 轮 ✓）——由 `LowerFunctionValue` 按 `InStrict` 记下来 ✓。
+**这个函数体是严格代码吗**（第 620 轮）——由 `LowerFunctionValue` 按 `InStrict` 记下来。
 
-**它唯一的用处**是「当普通函数调时的 `this`」✓：严格给 `undefined` ✓、松散给全局对象 ✓
-（引擎那一支在 `DoCallValue` / `CallNative` ✓）。**不是**「有没有 `"use strict"` 指令」✗——
-本仓只认**类体**这个严格源 ✓（`InStrict` 那一格 ✓）。
+**它唯一的用处**是「当普通函数调时的 `this`」：严格给 `undefined`、松散给全局对象
+（引擎那一支在 `DoCallValue` / `CallNative`）。**不是**「有没有 `"use strict"` 指令」——
+本仓只认**类体**这个严格源（`InStrict` 那一格）。
 
 ## constructor:(name:string, body:AstNode, params:Array<string>, patch:int, defaultAt:Array<int>, defaults:Array<AstNode>, patternAt:Array<int>, patterns:Array<AstNode>)=>void
 
 登记一个待降级的函数体。
 
 **`patternAt` / `patterns` 是两份平行数组**（第 134 轮）：第几个形参是**解构模式**、
-以及那个模式本身 ✓——形状与 `defaultAt` / `defaults` 一字不差 ✓（理由也一样：
-「第几个」与「那棵树」是两件事 ✓）。
+以及那个模式本身——形状与 `defaultAt` / `defaults` 一字不差（理由也一样：
+「第几个」与「那棵树」是两件事）。
 
 ```ts
 this.Name = name;
@@ -922,18 +922,18 @@ this.Patterns = patterns;
 
 # class BlockLabelContext
 
-**「标签 + 一个块」那一层**（第 234 轮 ✓）——`outer: { … break outer; … }` 要它 ✓。
+**「标签 + 一个块」那一层**（第 234 轮）——`outer: { … break outer; … }` 要它。
 
-**为什么不能拿 `LoopContext` 顶替** ✗：那个类带着 `Continues` / `IsLoop` / 环境那几格 ✓，
-它们全都**只对循环有意义** ✓（`continue` 的目标必须是循环 ✓、每轮新建绑定也是 ✓）。
-借它来装一个块，就是让后面每一个读 `Loops` 的地方都要多问一句「这一层是不是假的」✓
-（**那种「多问一句」迟早会漏一处** ✗）。
+**为什么不能拿 `LoopContext` 顶替**：那个类带着 `Continues` / `IsLoop` / 环境那几格，
+它们全都**只对循环有意义**（`continue` 的目标必须是循环、每轮新建绑定也是）。
+借它来装一个块，就是让后面每一个读 `Loops` 的地方都要多问一句「这一层是不是假的」
+（**那种「多问一句」迟早会漏一处**）。
 
-**它只有两格** ✓：名字（给 `break` 认出「是不是我这一层」✓）与那一摞还没回填的跳转 ✓。
+**它只有两格**：名字（给 `break` 认出「是不是我这一层」）与那一摞还没回填的跳转。
 
 ## constructor:(label:string)=>void
 
-建一层「标签 + 块」的上下文 ✓（**跳转那一摞从空开始** ✓——见 `Breaks` 那一格 ✓）。
+建一层「标签 + 块」的上下文（**跳转那一摞从空开始**——见 `Breaks` 那一格）。
 
 ```ts
 this.Label = label;
@@ -941,16 +941,16 @@ this.Label = label;
 
 ## field Label:string = ""
 
-带标签的块那一层叫什么 ✓（`break` 那一头按名字找 ✓）。
+带标签的块那一层叫什么（`break` 那一头按名字找）。
 
 ## field Breaks:Array<int> = []
 
-**块里每一条 `break 这个标签` 发的那条 `Jump` 的指令下标** ✓——
-块跑完之后由 `LabeledStatement` **一次性回填到块之后** ✓。
+**块里每一条 `break 这个标签` 发的那条 `Jump` 的指令下标**——
+块跑完之后由 `LabeledStatement` **一次性回填到块之后**。
 
-**为什么不先占一条 `Jump` 当目标** ✗：那少了一条 ✓——块**正常走到尾**时会紧挨着
-`break` 那条跳 ✓，于是**正常路径也跳走** ✓（实测：`log` 少了 `break` 前那一句的效果 ✓，
-**静默错值** ✓）。记一摞下标就没有这个形状 ✓。**与 `LeaveLoop` 的 `Breaks` 同一个写法** ✓。
+**为什么不先占一条 `Jump` 当目标**：那少了一条——块**正常走到尾**时会紧挨着
+`break` 那条跳，于是**正常路径也跳走**（实测：`log` 少了 `break` 前那一句的效果，
+**静默错值**）。记一摞下标就没有这个形状。**与 `LeaveLoop` 的 `Breaks` 同一个写法**。
 
 # class LoopContext
 
@@ -988,32 +988,32 @@ this.Label = label;
 
 ## field Labelled:bool = false
 
-**这一层是不是带标签的** ✓（第 337 轮 ✓）——`outer: for (…)` ✓。
-**它决定 `break` / `continue` 找不找得到它** ✓（`LowerBreak` 扫的是 `Label` ✗）——
-所以这一格今天是**记账用**的 ✓：写在这里免得下一个人以为 `Label !== ""` 就等于「带标签」✗
-（那一条本来就够用 ✓）。**留着它是因为它下面那一格需要一句同伴说明** ✗。
+**这一层是不是带标签的**（第 337 轮）——`outer: for (…)`。
+**它决定 `break` / `continue` 找不找得到它**（`LowerBreak` 扫的是 `Label`）——
+所以这一格今天是**记账用**的：写在这里免得下一个人以为 `Label !== ""` 就等于「带标签」
+（那一条本来就够用）。**留着它是因为它下面那一格需要一句同伴说明**。
 
 ## field IteratorSlot:int = -1
 
-**这一层是「迭代循环」吗；是的话迭代器在哪一格** ✓（第 337 轮 ✓）——
-`for..of` / `for..in` 都走 `LowerIterationLoop` ✓，两者都设它 ✓；普通循环 `-1` ✓。
+**这一层是「迭代循环」吗；是的话迭代器在哪一格**（第 337 轮）——
+`for..of` / `for..in` 都走 `LowerIterationLoop`，两者都设它；普通循环 `-1`。
 
-**为什么它必须记在上下文里** ✗：`return` 出循环时要 **IteratorClose** ✓（`for..of` 的收尾 ✓），
-而 `return` 那一支手上只有**这一摞 `Loops`** ✓（`this.Loops` ✓）——
-不知道哪几层是迭代循环、也不知道它们的迭代器在哪一格 ✗（那两样都是**发循环时**定下来的 ✓）。
+**为什么它必须记在上下文里**：`return` 出循环时要 **IteratorClose**（`for..of` 的收尾），
+而 `return` 那一支手上只有**这一摞 `Loops`**（`this.Loops`）——
+不知道哪几层是迭代循环、也不知道它们的迭代器在哪一格（那两样都是**发循环时**定下来的）。
 
-**顺带一处已知的次序差** ✗：`return` 那一支**先 close、后 `finally`** ✓——
-而 JS 的规矩是「按进入的次序倒着退」✓（两者嵌套交错时次序应当相反 ✗）。
-**没有判据量着那一种** ✓，写在 `ReturnStatement` 那一段 ✓。
+**顺带一处已知的次序差**：`return` 那一支**先 close、后 `finally`**——
+而 JS 的规矩是「按进入的次序倒着退」（两者嵌套交错时次序应当相反）。
+**没有判据量着那一种**，写在 `ReturnStatement` 那一段。
 
 ## field IterableSlot:int = -1
 
-**这一层被迭代的那个东西在哪一格** ✓（第 620 轮 ✓）——与 `IteratorSlot` 成对进出 ✓。
+**这一层被迭代的那个东西在哪一格**（第 620 轮）——与 `IteratorSlot` 成对进出。
 
-**为什么还要记它** ✗：`for..of` 的 `get_iterator` 会把**自带 `Symbol.iterator` 的对象**
-摊平成一个数组 ✓，用户写的 `return()` 就绑在那个数组上 ✓（键是 `__close` ✓，
-见 `install.xl.md` 的 `GetIterator` ✓）——而引擎手里的**游标**上没有它 ✗。
-两格都收一遍才收得到**两档各自的**那一份 ✓（生成器那一档只有游标那一格有 ✓）。
+**为什么还要记它**：`for..of` 的 `get_iterator` 会把**自带 `Symbol.iterator` 的对象**
+摊平成一个数组，用户写的 `return()` 就绑在那个数组上（键是 `__close`，
+见 `install.xl.md` 的 `GetIterator`）——而引擎手里的**游标**上没有它。
+两格都收一遍才收得到**两档各自的**那一份（生成器那一档只有游标那一格有）。
 
 ## constructor:(isLoop:bool, continueTarget:int)=>void
 
@@ -1078,39 +1078,39 @@ this.IsDefault = isDefault;
 
 ## field SourceText:string = ""
 
-**这份模块的源码** ✓（第 333 轮 ✓）——**降级层里唯一一处「回头看原文」的地方** ✓。
+**这份模块的源码**（第 333 轮）——**降级层里唯一一处「回头看原文」的地方**。
 
-**为什么它必须在这里** ✗：有一件事在投影里**取不到** ✓——**没有内插的模板串的原文** ✓。
-投影对 `NoSubstitutionTemplateLiteral` 给的是**熟的**那一串 ✓（`stringText` ✓，与 TS 逐节点相同 ✓），
-而 `raw` 要的是**原文** ✓（`` `a\nb` `` 给 `a` + 反斜杠 + `n` + `b` ✓）——
-`raw` 是**不可逆**的 ✗：熟的那一串里那个换行已经是一个字符了 ✓，回不去 ✓。
-**带内插的那三个段**反而不用回头 ✓（投影给的就是原文 ✓，只是要**熟**一遍 ✓，见 `CookTemplateText` ✓）。
+**为什么它必须在这里**：有一件事在投影里**取不到**——**没有内插的模板串的原文**。
+投影对 `NoSubstitutionTemplateLiteral` 给的是**熟的**那一串（`stringText`，与 TS 逐节点相同），
+而 `raw` 要的是**原文**（`` `a\nb` `` 给 `a` + 反斜杠 + `n` + `b`）——
+`raw` 是**不可逆**的：熟的那一串里那个换行已经是一个字符了，回不去。
+**带内插的那三个段**反而不用回头（投影给的就是原文，只是要**熟**一遍，见 `CookTemplateText`）。
 
-**构造器那一格给的是缺省空串** ✓：`new Lowering()` 在 `tests/runtime/check.mjs` 里出现十几处 ✓，
-它们量的是 IR 的形状 ✓、不看 `raw` ✓——所以加的是**带缺省值的参数** ✓（一处调用点都不用改 ✓），
-只有真正跑脚本的那一条（`tsrun.xl.md` ✓）把源码递进来 ✓。
+**构造器那一格给的是缺省空串**：`new Lowering()` 在 `tests/runtime/check.mjs` 里出现十几处，
+它们量的是 IR 的形状、不看 `raw`——所以加的是**带缺省值的参数**（一处调用点都不用改），
+只有真正跑脚本的那一条（`tsrun.xl.md`）把源码递进来。
 
 ## method SuperClassNameOf:(node:AstNode)=>string
 
-这个类声明 `extends` 的是哪个名字；没有（或不是简单名）给空串 ✓。
+这个类声明 `extends` 的是哪个名字；没有（或不是简单名）给空串。
 
-**抽出来是因为它有两个用处** ✓（第 141 轮抽出，第 203 轮起只剩一处 ✓）：
-`LowerClass` 自己要用它认 `super` 的父类 ✓（原来 `FindParentHasConstructor` 递归时也要用它 ✓——
-第 203 轮把那个「父类有没有构造函数」的代理判据撤掉了 ✓，见 `LowerClass` 那一支 ✓）。
+**抽出来是因为它有两个用处**（第 141 轮抽出，第 203 轮起只剩一处）：
+`LowerClass` 自己要用它认 `super` 的父类（原来 `FindParentHasConstructor` 递归时也要用它——
+第 203 轮把那个「父类有没有构造函数」的代理判据撤掉了，见 `LowerClass` 那一支）。
 
 ```ts
 const clauses = ListOf(node, "heritageClauses");
 for (let i = 0; i < clauses.length; i++) {
-  // **只看 `extends` 那一条** ✗（第 281 轮 ✓）：`implements` 那一条投影出来与它**形状一样** ✓
-  //（都只有 `types` ✓），而原来这一版取的是**第一条能找到名字的子句** ✗——
-  // 于是 `class Person implements Named, Aged` 把 `Named`（一个**接口** ✓）当成了父类 ✓，
-  // 紧接着 `ResolveAccess("Named")` 报 `name is not a local or a capture: Named` ✓
-  //（**响亮** ✓，可那句话听起来像脚本写错了变量名 ✗，离真相很远 ✓）。
-  // **判据是 `token` 那一格** ✓（`ts-ast` 侧第 281 轮把它收进了投影 ✓，
-  // 理由写在 `heritage-clause.xl.md` 的 `PrintAst` 里 ✓）。
-  // **没有 `token` 就跳过** ✓（老产物 / 别处造的树 ✓）：跳过的后果是「找不到父类」✓，
-  // 而**当成 `extends`** 的后果是「把接口当父类」✗——**两个都不是好事 ✓，
-  // 但前者是静默地少一件事 ✓、后者是响亮地错一件事 ✗**，所以取前者 ✓。
+  // **只看 `extends` 那一条**（第 281 轮）：`implements` 那一条投影出来与它**形状一样**
+  //（都只有 `types`），而原来这一版取的是**第一条能找到名字的子句**——
+  // 于是 `class Person implements Named, Aged` 把 `Named`（一个**接口**）当成了父类，
+  // 紧接着 `ResolveAccess("Named")` 报 `name is not a local or a capture: Named`
+  //（**响亮**，可那句话听起来像脚本写错了变量名，离真相很远）。
+  // **判据是 `token` 那一格**（`ts-ast` 侧第 281 轮把它收进了投影，
+  // 理由写在 `heritage-clause.xl.md` 的 `PrintAst` 里）。
+  // **没有 `token` 就跳过**（老产物 / 别处造的树）：跳过的后果是「找不到父类」，
+  // 而**当成 `extends`** 的后果是「把接口当父类」——**两个都不是好事，
+  // 但前者是静默地少一件事、后者是响亮地错一件事**，所以取前者。
   if (clauses[i]["token"] !== "extends") continue;
   const types = ListOf(clauses[i], "types");
   for (let j = 0; j < types.length; j++) {
@@ -1174,13 +1174,13 @@ return null;
 
 ## field OwnEnv:bool = false
 
-**本函数自己开了一格环境没有**（第 289 轮 ✓）——`EnterFunctionBody` 进门置假 ✓、
-真开了才置真 ✓。
+**本函数自己开了一格环境没有**（第 289 轮）——`EnterFunctionBody` 进门置假、
+真开了才置真。
 
-**为什么需要它** ✗：`Env.Last()` 给的是**链上最近的一格** ✓，而本函数**没开环境**时
-那仍然是**外层函数**的格子 ✓ ⇒ `CellOf` 会把本层的 `let` / `const` **错写进外层那一格** ✗
-（`(function () { const n = 2; return n; })()` 把外层的 `n` 改掉 ✓，**静默错值** ✗）。
-判据是 `rt-IIFE-module-scope` ✓；账写在 `CellOf` 那一段 ✓。
+**为什么需要它**：`Env.Last()` 给的是**链上最近的一格**，而本函数**没开环境**时
+那仍然是**外层函数**的格子 ⇒ `CellOf` 会把本层的 `let` / `const` **错写进外层那一格**
+（`(function () { const n = 2; return n; })()` 把外层的 `n` 改掉，**静默错值**）。
+判据是 `rt-IIFE-module-scope`；账写在 `CellOf` 那一段。
 
 ## field EnvSlot:int = -1
 
@@ -1210,20 +1210,20 @@ return null;
 
 ## field FinallyBlocks:Array<AstNode> = []
 
-**当前在册的 `finally` 块**（栈，**最外层在前** ✓，第 201 轮 ✓）。
+**当前在册的 `finally` 块**（栈，**最外层在前**，第 201 轮）。
 
-**它为什么是一摞块、不是一个计数** ✗：`return` / `break` / `continue` 写在带 `finally` 的
-`try` 里时，JS 的语义是「**先把这些 `finally` 从里到外跑完，再走**」✓——
-所以这一层手里得**有那些块**才发得出那段代码 ✓（原来只有一个 `FinallyDepth` 计数 ✓，
-于是只能报错 ✗：「`return` 会跳过 `finally`」✓）。
+**它为什么是一摞块、不是一个计数**：`return` / `break` / `continue` 写在带 `finally` 的
+`try` 里时，JS 的语义是「**先把这些 `finally` 从里到外跑完，再走**」——
+所以这一层手里得**有那些块**才发得出那段代码（原来只有一个 `FinallyDepth` 计数，
+于是只能报错：「`return` 会跳过 `finally`」）。
 
-**它只收「还没跑过的」那些** ✓：正在被发的那个 `finally` 自己**不在册** ✗——
-JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一层再跑一遍 ✗
-（`try { return 1 } finally { return 2 }` 给 `2` ✓）。见 `EmitPendingFinalies` ✓。
+**它只收「还没跑过的」那些**：正在被发的那个 `finally` 自己**不在册**——
+JS 里 `finally` 自己 `return` 会**接管**这次完成，不会把同一层再跑一遍
+（`try { return 1 } finally { return 2 }` 给 `2`）。见 `EmitPendingFinalies`。
 
-**为什么不是「跳进一个共享的收尾段」** ✗：本仓已经选了「**`finally` 的代码发多遍**」那条路 ✓
-（见 `LowerTry` 的取舍 ✓）——所以「返回前跑一遍」也只是**再发一遍** ✓，
-与造一条新指令或子过程跳转相比，`finally` 通常很短 ✓。
+**为什么不是「跳进一个共享的收尾段」**：本仓已经选了「**`finally` 的代码发多遍**」那条路
+（见 `LowerTry` 的取舍）——所以「返回前跑一遍」也只是**再发一遍**，
+与造一条新指令或子过程跳转相比，`finally` 通常很短。
 
 ## field Loops:Array<LoopContext> = []
 
@@ -1231,53 +1231,53 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一
 
 ## field BlockLabels:Array<BlockLabelContext> = []
 
-**「标签 + 一个块」那一层**（第 234 轮 ✓）——**一摞** ✓，栈顶是最近的 ✓。
+**「标签 + 一个块」那一层**（第 234 轮）——**一摞**，栈顶是最近的。
 
-**为什么必须是摞而不是一格** ✗：**嵌套的标签块**是普通写法 ✓——
-实测 `two: { … inner: { … break two; … } … }` ✓：`inner` 那一层一进 ✓，
-`two` 那一格就被顶掉了 ✓，`break two` 于是报 `unknown label \`two\`` ✓
-（**而它是合法的 JS** ✓）。这与 `Loops` 那边「从里往外扫」是同一个形状 ✓。
+**为什么必须是摞而不是一格**：**嵌套的标签块**是普通写法——
+实测 `two: { … inner: { … break two; … } … }`：`inner` 那一层一进，
+`two` 那一格就被顶掉了，`break two` 于是报 `unknown label \`two\``
+（**而它是合法的 JS**）。这与 `Loops` 那边「从里往外扫」是同一个形状。
 
-**为什么它们不进 `Loops`** ✗：那一摞还管着两件事 ✓——`continue` 要找到**一个循环** ✓
-（JS 的规矩：块上的 `continue` 非法 ✓）、以及「循环体每轮新建绑定」✓。
-把块混进去会让块里的 `continue` 找到一层不是循环的东西 ✓（**静默错值** ✗）。
+**为什么它们不进 `Loops`**：那一摞还管着两件事——`continue` 要找到**一个循环**
+（JS 的规矩：块上的 `continue` 非法）、以及「循环体每轮新建绑定」。
+把块混进去会让块里的 `continue` 找到一层不是循环的东西（**静默错值**）。
 
 ## field PendingClassNode:AstNode | null = null
 
-**「这一趟降的构造函数是不是一个类的」** ✓（第 613 轮 ✓）——`null` 表示「不是」✓。
+**「这一趟降的构造函数是不是一个类的」**（第 613 轮）——`null` 表示「不是」。
 
-**为什么必须在进 `LowerFunctionValue` 之前挂上** ✗：那一趟里就发了 `new_closure` ✓，
-而 `EmitClosure` 在**那一刻**就把「这是不是一个类」拼进第四格（`item.Arity * 2 + 1`）✓
-——**事后补补不上** ✗（与 `SuperName` 不同：那一位到**降级函数体那一趟**才被读 ✓）。
-所以照 `FunctionNameHint` 那个形状：进门前挂上、出门就还原 ✓（`LowerClass` 一处写、一处还原 ✓）。
+**为什么必须在进 `LowerFunctionValue` 之前挂上**：那一趟里就发了 `new_closure`，
+而 `EmitClosure` 在**那一刻**就把「这是不是一个类」拼进第四格（`item.Arity * 2 + 1`）
+——**事后补补不上**（与 `SuperName` 不同：那一位到**降级函数体那一趟**才被读）。
+所以照 `FunctionNameHint` 那个形状：进门前挂上、出门就还原（`LowerClass` 一处写、一处还原）。
 
-**它读出来干什么** ✓：`lowering.xl.md` 的 `LowerFunctionValue` 拿它比**当前那个节点** ✓，
-相同就把 `PendingFunction.IsClass` 置真 ✓——那一位一路走到 `HeapClosure.IsClass` ✓，
-最后让 `console.log` 印出 `[class C]` ✓（`inspect.xl.md` ✓）。
+**它读出来干什么**：`lowering.xl.md` 的 `LowerFunctionValue` 拿它比**当前那个节点**，
+相同就把 `PendingFunction.IsClass` 置真——那一位一路走到 `HeapClosure.IsClass`，
+最后让 `console.log` 印出 `[class C]`（`inspect.xl.md`）。
 
 ## field FunctionNameHint:string = ""
 
-**「下一个函数值该叫什么」**（第 238 轮 ✓）——空串表示「没有提示」✓。
+**「下一个函数值该叫什么」**（第 238 轮）——空串表示「没有提示」。
 
-**为什么需要它** ✗：`const arrow = () => 2` 里那个箭头**没有自己的名字** ✓
-（箭头不是具名函数 ✓，树上一个名字都没有 ✓），而 Node 给 `[Function: arrow]` ✓——
-名字**来自绑定的那一刻** ✓。同一条也管**匿名函数表达式** ✓
-（`const f = function () {}` ✓——Node 给 `[Function: f]` ✓）。
-**`HeapClosure.Name` 一直没人填** ✗ ⇒ 从前**每一个脚本函数**都是
-`[Function (anonymous)]` ✓（实测 ✓），而 Node 输出里到处是这个名字 ✓。
+**为什么需要它**：`const arrow = () => 2` 里那个箭头**没有自己的名字**
+（箭头不是具名函数，树上一个名字都没有），而 Node 给 `[Function: arrow]`——
+名字**来自绑定的那一刻**。同一条也管**匿名函数表达式**
+（`const f = function () {}`——Node 给 `[Function: f]`）。
+**`HeapClosure.Name` 一直没人填** ⇒ 从前**每一个脚本函数**都是
+`[Function (anonymous)]`（实测），而 Node 输出里到处是这个名字。
 
-**它由谁写、由谁读、什么时候清** ✓：
-- **写**：`LowerVariable` 的**简单名**那一支 ✓（`const <名> = <初始化式>` ✓）——
-  就在降初始化式**之前**置上 ✓；
-- **读**：`LowerFunctionValue` 一处 ✓（**唯一**读它的地方 ✓）——
-  提示不是空串就**优先用它** ✓（压过 `"<arrow>"` / `"<function>"` 那两个占位符 ✓）；
-- **清**：同一个调用里**用完就还原** ✓（存一份、置一份、再存回来 ✓）——
-  不清的话「下一个函数值」会白继承上一个名字 ✗
-  （`const a = () => 1; const b = () => 2;` 两个都叫 `a` ✓，而那是**静默错值** ✗）。
+**它由谁写、由谁读、什么时候清**：
+- **写**：`LowerVariable` 的**简单名**那一支（`const <名> = <初始化式>`）——
+  就在降初始化式**之前**置上；
+- **读**：`LowerFunctionValue` 一处（**唯一**读它的地方）——
+  提示不是空串就**优先用它**（压过 `"<arrow>"` / `"<function>"` 那两个占位符）；
+- **清**：同一个调用里**用完就还原**（存一份、置一份、再存回来）——
+  不清的话「下一个函数值」会白继承上一个名字
+  （`const a = () => 1; const b = () => 2;` 两个都叫 `a`，而那是**静默错值**）。
 
-**已知差** ✗：**对象字面量的方法名**（`{ run() {} }` ✓）与**类的方法名** ✓
-这一轮**不带提示** ✓——它们各自那一处的名字来源不同 ✓（挂在属性上 ✓），
-缺口写在台账里 ✓。
+**已知差**：**对象字面量的方法名**（`{ run() {} }`）与**类的方法名**
+这一轮**不带提示**——它们各自那一处的名字来源不同（挂在属性上），
+缺口写在台账里。
 
 ## field PendingLabel:string = ""
 **下一个 `EnterLoop` 要吃进去的标签**（`outer: for (…)` 里那个 `outer`）。
@@ -1302,12 +1302,12 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一
 
 ## field EntryFrame:bool = false
 
-**正在降级的是不是入口那一帧**（第 298 轮 ✓）——`LowerModule` 在 `EnterFunctionBody` 前后设与清 ✓。
+**正在降级的是不是入口那一帧**（第 298 轮）——`LowerModule` 在 `EnterFunctionBody` 前后设与清。
 
-**它只影响一件事** ✗：**全局名算不算这一帧的「捕获」** ✓（见 `EnterFunctionBody` 里那两个名单 ✓）。
-**入口那一帧要算** ✓（第 128 轮 ✓：全局名的**值**住在入口那一帧的环境格里 ✓，
-内层函数要靠它才看得见 `Math` ✓）；**其余每一帧都不算** ✗——理由写在
-`EnterFunctionBody` 那一段（那是第 298 轮实测抓到的 `undefined` ✓）。
+**它只影响一件事**：**全局名算不算这一帧的「捕获」**（见 `EnterFunctionBody` 里那两个名单）。
+**入口那一帧要算**（第 128 轮：全局名的**值**住在入口那一帧的环境格里，
+内层函数要靠它才看得见 `Math`）；**其余每一帧都不算**——理由写在
+`EnterFunctionBody` 那一段（那是第 298 轮实测抓到的 `undefined`）。
 
 ## field ExtraDeclared:Array<string> = []
 
@@ -1354,12 +1354,12 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一
 
 ## field InSuperStatic:bool = false
 
-**当前这一层是不是静态成员**（第 278 轮 ✓）——与 `InSuperName` **成对进出** ✓
-（同一处设、同一处恢复 ✓），决定 `super.x` 的起点是父类**自己**还是父类**原型** ✓。
+**当前这一层是不是静态成员**（第 278 轮）——与 `InSuperName` **成对进出**
+（同一处设、同一处恢复），决定 `super.x` 的起点是父类**自己**还是父类**原型**。
 
 ## field InStrict:bool = false
 
-**当前正在降级的这段代码是不是严格代码**（第 620 轮 ✓）——照 `InGenerator` / `InAsync`
+**当前正在降级的这段代码是不是严格代码**（第 620 轮）——照 `InGenerator` / `InAsync`
 同一套用法进出，但**只增不减**：严格是**沿词法继承**的，一个函数定义在严格代码里就是严格，
 定义在松散代码里才是松散。
 
@@ -1369,22 +1369,22 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一
 **它只影响一件事**：函数被当普通函数调（没有接收者）时 `this` 是 `undefined` 还是全局对象
 （引擎那一支在 `DoCallValue` / `CallNative`）——降级期把它记进闭包（`IsStrict` 那一格）。
 
-**为什么它与 `InSuperName` 必须一起进出** ✗：两个字段描述的是**同一件事的两半** ✓
-（「有没有父类」✓ 与「从哪一半找」✓）——只恢复一个的话，
-内层函数降级完之后外层会带着内层的「静态」标记继续走 ✓，
-于是**实例方法里的 `super.v` 会去读父类构造函数** ✓（`undefined` ✓，静默 ✓）。
+**为什么它与 `InSuperName` 必须一起进出**：两个字段描述的是**同一件事的两半**
+（「有没有父类」 与「从哪一半找」）——只恢复一个的话，
+内层函数降级完之后外层会带着内层的「静态」标记继续走，
+于是**实例方法里的 `super.v` 会去读父类构造函数**（`undefined`，静默）。
 
 ## field DeferredItem:PendingFunction | null = null
 
 **那个「字段初始化还欠着」的构造函数**（第 128 轮）——派生类才有，`null` 表示没有。
 
 **为什么是个字段而不是「每条语句去问当前函数」**：`LowerFunctionBody` 是**一层一层**
-降级的 ✓，而「这一层就是那个构造函数的体」这件事**只对它自己那个块成立** ✗——
-内层块（`if` 体、循环体）里的语句也会走 `LowerStatementsOf` ✓，
-拿「当前函数」当判据会在内层块里就把字段初始化发出来 ✗（`constructor() { if (x) { super(1) } }`）。
+降级的，而「这一层就是那个构造函数的体」这件事**只对它自己那个块成立**——
+内层块（`if` 体、循环体）里的语句也会走 `LowerStatementsOf`，
+拿「当前函数」当判据会在内层块里就把字段初始化发出来（`constructor() { if (x) { super(1) } }`）。
 
-所以进入那个块之前挂上、出来就摘掉（`LowerFunctionBody` 那一段写着）✓：
-它按**块**限定，不按函数限定 ✓。
+所以进入那个块之前挂上、出来就摘掉（`LowerFunctionBody` 那一段写着）：
+它按**块**限定，不按函数限定。
 
 ## field CapabilityOf:CapabilityLookup | null = null
 
@@ -1418,8 +1418,8 @@ for (let i = 0; i < names.length; i++) {
 
 一开始是一份空产物、空作用域栈、空队列。
 
-**源码是唯一的入参、而且有缺省值** ✓（第 333 轮 ✓）：`SourceText` 那一段写着为什么 ✓
-（它是**唯一一处回头看原文**的地方 ✓，而有十几处 `new Lowering()` 只想量 IR 形状 ✓）。
+**源码是唯一的入参、而且有缺省值**（第 333 轮）：`SourceText` 那一段写着为什么
+（它是**唯一一处回头看原文**的地方，而有十几处 `new Lowering()` 只想量 IR 形状）。
 
 ```ts
 this.Module = new LoweredModule(new Program());
@@ -1511,9 +1511,9 @@ this.VarSlots = [];
 this.DeclaredNames = [];
 this.FinallyBlocks = [];
 this.Loops = [];
-// **生成器那三格也要逐函数清** ✓（第 336 轮 ✓）：它们是**这一层函数**的状态 ✓——
-// 不清的话，内层生成器记下的问句会留到外层 ✓ ⇒ 外层的体末尾会**多发几段**
-// 属于内层的 `return` 收尾 ✗（`Reserve` 的槽号也是内层那一帧的 ✗，**静默错值** ✓）。
+// **生成器那三格也要逐函数清**（第 336 轮）：它们是**这一层函数**的状态——
+// 不清的话，内层生成器记下的问句会留到外层 ⇒ 外层的体末尾会**多发几段**
+// 属于内层的 `return` 收尾（`Reserve` 的槽号也是内层那一帧的，**静默错值**）。
 this.GeneratorReturns = [];
 this.GeneratorReturnScopes = [];
 this.GeneratorReturnSlot = -1;
@@ -1541,9 +1541,9 @@ this.GeneratorReturnSlot = -1;
 
 ```ts
 const declared: string[] = [];
-// **本函数还没开环境** ✗（第 289 轮 ✓）：`CellOf` 要拿它区分
-// 「链尾是本函数那一格」与「链尾是外层函数那一格」✓——见那个方法里的账 ✓。
-// 置假要放在**最前面** ✓：下面任何一条早退（`captured` 为空 ✓）都会原样留着它 ✓。
+// **本函数还没开环境**（第 289 轮）：`CellOf` 要拿它区分
+// 「链尾是本函数那一格」与「链尾是外层函数那一格」——见那个方法里的账。
+// 置假要放在**最前面**：下面任何一条早退（`captured` 为空）都会原样留着它。
 this.OwnEnv = false;
 for (let i = 0; i < params.length; i++) declared.push(params[i]);
 CollectDeclaredNames(body, declared);
@@ -1554,55 +1554,55 @@ for (let i = 0; i < this.ExtraDeclared.length; i++) declared.push(this.ExtraDecl
 this.ExtraDeclared = [];
 // **全局名在这一层也看得见**（第 128 轮修）。
 //
-// **为什么必须在这里补**：全局名（`Math` / `console` / `JSON`…）是**模块作用域的名字** ✓，
-// 而它们是**绑定出来的局部槽** ✓——所以 `ResolveAccess` 只在
-// 「这一层的 `DeclaredNames`」或「环境链」上找得到它们 ✗。两个地方都得有：
-//   - **入口那一层**：`ExtraDeclared` 撑着（`LowerModule` 设的）✓；
-//   - **内层函数**：以前**两处都没有** ✗——于是 `class A { constructor() { console.log(1) } }`
-//     在**降级期**就报 `name is not a local or a capture: console` ✓
-//     （内层函数用 `Math` 也是同一个形状 ✓，只是此前每一条判据都恰好只在**方法**里用过它——
-//     方法有内层函数时环境是自己那份，所以侥幸没露 ✗）。
+// **为什么必须在这里补**：全局名（`Math` / `console` / `JSON`…）是**模块作用域的名字**，
+// 而它们是**绑定出来的局部槽**——所以 `ResolveAccess` 只在
+// 「这一层的 `DeclaredNames`」或「环境链」上找得到它们。两个地方都得有：
+//   - **入口那一层**：`ExtraDeclared` 撑着（`LowerModule` 设的）；
+//   - **内层函数**：以前**两处都没有**——于是 `class A { constructor() { console.log(1) } }`
+//     在**降级期**就报 `name is not a local or a capture: console`
+//     （内层函数用 `Math` 也是同一个形状，只是此前每一条判据都恰好只在**方法**里用过它——
+//     方法有内层函数时环境是自己那份，所以侥幸没露）。
 //
-// **为什么不是「在 `ExtraDeclared` 里一直留着」**：那个字段的语义是「**入口这一层**额外的名字」✗，
-// 留着会让内层函数以为自己也**声明**了 `Math`（`ResolveAccess` 的那句 TDZ 报错就再也报不出来了 ✗）。
-// 所以走**显式传参**这条：`Globals` 是「这份模块看得见的名字」，与「这一层声明了什么」是两件事 ✓。
+// **为什么不是「在 `ExtraDeclared` 里一直留着」**：那个字段的语义是「**入口这一层**额外的名字」，
+// 留着会让内层函数以为自己也**声明**了 `Math`（`ResolveAccess` 的那句 TDZ 报错就再也报不出来了）。
+// 所以走**显式传参**这条：`Globals` 是「这份模块看得见的名字」，与「这一层声明了什么」是两件事。
 //
 // **必须在「算捕获」之前补进来**（第 128 轮第二个实测教训）：`captured` 是拿 `declared`
-// 去 `referenced` 里筛出来的 ✓——补晚了，`Math` 就进不了 `captured` ✗，
-// 于是这一层**不开环境** ✗（`captured.length === 0 && !hasNested && !needsThis` 那条早退 ✓），
-// 内层函数也就没有这一层可捕获 ✗。**现场就是这一条**：`class A { constructor() { Math… } }`
-// 一路报到 `name is not a local or a capture: Math` ✓。
+// 去 `referenced` 里筛出来的——补晚了，`Math` 就进不了 `captured`，
+// 于是这一层**不开环境**（`captured.length === 0 && !hasNested && !needsThis` 那条早退），
+// 内层函数也就没有这一层可捕获。**现场就是这一条**：`class A { constructor() { Math… } }`
+// 一路报到 `name is not a local or a capture: Math`。
 const globals = this.Globals;
 for (let i = 0; i < globals.length; i++) declared.push(globals[i]);
 this.DeclaredNames = declared;
-// **「算捕获」用另一份名单** ✗（第 298 轮 ✓）：`declared` 里混着**全局名** ✓，
-// 而全局名的值住在**入口那一帧**的环境格 / 槽里 ✓——内层帧**永远不会**声明它们 ✗。
+// **「算捕获」用另一份名单**（第 298 轮）：`declared` 里混着**全局名**，
+// 而全局名的值住在**入口那一帧**的环境格 / 槽里——内层帧**永远不会**声明它们。
 //
-// **第一版拿 `declared` 去算捕获** ✗（第 128 轮起就是这样 ✓），后果是：
-// 只要某一帧的 `extras`（字段初始化式 / 形参默认值 ✓）里出现一个全局名 ✓，
-// 那一帧就会**决定把它捕获进自己的环境** ✓ ⇒ `EnvNew` 开一格 ✓、
-// 而 `EnvSet` **永远不会来** ✗（这一帧根本没有声明 `Map` ✓，没人给它写值 ✓）⇒
-// 那一格里是 `undefined` ✓，读它就是 `undefined` ✓。
+// **第一版拿 `declared` 去算捕获**（第 128 轮起就是这样），后果是：
+// 只要某一帧的 `extras`（字段初始化式 / 形参默认值）里出现一个全局名，
+// 那一帧就会**决定把它捕获进自己的环境** ⇒ `EnvNew` 开一格、
+// 而 `EnvSet` **永远不会来**（这一帧根本没有声明 `Map`，没人给它写值）⇒
+// 那一格里是 `undefined`，读它就是 `undefined`。
 //
-// **实测的现场**（判据 `e2e-event-emitter` / `e2e-mixed-everything` ✓）：
-// `class E { private handlers = new Map<…>() }` 报 `cannot call a non-closure value` ✓
-// ——**一句话听起来像调用写错了** ✓，其实是**类字段初始化式里的全局名读成了 `undefined`** ✗
-//（`class E { h = Map }` 单独一行的最小现场给 `undefined` ✓，而 `h = Math.PI` 报
-//  `cannot read properties of undefined` ✓）。
+// **实测的现场**（判据 `e2e-event-emitter` / `e2e-mixed-everything`）：
+// `class E { private handlers = new Map<…>() }` 报 `cannot call a non-closure value`
+// ——**一句话听起来像调用写错了**，其实是**类字段初始化式里的全局名读成了 `undefined`**
+//（`class E { h = Map }` 单独一行的最小现场给 `undefined`，而 `h = Math.PI` 报
+//  `cannot read properties of undefined`）。
 //
-// **为什么它看起来「哪里都对」** ✗：编译期 `Env.Resolve("Map")` 给出 `Depth 0, Cell 0` ✓
-//（那一帧**确实**在自己的环境里留了一格 ✓），运行期那一格**就是**空的 ✓——
-// 两边都没说谎 ✓，断的是「谁负责给它写值」这一环 ✗。
+// **为什么它看起来「哪里都对」**：编译期 `Env.Resolve("Map")` 给出 `Depth 0, Cell 0`
+//（那一帧**确实**在自己的环境里留了一格），运行期那一格**就是**空的——
+// 两边都没说谎，断的是「谁负责给它写值」这一环。
 //
-// **修法**：算捕获的那份名单**不含全局名** ✓，**只有入口那一帧例外** ✓
-//（第 128 轮要的就是「全局名的值进入口那一帧的环境」✓——那一帧**真的**会绑它们 ✓
-//（`BindGlobals` ✓），所以那一条捕获是**兑现得了的** ✓）。
-// 内层帧不捕获全局名之后，读 `Map` 照旧走**环境链** ✓（入口那一帧在链上 ✓）——
-// 第 128 轮那条判据（`class A { constructor() { Math… } }` ✓）**一位都没动** ✓。
+// **修法**：算捕获的那份名单**不含全局名**，**只有入口那一帧例外**
+//（第 128 轮要的就是「全局名的值进入口那一帧的环境」——那一帧**真的**会绑它们
+//（`BindGlobals`），所以那一条捕获是**兑现得了的**）。
+// 内层帧不捕获全局名之后，读 `Map` 照旧走**环境链**（入口那一帧在链上）——
+// 第 128 轮那条判据（`class A { constructor() { Math… } }`）**一位都没动**。
 const bindable: string[] = [];
 for (let i = 0; i < declared.length; i++) bindable.push(declared[i]);
 if (!this.EntryFrame) {
-  // **把全局名摘掉** ✓（入口那一帧照旧留着 ✓）。
+  // **把全局名摘掉**（入口那一帧照旧留着）。
   const own: string[] = [];
   for (let i = 0; i < bindable.length; i++) {
     if (Contains(globals, bindable[i])) continue;
@@ -1614,37 +1614,37 @@ if (!this.EntryFrame) {
 const functions: string[] = [];
 CollectFunctionNames(body, functions);
 const captured = CapturedNames(body, bindable);
-// **`this` 那一格只在「拥有接收者的那一层」开** ✗（第 374 轮 ✓）——
-// 判据是 `HasArrowFunction(body) && !this.InArrow` ✓。
+// **`this` 那一格只在「拥有接收者的那一层」开**（第 374 轮）——
+// 判据是 `HasArrowFunction(body) && !this.InArrow`。
 //
-// **为什么箭头层不能自己开一格** ✗：`needsThis` 问的是「这一层里面的箭头要不要 `this`」✓，
-// 而这一格是拿 **`Op.LoadThis`** 填的 ✓（读**本帧的接收者** ✓）——
-// 箭头**没有自己的接收者** ✓，它的 `this` 是造它那一刻外层的 ✓
-//（`ThisKeyword` 那一段写着同样的口径 ✓：只有箭头才在环境链上找 ✓）。
-// 于是箭头层照开一格、还拿 `LoadThis` 去填 ✗ ⇒ 填进去的是**箭头自己的接收者**（没有 ✓）。
+// **为什么箭头层不能自己开一格**：`needsThis` 问的是「这一层里面的箭头要不要 `this`」，
+// 而这一格是拿 **`Op.LoadThis`** 填的（读**本帧的接收者**）——
+// 箭头**没有自己的接收者**，它的 `this` 是造它那一刻外层的
+//（`ThisKeyword` 那一段写着同样的口径：只有箭头才在环境链上找）。
+// 于是箭头层照开一格、还拿 `LoadThis` 去填 ⇒ 填进去的是**箭头自己的接收者**（没有）。
 //
-// **症状** ✗（第 371 轮记成 #21 ✓，最小反例收敛到一行 ✓）：
+// **症状**（第 371 轮记成 #21，最小反例收敛到一行）：
 // `class V { done = new Set(["build"]); ready() { return this.list().filter((j) => j.deps.every((d) => this.done.has(d))); } }`
-// —— 最外层那个箭头（`(j) => …`）照开一格 ✓、内层那个箭头（`(d) => …`）在链上**先撞到它** ✓
-// ⇒ 读到的是**空**✗ ⇒ `this.done` 是 `undefined` ✓ ⇒ 报 `cannot call a non-closure value` ✓。
-// **一句话听起来像调用写错了** ✗——与第 128 轮那条「全局名读成 `undefined`」**同一个症状** ✓。
+// —— 最外层那个箭头（`(j) => …`）照开一格、内层那个箭头（`(d) => …`）在链上**先撞到它**
+// ⇒ 读到的是**空** ⇒ `this.done` 是 `undefined` ⇒ 报 `cannot call a non-closure value`。
+// **一句话听起来像调用写错了**——与第 128 轮那条「全局名读成 `undefined`」**同一个症状**。
 //
-// **不开这一格之后** ✓：内层箭头的 `Env.Resolve("this")` 自然走到**最近的那个普通函数**
-//（方法 ✓ / 构造函数 ✓ / 函数表达式 ✓）✓——那正是 JS 的口径 ✓，
-// 而深度那套东西**一行都不用改** ✓（`HasArrowFunction` 的说明里本来就写着那句话 ✓：
-// 「一个普通函数有它自己的 `this`，它里面的箭头归它管」✓）。
+// **不开这一格之后**：内层箭头的 `Env.Resolve("this")` 自然走到**最近的那个普通函数**
+//（方法 / 构造函数 / 函数表达式）——那正是 JS 的口径，
+// 而深度那套东西**一行都不用改**（`HasArrowFunction` 的说明里本来就写着那句话：
+// 「一个普通函数有它自己的 `this`，它里面的箭头归它管」）。
 //
-// **环境照旧要开** ✓（`hasNested` 那一档管着 ✓）：箭头层里面还有箭头 ⇒
-// `HasNestedFunction` 为真 ✓ ⇒ `EnvNew` 照发 ✓ ⇒ 链是连着的 ✓、深度也对得上 ✓。
+// **环境照旧要开**（`hasNested` 那一档管着）：箭头层里面还有箭头 ⇒
+// `HasNestedFunction` 为真 ⇒ `EnvNew` 照发 ⇒ 链是连着的、深度也对得上。
 let needsThis = HasArrowFunction(body) && !this.InArrow;
 let hasNested = HasNestedFunction(body, 0);
-// **具名的函数 / 类表达式也要一层环境** ✗（第 332 轮 ✓）：
-// `const f = function self() { … self … }` 的 `self` 由 `EmitClosure` **单独开一层环境**装 ✓
-//（`env_new` → `new_closure` → `env_set` → `env_leave` ✓），
-// 而那一步的最后一句要求这一层**有父亲** ✓（引擎那一条写着「没有父亲就响亮地抛」✗）。
-// 所以只要这一层**可能**有这样的表达式 ⇒ **保守地开一层** ✓
-//（零格的环境对象 ✓；少开一层就是一条运行期异常 ✓——与块那一层同一条纪律 ✓）。
-// **判据收在 `HasNamedExpression`** ✓（它不往内层函数体里走 ✓，理由写在那一段 ✓）。
+// **具名的函数 / 类表达式也要一层环境**（第 332 轮）：
+// `const f = function self() { … self … }` 的 `self` 由 `EmitClosure` **单独开一层环境**装
+//（`env_new` → `new_closure` → `env_set` → `env_leave`），
+// 而那一步的最后一句要求这一层**有父亲**（引擎那一条写着「没有父亲就响亮地抛」）。
+// 所以只要这一层**可能**有这样的表达式 ⇒ **保守地开一层**
+//（零格的环境对象；少开一层就是一条运行期异常——与块那一层同一条纪律）。
+// **判据收在 `HasNamedExpression`**（它不往内层函数体里走，理由写在那一段）。
 let needsSelfEnv = HasNamedExpression(body);
 for (let e = 0; e < extras.length; e++) {
   const more = CapturedNames(extras[e], bindable);
@@ -1653,9 +1653,9 @@ for (let e = 0; e < extras.length; e++) {
   }
   if (HasArrowFunction(extras[e]) && !this.InArrow) needsThis = true;
   if (HasNestedFunction(extras[e], 0)) hasNested = true;
-  // **「额外那几段」也要问同一句** ✓（第 332 轮 ✓）：形参默认值与实例字段初始化式
-  // 都跑在**这一帧**里 ✓（`extras` 那一段写着 ✓），所以那里面的具名表达式
-  // 同样要这一帧先有一层环境 ✓。
+  // **「额外那几段」也要问同一句**（第 332 轮）：形参默认值与实例字段初始化式
+  // 都跑在**这一帧**里（`extras` 那一段写着），所以那里面的具名表达式
+  // 同样要这一帧先有一层环境。
   if (HasNamedExpression(extras[e])) needsSelfEnv = true;
 }
 if (captured.length === 0 && !hasNested && !needsThis && !needsSelfEnv) return;
@@ -1704,19 +1704,19 @@ this.Release(scope.FirstSlot);
 **只看链尾**（当前函数的环境）：外层环境里的同名变量与本层的局部变量是两回事，
 把两者混起来会把「本层的新变量」错写进外层那一格。
 
-**「当前函数的环境」要显式判一次** ✗（第 289 轮 ✓）——
-`this.Env.Last()` 给的是**链上最近的一格环境** ✓，而**不是**「本函数开的那一格」✗：
-本函数**没有开环境**时（一个捕获都没有、也没有内层函数），链尾仍然是**外层函数**的那一格 ✓
-⇒ 上面那句话说的错就真的发生了 ✗：`(function () { const n = 2; return n; })()` 里的 `n`
-**写进了外层那一格** ✓——判据 `rt-IIFE-module-scope` 量的就是它 ✓
-（外层 `const n = "outer"` 打完变成 `"inner"` ✓，而 **Node 给 `"outer"`** ✓；**静默错值** ✓）。
+**「当前函数的环境」要显式判一次**（第 289 轮）——
+`this.Env.Last()` 给的是**链上最近的一格环境**，而**不是**「本函数开的那一格」：
+本函数**没有开环境**时（一个捕获都没有、也没有内层函数），链尾仍然是**外层函数**的那一格
+⇒ 上面那句话说的错就真的发生了：`(function () { const n = 2; return n; })()` 里的 `n`
+**写进了外层那一格**——判据 `rt-IIFE-module-scope` 量的就是它
+（外层 `const n = "outer"` 打完变成 `"inner"`，而 **Node 给 `"outer"`**；**静默错值**）。
 
-**判据是 `OwnEnv`** ✓：`EnterFunctionBody` 进门时置假 ✓、真开了一格环境才置真 ✓——
-于是「本函数没开环境」这条路**直接给 `-1`** ✓，那个名字就落到 `BindName` 的
-「现在占槽、现在声明名字」那一条 ✓（本层的局部槽 ✓，与 JS 的词法作用域一致 ✓）。
+**判据是 `OwnEnv`**：`EnterFunctionBody` 进门时置假、真开了一格环境才置真——
+于是「本函数没开环境」这条路**直接给 `-1`**，那个名字就落到 `BindName` 的
+「现在占槽、现在声明名字」那一条（本层的局部槽，与 JS 的词法作用域一致）。
 
 ```ts
-// **本函数没开环境 ⇒ 链尾不是本层的** ✗（第 289 轮 ✓）：直接说「不在本层」✓。
+// **本函数没开环境 ⇒ 链尾不是本层的**（第 289 轮）：直接说「不在本层」。
 if (!this.OwnEnv) return -1;
 const scope = this.Env.Last();
 if (scope === null) return -1;
@@ -1793,13 +1793,13 @@ const statements = ListOf(body, "statements");
 for (let i = 0; i < statements.length; i++) {
   const statement = statements[i];
   if (NodeKind(statement) !== "FunctionDeclaration") continue;
-  // **没有体的函数声明不是函数**（第 148 轮）✗：两条来源都合法、而且都常见——
-  //   · `declare function f(x: number): void;` ✓（环境声明，「外面已经有它」✓）；
-  //   · **重载签名** ✓：`function f(a: string): void;` 后面跟一个带体的实现 ✓
-  //     （TS 的重载就是这一形状 ✓，普通项目里到处都有 ✓）。
-  // 两者都**没有体** ✓，所以判据就是「有没有体」✓——比看 `declare` 修饰词更宽 ✓
-  //（重载签名没有那个修饰词 ✗）。少了这一条，`Hoist` 会在**降级期**报
-  // `ast node FunctionDeclaration has no child body` ✗——离现场很远 ✓。
+  // **没有体的函数声明不是函数**（第 148 轮）：两条来源都合法、而且都常见——
+  //   · `declare function f(x: number): void;`（环境声明，「外面已经有它」）；
+  //   · **重载签名**：`function f(a: string): void;` 后面跟一个带体的实现
+  //     （TS 的重载就是这一形状，普通项目里到处都有）。
+  // 两者都**没有体**，所以判据就是「有没有体」——比看 `declare` 修饰词更宽
+  //（重载签名没有那个修饰词）。少了这一条，`Hoist` 会在**降级期**报
+  // `ast node FunctionDeclaration has no child body`——离现场很远。
   if (OptionalChild(statement, "body") === null) continue;
   this.Hoisted.push(statement);
   this.LowerFunctionDeclaration(statement);
@@ -1858,9 +1858,9 @@ throw new Error("unimplemented: name is not a local (captures need env records):
 
 **内部整数**进常量池：算子号、内建号、函数入口 pc、索引……
 
-**只收整数** ✓，非整数**抛** ✓——这个函数今天所有的调用点喂的都是编译期算出来的整数 ✓，
-不是用户写的字面量 ✓（字面量走 `NumberConst` ✓）。非整数的数字走到这里就是**降级期写错了** ✓，
-比编出一个装不下的常量再被拒要好 ✓。
+**只收整数**，非整数**抛**——这个函数今天所有的调用点喂的都是编译期算出来的整数，
+不是用户写的字面量（字面量走 `NumberConst`）。非整数的数字走到这里就是**降级期写错了**，
+比编出一个装不下的常量再被拒要好。
 
 ```ts
 if (Math.floor(value) !== value) {
@@ -1873,23 +1873,23 @@ return this.Program().AddConst(Constant.OfInt(value));
 
 **数字字面量**进常量池（第 129 轮）。
 
-**两档按「最小的表示」挑** ✓，与引擎的 `MakeNumber`（`runtime/rt.xl.md`）**同一条口径** ✓：
-恰好是整数且落在 `±2147483647` 之内 ⇒ `Int32` ✓（四个目标都装得下 ✓），
-否则 ⇒ `Float64` ✓。
+**两档按「最小的表示」挑**，与引擎的 `MakeNumber`（`runtime/rt.xl.md`）**同一条口径**：
+恰好是整数且落在 `±2147483647` 之内 ⇒ `Int32`（四个目标都装得下），
+否则 ⇒ `Float64`。
 
-**为什么界限是 `±2147483647` 而不是「是整数就行」** ✗：`1e10` 是整数 ✓，
-但它**不在** `int` 交集里 ✗——存成 `Int32` 会让 C++ 侧溢出、ts 侧正常，
-于是同一个程序在两个目标上算出不同的值 ✗，而这是本工程要消灭的东西 ✓。
+**为什么界限是 `±2147483647` 而不是「是整数就行」**：`1e10` 是整数，
+但它**不在** `int` 交集里——存成 `Int32` 会让 C++ 侧溢出、ts 侧正常，
+于是同一个程序在两个目标上算出不同的值，而这是本工程要消灭的东西。
 
-**为什么 `-0` 不走 `Int32`** ✗：它在 JS 里是**一个独立的值** ✓
-（`Object.is(-0, 0)` 为假 ✓、`1 / -0` 是 `-Infinity` ✓），
-收成 `Int32` 就把它和 `0` 合并了 ✗——**静默换了一个值** ✗。
+**为什么 `-0` 不走 `Int32`**：它在 JS 里是**一个独立的值**
+（`Object.is(-0, 0)` 为假、`1 / -0` 是 `-Infinity`），
+收成 `Int32` 就把它和 `0` 合并了——**静默换了一个值**。
 
 ```ts
 if (value === value && value <= 2147483647 && value >= -2147483647) {
   const rounded = value - value % 1;
-  // **负零自己判**：`-0 % 1` 是 `-0`、`value - (-0)` 是 `0` ✓，所以下面这条会把它收成整数 ✗。
-  // 只有 `-0` 需要这一格：`value < 0` 对它为假 ✗，用一次除法看符号位 ✓。
+  // **负零自己判**：`-0 % 1` 是 `-0`、`value - (-0)` 是 `0`，所以下面这条会把它收成整数。
+  // 只有 `-0` 需要这一格：`value < 0` 对它为假，用一次除法看符号位。
   const negativeZero = value === 0 && 1 / value < 0;
   if (rounded === value && !negativeZero) return this.Program().AddConst(Constant.OfInt(value));
 }
@@ -1920,8 +1920,8 @@ for (let i = 0; i < prelude.length; i++) {
   this.CollectImports(prelude[i]);
 }
 this.ExtraDeclared = this.Globals;
-// **入口那一帧** ✓（第 298 轮 ✓）：只有它把全局名算进「本层真的会绑的名字」✓
-//（`BindGlobals` 就在下面几行 ✓）——其余每一帧都不算 ✗，理由见 `EnterFunctionBody` ✓。
+// **入口那一帧**（第 298 轮）：只有它把全局名算进「本层真的会绑的名字」
+//（`BindGlobals` 就在下面几行）——其余每一帧都不算，理由见 `EnterFunctionBody`。
 this.EntryFrame = true;
 this.EnterFunctionBody(source, [], []);
 this.EntryFrame = false;
@@ -1964,14 +1964,14 @@ for (let i = 0; i < this.Pending.length; i++) {
   // **生成器函数**：调用它**只造对象、不跑体**（引擎的 `DoCallValue` 那条分支）。
   info.IsGenerator = item.IsGenerator;
   info.IsAsync = item.IsAsync;
-  // **类那一位** ✓（第 613 轮 ✓）：`console.log(class C {})` 要印 `[class C]` ✓——
-  // 它一路跟到 `HeapClosure.IsClass` ✓（见 `vm.xl.md` 的 `MakeClosure` ✓）。
+  // **类那一位**（第 613 轮）：`console.log(class C {})` 要印 `[class C]`——
+  // 它一路跟到 `HeapClosure.IsClass`（见 `vm.xl.md` 的 `MakeClosure`）。
   info.IsClass = item.IsClass;
-  // **剩余参数**（第 133 轮）：这一位交给**开帧的人** ✓——它在那一刻手上才有
-  // 「这次实际传了几个」✓，而被调方自己的帧里**没有格子**放多出来的实参 ✓
-  //（`ir.xl.md` 的 `FunctionInfo.HasRest` 那一段写着为什么 ✓）。
+  // **剩余参数**（第 133 轮）：这一位交给**开帧的人**——它在那一刻手上才有
+  // 「这次实际传了几个」，而被调方自己的帧里**没有格子**放多出来的实参
+  //（`ir.xl.md` 的 `FunctionInfo.HasRest` 那一段写着为什么）。
   info.HasRest = item.HasRest;
-  // **`arguments` 那一位**（第 332 轮 ✓）：与 `HasRest` 同一条路 ✓——开帧的人要用它 ✓。
+  // **`arguments` 那一位**（第 332 轮）：与 `HasRest` 同一条路——开帧的人要用它。
   info.NeedsArguments = item.NeedsArguments;
   this.Program().Functions.push(info);
   // **这个常量的值是「函数入口 pc」**——链接时要跟着基址挪（`ir.xl.md` 的
@@ -1989,22 +1989,22 @@ return this.Module;
 
 ## method OpenBlockEnv:(node:AstNode)=>bool
 
-**给一个块开一层环境** ✓（第 316 轮 ✓）——块里**被闭包捕到**的那些 `let`/`const` 住进去 ✓。
+**给一个块开一层环境**（第 316 轮）——块里**被闭包捕到**的那些 `let`/`const` 住进去。
 
-**为什么块也需要一层** ✗：第 315 轮之前，环境只有**函数入口**与**两个循环**会开 ✓
-（`Op.EnvNew` 的那几处 ✓）⇒ 块里声明的捕获名只好落在**外面那一层**的同一格里 ✓
-⇒ **同一格被每一轮/每一次进入写一遍** ✓ ⇒ 闭包读到的就不是「它被造出来那一刻」的值 ✓
-（实测 `for (let i …) { const j = i * 10; fns.push(() => j) }` 三个闭包给 `,,` ✗，
-Node 给 `0,10,20` ✓——**静默错值** ✗）。
+**为什么块也需要一层**：第 315 轮之前，环境只有**函数入口**与**两个循环**会开
+（`Op.EnvNew` 的那几处）⇒ 块里声明的捕获名只好落在**外面那一层**的同一格里
+⇒ **同一格被每一轮/每一次进入写一遍** ⇒ 闭包读到的就不是「它被造出来那一刻」的值
+（实测 `for (let i …) { const j = i * 10; fns.push(() => j) }` 三个闭包给 `,,`，
+Node 给 `0,10,20`——**静默错值**）。
 
-**判据是「有没有被捕获」** ✓（与函数入口那条同一把尺子 ✓ `CapturedNames` ✓）：
-块里没有任何被捕获的声明时**一个环境都不开** ✓（最常见的那种块一步不多 ✓）——
-**多开一层只是慢一点 ✓，少开一层就是错值** ✗（与两个循环那条保守判据同一条纪律 ✓）。
+**判据是「有没有被捕获」**（与函数入口那条同一把尺子 `CapturedNames`）：
+块里没有任何被捕获的声明时**一个环境都不开**（最常见的那种块一步不多）——
+**多开一层只是慢一点，少开一层就是错值**（与两个循环那条保守判据同一条纪律）。
 
-**收集用 `CollectDeclaredNames`** ✓（深一层也收 ✓）：内层块**自己**也会开一层 ✓
-（同一个名字在内层被声明时 ✓，`CellOf` 取的是**最内**那一层 ✓ ⇒ 名字在几层里都出现也无害 ✓）。
+**收集用 `CollectDeclaredNames`**（深一层也收）：内层块**自己**也会开一层
+（同一个名字在内层被声明时，`CellOf` 取的是**最内**那一层 ⇒ 名字在几层里都出现也无害）。
 
-**`catch` 的那个绑定今天不在此列** ✗（它有自己的作用域形状 ✓，记在台账里 ✓）。
+**`catch` 的那个绑定今天不在此列**（它有自己的作用域形状，记在台账里）。
 
 ```ts
 const declared: string[] = [];
@@ -2022,18 +2022,18 @@ return true;
 
 ## method BlockDeclaredNames:(node:AstNode, out:Array<string>)=>void
 
-**这一个块**（**只这一层** ✗）声明了哪些能进环境的**名字** ✓（第 316 轮 ✓）。
+**这一个块**（**只这一层**）声明了哪些能进环境的**名字**（第 316 轮）。
 
-**只收 `let` / `const` / `class` / `enum` 四种** ✗：
-- **`var` 不收** ✓——它是**函数作用域** ✓，落在提升后的槽（或函数那一层环境 ✓）里 ✓；
-- **`function` 也不收** ✗——函数声明在本仓里**提升到函数作用域** ✓（`Hoist` ✓），
-  它的名字写的是**外面那一格** ✓；把它也收进块这一层，读的那一句会落到**这一层的新格**上 ✓
-  ⇒ 读到 `undefined` ✓（**第 316 轮实测踩到过** ✗：判据 `ex-function-decl-in-block` 与
-  `ex-function-decl-in-block-scope` 当场红 ✓，报的是 `in block undefined` ✓）。
+**只收 `let` / `const` / `class` / `enum` 四种**：
+- **`var` 不收**——它是**函数作用域**，落在提升后的槽（或函数那一层环境）里；
+- **`function` 也不收**——函数声明在本仓里**提升到函数作用域**（`Hoist`），
+  它的名字写的是**外面那一格**；把它也收进块这一层，读的那一句会落到**这一层的新格**上
+  ⇒ 读到 `undefined`（**第 316 轮实测踩到过**：判据 `ex-function-decl-in-block` 与
+  `ex-function-decl-in-block-scope` 当场红，报的是 `in block undefined`）。
 
-**只走这一层的 `statements`** ✗（不递归 ✓）：内层块**自己**会开一层 ✓
-（同一个名字在内层被声明时 ✓，`CellOf` 取**最内**那一层 ✓）——
-递归着收会把内层的名字也开在外层 ✓，那就是**多开**（只是慢 ✓）但**层次错了** ✗。
+**只走这一层的 `statements`**（不递归）：内层块**自己**会开一层
+（同一个名字在内层被声明时，`CellOf` 取**最内**那一层）——
+递归着收会把内层的名字也开在外层，那就是**多开**（只是慢）但**层次错了**。
 
 ```ts
 const statements = ListOf(node, "statements");
@@ -2041,8 +2041,8 @@ for (let i = 0; i < statements.length; i++) {
   const statement = statements[i];
   const kind = NodeKind(statement);
   if (kind === "VariableDeclarationList" || kind === "VariableStatement") {
-    // **`VariableStatement` 与 `VariableDeclarationList` 两种形状都认** ✓
-    // （前者是「带分号的语句」✓、后者是 `for` 头那一种 ✓，取证时两种都出现过 ✓）。
+    // **`VariableStatement` 与 `VariableDeclarationList` 两种形状都认**
+    // （前者是「带分号的语句」、后者是 `for` 头那一种，取证时两种都出现过）。
     const list = kind === "VariableStatement" ? Child(statement, "declarationList") : statement;
     if (list === null || IsVarList(list)) continue;
     const declarations = ListOf(list, "declarations");
@@ -2066,16 +2066,16 @@ for (let i = 0; i < statements.length; i++) {
 
 ## method CloseBlockEnv:()=>void
 
-**把上一层开的那层环境退回去** ✓（第 316 轮 ✓）——`EnvNew` 的反面 ✓。
+**把上一层开的那层环境退回去**（第 316 轮）——`EnvNew` 的反面。
 
-**这一句不能省** ✗（第 315 轮那条教训的**同一个形状** ✓）：`EnvNew` 会改当前帧的 `Env` ✓，
-不退的话**块之后的代码**按词法深度读环境就少了一层 ✓
-（症状两种：报 `environment index out of range` ✓，或者**一声不响地把后面的语句丢掉** ✗）。
-**`break` / `continue` / `return` 跳出这个块时也要退** ✗——那三条各是一条跳转 ✓，
-而环境是**运行期**的东西 ✓，跳出去不会自动收 ✓；所以这里与两个循环一样，
-出口那一句是**必需**的 ✓（今天 `break` 跳的是循环出口 ✓，
-而循环出口那一条 `EnvLeave` **只退循环自己那一层** ✗——所以块的这一层要在**离开块**的地方退 ✓，
-两者是两层、两条指令 ✓）。
+**这一句不能省**（第 315 轮那条教训的**同一个形状**）：`EnvNew` 会改当前帧的 `Env`，
+不退的话**块之后的代码**按词法深度读环境就少了一层
+（症状两种：报 `environment index out of range`，或者**一声不响地把后面的语句丢掉**）。
+**`break` / `continue` / `return` 跳出这个块时也要退**——那三条各是一条跳转，
+而环境是**运行期**的东西，跳出去不会自动收；所以这里与两个循环一样，
+出口那一句是**必需**的（今天 `break` 跳的是循环出口，
+而循环出口那一条 `EnvLeave` **只退循环自己那一层**——所以块的这一层要在**离开块**的地方退，
+两者是两层、两条指令）。
 
 ```ts
 this.Emit(Op.EnvLeave, -1, -1, -1, -1);
@@ -2101,8 +2101,8 @@ this.PushScope();
 const outerInGenerator = this.InGenerator;
 const outerInAsync = this.InAsync;
 const outerSuperName = this.InSuperName;
-// **「静态」那一半与名字成对进出** ✓（第 278 轮 ✓）——只存不恢复的话，
-// 内层函数降级完之后**外层会带着内层的标记继续走** ✓（见 `InSuperStatic` 那一段 ✓）。
+// **「静态」那一半与名字成对进出**（第 278 轮）——只存不恢复的话，
+// 内层函数降级完之后**外层会带着内层的标记继续走**（见 `InSuperStatic` 那一段）。
 const outerSuperStatic = this.InSuperStatic;
 const outerInArrow = this.InArrow;
 const outerInStrict = this.InStrict;
@@ -2111,39 +2111,39 @@ this.InAsync = item.IsAsync;
 this.InSuperName = item.SuperName;
 this.InSuperStatic = item.SuperStatic;
 this.InArrow = item.IsArrow;
-// **严格性只增不减** ✓（第 620 轮 ✓）：定义在严格代码里的函数，体也是严格的 ✓；
-// 反过来不成立 ✗（松散代码里的普通函数照旧松散 ✓——`item.IsStrict` 是「定义它的那段」✓）。
+// **严格性只增不减**（第 620 轮）：定义在严格代码里的函数，体也是严格的；
+// 反过来不成立（松散代码里的普通函数照旧松散——`item.IsStrict` 是「定义它的那段」）。
 this.InStrict = this.InStrict || item.IsStrict;
-// **解构形参里的名字也要进「这一层声明了什么」**（第 134 轮）✗：`CollectDeclaredNames`
-// 扫的是**函数体** ✓，而模式里的名字**只出现在形参表上** ✗——漏了它们，
-// 「本层变量」会被当成「未知名字」✓（症状与 `scope.xl.md` 那条注释写的一字不差 ✓），
-// 而且**被内层函数引用到时不会被算成捕获** ✗（那是**静默错值** ✗）。
-// 走 `ExtraDeclared` 这条既有通道 ✓——`EnterFunctionBody` 一进来就把它并进 `declared` ✓。
+// **解构形参里的名字也要进「这一层声明了什么」**（第 134 轮）：`CollectDeclaredNames`
+// 扫的是**函数体**，而模式里的名字**只出现在形参表上**——漏了它们，
+// 「本层变量」会被当成「未知名字」（症状与 `scope.xl.md` 那条注释写的一字不差），
+// 而且**被内层函数引用到时不会被算成捕获**（那是**静默错值**）。
+// 走 `ExtraDeclared` 这条既有通道——`EnterFunctionBody` 一进来就把它并进 `declared`。
 const patternNames: string[] = [];
 for (let p = 0; p < item.Patterns.length; p++) {
   CollectPatternNames(item.Patterns[p], patternNames);
 }
-// **`arguments` 也要进「这一层声明了什么」** ✓（第 332 轮 ✓）：它是一个**隐含的绑定** ✓
-// （JS 给每个非箭头函数的第一个东西 ✓），可它在树上**一个声明都没有** ✗——
-// 不进这张名单，体内读它就报 `name is not a local or a capture: arguments` ✓
-//（判据 `rt-arguments-object` 现场量的就是它 ✓），而**箭头里读它**时还算不上捕获 ✗
-//（箭头用的是外层那一份 ✓，那正是捕获的定义 ✓）。
+// **`arguments` 也要进「这一层声明了什么」**（第 332 轮）：它是一个**隐含的绑定**
+// （JS 给每个非箭头函数的第一个东西），可它在树上**一个声明都没有**——
+// 不进这张名单，体内读它就报 `name is not a local or a capture: arguments`
+//（判据 `rt-arguments-object` 现场量的就是它），而**箭头里读它**时还算不上捕获
+//（箭头用的是外层那一份，那正是捕获的定义）。
 if (item.NeedsArguments) patternNames.push("arguments");
 this.ExtraDeclared = patternNames;
-// **`arguments` 那一格要占在形参之后** ✗（第 332 轮 ✓）：开帧的人往 `ParamCount`
-// 那一格写 ✓（`ir.xl.md` 的 `NeedsArguments` ✓），所以**降级期必须先占住它** ✓——
-// 而它必须排在 `EnterFunctionBody` **之前** ✓：那一趟自己也要 `Reserve(1)` 开环境格 ✓，
-// 排在后面就占成别的号了 ✗（写进去的值与读出来的格子对不上 ✓，**静默错值** ✓）。
-// **声明那个名字要等 `EnterFunctionBody` 之后** ✓：它可能落在**环境格**里 ✓
-//（箭头引用过 ✓），而环境是那一趟才开的 ✓——`DeclareLocal` 正是照环境格认的 ✓。
+// **`arguments` 那一格要占在形参之后**（第 332 轮）：开帧的人往 `ParamCount`
+// 那一格写（`ir.xl.md` 的 `NeedsArguments`），所以**降级期必须先占住它**——
+// 而它必须排在 `EnterFunctionBody` **之前**：那一趟自己也要 `Reserve(1)` 开环境格，
+// 排在后面就占成别的号了（写进去的值与读出来的格子对不上，**静默错值**）。
+// **声明那个名字要等 `EnterFunctionBody` 之后**：它可能落在**环境格**里
+//（箭头引用过），而环境是那一趟才开的——`DeclareLocal` 正是照环境格认的。
 let argumentsSlot = -1;
 if (item.NeedsArguments) argumentsSlot = this.Reserve(1);
-// **生成器那一格在**函数一进来**就占** ✓（第 336 轮 ✓，**实测踩过一次** ✗）：
-// `it.return(v)` 的值要落到一格固定的槽上 ✓——第一版是**在第一个 `yield` 那儿现占**的 ✗，
-// 而那时体的水位已经涨上去了 ✓ ⇒ 后面某处 `Release` 把水位退到它**下面** ✓ ⇒
-// 再 `Reserve` 就拿到**同一个号** ✓ ⇒ 那一格被别的东西盖掉 ✓
-//（实测：`it.return(9).value` 给的是 `console` 那个对象 ✓，**一句话都没报** ✓）。
-// 排在这里它就落在**所有临时量之下** ✓（与形参同一档 ✓），谁也不会把它退掉 ✓。
+// **生成器那一格在**函数一进来**就占**（第 336 轮，**实测踩过一次**）：
+// `it.return(v)` 的值要落到一格固定的槽上——第一版是**在第一个 `yield` 那儿现占**的，
+// 而那时体的水位已经涨上去了 ⇒ 后面某处 `Release` 把水位退到它**下面** ⇒
+// 再 `Reserve` 就拿到**同一个号** ⇒ 那一格被别的东西盖掉
+//（实测：`it.return(9).value` 给的是 `console` 那个对象，**一句话都没报**）。
+// 排在这里它就落在**所有临时量之下**（与形参同一档），谁也不会把它退掉。
 let generatorReturnSlot = -1;
 if (item.IsGenerator) {
   generatorReturnSlot = this.Reserve(1);
@@ -2152,44 +2152,44 @@ if (item.IsGenerator) {
 // **环境要在声明参数之前开**：参数里也有被捕获的（内层函数引用外层函数的参数），
 // 而那些名字必须一上来就住进环境格——`DeclareLocal` 是照着环境格认的。
 //
-// **「额外那几段」要连着字段初始化式一起递进去** ✓（第 212 轮 ✓）：
-// `EnterFunctionBody` 拿 `extras` 去算三件事 ✓——**捕获** ✓、`needsThis` ✓、`hasNested` ✓
-//（它那一段注释里写着为什么三件都要 ✓）。而**实例字段的初始化式**（`item.FieldDefaults` ✓）
-// 也是**跑在构造函数这一帧里**的代码 ✓，此前**只递了参数默认值** ✗——
+// **「额外那几段」要连着字段初始化式一起递进去**（第 212 轮）：
+// `EnterFunctionBody` 拿 `extras` 去算三件事——**捕获**、`needsThis`、`hasNested`
+//（它那一段注释里写着为什么三件都要）。而**实例字段的初始化式**（`item.FieldDefaults`）
+// 也是**跑在构造函数这一帧里**的代码，此前**只递了参数默认值**——
 // 于是 `function make(k) { return class { v = k; }; }` 报
-// `name is not a local or a capture: k` ✓（判据 `ex-class-expr-field-capture` 现场红的 ✓）：
-// `k` 既不在这一层声明里 ✓、也没被算成捕获 ✗ ⇒ 外层那一层**压根不开环境** ✗。
-// **静态字段不受影响** ✓（它在**类声明那一处**求值 ✓，本来就在外层的体里 ✓）——
-// 所以这个缺口只在**类表达式 + 实例字段**这一格上现形 ✓（实测：`static v = k` 一直是好的 ✓）。
+// `name is not a local or a capture: k`（判据 `ex-class-expr-field-capture` 现场红的）：
+// `k` 既不在这一层声明里、也没被算成捕获 ⇒ 外层那一层**压根不开环境**。
+// **静态字段不受影响**（它在**类声明那一处**求值，本来就在外层的体里）——
+// 所以这个缺口只在**类表达式 + 实例字段**这一格上现形（实测：`static v = k` 一直是好的）。
 const captureDefaults: AstNode[] = [];
 for (let i = 0; i < item.Defaults.length; i++) captureDefaults.push(item.Defaults[i]);
 for (let i = 0; i < item.FieldDefaults.length; i++) captureDefaults.push(item.FieldDefaults[i]);
-// **实例字段的初始化式也要递进来** ✓（第 212 轮 ✓）：它们跑在**这一帧**里 ✓
-//（`EmitFieldDefaults` 就在构造函数体里发 ✓），可它们**不在 `body` 里** ✗
-//（`body` 是构造函数体 ✓，字段初始化式挂在 `item.FieldDefaults` 上 ✓）。
-// **少递的后果有两档** ✗：
-//   · `k` 不进捕获名单 ✓ ⇒ `name is not a local or a capture: k` ✓（c1 那一档 ✓）；
-//   · **`needsThis` / `hasNested` 算不出来** ✓ ⇒ 构造函数这一帧**压根不开环境** ✗，
-//     而字段初始化式里的箭头**要往这一帧捕获 `this`** ✓ ⇒ 报
-//     `new_closure needs an environment or undefined` ✓（`f = () => this.v` 那一档 ✓，
-//     **在模块顶层也是红的** ✓——它是**既有缺口** ✓，这一轮顺着同一条路一起修掉 ✓）。
-// **另一半在 `scope.xl.md`** ✓：`CollectInsideFunctions` 要把字段初始化式当**内层代码**走 ✓，
-// 否则**外层**（`make`）算不出「有人在引用 `k`」✓、也就不开环境 ✗。
+// **实例字段的初始化式也要递进来**（第 212 轮）：它们跑在**这一帧**里
+//（`EmitFieldDefaults` 就在构造函数体里发），可它们**不在 `body` 里**
+//（`body` 是构造函数体，字段初始化式挂在 `item.FieldDefaults` 上）。
+// **少递的后果有两档**：
+//   · `k` 不进捕获名单 ⇒ `name is not a local or a capture: k`（c1 那一档）；
+//   · **`needsThis` / `hasNested` 算不出来** ⇒ 构造函数这一帧**压根不开环境**，
+//     而字段初始化式里的箭头**要往这一帧捕获 `this`** ⇒ 报
+//     `new_closure needs an environment or undefined`（`f = () => this.v` 那一档，
+//     **在模块顶层也是红的**——它是**既有缺口**，这一轮顺着同一条路一起修掉）。
+// **另一半在 `scope.xl.md`**：`CollectInsideFunctions` 要把字段初始化式当**内层代码**走，
+// 否则**外层**（`make`）算不出「有人在引用 `k`」、也就不开环境。
 this.EnterFunctionBody(body, item.Params, captureDefaults);
-// **`arguments` 这个名字在环境开好之后才声明** ✓（第 332 轮 ✓，理由见上面那一格 ✓）：
-// 被箭头引用过 ⇒ `DeclareLocal` 会把刚占住的那一格搬进**环境格** ✓，之后体内走 `EnvGet` ✓
-//（与形参那一条**一字不差** ✓）；没被引用过 ⇒ 它就是一个普通的局部槽 ✓。
+// **`arguments` 这个名字在环境开好之后才声明**（第 332 轮，理由见上面那一格）：
+// 被箭头引用过 ⇒ `DeclareLocal` 会把刚占住的那一格搬进**环境格**，之后体内走 `EnvGet`
+//（与形参那一条**一字不差**）；没被引用过 ⇒ 它就是一个普通的局部槽。
 if (argumentsSlot >= 0) this.DeclareLocal("arguments", argumentsSlot);
 for (let i = 0; i < item.Params.length; i++) {
   this.DeclareLocal(item.Params[i], i);
 }
-// **参数那一段按「从左到右」走一趟**（第 134 轮把默认值与解构合到一处）✗：
-// 两样都是**被调方的开场代码** ✓（`LowerParamDefault` 那一段写着为什么 ✓），
-// 而 JS 的规矩是**按参数顺序**求值 ✓——`function f({a}, b = a)` 里 `b` 看得见 `a` ✓。
-// 分成两趟（先所有默认值、再所有解构）会让上面那一句**读到还没拆的那个槽** ✗。
+// **参数那一段按「从左到右」走一趟**（第 134 轮把默认值与解构合到一处）：
+// 两样都是**被调方的开场代码**（`LowerParamDefault` 那一段写着为什么），
+// 而 JS 的规矩是**按参数顺序**求值——`function f({a}, b = a)` 里 `b` 看得见 `a`。
+// 分成两趟（先所有默认值、再所有解构）会让上面那一句**读到还没拆的那个槽**。
 //
-// **默认值在解构之前** ✓：`function f({a} = {})` 是「先补默认值、再拆」✓
-// （不传的时候拆的是 `{}` ✓，而不是 `undefined` ✗）。
+// **默认值在解构之前**：`function f({a} = {})` 是「先补默认值、再拆」
+// （不传的时候拆的是 `{}`，而不是 `undefined`）。
 for (let i = 0; i < item.Params.length; i++) {
   let hasDefault = false;
   for (let d = 0; d < item.DefaultAt.length; d++) {
@@ -2199,31 +2199,31 @@ for (let i = 0; i < item.Params.length; i++) {
   }
   for (let p = 0; p < item.PatternAt.length; p++) {
     if (item.PatternAt[p] !== i) continue;
-    // **解构读的是那一格的值**：`ResolveAccess` 两个方向各只有一处 ✓
-    //（被捕获的形参只住在环境格里 ✓——与 `LowerParamDefault` 同一条路 ✓）。
+    // **解构读的是那一格的值**：`ResolveAccess` 两个方向各只有一处
+    //（被捕获的形参只住在环境格里——与 `LowerParamDefault` 同一条路）。
     this.Destructure(item.Patterns[p], this.ParamValue(item.Params[i]), false);
   }
 }
 this.Hoist(body);
-// **实例字段的初始化式**（第 128 轮）：非派生类在**构造函数体之前**、参数默认值之后 ✓。
+// **实例字段的初始化式**（第 128 轮）：非派生类在**构造函数体之前**、参数默认值之后。
 // 派生类**不在这一处**——`this` 要等 `super(...)` 返回才存在（见下面 `DeferredItem` 那段）。
 //
-// **放在参数声明之后不是风格**：字段初始化式要用临时槽 ✓，而在参数还没声明时
-// 水位恰好压在**第一个参数**那一格上 ✗（第 128 轮实测：`id` 被写成了接收者对象，
-// 症状是两步之外的 `arithmetic on a non-numeric operand`）✓。
+// **放在参数声明之后不是风格**：字段初始化式要用临时槽，而在参数还没声明时
+// 水位恰好压在**第一个参数**那一格上（第 128 轮实测：`id` 被写成了接收者对象，
+// 症状是两步之外的 `arithmetic on a non-numeric operand`）。
 if (item.FieldDefaults.length > 0 && !item.FieldInitDeferred) {
   this.EmitFieldDefaults(item);
   item.FieldInitRan = true;
 }
 const outerDeferred = this.DeferredItem;
 if (item.FieldInitDeferred && item.FieldDefaults.length > 0) {
-  // **只对「这个函数的体」这一层挂**（内层块不欠它，理由见 `DeferredItem`）✓。
+  // **只对「这个函数的体」这一层挂**（内层块不欠它，理由见 `DeferredItem`）。
   this.DeferredItem = item;
 }
 if (item.IsNamespace) {
-  // **`namespace` 的体**（第 292 轮 ✓）：与 `LowerStatementsOf` 只差一件事 ✗——
-  // 带 `export` 的声明降完**还要挂到那个对象上** ✓（见 `BindNamespaceExports` ✓）。
-  // 形参表只有一格 ✓（那个对象 ✓），名字就是它 ✓。
+  // **`namespace` 的体**（第 292 轮）：与 `LowerStatementsOf` 只差一件事——
+  // 带 `export` 的声明降完**还要挂到那个对象上**（见 `BindNamespaceExports`）。
+  // 形参表只有一格（那个对象），名字就是它。
   this.LowerNamespaceBody(body, item.Params[0]);
 } else if (item.IsExpressionBody) {
   // 箭头函数的表达式体：值就是返回值（**不是**「跑完给 undefined」）。
@@ -2236,11 +2236,11 @@ if (item.IsNamespace) {
 }
 this.DeferredItem = outerDeferred;
 this.Emit(Op.Return, -1, -1, -1, -1);
-// **生成器那些「答句」发在这里** ✓（第 336 轮 ✓）：`yield` 位置上记下的跳转要落到
-// **一套 `return` 收尾**上 ✓，而那一套只有在**体发完之后**才排得下 ✓
-//（`EmitGeneratorReturnEpilogues` 那一段写着为什么 ✓）。
-// **它排在隐式 `Return` 之后** ✓：正常跑完的函数在那一条就交出去了 ✓，
-// 这几段只有**跳转**才会落到 ✓（每条自带 `Op.Return` ✓ ⇒ 谁也不会掉进下一条 ✓）。
+// **生成器那些「答句」发在这里**（第 336 轮）：`yield` 位置上记下的跳转要落到
+// **一套 `return` 收尾**上，而那一套只有在**体发完之后**才排得下
+//（`EmitGeneratorReturnEpilogues` 那一段写着为什么）。
+// **它排在隐式 `Return` 之后**：正常跑完的函数在那一条就交出去了，
+// 这几段只有**跳转**才会落到（每条自带 `Op.Return` ⇒ 谁也不会掉进下一条）。
 this.EmitGeneratorReturnEpilogues();
 item.SlotCount = this.Peak;
 this.PopScope();
@@ -2254,54 +2254,54 @@ this.InStrict = outerInStrict;
 
 ## method EmitClosure:(item:PendingFunction)=>int
 
-**造一个闭包、把它的体排队，返回闭包那一格**（第 292 轮 ✓）。
+**造一个闭包、把它的体排队，返回闭包那一格**（第 292 轮）。
 
-**为什么收口** ✗：这一形状原先**写了两遍** ✓（函数值 ✓、函数声明 ✓）——
-第 292 轮要写**第三遍** ✓（`namespace` 的体也要开一帧 ✓）。
-三遍就是**三处会写错操作数**的机会 ✗，而算错槽的症状是「值悄悄换成别的」✗
-（`EmitCallArray` 那一段写着同一条理由 ✓）。第 291 轮那第四格（形参个数 ✓）
-也是同一个形状：**加一格要改三处** ✗。
+**为什么收口**：这一形状原先**写了两遍**（函数值、函数声明）——
+第 292 轮要写**第三遍**（`namespace` 的体也要开一帧）。
+三遍就是**三处会写错操作数**的机会，而算错槽的症状是「值悄悄换成别的」
+（`EmitCallArray` 那一段写着同一条理由）。第 291 轮那第四格（形参个数）
+也是同一个形状：**加一格要改三处**。
 
-**调用方仍然管两件事** ✗（它们不是「形状固定」的那一半 ✓）：
-- **名字** ✓：函数表达式自带的真名 / 绑定那一刻的提示 / 匿名 —— 见 `LowerFunctionValue` 的三档 ✓；
-- **`prototype` 那一格** ✓：只有函数声明与函数表达式才挂 ✓（箭头与对象方法不挂 ✓）。
+**调用方仍然管两件事**（它们不是「形状固定」的那一半）：
+- **名字**：函数表达式自带的真名 / 绑定那一刻的提示 / 匿名 —— 见 `LowerFunctionValue` 的三档；
+- **`prototype` 那一格**：只有函数声明与函数表达式才挂（箭头与对象方法不挂）。
 
-**`window` 是先预留的** ✗：所以退水位要退到**闭包之上** ✓、不是退到窗口 ✓
-（退到窗口会把闭包格一起退掉 ✓，下一个分配就盖在它上面 ✓——表现是「调用了非闭包的值」✓）。
+**`window` 是先预留的**：所以退水位要退到**闭包之上**、不是退到窗口
+（退到窗口会把闭包格一起退掉，下一个分配就盖在它上面——表现是「调用了非闭包的值」）。
 
-**预留的顺序是「先闭包格、再窗口」** ✓（第 292 轮收口时定下来的 ✓）：
-这样一句 `Release(slot + 1)` 就**只放掉窗口、留下闭包** ✓。
-倒过来写（先窗口、后闭包 ✓，那是第 292 轮之前**函数值**那一条的写法 ✗）
-`Release(slot + 1)` 落在水位顶上 ✓ ⇒ **窗口那四格永远留着** ✓——
-不致命 ✓（只是每一处闭包多占四格 ✓），但它是**悄悄长胖**的那一类 ✗，
-而两个调用点在这个细节上**原来不一致** ✗（函数声明那一处是对的 ✓）——
-收口的好处之一就是把这种不一致一次抹平 ✓。
+**预留的顺序是「先闭包格、再窗口」**（第 292 轮收口时定下来的）：
+这样一句 `Release(slot + 1)` 就**只放掉窗口、留下闭包**。
+倒过来写（先窗口、后闭包，那是第 292 轮之前**函数值**那一条的写法）
+`Release(slot + 1)` 落在水位顶上 ⇒ **窗口那四格永远留着**——
+不致命（只是每一处闭包多占四格），但它是**悄悄长胖**的那一类，
+而两个调用点在这个细节上**原来不一致**（函数声明那一处是对的）——
+收口的好处之一就是把这种不一致一次抹平。
 
 ```ts
 const slot = this.Reserve(1);
-// **具名函数表达式：名字住在「只属于这个闭包的一层环境」里** ✓（第 332 轮 ✓）。
+// **具名函数表达式：名字住在「只属于这个闭包的一层环境」里**（第 332 轮）。
 //
-// **为什么必须单开一层、而不是绑在外层** ✗：`const f = function self() { … self … }` 的
-// `self` 在 JS 里**只在该函数体里可见** ✓——绑在外层那一层，`typeof self` 在外面
-// 就从 `"undefined"` 变成了 `"function"` ✓（**静默错值** ✓，而两条判据只查了
-// `typeof (f as any).self` ✓——那是**属性**查找 ✗，两种做法都过 ✓。
-// **判据看不出来，也不能就这么写** ✗：这一仓最贵的一类错就是「判据没覆盖到的静默错值」✓）。
+// **为什么必须单开一层、而不是绑在外层**：`const f = function self() { … self … }` 的
+// `self` 在 JS 里**只在该函数体里可见**——绑在外层那一层，`typeof self` 在外面
+// 就从 `"undefined"` 变成了 `"function"`（**静默错值**，而两条判据只查了
+// `typeof (f as any).self`——那是**属性**查找，两种做法都过。
+// **判据看不出来，也不能就这么写**：这一仓最贵的一类错就是「判据没覆盖到的静默错值」）。
 //
-// **落成什么** ✓：`env_new` 一层一格 ✓ → `new_closure` **捕获它** ✓ →
-// `env_set(第 0 格, 闭包自己)` ✓ → `env_leave` ✓。于是体内读 `self` 走的是
-// **普通的捕获那条路** ✓（`ResolveAccess` 沿环境链找 ✓，深度由 `item.Envs` 算 ✓）——
-// 一件新机关都没有 ✓，`Locals` / `Scope` / 槽那几套**一个字都不用改** ✓。
+// **落成什么**：`env_new` 一层一格 → `new_closure` **捕获它** →
+// `env_set(第 0 格, 闭包自己)` → `env_leave`。于是体内读 `self` 走的是
+// **普通的捕获那条路**（`ResolveAccess` 沿环境链找，深度由 `item.Envs` 算）——
+// 一件新机关都没有，`Locals` / `Scope` / 槽那几套**一个字都不用改**。
 //
-// **三处次序是语义** ✗：
-// · `env_new` 必须在 `new_closure` **之前**（闭包要捕获的是**这一层** ✓，
-//   而 `new_closure` 的环境参数取的是 `this.Env.Last()` ✓）；
-// · `env_set` 必须在 `env_leave` **之前**（它按深度 0 写 ✓，也就是**当前那一层** ✓）；
-// · `this.Env` 那一份**降级侧**的链必须在 `item.Envs = Clone()` **之前**推 ✓、
-//   之后立刻退 ✓——不退的话，外面那些语句也会把 `self` 解析到这一格上 ✗
-//   （**静默错值** ✓：`typeof self` 在外面变成 `"function"` ✓）。
+// **三处次序是语义**：
+// · `env_new` 必须在 `new_closure` **之前**（闭包要捕获的是**这一层**，
+//   而 `new_closure` 的环境参数取的是 `this.Env.Last()`）；
+// · `env_set` 必须在 `env_leave` **之前**（它按深度 0 写，也就是**当前那一层**）；
+// · `this.Env` 那一份**降级侧**的链必须在 `item.Envs = Clone()` **之前**推、
+//   之后立刻退——不退的话，外面那些语句也会把 `self` 解析到这一格上
+//   （**静默错值**：`typeof self` 在外面变成 `"function"`）。
 //
-// **外面那一帧必须先有环境** ✗（`env_leave` 要求有父亲 ✓）：这一条由
-// `EnterFunctionBody` 的 `needsSelfEnv` 保证 ✓（`HasNamedExpression` 那一段写着理由 ✓）。
+// **外面那一帧必须先有环境**（`env_leave` 要求有父亲）：这一条由
+// `EnterFunctionBody` 的 `needsSelfEnv` 保证（`HasNamedExpression` 那一段写着理由）。
 let selfEnv = -1;
 if (item.SelfName !== "") {
   selfEnv = this.Reserve(1);
@@ -2314,12 +2314,12 @@ item.Patch = this.Program().AddConst(Constant.OfInt(0));
 const nameConst = item.Name === ""
   ? this.Program().AddConst(Constant.OfUndefined())
   : this.Program().AddConst(Constant.OfString(UnitsOf(item.Name)));
-// **第四格：形参个数，最低两位借给「这是一个类」与「这是严格代码」** ✓（第 613 / 620 轮 ✓）——
-// `MakeClosure`（`vm.xl.md` ✓）把这两位摘掉之后再交给闭包那一格 ✓。
-// **为什么借这一格** ✗：`new_closure` 的五个操作数已经排满了 ✓（环境 / code / 名字 /
-// 形参 / 源码 ✓），加第六格要同时改枚举、验证层与四个目标 ✓；而这三样东西的来处
-// **本来就是同一处** ✓（都在这里、都只在那一次求值时定死 ✓）。
-// **代价写在 `MakeClosure` 那一段** ✓：第四格从此不是形参个数本身 ✓。
+// **第四格：形参个数，最低两位借给「这是一个类」与「这是严格代码」**（第 613 / 620 轮）——
+// `MakeClosure`（`vm.xl.md`）把这两位摘掉之后再交给闭包那一格。
+// **为什么借这一格**：`new_closure` 的五个操作数已经排满了（环境 / code / 名字 /
+// 形参 / 源码），加第六格要同时改枚举、验证层与四个目标；而这三样东西的来处
+// **本来就是同一处**（都在这里、都只在那一次求值时定死）。
+// **代价写在 `MakeClosure` 那一段**：第四格从此不是形参个数本身。
 const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 4 + (item.IsClass ? 1 : 0) + (item.IsStrict ? 2 : 0)));
 const window = this.Reserve(5);
 const enclosing = this.Env.Last();
@@ -2331,9 +2331,9 @@ if (enclosing === null) {
 this.Emit(Op.Const, window + 1, item.Patch, -1, -1);
 this.Emit(Op.Const, window + 2, nameConst, -1, -1);
 this.Emit(Op.Const, window + 3, arityConst, -1, -1);
-// **第五格：源码文本** ✓（第 334 轮 ✓）——`f.toString()` 的答案 ✓。
-// **空串 ⇒ 给 `undefined`** ✓（与名字那一档**一字不差** ✓）：闭包那一格留 `0` ✓，
-// 于是 `FunctionSourceText` 走「造不出来」那一档 ✓、不编一个空的源码 ✗。
+// **第五格：源码文本**（第 334 轮）——`f.toString()` 的答案。
+// **空串 ⇒ 给 `undefined`**（与名字那一档**一字不差**）：闭包那一格留 `0`，
+// 于是 `FunctionSourceText` 走「造不出来」那一档、不编一个空的源码。
 const sourceConst = item.Source === ""
   ? this.Program().AddConst(Constant.OfUndefined())
   : this.Program().AddConst(Constant.OfString(UnitsOf(item.Source)));
@@ -2341,8 +2341,8 @@ this.Emit(Op.Const, window + 4, sourceConst, -1, -1);
 this.EmitRt(RtOp.NewClosure, slot, window, 5);
 this.Release(slot + 1);
 item.Envs = this.Env.Clone();
-// **具名函数表达式那三步的收尾** ✓（第 332 轮 ✓）：先把**降级侧**那一层退掉 ✓
-// （于是外面那些语句再也看不到 `self` ✓），再写值 ✓、再退出运行期那一层 ✓。
+// **具名函数表达式那三步的收尾**（第 332 轮）：先把**降级侧**那一层退掉
+// （于是外面那些语句再也看不到 `self`），再写值、再退出运行期那一层。
 if (selfEnv >= 0) {
   this.Env.Pop();
   this.Emit(Op.EnvSet, slot, 0, 0, -1);
@@ -2354,13 +2354,13 @@ return slot;
 
 ## method SourceSliceOf:(node:AstNode)=>string
 
-**这个节点的源码那一段** ✓（第 334 轮 ✓）——`[pos, end)` 从 `SourceText` 里切 ✓。
+**这个节点的源码那一段**（第 334 轮）——`[pos, end)` 从 `SourceText` 里切。
 
-**没有源码就给空串** ✓（`new Lowering()` 那十几处 ✓）：调用方把它当「没有」✓，
-于是闭包那一格留 `0` ✓——**不编一个假的** ✗（判据可能就指着一格文本 ✓）。
+**没有源码就给空串**（`new Lowering()` 那十几处）：调用方把它当「没有」，
+于是闭包那一格留 `0`——**不编一个假的**（判据可能就指着一格文本）。
 
-**区间要夹住** ✗：`end > SourceText.length` 时给空串 ✓——那说明投影与源码不是同一份 ✓
-（这种不一致**响亮地**退化成「没有源码」✓，而不是切出半个字 ✓）。
+**区间要夹住**：`end > SourceText.length` 时给空串——那说明投影与源码不是同一份
+（这种不一致**响亮地**退化成「没有源码」，而不是切出半个字）。
 
 ```ts
 if (this.SourceText === "") return "";
@@ -2372,39 +2372,39 @@ return this.SourceText.slice(start, end);
 
 ## method LowerNamespace:(node:AstNode)=>void
 
-**`namespace N { … }` / `module N { … }`**（第 292 轮 ✓）。
+**`namespace N { … }` / `module N { … }`**（第 292 轮）。
 
-**它是有运行期语义的一格** ✓（与 `type` / `interface` **恰好相反** ✗）：
-`namespace N { export const a = 1 }` 之后运行期真的有一个 `N` ✓，
-而且**它的体真的跑一遍** ✓（`export const doubled = add(version, version)` 里那次调用会发生 ✓）。
-**`enum` 与它是同一档** ✓（都是 TS 的**变换**、不是擦除 ✓）——所以判据都要 `--experimental-transform-types` ✓。
+**它是有运行期语义的一格**（与 `type` / `interface` **恰好相反**）：
+`namespace N { export const a = 1 }` 之后运行期真的有一个 `N`，
+而且**它的体真的跑一遍**（`export const doubled = add(version, version)` 里那次调用会发生）。
+**`enum` 与它是同一档**（都是 TS 的**变换**、不是擦除）——所以判据都要 `--experimental-transform-types`。
 
-**它落成什么** ✓（与 TS 自己的变换同一个形状 ✓）：
-「**造一个对象** + **开一帧跑体** + **把导出的名字挂到那个对象上**」✓。
+**它落成什么**（与 TS 自己的变换同一个形状）：
+「**造一个对象** + **开一帧跑体** + **把导出的名字挂到那个对象上**」。
 
-**为什么必须开一帧** ✗：体内的名字（`const a` / `function f`）属于**命名空间自己那一层** ✓——
-`scope.xl.md` 的 `CollectDeclaredNames` 从第 231 轮起就写着「命名空间是作用域边界」✓
-（**不往下走** ✓）。那就意味着它们**不是外层函数的局部** ✗——而**跨帧的局部名只有捕获一条路** ✓
-（`rt-loop-capture-let-vs-var` 那一族量出来的同一条规矩 ✓）。
-把体塞进外层会得到两种错法 ✗：`a` **泄漏到命名空间外面** ✓（**静默错值** ✓），
-或者体内那个 `f` 读到一个**别的帧的槽号** ✓（读出来是垃圾 ✓）。
+**为什么必须开一帧**：体内的名字（`const a` / `function f`）属于**命名空间自己那一层**——
+`scope.xl.md` 的 `CollectDeclaredNames` 从第 231 轮起就写着「命名空间是作用域边界」
+（**不往下走**）。那就意味着它们**不是外层函数的局部**——而**跨帧的局部名只有捕获一条路**
+（`rt-loop-capture-let-vs-var` 那一族量出来的同一条规矩）。
+把体塞进外层会得到两种错法：`a` **泄漏到命名空间外面**（**静默错值**），
+或者体内那个 `f` 读到一个**别的帧的槽号**（读出来是垃圾）。
 
-**对象怎么进去** ✗：**按形参** ✓——体那一帧的形参表就是 `[N]` ✓，
-调用时把刚造的那个对象当第 0 个实参递进去 ✓（与 TS 变换里 `(function (N) { … })(N)`
-那个形参**一字不差** ✓）。**不能靠捕获** ✗：`CapturedNames` 的定义是
-「**进了内层函数才算**」✓（`scope.xl.md` 的 `CollectInsideFunctions` ✓）——
-体里对 `N` 的**直接**引用不算捕获 ✗，于是那一格根本不会开 ✓
-（症状是 `name is not a local or a capture: N` ✓，听起来像名字写错了 ✗）。
+**对象怎么进去**：**按形参**——体那一帧的形参表就是 `[N]`，
+调用时把刚造的那个对象当第 0 个实参递进去（与 TS 变换里 `(function (N) { … })(N)`
+那个形参**一字不差**）。**不能靠捕获**：`CapturedNames` 的定义是
+「**进了内层函数才算**」（`scope.xl.md` 的 `CollectInsideFunctions`）——
+体里对 `N` 的**直接**引用不算捕获，于是那一格根本不会开
+（症状是 `name is not a local or a capture: N`，听起来像名字写错了）。
 
-**对象是「有就复用、没有就造」** ✓：`enum E { A = 1 } namespace E { export const label = "e" }`
-里两份声明落在**同一个名字**上 ✓（TS 自己的变换也是 `E || (E = {})` ✓）。
-复用判据是**最内那一层作用域**上有没有这个名字 ✓（第 292 轮 ✓）——
-**不是 `FindLocal`** ✗：那一趟会一路往外找 ✓，于是「函数里的 `namespace E`」
-会去改**模块外面**那个同名对象 ✓（**静默错值** ✓，而且改的是别人 ✓）。
+**对象是「有就复用、没有就造」**：`enum E { A = 1 } namespace E { export const label = "e" }`
+里两份声明落在**同一个名字**上（TS 自己的变换也是 `E || (E = {})`）。
+复用判据是**最内那一层作用域**上有没有这个名字（第 292 轮）——
+**不是 `FindLocal`**：那一趟会一路往外找，于是「函数里的 `namespace E`」
+会去改**模块外面**那个同名对象（**静默错值**，而且改的是别人）。
 
-**体在哪儿跑** ✓：**就在这一处** ✓（IIFE ✓，与 TS 的位置一字不差 ✓）——
-不是「排到后面某个时候」✗：`namespace` 的体里的 `export const doubled = add(…)`
-必须在**这一句之后**就看得见 ✓。
+**体在哪儿跑**：**就在这一处**（IIFE，与 TS 的位置一字不差）——
+不是「排到后面某个时候」：`namespace` 的体里的 `export const doubled = add(…)`
+必须在**这一句之后**就看得见。
 
 ```ts
 const nameNode = OptionalChild(node, "name");
@@ -2412,39 +2412,39 @@ if (nameNode === null || NodeKind(nameNode) !== "Identifier") {
   throw new Error("unimplemented: namespace declaration without a name");
 }
 const body = OptionalChild(node, "body");
-// **没有体就是环境声明** ✓（`declare namespace N;` 那一支上面已经拦过 ✓，
-// 而没有体的 `namespace N;` 在 TS 里同样是「外面已经有它」✓）——什么都不产生 ✓。
+// **没有体就是环境声明**（`declare namespace N;` 那一支上面已经拦过，
+// 而没有体的 `namespace N;` 在 TS 里同样是「外面已经有它」）——什么都不产生。
 if (body === null) return;
 if (NodeKind(body) !== "ModuleBlock") {
   throw new Error("unimplemented: a namespace body that is not a block");
 }
 const name = TextOf(nameNode);
-// **只有类型的体：什么都不产生** ✓（第 596 轮 ✓）。
+// **只有类型的体：什么都不产生**（第 596 轮）。
 //
 // `namespace Types { export interface A { x: number } export type B = string }` 之后
-// Node 那边 `typeof Types` 是 `"undefined"` ✓（**对象根本没造** ✓，整段一个字节都不生成 ✓），
-// 而本仓照造一个对象 ✗（判据 `c371-ex-namespace-type-only-body` ✓）。
-// 判据就是 TS 自己那条「体里有没有会生成的语句」✓：只有 `interface` / `type` 的体，
-// 以及**嵌套 namespace 同样只有类型**的那些 ✓，都不生成 ✓。
+// Node 那边 `typeof Types` 是 `"undefined"`（**对象根本没造**，整段一个字节都不生成），
+// 而本仓照造一个对象（判据 `c371-ex-namespace-type-only-body`）。
+// 判据就是 TS 自己那条「体里有没有会生成的语句」：只有 `interface` / `type` 的体，
+// 以及**嵌套 namespace 同样只有类型**的那些，都不生成。
 if (this.NamespaceIsTypeOnly(body)) {
   return;
 }
-// **① 那个对象** ✓
+// **① 那个对象**
 //
-// **「有就复用」要看两个地方** ✗（第 325 轮修的 ✓）：**本层的槽** ✓ 与
-// **本帧环境里的那一格** ✓（`CellOf` ✓）——判据是**同一个问题** ✓：
-// 「这个名字这一层已经绑过东西了吗」✓。
-// **原来只看槽** ✗（`this.Scope[last].Resolve` ✓），于是
-// `function make() {}` + `namespace make { … }` 走的是**另一条路** ✗：
-// 函数的**名字自己**在捕获分析里被算成「内层函数里的引用」✓
-// （`CollectInsideFunctions` 走进 `FunctionDeclaration` 时 `inside + 1` ✓，
-// 而 `name` 那一格正好在它**里面** ✓）⇒ `DeclareLocal` 把闭包写进了**环境格** ✓、
-// **没进槽** ✗ ⇒ `Resolve` 给 `-1` ✓ ⇒ 这一支**造了一个新对象** ✓、
-// `BindName` 又把它写进**同一格环境** ✓ ⇒ **函数被对象盖掉** ✓
-// ——症状是 `make(3)` 报 `cannot call a non-closure value` ✓
-//（听起来像「函数没定义」✗，其实是**名字还在、值被换了** ✓，**静默错值** ✓）。
-// **`enum` 与 `namespace` 合并一直是好的** ✓（枚举名不在函数节点里面 ✓，
-// 所以它没被误算成捕获 ✓，一直住在槽里 ✓）——差别只在**名字住哪儿** ✓。
+// **「有就复用」要看两个地方**（第 325 轮修的）：**本层的槽** 与
+// **本帧环境里的那一格**（`CellOf`）——判据是**同一个问题**：
+// 「这个名字这一层已经绑过东西了吗」。
+// **原来只看槽**（`this.Scope[last].Resolve`），于是
+// `function make() {}` + `namespace make { … }` 走的是**另一条路**：
+// 函数的**名字自己**在捕获分析里被算成「内层函数里的引用」
+// （`CollectInsideFunctions` 走进 `FunctionDeclaration` 时 `inside + 1`，
+// 而 `name` 那一格正好在它**里面**）⇒ `DeclareLocal` 把闭包写进了**环境格**、
+// **没进槽** ⇒ `Resolve` 给 `-1` ⇒ 这一支**造了一个新对象**、
+// `BindName` 又把它写进**同一格环境** ⇒ **函数被对象盖掉**
+// ——症状是 `make(3)` 报 `cannot call a non-closure value`
+//（听起来像「函数没定义」，其实是**名字还在、值被换了**，**静默错值**）。
+// **`enum` 与 `namespace` 合并一直是好的**（枚举名不在函数节点里面，
+// 所以它没被误算成捕获，一直住在槽里）——差别只在**名字住哪儿**。
 let existing = -1;
 if (this.Scope.length > 0) existing = this.Scope[this.Scope.length - 1].Resolve(name);
 const existingCell = existing < 0 ? this.CellOf(name) : -1;
@@ -2453,45 +2453,45 @@ if (existing >= 0) {
   object = this.Reserve(1);
   this.Emit(Op.Move, object, existing, -1, -1);
 } else if (existingCell >= 0) {
-  // **环境格按「本帧第 0 层」读** ✓——与 `DeclareLocal` 写它的那一句**对称** ✓
-  //（`EnvSet(slot, 0, cell)` ✓），两处口径不一样就是「写进去、读不出来」✓。
+  // **环境格按「本帧第 0 层」读**——与 `DeclareLocal` 写它的那一句**对称**
+  //（`EnvSet(slot, 0, cell)`），两处口径不一样就是「写进去、读不出来」。
   object = this.Reserve(1);
   this.Emit(Op.EnvGet, object, 0, existingCell, -1);
 } else {
   object = this.Reserve(1);
   this.EmitRt(RtOp.NewObject, object, object, 0);
-  // **绑定之后不退水位** ✓（与 `LowerEnum` 一字不差 ✓）：`BindName` 会在上面留一格
-  // 给变量 ✓，而 `Release` 是「从这一格往上全放掉」✗ ⇒ 退下去会让下一次分配盖住它 ✓
-  //（症状是「算术遇到了非数值」✓）。所以这一格**留着** ✓（一个模块里至多几个 ✓）。
+  // **绑定之后不退水位**（与 `LowerEnum` 一字不差）：`BindName` 会在上面留一格
+  // 给变量，而 `Release` 是「从这一格往上全放掉」 ⇒ 退下去会让下一次分配盖住它
+  //（症状是「算术遇到了非数值」）。所以这一格**留着**（一个模块里至多几个）。
   this.BindName(name, object, false);
 }
-// **② 体那一帧** ✓（形参就是那个对象 ✓）
+// **② 体那一帧**（形参就是那个对象）
 const item = new PendingFunction(name, body, [name], 0, [], [], [], []);
-// **这一帧不叫那个名字** ✓：那个名字要留给「按名字调函数」用 ✓，而 `N` 是一个**对象** ✗
-//（`console.log(N)` 在 Node 那边也不是 `[Function: N]` ✓）。
+// **这一帧不叫那个名字**：那个名字要留给「按名字调函数」用，而 `N` 是一个**对象**
+//（`console.log(N)` 在 Node 那边也不是 `[Function: N]`）。
 item.Name = "";
 item.Arity = 1;
 item.IsNamespace = true;
 const closure = this.EmitClosure(item);
-// **③ 立刻调一次** ✓（体跑在**这一处** ✓）
+// **③ 立刻调一次**（体跑在**这一处**）
 const callBase = this.Reserve(1);
 this.Emit(Op.Move, callBase, object, -1, -1);
 this.Emit(Op.Call, closure, callBase, 1, -1);
-// **调用结果没人要** ✓（体那一帧的返回值是 `undefined` ✓）——所以退到**闭包格**就够 ✓：
-// 它把结果格与闭包格一起交出去 ✓，而**对象格与变量格在下面** ✓（不被碰到 ✓）。
+// **调用结果没人要**（体那一帧的返回值是 `undefined`）——所以退到**闭包格**就够：
+// 它把结果格与闭包格一起交出去，而**对象格与变量格在下面**（不被碰到）。
 this.Release(closure);
-// **复用那一档可以把对象格也放掉** ✓（它是这一处自己 `Reserve` 的临时格 ✓）；
-// **新造那一档不行** ✗（它下面还压着 `BindName` 留的变量格 ✓，见上面那一段 ✓）。
+// **复用那一档可以把对象格也放掉**（它是这一处自己 `Reserve` 的临时格）；
+// **新造那一档不行**（它下面还压着 `BindName` 留的变量格，见上面那一段）。
 if (existing >= 0 || existingCell >= 0) this.Release(object);
 ```
 
 ## method NamespaceIsTypeOnly:(body:AstNode)=>bool
 
-**这个 `namespace` 体一个运行期语句都没有吗** ✓（第 596 轮 ✓，见 `LowerNamespace` 里的说明 ✓）。
+**这个 `namespace` 体一个运行期语句都没有吗**（第 596 轮，见 `LowerNamespace` 里的说明）。
 
-只有 `interface` / `type` 的体不生成任何东西 ✓；**嵌套 namespace 要递归** ✓
-（`namespace A { namespace B { export interface X {} } }` 同样是空的 ✓）。
-其余（变量 / 函数 / 类 / 枚举 / 表达式 / `export {}` …）一律算运行期 ✓。
+只有 `interface` / `type` 的体不生成任何东西；**嵌套 namespace 要递归**
+（`namespace A { namespace B { export interface X {} } }` 同样是空的）。
+其余（变量 / 函数 / 类 / 枚举 / 表达式 / `export {}` …）一律算运行期。
 
 ```ts
 const statements = ListOf(body, "statements");
@@ -2514,17 +2514,17 @@ return true;
 
 ## method LowerNamespaceBody:(body:AstNode, namespaceName:string)=>void
 
-**降级 `namespace` 的体**（第 292 轮 ✓）——与 `LowerStatementsOf` **只差一件事** ✗：
-带 `export` 的声明降完**还要挂到那个对象上** ✓。
+**降级 `namespace` 的体**（第 292 轮）——与 `LowerStatementsOf` **只差一件事**：
+带 `export` 的声明降完**还要挂到那个对象上**。
 
-**为什么挂在这里、不挂进 `LowerStatement`** ✗：那一处是**所有语句**的分派 ✓——
-把命名空间的事塞进去，每一次 `LowerStatement` 都要先问一句「我在不在命名空间里」✓，
-而**这个问题的答案在整棵树里只有一处是真的** ✓（体那一帧 ✓）。
-收在这里就没有这个问题 ✓：**进这一帧就挂** ✓、**出去就不挂** ✓。
+**为什么挂在这里、不挂进 `LowerStatement`**：那一处是**所有语句**的分派——
+把命名空间的事塞进去，每一次 `LowerStatement` 都要先问一句「我在不在命名空间里」，
+而**这个问题的答案在整棵树里只有一处是真的**（体那一帧）。
+收在这里就没有这个问题：**进这一帧就挂**、**出去就不挂**。
 
-**挂哪些名字**（`export` 只管「挂不挂」✓，声明本身的语义一个字都不变 ✓）——
-类型位那两档（`export type` / `export interface`）**一个名字都不挂** ✓
-（它们不产生运行期东西 ✓，体里 `LowerStatement` 本来就整条跳过 ✓）。
+**挂哪些名字**（`export` 只管「挂不挂」，声明本身的语义一个字都不变）——
+类型位那两档（`export type` / `export interface`）**一个名字都不挂**
+（它们不产生运行期东西，体里 `LowerStatement` 本来就整条跳过）。
 
 ```ts
 const statements = ListOf(body, "statements");
@@ -2537,20 +2537,20 @@ for (let i = 0; i < statements.length; i++) {
 
 ## method BindNamespaceExports:(namespaceName:string, statement:AstNode)=>void
 
-**把一条带 `export` 的声明挂到命名空间对象上**（第 292 轮 ✓）。
+**把一条带 `export` 的声明挂到命名空间对象上**（第 292 轮）。
 
-**名字从哪来** ✓：三种声明的名字都在 `name` 那一格上 ✓
-（`FunctionDeclaration` / `ClassDeclaration` / `EnumDeclaration` / `ModuleDeclaration` ✓）——
-而**变量声明是一格 `declarationList`** ✓，里面的**模式**要用 `CollectPatternNames` 递归收 ✓
-（`export const { a, b } = o` 是合法的 ✓，只认标识符会**少挂两格** ✓——**静默错值** ✓）。
+**名字从哪来**：三种声明的名字都在 `name` 那一格上
+（`FunctionDeclaration` / `ClassDeclaration` / `EnumDeclaration` / `ModuleDeclaration`）——
+而**变量声明是一格 `declarationList`**，里面的**模式**要用 `CollectPatternNames` 递归收
+（`export const { a, b } = o` 是合法的，只认标识符会**少挂两格**——**静默错值**）。
 
-**只认这四种 `kind`** ✓（与 `CollectDeclaredNames` 那张名单**同一条纪律** ✓）：
-`export type` / `export interface` **带 `name` 却不产生运行期东西** ✓——
-按字段约定收进来会在那个对象上挂出一个**空槽** ✓（**静默错值** ✓），
-而「类型名当值用」本该**响亮地报错** ✓。
+**只认这四种 `kind`**（与 `CollectDeclaredNames` 那张名单**同一条纪律**）：
+`export type` / `export interface` **带 `name` 却不产生运行期东西**——
+按字段约定收进来会在那个对象上挂出一个**空槽**（**静默错值**），
+而「类型名当值用」本该**响亮地报错**。
 
-**读那个值走 `ResolveAccess`** ✓：体内的名字可能是**本帧的局部** ✓（大多数 ✓），
-也可能是**被捕获的环境格** ✓（体内还有内层函数引用它时 ✓）——两条路各只有一处 ✓。
+**读那个值走 `ResolveAccess`**：体内的名字可能是**本帧的局部**（大多数），
+也可能是**被捕获的环境格**（体内还有内层函数引用它时）——两条路各只有一处。
 
 ```ts
 if (!this.HasModifier(statement, "ExportKeyword")) return;
@@ -2572,14 +2572,14 @@ if (kind === "VariableStatement") {
 } else {
   return;
 }
-// **对象那一格也要按「可能是捕获」读** ✓（第 363 轮 ✓，**实测撞到的** ✓）：
-// `enum E { A = 1 } namespace E { export function f() { return E.A; } }` 里 `E` **被内层函数引用** ✓
-// ⇒ 按 `DeclareLocal` 的规矩它进了**环境格** ✗ ⇒ 而这里原来用 `ResolveLocal` ✓，
-// 那个方法**只认槽** ✗ ⇒ 抛 `name is not a local (captures need env records): E` ✓
-//（**一句话里没有一个字提到「命名空间的对象住在环境里」** ✗；判据 `c331-ex-enum-and-namespace-merge` ✓
-//  的三种形态里只有**这一种**炸 ✓——直接引用 `E.A` 的、和没有内层函数的都不炸 ✓）。
-// 改成与下面读导出名**同一套**（`ResolveAccess` + `EnvGet`/`Move` ✓）——
-// **两条路共用一份判据** ✓，而不是「一个只认槽、一个两样都认」✗。
+// **对象那一格也要按「可能是捕获」读**（第 363 轮，**实测撞到的**）：
+// `enum E { A = 1 } namespace E { export function f() { return E.A; } }` 里 `E` **被内层函数引用**
+// ⇒ 按 `DeclareLocal` 的规矩它进了**环境格** ⇒ 而这里原来用 `ResolveLocal`，
+// 那个方法**只认槽** ⇒ 抛 `name is not a local (captures need env records): E`
+//（**一句话里没有一个字提到「命名空间的对象住在环境里」**；判据 `c331-ex-enum-and-namespace-merge`
+//  的三种形态里只有**这一种**炸——直接引用 `E.A` 的、和没有内层函数的都不炸）。
+// 改成与下面读导出名**同一套**（`ResolveAccess` + `EnvGet`/`Move`）——
+// **两条路共用一份判据**，而不是「一个只认槽、一个两样都认」。
 const objectAccess = this.ResolveAccess(namespaceName);
 const object = this.Reserve(1);
 if (objectAccess.InEnv) {
@@ -2617,13 +2617,13 @@ for (let i = 0; i < statements.length; i++) {
 
 **该发派生类的字段初始化了吗**（第 128 轮）——已经是「只发一次」的。
 
-**判定两条**：这一层就是那个构造函数的体（`DeferredItem` 挂着它 ✓）、**还没发过** ✓。
-非派生类在 `LowerFunctionBody` 里早就发完了（`FieldInitRan` 已置真 ✓），走不到这里 ✓。
+**判定两条**：这一层就是那个构造函数的体（`DeferredItem` 挂着它）、**还没发过**。
+非派生类在 `LowerFunctionBody` 里早就发完了（`FieldInitRan` 已置真），走不到这里。
 
-**它不是主路**：真正的触发点在 `LowerStatement` 的 `super(...)` 那一支（见那里）✓——
-`super` **可能嵌在别的语句里**（`const d = id * 2; super(d);` 的第二句还是一条表达式语句 ✓，
-但 `const p = super0()` 那种形状迟早会有），所以在**调用点**接住比在语句循环里猜准得多 ✓。
-留这一层是**兜底**：万一将来有哪条路把 `super` 降级在别处，字段初始化也不会静默丢掉 ✓。
+**它不是主路**：真正的触发点在 `LowerStatement` 的 `super(...)` 那一支（见那里）——
+`super` **可能嵌在别的语句里**（`const d = id * 2; super(d);` 的第二句还是一条表达式语句，
+但 `const p = super0()` 那种形状迟早会有），所以在**调用点**接住比在语句循环里猜准得多。
+留这一层是**兜底**：万一将来有哪条路把 `super` 降级在别处，字段初始化也不会静默丢掉。
 
 ```ts
 const item = this.DeferredItem;
@@ -2637,9 +2637,9 @@ item.FieldInitRan = true;
 
 **把一批实例字段的初始化式发出来**（第 128 轮）：逐条写 `this.<名字> = <初始化式>`。
 
-**为什么是 `set_prop` 而不是「新建一格属性」**：JS 的类字段走 `[[DefineOwnProperty]]` ✓，
-而这一层的对象模型只有「赋值」这条路 ✓——两者的差别落在**原型上有同名 setter** 时
-（JS 不调它、赋值会调 ✓）。这是**写在明处的已知差异** ✓，记在 `typescript-exec/README.md`。
+**为什么是 `set_prop` 而不是「新建一格属性」**：JS 的类字段走 `[[DefineOwnProperty]]`，
+而这一层的对象模型只有「赋值」这条路——两者的差别落在**原型上有同名 setter** 时
+（JS 不调它、赋值会调）。这是**写在明处的已知差异**，记在 `typescript-exec/README.md`。
 
 ```ts
 for (let i = 0; i < item.FieldDefaults.length; i++) {
@@ -2651,26 +2651,26 @@ for (let i = 0; i < item.FieldDefaults.length; i++) {
 
 **一条字段初始化式**（第 128 轮）：`<target>.<名字> = <初始化式>`。
 
-**实例字段与静态字段共用它** ✓——区别只是 `target` 是谁：**静态字段给构造函数那一格** ✓，
-**实例字段给 `-1`**（那时目标**就地**发一条 `load_this` ✓，见下面那条实测教训）✓。
-**没有初始化式的字段也要写一次 `undefined`** ✓：JS 里 `class C { x }` 之后
-`"x" in new C()` 是**真** ✓——不写的话属性根本不存在，而那是一个**能被脚本看见**的差别 ✓。
+**实例字段与静态字段共用它**——区别只是 `target` 是谁：**静态字段给构造函数那一格**，
+**实例字段给 `-1`**（那时目标**就地**发一条 `load_this`，见下面那条实测教训）。
+**没有初始化式的字段也要写一次 `undefined`**：JS 里 `class C { x }` 之后
+`"x" in new C()` 是**真**——不写的话属性根本不存在，而那是一个**能被脚本看见**的差别。
 
-**算键今天认四种** ✓：标识符 / 字符串 / 数字 / 私有名 ✓，**外加计算名那一档** ✓
-（第 323 轮 ✓）——计算键要「先算键、再算值、最后赋值」✓，做法与**类方法**那一处
-（`SetPropertyValue` ✓）以及**对象字面量**那一处**一字不差** ✓；
-原来这一格**响亮地抛** ✗（`unimplemented: computed class field name` ✓），
-于是 `class Box { [KEY] = 1 }` 让**整个类**进不来 ✗——而**计算方法名**第 229 轮就通了 ✓，
-**同一个形状两处各写一遍就是两处会漂** ✗（这次漂的正是字段那一半 ✓）。
+**算键今天认四种**：标识符 / 字符串 / 数字 / 私有名，**外加计算名那一档**
+（第 323 轮）——计算键要「先算键、再算值、最后赋值」，做法与**类方法**那一处
+（`SetPropertyValue`）以及**对象字面量**那一处**一字不差**；
+原来这一格**响亮地抛**（`unimplemented: computed class field name`），
+于是 `class Box { [KEY] = 1 }` 让**整个类**进不来——而**计算方法名**第 229 轮就通了，
+**同一个形状两处各写一遍就是两处会漂**（这次漂的正是字段那一半）。
 
-**为什么 `this` 要就地发、不能先占一格**（第 128 轮实测抓到的）：先占的那一格会**压在参数槽上** ✗。
+**为什么 `this` 要就地发、不能先占一格**（第 128 轮实测抓到的）：先占的那一格会**压在参数槽上**。
 现场是 `constructor(id: number) { … this.id = id }` 加一条 `extra = this.id * 10`：
 `EmitFieldDefaults` 先占了第 1 格当 `this`（参数只占第 0 格、水位是 1），
-紧接着构造函数体把**参数 1 号**（`id`）绑到同一格 ✗——于是体里读到的 `id` 是**接收者对象** ✗，
+紧接着构造函数体把**参数 1 号**（`id`）绑到同一格——于是体里读到的 `id` 是**接收者对象**，
 `this.id = id` 把对象写进了 `id` 字段，最后在 `this.id * 10` 上报
-`arithmetic on a non-numeric operand` ✓（离现场两步远）。
-**就地发就没有这一格** ✓：窗口是现占的，参数与变量全在它下面 ✓——
-**计算名那一支照同一条规矩** ✓（先算键与值 ✓，`load_this` 落在**窗口那一格**里 ✓）。
+`arithmetic on a non-numeric operand`（离现场两步远）。
+**就地发就没有这一格**：窗口是现占的，参数与变量全在它下面——
+**计算名那一支照同一条规矩**（先算键与值，`load_this` 落在**窗口那一格**里）。
 
 ```ts
 if (this.HasModifier(field, "DeclareKeyword")) return;
@@ -2679,21 +2679,21 @@ if (nameNode === null) {
   throw new Error("unimplemented: class field without a name");
 }
 const nameKind = NodeKind(nameNode);
-// **私有字段名也是字段名**（第 195 轮 ✓）：`#n = 1` 的 kind 是 `PrivateIdentifier` ✓——
-// 与私有**方法**（同轮补 ✓）以及三个方法的取值路（`KeyUnitsOf` ✓）**同一个键** ✓。
-// 原来这里只认三种 ✗，于是带私有字段的类也进不来 ✗（实测报的就是这一句 ✓）。
+// **私有字段名也是字段名**（第 195 轮）：`#n = 1` 的 kind 是 `PrivateIdentifier`——
+// 与私有**方法**（同轮补）以及三个方法的取值路（`KeyUnitsOf`）**同一个键**。
+// 原来这里只认三种，于是带私有字段的类也进不来（实测报的就是这一句）。
 if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral"
     && nameKind !== "PrivateIdentifier" && nameKind !== "ComputedPropertyName") {
   throw new Error("unimplemented: computed class field name");
 }
 const initializer = OptionalChild(field, "initializer");
-// **计算名那一档** ✓（第 323 轮 ✓）：键是**一个值** ✓，所以它走 `set_index` 那条
-// （`SetPropertyValue` ✓——`ToPropertyKey` 那条规矩在引擎里只有一处 ✓）。
-// **次序与 JS 一致** ✓：键在前、值在后 ✓（`class C { [f()] = g() }` 先 `f()` ✓）——
-// 与第 284 轮给对象字面量订正的那一条**是同一条** ✓。
-// **`Release(key)` 不能发** ✗：`LowerExpression` 对**名字**返回的是**变量自己那一格** ✓
-//（在窗口**下面** ✓）⇒ 退到那里会把活格一起交出去 ✓（`Release` 那一条写着为什么 ✓）——
-// 而键与值都是**这一轮用完就死**的 ✓，不退只是多占几格 ✓（与上面 `fieldValue` 同一条口径 ✓）。
+// **计算名那一档**（第 323 轮）：键是**一个值**，所以它走 `set_index` 那条
+// （`SetPropertyValue`——`ToPropertyKey` 那条规矩在引擎里只有一处）。
+// **次序与 JS 一致**：键在前、值在后（`class C { [f()] = g() }` 先 `f()`）——
+// 与第 284 轮给对象字面量订正的那一条**是同一条**。
+// **`Release(key)` 不能发**：`LowerExpression` 对**名字**返回的是**变量自己那一格**
+//（在窗口**下面**）⇒ 退到那里会把活格一起交出去（`Release` 那一条写着为什么）——
+// 而键与值都是**这一轮用完就死**的，不退只是多占几格（与上面 `fieldValue` 同一条口径）。
 if (nameKind === "ComputedPropertyName") {
   const computedKey = this.LowerExpression(Child(nameNode, "expression"));
   const computedValue = this.FieldInitialValue(initializer,
@@ -2710,21 +2710,21 @@ if (nameKind === "ComputedPropertyName") {
   this.SetPropertyValue(target, computedKey, computedValue);
   return;
 }
-// **私有字段要藏起来** ✓（第 210 轮 ✓）：JS 里 `#n` **不是一个属性** ✓——
-// `Object.keys(new C())` 看不见它 ✓、`JSON.stringify` 也看不见 ✓。
-// 本仓把私有字段存在**属性表**里 ✓（`props.xl.md` 的模型 ✓，值本身找得到 ✓），
-// 但那一格必须是**不可枚举**的 ✓，否则 `Object.keys` 会把它数出来 ✓（**静默错值** ✗，
-// 判据 `cls-private` 现场红的 ✓）。
-// **判定放在降级层是对的** ✓：`#` 是**这门语言的语法** ✓——引擎不该认识它 ✗
-//（认识它就要在 `heap` / `props` 里散布「以 `#` 开头的键特殊」这种规矩 ✗）。
+// **私有字段要藏起来**（第 210 轮）：JS 里 `#n` **不是一个属性**——
+// `Object.keys(new C())` 看不见它、`JSON.stringify` 也看不见。
+// 本仓把私有字段存在**属性表**里（`props.xl.md` 的模型，值本身找得到），
+// 但那一格必须是**不可枚举**的，否则 `Object.keys` 会把它数出来（**静默错值**，
+// 判据 `cls-private` 现场红的）。
+// **判定放在降级层是对的**：`#` 是**这门语言的语法**——引擎不该认识它
+//（认识它就要在 `heap` / `props` 里散布「以 `#` 开头的键特殊」这种规矩）。
 const isPrivateField = nameKind === "PrivateIdentifier";
 const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(nameNode)));
-// **值先算出来** ✓（两种落点、两种挂法共用 ✓）：没有初始化式就写 `undefined` ✓——
-// JS 里 `class C { x }` 之后 `"x" in new C()` 是**真** ✓，不写的话属性根本不存在 ✓
-//（那是**能被脚本看见**的差别 ✓）。
+// **值先算出来**（两种落点、两种挂法共用）：没有初始化式就写 `undefined`——
+// JS 里 `class C { x }` 之后 `"x" in new C()` 是**真**，不写的话属性根本不存在
+//（那是**能被脚本看见**的差别）。
 const fieldValue = this.FieldInitialValue(initializer, UnitsText(this.KeyUnitsOf(nameNode)));
-// **私有字段落成 `set_hidden`** ✓（第 210 轮 ✓）：`set_hidden(接收者, 键, 值)` ——
-// 接收者是 `this`（实例字段 ✓）或构造函数那一格（静态字段 ✓），与下面那两条 SetProp 同源 ✓。
+// **私有字段落成 `set_hidden`**（第 210 轮）：`set_hidden(接收者, 键, 值)` ——
+// 接收者是 `this`（实例字段）或构造函数那一格（静态字段），与下面那两条 SetProp 同源。
 if (isPrivateField) {
   const hiddenSelf = this.Reserve(1);
   if (target < 0) {
@@ -2750,19 +2750,19 @@ this.SetPropertyConst(target, key, fieldValue);
 
 ## method FieldInitialValue:(initializer:AstNode | null, nameHint:string)=>int
 
-**一条字段初始化式的值占哪一格** ✓（第 323 轮抽出来 ✓）——**没有初始化式就给 `undefined`** ✓。
+**一条字段初始化式的值占哪一格**（第 323 轮抽出来）——**没有初始化式就给 `undefined`**。
 
-**为什么值得单独一个方法** ✗：这个「没有式子也算一个值」的小规矩原来写在
-`EmitFieldInit` 里 ✓，而计算名那一支是**第二个用户** ✓——两支各写一遍的话，
-将来改一处（比如换成建属性而不是赋值 ✓）就只改到一半 ✓
-（`nodeProps` 那条教训：同一个形状写两遍，漂的那一遍隔一百轮才被量到 ✓）。
+**为什么值得单独一个方法**：这个「没有式子也算一个值」的小规矩原来写在
+`EmitFieldInit` 里，而计算名那一支是**第二个用户**——两支各写一遍的话，
+将来改一处（比如换成建属性而不是赋值）就只改到一半
+（`nodeProps` 那条教训：同一个形状写两遍，漂的那一遍隔一百轮才被量到）。
 
-**`nameHint` 是第 330 轮加的第二个参数** ✓（JS 的 NamedEvaluation ✓）：
-`class K { f = () => 1 }` 里那个箭头叫 **`"f"`** ✓（`new K().f.name` ✓）、
-私有字段那一档叫 **`"#n"`** ✓——而本仓给**空串** ✗（**静默错值** ✓）。
-**名字由调用方给** ✗（它才知道这个字段叫什么 ✓），这一层只负责
-「**值在不在命名位置上**」这一句判据 ✓——与变量那一处**共用**
-`NamesFunctionValue` ✓（第 291 轮 ✓：`f = cond ? () => 1 : () => 2` 两个箭头**都是匿名的** ✓）。
+**`nameHint` 是第 330 轮加的第二个参数**（JS 的 NamedEvaluation）：
+`class K { f = () => 1 }` 里那个箭头叫 **`"f"`**（`new K().f.name`）、
+私有字段那一档叫 **`"#n"`**——而本仓给**空串**（**静默错值**）。
+**名字由调用方给**（它才知道这个字段叫什么），这一层只负责
+「**值在不在命名位置上**」这一句判据——与变量那一处**共用**
+`NamesFunctionValue`（第 291 轮：`f = cond ? () => 1 : () => 2` 两个箭头**都是匿名的**）。
 
 ```ts
 if (initializer === null) {
@@ -2779,17 +2779,17 @@ return value;
 
 ## method EmitHiddenSet:(target:int, key:int, value:int, flags:int = -1)=>void
 
-**一条 `set_hidden(对象, 键, 值)` 内部调用** ✓（第 210 轮 ✓）——窗口形状与
-`ConcatValues` / `PowValues` **同一个** ✓（`[号, 参数…]` + 一条 `host_call` ✓）。
+**一条 `set_hidden(对象, 键, 值)` 内部调用**（第 210 轮）——窗口形状与
+`ConcatValues` / `PowValues` **同一个**（`[号, 参数…]` + 一条 `host_call`）。
 
-**窗口自己占、自己退** ✓（与那两条一样 ✓），差别是**结果不看** ✓：
-`set_hidden` 给的是 `undefined` ✓，调用方要的是「写完」这件事本身 ✓。
+**窗口自己占、自己退**（与那两条一样），差别是**结果不看**：
+`set_hidden` 给的是 `undefined`，调用方要的是「写完」这件事本身。
 
-**`flags` 是第 605 轮加的一格** ✓（缺省 `-1` = 不给这一格 ✓）：给了就在窗口尾巴多占一格 ✓
-（`[号, 目标, 键, 值, 标志位]` ✓，长度也报 5 ✓——那个长度就是宿主收到的实参个数 ✓）。
-**为什么不新开一个能力号** ✗：这一段发出去的号都得住进能力表 ✓，
-而表在判据那一侧本来就紧 ✓（`install.xl.md` 的 `BuiltinSlots` 上面那段写着账 ✓）——
-同一件事多传一格实参，比多占一个号便宜得多 ✓。
+**`flags` 是第 605 轮加的一格**（缺省 `-1` = 不给这一格）：给了就在窗口尾巴多占一格
+（`[号, 目标, 键, 值, 标志位]`，长度也报 5——那个长度就是宿主收到的实参个数）。
+**为什么不新开一个能力号**：这一段发出去的号都得住进能力表，
+而表在判据那一侧本来就紧（`install.xl.md` 的 `BuiltinSlots` 上面那段写着账）——
+同一件事多传一格实参，比多占一个号便宜得多。
 
 ```ts
 const count = flags < 0 ? 4 : 5;
@@ -2807,13 +2807,13 @@ this.Release(window);
 
 ## method EmitHiddenSetValue:(target:int, keySlot:int, valueSlot:int)=>void
 
-**一条 `set_hidden(对象, 键, 值)` 内部调用、键来自槽** ✓（第 340 轮 ✓）——
-与 `EmitHiddenSet` **同一个形状** ✓，差别只有**键从哪来** ✓：那一支要的是**常量池下标** ✓
-（键在降级期就是字面量 ✓），这一支要的是**运行期算出来的值** ✓
-（类成员那个**计算键** ✓，例如 `[Symbol.iterator]` ✓）。
+**一条 `set_hidden(对象, 键, 值)` 内部调用、键来自槽**（第 340 轮）——
+与 `EmitHiddenSet` **同一个形状**，差别只有**键从哪来**：那一支要的是**常量池下标**
+（键在降级期就是字面量），这一支要的是**运行期算出来的值**
+（类成员那个**计算键**，例如 `[Symbol.iterator]`）。
 
-**为什么必须单开一条** ✗：常量的号与槽的号**不是一回事** ✗——把槽号塞进
-`Op.Const` 就是**读错一格** ✓（而 `set_hidden` 那一侧收的是**值** ✓，两处对不上就是静默取错键 ✓）。
+**为什么必须单开一条**：常量的号与槽的号**不是一回事**——把槽号塞进
+`Op.Const` 就是**读错一格**（而 `set_hidden` 那一侧收的是**值**，两处对不上就是静默取错键）。
 
 ```ts
 const window = this.Reserve(4);
@@ -2841,26 +2841,26 @@ if (kind === "ExportAssignment") {
 }
 // ---- 类型位的声明：**一个运行期指令都不产生**（第 148 轮）----
 //
-// 第 147 轮量出来的**那一档最大的拦路虎** ✓：`type X = …` 报
-// `unimplemented: expression TypeAliasDeclaration` ✓、`interface I { … }` 报
-// `unimplemented: statement InterfaceDeclaration` ✓——**不是在运行期失败，
-// 而是整份文件根本降级不出来** ✗。而这两样在真实的 `.ts` 里几乎无处不在 ✓
-//（本仓自己 `dist/ts/**` 的每一份产物都带 `interface` ✓）。
+// 第 147 轮量出来的**那一档最大的拦路虎**：`type X = …` 报
+// `unimplemented: expression TypeAliasDeclaration`、`interface I { … }` 报
+// `unimplemented: statement InterfaceDeclaration`——**不是在运行期失败，
+// 而是整份文件根本降级不出来**。而这两样在真实的 `.ts` 里几乎无处不在
+//（本仓自己 `dist/ts/**` 的每一份产物都带 `interface`）。
 //
-// **做法就是「什么都不做」** ✓：文末那条口径是「**类型位一律擦除**」✓——
-// 类型别名与接口**不产生任何运行期东西** ✓（JS 里也没有它们 ✓）：
-// 它们只描述形状 ✓，而本仓不做类型检查 ✓。所以整条跳过 ✓，不查名字、不查成员 ✓——
-// **查了反而错** ✗：接口成员的类型文本里可以有这一层不认识的东西 ✓，
-// 而它们**本来就不该影响运行** ✓。
+// **做法就是「什么都不做」**：文末那条口径是「**类型位一律擦除**」——
+// 类型别名与接口**不产生任何运行期东西**（JS 里也没有它们）：
+// 它们只描述形状，而本仓不做类型检查。所以整条跳过，不查名字、不查成员——
+// **查了反而错**：接口成员的类型文本里可以有这一层不认识的东西，
+// 而它们**本来就不该影响运行**。
 if (kind === "TypeAliasDeclaration") return;
 if (kind === "InterfaceDeclaration") return;
 // **`declare` 那一族**（`declare function` / `declare const` / `declare class` /
-// `declare module "x" {}` / `declare global {}` ✓）：环境声明说的是「外面已经有这个东西」✓，
-// 运行期**什么也不是** ✗——所以整条跳过 ✓。
+// `declare module "x" {}` / `declare global {}`）：环境声明说的是「外面已经有这个东西」，
+// 运行期**什么也不是**——所以整条跳过。
 //
-// **它不是「值位的声明」** ✗：`declare const x: number;` 之后**运行时没有 `x`** ✓，
-// 用到它的地方照旧报 `name is not a local or a capture` ✓——响亮 ✓，
-// 而且与「那份文件真跑起来会 ReferenceError」是同一件事 ✓（不静默给个 `undefined` ✗）。
+// **它不是「值位的声明」**：`declare const x: number;` 之后**运行时没有 `x`**，
+// 用到它的地方照旧报 `name is not a local or a capture`——响亮，
+// 而且与「那份文件真跑起来会 ReferenceError」是同一件事（不静默给个 `undefined`）。
 if (this.HasModifier(node, "DeclareKeyword")) return;
 if (kind === "VariableStatement") {
   this.LowerDeclarationList(Child(node, "declarationList"));
@@ -2872,26 +2872,26 @@ if (kind === "ExpressionStatement") {
 }
 if (kind === "ReturnStatement") {
   const expression = OptionalChild(node, "expression");
-  // **带 `finally` 的 `try` 里 `return` 要先跑那些 `finally`** ✓（第 201 轮 ✓）。
-  // 修之前这一格是**降级期就抛** ✗（「`return` 会跳过 `finally`」✓）——
-  // 那一抛本身是对的 ✓（静默跳过 `finally` 是**静默错值** ✗），但 `try { … } finally { … }`
-  // 加 `return` 是**普通 `.ts` 里最常见的一条** ✓，所以这一轮把那段改写补上了 ✓。
+  // **带 `finally` 的 `try` 里 `return` 要先跑那些 `finally`**（第 201 轮）。
+  // 修之前这一格是**降级期就抛**（「`return` 会跳过 `finally`」）——
+  // 那一抛本身是对的（静默跳过 `finally` 是**静默错值**），但 `try { … } finally { … }`
+  // 加 `return` 是**普通 `.ts` 里最常见的一条**，所以这一轮把那段改写补上了。
   //
-  // **第 337 轮：`return` 出 `for..of` 也要 IteratorClose** ✓（上一轮加宽语料时量到的 ✓，
-  // 见 `expectations.mjs` 里 `c336-rt-iterator-close-forms` 那一行 ✓）：
+  // **第 337 轮：`return` 出 `for..of` 也要 IteratorClose**（上一轮加宽语料时量到的，
+  // 见 `expectations.mjs` 里 `c336-rt-iterator-close-forms` 那一行）：
   // `for (const v of gen()) { if (v === 2) return v }` 里生成器那句 `finally`
-  // **还是要跑** ✓（JS 的 IteratorClose ✓）——上一轮只接了 `break` 那一档 ✗
-  //（`break` 走 `LoopContext.Breaks` ✓，而 `return` 走的是**这一支** ✓）。
+  // **还是要跑**（JS 的 IteratorClose）——上一轮只接了 `break` 那一档
+  //（`break` 走 `LoopContext.Breaks`，而 `return` 走的是**这一支**）。
   //
-  // **次序写在明处** ✗：这里**先 close、后 `finally`** ✓。JS 的规矩是「**按进入的次序倒着退**」✓，
-  // 所以两者**嵌套交错的形状**（`for { try { return } finally {} }` ✓）次序应当相反 ✗——
-  // 本仓**没有**把这两摞按进入次序合并 ✗（那要给两边都编上序号 ✓），
-  // 而**没有判据量着那一种** ✓：判据里 `return` 出循环都是「循环在外、没有 `finally`」✓、
-  // 或者「`finally` 在内、没有循环」✓。**记在这里** ✓（下一轮要合并时从这里改 ✓）。
+  // **次序写在明处**：这里**先 close、后 `finally`**。JS 的规矩是「**按进入的次序倒着退**」，
+  // 所以两者**嵌套交错的形状**（`for { try { return } finally {} }`）次序应当相反——
+  // 本仓**没有**把这两摞按进入次序合并（那要给两边都编上序号），
+  // 而**没有判据量着那一种**：判据里 `return` 出循环都是「循环在外、没有 `finally`」、
+  // 或者「`finally` 在内、没有循环」。**记在这里**（下一轮要合并时从这里改）。
   if (this.FinallyBlocks.length > 0 || this.HasPendingIteratorCloses()) {
-    // **返回值先落到一格** ✓：跑 `finally` 会用到临时格 ✗，而它是**往上分配**的 ✓
-    //（`Reserve` ✓），所以这一格不会被盖掉 ✓——`finally` 里那些 `Release` 退到的是
-    // **它自己那一段的基址** ✓，在返回值这一格**之上** ✓。
+    // **返回值先落到一格**：跑 `finally` 会用到临时格，而它是**往上分配**的
+    //（`Reserve`），所以这一格不会被盖掉——`finally` 里那些 `Release` 退到的是
+    // **它自己那一段的基址**，在返回值这一格**之上**。
     let value = -1;
     if (expression !== null) value = this.LowerExpression(expression);
     this.EmitPendingIteratorCloses();
@@ -2925,45 +2925,45 @@ if (kind === "DoStatement") {
   return;
 }
 if (kind === "LabeledStatement") {
-  // **带标签的语句**（第 234 轮补上了**体不是循环**那一支 ✓）。
+  // **带标签的语句**（第 234 轮补上了**体不是循环**那一支）。
   //
-  // 两支分开 ✗，因为它们的落法**完全不同**：
+  // 两支分开，因为它们的落法**完全不同**：
   //
-  // ① **体是一个循环**（`outer: for (…) { … }` ✓）：标签写进「待用字段」✓，
-  //   由**紧跟着的那个循环**（`EnterLoop` ✓）吃进去 ✓——
-  //   `break outer` / `continue outer` 就是靠它找到那一层 ✓。
-  //   这就是原来那条路 ✓（`PendingLabel` ✓）。
+  // ① **体是一个循环**（`outer: for (…) { … }`）：标签写进「待用字段」，
+  //   由**紧跟着的那个循环**（`EnterLoop`）吃进去——
+  //   `break outer` / `continue outer` 就是靠它找到那一层。
+  //   这就是原来那条路（`PendingLabel`）。
   //
-  // ② **体不是循环**（`outer: { … }` ✓，第 234 轮 ✓）：**没有任何东西会来消费这个标签** ✗
-  //   （`EnterLoop` 只有循环调 ✓），于是原来那句「无论体是什么都要清」✓
-  //   把标签**当场扔掉** ✗——`break outer` 随后报
-  //   `unknown label \`outer\` (the parser should have rejected this)` ✓
-  //   （那句话把责任推给语法层 ✗，而**它是合法的 JS** ✓：判据 `ex-labeled-block` ✓）。
+  // ② **体不是循环**（`outer: { … }`，第 234 轮）：**没有任何东西会来消费这个标签**
+  //   （`EnterLoop` 只有循环调），于是原来那句「无论体是什么都要清」
+  //   把标签**当场扔掉**——`break outer` 随后报
+  //   `unknown label \`outer\` (the parser should have rejected this)`
+  //   （那句话把责任推给语法层，而**它是合法的 JS**：判据 `ex-labeled-block`）。
   //
-  // **②怎么落** ✓：**给整个块当一层可跳出的东西** ✓——块的**末尾留一个跳转目标** ✓，
-  // `break outer` 就是「跳到这里」✓（**没有新算子** ✓：与循环出口那条路一字不差 ✓）。
-  // 它**不进 `Loops`** ✗：`Loops` 那一摞还管着 `continue` ✓ 与「循环体每轮新建绑定」✓，
-  // 而那些对块毫无意义 ✗——混进去会让块里的 `continue` 找到一层不是循环的东西 ✓。
-  // 所以它**单独一格** ✓（`BlockLabel` / `BlockLabelExit` ✓），判据在 `LowerBreak` 里 ✓。
+  // **②怎么落**：**给整个块当一层可跳出的东西**——块的**末尾留一个跳转目标**，
+  // `break outer` 就是「跳到这里」（**没有新算子**：与循环出口那条路一字不差）。
+  // 它**不进 `Loops`**：`Loops` 那一摞还管着 `continue` 与「循环体每轮新建绑定」，
+  // 而那些对块毫无意义——混进去会让块里的 `continue` 找到一层不是循环的东西。
+  // 所以它**单独一格**（`BlockLabel` / `BlockLabelExit`），判据在 `LowerBreak` 里。
   if (NodeKind(Child(node, "statement")) === "Block") {
-    // **`break` 的跳转先记下来、块跑完一起回填** ✓——**与 `LeaveLoop` 同一个写法** ✓
-    //（那一处的理由一字不差地适用 ✓：`break` 的落点永远是「这一层之后」✓，
-    //  让每一处 `break` 自己算，迟早有人算成「这一层之前」✗）。
+    // **`break` 的跳转先记下来、块跑完一起回填**——**与 `LeaveLoop` 同一个写法**
+    //（那一处的理由一字不差地适用：`break` 的落点永远是「这一层之后」，
+    //  让每一处 `break` 自己算，迟早有人算成「这一层之前」）。
     //
-    // **第一次写的是「块前占一条 `Jump` 当目标」** ✗——那少了一条 ✓：
-    // 块**正常走到尾**时会紧挨着那条 `break` 的跳 ✓，于是**正常路径也跳走** ✓，
-    // 实测 `log` 少了最后那个 `"b"` ✓（**静默错值** ✓：判据 `ex-labeled-block`
-    // 期望 `"a"` ✓，而 `break` 前面那一句 `log += "b"` 得跑不到才对 ✓）。
-    // 记一摞下标就没有这个形状 ✓：块里一条 `break outer` ⇒ 一摞里一条 ✓；
-    // 一条都没有 ⇒ 什么都不用回填 ✓（**正常走完就是走完** ✓）。
+    // **第一次写的是「块前占一条 `Jump` 当目标」**——那少了一条：
+    // 块**正常走到尾**时会紧挨着那条 `break` 的跳，于是**正常路径也跳走**，
+    // 实测 `log` 少了最后那个 `"b"`（**静默错值**：判据 `ex-labeled-block`
+    // 期望 `"a"`，而 `break` 前面那一句 `log += "b"` 得跑不到才对）。
+    // 记一摞下标就没有这个形状：块里一条 `break outer` ⇒ 一摞里一条；
+    // 一条都没有 ⇒ 什么都不用回填（**正常走完就是走完**）。
     //
-    // **没量到 `continue outer` 那一半** ✗：块上的 `continue` 需要一个**循环**做目标 ✓
-    //（JS 的规矩 ✓）——判据只有 `break` ✓，**没量到就不做** ✗（缺口写在台账里 ✓）。
+    // **没量到 `continue outer` 那一半**：块上的 `continue` 需要一个**循环**做目标
+    //（JS 的规矩）——判据只有 `break`，**没量到就不做**（缺口写在台账里）。
     const saved = this.BlockLabels.length;
     this.BlockLabels.push(new BlockLabelContext(TextOf(Child(node, "label"))));
     this.LowerStatement(Child(node, "statement"));
     const target = this.Here();
-    // **退到进来时那一层** ✓（块里还嵌着别的标签块的话 ✓，它们早该在出去时退掉了 ✓）。
+    // **退到进来时那一层**（块里还嵌着别的标签块的话，它们早该在出去时退掉了）。
     const mine = this.BlockLabels[this.BlockLabels.length - 1];
     this.BlockLabels.length = saved;
     for (let i = 0; i < mine.Breaks.length; i++) {
@@ -2971,8 +2971,8 @@ if (kind === "LabeledStatement") {
     }
     return;
   }
-  // **无论体是什么都要清**：①那一支里若体不是循环（不该发生 ✓），
-  // 留着标签就会让**后面第一个**循环白白继承它 ✓。
+  // **无论体是什么都要清**：①那一支里若体不是循环（不该发生），
+  // 留着标签就会让**后面第一个**循环白白继承它。
   this.PendingLabel = TextOf(Child(node, "label"));
   this.LowerStatement(Child(node, "statement"));
   this.PendingLabel = "";
@@ -3016,12 +3016,12 @@ if (kind === "Block") {
 }
 if (kind === "FunctionDeclaration") {
   // **没有体的函数声明不是函数**（第 148 轮）：两条来源都合法、都常见——
-  //   · `declare function f(x: number): void;` ✓（环境声明 ✓，上面那条 `declare` 已经拦过 ✓）；
-  //   · **重载签名** ✓：`function f(a: string): void;` 后面跟一个带体的实现 ✓
-  //     （TS 的重载就是这一形状 ✓，普通项目里到处都有 ✓）。
-  // 两者都不产生运行期东西 ✓（重载的语义在**那条带体的实现**里 ✓）。
-  // **`Hoist` 那一侧也要同一条判据** ✗（否则签名会先在那里炸 ✓，
-  // 而这里会让它落到 `LowerFunctionDeclaration` 上再炸一次 ✓——插桩把两处都点出来了 ✓）。
+  //   · `declare function f(x: number): void;`（环境声明，上面那条 `declare` 已经拦过）；
+  //   · **重载签名**：`function f(a: string): void;` 后面跟一个带体的实现
+  //     （TS 的重载就是这一形状，普通项目里到处都有）。
+  // 两者都不产生运行期东西（重载的语义在**那条带体的实现**里）。
+  // **`Hoist` 那一侧也要同一条判据**（否则签名会先在那里炸，
+  // 而这里会让它落到 `LowerFunctionDeclaration` 上再炸一次——插桩把两处都点出来了）。
   if (OptionalChild(node, "body") === null) return;
   if (this.IsHoisted(node)) return;
   this.LowerFunctionDeclaration(node);
@@ -3037,9 +3037,9 @@ if (kind === "EnumDeclaration") {
   this.LowerEnum(node);
   return;
 }
-// **`namespace` / `module`** ✓（第 292 轮 ✓）：它与 `enum` **同一档** ✗——
-// 都是 TS 的**变换**（有运行期语义 ✓），不是擦除（`type` / `interface` 那一档 ✗）。
-// 体在**这一处**就跑 ✓（IIFE ✓），因为后面那句 `export const doubled = add(…)` 要看得见它 ✓。
+// **`namespace` / `module`**（第 292 轮）：它与 `enum` **同一档**——
+// 都是 TS 的**变换**（有运行期语义），不是擦除（`type` / `interface` 那一档）。
+// 体在**这一处**就跑（IIFE），因为后面那句 `export const doubled = add(…)` 要看得见它。
 if (kind === "ModuleDeclaration") {
   this.LowerNamespace(node);
   return;
@@ -3054,7 +3054,7 @@ throw new Error("unimplemented: statement " + kind);
 
 **空串现在是普通值**（第 119 轮）：投影对字符串字面量**一律给值**——
 空串就给空串（`stringText` 那一节的修法），所以 `""` 到这里就是一个**空的 `text`**，
-`UnitsOf("")` 给空数组 ✓。**原来在降级层拒绝它**✗（`unimplemented: an empty string literal …`），
+`UnitsOf("")` 给空数组。**原来在降级层拒绝它**（`unimplemented: an empty string literal …`），
 理由是「投影分不开空串与『值是一对引号』」——那是**投影的锅**，修在投影上才对；
 在降级层拒绝等于把一条遍地都是的写法挡在门外（`let s = ""` 就是它）。
 
@@ -3084,8 +3084,8 @@ const name = Child(declaration, "name");
 const initializer = OptionalChild(declaration, "initializer");
 const nameKind = NodeKind(name);
 if (nameKind === "ObjectBindingPattern" || nameKind === "ArrayBindingPattern") {
-  // **`var {a};` 也是空操作** ✓（理由与下面简单名那一支一字不差 ✓，见那条注释 ✓）——
-  // 它源码上非法 ✓，但真到了这里也**不该**去拆一个 `undefined` ✓（那会改写已有的名字 ✓）。
+  // **`var {a};` 也是空操作**（理由与下面简单名那一支一字不差，见那条注释）——
+  // 它源码上非法，但真到了这里也**不该**去拆一个 `undefined`（那会改写已有的名字）。
   if (initializer === null && isVar) return;
   // **右边只求值一次**（`const {a} = f()` 里 `f()` 只跑一遍），所以先落到一格再拆。
   const source = this.Reserve(1);
@@ -3097,7 +3097,7 @@ if (nameKind === "ObjectBindingPattern" || nameKind === "ArrayBindingPattern") {
   this.Destructure(name, source, isVar);
   // **不要在这里退水位**（第 119 轮修掉的 bug）：`Destructure` 里的每一格绑定都会
   // 在 `source` **上面**占一格变量（`BindName` → `Reserve(1)`），
-  // `Release(source + 1)` 把它们**全退掉**✗——下一个声明于是盖在同一个槽上，
+  // `Release(source + 1)` 把它们**全退掉**——下一个声明于是盖在同一个槽上，
   // 症状是几条语句之后读到**别人的值**（判据现场：`const {x} = p; const [a,,b] = arr;`
   // 之后 `console.log("all", x, …)` 打出 `all all 2 all`；调 `ToString` 的那种直接
   // 报 `unimplemented: ToString of this kind of value`，离现场很远）。
@@ -3109,32 +3109,32 @@ if (nameKind !== "Identifier") {
 }
 const text = TextOf(name);
 if (initializer === null && isVar) {
-  // **`var x;` 是空操作** ✗：它只**声明** ✓——而声明那一步**提升时已经做完了** ✓
-  //（`Hoist` 把名字收进 `VarNames` 并 `DeclareLocal` 占好槽 ✓）。
-  // **赋一个 `undefined` 进去会把之前写过的值擦掉** ✗：
-  // `inside = 5; if (true) { var inside; } return inside;` 该给 **5** ✓，原来给 `undefined` ✗
-  //（判据现场：`var-hoist` 那一行少了开头那个 5 ✓）。
-  // **`let x;` / `const x;` 恰好相反** ✓：它们就是「初始化成 `undefined`」✓
-  //（TDZ 到此结束 ✓），所以下面那一条只对**非 `var`** 生效 ✓。
+  // **`var x;` 是空操作**：它只**声明**——而声明那一步**提升时已经做完了**
+  //（`Hoist` 把名字收进 `VarNames` 并 `DeclareLocal` 占好槽）。
+  // **赋一个 `undefined` 进去会把之前写过的值擦掉**：
+  // `inside = 5; if (true) { var inside; } return inside;` 该给 **5**，原来给 `undefined`
+  //（判据现场：`var-hoist` 那一行少了开头那个 5）。
+  // **`let x;` / `const x;` 恰好相反**：它们就是「初始化成 `undefined`」
+  //（TDZ 到此结束），所以下面那一条只对**非 `var`** 生效。
   return;
 }
 const value = this.Reserve(1);
 if (initializer === null) {
   this.Emit(Op.Const, value, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
 } else {
-  // **把「这个名字」当成函数名的提示递下去** ✓（第 238 轮 ✓）：
-  // `const arrow = () => 2` 里那个箭头**没有自己的名字** ✗（箭头不是具名函数 ✓），
-  // 而 Node 给 `[Function: arrow]` ✓——名字**来自绑定的那一刻** ✓，
-  // 而那一刻**正好就是这里** ✓（左边那个标识符 ✓、右边那个函数值 ✓）。
+  // **把「这个名字」当成函数名的提示递下去**（第 238 轮）：
+  // `const arrow = () => 2` 里那个箭头**没有自己的名字**（箭头不是具名函数），
+  // 而 Node 给 `[Function: arrow]`——名字**来自绑定的那一刻**，
+  // 而那一刻**正好就是这里**（左边那个标识符、右边那个函数值）。
   //
-  // **只在右边是一个函数值时才留下痕迹** ✓：`const x = 1` 也走这一句 ✓，
-  // 而 `LowerFunctionValue` 是**唯一读它的人** ✓——所以别的形状一点影响都没有 ✓
-  //（读不到就读不到 ✓，见 `FunctionNameHint` 那一格 ✓）。
-  // **第 291 轮把它收窄成「命名位置」** ✓（见 `NamesFunctionValue` ✓）：
-  // 原来只要右边**含**一个函数值就留痕 ✗，于是 `const arr = [function () {}]` 里那个
-  // 函数也叫 `arr` ✓（Node 给空串 ✓，**静默错值** ✗）。
-  // **用完就清** ✓：不清的话「下一个函数值」会白继承上一个名字 ✗
-  //（`const a = () => 1; const b = () => 2;` 两个都叫 `a` ✓，而那是**静默错值** ✗）。
+  // **只在右边是一个函数值时才留下痕迹**：`const x = 1` 也走这一句，
+  // 而 `LowerFunctionValue` 是**唯一读它的人**——所以别的形状一点影响都没有
+  //（读不到就读不到，见 `FunctionNameHint` 那一格）。
+  // **第 291 轮把它收窄成「命名位置」**（见 `NamesFunctionValue`）：
+  // 原来只要右边**含**一个函数值就留痕，于是 `const arr = [function () {}]` 里那个
+  // 函数也叫 `arr`（Node 给空串，**静默错值**）。
+  // **用完就清**：不清的话「下一个函数值」会白继承上一个名字
+  //（`const a = () => 1; const b = () => 2;` 两个都叫 `a`，而那是**静默错值**）。
   const savedHint = this.FunctionNameHint;
   this.FunctionNameHint = this.NamesFunctionValue(initializer) ? text : "";
   this.LowerInto(value, initializer);
@@ -3148,87 +3148,87 @@ this.BindName(text, value, isVar);
 
 ## method LowerEnum:(node:AstNode)=>void
 
-**`enum`**（第 230 轮 ✓）：造一个**普通对象** ✓，然后按下面的规矩往它上面挂键 ✓。
+**`enum`**（第 230 轮）：造一个**普通对象**，然后按下面的规矩往它上面挂键。
 
-**为什么它有运行期语义** ✓（而 `type` / `interface` 是纯类型位、整条跳过 ✓）：
-`enum Color { Red }` 之后**运行期真的有一个 `Color`** ✓（`Color.Red` 是 `0` ✓）——
-TS 编译器做的是**变换**（`--experimental-transform-types` ✓），不是擦除 ✓。
-判据 `ex-enum-numeric` / `ex-enum-string` / `ex-enum-const` 三条量的就是它 ✓。
+**为什么它有运行期语义**（而 `type` / `interface` 是纯类型位、整条跳过）：
+`enum Color { Red }` 之后**运行期真的有一个 `Color`**（`Color.Red` 是 `0`）——
+TS 编译器做的是**变换**（`--experimental-transform-types`），不是擦除。
+判据 `ex-enum-numeric` / `ex-enum-string` / `ex-enum-const` 三条量的就是它。
 
-**它拼的是「一个对象 + 一堆属性」** ✓——`NewObject` 与 `set_prop` **都是现成的** ✓
-（与 `LowerObjectLiteral` 那条**同一个写法** ✓，**没有新算子** ✓）。
+**它拼的是「一个对象 + 一堆属性」**——`NewObject` 与 `set_prop` **都是现成的**
+（与 `LowerObjectLiteral` 那条**同一个写法**，**没有新算子**）。
 
-**数值成员要挂两格，字符串成员只挂一格** ✓（这是 `enum` 最特别的一条 ✓，实测过 ✓）：
+**数值成员要挂两格，字符串成员只挂一格**（这是 `enum` 最特别的一条，实测过）：
 
 | 写法 | 正向 | 反向 |
 | --- | --- | --- |
-| `enum C { Red, Green = 5, Blue }` | `C.Red = 0` / `C.Green = 5` / `C.Blue = 6` ✓ | `C[0] = "Red"` / `C[5] = "Green"` / `C[6] = "Blue"` ✓ |
-| `enum S { A = "a" }` | `S.A = "a"` ✓ | **没有** ✗（`S["a"]` 是 `undefined` ✓，实测 ✓） |
-| `enum M { X = 1, Y = "why", Z = 3 }` | `M.X = 1` / `M.Y = "why"` / `M.Z = 3` ✓ | `M[1] = "X"` / `M[3] = "Z"` ✓（`"why"` 那一格没有 ✓） |
-| **`enum F { A = BASE, B = BASE * 2, C = 1 + 1 }`** | `F.A = 10` / `F.B = 20` / `F.C = 2` ✓ | **三格全挂** ✓（`F[10] = "A"` ✓ … `F[2] = "C"` ✓）——**第 283 轮改准的口径** ✓（原来这三格**一格都不挂** ✗，见 `TakesReverseMapping` 那一段 ✓） |
+| `enum C { Red, Green = 5, Blue }` | `C.Red = 0` / `C.Green = 5` / `C.Blue = 6` | `C[0] = "Red"` / `C[5] = "Green"` / `C[6] = "Blue"` |
+| `enum S { A = "a" }` | `S.A = "a"` | **没有**（`S["a"]` 是 `undefined`，实测） |
+| `enum M { X = 1, Y = "why", Z = 3 }` | `M.X = 1` / `M.Y = "why"` / `M.Z = 3` | `M[1] = "X"` / `M[3] = "Z"`（`"why"` 那一格没有） |
+| **`enum F { A = BASE, B = BASE * 2, C = 1 + 1 }`** | `F.A = 10` / `F.B = 20` / `F.C = 2` | **三格全挂**（`F[10] = "A"` … `F[2] = "C"`）——**第 283 轮改准的口径**（原来这三格**一格都不挂**，见 `TakesReverseMapping` 那一段） |
 
-**自动累加的两条规矩** ✓（与 Node 的变换逐值对过 ✓）：
-- **没有初始化式的成员** = **上一个成员的数值 + 1** ✓（一个都没有就是 `0` ✓）；
-- **字符串成员不参与累加** ✗：`enum M { X = 1, Y = "why", Z = 3 }` 里 `Z` 是**显式写的** `3` ✓；
-  而 `enum E { A = "x", B }` 在 TS 里**直接报错**（「下一个成员必须有初始化式」✓），
-  所以「上一个不是数值」那一档要**响亮地抛** ✓（不猜一个 `0` 或 `NaN` ✗）。
+**自动累加的两条规矩**（与 Node 的变换逐值对过）：
+- **没有初始化式的成员** = **上一个成员的数值 + 1**（一个都没有就是 `0`）；
+- **字符串成员不参与累加**：`enum M { X = 1, Y = "why", Z = 3 }` 里 `Z` 是**显式写的** `3`；
+  而 `enum E { A = "x", B }` 在 TS 里**直接报错**（「下一个成员必须有初始化式」），
+  所以「上一个不是数值」那一档要**响亮地抛**（不猜一个 `0` 或 `NaN`）。
 
-**`const enum` 照普通 `enum` 做** ✓（**与 TS 的一处已知差** ✗）：真正的 `const enum` 是
-**编译期内联**（用法处直接换成字面量 ✓，而且 `--experimental-transform-types` 也会
-把对象删掉 ✓），本仓**造对象** ✓、用法处读属性 ✓。**结果值完全一样** ✓
-（判据 `ex-enum-const` 比的就是值 ✓），差的是「有没有那个对象」✓——
-而 `.js` 产物与 `preserveConstEnums` 那一档是同一个形状 ✓，写在明处 ✓。
+**`const enum` 照普通 `enum` 做**（**与 TS 的一处已知差**）：真正的 `const enum` 是
+**编译期内联**（用法处直接换成字面量，而且 `--experimental-transform-types` 也会
+把对象删掉），本仓**造对象**、用法处读属性。**结果值完全一样**
+（判据 `ex-enum-const` 比的就是值），差的是「有没有那个对象」——
+而 `.js` 产物与 `preserveConstEnums` 那一档是同一个形状，写在明处。
 
-**成员名也是「值键」** ✓：`set_prop` 有一条收值的键 ✓（`SetPropertyValue` ✓）——
-于是**反向映射那两格**与正向那一格走**同一个写法** ✓（只是键一个是名字、一个是数值 ✓）。
+**成员名也是「值键」**：`set_prop` 有一条收值的键（`SetPropertyValue`）——
+于是**反向映射那两格**与正向那一格走**同一个写法**（只是键一个是名字、一个是数值）。
 
 ```ts
 const nameNode = OptionalChild(node, "name");
 if (nameNode === null || NodeKind(nameNode) !== "Identifier") {
   throw new Error("unimplemented: enum declaration without a name");
 }
-// **先造那个对象** ✓（与对象字面量同一处口径 ✓）。
+// **先造那个对象**（与对象字面量同一处口径）。
 const object = this.Reserve(1);
 this.EmitRt(RtOp.NewObject, object, object, 0);
-// **这条 `enum` 自己的一层作用域** ✗（第 378 轮 ✓）——见下面 `Declare` 那一句的理由 ✓。
-// **`object` 那一格是在 `PushScope` 之前占的** ✓ ⇒ `PopScope` 退水位时**退不到它** ✓
-//（`PushScope` 记的是当时的 `NextFree` ✓，而它比 `object` 大 ✓）。
+// **这条 `enum` 自己的一层作用域**（第 378 轮）——见下面 `Declare` 那一句的理由。
+// **`object` 那一格是在 `PushScope` 之前占的** ⇒ `PopScope` 退水位时**退不到它**
+//（`PushScope` 记的是当时的 `NextFree`，而它比 `object` 大）。
 this.PushScope();
 const members = ListOf(node, "members");
-// **上一个数值成员的数值** ✓（`-1` 表示「还没有」✓）：见上面自动累加那两条 ✓。
+// **上一个数值成员的数值**（`-1` 表示「还没有」）：见上面自动累加那两条。
 let previous = -1;
 for (let i = 0; i < members.length; i++) {
   const member = members[i];
   const memberName = OptionalChild(member, "name");
   if (memberName === null) throw new Error("unimplemented: enum member without a name");
   const initializer = OptionalChild(member, "initializer");
-  // **值那一格** ✓：有初始化式就求它 ✓，否则按累加那条规矩给一个常数 ✓。
+  // **值那一格**：有初始化式就求它，否则按累加那条规矩给一个常数。
   //
-  // **`previous` 是那个「上一个数值成员的数值」** ✓（`-1` 表示「还没有」✓）——
-  // 两个地方要写它 ✗：**没有初始化式的成员**推进它 ✓（值 = 上一个 + 1 ✓）、
-  // **初始化式是一个数值字面量**时要按它的值重设 ✓。**少了后一处**就是这一轮
-  // 实测踩到的那个坑 ✓：`enum Color { Red, Green = 5, Blue }` 里 `Blue` 该是 **`6`** ✓
-  // （按 `Green` 的 `5` 累加 ✓），而只推前一处的写法算的是 `Red + 1` ⇒ **`1`** ✗
-  //（**静默错值** ✓：三格都"有值"、`Color[1]` 也查得到 ✓，只是它是错的 ✓）。
+  // **`previous` 是那个「上一个数值成员的数值」**（`-1` 表示「还没有」）——
+  // 两个地方要写它：**没有初始化式的成员**推进它（值 = 上一个 + 1）、
+  // **初始化式是一个数值字面量**时要按它的值重设。**少了后一处**就是这一轮
+  // 实测踩到的那个坑：`enum Color { Red, Green = 5, Blue }` 里 `Blue` 该是 **`6`**
+  // （按 `Green` 的 `5` 累加），而只推前一处的写法算的是 `Red + 1` ⇒ **`1`**
+  //（**静默错值**：三格都"有值"、`Color[1]` 也查得到，只是它是错的）。
   let value = -1;
   if (initializer !== null) {
     value = this.LowerExpression(initializer);
-    // **数值字面量就把 `previous` 重设成它** ✓（`NumericLiteral` 的 `text` 是原文 ✓，
-    // 十六进制 / 二进制那几种写法也走这一格 ✓——`EnumLiteralValue` 认得它们 ✓）。
+    // **数值字面量就把 `previous` 重设成它**（`NumericLiteral` 的 `text` 是原文，
+    // 十六进制 / 二进制那几种写法也走这一格——`EnumLiteralValue` 认得它们）。
     if (NodeKind(initializer) === "NumericLiteral") {
       previous = this.EnumLiteralValue(TextOf(initializer));
     } else {
-      // **其余初始化式：`previous` 作废** ✓（`-1` ✓）——见下面那句抛的理由 ✓。
-      // **字符串那一档不算错** ✗（`enum S { A = "a", B = "b" }` 里 `B` 有初始化式 ✓）。
+      // **其余初始化式：`previous` 作废**（`-1`）——见下面那句抛的理由。
+      // **字符串那一档不算错**（`enum S { A = "a", B = "b" }` 里 `B` 有初始化式）。
       previous = -1;
     }
   } else {
-    // **没有初始化式**：第一个给 `0` ✓，其余是「上一个数值 + 1」✓
-    //（「上一个不是数值」那一档在 TS 里本来就不合法 ✓，这里**响亮地抛** ✓，
-    //  不猜一个 `0` 或 `NaN` ✗）。**判「是不是第一个」要看下标** ✗（第 230 轮实测 ✓）：
-    // 拿 `previous < 0` 当判据会把**第一个**成员也一起抛掉 ✓——
-    // 而 `previous` 为 `-1` 有两种来源 ✓（「还没有」✓ 与「上一个不是数值」✗），
-    // 一个变量扛两种含义就是**那个坑** ✓。
+    // **没有初始化式**：第一个给 `0`，其余是「上一个数值 + 1」
+    //（「上一个不是数值」那一档在 TS 里本来就不合法，这里**响亮地抛**，
+    //  不猜一个 `0` 或 `NaN`）。**判「是不是第一个」要看下标**（第 230 轮实测）：
+    // 拿 `previous < 0` 当判据会把**第一个**成员也一起抛掉——
+    // 而 `previous` 为 `-1` 有两种来源（「还没有」 与「上一个不是数值」），
+    // 一个变量扛两种含义就是**那个坑**。
     if (i === 0) {
       const zero = this.Reserve(1);
       this.Emit(Op.Const, zero, this.IntConst(0), -1, -1);
@@ -3244,69 +3244,69 @@ for (let i = 0; i < members.length; i++) {
       previous = previous + 1;
     }
   }
-  // **正向那一格** ✓：键是成员名 ✓（与对象字面量同一条路 ✓）。
+  // **正向那一格**：键是成员名（与对象字面量同一条路）。
   const nameKey = this.Reserve(1);
   this.Emit(Op.Const, nameKey, this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(memberName)))), -1, -1);
   this.SetPropertyValue(object, nameKey, value);
-  // **反向那一格** ✓：**只有字符串成员不挂** ✓（第 283 轮把口径改准了 ✓）。
+  // **反向那一格**：**只有字符串成员不挂**（第 283 轮把口径改准了）。
   //
-  // **原来那一版只认前两档** ✗（「没有初始化式」与「初始化式是数值字面量」✓）——
-  // 于是 `A = BASE` ✓、`B = BASE * 2` ✓、`C = 1 + 1` ✓ 这些**算出来的数**
-  // 全都**少挂了一格** ✗（判据 `ex-enum-computed-initializer` 现场就是它 ✓：
-  // 正向三格都对 ✓、反向三格全是 `undefined` ✗）。
-  // **理由与那张表都在 `TakesReverseMapping` 那一段** ✓（含「为什么不必问运行期 `typeof`」✓）。
+  // **原来那一版只认前两档**（「没有初始化式」与「初始化式是数值字面量」）——
+  // 于是 `A = BASE`、`B = BASE * 2`、`C = 1 + 1` 这些**算出来的数**
+  // 全都**少挂了一格**（判据 `ex-enum-computed-initializer` 现场就是它：
+  // 正向三格都对、反向三格全是 `undefined`）。
+  // **理由与那张表都在 `TakesReverseMapping` 那一段**（含「为什么不必问运行期 `typeof`」）。
   if (this.TakesReverseMapping(initializer)) {
-    // **数值那一格**：键先**字符串化**再挂 ✓（`RtOp.ToString` ✓）。
-    // **这一步不能省** ✗：`set_prop` 的键只认字符串 / 符号 ✓（`props.xl.md` 的 `KeyMatches` ✓，
-    // 它见到别的就抛 `property keys must be strings or symbols` ✓）——
-    // 而 `set_index` 那条路**会**帮忙字符串化 ✓（`vm.xl.md` 的 `RtOp.SetIndex` ✓，
-    // 非数组接收者那一支走的就是 `RtToString` ✓），所以 `o[5] = v` 一直是好的 ✓，
-    // 只有**这里**（拿数值当键、直接走 `set_prop`）需要自己转 ✓。
-    // 少了它，`enum Color { Red }` 会在 `Color[0] = "Red"` 那一句上抛 ✓
-    //（那句话听起来像「属性名的类型不对」✗，其实是**反向映射那一格少了一步** ✓）。
+    // **数值那一格**：键先**字符串化**再挂（`RtOp.ToString`）。
+    // **这一步不能省**：`set_prop` 的键只认字符串 / 符号（`props.xl.md` 的 `KeyMatches`，
+    // 它见到别的就抛 `property keys must be strings or symbols`）——
+    // 而 `set_index` 那条路**会**帮忙字符串化（`vm.xl.md` 的 `RtOp.SetIndex`，
+    // 非数组接收者那一支走的就是 `RtToString`），所以 `o[5] = v` 一直是好的，
+    // 只有**这里**（拿数值当键、直接走 `set_prop`）需要自己转。
+    // 少了它，`enum Color { Red }` 会在 `Color[0] = "Red"` 那一句上抛
+    //（那句话听起来像「属性名的类型不对」，其实是**反向映射那一格少了一步**）。
     const reverseKey = this.RtCall1(RtOp.ToString, value);
     this.SetPropertyValue(object, reverseKey, nameKey);
   }
   this.Release(nameKey);
-  // **算完的成员要在这一层看得见** ✗（第 378 轮 ✓）——**TS 的规矩是「初始化式可以引用
-  // 前面的成员」** ✓，而且**不带任何前缀** ✓：`enum Level { Low = 1, Mid = Low + 1, High = Mid * 2 }` ✓、
-  // `enum Flags { None = 0, A = 1 << 0, B = 1 << 1, Both = A | B }` ✓。
+  // **算完的成员要在这一层看得见**（第 378 轮）——**TS 的规矩是「初始化式可以引用
+  // 前面的成员」**，而且**不带任何前缀**：`enum Level { Low = 1, Mid = Low + 1, High = Mid * 2 }`、
+  // `enum Flags { None = 0, A = 1 << 0, B = 1 << 1, Both = A | B }`。
   //
-  // **少了这一句会怎样** ✗：`LowerExpression(initializer)` 走到那个 `A` ✓ ⇒ `ResolveAccess` 里
-  // 既不是局部、也不是捕获 ✗ ⇒ 报 `name is not a local or a capture: A` ✓
-  // ⇒ **整份文件进不来** ✓（判据 `c371-ex-enum-numeric-forms` / `c371-ex-enum-const-and-computed` ✓；
-  // 前者报的是 `A` ✓、后者报的是 `Low` ✓——两处**同一个根子** ✓）。
+  // **少了这一句会怎样**：`LowerExpression(initializer)` 走到那个 `A` ⇒ `ResolveAccess` 里
+  // 既不是局部、也不是捕获 ⇒ 报 `name is not a local or a capture: A`
+  // ⇒ **整份文件进不来**（判据 `c371-ex-enum-numeric-forms` / `c371-ex-enum-const-and-computed`；
+  // 前者报的是 `A`、后者报的是 `Low`——两处**同一个根子**）。
   //
-  // **为什么直接写 `Scope`，不走 `DeclareLocal`** ✗：`DeclareLocal` 见到「被捕获的名字」
-  // 会**写进环境格** ✓（第 128 轮那条纪律 ✓：一份状态只许有一处存放 ✓）——
-  // 而这里要的是**遮蔽** ✓：TS 的枚举成员名是**这条 enum 自己那一层**的 ✓，
-  // 不该动外层任何东西 ✓（`function f() { let A = 1; return () => A; }` 里
-  // 那个 `A` 是捕获的 ✓——`DeclareLocal` 会把它的环境格改掉 ✗）。
-  // **`ResolveAccess` 是先查槽、再查环境** ✓（`FindLocal` 那一句 ✓），所以写进作用域就够了 ✓。
+  // **为什么直接写 `Scope`，不走 `DeclareLocal`**：`DeclareLocal` 见到「被捕获的名字」
+  // 会**写进环境格**（第 128 轮那条纪律：一份状态只许有一处存放）——
+  // 而这里要的是**遮蔽**：TS 的枚举成员名是**这条 enum 自己那一层**的，
+  // 不该动外层任何东西（`function f() { let A = 1; return () => A; }` 里
+  // 那个 `A` 是捕获的——`DeclareLocal` 会把它的环境格改掉）。
+  // **`ResolveAccess` 是先查槽、再查环境**（`FindLocal` 那一句），所以写进作用域就够了。
   //
-  // **值就是 `value` 那一格** ✓——它已经在手上 ✓，不必再造一个 ✓；
-  // 它是在 `PushScope` 之后占的 ✓ ⇒ `PopScope` 会把它退掉 ✓（那时整条 enum 已经写完了 ✓）。
+  // **值就是 `value` 那一格**——它已经在手上，不必再造一个；
+  // 它是在 `PushScope` 之后占的 ⇒ `PopScope` 会把它退掉（那时整条 enum 已经写完了）。
   this.Scope[this.Scope.length - 1].Declare(TextOf(memberName), value);
 }
-// **退出这一层** ✓（成员名**不许漏到外面** ✗：`enum C { Red }` 之后
-// `console.log(Red)` 在 TS 里是**编译错误** ✓，而漏出去的话本仓会**静默**给 `0` ✗）。
+// **退出这一层**（成员名**不许漏到外面**：`enum C { Red }` 之后
+// `console.log(Red)` 在 TS 里是**编译错误**，而漏出去的话本仓会**静默**给 `0`）。
 this.PopScope();
-// **绑定这个名字** ✓（与类声明走同一条路 ✓：`let` 那样的块作用域 ✓，不进 `Entries` ✗——
-// 导出表装的是**函数** ✓，而 `enum` 是一个对象 ✓。它与 `const` 走同一条 ✓）。
+// **绑定这个名字**（与类声明走同一条路：`let` 那样的块作用域，不进 `Entries`——
+// 导出表装的是**函数**，而 `enum` 是一个对象。它与 `const` 走同一条）。
 this.BindName(TextOf(nameNode), object, false);
 ```
 
 ## method EnumLiteralValue:(text:string)=>int
 
-**一个数值字面量的值**（第 230 轮 ✓）——`enum` 的自动累加要它 ✓。
+**一个数值字面量的值**（第 230 轮）——`enum` 的自动累加要它。
 
-**为什么要自己解一遍** ✗：`previous + 1` 要在**编译期**算出来 ✓（`IntConst(previous + 1)` ✓），
-所以拿到的必须是**宿主侧的数** ✓，而不是一格要跑起来才知道的值 ✓。
-而 `NumberFromText`（`text.xl.md` 那一族 ✓）是**降级层自己的** ✓——
-它就是 `LowerExpression` 解数字字面量用的那一处 ✓（`text` 是源码原文 ✓）。
+**为什么要自己解一遍**：`previous + 1` 要在**编译期**算出来（`IntConst(previous + 1)`），
+所以拿到的必须是**宿主侧的数**，而不是一格要跑起来才知道的值。
+而 `NumberFromText`（`text.xl.md` 那一族）是**降级层自己的**——
+它就是 `LowerExpression` 解数字字面量用的那一处（`text` 是源码原文）。
 
-**十六进制 / 二进制 / 八进制 / 分隔符那几种都走它** ✓（`0x10` ✓、`0b101` ✓）——
-**不在这里各写一遍** ✗：那是第二份会走偏的解析 ✓。
+**十六进制 / 二进制 / 八进制 / 分隔符那几种都走它**（`0x10`、`0b101`）——
+**不在这里各写一遍**：那是第二份会走偏的解析。
 
 ```ts
 return NumberFromText(text);
@@ -3314,36 +3314,36 @@ return NumberFromText(text);
 
 ## method TakesReverseMapping:(initializer:AstNode | null)=>bool
 
-**这一格成员要不要挂反向那一格**（第 230 轮 ✓，第 283 轮**把口径改准** ✓）。
+**这一格成员要不要挂反向那一格**（第 230 轮，第 283 轮**把口径改准**）。
 
-**TS 的口径是「只有字符串成员不挂」** ✗——不是「只有数值字面量才挂」✗。
-两者在**算出来的数**上分道扬镳 ✓：
+**TS 的口径是「只有字符串成员不挂」**——不是「只有数值字面量才挂」。
+两者在**算出来的数**上分道扬镳：
 
 | 初始化式 | 反向那一格 |
 | --- | --- |
-| 没有（自动累加 ✓） | **挂** ✓ |
-| `5` / `0x10` ✓ | **挂** ✓ |
-| `BASE`（引用一个 `const` ✓） | **挂** ✓ |
-| `BASE * 2` / `1 + 1` ✓ | **挂** ✓（**这一档原来漏了** ✗） |
-| `"a"` / `` `a` `` / `` `a${b}` `` ✓ | **不挂** ✗ |
+| 没有（自动累加） | **挂** |
+| `5` / `0x10` | **挂** |
+| `BASE`（引用一个 `const`） | **挂** |
+| `BASE * 2` / `1 + 1` | **挂**（**这一档原来漏了**） |
+| `"a"` / `` `a` `` / `` `a${b}` `` | **不挂** |
 
-**为什么原来那一版只认前两档** ✓（第 230 轮自己写下的理由 ✓）：
-反向那一格要**先知道值是不是数** ✓，而 `set_prop` 的值键那条路**不区分类型** ✗
-（挂一个字符串键也照挂 ✓）——所以当初只敢挂「编译期能证是数」的那两档 ✓。
+**为什么原来那一版只认前两档**（第 230 轮自己写下的理由）：
+反向那一格要**先知道值是不是数**，而 `set_prop` 的值键那条路**不区分类型**
+（挂一个字符串键也照挂）——所以当初只敢挂「编译期能证是数」的那两档。
 
-**那一条理由现在不成立了** ✗：能证的不是「值是不是数」✓，而是**「TS 会不会挂这一格」** ✓。
-而 TS 的判据是**语法上的** ✓：初始化式**不是字符串字面量**就挂 ✓
-（`emitEnumMember` 只看这一件事 ✓，值算出来是什么它不管 ✓）。
-**于是这一格完全不需要运行期 `typeof`** ✓（第 230 轮那句「真要做就得先问一次 `typeof`」
-**是多余的** ✗——语法上就能定 ✓）。
+**那一条理由现在不成立了**：能证的不是「值是不是数」，而是**「TS 会不会挂这一格」**。
+而 TS 的判据是**语法上的**：初始化式**不是字符串字面量**就挂
+（`emitEnumMember` 只看这一件事，值算出来是什么它不管）。
+**于是这一格完全不需要运行期 `typeof`**（第 230 轮那句「真要做就得先问一次 `typeof`」
+**是多余的**——语法上就能定）。
 
-**为什么「算出来的数是字符串」那一档不必担心** ✓：TS **在编译期就拒收**它 ✓
-（「计算属性名必须是数值」✓），所以「不是字符串字面量就挂」这条口径
-**不会挂出一个错的键** ✓。
+**为什么「算出来的数是字符串」那一档不必担心**：TS **在编译期就拒收**它
+（「计算属性名必须是数值」），所以「不是字符串字面量就挂」这条口径
+**不会挂出一个错的键**。
 
-**判据复用 `IsTextLiteral`** ✓（`+` 那条换路用的同一个 ✓）：它认三种字符串形态 ✓
-（`StringLiteral` ✓、没有内插的模板 ✓、有内插的模板 ✓）——**不另写一份** ✗，
-第二份迟早会与第一份走偏 ✓。
+**判据复用 `IsTextLiteral`**（`+` 那条换路用的同一个）：它认三种字符串形态
+（`StringLiteral`、没有内插的模板、有内插的模板）——**不另写一份**，
+第二份迟早会与第一份走偏。
 
 ```ts
 if (initializer === null) return true;
@@ -3378,20 +3378,20 @@ this.DeclareLocal(name, slot);
 
 ## method DestructureDefault:(initializer:AstNode, value:int)=>void
 
-**解构元素上的默认值**：读出来的那一格**严格等于 `undefined`** 就用默认值 ✓。
+**解构元素上的默认值**：读出来的那一格**严格等于 `undefined`** 就用默认值。
 
-**第 146 轮从 `Destructure` 里提出来的** ✓：声明那一半与赋值那一半（`DestructureAssign` ✓）
-用的是**同一条规矩** ✓——留在两处就是两处会走偏 ✗，而这一条恰好有两处最容易写歪：
+**第 146 轮从 `Destructure` 里提出来的**：声明那一半与赋值那一半（`DestructureAssign`）
+用的是**同一条规矩**——留在两处就是两处会走偏，而这一条恰好有两处最容易写歪：
 
-- **必须是严格相等，不能用 `is_nullish`** ✗：JS 的规矩是**只有 `undefined`** 触发默认值 ✓，
-  `const {a = 7} = {a: null}` 里 `a` 是 **`null`** ✓（`??` 会把两者都算进去，那是另一个口径 ✗）。
-  这一条与参数默认值（`LowerParamDefault`）**同一条理由** ✓，只是那里读的是参数格、
-  这里读的是解构出来的格 ✓。
-- **默认值是懒的** ✓（JS 的规矩 ✓）：只在**真的缺**的时候求 ✓，
-  所以 `const [a = 1, b = a + 1] = []` 里 `b` 看得见 `a` ✓——它就在语句顺序里 ✓。
+- **必须是严格相等，不能用 `is_nullish`**：JS 的规矩是**只有 `undefined`** 触发默认值，
+  `const {a = 7} = {a: null}` 里 `a` 是 **`null`**（`??` 会把两者都算进去，那是另一个口径）。
+  这一条与参数默认值（`LowerParamDefault`）**同一条理由**，只是那里读的是参数格、
+  这里读的是解构出来的格。
+- **默认值是懒的**（JS 的规矩）：只在**真的缺**的时候求，
+  所以 `const [a = 1, b = a + 1] = []` 里 `b` 看得见 `a`——它就在语句顺序里。
 
-**它只写 `value` 那一格** ✓（`GetIndex` / `GetProp` / 剩下那两条内建给的都是一次性的临时格 ✓）：
-调用方拿着的还是同一个槽号 ✓，不必关心「有没有被默认值换过」✓。
+**它只写 `value` 那一格**（`GetIndex` / `GetProp` / 剩下那两条内建给的都是一次性的临时格）：
+调用方拿着的还是同一个槽号，不必关心「有没有被默认值换过」。
 
 ```ts
 const undef = this.Reserve(1);
@@ -3408,15 +3408,15 @@ this.Release(undef);
 
 ## method PropertyKeyNodeOf:(element:AstNode)=>AstNode | null
 
-**一个成员位置上「拿走的键」是哪个节点**——对象的剩余元素要一份**排除名单** ✓
-（`const {a, ...r} = o` 里的 `r` 不该带 `a` ✓），名单就是**前面那些成员拿走的键** ✓。
+**一个成员位置上「拿走的键」是哪个节点**——对象的剩余元素要一份**排除名单**
+（`const {a, ...r} = o` 里的 `r` 不该带 `a`），名单就是**前面那些成员拿走的键**。
 
-**为什么要一个共用函数**（第 146 轮）✓：**声明**那一半（`BindingElement` ✓）与**赋值**那一半
-（`PropertyAssignment` / `ShorthandPropertyAssignment` / 带默认值的 `BinaryExpression` ✓）
-形状不同 ✗，但取键的规矩**是同一条**：**键从模式上取、不从绑定的名字上取** ✓——
-`{a: b, ...r}` 拿走的是 **`a`** ✓（不是 `b` ✗），`{a: b = 1, ...r}` 拿走的也是 `a` ✓。
-两处各写一遍就是两处会走偏 ✗：走偏的症状是「剩余对象里**多出一个已经拆走的键**」✓，
-而它看起来只是一个普通的对象 ✓（**静默错值** ✓）。
+**为什么要一个共用函数**（第 146 轮）：**声明**那一半（`BindingElement`）与**赋值**那一半
+（`PropertyAssignment` / `ShorthandPropertyAssignment` / 带默认值的 `BinaryExpression`）
+形状不同，但取键的规矩**是同一条**：**键从模式上取、不从绑定的名字上取**——
+`{a: b, ...r}` 拿走的是 **`a`**（不是 `b`），`{a: b = 1, ...r}` 拿走的也是 `a`。
+两处各写一遍就是两处会走偏：走偏的症状是「剩余对象里**多出一个已经拆走的键**」，
+而它看起来只是一个普通的对象（**静默错值**）。
 
 ```ts
 const kind = NodeKind(element);
@@ -3432,13 +3432,13 @@ return null;
 
 ## method StaticKeyNodeOf:(keyNode:AstNode)=>AstNode | null
 
-**名单里能用的那个键节点**（第 146 轮）——`Identifier` ✓、字面量 ✓、**常量的计算键** ✓
-（`["a"]` / `[1]` 投影成 `ComputedPropertyName` ✓，但里面是字面量 ✓，编译期就知道是哪个键 ✓）
-都给得出 ✓；**运行期才求值的**（`[k]` / `[keyOf()]` ✓）给 `null` ✓。
+**名单里能用的那个键节点**（第 146 轮）——`Identifier`、字面量、**常量的计算键**
+（`["a"]` / `[1]` 投影成 `ComputedPropertyName`，但里面是字面量，编译期就知道是哪个键）
+都给得出；**运行期才求值的**（`[k]` / `[keyOf()]`）给 `null`。
 
-**它只服务一件事**：对象的剩余元素要一份**排除名单** ✓，而那份名单是编译期的常量表 ✓。
-常量与运行期两档分不清的代价是**静默漏键** ✗（剩余对象里多出一个已经拆走的键 ✓），
-所以这一档必须显式判 ✓。
+**它只服务一件事**：对象的剩余元素要一份**排除名单**，而那份名单是编译期的常量表。
+常量与运行期两档分不清的代价是**静默漏键**（剩余对象里多出一个已经拆走的键），
+所以这一档必须显式判。
 
 ```ts
 if (NodeKind(keyNode) === "ComputedPropertyName") {
@@ -3452,39 +3452,39 @@ return keyNode;
 
 ## method MaterializeIterable:(source:int)=>int
 
-**把「一个可迭代的东西」变成按位置读的数组**（第 151 轮；**生成器第 199 轮** ✓）——
-走 `GetIterator` + `IterDrain` 两条**既有的**语言内建调用 ✓
-（`for..of` 的第一步就是前者 ✓，展开的第二步也是后者那一族 ✓）。
+**把「一个可迭代的东西」变成按位置读的数组**（第 151 轮；**生成器第 199 轮**）——
+走 `GetIterator` + `IterDrain` 两条**既有的**语言内建调用
+（`for..of` 的第一步就是前者，展开的第二步也是后者那一族）。
 
-**它给什么** ✓（`install.xl.md` 的 `GetIterator` / `IterDrain` 两节是权威 ✓）：
-`Map` → `[键, 值]` 对的数组 ✓、`Set` → 值的数组 ✓、**生成器 → 走完它、收成数组** ✓、
-数组 → 原样（不拷贝 ✓）、字符串 → 逐码元的数组 ✓、
-其余非可迭代物 → **响亮地抛** ✓（JS 在解构不可迭代物时也是 `TypeError` ✓）。
+**它给什么**（`install.xl.md` 的 `GetIterator` / `IterDrain` 两节是权威）：
+`Map` → `[键, 值]` 对的数组、`Set` → 值的数组、**生成器 → 走完它、收成数组**、
+数组 → 原样（不拷贝）、字符串 → 逐码元的数组、
+其余非可迭代物 → **响亮地抛**（JS 在解构不可迭代物时也是 `TypeError`）。
 
-**为什么数组模式要过它** ✗：`const [a, b] = new Set([1, 2])` 原来在 Set 对象上
-`get_index` ✓ → **静默**给两个 `undefined` ✗（JS 给 `1, 2` ✓）。
-**静默错值**是本仓排序里最靠前的一档 ✗，而修法只是「接上早就有的那一条口径」✓。
+**为什么数组模式要过它**：`const [a, b] = new Set([1, 2])` 原来在 Set 对象上
+`get_index` → **静默**给两个 `undefined`（JS 给 `1, 2`）。
+**静默错值**是本仓排序里最靠前的一档，而修法只是「接上早就有的那一条口径」。
 
-**第二步（`IterDrain`）是第 199 轮补的** ✓：第 151 轮只做到 `GetIterator` ✓，
-而它对**生成器原样返回** ✗（那是 `for..of` 那条**惰性**路要的形状 ✓）——
-于是 `const [a, b] = g()` 按位置读一个生成器 ✗，**静默给 `undefined undefined`** ✗
-（JS 给产出的头两个 ✓）。两步各管一半 ✓：`Map` / `Set` 是语言的事 ✓、
-生成器是引擎的事 ✓（`IterDrain` 把引擎那张 `drain` 借出来 ✓）。
+**第二步（`IterDrain`）是第 199 轮补的**：第 151 轮只做到 `GetIterator`，
+而它对**生成器原样返回**（那是 `for..of` 那条**惰性**路要的形状）——
+于是 `const [a, b] = g()` 按位置读一个生成器，**静默给 `undefined undefined`**
+（JS 给产出的头两个）。两步各管一半：`Map` / `Set` 是语言的事、
+生成器是引擎的事（`IterDrain` 把引擎那张 `drain` 借出来）。
 
 ```ts
 const window = this.Reserve(2);
 this.Emit(Op.Const, window, this.IntConst(GetIteratorId), -1, -1);
 this.Emit(Op.Move, window + 1, source, -1, -1);
 this.EmitRt(RtOp.HostCall, window, window, 2);
-// **第二趟在同一个窗口里做**（第 199 轮 ✓）——**这是水位那一条规矩逼出来的写法** ✗：
-// 先预留第二个窗口、再 `Release(window)` 会把**第二趟的结果格一起退掉** ✓
-//（「退到先预留的东西那儿，等于把后来预留的活格全部交出去」✓，第 40 轮那条注释 ✓）。
-// 所以：把上一趟的结果**挪到第二格** ✓、把新号写进第一格 ✓——窗口还是那两格 ✓，
-// 退水位只退到 `window + 1` ✓（结果在 `window` ✓ 保住 ✓，与 `RtCall1` 最后那一句同款 ✓）。
+// **第二趟在同一个窗口里做**（第 199 轮）——**这是水位那一条规矩逼出来的写法**：
+// 先预留第二个窗口、再 `Release(window)` 会把**第二趟的结果格一起退掉**
+//（「退到先预留的东西那儿，等于把后来预留的活格全部交出去」，第 40 轮那条注释）。
+// 所以：把上一趟的结果**挪到第二格**、把新号写进第一格——窗口还是那两格，
+// 退水位只退到 `window + 1`（结果在 `window` 保住，与 `RtCall1` 最后那一句同款）。
 this.Emit(Op.Move, window + 1, window, -1, -1);
 this.Emit(Op.Const, window, this.IntConst(IterDrainId), -1, -1);
 this.EmitRt(RtOp.HostCall, window, window, 2);
-// 结果落在窗口第一格；参数那一格可以还回去了 ✓。
+// 结果落在窗口第一格；参数那一格可以还回去了。
 this.Release(window + 1);
 return window;
 ```
@@ -3493,16 +3493,16 @@ return window;
 
 **把一个值拆进绑定模式**（`{a, b: c}` / `[x, , y]`，可嵌套）。
 
-**默认值（第 132 轮）**：`const [x = 9] = []` / `const {a = 7} = {}` ✓——
-落成「读出来的那一格**严格等于 `undefined`** 就用默认值」✓，**那一条的规矩现在在
-`DestructureDefault` 里** ✓（第 146 轮提出去与赋值那一半共用 ✓）。
+**默认值（第 132 轮）**：`const [x = 9] = []` / `const {a = 7} = {}`——
+落成「读出来的那一格**严格等于 `undefined`** 就用默认值」，**那一条的规矩现在在
+`DestructureDefault` 里**（第 146 轮提出去与赋值那一半共用）。
 
-**数组剩余（第 132 轮）**：`const [a, ...r] = xs` ✓——落成 `ArrayRestId` 那条内建调用 ✓
-（**不走 `Array.prototype.slice`** ✗：解构是**语法**，不该依赖某个方法装没装 ✓）。
+**数组剩余（第 132 轮）**：`const [a, ...r] = xs`——落成 `ArrayRestId` 那条内建调用
+（**不走 `Array.prototype.slice`**：解构是**语法**，不该依赖某个方法装没装）。
 
-**对象剩余（第 135 轮）**：`const {a, ...r} = o` ✓——要「把剩下的键抄到新对象里」✓，
-而那需要**一份排除名单**（已经拆走的那些键 ✓）。名单由 `PropertyKeyNodeOf` 从**模式**上取 ✓
-（第 146 轮起那个取键规则也归它 ✓），落成 `RestObjectId` 那条内建调用 ✓。
+**对象剩余（第 135 轮）**：`const {a, ...r} = o`——要「把剩下的键抄到新对象里」，
+而那需要**一份排除名单**（已经拆走的那些键）。名单由 `PropertyKeyNodeOf` 从**模式**上取
+（第 146 轮起那个取键规则也归它），落成 `RestObjectId` 那条内建调用。
 
 ```ts
 const kind = NodeKind(pattern);
@@ -3510,15 +3510,15 @@ if (kind !== "ObjectBindingPattern" && kind !== "ArrayBindingPattern") {
   throw new Error("unimplemented: binding pattern " + kind);
 }
 const elements = ListOf(pattern, "elements");
-// **数组模式先过迭代协议**（第 151 轮）✓：`GetIterator` 把 `Set` / `Map` / 字符串
-// 变成**按位置读的数组** ✓（数组原样返回 ✓；生成器原样返回 ✗——那一档要引擎发
-// `iter_next` ✓，是**另一轮**的事 ✓，本轮的判据把它钉在明处 ✓）。
+// **数组模式先过迭代协议**（第 151 轮）：`GetIterator` 把 `Set` / `Map` / 字符串
+// 变成**按位置读的数组**（数组原样返回；生成器原样返回——那一档要引擎发
+// `iter_next`，是**另一轮**的事，本轮的判据把它钉在明处）。
 //
-// **为什么必须换** ✗：数组模式原来一路 `get_index(source, i)` ✓——
-// `const [a, b] = new Set([1, 2])` 在 Set 对象上读不到东西 ✓，
-// 于是**静默**给两个 `undefined` ✗（JS 给 `1, 2` ✓）。**静默错值**是本仓排最前的档 ✗。
-// 而这条规矩**早就有** ✓（`for..of` 与 `[...xs]` 都先过 `GetIterator` ✓）——
-// 「一串值从哪来」只有这一处口径 ✓，数组模式接上去就是了 ✓。
+// **为什么必须换**：数组模式原来一路 `get_index(source, i)`——
+// `const [a, b] = new Set([1, 2])` 在 Set 对象上读不到东西，
+// 于是**静默**给两个 `undefined`（JS 给 `1, 2`）。**静默错值**是本仓排最前的档。
+// 而这条规矩**早就有**（`for..of` 与 `[...xs]` 都先过 `GetIterator`）——
+// 「一串值从哪来」只有这一处口径，数组模式接上去就是了。
 const items = kind === "ArrayBindingPattern" ? this.MaterializeIterable(source) : source;
 for (let i = 0; i < elements.length; i++) {
   const element = elements[i];
@@ -3526,7 +3526,7 @@ for (let i = 0; i < elements.length; i++) {
   if (NodeKind(element) !== "BindingElement") {
     throw new Error("unimplemented: binding element " + NodeKind(element));
   }
-  // **剩余元素**：数组那一种给新数组 ✓，对象那一种给**去掉已拆键的新对象** ✓（第 135 轮）。
+  // **剩余元素**：数组那一种给新数组，对象那一种给**去掉已拆键的新对象**（第 135 轮）。
   if (OptionalChild(element, "dotDotDotToken") !== null) {
     const restTarget = Child(element, "name");
     if (NodeKind(restTarget) !== "Identifier") {
@@ -3539,23 +3539,23 @@ for (let i = 0; i < elements.length; i++) {
       this.Emit(Op.Const, restWindow + 2, this.IntConst(i), -1, -1);
       this.EmitRt(RtOp.HostCall, restWindow, restWindow, 3);
       this.BindName(TextOf(restTarget), restWindow, isVar);
-      // **剩余是最后一个** ✓（语法规定的 ✓）：绑定完就没有下一项了 ✓。
-      // **这里不退水位** ✗——与上面那条「不退」是同一条纪律 ✓：`BindName` 可能刚在
-      // `restWindow` 上面留了变量格 ✓，退过去会把那个变量格交出去 ✗
-      //（症状是「几条语句之后读到别人的值」✗，而现场离得很远 ✗）。
+      // **剩余是最后一个**（语法规定的）：绑定完就没有下一项了。
+      // **这里不退水位**——与上面那条「不退」是同一条纪律：`BindName` 可能刚在
+      // `restWindow` 上面留了变量格，退过去会把那个变量格交出去
+      //（症状是「几条语句之后读到别人的值」，而现场离得很远）。
       return;
     }
-    // **对象剩余**：名单是**前面那些成员拆走的键** ✓（编译期算好 ✓）——
-    // 造一个小数组把键放进去 ✓，再交给 `rest_object` ✓（与 `SpreadIntoId` 同一个写法 ✓）。
-    // **键从模式上取、不从绑定的名字上取** ✗：`{a: b, ...r}` 拿走的是 `a` ✓（不是 `b` ✗）——
-    // 与下面读值那一段用的是**同一个取键规则** ✓（`propertyName` 优先 ✓）。
+    // **对象剩余**：名单是**前面那些成员拆走的键**（编译期算好）——
+    // 造一个小数组把键放进去，再交给 `rest_object`（与 `SpreadIntoId` 同一个写法）。
+    // **键从模式上取、不从绑定的名字上取**：`{a: b, ...r}` 拿走的是 `a`（不是 `b`）——
+    // 与下面读值那一段用的是**同一个取键规则**（`propertyName` 优先）。
     const excluded = this.Reserve(1);
     this.EmitRt(RtOp.NewArray, excluded, excluded, 0);
     for (let e = 0; e < i; e++) {
       const earlier = elements[e];
       if (NodeKind(earlier) === "OmittedExpression") continue;
       const keyNode = this.PropertyKeyNodeOf(earlier);
-      // **取不到键的（`...rest` 那一条）跳过** ✓：它本来就不是「拆走的键」✓。
+      // **取不到键的（`...rest` 那一条）跳过**：它本来就不是「拆走的键」。
       if (keyNode === null) continue;
       const at = this.RtCall2(RtOp.GetProp, excluded,
         this.Program().AddConst(Constant.OfString(UnitsOf("length"))));
@@ -3575,15 +3575,15 @@ for (let i = 0; i < elements.length; i++) {
     this.BindName(TextOf(restTarget), restWindow, isVar);
     return;
   }
-  // **数组模式先过迭代协议**（第 151 轮）✓：`GetIterator` 把 `Set` / `Map` / 字符串
-  // 变成**按位置读的数组** ✓（数组原样返回 ✓；生成器原样返回 ✗——那一档要引擎发
-  // `iter_next` ✓，是**另一轮**的事 ✓，本轮的判据把它钉在明处 ✓）。
+  // **数组模式先过迭代协议**（第 151 轮）：`GetIterator` 把 `Set` / `Map` / 字符串
+  // 变成**按位置读的数组**（数组原样返回；生成器原样返回——那一档要引擎发
+  // `iter_next`，是**另一轮**的事，本轮的判据把它钉在明处）。
   //
-  // **为什么必须换** ✗：数组模式原来一路 `get_index(source, i)` ✓——
-  // `const [a, b] = new Set([1, 2])` 在 Set 对象上读不到东西 ✓，
-  // 于是**静默**给两个 `undefined` ✗（JS 给 `1, 2` ✓）。**静默错值**是本仓排最前的档 ✗。
-  // 而这条规矩**早就有** ✓（`for..of` 与 `[...xs]` 都先过 `GetIterator` ✓）——
-  // 「一串值从哪来」只有这一处口径 ✓，数组模式接上去就是了 ✓。
+  // **为什么必须换**：数组模式原来一路 `get_index(source, i)`——
+  // `const [a, b] = new Set([1, 2])` 在 Set 对象上读不到东西，
+  // 于是**静默**给两个 `undefined`（JS 给 `1, 2`）。**静默错值**是本仓排最前的档。
+  // 而这条规矩**早就有**（`for..of` 与 `[...xs]` 都先过 `GetIterator`）——
+  // 「一串值从哪来」只有这一处口径，数组模式接上去就是了。
   let value = -1;
   if (kind === "ObjectBindingPattern") {
     const keyNode = this.PropertyKeyNodeOf(element);
@@ -3594,7 +3594,7 @@ for (let i = 0; i < elements.length; i++) {
     const index = this.Program().AddConst(Constant.OfInt(i));
     value = this.RtCall2(RtOp.GetIndex, items, index);
   }
-  // **默认值**（第 132 轮；第 146 轮起那一段在 `DestructureDefault` 里 ✓，与赋值那一半共用 ✓）。
+  // **默认值**（第 132 轮；第 146 轮起那一段在 `DestructureDefault` 里，与赋值那一半共用）。
   const initializer = OptionalChild(element, "initializer");
   if (initializer !== null) this.DestructureDefault(initializer, value);
   const target = Child(element, "name");
@@ -3615,45 +3615,45 @@ for (let i = 0; i < elements.length; i++) {
 
 **把一个值拆进赋值目标**（`[a, b] = [b, a]` / `({a, b: o.x} = src)`，可嵌套）——第 146 轮。
 
-**它与 `Destructure`（声明那一半）是同一条规矩的两种落点** ✓：读法**一个字都不差** ✓
-（对象按属性名 ✓、数组按下标 ✓、剩余走那两个内建 ✓、默认值只在**严格 `undefined`** 时求 ✓
-——最后那一条现在两半共用 `DestructureDefault` ✓）；差别只在**写进去那一步** ✗：
+**它与 `Destructure`（声明那一半）是同一条规矩的两种落点**：读法**一个字都不差**
+（对象按属性名、数组按下标、剩余走那两个内建、默认值只在**严格 `undefined`** 时求
+——最后那一条现在两半共用 `DestructureDefault`）；差别只在**写进去那一步**：
 
 | | 声明那一半（`Destructure`） | 赋值这一半（本方法） |
 | --- | --- | --- |
-| 左边是什么 | **绑定模式**（`ObjectBindingPattern` / `ArrayBindingPattern` ✓） | **值位的那两个字面量节点**（`ObjectLiteralExpression` / `ArrayLiteralExpression` ✓）——投影给的就是这个形状 ✓（TS 的 AST 就是这么定的 ✓） |
-| 目标 | `Identifier`（**新声明**一个名字 ✓） | `Identifier`（**已经存在**的名字 ✓）、`o.x` ✓、`o[k]` ✓、再嵌一层模式 ✓ |
-| 写 | `BindName`（可能在**当前水位之上**留一格 ✓） | `StoreAssignTarget`（只写已存在的槽 / 属性 ✓，**不留新格** ✓） |
+| 左边是什么 | **绑定模式**（`ObjectBindingPattern` / `ArrayBindingPattern`） | **值位的那两个字面量节点**（`ObjectLiteralExpression` / `ArrayLiteralExpression`）——投影给的就是这个形状（TS 的 AST 就是这么定的） |
+| 目标 | `Identifier`（**新声明**一个名字） | `Identifier`（**已经存在**的名字）、`o.x`、`o[k]`、再嵌一层模式 |
+| 写 | `BindName`（可能在**当前水位之上**留一格） | `StoreAssignTarget`（只写已存在的槽 / 属性，**不留新格**） |
 
-**为什么值得单独一个方法、而不是给 `Destructure` 加两个开关** ✗：两边「临时量能不能退水位」
-是**相反**的 ✓——声明那一半因为 `BindName` 会占新格，所以**一律不退** ✓（退了就把变量格
-交出去 ✗）；赋值这一半**一格格都不声明** ✓，临时量该退就退 ✓。
-用一个布尔开关表达这件事，等于**两套水位纪律挤进一个函数** ✗——
-那是这个文件里最容易出错的一类形状 ✓（「几条语句之后读到别人的值」✓，现场离得很远 ✓）。
+**为什么值得单独一个方法、而不是给 `Destructure` 加两个开关**：两边「临时量能不能退水位」
+是**相反**的——声明那一半因为 `BindName` 会占新格，所以**一律不退**（退了就把变量格
+交出去）；赋值这一半**一格格都不声明**，临时量该退就退。
+用一个布尔开关表达这件事，等于**两套水位纪律挤进一个函数**——
+那是这个文件里最容易出错的一类形状（「几条语句之后读到别人的值」，现场离得很远）。
 
-**求值顺序照 JS** ✓：右边**先算完** ✓（调用方算的 ✓），然后目标**从左到右**一个个写 ✓；
-`o.x` 的接收者 `o` 在**轮到它的时候**才求值 ✓（`[o.a, o.b] = …` 里两次读 `o` ✓）。
-**先读、后写接收者** ✓（`({a: o.x} = src)` 的顺序是「算 `src` → 取 `src.a` → 求 `o` → 写」✓）。
+**求值顺序照 JS**：右边**先算完**（调用方算的），然后目标**从左到右**一个个写；
+`o.x` 的接收者 `o` 在**轮到它的时候**才求值（`[o.a, o.b] = …` 里两次读 `o`）。
+**先读、后写接收者**（`({a: o.x} = src)` 的顺序是「算 `src` → 取 `src.a` → 求 `o` → 写」）。
 
-**一个名字都没声明** ✓：赋值左边那个名字必须**已经存在** ✓——`ResolveAccess` 找不到就抛
-「name is not a local or a capture」✓，与模块里的严格模式同一条口径 ✓
-（**不静默造一个全局** ✗，那正是「静默错值」的形状 ✓）。
+**一个名字都没声明**：赋值左边那个名字必须**已经存在**——`ResolveAccess` 找不到就抛
+「name is not a local or a capture」，与模块里的严格模式同一条口径
+（**不静默造一个全局**，那正是「静默错值」的形状）。
 
 ```ts
 const kind = NodeKind(pattern);
 if (kind === "ArrayLiteralExpression") {
   const elements = ListOf(pattern, "elements");
-  // **赋值那一半与声明那一半同一条口径** ✓（第 151 轮）：先过 `GetIterator` ✓，
-  // 于是 `[a, b] = new Set([1, 2])` 给 `1, 2` ✓（原来**静默**给两个 `undefined` ✗）。
+  // **赋值那一半与声明那一半同一条口径**（第 151 轮）：先过 `GetIterator`，
+  // 于是 `[a, b] = new Set([1, 2])` 给 `1, 2`（原来**静默**给两个 `undefined`）。
   const items = this.MaterializeIterable(source);
   for (let i = 0; i < elements.length; i++) {
     const element = elements[i];
     const elementKind = NodeKind(element);
-    // **跳过位**（`[a, , b] = xs` ✓）：它不读也不写 ✓（JS 的口径 ✓）。
+    // **跳过位**（`[a, , b] = xs`）：它不读也不写（JS 的口径）。
     if (elementKind === "OmittedExpression") continue;
     if (elementKind === "SpreadElement") {
-      // **剩余是最后一个** ✓（语法规定的 ✓），落成与声明那一半**同一个**内建 ✓
-      //（`ArrayRestId` ✓）——「剩下的怎么算」只有一份实现 ✓。
+      // **剩余是最后一个**（语法规定的），落成与声明那一半**同一个**内建
+      //（`ArrayRestId`）——「剩下的怎么算」只有一份实现。
       const restWindow = this.Reserve(3);
       this.Emit(Op.Const, restWindow, this.IntConst(ArrayRestId), -1, -1);
       this.Emit(Op.Move, restWindow + 1, items, -1, -1);
@@ -3665,8 +3665,8 @@ if (kind === "ArrayLiteralExpression") {
     }
     const index = this.Program().AddConst(Constant.OfInt(i));
     const read = this.RtCall2(RtOp.GetIndex, items, index);
-    // **默认值先于目标认领** ✓：`[a = 1] = []` 的元素节点是 `a = 1`（一个 `BinaryExpression` ✓），
-    // 「谁是目标、谁默认值」由 `DestructureTarget` 认 ✓（与对象那一半同一个函数 ✓）。
+    // **默认值先于目标认领**：`[a = 1] = []` 的元素节点是 `a = 1`（一个 `BinaryExpression`），
+    // 「谁是目标、谁默认值」由 `DestructureTarget` 认（与对象那一半同一个函数）。
     const target = this.DestructureTarget(element, read);
     this.StoreAssignTarget(target, read);
     this.Release(read);
@@ -3679,19 +3679,19 @@ if (kind === "ObjectLiteralExpression") {
     const property = properties[i];
     const propertyKind = NodeKind(property);
     if (propertyKind === "SpreadAssignment") {
-      // **对象剩余**：名单是**前面那些成员拆走的键** ✓（与声明那一半同一条取键规则 ✓）。
+      // **对象剩余**：名单是**前面那些成员拆走的键**（与声明那一半同一条取键规则）。
       const excluded = this.Reserve(1);
       this.EmitRt(RtOp.NewArray, excluded, excluded, 0);
       for (let e = 0; e < i; e++) {
         const keyNode = this.PropertyKeyNodeOf(properties[e]);
         if (keyNode === null) continue;
-        // **计算键与剩余不能一起用** ✗——但要分清两种计算键 ✓：
-        //   · **常量**（`["a"]` / `[1]` ✓）：编译期就知道是哪个键 ✓，名单照样放得进去 ✓；
-        //   · **运行期才求值的**（`[k]` / `[keyOf()]` ✓）：名单是**编译期的常量表** ✗——
-        //     要支持它就得「把键值一路留着」✗ 或者「到这儿再重算一遍」✗，
-        //     而后者会让那个表达式的**副作用跑两遍** ✓（那是静默错值 ✗）。
-        //     所以**响亮地抛** ✓，绝不静默漏掉一个键 ✗——
-        //     漏掉的症状只是「剩余对象里多出一个已经拆走的键」✓，看起来是一个完全正常的对象 ✓。
+        // **计算键与剩余不能一起用**——但要分清两种计算键：
+        //   · **常量**（`["a"]` / `[1]`）：编译期就知道是哪个键，名单照样放得进去；
+        //   · **运行期才求值的**（`[k]` / `[keyOf()]`）：名单是**编译期的常量表**——
+        //     要支持它就得「把键值一路留着」 或者「到这儿再重算一遍」，
+        //     而后者会让那个表达式的**副作用跑两遍**（那是静默错值）。
+        //     所以**响亮地抛**，绝不静默漏掉一个键——
+        //     漏掉的症状只是「剩余对象里多出一个已经拆走的键」，看起来是一个完全正常的对象。
         const staticKey = this.StaticKeyNodeOf(keyNode);
         if (staticKey === null) throw new Error("unimplemented: object rest after a computed key");
         const at = this.RtCall2(RtOp.GetProp, excluded,
@@ -3714,12 +3714,12 @@ if (kind === "ObjectLiteralExpression") {
       this.Release(restWindow);
       return;
     }
-    // **三种成员形状**（投影给的就是这三种 ✓，见 `PropertyKeyNodeOf` 那一段 ✓）：
-    //   · `{a: target}`  → `PropertyAssignment`（`initializer` 是**目标**，不是默认值 ✗）
-    //   · `{a}`          → `ShorthandPropertyAssignment`（键与目标同一个名字 ✓）
-    //   · `{a = 1}`      → `BinaryExpression`（左边目标、右边默认值 ✓）
-    // 键那一格还可能是**计算键**（`{[k]: v}` → `ComputedPropertyName` ✓，第 146 轮收下 ✓）：
-    // 那就把键**当表达式求一次** ✓（`GetProp` 有一条收值形式的键 ✓，与 `o[k]` 那条同路 ✓）。
+    // **三种成员形状**（投影给的就是这三种，见 `PropertyKeyNodeOf` 那一段）：
+    //   · `{a: target}`  → `PropertyAssignment`（`initializer` 是**目标**，不是默认值）
+    //   · `{a}`          → `ShorthandPropertyAssignment`（键与目标同一个名字）
+    //   · `{a = 1}`      → `BinaryExpression`（左边目标、右边默认值）
+    // 键那一格还可能是**计算键**（`{[k]: v}` → `ComputedPropertyName`，第 146 轮收下）：
+    // 那就把键**当表达式求一次**（`GetProp` 有一条收值形式的键，与 `o[k]` 那条同路）。
     const keyNode = this.PropertyKeyNodeOf(property);
     if (keyNode === null) throw new Error("unimplemented: object assignment member " + propertyKind);
     const computed = NodeKind(keyNode) === "ComputedPropertyName";
@@ -3729,10 +3729,10 @@ if (kind === "ObjectLiteralExpression") {
     }
     let read = -1;
     if (computed) {
-      // **键当值用** ✓：走 `get_index` 那条（与 `o[k]` 同一条 ✓）——
-      // **不能走 `get_prop`** ✗：那条只收字符串 / 符号的键 ✓，
-      // 而 `({[1]: n} = …)` 的键是一个**数** ✓（JS 会把它 `ToPropertyKey` 成 `"1"` ✓，
-      // 引擎的 `get_index` 正是「非数组接收者就把键字符串化之后走属性」那一条 ✓）。
+      // **键当值用**：走 `get_index` 那条（与 `o[k]` 同一条）——
+      // **不能走 `get_prop`**：那条只收字符串 / 符号的键，
+      // 而 `({[1]: n} = …)` 的键是一个**数**（JS 会把它 `ToPropertyKey` 成 `"1"`，
+      // 引擎的 `get_index` 正是「非数组接收者就把键字符串化之后走属性」那一条）。
       const keyValue = this.LowerExpression(Child(keyNode, "expression"));
       read = this.RtCallValues(RtOp.GetIndex, source, keyValue);
       this.Release(keyValue);
@@ -3740,9 +3740,9 @@ if (kind === "ObjectLiteralExpression") {
       const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(keyNode)));
       read = this.RtCall2(RtOp.GetProp, source, key);
     }
-    // **`{a: target}` 的 `initializer` 是目标** ✓、**`{a}` 的键就是目标** ✓——
-    // 两者都先过 `DestructureTarget` ✓：它只对「带默认值的 `BinaryExpression`」动手 ✓，
-    // 其余原样返回 ✓（于是三种形状在这里收成一条路 ✓）。
+    // **`{a: target}` 的 `initializer` 是目标**、**`{a}` 的键就是目标**——
+    // 两者都先过 `DestructureTarget`：它只对「带默认值的 `BinaryExpression`」动手，
+    // 其余原样返回（于是三种形状在这里收成一条路）。
     let target: AstNode = property;
     if (propertyKind === "ShorthandPropertyAssignment") target = Child(property, "name");
     if (propertyKind === "PropertyAssignment") target = Child(property, "initializer");
@@ -3758,12 +3758,12 @@ throw new Error("unimplemented: assignment pattern " + kind);
 ## method DestructureTarget:(element:AstNode, value:int)=>AstNode
 
 **元素位置上「目标 + 可选默认值」那一段**（第 146 轮）——认出「带默认值的元素」并把默认值
-按 `DestructureDefault` 那条规矩接上 ✓，返回**真正的目标** ✓。
+按 `DestructureDefault` 那条规矩接上，返回**真正的目标**。
 
-**为什么要有它** ✓：带默认值的元素在投影里是**一个 `BinaryExpression`** ✓
-（`[a = 1]` ✓、`{a = 1}` ✓、`({a: {b} = {}}` 里的 `{b} = {}` ✓），
-而「左边是目标、右边是默认值」这条判据在**数组元素**与**对象成员**两处都要用 ✓——
-两处各写一遍就是两处会走偏 ✗（写反了是把默认值当目标写进去 ✓，而**写进去也不报错** ✗）。
+**为什么要有它**：带默认值的元素在投影里是**一个 `BinaryExpression`**
+（`[a = 1]`、`{a = 1}`、`({a: {b} = {}}` 里的 `{b} = {}`），
+而「左边是目标、右边是默认值」这条判据在**数组元素**与**对象成员**两处都要用——
+两处各写一遍就是两处会走偏（写反了是把默认值当目标写进去，而**写进去也不报错**）。
 
 ```ts
 if (NodeKind(element) !== "BinaryExpression") return element;
@@ -3777,15 +3777,15 @@ return Child(element, "left");
 
 ## method StoreAssignTarget:(target:AstNode, value:int)=>void
 
-**把一格值写进一个赋值目标**（第 146 轮）——四种目标：**已存在的名字** ✓、`o.x` ✓、
-`o[k]` ✓、**再嵌一层模式** ✓（`[a, [b]] = xs` ✓）。
+**把一格值写进一个赋值目标**（第 146 轮）——四种目标：**已存在的名字**、`o.x`、
+`o[k]`、**再嵌一层模式**（`[a, [b]] = xs`）。
 
-**它一个变量都不声明** ✗：名字走 `ResolveAccess` ✓（找不到就抛 ✓），
-所以临时量**可以**照常退水位 ✓——这正是它与声明那一半的 `BindName` 的差别 ✓
-（那一半退水位会把刚声明的变量格交出去 ✗）。
+**它一个变量都不声明**：名字走 `ResolveAccess`（找不到就抛），
+所以临时量**可以**照常退水位——这正是它与声明那一半的 `BindName` 的差别
+（那一半退水位会把刚声明的变量格交出去）。
 
-**属性那一支照 `=` 的老路** ✓（`SetPropertyConst` ✓）：求值顺序（接收者 → 键 → 值 ✓）
-与那个分支一字不差 ✓——两处都是「写一个属性」✓，不必有第二种写法 ✓。
+**属性那一支照 `=` 的老路**（`SetPropertyConst`）：求值顺序（接收者 → 键 → 值）
+与那个分支一字不差——两处都是「写一个属性」，不必有第二种写法。
 
 ```ts
 const kind = NodeKind(target);
@@ -3823,7 +3823,7 @@ if (kind === "ElementAccessExpression") {
   this.Release(receiver);
   return;
 }
-// **再嵌一层模式**（`[a, [b]] = xs` ✓ / `({a: {b}} = o)` ✓）：递归 ✓。
+// **再嵌一层模式**（`[a, [b]] = xs` / `({a: {b}} = o)`）：递归。
 if (kind === "ArrayLiteralExpression" || kind === "ObjectLiteralExpression") {
   this.DestructureAssign(target, value);
   return;
@@ -4003,8 +4003,8 @@ if (perIteration) {
   }
   cells = names.length;
   envSlot = this.Reserve(1);
-  // **每一个格一个暂存槽** ✓（第 315 轮 ✓）：值要从**上一轮那个环境**里先收出来 ✓，
-  // 再退出去、建新环境、写回去 ✓——见下面续跳点那一段为什么非这样不可 ✓。
+  // **每一个格一个暂存槽**（第 315 轮）：值要从**上一轮那个环境**里先收出来，
+  // 再退出去、建新环境、写回去——见下面续跳点那一段为什么非这样不可。
   scratch = this.Reserve(cells);
   this.Emit(Op.EnvNew, envSlot, cells, -1, -1);
   const scope = new EnvScope(envSlot);
@@ -4032,18 +4032,18 @@ this.LowerStatement(Child(node, "statement"));
 // `continue` 在这里落点：每轮的新环境也要建（否则 `continue` 就绕过了它）。
 context.ContinueTarget = this.Here();
 if (perIteration) {
-  // **每轮一个新环境：先把值收进暂存槽、退出上一层、再用「外层」当父亲建新的** ✓
-  //（第 315 轮改的 ✗）。**为什么要退出那一层** ✗：JS 的
-  // `CreatePerIterationEnvironment` 规定新环境的**外层**是**循环外面那一层** ✓，
-  // 不是上一轮那个环境 ✓——原来是「`EnvNew` 直接建、父亲自动取当前」✓，于是
-  // **环境链每轮长一层** ✗：跑一千轮就是一千层 ✓（读一次深处的变量要走一千步 ✓），
-  // 而且**循环出口**停在最后那一层上 ✓ ⇒ 循环**之后**的代码按词法深度读环境时
-  // 读到的链**少了一层** ✓（症状两种：报 `environment index out of range` ✓，
-  // 或者**一声不响地把后面的语句丢掉** ✗——判据 `c314-rt-top-level-env-after-let-loop` ✓）。
-  // **值要拷、但不从「深一层」读了** ✗：拷发生在**退出之前** ✓，
-  // 所以那几格就在**当前**这一层（深度 `0` ✓）——原来写的是深度 `1` ✓（父亲那一层 ✓），
-  // 那是「新环境已经建好」时的坐标 ✓，现在顺序反了 ✓，坐标跟着反 ✓
-  //（**同一件事两个坐标**，写错一个是静默错值 ✗）。
+  // **每轮一个新环境：先把值收进暂存槽、退出上一层、再用「外层」当父亲建新的**
+  //（第 315 轮改的）。**为什么要退出那一层**：JS 的
+  // `CreatePerIterationEnvironment` 规定新环境的**外层**是**循环外面那一层**，
+  // 不是上一轮那个环境——原来是「`EnvNew` 直接建、父亲自动取当前」，于是
+  // **环境链每轮长一层**：跑一千轮就是一千层（读一次深处的变量要走一千步），
+  // 而且**循环出口**停在最后那一层上 ⇒ 循环**之后**的代码按词法深度读环境时
+  // 读到的链**少了一层**（症状两种：报 `environment index out of range`，
+  // 或者**一声不响地把后面的语句丢掉**——判据 `c314-rt-top-level-env-after-let-loop`）。
+  // **值要拷、但不从「深一层」读了**：拷发生在**退出之前**，
+  // 所以那几格就在**当前**这一层（深度 `0`）——原来写的是深度 `1`（父亲那一层），
+  // 那是「新环境已经建好」时的坐标，现在顺序反了，坐标跟着反
+  //（**同一件事两个坐标**，写错一个是静默错值）。
   for (let i = 0; i < cells; i++) {
     this.Emit(Op.EnvGet, scratch + i, 0, i, -1);
   }
@@ -4061,9 +4061,9 @@ this.Emit(Op.Jump, -1, start, -1, -1);
 if (exitIndex >= 0) {
   this.PatchTarget(exitIndex, this.Here());
 }
-// **出口也要退回去** ✓（第 315 轮 ✓）：`break` 与「条件为假」都落在这里 ✓，
-// 而此刻当前环境是**这一轮那个** ✓（父亲正是外层 ✓）——退一层就回到了循环外面 ✓
-// （**这一步不做，「循环之后」就永远是错的** ✗，见上面那一段 ✓）。
+// **出口也要退回去**（第 315 轮）：`break` 与「条件为假」都落在这里，
+// 而此刻当前环境是**这一轮那个**（父亲正是外层）——退一层就回到了循环外面
+// （**这一步不做，「循环之后」就永远是错的**，见上面那一段）。
 if (perIteration) {
   this.Emit(Op.EnvLeave, -1, -1, -1, -1);
 }
@@ -4084,32 +4084,32 @@ this.PopScope();
 
 ```ts
 this.PushScope();
-// **`for await (… of …)` 的 `awaitModifier`** ✓（第 339 轮 ✓）：
-// TS 的 `ForOfStatement` 在 `for` 与 `(` 之间留了一个子节点 ✓（`foreach.xl.md` 记着它 ✓），
-// 而**这一步以前被丢掉了** ✗ ⇒ `for await` 走成了**同步**的 `for..of` ✓——
-// 症状是**次序**：JS 里每一轮至少让出一个微任务 ✓，所以
-// `for await` 之后的代码**永远排在**已经排好的微任务**后面** ✓；
-// 丢掉之后它**同步跑完** ✓（实测：`for await` 那个 IIFE 的日志印在模块那句
-// `console.log("sync")` **之前** ✗，而 Node 印在**之后** ✓——
-// 判据 `c338-e2e-async-queue-and-generators` ✓）。
-// **判据只问属性、不问 `Child`** ✗（**实测踩过一次** ✓）：第一版写成
-// `Child(node, "awaitModifier") !== null || …` ✓，而**每一个普通 `for..of` 都会在那里抛** ✗
-//（`Child` 对**不存在的子节点**是响亮地抛 ✓，不是给 `null` ✗）⇒ 那一刻**整片语料变成
-// `blocked`** ✓（实测：15 → **96** ✓、加权 98.2% → **86.2%** ✓）。
-// 投影层是**按需挂**这个属性的 ✓（`foreach.xl.md` 的 `props.awaitModifier` ✓），
-// 所以「有没有」问属性就够了 ✓。
+// **`for await (… of …)` 的 `awaitModifier`**（第 339 轮）：
+// TS 的 `ForOfStatement` 在 `for` 与 `(` 之间留了一个子节点（`foreach.xl.md` 记着它），
+// 而**这一步以前被丢掉了** ⇒ `for await` 走成了**同步**的 `for..of`——
+// 症状是**次序**：JS 里每一轮至少让出一个微任务，所以
+// `for await` 之后的代码**永远排在**已经排好的微任务**后面**；
+// 丢掉之后它**同步跑完**（实测：`for await` 那个 IIFE 的日志印在模块那句
+// `console.log("sync")` **之前**，而 Node 印在**之后**——
+// 判据 `c338-e2e-async-queue-and-generators`）。
+// **判据只问属性、不问 `Child`**（**实测踩过一次**）：第一版写成
+// `Child(node, "awaitModifier") !== null || …`，而**每一个普通 `for..of` 都会在那里抛**
+//（`Child` 对**不存在的子节点**是响亮地抛，不是给 `null`）⇒ 那一刻**整片语料变成
+// `blocked`**（实测：15 → **96**、加权 98.2% → **86.2%**）。
+// 投影层是**按需挂**这个属性的（`foreach.xl.md` 的 `props.awaitModifier`），
+// 所以「有没有」问属性就够了。
 const modifier = node["awaitModifier"];
 const awaits = modifier !== undefined && modifier !== null;
 // **先把「要被迭代的值」交给语言层过一遍**（`get_iterator`，号段 700..799，第 111 轮补）：
-// 引擎只认**数组与生成器**，而 `Map`/`Set` 是语言层的对象——让引擎认识它们就反了分层 ✗。
-// 语言层这一步对数组与生成器**原样返回** ✓，对 `Map` 给 `[键, 值]` 对的数组 ✓（正是 JS 的形状），
-// 对 `Set` 给值的数组 ✓。**一个引擎算子都不用加**，`iter_next` 那边一行也不改 ✓。
+// 引擎只认**数组与生成器**，而 `Map`/`Set` 是语言层的对象——让引擎认识它们就反了分层。
+// 语言层这一步对数组与生成器**原样返回**，对 `Map` 给 `[键, 值]` 对的数组（正是 JS 的形状），
+// 对 `Set` 给值的数组。**一个引擎算子都不用加**，`iter_next` 那边一行也不改。
 // 形状与「宿主能力调用」完全一样：`[号, 参数…]` 窗口 + 一条 `host_call`。
 // **宿主不必知道它**：格数由 `BuiltinSlots()` 公布、登记由 `InstallBuiltins` 包掉（第 111 轮）。
 const iterableSource = this.Reserve(1);
 this.LowerInto(iterableSource, Child(node, "expression"));
-// **`for await` 要多带一个实参** ✓（第 643 轮 ✓）：第二个实参是「这一次是不是 `for await`」✓
-// ——语言层只在那时认 `Symbol.asyncIterator` ✓（`install.xl.md` 的 `GetIterator` ✓）。
+// **`for await` 要多带一个实参**（第 643 轮）：第二个实参是「这一次是不是 `for await`」
+// ——语言层只在那时认 `Symbol.asyncIterator`（`install.xl.md` 的 `GetIterator`）。
 const iterableArgs = awaits ? 3 : 2;
 const iterableWindow = this.Reserve(iterableArgs);
 this.Emit(Op.Const, iterableWindow, this.IntConst(GetIteratorId), -1, -1);
@@ -4122,11 +4122,11 @@ this.EmitRt(RtOp.HostCall, iterableWindow, iterableWindow, iterableArgs);
 for (let i = iterableArgs - 1; i >= 1; i--) {
   this.Release(iterableWindow + i);
 }
-// **自定义异步迭代器那一档给的是承诺** ✓（第 643 轮 ✓）：语言层把「等每一步」交给这一层 ✓
-// （那一层是同步的 ✗），所以这里先等它结清 ✓。**同步那一档 `await` 出来就是它自己** ✓
-// ——多一跳微任务 ✓，次序与 JS 已经差着一跳 ✓（下面每一轮本来就 `Await` 两次 ✓）。
-// **两个键（承诺 / 值）都要跨过 `Await`** ✓：`Await` 之后原来那一格不再有意义 ✓，
-// 兑现值要落进**另一格** ✓（与下面 `iter_next` 那一对同一个写法 ✓）。
+// **自定义异步迭代器那一档给的是承诺**（第 643 轮）：语言层把「等每一步」交给这一层
+// （那一层是同步的），所以这里先等它结清。**同步那一档 `await` 出来就是它自己**
+// ——多一跳微任务，次序与 JS 已经差着一跳（下面每一轮本来就 `Await` 两次）。
+// **两个键（承诺 / 值）都要跨过 `Await`**：`Await` 之后原来那一格不再有意义，
+// 兑现值要落进**另一格**（与下面 `iter_next` 那一对同一个写法）。
 let iterableSlot = iterableWindow;
 if (awaits) {
   if (!this.InAsync) {
@@ -4148,27 +4148,27 @@ this.LowerIterationLoop(iterableSlot, node, awaits);
 ```ts
 const iteratorSlot = this.Reserve(1);
 this.EmitRt(RtOp.IterNew, iteratorSlot, iterableSlot, 1);
-// **`for (const x of …)` 每个迭代一格** ✓（第 314 轮 ✓）——与 `for (let i = …)` 那条
-// 同一个语义 ✓（`lowering.xl.md` 的 `LowerFor` ✓）：**每一轮建一个新环境** ✓，
-// 于是体里造出来的闭包各自捕到**自己那一轮**的 `x` ✓。
+// **`for (const x of …)` 每个迭代一格**（第 314 轮）——与 `for (let i = …)` 那条
+// 同一个语义（`lowering.xl.md` 的 `LowerFor`）：**每一轮建一个新环境**，
+// 于是体里造出来的闭包各自捕到**自己那一轮**的 `x`。
 //
-// **不建会怎样** ✗：绑定落在**同一格**里 ✓ ⇒ 三个闭包都读到最后那个值 ✓
-//（实测 `for (const n of [1,2,3]) fns.push(() => n)` 给 `3,3,3` ✗，Node 给 `1,2,3` ✓，
-//  **一句异常都没有** ✗——判据 `c304-rt-closure-capture-in-forof` ✓）。
+// **不建会怎样**：绑定落在**同一格**里 ⇒ 三个闭包都读到最后那个值
+//（实测 `for (const n of [1,2,3]) fns.push(() => n)` 给 `3,3,3`，Node 给 `1,2,3`，
+//  **一句异常都没有**——判据 `c304-rt-closure-capture-in-forof`）。
 //
-// **三条闸与 `LowerFor` 那条一字不差** ✓：声明是 `let`/`const`（不是 `var` ✓）、
-// 只有一个标识符名字（模式那一支今天不接 ✗，与 `LowerFor` 同一条 ✓）、
-// 且**体里有函数值** ✓（`HasNestedFunction` ✓——**保守但便宜** ✓：
-// 多建几个环境只是慢一点 ✓，少建一次就是错值 ✓）。
+// **三条闸与 `LowerFor` 那条一字不差**：声明是 `let`/`const`（不是 `var`）、
+// 只有一个标识符名字（模式那一支今天不接，与 `LowerFor` 同一条）、
+// 且**体里有函数值**（`HasNestedFunction`——**保守但便宜**：
+// 多建几个环境只是慢一点，少建一次就是错值）。
 //
-// **这里不需要「从上一轮拷进新一轮」那一段** ✗（`LowerFor` 有 ✓）：
-// `for..of` 的值每一轮都是**新赋**的 ✓（下一句就是 `BindForOfTarget` ✓），
-// 拷过去只会立刻被覆盖 ✓；而**上一轮那些闭包**抓着的是**上一轮那个环境** ✓，
-// 新环境是**另一个** ✓ ⇒ 它们读到的仍然是旧值 ✓（正是 JS 的语义 ✓）。
+// **这里不需要「从上一轮拷进新一轮」那一段**（`LowerFor` 有）：
+// `for..of` 的值每一轮都是**新赋**的（下一句就是 `BindForOfTarget`），
+// 拷过去只会立刻被覆盖；而**上一轮那些闭包**抓着的是**上一轮那个环境**，
+// 新环境是**另一个** ⇒ 它们读到的仍然是旧值（正是 JS 的语义）。
 //
-// **`EnvNew` 排在续跳点** ✓：`continue` 会跳到那里 ✓（`context.ContinueTarget` ✓），
-// 否则 `continue` 会绕过新环境 ✓——那正是 `LowerFor` 里写着「否则 `continue` 就绕过了它」✓
-// 的同一条坑 ✓。
+// **`EnvNew` 排在续跳点**：`continue` 会跳到那里（`context.ContinueTarget`），
+// 否则 `continue` 会绕过新环境——那正是 `LowerFor` 里写着「否则 `continue` 就绕过了它」
+// 的同一条坑。
 const target = Child(node, "initializer");
 let perIteration = false;
 let envSlot = -1;
@@ -4187,22 +4187,22 @@ if (NodeKind(target) === "VariableDeclarationList" && !IsVarList(target)
 const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
 const start = this.Here();
 const context = this.EnterLoop(true, start);
-// **这一层是迭代循环** ✓（第 337 轮 ✓）：`return` 出循环时要靠这一格找到迭代器 ✓
-//（`EmitPendingIteratorCloses` 扫的正是 `this.Loops` 上这一摞 ✓）。
+// **这一层是迭代循环**（第 337 轮）：`return` 出循环时要靠这一格找到迭代器
+//（`EmitPendingIteratorCloses` 扫的正是 `this.Loops` 上这一摞）。
 context.IteratorSlot = iteratorSlot;
 context.IterableSlot = iterableSlot;
 const pair = this.RtCall2(RtOp.IterNext, iteratorSlot, undefinedConst);
-// **`for await` 的每一轮至少让出一个微任务** ✓（第 339 轮 ✓）：
-// `await` 一条**不是承诺的值**也照样推迟一个微任务 ✓（`ir.xl.md` 的 `await` 那一段写着 ✓），
-// 所以这里把 `iter_next` 的**那一对**与**每一项的值**各 `Await` 一次 ✓——
-// **次序**与 JS 对齐 ✓（每一轮两次让出 ✓），而**语义**不变 ✓
-//（不是承诺的值 `Await` 出来就是它自己 ✓）。
+// **`for await` 的每一轮至少让出一个微任务**（第 339 轮）：
+// `await` 一条**不是承诺的值**也照样推迟一个微任务（`ir.xl.md` 的 `await` 那一段写着），
+// 所以这里把 `iter_next` 的**那一对**与**每一项的值**各 `Await` 一次——
+// **次序**与 JS 对齐（每一轮两次让出），而**语义**不变
+//（不是承诺的值 `Await` 出来就是它自己）。
 //
-// **它必须排在 `GetIndex` 之前** ✓：`Await` 的结果要落进一格、后面读的是**那一格** ✓
-//（`await` 的兑现值不是原来那一格 ✓，见 `LowerAwait` ✓）。
+// **它必须排在 `GetIndex` 之前**：`Await` 的结果要落进一格、后面读的是**那一格**
+//（`await` 的兑现值不是原来那一格，见 `LowerAwait`）。
 //
-// **不在 `async` 里就抛** ✓（与 `LowerAwait` 同一条）：
-// 放到运行期会把普通帧挂住 ✓，而调用者还在下面等 ✓——**整条链静默停住** ✗。
+// **不在 `async` 里就抛**（与 `LowerAwait` 同一条）：
+// 放到运行期会把普通帧挂住，而调用者还在下面等——**整条链静默停住**。
 let pairSlot = pair;
 if (awaits) {
   if (!this.InAsync) {
@@ -4220,9 +4220,9 @@ const running = this.RtCall1(RtOp.Not, done);
 const exitIndex = this.Here();
 this.Emit(Op.JumpIfFalse, running, 0, -1, -1);
 const value = this.RtCall2(RtOp.GetIndex, pairSlot, this.IntConst(0));
-// **每一项自己也要 `Await` 一次** ✓（第 339 轮 ✓）：JS 的 `for await` 里
-// 「`await` 迭代器给的下一对」与「`await` 那一项的值」**是两次让出** ✓
-//（`AsyncIteratorStep` 那两步 ✓）——一次都不让就会同步跑完 ✓（见上面那一段的账 ✓）。
+// **每一项自己也要 `Await` 一次**（第 339 轮）：JS 的 `for await` 里
+// 「`await` 迭代器给的下一对」与「`await` 那一项的值」**是两次让出**
+//（`AsyncIteratorStep` 那两步）——一次都不让就会同步跑完（见上面那一段的账）。
 let boundValue = value;
 if (awaits) {
   this.Emit(Op.Await, value, -1, -1, -1);
@@ -4231,46 +4231,46 @@ if (awaits) {
 }
 this.BindForOfTarget(target, boundValue);
 this.LowerStatement(Child(node, "statement"));
-// `continue` 在这里落点：**下一轮的新环境也要建** ✓（否则 `continue` 就绕过了它 ✓）。
+// `continue` 在这里落点：**下一轮的新环境也要建**（否则 `continue` 就绕过了它）。
 context.ContinueTarget = this.Here();
 if (perIteration) {
-  // **先退出这一轮、再建下一轮** ✓（第 315 轮 ✓）——与 `LowerFor` 那一段同一条改动 ✓
-  // 与同一个理由 ✓：每轮那层的**外层是循环外面那一层** ✓（不是上一轮 ✓），
-  // 否则环境链每轮长一层 ✓、而且**循环出口**会停在最后那一层上 ✓ ⇒
-  // 循环之后的代码按词法深度读环境就少了一层 ✓
-  //（判据 `c314-rt-top-level-env-after-let-loop` ✓）。
-  // **`for..of` 没有「拷贝」那一步** ✓（值下一句就新赋 ✓），所以这里只有两条指令 ✓。
+  // **先退出这一轮、再建下一轮**（第 315 轮）——与 `LowerFor` 那一段同一条改动
+  // 与同一个理由：每轮那层的**外层是循环外面那一层**（不是上一轮），
+  // 否则环境链每轮长一层、而且**循环出口**会停在最后那一层上 ⇒
+  // 循环之后的代码按词法深度读环境就少了一层
+  //（判据 `c314-rt-top-level-env-after-let-loop`）。
+  // **`for..of` 没有「拷贝」那一步**（值下一句就新赋），所以这里只有两条指令。
   this.Emit(Op.EnvLeave, -1, -1, -1, -1);
   this.Emit(Op.EnvNew, envSlot, 1, -1, -1);
 }
 this.Emit(Op.Jump, -1, start, -1, -1);
-// **两条出口要分开** ✗（第 336 轮 ✓）：**迭代到头**（`done` ✓）不该调 `iterator.return()` ✓，
-// 而 **`break`** 要调 ✓（JS 的 IteratorClose ✓）——原来两条都落在同一个 pc 上 ✓，
+// **两条出口要分开**（第 336 轮）：**迭代到头**（`done`）不该调 `iterator.return()`，
+// 而 **`break`** 要调（JS 的 IteratorClose）——原来两条都落在同一个 pc 上，
 // 于是 `for (const v of gen()) { break }` 里生成器那句 `finally { console.log("cleanup") }`
-// **一声不响** ✓（判据 `c304-rt-generator-early-break-finally` 量的就是它 ✓）。
+// **一声不响**（判据 `c304-rt-generator-early-break-finally` 量的就是它）。
 //
-// 所以：**正常出口先跳过去** ✓，而 `break` 落到下面那一段 close 上 ✓
-//（`LeaveLoop` 把这一层所有 `break` 回填到**它被调用那一刻**的 pc ✓——所以它必须排在
-//  close **之前** ✓，这正是「先记落点、再发代码」那条老规矩 ✓）。
+// 所以：**正常出口先跳过去**，而 `break` 落到下面那一段 close 上
+//（`LeaveLoop` 把这一层所有 `break` 回填到**它被调用那一刻**的 pc——所以它必须排在
+//  close **之前**，这正是「先记落点、再发代码」那条老规矩）。
 const normalExit = this.Here();
-// **`done` 那一趟也走这里** ✓（它落在那条 `Jump` 上 ✓ ⇒ 跳过 close ✓）。
+// **`done` 那一趟也走这里**（它落在那条 `Jump` 上 ⇒ 跳过 close）。
 this.PatchTarget(exitIndex, normalExit);
 this.Emit(Op.Jump, -1, 0, -1, -1);
 this.LeaveLoop(context);
 this.EmitIteratorClose(iteratorSlot);
-// **自定义迭代器那一档：收的是「被迭代的那个东西」** ✓（第 620 轮 ✓）：
-// `get_iterator` 把用户自己写的迭代器**摊平成了数组** ✓（`install.xl.md` ✓），
-// 而引擎那边拿到的是**游标** ✓（`iter_new` 对数组 `CreateIterator` ✓）——
-// 游标上没有 `return` ✗，用户写的那个 `return()` **一次都不被调** ✓
-//（判据 `c371-rt-iteration-protocol-forms` ✓：Node 打 `closed` ✓，本仓不打 ✗）。
-// **语言层把那个 close 绑好、挂在数组的 `__close` 上** ✓（只有它会写这一格 ✓），
-// 所以这里再问一次**被迭代者**就够了 ✓——普通数组没有这一格 ✓、生成器也没有 ✓
-//（它是 `keyText` 那一档，不是 `return` ✓）。
+// **自定义迭代器那一档：收的是「被迭代的那个东西」**（第 620 轮）：
+// `get_iterator` 把用户自己写的迭代器**摊平成了数组**（`install.xl.md`），
+// 而引擎那边拿到的是**游标**（`iter_new` 对数组 `CreateIterator`）——
+// 游标上没有 `return`，用户写的那个 `return()` **一次都不被调**
+//（判据 `c371-rt-iteration-protocol-forms`：Node 打 `closed`，本仓不打）。
+// **语言层把那个 close 绑好、挂在数组的 `__close` 上**（只有它会写这一格），
+// 所以这里再问一次**被迭代者**就够了——普通数组没有这一格、生成器也没有
+//（它是 `keyText` 那一档，不是 `return`）。
 this.EmitIteratorClose(iterableSlot, "__close");
 this.PatchTarget(normalExit, this.Here());
-// **出口也要退回去** ✓（第 315 轮 ✓）：`break` 与「迭代到头」都落到这一处 ✓
-//（close 那一段**在**这一句之前 ✓——它在循环那一层环境里跑 ✓，而迭代器那一格
-//  是**循环之外**占的 ✓，两处都读得到 ✓）。
+// **出口也要退回去**（第 315 轮）：`break` 与「迭代到头」都落到这一处
+//（close 那一段**在**这一句之前——它在循环那一层环境里跑，而迭代器那一格
+//  是**循环之外**占的，两处都读得到）。
 if (perIteration) {
   this.Emit(Op.EnvLeave, -1, -1, -1, -1);
 }
@@ -4280,28 +4280,28 @@ this.PopScope();
 
 ## method EmitIteratorClose:(iteratorSlot:int, keyText:string = "return")=>void
 
-**`for..of` 提前退出时把迭代器收掉** ✓（第 336 轮 ✓）——JS 的 **IteratorClose** ✓：
-`break` / `return` / 抛出去这三档都要调一次 `iterator.return()` ✓（**迭代到头不调** ✗ ✓）。
+**`for..of` 提前退出时把迭代器收掉**（第 336 轮）——JS 的 **IteratorClose**：
+`break` / `return` / 抛出去这三档都要调一次 `iterator.return()`（**迭代到头不调**）。
 
-**它为什么值得做** ✗：`for (const v of gen()) { break }` 里生成器那句 `finally` **要跑** ✓
-（判据 `c304-rt-generator-early-break-finally` ✓）——而 `finally` 只有 `return()` 那条路会跑 ✓
-（第 336 轮刚把 `generator.return()` 接上 ✓，见 `ir.xl.md` 的 `CheckGeneratorReturn` ✓）。
-少了这一句，**`finally` 里那些清理一声不响地不跑** ✓（`for..of` + `break` 是真实代码里的常客 ✓）。
+**它为什么值得做**：`for (const v of gen()) { break }` 里生成器那句 `finally` **要跑**
+（判据 `c304-rt-generator-early-break-finally`）——而 `finally` 只有 `return()` 那条路会跑
+（第 336 轮刚把 `generator.return()` 接上，见 `ir.xl.md` 的 `CheckGeneratorReturn`）。
+少了这一句，**`finally` 里那些清理一声不响地不跑**（`for..of` + `break` 是真实代码里的常客）。
 
-**`return` 那一格按普通属性读** ✓（`get_prop` ✓）：JS 里它是可选的 ✓——
-**`undefined` 就跳过** ✓（数组的迭代器就没有 ✓）。**其余不是函数的值**在 JS 里抛 `TypeError` ✗，
-这一档**还没有量到** ✓，先按「不是 undefined 就调」办 ✓（**写在明处** ✓：
-真调一个不是函数的东西会报 `calling a non-closure value` ✓——**响亮** ✓，不是静默 ✓）。
+**`return` 那一格按普通属性读**（`get_prop`）：JS 里它是可选的——
+**`undefined` 就跳过**（数组的迭代器就没有）。**其余不是函数的值**在 JS 里抛 `TypeError`，
+这一档**还没有量到**，先按「不是 undefined 就调」办（**写在明处**：
+真调一个不是函数的东西会报 `calling a non-closure value`——**响亮**，不是静默）。
 
-**代码形状与 `RtCall2` / `Op.Call` 那两处一字不差** ✓（`D` 操作数是 `this` ✓——
-`iterator.return()` 的 `this` 必须是**那个迭代器** ✓）。
+**代码形状与 `RtCall2` / `Op.Call` 那两处一字不差**（`D` 操作数是 `this`——
+`iterator.return()` 的 `this` 必须是**那个迭代器**）。
 
-**`keyText` 是给「自定义迭代器」那一档留的口子** ✓（第 620 轮 ✓）：
-默认读 `return` ✓（生成器与游标都走这一格 ✓）；**被迭代的那个东西**上读的是
-**`__close`** ✓——那一格是语言层自己写的 ✓（`install.xl.md` 的 `GetIterator` ✓），
-脚本看不见它 ✓（不可枚举 ✓）。**两档分开是为了不误调** ✗：数组自己挂的 `return`
-在 JS 里**不会**被 `for..of` 调 ✓（数组迭代器没有 `return` ✓）——
-把 close 一律改成「问被迭代者」就会踩到它 ✗。
+**`keyText` 是给「自定义迭代器」那一档留的口子**（第 620 轮）：
+默认读 `return`（生成器与游标都走这一格）；**被迭代的那个东西**上读的是
+**`__close`**——那一格是语言层自己写的（`install.xl.md` 的 `GetIterator`），
+脚本看不见它（不可枚举）。**两档分开是为了不误调**：数组自己挂的 `return`
+在 JS 里**不会**被 `for..of` 调（数组迭代器没有 `return`）——
+把 close 一律改成「问被迭代者」就会踩到它。
 
 ```ts
 const returnKey = this.Program().AddConst(Constant.OfString(UnitsOf(keyText)));
@@ -4310,7 +4310,7 @@ const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
 const missing = this.RtCall2(RtOp.CmpEqStrict, closeFn, undefinedConst);
 const callIndex = this.Here();
 this.Emit(Op.JumpIfFalse, missing, 0, -1, -1);
-// **跳过**那一支：`return` 是 `undefined` ⇒ 直接出去 ✓。
+// **跳过**那一支：`return` 是 `undefined` ⇒ 直接出去。
 const skipIndex = this.Here();
 this.Emit(Op.Jump, -1, 0, -1, -1);
 this.PatchTarget(callIndex, this.Here());
@@ -4330,14 +4330,14 @@ this.PatchTarget(skipIndex, this.Here());
 （`Object` 是全局名之一，见 `GlobalNames`）。没有就**明确报出来**并指出修法——
 含糊地报「未知名字」会让人以为是拼写问题。
 
-**第 340 轮：借的那一格从 `keys` 换成了 `forInKeys`** ✗（**实测撞到的** ✓）：
-`Object.keys` 的口径是**自有** ✓，而 `for..in` 要**沿原型链往上走** ✓——
-借错一格的表现是**少几个键** ✓（判据 `rt-forin-order-and-inherited` 第 3 行 ✓：
-Node 给 `own,inherited` ✓、本仓给 `own` ✗）。两格都在 `Object` 构造函数上 ✓、
-**同一条形状**（按名字取 ✓），差别只有语义 ✓；而**藏在 `Object` 上的那一格是不可枚举的** ✓
-（`SetHiddenProperty` ✓），所以谁都不会顺手看见它 ✓。实现与账见
-`builtins/globals.xl.md` 的 `CollectForInKeys` ✓。
-**`for..in` 只看字符串键** ✓、**原型链上层被下层压住的同名键只算一次** ✓——两条都在那里 ✓。
+**第 340 轮：借的那一格从 `keys` 换成了 `forInKeys`**（**实测撞到的**）：
+`Object.keys` 的口径是**自有**，而 `for..in` 要**沿原型链往上走**——
+借错一格的表现是**少几个键**（判据 `rt-forin-order-and-inherited` 第 3 行：
+Node 给 `own,inherited`、本仓给 `own`）。两格都在 `Object` 构造函数上、
+**同一条形状**（按名字取），差别只有语义；而**藏在 `Object` 上的那一格是不可枚举的**
+（`SetHiddenProperty`），所以谁都不会顺手看见它。实现与账见
+`builtins/globals.xl.md` 的 `CollectForInKeys`。
+**`for..in` 只看字符串键**、**原型链上层被下层压住的同名键只算一次**——两条都在那里。
 
 **只遍历自有键**（`Object.keys` 的口径）：JS 的 `for..in` 还会走**原型链上的可枚举键**。
 今天对象的原型只有 `Protos.Object`（上面没挂可枚举东西），所以差别看不见；
@@ -4385,16 +4385,16 @@ if (kind === "VariableDeclarationList") {
   const nameKind = NodeKind(name);
   if (nameKind === "ObjectBindingPattern" || nameKind === "ArrayBindingPattern") {
     // **`for (const [k, v] of …)` / `for (const {a} of …)`**（第 135 轮）：
-    // 把绑定模式那一路**原样接进来** ✓——默认值、数组剩余、嵌套都在 `Destructure` 里 ✓
-    //（第 132 / 134 轮做的 ✓），这一处**一行新语义都没有** ✓。
+    // 把绑定模式那一路**原样接进来**——默认值、数组剩余、嵌套都在 `Destructure` 里
+    //（第 132 / 134 轮做的），这一处**一行新语义都没有**。
     //
-    // **它与上面那条「只写、不声明」并不矛盾** ✗：`Destructure` → `BindName` 里那次
-    // `Reserve` + `DeclareLocal` 是**编译期**发的**一次**代码 ✓，运行时每个迭代只是
-    // 往**同一格**写 ✓——「每轮重新声明会把槽越开越多」说的是**运行时**不能重复声明 ✓，
-    // 而这里根本没有运行时声明这回事 ✓。
+    // **它与上面那条「只写、不声明」并不矛盾**：`Destructure` → `BindName` 里那次
+    // `Reserve` + `DeclareLocal` 是**编译期**发的**一次**代码，运行时每个迭代只是
+    // 往**同一格**写——「每轮重新声明会把槽越开越多」说的是**运行时**不能重复声明，
+    // 而这里根本没有运行时声明这回事。
     //
-    // **`var` 那一位照传** ✓：`for (var [a] of …)` 的绑定走提升时占好的槽 ✓
-    //（与上面那条 `VarSlotOf` 分支同一条规矩 ✓）。
+    // **`var` 那一位照传**：`for (var [a] of …)` 的绑定走提升时占好的槽
+    //（与上面那条 `VarSlotOf` 分支同一条规矩）。
     this.Destructure(name, value, IsVarList(initializer));
     return;
   }
@@ -4477,11 +4477,11 @@ this.Program().Handlers[index].TryEnd = this.Here();
 
 - **`finally` 的代码发两遍**（正常路径一遍、重抛路径一遍）。共享一份要一条子过程跳转，
   下一次；`finally` 通常很短，**重复比造一条新指令便宜**。
-- **带 `finally` 的 `try` 里 `return` / `break` / `continue`**：**第 201 轮补上了** ✓——
-  先把在册的 `finally` 从里到外**各发一遍** ✓（`EmitPendingFinalies` ✓），再走 ✓。
-  原来这里是**降级期就抛** ✗（「会跳过 `finally`」✓）：那一抛本身是对的 ✓
-  （静默跳过 `finally` 是**静默错值** ✗），但 `try { … } finally { … }` 里 `return`
-  是**普通 `.ts` 里最常见的一条** ✓。
+- **带 `finally` 的 `try` 里 `return` / `break` / `continue`**：**第 201 轮补上了**——
+  先把在册的 `finally` 从里到外**各发一遍**（`EmitPendingFinalies`），再走。
+  原来这里是**降级期就抛**（「会跳过 `finally`」）：那一抛本身是对的
+  （静默跳过 `finally` 是**静默错值**），但 `try { … } finally { … }` 里 `return`
+  是**普通 `.ts` 里最常见的一条**。
 
 ```ts
 const tryBlock = Child(node, "tryBlock");
@@ -4522,10 +4522,10 @@ if (hasCatch) {
 const finallyStart = this.Here();
 this.PatchTarget(tryExit, finallyStart);
 if (catchExit >= 0) this.PatchTarget(catchExit, finallyStart);
-// **发 `finally` 之前先把它自己从「在册」里摘掉** ✓（第 201 轮 ✓）：JS 里 `finally` 自己
-// `return` 会**接管**这次完成 ✓、不会再跑一遍同一层 ✗
-// （`try { return 1 } finally { return 2 }` 给 `2` ✓）。摘早了也不行 ✗——
-// `try` 体与 `catch` 体里那三样（`return` / `break` / `continue`）正需要它**在册** ✓。
+// **发 `finally` 之前先把它自己从「在册」里摘掉**（第 201 轮）：JS 里 `finally` 自己
+// `return` 会**接管**这次完成、不会再跑一遍同一层
+// （`try { return 1 } finally { return 2 }` 给 `2`）。摘早了也不行——
+// `try` 体与 `catch` 体里那三样（`return` / `break` / `continue`）正需要它**在册**。
 if (hasFinally) this.FinallyBlocks.pop();
 if (hasFinally) this.LowerFinally(finallyBlock as AstNode);
 const toEnd = this.Here();
@@ -4557,42 +4557,42 @@ this.LowerStatement(block);
 
 ## method EmitPendingIteratorCloses:()=>void
 
-**把在册的迭代循环从里到外收一遍** ✓（第 337 轮 ✓）——JS 的 **IteratorClose** ✓：
-`return` 从 `for..of` / `for..in` 里出去时，那些迭代器**每一个都要 `.return()` 一次** ✓
-（**迭代到头不调** ✗ ✓——那一档走的是循环自己的正常出口 ✓）。
+**把在册的迭代循环从里到外收一遍**（第 337 轮）——JS 的 **IteratorClose**：
+`return` 从 `for..of` / `for..in` 里出去时，那些迭代器**每一个都要 `.return()` 一次**
+（**迭代到头不调**——那一档走的是循环自己的正常出口）。
 
-**从里到外** ✓（`this.Loops` 的栈顶是最近那一层 ✓）：`for (a of xs) for (b of ys) return` ✓
-先收 `ys` 那个 ✓（它是最后拿到手的 ✓），与 JS 的「按进入次序倒着退」一致 ✓。
+**从里到外**（`this.Loops` 的栈顶是最近那一层）：`for (a of xs) for (b of ys) return`
+先收 `ys` 那个（它是最后拿到手的），与 JS 的「按进入次序倒着退」一致。
 
-**只收「迭代循环」** ✓（`IteratorSlot >= 0` ✓）：普通 `for` / `while` 没有迭代器 ✓。
+**只收「迭代循环」**（`IteratorSlot >= 0`）：普通 `for` / `while` 没有迭代器。
 
-**谁走这一条** ✓（第 598 轮把这句话写准 ✗）：`return` ✓ 与**不带标签的 `break`** ✓ 两档已经接了 ✓
-（后者见 `LowerIterationLoop` 的两条出口 ✓：`LeaveLoop` 把这一层的 `break` 回填到 close **之前** ✓，
-所以「迭代到头」跳过 close ✓、`break` 落在 close 上 ✓，判据
-`c304-rt-generator-early-break-finally` ✓）。**还差的是一张更小的清单** ✓：
-① `throw` 出循环 ✓（由那张「重抛」的网管 ✓，本仓还没有 ✓）；
-② **带标签的 `break` 跳到外层循环** ✓（中间夹着的那几层迭代循环也要 close ✓，
-而 `LowerBreak` 现在只回填**最近那一层** ✓）。
-**③ 已经收了** ✓（第 620 轮 ✓）：自带 `Symbol.iterator` 的对象由 `GetIterator`
-**先收集成数组** ✓，那条路把**源迭代器的 `return()` 绑好**、挂在数组的 `__close` 上 ✓——
-所以这一处与 `LowerIterationLoop` 的出口**都要多收一次被迭代者** ✓
-（`EmitIteratorClose(…, "__close")` ✓），判据 `c371-rt-iteration-protocol-forms` ✓。
+**谁走这一条**（第 598 轮把这句话写准）：`return` 与**不带标签的 `break`** 两档已经接了
+（后者见 `LowerIterationLoop` 的两条出口：`LeaveLoop` 把这一层的 `break` 回填到 close **之前**，
+所以「迭代到头」跳过 close、`break` 落在 close 上，判据
+`c304-rt-generator-early-break-finally`）。**还差的是一张更小的清单**：
+① `throw` 出循环（由那张「重抛」的网管，本仓还没有）；
+② **带标签的 `break` 跳到外层循环**（中间夹着的那几层迭代循环也要 close，
+而 `LowerBreak` 现在只回填**最近那一层**）。
+**③ 已经收了**（第 620 轮）：自带 `Symbol.iterator` 的对象由 `GetIterator`
+**先收集成数组**，那条路把**源迭代器的 `return()` 绑好**、挂在数组的 `__close` 上——
+所以这一处与 `LowerIterationLoop` 的出口**都要多收一次被迭代者**
+（`EmitIteratorClose(…, "__close")`），判据 `c371-rt-iteration-protocol-forms`。
 
 ```ts
 for (let i = this.Loops.length - 1; i >= 0; i--) {
   const context = this.Loops[i];
   if (context.IteratorSlot < 0) continue;
   this.EmitIteratorClose(context.IteratorSlot);
-  // **被迭代者那一格也要收** ✓（第 620 轮 ✓，见 `IterableSlot` 那一格 ✓）。
+  // **被迭代者那一格也要收**（第 620 轮，见 `IterableSlot` 那一格）。
   if (context.IterableSlot >= 0) this.EmitIteratorClose(context.IterableSlot, "__close");
 }
 ```
 
 ## method HasPendingIteratorCloses:()=>bool
 
-**在册的迭代循环里有没有要收的** ✓（第 337 轮 ✓）——`return` 那一支用它决定要不要走
-「先收尾再 `Return`」那条路 ✓（没有它的话，`return` 在**没有 `finally`** 的循环里
-会走另一条更短的路 ✓，而那条路**不收迭代器** ✗）。
+**在册的迭代循环里有没有要收的**（第 337 轮）——`return` 那一支用它决定要不要走
+「先收尾再 `Return`」那条路（没有它的话，`return` 在**没有 `finally`** 的循环里
+会走另一条更短的路，而那条路**不收迭代器**）。
 
 ```ts
 for (let i = 0; i < this.Loops.length; i++) {
@@ -4603,34 +4603,34 @@ return false;
 
 ## method EmitPendingFinalies:()=>void
 
-**把当前在册的 `finally` 从里到外发一遍**（第 201 轮 ✓）。
+**把当前在册的 `finally` 从里到外发一遍**（第 201 轮）。
 
-**它服务三样东西** ✓：`return` ✓、`break` ✓、`continue` ✓——
-JS 的语义是「**先把这些 `finally` 跑完，再走**」✓（AbruptCompletion 那一条 ✓），
-而 `throw` 不必它管 ✗（异常本来就走那张「重抛」的网 ✓，`finally` 由那条路跑 ✓）。
+**它服务三样东西**：`return`、`break`、`continue`——
+JS 的语义是「**先把这些 `finally` 跑完，再走**」（AbruptCompletion 那一条），
+而 `throw` 不必它管（异常本来就走那张「重抛」的网，`finally` 由那条路跑）。
 
-**发每一层时，把它自己与它**里头**那几层都摘下来** ✓：里头那几层**已经发过了** ✓
-（我们是**从里往外**发的 ✓），而它**自己**不算「待跑」✗——
-JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一层再跑一遍 ✗。
-`this.FinallyBlocks = outer` 这一行就是那个「摘」✓。
+**发每一层时，把它自己与它**里头**那几层都摘下来**：里头那几层**已经发过了**
+（我们是**从里往外**发的），而它**自己**不算「待跑」——
+JS 里 `finally` 自己 `return` 会**接管**这次完成，不会把同一层再跑一遍。
+`this.FinallyBlocks = outer` 这一行就是那个「摘」。
 
-**发完要把它恢复回去** ✓：这段代码是**内联**在 `try` 体中间的 ✓，
-而后面还要接着发**同一段的其余语句** ✓（那些语句是**死代码** ✓，但布局仍在走 ✓）——
-不恢复的话，外面那一层的 `finally` 就丢了 ✗（症状离现场很远 ✗：
-后面某个 `return` **静默少跑一层 `finally`** ✓）。
+**发完要把它恢复回去**：这段代码是**内联**在 `try` 体中间的，
+而后面还要接着发**同一段的其余语句**（那些语句是**死代码**，但布局仍在走）——
+不恢复的话，外面那一层的 `finally` 就丢了（症状离现场很远：
+后面某个 `return` **静默少跑一层 `finally`**）。
 
 ```ts
 const saved: AstNode[] = [];
 for (let i = 0; i < this.FinallyBlocks.length; i++) saved.push(this.FinallyBlocks[i]);
-// **从里往外** ✓（`saved` 里最外层在前 ✓）。
+// **从里往外**（`saved` 里最外层在前）。
 for (let i = saved.length - 1; i >= 0; i--) {
-  // 发这一层时，「还待跑」的只剩**外面**那些 ✓。
+  // 发这一层时，「还待跑」的只剩**外面**那些。
   const outer: AstNode[] = [];
   for (let j = 0; j < i; j++) outer.push(saved[j]);
   this.FinallyBlocks = outer;
   this.LowerStatement(saved[i]);
 }
-// **恢复**：见上面那一段（后面还有同一段的死代码要发 ✓）。
+// **恢复**：见上面那一段（后面还有同一段的死代码要发）。
 this.FinallyBlocks = saved;
 ```
 
@@ -4654,7 +4654,7 @@ if (kind === "Identifier") {
 }
 // **`catch ({ message })` 也是解构**（第 119 轮补）：投影给的形状与变量声明的
 // `ObjectBindingPattern` **完全一样**，所以走路也应该是同一条（`Destructure`）——
-// 原来这里直接抛 `unimplemented: destructuring catch binding` ✗，
+// 原来这里直接抛 `unimplemented: destructuring catch binding`，
 // 而「接住异常、只取 message」是脚本里最常见的写法之一。
 // **`isVar` 给假**：`catch` 参数是块作用域，不是 `var`。
 if (kind === "ObjectBindingPattern" || kind === "ArrayBindingPattern") {
@@ -4738,10 +4738,10 @@ throw new Error("optional chain is too deep (or it is a cycle)");
 它的守卫接着把它短路下去。
 
 ```ts
-// **`super.v` 要先认出来** ✓（第 243 轮 ✓）：接收者那一格是 `SuperKeyword` ✓——
-// 而它**不是**一个普通表达式 ✗（`LowerExpression(SuperKeyword)` 那一支只回 `undefined` ✓），
-// 所以**名字也取不到** ✗（`super` 后面的那格名字在**这一层** ✓，不在那一格里 ✓）。
-// 判据落在**父节点**上 ✓：与 `LowerMethodCall` 里认 `super.m(...)` 那一处**同一个形状** ✓。
+// **`super.v` 要先认出来**（第 243 轮）：接收者那一格是 `SuperKeyword`——
+// 而它**不是**一个普通表达式（`LowerExpression(SuperKeyword)` 那一支只回 `undefined`），
+// 所以**名字也取不到**（`super` 后面的那格名字在**这一层**，不在那一格里）。
+// 判据落在**父节点**上：与 `LowerMethodCall` 里认 `super.m(...)` 那一处**同一个形状**。
 if (NodeKind(node) === "PropertyAccessExpression"
   && NodeKind(Child(node, "expression")) === "SuperKeyword") {
   const superName = Child(node, "name");
@@ -4757,7 +4757,7 @@ if (optional) skip = this.JumpIfNullish(receiver);
 let result = -1;
 if (NodeKind(node) === "PropertyAccessExpression") {
   const name = Child(node, "name");
-  // **私有名也是属性名**（第 195 轮 ✓）：`this.#n` 与字段那一格同键 ✓（`KeyUnitsOf` ✓）。
+  // **私有名也是属性名**（第 195 轮）：`this.#n` 与字段那一格同键（`KeyUnitsOf`）。
   if (NodeKind(name) !== "Identifier" && NodeKind(name) !== "PrivateIdentifier") {
     throw new Error("unimplemented: private or computed property name");
   }
@@ -4779,37 +4779,37 @@ return result;
 
 ## method LowerSuperProperty:(name:string)=>int
 
-**`super.v`**（第 243 轮 ✓）——**从父原型起读一格，而 `this` 仍是当前实例** ✓。
+**`super.v`**（第 243 轮）——**从父原型起读一格，而 `this` 仍是当前实例**。
 
-**为什么它必须是一条新入口** ✗（第 242 轮量清的 ✓）：`GetProperty` 的起点是**接收者自己** ✓
-（`get v() { return super.v + 1 }` 会先命中**子类自己**那一格 ⇒ **无限递归** ✓）；
-而 `FindProperty` + `ReadProperty` 分开用会得到 `this = 原型` ⇒ **静默错值** ✗。
-引擎那边补的是 `RtOp.GetPropFrom` ✓（见 `props.xl.md` 的 `GetPropertyFrom` ✓）。
+**为什么它必须是一条新入口**（第 242 轮量清的）：`GetProperty` 的起点是**接收者自己**
+（`get v() { return super.v + 1 }` 会先命中**子类自己**那一格 ⇒ **无限递归**）；
+而 `FindProperty` + `ReadProperty` 分开用会得到 `this = 原型` ⇒ **静默错值**。
+引擎那边补的是 `RtOp.GetPropFrom`（见 `props.xl.md` 的 `GetPropertyFrom`）。
 
-**父类怎么找到** ✓：与 `super.m()` 那条路**一字不差** ✓——
-`InSuperName` 是类降级时写进排队函数的父类名 ✓，照常 `ResolveAccess` ✓，
-再读一次 `prototype` ✓（父类的 `prototype` 就是**沿链的起点** ✓）。
+**父类怎么找到**：与 `super.m()` 那条路**一字不差**——
+`InSuperName` 是类降级时写进排队函数的父类名，照常 `ResolveAccess`，
+再读一次 `prototype`（父类的 `prototype` 就是**沿链的起点**）。
 
-**不在派生类方法里就给 `undefined`** ✓（**不抛** ✗）：`super` 写在别处
-在 TS 里本来就是语法错误 ✓，走到这一支说明树本来就不该到这儿 ✓——
-给 `undefined` 是最省事的那一档 ✓。**而 `super.m()` 那条路照旧响亮地抛** ✓：
-它是**调用** ✓，报出来更好查 ✓。
+**不在派生类方法里就给 `undefined`**（**不抛**）：`super` 写在别处
+在 TS 里本来就是语法错误，走到这一支说明树本来就不该到这儿——
+给 `undefined` 是最省事的那一档。**而 `super.m()` 那条路照旧响亮地抛**：
+它是**调用**，报出来更好查。
 
 ```ts
-// **起点是抽出来的** ✓（第 326 轮 ✓）：`super.v` 读那一半与 `super.x = v` 写这一半
-// **必须同一个起点** ✗——两处各写一遍，漂的表现是「静态那一半写到实例上」✓
-//（正是第 278 轮修过一次的那种错 ✓）。**不在派生类里就给 `-1`** ✓，
-// 调用方各自决定怎么处理 ✓（读那一半给 `undefined` ✓、写那一半响亮地抛 ✓）。
+// **起点是抽出来的**（第 326 轮）：`super.v` 读那一半与 `super.x = v` 写这一半
+// **必须同一个起点**——两处各写一遍，漂的表现是「静态那一半写到实例上」
+//（正是第 278 轮修过一次的那种错）。**不在派生类里就给 `-1`**，
+// 调用方各自决定怎么处理（读那一半给 `undefined`、写那一半响亮地抛）。
 const superStart = this.SuperStartSlot();
 if (superStart < 0) {
   const missing = this.Reserve(1);
   this.Emit(Op.Const, missing, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
   return missing;
 }
-// **接收者是当前实例** ✓（`load_this` ✓——与 `super.m()` 那一处同一格 ✓）。
+// **接收者是当前实例**（`load_this`——与 `super.m()` 那一处同一格）。
 const superSelf = this.Reserve(1);
 this.Emit(Op.LoadThis, superSelf, -1, -1, -1);
-// **起点 / 键 / 接收者** ✓（`RtOp.GetPropFrom` 的三格 ✓）。
+// **起点 / 键 / 接收者**（`RtOp.GetPropFrom` 的三格）。
 const window = this.Reserve(3);
 this.Emit(Op.Move, window, superStart, -1, -1);
 this.Emit(Op.Const, window + 1, this.Program().AddConst(Constant.OfString(UnitsOf(name))), -1, -1);
@@ -4820,20 +4820,20 @@ return result;
 ```
 
 ## method SuperStartSlot:()=>int
-**`super` 那一格的起点是哪一格**（第 326 轮 ✓）——**静态成员从父类构造函数自己起读** ✓
-（`static get kind() { return super.kind }` 读的是 `A.kind` ✓），
-**实例成员从 `父类.prototype` 起读** ✓（`get v() { return super.v }` ✓）。
+**`super` 那一格的起点是哪一格**（第 326 轮）——**静态成员从父类构造函数自己起读**
+（`static get kind() { return super.kind }` 读的是 `A.kind`），
+**实例成员从 `父类.prototype` 起读**（`get v() { return super.v }`）。
 
-**为什么值得单开一个函数** ✗：读那一半（`LowerSuperProperty` ✓）与写那一半
-（`super.x = v` ✓）要的是**同一个起点** ✓——两处各写一遍就是两处会漂的答案 ✓，
-而漂的表现是「静态那一半写到实例上」✓（**静默错值** ✓，第 278 轮修过一次 ✓）。
+**为什么值得单开一个函数**：读那一半（`LowerSuperProperty`）与写那一半
+（`super.x = v`）要的是**同一个起点**——两处各写一遍就是两处会漂的答案，
+而漂的表现是「静态那一半写到实例上」（**静默错值**，第 278 轮修过一次）。
 
-**父类怎么找到** ✓：`InSuperName` 是类降级时写进排队函数的父类名 ✓，
-照常 `ResolveAccess` ✓，再读一次 `prototype` ✓。
+**父类怎么找到**：`InSuperName` 是类降级时写进排队函数的父类名，
+照常 `ResolveAccess`，再读一次 `prototype`。
 
-**不在派生类方法里给 `-1`** ✓（**不抛** ✗）：`super` 写在别处本来就是语法错误 ✓，
-走到这一支说明树不该到这儿 ✓——**两个调用方各自决定怎么处理** ✓
-（读那一半给 `undefined` ✓ 是最省事的那一档 ✓；写那一半是**写** ✓，响亮地抛更好查 ✓）。
+**不在派生类方法里给 `-1`**（**不抛**）：`super` 写在别处本来就是语法错误，
+走到这一支说明树不该到这儿——**两个调用方各自决定怎么处理**
+（读那一半给 `undefined` 是最省事的那一档；写那一半是**写**，响亮地抛更好查）。
 
 ```ts
 if (this.InSuperName === "") return -1;
@@ -4851,17 +4851,17 @@ return this.RtCall2(RtOp.GetProp, parent, prototypeKey);
 
 ## method LowerSuperAssignment:(left:AstNode, right:AstNode)=>int
 
-**`super.x = v`**（第 326 轮 ✓）——**从父原型起找那一格，但写下去的接收者是当前实例** ✓
-（与读那一半 `LowerSuperProperty` **对称** ✓，引擎那边对应的是 `RtOp.SetPropFrom` ✓）。
+**`super.x = v`**（第 326 轮）——**从父原型起找那一格，但写下去的接收者是当前实例**
+（与读那一半 `LowerSuperProperty` **对称**，引擎那边对应的是 `RtOp.SetPropFrom`）。
 
-**为什么必须是一条新路** ✗（与读那一半同一条理由 ✓）：`set value(v) { super.value = v }`
-如果按「接收者自己」去找 ✓，会先命中**子类自己**那一格 setter ⇒ **无限递归** ✓。
+**为什么必须是一条新路**（与读那一半同一条理由）：`set value(v) { super.value = v }`
+如果按「接收者自己」去找，会先命中**子类自己**那一格 setter ⇒ **无限递归**。
 
-**求值顺序照 JS** ✓：接收者是 `this`（不算 ✓）、键是常量 ✓、**值是右表达式** ✓
-——所以值**只求一次** ✓、在写之前 ✓（`super.x = f()` 里 `f()` 恰好调一次 ✓）。
+**求值顺序照 JS**：接收者是 `this`（不算）、键是常量、**值是右表达式**
+——所以值**只求一次**、在写之前（`super.x = f()` 里 `f()` 恰好调一次）。
 
-**四格窗口** ✓（起点 / 键 / 值 / 接收者 ✓），与 `RtOp.SetPropFrom` 的签名一一对应 ✓；
-**赋值表达式的值就是右边那一格** ✓（JS 的口径 ✓，与 `o.x = v` 那条一字不差 ✓）。
+**四格窗口**（起点 / 键 / 值 / 接收者），与 `RtOp.SetPropFrom` 的签名一一对应；
+**赋值表达式的值就是右边那一格**（JS 的口径，与 `o.x = v` 那条一字不差）。
 
 ```ts
 const name = Child(left, "name");
@@ -4870,8 +4870,8 @@ if (NodeKind(name) !== "Identifier") {
 }
 const start = this.SuperStartSlot();
 if (start < 0) {
-  // **写那一半响亮地抛** ✗（读那一半给 `undefined` ✓）：`super.x = v` 写在派生类方法外面
-  // 在 TS 里就是语法错误 ✓，而「静默什么都没写」是最坏的那一档 ✓（**静默错值** ✓）。
+  // **写那一半响亮地抛**（读那一半给 `undefined`）：`super.x = v` 写在派生类方法外面
+  // 在 TS 里就是语法错误，而「静默什么都没写」是最坏的那一档（**静默错值**）。
   throw new Error("unimplemented: super.x = v outside a derived class method");
 }
 const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
@@ -4905,25 +4905,25 @@ if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
   // **父类怎么找到**：`super` 的父类名由 `InSuperName` 指认（类降级时写进排队函数，
   // 见 `LowerClass` 里盖章那一行），然后**照常 `ResolveAccess`**——它在环境里还是在槽里，
   // 这里一行都不用管。`super(...)` 那条分支就是这么做的。
-  // **对象字面量方法里的 `super.m()`** ✓（第 361 轮 ✓，**实测撞到的** ✓）：
-  // 这一支原来**一律抛** ✗（`super.m(...) outside a derived class method` ✓），
-  // 而 JS 里 `const o = { __proto__: p, greet() { return super.greet(); } }` 是合法的 ✓
-  //（判据 `c323-rt-super-in-object-literal` ✓：Node 给 `hi!` ✓、本仓整份文件进不来 ✗）。
+  // **对象字面量方法里的 `super.m()`**（第 361 轮，**实测撞到的**）：
+  // 这一支原来**一律抛**（`super.m(...) outside a derived class method`），
+  // 而 JS 里 `const o = { __proto__: p, greet() { return super.greet(); } }` 是合法的
+  //（判据 `c323-rt-super-in-object-literal`：Node 给 `hi!`、本仓整份文件进不来）。
   //
-  // **差的只是「起点从哪来」** ✓：类方法那一路要从 `<父类>.prototype` 取 ✓，
-  // 而对象字面量方法的**家对象就是 `this`** ✓（`o.greet()` 里 `this` 是 `o` ✓）
-  // ⇒ 起点是 **`get_proto(this)`** ✓。**名字查找 / `this` / 实参 / 展开那几段一个字都不用改** ✓
-  //（下面那几段本来就只认「`proto` 这一格」✓）。
+  // **差的只是「起点从哪来」**：类方法那一路要从 `<父类>.prototype` 取，
+  // 而对象字面量方法的**家对象就是 `this`**（`o.greet()` 里 `this` 是 `o`）
+  // ⇒ 起点是 **`get_proto(this)`**。**名字查找 / `this` / 实参 / 展开那几段一个字都不用改**
+  //（下面那几段本来就只认「`proto` 这一格」）。
   //
-  // **已知差别写在明处** ✗：JS 用**真的家对象** ✓（方法被摘下来单独调用时 `super` 照样工作 ✓），
-  // 而这里用 `this` ✓ ⇒ `const f = o.greet; f()` 会去取**空值的原型** ✗（NDoe 给 `hi!` ✓）。
-  // 要真对齐得把家对象当**隐藏形参**传进闭包 ✓（与命名空间体那一帧同一手法 ✓）——**那是另一件事** ✓。
+  // **已知差别写在明处**：JS 用**真的家对象**（方法被摘下来单独调用时 `super` 照样工作），
+  // 而这里用 `this` ⇒ `const f = o.greet; f()` 会去取**空值的原型**（NDoe 给 `hi!`）。
+  // 要真对齐得把家对象当**隐藏形参**传进闭包（与命名空间体那一帧同一手法）——**那是另一件事**。
   const superInObjectLiteral = this.InSuperName === "";
   if (superInObjectLiteral) {
     const selfForProto = this.Reserve(1);
     this.Emit(Op.LoadThis, selfForProto, -1, -1, -1);
     const prototypeKeyForObject = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
-    // `RtCall1` 给的是**一格**结果 ✓；先落到自己的格里再往下走 ✓（下面那几段只读 `proto` ✓）。
+    // `RtCall1` 给的是**一格**结果；先落到自己的格里再往下走（下面那几段只读 `proto`）。
     const objectProto = this.RtCall1(RtOp.GetProto, selfForProto);
     this.Release(selfForProto + 1);
     this.Release(objectProto + 1);
@@ -4957,11 +4957,11 @@ if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
     this.Emit(Op.Move, parent, parentAccess.Slot, -1, -1);
   }
   const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
-  // **起点也分两种** ✓（第 278 轮 ✓，与 `super.v` 那一支一字不差 ✓）：
-  // 静态成员在**父类构造函数自己**身上找方法 ✓（`static m() { return super.m() }` ✓），
-  // 实例成员在 `父类.prototype` 上找 ✓。
-  // **`this` 那两格不受影响** ✗——它照旧是当前实例 ✓（静态成员的 `this` 是构造函数 ✓，
-  // 而 `load_this` 取的就是当前帧的那一格 ✓，两类成员都靠它 ✓）。
+  // **起点也分两种**（第 278 轮，与 `super.v` 那一支一字不差）：
+  // 静态成员在**父类构造函数自己**身上找方法（`static m() { return super.m() }`），
+  // 实例成员在 `父类.prototype` 上找。
+  // **`this` 那两格不受影响**——它照旧是当前实例（静态成员的 `this` 是构造函数，
+  // 而 `load_this` 取的就是当前帧的那一格，两类成员都靠它）。
   let proto = parent;
   if (!this.InSuperStatic) {
     proto = this.RtCall2(RtOp.GetProp, parent, prototypeKey);
@@ -4978,26 +4978,26 @@ if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
   const selfSlot = this.Reserve(1);
   this.Emit(Op.LoadThis, selfSlot, -1, -1, -1);
   const superArgs = ListOf(call, "arguments");
-  // **`super.m(...xs)`**（第 158 轮）：这一支本来就用不了 `call_method` ✓
-  //（「在谁身上找」与「谁是 `this`」要分开 ✓），所以展开要另配一条形状 ✓——
-  // 而那条形状**本来就写在同一个方法里** ✓：`o.m(...xs)` 用的是
-  // 「先把方法当值取出来 + `call_array`」✓（`BuildArgsArray` + `EmitCallArray` ✓），
-  // 而这一支**前面已经把方法取成值了** ✓（`fn` ✓）——差的只是把实参收成数组 ✓。
-  // 少了这一条，`super.m(...xs)` 报 `unimplemented: spreading into super.m(...)` ✗
-  //（整份文件进不来 ✗）；而它在「子类透传实参」那种写法里很常见 ✓。
+  // **`super.m(...xs)`**（第 158 轮）：这一支本来就用不了 `call_method`
+  //（「在谁身上找」与「谁是 `this`」要分开），所以展开要另配一条形状——
+  // 而那条形状**本来就写在同一个方法里**：`o.m(...xs)` 用的是
+  // 「先把方法当值取出来 + `call_array`」（`BuildArgsArray` + `EmitCallArray`），
+  // 而这一支**前面已经把方法取成值了**（`fn`）——差的只是把实参收成数组。
+  // 少了这一条，`super.m(...xs)` 报 `unimplemented: spreading into super.m(...)`
+  //（整份文件进不来）；而它在「子类透传实参」那种写法里很常见。
   if (this.HasSpread(superArgs)) {
     const spreadArray = this.BuildArgsArray(superArgs);
     const spreadDest = this.EmitCallArray(fn, spreadArray, selfSlot);
-    // **「水位」这条线索已经证伪两次** ✗（第 159 轮在大例子上试过 ✓、第 160 轮在最小反例上又试过 ✓）：
-    // 这里补一句 `Release(spreadDest + 1)` ✓（与下面固定实参那支同一条纪律 ✓）
-    // **都没有修好** ✗——所以它**没有留下** ✗（不留一处没验证过的改动 ✓）。
+    // **「水位」这条线索已经证伪两次**（第 159 轮在大例子上试过、第 160 轮在最小反例上又试过）：
+    // 这里补一句 `Release(spreadDest + 1)`（与下面固定实参那支同一条纪律）
+    // **都没有修好**——所以它**没有留下**（不留一处没验证过的改动）。
     //
-    // **第 160 轮把反例缩到了三行** ✓（这才是有用的产出 ✓）：
+    // **第 160 轮把反例缩到了三行**（这才是有用的产出）：
     //   `const a = c.sumSpread([1,2,3]); const b = c.describeSpread(['a','b']);`
-    //   报 `calling a non-closure value` ✗；而**把两条语句对调就对** ✓
-    //（`console.log(c.sumSpread(...), c.describeSpread(...))` 同样错 ✗ ✓）。
-    // **顺序敏感** + **每种形状单独都对** ✓——下一轮从这里查 ✓，
-    // 别再猜「Release」（两次都白猜 ✓），去比这两份 IR 的**差别**（`Program.Dump()` ✓）。
+    //   报 `calling a non-closure value`；而**把两条语句对调就对**
+    //（`console.log(c.sumSpread(...), c.describeSpread(...))` 同样错）。
+    // **顺序敏感** + **每种形状单独都对**——下一轮从这里查，
+    // 别再猜「Release」（两次都白猜），去比这两份 IR 的**差别**（`Program.Dump()`）。
     return spreadDest;
   }
   const superCount = superArgs.length;
@@ -5016,40 +5016,40 @@ const optional = this.ChainHasOptional(call);
 let skip = -1;
 if (optional) skip = this.JumpIfNullish(receiver);
 const name = Child(callee, "name");
-// **私有名也能当被调用的名字**（第 195 轮 ✓）：`this.#m()` 的 kind 是 `PrivateIdentifier` ✓，
-// 键与类里挂上去的那一格**同一个**（`#m` ✓）——两处都用 `KeyUnitsOf` ✓，
-// 于是「挂」与「取」不可能走偏 ✓。
+// **私有名也能当被调用的名字**（第 195 轮）：`this.#m()` 的 kind 是 `PrivateIdentifier`，
+// 键与类里挂上去的那一格**同一个**（`#m`）——两处都用 `KeyUnitsOf`，
+// 于是「挂」与「取」不可能走偏。
 if (NodeKind(name) !== "Identifier" && NodeKind(name) !== "PrivateIdentifier") {
   throw new Error("unimplemented: method call with a computed name");
 }
 const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
 const args = ListOf(call, "arguments");
 const count = args.length;
-// **`?.` 有两种，守的东西不一样** ✗（第 152 轮量准的 ✓）：
+// **`?.` 有两种，守的东西不一样**（第 152 轮量准的）：
 //
 // | 写法 | `?.` 在哪 | 空值是谁 | 该守谁 |
 // | --- | --- | --- | --- |
-// | `o?.n?.()` | 形参那一层（`o?.n` ✓） | `o` ✓ | 接收者 ✓ |
-// | `o.n?.()` | **调用那一层**（`?.()` ✓） | **取出来的方法** ✓ | **方法值** ✓ |
+// | `o?.n?.()` | 形参那一层（`o?.n`） | `o` | 接收者 |
+// | `o.n?.()` | **调用那一层**（`?.()`） | **取出来的方法** | **方法值** |
 //
-// 原来只有「守接收者」那一条 ✓（判据是 `ChainHasOptional(call)` ✓，而它**分不出这两层** ✗），
-// 于是 `o.n?.()` 在 `n` 是 `null` 时**照样去调** ✗ → 报
-// `unimplemented: calling a non-closure value` ✓（JS 给 `undefined` ✓，**不调** ✓）。
+// 原来只有「守接收者」那一条（判据是 `ChainHasOptional(call)`，而它**分不出这两层**），
+// 于是 `o.n?.()` 在 `n` 是 `null` 时**照样去调** → 报
+// `unimplemented: calling a non-closure value`（JS 给 `undefined`，**不调**）。
 //
-// **两种都要守，缺一种就是错** ✓：
-//   · 守接收者：不做的话 `o?.n?.()`（`o` 为空 ✓）会去读空值的属性 ✗；
-//   · 守方法值：不做的话 `o.n?.()`（方法为空 ✓）会去调它 ✗。
-// **多守的那一道只是多几条指令** ✓（与 `ChainHasOptional` 那条注释同一个道理 ✓）。
+// **两种都要守，缺一种就是错**：
+//   · 守接收者：不做的话 `o?.n?.()`（`o` 为空）会去读空值的属性；
+//   · 守方法值：不做的话 `o.n?.()`（方法为空）会去调它。
+// **多守的那一道只是多几条指令**（与 `ChainHasOptional` 那条注释同一个道理）。
 const callOptional = OptionalChild(call, "questionDotToken") !== null;
-// **只有「调用那一层带 `?.`」才守方法值** ✗（不能拿 `optional` 顶替 ✓）：
-// `o?.m()`（`o.m` 不存在 ✓）在 JS 里是 **TypeError** ✓——拿 `optional` 顶替就是
-// 把它**静默**变成 `undefined` ✗，而静默错值比响亮地抛更糟 ✓。
+// **只有「调用那一层带 `?.`」才守方法值**（不能拿 `optional` 顶替）：
+// `o?.m()`（`o.m` 不存在）在 JS 里是 **TypeError**——拿 `optional` 顶替就是
+// 把它**静默**变成 `undefined`，而静默错值比响亮地抛更糟。
 if (callOptional && !this.HasSpread(args)) {
-  // **换一条形状** ✓：`call_method` 内部自己取方法 ✗，取不到就没机会守 ✓——
-  // 所以先把方法当值取出来 ✓，守一道 ✓，再用 `Op.Call` 带着 `this` 调 ✓。
-  // 这条形状**本来就有** ✓（下面展开那条与 `super.m(...)` 那条都是它 ✓）。
+  // **换一条形状**：`call_method` 内部自己取方法，取不到就没机会守——
+  // 所以先把方法当值取出来，守一道，再用 `Op.Call` 带着 `this` 调。
+  // 这条形状**本来就有**（下面展开那条与 `super.m(...)` 那条都是它）。
   const methodFn = this.RtCall2(RtOp.GetProp, receiver, key);
-  // **取完方法再守** ✓（守的是它 ✓，不是接收者 ✗）。
+  // **取完方法再守**（守的是它，不是接收者）。
   const methodSkip = this.JumpIfNullish(methodFn);
   const methodSelf = this.Reserve(1);
   this.Emit(Op.Move, methodSelf, receiver, -1, -1);
@@ -5057,12 +5057,12 @@ if (callOptional && !this.HasSpread(args)) {
   for (let i = 0; i < count; i++) {
     this.LowerInto(callArgs + i, args[i]);
   }
-  // **结果落在参数基址** ✓（与 `call_method` 同一条约定 ✓）。
+  // **结果落在参数基址**（与 `call_method` 同一条约定）。
   this.Emit(Op.Call, methodFn, callArgs, count, methodSelf);
   const doneOptional = this.Here();
   this.Emit(Op.Jump, -1, 0, -1, -1);
-  // **两条短路都落到同一处** ✓：接收者那条（若也守了 ✓）与方法值这条 ✓——
-  // 结果格都写 `undefined` ✓。
+  // **两条短路都落到同一处**：接收者那条（若也守了）与方法值这条——
+  // 结果格都写 `undefined`。
   this.PatchTarget(methodSkip, this.Here());
   if (optional) this.PatchTarget(skip, this.Here());
   this.Emit(Op.Const, callArgs, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
@@ -5070,16 +5070,16 @@ if (callOptional && !this.HasSpread(args)) {
   return callArgs;
 }
 if (this.HasSpread(args)) {
-  // **`o.m(...xs)`**（第 133 轮）：**不用 `call_method`** ✗——它收的是「键 + 定长窗口」✓，
-  // 而展开的个数只有运行期才知道 ✗。改成「先把方法当值取出来 + `call_array`」✓：
-  // 形状与上面那条 `o[k](...)` 一字不差 ✓（`this` 用 `D` 操作数递过去 ✓）。
+  // **`o.m(...xs)`**（第 133 轮）：**不用 `call_method`**——它收的是「键 + 定长窗口」，
+  // 而展开的个数只有运行期才知道。改成「先把方法当值取出来 + `call_array`」：
+  // 形状与上面那条 `o[k](...)` 一字不差（`this` 用 `D` 操作数递过去）。
   const methodFn = this.RtCall2(RtOp.GetProp, receiver, key);
   const methodSelf = this.Reserve(1);
   this.Emit(Op.Move, methodSelf, receiver, -1, -1);
   const spreadArray = this.BuildArgsArray(args);
   const spreadDest = this.EmitCallArray(methodFn, spreadArray, methodSelf);
   if (optional) {
-    // **可选链那条短路照旧** ✓：接收者为空时跳过整段，结果格写 `undefined` ✓。
+    // **可选链那条短路照旧**：接收者为空时跳过整段，结果格写 `undefined`。
     const spreadDone = this.Here();
     this.Emit(Op.Jump, -1, 0, -1, -1);
     this.PatchTarget(skip, this.Here());
@@ -5152,22 +5152,22 @@ for (let i = 0; i < context.Continues.length; i++) {
 
 **它不区分循环与 `switch`**——`switch` 里的 `break` 跳出的正是 `switch`（那才是最近的）。
 
-**它还认「标签 + 一个块」那一层** ✓（第 234 轮 ✓）：`outer: { … break outer; … }` 里
-那个 `outer` **不在 `Loops` 里** ✓（块不是循环 ✓），而在 `BlockLabel` 那一格 ✓——
-所以这里要在扫 `Loops` **之前**先问它一句 ✓（`outer: { … }` 里没有循环 ✓，
-扫 `Loops` 只会扫空 ✓、然后报 `unknown label` ✗，而**那是合法的 JS** ✓）。
+**它还认「标签 + 一个块」那一层**（第 234 轮）：`outer: { … break outer; … }` 里
+那个 `outer` **不在 `Loops` 里**（块不是循环），而在 `BlockLabel` 那一格——
+所以这里要在扫 `Loops` **之前**先问它一句（`outer: { … }` 里没有循环，
+扫 `Loops` 只会扫空、然后报 `unknown label`，而**那是合法的 JS**）。
 
 ```ts
 const labelNode = OptionalChild(node, "label");
-// **先问「标签 + 块」那一层** ✓（第 234 轮 ✓）：它不在 `Loops` 里 ✓，
-// 而它是最内层的可能性**最大** ✓——先扫 `Loops` 就会漏掉它 ✗。
-// **从里往外扫** ✓（与下面 `Loops` 那一趟同一个形状 ✓）：嵌套的标签块很普通 ✓
-//（实测 `two: { … inner: { … break two; … } … }` ✓——只看栈顶的话这一句会报「未知标签」✗）。
+// **先问「标签 + 块」那一层**（第 234 轮）：它不在 `Loops` 里，
+// 而它是最内层的可能性**最大**——先扫 `Loops` 就会漏掉它。
+// **从里往外扫**（与下面 `Loops` 那一趟同一个形状）：嵌套的标签块很普通
+//（实测 `two: { … inner: { … break two; … } … }`——只看栈顶的话这一句会报「未知标签」）。
 if (labelNode !== null) {
   const wanted = TextOf(labelNode);
   for (let b = this.BlockLabels.length - 1; b >= 0; b--) {
     if (this.BlockLabels[b].Label !== wanted) continue;
-    // **`finally` 那一段照旧先跑** ✓（与下面那条路同一条纪律 ✓，见那几行注释 ✓）。
+    // **`finally` 那一段照旧先跑**（与下面那条路同一条纪律，见那几行注释）。
     this.EmitPendingFinalies();
     const blockAt = this.Here();
     this.Emit(Op.Jump, -1, 0, -1, -1);
@@ -5189,10 +5189,10 @@ if (labelNode !== null) {
 } else if (this.Loops.length === 0) {
   throw new Error("break outside a loop or switch (the parser should have rejected this)");
 }
-// **带 `finally` 的 `try` 里 `break` 要先跑那些 `finally`** ✓（第 201 轮 ✓）——
-// 与 `return` 那一条**同一个方法** ✓（修之前这里也是降级期就抛 ✗）。
-// **`at` 必须取在 `Jump` 上** ✗（不是取在 `finally` 那一段的开头 ✓）：
-// `PatchTarget` 回填的是「跳出去之后落哪」✓，而 `finally` 的那几段是**跳之前**要跑的 ✓。
+// **带 `finally` 的 `try` 里 `break` 要先跑那些 `finally`**（第 201 轮）——
+// 与 `return` 那一条**同一个方法**（修之前这里也是降级期就抛）。
+// **`at` 必须取在 `Jump` 上**（不是取在 `finally` 那一段的开头）：
+// `PatchTarget` 回填的是「跳出去之后落哪」，而 `finally` 的那几段是**跳之前**要跑的。
 this.EmitPendingFinalies();
 const at = this.Here();
 this.Emit(Op.Jump, -1, 0, -1, -1);
@@ -5227,11 +5227,11 @@ if (labelNode !== null) {
     throw new Error("continue outside a loop (the parser should have rejected this)");
   }
 }
-// **带 `finally` 的 `try` 里 `continue` 也要先跑那些 `finally`** ✓（第 201 轮 ✓）——
-// 与 `return` / `break` **同一个方法** ✓（修之前这里也是降级期就抛 ✗）。
-// **顺序是语义** ✓：先跑 `finally` ✓，再跳去「下一轮开始」✓——
-// 而 `continue` 要跳的那个点（`for` 的更新式 ✓）本来就在循环那一层 ✓，
-// 所以这里**不必**对回填做任何特别处理 ✓（`jump` 仍旧取在 `Jump` 上 ✓）。
+// **带 `finally` 的 `try` 里 `continue` 也要先跑那些 `finally`**（第 201 轮）——
+// 与 `return` / `break` **同一个方法**（修之前这里也是降级期就抛）。
+// **顺序是语义**：先跑 `finally`，再跳去「下一轮开始」——
+// 而 `continue` 要跳的那个点（`for` 的更新式）本来就在循环那一层，
+// 所以这里**不必**对回填做任何特别处理（`jump` 仍旧取在 `Jump` 上）。
 this.EmitPendingFinalies();
 const jump = this.Here();
 this.Emit(Op.Jump, -1, 0, -1, -1);
@@ -5308,10 +5308,10 @@ return result;
 
 **一个函数式节点的参数名**（箭头函数 / 函数表达式 / 方法 / 函数声明共用）。
 
-**只收简单名**：解构参数抛——那是绑定模式那一路的语法（**另一条待办** ✓）。
-**剩余参数（第 133 轮）收下了** ✓：`function f(a, ...rest)` 的 `params` 是 `["a", "rest"]` ✓
-（`ParamCount` 是 2 ✓——剩余参数**确实占最后一个形参格** ✓，
-`vm.xl.md` 把收上来的数组放进那一格 ✓）。**收不收得下**由 `HasRestParam` 那一半说 ✓。
+**只收简单名**：解构参数抛——那是绑定模式那一路的语法（**另一条待办**）。
+**剩余参数（第 133 轮）收下了**：`function f(a, ...rest)` 的 `params` 是 `["a", "rest"]`
+（`ParamCount` 是 2——剩余参数**确实占最后一个形参格**，
+`vm.xl.md` 把收上来的数组放进那一格）。**收不收得下**由 `HasRestParam` 那一半说。
 默认值与可选参数**照收**（第 119 轮）：
 
 - **可选参数（`a?: T`）是纯类型位**：JS 里没有这个东西，运行期行为与 `a: T` **一模一样**
@@ -5332,28 +5332,28 @@ for (let i = 0; i < parameters.length; i++) {
   if (name === null) {
     throw new Error("unimplemented: parameter without a name");
   }
-  // **`this` 形参是纯类型位** ✓（第 228 轮 ✓）：`function f(this: any, a: number)` 里的
-  // 第一格**不占槽** ✗——TS 的类型剥离把它整格擦掉 ✓（实测：`f.call(o, 1, 2)` 里
-  // `a` 拿到的就是 `1` ✓），所以它与 `a?: T` 是同一档 ✓（JS 里没有这个东西 ✓）。
+  // **`this` 形参是纯类型位**（第 228 轮）：`function f(this: any, a: number)` 里的
+  // 第一格**不占槽**——TS 的类型剥离把它整格擦掉（实测：`f.call(o, 1, 2)` 里
+  // `a` 拿到的就是 `1`），所以它与 `a?: T` 是同一档（JS 里没有这个东西）。
   //
-  // **漏了这一格的症状是「所有实参整体错位一格」** ✗：`a` 拿到第 0 个实参、
-  // `b` 拿到第 1 个、最后一个永远是 `undefined` ✓（判据现场：`T:NaN` ✓，
-  // 而 `this` 本身却是**对的** ✓——所以看起来像「`+` 坏了」✗，其实是形参错位 ✓）。
-  // **判据走 `IsThisParameter`** ✓（不是在这里写一句 `TextOf(name) === "this"` ✗）：
-  // `CollectDefaults` 与 `CollectPatternParams` 两处**用同一份下标** ✓，
-  // 三处各写一遍的话，只要一处漏了，默认值 / 解构就落到**隔壁那一格** ✗（静默错值 ✓）。
+  // **漏了这一格的症状是「所有实参整体错位一格」**：`a` 拿到第 0 个实参、
+  // `b` 拿到第 1 个、最后一个永远是 `undefined`（判据现场：`T:NaN`，
+  // 而 `this` 本身却是**对的**——所以看起来像「`+` 坏了」，其实是形参错位）。
+  // **判据走 `IsThisParameter`**（不是在这里写一句 `TextOf(name) === "this"`）：
+  // `CollectDefaults` 与 `CollectPatternParams` 两处**用同一份下标**，
+  // 三处各写一遍的话，只要一处漏了，默认值 / 解构就落到**隔壁那一格**（静默错值）。
   if (this.IsThisParameter(parameter)) continue;
-  // **剩余参数只许在最后一位** ✓（语法规定的 ✓）——不在最后那一种是**源码就非法** ✓，
-  // 而投影层不做这个检查 ✓，所以这里说一句 ✓（比让它走到别处报一句别的话好 ✓）。
+  // **剩余参数只许在最后一位**（语法规定的）——不在最后那一种是**源码就非法**，
+  // 而投影层不做这个检查，所以这里说一句（比让它走到别处报一句别的话好）。
   if (OptionalChild(parameter, "dotDotDotToken") !== null && i !== parameters.length - 1) {
     throw new Error("unimplemented: a rest parameter must be the last one");
   }
   const nameKind = NodeKind(name);
   if (nameKind === "ObjectBindingPattern" || nameKind === "ArrayBindingPattern") {
-    // **解构形参**（第 134 轮）：这一格仍然要占 ✓（值就落在它上面 ✓），
-    // 所以给它一个**合成的槽名** ✓——它不出现在源码里，所以永远不会被引用 ✓。
-    // 真正把值拆开的是 `LowerFunctionBody` 里那一趟 `Destructure` ✓
-    //（在**参数顺序**里做，所以 `function f({a}, b = a)` 里 `b` 看得见 `a` ✓）。
+    // **解构形参**（第 134 轮）：这一格仍然要占（值就落在它上面），
+    // 所以给它一个**合成的槽名**——它不出现在源码里，所以永远不会被引用。
+    // 真正把值拆开的是 `LowerFunctionBody` 里那一趟 `Destructure`
+    //（在**参数顺序**里做，所以 `function f({a}, b = a)` 里 `b` 看得见 `a`）。
     params.push(this.PatternSlotName(i));
     continue;
   }
@@ -5369,13 +5369,13 @@ return params;
 
 **解构形参的那个合成槽名**（第 134 轮）。
 
-**为什么要有它**：`Params` 的下游两处都按「一个形参一个名字」办事 ✓——
-`FunctionInfo.ParamCount` 数个数 ✓、`DeclareLocal(params[i], i)` 占槽 ✓——
-而解构形参**也要占一格** ✓（值就落在它上面 ✓）。合成名给了它一个「占位」的身份 ✓。
+**为什么要有它**：`Params` 的下游两处都按「一个形参一个名字」办事——
+`FunctionInfo.ParamCount` 数个数、`DeclareLocal(params[i], i)` 占槽——
+而解构形参**也要占一格**（值就落在它上面）。合成名给了它一个「占位」的身份。
 
-**名字里那个 `<` 是刻意的** ✗：它**不可能是源码里的标识符** ✓（JS 标识符里没有 `<` ✓），
-所以这个槽名永远不会**碰巧**撞上一个真名字 ✓——而撞上的症状是
-「两个形参共用一个槽」✗（值悄悄换成别的 ✗，这个工程最贵的一种错 ✓）。
+**名字里那个 `<` 是刻意的**：它**不可能是源码里的标识符**（JS 标识符里没有 `<`），
+所以这个槽名永远不会**碰巧**撞上一个真名字——而撞上的症状是
+「两个形参共用一个槽」（值悄悄换成别的，这个工程最贵的一种错）。
 
 ```ts
 return "<pattern" + NumberToHostText(index) + ">";
@@ -5383,12 +5383,12 @@ return "<pattern" + NumberToHostText(index) + ">";
 
 ## method HasRestParam:(node:AstNode)=>bool
 
-**最后一个形参是不是剩余参数**（第 133 轮）——它决定函数表上那一位（`FunctionInfo.HasRest` ✓），
-而**那一位决定开帧的人收不收剩余** ✓。
+**最后一个形参是不是剩余参数**（第 133 轮）——它决定函数表上那一位（`FunctionInfo.HasRest`），
+而**那一位决定开帧的人收不收剩余**。
 
-**与 `FunctionParams` 分成两个方法** ✓：一个报名字、一个报「有没有 `...`」✓——
-合并的话，`Params` 那两条下游（`ParamCount` 与槽号）每处都要多拆一层 ✓，
-理由与「名字与默认值不合并」一字不差 ✓。
+**与 `FunctionParams` 分成两个方法**：一个报名字、一个报「有没有 `...`」——
+合并的话，`Params` 那两条下游（`ParamCount` 与槽号）每处都要多拆一层，
+理由与「名字与默认值不合并」一字不差。
 
 ```ts
 const parameters = ListOf(node, "parameters");
@@ -5398,26 +5398,26 @@ return OptionalChild(parameters[parameters.length - 1], "dotDotDotToken") !== nu
 
 ## method FunctionArity:(node:AstNode)=>int
 
-**JS 的 `fn.length` 是几**（第 291 轮 ✓）——**数到第一个「带默认值」或「剩余」之前为止** ✓。
+**JS 的 `fn.length` 是几**（第 291 轮）——**数到第一个「带默认值」或「剩余」之前为止**。
 
-**它不是形参个数** ✗（那是另一回事 ✓）：`function f(a, b = 1, c)` 的 `length` 是 **1** ✓、
-`function f(a, ...r)` 是 **1** ✓、`function f(a, b)` 是 **2** ✓——
-所以 `params.length` 直接交出去是**静默错值** ✓（`function-length-with-defaults` 那条判据量的就是它 ✓）。
+**它不是形参个数**（那是另一回事）：`function f(a, b = 1, c)` 的 `length` 是 **1**、
+`function f(a, ...r)` 是 **1**、`function f(a, b)` 是 **2**——
+所以 `params.length` 直接交出去是**静默错值**（`function-length-with-defaults` 那条判据量的就是它）。
 
-**`this` 那一格不算** ✓（与 `FunctionParams` / `CollectDefaults` 同一条判据 ✓）：
-它不占槽 ✓，数进去 `function f(this: any, a: number)` 的 `length` 会变成 2 ✗（JS 给 1 ✓）。
+**`this` 那一格不算**（与 `FunctionParams` / `CollectDefaults` 同一条判据）：
+它不占槽，数进去 `function f(this: any, a: number)` 的 `length` 会变成 2（JS 给 1）。
 
-**解构形参要算** ✓（`function f({ a }) {}` 的 `length` 是 1 ✓）——**这与默认值那条正相反** ✗，
-所以这里只能按「有没有 `initializer`」判 ✓，不能按「名字是不是标识符」判 ✗。
+**解构形参要算**（`function f({ a }) {}` 的 `length` 是 1）——**这与默认值那条正相反**，
+所以这里只能按「有没有 `initializer`」判，不能按「名字是不是标识符」判。
 
 ```ts
 const parameters = ListOf(node, "parameters");
 let arity = 0;
 for (let i = 0; i < parameters.length; i++) {
   if (this.IsThisParameter(parameters[i])) continue;
-  // **剩余参数位与它后面的都不算** ✓（`...r` 本身不算 ✓，而它按定义在最后 ✓）。
+  // **剩余参数位与它后面的都不算**（`...r` 本身不算，而它按定义在最后）。
   if (OptionalChild(parameters[i], "dotDotDotToken") !== null) break;
-  // **第一个带默认值的也不算、它后面的更不算** ✓（JS 在这一格上**不数了** ✓，不是跳过它继续数 ✗）。
+  // **第一个带默认值的也不算、它后面的更不算**（JS 在这一格上**不数了**，不是跳过它继续数）。
   if (OptionalChild(parameters[i], "initializer") !== null) break;
   arity = arity + 1;
 }
@@ -5426,16 +5426,16 @@ return arity;
 
 ## method NamesFunctionValue:(node:AstNode)=>bool
 
-**这一格右边的东西会不会从左边那个名字上取名**（第 291 轮 ✓）——JS 的 NamedEvaluation ✓。
+**这一格右边的东西会不会从左边那个名字上取名**（第 291 轮）——JS 的 NamedEvaluation。
 
-**不能只看「右边有没有函数」** ✗：`const arr = [function () {}]` 的右边**含**一个函数值 ✓，
-可那个函数**不在命名位置上** ✓——Node 给 `arr[0].name === ""` ✓，而本仓给 `"arr"` ✗
-（**静默错值** ✓，判据 `function-name-inference` 量到的正是它 ✓）。
+**不能只看「右边有没有函数」**：`const arr = [function () {}]` 的右边**含**一个函数值，
+可那个函数**不在命名位置上**——Node 给 `arr[0].name === ""`，而本仓给 `"arr"`
+（**静默错值**，判据 `function-name-inference` 量到的正是它）。
 
-**命名位置只有三种** ✓：右边**本身就是**一个函数表达式 / 箭头 / 类表达式 ✓
-（外面可以套**不改语义的壳** ✓：括号 ✓、`as` ✓、`satisfies` ✓、`!` ✓）。
-**条件表达式 / 调用 / 数组 / 对象字面量都不算** ✗
-（`const f = cond ? () => 1 : () => 2` 在 JS 里两个箭头都是匿名的 ✓）。
+**命名位置只有三种**：右边**本身就是**一个函数表达式 / 箭头 / 类表达式
+（外面可以套**不改语义的壳**：括号、`as`、`satisfies`、`!`）。
+**条件表达式 / 调用 / 数组 / 对象字面量都不算**
+（`const f = cond ? () => 1 : () => 2` 在 JS 里两个箭头都是匿名的）。
 
 ```ts
 let current = node;
@@ -5467,9 +5467,9 @@ return false;
 ```ts
 const parameters = ListOf(node, "parameters");
 for (let i = 0; i < parameters.length; i++) {
-  // **`this` 那一格不算** ✓（第 228 轮，与 `FunctionParams` 同一条判据 ✓）：
-  // 这里推的是**参数下标** ✓，而槽是按 `FunctionParams` 铺的 ✗——
-  // 不跳它，`function f(this: any, a = 1)` 的默认值会写到**第 1 格**（`a` 在第 0 格 ✓）✗。
+  // **`this` 那一格不算**（第 228 轮，与 `FunctionParams` 同一条判据）：
+  // 这里推的是**参数下标**，而槽是按 `FunctionParams` 铺的——
+  // 不跳它，`function f(this: any, a = 1)` 的默认值会写到**第 1 格**（`a` 在第 0 格）。
   if (this.IsThisParameter(parameters[i])) continue;
   const initializer = OptionalChild(parameters[i], "initializer");
   if (initializer === null) continue;
@@ -5480,14 +5480,14 @@ for (let i = 0; i < parameters.length; i++) {
 
 ## method CollectPatternParams:(node:AstNode, at:Array<int>, patterns:Array<AstNode>)=>void
 
-**解构形参：位置与模式两份平行数组**（第 134 轮）——与 `CollectDefaults` 同一个写法 ✓
-（「本仓的方法只返回一个值，而这里天然是一对」✓）。
+**解构形参：位置与模式两份平行数组**（第 134 轮）——与 `CollectDefaults` 同一个写法
+（「本仓的方法只返回一个值，而这里天然是一对」）。
 
 ```ts
 const parameters = ListOf(node, "parameters");
 for (let i = 0; i < parameters.length; i++) {
-  // **`this` 那一格不算** ✓（第 228 轮，与上面那条同一条判据 ✓）：与默认值那一路
-  // **一字不差**的理由 ✓——解构形参也要按 `FunctionParams` 的槽号读 ✓。
+  // **`this` 那一格不算**（第 228 轮，与上面那条同一条判据）：与默认值那一路
+  // **一字不差**的理由——解构形参也要按 `FunctionParams` 的槽号读。
   if (this.IsThisParameter(parameters[i])) continue;
   const name = OptionalChild(parameters[i], "name");
   if (name === null) continue;
@@ -5500,17 +5500,17 @@ for (let i = 0; i < parameters.length; i++) {
 
 ## method IsThisParameter:(parameter:AstNode)=>bool
 
-**这一格形参是不是那个 `this`**（第 228 轮 ✓）——`function f(this: Foo, a: number)` 的第一格 ✓。
+**这一格形参是不是那个 `this`**（第 228 轮）——`function f(this: Foo, a: number)` 的第一格。
 
-**为什么收成一个方法** ✗：**三处**要用同一条判据 ✓（`FunctionParams` 铺槽 ✓、
-`CollectDefaults` 推默认值的位置 ✓、`CollectPatternParams` 推解构的位置 ✓），
-而三处用的**必须是同一份下标** ✓——写三遍就是三处会漂 ✗，
-症状是「默认值 / 解构落到隔壁那一格」✓（**静默错值** ✗，这个工程最贵的一种 ✓）。
+**为什么收成一个方法**：**三处**要用同一条判据（`FunctionParams` 铺槽、
+`CollectDefaults` 推默认值的位置、`CollectPatternParams` 推解构的位置），
+而三处用的**必须是同一份下标**——写三遍就是三处会漂，
+症状是「默认值 / 解构落到隔壁那一格」（**静默错值**，这个工程最贵的一种）。
 
-**判据是「参数的名字叫 `this`」** ✓（不是「有没有类型标注」✗——`function f(this)` 也是
-`this` 形参 ✓，它在 TS 里同样是类型位 ✓）。投影层把它成形成一个普通的 `Identifier` 名 ✓
-（见 [typescript 的 `Parameter` 投影](../typescript/tokens/parameter.xl.md) ✓），
-所以这里只要比三个字符 ✓。
+**判据是「参数的名字叫 `this`」**（不是「有没有类型标注」——`function f(this)` 也是
+`this` 形参，它在 TS 里同样是类型位）。投影层把它成形成一个普通的 `Identifier` 名
+（见 [typescript 的 `Parameter` 投影](../typescript/tokens/parameter.xl.md)），
+所以这里只要比三个字符。
 
 ```ts
 const name = OptionalChild(parameter, "name");
@@ -5521,11 +5521,11 @@ return TextOf(name) === "this";
 
 ## method ParamValue:(name:string)=>int
 
-**一个形参「读出来」落在哪一格**（第 134 轮）——解构形参要用它 ✓。
+**一个形参「读出来」落在哪一格**（第 134 轮）——解构形参要用它。
 
-**为什么不能直接写下标** ✗：被捕获的形参**只住在环境格里** ✓
-（`DeclareLocal` 那一条写着为什么 ✓），所以「第 i 个形参」在**槽**里可能是个空壳 ✗。
-`ResolveAccess` 两个方向各只有一处 ✓——这里走它 ✓（与 `LowerParamDefault` 同一个形状 ✓）。
+**为什么不能直接写下标**：被捕获的形参**只住在环境格里**
+（`DeclareLocal` 那一条写着为什么），所以「第 i 个形参」在**槽**里可能是个空壳。
+`ResolveAccess` 两个方向各只有一处——这里走它（与 `LowerParamDefault` 同一个形状）。
 
 ```ts
 const access = this.ResolveAccess(name);
@@ -5542,16 +5542,16 @@ return slot;
 
 **一个默认参数的那段开场代码**（第 119 轮）：`没有传` 或 `传了 undefined` 时才算它。
 
-**判定必须用严格相等，不能用 `is_nullish`** ✗：JS 的规矩是**只有 `undefined`** 触发默认值，
-`f(null)` 里的 `null` **是值、不是缺**（`is_nullish` 会把两者都算进去，那是 `??` 的口径）✗。
+**判定必须用严格相等，不能用 `is_nullish`**：JS 的规矩是**只有 `undefined`** 触发默认值，
+`f(null)` 里的 `null` **是值、不是缺**（`is_nullish` 会把两者都算进去，那是 `??` 的口径）。
 所以这里发的是 `cmp_eq_strict(参数, undefined)`。
 
 **为什么这一段必须写在函数体里、而不是调用方**：默认值是**被调方的代码**——
 它在本帧的作用域里求值（能看见前面的参数），调用方那边根本没有这些槽。
 
-**参数住在哪就读写哪**（这一条是判据抓出来的 ✗）：**被捕获的参数只住在环境格里**
+**参数住在哪就读写哪**（这一条是判据抓出来的）：**被捕获的参数只住在环境格里**
 （`DeclareLocal` 那一条：声明的那一刻把值搬进格，之后本层也走 `EnvGet`/`EnvSet`），
-所以默认值**不能只写槽** ✗——写进去没人读，内层函数从环境里读到的是开帧时那个 `undefined`。
+所以默认值**不能只写槽**——写进去没人读，内层函数从环境里读到的是开帧时那个 `undefined`。
 症状是「默认值看起来没生效」，而真正错的地方在这里。读写都走 `ResolveAccess`，
 槽与环境两条路各只有一处。
 
@@ -5588,42 +5588,42 @@ this.Release(current);
 （它们同样不是构造函数）。所以**由调用方决定要不要调这个**——「哪种函数能当构造函数」
 是语言层的判断，引擎不必知道。
 
-**`writablePrototype` 是第 605 轮加的一格** ✓：JS 里**类**的那一格是
-`{ writable: false, enumerable: false, configurable: false }` ✓，而**普通函数**的是
-`{ writable: true, … }` ✓（规范 `MakeConstructor` 的那两个分支 ✓）。
-**不可写这一位不是装饰** ✗：`C.prototype = {}` 在 JS 里**静默无效** ✓
-（类体是严格模式，但那句话通常写在**外面** ✓），于是 `instanceof` 的答案不变 ✓——
-本仓原来那格可写 ✓ ⇒ 赋值真的换了原型 ⇒ `c instanceof C` 从真变假 ✓
-（**静默错值** ✓，判据 `c371-rt-instanceof-and-prototype` 量的就是它 ✓）。
+**`writablePrototype` 是第 605 轮加的一格**：JS 里**类**的那一格是
+`{ writable: false, enumerable: false, configurable: false }`，而**普通函数**的是
+`{ writable: true, … }`（规范 `MakeConstructor` 的那两个分支）。
+**不可写这一位不是装饰**：`C.prototype = {}` 在 JS 里**静默无效**
+（类体是严格模式，但那句话通常写在**外面**），于是 `instanceof` 的答案不变——
+本仓原来那格可写 ⇒ 赋值真的换了原型 ⇒ `c instanceof C` 从真变假
+（**静默错值**，判据 `c371-rt-instanceof-and-prototype` 量的就是它）。
 
-**标志位怎么传** ✗：`set_hidden` 的第四格给 `0` = **一位都不置** ✓
-（不可写 ✓、不可枚举 ✓、不可配置 ✓——正好是 JS 类的那三格 ✓）；
-普通函数那一档照旧给缺省 `-1` ✓（可写 + 可配置 ✓，第 194 轮起的口径 ✓）。
+**标志位怎么传**：`set_hidden` 的第四格给 `0` = **一位都不置**
+（不可写、不可枚举、不可配置——正好是 JS 类的那三格）；
+普通函数那一档照旧给缺省 `-1`（可写 + 可配置，第 194 轮起的口径）。
 
 **`prototype.constructor` 的回指今天不挂**：那个回指是为 `instanceof` 服务的，
 要和它一起做；现在挂上去，反而会让人以为 `instanceof` 已经能用。
 
-**`prototype` 那一格也必须是「不可枚举」**（第 592 轮 ✓）：JS 里函数的 `prototype`
-是 `{ writable: true, enumerable: false, configurable: false }` ✓，而本仓原来用
-`SetPropertyConst` 挂 ✓ ⇒ `Object.keys(Config)` 里多出一格 `prototype` ✓
-（实测 `c371-rt-class-static-and-instance-isolation`：Node 给 `defaults,instances` ✓、
-本仓给 `prototype,defaults,instances` ✓）。与下面 `constructor` 那一格**同一条理由** ✓。
+**`prototype` 那一格也必须是「不可枚举」**（第 592 轮）：JS 里函数的 `prototype`
+是 `{ writable: true, enumerable: false, configurable: false }`，而本仓原来用
+`SetPropertyConst` 挂 ⇒ `Object.keys(Config)` 里多出一格 `prototype`
+（实测 `c371-rt-class-static-and-instance-isolation`：Node 给 `defaults,instances`、
+本仓给 `prototype,defaults,instances`）。与下面 `constructor` 那一格**同一条理由**。
 
 ```ts
 const proto = this.Reserve(1);
 this.EmitRt(RtOp.NewObject, proto, proto, 0);
 const key = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
-// **类那一格不可写** ✓（见方法开头那一格 ✓）：`writablePrototype` 假时给 `0` 位 ✓。
+// **类那一格不可写**（见方法开头那一格）：`writablePrototype` 假时给 `0` 位。
 this.EmitHiddenSet(closure, key, proto, writablePrototype ? -1 : 0);
 // **`prototype.constructor` 回指**：JS 里每个函数的原型都指回函数自己
 // （`x.constructor` 那种写法靠它，`instanceof` 的语义也要求这个形状）。
 //
-// **第 340 轮：这一格也改成「不可枚举」** ✗（**实测撞到的** ✓）：
-// JS 里 `X.prototype.constructor` 是**不枚举**的 ✓，而本仓原来用 `SetPropertyConst` 挂 ✓
-// ⇒ `for (const k in new A())` 多出一格 `constructor` ✓
-//（判据 `ctl-for-in` 第 2 行 ✓：Node 给 `own` ✓、本仓给 `own,constructor` ✓）。
-// 与第 334 轮那次**同一条理由** ✓（那一次是装库层的 15 处 `X.prototype.constructor` ✓，
-// 这一处是**用户类**的 ✓——两处都写对了才对齐 ✓）。
+// **第 340 轮：这一格也改成「不可枚举」**（**实测撞到的**）：
+// JS 里 `X.prototype.constructor` 是**不枚举**的，而本仓原来用 `SetPropertyConst` 挂
+// ⇒ `for (const k in new A())` 多出一格 `constructor`
+//（判据 `ctl-for-in` 第 2 行：Node 给 `own`、本仓给 `own,constructor`）。
+// 与第 334 轮那次**同一条理由**（那一次是装库层的 15 处 `X.prototype.constructor`，
+// 这一处是**用户类**的——两处都写对了才对齐）。
 const constructorKey = this.Program().AddConst(Constant.OfString(UnitsOf("constructor")));
 this.EmitHiddenSet(proto, constructorKey, closure);
 ```
@@ -5647,35 +5647,35 @@ const params = this.FunctionParams(node);
 const defaultAt: number[] = [];
 const defaults: AstNode[] = [];
 this.CollectDefaults(node, defaultAt, defaults);
-// **解构形参**（第 134 轮）：与默认值同一个形状的两份平行数组 ✓
-//（CollectPatternParams 那一段写着为什么是两份 ✓）。
+// **解构形参**（第 134 轮）：与默认值同一个形状的两份平行数组
+//（CollectPatternParams 那一段写着为什么是两份）。
 const patternAt: number[] = [];
 const patterns: AstNode[] = [];
 this.CollectPatternParams(node, patternAt, patterns);
 const body = Child(node, "body");
-// **函数名那一格**（第 238 轮 ✓）：`HeapClosure.Name` 一直**没人填** ✗，
-// 于是**每一个脚本函数**在 `console.log` 里都是 `[Function (anonymous)]` ✓，
-// 而 Node 给 `[Function: greet]` ✓ / `[Function: arrow]` ✓——**实测过** ✓
-//（`ex-computed-member-call` 那条判据现场红的正是这一处 ✓）。
+// **函数名那一格**（第 238 轮）：`HeapClosure.Name` 一直**没人填**，
+// 于是**每一个脚本函数**在 `console.log` 里都是 `[Function (anonymous)]`，
+// 而 Node 给 `[Function: greet]` / `[Function: arrow]`——**实测过**
+//（`ex-computed-member-call` 那条判据现场红的正是这一处）。
 //
-// **名字从哪来**（三档 ✓，次序是语义 ✗）：
-// 1. **函数表达式自带的真名优先** ✓（第 291 轮改 ✓）：`const expr = function named() {}`
-//    的 `name` 是 **`"named"`** ✓——**不是**它被绑定的那个 `expr` ✗。
-//    原来 `FunctionNameHint` 无条件排在最前 ✗，于是 `expr.name` 给 `"expr"` ✓
-//    （**静默错值** ✓，第 291 轮的判据 `c291-function-name-and-length-forms` 量到的就是它 ✓）。
-//    **怎么分**：`name` 不是那两个占位符（不以 `<` 开头 ✓）就说明**它自己有名** ✓；
-// 2. **否则用 `FunctionNameHint`** ✓（`const arrow = () => 2` 那一档 ✓，
-//    名字来自**绑定的那一刻** ✓，见那一格 ✓）；
-// 3. **还是占位符就当匿名** ✓——见下面那一句（`<` 开头的不传 ✓，否则
-//    `console.log(() => 1)` 会印出 `[Function: <arrow>]` ✓，
-//    而 Node 印的是 `[Function (anonymous)]` ✓，**实测踩过** ✓）。
+// **名字从哪来**（三档，次序是语义）：
+// 1. **函数表达式自带的真名优先**（第 291 轮改）：`const expr = function named() {}`
+//    的 `name` 是 **`"named"`**——**不是**它被绑定的那个 `expr`。
+//    原来 `FunctionNameHint` 无条件排在最前，于是 `expr.name` 给 `"expr"`
+//    （**静默错值**，第 291 轮的判据 `c291-function-name-and-length-forms` 量到的就是它）。
+//    **怎么分**：`name` 不是那两个占位符（不以 `<` 开头）就说明**它自己有名**；
+// 2. **否则用 `FunctionNameHint`**（`const arrow = () => 2` 那一档，
+//    名字来自**绑定的那一刻**，见那一格）；
+// 3. **还是占位符就当匿名**——见下面那一句（`<` 开头的不传，否则
+//    `console.log(() => 1)` 会印出 `[Function: <arrow>]`，
+//    而 Node 印的是 `[Function (anonymous)]`，**实测踩过**）。
 let displayName = name;
 if (displayName.length > 0 && displayName.charAt(0) === "<") {
   displayName = this.FunctionNameHint;
 }
 if (displayName.length > 0 && displayName.charAt(0) === "<") displayName = "";
-// **造闭包 + 排队那一段收在 `EmitClosure`** ✓（第 292 轮 ✓——它原先在这里与
-// 函数声明那一处**各写了一遍** ✗，而 `namespace` 的体是第三个调用点 ✓）。
+// **造闭包 + 排队那一段收在 `EmitClosure`**（第 292 轮——它原先在这里与
+// 函数声明那一处**各写了一遍**，而 `namespace` 的体是第三个调用点）。
 const item = new PendingFunction(displayName, body, params, 0, defaultAt, defaults, patternAt, patterns);
 item.Arity = this.FunctionArity(node);
 item.IsExpressionBody = NodeKind(body) !== "Block";
@@ -5687,46 +5687,46 @@ item.IsArrow = NodeKind(node) === "ArrowFunction";
 // `suspend outside a generator`：体里那对 suspend/resume 落在了一个普通帧上）。
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);
-// **「这一趟是个类的构造函数」** ✓（第 613 轮 ✓）：`LowerClass` 进门前把那个节点挂在
-// `PendingClassNode` 上 ✓（那一段写着为什么**必须**在进这里之前就位 ✓）——
-// 比的是**节点身份** ✓，不是名字 ✗（同名的方法多的是 ✓）。
-// **它必须在 `EmitClosure` 之前落进 `item`** ✗：`EmitClosure` 当场就把这一位拼进
-// `new_closure` 的第四格 ✓。
+// **「这一趟是个类的构造函数」**（第 613 轮）：`LowerClass` 进门前把那个节点挂在
+// `PendingClassNode` 上（那一段写着为什么**必须**在进这里之前就位）——
+// 比的是**节点身份**，不是名字（同名的方法多的是）。
+// **它必须在 `EmitClosure` 之前落进 `item`**：`EmitClosure` 当场就把这一位拼进
+// `new_closure` 的第四格。
 item.IsClass = this.PendingClassNode !== null && this.PendingClassNode === node;
-// **严格性从外面继承** ✓（第 620 轮 ✓）：这一格记的是「定义它的那段代码严不严格」✓
-// ——`InStrict` 进类体时置真 ✓、之后**只增不减** ✓（见那一格 ✓）。
-// **它也要在 `EmitClosure` 之前落进 `item`** ✗：与 `IsClass` 同一处拼进第四格 ✓。
+// **严格性从外面继承**（第 620 轮）：这一格记的是「定义它的那段代码严不严格」
+// ——`InStrict` 进类体时置真、之后**只增不减**（见那一格）。
+// **它也要在 `EmitClosure` 之前落进 `item`**：与 `IsClass` 同一处拼进第四格。
 item.IsStrict = this.InStrict;
-// **具名函数表达式的词法绑定** ✓（第 332 轮 ✓）：`function self() { … self … }` 里的
-// `self` 只在**它自己那个体**里可见 ✓——这一行把名字交给 `EmitClosure` ✓，
-// 由它单开一层环境装 ✓（那一段写着为什么不能绑在外层 ✓）。
-// **只有 `FunctionExpression` 这一档** ✗：箭头没有名字 ✓、函数**声明**的名字是一个
-// 真真的外层绑定 ✓（`Hoist` 已经管了 ✓，那条路也走不到这里 ✓）、方法名是属性名 ✓。
+// **具名函数表达式的词法绑定**（第 332 轮）：`function self() { … self … }` 里的
+// `self` 只在**它自己那个体**里可见——这一行把名字交给 `EmitClosure`，
+// 由它单开一层环境装（那一段写着为什么不能绑在外层）。
+// **只有 `FunctionExpression` 这一档**：箭头没有名字、函数**声明**的名字是一个
+// 真真的外层绑定（`Hoist` 已经管了，那条路也走不到这里）、方法名是属性名。
 if (NodeKind(node) === "FunctionExpression") {
   const selfNode = OptionalChild(node, "name");
   if (selfNode !== null) item.SelfName = TextOf(selfNode);
 }
-// **`arguments` 那一格** ✓（第 332 轮 ✓）：**箭头不算** ✗——它没有自己的那一份 ✓
-//（用的是外层的 ✓，而外层的名字会**作为捕获**进箭头那一帧的 `Envs` ✓，
-// 见 `EnterFunctionBody` 的 `ExtraDeclared` ✓）。其余的函数（声明 ✓、表达式 ✓、方法 ✓）
-// 都有自己的 ✓。**判据是 `ReferencesArguments`** ✓（只收「这一层真的用得到」✓，
-// 于是绝大多数函数**一格都不多占** ✓）。
+// **`arguments` 那一格**（第 332 轮）：**箭头不算**——它没有自己的那一份
+//（用的是外层的，而外层的名字会**作为捕获**进箭头那一帧的 `Envs`，
+// 见 `EnterFunctionBody` 的 `ExtraDeclared`）。其余的函数（声明、表达式、方法）
+// 都有自己的。**判据是 `ReferencesArguments`**（只收「这一层真的用得到」，
+// 于是绝大多数函数**一格都不多占**）。
 item.NeedsArguments = !item.IsArrow && ReferencesArguments(body);
-// **源码那一格** ✓（第 334 轮 ✓）：箭头 / 函数表达式 / 方法都走这一条 ✓——
-// JS 的 `f.toString()` 给的就是**定义它那一段** ✓（`(n) => n` ✓、`m() { return 1 }` ✓）。
+// **源码那一格**（第 334 轮）：箭头 / 函数表达式 / 方法都走这一条——
+// JS 的 `f.toString()` 给的就是**定义它那一段**（`(n) => n`、`m() { return 1 }`）。
 item.Source = this.SourceSliceOf(node);
-// **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，
-// 之后由函数表那一格带着走 ✓（开帧的人要用它 ✓）。
+// **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次，
+// 之后由函数表那一格带着走（开帧的人要用它）。
 item.HasRest = this.HasRestParam(node);
-// **这三格以前在每一处各写一遍** ✗（第 229 轮收口 ✓）：函数声明 ✓、函数表达式 ✓，
-// 而**类的方法那一处漏了三句** ✗——于是 `class C { *keys() { … } }` 把生成器体
-// 当成普通函数降级 ✓，那对 `suspend` / `resume` 落在普通帧上 ✓，
-// 报的是 `suspend outside a generator` ✗（离现场很远 ✗）。
-// **现在三处共用 `LowerFunctionValue` 到这里为止的那一段** ✓——
-// 类那条路只要不再自己抛 ✓，标记就自然对上了 ✓。
+// **这三格以前在每一处各写一遍**（第 229 轮收口）：函数声明、函数表达式，
+// 而**类的方法那一处漏了三句**——于是 `class C { *keys() { … } }` 把生成器体
+// 当成普通函数降级，那对 `suspend` / `resume` 落在普通帧上，
+// 报的是 `suspend outside a generator`（离现场很远）。
+// **现在三处共用 `LowerFunctionValue` 到这里为止的那一段**——
+// 类那条路只要不再自己抛，标记就自然对上了。
 const slot = this.EmitClosure(item);
 // **函数表达式自带 `prototype`**（箭头与对象方法不——它们不可构造）。
-// **这一档可写** ✓（普通函数的 `prototype` 就是可写的 ✓，与类相反 ✓，见 `AttachPrototype` ✓）。
+// **这一档可写**（普通函数的 `prototype` 就是可写的，与类相反，见 `AttachPrototype`）。
 if (NodeKind(node) === "FunctionExpression") {
   this.AttachPrototype(slot, true);
 }
@@ -5741,20 +5741,20 @@ return slot;
 后面那一格的下标照旧是 2，于是数组在 0..1 之间留下洞（`SetAt` 会补洞）。
 写一个显式的 `undefined` 进去就**变成另一个语义**了（`1 in a` 会从假变真）。
 
-**展开（`[...xs]`，第 132 轮）**：下标从这一刻起**不再是编译期的数** ✓——
-`[...a, b]` 里 `b` 落在第几格要看 `a` 有多长 ✓。
+**展开（`[...xs]`，第 132 轮）**：下标从这一刻起**不再是编译期的数**——
+`[...a, b]` 里 `b` 落在第几格要看 `a` 有多长。
 
-**两条路，按「有没有展开」分** ✓（**顺序即语义** ✓）：
+**两条路，按「有没有展开」分**（**顺序即语义**）：
 
-- **没有展开**（绝大多数 ✓）：走**静态下标**那条 ✓——一个算数都不做 ✓，
-  洞天然保留 ✓（上面的规矩一个字没改 ✓）；
-- **有展开**：**展开之前的**元素仍走静态下标 ✓（于是 `[1, , ...xs]` 里那个洞照样保留 ✓），
-  **从第一个展开起**改用「接在 `length` 后面」✓（`SetIndex(数组, 数组.length, 值)` ✓，
-  一个新算子都没有 ✓）；**这一段的洞响亮地抛** ✗
-  （`[...xs, , 3]` 要让「洞」也带上动态下标 ✓，那要求引擎给一个 `set_hole` 算子 ✗——
-  宁可说不做 ✓，也不把它悄悄填成 `undefined` ✗：`1 in a` 会从假变真 ✗）。
-- **展开本身**走 `SpreadIntoId` 那条**语言内建调用** ✓（与 `get_iterator` 同一个号段 ✓）：
-  数组逐项接 ✓、字符串逐码元接 ✓、`Map` / `Set` 先过 `GetIterator` ✓、其余**响亮地抛** ✓。
+- **没有展开**（绝大多数）：走**静态下标**那条——一个算数都不做，
+  洞天然保留（上面的规矩一个字没改）；
+- **有展开**：**展开之前的**元素仍走静态下标（于是 `[1, , ...xs]` 里那个洞照样保留），
+  **从第一个展开起**改用「接在 `length` 后面」（`SetIndex(数组, 数组.length, 值)`，
+  一个新算子都没有）；**这一段的洞响亮地抛**
+  （`[...xs, , 3]` 要让「洞」也带上动态下标，那要求引擎给一个 `set_hole` 算子——
+  宁可说不做，也不把它悄悄填成 `undefined`：`1 in a` 会从假变真）。
+- **展开本身**走 `SpreadIntoId` 那条**语言内建调用**（与 `get_iterator` 同一个号段）：
+  数组逐项接、字符串逐码元接、`Map` / `Set` 先过 `GetIterator`、其余**响亮地抛**。
 
 ```ts
 const array = this.Reserve(1);
@@ -5764,8 +5764,8 @@ let sawSpread = false;
 for (let i = 0; i < elements.length; i++) {
   const element = elements[i];
   if (NodeKind(element) === "OmittedExpression") {
-    // **展开之后的洞做不了**（见上面那一条）✗——它要是被静默填成 `undefined`，
-    // `1 in arr` 就从假变真 ✗（那是**形状**变了，判据量不出来、用户量得出来 ✗）。
+    // **展开之后的洞做不了**（见上面那一条）——它要是被静默填成 `undefined`，
+    // `1 in arr` 就从假变真（那是**形状**变了，判据量不出来、用户量得出来）。
     if (sawSpread) throw new Error("unimplemented: a hole after a spread element in an array literal");
     continue;
   }
@@ -5781,14 +5781,14 @@ for (let i = 0; i < elements.length; i++) {
     this.Release(window);
     continue;
   }
-  // **接在末尾**（有展开之后）✓ / **写在编译期那一格**（还没有展开）✓。
+  // **接在末尾**（有展开之后） / **写在编译期那一格**（还没有展开）。
   let at = -1;
   if (sawSpread) {
-    // **`arr.length` 是一条 `get_prop`**（`props.xl.md` 的 `IsLengthKey` 认它 ✓）——
-    // **不能写成 `EmitRt(RtOp.GetProp, at, array, key)`** ✗：`EmitRt` 的后两个操作数是
-    // **窗口基址与格数** ✓，不是「接收者 + 常量下标」✗。那样写出来的是
-    // 「窗口从 `array` 开始、只有 `key` 格」——**装载验证当场拒** ✓
-    //（报的是 `argument window out of range` ✓，离现场只有半步 ✓）。
+    // **`arr.length` 是一条 `get_prop`**（`props.xl.md` 的 `IsLengthKey` 认它）——
+    // **不能写成 `EmitRt(RtOp.GetProp, at, array, key)`**：`EmitRt` 的后两个操作数是
+    // **窗口基址与格数**，不是「接收者 + 常量下标」。那样写出来的是
+    // 「窗口从 `array` 开始、只有 `key` 格」——**装载验证当场拒**
+    //（报的是 `argument window out of range`，离现场只有半步）。
     at = this.RtCall2(RtOp.GetProp, array, this.Program().AddConst(Constant.OfString(UnitsOf("length"))));
   } else {
     at = this.Reserve(1);
@@ -5802,23 +5802,23 @@ for (let i = 0; i < elements.length; i++) {
   this.Release(window);
   this.Release(at);
 }
-// **只有洞的数组字面量要把长度补上** ✗（第 388 轮 ✓）。
+// **只有洞的数组字面量要把长度补上**（第 388 轮）。
 //
-// **为什么** ✗：上面那条静态下标的路靠「**后面还有元素**」把洞**撑出来** ✓
-//（`[1, , 3]` 里 3 落在下标 2 ✓ ⇒ `SetIndex` 顺手补齐 0..1 ✓，正是上面那段注释的意思 ✓）。
-// 可**末尾**的洞后面**没有**元素了 ✗ ⇒ 谁也没把它撑出来 ✓：
-//   · `[, ,]` ⇒ 两个洞 ✓、一次写都没发生 ✗ ⇒ 长度 **0** ✗（Node 给 **2** ✓）；
-//   · `[1, ,]` ⇒ 长度 **1** ✗（Node 给 **2** ✓）；
-//   · `[, 1]` ⇒ 长度 2 ✓（**下面**那个 1 把它撑出来了 ✓——所以这一格一直是对的 ✓）。
-// 实测的症状：`[, ,].join(",")` 给 `""` ✗（Node 给 `","` ✓）、`String([])` 与 `String([, ,])`
-// 分不出来 ✗——判据 `c371-stdlib-array-tostring-forms` ✓（第 4 行 ✓）。
+// **为什么**：上面那条静态下标的路靠「**后面还有元素**」把洞**撑出来**
+//（`[1, , 3]` 里 3 落在下标 2 ⇒ `SetIndex` 顺手补齐 0..1，正是上面那段注释的意思）。
+// 可**末尾**的洞后面**没有**元素了 ⇒ 谁也没把它撑出来：
+//   · `[, ,]` ⇒ 两个洞、一次写都没发生 ⇒ 长度 **0**（Node 给 **2**）；
+//   · `[1, ,]` ⇒ 长度 **1**（Node 给 **2**）；
+//   · `[, 1]` ⇒ 长度 2（**下面**那个 1 把它撑出来了——所以这一格一直是对的）。
+// 实测的症状：`[, ,].join(",")` 给 `""`（Node 给 `","`）、`String([])` 与 `String([, ,])`
+// 分不出来——判据 `c371-stdlib-array-tostring-forms`（第 4 行）。
 //
-// **为什么只做「没有展开」那一档** ✓：有展开时长度是**运行期**的东西 ✓
-//（`[...xs]` 之后的下标由 `xs.length` 决定 ✓，元素一个一个接在末尾 ✓）⇒
-// 「字面量的元素个数」不再是答案 ✗。而这一档的洞本来就**响亮地抛** ✓（见上面 ✓）。
+// **为什么只做「没有展开」那一档**：有展开时长度是**运行期**的东西
+//（`[...xs]` 之后的下标由 `xs.length` 决定，元素一个一个接在末尾）⇒
+// 「字面量的元素个数」不再是答案。而这一档的洞本来就**响亮地抛**（见上面）。
 //
-// **写 `length` 走 `SetIndex`** ✓：`props.xl.md` 的 `IsLengthKey` 认这个键 ✓，
-// 而且第 376 轮已经把「长度越界 ⇒ `RangeError`」那一档做在那一处 ✓ ⇒ 不需要新算子 ✓。
+// **写 `length` 走 `SetIndex`**：`props.xl.md` 的 `IsLengthKey` 认这个键，
+// 而且第 376 轮已经把「长度越界 ⇒ `RangeError`」那一档做在那一处 ⇒ 不需要新算子。
 if (!sawSpread && elements.length > 0) {
   const keySlot = this.Reserve(1);
   this.Emit(Op.Const, keySlot, this.Program().AddConst(Constant.OfString(UnitsOf("length"))), -1, -1);
@@ -5844,11 +5844,11 @@ return array;
 **为什么要抽出来**：窗口是 `[号, 目标, 键, getter, setter]` 五格，写两遍就是**两次**把槽算错的机会——
 而这个工程最贵的错就是算错槽（症状是「值悄悄换成别的」，不是崩溃）。
 
-**`enumerable` 那一格是第 340 轮补的** ✗（**实测撞到的** ✓）：JS 里
-**对象字面量的访问器是可枚举的** ✓、而**类里的访问器不可枚举** ✓——两者**共用这一处** ✓，
-所以「可不可枚举」必须由调用方说 ✓（默认真 ✓ = 对象字面量那一档 ✓）。
-**症状**（判据 `c340-rt-forin-prototype-chain` 第 2 行 ✓）：`class A { get g() { … } }` 之后
-`for (const k in new A())` 在 Node 里只给自有键 ✓、本仓多出一个 `g` ✓——**静默多出一串** ✗。
+**`enumerable` 那一格是第 340 轮补的**（**实测撞到的**）：JS 里
+**对象字面量的访问器是可枚举的**、而**类里的访问器不可枚举**——两者**共用这一处**，
+所以「可不可枚举」必须由调用方说（默认真 = 对象字面量那一档）。
+**症状**（判据 `c340-rt-forin-prototype-chain` 第 2 行）：`class A { get g() { … } }` 之后
+`for (const k in new A())` 在 Node 里只给自有键、本仓多出一个 `g`——**静默多出一串**。
 
 **调用方负责 `key` 那一格**（键在两种场景下算法不同：对象字面量看 `name` 的 kind，
 类里已经判过名了），**并且负责在下面把目标留在活着的槽里**（循环还要用）。
@@ -5866,8 +5866,8 @@ if (isGetter) {
   this.Emit(Op.Const, window + 3, missing, -1, -1);
   this.Emit(Op.Move, window + 4, half, -1, -1);
 }
-// **第五格：可不可枚举** ✓（第 340 轮 ✓，见上面那一段的账 ✓）——
-// 常量池里放两个布尔（`Constant.OfBool` ✓），按参数挑一个 ✓。
+// **第五格：可不可枚举**（第 340 轮，见上面那一段的账）——
+// 常量池里放两个布尔（`Constant.OfBool`），按参数挑一个。
 this.Emit(Op.Const, window + 5,
   this.Program().AddConst(Constant.OfBool(enumerable)), -1, -1);
 this.EmitRt(RtOp.HostCall, window, window, 6);
@@ -5882,16 +5882,16 @@ this.Release(key);
 
 **五种成员都收**：`a: 1`、`{a}`、方法、**计算键**（`{ [k]: 1 }`——键是一个**值**，
 所以走 `set_prop` 的「键也能是值」那条路）、以及**访问器**（`get x()` / `set x(v)`，第 99 轮补）。
-**展开（`{...o}`）第 132 轮补上** ✓：落成一条 `Object.assign(目标, 来源)` 的**语言内建调用** ✓
-（`[号, 目标, 来源…]` + 一条 `host_call` ✓，与 `StringConcat` 同一个写法 ✓）。
+**展开（`{...o}`）第 132 轮补上**：落成一条 `Object.assign(目标, 来源)` 的**语言内建调用**
+（`[号, 目标, 来源…]` + 一条 `host_call`，与 `StringConcat` 同一个写法）。
 
-**展开的顺序**：JS 里展开与普通成员是**按源码顺序**生效的 ✓——
-`{...o, a: 1}` 给 `a: 1` ✓、`{a: 1, ...o}` 由 `o` 覆盖 ✓。
-这里就是**顺序发出去** ✓，`Object.assign` 本来也是「后写的覆盖先写的」✓，两边同一条规矩 ✓。
+**展开的顺序**：JS 里展开与普通成员是**按源码顺序**生效的——
+`{...o, a: 1}` 给 `a: 1`、`{a: 1, ...o}` 由 `o` 覆盖。
+这里就是**顺序发出去**，`Object.assign` 本来也是「后写的覆盖先写的」，两边同一条规矩。
 
-**两处已知差**（都是 `Object.assign` 那条口径带过来的 ✓，记在 `globals.xl.md` 里 ✓）：
-**访问器不调 getter** ✗（JS 的对象展开走 `[[Get]]` ✓）、**原始值来源跳过** ✗
-（JS 里 `{...'ab'}` 给 `{0:'a',1:'b'}` ✓）。
+**两处已知差**（都是 `Object.assign` 那条口径带过来的，记在 `globals.xl.md` 里）：
+**访问器不调 getter**（JS 的对象展开走 `[[Get]]`）、**原始值来源跳过**
+（JS 里 `{...'ab'}` 给 `{0:'a',1:'b'}`）。
 
 **访问器不走 `set_prop`**：那条只写**数据属性**。引擎侧早就读得懂访问器（`ReadProperty` 调 getter、
 `SetProperty` 调 setter），缺的是「造一个」的路——那条路是 `props.xl.md` 的 `DefineAccessor`，
@@ -5909,50 +5909,50 @@ for (let i = 0; i < properties.length; i++) {
   if (kind === "PropertyAssignment") {
     const name = Child(property, "name");
     if (NodeKind(name) === "ComputedPropertyName") {
-      // **键在前、值在后** ✓（第 284 轮把次序改对了 ✓）：JS 的规范是
-      // `EvaluatePropertyAccessWithExpressionKey` **先算键** ✓、再算值 ✓——
-      // 只有键 / 值里带**副作用**时才看得出来 ✓（`{ [(log(1), "a")]: log(2) }` ✓）,
-      // 而这一格原来是**值在前** ✗（第 183 轮那一版自己把它记成了「已知差」✓）。
-      // `SetPropertyValue` 的三格是「对象 / 键 / 值」✓，所以键那一格先占 ✓、
-      // 值那一格后占 ✓，**两个格子都活着** ✓（`Reserve` 只抬水位 ✓，不搬东西 ✓）。
+      // **键在前、值在后**（第 284 轮把次序改对了）：JS 的规范是
+      // `EvaluatePropertyAccessWithExpressionKey` **先算键**、再算值——
+      // 只有键 / 值里带**副作用**时才看得出来（`{ [(log(1), "a")]: log(2) }`）,
+      // 而这一格原来是**值在前**（第 183 轮那一版自己把它记成了「已知差」）。
+      // `SetPropertyValue` 的三格是「对象 / 键 / 值」，所以键那一格先占、
+      // 值那一格后占，**两个格子都活着**（`Reserve` 只抬水位，不搬东西）。
       const computedKey = this.LowerExpression(Child(name, "expression"));
-      // **计算键也是命名位置** ✓（第 330 轮 ✓）：见 `StaticKeyText` ✓——
-      // 它与下面非计算那一支共用同一句判据 ✓（只有「名字从哪来」不同 ✓）。
-      // **次序照旧是键在前、值在后** ✓，提示只在**算值**那一句前后有效 ✓。
+      // **计算键也是命名位置**（第 330 轮）：见 `StaticKeyText`——
+      // 它与下面非计算那一支共用同一句判据（只有「名字从哪来」不同）。
+      // **次序照旧是键在前、值在后**，提示只在**算值**那一句前后有效。
       const savedComputedHint = this.FunctionNameHint;
       this.FunctionNameHint = this.NamesFunctionValue(Child(property, "initializer"))
         ? this.StaticKeyText(Child(name, "expression")) : "";
       const computedValue = this.LowerExpression(Child(property, "initializer"));
       this.FunctionNameHint = savedComputedHint;
-      // **降级期算不出来的键，名字由运行期补** ✓（第 620 轮 ✓，见 `EmitComputedFunctionName` ✓）——
-      // 判据与上面那条提示**同一条** ✓（值不是函数值就不取名 ✓）。
+      // **降级期算不出来的键，名字由运行期补**（第 620 轮，见 `EmitComputedFunctionName`）——
+      // 判据与上面那条提示**同一条**（值不是函数值就不取名）。
       if (this.NamesFunctionValue(Child(property, "initializer"))) {
         this.EmitComputedFunctionName(computedValue, computedKey, Child(name, "expression"));
       }
       this.SetPropertyValue(object, computedKey, computedValue);
       continue;
     }
-    // **属性名也是「命名位置」** ✓（第 330 轮 ✓，JS 的 NamedEvaluation ✓）：
-    // `{ f: () => 1 }.f.name` 是 **`"f"`** ✓、`console.log({ f: () => 1 })` 印
-    // `{ f: [Function: f] }` ✓——而本仓给 `[Function (anonymous)]` ✓
-    //（判据 `c291-console-log-nested-shapes` / `c323-std-console-shapes` 量的就是它 ✓）。
+    // **属性名也是「命名位置」**（第 330 轮，JS 的 NamedEvaluation）：
+    // `{ f: () => 1 }.f.name` 是 **`"f"`**、`console.log({ f: () => 1 })` 印
+    // `{ f: [Function: f] }`——而本仓给 `[Function (anonymous)]`
+    //（判据 `c291-console-log-nested-shapes` / `c323-std-console-shapes` 量的就是它）。
     //
-    // **判据与变量那一处是同一个 `NamesFunctionValue`** ✓（第 291 轮 ✓）——
-    // `{ f: cond ? () => 1 : () => 2 }` 在 JS 里两个箭头**都是匿名的** ✓，
-    // 所以这里**不能**写成「值里含一个函数就取名」✗。
-    // **名字从 `KeyUnitsOf` 来、不从 `TextOf` 来** ✗：字符串键的 `TextOf` 是**带引号**的原文 ✓
-    //（见 `UnitsText` 那一段 ✓）。**计算键不在此列** ✗（上面那一支已经 `continue` 了 ✓，
-    // 而 JS 里 `{ ["g"]: () => 1 }.g.name` 正是**空串** ✓）。
+    // **判据与变量那一处是同一个 `NamesFunctionValue`**（第 291 轮）——
+    // `{ f: cond ? () => 1 : () => 2 }` 在 JS 里两个箭头**都是匿名的**，
+    // 所以这里**不能**写成「值里含一个函数就取名」。
+    // **名字从 `KeyUnitsOf` 来、不从 `TextOf` 来**：字符串键的 `TextOf` 是**带引号**的原文
+    //（见 `UnitsText` 那一段）。**计算键不在此列**（上面那一支已经 `continue` 了，
+    // 而 JS 里 `{ ["g"]: () => 1 }.g.name` 正是**空串**）。
     const keyUnits = this.KeyUnitsOf(name);
-    // **`__proto__: p` 设的是原型，不是普通属性** ✓（第 361 轮 ✓，**实测撞到的** ✓）：
-    // JS 在对象字面量里对**非计算**的 `__proto__` 键有一条特例 ✓——
-    // `{ __proto__: p, m() { return super.m(); } }` 里 `super` 找的就是 `p` ✓
-    //（判据 `c323-rt-super-in-object-literal` ✓：Node 给 `hi!` ✓）。
-    // 本仓原来**根本没有这一档** ✗（全仓搜不到 `__proto__` ✓）⇒ 那个键被当成普通属性 ✓
-    // ⇒ 对象自己的原型还是 `Object.prototype` ✗ ⇒ `super.m` 读成 `undefined` ✓
-    // ⇒ 报 **`cannot call a non-closure value`** ✓（**一句话里没有一个字提到 `__proto__`** ✗）。
-    // **只认非计算的那一档** ✓：`{ ["__proto__"]: p }` 在 JS 里是**普通属性** ✓（规范如此 ✓），
-    // 而计算键那一支在上面已经 `continue` 了 ✓——这里天然碰不到它 ✓。
+    // **`__proto__: p` 设的是原型，不是普通属性**（第 361 轮，**实测撞到的**）：
+    // JS 在对象字面量里对**非计算**的 `__proto__` 键有一条特例——
+    // `{ __proto__: p, m() { return super.m(); } }` 里 `super` 找的就是 `p`
+    //（判据 `c323-rt-super-in-object-literal`：Node 给 `hi!`）。
+    // 本仓原来**根本没有这一档**（全仓搜不到 `__proto__`）⇒ 那个键被当成普通属性
+    // ⇒ 对象自己的原型还是 `Object.prototype` ⇒ `super.m` 读成 `undefined`
+    // ⇒ 报 **`cannot call a non-closure value`**（**一句话里没有一个字提到 `__proto__`**）。
+    // **只认非计算的那一档**：`{ ["__proto__"]: p }` 在 JS 里是**普通属性**（规范如此），
+    // 而计算键那一支在上面已经 `continue` 了——这里天然碰不到它。
     if (UnitsText(keyUnits) === "__proto__") {
       const protoValue = this.LowerExpression(Child(property, "initializer"));
       this.RtCallValues(RtOp.SetProto, object, protoValue);
@@ -5971,61 +5971,61 @@ for (let i = 0; i < properties.length; i++) {
     keyConst = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
   } else if (kind === "MethodDeclaration") {
     const name = Child(property, "name");
-    // **计算键的方法**（第 183 轮修 ✓）：`{ [k]() { … } }` / `{ [Symbol.iterator]() { … } }` ✓——
-    // 名字那一格是 `ComputedPropertyName` ✓（里面装的是**表达式** ✓），
-    // 而这一支原来按 `TextOf(name)` 取名字 ✗ → 报
-    // `ast node ComputedPropertyName has no text` ✓（**整份文件进不来** ✗）。
-    // 做法与上面 `PropertyAssignment` 那条**一字不差** ✓：键算成一格**值** ✓、
-    // 走 `set_prop` 的值键那条路（`SetPropertyValue` ✓）。
-    // **求值顺序：键在前、值在后** ✓（第 284 轮改对 ✓，与 `PropertyAssignment`
-    // 那一支同一条理由 ✓）。这一处原来写的是「与上面那条保持一致（**先算值、再算键**）」
-    // ✓，并且自己把它记成了「已知差」✗——第 284 轮把**两处一起**改对了 ✓
-    //（只有键 / 值里带副作用才看得出来 ✓，所以它一直没被量到 ✓）。
+    // **计算键的方法**（第 183 轮修）：`{ [k]() { … } }` / `{ [Symbol.iterator]() { … } }`——
+    // 名字那一格是 `ComputedPropertyName`（里面装的是**表达式**），
+    // 而这一支原来按 `TextOf(name)` 取名字 → 报
+    // `ast node ComputedPropertyName has no text`（**整份文件进不来**）。
+    // 做法与上面 `PropertyAssignment` 那条**一字不差**：键算成一格**值**、
+    // 走 `set_prop` 的值键那条路（`SetPropertyValue`）。
+    // **求值顺序：键在前、值在后**（第 284 轮改对，与 `PropertyAssignment`
+    // 那一支同一条理由）。这一处原来写的是「与上面那条保持一致（**先算值、再算键**）」
+    //，并且自己把它记成了「已知差」——第 284 轮把**两处一起**改对了
+    //（只有键 / 值里带副作用才看得出来，所以它一直没被量到）。
     if (NodeKind(name) === "ComputedPropertyName") {
       const computedKey = this.LowerExpression(Child(name, "expression"));
       const computedValue = this.LowerFunctionValue(property, "<computed>");
-      // **方法也是命名位置** ✓（第 620 轮 ✓）：`{ ["k" + 1]() {} }.k1.name` 是 `"k1"` ✓
-      //（它这一档**一定**匿名 ✓：`"<computed>"` 以 `<` 开头 ✓ ⇒ `LowerFunctionValue` 按匿名处理 ✓）。
+      // **方法也是命名位置**（第 620 轮）：`{ ["k" + 1]() {} }.k1.name` 是 `"k1"`
+      //（它这一档**一定**匿名：`"<computed>"` 以 `<` 开头 ⇒ `LowerFunctionValue` 按匿名处理）。
       this.EmitComputedFunctionName(computedValue, computedKey, Child(name, "expression"));
       this.SetPropertyValue(object, computedKey, computedValue);
       continue;
     }
-    // **方法名要把外面那条提示顶掉** ✓（第 238 轮 ✓，**实测踩过** ✗）：
-    // `const o = { run() { … } }` 里，`FunctionNameHint` 还留着**外面那个变量名** `o` ✓
-    //（`LowerVariable` 置的 ✓）——不顶掉的话 `console.log(o.run)` 印
-    // `[Function: o]` ✓，而 Node 给 `[Function: run]` ✓（**实测** ✓：
-    // 判据 `ex-computed-member-call` 就是这么红的 ✓）。
-    // **这一处的名字来自树**（`TextOf(name)` ✓），**不是**来自绑定的那一刻 ✓——
-    // 所以这里把提示**临时清掉** ✗（清空 ⇒ `LowerFunctionValue` 那一档自然用 `name` ✓）。
-    // **计算键那一档不清** ✓：它本来就匿名 ✓（`"<computed>"` 以 `<` 开头 ✓，
-    // `LowerFunctionValue` 会把它当匿名 ✓）。
+    // **方法名要把外面那条提示顶掉**（第 238 轮，**实测踩过**）：
+    // `const o = { run() { … } }` 里，`FunctionNameHint` 还留着**外面那个变量名** `o`
+    //（`LowerVariable` 置的）——不顶掉的话 `console.log(o.run)` 印
+    // `[Function: o]`，而 Node 给 `[Function: run]`（**实测**：
+    // 判据 `ex-computed-member-call` 就是这么红的）。
+    // **这一处的名字来自树**（`TextOf(name)`），**不是**来自绑定的那一刻——
+    // 所以这里把提示**临时清掉**（清空 ⇒ `LowerFunctionValue` 那一档自然用 `name`）。
+    // **计算键那一档不清**：它本来就匿名（`"<computed>"` 以 `<` 开头，
+    // `LowerFunctionValue` 会把它当匿名）。
     const savedMethodHint = this.FunctionNameHint;
     this.FunctionNameHint = "";
     value = this.LowerFunctionValue(property, TextOf(name));
     this.FunctionNameHint = savedMethodHint;
-    // **键走 `KeyUnitsOf`、不走 `TextOf`**（第 183 轮修 ✓）：`{ "x-y"() { … } }` 的键是
-    // **字符串字面量** ✓，而 `TextOf` 取的是**原文**（带引号 ✗）——于是那一格存在 `"x-y"` 上
-    // （名字里真的有两个引号 ✓，`Object.keys` 印得出来 ✓），按 `o["x-y"]` 取永远取不到 ✗。
-    // 同一个函数里的 `PropertyAssignment` 那条**一直用的是 `KeyUnitsOf`** ✓（它认得字符串键 ✓）。
+    // **键走 `KeyUnitsOf`、不走 `TextOf`**（第 183 轮修）：`{ "x-y"() { … } }` 的键是
+    // **字符串字面量**，而 `TextOf` 取的是**原文**（带引号）——于是那一格存在 `"x-y"` 上
+    // （名字里真的有两个引号，`Object.keys` 印得出来），按 `o["x-y"]` 取永远取不到。
+    // 同一个函数里的 `PropertyAssignment` 那条**一直用的是 `KeyUnitsOf`**（它认得字符串键）。
     keyConst = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
   } else if (kind === "GetAccessor" || kind === "SetAccessor") {
     // **访问器**：发一条内部调用 `define_accessor(对象, 键, getter, setter)`。
     // `{ get x() {} set x(v) {} }` 是**两条**成员，各自只带一半——**缺的那一半给
     // `undefined`**（`DefineAccessor` 的规矩：`setter = undefined` 就是只读访问器）。
     const name = Child(property, "name");
-    // **计算键的访问器**（第 284 轮修 ✓）：`{ get [k + "2"]() { … } }` ✓——
-    // 名字那一格是 `ComputedPropertyName` ✓，而这一支原来无条件走 `KeyUnitsOf` ✗
-    //（那条路最后落在 `TextOf` 上 ✓）→ 报 `ast node ComputedPropertyName has no text` ✓
-    //（**整份文件进不来** ✗，判据 `ex-object-literal-accessors` 现场就是它 ✓）。
+    // **计算键的访问器**（第 284 轮修）：`{ get [k + "2"]() { … } }`——
+    // 名字那一格是 `ComputedPropertyName`，而这一支原来无条件走 `KeyUnitsOf`
+    //（那条路最后落在 `TextOf` 上）→ 报 `ast node ComputedPropertyName has no text`
+    //（**整份文件进不来**，判据 `ex-object-literal-accessors` 现场就是它）。
     //
-    // **这是第三处** ✗：`PropertyAssignment` ✓ 与 `MethodDeclaration` ✓ 两条
-    // 第 183 轮就收下了计算键 ✓，而访问器这一条**漏了** ✗——
-    // 同一个形状在同一个函数里写三遍 ✓，漏的那一遍隔了 100 轮才被量到 ✓。
-    // 做法与那两条**一字不差** ✓：键算成一格**值** ✓ → 走 `set_prop` 的值键那条路 ✓
-    //（`EmitDefineAccessor` 本来收的就是一格键 ✓，值键与常量键在它那里是同一条 ✓）。
+    // **这是第三处**：`PropertyAssignment` 与 `MethodDeclaration` 两条
+    // 第 183 轮就收下了计算键，而访问器这一条**漏了**——
+    // 同一个形状在同一个函数里写三遍，漏的那一遍隔了 100 轮才被量到。
+    // 做法与那两条**一字不差**：键算成一格**值** → 走 `set_prop` 的值键那条路
+    //（`EmitDefineAccessor` 本来收的就是一格键，值键与常量键在它那里是同一条）。
     if (NodeKind(name) === "ComputedPropertyName") {
-      // **键在前、值在后** ✓（第 284 轮 ✓，JS 的规范就是这样 ✓）——
-      // 见下面那一段「求值顺序」的说明 ✓。
+      // **键在前、值在后**（第 284 轮，JS 的规范就是这样）——
+      // 见下面那一段「求值顺序」的说明。
       const computedKey = this.LowerExpression(Child(name, "expression"));
       const computedHalf = this.LowerFunctionValue(property,
         kind === "GetAccessor" ? "<getter>" : "<setter>");
@@ -6035,19 +6035,19 @@ for (let i = 0; i < properties.length; i++) {
     const key = this.Reserve(1);
     this.Emit(Op.Const, key, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name))), -1, -1);
     // **访问器那一半的显示名带 `get ` / `set ` 前缀**（第 599 轮）：JS 的
-    // `Object.getOwnPropertyDescriptor({ get g() {} }, "g").get.name` 是 **`"get g"`** ✓
-    //（`set` 同理 ✓，`HeapClosure.Name` 那一格同时是 `fn.name` 与 `console.log` 的显示名 ✓）。
-    // 原来传的是 `"<getter>"` / `"<setter>"`（以 `<` 开头的占位符 ⇒ 匿名 ⇒ 名字是空串 ✗），
-    // 判据 `c371-stdlib-function-tostring-and-name` 量到的就是它 ✓。
-    // **计算键那一档照旧匿名** ✗：它的名字要运行期才知道（那一支还在上面 ✓）。
+    // `Object.getOwnPropertyDescriptor({ get g() {} }, "g").get.name` 是 **`"get g"`**
+    //（`set` 同理，`HeapClosure.Name` 那一格同时是 `fn.name` 与 `console.log` 的显示名）。
+    // 原来传的是 `"<getter>"` / `"<setter>"`（以 `<` 开头的占位符 ⇒ 匿名 ⇒ 名字是空串），
+    // 判据 `c371-stdlib-function-tostring-and-name` 量到的就是它。
+    // **计算键那一档照旧匿名**：它的名字要运行期才知道（那一支还在上面）。
     const accessorWord = kind === "GetAccessor" ? "get " : "set ";
     const half = this.LowerFunctionValue(property, accessorWord + UnitsText(this.KeyUnitsOf(name)));
     this.EmitDefineAccessor(object, key, half, kind === "GetAccessor");
     continue;
   } else if (kind === "SpreadAssignment") {
-    // **`{...o}`**（第 132 轮）：一条 `Object.assign(目标, 来源)` 的**语言内建调用** ✓。
-    // 窗口是 `[号, 目标, 来源]` ✓（与 `StringConcat` 同一个形状 ✓），结果落在窗口第一格 ✓
-    // ——那正是 `object` 自己 ✓，所以**不必把结果搬回去** ✓（`Object.assign` 返回的就是目标 ✓）。
+    // **`{...o}`**（第 132 轮）：一条 `Object.assign(目标, 来源)` 的**语言内建调用**。
+    // 窗口是 `[号, 目标, 来源]`（与 `StringConcat` 同一个形状），结果落在窗口第一格
+    // ——那正是 `object` 自己，所以**不必把结果搬回去**（`Object.assign` 返回的就是目标）。
     const source = this.LowerExpression(Child(property, "expression"));
     const spreadWindow = this.Reserve(3);
     this.Emit(Op.Const, spreadWindow, this.IntConst(ObjectAssign), -1, -1);
@@ -6079,24 +6079,24 @@ return UnitsOf(TextOf(name));
 
 ## method StaticKeyText:(node:AstNode)=>string
 
-**计算键里「当场就能算出来」的那几格的名字**（第 330 轮 ✓）——
-字符串字面量 ✓、数字字面量 ✓；**其余给空串** ✓。
+**计算键里「当场就能算出来」的那几格的名字**（第 330 轮）——
+字符串字面量、数字字面量；**其余给空串**。
 
-**为什么计算键也要取名** ✗（我第一版以为它不要 ✓，**是错的** ✗）：
-JS 的 `NamedEvaluation` 那一条**对计算键同样成立** ✓——
-`({ ["c"]: () => 1 }).c.name` 在 Node 里就是 **`"c"`** ✓（实测过 ✓）。
-规范里要的确实是**键那个值** ✓（运行期才算得出来 ✓），
-所以本仓今天只收「**不看运行期就知道**」的那两格 ✓：
-`{ ["c"]: () => 1 }` ✓、`{ [5]: () => 1 }` ✓（名字是 `"5"` ✓）。
+**为什么计算键也要取名**（我第一版以为它不要，**是错的**）：
+JS 的 `NamedEvaluation` 那一条**对计算键同样成立**——
+`({ ["c"]: () => 1 }).c.name` 在 Node 里就是 **`"c"`**（实测过）。
+规范里要的确实是**键那个值**（运行期才算得出来），
+所以本仓今天只收「**不看运行期就知道**」的那两格：
+`{ ["c"]: () => 1 }`、`{ [5]: () => 1 }`（名字是 `"5"`）。
 
-**已知差写在明处** ✗：`{ [k]: () => 1 }`（`k` 是一个变量 / 表达式 ✓）本仓给**空串** ✓，
-Node 给 `String(k)` ✓——要补得上「运行期把键变成文本再给闭包取名」那一步 ✓，
-而闭包的名字是 **`new_closure` 那一刻**写死的 ✗（`EmitClosure` ✓），
-所以这不是一句话的事 ✓，记在台账里 ✓。
+**已知差写在明处**：`{ [k]: () => 1 }`（`k` 是一个变量 / 表达式）本仓给**空串**，
+Node 给 `String(k)`——要补得上「运行期把键变成文本再给闭包取名」那一步，
+而闭包的名字是 **`new_closure` 那一刻**写死的（`EmitClosure`），
+所以这不是一句话的事，记在台账里。
 
-**它必须是本类的方法** ✗：文件顶部那几个 `# method` 是**自由函数** ✓
-（生成出来是模块级 `export function` ✓）——第一版就写在那里 ✓，
-编译期当场报 `this.UnitsText` 不存在 ✓，位置正好点在这一行 ✓。
+**它必须是本类的方法**：文件顶部那几个 `# method` 是**自由函数**
+（生成出来是模块级 `export function`）——第一版就写在那里，
+编译期当场报 `this.UnitsText` 不存在，位置正好点在这一行。
 
 ```ts
 const kind = NodeKind(node);
@@ -6107,18 +6107,18 @@ return "";
 
 ## method EmitComputedFunctionName:(closure:int, key:int, keyNode:AstNode)=>void
 
-**计算键成员的名字，降级期算不出来时由运行期补写** ✓（第 620 轮 ✓）。
+**计算键成员的名字，降级期算不出来时由运行期补写**（第 620 轮）。
 
-**为什么需要它** ✗：JS 的 NamedEvaluation 用的是**运行期算出来的那个键** ✓——
-`{ ["k" + 1]() {} }.k1.name` 在 Node 里是 **`"k1"`** ✓，而 `StaticKeyText` 只认
-**字面量键** ✓（其余给空串 ✓）⇒ 本仓给 `""` ✓（判据 `c371-rt-function-name-and-length` ✓）。
+**为什么需要它**：JS 的 NamedEvaluation 用的是**运行期算出来的那个键**——
+`{ ["k" + 1]() {} }.k1.name` 在 Node 里是 **`"k1"`**，而 `StaticKeyText` 只认
+**字面量键**（其余给空串）⇒ 本仓给 `""`（判据 `c371-rt-function-name-and-length`）。
 
-**做法**：`closure["name"] = key` ✓——写下去的是**闭包自己的结构属性** ✓
-（`props.xl.md` 的 `SetProperty` 那一支 ✓，只有它认得闭包那一格 ✓）。
-**键不是字符串就什么都不写** ✓（那要语言层的 `ToPropertyKey` ✓，见那一支的账 ✓）。
+**做法**：`closure["name"] = key`——写下去的是**闭包自己的结构属性**
+（`props.xl.md` 的 `SetProperty` 那一支，只有它认得闭包那一格）。
+**键不是字符串就什么都不写**（那要语言层的 `ToPropertyKey`，见那一支的账）。
 
-**静态键那一档直接返回** ✗：`{ ["c"]: () => 1 }` 走的是 `FunctionNameHint` ✓
-（`StaticKeyText` 给 `"c"` ✓），再写一遍只是多三条指令 ✓。
+**静态键那一档直接返回**：`{ ["c"]: () => 1 }` 走的是 `FunctionNameHint`
+（`StaticKeyText` 给 `"c"`），再写一遍只是多三条指令。
 
 ```ts
 if (this.StaticKeyText(keyNode) !== "") return;
@@ -6143,16 +6143,16 @@ this.Release(window);
 
 `obj[key] = value`，键是**算出来的值**（计算键）。
 
-**走 `set_index`、不走 `set_prop`** ✓（第 305 轮修的 ✗）——理由是**同一个形状在别处早有答案** ✓：
+**走 `set_index`、不走 `set_prop`**（第 305 轮修的）——理由是**同一个形状在别处早有答案**：
 
-计算键在 JS 里是 `ToPropertyKey(key)` ✓：先 `ToPrimitive(key, "string")` ✓、
-是符号就留着 ✓、否则 `ToString` ✓。而 `set_prop` **只收字符串 / 符号键** ✗
-（`props.xl.md` 的 `KeyMatches` ✓，别的键当场抛 `property keys must be strings or symbols` ✓）——
-于是 `{ [Color.Red]: "red" }`（枚举成员是**数** ✓）**整份文件进不来** ✗，
-而同一句话写成 `o[Color.Red] = "red"` 是好的 ✓（`o[k] = v` 那条路第 190 / 191 轮就走 `set_index` ✓）。
-`set_index` 那一支**本来就替我们做完了 `ToPropertyKey`** ✓（`vm.xl.md` ✓：
-数组按下标 ✓、其余接收者把键字符串化再走属性 ✓、符号键原样 ✓），
-`get_index` 在**读**那一侧是同一条口径 ✓（`o[k](...)` 第 178 轮就是这么修的 ✓）。
+计算键在 JS 里是 `ToPropertyKey(key)`：先 `ToPrimitive(key, "string")`、
+是符号就留着、否则 `ToString`。而 `set_prop` **只收字符串 / 符号键**
+（`props.xl.md` 的 `KeyMatches`，别的键当场抛 `property keys must be strings or symbols`）——
+于是 `{ [Color.Red]: "red" }`（枚举成员是**数**）**整份文件进不来**，
+而同一句话写成 `o[Color.Red] = "red"` 是好的（`o[k] = v` 那条路第 190 / 191 轮就走 `set_index`）。
+`set_index` 那一支**本来就替我们做完了 `ToPropertyKey`**（`vm.xl.md`：
+数组按下标、其余接收者把键字符串化再走属性、符号键原样），
+`get_index` 在**读**那一侧是同一条口径（`o[k](...)` 第 178 轮就是这么修的）。
 
 ```ts
 const window = this.Reserve(3);
@@ -6170,18 +6170,18 @@ this.Release(window);
 
 **原型今天取 `Protos.Object`**：真正的语义要读构造函数的 `prototype` **属性**，
 而那个名字属于建库层（`DoNew` 那一节写了为什么）。这一轮给的是一个**明确、可预期**的答案。
-**宿主构造函数不走这一支** ✓（`DoNew` 里那条宿主分支排在前面 ✓：`new Map()` 那个实例
-是宿主自己造的 ✓）——降级层**不知道也不需要知道**哪个全局名是宿主构造函数 ✓。
+**宿主构造函数不走这一支**（`DoNew` 里那条宿主分支排在前面：`new Map()` 那个实例
+是宿主自己造的）——降级层**不知道也不需要知道**哪个全局名是宿主构造函数。
 
 **构造目标只认标识符与属性访问**：`new (f())()` 这种要先求值再构造，
 形状不同、语义也不同（`new.target` 那一套），这一轮抛。
 
-**第 145 轮删掉了 `Date` 那条特例** ✓：它原来把 `new Date(毫秒)` 直接落成一条
-`host_call(DateCtor, …)` ✓，理由是「普通对象不能被 `new`」✗——那一格现在补上了 ✓
-（`heap.xl.md` 的 `AttachCallable` ✓），所以这一支走**普通的路** ✓：
-取全局槽里的 `Date` ✓ → `Op.New` ✓ → `DoNew` 认出「它带可调用载荷」 ✓ → 宿主造实例 ✓。
-**删掉的是降级层对某个全局名的特例** ✓（那是分层上最不该有的一种知识 ✗），
-换来的是 `const D = Date; new D(0)` 也对 ✓。
+**第 145 轮删掉了 `Date` 那条特例**：它原来把 `new Date(毫秒)` 直接落成一条
+`host_call(DateCtor, …)`，理由是「普通对象不能被 `new`」——那一格现在补上了
+（`heap.xl.md` 的 `AttachCallable`），所以这一支走**普通的路**：
+取全局槽里的 `Date` → `Op.New` → `DoNew` 认出「它带可调用载荷」 → 宿主造实例。
+**删掉的是降级层对某个全局名的特例**（那是分层上最不该有的一种知识），
+换来的是 `const D = Date; new D(0)` 也对。
 
 ```ts
 const callee = Child(node, "expression");
@@ -6198,27 +6198,27 @@ if (calleeKind === "Identifier") {
 } else if (calleeKind === "PropertyAccessExpression") {
   ctor = this.LowerAccess(callee);
 } else {
-  // **一般表达式：先求值、再构造** ✓（第 211 轮 ✓）。
+  // **一般表达式：先求值、再构造**（第 211 轮）。
   //
-  // **原来这里抛** ✗（`unimplemented: new with a <kind> target` ✓），而落在这儿的正是
-  // 那些**形状很普通**的写法 ✓：`new (class { … })()` ✓（类表达式当构造目标 ✓）、
-  // `new (make(5))()` ✓（先调一个工厂再构造 ✓）、`new (A)` ✓（括号套一层 ✓）——
-  // 判据 `cls-expression` / `ex-new-class-expression` 现场红的 ✓（整份文件进不来 ✗）。
+  // **原来这里抛**（`unimplemented: new with a <kind> target`），而落在这儿的正是
+  // 那些**形状很普通**的写法：`new (class { … })()`（类表达式当构造目标）、
+  // `new (make(5))()`（先调一个工厂再构造）、`new (A)`（括号套一层）——
+  // 判据 `cls-expression` / `ex-new-class-expression` 现场红的（整份文件进不来）。
   //
-  // **为什么现在敢放行** ✓：`Op.New` 拿的就是**构造函数那一格的值** ✓，
-  // 与「标识符」/「属性访问」那两条路**同一个落点** ✓——多出来的活只是「这个值怎么算出来」✓。
-  // **`new.target` 那一层顾虑不成立** ✗：JS 在 `new (f())()` 里调 `f` 用的是**普通调用** ✓
-  //（`new.target` 是 `undefined` ✓），而 `LowerExpression` 降的就是普通调用 ✓——两边一致 ✓。
+  // **为什么现在敢放行**：`Op.New` 拿的就是**构造函数那一格的值**，
+  // 与「标识符」/「属性访问」那两条路**同一个落点**——多出来的活只是「这个值怎么算出来」。
+  // **`new.target` 那一层顾虑不成立**：JS 在 `new (f())()` 里调 `f` 用的是**普通调用**
+  //（`new.target` 是 `undefined`），而 `LowerExpression` 降的就是普通调用——两边一致。
   ctor = this.LowerExpression(callee);
 }
 const args = ListOf(node, "arguments");
 const count = args.length;
-// **`new C(...xs)`**（第 197 轮 ✓）：引擎的 `Op.New` 只认「从某格开始的**连续**若干格」✗，
-// 而带展开的实参个数**只有运行期才知道** ✗——所以先把实参收成一个数组 ✓
-//（`BuildArgsArray` ✓，与 `f(...xs)` 那条**完全同一个**铺法 ✓），
-// 再走 `NewApplyId` 这条**语言内建调用** ✓：那一侧按数组铺开、并按 JS 的
-// `[[Construct]]` 造实例 ✓（读 `prototype` ✓ → 拿它当原型造对象 ✓ → 用它当 `this` 调构造函数 ✓
-// → 构造函数返回对象就用它 ✓）。**引擎一行都不用改** ✓。
+// **`new C(...xs)`**（第 197 轮）：引擎的 `Op.New` 只认「从某格开始的**连续**若干格」，
+// 而带展开的实参个数**只有运行期才知道**——所以先把实参收成一个数组
+//（`BuildArgsArray`，与 `f(...xs)` 那条**完全同一个**铺法），
+// 再走 `NewApplyId` 这条**语言内建调用**：那一侧按数组铺开、并按 JS 的
+// `[[Construct]]` 造实例（读 `prototype` → 拿它当原型造对象 → 用它当 `this` 调构造函数
+// → 构造函数返回对象就用它）。**引擎一行都不用改**。
 if (this.HasSpread(args)) {
   const spreadArgs = this.BuildArgsArray(args);
   const window = this.Reserve(3);
@@ -6229,10 +6229,10 @@ if (this.HasSpread(args)) {
   this.EmitRt(RtOp.HostCall, produced, window, 3);
   this.Release(window);
   this.Release(spreadArgs);
-  // **别漏了 `ctor` 那一格**（第 197 轮实测抓到的 ✓）：下面是**早返回** ✗，
-  // 而原路末尾有一句 `Release(ctor)` ✓——漏掉它水位就高一格 ✓，
-  // 后面所有变量的槽**整体错位** ✓（实测：`runtime:check` 5 条红、`runtime:cli` 4 份不一致 ✓，
-  // 症状离现场很远 ✗）。**这就是这条纪律存在的理由** ✓。
+  // **别漏了 `ctor` 那一格**（第 197 轮实测抓到的）：下面是**早返回**，
+  // 而原路末尾有一句 `Release(ctor)`——漏掉它水位就高一格，
+  // 后面所有变量的槽**整体错位**（实测：`runtime:check` 5 条红、`runtime:cli` 4 份不一致，
+  // 症状离现场很远）。**这就是这条纪律存在的理由**。
   this.Release(ctor);
   return produced;
 }
@@ -6242,14 +6242,14 @@ for (let i = 0; i < count; i++) {
   this.LowerInto(base + i, args[i]);
 }
 this.Emit(Op.New, ctor, base, count, -1);
-// **别退到结果格以下**（第 132 轮修的一处**潜伏 bug** ✓）：`Op.New` 的结果写在 `base` 上 ✓，
-// 而 `base` 在 `ctor` **上面** ✓——原来这里写的是 `Release(ctor)` ✗，水位一下退回了 `ctor`，
-// 于是**下一个分配就会盖掉刚造出来的那个对象** ✗。
-// **它一直潜伏**，是因为紧接着的一次分配（`const s = new Set(...)` 里的变量格 ✓）
-// 恰好就落在同一个格上 ✓——`Move` 到自己是空操作，值反而活了下来 ✓。
-// 一旦中间**多一次**分配（`[...new Set([1, 2])]` 那个展开窗口就是 ✓），对象就被换成别的 ✗
-// ——判据现场：`[...new Set([1, 2])]` 接出来是**空的** ✓，而 `[...s]`（先存变量）是对的 ✓。
-// `LowerCall` 那一条一直是 `Release(base + 1)` ✓，这里照它对齐 ✓。
+// **别退到结果格以下**（第 132 轮修的一处**潜伏 bug**）：`Op.New` 的结果写在 `base` 上，
+// 而 `base` 在 `ctor` **上面**——原来这里写的是 `Release(ctor)`，水位一下退回了 `ctor`，
+// 于是**下一个分配就会盖掉刚造出来的那个对象**。
+// **它一直潜伏**，是因为紧接着的一次分配（`const s = new Set(...)` 里的变量格）
+// 恰好就落在同一个格上——`Move` 到自己是空操作，值反而活了下来。
+// 一旦中间**多一次**分配（`[...new Set([1, 2])]` 那个展开窗口就是），对象就被换成别的
+// ——判据现场：`[...new Set([1, 2])]` 接出来是**空的**，而 `[...s]`（先存变量）是对的。
+// `LowerCall` 那一条一直是 `Release(base + 1)`，这里照它对齐。
 this.Release(base + 1);
 return base;
 ```
@@ -6357,16 +6357,16 @@ return result;
 
 **模板串**：从左到右拼——头段、每个内插（**渲染成文本**之后）、每段字面量。
 
-**第 125 轮改成走语言内建那条拼接** ✓（`ConcatValues` ✓）：模板串的语义就是
-「把每一段 `ToString` 之后接起来」✓，而 **`ToString` 的口径在语言层** ✓
-（`text.xl.md` ✓）。原来这里用引擎的 `rt_call add` ✗——它只认自己认识的那几档 ✓，
-于是 `` `${obj}` `` / `` `${5 / 2}` `` 会**抛** ✓（判据现场抓到的 ✓），
-而这两种写法在真实代码里遍地都是 ✓。
+**第 125 轮改成走语言内建那条拼接**（`ConcatValues`）：模板串的语义就是
+「把每一段 `ToString` 之后接起来」，而 **`ToString` 的口径在语言层**
+（`text.xl.md`）。原来这里用引擎的 `rt_call add`——它只认自己认识的那几档，
+于是 `` `${obj}` `` / `` `${5 / 2}` `` 会**抛**（判据现场抓到的），
+而这两种写法在真实代码里遍地都是。
 
 **投影保证两件事**（第 66 轮刚补上）：三个模板段的 `text` 都在（**不含分隔符**），
 所以这里直接取文本即可，不必回头去扫源码。
-**第 333 轮补了「熟」那一步** ✗：带内插的段在投影里是**原文** ✓（与 TS 逐节点相同 ✓），
-直接 `TextOf` 会得到**四个字符**的 `` c\td `` ✗——`TemplateCookedText` 那一段写着为什么 ✓。
+**第 333 轮补了「熟」那一步**：带内插的段在投影里是**原文**（与 TS 逐节点相同），
+直接 `TextOf` 会得到**四个字符**的 `` c\td ``——`TemplateCookedText` 那一段写着为什么。
 
 ```ts
 const headText = this.Program().AddConst(Constant.OfString(UnitsOf(this.TemplateCookedText(Child(node, "head")))));
@@ -6375,19 +6375,19 @@ this.Emit(Op.Const, result, headText, -1, -1);
 const spans = ListOf(node, "templateSpans");
 for (let i = 0; i < spans.length; i++) {
   const value = this.LowerExpression(Child(spans[i], "expression"));
-  // **模板串的内插走 `string` 那一支** ✓（第 288 轮 ✗）：JS 的 `${o}` 是 `ToString(o)` ✓
-  // ⇒ `ToPrimitive(o, "string")` ✓ ⇒ **先问 `toString`** ✓——与 `"x" + o`（`default` ✓、
-  // 先问 `valueOf` ✓）**不是同一件事** ✓。走错那一支的后果是**静默错值** ✓
-  //（`{ valueOf: () => 5, toString: () => "T" }` 印出 `5` ✗，Node 印 `T` ✓）。
+  // **模板串的内插走 `string` 那一支**（第 288 轮）：JS 的 `${o}` 是 `ToString(o)`
+  // ⇒ `ToPrimitive(o, "string")` ⇒ **先问 `toString`**——与 `"x" + o`（`default`、
+  // 先问 `valueOf`）**不是同一件事**。走错那一支的后果是**静默错值**
+  //（`{ valueOf: () => 5, toString: () => "T" }` 印出 `5`，Node 印 `T`）。
   const joined = this.TemplateConcatValues(result, value);
   const literal = Child(spans[i], "literal");
   const literalText = this.Program().AddConst(Constant.OfString(UnitsOf(this.TemplateCookedText(literal))));
-  // **常量要先落进一格**：`ConcatValues` 收的是**槽号** ✓（与 `RtCall2` 那条收常量的路不同 ✗）。
+  // **常量要先落进一格**：`ConcatValues` 收的是**槽号**（与 `RtCall2` 那条收常量的路不同）。
   const tailSlot = this.Reserve(1);
   this.Emit(Op.Const, tailSlot, literalText, -1, -1);
   const tail = this.ConcatValues(joined, tailSlot);
   this.Emit(Op.Move, result, tail, -1, -1);
-  // **临时量随段落退掉**：不退的话 `Peak` 会随段落数长（这一轮顺手收的 ✓）。
+  // **临时量随段落退掉**：不退的话 `Peak` 会随段落数长（这一轮顺手收的）。
   this.Release(result + 1);
 }
 return result;
@@ -6395,22 +6395,22 @@ return result;
 
 ## method TemplateCookedText:(node:AstNode)=>string
 
-**模板某一段「跑起来那一串」** ✓（第 333 轮 ✓）——`LowerTemplate` 与
-`LowerTaggedTemplate` 都取它 ✓（两处取同一件事，所以只有一处答案 ✓）。
+**模板某一段「跑起来那一串」**（第 333 轮）——`LowerTemplate` 与
+`LowerTaggedTemplate` 都取它（两处取同一件事，所以只有一处答案）。
 
-**为什么必须多这一步** ✗（第 333 轮实测撞到的 ✓）：投影对**带内插**的模板段给的是
-**原文** ✓——`TemplateHead` / `TemplateMiddle` / `TemplateTail` 的 `text` 是
-`ctx.source.slice(...)` ✓（那一头的口径与 TS 逐节点相同 ✓，`cases:tsast` 钉着它 ✓），
-于是 `` `c\td${x}` `` 的段文本是**四个字符**（反斜杠 + `t` + `d` + 尾段 ✓）✗，
-而 JS 要的是**三个**（一个真制表符 ✓）。**实测**：
-`` console.log(`a\nb${1}`.length) `` Node 给 `4` ✓、本仓给 `5` ✓——**静默错值** ✗，
-而且 `` `${x}\n` `` 这种写法在真实代码里到处都是 ✓。
+**为什么必须多这一步**（第 333 轮实测撞到的）：投影对**带内插**的模板段给的是
+**原文**——`TemplateHead` / `TemplateMiddle` / `TemplateTail` 的 `text` 是
+`ctx.source.slice(...)`（那一头的口径与 TS 逐节点相同，`cases:tsast` 钉着它），
+于是 `` `c\td${x}` `` 的段文本是**四个字符**（反斜杠 + `t` + `d` + 尾段），
+而 JS 要的是**三个**（一个真制表符）。**实测**：
+`` console.log(`a\nb${1}`.length) `` Node 给 `4`、本仓给 `5`——**静默错值**，
+而且 `` `${x}\n` `` 这种写法在真实代码里到处都是。
 
-**没有内插的那一档不用再过一遍** ✗：`NoSubstitutionTemplateLiteral` 的 `text`
-**已经是熟的** ✓（投影那一支走的是 `stringText` ✓，与引号串同一条 ✓）——
-再过一遍会把 `\\n` 这种真正的反斜杠吃掉 ✗。
-**所以这一档要自己剥反引号** ✓（`TemplatePartText` 那一格第 333 轮起给的是**原文** ✗，
-它现在专门服务 `raw` ✓——两件事分成两格，谁都不必猜另一格的口径 ✓）。
+**没有内插的那一档不用再过一遍**：`NoSubstitutionTemplateLiteral` 的 `text`
+**已经是熟的**（投影那一支走的是 `stringText`，与引号串同一条）——
+再过一遍会把 `\\n` 这种真正的反斜杠吃掉。
+**所以这一档要自己剥反引号**（`TemplatePartText` 那一格第 333 轮起给的是**原文**，
+它现在专门服务 `raw`——两件事分成两格，谁都不必猜另一格的口径）。
 
 ```ts
 if (NodeKind(node) === "NoSubstitutionTemplateLiteral") {
@@ -6431,9 +6431,9 @@ return CookTemplateText(this.TemplatePartText(node));
 下一次 `next(v)` 恢复时**接着跑的是 `suspend` 的下一条**——也就是这里放的 `resume`，
 它把 `v` 写进一格。**那一格就是整个 `yield` 表达式的值**，于是 `const got = yield 1` 成立。
 
-**`yield *` 委托迭代** ✓（第 230 轮 ✓）：转发 `next` 那一半 ✓——见 `LowerYieldDelegation` ✓。
-**`throw` / `return` 那两个方向转发不了** ✗（要引擎在「生成器被 `.throw()`」时
-把值送进内层 ✓，那是另一件事 ✓），记在台账里 ✓。
+**`yield *` 委托迭代**（第 230 轮）：转发 `next` 那一半——见 `LowerYieldDelegation`。
+**`throw` / `return` 那两个方向转发不了**（要引擎在「生成器被 `.throw()`」时
+把值送进内层，那是另一件事），记在台账里。
 
 **不在生成器里就抛**：`yield` 写在内层普通函数里是**语法错误**（JS 就是这么定的）——
 让它跑到运行期，会变成一条把**普通帧**冻住的 `suspend`（帧不在栈上、没人推它，静默挂死）。
@@ -6460,21 +6460,21 @@ if (operand === null) {
 this.Emit(Op.Suspend, slot, -1, -1, -1);
 const sent = this.Reserve(1);
 this.Emit(Op.Resume, sent, -1, -1, -1);
-// **问一句「有人叫停吗」** ✓（第 336 轮 ✓）：`it.return(v)` 要的是一次
-// **`return` 完成** ✓（跑 `finally` ✓、不接 `catch` ✓），而那几段收尾代码是
-// **降级期就地内联**的 ✓（`FinallyBlocks` ✓）——所以引擎只把「叫停」+「值」带到这一格 ✓，
-// **问句与答句都写在这里** ✓（`Op.CheckGeneratorReturn` ✓，见 `ir.xl.md` ✓）。
+// **问一句「有人叫停吗」**（第 336 轮）：`it.return(v)` 要的是一次
+// **`return` 完成**（跑 `finally`、不接 `catch`），而那几段收尾代码是
+// **降级期就地内联**的（`FinallyBlocks`）——所以引擎只把「叫停」+「值」带到这一格，
+// **问句与答句都写在这里**（`Op.CheckGeneratorReturn`，见 `ir.xl.md`）。
 //
-// **「是」的时候跳到哪儿** ✗：跳到**这个 `yield` 位置上**那一套 `return` 收尾 ✓——
-// 而它要等到**函数体发完**才排得下 ✓（现在还不知道后面还有多少指令 ✓），
-// 所以这里只**记下**（跳转下标 + **当时在册的 `finally` 快照** ✓），
-// 由 `LowerFunctionBody` 收尾时一起发 ✓（`EmitGeneratorReturnEpilogues` ✓）。
+// **「是」的时候跳到哪儿**：跳到**这个 `yield` 位置上**那一套 `return` 收尾——
+// 而它要等到**函数体发完**才排得下（现在还不知道后面还有多少指令），
+// 所以这里只**记下**（跳转下标 + **当时在册的 `finally` 快照**），
+// 由 `LowerFunctionBody` 收尾时一起发（`EmitGeneratorReturnEpilogues`）。
 //
-// **值先落到一格固定的槽** ✓（`GeneratorReturnSlot` ✓，**函数一进来就占好了** ✓）：
-// 跳过去之后要 `Op.Return(那一格)` ✓，而**每个 `yield` 各有一条问句** ✗ ⇒
-// 一格共用就够 ✓（问句只会有一条成立 ✓）。**来源是 `sent` 那一格** ✓
-//（`resume` 刚把恢复值放进去 ✓，而帧上那格 `ResumeValue` **已经被它清掉了** ✗——
-//  第一版读的是它 ✓，症状见 `ir.xl.md` ✓）。
+// **值先落到一格固定的槽**（`GeneratorReturnSlot`，**函数一进来就占好了**）：
+// 跳过去之后要 `Op.Return(那一格)`，而**每个 `yield` 各有一条问句** ⇒
+// 一格共用就够（问句只会有一条成立）。**来源是 `sent` 那一格**
+//（`resume` 刚把恢复值放进去，而帧上那格 `ResumeValue` **已经被它清掉了**——
+//  第一版读的是它，症状见 `ir.xl.md`）。
 const checkIndex = this.Here();
 this.Emit(Op.CheckGeneratorReturn, this.GeneratorReturnSlot, 0, sent, -1);
 this.GeneratorReturns.push(checkIndex);
@@ -6486,42 +6486,42 @@ return sent;
 
 ## field GeneratorReturns:Array<int> = []
 
-**生成器里那些「有人叫停吗」问句的跳转下标** ✓（第 336 轮 ✓）——与
-`GeneratorReturnScopes` **一一对应** ✓（两份平行数组 ✓，与 `DefaultAt` / `Defaults` 同一条写法 ✓：
-收尾时要「跳转 + 当时那几层 `finally`」两样一起用 ✓，而它们是在**不同时刻**记下来的 ✓）。
+**生成器里那些「有人叫停吗」问句的跳转下标**（第 336 轮）——与
+`GeneratorReturnScopes` **一一对应**（两份平行数组，与 `DefaultAt` / `Defaults` 同一条写法：
+收尾时要「跳转 + 当时那几层 `finally`」两样一起用，而它们是在**不同时刻**记下来的）。
 
 ## field GeneratorReturnScopes:Array<Array<AstNode>> = []
 
-**每一条问句在写下它那一刻「在册的 `finally`」** ✓（第 336 轮 ✓，快照一份 ✓）。
+**每一条问句在写下它那一刻「在册的 `finally`」**（第 336 轮，快照一份）。
 
-**为什么必须快照** ✗：`FinallyBlocks` 是**当前词法位置**的状态 ✓——`yield` 在 `try` 里、
-收尾却在函数体末尾 ✓，那时它已经空了 ✗ ⇒ 不收尾就**一层 `finally` 都不跑** ✗
-（症状：`try { yield 1 } finally { console.log("cleanup") }` 里那句**一声不响** ✓）。
+**为什么必须快照**：`FinallyBlocks` 是**当前词法位置**的状态——`yield` 在 `try` 里、
+收尾却在函数体末尾，那时它已经空了 ⇒ 不收尾就**一层 `finally` 都不跑**
+（症状：`try { yield 1 } finally { console.log("cleanup") }` 里那句**一声不响**）。
 
 ## field GeneratorReturnSlot:int = -1
 
-**`it.return(v)` 的值往哪一格落** ✓（第 336 轮 ✓）——一个生成器**共用一格** ✓：
-问句只会有一条成立 ✓（标记读走就清 ✓），所以不必一 `yield` 一格 ✓。
+**`it.return(v)` 的值往哪一格落**（第 336 轮）——一个生成器**共用一格**：
+问句只会有一条成立（标记读走就清），所以不必一 `yield` 一格。
 
-**它由 `LowerFunctionBody` 在函数一进来就占** ✓（`item.IsGenerator` 那一档 ✓）——
-**不能在第一个 `yield` 那儿现占** ✗（**实测踩过一次** ✗：那时水位已经涨上去了 ✓，
-后面某处 `Release` 会退到它下面 ✓ ⇒ 再 `Reserve` 拿到**同一个号** ✓ ⇒
-那一格被别的东西盖掉 ✓，`it.return(9).value` 于是拿到 `console` 那个对象 ✓
-——**一句话都没报** ✓）。排在函数开头它就落在**所有临时量之下** ✓，谁也不会把它退掉 ✓。
+**它由 `LowerFunctionBody` 在函数一进来就占**（`item.IsGenerator` 那一档）——
+**不能在第一个 `yield` 那儿现占**（**实测踩过一次**：那时水位已经涨上去了，
+后面某处 `Release` 会退到它下面 ⇒ 再 `Reserve` 拿到**同一个号** ⇒
+那一格被别的东西盖掉，`it.return(9).value` 于是拿到 `console` 那个对象
+——**一句话都没报**）。排在函数开头它就落在**所有临时量之下**，谁也不会把它退掉。
 
 ## method EmitGeneratorReturnEpilogues:()=>void
 
-**把每一条问句的「答句」发出来** ✓（第 336 轮 ✓）——由 `LowerFunctionBody` 在**体发完之后**叫一次 ✓。
+**把每一条问句的「答句」发出来**（第 336 轮）——由 `LowerFunctionBody` 在**体发完之后**叫一次。
 
-**答句就是一次 `return`** ✓：`EmitPendingFinalies()` ✓（把**当时**在册的那几层 `finally`
-从里到外发一遍 ✓——`FinallyBlocks` 是临时的「当前状态」✓，所以发每一段之前先把它摆成
-那一份快照 ✓，发完**恢复** ✓，与 `EmitPendingFinalies` 自己那条 save/restore 同一套手法 ✓）
-+ `Op.Return(GeneratorReturnSlot)` ✓。
+**答句就是一次 `return`**：`EmitPendingFinalies()`（把**当时**在册的那几层 `finally`
+从里到外发一遍——`FinallyBlocks` 是临时的「当前状态」，所以发每一段之前先把它摆成
+那一份快照，发完**恢复**，与 `EmitPendingFinalies` 自己那条 save/restore 同一套手法）
++ `Op.Return(GeneratorReturnSlot)`。
 
-**发在体之后、而且每条各自 `Return`** ✓：跳转是**跳过来**的 ✓，所以落到这里就一定要走 ✓；
-发完之后**接着**发下一条 ✓（互相之间隔着一条 `Op.Return` ✓ ⇒ 谁也不会掉进下一条 ✓）。
+**发在体之后、而且每条各自 `Return`**：跳转是**跳过来**的，所以落到这里就一定要走；
+发完之后**接着**发下一条（互相之间隔着一条 `Op.Return` ⇒ 谁也不会掉进下一条）。
 
-**顺序无关** ✓（每条自带 `Return` ✓），但**照记下的次序**发 ✓——读起来与源码同序 ✓。
+**顺序无关**（每条自带 `Return`），但**照记下的次序**发——读起来与源码同序。
 
 ```ts
 if (this.GeneratorReturns.length === 0) return;
@@ -6537,44 +6537,44 @@ for (let i = 0; i < this.GeneratorReturns.length; i++) {
 
 ## method LowerYieldDelegation:(source:AstNode)=>int
 
-**`yield* xs`**（第 230 轮 ✓）——**把内层被迭代的每一项转手 yield 出去** ✓，
-最后交出内层的**返回值** ✓。
+**`yield* xs`**（第 230 轮）——**把内层被迭代的每一项转手 yield 出去**，
+最后交出内层的**返回值**。
 
-**它凭什么不用新算子** ✓：JS 的规范把 `yield*` 定义成一段**等价的循环** ✓：
-取内层的迭代器 ✓、一轮一轮 `next()` ✓、每一项 `yield` 出去 ✓，
-内层 `done` 时把它的 `value` 当**整个 `yield*` 表达式的值** ✓——
-而这三样（`GetIterator` ✓ / `IterNew` + `IterNext` ✓ / `Suspend` + `Resume` ✓）
-**第 111 / 129 轮就都在了** ✓。
+**它凭什么不用新算子**：JS 的规范把 `yield*` 定义成一段**等价的循环**：
+取内层的迭代器、一轮一轮 `next()`、每一项 `yield` 出去，
+内层 `done` 时把它的 `value` 当**整个 `yield*` 表达式的值**——
+而这三样（`GetIterator` / `IterNew` + `IterNext` / `Suspend` + `Resume`）
+**第 111 / 129 轮就都在了**。
 
-**两处次序是语义** ✗：
-- **`GetIterator` 排在 `IterNew` 之前** ✓（与 `for..of` 那条**一字不差** ✓）：
-  引擎只认数组与生成器 ✓，`Map` / `Set` / `Symbol.iterator` 那一族要语言层先物化 ✓；
-- **每一项都要 `Suspend` 之后再 `Resume`** ✓：`yield*` 的每一项都会**挂起外层生成器** ✓
-  （`yield* [1, 2]` 要两次 `next()` 才走完 ✓，判据 `gen-delegating` 钉的就是它 ✓）——
-  少了 `Suspend` 就变成「一次收完再一起给」✗（那正是这一格原来那句抛的理由 ✓）。
+**两处次序是语义**：
+- **`GetIterator` 排在 `IterNew` 之前**（与 `for..of` 那条**一字不差**）：
+  引擎只认数组与生成器，`Map` / `Set` / `Symbol.iterator` 那一族要语言层先物化；
+- **每一项都要 `Suspend` 之后再 `Resume`**：`yield*` 的每一项都会**挂起外层生成器**
+  （`yield* [1, 2]` 要两次 `next()` 才走完，判据 `gen-delegating` 钉的就是它）——
+  少了 `Suspend` 就变成「一次收完再一起给」（那正是这一格原来那句抛的理由）。
 
-**第三处是第 323 轮补的** ✗：**「抄下这一轮的值」要排在 `done` 判据之前** ✓
-（那一趟的 `pair[0]` 是**内层的返回值** ✓，而它就是整个 `yield*` 表达式的值 ✓）——
-原来抄在判据之后 ✓ ⇒ **恰好 `done` 那一趟不抄** ✗ ⇒ `const r = yield* inner()` 里
-`r` 是**上一轮产出的值** ✗（`yield* [1, 2]` 看不出来 ✓——那时 `done` 那一趟的值是
-`undefined` ✓，而**生成器**那一趟有返回值 ✓，所以只有「委托给生成器」这一格现形 ✓）。
+**第三处是第 323 轮补的**：**「抄下这一轮的值」要排在 `done` 判据之前**
+（那一趟的 `pair[0]` 是**内层的返回值**，而它就是整个 `yield*` 表达式的值）——
+原来抄在判据之后 ⇒ **恰好 `done` 那一趟不抄** ⇒ `const r = yield* inner()` 里
+`r` 是**上一轮产出的值**（`yield* [1, 2]` 看不出来——那时 `done` 那一趟的值是
+`undefined`，而**生成器**那一趟有返回值，所以只有「委托给生成器」这一格现形）。
 
-**第四处是第 640 轮补的** ✗：**`IterNext` 送的必须是「外层收到的那一份」** ✓。
+**第四处是第 640 轮补的**：**`IterNext` 送的必须是「外层收到的那一份」**。
 JS 把 `yield*` 定义成一段等价循环：`received` 起手是 `undefined`，
 `loop { r = inner.next(received); if (r.done) return r.value; received = yield r.value }`
-——起手 `undefined` ✓，之后**每一轮都是外层 `next(v)` 送进来的那个 `v`** ✓。
-原来那一版写的是常量 `undefined` ✓，而 `Resume` 拿到的 `sentItem` **压根没用** ✗
-⇒ 内层的 `yield` 永远收到 `undefined` ✓（实测 `const first = yield 1` 在
-`it.next(10)` 之后拿到 `null` ✓、`first + 1` 于是是 `NaN` ✓——**静默错值** ✗，
-判据 `c639-e2e-generator-delegation-two-way` 现场量的就是它 ✓）。
+——起手 `undefined`，之后**每一轮都是外层 `next(v)` 送进来的那个 `v`**。
+原来那一版写的是常量 `undefined`，而 `Resume` 拿到的 `sentItem` **压根没用**
+⇒ 内层的 `yield` 永远收到 `undefined`（实测 `const first = yield 1` 在
+`it.next(10)` 之后拿到 `null`、`first + 1` 于是是 `NaN`——**静默错值**，
+判据 `c639-e2e-generator-delegation-two-way` 现场量的就是它）。
 
-**已知差** ✗：转发不了 `throw` / `return` 两个方向 ✓（见 `LowerYield` 那一段 ✓）。
+**已知差**：转发不了 `throw` / `return` 两个方向（见 `LowerYield` 那一段）。
 
 ```ts
 this.PushScope();
 const iterableSource = this.Reserve(1);
 this.LowerInto(iterableSource, source);
-// **先过语言层那一道** ✓（与 `LowerForOf` 的写法一字不差 ✓）。
+// **先过语言层那一道**（与 `LowerForOf` 的写法一字不差）。
 const iterableWindow = this.Reserve(2);
 this.Emit(Op.Const, iterableWindow, this.IntConst(GetIteratorId), -1, -1);
 this.Emit(Op.Move, iterableWindow + 1, iterableSource, -1, -1);
@@ -6583,22 +6583,22 @@ this.Release(iterableWindow + 1);
 const iteratorSlot = this.Reserve(1);
 this.EmitRt(RtOp.IterNew, iteratorSlot, iterableWindow, 1);
 const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
-// **「最后那一步的 `value`」自己占一格** ✓（它是整个 `yield*` 的值 ✓）：
-// **不能等循环出来再补一次 `IterNext`** ✗——那会**多推一次内层** ✓
-//（多跑一段别人的代码 ✓、还可能多一次副作用 ✓），而 JS 里没有那一次 ✓。
-// **也不能把 `pair` 直接用掉** ✗：`pair` 是新分配的一格 ✓，在**下一次 `RtCall2` 之前**
-// 就可能被复用 ✓——所以每一轮都要把值**抄进这一格** ✓（它跨整轮活着 ✓）。
+// **「最后那一步的 `value`」自己占一格**（它是整个 `yield*` 的值）：
+// **不能等循环出来再补一次 `IterNext`**——那会**多推一次内层**
+//（多跑一段别人的代码、还可能多一次副作用），而 JS 里没有那一次。
+// **也不能把 `pair` 直接用掉**：`pair` 是新分配的一格，在**下一次 `RtCall2` 之前**
+// 就可能被复用——所以每一轮都要把值**抄进这一格**（它跨整轮活着）。
 const lastValue = this.Reserve(1);
-// **要转发出去的那一份也占一格** ✓（第 640 轮 ✓，见上面第四处 ✓）：
-// 起手是 `undefined` ✓（外层的第一次 `next()` 不送值 ✓），每一轮 `Resume` 之后被覆盖 ✓。
-// **起手那一格用 `Const` 装** ✗（不是 `Move` ✓）：`Move` 的第二个操作数是**槽** ✓，
-// 而 `undefinedConst` 是**常量池下标** ✓（写混了就是「slot out of range」✓——装载期就拦下 ✓）。
+// **要转发出去的那一份也占一格**（第 640 轮，见上面第四处）：
+// 起手是 `undefined`（外层的第一次 `next()` 不送值），每一轮 `Resume` 之后被覆盖。
+// **起手那一格用 `Const` 装**（不是 `Move`）：`Move` 的第二个操作数是**槽**，
+// 而 `undefinedConst` 是**常量池下标**（写混了就是「slot out of range」——装载期就拦下）。
 const sendValue = this.Reserve(1);
 this.Emit(Op.Const, sendValue, undefinedConst, -1, -1);
 const start = this.Here();
 const context = this.EnterLoop(true, start);
-// **两格都是槽** ✓，所以这里不能借 `RtCall2`（它的第二个参数是常量池下标 ✓）——
-// 手写窗口并把送值那一格也 `Move` 进去 ✓。
+// **两格都是槽**，所以这里不能借 `RtCall2`（它的第二个参数是常量池下标）——
+// 手写窗口并把送值那一格也 `Move` 进去。
 const iterWindow = this.Reserve(2);
 this.Emit(Op.Move, iterWindow, iteratorSlot, -1, -1);
 this.Emit(Op.Move, iterWindow + 1, sendValue, -1, -1);
@@ -6606,23 +6606,23 @@ const pair = this.Reserve(1);
 this.EmitRt(RtOp.IterNext, pair, iterWindow, 2);
 this.Release(pair + 1);
 const produced = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(0));
-// **抄写排在 `done` 那一判据之前** ✓（第 323 轮修的 ✗）：`done` 为真的那一趟
-// `pair[0]` 是**内层的返回值** ✓，它就是整个 `yield*` 表达式的值 ✓——
-// 排在判据之后的话，**恰好那一趟**不抄 ✓ ⇒ 整个 `yield*` 交出去的是
-// **上一轮产出的值** ✗（实测 `const r = yield* inner()` 里 `r` 拿到 `2` ✓，
-// Node 拿到 `"inner-done"` ✓；**静默错值** ✗——一句异常都没有 ✓，
-// 判据 `c323-rt-generator-delegation-and-return` 现场量的就是它 ✓）。
+// **抄写排在 `done` 那一判据之前**（第 323 轮修的）：`done` 为真的那一趟
+// `pair[0]` 是**内层的返回值**，它就是整个 `yield*` 表达式的值——
+// 排在判据之后的话，**恰好那一趟**不抄 ⇒ 整个 `yield*` 交出去的是
+// **上一轮产出的值**（实测 `const r = yield* inner()` 里 `r` 拿到 `2`，
+// Node 拿到 `"inner-done"`；**静默错值**——一句异常都没有，
+// 判据 `c323-rt-generator-delegation-and-return` 现场量的就是它）。
 this.Emit(Op.Move, lastValue, produced, -1, -1);
 const done = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(1));
 const running = this.RtCall1(RtOp.Not, done);
 const exitIndex = this.Here();
 this.Emit(Op.JumpIfFalse, running, 0, -1, -1);
-// **每一项：先 `Suspend` 再 `Resume`** ✓（见上面那一段 ✓）。
+// **每一项：先 `Suspend` 再 `Resume`**（见上面那一段）。
 this.Emit(Op.Suspend, produced, -1, -1, -1);
 const sentItem = this.Reserve(1);
 this.Emit(Op.Resume, sentItem, -1, -1, -1);
-// **收到的那一份就是下一轮要转发给内层的值** ✓（第 640 轮 ✓）——
-// 不抄的话 `sentItem` 是一个没人读的格 ✓，内层永远收到 `undefined` ✗。
+// **收到的那一份就是下一轮要转发给内层的值**（第 640 轮）——
+// 不抄的话 `sentItem` 是一个没人读的格，内层永远收到 `undefined`。
 this.Emit(Op.Move, sendValue, sentItem, -1, -1);
 this.Emit(Op.Jump, -1, start, -1, -1);
 this.PatchTarget(exitIndex, this.Here());
@@ -6687,7 +6687,7 @@ return false;
 **`class`**：造构造函数 → 给它挂 `prototype` → 每个方法挂到 prototype 上 → 返回构造函数。
 
 **方法为什么这样就能用**：`p.m()` 走 `call_method`（在 `p` 上找 `m`）——
-实例自己没有 `m`，于是**顺原型链**找到 prototype 上的闭包 ✓，`this` 仍然是 `p` ✓。
+实例自己没有 `m`，于是**顺原型链**找到 prototype 上的闭包，`this` 仍然是 `p`。
 所以「类」在这里**不是新机制**，是「函数值 + 原型链 + 方法调用」三样既有东西的组合。
 
 **类名要先占一格**：方法体里可以引用类名（`class C { m() { return C; } }`），
@@ -6697,11 +6697,11 @@ return false;
 （`extends` 一个表达式从第 593 轮起**已收**——名字那一档走 `ResolveAccess`，
 其余走 `LowerExpression` + 取 `prototype`。）
 
-**第 128 轮起已收**：**实例字段初始化**（`x = 1` / 光写名字的也落一格 `undefined` ✓，
-写的是 `this.<名字>` ✓）、**`static` 字段 / 方法 / 访问器**（落在构造函数自己身上 ✓）、
-**`static { … }` 静态块**（造一个无参函数、立刻用构造函数当 `this` 调一次 ✓）。
-顺序照 JS：**静态成员在类声明的位置、按源码顺序**求值 ✓；
-**实例字段在构造函数体之前**（参数默认值之后）✓，派生类里**跟在 `super(...)` 之后** ✓。
+**第 128 轮起已收**：**实例字段初始化**（`x = 1` / 光写名字的也落一格 `undefined`，
+写的是 `this.<名字>`）、**`static` 字段 / 方法 / 访问器**（落在构造函数自己身上）、
+**`static { … }` 静态块**（造一个无参函数、立刻用构造函数当 `this` 调一次）。
+顺序照 JS：**静态成员在类声明的位置、按源码顺序**求值；
+**实例字段在构造函数体之前**（参数默认值之后），派生类里**跟在 `super(...)` 之后**。
 
 **两处写在明处的差异**：① 字段写入走的是**赋值**（`set_prop`），JS 的类字段走
 `[[DefineOwnProperty]]`——原型上有同名 setter 时行为不同（JS 不调它，这里会调）；
@@ -6718,10 +6718,10 @@ return false;
 // **父类有构造函数仍然抛**：`super(...)` 还没做，而「子类实例上少了父类设的字段」
 // 是**静默错值**——宁可不做。**父类查不到（比如 import 进来的）也算查不清，同样抛**。
 let superProto = -1;
-// **名字的取法收到了 `SuperClassNameOf` 里** ✓（第 141 轮 ✓）：
-// 它原来有两个调用点 ✓（`LowerClass` 自己 ✓ 与 `FindParentHasConstructor` 递归时 ✓）——
-// **第 203 轮撤掉了后一个** ✓（那条代理判据是错的 ✗，见下面 `baseName !== ""` 那一支 ✓），
-// 所以这里现在只剩一处 ✓，但「取法只有一份」这条纪律照旧 ✓。
+// **名字的取法收到了 `SuperClassNameOf` 里**（第 141 轮）：
+// 它原来有两个调用点（`LowerClass` 自己 与 `FindParentHasConstructor` 递归时）——
+// **第 203 轮撤掉了后一个**（那条代理判据是错的，见下面 `baseName !== ""` 那一支），
+// 所以这里现在只剩一处，但「取法只有一份」这条纪律照旧。
 const baseName = this.SuperClassNameOf(node);
 {
   let baseSlot = -1;
@@ -6734,13 +6734,13 @@ const baseName = this.SuperClassNameOf(node);
       this.Emit(Op.Move, baseSlot, access.Slot, -1, -1);
     }
   } else {
-    // **`extends` 一个表达式**（第 593 轮 ✓）：`class D extends (pick ? Base : class {}) {}` 里
-    // 那个名字不是简单名 ✓ ⇒ `SuperClassNameOf` 给空串 ✓。原来这一支**什么都不做** ✗
-    // ⇒ `superProto` 停在 `-1` ✓ ⇒ 原型链不接 ✓ ⇒ `new D() instanceof Base` 给 **`false`** ✗
-    //（Node 给 `true` ✓）——**静默错值** ✓，本仓排最前的一档 ✗
-    //（判据 `c371-ex-class-expression-forms` ✓）。**父类求值本来就是一条普通表达式** ✓：
-    // 拿 `types[0].expression` 交给 `LowerExpression` ✓，再取它的 `prototype` ✓——
-    // 与上面那条名字路**同一个收尾** ✓（`GetProp "prototype"` 一处实现 ✓）。
+    // **`extends` 一个表达式**（第 593 轮）：`class D extends (pick ? Base : class {}) {}` 里
+    // 那个名字不是简单名 ⇒ `SuperClassNameOf` 给空串。原来这一支**什么都不做**
+    // ⇒ `superProto` 停在 `-1` ⇒ 原型链不接 ⇒ `new D() instanceof Base` 给 **`false`**
+    //（Node 给 `true`）——**静默错值**，本仓排最前的一档
+    //（判据 `c371-ex-class-expression-forms`）。**父类求值本来就是一条普通表达式**：
+    // 拿 `types[0].expression` 交给 `LowerExpression`，再取它的 `prototype`——
+    // 与上面那条名字路**同一个收尾**（`GetProp "prototype"` 一处实现）。
     const heritageExpression = this.ExtendsExpressionOf(node);
     if (heritageExpression !== null) {
       baseSlot = this.LowerExpression(heritageExpression);
@@ -6751,13 +6751,13 @@ const baseName = this.SuperClassNameOf(node);
     superProto = this.RtCall2(RtOp.GetProp, baseSlot, baseKey);
   }
 }
-// **类体是严格代码** ✓（第 620 轮 ✓）：构造函数 / 方法 / 访问器 / 字段初始化式 / 静态块
-// 里的代码**一律严格** ✓——所以「摘下来的方法」当普通函数调时 `this` 是 **`undefined`** ✓，
-// 而不是全局对象 ✓（判据 `c371-rt-super-and-this-binding` ✓：Node 那一句 `this.v` 抛 ✓）。
-// **`extends` 那一句在外面** ✓（上面已经算完了 ✓）：它按 JS 在**外层**求值 ✓，
-// 那里的函数照外层的严格性走 ✓。
-// **严格性是沿词法继承的** ✗：所以这一格进函数体时**只增不减** ✓（见 `LowerFunctionBody` ✓），
-// 而不是照 `item` 重新设一遍 ✗。
+// **类体是严格代码**（第 620 轮）：构造函数 / 方法 / 访问器 / 字段初始化式 / 静态块
+// 里的代码**一律严格**——所以「摘下来的方法」当普通函数调时 `this` 是 **`undefined`**，
+// 而不是全局对象（判据 `c371-rt-super-and-this-binding`：Node 那一句 `this.v` 抛）。
+// **`extends` 那一句在外面**（上面已经算完了）：它按 JS 在**外层**求值，
+// 那里的函数照外层的严格性走。
+// **严格性是沿词法继承的**：所以这一格进函数体时**只增不减**（见 `LowerFunctionBody`），
+// 而不是照 `item` 重新设一遍。
 const outerInStrict = this.InStrict;
 this.InStrict = true;
 const nameNode = OptionalChild(node, "name");
@@ -6768,16 +6768,16 @@ if (!asExpression) {
     throw new Error("unimplemented: class declaration without a name");
   }
 }
-// **具名类表达式：名字只在自己那个体里可见** ✓（第 332 轮 ✓）——与具名函数表达式
-// **同一套机关** ✓（`EmitClosure` 那一段写着为什么不能绑在外层 ✓）：单开一层环境装 ✓。
+// **具名类表达式：名字只在自己那个体里可见**（第 332 轮）——与具名函数表达式
+// **同一套机关**（`EmitClosure` 那一段写着为什么不能绑在外层）：单开一层环境装。
 //
-// **为什么声明那一档不用它** ✗：`class C { m() { return C } }` 里那个 `C` 是**外层**的真绑定 ✓
-//（`BindName` 就在下面几行 ✓），方法捕获外层那一层就够了 ✓——所以这一支**只给表达式** ✓
-//（`asExpression` 那一格 ✓，与 `BindName` 那一句**同一条判据** ✓）。
+// **为什么声明那一档不用它**：`class C { m() { return C } }` 里那个 `C` 是**外层**的真绑定
+//（`BindName` 就在下面几行），方法捕获外层那一层就够了——所以这一支**只给表达式**
+//（`asExpression` 那一格，与 `BindName` 那一句**同一条判据**）。
 //
-// **它要一直推到静态成员发完** ✗：静态字段与静态块**跑在类声明这一帧**里 ✓
-//（不是另一个帧 ✓），所以 `class C { static tag = C.name }` 里那个 `C` 走的也是这一层 ✓。
-// 于是收尾在**返回之前** ✓（`env_set` → `env_leave` ✓）。
+// **它要一直推到静态成员发完**：静态字段与静态块**跑在类声明这一帧**里
+//（不是另一个帧），所以 `class C { static tag = C.name }` 里那个 `C` 走的也是这一层。
+// 于是收尾在**返回之前**（`env_set` → `env_leave`）。
 let classSelfEnv = -1;
 if (asExpression && nameNode !== null && NodeKind(nameNode) === "Identifier") {
   classSelfEnv = this.Reserve(1);
@@ -6795,36 +6795,36 @@ for (let i = 0; i < members.length; i++) {
     explicitCtor = members[i];
   }
 }
-// **派生类的默认构造函数永远要转发** ✓（第 203 轮改 ✓）：
-// JS 给的就是 `constructor(...args) { super(...args); }` ✓——**与父类有没有写构造函数无关** ✓。
+// **派生类的默认构造函数永远要转发**（第 203 轮改）：
+// JS 给的就是 `constructor(...args) { super(...args); }`——**与父类有没有写构造函数无关**。
 //
-// **原来这里还多问一句「父类有没有构造函数」** ✗（`FindParentHasConstructor` ✓，第 141 轮 ✓）——
-// 那是当时的**代理判据** ✓：那一轮 `super(...xs)` 刚做出来 ✓，只敢在「父类确实有构造函数」
-// 时才合成 ✓。**那条代理判据是错的** ✗：`class A { value = "A" } class B extends A { value = "B" }`
-// 里父类**没有显式构造函数**（但有字段初始化式 ✓），于是 `B` 拿到的是**空的**默认构造函数 ✗——
-// `super()` 一次都不调 ✓，结果：**父类的字段初始化没跑** ✓、
-// 而 `B` 自己的字段初始化**正等着 `super` 那一点**（`FieldInitDue` ✓）也**永远不会跑** ✗。
-// 实测：`new B().read()` 给 `undefined` ✓（JS 给 `"B"` ✓）——**静默错值** ✓，
-// 第 203 轮判据现场就是这么红的 ✓。
+// **原来这里还多问一句「父类有没有构造函数」**（`FindParentHasConstructor`，第 141 轮）——
+// 那是当时的**代理判据**：那一轮 `super(...xs)` 刚做出来，只敢在「父类确实有构造函数」
+// 时才合成。**那条代理判据是错的**：`class A { value = "A" } class B extends A { value = "B" }`
+// 里父类**没有显式构造函数**（但有字段初始化式），于是 `B` 拿到的是**空的**默认构造函数——
+// `super()` 一次都不调，结果：**父类的字段初始化没跑**、
+// 而 `B` 自己的字段初始化**正等着 `super` 那一点**（`FieldInitDue`）也**永远不会跑**。
+// 实测：`new B().read()` 给 `undefined`（JS 给 `"B"`）——**静默错值**，
+// 第 203 轮判据现场就是这么红的。
 //
-// **撤掉代理判据的代价是零** ✓：转发那条路本来就要走（`super(...args)` ✓），
-// 父类有没有构造函数**不影响该不该转发** ✓——只影响转到哪儿 ✓。
+// **撤掉代理判据的代价是零**：转发那条路本来就要走（`super(...args)`），
+// 父类有没有构造函数**不影响该不该转发**——只影响转到哪儿。
 if (baseName !== "") {
   // 少了 `super(...)`，「父类设的字段在子类实例上不存在」——那是**静默错值**。
   // （JS 在这里是运行期报 ReferenceError；我们在降级期就报，更早也更响。）
   if (explicitCtor === null) {
-    // **默认构造函数要转发参数**（第 141 轮 ✓）：JS 给的是
-    // `constructor(...args) { super(...args); }` ✓——少了它，
-    // `class MyError extends Error {}`（**最常见的那个写法** ✓）连 `new MyError("x")` 都跑不起来 ✗。
+    // **默认构造函数要转发参数**（第 141 轮）：JS 给的是
+    // `constructor(...args) { super(...args); }`——少了它，
+    // `class MyError extends Error {}`（**最常见的那个写法**）连 `new MyError("x")` 都跑不起来。
     //
-    // **为什么这一轮才敢合成** ✗：它要两样东西，两样都是新近才有的 ✓——
-    // **剩余参数**（第 133 轮 ✓）与 **`super(...xs)`**（这一轮 ✓，见上面那一支 ✓）。
-    // 合成出来的树就是那两样的**最小组合** ✓：一个带 `...args` 的形参 + 一条 `super(...args)` ✓。
+    // **为什么这一轮才敢合成**：它要两样东西，两样都是新近才有的——
+    // **剩余参数**（第 133 轮）与 **`super(...xs)`**（这一轮，见上面那一支）。
+    // 合成出来的树就是那两样的**最小组合**：一个带 `...args` 的形参 + 一条 `super(...args)`。
     //
-    // **它的形状必须与投影给的一模一样** ✗（这是合成的风险所在 ✓）：
-    // `Parameter.dotDotDotToken` 只要**不是 null** 就算剩余 ✓（`FunctionParams` 那条判据 ✓）、
-    // `CallExpression.expression.kind === "SuperKeyword"` 才是 `super` ✓（`LowerCall` 那一支 ✓）、
-    // 展开的实参是 `SpreadElement` ✓（`HasSpread` ✓）。四处对不上就是「合成了个普通调用」✗。
+    // **它的形状必须与投影给的一模一样**（这是合成的风险所在）：
+    // `Parameter.dotDotDotToken` 只要**不是 null** 就算剩余（`FunctionParams` 那条判据）、
+    // `CallExpression.expression.kind === "SuperKeyword"` 才是 `super`（`LowerCall` 那一支）、
+    // 展开的实参是 `SpreadElement`（`HasSpread`）。四处对不上就是「合成了个普通调用」。
     const restName = { kind: "Identifier", text: "args" };
     const restParam = {
       kind: "Parameter",
@@ -6852,45 +6852,45 @@ if (ctorNode === null) {
 // **实例字段先摘出来**（第 128 轮）：它们的初始化式跑在**构造函数那一帧**里
 // （见 `PendingFunction.FieldDefaults` 那一段），不走下面「挂到 prototype 上」那条路。
 //
-// **只摘实例字段** ✓（第 203 轮）：静态字段与静态块**不预先分类** ✗——
-// 它们要**按源码顺序与彼此交错着**发 ✓（见下面那一趟 ✓），
-// 先分成两摞再发就会把顺序弄丢 ✗（那是**静默错值** ✓，第 203 轮修的 ✓）。
+// **只摘实例字段**（第 203 轮）：静态字段与静态块**不预先分类**——
+// 它们要**按源码顺序与彼此交错着**发（见下面那一趟），
+// 先分成两摞再发就会把顺序弄丢（那是**静默错值**，第 203 轮修的）。
 const instanceFields: AstNode[] = [];
 for (let i = 0; i < members.length; i++) {
   if (NodeKind(members[i]) !== "PropertyDeclaration") continue;
   if (this.HasModifier(members[i], "StaticKeyword")) continue;
   instanceFields.push(members[i]);
 }
-// **参数属性**（`constructor(public x: number, private y: number, readonly z = 0)` ✓，
-// 第 239 轮 ✓）：TS 把这三个形参**同时**声明成实例字段 ✓，
-// 并在构造函数**最开头**写 `this.x = x` 那三句 ✓（`node --experimental-transform-types`
-// 给的就是那个形状 ✓）。
+// **参数属性**（`constructor(public x: number, private y: number, readonly z = 0)`，
+// 第 239 轮）：TS 把这三个形参**同时**声明成实例字段，
+// 并在构造函数**最开头**写 `this.x = x` 那三句（`node --experimental-transform-types`
+// 给的就是那个形状）。
 //
-// **实测的现场** ✗：`class P { constructor(public x: number, private y: number) {} }`
-// 之后 `new P(1, 2)` 读出 `p.x` 是 `undefined` ✓、`p.sum()` 是 `NaN` ✓、
-// `Object.keys(p).length` 是 `0` ✓（判据 `ex-parameter-properties` ✓，
-// 而 Node 给 `1 6 3` ✓）——**三处一起错** ✓，因为**一样东西也没做** ✗。
+// **实测的现场**：`class P { constructor(public x: number, private y: number) {} }`
+// 之后 `new P(1, 2)` 读出 `p.x` 是 `undefined`、`p.sum()` 是 `NaN`、
+// `Object.keys(p).length` 是 `0`（判据 `ex-parameter-properties`，
+// 而 Node 给 `1 6 3`）——**三处一起错**，因为**一样东西也没做**。
 //
-// **做法：合成一棵最小子树，借现成的那条路** ✓。
-// `EmitFieldInit` 认的是 `PropertyDeclaration` ✓（`this.<名字> = <初始化式>` ✓），
-// 而参数属性要的正是**那一条** ✓（`this.x = x` ✓）——所以这里**不新写一条发指令的路** ✗，
-// 只把「名字 + 初始化式」组成一个 `PropertyDeclaration` ✓、**插在 `instanceFields` 最前面** ✓。
+// **做法：合成一棵最小子树，借现成的那条路**。
+// `EmitFieldInit` 认的是 `PropertyDeclaration`（`this.<名字> = <初始化式>`），
+// 而参数属性要的正是**那一条**（`this.x = x`）——所以这里**不新写一条发指令的路**，
+// 只把「名字 + 初始化式」组成一个 `PropertyDeclaration`、**插在 `instanceFields` 最前面**。
 //
-// **次序是语义** ✗（两处 ✓）：
-// - **参数属性在最前面** ✓：TS 那三句排在**构造函数体之前** ✓、也排在**别的字段初始化式之前** ✓
+// **次序是语义**（两处）：
+// - **参数属性在最前面**：TS 那三句排在**构造函数体之前**、也排在**别的字段初始化式之前**
 //   （实测：`class P { y = this.x; constructor(public x: number) {} }` 里
-//   `new P(1).y` 给 `1` ✓——说明 `this.x = x` 先跑 ✓）；
-// - **保持形参的书写次序** ✓（`x` ✓、`y` ✓、`z` ✓）——它们之间也可能互相看 ✓。
+//   `new P(1).y` 给 `1`——说明 `this.x = x` 先跑）；
+// - **保持形参的书写次序**（`x`、`y`、`z`）——它们之间也可能互相看。
 //
-// **只认简单名** ✗：`constructor(public {a}: T)` 在 TS 里本来就是非法的 ✓
-// （参数属性只能是**标识符** ✓、而且不能是剩余参数 ✓）——这一条不另外判 ✓，
-// 让下面那个 `Identifier` 检查在遇到别的形状时**响亮地不合成** ✗（不猜 ✓）。
+// **只认简单名**：`constructor(public {a}: T)` 在 TS 里本来就是非法的
+// （参数属性只能是**标识符**、而且不能是剩余参数）——这一条不另外判，
+// 让下面那个 `Identifier` 检查在遇到别的形状时**响亮地不合成**（不猜）。
 const ctorDecls: AstNode[] = [];
 for (let i = 0; i < members.length; i++) {
   if (NodeKind(members[i]) !== "Constructor") continue;
   const params = ListOf(members[i], "parameters");
   for (let k = 0; k < params.length; k++) {
-    // **有那四个修饰词之一才算参数属性** ✓（`public` / `private` / `protected` / `readonly` ✓）。
+    // **有那四个修饰词之一才算参数属性**（`public` / `private` / `protected` / `readonly`）。
     const isParamProp = this.HasModifier(params[k], "PublicKeyword")
       || this.HasModifier(params[k], "PrivateKeyword")
       || this.HasModifier(params[k], "ProtectedKeyword")
@@ -6906,16 +6906,16 @@ for (let i = 0; i < members.length; i++) {
     });
   }
 }
-// **参数属性排在前面** ✓（见上面那一段 ✓）：`unshift` 那一段挪不过去 ✗——
-// 直接在拼数组的时候按「先参数属性、后字段声明」的次序接 ✓。
+// **参数属性排在前面**（见上面那一段）：`unshift` 那一段挪不过去——
+// 直接在拼数组的时候按「先参数属性、后字段声明」的次序接。
 const allInstanceFields: AstNode[] = [];
 for (let i = 0; i < ctorDecls.length; i++) allInstanceFields.push(ctorDecls[i]);
 for (let i = 0; i < instanceFields.length; i++) allInstanceFields.push(instanceFields[i]);
-// **「这是一个类」这一位要在进 `LowerFunctionValue` 之前就位** ✗（第 613 轮 ✓，**实测踩过** ✓）：
-// 那一趟里就发了 `new_closure` ✓，而 `EmitClosure` 正是在**那一刻**把这一位拼进
-// 第四格（`arity * 2 + (IsClass ? 1 : 0)` ✓）——**事后补是补不上的** ✗
-//（`SuperName` 能事后补 ✓ 是因为它到**降级函数体那一趟**才被读 ✓）。
-// 所以照 `FunctionNameHint` 那个形状：进门前挂上、出门就还原 ✓。
+// **「这是一个类」这一位要在进 `LowerFunctionValue` 之前就位**（第 613 轮，**实测踩过**）：
+// 那一趟里就发了 `new_closure`，而 `EmitClosure` 正是在**那一刻**把这一位拼进
+// 第四格（`arity * 2 + (IsClass ? 1 : 0)`）——**事后补是补不上的**
+//（`SuperName` 能事后补 是因为它到**降级函数体那一趟**才被读）。
+// 所以照 `FunctionNameHint` 那个形状：进门前挂上、出门就还原。
 const savedClassNode = this.PendingClassNode;
 this.PendingClassNode = ctorNode;
 const ctor = this.LowerFunctionValue(ctorNode, name);
@@ -6933,12 +6933,12 @@ if (this.Pending.length > 0 && allInstanceFields.length > 0) {
 // **构造函数那一项也要记下自己的槽位**（第 69 轮补的）：函数声明那条路显式设了
 // `item.Slot`，类这条路一直**没设**——于是模块的**导出数组**按那个默认槽位取值，
 // 取到的是碰巧在那儿的一个**对象**（不是闭包）。表现是跨模块 `new Counter(...)` 报
-// 「拿普通对象当构造函数」，而 `ExportOf("Counter")` 看着完全正常（下标对 ✓）。
+// 「拿普通对象当构造函数」，而 `ExportOf("Counter")` 看着完全正常（下标对）。
 if (this.Pending.length > 0) {
   this.Pending[this.Pending.length - 1].Slot = ctor;
 }
-// **类的那一格不可写** ✓（第 605 轮 ✓）：`C.prototype = {}` 在 JS 里静默无效 ✓，
-// 于是 `c instanceof C` 不变 ✓——可写时赋值真的换掉原型 ⇒ 答案由真变假 ✗（静默错值 ✓）。
+// **类的那一格不可写**（第 605 轮）：`C.prototype = {}` 在 JS 里静默无效，
+// 于是 `c instanceof C` 不变——可写时赋值真的换掉原型 ⇒ 答案由真变假（静默错值）。
 this.AttachPrototype(ctor, false);
 // **绑定放在造闭包之后**（与函数声明同一条规矩）：名字被内层捕获时，
 // 绑定在**环境格**里，而 `DeclareLocal` 会把当时那一格（还是空的）搬进格——
@@ -6950,19 +6950,19 @@ const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototyp
 const proto = this.RtCall2(RtOp.GetProp, ctor, prototypeKey);
 if (superProto >= 0) {
   this.RtCallValues(RtOp.SetProto, proto, superProto);
-  // **静态成员那一半** ✗（第 278 轮）：JS 的 `class B extends A` 是**两步** ✓——
-  // 上面那一句接的是 `B.prototype` 的链 ✓（`b.m()` 从那儿找 ✓），
-  // 这一句接的是 **`B` 自己**的链 ✓（`B.make` 从那儿找 ✓）。
-  // **少了这一句的表现很安静** ✗：`B.make` 是 `undefined` ✓、
-  // 报的是「调用一个非闭包」✓（离「静态成员不随继承走」这个真相很远 ✗），
-  // 而 `B.tag` 只是 `undefined` ✓——判据 `rt-static-inheritance` 量的正是这两样 ✓。
+  // **静态成员那一半**（第 278 轮）：JS 的 `class B extends A` 是**两步**——
+  // 上面那一句接的是 `B.prototype` 的链（`b.m()` 从那儿找），
+  // 这一句接的是 **`B` 自己**的链（`B.make` 从那儿找）。
+  // **少了这一句的表现很安静**：`B.make` 是 `undefined`、
+  // 报的是「调用一个非闭包」（离「静态成员不随继承走」这个真相很远），
+  // 而 `B.tag` 只是 `undefined`——判据 `rt-static-inheritance` 量的正是这两样。
   //
-  // **父类那一格要重新取一遍** ✗：上面那个 `baseSlot` 是 `Reserve(1)` 拿的 ✓，
-  // 而中间隔了一次 `LowerFunctionValue` ✓（它自己要用槽 ✓）——复用那个号就是**踩别人的槽** ✗
-  //（症状与「静态成员没继承」一模一样 ✓，所以这一句写在这里当注释 ✓）。
-  // **`ResolveAccess` 本来就要调第二次** ✓：第一次的结果是一个**槽号** ✓，
-  // 而槽号是会过期的 ✗（`ResolveAccess` 查的是名字到位置的映射 ✓，名字没变 ✓，
-  // 所以重查一次得到的是**同一个位置** ✓——过期的是「那个位置当时装着谁」✗，不是映射 ✓）。
+  // **父类那一格要重新取一遍**：上面那个 `baseSlot` 是 `Reserve(1)` 拿的，
+  // 而中间隔了一次 `LowerFunctionValue`（它自己要用槽）——复用那个号就是**踩别人的槽**
+  //（症状与「静态成员没继承」一模一样，所以这一句写在这里当注释）。
+  // **`ResolveAccess` 本来就要调第二次**：第一次的结果是一个**槽号**，
+  // 而槽号是会过期的（`ResolveAccess` 查的是名字到位置的映射，名字没变，
+  // 所以重查一次得到的是**同一个位置**——过期的是「那个位置当时装着谁」，不是映射）。
   let staticBaseSlot = -1;
   if (baseName !== "") {
     const staticAccess = this.ResolveAccess(baseName);
@@ -6973,12 +6973,12 @@ if (superProto >= 0) {
       this.Emit(Op.Move, staticBaseSlot, staticAccess.Slot, -1, -1);
     }
   } else {
-    // **表达式那一档只能再求值一次** ✗（第 593 轮 ✓）：名字那一档能靠 `ResolveAccess` 重查 ✓，
-    // 而「求值出来的那个值」**没有地方存**——临时槽会被后面那几趟函数体降级**重置水位** ✗
-    //（`BeginFunction` 把 `NextFree` 打回 `paramCount` ✓，见那一节的注释 ✓）。
-    // **一笔写在明处的偏差** ✗：JS 里 `extends` 那个表达式**只求值一次** ✓，这里求了两次 ✓——
-    // 表达式是纯的（名字 / 三元 / 条件）时结果一样 ✓，带副作用的写法会跑两遍 ✓。
-    // 换来的是「静态继承不再静默丢」✓（`D.make` 沿 `D.__proto__` 找得到 ✓）。
+    // **表达式那一档只能再求值一次**（第 593 轮）：名字那一档能靠 `ResolveAccess` 重查，
+    // 而「求值出来的那个值」**没有地方存**——临时槽会被后面那几趟函数体降级**重置水位**
+    //（`BeginFunction` 把 `NextFree` 打回 `paramCount`，见那一节的注释）。
+    // **一笔写在明处的偏差**：JS 里 `extends` 那个表达式**只求值一次**，这里求了两次——
+    // 表达式是纯的（名字 / 三元 / 条件）时结果一样，带副作用的写法会跑两遍。
+    // 换来的是「静态继承不再静默丢」（`D.make` 沿 `D.__proto__` 找得到）。
     const heritageAgain = this.ExtendsExpressionOf(node);
     if (heritageAgain !== null) {
       staticBaseSlot = this.LowerExpression(heritageAgain);
@@ -6998,57 +6998,57 @@ for (let i = 0; i < members.length; i++) {
   if (kind !== "MethodDeclaration" && kind !== "GetAccessor" && kind !== "SetAccessor") {
     throw new Error("unimplemented: class member " + kind);
   }
-  // **没有体的成员不是成员**（第 148 轮）：`abstract kind(): string;` ✓、
-  // 接口式的成员签名 ✓、**方法重载签名** ✓（`m(a: string): void; m(a: any) { … }` ✓）
-  // 都是这一形状 ✓——它们在运行期什么都不产生 ✓（重载的实现在**那条带体的**成员里 ✓）。
-  // 少了这一条，`abstract class` 一降级就报 `ast node MethodDeclaration has no child body` ✗
-  //（实测 ✓：抽象类 + 抽象方法是很普通的写法 ✓）。
+  // **没有体的成员不是成员**（第 148 轮）：`abstract kind(): string;`、
+  // 接口式的成员签名、**方法重载签名**（`m(a: string): void; m(a: any) { … }`）
+  // 都是这一形状——它们在运行期什么都不产生（重载的实现在**那条带体的**成员里）。
+  // 少了这一条，`abstract class` 一降级就报 `ast node MethodDeclaration has no child body`
+  //（实测：抽象类 + 抽象方法是很普通的写法）。
   if (OptionalChild(member, "body") === null) continue;
   // **静态成员的落点是构造函数自己**，不是原型（下面那个 `target` 就是这一条）。
   const isStatic = this.HasModifier(member, "StaticKeyword");
-  // **生成器方法与 `async` 方法收下了** ✓（第 229 轮收的生成器 ✓、第 285 轮收的 `async` ✓）：
-  // 它们与普通方法的区别**只在 `PendingFunction` 那三格标记上** ✓
-  //（`IsGenerator` / `IsAsync` ✓）——而 `LowerFunctionValue` 现在**自己从树上读** ✓
-  //（那一段写着为什么 ✓）。
+  // **生成器方法与 `async` 方法收下了**（第 229 轮收的生成器、第 285 轮收的 `async`）：
+  // 它们与普通方法的区别**只在 `PendingFunction` 那三格标记上**
+  //（`IsGenerator` / `IsAsync`）——而 `LowerFunctionValue` 现在**自己从树上读**
+  //（那一段写着为什么）。
   //
-  // **`async` 那一支原来在这儿响亮地抛** ✗（第 229 轮留下的那一句 ✓）：
-  // 抛的理由当时是对的 ✓（引擎还不认识 async 帧 ✓，静默当成普通方法会**挂死** ✗），
-  // 可**标记那三句早就在 `LowerFunctionValue` 里了** ✓——
-  // 这一句只是「没人把另一半做掉」的那一半 ✓（`e2e-mixed-everything` 卡的就是它 ✓）。
-  // **删掉它就是全部** ✓：类方法、对象方法、箭头、函数声明四条路**共用同一段** ✓，
-  // `DoCallMethod` 与 `DoCallValue` 也**共用同一个** `DoCallValue` ✓
-  //（`this` 的来处不同 ✓、开帧那一段一模一样 ✓）。
+  // **`async` 那一支原来在这儿响亮地抛**（第 229 轮留下的那一句）：
+  // 抛的理由当时是对的（引擎还不认识 async 帧，静默当成普通方法会**挂死**），
+  // 可**标记那三句早就在 `LowerFunctionValue` 里了**——
+  // 这一句只是「没人把另一半做掉」的那一半（`e2e-mixed-everything` 卡的就是它）。
+  // **删掉它就是全部**：类方法、对象方法、箭头、函数声明四条路**共用同一段**，
+  // `DoCallMethod` 与 `DoCallValue` 也**共用同一个** `DoCallValue`
+  //（`this` 的来处不同、开帧那一段一模一样）。
   const memberName = Child(member, "name");
-  // **私有名也是成员名**（第 195 轮 ✓）：`#m()` 那一格的 kind 是 `PrivateIdentifier` ✓，
-  // 与私有**字段**（`#n = 1` ✓，第 128 轮就通了 ✓）走的是同一条路 ✓——
-  // 键就是那串文本（`#m` ✓，见 `KeyUnitsOf` ✓）。
-  // 原来这里只认 `Identifier` / `StringLiteral` ✗，于是**整个类**都进不来 ✗
-  //（`unimplemented: computed or numeric class member name` ✓，实测 ✓）。
+  // **私有名也是成员名**（第 195 轮）：`#m()` 那一格的 kind 是 `PrivateIdentifier`，
+  // 与私有**字段**（`#n = 1`，第 128 轮就通了）走的是同一条路——
+  // 键就是那串文本（`#m`，见 `KeyUnitsOf`）。
+  // 原来这里只认 `Identifier` / `StringLiteral`，于是**整个类**都进不来
+  //（`unimplemented: computed or numeric class member name`，实测）。
   //
-  // **计算成员名收下了** ✓（第 229 轮 ✓）：`[Symbol.iterator]() { … }` ✓、
-  // `static [Symbol.hasInstance](v) { … }` ✓——名字那一格是 `ComputedPropertyName` ✓
-  //（里面装的是**表达式** ✓），做法与对象字面量那一处**一字不差** ✓
-  //（`LowerObjectLiteral` 的 `MethodDeclaration` 支 ✓：键算成一格**值** ✓、
-  // 走 `SetPropertyValue` ✓）——**同一个形状两处各写一遍就是两处会漂** ✗。
-  // 少了它，`[Symbol.iterator]()` 那种写法让**整个类**进不来 ✗
-  //（判据 `symbol-hasinstance` / `e2e-linked-list` 卡的就是这一句 ✓）。
+  // **计算成员名收下了**（第 229 轮）：`[Symbol.iterator]() { … }`、
+  // `static [Symbol.hasInstance](v) { … }`——名字那一格是 `ComputedPropertyName`
+  //（里面装的是**表达式**），做法与对象字面量那一处**一字不差**
+  //（`LowerObjectLiteral` 的 `MethodDeclaration` 支：键算成一格**值**、
+  // 走 `SetPropertyValue`）——**同一个形状两处各写一遍就是两处会漂**。
+  // 少了它，`[Symbol.iterator]()` 那种写法让**整个类**进不来
+  //（判据 `symbol-hasinstance` / `e2e-linked-list` 卡的就是这一句）。
   const computedName = NodeKind(memberName) === "ComputedPropertyName";
   if (!computedName && NodeKind(memberName) !== "Identifier" && NodeKind(memberName) !== "StringLiteral"
     && NodeKind(memberName) !== "PrivateIdentifier") {
     throw new Error("unimplemented: computed or numeric class member name");
   }
-  // **方法的名字就是方法名自己，不带类名前缀** ✓（第 305 轮修的 ✗）：
-  // `HeapClosure.Name` 那一格**同时**是 `fn.name` 与 `console.log(fn)` 的显示名 ✓
-  //（第 238 / 291 轮 ✓），而 Node 对 `C.prototype.m` 给的是 **`"m"`** ✓
-  //（`[Function: m]` ✓）——写成 `name + "." + TextOf(memberName)` 会给 `"C.m"` ✗
-  //（**静默错值** ✓：`fn.name` 与 `console.log` 两处都跟着歪 ✓，
-  // 判据 `c305-std-function-method-length-and-name` 量到的就是它 ✓）。
-  // **类名那一格没有别处指望它** ✓：`super` 的起点走的是 `SuperName` ✓（下面几行 ✓），
-  // 与这一格无关 ✓。
-  // **访问器那一格要带 `get ` / `set ` 前缀** ✓（第 599 轮 ✓，与对象字面量那一处同一条 ✓）：
-  // `Object.getOwnPropertyDescriptor(C.prototype, "x").get.name` 在 JS 里是 **`"get x"`** ✓。
-  // **字符串名的后缀去引号** ✗（`TextOf` 给的是原文 ✓，带引号 ✓）——
-  // 对象那一处走 `KeyUnitsOf` ✓、这里只有字符串名要它 ✓（标识符与 `#私有名` 照旧 `TextOf` ✓）。
+  // **方法的名字就是方法名自己，不带类名前缀**（第 305 轮修的）：
+  // `HeapClosure.Name` 那一格**同时**是 `fn.name` 与 `console.log(fn)` 的显示名
+  //（第 238 / 291 轮），而 Node 对 `C.prototype.m` 给的是 **`"m"`**
+  //（`[Function: m]`）——写成 `name + "." + TextOf(memberName)` 会给 `"C.m"`
+  //（**静默错值**：`fn.name` 与 `console.log` 两处都跟着歪，
+  // 判据 `c305-std-function-method-length-and-name` 量到的就是它）。
+  // **类名那一格没有别处指望它**：`super` 的起点走的是 `SuperName`（下面几行），
+  // 与这一格无关。
+  // **访问器那一格要带 `get ` / `set ` 前缀**（第 599 轮，与对象字面量那一处同一条）：
+  // `Object.getOwnPropertyDescriptor(C.prototype, "x").get.name` 在 JS 里是 **`"get x"`**。
+  // **字符串名的后缀去引号**（`TextOf` 给的是原文，带引号）——
+  // 对象那一处走 `KeyUnitsOf`、这里只有字符串名要它（标识符与 `#私有名` 照旧 `TextOf`）。
   let memberDisplay = computedName ? "<computed>" : TextOf(memberName);
   if (computedName === false && (kind === "GetAccessor" || kind === "SetAccessor")) {
     const suffix = NodeKind(memberName) === "StringLiteral"
@@ -7058,30 +7058,30 @@ for (let i = 0; i < members.length; i++) {
   }
   const closure = this.LowerFunctionValue(member, memberDisplay);
   // **给刚排队的方法也盖上父类名**（第 104 轮）：构造函数在它自己那一处盖，
-  // 而方法**以前没盖** ✗——于是方法体里的 `super.m(...)` 一降级就报
+  // 而方法**以前没盖**——于是方法体里的 `super.m(...)` 一降级就报
   // 「outside a derived class method」（`InSuperName` 挂在排队函数上，空串就是不认识 `super`）。
   // **盖在 `LowerFunctionValue` 之后**：它就是 push 那一格，和构造函数那条路同一个手法。
   if (baseName !== "") {
     this.Pending[this.Pending.length - 1].SuperName = baseName;
-    // **静态那一半也盖上** ✓（第 278 轮 ✓）：`super.v` / `super.m()` 的**起点**由它决定 ✓——
-    // 实例成员从 `父类.prototype` 起 ✓、静态成员从**父类自己**起 ✓。
-    // **构造函数永远是实例那一半** ✓（`isStatic` 在这里恒为假 ✓，写在明处 ✓）。
+    // **静态那一半也盖上**（第 278 轮）：`super.v` / `super.m()` 的**起点**由它决定——
+    // 实例成员从 `父类.prototype` 起、静态成员从**父类自己**起。
+    // **构造函数永远是实例那一半**（`isStatic` 在这里恒为假，写在明处）。
     this.Pending[this.Pending.length - 1].SuperStatic = isStatic;
   }
   const target = isStatic ? ctor : proto;
-  // **第 340 轮：类成员用「不可枚举」挂** ✗（**实测撞到的** ✓）：
-  // JS 里**类的方法与访问器全是不枚举的** ✓（`class A { m() {} }` 之后
-  // `for (const k in new A())` **一个方法名都不给** ✓），而本仓原来用
-  // `SetPropertyConst` / `SetPropertyValue` 挂 ✓ ⇒ 它们是**可枚举的** ✗ ⇒
-  // `for..in` 会列出 `constructor,m` ✓（判据 `ctl-for-in` 第 2 行 ✓：
-  // Node 给 `own` ✓、本仓给 `own,constructor,m` ✓——**静默多出一串** ✗）。
+  // **第 340 轮：类成员用「不可枚举」挂**（**实测撞到的**）：
+  // JS 里**类的方法与访问器全是不枚举的**（`class A { m() {} }` 之后
+  // `for (const k in new A())` **一个方法名都不给**），而本仓原来用
+  // `SetPropertyConst` / `SetPropertyValue` 挂 ⇒ 它们是**可枚举的** ⇒
+  // `for..in` 会列出 `constructor,m`（判据 `ctl-for-in` 第 2 行：
+  // Node 给 `own`、本仓给 `own,constructor,m`——**静默多出一串**）。
   //
-  // **它是 `for..in` 那处缺口的第三块** ✓：`CollectForInKeys` 沿原型链走 ✓（第一块 ✓）、
-  // 数组原型上的方法不可枚举 ✓（第二块 ✓）、**类成员也不可枚举** ✓（这一块 ✓）。
-  // `EmitDefineAccessor`（访问器那一支 ✓）本来就按描述符挂 ✓，已经是不可枚举的 ✓。
-  // **计算键那一档** ✓：键是一个**值** ✓（`Symbol.iterator` 那类 ✓），
-  // 而访问器与普通方法**都要**它 ✓——所以这条判据放在那两路**之前** ✓
-  //（放在里面就是两个分支各写一遍 ✗）。
+  // **它是 `for..in` 那处缺口的第三块**：`CollectForInKeys` 沿原型链走（第一块）、
+  // 数组原型上的方法不可枚举（第二块）、**类成员也不可枚举**（这一块）。
+  // `EmitDefineAccessor`（访问器那一支）本来就按描述符挂，已经是不可枚举的。
+  // **计算键那一档**：键是一个**值**（`Symbol.iterator` 那类），
+  // 而访问器与普通方法**都要**它——所以这条判据放在那两路**之前**
+  //（放在里面就是两个分支各写一遍）。
   const computedKey = computedName ? this.LowerExpression(Child(memberName, "expression")) : -1;
   if (kind === "GetAccessor" || kind === "SetAccessor") {
     // **类里的访问器落在 target 上**（JS 就是这样：实例自己不持有它，从原型链上找）——
@@ -7091,8 +7091,8 @@ for (let i = 0; i < members.length; i++) {
       keySlot = this.Reserve(1);
       this.Emit(Op.Const, keySlot, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName))), -1, -1);
     }
-    // **第 340 轮：类里的访问器不可枚举** ✓（`false` 那一格 ✓）——
-    // 对象字面量那一处**不传**（缺省真 ✓），两者共用 `EmitDefineAccessor` ✓。
+    // **第 340 轮：类里的访问器不可枚举**（`false` 那一格）——
+    // 对象字面量那一处**不传**（缺省真），两者共用 `EmitDefineAccessor`。
     this.EmitDefineAccessor(target, keySlot, closure, kind === "GetAccessor", false);
     if (computedKey < 0) this.Release(keySlot);
     continue;
@@ -7104,24 +7104,24 @@ for (let i = 0; i < members.length; i++) {
   const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName)));
   this.EmitHiddenSet(target, key, closure);
 }
-// **静态字段与静态块按源码顺序发** ✓（第 203 轮修 ✓）：两类都在类**声明的位置**求值，
-// 而 JS 的规矩是**它们按源码里出现的先后**跑 ✓（写进构造函数自己那一格 ✓）。
+// **静态字段与静态块按源码顺序发**（第 203 轮修）：两类都在类**声明的位置**求值，
+// 而 JS 的规矩是**它们按源码里出现的先后**跑（写进构造函数自己那一格）。
 //
-// **原来是两趟** ✗（先所有静态字段 ✓、再所有静态块 ✓）——那是**静默错值** ✓：
+// **原来是两趟**（先所有静态字段、再所有静态块）——那是**静默错值**：
 // `class C { static a = 1; static { C.b = 2 } static c = 3 }` 里
-// `static { }` 看得见 `a` 与 `c` ✓，而代码块**跑在 `c` 之前** ✓——
-// 两趟的写法会让 `c` 先于那个块跑 ✓，块里读 `C.c` 就**读到还没写的值** ✗。
-// 实测（第 203 轮判据 `ex-static-block-order` ✓）：node 给 `a,block1,b,block2` ✓，
-// 两趟给 `a,b,block1,block2` ✓——**顺序反了** ✓，而两边的每一格都"跑过了" ✗。
+// `static { }` 看得见 `a` 与 `c`，而代码块**跑在 `c` 之前**——
+// 两趟的写法会让 `c` 先于那个块跑，块里读 `C.c` 就**读到还没写的值**。
+// 实测（第 203 轮判据 `ex-static-block-order`）：node 给 `a,block1,b,block2`，
+// 两趟给 `a,b,block1,block2`——**顺序反了**，而两边的每一格都"跑过了"。
 //
-// **一趟里怎么分开处理**：静态块要**造一个闭包 + 立刻调**（下面那段 ✓），
-// 静态字段只要一句 `this.<名> = <式>` ✓——同一条 `members` 扫描里按 kind 分派即可 ✓。
+// **一趟里怎么分开处理**：静态块要**造一个闭包 + 立刻调**（下面那段），
+// 静态字段只要一句 `this.<名> = <式>`——同一条 `members` 扫描里按 kind 分派即可。
 for (let i = 0; i < members.length; i++) {
   const member0 = members[i];
   const kind1 = NodeKind(member0);
-  // **实例字段与实例方法已经处理过了**（字段挂去了构造函数 ✓、方法挂去了原型 ✓）：
-  // 这一趟只管**静态**的那两类 ✓。`HasModifier` 说的是「这一格是不是静态」✓——
-  // 实例字段在这里被跳过 ✓（它在 `instanceFields` 里 ✓）。
+  // **实例字段与实例方法已经处理过了**（字段挂去了构造函数、方法挂去了原型）：
+  // 这一趟只管**静态**的那两类。`HasModifier` 说的是「这一格是不是静态」——
+  // 实例字段在这里被跳过（它在 `instanceFields` 里）。
   if (kind1 === "PropertyDeclaration") {
     if (!this.HasModifier(member0, "StaticKeyword")) continue;
     this.EmitFieldInit(ctor, member0);
@@ -7138,8 +7138,8 @@ for (let i = 0; i < members.length; i++) {
   this.Emit(Op.Call, closure, base, 0, selfSlot);
   this.Release(base + 1);
 }
-// **具名类表达式那三步的收尾** ✓（第 332 轮 ✓）：先后退**降级侧**那一层 ✓
-//（外面那些语句于是再也看不到这个名字 ✓），再写值 ✓、再退出运行期那一层 ✓。
+// **具名类表达式那三步的收尾**（第 332 轮）：先后退**降级侧**那一层
+//（外面那些语句于是再也看不到这个名字），再写值、再退出运行期那一层。
 if (classSelfEnv >= 0) {
   this.Env.Pop();
   this.Emit(Op.EnvSet, ctor, 0, 0, -1);
@@ -7167,35 +7167,35 @@ const params = this.FunctionParams(node);
 const defaultAt: number[] = [];
 const defaults: AstNode[] = [];
 this.CollectDefaults(node, defaultAt, defaults);
-// **解构形参**（第 134 轮）：与默认值同一个形状的两份平行数组 ✓
-//（CollectPatternParams 那一段写着为什么是两份 ✓）。
+// **解构形参**（第 134 轮）：与默认值同一个形状的两份平行数组
+//（CollectPatternParams 那一段写着为什么是两份）。
 const patternAt: number[] = [];
 const patterns: AstNode[] = [];
 this.CollectPatternParams(node, patternAt, patterns);
-// **函数名那一格**（第 238 轮 ✓）：见 `LowerFunctionValue` 那一段 ✓
-//（函数声明这条路原来一个名字都不带 ✗，于是 `function greet(){}` 也是 `[Function (anonymous)]` ✓）。
-// **造闭包 + 排队那一段收在 `EmitClosure`** ✓（第 292 轮 ✓——它原先在这里与
-// 函数值那一处**各写了一遍** ✗，而 `namespace` 的体是第三个调用点 ✓）。
+// **函数名那一格**（第 238 轮）：见 `LowerFunctionValue` 那一段
+//（函数声明这条路原来一个名字都不带，于是 `function greet(){}` 也是 `[Function (anonymous)]`）。
+// **造闭包 + 排队那一段收在 `EmitClosure`**（第 292 轮——它原先在这里与
+// 函数值那一处**各写了一遍**，而 `namespace` 的体是第三个调用点）。
 const item = new PendingFunction(TextOf(name), Child(node, "body"), params, 0, defaultAt, defaults, patternAt, patterns);
 item.Arity = this.FunctionArity(node);
-// **函数声明这一条路也要问 `arguments`** ✗（第 332 轮 ✓，**实测踩过** ✓）：
-// 那一位原本只写在 `LowerFunctionValue` 里 ✓，而**函数声明不走那一条** ✗——
-// 它自己建 `PendingFunction`、自己调 `EmitClosure` ✓（第 292 轮收口时留下的两处 ✓）。
-// 症状：`function f(a, b) { arguments.length }` 报 `name is not a local or a capture: arguments` ✓
-//（**整份文件进不来** ✗），而同一个函数写成表达式就是好的 ✓——**同一句话两种结局** ✓。
-// **教训**：「某一格要跟着树走」这种东西，**每一条建 `PendingFunction` 的路都要问一遍** ✓
-//（与 `HasRest` 那一位同一条 ✓，第 133 轮也是两处一起加的 ✓）。
+// **函数声明这一条路也要问 `arguments`**（第 332 轮，**实测踩过**）：
+// 那一位原本只写在 `LowerFunctionValue` 里，而**函数声明不走那一条**——
+// 它自己建 `PendingFunction`、自己调 `EmitClosure`（第 292 轮收口时留下的两处）。
+// 症状：`function f(a, b) { arguments.length }` 报 `name is not a local or a capture: arguments`
+//（**整份文件进不来**），而同一个函数写成表达式就是好的——**同一句话两种结局**。
+// **教训**：「某一格要跟着树走」这种东西，**每一条建 `PendingFunction` 的路都要问一遍**
+//（与 `HasRest` 那一位同一条，第 133 轮也是两处一起加的）。
 item.NeedsArguments = ReferencesArguments(Child(node, "body"));
-// **源码那一格** ✓（第 334 轮 ✓）：函数声明也有它 ✓（`function f() {}` 是**最常见**的那一档 ✓）。
+// **源码那一格**（第 334 轮）：函数声明也有它（`function f() {}` 是**最常见**的那一档）。
 item.Source = this.SourceSliceOf(node);
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);
-// **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，
-// 之后由函数表那一格带着走 ✓（开帧的人要用它 ✓）。
+// **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次，
+// 之后由函数表那一格带着走（开帧的人要用它）。
 item.HasRest = this.HasRestParam(node);
 const slot = this.EmitClosure(item);
 // **函数声明也自带 `prototype`**（`new F()` 靠它把方法落到实例上）。
-// **这一档可写** ✓（与类相反 ✓，见 `AttachPrototype` ✓）。
+// **这一档可写**（与类相反，见 `AttachPrototype`）。
 this.AttachPrototype(slot, true);
 // **声明放在造闭包之后**：这个名字可能被内层捕获，那样 `DeclareLocal` 会把这一格的
 // 值搬进环境格——搬早了搬的就是一个空槽（判据报的是几十条指令之外的「调用了非闭包」）。
@@ -7217,47 +7217,47 @@ item.Slot = slot;
 
 ```ts
 const kind = NodeKind(node);
-// **`SpreadElement` 落在裸表达式位上：把它剥掉** ✓（第 234 轮 ✓）。
+// **`SpreadElement` 落在裸表达式位上：把它剥掉**（第 234 轮）。
 //
-// **它为什么会出现** ✗：`...` 只许写在三种位置 ✓（数组字面量的元素 ✓、调用的实参 ✓、
-// 对象字面量的成员 ✓），而那三处的降级都**自己**认 `SpreadElement` ✓
-//（`LowerArrayLiteral` ✓、`LowerCall` 的 `HasSpread` ✓、`LowerObjectLiteral` ✓）——
-// 它们要的是「**这一格是不是展开**」这个信息 ✓，所以那一格不能先被剥掉 ✗。
+// **它为什么会出现**：`...` 只许写在三种位置（数组字面量的元素、调用的实参、
+// 对象字面量的成员），而那三处的降级都**自己**认 `SpreadElement`
+//（`LowerArrayLiteral`、`LowerCall` 的 `HasSpread`、`LowerObjectLiteral`）——
+// 它们要的是「**这一格是不是展开**」这个信息，所以那一格不能先被剥掉。
 //
-// 可**投影**还会把它留在别处 ✓：实测 `[...xs.length ? xs : ys]` 的树是
-// `ArrayLiteral > ConditionalExpression` ✓，而**三元的那一格「条件」是 `SpreadElement`** ✗
-//（实测 `SpreadElement[47,59]` ✓——区间从 `...` 起算 ✓，所以 `...` 绑得比三元还紧 ✓）。
-// 于是 `LowerConditional` 去降「条件」时拿到一个 `SpreadElement` ✓，
-// 报的是 `unimplemented: expression SpreadElement` ✗——一句话听起来像
-// 「`...` 没人支持」✓，其实**别处的 `...` 都是好的** ✗。
+// 可**投影**还会把它留在别处：实测 `[...xs.length ? xs : ys]` 的树是
+// `ArrayLiteral > ConditionalExpression`，而**三元的那一格「条件」是 `SpreadElement`**
+//（实测 `SpreadElement[47,59]`——区间从 `...` 起算，所以 `...` 绑得比三元还紧）。
+// 于是 `LowerConditional` 去降「条件」时拿到一个 `SpreadElement`，
+// 报的是 `unimplemented: expression SpreadElement`——一句话听起来像
+// 「`...` 没人支持」，其实**别处的 `...` 都是好的**。
 //
-// **为什么剥掉是对的** ✗：三元 / 二元 / 一元的**操作数**位置上，`...` 没有别的含义 ✓——
-// 那种写法在 JS 里**本来就是语法错误** ✓（`...x ? a : b` 单独写出来不合法 ✓），
-// 它能出现在这里只是因为**外面那个数组字面量已经认过它了** ✓。
-// 剥掉之后跑的是「展开那个三元的结果」✓——正是 JS 的语义 ✓（判据
-// `array-spread-conditional` 的第一项就是它 ✓）。
+// **为什么剥掉是对的**：三元 / 二元 / 一元的**操作数**位置上，`...` 没有别的含义——
+// 那种写法在 JS 里**本来就是语法错误**（`...x ? a : b` 单独写出来不合法），
+// 它能出现在这里只是因为**外面那个数组字面量已经认过它了**。
+// 剥掉之后跑的是「展开那个三元的结果」——正是 JS 的语义（判据
+// `array-spread-conditional` 的第一项就是它）。
 //
-// **第二项为什么本来就是好的** ✓：`[...(xs.length ? xs : ys)]` 里括号把三元**包成一个单元** ✓，
-// 数组那一层看到的就是「展开那个单元」✓——判据里两条一起放 ✓（**对照** ✓）。
+// **第二项为什么本来就是好的**：`[...(xs.length ? xs : ys)]` 里括号把三元**包成一个单元**，
+// 数组那一层看到的就是「展开那个单元」——判据里两条一起放（**对照**）。
 if (kind === "SpreadElement") {
   return this.LowerExpression(Child(node, "expression"));
 }
 if (kind === "SuperKeyword") {
-  // **裸 `super` 走到这里就是树不该到这儿** ✓（第 243 轮 ✓）：
-  // `super` 只许出现在**派生的属性访问**（`super.v` ✓）、
-  // **派生的方法调用**（`super.m()` ✓，走 `LowerCall` 那一支 ✓）
-  // 与 **`super(...)`**（走构造函数那一支 ✓）三处 ✓——
-  // 三处**各自**在**父节点**那一层被认出来 ✓、**名字也在父节点上** ✓
-  //（这一格里只有一个 `SuperKeyword` ✓，没有名字 ✗）。
-  // 所以走到这一支说明**有第三种用法没接上** ✓——给 `undefined` ✓、
-  // 而真正的实现在 `LowerSuperProperty` ✓（见那一处 ✓）。
+  // **裸 `super` 走到这里就是树不该到这儿**（第 243 轮）：
+  // `super` 只许出现在**派生的属性访问**（`super.v`）、
+  // **派生的方法调用**（`super.m()`，走 `LowerCall` 那一支）
+  // 与 **`super(...)`**（走构造函数那一支）三处——
+  // 三处**各自**在**父节点**那一层被认出来、**名字也在父节点上**
+  //（这一格里只有一个 `SuperKeyword`，没有名字）。
+  // 所以走到这一支说明**有第三种用法没接上**——给 `undefined`、
+  // 而真正的实现在 `LowerSuperProperty`（见那一处）。
   const bareSuper = this.Reserve(1);
   this.Emit(Op.Const, bareSuper, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
   return bareSuper;
 }
 if (kind === "NumericLiteral") {
   const slot = this.Reserve(1);
-  // **走 `NumberConst`**：整数收 `Int32`、其余收 `Float64`（第 129 轮）——`IntConst` 只给内部整数用 ✓。
+  // **走 `NumberConst`**：整数收 `Int32`、其余收 `Float64`（第 129 轮）——`IntConst` 只给内部整数用。
   this.Emit(Op.Const, slot, this.NumberConst(NumberFromText(TextOf(node))), -1, -1);
   return slot;
 }
@@ -7279,22 +7279,22 @@ if (kind === "NullKeyword") {
   return slot;
 }
 if (kind === "MetaProperty") {
-  // **`new.target`** ✓（第 346 轮 ✓）：投影层把它投成一个 `MetaProperty` ✓、名字放在 `name` 上 ✓
-  //（`typescript/print-ast-common.xl.md` 那一支写着形状 ✓：`new.target ⇒ MetaProperty[Identifier(target)]` ✓）。
+  // **`new.target`**（第 346 轮）：投影层把它投成一个 `MetaProperty`、名字放在 `name` 上
+  //（`typescript/print-ast-common.xl.md` 那一支写着形状：`new.target ⇒ MetaProperty[Identifier(target)]`）。
   //
-  // **它不是词法信息** ✗：同一个函数体在 `F()` 与 `new F()` 两条路上给**两个答案** ✓，
-  // 所以它落成一条**读帧**的指令 ✓（`Op.LoadNewTarget` ✓，与 `load_this` **同一形状** ✓）——
-  // **不进环境链** ✗（`import.meta` 那一路才需要去找外面 ✓，而本仓不做它 ✓，见下面那一抛 ✓）。
+  // **它不是词法信息**：同一个函数体在 `F()` 与 `new F()` 两条路上给**两个答案**，
+  // 所以它落成一条**读帧**的指令（`Op.LoadNewTarget`，与 `load_this` **同一形状**）——
+  // **不进环境链**（`import.meta` 那一路才需要去找外面，而本仓不做它，见下面那一抛）。
   //
-  // **一处已知差别写在明处** ✗：JS 里**箭头函数没有自己的 `new.target`** ✓
-  //（它取外层那一个 ✓，与 `this` 同一规则 ✓）——本仓这一条读的是**当前帧** ✓
-  // ⇒ 箭头体里的 `new.target` 会给 `undefined` ✗（而 Node 给外层那个 ✓）。
-  // **要补得上得像 `this` 那样把它也做成一个隐藏捕获** ✓（`InArrow` 那一支 ✓），
-  // 而判据里还没有那一格 ✓（`c304-rt-new-target-in-ctor` 量的是普通函数与类 ✓）——**记在这里** ✓。
-  // **`name` 那一格是一个**子节点**，不是字符串** ✗（**实测踩过一次** ✓）：投影层把它
-  // 投成 `Identifier` ✓（`probe={"kind":"Identifier","text":"target",…}` ✓），
-  // 所以名字要**从子节点取** ✓（`TextOf` ✓）——`String(node["name"])` 给的是
-  // `"[object Object]"` ✓，而那句抛里**没有一个字提到形状** ✗。
+  // **一处已知差别写在明处**：JS 里**箭头函数没有自己的 `new.target`**
+  //（它取外层那一个，与 `this` 同一规则）——本仓这一条读的是**当前帧**
+  // ⇒ 箭头体里的 `new.target` 会给 `undefined`（而 Node 给外层那个）。
+  // **要补得上得像 `this` 那样把它也做成一个隐藏捕获**（`InArrow` 那一支），
+  // 而判据里还没有那一格（`c304-rt-new-target-in-ctor` 量的是普通函数与类）——**记在这里**。
+  // **`name` 那一格是一个**子节点**，不是字符串**（**实测踩过一次**）：投影层把它
+  // 投成 `Identifier`（`probe={"kind":"Identifier","text":"target",…}`），
+  // 所以名字要**从子节点取**（`TextOf`）——`String(node["name"])` 给的是
+  // `"[object Object]"`，而那句抛里**没有一个字提到形状**。
   const metaChild = node["name"];
   const metaName = metaChild === undefined || metaChild === null ? "" : TextOf(metaChild);
   if (metaName !== "target") {
@@ -7395,30 +7395,30 @@ if (kind === "AwaitExpression") {
 }
 if (kind === "TypeOfExpression") {
   let subject = Child(node, "expression");
-  // **`typeof` 一个没声明的名字**（第 149 轮）：JS 里这是**唯一不抛**的未声明读法 ✓——
-  // `typeof window !== "undefined"` 这种特性检测遍地都是 ✓，而且 Node 跑得动它 ✓
-  //（实测：`console.log(typeof window)` 给 `undefined` ✓），本仓原来在**降级期**就抛 ✗
-  //（整份文件进不来 ✓）。
+  // **`typeof` 一个没声明的名字**（第 149 轮）：JS 里这是**唯一不抛**的未声明读法——
+  // `typeof window !== "undefined"` 这种特性检测遍地都是，而且 Node 跑得动它
+  //（实测：`console.log(typeof window)` 给 `undefined`），本仓原来在**降级期**就抛
+  //（整份文件进不来）。
   //
-  // **结果是字符串 `"undefined"`** ✓——不是 `undefined` 那个值 ✗
-  //（这一点最容易写错 ✓：`typeof` 给的一定是字符串 ✓）。
-  // **只在这一格成立** ✗：`typeof` 之外读同一个名字照旧抛 ✓（与 JS 一致 ✓）——
-  // 所以这里**不往作用域里塞任何东西** ✓，只是把这一处的答案换成常量 ✓。
+  // **结果是字符串 `"undefined"`**——不是 `undefined` 那个值
+  //（这一点最容易写错：`typeof` 给的一定是字符串）。
+  // **只在这一格成立**：`typeof` 之外读同一个名字照旧抛（与 JS 一致）——
+  // 所以这里**不往作用域里塞任何东西**，只是把这一处的答案换成常量。
   //
-  // **判据是「这个名字在不在作用域链上」** ✓（本地槽 ✓ + 捕获环境 ✓）：
-  // 全局名是**局部槽**（`DeclareGlobals` 声明过 ✓），所以 `typeof console` 照旧走真路 ✓。
+  // **判据是「这个名字在不在作用域链上」**（本地槽 + 捕获环境）：
+  // 全局名是**局部槽**（`DeclareGlobals` 声明过），所以 `typeof console` 照旧走真路。
   //
-  // **先剥掉纯类型的那几层** ✓（第 596 轮 ✓）：`as` / `satisfies` / `<T>x` 是**类型位语法** ✓、
-  // 运行期不存在 ✓ ⇒ `typeof (missing as any)` 与 `typeof missing` 是同一件事 ✓
-  //（判据在这一层只认 `Identifier` ✗ ⇒ 剥之前它走真路 ⇒ `ResolveAccess` 抛
-  // `name is not a local or a capture` ✓ ⇒ **整份文件进不来** ✗，而
-  // `typeof (globalThis as any).x` 这种写法到处都是 ✓）。
+  // **先剥掉纯类型的那几层**（第 596 轮）：`as` / `satisfies` / `<T>x` 是**类型位语法**、
+  // 运行期不存在 ⇒ `typeof (missing as any)` 与 `typeof missing` 是同一件事
+  //（判据在这一层只认 `Identifier` ⇒ 剥之前它走真路 ⇒ `ResolveAccess` 抛
+  // `name is not a local or a capture` ⇒ **整份文件进不来**，而
+  // `typeof (globalThis as any).x` 这种写法到处都是）。
   while (true) {
     const wrapper = NodeKind(subject);
     if (wrapper === "ParenthesizedExpression") {
-      // **括号也是透明的** ✓：`typeof (x as any)` 外面那层括号在投影里是一个
-      // `ParenthesizedExpression` 单元 ✓（不是值位括号那种 `Bracket` ✓）——
-      // 它是**分组**，不改变求的是哪一个名字 ✓。
+      // **括号也是透明的**：`typeof (x as any)` 外面那层括号在投影里是一个
+      // `ParenthesizedExpression` 单元（不是值位括号那种 `Bracket`）——
+      // 它是**分组**，不改变求的是哪一个名字。
       subject = Child(subject, "expression");
       continue;
     }
@@ -7438,30 +7438,30 @@ if (kind === "TypeOfExpression") {
   return this.RtCall1(RtOp.Typeof, value);
 }
 if (kind === "AsExpression" || kind === "SatisfiesExpression" || kind === "TypeAssertionExpression") {
-  // **`x as T` / `x satisfies T` / `<T>x` 都是类型位的语法**（第 163 轮 ✓，第 342 轮补上第三种 ✓）：
-  // 把那一层**擦掉** ✓，值就是 `x` ✓。与第 148 轮那条口径同源 ✓（**类型位一律擦除** ✓）——
-  // `as` 不改变运行期的值 ✓（它只让类型检查器换个看法 ✓），`satisfies` 更是纯检查 ✓，
-  // 而**尖括号断言 `<T>x` 是同一件事的另一种写法** ✓（老 TS 代码里到处都是 ✓）。
+  // **`x as T` / `x satisfies T` / `<T>x` 都是类型位的语法**（第 163 轮，第 342 轮补上第三种）：
+  // 把那一层**擦掉**，值就是 `x`。与第 148 轮那条口径同源（**类型位一律擦除**）——
+  // `as` 不改变运行期的值（它只让类型检查器换个看法），`satisfies` 更是纯检查，
+  // 而**尖括号断言 `<T>x` 是同一件事的另一种写法**（老 TS 代码里到处都是）。
   //
-  // **它俩原来都报 `unimplemented`** ✗（整份文件进不来 ✗），而 `x as T` 在真实 `.ts` 里
-  // 到处都是 ✓——量出来的现场：`const s = "abc" as unknown as string;` ✓
-  //（`as unknown as T` 那种「双重断言」也很常见 ✓，擦两层与擦一层是同一件事 ✓）。
+  // **它俩原来都报 `unimplemented`**（整份文件进不来），而 `x as T` 在真实 `.ts` 里
+  // 到处都是——量出来的现场：`const s = "abc" as unknown as string;`
+  //（`as unknown as T` 那种「双重断言」也很常见，擦两层与擦一层是同一件事）。
   //
-  // **`TypeAssertionExpression` 是第 342 轮补的** ✗（**实测撞到的** ✓）：
-  // 两条判据（`ex-angle-bracket-assertion` ✓ / `c323-ex-angle-bracket-assertion-forms` ✓）
-  // 报的正是 `unimplemented: expression TypeAssertionExpression` ✓——
-  // **两处写法、一条口径** ✓，所以三种一起擦 ✓（`jsx` 那一档与这里无关 ✗：
-  // 本仓不解析 `jsx` ✓，`<T>x` 在 `.ts` 里就是尖括号断言 ✓）。
+  // **`TypeAssertionExpression` 是第 342 轮补的**（**实测撞到的**）：
+  // 两条判据（`ex-angle-bracket-assertion` / `c323-ex-angle-bracket-assertion-forms`）
+  // 报的正是 `unimplemented: expression TypeAssertionExpression`——
+  // **两处写法、一条口径**，所以三种一起擦（`jsx` 那一档与这里无关：
+  // 本仓不解析 `jsx`，`<T>x` 在 `.ts` 里就是尖括号断言）。
   return this.LowerExpression(Child(node, "expression"));
 }
 if (kind === "VoidExpression") {
-  // **`void x`**（第 163 轮）：求值 `x` ✓、把结果丢掉 ✓、整句给 `undefined` ✓——JS 就是这么定的 ✓。
-  // `void 0` 是「拿一个确定的 `undefined`」那个老写法 ✓（到处都在用 ✓），
-  // 而这一层原来报 `unimplemented: expression VoidExpression` ✗（整份文件进不来 ✗）。
+  // **`void x`**（第 163 轮）：求值 `x`、把结果丢掉、整句给 `undefined`——JS 就是这么定的。
+  // `void 0` 是「拿一个确定的 `undefined`」那个老写法（到处都在用），
+  // 而这一层原来报 `unimplemented: expression VoidExpression`（整份文件进不来）。
   //
-  // **操作数照旧求值** ✓：`void f()` 里 `f()` 必须真的跑 ✓——
-  // 「`void 0` 这种常量就不求值了」那条优化**不在这一层做** ✗
-  //（省一条指令 vs 多一处要判断「有没有副作用」的地方 ✓，不划算 ✓）。
+  // **操作数照旧求值**：`void f()` 里 `f()` 必须真的跑——
+  // 「`void 0` 这种常量就不求值了」那条优化**不在这一层做**
+  //（省一条指令 vs 多一处要判断「有没有副作用」的地方，不划算）。
   this.LowerExpression(Child(node, "expression"));
   const voided = this.Reserve(1);
   this.Emit(Op.Const, voided, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
@@ -7507,22 +7507,22 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
     // 表达式自身的值：**前缀给新值、后缀给旧值**——这一条就是 `i++` 与 `++i` 的全部区别，
     // 而 `for (let i = 0; i < 3; i++)` 要的是后缀（值没人用，但语义上必须是旧值）。
     //
-    // **左值三种落点**（第 204 轮补的后两种 ✓）：简单名字 ✓ / 属性 ✓ / 下标 ✓。
-    // 三种走**同一条规矩** ✓——读与写落在**同一格**、接收者与键**只求值一次** ✓
-    //（与上面复合赋值那三条分支同源 ✓，第 119 轮 ✓）。
+    // **左值三种落点**（第 204 轮补的后两种）：简单名字 / 属性 / 下标。
+    // 三种走**同一条规矩**——读与写落在**同一格**、接收者与键**只求值一次**
+    //（与上面复合赋值那三条分支同源，第 119 轮）。
     //
-    // **原来只认标识符** ✗，理由写的是「属性 / 下标左值要『求值一次接收者』，
-    // 那条路与复合赋值的限制同源」✓——而复合赋值那条路第 119 轮就修好了 ✓，
-    // 这里的限制却留着 ✗：于是 `o.n++` / `xs[0]++` / `++Counter.total` 这些
-    // **遍地都是**的写法整份文件都进不来 ✗（`unimplemented: update expression on a non-identifier` ✓，
-    // 第 202 轮的判据现场红的 ✓）。
+    // **原来只认标识符**，理由写的是「属性 / 下标左值要『求值一次接收者』，
+    // 那条路与复合赋值的限制同源」——而复合赋值那条路第 119 轮就修好了，
+    // 这里的限制却留着：于是 `o.n++` / `xs[0]++` / `++Counter.total` 这些
+    // **遍地都是**的写法整份文件都进不来（`unimplemented: update expression on a non-identifier`，
+    // 第 202 轮的判据现场红的）。
     const operandKind0 = NodeKind(operand);
     if (operandKind0 !== "Identifier" && operandKind0 !== "PropertyAccessExpression"
       && operandKind0 !== "ElementAccessExpression") {
       throw new Error("unimplemented: update expression on " + operandKind0);
     }
-    // **结果格先占** ✓（与复合赋值那三条分支同一条纪律 ✓）：临时量都落在它**上面** ✓，
-    // 最后 `Release(result + 1)` 只留它那一格活着 ✓——写回要用的接收者 / 键那之前已经用完了 ✓。
+    // **结果格先占**（与复合赋值那三条分支同一条纪律）：临时量都落在它**上面**，
+    // 最后 `Release(result + 1)` 只留它那一格活着——写回要用的接收者 / 键那之前已经用完了。
     const result = this.Reserve(1);
     const one = this.Reserve(1);
     this.Emit(Op.Const, one, this.Program().AddConst(Constant.OfInt(1)), -1, -1);
@@ -7544,8 +7544,8 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
         this.Emit(Op.Move, access.Slot, updated, -1, -1);
       }
     } else if (operandKind0 === "PropertyAccessExpression") {
-      // **接收者只求值一次** ✓：`f().n++` 里 `f()` 只调一次 ✓——先算接收者、读它、写回**同一格** ✓
-      //（不是「重算一遍左值」✗）。
+      // **接收者只求值一次**：`f().n++` 里 `f()` 只调一次——先算接收者、读它、写回**同一格**
+      //（不是「重算一遍左值」）。
       const receiver = this.LowerExpression(Child(operand, "expression"));
       const name = Child(operand, "name");
       const nameKind = NodeKind(name);
@@ -7553,8 +7553,8 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
       && nameKind !== "PrivateIdentifier") {
         throw new Error("unimplemented: update expression on a computed property name");
       }
-      // **私有名也是成员名** ✓（第 195 轮的口径 ✓）：键就是那串文本（`#count` ✓，见 `KeyUnitsOf` ✓）——
-      // 于是 `Account.#count++` 这一格跟着一起通 ✓。
+      // **私有名也是成员名**（第 195 轮的口径）：键就是那串文本（`#count`，见 `KeyUnitsOf`）——
+      // 于是 `Account.#count++` 这一格跟着一起通。
       const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
       const read = this.RtCall2(RtOp.GetProp, receiver, key);
       this.Emit(Op.Move, result, read, -1, -1);
@@ -7566,7 +7566,7 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
       const read = this.RtCallValues(RtOp.GetIndex, receiver, index);
       this.Emit(Op.Move, result, read, -1, -1);
       updated = this.RtCallValues(operator === "++" ? RtOp.Add : RtOp.Sub, read, one);
-      // **下标写回**：与复合赋值那条分支同一个形状 ✓（`set_index` 的窗口是「接收者, 下标, 值」✓）。
+      // **下标写回**：与复合赋值那条分支同一个形状（`set_index` 的窗口是「接收者, 下标, 值」）。
       const window = this.Reserve(3);
       this.Emit(Op.Move, window, receiver, -1, -1);
       this.Emit(Op.Move, window + 1, index, -1, -1);
@@ -7583,21 +7583,21 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
   const value = this.LowerExpression(operand);
   if (operator === "-") return this.RtCall1(RtOp.Neg, value);
   if (operator === "!") return this.RtCall1(RtOp.Not, value);
-  // **按位取反**（第 147 轮）：`~` 给整数 ✓（`~5` 是 `-6` ✓）——与 `!` 给布尔不是一回事 ✓。
+  // **按位取反**（第 147 轮）：`~` 给整数（`~5` 是 `-6`）——与 `!` 给布尔不是一回事。
   if (operator === "~") return this.RtCall1(RtOp.BitNot, value);
-  // **一元 `+`**（第 198 轮 ✓）：它就是 `ToNumber` ✓——与 `Number(x)` 那一个内建
-  // **同一个落点** ✓（引擎的 `RtOp.ToNumber` ✓，实现是 `rt.xl.md` 的 `ToNumberOf` ✓）。
-  // 原来这里报 `unimplemented: unary operator` ✗，而 `+new Date(...)` / `+"3"` 这类
-  // 写法在普通 `.ts` 里很常见 ✓（`+` 是 JS 里最短的一次数值转换 ✓）。
+  // **一元 `+`**（第 198 轮）：它就是 `ToNumber`——与 `Number(x)` 那一个内建
+  // **同一个落点**（引擎的 `RtOp.ToNumber`，实现是 `rt.xl.md` 的 `ToNumberOf`）。
+  // 原来这里报 `unimplemented: unary operator`，而 `+new Date(...)` / `+"3"` 这类
+  // 写法在普通 `.ts` 里很常见（`+` 是 JS 里最短的一次数值转换）。
   if (operator === "+") return this.RtCall1(RtOp.ToNumber, value);
-  // **没做的照旧抛**（不静默给近似值）：`typeof x` 与 `void x` 各自另有落点 ✓。
+  // **没做的照旧抛**（不静默给近似值）：`typeof x` 与 `void x` 各自另有落点。
   throw new Error("unimplemented: unary operator `" + operator + "` (only -, +, !, ~, ++ and -- are implemented)");
 }
-// **非空断言 `x!` 在运行期什么也不做**（第 179 轮）✓：它只是给类型系统看的一句话 ✓——
-// 降级成**它里面那个表达式** ✓（一条指令都不多 ✓，与「类型位一律擦除」同一条口径 ✓）。
+// **非空断言 `x!` 在运行期什么也不做**（第 179 轮）：它只是给类型系统看的一句话——
+// 降级成**它里面那个表达式**（一条指令都不多，与「类型位一律擦除」同一条口径）。
 // 少了这一条，`map.get(k)!` / `arr[0]!.name` / `n!()` 这些**真实代码里遍地都是**的写法报
-// `unimplemented: expression NonNullExpression` ✗（**整份文件进不来** ✗）。
-// **断言不是求值**：它不改值、不该有副作用 ✓，所以这里连一个临时格都不占 ✓。
+// `unimplemented: expression NonNullExpression`（**整份文件进不来**）。
+// **断言不是求值**：它不改值、不该有副作用，所以这里连一个临时格都不占。
 if (kind === "NonNullExpression") {
   return this.LowerExpression(Child(node, "expression"));
 }
@@ -7606,19 +7606,19 @@ throw new Error("unimplemented: expression " + kind);
 
 ## method NameIsUnreachable:(name:string)=>bool
 
-**这个名字在这一层和作用域链上都找不到**（第 149 轮）——`typeof` 那一格要它 ✓。
+**这个名字在这一层和作用域链上都找不到**（第 149 轮）——`typeof` 那一格要它。
 
-**与 `ResolveAccess` 的区别只有「找不到怎么办」** ✗：那边**抛** ✓（读一个不存在的名字就是错 ✓），
-这边**只是回答一个布尔** ✓（`typeof` 的语义是「告诉我它是什么」✓，
-而一个不存在的名字的答案是 `"undefined"` ✓）。
+**与 `ResolveAccess` 的区别只有「找不到怎么办」**：那边**抛**（读一个不存在的名字就是错），
+这边**只是回答一个布尔**（`typeof` 的语义是「告诉我它是什么」，
+而一个不存在的名字的答案是 `"undefined"`）。
 
-**两处用的是同一份查找顺序** ✓（本地槽 → 捕获环境 ✓）：写成两套的话，
-`typeof` 与普通读会在「捕获的名字上」分歧 ✓——那种分歧**不报错** ✓，只给一个错的答案 ✗。
+**两处用的是同一份查找顺序**（本地槽 → 捕获环境）：写成两套的话，
+`typeof` 与普通读会在「捕获的名字上」分歧——那种分歧**不报错**，只给一个错的答案。
 
-**「找不到」有两种，这里不细分** ✓：`ResolveAccess` 分的 `DeclaredNames` 那两档
-（「用在声明之前」与「根本没这个名字」✓）是给**报错**用的 ✓；
-`typeof` 两档都给 `"undefined"` ✓（JS 里 TDZ 那一档其实会抛 ✗——
-那是本仓**已经记着**的 TDZ 缺口 ✓，不在这一轮改 ✓）。
+**「找不到」有两种，这里不细分**：`ResolveAccess` 分的 `DeclaredNames` 那两档
+（「用在声明之前」与「根本没这个名字」）是给**报错**用的；
+`typeof` 两档都给 `"undefined"`（JS 里 TDZ 那一档其实会抛——
+那是本仓**已经记着**的 TDZ 缺口，不在这一轮改）。
 
 ```ts
 if (this.FindLocal(name) >= 0) return false;
@@ -7636,7 +7636,7 @@ return true;
 ```ts
 const kind = NodeKind(node);
 if (kind === "NumericLiteral") {
-  // **走 `NumberConst`**：整数收 `Int32`、其余收 `Float64`（第 129 轮）——`IntConst` 只给内部整数用 ✓。
+  // **走 `NumberConst`**：整数收 `Int32`、其余收 `Float64`（第 129 轮）——`IntConst` 只给内部整数用。
   this.Emit(Op.Const, slot, this.NumberConst(NumberFromText(TextOf(node))), -1, -1);
   return;
 }
@@ -7666,16 +7666,16 @@ if (kind === "Identifier") {
 const before = this.NextFree;
 const value = this.LowerExpression(node);
 this.Emit(Op.Move, slot, value, -1, -1);
-// **只在 `value` 是「这一趟算出来的临时量」时才退水位**（第 180 轮修 ✓）。
+// **只在 `value` 是「这一趟算出来的临时量」时才退水位**（第 180 轮修）。
 //
-// 原来这里**无条件** `Release(value)` ✗。而**赋值表达式的「值」是左值自己那一格** ✓
-//（`a = 1` 的值就是 `a` ✓，见 `LowerBinary` 的赋值那一段 ✓）——那个槽在**表达式开始之前**
-// 就活着 ✓（它是框架里的一个局部 ✓）。退到它那里会把**框架里所有活着的槽一起退掉** ✗
-//（水位塌进局部区 ✓），于是**下一次 `Reserve` 会把一个还在用的槽发出去** ✓。
+// 原来这里**无条件** `Release(value)`。而**赋值表达式的「值」是左值自己那一格**
+//（`a = 1` 的值就是 `a`，见 `LowerBinary` 的赋值那一段）——那个槽在**表达式开始之前**
+// 就活着（它是框架里的一个局部）。退到它那里会把**框架里所有活着的槽一起退掉**
+//（水位塌进局部区），于是**下一次 `Reserve` 会把一个还在用的槽发出去**。
 //
-// 实测（第 180 轮的逗号那一族 ✓）：`a = 1, b = 2, c = 3` 里内层逗号拿到了 **`a` 的槽** ✓，
-// 结果 `a` 被写成了 **3** ✓（Node 给 1 ✓）——**静默错值** ✗，而且 `a = 1, b = 2` 那种
-// **两段**的写法**看不出问题** ✗（内层结果正好又被外层覆盖 ✓）——最难查的一种 ✓。
+// 实测（第 180 轮的逗号那一族）：`a = 1, b = 2, c = 3` 里内层逗号拿到了 **`a` 的槽**，
+// 结果 `a` 被写成了 **3**（Node 给 1）——**静默错值**，而且 `a = 1, b = 2` 那种
+// **两段**的写法**看不出问题**（内层结果正好又被外层覆盖）——最难查的一种。
 if (value >= before) {
   this.Release(value);
 }
@@ -7690,22 +7690,22 @@ if (value >= before) {
 ```ts
 const operatorText = TextOf(Child(node, "operatorToken"));
 const left = Child(node, "left");
-// **`#n in o`——私有名的品牌检查** ✓（第 270 轮 ✓）。
+// **`#n in o`——私有名的品牌检查**（第 270 轮）。
 //
-// **TS 的语义** ✓：`#n in o` 问的是「`o` 上有没有**这个类声明的** `#n`」✓，
-// 与 `"n" in o` **不是一回事** ✗（后者问的是字符串键 ✓）。
-// **而本仓的私有名就是属性名** ✓（第 195 轮定的口径 ✓：`this.#n` 与字段同键 ✓、
-// `KeyUnitsOf` 对 `PrivateIdentifier` 取的就是 `text` ✓——`"#n"` 那个带井号的字符串 ✓），
-// 所以 `#n in o` **就是 `"#n" in o`** ✓——**照 `in` 那一支办就行** ✓、
-// **不必另开一条路** ✗（这一点很值 ✓：本仓的私有字段**没有**「真私有」那一层 ✓，
-// 它们是与 `"#n"` 同键的普通属性 ✓——那条口径写在 `LowerAccess` 那一处 ✓）。
+// **TS 的语义**：`#n in o` 问的是「`o` 上有没有**这个类声明的** `#n`」，
+// 与 `"n" in o` **不是一回事**（后者问的是字符串键）。
+// **而本仓的私有名就是属性名**（第 195 轮定的口径：`this.#n` 与字段同键、
+// `KeyUnitsOf` 对 `PrivateIdentifier` 取的就是 `text`——`"#n"` 那个带井号的字符串），
+// 所以 `#n in o` **就是 `"#n" in o`**——**照 `in` 那一支办就行**、
+// **不必另开一条路**（这一点很值：本仓的私有字段**没有**「真私有」那一层，
+// 它们是与 `"#n"` 同键的普通属性——那条口径写在 `LowerAccess` 那一处）。
 //
-// **不接这一支的症状** ✗（判据 `ex-private-in-operator` ✓）：
-// `unimplemented: expression PrivateIdentifier` ✓——**整份文件进不来** ✗，
-// 而 `#n` 那些**读写**一直是好的 ✓（第 195 轮就通了 ✓）。
+// **不接这一支的症状**（判据 `ex-private-in-operator`）：
+// `unimplemented: expression PrivateIdentifier`——**整份文件进不来**，
+// 而 `#n` 那些**读写**一直是好的（第 195 轮就通了）。
 //
-// **次序** ✓：这一支要排在**求值左边之前** ✓——`LowerExpression(PrivateIdentifier)` 会抛 ✓，
-// 所以左边那一格要**在这一支里直接发一条常量** ✓（与 `in` 右边照常求值 ✓）。
+// **次序**：这一支要排在**求值左边之前**——`LowerExpression(PrivateIdentifier)` 会抛，
+// 所以左边那一格要**在这一支里直接发一条常量**（与 `in` 右边照常求值）。
 if (operatorText === "in" && NodeKind(left) === "PrivateIdentifier") {
   const window = this.Reserve(2);
   this.Emit(Op.Const, window, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(left))), -1, -1);
@@ -7718,14 +7718,14 @@ if (operatorText === "in" && NodeKind(left) === "PrivateIdentifier") {
 if (operatorText === "&&" || operatorText === "||") {
   // **短路是控制流，不是算子**（第 119 轮补；与 `??` 同一条口径：糖进控制流，不进 id 表）。
   //
-  // **值不是布尔**：`a && b` 给的是 `a`（`a` 假时）或 `b`——不是 `false`/`true` ✗。
+  // **值不是布尔**：`a && b` 给的是 `a`（`a` 假时）或 `b`——不是 `false`/`true`。
   // 所以这里是「结果格先装左边，需要才覆盖成右边」，不是「算出一个布尔」。
   //
   // **极性只写在这一处**：`jump_if_false` 在**假**时跳（`vm.xl.md` 里就是
   // `!slots[A].AsBool()`），所以
   //   - `&&`：左边假 → 跳过去，留着左边；
   //   - `||`：左边**真** → 也该跳过去，于是先把条件取反（`RtOp.Not` 就是逻辑非）。
-  // 少了这一步，`a || b` 会在 `a` 真的时候**照样算右边**（副作用跑两遍、结果还可能被覆盖）✗。
+  // 少了这一步，`a || b` 会在 `a` 真的时候**照样算右边**（副作用跑两遍、结果还可能被覆盖）。
   const slot = this.Reserve(1);
   this.LowerInto(slot, left);
   let condition = slot;
@@ -7751,20 +7751,20 @@ if (operatorText === "??") {
   return slot;
 }
 if (operatorText === ",") {
-  // **逗号运算符：左边只求值（丢掉），值就是右边**（第 180 轮）✓。
+  // **逗号运算符：左边只求值（丢掉），值就是右边**（第 180 轮）。
   //
-  // 它是**糖** ✓，不进 id 表 ✓（与 `&&` / `||` / `??` 同一条口径 ✓）——
-  // 语义只有一句话：**先算左边、再算右边** ✓，两件的**顺序是语义** ✓
-  //（`f(), g()` 里 `f()` 必须真的跑一次 ✓，且跑在 `g()` 前面 ✓）。
-  // 所以这里不能写成「只投右操作数」✗——那会把左边的副作用整条丢掉 ✓（**静默** ✗）。
+  // 它是**糖**，不进 id 表（与 `&&` / `||` / `??` 同一条口径）——
+  // 语义只有一句话：**先算左边、再算右边**，两件的**顺序是语义**
+  //（`f(), g()` 里 `f()` 必须真的跑一次，且跑在 `g()` 前面）。
+  // 所以这里不能写成「只投右操作数」——那会把左边的副作用整条丢掉（**静默**）。
   //
-  // **投影那一侧不用改** ✓：TS 把 `(1, 2)` 也记成 `BinaryExpression` + `CommaToken` ✓
-  //（实测逐节点对拍一致 ✓），所以这一格**只是降级层的缺口** ✓。
+  // **投影那一侧不用改**：TS 把 `(1, 2)` 也记成 `BinaryExpression` + `CommaToken`
+  //（实测逐节点对拍一致），所以这一格**只是降级层的缺口**。
   //
-  // 它同时关掉三处常见写法 ✓：`const a = (1, 2)` ✓、**`for` 的递增段**
-  // `for (; i < n; i++, j--)` ✓（TS 那边那个 `incrementor` 就是一个逗号表达式 ✓——
-  // 初始化段 `let i = 0, j = 3` 是**声明表** ✓，那条路早就通了 ✓）、
-  // 以及 `i = (k, k + 1)` ✓。
+  // 它同时关掉三处常见写法：`const a = (1, 2)`、**`for` 的递增段**
+  // `for (; i < n; i++, j--)`（TS 那边那个 `incrementor` 就是一个逗号表达式——
+  // 初始化段 `let i = 0, j = 3` 是**声明表**，那条路早就通了）、
+  // 以及 `i = (k, k + 1)`。
   const slot = this.Reserve(1);
   this.LowerInto(slot, left);
   this.LowerInto(slot, Child(node, "right"));
@@ -7772,25 +7772,25 @@ if (operatorText === ",") {
   return slot;
 }
 const compoundBase = CompoundBaseOf(operatorText);
-// **逻辑赋值**（第 150 轮）：`a ||= b` / `a &&= b` / `a ??= b` ✓——
-// 它们是**糖** ✓：`a ||= b` 就是 `a || (a = b)` ✓（`&&=` / `??=` 同形 ✓），
-// 所以**落成控制流** ✓，不进 id 表 ✓（与 `&&` / `||` / `??` 同一条口径 ✓）。
+// **逻辑赋值**（第 150 轮）：`a ||= b` / `a &&= b` / `a ??= b`——
+// 它们是**糖**：`a ||= b` 就是 `a || (a = b)`（`&&=` / `??=` 同形），
+// 所以**落成控制流**，不进 id 表（与 `&&` / `||` / `??` 同一条口径）。
 //
-// **为什么「合成一棵树再降级」而不是再抄一遍短路那一段** ✓：短路那三条
-// （`&&` / `||` / `??` ✓）的槽位纪律与极性**各自只有一份** ✓——
-// 在这里重写一遍就是第二份会走偏的实现 ✗（而走偏的症状是「右边多算一次」✓，
-// 副作用跑两遍 ✗）。合成树走的是**同一条**路 ✓（`LowerBinary` 那三段 ✓）。
+// **为什么「合成一棵树再降级」而不是再抄一遍短路那一段**：短路那三条
+// （`&&` / `||` / `??`）的槽位纪律与极性**各自只有一份**——
+// 在这里重写一遍就是第二份会走偏的实现（而走偏的症状是「右边多算一次」，
+// 副作用跑两遍）。合成树走的是**同一条**路（`LowerBinary` 那三段）。
 //
-// **只做「左边是一个名字」那一档** ✗（与 `=` 那条的边界不同 ✓）：
-// 合成树里左边会出现**两次** ✓——名字读两次**没有副作用** ✓（它有槽 / 环境格 ✓），
-// 而 `o[f()] ||= 1` 里那个 `f()` 会**跑两遍** ✗（JS 只求值一次 ✓）。
-// 所以属性 / 下标那两种**响亮地抛** ✓，单独立一轮 ✓（要做对得先读引用、再写回同一格 ✓，
-// 与上面复合赋值那三条一样的活 ✓）。
+// **只做「左边是一个名字」那一档**（与 `=` 那条的边界不同）：
+// 合成树里左边会出现**两次**——名字读两次**没有副作用**（它有槽 / 环境格），
+// 而 `o[f()] ||= 1` 里那个 `f()` 会**跑两遍**（JS 只求值一次）。
+// 所以属性 / 下标那两种**响亮地抛**，单独立一轮（要做对得先读引用、再写回同一格，
+// 与上面复合赋值那三条一样的活）。
 //
-// **第 181 轮把那一档补上了** ✓（见下面第二支 ✓）：
-// 成员位上的逻辑赋值**不能合成树** ✗（接收者与键都会各求值两遍 ✓），
-// 所以它走的是「**读引用一次 → 判 → 需要才写回同一格**」✓——
-// 与上面复合赋值那一支**同一条纪律** ✓（接收者 / 键都只求值一次 ✓）。
+// **第 181 轮把那一档补上了**（见下面第二支）：
+// 成员位上的逻辑赋值**不能合成树**（接收者与键都会各求值两遍），
+// 所以它走的是「**读引用一次 → 判 → 需要才写回同一格**」——
+// 与上面复合赋值那一支**同一条纪律**（接收者 / 键都只求值一次）。
 if (operatorText === "||=" || operatorText === "&&=" || operatorText === "??=") {
   if (NodeKind(left) === "Identifier") {
     const operator = operatorText === "||=" ? "||" : (operatorText === "&&=" ? "&&" : "??");
@@ -7810,20 +7810,20 @@ if (operatorText === "||=" || operatorText === "&&=" || operatorText === "??=") 
   }
   const logicalLeftKind = NodeKind(left);
   if (logicalLeftKind === "PropertyAccessExpression" || logicalLeftKind === "ElementAccessExpression") {
-    // **成员位上的逻辑赋值**（第 181 轮）✓：`o.a ??= 5` / `o[k] ||= 1` / `o.a.b &&= f()` ✓——
-    // 语义与「简单名字」那一支**一字不差** ✓（`o.a ??= b` 就是 `o.a ?? (o.a = b)` ✓），
-    // 但**不能合成一棵树再降级** ✗：那样左边出现两次 ✓，
-    // 接收者（`f().a ??= 1` 里的 `f()` ✓）与键（`o[k()] ??= 1` 里的 `k()` ✓）会**各求值两遍** ✗。
+    // **成员位上的逻辑赋值**（第 181 轮）：`o.a ??= 5` / `o[k] ||= 1` / `o.a.b &&= f()`——
+    // 语义与「简单名字」那一支**一字不差**（`o.a ??= b` 就是 `o.a ?? (o.a = b)`），
+    // 但**不能合成一棵树再降级**：那样左边出现两次，
+    // 接收者（`f().a ??= 1` 里的 `f()`）与键（`o[k()] ??= 1` 里的 `k()`）会**各求值两遍**。
     //
-    // **两条规矩**（与上面复合赋值那一支同源 ✓）：
-    //   1. **接收者与键都只求值一次** ✓，读与写**用的是同样那两格** ✓；
-    //   2. **结果格的活法照 `??`**：先占结果格 ✓，临时量都在它上面 ✓，
-    //      最后 `Release(result + 1)` ✓——只留结果那一格活着 ✓。
+    // **两条规矩**（与上面复合赋值那一支同源）：
+    //   1. **接收者与键都只求值一次**，读与写**用的是同样那两格**；
+    //   2. **结果格的活法照 `??`**：先占结果格，临时量都在它上面，
+    //      最后 `Release(result + 1)`——只留结果那一格活着。
     //
-    // **极性**与 `&&` / `||` / `??` 那三支**同一个写法** ✓（`jump_if_false` 在**假**时跳 ✓）：
-    //   · `??=`：**空**才写 ✓ ⇒ 条件是 `IsNullish` ✓；
-    //   · `||=`：**假**才写 ✓ ⇒ 条件是 `Not(值)` ✓；
-    //   · `&&=`：**真**才写 ✓ ⇒ 条件就是那个值 ✓。
+    // **极性**与 `&&` / `||` / `??` 那三支**同一个写法**（`jump_if_false` 在**假**时跳）：
+    //   · `??=`：**空**才写 ⇒ 条件是 `IsNullish`；
+    //   · `||=`：**假**才写 ⇒ 条件是 `Not(值)`；
+    //   · `&&=`：**真**才写 ⇒ 条件就是那个值。
     const logicalResult = this.Reserve(1);
     const logicalReceiver = this.LowerExpression(Child(left, "expression"));
     let logicalKeySlot = -1;
@@ -7871,20 +7871,20 @@ if (operatorText === "||=" || operatorText === "&&=" || operatorText === "??=") 
   throw new Error("unimplemented: logical assignment to a non-identifier");
 }
 if (compoundBase !== "") {
-  // **字符串那一半先换路**（第 125 轮）：`s += "x"` 里的右边是**字符串字面量** ✓，
-  // 于是结果一定是字符串 ✓（JS 的 `1 += "x"` 也是 `"1x"` ✓）——交给 `StringConcat` ✓。
-  // 左边是一个**名字**（下面两条分支各自处理读→算→写 ✓），所以这里只换「算」那一步 ✓。
+  // **字符串那一半先换路**（第 125 轮）：`s += "x"` 里的右边是**字符串字面量**，
+  // 于是结果一定是字符串（JS 的 `1 += "x"` 也是 `"1x"`）——交给 `StringConcat`。
+  // 左边是一个**名字**（下面两条分支各自处理读→算→写），所以这里只换「算」那一步。
   const concatRight = compoundBase === "+" && this.IsTextLiteral(Child(node, "right"));
-  // **底运算符由 `CompoundBaseOf` 给** ✓（第 147 轮）：`<<=` / `>>=` / `>>>=` 用
-  // `slice(0, 1)` 会切出 `"<"` / `">"` ✗——那三个字的运算符当时会被当成一个字的 ✓。
-  // **「算」那一步收进 `CombineValues`** ✓（第 149 轮）：`**=` 走的是**内建**那条 ✓，
-  // 而它原来写在这个方法的**三个分支里** ✗（加一条分支就要改三处 ✓）。
+  // **底运算符由 `CompoundBaseOf` 给**（第 147 轮）：`<<=` / `>>=` / `>>>=` 用
+  // `slice(0, 1)` 会切出 `"<"` / `">"`——那三个字的运算符当时会被当成一个字的。
+  // **「算」那一步收进 `CombineValues`**（第 149 轮）：`**=` 走的是**内建**那条，
+  // 而它原来写在这个方法的**三个分支里**（加一条分支就要改三处）。
   //
-  // **`**` 没有通用算子号** ✗（它走内建 ✓）：所以这里**不去问 `BinaryOpOf`** ✓——
-  // 第一版就是在这儿翻的 ✓：`BinaryOpOf("**")` **在进分支之前**就抛 ✗，
-  // 症状是「`2 ** 10` 通了、`acc **= 2` 仍旧报 `unimplemented: binary operator **`」✓
-  //（两种形状**同一个运算符**，一个通一个不通 ✓——那是最容易看漏的一种 ✓）。
-  // **算子号由 `CombineValues` 现算** ✓：它先判 `**` ✓，其余才去问 `BinaryOpOf` ✓。
+  // **`**` 没有通用算子号**（它走内建）：所以这里**不去问 `BinaryOpOf`**——
+  // 第一版就是在这儿翻的：`BinaryOpOf("**")` **在进分支之前**就抛，
+  // 症状是「`2 ** 10` 通了、`acc **= 2` 仍旧报 `unimplemented: binary operator **`」
+  //（两种形状**同一个运算符**，一个通一个不通——那是最容易看漏的一种）。
+  // **算子号由 `CombineValues` 现算**：它先判 `**`，其余才去问 `BinaryOpOf`。
   if (NodeKind(left) === "Identifier") {
     // 复合赋值展开成「读 → 算 → 写」，**读一次**（左边只求值一次）。
     const access = this.ResolveAccess(TextOf(left));
@@ -7895,7 +7895,7 @@ if (compoundBase !== "") {
       this.Emit(Op.Move, read, access.Slot, -1, -1);
     }
     const right = this.LowerExpression(Child(node, "right"));
-    // **右边是字符串字面量就换拼接**（第 125 轮）：`s += "x"` 的结果一定是字符串 ✓。
+    // **右边是字符串字面量就换拼接**（第 125 轮）：`s += "x"` 的结果一定是字符串。
     const sum = concatRight ? this.ConcatValues(read, right) : this.CombineValues(compoundBase, read, right);
     if (access.InEnv) {
       this.Emit(Op.EnvSet, sum, access.Depth, access.Cell, -1);
@@ -7905,11 +7905,11 @@ if (compoundBase !== "") {
     return sum;
   }
   // **左值不是简单名字**（第 119 轮补）：`this.value += by` / `o[k] += 1` 遍地都是，
-  // 而原来这里直接抛 `unimplemented: compound assignment to a non-identifier` ✗。
+  // 而原来这里直接抛 `unimplemented: compound assignment to a non-identifier`。
   //
   // **两条规矩与简单名字那条完全一样**：
   //   1. **接收者只求值一次**（`f().x += 1` 里 `f()` 只调一次）——所以先算接收者、
-  //      读它、写回**同一格**，不走「重算一遍左值」那条路 ✗；
+  //      读它、写回**同一格**，不走「重算一遍左值」那条路；
   //   2. 结果格的活法照 `??` 那一条：**先占结果格**，临时量都在它上面，
   //      最后 `Release(result + 1)` —— 只留结果那一格活着（写回要用的接收者/键
   //      在这之前已经用完了）。
@@ -7952,29 +7952,29 @@ if (compoundBase !== "") {
 if (operatorText === "=") {
   const leftKind = NodeKind(left);
   if (leftKind === "ArrayLiteralExpression" || leftKind === "ObjectLiteralExpression") {
-    // **解构赋值**（第 146 轮）：左边是**模式**，不是值 ✓——所以它绝不能走
-    // `LowerExpression` ✗（那会把 `[a, b]` 当成数组字面量**造一个新数组** ✗，
-    // 而右边那个数组才是要拆的东西 ✓）。原来这里直接抛
-    // `unimplemented: assignment to a non-identifier` ✗。
+    // **解构赋值**（第 146 轮）：左边是**模式**，不是值——所以它绝不能走
+    // `LowerExpression`（那会把 `[a, b]` 当成数组字面量**造一个新数组**，
+    // 而右边那个数组才是要拆的东西）。原来这里直接抛
+    // `unimplemented: assignment to a non-identifier`。
     //
-    // **右边先算完** ✓（JS 的求值顺序 ✓）：整份 RHS 落到一格 ✓，
-    // 然后 `DestructureAssign` 拿那一格去拆 ✓——两半（声明 / 赋值）的读法因此是同一套 ✓。
+    // **右边先算完**（JS 的求值顺序）：整份 RHS 落到一格，
+    // 然后 `DestructureAssign` 拿那一格去拆——两半（声明 / 赋值）的读法因此是同一套。
     //
-    // **赋值表达式的值就是右边** ✓（JS 的口径 ✓）：把那一格留着返回 ✓，
-    // 调用方用完自己退水位 ✓（与 `Identifier` 那一支的约定一字不差 ✓）。
+    // **赋值表达式的值就是右边**（JS 的口径）：把那一格留着返回，
+    // 调用方用完自己退水位（与 `Identifier` 那一支的约定一字不差）。
     const rhs = this.Reserve(1);
     this.LowerInto(rhs, Child(node, "right"));
     this.DestructureAssign(left, rhs);
     return rhs;
   }
   if (leftKind === "PropertyAccessExpression" || leftKind === "ElementAccessExpression") {
-    // **`super.x = v` 要先认出来** ✓（第 326 轮 ✓）：接收者那一格是 `SuperKeyword` ✓——
-    // 它不是普通表达式 ✗（`LowerExpression(SuperKeyword)` 那一支给 `undefined` ✓），
-    // 于是原来落到 `SetProperty(undefined, …)` ✓ ⇒ 报
-    // `assigning a property on a primitive receiver` ✓
-    //（听起来像「往一个数上写属性」✗，其实是**接收者根本没算出来** ✓）。
-    // **与读那一半同一个判据、同一个起点** ✓：判据落在**父节点**上 ✓（`Child(left, "expression")` ✓），
-    // 起点走 `SuperStartSlot` ✓——两处各写一遍就会漂 ✓。
+    // **`super.x = v` 要先认出来**（第 326 轮）：接收者那一格是 `SuperKeyword`——
+    // 它不是普通表达式（`LowerExpression(SuperKeyword)` 那一支给 `undefined`），
+    // 于是原来落到 `SetProperty(undefined, …)` ⇒ 报
+    // `assigning a property on a primitive receiver`
+    //（听起来像「往一个数上写属性」，其实是**接收者根本没算出来**）。
+    // **与读那一半同一个判据、同一个起点**：判据落在**父节点**上（`Child(left, "expression")`），
+    // 起点走 `SuperStartSlot`——两处各写一遍就会漂。
     if (leftKind === "PropertyAccessExpression"
       && NodeKind(Child(left, "expression")) === "SuperKeyword") {
       return this.LowerSuperAssignment(left, Child(node, "right"));
@@ -8009,12 +8009,12 @@ if (operatorText === "=") {
     return value;
   }
   if (leftKind !== "Identifier") {
-    // **这句抛也要说出「是什么、在哪儿」** ✓（第 356 轮 ✓，与 `TextOf` 那一句**同一条纪律** ✓）：
-    // 原来只有「不是标识符」✗ ⇒ 第 354 轮为了知道左边是**一棵 `ModuleDeclaration`** ✓
-    // 还得临时插一次探针 ✓（那次探针本身是对的 ✓：`namespace Outer { export namespace Inner {…} }`
-    // 里那一层嵌套的模块声明**被当成了 `=` 的左操作数** ✓——投影层折成了一个
-    // `BinaryExpression(ModuleDeclaration, EqualsToken, …)` ✓）。
-    // `pos..end` 是投影层**每个节点都带**的 ✓，所以把形状与区间一起打出来**几乎免费** ✓。
+    // **这句抛也要说出「是什么、在哪儿」**（第 356 轮，与 `TextOf` 那一句**同一条纪律**）：
+    // 原来只有「不是标识符」 ⇒ 第 354 轮为了知道左边是**一棵 `ModuleDeclaration`**
+    // 还得临时插一次探针（那次探针本身是对的：`namespace Outer { export namespace Inner {…} }`
+    // 里那一层嵌套的模块声明**被当成了 `=` 的左操作数**——投影层折成了一个
+    // `BinaryExpression(ModuleDeclaration, EqualsToken, …)`）。
+    // `pos..end` 是投影层**每个节点都带**的，所以把形状与区间一起打出来**几乎免费**。
     throw new Error("unimplemented: assignment to a non-identifier (left is " + leftKind
       + " at " + String(left["pos"]) + ".." + String(left["end"]) + ")");
   }
@@ -8034,19 +8034,19 @@ if (operatorText === "=") {
 const base = this.Reserve(2);
 this.LowerInto(base, left);
 this.LowerInto(base + 1, Child(node, "right"));
-// **`+` 里只要有一边是字符串字面量，结果一定是字符串** ✓（JS：ToPrimitive 之后有一边是
-// 字符串就做拼接 ✓，而字面量本来就是字符串 ✓）——于是这里**落成一条语言内建调用** ✓
-// （`StringConcat`，与 `for..in` 落成 `Object.keys` 同一套做法 ✓——`new Date` 原来也走
-// 这一套 ✓，第 145 轮那条特例撤掉了 ✓：值模型补上「对象也能被调用」之后，
-// 降级层不必再认识任何一个全局名 ✓）。
+// **`+` 里只要有一边是字符串字面量，结果一定是字符串**（JS：ToPrimitive 之后有一边是
+// 字符串就做拼接，而字面量本来就是字符串）——于是这里**落成一条语言内建调用**
+// （`StringConcat`，与 `for..in` 落成 `Object.keys` 同一套做法——`new Date` 原来也走
+// 这一套，第 145 轮那条特例撤掉了：值模型补上「对象也能被调用」之后，
+// 降级层不必再认识任何一个全局名）。
 //
-// **为什么非要落成内建**（第 125 轮）✗：引擎的 `RtOp.Add` 只渲染它认识的那几档 ✓，
-// 遇到**对象 / 数组 / 浮点**会**抛** ✓——`"x=" + obj` 这种遍地都是的写法于是跑不起来 ✓。
-// 而「对象渲染成什么」是**语言层**的决定 ✓（`text.xl.md` ✓），引擎不认识它 ✗。
+// **为什么非要落成内建**（第 125 轮）：引擎的 `RtOp.Add` 只渲染它认识的那几档，
+// 遇到**对象 / 数组 / 浮点**会**抛**——`"x=" + obj` 这种遍地都是的写法于是跑不起来。
+// 而「对象渲染成什么」是**语言层**的决定（`text.xl.md`），引擎不认识它。
 //
-// **只在这一种形状上换路** ✓：两边都不是字面量字符串时（`a + b`）照旧走引擎 ✓——
-// 那条路是热路径 ✓，而且真到运行期才发现「有一边是对象」时**照旧抛** ✓（响亮 ✓，
-// 不是静默给错值 ✓）。这条边界写在台账里 ✓。
+// **只在这一种形状上换路**：两边都不是字面量字符串时（`a + b`）照旧走引擎——
+// 那条路是热路径，而且真到运行期才发现「有一边是对象」时**照旧抛**（响亮，
+// 不是静默给错值）。这条边界写在台账里。
 const stringAdd = operatorText === "+"
   && (this.IsTextLiteral(left) || this.IsTextLiteral(Child(node, "right")));
 if (stringAdd) {
@@ -8055,10 +8055,10 @@ if (stringAdd) {
   this.Release(base + 1);
   return base;
 }
-// **幂那一格也换路**（第 149 轮）✓：`**` **不进通用算子表** ✗——
-// 幂的舍入没有标准定死 ✓（各目标的 `pow` 可能差最后一位 ✓），
-// 所以它落成一条**语言内建调用** ✓（与上面 `StringConcat` 同一套做法 ✓、
-// 与 `Math.pow` **同一行代码** ✓）。理由写在 `globals.xl.md` 的 `PowId` 那一段 ✓。
+// **幂那一格也换路**（第 149 轮）：`**` **不进通用算子表**——
+// 幂的舍入没有标准定死（各目标的 `pow` 可能差最后一位），
+// 所以它落成一条**语言内建调用**（与上面 `StringConcat` 同一套做法、
+// 与 `Math.pow` **同一行代码**）。理由写在 `globals.xl.md` 的 `PowId` 那一段。
 if (operatorText === "**") {
   const power = this.PowValues(base, base + 1);
   this.Emit(Op.Move, base, power, -1, -1);
@@ -8075,14 +8075,14 @@ return base;
 
 ## method ConcatValues:(first:int, second:int)=>int
 
-**两个值按字符串拼起来** ✓——走 `StringConcat` 那条**语言内建调用** ✓，
-窗口形状与别的内部调用一模一样 ✓（`[号, 参数…]` + 一条 `host_call`，结果落在窗口第一格 ✓）。
+**两个值按字符串拼起来**——走 `StringConcat` 那条**语言内建调用**，
+窗口形状与别的内部调用一模一样（`[号, 参数…]` + 一条 `host_call`，结果落在窗口第一格）。
 
-**它是 `+` 那一支** ✓（hint `default` ✓，先问 `valueOf` ✓）——
-**模板串走的是 `TemplateConcat`** ✓（hint `string` ✓，先问 `toString` ✓，见下面那一支 ✓）。
+**它是 `+` 那一支**（hint `default`，先问 `valueOf`）——
+**模板串走的是 `TemplateConcat`**（hint `string`，先问 `toString`，见下面那一支）。
 
-**调用方负责把结果搬走**（本方法只保证「窗口第一格是结果」✓）——
-三处调用点各自把那格搬到自己的结果位上 ✓（`+` 搬到 `base` ✓、复合赋值搬到 `result` ✓）。
+**调用方负责把结果搬走**（本方法只保证「窗口第一格是结果」）——
+三处调用点各自把那格搬到自己的结果位上（`+` 搬到 `base`、复合赋值搬到 `result`）。
 
 ```ts
 const window = this.Reserve(3);
@@ -8096,13 +8096,13 @@ return window;
 
 ## method TemplateConcatValues:(first:int, second:int)=>int
 
-**模板串那一支的拼接** ✓（第 288 轮 ✗）——与 `ConcatValues` **只差一个能力号** ✓
-（`TemplateConcat` ✓ ⇒ 建库层那边用 hint `string` ✓）。
+**模板串那一支的拼接**（第 288 轮）——与 `ConcatValues` **只差一个能力号**
+（`TemplateConcat` ⇒ 建库层那边用 hint `string`）。
 
-**为什么不能复用 `ConcatValues`** ✗：JS 里 `"x" + o` 与 `` `${o}` `` 的 `ToPrimitive` **hint 不同** ✓
-（`default` 先问 `valueOf` ✓、`string` 先问 `toString` ✓），
-于是 `{ valueOf: () => 5, toString: () => "T" }` 上两个答案**必须**分别是 `6` 与 `"T"` ✓。
-本仓原来两处都走 `default` ✗ ⇒ `` `${a}` `` 给 `"5"` ✗（**静默错值** ✓）。
+**为什么不能复用 `ConcatValues`**：JS 里 `"x" + o` 与 `` `${o}` `` 的 `ToPrimitive` **hint 不同**
+（`default` 先问 `valueOf`、`string` 先问 `toString`），
+于是 `{ valueOf: () => 5, toString: () => "T" }` 上两个答案**必须**分别是 `6` 与 `"T"`。
+本仓原来两处都走 `default` ⇒ `` `${a}` `` 给 `"5"`（**静默错值**）。
 
 ```ts
 const window = this.Reserve(3);
@@ -8116,15 +8116,15 @@ return window;
 
 ## method PowValues:(first:int, second:int)=>int
 
-**`a ** b`**（第 149 轮）——走 `PowId` 那条**语言内建调用** ✓，
-窗口形状与 `ConcatValues` **一模一样** ✓（`[号, 参数…]` + 一条 `host_call`，结果落在窗口第一格 ✓）。
+**`a ** b`**（第 149 轮）——走 `PowId` 那条**语言内建调用**，
+窗口形状与 `ConcatValues` **一模一样**（`[号, 参数…]` + 一条 `host_call`，结果落在窗口第一格）。
 
-**为什么与字符串拼接长得一样是好事** ✓：这一层已经有「内部调用」这个现成的形状 ✓
-（`StringConcat` / `Object.assign` / `spread_into` / `rest_object` 都是它 ✓）——
-再多一条**不引入任何新机制** ✓，只是在 `install.xl.md` 的名单上多一个号 ✓。
+**为什么与字符串拼接长得一样是好事**：这一层已经有「内部调用」这个现成的形状
+（`StringConcat` / `Object.assign` / `spread_into` / `rest_object` 都是它）——
+再多一条**不引入任何新机制**，只是在 `install.xl.md` 的名单上多一个号。
 
-**调用方负责把结果搬走** ✓（本方法只保证「窗口第一格是结果」✓）：
-二元那条搬到 `base` ✓、复合赋值搬到 `result` ✓。
+**调用方负责把结果搬走**（本方法只保证「窗口第一格是结果」）：
+二元那条搬到 `base`、复合赋值搬到 `result`。
 
 ```ts
 const window = this.Reserve(3);
@@ -8138,15 +8138,15 @@ return window;
 
 ## method CombineValues:(baseText:string, left:int, right:int)=>int
 
-**复合赋值里「算」那一步**（第 149 轮抽出）——三种情形各走各的路 ✓：
+**复合赋值里「算」那一步**（第 149 轮抽出）——三种情形各走各的路：
 
-- `+=` 且右边是字符串字面量 ⇒ `ConcatValues` ✓（第 125 轮，不在这里管 ✓）；
-- `**=` ⇒ `PowValues` ✓（内建那条 ✓）；
-- 其余（算术 / 位运算那十一条 ✓）⇒ `rt_call(BinaryOpOf(底))` ✓。
+- `+=` 且右边是字符串字面量 ⇒ `ConcatValues`（第 125 轮，不在这里管）；
+- `**=` ⇒ `PowValues`（内建那条）；
+- 其余（算术 / 位运算那十一条）⇒ `rt_call(BinaryOpOf(底))`。
 
-**抽出来是因为它原来写在三处** ✗（简单名字 ✓、属性 ✓、下标 ✓ 各一份 ✓）——
-再往里加一条**内建**分支（`**=` ✓）就是三处都要改 ✓，
-而漏一处的症状是「`o.x **= 2` 报 `unimplemented: binary operator **`」✓（离现场很远 ✗）。
+**抽出来是因为它原来写在三处**（简单名字、属性、下标 各一份）——
+再往里加一条**内建**分支（`**=`）就是三处都要改，
+而漏一处的症状是「`o.x **= 2` 报 `unimplemented: binary operator **`」（离现场很远）。
 
 ```ts
 if (baseText === "**") return this.PowValues(left, right);
@@ -8154,11 +8154,11 @@ return this.RtCallValues(BinaryOpOf(baseText), left, right);
 ```
 
 ## method IsTextLiteral:(node:AstNode)=>bool
-**这个节点是不是一个「字面量字符串」** ✓——`StringLiteral` ✓、
-没有内插的模板 ✓、有内插的模板 ✓（三者都是字符串 ✓）。
+**这个节点是不是一个「字面量字符串」**——`StringLiteral`、
+没有内插的模板、有内插的模板（三者都是字符串）。
 
-**它只用来做一件判断**：`+` 的那条换路（见上一节 ✓）——**不是**类型推断 ✗、
-也不假装知道变量的类型 ✗（`let s = "x"; s + obj` 不在换路范围里 ✓，那一条照旧由引擎抛 ✓）。
+**它只用来做一件判断**：`+` 的那条换路（见上一节）——**不是**类型推断、
+也不假装知道变量的类型（`let s = "x"; s + obj` 不在换路范围里，那一条照旧由引擎抛）。
 
 ```ts
 const kind = NodeKind(node);
@@ -8168,7 +8168,7 @@ return kind === "StringLiteral" || kind === "NoSubstitutionTemplateLiteral"
 
 ## method HasSpread:(args:Array<AstNode>)=>bool
 
-**这一串实参里有没有展开**（第 133 轮）——有的话，参数个数**不是编译期的事** ✓。
+**这一串实参里有没有展开**（第 133 轮）——有的话，参数个数**不是编译期的事**。
 
 ```ts
 for (let i = 0; i < args.length; i++) {
@@ -8179,10 +8179,10 @@ return false;
 
 ## method PushArrayElement:(target:int, value:int)=>void
 
-**把一格值接到数组末尾**（第 171 轮）——`SetIndex(数组, 数组.length, 值)` ✓，
-与 `BuildArgsArray` 里那条路同一个写法 ✓（那里是「实参」，这里是「段落」与「实参」两用 ✓）。
+**把一格值接到数组末尾**（第 171 轮）——`SetIndex(数组, 数组.length, 值)`，
+与 `BuildArgsArray` 里那条路同一个写法（那里是「实参」，这里是「段落」与「实参」两用）。
 
-抽出来的理由与 `EmitCallArray` 一样 ✓：这段是**五个槽的操作数** ✗，抄第二遍就是第二处会写错的机会 ✓。
+抽出来的理由与 `EmitCallArray` 一样：这段是**五个槽的操作数**，抄第二遍就是第二处会写错的机会。
 
 ```ts
 const at = this.RtCall2(RtOp.GetProp, target, this.Program().AddConst(Constant.OfString(UnitsOf("length"))));
@@ -8197,22 +8197,22 @@ this.Release(at);
 
 ## method TemplatePartText:(node:AstNode)=>string
 
-模板**某一段的正文**（第 171 轮）✓：投影对模板段给的是**带反引号的原文** ✓
-（`` `a` `` 给 `` "`a`" `` ✓、`` `c` `` 给 `` "`c`" `` ✓）✓——所以这里把那对反引号剥掉 ✓，
-**两种口径都接住** ✓（有反引号才剥 ✓，与 `NoSubstitutionTemplateLiteral` 那一支同一条规矩 ✓）。
+模板**某一段的正文**（第 171 轮）：投影对模板段给的是**带反引号的原文**
+（`` `a` `` 给 `` "`a`" ``、`` `c` `` 给 `` "`c`" ``）——所以这里把那对反引号剥掉，
+**两种口径都接住**（有反引号才剥，与 `NoSubstitutionTemplateLiteral` 那一支同一条规矩）。
 
-**第 333 轮起它只用来拿「原文」那一半** ✓（`raw` ✓）：**带内插**的段投影给的就是原文 ✓，
-直接用 ✓；**没有内插**的那一档投影给的是**熟的** ✗，所以这时要**回头看源码** ✓
-（`SourceText` 那一段写着为什么 ✓）——按节点的区间切、再把两头那对反引号剥掉 ✓。
-**没给源码时（`tests/runtime/check.mjs` 那十几处 `new Lowering()` ✓）退回熟串** ✓：
-那里量的是 IR 形状 ✓、不看 `raw` ✓，而**安静地算错**比**响亮地抛**更糟 ✗——所以这一支留在明处 ✓。
+**第 333 轮起它只用来拿「原文」那一半**（`raw`）：**带内插**的段投影给的就是原文，
+直接用；**没有内插**的那一档投影给的是**熟的**，所以这时要**回头看源码**
+（`SourceText` 那一段写着为什么）——按节点的区间切、再把两头那对反引号剥掉。
+**没给源码时（`tests/runtime/check.mjs` 那十几处 `new Lowering()`）退回熟串**：
+那里量的是 IR 形状、不看 `raw`，而**安静地算错**比**响亮地抛**更糟——所以这一支留在明处。
 
 ```ts
 let raw = TextOf(node);
 if (raw.length >= 2 && raw[0] === "`" && raw[raw.length - 1] === "`") {
   raw = raw.slice(1, raw.length - 1);
 }
-// **没有内插的那一档：正文是熟的，原文要去源码里切** ✓（第 333 轮 ✓）。
+// **没有内插的那一档：正文是熟的，原文要去源码里切**（第 333 轮）。
 if (NodeKind(node) === "NoSubstitutionTemplateLiteral" && this.SourceText !== "") {
   const start = node["pos"] as number;
   const end = node["end"] as number;
@@ -8225,23 +8225,23 @@ return raw;
 
 ## method LowerTaggedTemplate:(node:AstNode)=>int
 
-**`` tag`a${x}b` ``**（第 171 轮）✓：JS 把它变成**一次普通调用** ✓——`tag(parts, x)` ✓，
-其中 `parts` 是**段落数组** ✓（这里是 `["a", "b"]` ✓）。
+**`` tag`a${x}b` ``**（第 171 轮）：JS 把它变成**一次普通调用**——`tag(parts, x)`，
+其中 `parts` 是**段落数组**（这里是 `["a", "b"]`）。
 
-原来降级期报 `unimplemented: expression TaggedTemplateExpression` ✗（**整份文件进不来** ✗），
-而 `` sql`…` `` / `` styled.div`…` `` / `` gql`…` `` 这些写法在真实 `.ts` 里很常见 ✓。
+原来降级期报 `unimplemented: expression TaggedTemplateExpression`（**整份文件进不来**），
+而 `` sql`…` `` / `` styled.div`…` `` / `` gql`…` `` 这些写法在真实 `.ts` 里很常见。
 
-**段落怎么取** ✓（TS 的形状 ✓）：`TemplateExpression` 的 Data 是
-`[TemplateHead, TemplateSpan…]` ✓，每个 `TemplateSpan` 是 `[TemplateMiddle|TemplateTail, expression]` ✓
-（TS 自己的字段名就是 `literal` 与 `expression` ✓，投影按同一套名字存 ✓）；
-**没有内插**时整个模板就是一个 `NoSubstitutionTemplateLiteral` ✓（段落只有一个 ✓、实参没有 ✓）。
+**段落怎么取**（TS 的形状）：`TemplateExpression` 的 Data 是
+`[TemplateHead, TemplateSpan…]`，每个 `TemplateSpan` 是 `[TemplateMiddle|TemplateTail, expression]`
+（TS 自己的字段名就是 `literal` 与 `expression`，投影按同一套名字存）；
+**没有内插**时整个模板就是一个 `NoSubstitutionTemplateLiteral`（段落只有一个、实参没有）。
 
-**`raw` 这一档第 333 轮补齐了** ✓：JS 给标签的第一个实参是**段落数组** ✓，
-它身上还挂着一格 `raw` ✓（**同一批段落的原文** ✓——`` `a\nb` `` 的 `raw[0]` 是
-`a` + 反斜杠 + `n` + `b` ✓，而 `parts[0]` 里那个 `\n` 是**真的换行** ✓）。
-两半都实测过 ✓：`String.raw` / 自带 `tag` 的 `parts.raw[0]` ✓。
-**同一个调用点共用一个段落数组那条身份约定** ✗（JS 要求每次求值拿到**同一个**数组对象 ✓）
-这里也还没做 ✓：每次求值新建一个 ✓（对绝大多数 tag 无影响 ✓，对拿它当缓存键的库有影响 ✗）✓。
+**`raw` 这一档第 333 轮补齐了**：JS 给标签的第一个实参是**段落数组**，
+它身上还挂着一格 `raw`（**同一批段落的原文**——`` `a\nb` `` 的 `raw[0]` 是
+`a` + 反斜杠 + `n` + `b`，而 `parts[0]` 里那个 `\n` 是**真的换行**）。
+两半都实测过：`String.raw` / 自带 `tag` 的 `parts.raw[0]`。
+**同一个调用点共用一个段落数组那条身份约定**（JS 要求每次求值拿到**同一个**数组对象）
+这里也还没做：每次求值新建一个（对绝大多数 tag 无影响，对拿它当缓存键的库有影响）。
 
 ```ts
 const callee = this.LowerExpression(Child(node, "tag"));
@@ -8250,18 +8250,18 @@ const args = this.Reserve(1);
 this.EmitRt(RtOp.NewArray, args, args, 0);
 const parts = this.Reserve(1);
 this.EmitRt(RtOp.NewArray, parts, parts, 0);
-// **原文那一摞也要一个数组** ✓（第 333 轮 ✓）：它就是 `parts.raw` ✓。
+// **原文那一摞也要一个数组**（第 333 轮）：它就是 `parts.raw`。
 const raws = this.Reserve(1);
 this.EmitRt(RtOp.NewArray, raws, raws, 0);
 const texts: Array<string> = [];
 const rawTexts: Array<string> = [];
 const substitutions: Array<AstNode> = [];
 if (NodeKind(template) === "NoSubstitutionTemplateLiteral") {
-  // **没有内插那一档：熟的走 `TemplateCookedText`、原文走 `TemplatePartText`** ✓（第 333 轮 ✓）——
-  // 两格**不是同一个字符串** ✗：`` `c\td` `` 的熟串是**三个**字符（一个真制表符 ✓）、
-  // 原文是**四个**（反斜杠 + `t` ✓）。第一版把同一个字符串塞进两摞 ✗，
-  // 症状是 `parts.raw[0]` 对 ✓、`parts[0]` 错 ✓（`tag\`c\td\`` 给 `c\td|c\td` ✓，
-  // 而 Node 给 `c\td|c<TAB>d` ✓——**只错一半** ✗，最难看见的那一种 ✓）。
+  // **没有内插那一档：熟的走 `TemplateCookedText`、原文走 `TemplatePartText`**（第 333 轮）——
+  // 两格**不是同一个字符串**：`` `c\td` `` 的熟串是**三个**字符（一个真制表符）、
+  // 原文是**四个**（反斜杠 + `t`）。第一版把同一个字符串塞进两摞，
+  // 症状是 `parts.raw[0]` 对、`parts[0]` 错（`tag\`c\td\`` 给 `c\td|c\td`，
+  // 而 Node 给 `c\td|c<TAB>d`——**只错一半**，最难看见的那一种）。
   texts.push(this.TemplateCookedText(template));
   rawTexts.push(this.TemplatePartText(template));
 } else {
@@ -8287,23 +8287,23 @@ for (let i = 0; i < rawTexts.length; i++) {
   this.PushArrayElement(raws, slot);
   this.Release(slot);
 }
-// **把 `raw` 挂到段落数组上** ✓：`set_prop(parts, "raw", raws)` ✓——
-// 走的是降级层现成的那条「挂属性」的路 ✓（`SetPropertyConst` ✓，一个引擎改动都不用 ✓）。
+// **把 `raw` 挂到段落数组上**：`set_prop(parts, "raw", raws)`——
+// 走的是降级层现成的那条「挂属性」的路（`SetPropertyConst`，一个引擎改动都不用）。
 this.SetPropertyConst(parts, this.Program().AddConst(Constant.OfString(UnitsOf("raw"))), raws);
 this.Release(raws);
 this.PushArrayElement(args, parts);
 for (let i = 0; i < substitutions.length; i++) {
   this.PushArrayElement(args, this.LowerExpression(substitutions[i]));
 }
-// **这一句是第 172 轮加上的，它当时给的理由在第 176 轮被量倒了** ✓（这句留着，理由换了 ✓）：
-// 第 172 轮写的是「少了它，`` tag`abc`.length `` 这类『标签模板当接收者』会读到函数本身」✗。
-// 第 176 轮把这一句**临时注掉**重跑：`runtime:check` **214/214** ✓、
-// `runtime:cli` **54/54** ✓（含新语料 `54-tagged-template-suffix.ts` ✓）——**全是绿的** ✗。
-// 也就是说那个症状的根子在**投影**（标签与模板串被拆成两格 ✓，第 176 轮修 ✓），与水位无关 ✓；
-// 第 172 轮那次「有效」是在 AST 还错着的时候读的 ✗（第 173 轮已经记过一次同型的错 ✗）。
-// **留着它的理由**：`Reserve` / `Release` 是本层**每一处**都守的规矩 ✓（全文件 75 处 `Release` ✓），
-// 临时槽（`args` / `parts` / 各段落常量）用完就还 ✓；去掉只是让这一帧的槽数白涨 ✓，不影响语义 ✓。
-// **它现在没有判据量着** ✓——这一点如实记在这里 ✓，不假装它有 ✓。
+// **这一句是第 172 轮加上的，它当时给的理由在第 176 轮被量倒了**（这句留着，理由换了）：
+// 第 172 轮写的是「少了它，`` tag`abc`.length `` 这类『标签模板当接收者』会读到函数本身」。
+// 第 176 轮把这一句**临时注掉**重跑：`runtime:check` **214/214**、
+// `runtime:cli` **54/54**（含新语料 `54-tagged-template-suffix.ts`）——**全是绿的**。
+// 也就是说那个症状的根子在**投影**（标签与模板串被拆成两格，第 176 轮修），与水位无关；
+// 第 172 轮那次「有效」是在 AST 还错着的时候读的（第 173 轮已经记过一次同型的错）。
+// **留着它的理由**：`Reserve` / `Release` 是本层**每一处**都守的规矩（全文件 75 处 `Release`），
+// 临时槽（`args` / `parts` / 各段落常量）用完就还；去掉只是让这一帧的槽数白涨，不影响语义。
+// **它现在没有判据量着**——这一点如实记在这里，不假装它有。
 this.Release(args + 1);
 const result = this.EmitCallArray(callee, args, -1);
 return result;
@@ -8311,16 +8311,16 @@ return result;
 
 ## method BuildArgsArray:(args:Array<AstNode>)=>int
 
-**把一串实参铺成一个数组**（第 133 轮）——`call_array` 要的就是它 ✓。
+**把一串实参铺成一个数组**（第 133 轮）——`call_array` 要的就是它。
 
-**为什么必须有这一步** ✗：`call` 的参数是「从某格开始的一段连续槽 + 一个**定长**的个数」✓，
-而 `f(1, ...xs, 2)` 的个数**只有运行期才知道** ✗。所以先把实参收进堆里一个数组 ✓，
-再让被调方那一侧按数组长度铺开 ✓（`ir.xl.md` 的 `Op.CallArray` ✓）。
+**为什么必须有这一步**：`call` 的参数是「从某格开始的一段连续槽 + 一个**定长**的个数」，
+而 `f(1, ...xs, 2)` 的个数**只有运行期才知道**。所以先把实参收进堆里一个数组，
+再让被调方那一侧按数组长度铺开（`ir.xl.md` 的 `Op.CallArray`）。
 
-**每个实参都接在末尾**（`SetIndex(数组, 数组.length, 值)` ✓）——
-**没有「洞」这一档** ✓（实参表里本来就没有洞 ✓），所以这里用不上数组字面量那条
-「静态下标 / 动态下标」的分岔 ✓；**展开的实参**走 `spread_into` 那条内建调用 ✓
-（与 `[...xs]` 完全同一条路 ✓）。
+**每个实参都接在末尾**（`SetIndex(数组, 数组.length, 值)`）——
+**没有「洞」这一档**（实参表里本来就没有洞），所以这里用不上数组字面量那条
+「静态下标 / 动态下标」的分岔；**展开的实参**走 `spread_into` 那条内建调用
+（与 `[...xs]` 完全同一条路）。
 
 ```ts
 const array = this.Reserve(1);
@@ -8354,12 +8354,12 @@ return array;
 
 ## method EmitCallArray:(callee:int, argsArray:int, self:int)=>int
 
-**发一条 `call_array` 并返回结果格**（第 133 轮）——三处调用点共用 ✓
-（通用调用 / 方法调用 / 计算成员调用 ✓）。
+**发一条 `call_array` 并返回结果格**（第 133 轮）——三处调用点共用
+（通用调用 / 方法调用 / 计算成员调用）。
 
-**为什么再抽一层**：形状是「四个操作数、其中两个是槽、结果**不在参数基址上**」✓——
-写三遍就是**三处会写错操作数**的机会 ✗，而算错槽的症状是「值悄悄换成别的」✗
-（这个工程最贵的一种错 ✓）。
+**为什么再抽一层**：形状是「四个操作数、其中两个是槽、结果**不在参数基址上**」——
+写三遍就是**三处会写错操作数**的机会，而算错槽的症状是「值悄悄换成别的」
+（这个工程最贵的一种错）。
 
 ```ts
 const dest = this.Reserve(1);
@@ -8375,7 +8375,7 @@ return dest;
 三条路，**区别在 `this`**：
 
 - **`o.m(...)`** → `call_method`（`this` 是接收者，键是**常量**）；
-- **`o[k](...)`** → 先按键取值（**`get_index`** ✓，它替我们做 `ToPropertyKey` ✓），
+- **`o[k](...)`** → 先按键取值（**`get_index`**，它替我们做 `ToPropertyKey`），
   再用 `Op.Call` 的 **`D` 操作数**把接收者当 `this` 递过去——**`this` 同样是接收者**。
   **不需要 `call_index` 那样的新算子**：值键与 `this` 槽两件都是现成的；
 - **别的形状**（标识符、调用结果 `f()()`、括号表达式…）→ 通用那条路：
@@ -8384,23 +8384,23 @@ return dest;
 **参数个数为 0 时也要占一格**：结果是写在参数基址上的，没有基址就没地方写。
 
 ```ts
-// **`...` 那一层要先剥掉** ✓（第 309 轮 ✓）——**展开位里的调用**投影出来是
-// `CallExpression{ expression: SpreadElement{ ElementAccessExpression } }` ✓
-// （展开的**被操作数**是那次调用 ✓，投影把调用套在 `SpreadElement` **外面** ✓）。
+// **`...` 那一层要先剥掉**（第 309 轮）——**展开位里的调用**投影出来是
+// `CallExpression{ expression: SpreadElement{ ElementAccessExpression } }`
+// （展开的**被操作数**是那次调用，投影把调用套在 `SpreadElement` **外面**）。
 //
-// **不剥会怎样** ✗：`NodeKind(callee)` 是 `SpreadElement` ✓，下面三条分支**一条都不命中** ✓，
-// 于是落到「别的形状」那条通用路 ✓ ⇒ **接收者没了** ✗（`D` 给 `-1` ✓、`this` 是 `undefined` ✓）。
-// 症状有两副面孔 ✓：`[...o["m"]()]` 报 `cannot read properties of undefined` ✓
-//（听起来像「对象是空的」✗）、`[...a[Symbol.iterator]()]` 报
-// `this method needs an array receiver` ✓（内建拿到的 `self` 是 `undefined` ✓）。
+// **不剥会怎样**：`NodeKind(callee)` 是 `SpreadElement`，下面三条分支**一条都不命中**，
+// 于是落到「别的形状」那条通用路 ⇒ **接收者没了**（`D` 给 `-1`、`this` 是 `undefined`）。
+// 症状有两副面孔：`[...o["m"]()]` 报 `cannot read properties of undefined`
+//（听起来像「对象是空的」）、`[...a[Symbol.iterator]()]` 报
+// `this method needs an array receiver`（内建拿到的 `self` 是 `undefined`）。
 //
-// **为什么一直没露** ✗：语料里那种写法大多是**箭头函数** ✓（不看 `this` ✓）——
-// `{ m: () => [1, 2] }` 恰好全对 ✓，换成 `{ xs: [1, 2], m() { return this.xs } }`
-// 当场现形 ✓（实测 ✓）。
+// **为什么一直没露**：语料里那种写法大多是**箭头函数**（不看 `this`）——
+// `{ m: () => [1, 2] }` 恰好全对，换成 `{ xs: [1, 2], m() { return this.xs } }`
+// 当场现形（实测）。
 //
-// **剥掉之后与 `o[k]()` 那条路一字不差** ✓：`SpreadElement` 在别处本来就会被
-// `LowerExpression` 剥掉 ✓（第 234 轮那一段 ✓）——差别正是**在哪一步剥** ✗
-//（在那里剥已经太晚：分支已经选完了 ✓）。
+// **剥掉之后与 `o[k]()` 那条路一字不差**：`SpreadElement` 在别处本来就会被
+// `LowerExpression` 剥掉（第 234 轮那一段）——差别正是**在哪一步剥**
+//（在那里剥已经太晚：分支已经选完了）。
 const calleeNode = Child(node, "expression");
 const callee = NodeKind(calleeNode) === "SpreadElement"
   ? (OptionalChild(calleeNode, "expression") ?? calleeNode)
@@ -8413,31 +8413,31 @@ if (calleeKind === "ElementAccessExpression") {
   // **计算成员调用 `o[k]()`**：先按键取值，再用 `Op.Call` 的 `D` 操作数把**接收者当 `this`**
   // 递过去——这两件都是现成的（值键 + 第 47 轮加的那个 `this` 槽），所以这里一个**新算子都不需要**。
   //
-  // **取值走 `get_index`、不走 `get_prop`**（第 178 轮修 ✓）：JS 的 `o[k]` 是
-  // `ToPropertyKey(k)` 之后再查 ✓——`get_prop` **只收字符串 / 符号键** ✗，键是**数**
-  // 就当场抛「property keys must be strings or symbols」✗。于是
+  // **取值走 `get_index`、不走 `get_prop`**（第 178 轮修）：JS 的 `o[k]` 是
+  // `ToPropertyKey(k)` 之后再查——`get_prop` **只收字符串 / 符号键**，键是**数**
+  // 就当场抛「property keys must be strings or symbols」。于是
   // **`arr[0](...)` / `handlers[key](...)` 这类「从表里取出一个再调」的写法**
-  // 整份文件跑不了 ✗（`o["m"]()` 因为键本来就是字符串 ✓ 所以一直是对的 ✗——
-  // 这也是它藏这么久的原因 ✓）。`get_index` 那一支**本来就替我们做完了这件事** ✓
-  //（`vm.xl.md`：数组走格子 ✓、其余把键字符串化再走属性查找 ✓、符号键原样 ✓，
-  // 与 `o[k] = v` / `k in o` 是同一套口径 ✓）。
+  // 整份文件跑不了（`o["m"]()` 因为键本来就是字符串 所以一直是对的——
+  // 这也是它藏这么久的原因）。`get_index` 那一支**本来就替我们做完了这件事**
+  //（`vm.xl.md`：数组走格子、其余把键字符串化再走属性查找、符号键原样，
+  // 与 `o[k] = v` / `k in o` 是同一套口径）。
   const elementReceiver = this.LowerExpression(Child(callee, "expression"));
   const elementKey = this.LowerExpression(Child(callee, "argumentExpression"));
   const elementFn = this.RtCallValues(RtOp.GetIndex, elementReceiver, elementKey);
   const selfSlot = this.Reserve(1);
   this.Emit(Op.Move, selfSlot, elementReceiver, -1, -1);
-  // **`o[k]?.()`**（第 325 轮 ✓）：空值在**取出来的那个值自己**身上 ✓——
-  // 与 `o.m?.()` 那一格**同一个语义** ✓（第 152 轮分过三种：接收者上空 ✓、
-  // 取出来的方法上空 ✓、**基名自己空** ✗——这一处与下面那条通用路各补一格 ✓）。
+  // **`o[k]?.()`**（第 325 轮）：空值在**取出来的那个值自己**身上——
+  // 与 `o.m?.()` 那一格**同一个语义**（第 152 轮分过三种：接收者上空、
+  // 取出来的方法上空、**基名自己空**——这一处与下面那条通用路各补一格）。
   const elementOptional = OptionalChild(node, "questionDotToken") !== null;
   let elementSkip = -1;
   if (elementOptional) elementSkip = this.JumpIfNullish(elementFn);
   const elementArgs = ListOf(node, "arguments");
   const elementCount = elementArgs.length;
   if (this.HasSpread(elementArgs)) {
-    // **`o[k](...xs)`**（第 133 轮）：`elementFn` 已经算成值了 ✓，接收者也在一格上 ✓——
-    // 与普通方法调用那条展开分支是同一个形状 ✓（`this` 用 `D` 操作数递过去 ✓，
-    // 与上面那条非展开的 `Op.Call` 一字不差 ✓）。
+    // **`o[k](...xs)`**（第 133 轮）：`elementFn` 已经算成值了，接收者也在一格上——
+    // 与普通方法调用那条展开分支是同一个形状（`this` 用 `D` 操作数递过去，
+    // 与上面那条非展开的 `Op.Call` 一字不差）。
     const spreadArray = this.BuildArgsArray(elementArgs);
     const spreadDest = this.EmitCallArray(elementFn, spreadArray, selfSlot);
     if (elementOptional) {
@@ -8473,17 +8473,17 @@ if (calleeKind === "SuperKeyword") {
   const selfSlot = this.Reserve(1);
   this.Emit(Op.LoadThis, selfSlot, -1, -1, -1);
   const superArgs = ListOf(node, "arguments");
-  // **`super(...xs)`**（第 141 轮做掉了 ✓）：与 `f(...xs)` 走**同一条** `call_array` ✓——
-  // 那一族算子本来就带 `this` 操作数 ✓（`EmitCallArray(callee, argsArray, self)` ✓），
-  // 所以「拿当前实例当 `this`、按数组铺参数」**一个字的新算子都不用加** ✓。
+  // **`super(...xs)`**（第 141 轮做掉了）：与 `f(...xs)` 走**同一条** `call_array`——
+  // 那一族算子本来就带 `this` 操作数（`EmitCallArray(callee, argsArray, self)`），
+  // 所以「拿当前实例当 `this`、按数组铺参数」**一个字的新算子都不用加**。
   //
-  // **上一轮（133）这里抛** ✗（「unimplemented: spreading into super(...)」✓）——
-  // 那时 `CallArray` 的 `this` 操作数虽然已经在了 ✓，但没人把它与 `super` 接起来 ✓。
-  // 接起来之后，**派生类的默认构造函数**才有办法转发参数 ✓（见 `LowerClass` 那一支 ✓）。
+  // **上一轮（133）这里抛**（「unimplemented: spreading into super(...)」）——
+  // 那时 `CallArray` 的 `this` 操作数虽然已经在了，但没人把它与 `super` 接起来。
+  // 接起来之后，**派生类的默认构造函数**才有办法转发参数（见 `LowerClass` 那一支）。
   if (this.HasSpread(superArgs)) {
     const spreadArray = this.BuildArgsArray(superArgs);
     const spreadDest = this.EmitCallArray(parent, spreadArray, selfSlot);
-    // **字段初始化跟着走**（与定长那条一字不差 ✓）：`super(...)` 一降级完，`this` 就一定存在 ✓。
+    // **字段初始化跟着走**（与定长那条一字不差）：`super(...)` 一降级完，`this` 就一定存在。
     this.FieldInitDue();
     return spreadDest;
   }
@@ -8495,17 +8495,17 @@ if (calleeKind === "SuperKeyword") {
   this.Emit(Op.Call, parent, superBase, superCount, selfSlot);
   // **退到结果之上**（父类构造函数那格、`this` 那格都在下面，退过去就把活格交出去了）。
   this.Release(superBase + 1);
-  // **实例字段的初始化式跟着 `super(...)` 走**（第 128 轮）——**就在调用点接住** ✓。
+  // **实例字段的初始化式跟着 `super(...)` 走**（第 128 轮）——**就在调用点接住**。
   //
-  // **为什么不能靠「语句循环里数语句」**（这一轮实测踩的）：`super(...)` **可能嵌在别的语句里** ✗
-  // （`constructor(id) { const doubled = id * 2; super(doubled); }` 里它确实自成一条 ✓，
-  // 但 `super(x) ? a : b` / `f(super(x))` 这类形状迟早会有 ✓）。数语句那条路在
-  // 「`super` 出现在语句**中部**」时会**提前**发字段初始化 ✗——现场是
-  // `load_this` 落在 `super` 的参数格上 ✗，父类构造函数拿到的是**接收者对象**当实参 ✗，
-  // 于是 `this.id` 是个对象，`this.id * 10` 报 `arithmetic on a non-numeric operand` ✓
-  // （离现场两步远）✓。
+  // **为什么不能靠「语句循环里数语句」**（这一轮实测踩的）：`super(...)` **可能嵌在别的语句里**
+  // （`constructor(id) { const doubled = id * 2; super(doubled); }` 里它确实自成一条，
+  // 但 `super(x) ? a : b` / `f(super(x))` 这类形状迟早会有）。数语句那条路在
+  // 「`super` 出现在语句**中部**」时会**提前**发字段初始化——现场是
+  // `load_this` 落在 `super` 的参数格上，父类构造函数拿到的是**接收者对象**当实参，
+  // 于是 `this.id` 是个对象，`this.id * 10` 报 `arithmetic on a non-numeric operand`
+  // （离现场两步远）。
   //
-  // **调用点接住就没有这个猜的成分**：`super(...)` 一降级完，`this` 就一定存在了 ✓。
+  // **调用点接住就没有这个猜的成分**：`super(...)` 一降级完，`this` 就一定存在了。
   this.FieldInitDue();
   return superBase;
 }
@@ -8518,8 +8518,8 @@ if (calleeKind === "Identifier") {
     const capability = this.CapabilityOf(text);
     if (capability >= 0) {
       const args0 = ListOf(node, "arguments");
-      // **宿主能力调用收的是定长窗口**（形状是 `[号, 参数…]` + `host_call` ✓）——
-      // 展开那种「个数只有运行期才知道」进不去 ✗。**响亮地抛** ✓（不做也不装 ✓）。
+      // **宿主能力调用收的是定长窗口**（形状是 `[号, 参数…]` + `host_call`）——
+      // 展开那种「个数只有运行期才知道」进不去。**响亮地抛**（不做也不装）。
       if (this.HasSpread(args0)) {
         throw new Error("unimplemented: spreading into a host capability call");
       }
@@ -8545,21 +8545,21 @@ if (calleeKind === "Identifier") {
 }
 const args = ListOf(node, "arguments");
 const count = args.length;
-// **`f?.()`：空值在「被调的那个值自己」身上** ✓（第 325 轮 ✓）——可选链的**第三格** ✓
-// （前两格第 152 轮就分过了 ✓：`o?.m()` 空在**接收者**上 ✓、`o.m?.()` 空在**取出来的方法**上 ✓）。
-// **修之前这一条整格没做** ✗：`?.` 被无视 ✓ ⇒ 照样去调 `undefined` ✓，报
-// `cannot call a non-closure value` ✓（听起来像「那个名字不是函数」✗，其实是**该短路** ✓）。
+// **`f?.()`：空值在「被调的那个值自己」身上**（第 325 轮）——可选链的**第三格**
+// （前两格第 152 轮就分过了：`o?.m()` 空在**接收者**上、`o.m?.()` 空在**取出来的方法**上）。
+// **修之前这一条整格没做**：`?.` 被无视 ⇒ 照样去调 `undefined`，报
+// `cannot call a non-closure value`（听起来像「那个名字不是函数」，其实是**该短路**）。
 //
-// **守卫要排在实参求值之前** ✓：JS 里 `f?.(a())` 在 `f` 是空值时**连 `a()` 都不求** ✓
-// ——排在后面就是把实参的副作用也跑了 ✗（**静默错值**的一种 ✓）。
-// **结果落在结果格里** ✓（缺省是 `undefined` ✓，与 `LowerAccess` 那条可选链**同一个形状** ✓：
-// 「跳过去、给一个 `undefined`、再跳回来」✓）。
+// **守卫要排在实参求值之前**：JS 里 `f?.(a())` 在 `f` 是空值时**连 `a()` 都不求**
+// ——排在后面就是把实参的副作用也跑了（**静默错值**的一种）。
+// **结果落在结果格里**（缺省是 `undefined`，与 `LowerAccess` 那条可选链**同一个形状**：
+// 「跳过去、给一个 `undefined`、再跳回来」）。
 const optionalCall = OptionalChild(node, "questionDotToken") !== null;
 let callSkip = -1;
 if (optionalCall) callSkip = this.JumpIfNullish(calleeSlot);
 if (this.HasSpread(args)) {
-  // **`f(...xs)`**（第 133 轮）：被调方先算成一格 ✓，实参铺成数组 ✓，然后 `call_array` ✓。
-  // **`this` 给 `-1`** ✓（普通调用没有接收者 ✓——与上面那条 `Op.Call` 的 `D = -1` 同一条语义 ✓）。
+  // **`f(...xs)`**（第 133 轮）：被调方先算成一格，实参铺成数组，然后 `call_array`。
+  // **`this` 给 `-1`**（普通调用没有接收者——与上面那条 `Op.Call` 的 `D = -1` 同一条语义）。
   const spreadArray = this.BuildArgsArray(args);
   const spreadDest = this.EmitCallArray(calleeSlot, spreadArray, -1);
   if (optionalCall) this.PatchOptionalCall(callSkip, spreadDest);
@@ -8571,20 +8571,20 @@ for (let i = 0; i < count; i++) {
 }
 this.Emit(Op.Call, calleeSlot, base, count, -1);
 this.Release(base + 1);
-// **`optionalCall` 时才多那两条指令** ✓（不要实参那一条路一个字节都没变 ✓）。
+// **`optionalCall` 时才多那两条指令**（不要实参那一条路一个字节都没变）。
 if (optionalCall) this.PatchOptionalCall(callSkip, base);
 return base;
 ```
 
 ## method PatchOptionalCall:(skipIndex:int, result:int)=>void
 
-**可选调用短路时那一小段**（第 325 轮抽出来 ✓）——`LowerAccess` 里的可选链
-与 `LowerCall` 里的可选调用**用的是同一个形状** ✓（「跳过去、写一个 `undefined`、
-再跳回来」✓），所以只写这一处 ✓。
+**可选调用短路时那一小段**（第 325 轮抽出来）——`LowerAccess` 里的可选链
+与 `LowerCall` 里的可选调用**用的是同一个形状**（「跳过去、写一个 `undefined`、
+再跳回来」），所以只写这一处。
 
-**为什么值得单开** ✗：这一小段有**两个回填点**（`skipIndex` 是守卫那条 ✓、
-`done` 是自己那条 ✓）与**一个常量**（`undefined` ✓）——两处调用点各抄一遍，
-抄错的那个表现是「短路之后拿到上一格的值」✓（**静默错值** ✓，而且只在空值那一趟现形 ✓）。
+**为什么值得单开**：这一小段有**两个回填点**（`skipIndex` 是守卫那条、
+`done` 是自己那条）与**一个常量**（`undefined`）——两处调用点各抄一遍，
+抄错的那个表现是「短路之后拿到上一格的值」（**静默错值**，而且只在空值那一趟现形）。
 
 ```ts
 const done = this.Here();
@@ -8596,23 +8596,23 @@ this.PatchTarget(done, this.Here());
 
 # method CookTemplateText:(raw:string)=>string
 
-**模板段的原文 → 那一段的正文** ✓（第 333 轮 ✓）——ES 的 `TV`（模板值）那一步 ✓。
+**模板段的原文 → 那一段的正文**（第 333 轮）——ES 的 `TV`（模板值）那一步。
 
-**它按规范逐条来** ✓，一张表就是全部：
+**它按规范逐条来**，一张表就是全部：
 
 | 原文 | 正文 |
 | --- | --- |
-| `\n` `\t` `\r` `\b` `\f` `\v` | 对应的那一个字符 ✓ |
-| `\0`（后面**不是**数字） | `NUL` ✓ |
-| `\xHH` / `\uHHHH` / `\u{…}` | 那一个码元 / 码位 ✓ |
-| 反斜杠 + **换行** | **什么都不产出** ✓（行继续 ✓，`\r\n` 与 `\r` 都算一个 ✓） |
-| 反斜杠 + 别的任何字符 | **就是那个字符** ✓（`\\` ✓ / `` \` `` ✓ / `\$` ✓ / `\'` ✓ / `\"` ✓） |
-| 原文里的 `\r\n` / `\r` | 一个 `\n` ✓（行终止符归一 ✓） |
+| `\n` `\t` `\r` `\b` `\f` `\v` | 对应的那一个字符 |
+| `\0`（后面**不是**数字） | `NUL` |
+| `\xHH` / `\uHHHH` / `\u{…}` | 那一个码元 / 码位 |
+| 反斜杠 + **换行** | **什么都不产出**（行继续，`\r\n` 与 `\r` 都算一个） |
+| 反斜杠 + 别的任何字符 | **就是那个字符**（`\\` / `` \` `` / `\$` / `\'` ✓ / `\"` ✓） |
+| 原文里的 `\r\n` / `\r` | 一个 `\n`（行终止符归一） |
 
-**为什么这件事在降级层、而不是在投影层** ✗：投影给的那一格必须与 TS **逐节点相同** ✓
-（`cases:tsast` 1413 份钉着它 ✓），而 TS 对这三个模板段给的就是**原文** ✓——
-所以「熟的那一串」只能在这里现算 ✓。**引号串那一档不在这里** ✓：投影对它给的就是熟的 ✓
-（`"a\nb".length` 早就是 `3` ✓），两个口径**各有各的原因** ✓，写在这里免得后人以为漏了一处 ✓。
+**为什么这件事在降级层、而不是在投影层**：投影给的那一格必须与 TS **逐节点相同**
+（`cases:tsast` 1413 份钉着它），而 TS 对这三个模板段给的就是**原文**——
+所以「熟的那一串」只能在这里现算。**引号串那一档不在这里**：投影对它给的就是熟的
+（`"a\nb".length` 早就是 `3`），两个口径**各有各的原因**，写在这里免得后人以为漏了一处。
 
 ```ts
 let out = "";
@@ -8630,13 +8630,13 @@ while (i < raw.length) {
     if (esc === "b") { out = out + "\b"; continue; }
     if (esc === "f") { out = out + "\f"; continue; }
     if (esc === "v") { out = out + "\v"; continue; }
-    // **行继续**：反斜杠 + 一个行终止符 ⇒ 不产出任何字符 ✓（`\r\n` 算一个 ✓）。
+    // **行继续**：反斜杠 + 一个行终止符 ⇒ 不产出任何字符（`\r\n` 算一个）。
     if (esc === "\n") continue;
     if (esc === "\r") {
       if (i < raw.length && raw[i] === "\n") i += 1;
       continue;
     }
-    // **十六进制那两档** ✓：`\xHH` 两个、`\uHHHH` 四个、`\u{…}` 一到大六个 ✓。
+    // **十六进制那两档**：`\xHH` 两个、`\uHHHH` 四个、`\u{…}` 一到大六个。
     if (esc === "x" || esc === "u") {
       let count = esc === "x" ? 2 : 4;
       let braced = false;
@@ -8656,7 +8656,7 @@ while (i < raw.length) {
         i += 1;
       }
       if (braced && i < raw.length && raw[i] === "}") i += 1;
-      // **一个码位可能拆成两个码元** ✓（代理对 ✓）——与 `String.fromCodePoint` 同一件事 ✓。
+      // **一个码位可能拆成两个码元**（代理对）——与 `String.fromCodePoint` 同一件事。
       if (value > 0xffff) {
         const rest = value - 0x10000;
         out = out + String.fromCharCode(0xd800 + (rest >> 10));
@@ -8666,16 +8666,16 @@ while (i < raw.length) {
       }
       continue;
     }
-    // **`\0` 后面跟着数字就不算 NUL** ✓（规范那一条：那是老式八进制，本仓响亮地按「就是 `0`」办 ✓）。
+    // **`\0` 后面跟着数字就不算 NUL**（规范那一条：那是老式八进制，本仓响亮地按「就是 `0`」办）。
     if (esc === "0" && !(i < raw.length && raw[i] >= "0" && raw[i] <= "9")) {
       out = out + String.fromCharCode(0);
       continue;
     }
-    // **其余一律「就是那个字符」** ✓（`\\` ✓ / `` \` `` ✓ / `\$` ✓ / 未知转义 ✓）。
+    // **其余一律「就是那个字符」**（`\\` / `` \` `` / `\$` / 未知转义）。
     out = out + esc;
     continue;
   }
-  // **行终止符归一**：`\r\n` 与 `\r` 都产出一个 `\n` ✓（这是规范里的 TV 那一步 ✓）。
+  // **行终止符归一**：`\r\n` 与 `\r` 都产出一个 `\n`（这是规范里的 TV 那一步）。
   if (ch === "\r") {
     out = out + "\n";
     i += 1;
@@ -8690,8 +8690,8 @@ return out;
 
 # method HexDigit:(ch:string)=>int
 
-**一个十六进制字符的值** ✓（第 333 轮 ✓）——不是十六进制就给 `-1` ✓
-（`CookTemplateText` 用它判断「还有没有下一位」✓）。
+**一个十六进制字符的值**（第 333 轮）——不是十六进制就给 `-1`
+（`CookTemplateText` 用它判断「还有没有下一位」）。
 
 ```ts
 if (ch >= "0" && ch <= "9") return ch.charCodeAt(0) - 48;

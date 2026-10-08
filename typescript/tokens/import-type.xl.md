@@ -194,12 +194,12 @@ TS 那边只有**两个**子字段：
 ```ts
   const rawKids = ctx.Kids(v);
   // **点号链与 `typeof` 那一层都要先摊平**（第 554 轮）：实测 `type X = import("./m").A` 的
-  // `ImportType` 里**只有一个（多层嵌套的）`PropertyAccess`** ✓ —— `import(...)` 那个 `Method`
-  // 与后面那串名字全在链**里面** ✗ ⇒ 下面那三处 `find` / `filter` 一个都命中不了 ✗
-  // ⇒ `argument` / `qualifier` **整类丢** ✓（实测 `ty-import-type.ts` 8 缺 / 字段名 3 ✓、
-  // `type-import-type.ts` 8 缺 / 字段名 2 ✓ —— 一族九份文件同一个形状 ✓）。
-  // `typeof import("m")` 那一档更外面还套着一层 `UnaryOperator` ✓（`Keyword(typeof)` 是它的第一格 ✓），
-  // 一并摊平 ✓；摊平是**按 `Data` 次序**递归的 ✓，所以限定名的先后不会乱 ✓。
+  // `ImportType` 里**只有一个（多层嵌套的）`PropertyAccess`** —— `import(...)` 那个 `Method`
+  // 与后面那串名字全在链**里面** ⇒ 下面那三处 `find` / `filter` 一个都命中不了
+  // ⇒ `argument` / `qualifier` **整类丢**（实测 `ty-import-type.ts` 8 缺 / 字段名 3、
+  // `type-import-type.ts` 8 缺 / 字段名 2 —— 一族九份文件同一个形状）。
+  // `typeof import("m")` 那一档更外面还套着一层 `UnaryOperator`（`Keyword(typeof)` 是它的第一格），
+  // 一并摊平；摊平是**按 `Data` 次序**递归的，所以限定名的先后不会乱。
   const flat: Array<any> = [];
   const flatten = (unit: any): void => {
     const name = unit.get("type");
@@ -216,9 +216,9 @@ TS 那边只有**两个**子字段：
   }
   const kids = flat;
   let stringUnit = kids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
-  // **实参那一层的子单元**（第 161 / 623 轮 ✓）：形状有两种 ✓ —— 值位那条调用规则先收过一遍时
-  // 是一个 `Method(name="import")` ✓（字符串与属性对象都在**它里面** ✓，不在 `kids` 上 ✓），
-  // 泛型实参段里则是一对裸圆括号 `Bracket` ✓。下面找字符串、找属性对象都从这一层看 ✓。
+  // **实参那一层的子单元**（第 161 / 623 轮）：形状有两种 —— 值位那条调用规则先收过一遍时
+  // 是一个 `Method(name="import")`（字符串与属性对象都在**它里面**，不在 `kids` 上），
+  // 泛型实参段里则是一对裸圆括号 `Bracket`。下面找字符串、找属性对象都从这一层看。
   const call = kids.find((k: any) => k.get("type") === "Method" || k.get("type") === "Bracket");
   const callKids = call === undefined ? [] : ctx.Kids(call);
   if (stringUnit === undefined) {
@@ -234,15 +234,15 @@ TS 那边只有**两个**子字段：
     };
     props.argument = { kind: "LiteralType", literal, pos: literal.pos, end: literal.end };
   }
-  // **导入属性**（第 623 轮 ✓）：`import("./m.json", { with: { type: "json" } })` 的第二个实参
-  // 在 TS 那边是 `ImportType.attributes` ✓（一个 `AssertClause` ✓），而产物那边它只是
-  // `Method(name="import")` 里的一个 `ObjectLiteral` ✓（外面还包着 `{ with: … }` 那层壳 ✓）⇒
-  // 不摘出来的话字段名少一格 ✓、`AssertClause` / `AssertEntry` / 名字 / 值整族都缺 ✓
-  //（实测 `type T = import("./m.json", { with: { type: "json" } }).T`：字段名 1 + 缺 4 ✓）。
+  // **导入属性**（第 623 轮）：`import("./m.json", { with: { type: "json" } })` 的第二个实参
+  // 在 TS 那边是 `ImportType.attributes`（一个 `AssertClause`），而产物那边它只是
+  // `Method(name="import")` 里的一个 `ObjectLiteral`（外面还包着 `{ with: … }` 那层壳）⇒
+  // 不摘出来的话字段名少一格、`AssertClause` / `AssertEntry` / 名字 / 值整族都缺
+  //（实测 `type T = import("./m.json", { with: { type: "json" } }).T`：字段名 1 + 缺 4）。
   //
-  // **取里面那一层** ✓：TS 的 `AssertClause` 区间就是那个内层 `{ … }` ✓（**不含** `with:` ✓），
-  // 而 `tokens/import.xl.md` 那边（`import … with { … }` 声明 ✓）取的是括号自己 ✓
-  // ——两种写法的属性节点是同一个 kind ✓、取值口径也一样（名字 + 字符串值 ✓）。
+  // **取里面那一层**：TS 的 `AssertClause` 区间就是那个内层 `{ … }`（**不含** `with:`），
+  // 而 `tokens/import.xl.md` 那边（`import … with { … }` 声明）取的是括号自己
+  // ——两种写法的属性节点是同一个 kind、取值口径也一样（名字 + 字符串值）。
   const wrapper = [...kids, ...callKids].find((k: any) => {
     if (k.get("type") !== "ObjectLiteral") return false;
     const word = ctx
@@ -317,7 +317,7 @@ TS 那边只有**两个**子字段：
 （类型位的关键词口径，见 `keyword.xl.md`）。
 
 **不会重复包装**：本节点的类名不在 `IsTypeContainerUnit` 的白名单里，
-所以类型队列那一趟再看到里面那个 `Method(name="import")` 时，父亲判据给否 ✓。
+所以类型队列那一趟再看到里面那个 `Method(name="import")` 时，父亲判据给否。
 
 ```ts
 super(template);

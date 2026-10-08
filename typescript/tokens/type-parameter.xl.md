@@ -77,14 +77,14 @@ return true;
 这个泛型段里有没有**参数表才有**的顶层标记：`in`（映射键）或 `=`（默认值），
 或者一个**不带 `?` 的** `extends`（约束）。
 
-只扫一层：`Array<{ a: 1 }>` 里的 `1` 不带标记 ✓，而 `<T extends X>` 的 `extends` 是顶层的 ✓。
+只扫一层：`Array<{ a: 1 }>` 里的 `1` 不带标记，而 `<T extends X>` 的 `extends` 是顶层的。
 （括号与嵌套泛型段里的标记不算——它们是内容，不是这个参数表的形状。）
 
 **`extends` 必须配「没有顶层 `?`」**：条件类型**实参**里也有顶层的 `extends`——
 `IfDefaultsTrue<T["strict"], O["type"] extends "string" ? string : …, string | boolean>`
 （`@types/node/util.d.ts:1551`）那一整段就会被误判成参数表，
-把三个实参各包成一个 `TypeParameter` ✗（当时那把对齐尺子实测「`TypeParameter in GenericType`」7 处误包）。
-参数表的约束后面**永远不会**跟着 `?`（条件类型才会）✓。
+把三个实参各包成一个 `TypeParameter`（当时那把对齐尺子实测「`TypeParameter in GenericType`」7 处误包）。
+参数表的约束后面**永远不会**跟着 `?`（条件类型才会）。
 
 ```ts
 let hasExtends = false;
@@ -166,18 +166,18 @@ if (this.HasTopLevelMarker(unit)) {
 const parent = unit.Parent;
 if (parent !== null) {
   const name = parent.constructor.name;
-  // **成员体里的那一格：`m<T>()` 的 `<T>`** —— 判据是**后面紧跟形参表 `(`** ✓。
+  // **成员体里的那一格：`m<T>()` 的 `<T>`** —— 判据是**后面紧跟形参表 `(`**。
   //
-  // **不能只看「父亲是 `ClassBody` / `InterfaceBody`」** ✗（本轮量出来的 ✓）：
-  // 类体现在是**活的**单元 ✓（`ClassBranch` 在读的时候就把成员收在自己名下 ✓），
-  // 于是成员在成形之前，**它的类型标注里的实参段**也直接住在 `ClassBody` 名下 ✗ ——
-  // `class C { a: Record<string, string> }` 里那个 `<string, string>` 的父亲就是 `ClassBody` ✓
-  // ⇒ 被误包成参数表 ✓（实测：两个 `string` 各投出一个 `TypeParameter` + `Identifier` ✗，
-  // 全语料 478 处「缺」里有很大一部分是这一条 ✓）。
-  // 接口不受影响 ✓：它的体还是那个 `{` 括号 ✗，实参段的父亲是 `Bracket` ✓。
+  // **不能只看「父亲是 `ClassBody` / `InterfaceBody`」**（本轮量出来的）：
+  // 类体现在是**活的**单元（`ClassBranch` 在读的时候就把成员收在自己名下），
+  // 于是成员在成形之前，**它的类型标注里的实参段**也直接住在 `ClassBody` 名下 ——
+  // `class C { a: Record<string, string> }` 里那个 `<string, string>` 的父亲就是 `ClassBody`
+  // ⇒ 被误包成参数表（实测：两个 `string` 各投出一个 `TypeParameter` + `Identifier`，
+  // 全语料 478 处「缺」里有很大一部分是这一条）。
+  // 接口不受影响：它的体还是那个 `{` 括号，实参段的父亲是 `Bracket`。
   //
-  // 「紧跟 `(`」正是这条判据自己写的理由 ✓（成员上的 `m<T>()` ✓）——
-  // 实参段后面绝不会紧跟形参表 ✓（`a: X<T>` 后面是 `;` / 换行 / `}` ✓）。
+  // 「紧跟 `(`」正是这条判据自己写的理由（成员上的 `m<T>()`）——
+  // 实参段后面绝不会紧跟形参表（`a: X<T>` 后面是 `;` / 换行 / `}`）。
   if (name === "ClassBody" || name === "InterfaceBody") {
     const at = parent.Data.indexOf(unit);
     const next = Get(parent.Data, SkipNextWrapSymbol(parent.Data, at));
@@ -244,7 +244,7 @@ if (before.constructor.name === "Keyword") {
 if (before instanceof Identifier) {
   // `return <T>(…)` 是箭头函数；`new <T>(…) => …` 是**构造类型**的类型参数表
   // （`declare type PromiseConstructorLike = new <T>(executor: …) => PromiseLike<T>`
-  // 实测 1 处，`lib.es5.d.ts:1533`）——两者后面都紧跟 `(` ✓。
+  // 实测 1 处，`lib.es5.d.ts:1533`）——两者后面都紧跟 `(`。
   return before.Is("return") || before.Is("new") || before.Is("abstract");
 }
 if (before instanceof SymbolToken) {
@@ -265,7 +265,7 @@ return false;
   （`function g<T>()` 走的是第一条，成员方法 `m<K>()` 与函数类型 `<T>(a: T) => T` 走的是第二条——
   两条都是实测出来的形状，只认一条就会漏一片）。
 
-映射类型的键括号同理：它自己的内容由 `ArrayLiteral` 的队列扫 ✓。
+映射类型的键括号同理：它自己的内容由 `ArrayLiteral` 的队列扫。
 
 ```ts
 const current = Get(units, index);
@@ -334,8 +334,8 @@ return this.IsFirstContentIndex(owner, owner.Data.indexOf(Get(units, index)!));
 
 **直接重建容器的 `Data`**，不替换外层列表里的单元：括号本身要留在原地
 （`<GenericType>…</GenericType>` / `<ArrayLiteral>…</ArrayLiteral>` 那一层不动）——
-TS 那边方括号与尖括号属于外层构造的形状，本工程的这两个节点正好对应它们 ✓。
-所以返回值就是 `index`：外层列表没被改过，下一趟再看到这个容器时 `HasParameter` 会把本规则挡掉 ✓。
+TS 那边方括号与尖括号属于外层构造的形状，本工程的这两个节点正好对应它们。
+所以返回值就是 `index`：外层列表没被改过，下一趟再看到这个容器时 `HasParameter` 会把本规则挡掉。
 
 **先 `AddAndCloseLast` 再 `splice` 同一条列表**（不是 `Replace`）：`Token.Replace` 读的是
 `this.Parent.Data`，而这里改的正是容器的 `Data`——先把整张表拷出来、再清空、再逐段装回去。
@@ -550,12 +550,12 @@ rebuilt.push(parameter);
       props.constraint = {
         kind: wrapped.get("type"),
         types,
-        // **坐标取那个 `UnionType` 单元自己的** ✓（第 586 轮 ✓）：重切出来的 `types` 里
-        // **没有分隔符** ✓，按 `types[0].pos` 起会从第一个**成员**起 ✗ —— 而前导 `|` 那种写法
-        //（`T extends` 换行 `| A` 换行 `| B` ✓）在 TS 那边 `UnionType` 正是**从那个 `|` 起** ✓
-        // ⇒ 每一处记「漂移 1 + 多出 1」✓
+        // **坐标取那个 `UnionType` 单元自己的**（第 586 轮）：重切出来的 `types` 里
+        // **没有分隔符**，按 `types[0].pos` 起会从第一个**成员**起 —— 而前导 `|` 那种写法
+        //（`T extends` 换行 `| A` 换行 `| B`）在 TS 那边 `UnionType` 正是**从那个 `|` 起**
+        // ⇒ 每一处记「漂移 1 + 多出 1」
         //（真实语料 `vm.d.ts` / `fs.d.ts` / `querystring.d.ts` / `lib.es5.d.ts` / `globals.ts`
-        // 五份一共 14 + 18 + 3 + 11 + 16 处 ✓）。
+        // 五份一共 14 + 18 + 3 + 11 + 16 处）。
         pos: ctx.StartOf(wrapped),
         end: ctx.EndOf(wrapped),
       };
@@ -573,7 +573,7 @@ rebuilt.push(parameter);
 `type X<F> = F extends (...args: any) => infer T ? T : never` 的约束段里有**条件类型**。
 只挂类型队列时这两类都不成形（当时那把对齐尺子实测 `FunctionType` 缺 15、`ConditionalType` 缺 10）。
 通用队列**包含**类型队列的全部成员（方括号 / 导入类型 / 类型运算符 / 字面量 / 联合都在里面），
-所以挂它不会丢东西，只会多出该有的 ✓。
+所以挂它不会丢东西，只会多出该有的。
 
 ```ts
 super(template);
