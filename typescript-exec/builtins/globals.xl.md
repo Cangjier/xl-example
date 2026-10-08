@@ -2390,8 +2390,17 @@ if (id === ObjectCtor) {
   const only = args[0];
   // **对象原样返回**（`Object({a: 1}) === 那一个对象`，JS 的口径）。
   if (only.IsObject()) return only;
-  // **`null` / `undefined` 也原样返回**（`Object(null)` 是 `null`）。
-  if (only.Tag === ValueTag.Null || (only.Tag === ValueTag.Undefined)) return only;
+  // **`null` / `undefined` 给一个新对象**（第 690 轮，**这里原来是错的**）：
+  // 上一版写的是「`Object(null)` 是 `null`」——**那不是 JS 的口径**。
+  // `Object(value)` 那条算法里 `null` / `undefined` 走的是
+  // `OrdinaryObjectCreate(%Object.prototype%)`，与**无实参**那一档**同一句**：
+  // `Object(null)` / `Object(undefined)` 都造一个空对象（判据 `131-object-ctor-null-undefined`
+  // 钉的正是这一句：`Object(null as any) === null` 在 JS 里是 `false`）。
+  // **静默错值**：返回 `null` 会让 `Object(x) === null` 这种守卫在**传了 `null` 的那一次**判反
+  // （而它本来是最该判对的一次）——`Object(undefined)` 同病。
+  if (only.Tag === ValueTag.Null || only.Tag === ValueTag.Undefined) {
+    return NewPlainObject(room, table, protos);
+  }
   // **其余原始值给包装对象**（第 310 轮把这一格补上了）——
   // 原来这里**响亮地抛**（`unimplemented: Object(primitive) needs wrapper objects`），
   // 理由是「本仓没有包装对象」；现在三族都有了（`StringCtor` / `NumberCtor` /
@@ -3247,10 +3256,10 @@ if (id === ObjectGroupBy) {
   //
   // **回调每个元素调一次**（实参 `(元素, 下标)`，与 `Array.map` 那一族同一个形状）。
   //
-  // **已知差异写在明处**：JS 给的分组对象**没有原型**（`Object.groupBy` 返回的是
-  // null-prototype 对象），本仓给的是**普通对象**——`Object.create(null)` 那一档
-  // 本仓表达不了（见 `ObjectCreate` 那一支）。所以 `"toString" in g` 在本仓是**真**、
-  // 在 JS 里是**假**。
+  // **已知差异写在明处**（第 690 轮**收掉了**，留着这条线是为了记住它曾经是什么）：
+  // 第 295 轮给的是**带 `Object.prototype` 的普通对象**，理由写的是「`Object.create(null)`
+  // 本仓表达不了」——那句理由当时就不对（`ObjectCreate` 第 299 轮之前那一版抛，
+  // 第 299 轮把 `Proto = 0` 落地了）。现在这一格与 JS 一致：`"toString" in g` 是**假**。
   if (args.length < 2) throw new Error("Object.groupBy needs two arguments");
   if (!IsCallableValue(table, args[1])) {
     throw new Error("Object.groupBy needs a function as the second argument");
@@ -3261,8 +3270,16 @@ if (id === ObjectGroupBy) {
   if (args[0].Tag !== ValueTag.Array) {
     throw new Error("unimplemented: Object.groupBy over a value that is not an array");
   }
+  // **分组表没有原型**（第 690 轮收掉的**已知差异**）：JS 给的是 null-prototype 对象
+  //（`Object.groupBy` 的算法里写的是 `OrdinaryObjectCreate(null)`）。
+  // 上面那一段原来记着「本仓表达不了 `Object.create(null)`」——**那句话第 299 轮就不成立了**：
+  // `ObjectCreate` 那一支把 `Proto = 0` 真的写了进去（`FindProperty` 的循环判的是
+  // `current > 0`，所以 `0` 天然就是「到此为止」）。这里照**同一条路**补一句。
+  // **判据就是这一句**：`"toString" in Object.groupBy([1], f)` 在 JS 里是**假**
+  //（判据 `132-object-groupby-null-proto` 量着它）。
   const groupSource = table.Get(args[0].Ref).AsArray();
   const groups = NewPlainObject(room, table, protos);
+  table.Get(groups.Ref).Proto = 0;
   for (let i = 0; i < groupSource.GetLength(); i++) {
     const member = groupSource.GetAt(i);
     const bucketName = call(args[1], Value.Undefined(), [member, Value.FromInt(i)]);

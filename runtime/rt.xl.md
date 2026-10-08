@@ -833,15 +833,23 @@ return false;
 `Cannot read properties of null (reading 'Object')`（一个完全看不出是「参数错位」的句子，
 实测踩过一次）。**可选的参数放最后**是这条通道上唯一不动别人的改法。
 
-**它为什么需要原型表**：JS 里 `typeof Object.prototype` 与 `typeof Function.prototype`
-都是 `"function"`（那两个对象**本身就是函数对象**），而本仓把它们做成了普通对象
-——只有拿到 `protos` 才认得出它们（与 `props.xl.md` 的 `TypeOfName` **同一条口径**：
+**它为什么需要原型表**：JS 里 `typeof Function.prototype` 是 `"function"`
+（`Function.prototype` **本身就是一个可调用对象**）。本仓把它做成了普通对象
+——只有拿到 `protos` 才认得出它（与 `props.xl.md` 的 `TypeOfName` **同一条口径**：
 两处都是 `typeof` 的出口，一处改了另一处不改就是「同一个值两个名字」）。
 
+**第 690 轮把 `protos.Object` 从这里拿掉了**：第 228 轮那一版把**两个**原型对象
+一起认成 `"function"`，理由是「JS 里 `typeof Object.prototype` 与 `typeof Function.prototype`
+都是 `"function"`」——**前半句是错的**。`Object.prototype` 在 JS 里是一个**普通对象**
+（`typeof Object.prototype` 给 `"object"`，判据 `133-typeof-object-prototype` 与
+`names-object` 都与 Node 逐字比）。两者同根不同命：一个是函数、一个是对象，
+**不能一起认**——认错了的症状是 `typeof x === "function"` 这种守卫对
+`Object.prototype` 判真（一处**静默**的不一致，`Object.prototype` 恰好是
+「所有普通对象的样板」，拿它做守卫的人不少）。
+
 ```ts
-// **那两个原型对象**（第 228 轮）：认得出就给 `"function"`。
-if (protos !== null && value.Tag === ValueTag.Object
-  && (value.Ref === protos.Object || value.Ref === protos.Function)) {
+// **`Function.prototype` 自己**（第 228 轮；第 690 轮去掉了 `protos.Object` 那一半）。
+if (protos !== null && value.Tag === ValueTag.Object && value.Ref === protos.Function) {
   const protoUnits = [102, 117, 110, 99, 116, 105, 111, 110];
   if (!room(CodeUnitCharge * protoUnits.length + ObjectCharge)) {
     throw new Error("out of room");

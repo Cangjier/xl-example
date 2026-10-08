@@ -572,7 +572,8 @@ return FindProperty(NeverRoom, table, receiver, key) !== null;
 ——它**顺着 `Proto` 走是走不到的**（那个值是**宿主引用**，`HostRef` 没有属性表）。
 
 **JS 里为什么没有这个问题**：那边的每一个函数（包括内建）都**真的**以
-`Function.prototype` 为原型（`typeof Object.prototype === "function"`）；
+`Function.prototype` 为原型（`Object.prototype.toString` 在那边是一个**函数对象**，
+它的原型就是 `Function.prototype` ⇒ `.call` 沿链找得到）；
 本仓的宿主引用是**引擎内部那一档**，没有跟着走——所以这里替它补一次查找。
 
 **所以补一条判据**，而不是去改原型链：接收者**是「函数那一类」**时，
@@ -589,8 +590,12 @@ return FindProperty(NeverRoom, table, receiver, key) !== null;
 （症状仍然是 `calling a non-closure value`，而真相是「`.call` 那一格没找到」）。
 
 **判据收成一句**：`Value.IsCallable()`（闭包、内建函数）+ `HostRef`
-+ **那两个原型对象自己**（它们在 JS 里也是函数对象，
-而本仓把它们做成了普通对象——`receiver.Ref === protos.Object` 那两格就是为此）。
++ **那两个原型对象自己**（`protos.Function` 在 JS 里**确实是**函数对象；
+`protos.Object` 一并放行是**这一侧的取舍**——`Object.prototype.toString` 就在它自己的表里，
+先看自有那一格才不会命中 `protos.Function` 上同名的 `toString`，理由见下面 `own.Owner`
+那一段。**注意两处口径不完全对称**：`rt.xl.md` 的 `RtTypeOf` 第 690 轮把 `protos.Object`
+**拿掉了**（`typeof Object.prototype` 必须是 `"object"`），这里留着——它管的是
+「找哪张表」，不是「这个值是什么」）。
 **顺序要紧**：它必须排在「是不是对象」那条分岔**之前**，
 不然 `HostRef` 那一档就到不了这里。
 

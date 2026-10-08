@@ -1,10 +1,10 @@
-// xl:title 名字逐个取一次：Object 的静态成员（缺 2 个）
+// xl:title 名字逐个取一次：Object 的静态成员（第 690 轮**两格都齐了**）
 // xl:round 678
 // xl:judge stdout
-// xl:want differ
-// xl:why Object 的成员：length 已经装了（第 688 轮），还差 prototype 那一格——
-//       node 的 `Object.prototype` 是 object，本仓打出来是 function（函数不是真函数对象，
-//       登在 128-function-prototype-layer-gap，同一片）
+// xl:why 第 678 轮登记时缺两格：`length`（第 688 轮补上）与
+//       `typeof Object.prototype`（第 690 轮改对——它必须是 `object`，
+//       原来被 `RtTypeOf` 那条「两个原型对象都算 function」一起认成了 `function`）。
+//       台账（原来记 `differ`）在第 690 轮撤掉，两边现在逐字相同。
 // xl:end
 const b: any = Object;
 let v = "";

@@ -47,6 +47,17 @@
    `blocked` 240、`bad` 0、`regressions` 0——收掉 `Object.prototype.toLocaleString`
    （规范里只有一句转交，所以不写第二份实现），另把三格「转交 / 区域设置 / 正则」
    的成员原样登记进台账。
+   **第 690 轮全矩阵**（3 份新语料）：通过 **3538 → 3544**、`differ 38 → 35`、
+   `blocked` 240、`bad` 0、`regressions` 0——收掉三处**静默错值**：
+   ① `Object(null)` / `Object(undefined)` 原来**原样返回那个原始值**（JS 给 `{}`，
+      与无实参那一档同一句）；
+   ② `Object.groupBy` 的分组表原来带 `Object.prototype`（JS 给 null 原型对象，
+      而 `Object.create(null)` 那一档第 299 轮**早就落地了**，第 295 轮那句「表达不了」已过期）；
+   ③ `typeof Object.prototype` 原来给 `"function"`（JS 给 `"object"`；第 228 轮把
+      `Object.prototype` 与 `Function.prototype` **一起**认成了函数对象，前半句是错的）。
+   ①②各收掉一条台账（`109-std-new-object-null` / `111-r676-std-object-groupby-prototype`），
+   ③让 `117-names-object` 整条转绿；另有 3 条（`045` / `065` / `109`）是上一轮修好、
+   这一轮才把台账撤掉的。
    反过来**写成 `type: module`**也要不得：ESM 一律严格模式，而这一层语料的期望值全是照
    松散模式写的（`Object.freeze` 之后写属性静默、`delete` 不可配置属性该静默、
    非严格调用里 `this` 指向全局）——实测 `bad 3 → 12`、`differ 40 → 50`、通过掉到 3500、

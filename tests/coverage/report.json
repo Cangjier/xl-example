@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 3816,
+  "total": 3819,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.04,
+  "progressPercent": 96.11,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 945,
-      "pass": 902,
+      "total": 948,
+      "pass": 908,
       "blocked": 15,
-      "differ": 28,
+      "differ": 25,
       "nodefail": 0,
-      "coverage": 95.45
+      "coverage": 95.78
     },
     {
       "category": "e2e",
@@ -1667,7 +1667,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25656/src/2813.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25692/src/2813.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1724,34 +1724,16 @@
       "detail": "stdout 不同：第 1 行：node «object f16round function» vs tsrun «object f16round undefined»"
     },
     {
-      "id": "stdlib/object/109-std-new-object-null",
-      "category": "stdlib",
-      "title": "new Object(null)：构造调用该造一个空对象（不是原样返回 null）",
-      "detail": "stdout 不同：第 2 行：node «false» vs tsrun «true»"
-    },
-    {
-      "id": "stdlib/object/111-r676-std-object-groupby-prototype",
-      "category": "stdlib",
-      "title": "Object.groupBy：分组表该是 null 原型的对象",
-      "detail": "stdout 不同：第 1 行：node «null» vs tsrun «{»"
-    },
-    {
       "id": "stdlib/object/116-l677p-obj-lock-difference",
       "category": "stdlib",
       "title": "口径边界：preventExtensions + defineProperty 在 node（松散）静默、本仓抛（严格）",
       "detail": "stdout 不同：第 2 行：node «define threw TypeError» vs tsrun «define ok 3»"
     },
     {
-      "id": "stdlib/object/117-names-object",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Object 的静态成员（缺 2 个）",
-      "detail": "stdout 不同：第 2 行：node «function prototype object» vs tsrun «function prototype function»"
-    },
-    {
       "id": "stdlib/object/118-names-object-proto",
       "category": "stdlib",
       "title": "名字逐个取一次：Object.prototype 的成员（缺 6 个）",
-      "detail": "stdout 不同：第 1 行：node «object __defineGetter__ function» vs tsrun «function __defineGetter__ undefined»"
+      "detail": "stdout 不同：第 1 行：node «object __defineGetter__ function» vs tsrun «object __defineGetter__ undefined»"
     },
     {
       "id": "stdlib/object/121-names-promise-proto",
@@ -1810,19 +1792,6 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [
-    {
-      "id": "exec/expressions/109-ex-object-value-paren-binary",
-      "category": "exec"
-    },
-    {
-      "id": "stdlib/number/065-names-number-proto",
-      "category": "stdlib"
-    },
-    {
-      "id": "stdlib/promise/045-names-promise",
-      "category": "stdlib"
-    }
-  ],
+  "newlyPassing": [],
   "regressions": []
 }

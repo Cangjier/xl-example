@@ -318,7 +318,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **229 种签名 / 140 种 kind** 全部有用例覆盖（用例 1402 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3538 / 3816**，加权 **96.0%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 599/609、runtime 613/614、stdlib 902/945、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 38），全登在用例文件头的台账里；`bad` **0 条** |
+| `coverage` | **五类 3544 / 3819**，加权 **96.1%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 599/609、runtime 613/614、stdlib 908/948、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 35），全登在用例文件头的台账里；`bad` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~29s**） |
 
 ### 口径与已知缺口
@@ -453,9 +453,9 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
     （两格都是 `值 / 不可写 / 不可枚举 / 可配置`），找不到的键照旧给 `undefined`（不再抛）。
   - `Object.getOwnPropertyNames(函数)` 跟着把 `length` / `name` 算进自有属性。
   **还开着一片**（登在 `[128-function-prototype-layer-gap](tests/cases/stdlib/object/128-function-prototype-layer-gap.ts)`）：
-  **函数不是真函数对象**——不自以 `Function.prototype` 为原型 ⇒ 少了 `arguments` / `caller`，
-  `typeof Object.prototype` 打出来是 `function`（Node 给 `object`），
-  `Object.prototype.toLocaleString` 没装。三格同根，不是补几格属性能了的。
+  **函数不是真函数对象**——不自以 `Function.prototype` 为原型 ⇒ 少了 `arguments` / `caller`。
+  那片原来还挂着两格（`typeof Object.prototype` 给 `function`、`Object.prototype.toLocaleString` 没装），
+  第 689 / 690 两轮各收掉一格，只剩 `arguments` / `caller` 这一格。
   **第 689 轮**再沿着**原型方法表**问一次（20 条候选）：`Array.prototype` 那一张**一格不缺**，
   差的全在别处——收掉 `Object.prototype.toLocaleString`（规范里它的算法只有一句
   `Invoke(O, "toString")`，所以**不写第二份实现**，转交给 `ObjectToString` 那一支；
@@ -467,6 +467,21 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   那条协议，与台账里 `RegExp` 那 7 条同源）；`Object.prototype.toLocaleString` 自己
   **「转交给接收者」那一半**也还差（数字接收者该给 `"1"`、带自定义 `toString` 的对象该给 `"T"`），
   登在 `[130-tolocalestring-forwarding-gap](tests/cases/stdlib/object/130-tolocalestring-forwarding-gap.ts)`。
+  **第 690 轮**换到**内建构造的调用形状**那一层问（`Object` 那两个入口 + 两条原型读数），
+  收掉三处**静默错值**：
+  - **`Object(null)` / `Object(undefined)` 原来原样返回那个原始值**（`global-array-object-ctors`
+    只量了 `new Object(null)`，那一半早就对；`Object(null)` 这一半写的是「JS 里 `Object(null)`
+    是 `null`」——**那不是 JS 的口径**：`Object(value)` 里 `null` / `undefined` 走
+    `OrdinaryObjectCreate(%Object.prototype%)`，与无实参那一档**同一句**）。
+    症状是 `Object(x) === null` 这种守卫在**传了 `null` 的那一次**判反。
+  - **`Object.groupBy` 的分组表带 `Object.prototype`**：第 295 轮写的理由是「`Object.create(null)`
+    本仓表达不了」——那句话第 299 轮就过期了（`ObjectCreate` 那一支把 `Proto = 0` 真写了进去）。
+    现在照同一条路补一句，`"toString" in g` 与 Node 一样是**假**。
+  - **`typeof Object.prototype` 给 `"function"`**：第 228 轮在 `RtTypeOf` 里把
+    `Object.prototype` 与 `Function.prototype` **一起**认成函数对象，理由是「JS 里两个都报
+    `function`」——**前半句是错的**。`Function.prototype` 在 JS 里确实可调用，
+    `Object.prototype` 是**普通对象**（`typeof` 给 `"object"`）。两者同根不同命，
+    认错了会让 `typeof x === "function"` 这种守卫对 `Object.prototype` 判真。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 
