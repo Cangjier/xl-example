@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7806,
+  "total": 7810,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.13,
+  "progressPercent": 96.1,
   "categories": [
     {
       "category": "token",
@@ -100,12 +100,12 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 854,
-      "pass": 843,
+      "total": 858,
+      "pass": 846,
       "blocked": 1,
-      "differ": 10,
+      "differ": 11,
       "nodefail": 0,
-      "coverage": 98.71
+      "coverage": 98.6
     },
     {
       "category": "stdlib",
@@ -1835,7 +1835,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25024/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26388/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1946,16 +1946,22 @@
       "detail": "stdout 不同：第 1 行：node «call apply bind» vs tsrun «undefined undefined undefined»"
     },
     {
-      "id": "runtime/round731/p731a-a08",
-      "category": "runtime",
-      "title": "对象方法 / 访问器 / 计算键那几档的 `name`",
-      "detail": "stdout 不同：第 1 行：node «m undefined c» vs tsrun «m undefined »"
-    },
-    {
       "id": "runtime/round731/p731a-a10",
       "category": "runtime",
       "title": "`Function.prototype` 上那两格受限属性（`arguments` / `caller`）",
       "detail": "stdout 不同：第 1 行：node «true true» vs tsrun «false false»"
+    },
+    {
+      "id": "runtime/round732/p732a-a02",
+      "category": "runtime",
+      "title": "计算键访问器的名字（`get c` / `set c`）",
+      "detail": "stdout 不同：第 1 行：node «get g set s get xy» vs tsrun «get g set s »"
+    },
+    {
+      "id": "runtime/round732/p732a-a03",
+      "category": "runtime",
+      "title": "类里计算键方法的名字",
+      "detail": "stdout 不同：第 1 行：node «m s n1» vs tsrun «  »"
     },
     {
       "id": "stdlib/array/143-getter-array-index",
@@ -1991,7 +1997,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25024/src/4967.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26388/src/4971.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2015,7 +2021,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25024/src/5017.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26388/src/5021.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",

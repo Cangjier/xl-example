@@ -6297,9 +6297,22 @@ for (let i = 0; i < properties.length; i++) {
     //（只有键 / 值里带副作用才看得出来，所以它一直没被量到）。
     if (NodeKind(name) === "ComputedPropertyName") {
       const computedKey = this.LowerExpression(Child(name, "expression"));
-      const computedValue = this.LowerFunctionValue(property, "<computed>");
+      // **计算键里的「静态键」当场就把名字给它**（第 732 轮，**实测撞到的**）：
+      // `{ ["c"]() {} }.c.name` 在 Node 里是 `"c"`，而本仓给**空串**——
+      // 两半**各自以为对方会取名**：这一处传的是占位符 `"<computed>"`
+      //（以 `<` 开头 ⇒ `LowerFunctionValue` 按匿名处理），
+      // 而下面 `EmitComputedFunctionName` 又因为 `StaticKeyText` **非空**提前返回
+      //（那一句的用意是「静态键由**上面那条提示**取名」——可这一支**没有**那条提示）。
+      // 判据 `runtime/round731/p731a-a08`。
+      //
+      // **它与非计算键那一支**（下面 `TextOf(name)`）**同一个落点**：
+      // 名字都写进 `HeapClosure.Name`，差别只是「文本从哪儿来」。
+      // **动态键照旧走 `"<computed>"`**（运行期由 `EmitComputedFunctionName` 补写名字）。
+      const staticName = this.StaticKeyText(Child(name, "expression"));
+      const computedValue = this.LowerFunctionValue(property,
+        staticName !== "" ? staticName : "<computed>");
       // **方法也是命名位置**（第 620 轮）：`{ ["k" + 1]() {} }.k1.name` 是 `"k1"`
-      //（它这一档**一定**匿名：`"<computed>"` 以 `<` 开头 ⇒ `LowerFunctionValue` 按匿名处理）。
+      //（动态那一档**一定**匿名：`"<computed>"` 以 `<` 开头 ⇒ `LowerFunctionValue` 按匿名处理）。
       this.EmitComputedFunctionName(computedValue, computedKey, Child(name, "expression"));
       // **改走 `define_data`**（第 703 轮，与上面 `PropertyAssignment` 那条同一个理由）。
       this.EmitDefineDataValue(object, computedKey, computedValue);
@@ -6342,8 +6355,15 @@ for (let i = 0; i < properties.length; i++) {
       // **键在前、值在后**（第 284 轮，JS 的规范就是这样）——
       // 见下面那一段「求值顺序」的说明。
       const computedKey = this.LowerExpression(Child(name, "expression"));
+      // **静态键那一档与下面非计算那一支同一个名字**（第 732 轮）：`{ get ["c"]() {} }` 的
+      // getter 名字在 Node 里是 **`"get c"`**（与 `{ get c() {} }` 一字不差）——
+      // 原来无条件传 `"<getter>"` ⇒ 空串（与上面方法那一处**同一个根**：
+      // 静态键两半都以为对方会取名）。动态键照旧只给 `"<getter>"`。
+      const staticAccessorName = this.StaticKeyText(Child(name, "expression"));
       const computedHalf = this.LowerFunctionValue(property,
-        kind === "GetAccessor" ? "<getter>" : "<setter>");
+        kind === "GetAccessor"
+          ? (staticAccessorName !== "" ? "get " + staticAccessorName : "<getter>")
+          : (staticAccessorName !== "" ? "set " + staticAccessorName : "<setter>"));
       this.EmitDefineAccessor(object, computedKey, computedHalf, kind === "GetAccessor");
       continue;
     }
