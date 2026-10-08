@@ -1,8 +1,6 @@
 // xl:title 名字逐个取一次：WeakMap.prototype 的成员（缺 5 个）
 // xl:round 678
 // xl:judge stdout
-// xl:want differ
-// xl:why WeakMap.prototype 的成员：取一下直接抛（该成员没装）：constructor / delete / get / has / set
 // xl:end
 const b: any = WeakMap.prototype;
 let v = "";

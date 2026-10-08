@@ -224,6 +224,35 @@ this.Index = index;
 
 **`Set` 的原型**（第 138 轮）——与 `Map` 那一格同款（方法也挂在实例上）。
 
+## field WeakMap:int = 0
+
+**`WeakMap` 的原型**（第 733 轮）——**接在 `Object.prototype` 下面**，
+与 `Map.prototype` **并列而不是接在它下面**。
+
+**这一条是量出来的、不是推出来的**（**实测 Node**）：
+`Object.getPrototypeOf(WeakMap.prototype) === Object.prototype` 给 **`true`**、
+`=== Map.prototype` 给 **`false`**；而 `Object.getOwnPropertyNames(WeakMap.prototype)`
+是 `constructor,delete,get,set,has`——**五格自有**（没有 `clear` / `forEach` / `keys` /
+`values` / `entries` / `size`，那些是 `Map` 独有的）。
+**第一版写的就是「接在 `Map.prototype` 下面」**（想省掉复制方法的功夫）：
+那样 `Object.keys(WeakMap.prototype)` 仍是 `[]`、五个名字也取得到，
+**但 `WeakMap.prototype.size` 会跟着继承过来**（JS 里是 `undefined`）——
+判据只量那五个名字，所以**这一处会静默留下**，正好是一种最难查的「一半对」。
+改成并列之后那五格得**自己挂一份**（见 `globals.xl.md` 的
+`InstallWeakPrototypeMethods`），但换来的是**没有多出来的格**。
+
+**为什么第 733 轮才补**：第 295 / 681 轮让 `WeakMap` 与 `Map` **共用** `protos.Map`
+（取舍写在 `globals.xl.md` 那一处），代价是 `WeakMap.prototype` **就是** `Map.prototype`
+——于是判据 `stdlib/map-set/103-names-weakmap-proto` 那一行量到的是 `Map.prototype`
+（`get` 找得到、`constructor` 是 `Map`），而两族**本该是两个对象**。
+
+## field WeakSet:int = 0
+
+**`WeakSet` 的原型**（第 733 轮）——与 `WeakMap` 那一格**同一个形状**
+（接在 `Object.prototype` 下面，与 `Set.prototype` 并列），理由与它一字不差：
+`Object.getOwnPropertyNames(WeakSet.prototype)` 在 Node 里是 `constructor,delete,has,add`
+——**四格自有**，`size` / `clear` / `forEach` / 那一族集合运算**一格都不该有**。
+
 ## field Date:int = 0
 
 **`Date` 的原型**（第 138 轮）——与上面两格同款。
@@ -402,8 +431,9 @@ if (this.Global > 0) roots.AddHandle(this.Global);
 `new TypeError() instanceof Error` 都成立。
 **这几个成员共用「报错对象的原型」这一件事**，所以 `/ 13` 那个上界跟着
 第 277 轮变成 `/ 14`、第 295 轮变成 **`* 16`**、**第 376 轮变成 `* 18`**、
-**第 730 轮变成 `* 21`**（函数那三族的原型）
-（`URIError` / `EvalError` 两格）——**这个数是手写的**（`ObjectCharge * 21`），
+**第 730 轮变成 `* 21`**（函数那三族的原型）、
+**第 733 轮变成 `* 23`**（`WeakMap` / `WeakSet` 两格）
+（`URIError` / `EvalError` 两格）——**这个数是手写的**（`ObjectCharge * 23`），
 改成员数时**两处都要改**
 （少改一处就是「房间问少了」：`CreateObject` 自己**不做房间检查**）。
 **`Map` / `Set` / `Date` 三格接在 `Object.prototype` 上**（第 138 轮）。
@@ -411,7 +441,7 @@ if (this.Global > 0) roots.AddHandle(this.Global);
 **原始值接收者的方法从这里找**（`(1.5).toFixed(2)`、`true.toString()`）。
 
 ```ts
-if (!room(ObjectCharge * 21)) {
+if (!room(ObjectCharge * 23)) {
   throw new Error("out of room");
 }
 // **`Array.prototype` 自己就是一个数组**（第 592 轮）：JS 里 `Array.isArray(Array.prototype)`
@@ -460,6 +490,18 @@ protos.Map = table.CreateObject();
 table.Get(protos.Map).Proto = protos.Object;
 protos.Set = table.CreateObject();
 table.Get(protos.Set).Proto = protos.Object;
+// **`WeakMap` / `WeakSet` 两格**（第 733 轮）：**接在 `Object.prototype` 下面**
+// ——**与 `Map.prototype` / `Set.prototype` 并列，不是接在它们下面**。
+// 这一条是**实测 Node 量出来的**（`Object.getPrototypeOf(WeakMap.prototype) === Object.prototype`
+// 给 `true`、`=== Map.prototype` 给 `false`），理由写在上面那两格字段的说明里：
+// 接在 `Map.prototype` 下面的话 `WeakMap.prototype.size` 会**跟着继承过来**，
+// 而 JS 里它是 `undefined`——`Object.keys` 那一格看不出来，所以是一种**静默的「一半对」**。
+// **方法在 `globals.xl.md` 里各自挂一份**（`InstallWeakPrototypeMethods`），
+// 与 `InstallMapPrototype` / `InstallSetPrototype` 同一个位置、同一个形状。
+protos.WeakMap = table.CreateObject();
+table.Get(protos.WeakMap).Proto = protos.Object;
+protos.WeakSet = table.CreateObject();
+table.Get(protos.WeakSet).Proto = protos.Object;
 protos.Date = table.CreateObject();
 table.Get(protos.Date).Proto = protos.Object;
 // **生成器那一格**（第 229 轮）：接在 `Object.prototype` 上

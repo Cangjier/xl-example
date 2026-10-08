@@ -3,8 +3,9 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
-import { NativeCall, CallFailed, Protos, SetProperty, SetHiddenProperty, DefineAccessor, FindProperty, NewPlainObject, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
+import { NativeCall, CallFailed, Protos, SetProperty, SetHiddenProperty, DefineAccessor, FindProperty, ReadProperty, NewPlainObject, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
 import { NeverCall, AttachArrayIterator } from "./array.xl.md"
+import { BuiltinArity, DefineBuiltinName } from "./globals.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 ```
 
@@ -224,6 +225,52 @@ InstallMapMethods(vm.Room(), vm.Table, proto);
 // **不可枚举**（与 Node 同款：`enumerable: false`）。
 DefineAccessor(vm.Room(), vm.Table, proto, NameValue(vm.Table, "size"),
   Value.FromRef(ValueTag.HostRef, vm.Table.CreateHostRef(MapSizeGet, 0)), Value.Undefined(), false);
+// **`WeakMap.prototype` 是另一格对象**（第 733 轮），所以方法要在它上面**再挂一份**。
+//
+// **为什么不能省**（**实测 Node 量出来的那条链**）：
+// `Object.getPrototypeOf(WeakMap.prototype) === Object.prototype` 给 `true`
+//（`=== Map.prototype` 给 `false`）——两格**并列**，所以 `WeakMap.prototype.get`
+// 沿链是**找不到**的，只能自己挂。第一版写的是「接在 `Map.prototype` 下面」，
+// 那样五格名字都取得到，**但 `WeakMap.prototype.size` 会跟着继承过来**
+//（JS 里是 `undefined`）——静默的「一半对」，所以链改回并列、方法在这里补一份。
+//
+// **`size` 那一格故意不挂**：`WeakMap` 没有 `size`
+//（`Object.getOwnPropertyNames(WeakMap.prototype)` 在 Node 里是
+//  `constructor,delete,get,set,has`——**五格**）。其余几格（`clear` / `forEach` /
+// `keys` / `values` / `entries`）是 `Map` 独有的，本仓沿用第 295 轮的口径
+//（`WeakMap` 与 `Map` **共用同一张表**、只多一条「键必须是对象」的判据），
+// 所以那几格照旧挂上去——**记在明处**（`Object.getOwnPropertyNames` 那一格与 Node 不同）。
+// `constructor` 由 `globals.xl.md` 挂（它手上才有 `WeakMap` 那个全局值）。
+InstallMapMethods(vm.Room(), vm.Table, Value.FromObject(protos.WeakMap));
+// **那五格的名字与形参个数**（第 733 轮）——与 `Map.prototype` 上那一份**同一个来源**
+//（`MethodNameOf` + `BuiltinArity`），所以两处不会漂。
+//
+// **为什么不是「循环里顺手带上」**：`InstallMapMethods` 是**共用**的那一个
+// （`Map.prototype` 与 `WeakMap.prototype` 都调它），在里面挂名字会把
+// `Map.prototype` 那五格**重挂一遍**——`DefineBuiltinName` 幂等、值也一样，
+// 但两处各写一份名单就是两处会漂的东西。所以按**号**列一遍，
+// 这一列与 `MethodNameOf` 那张表**同一个键**（号），漂不了。
+//
+// **`Map` 那五格本来也是空的**（第 733 轮之前）：`Map.prototype.get.name` 在 Node 里
+// 是 `"get"`，本仓给 `""`——这一句把它们一起补上（`DefineBuiltinName` 幂等）。
+const weakNamedIds = [MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapEntries,
+  MapClear, MapForEach];
+for (let i = 0; i < weakNamedIds.length; i++) {
+  const namedName = MethodNameOf(weakNamedIds[i]);
+  const namedKey = NameValue(vm.Table, namedName);
+  // **两张表都要走一遍**（`Map.prototype` 与 `WeakMap.prototype`）——
+  // 第 733 轮之前**两处都是空的**（`Map.prototype.get.name` 在 Node 里是 `"get"`，本仓给 `""`）。
+  const owned = ReadOwn(NeverRoom, vm.Table, Value.FromObject(protos.WeakMap), namedName);
+  if (owned.Tag === ValueTag.HostRef) {
+    DefineBuiltinName(vm.Room(), vm.Table, owned, namedName, BuiltinArity(weakNamedIds[i]));
+  }
+  const onMapProto = FindProperty(NeverRoom, vm.Table, protos.Map, namedKey);
+  if (onMapProto !== null) {
+    DefineBuiltinName(vm.Room(), vm.Table,
+      ReadProperty(NeverCall, vm.Table, onMapProto, Value.FromObject(protos.Map)), namedName,
+      BuiltinArity(weakNamedIds[i]));
+  }
+}
 ```
 
 # method MapSizeOf:(table:HeapTable, self:Value)=>Value
@@ -274,7 +321,11 @@ if (id === MapCtor || id === WeakMapCtor) {
   // **方法第 341 轮搬到了原型上**（见 `InstallMapPrototype`）：这一行原来还跟着一句
   // 「方法仍然挂在实例自己身上」——那一句现在是**错的**，所以一并改掉
   //（本项目里，「注释与代码相反」比没有注释更坏）。
-  table.Get(map.Ref).Proto = protos.Map;
+  // **第 733 轮起弱表挂 `Protos.WeakMap`**（那一格接在 `Map.prototype` 下面）：
+  // `new WeakMap() instanceof WeakMap` 于是成立（第 295 / 681 轮那句
+  // 「`instanceof WeakMap` 是假的」已经不成立），而 `get` / `set` 那一族照旧沿链找得到
+  // ——**链就是这一轮的修法**，一行挂载代码都没多。
+  table.Get(map.Ref).Proto = id === WeakMapCtor ? protos.WeakMap : protos.Map;
   WriteOwn(room, NeverCall, table, map, "__k", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, map, "__v", NewPlainArray(room, table, protos));
   // **这一格是「键必须是对象」那条判据的唯一事实来源**（第 681 轮）：

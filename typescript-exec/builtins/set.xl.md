@@ -3,9 +3,10 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
-import { NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, SetProperty, DefineAccessor, NeverRoom } from "../../runtime/props.xl.md"
+import { NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, SetProperty, DefineAccessor, NeverRoom, FindProperty, ReadProperty } from "../../runtime/props.xl.md"
 import { NeverCall, Units, AttachArrayIterator } from "./array.xl.md"
 import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
+import { BuiltinArity, DefineBuiltinName } from "./globals.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 ```
 
@@ -166,6 +167,30 @@ InstallSetMethods(vm.Room(), vm.Table, Value.FromObject(protos.Set));
 // 理由写在 `map.xl.md` 那一处）。
 DefineAccessor(vm.Room(), vm.Table, Value.FromObject(protos.Set), NameValue(vm.Table, "size"),
   Value.FromRef(ValueTag.HostRef, vm.Table.CreateHostRef(SetSizeGet, 0)), Value.Undefined(), false);
+// **`WeakSet.prototype` 是另一格对象**（第 733 轮）——与 `map.xl.md` 里
+// `WeakMap.prototype` 那一段**一字不差**（理由全在那里：实测 Node 的链是
+// `WeakSet.prototype -> Object.prototype`，与 `Set.prototype` **并列**，
+// 所以方法要自己挂一份；`size` **不挂**——`WeakSet` 没有它）。
+// **`constructor` 由 `globals.xl.md` 挂**（它手上才有 `WeakSet` 那个全局值）。
+InstallSetMethods(vm.Room(), vm.Table, Value.FromObject(protos.WeakSet));
+// **那四格的名字与形参个数**（第 733 轮）：与 `Map` 那一处同一个做法
+//（按号列一遍、`DefineBuiltinName` 幂等），`Set.prototype` 上那一份也一起补上。
+const weakSetNamedIds = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear,
+  SetForEach];
+for (let i = 0; i < weakSetNamedIds.length; i++) {
+  const namedName = SetMethodNameOf(weakSetNamedIds[i]);
+  const namedKey = NameValue(vm.Table, namedName);
+  const owned = ReadOwn(NeverRoom, vm.Table, Value.FromObject(protos.WeakSet), namedName);
+  if (owned.Tag === ValueTag.HostRef) {
+    DefineBuiltinName(vm.Room(), vm.Table, owned, namedName, BuiltinArity(weakSetNamedIds[i]));
+  }
+  const onSetProto = FindProperty(NeverRoom, vm.Table, protos.Set, namedKey);
+  if (onSetProto !== null) {
+    DefineBuiltinName(vm.Room(), vm.Table,
+      ReadProperty(NeverCall, vm.Table, onSetProto, Value.FromObject(protos.Set)), namedName,
+      BuiltinArity(weakSetNamedIds[i]));
+  }
+}
 ```
 
 # method SetSizeOf:(table:HeapTable, self:Value)=>Value
@@ -193,7 +218,9 @@ if (id === SetCtor || id === WeakSetCtor) {
   const created = NewPlainObject(room, table, protos);
   // **实例挂在 `Protos.Set` 上**（第 138 轮）——理由与 `map.xl.md` 那一句一字不差
   // （`new Set() instanceof Set` 要在链上找到那一格）。
-  table.Get(created.Ref).Proto = protos.Set;
+  // **第 733 轮起弱集合挂 `Protos.WeakSet`**（那一格接在 `Set.prototype` 下面，
+  // 所以 `add` / `has` / `delete` 照旧沿链找得到）——与 `map.xl.md` 那一句同一个形状。
+  table.Get(created.Ref).Proto = id === WeakSetCtor ? protos.WeakSet : protos.Set;
   WriteOwn(room, NeverCall, table, created, "__v", NewPlainArray(room, table, protos));
   // **「值必须是对象」那条判据的唯一事实来源**（第 681 轮）——与 `Map` 那一格
   // 同名同义（普通集合写 `false`、弱集合写 `true`），`add` 那一支只读它。

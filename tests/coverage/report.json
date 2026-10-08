@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7813,
+  "total": 7814,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.17,
+  "progressPercent": 96.18,
   "categories": [
     {
       "category": "token",
@@ -100,8 +100,8 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 861,
-      "pass": 850,
+      "total": 862,
+      "pass": 851,
       "blocked": 1,
       "differ": 10,
       "nodefail": 0,
@@ -111,11 +111,11 @@
       "category": "stdlib",
       "weight": 0.2,
       "total": 3135,
-      "pass": 3067,
+      "pass": 3069,
       "blocked": 25,
-      "differ": 43,
+      "differ": 41,
       "nodefail": 0,
-      "coverage": 97.83
+      "coverage": 97.89
     },
     {
       "category": "e2e",
@@ -1829,7 +1829,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18364/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23156/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1985,7 +1985,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18364/src/4974.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23156/src/4975.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2009,7 +2009,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18364/src/5024.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23156/src/5025.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2046,18 +2046,6 @@
       "category": "stdlib",
       "title": "typeof JSON.isRawJSON",
       "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
-    },
-    {
-      "id": "stdlib/map-set/103-names-weakmap-proto",
-      "category": "stdlib",
-      "title": "名字逐个取一次：WeakMap.prototype 的成员（缺 5 个）",
-      "detail": "stdout 不同：第 1 行：node «object constructor function» vs tsrun «undefined constructor no»"
-    },
-    {
-      "id": "stdlib/map-set/104-names-weakset-proto",
-      "category": "stdlib",
-      "title": "名字逐个取一次：WeakSet.prototype 的成员（缺 4 个）",
-      "detail": "stdout 不同：第 1 行：node «object add function» vs tsrun «undefined add no»"
     },
     {
       "id": "stdlib/map-set/110-forof-live-view-not-taken",

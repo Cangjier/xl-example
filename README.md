@@ -1088,6 +1088,33 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7460 / 7810 → 7468 / 7813**、`blocked 258`（没涨）、`differ 92 → 87`
   （收 5 条、新语料 0 条挂账）、`bad` 0、`regressions` **0**，加权 **96.1% → 96.2%**。
 
+### 第 733 轮（其二）：`WeakMap` / `WeakSet` 各自一格原型与 `Map` / `Set` 那两格的名字（coverage 7468/7813 → **7471/7814**）
+
+同一轮的第二批：**第 295 / 681 轮那个取舍的账单**。
+
+- **收掉两条**：`stdlib/map-set/103-names-weakmap-proto` / `104-names-weakset-proto`。
+  第 295 轮让 `WeakMap` 与 `Map` **共用 `protos.Map`**（为省一整套方法安装代码），
+  代价是 `WeakMap.prototype` **就是** `Map.prototype` ⇒ `constructor` 是 `Map`
+  （在 **Node** 里 `WeakMap.prototype.constructor === WeakMap` 是 `true`）。
+- **链是量出来的、不是推出来的**（**实测 Node**）：
+  `Object.getPrototypeOf(WeakMap.prototype) === Object.prototype` 给 `true`、
+  `=== Map.prototype` 给 `false`；`Object.getOwnPropertyNames(WeakMap.prototype)`
+  是 `constructor,delete,get,set,has`（**五格自有**），`WeakSet` 那边是
+  `constructor,delete,has,add`（**四格**）。
+  **第一版写的是「接在 `Map.prototype` 下面」**（想省掉复制方法）：五格名字都取得到、
+  `Object.keys` 也仍是 `[]`，**但 `WeakMap.prototype.size` 会跟着继承过来**
+  （JS 里是 `undefined`）——判据只量那五个名字，所以这一处会**静默留下**。
+  改成**并列**（两格各自接 `Object.prototype`，方法各自挂一份）之后那一格才不存在。
+- **`Map` / `Set` 那两格的 `name` / `length` 也一起补上**（第 733 轮那件工具的复用）：
+  `Map.prototype.get.name` 在 Node 里是 `"get"`，本仓原来给 `""`。
+  **形参个数按逐个量出来的表写**——`Map.prototype.set.length` 是 **`2`**、
+  `get` / `has` / `delete` / 两个 `forEach` 是 `1`、`entries` / `keys` / `values` / `clear` 是 `0`。
+  **第一版把整族写成「一格」**（想当然），新语料 `p733a-a04` 最后一行当场把它量了出来。
+- **新语料 1 条**：`p733a-a04`（两格原型的成员、`size` **不该**跟着来、`instanceof`、
+  以及 `Map` / `Set` 那两格的名字与长度）。
+- 五类 **7468 / 7813 → 7471 / 7814**、`blocked 258`（没涨）、`differ 87 → 85`、
+  `bad` 0、`regressions` **0**，加权 **96.2%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1100,9 +1127,8 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1408 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7468 / 7813**，加权 **96.2%**：token 1189/1405、exec 2120/2166、runtime 850/861、stdlib 3067/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 87），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7471 / 7814**，加权 **96.2%**：token 1189/1405、exec 2120/2166、runtime 851/862、stdlib 3069/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 85），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
-
 ### 口径与已知缺口
 
 **口径外**（不进分母，也不当缺口）只剩两种：**JSX / TSX**（独立于 TypeScript 的语法扩展）

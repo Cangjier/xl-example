@@ -11,8 +11,8 @@ import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, 
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
 import { JsTextUnits, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue } from "./text.xl.md"
 import { InspectText, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
-import { MapCtor, MapGroupBy, MapEntries, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
-import { SetCtor, SetValues, WeakSetCtor } from "./set.xl.md"
+import { MapCtor, MapGroupBy, MapEntries, MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapClear, MapForEach, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
+import { SetCtor, SetValues, SetAdd, SetHas, SetDelete, SetKeys, SetEntries, SetClear, SetForEach, WeakSetCtor } from "./set.xl.md"
 import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, PromiseFinally } from "./promise.xl.md"
 ```
 
@@ -7724,6 +7724,23 @@ if (id === ReflectGetOwnPropertyDescriptor || id === ReflectGetPrototypeOf
   || id === ReflectSetPrototypeOf) {
   return 2;
 }
+// **`Map` / `Set` 那一族**（第 733 轮）：**按 Node 逐个量出来的表**——
+// `Map.prototype.set.length` 给 **`2`**（`(键, 值)`），而 `get` / `has` / `delete`
+// 与 `Set` 的 `add` / `has` / `delete` 都是 **`1`**，两个 `forEach` 是 **`1`**，
+// `entries` / `keys` / `values` / `clear` 是 **`0`**。
+//
+// **第一版把整族写成「一格」**（想当然），`p733a-a04` 最后一行当场把它量出来了
+//（`Map.prototype.set.length` 本仓给 `1`、Node 给 `2`）——**这一行就是那一格的判据**。
+if (id === MapSet) return 2;
+if (id === MapGet || id === MapHas || id === MapDelete
+  || id === SetAdd || id === SetHas || id === SetDelete) {
+  return 1;
+}
+if (id === MapForEach || id === SetForEach) return 1;
+if (id === MapKeys || id === MapValues || id === MapEntries || id === MapClear
+  || id === SetValues || id === SetKeys || id === SetEntries || id === SetClear) {
+  return 0;
+}
 // **其余一律 `0`**（见上面那一段：这一档本来就是「不说」）。
 return 0;
 ```
@@ -8065,11 +8082,12 @@ vm.RegisterConstructorProto(EvalErrorCtor, protos.EvalError);
 // 在 JS 里抛 `TypeError`），而用量出来的缺口把它补上了——
 // 两个新号是 `MapCtor` / `SetCtor` 的**同一份实现**，只多写一格内部件 `__w`
 //（构造那一刻的事实来源），`set` / `add` 各自读一次。**实现没有第二份**。
-//
-// **仍然记着的一处差异**：`instanceof WeakMap` 是假的（原型还是 `Map` 那一个）。
-// **为什么不给它们各造一个原型**：方法挂在**原型**上（`map.xl.md` 的 `InstallMapMethods`），
-// 而「用哪个原型」只影响 `instanceof` 那一格——为它复制一整套安装代码不成比例
-//（判据也没有量它），继续记在台账里。
+// **第 733 轮起它们各自有一格原型**（`props.xl.md` 的 `InitProtos`：
+// `WeakMap.prototype` 接在 `Map.prototype` 下面、`WeakSet.prototype` 接在 `Set.prototype`
+// 下面，与 JS 一致）——所以第 295 / 681 轮那句「**仍然记着的一处差异**：
+// `instanceof WeakMap` 是假的（原型还是 `Map` 那一个）」**已经不成立了**，一并删掉。
+// **方法是继承来的**（链上就有），所以这里不复制一整套安装代码——
+// 那正是第 295 轮不肯各造一个原型的理由，而「接一条链」把它解掉了。
 const weakMapKey = Value.FromString(table.CreateString(Units("WeakMap")));
 const weakMapObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(weakMapObject.Ref, WeakMapCtor, 0);
@@ -8078,6 +8096,27 @@ const weakSetKey = Value.FromString(table.CreateString(Units("WeakSet")));
 const weakSetObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(weakSetObject.Ref, WeakSetCtor, 0);
 SetHiddenProperty(vm.Room(), table, globals, weakSetKey, weakSetObject);
+// **`WeakMap` / `WeakSet` 那两格原型**（第 733 轮）：原来它们**共用** `Map` / `Set`
+// 那两个原型（第 295 / 681 轮的取舍），代价写在上面那一段里——
+// 现在各自有一格（`props.xl.md` 的 `InitProtos` 把它们接在 `Map.prototype` /
+// `Set.prototype` 下面），所以这里只补**两个对象自己那两格**
+// `constructor` 与 `prototype`（与 `Map` / `Set` 那四行同一个形状）。
+//
+// **方法一格都不必挂**：`WeakMap.prototype.get` 那一族是**继承**来的
+//（JS 里就是如此——`Object.keys(WeakMap.prototype)` 在 Node 里是空数组）。
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.WeakMap),
+  NameValue(table, "constructor"), weakMapObject);
+SetHiddenProperty(vm.Room(), table, weakMapObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.WeakMap));
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.WeakSet),
+  NameValue(table, "constructor"), weakSetObject);
+SetHiddenProperty(vm.Room(), table, weakSetObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.WeakSet));
+// **`WeakMap` / `WeakSet` 两个构造号也登记**（第 733 轮）——理由与下面 `Map` / `Set`
+// 那两行一字不差：`instanceof` 那条路要么读右边的 `prototype` 属性、要么查这张表。
+// **两处都要**（只补属性的话，`WeakMap` 换成别的壳时那条路会断）。
+vm.RegisterConstructorProto(WeakMapCtor, protos.WeakMap);
+vm.RegisterConstructorProto(WeakSetCtor, protos.WeakSet);
 // **`Map` / `Set` 两个号登记**（第 138 轮）：它们是**宿主引用值**（与 `Error` 同款），
 // 只能走登记表。**`Date` 不走这条路**——它的全局值是**普通对象**
 // （`new Date()` 由降级层落成一条 `host_call(DateCtor, …)`，见 `DateCtor` 的说明），
@@ -8995,12 +9034,15 @@ SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "prototype")
 // 非枚举（`Object.keys(Promise.prototype)` 在 JS 里是 `[]`）、`length` 也对得上
 //（`then` 2 / `catch` 1 / `finally` 1）。
 const promiseProto = Value.FromObject(protos.Promise);
+// **第 733 轮：三格都带上 `name`**（`then` / `catch` / `finally`）——
+// `MethodObject` 第三格就是它。**这一族与 `Math` 那一族是同一个缺口的两种壳**
+// （见 `DefineBuiltinName` 那段表：这一档有属性表、缺的只是名字）。
 SetHiddenProperty(vm.Room(), table, promiseProto, NameValue(table, "then"),
-  MethodObject(vm.Room(), table, protos, PromiseThen, 2));
+  MethodObject(vm.Room(), table, protos, PromiseThen, 2, "then"));
 SetHiddenProperty(vm.Room(), table, promiseProto, NameValue(table, "catch"),
-  MethodObject(vm.Room(), table, protos, PromiseCatch, 1));
+  MethodObject(vm.Room(), table, protos, PromiseCatch, 1, "catch"));
 SetHiddenProperty(vm.Room(), table, promiseProto, NameValue(table, "finally"),
-  MethodObject(vm.Room(), table, protos, PromiseFinally, 1));
+  MethodObject(vm.Room(), table, protos, PromiseFinally, 1, "finally"));
 // **`Map` / `Set` / `Date` / `Array` 四格的 `prototype` 与 `constructor`**（第 138 轮）：
 // `new Map() instanceof Map` 要靠原型那一格，`new Map().constructor === Map` 要靠
 // `constructor` 那一格——**两格都要**（只补一格就是「一半对」）。
