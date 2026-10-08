@@ -2225,8 +2225,17 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   //
   // **必须排在下面那句「单个单元直接投」之前**：`yield;` 的产物就是**一格**
   // `Keyword(yield)`，走到那一句会把它投成 `Identifier`。
-  if (kids[0].get("type") === "Keyword") {
-    const word = textOfNode(kids[0], ctx);
+  //
+  // **那两个词不一定是 `Keyword`**（第 739 轮）：`x && await y` 里**内层那个 `await`**
+  // 在产物里是 `Identifier`（逻辑段是从**外层那个前缀词**后面起算的，内层那一个
+  // 还没被 `KeywordCloseRule` 升上去）——只认 `Keyword` 时这一格投成**一个光秃秃的标识符**、
+  // 它的操作数 `y` 一个字都不留下，降级期报 `name is not a local or a capture: await`
+  //（**整份文件跑不进来**）。与 `isOperatorUnit` 按文本认 `in` / `instanceof`
+  // 是同一个手法：**同一个词两态都要认**（在模块 / 异步函数里 `await` 不可能是一个变量名）。
+  const headKind = kids[0].get("type");
+  const headWord = textOfNode(kids[0], ctx);
+  if (headKind === "Keyword" || (headKind === "Identifier" && (headWord === "await" || headWord === "yield"))) {
+    const word = headWord;
     // **`yield` 可以没有操作数、也可以带 `*`**（第 130 轮）：`yield;` 的 TS 是
     // `YieldExpression[146,151)`（就是那个词），`yield* other()` 的 `*` 进
     // `asteriskToken`、`other()` 进 `expression`。少了这两支，裸 `yield` 会被投成
@@ -2247,7 +2256,67 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         end: value === undefined ? endOf(kids[kids.length - 1]) : value.end,
       };
     }
+    // **`await` 是一元前缀、比二元与逻辑都紧**（第 739 轮）：`await x + 1` 是 `(await x) + 1`，
+    // 而 token 层**已经把 `await` 后面那一整段折成了一个单元**（`BinaryOperator(x + 1)`）——
+    // 照原样投就是把二元那一段整个塞进 `await` 的操作数（**静默错值**：
+    // `await Promise.resolve(1) + 1` 在 Node 里给 `2`、本仓给 `[object Promise]1`；
+    // `await Promise.resolve(0) && "T"` 在 Node 里给 `0`、本仓给 `"T"`）。
+    //
+    // **做法**：沿那个单元的**最左边那条脊**剥下去，剥到第一个不是运算符单元的操作数为止
+    //（`await x * 2 + 3` 剥出 `x`、尾巴是 `* 2 + 3`；`await o.m() + 1` 剥出那一条链），
+    // 剥出来的当 `await` 的操作数，剩下的连同本层后面的兄弟交给 `foldBinaryFrom` 照常折。
+    // 这与第 711 轮收 `typeof o[k]().v` 那一格**是同一个形状**（一元前缀 + 操作数在后），
+    // 只是这里操作数与 `await` **平级**、而那里操作数在那个一元单元**里面**。
+    //
+    // **尾巴里那格 `As` 不归 `foldBinaryFrom` 管**：`await x as T` 是平级两格 `[x, As]`
+    //（摊平之后一个运算符都没有），`await x + 1 as any` 的尾巴里也有 `As`——
+    // 这两种一律回落到下面那条老路（`as` 的结合性本仓另有口径，抢过来会把那一格丢掉）。
     if (word === "await" && kids.length >= 2) {
+      const isOperatorFold = (unit:any):bool => {
+        const kind = unit === undefined ? "" : unit.get("type");
+        return kind === "BinaryOperator" || kind === "LogicalOperator";
+      };
+      // **先把最左边那条脊摊平**：`await x * 2 + 3` 的产物是
+      // `BinaryOperator(+)( BinaryOperator(*)(x, *, 2), +, 3 )`——一直摊到「头一格不是
+      // 运算符单元」为止，摊出来的那份平铺串里**第一个运算符**就是 `await` 该停的地方。
+      // 左操作数**自己也可能是一段**（`await a && await b` 里那一格是
+      // `Keyword(await) + 那个调用`），所以剥出来的是一段 **list**、不是一个单元。
+      // **右边那一格不一定是运算符单元**：`await x > 0` 的产物是平铺的
+      // `[await, x, >, 0]`（关系运算符那一族没折进单元），所以这一支不设「头一格是运算符」
+      // 这道门——摊平之后找不到运算符就自然回落到下面那条老路。
+      let flat = kids.slice(1);
+      while (isOperatorFold(flat[0])) {
+        const inner = projectableKids(view(flat[0]));
+        if (inner.length < 2) break;
+        flat = [...inner, ...flat.slice(1)];
+      }
+      let opAt = -1;
+      for (let at = 0; at < flat.length; at++) {
+        if (isOperatorUnit(flat[at], ctx)) {
+          opAt = at;
+          break;
+        }
+      }
+      // **只有在摊平之后真的能在运算符处切开、而且尾巴里没有 `As` / `Satisfies` 时才走这一支**：
+      // `await x as T` 是平级两格 `[x, As]`（摊平之后一个运算符都没有），
+      // 那两格的结合性本仓另有口径，抢过来说会把 `as` 那一格丢掉
+      //（`await x + 1 as any` 也是同一形状：尾巴里那格 `As` 不归 `foldBinaryFrom` 管）。
+      const tailIsOperators =
+        opAt > 0 &&
+        flat.length - opAt >= 2 &&
+        flat.slice(opAt).every((unit) => unit.get("type") !== "As" && unit.get("type") !== "Satisfies");
+      if (tailIsOperators) {
+        const operand = projectExpression(flat.slice(0, opAt), ctx);
+        if (operand !== undefined) {
+          const awaited = {
+            kind: "AwaitExpression",
+            expression: operand,
+            pos: startOf(kids[0]),
+            end: operand.end,
+          };
+          return foldBinaryFrom(awaited, flat.slice(opAt), ctx);
+        }
+      }
       const value = projectExpression(kids.slice(1), ctx);
       if (value !== undefined) {
         return { kind: "AwaitExpression", expression: value, pos: startOf(kids[0]), end: value.end };
@@ -3005,6 +3074,19 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // `NotNull` 单独投影 ⇒ **`[1]` 整个丢掉**：
   // `o.b![1]` 在 Node 里是 `2`，本仓给的是**那个数组本身**——**静默错值**
   // （判据 `ex-nonnull-chain-index` / `ex-nonnull-and-as-chain`）。
+  // **一元前缀的操作数掉在单元外面**（第 739 轮）时也要进这一支：
+  // `typeof await p` 的产物是 `[UnaryOperator(typeof await), PropertyAccess(p)]`——
+  // 第二格是一条**成员访问链**（头一格是 `Identifier`，不是调用括号），
+  // 所以上面那些入口条件（`.` / 下标 / 以调用开头）一个都不成立，
+  // 这个一元单元会被单独投出去（`expression` 缺一格）⇒ 降级期报
+  // `unimplemented: expression AwaitKeyword`。判据与下面那一支共用同一个 `chainTail`。
+  const chainTail = (unit: any): bool => {
+    if (unit === undefined || unit === null) return false;
+    const tailKind = unit.get("type");
+    if (tailKind === "Bracket" || tailKind === "PropertyAccess" || tailKind === "Method") return true;
+    if (tailKind === "NotNull") return true;
+    return tailKind === "SymbolToken" && textOfNode(unit, ctx) === ".";
+  };
   if (
     kids.length >= 2 &&
     (isSymbol(kids[1], ".") || isIndexBracket(kids[1]) ||
@@ -3020,7 +3102,9 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       //（`o["f"]()` 单独出现时是三格平级 `[o, Bracket([f]), Bracket(())]`，
       //  多了后缀之后 token 层给出的形状**就换了一个**）。
       // 判据与理由见 `isCallFirstUnit` 那一段。
-      isCallFirstUnit(kids[1], ctx))
+      isCallFirstUnit(kids[1], ctx) ||
+      // **一元前缀 + 操作数在外的链**（第 739 轮，判据见上面 `chainTail` 那一段）。
+      (kids[0].get("type") === "UnaryOperator" && chainTail(kids[1])))
   ) {
     // **嵌套的链要摊平**（第 86 轮）：产物偶尔把**一整条链**塞进另一条链的成员位——
     // `this.Parent!.Data.splice(1, 2)` 实测是
@@ -3113,12 +3197,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     // 下面那个循环因此不再进（整条链在这里已经折完）。
     // **只在后面真是链上的一格时才走这一支**（`.` / 下标 / 调用 / 成员 / 断言）：
     // `?.` 与二元那一族由下面那两条尾支管，抢过来会换掉既有形状。
-    const chainTail = (unit: any): bool => {
-      const tailKind = unit.get("type");
-      if (tailKind === "Bracket" || tailKind === "PropertyAccess" || tailKind === "Method") return true;
-      if (tailKind === "NotNull") return true;
-      return tailKind === "SymbolToken" && textOfNode(unit, ctx) === ".";
-    };
+    // （`chainTail` 那份判据提到上面那个入口条件那儿去了——两处必须是同一句。）
     if (ck.length > 1 && ck[0].get("type") === "UnaryOperator" && chainTail(ck[1])) {
       const unaryKids = projectableKids(view(ck[0]));
       let operandAt = 0;
@@ -3127,6 +3206,19 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         (unaryKids[operandAt].get("type") === "SymbolToken" || unaryKids[operandAt].get("type") === "Keyword")
       ) {
         operandAt += 1;
+      }
+      // **两层前缀叠在同一个一元单元里、操作数却掉在外面**（第 739 轮）：
+      // `typeof await p` 的产物是 `[UnaryOperator(typeof await), PropertyAccess(p)]`——
+      // 上面那个循环把 `typeof` **与 `await`** 都当成「词」跳过去了，`operandAt` 顶到末尾
+      // ⇒ 这一支整条不进 ⇒ 那个一元单元照原样投出一个 `AwaitKeyword`
+      //（降级期报 `unimplemented: expression AwaitKeyword`，离现场很远）。
+      // **往回退一格**：最后那个词自己也是要吃操作数的，把它与后面的兄弟接起来递归折完
+      //（折出来的是 `typeof (await p)`，与 Node 的语义一致）。
+      if (operandAt === unaryKids.length && operandAt > 1) {
+        const lastText = textOfNode(unaryKids[operandAt - 1], ctx);
+        if (["await", "yield", "typeof", "void", "delete", "!", "~", "+", "-", "++", "--"].includes(lastText)) {
+          operandAt -= 1;
+        }
       }
       if (operandAt < unaryKids.length) {
         // **链上其余格用「摊开之前」的那一份**（`kids`，不是 `ck`）：`ck` 里第二格
@@ -3144,12 +3236,24 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         // 运行期报 `cannot call a non-closure value`），而 `typeof o[k]().v` 是好的
         // ——**同一个形状两种结局**，最费时间的那一种。
         if (operand !== undefined && unaryHead !== undefined) {
-          if (unaryHead.expression !== undefined) {
+          // **两个名字都认不出来时按 `op` 定**（第 739 轮）：`typeof await p` 里那个一元
+          // 单元的**操作数本来就缺**（它掉在单元外面）⇒ `TypeOfExpression` 投出来的是
+          // `expression: undefined` ⇒ 上面那两句「字段在不在」都不成立、整条支路白走
+          //（症状是 `typeof await p` 报 `unimplemented: expression AwaitKeyword`）。
+          // 判据用**运算符自己的文本**（`typeof` / `void` / `delete` 是**词**，三格独立 kind、
+          // 字段叫 `expression`；其余是符号，`PrefixUnaryExpression` 那一族的字段叫 `operand`）。
+          const outerWord = ck[0].get("op");
+          const wordKinds = ["typeof", "void", "delete"];
+          const preferExpression =
+            (typeof outerWord === "string" && wordKinds.includes(outerWord)) ||
+            unaryHead.expression !== undefined;
+          if (preferExpression) {
             return { ...unaryHead, expression: operand, end: operand.end };
           }
           if (unaryHead.operand !== undefined) {
             return { ...unaryHead, operand: operand, end: operand.end };
           }
+          return { ...unaryHead, expression: operand, end: operand.end };
         }
       }
     }
