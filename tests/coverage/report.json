@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7771,
+  "total": 7777,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.02,
+  "progressPercent": 96.06,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1404,
-      "pass": 1185,
+      "total": 1405,
+      "pass": 1186,
       "blocked": 219,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 84.4
+      "coverage": 84.41
     },
     {
       "category": "exec",
@@ -100,12 +100,12 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 820,
-      "pass": 810,
-      "blocked": 2,
+      "total": 825,
+      "pass": 816,
+      "blocked": 1,
       "differ": 8,
       "nodefail": 0,
-      "coverage": 98.78
+      "coverage": 98.91
     },
     {
       "category": "stdlib",
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1404,
+    "total": 1405,
     "knownGap": 219,
     "knownGapStillOpen": 219,
-    "exactFiles": 1185,
-    "scoredWithoutGap": 1185,
-    "passedWithoutGap": 1185
+    "exactFiles": 1186,
+    "scoredWithoutGap": 1186,
+    "passedWithoutGap": 1186
   },
   "blocked": [
     {
@@ -1524,12 +1524,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
     },
     {
-      "id": "runtime/round726/p726a-b01",
-      "category": "runtime",
-      "title": "`void` 后面跟括号字面量（第 726 轮登记的缺口）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression Block"
-    },
-    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1883,7 +1877,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20364/src/3203.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27592/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2051,7 +2045,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20364/src/4932.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27592/src/4938.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2075,7 +2069,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20364/src/4982.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27592/src/4988.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",

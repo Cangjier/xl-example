@@ -1089,16 +1089,21 @@ if (current instanceof Bracket && current.startBracket === "{") {
   // **`return` / `throw` / `typeof` 早就在名单里**（前两格是受限产生式、`typeof` 是运算符），
   // 这三个与它们**同源**：词法位置上它们都只可能做前缀。
   //
-  // **`void` 故意不在名单里**（第 726 轮**实测撞到的**）：它在 TS 里还是**类型位的一个词**
-  // （`function f(): void {` / `on(…): () => void {`），而那两处的 `{` 是**函数体**（块）。
-  // 第一版把 `void` 也加进豁免名单，**当场坏掉 64 条**（函数体变成对象字面量 ⇒
-  // `unimplemented: statement Identifier`）；改成「看 `void` 前面那一格是不是 `:`」之后
-  // 还剩 `() => void {` 那一档（前面是 `=>`）——**要收它得先分清那个 `=>` 是不是类型位的**，
-  // 那是另一处改动 ⇒ 这里**只收 `delete` / `await` / `yield`**，
-  // `void { … }` / `void [ … ]` 照旧按块 / 下标收，**登在用例台账里**（`p726a-b01`）。
+  // **`void` 也在名单里了**（第 727 轮）：它比上面那几个多一道闸 —— `void` 同时是
+  // **类型位的一个词**（`function f(): void {` / `on(…): () => void {`，那两处的 `{`
+  // 是**函数体**），所以它在名单里那一格要**先问 `IsValuePositionPrefix`**
+  // （看它左边那一格是不是类型标注的冒号）。第 726 轮把它无条件加进来**当场坏掉 64 条**，
+  // 那一轮退回、只收 `delete` / `await` / `yield`，缺口登在 `p726a-b01`；
+  // 这一轮补上的就是那一格判据。
+  // `IsValuePositionPrefix` 要从 `void` **自己那一格**往回扫，所以这里现算一次它的下标
+  //（与 `previous` 同一格：`previous` 是那个词，`previousIndex` 是它在哪）。
+  const prefixIndex = SkipPreviousTrivia(units, index);
+  const prefixCandidate =
+    previous instanceof Identifier && previous.Is("void") && Get(units, prefixIndex) === previous;
   const valuePrefixBeforeBrace =
     previous instanceof Identifier &&
-    previous.IsAny(["return", "throw", "typeof", "delete", "await", "yield"]);
+    (previous.IsAny(["return", "throw", "typeof", "delete", "await", "yield"]) === true ||
+      (prefixCandidate === true && IsValuePositionPrefix(units, prefixIndex)));
   if (previous instanceof Identifier && valuePrefixBeforeBrace === false) {
     if (previous.IsAny(["extends", "keyof", "as", "satisfies", "is"]) === false) {
       return false;
@@ -1231,6 +1236,78 @@ if (item instanceof SymbolToken && item.Is("=")) {
   return false;
 }
 return false;
+```
+
+# method IsValuePositionPrefix:(units:Array<Token>, index:number)=>bool
+
+`index` 处是一个**只可能做前缀的词**（`delete` / `await` / `yield` / `void`），
+而它**处在值位**——也就是「它后面那个 `{` / `[` 是被运算的那个字面量」。
+**只有一个词需要问这一句**：`void`（其余几个在类型位根本不出现）。
+
+**为什么 `void` 不能像 `delete` / `await` / `yield` 那样直接进豁免名单**（第 726 轮实测）：
+它在 TypeScript 里**同时是类型位的一个词**——`function f(): void {` 与
+`on(…): () => void {` 那两处的 `{` 是**函数体**（块）。第一版把 `void` 无条件加进去，
+**当场坏掉 64 条**（函数体变成对象字面量 ⇒ `unimplemented: statement Identifier`；
+`coverage` 从 7407 掉到 7347）。所以第 726 轮原样退回、只收 `delete` / `await` / `yield`，
+把 `void { … }` / `void [ … ]` 两条登在用例台账里（`runtime/round726/p726a-b01`）。
+
+**这一轮的问法**：不看 `void` 自己，**看它左边那一格**——值位的 `void` 左边**不可能**是
+类型标注的冒号，类型位的 `void` 左边**必然是**那个冒号（或它左手边还有一层冒号）：
+
+| 写法 | `void` 左边 | 判 |
+| --- | --- | --- |
+| `function f(): void {` | `:` | 类型位 ⇒ 后面是函数体 |
+| `m(): void {` / `readonly cb: () => void {` | `:` | 类型位 |
+| `let x: void[]` | `:` | 类型位 |
+| `const g = (): () => void {` | `=>`（它的形参表左边是 `:`） | 类型位（问 `IsFunctionTypeArrow`） |
+| `console.log(void { … })` | `(` | 值位 ✅ |
+| `const a = void { … }` | `=` | 值位 ✅ |
+| `return void [1]` / `x = void [1]` | `return` / `=` | 值位 ✅ |
+
+往回扫的口径与 `HasTypeColonBefore` **同源**（那边问的是「上一行是类型标注还是表达式」），
+只是这里的「这一格」就是那个词本身：
+撞上 `:` ⇒ 类型位；撞上 `=` ⇒ 值位；撞上 `=>` ⇒ 交给 `IsFunctionTypeArrow`
+（函数类型的箭头左边是形参表、形参表左边是 `:`）；撞上 `;` / `,` / `(` / `[` / `{` / `}`
+⇒ 值位（类型那一截到不了这些符号，而值位到处都是它们）。一路上只跳 trivia，
+**最多扫 64 格**（不递归，也就不可能绕圈）。答否 = **保持今天的行为**。
+
+```ts
+let index2 = index;
+for (let guard = 0; guard < 64; guard++) {
+  index2 = SkipPreviousTrivia(units, index2);
+  const item = Get(units, index2);
+  if (item === null) {
+    return true;
+  }
+  if (item instanceof SymbolToken) {
+    const text = item.TempToString();
+    if (text === ":") {
+      return false;
+    }
+    if (text === "=") {
+      return true;
+    }
+    if (text === "=>") {
+      return IsFunctionTypeArrow(units, index2) === false;
+    }
+    if (text === ";" || text === "," || text === "(" || text === "[" || text === "{" || text === "}") {
+      return true;
+    }
+    continue;
+  }
+  if (item instanceof Bracket) {
+    if (item.startBracket === "(" || item.startBracket === "[" || item.startBracket === "{") {
+      return true;
+    }
+    continue;
+  }
+  if (item.constructor.name === "ArrayType" || item.constructor.name === "TupleType") {
+    // `let x: void[]`：那个 `void` 后面那一格是 `ArrayType` ⇒ 它自己就是类型位。
+    return false;
+  }
+  continue;
+}
+return true;
 ```
 
 # method EnclosingBraceIsObject:(units:Array<Token>, index:number)=>bool

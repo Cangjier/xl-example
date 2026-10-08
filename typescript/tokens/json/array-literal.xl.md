@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, GetSkipPrevious } from "../../../core/extensions/list-extension.xl.md"
-import { IsAssertableOperand, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { IsAssertableOperand, IsValuePositionPrefix, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Method } from "../method.xl.md"
@@ -77,8 +77,17 @@ if (current instanceof Bracket && current.startBracket === "[") {
   // `void` 还是 TypeScript 类型位的一个词，`let x: void[]` 那种写法要照旧收成类型括号。
   // 所以这里只收 **`delete` / `await` / `yield`**；`void [ … ]` 照旧按下标收
   // （那是 `p726a-b01` 登记的缺口）。
+  // **`void` 也在名单里了**（第 727 轮）：它比 `delete` / `await` / `yield` 多一道闸 ——
+  // `void` 同时是**类型位的一个词**（`let x: void[]` 的那个方括号要照旧收成类型括号），
+  // 所以它在名单里那一格要**先问 `IsValuePositionPrefix`**（看它左边那一格是不是类型标注的冒号）。
+  // 第 726 轮无条件加进来会连累类型位，那一轮只收 `delete` / `await` / `yield`，
+  // `void [ … ]` 照旧按下标收（`p726a-b01` 登记的缺口）；这一轮补上的就是那一格判据。
   const prefixWord =
-    previous instanceof Identifier && previous.IsAny(["delete", "await", "yield"]);
+    previous instanceof Identifier &&
+    (previous.IsAny(["delete", "await", "yield"]) === true ||
+      // 从 `previous` 自己那一格往回扫：`index - 1` 到 `previous` 之间只有 trivia
+      //（`previous` 就是跳过 trivia 之后那一格）。
+      (previous.Is("void") === true && IsValuePositionPrefix(units, index - 1)));
   if (
     previous instanceof Identifier &&
     previous.IsAny(["return", "typeof", "of", "in"]) === false &&
