@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.93,
+  "progressPercent": 95.97,
   "categories": [
     {
       "category": "token",
@@ -91,11 +91,11 @@
       "category": "exec",
       "weight": 0.25,
       "total": 609,
-      "pass": 598,
-      "blocked": 1,
+      "pass": 599,
+      "blocked": 0,
       "differ": 10,
       "nodefail": 0,
-      "coverage": 98.19
+      "coverage": 98.36
     },
     {
       "category": "runtime",
@@ -338,8 +338,8 @@
     {
       "id": "token/expressions/gap-value-array-bitwise-in-object-paren",
       "category": "token",
-      "title": "上一条**还没收干净的那几格**（第 686 轮，记在明处）：对象值位里**被括号包住**的",
-      "detail": "缺 6　多 9　对象值位里被括号包住的数组 / 值表达式：`unit.Context` 是 `\"type\"` 或 `\"\"`，"
+      "title": "第 686 轮**还开着的那一格**：对象字面量值位里**被括号包住的数组**——",
+      "detail": "缺 4　多 6　实参里的对象 / 括号化对象里，外层 `{` 的 `Context` 在招待那一格时还是空串，"
     },
     {
       "id": "token/lexical/mut-lex-private-field-141",
@@ -1458,12 +1458,6 @@
       "detail": "缺 4　漂 2　多 1　点号名在产物里是平级单元，`typeof` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）"
     },
     {
-      "id": "exec/expressions/109-ex-object-value-paren-binary",
-      "category": "exec",
-      "title": "对象字面量的值是一对圆括号里的二元表达式",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: x"
-    },
-    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1685,7 +1679,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26232/src/2812.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27380/src/2812.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1834,6 +1828,11 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "exec/expressions/109-ex-object-value-paren-binary",
+      "category": "exec"
+    }
+  ],
   "regressions": []
 }

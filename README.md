@@ -314,11 +314,11 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1415** 条用例，0 条不合格 |
-| `cases:tags` | **1415 条**（1415 条带期望、核过 4795 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:tags` | **1415 条**（1415 条带期望、核过 4796 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `cases:shapes` | 外部语料 **229 种签名 / 140 种 kind** 全部有用例覆盖（用例 1402 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3524 / 3806**，加权 **95.9%**：token 1179/1402（另有 220 条登记缺口走另一条账）、exec 598/609、runtime 612/613、stdlib 890/936、e2e 242/246。差的那些是**真缺口**（`blocked` 241 / `differ` 41），全登在用例文件头的台账里；`bad` **0 条**（第 686 轮收掉了原来那 3 条——它们不是用例写错，是裁判侧 `.work-<pid>/src/` 那份哨兵 `package.json` 写了显式 `type: commonjs`，把批那一档的 `import()` 钉死在 CJS 上） |
+| `coverage` | **五类 3525 / 3806**，加权 **96.0%**：token 1180/1402（另有 220 条登记缺口走另一条账）、exec 598/609、runtime 612/613、stdlib 890/936、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 41），全登在用例文件头的台账里；`bad` **0 条**（第 686 轮收掉了原来那 3 条——它们不是用例写错，是裁判侧 `.work-<pid>/src/` 那份哨兵 `package.json` 写了显式 `type: commonjs`，把批那一档的 `import()` 钉死在 CJS 上） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口
@@ -407,15 +407,19 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   for-of 的循环体现在外围套一张处理点，出事时两个 close 各跑一遍再原样抛出去）。
   **第 686 轮**换了一层问（**值位 vs 类型位**），量出并收掉一族**静默错树**：
   `IsTypeBracketPosition` 是按「前一个实义单元是什么符号」判类型位的，而 `:` 在
-  **对象字面量**里是**值的分隔符**——于是 `const o = { b: [1 | 2] }` / `f({ z: [3 & 4] })`
-  里的 `|` / `&` 折成 `UnionType` / `IntersectionType`，降级层报
-  `unimplemented: expression UnionType`（**整份文件进不来**）。判据改用括号自己在
-  开括号那一刻算好的 `Bracket.Context`，宿主是 `ObjectLiteral` 时再挡一条（不依赖时序）——
-  已收：裸对象值位、嵌套对象、函数实参里的对象、计算键、括号化对象里的**裸数组**。
+  **对象字面量**里是**值的分隔符**——于是 `const o = { b: [1 | 2] }` 里的 `|` / `&`
+  折成 `UnionType` / `IntersectionType`，降级层报
+  `unimplemented: expression UnionType`（**整份文件进不来**）。
+  两处修法，各自管一半：`[` / `{` 那一半在 `type-union.xl.md` 的 `IsTypeContainer`
+  （宿主是 `ObjectLiteral` ⇒ 值位，不依赖时序）；括号那一半在 `text-common-util.xl.md` 的
+  `IsTypeBracketPosition`（撞上 `:` 时先问一次 `EnclosingBraceContext`——与
+  `DecideBracketContext` 冒号那一支**同一句话、同一个依据**，对象字面量里的 `:` 是属性分隔符）。
+  **已收**：裸对象值位、嵌套对象、计算键、`{ v: (7 | 8) }`、括号化对象里的**裸数组**。
   **还开着一格**（登在 `tests/cases/token/expressions/gap-value-array-bitwise-in-object-paren`）：
-  对象值位里**被括号包住**的数组 / 值表达式，那时 `unit.Context` 已经是 `"type"`、
-  宿主槽位还是 `Bracket`（不是 `ObjectLiteral`），两条判据都接不住；
-  要收它得让 `DecideBracketContext` 在开括号那一刻就认出「我在对象字面量的值位」。
+  **实参里的对象 / 括号化对象**里被包住的数组（`f({ z: [3 & 4] })`、`({ w: [5 | 6] })`）——
+  招待那一格时外层 `{` 的 `Context` 还是空串，`EnclosingBraceContext` 因此给不出答案
+  （它跳过 `Context` 为空的那个括号），宿主槽位也还不是 `ObjectLiteral`；
+  要收它得让「包着我的那个 `{` 处在哪一位」在那两格上**当场**答得出来。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 

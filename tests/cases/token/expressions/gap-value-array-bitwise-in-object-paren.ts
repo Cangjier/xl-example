@@ -1,15 +1,11 @@
-// xl:note 上一条**还没收干净的那几格**（第 686 轮，记在明处）：对象值位里**被括号包住**的
-// 数组 / 值表达式仍然折成 `UnionType`——
-//   `f({ z: [3 & 4] })`（实参里的对象）、`const b = ({ w: [5 | 6] });`（括号化对象）、
-//   `const c = { v: (7 | 8) };`（值是括号）
-// 根因与已修的那一格同一个：判据仍然落到「前一个实义单元是 `:`」那条老路上。
-// 那三格上，招待 `IsTypeBracketPosition` 时 `unit.Context` 是 `"type"`（空 / 错都实测到），
-// **宿主槽位当时还不是 `ObjectLiteral`**（是 `Bracket`）——所以按宿主挡也挡不住。
-// 要收它得让 `DecideBracketContext`（开括号那一刻）认得出「我在对象字面量的值位」，
-// 而那一刻前文只是词法平列表、`{` 还没收成 `ObjectLiteral`。
-// xl:known-gap 对象值位里被括号包住的数组 / 值表达式：`unit.Context` 是 `"type"` 或 `""`，
-// 且宿主槽位那时还是 `Bracket` 而不是 `ObjectLiteral`，两条判据都接不住。
-// xl:expect UnionType:2,IntersectionType
+// xl:note 第 686 轮**还开着的那一格**：对象字面量值位里**被括号包住的数组**——
+//   `f({ z: [3 & 4] })`（实参里的对象）、`const b = ({ w: [5 | 6] });`（括号化对象）
+// 根因与同轮已修的那几格同一个（判据落到「前一个实义单元是 `:`」那条老路上）。
+// 这两格上招待 `IsTypeBracketPosition` 时，`EnclosingBraceContext` 给的还是空串
+// （它跳过 `Context` 为空的那个外层 `{`，而那一刻外层 `{` 的 `Context` 还没算出来），
+// 于是照旧判类型位。要收它得让「包着我的那个 `{` 处在哪一位」在这两格上**当场**答得出来。
+// xl:known-gap 实参里的对象 / 括号化对象里，外层 `{` 的 `Context` 在招待那一格时还是空串，
+// `EnclosingBraceContext` 因此给不出答案，宿主槽位也还不是 `ObjectLiteral`。
+// xl:expect UnionType,IntersectionType
 const b = ({ w: [5 | 6] });
-const c = { v: (7 | 8) };
 f({ z: [3 & 4] });

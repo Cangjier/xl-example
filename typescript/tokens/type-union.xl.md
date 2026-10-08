@@ -98,18 +98,16 @@ const name = parent.constructor.name;
 // 这一条与 `text-common-util.xl.md` 的 `IsTypeBracketPosition` 里那两条**同源**
 // （那边管括号还没被收成 `ArrayLiteral` 的那些形状）。
 if (name === "ArrayLiteral") {
-  if ((parent as any).Context === "value") {
-    return false;
-  }
+  // **宿主是 `ObjectLiteral` ⇒ 这个数组在值位**（第 686 轮，**不依赖时序**）：
+  // `Context` 是「开括号那一刻」算的，个别形状上会算成 `"type"`（实测 `f({ z: [3 & 4] })`
+  // 里那个 `[`），所以这里按**宿主**判——类型位那一侧是 `TypeLiteral`，
+  // `ObjectLiteral` **只从值位的 `{` 收出来**（见 `json/object-literal.xl.md`），没有副作用。
+  // 与 `text-common-util.xl.md` 的 `IsTypeBracketPosition` 里那条 `EnclosingBraceContext`
+  // **同源**（那边管括号还没被收成 `ArrayLiteral` 的那些形状）。
   const owner = parent.Parent;
   if (owner === null) {
     return false;
   }
-  // **宿主是 `ObjectLiteral` ⇒ 这个数组在值位**（第 686 轮，与上一条同族，**不依赖时序**）：
-  // `Context` 是「开括号那一刻」算的，个别形状上会算成 `"type"` 或者还没算出来（实测：
-  // `f({ z: [3 & 4] })` 里那个 `[` 的 `Context` 是 `"type"`），所以再按**宿主**挡一条——
-  // 类型位那一侧是 `TypeLiteral`，`ObjectLiteral` **只从值位的 `{` 收出来**
-  //（见 `json/object-literal.xl.md`），这一条没有副作用。
   if (owner.constructor.name === "ObjectLiteral") {
     return false;
   }

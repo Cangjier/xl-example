@@ -1758,6 +1758,25 @@ if (
   text === "," ||
   text === "("
 ) {
+  // **`:` 要先问一句「我在哪个花括号里」**（第 686 轮，**实测撞到的**）：
+  // 与 `DecideBracketContext` 冒号那一支**同一句话、同一个依据**（`EnclosingBraceContext`）——
+  // 对象字面量（值位 `{`）里的 `:` 是**属性分隔符**，类型字面量（类型位 `{`）里的才是类型标注。
+  // 少了这一句，`const o = { b: (1 | 2) }` / `f({ z: [3 & 4] })` 里那个括号 / 数组被判成类型位，
+  // `|` / `&` 折成 `UnionType` / `IntersectionType`，降级层报
+  // `unimplemented: expression UnionType`（**整份文件进不来**）。
+  //
+  // **为什么必须问容器、不能只看括号自己的 `Context`**：`Bracket.Context` 对 `[` / `{` 是
+  // 开括号那一刻算的，可对 `(` 一律是空串，而且在**实参里的对象**那一格上还会算成 `"type"`
+  //（实测 `f({ z: [3 & 4] })`）——两种情形都判错。问容器这一句不依赖那些时序。
+  //
+  // **`EnclosingBraceContext` 在「正在算自己」时给空串**（跳过 `Context` 为空的括号），
+  // 所以只有拿到明确答案（`"value"` / `"type"`）才改口，拿不到就照旧判类型位。
+  if (text === ":" || text === "?:") {
+    const holder = EnclosingBraceContext(owner);
+    if (holder !== "") {
+      return holder === "type";
+    }
+  }
   return true;
 }
 if (text !== "=") {
