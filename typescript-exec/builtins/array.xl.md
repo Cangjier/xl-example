@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge, HoleCharge, PropertyKind, PropertyFlagWritable } from "../../runtime/heap.xl.md"
-import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToInt32Of, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
+import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToNumberOf, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
 import { SetProperty, SetHiddenProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits } from "./text.xl.md"
@@ -295,6 +295,12 @@ if (self.Tag !== ValueTag.Array) {
 
 取第 `index` 个实参当整数；**没有就给 `fallback`**（`slice` 的两个参数都可省）。
 
+**第 702 轮起它是「窄的那一半」**：全语料里 **45 处**调用点分成两档——
+**有 `room` / `call` / `protos` 通道的**（`InvokeString` / `InvokeArray` / `SpliceArray` 那一族）
+走 `IntArgOr`（真做 `ToNumber`），**没有通道的**（`ArrayLikeAt` / `flat` 的自查那一族）
+留在 `ArgOr` 上。**这不是「两套判据」**：折数的判断只有 `IntOfNumber` 一份、
+`ToNumber` 只有 `rt.xl.md` 一份，这里差的是**签名宽窄**。
+
 **第 288 轮之前它是 `args[index].AsInt()`**——而 `AsInt` 对 `Float64` **一律给 `0`**
 （`value.xl.md` 写着「取整数载荷，其余给 `0`」，它**不是 `ToNumber`**）。
 于是**每一个小数实参都静默变成 `0`**：`"a".repeat(2.9)` 给空串（JS 给 `"aa"`）、
@@ -322,22 +328,131 @@ if (args[index].Tag === ValueTag.Int32) return args[index].Int;
 if (args[index].Tag === ValueTag.Bool) return args[index].Int !== 0 ? 1 : 0;
 if (args[index].Tag === ValueTag.Null) return 0;
 // **其余不是数字的（含 `undefined` / 字符串 / 对象）⇒ `fallback`**。
-// **这一档是**已经量出来的缺口**（第 700 轮）：`"abc".charAt("1")` / `charAt({ valueOf: () => 1 })`
-// 在 JS 里都走 `ToNumber`（给 `"b"`），而 `ToNumber` 要 `room` / `call` / `protos`
-// （字符串解析与 `ToPrimitive` 都在那一处），这个取值器的签名里没有它们——
-// 要收它得把那一套灌进**十几个共用它的内建**，是另一处活（登在台账里）。
+// **这一档是第 700 轮登的缺口、第 702 轮收掉的**：`"abc".charAt("1")` /
+// `charAt({ valueOf: () => 1 })` 在 JS 里都走 `ToNumber`（给 `"b"`），而 `ToNumber` 要
+// `room` / `call` / `protos`（字符串解析与 `ToPrimitive` 都在那一处），这个取值器的签名里没有它们。
+// **收法不是把那一套灌进 `ArgOr`**：它那十几个调用点里有的**根本没有 `call` 通道**
+//（`ArrayLikeAt` / `SpliceArray` 这一族只收 `room`），签名一旦变宽，那些地方只能拿一个
+// `null` 去充数——那是「看着像对了」的静默降级。
+// 所以改成**两个名字、两份签名**（与 `NumericOf` / `ToNumberOf`、`ToInt32Of` / `ToInt32Semantic`
+// 同一口径）：这一个**保持窄签名**（只认数值格子，缺实参给 `fallback`），
+// 有通道的那一档走下面的 `IntArgOr` / `NumArgOr`。
 if (args[index].Tag !== ValueTag.Float64) return fallback;
-const asFloat = args[index].Dbl;
-// **`NaN` ⇒ `0`**（JS 的 `ToIntegerOrInfinity(NaN)` 也是 0）。
-if (asFloat !== asFloat) return 0;
+return IntOfNumber(args[index].Dbl, fallback);
+```
+
+# method IntOfNumber:(value:double, fallback:int)=>int
+
+**一个双精度数按 `ToIntegerOrInfinity` 折成 `int`**（`ArgOr` 与 `IntArgOr` 共用这一处判断）。
+
+**为什么 `fallback` 还要进来**：`NaN` 在 JS 里给 `0`，而**缺省的实参**在调用点上是另一档
+（`slice(undefined)` 取整串、`charAt(undefined)` 看第 0 格）——两个 `0` 长得一样但来源不同，
+所以「这一档该给缺省」由调用方通过 `fallback` 说，不由这里猜。
+
+**`NaN` 折成 `fallback` 而不是 `0` 是故意的、也是安全的**：这些调用点的缺省**全是 `0`**
+（`slice` 从 0 起、`fill` 从 0 填、`charAt` 看第 0 格），只有 `lastIndexOf` 那一族例外——
+它在调用点自己把 `from` 传进来当 `fallback`。**要保留 `NaN` 的那一档另有名字**
+（`Date` 的七格走 `IntArgStrict` / `IntOfNumberStrict`）。
+
+```ts
+// **`NaN` ⇒ `fallback`**：JS 的 `ToIntegerOrInfinity(NaN)` 是 `0`，
+// 而各调用点的缺省**恰好也是 `0`**（`slice` 从 0 起、`charAt` 看第 0 格）——
+// 除了 `lastIndexOf` 那一族（缺省从尾巴起），所以取调用点给的 `fallback`。
+if (value !== value) return fallback;
 // **`±Infinity` ⇒ 一个够大的上界**：`int` 在各目标语言里装不下 `Infinity`，
 // 而 2³¹-1 与「无穷大」在这些调用点（都是与长度比大小）**等价**——见 `flat` 那一段的同一条理由。
-if (asFloat === Infinity) return 2147483647;
-if (asFloat === -Infinity) return -2147483647;
+if (value === Infinity) return 2147483647;
+if (value === -Infinity) return -2147483647;
 // **向零截断**（`2.9` 给 `2`、`-0.5` 给 `-0` ⇒ `0`）——
-// 不是 `floor`：`ArgOr(args, -0.5)` 在 JS 里是 `-0`（`slice(-0.5)` 给整个数组），
+// 不是 `floor`：`IntArgOr(room, call, protos, table, args, -0.5)` 在 JS 里是 `-0`（`slice(-0.5)` 给整个数组），
 // 写成 `floor` 就变成 `-1`（从最后一格起数）——**静默差一格**。
-return asFloat < 0 ? Math.ceil(asFloat) : Math.floor(asFloat);
+return value < 0 ? Math.ceil(value) : Math.floor(value);
+```
+
+# method IntOfNumberStrict:(value:double)=>int
+
+**`ToIntegerOrInfinity` 的 `int` 那一半，**`NaN` 原样留着**（第 702 轮）——`Date` 的七格专用。
+
+**为什么不能复用 `IntOfNumber`**：它把 `NaN` 折成 `fallback`，而 `Date` 的七格要的正是
+**一个能装下 `NaN` 的值**（`new Date(2020, undefined)` 在 JS 里是 `Invalid Date`，
+`Date.UTC(2020, undefined)` 是 `NaN`）。`int` 装不下 `NaN`，所以**用 `int` 的最小值当哨兵**：
+它不是任何合法日期字段（年份下界是 `-271821`，`int32` 的最小值 `-2147483648` 远在它之外），
+而且它走的是同一条折法——**没有第二张表**。
+
+**为什么是 `-2147483648` 而不是「另开一个 `bool` 返回值说是不是非法」**：调用点有七处，
+每一处都要把那一位往下传（`DateMakeMs` 的形参是 `int`）；哨兵是**值本身自带的那一位**，
+七处调用点一个字都不用改。这个约定写在这里，`DateMakeMs` 那一段也点名它。
+
+```ts
+// **`NaN` ⇒ 哨兵**（`int` 能表示的最小值）。
+if (value !== value) return -2147483648;
+// **`±Infinity` 走与 `IntOfNumber` 一致的那两档**：`Date.UTC(2020, Infinity)` 在 JS 里是
+// `NaN`（`MakeDay` 对非有限值给 `NaN`）——所以这里的 `Infinity` 也落回哨兵。
+if (value === Infinity || value === -Infinity) return -2147483648;
+// **向零截断**（与 `IntOfNumber` 一字不差那一句）。
+return value < 0 ? Math.ceil(value) : Math.floor(value);
+```
+
+# method NumArgOr:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, args:Array<Value>, index:int, fallback:double)=>double
+
+**取第 `index` 个实参当数（`ToNumber`），没有这个实参就给 `fallback`**（第 702 轮）。
+
+**与 `ArgOr` 的分野只有一条**：**取整不取整**。
+JS 里「可选实参当数用」有**两种口径**，混用就是静默差一格：
+
+| 口径 | 谁在用 | 折法 |
+| --- | --- | --- |
+| `ToIntegerOrInfinity` | `slice` / `splice` / `fill` / `at` / `padStart` / `repeat` / `indexOf` / `charAt` 那一族 | 先 `ToNumber` **再向零截断** ⇒ `IntArgOr` |
+| `ToNumber` | `Date` 的七个 setter 与 `Date.UTC` | **原样保留小数**（`setUTCFullYear(2020.5)` 在 JS 里也给 2020，那是**后面** `MakeDay` 折的，不是这一步折的） |
+
+**所以这里收的是「数」本身**，`IntArgOr` 在它上面再折一次——**只有一份 `ToNumber`**。
+
+```ts
+if (index >= args.length) return fallback;
+// **`undefined` 与「没给」是同一档**：规范里可选实参的「给了 `undefined`」与「没给」同款
+//（`slice(0, undefined)` 取整串），所以那一档**不许**按 `ToNumber(undefined) = NaN` 折。
+if (args[index].Tag === ValueTag.Undefined) return fallback;
+return ToNumberOf(room, call, protos, table, args[index]);
+```
+
+# method IntArgOr:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, args:Array<Value>, index:int, fallback:int)=>int
+
+**取第 `index` 个实参当整数（JS 的 `ToIntegerOrInfinity`），没有这个实参就给 `fallback`**（第 702 轮）。
+
+**为什么它必须存在**：JS 的 `"abc".charAt({ valueOf: () => 1 })` 给 `"b"`、
+`"abc".slice("1")` 给 `"bc"`、`[1,2,3].at({ valueOf: () => 2 })` 给 `3`——
+**对象与数字串都过 `ToNumber`**，而这一步要 `room` / `call` / `protos`
+（`ToPrimitive` 要调脚本、字符串解析要宿主那一支）。
+`ArgOr` 的窄签名拿不到它们，于是这一族原来**静默落到缺省**（第 700 轮量出来的那 13 条）。
+
+**参数顺序照本仓的惯例**：`table` 在 `call` / `protos` 之后（与 `InvokeString` /
+`InvokeArray` 一字不差），只是把 `args` / `index` / `fallback` 排在通道后面。
+
+```ts
+const asFloat = NumArgOr(room, call, protos, table, args, index, fallback);
+// **对象与字符串走到这里**（`undefined` 已经在上面那一层落回 `fallback`）。
+return IntOfNumber(asFloat, fallback);
+```
+
+# method IntArgStrict:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, args:Array<Value>, index:int, fallback:int)=>int
+
+**`IntArgOr` 的「`undefined` 不当没给」那一档**（第 702 轮）——`Date` 的七格专用。
+
+**为什么这一档必须分开**：JS 的可选实参**不是一条规矩**。
+`slice(0, undefined)` 与 `slice(0)` 同款（规范在 `ToIntegerOrInfinity` 之前就把 `undefined`
+短路掉），而 `new Date(2020, undefined)` 里那一格**要的是真 `NaN`**：
+`MakeDay` 拿到 `NaN` ⇒ 整条 `NaN`（Node 给 `Invalid Date`）。
+原来两处共用 `ArgOr` 的缺省 ⇒ **静默给 1 月**（判据现场红的）。
+
+**所以 `fallback` 在这里的语义是「这个实参**缺**了」（不是「它是 `undefined`」）**：
+给了 `undefined` 就走 `ToNumber(undefined) = NaN`，再由 `IntOfNumberStrict` 折成**哨兵**。
+这与 `IntArgOr` 是**两个名字、两份判断**，不是同一份判断的两个调用点——
+第 283 轮那条教训（「第二份迟早与第一份走偏」）在这里**不适用**：
+差分本身就是要的那件事，写成一个开关反而更难看出哪一格该走哪一边。
+
+```ts
+if (index >= args.length) return fallback;
+return IntOfNumberStrict(ToNumberOf(room, call, protos, table, args[index]));
 ```
 
 # method NormalizeRangeIndex:(index:int, length:int)=>int
@@ -524,8 +639,8 @@ if (id === ArraySlice && self.Tag !== ValueTag.Array) {
   // **原型从哪来**：接收者不是数组 ⇒ 用 `protos.Array`——
   // 与数组那一支「从源继承」不同（那边源**是**数组，`table.Get(self.Ref).Proto` 读得到）。
   const likeLength = ArrayLikeLength(room, table, call, self);
-  const likeStart = NormalizeRangeIndex(ArgOr(args, 0, 0), likeLength);
-  let likeEnd = NormalizeRangeIndex(ArgOr(args, 1, likeLength), likeLength);
+  const likeStart = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 0, 0), likeLength);
+  let likeEnd = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 1, likeLength), likeLength);
   if (likeEnd < likeStart) likeEnd = likeStart;
   const likeCount = likeEnd - likeStart;
   if (!room(ObjectCharge + ValueCharge * likeCount)) throw new Error("out of room");
@@ -645,10 +760,13 @@ if (id === ArrayIndexOf || id === ArrayLastIndexOf) {
   // `xs.indexOf(2, 2)` 于是从 0 开始找（JS 从 2 起），**静默错值**。
   // **负的 `fromIndex` 从末尾数**（JS 的口径）：`indexOf(x, -2)` 从「倒数第二格」起；
   // 数到负数以下就**从 0 起**（不是报错）。
+  // **这一格第 702 轮起过 `ToNumber`**：原来写的是 `ToInt32Of`（判据表内部那一半，
+  // 只认数值格子）——`[1,2,3].indexOf(2, { valueOf: () => 1 })` 于是抛
+  //「arithmetic on a non-numeric operand」，而 JS 给 `1`（判据现场红的）。
   let from = 0;
   if (id === ArrayLastIndexOf) from = length0 - 1;
   if (args.length > 1) {
-    from = ToInt32Of(args[1]);
+    from = IntArgOr(room, call, protos, table, args, 1, from);
     if (from < 0) from = from + length0;
     if (id === ArrayLastIndexOf) {
       if (from >= length0) from = length0 - 1;
@@ -747,8 +865,8 @@ if (id === ArraySlice) {
   // **静默错值**，判据 `array-slice-splice` 现场红的。
   // 而「负数从末尾数」那条口径 `NormalizeRangeIndex` 里**早就有了**（第 192 轮给 `fill` 抽的），
   // `splice` 那一支也自己写了一遍——这一轮把 `slice` 接上去（同一件事不写第三份）。
-  const start = NormalizeRangeIndex(ArgOr(args, 0, 0), length);
-  let end = NormalizeRangeIndex(ArgOr(args, 1, length), length);
+  const start = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 0, 0), length);
+  let end = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 1, length), length);
   if (end < start) end = start;
   const count = end - start;
   if (!room(ObjectCharge + ValueCharge * count)) throw new Error("out of room");
@@ -842,7 +960,7 @@ if (id === ArrayIncludes) {
   // **`undefined` / 非数字都给 0**（`ArgOr` 的 fallback，JS 的 `ToIntegerOrInfinity` 同款）。
   const needle = args.length > 0 ? args[0] : Value.Undefined();
   const total = source.GetLength();
-  const from = NormalizeRangeIndex(ArgOr(args, 1, 0), total);
+  const from = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 1, 0), total);
   for (let i = from; i < total; i++) {
     if (SameValueZero(table, source.GetAt(i), needle)) return Value.FromBool(true);
   }
@@ -1100,8 +1218,10 @@ if (id === ArrayAt) {
   // **`at(i)`**（第 150 轮）：与 `[i]` 只差**负下标从尾巴数**
   //（`at(-1)` 是最后一个，`[−1]` 是 `undefined`——两处都要在，差别是语义）。
   // **越界给 `undefined`**（不是 `undefined` 加报错，JS 的口径）。
+  // **第 702 轮起过 `ToNumber`**：`[1,2,3].at({ valueOf: () => 2 })` 在 JS 里给 `3`，
+  // 而 `ToInt32Of` 直接抛（判据现场红的）。
   if (args.length < 1) return Value.Undefined();
-  let index = ToInt32Of(args[0]);
+  let index = IntArgOr(room, call, protos, table, args, 0, 0);
   const length = source.GetLength();
   if (index < 0) index = index + length;
   if (index < 0 || index >= length) return Value.Undefined();
@@ -1138,7 +1258,7 @@ if (id === ArraySplice || id === ArrayToSpliced) {
     }
     targetRef = handle;
   }
-  const removed = SpliceArray(room, table, target, targetRef, args, length);
+  const removed = SpliceArray(room, call, protos, table, target, targetRef, args, length);
   table.Recount(targetRef);
   // **两条各交各的**：`splice` 交**删掉的那些**、`toSpliced` 交**那份改好的拷贝**
   //（`CreateArray` 给的是堆上的把手，返回值要包成值——与 `slice` / `flat` 同一写法）。
@@ -1152,8 +1272,8 @@ if (id === ArrayFill) {
   // **口径照 JS**：两个都可以省、**负数从末尾数**、越界夹到 `[0, 长度]`、
   // 开始不小于结束就**什么也不做**（但**照旧返回那个数组本身**）。
   const fillLength = source.GetLength();
-  const fillStart = NormalizeRangeIndex(ArgOr(args, 1, 0), fillLength);
-  const fillEnd = NormalizeRangeIndex(ArgOr(args, 2, fillLength), fillLength);
+  const fillStart = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 1, 0), fillLength);
+  const fillEnd = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 2, fillLength), fillLength);
   for (let i = fillStart; i < fillEnd; i++) {
     source.SetAt(i, args[0]);
   }
@@ -1168,7 +1288,7 @@ if (id === ArrayFlat) {
   // 代价是**静默错值**：`[1,[2,[3,[4]]]].flat(0).length` 给 3（JS 给 2）——
   // **给了一个看起来成立的答案**，比响亮地抛危险（判据 `array-flat-depth` 量的就是它）。
   //
-  // **不能写 `ArgOr(args, 0, 1)`**：那个取值器走 `AsInt()`，于是
+  // **不能写 `IntArgOr(room, call, protos, table, args, 0, 1)`**：那个取值器走 `AsInt()`，于是
   // **`Infinity` 会落成一个与 1 分不开的整数**（`flat(Infinity)` 会**静默只摊一层**）。
   // 所以这里按**三种值**分开读（与 JS 的 `ToIntegerOrInfinity` 同一张表）：
   //   · **没给** ⇒ `1`（缺省）；
@@ -1207,9 +1327,9 @@ if (id === ArrayCopyWithin) {
   // 越界夹到 `[0, total]`）——第 192 轮抽它的时候写着「`fill` 与**将来的 `copyWithin`**
   // 用同一处」，这一轮把它兑现了（**同一件事不写第三份**）。
   const total = source.GetLength();
-  const target = NormalizeRangeIndex(ArgOr(args, 0, 0), total);
-  const from = NormalizeRangeIndex(ArgOr(args, 1, 0), total);
-  const till = NormalizeRangeIndex(ArgOr(args, 2, total), total);
+  const target = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 0, 0), total);
+  const from = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 1, 0), total);
+  const till = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 2, total), total);
   let count = till - from;
   const roomLeft = total - target;
   if (count > roomLeft) count = roomLeft;
@@ -1240,7 +1360,7 @@ if (id === ArrayWith) {
   const total = source.GetLength();
   // **下标允许负数**（与 `at` 同一条口径：`-1` 是最后一格）——
   // 但**与 `at` 有一处不同**：`at` 越界给 `undefined`，`with` 越界**抛 `RangeError`**。
-  let at = ArgOr(args, 0, 0);
+  let at = IntArgOr(room, call, protos, table, args, 0, 0);
   if (at < 0) at = total + at;
   // **越界要抛**：这是 JS 里少数**明确要抛**的那一档——
   // 与 `array-reduce` 那一处同一条纪律：**不许**静默给一个看起来成立的结果
@@ -1395,7 +1515,7 @@ SetHiddenProperty(room, table, Value.FromArray(handle),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIteratorNext, 0)));
 ```
 
-# method SpliceArray:(room:RoomChecker, table:HeapTable, target:HeapArray, targetRef:int, args:Array<Value>, length:int)=>int
+# method SpliceArray:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, target:HeapArray, targetRef:int, args:Array<Value>, length:int)=>int
 
 **把 `splice` 那一段跑在一份数组上**（第 304 轮从 `InvokeArray` 里抽出来），
 返回**被删掉的那个新数组的把手**。
@@ -1415,7 +1535,7 @@ SetHiddenProperty(room, table, Value.FromArray(handle),
 所以 `targetRef` 要**一起传进来**（`toSpliced` 那一份拷贝有自己的把手）。
 
 ```ts
-let start = args.length > 0 ? ToInt32Of(args[0]) : 0;
+let start = args.length > 0 ? IntArgOr(room, call, protos, table, args, 0, 0) : 0;
 if (start < 0) start = start + length;
 if (start < 0) start = 0;
 if (start > length) start = length;
@@ -1435,7 +1555,9 @@ if (args.length === 0) {
   //（`[1, 2, 3].splice(1, undefined)` 返回 `[]`、数组不动）。
   // **直接交给 `ToInt32Of` 会抛**（`unimplemented: arithmetic on a non-numeric operand`）——
   // 而 `splice(1, undefined)` 是真实代码里**很常见**的写法（参数透传时它常常是 `undefined`）。
-  const asked = args[1].IsNullish() ? 0 : ToInt32Of(args[1]);
+  // **第 702 轮起走 `IntArgOr`**：`null` / `undefined` / `NaN` 都由它折成 0（JS 的
+  // `ToIntegerOrInfinity`），数字串与对象也认——不再是「拿判据表内部那一半去顶」。
+  const asked = IntArgOr(room, call, protos, table, args, 1, 0);
   removeCount = asked < 0 ? 0 : asked;
   if (removeCount > length - start) removeCount = length - start;
 }

@@ -77,7 +77,7 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **6447** 条（token 1416 / exec 1574 / runtime 796 / stdlib 2415 / e2e 246），判过 **6433** 条。
+语料 **6451** 条（token 1416 / exec 1574 / runtime 796 / stdlib 2419 / e2e 246），判过 **6437** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
@@ -85,9 +85,39 @@ console.log(Box.of(1));
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
 | `exec` | 1573 | **1535** | 9 / 29 | 另有 1 条不进分母 |
 | `runtime` | 796 | **783** | 1 / 12 | |
-| `stdlib` | 2415 | **2325** | 26 / 64 | |
+| `stdlib` | 2419 | **2342** | 26 / 51 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **6433** | **6069** | 259 / 105 | 加权 **95.7%** |
+| **合计** | **6437** | **6086** | 259 / 92 | 加权 **95.8%** |
+
+**第 702 轮再加 4 条**（分母 6433 → **6437**）：**收掉第 700 轮登记的那一族**
+（`probe700-g-e08` / `e09` … `e19` / `e38` 共 **13 条**转绿），并把这轮的新判断补成 4 条用例
+（`stdlib/array/probe702-a-e01`、`stdlib/string/probe702-s-e01`、
+`stdlib/globals/probe702-g-e01`、`probe702-g-e02`）。**differ 105 → 92**。
+
+根子是 `array.xl.md` 里那个共用的实参取值器 `ArgOr`：它的签名里没有 `room` / `call` / `protos`，
+**只认数值格子**，于是 JS 那一步 `ToIntegerOrInfinity(ToNumber(v))` 里的 `ToNumber`
+**一次都没做**（字符串、对象、包装对象一律静默落到缺省值）。修法是**两个名字、两份签名**：
+
+- **`IntArgOr` / `NumArgOr`**（宽签名，真做 `ToNumber`）——`InvokeString` / `InvokeArray` /
+  `SpliceArray` / `InvokeGlobal` 那一族有通道，**45 处调用点**改走它；
+- **`ArgOr` 保持窄签名**——`ArrayLikeAt` / `flat` 的自查那一族**根本没有 `call` 通道**，
+  签名一旦变宽只能拿 `null` 充数，那是「看着像对了」的静默降级。
+
+**顺带收掉的三处**（都是同一个「拿判据表内部那一半去顶语义那一半」的形状）：
+
+- `Array.prototype.indexOf` / `at` / `splice` / `toSpliced` 原来走 **`ToInt32Of`**（只认数值格子）
+  ⇒ `[1,2,3].indexOf(2, { valueOf: () => 1 })` **抛**（Node 给 `1`）、
+  `[1,2,3].at({ valueOf: () => 2 })` **抛**（Node 给 `3`）；
+- `parseInt(x, "16")` 原来落回缺省 10（Node 给 255）；
+- `new Date("2020" as any, 0)` 里那个**字符串年份**落回 `0`，再吃 `0..99` 那条加 1900 的规则
+  ⇒ **公元 1900 年**（Node 给 2020）。
+
+**这一轮真正难的那一格**是 `NaN`：`int` 装不下 `NaN`，而 **`Math.floor(NaN)` 在宿主里给 `0`**
+——第一版把「`NaN` 折成哨兵」写成 `Math.floor`，于是 `new Date(2020, undefined)` 又悄悄地
+变成了 1 月（**看起来完全正常的一个日期**）。收法：`IntOfNumberStrict` 用
+`int` 的最小值 `-2147483648` 当哨兵，`DateMakeMs` 在入口认它、`Date` 的七个 getter
+在入口把非有限的时刻直接交回 `Value.FromDouble(NaN)`（**原来 `Value.FromInt(NaN)` 会渲染成空串**，
+而 `typeof` 还是 `"number"`——`number:` 后面什么都没有）。
 
 **第 701 轮再加 100 条**（分母 6333 → **6433**）：第十二批原子探针，三层——
 **严格性那一格**（函数体开头的指令序言、类体、箭头、嵌套声明、`call` 的接收者）、

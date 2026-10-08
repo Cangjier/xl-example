@@ -6,7 +6,7 @@ import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberO
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
-import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
+import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
 import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
@@ -3496,10 +3496,12 @@ if (id === ParseInt || id === ParseFloat) {
   if (args.length < 1) return MathResult(NaN);
   const text = ValueUnits(table, args[0], 0);
   if (id === ParseFloat) return ParseFloatText(text);
-  // **基数的规整照 JS**：给了就 ToInt32（`ArgOr` 收的就是整数），
+  // **基数的规整照 JS**：给了就 `ToInt32`（`IntArgOr` 收的就是整数），
   // 「给没给」要分开——`parseInt(x)` 与 `parseInt(x, 0)` 都是「没给」。
+  // **第 702 轮起这里过的是真 `ToNumber`**：原来走 `ArgOr` 的窄签名，
+  // 于是 `parseInt("ff", "16")` 会落回缺省 10（Node 给 255）——**静默错值**。
   const hasRadix = args.length > 1 && !args[1].IsUndefined();
-  return ParseIntText(text, hasRadix ? ArgOr(args, 1, 10) : 10, hasRadix);
+  return ParseIntText(text, hasRadix ? IntArgOr(room, call, protos, table, args, 1, 10) : 10, hasRadix);
 }
 if (id === NumberIsInteger || id === NumberIsSafeInteger) {
   const target = args.length > 0 ? args[0] : Value.Undefined();
@@ -4685,10 +4687,19 @@ if (id === DateCtor) {
       ms = args[0];
     }
   } else if (args.length > 1) {
-    const askedYear = ArgOr(args, 0, 0);
+    // **年那一格看 `MakeFullYear`**（第 702 轮）：它在 `NaN` 的**输入**上给 `+0`
+    //（`new Date(undefined as any, 0)` 在 JS 里是 1900 年 1 月——`ToNumber` 给 `NaN`，
+    // 而 `MakeFullYear` 把 `NaN` 折成 `+0`，再吃 `0..99` 那条加 1900 的规则）。
+    // **其余六格不走那一档**：它们拿到 `NaN` 就整条 `NaN`（`MakeDay` 的口径），
+    // 所以那六格用 `IntArgStrict`（`NaN` 折成哨兵，由 `DateMakeMs` 认）。
+    // 原来七格共用 `ArgOr` 的窄签名：`new Date("2020" as any, 0)` 里那个**字符串年份**
+    // 落回缺省 `0`，再吃 `0..99` 那条规则 ⇒ **公元 1900 年**（Node 给 2020）——静默错值。
+    const askedYear = IntArgOr(room, call, protos, table, args, 0, 0);
     const fullYear = askedYear >= 0 && askedYear <= 99 ? askedYear + 1900 : askedYear;
-    ms = Value.FromDouble(DateMakeMs(fullYear, ArgOr(args, 1, 0), ArgOr(args, 2, 1),
-      ArgOr(args, 3, 0), ArgOr(args, 4, 0), ArgOr(args, 5, 0), ArgOr(args, 6, 0)));
+    ms = Value.FromDouble(DateMakeMs(fullYear,
+      IntArgStrict(room, call, protos, table, args, 1, 0), IntArgStrict(room, call, protos, table, args, 2, 1),
+      IntArgStrict(room, call, protos, table, args, 3, 0), IntArgStrict(room, call, protos, table, args, 4, 0),
+      IntArgStrict(room, call, protos, table, args, 5, 0), IntArgStrict(room, call, protos, table, args, 6, 0)));
   }
   if (!ms.IsNumber()) throw new Error("unimplemented: new Date(x) needs a number of milliseconds or an ISO string");
   // **`__t` 也是不可枚举的**（第 194 轮）：JS 的 `Object.keys(new Date())` 是 `[]`
@@ -4713,6 +4724,14 @@ if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
   if (stored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
   const ms = NumericOf(table.Get(stored.Owner).Props[stored.Index].Value);
   if (id === DateGetTime) return MathResult(ms);
+  // **非有限的时刻先把 `NaN` 交回去**（第 702 轮）：JS 对 `Invalid Date` 的**每一个**
+  // getter 都给 `NaN`（`new Date(NaN).getUTCMonth()` 在 Node 里是 `NaN`，**不抛**）。
+  // 少了这一句，下面那些 `Value.FromInt(…)` 会把 `NaN` 塞进 `int` 那一格——
+  // 于是 `typeof d.getUTCMonth()` 还是 `"number"`，可 `String(…)` 出来**是空串**
+  //（宿主侧 `Value.FromInt(NaN)` 落成 `Int: NaN`，渲染那一步给不出 "NaN"）——
+  // **判据现场就是这么红的**。**七格共用一个出口**（`DateParts` 的列 + 一天之内那几格 + 星期几），
+  // 所以判在入口一处、不判在七处。
+  if (ms !== ms || ms === Infinity || ms === -Infinity) return Value.FromDouble(NaN);
   if (id === DateGetUTCFullYear) return Value.FromInt(DateParts(ms)[0]);
   if (id === DateGetUTCMonth) return Value.FromInt(DateParts(ms)[1]);
   if (id === DateGetUTCDate) return Value.FromInt(DateParts(ms)[2]);
@@ -4806,6 +4825,10 @@ if (id === DateSetUTCFullYear || id === DateSetUTCMonth || id === DateSetUTCDate
   const clockBits = DateClockParts(setMs);
   // **每一格都先取当前值，再按「给了没有」覆写**——`args[k]` 缺省就保持原样
   //（这就是 JS 那七个 setter 的实参表）。
+  // **每一格过 `ToNumber` 再取整，`NaN` 折成哨兵**（第 702 轮）：
+  // JS 的 `setUTCMonth(NaN)` / `setUTCFullYear({})` 把那个实例变成 **Invalid Date**
+  //（`__t` 成 `NaN`），而 `NaN` 折成缺省值就成了**静默错值**（一个看起来正常的日期）。
+  // 原来走 `ArgOr` 的窄签名：`setUTCFullYear("2020" as any)` 落回当前年——同样是静默错值。
   let year = dateBits[0];
   let month = dateBits[1];
   let day = dateBits[2];
@@ -4814,28 +4837,28 @@ if (id === DateSetUTCFullYear || id === DateSetUTCMonth || id === DateSetUTCDate
   let seconds = clockBits[2];
   let millis = clockBits[3];
   if (id === DateSetUTCFullYear) {
-    if (args.length > 0) year = ArgOr(args, 0, year);
-    if (args.length > 1) month = ArgOr(args, 1, month);
-    if (args.length > 2) day = ArgOr(args, 2, day);
+    if (args.length > 0) year = IntArgStrict(room, call, protos, table, args, 0, year);
+    if (args.length > 1) month = IntArgStrict(room, call, protos, table, args, 1, month);
+    if (args.length > 2) day = IntArgStrict(room, call, protos, table, args, 2, day);
   } else if (id === DateSetUTCMonth) {
-    if (args.length > 0) month = ArgOr(args, 0, month);
-    if (args.length > 1) day = ArgOr(args, 1, day);
+    if (args.length > 0) month = IntArgStrict(room, call, protos, table, args, 0, month);
+    if (args.length > 1) day = IntArgStrict(room, call, protos, table, args, 1, day);
   } else if (id === DateSetUTCDate) {
-    if (args.length > 0) day = ArgOr(args, 0, day);
+    if (args.length > 0) day = IntArgStrict(room, call, protos, table, args, 0, day);
   } else if (id === DateSetUTCHours) {
-    if (args.length > 0) hours = ArgOr(args, 0, hours);
-    if (args.length > 1) minutes = ArgOr(args, 1, minutes);
-    if (args.length > 2) seconds = ArgOr(args, 2, seconds);
-    if (args.length > 3) millis = ArgOr(args, 3, millis);
+    if (args.length > 0) hours = IntArgStrict(room, call, protos, table, args, 0, hours);
+    if (args.length > 1) minutes = IntArgStrict(room, call, protos, table, args, 1, minutes);
+    if (args.length > 2) seconds = IntArgStrict(room, call, protos, table, args, 2, seconds);
+    if (args.length > 3) millis = IntArgStrict(room, call, protos, table, args, 3, millis);
   } else if (id === DateSetUTCMinutes) {
-    if (args.length > 0) minutes = ArgOr(args, 0, minutes);
-    if (args.length > 1) seconds = ArgOr(args, 1, seconds);
-    if (args.length > 2) millis = ArgOr(args, 2, millis);
+    if (args.length > 0) minutes = IntArgStrict(room, call, protos, table, args, 0, minutes);
+    if (args.length > 1) seconds = IntArgStrict(room, call, protos, table, args, 1, seconds);
+    if (args.length > 2) millis = IntArgStrict(room, call, protos, table, args, 2, millis);
   } else if (id === DateSetUTCSeconds) {
-    if (args.length > 0) seconds = ArgOr(args, 0, seconds);
-    if (args.length > 1) millis = ArgOr(args, 1, millis);
+    if (args.length > 0) seconds = IntArgStrict(room, call, protos, table, args, 0, seconds);
+    if (args.length > 1) millis = IntArgStrict(room, call, protos, table, args, 1, millis);
   } else {
-    if (args.length > 0) millis = ArgOr(args, 0, millis);
+    if (args.length > 0) millis = IntArgStrict(room, call, protos, table, args, 0, millis);
   }
   // `setUTCMonth(13)` 于是给下一年的二月（JS 的口径），这里**不规整**。
   const nextMs = DateMakeMs(year, month, day, hours, minutes, seconds, millis);
@@ -4847,14 +4870,19 @@ if (id === DateUTC) {
   // **静态的 `Date.UTC`**（第 280 轮）——与七个 setter **同一条逆变换**，
   // 差别只有「没有接收者」：缺的那几格按 JS 的默认值补（**月 0 / 日 1 / 其余 0**）。
   // **实参一律先做 `ToNumber`**（JS 的口径）：`Date.UTC("2020" as any, 0, 2)` 也认——
-  // 用 `ArgOr` 会把它当成「没给」（那个取值器只认数值格子），所以这里走 `NumericOf`。
-  const utcYear = args.length > 0 ? NumericOf(args[0]) : NaN;
-  const utcMonth = args.length > 1 ? NumericOf(args[1]) : 0;
-  const utcDay = args.length > 2 ? NumericOf(args[2]) : 1;
-  const utcHours = args.length > 3 ? NumericOf(args[3]) : 0;
-  const utcMinutes = args.length > 4 ? NumericOf(args[4]) : 0;
-  const utcSeconds = args.length > 5 ? NumericOf(args[5]) : 0;
-  const utcMillis = args.length > 6 ? NumericOf(args[6]) : 0;
+  // 用 `ArgOr` 会把它当成「没给」（那个取值器只认数值格子）。
+  // **第 702 轮改用 `ToNumberOf`**：原来写的是建库层那个 `NumericOf`，它**只认数值格子**
+  //（字符串 / `undefined` 一律抛）——于是 `Date.UTC(2020, undefined as any)` 抛
+  //「this method needs a number」，而 JS 给 `NaN`（**判据现场红的**）。
+  // 缺哪一格仍然按 JS 的默认值补（月 0 / 日 1 / 其余 0），**给了 `undefined` 不给默认值**：
+  // 那一格要的是真 `NaN`（与下面那句「任何一格 `NaN` 就整条 `NaN`」是同一条）。
+  const utcYear = args.length > 0 ? ToNumberOf(room, call, protos, table, args[0]) : NaN;
+  const utcMonth = args.length > 1 ? ToNumberOf(room, call, protos, table, args[1]) : 0;
+  const utcDay = args.length > 2 ? ToNumberOf(room, call, protos, table, args[2]) : 1;
+  const utcHours = args.length > 3 ? ToNumberOf(room, call, protos, table, args[3]) : 0;
+  const utcMinutes = args.length > 4 ? ToNumberOf(room, call, protos, table, args[4]) : 0;
+  const utcSeconds = args.length > 5 ? ToNumberOf(room, call, protos, table, args[5]) : 0;
+  const utcMillis = args.length > 6 ? ToNumberOf(room, call, protos, table, args[6]) : 0;
   // **年份 `0..99` 加 1900**（JS 的口径，与构造函数那一支一字不差）。
   let utcYearFixed = utcYear;
   if (utcYearFixed >= 0 && utcYearFixed <= 99) utcYearFixed = utcYearFixed + 1900;
@@ -5347,7 +5375,17 @@ return era * 146097 + doe - 719468;
 而 `y` 那一步已经按 `month <= 1` 分过）。**不要在这里先规整一遍**
 （规整一次就是第二份「月份怎么算」的答案）。
 
+**`NaN` 那一档由哨兵认**（第 702 轮）：调用方（`new Date(…)` / 七个 setter）拿到的
+七个整数可能是 `IntOfNumberStrict` 给的 **`-2147483648`**——那表示这一步的 `ToNumber`
+得到的是 `NaN`（`new Date(2020, undefined)` / `setUTCMonth({})`），而 JS 的口径是
+「任何一格 `NaN` ⇒ 整条 `NaN`」。**认在入口一处**：七个调用点一个都不用改
+（`DateDaysFromCivil` 拿到哨兵会算出一个**看似合理**的日子——那是**静默错值**，
+所以这一句必须在这里、且必须在算之前）。
+
 ```ts
+if (year === -2147483648 || month === -2147483648 || day === -2147483648
+  || hours === -2147483648 || minutes === -2147483648
+  || seconds === -2147483648 || millis === -2147483648) return NaN;
 return DateDaysFromCivil(year, month, day) * 86400000
   + hours * 3600000 + minutes * 60000 + seconds * 1000 + millis;
 ```

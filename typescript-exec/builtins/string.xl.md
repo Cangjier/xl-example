@@ -5,7 +5,7 @@ import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge } from "../../runt
 import { RoomChecker, IsCallableValue, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
 import { SetProperty, GetProperty, GetIndex, FindProperty, ReadProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
-import { Units, NeverCall, ArgOr, NormalizeRangeIndex } from "./array.xl.md"
+import { Units, NeverCall, IntArgOr, NormalizeRangeIndex } from "./array.xl.md"
 import { JsTextUnits, ValueUnits, UnwrapBox } from "./text.xl.md"
 import { HostUnitsText, HostTextUnits, HostNormalize } from "../../runtime/host-text.xl.md"
 ```
@@ -567,7 +567,7 @@ if (id === StringNormalize) {
   return Value.FromString(table.CreateString(out));
 }
 if (id === StringCharAt) {
-  const at = ArgOr(args, 0, 0);
+  const at = IntArgOr(room, call, protos, table, args, 0, 0);
   if (at < 0 || at >= units.length) {
     if (!room(ObjectCharge)) throw new Error("out of room");
     return Value.FromString(table.CreateString([]));
@@ -580,7 +580,7 @@ if (id === StringCharCodeAt) {
   // 而这里原来给的是 `undefined`——**静默错值**（判据 `string-charAt-charCodeAt` 现场红的：
   // `"".charCodeAt(0) !== "".charCodeAt(0)` 在 JS 里是**真**（`NaN` 与自己不等），
   // 给 `undefined` 就成了**假**）。这一格与 `charAt` 不一样：那个越界给**空串**（JS 的口径）。
-  const at = ArgOr(args, 0, 0);
+  const at = IntArgOr(room, call, protos, table, args, 0, 0);
   if (at < 0 || at >= units.length) return Value.FromDouble(NaN);
   return Value.FromInt(units[at]);
 }
@@ -617,7 +617,7 @@ if (id === StringIndexOf || id === StringLastIndexOf) {
   let from = 0;
   if (id === StringLastIndexOf) from = length0 - needle.length;
   if (args.length > 1) {
-    from = ArgOr(args, 1, from);
+    from = IntArgOr(room, call, protos, table, args, 1, from);
     if (id === StringLastIndexOf) {
       if (from < 0) from = 0;
       if (from > length0 - needle.length) from = length0 - needle.length;
@@ -658,7 +658,7 @@ if (id === StringAt) {
   // **不给实参 = 0**（第 208 轮实测）：JS 走的是 `ToIntegerOrInfinity(undefined)`
   //（`NaN` → `0`），所以 `"abc".at()` 是 `"a"`、`"abc".codePointAt()` 是 `65`——
   // **不是 `undefined`**（那是「越界」那一档，两档不一样）。
-  let at = ArgOr(args, 0, 0);
+  let at = IntArgOr(room, call, protos, table, args, 0, 0);
   if (at < 0) at = at + units.length;
   if (at < 0 || at >= units.length) return Value.Undefined();
   if (!room(ObjectCharge + CodeUnitCharge)) throw new Error("out of room");
@@ -668,7 +668,7 @@ if (id === StringCodePointAt) {
   // **`codePointAt(i)`**（第 208 轮）：把**代理对**合成一个码位
   //（`"𐀀".codePointAt(0)` 是 `65536`，而 `charCodeAt(0)` 是那个高代理——两格都要在）。
   // **不给实参 = 0**（与 `at` 同一档，理由写在那一支里）。
-  const at = ArgOr(args, 0, 0);
+  const at = IntArgOr(room, call, protos, table, args, 0, 0);
   if (at < 0 || at >= units.length) return Value.Undefined();
   const first = units[at];
   if (first >= 0xd800 && first <= 0xdbff && at + 1 < units.length) {
@@ -708,8 +708,8 @@ if (id === StringSlice) {
   //（JS 给 `"ef"`，**静默错值**）。
   // **`substring` 那一支与它不一样**（`substring` 把负数当 0、还会**交换**两个端点）——
   // 所以那一支**不许**接这个规整（接上去就是「看起来统一了」的错）。
-  const start = NormalizeRangeIndex(ArgOr(args, 0, 0), length);
-  let end = NormalizeRangeIndex(ArgOr(args, 1, length), length);
+  const start = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 0, 0), length);
+  let end = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 1, length), length);
   if (end < start) end = start;
   const cut: number[] = [];
   for (let i = start; i < end; i++) cut.push(units[i]);
@@ -730,7 +730,7 @@ if (id === StringIncludes) {
   const needle = TextArgUnits(room, call, protos, table, args, 0);
   let from = 0;
   if (args.length > 1) {
-    from = ArgOr(args, 1, 0);
+    from = IntArgOr(room, call, protos, table, args, 1, 0);
     if (from < 0) from = 0;
     if (from > units.length) {
       // **越过尾巴**：空串恒真（`"abc".includes("", 99)` 是真），非空串恒假。
@@ -807,7 +807,7 @@ if (id === StringStartsWith || id === StringEndsWith) {
   // `startsWith` 的那个是**起点**，`endsWith` 的那个是**结束位置**（JS 就是这么定的）。
   const needle = TextArgUnits(room, call, protos, table, args, 0);
   const length = units.length;
-  let from = ArgOr(args, 1, id === StringEndsWith ? length : 0);
+  let from = IntArgOr(room, call, protos, table, args, 1, id === StringEndsWith ? length : 0);
   if (from < 0) from = 0;
   if (from > length) from = length;
   if (id === StringStartsWith) {
@@ -830,8 +830,8 @@ if (id === StringStartsWith || id === StringEndsWith) {
 if (id === StringSubstring) {
   // **夹到 0、再交换**（JS 的两条怪规矩，见 `StringSubstring` 那一段）。
   const length = units.length;
-  let start = ArgOr(args, 0, 0);
-  let end = ArgOr(args, 1, length);
+  let start = IntArgOr(room, call, protos, table, args, 0, 0);
+  let end = IntArgOr(room, call, protos, table, args, 1, length);
   if (start < 0) start = 0;
   if (start > length) start = length;
   if (end < 0) end = 0;
@@ -850,7 +850,7 @@ if (id === StringSubstr) {
   // **第三个实参是「长度」**（见 `StringSubstr` 那一段）——三处与 `slice` / `substring` 都不同：
   // 负起点**从尾巴数**、缺省长度是「到尾巴」、起点越界给**空串**（不是夹到尾巴）。
   const length = units.length;
-  const rawStart = args.length > 0 ? ArgOr(args, 0, 0) : 0;
+  const rawStart = args.length > 0 ? IntArgOr(room, call, protos, table, args, 0, 0) : 0;
   // **向零截断**（JS 的 `ToIntegerOrInfinity`，与 `repeat` 那条同一个折法）。
   let start = rawStart < 0 ? Math.ceil(rawStart) : Math.floor(rawStart);
   if (start < 0) start = length + start;
@@ -858,7 +858,7 @@ if (id === StringSubstr) {
   if (start > length) start = length;
   let count = length - start;
   if (args.length > 1 && !args[1].IsUndefined()) {
-    const rawCount = ArgOr(args, 1, 0);
+    const rawCount = IntArgOr(room, call, protos, table, args, 1, 0);
     const asked = rawCount < 0 ? 0 : Math.floor(rawCount);
     if (asked < count) count = asked;
   }
@@ -875,7 +875,7 @@ if (id === StringRepeat) {
   // 而 `install.xl.md` 那一支**恰恰按宿主异常的类**翻族（`error instanceof RangeError`），
   // 所以「抛什么」是**能被脚本看见**的（判据 `string-pad-and-repeat-edge-forms` 量的就是它）。
   // 同一个文件里 `fromCodePoint` 那一支早就抛 `RangeError`（第 275 轮）——这一处是漏的。
-  const raw = args.length > 0 ? ArgOr(args, 0, 0) : 0;
+  const raw = args.length > 0 ? IntArgOr(room, call, protos, table, args, 0, 0) : 0;
   const count = raw < 0 ? -1 : raw;
   if (count < 0) throw new RangeError("repeat needs a count that is not negative");
   const total = units.length * count;
@@ -890,7 +890,7 @@ if (id === StringRepeat) {
 if (id === StringPadStart || id === StringPadEnd) {
   // **两条边角照 JS 给**（见 `StringPadStart` 那一段）：
   // 目标长度不大于当前长度就**原样返回**；**填充串是空串就不补**。
-  const target = ArgOr(args, 0, 0);
+  const target = IntArgOr(room, call, protos, table, args, 0, 0);
   // **填充串也要 `ToString`**（第 700 轮）：JS 的缺省是**一个空格**（`undefined` 那一档），
   // 给了别的值就按 `ToString` 折——`"ab".padEnd(4, { toString() { return "0"; } })`
   // 在 JS 里是 `"ab00"`，原来只看 `Tag === String` ⇒ 落到空格那一档（**静默错值**）。
@@ -1142,7 +1142,7 @@ const units = JsTextUnits(table, self);
 // 混成同一件事了（Node 给 `["a","b","c"]`）。判据 `c647-std-string-split-negative-limit`。
 let limit = -1;
 if (args.length > 1 && !args[1].IsUndefined()) {
-  const asked = ArgOr(args, 1, 0);
+  const asked = IntArgOr(room, call, protos, table, args, 1, 0);
   // **整段照 `ToUint32`**：先 `ToIntegerOrInfinity`（`Math.trunc`），再模 2^32 取正
   //（`-0.5` 于是给 `0`、`-1` 给 `4294967295`、`2.7` 给 `2`、`4294967296` 给 `0`）。
   const truncated = Math.trunc(asked);

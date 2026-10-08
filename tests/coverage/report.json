@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 6433,
+  "total": 6437,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.66,
+  "progressPercent": 95.77,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2415,
-      "pass": 2325,
+      "total": 2419,
+      "pass": 2342,
       "blocked": 26,
-      "differ": 64,
+      "differ": 51,
       "nodefail": 0,
-      "coverage": 96.27
+      "coverage": 96.82
     },
     {
       "category": "e2e",
@@ -2039,7 +2039,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27896/src/4253.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27804/src/4254.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -2232,84 +2232,6 @@
       "category": "stdlib",
       "title": "\"abc\".search(\"b\")",
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e08",
-      "category": "stdlib",
-      "title": "\"abc\".indexOf(\"b\", { valueOf: () => 2 })",
-      "detail": "stdout 不同：第 1 行：node «number:-1» vs tsrun «number:1»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e09",
-      "category": "stdlib",
-      "title": "\"abc\".lastIndexOf(\"b\", { valueOf: () => 0 })",
-      "detail": "stdout 不同：第 1 行：node «number:-1» vs tsrun «number:1»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e10",
-      "category": "stdlib",
-      "title": "\"abc\".charAt({ valueOf: () => 1 })",
-      "detail": "stdout 不同：第 1 行：node «string:b» vs tsrun «string:a»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e11",
-      "category": "stdlib",
-      "title": "\"abc\".charCodeAt({ valueOf: () => 1 })",
-      "detail": "stdout 不同：第 1 行：node «number:98» vs tsrun «number:97»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e12",
-      "category": "stdlib",
-      "title": "\"abc\".codePointAt({ valueOf: () => 1 })",
-      "detail": "stdout 不同：第 1 行：node «number:98» vs tsrun «number:97»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e13",
-      "category": "stdlib",
-      "title": "\"abc\".at({ valueOf: () => 1 })",
-      "detail": "stdout 不同：第 1 行：node «string:b» vs tsrun «string:a»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e14",
-      "category": "stdlib",
-      "title": "\"abc\".at(\"1\")",
-      "detail": "stdout 不同：第 1 行：node «string:b» vs tsrun «string:a»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e15",
-      "category": "stdlib",
-      "title": "\"abc\".slice({ valueOf: () => 1 })",
-      "detail": "stdout 不同：第 1 行：node «string:bc» vs tsrun «string:abc»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e16",
-      "category": "stdlib",
-      "title": "\"abc\".substring({ valueOf: () => 2 }, { valueOf: () => 1 })",
-      "detail": "stdout 不同：第 1 行：node «string:b» vs tsrun «string:abc»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e17",
-      "category": "stdlib",
-      "title": "\"abc\".substr({ valueOf: () => 1 }, { valueOf: () => 1 })",
-      "detail": "stdout 不同：第 1 行：node «string:b» vs tsrun «string:»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e18",
-      "category": "stdlib",
-      "title": "\"ab\".repeat({ valueOf: () => 2 })",
-      "detail": "stdout 不同：第 1 行：node «string:abab» vs tsrun «string:»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e19",
-      "category": "stdlib",
-      "title": "\"ab\".padStart({ valueOf: () => 4 }, { toString: () => \"0\" })",
-      "detail": "stdout 不同：第 1 行：node «string:00ab» vs tsrun «string:ab»"
-    },
-    {
-      "id": "stdlib/string/probe700-g-e38",
-      "category": "stdlib",
-      "title": "\"a\".repeat({ valueOf: () => 1.9 })",
-      "detail": "stdout 不同：第 1 行：node «string:a» vs tsrun «string:»"
     },
     {
       "id": "stdlib/symbol/036-names-symbol",
