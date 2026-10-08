@@ -195,8 +195,9 @@ import { A as B, C } from "m"
 - `ImportClause` 从子句第一个词开始、到最后一个子句单元结束。**`type` 也算在里面**
   （`import type { A } from "m"` 的 TS 是 `ImportClause[7,17)`），而产物**没把 `type` 记成单元**，
   所以那个起点只能从 `import` 之后的第一个非空白字符量；
-- `NamedImports` / `ImportSpecifier` 的区间**直接按原文的 `{}` 与逗号量**：产物这边
-  花括号有时是 `Bracket`、有时（带别名时）是 `ObjectLiteral`，按标签分会漏一半；
+- `NamedImports` / `ImportSpecifier` 的区间与名字**从 token 子单元直读**（`ctx.NamedSpecifiers`）：
+  花括号有时是 `Bracket`、有时（带别名时）是 `ObjectLiteral`，按标签分会漏一半，
+  所以那一支两种都认；括号里每一项是独立的带区间单元，没有再回原文切一遍；
 - **导入属性 `with { … }` / `assert { … }`**（第 136 轮）：产物把那一对
   `[Identifier(with), Bracket({…})]` 平铺在**模块说明符之后**，而 TS 那边是
   `ImportDeclaration.assertClause`——不摘出来的话 `ImportClause` 的区间会一路撑到 `}`；
@@ -326,9 +327,24 @@ import { A as B, C } from "m"
   } else if (braceClose >= 0) {
     const defaultName = names.find((k: any) => ctx.StartOf(k) < braceOpen);
     if (defaultName !== undefined) clauseProps.name = ctx.Project(defaultName);
+    // **每一项的名字与区间从 token 子单元直读**（`ctx.NamedSpecifiers`，见
+    // `print-ast-common.xl.md` 的 `namedSpecifiersOf`）：具名子句那个括号单位就在 `kids` 里，
+    // 括号里每一项的起止 / `as` 的两侧 / 字符串名在树上各是带区间的单元——
+    // 不再回原文按正则重新切一遍（`import { a /* c */ as b }` 与 `import { "a-b" as c }`
+    // 照原文切都会给错答案）。
+    // **括号的标签有两种**：`import { … }` 是 `Bracket`，而 `import d, { … }` 里那个
+    // `{ … }` 被收成了 `ObjectLiteral`（没有 `startBracket` 属性）——所以只按**位置**认：
+    // `NamedBraceAt` 就是那个 `{` 的下标，落在它上面的那个单元才是具名子句。
+    const namedBrace = braceOpen < 0
+      ? undefined
+      : kids.find(
+          (k: any) =>
+            (k.get("type") === "Bracket" || k.get("type") === "ObjectLiteral")
+            && ctx.StartOf(k) === braceOpen,
+        );
     clauseProps.namedBindings = {
       kind: "NamedImports",
-      elements: ctx.NamedImportSpecifiers(source, braceOpen, braceClose),
+      elements: namedBrace === undefined ? [] : ctx.NamedSpecifiers(namedBrace, "ImportSpecifier"),
       pos: braceOpen,
       end: braceClose + 1,
     };

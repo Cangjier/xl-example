@@ -175,6 +175,12 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这是「token 直出 AST」那条线的落点：**判据只算一次，投影不做第二次近似**——
   全语料里投影回原文猜名字的次数从 **1324 处降到 0 处**（见
   [print-ast-common.xl.md](typescript/print-ast-common.xl.md) 的 `synthName`）。
+  **最后一块回原文重新做词法的地方也拆掉了**：具名导入 / 导出的每一项
+  （`{ a as b, c, type D }`）不再按原文正则切段，而是按文档顺序展开括号里的 token 子单元
+  （单行是平铺的一串，跨行会被逗号运算符折成 `BinaryOperator(op=",")` 树，两种走同一条路）——
+  照原文切在 `import { a /* c */ as b }` 上会把注释算进 `propertyName`、
+  在 `import { "a-b" as c }` 上会把字符串名投成 `Identifier`，两处都是真缺口，
+  用例在 [im-specifier-comment.ts](tests/parse/cases/modules/im-specifier-comment.ts) 一族里。
 
 ## 支持的语法构造
 
@@ -292,12 +298,12 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1512 / 1512 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1516 / 1516 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1110** 条用例，0 条不合格 |
-| `cases:tags` | **1110 条全部带期望**（2857 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖，未覆盖 **0** |
+| `cases:check` | **1114** 条用例，0 条不合格 |
+| `cases:tags` | **1114 条全部带期望**（2865 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1101 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
 | `coverage` | **1852 / 1852**：四层各 **100%**（runtime 515、exec 427、stdlib 724、e2e 186） |

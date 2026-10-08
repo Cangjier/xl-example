@@ -5629,90 +5629,75 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   return -1;
 ```
 
-# private method identWithin:(source:string, text:string, from:int, to:int)=>int
+# private method namedSpecifiersOf:(brace:any, kind:string, ctx:any)=>Array<any>
 
-```ts
-  const at = source.indexOf(text, from);
-  if (at < 0 || at + text.length > to) return undefined;
-  return { kind: "Identifier", text, pos: at, end: at + text.length };
-```
+具名导入 / 导出的每一项 → `ImportSpecifier` / `ExportSpecifier`（两种语句只有 `kind` 不同，所以共一份实现）。
 
-# private method namedImportSpecifiers:(source:string, braceOpen:int, braceClose:int)=>Array<any>
+产物把 `{ a as b, c, type D }` 摊成 `Bracket > [Identifier(a), Identifier(as), Identifier(b), SymbolToken(,), …]`，
+而 TS 那边是 `NamedImports` / `NamedExports > ImportSpecifier / ExportSpecifier{ propertyName?, name }`。
+
+**读的是 token 子单元，不是原文**：每一项的起止、`as` 的两侧、段首的 `type`、字符串名，
+在树上本来就是**带区间的单元**——直读即可。**这一格是本文件最后一处回原文重新做词法的地方**，
+照原文扫的写法要用正则猜 `as` 的两侧，两处实测错法：
+`import { a /* c */ as b }` 把注释算进 `propertyName`（漂移 1 + 多出 1）、
+`import { "a-b" as c }` 把字符串名投成 `Identifier`（缺 `StringLiteral` 1 + 多出 1）。
 
 ```ts
   const out = [];
-  let depth = 0;
-  let segStart = braceOpen + 1;
-  const flush = (to) => {
-    let from = segStart;
-    // **注释也要跳过**（第 162 轮）：`import { a, // first` 换行 `b }` 的第二段以行注释开头，
-    // 只跳空白会把那个注释算进 `b` 的区间（实测 `mod-import-named-multiline-comment.ts` 一族：
-    // `ImportSpecifier` / `Identifier` 都从注释起，缺 2 + 多出 2）。收尾同理，
-    // 段末那个注释也不属于说明符。
-    for (;;) {
-      while (from < to && /\s/.test(source[from])) from++;
-      const rest = source.slice(from, to);
-      const line = /^\/\/[^\n]*/.exec(rest);
-      if (line !== null) {
-        from += line[0].length;
-        continue;
-      }
-      const block = /^\/\*[\s\S]*?\*\//.exec(rest);
-      if (block !== null) {
-        from += block[0].length;
-        continue;
-      }
-      break;
+  let segment = [];
+  const flush = () => {
+    if (segment.length === 0) return;
+    const units = segment;
+    segment = [];
+    const pos = startOf(units[0]);
+    const end = endOf(units[units.length - 1]);
+    // **段首的 `type` 是标志**：`import { type B }` / `export { type D }` 的 specifier 区间含 `type`，
+    // 但 `name` 只是后面那个名字。只剩一个单元的 `{ type }` 不跳（那个 `type` 就是名字）。
+    const head = (k) => (k.get("type") === "Identifier" || k.get("type") === "Keyword") && textOfNode(k, ctx) === "type";
+    const body = units.length > 1 && head(units[0]) ? units.slice(1) : units;
+    if (body.length === 0) return;
+    const asAt = body.findIndex((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === "as");
+    const name = specifierNameOf(body[body.length - 1], ctx);
+    if (asAt > 0) {
+      out.push({ kind, propertyName: specifierNameOf(body[asAt - 1], ctx), name, pos, end });
+      return;
     }
-    let stop = to;
-    for (;;) {
-      while (stop > from && /\s/.test(source[stop - 1])) stop--;
-      const rest = source.slice(from, stop);
-      const line = /\/\/[^\n]*$/.exec(rest);
-      if (line !== null && line.index > 0) {
-        stop = from + line.index;
-        continue;
-      }
-      const block = /\/\*[\s\S]*?\*\/$/.exec(rest);
-      if (block !== null && block.index > 0) {
-        stop = from + block.index;
-        continue;
-      }
-      break;
-    }
-    if (from >= stop) return;
-    // **段首的 `type` 是标志**（第 173 轮）：`import { type B, C } from "y"` 里第一段是
-    // `type B`——TS 的 `ImportSpecifier` 区间含 `type`，但它的 `name` 只是 `B`
-    // （实测 `im-type-only.ts`：`Identifier` 的文本成了 `type B`、区间从 356 起）。
-    // 导出那一侧（`namedExportSpecifiers`）早就有这一条，导入这一侧漏了。
-    const typePrefix = /^type\s+/.exec(source.slice(from, stop));
-    const headFrom = typePrefix === null ? from : from + typePrefix[0].length;
-    const asAt = source.slice(headFrom, stop).search(/\s+as\s+/);
-    if (asAt >= 0) {
-      const gap = source.slice(headFrom + asAt).match(/\s+as\s+/)[0].length + asAt;
-      const property = identWithin(source, source.slice(headFrom, headFrom + asAt).trim(), headFrom, headFrom + asAt);
-      const nameText = source.slice(headFrom + gap, stop).trim();
-      const name = identWithin(source, nameText, headFrom + gap, stop);
-      out.push({ kind: "ImportSpecifier", propertyName: property, name, pos: from, end: stop });
-    } else {
-      out.push({
-        kind: "ImportSpecifier",
-        name: identWithin(source, source.slice(headFrom, stop), headFrom, stop),
-        pos: from,
-        end: stop,
-      });
-    }
+    out.push({ kind, name, pos, end });
   };
-  for (let i = braceOpen + 1; i < braceClose; i++) {
-    if (source[i] === "{") depth++;
-    else if (source[i] === "}") depth--;
-    else if (source[i] === "," && depth === 0) {
-      flush(i);
-      segStart = i + 1;
+  // **每一项怎么找**：括号里的内容有两种形态——同一行写完的是**平铺**的一串单元
+  // （`{ A as B, C }`），而**跨行**的会被逗号运算符折成一棵树
+  // （`{ ⏎ A, ⏎ B ⏎ }` ⇒ `Statement > BinaryOperator(op=",") > …`）。
+  // 所以按文档顺序递归展开 `Statement` / `BinaryOperator`，把 `,` 当分段边界：
+  // 两种形态于是走同一条路——这正是从前那段回原文切分替我们兜住的东西。
+  const walkSpecifierUnit = (unit:any) => {
+    const type = unit.get("type");
+    if (type === "Statement" || type === "BinaryOperator") {
+      for (const child of projectableKids(view(unit))) walkSpecifierUnit(child);
+      return;
     }
-  }
-  flush(braceClose);
+    if (type === "SymbolToken" && textOfNode(unit, ctx) === ",") {
+      flush();
+      return;
+    }
+    segment.push(unit);
+  };
+  for (const child of projectableKids(brace instanceof Map ? view(brace) : brace)) walkSpecifierUnit(child);
+  flush();
   return out;
+```
+
+# private method specifierNameOf:(unit:any, ctx:any)=>any
+
+一个名字单元 → 节点：引号名（`import { "a-b" as c }`）给 `StringLiteral`（`text` 是引号里那段），
+其余走 `nameOf`（`Identifier`）。位置一律**含引号**（TS 的字符串名节点就是这么记的）。
+
+```ts
+  const type = unit.get("type");
+  if (type === "String" || type === "ConstString") {
+    // `stringText` / `astNode` 吃的是**视图**，`nameOf` 吃的是原始 Map——两者的入口不同。
+    return astNode("StringLiteral", { text: stringText(view(unit), ctx) }, view(unit), ctx);
+  }
+  return nameOf(unit, ctx);
 ```
 
 # private method conditionalNode:(kids:Array<any>, start:int, end:int, ctx:any)=>any
@@ -5971,7 +5956,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     const close = endOf(brace);
     props.exportClause = {
       kind: "NamedExports",
-      elements: namedExportSpecifiers(ctx.source, open, close - 1),
+      elements: namedSpecifiersOf(brace, "ExportSpecifier", ctx),
       pos: open,
       end: close,
     };
@@ -5998,86 +5983,6 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   const module_ = kids.find((k) => k.get("type") === "String");
   if (module_ !== undefined) props.moduleSpecifier = projectNode(module_, ctx);
   return props;
-```
-
-# private method namedExportSpecifiers:(source:string, braceOpen:int, braceClose:int)=>Array<any>
-
-`export { a as b, c, type D }` → `ExportSpecifier` 数组。
-
-与 `namedImportSpecifiers` **同形**（`as` 不是子节点：`propertyName` + `name`），
-差别只有一处：**段首的 `type`** 是要跳过的标志，但**区间仍从段首算**
-（TS 的 `type D` 那个 specifier 是 `[20,26)`，子节点只有 `name: D[25,26)`）。
-
-```ts
-  const out = [];
-  let depth = 0;
-  let segStart = braceOpen + 1;
-  const flush = (to) => {
-    let from = segStart;
-    // 注释的跳过与 `namedImportSpecifiers` 同款（第 162 轮）。
-    for (;;) {
-      while (from < to && /\s/.test(source[from])) from++;
-      const rest = source.slice(from, to);
-      const line = /^\/\/[^\n]*/.exec(rest);
-      if (line !== null) {
-        from += line[0].length;
-        continue;
-      }
-      const block = /^\/\*[\s\S]*?\*\//.exec(rest);
-      if (block !== null) {
-        from += block[0].length;
-        continue;
-      }
-      break;
-    }
-    let stop = to;
-    for (;;) {
-      while (stop > from && /\s/.test(source[stop - 1])) stop--;
-      const rest = source.slice(from, stop);
-      const line = /\/\/[^\n]*$/.exec(rest);
-      if (line !== null && line.index > 0) {
-        stop = from + line.index;
-        continue;
-      }
-      const block = /\/\*[\s\S]*?\*\/$/.exec(rest);
-      if (block !== null && block.index > 0) {
-        stop = from + block.index;
-        continue;
-      }
-      break;
-    }
-    if (from >= stop) return;
-    const pos = from;
-    // 段首的 `type` 是标志：跳过它再算名字，但**区间从段首算**。
-    const body = source.slice(from, stop);
-    const head = body.replace(/^type\s+/, "");
-    const headAt = from + (body.length - head.length);
-    const asAt = head.search(/\s+as\s+/);
-    if (asAt >= 0) {
-      const gap = head.slice(asAt).match(/\s+as\s+/)[0].length + asAt;
-      const property = identWithin(source, head.slice(0, asAt).trim(), headAt, headAt + asAt);
-      const nameText = head.slice(gap).trim();
-      const name = identWithin(source, nameText, headAt + gap, stop);
-      out.push({ kind: "ExportSpecifier", propertyName: property, name, pos, end: stop });
-    } else {
-      out.push({
-        kind: "ExportSpecifier",
-        name: identWithin(source, head.trim(), headAt, stop),
-        pos,
-        end: stop,
-      });
-    }
-  };
-  for (let i = braceOpen + 1; i < braceClose; i++) {
-    if (source[i] === "{") depth++;
-    else if (source[i] === "}") depth--;
-    else if (source[i] === "," && depth === 0) {
-      flush(i);
-      segStart = i + 1;
-    }
-  }
-  flush(braceClose);
-  return out;
 ```
 
 # private method braceSpanOf:(raw:any)=>any
@@ -6732,7 +6637,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     Attr: (node, key) => (node instanceof Map ? view(node) : node).attrs.get(key),
     FirstCodeAfter: (text, at) => firstCodeAfter(text, at),
     MatchBrace: (text, at) => matchBrace(text, at),
-    NamedImportSpecifiers: (text, open, close) => namedImportSpecifiers(text, open, close),
+    NamedSpecifiers: (brace, kind) => namedSpecifiersOf(brace, kind, ctx),
     MemberNameOf: (view) => memberNameOf(view, ctx),
     AddModifiers: (view, props, baseStart) => addModifiers(view, props, ctx, baseStart),
     Decorators: (view, props) => addDecorators(view, props, ctx),
