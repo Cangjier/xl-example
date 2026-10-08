@@ -55,14 +55,9 @@
 
 ## 已知仍开着的缺口
 
-两条都是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
-**不在语料里**——所以 `npm run gates` 是绿的，而它们是真实存在的形状：
+只剩一条，是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
+**不在语料里**——所以 `npm run gates` 是绿的，而它是真实存在的形状：
 
-- **`do` 的体本身是一条 `while` 语句**：`do while (a) x++; while (b);`。体起手就是 `while` 词，
-  `DoWhileCloseRule.BodyEnd` 的「往后找到那个 `while`」于是找到**体自己**，返回的结尾落在体起点之前
-  （实测体空、`x++` 掉在 `DoWhile` 外面，多出 4 个节点）。要修得先能算出「一条 `while` 语句到哪结束」
-  ——那时它自己还没收尾。（同一族的「体的起手是 `if`」已经收掉，
-  见 [`stmt-do-while-if-body.ts`](../tests/parse/cases/statements/stmt-do-while-if-body.ts)。）
 - **`switch` 体里同一行写完一个块，后面再跟 `case` / `default`**：
   `switch (1) { case 1: { break; } default: break; }`。语句层把 `default:` 那一截并进了
   **同一个 `Statement` 壳**，而 `switch` 的分段是在体括号的**顶层单元**上找 `case` / `default`

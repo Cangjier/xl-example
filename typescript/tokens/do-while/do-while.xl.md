@@ -70,9 +70,10 @@ import { WhileCompare } from "../while/while-compare.xl.md"
 它在 `do` 被处理之前就缩进了一个 `Statement`——顶层找不到那个 `while` 词，只有壳里第一格是它。
 所以扫的时候连壳一起看：壳的第一格是 `while` 词（或已经是 `While` 单元）时，它的前一个下标就是体的结尾。
 
-**体自己起手就是 `while` 的那一档仍然开着**（`do while (a) x++; while (b);`）：上面这条会找到
-**体自己**那个 `while`。要分开得先能算出「一条 `while` 语句到哪结束」，而那时它还没收尾——
-见 [docs/typescript-parsing-gaps.md](../../../docs/typescript-parsing-gaps.md)。
+**体自己起手就是 `while` 的那一档也收掉了**（第 656 轮）：`do while (a) x++; while (b);` 里
+第一个 `while` 是**体**、第二个才是终止符——按定义，体与终止符之间至少隔着体的那一整条语句，
+所以**体起点那一格永远不可能是终止符**：扫到 `i === index` 的这一格跳过，往后找的就是真的终止符。
+（判据只多这一格，`do x++; while (a);` 那种没有体起手 `while` 的形状一个字节都没变。）
 
 ```ts
 const candidate = Get(units, index);
@@ -82,17 +83,18 @@ if (candidate instanceof Bracket && candidate.startBracket === "{") {
 let i = index;
 while (i < units.length) {
   const item = Get(units, i);
-  if (IsWordUnit(item, "while")) {
-    return i - 1;
-  }
+  let isWhileStart = IsWordUnit(item, "while");
   // 条件也可能**先被语句层收成壳**：`do if (a) x++; while (c);` 里 `while (c);` 自带分号，
   // 它在 `do` 被处理之前就缩进了一个 `Statement`——顶层于是找不到那个 `while` 词，
   // 只有壳里第一格是它（或已经是 `While` 单元）。不认这一格，整条 `do` 就落不到这条规则手里。
-  if (item instanceof Statement) {
+  if (isWhileStart === false && item instanceof Statement) {
     const head = Get(item.Data, 0);
-    if (head !== null && (head.constructor.name === "While" || IsWordUnit(head, "while"))) {
-      return i - 1;
-    }
+    isWhileStart = head !== null && (head.constructor.name === "While" || IsWordUnit(head, "while"));
+  }
+  // **体起点那一格是体本身、不是终止符**：`do while (a) x++; while (b);` 的第一个 `while`
+  // 就是体（上面那条「壳里第一格」也可能命中它），跳过它再往后找。
+  if (isWhileStart && i !== index) {
+    return i - 1;
   }
   i = i + 1;
 }
