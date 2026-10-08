@@ -4688,4 +4688,39 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     title: "类里的计算成员：静态计算名、getter 计算名、私有与计算名混用",
     src: "\nconst key = \"dyn\";\nconst tag = Symbol(\"t\");\nclass C {\n  static [key] = \"static-dyn\";\n  [key](): string { return \"method-dyn\"; }\n  get [`g${1}`](): string { return \"getter1\"; }\n  [tag] = \"symbol-field\";\n  read(v: any): any { return v[tag]; }\n}\nconst c: any = new C();\nconsole.log((C as any)[key], c[key](), c.g1, c.read(c), typeof c[tag]);\n",
   },
+
+  // ===== 第 662 轮：执行侧加宽矩阵（普查 pass 的 6 条）=====
+  {
+    id: "k7-ex-nonnull-and-as-chain-in-calls",
+    title: "非空断言 / as / satisfies 混在调用链里",
+    src: "\ntype Row = { id: number; name?: string };\nconst rows: Array<Row | null> = [{ id: 1, name: \"a\" }, null, { id: 3 }];\nconst named = rows.filter((r): r is Row => r !== null).map((r) => (r.name ?? \"?\").toUpperCase());\nconsole.log(named.join(\",\"));\nconst first = rows[0]!;\nconsole.log(first.id);\nconst widened = { id: 1, name: \"x\" } as Row;\nconst checked = { id: 2, name: \"y\" } satisfies Row;\nconsole.log(widened.id, checked.name, (rows[2] as Row).id);\n",
+  },
+  {
+    id: "k7-ex-generic-constraints-and-defaults",
+    title: "泛型约束 / 默认值 / 多个类型参数",
+    src: "\nfunction pick<T extends object, K extends keyof T>(source: T, key: K): T[K] {\n  return source[key];\n}\nconst person = { name: \"kim\", age: 30 };\nconsole.log(pick(person, \"name\"), pick(person, \"age\"));\nfunction wrap<T = string>(value: T): { value: T } { return { value }; }\nconsole.log(wrap(\"s\").value, wrap(1).value);\nclass Box<T extends { id: number }> {\n  constructor(public item: T) {}\n  id(): number { return this.item.id; }\n}\nconsole.log(new Box({ id: 9, tag: \"t\" }).id());\n",
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "k7-ex-enum-and-namespace-values",
+    title: "enum 与 namespace 的运行期取值",
+    src: "\nenum Color { Red, Green = 5, Blue }\nenum Flag { A = 1, B = 2, Both = A | B }\nnamespace Util {\n  export const tag = \"u\";\n  export function twice(n: number): number { return n * 2; }\n  export namespace Inner { export const deep = 3; }\n}\nconsole.log(Color.Red, Color.Green, Color.Blue, Color[5]);\nconsole.log(Flag.A, Flag.Both, Flag[3]);\nconsole.log(Util.tag, Util.twice(4), Util.Inner.deep);\n",
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "k7-ex-parameter-properties-and-this-param",
+    title: "参数属性 + this 形参 + 重载实现",
+    src: "\nclass Point {\n  constructor(public x: number, private y: number, readonly tag = \"p\") {}\n  sum(this: Point, extra: number): number { return this.x + this.y + extra; }\n  describe(): string { return this.tag + \":\" + this.x + \",\" + this.y; }\n}\nconst p = new Point(2, 3);\nconsole.log(p.sum(5), p.describe());\nfunction fmt(value: string): string;\nfunction fmt(value: number): string;\nfunction fmt(value: any): string { return typeof value === \"number\" ? value.toFixed(1) : value.trim(); }\nconsole.log(fmt(\"  a  \"), fmt(2));\n",
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "k7-ex-static-block-and-private-fields",
+    title: "静态块 + 私有字段 / 私有方法 / 私有静态",
+    src: "\nclass Counter {\n  #count = 0;\n  static #instances = 0;\n  static registry: string[] = [];\n  static {\n    Counter.registry.push(\"init\");\n  }\n  constructor() { Counter.#instances++; }\n  static get instances(): number { return Counter.#instances; }\n  #bump(): void { this.#count++; }\n  inc(): number { this.#bump(); return this.#count; }\n  static has(obj: any): boolean { return #count in obj; }\n}\nconst c = new Counter();\nconsole.log(c.inc(), c.inc(), Counter.instances, Counter.registry.join(\",\"));\nconsole.log(Counter.has(c), Counter.has({}));\n",
+  },
+  {
+    id: "k7-ex-destructuring-assignment-targets",
+    title: "解构赋值：成员目标 / 默认值 / 剩余 / 交换",
+    src: "\nconst box: any = { a: 1, b: 2, c: 3, d: 4 };\nconst out: any = {};\n({ a: out.first, ...out.rest } = box);\nlet x = 1, y = 2;\n[x, y] = [y, x];\nconst [p = 10, , q = 30] = [1, 2];\nconst { m: mm = \"d\" } = { m: \"M\" } as any;\nconsole.log(out.first, Object.keys(out.rest).join(\",\"), x, y, p, q, mm);\n",
+  },
 ];

@@ -8,7 +8,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, IsTriviaUnit } from "../../text-common-util.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -210,7 +210,11 @@ if (unit instanceof Statement) {
   //（体的内容仍是**一个 `Statement` 壳** ⇒ 投影照同一条路投，不必另开一路）。
   const bodySegment = result.CreateBody();
   unit.Data.splice(0, 1);
-  if (unit.Data.length > 0) {
+  // **壳里只剩 trivia 也算空体**（第 662 轮）：`do /* c */; while (false);` 里壳里剩下的
+  // 只有那条注释，按「长度 > 0」判会把它当成体（`EmptyBodyAt` 于是记不下、
+  // 投影画不出那个 `EmptyStatement`）；注释本身照旧留在壳里，不丢。
+  const bodyUnits = unit.Data.filter((item) => !IsTriviaUnit(item));
+  if (bodyUnits.length > 0) {
     // **壳的起点要挪到体的第一格**：壳自己的范围从那个 `do` 词起（它本来就是个语句），
     // 而这里要的是**体**（TS 那边 `DoStatement.statement` 从 `x` 起）。
     // `Token.SignIn` 只能设一次，所以这里直接换掉 `SourceRange.Start` 那个引用

@@ -138,8 +138,17 @@ const startIndex = index;
 let endIndex = currentIndex;
 // **体是那条空语句（`for (…);`）**（第 590 轮）：判出来之后记在单元上（见 `EmptyBodyAt`）。
 let emptyBody = false;
-currentIndex = SkipNextWrapSymbol(units, currentIndex);
+// **体起点跳过 trivia**（第 662 轮）：`for (;;)/* c */;` 与 `for (;;)/* c */ {}` 都是合法排法，
+// 只跳软换行时体起点落在注释上 ⇒ `EmptyBodyAt` / `BodyBrace` 两格都记不下。
+const headerEnd = currentIndex;
+currentIndex = SkipNextTrivia(units, currentIndex);
 const forBody = result.CreateBody();
+// **头与体之间那些注释不能丢**（第 662 轮）：它们落在被替掉的那一段里，而体段从跳过 trivia
+// 之后的 `currentIndex` 起收 ⇒ 不收就整个消失。
+const bodyComments = CommentsIn(units, headerEnd + 1, currentIndex);
+if (bodyComments.length > 0) {
+  forBody.AddRange(bodyComments);
+}
 // **体的右端**（第 572 轮）：两个分支各自赋值，兜底值只是让类型定下来
 //（`for` 那个词自己一定是闭着的）。见下面「体那一格单语句时」那一段说明。
 let tailEnd = unit.SourceRange.End!;
@@ -157,21 +166,28 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   tailEnd = statementBracket.SourceRange.End!;
   endIndex = currentIndex;
 } else {
-  endIndex = Statement.SearchStatementEnd(units, currentIndex - 1);
-  if (endIndex === -1) {
-    // **体一直写到输入末尾**：`for (;;) print(1)` 没有 `;`、文件又正好在这里结束时，
-    // `SearchStatementEnd` 给不出结尾——那是语句写完了，不是语法错误（第 63 轮补）。
-    endIndex = Statement.LastMeaningfulIndex(units, currentIndex);
-  }
-  // **空体：`for (…);`**（第 589 轮）：这条规则由 `;` 触发，而触发那一刻
-  // **`;` 还没进 `units`**——`for (;;);` 走到这里时列表只有 `for` 与那对括号两格
-  // ⇒ `SearchStatementEnd` 与 `LastMeaningfulIndex` 都给 `-1`。
-  // 从前这里抛错（`dist/ts/typescript/print-ast-common.ts` 那份 `for (…);` 就是它挡下的）。
-  // 体为空、`endIndex` 退到 `)` 那一格：区间借宿主的右端（下面那一支），
-  // 而 `;` 由投影侧按原文补成 `EmptyStatement`（见 `For.PrintAst`）。
-  if (endIndex === -1) {
+  // **表尾之后没有实义单元 ⇒ 体就是触发本规则的那个 `;`**（第 662 轮，与 `while.xl.md` 同一条）：
+  // 直接问「还有没有东西」比让 `SearchStatementEnd` 把一条注释当成体更准。
+  if (currentIndex >= units.length) {
     endIndex = currentIndex - 1;
     emptyBody = true;
+  } else {
+    endIndex = Statement.SearchStatementEnd(units, currentIndex - 1);
+    if (endIndex === -1) {
+      // **体一直写到输入末尾**：`for (;;) print(1)` 没有 `;`、文件又正好在这里结束时，
+      // `SearchStatementEnd` 给不出结尾——那是语句写完了，不是语法错误（第 63 轮补）。
+      endIndex = Statement.LastMeaningfulIndex(units, currentIndex);
+    }
+    // **空体：`for (…);`**（第 589 轮）：这条规则由 `;` 触发，而触发那一刻
+    // **`;` 还没进 `units`**——`for (;;);` 走到这里时列表只有 `for` 与那对括号两格
+    // ⇒ `SearchStatementEnd` 与 `LastMeaningfulIndex` 都给 `-1`。
+    // 从前这里抛错（`dist/ts/typescript/print-ast-common.ts` 那份 `for (…);` 就是它挡下的）。
+    // 体为空、`endIndex` 退到 `)` 那一格：区间借宿主的右端（下面那一支），
+    // 而 `;` 由投影侧读 `EmptyBodyAt` 补成 `EmptyStatement`（见 `For.PrintAst`）。
+    if (endIndex === -1) {
+      endIndex = currentIndex - 1;
+      emptyBody = true;
+    }
   }
   if (endIndex >= currentIndex) {
     forBody.AddRange(TakeRange(units, currentIndex, endIndex - currentIndex + 1));

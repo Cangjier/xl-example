@@ -6537,4 +6537,46 @@ console.log(Object.keys(obj).join(","), obj[key], Object.getOwnPropertySymbols(o
     src: "\nconsole.log(BigInt(\"123\") + 1n, typeof BigInt(1), 5n * 2n);\nconsole.log(BigInt(Number.MAX_SAFE_INTEGER) + 2n);\nconsole.log(Number(10n), BigInt(10) === 10n, 1n < 2);\n",
     skip: "口径外：`BigInt` 在 docs/runtime-architecture.md §15 那张「明确不做」的表里（与 RegExp / Proxy / Intl 同档）",
   },
+
+  // ===== 第 662 轮：执行侧加宽矩阵（普查 pass 的 8 条）=====
+  {
+    id: "k7-std-string-replace-dollar-and-function",
+    title: "replace 的记号与函数两种替换文本",
+    src: "\nconsole.log(\"a-b-c\".replace(\"-\", \"[$&]\"));\nconsole.log(\"a-b-c\".replaceAll(\"-\", \"<$'>\"));\nconsole.log(\"x1y2\".replace(\"1\", () => \"$&literal\"));\nconsole.log(\"abc\".replace(\"b\", (m, i) => i + \":\" + m));\nconsole.log(\"aaa\".split(\"a\").length, \"aaa\".split(\"\").join(\"|\"));\n",
+  },
+  {
+    id: "k7-std-object-keys-order-mixed",
+    title: "Object.keys 的顺序：整数键在前、其余按写入序",
+    src: "\nconst o: any = {};\no.b = 1;\no[\"2\"] = 2;\no.a = 3;\no[\"1\"] = 4;\no[\"01\"] = 5;\nconsole.log(Object.keys(o).join(\",\"));\nconsole.log(Object.values(o).join(\",\"));\nconsole.log(Object.entries(o).map(([k]) => k).join(\"-\"));\n",
+  },
+  {
+    id: "k7-std-array-flat-depth-and-holes",
+    title: "flat / flatMap 的深度与空洞处理",
+    src: "\nconst nested = [1, [2, [3, [4]]], , 5];\nconsole.log(JSON.stringify(nested.flat()));\nconsole.log(JSON.stringify(nested.flat(2)));\nconsole.log(JSON.stringify(nested.flat(Infinity)));\nconsole.log(JSON.stringify([1, 2, 3].flatMap((n) => (n === 2 ? [] : [n, n * 10]))));\nconsole.log([1, , 3].flatMap((v) => [v]).length);\n",
+  },
+  {
+    id: "k7-std-number-formatting-batch",
+    title: "数字格式化的几个出口",
+    src: "\nconst n = 1234.5678;\nconsole.log(n.toFixed(2), n.toFixed(0), (-1.5).toFixed(0));\nconsole.log(n.toPrecision(6), (0.0001234).toPrecision(2));\nconsole.log((255).toString(16), (255).toString(2), (8).toString(8));\nconsole.log(Number.isInteger(n), Number.isSafeInteger(2 ** 53), Number.isFinite(Infinity));\nconsole.log(Number.parseInt(\"42px\", 10), Number.parseFloat(\"3.5e2\"), Number(\"  7  \"));\nconsole.log(Math.trunc(-2.7), Math.sign(-0), Math.hypot(3, 4), Math.cbrt(27), (2 ** 31 | 0));\n",
+  },
+  {
+    id: "k7-std-string-at-codepoint-surrogate",
+    title: "at / codePointAt / fromCodePoint 对代理对的处理",
+    src: "\nconst emoji = \"a\\u{1F600}b\";\nconsole.log(emoji.length, [...emoji].length);\nconsole.log(emoji.at(0), emoji.at(1), emoji.at(-1));\nconsole.log(emoji.codePointAt(1) === 0x1f600, emoji.codePointAt(2));\nconsole.log(String.fromCodePoint(0x1f600) === [...emoji][1]);\nconsole.log([...\"\\u{1F600}\"].map((c) => c.length).join(\",\"));\n",
+  },
+  {
+    id: "k7-std-json-stringify-replacer-forms",
+    title: "stringify 的 replacer 两种形态 + space",
+    src: "\nconst data = { a: 1, b: { c: 2, d: [3, 4] }, e: \"s\" };\nconsole.log(JSON.stringify(data, [\"a\", \"c\", \"d\"]));\nconsole.log(JSON.stringify(data, (k, v) => (typeof v === \"number\" ? v * 10 : v)));\nconsole.log(JSON.stringify(data, null, 2).split(\"\\n\")[1]);\nconsole.log(JSON.stringify({ x: 1 }, null, \"\\t\"));\nconsole.log(JSON.stringify([1, [2]], null, 4).split(\"\\n\").join(\"|\"));\n",
+  },
+  {
+    id: "k7-std-map-set-iteration-forms",
+    title: "Map / Set 的迭代器与回调形态",
+    src: "\nconst m = new Map<string, number>([[\"a\", 1], [\"b\", 2]]);\nconsole.log([...m].map(([k, v]) => k + v).join(\",\"));\nconsole.log([...m.keys()].join(\",\"), [...m.values()].join(\",\"));\nm.forEach((v, k, owner) => console.log(k, v, owner === m));\nconst s = new Set([3, 1, 3, 2]);\nconsole.log([...s].join(\",\"), s.size, s.has(3), s.delete(3), s.size);\nconsole.log([...s.entries()].map(([a, b]) => a + \"=\" + b).join(\",\"));\n",
+  },
+  {
+    id: "k7-std-error-family-fields",
+    title: "错误家族的类型与字段",
+    src: "\nconst errors = [new Error(\"e\"), new TypeError(\"t\"), new RangeError(\"r\"), new SyntaxError(\"s\"), new ReferenceError(\"f\")];\nfor (const e of errors) console.log(e instanceof Error, e.name, e.message);\nclass AppError extends Error {\n  code: number;\n  constructor(code: number) { super(\"app \" + code); this.name = \"AppError\"; this.code = code; }\n}\ntry {\n  throw new AppError(42);\n} catch (e) {\n  const err = e as AppError;\n  console.log(err instanceof AppError, err instanceof Error, err.code, err.message);\n}\n",
+  },
 ];

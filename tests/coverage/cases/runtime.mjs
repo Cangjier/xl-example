@@ -5894,4 +5894,91 @@ console.log(s2.join(","));
     title: "带标签的块：label 挂在块上，break label 跳出块继续往下",
     src: "\nconst log: string[] = [];\nblk: {\n  log.push(\"in\");\n  if (log.length === 1) break blk;\n  log.push(\"unreachable\");\n}\nlog.push(\"after\");\nconsole.log(log.join(\"|\"));\n",
   },
+
+  // ===== 第 662 轮：执行侧加宽矩阵（普查 pass 的 17 条）=====
+  {
+    id: "k7-rt-sort-getter-access-order",
+    title: "排序比较器读访问器的次数与顺序",
+    src: "\nlet reads = 0;\nconst items = [\n  { get v() { reads++; return 3; }, n: \"a\" },\n  { get v() { reads++; return 1; }, n: \"b\" },\n  { get v() { reads++; return 2; }, n: \"c\" },\n];\nconst order = items.slice().sort((x, y) => x.v - y.v).map((o) => o.n);\nconsole.log(order.join(\",\"));\nconsole.log(\"sorted\", items.length);\n",
+  },
+  {
+    id: "k7-rt-map-delete-current-entry",
+    title: "遍历 Map 时删掉当前这一项（后续项照旧走完）",
+    src: "\nconst m = new Map<string, number>([[\"a\", 1], [\"b\", 2], [\"c\", 3], [\"d\", 4]]);\nconst seen: string[] = [];\nfor (const [k, v] of m) {\n  seen.push(k + v);\n  if (v % 2 === 0) m.delete(k);\n}\nconsole.log(seen.join(\",\"), m.size, [...m.keys()].join(\",\"));\n",
+  },
+  {
+    id: "k7-rt-set-foreach-third-arg",
+    title: "Set.forEach 的第三个实参就是那个集合本身",
+    src: "\nconst s = new Set<number>([1, 2, 3]);\nconst out: string[] = [];\ns.forEach(function (value, key, owner) {\n  out.push(value + \"/\" + key + \"/\" + (owner === s));\n});\nconsole.log(out.join(\" \"));\n",
+  },
+  {
+    id: "k7-rt-object-is-and-negative-zero",
+    title: "Object.is / -0 / NaN 的分辨",
+    src: "\nconsole.log(Object.is(NaN, NaN), NaN === NaN);\nconsole.log(Object.is(0, -0), 0 === -0);\nconsole.log(1 / -0 === -Infinity, String(-0));\nconst box = { z: -0 };\nconsole.log(Object.is(box.z, -0), box.z === 0);\n",
+  },
+  {
+    id: "k7-rt-json-tojson-undefined-slots",
+    title: "toJSON 给出 undefined：数组里留 null、对象里整格抹掉",
+    src: "\nconst item = { keep: 1, drop: 2, toJSON() { return undefined; } };\nconsole.log(JSON.stringify([item, { keep: 3 }]));\nconsole.log(JSON.stringify({ a: item, b: { keep: 4 } }));\nconsole.log(JSON.stringify({ a: undefined, b: () => 1, c: 5 }));\n",
+  },
+  {
+    id: "k7-rt-loop-capture-in-microtasks",
+    title: "循环里的 let 捕获 + 微任务顺序",
+    src: "\nconst out: number[] = [];\nfor (let i = 0; i < 3; i++) {\n  Promise.resolve(i).then((v) => out.push(v));\n}\nconst vars: number[] = [];\nfor (var j = 0; j < 3; j++) {\n  Promise.resolve().then(() => vars.push(j));\n}\nPromise.resolve().then(() => {\n  console.log(out.join(\",\"), vars.join(\",\"));\n});\n",
+  },
+  {
+    id: "k7-rt-generator-return-in-forof-finally",
+    title: "for..of 里 return 提前退出：finally 照跑、迭代器被关闭",
+    src: "\nconst log: string[] = [];\nfunction* gen() {\n  try {\n    yield 1;\n    yield 2;\n  } finally {\n    log.push(\"closed\");\n  }\n}\nfunction take() {\n  for (const v of gen()) {\n    log.push(\"v\" + v);\n    if (v === 1) return \"early\";\n  }\n  return \"full\";\n}\nconsole.log(take(), log.join(\",\"));\n",
+  },
+  {
+    id: "k7-rt-labeled-continue-nested-forof",
+    title: "带标签的 continue 跨两层 for..of",
+    src: "\nconst pairs: string[] = [];\nouter: for (const a of [1, 2, 3]) {\n  for (const b of [1, 2, 3]) {\n    if (b === 2) continue outer;\n    if (a === 2) break outer;\n    pairs.push(a + \":\" + b);\n  }\n}\nconsole.log(pairs.join(\" \"));\n",
+  },
+  {
+    id: "k7-rt-symbol-hasinstance-plain-object",
+    title: "自定义 Symbol.hasInstance（普通对象上）",
+    src: "\nclass Even {\n  static [Symbol.hasInstance](value: any): boolean {\n    return typeof value === \"number\" && value % 2 === 0;\n  }\n}\nconsole.log(4 instanceof Even, 5 instanceof Even, \"4\" instanceof Even);\nconsole.log([2, 3, 4].filter((n) => n instanceof Even).join(\",\"));\n",
+  },
+  {
+    id: "k7-rt-symbol-toprimitive-in-template",
+    title: "Symbol.toPrimitive 决定模板串与加法的结果",
+    src: "\nconst money = {\n  amount: 7,\n  [Symbol.toPrimitive](hint: string): string | number {\n    return hint === \"string\" ? this.amount + \" yuan\" : this.amount;\n  },\n};\nconsole.log(`${money}`, \"cost \" + money, money + 1);\n",
+  },
+  {
+    id: "k7-rt-array-from-holes-and-mapper",
+    title: "Array.from 对稀疏数组 / 类数组 / 映射函数",
+    src: "\nconst sparse = [1, , 3];\nconsole.log(Array.from(sparse, (v, i) => i + \":\" + String(v)).join(\"|\"));\nconsole.log(Array.from({ length: 3 }, (_, i) => i * 2).join(\",\"));\nconsole.log(Array.from(\"abc\", (c) => c.toUpperCase()).join(\"\"));\n",
+  },
+  {
+    id: "k7-rt-switch-fallthrough-scoped-block",
+    title: "switch 贯穿 + 每段一个块作用域",
+    src: "\nfunction kind(n: number): string {\n  let out = \"\";\n  switch (n) {\n    case 0: {\n      const tag = \"zero\";\n      out += tag + \";\";\n    }\n    case 1: {\n      const tag = \"one\";\n      out += tag + \";\";\n    }\n    case 2:\n      out += \"two;\";\n      break;\n    default:\n      out += \"other;\";\n  }\n  return out;\n}\nfor (const n of [0, 1, 2, 5]) console.log(kind(n));\n",
+  },
+  {
+    id: "k7-rt-comma-void-side-effects",
+    title: "逗号运算符与 void 的求值顺序",
+    src: "\nlet trace: string[] = [];\nconst bump = (tag: string, value: number): number => {\n  trace.push(tag);\n  return value;\n};\nconst total = (bump(\"a\", 1), bump(\"b\", 2), bump(\"c\", 3));\nconsole.log(total, trace.join(\"\"));\nconsole.log(void bump(\"d\", 4), trace.join(\"\"));\n",
+  },
+  {
+    id: "k7-rt-promise-adoption-chain",
+    title: "then 回调返回承诺：结果跟着内层走",
+    src: "\nconst chain = Promise.resolve(1)\n  .then((v) => Promise.resolve(v + 1))\n  .then((v) => ({ v }))\n  .then((o) => o.v * 10)\n  .then((v) => { if (v !== 20) throw new Error(\"bad \" + v); return \"ok\"; });\nchain.then((v) => console.log(v), (e) => console.log(\"err\", String(e)));\nPromise.all([Promise.resolve(\"x\"), 1, \"y\"]).then((all) => console.log(all.join(\"|\")));\n",
+  },
+  {
+    id: "k7-rt-optional-call-chain-mixed",
+    title: "可选调用 / 可选下标 / 空值合并混在一起",
+    src: "\ntype Box = { f?: (n: number) => number; list?: Array<number>; deep?: { g?: () => string } };\nconst a: Box = { f: (n) => n * 2, list: [5, 6] };\nconst b: Box = {};\nconsole.log(a.f?.(3) ?? -1, b.f?.(3) ?? -1);\nconsole.log(a.list?.[1] ?? -1, b.list?.[1] ?? -1);\nconsole.log(b.deep?.g?.() ?? \"none\", a.deep?.g?.() ?? \"none\");\nconsole.log(a.list?.length ?? 0, (b.list ?? []).length);\n",
+  },
+  {
+    id: "k7-rt-class-accessor-super-chain",
+    title: "派生类里 get / set 与 super 的两向配合",
+    src: "\nclass Base {\n  protected raw = 1;\n  get value(): number { return this.raw; }\n  set value(next: number) { this.raw = next; }\n}\nclass Doubler extends Base {\n  get value(): number { return super.value * 2; }\n  set value(next: number) { super.value = next; }\n}\nconst d = new Doubler();\nconsole.log(d.value);\nd.value = 5;\nconsole.log(d.value);\nconst target = { get v() { return \"g\"; }, set v(x: string) { console.log(\"set\", x); } };\ntarget.v = \"z\";\nconsole.log(target.v);\n",
+  },
+  {
+    id: "k7-rt-spread-evaluates-getters-once",
+    title: "对象展开与解构各读一次访问器",
+    src: "\nlet reads = 0;\nconst src: any = { get a() { reads++; return \"A\"; }, b: \"B\" };\nconst copy = { ...src };\nconst { a, ...rest } = src;\nconsole.log(copy.a, rest.b, a, reads);\n",
+  },
 ];

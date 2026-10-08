@@ -88,8 +88,18 @@ compare.SignOut(conditionBracket.SourceRange.End!);
 conditionBracket.MoveDataTo(compare);
 compare.TryToClose();
 const startIndex = index;
-endIndex = SkipNextWrapSymbol(units, endIndex);
+// **体起点跳过 trivia**（第 662 轮）：`while (a)/* c */;` 与 `while (a)/* c */ {}` 都是合法排法，
+// 只跳软换行时体起点落在注释上 ⇒ 空体那一支判不出来（`EmptyBodyAt` 记不下）、
+// 花括号体那一支也认不出（`BodyBrace` 记不下）。
+const headerEnd = endIndex;
+endIndex = SkipNextTrivia(units, endIndex);
 const forStatement = result.CreateBody();
+// **头与体之间那些注释不能丢**（第 662 轮）：它们落在被 `ReplaceCountAt` 替掉的那一段里，
+// 而体段是从 `endIndex`（跳过 trivia 之后）起收的 ⇒ 不收就整个消失。
+const bodyComments = CommentsIn(units, headerEnd + 1, endIndex);
+if (bodyComments.length > 0) {
+  forStatement.AddRange(bodyComments);
+}
 // **体是那条空语句（`while (…);`）**（第 590 轮）：判出来之后记在单元上（见 `EmptyBodyAt`）。
 let emptyBody = false;
 // **体那一格的右端**（与 `for` / `foreach` 同一处口径）：两个分支各自赋值，
@@ -111,18 +121,26 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   tailEnd = statementBracket.SourceRange.End!;
 } else {
   const statementStart = endIndex;
-  endIndex = Statement.SearchStatementEnd(units, endIndex - 1);
-  if (endIndex === -1) {
-    // **体一直写到输入末尾**：`while (x) print(1)` 没有 `;`、文件又正好在这里结束时，
-    // `SearchStatementEnd` 找不到结束符号——那是语句写完了，不是语法错误。
-    endIndex = Statement.LastMeaningfulIndex(units, statementStart);
-  }
-  // **空体：`while (…);`**（第 589 轮，与 `for.xl.md` 那一处一字不差）：
-  // 规则由 `;` 触发，而那一刻 `;` 还没进 `units` ⇒ 两个找尾的都给 `-1`。
-  // 体为空、`endIndex` 退到 `)` 那一格；`;` 由投影侧按原文补成 `EmptyStatement`。
-  if (endIndex === -1) {
+  // **表尾之后没有实义单元 ⇒ 体就是触发本规则的那个 `;`**（第 662 轮）：
+  // `while (a)/* c */;` 里 `units` 只剩一条注释，直接问「还有没有东西」比让
+  // `SearchStatementEnd` 把注释当成体更准（它原来就是这么误判的）。
+  if (statementStart >= units.length) {
     endIndex = statementStart - 1;
     emptyBody = true;
+  } else {
+    endIndex = Statement.SearchStatementEnd(units, statementStart - 1);
+    if (endIndex === -1) {
+      // **体一直写到输入末尾**：`while (x) print(1)` 没有 `;`、文件又正好在这里结束时，
+      // `SearchStatementEnd` 找不到结束符号——那是语句写完了，不是语法错误。
+      endIndex = Statement.LastMeaningfulIndex(units, statementStart);
+    }
+    // **空体：`while (…);`**（第 589 轮，与 `for.xl.md` 那一处一字不差）：
+    // 规则由 `;` 触发，而那一刻 `;` 还没进 `units` ⇒ 两个找尾的都给 `-1`。
+    // 体为空、`endIndex` 退到 `)` 那一格；`;` 由投影侧读 `EmptyBodyAt` 补成 `EmptyStatement`。
+    if (endIndex === -1) {
+      endIndex = statementStart - 1;
+      emptyBody = true;
+    }
   }
   if (endIndex >= statementStart) {
     forStatement.AddRange(TakeRange(units, statementStart, endIndex - statementStart + 1));
