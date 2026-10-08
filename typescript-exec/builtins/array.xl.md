@@ -2052,16 +2052,36 @@ if (raw.IsNumber()) {
   // 给 `[]`（Node 给 `["a","b"]`）——**静默错值**，与 `Array.from` 那一处同一个根。
   count = raw.LengthAsInt();
 } else if (raw.Tag === ValueTag.String) {
-  // **纯十进制文本才认**（逐位判，不引新助手——这一层已经有两个「读文本」的入口了）。
+  // **十进制文本才认——含可选的小数部分**（第 735 轮把小数那一档补上）：
+  // `ToLength` 先把文本 `ToNumber` 再截断，所以 `{ length: "2.7" }` 的长度是 **2**。
+  // **原来只认「全是数字」那一档** ⇒ `"2.7"` 不认、给 **0**——
+  // 于是 `Array.from({ length: "2.7", 0: "a", 1: "b" })` 给 `[]`（Node 给两项，
+  // **静默错值**）。**负数那一档照旧不认**（`"-1"` 给 0，与 `ToLength` 的夹取同结果）。
+  // 逐位判，不引新助手——这一层已经有两个「读文本」的入口了。
   const digits = TextUnitsOf(table, raw);
   let allDigits = digits.length > 0;
-  for (let d = 0; d < digits.length; d++) {
-    if (digits[d] < 48 || digits[d] > 57) allDigits = false;
+  const wholeDigits: number[] = [];
+  let at = 0;
+  while (at < digits.length && digits[at] >= 48 && digits[at] <= 57) {
+    wholeDigits.push(digits[at]);
+    at = at + 1;
+  }
+  if (wholeDigits.length === 0) {
+    allDigits = false;
+  } else {
+    // **小数那一档**：点号后面必须还有至少一位数字，再往后不许有别的东西。
+    if (at < digits.length && digits[at] === 46) {
+      at = at + 1;
+      if (at >= digits.length || digits[at] < 48 || digits[at] > 57) allDigits = false;
+      while (at < digits.length && digits[at] >= 48 && digits[at] <= 57) at = at + 1;
+    }
+    if (at !== digits.length) allDigits = false;
   }
   if (allDigits) {
     // **十进制的文本 → 数**：只用 `Number`（这一段是本仓自己的规范文件，
     // 而它是 `cases:tsast` 的语料——少一层转换少一处风险）。
-    count = Number(digits.map((u) => String.fromCharCode(u)).join(""));
+    // **只取整数部分**：`LengthAsInt` 那一句就是「向零截断」，文本这一档照同一条。
+    count = Number(wholeDigits.map((u) => String.fromCharCode(u)).join(""));
   }
 }
 return count < 0 ? 0 : count;

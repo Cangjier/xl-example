@@ -625,18 +625,21 @@ if (source.IsObject() && source.Tag !== ValueTag.Array
   // `Array.from({ length: "3" })` 给 **0** 项（**静默错值**）——
   // 与 `Array.prototype.slice.call({ length: "3" })` 那两个答案**分了岔**，
   // 而它们本来就是同一句话。
-  const count = ArrayLikeLength(room, table, null, source);
+  const count = ArrayLikeLength(room, table, call, source);
   // **「是不是数组式」与「长度是多少」是两件事**：`ArrayLikeLength` 对
   // **没有 `length`** 的对象也给 `0`（那一句写着「读不到 / 不是数字就给 `0`」），
   // 所以这里要再问一次「**它到底有没有那一格**」——否则
   // `Array.from({ a: 1 })` 会走这一支、给一个空数组，
   // 而 JS 里那种对象**没有迭代器也没有 `length`** ⇒ **当场抛 `TypeError`**。
-  // 判据照第 184 轮那一趟：**自有、数据属性、键是 `"length"`**。
+  // 判据照第 184 轮那一趟：**自有、键是 `"length"`**。
+  // **访问器那一档也算**（第 735 轮）：`{ get length() { return 2; } }` 在 JS 里
+  // 照样是数组式（`Array.from` 会**调那个 getter**）——原来这里
+  // `if (property.Kind === PropertyKind.Accessor) continue;` 把它跳过去
+  // ⇒ 那一格落到「不是数组式」⇒ 走迭代器那条路（而它没有迭代器 ⇒ 抛）。
   const sourceItem = table.Get(source.Ref);
   let hasLength = false;
   for (let i = 0; i < sourceItem.Props.length; i++) {
     const property = sourceItem.Props[i];
-    if (property.Kind === PropertyKind.Accessor) continue;
     // **符号键跳过**（第 184 轮修）：`{ [Symbol.iterator]() { … } }` 这类对象
     // **也**有 `Props`，而里面那一格的键是**符号**——`ValueText` 见到它不是字符串
     // 就抛 `heap object is not a string`（实测：`Array.from(o)` 走到这一句才炸，
@@ -654,7 +657,7 @@ if (source.IsObject() && source.Tag !== ValueTag.Array
       // **逐下标读**（与数组那一支同一条口径）——
       // **不存在的下标给 `undefined`**（JS 的口径，不是跳过）：
       // 那一句助手同样与数组方法那一族**共用**（`ArrayLikeAt`）。
-      target.Push(ArrayLikeAt(room, table, null, source, i));
+      target.Push(ArrayLikeAt(room, table, call, source, i));
     }
     if (keep !== null) keep(out, false);
     return MapArrayItems(room, table, out, mapper, hasMapper, thisArg, call, failed);

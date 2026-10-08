@@ -110,8 +110,7 @@ import { Vm } from "../../runtime/vm.xl.md"
 if (id === SetAdd) return "add";
 if (id === SetHas) return "has";
 if (id === SetDelete) return "delete";
-if (id === SetValues) return "values";
-if (id === SetKeys) return "keys";
+if (id === SetValues || id === SetKeys) return "values";
 if (id === SetEntries) return "entries";
 if (id === SetClear) return "clear";
 if (id === SetForEach) return "forEach";
@@ -138,7 +137,7 @@ throw new Error("unimplemented: set method id " + id);
 它们读的是 `self.__v`，而 `DoCallMethod` 递进去的 `self` 仍然是**那个实例**。
 
 ```ts
-const ids = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear, SetForEach,
+const ids = [SetAdd, SetHas, SetDelete, SetValues, SetEntries, SetClear, SetForEach,
   // **第 324 轮那六个也要挂**：与上面八个**同一个循环**——少挂一格就是
   // `cannot call a non-closure value`（**那句话听起来像「集合运算还没做」**，
   // 其实只是**没人往那一格挂东西**，与第 308 轮 `Array.prototype[Symbol.iterator]` 同一副面孔）。
@@ -148,6 +147,49 @@ const ids = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear
 for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   WriteOwn(room, NeverCall, table, target, SetMethodNameOf(ids[i]), fn);
+}
+// **`keys` 与 `values` 是同一个函数对象**（第 735 轮，**实测撞到的**）：
+// JS 里 `Set.prototype.keys === Set.prototype.values`（`Set.prototype[Symbol.iterator]`
+// 也指向同一个）——而本仓原来把 `SetKeys` **也放进上面那张表**，
+// 于是两格各 `CreateHostRef` 一次 ⇒ **两个互不相等的句柄**
+//（判据 `p735a-a34`：`new Set().keys === new Set().values` 给**假**，Node 给真）。
+// **修法是「`keys` 不再自己挂，直接指到 `values` 那一格」**——
+// 与第 712 轮 `Map.prototype[Symbol.iterator] === Map.prototype.entries`
+// 是同一副面孔、同一条纪律（**同一件事不写第二份实现**）。
+// **位置要紧**：它必须在上面那个循环**之后**——先进循环的话
+// `SetMethodNameOf(SetKeys)` 会把 `values` 那一格**覆盖**成另一个句柄。
+const setValuesRef = FindProperty(NeverRoom, table, target.Ref, NameValue(table, "values"));
+if (setValuesRef !== null) {
+  const setValuesFn = ReadProperty(NeverCall, table, setValuesRef, target);
+  WriteOwn(room, NeverCall, table, target, "keys", setValuesFn);
+  // **名字也要跟着走**（第 735 轮）：`Set.prototype.keys.name` 在 Node 里是
+  // **`"values"`**——两格是**同一个函数**，所以它只有一个名字。
+  DefineBuiltinName(room, table, setValuesFn, "values", BuiltinArity(SetValues));
+}
+```
+
+# method InstallWeakSetMethods:(room:RoomChecker, table:HeapTable, target:Value)=>void
+
+**弱集合该有的那一份**（第 735 轮）——**只有四格**：`add` / `has` / `delete` /
+`forEach` **外的三格**，也就是 `add` / `has` / `delete`（`forEach` 也**没有**）。
+
+**为什么单开一个方法而不是给 `InstallSetMethods` 加个开关**：
+两张表的**内容**不同、**来源**也不同——`Set.prototype` 那一份来自规范那一节
+（八格 + 七个集合运算），`WeakSet.prototype` 这一份来自**实测 Node 的名字表**
+（`Object.getOwnPropertyNames(WeakSet.prototype)` 给
+`add, constructor, delete, has`，本仓的 `constructor` 由 `globals.xl.md` 挂）。
+一个开关会把「谁在哪张表上」变成调用点上的一个布尔 ⇒ 下一次加方法又要重新判一遍。
+
+**`forEach` 不在这一份里**：Node 的 `WeakSet.prototype.forEach` 是 **`undefined`**
+（`WeakSet` 不可枚举，所以没有遍历入口）——本仓原来从 `InstallSetMethods` 里继承了一格，
+看起来像「能遍历」，其实一调就是错的。
+
+```ts
+const ids = [SetAdd, SetHas, SetDelete];
+for (let i = 0; i < ids.length; i++) {
+  const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
+  WriteOwn(room, NeverCall, table, target, SetMethodNameOf(ids[i]), fn);
+  DefineBuiltinName(room, table, fn, SetMethodNameOf(ids[i]), BuiltinArity(ids[i]));
 }
 ```
 
@@ -171,24 +213,37 @@ DefineAccessor(vm.Room(), vm.Table, Value.FromObject(protos.Set), NameValue(vm.T
 // `WeakMap.prototype` 那一段**一字不差**（理由全在那里：实测 Node 的链是
 // `WeakSet.prototype -> Object.prototype`，与 `Set.prototype` **并列**，
 // 所以方法要自己挂一份；`size` **不挂**——`WeakSet` 没有它）。
+// **第 735 轮把「挂一份」收窄成「挂它该有的那一份」**（见 `InstallWeakSetMethods`）：
+// 原来这里调的是 `InstallSetMethods` ⇒ 弱集合上多出 `keys` / `values` / `entries` /
+// `forEach` 与那七个集合运算（Node 的 `WeakSet.prototype` **只有四个名字**：
+// `add` / `has` / `delete` / `constructor`）——**没有的东西取得到**是**静默错值**。
 // **`constructor` 由 `globals.xl.md` 挂**（它手上才有 `WeakSet` 那个全局值）。
-InstallSetMethods(vm.Room(), vm.Table, Value.FromObject(protos.WeakSet));
-// **那四格的名字与形参个数**（第 733 轮）：与 `Map` 那一处同一个做法
+InstallWeakSetMethods(vm.Room(), vm.Table, Value.FromObject(protos.WeakSet));
+// **名字与形参个数**（第 733 轮）：与 `Map` 那一处同一个做法
 //（按号列一遍、`DefineBuiltinName` 幂等），`Set.prototype` 上那一份也一起补上。
-const weakSetNamedIds = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear,
-  SetForEach];
-for (let i = 0; i < weakSetNamedIds.length; i++) {
-  const namedName = SetMethodNameOf(weakSetNamedIds[i]);
-  const namedKey = NameValue(vm.Table, namedName);
-  const owned = ReadOwn(NeverRoom, vm.Table, Value.FromObject(protos.WeakSet), namedName);
+// **第 735 轮：两份名字表分开**——`WeakSet.prototype` 上**只有 `add` / `has` / `delete`
+// 三格**（第 735 轮 `InstallWeakSetMethods` 那一段写着为什么），所以
+// 「弱集合上那一份」只列那三个号。**原来这一张表列着 `values` / `entries` /
+// `clear` / `forEach`**，而 `ReadOwn` 读一格**不存在**的内部件是**抛**
+//（它那条纪律：缺格不许静默当空）⇒ 这一句一跑就是
+// `unimplemented: not a Map receiver (no values)`——**整份文件进不来**。
+// `Set.prototype` 上那一份照旧全列（它八格都在）。
+const weakSetOwnIds = [SetAdd, SetHas, SetDelete];
+for (let i = 0; i < weakSetOwnIds.length; i++) {
+  const ownName = SetMethodNameOf(weakSetOwnIds[i]);
+  const owned = ReadOwn(NeverRoom, vm.Table, Value.FromObject(protos.WeakSet), ownName);
   if (owned.Tag === ValueTag.HostRef) {
-    DefineBuiltinName(vm.Room(), vm.Table, owned, namedName, BuiltinArity(weakSetNamedIds[i]));
+    DefineBuiltinName(vm.Room(), vm.Table, owned, ownName, BuiltinArity(weakSetOwnIds[i]));
   }
-  const onSetProto = FindProperty(NeverRoom, vm.Table, protos.Set, namedKey);
+}
+const setProtoNamedIds = [SetAdd, SetHas, SetDelete, SetValues, SetEntries, SetClear, SetForEach];
+for (let i = 0; i < setProtoNamedIds.length; i++) {
+  const protoName = SetMethodNameOf(setProtoNamedIds[i]);
+  const onSetProto = FindProperty(NeverRoom, vm.Table, protos.Set, NameValue(vm.Table, protoName));
   if (onSetProto !== null) {
     DefineBuiltinName(vm.Room(), vm.Table,
-      ReadProperty(NeverCall, vm.Table, onSetProto, Value.FromObject(protos.Set)), namedName,
-      BuiltinArity(weakSetNamedIds[i]));
+      ReadProperty(NeverCall, vm.Table, onSetProto, Value.FromObject(protos.Set)), protoName,
+      BuiltinArity(setProtoNamedIds[i]));
   }
 }
 ```
