@@ -88,7 +88,7 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 98.31,
+  "progressPercent": 98.36,
   "layers": [
     {
       "layer": "runtime",
@@ -114,11 +114,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 888,
-      "pass": 850,
+      "pass": 852,
       "blocked": 7,
-      "differ": 31,
+      "differ": 29,
       "nodefail": 0,
-      "coverage": 95.72
+      "coverage": 95.95
     },
     {
       "layer": "e2e",
@@ -277,18 +277,6 @@
       "layer": "stdlib",
       "title": "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
       "detail": "stdout 不同：第 1 行：node «at,padStart,replaceAll,match,search,matchAll,split,trim» vs tsrun «at,padStart,replaceAll,,,,split,trim»"
-    },
-    {
-      "id": "r676-std-string-index-family",
-      "layer": "stdlib",
-      "title": "String.indexOf / lastIndexOf / includes / charAt / charCodeAt",
-      "detail": "stdout 不同：第 2 行：node «true false a » vs tsrun «true true a »"
-    },
-    {
-      "id": "gap-r676-std-string-includes-fromIndex",
-      "layer": "stdlib",
-      "title": "String.includes 的 fromIndex 参数",
-      "detail": "stdout 不同：第 1 行：node «false true false» vs tsrun «true true true»"
     },
     {
       "id": "l677p-obj-lock-difference",

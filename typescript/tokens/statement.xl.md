@@ -702,8 +702,50 @@ return frontIndex + 1;
 - 前面是语句级单元（`Statement` / `Interface` / 另一个 `Function` …）→ 是；
 - 其余（`=` / `&&` / `,` / `(` / `return` …）→ 不是，那是表达式。
 
+**往回跳的是 trivia（软换行**与注释**）**（第 679 轮）：`catch (e) //c` 换行 `{ b(); }` 里那个 `{`
+前面紧挨着的是一条行注释，而注释在 TypeScript 里是 trivia —— 只跳软换行时 `previous` 落在
+`LineAnnotation` 上：它不是符号、不是括号、也不是语句级单元 ⇒ 这一句答「不是声明位置」⇒
+`IsStatementBoundary` 跟着答否 ⇒ 那个块与前一行被收进**同一个** `Statement`
+（实测这正是一族**产物直接抛异常**用例的根：`TryCloseRule` 看到的是
+`[try, Bracket, catch, Bracket, LineAnnotation]`——`catch` 的体那一格**不见了**）。
+同一个文件里 `IsStatementStart` 跳 trivia 已经跳了（第 125 轮），两处口径本来就该是一条。
+
+**`else` 那个块仍然要在这里答「是声明位置」**（同轮实测）：它的体由 `IfSet` 自己认，
+而 `IfSet` 的边界恰恰问的是 `IsStatementEnd` → `IsStatementBoundary` ——
+这里替 `else` 答否，`else` 的体就落进**下一条语句**里（实测
+`} else /* c */ { … }` 换行 `return 0;` 的产物是
+`IfSegment(else) > IfStatement > [AreaAnnotation, Bracket, Statement(return 0)]`：多出一个 `Block`、
+`IfStatement` 的终点被拉到下一条语句末尾）。
+
+**两种注释在这里**不一样（同轮实测，这是这条判据的最后一格）：`//` **换行**在 TypeScript 里
+是一次 ASI（`catch (e) //c` 换行 `{` 必须是两条），而块注释不换行——`} else /* c */ {` 里那个 `{`
+仍然是 `else` 的体。所以往回跳的是**软换行与块注释 / 行注释**（`SkipPreviousTrivia`），
+**唯独行注释要当成一格实义单元**：`//c` 换行 `{` 里 `previous` 落在那条 `LineAnnotation` 上 ⇒
+这一句答否 ⇒ 壳在 `{` 处开一条新语句（正是想要的那一条）。
+两种注释混在一处时按「行注释优先」判——`catch (e) /* a */ //c` 换行 `{` 与 `catch (e) //c` 换行 `{`
+是同一件事（那个 `{` 前面发生过一次换行）。
+
 ```ts
-const previousIndex = SkipPreviousWrapSymbol(units, index);
+let previousIndex = SkipPreviousTrivia(units, index);
+// **行注释那一格不跳过去**（第 679 轮）：`//c` 换行 `{` 里那个 `{` 前面发生过一次 ASI，
+// 而块注释不算一次换行（`} else /* c */ {` 里那个 `{` 仍然是 `else` 的体）。
+// 让 `previous` 落在那条 `LineAnnotation` 上，下面三个分支一个都不命中 ⇒ 答否 ⇒ 正合口径。
+// 往回那一趟按**类名**认（`AreaAnnotation` 是块注释，只跳它、不跳行注释）。
+for (let back = index - 1; back >= 0; back--) {
+  const item = Get(units, back);
+  if (item === null) {
+    break;
+  }
+  const kind = item.constructor.name;
+  if (kind === "LineAnnotation") {
+    previousIndex = back;
+    break;
+  }
+  if (kind !== "LineWrap" && kind !== "AreaAnnotation") {
+    break;
+  }
+  previousIndex = back;
+}
 if (previousIndex < 0) {
   return true;
 }
@@ -1085,9 +1127,17 @@ return head === "|" || head === "&" || head === ".";
 **第一个词**是不是这四个之一」。名字那一格（`function f` 里的 `f`）允许出现一次，
 `while` / `switch` 没有名字所以要靠符号/单元类型走出来。
 
-**只收这四个词**：`do` / `else` / `try` / `finally` 后面那一格是词不是 `)`，
-它们换行写体的路本来就走得通（没有这个缺口）；`if (…)` 也一样（`IfSet` 那一趟自己有认体的路）。
-放宽到它们就等于把「本来对的排法」也一起改了。
+**名单不放宽到「凡是等着体的词」**：`do` / `else` / `try` 后面那一格是词不是 `)`，
+它们换行写体的路**实测是通的**（`try { }` 换行 `catch (e) { }` 就不需要这一句）；
+`if (…)` 也一样（`IfSet` 那一趟自己有认体的路）。放宽到它们就等于把「本来对的排法」也一起改了。
+
+**`catch` / `finally` 在名单里**（第 679 轮，**实测撞到的**）：这两个词的形状与 `try` **一模一样**
+（后面跟的是词或 `)`，不是「等着体的声明头」那一串尾巴），可它们换行写体的路**不通**：
+`try { } catch (e) { } finally` 换行 `{ c(); }` 里，换行处 `NextLineContinuesExpression`
+问的正是这一句 ⇒ 答否 ⇒ 壳在换行处关掉 ⇒ 那个 `{` 落成**独立的块语句**（或者被并进同一个壳）⇒
+`TryCloseRule` 手上的单元表里 `finally` 后面**没有**那个 `{` ⇒ 抛
+`Cannot read properties of null (reading 'SourceRange')`，**整份文件进不来**。
+`catch` 是同一个根（`catch (e)` 换行 `{ … }`），所以两个词一起收。
 
 **为什么必须收**：`{` 本身**起得了一条语句**（裸块），所以不能见 `{` 就答「续接」——
 `foo()` 换行 `{}` 在 TS 里就是两条语句。这一条判据正是把「声明头」与「写完的表达式」分开的那一格。
@@ -1109,7 +1159,16 @@ for (let step = 0; step < 16; step++) {
   const name = unit.constructor.name;
   if (name === "Identifier" || name === "Keyword") {
     const text = WordText(unit);
-    if (text === "while" || text === "for" || text === "switch" || text === "function" || text === "import" || text === "export") {
+    if (
+      text === "while" ||
+      text === "for" ||
+      text === "switch" ||
+      text === "function" ||
+      text === "import" ||
+      text === "export" ||
+      text === "catch" ||
+      text === "finally"
+    ) {
       return true;
     }
     // **名字那一格**（`function f` 里的 `f`，返回类型 `: T` 里的 `T`）：声明头里最多两个

@@ -663,9 +663,25 @@ if (id === StringIncludes) {
   // **`includes` 与 `indexOf` 共用一趟扫描**：差别只在「给不给下标」。
   // **空串恒为真**（JS 就是这么定的：`"abc".includes("")` 是真）——
   // 这一条与 `indexOf` 给 `0` 是同一件事的两种说法。
+  //
+  // **`fromIndex` 那一格原来被丢掉了**（第 679 轮，`gap-r676-std-string-includes-fromIndex`）：
+  // `"banana".includes("nan", 3)` 该是 `false`（从下标 3 起只剩 `"na"`），
+  // 这里从 0 找起 ⇒ 给 `true`，**静默错值**。
+  // 规整与 `indexOf` 那一支**逐字相同**（`String.prototype.includes` 的 `position`
+  // 就是照 `indexOf` 定的）：负数当 `0`、越过尾巴时「非空串恒假」。
+  // 所以这一格**不再各写一份**，直接读同一处的夹取结果。
   const needle = args.length > 0 ? JsTextUnits(table, args[0]) : [];
+  let from = 0;
+  if (args.length > 1) {
+    from = ArgOr(args, 1, 0);
+    if (from < 0) from = 0;
+    if (from > units.length) {
+      // **越过尾巴**：空串恒真（`"abc".includes("", 99)` 是真），非空串恒假。
+      return Value.FromBool(needle.length === 0);
+    }
+  }
   if (needle.length === 0) return Value.FromBool(true);
-  for (let i = 0; i + needle.length <= units.length; i++) {
+  for (let i = from; i + needle.length <= units.length; i++) {
     let same = true;
     for (let j = 0; j < needle.length; j++) {
       if (units[i + j] !== needle[j]) same = false;

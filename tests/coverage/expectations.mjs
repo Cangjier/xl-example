@@ -1220,19 +1220,10 @@ export const EXPECTATIONS = {
     why: "`Date.prototype.toUTCString` 没装：成员表里没有那一格，调用报 cannot call a non-closure value",
   },
 
-  // ---- 第 676 轮（其三）另外量到的一格：`String.prototype.includes` **不吃 fromIndex**
-  // （每次运行都忽略那个参数、一律从头搜）。同一条用例里 `indexOf` / `lastIndexOf` 的
-  // fromIndex 是**对的**（`"banana".indexOf("an", 4)` 给 `-1`），所以根子只在这一格的方法体里：
-  // 它把第二实参丢了（或走了「只搜第一段」的那条捷径）。修法是照 `indexOf` 那一支抄一遍，
-  // 再把结果折算成布尔。
-  "gap-r676-std-string-includes-fromIndex": {
-    expect: "differ",
-    why: "`String.prototype.includes` 忽略 fromIndex：`\"banana\".includes(\"nan\", 3)` 该是 false，这里给了 true",
-  },
-  "r676-std-string-index-family": {
-    expect: "differ",
-    why: "同上一格：这条一并量了 indexOf（对）/ lastIndexOf（对）/ includes（忽略 fromIndex）三格",
-  },
+  // ---- 第 676 轮（其三）另外量到的那一格（`String.prototype.includes` **不吃 fromIndex**）
+  // 已经在**第 679 轮收掉**：方法体照 `indexOf` 那一支把第二实参夹到 `[0, len]`、
+  // 再从那个下标起扫（同族的 `r676-std-string-index-family` 一并转正）。
+  // 台账里那两行按规矩删掉——判据每趟真跑，这里不再留「已经过去」的记录。
 
   // ===== 第 677 轮：**AST 语料**普查量出的三条缺口（用例在 `cases/exec.mjs` 的 `l677-*` 那一段）=====
   // 一、**类体里的空成员**（单独一个 `;`）：已收（第 677 轮（其三））——token 层按 TS 的

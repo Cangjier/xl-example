@@ -120,18 +120,18 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | --- | --- | --- |
 | runtime | **595 / 595** | **100%** |
 | exec | **565 / 577** | 97.9% |
-| stdlib | **850 / 888** | 95.7% |
+| stdlib | **852 / 888** | 95.9% |
 | e2e | **225 / 225** | **100%** |
-| **合计（加权）** | **2235 / 2285** | **98.3%** |
+| **合计（加权）** | **2237 / 2285** | **98.4%** |
 
-那 50 条过不了的是**真缺口**，都登了台账（写清根子）：
+那 48 条过不了的是**真缺口**，都登了台账（写清根子）：
 对象字面量的值是一对圆括号里的二元表达式、宿主 ABI 的 `setTimeout`、
 `Date.prototype.getTimezoneOffset` 与 `toDateString` / `toTimeString` / `toUTCString` 没装、
 `String.prototype.matchAll` 没装（六条 `blocked`）、
 `using` / `await using` 的降级、`new Object(null)` 该造 `{}`、
 `Object.groupBy` 的分组表该是 null 原型、多分量 `new Date(y, m, d, …)` 没做本地时区换算、
 `String.prototype` 的 `match` / `search` / `matchAll` 三个成员没装、
-`String.prototype.includes` 忽略 `fromIndex`（九条 `differ`）。
+**第 679 轮收掉一格**：`String.prototype.includes` 现在吃 `fromIndex`（原来一律从头搜）。
 **第 670 / 671 / 672 / 675 轮起它们陆续进了矩阵**（`gap-*`，用户口径：凡是缺口的全部进语料）——
 原来只写在本文档与根 README 的「没有进矩阵」那几段里（还有一条只写在
 `typescript-exec/builtins/globals.xl.md` 的正文里），于是「还差多少」在读数里看不见，
@@ -149,7 +149,29 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 枚举、数组的洞、`instanceof`、盒子对象、ToPrimitive），21 条里 15 条 pass、量出 **4 个根**
 （6 条），读数 98.7% → **98.4%**，同一个道理；
 （其三）顺着那两批指出的位置问**符号键与私有名**那一族（19 条），17 条 pass、
-量出 well-known symbol 缺的那 7 格，读数 98.4% → **98.3%**，同一个道理。
+量出 well-known symbol 缺的那 7 格，读数 98.4% → **98.3%**，同一个道理；
+**第 679 轮**没有加宽语料，而是**收缺口**：`String.prototype.includes` 补上 `fromIndex`
+（两条用例 `gap-r676-std-string-includes-fromIndex` 与 `r676-std-string-index-family` 一起转正，
+台账里那两行按规矩删掉），读数 98.3% → **98.4%**——分子长了一格、分母没动。
+
+### 第 679 轮：**不加宽、只收缺口**——`String.prototype.includes` 的 `fromIndex`
+
+这一轮没有动分母：语料不写新片段，而是拿**已有的两份语料**各量一遍。
+
+- **解析侧**：`tests/parse/cases/**`（第 677 轮那条路）里那 4 条 `gap-crash-try-*`
+  （`catch (e)` / `finally` 与它的体之间夹一条行注释或一个换行 ⇒ **产物直接抛异常**）
+  已经收掉：`Statement.IsHeaderBodyBrace` 收下 `catch` / `finally`，
+  `Statement.IsDeclarationPosition` 往回跳 trivia（**行注释那一格不跳**——`//` 换行是一次 ASI，
+  块注释不是），`cases:tsast` 的已知缺口从 229 掉到 **225**、抛异常从 4 掉到 **0**。
+- **执行侧**：从**已经在矩阵里的用例**里挑「还没验过的参数位」，量出的是
+  `String.prototype.includes` 的第二实参被丢掉（`"banana".includes("nan", 3)` 该 `false`、给了 `true`）。
+  修法是照同一文件里 `indexOf` 那一支把 `fromIndex` 夹到 `[0, len]` 再从那个下标起扫；
+  `gap-r676-std-string-includes-fromIndex` 与同族的 `r676-std-string-index-family` 一起转正，
+  台账里那两行按规矩删掉。读数 98.3% → **98.4%**（分子 +2、分母不动）。
+
+**一条经验**：这一轮的产出密度低，但**收益是确定的**——「已有用例里还没验过的参数位」
+是一份**不用新写语料**的候选池（每条用例都已经被逐字对拍过，形状是现成的），
+比再写一批片段便宜得多；`fromIndex` 这种「方法装了、参数位丢了」的缺口正是它最擅长的形状。
 
 ### 第 678 轮：**名字逐个点名**做成生成器——28 条一次进矩阵，量出 23 条缺口
 
