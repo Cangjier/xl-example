@@ -981,9 +981,16 @@ if (id === ReflectGetPrototypeOf) {
 }
 if (id === ReflectSetPrototypeOf) {
   if (args.length < 2) throw new TypeError("Reflect.setPrototypeOf needs (target, prototype)");
-  // **原型不是对象也不是 `null` 时给假**（JS 的 `Reflect` 口径；`Object.setPrototypeOf`
-  // 那一格是抛）——`RtSetProto` 自己那一档是「不做事」，所以先在这里答掉。
-  if (!args[1].IsObject() && args[1].Tag !== ValueTag.Null) return Value.FromBool(false);
+  // **原型不是对象也不是 `null` 时抛 `TypeError`**（第 720 轮改；原来这里**给假**，
+  // 而那一句是**错的**）：`Reflect.setPrototypeOf` 与 `Reflect.defineProperty` /
+  // `Reflect.set` **不是同一档**——后两者写不下去给假，而这一格在第一步就抛
+  //（实测 Node：`Reflect.setPrototypeOf({}, 1)` 抛 `TypeError`，判据 `p720a-s07`；
+  //  给假那一版等于把「JS 会抛的错」变成**一个看起来正常的返回值**）。
+  // **`HostRef` 照 `IsObject` 那一档收**：内建构造函数在本仓是宿主引用值，
+  // 而 JS 里它就是对象（与 `Object.setPrototypeOf` 那一格同一条，第 720 轮）。
+  if (!args[1].IsObject() && args[1].Tag !== ValueTag.Null && args[1].Tag !== ValueTag.HostRef) {
+    throw new TypeError("Reflect.setPrototypeOf called with a non-object prototype");
+  }
   RtSetProto(table, target, args[1]);
   return Value.FromBool(true);
 }

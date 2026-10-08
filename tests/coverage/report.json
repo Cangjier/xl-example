@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7679,
+  "total": 7699,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.07,
+  "progressPercent": 96.08,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3057,
-      "pass": 2988,
+      "total": 3077,
+      "pass": 3009,
       "blocked": 25,
-      "differ": 44,
+      "differ": 43,
       "nodefail": 0,
-      "coverage": 97.74
+      "coverage": 97.79
     },
     {
       "category": "e2e",
@@ -1883,7 +1883,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22688/src/3202.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26980/src/3202.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2045,7 +2045,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22688/src/4918.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26980/src/4918.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2069,7 +2069,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22688/src/4968.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26980/src/4968.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2166,12 +2166,6 @@
       "category": "stdlib",
       "title": "[1, 2, 3].map(Object.keys.call.bind(Object.keys)).length",
       "detail": "stdout 不同：第 1 行：node «number:3» vs tsrun «throw:TypeError»"
-    },
-    {
-      "id": "stdlib/object/probe697-q32",
-      "category": "stdlib",
-      "title": "(function () { try { Object.setPrototypeOf({}, 1); return \"no\"; } catch (e) { return e.constructor.name; } })()",
-      "detail": "stdout 不同：第 1 行：node «string:TypeError» vs tsrun «string:no»"
     },
     {
       "id": "stdlib/object/probe698-b14",

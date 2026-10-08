@@ -4643,6 +4643,32 @@ if (id === ObjectSetPrototypeOf) {
   if (args.length < 2) {
     throw new Error("unimplemented: Object.setPrototypeOf needs (object, prototype)");
   }
+  // **第 720 轮把这一格的三档口径补全**（原来一律交给 `RtSetProto`，而那一格是
+  // **为 `extends` 定的内部口径**：接收者不是对象就抛、原型不是对象就**不做事**）。
+  // 规范在这里是**三档**，实测 Node（判据 `p720a-s01` … `s12`）：
+  //
+  // | 写法 | Node | 本仓原来 |
+  // | --- | --- | --- |
+  // | `Object.setPrototypeOf({}, 1)` | `TypeError` | **静默返回那个对象** |
+  // | `Object.setPrototypeOf(1, {})` | **原样返回 `1`** | 抛普通 `Error` |
+  // | `Object.setPrototypeOf(null, {})` | `TypeError` | 抛普通 `Error` |
+  //
+  // 「接收者必须是对象」是 `RtSetProto` 的**内部**约定（`set_proto` 的线上形态
+  // 只由降级层发），**不是这一格的语义**——JS 在这一格先做 `RequireObjectCoercible`
+  // 之后对**原始值接收者原样返回**。
+  //
+  // **原型的判据要多认 `HostRef` 一格**：内建构造函数在本仓是**宿主引用值**
+  //（`IsObject()` 对它是假），而 JS 里它就是对象——按原始值抛掉就等于把
+  // `Object.setPrototypeOf(o, Error)` 判成错的（第 278 轮那条账的同一个坑）。
+  if (args[0].Tag === ValueTag.Null || args[0].Tag === ValueTag.Undefined) {
+    throw new TypeError("Object.setPrototypeOf called on null or undefined");
+  }
+  const protoObjectish = args[1].IsObject() || args[1].Tag === ValueTag.HostRef;
+  if (!protoObjectish && args[1].Tag !== ValueTag.Null) {
+    throw new TypeError("Object.setPrototypeOf called with a non-object prototype");
+  }
+  // **原始值接收者原样返回**（不抛、也不做事）。
+  if (!args[0].IsObject()) return args[0];
   return RtSetProto(table, args[0], args[1]);
 }
 if (id === ObjectPreventExtensions) {

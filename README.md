@@ -585,6 +585,52 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
   （那一条就是 `p719a-m09`，**新登记**的账）、`bad` 0、`regressions` 0、
   `moved` 0、`newlyPassing` 0，加权 **96.1%**。
 
+### 第 720 轮：`Object.setPrototypeOf` 与 `Reflect.setPrototypeOf` 的那三档口径
+
+这一轮的普查（35 条，跨数组 / 对象 / 函数 / `Map` / `Set` / `JSON` / 数字格式化）
+只红 4 条，且**全是「整块还没做」**（`JSON.rawJSON`、`Symbol.prototype`、
+`WeakMap.prototype`、宿主全局），一条**静默错值**都没有——于是把注意力放到
+**同一条根的另一个面**上：`set_proto` 那一格的**两个内建入口**。
+
+根子是**内部口径与规范口径混用**：`RtSetProto`（第 278 轮为 `extends` 写的）
+定的是「接收者不是对象就抛、原型不是对象就**不做事**」——那是**降级层内部**的约定，
+而 `Object.setPrototypeOf` 那一格**直接把规范的三档交给了它**（第 304 轮的注释
+甚至写着「那里已经定了两格的口径」）。实测 Node（判据 `p720a-s01` … `s10`）：
+
+| 写法 | Node | 本仓原来 |
+| --- | --- | --- |
+| `Object.setPrototypeOf({}, 1)` / `"x"` / `true` / `Symbol()` | `TypeError` | **静默返回那个对象** |
+| `Object.setPrototypeOf(1, {})` / `"s"` / `true` | **原样返回那个原始值** | 抛普通 `Error` |
+| `Object.setPrototypeOf(null, {})` | `TypeError` | 抛普通 `Error` |
+| `Reflect.setPrototypeOf({}, 1)` | **`TypeError`** | **给 `false`** |
+
+- **`Object.setPrototypeOf` 添三档**：`null` / `undefined` 接收者抛 `TypeError`、
+  原型不是对象且不是 `null` 抛 `TypeError`、**原始值接收者原样返回**。
+  「接收者必须是对象」是 `RtSetProto` 的**内部**约定，不是这一格的语义
+  ——JS 在这一格先 `RequireObjectCoercible`，再对原始值接收者**原样返回**。
+- **`Reflect.setPrototypeOf` 那一格原来是错的**：注释里写着「原型不是对象也不是 `null`
+  时给假（JS 的 `Reflect` 口径）」——**那句话与规范相反**。
+  `Reflect` 里给假的是 `defineProperty` / `set` / `deleteProperty` **那几格**，
+  而 `setPrototypeOf` 在第一步就抛。**给假等于把一个该抛的错变成一个看起来正常的返回值**。
+- **原型的判据两处都多认 `HostRef` 一格**：内建构造函数在本仓是**宿主引用值**
+  （`IsObject()` 对它是假），而 JS 里它就是对象——按原始值抛掉就等于把
+  `Object.setPrototypeOf(o, Error)` 判成错的（第 278 轮那条账的同一个坑）。
+- **对象字面量与赋值那一格照旧不抛**（`({ __proto__: 1 })` / `o.__proto__ = 1`
+  在 JS 里都是**静默不做事**）：它们走的是**另一条路**（`set_proto` 那条内部约定），
+  这一轮**一个字都没动**——一处判据管两个入口正是这条根原来长出来的样子。
+- **收掉台账一条**：`stdlib/object/probe697-q32`（第 697 轮登记的
+  「`Object.setPrototypeOf({}, 1)` 静默不做事」，当时判的是「要收得先把
+  『内建构造函数得是个真对象』补上」——`HostRef` 那一格一认，这一条就通了）。
+- 语料 **+20 条**：`stdlib/round720/p720a-s01` … `s10`（那两个入口的三档口径与
+  宿主引用值那一格）、`p720b-b01` … `b10`（同一批普查里**过掉的那些**照收进矩阵：
+  类数组接收者的 `push` 写回、`sort` 的洞与逐码元比较、函数的 `name` / `length`、
+  `Object.keys` 的次序、`Array.from` / 展开 / `concat`、`slice` / `indexOf` /
+  `includes` 的实参、`Object.assign` 的空实参、`Map` / `Set` 的遍历面、
+  `JSON.stringify` 的三档、代理对与数字格式化）。
+- 五类 **7325 / 7679 → 7346 / 7699**、`blocked 261`（没涨）、`differ 93 → 92`
+  （`probe697-q32` 转绿）、`bad` 0、`regressions` 0、`moved` 0、`newlyPassing` 0，
+  加权 **96.1%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -597,7 +643,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7325 / 7679**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 2988/3057、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 93），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7346 / 7699**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 3009/3077、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 92），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~48s**） |
 
 ### 口径与已知缺口
