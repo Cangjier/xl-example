@@ -490,6 +490,37 @@
    **`Reflect.setPrototypeOf` 在不可扩展对象上该给假**（`p750a-a08`）、
    **内建函数的描述符**（`p750b-b03`——缺宿主引用那一档的读值）。加权
    **95.8% → 95.7%**（分子 +21、分母 +26）。
+   **第 754 轮全矩阵**（6 条新语料，收掉五处、新登 3 条、**三条旧账到期**）：
+   通过 **7793 → 7799**、分母 **8173 → 8179**、`blocked 261 → 262`
+   （+1 新登）、`differ 119 → 118`（−1：新登 2、旧账转绿 3）、`bad` 仍 **0**、
+   `regressions` **0**、`moved` 0、`newlyPassing` **3**——**收掉五处**：
+   ① **标签模板对象两处都是冻的**（`p754b-01`，**静默错值**）：规范 §13.2.8.3 的
+      `GetTemplateObject` 造出来的数组 `Object.isFrozen(parts)` 与 `.raw` 在 Node 里
+      **都是真**，`raw` 的描述符是 `{ writable: false, enumerable: false, configurable: false }`
+      ——本仓原来挂的是**普通属性**（三个全真、`Object.keys(parts)` 多一格 `"raw"`）。
+      修法：`raw` 走 `EmitHiddenSet(…, 6)`、随后两句 `Object.freeze`。
+      量出两个坑：`Release` 是**退水位**不是「还一格」（第一版把实参数组放进了
+      `freeze` 那个槽 ⇒ 被调的值成了实参数组自己），以及**全局名有两条取法**
+      （`ResolveAccess` 报 `name used before its declaration`、`FindLocal` 又
+      看不见内层函数）——两条都写进了 `lowering.xl.md` 的注释。
+   ② **全局对象与 `Math` / `JSON` / `Reflect` 的 `Symbol.toStringTag`**（`p754c-01`）：
+      `Object.prototype.toString.call(globalThis)` 该是 `"[object global]"`
+      （**全局那一格是唯一 `configurable: true` 的**，走 `SetHiddenProperty(…, 4)`）。
+      这一处一开始被误读成「`this` 绑定错了」——绑定是对的，错的只是标签。
+   ③ **`async function*` 的 `next()` 给的是一格承诺**（`p754e-01`）：
+      判据是**原型链上有没有 `protos.AsyncGenerator`**（`RtChainHas`，不用等号——
+      `class G extends (async function* () {})` 那一档要一起算），是就
+      `MakeAsyncPromise(Fulfilled, answer)`；**同步生成器一格都不动**。
+   ④⑤ **四个包装原型的标签**与 **`Symbol.prototype` 那一格**（`p754d-01`）：
+      `Object.prototype.toString.call(String.prototype)` 那一族按**句柄相等**答
+      （挂属性会被 `Object.create(Number.prototype)` **继承**到——实测红了
+      `stdlib/object/137-object-create-is-not-box`，所以退回按身份答）；
+      `Symbol.prototype` 另在 `props.xl.md` 立一格（`ObjectCharge * 23 → * 24`）。
+   本批另登记 3 条（`p754d-01` 留下的 `Object.prototype` 那一格 /
+   `p754f-01` 的 `Symbol.unscopables` 表 / `p754g-01` 的裸 `BigInt`）。
+   **三条旧账到期**（第 751 轮的 `p751b-02` 与 `stdlib/symbol/036` / `037`
+   ——`Symbol.prototype` 造出来之后它们转绿），按规矩撤掉了台账指令。
+   加权 **95.7% → 95.6%**（分子 +6、分母 +6）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

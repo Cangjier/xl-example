@@ -1776,6 +1776,84 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   `differ 111 → 118`（8 条新登）、`bad` 0、`regressions` 0、`moved` 0、
   `newlyPassing` 0，加权 **95.7%**（两个数都在这一位）。
 
+### 第 754 轮：**标签模板的对象 / 全局与命名空间的标签 / `async function*` 的承诺**——收掉五处（coverage 7793/8173 → **7799/8179**）
+
+这一轮的探针换到**三处「语言层的形状」**：13 条原子探针分五面问
+（迭代器助手与新的内建面 / 标签模板对象 / 全局与命名空间的 `Symbol.toStringTag` /
+内建原型自己的标签 / `async function*` 的 `next()`）。
+**9 条当场通过**（`Map`·`Set` 那一族、`Array`·`Object`·`String` 的成员表、
+生成器的 `throw` / `return` / 委托、`this` 的十四种绑定形态、
+`for` 系的绑定与作用域**一条不差**），**五处收掉**、三条新登。
+
+- **收掉一处：标签模板对象两处都是冻的**（`p754b-01`，**静默错值**）。
+  规范 §13.2.8.3 的 `GetTemplateObject` 造出来的那个数组
+  `Object.isFrozen(parts)` 与 `Object.isFrozen(parts.raw)` 在 Node 里**都是真**，
+  而 `raw` 那一格的描述符是 `{ writable: false, enumerable: false, configurable: false }`
+  ——本仓原来挂的是**普通属性**（三个标志全真、`Object.keys(parts)` 多出一格 `"raw"`）。
+  修法落在 `lowering.xl.md` 的 `LowerTaggedTemplate`：`raw` 改走
+  `EmitHiddenSet(…, 6)`（可写 + 可配置、**不可枚举**），紧接着两句
+  `Object.freeze`（先冻 `raw`、再冻段落数组）。
+  **这一处量出两个坑，都写在了代码注释里**：
+  ① `Release` 是**退水位**不是「还一格」——第一版在拿到 `freeze` 之后
+  `Release(objectSlot)`，下一次 `Reserve` 把**同一个槽**给了实参数组 ⇒
+  被调的值成了实参数组自己（症状是标签函数的第一个实参变成数组、
+  `s.raw` 报 `cannot call a non-closure value`，**报错离现场很远**）；
+  ② **全局名有两条取法**——`ResolveAccess("Object")` 会先在 `DeclaredNames` 上问，
+  而全局名**不在那份名单里** ⇒ 报 `name used before its declaration: Object`
+  （**七条语料当场红**）；只问 `FindLocal` 又**看不见内层函数**（全局名的值住在
+  入口帧的环境格里）⇒ 最常见那种写法（`const tag = …; tag\`x\``）会**静默跳过冻结**。
+  最后两条路都试：槽里先找、找不到再问环境链，**都没有就跳过**（跳过的后果与改动前一字不差）。
+- **收掉一处：全局对象与三个命名空间的 `Symbol.toStringTag`**（`p754c-01`）。
+  `Object.prototype.toString.call(globalThis)` 在 Node 里是 `"[object global]"`、
+  `Math` / `JSON` / `Reflect` 各给 `"[object Math]"` 那一族——而
+  `Object.prototype.toString.call(x)` 是真实 `.ts` 里**遍地都是**的判型写法。
+  四格一起补进 `globals.xl.md` 的 `tagTargets`，**全局对象那一格是特殊的**：
+  它的描述符是 `{ writable: false, enumerable: false, configurable: true }`
+  （只有它是可配置的），所以它走 `SetHiddenProperty(…, 4)`、其余三格照旧。
+  **这一处一开始被误读成「`this` 绑定错了」**：同一个探针里
+  `o.m.apply(undefined)` 的**绑定**是对的（`=== globalThis` 为真），
+  错的只是**标签**——`show()` 那句把 `this` 打成 `"[object Object]"` 才露出来。
+- **收掉一处：`async function*` 的 `next()` 给的是一格承诺**（`p754e-01`）。
+  规范 §27.6 的 `%AsyncGeneratorPrototype%.next` 走 `AsyncGeneratorEnqueue`——
+  它把 `{ value, done }` **包成承诺**再交出去。本仓原来给裸的那一对
+  （理由写在 `DoIterNext` 那一段：「`await` 一个不是承诺的值就是它自己」），
+  对 `await` / `for await` 是对的，可**脚本直接摸那一格**就露出来了：
+  `g().next().constructor.name` 在 Node 里是 `"Promise"`、本仓给 `"Object"`，
+  `typeof g().next().then` 给 `"undefined"`（**静默错值**：`.then(…)` 报的是
+  「调了一个不是函数的东西」，听起来像脚本写错了）。
+  修法在 `vm.xl.md` 的 `NextStepOf`：判据是**这个迭代器是不是异步生成器**
+  （原型链上有没有 `protos.AsyncGenerator`，用 `RtChainHas` 而不是等号——
+  `class G extends (async function* () {})` 那一档要一起算），是就
+  `MakeAsyncPromise(Fulfilled, answer)`。**同步生成器一格都不动**。
+- **收掉两处：四个包装原型自己的标签，以及 `Symbol.prototype` 那一格**
+  （`p754d-01`）。`Object.prototype.toString.call(String.prototype)` 在 Node 里是
+  `"[object String]"`（`Number` / `Boolean` / `Symbol` 同理），本仓原来给
+  `"[object Object]"`；而 `Symbol.prototype` **连对象都没有** ⇒
+  取任何一格都响亮地抛（`p751b-02` / `stdlib/symbol/036` / `037` 三条**一起转绿**，
+  `newlyPassing` 就是它们）。
+  **这里试过错、也量到了账**：第一版把四格挂成 `Symbol.toStringTag` 属性，
+  当场红了 `stdlib/object/137-object-create-is-not-box`——那一格是**沿原型链取**的，
+  于是 `Object.create(Number.prototype)`（Node 给 `[object Object]`）继承到了它。
+  最终改成在 `ObjectTagOf` 里按**句柄相等**答（`value.Ref === protos.String` 那一族），
+  **一格属性都不挂**：`Object.create(…)` 的句柄不是它，照旧落到「普通对象」。
+  `Symbol.prototype` 另在 `props.xl.md` 里立了一格（`Protos.Symbol`，
+  与 `String` / `Number` / `Boolean` 三格并列，`ObjectCharge * 23 → * 24`）。
+- **新登三条**：`p754d-01` 留下的那一格——`Object.prototype.toString.call(Object.prototype)`
+  在 Node 里是 `[object Object]`、本仓给 `[object Function]`（根子在 `GetProperty`
+  那条「接收者是 `protos.Object` / `protos.Function` 时先到 `protos.Function` 上找一次」
+  的兜底：那个 `||` 一成立就算「可调用接收者」；**旁证**是 `typeof Object.prototype`
+  早就是 `"object"`——同一件事两处口径正好相反）；
+  `p754f-01`（`Array.prototype[Symbol.unscopables]` 那一张 13 个名字的表没人挂，
+  而它**没有消费者**：`with` 那一族今天连降级都走不顺）；
+  `p754g-01`（裸的 `BigInt` 不在全局名单里，降级期就报——与第 751 轮 `p751b-05` 同一条根，
+  这里只把它钉在**最短的那一句**上）。
+- 用例：`runtime/round754` 6 条（4 pass / 1 differ / 1 blocked）。
+- 五类 **7793 / 8173 → 7799 / 8179**（+6 条语料）、`blocked 261 → 262`、
+  `differ 119 → 118`、`bad` 0、`regressions` **0**、`moved` 0、
+  `newlyPassing` **3**（第 751 轮 `p751b-02` 与 `stdlib/symbol/036` / `037`
+  三条旧台账**到期**，指令已按规矩撤掉、用例留着当守卫）。
+  加权 **95.7% → 95.6%**（分子 +6、分母 +6，而三条旧账转绿走的是**分子**）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |

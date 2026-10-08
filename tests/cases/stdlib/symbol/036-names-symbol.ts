@@ -1,12 +1,13 @@
 // xl:title 名字逐个取一次：Symbol 的静态成员（第 690 轮只剩 `prototype` 一格）
 // xl:round 678
 // xl:judge stdout
-// xl:want differ
 // xl:why 第 678 轮登记时缺九格，第 690 轮补掉了八格：七个知名符号
 //       （`isConcatSpreadable` / `unscopables` / `match` / `replace` / `search` /
 //       `split` / `matchAll` 与 `length`——后两个在 `length` 那一行量的是 `number`）。
-//       只剩 `Symbol.prototype`：它是**符号包装对象的原型**，本仓还没有那一族
-//       （`Object(sym)` 至今响亮地抛），所以这一格不是「漏挂一个属性」能收的。
+//       **第 754 轮把最后一格也补上了**：`Symbol.prototype` 现在是一个对象
+//       （`Protos.Symbol`，`globals.xl.md` 的 `symbolObject` 上挂着这一格），
+//       所以 `typeof (Symbol as any).prototype` 与 Node 一样给 `"object"`。
+//       台账那一行已撤，用例留着当守卫（成员装上之后这里会红，逼着改）。
 // xl:end
 const b: any = Symbol;
 let v = "";

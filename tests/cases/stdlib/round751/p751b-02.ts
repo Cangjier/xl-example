@@ -1,11 +1,14 @@
 // xl:title `Symbol` 的静态面与 `Symbol.prototype`
 // xl:round 751
 // xl:judge stdout
-// xl:want differ
-// xl:why **`Symbol.prototype` 那一格是空的**（Node 给一个对象、`Object.prototype.toString.call` 给 `[object Symbol]`）。
-// xl:why **它的意义比看上去大**：JS 里裸的符号值借的就是它（`Symbol('x').toString()` 走 `Symbol.prototype.toString`），
-// xl:why 而本仓的符号**连属性表都没有**（`Object(sym)` 那一档还响亮地抛着，见第 750 轮那一条的注释），
-// xl:why 所以补这一格要连**符号的包装对象**一起做——那是另一件活。
+// xl:why **第 754 轮起这一条是「守卫」不再是「缺口」**：`Symbol.prototype` 那一格
+// xl:why 第 754 轮造出来了（`Protos.Symbol` + `InitProtos` 里那一格对象），
+// xl:why 而 `Object.prototype.toString.call(Symbol.prototype)` 的标签走
+// xl:why `ObjectTagOf` 里按**句柄相等**答的那一支（挂属性会在
+// xl:why `Object.create(Number.prototype)` 那一档上漏出去，实测红过一条台账）。
+// xl:why **仍然开着的那一半**：符号的**包装对象**（`Object(sym)`）与
+// xl:why `Symbol.prototype` 的三个成员还没做——所以这一条留着当守卫，
+// xl:why 谁把它们做出来，这里会红、逼着改。
 // xl:why **`Symbol.dispose` / `Symbol.asyncDispose` 同一族**：名字第 690 轮已经进了知名符号名单，
 // xl:why 缺的是**用它们的语法**（`using` / `await using`），台账 `exec/expressions/110-ex-using-declaration-dispose` 就是它。
 // xl:end

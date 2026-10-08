@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8173,
+  "total": 8179,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.69,
+  "progressPercent": 95.64,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1068,
-      "pass": 1036,
-      "blocked": 2,
-      "differ": 30,
+      "total": 1074,
+      "pass": 1039,
+      "blocked": 3,
+      "differ": 32,
       "nodefail": 0,
-      "coverage": 97
+      "coverage": 96.74
     },
     {
       "category": "stdlib",
       "weight": 0.2,
       "total": 3229,
-      "pass": 3148,
+      "pass": 3151,
       "blocked": 25,
-      "differ": 56,
+      "differ": 53,
       "nodefail": 0,
-      "coverage": 97.49
+      "coverage": 97.58
     },
     {
       "category": "e2e",
@@ -1524,6 +1524,12 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
+      "id": "runtime/round754/p754g-01",
+      "category": "runtime",
+      "title": "`BigInt` 这个全局名的现状",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BigIntLiteral"
+    },
+    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1841,7 +1847,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26260/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24124/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2084,6 +2090,18 @@
       "detail": "stdout 不同：第 1 行：node «(function () { const s = ok:string:1,2,3,9» vs tsrun «(function () { const s = ok:string:1,2,3»"
     },
     {
+      "id": "runtime/round754/p754d-01",
+      "category": "runtime",
+      "title": "内建原型自己的标签（`Object.prototype.toString.call(原型)`）",
+      "detail": "stdout 不同：第 7 行：node «Object.prototype.toString.call ok:string:[object Function]» vs tsrun «Object.prototype.toString.call ok:string:[object Object]»"
+    },
+    {
+      "id": "runtime/round754/p754f-01",
+      "category": "runtime",
+      "title": "`Symbol.unscopables` 那一格（数组的自有屏蔽表）",
+      "detail": "stdout 不同：第 2 行：node «typeof Array.prototype[Symbol. ok:string:object» vs tsrun «typeof Array.prototype[Symbol. ok:string:undefined»"
+    },
+    {
       "id": "stdlib/array/143-getter-array-index",
       "category": "stdlib",
       "title": "数组下标位置上的访问器（`defineProperty`）",
@@ -2117,7 +2135,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26260/src/5240.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24124/src/5246.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2141,7 +2159,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26260/src/5290.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24124/src/5296.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2324,12 +2342,6 @@
       "detail": "stdout 不同：第 1 行：node «JSON.isRawJSON({}) ok:boolean:false» vs tsrun «JSON.isRawJSON({}) throw:TypeError»"
     },
     {
-      "id": "stdlib/round751/p751b-02",
-      "category": "stdlib",
-      "title": "`Symbol` 的静态面与 `Symbol.prototype`",
-      "detail": "stdout 不同：第 1 行：node «Symbol.prototype ok:object:Symbol» vs tsrun «Symbol.prototype ok:undefined:undefined»"
-    },
-    {
       "id": "stdlib/round751/p751b-03",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
@@ -2406,18 +2418,6 @@
       "category": "stdlib",
       "title": "typeof \"abc\".search",
       "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
-    },
-    {
-      "id": "stdlib/symbol/036-names-symbol",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Symbol 的静态成员（第 690 轮只剩 `prototype` 一格）",
-      "detail": "stdout 不同：第 5 行：node «function prototype object» vs tsrun «function prototype undefined»"
-    },
-    {
-      "id": "stdlib/symbol/037-names-symbol-proto",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Symbol.prototype 的成员（缺 3 个）",
-      "detail": "stdout 不同：第 1 行：node «object constructor function» vs tsrun «undefined constructor no»"
     }
   ],
   "bad": [],

@@ -4132,8 +4132,33 @@ const answer = this.Guard(() => {
   SetProperty(room, this.Native(), this.Table, step, Value.FromString(this.Table.CreateString(HostTextUnits("done"))), Value.FromBool(finished));
   return step;
 });
+// **`async function*` 的 `next()` 给的是一格承诺**（第 754 轮，**普查当场量到的**）：
+// 规范 §27.6 里 `%AsyncGeneratorPrototype%.next` 走的是
+// **`AsyncGeneratorEnqueue`**——它把这一次推进的 `{ value, done }` **包成一个承诺**
+// 再交出去（`await it.next()` / `for await` 那些写法要的正是那一格）。
+//
+// **本仓原来给的是裸的那一对**（`{ value, done }`），理由写在上面 `DoIterNext` 那一段
+// （「`await` 一个不是承诺的值就是它自己」，所以**语言层的两条路照样成立**）——
+// 那两句话对 `await` / `for await` 是对的，可是**脚本直接摸那一格**时就露出来了：
+// `g().next().constructor.name` 在 Node 里是 `"Promise"`、本仓给 `"Object"`；
+// `typeof g().next().then` 在 Node 里是 `"function"`、本仓给 `"undefined"`
+// （判据 `p754d-03` / `p754d-04`——**静默错值**：`.then(…)` 那句报的是
+// 「调了一个不是函数的东西」，听起来像脚本写错了）。
+//
+// **判据是「这个迭代器是不是异步生成器」**——原型链上有没有 `protos.AsyncGenerator`
+// （它就是上面 `AttachGeneratorProto` 给异步那一档接的那一格，第 320 轮）。
+// **用链不用等号**：`class G extends (async function* () {})` 那一档的实例
+// 原型是自己的 `prototype`，等号会漏掉它——与 `ObjectTagOf` 里 `Error` 那一格
+// （`RtChainHas`）同一条口径。
+// **同步生成器一格都不动**（`protos.AsyncGenerator` 没装时也一格都不动）：
+// `it.next()` 在 JS 里给的就是裸对象，包成承诺就是**把对的改错**。
+const isAsyncGenerator: boolean = this.Table.Get(iterator.Ref).Generator !== null
+  && protos.AsyncGenerator > 0 && RtChainHas(this.Table, iterator, protos.AsyncGenerator);
+if (!isAsyncGenerator) return answer;
+// 已兑现的承诺**照样让出一个 tick**（`MakeAsyncPromise` 与 `ResolveIntoPromise` 同一个口径）——
+// JS 那边这一格本来就是「排进异步生成器的队列」，不是「当场结清」。
 if (keep !== null) keep(produced, false);
-return answer;
+return this.MakeAsyncPromise(PromiseState.Fulfilled, answer);
 ```
 
 ## method GeneratorNext:()=>NextStep

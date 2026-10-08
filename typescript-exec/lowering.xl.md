@@ -8818,9 +8818,82 @@ for (let i = 0; i < rawTexts.length; i++) {
   this.PushArrayElement(raws, slot);
   this.Release(slot);
 }
-// **把 `raw` 挂到段落数组上**：`set_prop(parts, "raw", raws)`——
-// 走的是降级层现成的那条「挂属性」的路（`SetPropertyConst`，一个引擎改动都不用）。
-this.SetPropertyConst(parts, this.Program().AddConst(Constant.OfString(UnitsOf("raw"))), raws);
+// **把 `raw` 挂到段落数组上**（第 754 轮改的口径，**普查当场量到的**）：
+// 这一格是 `[[DefineOwnProperty]]`——**可写 / 可配置、而不可枚举**
+// （规范 §13.2.8.3 造完那一格之后 `SetIntegrityLevel(…, frozen)`）。
+// **本仓哪一格能表达它**：`EmitHiddenSet`（`set_hidden(对象, 键, 值, 标志位)`）——
+// 第四格标志位给 `6`（`PropertyFlagWritable + PropertyFlagConfigurable`，
+// `heap.xl.md` 里 `Enumerable = 1` / `Writable = 2` / `Configurable = 4`）
+// 就是「自有 + 不可枚举 + 可写 + 可配置」，紧接着的 `Object.freeze` 把后两位收掉
+// ⇒ 三个标志与 Node 逐位相同（判据 `p754b-01` 第 3 / 4 行量着它）。
+//
+// **为什么不给 `-1`（缺省）**：缺省那一档是 `Writable + Configurable`，
+// **可枚举那一位也是假**——本仓「隐藏」这个名字的由来正是它（`SetHiddenProperty`）。
+// 第四格显式写出来，是为了让「这一格是可枚举还是不可枚举」在这句话里看得见：
+// `raw` 在 JS 里**不可枚举**，所以下面的冻结才敢只冻不理那一排标志。
+//
+// **为什么不用 `set_prop`（赋值）**：它是 `[[Set]]`——原型上有个同名 setter 时会去调它，
+// 而这一格在 JS 里是**直接造一格自有的**（`CreateDataProperty`）。
+// **也不用 `define_data`**：那一支是「三个标志全开」，可枚举那一位就多出来了
+// （实测：`Object.keys(parts)` 会多一格 `"raw"`——判据里那一行当场红）。
+this.EmitHiddenSet(parts, this.Program().AddConst(Constant.OfString(UnitsOf("raw"))), raws, 6);
+// **段落数组与 `raw` 都冻上**（第 754 轮，**普查当场量到的**）：
+// 规范 §13.2.8.3 的 `GetTemplateObject` 造出来的那个数组**两处都是冻的**
+// （`Object.isFrozen(parts)` 与 `Object.isFrozen(parts.raw)` 在 Node 里**都是真**），
+// 而 `raw` 那一格的描述符是 `{ writable: false, enumerable: false, configurable: false }`
+// ——本仓原来挂的是**普通属性**（实测：可写 / 可枚举 / 可配置**全真**、
+// `Object.keys(parts)` 多出一格 `"raw"`，判据 `p754b-01` 第 4 行那一族量着它）。
+//
+// **为什么走 `Object.freeze` 而不是另开一格能力号**：`freeze` 一次就把
+// 「不可写 + 不可配置 + 不可扩展」三样一起做掉，而 `Object.keys` 那一格要的
+// 「不可枚举」是**冻完之后才成立**的（`SetProperty` 挂上去时可枚举，冻不改这一位
+// ——本仓的 `freeze` 走的是 `props.xl.md` 的 `ObjectFreezeInto`，它按 JS 的口径
+// 把每一格改成不可写 / 不可配置，可枚举那一位**本来就该是假**的那种走隐藏那一支）。
+// **不自己写一份 `define_data` 的序列**：那要三处（对象 / `raw` / 属性标志）
+// 各写一遍，而 `freeze` 在 `globals.xl.md` 里**已经有一份**了。
+//
+// **`Object` 没声明时就跳过**（与 `LowerForIn` 那条「要求全局名里有 `Object`」**不是**同一档）：
+// 这里冻不上只是**少了一层保护**（模板照跑、值照对），而 `tests/runtime/check.mjs`
+// 里那十几处 `new Lowering()` 量的是 **IR 形状**——在那里抛会把它们整片打红。
+// 「不做 ≠ 换个行为」：跳过的后果是「与第 754 轮之前一字不差」。
+if (Contains(this.Globals, "Object")) {
+  // **要按「这一层的槽 / 环境链」两条路取它**（第 754 轮**实测撞到的**）：
+  // **不能走 `ResolveAccess`**——那一条会先问 `DeclaredNames`，而模块体里没有别的东西
+  // 声明过 `Object`，于是它报 `name used before its declaration: Object`
+  // （**七条语料当场红**：`probe696-t01…t04` / `013-tagged-template-suffix-forms` /
+  // `085-tagged-this` / `157-string-raw-r683`）。
+  // **也不能只问 `FindLocal`**——**内层函数看不见入口那一层的槽**（全局名的值住在
+  // 入口帧的环境格里，`LowerFunctionBody` 那一段写着），于是 `const tag = …; tag\`x\``
+  // 这种**最常见**的写法会静默跳过冻结（实测：`Object.isFrozen(parts)` 给假）。
+  // 所以两条路都试：**槽**里先找，找不到再问环境链；**都没有就跳过**
+  //（跳过的后果是「与第 754 轮之前一字不差」，见下面那段）。
+  const objectSlotIndex = this.FindLocal("Object");
+  const objectCaptured: EnvRef | null = objectSlotIndex < 0 ? this.Env.Resolve("Object") : null;
+  if (objectCaptured !== null || objectSlotIndex >= 0) {
+    const objectSlot = this.Reserve(1);
+    if (objectCaptured !== null) {
+      this.Emit(Op.EnvGet, objectSlot, objectCaptured.Depth, objectCaptured.Cell, -1);
+    } else {
+      this.Emit(Op.Move, objectSlot, objectSlotIndex, -1, -1);
+    }
+    const freezeName = this.Program().AddConst(Constant.OfString(UnitsOf("freeze")));
+    const freezeFn = this.RtCall2(RtOp.GetProp, objectSlot, freezeName);
+    // **两次冻之间一格都不退**（`Release` 是**退水位**，不是「还一格」——见它那一段）。
+    // 这是**实测撞到的**：第一版在拿到 `freezeFn` 之后 `Release(objectSlot)`，
+    // 水位于是落到 `objectSlot`，下一次 `Reserve` 把**同一个槽**给了实参数组
+    // ⇒ 调的那个值成了实参数组自己（症状是标签函数的第一个实参变成数组、
+    // `s.raw` 报 `cannot call a non-closure value`，而报错离现场很远）。
+    const freezeArgs = this.Reserve(1);
+    this.EmitRt(RtOp.NewArray, freezeArgs, freezeArgs, 0);
+    this.PushArrayElement(freezeArgs, raws);
+    this.Release(this.EmitCallArray(freezeFn, freezeArgs, -1));
+    this.EmitRt(RtOp.NewArray, freezeArgs, freezeArgs, 0);
+    this.PushArrayElement(freezeArgs, parts);
+    this.Release(this.EmitCallArray(freezeFn, freezeArgs, -1));
+    // **两格死透了再一起退**（顺序：`objectSlot` 最低、`freezeArgs` 最高）。
+    this.Release(objectSlot);
+  }
+}
 this.Release(raws);
 this.PushArrayElement(args, parts);
 for (let i = 0; i < substitutions.length; i++) {

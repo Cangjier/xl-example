@@ -143,6 +143,14 @@ this.Index = index;
 
 **布尔的原型**（第 150 轮）——同款（`true.toString()`）。
 
+## field Symbol:int = 0
+
+**`Symbol` 的原型**（第 754 轮）——同款，但今天**只服务 `Object.prototype.toString`**：
+`Object.prototype.toString.call(Symbol.prototype)` 在 Node 里是 `"[object Symbol]"`，
+而这一格缺着时那一句会走到 `ObjectTagOf` 最后那个「缺 `Symbol.toStringTag`」的响亮一抛。
+**成员一个都没装**（台账 `stdlib/symbol/037` 开着），这一格只是让「那是一个原型对象」
+在值模型里存在——建库层那一侧把标签挂上去（`globals.xl.md` 的 `tagTargets`）。
+
 ## field Error:int = 0
 
 **`Error` 的原型**（第 137 轮）。
@@ -384,6 +392,7 @@ if (this.Function > 0) roots.AddHandle(this.Function);
 if (this.String > 0) roots.AddHandle(this.String);
 if (this.Number > 0) roots.AddHandle(this.Number);
 if (this.Boolean > 0) roots.AddHandle(this.Boolean);
+if (this.Symbol > 0) roots.AddHandle(this.Symbol);
 if (this.Error > 0) roots.AddHandle(this.Error);
 if (this.TypeError > 0) roots.AddHandle(this.TypeError);
 if (this.RangeError > 0) roots.AddHandle(this.RangeError);
@@ -436,12 +445,13 @@ if (this.Global > 0) roots.AddHandle(this.Global);
 （`URIError` / `EvalError` 两格）——**这个数是手写的**（`ObjectCharge * 23`），
 改成员数时**两处都要改**
 （少改一处就是「房间问少了」：`CreateObject` 自己**不做房间检查**）。
+**第 754 轮变成 `* 24`**（`Symbol.prototype` 那一格）。
 **`Map` / `Set` / `Date` 三格接在 `Object.prototype` 上**（第 138 轮）。
 **`Number` / `Boolean` 两格也是**（第 150 轮）——它们与 `String` 那一格同一个用途：
 **原始值接收者的方法从这里找**（`(1.5).toFixed(2)`、`true.toString()`）。
 
 ```ts
-if (!room(ObjectCharge * 23)) {
+if (!room(ObjectCharge * 24)) {
   throw new Error("out of room");
 }
 // **`Array.prototype` 自己就是一个数组**（第 592 轮）：JS 里 `Array.isArray(Array.prototype)`
@@ -464,6 +474,16 @@ protos.Number = table.CreateObject();
 table.Get(protos.Number).Proto = protos.Object;
 protos.Boolean = table.CreateObject();
 table.Get(protos.Boolean).Proto = protos.Object;
+// **`Symbol.prototype` 那一格**（第 754 轮）：与上面 `String` / `Number` / `Boolean`
+// 三格**同一个用途**——`Object.prototype.toString.call(Symbol.prototype)` 在 Node 里是
+// `"[object Symbol]"`（它是一个 Symbol 包装对象），而本仓原来连那一格都没有，
+// 于是 `ObjectTagOf` 走不到「箱」那一支、最后落到 `DateMarker` 那一问上——
+// **响亮地抛**（`Object.prototype.toString.call(Symbol.prototype)` 整句报
+// `unimplemented`，判据 `p754d-01` 第 16 行）。
+// **这一格今天只服务标签**（`Symbol.prototype` 的成员还没装，台账 `stdlib/symbol/037`
+// 开着）：造它是为了让「那是一个原型对象」这件事在值模型里存在。
+protos.Symbol = table.CreateObject();
+table.Get(protos.Symbol).Proto = protos.Object;
 protos.Error = table.CreateObject();
 table.Get(protos.Error).Proto = protos.Object;
 protos.TypeError = table.CreateObject();

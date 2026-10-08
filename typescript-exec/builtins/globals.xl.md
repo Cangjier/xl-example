@@ -1486,6 +1486,20 @@ if (tag !== "") return tag;
 // **不是**箱——JS 给 `"[object Object]"`（它没有内部格），照原型认就会把这一档答反
 //（判据 `r690-box-not-created` 钉着它）。
 if (value.Tag === ValueTag.Object) {
+  // **四个包装原型「自己」按身份答**（第 754 轮，**普查当场量到的**）：
+  // JS 里 `Object.prototype.toString.call(String.prototype)` 是 `"[object String]"`
+  // （`Number` / `Boolean` / `Symbol` 同理）——`builtinTag` 看的是**异种对象的内部格**，
+  // 而那几格在 JS 里就长在原型对象自己身上。
+  // **本仓没有那几格**（箱是另一格、`__box` 挂在自己身上），所以这里按**句柄相等**答：
+  // 「就是 `protos.String` 那一格」——`Object.create(String.prototype)` 的句柄**不是**它，
+  // 照旧落到下面的「普通对象」（Node 给 `"[object Object]"`，
+  // 台账 `stdlib/object/137-object-create-is-not-box` 钉着它）。
+  // **为什么不挂 `Symbol.toStringTag`**：那一格是**沿原型链取**的，
+  // 挂上去 `Object.create(Number.prototype)` 会继承到它 ⇒ 那一条台账当场红（实测）。
+  if (value.Ref === protos.String) return "String";
+  if (value.Ref === protos.Number) return "Number";
+  if (value.Ref === protos.Boolean) return "Boolean";
+  if (value.Ref === protos.Symbol) return "Symbol";
   const inner = UnwrapBox(table, value);
   if (inner.Tag === ValueTag.String) return "String";
   if (inner.Tag === ValueTag.Bool) return "Boolean";
@@ -9182,6 +9196,15 @@ SetHiddenProperty(vm.Room(), table, globals, setKey, setTarget);
 //（第 145 轮把 `typeof` 那一格改成认「能被调」）。
 const symbolObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(symbolObject.Ref, SymbolCtor, 0);
+// **`Symbol.prototype` 那一格**（第 754 轮）：`globals.xl.md` 这一层才是
+// 「`Symbol` 这个名字指向哪个对象」的出处，而那一格对象由 `InitProtos` 造
+// （`protos.Symbol`，与 `String` / `Number` / `Boolean` 三格同一个位置）。
+// **接上它之前**，`Symbol.prototype` 读到的是 `undefined` ——
+// `Object.prototype.toString.call(Symbol.prototype)` 于是给 `"[object Undefined]"`
+// （Node 给 `"[object Symbol]"`，判据 `p754d-01` 第 16 行）。
+// **不可枚举**（与 `Object.prototype` / `Function.prototype` 那几格同一条口径：
+// `Object.getOwnPropertyNames(Symbol)` 里看得到、`Object.keys` 看不到）。
+SetHiddenProperty(vm.Room(), table, symbolObject, Value.FromString(table.CreateString(Units("prototype"))), Value.FromObject(protos.Symbol));
 const symbolKey = Value.FromString(table.CreateString(Units("Symbol")));
 SetHiddenProperty(vm.Room(), table, globals, symbolKey, symbolObject);
 // **`Symbol.for` / `Symbol.keyFor` 两格**（第 277 轮）：与 `String.fromCharCode` 那几格一样，
@@ -9272,17 +9295,67 @@ protos.Global = globals.Ref;
 // 的响亮一抛（`p736a-a07` 量的是它，Node 两格都给 `"[object WeakMap]"` / `"[object WeakSet]"`）。
 const toStringTagKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
   Value.FromString(table.CreateString(Units("toStringTag"))));
+// **第 754 轮补的四格**（**普查当场量到的**，判据 `r754c-02` 一行一格）：
+//
+// ① **全局对象那一格**（`protos.Global`）：规范 §19.1 给全局对象挂的
+//    `Symbol.toStringTag` 是**字面量 `"global"`**（`writable: false`、
+//    `enumerable: false`、`configurable: true`）⇒
+//    `Object.prototype.toString.call(globalThis)` 在 Node 里是 `"[object global]"`，
+//    本仓原来给 `"[object Object]"`。**这一格修的不只是标签**：
+//    `Object.prototype.toString.call(x)` 是真实 `.ts` 里**遍地都是**的判型写法，
+//    而 `globalThis` 正是最常被传进去的那几个之一（实测现场是 `p754c-01` 第 6 行：
+//    同一个探针里 `this` 的**绑定**是对的、只有**标签**错，所以一开始被误读成 `this` 的问题）。
+// ② ③ **`Math` / `JSON` 两个命名空间对象**：规范 §21.3.1.10 / §25.5.3 各挂一格
+//    `@@toStringTag`（`"Math"` / `"JSON"`，与 `global` 同三个标志）。
+// ④ **`Reflect`**（第 717 轮刚补的那一族）：规范 §28.1 给的是 `"Reflect"`。
+//    这三格都**不是**可调用对象，所以 `ObjectTagOf` 里那条 `IsCallable()` 分不出来
+//    ——它们与 `Map` / `Set` 一样，**唯一的来处就是这一格属性**。
+// **`tagTargets` 收的是句柄**（`Value.FromObject` 在下面那个循环里做），
+// 前十一格是 `Protos` 的字段、后四格是这一趟刚造出来的对象——两种来源在这里**同形**。
+//
+// **第 754 轮的第五组：四个包装原型**（**普查当场量到的**，判据 `p754d-01`）：
+// `Object.prototype.toString.call(String.prototype)` 在 Node 里是 `"[object String]"`、
+// `Number.prototype` / `Boolean.prototype` / `Symbol.prototype` 各给 `"[object Number]"`
+// 那一族——**四个包装原型自己就是那四种异种对象**（`[[StringData]]` 等内部格，
+// `Object.prototype.toString` 的 `builtinTag` 看的就是它）。
+//
+// **它们不能走这一趟**（**实测撞到的回归**）：本仓的箱**不是**原型对象
+// （`new String("a")` 是另一格），而 `Symbol.toStringTag` 是**沿原型链取**的——
+// 往 `Number.prototype` 上挂一格的话，`Object.create(Number.prototype)`
+// （Node 给 `"[object Object]"`，台账 `stdlib/object/137-object-create-is-not-box` 钉着它）
+// 会**继承**到那一格 ⇒ 当场红。所以这四格改在 `ObjectTagOf` 里按**身份**答
+// （见那一段的 `WrapperProtoTag`），**一格属性都不挂**。
 const tagTargets = [protos.Map, protos.Set, protos.Date, protos.Promise,
   protos.WeakMap, protos.WeakSet,
   protos.Generator, protos.AsyncGenerator,
-  protos.GeneratorFunction, protos.AsyncFunction, protos.AsyncGeneratorFunction];
+  protos.GeneratorFunction, protos.AsyncFunction, protos.AsyncGeneratorFunction,
+  protos.Global, math.Ref, jsonObject.Ref, reflect.Ref];
 const tagNames = ["Map", "Set", "Date", "Promise",
   "WeakMap", "WeakSet",
   "Generator", "AsyncGenerator",
-  "GeneratorFunction", "AsyncFunction", "AsyncGeneratorFunction"];
+  "GeneratorFunction", "AsyncFunction", "AsyncGeneratorFunction",
+  "global", "Math", "JSON", "Reflect"];
 for (let i = 0; i < tagTargets.length; i++) {
-  SetProperty(room, NeverCall, table, Value.FromObject(tagTargets[i]), toStringTagKey,
-    Value.FromString(table.CreateString(Units(tagNames[i]))));
+  // **全局对象那一格是特殊的**（第 754 轮**实测撞到的**）：规范给
+  // `globalThis[Symbol.toStringTag]` 的描述符是
+  // `{ writable: false, enumerable: false, configurable: true }`，而其余每一格
+  // （原型对象与三个命名空间）都是 `{ writable: false, enumerable: false, configurable: false }`
+  // ——**只有全局对象是可配置的**（那一格是给宿主换掉全局对象的实现留的口）。
+  // 而上面这一支 `SetProperty` 造的是**三个标志全开**的属性：
+  // 实测 `JSON.stringify(Object.getOwnPropertyDescriptor(globalThis, Symbol.toStringTag))`
+  // 在 Node 里给 `writable:false, enumerable:false, configurable:true`、
+  // 本仓给**三个全真**（判据 `p754c-01` 第 3 行）。
+  // **其余每一格照旧**（它们本来就该三个全假，而这一层今天没有一条判据量到
+  // 「那几格的标志位」——**记在这里**，不假装它们是照规范写的）。
+  const isGlobalTag = tagTargets[i] === protos.Global;
+  if (isGlobalTag) {
+    // 第 4 格标志位：`PropertyFlagConfigurable` = 4（`heap.xl.md`）
+    SetHiddenProperty(room, table, Value.FromObject(tagTargets[i]), toStringTagKey,
+      Value.FromString(table.CreateString(Units(tagNames[i]))), 4);
+  } else {
+    SetProperty(room, NeverCall, table, Value.FromObject(tagTargets[i]), toStringTagKey,
+      Value.FromString(table.CreateString(Units(tagNames[i]))));
+  }
 }
 // **`Array[Symbol.species]`**（第 601 轮）：JS 里它是一个只读访问器，
 // getter 返回**接收者**——所以 `class MyArray extends Array {}` 之后
