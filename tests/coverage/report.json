@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8188,
+  "total": 8190,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.66,
+  "progressPercent": 95.63,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1080,
+      "total": 1081,
       "pass": 1045,
-      "blocked": 3,
+      "blocked": 4,
       "differ": 32,
       "nodefail": 0,
-      "coverage": 96.76
+      "coverage": 96.67
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3232,
+      "total": 3233,
       "pass": 3156,
       "blocked": 25,
-      "differ": 51,
+      "differ": 52,
       "nodefail": 0,
-      "coverage": 97.65
+      "coverage": 97.62
     },
     {
       "category": "e2e",
@@ -1530,6 +1530,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BigIntLiteral"
     },
     {
+      "id": "runtime/round758/p758a-01-return-then-function-declaration",
+      "category": "runtime",
+      "title": "`return` 后面紧跟函数表达式：被读成了函数**声明** ⇒ 整份文件进不来",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
+    },
+    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1847,7 +1853,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10704/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27008/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2129,7 +2135,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10704/src/5252.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27008/src/5253.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2153,7 +2159,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10704/src/5302.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27008/src/5303.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2358,6 +2364,12 @@
       "category": "stdlib",
       "title": "构造与 `bind` 的形状：`new` 的返回值、`prototype`、`new.target`",
       "detail": "stdout 不同：第 7 行：node «(function () { function F(this ok:boolean:true» vs tsrun «(function () { function F(this ok:boolean:false»"
+    },
+    {
+      "id": "stdlib/round758/p758a-02-map-thisarg-not-boxed",
+      "category": "stdlib",
+      "title": "数组回调的 `thisArg` 是原始值时：松散模式要装箱",
+      "detail": "stdout 不同：第 10 行：node «10 (function () { return [1].map(func ok:object:Number» vs tsrun «10 (function () { return [1].map(func ok:number:5»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

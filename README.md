@@ -1969,6 +1969,40 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   `differ 116`（**没动**）、`bad` 0、`regressions` **0**、`moved` 0、`newlyPassing` 0。
   加权 **95.7%**（两个数都在这一位）。
 
+### 第 758 轮：**这一轮的普查只量不修**——两条新缺口（`return` 后面的函数表达式、回调 `thisArg` 装箱）（coverage 7810/8188 → **7810/8190**）
+
+这一轮的探针换到**数组的复制 / 查找族**、**函数的形状与调用族**、**String 的静态面**、
+**对象描述符 / 解构 / 展开**四面（共 130 条原子探针）。**四面里三面全对**
+（对象描述符 / 原型 / 键序、解构 / 剩余 / 展开、String 的静态面各 20+ 行逐行相同），
+量出**两条新缺口**——两条都要动那一层的**公共路**，所以本轮**只登记、不修**。
+
+- **新登一条：`return` 后面紧跟的**函数表达式**被读成了函数**声明（判据 `runtime/round758/p758a-01-return-then-function-declaration`）。
+  `(function () { return function f() {}.name; })()` 在 Node 里是 `"f"`（那是**函数表达式**），
+  本仓的语句切分把 `function` 三个字读成**声明**的开头 ⇒ 降级期报
+  `unimplemented: expression FunctionDeclaration`、**整份文件一个字节都不跑**。
+  **同一格里三种写法只有这一种红**：`return (function f() {})`（带括号）过、
+  `const x = function f() {}` 过、声明自己一行过——差的只是「`return` 与 `function` 紧挨着」。
+  修它要 token 层的语句切分先有「表达式位里的 `function` 按表达式读」这条判据
+  （与 `IsLineBreakBoundary` 同一处）——牵连 1414 份 token 语料。
+- **新登一条：回调的 `thisArg` 是原始值时**不装箱（判据 `stdlib/round758/p758a-02-map-thisarg-not-boxed`）。
+  规范（`OrdinaryCallBindThis`）说松散模式下把原始值 `ToObject` 一次
+  （`[1].map(function () { return this }, 5)[0]` 在 Node 里是 `Number` 包装对象），
+  **同一件事第 710 轮已经收过一半**：`Function.prototype.call` / `apply` / `bind` 三条路走
+  `globals.xl.md` 的 `BoxReceiver`；而 `xs.map(fn, thisArg)` 把 `thisArg` 原样递进
+  `vm.xl.md` 的 `CallNative`，那一处只兜 `null` / `undefined`（换全局对象）、不装箱原始值。
+  **缺的不是一行、是重入那条路整条**：19 行探针里 **8 行不同**（回调族六格各有一条），
+  其中三条最响——`filter(function () { return this === 5 }, 5)` 在 Node 里是**空**、
+  本仓给**一项**（`this` 是那个数本身、`=== 5` 成立），**静默的错答案**。
+  收它要给 `CallNative` 补一次 `ToObject`，而 `BoxReceiver` 住在语言层
+  （要 `Protos` 与隐藏键 `BoxKey`、还要分配），引擎 import 不了它。
+- **两条都记在这里、都带守卫**：它们量的是**那一层公共路**上的行为，
+  谁动了 `CallNative` 或语句切分，`coverage` 会当场红。
+- 用例：`runtime/round758` 1 条（blocked）+ `stdlib/round758` 1 条（differ）。
+- 五类 **7810 / 8188 → 7810 / 8190**（+2 条语料、通过数没动）、`blocked 262 → 263`、
+  `differ 116 → 117`、`bad` 0、`regressions` **0**、`moved` 0、`newlyPassing` 0。
+  加权 **95.7% → 95.6%**（分母长了两条、分子没动——**登记缺口本来就会让这个数往下走**，
+  而口径是「红只红在比昨天差」）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1981,7 +2015,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7810 / 8188**，加权 **95.7%**：token 1196/1414、exec 2171/2216、runtime 1045/1080、stdlib 3156/3232、e2e 242/246。差的那些是**真缺口**（`blocked` 262 / `differ` 116），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `coverage` | **五类 7810 / 8190**，加权 **95.6%**：token 1196/1414、exec 2171/2216、runtime 1045/1081、stdlib 3156/3233、e2e 242/246。差的那些是**真缺口**（`blocked` 263 / `differ` 117），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 
