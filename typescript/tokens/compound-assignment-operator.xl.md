@@ -116,15 +116,14 @@ return (
   // 补 `Block` 之后 `cases:tsast` 照样 1434/1434、运行期那几条**照样失败** →
   // **一处没被验证过的改动不留**。
   //
-  // **真正的缺口比这一处大**（四条最小反例都量过）：
-  //   · `let a = 1;{ const A = 1; }a += 1;` `compound assignment to a non-identifier`
-  //   · `let b = 2;{ b += 1; }` `unimplemented: expression Block`
-  //   · `let c = 1;{ }c += 1;` 同上
-  //   · `let d = 1;{ const D = 1; }d = d + 1;` **连普通 `=` 也失败**
-  // ——也就是说：**「语句以块开头、后面还接着一个表达式」这一族**都还没拆开
-  //（`+=` 那条的**词法**产物其实已经对了：XML 里是 `Bracket{…}` 再 `a = (a + 1)`，
-  // 缺的是**把它拆成两条 Statement**——`cases:boundaries` 那条「被 `Statement` 横跨」
-  // 的判据正是量这个的）。下一轮从这里查。
+  // **那四条最小反例第 674 轮复核时已经全好了**（`cases:tsast` 与 `node` 两边都过）：
+  //   · `let a = 1;{ const A = 1; }a += 1;`
+  //   · `let b = 2;{ b += 1; }`
+  //   · `let c = 1;{ }c += 1;`
+  //   · `let d = 1;{ const D = 1; }d = d + 1;`
+  // 教训留着：那一族的**词法**产物一直是对的（XML 里是 `Bracket{…}` 再 `a = (a + 1)`），
+  // 缺的是把它拆成两条 `Statement` —— 所以「XML 看着对」不等于这一族好了，
+  // 判据要看**投影之后**的那棵树（`cases:tsast`）与**跑出来的值**（`coverage`）两头。
   (current instanceof Bracket && current.endBracket === "}")
 );
 ```

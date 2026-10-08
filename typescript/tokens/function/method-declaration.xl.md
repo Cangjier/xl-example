@@ -211,24 +211,16 @@ if (before instanceof SymbolToken) {
 return WordText(before) === "new" || WordText(before) === "abstract";
 ```
 
-**已知缺口：类里「无体的重载签名」后面跟着带体的实现时，前几条会被并掉。**
+**这一格曾经是会并掉的**（第 674 轮复核时已经好了，`cases:tsast` 逐节点一致）：
 形状是 `class A {` 换行 `  f(a: string): void` 换行 `  f(a: number): void` 换行
-`  f(a: any) {}` 换行 `}`。
+`  f(a: any) {}` 换行 `}` —— 那时第二条签名往前找体会跨过换行撞上**第三条的 `{`**，
+于是三条只出 1 个 `MethodDeclaration`。
 
-第二条签名往前找体时会跨过换行撞上**第三条的 `{`**，于是三条只出 1 个 `MethodDeclaration`。
-（不带实现体的两条 `f(a: string): void` / `f(a: number): void` 是**对的**，出 2 个。）
-
-试过在这里加「跨行且没见过 `{` 就判没有体」的守卫与它的两种收窄版，**都是净回归**：
+**下面这两个收窄版都试过，都是净回归，不要再试**：在「跨行且没见过 `{` 就判没有体」之外，
 把接口里成片的多行重载（`lib.dom.d.ts` 的 `addEventListener<…>(…)`）、
-`get x(): number` / `set x(v: number)` 这类一行一条的签名一起打掉，
-全语料「成员·方法类」真缺从 18 涨到 37 / 41（用例集因为是绿的所以看不出来，
-是当时那把逐节点对账的尺子抓出来的——它与其余十几把尺子已经随测试集收窄删除，
-见 [docs/typescript-parsing-gaps.md](../../../docs/typescript-parsing-gaps.md)）。已回退。
-
-要修得先能**区分「体在下一行」与「下一条成员」**——只往前看是分不出来的
+`get x(): number` / `set x(v: number)` 这类一行一条的签名一起打掉了。
+区分「体在下一行」与「下一条成员」不能靠往前看
 （`m(): T` 换行 `{ }` 与 `m(): T` 换行 `m2(): T` 在扫描到那里时长得一样）。
-可行的方向：在 `Process` 侧先把「同一行内的 `: 类型`」标成一段（例如让 `TypeDefine` 带上
-「以换行收尾」的标记），`BodyIndex` 据此判断成员边界，而不是重新猜。
 
 ## private method ParameterIndex:(units:Array<Token>, index:int)=>int
 

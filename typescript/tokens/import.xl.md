@@ -391,8 +391,8 @@ super(template);
 `import { type A } from "m"`（逐项 type 修饰）不算整条 type-only。
 
 那个 `type` 词**不进产物**（第 56 轮修的）：它已经由 `typeOnly="true"` 表达，
-再以一个 `<Identifier>type</Identifier>` 留在 `Import` 里是纯冗余
-（`README.md` 的「结构性缺口」里挂着它）。`import type { A } from "m"` 与
+再以一个 `<Identifier>type</Identifier>` 留在 `Import` 里是纯冗余。
+`import type { A } from "m"` 与
 `import { A } from "m"` 的差别只在属性上，这正是下游需要的形状。
 
 ## field defaultImport:string = ""
@@ -420,8 +420,7 @@ super(template);
 那个假括号。而 `ReadClause` 认下具名子句那一刻括号单元（`Bracket` 或带别名时的
 `ObjectLiteral`）就在手上，当场记下来即可。
 
-**为什么这些属性值得加**（`早期的缺口台账` 的 `_notes.imports-unstructured`）：
-原来 `Import` 只带 `From`，两条形状完全不同的导入只能靠子单元去分辨；
+**为什么这些属性值得加**：原来 `Import` 只带 `From`，两条形状完全不同的导入只能靠子单元去分辨；
 而且 `From` **根本没有进 XML**（`Import` 没有覆写 `ToXmlString`）——下游拿不到路径。
 现在这些信息都成了属性，`ToXmlString` 一并渲染。
 

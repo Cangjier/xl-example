@@ -1122,4 +1122,15 @@ export const EXPECTATIONS = {
     expect: "differ",
     why: "`await using` 同上：不调 `[Symbol.asyncDispose]()`，少一次释放（静默）",
   },
+
+  // ===== 第 675 轮：规范里点名的那一格（`globals.xl.md` 的 `new Object(null)`）=====
+  //
+  // `new Object(x)` 与 `Object(x)` 走的是同一条宿主内建，而**构造那一半**该给一个**新对象**：
+  // `new Object(null)` 是 `{}`（不是 `null`）。本仓两半都选了「原样返回」，
+  // 所以 `new Object(null) === null` 在这边是 `true`、在 `node` 是 `false`。
+  // 要做对得先给宿主 ABI 加一位「这次是不是构造」——那是另一件事。
+  "gap-std-new-object-null": {
+    expect: "differ",
+    why: "`new Object(null)` 被当成 `Object(null)`：构造那一半该造 `{}`，这里原样返回 `null`（静默错值）",
+  },
 };

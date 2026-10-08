@@ -44,7 +44,8 @@ import { New } from "../new/new.xl.md"
   而 `JsonArrayCloseRule` 排在成员规则之后；要在它成形前后各抢一次，属于另一条改动。
   这一轮只做 call / construct（占 1355 处里的 1355 处中的绝大多数：1190 处是 construct）。
 - **类型字面量里的签名**（`type F = { (): void }`）：那里的父单元是 `ObjectLiteral` 而不是
-  `InterfaceBody` / `ClassBody`，本轮的成员位置判据不含它（类型字面量的成员是另一条已知缺口）。
+  `InterfaceBody` / `ClassBody`，本轮的成员位置判据不含它（第 674 轮复核：那一格**已经成形**，
+  成员位置判据后来一起认了它）。
 
 `SignatureCloseRule` 写在 `Signature` **之前**：后者的静态字段 `Instance` 在类定义时就
 `new SignatureCloseRule()`，写反了会命中暂时性死区（TDZ）。

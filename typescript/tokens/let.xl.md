@@ -136,7 +136,7 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 三种形态各拼一个自闭合标签：属性名分别是 `fieldName` / `arrayPattern` / `objectPattern`，标签名都是运行时类型名；三种形态都带上 `modifiers`（`export declare const` 这样的修饰词串）。
 
-`modifiers` 是**信息补全**：不记的话 `export const a = 1` 与 `const a = 1` 的产物一模一样（见 `早期的缺口台账` 的 `_notes.variable-modifiers`）。
+`modifiers` 是**信息补全**：不记的话 `export const a = 1` 与 `const a = 1` 的产物一模一样。
 
 三个 `if` 加末尾抛错，属性值用 `Array.join(",")` 拼出来。
 

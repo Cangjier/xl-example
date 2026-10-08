@@ -104,7 +104,7 @@ if (nameUnit instanceof Bracket && nameUnit.startBracket === "(") {
 // 而 `f()` 收成 `Method` 之后**两者都不是**——于是第二个 `(` 谁也不认，
 // 投影里**少了一整个调用**（实测：`console.log(f()())` 只投出一个 `f()`，
 // 而 `const a = f()();` 却是对的——那条路走的是另一个收尾规则，
-// 所以这个缺口只在**实参位**露出来，`cases:tsast` 的语料里恰好没有这个形状）。
+// 所以那一格只在**实参位**露出来）。**下面这一句就是那一格的补法**：
 // **带括号的 `(f())()` 一直是对的**（前一单元是括号）——差别只在括号在不在。
 if (nameUnit instanceof Method) {
   return true;

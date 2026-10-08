@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2126,
+  "matrix": 2127,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -83,7 +83,7 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 99.79,
+  "progressPercent": 99.76,
   "layers": [
     {
       "layer": "runtime",
@@ -108,12 +108,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 819,
+      "total": 820,
       "pass": 818,
       "blocked": 1,
-      "differ": 0,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 99.88
+      "coverage": 99.76
     },
     {
       "layer": "e2e",
@@ -152,6 +152,12 @@
       "layer": "exec",
       "title": "await using 声明：块结束时该调 Symbol.asyncDispose",
       "detail": "stdout 不同：第 3 行：node «dispose a» vs tsrun «»"
+    },
+    {
+      "id": "gap-std-new-object-null",
+      "layer": "stdlib",
+      "title": "new Object(null)：构造调用该造一个空对象（不是原样返回 null）",
+      "detail": "stdout 不同：第 2 行：node «false» vs tsrun «true»"
     }
   ],
   "bad": [],

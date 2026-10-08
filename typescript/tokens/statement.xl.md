@@ -1797,7 +1797,10 @@ if (head === "do") {
 // **`function` 故意不在表里**（实测退回来的）：重载签名（`function f(a: number): void;`）
 // 是「有头、没有体」的形状，与 `function f()` 换行 `{` 长得一样 ——
 // 加进去会让 `decl-func-overloads.ts` / `fn-overloads.ts` / `type-generic-call-args.ts` 三份变红
-//（分别缺 15 / 13 / 8）。所以「函数头换行 `{`」这一档**留在缺口里**（见台账）。
+//（分别缺 15 / 13 / 8）。**「函数头换行 `{`」那一档第 668 轮由另一条路收掉了**
+//（`NextLineContinuesExpression` 的 `IsHeaderBodyBrace`：末尾是一个等着体的头就算续接）——
+// 所以这里**照旧不加**：这一处的判据问的是「这算不算一条新语句的开头」，
+// 与那一档是两件事，动它只会把上面三份用例再打红一次。
 //
 // **收完的那一档够不到这里**：体已经收完时最后那一格是**语句级单元**
 // ⇒ 上面 `IsStatementBoundary` 那一句早就早退了。

@@ -6703,6 +6703,12 @@ setTimeout(() => { console.log("timer"); }, 0);
 console.log("sync");
 `,
   },
+  // **第 675 轮**：规范里点名的那一格（`globals.xl.md` 的 `new Object(null)`）。
+  {
+    id: "gap-std-new-object-null",
+    title: "new Object(null)：构造调用该造一个空对象（不是原样返回 null）",
+    src: `console.log(new Object(null as any) === null);\nconsole.log(Object(null as any) === null);\n`,
+  },
   {
     id: "k9-std-set-operations",
     title: "Set：交并差 / 子集判断 / 迭代顺序",

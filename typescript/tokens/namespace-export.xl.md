@@ -20,7 +20,7 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 第 56 轮之前它**没有专属节点**：产物是 `<Keyword>export</Keyword>` + `<As>namespace Foo</As>`
 ——`as` 那条规则（类型转换 `as`）顺手把 `namespace Foo` 收走了，于是
-「这是一个 UMD 全局名声明」这件事在产物里看不出来（`README.md` 的「结构性缺口」里挂着它）。
+「这是一个 UMD 全局名声明」这件事在产物里看不出来。
 
 判据是**四个词连排**：`export` / `as` / `namespace` / 名字——四条都要对得上才接手，
 所以不会误伤 `export { a as b }`（那个 `as` 前面不是 `export`）与类型转换 `x as namespace`。

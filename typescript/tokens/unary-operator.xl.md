@@ -39,8 +39,7 @@ import { Class } from "./class/class.xl.md"
 一元运算符：`!x` / `-x` / `+x` / `~x` / `typeof x` / `void x` / `delete x` 与 `x++` / `x--`，
 收成一个 `UnaryOperator` 节点（运算符与被操作者都装在里面，`op` 属性记下运算符文本）。
 
-“完整解析 TypeScript”最后一块缺口就是表达式层（见 早期的缺口台账的
-`_notes.expr-tree-absent`）：二元 / 一元 / 赋值 / 序列 / 括号表达式原本都只有 `SymbolToken` + `Identifier`。
+“完整解析 TypeScript”最后一块缺口就是表达式层：二元 / 一元 / 赋值 / 序列 / 括号表达式原本都只有 `SymbolToken` + `Identifier`。
 本规则先补**一元**这一支——它的形状最规整：运算符只跟**紧邻的**一个单元。
 
 **只收紧邻的那一个单元**：本工程还没有优先级 / 结合性那一层，`-a.b` 只会把 `a` 收进来、
