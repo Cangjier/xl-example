@@ -1542,6 +1542,31 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
   `blocked 261`（没动）、`differ 97 → 96`（−2 收掉、+1 新登，另两条是这一轮自己量的）、
   `bad` 0、`regressions` 0、`moved` 0、`newlyPassing` **2**，加权 **96.0%**。
 
+### 第 747 轮：**控制流与承诺那一侧的普查**——19 条探针全过、一条新登（coverage 7695/8052 → **7711/8069**）
+
+第三轮的探针换到**控制流与承诺**这一面：类（字段 / 静态块 / 私有品牌 / `super` 四条路）、
+闭包捕获（`let` / `const of` / 计数器 / `while` 里的 `const`）、`this` 的四种绑定、
+`try`/`catch`/`finally` 与 `return` / `continue` 的次序、`switch` 的贯穿与 `default` 位置、
+标签（嵌套循环 / 裸块 / `try`）、`&&`/`||`/`??`/`?.` 的短路范围、解构与默认值、
+`console.log` 的渲染、数字到文本的三方一致、字符串三兄弟、`sort` 的稳定性与 `to*` 族、
+`Object.keys` 族在数组 / 字符串 / 类数组上。**19 条探针 16 条当场通过**，
+这一轮的用例基本是**把已经对的形状钉住**（回归网），另外量出一条新缺口：
+
+- **新登记一条**（`runtime/round747/gap747-promise-chain-order`）：
+  **两条互不相干的承诺链同时在飞时，后两行的次序反了**。
+  `node` 给 `… / fin / chain caught:boom2 / after fin 2`，本仓给 `… / fin / after fin 2 / chain caught:boom2`。
+  **单独跑每一条链，两边的次序都对**（内容一字不差）——差的只是
+  「两条链同时排着时谁先落到队列尾」，也就是**每一次 `then` 恢复到底让出几个微任务**。
+  规范里 `PromiseReactionJob` 是**一个**任务，而本仓的 `SettlePromise` / `MakePromise`
+  那几处（第 285 / 318 轮）在每一跳上排了几个——数一遍才能说清，而「数一遍」
+  正是收它的第一步。**这不是「先后无所谓」**：`await` 的次序是脚本看得见的东西。
+- 用例：`runtime/round747` 13 条（类两条 / 闭包 / `this` / 承诺 / `async` /
+  `try` / `switch` / 标签 / 逻辑与可选链 / 解构 / 渲染 + 一条台账）、
+  `stdlib/round747` 4 条（数字到文本 / 字符串三兄弟 / `sort` 与 `to*` / `Object.keys` 族）。
+- 五类 **7695 / 8052 → 7711 / 8069**（+12 runtime、+4 stdlib、另 1 条进分母是新登的台账）、
+  `blocked 261`（没动）、`differ 98 → 97`（+1 新登，两条旧台账上一轮收掉了）、
+  `bad` 0、`regressions` 0、`moved` 0、`newlyPassing` 0，加权 **96.0%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1554,7 +1579,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7695 / 8052**，加权 **96.0%**：token 1196/1414、exec 2171/2216、runtime 975/994、stdlib 3111/3182、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 96），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7711 / 8069**，加权 **96.0%**：token 1196/1414、exec 2171/2216、runtime 987/1007、stdlib 3115/3186、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 97），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 
