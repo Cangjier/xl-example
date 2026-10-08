@@ -1,0 +1,10 @@
+// xl:title (function* g() { yield 1; yield 2; }) && "ok"
+// xl:round 705
+// xl:judge stdout
+// xl:end
+const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+try {
+  console.log(show((function* g() { yield 1; yield 2; }) && "ok"));
+} catch (e) {
+  console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+}

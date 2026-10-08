@@ -405,6 +405,28 @@
    `p703s-e33` 同根）、**类的 `toString()` 打印整份源码**（与 `p703f-g23` 同根）、
    `Error.stack` 那一格（与 `probe697-e11` 同根）。加权 **95.7% → 95.7%**
    （分子 +209、分母 +208）。
+   **第 705 轮全矩阵**（第十五批原子探针 168 份新语料）：通过 **6583 → 6748**、
+   分母 **6950 → 7118**、`blocked 263 → 264`、`differ 104 → 106`、`bad` 仍 **0**、
+   `regressions` **0**、`moved` **0**、`newlyPassing` **0**——收掉两处：
+   ① **类的 `toString()` 打出的是整份源码**（第 703 / 704 两轮各登记过一条探针，
+      `p703f-g23` / `p704k-c12`）：根子在**合成节点没有 `[pos, end)`**，而
+      `SourceText.slice(undefined, undefined)` **不抛也不给空串**，给的是**整份源码**。
+      修法两处：`SourceSliceOf` 添一句「`pos` / `end` 不是数就给空串」（`typeof` 判据，
+      不是「有没有这一格」），以及 `LowerClass` 把**整个 `class` 那一句**通过新的
+      `PendingClassSource`（与 `PendingClassNode` 同一处挂、同一处撤）交给
+      `LowerFunctionValue` —— 规范里 `A.toString()` 给的就是那一句，
+      不是构造函数那一段、更不是整份文件。四条形态（具名 / 匿名 / 带显式构造函数 /
+      `extends`）与 Node **逐字节相同**；
+   ② **`Object.getOwnPropertyNames(1)` 该给 `[]`、本仓抛**（`p705o-b26`）：
+      JS 那一步是 `ToObject`，只有 `null` / `undefined` 抛——与 `Object.keys`
+      第 377 轮补的那两档**同一个口径**（`Object.keys(1)` 早就是好的，这一格漏了）。
+   本批另登记 5 条新缺口（`blocked` +1 / `differ` +4）：`Reflect`（与第 703 轮同根）、
+   **`Math` 的常量是可写的**（`Object.getOwnPropertyDescriptor(Math, "PI").writable`
+   JS 给 `false`）、`Function.prototype.toString.call(内建)` 抛
+   （与 `probe693-o46` 同一族）、`console.log(new Error(…))` 的栈
+   （与 `001` / `probe697-e11` 同根）、展开不可迭代对象抛的是普通 `Error`
+   而不是 `TypeError`（与 `probe696-i08` 同根）。加权 **95.7% → 95.7%**
+   （分子 +165、分母 +168）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

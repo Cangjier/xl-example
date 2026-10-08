@@ -1296,6 +1296,22 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成，不会把同一层�
 相同就把 `PendingFunction.IsClass` 置真——那一位一路走到 `HeapClosure.IsClass`，
 最后让 `console.log` 印出 `[class C]`（`inspect.xl.md`）。
 
+## field PendingClassSource:string = ""
+
+**「这一趟降的那个函数值，源码那一段该取哪儿」**（第 703 轮）——空串表示「照老规矩，
+从当前节点切」。
+
+**为什么类需要它**：`new_closure` 那一格 `Source` 是 `FunctionSourceText` 的去处，
+而 JS 里 `A.toString()` 给的是**整个 `class` 那一句**（`class A { m() {} }`），
+**不是构造函数那一段**（`constructor() {}`）、更不是整份文件。
+可类那条路交给 `LowerFunctionValue` 的往往是**合成节点**（默认构造函数、
+派生类的 `constructor(...args) { super(...args) }`）——合成节点上**没有 `pos` / `end`**，
+于是 `SourceSliceOf` 落进 `Slice(undefined, undefined)`：**整份源码**（**响亮的错值**，
+第 703 轮的探针 `p703f-g23` / 第 704 轮的 `p704k-c12` 量的就是它）。
+
+**所以它在 `LowerClass` 里和 `PendingClassNode` 一起挂、一起还原**（同一处写、同一处撤）
+——`LowerFunctionValue` 见到非空就用它，见那一句。
+
 ## field FunctionNameHint:string = ""
 
 **「下一个函数值该叫什么」**（第 238 轮）——空串表示「没有提示」。
@@ -2419,10 +2435,17 @@ return slot;
 **区间要夹住**：`end > SourceText.length` 时给空串——那说明投影与源码不是同一份
 （这种不一致**响亮地**退化成「没有源码」，而不是切出半个字）。
 
+**`pos` / `end` 缺了也要给空串**（第 703 轮，**实测撞到的**）：合成节点上根本没有这两格
+（类那条路的默认构造函数就是合成的），而 `Slice(undefined, undefined)` **不抛、也不给空串**
+——它给的是**整份源码**（`"class A {}"` 于是打出一整个文件，**响亮的错值**，
+第 703 轮的 `p703f-g23` 量的就是它）。判据是 `typeof === "number"`，
+不是「有没有这一格」：投影里有节点带 `pos: null` 的写法。
+
 ```ts
 if (this.SourceText === "") return "";
 const start = node["pos"] as number;
 const end = node["end"] as number;
+if (typeof start !== "number" || typeof end !== "number") return "";
 if (end <= start || end > this.SourceText.length) return "";
 return this.SourceText.slice(start, end);
 ```
@@ -5944,7 +5967,10 @@ if (NodeKind(node) === "FunctionExpression") {
 item.NeedsArguments = !item.IsArrow && ReferencesArguments(body);
 // **源码那一格**（第 334 轮）：箭头 / 函数表达式 / 方法都走这一条——
 // JS 的 `f.toString()` 给的就是**定义它那一段**（`(n) => n`、`m() { return 1 }`）。
-item.Source = this.SourceSliceOf(node);
+// **类那一趟例外**（第 703 轮）：`LowerClass` 在 `PendingClassSource` 里挂的是
+// **整个 `class` 那一句**——它的构造函数节点常常是合成的（没有 `[pos, end)`），
+// 从它切会切出整份源码。见 `PendingClassSource` 那一段。
+item.Source = this.PendingClassSource !== "" ? this.PendingClassSource : this.SourceSliceOf(node);
 // **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次，
 // 之后由函数表那一格带着走（开帧的人要用它）。
 item.HasRest = this.HasRestParam(node);
@@ -7204,9 +7230,14 @@ for (let i = 0; i < instanceFields.length; i++) allInstanceFields.push(instanceF
 //（`SuperName` 能事后补 是因为它到**降级函数体那一趟**才被读）。
 // 所以照 `FunctionNameHint` 那个形状：进门前挂上、出门就还原。
 const savedClassNode = this.PendingClassNode;
+const savedClassSource = this.PendingClassSource;
 this.PendingClassNode = ctorNode;
+// **类的源码那一段是整个 `class` 那一句**（第 703 轮）：构造函数那个节点常是合成的
+// （没有 `pos` / `end`），从它切会切出整份源码——见 `PendingClassSource` 那一段。
+this.PendingClassSource = this.SourceSliceOf(node);
 const ctor = this.LowerFunctionValue(ctorNode, name);
 this.PendingClassNode = savedClassNode;
+this.PendingClassSource = savedClassSource;
 // **具名类表达式：值要在这里就写进那一层环境**（第 699 轮，**实测撞到的**）。
 //
 // 原来这三步（`env_set` / `env_leave`）一起排在**最后**——可**静态字段与静态块

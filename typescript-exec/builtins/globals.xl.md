@@ -4533,9 +4533,26 @@ if (id === ObjectGetOwnPropertyNames) {
   // 所以这里照抄的是同一趟扫描、只把 `IsEnumerable()` 那一句去掉（写在明处：
   // 两处的差异**只有那一句**，谁改了次序都要记得两边一起改）。
   const nameTarget = args.length > 0 ? args[0] : Value.Undefined();
+  // **`null` / `undefined` 抛 `TypeError`**（第 705 轮）：与 `Object.keys` 那一支
+  // **一字不差**（JS 在这里走的也是 `ToObject`，只有那两档会抛）。
+  if (nameTarget.IsNullish()) {
+    throw new TypeError("Object.getOwnPropertyNames called on null or undefined");
+  }
   const nameIsText = nameTarget.Tag === ValueTag.String;
+  // **数字 / 布尔 / 符号：装箱之后一个自有属性都没有** ⇒ 直接给空数组
+  //（第 705 轮，**实测撞到的**）：原来非对象一律抛 ⇒ `Object.getOwnPropertyNames(1)`
+  // 报 `... needs an object`（Node 给 `[]`），第 705 轮的原子探针 `p705o-b26` 量的就是它。
+  // 口径与 `Object.keys` 那一支第 377 轮补的那两档**是同一个**——`ToObject` 的正面。
+  if (!nameIsText && nameTarget.Tag !== ValueTag.Array && !nameTarget.IsObject()
+    && (nameTarget.Tag === ValueTag.Int32 || nameTarget.Tag === ValueTag.Float64
+      || nameTarget.Tag === ValueTag.Bool || nameTarget.Tag === ValueTag.Symbol)) {
+    if (!room(ObjectCharge)) throw new Error("out of room");
+    const primitiveHandle = table.CreateArray();
+    table.Get(primitiveHandle).Proto = protos.Array;
+    return Value.FromArray(primitiveHandle);
+  }
   if (!nameIsText && nameTarget.Tag !== ValueTag.Array && !nameTarget.IsObject()) {
-    throw new Error("Object.getOwnPropertyNames needs an object");
+    throw new Error("unimplemented: Object.getOwnPropertyNames on a " + nameTarget.Tag);
   }
   const nameItem = nameIsText ? null : table.Get(nameTarget.Ref);
   const nameIndexPositions = IndexKeyPositions(table, nameTarget);
