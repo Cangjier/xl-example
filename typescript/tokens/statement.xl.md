@@ -397,12 +397,24 @@ statement.TryToClose();
 **尾巴的右端借壳自己那一格**：壳的区间**含终结符**（`FormFrom` 的签出），
 而终结符不在 `Data` 里 ⇒ 只看尾巴最后一格会少一格。
 
+**尾巴是空的、而壳的区间比头还长**（第 663 轮）：那一格就是**被 `FormFrom` 切进区间、
+却没进 `Data` 的尾分号** ⇒ 它是**宿主的一条空语句**（TS 那边 `while (a) {} ;` /
+`function f() {} ;` / `try { } catch (e) {} ;` 都是「语句 + `EmptyStatement`」两条）。
+上一段那句话的另一面：`;} ` 那一档的右端由 `;` 给，所以壳的终点**就是那个 `;` 自己**
+（`FormFrom` 取的是终结符**刚落下**时的 `End`，那一刻它还没关，`Index` 就是那个字符本身）
+—— 读那一格原文复核它是 `;` 就够了（`StatementSymbol` 只有 `;`，这是同一句判据的复核，
+不是第二份判据）。
+
+**为什么要在这一趟做**：`FormFrom` 跑在终结符刚落下那一刻，那时 `While` / `Function` /
+`Try` 还都是**生料**（各自的 `XxxCloseRule` 要等单元关闭才跑）⇒ 边界判定一个都看不见
+⇒ 整段连那个 `;` 一起收进同一个壳。这一趟跑在**规则之后**，那一格已经成形了。
+
 ```ts
 if (unit.constructor.name !== "Statement") {
   return;
 }
 const data = unit.Data;
-if (Array.isArray(data) === false || data.length < 2) {
+if (Array.isArray(data) === false || data.length < 1) {
   return;
 }
 const head = Get(data, 0);
@@ -420,7 +432,36 @@ const at = parent.Data.indexOf(unit);
 if (at < 0) {
   return;
 }
+const shellEnd = unit.SourceRange.End;
 const tail = data.slice(1);
+// **壳里只有这一格、而壳的区间比它还长** ⇒ 末尾那个 `;` 单独成一条空语句。
+if (tail.length === 0) {
+  const headEnd = head.SourceRange.End;
+  if (shellEnd === null || headEnd === null || shellEnd.Index <= headEnd.Index) {
+    return;
+  }
+  const terminator = shellEnd.Document.At(shellEnd.Index);
+  if (terminator.Value !== ";") {
+    return;
+  }
+  // **只拆「以块收尾、本身不吃尾分号」的那几族**（见 `BlockClosedStatement`）：
+  // `Function` / `MethodDeclaration` 在环境声明里是**没有体**的签名
+  //（`declare function f(): void;`，返回类型本身就可能是个 `{ … }` 类型字面量），
+  // 那个 `;` 是**声明自己的终结符**、不是空语句 —— 照拆会让 `.d.ts` 里成片多出
+  // `EmptyStatement`（实测 `typescript.d.ts` 2 处、`@types/node/crypto.d.ts` 1 处）。
+  if (Statement.BlockClosedStatement(head) === false) {
+    return;
+  }
+  const empty = new Statement(unit.Template);
+  empty.Parent = parent;
+  empty.SourceRange.Start = terminator;
+  empty.SourceRange.End = shellEnd;
+  data.splice(0, 1);
+  parent.Data.splice(at, 1, head, empty);
+  head.Parent = parent;
+  empty.TryToClose();
+  return;
+}
 const first = Statement.FirstMeaningful(tail);
 const last = tail[tail.length - 1];
 if (first.SourceRange.Start === null || last.SourceRange.End === null) {
@@ -430,12 +471,49 @@ const rest = new Statement(unit.Template);
 rest.Parent = parent;
 rest.AddRange(tail);
 rest.SourceRange.Start = first.SourceRange.Start;
-const shellEnd = unit.SourceRange.End;
 rest.SourceRange.End = shellEnd !== null && shellEnd.Index > last.SourceRange.End.Index ? shellEnd : last.SourceRange.End;
 data.splice(0, 1);
 parent.Data.splice(at, 1, head, rest);
 head.Parent = parent;
 rest.TryToClose();
+```
+
+## static method BlockClosedStatement:(item:Token)=>bool
+
+这个单元是不是**以块 / `}` 收尾、而且自己不吃尾分号**的语句级构造（第 663 轮）。
+
+名单是**投影侧那张 `NO_TRAILING_SEMICOLON` 表在 token 这一侧的对应物**：
+`if` / `while` / `for` / `foreach` / `switch` / `try` / 类 / 枚举 / 接口 / 命名空间 /
+静态块都收在自己的 `}` 上 ⇒ 紧跟的一个 `;` 不属于它们。
+**`do…while` 不在这张名单里**（`do … while (c) ;` 后面那个 `;` 归它自己），
+`import` / `export` / 变量 / 表达式同样不在。
+
+**`Function` / `MethodDeclaration` 按有没有体分档**：带体的收在 `}` 上（`function f() {} ;`）；
+没体的是环境签名 / 重载（`declare function f(): void;`），那个 `;` 归它自己。
+
+```ts
+const name = item.constructor.name;
+if (
+  name === "IfSet" ||
+  name === "While" ||
+  name === "For" ||
+  name === "Foreach" ||
+  name === "Switch" ||
+  name === "Try" ||
+  name === "Class" ||
+  name === "Enum" ||
+  name === "Interface" ||
+  name === "Namespace" ||
+  name === "StaticBlock"
+) {
+  return true;
+}
+if (name === "Function" || name === "MethodDeclaration") {
+  return item.Data.some(
+    (one) => one.constructor.name === "FunctionBody" || one.constructor.name === "MethodBody",
+  );
+}
+return false;
 ```
 
 ## static method IsStatementUnit:(item:Token)=>bool

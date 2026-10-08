@@ -533,8 +533,17 @@ if (beforeIsElse && tail instanceof Identifier) {
   }
   return;
 }
-// **尾巴上的 `(` / `{` 不属于这条链** ⇒ 一个字都不落进来，原样交给宿主。
-if (source.Value === "(" || source.Value === "{") {
+// **尾巴上的 `(` / `{` / `;` 不属于这条链** ⇒ 一个字都不落进来，原样交给宿主。
+//
+// **`;` 是第 663 轮补上的**：体的形状判完之后，尾巴上那个 `;` 是**宿主的一条空语句**
+// （TS：`if (a) {} ;` 是 `IfStatement` + `EmptyStatement` 两条），不是这条链的东西。
+// 少了它，`;` 会先被 `Lex` 收成 `SymbolToken` 落进本单元的 `Data`
+// ⇒ 终结符一落下就触发 `Statement.FormFrom`，而那一刻段还是**生料**形状
+// ⇒ 壳把整段 `if (a) {}` 连同那个 `;` 一起收走 ⇒ 本单元的段没了、
+// `GiveBack` 找不到 `lastSegment` ⇒ 签不出终点 ⇒ 随后的 `AddAndCloseLast` 撞上
+// `SourceException: SourceRange.Start == null || SourceRange.End == null`，**整份文件解析失败**
+// （实测 `if (a) {} ;` / `if (a) {}\n;` / `if (a) {} else {} ;` 三条都是这一个根因）。
+if (source.Value === "(" || source.Value === "{" || source.Value === ";") {
   this.GiveBack(context, source, false);
   return;
 }

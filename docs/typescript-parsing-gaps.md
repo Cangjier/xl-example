@@ -79,10 +79,13 @@
   ——`while (a) /* c */;` 原来判不出空体（`EmptyBodyAt` 记不下、投影画不出 `EmptyStatement`）、
   `while (a) /* c */ {}` 也记不下 `BodyBrace`；头与体之间那些注释按 `CommentsIn` 收进体段不丢。
   剩下的最小片段照旧按族留在 `tmp/` 的探针集合里（不进仓库）。
-- **(b) 空语句 `;` 与「声明 / 块后面紧跟 `;`」的关闭规则**：`if (a) {} ;` 目前仍抛
-  `SourceException: SourceRange.Start == null`，`while (a) {} ;` / `function f() {} ;` 少一个
-  `EmptyStatement`、`{ a(); } ;` 的 `Block` 把那个 `;` 吞进区间。第 657 轮收掉了其中一支
-  （`if (a) ; else ;` 一族的崩溃与形状，见 `IfSegment.EmptyBodyAt`），这一族还剩上列几条。
+- **(b) 空语句 `;`**：**第 663 轮收完**（`if (a) {} ;` 一族的三条崩溃、`while` / `for` /
+  `function` / `class` / `switch` / `try` / 裸块后面那个 `;` 缺 `EmptyStatement`、
+  `;;` 那一格上一条语句多一格）。三个落点：`IfSet` 的尾巴把 `;` 交还宿主；
+  `Statement.SplitShell` 拆「壳里只剩一格语句级单元、而壳的区间还长着」那种壳，
+  把被吞掉的尾分号还原成一条空语句；投影侧按 kind（`NO_TRAILING_SEMICOLON`）判那个 `;`
+  归上一条还是自成一条。**反面同样钉住了**：导入断言 / 环境签名后面那个 `;`
+  是声明自己的终结符（`stmt-semicolon-*` 三份 + `decl-ambient-signature-semicolon`）。
 - **(c) 少数构造在组合下整节点丢失**：可选链 × `as` / `satisfies`、`f!(1)` 的实参、
   泛型实例化表达式 `f<string>`、`async<T>(x) => x`、`get /*c*/ x()` 存取器、
   `let g = f<string>;`、简写环境模块 `declare module "mm";`。

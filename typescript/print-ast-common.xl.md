@@ -1492,7 +1492,30 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
         semi >= previous.end &&
         previous.kind !== "EmptyStatement"
       ) {
-        previous.end = semi + 1;
+        // **这个 `;` 归上一条还是自成一条，看 TS 的语法**（第 663 轮）
+        // ——「并进上一条」原来是一刀切，于是**块收尾的语句**后面那个 `;` 被并走、
+        // 自己那条 `EmptyStatement` 整格不见（实测 `if (a) {} ;` / `class C {} ;` /
+        // `{ a(); } ;` 各缺 1、上一条各漂 1）。
+        //
+        // 两道判据，缺一不可：
+        // · **上一条的原文已经以 `;` 收尾**（`let a = 1;;` 的第二格）：那它已经有终结符了
+        //   ⇒ 这一格是新的空语句。`projectStatement` 看不出这层（它只看到「行中一个 `;`」）。
+        // · **kind 落在「不吃尾分号」那一张表里**（`NO_TRAILING_SEMICOLON`）：
+        //   TS 那边 `if` / `while` / `for` / `switch` / `try` / 类 / 块收在 `}` 上、
+        //   不调 `parseSemicolon` ⇒ 紧跟的 `;` 是 `EmptyStatement`。
+        //
+        // 反过来，吃尾分号的那些（导入 / 导出 / 变量 / 表达式 / `do…while` / 类型别名…）
+        // 照旧并进来 —— `import d from "./d.json" assert { type: "json" };` 的 `;`
+        // 就是 **ImportDeclaration 自己的**终结符，那不是空语句。
+        const endsWithSemicolon = previous.end > 0 && ctx.source[previous.end - 1] === ";";
+        const kind = String(previous.kind);
+        // **没体的函数声明是环境签名 / 重载**：那个 `;` 归它自己（`declare function f(): void;`）。
+        const signatureOnly = kind === "FunctionDeclaration" && previous.body === undefined;
+        if (endsWithSemicolon || (signatureOnly === false && NO_TRAILING_SEMICOLON.has(kind))) {
+          out.push({ kind: "EmptyStatement", pos: semi, end: semi + 1 });
+        } else {
+          previous.end = semi + 1;
+        }
       }
     }
     i++;
@@ -1644,6 +1667,37 @@ new Map([
 
 # private const KEYWORD_STATEMENT_EXPRESSION:Set<string> = new Set(["ReturnStatement", "ThrowStatement"])
 
+# private const NO_TRAILING_SEMICOLON:Set<string>
+
+**这些 kind 在 TS 那边收在块 / `}` 上、不调 `parseSemicolon`** ⇒ 紧跟它们的一个 `;`
+是一条新的 `EmptyStatement`，而不是它们的终结符（第 663 轮）。
+
+名单照 TS 的 parser 列：`if` / `while` / `for` / `for…in` / `for…of` / `switch` / `try` /
+裸块收在 `}` 上；类 / 枚举 / 接口 / 命名空间 / 环境模块同样收在自己的 `}` 上。
+**`DoStatement` 不在名单里**——`do … while (c)` 后面那个 `;` 归它自己；
+**导入 / 导出 / 变量 / 表达式 / 类型别名也不在**——那几族自己就吃尾分号。
+
+**`FunctionDeclaration` 按「有没有体」分两档**（见调用点）：带体的是声明、收在 `}` 上；
+**没有体的是环境签名 / 重载**（`declare function f(): void;`），那个 `;` 归它自己。
+
+```ts
+new Set([
+  "Block",
+  "ClassDeclaration",
+  "EnumDeclaration",
+  "ForInStatement",
+  "ForOfStatement",
+  "ForStatement",
+  "FunctionDeclaration",
+  "IfStatement",
+  "InterfaceDeclaration",
+  "ModuleDeclaration",
+  "SwitchStatement",
+  "TryStatement",
+  "WhileStatement",
+])
+```
+
 # private const STATEMENT_KINDS:Set<string>
 
 这些 kind 在 TS 那边**本身就是语句**——单个子单元是它们时不能再套 `ExpressionStatement`。
@@ -1737,6 +1791,8 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       // 而 `.d.ts` 里「成员声明后面那个 `;`」写在**行尾**（`a: string;`），TS 那边它不是节点。
       // 语句规则分不出这两者（都只是「孤零零一个 `;`」），所以在这里按行首 / 行尾筛：
       // 一刀切收下来会让整个语料多出 3439 个 `EmptyStatement`（实测，第一次就是这么翻车的）。
+      // **中间那些 `;` 归上一条还是自成一条，由列表那一趟按 kind 定**（见 `projectEach` 的
+      // 「被吃掉的 `;`」那一支）—— 这里只把「行首的」放行，其余交出去。
       let lineStart = v.start;
       while (lineStart > 0 && ctx.source[lineStart - 1] !== "\n") lineStart--;
       // **前面只有别空语句时也算行首**（第 179 轮）：`;;` 的第二个 `;` 前面那格是第一个 `;`，
