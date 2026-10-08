@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8274,
+  "total": 8282,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.55,
+  "progressPercent": 95.51,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1115,
+      "total": 1116,
       "pass": 1075,
-      "blocked": 5,
+      "blocked": 6,
       "differ": 35,
       "nodefail": 0,
-      "coverage": 96.41
+      "coverage": 96.33
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3283,
-      "pass": 3201,
+      "total": 3290,
+      "pass": 3205,
       "blocked": 25,
-      "differ": 57,
+      "differ": 60,
       "nodefail": 0,
-      "coverage": 97.5
+      "coverage": 97.42
     },
     {
       "category": "e2e",
@@ -1542,6 +1542,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: typeof"
     },
     {
+      "id": "runtime/round771/r771c-01",
+      "category": "runtime",
+      "title": "成员调用落在空值接收者上：整份脚本被带走",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1853,7 +1859,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13388/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27832/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2147,7 +2153,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13388/src/5287.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27832/src/5288.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2171,7 +2177,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13388/src/5337.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27832/src/5338.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2418,6 +2424,24 @@
       "category": "stdlib",
       "title": "缺省的 `Function.prototype[Symbol.hasInstance]`：本仓那一格是空的",
       "detail": "stdout 不同：第 1 行：node «01 function» vs tsrun «01 undefined»"
+    },
+    {
+      "id": "stdlib/round771/r771a-03",
+      "category": "stdlib",
+      "title": "`Symbol` 接收者与原始值装箱",
+      "detail": "stdout 不同：第 1 行：node «01 Object.keys(Symbol('s') as any) ok:object:Array» vs tsrun «01 Object.keys(Symbol('s') as any) throw:Error»"
+    },
+    {
+      "id": "stdlib/round771/r771b-02",
+      "category": "stdlib",
+      "title": "`JSON` 那两个入口的实参与值",
+      "detail": "stdout 不同：第 1 行：node «01 (JSON.stringify as any)(Symbol('s')) ok:undefined:undefined» vs tsrun «01 (JSON.stringify as any)(Symbol('s')) throw:TypeError»"
+    },
+    {
+      "id": "stdlib/round771/r771b-03",
+      "category": "stdlib",
+      "title": "`Promise` 那一族的实参校验",
+      "detail": "stdout 不同：第 1 行：node «01 (Promise.all as any)(1).catch((e: any) ok:object:Promise» vs tsrun «01 (Promise.all as any)(1).catch((e: any) throw:Error»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

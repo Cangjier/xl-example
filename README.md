@@ -306,6 +306,47 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 771 轮：**不匹配的接收者**那一族——十三处一起换成 `TypeError`，另登记四处
+
+**一句话**：接着第 770 轮那条线往**别的内建**上量（`String` / `Number` / 集合 / `Date` /
+`JSON` / 承诺 / 符号），收掉一处**跨四个内建**的根（「接收者不对就抛笼统的 `Error`」），
+另登记四处缺口——其中一条是这一轮**唯一**量到「整份脚本被带走」的那一格。
+
+- **收掉的根**（`stdlib/round771/r771b-01`，15 行）：`Map` / `Set` / `WeakMap` 的实例方法
+  与 `Date` 的实例方法在不匹配的接收者上都抛**笼统的 `Error`**——而 JS 一律 `TypeError`：
+  `Map.prototype.get.call({}, 1)` 是
+  `TypeError: Method Map.prototype.get called on incompatible receiver #<Object>`、
+  `Date.prototype.getTime.call({})` 是 `TypeError: this is not a Date object.`。
+  改法两处：`map.xl.md` 的 `ReadOwn`（`Map` / `Set` 两族的**唯一**出口，
+  所以一处改完两族都好）与 `globals.xl.md` 里 `Date` 那**九处**同一句
+  （`replace_all` 一次换完）。**V8 那句里的 `#<Object>` 那一截没有复现**
+  （它要接收者的内部标签，这一层手上只有 `Value.Tag`）——**写在明处**：族对上了、措辞差一截。
+- **顺手收掉**（`stdlib/round771/r771b-05`）：`Object.prototype.valueOf.call(null)` 在 JS 里
+  先走 `RequireObjectCoercible`（`TypeError: Cannot convert undefined or null to object`），
+  本仓原来**把 `null` 原样交回去了**（`ok:object:null`）。这一句与第 691 / 706 轮
+  `hasOwnProperty` / `__lookupGetter__` 那两处**同一句**。
+- **新登四条**（都带 `xl:why`）：
+  ① `runtime/round771/r771c-01`——**成员调用落在空值接收者上**（`u.x()`，`u` 是 `undefined`）：
+  JS 给 `TypeError`、**脚本自己接得住**，本仓**整份脚本被引擎带走**
+  （`cannot call a non-closure value`，退出码 1、后面的行一行都不打印）。
+  这一条按 `blocked` 记（**它在本仓跑不完**，比不出 stdout——与 `differ` 不是一件事）。
+  ② `stdlib/round771/r771b-02`——`JSON.stringify(Symbol())` 该给 `undefined`（不抛）、
+  `JSON.parse(1)` 该先 `ToString` 实参。
+  ③ `stdlib/round771/r771b-03`——`Promise.all(1)` / `Promise.race({})` 在 JS 里
+  **返回一个被拒的承诺**（错在微任务里），本仓**同步抛**；`Promise.resolve.call(null, 1)`
+  该抛 `TypeError`（接收者不是构造函数）。
+  ④ `stdlib/round771/r771a-03`——**符号包装对象**与原始值装箱：`Object.keys(Symbol())` 该给
+  `[]`、`Object.getPrototypeOf(Symbol())` 该给 `Symbol.prototype`、
+  `Object.prototype.valueOf.call("x")` 该给一个 String 包装对象。
+- 守卫（这一轮量下来本来全对、收进语料）：`String` / `Number` / `Boolean` 原型方法在
+  **原始值接收者**上的通用行为（`charAt.call(1, 0)` 给 `"1"`、`toFixed.call("1", 2)` 给 `"1.00"`）
+  与实参校验（`repeat(-1)` / `toFixed(101)` / `toString(37)` 各抛哪一族）、
+  `parseInt` / `Number` / `Math` 遇上符号那一族的响亮失败。
+- 用例：`stdlib/round771` 七条 + `runtime/round771` 一条（**4 条通过、4 条登记**）。
+  五类 7886 / 8274 → **7890 / 8282**、blocked 264 → 265（+1 那条跑不完的）、
+  differ 124 → 127（+3）、bad 0、regressions 0，加权 **95.6% → 95.5%**。
+  八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+
 ### 第 770 轮：**抛出来的族**与**接收者的 `ToObject`**——三处根、两条旧账到期
 
 **一句话**：这一轮的普查面就是上一轮新登的那两条缺口所在的族——

@@ -3996,6 +3996,17 @@ if (id === FunctionToString) {
 if (id === ObjectValueOf) {
   // **返回接收者自己**（第 198 轮，与 `NumberValueOf` 同一条口径）——
   // `Object.prototype.valueOf` 是 JS 里最"空"的一个方法，而它**永远是对的**。
+  //
+  // **第 771 轮补上前面那一步 `RequireObjectCoercible`**（JS 的第一步）：
+  // `Object.prototype.valueOf.call(null)` 在 Node 里是
+  // `TypeError: Cannot convert undefined or null to object`，而本仓原来**把 `null`
+  // 原样交回去了**（判据 `stdlib/round771/r771b-02` 第 10 行：`ok:object:null`）。这一句
+  // 与 `__lookupGetter__` / `hasOwnProperty` 那两处**同一句**（第 691 / 706 轮就写下了）。
+  // **原始值那一档照旧原样交回**（JS 在那里会给包装对象，那是**已知差**、
+  // 与 `Object(1)` 装箱那一族同一处，不顺手改：`ToPrimitive` 那一趟就在这条路上）。
+  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+    throw new TypeError("Cannot convert undefined or null to object");
+  }
   return self;
 }
 if (id === ObjectLookupGetter || id === ObjectLookupSetter) {
@@ -6029,7 +6040,10 @@ if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
   // **实例方法**：先从 `__t` 取毫秒（`self` 就是那个实例）。
   const stored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
-  if (stored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  // **第 771 轮：族与措辞都照 V8**——`Date.prototype.getTime.call({})` 在 Node 里是
+  // `TypeError: this is not a Date object.`（**句号也在**），原来给的是笼统的 `Error`
+  // （判据 `stdlib/round771/r771b-01` 第 12 / 13 行）。九处**同一句**，一起换。
+  if (stored === null) throw new TypeError("this is not a Date object.");
   const ms = NumericOf(table.Get(stored.Owner).Props[stored.Index].Value);
   if (id === DateGetTime) return MathResult(ms);
   // **非有限的时刻先把 `NaN` 交回去**（第 702 轮）：JS 对 `Invalid Date` 的**每一个**
@@ -6086,7 +6100,7 @@ if (id === DateToString) {
   // 同一份日期在同一个程序里会有两套读法。
   const textStored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
-  if (textStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  if (textStored === null) throw new TypeError("this is not a Date object.");
   const textMs = NumericOf(table.Get(textStored.Owner).Props[textStored.Index].Value);
   // **非法日期那一档**：`"Invalid Date"` 恰好 12 个码元。
   if (textMs !== textMs) {
@@ -6103,7 +6117,7 @@ if (id === DateToISOString || id === DateToJSON) {
   // 那一格**用不上**（日期串与键无关），所以两支合并**没有代价**。
   const isoStored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
-  if (isoStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  if (isoStored === null) throw new TypeError("this is not a Date object.");
   const isoMs = NumericOf(table.Get(isoStored.Owner).Props[isoStored.Index].Value);
   // **非法日期两档不一样**（第 605 轮）：`toISOString` 抛 `RangeError`、
   // `toJSON` 给 **`null`**（规范原话：`tv` 不是有限数就返回 `null`）——
@@ -6124,7 +6138,7 @@ if (id === DateToUTCString) {
   // 不是区域表（UTC 那一种拼法在规范里就是固定的）。
   const utcStored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
-  if (utcStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  if (utcStored === null) throw new TypeError("this is not a Date object.");
   const utcMs = NumericOf(table.Get(utcStored.Owner).Props[utcStored.Index].Value);
   if (utcMs !== utcMs) {
     if (!room(ObjectCharge + CodeUnitCharge * 12)) throw new Error("out of room");
@@ -6139,7 +6153,7 @@ if (id === DateGetTimezoneOffset) {
   // 仍然是**实例方法**：不是 Date 接收者要照样抛（与其余 getter 同一道门）。
   const tzStored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
-  if (tzStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  if (tzStored === null) throw new TypeError("this is not a Date object.");
   return Value.FromInt(0);
 }
 if (id === DateGetYear) {
@@ -6147,7 +6161,7 @@ if (id === DateGetYear) {
   // 给 `NaN`（Node 给 `NaN`，不抛）。
   const yearStored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
-  if (yearStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  if (yearStored === null) throw new TypeError("this is not a Date object.");
   const yearMs = NumericOf(table.Get(yearStored.Owner).Props[yearStored.Index].Value);
   if (yearMs !== yearMs) return Value.FromDouble(NaN);
   return Value.FromInt(DateParts(yearMs)[0] - 1900);
@@ -6158,7 +6172,7 @@ if (id === DateSetTime) {
   // Invalid Date，而那正是 JS 的口径。返回换上去的那个数。
   const timeStored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
-  if (timeStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  if (timeStored === null) throw new TypeError("this is not a Date object.");
   const asked = args.length > 0 ? ToNumberOf(room, call, protos, table, args[0]) : NaN;
   table.Get(timeStored.Owner).Props[timeStored.Index].Value = Value.FromDouble(asked);
   return Value.FromDouble(asked);
@@ -6169,7 +6183,7 @@ if (id === DateSetYear) {
   // **月与日不动**（JS 的口径：`setYear` 只换年那一格）。
   const setYearStored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
-  if (setYearStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  if (setYearStored === null) throw new TypeError("this is not a Date object.");
   const setYearMs = NumericOf(table.Get(setYearStored.Owner).Props[setYearStored.Index].Value);
   const askedYear2 = args.length > 0
     ? IntOfNumberStrict(ToNumberOf(room, call, protos, table, args[0])) : -2147483648;
@@ -6192,7 +6206,7 @@ if (id === DateSetUTCFullYear || id === DateSetUTCMonth || id === DateSetUTCDate
   // `setUTCHours(时, 分?, 秒?, 毫秒?)` 都不一样）。
   const setStored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
-  if (setStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  if (setStored === null) throw new TypeError("this is not a Date object.");
   const setMs = NumericOf(table.Get(setStored.Owner).Props[setStored.Index].Value);
   const dateBits = DateParts(setMs);
   const clockBits = DateClockParts(setMs);

@@ -149,7 +149,15 @@ throw new Error("unimplemented: map method id " + id);
 ```ts
 const key = NameValue(table, name);
 const found = FindProperty(room, table, self.Ref, key);
-if (found === null) throw new Error("unimplemented: not a Map receiver (no " + name + ")");
+// **第 771 轮：抛的是 `TypeError`**（JS 在这一步要的是 `[[MapData]]` 那个内部槽）。
+// `Map.prototype.get.call({}, 1)` / `Set.prototype.add.call(null, 1)` /
+// `Object.getOwnPropertyDescriptor(Map.prototype, "size").get.call({})` 在 Node 里
+// 一律 `TypeError: Method Map.prototype.get called on incompatible receiver #<Object>`，
+// 而本仓原来给的是笼统的 `Error` ⇒ 脚本里 `catch (e) { if (e instanceof TypeError) … }`
+// 那一支走不到（判据 `stdlib/round771/r771b-01`，一次量出十一行）。
+// **V8 那句话里的 `#<Object>` 那一截没有复现**（它要接收者的内部标签，
+// 这一层手上只有 `Value` 的 `Tag`）——写在明处：族对上了、措辞差一截。
+if (found === null) throw new TypeError("Method " + name + " called on an incompatible receiver");
 return table.Get(found.Owner).Props[found.Index].Value;
 ```
 
