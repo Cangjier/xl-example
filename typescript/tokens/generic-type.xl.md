@@ -404,13 +404,35 @@ if (item === "_" || item === "." || item === "," || item === "?") {
 return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
 ```
 
-## private method IsTypePosition:(unit:Token)=>bool
+## private method IsTypePosition:(unit:Token, from:int = -1, bounded:bool = false)=>bool
 
 从宿主单元的 `Data` **往前**找最近的边界，判定当前处在类型位还是表达式位。
+`from` 是回扫的起点（默认最后一个）；**换一个起点**只为下面「宿主是一对方括号」那一条 ——
+位置答案在括号**自己那一层**，所以那一支换宿主、换起点再问一次。
+
+`bounded` 是那一支专用的收窄（**只在递归那一趟为真**）：只走**当前这一条声明**，
+括号与语句壳都是边界。不放它的话这一趟会走出声明之外 ✗——函数体在解析期是**摊平在 `Root` 上的
+一堆 `Statement`**（`((` 那一格往前全是别的语句），回扫会一路穿到**上一条声明的** `:` / `=` / `type` 上，
+把 `while (at < units.length && …)` 里的 `<` 判成类型位 ✗
+（实测 `typescript-exec/builtins/globals.ts`：整份文件散架，缺 5385 个 `Identifier`）。
+类型位那一档（`type X = K[A<B, C>]` / `let v: K[A<B, C>]`）**根本走不到那些壳** ✓——
+它撞上的是 `=` / `:` ✓。
 
 规则：
 
 - 宿主自己就是 `GenericType` → 类型位（嵌套 `Array<Array<T>>`、`Map<String, Int64>` 的内层直接成立）。
+- **宿主是一对方括号，而括号自己在类型位** → 类型位（第 644 轮 ✓）：
+  `K[A<B, C>]` 里那个 `<` 被读进来时，宿主是还没成形的 `[`（`TypeBracketCloseRule` 要等括号关闭才动 ✓），
+  它的 `Data` 里只有 `K` / `A` 两个**操作数** ⇒ 本地回扫到头只能答「表达式位」✗。
+  而这一格问的其实是**那个方括号在不在类型位**——答案在括号自己那一层（它的前一个实义单元是
+  类型名，再往前是 `=` → `type` / `:`）✓。所以这一支**换宿主、换起点**把同一个问题再问一次 ✓
+  （起点是括号在父单元里的下标减一 ✓，不能从父单元的末尾回扫 ✗：那里有括号**后面**的东西 ✓）。
+  **只会把「否」翻成「是」，不会翻回去** ✓：括号不在类型位时这一支一句话不说 ✓，
+  本地那一趟照旧（值位对象字面量里的 `<T>()` 缺的正是这一支的反面 ✓）。
+  **只认方括号** ✗：`(` / `{` 走这条会当场踩到**函数体那个 `{`** ——
+  它的前一个实义单元正是返回类型里的 `:` ⇒ 整个函数体被判成类型位 ✗
+  （实测 `typescript-exec/builtins/globals.ts`：`while (at < units.length)` 里的 `<` 成了泛型开头，
+  整份文件散架，缺 5385 个 `Identifier`）。这一格要的只是 `K[…]` 那种**下标访问** ✓。
 - 最近的边界是 `:` / `?:` 或 `->` / `=>` → 类型位（类型标注、可选成员的标注、返回类型、`<:` 约束、
   函数类型的返回类型）。**`=>` 是第 58 轮补的**：`type F = () => Iterable<T> | AsyncIterable<T>`
   里 `<T>` 的扫描会先撞上 `=>`，不认它的话返回类型整段退回比较运算符
@@ -453,6 +475,16 @@ return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
 if (unit instanceof GenericType) {
   return true;
 }
+// **宿主是一对方括号，而括号自己在类型位**（第 644 轮）：`K[A<B, C>]` 的 `<` 宿主是那个还没
+// 成形的 `[`（`TypeBracketCloseRule` 要等它关闭才动），而它 `Data` 里只有 `K` / `A` 两个操作数
+// ⇒ 本地回扫问不出位置。**换宿主、换起点**把同一个问题再问一次：位置答案就在括号自己那一层。
+// 起点必须是括号在父单元里的下标减一（不能从父单元末尾回扫——那里有括号后面的 `>` / `]`）。
+if (unit instanceof Bracket && unit.startBracket === "[" && unit.Parent !== null) {
+  const bracketAt = unit.Parent.Data.indexOf(unit);
+  if (bracketAt > 0 && this.IsTypePosition(unit.Parent, bracketAt - 1, true)) {
+    return true;
+  }
+}
 // **模板字面量类型的插值段**（第 129 轮）：`` type X = `${Foo<Bar>}` `` 里那个 `<` 的宿主
 // 是插值段（也可能是外层那个 `String`），往上找不到类型容器——它的类型位答案在
 // 「外层 `String` 在它自己那一格前面是什么」，那正是 `IsTemplateTypeContent` 的回答
@@ -475,7 +507,7 @@ let crossedAssignment = false;
 let justCrossedAssignment = false;
 // 回扫路上有没有撞见**操作数**（名字 / 括号）——见函数末尾那一条的说明。
 let sawOperand = false;
-for (let i = unit.Data.length - 1; i >= 0; i--) {
+for (let i = from >= 0 ? from : unit.Data.length - 1; i >= 0; i--) {
   const item = unit.Data[i];
   if (item instanceof LineWrap || item instanceof GenericType) {
     continue;
@@ -533,6 +565,10 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
     return false;
   }
   if (item instanceof Bracket) {
+    // **递归那一趟里括号就是边界**（第 644 轮）：见 `bounded` 那一段的账 ✓。
+    if (bounded) {
+      return false;
+    }
     const beforeBracket = i - 1 >= 0 ? unit.Data[i - 1] : null;
     if (beforeBracket instanceof Identifier && beforeBracket.Is("import")) {
       i = i - 1;
@@ -628,6 +664,11 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
   // 把它算成「看见操作数」，回扫就再也翻不成类型位（实测 `expr-angle-assertion.ts`）。
   const triviaOnly =
     item.constructor.name === "Statement" && item.Data.every((x) => IsTriviaUnit(x));
+  // **递归那一趟只走当前这一条声明**（第 644 轮）：语句壳不是操作数，是**边界** ✓——
+  // 见 `bounded` 那一段的账 ✓。
+  if (bounded) {
+    return false;
+  }
   if (triviaOnly === false && IsTriviaUnit(item) === false) {
     sawOperand = true;
   }

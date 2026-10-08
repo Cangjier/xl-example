@@ -55,7 +55,7 @@
 
 ## 已知仍开着的缺口
 
-五条都是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
+四条都是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
 **不在语料里**——所以七道门是绿的，而它们是真实存在的形状：
 - **对象字面量里的「语句关键字」当成员名**：`{ if(): T { … } }` / `{ function(): T { … } }`。
   **其余三十来个保留字都已经对了**（第 640 轮，`return` / `throw` / `delete` / `new` / `in` /
@@ -78,14 +78,15 @@
   `SwitchStatement`。**换行写法是好的**（`default:` 自己一条壳），所以只有单行 / 压缩过的代码中招。
   同族的那条「块后面紧跟着表达式」在 [README](../README.md) 的「开着的缺口」里，改法已被否决过
   （块当语句边界会切断复合赋值的展开），这一条要修得先能区分「块 + `case`」与「块 + 操作数」。
-- **带两个以上实参的泛型出现在下标访问的方括号里**：`type X = K[A<B, C>]`。
-  括号的内容是在**括号关闭那一刻**重组的，那时它的父单元还是 `Bracket`，
-  `IsTypeContainerUnit` 判否 ⇒ `A<B, C>` 一个节点都不成形（实测产物里是散着的
-  `< A B , C >`，投影于是丢掉第二个实参）⇒ TS 那边多出 `TypeReference(C)`。
-  顶层（`A<B, C>`）与嵌在别的泛型里（`Array<A<B, C>>`）都是好的——
-  修法在 `type-bracket.xl.md` 这一侧：像 `ParenthesizedTypeCloseRule` 那样，
-  在括号换父成 `IndexedAccessType` 之后**重跑一遍括号自己的队列**（`text-common-util.xl.md`
-  的 `IsTypeContainerUnit` 已经认 `IndexedAccessType`，缺的只是那一趟）。
+- **带两个以上实参的泛型出现在下标访问的方括号里**：**已修**（第 644 轮）——
+  `type X = K[A<B, C>]` 里那个 `<` 的宿主是**还没成形的 `[`**，它自己的 `Data` 里只有 `K` / `A`
+  两个操作数，本地回扫只能答「表达式位」。修法不是原来记的「重跑括号自己的队列」（那条路走不通：
+  `GenericType` 由**跳转向导**在读取时成形，关闭之后重跑收尾规则补不回来），
+  而是 `generic-type.xl.md` 的 `IsTypePosition` 多一档：宿主是**方括号**时，
+  换宿主、换起点（括号在父单元里的下标减一）把同一个问题再问一次，并加一个 `bounded`
+  收窄——只走当前这一条声明，括号与语句壳都是边界（函数体在解析期摊平在 `Root` 上，
+  不收窄会一路穿到上一条声明的 `:` 上）。用例
+  [`type-indexed-access-generic-args.ts`](../tests/parse/cases/types/type-indexed-access-generic-args.ts)。
 - **非空断言的成员链后面**`再**接一个字符串**（第 638 轮又缩了一次 ✓）：
   `o.a!.toString() + "x" + "y"` 里**第一个 `+`** 折不出来 ✓ ⇒ 后面那个 `"y"` 反而被
   `PropertyAccessCloseRule` 当成成员链收了 ✗（实测缺 `CallExpression` / `PlusToken` /
