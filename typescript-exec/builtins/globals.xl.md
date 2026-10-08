@@ -4357,7 +4357,19 @@ if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === Con
 }
 if (id === ObjectAssign) {
   // **目标必须是对象**：JS 会装箱，本仓没有装箱那一层——响亮地抛。
-  if (args.length < 1 || !args[0].IsObject()) {
+  //
+  // **`null` / `undefined` 那一档要抛 `TypeError`**（第 748 轮，**普查当场红的**）：
+  // 规范里 `Object.assign` 的第一句就是 `ToObject(target)`，而它对这两个值**只抛**
+  // `TypeError`（`Object.assign(1, {})` 装箱成 `Number`、照常返回那个包装对象）。
+  // 原来这一支**两种情形合在一起抛了一句普通 `Error`** ⇒
+  // `Object.assign(null as any, {})` 在 Node 里是 `e instanceof TypeError` 为真、
+  // 本仓为假（判据 `p748b-b05` 打出 `null target Error`，而 Node 打 `null target TypeError`）。
+  // **只改这一档的名字，不改口径**：原始值目标仍然**响亮地抛**（装箱那一层没做，
+  // 「给一个假的装箱结果」比抛坏得多）——这一条记在下面那句的措辞里。
+  if (args.length < 1 || args[0].Tag === ValueTag.Null || args[0].Tag === ValueTag.Undefined) {
+    throw new TypeError("Cannot convert undefined or null to object");
+  }
+  if (!args[0].IsObject()) {
     throw new Error("unimplemented: Object.assign needs an object as the target "
       + "(boxing a primitive is not supported)");
   }

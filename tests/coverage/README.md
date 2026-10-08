@@ -427,6 +427,27 @@
    （与 `001` / `probe697-e11` 同根）、展开不可迭代对象抛的是普通 `Error`
    而不是 `TypeError`（与 `probe696-i08` 同根）。加权 **95.7% → 95.7%**
    （分子 +165、分母 +168）。
+   **第 748 轮全矩阵**（26 条新语料，收掉两处、新登 6 条）：通过
+   **7711 → 7731**、分母 **8069 → 8095**、`blocked 261`（**没动**）、
+   `differ 97 → 103`、`bad` 仍 **0**、`regressions` **0**、`moved` 0、
+   `newlyPassing` 0——**收掉两处**：
+   ① **`delete` 打在原始值接收者上**（`p748a-a08`，**整份文件进不来**）：
+      `delete (s as any)[0]` 在 JS 里恒给 `true`（`ToObject` 的包装对象当场丢掉，
+      那一步只看「成功了吗」），而 `vm.xl.md` 的 `del_prop` 响亮地抛
+      `unimplemented: delete on a primitive receiver`。修法是那一支先分流
+      （非对象 ⇒ `Value.FromBool(true)`），排在 `ToPropertyKey` 之前。
+   ② **`Object.assign(null, {})` 抛普通 `Error`**（`p748b-b05`）：规范第一句
+      `ToObject(target)` 只抛 `TypeError`，而 `globals.xl.md` 那一支把
+      「`null` / `undefined`」与「原始值目标（装箱没做）」合在一句里抛。
+      修法是前者单开一档抛 `TypeError`，原始值目标**照旧响亮地抛**。
+   本批另登记 6 条新缺口（`differ` +6）：**TDZ 那一格的 `typeof`**（`p748a-a01`）、
+   **块里的函数声明在声明之前调用**（`p748a-a03`）、**`delete` 字符串下标该给 `false`**
+   （`p748a-a08` 的第三行）、**`console.log` 打自引用对象**（`p748a-a11`，
+   按已见引用截断 vs 按深度截断）、**`.then(undefined)` 不把源那一档传下去**
+   （`p748a-a16`——量到「结清值到不了任务上」，两版修法都退回了）、
+   **`for…of` 遍历中改动的 `Map` / `Set`**（`p748b-b01`，与第 687 轮
+   `110-forof-live-view-not-taken` 同一条根）。加权 **96.0% → 95.9%**
+   （分子 +20、分母 +26）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。
@@ -555,6 +576,14 @@ node tests/coverage/run.mjs --emit-ledger        # 按现状打一份台账骨�
 各条的当前读数见根目录 [README](../../README.md) 的「当前状态」。
 
 ## 已知的账（**不是口径**，是待做项）
+
+**第 748 轮新登的 6 条**（根因逐条写在用例自己的 `xl:why` 里，这里只留索引）：
+`runtime/round748/p748a-a01`（TDZ 的 `typeof`）、`p748a-a03`（块级函数声明的提升）、
+`p748a-a08`（`delete` 字符串下标该给 `false`）、`p748a-a11`（自引用对象的渲染口径）、
+`p748a-a16`（`.then(undefined)` 的传递——**量到的是「结清值到不了任务上」**）、
+`stdlib/round748/p748b-b01`（`for…of` 的活迭代器，与
+[`stdlib/map-set/110-forof-live-view-not-taken`](../cases/stdlib/map-set/110-forof-live-view-not-taken.ts)
+同一条根）。
 
 **口径外只剩「裁判给不出来」那一档**：装饰器 1 条、`xl:ts-invalid` 9 条、`.tsx` 4 条。
 其余一律进分母，`RegExp` 族 7 条、`BigInt` 族 4 条、多文件导入 1 条、动态 `import()` 1 条、

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8069,
+  "total": 8095,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.99,
+  "progressPercent": 95.87,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1007,
-      "pass": 987,
+      "total": 1023,
+      "pass": 998,
       "blocked": 2,
-      "differ": 18,
+      "differ": 23,
       "nodefail": 0,
-      "coverage": 98.01
+      "coverage": 97.56
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3186,
-      "pass": 3115,
+      "total": 3196,
+      "pass": 3124,
       "blocked": 25,
-      "differ": 46,
+      "differ": 47,
       "nodefail": 0,
-      "coverage": 97.77
+      "coverage": 97.75
     },
     {
       "category": "e2e",
@@ -1841,7 +1841,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15896/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18768/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2012,6 +2012,36 @@
       "detail": "stdout 不同：第 3 行：node «chain caught:boom2» vs tsrun «after fin 2»"
     },
     {
+      "id": "runtime/round748/p748a-a01",
+      "category": "runtime",
+      "title": "TDZ：块里的 `let` 在声明之前 `typeof` 要抛",
+      "detail": "stdout 不同：第 1 行：node «threw ReferenceError» vs tsrun «undefined»"
+    },
+    {
+      "id": "runtime/round748/p748a-a03",
+      "category": "runtime",
+      "title": "提升：`var` 在整个函数里可见、函数声明在块里可调用",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "runtime/round748/p748a-a08",
+      "category": "runtime",
+      "title": "删除进行中的名字：`delete` 的返回值与属性去向",
+      "detail": "stdout 不同：第 3 行：node «false a» vs tsrun «true a»"
+    },
+    {
+      "id": "runtime/round748/p748a-a11",
+      "category": "runtime",
+      "title": "渲染：环 / 深度 / 符号键 / 不可枚举",
+      "detail": "stdout 不同：第 1 行：node «<ref *1> { a: 1, self: [Circular *1] }» vs tsrun «{ a: 1, self: { a: 1, self: { a: 1, self: [Object] } } }»"
+    },
+    {
+      "id": "runtime/round748/p748a-a16",
+      "category": "runtime",
+      "title": "承诺：`finally` 的透传与 `then` 返回新承诺",
+      "detail": "stdout 不同：第 4 行：node «q 2» vs tsrun «skip undefined»"
+    },
+    {
       "id": "stdlib/array/143-getter-array-index",
       "category": "stdlib",
       "title": "数组下标位置上的访问器（`defineProperty`）",
@@ -2045,7 +2075,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15896/src/5179.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18768/src/5195.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2069,7 +2099,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15896/src/5229.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18768/src/5245.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2226,6 +2256,12 @@
       "category": "stdlib",
       "title": "`defineProperty` 装一个**越界**下标访问器时的可枚举性",
       "detail": "stdout 不同：第 1 行：node «3 5 » vs tsrun «3 5 2»"
+    },
+    {
+      "id": "stdlib/round748/p748b-b01",
+      "category": "stdlib",
+      "title": "`Map` / `Set`：迭代中删改的可见性",
+      "detail": "stdout 不同：第 1 行：node «a1,c3,d4 a,c,d» vs tsrun «a1,b2,c3 a,c,d»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

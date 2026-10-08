@@ -2934,7 +2934,18 @@ if (id === RtOp.Instanceof) {
 }
 if (id === RtOp.DelProp) {
   RequireArgc(argc, 2, "del_prop");
-  if (!slots[base].IsObject()) throw new Error("unimplemented: delete on a primitive receiver");
+  // **原始值接收者给 `true`**（第 748 轮，**普查当场红的**）：JS 里 `delete` 对一个
+  // 原始值**从来不动手**——`ToObject` 造出来的那个包装对象当场被丢掉，而规范那一步
+  // （`DeletePropertyOrThrow`）只看「这一步成功了吗」，松松散散的模式下答案恒为 **`true`**。
+  // Node 实测：`delete "abc"[0]` 给 `true`、`"abc"[0]` 照样是 `"a"`（那一格删不掉）；
+  // `delete (1).x` 同样给 `true`。
+  // **原来这里响亮地抛**（`unimplemented: delete on a primitive receiver`）⇒
+  // **整份文件进不来**，而那是一条**遍地都是**的写法（`delete (s as any)[0]` 那种探测，
+  // 判据 `p748a-a08` 现场就是这个）。
+  // **排在 `ToPropertyKey` 那一步之前**：键的**求值**仍然发生（那是实参的求值，
+  // 上面已经做完了），而「删哪一格」对原始值根本没有意义——没有第二份账要记。
+  // **它不是「静默收下」**：这正是 JS 的答案，返回值与 Node 逐字节相同。
+  if (!slots[base].IsObject()) return Value.FromBool(true);
   // **键先过 `ToPropertyKey`**（第 706 轮，**普查当场红的**）——与上面 `in` 那一格
   // **一字不差**（第 123 轮就写着「JS 的 `in` 也走 ToPropertyKey」）：
   // `delete o[1]` 里键是一**个数**、`delete o[k]`（`k` 是 `"1"`）里是一**段文本**，

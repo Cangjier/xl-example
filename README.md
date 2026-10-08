@@ -1567,6 +1567,67 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
   `blocked 261`（没动）、`differ 98 → 97`（+1 新登，两条旧台账上一轮收掉了）、
   `bad` 0、`regressions` 0、`moved` 0、`newlyPassing` 0，加权 **96.0%**。
 
+### 第 748 轮：**词法绑定 / 抛出的形状 / 集合迭代 / 渲染**那一侧的普查——收掉两处、新登 6 条（coverage 7711/8069 → **7731/8095**）
+
+这一轮的探针换到**词法绑定与「跑不进来」的那一类**上（TDZ / `typeof` / 提升 /
+标签 / 抛出的形状 / `in` / 实例判定 / 删除 / 集合成员在迭代中的流向 / 渲染的深度与环），
+26 条探针 **20 条当场通过**，收掉**两处根**、新登 **6 条**：
+
+- **`delete` 打在原始值接收者上**（**整份文件进不来**，判据 `p748a-a08`）：
+  `delete (s as any)[0]` / `delete (1 as any).x` 在 JS 里**恒给 `true`**——
+  `ToObject` 造出来的那个包装对象当场被丢掉，规范那一步
+  （`DeletePropertyOrThrow`）只看「成功了吗」。而 `runtime/vm.xl.md` 的 `del_prop`
+  那一支**响亮地抛**（`unimplemented: delete on a primitive receiver`）⇒
+  整份文件一行都跑不了。**这不是「静默收下」**：`true` 正是 JS 的答案。
+  修法是一支分流（`if (!slots[base].IsObject()) return Value.FromBool(true)`），
+  排在 `ToPropertyKey` **之前**（键的求值照旧发生——那是实参的求值）。
+- **`Object.assign(null, {})` 抛的是普通 `Error`**（判据 `p748b-b05`）：
+  规范第一句是 `ToObject(target)`，它对这个值**只抛 `TypeError`**
+  （Node 的 `e instanceof TypeError` 为真），而 `globals.xl.md` 那一支把
+  「`null` / `undefined`」与「原始值目标（装箱那一层本仓没做）」**合在一句里**抛。
+  修法是 `null` / `undefined` 单开一档抛 `TypeError`；**原始值目标照旧响亮地抛**
+  ——给一个假的装箱结果比抛坏得多（这一条写在用例的期望里）。
+
+**新登的 6 条**（各是一条独立的根，根因写在每条用例自己的 `xl:why` 里）：
+
+1. **TDZ 那一格的 `typeof`**（`p748a-a01`）：块里 `let x` 在**声明之前**被 `typeof`
+   读到，JS 抛 `ReferenceError`、本仓给 `"undefined"`（**静默错值**）。
+   根在 `NameIsUnreachable`：它只回答「这个名字在不在作用域链上」，
+   **不分「找不到」与「还压在 TDZ 里」**——那一处的注释第 149 轮就写着这条缺口。
+   **普通读不受影响**（`ResolveAccess` 照旧抛）。
+2. **块里的函数声明在声明之前调用**（`p748a-a03`）：JS 把它提升到**块顶**（Node 照常打出
+   `block decl`），本仓报 `cannot call a non-callable value`——本仓的提升只到**函数层**。
+3. **`delete` 字符串下标**（`p748a-a08` 的第三行）：JS 给 **`false`**
+   （那一格是字符串异质对象上**不可配置**的一格），本仓给 `true`。
+   **与第 1 条修法不是同一件事**：`delete (1).x` / `delete s.missing` 两边都是 `true`，
+   只有「字符串的下标」这一档要答 `false`——本仓没有那一层（下标是现算的）。
+4. **`console.log` 打自引用对象**（`p748a-a11`）：Node 给 `<ref *1> { a: 1, self: [Circular *1] }`
+   （按**已见过的引用**截断），本仓给三层展开之后 `[Object]`（按**深度**截断）。
+   **值本身是对的**（`o.self.self === o` 两边一样为真），差的只是渲染口径。
+5. **`.then(undefined)` 不把源那一档传下去**（`p748a-a16`）：规范里
+   `onFulfilled` 不是 callable 就换成 `Identity` / `Thrower`，于是 Node 给
+   `skip`（后面那一跳收到 **`1`**），本仓给 `skip undefined`。
+   **这一轮把它量到底了一层**：不是「有没有传」，而是**结清值到不了任务上**——
+   `.then(f)` 挂在**已经结清**的承诺上时 `ScheduleTask` 把值接进 `args`，
+   而队列里那一格**可能当轮就被跑掉**、随后**同一个槽被下一个任务复用**
+   （`FindFreeTask` 的判据是 `Callback` 不是引用）⇒ 那一次的结清值跟着被冲掉
+   （实测：跑 `.then(5)` 那一格时 `args` **是空的**）。**试过两版都退回了**
+   （一版在 `IsRef` 那一句旁边分流、`tsc` 报 `carried` 用在声明之前；
+   一版给 `NativeTask` 添一格 `Settled`——那一版连 `Promise.resolve(1).then(undefined)`
+   都没通，说明结清根本没走到 `ResolvePromise`），**为了不带崩承诺那一族，工作树里
+   没有留下任何一版的痕迹**。下一步是把「已经结清那一支」与 `DrainMicrotasks`
+   的**交错**量清楚。
+6. **`for…of` 一个遍历中改动的 `Map` / `Set`**（`p748b-b01`）：迭代器是**活的**——
+   删掉的那格跳过、新加的看得见；本仓的 `for..of` 走 `GetIterator`，而它交出来的
+   是**一份快照数组**。**这是第 687 轮就登记的那条根**
+   （`stdlib/map-set/110-forof-live-view-not-taken`），这一条把「删掉」与「新加」
+   两个方向钉在同一份语料里。
+
+用例：`runtime/round748` 16 条、`stdlib/round748` 10 条。
+五类 **7711 / 8069 → 7731 / 8095**（+15 runtime、+9 stdlib、另 2 条是新登记的台账）、
+`blocked 261`（**没动**）、`differ 97 → 103`（+6 新登）、`bad` 0、`regressions` 0、
+`moved` 0、`newlyPassing` 0，加权 **96.0% → 95.9%**（新登记缺口的账，不是回归）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1579,7 +1640,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7711 / 8069**，加权 **96.0%**：token 1196/1414、exec 2171/2216、runtime 987/1007、stdlib 3115/3186、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 97），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7731 / 8095**，加权 **95.9%**：token 1196/1414、exec 2171/2216、runtime 998/1023、stdlib 3124/3196、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 103），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 
