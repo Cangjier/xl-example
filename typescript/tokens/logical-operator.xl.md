@@ -122,6 +122,20 @@ return [startIndex, endIndex];
   与 `compound-assignment-operator.xl.md` 的 `FromCompoundAssignment` 是**同一个标记**。
 - 是内容为 `return` 的 `Identifier`，或者是 `op` 等于 `logicalOperatorSymbol` 的 `LogicalOperator`。
 
+**第 738 轮把 `return` 那一格补成四个词**（`yield` / `await` / `throw`）：它们与 `return`
+在这一点上是**同一件事**——都是「**自己不是一个操作数、后面那一段才是**」的前缀词。
+少这一格的症状是**整份文件跑不进来**：`yield 1 && 2` 的 `yield` 被当成链子的左操作数
+⇒ 产物是 `LogicalOperator[yield, 1, &&, 2]` ⇒ 投影取 `kids[0]`（那个词）当 `left`、
+`1` **一个字都没留下**，而那个词在链子里是 `Identifier`（不是 `Keyword`）
+⇒ 投影层给 `yield` / `await` 准备的那两支（`kids[0].get("type") === "Keyword"`）
+够不着它 ⇒ 降级期报 `name is not a local or a capture: yield`。
+
+**与 `return` 同一句判定、同一处**：段从**那个词的后面一格**开始，
+词自己留在外面当兄弟（`return a + b` 的产物就是这个形状：
+`Keyword(return)` + `BinaryOperator`），`yield` / `await` 那两支投影按同一形状读。
+**`throw` 也一样**（`throw x || new Error(…)` 在 `KEYWORD_STATEMENT_KINDS` 里
+已经是一条 `ThrowStatement`，缺的只是这一格不让它被卷进逻辑段）。
+
 分支之间互斥，展开成连续的 `if`，语义相同。
 
 ```ts
@@ -140,7 +154,8 @@ if (current instanceof SymbolToken) {
   }
   return false;
 }
-if (current instanceof Identifier && current.Is("return")) {
+if (current instanceof Identifier
+  && (current.Is("return") || current.Is("yield") || current.Is("await") || current.Is("throw"))) {
   return true;
 }
 return current instanceof LogicalOperator && current.op === logicalOperatorSymbol;

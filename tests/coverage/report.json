@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7886,
+  "total": 7908,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96,
+  "progressPercent": 95.96,
   "categories": [
     {
       "category": "token",
@@ -90,22 +90,22 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2179,
-      "pass": 2130,
-      "blocked": 13,
+      "total": 2185,
+      "pass": 2137,
+      "blocked": 12,
       "differ": 36,
       "nodefail": 0,
-      "coverage": 97.75
+      "coverage": 97.8
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 892,
-      "pass": 876,
+      "total": 908,
+      "pass": 890,
       "blocked": 1,
-      "differ": 15,
+      "differ": 17,
       "nodefail": 0,
-      "coverage": 98.21
+      "coverage": 98.02
     },
     {
       "category": "stdlib",
@@ -1488,12 +1488,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Uint8Array"
     },
     {
-      "id": "exec/round737/p737b-b06",
-      "category": "exec",
-      "title": "`yield` 后面跟**逻辑表达式**——`&&` 把 `yield` 当成了左操作数",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: yield"
-    },
-    {
       "id": "exec/statements/060-hoisting-tdz",
       "category": "exec",
       "title": "函数声明提升、`let` 的 TDZ",
@@ -1835,7 +1829,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26976/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27856/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2000,6 +1994,18 @@
       "detail": "stdout 不同：第 1 行：node «fin» vs tsrun «pass keep»"
     },
     {
+      "id": "runtime/round738/p738a-a14",
+      "category": "runtime",
+      "title": "`await` 后面跟逻辑链在条件与 `for await` 里",
+      "detail": "stdout 不同：第 1 行：node «T 0» vs tsrun «T T»"
+    },
+    {
+      "id": "runtime/round738/p738a-a16",
+      "category": "runtime",
+      "title": "`await` 的操作数被当成了**它后面的全部**（二元那一族同样中招）",
+      "detail": "stdout 不同：第 1 行：node «2 0 T» vs tsrun «[object Promise]1 T T»"
+    },
+    {
       "id": "stdlib/array/143-getter-array-index",
       "category": "stdlib",
       "title": "数组下标位置上的访问器（`defineProperty`）",
@@ -2033,7 +2039,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26976/src/5018.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27856/src/5040.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2057,7 +2063,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26976/src/5068.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27856/src/5090.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",

@@ -1224,6 +1224,41 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7504 / 7853 → 7531 / 7886**、`blocked 258 → 259`、`differ 91 → 96`
   （`+6` 新登记、`-1` 收掉）、`bad` 0、`regressions` 0，加权 **96.0%**。
 
+### 第 738 轮：`yield` / `throw` 后面跟逻辑运算符那一格收掉，`await` 那一格登进来（coverage 7531/7886 → **7552/7908**）
+
+这一轮的普查问的是**前缀词后面跟逻辑那一族**（`yield` / `await` / `return` / `throw` /
+`typeof` / `void` / `!` / `delete`、以及它们在括号 / 实参 / 三元里的排版），
+16 条起手，6 条**整份文件跑不进来**——**五条是同一条根**（`p738a-a01` / `a03` / `a06` /
+`a07` / `b05`），而它正是第 737 轮刚登下的那一格。
+
+- **根在 token 层的一句名单上**（`logical-operator.xl.md` 的 `IsLogicalOperatorStart`）：
+  它认 `return` 是「逻辑段的起点」（`return` **自己不是一个操作数**、后面那一段才是），
+  却没认 `yield` / `await` / `throw`——于是那三个词被卷进链子当左操作数：
+  `yield 1 && 2` 的产物是 `LogicalOperator[yield, 1, &&, 2]`，
+  投影取 `kids[0]`（那个词）当 `left`、**那个 `1` 一个字都没留下**，
+  而那个词在链子里是 `Identifier`（不是 `Keyword`）⇒ 投影层给 `yield` / `await`
+  准备的那两支（`kids[0].get("type") === "Keyword"`）**够不着它**
+  ⇒ 降级期报 `name is not a local or a capture: yield`（整份文件进不来）。
+- **收法是一句判定加三个词**（`return` 那一格补成 `return` / `yield` / `await` / `throw`）：
+  段从**那个词的后面一格**开始、词自己留在外面当兄弟——`yield 1 + 2` 早就是这个形状
+  （`Keyword(yield)` + `BinaryOperator`），`throw` 那一边在 `KEYWORD_STATEMENT_KINDS` 里
+  本来就有 `ThrowStatement` 一格，缺的只是不让它被卷进逻辑段。
+  **`yield` / `throw` 的操作数本来就该是整段表达式**（`AssignmentExpression` / `Expression`），
+  所以这一改**两边一起对**。
+- **`await` 不一样，登记在明处**（`p738a-a14` / `a16`，**静默错值**）：
+  `await` 是**一元**前缀、比 `&&` 与 `+` 都紧（JS 里 `await x && y` 是 `(await x) && y`），
+  而本仓把 `await` **后面那一整个单元**当成它的操作数。实测两条对照：
+  `await Promise.resolve(1) + 1` 在 Node 里给 `2`、本仓给 `[object Promise]1`；
+  `await Promise.resolve(0) && "T"` 在 Node 里给 `0`、本仓给 `"T"`。
+  **它不是逻辑那一族的问题**（`+` 那一支一模一样）——根在投影层那句「`await` 收
+  `kids.slice(1)`」，正确的读法是「只吃紧随其后的那**一个**操作数、剩下的照常折链」
+  （第 711 轮收 `typeof o[k]().v` 用的就是这个形状）。
+- **新语料 22 条**（`runtime` 16 / `exec` 6），另把第 737 轮 `p737b-b06` 的台账撤掉
+  （它转绿了，用例留着当守卫）。
+- 五类 **7531 / 7886 → 7552 / 7908**、`blocked 259 → 258`、`differ 96 → 98`
+  （`+2` 新登记、`-1` 收掉，另有一条从 blocked 转成 pass）、`bad` 0、`regressions` 0，
+  加权 **96.0%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1236,8 +1271,8 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **229 份**（用例 1405 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7531 / 7886**，加权 **96.0%**：token 1189/1405、exec 2130/2179、runtime 876/892、stdlib 3094/3164、e2e 242/246。差的那些是**真缺口**（`blocked` 259 / `differ` 96），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~36s**） |
+| `coverage` | **五类 7552 / 7908**，加权 **96.0%**：token 1189/1405、exec 2137/2185、runtime 890/908、stdlib 3094/3164、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 98），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 
 **口径外**（不进分母，也不当缺口）只剩两种：**JSX / TSX**（独立于 TypeScript 的语法扩展）
