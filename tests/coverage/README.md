@@ -119,12 +119,12 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | 层 | 条数 | 覆盖度 |
 | --- | --- | --- |
 | runtime | **595 / 595** | **100%** |
-| exec | **533 / 537** | 99.3% |
+| exec | **548 / 558** | 98.2% |
 | stdlib | **850 / 888** | 95.7% |
 | e2e | **225 / 225** | **100%** |
-| **合计（加权）** | **2203 / 2245** | **98.7%** |
+| **合计（加权）** | **2218 / 2266** | **98.4%** |
 
-那 42 条过不了的是**真缺口**，都登了台账（写清根子）：
+那 48 条过不了的是**真缺口**，都登了台账（写清根子）：
 对象字面量的值是一对圆括号里的二元表达式、宿主 ABI 的 `setTimeout`、
 `Date.prototype.getTimezoneOffset` 与 `toDateString` / `toTimeString` / `toUTCString` 没装、
 `String.prototype.matchAll` 没装（六条 `blocked`）、
@@ -144,7 +144,10 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 （1 条在下一轮就收掉了），读数 99.5% → 99.4% → **99.3%**，同一个道理；
 **第 678 轮**把「按名字逐个点名」那条路**做成生成器**（见下节）：名单不再手写，
 而是在裁判上把每个内建的成员名枚举出来再生成探针，一次收 28 条、量出 23 条缺口，
-读数 99.3% → **98.7%**——**分母再一次变诚实**，不是倒退。
+读数 99.3% → **98.7%**——**分母再一次变诚实**，不是倒退；
+同一轮（其二）又换了个问法问**同一层**：名字装上了、**行为对不对**（原型与描述符、
+枚举、数组的洞、`instanceof`、盒子对象、ToPrimitive），21 条里 15 条 pass、量出 **4 个根**
+（6 条），读数 98.7% → **98.4%**，同一个道理。
 
 ### 第 678 轮：**名字逐个点名**做成生成器——28 条一次进矩阵，量出 23 条缺口
 
@@ -185,6 +188,32 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 2. `r678-names-globalthis` 量出的 97 个名字**绝大多数是 v1 非目标**
    （`docs/runtime-architecture.md` §15：`BigInt` / `Reflect` / `Proxy` / `Intl` / `RegExp` /
    定时器一族 / 各种 Web 平台对象）。它进矩阵是为了**看得见**，**不是**「还差 97 格要做」。
+
+### 第 678 轮（其二）：换一个问法问**同一层**——名字装上了，**行为对不对**
+
+上一批量的是**名字齐不齐**（成员表装修得怎么样）。这一批 21 条换一个问法：
+**名字装上了，行为对不对**——原型读取与设置、描述符（数据 / 访问器 / 默认标志位）、
+`in` 与 `hasOwnProperty`、`delete`、`for-in` 的枚举、数组的洞与显式 `undefined`、
+`Object.keys` 的整数键次序、`instanceof` 与 `Symbol.hasInstance`、盒子对象、
+`Object.is` 与 SameValueZero、`assign` / spread 对 symbol 键与访问器的处理、
+`freeze` / `seal`、ToPrimitive 的先后、加减法里的 `ToNumber` / `ToString`。
+
+**15 条 pass**——这一层的基本盘是对的（`getPrototypeOf` 走链、描述符五个标志位、
+`for-in` 只走可枚举、洞与显式 `undefined` 在 `keys` / `in` / `forEach` / `join` 上的差别、
+`Object.keys` 的整数键在前、数组去重里 NaN 与 -0 的处理、`assign` 连 symbol 键一起拷……）。
+**6 条缺口，其实是 4 个根**：
+
+| 用例 | 根子 |
+| --- | --- |
+| `r678-beh-setproto-change` + `r678-beh-proto-accessor` | **`[[Prototype]]` 没有「改它」的那条路**：`Object.setPrototypeOf` 被当成普通属性写（读回来还是旧原型），`__proto__` 这个访问器根本没装（与第 678 轮（其一）在 `Object.prototype` 名单里量到的一致）。**读**那一半是好的（`getPrototypeOf` 走链那条 pass），缺的是**写** |
+| `r678-beh-defineproperty-symbol-key` + `r678-beh-instanceof-hasinstance` | `Object.defineProperty` **只收字符串键**：symbol 键直接抛 `unimplemented: … needs (object, string key, descriptor object)`。于是「用 symbol 键装一格」这一族整条断——`Symbol.hasInstance` / `Symbol.toPrimitive` 这类自定义协议全在这条路上，而 `instanceof` 自己走原型链那一半是对的 |
+| `r678-beh-boxed-primitives` | **盒子对象没有内部标签**：`Object.prototype.toString.call(new Number(3))` 给 `[object Object]`，该给 `[object Number]`。盒子本身造得出来（`typeof` / `valueOf` / 加法都对），缺的是「这个值是哪种内建」那一格——而 `toString` 的标签表本来就是按它分档的 |
+| `r678-beh-tostring-valueof-order` | `String(new Date(0))` 打的是 **UTC** 墙上时间，`node` 打的是**宿主本地时区**——与 `gap-r676-std-date-local-time` / `r676-std-date-iso` **同一个根**（本地分量与本地时区名都还没有），这是那一族的**第三个出口**（前两个是 `getTime` 与 `toISOString`） |
+
+**一条经验**：这一批的产出密度（21 条里 6 条缺口、4 个根）比上一批（28 条里 23 条缺口）
+低得多——**名字那一层是「没装修」，行为那一层是「装修得不错、缝在几个结构性的地方」**。
+两批一起看，缺口的位置很集中：**`[[Prototype]]` 的写、symbol 键的属性、内建的内部标签、
+本地时区**——都不是「少装一个成员」，而是「缺一条机制」。
 
 ### 第 677 轮（其一）：**AST 语料**当候选池——1407 份解析用例里量出 3 条
 

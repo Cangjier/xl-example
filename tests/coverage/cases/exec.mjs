@@ -5130,4 +5130,115 @@ main();
     title: "AST 语料 types/ty-infer-constraint-tuple-rest.ts：ty infer constraint tuple rest",
     src: "// xl:note 元组里 `infer X` 之后那一格仍是变长元素：`...T[]` 要收成 RestType\n// xl:expect InferType,TypeParameter,RestType,ArrayType,TupleType\ntype First<T> = T extends [infer U extends string, ...unknown[]] ? U : never;\ntype Rest = [infer U, ...number[]];\ntype Plain = [string, ...string[]];\nlet a: First<[\"a\", 1]>;\nlet b: Rest;\nlet c: Plain;\nconsole.log(1);\n",
   },
+  // ===== 第 678 轮（其二）：**属性 / 原型模型的「行为」**探针（21 条）=====
+  // 第 678 轮（其一）量的是**名字齐不齐**（成员表装修得怎么样），这一批问同一层但换一个问法：
+  // 名字装上了，**行为对不对**——原型读取与设置、描述符、`in` / `hasOwnProperty`、`delete`、
+  // `for-in` 的枚举、数组的洞、`Object.keys` 的次序、`instanceof` 与 `Symbol.hasInstance`、
+  // 盒子对象、`Object.is`、ToPrimitive 的先后。
+  {
+    id: "r678-beh-getproto-chain",
+    title: "getPrototypeOf 沿链走三层，以及 create(null) 的链头",
+    src: "\nconst a = { x: 1 };\nconst b = Object.create(a);\nconst c = Object.create(b);\nconsole.log(Object.getPrototypeOf(c) === b);\nconsole.log(Object.getPrototypeOf(b) === a);\nconsole.log(Object.getPrototypeOf(a) === Object.prototype);\nconst bare = Object.create(null);\nconsole.log(Object.getPrototypeOf(bare));\nconsole.log(Object.getPrototypeOf(Object.prototype) === null);\n",
+  },
+  {
+    id: "r678-beh-setproto-change",
+    title: "setPrototypeOf 换链之后读到的成员与 instanceof",
+    src: "\nfunction Base(): void {}\nBase.prototype.tag = \"base\";\nconst o: any = {};\nObject.setPrototypeOf(o, Base.prototype);\nconsole.log(o.tag, o instanceof Base);\nObject.setPrototypeOf(o, null);\nconsole.log(o.tag, Object.getPrototypeOf(o));\n",
+  },
+  {
+    id: "r678-beh-proto-accessor",
+    title: "__proto__ 这个访问器读与写",
+    src: "\nconst proto = { greet: \"hi\" };\nconst o: any = {};\no.__proto__ = proto;\nconsole.log(o.greet, o.__proto__ === proto);\nconsole.log(Object.getPrototypeOf(o) === proto);\n",
+  },
+  {
+    id: "r678-beh-descriptor-shape",
+    title: "getOwnPropertyDescriptor 的五个标志位",
+    src: "\nconst o: any = { a: 1 };\nObject.defineProperty(o, \"b\", { value: 2, enumerable: false, writable: false, configurable: false });\nconst da: any = Object.getOwnPropertyDescriptor(o, \"a\");\nconst db: any = Object.getOwnPropertyDescriptor(o, \"b\");\nconsole.log(da.value, da.writable, da.enumerable, da.configurable);\nconsole.log(db.value, db.writable, db.enumerable, db.configurable);\nconsole.log(Object.getOwnPropertyDescriptor(o, \"zz\") === undefined);\n",
+  },
+  {
+    id: "r678-beh-descriptor-accessor",
+    title: "访问器描述符上的 get / set 与它们的 name",
+    src: "\nlet seen = \"\";\nconst o: any = {};\nObject.defineProperty(o, \"p\", {\n  get() { return seen + \"-get\"; },\n  set(v: string) { seen = v; },\n  enumerable: true,\n  configurable: true,\n});\nconst d: any = Object.getOwnPropertyDescriptor(o, \"p\");\no.p = \"set\";\nconsole.log(o.p);\nconsole.log(typeof d.get, typeof d.set, d.enumerable);\nconsole.log(d.get.name, d.set.name);\n",
+  },
+  {
+    id: "r678-beh-defineproperty-defaults",
+    title: "defineProperty 省略标志位时的默认值（全 false）",
+    src: "\nconst o: any = {};\nObject.defineProperty(o, \"a\", { value: 1 });\nconst d: any = Object.getOwnPropertyDescriptor(o, \"a\");\nconsole.log(d.value, d.writable, d.enumerable, d.configurable);\nconsole.log(Object.keys(o).length);\n",
+  },
+  {
+    id: "r678-beh-in-vs-hasown",
+    title: "in 走原型链、hasOwnProperty 只认自己的",
+    src: "\nconst proto = { p: 1 };\nconst o: any = Object.create(proto);\no.own = 2;\nconsole.log(\"p\" in o, \"own\" in o, \"none\" in o);\nconsole.log(Object.prototype.hasOwnProperty.call(o, \"p\"), Object.prototype.hasOwnProperty.call(o, \"own\"));\nconsole.log(o.hasOwnProperty(\"own\"), o.hasOwnProperty(\"p\"));\n",
+  },
+  {
+    id: "r678-beh-delete-own-and-proto",
+    title: "delete 只删自己的那一格，原型上的还在",
+    src: "\nconst proto = { p: 1 };\nconst o: any = Object.create(proto);\no.own = 2;\nconsole.log(delete o.own, o.own, o.p);\nconsole.log(delete o.p, o.p);\nconsole.log(Object.keys(o).length);\n",
+  },
+  {
+    id: "r678-beh-forin-enumerable-only",
+    title: "for-in 只走可枚举的，非枚举的名字不出现",
+    src: "\nconst proto = { inherited: 1 };\nconst o: any = Object.create(proto);\no.a = 1;\no.b = 2;\nObject.defineProperty(o, \"hidden\", { value: 3, enumerable: false });\nconst keys: string[] = [];\nfor (const k in o) keys.push(k);\nconsole.log(keys.sort().join(\",\"));\nconsole.log(Object.keys(o).join(\",\"));\n",
+  },
+  {
+    id: "r678-beh-keys-order-integer-first",
+    title: "Object.keys 的次序：整数键在前、其余按插入序",
+    src: "\nconst o: any = {};\no.b = 1;\no[\"2\"] = 1;\no.a = 1;\no[\"1\"] = 1;\nconsole.log(Object.keys(o).join(\",\"));\nconsole.log(Object.getOwnPropertyNames(o).join(\",\"));\n",
+  },
+  {
+    id: "r678-beh-array-holes-vs-undefined",
+    title: "数组的洞与显式 undefined 在 keys / in / forEach 上的差别",
+    src: "\nconst hole: any[] = [1, , 3];\nconst filled: any[] = [1, undefined, 3];\nconsole.log(Object.keys(hole).join(\",\"), Object.keys(filled).join(\",\"));\nconsole.log(1 in hole, 1 in filled);\nlet seen = 0;\nhole.forEach(() => { seen += 1; });\nconsole.log(seen, hole.length);\nconsole.log(hole.join(\"-\"), filled.join(\"-\"));\n",
+  },
+  {
+    id: "r678-beh-instanceof-hasinstance",
+    title: "instanceof 与 Symbol.hasInstance 走的是哪条路",
+    src: "\nclass A {}\nclass B extends A {}\nconsole.log(new B() instanceof B, new B() instanceof A, {} instanceof A);\nconsole.log(typeof (A as any)[Symbol.hasInstance]);\nconst custom: any = { [Symbol.hasInstance](v: any) { return v === 42; } };\nconst C: any = function (): void {};\nObject.defineProperty(C, Symbol.hasInstance, { value: custom[Symbol.hasInstance] });\nconsole.log(42 instanceof C, 43 instanceof C);\n",
+  },
+  {
+    id: "r678-beh-boxed-primitives",
+    title: "盒子对象：new Number/String/Boolean 的 typeof 与 valueOf",
+    src: "\nconst n: any = new Number(3);\nconst s: any = new String(\"ab\");\nconst b: any = new Boolean(false);\nconsole.log(typeof n, typeof s, typeof b);\nconsole.log(n.valueOf(), s.valueOf(), b.valueOf());\nconsole.log(b ? \"truthy\" : \"falsy\");\nconsole.log(Object.prototype.toString.call(n));\nconsole.log(n + 1, s + \"c\");\n",
+  },
+  {
+    id: "r678-beh-tostring-tag",
+    title: "Object.prototype.toString 给出的那几档标签",
+    src: "\nconst tag = Object.prototype.toString;\nconsole.log(tag.call({}), tag.call([]), tag.call(null), tag.call(undefined));\nconsole.log(tag.call(1), tag.call(\"s\"), tag.call(true));\nconsole.log(tag.call(function () {}));\nconsole.log(tag.call(new Map()), tag.call(new Set()));\n",
+  },
+  {
+    id: "r678-beh-object-is-and-samevaluezero",
+    title: "Object.is 与 === 在 -0 / NaN 上的分岔",
+    src: "\nconsole.log(Object.is(NaN, NaN), NaN === NaN);\nconsole.log(Object.is(0, -0), 0 === -0);\nconsole.log(1 / 0, 1 / -0);\nconst s = new Set([NaN, NaN, 0, -0]);\nconsole.log(s.size);\nconsole.log([NaN].includes(NaN), [0].indexOf(-0));\n",
+  },
+  {
+    id: "r678-beh-assign-copies-symbols",
+    title: "assign / spread 拷不拷 symbol 键与访问器取值",
+    src: "\nconst sym = Symbol(\"k\");\nconst src: any = { a: 1 };\nsrc[sym] = 2;\nObject.defineProperty(src, \"g\", { get() { return \"got\"; }, enumerable: true });\nconst target: any = Object.assign({}, src);\nconsole.log(target.a, target[sym], target.g);\nconst spread: any = { ...src };\nconsole.log(spread.a, spread[sym], spread.g);\n",
+  },
+  {
+    id: "r678-beh-getset-multiple-define",
+    title: "defineProperties 一次装多格，以及属性名重复时的次序",
+    src: "\nconst o: any = {};\nObject.defineProperties(o, {\n  a: { value: 1, enumerable: true },\n  b: { get() { return \"b\"; }, enumerable: true },\n});\nconsole.log(o.a, o.b, Object.keys(o).join(\",\"));\nconsole.log(Object.getOwnPropertyNames(o).join(\",\"));\n",
+  },
+  {
+    id: "r678-beh-frozen-and-sealed",
+    title: "frozen / sealed 之后的可写性与可枚举性",
+    src: "\nconst f: any = Object.freeze({ a: 1 });\nconst s: any = Object.seal({ a: 1 });\nconsole.log(Object.isFrozen(f), Object.isSealed(f), Object.isExtensible(f));\nconsole.log(Object.isFrozen(s), Object.isSealed(s), Object.isExtensible(s));\nconsole.log(Object.keys(f).join(\",\"), Object.keys(s).join(\",\"));\nconsole.log(Object.getOwnPropertyDescriptor(f, \"a\").writable);\nconsole.log(Object.getOwnPropertyDescriptor(s, \"a\").writable);\n",
+  },
+  {
+    id: "r678-beh-tostring-valueof-order",
+    title: "ToPrimitive 先 valueOf 后 toString，以及 Date 反过来",
+    src: "\nconst o: any = {\n  valueOf() { return \"v\"; },\n  toString() { return \"t\"; },\n};\nconsole.log(`${o}`, o + \"\");\nconst d: any = new Date(0);\nconsole.log(typeof (d as any) + (d as any), typeof d.toString());\n",
+  },
+  {
+    id: "r678-beh-defineproperty-symbol-key",
+    title: "defineProperty 只收字符串键：symbol 键那一档没有",
+    src: "\nconst o: any = {};\nconst s = Symbol(\"k\");\ntry {\n  Object.defineProperty(o, s, { value: 1, enumerable: true });\n  console.log(\"装了\", o[s]);\n} catch (e: any) {\n  console.log(\"抛了\");\n}\nObject.defineProperty(o, \"plain\", { value: 2, enumerable: true });\nconsole.log(o.plain, Object.keys(o).join(\",\"));\n",
+  },
+  {
+    id: "r678-beh-number-string-coercion",
+    title: "加减法里的 ToNumber / ToString 分岔",
+    src: "\nconsole.log(1 + \"2\", \"3\" - 1, \"3\" * \"2\", [] + {}, [] + []);\nconsole.log(+[], +[5], +[1, 2], +\"\", +\" \", +\"x\");\nconsole.log(String(null), String(undefined), String([]), String({}));\nconsole.log(Number(null), Number(undefined), Number(true), Number(\"\"));\n",
+  },
+
 ];

@@ -1400,4 +1400,35 @@ export const EXPECTATIONS = {
     why: "globalThis 自己的名字：取到 undefined（node 上是 function/object）：AbortController / AbortSignal / ArrayBuffer / AsyncDisposableStack / Atomics / BigInt / BigInt64Array / BigUint64Array / Blob / BroadcastChannel / Buffer / ByteLengthQueuingStrategy / CloseEvent / CompressionStream / CountQueuingStrategy / Crypto / CryptoKey / CustomEvent / DOMException / DataView / DecompressionStream / DisposableStack / Event / EventTarget / File / FinalizationRegistry / Float16Array / Float32Array / Float64Array / FormData / Headers / Int16Array / Int32Array / Int8Array / Intl / Iterator / MessageChannel / MessageEvent / MessagePort / Navigator / Performance / PerformanceEntry / PerformanceMark / PerformanceMeasure / PerformanceObserver / PerformanceObserverEntryList / PerformanceResourceTiming / Proxy / ReadableByteStreamController / ReadableStream / ReadableStreamBYOBReader / ReadableStreamBYOBRequest / ReadableStreamDefaultController / ReadableStreamDefaultReader / Reflect / RegExp / Request / Response / SharedArrayBuffer / SubtleCrypto / SuppressedError / TextDecoder / TextDecoderStream / TextEncoder / TextEncoderStream / TransformStream / TransformStreamDefaultController / URL / URLPattern / URLSearchParams / Uint16Array / Uint32Array / Uint8Array / Uint8ClampedArray / WeakRef / WebAssembly / WebSocket / WritableStream / WritableStreamDefaultController / WritableStreamDefaultWriter / atob / btoa / clearImmediate / clearInterval / clearTimeout / crypto / escape / eval / fetch / global / navigator / performance / process / setImmediate / setInterval / setTimeout / unescape",
   },
 
+  // ===== 第 678 轮（其二）：**行为**探针量出的缺口（用例在 `cases/exec.mjs` 的 `r678-beh-*`）=====
+  // 这一批 21 条里 15 条 pass（那 15 条本身就是「这一层的基本盘是对的」的读数，
+  // 一起进矩阵），6 条缺口其实是 **4 个根**：`[[Prototype]]` 没有改它的路
+  //（`setPrototypeOf` 换不动、`__proto__` 没装）、`defineProperty` 只收字符串键
+  //（连累 `Symbol.hasInstance`）、盒子对象没有内部标签、`Date` 的本地时区
+  //（与 `gap-r676-std-date-local-time` 同一个根）。
+  "r678-beh-setproto-change": {
+    expect: "differ",
+    why: "`Object.setPrototypeOf` 换不动链：本仓当成普通的属性写（读回来的还是**旧原型**，`o.tag` 给 `base`、`getPrototypeOf(o)` 给 `null`）——`__proto__` 那一格也没装（见下一条），两处同一根：「对象内部那一格 [[Prototype]]」没有一条改它的路",
+  },
+  "r678-beh-proto-accessor": {
+    expect: "differ",
+    why: "`__proto__` 这个访问器没装（第 678 轮（其一）在 `Object.prototype` 的成员名单里量到它取不到）：读 `o.__proto__` 给 `undefined`、写 `o.__proto__ = proto` 也不改链 ⇒ 它该是 `getPrototypeOf` / `setPrototypeOf` 的访问器外壳，而这两个静态方法**本身是好的**（`getPrototypeOf` 那条 pass）",
+  },
+  "r678-beh-instanceof-hasinstance": {
+    expect: "differ",
+    why: "同上一格：`instanceof` 自己走的是原型链（那部分是对的），但**自定义 `Symbol.hasInstance`** 要先用 `defineProperty` 装一个 symbol 键，于是整条用例断在这一步，量不到 `instanceof` 的后半段",
+  },
+  "r678-beh-boxed-primitives": {
+    expect: "differ",
+    why: "盒子对象没有自己的**内部标签**：`Object.prototype.toString.call(new Number(3))` 给 `[object Object]`，该给 `[object Number]` ⇒ 盒子造出来了（`typeof` / `valueOf` / 加法都对），缺的是「这个值是哪种内建」那一格，而 `toString` 的标签表本来就是按它分档的",
+  },
+  "r678-beh-tostring-valueof-order": {
+    expect: "differ",
+    why: "`String(new Date(0))` 打的是 **UTC** 墙上时间（`Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time)`），`node` 打的是**宿主本地时区**（`GMT+0800 (中国标准时间)`）——与 `Date` 那一族（`gap-r676-std-date-local-time` / `r676-std-date-iso`）**同一个根**：本地分量与本地时区名都还没有，所以这一条是那一族的**第三个出口**（前两个是 `getTime` 与 `toISOString`）",
+  },
+  "r678-beh-defineproperty-symbol-key": {
+    expect: "differ",
+    why: "`Object.defineProperty` 只收**字符串键**：symbol 键直接抛 `unimplemented: Object.defineProperty needs (object, string key, descriptor object)` ⇒ `Symbol.hasInstance` / `Symbol.toPrimitive` 这类「用 symbol 键装一格」的写法整条断（同族的 `r678-beh-instanceof-hasinstance` 就是被它挡住的）",
+  },
+
 };

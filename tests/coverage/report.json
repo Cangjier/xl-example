@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2245,
+  "matrix": 2266,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -88,7 +88,7 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 98.71,
+  "progressPercent": 98.39,
   "layers": [
     {
       "layer": "runtime",
@@ -103,12 +103,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 537,
-      "pass": 533,
+      "total": 558,
+      "pass": 548,
       "blocked": 2,
-      "differ": 2,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 99.26
+      "coverage": 98.21
     },
     {
       "layer": "stdlib",
@@ -199,6 +199,42 @@
       "layer": "exec",
       "title": "await using 声明：块结束时该调 Symbol.asyncDispose",
       "detail": "stdout 不同：第 3 行：node «dispose a» vs tsrun «»"
+    },
+    {
+      "id": "r678-beh-setproto-change",
+      "layer": "exec",
+      "title": "setPrototypeOf 换链之后读到的成员与 instanceof",
+      "detail": "stdout 不同：第 2 行：node «undefined null» vs tsrun «base { constructor: [Function: Base], tag: 'base' }»"
+    },
+    {
+      "id": "r678-beh-proto-accessor",
+      "layer": "exec",
+      "title": "__proto__ 这个访问器读与写",
+      "detail": "stdout 不同：第 1 行：node «hi true» vs tsrun «undefined true»"
+    },
+    {
+      "id": "r678-beh-instanceof-hasinstance",
+      "layer": "exec",
+      "title": "instanceof 与 Symbol.hasInstance 走的是哪条路",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object.defineProperty needs (object, string key, descriptor obj"
+    },
+    {
+      "id": "r678-beh-boxed-primitives",
+      "layer": "exec",
+      "title": "盒子对象：new Number/String/Boolean 的 typeof 与 valueOf",
+      "detail": "stdout 不同：第 4 行：node «[object Number]» vs tsrun «[object Object]»"
+    },
+    {
+      "id": "r678-beh-tostring-valueof-order",
+      "layer": "exec",
+      "title": "ToPrimitive 先 valueOf 后 toString，以及 Date 反过来",
+      "detail": "stdout 不同：第 2 行：node «objectThu Jan 01 1970 08:00:00 GMT+0800 (中国标准时间) string» vs tsrun «objectThu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time) string»"
+    },
+    {
+      "id": "r678-beh-defineproperty-symbol-key",
+      "layer": "exec",
+      "title": "defineProperty 只收字符串键：symbol 键那一档没有",
+      "detail": "stdout 不同：第 1 行：node «装了 1» vs tsrun «抛了»"
     },
     {
       "id": "gap-std-new-object-null",
