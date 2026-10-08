@@ -618,8 +618,22 @@ if (keep !== null) keep(out, true);
 // 数组与字符串上面两条各自处理（数组的 `length` 也不在属性表里，撞不到这里）。
 if (source.IsObject() && source.Tag !== ValueTag.Array
   && (call === null || !HasIteratorMethod(room, table, protos, source, call))) {
+  // **长度那一格交给 `ArrayLikeLength`**（第 735 轮）——它是这一族**唯一**的
+  // `ToLength(Get(O, "length"))`：小数截断、负数夹到 0、`"3"` 这种**数字文本**
+  // 也认（`{ length: "3", 0: "a" }` 在 Node 里读三项）。
+  // **原来这里自己扫了一遍 `Props`**，只认「标签是数字」的那一档 ⇒
+  // `Array.from({ length: "3" })` 给 **0** 项（**静默错值**）——
+  // 与 `Array.prototype.slice.call({ length: "3" })` 那两个答案**分了岔**，
+  // 而它们本来就是同一句话。
+  const count = ArrayLikeLength(room, table, null, source);
+  // **「是不是数组式」与「长度是多少」是两件事**：`ArrayLikeLength` 对
+  // **没有 `length`** 的对象也给 `0`（那一句写着「读不到 / 不是数字就给 `0`」），
+  // 所以这里要再问一次「**它到底有没有那一格**」——否则
+  // `Array.from({ a: 1 })` 会走这一支、给一个空数组，
+  // 而 JS 里那种对象**没有迭代器也没有 `length`** ⇒ **当场抛 `TypeError`**。
+  // 判据照第 184 轮那一趟：**自有、数据属性、键是 `"length"`**。
   const sourceItem = table.Get(source.Ref);
-  let lengthValue = Value.Undefined();
+  let hasLength = false;
   for (let i = 0; i < sourceItem.Props.length; i++) {
     const property = sourceItem.Props[i];
     if (property.Kind === PropertyKind.Accessor) continue;
@@ -629,29 +643,18 @@ if (source.IsObject() && source.Tag !== ValueTag.Array
     // 而 `[...o]` / `for..of` 已经通了）。`Object.keys` 那条一直是这么跳的。
     if (table.Get(property.Key).Tag !== ValueTag.String) continue;
     if (ValueText(table, Value.FromString(property.Key)) === "length") {
-      lengthValue = property.Value;
+      hasLength = true;
       break;
     }
   }
-  if (lengthValue.IsNumber()) {
-    const count = lengthValue.AsInt();
-    if (count < 0) throw new Error("unimplemented: Array.from over a negative length");
-    if (!room(ValueCharge * count)) throw new Error("out of room");
+  if (hasLength) {
+    if (!room(ValueCharge * (count > 0 ? count : 0))) throw new Error("out of room");
     const target = table.Get(out.Ref).AsArray();
     for (let i = 0; i < count; i++) {
       // **逐下标读**（与数组那一支同一条口径）——
-      // **不存在的下标给 `undefined`**（JS 的口径，不是跳过）。
-      let item = Value.Undefined();
-      for (let j = 0; j < sourceItem.Props.length; j++) {
-        const property = sourceItem.Props[j];
-        if (property.Kind === PropertyKind.Accessor) continue;
-        if (table.Get(property.Key).Tag !== ValueTag.String) continue;
-        if (ValueText(table, Value.FromString(property.Key)) === "" + i) {
-          item = property.Value;
-          break;
-        }
-      }
-      target.Push(item);
+      // **不存在的下标给 `undefined`**（JS 的口径，不是跳过）：
+      // 那一句助手同样与数组方法那一族**共用**（`ArrayLikeAt`）。
+      target.Push(ArrayLikeAt(room, table, null, source, i));
     }
     if (keep !== null) keep(out, false);
     return MapArrayItems(room, table, out, mapper, hasMapper, thisArg, call, failed);
@@ -708,7 +711,8 @@ if (drained.Tag !== ValueTag.Array) {
   }
   let arrayLikeLength = 0;
   const lengthValue = GetProperty(room, call, protos, table, drained, NameValue(table, "length"));
-  if (lengthValue.IsNumber()) arrayLikeLength = lengthValue.AsInt();
+  // **同一格、同一条口径**（第 735 轮）：小数长度要截断，不是当 0。
+  if (lengthValue.IsNumber()) arrayLikeLength = lengthValue.LengthAsInt();
   if (arrayLikeLength < 0) arrayLikeLength = 0;
   const arrayLikeTarget = table.Get(out.Ref).AsArray();
   if (!room(ValueCharge * arrayLikeLength)) throw new Error("out of room");

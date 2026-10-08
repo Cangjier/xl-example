@@ -7299,6 +7299,15 @@ if (cursor.At < text.length && (text[cursor.At] === 101 || text[cursor.At] === 6
 let literal = "";
 for (let i = start; i < cursor.At; i++) literal = literal + String.fromCharCode(text[i]);
 const number = Number(literal);
+// **`-0` 必须留成负零**（第 735 轮）：`Number("-0")` 是 `-0`，而下面那一句
+// `Number.isInteger(-0)` **为真** ⇒ 原来落进 `Value.FromInt`，而 `Int32` 没有负零
+// ⇒ `JSON.parse("-0")` 给 `0`、`Object.is(JSON.parse("-0"), -0)` 给**假**
+//（Node 给真）。**静默错值**：值印出来一模一样（`String(0)` 与 `String(-0)` 都是 `"0"`），
+// 只有 `Object.is` / `1 / x` / `Map` 的键这几处看得出。
+// **判据是「文本里有负号、而数是零」**：`-0.0` / `-0e5` 也是负零，所以先认负号再判零。
+if (number === 0 && literal.length > 0 && literal.charCodeAt(0) === 45) {
+  return Value.FromDouble(-0);
+}
 if (Number.isInteger(number) && number >= -2147483648 && number <= 2147483647) {
   return Value.FromInt(number);
 }

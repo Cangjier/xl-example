@@ -2047,7 +2047,10 @@ const raw = ReadProperty(call === null ? NeverCall : call, table, found, receive
 // 但 `ArrayLikeLength` 的签名里没有 `protos`——与那一格「不为一个方法改签名」同一条纪律）。
 let count = 0;
 if (raw.IsNumber()) {
-  count = raw.AsInt();
+  // **`LengthAsInt` 而不是 `AsInt`**（第 735 轮）：`{ length: 2.5 }` 的 `ToLength` 是 **2**，
+  // 而 `AsInt` 对 `Float64` 给 `0` ⇒ `slice.call({ length: 2.5, 0: "a", 1: "b" })`
+  // 给 `[]`（Node 给 `["a","b"]`）——**静默错值**，与 `Array.from` 那一处同一个根。
+  count = raw.LengthAsInt();
 } else if (raw.Tag === ValueTag.String) {
   // **纯十进制文本才认**（逐位判，不引新助手——这一层已经有两个「读文本」的入口了）。
   const digits = TextUnitsOf(table, raw);

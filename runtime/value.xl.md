@@ -333,6 +333,37 @@ if (this.Tag === ValueTag.Int32) return this.Int;
 return 0;
 ```
 
+## method LengthAsInt:()=>int
+
+取**长度**那一格的整数值（第 735 轮）——`Int32` 直接给，**`Float64` 向零截断**。
+
+**为什么它必须与 `AsInt` 分开**：`AsInt` 的口径是「**这个格子的整数载荷**是多少」，
+它对 `Float64` 给 `0`（`value.xl.md` 那一段写着「其余给 0」）——那个口径在**下标**
+那一侧是对的（下标就是整数），可**长度**那一侧不对：JS 的长度一律先过 `ToLength`
+（`{ length: 2.5 }` 的 `ToLength` 是 **2**、`{ length: -1 }` 是 **0**、
+`{ length: 0.9 }` 是 **0**）。
+
+**实测撞到的**（第 735 轮）：`Array.from({ length: 2.5, 0: "a", 1: "b" })` 在 Node 里给
+`["a","b"]`，本仓给 **`[]`**——`lengthValue.IsNumber()` 为真、`AsInt()` 给 `0`
+⇒ 一次都不读（**静默错值**，一句异常都没有）。同一个形状在 `ArrayLikeLength`
+（`Array.prototype.slice.call({ length: 2.5 })`）里各写了一份。
+
+**所以收成一格**：长度那几处一律走它，`Float64` 那一档由它一家负责截断。
+**向零截断**（不是 `Math.floor`）：`ToLength` 是 `ToIntegerOrInfinity` 再夹到
+`0 .. 2^53-1`，而 `ToIntegerOrInfinity(-1.5)` 是 **-1**（截断）——负数随后由调用方
+夹到 `0`（与原来那一句 `count < 0 ? 0` 一字不差）。
+
+```ts
+if (this.Tag === ValueTag.Int32) return this.Int;
+if (this.Tag === ValueTag.Bool) return this.Int !== 0 ? 1 : 0;
+if (this.Tag === ValueTag.Float64) {
+  // **向零截断**：`Math.trunc` 对 `NaN` 给 `NaN`，而这里要给 `int` ⇒ 先挡掉。
+  if (this.Dbl !== this.Dbl) return 0;
+  return Math.trunc(this.Dbl);
+}
+return 0;
+```
+
 ## method AsDouble:()=>double
 
 取数值载荷，`Int32` 提升成 f64。同样**不是 `ToNumber`**。

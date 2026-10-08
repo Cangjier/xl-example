@@ -346,17 +346,41 @@ if (id === MapCtor || id === WeakMapCtor) {
   // 收成数组那一步在**号段翻译那一层**（`install.xl.md` 的 `InvokeWithSink`），
   // 因为这一块**不能** import 它（会成环）。所以到这里 `args[0]` **一定是数组**
   // （或者 `null` / `undefined` = 空表）——**这一支一个字都没改**。
-  // 数组里不是两格数组的项**跳过**（JS 会当场抛——**这一点是记着的差异**：
-  // 静默跳过比静默塞半个键值对好，但比不上 JS 的抛，记在台账）。
+  // 数组里不是两格数组的项**抛 `TypeError`**（第 735 轮）——原来**静默跳过**
+  //（这里原来写着「静默跳过比静默塞半个键值对好，但比不上 JS 的抛，记在台账」）。
+  // **实测量到的**：`new Map([1])` 在 Node 里抛
+  // `TypeError: Iterator value 1 is not an entry object`，本仓给一个**空表**
+  //（判据 `p735a-a32`）——**静默错值**，一句异常都没有。
+  // **什么算「对」**：JS 走 `Get(entry, "0")` / `Get(entry, "1")`，所以
+  // **数组、字符串、任何有那两格的对象**都算（`new Map(["ab"])` 在 Node 里给
+  // 一个 `"a" => "b"` 的表、`new Map([[1, 2, 3]])` 取前两格）。
+  // 这里照同一条口径：**数组**读前两格，`undefined` 当「两格都是 `undefined`」，
+  // **其余一律抛 `TypeError`**（含 `null`——实测 `new Map([null])` 在 Node 里报
+  // `Iterator value null is not an entry object`）。
+  // 长度不足两格那个**空数组**（`new Map([[]])`）在 Node 里是
+  // `undefined => undefined` 的一条**合法**条目，所以「不够两格」**不是**抛的理由
+  // ——抛的理由只有「**读不出下标那两格**」。
+  // **字符串也在抛的那一档**（第 735 轮实测复核）：`new Map(["ab"])` 在 Node 里
+  // 抛 `TypeError: Iterator value ab is not an entry object`——字符串**是可迭代物**，
+  // 所以它被逐字符展开成 `"a"` / `"b"` **两项**，而**每一项**才是那个「条目」；
+  // 一个单码元字符串没有下标 `0` / `1` 那两格可以读成条目。
   // **复用 `set` 那条路**：同一个键覆盖、`size` 跟着涨，都不必写第二遍。
   if (args.length > 0 && args[0].Tag === ValueTag.Array) {
     const pairs = table.Get(args[0].Ref).AsArray();
     for (let i = 0; i < pairs.GetLength(); i++) {
       const pair = pairs.GetAt(i);
-      if (pair.Tag !== ValueTag.Array) continue;
-      const entry = table.Get(pair.Ref).AsArray();
-      if (entry.GetLength() < 2) continue;
-      const pairArgs: Value[] = [entry.GetAt(0), entry.GetAt(1)];
+      let key = Value.Undefined();
+      let value = Value.Undefined();
+      if (pair.Tag === ValueTag.Array) {
+        const entry = table.Get(pair.Ref).AsArray();
+        if (entry.GetLength() > 0) key = entry.GetAt(0);
+        if (entry.GetLength() > 1) value = entry.GetAt(1);
+      } else if (pair.Tag !== ValueTag.Undefined) {
+        // **`undefined` 是唯一认的那一格**（`new Map([undefined])` 在 Node 里
+        // 给一条 `undefined => undefined`）；`key` / `value` 的初值已经是它。
+        throw new TypeError("Iterator value " + i + " is not an entry object");
+      }
+      const pairArgs: Value[] = [key, value];
       InvokeMap(room, protos, table, null, MapSet, map, pairArgs);
     }
   }
