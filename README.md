@@ -306,6 +306,54 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 769 轮：下标位上的访问器——**读路径**收成一对助手、**写路径**如实登记
+
+**一句话**：这一轮的普查面是**数组的洞与复制族 / 属性描述符与访问器 / 函数对象与调用形态 /
+异常出口与循环绑定**——十三组原子探针量出**一处根**（「读接收者第 `i` 格」这件事在二十来处
+各写各的），收掉它、顺手收窄第 746 轮那一条过宽的 `sort` 判据，另新登三条缺口。
+
+- **收掉的那一处根**（`runtime/round769/r769e-01`、`r769a-02`）：装访问器那一处会把数组那一格
+  **摘成洞**（`props.xl.md` 的 `IndexAccessorAt` 写着为什么：元素区与属性表住不下同一格），
+  于是所有「先看元素区」的读路径都读到 `undefined`。`join` 第 756 轮只补了自己那一处 ⇒
+  同一件事在**二十来处**各错一遍：`slice` / `toReversed` / `toSorted` / `toSpliced` / `with` /
+  `concat` / `flat` / `map` / `filter` / `forEach` / `find` 族 / `some` / `every` / `reduce` /
+  `indexOf` / `lastIndexOf` / `includes` / `at` / `values` / `entries` / `take` / `drop` /
+  `Array.from` / `apply` / 展开与 `for..of`。一次量出 **22 行**（`[...a]` 给 `[undefined, …]`、
+  `a.slice()` 给 `[undefined, …]`——**静默错值**：一句异常都没有，只是值是洞给的那个）。
+  **改法**：收成**一对**助手——`ArrayHasAt`（这一格**在不在**：元素区有值，或属性表里有访问器）
+  与 `ArrayElementAt`（**读**这一格：访问器走 `GetProperty`、其余走元素区）。`AppendSlot` 与
+  `FlattenInto` 的签名跟着带上 `room` / `protos` / `call`（接收者从 `HeapArray` 换成 `Value`——
+  `IndexAccessorAt` 问的是那个值，光有元素那一段问不出来）；引擎那一侧数组游标（`vm.xl.md`
+  的 `DoIterNext`）与语言层的 `SpreadInto` 照**同一句判据**补齐（`for..of` / `[...a]` /
+  解构全都走那条引擎迭代器）。**一条旧账当场到期**：`stdlib/round721/p721a-b03`
+  （第 721 轮登记的「展开与 `Array.from` 读不到下标访问器」）转绿，指令已按规矩删掉。
+- **顺手收窄**（`runtime/round769/r769g-01`）：第 746 轮那条「冻结的数组 `sort` 要抛」
+  写得**太宽**——它不问**有没有东西可写**。0 / 1 格的数组 `sort` 一次都不移元素，实测
+  `Object.freeze([1]).sort()` 与 `Object.freeze([]).sort()` 在 Node 里都**不抛**
+  （两格及以上一律抛，`p746d-d01` 钉着的正是它）⇒ 判据补上「`length > 1` 才抛」。
+- **新登三条**（按规矩带 `xl:why` 进语料）：
+  ① `runtime/round769/r769f-01`——**写回**那一半本轮**没有动**：往一个只有 getter 的下标写，
+  JS 抛 `TypeError`（`reverse` / `sort` / `copyWithin` / `fill` / `shift` / `unshift` / `splice`），
+  本仓写进元素区、**一声不响**；读路径这一轮收了，写路径要另一轮（`sort` 那一档还要连带
+  「读得到的值与写得下去的值是两面」）。
+  ② `runtime/round769/r769a-03`——`findLast(undefined)` 该抛 `TypeError`、本仓抛笼统的 `Error`。
+  ③ `stdlib/round769/r769b-01`——`Object.getOwnPropertyDescriptor(1, "x")` 在 JS 里先把原始值
+  `ToObject`（给 `undefined`）而本仓抛；`Object.getOwnPropertyDescriptors(null)` 抛错了族。
+  ②③**同一个根**（内建实参校验那一族抛的是 `Error` 而不是 `TypeError`），留作下一轮的入口。
+- **守卫**（这一轮量下来本来全对、收进语料）：数组的**洞**在复制族 / 查找族 / `reduce` /
+  `Object.keys` 上的口径（复制族保留洞、`GetAt` 对洞给 `undefined`）；访问器下标的**定义与描述符**
+  （`get` / `enumerable` / `configurable`、`Object.keys` 与 `delete`、`length` 跟着长）；
+  **属性描述符那一族**（`getOwnPropertyDescriptors` 的读回、`__defineGetter__` / `__lookupGetter__`、
+  `defineProperties` 的「没写的字段不改」、`freeze` / `seal` / `preventExtensions` 三档）；
+  **函数对象与调用形态**（`bind` 的 `length` / `name` / `new`、`call` / `apply` 的接收者与
+  原始值那一档、成员方法的名字推导、函数自己的 `prototype` / `length` 描述符）；
+  **异常出口与循环绑定**（`finally` 里 `return` / `break` / `continue` 的次序、`try` 里抛 +
+  `finally` 里抛、`let` 每轮一份而 `var` 只有一份、`for..of` / `for..in` 各一份）。
+- 用例：`runtime/round769` 九条 + `stdlib/round769` 四条（**10 条通过、3 条登记**）。
+  五类 7869 / 8257 → **7880 / 8270**、blocked 264（没动）、differ 124 → 126（+3 新登）、
+  bad 0、regressions 0、moved 0，加权 **95.6% → 95.5%**（登记缺口的账，不是回归）。
+  八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+
 ### 第 768 轮：`Map` / `Set` 的 `forEach`——**第二格 `thisArg` 没人接**
 
 **一句话**：这一轮的普查面是**字符串下标族 / 数字字面量 / 转义 / `Math` / `Object` 取值族 /

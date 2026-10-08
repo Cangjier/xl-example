@@ -7,7 +7,7 @@ import { HostUnitsText, NumberFromHostText, NumberToHostText, NumberToJsText } f
 import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, ReadProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt, IndexAccessorAt } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
-import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat, ArrayAt } from "./array.xl.md"
+import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayElementAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat, ArrayAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw, StringCharAt, StringCharCodeAt, StringIndexOf, StringIncludes, StringStartsWith, StringEndsWith, StringRepeat, StringPadStart, StringPadEnd, StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare, StringToUpperCase, StringToLowerCase, StringAnchor, StringFontcolor, StringFontsize, StringLink, StringSlice, StringSubstring, StringSubstr, StringReplace, StringReplaceAll, StringSplit, StringTrim, StringTrimStart, StringTrimEnd, StringToString, StringValueOf, StringIsWellFormed, StringToWellFormed, StringNormalize, StringToLocaleUpperCase, StringToLocaleLowerCase, StringBig, StringBlink, StringBold, StringFixed, StringItalics, StringSmall, StringStrike, StringSub, StringSup } from "./string.xl.md"
 import { JsTextUnits, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue } from "./text.xl.md"
 import { InspectText, InspectDepth, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
@@ -3813,7 +3813,10 @@ if (id === FunctionCall || id === FunctionApply) {
     if (args.length > 1 && args[1].Tag !== ValueTag.Undefined && args[1].Tag !== ValueTag.Null) {
       if (args[1].Tag === ValueTag.Array) {
         const supplied = table.Get(args[1].Ref).AsArray();
-        for (let i = 0; i < supplied.GetLength(); i++) invokedArgs.push(supplied.GetAt(i));
+        // **第 769 轮**：逐格读走 `ArrayElementAt`（`apply` 的实参表也是**逐下标 `Get`**）。
+        for (let i = 0; i < supplied.GetLength(); i++) {
+          invokedArgs.push(ArrayElementAt(room, table, protos, call, args[1], i));
+        }
       } else if (args[1].IsObject()) {
         // **类数组那一档**：长度与每一格都按 JS 的 `CreateListFromArrayLike` 取
         //（长度是 `ToLength(ToObject(值).length)`，这里 `ArrayLikeLength` 做的就是那一趟）。

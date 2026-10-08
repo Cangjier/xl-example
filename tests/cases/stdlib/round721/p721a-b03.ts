@@ -1,9 +1,6 @@
 // xl:title 下标上的访问器：展开与 for..of 该调 getter
 // xl:round 721
 // xl:judge stdout
-// xl:want differ
-// xl:why 同上：`[...a]` / `Array.from(a)` **读元素区**（数组迭代器挂的是元素那一摞），
-// xl:why 所以下标上的 getter 在展开这条路里也调不到。
 // xl:end
 const show = (v) => (v === null ? "null"
   : v === undefined ? "undefined"

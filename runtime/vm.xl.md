@@ -3848,6 +3848,29 @@ if (item.Iterator !== null) {
   const at = cursor.Index;
   if (at >= array.GetLength()) return this.MakeIterResult(Value.Undefined(), true);
   cursor.Index = at + 1;
+  // **下标位上装了访问器就改走 `GetProperty`**（第 769 轮）——与上面 `RtOp.GetIndex`
+  // 那一处**同一句判据**（`IndexAccessorAt` + `GetProperty`，两处各写一遍就是两处会漂）。
+  //
+  // **为什么这一格也必须补**：`[...a]` / `for (const v of a)` / 数组解构**共用**的
+  // 就是这一条引擎级迭代器（`install.xl.md` 的 `GetIterator` 对数组**原样返回**），
+  // 而元素区里那一格**已经被摘成洞**（装访问器时摘的，见 `props.xl.md` 的
+  // `IndexAccessorAt`）⇒ 快路径读到 `undefined`：`Object.defineProperty(a, 0,
+  // { get() { return 7 } })` 之后 `[...a]` 在 Node 里是 `[7, …]`、本仓原来是
+  // `[undefined, …]`（**静默错值**，判据 `runtime/round769/r769e-01` 第 10 行）。
+  if (IndexAccessorAt(this.Table, Value.FromArray(cursor.Source), at)) {
+    const shapeProtoTable = this.Protos;
+    if (shapeProtoTable === null) throw new Error("no prototype table");
+    // **接收者要包成 `Value`**（与字符串那一支同一条：`Table.Get` 给的是**载荷**，
+    // 而 `IndexAccessorAt` / `GetProperty` 收的是值——第一版直接递载荷，`tsc` 当场报）。
+    const sourceValue = Value.FromArray(cursor.Source);
+    // **`Guard` 与 `MakeIterResult` 都要**：`GetProperty` 会调 getter（可能重入、可能抛），
+    // 而这一支也可能从宿主那条路进来（`it.next()`）——两件事与字符串那一支同一个形状。
+    return this.Guard(() => {
+      const key = RtToString(this.Room(), this.Table, Value.FromInt(at));
+      const produced = GetProperty(this.Room(), this.Native(), shapeProtoTable, this.Table, sourceValue, key);
+      return this.MakeIterResult(produced, false);
+    });
+  }
   return this.MakeIterResult(array.GetAt(at), false);
 }
 if (item.Generator === null) {

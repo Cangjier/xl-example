@@ -7,7 +7,7 @@ import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProper
 import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
-import { InvokeArray, NeverCall, Units, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
+import { InvokeArray, NeverCall, Units, ArrayLikeLength, ArrayLikeAt, ArrayElementAt } from "./array.xl.md"
 import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask, PromiseThenableAdopt, ArrayFromAsyncValues, PromiseArrayFromStepId, PromiseArrayFromMapStepId, AsyncIterableValues, AsyncIterableStepId, WellKnownSymbolValue } from "./promise.xl.md"
 import { JsTextUnits, ValueText, PropertyKeyValue, PropertyKeyName } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext, ArrayIteratorTake, ArrayIteratorDrop, ArrayIteratorToArray, ThisArgOf } from "./array.xl.md"
@@ -806,7 +806,9 @@ for (let i = 0; i < count; i++) {
   // 洞读出来就是 `undefined`，所以 `1 in Array.from([1, , 3])` 在 JS 里是**真**。
   // `AppendSlot` 的规矩（洞跟着走）是 `concat` / `slice` 那几条的——
   // 用错了会**静默改形状**，而这一条正是判据现场量出来的。
-  target.Push(items.GetAt(i));
+  // **第 769 轮**：读值走 `ArrayElementAt`——`Array.from` 是**逐下标 `Get`**，
+  // 而访问器下标在元素区里是洞，直接 `GetAt` 会读到 `undefined`（判据 `r769e-01` 第 11 行）。
+  target.Push(ArrayElementAt(room, table, protos, call, drained, i));
 }
 if (keep !== null) keep(out, false);
 return MapArrayItems(room, table, out, mapper, hasMapper, thisArg, call, failed);
@@ -1166,7 +1168,10 @@ if (items.Tag === ValueTag.Array) {
     // **每一趟都现取视图**（`map.xl.md` 文首那条教训：句柄稳定、**视图不稳定**）——
     // 拿着一个视图跨过 `Push` 是**第 132 轮实测踩到的**：`[...new Set([1, 2])]` 接出来是**空的**，
     // 而 `[...xs]`（普通数组）看起来又是对的——正是「有时候对」那一种最难查的形状。
-    table.Get(target.Ref).AsArray().Push(from.GetAt(i));
+    // **第 769 轮**：读值走 `ArrayElementAt`——展开是**逐下标 `Get`**（表里那句
+    // 「洞填成 `undefined`，与 `Array.from` 同一条口径」说的正是它），
+    // 而访问器下标在元素区里是洞 ⇒ `[...a]` 原来读到 `undefined`（判据 `r769e-01` 第 10 行）。
+    table.Get(target.Ref).AsArray().Push(ArrayElementAt(room, table, protos, call, items, i));
   }
   if (keep !== null) keep(items, false);
   return target;

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8257,
+  "total": 8270,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.56,
+  "progressPercent": 95.52,
   "categories": [
     {
       "category": "token",
@@ -100,18 +100,18 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1106,
-      "pass": 1067,
+      "total": 1115,
+      "pass": 1074,
       "blocked": 5,
-      "differ": 34,
+      "differ": 36,
       "nodefail": 0,
-      "coverage": 96.47
+      "coverage": 96.32
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3275,
-      "pass": 3192,
+      "total": 3279,
+      "pass": 3196,
       "blocked": 25,
       "differ": 58,
       "nodefail": 0,
@@ -1853,7 +1853,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-21964/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28236/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2120,6 +2120,18 @@
       "detail": "stdout 不同：第 5 行：node «  inner caught boom» vs tsrun «04 escaped boom»"
     },
     {
+      "id": "runtime/round769/r769a-03",
+      "category": "runtime",
+      "title": "查找族与负数起点",
+      "detail": "stdout 不同：第 15 行：node «15 (function () { const a: any = [1,  throw:TypeError» vs tsrun «15 (function () { const a: any = [1,  throw:Error»"
+    },
+    {
+      "id": "runtime/round769/r769f-01",
+      "category": "runtime",
+      "title": "写回路径上的下标访问器（本轮登记的缺口）",
+      "detail": "stdout 不同：第 1 行：node «01 JSON.stringify(mk().reverse().slice()) ok:string:[null,7]» vs tsrun «01 JSON.stringify(mk().reverse().slice()) ok:string:[7,null]»"
+    },
+    {
       "id": "stdlib/array/150-array-species-subclass",
       "category": "stdlib",
       "title": "继承数组的子类上 `map` / `concat` 交出什么",
@@ -2141,7 +2153,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-21964/src/5278.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28236/src/5287.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2165,7 +2177,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-21964/src/5328.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28236/src/5337.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2256,12 +2268,6 @@
       "category": "stdlib",
       "title": "下标上的访问器：get + set",
       "detail": "stdout 不同：第 1 行：node «number:14,number:14,string:1,14,3» vs tsrun «number:5,number:5,string:1,5,3»"
-    },
-    {
-      "id": "stdlib/round721/p721a-b03",
-      "category": "stdlib",
-      "title": "下标上的访问器：展开与 for..of 该调 getter",
-      "detail": "stdout 不同：第 1 行：node «string:1,99,3|string:1,99,3» vs tsrun «string:1,,3|string:1,,3»"
     },
     {
       "id": "stdlib/round723/p723a-b01",
@@ -2418,6 +2424,12 @@
       "category": "stdlib",
       "title": "缺省的 `Function.prototype[Symbol.hasInstance]`：本仓那一格是空的",
       "detail": "stdout 不同：第 1 行：node «01 function» vs tsrun «01 undefined»"
+    },
+    {
+      "id": "stdlib/round769/r769b-01",
+      "category": "stdlib",
+      "title": "描述符读回与继承",
+      "detail": "stdout 不同：第 13 行：node «13 (function () { const o: any = {};  ok:undefined:undefined» vs tsrun «13 (function () { const o: any = {};  throw:Error»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

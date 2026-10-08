@@ -872,7 +872,7 @@ if (id === ArrayConcat) {
     for (;;) {
       const part = table.Get(item.Ref).AsArray();
       if (at >= part.GetLength()) break;
-      AppendSlot(created, part, at);
+      AppendSlot(room, table, protos, call, created, item, at);
       at = at + 1;
     }
   };
@@ -1089,14 +1089,17 @@ if (id === ArrayIndexOf || id === ArrayLastIndexOf) {
       // 而 `includes(undefined)` 给**真**（它把洞当 `undefined` 看，第 213 轮就是那么写的）。
       // **原来这里不判洞** ⇒ 读到洞里的 `undefined` ⇒ 返回那个下标
       //（判据 `c371-rt-array-holes-everywhere` 的第四行：Node `-1`、本仓 `1`）。
-      if (source.IsHole(i)) continue;
-      if (RtCmpEqStrict(table, source.GetAt(i), needle).AsBool()) return Value.FromInt(i);
+      // **`第 769 轮`：判「在不在」与读值都换成接收者那一对助手**——
+      // 访问器下标在元素区里也是洞，`IsHole` 会把**该被看到的那一格**跳过去
+      // （`ArrayHasAt` 的说明写着为什么）。
+      if (!ArrayHasAt(table, self, i)) continue;
+      if (RtCmpEqStrict(table, ArrayElementAt(room, table, protos, call, self, i), needle).AsBool()) return Value.FromInt(i);
     }
     return Value.FromInt(-1);
   }
   for (let i = from; i < length0; i++) {
-    if (source.IsHole(i)) continue;
-    if (RtCmpEqStrict(table, source.GetAt(i), needle).AsBool()) return Value.FromInt(i);
+    if (!ArrayHasAt(table, self, i)) continue;
+    if (RtCmpEqStrict(table, ArrayElementAt(room, table, protos, call, self, i), needle).AsBool()) return Value.FromInt(i);
   }
   return Value.FromInt(-1);
 }
@@ -1141,9 +1144,10 @@ if (id === ArrayFlatMap) {
   if (keep !== null) keep(Value.FromArray(flatMapHandle), true);
   const total = source.GetLength();
   for (let i = 0; i < total; i++) {
-    // **洞跳过**（与 `map` / `forEach` 同一条）。
-    if (source.IsHole(i)) continue;
-    const item = source.GetAt(i);
+    // **洞跳过**（与 `map` / `forEach` 同一条）；**访问器下标不算洞**（第 769 轮，
+    // `ArrayHasAt` / `ArrayElementAt` 那一对）。
+    if (!ArrayHasAt(table, self, i)) continue;
+    const item = ArrayElementAt(room, table, protos, call, self, i);
     const answered = call(args[0], thisArg, [item, Value.FromInt(i), receiver]);
     // **回调抛出就收摊**（第 228 轮）：`answered` 这时是 `undefined`——
     // 不问这一句，`flatMap` 会把它当成一个「不是数组的返回值」**收进结果里**
@@ -1188,7 +1192,7 @@ if (id === ArraySlice) {
     // ⇒ 洞被接成一个**显式的 `undefined`**，`1 in result` 从假变真（形状变了）。
     // `concat` 那一支早就用 `AppendSlot` 处理过同一件事（第 123 轮）——
     // 这一处是同一个坑的另一半（判据 `p721a-r33`）。
-    AppendSlot(slice, source, i);
+    AppendSlot(room, table, protos, call, slice, self, i);
   }
   return Value.FromArray(handle);
 }
@@ -1223,7 +1227,7 @@ if (id === ArrayReverse || id === ArrayToReversed) {
   table.Get(handle).Proto = table.Get(self.Ref).Proto;
   const created = table.Get(handle).AsArray();
   for (let i = length - 1; i >= 0; i--) {
-    AppendSlot(created, source, i);
+    AppendSlot(room, table, protos, call, created, self, i);
   }
   table.Recount(handle);
   return Value.FromArray(handle);
@@ -1247,7 +1251,7 @@ if (id === ArrayIncludes) {
   const total = source.GetLength();
   const from = NormalizeRangeIndex(IntArgOr(room, call, protos, table, args, 1, 0), total);
   for (let i = from; i < total; i++) {
-    if (SameValueZero(table, source.GetAt(i), needle)) return Value.FromBool(true);
+    if (SameValueZero(table, ArrayElementAt(room, table, protos, call, self, i), needle)) return Value.FromBool(true);
   }
   return Value.FromBool(false);
 }
@@ -1292,7 +1296,7 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
     // 原来跑了 3 次，因为 `GetAt` 对洞给的是 `undefined`、回调照调）。
     // **`map` 的结果要在同一格留一个洞**：JS 的 `[1, , 3].map(f)` **长度还是 3**、
     // 第 1 格**还是洞**——`continue` 掉就短一格（那是另一种**静默错值**）。
-    if (source.IsHole(i)) {
+    if (!ArrayHasAt(table, self, i)) {
       if (id === ArrayMap) {
         const mapTarget = table.Get(collected).AsArray();
         mapTarget.Push(Value.Undefined());
@@ -1300,7 +1304,7 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
       }
       continue;
     }
-    const item = source.GetAt(i);
+    const item = ArrayElementAt(room, table, protos, call, self, i);
     // **`filter` 的那一项要跨过这次调用**：它**先读出来、回调之后才决定收不收**——
     // 而它只挂在 `source`（调用方的数组）身上……**那也算挂着**，
     // 所以这里挂的是「**不挂在别处**」的那些（见上面那一段判据）。
@@ -1358,8 +1362,8 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
     //（Node 给 `1`）——**静默错值**，判据 `c371-stdlib-array-every-some-empty` /
     // `c371-rt-array-holes-everywhere` 量的就是它。
     const skipsHoles = id === ArraySome || id === ArrayEvery;
-    if (skipsHoles && source.IsHole(i)) continue;
-    const item = source.GetAt(i);
+    if (skipsHoles && !ArrayHasAt(table, self, i)) continue;
+    const item = ArrayElementAt(room, table, protos, call, self, i);
     const answered = RtToBoolean(table, call(args[0], thisArg, [item, Value.FromInt(i), receiver])).AsBool();
     // **回调抛出就收摊**（第 228 轮，与 `forEach` 那一条同一处口径）：
     // `RtToBoolean` 对 `undefined` 给**假**——不问这一句的话，`some` / `every` 会把这个
@@ -1413,7 +1417,16 @@ if (id === ArraySort || id === ArrayToSorted) {
   // **判据用 `Extensible`**（与 `RequireArrayGrowable` 第 333 轮那一句同一处）：
   // `Object.freeze` 把它置假，而「一格都写不进去」在数组上等价于「不可扩展」。
   // **只管就地那一档**：`toSorted` 跑在副本上（副本是可扩展的），照旧。
-  if (inPlace && !table.Get(self.Ref).Extensible) {
+  //
+  // **第 769 轮补上「一格都不动就不抛」**：上面那条判据第 746 轮写得太宽——
+  // 它**不看有没有东西可写**。JS 的 `sort` 只在**移动元素**时才写回，而 0 / 1 格的数组
+  // 一次都不移（V8 的实测：`Object.freeze([1]).sort()` 与 `Object.freeze([]).sort()` 都给
+  // `ok`，两格及以上一律 `TypeError`）⇒ 本仓原来在**什么都不用做**的那两档上抛，
+  // 那是「多抛了一次」（判据 `runtime/round769/r769g-01` 量的就是它：
+  // `Object.freeze([1]).sort()` 本仓给 `TypeError`、Node 给 `ok`）。
+  // **两格及以上照旧抛**（`p746d-d01` 那一格钉着的正是它）——所以这一改是**收窄**，
+  // 不是撤掉。
+  if (inPlace && source.GetLength() > 1 && !table.Get(self.Ref).Extensible) {
     throw new TypeError("Cannot assign to read only property of an object that is not extensible");
   }
   // **`toSorted` 先拷一份**（第 274 轮）：排序**跑在副本上**，原数组一个字节都不动。
@@ -1431,7 +1444,7 @@ if (id === ArraySort || id === ArrayToSorted) {
     // **洞照抄**（`AppendSlot`，与 `concat` / `slice` 那几支同一条）：
     // 写成 `undefined` 会把洞变成真值（`1 in copy` 从假变真）。
     for (let i = 0; i < source.GetLength(); i++) {
-      AppendSlot(work, source, i);
+      AppendSlot(room, table, protos, call, work, self, i);
     }
     workRef = handle;
   }
@@ -1462,11 +1475,11 @@ if (id === ArrayReduce || id === ArrayReduceRight) {
   }
   for (let step = 0; step < total; step++) {
     const i = backwards ? total - 1 - step : step;
-    // **洞跳过**（JS 的 `reduce` 只走存在的下标）。
-    if (source.IsHole(i)) continue;
+    // **洞跳过**（JS 的 `reduce` 只走存在的下标）；**访问器下标算存在**（第 769 轮）。
+    if (!ArrayHasAt(table, self, i)) continue;
     if (!started) {
       // **没给初值：第一项当初值**（这一项**不跑回调**）。
-      accumulator = source.GetAt(i);
+      accumulator = ArrayElementAt(room, table, protos, call, self, i);
       started = true;
       continue;
     }
@@ -1482,7 +1495,7 @@ if (id === ArrayReduce || id === ArrayReduceRight) {
     // `acc + i` 算出 `NaN`（**静默错值**：`[1,2].reduce((a, v, i) => a + i, 0)`
     // 本仓给 `NaN`，Node 给 `1`）。判据 `c304-std-array-reduce-forms` 量的就是它。
     // **`reduceRight` 也走这一句**（它给的就是**真实的那个下标**，不是「第几步」）。
-    const next = call(args[0], Value.Undefined(), [previous, source.GetAt(i), Value.FromInt(i), receiver]);
+    const next = call(args[0], Value.Undefined(), [previous, ArrayElementAt(room, table, protos, call, self, i), Value.FromInt(i), receiver]);
     // **回调抛出就收摊**（第 228 轮）：`next` 这时是 `undefined`——
     // 不问这一句就把它当成**累加器**继续用（下一轮的回调会拿到 `undefined`，
     // 于是脚本看到的是「累加器莫名其妙变空了」，而不是「回调抛了」）。
@@ -1544,8 +1557,9 @@ if (id === ArrayAt) {
   const length = source.GetLength();
   if (index < 0) index = index + length;
   if (index < 0 || index >= length) return Value.Undefined();
-  // **洞也照读**（`GetAt` 对洞给 `undefined`——JS 的 `at` 就是读那一格）。
-  return source.GetAt(index);
+  // **洞也照读**（`GetAt` 对洞给 `undefined`——JS 的 `at` 就是读那一格）；
+  // **访问器下标读的是那个值**（第 769 轮）。
+  return ArrayElementAt(room, table, protos, call, self, index);
 }
 if (id === ArraySplice || id === ArrayToSpliced) {
   // **`splice(起点, 删几个, …插进去的)`**（第 150 轮）——**就地改**，返回**删掉的那些**
@@ -1573,7 +1587,7 @@ if (id === ArraySplice || id === ArrayToSpliced) {
     table.Get(handle).Proto = table.Get(self.Ref).Proto;
     target = table.Get(handle).AsArray();
     for (let i = 0; i < length; i++) {
-      AppendSlot(target, source, i);
+      AppendSlot(room, table, protos, call, target, self, i);
     }
     targetRef = handle;
   }
@@ -1631,7 +1645,7 @@ if (id === ArrayFlat) {
   table.Get(flattened).Proto = table.Get(self.Ref).Proto;
   const target = table.Get(flattened).AsArray();
   // **摊的过程抽成了方法**（`FlattenInto`，第 274 轮）：深度 > 1 时它要**递归**。
-  FlattenInto(table, target, source, depth);
+  FlattenInto(room, table, protos, call, target, self, depth);
   table.Recount(flattened);
   return Value.FromArray(flattened);
 }
@@ -1688,7 +1702,7 @@ if (id === ArrayWith) {
   table.Get(handle).Proto = table.Get(self.Ref).Proto;
   const created = table.Get(handle).AsArray();
   for (let i = 0; i < total; i++) {
-    AppendSlot(created, source, i);
+    AppendSlot(room, table, protos, call, created, self, i);
   }
   // **换掉那一格**：`SetAt` 会**清掉**洞标记——这里正是想要的
   //（JS 的 `with` 就是把那一格变成一个真值，原来是洞也不再是）。
@@ -1722,8 +1736,9 @@ if (id === ArrayKeys || id === ArrayValues || id === ArrayEntries) {
   const iterationResult = table.Get(iterationHandle).AsArray();
   for (let i = 0; i < iterationLength; i++) {
     if (id === ArrayValues) {
-      // **洞给 `undefined`**（`GetAt` 对洞就是这个答案——JS 的迭代器也是它）。
-      iterationResult.Push(source.GetAt(i));
+      // **洞给 `undefined`**（`GetAt` 对洞就是这个答案——JS 的迭代器也是它）；
+      // **访问器下标给那个值**（第 769 轮：`values()` 原来读到洞）。
+      iterationResult.Push(ArrayElementAt(room, table, protos, call, self, i));
       continue;
     }
     if (id === ArrayKeys) {
@@ -1736,7 +1751,7 @@ if (id === ArrayKeys || id === ArrayValues || id === ArrayEntries) {
     table.Get(itemPairHandle).Proto = table.Get(self.Ref).Proto;
     const itemPair = table.Get(itemPairHandle).AsArray();
     itemPair.Push(Value.FromInt(i));
-    itemPair.Push(source.GetAt(i));
+    itemPair.Push(ArrayElementAt(room, table, protos, call, self, i));
     iterationResult.Push(Value.FromArray(itemPairHandle));
   }
   table.Recount(iterationHandle);
@@ -1787,7 +1802,7 @@ if (id === ArrayIteratorNext) {
   const step = Value.FromObject(stepHandle);
   SetProperty(room, NeverCall, table, step,
     Value.FromString(table.CreateString(Units("value"))),
-    exhausted ? Value.Undefined() : items.GetAt(cursor));
+    exhausted ? Value.Undefined() : ArrayElementAt(room, table, protos, call, self, cursor));
   SetProperty(room, NeverCall, table, step,
     Value.FromString(table.CreateString(Units("done"))), Value.FromBool(exhausted));
   // **走到头之后游标不再动**（JS 的迭代器就是这样：再调几次都是同一个答案）。
@@ -1841,7 +1856,7 @@ if (id === ArrayIteratorTake || id === ArrayIteratorDrop || id === ArrayIterator
   table.Get(pickedHandle).Proto = table.Get(self.Ref).Proto;
   const picked = table.Get(pickedHandle).AsArray();
   for (let i = 0; i < take; i++) {
-    picked.Push(items.GetAt(from + i));
+    picked.Push(ArrayElementAt(room, table, protos, call, self, from + i));
   }
   table.Recount(pickedHandle);
   table.Get(self.Ref).Props[cursorAt.Index].Value = Value.FromInt(from + take);
@@ -2074,7 +2089,7 @@ for (let i = 1; i < definedCount; i++) {
 return true;
 ```
 
-# method FlattenInto:(table:HeapTable, target:HeapArray, from:HeapArray, depth:int)=>void
+# method FlattenInto:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, target:HeapArray, from:Value, depth:int)=>void
 
 把 `from` 按 `depth` 摊进 `target`（第 274 轮抽出来，`flat` 用）。
 
@@ -2090,11 +2105,14 @@ return true;
 深度一大就可能不够，这是**已知**的，写在那一支的说明里（宁可问一句、也不假装算得准）。
 
 ```ts
-for (let i = 0; i < from.GetLength(); i++) {
-  if (from.IsHole(i)) continue;
-  const item = from.GetAt(i);
+const items = table.Get(from.Ref).AsArray();
+for (let i = 0; i < items.GetLength(); i++) {
+  // **第 769 轮**：判「在不在」与读值都换成那一对助手——访问器下标在元素区里也是洞，
+  // 而 JS 的 `flat` 拿的是 `Get` 的结果（`[[1], , 3].flat()` 里那一格**不是**被摘掉的洞）。
+  if (!ArrayHasAt(table, from, i)) continue;
+  const item = ArrayElementAt(room, table, protos, call, from, i);
   if (depth > 0 && item.Tag === ValueTag.Array) {
-    FlattenInto(table, target, table.Get(item.Ref).AsArray(), depth - 1);
+    FlattenInto(room, table, protos, call, target, item, depth - 1);
     continue;
   }
   target.Push(item);
@@ -2219,6 +2237,58 @@ if (raw.IsNumber()) {
 return count < 0 ? 0 : count;
 ```
 
+# method ArrayHasAt:(table:HeapTable, self:Value, at:int)=>bool
+
+**数组的第 `at` 格「在不在」**（第 769 轮）——给只读那一族的「洞跳过」判据用。
+
+**为什么不能直接问 `IsHole`**：装访问器那一处会把那一格**摘成洞**
+（`props.xl.md` 的 `IndexAccessorAt` 写着为什么：元素区与属性表住不下同一格），
+于是「这一格在不在」在访问器下标上问 `IsHole` 得到的是**真**——
+`[1, , 3].map(…)` 跳过洞是对的，而
+`Object.defineProperty(a, 0, { get() { return 7 } })` 之后 `a.map(…)` 的回调
+**该被调用**（JS 走的是 `HasProperty`）。两件事在元素区看起来一样，
+判据只能是**那一摞属性里有没有这一格的访问器**。
+
+**非数组接收者一律答「在」**：类数组那一档折成快照时已经逐格问过 `HasProperty`
+（`ArrayLikeSnapshot`），到了这里就是「每一格都有」。
+
+```ts
+if (self.Tag !== ValueTag.Array) return true;
+if (!table.Get(self.Ref).AsArray().IsHole(at)) return true;
+return IndexAccessorAt(table, self, at);
+```
+
+# method ArrayElementAt:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, self:Value, at:int)=>Value
+
+**数组的第 `at` 格的值**（第 769 轮）——与 `vm.xl.md` 的 `RtOp.GetIndex` **同一处判据**：
+**访问器下标走 `GetProperty`**（它会调 getter、`this` 是接收者），其余走元素区那一格。
+
+**为什么要抽这一格**：`join` 第 756 轮只补了自己那一处，于是同一件事在**二十来处**
+读路径上各错一遍——`slice` / `toReversed` / `toSorted` / `toSpliced` / `with` / `concat` /
+`flat` / `map` / `filter` / `find` / `reduce` / `includes` / `indexOf` / `at` /
+`values` / `entries` / `Array.from` / `apply` 全是。判据
+`runtime/round769/r769a-02` 与 `r769e-01` 一次量出二十多行（**静默错值**：
+读到的全是洞给的那个 `undefined`）。**一处一处写就是这个样子**，所以这里收成一个助手，
+凡「读接收者第 `i` 格」的地方都来问它。
+
+**非数组接收者交给 `ArrayLikeAt`**：类数组那一档本来就是 `Get(O, ToString(at))`
+（键是十进制文本、读不到给 `undefined`、不抛）。
+
+**这一格只管读**：写回那一半（`sort` / `reverse` / `shift` / `unshift` / `splice` /
+`fill` / `copyWithin` / `pop`）在这一轮**没有**跟着改——它们的症状是
+「该抛 `TypeError` 而没有抛」（JS 往一个只有 getter 的下标写会抛），
+登记在 `runtime/round769/r769f-01` 那一格里。
+
+```ts
+if (self.Tag !== ValueTag.Array) return ArrayLikeAt(room, table, call, self, at);
+if (call !== null && IndexAccessorAt(table, self, at)) {
+  // **键是十进制的下标文本**（与 `ArrayLikeAt` 的非数组那一档同一条写法）。
+  const key = Value.FromString(table.CreateString(Units("" + at)));
+  return GetProperty(room, call, protos, table, self, key);
+}
+return table.Get(self.Ref).AsArray().GetAt(at);
+```
+
 # method ArrayLikeAt:(room:RoomChecker, table:HeapTable, call:NativeCall | null, receiver:Value, at:int)=>Value
 
 **类数组的第 `at` 项**（第 335 轮）——数组直接给元素，
@@ -2294,7 +2364,7 @@ if (leftUnits.length === rightUnits.length) return 0;
 return leftUnits.length < rightUnits.length ? -1 : 1;
 ```
 
-# method AppendSlot:(target:HeapArray, source:HeapArray, index:int)=>void
+# method AppendSlot:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, target:HeapArray, source:Value, index:int)=>void
 
 **把 `source[index]` 接到 `target` 尾部**——**洞也照样接过去**（第 123 轮）。
 
@@ -2303,13 +2373,26 @@ return leftUnits.length < rightUnits.length ? -1 : 1;
 **不能写成 `Push(source.GetAt(index))`**：洞会被接成一个**显式的 `undefined`**，
 于是 `1 in result` 从假变真（形状变了，判据量不出来、用户量得出来）。
 
+**下标位上装了访问器那一格要**先**问一句**（第 769 轮）：那一格在元素区里**也是洞**
+（装访问器时摘掉的），照上面那条走会把 `{ get() { return 7 } }` 接成一个洞——
+Node 里 `slice` / `toReversed` / `with` / `toSpliced` / `concat` / `toSorted` 抄的是
+**那个值**（判据 `runtime/round769/r769a-02` 一次量出三行）。所以次序是
+**先问访问器、再问洞**，而读值那一句就是 `ArrayElementAt`（同一处判据）。
+**接收者参数因此从 `HeapArray` 换成 `Value`**：`IndexAccessorAt` 问的是那个值
+（元素区那一摞之外还有属性表），光有 `HeapArray` 问不出来。
+
 ```ts
-if (source.IsHole(index)) {
+if (call !== null && IndexAccessorAt(table, source, index)) {
+  target.Push(ArrayElementAt(room, table, protos, call, source, index));
+  return;
+}
+const items = table.Get(source.Ref).AsArray();
+if (items.IsHole(index)) {
   target.Push(Value.Undefined());
   target.SetHole(target.GetLength() - 1);
   return;
 }
-target.Push(source.GetAt(index));
+target.Push(items.GetAt(index));
 ```
 
 # method NeverCall:(callee:Value, self:Value, args:Array<Value>)=>Value
