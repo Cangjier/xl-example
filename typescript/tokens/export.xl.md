@@ -13,7 +13,7 @@ import { SymbolToken } from "./symbol-token.xl.md"
 import { ConstString } from "./string/const-string.xl.md"
 import { String } from "./string/string.xl.md"
 import { TypeLiteral } from "./type-literal/type-literal.xl.md"
-import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { SkipPreviousWrapSymbol, IsTriviaUnit } from "../text-common-util.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 ```
 
@@ -98,16 +98,21 @@ return next !== null && next instanceof Bracket && next.startBracket === "{";
 
 ## private method SkipWrap:(units:Array<Token>, index:int)=>int
 
-跳过软换行之后的那个下标。
+跳过 **trivia**（软换行与注释）之后的那个下标。
 
 **`export` 与 `*` / `{` 之间允许换行**（`export` 换行 `*` 换行 `from "m"` 是常见排版），
-所以判定与收集都要跳软换行；不跳的话多行导出语句整条不成形。
+所以判定与收集都要跳过它；不跳的话多行导出语句整条不成形。
+
+**注释也算 trivia**（第 669 轮）：`export  /* c */ { a as b, c, type D };` 是合法排法，
+只跳软换行时 `Previous` 看到的是那条注释 ⇒ 判定为否 ⇒ 整条语句退回散单元
+（实测缺 `ExportDeclaration` / `NamedExports` / `ExportSpecifier` 一族 9 个节点、漂 0 多 2）。
+判据走 `IsTriviaUnit`——它是「下一个实义单元」的统一口径，与 `import` / `statement` 那几处同一做法。
 
 ```ts
 let i = index + 1;
 while (i < units.length) {
   const item = Get(units, i);
-  if (item instanceof LineWrap) {
+  if (item !== null && IsTriviaUnit(item)) {
     i = i + 1;
     continue;
   }
@@ -158,9 +163,17 @@ if (isPrefixOnly) {
   }
   endIndex = headEnd;
 } else {
+  let started = false;
   for (let i = index + 1; i < units.length; i++) {
     const item = Get(units, i);
     if (item === null) {
+      continue;
+    }
+    // **`export` 后面那个换行 / 注释可以写在子句前面**（第 669 轮，与 `import.xl.md` 同一处口径）：
+    // `export` 换行 `{ a as b };` 时收集循环的第一格就是那个软换行 ⇒ 直接 `break` ⇒
+    // `items` 空着 ⇒ 投影那一侧没有 `exportClause`（实测缺 `NamedExports` 一族 8 个节点、
+    // 字段名差 1 处）。所以**只在还没有收到任何单元时**跨过 trivia。
+    if (started === false && IsTriviaUnit(item)) {
       continue;
     }
     if (item instanceof LineWrap) {
@@ -170,6 +183,7 @@ if (isPrefixOnly) {
       endIndex = i;
       break;
     }
+    started = true;
     items.push(item);
     endIndex = i;
   }

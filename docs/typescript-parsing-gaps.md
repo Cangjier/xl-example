@@ -6,11 +6,15 @@
 
 ## 现状
 
-语料的覆盖面：`node_modules` 的 `@types`、`typescript/lib`、`undici-types`
-加本项目的 `dist/ts/**`、`samples`、`tests/parse/cases/**`。
-其中**所有真实可达的 TS 构造**都已经对上；`SyntaxKind` 全表与语料的差集只剩
-**合成节点**（`Bundle` / `Count` / `SyntaxList` / `Synthetic*` / `NotEmitted*` / `PartiallyEmittedExpression`，
+`cases:tsast` 的语料（`node_modules` 的 `@types` / `typescript/lib` / `undici-types`
+加本项目的 `dist/ts/**`、`samples`、`tests/parse/cases/**`）**逐文件全绿**，
+`SyntaxKind` 全表与语料的差集只剩**合成节点**
+（`Bundle` / `Count` / `SyntaxList` / `Synthetic*` / `NotEmitted*` / `PartiallyEmittedExpression`，
 它们不由源码解析产生）与 **JSX 那一族**（见下）。
+
+**但「语料全绿」不等于「构造全对」**：语料里有什么形状，取决于这些文件碰巧怎么写。
+所以另有一份**片段探针池**（`tmp/k7-snips-big.mjs`，388 条合法的一两行片段，逐条对拍），
+它量出来的才是「已知仍开着的缺口」那一张表——**加宽语料之前先看它**。
 
 ## 怎么量缺口
 
@@ -61,34 +65,25 @@
 - **语言配置带来的差异不是缺陷**：`\a` 解成响铃字符而不是字母 `a`；
   `@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器。
 
-## 已经量出来、还没收的族
+## 收缺口的两条规矩
 
-第 657 轮普查 1510 条**合法**片段（手写 377 + 定向变体 98 + 「每个 token 边界插一遍 `/*c*/` / 换行」1035），
-296 条形状对不上、6 条让产物抛异常，根因只有四处：
-
-- **(a) 注释 / 换行落在语法相邻位置之间**（占绝大多数）：关键字与名字、修饰词与成员、
-  运算符与操作数、头与体、`export` 与声明、`else` 与 `if` 的取词、解构元素与注释。
-  **第 660 / 661 / 662 / 666 轮已经把量出来的那些族收完**；
-- **(b) 空语句 `;`**：第 663 轮收完；
-- **(c) 少数构造在组合下整节点丢失**：第 664 轮收掉「可选链 × `as` / `satisfies`」与
-  「`f!(1)` 的实参」两支，泛型实例化表达式 `f<string>`、`async<T>(x) => x`、
-  `get /*c*/ x()` 存取器、简写环境模块 `declare module "mm";` 在随后的普查里也过了；
-- **(d) 裸块里那一格也要成语句**（`{ A };`）：第 665 轮收完。
-
-**收的时候一次收一族**，并把它写成 `tests/parse/cases/` 下的用例——
-用例进了语料，`cases:tsast` 才会一直替它把关。逐轮的过程不写在这里（在 git 历史里）。
+- **一次收一族**：把量出来的那一族整个收掉，并把它写成 `tests/parse/cases/` 下的用例——
+  用例进了语料，`cases:tsast` 才会一直替它把关；只修现场那一条，下一轮换个排版又回来。
+- **先探「同族的第三条」**：`do` 的体自带分号那一族、循环头部括号里出现 `)`、
+  括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
+  都是这么一条一条量出来的。
 
 ## 已知仍开着的缺口
 
 判据是**片段探针池** `tmp/k7-snips-big.mjs`（388 条合法片段，逐条与 `ts.createSourceFile` 对拍）：
-第 668 轮量出 40 条对不上，收掉 25 条，**还剩 15 条**。加上另外两条单独探出来的（`typeof a.b[K]`、
-泛型实例化表达式 `f<string>`），一共 **17 条**。它们都**不在语料里**——所以 `npm run gates` 是绿的：
+第 668 轮量出 40 条对不上，两轮收掉 27 条，**还剩 13 条**。加上另外两条单独探出来的
+（`typeof a.b[K]`、泛型实例化表达式 `f<string>`），一共 **15 条**。
+它们都**不在语料里**——所以 `npm run gates` 是绿的：
 
 | 形状 | 症状 |
 | --- | --- |
 | `const \n{ a, b: c, d = 1, ...rest } = o` | 换行落在声明关键字与解构模式之间时整条声明解体（缺 11 / 多 15）：`Let` 那一趟与 `{` 都是按「紧邻」找模式的 |
 | `declare function f(): void /* c */ ;` | 无体声明的区间只到自己最后一个实义单元，尾随注释与 `;` 没算进去（TS 的 `FunctionDeclaration` 到 `;` 为止） |
-| `export /* c */ { a as b }` / `export \n{ a as b }` | 具名导出子句那两格（注释 / 换行）：`Import` 一侧第 666 / 668 轮已经收了，`Export` 一侧还差 |
 | `const r20 = function f() {} + 1` | 函数表达式后面还能接运算符，这里整段收成了别的形状（缺 4） |
 | `function* g() { yield* h(); };` | 尾随那个 `;`（空语句）没成壳（缺 1 漂 1 多 1） |
 | `x extends A extends B ? C : D` / `type T = asserts x is A` / `x extends \`a${A}b\`` | 泛型约束里的嵌套条件类型 / 顶层断言谓词 / 模板字面量类型三族（缺 5–15，`t-14-param` 还带一处 `未映射 Bracket`） |
@@ -98,19 +93,21 @@
 | `type A = typeof a.b[K]` | 点号名那一支：产物是 `TypeQuery` 吞下整个 `a.b[K]`，TS 是 `IndexedAccessType > TypeQuery > QualifiedName(a.b)`。**不带点号的** `typeof a[K]` / `typeof a[]` / `typeof a[K][L]` 第 667 轮已经收掉 |
 | `const a = f<string>;` | **泛型实例化表达式**（TS 4.7）没有规则：产物是 `BinaryExpression(f < string)`，TS 是 `ExpressionWithTypeArguments` |
 
-**怎么用这张表**：`node tests/parse/ts-ast.mjs --snippets tmp/k7-snips-big.mjs` 一次就能把 15 条印全
-（`tmp/` 不进仓库，这是**一次普查的现场**，不是门）。收的时候**一次收一族**，并把它写成
-`tests/parse/cases/` 下的用例——用例进了语料，`cases:tsast` 才会一直替它把关。
+**怎么用这张表**：`node tests/parse/ts-ast.mjs --snippets tmp/k7-snips-big.mjs` 一次就能把 13 条印全
+（探针池在 `tmp/` 下、不进仓库，所以它是**一次普查的现场**而不是门）——
+收一条就把它从这张表里拿掉，并补一条 `tests/parse/cases/` 下的用例。
 
-**第 668 轮收掉的那一族**（留个对照，说明这类缺口长什么样）：`while (a)` 换行 `{ … }`、
-`for (;;)` 换行 `/* c */` 换行 `{ … }`、`switch (a)` 换行 `{ … }`、`function f<T>(x: T): T` 换行 `{ … }`
-——**声明头与它的体之间那个换行不是语句边界**（`Statement.NextLineContinuesExpression` 里
-`IsHeaderBodyBrace` 那一格）。`{` 自己起得了一条语句（裸块），所以判据只能认「末尾是不是一个
-等着体的头」，不能见 `{` 就答「续接」：`foo()` 换行 `{}` 在 TS 里是两条语句。
+**已经收掉的那两族**留个对照，说明这类缺口长什么样：
 
-只有一条经验值得留着：**先探这一类「同族的第三条」**——`do` 的体自带分号那一族、
-循环头部括号里出现 `)`、括号 / 一次调用当被调用者时的可选链、注释夹在语法相邻位置之间，
-都是这么一条一条量出来的。
+- **第 668 轮**：`while (a)` 换行 `{ … }`、`for (;;)` 换行 `/* c */` 换行 `{ … }`、
+  `switch (a)` 换行 `{ … }`、`function f<T>(x: T): T` 换行 `{ … }` —— **声明头与它的体之间那个换行
+  不是语句边界**（`Statement.NextLineContinuesExpression` 的 `IsHeaderBodyBrace`）。
+  `{` 自己起得了一条语句（裸块），所以判据只能认「末尾是不是一个等着体的头」，
+  不能见 `{` 就答「续接」：`foo()` 换行 `{}` 在 TS 里是两条语句。顺带收掉
+  `import` 换行 `{ a } from "m"` 的解析崩溃。
+- **第 669 轮**：`export /* c */ { a as b }` 与 `export` 换行 `{ a as b }` ——
+  `ExportCloseRule` 找子句时只跳软换行、不跳注释，且收集循环的第一格撞上 trivia 就 `break`
+  （`SkipWrap` 与那一段收集都改成「还没有收到任何单元时跨过 trivia」）。
 
 ## 被否决的改法（不要再试）
 
