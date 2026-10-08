@@ -362,6 +362,30 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 （要收它得让**恢复那一步**也认得「这次是 return」，那是另一处改动）。
 `heap.xl.md` 与 `vm.xl.md` 一个字都没留下——只有这一页与那条 `xl:why` 记着这件事。
 
+### 第 714 轮：`push` / `pop` 的**类数组接收者**（写回那个对象）
+
+**收掉的一族**：`Array.prototype.push.call({ length: 0 }, 1)` 在 JS 里给 **1**（`length` 也变成 1），
+本仓报 `cannot add property to a non-extensible object`——**那句话听起来像「对象被冻结了」**，
+其实是 `RequireArray` 没认出这不是数组（判据 `stdlib/array/probe2-g10`）。
+
+- **为什么先做这两格**：它们只动**尾部一格 + `length`**——一次 `Set`、一次 `Set(O, "length", …)`，
+  不需要分类（`sort` 要比较器、`reverse` / `splice` 要「先读一遍再写一遍」那一套）。
+  其余会改接收者的那些照旧响亮地抛、台账里登着（`IsArrayLikeMethod` 那一段写着这条分界）。
+- **与只读那一支互斥**：只读那一族（`map` / `filter` / `reduce` …）是**折成快照**再走下游，
+  写了快照等于白写——所以新分支的判据是「**接收者不是数组、而这一个号是在改接收者的**」。
+- **次序是语义**：`push` **先写元素、后写 `length`**；`pop` **先删那一格、后写 `length`**
+  （与规范 `Set(O, ToString(n), v, true)` → `Set(O, "length", …)` 同一条）。
+  `length` 为 0 的那一档 **`pop` 不写 `length`**（JS 里 `{ length: 0 }` 上什么都不动）。
+- **不可扩展的接收者要抛**（**实测撞到的**）：只写不查的话
+  `Object.freeze({ length: 0 })` 上 `push.call` 给 `1`（Node 抛 `TypeError`）——
+  JS 那个 `Set(…, true)` 的 `true` 就是「写不下去要抛」，`SetProperty` 却**静默返假**。
+- **`call` 为 `null` 时就抛**：写回要走访问器（`{ set length(v) { … } }`），
+  少这一句的症状是「静默什么都没写」。
+- 语料 **+2 条**（`stdlib/round714/p714a-a01/a02`：元素的落点与 `length` 的走法、
+  `pop` 的尾部一格与空那一档、冻结对象那一抛），台账 `probe2-g10` 撤掉。
+  五类 **7217 / 7581 → 7220 / 7583**、`differ 97 → 96`、`blocked 267`（没涨）、
+  `bad` 0、`regressions` 0、加权 **96.0%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -374,7 +398,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7217 / 7581**，加权 **96.0%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2096/2149、runtime 806/815、stdlib 2889/2968、e2e 242/246。差的那些是**真缺口**（`blocked` 267 / `differ` 97），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7220 / 7583**，加权 **96.0%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2096/2149、runtime 806/815、stdlib 2892/2970、e2e 242/246。差的那些是**真缺口**（`blocked` 267 / `differ` 96），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~37s**） |
 
 ### 口径与已知缺口

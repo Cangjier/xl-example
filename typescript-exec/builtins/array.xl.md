@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge, HoleCharge, PropertyKind, PropertyFlagWritable } from "../../runtime/heap.xl.md"
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToNumberOf, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
-import { SetProperty, SetHiddenProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, DeleteProperty, GetProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits } from "./text.xl.md"
 import { IsArgumentsValue } from "./inspect.xl.md"
@@ -698,6 +698,63 @@ if (self.Tag !== ValueTag.Array && IsArrayLikeMethod(id)) {
     throw new TypeError("Array.prototype method called on null or undefined");
   }
   self = ArrayLikeSnapshot(room, table, call, protos, self);
+}
+// **`push` / `pop` 的类数组接收者：写回那个对象**（第 714 轮）。
+//
+// **为什么这两格先做**：它们只动**尾部一格 + `length`**——一次 `Set`、一次 `Set(O, "length", …)`，
+// 不需要分类（`sort` 要比较器、`reverse` / `splice` 要「先读一遍再写一遍」那一套）。
+// JS 里 `Array.prototype.push.call({ length: 0 }, 1)` 给 **1**（`length` 也变成 1），
+// 而本仓原来报 `cannot add property to a non-extensible object`（**那句话听起来像
+// 「对象被冻结了」**，其实是 `RequireArray` 没认出这不是数组）——
+// 判据 `stdlib/array/probe2-g10`（`probe2-g02` 那族同一条根）。
+//
+// **判据是「接收者不是数组、而这一个号是在改接收者的」**，与上面那一支
+// （只读那一族折成快照）**互斥**：折成快照之后写回原对象就没意义了。
+//
+// **`call` 为 `null` 时响亮地抛**：写回要走访问器（`{ set length(v) { … } }` 那种），
+// 而重入脚本需要调用通道——少这一句的症状是「静默什么都没写」，
+// 与上面「`null` / `undefined` 先挡」同一条纪律。
+if (self.Tag !== ValueTag.Array && (id === ArrayPush || id === ArrayPop)) {
+  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+    throw new TypeError("Array.prototype method called on null or undefined");
+  }
+  if (call === null) {
+    throw new Error("an array-like receiver needs a call channel to write back");
+  }
+  const likeLength = ArrayLikeLength(room, table, call, self);
+  const likeLengthKey = Value.FromString(table.CreateString(Units("length")));
+  if (id === ArrayPush) {
+    // **不可扩展的接收者要抛**（与 `RequireArrayGrowable` 问的第一句同一件事）：
+    // JS 的 `push` 走 `Set(O, key, v, true)`（那个 `true` 就是「写不下去要抛」），
+    // 而 `SetProperty` 对不可扩展对象**静默返假**——上一句只写不查，
+    // 症状是「冻结的对象照样长」（实测：`Object.freeze({ length: 0 })` 上
+    // `push.call` 本仓给 `1`、Node 抛 `TypeError`）。
+    if (!table.Get(self.Ref).Extensible) {
+      throw new TypeError("cannot add property to a non-extensible object");
+    }
+    // **一格一格按 `Set(O, ToString(n), v, true)` 走**（那个 `true` 与 `RequireArrayGrowable`
+    // 那一段是同一件事：写不下去要抛，不许静默）。
+    for (let i = 0; i < args.length; i++) {
+      const atKey = Value.FromString(table.CreateString(Units(String(likeLength + i))));
+      SetProperty(room, call, table, self, atKey, args[i]);
+    }
+    const next = likeLength + args.length;
+    SetProperty(room, call, table, self, likeLengthKey, Value.FromInt(next));
+    return Value.FromInt(next);
+  }
+  // `pop`：空的那一档**不写 `length`**（JS 里 `{ length: 0 }` 的 `pop()` 给 `undefined`，
+  // 而且不动那个对象）——写了就是一个**静默的差别**。
+  if (likeLength === 0) return Value.Undefined();
+  const lastIndex = likeLength - 1;
+  const lastKeyText = Units(String(lastIndex));
+  const lastKey = Value.FromString(table.CreateString(lastKeyText));
+  const popped = GetProperty(room, call, protos, table, self, lastKey);
+  // **删掉那一格**（JS 走 `DeletePropertyOrThrow`）——**最后再写 `length`**：
+  // 反过来的话，那两格里若有一格是访问器，读到的就是**已经改过长度**的那个对象
+  //（与 `push` 先写元素、后写长度同一条次序）。
+  DeleteProperty(table, self.Ref, lastKey);
+  SetProperty(room, call, table, self, likeLengthKey, Value.FromInt(lastIndex));
+  return popped;
 }
 RequireArray(table, self);
 const source = table.Get(self.Ref).AsArray();
