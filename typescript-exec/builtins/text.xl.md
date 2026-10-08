@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, PropertyKind } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToString, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
-import { HostTextUnits, NumberToHostText } from "../../runtime/host-text.xl.md"
+import { HostTextUnits, NumberToHostText, NumberToJsText } from "../../runtime/host-text.xl.md"
 import { GetProperty, NativeCall, Protos, FindProperty, NeverRoom } from "../../runtime/props.xl.md"
 ```
 
@@ -116,24 +116,12 @@ return produced;
 这一轮先把**语言层自己经手文本的地方**全部走通：
 `console.log` / `Array.join` / `Error` 的消息 / `JSON` 的数字。
 
-# method NumberToJsText:(value:double)=>string
-
-**双精度 → JS 的 `String(x)` 那一条文本**（第 290 轮）——它与 `host-text.xl.md` 的
-`NumberToHostText` **只差 `-0` 一格**：JS 的 `String(-0)` 是 `"0"`，
-而线形态的规范文本必须**逐位往返** ⇒ 那一处只能是 `"-0"`（`ir-verify` 钉着它）。
-
-**为什么单开这一个方法**：`-0` 这一格原来**只在 `ValueUnits` 里补过**
-（`console.log` 那条路），而**其余每一条取文本的路都直接问引擎**
-——实测四条全给 `"-0"`：`String(-0)`、`(-0).toString()`、`` `${-0}` ``、
-`"" + -0`——与 Node 逐字节比就是**四处静默错值**。
-
-**它不替换 `NumberToHostText`**：两者的口径**故意不同**（线形态要那一份、
-JS 的字符串语义要这一份）。收成一处的是**「谁该用哪一份」**，不是那一份本身。
-
-```ts
-const text = NumberToHostText(value);
-return text === "-0" ? "0" : text;
-```
+**`NumberToJsText` 第 719 轮搬到了 `host-text.xl.md`**（原来这一段就是它的家）。
+**为什么搬**：`+` 那条路是**引擎**的拼接，而引擎 import 不到这一层——
+于是同一句判断有了**两个落点**（引擎那一份给 `"-0"`、这里给 `"0"`），
+而判据 `p719a-n13` / `p719a-m01` 量的正是那个差额。
+**它现在有两个调用点，都在引擎那一侧**：`rt.xl.md` 的 `TextUnitsOf` 与
+`globals.xl.md` 的 `toString(10)`（本文件不再经手它）。
 
 # method JsTextUnits:(table:HeapTable, value:Value)=>Array<int>
 

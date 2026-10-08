@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge } from "./heap.xl.md"
 import { GetProperty, NativeCall, MaxProtoDepth, Protos } from "./props.xl.md"
-import { HostTextUnits, HostUnitsText, NumberFromHostText, NumberToHostText } from "./host-text.xl.md"
+import { HostTextUnits, HostUnitsText, NumberFromHostText, NumberToHostText, NumberToJsText } from "./host-text.xl.md"
 ```
 
 # namespace cangjie
@@ -342,7 +342,14 @@ if (value.Tag === ValueTag.String) {
 }
 if (value.Tag === ValueTag.Int32) return DecimalUnits(value.Int);
 // **浮点数借宿主**（第 190 轮）：见上面那一段「那个决定早就做过了」。
-if (value.Tag === ValueTag.Float64) return HostTextUnits(NumberToHostText(value.Dbl));
+// **`-0` 那一格走 `NumberToJsText`**（第 719 轮）：这里是**拼接**那条路
+// （`RtAdd` → 本方法 → `join` / 键字符串化），而 JS 的 `ToString(-0)` 是 `"0"`；
+// 线形态那一份（`NumberToHostText`）必须给 `"-0"`，所以两份**故意不同**——
+// 差别只有这一格，判断也只有一处（`host-text.xl.md` 的 `NumberToJsText`）。
+// 原来这里直接用 `NumberToHostText` ⇒ 实测 `parseInt("-0") + ""` 给 `"-0"`、
+// `Math.min(0, -0) + ""` 给 `"-0"`（Node 都给 `"0"`）——**静默错值**
+//（判据 `p719a-n13` / `p719a-m01`，理由写在那个方法那一段）。
+if (value.Tag === ValueTag.Float64) return HostTextUnits(NumberToJsText(value.Dbl));
 if (value.Tag === ValueTag.Bool) {
   if (value.Int !== 0) return [116, 114, 117, 101];
   return [102, 97, 108, 115, 101];

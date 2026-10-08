@@ -77,7 +77,7 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **7667** 条（token 1416 / exec 2159 / runtime 815 / stdlib 3031 / e2e 246），判过 **7653** 条。
+语料 **7693** 条（token 1416 / exec 2159 / runtime 815 / stdlib 3057 / e2e 246），判过 **7679** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
@@ -85,9 +85,23 @@ console.log(Box.of(1));
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
 | `exec` | 2158 | **2105** | 12 / 41 | 另有 1 条不进分母 |
 | `runtime` | 815 | **806** | 1 / 8 | |
-| `stdlib` | 3031 | **2963** | 25 / 43 | |
+| `stdlib` | 3057 | **2988** | 25 / 44 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **7653** | **7300** | 261 / 92 | 加权 **96.1%** |
+| **合计** | **7679** | **7325** | 261 / 93 | 加权 **96.1%** |
+
+**第 719 轮再加 26 条**（分母 7653 → **7679**）：数字那一族的**接收者**与**实参**
+（`stdlib/round719/p719a-n01` … `n16`、`p719a-m01` … `m10`）：
+
+- **`-0` 经 `+` 拼出来是 `"-0"`**（静默错值）：`NumberToJsText` **搬到
+  `runtime/host-text.xl.md`**（与 `NumberToHostText` 并排住，差别只有 `-0` 一格），
+  `TextUnitsOf` 的 `Float64` 那一支改走它——**同一句判断原来有两个落点**，
+  而 `+` 那条路在引擎里、import 不到语言层。
+- **三格不问接收者的类型**（两处静默错值）：`Number.prototype.valueOf.call("x")` 给 `"x"`、
+  `Boolean.prototype.toString.call(1)` 给 `"true"`，Node 两处都抛 `TypeError`。
+- **位数与基数不走 `ToNumber`**：改走共用的 `NumArgOr` + `Math.trunc`（`ToIntegerOrInfinity`），
+  `NaN` 原样交给宿主（`toFixed(NaN)` 给 `"2"`、`toPrecision(NaN)` 抛 `RangeError`）。
+- `p719a-m09`（`Math.max.length` / `Math.random.name`）**如实登记**——与
+  `round709/p709b-b17` / `b18` 同一条根（宿主引用值身上没有属性表）。
 
 **第 718 轮再加 25 条**（分母 7628 → **7653**）：`String.prototype` 的 HTML 包装那一族
 （`stdlib/round718/p718a-h01` … `h15`）与**接收者那一关**（`p718b-r01` … `r10`）：

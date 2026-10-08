@@ -546,6 +546,45 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7275 / 7628 → 7300 / 7653**、`blocked 261`（没涨）、`differ 92`（没涨）、
   `bad` 0、`regressions` 0、`moved` 0、`newlyPassing` **2**，加权 **96.1%**。
 
+### 第 719 轮：数字那一族的**接收者**与**实参**（`Number` / `Boolean` 的方法组）
+
+这一轮问的是「数字格式化与 `Math` 的边角」——26 条原子探针里**5 条当场红**，
+红出来的三个根**一个都不是格式化本身**：格式化的算术借宿主那一份（第 290 轮）
+一直是好的，坏的是**它门口那两步**。
+
+- **① `-0` 经 `+` 拼出来是 `"-0"`**（**静默错值**，判据 `p719a-n13` / `p719a-m01`）：
+  `parseInt("-0") + ""` 与 `Math.min(0, -0) + ""` 在 Node 里都给 `"0"`，本仓给 `"-0"`。
+  根子是**同一句判断有两个落点**：JS 的 `String(-0)` 是 `"0"`，而线形态那一份
+  （`NumberToHostText`）必须给 `"-0"`（`Object.is(-0, 0)` 为假，常量池存成 `0` 就是换值）。
+  第 290 轮把「JS 那一份」写成了语言层的 `NumberToJsText`，可 `+` 那条路走的是**引擎**的
+  `RtAdd` → `TextUnitsOf`，而**引擎 import 不到语言层** ⇒ 引擎那一份给 `"-0"`。
+  修法：`NumberToJsText` **搬到 `runtime/host-text.xl.md`**（两份数字文本口径并排住，
+  差别只有 `-0` 一格、判断只有一处），`TextUnitsOf` 的 `Float64` 那一支改走它。
+  `text.xl.md` 第 114 轮那句「`+` 那条路（要动引擎）留给下一轮」说的正是这一处。
+- **② 接收者的类型一次都不问**（**两处静默错值**，判据 `p719a-c01` … `c05`）：
+  `Number.prototype.valueOf.call("x")` 给 `"x"`、`Boolean.prototype.toString.call(1)`
+  给 `"true"`——Node 两处都抛 `TypeError`。根子在那三格（`valueOf` 两支 + `Boolean.toString`）
+  各自只看载荷：`valueOf` **原样把接收者交回去**、`toString` 直接 `AsBool()`。
+  修法：按标签判一次（`Int32` / `Float64` / `Bool`——本仓的接收者本来就是**原始值**，
+  不装箱），不是的抛 **`TypeError`**；顺带把 `NumericOf` 那一抛的种类也改对
+  （`Number.prototype.toFixed.call("1.5", 1)` 原来抛普通 `Error`，Node 抛 `TypeError`）。
+- **③ 三格的实参不走 `ToNumber`**（判据 `p719a-n04` / `p719a-n08`）：
+  `(1.5).toFixed(null)` / `.toFixed(true)` / `(5).toString("16")` / `(5).toString(10.9)`
+  原来一律抛（`NumericOf` 只认数值标签），Node 给 `"2"` / `"1.5"` / `"5"` / `"5"`。
+  规范那一步是 `ToIntegerOrInfinity`：**先 `ToNumber` 再向零截断**。修法是把位数与基数
+  两格改走**共用那一份** `NumArgOr`（第 702 轮给「可选实参」立的，`array.xl.md`）
+  加一句 `Math.trunc`——**不写第二份 `ToNumber`**。
+  **`NaN` 故意原样交给宿主**：`(1.5).toFixed(NaN)` 是 `"2"`（`NaN` → 0 位），
+  而 `toPrecision(NaN)` 抛 `RangeError`——折成缺省反而会把后一档变成静默错值。
+- 语料 **+26 条**（`stdlib/round719/p719a-n01` … `n16`、`p719a-m01` … `m10`）：
+  16 条钉格式化（`toFixed` / `toPrecision` / `toExponential` / `toString(radix)` 的
+  进位、越界、`ToIntegerOrInfinity`、大数与 `-0`），10 条钉 `Math` 与 `Number` 的边角。
+  其中 `p719a-m09`（内建函数的 `name` / `length`）**如实登记为缺口**
+  ——与 `p709b-b17` / `b18` 同一条根。
+- 五类 **7300 / 7653 → 7325 / 7679**、`blocked 261`（没涨）、`differ 92 → 93`
+  （那一条就是 `p719a-m09`，**新登记**的账）、`bad` 0、`regressions` 0、
+  `moved` 0、`newlyPassing` 0，加权 **96.1%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -558,7 +597,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7300 / 7653**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 2963/3031、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 92），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7325 / 7679**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 2988/3057、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 93），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~48s**） |
 
 ### 口径与已知缺口

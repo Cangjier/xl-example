@@ -127,6 +127,34 @@ if (value === 0) {
 return "" + value;
 ```
 
+# method NumberToJsText:(value:double)=>string
+
+**双精度 → JS 的 `String(x)` 那一条文本**（第 290 轮写在语言层，第 719 轮搬到这里）
+——它与上面那格**只差 `-0` 一格**：JS 的 `String(-0)` 是 `"0"`，
+而线形态的规范文本必须**逐位往返** ⇒ 那一处只能是 `"-0"`（`ir-verify` 钉着它）。
+
+**为什么要单开一个方法**：`-0` 这一格原来**只在 `ValueUnits` 里补过**
+（`console.log` 那条路），而**其余每一条取文本的路都直接问引擎**——
+实测四条全给 `"-0"`：`String(-0)`、`(-0).toString()`、`` `${-0}` ``、`"" + -0`。
+
+**为什么第 719 轮从语言层搬到这里**：`+` 那条路是**引擎**的拼接
+（`rt.xl.md` 的 `RtAdd` → `TextUnitsOf`），而引擎**import 不到语言层**
+（依赖方向只允许反过来）。于是同一句判断有了**两个落点**——
+引擎那一份给 `"-0"`、语言层那一份给 `"0"`，而**两者都对着 JS 的 `ToString`**
+（判据 `p719a-n13` / `p719a-m01`：`parseInt("-0")` 与 `Math.min(0, -0)` 经 `+` 拼出来
+是 `"-0"`，Node 给 `"0"`）。**两个落点就是两个会漂的答案**——
+`text.xl.md` 第 114 轮那句「`+` 那条路留给下一轮」说的正是这一处，这一轮把它收了。
+
+**它不替换 `NumberToHostText`**：两者的口径**故意不同**（线形态要那一份、
+JS 的字符串语义要这一份）。收成一处的是**「谁该用哪一份」**，不是那一份本身：
+调用点现在有**两个，都在引擎这一层**——`rt.xl.md` 的 `TextUnitsOf`（拼接 / `join` /
+键字符串化那一族）与「值 → 文本」那一族，而线形态那一侧照旧走 `NumberToHostText`。
+
+```ts
+const text = NumberToHostText(value);
+return text === "-0" ? "0" : text;
+```
+
 # method NumberFromHostText:(text:string)=>double
 
 十进制文本 → 双精度。

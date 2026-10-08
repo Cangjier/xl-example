@@ -3,12 +3,12 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagsAll } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue, FunctionSourceText } from "../../runtime/rt.xl.md"
-import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
+import { HostUnitsText, NumberFromHostText, NumberToHostText, NumberToJsText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
-import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue } from "./text.xl.md"
+import { JsTextUnits, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue } from "./text.xl.md"
 import { InspectText, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, MapEntries, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
 import { SetCtor, SetValues, WeakSetCtor } from "./set.xl.md"
@@ -3018,11 +3018,39 @@ if (id === NumberToFixed || id === NumberToPrecision || id === NumberToExponenti
   //（症状是 `NaN` 或 `"false"` 变成别的东西）。脱箱只有一处（`UnwrapBox`），
   // 三族共用——不是三个方法各写一遍。
   const receiver = UnwrapBox(table, self);
-  if (id === NumberValueOf || id === BooleanValueOf) {
+  // **接收者的类型是各自那一族的事**（第 719 轮）：这三族原来**一次都不问**——
+  // `valueOf` 那一格**原样把接收者交回去**、`toString` 那一格直接 `AsBool()`，
+  // 于是两个**静默错值**：
+  // `Number.prototype.valueOf.call("x")` 给 `"x"`（Node 抛 `TypeError`）、
+  // `Boolean.prototype.toString.call(1)` 给 `"true"`（Node 抛 `TypeError`）。
+  // **抛的种类也一起改对**：原来 `NumericOf` 抛的是**普通 `Error`**，
+  // 而 `Number.prototype.toFixed.call("1.5", 1)` 在 Node 里是 `TypeError`。
+  // 判据 `p719a-n15` / `p719a-c01` … `c05`。
+  //
+  // **判据是「载荷的标签」，不是 `IsObject()`**：这一族的接收者本来就是**原始值**
+  //（本仓不装箱），所以 `Int32` / `Float64` / `Bool` 三个标签就是全部那一档。
+  const receiverIsNumber = receiver.Tag === ValueTag.Int32 || receiver.Tag === ValueTag.Float64;
+  const receiverIsBool = receiver.Tag === ValueTag.Bool;
+  if (id === NumberValueOf) {
+    if (!receiverIsNumber) {
+      throw new TypeError("Number.prototype.valueOf called on a non-numeric receiver");
+    }
+    return receiver;
+  }
+  if (id === BooleanValueOf) {
+    if (!receiverIsBool) {
+      throw new TypeError("Boolean.prototype.valueOf called on a non-boolean receiver");
+    }
     return receiver;
   }
   if (id === BooleanToString) {
+    if (!receiverIsBool) {
+      throw new TypeError("Boolean.prototype.toString called on a non-boolean receiver");
+    }
     return Value.FromString(table.CreateString(Units(receiver.AsBool() ? "true" : "false")));
+  }
+  if (!receiverIsNumber) {
+    throw new TypeError("Number.prototype method called on a non-numeric receiver");
   }
   const number = NumericOf(receiver);
   if (id === NumberToFixed || id === NumberToPrecision || id === NumberToExponential) {
@@ -3049,7 +3077,17 @@ if (id === NumberToFixed || id === NumberToPrecision || id === NumberToExponenti
     // 而 `(5).toString(undefined)` 也抛（基数被算成 `NaN`）。
     // 三格现在**各写各的缺省**，判据就是上面那张表。
     const given = args.length > 0 && args[0].Tag !== ValueTag.Undefined;
-    const digits = given ? NumericOf(args[0]) : -1;
+    // **位数走 `ToIntegerOrInfinity`**（第 719 轮）：原来是 `NumericOf(args[0])`
+    // ——**只认数值标签**，于是 `(1.5).toFixed(null)` / `.toFixed(true)` /
+    // `.toFixed("2")` 一起抛（Node 给 `"2"` / `"1.5"` / `"1.50"`）。
+    // 规范那一步是 `ToIntegerOrInfinity(fractionDigits)`：**先 `ToNumber` 再向零截断**。
+    // 收进共用那一份（`array.xl.md` 的 `NumArgOr`，第 702 轮给「可选实参」立的），
+    // 这里只补一句截断——**不写第二份 `ToNumber`**。
+    // **`NaN` 不被 `IntOfNumber` 折走是故意的**：JS 的 `(1.5).toFixed(NaN)` 给 `"2"`
+    //（`NaN` → 0 位），而 `toPrecision(NaN)` 抛 `RangeError`（0 位不是合法精度）——
+    // 两档的差别在**宿主那一支**里，所以这里**原样把 `NaN` 交给它**，
+    // 折成 `fallback` 反而会把 `toPrecision(NaN)` 变成 `"0.1"`（静默错值）。
+    const digits = given ? Math.trunc(NumArgOr(room, call, protos, table, args, 0, 0)) : -1;
     let text = "";
     if (id === NumberToFixed) {
       // **`toFixed` 缺省给 0**（`NaN` 那一档也归它——实测 Node 给 `"2"`，不是抛）。
@@ -3069,7 +3107,10 @@ if (id === NumberToFixed || id === NumberToPrecision || id === NumberToExponenti
   // 实测 Node `(5).toString(undefined)` 是 `"5"`，而 `(5).toString(NaN)` 抛 `RangeError`
   //（`NaN` → 0 → 小于下限 2；而**字面的 `0`** 规范里映射成 10，宿主自己办得到）。
   const radixGiven = args.length > 0 && args[0].Tag !== ValueTag.Undefined;
-  const radix = radixGiven ? NumericOf(args[0]) : 10;
+  // **基数同一条**（第 719 轮）：`(5).toString("16")` 在 Node 里是 `"5"`、
+  // `(5).toString(10.9)` 也是 `"5"`（`ToIntegerOrInfinity` 先截断），
+  // 而这里原来只有 `NumericOf` ⇒ 两档都抛。
+  const radix = radixGiven ? Math.trunc(NumArgOr(room, call, protos, table, args, 0, 10)) : 10;
   // **基数 10 走语言层那一处**（`text.xl.md` 的 `NumberToJsText`——它在
   // `NumberToHostText` 之上补了 `-0` 那一格：JS 的 `(-0).toString()` 是 `"0"`）；
   // **其余基数借宿主**（见号那一段的说明）。
