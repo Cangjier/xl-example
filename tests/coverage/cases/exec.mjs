@@ -4932,4 +4932,202 @@ main();
     title: "可选 catch 绑定：不接那个异常对象",
     src: "\ntry {\n  throw new Error(\"x\");\n} catch {\n  console.log(\"caught without binding\");\n}\nconsole.log(\"after\");\n",
   },
+  // ===== 第 677 轮：**AST 语料**里凡是会打印的那些整批进矩阵（39 条：36 pass + 3 缺口）=====
+  // 语料来自 `tests/parse/cases/**`（1407 份里 57 份带 `console` 调用），一条一个文件、原样收；
+  // 三条量出来的缺口记在 `expectations.mjs` 里（两条 `blocked`、一条 `differ`）。
+  {
+    id: "l677-declarations-cls-semicolon-member",
+    title: "AST 语料 declarations/cls-semicolon-member.ts：cls semicolon member",
+    src: "// xl:note 类体里的空成员：单独一个 `;` 是 TS 的 SemicolonClassElement，不是谁的分号\n// xl:expect ClassBody,SemicolonClassElement,Field,MethodDeclaration\nclass C {\n  ;\n  x = 1;\n  ;\n  m() {\n    return 1;\n  }\n  ;\n}\nconsole.log(new C().x + new C().m());\n",
+  },
+  {
+    id: "l677-declarations-decl-arr-destructure-defaults",
+    title: "AST 语料 declarations/decl-arr-destructure-defaults.ts：decl arr destructure defaults",
+    src: "// xl:note 数组解构：默认值（默认值属于解构元素，不是三元或逻辑表达式）\n// xl:expect BindingElement,As,ArrayType,ArrayLiteral\nconst [a = 1, b = a] = [] as number[]\nconsole.log(a, b)\n",
+  },
+  {
+    id: "l677-declarations-decl-arr-destructure-holes",
+    title: "AST 语料 declarations/decl-arr-destructure-holes.ts：decl arr destructure holes",
+    src: "// xl:note 数组解构：跳位（洞）与中间省略\n// xl:expect BindingElement,ArrayLiteral,PropertyAccess\nconst [, second, , fourth] = [1, 2, 3, 4]\nconsole.log(second, fourth)\n",
+  },
+  {
+    id: "l677-declarations-decl-arr-destructure-nested",
+    title: "AST 语料 declarations/decl-arr-destructure-nested.ts：decl arr destructure nested",
+    src: "// xl:note 数组解构：嵌套解构 + 洞 + 嵌套默认值\n// xl:expect BindingElement,ArrayLiteral,PropertyAccess\nconst [[a, b], [, c = 0]] = [[1, 2], [3]]\nconsole.log(a, b, c)\n",
+  },
+  {
+    id: "l677-declarations-decl-arr-destructure-rest",
+    title: "AST 语料 declarations/decl-arr-destructure-rest.ts：decl arr destructure rest",
+    src: "// xl:note 数组解构：剩余元素 ...rest\n// xl:expect BindingElement,ArrayLiteral,PropertyAccess\nconst [head, ...tail] = [1, 2, 3]\nconsole.log(head, tail)\n",
+  },
+  {
+    id: "l677-declarations-decl-destructure-nested-pattern-default",
+    title: "AST 语料 declarations/decl-destructure-nested-pattern-default.ts：decl destructure nested pattern default",
+    src: "// xl:expect BindingElement,ObjectLiteral,Parameter\n// xl:note 嵌套绑定模式带默认值：`b: { c } = { c: 0 }` 里 `=` 后面那个花括号是**初始化式**\n// （值位，里面的 `c: 0` 是 `PropertyAssignment`），不是又一层绑定模式\nfunction f({ a, b: { c } = { c: 0 } }: any): string {\n    return [a, c].join(\",\");\n}\nconsole.log(f({ a: 1 }), f({ a: 2, b: { c: 3 } }));\n",
+  },
+  {
+    id: "l677-declarations-decl-destructure-type-annotation",
+    title: "AST 语料 declarations/decl-destructure-type-annotation.ts：decl destructure type annotation",
+    src: "// xl:note 解构声明上的类型注解\n// xl:expect TypeLiteral,TypeLiteralBody\nlet { a, b }: { a: number; b: string } = { a: 1, b: \"s\" }\nconsole.log(a, b)\n",
+  },
+  {
+    id: "l677-declarations-decl-function-comment-after-keyword",
+    title: "AST 语料 declarations/decl-function-comment-after-keyword.ts：decl function comment after keyword",
+    src: "// xl:expect Function,FunctionBody,AreaAnnotation\n// xl:note `function` 与函数名之间夹注释\nfunction /* c */ f(a: number): void { console.log(a); }\nf(1);\n",
+  },
+  {
+    id: "l677-declarations-decl-function-comment-before-params",
+    title: "AST 语料 declarations/decl-function-comment-before-params.ts：decl function comment before params",
+    src: "// xl:expect Function,FunctionBody,AreaAnnotation\n// xl:note 函数名与形参表之间夹注释\nfunction g /* c */(a: number): void { console.log(a); }\ng(1);\n",
+  },
+  {
+    id: "l677-declarations-decl-function-generator-comment",
+    title: "AST 语料 declarations/decl-function-generator-comment.ts：decl function generator comment",
+    src: "// xl:expect Function,FunctionBody,AreaAnnotation\n// xl:note `function` 与 `*` 之间夹注释\nfunction /* c */ *h() { yield 1; }\nfor (const v of h()) { console.log(v); }\n",
+  },
+  {
+    id: "l677-declarations-decl-label-block-comment-after-colon",
+    title: "AST 语料 declarations/decl-label-block-comment-after-colon.ts：decl label block comment after colon",
+    src: "// xl:expect Label,Bracket,Let,AreaAnnotation\n// xl:note 标签块：冒号与 `{` 之间夹注释\nblock2: /* c */ { let x = 2; console.log(x); }\n",
+  },
+  {
+    id: "l677-declarations-decl-label-block-comment",
+    title: "AST 语料 declarations/decl-label-block-comment.ts：decl label block comment",
+    src: "// xl:expect Label,Bracket,Let,AreaAnnotation\n// xl:note 标签块：名字与冒号之间夹注释，体里仍是语句\nblock /* c */: { let x = 1; console.log(x); }\n",
+  },
+  {
+    id: "l677-declarations-decl-obj-destructure-computed-key",
+    title: "AST 语料 declarations/decl-obj-destructure-computed-key.ts：decl obj destructure computed key",
+    src: "// xl:note 对象解构：计算属性名 [k]: v\n// xl:expect BindingElement,As,ObjectLiteral,ArrayLiteral\nconst k = \"a\"\nconst { [k]: v } = { a: 1 } as Record<string, number>\nconsole.log(v)\n",
+  },
+  {
+    id: "l677-declarations-decl-obj-destructure-defaults",
+    title: "AST 语料 declarations/decl-obj-destructure-defaults.ts：decl obj destructure defaults",
+    src: "// xl:note 对象解构：默认值（默认值旁边没有 ? 与 : 组成三元）\n// xl:expect TypeLiteral,TypeLiteralBody\nconst { a = 1, b: c = 2 } = {} as { a?: number; b?: number }\nconsole.log(a, c)\n",
+  },
+  {
+    id: "l677-declarations-decl-obj-destructure-nested",
+    title: "AST 语料 declarations/decl-obj-destructure-nested.ts：decl obj destructure nested",
+    src: "// xl:note 对象解构：嵌套对象/数组解构与改名并存（第 66 轮第八批之后模式留在树里，\n// 左侧的模式与右侧的字面量各算一个 ObjectLiteral/ArrayLiteral，另加四个 BindingElement）\n// xl:expect ObjectLiteral:4,ArrayLiteral:2,BindingElement:4,Let\nconst { a: { b }, c: [d] } = { a: { b: 1 }, c: [2] }\nconsole.log(b, d)\n",
+  },
+  {
+    id: "l677-declarations-decl-obj-destructure-rename",
+    title: "AST 语料 declarations/decl-obj-destructure-rename.ts：decl obj destructure rename",
+    src: "// xl:note 对象解构：改名 a: x\n// xl:expect BindingElement,ObjectLiteral,PropertyAccess\nconst { a: x, b: y } = { a: 1, b: 2 }\nconsole.log(x, y)\n",
+  },
+  {
+    id: "l677-declarations-decl-obj-destructure-rest",
+    title: "AST 语料 declarations/decl-obj-destructure-rest.ts：decl obj destructure rest",
+    src: "// xl:note 对象解构：剩余属性 ...rest\n// xl:expect BindingElement,ObjectLiteral,PropertyAccess\nconst { a, ...rest } = { a: 1, b: 2, c: 3 }\nconsole.log(a, rest)\n",
+  },
+  {
+    id: "l677-declarations-decl-var-comment-after-keyword",
+    title: "AST 语料 declarations/decl-var-comment-after-keyword.ts：decl var comment after keyword",
+    src: "// xl:expect Let,AreaAnnotation\n// xl:note 声明词与名字之间夹注释：整条仍是 Let（注释留在 Let 右边，不丢）\nconst /* c */ a = 1;\nconsole.log(a);\n",
+  },
+  {
+    id: "l677-declarations-decl-var-comment-before-annotation",
+    title: "AST 语料 declarations/decl-var-comment-before-annotation.ts：decl var comment before annotation",
+    src: "// xl:expect Let,TypeDefine,AreaAnnotation\n// xl:note 名字与类型标注的 `:` 之间夹注释\nlet c /* c */: number = 3;\nconsole.log(c);\n",
+  },
+  {
+    id: "l677-declarations-decl-var-comment-before-assign",
+    title: "AST 语料 declarations/decl-var-comment-before-assign.ts：decl var comment before assign",
+    src: "// xl:expect Let,AreaAnnotation\n// xl:note 名字与 `=` 之间夹注释：名字那一格仍然认得出来\nlet b /* c */ = 2;\nconsole.log(b);\n",
+  },
+  {
+    id: "l677-declarations-type-alias-comment-after-keyword",
+    title: "AST 语料 declarations/type-alias-comment-after-keyword.ts：type alias comment after keyword",
+    src: "// xl:expect TypeAssign,AreaAnnotation\n// xl:note `type` 与别名之间夹注释\ntype /* c */ A = number;\nlet x: A = 1;\nconsole.log(x);\n",
+  },
+  {
+    id: "l677-declarations-type-alias-comment-before-equals",
+    title: "AST 语料 declarations/type-alias-comment-before-equals.ts：type alias comment before equals",
+    src: "// xl:expect TypeAssign,AreaAnnotation\n// xl:note 别名与 `=` 之间夹注释\ntype B /* c */ = string;\nlet y: B = \"s\";\nconsole.log(y);\n",
+  },
+  {
+    id: "l677-declarations-type-alias-comment-export",
+    title: "AST 语料 declarations/type-alias-comment-export.ts：type alias comment export",
+    src: "// xl:expect TypeAssign,AreaAnnotation\n// xl:note `export` 与 `type` 之间夹注释\nexport type /* c */ D = number;\nlet w: D = 2;\nconsole.log(w);\n",
+  },
+  {
+    id: "l677-expressions-ex-call-plus-string-chain",
+    title: "AST 语料 expressions/ex-call-plus-string-chain.ts：ex call plus string chain",
+    src: "// xl:note 调用结果接字符串：加法，不是模板标签\n// xl:expect BinaryOperator\n// xl:expect SymbolToken\n// xl:expect Method\n// xl:absent InterpolationString\nfunction f(): number {\n  return 1;\n}\nconst a = f() + \"x\" + \"y\";\nconst b = f() + 1 + \"z\";\nconst tag = (parts: TemplateStringsArray): string => parts[0];\nconst c = tag`t`;\nconsole.log(a, b, c);\n",
+  },
+  {
+    id: "l677-expressions-expr-meta-property-in-constructor",
+    title: "AST 语料 expressions/expr-meta-property-in-constructor.ts：expr meta property in constructor",
+    src: "// xl:expect Class,ClassBody,MethodDeclaration,MethodBody\n// xl:note `new.target` 写在类构造器里：那个 `new` 可能还没升成 `Keyword`，\n// 投影两种形态都要认（只认 `Keyword` 时它退化成 `new` 上的属性访问，降级层报\n// `name is not a local or a capture: new`）\nclass B {\n    constructor() {\n        console.log(\"name\", new.target && new.target.name);\n    }\n}\nnew B();\n",
+  },
+  {
+    id: "l677-expressions-expr-nonnull-chain-links",
+    title: "AST 语料 expressions/expr-nonnull-chain-links.ts：expr nonnull chain links",
+    src: "// xl:note 非空断言是链的一环：`a!.b` / `fn!().k` / `a![0]`——产物收成一条 PropertyAccess，\n// xl:note 而不是「NotNull + 点号 + 名字」三格平级（后者靠投影再拼一次）\n// xl:expect NotNull,PropertyAccess\nconst data: any = { a: { b: { c: [1, 2, 3] } } };\nconsole.log(data.a!.b!.c![0]);\nconsole.log(data!.a!.b!.c!.slice(1).length);\nconst fn: any = () => ({ k: 7 });\nconsole.log(fn!().k);\n",
+  },
+  {
+    id: "l677-expressions-expr-nonnull-right-operand",
+    title: "AST 语料 expressions/expr-nonnull-right-operand.ts：expr nonnull right operand",
+    src: "// xl:note 非空断言接在**右操作数**后面时，成员访问必须先折成一格：`0 >= f()!.p` 里\n// `NotNull` 比 `PropertyAccess` 晚成形（队列次序），二元 / 逻辑运算符抢先把 `f()!` 当成\n// **完整的右操作数**吃掉 ⇒ `.p` 留在外面成了平级兄弟（树成了 `(0 >= f()!).p`）。\n// xl:expect NotNull,PropertyAccess,BinaryOperator,LogicalOperator\nfunction f(): { p: number } { return { p: 1 }; }\nconst o: { p: number } = { p: 2 };\nconsole.log(0 >= f()!.p, 0 + f()!.p, true && f()!.p > 0, false || o!.p > 0);\n",
+  },
+  {
+    id: "l677-expressions-expr-object-member-named-if",
+    title: "AST 语料 expressions/expr-object-member-named-if.ts：expr object member named if",
+    src: "// xl:note `if` 当**对象字面量的成员名**：`{ if(): T { … } }` 与 `if (…)` 形状一模一样，\n//       分它们的只有「宿主那个花括号是不是值位」（第 647 轮：`IfSetBranch` 的位置闸）\n// xl:expect ObjectLiteral,MethodDeclaration,MethodBody,ReturnType,TypeLiteral,Parameter\nconst table = {\n  if(): number { return 1; },\n  else(): number { return 2; },\n};\nconsole.log(table.if(), table.else());\nconst nested = { inner: { if(): number { return 3; } } };\nconsole.log(nested.inner.if());\ntake({ if(): number { return 4; } });\ntype HasIf = { if(): number };\nfunction take(o: HasIf): number { return o.if(); }\nconsole.log(take({ if(): number { return 5; } }));\n",
+  },
+  {
+    id: "l677-expressions-expr-paren-in-arguments",
+    title: "AST 语料 expressions/expr-paren-in-arguments.ts：expr paren in arguments",
+    src: "// xl:expect ParenthesizedType,TupleType,FunctionType,ArrayType\n// 第 162 轮：**实参表里的括号是值位**。\n//\n// token 层的 `IsTypeBracketPosition` 原来把「前面是 `,` 或 `(`」一律当**类型位**——\n// 那两条是给类型的成员表 / 参数表 / 元组写的（`type F = (a: A, b: B) => C`、\n// `[A, (B | C)]`），可**实参表里也有逗号**：`f(\"x\", (a & b))` 里 `a & b` 于是被当成\n// **交叉类型**，降级层报 `unimplemented: expression IntersectionType`（整份文件进不来）。\n//\n// 修法：那两个符号出现时先问一句「宿主 `(` 是不是**某次调用的实参表**」\n//（只看它前面那一格：名字 / 方法 / 属性访问 / `)` / `]` ⇒ 是调用）。\n//\n// 这一份是**值位那一半**；类型位那一半在同名的 `type-` 用例里（元组、函数类型、\n// 括号类型都要照旧）。\n\nconst a = 1;\nconst b = 2;\nconst obj = { m: (v: number) => v * 2, n: () => ({ k: 3 }) };\n\n// ① 逗号之后的括号（原来整份文件失败的那一条）\nconsole.log(\"x\", (a & b), \"y\");\nconsole.log(\"x\", (a | b), \"y\", (a ^ b));\nconsole.log(\"x\", (a + b) * 2, \"y\", (a > b));\nconsole.log(\"x\", (a & b) + 1, \"y\", String(a | b));\n\n// ② 其它实参形状：方法调用、下标调用、调用结果再调用\nconsole.log(obj.m((a | b)), obj.n().k, [1, 2].join(\",\"));\nfunction curry(): (v: number) => number { return (v: number) => v + 1; }\nconsole.log(curry()((a & b) + 3));\n\n// ③ 第一个实参里的括号（这一条本来就对，留着当回归）\nconsole.log((a & b), \"first\");\n\n// ④ 嵌套与括号套括号\nconsole.log(\"deep\", ((a | b) & 3), \"end\");\n\n// ⑤ 类型位那一半照旧（元组 / 函数类型 / 括号类型）\ntype Tup = [number, (string | boolean)];\ntype Fn = (x: (number | string), y: boolean) => void;\ntype Paren = (number | string)[];\nconst tup: Tup = [1, \"s\"];\nconst fn: Fn = (x: (number | string), y: boolean) => undefined;\nconst paren: Paren = [1, \"s\"];\nconsole.log(tup[0], tup[1], fn(1, true), paren.length);\n",
+  },
+  {
+    id: "l677-expressions-expr-template-nested-spaced",
+    title: "AST 语料 expressions/expr-template-nested-spaced.ts：expr template nested spaced",
+    src: "// xl:note 内插表达式与 `}` 之间有空白的嵌套模板：TemplateTail 从 `}` 起，不含那个空白\n// xl:expect String,ConstString,InterpolationString\nconst r = `a${ `b${1}` }c`;\nconsole.log(r);\n",
+  },
+  {
+    id: "l677-expressions-expr-ternary-arrow-branches",
+    title: "AST 语料 expressions/expr-ternary-arrow-branches.ts：expr ternary arrow branches",
+    src: "// xl:note 三元的两支都是箭头函数（不套括号）——体必须在平级 `:` 之前收住\n// xl:expect TernaryOperator,Lamda\nconst flag = true;\nconst add = flag ? (a: number) => a + 1 : (a: number) => a - 1;\nconsole.log(add(5));\nconst pick = flag ? () => \"yes\" : () => \"no\";\nconsole.log(pick());\n",
+  },
+  {
+    id: "l677-expressions-expr-typeof-new-target",
+    title: "AST 语料 expressions/expr-typeof-new-target.ts：expr typeof new target",
+    src: "// xl:note `typeof new.target`：`new.target` 是一格 MetaProperty，`typeof` 不能只吃掉 `new`\n// xl:expect UnaryOperator,Keyword\nfunction f(): string {\n  return typeof new.target;\n}\nconsole.log(f());\n",
+  },
+  {
+    id: "l677-lexical-lex-keyword-in-of",
+    title: "AST 语料 lexical/lex-keyword-in-of.ts：lex keyword in of",
+    src: "// xl:note `in` / `of` 现在是关键字：`in` 是保留字、`of` 是上下文关键字，\n// 三种用法（for-in、`k in o`、映射类型的 `[K in keyof T]`）都该有 Keyword 标签。\n// 代价是 For / Foreach 的判定要改成「Identifier 或 Keyword 都认」（IsWordUnit）\n// xl:expect Keyword,Foreach,MappedType\nconst obj = { a: 1 };\nfor (const k in obj) {\n  console.log(k);\n}\nfor (const v of [1, 2]) {\n  console.log(v);\n}\nconst has = \"a\" in obj;\ntype Mapped<T> = { [K in keyof T]: T[K] };\n",
+  },
+  {
+    id: "l677-statements-stmt-do-while-while-body",
+    title: "AST 语料 statements/stmt-do-while-while-body.ts：stmt do while while body",
+    src: "// xl:note `do` 的体本身是一条 `while` 语句（第 656 轮）：体起点那一格永远不是终止符，\n//       剩下两个 `while` 才是——`do while (a) x++; while (b);`\n// xl:expect DoWhile,While,WhileBody,WhileCompare,Statement\nlet a = false;\nlet b = false;\nlet x = 0;\nlet y = 0;\nlet z = 0;\ndo while (a) x++; while (b);\ndo { y++; } while (a && b);\ndo z++; while (b);\nconsole.log(x, y, z, a, b);\n",
+  },
+  {
+    id: "l677-statements-stmt-for-of-contextual-name",
+    title: "AST 语料 statements/stmt-for-of-contextual-name.ts：stmt for of contextual name",
+    src: "// xl:note for-of / for-in 的绑定名可以是 `get` / `set` / `override` 这类**上下文关键字**：\n// 产物把那一格升成 `<Keyword>`，而 TS 那边它是 `Identifier`。\n// 投影只认 `Identifier` 时整段找不到名字 ⇒ `initializer` 整格消失\n// ⇒ 降级层报 `ast node ForOfStatement has no child initializer`（整份文件进不来）。\n// xl:expect Keyword,Foreach,Identifier\nfor (const set of [1, 2]) {\n  console.log(set);\n}\nfor (const get of [3]) {\n  console.log(get);\n}\nfor (const override of [4]) {\n  console.log(override);\n}\nfor (const k in { set: 1 }) {\n  console.log(k);\n}\n",
+  },
+  {
+    id: "l677-statements-stmt-foreach-comment-word",
+    title: "AST 语料 statements/stmt-foreach-comment-word.ts：stmt foreach comment word",
+    src: "// xl:note `for…of` 的定义段与枚举对象之间夹一条写着 `in` 的注释：仍是 ForOfStatement（第 631 轮）\n// xl:expect Foreach,ForeachDefine,ForeachEnumable,ForeachBody,AreaAnnotation\nfor (const a /* in */ of [1]) {\n  console.log(a);\n}\nfor (const b /* of */ in { k: 1 }) {\n  console.log(b);\n}\n",
+  },
+  {
+    id: "l677-statements-stmt-switch-inline-case-body",
+    title: "AST 语料 statements/stmt-switch-inline-case-body.ts：stmt switch inline case body",
+    src: "// xl:note switch 的 case 体写在同一行时，体的语句也要含那个 `;`\n// xl:expect Switch,SwitchSegment,SwitchCase,SwitchStatement\nconst a = 1;\nswitch (a) {\n  case 1: console.log(\"a\"); break;\n  case 2:\n  case 3: break;\n  default: console.log(\"d\");\n}\nswitch (a) {\n  case 1:\n    console.log(\"x\");\n    break;\n}\n",
+  },
+  {
+    id: "l677-types-ty-import-type-attributes",
+    title: "AST 语料 types/ty-import-type-attributes.ts：ty import type attributes",
+    src: "// xl:note 导入类型也带导入属性：`import(\"m\", { with: { type: \"json\" } })` 的属性是 ImportType 的 attributes\n// xl:expect ImportType,ObjectLiteral\ntype J = import(\"./d.json\", { with: { type: \"json\" } }).default;\ntype K = import(\"./d.json\").default;\nlet a: J;\nlet b: K;\nconsole.log(1);\n",
+  },
+  {
+    id: "l677-types-ty-infer-constraint-tuple-rest",
+    title: "AST 语料 types/ty-infer-constraint-tuple-rest.ts：ty infer constraint tuple rest",
+    src: "// xl:note 元组里 `infer X` 之后那一格仍是变长元素：`...T[]` 要收成 RestType\n// xl:expect InferType,TypeParameter,RestType,ArrayType,TupleType\ntype First<T> = T extends [infer U extends string, ...unknown[]] ? U : never;\ntype Rest = [infer U, ...number[]];\ntype Plain = [string, ...string[]];\nlet a: First<[\"a\", 1]>;\nlet b: Rest;\nlet c: Plain;\nconsole.log(1);\n",
+  },
 ];

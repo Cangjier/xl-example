@@ -119,12 +119,12 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | 层 | 条数 | 覆盖度 |
 | --- | --- | --- |
 | runtime | **595 / 595** | **100%** |
-| exec | **495 / 498** | 99.4% |
+| exec | **531 / 537** | 98.9% |
 | stdlib | **832 / 844** | 98.6% |
 | e2e | **225 / 225** | **100%** |
-| **合计（加权）** | **2147 / 2162** | **99.5%** |
+| **合计（加权）** | **2183 / 2201** | **99.3%** |
 
-那 15 条过不了的是**真缺口**，都登了台账（写清根子）：
+那 18 条过不了的是**真缺口**，都登了台账（写清根子）：
 对象字面量的值是一对圆括号里的二元表达式、宿主 ABI 的 `setTimeout`、
 `Date.prototype.getTimezoneOffset` 与 `toDateString` / `toTimeString` / `toUTCString` 没装、
 `String.prototype.matchAll` 没装（六条 `blocked`）、
@@ -138,7 +138,25 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 而**分母是活的、它比分子重要**：藏起来的那几条只会让百分比虚高。
 读数从 100% 掉到 99.8% 是**分母变诚实**，不是倒退；**第 676 轮**又加宽了 34 条
 （`r676-*`，同一轮普查量出的缺口另立 7 条 `gap-r676-*`，另有 1 条同族的另算），
-读数再掉到 99.5%，同一个道理。
+读数再掉到 99.5%，同一个道理；**第 677 轮**换了一条语料来源：不写新片段，
+而是把 **AST 语料**（`tests/parse/cases/**`，见下一节）里凡是会打印的那 57 份整批量一遍——
+36 份 pass 的照原样进矩阵（`l677-*`），另量出 3 条缺口，读数 99.5% → **99.3%**，同一个道理。
+
+### 第 677 轮：**AST 语料**当候选池——1407 份解析用例里量出 3 条执行侧缺口
+
+解析语料（`tests/parse/cases/**`，1411 条）是为 token 层写的，但其中 **57 份**带
+`console.log`——它们同时也是**普通 `.ts`**，正好能整批交给 `sweep.mjs` 量一遍
+（口径不变：`node` 当裁判、stdout 逐字节 + 退出码）。余额是**代码复用**：
+这些文件每个都已经被逐节点对拍过，形状是现成的，不必再手写片段。
+
+| 用例 | 症状 | 根子 |
+| --- | --- | --- |
+| `l677-declarations-cls-semicolon-member` | 类体里单独一个 `;`（TS 的 `SemicolonClassElement`）⇒ `unimplemented: class member SemicolonClassElement` | 降级层的成员遍历只认 Field / MethodDeclaration，无名成员直接抛；空成员没有运行期效果，跳过即可 |
+| `l677-declarations-decl-obj-destructure-computed-key` | `const { [k]: v } = o` ⇒ `ast node ComputedPropertyName has no text (at 109..112)` | 投影出的计算名节点**在自己的区间里取不到文本**——与 `import { "a-b" as c }` 那一族同一个根子：投影这一层按区间再取一次文本，而 `[k]` 的区间口径不一致 |
+| `l677-expressions-expr-template-nested-spaced` | 嵌套模板 `` `a${ `b${1}` }c` `` 该给 `ab1c`，本仓给 `ab1}c` | token 层：内层模板收尾后 `TemplateTail` 该从 `}` **之后**起，现在它把 `}` 与那个空格算进了自己的文本 |
+
+另 **18 份**是 `nodefail`（片段不完整：`ReferenceError: xs is not defined` 之类），
+**没有进矩阵**——裁判都跑不动的那一档就是「用例自己不合法」，收进去只会污染分母。
 
 ### 第 676 轮（其三）：**系统性点名**——把内建表面逐个问一遍
 

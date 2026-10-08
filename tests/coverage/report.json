@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2162,
+  "matrix": 2201,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -83,7 +83,7 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 99.46,
+  "progressPercent": 99.31,
   "layers": [
     {
       "layer": "runtime",
@@ -98,12 +98,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 498,
-      "pass": 495,
-      "blocked": 1,
-      "differ": 2,
+      "total": 537,
+      "pass": 531,
+      "blocked": 3,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 99.4
+      "coverage": 98.88
     },
     {
       "layer": "stdlib",
@@ -132,6 +132,18 @@
       "layer": "exec",
       "title": "对象字面量的值是一对圆括号里的二元表达式",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: x"
+    },
+    {
+      "id": "l677-declarations-cls-semicolon-member",
+      "layer": "exec",
+      "title": "AST 语料 declarations/cls-semicolon-member.ts：cls semicolon member",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: class member SemicolonClassElement"
+    },
+    {
+      "id": "l677-declarations-decl-obj-destructure-computed-key",
+      "layer": "exec",
+      "title": "AST 语料 declarations/decl-obj-destructure-computed-key.ts：decl obj destructure computed key",
+      "detail": "tsrun: 还没实现的构造或语言层错误：ast node ComputedPropertyName has no text (at 109..112)"
     },
     {
       "id": "gap-std-set-timeout",
@@ -176,6 +188,12 @@
       "layer": "exec",
       "title": "await using 声明：块结束时该调 Symbol.asyncDispose",
       "detail": "stdout 不同：第 3 行：node «dispose a» vs tsrun «»"
+    },
+    {
+      "id": "l677-expressions-expr-template-nested-spaced",
+      "layer": "exec",
+      "title": "AST 语料 expressions/expr-template-nested-spaced.ts：expr template nested spaced",
+      "detail": "stdout 不同：第 1 行：node «ab1c» vs tsrun «ab1}c»"
     },
     {
       "id": "gap-std-new-object-null",

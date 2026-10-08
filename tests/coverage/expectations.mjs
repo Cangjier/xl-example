@@ -1233,4 +1233,32 @@ export const EXPECTATIONS = {
     expect: "differ",
     why: "同上一格：这条一并量了 indexOf（对）/ lastIndexOf（对）/ includes（忽略 fromIndex）三格",
   },
+
+  // ===== 第 677 轮：**AST 语料**普查量出的三条缺口（用例在 `cases/exec.mjs` 的 `l677-*` 那一段）=====
+  // 一、**类体里的空成员**（单独一个 `;`）：token 层按 TS 的 `SemicolonClassElement` 收了，
+  // 降级层没认这一格 ⇒ `unimplemented: class member SemicolonClassElement`。
+  // 根子在成员表的遍历：它只按名字处理 Field / MethodDeclaration，遇到无名成员直接抛。
+  // 修法是**跳过**（空成员没有任何运行期效果，只需不挡路）。
+  "l677-declarations-cls-semicolon-member": {
+    expect: "blocked",
+    why: "类体里的空成员 `;`（TS 的 SemicolonClassElement）：降级层没认这一格，报 unimplemented: class member SemicolonClassElement",
+  },
+
+  // 二、**对象解构的计算属性名** `const { [k]: v } = o`：降级层要读计算名那一格的**文本**，
+  // 投出来的 `ComputedPropertyName` 在它那个区间里取不到文本（`has no text (at 109..112)`）。
+  // 与 `import { "a-b" as c }` 那一族同一个根子：**投影这一层自己按区间再取一次文本**，
+  // 而计算名两端的区间口径不一致（`[k]` 连同方括号一起给了节点）。
+  "l677-declarations-decl-obj-destructure-computed-key": {
+    expect: "blocked",
+    why: "对象解构的计算属性名 `{ [k]: v }`：投影出的 ComputedPropertyName 在自己的区间里取不到文本，降级层报 ast node ComputedPropertyName has no text",
+  },
+
+  // 三、**嵌套模板字面量、内插与 `}` 之间带空白**：`node` 给 `ab1c`，本仓给 `ab1}c`。
+  // 根子在 token 层：内层模板收尾之后，`TemplateTail` 该从 `}` **之后**起，
+  // 现在它把那个 `}` 与空格算进了自己的文本（`{` 那一支有对照，这一支少了同一处处理）。
+  "l677-expressions-expr-template-nested-spaced": {
+    expect: "differ",
+    why: "嵌套模板里内插与 `}` 之间带空白：该给 ab1c，这里给 ab1}c——TemplateTail 从 `}` 起、把花括号与空格算进了自己的文本",
+  },
+
 };
