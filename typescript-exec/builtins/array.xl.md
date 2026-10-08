@@ -1315,6 +1315,22 @@ if (id === ArraySort || id === ArrayToSorted) {
   // **比较器可选**（不给就按「转成字符串再比」，见 `CompareAsText`）。
   // **「可调用」的判据与回调族同一条**（`IsCallableValue`，第 145 轮）——
   // 写 `IsCallable()` 的话 `[2, 1].sort(String)` 会**静默**走文本那一支（不是拒绝，是换语义）。
+  //
+  // **给了、但不是函数 ⇒ 抛 `TypeError`**（第 757 轮，普查当场红的）。
+  //
+  // 规范里那是三步：`If comparator is not undefined, then If IsCallable(comparator) is
+  // false, throw a TypeError`。本仓原来把它写成**一个三目**——「不可调用就当没给」，
+  // 于是 `[3, 1, 2].sort(1)` / `.sort("x")` / `.sort({})` / `.sort(null)` **一声不响**地
+  // 按文本比（Node 四个都抛 `TypeError`），而 `a.sort(null)` 更隐蔽：
+  // 它与 `a.sort()` 给出**同一个答案**，看着「对」，其实换了一条语义。
+  //
+  // **为什么原来那样写也说得通、却仍然要改**：`IsCallableValue` 那一支是三目里的
+  // 「取用哪一条路」，把**拒绝**与**缺省**合成一格之后，「不可调用」就没有第三个出口了。
+  // 判据 `stdlib/round757/p757a-01` 的第 10 行钉着它（`node` 现给的那一行是 `TypeError`）。
+  const hasArgument = args.length > 0 && !args[0].IsUndefined();
+  if (hasArgument && !IsCallableValue(table, args[0])) {
+    throw new TypeError("The comparison function must be either a function or undefined");
+  }
   const comparator = args.length > 0 && IsCallableValue(table, args[0]) ? args[0] : Value.Undefined();
   const hasComparator = IsCallableValue(table, comparator);
   const inPlace = id === ArraySort;

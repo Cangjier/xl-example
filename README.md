@@ -1931,6 +1931,44 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   （两条旧台账到期走的是**分子**，指令已按规矩撤掉、用例留着当守卫）。
   加权 **95.7%**（两个数都在这一位）。
 
+### 第 757 轮：**数组那一侧的两处响度**——`sort` 的比较器与 `Array.from` 的空值（coverage 7807/8185 → **7810/8188**）
+
+这一轮的探针换到**数组那一侧**：46 条原子探针分三面问
+（`sort` / `toSorted` 的比较器与稳定性、`Array.from` 的类数组与迭代器、对象复制与键序）。
+**两面全对**、`Array.from` 那一面 16 行里 15 行对，**两处收掉**——两处都不是「缺一块功能」，
+而是**响得不对**：一处该抛的没抛、一处抛错了族。
+
+- **收掉一处：`sort` 的比较器不是函数时要抛 `TypeError`**（判据 `stdlib/round757/p757a-01-sort-comparator`）。
+  `[1, 2, 3].sort(1)` / `.sort("x")` / `.sort({})` 在 Node 里都抛 `TypeError`
+  （规范：`If comparator is not undefined, then If IsCallable(comparator) is false, throw a TypeError`），
+  本仓原来把它写成一个**三目**——「不可调用就当没给」⇒ 静默按文本比。
+  `a.sort(null)` 更隐蔽：它与 `a.sort()` 给出**同一个答案**，看着「对」，其实换了一条语义。
+  修法一行：`hasArgument && !IsCallableValue(...)` ⇒ 抛（`builtins/array.xl.md` 的
+  `ArraySort` / `ArrayToSorted` 那一支，`toSorted` 与它共用这一格）。
+- **收掉一处：`Array.from(null)` / `Array.from(undefined)` 要给 `TypeError`**（判据 `p757a-02-array-from-nullish`）。
+  规范的第一步就是 `If items is undefined or null, throw a TypeError`——本仓原来没有这一句，
+  于是 `Array.from(null)` 一路走到下面那条「有没有迭代器」（要读 `Symbol.iterator` 那一格）
+  才撞在引擎的「读空值的属性」上，而那一抛是**笼统的 `Error`**
+  （`props.xl.md` 第 136 轮那一处自己写着「本仓抛的是装了工厂的那种错误，
+  `instanceof TypeError` 那一层还没有」）⇒ `catch (e) { e instanceof TypeError }` 接不着。
+  **这一句补在语言层、不补在引擎**：引擎那一处的口径是全语言共用的（700+ 条语料钉着
+  「松散模式读空值给笼统错误」），改它要动所有读属性的路；而 `Array.from` 这一格
+  **规范本来就单独要求 `TypeError`**——补的是**规范明写的那一步**。
+  顺手把「数 / 布尔 / 符号 ⇒ 空数组」写成了明处的规矩（原来靠「原始值接收者读 `length`
+  得 `undefined`」顺带对上）。
+- **一次实测的坑（记在这里，省下一次重踩）**：第一版把那句空值检查放在 `ArrayFromValues`
+  **后半段**（`drained` 出来之后）——**永远不会执行**：`null` 在更早的
+  「有没有迭代器」那一分支就撞在引擎那句 `cannot read properties of null` 上了。
+  探针的报错文字与**第一版的推论**一模一样，所以「改完还是红」看着像没生效——
+  **判据红的是位置，不是写法**。第二版把它挪到**一切属性读之前**（`source` 一取到就问）。
+- **一处 TS 的坑**：`!drained.IsObject()` 会把 `Null` / `Undefined` 从联合类型里摘掉，
+  之后再问 `Tag === ValueTag.Null` 是 `tsc` 的 **TS2367**（「两个分支没有交集」）——
+  顺序要照着「先问空值、再问 `IsObject`」写。
+- 用例：`stdlib/round757` 3 条（**全 pass**）。
+- 五类 **7807 / 8185 → 7810 / 8188**（+3 条语料、+3 条通过）、`blocked 262`（**没动**）、
+  `differ 116`（**没动**）、`bad` 0、`regressions` **0**、`moved` 0、`newlyPassing` 0。
+  加权 **95.7%**（两个数都在这一位）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1943,7 +1981,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7807 / 8185**，加权 **95.7%**：token 1196/1414、exec 2171/2216、runtime 1045/1080、stdlib 3151/3229、e2e 242/246。差的那些是**真缺口**（`blocked` 262 / `differ` 116），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `coverage` | **五类 7810 / 8188**，加权 **95.7%**：token 1196/1414、exec 2171/2216、runtime 1045/1080、stdlib 3156/3232、e2e 242/246。差的那些是**真缺口**（`blocked` 262 / `differ` 116），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 

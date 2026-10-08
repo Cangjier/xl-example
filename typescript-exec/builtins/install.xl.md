@@ -644,7 +644,30 @@ const mapper = args.length > 1 ? args[1] : Value.Undefined();
 // 与 `xs.map(fn, thisArg)` 那一边**共用同一句判据** `ThisArgOf`，只是**回调的位置不同**
 //（数组方法那一族回调在 `args[0]`、这里在 `args[1]` ⇒ 传 `1`）。
 const thisArg = ThisArgOf(args, 1);
-const hasMapper = mapper.IsCallable();const out = NewPlainArray(room, table, protos);
+const hasMapper = mapper.IsCallable();
+// **空值当场抛 `TypeError`**（第 757 轮，普查当场红的）——排在**一切属性读之前**。
+//
+// 规范里 `Array.from` 的第一步就是 `If items is undefined or null, throw a TypeError`
+// （`Array.from ( items [ , mapfn [ , thisArg ] ] )` 第 1 步）。本仓原来没有这一句，
+// 于是 `Array.from(null)` 一路走到**下面那条「有没有迭代器」**（`HasIteratorMethod`
+// 要读 `Symbol.iterator` 那一格）才撞在引擎的「读空值的属性」上——
+// 那一抛是**笼统的 `Error`**（`props.xl.md` 第 136 轮那一处，
+// 它自己写着「本仓抛的是装了工厂的那种错误，`instanceof TypeError` 那一层还没有」），
+// 而 Node 给的是 **`TypeError`**（判据 `p757a-02` 的第 14 行量的就是它）。
+//
+// **为什么这一句必须在这一层、而不是只靠引擎**：引擎那一处的口径是**全语言共用**的
+// （700+ 条语料钉着「松散模式读空值给笼统错误」那一条），改它要动所有读属性的路；
+// 而 `Array.from` 这一格**规范本来就单独要求 TypeError**——补在这里是补**规范明写的那一步**，
+// 不是给引擎打补丁。
+//
+// **只补空值**：数 / 布尔 / 符号在 Node 里给**空数组**（它们没有迭代器也没有 `length`），
+// 本仓靠下面那条 `.push(undefined)` 顺带对上（`length` 读出来是 `undefined`）——
+// 那是**写下来的规矩**了（见下面 `!drained.IsObject()` 那一支的注释）。
+if (source.IsNullish()) {
+  throw new TypeError((source.IsNull() ? "object null" : "undefined")
+    + " is not iterable (cannot read property Symbol(Symbol.iterator))");
+}
+const out = NewPlainArray(room, table, protos);
 // **挂根**（第 199 轮）：`out` 是这一层自己造的、**不在 `SnapshotRoots` 的名单里**，
 // 而下面**每一条路**里都有 `room(...)`（有的还在循环里）——不挂根的话，
 // 一次回收就能把它收走，而症状是「推到一个死句柄上」（`invalid handle`）。
@@ -763,6 +786,15 @@ if (drained.Tag !== ValueTag.Array) {
     arrayLikeTarget.Push(GetProperty(room, call, protos, table, drained, indexKey));
   }
   table.Recount(out.Ref);
+  return out;
+}
+// **原始值那一档：给空数组**（第 757 轮）——数 / 布尔 / 符号在 Node 里都是**空数组**
+//（它们**没有** `length` 也没有迭代器），而本仓在它们身上给空数组**靠的是
+// 「原始值接收者读 `length` 得 `undefined`」**——那是**顺带**对上的，不是写下来的。
+// 这一句把它写成明处的规矩（与 Node 逐字节一致，判据 `p757a-02`）。
+// **空值不在这里**（上面已经抛了）。
+if (!drained.IsObject()) {
+  if (keep !== null) keep(out, false);
   return out;
 }
 const items = table.Get(drained.Ref).AsArray();
