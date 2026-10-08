@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8017,
+  "total": 8027,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,27 +75,27 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.94,
+  "progressPercent": 95.96,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1405,
-      "pass": 1189,
-      "blocked": 216,
+      "total": 1411,
+      "pass": 1193,
+      "blocked": 218,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 84.63
+      "coverage": 84.55
     },
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2211,
-      "pass": 2163,
+      "total": 2215,
+      "pass": 2170,
       "blocked": 12,
-      "differ": 36,
+      "differ": 33,
       "nodefail": 0,
-      "coverage": 97.83
+      "coverage": 97.97
     },
     {
       "category": "runtime",
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1405,
-    "knownGap": 216,
-    "knownGapStillOpen": 216,
-    "exactFiles": 1189,
-    "scoredWithoutGap": 1189,
-    "passedWithoutGap": 1189
+    "total": 1411,
+    "knownGap": 218,
+    "knownGapStillOpen": 218,
+    "exactFiles": 1193,
+    "scoredWithoutGap": 1193,
+    "passedWithoutGap": 1193
   },
   "blocked": [
     {
@@ -328,6 +328,18 @@
       "category": "token",
       "title": "new 的类型名与实参括号之间夹一条注释",
       "detail": "多 2　注释夹在 `new C` 与它的实参括号之间：实参那一段被折成逗号运算符（BinaryExpression `1, 2` + CommaToken），`new` 的实参段落空（r676 探针 new-comment-before-paren）"
+    },
+    {
+      "id": "token/expressions/gap-round743-chain-in-binary-both-sides",
+      "category": "token",
+      "title": "下标调用链当**两边**的操作数：`o[\"f\"]().v + o[\"f\"]().v`（第 743 轮登记的缺口）",
+      "detail": "缺 1　多 2　左边的续格在二元单元里、右边的续格掉在单元外面，两个形状同时出现时第二截没接上：降级期报 `name is not a local or a capture: v`。两半各自已经收掉（`p711b-b01` / `p711b-b02`），合起来这一格还没认。要做。"
+    },
+    {
+      "id": "token/expressions/gap-round743-typeof-chain-in-binary",
+      "category": "token",
+      "title": "一元前缀 + 下标调用链 + 二元：`typeof o[\"f\"]().v + \"\"`（第 743 轮登记的缺口）",
+      "detail": "缺 1　漂 1　多 2　一元那一支要的是「操作数只到第一个更松的运算符为止」，而链那一支进去之后把尾随的 `+ \"\"` 也折进了操作数 ⇒ 那个一元单元盖住了整段（TS 只盖 `o[\"f\"]().v`）：缺 1 漂 1 多 2。要做。"
     },
     {
       "id": "token/expressions/gap-value-array-bitwise-in-object-paren",
@@ -1829,7 +1841,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25216/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24408/src/3210.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1854,24 +1866,6 @@
       "category": "exec",
       "title": "严格函数的自有名字表",
       "detail": "stdout 不同：第 1 行：node «string:length,name,prototype» vs tsrun «string:length,name,arguments,caller,prototype»"
-    },
-    {
-      "id": "exec/round711/p711b-b01",
-      "category": "exec",
-      "title": "下标调用链当二元左操作数（字符串拼接）",
-      "detail": "stdout 不同：第 1 行：node «string:1» vs tsrun «function:() => ({ v: 1 })»"
-    },
-    {
-      "id": "exec/round711/p711b-b02",
-      "category": "exec",
-      "title": "下标调用链当二元右操作数",
-      "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «throw:TypeError»"
-    },
-    {
-      "id": "exec/round711/p711b-b03",
-      "category": "exec",
-      "title": "下标调用链当相等比较的左操作数",
-      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «function:() => ({ v: 1 })»"
     },
     {
       "id": "exec/round724/p724a-b01",
@@ -2057,7 +2051,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25216/src/5149.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24408/src/5159.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2081,7 +2075,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25216/src/5199.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24408/src/5209.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
