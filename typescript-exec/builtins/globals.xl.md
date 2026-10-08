@@ -12,7 +12,7 @@ import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, B
 import { InspectText, DateMarker } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
 import { SetCtor, WeakSetCtor } from "./set.xl.md"
-import { BuildPromise, PromiseQueueMicrotask } from "./promise.xl.md"
+import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, PromiseFinally } from "./promise.xl.md"
 ```
 
 # namespace cangjie
@@ -6577,6 +6577,22 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
 // **它为什么必须是「隐藏」而不是普通属性**：`Object.keys(Function.prototype)` 与
 // `for..in` 都不该看见它——这三格一直是用 `SetHiddenProperty` 挂的（第 228 轮），
 // 第四格跟着走（**同一族的东西用同一个手法**，别的地方也不用再想一遍）。
+// **`Function.prototype` 自己的 `length` 与 `name` 是第 690 轮**量出来、又放回去的一格
+//（**实测撞到 40 条回归**，见下）。
+//
+// JS 里 `Function.prototype` 自己也是一个函数对象（`typeof` 给 `"function"`），
+// 所以它也该有 `length`（`0`）与 `name`（`""`）——第 690 轮照着上面五格**隐藏挂**了上去，
+// 判据 `122-names-function-proto` 当场转绿。
+//
+// **可它把 40 条用例一起弄红了**（`089-function-tostring-and-name`：
+// node 给 `named 2 true`、本仓给 ` 0 true`）：`props.xl.md` 里**可调用接收者**取属性
+// 走的是「先自有、再 `protos.Function`、最后才是闭包载荷」那条路
+//（第 228 轮为 `.call` 那一族写的），而 `length` / `name` 在**闭包载荷**上
+//（`Arity` / `Name`，第 291 轮）——原型上多了同名两格，**先命中的就是原型那一格**，
+// 于是每一个函数的 `f.name` 都变成 `""`、`f.length` 都变成 `0`。
+// **这不是「补一格」能收的**：要收它得把「闭包载荷那两格」提到
+// `protos.Function` **之前**判（`props.xl.md` 那一段的次序），那是另一件事。
+// 格回来了，量出来的话留在这一条注释里。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
   Value.FromString(table.CreateString(Units("toString"))),
   MethodObject(vm.Room(), table, protos, FunctionToString, 0));
@@ -6965,6 +6981,24 @@ SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "length"), V
 // （它是 `BuildPromise` 造的），所以它只能在这里补一格——表里放的是**已经造好的变量**。
 SetProperty(vm.Room(), NeverCall, table, promiseObject, NameValue(table, "prototype"),
   Value.FromObject(protos.Promise));
+// **`Promise.prototype` 上那三格**（第 690 轮）：JS 里 `then` / `catch` / `finally`
+// **就在原型上**（`Promise.prototype.then` 是函数、`.length` 是 2）。
+//
+// **本仓原来把三格挂在每个实例上**（`promise.xl.md` 的 `MakePromise`，理由写在那一处：
+// 与 `Map` / `Set` 同一条口径，省一层查找）——那是**实现上的选择**，两边不冲突：
+// 实例上那一份先命中，原型这一份是**兜底**。可**原型空着**会让两处答错：
+// `typeof Promise.prototype.then` 给 `undefined`（判据 `121-names-promise-proto`），
+// 而 `Object.create(Promise.prototype).then` 在 JS 里是函数、本仓给 `undefined`。
+// **挂法照 `Function.prototype` 那四格**（`MethodObject` + `SetHiddenProperty`）：
+// 非枚举（`Object.keys(Promise.prototype)` 在 JS 里是 `[]`）、`length` 也对得上
+//（`then` 2 / `catch` 1 / `finally` 1）。
+const promiseProto = Value.FromObject(protos.Promise);
+SetHiddenProperty(vm.Room(), table, promiseProto, NameValue(table, "then"),
+  MethodObject(vm.Room(), table, protos, PromiseThen, 2));
+SetHiddenProperty(vm.Room(), table, promiseProto, NameValue(table, "catch"),
+  MethodObject(vm.Room(), table, protos, PromiseCatch, 1));
+SetHiddenProperty(vm.Room(), table, promiseProto, NameValue(table, "finally"),
+  MethodObject(vm.Room(), table, protos, PromiseFinally, 1));
 // **`Map` / `Set` / `Date` / `Array` 四格的 `prototype` 与 `constructor`**（第 138 轮）：
 // `new Map() instanceof Map` 要靠原型那一格，`new Map().constructor === Map` 要靠
 // `constructor` 那一格——**两格都要**（只补一格就是「一半对」）。

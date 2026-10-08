@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 3826,
+  "total": 3827,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.17,
+  "progressPercent": 96.2,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 955,
-      "pass": 914,
+      "total": 956,
+      "pass": 916,
       "blocked": 15,
-      "differ": 26,
+      "differ": 25,
       "nodefail": 0,
-      "coverage": 95.71
+      "coverage": 95.82
     },
     {
       "category": "e2e",
@@ -1655,7 +1655,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24232/src/2813.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27848/src/2813.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1722,12 +1722,6 @@
       "category": "stdlib",
       "title": "名字逐个取一次：Object.prototype 的成员（缺 6 个）",
       "detail": "stdout 不同：第 1 行：node «object __defineGetter__ function» vs tsrun «object __defineGetter__ undefined»"
-    },
-    {
-      "id": "stdlib/object/121-names-promise-proto",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Promise.prototype 的成员（缺 3 个）",
-      "detail": "stdout 不同：第 1 行：node «object catch function» vs tsrun «object catch undefined»"
     },
     {
       "id": "stdlib/object/122-names-function-proto",

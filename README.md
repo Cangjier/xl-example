@@ -318,7 +318,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **229 种签名 / 140 种 kind** 全部有用例覆盖（用例 1402 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3552 / 3826**，加权 **96.2%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 601/609、runtime 613/614、stdlib 914/955、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 34），全登在用例文件头的台账里；`bad` **0 条** |
+| `coverage` | **五类 3554 / 3827**，加权 **96.2%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 601/609、runtime 613/614、stdlib 916/956、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 33），全登在用例文件头的台账里；`bad` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~29s**） |
 
 ### 口径与已知缺口
@@ -496,6 +496,21 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
     名字是规范里的值（JS 里永远在），用到它们的那几个方法仍是待做项；
     顺带把那张名单收成**一个局部量**（原来 `Symbol` 自己与「知名符号表」两处各写一遍，
     漂了看不出）。
+  - **同一轮的第三批**（`Promise.prototype` 那三格，以及一次**被量回来的改动**）：
+    `then` / `catch` / `finally` 在 JS 里**就在原型上**，而本仓只在每个实例上挂一份
+    （`MakePromise`），于是原型空着 ⇒ `typeof Promise.prototype.then` 给 `undefined`、
+    `Object.create(Promise.prototype).then` 也给 `undefined`。补上之后另立一条用例钉**形状**
+    （非枚举、`length` 2 / 1 / 1、`Object.create` 拿得到），因为「名字在不在」与
+    「那三格长得对不对」是两件事。
+    **同一次动手还撞出一处次序问题**：`Function.prototype` 自己的 `length` / `name`
+    （`0` / `""`）照同一手法挂上去确实能让 `122-names-function-proto` 转绿，
+    可 `props.xl.md` 里**可调用接收者**取属性的次序是「先自有、再 `protos.Function`、
+    最后才是闭包载荷」，而 `f.length` / `f.name` 住在**闭包载荷**上
+    （`Arity` / `Name`，第 291 轮）——原型上多了同名两格就先命中，
+    于是**每一个函数**的 `name` 变 `""`、`length` 变 `0`：实测 **40 条用例一起红**
+    （`089-function-tostring-and-name`：node `named 2 true` vs 本仓 ` 0 true`）。
+    那一格**放回去了**，量出来的话写在代码注释与那一条用例的台账里：
+    要收它得先把「闭包载荷那两格」提到 `protos.Function` 之前判，不是补一格属性的事。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 

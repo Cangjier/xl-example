@@ -65,6 +65,14 @@
    知名符号名单补齐七个（名字与协议是两件事）让 `150-sym-wellknown-presence` 转绿；
    另添一条**登记在案**的缺口（`138-object-tostring-arguments-gap`：本仓的 `arguments`
    就是一个数组 ⇒ 标签给 `[object Array]`、`Array.isArray` 给真，Node 两处都给「不是」）。
+   **同一轮的第三批**（又 1 份新语料）：通过 **3552 → 3554**、`differ 34 → 33`、
+   `blocked` 240、`bad` 0、`regressions` 0——`Promise.prototype` 补上 `then` / `catch` /
+   `finally`（JS 里它们就在原型上，本仓原来只在实例上挂一份）让 `121-names-promise-proto`
+   转绿，形状另立 `139-promise-proto-method-shape`。**同一批还试过 `Function.prototype`
+   自己的 `length` / `name`**：挂上去那条转绿，却因为「可调用接收者先看 `protos.Function`、
+   后看闭包载荷」的次序把**每一个函数**的 `name` / `length` 顶掉，
+   **实测 40 条回归**（`089-function-tostring-and-name` 那种）——当场回退，
+   量出来的话登在那一条的台账里。
    反过来**写成 `type: module`**也要不得：ESM 一律严格模式，而这一层语料的期望值全是照
    松散模式写的（`Object.freeze` 之后写属性静默、`delete` 不可配置属性该静默、
    非严格调用里 `this` 指向全局）——实测 `bad 3 → 12`、`differ 40 → 50`、通过掉到 3500、
