@@ -179,11 +179,12 @@ JSON 跟着上游的键名只会让**同一棵树的两个出口在本工程内�
 ## 5. 验收
 
 **这个出口今天没有专属的尺子**：从第 200 轮起测试集只留 AST 相关的判据
-（`cases:tsast` / `cases:tsast:cli` / `samples` / `cases:check`），四把都量**TS 形状**那一支
-（`projectRoot` 读的是同一棵树的 `ToList()`，见第 1 节）。
+（`cases:tsast` / `cases:tsast:cli` / `cases:tags` / `samples` / `cases:check`），
+量的是**产物树与 TS 形状**（`projectRoot` 读的是同一棵树的 `ToList()`，见第 1 节）。
 `cjcli --ast-json` 与 `Token.ToDictionary` / `ToJsonString` 本身照旧在，
 只是「两个出口同源」这条断言当下没有尺子在跑——改动这个出口时要**自己拿两个出口对一眼**
-（见第 6 节第 4 条）。
+（见第 6 节第 4 条）。**新增的坐标字段走的是这条出口**（例如第 634 轮的 `headerCloseAt`）：
+`ToDictionary` 里写了、投影才读得到（见第 5 节的字段表）。
 
 ---
 
