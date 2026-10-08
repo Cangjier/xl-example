@@ -3777,6 +3777,28 @@ if (id === FunctionBind) {
     if (boundArity < 0) boundArity = 0;
   }
   SetHiddenProperty(room, table, bound, boundLengthKey, Value.FromInt(boundArity));
+  // **绑定出来的东西要拿到目标的 `prototype`**（第 753 轮，**普查当场量到的**）：
+  // `new (F.bind(null))() instanceof F` 在 JS 里是**真**——规范的 `[[Construct]]`
+  // 对绑定函数是**转交给目标**（`Construct(target, args, newTarget)`），
+  // 于是实例的原型来自**目标**的 `prototype`。本仓的 `new` 是从**被调的那个值**上
+  // 取 `prototype` 的（`vm.xl.md` 的 `CreateInstance`），而绑定对象自己那一格是空的
+  // ⇒ 退到 `Protos.Object` ⇒ **`instanceof F` 给假、`Object.getPrototypeOf(inst) === F.prototype`
+  // 也给假**（判据 `p753b-03` 第 8 行）。
+  //
+  // **为什么是「转抄一格」而不是去改 `CreateInstance`**：那一格是**每次 `new` 都要过的路**
+  // （见第 750 轮 `a.length = "2"` 那条同类的取舍），而这里只需一句赋值——
+  // 而且 JS 的绑定函数**恰好**就是「`[[Prototype]]` 是 `Function.prototype`、
+  // 没有自有 `prototype`、构造时用目标的」这三句，用目标那一格表达它**一字不差**。
+  // **目标自己没有 `prototype` 就不抄**（如 `bind` 出来又 `bind` 一层：
+  // 里层那个绑定对象身上有上面这一句抄来的那一格，照抄即传递到底）。
+  // **`G.prototype === F.prototype` 在 Node 里是假**（`G.prototype` 是 `undefined`）——
+  // 这一条**如实记在台账里**（`p753b-03` 那条用例的 `xl:why`），
+  // 因为它要的是「绑定对象没有自有 `prototype`」这另一件事。
+  const boundProtoKey = Value.FromString(table.CreateString(Units("prototype")));
+  const targetProto = GetProperty(room, NeverCall, protos, table, self, boundProtoKey);
+  if (targetProto.IsObject()) {
+    SetHiddenProperty(room, table, bound, boundProtoKey, targetProto);
+  }
   const boundNameKey = Value.FromString(table.CreateString(Units("name")));
   const targetName = GetProperty(room, NeverCall, protos, table, self, boundNameKey);
   const targetText = targetName.Tag === ValueTag.String ? TextFrom(table, targetName) : "";

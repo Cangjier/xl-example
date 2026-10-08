@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8166,
+  "total": 8173,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -100,8 +100,8 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1065,
-      "pass": 1033,
+      "total": 1068,
+      "pass": 1036,
       "blocked": 2,
       "differ": 30,
       "nodefail": 0,
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3225,
-      "pass": 3146,
+      "total": 3229,
+      "pass": 3148,
       "blocked": 25,
-      "differ": 54,
+      "differ": 56,
       "nodefail": 0,
-      "coverage": 97.55
+      "coverage": 97.49
     },
     {
       "category": "e2e",
@@ -1841,7 +1841,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-3496/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26260/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2117,7 +2117,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-3496/src/5237.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26260/src/5240.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2141,7 +2141,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-3496/src/5287.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26260/src/5290.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2346,6 +2346,18 @@
       "category": "stdlib",
       "title": "裸的 `BigInt` 名字在降级期的待遇",
       "detail": "stdout 不同：第 1 行：node «typeof (BigInt as any) ok:string:function» vs tsrun «typeof (BigInt as any) ok:string:undefined»"
+    },
+    {
+      "id": "stdlib/round753/p753b-02",
+      "category": "stdlib",
+      "title": "调用形状：`this` 的四种绑定与严格模式",
+      "detail": "stdout 不同：第 5 行：node «(() => this === undefined)() ok:boolean:false» vs tsrun «(() => this === undefined)() ok:boolean:true»"
+    },
+    {
+      "id": "stdlib/round753/p753b-03",
+      "category": "stdlib",
+      "title": "构造与 `bind` 的形状：`new` 的返回值、`prototype`、`new.target`",
+      "detail": "stdout 不同：第 7 行：node «(function () { function F(this ok:boolean:true» vs tsrun «(function () { function F(this ok:boolean:false»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",
