@@ -1732,6 +1732,50 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
   `blocked 261`（**没动**）、`differ 106 → 111`（+5 新登）、`bad` 0、`regressions` 0、
   `moved` 0、`newlyPassing` 0，加权 **95.8% → 95.7%**（新登记缺口的账，不是回归）。
 
+### 第 751 轮：**内建成员的「整张表」普查**——收掉一处（`Array.prototype.at.length`）、新登 8 条（coverage 7775/8147 → **7777/8156**）
+
+这一轮的探针换了量法：不再「一条问一件事」，而是**一条问一个面**
+（`Array.prototype` 全族 / `String.prototype` 全族 / `Map`·`Set` 全族 /
+`Promise` 与函数·错误族 / 内建构造的静态面），每一格都打
+`typeof` + `Object.prototype.toString` 标签 + 一次真调用的结果——
+差异于是**成片**地露出来；最后再拿**整张 `length` 表**（150 行，覆盖
+Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
+的每一个成员）对 Node 核一遍。9 条定稿探针：**1 条当场通过**、8 条登记缺口。
+
+- **收掉一处**（判据 `p751a-01`，**整表核一遍逼出来的**）：
+  **`Array.prototype.at.length` 该是 `1`、本仓给 `0`**。`BuiltinArity` 那张表
+  （第 733 / 734 / 736 轮逐个量出来的）里 `at` **不在**「收一个实参」那一列，
+  于是落进了下面「零个形参」的名单。**价值不在那一格**，而在
+  「**这张表只能逐个量、不能按号段一把抓**」：`at` 的名字与
+  `values` / `keys` / `entries` 排在同一段能力号里（`array.xl.md`），
+  当初顺手归族就漏了它——与第 736 轮 `Reflect` 那四格、
+  第 734 轮 `String` 的 HTML 包装十三格是**同一条教训**。
+  修法是把 `ArrayAt` 加进那一列，并把它的号补进 `globals.xl.md` 的 import
+  （`ArrayAt` 原来只住在 `array.xl.md` 里）。
+- **新登 8 条**（根因逐条写在各用例的 `xl:why` 里）：
+  ① **三种迭代器的标签都少一层**（`p751a-02`）：`[object Array Iterator]` /
+     `[object Map Iterator]` / `[object Set Iterator]` 在本仓都是 `[object Array]`
+     ——迭代器**就是一个数组**，`AttachArrayIterator` 没挂 `Symbol.toStringTag`；
+     而修法要穿过三份文件（那一格是语言层的符号，那个方法的签名里没有 `protos`，
+     却被 `Map` / `Set` 两处调用点共用）；
+  ② **`globalThis` 上的 `setTimeout` / `process`**（`p751a-04`）：与第 678 轮
+     那条 97 个名字的账同源，这里只挑**唯一两个有语义可做的**单钉一条——
+     其余 95 个是宿主面；**补一个假的不如不补**（`setTimeout(f, 0)` 同步跑掉是静默错值）；
+  ③ **`JSON.isRawJSON`**（`p751b-01`）：要先把 `JSON.rawJSON` 造出来；
+  ④ **`Symbol.prototype`**（`p751b-02`）：那一格空着，而 JS 里**裸的符号值借的就是它**
+     ——补它要连**符号的包装对象**一起做（`Object(sym)` 今天还响亮地抛着）；
+     `Symbol.dispose` / `asyncDispose` 同族（名字进了名单、缺的是 `using` 语法）；
+  ⑤ **`Error` 实例的 `stack`**（`p751b-03`）：与第 697 / 704 / 708 / 749 轮同一条根，
+     这一条把它钉在**最普通的那句读法**上；
+  ⑥ **`console.Console`**（`p751b-04`）：与第 733 轮 `stdlib/console/020` 同一条账；
+  ⑦ **裸的 `BigInt` 不在全局名单里**（`p751b-05`）：降级期就报
+     `name is not a local or a capture: BigInt`——与第 145 轮 `Boolean`、
+     第 228 轮 `Function` 两条一字不差；**只添一个名字不算收账**（要连大整数那一档一起做）。
+- 用例：`runtime/round751` 4 条、`stdlib/round751` 5 条。
+- 五类 **7775 / 8147 → 7777 / 8156**、`blocked 261`（**没动**）、
+  `differ 111 → 118`（8 条新登）、`bad` 0、`regressions` 0、`moved` 0、
+  `newlyPassing` 0，加权 **95.7%**（两个数都在这一位）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
