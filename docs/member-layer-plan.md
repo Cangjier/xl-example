@@ -1,5 +1,12 @@
 # 成员层落地方案（第 419 轮量出来的）
 
+> **这份文件是历史台账**：第 419 轮开工，逐轮追加到**第 587 轮**为止。
+> 它记的是**每条规则为什么长这样**（含被证伪的方案），所以留着；但**它里面的读数与
+> 「下一块」都已经过期**——现状只认两处：[README](../README.md) 的「当前状态」那张表，
+> 与 [tests/coverage/report.json](../tests/coverage/report.json) 那一份整跑清单
+> （**1713 / 1713**、台账 0 条待修）。
+> 第 587 轮之后每一轮的现场写在**当轮改动的那几个规范文件的注释里**，不再往这里追加。
+
 目标：`ClassBody` / `InterfaceBody` / `EnumBody` / `StaticBlock` 四个体**不再挂语句重组队列**
 （`ParsePipeline.InitialStatementReorganizationQueue`），成员由解析期单元自己成形。
 这是「class 子树不依赖任何 reorg」清单里**最大的一处**（见 `typescript/parse-pipeline.xl.md` 那张表）。

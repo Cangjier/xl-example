@@ -18,7 +18,7 @@
 
 产物是 `dist/ts/typescript-exec/**`，与 `runtime/**` 一起被 `tsrun` 装起来跑。
 
-## 判据与当前读数（第 620 轮实测）
+## 判据与当前读数（第 621 轮实测）
 
 | 判据 | 命令 | 结果 |
 | --- | --- | --- |
@@ -51,6 +51,11 @@
   闭包的结构 `name`（`props.xl.md` 的 `SetProperty` 那一支，只写**匿名**闭包）；
   `for..of` 提前退出时用户写的 `Symbol.iterator` 迭代器的 `return()` 也调得着了
   （`GetIterator` 把绑好的 close 挂在摊平后那个数组的 `__close` 上）。
+
+**第 621 轮**是 token 层那一半：`Lamda.ArrowAt` / `IfSegment.BodyBraceAt` /
+`Namespace.BodyBraceAt` + `FirstNameAt` 四处由 token 当场出字段（投影不再回原文 `indexOf`），
+顺手修掉「形参表与 `=>` 之间夹着块注释 ⇒ 整个箭头不成形」那个真缺口。语料 1481 → **1484**
+（`tests/parse/cases/` 加宽三条）。
 
 **下一轮的入口**：`npm run coverage -- --filter <id>` 可以单跑一条；
 矩阵还短的地方按 [tests/coverage/README.md](../tests/coverage/README.md) 的「怎么加宽矩阵」普查。

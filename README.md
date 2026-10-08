@@ -130,17 +130,9 @@ npm run coverage:sweep -- tmp-cand.mjs   # **加宽矩阵的第一步**：候选
 npm run cpp:check          # C++ 目标的产物自检（指纹 / include / 成员名 / 字面量）
 ```
 
-**第 200 轮起测试集只留 AST 相关的这些**（用户口径）：
-
-| 判据 | 命令 | 口径 |
-| --- | --- | --- |
-| TS 形状（库路径） | `npm run cases:tsast` | 逐节点对 `ts.createSourceFile`：kind / 区间 / 字段名 + 未映射 / 缺 range / 越界，**七条全 0 才绿** |
-| TS 形状（发布路径） | `npm run cases:tsast:cli` | 每个文件跑一次 `cjcli --ts-ast`，拿 stdout 的 JSON 对拍（进程数 = 语料数） |
-| 字节稳定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
-| 用例体检 | `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） |
-
-量 XML 出口与 token 树质量的那些尺子（`diff` / `matrix` / `lossless` / `astjson` / `sweep` / `recon*` /
-`fuzz*` / `align` …）都不在判据里。
+**第 200 轮起测试集只留 AST 与执行侧这几道**（用户口径）：XML 出口与 token 树质量的那些尺子
+（`diff` / `matrix` / `lossless` / `astjson` / `sweep` / `recon*` / `fuzz*` / `align` …）都不在判据里，
+`coverage` 是**尺子不是门**（它红只在「比昨天差」）。
 
 `tsconfig.json` 的 `include` 是 `dist/**/*.ts`、`rootDir` 是 `dist`，所以 `dist/ts/cjcli.ts` 落在
 `build/ts/cjcli.js`——产物路径里的 `ts/` 来自**目标语言目录**，不是 `rootDir` 多出来的一层。
@@ -309,32 +301,23 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   （见 [typescript/tokens/declaration-common.xl.md](typescript/tokens/declaration-common.xl.md) 里
   「一个已经删掉的收尾口径」那一节）。
 
-## 已知缺口
+## 判据与缺口
 
-> 判据只有**六道门**（`runtime:check` / `runtime:cli` / `cases:tsast` / `samples` / `cases:check` /
-> `coverage`，一次跑完是 `npm run gates`）；更早那些尺子与探针已随测试集收窄删除。
-> 这一节写**当前**的判据与状态。
+**主判据是六道门**（`npm run gates` 一次跑完，墙钟 ~22s）：
 
-**主判据：与 `ts.createSourceFile` 逐节点对拍**：
-
-| 命令 | 口径 |
+| 门 | 口径 |
 | --- | --- |
-| `npm run cases:tsast` | 逐节点比 **kind / 区间 / 字段名**；未映射（透传进产物的标签）/ 缺 range / 区间越界也一并判绿，**七条全 0 才退出码 0** |
-| `npm run cases:tsast:cli` | **发布路径**：真的开 `cjcli <文件> --ts-ast` 进程，拿它 stdout 的 JSON 与 `ts.createSourceFile` 对拍（全语料，按需跑） |
-| `npm run samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
+| `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界——**七条全 0 才退出码 0** |
+| `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
+| `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
+| `cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） |
+| `runtime:check` / `runtime:cli` | 执行侧的机制与端到端（见「构建链路」那一节） |
+| `coverage` | 场景覆盖度——**尺子不是门**：它红只在「比昨天差」 |
 
-产物标签名直接比只有 **44.6%**——本工程的标签本来就不是 TS 那一套；**投影成 TS 形状之后**按
-**逐文件完全一致**算（见下面「当前状态」那一表）。
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-它原来是红的，红的不是解析出错，而是**产物的节点集合与 TypeScript 不是同一套**：
-语句 / 声明壳（`VariableDeclarationList` / `VariableStatement` / `ExpressionStatement` / `Block`）
-与叶子按值分名（`NumericLiteral` / `StringLiteral`）各差一层。修法是把投影从
-`typescript/print-ast-common.xl.md` 逐块搬进各 token 的 `PrintAst`——
-token 自己出的那一格最懂自己的形状。
-
-### 当前状态（第 620 轮实测）
+### 当前状态（第 621 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
@@ -347,7 +330,7 @@ token 自己出的那一格最懂自己的形状。
 | `coverage` | **1713 / 1713**（**100%**）：引擎 / 降级 / 标准库 / 端到端四层各 **100%**，台账里 0 条待修 |
 | `npm run gates` | 上面六道一次跑完（实测墙钟 **~22s**） |
 
-结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
+缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
 
 - **类型层**有 `TypeDefine` / `GenericType` / `TypeLiteral` / `Signature` / `FunctionType` /
   `ConditionalType` / `UnionType` + `IntersectionType` / `MappedType` / `ArrayType` + `TupleType` +
@@ -380,16 +363,12 @@ token 自己出的那一格最懂自己的形状。
 ---
 
 > **逐轮的账不写在这里**：规范、判据、每一轮的根因 / 修法 / 读数都在
-> [docs/member-layer-plan.md](docs/member-layer-plan.md)（token / 投影 / AST 那一条线）与
-> [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)（历史缺口台账）里，
-> 本文件只留**现状**与**怎么改**。
+> [docs/member-layer-plan.md](docs/member-layer-plan.md)（token / 投影 / AST 那一条线，**停在
+> 第 587 轮**）与 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)
+> （缺口审计，**它的每一条都已经收掉**）里——两份都是**冻结的历史**，本文件只留**现状**与**怎么改**。
 
-### 实测规模
-
-`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `dist/ts/**` + 用例语料
-——`cases:tsast` 的语料就是这一份，**1484 份逐文件完全一致**。
-TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
-JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
+TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）会在个别 JavaScript 专有形状上抛内部错误
+——那是 JS 而不是 TypeScript，不在当前范围内。
 
 ## cjcli
 

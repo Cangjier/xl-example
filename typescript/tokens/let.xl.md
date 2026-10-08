@@ -235,6 +235,8 @@ return result;
 
 ## static readonly field JumpIn:LetBranch = new LetBranch()
 
+本类的分支实例：`TextContext` 构造时按 `ParsePipeline` 的队列顺序把它装进通用队列。
+
 ## private method NameIndex:(data:Array<Token>)=>int
 
 **声明名字那一格的下标** ✓：跳过尾部的软换行 ✓，再跳过一个**明确赋值断言** `!` ✓。
@@ -282,6 +284,9 @@ return index;
 ```
 
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+
+条件：当前字符是头部结束的那几种之一（`=` / `:` / `;` / `,` / 软换行 ✓），
+而且往回走得到「修饰词 + `let`/`const`/`var` + 名字」这个形状 ✓（见上面那一段 ✓）。
 
 ```ts
 const result = new BranchConditionResult();
@@ -355,6 +360,9 @@ return String(view.TempToString === undefined ? "" : view.TempToString());
 ```
 
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
+
+成功：把整段收成一个 `Let`（`modifiers` / `fieldName` / `arrayPattern` / `objectPattern` 各就各位），
+右端取 `NameIndex`（与 `Condition` 同一份答案）。
 
 ```ts
 const data = unit.Data;

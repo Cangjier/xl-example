@@ -1499,7 +1499,12 @@ return result;
 
 ## static readonly field JumpIn:StatementBranch = new StatementBranch()
 
+本类的分支实例：`TextContext` 构造时按 `ParsePipeline` 的队列顺序把它装进通用队列。
+
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+
+条件：当前字符是一个语句边界（`;` / 软换行 / 块或声明头…），而且 `Data` 到了该收尾的形状
+——判据全部复用 `Statement.IsStatementBoundary` 那一族静态方法。
 
 ```ts
 const result = new BranchConditionResult();
@@ -1713,6 +1718,9 @@ return result;
 ```
 
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
+
+成功：把 `Data` 到「最后内容单元」为止的那一段收成一个 `Statement`——
+右端与重组那一条**取同一格**（当前那个 `;` / 软换行还没进 `Data`）。
 
 ```ts
 // **当前这个 `;` / 软换行还没进 `Data`** ✓（见 `Condition` 那一处说明 ✓）⇒

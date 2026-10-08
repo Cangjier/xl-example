@@ -1,6 +1,8 @@
 # TypeScript 解析缺口核查报告
 
 > **这份文件是历史台账**（最早成文于第 1 轮，逐轮追加到第 199 轮）。
+> **它列的缺口今天一条都不剩**：`cases:tsast` **1484 / 1484 逐文件完全一致**、
+> `coverage` **1713 / 1713（100%）**——现状只认 [README](../README.md) 的「当前状态」那张表。
 > **第 200 轮起测试集只留 AST 相关的判据**（`cases:tsast` / `cases:tsast:cli` / `samples` / `cases:check`）：
 > 下面各轮里点名引用的尺子与探针（`cases:run` / `diff` / `dashboard` / `matrix` / `lossless` /
 > `structure` / `boundaries` / `noise` / `astjson` / `shapelint` / `sweep` / `recon*` / `fuzz*` / `align`）
