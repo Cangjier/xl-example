@@ -3696,15 +3696,44 @@ if (id === ObjectGetOwnPropertyDescriptor) {
   // 不问的话 `Object.getOwnPropertyDescriptor({}, "toString")` 会给一个描述符（JS 给 `undefined`）。
   const ownFound = FindProperty(room, table, receiver.Ref, ownKey);
   if (ownFound === null || ownFound.Owner !== receiver.Ref) {
-    // **函数上的 `length` / `name` 这一层还没有**：JS 给一个描述符
-    //（实测：`Object.getOwnPropertyDescriptor(function f(a, b) {}, "length")` 是
-    // `2 / 不可写 / 不可枚举 / 可配置`——注意它是**四个里唯一可配置的**），
-    // 而本仓的函数是 `Closure` / `Function`、那两个名字**不在属性表里**。
-    // **响亮地抛**，不静默给 `undefined`——后者正是判据 `function-length-and-name`
-    // 拖着的那一格（它今天也还没过，两处指的是同一件事）。
+    // **函数上那两格 `length` / `name`**（第 687 轮）——它们**不在属性表里**
+    //（`length` 住在 `HeapClosure.Arity`、`name` 住在 `Name`，见 `props.xl.md` 的
+    //  `GetProperty` 那两格），所以 `FindProperty` 找不到，必须在这里单独答。
+    //
+    // **第 687 轮之前这里是响亮地抛**（「function length / name are not modelled」）——
+    // 抛得比静默给 `undefined` 好，可**它是同一件事的另一半**：`GetProperty` 第 291 轮
+    // 就把那两格接上了（`f.length` / `f.name` 都读得到），只有**描述符**这一条路还断着
+    // ⇒ `Object.getOwnPropertyDescriptor(f, "length")` 一条异常把整份文件带走。
+    // 形状照 JS（实测）：`length` 是 `值 / 不可写 / 不可枚举 / **可配置**`，
+    // `name` 是 `值 / 不可写 / 不可枚举 / 可配置`——**两个都只差「可配置」那一格**
+    //（写成「四个全假」就是静默错值）。
+    //
+    // **找不到也不抛**：`Object.getOwnPropertyDescriptor(f, "nope")` 在 JS 里是 `undefined`，
+    // 而 `prototype` 是函数上**真的在属性表里**的那一格（它排在前面那一支就不会走到这里）——
+    // 所以这一支只负责那两格，其余照旧 `undefined`（**原来那个 throw 把这两件事混在了一起**）。
     if (receiver.Tag === ValueTag.Function || receiver.Tag === ValueTag.Closure) {
-      throw new Error("unimplemented: Object.getOwnPropertyDescriptor on a function "
-        + "(function length / name are not modelled)");
+      if (ownKeyText === "length" || ownKeyText === "name") {
+        let slotValue = Value.Undefined();
+        if (ownKeyText === "length") {
+          // **只有闭包有 `Arity`**（内建构造是「普通对象 + 一格可调用载荷」，
+          // 它们的 `length` 走属性表那一支——第 687 轮给它们挂上了那一格）。
+          if (receiver.Tag === ValueTag.Closure) {
+            slotValue = Value.FromInt(table.Get(receiver.Ref).AsClosure().Arity);
+          }
+        } else if (receiver.Tag === ValueTag.Closure) {
+          const nameHandle = table.Get(receiver.Ref).AsClosure().Name;
+          slotValue = nameHandle === 0
+            ? Value.FromString(table.CreateString([]))
+            : Value.FromString(nameHandle);
+        }
+        if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
+        const slotDescriptor = NewPlainObject(room, table, protos);
+        SetProperty(room, NeverCall, table, slotDescriptor, NameValue(table, "value"), slotValue);
+        SetProperty(room, NeverCall, table, slotDescriptor, NameValue(table, "writable"), Value.FromBool(false));
+        SetProperty(room, NeverCall, table, slotDescriptor, NameValue(table, "enumerable"), Value.FromBool(false));
+        SetProperty(room, NeverCall, table, slotDescriptor, NameValue(table, "configurable"), Value.FromBool(true));
+        return slotDescriptor;
+      }
     }
     return Value.Undefined();
   }
@@ -4117,6 +4146,17 @@ if (id === ObjectGetOwnPropertyNames) {
   // 次序对：下标在前、`length` 在后（JS 的整数键优先那一套）。
   if (nameTarget.Tag === ValueTag.Array || nameTarget.Tag === ValueTag.String) {
     ownNames.push("length");
+  }
+  // **闭包自己那两格**（第 687 轮）：`length` 住在 `HeapClosure.Arity`、`name` 住在 `Name`，
+  // **都不在属性表里** ⇒ 上面那一趟扫不到它们。JS 里普通函数给
+  // `["length", "name", "prototype"]`、箭头函数给 `["length", "name"]`——
+  // 次序就是这一句的次序（`length` 在前、`name` 随后），`prototype` 那一格**在属性表里**
+  // （`AttachPrototype` 写的），所以由下面那一趟负责，这里不重复。
+  // **`ValueTag.Function`（内建构造）也要**：它们的 `length` / `name` 是**属性表里**
+  // 真的两格（第 687 轮挂的），所以那一档原样走下面那一趟，这里只补闭包。
+  if (nameTarget.Tag === ValueTag.Closure) {
+    ownNames.push("length");
+    ownNames.push("name");
   }
   const ownIntNames: string[] = [];
   const ownPlainNames: string[] = [];
@@ -6832,6 +6872,9 @@ SetProperty(vm.Room(), NeverCall, table, globals, promiseKey, promiseObject);
 // `protos.Promise.constructor`（`BuildPromise` 里挂），而 `Promise.name` 要靠这一格。
 SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("Promise"))));
+// **`Promise.length` 也是 1**（第 687 轮）：与上面那一批同一个形状，
+// 位置只能在这里——`promiseObject` 是 `BuildPromise` 现造的（见下面那一句）。
+SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "length"), Value.FromInt(1));
 // **不能进上面那张 `builtinNames` 表**：`promiseObject` 在这一句之前**还不存在**
 // （它是 `BuildPromise` 造的），所以它只能在这里补一格——表里放的是**已经造好的变量**。
 SetProperty(vm.Room(), NeverCall, table, promiseObject, NameValue(table, "prototype"),
@@ -6880,9 +6923,35 @@ const builtinNames: string[] = ["Object", "Function", "Array", "Number", "String
   "Symbol", "Map", "Set", "WeakMap", "WeakSet", "Date", "Error"];
 const builtinNameTargets: Value[] = [objectObject, functionObject, arrayObject, numberObject, stringObject,
   booleanObject, symbolObject, mapObject, setObject, weakMapObject, weakSetObject, dateObject, errorObject];
+// **每一个内建构造自己的 `length`**（第 687 轮）——**与 `name` 同一个位置、同一条理由**：
+// 它们在 JS 里是**构造函数的形参数**（`Array.length` 是 1、`Date.length` 是 7、
+// `Map` / `Set` / `WeakMap` / `WeakSet` / `Symbol` 是 0），而本仓的内建构造是
+// 「普通对象 + 一格可调用载荷」⇒ **没有一处能替它们回答**（`Function.prototype` 那一格不存在）。
+//
+// **第 687 轮之前它们全是 `undefined`**：判据 `113-names-array` / `099-names-map` /
+// `101-names-set` / `064-names-number` / `146-names-string` / `117-names-object` /
+// `044-names-date` **七条一起红**，报的是「名字逐个取一次：缺 1 个」——
+// 而**根子是同一格**（那七条各自只问 `typeof`，所以看起来像七件事）。
+// 数字照 Node 实测：`Object` / `Function` / `Array` / `Number` / `String` / `Boolean` /
+// `Error` / `Promise` 是 1、`Symbol` / `Map` / `Set` / `WeakMap` / `WeakSet` 是 0、`Date` 是 7。
+//
+// **`Promise` 那一档在这里**（它是**第 687 轮才进这张名单的**：原来只写 `name`，
+// 而那一条里 `Promise` 本来就漏着——`Promise.length` 在 Node 上是 1）。
+//
+// **类型写 `number[]` 不写 `int[]`**：`int` 是规范里的中立类型名，而**这一行原样搬进 .ts**
+// ——`tsc` 不认 `int`（同一个文件里别处写 `int` 都是函数签名，打印时被改写成 `number`，
+// 而代码块里的注解式声明会**逐字节**搬过去）。
+const builtinLengths: number[] = [1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 7, 1];
 for (let i = 0; i < builtinNames.length; i++) {
   SetHiddenProperty(vm.Room(), table, builtinNameTargets[i], NameValue(table, "name"),
     Value.FromString(table.CreateString(Units(builtinNames[i]))));
+  SetHiddenProperty(vm.Room(), table, builtinNameTargets[i], NameValue(table, "length"),
+    Value.FromInt(builtinLengths[i]),
+    // **`length` 是「不可写 + 可配置」**（与 `name` 不同！）——Node 实测：
+    // `Object.getOwnPropertyDescriptor(Array, "length")` 给 `1 / false / false / true`
+    // （`name` 那一格是 `可写`）。**缺省那一位给的是「可写 + 可配置」**，
+    // 所以这里必须显式给一次，否则 `d.writable` 会答真（判据 `r-builtin-length-desc` 量的就是它）。
+    PropertyFlagConfigurable);
 }
 return globals;
 ```

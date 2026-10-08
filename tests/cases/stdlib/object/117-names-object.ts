@@ -2,7 +2,9 @@
 // xl:round 678
 // xl:judge stdout
 // xl:want differ
-// xl:why Object 的静态成员：取到 undefined（node 上是 number/object）：length / prototype
+// xl:why Object 的成员：length 已经装了（第 688 轮），还差 prototype 那一格——
+//       node 的 `Object.prototype` 是 object，本仓打出来是 function（函数不是真函数对象，
+//       登在 128-function-prototype-layer-gap，同一片）
 // xl:end
 const b: any = Object;
 let v = "";

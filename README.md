@@ -318,8 +318,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **229 种签名 / 140 种 kind** 全部有用例覆盖（用例 1402 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3527 / 3810**，加权 **95.9%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 599/609、runtime 613/614、stdlib 891/939、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 43），全登在用例文件头的台账里；`bad` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~32s**） |
+| `coverage` | **五类 3536 / 3813**，加权 **96.1%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 599/609、runtime 613/614、stdlib 900/942、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 37），全登在用例文件头的台账里；`bad` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~28s**） |
 
 ### 口径与已知缺口
 
@@ -439,6 +439,23 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   登在 `[111-clear-then-readd-slots](tests/cases/stdlib/map-set/111-clear-then-readd-slots.ts)`
   与 `[110-forof-live-view-not-taken](tests/cases/stdlib/map-set/110-forof-live-view-not-taken.ts)`；
   后者正是 `109` 收掉的那一件事的另一半）。
+  **第 688 轮**沿「名字 → 行为」那一层再问一次**内建构造自己那几格**（38 条候选）：
+  - **`length` 从来没人装**——`Array.length` / `Date.length`（7）/ `Map.length`（0）…
+    十四格全是 `undefined`，而 **七条 `names-*` 用例一起红**（`113-names-array` /
+    `099-names-map` / `101-names-set` / `064-names-number` / `146-names-string` /
+    `117-names-object` / `044-names-date`）——它们各问一个名字，看起来像七件事，
+    实际是**同一格**。挂在 `name` 那一格的旁边（**位置相同、标志位不同**：
+    Node 的 `length` 是 `不可写 + 可配置`，而 `SetHiddenProperty` 的缺省是「可写 + 可配置」，
+    少给那一位就是 `d.writable` 答真）；`Promise` 不在那张变量表里，单独补一格。
+  - **`Object.getOwnPropertyDescriptor(f, "length")` 原来**响亮地抛**（「function length / name
+    are not modelled」）**——可 `GetProperty` 第 291 轮就把 `f.length` / `f.name` 接上了，
+    断的只有**描述符**这一条路，于是一句异常把整份文件带走；现在按 JS 的形状答
+    （两格都是 `值 / 不可写 / 不可枚举 / 可配置`），找不到的键照旧给 `undefined`（不再抛）。
+  - `Object.getOwnPropertyNames(函数)` 跟着把 `length` / `name` 算进自有属性。
+  **还开着一片**（登在 `[128-function-prototype-layer-gap](tests/cases/stdlib/object/128-function-prototype-layer-gap.ts)`）：
+  **函数不是真函数对象**——不自以 `Function.prototype` 为原型 ⇒ 少了 `arguments` / `caller`，
+  `typeof Object.prototype` 打出来是 `function`（Node 给 `object`），
+  `Object.prototype.toLocaleString` 没装。三格同根，不是补几格属性能了的。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 

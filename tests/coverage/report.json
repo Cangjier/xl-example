@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 3810,
+  "total": 3813,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.93,
+  "progressPercent": 96.06,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 939,
-      "pass": 891,
+      "total": 942,
+      "pass": 900,
       "blocked": 15,
-      "differ": 33,
+      "differ": 27,
       "nodefail": 0,
-      "coverage": 94.89
+      "coverage": 95.54
     },
     {
       "category": "e2e",
@@ -1640,12 +1640,6 @@
       "detail": "stdout 不同：第 7 行：node «isConcatSpreadable symbol» vs tsrun «isConcatSpreadable undefined»"
     },
     {
-      "id": "stdlib/array/113-names-array",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Array 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
       "id": "stdlib/console/020-names-console",
       "category": "stdlib",
       "title": "名字逐个取一次：console 的成员（缺 30 个）",
@@ -1664,12 +1658,6 @@
       "detail": "stdout 不同：第 2 行：node «false» vs tsrun «true»"
     },
     {
-      "id": "stdlib/date/044-names-date",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Date 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
       "id": "stdlib/date/045-names-date-proto",
       "category": "stdlib",
       "title": "名字逐个取一次：Date.prototype 的成员（缺 11 个）",
@@ -1679,7 +1667,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24384/src/2813.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-21868/src/2813.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1698,18 +1686,6 @@
       "category": "stdlib",
       "title": "名字逐个取一次：JSON 的成员（缺 2 个）",
       "detail": "stdout 不同：第 1 行：node «object isRawJSON function» vs tsrun «object isRawJSON undefined»"
-    },
-    {
-      "id": "stdlib/map-set/099-names-map",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Map 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
-      "id": "stdlib/map-set/101-names-set",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Set 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
     },
     {
       "id": "stdlib/map-set/103-names-weakmap-proto",
@@ -1742,12 +1718,6 @@
       "detail": "stdout 不同：第 1 行：node «object f16round function» vs tsrun «object f16round undefined»"
     },
     {
-      "id": "stdlib/number/064-names-number",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Number 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
       "id": "stdlib/number/065-names-number-proto",
       "category": "stdlib",
       "title": "名字逐个取一次：Number.prototype 的成员（缺 1 个）",
@@ -1775,7 +1745,7 @@
       "id": "stdlib/object/117-names-object",
       "category": "stdlib",
       "title": "名字逐个取一次：Object 的静态成员（缺 2 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+      "detail": "stdout 不同：第 2 行：node «function prototype object» vs tsrun «function prototype function»"
     },
     {
       "id": "stdlib/object/118-names-object-proto",
@@ -1802,22 +1772,16 @@
       "detail": "stdout 不同：第 1 行：node «define-length 1:undefined» vs tsrun «define-length 3:3»"
     },
     {
-      "id": "stdlib/promise/045-names-promise",
+      "id": "stdlib/object/128-function-prototype-layer-gap",
       "category": "stdlib",
-      "title": "名字逐个取一次：Promise 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+      "title": "函数的两条**原型**那一半还没接：`Function.prototype` 自己的格子与两个内建构造的原型种类",
+      "detail": "stdout 不同：第 1 行：node «fn-own-names arguments,caller,length,name,prototype» vs tsrun «fn-own-names length,name,prototype»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",
       "category": "stdlib",
       "title": "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
       "detail": "stdout 不同：第 1 行：node «at,padStart,replaceAll,match,search,matchAll,split,trim» vs tsrun «at,padStart,replaceAll,,,,split,trim»"
-    },
-    {
-      "id": "stdlib/string/146-names-string",
-      "category": "stdlib",
-      "title": "名字逐个取一次：String 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
     },
     {
       "id": "stdlib/string/147-names-string-proto",
@@ -1844,6 +1808,10 @@
     {
       "id": "exec/expressions/109-ex-object-value-paren-binary",
       "category": "exec"
+    },
+    {
+      "id": "stdlib/promise/045-names-promise",
+      "category": "stdlib"
     }
   ],
   "regressions": []
