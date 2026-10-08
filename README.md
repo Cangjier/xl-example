@@ -318,7 +318,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 5969 / 6333**，加权 **95.6%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 1485/1523、runtime 783/796、stdlib 2275/2365、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 106），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 6069 / 6433**，加权 **95.7%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 1535/1573、runtime 783/796、stdlib 2325/2415、e2e 242/246。差的那些是**真缺口**（`blocked` 259 / `differ` 105），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~37s**） |
 
 ### 口径与已知缺口
@@ -581,6 +581,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 以及**往生成器里 `throw` 不走 `try/finally`**（`it.throw(err)` 该先把挂起点外面的 `finally`
 跑完再抛，本仓直接把它标成结束 ⇒ 清理一次都不跑）。
 加权 **95.78% → 95.62%**（分子 +139、分母 +158：新收的 138 条通过是分子，20 条登记缺口也是分母）。
+
+**第 701 轮**（第十二批原子探针 100 份新语料：严格性那一格 10 + 控制流与异常 40 +
+数值与 `Math` 边界 50）量出并收掉两处：
+
+- **函数体开头的 `"use strict"` 从来没认过**（**静默错值**，第 620 轮那条注释写着
+  「本仓只认**类体**这个严格源」）：`(function () { "use strict"; return this === undefined; })()`
+  在 JS 里是**真**，本仓给假（`this` 还是全局对象）。修法：降级层添一格
+  `HasUseStrictDirective`（只认**开头那串**「字符串字面量且是表达式语句」——`("use strict")`
+  与放在别的语句之后的都**不是**指令，JS 的口径），在**函数值**与**函数声明**两条路上
+  一起记进 `item.IsStrict`。**函数声明那条路原来一格都不设** ⇒ 类体里嵌套的
+  `function f() { … }` 一直被当成松散（JS 的严格性沿词法继承）。
+  **箭头不给指令序言这一档**：它的 `this` 是**词法**的（从外层环境格读），
+  标成严格只会让引擎给帧一个 `undefined`。引擎一侧一个字都没改——它认的一直是这一位。
+- **`break` / `continue` 会把**外层** `try` 的 `finally` 也跑一遍**（**静默多跑**）：
+  `try { for (const x of [1, 2]) { s += x; if (x === 1) continue; } } finally { s += "f"; }`
+  在 JS 里给 `"12f"`（`continue` 的目标**在 `try` 里面**，这次 abrupt completion
+  没有离开那个 `try`），本仓给 `"1f2f"`。根子：`LowerContinue` / `LowerBreak` 调的
+  `EmitPendingFinalies()` 发的是**当前词法位置在册的全部** `finally`，
+  它分不清「在循环**里面**」（该跑）与「在循环**外面**」（不该跑）。
+  修法：`LoopContext` / `BlockLabelContext` 各添一格 `FinallyDepth`（进那一层时外面挂着几层），
+  `EmitPendingFinalies(from)` 只发 `>= from` 那几层；`return` 走缺省 `0`（它离开的是整个函数）。
+
+**已收**：两条台账转绿、已撤——`exec/functions/probe693b-f17`（第 692 轮登记的
+「函数体开头的 `"use strict"`」）与 `exec/functions/probe700-f-e24`（第 700 轮登记的同一个根）。
+本批另登记 2 条新缺口：**没声明过的名字**在降级期就抛（JS 要到运行期才抛 `ReferenceError`，
+第 692 轮那条的同一个根）、**模块顶层的 `this` 是 `undefined`**（裁判按 CJS 跑，
+那里 `this` 是 `module.exports`；本仓按 ESM 的口径给——箭头那一半本轮已经对齐）。
+加权 **95.62% → 95.66%**（分子 +100、分母 +100：新收的 98 条通过 + 2 条旧台账转绿）。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 

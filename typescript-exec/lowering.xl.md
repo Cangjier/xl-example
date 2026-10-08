@@ -897,8 +897,10 @@ return -1;
 **这个函数体是严格代码吗**（第 620 轮）——由 `LowerFunctionValue` 按 `InStrict` 记下来。
 
 **它唯一的用处**是「当普通函数调时的 `this`」：严格给 `undefined`、松散给全局对象
-（引擎那一支在 `DoCallValue` / `CallNative`）。**不是**「有没有 `"use strict"` 指令」——
-本仓只认**类体**这个严格源（`InStrict` 那一格）。
+（引擎那一支在 `DoCallValue` / `CallNative`）。**它有两个来源**：**词法的**
+（类体，由 `InStrict` 带着走）与**函数体自己的指令序言**（第 701 轮起认
+`HasUseStrictDirective`）。**文件级那一档仍然没有**——`.ts` 本仓按松散跑
+（第 337 轮选定，`c304` / `c337` 两条钉着它，见 `InStrict` 那一格）。
 
 ## constructor:(name:string, body:AstNode, params:Array<string>, patch:int, defaultAt:Array<int>, defaults:Array<AstNode>, patternAt:Array<int>, patterns:Array<AstNode>)=>void
 
@@ -929,7 +931,9 @@ this.Patterns = patterns;
 借它来装一个块，就是让后面每一个读 `Loops` 的地方都要多问一句「这一层是不是假的」
 （**那种「多问一句」迟早会漏一处**）。
 
-**它只有两格**：名字（给 `break` 认出「是不是我这一层」）与那一摞还没回填的跳转。
+**它只有三格**：名字（给 `break` 认出「是不是我这一层」）、那一摞还没回填的跳转，
+以及**进来时外面挂着几层 `finally`**（第 701 轮：`break 这个标签` 只跑**块里面**那些，
+与 `LoopContext.FinallyDepth` 同一件事）。
 
 ## constructor:(label:string)=>void
 
@@ -942,6 +946,15 @@ this.Label = label;
 ## field Label:string = ""
 
 带标签的块那一层叫什么（`break` 那一头按名字找）。
+
+## field FinallyDepth:int = 0
+
+**进这一层块时，外面已经挂着几层 `finally`**（第 701 轮）——与 `LoopContext` 那一格
+**同一件事、同一个理由**：`try { lbl: { … break lbl; … } } finally { … }` 里那个 `finally`
+在块**外面**，`break lbl` 没有离开它 ⇒ **一次都不该跑**。
+
+**它由调用方 `LabeledStatement` 填**（那一支建上下文时 `this.FinallyBlocks.length` 就是答案）——
+构造函数没有它，因为 `constructor` 里读不到 `this`（那是另一个对象）。
 
 ## field Breaks:Array<int> = []
 
@@ -995,8 +1008,27 @@ this.Label = label;
 
 这一层里 `continue` 那些跳转的下标（回填到 `ContinueTarget`）。
 
-## field Labelled:bool = false
+## field FinallyDepth:int = 0
 
+**进这一层时，外面已经挂着几层 `finally`**（第 701 轮）——`EnterLoop` 那一刻记下来。
+
+**它修的是「`continue` / `break` 把**外层**的 `finally` 也跑了一遍」**（**实测撞到的**，
+第 701 轮的探针 `p701c-e39`）：
+
+```ts
+try { for (const x of [1, 2]) { s += x; if (x === 1) continue; } } finally { s += "f"; }
+```
+
+JS 给 `"12f"`——`continue` 的目标是**循环**，而循环**在 `try` 里面**，
+所以这次 abrupt completion **没有离开那个 `try`**，它的 `finally` 一次都不该跑。
+本仓原来给 `"1f2f"`：`LowerContinue` 调的 `EmitPendingFinalies()` 把**在册的全部**发了，
+而「在册的」是**当前词法位置**的状态——它分不清「这一层 `finally` 在循环**里面**」
+（该跑）与「在循环**外面**」（不该跑）。
+
+判据就是这一格：**只有下标 `>= FinallyDepth` 的那几层**才在循环里面。
+`break` 同理（跳出哪一层，就跑那一层**里面**的那几层 `finally`）。
+
+## field Labelled:bool = false
 **这一层是不是带标签的**（第 337 轮）——`outer: for (…)`。
 **它决定 `break` / `continue` 找不找得到它**（`LowerBreak` 扫的是 `Label`）——
 所以这一格今天是**记账用**的：写在这里免得下一个人以为 `Label !== ""` 就等于「带标签」
@@ -3063,7 +3095,11 @@ if (kind === "LabeledStatement") {
     // **没量到 `continue outer` 那一半**：块上的 `continue` 需要一个**循环**做目标
     //（JS 的规矩）——判据只有 `break`，**没量到就不做**（缺口写在台账里）。
     const saved = this.BlockLabels.length;
-    this.BlockLabels.push(new BlockLabelContext(TextOf(Child(node, "label"))));
+    // **把「外面挂着几层 `finally`」记在上下文上**（第 701 轮）：`break 这个标签`
+    // 只该跑**块里面**那几层（见 `BlockLabelContext.FinallyDepth` 那一格）。
+    const blockLabel = new BlockLabelContext(TextOf(Child(node, "label")));
+    blockLabel.FinallyDepth = this.FinallyBlocks.length;
+    this.BlockLabels.push(blockLabel);
     this.LowerStatement(Child(node, "statement"));
     const target = this.Here();
     // **退到进来时那一层**（块里还嵌着别的标签块的话，它们早该在出去时退掉了）。
@@ -4762,7 +4798,7 @@ for (let i = 0; i < this.Loops.length; i++) {
 return false;
 ```
 
-## method EmitPendingFinalies:()=>void
+## method EmitPendingFinalies:(from:int = 0)=>void
 
 **把当前在册的 `finally` 从里到外发一遍**（第 201 轮）。
 
@@ -4770,22 +4806,27 @@ return false;
 JS 的语义是「**先把这些 `finally` 跑完，再走**」（AbruptCompletion 那一条），
 而 `throw` 不必它管（异常本来就走那张「重抛」的网，`finally` 由那条路跑）。
 
+**`from` 是第 701 轮加的**（`break` / `continue` 只跑**目标那一层里面**的 `finally`）：
+`return` 走缺省 `0`（**全部**都要跑——它离开的是整个函数）；
+`break` / `continue` 传目标上下文的 `FinallyDepth`（那一格写着现场：
+`try { for { continue } } finally {}` 里那个 `finally` 在**循环外面**，一次都不该跑）。
+
 **发每一层时，把它自己与它**里头**那几层都摘下来**：里头那几层**已经发过了**
 （我们是**从里往外**发的），而它**自己**不算「待跑」——
 JS 里 `finally` 自己 `return` 会**接管**这次完成，不会把同一层再跑一遍。
 `this.FinallyBlocks = outer` 这一行就是那个「摘」。
 
 **发完要把它恢复回去**：这段代码是**内联**在 `try` 体中间的，
-而后面还要接着发**同一段的其余语句**（那些语句是**死代码**，但布局仍在走）——
+而后面还要接着发**同一段的其余语句**（那些是**死代码**，但布局仍在走）——
 不恢复的话，外面那一层的 `finally` 就丢了（症状离现场很远：
 后面某个 `return` **静默少跑一层 `finally`**）。
 
 ```ts
 const saved: AstNode[] = [];
 for (let i = 0; i < this.FinallyBlocks.length; i++) saved.push(this.FinallyBlocks[i]);
-// **从里往外**（`saved` 里最外层在前）。
-for (let i = saved.length - 1; i >= 0; i--) {
-  // 发这一层时，「还待跑」的只剩**外面**那些。
+// **从里往外**（`saved` 里最外层在前）——**只发 `from` 之下那几层**（第 701 轮）。
+for (let i = saved.length - 1; i >= from; i--) {
+  // 发这一层时，「还待跑」的只剩**外面**那些（同样的下界）。
   const outer: AstNode[] = [];
   for (let j = 0; j < i; j++) outer.push(saved[j]);
   this.FinallyBlocks = outer;
@@ -5281,6 +5322,9 @@ return window + 1;
 
 ```ts
 const context = new LoopContext(isLoop, continueTarget);
+// **记下「外面已经挂着几层 `finally`」**（第 701 轮）：`break` / `continue` 只该跑
+// **这一层里面**的那些（见 `FinallyDepth` 那一格——它修的是 `try { for { continue } } finally {}`）。
+context.FinallyDepth = this.FinallyBlocks.length;
 // **吃掉待用标签**（`outer: for (…)`）：消费方负责清空——不清的话，下一个没有标签的循环
 // 会继承上一个标签（`break outer` 于是跳到毫不相干的循环去）。
 context.Label = this.PendingLabel;
@@ -5332,8 +5376,9 @@ if (labelNode !== null) {
   const wanted = TextOf(labelNode);
   for (let b = this.BlockLabels.length - 1; b >= 0; b--) {
     if (this.BlockLabels[b].Label !== wanted) continue;
-    // **`finally` 那一段照旧先跑**（与下面那条路同一条纪律，见那几行注释）。
-    this.EmitPendingFinalies();
+    // **`finally` 那一段照旧先跑**（与下面那条路同一条纪律，见那几行注释）——
+    // **只跑这一层块里面**的那些（第 701 轮：`finally` 那一格写着 `FinallyDepth`）。
+    this.EmitPendingFinalies(this.BlockLabels[b].FinallyDepth);
     const blockAt = this.Here();
     this.Emit(Op.Jump, -1, 0, -1, -1);
     this.BlockLabels[b].Breaks.push(blockAt);
@@ -5359,9 +5404,13 @@ if (labelNode !== null) {
 }
 // **带 `finally` 的 `try` 里 `break` 要先跑那些 `finally`**（第 201 轮）——
 // 与 `return` 那一条**同一个方法**（修之前这里也是降级期就抛）。
+// **第 701 轮：只跑「跳出这一层时真的离开的」那几层**（`FinallyDepth` 那一格）——
+// `try { for { break } } finally {}` 里那个 `finally` 在循环**外面**，
+// `break` 没有离开它 ⇒ **一次都不该跑**（探针 `p701c-e39` 量的就是这一句，
+// 它原来给 `1f2f`、Node 给 `12f`）。
 // **`at` 必须取在 `Jump` 上**（不是取在 `finally` 那一段的开头）：
 // `PatchTarget` 回填的是「跳出去之后落哪」，而 `finally` 的那几段是**跳之前**要跑的。
-this.EmitPendingFinalies();
+this.EmitPendingFinalies(this.Loops[index].FinallyDepth);
 const at = this.Here();
 this.Emit(Op.Jump, -1, 0, -1, -1);
 this.Loops[index].AddBreak(at);
@@ -5400,10 +5449,13 @@ if (labelNode !== null) {
 }
 // **带 `finally` 的 `try` 里 `continue` 也要先跑那些 `finally`**（第 201 轮）——
 // 与 `return` / `break` **同一个方法**（修之前这里也是降级期就抛）。
+// **第 701 轮：只跑循环里面那几层**（`FinallyDepth`）——`try { for { continue } } finally {}`
+// 里循环外面的 `finally` **一次都不该跑**（`continue` 的目标在 `try` 里面，
+// 这次 abrupt completion 没有离开那个 `try`）。见 `FinallyDepth` 那一格。
 // **顺序是语义**：先跑 `finally`，再跳去「下一轮开始」——
 // 而 `continue` 要跳的那个点（`for` 的更新式）本来就在循环那一层，
 // 所以这里**不必**对回填做任何特别处理（`jump` 仍旧取在 `Jump` 上）。
-this.EmitPendingFinalies();
+this.EmitPendingFinalies(this.Loops[index].FinallyDepth);
 const jump = this.Here();
 this.Emit(Op.Jump, -1, 0, -1, -1);
 this.Loops[index].AddContinue(jump);
@@ -5866,8 +5918,15 @@ item.IsAsync = this.NodeIsAsync(node);
 item.IsClass = this.PendingClassNode !== null && this.PendingClassNode === node;
 // **严格性从外面继承**（第 620 轮）：这一格记的是「定义它的那段代码严不严格」
 // ——`InStrict` 进类体时置真、之后**只增不减**（见那一格）。
+// **第 701 轮添上第二个来源**：函数体自己的**指令序言**（`"use strict"`）——
+// `HasUseStrictDirective` 那一段写着为什么它必须在这里认。
 // **它也要在 `EmitClosure` 之前落进 `item`**：与 `IsClass` 同一处拼进第四格。
-item.IsStrict = this.InStrict;
+// **箭头不给指令序言那一档**（第 701 轮）：它的 `this` 是**词法**的（从外层环境格读），
+// 从来没有「自己的 `this`」可兜——把 `(() => { "use strict"; return this; })()` 标成严格
+// 只会让引擎按严格那一支给帧一个 `undefined`，而那一格正是它读 `this` 的地方
+// ⇒ `typeof this` 给 `"undefined"`（Node 给 `"object"`：外层是松散代码）。
+// **外层本来就严格的话它照样严格**（`InStrict` 那一半没动）。
+item.IsStrict = this.InStrict || (!item.IsArrow && this.HasUseStrictDirective(node));
 // **具名函数表达式的词法绑定**（第 332 轮）：`function self() { … self … }` 里的
 // `self` 只在**它自己那个体**里可见——这一行把名字交给 `EmitClosure`，
 // 由它单开一层环境装（那一段写着为什么不能绑在外层）。
@@ -6246,6 +6305,36 @@ return object;
 ```ts
 if (NodeKind(name) === "StringLiteral") return this.StringUnits(name);
 return UnitsOf(TextOf(name));
+```
+
+## method HasUseStrictDirective:(node:AstNode)=>bool
+
+**这一个函数体的「指令序言」里有没有 `"use strict"`**（第 701 轮）。
+
+**为什么单开一格**：严格性的两个来源是**词法的**（类体 / 严格代码里嵌套的函数）
+与**这一格**（函数体自己开头那句指令）。词法那一半由 `InStrict` 带着走，
+指令这一半原来**根本没认**——`(function () { "use strict"; return this === undefined; })()`
+在 JS 里给**真**，本仓给**假**（`this` 还是全局对象，判据
+`exec/functions/probe693b-f17` 与第 700 轮的 `probe700-f-e24` 都钉着它）。
+
+**判据照 JS 的指令序言**：只认**开头那串**「**字符串字面量**且是**表达式语句**」，
+撞到第一条别的语句就结束——`("use strict")`（带括号）、`"use strict" + ""`、
+放在别的语句之后的三档**都不是指令**（JS 的口径）。
+**已知的一格差写在明处**：带转义的写法（`"use\u0020strict"`）在 JS 里**不是**指令
+（要比**原文**），而这里读的是 `StaticKeyText`（转义已经解开）⇒ 会多认一格。
+那一档要收就得改比原文，代价是这个 helper 要拿源码区间——记在这里，今天不做。
+
+```ts
+const body = OptionalChild(node, "body");
+if (body === null || NodeKind(body) !== "Block") return false;
+const prologue = ListOf(body, "statements");
+for (let i = 0; i < prologue.length; i++) {
+  if (NodeKind(prologue[i]) !== "ExpressionStatement") return false;
+  const expression = OptionalChild(prologue[i], "expression");
+  if (expression === null || NodeKind(expression) !== "StringLiteral") return false;
+  if (this.StaticKeyText(expression) === "use strict") return true;
+}
+return false;
 ```
 
 ## method StaticKeyText:(node:AstNode)=>string
@@ -7370,6 +7459,12 @@ this.CollectPatternParams(node, patternAt, patterns);
 // 函数值那一处**各写了一遍**，而 `namespace` 的体是第三个调用点）。
 const item = new PendingFunction(TextOf(name), Child(node, "body"), params, 0, defaultAt, defaults, patternAt, patterns);
 item.Arity = this.FunctionArity(node);
+// **函数声明的严格性**（第 701 轮）：这一条路**原来一格都不设** ⇒ 它永远是 `false`。
+// 两个来源都要问：**外面那一段**（类体 / 已经在严格代码里的嵌套声明——JS 的严格性是
+// **沿词法继承**的）与**自己的指令序言**。
+// 现场：`class A { m() { function f() { return this === undefined; } return f(); } }`
+// 里 `f` 在 JS 里是严格的（判据 `probe701-s02` 钉着它），原来当松散 ⇒ `this` 是全局对象。
+item.IsStrict = this.InStrict || this.HasUseStrictDirective(node);
 // **函数声明这一条路也要问 `arguments`**（第 332 轮，**实测踩过**）：
 // 那一位原本只写在 `LowerFunctionValue` 里，而**函数声明不走那一条**——
 // 它自己建 `PendingFunction`、自己调 `EmitClosure`（第 292 轮收口时留下的两处）。

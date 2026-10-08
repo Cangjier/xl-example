@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 6333,
+  "total": 6433,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.62,
+  "progressPercent": 95.66,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1523,
-      "pass": 1485,
-      "blocked": 8,
-      "differ": 30,
+      "total": 1573,
+      "pass": 1535,
+      "blocked": 9,
+      "differ": 29,
       "nodefail": 0,
-      "coverage": 97.5
+      "coverage": 97.58
     },
     {
       "category": "runtime",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2365,
-      "pass": 2275,
+      "total": 2415,
+      "pass": 2325,
       "blocked": 26,
       "differ": 64,
       "nodefail": 0,
-      "coverage": 96.19
+      "coverage": 96.27
     },
     {
       "category": "e2e",
@@ -1500,6 +1500,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement Identifier"
     },
     {
+      "id": "exec/statements/probe701-c-e17",
+      "category": "exec",
+      "title": "(function () { try { undefinedFn(); } catch (e) { return e.constructor.name; } })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
+    },
+    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1808,22 +1814,10 @@
       "detail": "stdout 不同：第 1 行：node «number:3» vs tsrun «throw:Error»"
     },
     {
-      "id": "exec/functions/probe693b-f17",
-      "category": "exec",
-      "title": "(function () { const f = function () { \"use strict\"; return this === undefined; }; return f(); })()",
-      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
-    },
-    {
       "id": "exec/functions/probe700-f-e19",
       "category": "exec",
       "title": "(function (a) { arguments[0] = 9; return a; })(1)",
       "detail": "stdout 不同：第 1 行：node «number:9» vs tsrun «number:1»"
-    },
-    {
-      "id": "exec/functions/probe700-f-e24",
-      "category": "exec",
-      "title": "(function () { 'use strict'; return this === undefined ? 'u' : typeof this; })()",
-      "detail": "stdout 不同：第 1 行：node «string:u» vs tsrun «string:object»"
     },
     {
       "id": "exec/functions/probe700-f-e25",
@@ -1848,6 +1842,12 @@
       "category": "exec",
       "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); function f() { return arguments[1]; } console.log(show(f(1, 2)) + \"|\" + show(typeof f.arguments));",
       "detail": "stdout 不同：第 1 行：node «number:2|string:object» vs tsrun «number:2|string:undefined»"
+    },
+    {
+      "id": "exec/functions/probe701-s-t06",
+      "category": "exec",
+      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); console.log(show((() => { \"use strict\"; return this === undefined ? \"u\" : typeof this; })()));",
+      "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:u»"
     },
     {
       "id": "exec/iterators/probe-y14",
@@ -2039,7 +2039,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28264/src/4203.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27896/src/4253.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",

@@ -1353,7 +1353,9 @@ const count = this.CallArgCount(frame, argBase, argc, argArray);
 // **严格闭包不兜这一格**（第 620 轮）：类体是严格代码，
 // 所以「摘下来的方法」`const f = d.m; f()` 里 `this` 就是 `undefined`
 // （判据 `c371-rt-super-and-this-binding`：Node 那一句 `this.v` 抛、本仓原来给 `Dundefined`）。
-// **本仓没有 `"use strict"` 指令那一档**：严格源只有类体（降级层的 `InStrict`）。
+// **`"use strict"` 指令那一档由降级层认**（第 701 轮）：函数体开头的指令序言会把它记进
+// `IsStrict`（`lowering.xl.md` 的 `HasUseStrictDirective`）；**文件级那一档仍然没有**
+// （`.ts` 本仓按松散跑，第 337 轮选定）。引擎这一侧一个字都不用改——它认的一直是这一位。
 if ((thisValue.IsUndefined() || thisValue.Tag === ValueTag.Null) && callee.Tag === ValueTag.Closure
   && !this.Table.Get(callee.Ref).AsClosure().IsStrict) {
   const globalProtos = this.Protos;

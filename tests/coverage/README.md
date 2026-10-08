@@ -331,6 +331,32 @@
    形参默认值里的 TDZ，以及**往生成器里 `throw` 不走 `try/finally`**（`it.throw(err)`
    该先把挂起点外面的 `finally` 跑完再抛，本仓直接把它标成结束 ⇒ 清理一次都不跑）。
    加权 **95.78% → 95.62%**（分子 +139、分母 +158）。
+   **第 701 轮全矩阵**（第十二批原子探针 100 份新语料）：通过 **5969 → 6069**、
+   分母 **6333 → 6433**、`blocked 258 → 259`、`differ 106 → 105`、`bad` 仍 **0**、
+   `regressions` **0**、`moved` 0、`newlyPassing` **2**——收掉两处：
+   ① **函数体开头的 `"use strict"` 从来没认过**（**静默错值**）：第 620 轮那条注释写着
+   「本仓只认**类体**这个严格源」，而 `(function () { "use strict"; return this === undefined; })()`
+   在 JS 里是**真**、本仓给假（`this` 还是全局对象）。修法：降级层添一格
+   `HasUseStrictDirective`（只认**开头那串**「字符串字面量且是表达式语句」——
+   `("use strict")` 与放在别的语句之后的都**不是**指令），在**函数值**与**函数声明**
+   两条路上一起记进 `item.IsStrict`；**函数声明那条路原来一格都不设** ⇒ 类体里嵌套的
+   `function f() {}` 一直被当成松散（JS 的严格性沿词法继承）。
+   **箭头不给指令序言这一档**：它的 `this` 是**词法**的（从外层环境格读），
+   标成严格只会让引擎给帧一个 `undefined`。**引擎一侧一个字都没改**——它认的一直是这一位。
+   ② **`break` / `continue` 会把**外层** `try` 的 `finally` 也跑一遍**（**静默多跑**）：
+   `try { for (const x of [1, 2]) { s += x; if (x === 1) continue; } } finally { s += "f"; }`
+   在 JS 里给 `"12f"`（`continue` 的目标**在 `try` 里面**，这次 abrupt completion
+   没有离开那个 `try`），本仓给 `"1f2f"`。根子：`LowerContinue` / `LowerBreak` 调的
+   `EmitPendingFinalies()` 发的是**当前词法位置在册的全部** `finally`，
+   它分不清「在循环**里面**」（该跑）与「在循环**外面**」（不该跑）。修法：
+   `LoopContext` / `BlockLabelContext` 各添一格 `FinallyDepth`（进那一层时外面挂着几层），
+   `EmitPendingFinalies(from)` 只发 `>= from` 那几层；`return` 走缺省 `0`（它离开的是整个函数）。
+   两条旧台账转绿、已撤（`newlyPassing` 就是它们）：`exec/functions/probe693b-f17`
+   （第 692 轮登记的「`"use strict"`」）与 `exec/functions/probe700-f-e24`（第 700 轮登记的同一个根）。
+   本批另登记 2 条新缺口：**没声明过的名字**在降级期就抛（JS 要到运行期才抛
+   `ReferenceError`，第 692 轮那条的同一个根）、**模块顶层的 `this` 是 `undefined`**
+   （裁判按 CJS 跑，那里 `this` 是 `module.exports`；本仓按 ESM 的口径给——
+   箭头那一半本轮已经对齐）。加权 **95.62% → 95.66%**（分子 +100、分母 +100）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。
