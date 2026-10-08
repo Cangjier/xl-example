@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7796,
+  "total": 7806,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.21,
+  "progressPercent": 96.13,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 844,
-      "pass": 836,
+      "total": 854,
+      "pass": 843,
       "blocked": 1,
-      "differ": 7,
+      "differ": 10,
       "nodefail": 0,
-      "coverage": 99.05
+      "coverage": 98.71
     },
     {
       "category": "stdlib",
       "weight": 0.2,
       "total": 3135,
-      "pass": 3063,
+      "pass": 3064,
       "blocked": 25,
-      "differ": 47,
+      "differ": 46,
       "nodefail": 0,
-      "coverage": 97.7
+      "coverage": 97.74
     },
     {
       "category": "e2e",
@@ -1823,7 +1823,7 @@
       "id": "exec/round706/p706c-x20",
       "category": "exec",
       "title": "lookupGetter 自己的名字与长度",
-      "detail": "stdout 不同：第 1 行：node «string:__lookupGetter__,number:1» vs tsrun «undefined,undefined»"
+      "detail": "stdout 不同：第 1 行：node «string:__lookupGetter__,number:1» vs tsrun «string:,number:0»"
     },
     {
       "id": "exec/round708/p708b-l08",
@@ -1835,7 +1835,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27588/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25024/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1940,6 +1940,24 @@
       "detail": "stdout 不同：第 1 行：node «function* anonymous(a» vs tsrun «throw:Error»"
     },
     {
+      "id": "runtime/round731/p731a-a03",
+      "category": "runtime",
+      "title": "内建方法自己那两格（`call` / `apply` / `bind` / `toString` 那一族）",
+      "detail": "stdout 不同：第 1 行：node «call apply bind» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "runtime/round731/p731a-a08",
+      "category": "runtime",
+      "title": "对象方法 / 访问器 / 计算键那几档的 `name`",
+      "detail": "stdout 不同：第 1 行：node «m undefined c» vs tsrun «m undefined »"
+    },
+    {
+      "id": "runtime/round731/p731a-a10",
+      "category": "runtime",
+      "title": "`Function.prototype` 上那两格受限属性（`arguments` / `caller`）",
+      "detail": "stdout 不同：第 1 行：node «true true» vs tsrun «false false»"
+    },
+    {
       "id": "stdlib/array/143-getter-array-index",
       "category": "stdlib",
       "title": "数组下标位置上的访问器（`defineProperty`）",
@@ -1973,7 +1991,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27588/src/4957.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25024/src/4967.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1997,7 +2015,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27588/src/5007.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25024/src/5017.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2072,12 +2090,6 @@
       "detail": "stdout 不同：第 1 行：node «1,234.5 1234.5» vs tsrun «[object Number] 1234.5»"
     },
     {
-      "id": "stdlib/object/122-names-function-proto",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Function.prototype 的成员（缺 2 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
       "id": "stdlib/object/130-tolocalestring-forwarding-gap",
       "category": "stdlib",
       "title": "`toLocaleString` 那一格的**三处**还没到位：数字那一档与「转交给接收者自己的 toString」",
@@ -2099,13 +2111,13 @@
       "id": "stdlib/round709/p709b-b17",
       "category": "stdlib",
       "title": "Math.max 的长度",
-      "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «undefined:undefined»"
+      "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «number:0»"
     },
     {
       "id": "stdlib/round709/p709b-b18",
       "category": "stdlib",
       "title": "Math.random 的名字",
-      "detail": "stdout 不同：第 1 行：node «string:random» vs tsrun «undefined:undefined»"
+      "detail": "stdout 不同：第 1 行：node «string:random» vs tsrun «string:»"
     },
     {
       "id": "stdlib/round710/p710b-b01",
@@ -2117,7 +2129,7 @@
       "id": "stdlib/round719/p719a-m09",
       "category": "stdlib",
       "title": "`Math` 那一族的名字与长度（宿主引用那一档）",
-      "detail": "stdout 不同：第 2 行：node «string:2|random» vs tsrun «string:undefined|undefined»"
+      "detail": "stdout 不同：第 2 行：node «string:2|random» vs tsrun «string:0|»"
     },
     {
       "id": "stdlib/round721/p721a-b01",

@@ -692,6 +692,17 @@ return FindProperty(NeverRoom, table, receiver, key) !== null;
 **原型表要传进来**：原始值没有「自己那一格」可以顺着走，起点只能由调用方给。
 对象那条路不靠它（对象自带 `Proto`），但两条路共用一个签名更不容易分叉。
 
+**闭包那两格结构属性排在下面「借 `protos.Function`」那一趟之前**（第 731 轮）：
+`fn.length`（`HeapClosure.Arity`）与 `fn.name`（`HeapClosure.Name`）住在**闭包载荷**上，
+而 `Function.prototype` 自己**也是函数对象**——它那两格（`length` 是 `0`、`name` 是 `""`）
+第 731 轮挂进了 `protos.Function` 的表里。**次序反了就是 40 条回归**：
+第 690 轮照着挂过一次，可当时「可调用接收者」那一趟排在前面 ⇒ **每一个函数**的
+`f.name` 都变成 `""`、`f.length` 都变成 `0`（实测：`089-function-tostring-and-name`
+报 `node «named 2 true» vs 本仓 « 0 true»`），那一版当场撤回、账留在这里。
+第 731 轮把两格**提到前面**（闭包自己身上的东西本来就比原型上的更具体——
+JS 里它们就是**自有属性**），于是两处一起成立：
+`Function.prototype.length` / `.name` 取得到，而 `f.length` / `f.name` 照旧。
+
 **`Object.prototype` / `Function.prototype` 那两个对象与「函数那一类」接收者
 都要从 `protos.Function` 上找一次**（第 228 轮）：
 `Object.prototype.toString.call(x)` 这条写法（判据 `object-tostring-tag` / `symbol-tostringtag`）
@@ -742,6 +753,29 @@ return FindProperty(NeverRoom, table, receiver, key) !== null;
 // `Cannot read properties of null (reading 'Object')`（**离现场很远**，
 // 实测踩过一次：五条判据一起红，读起来像「对象表坏了」）。
 // **判空之后语义不变**：`protos === null` 时只少答「那两个原型对象 + 宿主引用」两档。
+// **闭包那两格结构属性先答**（第 731 轮把这一段从下面搬上来的，理由见上面那一段）：
+// 它们住在**闭包载荷**上（`Arity` / `Name`），而下面那一趟会去 `protos.Function` 找——
+// 那里第 731 轮起也有同名的两格（`Function.prototype.length` / `.name`），
+// **闭包自己身上的那一份更具体**（JS 里它们是**自有属性**，原型的同名格永远排在后面）。
+if (IsLengthKey(table, key)) {
+  if (receiver.Tag === ValueTag.Array) return Value.FromInt(table.Get(receiver.Ref).AsArray().GetLength());
+  if (receiver.Tag === ValueTag.String) return Value.FromInt(table.Get(receiver.Ref).AsString().GetLength());
+  // **闭包的 `fn.length`**（第 291 轮）——与上面两格**同一档结构属性**
+  //（住在 `HeapClosure.Arity` 上，不在属性表里，所以必须在这里答）。
+  // **第 291 轮之前它给 `undefined`**（`function-length-and-name` /
+  // `function-length-with-defaults` 两条判据一起报的就是这个）——
+  // 而 `Arity` 那一格**本来就是为它留的**（`heap.xl.md`），只是从第 238 轮到
+  // 第 290 轮**一直没人填、也没人读**。
+  if (receiver.Tag === ValueTag.Closure) return Value.FromInt(table.Get(receiver.Ref).AsClosure().Arity);
+}
+// **闭包的 `fn.name`**（第 291 轮）：`Name` 是**字符串句柄**、`0` 表示匿名——
+// 匿名给**空串**（JS 的 `(function () {}).name` 是 `""`，不是 `undefined`；
+// `console.log` 那边印 `[Function (anonymous)]` 是**宿主**的写法，见 `inspect.xl.md`）。
+if (receiver.Tag === ValueTag.Closure && IsNameKey(table, key)) {
+  const nameHandle = table.Get(receiver.Ref).AsClosure().Name;
+  if (nameHandle === 0) return Value.FromString(table.CreateString([]));
+  return Value.FromString(nameHandle);
+}
 if ((protos !== null && (receiver.Ref === protos.Object || receiver.Ref === protos.Function))
   || receiver.IsCallable() || receiver.Tag === ValueTag.HostRef) {
   if (protos !== null) {
@@ -819,25 +853,9 @@ if ((protos !== null && (receiver.Ref === protos.Object || receiver.Ref === prot
 if (receiver.Tag === ValueTag.Undefined || receiver.Tag === ValueTag.Null) {
   throw new Error("cannot read properties of " + (receiver.Tag === ValueTag.Null ? "null" : "undefined"));
 }
-if (IsLengthKey(table, key)) {
-  if (receiver.Tag === ValueTag.Array) return Value.FromInt(table.Get(receiver.Ref).AsArray().GetLength());
-  if (receiver.Tag === ValueTag.String) return Value.FromInt(table.Get(receiver.Ref).AsString().GetLength());
-  // **闭包的 `fn.length`**（第 291 轮）——与上面两格**同一档结构属性**
-  //（住在 `HeapClosure.Arity` 上，不在属性表里，所以必须在这里答）。
-  // **第 291 轮之前它给 `undefined`**（`function-length-and-name` /
-  // `function-length-with-defaults` 两条判据一起报的就是这个）——
-  // 而 `Arity` 那一格**本来就是为它留的**（`heap.xl.md`），只是从第 238 轮到
-  // 第 290 轮**一直没人填、也没人读**。
-  if (receiver.Tag === ValueTag.Closure) return Value.FromInt(table.Get(receiver.Ref).AsClosure().Arity);
-}
-// **闭包的 `fn.name`**（第 291 轮）：`Name` 是**字符串句柄**、`0` 表示匿名——
-// 匿名给**空串**（JS 的 `(function () {}).name` 是 `""`，不是 `undefined`；
-// `console.log` 那边印 `[Function (anonymous)]` 是**宿主**的写法，见 `inspect.xl.md`）。
-if (receiver.Tag === ValueTag.Closure && IsNameKey(table, key)) {
-  const nameHandle = table.Get(receiver.Ref).AsClosure().Name;
-  if (nameHandle === 0) return Value.FromString(table.CreateString([]));
-  return Value.FromString(nameHandle);
-}
+// **闭包那两格 `length` / `name` 在第 731 轮搬到了上面**（在「借 `protos.Function`
+// 找一次」那一趟**之前**）——理由写在 `GetProperty` 那一段的开头：两处都有同名格时，
+// **闭包载荷上的那一份**才是 JS 里那个**自有属性**。
 // **松散普通函数那两格受限属性**（第 709 轮）：`fn.arguments` / `fn.caller` 是
 // **自有、不可枚举、不可写、不可配置**的两格，**不在属性表里**——
 // 与上面 `length` / `name` 同一档结构属性，所以也只能在这里答。

@@ -8198,6 +8198,25 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
   Value.FromString(table.CreateString(Units("toString"))),
   MethodObject(vm.Room(), table, protos, FunctionToString, 0));
+// **`protos.Function` 自己那两格：`length`（`0`）与 `name`（`""`）**（第 731 轮）——
+// JS 里 `Function.prototype` **本身就是一个函数对象**（`typeof` 给 `"function"`，
+// 第 690 轮 `RtTypeOf` 那一格量的就是它），所以它也**自有**这两格
+//（判据 `stdlib/object/122-names-function-proto`：Node 给 `0` 与 `""`）。
+//
+// **第 690 轮挂过一次、当场撤回**（**实测 40 条回归**）：当时 `props.xl.md` 里
+// 「可调用接收者」那一趟**排在闭包载荷之前**，于是 `protos.Function` 上的这两格
+// 把**每一个函数**的 `f.name` / `f.length` 顶掉了（`089-function-tostring-and-name`：
+// node 给 `named 2 true`、本仓给 ` 0 true`）。第 731 轮把**闭包载荷那两格提到那一趟
+// 之前**（`props.xl.md` 的 `GetProperty`），两处才一起成立——**两半是同一件事**，
+// 只挂这一半就是那次 40 条回归。
+//
+// **挂成隐藏**（`SetHiddenProperty`，与上面四格同一条口径）：
+// `Object.keys(Function.prototype)` 在 JS 里是空数组。
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
+  Value.FromString(table.CreateString(Units("length"))), Value.FromInt(0));
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
+  Value.FromString(table.CreateString(Units("name"))),
+  Value.FromString(table.CreateString([])));
 // **函数那三族：原型上的 `constructor` 与构造对象自己那三格**（第 730 轮）——
 // `GeneratorFunction` / `AsyncFunction` / `AsyncGeneratorFunction`。
 //
