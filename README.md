@@ -318,7 +318,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 5830 / 6175**，加权 **95.8%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 1384/1415、runtime 783/796、stdlib 2237/2315、e2e 242/246。差的那些是**真缺口**（`blocked` 259 / `differ` 86），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 5969 / 6333**，加权 **95.6%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 1485/1523、runtime 783/796、stdlib 2275/2365、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 106），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~37s**） |
 
 ### 口径与已知缺口
@@ -545,6 +545,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 以及字符串搜索族的实参（`"abc".includes({ toString() { return "k"; } })` 该走 `ToPrimitive`，
 本仓直接拿 `JsTextUnits` ⇒ `unimplemented: ToString of this kind of value`）。
 加权 **95.7% → 95.8%**（分子 +199、分母 +202）。
+
+**第 700 轮**（第十一批原子探针 158 份新语料：字符串方法的实参形状 50 + 函数与闭包形状 57 +
+迭代协议与生成器 51）量出并收掉一族**静默错值**——**字符串方法一次都没转换自己的实参**：
+
+- **文本实参那一半**（`searchString` / `pattern` / `replacement` / `separator` /
+  `localeCompare` 的那个 `that` / `concat` 的每一项）：它们直接走 `JsTextUnits`
+  （**引擎的** `TextUnitsOf`，对对象当场抛），于是
+  `"abc".includes({ toString() { return "b"; } })` 报
+  `unimplemented: ToString of this kind of value`（Node 给**真**）、
+  `"abc".concat({ toString() { return "T"; } })` 给 `"abc[object Object]"`（Node 给 `"abcT"`）；
+  **「缺实参」还当成了空串**——JS 里那是 `ToString(undefined)` = `"undefined"`，
+  所以 `"abc".includes()` / `indexOf()` / `startsWith()` / `endsWith()` **四条一起答反**
+  （空串恒为真 / 恒给 0）。
+  修法：添一格 `TextArgUnits`（**缺实参当 `undefined`**，对象那一档走
+  `ToPrimitiveOf` + `JsTextUnits`——与 `String(x)` **同一处**，不写第二份转换表），
+  并把 `protos` 灌进 `InvokeString`：这一族有九个调用点，**再开九个号就是把同一件事抄九遍**，
+  而 `InvokeString` 的调用点**只有一处**（`install.xl.md` 的分派那一行）。
+  顺带把 `replace` 的「不收正则」判据改成 JS 的 `IsRegExp`（`Symbol.match` 那一格可调才是正则）——
+  原来「不是字符串就抛」，把「不该静默当字面量」这件事**过度执行**成了「连普通对象也不收」。
+- **数值实参里的 `true` / `null` 那一格**：共用的取值器 `ArgOr` 原来把**非数字一律**当成
+  「缺省值」，而 JS 那一步是 `ToIntegerOrInfinity(ToNumber(v))`——
+  `"abc".slice(true)` 给整串（Node 给 `"bc"`）、`"abc".repeat(true)` 给空串（Node 给 `"abc"`）。
+  现在布尔与 `null` 各自认一档；`undefined` **仍然**走缺省值
+  （规范里可选实参「给了 `undefined`」与「没给」是同一档，不许按 `ToNumber(undefined) = NaN ⇒ 0` 折）。
+
+**已收**：第 699 轮登记的那条（`stdlib/string/probe699-s-t08`）转绿、台账已撤。
+本批另登记 20 条新缺口（`differ` +20）：
+**`ArgOr` 不做 `ToNumber`**（字符串 / 对象实参，13 条：`charAt("1")` / `charCodeAt({valueOf})` /
+`at("1")` / `slice({valueOf})` / `substring` / `substr` / `repeat({valueOf})` / `padStart({valueOf})` /
+`indexOf("b", {valueOf})` / `lastIndexOf`——`ToNumber` 要 `room` / `call` / `protos`，
+而这个取值器被**十几个内建共用**，是另一处活）、**`arguments` 那一族**（松散模式的形参双向别名、
+`arguments.callee`、函数自己的 `f.arguments`）、函数体开头的 `"use strict"` 没认、
+`call` / `apply` 的原始值接收者没装箱、形参默认值里的 TDZ，
+以及**往生成器里 `throw` 不走 `try/finally`**（`it.throw(err)` 该先把挂起点外面的 `finally`
+跑完再抛，本仓直接把它标成结束 ⇒ 清理一次都不跑）。
+加权 **95.78% → 95.62%**（分子 +139、分母 +158：新收的 138 条通过是分子，20 条登记缺口也是分母）。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 

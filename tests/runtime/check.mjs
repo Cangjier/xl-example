@@ -5678,8 +5678,13 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
     // 所以这一条从「必须响」挪到 `out` 里断它**给对**（下面 `eq` 里有那一格）。
     // **推进 `out` 会把后面那些按下标断言的项全部移位** —— 所以只算，最后再收 ✓。
     "const arrayLikeLength = Array.from({ a: 1 }).length;",
-    // ② 非字符串的 `replace` 实参（正则 / 函数都落这一支）。
-    "try { 'a'.replace(1, 'b'); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
+    // ② **正则**实参（**第 700 轮改了判据**）：原来这里量的是「非字符串的 `replace` 实参」
+    // —— 那一条**过度执行**了，把普通对象 / 数字一起挡在门外（JS 对它们走 `ToString`：
+    // `'a'.replace(1, 'b')` 是 `'a'`）。第 700 轮起判据照 JS 的 `IsRegExp` 问
+    // （`Symbol.match` 那一格可调才是正则），所以这一条换成**真带 `Symbol.match` 的对象**——
+    // 它必须照样响亮地抛（静默当字面量会给出一个看起来对的错答案）。
+    // **`'a'.replace(1, 'b')` 那一档挪到 `out` 里断它给对**（见下面）。
+    "try { 'a'.replace({ [Symbol.match]() { return false; } }, 'b'); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
     // ③ 原始值当 `Object.assign` 的目标（JS 会装箱，本仓没有那一层）。
     "try { Object.assign(1, { a: 1 }); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
     // ④ **自赋值不许转圈**：键与值先抄下来再写，所以它必须正常结束。
@@ -5687,6 +5692,9 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
     "Object.assign(same, same);",
     "out.push(same.a);",
     "out.push(arrayLikeLength === 0 ? 'arraylike-ok' : 'arraylike-bad');",
+    // **第 700 轮**：非字符串、**不是正则**的模式与替换值走 `ToString`
+    //（`'a'.replace(1, 'b')` 在 JS 里是 `'a'`——找的是 `"1"`，找不到就原样返回）。
+    "out.push('a'.replace(1, 'b'));",
     "return [out, loud];",
   ].join("\n");
   const request = new RunRequest();
@@ -5696,7 +5704,7 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
   eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
   const table = res.Table;
   const values = GetIndex(table, res.Value, Value.FromInt(0));
-  const expected = [1, -1, "a-b", "yes", 2, "Hi", "a+b", "y", 2, 1];
+  const expected = [1, -1, "a-b", "yes", 2, "Hi", "a+b", "y", 2, 1, "arraylike-ok", "a"];
   for (let i = 0; i < expected.length; i++) {
     const actual = GetIndex(table, values, Value.FromInt(i));
     if (typeof expected[i] === "number") {

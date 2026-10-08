@@ -299,6 +299,38 @@
    `unimplemented: ToString of this kind of value`，同一族还有
    `indexOf` / `startsWith` / `endsWith` / `replace` 的模式位）。加权 **95.75% → 95.78%**
    （分子 +199、分母 +202）。
+   **第 700 轮全矩阵**（第十一批原子探针 158 份新语料）：通过 **5830 → 5969**、
+   分母 **6175 → 6333**、`blocked 259 → 258`、`differ 86 → 106`、`bad` 仍 **0**、
+   `regressions` **0**、`moved` 0、`newlyPassing` **1**——收掉一族**静默错值**：
+   **字符串方法一次都没转换自己的实参**。
+   **文本那一半**（`searchString` / `pattern` / `replacement` / `separator` /
+   `localeCompare` 的 `that` / `concat` 的每一项）直接走 `JsTextUnits`（**引擎的**
+   `TextUnitsOf`，对对象当场抛），而且把**缺实参**当**空串**——JS 那一步是 `ToString`：
+   `"abc".includes({ toString() { return "b"; } })` 该给真（本仓报
+   `unimplemented: ToString of this kind of value`）、`"abc".includes()` 找的是
+   `"undefined"`（该给假，本仓给真）、`"abc".concat({ toString() { return "T"; } })`
+   该给 `"abcT"`（本仓给 `"abc[object Object]"`）。
+   修法：添一格 `TextArgUnits`（缺实参当 `undefined`；对象那一档走
+   `ToPrimitiveOf` + `JsTextUnits`——与 `String(x)` **同一处**，不写第二份转换表），
+   并把 `protos` 灌进 `InvokeString`：这一族有九个调用点，**再开九个号就是把同一件事抄九遍**，
+   而 `InvokeString` 的调用点**只有一处**（`install.xl.md` 的分派那一行）。
+   `replace` 的「不收正则」判据同时改成 JS 的 `IsRegExp`（`Symbol.match` 那一格可调才是正则）：
+   原来「不是字符串就抛」把「不该静默当字面量」**过度执行**成了「连普通对象也不收」。
+   **数值那一半**：共用的 `ArgOr` 原来把非数字**一律**当缺省值，而 JS 是
+   `ToIntegerOrInfinity(ToNumber(v))` ⇒ `"abc".slice(true)` 给整串（Node 给 `"bc"`）、
+   `"abc".repeat(true)` 给空串（Node 给 `"abc"`）；现在布尔与 `null` 各认一档，
+   `undefined` **仍然**走缺省值（规范里可选实参「给了 `undefined`」与「没给」是同一档）。
+   第 699 轮登记的那条（`stdlib/string/probe699-s-t08`）转绿、台账已撤
+   （`newlyPassing` 就是它）。
+   本批另登记 20 条新缺口（`differ` +20）：**`ArgOr` 不做 `ToNumber`**（13 条：
+   `charAt("1")` / `charCodeAt({valueOf})` / `at("1")` / `slice({valueOf})` / `substring` /
+   `substr` / `repeat({valueOf})` / `padStart({valueOf})` / `indexOf("b", {valueOf})` /
+   `lastIndexOf`——`ToNumber` 要 `room` / `call` / `protos`，而这个取值器被**十几个内建共用**，
+   是另一处活）、**`arguments` 那一族**（松散模式的形参双向别名、`arguments.callee`、
+   `f.arguments`）、函数体开头的 `"use strict"` 没认、`call` / `apply` 的原始值接收者没装箱、
+   形参默认值里的 TDZ，以及**往生成器里 `throw` 不走 `try/finally`**（`it.throw(err)`
+   该先把挂起点外面的 `finally` 跑完再抛，本仓直接把它标成结束 ⇒ 清理一次都不跑）。
+   加权 **95.78% → 95.62%**（分子 +139、分母 +158）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

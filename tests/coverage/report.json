@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 6175,
+  "total": 6333,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.78,
+  "progressPercent": 95.62,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1415,
-      "pass": 1384,
+      "total": 1523,
+      "pass": 1485,
       "blocked": 8,
-      "differ": 23,
+      "differ": 30,
       "nodefail": 0,
-      "coverage": 97.81
+      "coverage": 97.5
     },
     {
       "category": "runtime",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2315,
-      "pass": 2237,
-      "blocked": 27,
-      "differ": 51,
+      "total": 2365,
+      "pass": 2275,
+      "blocked": 26,
+      "differ": 64,
       "nodefail": 0,
-      "coverage": 96.63
+      "coverage": 96.19
     },
     {
       "category": "e2e",
@@ -1662,12 +1662,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
-      "id": "stdlib/string/probe699-s-t08",
-      "category": "stdlib",
-      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); const o = { toString() { return \"k\"; } }; console.log(show(\"abc\".includes(o)) + \"|\" + show(\"abc\".indexOf(o)));",
-      "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
-    },
-    {
       "id": "e2e/scenarios/181-string-matchall-and-index",
       "category": "e2e",
       "title": "端到端：matchAll + lastIndex + 命名捕获组",
@@ -1820,10 +1814,52 @@
       "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
     },
     {
+      "id": "exec/functions/probe700-f-e19",
+      "category": "exec",
+      "title": "(function (a) { arguments[0] = 9; return a; })(1)",
+      "detail": "stdout 不同：第 1 行：node «number:9» vs tsrun «number:1»"
+    },
+    {
+      "id": "exec/functions/probe700-f-e24",
+      "category": "exec",
+      "title": "(function () { 'use strict'; return this === undefined ? 'u' : typeof this; })()",
+      "detail": "stdout 不同：第 1 行：node «string:u» vs tsrun «string:object»"
+    },
+    {
+      "id": "exec/functions/probe700-f-e25",
+      "category": "exec",
+      "title": "(function () { return typeof this; }).call(1)",
+      "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:number»"
+    },
+    {
+      "id": "exec/functions/probe700-f-e36",
+      "category": "exec",
+      "title": "(function (a = b, b = 2) { return a; })()",
+      "detail": "stdout 不同：第 1 行：node «throw:ReferenceError» vs tsrun «undefined:undefined»"
+    },
+    {
+      "id": "exec/functions/probe700-f-e47",
+      "category": "exec",
+      "title": "(function () { return typeof arguments.callee; })()",
+      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
+    },
+    {
+      "id": "exec/functions/probe700-f-t05",
+      "category": "exec",
+      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); function f() { return arguments[1]; } console.log(show(f(1, 2)) + \"|\" + show(typeof f.arguments));",
+      "detail": "stdout 不同：第 1 行：node «number:2|string:object» vs tsrun «number:2|string:undefined»"
+    },
+    {
       "id": "exec/iterators/probe-y14",
       "category": "exec",
       "title": "(function* () { const x = yield 1; return x; })()",
       "detail": "stdout 不同：第 1 行：node «object:[object Generator]» vs tsrun «object:[object Object]»"
+    },
+    {
+      "id": "exec/iterators/probe700-i-t03",
+      "category": "exec",
+      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); const log = []; function* g() { log.push(\"start\"); try { yield 1; } finally { log.push(\"fin\"); } } const it = g(); log.push(it.n",
+      "detail": "stdout 不同：第 1 行：node «start,1,fin,caught» vs tsrun «start,1,caught»"
     },
     {
       "id": "exec/statements/probe693b-s30",
@@ -2003,7 +2039,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25812/src/4095.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28264/src/4203.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -2196,6 +2232,84 @@
       "category": "stdlib",
       "title": "\"abc\".search(\"b\")",
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e08",
+      "category": "stdlib",
+      "title": "\"abc\".indexOf(\"b\", { valueOf: () => 2 })",
+      "detail": "stdout 不同：第 1 行：node «number:-1» vs tsrun «number:1»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e09",
+      "category": "stdlib",
+      "title": "\"abc\".lastIndexOf(\"b\", { valueOf: () => 0 })",
+      "detail": "stdout 不同：第 1 行：node «number:-1» vs tsrun «number:1»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e10",
+      "category": "stdlib",
+      "title": "\"abc\".charAt({ valueOf: () => 1 })",
+      "detail": "stdout 不同：第 1 行：node «string:b» vs tsrun «string:a»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e11",
+      "category": "stdlib",
+      "title": "\"abc\".charCodeAt({ valueOf: () => 1 })",
+      "detail": "stdout 不同：第 1 行：node «number:98» vs tsrun «number:97»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e12",
+      "category": "stdlib",
+      "title": "\"abc\".codePointAt({ valueOf: () => 1 })",
+      "detail": "stdout 不同：第 1 行：node «number:98» vs tsrun «number:97»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e13",
+      "category": "stdlib",
+      "title": "\"abc\".at({ valueOf: () => 1 })",
+      "detail": "stdout 不同：第 1 行：node «string:b» vs tsrun «string:a»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e14",
+      "category": "stdlib",
+      "title": "\"abc\".at(\"1\")",
+      "detail": "stdout 不同：第 1 行：node «string:b» vs tsrun «string:a»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e15",
+      "category": "stdlib",
+      "title": "\"abc\".slice({ valueOf: () => 1 })",
+      "detail": "stdout 不同：第 1 行：node «string:bc» vs tsrun «string:abc»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e16",
+      "category": "stdlib",
+      "title": "\"abc\".substring({ valueOf: () => 2 }, { valueOf: () => 1 })",
+      "detail": "stdout 不同：第 1 行：node «string:b» vs tsrun «string:abc»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e17",
+      "category": "stdlib",
+      "title": "\"abc\".substr({ valueOf: () => 1 }, { valueOf: () => 1 })",
+      "detail": "stdout 不同：第 1 行：node «string:b» vs tsrun «string:»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e18",
+      "category": "stdlib",
+      "title": "\"ab\".repeat({ valueOf: () => 2 })",
+      "detail": "stdout 不同：第 1 行：node «string:abab» vs tsrun «string:»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e19",
+      "category": "stdlib",
+      "title": "\"ab\".padStart({ valueOf: () => 4 }, { toString: () => \"0\" })",
+      "detail": "stdout 不同：第 1 行：node «string:00ab» vs tsrun «string:ab»"
+    },
+    {
+      "id": "stdlib/string/probe700-g-e38",
+      "category": "stdlib",
+      "title": "\"a\".repeat({ valueOf: () => 1.9 })",
+      "detail": "stdout 不同：第 1 行：node «string:a» vs tsrun «string:»"
     },
     {
       "id": "stdlib/symbol/036-names-symbol",

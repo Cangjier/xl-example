@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge } from "../../runtime/heap.xl.md"
-import { RoomChecker, IsCallableValue } from "../../runtime/rt.xl.md"
+import { RoomChecker, IsCallableValue, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
 import { SetProperty, GetProperty, GetIndex, FindProperty, ReadProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, NormalizeRangeIndex } from "./array.xl.md"
@@ -329,9 +329,61 @@ if (unit >= 56320 && unit <= 57343) return -1;
 return 1;
 ```
 
-# method InvokeString:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
+# method TextArgUnits:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, args:Array<Value>, index:int)=>Array<int>
+
+**第 `index` 个实参的文本**（第 700 轮）——JS 的 `ToString`，**缺实参当 `undefined`**。
+
+**为什么要有它**（**第 700 轮量出来的一族静默错值**）：那些接口的实参在 JS 里是
+**必填**的（`searchString` / `separator` / `replacement` / `that`），传不传都是
+`ToString(值)`——`"abc".includes()` 找的是 **`"undefined"`**（给假），
+而这里原来写的是 `args.length > 0 ? JsTextUnits(args[0]) : []`（**空串**）
+⇒ 空串恒为真 ⇒ `"abc".includes()` 给**真**（Node 给假）。四处同一条写法
+（`includes` / `indexOf` / `startsWith` / `endsWith` / `lastIndexOf` / `localeCompare`）。
+
+**对象那一档要走 `ToPrimitive`**（`Symbol.toPrimitive` → `toString` / `valueOf`）：
+`"abc".includes({ toString() { return "b"; } })` 在 JS 里是**真**，本仓报
+`unimplemented: ToString of this kind of value`（引擎的 `TextUnitsOf` 对对象抛，
+见 `rt.xl.md`）。转换**不写第二份**：走的是 `String(x)` 那条路
+（`ToPrimitiveOf` + `JsTextUnits`），只是 hint 固定成 `string`。
+
+```ts
+const raw = index < args.length ? args[index] : Value.Undefined();
+return JsTextUnits(table, ToPrimitiveOf(room, call, protos, table, raw, ToPrimitiveString));
+```
+
+# method IsRegexpValue:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, value:Value)=>bool
+
+**JS 的 `IsRegExp`**（第 700 轮）——`replace` / `split` 判断实参是不是正则。
+
+**为什么这一格今天几乎是死代码、还要写**：本仓**还造不出正则对象**（`RegExp` 是待做项），
+所以脚本递进来的对象不会是正则。可**判据不能靠这个巧合**——
+写成「不是字符串就 `ToString`」等于把 `/a/g` 当字面量用
+（JS 里 `"a-a".replace(/a/g, "b")` 是 `"b-b"`，当字面量就成了 `"a-a"`，
+**一个看起来对的错答案**，第 296 轮那条注释量过同一件事）。
+所以照 JS 的形状问一句：`Symbol.match` 那一格**可调**就是正则
+（`protos.WellKnownSymbols` 没装就整档跳过——与 `ToPrimitiveOf` 那条同一口径）。
+
+```ts
+if (!value.IsObject()) return false;
+if (call === null) return false;
+if (protos.WellKnownSymbols <= 0) return false;
+const regexpSymbols = Value.FromObject(protos.WellKnownSymbols);
+const regexpMatchKey = GetProperty(room, call, protos, table, regexpSymbols,
+  Value.FromString(table.CreateString(Units("match"))));
+if (regexpMatchKey.Tag !== ValueTag.Symbol) return false;
+return IsCallableValue(table, GetProperty(room, call, protos, table, value, regexpMatchKey));
+```
+
+# method InvokeString:(room:RoomChecker, table:HeapTable, call:NativeCall | null, protos:Protos, id:int, self:Value, args:Array<Value>)=>Value
 
 **字符串内建的分派与实现**。
+
+**`protos` 是第 700 轮加的**（原来签名里没有它）：实参那一族要走 `ToPrimitive`
+（`TextArgUnits`），而 `ToPrimitiveOf` 要原型表（`Symbol.toPrimitive` 那张小表、
+`Date` 那条路障）。**调用点只有一处**（`install.xl.md` 的分派那一行），
+所以这一次是「改一处签名、不欠第二份实现」——与第 120 轮给 `String.split`
+单开一个号（`StringSplit`）那条老办法相比，这一族有**九个**调用点，
+再开九个号就是把同一件事抄九遍。
 
 每个返回新字符串的地方都**先问 room**（`charAt` 也要：空串照样占一个对象头）。
 
@@ -536,7 +588,7 @@ if (id === StringLocaleCompare) {
   // **`localeCompare`**（第 208 轮）：JS 的完整语义要**一张区域表**（本仓没有），
   // 所以这里按**码元**比、并且**只做 ASCII**——非 ASCII 当场抛
   //（与 `toUpperCase` / `toLowerCase` 同一条纪律：宁可缺，也不静默换一个「看起来对」的答案）。
-  const other = args.length > 0 ? JsTextUnits(table, args[0]) : [];
+  const other = TextArgUnits(room, call, protos, table, args, 0);
   for (let i = 0; i < units.length; i++) {
     if (units[i] > 127) throw new Error("unimplemented: localeCompare outside ASCII (there is no collation table here)");
   }
@@ -552,7 +604,9 @@ if (id === StringLocaleCompare) {
   return Value.FromInt(units.length < other.length ? -1 : 1);
 }
 if (id === StringIndexOf || id === StringLastIndexOf) {
-  const needle = args.length > 0 ? JsTextUnits(table, args[0]) : [];
+  // **实参过 `ToString`、缺实参当 `undefined`**（第 700 轮）：`"abc".indexOf()`
+  // 找的是 `"undefined"`（给 `-1`），原来给 `0`（**静默错值**，`includes` 那一处同理）。
+  const needle = TextArgUnits(room, call, protos, table, args, 0);
   const length0 = units.length;
   // **`fromIndex` 那一格**（第 208 轮）：与数组那一轮同一处缺口——
   // 第二个实参原来**被丢掉**（`"hello".indexOf("o", 5)` 从 0 找起，**静默错值**）。
@@ -633,7 +687,10 @@ if (id === StringConcatMethod) {
   const parts: number[][] = [units];
   let total = units.length;
   for (let i = 0; i < args.length; i++) {
-    const unitsOfArg = ValueUnits(table, args[i], 0);
+    // **每个实参都过 `ToString`**（第 700 轮）：对象那一档要走 `ToPrimitive`
+    //（`"abc".concat({ toString() { return "T"; } })` 在 JS 里是 `"abcT"`，
+    // 而 `ValueUnits` 对对象给 `[object Object]`——**静默错值**）。
+    const unitsOfArg = TextArgUnits(room, call, protos, table, args, i);
     parts.push(unitsOfArg);
     total = total + unitsOfArg.length;
   }
@@ -670,7 +727,7 @@ if (id === StringIncludes) {
   // 规整与 `indexOf` 那一支**逐字相同**（`String.prototype.includes` 的 `position`
   // 就是照 `indexOf` 定的）：负数当 `0`、越过尾巴时「非空串恒假」。
   // 所以这一格**不再各写一份**，直接读同一处的夹取结果。
-  const needle = args.length > 0 ? JsTextUnits(table, args[0]) : [];
+  const needle = TextArgUnits(room, call, protos, table, args, 0);
   let from = 0;
   if (args.length > 1) {
     from = ArgOr(args, 1, 0);
@@ -748,7 +805,7 @@ if (id === StringTrim || id === StringTrimStart || id === StringTrimEnd) {
 if (id === StringStartsWith || id === StringEndsWith) {
   // **两个都收可选的第二个参数**（第 123 轮）——但它们的含义**不一样**：
   // `startsWith` 的那个是**起点**，`endsWith` 的那个是**结束位置**（JS 就是这么定的）。
-  const needle = args.length > 0 ? JsTextUnits(table, args[0]) : [];
+  const needle = TextArgUnits(room, call, protos, table, args, 0);
   const length = units.length;
   let from = ArgOr(args, 1, id === StringEndsWith ? length : 0);
   if (from < 0) from = 0;
@@ -834,8 +891,11 @@ if (id === StringPadStart || id === StringPadEnd) {
   // **两条边角照 JS 给**（见 `StringPadStart` 那一段）：
   // 目标长度不大于当前长度就**原样返回**；**填充串是空串就不补**。
   const target = ArgOr(args, 0, 0);
-  const fill = args.length > 1 && args[1].Tag === ValueTag.String
-    ? JsTextUnits(table, args[1])
+  // **填充串也要 `ToString`**（第 700 轮）：JS 的缺省是**一个空格**（`undefined` 那一档），
+  // 给了别的值就按 `ToString` 折——`"ab".padEnd(4, { toString() { return "0"; } })`
+  // 在 JS 里是 `"ab00"`，原来只看 `Tag === String` ⇒ 落到空格那一档（**静默错值**）。
+  const fill = args.length > 1 && !args[1].IsUndefined()
+    ? TextArgUnits(room, call, protos, table, args, 1)
     : Units(" ");
   if (target <= units.length || fill.length === 0) {
     if (!room(ObjectCharge + CodeUnitCharge * units.length)) throw new Error("out of room");
@@ -869,13 +929,17 @@ if (id === StringReplace || id === StringReplaceAll) {
   // **正则那一半仍旧不做**（`RegExp` 是 v1 写死的非目标）——它现在**响亮地抛**，
   // 而且抛的是「需要字符串模式」而不是「需要两个字符串实参」（话说得更准了）。
   const replacementIsCallable = args.length > 1 && IsCallableValue(table, args[1]);
-  if (args.length < 2 || args[0].Tag !== ValueTag.String
-    || (args[1].Tag !== ValueTag.String && !replacementIsCallable)) {
+  // **两个实参都过 `ToString`**（第 700 轮）：`"abc".replace(undefined, "X")` 在 JS 里
+  // 是 `"abc"`（找的是 `"undefined"`，找不到就原样返回），原来对非字符串**响亮地抛**；
+  // 替换串同理（`"abc".replace("b", { toString() { return "X"; } })` 给 `"aXc"`）。
+  // **正则那一档仍旧不收**：按 JS 的 `IsRegExp` 问一句（`Symbol.match` 可调就是），
+  // 是正则就**响亮地抛**——静默当字面量会给出一个看起来对的错答案。
+  if (args.length < 2 || IsRegexpValue(room, call, table, protos, args[0])) {
     throw new Error("unimplemented: String.replace needs a string pattern and a string or function replacement "
       + "(regex patterns are not supported)");
   }
-  const needle = JsTextUnits(table, args[0]);
-  const replacement = args[1].Tag === ValueTag.String ? JsTextUnits(table, args[1]) : [];
+  const needle = TextArgUnits(room, call, protos, table, args, 0);
+  const replacement = replacementIsCallable ? [] : TextArgUnits(room, call, protos, table, args, 1);
   if (needle.length === 0 && replacementIsCallable) {
     // **空针 + 函数**那一格**没做**（判据没有量它）：JS 会在**每一个**插入点上调一次回调
     // （`replaceAll` 是 `长度 + 1` 次、`replace` 是 1 次）——形状与下面那条循环不同，
@@ -1038,7 +1102,7 @@ while (i < template.length) {
 return out;
 ```
 
-# method SplitString:(room:RoomChecker, table:HeapTable, protos:Protos, self:Value, args:Array<Value>)=>Value
+# method SplitString:(room:RoomChecker, table:HeapTable, call:NativeCall | null, protos:Protos, self:Value, args:Array<Value>)=>Value
 
 **`String.prototype.split`**（第 120 轮补）：按分隔串切成一个**数组**。
 
@@ -1091,7 +1155,9 @@ if (args.length === 0 || args[0].IsUndefined()) {
   if (limit !== 0) result.Push(self);
   return out;
 }
-const separator = JsTextUnits(table, args[0]);
+const separator = args.length > 0 && !args[0].IsUndefined()
+  ? TextArgUnits(room, call, protos, table, args, 0)
+  : [];
 if (!room(ObjectCharge + ValueCharge * (units.length + 1)
   + CodeUnitCharge * (units.length + 1))) {
   throw new Error("out of room");

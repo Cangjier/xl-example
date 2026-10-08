@@ -312,8 +312,20 @@ if (self.Tag !== ValueTag.Array) {
 ```ts
 if (index >= args.length) return fallback;
 if (args[index].Tag === ValueTag.Int32) return args[index].Int;
-// **不是数字（含 `Bool` / `undefined` / 字符串）⇒ `fallback`**——与改动前**一字不差**
-//（这一档是「缺省值」那一类，不是 `ToIntegerOrInfinity` 的活）。
+// **布尔与 `null` 是**有确定答案的**（第 700 轮）**：JS 那一步是
+// `ToIntegerOrInfinity(ToNumber(v))`，而 `ToNumber(true)` 是 `1`、`ToNumber(null)` 是 `0`——
+// 两个都不需要调脚本、也不需要区域表。原来它们与字符串 / 对象一起落到 `fallback`
+// ⇒ `"abc".slice(true)` 给整串（Node 给 `"bc"`）、`"abc".repeat(true)` 给空串
+//（Node 给 `"abc"`）——**静默错值**。`undefined` 仍然给 `fallback`：
+// 规范里可选实参的「给了 `undefined`」与「没给」是同一档（`slice(0, undefined)` 取整串），
+// 所以那一档**不许**按 `ToNumber(undefined) = NaN ⇒ 0` 折。
+if (args[index].Tag === ValueTag.Bool) return args[index].Int !== 0 ? 1 : 0;
+if (args[index].Tag === ValueTag.Null) return 0;
+// **其余不是数字的（含 `undefined` / 字符串 / 对象）⇒ `fallback`**。
+// **这一档是**已经量出来的缺口**（第 700 轮）：`"abc".charAt("1")` / `charAt({ valueOf: () => 1 })`
+// 在 JS 里都走 `ToNumber`（给 `"b"`），而 `ToNumber` 要 `room` / `call` / `protos`
+// （字符串解析与 `ToPrimitive` 都在那一处），这个取值器的签名里没有它们——
+// 要收它得把那一套灌进**十几个共用它的内建**，是另一处活（登在台账里）。
 if (args[index].Tag !== ValueTag.Float64) return fallback;
 const asFloat = args[index].Dbl;
 // **`NaN` ⇒ `0`**（JS 的 `ToIntegerOrInfinity(NaN)` 也是 0）。

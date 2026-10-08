@@ -60,7 +60,9 @@ import { InvokeSet, SetCtor, SetSizeGet, InstallSetPrototype, WeakSetCtor } from
 // **字符串那一块第 296 轮也要 `call`**：`String.replace` 的第二格实参是**函数**时
 // 要回调脚本——与数组 / `Map` / `Set` 那几块同一条纪律（用不到的不塞进签名，
 // 而这一块从第 296 轮起**用得着**）。
-if (id >= 100 && id < 200) return InvokeString(room, table, call, id, self, args);
+// **`InvokeString` 第 700 轮起也收 `protos`**：实参那一族要走 `ToPrimitive`
+// （`"abc".includes({ toString() { return "b"; } })`）——见 `string.xl.md` 的 `TextArgUnits`。
+if (id >= 100 && id < 200) return InvokeString(room, table, call, protos, id, self, args);
 if (id >= 1 && id < 100) return InvokeArray(room, table, protos, call, id, self, args, keep, failed);
 throw new Error("unimplemented: builtin id " + id);
 ```
@@ -219,7 +221,7 @@ if (id === RestObjectId) {
 }
 // **`String.split` 也要 `protos`**（第 120 轮）：它返回一个数组——理由与上面那一条一字不差
 // （`InvokeString` 的签名里没有原型表，而为了一个方法去改那一块的签名会牵动所有调用点）。
-if (id === StringSplit) return SplitString(room, table, protos, self, args);
+if (id === StringSplit) return SplitString(room, table, call, protos, self, args);
 // **`Array.from` 同理**（第 130 轮）：它也是「返回一个新数组」的**静态方法**，
 // 而且它的 `self` 是那个 `Array` **普通对象**——放进 `InvokeArray` 就要同时改签名与
 // `RequireArray` 的先后，两个改动都白付。

@@ -77,17 +77,45 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **6189** 条（token 1416 / exec 1416 / runtime 796 / stdlib 2315 / e2e 246），判过 **6175** 条。
+语料 **6347** 条（token 1416 / exec 1524 / runtime 796 / stdlib 2365 / e2e 246），判过 **6333** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 1415 | **1384** | 8 / 23 | 另有 1 条不进分母 |
+| `exec` | 1523 | **1485** | 8 / 30 | 另有 1 条不进分母 |
 | `runtime` | 796 | **783** | 1 / 12 | |
-| `stdlib` | 2315 | **2237** | 27 / 51 | |
+| `stdlib` | 2365 | **2275** | 26 / 64 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **6175** | **5830** | 259 / 86 | 加权 **95.8%** |
+| **合计** | **6333** | **5969** | 258 / 106 | 加权 **95.6%** |
+
+**第 700 轮再加 158 条**（分母 6175 → **6333**）：第十一批原子探针，三层——
+**字符串方法的实参形状**（缺实参 / `undefined` / 数字 / 布尔 / 对象 / 包装对象 / 符号）、
+**函数与闭包形状**（默认值、剩余、解构形参、`arguments` 那一族、`this` 的五档、
+提升与 TDZ、`bind` / `call` / `apply`、访问器与简写方法）、
+**迭代协议与生成器**（`yield*`、`return` / `throw` 两条清理路、自定义可迭代物、
+`Array.from` / 展开 / 解构三处的落法）。**收掉一族静默错值**：
+
+- **字符串方法一次都没转换自己的实参**。文本那一半直接走 `JsTextUnits`
+  （**引擎的** `TextUnitsOf`，对对象当场抛），并且把**缺实参**当成空串——
+  而 JS 那一步是 `ToString`：`"abc".includes({ toString() { return "b"; } })` 该给真、
+  `"abc".includes()` 找的是 `"undefined"`（该给**假**，本仓给真）、
+  `"abc".concat({ toString() { return "T"; } })` 该给 `"abcT"`（本仓给 `"abc[object Object]"`）。
+  修法：添一格 `TextArgUnits`（缺实参当 `undefined`；对象走 `ToPrimitiveOf` + `JsTextUnits`，
+  与 `String(x)` **同一处**），并把 `protos` 灌进 `InvokeString`——这一族有九个调用点，
+  而那个函数的**调用点只有一处**；`replace` 的「不收正则」判据也改成 JS 的 `IsRegExp`
+  （`Symbol.match` 可调才是正则），不再把普通对象一起挡掉。
+  数值那一半：共用的 `ArgOr` 原来把非数字**一律**当缺省值，于是
+  `"abc".slice(true)` 给整串、`"abc".repeat(true)` 给空串——现在布尔与 `null` 各认一档
+  （`undefined` 仍走缺省值：规范里可选实参给 `undefined` 与没给是同一档）。
+- 第 699 轮登记的那条（`stdlib/string/probe699-s-t08`）转绿、台账已撤。
+
+另登记 20 条新缺口：**`ArgOr` 不做 `ToNumber`**（13 条，`charAt("1")` / `at({valueOf})` /
+`slice({valueOf})` / `repeat({valueOf})` 那一族——`ToNumber` 要 `room` / `call` / `protos`，
+而这个取值器被十几个内建共用）、**`arguments` 那一族**（形参双向别名 / `arguments.callee` /
+`f.arguments`）、函数体开头的 `"use strict"`、`call` / `apply` 的原始值接收者没装箱、
+形参默认值里的 TDZ、**往生成器里 `throw` 不走 `try/finally`**。
+**加权 95.78% → 95.62%**（分子 +139、分母 +158）。
 
 **第 699 轮再加 202 条**（分母 5973 → **6175**）：第十批原子探针，三层——
 **强制转换与相等**（`==` 的整张矩阵、`ToPrimitive` 的三种 hint、`Symbol.toPrimitive`、
