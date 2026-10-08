@@ -302,6 +302,18 @@ const isTail = value === "=" || value === ":" || value === ";" || value === "," 
 if (isTail === false) {
   return result;
 }
+// **类型参数段里没有变量声明**（第 666 轮）：`const g = <const T,>(x: T) => x` 里
+// 那个 `,` 处，`const T` 与 `const T = 1` 的头部**形状完全一样** ⇒ `LetBranch` 把类型参数
+// 收成了 `<Let fieldName="T" modifiers="const" />` ⇒ `TypeParameter` 缺 `ConstKeyword`
+//（`function f<const T>(x)` 那一格分隔符是 `>`、不触发，所以只有「逗号分隔的类型参数」中招）。
+// 泛型段的内容**只可能是类型参数**，这里直接挡掉。
+let holder: Token | null = unit;
+for (let hop = 0; hop < 6 && holder !== null; hop++) {
+  if (holder.constructor.name === "GenericType") {
+    return result;
+  }
+  holder = holder.Parent;
+}
 const data = unit.Data;
 // 名字是最后一个实义单元——**它右边还可能有一个明确赋值断言的 `!`**（见 `NameIndex`）。
 const nameIndex = this.NameIndex(data);

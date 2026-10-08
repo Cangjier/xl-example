@@ -69,8 +69,14 @@ const star = Get(units, nameIndex);
 if (star instanceof SymbolToken && star.Is("*")) {
   nameIndex = SkipNextTrivia(units, nameIndex);
 }
-const named = Get(units, nameIndex) instanceof Identifier;
-if (named === false && Get(units, nameIndex) instanceof Bracket === false) {
+const head = Get(units, nameIndex);
+const named = head instanceof Identifier;
+// **匿名函数的类型参数段**（第 666 轮）：`(function <T>(x: T) { return x; })(1)` 里
+// `function` 后面直接就是 `<T>`——它此刻**已经**被 `GenericTypeBranch` 收成了 `GenericType`，
+// 既不是名字也不是括号 ⇒ 原来那一句判否 ⇒ 整条 `FunctionExpression` 丢掉
+//（实测 `function` 被词法成 `Identifier`，缺 10 个节点）。
+const anonymousHead = head instanceof Bracket || (head !== null && head.constructor.name === "GenericType");
+if (named === false && anonymousHead === false) {
   return -1;
 }
 let i = named ? SkipNextTrivia(units, nameIndex) : nameIndex;

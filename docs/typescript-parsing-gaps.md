@@ -103,8 +103,15 @@
 
 ## 已知仍开着的缺口
 
-只剩一条，是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
-**不在语料里**——所以 `npm run gates` 是绿的，而它是真实存在的形状：
+第 666 轮普查（209 条片段探针 + 12 条装饰器专探）量出 11 条真缺口，收掉 9 条，**还剩 2 条**，
+都在 `tmp/` 那种一次一条的小片段里，**不在语料里**——所以 `npm run gates` 是绿的：
+
+| 形状 | 症状 |
+| --- | --- |
+| `type A = typeof a[K]` | 嵌套次序反了：产物是 `TypeQuery > IndexedAccessType`，TS 是 `IndexedAccessType > TypeQuery`。原因是 `typeof` 的操作数在 TS 语法里是 **EntityName**（只到 `a`），而本仓取的是「右边那一格单元」——`[K]` 先成形就被整个吞进去。`keyof T[]` 恰好相反（`[]` 绑得更紧），两族不能靠调规则次序一起解决 |
+| `switch (a) { /*a*/ case 1: /*b*/ break; /*c*/ }` | 体里在 `case` 前面夹注释时，那个 `case` 词没有被段头吃掉、留在了 `SwitchCase` 里（投成 `Identifier`），且 `break;` 那条 `Statement` 少一格（区间 38 vs 39） |
+
+更早的一条仍然开着（同上一节的口径）：
 
 - **`switch` 体里同一行写完一个块，后面再跟 `case` / `default`**：
   `switch (1) { case 1: { break; } default: break; }`。语句层把 `default:` 那一截并进了

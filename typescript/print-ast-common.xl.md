@@ -6023,8 +6023,50 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 
 ```ts
   const kids = projectableKids(v);
-  const brace = kids.find((k) => k.get("type") === "Bracket" && k.get("startBracket") === "{");
   const props = {};
+  // **导出属性 `with { … }` / `assert { … }`**（第 666 轮）：与导入那一侧同一条口径
+  // （第 136 轮，写在 `import.xl.md` 的 `PrintAst` 里）。产物把
+  // `[Keyword(with), Bracket({…})]` 平铺在模块说明符之后，而 TS 那边是
+  // `ExportDeclaration.assertClause`；不摘出来的话它会被下面那一句当成具名导出的括号
+  //（`export * from "m" with { … }` 里唯一的 `{` 就是它）。
+  const assertUnits: Array<any> = [];
+  const braces: Array<any> = [];
+  for (let i = 0; i < kids.length; i++) {
+    const one = kids[i];
+    if (one.get("type") === "Bracket" && one.get("startBracket") === "{") {
+      braces.push(one);
+      const word = i > 0 ? kids[i - 1] : undefined;
+      const wordText = word === undefined ? "" : textOfNode(word, ctx);
+      if (wordText !== "with" && wordText !== "assert") continue;
+      const elements: Array<any> = [];
+      for (const part of splitTopLevel(projectableKids(view(one)), ctx, ",")) {
+        const colonAt = part.findIndex(
+          (k: any) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":",
+        );
+        if (colonAt < 0) continue;
+        const nameUnit = part.slice(0, colonAt).find((k: any) => isNameNode(k));
+        if (nameUnit === undefined) continue;
+        const valueUnit = part
+          .slice(colonAt + 1)
+          .find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+        elements.push({
+          kind: "AssertEntry",
+          name: nameOf(nameUnit, ctx),
+          value: valueUnit === undefined ? undefined : projectNode(valueUnit, ctx),
+          pos: startOf(nameUnit),
+          end: valueUnit === undefined ? endOf(nameUnit) : endOf(valueUnit),
+        });
+      }
+      props.assertClause = {
+        kind: "AssertClause",
+        elements,
+        pos: startOf(word),
+        end: endOf(one),
+      };
+      assertUnits.push(word, one);
+    }
+  }
+  const brace = braces.find((k) => assertUnits.includes(k) === false);
   if (brace !== undefined) {
     const open = startOf(brace);
     const close = endOf(brace);
