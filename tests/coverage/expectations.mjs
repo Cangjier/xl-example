@@ -1287,4 +1287,117 @@ export const EXPECTATIONS = {
     why: "口径边界：`preventExtensions` 之后 `defineProperty` 本仓抛（严格模式的选择）、node 把 .ts 当 CJS 跑是松散模式所以静默——与 `freeze` 那一族同档，不算缺口",
   },
 
+  // ===== 第 678 轮：内建成员名**批量点名**量出的缺口（用例在 `cases/stdlib.mjs` 的 `r678-names-*`）=====
+  //
+  // 量法：名单不是手写的，而是在**裁判**（node）上把每个内建的成员名枚举出来，
+  // 再生成「逐名字取一次、把 `typeof` 印出来」的探针（生成器 `tmp-r678-gen.mjs`）。
+  // 于是下面每一条 `why` 里的名字清单**就是实测清单**，不是印象。
+  //
+  // **这一批一整类根子**（占了 23 条里的 12 条）：`length` / `name` / `constructor` 这三格
+  // ——JavaScript 里**每个函数对象**都自带 `length`（形参个数）与 `name`，
+  // 每个 `X.prototype` 都自带 `constructor`，而本仓的内建是**成员表**里一格一格装出来的，
+  // 这三格从来没人装过。三条独立的读数指向同一处：
+  //   · `r678-names-*-proto`（Object / Number / Date / Symbol / WeakMap / WeakSet）：`constructor` 取不到；
+  //   · `r678-names-function-proto`：`length` / `name` 取到 `undefined`；
+  //   · `r678-names-object|array|string|number|date|map|set|promise|symbol|error`：**静态函数对象自己的** `length`。
+  // 这与台账里早先那条「函数的 `length` / `name` 两个属性」是同一个根，只是那时只量了**用户写的**函数；
+  // 这一轮量的是**内建的**函数对象，而它走的不是同一条路（内建在宿主里是原生值，不是闭包）。
+  //
+  // **一条口径提醒**：`r678-names-globalthis` 量出的 97 个名字里，绝大多数是
+  // `docs/runtime-architecture.md` §15 点名的 **v1 非目标**（`BigInt` / `Reflect` / `Proxy` /
+  // `Intl` / `RegExp` / 定时器一族 / 各种 Web 平台对象）。它进矩阵是为了**看得见**
+  //（与 `Math` 那一族把非目标 `RegExp` 留在清单里同一个道理），**不是**「还差 97 格要做」。
+  "r678-names-object": {
+    expect: "differ",
+    why: "Object 的静态成员：取到 undefined（node 上是 number/object）：length / prototype",
+  },
+  "r678-names-object-proto": {
+    expect: "differ",
+    why: "Object.prototype 的成员：取到 undefined（node 上是 function/object）：__defineGetter__ / __defineSetter__ / __lookupGetter__ / __lookupSetter__ / __proto__ / toLocaleString",
+  },
+  "r678-names-array": {
+    expect: "differ",
+    why: "Array 的静态成员：取到 undefined（node 上是 number）：length",
+  },
+  "r678-names-string": {
+    expect: "differ",
+    why: "String 的静态成员：取到 undefined（node 上是 number）：length",
+  },
+  "r678-names-string-proto": {
+    expect: "differ",
+    why: "String.prototype 的成员：取到 undefined（node 上是 function/number）：anchor / big / blink / bold / fixed / fontcolor / fontsize / italics / length / link / match / matchAll / search / small / strike / sub / sup / trimLeft / trimRight",
+  },
+  "r678-names-number": {
+    expect: "differ",
+    why: "Number 的静态成员：取到 undefined（node 上是 number）：length",
+  },
+  "r678-names-number-proto": {
+    expect: "differ",
+    why: "Number.prototype 的成员：取到 undefined（node 上是 function）：toLocaleString",
+  },
+  "r678-names-math": {
+    expect: "differ",
+    why: "Math 的成员：取到 undefined（node 上是 function）：f16round / random",
+  },
+  "r678-names-json": {
+    expect: "differ",
+    why: "JSON 的成员：取到 undefined（node 上是 function）：isRawJSON / rawJSON",
+  },
+  "r678-names-date": {
+    expect: "differ",
+    why: "Date 的静态成员：取到 undefined（node 上是 number）：length",
+  },
+  "r678-names-date-proto": {
+    expect: "differ",
+    why: "Date.prototype 的成员：取到 undefined（node 上是 function）：getTimezoneOffset / getYear / setTime / setYear / toDateString / toGMTString / toLocaleDateString / toLocaleString / toLocaleTimeString / toTimeString / toUTCString",
+  },
+  "r678-names-map": {
+    expect: "differ",
+    why: "Map 的静态成员：取到 undefined（node 上是 number）：length",
+  },
+  "r678-names-set": {
+    expect: "differ",
+    why: "Set 的静态成员：取到 undefined（node 上是 number）：length",
+  },
+  "r678-names-weakmap-proto": {
+    expect: "differ",
+    why: "WeakMap.prototype 的成员：取一下直接抛（该成员没装）：constructor / delete / get / has / set",
+  },
+  "r678-names-weakset-proto": {
+    expect: "differ",
+    why: "WeakSet.prototype 的成员：取一下直接抛（该成员没装）：add / constructor / delete / has",
+  },
+  "r678-names-promise": {
+    expect: "differ",
+    why: "Promise 的静态成员：取到 undefined（node 上是 number）：length",
+  },
+  "r678-names-promise-proto": {
+    expect: "differ",
+    why: "Promise.prototype 的成员：取到 undefined（node 上是 function）：catch / finally / then",
+  },
+  "r678-names-symbol": {
+    expect: "differ",
+    why: "Symbol 的静态成员：取到 undefined（node 上是 symbol/number/object）：isConcatSpreadable / length / match / matchAll / prototype / replace / search / split / unscopables",
+  },
+  "r678-names-symbol-proto": {
+    expect: "differ",
+    why: "Symbol.prototype 的成员：取一下直接抛（该成员没装）：constructor / toString / valueOf",
+  },
+  "r678-names-error": {
+    expect: "differ",
+    why: "Error 的静态成员：取到 undefined（node 上是 function/number）：captureStackTrace / length / prepareStackTrace / stackTraceLimit",
+  },
+  "r678-names-function-proto": {
+    expect: "differ",
+    why: "Function.prototype 的成员：取到 undefined（node 上是 number/string）：length / name",
+  },
+  "r678-names-console": {
+    expect: "differ",
+    why: "console 的成员：取到 undefined（node 上是 function/boolean/object）：Console / _ignoreErrors / _stderr / _stderrErrorHandler / _stdout / _stdoutErrorHandler / _times / assert / clear / context / count / countReset / createTask / debug / dir / dirxml / error / group / groupCollapsed / groupEnd / info / profile / profileEnd / table / time / timeEnd / timeLog / timeStamp / trace / warn",
+  },
+  "r678-names-globalthis": {
+    expect: "differ",
+    why: "globalThis 自己的名字：取到 undefined（node 上是 function/object）：AbortController / AbortSignal / ArrayBuffer / AsyncDisposableStack / Atomics / BigInt / BigInt64Array / BigUint64Array / Blob / BroadcastChannel / Buffer / ByteLengthQueuingStrategy / CloseEvent / CompressionStream / CountQueuingStrategy / Crypto / CryptoKey / CustomEvent / DOMException / DataView / DecompressionStream / DisposableStack / Event / EventTarget / File / FinalizationRegistry / Float16Array / Float32Array / Float64Array / FormData / Headers / Int16Array / Int32Array / Int8Array / Intl / Iterator / MessageChannel / MessageEvent / MessagePort / Navigator / Performance / PerformanceEntry / PerformanceMark / PerformanceMeasure / PerformanceObserver / PerformanceObserverEntryList / PerformanceResourceTiming / Proxy / ReadableByteStreamController / ReadableStream / ReadableStreamBYOBReader / ReadableStreamBYOBRequest / ReadableStreamDefaultController / ReadableStreamDefaultReader / Reflect / RegExp / Request / Response / SharedArrayBuffer / SubtleCrypto / SuppressedError / TextDecoder / TextDecoderStream / TextEncoder / TextEncoderStream / TransformStream / TransformStreamDefaultController / URL / URLPattern / URLSearchParams / Uint16Array / Uint32Array / Uint8Array / Uint8ClampedArray / WeakRef / WebAssembly / WebSocket / WritableStream / WritableStreamDefaultController / WritableStreamDefaultWriter / atob / btoa / clearImmediate / clearInterval / clearTimeout / crypto / escape / eval / fetch / global / navigator / performance / process / setImmediate / setInterval / setTimeout / unescape",
+  },
+
 };

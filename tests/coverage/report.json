@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2217,
+  "matrix": 2245,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -88,7 +88,7 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 99.34,
+  "progressPercent": 98.71,
   "layers": [
     {
       "layer": "runtime",
@@ -113,12 +113,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 860,
-      "pass": 845,
+      "total": 888,
+      "pass": 850,
       "blocked": 7,
-      "differ": 8,
+      "differ": 31,
       "nodefail": 0,
-      "coverage": 98.26
+      "coverage": 95.72
     },
     {
       "layer": "e2e",
@@ -247,6 +247,144 @@
       "layer": "stdlib",
       "title": "口径边界：preventExtensions + defineProperty 在 node（松散）静默、本仓抛（严格）",
       "detail": "stdout 不同：第 2 行：node «define threw TypeError» vs tsrun «define ok 3»"
+    },
+    {
+      "id": "r678-names-object",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Object 的静态成员（缺 2 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "r678-names-object-proto",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Object.prototype 的成员（缺 6 个）",
+      "detail": "stdout 不同：第 1 行：node «object __defineGetter__ function» vs tsrun «function __defineGetter__ undefined»"
+    },
+    {
+      "id": "r678-names-array",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Array 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "r678-names-string",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：String 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "r678-names-string-proto",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：String.prototype 的成员（缺 19 个）",
+      "detail": "stdout 不同：第 1 行：node «object anchor function» vs tsrun «object anchor undefined»"
+    },
+    {
+      "id": "r678-names-number",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Number 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "r678-names-number-proto",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Number.prototype 的成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «object toLocaleString function» vs tsrun «object toLocaleString undefined»"
+    },
+    {
+      "id": "r678-names-math",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Math 的成员（缺 2 个）",
+      "detail": "stdout 不同：第 1 行：node «object f16round function» vs tsrun «object f16round undefined»"
+    },
+    {
+      "id": "r678-names-json",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：JSON 的成员（缺 2 个）",
+      "detail": "stdout 不同：第 1 行：node «object isRawJSON function» vs tsrun «object isRawJSON undefined»"
+    },
+    {
+      "id": "r678-names-date",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Date 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "r678-names-date-proto",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Date.prototype 的成员（缺 11 个）",
+      "detail": "stdout 不同：第 1 行：node «object getTimezoneOffset function» vs tsrun «object getTimezoneOffset undefined»"
+    },
+    {
+      "id": "r678-names-map",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Map 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "r678-names-set",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Set 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "r678-names-weakmap-proto",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：WeakMap.prototype 的成员（缺 5 个）",
+      "detail": "stdout 不同：第 1 行：node «object constructor function» vs tsrun «undefined constructor no»"
+    },
+    {
+      "id": "r678-names-weakset-proto",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：WeakSet.prototype 的成员（缺 4 个）",
+      "detail": "stdout 不同：第 1 行：node «object add function» vs tsrun «undefined add no»"
+    },
+    {
+      "id": "r678-names-promise",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Promise 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "r678-names-promise-proto",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Promise.prototype 的成员（缺 3 个）",
+      "detail": "stdout 不同：第 1 行：node «object catch function» vs tsrun «object catch undefined»"
+    },
+    {
+      "id": "r678-names-symbol",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Symbol 的静态成员（缺 9 个）",
+      "detail": "stdout 不同：第 1 行：node «function isConcatSpreadable symbol» vs tsrun «function isConcatSpreadable undefined»"
+    },
+    {
+      "id": "r678-names-symbol-proto",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Symbol.prototype 的成员（缺 3 个）",
+      "detail": "stdout 不同：第 1 行：node «object constructor function» vs tsrun «undefined constructor no»"
+    },
+    {
+      "id": "r678-names-error",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Error 的静态成员（缺 4 个）",
+      "detail": "stdout 不同：第 1 行：node «function captureStackTrace function» vs tsrun «function captureStackTrace undefined»"
+    },
+    {
+      "id": "r678-names-function-proto",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：Function.prototype 的成员（缺 2 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "r678-names-console",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：console 的成员（缺 30 个）",
+      "detail": "stdout 不同：第 1 行：node «object Console function» vs tsrun «object Console undefined»"
+    },
+    {
+      "id": "r678-names-globalthis",
+      "layer": "stdlib",
+      "title": "名字逐个取一次：globalThis 自己的名字（缺 97 个）",
+      "detail": "stdout 不同：第 1 行：node «object AbortController function» vs tsrun «object AbortController undefined»"
     }
   ],
   "bad": [],

@@ -119,12 +119,12 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | 层 | 条数 | 覆盖度 |
 | --- | --- | --- |
 | runtime | **595 / 595** | **100%** |
-| exec | **532 / 537** | 99.1% |
-| stdlib | **846 / 860** | 98.4% |
+| exec | **533 / 537** | 99.3% |
+| stdlib | **850 / 888** | 95.7% |
 | e2e | **225 / 225** | **100%** |
-| **合计（加权）** | **2198 / 2217** | **99.3%** |
+| **合计（加权）** | **2203 / 2245** | **98.7%** |
 
-那 19 条过不了的是**真缺口**，都登了台账（写清根子）：
+那 42 条过不了的是**真缺口**，都登了台账（写清根子）：
 对象字面量的值是一对圆括号里的二元表达式、宿主 ABI 的 `setTimeout`、
 `Date.prototype.getTimezoneOffset` 与 `toDateString` / `toTimeString` / `toUTCString` 没装、
 `String.prototype.matchAll` 没装（六条 `blocked`）、
@@ -141,7 +141,50 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 读数再掉到 99.5%，同一个道理；**第 677 轮**换了一条语料来源：不写新片段，
 而是把 **AST 语料**（`tests/parse/cases/**`，见下节）里凡是会打印的那 57 份整批量一遍，
 再按**名字逐个点名**把内建族扫一遍——两批一共收 41 条（36 + 13 条 pass）与 5 条缺口
-（1 条在下一轮就收掉了），读数 99.5% → 99.4% → **99.3%**，同一个道理。
+（1 条在下一轮就收掉了），读数 99.5% → 99.4% → **99.3%**，同一个道理；
+**第 678 轮**把「按名字逐个点名」那条路**做成生成器**（见下节）：名单不再手写，
+而是在裁判上把每个内建的成员名枚举出来再生成探针，一次收 28 条、量出 23 条缺口，
+读数 99.3% → **98.7%**——**分母再一次变诚实**，不是倒退。
+
+### 第 678 轮：**名字逐个点名**做成生成器——28 条一次进矩阵，量出 23 条缺口
+
+第 677 轮（其二）那条路是**手写**探针：想得到哪个名字就问哪个名字，所以「漏」是必然的
+（想不起来的那一族就没人问）。这一轮把它反过来：**名单由裁判枚举**。
+
+做法在 `tmp-r678-gen.mjs`（临时生成器，不进仓）：
+
+1. 在**裁判**（node）上对每个内建取 `Object.getOwnPropertyNames`——静态成员与
+   `X.prototype` 的成员各一份，于是「node 说有哪些」就是探针的名单；
+2. 过滤掉**读一下就会抛**的那些（`Map.prototype.size` 这类访问器、`Function.prototype.caller`
+   这类毒药属性）——它们会让探针自己变成 `nodefail`，量出来的东西与「装了没有」无关；
+3. 生成「逐名字取一次、把 `typeof` 印出来」的探针（**字符串键**，第 676 轮量过的那条），
+   再按实测结果剪成用例：**只留缺的那些名字**。
+
+量出来 23 条缺口，其中最值钱的是**一整类同一根子**：`length` / `name` / `constructor`
+这三格从来没人装过（12 条读数指向它）——
+`Object.length` / `Array.length` / `String.length` … 这些**静态函数对象**本该有 `length`（形参个数），
+`Function.prototype.name` 本该是函数名，每个 `X.prototype` 本该有 `constructor`。
+台账里早先那条「函数的 `length` / `name`」只量了**用户写的**函数（那是闭包那条路），
+内建走的是宿主里原生值那条路，两个根。其余独立缺口：
+
+| 用例 | 根子 |
+| --- | --- |
+| `r678-names-weakmap-proto` / `weakset-proto` | `WeakMap` / `WeakSet` 的**原型表整张没装**（`get` / `set` / `has` / `delete` / `add` 取一下直接抛）；而 `Map.prototype` / `Set.prototype` 是**全齐**的，所以这是补两张表，不是补某个成员 |
+| `r678-names-promise-proto` | `Promise.prototype` 的 `then` / `catch` / `finally` 三格没装（`Promise` 静态那一族是全齐的） |
+| `r678-names-date-proto` | `Date.prototype` 缺 11 格：`setTime` / `getYear` / `setYear` / `toGMTString` / `getTimezoneOffset` / `toDateString` / `toTimeString` / `toLocaleDateString` / `toLocaleTimeString` / `toLocaleString` / `toUTCString`——比第 676 轮点到的三格多得多 |
+| `r678-names-string-proto` | `String.prototype` 缺 19 格：`match` / `search` / `matchAll`（第 676 轮已知）+ **HTML 包装族 13 个**（`anchor` / `big` / `blink` / `bold` / `fixed` / `fontcolor` / `fontsize` / `italics` / `link` / `small` / `strike` / `sub` / `sup`）+ `trimLeft` / `trimRight` |
+| `r678-names-console` | `console` 缺 30 格（`warn` / `error` / `debug` / `info` / `dir` / `table` / `time` / `group` … 一格都没装）——而 `console.log` 是好的 |
+| `r678-names-symbol-proto` / `symbol` | `Symbol.prototype` 的 `toString` / `valueOf` / `constructor` 都没装；well-known symbol 里缺 `iterator` / `asyncIterator` / `toPrimitive` / `toStringTag` 等 |
+| `r678-names-object-proto` | `__proto__` 及 `__defineGetter__` / `__lookupSetter__` 等四个遗留访问器、`toLocaleString` |
+| `r678-names-math` / `json` / `number-proto` / `error` | 各自的零星几格：`Math.f16round`、`JSON.rawJSON` / `isRawJSON`、`Number.prototype.toLocaleString`、`Error.captureStackTrace` / `prepareStackTrace` / `stackTraceLimit` |
+
+**两处口径上的收口**：
+
+1. **`Math.random` 不许进矩阵**（矩阵的硬规矩：输出要确定）。它在量出来的缺口里，
+   所以那一格只问**名字在不在**（`typeof`），**不调它**——用例正文里写明了这一句。
+2. `r678-names-globalthis` 量出的 97 个名字**绝大多数是 v1 非目标**
+   （`docs/runtime-architecture.md` §15：`BigInt` / `Reflect` / `Proxy` / `Intl` / `RegExp` /
+   定时器一族 / 各种 Web 平台对象）。它进矩阵是为了**看得见**，**不是**「还差 97 格要做」。
 
 ### 第 677 轮（其一）：**AST 语料**当候选池——1407 份解析用例里量出 3 条
 
