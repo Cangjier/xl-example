@@ -728,6 +728,18 @@ if (kind === "FunctionExpression") {
   // **它就是这一层直接求值的那个**：有名字就落 `env_set`、没有也不吃亏。
   return true;
 }
+// **具名类表达式也是这一层直接求值的那个**（第 699 轮，**实测撞到的**）：
+// `const A = class Named { static y = Named.name }` 里 `Named` 由 `LowerClass`
+// **单独开一层环境**装（`env_new` → …静态成员… → `env_set` → `env_leave`），
+// 与具名函数表达式**同一套机关**、也**同一条前提**（这一帧必须先有环境）。
+// 原来这一支只认 `FunctionExpression` ⇒ 顶层那一帧不开环境 ⇒ 那一步的最后一句当场抛
+// `env_leave with no parent environment`（**整份文件进不来**），
+// 而 `Named` 在静态字段初始化式里也**解析不到**（读成 `undefined`，报
+// `cannot read properties of undefined`——一句话里没有一个字提到类）。
+// **与 `FunctionExpression` 同一档：撞见就够**（不看它有没有名字，理由同上）。
+if (kind === "ClassExpression") {
+  return true;
+}
 if (kind === "ArrowFunction" || kind === "FunctionDeclaration" || kind === "MethodDeclaration"
     || kind === "Constructor" || kind === "GetAccessor" || kind === "SetAccessor") {
   // **体是另一帧**：那里面自己会问一遍。

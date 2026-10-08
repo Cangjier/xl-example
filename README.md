@@ -318,7 +318,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 5241 / 5577**，加权 **95.7%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 1192/1224、runtime 749/757、stdlib 1874/1947、e2e 242/246。差的那些是**真缺口**（`blocked` 251 / `differ` 85），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 5830 / 6175**，加权 **95.8%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 1384/1415、runtime 783/796、stdlib 2237/2315、e2e 242/246。差的那些是**真缺口**（`blocked` 259 / `differ` 86），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~37s**） |
 
 ### 口径与已知缺口
@@ -511,6 +511,40 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
     （`089-function-tostring-and-name`：node `named 2 true` vs 本仓 ` 0 true`）。
     那一格**放回去了**，量出来的话写在代码注释与那一条用例的台账里：
     要收它得先把「闭包载荷那两格」提到 `protos.Function` 之前判，不是补一格属性的事。
+
+**第 699 轮**（一批原子探针 202 份新语料：强制转换与相等 71 + 类与成员形状 66 + 字符串边界 65）
+量出并收掉两处，另把两条**已经登在台账里**的缺口一起收掉：
+
+- **类字段写的是「赋值」而不是 `[[DefineOwnProperty]]`**（**静默错值**，第 128 轮就写在明处的那条已知差异）：
+  `class A { get x() { return 1; } }` + `class B extends A { x = 2 }` 之后 `new B().x`
+  本仓给 **`1`**、Node 给 **`2`**（字段被原型上的 getter 拦住 ⇒ 实例上根本没有那一格）。
+  同一根的反面是 `class A { set x(v) { this.got = v; } }` + `class B extends A { x = 2 }`：
+  JS 在实例上造一格 `x`，走赋值会去**调父类的 setter**。
+  修法是给语言层添一格内部调用 `define_data`（号 713）落在 `props.xl.md` 的
+  `CreateDataProperty` 上（第 697 轮给 `JSON.parse` 立的那一格）——
+  **实例字段、静态字段、计算键字段三条路一起换**，私有字段（`#n`）仍走 `set_hidden`
+  （它不是一个属性）。顺手把 `set_hidden` 的键也过一遍 `ToPropertyKey`：
+  `class A { [1 + 1]() { … } }` 那种**数字计算键**原来报
+  `set_hidden with a key that is not a string or a symbol`（整个类进不来，
+  台账里 `exec/classes/probe2-k14` 就是这个根，已撤）。
+- **具名类表达式那层环境没开**（**整份文件进不来**，第 332 轮那套机关只接了一半）：
+  `const A = class Named { static y = 2 }` 报 `env_leave with no parent environment`
+  ——`EnterFunctionBody` 判「这一帧要不要开环境」用的是 `HasNamedExpression`，
+  而它只认 `FunctionExpression`（类的体只是被**走进去**找具名函数），
+  于是 `LowerClass` 里那三步的最后一步当场抛。加上 `ClassExpression` 之后，
+  静态字段里的类名也**当场可读**：`class Named { static y = Named.name }` 原来读成
+  `undefined`（报 `cannot read properties of undefined`），因为 `env_set` 排在
+  **静态成员之后**——写值那一步挪到构造函数出来之后、`env_leave` 留在最后
+  （规范里内层绑定在静态元素求值之前就指向那个构造函数）。
+  两条台账（`exec/classes/probe-c09`、`exec/classes/probe2-k14`）转绿、已撤。
+
+本批另登记 4 条新缺口（`blocked` +3 / `differ` +1）：`class A extends Array { }`
+（内建构造当基类，`super(...)` 报 `heap object is not an environment`，与
+`class M extends Error {}` 同根）、`class B extends null {}`（继承目标那一趟只按名字解析）、
+派生类构造函数里 `super()` 之前读 `this` 该抛 `ReferenceError` 而本仓给 `undefined`、
+以及字符串搜索族的实参（`"abc".includes({ toString() { return "k"; } })` 该走 `ToPrimitive`，
+本仓直接拿 `JsTextUnits` ⇒ `unimplemented: ToString of this kind of value`）。
+加权 **95.7% → 95.8%**（分子 +199、分母 +202）。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 

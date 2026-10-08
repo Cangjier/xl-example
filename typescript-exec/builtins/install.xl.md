@@ -2,8 +2,8 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyCharge, PropertyKind } from "../../runtime/heap.xl.md"
-import { RoomChecker, RtToBoolean, IsCallableValue } from "../../runtime/rt.xl.md"
-import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty } from "../../runtime/props.xl.md"
+import { RoomChecker, RtToBoolean, RtToString, IsCallableValue } from "../../runtime/rt.xl.md"
+import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty, CreateDataProperty } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
@@ -269,6 +269,26 @@ return InvokeBuiltin(room, table, protos, call, id, self, args, keep, failed);
 
 **它不是全局名**：脚本里没有叫这个名字的东西，是**降级层**为了落实现
 「私有字段（`#n = 1`）要藏起来」而发的内部调用（理由写在 `InvokeObjectHelper` 那一支里）。
+
+# const DefineDataId:int = 713
+
+**`define_data(对象, 键, 值)`**（第 699 轮）——写一格自有的、**可写 + 可枚举 + 可配置**的数据属性。
+
+**它不是全局名**：脚本里没有叫这个名字的东西，是**降级层**为了落实现
+「**类字段**走 `[[DefineOwnProperty]]`」而发的内部调用。
+
+**与 `set_hidden` 不是同一件事**（虽然都绕开 `[[Set]]`）：`set_hidden` 的缺省标志位是
+**不可枚举**（它服务的是 `#私有字段` 与装库层的内部件），而类字段在 JS 里
+**是可枚举的**（`Object.keys(new C())` 看得见它）——所以这里**不借 `set_hidden` 的第四格**
+（借了就得在降级层写一个数字 7，那个数字属于 `heap.xl.md` 的标志位表，
+两边各写一遍就是两处会漂），而是**单开一个号**，标志位只在 `CreateDataProperty` 一处定死。
+
+**它接的是 `props.xl.md` 的 `CreateDataProperty`**（第 697 轮给 `JSON.parse` 立的那一格）：
+自有 + 数据属性 → 改值、标志位全开；自有 + 访问器 → **原地**换成数据属性
+（不可配置时抛 `TypeError`）；没有自有那一格 → 新开一格。
+**与 `[[Set]]` 的分界正是「原型链上一概不看」**——类字段不调原型上的 setter，
+这是 JS 的口径，也是第 699 轮量出来的那个静默错值（`class A { get x() { return 1 } }`
++ `class B extends A { x = 2 }`，本仓原来给 `1`、Node 给 `2`）。
 
 # const IterDrainId:int = 707
 
@@ -1068,6 +1088,9 @@ if (RestObjectId > highest) highest = RestObjectId;
 // **`GeneratorNextId`**（第 229 轮）：同一条纪律——漏了它的症状是
 // `capability id is out of range: 709`（第 197 / 210 轮各踩过一次）。
 if (SetHiddenId > highest) highest = SetHiddenId;
+// **`DefineDataId`**（第 699 轮）：同一条纪律——漏了它的症状是
+// `capability id is out of range: 713`（离现场很远，与上面那两格一模一样）。
+if (DefineDataId > highest) highest = DefineDataId;
 if (GeneratorNextId > highest) highest = GeneratorNextId;
 // **`return` / `throw` 两格**（第 313 轮）：同一条纪律——漏了它们的症状是
 // `capability id is out of range: 711`（**三格一起加**：只加 `next` 那一格
@@ -1247,7 +1270,7 @@ for (const slot of promiseSlots) {
 // 第 197 轮实测踩过一次：号改了、名单忘改）。
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
   TemplateConcat,
-  ObjectAssign, PowId, SetHiddenId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
+  ObjectAssign, PowId, SetHiddenId, DefineDataId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
   PromiseResolveCallbackId, PromiseRejectCallbackId, AsyncGeneratorSelf, GeneratorSelf, ArrayIteratorNext, SpeciesGetterId];
 for (let i = 0; i < helpers.length; i++) {
   // **登记失败要响亮**——**试过，又改回来了**（第 340 轮，账写在下面）。
@@ -1305,7 +1328,8 @@ host.Machine.RegisterSettleCallbacks(PromiseResolveCallbackId, PromiseRejectCall
 
 **号段 700..799 的分派**（语言内部辅助）。
 
-这一段今天有三条：`DefineAccessorId`、`SetHiddenId`（第 210 轮加的）与 `SpeciesGetterId`。
+这一段今天有**四条**：`DefineAccessorId`、`SetHiddenId`（第 210 轮加的）、
+`DefineDataId`（第 699 轮加的）与 `SpeciesGetterId`。
 
 ```ts
 if (id === SpeciesGetterId) {
@@ -1342,15 +1366,45 @@ if (id === SetHiddenId) {
   // **JS 那边符号键本来就不进 `for..in` / `Object.keys`**（它们只走字符串），
   // 所以「隐藏」这个词对符号键只是**同一件事的延续**——
   // `Object.getOwnPropertySymbols` 照样看得见它（`props.xl.md` 那条口径没变）。
-  if (args[1].Tag !== ValueTag.String && args[1].Tag !== ValueTag.Symbol) {
-    throw new Error("unimplemented: set_hidden with a key that is not a string or a symbol");
-  }
+  // **第 699 轮：数字键也收**（**实测撞到的**，与 `define_data` 那一支同一条）：
+  // 计算键交上来的是一个**值**，`class A { [1 + 1]() { return "two"; } }` 里它是数字 `2`——
+  // JS 那一步是 `ToPropertyKey`（是符号就留着、否则 `ToString`），
+  // 而这里原来只认字符串 / 符号 ⇒ 报 `set_hidden with a key that is not a string or a symbol`
+  //（**整个类进不来**，台账里那条 `exec/classes/probe2-k14` 就是这个根）。
+  // 转换与 `set_index` / `get_index` 那两处**逐字相同**（`ToPropertyKey` 只有这一条口径）。
+  const hiddenKey = args[1].Tag === ValueTag.Symbol ? args[1] : RtToString(room, table, args[1]);
   // **第四格是标志位**（第 605 轮）：给了就按它写（类 `prototype` 那一格要「不可写」，
   // 见 `props.xl.md` 的 `SetHiddenProperty` 与 `lowering.xl.md` 的 `AttachPrototype`）；
   // 不给就是老口径——**不新开能力号**：这一段是「号段 700..799 的分派」，
   // 多一个号就多一格要登记的能力表（那张表在判据那一侧本来就紧，见 `BuiltinSlots` 上面那段）。
   const hiddenFlags = args.length > 3 ? args[3].AsInt() : -1;
-  SetHiddenProperty(room, table, args[0], args[1], args[2], hiddenFlags);
+  // **`hiddenKey` 在上面按 `ToPropertyKey` 归一过**（第 699 轮）——原来这里直接递
+  // `args[1]`，于是数字键（计算名）整条抛。
+  SetHiddenProperty(room, table, args[0], hiddenKey, args[2], hiddenFlags);
+  return Value.Undefined();
+}
+// **`define_data(对象, 键, 值)`**（第 699 轮）：给**类字段**用——JS 的类字段走
+// `[[DefineOwnProperty]]`（造/改一格自有的、三个标志全开的数据属性），
+// 而这一层的对象模型原来只有「赋值」（`set_prop`）：差别落在**原型上有同名 setter
+// 或同名访问器**时（赋值会沿链调它、类字段不调）。
+// 现场（第 699 轮的原子探针 `p699k-e19`）：`class A { get x() { return 1; } }` +
+// `class B extends A { x = 2 }` ⇒ `new B().x` 本仓给 **`1`**、Node 给 **`2`**——
+// **静默错值**，而且是最难查的一种（读得出值、值还讲得通）。
+// 实现直接落在 `props.xl.md` 的 `CreateDataProperty` 上（不自写一遍标志位）。
+if (id === DefineDataId) {
+  if (args.length < 3) {
+    throw new Error("unimplemented: define_data needs (object, key, value)");
+  }
+  // **键的收法与 `set_index` 一字不差**（第 699 轮）：类字段的名字可能是
+  // `#私有名`（那一档仍走 `set_hidden`）、字符串名（`"y" = 2`）或**计算键**
+  // （`[1 + 1] = 5` / `[Symbol.iterator] = …`）——后两档都落在这里，而计算键
+  // 那一支交上来的可能是**数字**（`[1 + 1]`，JS 那一步是 `ToPropertyKey`：
+  // 是符号就留着、否则 `ToString`）。少了这一步的现场是 `probe699-k40`：
+  // `class A { [1 + 1] = 5 }` 报 `define_data with a key that is not a string or a symbol`
+  // （**整份文件进不来**），而同一个键写成 `o[1 + 1] = 5` 是好的——
+  // `set_index` 那一支本来就替我们做完了 `ToPropertyKey`（与 `SetPropertyValue` 那条注释同源）。
+  const dataKey = args[1].Tag === ValueTag.Symbol ? args[1] : RtToString(room, table, args[1]);
+  CreateDataProperty(room, table, args[0], dataKey, args[2]);
   return Value.Undefined();
 }
 throw new Error("unimplemented: object helper " + id);

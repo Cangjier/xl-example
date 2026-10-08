@@ -6,7 +6,7 @@ import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames, HasNamedExpression, ReferencesArguments } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
-import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, SetHiddenId } from "./builtins/install.xl.md"
+import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, SetHiddenId, DefineDataId } from "./builtins/install.xl.md"
 import { StringConcat, TemplateConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
 ```
 
@@ -2662,9 +2662,12 @@ item.FieldInitRan = true;
 
 **把一批实例字段的初始化式发出来**（第 128 轮）：逐条写 `this.<名字> = <初始化式>`。
 
-**为什么是 `set_prop` 而不是「新建一格属性」**：JS 的类字段走 `[[DefineOwnProperty]]`，
-而这一层的对象模型只有「赋值」这条路——两者的差别落在**原型上有同名 setter** 时
-（JS 不调它、赋值会调）。这是**写在明处的已知差异**，记在 `typescript-exec/README.md`。
+**为什么是 `define_data` 而不是「赋值」**（第 699 轮改的口径）：JS 的类字段走
+`[[DefineOwnProperty]]`——**造/改一格自有的数据属性，绝不沿原型链找 setter**；
+而这一层的对象模型里「赋值」是 `set_prop`（`[[Set]]`）。两者的差别落在
+**原型上有同名访问器**时，判据 `p699k-e19` 现场量到的就是这个：本仓给 `1`、Node 给 `2`。
+（第 128 轮起这里写的是「这是写在明处的已知差异」——第 699 轮把它收掉了，
+实现落在 `install.xl.md` 的 `DefineDataId` → `props.xl.md` 的 `CreateDataProperty`。）
 
 ```ts
 for (let i = 0; i < item.FieldDefaults.length; i++) {
@@ -2728,11 +2731,14 @@ if (nameKind === "ComputedPropertyName") {
     this.Emit(Op.LoadThis, window, -1, -1, -1);
     this.Emit(Op.Move, window + 1, computedKey, -1, -1);
     this.Emit(Op.Move, window + 2, computedValue, -1, -1);
-    this.EmitRt(RtOp.SetIndex, window, window, 3);
+    // **`set_index` 换成 `define_data`**（第 699 轮）：计算键那一支原来与
+    // 「`this[k] = v`」共用同一个算子——而那正是 `[[Set]]`（沿原型链调 setter），
+    // 类字段要的是 `[[DefineOwnProperty]]`。与下面两条普键路**同一个收尾**。
+    this.EmitDefineDataValue(window, window + 1, window + 2);
     this.Release(window);
     return;
   }
-  this.SetPropertyValue(target, computedKey, computedValue);
+  this.EmitDefineDataValue(target, computedKey, computedValue);
   return;
 }
 // **私有字段要藏起来**（第 210 轮）：JS 里 `#n` **不是一个属性**——
@@ -2766,11 +2772,16 @@ if (target < 0) {
   this.Emit(Op.LoadThis, window, -1, -1, -1);
   this.Emit(Op.Const, window + 1, key, -1, -1);
   this.Emit(Op.Move, window + 2, fieldValue, -1, -1);
-  this.EmitRt(RtOp.SetProp, window, window, 3);
+  // **`set_prop` 换成 `define_data`**（第 699 轮）：实例字段是
+  // `[[DefineOwnProperty]]`，不是赋值——差别落在原型上有同名访问器时
+  //（见 `EmitDefineData` 与 `EmitFieldDefaults` 那两段）。
+  // **键走「值」那一支**：上面那一条 `Op.Const` 已经把键**取进槽**了，
+  // 而 `EmitDefineData` 收的是**常量池下标**——两者不是一回事（读错一格就是静默取错键）。
+  this.EmitDefineDataValue(window, window + 1, window + 2);
   this.Release(window);
   return;
 }
-this.SetPropertyConst(target, key, fieldValue);
+this.EmitDefineData(target, key, fieldValue);
 ```
 
 ## method FieldInitialValue:(initializer:AstNode | null, nameHint:string)=>int
@@ -2843,6 +2854,48 @@ this.Release(window);
 ```ts
 const window = this.Reserve(4);
 this.Emit(Op.Const, window, this.IntConst(SetHiddenId), -1, -1);
+this.Emit(Op.Move, window + 1, target, -1, -1);
+this.Emit(Op.Move, window + 2, keySlot, -1, -1);
+this.Emit(Op.Move, window + 3, valueSlot, -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 4);
+this.Release(window);
+```
+
+## method EmitDefineData:(target:int, key:int, value:int)=>void
+
+**一条 `define_data(对象, 键, 值)` 内部调用**（第 699 轮）——**类字段**的写法。
+
+**为什么类字段不能走 `set_prop`**（**第 699 轮实测撞到的静默错值**）：
+JS 的类字段是 `[[DefineOwnProperty]]`（造一格**自有**的、三个标志全开的**数据**属性），
+而 `set_prop` 是 `[[Set]]`——**它会沿原型链找访问器并调它的 setter / 拦在 getter 上**。
+现场：`class A { get x() { return 1; } }` + `class B extends A { x = 2 }` ⇒
+`new B().x` 本仓给 **`1`**、Node 给 **`2`**（读得出值、值还讲得通，最难查的一种）。
+同一件事的另一面是 `class A { set x(v) { this.got = v; } }` + `class B extends A { x = 2 }`：
+JS 在 `B` 的实例上造一格 `x`（`got` 仍是 `undefined`），走 `set_prop` 会去调父类的 setter。
+
+**键的形状与 `EmitHiddenSet` 一字不差**（常量池下标）——**私有字段不走这里**
+（`#n` 在 JS 里不是一个属性，仍然 `set_hidden`），所以两种写法**各自一个号**、
+不靠第四格标志位区分（那个数字属于 `heap.xl.md`，写在这里就是第二份答案）。
+
+```ts
+const window = this.Reserve(4);
+this.Emit(Op.Const, window, this.IntConst(DefineDataId), -1, -1);
+this.Emit(Op.Move, window + 1, target, -1, -1);
+this.Emit(Op.Const, window + 2, key, -1, -1);
+this.Emit(Op.Move, window + 3, value, -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 4);
+this.Release(window);
+```
+
+## method EmitDefineDataValue:(target:int, keySlot:int, valueSlot:int)=>void
+
+**一条 `define_data(对象, 键, 值)` 内部调用、键来自槽**（第 699 轮）——计算键那一档
+（`class C { [K] = 1 }`）。与 `EmitDefineData` 的差别**只有键从哪来**，
+理由与 `EmitHiddenSetValue` 那一段**一字不差**（常量的号与槽的号不是一回事）。
+
+```ts
+const window = this.Reserve(4);
+this.Emit(Op.Const, window, this.IntConst(DefineDataId), -1, -1);
 this.Emit(Op.Move, window + 1, target, -1, -1);
 this.Emit(Op.Move, window + 2, keySlot, -1, -1);
 this.Emit(Op.Move, window + 3, valueSlot, -1, -1);
@@ -6821,8 +6874,10 @@ return false;
 顺序照 JS：**静态成员在类声明的位置、按源码顺序**求值；
 **实例字段在构造函数体之前**（参数默认值之后），派生类里**跟在 `super(...)` 之后**。
 
-**两处写在明处的差异**：① 字段写入走的是**赋值**（`set_prop`），JS 的类字段走
-`[[DefineOwnProperty]]`——原型上有同名 setter 时行为不同（JS 不调它，这里会调）；
+**两处写在明处的差异**：① ~~字段写入走的是**赋值**（`set_prop`），JS 的类字段走
+`[[DefineOwnProperty]]`——原型上有同名 setter 时行为不同（JS 不调它，这里会调）~~
+（**第 699 轮已收**：字段写入改走 `define_data`，
+见 `EmitFieldInit` / `EmitDefineData` 那两段）；
 ② `extends` 一个**表达式**时它被求值**两次**（名字那一档靠 `ResolveAccess` 重查，
 不重求值），见下面 `heritageAgain` 那一支。
 
@@ -7038,6 +7093,18 @@ const savedClassNode = this.PendingClassNode;
 this.PendingClassNode = ctorNode;
 const ctor = this.LowerFunctionValue(ctorNode, name);
 this.PendingClassNode = savedClassNode;
+// **具名类表达式：值要在这里就写进那一层环境**（第 699 轮，**实测撞到的**）。
+//
+// 原来这三步（`env_set` / `env_leave`）一起排在**最后**——可**静态字段与静态块
+// 跑在这之前**，而它们看的正是这个名字：`class Named { static y = Named.name }`
+// 按 JS 给 `"Named"`，排在最后的话 `Named` 读出来是**空的那一格**（`undefined`）⇒
+// `Named.name` 报 `cannot read properties of undefined`（一句话里没有一个字提到类）。
+// 规范那边的次序也是这个：**类的内层绑定在静态元素求值之前就已经指向那个构造函数**。
+// **前半步（写值）提前到这里，后半步（退环境）留在最后**——`env_leave` 必须在
+// 静态成员那一趟**之后**（它们可能捕获这一层，`class C { static v = () => C }`）。
+if (classSelfEnv >= 0) {
+  this.Emit(Op.EnvSet, ctor, 0, 0, -1);
+}
 if (baseName !== "" && this.Pending.length > 0) {
   this.Pending[this.Pending.length - 1].SuperName = baseName;
 }
@@ -7262,11 +7329,12 @@ for (let i = 0; i < members.length; i++) {
   this.Emit(Op.Call, closure, base, 0, selfSlot);
   this.Release(base + 1);
 }
-// **具名类表达式那三步的收尾**（第 332 轮）：先后退**降级侧**那一层
-//（外面那些语句于是再也看不到这个名字），再写值、再退出运行期那一层。
+// **具名类表达式那几步的收尾**（第 332 轮）：先后退**降级侧**那一层
+//（外面那些语句于是再也看不到这个名字），再退出运行期那一层。
+// **写值那一步已经在构造函数出来之后就做掉了**（第 699 轮，见那一段）——
+// 静态字段初始化式要用那个名字，排在最后它们就看不见。
 if (classSelfEnv >= 0) {
   this.Env.Pop();
-  this.Emit(Op.EnvSet, ctor, 0, 0, -1);
   this.Emit(Op.EnvLeave, -1, -1, -1, -1);
 }
 this.InStrict = outerInStrict;

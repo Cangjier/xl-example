@@ -266,6 +266,39 @@
    而 JS 那一步是 `CreateDataProperty`——`props.xl.md` 里那一格已经有了，
    缺的是让降级层改走它并把键的 `ToPropertyKey` 一起搬过去）。加权 **95.7%**
    （分子 +87、分母 +85）。
+   **第 699 轮全矩阵**（第十批原子探针 202 份新语料）：通过 **5630 → 5830**、
+   分母 **5973 → 6175**、`blocked 256 → 259`、`differ 87 → 86`、`bad` 仍 **0**、
+   `regressions` **0**、`moved` 0、`newlyPassing` **2**——收掉两处，另撤两条旧台账：
+   ① **类字段写的是「赋值」而不是 `[[DefineOwnProperty]]`**（**静默错值**，
+   第 128 轮就写在明处的那条已知差异）：`class A { get x() { return 1; } }` +
+   `class B extends A { x = 2 }` ⇒ `new B().x` 本仓给 **`1`**、Node 给 **`2`**
+   （字段被原型上的 getter 拦住，实例上那一格**根本没造**）；反面是父类有 setter 时
+   **去调了它**。修法：语言层添一格内部调用 `define_data`（号 713）落在
+   `props.xl.md` 的 `CreateDataProperty` 上（第 697 轮给 `JSON.parse` 立的那一格），
+   **实例 / 静态 / 计算键三条字段路一起换**；`#私有字段` 仍走 `set_hidden`
+   （JS 里它不是一个属性）。同一处顺手把 `set_hidden` 的键过一遍 `ToPropertyKey`
+   （`class A { [1 + 1]() { … } }` 的**数字计算键**原来报
+   `set_hidden with a key that is not a string or a symbol`，**整个类进不来**）——
+   台账 `exec/classes/probe2-k14` 转绿、已撤。
+   ② **具名类表达式那一层环境没开**（**整份文件进不来**）：
+   `const A = class Named { static y = 2 }` 报 `env_leave with no parent environment`——
+   `HasNamedExpression` 只认 `FunctionExpression`（类的体只是被**走进去**找具名函数），
+   而 `LowerClass` 里 `env_new` → … → `env_set` → `env_leave` 那三步的最后一步要求
+   这一帧有环境。加上 `ClassExpression` 之后，静态字段里的类名也**当场**读得到：
+   `class Named { static y = Named.name }` 原来读成 `undefined`（报
+   `cannot read properties of undefined`），因为 `env_set` 排在**静态成员之后**——
+   写值那一步挪到构造函数出来之后、`env_leave` 留在最后（规范里内层绑定在静态元素
+   求值之前就指向那个构造函数）。台账 `exec/classes/probe-c09` 转绿、已撤
+   （`newlyPassing` 就是这两条）。
+   本批另登记 4 条新缺口（`blocked` +3 / `differ` +1）：**内建构造当基类**
+   （`class A extends Array { }` 的 `super(...)` 报 `heap object is not an environment`，
+   与 `class M extends Error {}` 同根）、**`class B extends null {}`**（继承目标那一趟
+   只按名字解析 ⇒ `name is not a local or a capture: null`）、**`super()` 之前读 `this`**
+   （JS 抛 `ReferenceError`，本仓给 `undefined`）、**字符串搜索族的实参没走 `ToPrimitive`**
+   （`"abc".includes({ toString() { return "k"; } })` 报
+   `unimplemented: ToString of this kind of value`，同一族还有
+   `indexOf` / `startsWith` / `endsWith` / `replace` 的模式位）。加权 **95.75% → 95.78%**
+   （分子 +199、分母 +202）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

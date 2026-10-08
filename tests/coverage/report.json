@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 5973,
+  "total": 6175,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.74,
+  "progressPercent": 95.78,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1278,
-      "pass": 1248,
-      "blocked": 6,
-      "differ": 24,
+      "total": 1415,
+      "pass": 1384,
+      "blocked": 8,
+      "differ": 23,
       "nodefail": 0,
-      "coverage": 97.65
+      "coverage": 97.81
     },
     {
       "category": "runtime",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2250,
-      "pass": 2173,
-      "blocked": 26,
+      "total": 2315,
+      "pass": 2237,
+      "blocked": 27,
       "differ": 51,
       "nodefail": 0,
-      "coverage": 96.58
+      "coverage": 96.63
     },
     {
       "category": "e2e",
@@ -1464,6 +1464,18 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：get_proto needs an object receiver"
     },
     {
+      "id": "exec/classes/probe699-k-e41",
+      "category": "exec",
+      "title": "class A extends Array { } new A(3).length",
+      "detail": "tsrun: 还没实现的构造或语言层错误：heap object is not an environment"
+    },
+    {
+      "id": "exec/classes/probe699-k-t01",
+      "category": "exec",
+      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); class B extends null {} try { new B(); console.log(\"no-throw\"); } catch (e) { console.log(\"throw:\" + e.constructor.name); }",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: null"
+    },
+    {
       "id": "exec/expressions/probe694-m31",
       "category": "exec",
       "title": "(function () { const ns = { C: class { constructor() { this.x = 3; } } }; return new ns[\"C\"]().x; })()",
@@ -1650,6 +1662,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
+      "id": "stdlib/string/probe699-s-t08",
+      "category": "stdlib",
+      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); const o = { toString() { return \"k\"; } }; console.log(show(\"abc\".includes(o)) + \"|\" + show(\"abc\".indexOf(o)));",
+      "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
+    },
+    {
       "id": "e2e/scenarios/181-string-matchall-and-index",
       "category": "e2e",
       "title": "端到端：matchAll + lastIndex + 命名捕获组",
@@ -1682,22 +1700,16 @@
       "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «undefined:undefined»"
     },
     {
-      "id": "exec/classes/probe-c09",
-      "category": "exec",
-      "title": "(class A { static { A.y = 2; } }).y",
-      "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «throw:Error»"
-    },
-    {
-      "id": "exec/classes/probe2-k14",
-      "category": "exec",
-      "title": "(function () { class A { [1 + 1]() { return \"two\"; } } return new A()[2](); })()",
-      "detail": "stdout 不同：第 1 行：node «string:two» vs tsrun «throw:Error»"
-    },
-    {
       "id": "exec/classes/probe693b-k32",
       "category": "exec",
       "title": "(function () { class A { m() { return super.toString ? \"has\" : \"no\"; } } return new A().m(); })()",
       "detail": "stdout 不同：第 1 行：node «string:has» vs tsrun «string:no»"
+    },
+    {
+      "id": "exec/classes/probe699-k-t12",
+      "category": "exec",
+      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); class A { constructor() { this.a = 1; } } class B extends A { constructor() { let before; try { before = this.a; } catch (e) { b",
+      "detail": "stdout 不同：第 1 行：node «string:throw:ReferenceError|number:1» vs tsrun «undefined:undefined|number:1»"
     },
     {
       "id": "exec/decorators-modifiers/057-private-brand",
@@ -1991,7 +2003,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19760/src/3958.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25812/src/4095.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",

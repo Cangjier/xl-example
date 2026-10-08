@@ -77,17 +77,48 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **5987** 条（token 1416 / exec 1279 / runtime 796 / stdlib 2250 / e2e 246），判过 **5973** 条。
+语料 **6189** 条（token 1416 / exec 1416 / runtime 796 / stdlib 2315 / e2e 246），判过 **6175** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 1278 | **1248** | 6 / 24 | 另有 1 条不进分母 |
+| `exec` | 1415 | **1384** | 8 / 23 | 另有 1 条不进分母 |
 | `runtime` | 796 | **783** | 1 / 12 | |
-| `stdlib` | 2250 | **2173** | 26 / 51 | |
+| `stdlib` | 2315 | **2237** | 27 / 51 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **5973** | **5630** | 256 / 87 | 加权 **95.7%** |
+| **合计** | **6175** | **5830** | 259 / 86 | 加权 **95.8%** |
+
+**第 699 轮再加 202 条**（分母 5973 → **6175**）：第十批原子探针，三层——
+**强制转换与相等**（`==` 的整张矩阵、`ToPrimitive` 的三种 hint、`Symbol.toPrimitive`、
+`+` / 比较 / `String()` / `Number()` 各走哪一步、`parseInt` / `parseFloat` 的边界）、
+**类与成员形状**（字段与访问器的遮蔽、`super` 的两半、私有名的品牌与 `#x in o`、
+静态块的次序与 `this`、`new.target`、类表达式的名字、`extends` 的三种目标）、
+**字符串边界**（`padStart` / `repeat` / `split` 的限额、替换模式里 `$&` / `` $` `` / `$'` / `$$`、
+`indexOf` / `includes` / `startsWith` / `endsWith` 的位置档、代理对与码点、`String.raw` 与标签模板）。
+**收掉两处、并撤掉两条旧台账**：
+
+- **类字段走的是「赋值」而不是 `[[DefineOwnProperty]]`**（**静默错值**）：第 128 轮起
+  这条差异就**写在明处**（`typescript-exec/README.md` 那一句），这一轮把它收掉。
+  现场：`class A { get x() { return 1; } }` + `class B extends A { x = 2 }` ⇒
+  `new B().x` 本仓 **`1`**、Node **`2`**（字段被原型上的 getter 拦住 ⇒ 实例上什么都没有）；
+  反面是父类有 setter 时**去调了它**。修法：语言层添一格内部调用 `define_data`（号 713），
+  落在 `props.xl.md` 的 `CreateDataProperty` 上（第 697 轮给 `JSON.parse` 立的那格），
+  **实例 / 静态 / 计算键三条字段路一起换**；`#私有字段` 仍走 `set_hidden`（它不是一个属性）。
+  同一处顺手把 `set_hidden` 的键过一遍 `ToPropertyKey`（`class A { [1 + 1]() {} }`
+  原来报 `set_hidden with a key that is not a string or a symbol`，整类进不来）——
+  台账 `exec/classes/probe2-k14` 因此转绿、已撤。
+- **具名类表达式那一层环境没开**（**整份文件进不来**）：`const A = class Named { static y = 2 }`
+  报 `env_leave with no parent environment`——`HasNamedExpression` 只认 `FunctionExpression`，
+  于是 `LowerClass` 那三步的收尾在**没有父亲的环境**上抛。加上 `ClassExpression` 之后，
+  静态字段里的类名也要**当场**读得到：`class Named { static y = Named.name }` 原来读成
+  `undefined`（`env_set` 排在静态成员**之后**）——写值挪到构造函数出来之后、`env_leave` 留最后。
+  台账 `exec/classes/probe-c09` 转绿、已撤。
+
+另登记 4 条新缺口：`class A extends Array { }`（内建构造当基类，`heap object is not an environment`）、
+`class B extends null {}`（继承目标只按名字解析）、`super()` 之前读 `this` 该抛 `ReferenceError`、
+字符串搜索族的实参没走 `ToPrimitive`（`"abc".includes({ toString() { return "k"; } })`）。
+**加权 95.75% → 95.78%**（分子 +199、分母 +202）。
 
 **第 698 轮再加 85 条**（分母 5888 → **5973**）：第九批原子探针，专问**排序与比较器**、
 `ToPrimitive` 三件套（`Symbol.toPrimitive` / `valueOf` / `toString`）、属性描述符的迁移、
