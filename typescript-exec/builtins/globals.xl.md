@@ -7,8 +7,8 @@ import { HostUnitsText, NumberFromHostText, NumberToHostText, NumberToJsText } f
 import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
-import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
-import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
+import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat } from "./array.xl.md"
+import { StringFromCharCode, StringFromCodePoint, StringRaw, StringCharAt, StringCharCodeAt, StringIndexOf, StringIncludes, StringStartsWith, StringEndsWith, StringRepeat, StringPadStart, StringPadEnd, StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare, StringToUpperCase, StringToLowerCase, StringAnchor, StringFontcolor, StringFontsize, StringLink, StringSlice, StringSubstring, StringSubstr, StringReplace, StringReplaceAll, StringSplit, StringTrim, StringTrimStart, StringTrimEnd, StringToString, StringValueOf, StringIsWellFormed, StringToWellFormed, StringNormalize, StringToLocaleUpperCase, StringToLocaleLowerCase, StringBig, StringBlink, StringBold, StringFixed, StringItalics, StringSmall, StringStrike, StringSub, StringSup } from "./string.xl.md"
 import { JsTextUnits, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue } from "./text.xl.md"
 import { InspectText, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, MapEntries, MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapClear, MapForEach, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
@@ -7741,6 +7741,73 @@ if (id === MapKeys || id === MapValues || id === MapEntries || id === MapClear
   || id === SetValues || id === SetKeys || id === SetEntries || id === SetClear) {
   return 0;
 }
+// **`Array.prototype` 那一族**（第 734 轮）——**按 Node 逐个量出来的表**。
+// 它是第 733 轮那件工具铺开的第二批：`Array.prototype.push.name` 在 Node 里是 `"push"`、
+// `.length` 是 **`1`**（`(值, …)` 那一档在规范里形参只有一个），而本仓原来两格都没有。
+if (id === ArrayPush || id === ArrayUnshift || id === ArrayFill || id === ArrayFind
+  || id === ArrayFindIndex || id === ArrayFindLast || id === ArrayFindLastIndex
+  || id === ArrayLastIndexOf || id === ArrayIncludes || id === ArrayIndexOf
+  || id === ArrayJoin || id === ArraySort || id === ArrayForEach || id === ArrayFilter
+  || id === ArrayFlatMap || id === ArrayMap || id === ArrayEvery || id === ArraySome
+  || id === ArrayReduce || id === ArrayReduceRight || id === ArrayToSorted) {
+  return 1;
+}
+if (id === ArraySlice || id === ArraySplice || id === ArrayCopyWithin
+  || id === ArrayToSpliced || id === ArrayWith) {
+  return 2;
+}
+if (id === ArrayPop || id === ArrayReverse || id === ArrayShift || id === ArrayKeys
+  || id === ArrayEntries || id === ArrayValues || id === ArrayFlat
+  || id === ArrayToReversed || id === ArrayToString) {
+  return 0;
+}
+if (id === ArrayConcat) return 1;
+// **`toLocaleString` 与 `toString` 共用 `ArrayJoin` 那个号**（见 `array.xl.md` 的表），
+// 所以这里没有单独的一格可写——上面 `ArrayToString` / `ArrayJoin` 那一档已经是 `0`。
+// **`String.prototype` 那一族**（第 734 轮）——同一张表、同一条纪律。
+// 注意 `anchor` / `fontcolor` / `fontsize` / `link` 是 **1**（它们收一个实参），
+// 而 `big` / `blink` / `bold` / `fixed` / `italics` / `small` / `strike` / `sub` / `sup`
+// 是 **0**——**同一族里两种长度**，所以不能按「HTML 包装」一把抓。
+if (id === StringCharAt || id === StringCharCodeAt || id === StringIndexOf
+  || id === StringIncludes || id === StringStartsWith || id === StringEndsWith
+  || id === StringRepeat || id === StringPadStart || id === StringPadEnd
+  || id === StringAt || id === StringCodePointAt || id === StringConcatMethod
+  || id === StringLastIndexOf || id === StringLocaleCompare || id === StringAnchor
+  || id === StringFontcolor || id === StringFontsize || id === StringLink) {
+  return 1;
+}
+// **`toUpperCase` / `toLowerCase` 是 0**（**实测**：它们**不收实参**——
+// 第一版把它们归进「一格实参」那一档，`p734a-a01` 当场量出来了）。
+// **这一格是「同一族里两种长度」的又一个例子**（HTML 包装那十三格里
+// 也有 1 与 0 两种）——所以这一张表只能逐个量、不能按族一把抓。
+if (id === StringSlice || id === StringSubstring || id === StringSubstr
+  || id === StringReplace || id === StringReplaceAll || id === StringSplit) {
+  return 2;
+}
+if (id === StringTrim || id === StringTrimStart || id === StringTrimEnd
+  || id === StringToString || id === StringValueOf || id === StringIsWellFormed
+  || id === StringToWellFormed || id === StringNormalize || id === StringToLocaleUpperCase
+  || id === StringToLocaleLowerCase || id === StringBig || id === StringBlink
+  || id === StringBold || id === StringFixed || id === StringItalics
+  || id === StringSmall || id === StringStrike || id === StringSub || id === StringSup
+  || id === StringToUpperCase || id === StringToLowerCase) {
+  return 0;
+}
+// **`Number` / `Boolean` / `Object` / `Error` 那几族**（第 734 轮）——同样逐个量。
+if (id === NumberToExponential || id === NumberToFixed || id === NumberToPrecision
+  || id === NumberToStringRadix) {
+  return 1;
+}
+if (id === NumberValueOf || id === BooleanToString || id === BooleanValueOf
+  || id === ObjectToString || id === ObjectValueOf || id === ObjectToLocaleString
+  || id === ErrorToString) {
+  return 0;
+}
+if (id === ObjectLookupGetter || id === ObjectLookupSetter || id === ObjectHasOwnProperty
+  || id === ObjectIsPrototypeOf || id === ObjectPropertyIsEnumerable) {
+  return 1;
+}
+if (id === ObjectDefineGetter || id === ObjectDefineSetter) return 2;
 // **其余一律 `0`**（见上面那一段：这一档本来就是「不说」）。
 return 0;
 ```
@@ -8140,7 +8207,7 @@ SetHiddenProperty(vm.Room(), table, errorProtoValue, NameValue(table, "construct
 // 所以 `TypeError` 那边**不必再挂一份**（挂两份就是两处会漂的答案）。
 SetHiddenProperty(vm.Room(), table, errorProtoValue,
   Value.FromString(table.CreateString(Units("toString"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorToString, 0)));
+  ObjectProtoMethod(vm, table, ErrorToString, "toString"));
 // **`TypeError.prototype` / `RangeError.prototype` 上的同名三格**：
 // `name` 是各自的种类名（`e.name` 在没有自有属性时的落点），
 // `message` 给空串、`constructor` 指回各自那个构造函数。
@@ -8314,23 +8381,23 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number), NameValue(t
   numberObject);
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toFixed"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToFixed, 0)));
+  ObjectProtoMethod(vm, table, NumberToFixed, "toFixed"));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toString"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToStringRadix, 0)));
+  ObjectProtoMethod(vm, table, NumberToStringRadix, "toString"));
 // **`toPrecision` 与 `valueOf`**（第 182 轮）：与上面两个同一格原型
 // （`toPrecision` 是 `toFixed` 的同族、`valueOf` 只是「返回接收者自己」）。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toPrecision"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToPrecision, 0)));
+  ObjectProtoMethod(vm, table, NumberToPrecision, "toPrecision"));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("valueOf"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberValueOf, 0)));
+  ObjectProtoMethod(vm, table, NumberValueOf, "valueOf"));
 // **`toExponential`**（第 291 轮）：与 `toFixed` / `toPrecision` 同一格原型
 //（三格同一张表、只差缺省位数与那个宿主调用，见号那一段）。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toExponential"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToExponential, 0)));
+  ObjectProtoMethod(vm, table, NumberToExponential, "toExponential"));
 // **`String` 也是一个普通对象**（第 130 轮，与 `Array` / `Number` 同款），
 // 上面挂**静态方法** `fromCharCode`。
 // **第 145 轮它同时能被调用**：`String(x)` 与 `String.fromCharCode(65)` 一起成立
@@ -8384,11 +8451,11 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Boolean), NameValue(
   booleanObject);
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Boolean),
   Value.FromString(table.CreateString(Units("toString"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(BooleanToString, 0)));
+  ObjectProtoMethod(vm, table, BooleanToString, "toString"));
 // **`Boolean.prototype.valueOf`**（第 182 轮）：与 `Number.prototype.valueOf` 同一支实现。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Boolean),
   Value.FromString(table.CreateString(Units("valueOf"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(BooleanValueOf, 0)));
+  ObjectProtoMethod(vm, table, BooleanValueOf, "valueOf"));
 // **`Function` 与它的原型**（第 228 轮）——`FunctionCall` / `FunctionApply` / `FunctionBind`
 // 三格就挂在这里。
 //

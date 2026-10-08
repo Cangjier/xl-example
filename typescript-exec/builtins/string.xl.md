@@ -8,6 +8,7 @@ import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, IntArgOr, NormalizeRangeIndex } from "./array.xl.md"
 import { JsTextUnits, ValueUnits, UnwrapBox } from "./text.xl.md"
 import { HostUnitsText, HostTextUnits, HostNormalize } from "../../runtime/host-text.xl.md"
+import { BuiltinArity, DefineBuiltinName } from "./globals.xl.md"
 ```
 
 # namespace cangjie
@@ -1370,6 +1371,15 @@ for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   SetHiddenProperty(vm.Room(), table, proto, key, target);
+  // **名字与形参个数**（第 734 轮）——与 `array.xl.md` 那一处**同一个形状**。
+  // **`trimLeft` / `trimRight` 这两格的 `name` 是 `"trimStart"` / `"trimEnd"`**：
+  // 它们在 Node 里**就是那两个函数对象**（`trimLeft === trimStart` 为真），
+  // 所以名字跟着那个对象走——**不能**用 `entries[i]`（那会给 `"trimLeft"`，
+  // 而 Node 给 `"trimStart"`）。**别名那一档按号取名字**（号相同 ⇒ 名字相同），
+  // 正好是「同一个函数对象」这条规范的写法。
+  const namedName = (entries[i] === "trimLeft" || entries[i] === "trimRight")
+    ? (entries[i] === "trimLeft" ? "trimStart" : "trimEnd") : entries[i];
+  DefineBuiltinName(vm.Room(), table, target, namedName, BuiltinArity(ids[i]));
 }
 // **`String.prototype` 自己那个 `length`**（第 718 轮）：它是一个**空串对象**，
 // 所以 `length` 是 `0`——规范里它**不可写 / 不可枚举 / 不可配置**（`flags = 0`，

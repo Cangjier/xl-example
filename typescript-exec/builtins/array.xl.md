@@ -7,6 +7,7 @@ import { SetProperty, SetHiddenProperty, DeleteProperty, GetProperty, FindProper
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits, ToStringOfObject } from "./text.xl.md"
 import { IsArgumentsValue } from "./inspect.xl.md"
+import { BuiltinArity, DefineBuiltinName } from "./globals.xl.md"
 ```
 
 # namespace cangjie
@@ -2257,5 +2258,17 @@ for (let i = 0; i < entries.length; i++) {
   // `arr.push` / `arr[0] = …` / `Object.keys(arr)` 的行为**一个都不变**
   //（可枚举只影响 `for..in` 与 `Object.keys` 这类**枚举**口径）。
   SetHiddenProperty(vm.Room(), table, proto, key, target);
+  // **名字与形参个数**（第 734 轮）：`Array.prototype.push.name` 在 Node 里是 `"push"`、
+  // `.length` 是 `1`——而本仓原来**两格都没有**（`GetProperty` 走到宿主引用就是「找不到」）。
+  // **名字用 `entries[i]` 本身**（这一族里方法与名字一一对应），
+  // **长度按号查**（`BuiltinArity`，那张表在 `globals.xl.md` 里、按 Node 逐个量过）。
+  //
+  // **`toString` / `toLocaleString` 两格共用 `ArrayJoin` 那个号**：
+  // `Array.prototype.toString.length` 在 Node 里是 **`0`**，而 `join` 是 **`1`**——
+  // 所以**不能**按号取长度（同一个号两种长度）⇒ 这两格按**名字**写死。
+  // 判据 `p734a-a01` 量着这两格。
+  const namedArity = entries[i] === "toString" || entries[i] === "toLocaleString"
+    ? 0 : BuiltinArity(ids[i]);
+  DefineBuiltinName(vm.Room(), table, target, entries[i], namedArity);
 }
 ```

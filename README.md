@@ -1115,6 +1115,37 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7468 / 7813 → 7471 / 7814**、`blocked 258`（没涨）、`differ 87 → 85`、
   `bad` 0、`regressions` **0**，加权 **96.2%**。
 
+### 第 734 轮：`Array` / `String` / `Number` / `Boolean` / `Error` 那五族的 `name` / `length`（coverage 7471/7814 → **7472/7815**）
+
+第 733 轮做出那件工具（`DefineBuiltinName` + `BuiltinArity` + `BuiltinHostRef`）之后，
+**同一件事在别的族上还没做**——这一轮把它铺到原型方法那五族上。
+
+- **一句话**：`Array.prototype.push.name` 在 Node 里是 `"push"`、`.length` 是 `1`，
+  而本仓那两格**根本不存在**（内建方法全是宿主引用，`GetProperty` 走到它就是「找不到」）。
+  第 733 轮只接了 `Function.prototype` 四格、`Math` / `Reflect` / `Object` / `JSON`
+  与 `Object.prototype` 那一摞——**`Array` / `String` / `Number` / `Boolean` / `Error`
+  那五族这一轮才铺到**（`Object.proto` 里 `valueOf` / `toString` 那几格也一起）。
+- **量出来的表是这一轮的全部工作量**（`BuiltinArity` 从 40 行长到 130 行）：
+  **同一族里两种长度**是常态——`String.prototype.toUpperCase.length` 是 **`0`**
+  （不收实参），HTML 包装十三格里 `big` / `blink` / `bold` / `fixed` / `italics` /
+  `small` / `strike` / `sub` / `sup` 是 `0`、而 `anchor` / `fontcolor` / `fontsize` /
+  `link` 是 `1`；`Array.prototype.toString` 是 `0` 而 **`join` 是 `1`**（两格共用
+  `ArrayJoin` 那个号 ⇒ 长度**不能按号查**，那两格按名字写死）。
+  **第一版把 `toUpperCase` / `toLowerCase` 归进「一格实参」那一档**，
+  **这一轮新语料的第一行就把它量出来了**（本仓给 `1`、Node 给 `0`）。
+- **别名那一档的 `name` 跟号走**：`String.prototype.trimLeft` 在 Node 里**就是**
+  `trimStart`（同一个函数对象、`===` 为真）⇒ 它的 `.name` 是 **`"trimStart"`**，
+  不是 `"trimLeft"`——`DefineBuiltinName` 那一处按名字写死了这两个别名。
+- **`Number` / `Boolean` / `Error` 三族的挂载点也改用 `ObjectProtoMethod`**：
+  它们原来是就地 `CreateHostRef` 造的，与第 733 轮那条「取能力表里那一个有身份的」
+  同一个坑（就地造的那个句柄上挂名字，脚本读到的是另一个）。
+- **新语料 1 条**（`runtime/round734/p734a-a01`）：十四行把五族的名字与长度、
+  以及别名那一格钉住。
+- 五类 **7471 / 7814 → 7472 / 7815**、`blocked 258`（没涨）、`differ 85`（持平）、
+  `bad` 0、`regressions` **0**，加权 **96.2%**。
+  **这一轮没有收掉任何台账**——它铺的是一个**没有任何现成判据在量**的形状
+  （这正是「加宽语料」那一条的用处：先量出来，再谈收）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1127,7 +1158,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1408 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7471 / 7814**，加权 **96.2%**：token 1189/1405、exec 2120/2166、runtime 851/862、stdlib 3069/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 85），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7472 / 7815**，加权 **96.2%**：token 1189/1405、exec 2120/2166、runtime 852/863、stdlib 3069/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 85），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 
