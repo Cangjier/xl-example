@@ -118,11 +118,11 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 
 | 层 | 条数 | 覆盖度 |
 | --- | --- | --- |
-| runtime | **595 / 595** | **100%** |
-| exec | **567 / 577** | 98.3% |
-| stdlib | **852 / 888** | 95.9% |
-| e2e | **225 / 225** | **100%** |
-| **合计（加权）** | **2239 / 2285** | **98.5%** |
+| runtime | **601 / 601** | **100%** |
+| exec | **580 / 590** | 98.3% |
+| stdlib | **872 / 908** | 96.0% |
+| e2e | **231 / 231** | **100%** |
+| **合计（加权）** | **2284 / 2330** | **98.5%** |
 
 那 46 条过不了的是**真缺口**，都登了台账（写清根子）：
 对象字面量的值是一对圆括号里的二元表达式、宿主 ABI 的 `setTimeout`、
@@ -156,7 +156,42 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 **第 680 轮**同样只收不加宽，量的是**属性键那一层**：`Object.defineProperty` 与
 `Object.getOwnPropertyDescriptor` 各自的闸门原来只收字符串键，符号键当场抛
 （`r678-beh-defineproperty-symbol-key` 与 `r678-sym-getownpropertydescriptor-symbol`
-一起转正），读数 98.4% → **98.5%**。
+一起转正），读数 98.4% → **98.5%**；
+**第 681 轮**换了问法：不问「有哪些名字」、也不问「行为对不对」，而是问**参数位与边界**
+（`fromIndex` / `limit` / `radix` / 负下标 / 半值取整 / 空实参 / `$&` 那类替换模式），
+45 条一次进矩阵——**45 条全部 pass**（这一层的基本盘已经相当结实），
+而同一批里另有三条**语言层**的缺口（形参默认值的括号、标签模板的 `this`、
+弱集合的键必须是对象）**当轮就收掉了**，读数 2239/2285 → **2284/2330**（分母 +45、分子 +45）。
+
+### 第 681 轮：**参数位与边界**那一批——45 条进矩阵，另收掉三条语言层缺口
+
+这一轮 45 条候选（stdlib 20 / exec 13 / runtime 6 / e2e 6）分两类问法：
+
+- **参数位**：`indexOf` / `lastIndexOf` / `includes` 的 `fromIndex`（含负数）、
+  `fill` / `copyWithin` / `slice` 的两个下标、`split` 的 `limit`、`startsWith` / `endsWith`
+  的 `position`、`replace` 的 `$&` / `$`` / `$$` 与函数替换、`padStart` / `repeat` 的边界、
+  `toFixed` / `toPrecision` / `toExponential` / `toString(radix)`、`parseInt` 的基数、
+  `Math.round` 的半值与 `Math.min()` / `Math.max()` 的空实参、`JSON.stringify` 的
+  `space` / `replacer` / `toJSON`、`Map.forEach` 的三格实参与 `SameValueZero` 键。
+- **边界**：负下标（`at` / `with` / `slice`）、`charCodeAt` 越界给 `NaN`、
+  `repeat(-1)` 抛 `RangeError`、`delete` 留下的洞在 `join` / `in` / `hasOwnProperty`
+  上的差别、`let` 与 `var` 在循环闭包上的分家、`switch` 的 `default` 在中间、
+  `arguments.length`、宽松相等的几条静默转换。
+
+**45 条全部 pass**——这是有用的读数：**这一层不是「少装了什么」，而是「装得很齐」**。
+同批量出的三条缺口另有根子，都在**语言层**（不在参数位）：
+
+| 用例 | 根子 | 修法 |
+| --- | --- | --- |
+| `r681-ex-default-param` | `b: number = (1)` / `= (calls++, a + 1)` 的默认值**带一对括号**时，投影把那一格投成**未映射的 `Bracket`**（`ctx.Project` 只认有映射的标签）⇒ 降级层报 `unimplemented: expression Bracket`，**整份文件进不来**。同一根还在**枚举成员**上：`enum E { A = (1) }` | 两处改成「`(` 开头的 `Bracket` 走 `ctx.ParenthesizedOf`」（值位括号的映射本来就有）；解构默认值那一处走的是 `ctx.Expression`，**早就是对的**——三处现在同一口径 |
+| `r681-ex-tagged-this` | 标签模板 `` o.tag`…` `` 在 JS 里是**方法调用**，而这一支一律 `EmitCallArray(…, -1)`（`this` 是 `undefined`）⇒ `this === o` 给 `false`（**静默错值**：标签照跑） | `LowerTaggedTemplate` 里 `tag` 是 `PropertyAccessExpression` 时先算接收者、`get_prop` 取方法、把接收者当 `self` 递给 `call_array`（与 `LowerCall` 的 `o.m(…)` 同一口径）。**只认属性访问**：`o[k]` 那一支没做，记在明处 |
+| `r681-arg-collection-forms` | `new WeakMap().set(1, 2)` 在 JS 里抛 `TypeError`，本仓静默收下（第 295 轮「拿 `Map` 顶上」那笔账里的差异） | `WeakMap` / `WeakSet` 从「直接指向 `MapCtor` / `SetCtor`」改成**各自的号**（`663` / `664`），构造那一刻在实例上写一格隐藏内部件 `__w`，`set` / `add` 读它并判 `IsObject()`；`get` / `has` / `delete` **照旧不抛**（JS 对非对象键给 `undefined` / `false`）。**实现没有第二份** |
+
+**一条经验**：这一轮的产出密度（45 条 0 缺口）与第 678 轮（28 条 23 缺口）正好相反——
+**名字那一层是没装修、参数位这一层是已经装修好了**。真正值钱的是那三条**语言层**的：
+它们都不在「内建成员表」上，而在**投影的一格**与**降级的一支**上，
+形状是「**排版习惯把某一格变成了未映射的标签**」或「**某一支忘了递 `this`**」——
+探针要问的是**写法**（加括号、挂方法、用弱集合），不是名字。
 
 ### 第 680 轮：量**属性键那一层**——符号键的两个闸门（coverage 2237/2285 -> **2239/2285**）
 

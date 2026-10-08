@@ -5345,4 +5345,69 @@ main();
     src: "\nconst s = Symbol(\"m\");\nclass C {\n  [s](): string {\n    return \"sym-method\";\n  }\n  [\"plain\" + \"\"](): string {\n    return \"plain-method\";\n  }\n}\nconst c = new C();\nconsole.log((c as any)[s](), (c as any).plain());\nconsole.log(Object.getOwnPropertyNames(C.prototype).join(\",\"));\n",
   },
 
+  {
+    id: "r681-ex-optional-call",
+    title: "可选调用：`o?.m?.()` 与缺成员",
+    src: "const o: any = { m() { return 1; } };\ntry { console.log(\"call\", String(o?.m?.())); } catch (e) { console.log(\"call\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"missing\", String(o?.nope?.())); } catch (e) { console.log(\"missing\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"index\", String(typeof o?.m?.call)); } catch (e) { console.log(\"index\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"call-through\", String(o?.m?.call(null))); } catch (e) { console.log(\"call-through\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"chain-after-null\", String((() => { const n: any = null; return String(n?.a?.b); })())); } catch (e) { console.log(\"chain-after-null\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-logical-assign",
+    title: "逻辑赋值与幂赋值：`??=` / `||=` / `&&=` / `**=`",
+    src: "let a: any = null; a ??= 5;\nlet b: any = 0; b ||= 7;\nlet c: any = 1; c &&= 9;\nlet d: any = 2; d **= 3;\ntry { console.log(\"nullish\", String(a)); } catch (e) { console.log(\"nullish\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"or\", String(b)); } catch (e) { console.log(\"or\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"and\", String(c)); } catch (e) { console.log(\"and\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"pow\", String(d)); } catch (e) { console.log(\"pow\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-default-param",
+    title: "默认形参：后一个引用前一个，且按调用求值",
+    src: "let calls = 0;\nfunction f(a: number, b: number = (calls++, a + 1)) { return a + ':' + b; }\ntry { console.log(\"first\", String(f(1))); } catch (e) { console.log(\"first\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"calls\", String(calls)); } catch (e) { console.log(\"calls\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"second\", String(f(2, 5))); } catch (e) { console.log(\"second\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"calls-after\", String(calls)); } catch (e) { console.log(\"calls-after\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-loop-let-closure",
+    title: "let 循环变量：每次迭代一个绑定",
+    src: "const fs: any = [];\nfor (let i = 0; i < 3; i++) fs.push(() => i);\nconst vs: any = [];\nfor (var j = 0; j < 3; j++) vs.push(() => j);\ntry { console.log(\"let\", String(fs.map((g: any) => g()).join(','))); } catch (e) { console.log(\"let\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"var\", String(vs.map((g: any) => g()).join(','))); } catch (e) { console.log(\"var\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-destructure-forof",
+    title: "for-of 的解构与剩余",
+    src: "const rows: any = [{ k: 1, v: 'a' }, { k: 2, v: 'b' }];\nlet out = '';\nfor (const { k, v } of rows) out += k + v;\ntry { console.log(\"forof\", String(out)); } catch (e) { console.log(\"forof\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"spread-new\", String(String([...new Set([1, 2, 2, 3])]))); } catch (e) { console.log(\"spread-new\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"spread-max\", String(Math.max(...[1, 5, 3]))); } catch (e) { console.log(\"spread-max\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"assign-pattern\", String((() => { const [x, ...rest]: any = [1, 2, 3]; const { a, ...others }: any = { a: 1, b: 2 }; return x + '|' + String(rest) + '|' + a + '|' + String(Object.keys(others)); })())); } catch (e) { console.log(\"assign-pattern\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-delete-hole",
+    title: "delete 数组元素与 in 走原型链",
+    src: "const arr: any = [1, 2, 3];\ndelete arr[1];\ntry { console.log(\"length\", String(arr.length)); } catch (e) { console.log(\"length\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"join\", String(arr.join('-'))); } catch (e) { console.log(\"join\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"has-1\", String(1 in arr)); } catch (e) { console.log(\"has-1\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"in-proto\", String('toString' in {})); } catch (e) { console.log(\"in-proto\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"hasown\", String(Object.prototype.hasOwnProperty.call(arr, 1))); } catch (e) { console.log(\"hasown\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-switch-default-middle",
+    title: "switch：default 在中间且落空到下一个 case",
+    src: "function w(x: number): string { let s = ''; switch (x) { case 1: s += 'one'; default: s += 'def'; case 2: s += 'two'; break; case 3: s += 'three'; } return s; }\ntry { console.log(\"case1\", String(w(1))); } catch (e) { console.log(\"case1\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"case2\", String(w(2))); } catch (e) { console.log(\"case2\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"case9\", String(w(9))); } catch (e) { console.log(\"case9\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"case3\", String(w(3))); } catch (e) { console.log(\"case3\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-coercion",
+    title: "宽松相等与算术转换",
+    src: "try { console.log(\"num-str\", String(1 == '1')); } catch (e) { console.log(\"num-str\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"null-undef\", String(null == undefined)); } catch (e) { console.log(\"null-undef\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"nan\", String(NaN === NaN)); } catch (e) { console.log(\"nan\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"arr-num\", String([1] == 1)); } catch (e) { console.log(\"arr-num\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"plus-arr\", String(String([] + []))); } catch (e) { console.log(\"plus-arr\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"plus-obj\", String(String({} + []))); } catch (e) { console.log(\"plus-obj\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"cmp-str-num\", String(['10' < '9', '10' < 9].join(','))); } catch (e) { console.log(\"cmp-str-num\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"unary-plus\", String([+true, +'', +' 12 ', +null].join(','))); } catch (e) { console.log(\"unary-plus\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-hoisting-arguments",
+    title: "var 提升与函数提升、arguments 的长度",
+    src: "function g(): string { try { return String(x); } catch (e: any) { return 'TDZ'; } }\nfunction h(a: number, b: number): string { return a + ':' + arguments.length; }\nfunction later() { return 1; }\nvar x: any = 1;\ntry { console.log(\"var-before\", String(g())); } catch (e) { console.log(\"var-before\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"fn-hoist\", String(later())); } catch (e) { console.log(\"fn-hoist\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"arguments\", String(h(1, 2))); } catch (e) { console.log(\"arguments\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-getter-spread",
+    title: "展开与 Object.assign 对访问器求值一次",
+    src: "let reads = 0;\nconst src: any = { get a() { reads++; return 1; }, set a(v: any) { reads += 100; } };\nconst copy: any = { ...src, b: 2 };\ntry { console.log(\"reads\", String(reads)); } catch (e) { console.log(\"reads\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"copy-own-a\", String(Object.getOwnPropertyDescriptor(copy, 'a').get === undefined)); } catch (e) { console.log(\"copy-own-a\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"copy-value\", String(copy.a)); } catch (e) { console.log(\"copy-value\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"assign\", String((() => { let n = 0; const s: any = { get x() { n++; return 5; } }; const t: any = {}; Object.assign(t, s); return n + ':' + t.x + ':' + String(Object.getOwnPropertyDescriptor(t, 'x').get === undefined); })())); } catch (e) { console.log(\"assign\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-instanceof-chain",
+    title: "instanceof 的原型链与 Symbol.hasInstance 无关的一半",
+    src: "class A {} class B extends A {} class C extends B {}\nconst o: any = new C();\ntry { console.log(\"A\", String(o instanceof A)); } catch (e) { console.log(\"A\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"B\", String(o instanceof B)); } catch (e) { console.log(\"B\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"fn\", String((() => { function F() {} const f: any = new (F as any)(); return f instanceof F; })())); } catch (e) { console.log(\"fn\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"arrow\", String((() => { try { return String((() => {}) instanceof Function); } catch (e: any) { return 'ERR ' + String(e.name); } })())); } catch (e) { console.log(\"arrow\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-tagged-this",
+    title: "标签模板的 this 与成员方法上的调用",
+    src: "const o: any = { tag(strings: any, ...vals: any) { return String(this === o) + ':' + strings.raw.length + ':' + vals.join(','); } };\ntry { console.log(\"this\", String(o.tag`a${1}b${2}c`)); } catch (e) { console.log(\"this\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"raw-escapes\", String((() => { const tag: any = (s: any) => s.raw[0]; return tag`\\n`; })())); } catch (e) { console.log(\"raw-escapes\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"cooked\", String((() => { const tag: any = (s: any) => String(s[0] === '\\n'); return tag`\\n`; })())); } catch (e) { console.log(\"cooked\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-ex-try-finally-value",
+    title: "try / finally 的返回值与 finally 里的 return",
+    src: "function a(): string { try { return 'try'; } finally { } }\nfunction b(): string { try { return 'try'; } finally { return 'fin'; } }\nfunction d(): string { let s = ''; try { s += 't'; throw new Error('x'); } catch { s += 'c'; } finally { s += 'f'; } return s; }\ntry { console.log(\"plain\", String(a())); } catch (e) { console.log(\"plain\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"override\", String(b())); } catch (e) { console.log(\"override\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"order\", String(d())); } catch (e) { console.log(\"order\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"opt-catch\", String((() => { try { throw 1; } catch { return 'caught'; } })())); } catch (e) { console.log(\"opt-catch\", \"ERR\", String(e && e.name)); }",
+  },
 ];

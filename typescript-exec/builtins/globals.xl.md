@@ -10,8 +10,8 @@ import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, Array
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
 import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
-import { MapCtor, MapGroupBy, NameValue, ReadOwn } from "./map.xl.md"
-import { SetCtor } from "./set.xl.md"
+import { MapCtor, MapGroupBy, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
+import { SetCtor, WeakSetCtor } from "./set.xl.md"
 import { BuildPromise, PromiseQueueMicrotask } from "./promise.xl.md"
 ```
 
@@ -6132,20 +6132,23 @@ vm.RegisterConstructorProto(EvalErrorCtor, protos.EvalError);
 // 而它们拖着的两条判据只量 `set` / `get` / `has` / `delete` / `add`——
 // 拿 `Map` / `Set` 顶上，那些格**一格不差**。
 //
-// **两处已知差异写在明处**（都不能装作没有）：
-// · **键必须是对象**那一条**没有单独判**（`new WeakMap().set(1, 2)` 在本仓是通的、
-//   在 JS 里抛 `TypeError`）；
-// · **`instanceof WeakMap` 是假的**（原型还是 `Map` 那一个）。
-// **为什么不给它们各造一个原型**：方法挂在**实例**上（`map.xl.md` 的 `InstallMapMethods`），
-// 所以「用哪个原型」只影响 `instanceof` 那一格——为它复制一整套安装代码不成比例
-//（判据也没有量它），记在台账里。
+// **第 681 轮起走各自的两个号**（`WeakMapCtor = 663` / `WeakSetCtor = 664`）：
+// 「**键必须是对象**」那一条原来**没有单独判**（`new WeakMap().set(1, 2)` 在本仓是通的、
+// 在 JS 里抛 `TypeError`），而用量出来的缺口把它补上了——
+// 两个新号是 `MapCtor` / `SetCtor` 的**同一份实现**，只多写一格内部件 `__w`
+//（构造那一刻的事实来源），`set` / `add` 各自读一次。**实现没有第二份**。
+//
+// **仍然记着的一处差异**：`instanceof WeakMap` 是假的（原型还是 `Map` 那一个）。
+// **为什么不给它们各造一个原型**：方法挂在**原型**上（`map.xl.md` 的 `InstallMapMethods`），
+// 而「用哪个原型」只影响 `instanceof` 那一格——为它复制一整套安装代码不成比例
+//（判据也没有量它），继续记在台账里。
 const weakMapKey = Value.FromString(table.CreateString(Units("WeakMap")));
 const weakMapObject = NewPlainObject(vm.Room(), table, protos);
-table.AttachCallable(weakMapObject.Ref, MapCtor, 0);
+table.AttachCallable(weakMapObject.Ref, WeakMapCtor, 0);
 SetProperty(vm.Room(), NeverCall, table, globals, weakMapKey, weakMapObject);
 const weakSetKey = Value.FromString(table.CreateString(Units("WeakSet")));
 const weakSetObject = NewPlainObject(vm.Room(), table, protos);
-table.AttachCallable(weakSetObject.Ref, SetCtor, 0);
+table.AttachCallable(weakSetObject.Ref, WeakSetCtor, 0);
 SetProperty(vm.Room(), NeverCall, table, globals, weakSetKey, weakSetObject);
 // **`Map` / `Set` 两个号登记**（第 138 轮）：它们是**宿主引用值**（与 `Error` 同款），
 // 只能走登记表。**`Date` 不走这条路**——它的全局值是**普通对象**

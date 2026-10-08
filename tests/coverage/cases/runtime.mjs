@@ -6140,4 +6140,34 @@ console.log(s2.join(","));
     title: "Symbol.dispose / Symbol.asyncDispose 与符号键方法",
     src: "\nconsole.log(typeof Symbol.dispose, typeof Symbol.asyncDispose);\nconsole.log(Symbol.dispose === Symbol.dispose, Symbol.dispose.description);\nconst holder: any = { [Symbol.dispose]() { console.log(\"disposed\"); } };\nholder[Symbol.dispose]();\n",
   },
+  {
+    id: "r681-rt-deep-closure",
+    title: "闭包链：四层捕获各改各的",
+    src: "function outer() { let a = 1; return function () { let b = 2; return function () { let c = 3; return function () { return a + b + c; }; }; }; }\ntry { console.log(\"deep\", String(outer()()()())); } catch (e) { console.log(\"deep\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-rt-recursion-array",
+    title: "递归 + 数组：fib(18) 与 map 链",
+    src: "function fib(n: number): number { return n < 2 ? n : fib(n - 1) + fib(n - 2); }\ntry { console.log(\"fib\", String(fib(18))); } catch (e) { console.log(\"fib\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"chain\", String(Array.from({ length: 5 }, (v, i) => i).map((x) => x * 2).filter((x) => x % 4 === 0).join(','))); } catch (e) { console.log(\"chain\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-rt-proto-dynamic",
+    title: "运行期加在原型上的方法对既有实例可见",
+    src: "class K { n = 1; }\nconst k: any = new K();\n(K.prototype as any).twice = function () { return this.n * 2; };\ntry { console.log(\"late-proto\", String(k.twice())); } catch (e) { console.log(\"late-proto\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"own\", String(Object.prototype.hasOwnProperty.call(k, 'twice'))); } catch (e) { console.log(\"own\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-rt-throw-nonerror",
+    title: "抛非 Error 值穿过帧与 catch 绑定",
+    src: "function t() { throw { code: 42 }; }\ntry { (t as any)(); } catch (e: any) { console.log('caught', e.code); }\ntry { console.log(\"rethrow\", String((() => { try { try { throw 's'; } catch (e) { throw e + '!'; } } catch (e) { return String(e); } })())); } catch (e) { console.log(\"rethrow\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-rt-large-loop",
+    title: "大循环里的数值与字符串累积（GC 压力）",
+    src: "let sum = 0;\nfor (let i = 0; i < 20000; i++) sum += i % 7;\ntry { console.log(\"sum\", String(sum)); } catch (e) { console.log(\"sum\", \"ERR\", String(e && e.name)); }\nlet s = ''; for (let i = 0; i < 200; i++) s += (i % 10);\ntry { console.log(\"strlen\", String(s.length)); } catch (e) { console.log(\"strlen\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r681-rt-super-chain",
+    title: "super 方法链与访问器组合",
+    src: "class Base { get v(): number { return 1; } m(): number { return this.v; } }\nclass Mid extends Base { get v(): number { return super.v + 10; } }\nclass Top extends Mid { m(): number { return super.m() + 100; } }\ntry { console.log(\"top\", String(new Top().m())); } catch (e) { console.log(\"top\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"mid\", String(new Mid().m())); } catch (e) { console.log(\"mid\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"super-get\", String(new Mid().v)); } catch (e) { console.log(\"super-get\", \"ERR\", String(e && e.name)); }",
+  },
 ];

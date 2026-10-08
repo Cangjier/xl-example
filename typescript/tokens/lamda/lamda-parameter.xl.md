@@ -87,7 +87,20 @@ TS 那边是一个文本就是那个词的 `Identifier`（真实语料 `Paramete
     props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
   }
   const eq = body.findIndex((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=");
-  if (eq >= 0 && eq + 1 < body.length) props.initializer = ctx.Project(body[eq + 1]);
+  if (eq >= 0 && eq + 1 < body.length) {
+    // **默认值可能就是一对其中的括号**（第 681 轮，**实测撞到的**）：`b = (1)` /
+    // `b = (calls++, a + 1)` 的产物里那一格是 `Bracket`，而 `ctx.Project` 只认
+    // 有映射的标签 ⇒ 投出一个**未映射的 `Bracket`**，降级层当场报
+    // `unimplemented: expression Bracket`（**整份文件进不来**，而「默认值加个括号」
+    // 是排版习惯）。值位括号的映射本来就有（`ctx.ParenthesizedOf`），只是这一格
+    // 走的是「取一格当节点」那条路——与解构默认值那一处**必须同一口径**
+    // （`projectBindingElement` 走的是 `ctx.Expression`，它内部认括号）。
+    const init = body[eq + 1];
+    props.initializer =
+      init.get("type") === "Bracket" && init.get("startBracket") === "("
+        ? ctx.ParenthesizedOf(init)
+        : ctx.Project(init);
+  }
   if (dots !== undefined) {
     props.dotDotDotToken = {
       kind: "DotDotDotToken",

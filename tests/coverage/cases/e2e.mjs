@@ -2808,4 +2808,34 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     title: "完整程序：文本报表（split / Number / toFixed / padEnd）",
     src: "\nconst rows = [\"alice:30\", \"bob:25\", \"carol:35\"];\nconst names: string[] = [];\nlet total = 0;\nfor (const row of rows) {\n  const parts = row.split(\":\");\n  const n = Number(parts[1]);\n  if (!Number.isFinite(n)) continue;\n  names.push(parts[0].toUpperCase());\n  total += n;\n}\nconst avg = (total / rows.length).toFixed(2);\nconsole.log(names.join(\",\"), total, avg.padEnd(6, \"0\"));\n",
   },
+  {
+    id: "r681-e2e-csv-report",
+    title: "CSV 报表：split / padStart / sort / join",
+    src: "const rows = ['b,2', 'a,10', 'c,1'];\nconst parsed = rows.map((r) => { const p = r.split(','); return { name: p[0], n: Number(p[1]) }; });\nparsed.sort((x, y) => y.n - x.n || (x.name < y.name ? -1 : 1));\nfor (const r of parsed) console.log(r.name.padStart(3, '.') + ' ' + String(r.n).padStart(3, '0'));\nconsole.log(parsed.map((r) => r.name).join('-'));",
+  },
+  {
+    id: "r681-e2e-lru",
+    title: "LRU：Map 的重插顺序与容量淘汰",
+    src: "class Lru { m: Map<string, number> = new Map(); cap: number; constructor(cap: number) { this.cap = cap; } get(k: string): number { if (!this.m.has(k)) return -1; const v: any = this.m.get(k); this.m.delete(k); this.m.set(k, v); return v; } put(k: string, v: number): void { if (this.m.has(k)) this.m.delete(k); this.m.set(k, v); if (this.m.size > this.cap) this.m.delete(String(this.m.keys().next().value)); } }\nconst c = new Lru(2);\nc.put('a', 1); c.put('b', 2); console.log(c.get('a')); c.put('c', 3);\nconsole.log(c.get('b'), [...c.m.keys()].join(','));",
+  },
+  {
+    id: "r681-e2e-inventory",
+    title: "库存汇总：reduce / Object.entries / 数值格式化",
+    src: "const items = [['pen', 3, 1.5], ['book', 1, 12], ['pen', 2, 1.5], ['bag', 5, 0.25]] as any;\nconst totals: any = {};\nfor (const [name, qty, price] of items) totals[name] = (totals[name] ?? 0) + qty * price;\nconst lines = Object.entries(totals).map(([k, v]: any) => k + '=' + Number(v).toFixed(2));\nconsole.log(lines.sort().join(' '));",
+  },
+  {
+    id: "r681-e2e-state-machine",
+    title: "状态机：switch + 标签 + 对象表",
+    src: "const table: any = { idle: { go: 'run' }, run: { stop: 'idle', tick: 'run' } };\nlet state = 'idle';\nconst out: string[] = [];\nfor (const ev of ['go', 'tick', 'stop', 'nope']) { const next = (table[state] || {})[ev]; if (next === undefined) { out.push(state + '!'); continue; } state = next; out.push(state); }\nconsole.log(out.join(' '));",
+  },
+  {
+    id: "r681-e2e-json-config",
+    title: "配置合并：JSON 往返 + 深合并 + 数组去重",
+    src: "const base = JSON.parse('{\"a\":1,\"b\":{\"c\":2},\"list\":[1,2]}');\nconst over = JSON.parse('{\"b\":{\"d\":3},\"list\":[2,3]}');\nfunction merge(x: any, y: any): any { const out: any = { ...x }; for (const k of Object.keys(y)) { const v = y[k]; out[k] = (v && typeof v === 'object' && !Array.isArray(v)) ? merge(x[k] ?? {}, v) : v; } return out; }\nconst m = merge(base, over);\nm.list = [...new Set([...base.list, ...over.list])];\nconsole.log(JSON.stringify(m));",
+  },
+  {
+    id: "r681-e2e-text-stats",
+    title: "文本统计：正则无关的字符族与排序",
+    src: "const text = 'the Quick brown fox';\nconst freq: any = {};\nfor (const ch of text.toLowerCase()) { if (ch === ' ') continue; freq[ch] = (freq[ch] ?? 0) + 1; }\nconst top = Object.entries(freq).sort((a: any, b: any) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3);\nconsole.log(top.map((e: any) => e[0] + e[1]).join(','));\nconsole.log(text.split(' ').length, text.slice(0, 3), text.toUpperCase().includes('FOX'));",
+  },
 ];

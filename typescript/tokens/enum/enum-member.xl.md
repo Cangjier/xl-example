@@ -122,7 +122,17 @@ member.Process(context, source);
   const nameNode = kids.find((k: any) => k.get("type") !== "SymbolToken") ?? null;
   const props: any = {};
   if (nameNode !== null) props.name = ctx.Project(nameNode);
-  if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = ctx.Project(kids[eqIndex + 1]);
+  if (eqIndex >= 0 && eqIndex + 1 < kids.length) {
+    // **初始化式可能就是一对其中的括号**（第 681 轮，与形参默认值**同一个根**、
+    // **同一次实测**）：`A = (1)` 那一格是 `Bracket`，`ctx.Project` 只认有映射的标签
+    // ⇒ 未映射的 `Bracket` ⇒ 降级层报 `unimplemented: expression Bracket`
+    //（**整份文件进不来**）。值位括号的映射走 `ctx.ParenthesizedOf`。
+    const init = kids[eqIndex + 1];
+    props.initializer =
+      init.get("type") === "Bracket" && init.get("startBracket") === "("
+        ? ctx.ParenthesizedOf(init)
+        : ctx.Project(init);
+  }
   return ctx.NodeHead("EnumMember", props, v);
 ```
 

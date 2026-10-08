@@ -8249,8 +8249,30 @@ return raw;
 **同一个调用点共用一个段落数组那条身份约定**（JS 要求每次求值拿到**同一个**数组对象）
 这里也还没做：每次求值新建一个（对绝大多数 tag 无影响，对拿它当缓存键的库有影响）。
 
+**`this` 那一格**（第 681 轮，**实测撞到的**）：`` o.tag`…` `` 在 JS 里是**一次方法调用**
+（`this` 是 `o`），而这一支原来一律走 `EmitCallArray(…, -1)`（`this` 是 `undefined`）——
+症状是标签函数里的 `this === o` 给 `false`（**静默错值**：标签照跑、只有 `this` 是空的）。
+判据是第 681 轮的 `r681-ex-tagged-this`。修法与 `LowerCall` 的
+`o.m(…)` 那一支**同一口径**：接收者先算成值、`get_prop` 取方法、
+再把接收者当 `self` 递给 `call_array`（`EmitCallArray` 本来就有这一格）。
+**只认 `PropertyAccessExpression`**：`o[k]` 那一支走的是 `get_index`（多做一次
+`ToPropertyKey`），而标签模板上的计算成员在真实 `.ts` 里没见过——
+不做的那一格**记在这里**，不假装它已经做了。
+
 ```ts
-const callee = this.LowerExpression(Child(node, "tag"));
+const tag = Child(node, "tag");
+const tagKind = NodeKind(tag);
+let callee = -1;
+let self = -1;
+if (tagKind === "PropertyAccessExpression") {
+  const receiver = this.LowerExpression(Child(tag, "expression"));
+  const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(Child(tag, "name"))));
+  callee = this.RtCall2(RtOp.GetProp, receiver, key);
+  self = this.Reserve(1);
+  this.Emit(Op.Move, self, receiver, -1, -1);
+} else {
+  callee = this.LowerExpression(tag);
+}
 const template = Child(node, "template");
 const args = this.Reserve(1);
 this.EmitRt(RtOp.NewArray, args, args, 0);
@@ -8311,7 +8333,7 @@ for (let i = 0; i < substitutions.length; i++) {
 // 临时槽（`args` / `parts` / 各段落常量）用完就还；去掉只是让这一帧的槽数白涨，不影响语义。
 // **它现在没有判据量着**——这一点如实记在这里，不假装它有。
 this.Release(args + 1);
-const result = this.EmitCallArray(callee, args, -1);
+const result = this.EmitCallArray(callee, args, self);
 return result;
 ```
 

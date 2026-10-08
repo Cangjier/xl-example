@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2285,
+  "matrix": 2330,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -88,13 +88,13 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 98.47,
+  "progressPercent": 98.5,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 595,
-      "pass": 595,
+      "total": 601,
+      "pass": 601,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -103,28 +103,28 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 577,
-      "pass": 567,
+      "total": 590,
+      "pass": 580,
       "blocked": 2,
       "differ": 8,
       "nodefail": 0,
-      "coverage": 98.27
+      "coverage": 98.31
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 888,
-      "pass": 852,
+      "total": 908,
+      "pass": 872,
       "blocked": 7,
       "differ": 29,
       "nodefail": 0,
-      "coverage": 95.95
+      "coverage": 96.04
     },
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 225,
-      "pass": 225,
+      "total": 231,
+      "pass": 231,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,

@@ -94,6 +94,13 @@ import { Vm } from "../../runtime/vm.xl.md"
 它是 `InstallSetPrototype` 自己挂上去的一个宿主引用。号落在 `661`（`MapSizeGet`）后面，
 理由与 `Map.groupBy` 那一段一字不差（`611..659` 那一段满了）。
 
+# const WeakSetCtor:int = 664
+**`new WeakSet()` 的号**（第 681 轮）——与 `WeakMapCtor`（`663`）**同一件事的另一半**：
+`WeakSet` 与 `Set` 共用同一张表，差的只有「**值必须是对象**」那一条判据
+（`new WeakSet().add(1)` 在 JS 里抛 `TypeError`，本仓原来静默收下）。
+实例上留的内部件也叫 `__w`（与 `Map` / `WeakMap` 那张表**同一个名字**）——
+两处的读法因此是同一句话，不是两套。
+
 # method SetMethodNameOf:(id:int)=>string
 
 号 → 方法名（**这张表只此一处**）。
@@ -179,7 +186,7 @@ return Value.FromInt(table.Get(values.Ref).AsArray().GetLength());
 `Push` 换存储之后老视图就废了（这一条在 `Map` 上踩过）。
 
 ```ts
-if (id === SetCtor) {
+if (id === SetCtor || id === WeakSetCtor) {
   // **变量别起名叫 `set`**：投影会把 `set` 判成 `SetKeyword`（上下文关键字误判），
   // 而 TS 那边是 `Identifier`——对拍尺子会当场点出来（第 60 轮实测）。
   // 这是投影层的 bug，记在台账里；这里先绕开，让它不影响别的判据。
@@ -188,6 +195,9 @@ if (id === SetCtor) {
   // （`new Set() instanceof Set` 要在链上找到那一格）。
   table.Get(created.Ref).Proto = protos.Set;
   WriteOwn(room, NeverCall, table, created, "__v", NewPlainArray(room, table, protos));
+  // **「值必须是对象」那条判据的唯一事实来源**（第 681 轮）——与 `Map` 那一格
+  // 同名同义（普通集合写 `false`、弱集合写 `true`），`add` 那一支只读它。
+  WriteOwn(room, NeverCall, table, created, "__w", Value.FromBool(id === WeakSetCtor));
   WriteOwn(room, NeverCall, table, created, "size", Value.FromInt(0));
   // **初始值**（第 130 轮）：`new Set([1, 2])`——实参是**数组**的那一种
   // （`new Set(Array.from(x))` / `new Set([...])` 都是这个形状；**注意**后者的 `[...]`
@@ -212,6 +222,12 @@ if (id === SetSizeGet) return SetSizeOf(table, self);
 // 分支之前，这里就会拿 `undefined` 去比相等——报出来的是
 // 「Cannot read properties of undefined (reading 'Tag')」，离现场很远（第 60 轮踩的）。
 if (id === SetAdd) {
+  // **弱集合的值必须是对象**（第 681 轮）——与 `MapSet` 那一支**同一句话**：
+  // 读的是同一个内部件 `__w`，判据是同一个 `IsObject()`。
+  const weak = ReadOwn(NeverRoom, table, self, "__w");
+  if (weak.AsBool() && !(args.length > 0 && args[0].IsObject())) {
+    throw new TypeError("WeakSet values must be objects");
+  }
   // **已经在里面就什么都不做**（JS 的 `add` 对重复值是空操作，仍然返回自己）。
   if (IndexOfSetValue(table, values, args[0]) >= 0) return self;
   if (!room(ObjectCharge + ValueCharge)) throw new Error("out of room");

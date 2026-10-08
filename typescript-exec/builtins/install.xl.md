@@ -13,8 +13,8 @@ import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext, ThisArgOf } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, SpeciesGetterId, InstallDatePrototype, BoundCall } from "./globals.xl.md"
-import { InvokeMap, MapCtor, MapGroupBy, MapSizeGet, NameValue, ReadOwn, InstallMapPrototype } from "./map.xl.md"
-import { InvokeSet, SetCtor, SetSizeGet, InstallSetPrototype } from "./set.xl.md"
+import { InvokeMap, MapCtor, MapGroupBy, MapSizeGet, NameValue, ReadOwn, InstallMapPrototype, WeakMapCtor } from "./map.xl.md"
+import { InvokeSet, SetCtor, SetSizeGet, InstallSetPrototype, WeakSetCtor } from "./set.xl.md"
 ```
 
 # namespace cangjie
@@ -140,6 +140,11 @@ if (id === PromiseQueueMicrotask) return InvokePromise(room, table, protos, id, 
 // 所以两块拿到手的仍旧是**数组**——它们各自动一个字都不用改
 //（改动只在号段翻译这一处，与「哪个号属于哪一块只有这一处知道」同一条理由）。
 if (id === MapCtor || id === SetCtor
+  // **两个弱集合构造也走这一趟**（第 681 轮）：它们是同一份实现的两个新号
+  //（`WeakMapCtor = 663` / `WeakSetCtor = 664`），`new WeakMap(可迭代对)` 与
+  // `new Map(可迭代对)` 一字不差——不收的话它拿到的是一个 `Set` 对象、
+  // 那些对**一条都装不进去**（静默空表）。
+  || id === WeakMapCtor || id === WeakSetCtor
   // **第 324 轮那六个集合运算也要这一趟**（`union` 那一族）：它们的另一个实参
   // 是**任意可迭代物**（`a.union(new Set([3]))`、`a.union([3])`、`a.union(生成器)`），
   // 而 `set.xl.md` 那一层**只认数组**（它不能 import 这一层，依赖方向是反的）——
@@ -160,14 +165,16 @@ if (id === MapCtor || id === SetCtor
   }
 }
 if (id >= 611 && id < 660) return InvokeSet(room, protos, table, call, id, self, args, failed);
-// **`SetSizeGet = 662` 也要走 `Set` 那一块**（第 613 轮）：与 `MapSizeGet` 同一条理由
-// （它是 `Set.prototype.size` 那个 getter 的号，而 `Set` 那一段是 `611..659`）。
-if (id === SetSizeGet) return InvokeSet(room, protos, table, call, id, self, args, failed);
+// **`SetSizeGet = 662` 与 `WeakSetCtor = 664` 也要走 `Set` 那一块**（第 613 / 681 轮）：
+// 与 `MapSizeGet` 同一条理由（它们落在 `611..659` 外面，范围收不到）。
+if (id === SetSizeGet || id === WeakSetCtor) return InvokeSet(room, protos, table, call, id, self, args, failed);
 // **`MapGroupBy = 660` 也要走 `Map` 那一块**（第 327 轮）：`600..610` 那一段满了，
-// 而 `611..659` 是 `Set` 的——所以它是**下一位**。**判据写成「区间或那一个号」**
-// （写成 `600..660` 会把 `Set` 那一段抢走——它们按**窄到宽**判，而这一句在 `Set` 之后，
-// 所以 660 落到这里是对的；**顺序换了就静默换语义**）。
-if (id === MapGroupBy || id === MapSizeGet || (id >= 600 && id < 611)) {
+// 而 `611..659` 是 `Set` 的——所以它是**下一位**。**判据写成「区间或那几个号」**
+// （写成 `600..663` 会把 `Set` 那一段抢走——它们按**窄到宽**判，而这一句在 `Set` 之后，
+// 所以 660 / 663 落到这里是对的；**顺序换了就静默换语义**）。
+// **`WeakMapCtor = 663`**（第 681 轮）与之同款：新号落在两段之外，**必须逐个点名**
+// （这一处的上界早就不能按「+1」推了，见上面 `MapGroupBy` 那一段的账）。
+if (id === MapGroupBy || id === MapSizeGet || id === WeakMapCtor || (id >= 600 && id < 611)) {
   return InvokeMap(room, protos, table, call, id, self, args, failed);
 }
 // **700..799：语言内部辅助**（第 99 轮开的段）。

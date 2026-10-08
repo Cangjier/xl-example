@@ -79,6 +79,18 @@ import { Vm } from "../../runtime/vm.xl.md"
 （`install.xl.md`；**段号不连续要写在明处**：将来再加一个 Map 的静态方法时，
 「下一个号是几」不能按 `610 + 1` 推）。
 
+# const WeakMapCtor:int = 663
+**`new WeakMap()` 的号**（第 681 轮）——**不是另一个实现**：`WeakMap` 与 `Map`
+共用同一张表（第 295 轮的取舍：本仓没有弱引用那一档），差的只有**一条判据**：
+**键必须是对象**。原来连这一条也没有（`new WeakMap().set(1, 2)` 在本仓是通的、
+在 JS 里抛 `TypeError`），第 681 轮用量出来的缺口把它补上了。
+
+**为什么用一个新号而不是「让 `WeakMap` 直接指向 `MapCtor`」**：`set` 那一支
+**只有拿到号才分得出「这是不是一张弱表」**；而号是**构造那一刻**才发出去的
+（`InstallMapMethods` 挂的是方法名，与哪个构造器建的无关）。所以构造那一趟
+在实例上留一格**内部件 `__w`**（隐藏属性，`Object.keys` 看不见，与 `__k` / `__v` 同款），
+`set` 那一支读它——**一条判据、一个事实来源**。
+
 # const MapSizeGet:int = 661
 **`Map.prototype.size` 那个 getter 的号**（第 613 轮）——**不是脚本看得到的名字**：
 它是 `map.xl.md` 自己挂上去的一个宿主引用（`InstallMapPrototype`），
@@ -254,7 +266,7 @@ return -1;
 **视图不是**——`Push` 换存储之后老视图就废了。
 
 ```ts
-if (id === MapCtor) {
+if (id === MapCtor || id === WeakMapCtor) {
   const map = NewPlainObject(room, table, protos);
   // **实例挂在 `Protos.Map` 上**（第 138 轮）：`new Map() instanceof Map` 要在链上
   // 找到那一格——不挂的话链上是 `Object.prototype`，于是 `instanceof Map` 给
@@ -265,6 +277,11 @@ if (id === MapCtor) {
   table.Get(map.Ref).Proto = protos.Map;
   WriteOwn(room, NeverCall, table, map, "__k", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, map, "__v", NewPlainArray(room, table, protos));
+  // **这一格是「键必须是对象」那条判据的唯一事实来源**（第 681 轮）：
+  // 普通表写 `false`、弱表写 `true`——`set` 那一支只读它，不再分号。
+  // **两族都写**（不是「弱表才有」）：读一格不存在的内部件是**抛**（`ReadOwn` 的
+  // 那条纪律：缺格不许静默当空），所以每条路都得有这一格。
+  WriteOwn(room, NeverCall, table, map, "__w", Value.FromBool(id === WeakMapCtor));
   WriteOwn(room, NeverCall, table, map, "size", Value.FromInt(0));
   // **初始条目**（第 130 轮）：`new Map([[k, v], …])`——实参是**数组**的那一种
   // （`new Map(Object.entries(o))` 就是这个形状，日常代码里最常见）。
@@ -339,6 +356,14 @@ const values = ReadOwn(room, table, self, "__v");
 // **`size` 那个 getter**（第 613 轮）：读 `__k` 的长度——见 `MapSizeOf`。
 if (id === MapSizeGet) return MapSizeOf(table, self);
 if (id === MapSet) {
+  // **弱表的键必须是对象**（第 681 轮，**实测撞到的**）：JS 里
+  // `new WeakMap().set(1, 2)` 抛 `TypeError`，而本仓原来静默收下（第 295 轮
+  // 「拿 `Map` 顶上」那笔账里记着的那一处差异）。`get` / `has` / `delete`
+  // **不抛**（JS 对非对象键给 `undefined` / `false`）——所以判据只在这一支。
+  const weak = ReadOwn(NeverRoom, table, self, "__w");
+  if (weak.AsBool() && !(args.length > 0 && args[0].IsObject())) {
+    throw new TypeError("WeakMap keys must be objects");
+  }
   const at = IndexOfKey(table, keys, args[0]);
   if (at >= 0) {
     table.Get(values.Ref).AsArray().SetAt(at, args[1]);
