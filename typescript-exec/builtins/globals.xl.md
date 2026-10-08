@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagsAll } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue, FunctionSourceText } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText, NumberToJsText } from "../../runtime/host-text.xl.md"
-import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt, IndexAccessorAt } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, ReadProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt, IndexAccessorAt } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat, ArrayAt } from "./array.xl.md"
@@ -571,6 +571,29 @@ Node 的实测是：
 # const ConsoleDirxml:int = 311
 
 # const ConsoleTable:int = 312
+
+# const ConsoleCount:int = 313
+
+**`console.count(标签?)`**（第 761 轮）——**这一族里唯一有状态的一对**，与 `countReset` 成对。
+
+Node 的实测（判据 `stdlib/round761/r761f-01`）——**逐行**：
+
+- `console.count()` → `default: 1`
+- 再一次 → `default: 2`
+- `console.count("x")` → `x: 1`、再一次 → `x: 2`
+- `console.countReset("x")` 之后的 `console.count("x")` → `x: 1`（**重数**）
+- `console.countReset()` 之后的 `console.count()` → `default: 1`（清的是 `default` 那一个）
+
+- **标签缺省是 `"default"`**（`console.count()` 与 `console.count("default")` 是**同一个计数**）。
+- **走 stdout**（与 `log` 同一档），行文本是 `标签: 次数`。
+- **状态放在哪**：这一层**没有模块级可变量**（`InvokeGlobal` 手里只有 `protos`，见
+  `Symbol.for` 那张注册表那一段的口径）——所以计数表**挂在 `console` 对象自己的隐藏属性上**。
+  接收者就是它（`console.count()` 的 `this` 是 `console`），而**不是**「随便哪儿的一个全局」：
+  规范里 `countMap` 长在那个 `Console` 实例上，本仓照这一条走。
+- **为什么不做 `time` / `timeLog` / `timeEnd`**：它们印的是**墙钟毫秒**
+  （`t: 0.008ms`），逐字节不可比 ⇒ 判据立不住，这一层不假装能复现它（**如实留着**）。
+
+# const ConsoleCountReset:int = 314
 
 # const ParseInt:int = 303
 
@@ -4401,6 +4424,47 @@ if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === Con
   sink(line, channel);
   return Value.Undefined();
 }
+if (id === ConsoleCount || id === ConsoleCountReset) {
+  // **`console.count` / `console.countReset`**（第 761 轮）——这一族里**唯一有状态的一对**。
+  // 形状与 Node 的实测（判据 `stdlib/round761`）写在 `ConsoleCount` 那一段里。
+  //
+  // **计数表挂在接收者自己的隐藏属性上**：这一层没有模块级可变量
+  //（`InvokeGlobal` 手里只有 `protos`——与 `Symbol.for` 那张注册表同一个理由），
+  // 而规范里 `countMap` 本来就长在那个 `Console` 实例上，所以挂在 `self` 上**正好**。
+  const countersKey = Value.FromString(table.CreateString(Units("__counts")));
+  let counters: Value;
+  const foundCounters = self.IsObject() ? FindProperty(room, table, self.Ref, countersKey) : null;
+  if (foundCounters === null) {
+    counters = NewPlainObject(room, table, protos);
+    if (self.IsObject()) SetHiddenProperty(room, table, self, countersKey, counters);
+  } else {
+    counters = ReadProperty(call === null ? NeverCall : call, table, foundCounters, self);
+  }
+  // **标签缺省是 `"default"`**（`console.count()` 与 `console.count("default")` 同一个计数）。
+  // 别的实参走 `ValueText`：JS 那一步是 `ToString(标签)`。
+  const rawLabel = args.length > 0 ? args[0] : Value.Undefined();
+  const label = rawLabel.Tag === ValueTag.Undefined ? "default" : ValueText(table, rawLabel);
+  const labelKey = Value.FromString(table.CreateString(Units(label)));
+  let current = 0;
+  const entry = FindProperty(room, table, counters.Ref, labelKey);
+  if (entry !== null) {
+    const held = ReadProperty(call === null ? NeverCall : call, table, entry, counters);
+    if (held.IsNumber()) current = held.AsInt();
+  }
+  if (id === ConsoleCountReset) {
+    // **清成 0**（Node 的实测：`countReset("x")` 之后下一次 `count("x")` 又是 `x: 1`）。
+    // **没数过的标签不报错**（Node 只在 TTY 上打一句 `Warning`，而这一层没有 TTY）。
+    SetHiddenProperty(room, table, counters, labelKey, Value.FromInt(0));
+    return Value.Undefined();
+  }
+  const next = current + 1;
+  SetHiddenProperty(room, table, counters, labelKey, Value.FromInt(next));
+  // **走 stdout**（与 `log` 同一档），行文本是 `标签: 次数`。
+  const counted = label + ": " + NumberToHostText(next);
+  if (!room(CodeUnitCharge * counted.length)) throw new Error("out of room");
+  sink(counted, 0);
+  return Value.Undefined();
+}
 if (id === ObjectAssign) {
   // **目标必须是对象**：JS 会装箱，本仓没有装箱那一层——响亮地抛。
   //
@@ -7974,7 +8038,8 @@ if (id === MathRandom) return 0;
 //（`console.log.length` 在 Node 里就是 `0`，实测）。
 // **`log` 也在这一列**：它是第 131 轮就挂上的那一格，名字与长度一直空着。
 if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === ConsoleInfo
-  || id === ConsoleDebug || id === ConsoleDir || id === ConsoleDirxml || id === ConsoleTable) {
+  || id === ConsoleDebug || id === ConsoleDir || id === ConsoleDirxml || id === ConsoleTable
+  || id === ConsoleCount || id === ConsoleCountReset) {
   return 0;
 }
 // **`Object.prototype` 那四格老辅助**（Annex B）：`__lookupGetter__(键)` 一格。
@@ -8233,6 +8298,14 @@ SetProperty(vm.Room(), NeverCall, table, consoleObject, logKey, logTarget);
 const consoleRestNames: string[] = ["error", "warn", "info", "debug", "dir", "dirxml", "table"];
 const consoleRestIds: number[] = [ConsoleError, ConsoleWarn, ConsoleInfo, ConsoleDebug,
   ConsoleDir, ConsoleDirxml, ConsoleTable];
+// **第 761 轮：`count` / `countReset` 两格**（这一族里**唯一有状态**的一对）——
+// 它们与上面那七个同一条路（同名同号的表、同一个 `SetProperty`），**只是实现不同**
+// （`InvokeGlobal` 里那一支自己分派）。**加进这张表而不是另写一个循环**：
+// 名字与号一一对齐这条规矩只写一份。
+consoleRestNames.push("count");
+consoleRestIds.push(ConsoleCount);
+consoleRestNames.push("countReset");
+consoleRestIds.push(ConsoleCountReset);
 for (let i = 0; i < consoleRestNames.length; i++) {
   const restKey = Value.FromString(table.CreateString(Units(consoleRestNames[i])));
   const restTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(consoleRestIds[i], 0));

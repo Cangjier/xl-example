@@ -306,6 +306,31 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 761 轮：`console.count` / `countReset`——那一族里唯一有状态的一对
+
+**一句话**：`console` 那一族第 735 轮补到九个名字（`log` / `error` / `warn` / `info` /
+`debug` / `dir` / `dirxml` / `table`），**共用的是一份「渲染 + 一次调用一行」的实现**；
+而 `count` / `countReset` **根本没挂**——`console.count()` 报
+`cannot call a non-closure value`（**那句话听起来像「调用写错了」**，其实是那一格没人挂）。
+
+- **形状照 Node 实测写**（判据 `stdlib/round761/r761f-01`）：标签缺省是 `"default"`
+  （`console.count()` 与 `console.count("default")` 是**同一个计数**）、走 stdout、
+  行文本是 `标签: 次数`、`countReset(标签)` 只清那一个、`countReset()` 清 `default`，
+  **没数过的标签不报错**（Node 只在 TTY 上打一句 `Warning`，而这一层没有 TTY）。
+- **状态放在哪**（这一层唯一的取舍）：`InvokeGlobal` **手里只有 `protos`、没有模块级可变量**
+  （与 `Symbol.for` 那张注册表同一个理由），所以计数表**挂在接收者自己的隐藏属性上**——
+  规范里 `countMap` 本来就长在那个 `Console` 实例上，而 `console.count()` 的 `this` 正是它。
+- **故意不做的三格**：`time` / `timeEnd` / `timeLog` 印的是**墙钟毫秒**（`t: 0.008ms`），
+  逐字节不可比 ⇒ 判据立不住，这一层**不假装能复现它**（写在 `ConsoleCount` 那一段里）。
+- **还缺的十五个名字如实登记**（`stdlib/round761/r761g-01`）：`assert` 只差「读真假 + 挑流 +
+  固定前缀」那一小段（**下一轮可收**）、`group` 那一族要**缩进状态**（缩进落在每一行上，
+  不只 `log`）、`trace` 要真帧栈（与 `Error.stack` 同一条根）、
+  `_stdout` / `_times` 那一族是 Node 自己的内部件、**不在规范里**。
+- 语料 **+6 条**（`runtime/round761` 4 条 + `stdlib/round761` 2 条；**5 条当场通过**、
+  1 条登记缺口）。五类 **7814 / 8197 → 7819 / 8203**、`blocked 263`（**没动**）、
+  `differ 120 → 121`、`bad` 仍 **0**、`regressions` **0**、`moved` 0、`newlyPassing` **0**，
+  加权 **95.6%**。
+
 ### 第 760 轮：`concat` 是**通用**的——两条支都没有问 `IsConcatSpreadable`
 
 **一句话**：`Array.prototype.concat` 在规范里对**接收者自己**与**每一个实参**都问一句
