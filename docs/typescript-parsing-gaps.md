@@ -65,10 +65,16 @@
 - **(a) 注释 / 换行落在语法相邻位置之间**（占绝大多数）：关键字与名字（`let \na = 1;`）、
   修饰词与成员（`private /*c*/ m() {}`）、运算符与操作数（`-/*c*/ a`）、头与体（`function f()\n{…}`）、
   `export` 与声明（`export /*c*/ const a = 1;`）、`else` 与 `if` 的取词、解构元素与注释。
-  **第 660 轮收掉其中两支**：`let` / `const` / `var` / `using` 的声明头（关键词 / 修饰词 / 名字 / `!`
-  与 `:` 之间夹注释 ⇒ `LetBranch` 的三处往回走从「只跳软换行」改成跳全部 trivia，头里那些注释
-  按 `CommentsIn` 收到 `Let` 右边不丢）、以及解构元素**段首**的注释（`BindingElement` 的
-  `SignIn` 从第一个非注释单元起签，注释照旧进 `Data`、不撑区间）。
+  **第 660 / 661 轮各收几支**。660：`let` / `const` / `var` / `using` 的声明头（关键词 / 修饰词 /
+  名字 / `!` 与 `:` 之间夹注释 ⇒ `LetBranch` 的三处往回走从「只跳软换行」改成跳全部 trivia，
+  头里那些注释按 `CommentsIn` 收到 `Let` 右边不丢）、以及解构元素**段首**的注释
+  （`BindingElement` 的 `SignIn` 从第一个非注释单元起签，注释照旧进 `Data`、不撑区间）。
+  661：类型别名头（`TypeAssignCloseRule.Previous` 与 `Process` 的 `type` + 名字 + `=` 三格）、
+  函数声明头（`FunctionCloseRule.ParameterIndex` 与 `Process` 的 `function` + `*` + 名字 + 形参表，
+  关键词与名字之间的注释按 `CommentsIn` 收进 `Function`）、标签
+  （`LabelCloseRule` 的名字 + 冒号 + 被标语句三格；名字与冒号之间的注释收在 `Label` 左边 ——
+  放右边会把「`{` 前面是标签」那条相邻判断挡掉，块于是被当成对象字面量）、
+  以及 `IsObjectLiteralBrace` 里标签冒号往回那两格（`block /* c */: { … }` 的体散架）。
   剩下的最小片段照旧按族留在 `tmp/` 的探针集合里（不进仓库）。
 - **(b) 空语句 `;` 与「声明 / 块后面紧跟 `;`」的关闭规则**：`if (a) {} ;` 目前仍抛
   `SourceException: SourceRange.Start == null`，`while (a) {} ;` / `function f() {} ;` 少一个

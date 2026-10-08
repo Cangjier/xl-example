@@ -8,7 +8,7 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Get, ReplaceCountAt, SearchBack, TakeRange } from "../../core/extensions/list-extension.xl.md"
 import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationBoundary, IsStatementKeyword, ReorganizeDeclarationDecorators } from "./declaration-common.xl.md"
-import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { Decorator } from "./decorator.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { GenericType } from "./generic-type.xl.md"
@@ -26,7 +26,7 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 # class TypeAssignCloseRule extends CloseRule
 
-`Previous` 认的是「`type` + 名字 + `=` 三个实义单元依次相邻（跨过软换行）」这一串。
+`Previous` 认的是「`type` + 名字 + `=` 三个实义单元依次相邻（跨过全部 trivia）」这一串。
 
 `Process` 从 `type`（含它前面的 `export`）一直收到 `;` 为止——**没有** `;` 时就收到列表末尾。
 **那个 `;` 只进范围、不进子单元**（第 290 轮）：它是语句终结符，留在列表里给语句切分用
@@ -40,7 +40,12 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 `index` 处是不是一个类型赋值的开头。
 
-取两个「跨过软换行的下一个单元」下标，判定是一句合取：当前是内容为 `type` 的 `Identifier`、第一个下一个是 `Identifier`、第二个下一个是内容为 `=` 的 `SymbolToken`。这里拆成早返回，语义相同。
+取两个「跨过 trivia 的下一个单元」下标，判定是一句合取：当前是内容为 `type` 的 `Identifier`、第一个下一个是 `Identifier`、第二个下一个是内容为 `=` 的 `SymbolToken`。这里拆成早返回，语义相同。
+
+**注释与软换行一视同仁**（第 661 轮）：`type /* c */ X = number` 里关键词与名字之间夹着注释，
+只跳软换行时第一个「下一个」看到的是注释 ⇒ 整条别名不成形（实测 `type/* c */ X` /
+`type X/* c */ =` 一族把整条退化成 `ExpressionStatement` + 一条假 `BinaryExpression`，
+`type-fn-generic-arg` / `type-lit-string-double` / `type-mapped-template-key` 三族都栽在这里）。
 
 **名字与 `=` 之间允许一段类型参数**（`type Box<T> = …` / `type A<T extends X = Y> = …`）：
 不放这一条，泛型别名整条形不成——名字之后跟的是 `GenericType`，判定在「第二个下一个是 `=`」处就断了，
@@ -48,16 +53,16 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 ```ts
 const current = Get(units, index);
-const nextIndex1 = SkipNextWrapSymbol(units, index);
+const nextIndex1 = SkipNextTrivia(units, index);
 if (!(current instanceof Identifier) || !current.Is("type")) {
   return false;
 }
 if (!(Get(units, nextIndex1) instanceof Identifier)) {
   return false;
 }
-let nextIndex2 = SkipNextWrapSymbol(units, nextIndex1);
+let nextIndex2 = SkipNextTrivia(units, nextIndex1);
 if (Get(units, nextIndex2) instanceof GenericType) {
-  nextIndex2 = SkipNextWrapSymbol(units, nextIndex2);
+  nextIndex2 = SkipNextTrivia(units, nextIndex2);
 }
 const nextSymbol = Get(units, nextIndex2);
 return nextSymbol instanceof SymbolToken && nextSymbol.Is("=");
@@ -131,7 +136,7 @@ if (current === null) {
 // **装饰器先收成单元**（与 `ClassBranch.Success` / `InterfaceBranch.Success` 同一件工具）：
 // 走到这一刻它们可能还是散的 `@` / 名字 / 实参括号，而 `DeclarationStart` 往回走会停在实参括号上。
 const keywordIndex = ReorganizeDeclarationDecorators(template, units, index);
-const nameIndex = SkipNextWrapSymbol(units, keywordIndex);
+const nameIndex = SkipNextTrivia(units, keywordIndex);
 const name = Get(units, nameIndex);
 if (!(name instanceof Identifier)) {
   throw new Error("type 语句不满足格式要求：type Name = ...");

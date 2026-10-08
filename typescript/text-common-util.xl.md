@@ -1051,9 +1051,12 @@ if (current instanceof Bracket && current.startBracket === "{") {
   }
   // **`:` 那一格要分开看**（第 556 轮）：属性冒号 / 类型标注冒号 ⇒ 里面是**成员**；
   // 标签冒号 ⇒ 里面是**语句**（块）。分界线是**外层花括号是不是值位**。
+  // **往回那两格也跳 trivia**（第 661 轮）：`block /* c */: { … }` 里名字与冒号之间夹着注释，
+  // 只跳软换行时 `colonIndex` 落到注释上 ⇒ 名字认不出来 ⇒ 标签块被判成对象字面量、
+  // 体里的语句整段散架（实测 `lb-comment` 少 5 个节点）。
   if (previous instanceof SymbolToken && previous.Is(":")) {
-    const colonIndex = SkipPreviousWrapSymbol(units, index);
-    const nameIndex = SkipPreviousWrapSymbol(units, colonIndex);
+    const colonIndex = SkipPreviousTrivia(units, index);
+    const nameIndex = SkipPreviousTrivia(units, colonIndex);
     const name = Get(units, nameIndex);
     if (
       name instanceof Identifier &&

@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationModifier, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
-import { GetSkipPreviousTrivia, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { CommentsIn, GetSkipPreviousTrivia, SkipNextTrivia, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { FunctionBody } from "./function-body.xl.md"
@@ -58,19 +58,24 @@ import { LineWrap } from "../line-wrap.xl.md"
 
 `Previous` 与 `Process` 共用它——两边对「参数表在哪」的判断必须一致。
 
+**每一跳都跨 trivia**（第 661 轮）：`function/* c */ f()` / `function f/* c */()` 都是合法排法
+（注释是 trivia），只跳软换行时「名字 + 类型参数 + `(`」这一串凑不出来 ⇒ 整条 `Function` 丢掉
+（实测两种写法各缺 `FunctionDeclaration` / 名字 / 形参共 12 个节点、多出 `ExpressionStatement`；
+`function/* c */ f()` 还会被 `MethodDeclaration` 捡成方法）。
+
 ```ts
-let nameIndex = SkipNextWrapSymbol(units, index);
+let nameIndex = SkipNextTrivia(units, index);
 const star = Get(units, nameIndex);
 if (star instanceof SymbolToken && star.Is("*")) {
-  nameIndex = SkipNextWrapSymbol(units, nameIndex);
+  nameIndex = SkipNextTrivia(units, nameIndex);
 }
 const named = Get(units, nameIndex) instanceof Identifier;
 if (named === false && Get(units, nameIndex) instanceof Bracket === false) {
   return -1;
 }
-let i = named ? SkipNextWrapSymbol(units, nameIndex) : nameIndex;
+let i = named ? SkipNextTrivia(units, nameIndex) : nameIndex;
 if (Get(units, i) instanceof GenericType) {
-  i = SkipNextWrapSymbol(units, i);
+  i = SkipNextTrivia(units, i);
 }
 const parameters = Get(units, i);
 if (!(parameters instanceof Bracket) || parameters.startBracket !== "(") {
@@ -173,10 +178,10 @@ if (current === null) {
   throw new Error("current 为空");
 }
 const startIndex = DeclarationStart(units, index);
-let nameIndex = SkipNextWrapSymbol(units, index);
+let nameIndex = SkipNextTrivia(units, index);
 const generatorStar = Get(units, nameIndex);
 if (generatorStar instanceof SymbolToken && generatorStar.Is("*")) {
-  nameIndex = SkipNextWrapSymbol(units, nameIndex);
+  nameIndex = SkipNextTrivia(units, nameIndex);
 }
 const parametersIndex = this.ParameterIndex(units, index);
 if (parametersIndex < 0) {
@@ -192,6 +197,12 @@ result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
 // **修饰词各自的位置**（见 `ModifierSpans`）：它们不进 `Data`，位置要在这一趟记下来。
 result.ModifierSpans = DeclarationModifierSpans(units, startIndex, index).join(",");
 for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
+  result.AddAndCloseLast(item);
+}
+// **关键词与名字之间的注释照旧进树**（第 661 轮）：`function /* c */ f()` 里那条注释
+// 落在 `[index, nameIndex)` 这一段，而这一段只有装饰器与那个 `*` 会被搬走 ⇒ 不收就整个消失
+//（与 `LetBranch` / `LabelCloseRule` 同一条口径；`CommentsIn` 只看注释，软换行不进）。
+for (const item of CommentsIn(units, index, nameIndex)) {
   result.AddAndCloseLast(item);
 }
 if (generatorStar !== null && generatorStar instanceof SymbolToken) {

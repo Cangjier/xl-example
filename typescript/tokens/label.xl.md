@@ -6,7 +6,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { IsDeclarationModifier } from "./declaration-common.xl.md"
-import { IsStatementStart, IsSwitchLabelColon, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { CommentsIn, IsStatementStart, IsSwitchLabelColon, SkipNextTrivia } from "../text-common-util.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -100,8 +100,12 @@ return true;
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
-`index` 处是不是一个标签：一个 `Identifier` 名字，紧跟（跨过软换行）一个 `:` 符号，
-再往后（跨过软换行）是一条可以带标签的语句。
+`index` 处是不是一个标签：一个 `Identifier` 名字，紧跟（跨过 trivia）一个 `:` 符号，
+再往后（跨过 trivia）是一条可以带标签的语句。
+
+**注释与软换行一视同仁**（第 661 轮）：`outer/* c */: while (…)` 与 `outer:/* c */ while (…)`
+都是合法排法，而只跳软换行时名字后面那一格看到的是注释 ⇒ 整条标签认不出来
+（实测两种写法各把 `LabeledStatement` / `WhileStatement` / `Block` / `BreakStatement` 一起丢掉）。
 
 名字不能是修饰词——`default:` / `case:` 那类前缀在 `../declaration-common.xl.md` 里有各自的归宿，
 这里用 `IsDeclarationModifier` 把它们排掉（`default` 正在那张表里）。
@@ -114,7 +118,7 @@ if (!(current instanceof Identifier) || IsDeclarationModifier(current)) {
 if (IsStatementStart(units, index) === false) {
   return false;
 }
-const colonIndex = SkipNextWrapSymbol(units, index);
+const colonIndex = SkipNextTrivia(units, index);
 const colon = Get(units, colonIndex);
 if (!(colon instanceof SymbolToken) || !colon.Is(":")) {
   return false;
@@ -126,7 +130,7 @@ if (!(colon instanceof SymbolToken) || !colon.Is(":")) {
 if (IsSwitchLabelColon(units, colonIndex)) {
   return false;
 }
-const statementIndex = SkipNextWrapSymbol(units, colonIndex);
+const statementIndex = SkipNextTrivia(units, colonIndex);
 return this.IsLabeledStatement(units, statementIndex);
 ```
 
@@ -154,20 +158,34 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("current 为空");
 }
-const colonIndex = SkipNextWrapSymbol(units, index);
-const statementIndex = SkipNextWrapSymbol(units, colonIndex);
+const colonIndex = SkipNextTrivia(units, index);
+const statementIndex = SkipNextTrivia(units, colonIndex);
 const statement = Get(units, statementIndex);
 if (statement instanceof Bracket && statement.startBracket === "{") {
   ParsePipeline.InitialCloseRuleQueue(statement);
   statement.ApplyCloseRules();
 }
+// **名字与冒号之间的注释在替换之前先收出来**（第 661 轮）：它们落在
+// `[index, colonIndex]` 那一段里，而那一段马上整段折成 `Label` ⇒ 不收就消失
+//（与 `LetBranch` / `switch` 一族同一条口径：注释照旧进树，只是不挡住相邻判断）。
+//
+// **位置放在 `Label` 左边**（实测）：放在右边（`<Label/><AreaAnnotation/>{…}`）会把
+// 「`{` 前面那一格是标签」这条相邻判断挡掉 ⇒ 块被当成对象字面量、体里的语句整段散架
+//（实测 `block /* c */: { let x = 1; console.log(x); }` 少 5 个节点）。`Label` 是自闭合的，
+// 装不下子单元，所以只能待在它左边。
+const kept = CommentsIn(units, index, colonIndex + 1);
 const result = new Label(template);
 result.Parent = current.Parent;
 result.label = (current as Identifier).TempToString();
 result.SignIn(current.SourceRange.Start!);
 result.SignOut(Get(units, colonIndex)!.SourceRange.End!);
 result.TryToClose();
-return ReplaceCountAt(units, index, colonIndex - index + 1, result);
+const nextIndex = ReplaceCountAt(units, index, colonIndex - index + 1, result);
+for (let i = 0; i < kept.length; i++) {
+  units.splice(nextIndex + i, 0, kept[i]);
+  kept[i].Parent = result.Parent;
+}
+return nextIndex + kept.length;
 ```
 
 # class Label extends IndependentToken
