@@ -93,6 +93,10 @@
   不是被调用者）。用例 `expr-optional-chain-as` / `expr-nonnull-call-arguments`。
   还剩：泛型实例化表达式 `f<string>`、`async<T>(x) => x`、`get /*c*/ x()` 存取器、
   简写环境模块 `declare module "mm";`。
+- **(d) 裸块里那一格也要成语句**（第 665 轮）：`{ A };` 里 `A` 后面既没有 `;` 也没有换行
+  ⇒ `FormFrom` / `StatementBranch` 两档都不响 ⇒ 块里那一格从来没有壳。
+  `Statement.FormTail` 的白名单补上「不是对象字面量的 `{}`」（判据与 `FormFrom` 那一格同一句）。
+  用例 `stmt-bare-block-bare-expression`。
 
 **收的时候一次收一族**（上面 (a) 里每一小项都是独立的一族），并把它写成 `tests/parse/cases/` 下的用例——
 用例进了语料，`cases:tsast` 才会一直替它把关。

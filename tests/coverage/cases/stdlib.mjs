@@ -6579,4 +6579,46 @@ console.log(Object.keys(obj).join(","), obj[key], Object.getOwnPropertySymbols(o
     title: "错误家族的类型与字段",
     src: "\nconst errors = [new Error(\"e\"), new TypeError(\"t\"), new RangeError(\"r\"), new SyntaxError(\"s\"), new ReferenceError(\"f\")];\nfor (const e of errors) console.log(e instanceof Error, e.name, e.message);\nclass AppError extends Error {\n  code: number;\n  constructor(code: number) { super(\"app \" + code); this.name = \"AppError\"; this.code = code; }\n}\ntry {\n  throw new AppError(42);\n} catch (e) {\n  const err = e as AppError;\n  console.log(err instanceof AppError, err instanceof Error, err.code, err.message);\n}\n",
   },
+
+  // ---- 第 665 轮：场景加宽（一条 = 一个真跑的 .ts，裁判是真 node）----
+  {
+    id: "k8-std-array-flat-flatmap-at",
+    title: "flat / flatMap / at / findLast 的边界",
+    src: "\nconst a = [1, [2, [3, [4]]]];\nconsole.log(JSON.stringify(a.flat()), JSON.stringify(a.flat(2)), JSON.stringify(a.flat(Infinity)));\nconsole.log(JSON.stringify([1, 2].flatMap((x) => [x, x * 10])));\nconsole.log([1, 2, 3].at(-1), [1, 2, 3].at(0), [1, 2, 3].at(9));\nconsole.log([1, 2, 3, 4].findLast((x) => x % 2 === 1));\n",
+  },
+  {
+    id: "k8-std-string-replaceall-and-pad",
+    title: "replaceAll（字符串与正则）/ padStart / padEnd / trim 家族",
+    src: "\nconsole.log(\"a-b-c\".replaceAll(\"-\", \"+\"), \"aaa\".replaceAll(\"a\", \"b\"));\nconsole.log(\"Abc\".padStart(6, \"0\"), \"Abc\".padEnd(6, \"-\"), \"A\".padStart(3));\nconsole.log(\"  x  \".trim(), \"|\" + \"  x\".trimStart() + \"|\", \"|\" + \"x  \".trimEnd() + \"|\");\n",
+  },
+  {
+    id: "k8-std-object-entries-values-symbols",
+    title: "Object.entries / values / fromEntries 与不可枚举、符号键",
+    src: "\nconst o = { a: 1, b: 2 };\nObject.defineProperty(o, \"hidden\", { value: 3, enumerable: false });\nconst sym = Symbol(\"s\");\no[sym] = 4;\nconsole.log(JSON.stringify(Object.entries(o)), JSON.stringify(Object.values(o)));\nconsole.log(JSON.stringify(Object.fromEntries([[\"x\", 1], [\"y\", 2]])));\nconsole.log(Object.keys(o).length, Object.getOwnPropertySymbols(o).length);\n",
+  },
+  {
+    id: "k8-std-json-tojson-and-nested",
+    title: "JSON.stringify 认 toJSON、循环引用抛错",
+    src: "\nconst v = { a: 1, when: { toJSON() { return \"T\"; } }, list: [1, [2, 3]] };\nconsole.log(JSON.stringify(v));\nconsole.log(JSON.stringify({ x: undefined, y: () => 1, z: null }));\nconst cycle = {};\ncycle.self = cycle;\ntry { JSON.stringify(cycle); } catch (e) { console.log(e.constructor.name); }\n",
+  },
+  {
+    id: "k8-std-map-set-key-identity-and-order",
+    title: "Map / Set 的键同一性、插入序与 forEach 参数",
+    src: "\nconst m = new Map();\nconst k1 = { id: 1 };\nm.set(k1, \"a\").set({ id: 1 }, \"b\").set(NaN, \"nan\");\nconsole.log(m.size, m.get(k1), m.get(NaN));\nconst seen = [];\nm.forEach((value, key, map) => seen.push([typeof key === \"object\" ? key.id : String(key), value, map === m]));\nconsole.log(JSON.stringify(seen));\nconst s = new Set([3, 1, 3, 2]);\nconsole.log([...s].join(\",\"), s.size, s.has(3));\n",
+  },
+  {
+    id: "k8-std-number-parse-and-predicates",
+    title: "Number.parseInt/parseFloat/isInteger/isSafeInteger/toFixed",
+    src: "\nconsole.log(Number.parseInt(\"12px\", 10), Number.parseInt(\"ff\", 16), Number.parseFloat(\"1.5e2x\"));\nconsole.log(Number.isInteger(2.0), Number.isInteger(2.5), Number.isSafeInteger(2 ** 53), Number.isSafeInteger(2 ** 53 - 1));\nconsole.log((1.005).toFixed(2), (2).toFixed(3), (-0).toFixed(1));\n",
+  },
+  {
+    id: "k8-std-array-sort-stability-and-comparator",
+    title: "Array.prototype.sort 的稳定性与比较器返回值语义",
+    src: "\nconst rows = [{ k: 2, i: 0 }, { k: 1, i: 1 }, { k: 2, i: 2 }, { k: 1, i: 3 }];\nrows.sort((a, b) => a.k - b.k);\nconsole.log(rows.map((r) => r.i).join(\",\"));\nconsole.log([10, 9, 100].sort().join(\",\"));\nconsole.log([10, 9, 100].sort((a, b) => a - b).join(\",\"));\n",
+  },
+  {
+    id: "k8-std-string-split-limits",
+    title: "split 的空串分割、上限与相邻分隔符",
+    src: "\nconsole.log(JSON.stringify(\"a,b,c\".split(\",\", 2)));\nconsole.log(JSON.stringify(\",a,,b,\".split(\",\")));\nconsole.log(JSON.stringify(\"abc\".split(\"\")));\nconsole.log(JSON.stringify(\"abc\".split(\"\", 0)));\nconsole.log(JSON.stringify(\"no-sep\".split(\";\")));\n",
+  },
 ];

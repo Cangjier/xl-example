@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2032,
+  "matrix": 2063,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -88,8 +88,8 @@
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 564,
-      "pass": 564,
+      "total": 572,
+      "pass": 572,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -98,8 +98,8 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 465,
-      "pass": 465,
+      "total": 474,
+      "pass": 474,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -108,8 +108,8 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 791,
-      "pass": 791,
+      "total": 799,
+      "pass": 799,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -118,8 +118,8 @@
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 212,
-      "pass": 212,
+      "total": 218,
+      "pass": 218,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,

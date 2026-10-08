@@ -2739,4 +2739,36 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     title: "端到端：用假时钟做去抖与节流",
     src: "\ntype Call = { at: number; value: number };\nclass Debouncer {\n  private timer = -1;\n  private pending: Call | null = null;\n  private fired: Call[] = [];\n  private wait: number;\n  private onFire: (c: Call) => void;\n  constructor(wait: number, onFire: (c: Call) => void) {\n    this.wait = wait;\n    this.onFire = onFire;\n  }\n  push(at: number, value: number): void {\n    this.pending = { at, value };\n    this.timer = at + this.wait;\n  }\n  advance(to: number): void {\n    if (this.timer >= 0 && to >= this.timer && this.pending !== null) {\n      this.fired.push(this.pending);\n      this.onFire(this.pending);\n      this.pending = null;\n      this.timer = -1;\n    }\n  }\n  history(): string { return this.fired.map((c) => c.at + \":\" + c.value).join(\",\"); }\n}\nconst seen: string[] = [];\nconst d = new Debouncer(10, (c) => seen.push(c.value + \"@\" + c.at));\nfor (const [at, value] of [[0, 1], [3, 2], [8, 3], [30, 4]] as Array<[number, number]>) {\n  d.push(at, value);\n  for (let t = at; t <= 40; t++) d.advance(t);\n}\nconsole.log(d.history(), seen.join(\"|\"));\n",
   },
+
+  // ---- 第 665 轮：场景加宽（一条 = 一个真跑的 .ts，裁判是真 node）----
+  {
+    id: "k8-e2e-priority-queue-dijkstra",
+    title: "二叉堆优先队列 + Dijkstra 最短路",
+    src: "\nclass Heap {\n  constructor() { this.a = []; }\n  push(node) { const a = this.a; a.push(node); let i = a.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (a[p][0] <= a[i][0]) break; const t = a[p]; a[p] = a[i]; a[i] = t; i = p; } }\n  pop() { const a = this.a; const top = a[0]; const last = a.pop(); if (a.length > 0) { a[0] = last; let i = 0; for (;;) { const l = i * 2 + 1, r = l + 1; let s = i; if (l < a.length && a[l][0] < a[s][0]) s = l; if (r < a.length && a[r][0] < a[s][0]) s = r; if (s === i) break; const t = a[s]; a[s] = a[i]; a[i] = t; i = s; } } return top; }\n  get size() { return this.a.length; }\n}\nconst graph = { A: [[\"B\", 1], [\"C\", 4]], B: [[\"C\", 2], [\"D\", 5]], C: [[\"D\", 1]], D: [] };\nfunction dijkstra(from) {\n  const dist = new Map([[from, 0]]);\n  const heap = new Heap();\n  heap.push([0, from]);\n  while (heap.size > 0) {\n    const [d, node] = heap.pop();\n    if (d > (dist.get(node) ?? Infinity)) continue;\n    for (const [next, w] of graph[node]) {\n      const nd = d + w;\n      if (nd < (dist.get(next) ?? Infinity)) { dist.set(next, nd); heap.push([nd, next]); }\n    }\n  }\n  return dist;\n}\nconst dist = dijkstra(\"A\");\nconsole.log([...dist.keys()].sort().map((k) => k + \"=\" + dist.get(k)).join(\" \"));\n",
+  },
+  {
+    id: "k8-e2e-lru-cache-map-order",
+    title: "LRU 缓存（Map 的插入序当淘汰序）",
+    src: "\nclass Lru {\n  constructor(cap) { this.cap = cap; this.map = new Map(); }\n  get(k) { if (!this.map.has(k)) return -1; const v = this.map.get(k); this.map.delete(k); this.map.set(k, v); return v; }\n  put(k, v) { if (this.map.has(k)) this.map.delete(k); this.map.set(k, v); if (this.map.size > this.cap) this.map.delete(this.map.keys().next().value); }\n}\nconst lru = new Lru(2);\nlru.put(1, 1); lru.put(2, 2);\nconsole.log(lru.get(1));\nlru.put(3, 3);\nconsole.log(lru.get(2), lru.get(3), [...lru.map.keys()].join(\",\"));\n",
+  },
+  {
+    id: "k8-e2e-event-emitter-once-and-off",
+    title: "事件总线：on / once / off / 通配与错误冒泡",
+    src: "\nclass Bus {\n  constructor() { this.handlers = new Map(); }\n  on(name, fn) { const list = this.handlers.get(name) ?? []; list.push(fn); this.handlers.set(name, list); return () => this.off(name, fn); }\n  once(name, fn) { const wrap = (...args) => { this.off(name, wrap); fn(...args); }; return this.on(name, wrap); }\n  off(name, fn) { const list = this.handlers.get(name) ?? []; const at = list.indexOf(fn); if (at >= 0) list.splice(at, 1); }\n  emit(name, ...args) { for (const fn of [...(this.handlers.get(name) ?? [])]) fn(...args); }\n}\nconst bus = new Bus();\nconst log = [];\nconst off = bus.on(\"x\", (a) => log.push(\"on:\" + a));\nbus.once(\"x\", (a) => log.push(\"once:\" + a));\nbus.emit(\"x\", 1);\nbus.emit(\"x\", 2);\noff();\nbus.emit(\"x\", 3);\nconsole.log(log.join(\"|\"));\n",
+  },
+  {
+    id: "k8-e2e-state-machine-tokenizer",
+    title: "小型状态机：把算式切成 token 并求值",
+    src: "\nfunction tokens(input) {\n  const out = [];\n  let i = 0;\n  while (i < input.length) {\n    const c = input[i];\n    if (c === \" \") { i++; continue; }\n    if (c >= \"0\" && c <= \"9\") { let j = i; while (j < input.length && input[j] >= \"0\" && input[j] <= \"9\") j++; out.push({ kind: \"num\", text: input.slice(i, j) }); i = j; continue; }\n    out.push({ kind: \"op\", text: c });\n    i++;\n  }\n  return out;\n}\nfunction evaluate(input) {\n  const list = tokens(input);\n  const stack = [];\n  let acc = Number(list[0].text);\n  for (let i = 1; i < list.length; i += 2) {\n    const op = list[i].text;\n    const n = Number(list[i + 1].text);\n    if (op === \"+\") acc += n; else if (op === \"-\") acc -= n; else if (op === \"*\") acc *= n; else throw new Error(\"bad op \" + op);\n  }\n  void stack;\n  return acc;\n}\nconsole.log(evaluate(\"1 + 2 * 3 - 4\"), tokens(\"12+3\").length);\n",
+  },
+  {
+    id: "k8-e2e-generator-pipeline-chunks",
+    title: "生成器管道：分块 → 过滤 → 聚合",
+    src: "\nfunction* chunks(list, size) {\n  for (let i = 0; i < list.length; i += size) yield list.slice(i, i + size);\n}\nfunction* keep(iter, pred) {\n  for (const item of iter) if (pred(item)) yield item;\n}\nfunction* map(iter, fn) {\n  for (const item of iter) yield fn(item);\n}\nconst data = Array.from({ length: 10 }, (_, i) => i);\nconst total = [...keep(map(chunks(data, 3), (c) => c.reduce((a, b) => a + b, 0)), (s) => s % 2 === 0)];\nconsole.log(total.join(\",\"));\n",
+  },
+  {
+    id: "k8-e2e-memoize-and-recursion",
+    title: "记忆化 + 递归（斐波那契与阶乘的缓存命中）",
+    src: "\nfunction memo(fn) {\n  const cache = new Map();\n  return (...args) => {\n    const key = args.join(\",\");\n    if (cache.has(key)) return cache.get(key);\n    const value = fn(...args);\n    cache.set(key, value);\n    return value;\n  };\n}\nconst fib = memo((n) => (n < 2 ? n : fib(n - 1) + fib(n - 2)));\nconsole.log(fib(30), fib(10));\nlet calls = 0;\nconst slow = memo((n) => { calls++; return n * 2; });\nconsole.log(slow(3), slow(3), calls);\n",
+  },
 ];

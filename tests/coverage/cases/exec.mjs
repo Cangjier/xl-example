@@ -4723,4 +4723,52 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     title: "解构赋值：成员目标 / 默认值 / 剩余 / 交换",
     src: "\nconst box: any = { a: 1, b: 2, c: 3, d: 4 };\nconst out: any = {};\n({ a: out.first, ...out.rest } = box);\nlet x = 1, y = 2;\n[x, y] = [y, x];\nconst [p = 10, , q = 30] = [1, 2];\nconst { m: mm = \"d\" } = { m: \"M\" } as any;\nconsole.log(out.first, Object.keys(out.rest).join(\",\"), x, y, p, q, mm);\n",
   },
+
+  // ---- 第 665 轮：场景加宽（一条 = 一个真跑的 .ts，裁判是真 node）----
+  {
+    id: "k8-ex-class-computed-static-private",
+    title: "类的计算成员名 + 静态私有 + 访问器",
+    src: "\nconst key = \"k\" + 1;\nclass C {\n  static #hidden = 5;\n  [key] = 1;\n  get v() { return this[key] + C.#hidden; }\n  set v(n) { this[key] = n; }\n  static read() { return C.#hidden; }\n}\nconst c = new C();\nconsole.log(c.v, C.read(), c.k1);\nc.v = 10;\nconsole.log(c.v, c.k1);\n",
+  },
+  {
+    id: "k8-ex-forawait-custom-async-iterable",
+    title: "自定义 Symbol.asyncIterator 接上 for await",
+    src: "\nconst source = {\n  [Symbol.asyncIterator]() {\n    let n = 0;\n    return {\n      next() { n++; return Promise.resolve(n <= 3 ? { value: n * 10, done: false } : { value: undefined, done: true }); },\n    };\n  },\n};\nasync function main() {\n  const out = [];\n  for await (const v of source) out.push(v);\n  console.log(out.join(\",\"));\n}\nmain();\n",
+  },
+  {
+    id: "k8-ex-optional-chain-in-callee-and-new",
+    title: "可选链出现在被调用者、实参与 new 的类型位",
+    src: "\nconst o = { m() { return { n: () => 7 }; } };\nconsole.log(o?.m()?.n?.());\nconst arr = [1, 2, 3];\nconsole.log(arr?.map((x) => x * 2)?.join(\"-\"));\nclass Box { constructor(v) { this.v = v; } }\nconst B = Box;\nconsole.log(new B(3).v);\n",
+  },
+  {
+    id: "k8-ex-nullish-assign-to-member-and-index",
+    title: "??= 落在成员位与下标位（只算一次左值）",
+    src: "\nlet calls = 0;\nconst target = { a: null, b: 0 };\nconst pick = () => { calls++; return target; };\npick().a ??= 5;\npick().b ??= 5;\nconst idx = () => { calls++; return \"c\"; };\ntarget[idx()] ??= 9;\nconsole.log(target.a, target.b, target.c, calls);\n",
+  },
+  {
+    id: "k8-ex-default-param-destructure-and-this",
+    title: "解构默认值 + 默认值里的 this 与前面的形参",
+    src: "\nfunction f({ a = 1, b = a + 1 } = {}, c = a) {\n  return [a, b, c];\n}\nconsole.log(f(), f({ a: 5 }).join(\",\"), f({}, 3).join(\",\"));\nconst obj = { v: 2, m(x = this.v) { return x; } };\nconsole.log(obj.m(), obj.m(9));\n",
+  },
+  {
+    id: "k8-ex-spread-new-and-rest-class",
+    title: "new 的展开实参 + rest 形参进类字段",
+    src: "\nclass P { constructor(...parts) { this.parts = parts; } sum() { return this.parts.reduce((a, b) => a + b, 0); } }\nconst args = [1, 2, 3];\nconsole.log(new P(...args).sum(), new P(4, ...[5, 6]).sum());\n",
+  },
+  {
+    id: "k8-ex-try-finally-return-override",
+    title: "finally 里的 return 覆盖 try 的返回值",
+    src: "\nfunction f() {\n  try { return \"try\"; } finally { return \"finally\"; }\n}\nfunction g() {\n  try { return \"try\"; } finally { console.log(\"g-finally\"); }\n}\nconsole.log(f(), g());\n",
+  },
+  {
+    id: "k8-ex-enum-const-and-reverse",
+    title: "const enum 与字符串 enum 的取值（类型剥离线）",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nenum Dir { Up, Down }\nenum Name { A = \"a\", B = \"b\" }\nconsole.log(Dir.Up, Dir.Down, Dir[0], Name.A, Name.B);\n",
+  },
+  {
+    id: "k8-ex-destructuring-assign-to-member-target",
+    title: "解构赋值的目标是成员 / 下标（交换写法）",
+    src: "\nconst a = [1, 2];\n[a[0], a[1]] = [a[1], a[0]];\nconsole.log(a.join(\",\"));\n",
+  },
 ];

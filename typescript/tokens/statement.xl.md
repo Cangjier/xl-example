@@ -317,7 +317,7 @@ if (unit === null || unit === undefined) {
   return;
 }
 const owner = unit.constructor.name;
-const isStatementList =
+let isStatementList =
   owner === "Root" ||
   owner === "FunctionBody" ||
   owner === "MethodBody" ||
@@ -341,6 +341,19 @@ const isStatementList =
   // （实测 `ctl-switch` 一族 11 条覆盖度用例退成 `unimplemented: statement Identifier`）。
   owner === "SwitchStatement" ||
   owner === "StaticBlock";
+// **裸块的体也是一个语句列表**（第 665 轮）：`{ A };` 里那个 `A` 后面既没有 `;` 也没有换行
+// ⇒ 两档都不响 ⇒ 块里那一格**从来没有壳** ⇒ 投影出来是「`Block` 底下直接一个 `Identifier`」，
+// 而 TS 是 `Block > ExpressionStatement > Identifier`（实测 `{ A };` 缺 `ExpressionStatement` 1）。
+//
+// **对象字面量要排掉**（判据与 `FormFrom` 里那一格是同一句）：值位花括号里装的是**成员**，
+// 给 `({ A })` 收一条壳会把简写属性投成 `ExpressionStatement`。
+if (owner === "Bracket" && (unit as Bracket).startBracket === "{") {
+  const holder = unit.Parent;
+  if (holder !== null && IsObjectLiteralBrace(holder.Data, holder.Data.indexOf(unit))) {
+    return;
+  }
+  isStatementList = true;
+}
 if (isStatementList === false) {
   return;
 }

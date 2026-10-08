@@ -5981,4 +5981,46 @@ console.log(s2.join(","));
     title: "对象展开与解构各读一次访问器",
     src: "\nlet reads = 0;\nconst src: any = { get a() { reads++; return \"A\"; }, b: \"B\" };\nconst copy = { ...src };\nconst { a, ...rest } = src;\nconsole.log(copy.a, rest.b, a, reads);\n",
   },
+
+  // ---- 第 665 轮：场景加宽（一条 = 一个真跑的 .ts，裁判是真 node）----
+  {
+    id: "k8-rt-gen-delegate-return",
+    title: "yield* 的返回值与 finally 的执行顺序",
+    src: "\nfunction* inner() {\n  try { yield 1; return \"r\"; } finally { console.log(\"inner-finally\"); }\n}\nfunction* outer() {\n  const got = yield* inner();\n  console.log(\"got\", got);\n  yield 2;\n}\nfor (const v of outer()) console.log(\"v\", v);\n",
+  },
+  {
+    id: "k8-rt-tagged-template-raw",
+    title: "标签模板的 cooked 与 raw（含换行与转义）",
+    src: "\nfunction tag(strings, ...values) {\n  console.log(JSON.stringify(strings.raw), JSON.stringify(strings), values);\n  return strings.length;\n}\nconsole.log(tag`a\\nb${1}c\\td`);\n",
+  },
+  {
+    id: "k8-rt-destructure-holes-defaults",
+    title: "数组解构的洞、默认值、剩余与嵌套",
+    src: "\nconst [a, , b = 9, ...rest] = [1, 2, undefined, 4, 5];\nconst [[c], { d: { e } = {} }] = [[3], { d: { e: 7 } }];\nconsole.log(a, b, rest, c, e);\n",
+  },
+  {
+    id: "k8-rt-labeled-continue-nested",
+    title: "带标签的 continue 跳到外层循环的下一轮",
+    src: "\nouter: for (let i = 0; i < 3; i++) {\n  for (let j = 0; j < 3; j++) {\n    if (j === 1) continue outer;\n    console.log(i, j);\n  }\n  console.log(\"never\");\n}\n",
+  },
+  {
+    id: "k8-rt-string-iterator-surrogate",
+    title: "字符串迭代按码点、length 按码元",
+    src: "\nconst s = \"a\\u{1F600}b\";\nconsole.log(s.length, [...s].length, [...s].map((c) => c.length).join(\",\"));\nconsole.log(Array.from(s).join(\"|\"));\n",
+  },
+  {
+    id: "k8-rt-getter-once-per-key",
+    title: "对象展开对每个键只取一次值（含访问器）",
+    src: "\nlet reads = 0;\nconst src = { get a() { reads++; return reads; }, b: 2 };\nconst copy = { ...src, ...src };\nconsole.log(copy.a, copy.b, reads);\n",
+  },
+  {
+    id: "k8-rt-async-gen-await-sequence",
+    title: "异步生成器里 for await 的顺序与 return",
+    src: "\nasync function* gen() {\n  for (let i = 0; i < 3; i++) {\n    await Promise.resolve(i);\n    yield i;\n  }\n  return \"done\";\n}\nasync function main() {\n  for await (const v of gen()) console.log(v);\n  const it = gen();\n  console.log((await it.next()).value, (await it.return(\"x\")).value);\n}\nmain();\n",
+  },
+  {
+    id: "k8-rt-switch-fallthrough-and-return",
+    title: "switch 的穿透、返回与 default 位置",
+    src: "\nfunction f(x) {\n  switch (x) {\n    case 1:\n    case 2:\n      return \"low\";\n    default:\n      return \"other\";\n    case 3:\n      return \"three\";\n  }\n}\nconsole.log(f(1), f(2), f(3), f(9));\n",
+  },
 ];
