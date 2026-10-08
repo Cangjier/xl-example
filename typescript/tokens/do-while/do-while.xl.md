@@ -66,6 +66,14 @@ import { WhileCompare } from "../while/while-compare.xl.md"
 按定义，`do` 的体后面**必然**紧跟 `while`，所以直接找那个词最稳。代价是「体里嵌套了另一个 `do…while`」这种
 极端写法会找错那个 `while`，这一层不做区分（TypeScript 里嵌套 `do` 也会被 ASI 断开，本来就极其罕见）。
 
+**条件那一截可能先被语句层收成壳**：`do if (a) x++; while (c);` 里 `while (c);` 自带分号，
+它在 `do` 被处理之前就缩进了一个 `Statement`——顶层找不到那个 `while` 词，只有壳里第一格是它。
+所以扫的时候连壳一起看：壳的第一格是 `while` 词（或已经是 `While` 单元）时，它的前一个下标就是体的结尾。
+
+**体自己起手就是 `while` 的那一档仍然开着**（`do while (a) x++; while (b);`）：上面这条会找到
+**体自己**那个 `while`。要分开得先能算出「一条 `while` 语句到哪结束」，而那时它还没收尾——
+见 [docs/typescript-parsing-gaps.md](../../../docs/typescript-parsing-gaps.md)。
+
 ```ts
 const candidate = Get(units, index);
 if (candidate instanceof Bracket && candidate.startBracket === "{") {
@@ -76,6 +84,15 @@ while (i < units.length) {
   const item = Get(units, i);
   if (IsWordUnit(item, "while")) {
     return i - 1;
+  }
+  // 条件也可能**先被语句层收成壳**：`do if (a) x++; while (c);` 里 `while (c);` 自带分号，
+  // 它在 `do` 被处理之前就缩进了一个 `Statement`——顶层于是找不到那个 `while` 词，
+  // 只有壳里第一格是它（或已经是 `While` 单元）。不认这一格，整条 `do` 就落不到这条规则手里。
+  if (item instanceof Statement) {
+    const head = Get(item.Data, 0);
+    if (head !== null && (head.constructor.name === "While" || IsWordUnit(head, "while"))) {
+      return i - 1;
+    }
   }
   i = i + 1;
 }
@@ -129,11 +146,18 @@ if (bodyEnd < 0) {
   return false;
 }
 i = SkipNextWrapSymbol(units, bodyEnd);
-const whileWord = Get(units, i);
-if (IsWordUnit(whileWord, "while") === false) {
+// 条件那一截与上面同一份判据：可能在壳里（壳先关、规则后跑），也可能顶层就是词或 `While` 单元。
+const holder = Get(units, i);
+const condUnits = holder instanceof Statement ? holder.Data : units;
+const condAt = holder instanceof Statement ? 0 : i;
+const cond = Get(condUnits, condAt);
+if (cond !== null && cond.constructor.name === "While") {
+  return true;
+}
+if (IsWordUnit(cond, "while") === false) {
   return false;
 }
-const condition = GetSkipNextWrapSymbol(units, i);
+const condition = GetSkipNextWrapSymbol(condUnits, condAt);
 return condition instanceof Bracket && condition.startBracket === "(";
 ```
 
@@ -253,6 +277,38 @@ if (bodyCandidate instanceof Bracket && bodyCandidate.startBracket === "{") {
 }
 bodySegment.TryToClose();
 endIndex = SkipNextWrapSymbol(units, bodyEnd);
+// **条件自成壳或已成形时走这一支**（`do if (a) x++; while (c);`，与上面壳里那一支同一份判据）：
+// 顶层那一格是条件**那一整条语句**，不是一个 `while` 词跟着括号 ⇒ 不能再按「词 + 括号」取。
+const condHolder = Get(units, endIndex);
+const condShell = condHolder instanceof Statement ? condHolder : null;
+const condUnits = condShell === null ? units : condShell.Data;
+const condAt = condShell === null ? endIndex : 0;
+const condUnit = Get(condUnits, condAt);
+const condIsWhile = condUnit !== null && condUnit.constructor.name === "While";
+if (condShell !== null || condIsWhile) {
+  const compare = result.CreateCompare();
+  let compareSource: Token | null = null;
+  if (condUnit !== null && condIsWhile) {
+    compareSource = condUnit.Data.find((x) => x.constructor.name === "WhileCompare") ?? null;
+  } else {
+    compareSource = GetSkipNextWrapSymbol(condUnits, condAt);
+  }
+  if (compareSource !== null) {
+    compare.SignIn(compareSource.SourceRange.Start!);
+    compare.SignOut(compareSource.SourceRange.End!);
+    compareSource.MoveDataTo(compare);
+    compare.TryToClose();
+  }
+  // 壳的右端就是那个 `;`（`Statement.FormFrom` 把终结符切进了区间、不进 `Data`）；
+  // 顶层是 `While` 单元时它自己的右端就是终点。
+  const shellEnd = condShell === null ? null : condShell.SourceRange.End;
+  const unitEnd = condUnit === null ? null : condUnit.SourceRange.End;
+  const tail = shellEnd === null ? unitEnd : shellEnd;
+  result.SignOut(tail!);
+  result.TryToClose();
+  ReplaceCountAt(units, index, endIndex - index + 1, result);
+  return index;
+}
 endIndex = SkipNextWrapSymbol(units, endIndex);
 const conditionBracket = Get(units, endIndex) as Bracket;
 const compare = result.CreateCompare();

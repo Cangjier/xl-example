@@ -66,11 +66,15 @@
   不看位置），`function` 由 `FunctionCloseRule`、`import` 由 `MethodDeclarationCloseRule` 里那条
   **就地拒收**（`typeof import("m")` 与 `{ import(): T { … } }` 的父单元都是成员体，
   按父单元分不开——第 640 轮试过、当场被 `types/type-import-typeof-member` 拦下）。
-- **`do` 的体是 `if` 语句**：`do if (a) x++; while (c);`。`if` 由解析期向导造（见
-  `if-set.xl.md`），体那一截于是既不是「裸单元」也不是「语句壳」——`DoWhileCloseRule`
-  现在认的两种形态都不匹配（实测缺 `DoStatement` 1、多出 3）。其余体形态
-  （块 / 自带 `;` 的语句 / `;` 空语句 / 无 `;` 的两行写法）都已经修好，见
-  [`../tests/parse/cases/statements/stmt-do-while-body-terminated.ts`](../tests/parse/cases/statements/stmt-do-while-body-terminated.ts)。
+- **`do` 的体本身是一条 `while` 语句**：`do while (a) x++; while (b);`。
+  体起手就是 `while` 词，`DoWhileCloseRule.BodyEnd` 的「往后找到那个 `while`」于是找到**体自己**，
+  返回的结尾落在体起点之前（实测体空、`x++` 掉在 `DoWhile` 外面，多出 4 个节点）。
+  要修得先能算出「一条 `while` 语句到哪结束」——那时它自己还没收尾，与下面那条 `do if`
+  是同一类问题的两个方向。**`do` 的体是 `if` 语句的那一档已经修掉**（第 646 轮）：条件是
+  `while (c);` 自带分号、先被语句层收成壳，`BodyEnd` 与 `Previous` 现在都认得「壳里第一格是
+  `while`（或已经是 `While` 单元）」，`Process` 多一支按壳/单元取条件并签在壳的右端
+  （那个 `;` 在壳的区间里），判据
+  [`stmt-do-while-if-body.ts`](../tests/parse/cases/statements/stmt-do-while-if-body.ts)。
 - **`switch` 体里同一行写完一个块，后面再跟 `case` / `default`**：
   `switch (1) { case 1: { break; } default: break; }`。语句层把 `default:` 那一截并进了
   **同一个 `Statement` 壳**，而 `switch` 的分段是在体括号的**顶层单元**上找 `case` / `default`
