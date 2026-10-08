@@ -357,6 +357,34 @@
    `ReferenceError`，第 692 轮那条的同一个根）、**模块顶层的 `this` 是 `undefined`**
    （裁判按 CJS 跑，那里 `this` 是 `module.exports`；本仓按 ESM 的口径给——
    箭头那一半本轮已经对齐）。加权 **95.62% → 95.66%**（分子 +100、分母 +100）。
+   **第 703 轮全矩阵**（第十三批原子探针 303 份新语料）：通过 **6093 → 6374**、
+   分母 **6439 → 6742**、`blocked 257 → 261`、`differ 89 → 107`、`bad` 仍 **0**、
+   `regressions` **0**、`moved` **1**、`newlyPassing` **3**——收掉的是
+   **对象字面量的数据成员走的是「赋值」而不是 `[[DefineOwnProperty]]`**（第 699 轮
+   只改了**类字段**那一条路）。四条原子探针钉着它（`p703o-a45` / `a46` / `a47` / `a48`）：
+   `({ get a() { return 1; }, a: 2 }).a` JS 给 `2`、本仓给 `1`（`[[Set]]` 撞上原型上
+   那格只读访问器 ⇒ **静默不写**）；`({ ["__proto__"]: { z: 1 } }).z` JS 给 `undefined`、
+   本仓给 `1`（**计算**键的 `__proto__` 是普通属性，`[[Set]]` 却去调了
+   `Object.prototype` 上那个 setter ⇒ 原型被改掉）；另两条是同一处的另外两个面。
+   修法：`LowerObjectLiteral` 里三条数据成员的路（非计算键的收尾、`PropertyAssignment`
+   的计算键、`MethodDeclaration` 的计算键）从 `set_prop` / `set_index` 换成现成的
+   `define_data`（`EmitDefineData` / `EmitDefineDataValue`，第 699 轮为类字段立的），
+   **访问器那两档照旧走 `define_accessor`**，非计算的 `__proto__` 特例照旧走 `set_proto`
+   ——规范里那一条特例恰好只管非计算的那一档。旧台账 `stdlib/object/probe698-f09`
+   （计算键写的 `__proto__` 不改原型）当场转绿、已撤；另两条 `newlyPassing` 是
+   同一条根上的 `exec/functions/probe700-f-e47` 与 `stdlib/array/probe693-a30`。
+   唯一的 `moved` 是 `stdlib/object/probe698-b14`（`{ [o]: 1 }`，`o` 只有 `toString`）：
+   形态从「整份文件进不来」变成**运行期抛、被 `try/catch` 接住**（stdout 非空 ⇒ differ），
+   **读数变了、根没变**，台账已按现状改写。本批另登记 22 条新缺口（`blocked` +5 /
+   `differ` +18，其中 `probe698-b14` 是 moved 不是新增）：`Reflect` 整个没有（4 条）、
+   松散模式原始值接收者不装箱 / `bind` 的接收者不装箱（2 条）、闭包上缺 async 与
+   generator 两位（`[object AsyncFunction]` 那一族，3 条）、**类的 `toString()` 打出整份源码**
+   （1 条）、函数自己的 `arguments` / `caller` 两格（2 条，与 `stdlib/object/151` 同根）、
+   `JSON.isRawJSON`（1 条）、`Map` 的内部载荷 `__k` 是可见自有属性（1 条）、
+   `Math.f16round` / `Math.random`（2 条，与 `stdlib/math/044` 同根）、
+   数组下标不是自有属性（1 条）、`String.prototype` 的 `match` / `search` / `matchAll`
+   与字符串实参转 `RegExp`（4 条）。加权 **95.8% → 95.7%**（分子 +281、分母 +303）
+   ——新登记缺口的账，不是回归。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

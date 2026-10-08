@@ -6108,10 +6108,10 @@ this.Release(key);
 
 ## method LowerObjectLiteral:(node:AstNode)=>int
 
-**对象字面量**：先造普通对象（原型取 `Protos.Object`），再逐条 `set_prop`。
+**对象字面量**：先造普通对象（原型取 `Protos.Object`），再逐条**造一格自有的数据属性**。
 
 **五种成员都收**：`a: 1`、`{a}`、方法、**计算键**（`{ [k]: 1 }`——键是一个**值**，
-所以走 `set_prop` 的「键也能是值」那条路）、以及**访问器**（`get x()` / `set x(v)`，第 99 轮补）。
+所以走 `define_data` 的「键来自槽」那条路）、以及**访问器**（`get x()` / `set x(v)`，第 99 轮补）。
 **展开（`{...o}`）第 132 轮补上**：落成一条 `Object.assign(目标, 来源)` 的**语言内建调用**
 （`[号, 目标, 来源…]` + 一条 `host_call`，与 `StringConcat` 同一个写法）。
 
@@ -6123,9 +6123,30 @@ this.Release(key);
 **访问器不调 getter**（JS 的对象展开走 `[[Get]]`）、**原始值来源跳过**
 （JS 里 `{...'ab'}` 给 `{0:'a',1:'b'}`）。
 
-**访问器不走 `set_prop`**：那条只写**数据属性**。引擎侧早就读得懂访问器（`ReadProperty` 调 getter、
-`SetProperty` 调 setter），缺的是「造一个」的路——那条路是 `props.xl.md` 的 `DefineAccessor`，
-由语言内建号 `DefineAccessorId`（号段 700..799）暴露出来。
+**对象字面量的成员不走赋值**（第 703 轮改的口径）。
+
+**数据成员（`a: 1` / `{a}` / 方法 / 计算键）改走 `define_data`**，访问器仍走
+`define_accessor`。规范里那一步是 `CreateDataPropertyOrThrow`（`[[DefineOwnProperty]]`，
+造/改一格**自有**的、三个标志全开的**数据**属性），而 `set_prop` / `set_index` 是 `[[Set]]`
+——**它会沿原型链找访问器**。两者的差别在第 699 轮为**类字段**量过一次
+（见 `EmitDefineData` 那一段）；这一轮发现**对象字面量整族都还没改**，
+四条新探针（第 703 轮的 `p703o-a45` / `a46` / `a47` / `a48`）钉着它：
+
+| 现场 | JS | 改前本仓 |
+| --- | --- | --- |
+| `({ get a() { return 1; }, a: 2 }).a` | `2` | `1`（`[[Set]]` 撞上原型上那格只读访问器 ⇒ 静默不写） |
+| `({ ["__proto__"]: { z: 1 } }).z` | `undefined` | `1`（**计算**键的 `__proto__` 是普通属性，`[[Set]]` 会去调 `Object.prototype` 上的 `__proto__` setter） |
+| `Object.getPrototypeOf({ ["__proto__"]: 1 }) === Object.prototype` | `true` | `false`（同上：原型被改掉了） |
+| `Object.getOwnPropertyDescriptor({ ["__proto__"]: 1 }, "__proto__").value` | `1` | 抛 `TypeError`（那一格根本不在自有属性表里） |
+
+**只有非计算的 `__proto__` 是特例**（`{ __proto__: p }` 设原型）——那一支**还在上面**，
+用 `RtOp.SetProto`，与这里**不冲突**：规范里特例恰好只管非计算的那一档。
+
+**访问器不走这里**：`define_data` 那条只写**数据属性**。引擎侧早就读得懂访问器
+（`ReadProperty` 调 getter、`SetProperty` 调 setter），缺的是「造一个」的路——
+那条路是 `props.xl.md` 的 `DefineAccessor`，由语言内建号 `DefineAccessorId`
+（号段 700..799）暴露出来。
+
 
 ```ts
 const object = this.Reserve(1);
@@ -6159,7 +6180,8 @@ for (let i = 0; i < properties.length; i++) {
       if (this.NamesFunctionValue(Child(property, "initializer"))) {
         this.EmitComputedFunctionName(computedValue, computedKey, Child(name, "expression"));
       }
-      this.SetPropertyValue(object, computedKey, computedValue);
+      // **改走 `define_data`**（第 703 轮，见下面「对象字面量的成员不走赋值」那一段）。
+      this.EmitDefineDataValue(object, computedKey, computedValue);
       continue;
     }
     // **属性名也是「命名位置」**（第 330 轮，JS 的 NamedEvaluation）：
@@ -6217,7 +6239,8 @@ for (let i = 0; i < properties.length; i++) {
       // **方法也是命名位置**（第 620 轮）：`{ ["k" + 1]() {} }.k1.name` 是 `"k1"`
       //（它这一档**一定**匿名：`"<computed>"` 以 `<` 开头 ⇒ `LowerFunctionValue` 按匿名处理）。
       this.EmitComputedFunctionName(computedValue, computedKey, Child(name, "expression"));
-      this.SetPropertyValue(object, computedKey, computedValue);
+      // **改走 `define_data`**（第 703 轮，与上面 `PropertyAssignment` 那条同一个理由）。
+      this.EmitDefineDataValue(object, computedKey, computedValue);
       continue;
     }
     // **方法名要把外面那条提示顶掉**（第 238 轮，**实测踩过**）：
@@ -6289,7 +6312,9 @@ for (let i = 0; i < properties.length; i++) {
   } else {
     throw new Error("unimplemented: object literal member " + kind);
   }
-  this.SetPropertyConst(object, keyConst, value);
+  // **改走 `define_data`**（第 703 轮）：对象字面量的成员是
+  // `CreateDataPropertyOrThrow`，不是 `[[Set]]`——见下面「对象字面量的成员不走赋值」。
+  this.EmitDefineData(object, keyConst, value);
 }
 this.Release(object + 1);
 return object;
