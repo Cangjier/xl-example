@@ -10,7 +10,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { GetSkipPreviousTrivia, IsTriviaUnit, SkipPreviousTrivia } from "../../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, IsObjectLiteralBrace, IsTriviaUnit, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
@@ -81,11 +81,27 @@ IfSetBranch.Success    建 IfSet、挂到宿主、建第一段、**立马挂 IfC
 `SkipPreviousTrivia(units, unit.Data.length)` 从最后一格往回跳 trivia ✓ ——
 没有注释时它落在的正是原来 `Last()` 那一格 ✓，行为一个字节都不变 ✓。
 
+**对象字面量里的 `if` 是成员名、不是语句** ✓（第 647 轮 ✓）：`{ if(): T { … } }` 里那个
+`if` 后面正好跟一个 `(` ✓，形状与 `if (…)` 一模一样 ✗，分它们的只有**宿主那个花括号是不是
+值位** ✓。判据直接问 `IsObjectLiteralBrace` ✓——`JsonObjectCloseRule` 与两个语句成形器
+问的是**同一句** ✓，这里不另写一份词法推断 ✗（同一个问题两份答案正是这一节开头在讲的毛病 ✓）。
+
+对象字面量里不可能出现语句 ✓，所以这条闸不会挡掉任何真的 `if` 语句 ✓：
+函数体 / 裸块 / `switch` 体的 `{` 都不在值位上 ✓（判据见 `text-common-util.xl.md` ✓）。
+
 ```ts
 const result = new BranchConditionResult();
 result.Success = false;
 if (source.Value !== "(") {
   return result;
+}
+// **值位的花括号里没有语句** ✗：`{ if(): T { … } }` 的 `if` 是一个**成员名** ✓。
+const holder = unit.Parent;
+if (unit instanceof Bracket && unit.startBracket === "{" && holder !== null) {
+  const at = holder.Data.indexOf(unit);
+  if (at >= 0 && IsObjectLiteralBrace(holder.Data, at)) {
+    return result;
+  }
 }
 const keywordIndex = SkipPreviousTrivia(unit.Data, unit.Data.length);
 const keyword = Get(unit.Data, keywordIndex);
