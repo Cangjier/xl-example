@@ -10,8 +10,8 @@ import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, 
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
 import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue } from "./text.xl.md"
 import { InspectText, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
-import { MapCtor, MapGroupBy, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
-import { SetCtor, WeakSetCtor } from "./set.xl.md"
+import { MapCtor, MapGroupBy, MapEntries, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
+import { SetCtor, SetValues, WeakSetCtor } from "./set.xl.md"
 import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, PromiseFinally } from "./promise.xl.md"
 ```
 
@@ -8098,6 +8098,38 @@ const generatorIteratorKey = GetProperty(room, NeverCall, protos, table, wellKno
 if (generatorIteratorKey.Tag === ValueTag.Symbol && protos.Generator > 0) {
   SetProperty(room, NeverCall, table, Value.FromObject(protos.Generator), generatorIteratorKey,
     Value.FromRef(ValueTag.HostRef, table.CreateHostRef(GeneratorSelf, 0)));
+}
+// **`Map.prototype[Symbol.iterator]` / `Set.prototype[Symbol.iterator]`**（第 712 轮）
+// ——与上面第 308 轮 `Array.prototype[Symbol.iterator]` 是**同一副面孔**。
+//
+// **为什么它在矩阵里是红的**：`for..of` / 展开走的是**语言层那条 `GetIterator`**
+// （`install.xl.md`：它按 `Symbol.iterator` **协议**把 `Map` / `Set` 物化成数组），
+// **根本不问原型这一格**——于是 `for (const [k, v] of m)` 一直是对的，
+// 而**显式取出来自己调**（`m[Symbol.iterator]()`）报 `cannot call a non-closure value`。
+// 那句话听起来像「集合的迭代这一套还没做」，真相是**只是没人往这一格挂东西**
+// （与第 308 轮数组那一格、第 341 轮 `Map` / `Set` 的方法搬原型同一形状）。
+// 判据 `exec/round711/p711c-c07`（`typeof (new Map())[Symbol.iterator]` 该是 `"function"`）
+// 量的就是这一格。
+//
+// **挂的是同一格能力号**（**同一件事不写第二份实现**）：
+// JS 里 `Map.prototype[Symbol.iterator] === Map.prototype.entries`、
+// `Set.prototype[Symbol.iterator] === Set.prototype.values`——两处都是**同一个函数对象**，
+// 所以这里指到 `InstallMapMethods` / `InstallSetMethods` 已经挂出去的那两个号
+// （`MapEntries` / `SetValues`，号落在集合段 600..610 / 611..659 里，两张名字表都有它们）。
+//
+// **位置只能在这里**（**实测踩过**）：第一版写在 `install.xl.md` 的 `InstallBuiltins` 里
+// （与 `InstallMapPrototype` 并排，看起来更「同一件事放一处」），
+// 而那一句跑在 **`BuildGlobals` 之前**（`tsrun.xl.md` 的顺序：`InstallBuiltins` 先、
+// `BuildGlobals` 那一份模块后求值）⇒ `protos.WellKnownSymbols` 还是 `0`、
+// 取键拿到 `undefined`、**静默什么都不挂**。放在这里就对了：**符号表刚填好**
+// （上面那句赋值），`protos.Map` / `protos.Set` 也早在 `CreateProtos` 里造好了。
+const mapIteratorKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
+  Value.FromString(table.CreateString(Units("iterator"))));
+if (mapIteratorKey.Tag === ValueTag.Symbol && protos.Map > 0 && protos.Set > 0) {
+  SetProperty(room, NeverCall, table, Value.FromObject(protos.Map), mapIteratorKey,
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(MapEntries, 0)));
+  SetProperty(room, NeverCall, table, Value.FromObject(protos.Set), mapIteratorKey,
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SetValues, 0)));
 }
 // `Date` 是一个**普通对象**（像 `Math` 一样），上面挂 `now`——
 // 而 `now` 指向的是**宿主**要回答的能力号（见 `ClockNow` 的说明：建库层没有时钟）。

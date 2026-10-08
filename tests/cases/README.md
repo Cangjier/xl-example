@@ -77,17 +77,37 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **7594** 条（token 1416 / exec 2149 / runtime 815 / stdlib 2968 / e2e 246），判过 **7580** 条。
+语料 **7595** 条（token 1416 / exec 2150 / runtime 815 / stdlib 2968 / e2e 246），判过 **7581** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 2148 | **2092** | 12 / 44 | 另有 1 条不进分母 |
-| `runtime` | 815 | **805** | 1 / 9 | |
+| `exec` | 2149 | **2095** | 12 / 42 | 另有 1 条不进分母 |
+| `runtime` | 815 | **806** | 1 / 8 | |
 | `stdlib` | 2968 | **2889** | 31 / 48 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **7580** | **7212** | 267 / 101 | 加权 **95.9%** |
+| **合计** | **7581** | **7216** | 267 / 98 | 加权 **96.0%** |
+
+**第 712 轮只加 1 条**（分母 7580 → **7581**）：`exec/round712/p712a-a01` 问
+**`Set` 的 `Set.prototype[Symbol.iterator]` 那一格**（`typeof` 是 `"function"`、
+取出来的第一个值是 `1`、它与 `Set.prototype.values` 是**同一个函数对象**）——
+第 711 轮只钉了 `Map` 那一格，这一轮把 `Set` 那一半**用同一条形状补齐**（两格一起修的，
+所以用例也成对）。**这一条 pass**，同时收掉 4 条台账：
+
+- **`Map.prototype[Symbol.iterator]` / `Set.prototype[Symbol.iterator]` 没人挂**
+  （第 712 轮，**同一根**：`for..of` / 展开走语言层 `GetIterator` 的**协议**路，
+  **不问原型这一格**，于是 `for (const [k, v] of m)` 一直对、
+  而 `m[Symbol.iterator]()` 报 `cannot call a non-closure value`）。
+  两格挂在 `globals.xl.md` 的 `BuildGlobals` 里 **`Array.prototype[Symbol.iterator]` 那一处**，
+  键从知名符号小表取、值指到**已经挂出去的那个能力号**（`MapEntries` / `SetValues`——
+  JS 里 `Map.prototype[Symbol.iterator] === Map.prototype.entries`、
+  `Set.prototype[Symbol.iterator] === Set.prototype.values`，**同一件事不写第二份实现**）。
+  **位置是实测撞出来的**：第一版写在 `install.xl.md` 的 `InstallBuiltins` 里
+  （与 `InstallMapPrototype` 并排），而那一句跑在 `BuildGlobals` **之前** ⇒
+  符号表还是空的、取键得 `undefined`、**静默什么都不挂**（症状与「没修」一字不差）。
+  台账 `exec/round711/p711c-c07`（`Map` 那一格）、`exec/round710/p710c-c01` /
+  `runtime/iterators/probe693b-g15`（`Map` 迭代器条目按下标读）**三条转绿、台账已撤**。
 
 **第 711 轮再加 26 条**（分母 7554 → **7580**）：第二十一批原子探针，专问
 **「一元前缀 + 一条链」的形状**（`typeof` / `void` / `!` 后面接「下标调用 + 后缀」的链、

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7580,
+  "total": 7581,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.92,
+  "progressPercent": 95.98,
   "categories": [
     {
       "category": "token",
@@ -90,22 +90,22 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2148,
-      "pass": 2092,
+      "total": 2149,
+      "pass": 2095,
       "blocked": 12,
-      "differ": 44,
+      "differ": 42,
       "nodefail": 0,
-      "coverage": 97.39
+      "coverage": 97.49
     },
     {
       "category": "runtime",
       "weight": 0.25,
       "total": 815,
-      "pass": 805,
+      "pass": 806,
       "blocked": 1,
-      "differ": 9,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 98.77
+      "coverage": 98.9
     },
     {
       "category": "stdlib",
@@ -1925,7 +1925,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28444/src/3202.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23228/src/3202.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1950,12 +1950,6 @@
       "category": "exec",
       "title": "严格函数的自有名字表",
       "detail": "stdout 不同：第 1 行：node «string:length,name,prototype» vs tsrun «string:length,name,arguments,caller,prototype»"
-    },
-    {
-      "id": "exec/round710/p710c-c01",
-      "category": "exec",
-      "title": "Map 迭代器条目按下标读",
-      "detail": "stdout 不同：第 1 行：node «string:a1» vs tsrun «throw:TypeError»"
     },
     {
       "id": "exec/round710/p710c-c06",
@@ -1992,12 +1986,6 @@
       "category": "exec",
       "title": "下标调用链当相等比较的左操作数",
       "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «function:() => ({ v: 1 })»"
-    },
-    {
-      "id": "exec/round711/p711c-c07",
-      "category": "exec",
-      "title": "Map 的 Symbol.iterator 在不在",
-      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
     },
     {
       "id": "exec/statements/probe693b-s30",
@@ -2046,12 +2034,6 @@
       "category": "runtime",
       "title": "`for...of` 遍历 Set 时删掉当前元素再添加",
       "detail": "stdout 不同：第 1 行：node «1,3,4 1,3,4» vs tsrun «1,2,3 1,3,4»"
-    },
-    {
-      "id": "runtime/iterators/probe693b-g15",
-      "category": "runtime",
-      "title": "(function () { const m = new Map([[\"a\", 1]]); const it = m[Symbol.iterator](); const e = it.next().value; return e[0] + e[1]; })()",
-      "detail": "stdout 不同：第 1 行：node «string:a1» vs tsrun «throw:TypeError»"
     },
     {
       "id": "runtime/iterators/probe694-g04",
@@ -2135,7 +2117,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28444/src/4908.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23228/src/4909.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2159,7 +2141,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28444/src/4958.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23228/src/4959.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2350,11 +2332,6 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [
-    {
-      "id": "runtime/iterators/probe694-g18",
-      "category": "runtime"
-    }
-  ],
+  "newlyPassing": [],
   "regressions": []
 }

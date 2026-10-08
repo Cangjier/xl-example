@@ -306,6 +306,36 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 712 轮：`Map` / `Set` 的 `Symbol.iterator` 那一格
+
+**一句话**：`for..of` 一条 `Map` / `Set` 一直是好的，而**显式把那格迭代器取出来自己调**
+（`m[Symbol.iterator]()`）报 `cannot call a non-closure value`——**没人往原型那一格挂东西**。
+
+- **两份账本来是同一件事**：语言层的 `GetIterator`（`install.xl.md`）按**协议**走
+  （取 `Symbol.iterator` → 调它 → 收 `next()`），引擎那条 `iter_new` / `iter_next`
+  只认数组、字符串、生成器。所以 `for (const [k, v] of m)` 走的是**协议路**、一直对；
+  而 `m[Symbol.iterator]` 走的是**属性查找**——那一格空着就是 `undefined`。
+  这与第 308 轮 `Array.prototype[Symbol.iterator]`、第 341 轮 `Map` / `Set` 的方法搬原型
+  **是同一副面孔**：不是「迭代这一套没做」，是**一格没挂**。
+- **挂的是已经挂出去的那个号**（**同一件事不写第二份实现**）：JS 里
+  `Map.prototype[Symbol.iterator] === Map.prototype.entries`、
+  `Set.prototype[Symbol.iterator] === Set.prototype.values`——所以指到 `MapEntries` /
+  `SetValues`，键从知名符号那张小表取（符号按句柄比，**只造一次**）。
+- **位置是实测撞出来的**（这一轮唯一的坑）：第一版写在 `install.xl.md` 的
+  `InstallBuiltins` 里（与 `InstallMapPrototype` 并排，看起来最像「同一件事放一处」），
+  而那一句跑在 **`BuildGlobals` 之前**（`tsrun.xl.md` 的顺序是「装库先、求值后」）——
+  `protos.WellKnownSymbols` 还是 `0`，取键得 `undefined`，**静默什么都不挂**
+  （症状与「没修」一字不差，没有异常、没有日志）。挪到 `BuildGlobals` 里
+  `Array.prototype[Symbol.iterator]` 那一处（符号表刚填好）就对了。
+- **收掉 4 条台账**（三条是本轮的根、一条是第 711 轮刚登的同族）：
+  `exec/round711/p711c-c07`（`typeof (new Map())[Symbol.iterator]`）、
+  `exec/round710/p710c-c01` / `runtime/iterators/probe693b-g15`（把迭代器交回来的
+  `[键, 值]` 按下标读）、`runtime/iterators/probe694-g18`（`[][Symbol.iterator]().next`
+  该是函数——第 711 轮那一处修好之后它一直是过的，台账没撤）。
+- **只加 1 条语料**（`exec/round712/p712a-a01`：`Set` 那一半的形状，
+  与第 711 轮 `p711c-c07` 成对）。五类 **7212 / 7580 → 7216 / 7581**、
+  `differ 101 → 98`、`blocked 267` 没涨、`bad` 0、`regressions` 0、加权 **95.9% → 96.0%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -318,7 +348,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7212 / 7580**，加权 **95.9%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2092/2148、runtime 805/815、stdlib 2889/2968、e2e 242/246。差的那些是**真缺口**（`blocked` 267 / `differ` 101），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7216 / 7581**，加权 **96.0%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2095/2149、runtime 806/815、stdlib 2889/2968、e2e 242/246。差的那些是**真缺口**（`blocked` 267 / `differ` 98），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~37s**） |
 
 ### 口径与已知缺口

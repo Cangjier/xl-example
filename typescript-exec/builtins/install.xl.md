@@ -1226,6 +1226,13 @@ InstallString(host.Machine, protos);
 InstallMapPrototype(host.Machine, protos);
 InstallSetPrototype(host.Machine, protos);
 InstallDatePrototype(host.Machine, protos);
+// **`Map.prototype[Symbol.iterator]` / `Set.prototype[Symbol.iterator]` 不在这里挂**
+// （第 712 轮）：知名符号表 `protos.WellKnownSymbols` 是 `BuildGlobals` **求值那一趟**
+// 才填的（`tsrun.xl.md` 的顺序是「`InstallBuiltins` 先、`BuildGlobals` 后」——
+// 见那一处的说明），而**这一句就在 `InstallBuiltins` 里面** ⇒ 在这里取键只会拿到
+// `undefined`、静默什么都不挂（**实测过**：`mapSetIteratorKey.Tag` 不是 `Symbol`）。
+// 所以那两格挂在 `globals.xl.md` 的 `BuildGlobals` 里——**与 `Array.prototype[Symbol.iterator]`
+// 同一处**（那里符号表刚填好）。
 // **`Promise` 那四个静态方法要登记**（第 185 轮）：理由与下面那张辅助表一字不差
 // （**不加进名单的症状是 `capability is not registered: 231`**）。
 const promiseSlots = [PromiseResolve, PromiseReject, PromiseAll, PromiseRace,
