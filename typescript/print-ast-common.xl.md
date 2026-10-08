@@ -4805,7 +4805,29 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
       };
     } else {
       const before = names.find((k) => endOf(k) <= startOf(kids[colonIndex]));
-      if (before !== undefined) props.propertyName = nameOf(before, ctx);
+      // **键是一个引号名**（第 693 轮，**实测撞到的**）：`const { "x": a } = o` 的键那一格
+      // 是 `<String><ConstString>x</ConstString></String>`，而 `isNameNode` 只认
+      // `Identifier` / `Keyword` ⇒ 这一格**找不到键** ⇒ `propertyName` 整个丢掉，
+      // 降级层随后把**绑定的名字**当成键（`{ "x": a }` 读成了 `{ a }`）
+      // ⇒ `const { "x": a } = { x: 9 }` **静默给 `undefined`**（JS 给 `9`）。
+      // 取法与 `specifierNameOf` 那条**一字不差**：引号名给 `StringLiteral`
+      //（`text` 是引号里那段），其余走 `nameOf`——键的取法本来就只有这一种。
+      // 位置落在**原始 Map** 上，`stringText` / `astNode` 吃的是**视图**，所以这里要过一趟 `view`。
+      const quotedBefore = kids.find(
+        (k) =>
+          (k.get("type") === "String" || k.get("type") === "ConstString") &&
+          endOf(k) <= startOf(kids[colonIndex]),
+      );
+      if (quotedBefore !== undefined) {
+        props.propertyName = astNode(
+          "StringLiteral",
+          { text: stringText(view(quotedBefore), ctx) },
+          view(quotedBefore),
+          ctx,
+        );
+      } else if (before !== undefined) {
+        props.propertyName = nameOf(before, ctx);
+      }
     }
     // **冒号右边那一格**才是绑定名 / 嵌套模式；`[k2]: { a }` 里冒号**左边**那个
     // `ArrayLiteral` 是计算名（第 137 轮）——`patternKid` 取的是「第一个模式单元」，

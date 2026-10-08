@@ -2959,19 +2959,44 @@ if (kind === "LabeledStatement") {
   //   `break outer` / `continue outer` 就是靠它找到那一层。
   //   这就是原来那条路（`PendingLabel`）。
   //
-  // ② **体不是循环**（`outer: { … }`，第 234 轮）：**没有任何东西会来消费这个标签**
-  //   （`EnterLoop` 只有循环调），于是原来那句「无论体是什么都要清」
+  // ② **体不吃这个标签**（`outer: { … }` 第 234 轮；`lbl: if (…)` / `lbl: try (…)`
+  //   第 693 轮）：**没有任何东西会来消费这个标签**
+  //   （`EnterLoop` 只有循环与 `switch` 调），于是原来那句「无论体是什么都要清」
   //   把标签**当场扔掉**——`break outer` 随后报
   //   `unknown label \`outer\` (the parser should have rejected this)`
   //   （那句话把责任推给语法层，而**它是合法的 JS**：判据 `ex-labeled-block`）。
   //
-  // **②怎么落**：**给整个块当一层可跳出的东西**——块的**末尾留一个跳转目标**，
+  // **②怎么落**：**给那个语句当一层可跳出的东西**——**它之后**留一个跳转目标，
   // `break outer` 就是「跳到这里」（**没有新算子**：与循环出口那条路一字不差）。
   // 它**不进 `Loops`**：`Loops` 那一摞还管着 `continue` 与「循环体每轮新建绑定」，
   // 而那些对块毫无意义——混进去会让块里的 `continue` 找到一层不是循环的东西。
   // 所以它**单独一格**（`BlockLabel` / `BlockLabelExit`），判据在 `LowerBreak` 里。
-  if (NodeKind(Child(node, "statement")) === "Block") {
-    // **`break` 的跳转先记下来、块跑完一起回填**——**与 `LeaveLoop` 同一个写法**
+  //
+  // **②那一支从「裸块」放宽到「一切不吃标签的语句」**（第 693 轮，**实测撞到的**）：
+  // 原来只认 `Block`，于是 `lbl: if (…) { break lbl; }` 与
+  // `lbl: try { break lbl; } finally { … }` 都落进①那一支——**没有任何东西来消费那个标签**
+  // （`EnterLoop` 只由循环与 `switch` 调）⇒ `break lbl` 报
+  // `unknown label \`lbl\` (the parser should have rejected this)`，
+  // 而**两句都是合法的 JS**（**整份文件进不来**）。判据是「体**吃不吃**标签」，
+  // 不是「体是不是一个块」——块只是「不吃」的那一族里最普通的一种。
+  //
+  // **判据要穿过嵌着的标签看**（与下面那摞 `PendingLabels` 同一件事实）：
+  // `first: second: for (…)` 里外层那个 `first` **必须**进 `PendingLabels`
+  //（`continue first` 要找得到那个循环）——只看**直接的孩子**的话，外层会被当成
+  // 「不吃标签」而走②，`continue first` 随即报未知标签（把第 692 轮那一处又修回去）。
+  let eaten = Child(node, "statement");
+  let eatenKind = NodeKind(eaten);
+  while (eatenKind === "LabeledStatement") {
+    eaten = Child(eaten, "statement");
+    eatenKind = NodeKind(eaten);
+  }
+  // **会吃掉标签的那几族**：循环五档 + `switch`（六处 `EnterLoop` 的调用点，
+  // 见 `PendingLabel` 那一节的说明）。别的一律走②。
+  const eatsLabel = eatenKind === "WhileStatement" || eatenKind === "DoStatement"
+    || eatenKind === "ForStatement" || eatenKind === "ForInStatement"
+    || eatenKind === "ForOfStatement" || eatenKind === "SwitchStatement";
+  if (eatsLabel === false) {
+    // **`break` 的跳转先记下来、语句跑完一起回填**——**与 `LeaveLoop` 同一个写法**
     //（那一处的理由一字不差地适用：`break` 的落点永远是「这一层之后」，
     //  让每一处 `break` 自己算，迟早有人算成「这一层之前」）。
     //
@@ -3636,8 +3661,15 @@ for (let i = 0; i < elements.length; i++) {
       value = this.RtCallValues(RtOp.GetIndex, source, keyValue);
       this.Release(keyValue);
     } else {
+      // **写死的键也走 `get_index`**（第 693 轮，**实测撞到的**）：`const { 0: a } = [7]`
+      // 原来走 `get_prop` ⇒ **静默给 `undefined`**（JS 给 `7`）。
+      // 键那一格是 **`Identifier "0"`**（不是 `NumericLiteral`——投影就是这么给的），
+      // 而 `get_prop` 只认属性表里的字符串键，**数组的下标不是属性表里的键**；
+      // `get_index` 那一支才是「接收者是数组就按元素读、否则把键字符串化之后走属性」
+      // 那一条（与 `arr["0"]` 一字不差）。与上面那条计算键**走同一条路**反而更省判据：
+      // 键是什么形状在这里已经不重要了。
       const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(keyNode)));
-      value = this.RtCall2(RtOp.GetProp, source, key);
+      value = this.RtCall2(RtOp.GetIndex, source, key);
     }
   } else {
     const index = this.Program().AddConst(Constant.OfInt(i));
@@ -3786,8 +3818,10 @@ if (kind === "ObjectLiteralExpression") {
       read = this.RtCallValues(RtOp.GetIndex, source, keyValue);
       this.Release(keyValue);
     } else {
+      // **写死的键也走 `get_index`**（第 693 轮，与声明那一半**同一条**，
+      // 见 `Destructure` 里那一段）：`({ 0: a } = [7])` 原来同样**静默给 `undefined`**。
       const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(keyNode)));
-      read = this.RtCall2(RtOp.GetProp, source, key);
+      read = this.RtCall2(RtOp.GetIndex, source, key);
     }
     // **`{a: target}` 的 `initializer` 是目标**、**`{a}` 的键就是目标**——
     // 两者都先过 `DestructureTarget`：它只对「带默认值的 `BinaryExpression`」动手，

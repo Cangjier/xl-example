@@ -77,17 +77,52 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **4630** 条（token 1416 / exec 858 / runtime 662 / stdlib 1462 / e2e 246）。
+语料 **5199** 条（token 1416 / exec 1118 / runtime 687 / stdlib 1732 / e2e 246），判过 **5185** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 857 | **834** | 1 / 22 | 另有 1 条不进分母 |
-| `runtime` | 662 | **657** | 1 / 4 | |
-| `stdlib` | 1462 | **1398** | 20 / 44 | |
+| `exec` | 1117 | **1086** | 5 / 26 | 另有 1 条不进分母 |
+| `runtime` | 687 | **681** | 1 / 5 | |
+| `stdlib` | 1732 | **1662** | 21 / 49 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **4630** | **4315** | 245 / 70 | 加权 **95.7%** |
+| **合计** | **5185** | **4855** | 250 / 80 | 加权 **95.7%** |
+
+**第 693 轮再加 555 条**（分母 4630 → **5185**）：第四批原子探针（两批：一批问
+`Object` 的静态面与键序 / `Array` 的泛用方法 / `Number` 的字符串解析与进制 /
+`-0` 与 `NaN` / `String` 的模式替换与码点 / `JSON` / `Map`·`Set` 的 SameValueZero、
+另一批问**形状**——语句与标签、ASI、可选链、生成器、解构与展开、`new` 与调用链、
+类成员的各种写法）。**收掉三处**：
+
+1. **对象解构写死的键走 `get_prop`**（**静默错值**，两半都是）：
+   `const { 0: a } = [7]` 与 `({ 0: b } = [7])` 原来都给 `undefined`（JS 给 `7`）——
+   键那一格是 `Identifier "0"`，而 `get_prop` **只认属性表里的字符串键**，
+   **数组的下标不在属性表里**。两半一起改成走 `get_index`（与 `arr["0"]` 那条一字不差，
+   也与计算键那一支合流）。
+2. **引号名的键在投影那一步整个丢掉**（**静默错值**）：`const { "x": a } = o` 的
+   `BindingElement` 里键是 `<String><ConstString>x</ConstString></String>`，
+   而 `isNameNode` 只认 `Identifier` / `Keyword` ⇒ `propertyName` 没投出来，
+   降级层把**绑定的名字**当成了键（`{ "x": a }` 读成 `{ a }`）⇒ 给 `undefined`。
+   取法与 `specifierNameOf` 那条**一字不差**（引号名给 `StringLiteral`）。
+3. **`break` 的目标只能是「块 / 循环 / `switch`」**：`lbl: if (…) { break lbl; }` 与
+   `lbl: try { break lbl; } finally { … }` 都报
+   `unknown label \`lbl\` (the parser should have rejected this)`（**整份文件进不来**），
+   而**两句都是合法的 JS**。第 234 轮那一支只认裸块、第 692 轮只把它放宽到「标签头」，
+   这一轮把判据换成「体**吃不吃**标签」——循环五档 + `switch` 走 `PendingLabels`，
+   **其余一律给一层可跳出的上下文**（`BlockLabel`）。判据要**穿过嵌着的标签**看，
+   否则 `first: second: for (…)` 的外层会被当成「不吃标签」，`continue first` 当场又断
+   （那是第 692 轮刚收掉的一处）。
+
+另登记 15 条新缺口（`blocked` +5 / `differ` +10）：函数自己的 `arguments` / `caller`、
+`Object.keys.call.bind(Object.keys)`、`Array.isArray(arguments)`、`localeCompare`、
+`search` / `match` 的字符串实参、`case` 后面的**裸块**、**块里的函数声明**（Annex B 提升）、
+连续两次可选调用（`o?.f?.()`）、`class A extends Array`、`super.toString`、
+`Map` 迭代器交回来的**条目数组**按下标读、`new Function`、函数体开头的 `"use strict"`、
+`function () { }.bind(null)`（**函数表达式后面直接跟 `.`** 被投成了声明）。
+
+**加权仍是 95.7%**（分母 4630 → 5185：新收的 540 条通过是分子，15 条登记缺口也是分母，
+两个数在同一位上）。
 
 **第 692 轮（其三）再加 103 条**（分母 4527 → **4630**）：第三批原子探针，
 专问**闭包与作用域**（提升、TDZ、`var` / `let` 在循环里的闭包）、`this` 绑定

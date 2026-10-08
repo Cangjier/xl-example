@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4630,
+  "total": 5185,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.68,
+  "progressPercent": 95.69,
   "categories": [
     {
       "category": "token",
@@ -90,32 +90,32 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 857,
-      "pass": 834,
-      "blocked": 1,
-      "differ": 22,
+      "total": 1117,
+      "pass": 1086,
+      "blocked": 5,
+      "differ": 26,
       "nodefail": 0,
-      "coverage": 97.32
+      "coverage": 97.22
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 662,
-      "pass": 657,
+      "total": 687,
+      "pass": 681,
       "blocked": 1,
-      "differ": 4,
+      "differ": 5,
       "nodefail": 0,
-      "coverage": 99.24
+      "coverage": 99.13
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1462,
-      "pass": 1398,
-      "blocked": 20,
-      "differ": 44,
+      "total": 1732,
+      "pass": 1662,
+      "blocked": 21,
+      "differ": 49,
       "nodefail": 0,
-      "coverage": 95.62
+      "coverage": 95.96
     },
     {
       "category": "e2e",
@@ -1452,10 +1452,34 @@
       "detail": "缺 4　漂 2　多 1　点号名在产物里是平级单元，`typeof` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）"
     },
     {
+      "id": "exec/classes/probe693b-k27",
+      "category": "exec",
+      "title": "(function () { class A extends Array { } const a = new A(); a.push(1); return a.length; })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：heap object is not an environment"
+    },
+    {
+      "id": "exec/expressions/probe693b-e49",
+      "category": "exec",
+      "title": "(function () { const o = { f: () => 1 }; return o?.f?.(); })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: return"
+    },
+    {
+      "id": "exec/functions/probe693b-f26",
+      "category": "exec",
+      "title": "(function () { const f = function () { }.bind(null); return typeof f; })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
+    },
+    {
       "id": "exec/statements/060-hoisting-tdz",
       "category": "exec",
       "title": "函数声明提升、`let` 的 TDZ",
       "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: x"
+    },
+    {
+      "id": "exec/statements/probe693b-s14",
+      "category": "exec",
+      "title": "(function () { let s = \"\"; switch (1) { case 1: { s += \"x\"; break; } case 2: s += \"y\"; } return s; })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement Identifier"
     },
     {
       "id": "runtime/values/079-bigint-forms",
@@ -1554,6 +1578,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: setTimeout"
     },
     {
+      "id": "stdlib/object/probe693-o44",
+      "category": "stdlib",
+      "title": "Object.prototype.toString.call(/a/)",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
       "id": "stdlib/string/042-string-match-and-split-regex",
       "category": "stdlib",
       "title": "字符串方法收正则：match / split(/\\s+/)",
@@ -1626,6 +1656,12 @@
       "category": "exec",
       "title": "(function () { class A { [1 + 1]() { return \"two\"; } } return new A()[2](); })()",
       "detail": "stdout 不同：第 1 行：node «string:two» vs tsrun «throw:Error»"
+    },
+    {
+      "id": "exec/classes/probe693b-k32",
+      "category": "exec",
+      "title": "(function () { class A { m() { return super.toString ? \"has\" : \"no\"; } } return new A().m(); })()",
+      "detail": "stdout 不同：第 1 行：node «string:has» vs tsrun «string:no»"
     },
     {
       "id": "exec/decorators-modifiers/051-beh-proto-accessor",
@@ -1736,10 +1772,28 @@
       "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:string»"
     },
     {
+      "id": "exec/functions/probe693b-f13",
+      "category": "exec",
+      "title": "(function () { const f = new Function(\"a\", \"b\", \"return a + b\"); return f(1, 2); })()",
+      "detail": "stdout 不同：第 1 行：node «number:3» vs tsrun «throw:Error»"
+    },
+    {
+      "id": "exec/functions/probe693b-f17",
+      "category": "exec",
+      "title": "(function () { const f = function () { \"use strict\"; return this === undefined; }; return f(); })()",
+      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
+    },
+    {
       "id": "exec/iterators/probe-y14",
       "category": "exec",
       "title": "(function* () { const x = yield 1; return x; })()",
       "detail": "stdout 不同：第 1 行：node «object:[object Generator]» vs tsrun «object:[object Object]»"
+    },
+    {
+      "id": "exec/statements/probe693b-s30",
+      "category": "exec",
+      "title": "(function () { for (let i = 0; i < 1; i++) { function g() { return 1; } } return typeof g; })()",
+      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
     },
     {
       "id": "runtime/async/041-await-thenable",
@@ -1764,6 +1818,12 @@
       "category": "runtime",
       "title": "`for...of` 遍历 Set 时删掉当前元素再添加",
       "detail": "stdout 不同：第 1 行：node «1,3,4 1,3,4» vs tsrun «1,2,3 1,3,4»"
+    },
+    {
+      "id": "runtime/iterators/probe693b-g15",
+      "category": "runtime",
+      "title": "(function () { const m = new Map([[\"a\", 1]]); const it = m[Symbol.iterator](); const e = it.next().value; return e[0] + e[1]; })()",
+      "detail": "stdout 不同：第 1 行：node «string:a1» vs tsrun «throw:TypeError»"
     },
     {
       "id": "stdlib/array/140-array-tostring-custom-join",
@@ -1850,6 +1910,12 @@
       "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «throw:Error»"
     },
     {
+      "id": "stdlib/array/probe693-a30",
+      "category": "stdlib",
+      "title": "(function () { return Array.isArray(arguments); })()",
+      "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
+    },
+    {
       "id": "stdlib/console/020-names-console",
       "category": "stdlib",
       "title": "名字逐个取一次：console 的成员（缺 30 个）",
@@ -1889,7 +1955,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23756/src/3228.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19096/src/3573.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -2006,6 +2072,18 @@
       "detail": "stdout 不同：第 1 行：node «string:length,name,arguments,caller,prototype» vs tsrun «string:length,name,prototype»"
     },
     {
+      "id": "stdlib/object/probe693-o06",
+      "category": "stdlib",
+      "title": "Object.getOwnPropertyNames(function f(a, b) {}).sort().join(\",\")",
+      "detail": "stdout 不同：第 1 行：node «string:arguments,caller,length,name,prototype» vs tsrun «string:length,name,prototype»"
+    },
+    {
+      "id": "stdlib/object/probe693-o46",
+      "category": "stdlib",
+      "title": "[1, 2, 3].map(Object.keys.call.bind(Object.keys)).length",
+      "detail": "stdout 不同：第 1 行：node «number:3» vs tsrun «throw:TypeError»"
+    },
+    {
       "id": "stdlib/string/136-r676-std-string-regex-members",
       "category": "stdlib",
       "title": "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
@@ -2016,6 +2094,18 @@
       "category": "stdlib",
       "title": "名字逐个取一次：String.prototype 的成员（缺 19 个）",
       "detail": "stdout 不同：第 1 行：node «object anchor function» vs tsrun «object anchor undefined»"
+    },
+    {
+      "id": "stdlib/string/probe693-y29",
+      "category": "stdlib",
+      "title": "\"aBc\".localeCompare(\"abc\") < 0",
+      "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
+    },
+    {
+      "id": "stdlib/string/probe693-y30",
+      "category": "stdlib",
+      "title": "\"abc\".search(\"b\")",
+      "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
     },
     {
       "id": "stdlib/symbol/036-names-symbol",

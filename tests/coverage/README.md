@@ -138,6 +138,22 @@
    判据改成「是不是 `0..2^32-2` 的整数」之后两档一起对上）。
    另登记 5 条：TDZ 的 `typeof`、松散模式原始值接收者**不装箱**（3 条）、
    `async` 函数的返回值不是承诺。加权 **95.7%**。
+   **第 693 轮全矩阵**（第四批原子探针，两批共 555 份新语料）：通过
+   **4315 → 4855**、分母 **4630 → 5185**、`blocked 245 → 250`、`differ 70 → 80`
+   （那 15 条**全是新登记的**：`blocked` +5 / `differ` +10，**旧的一条都没动**）、
+   `bad` 仍 **0**、`regressions` **0**、`moved` 0、`newlyPassing` 0——**收掉三处**：
+   ① **对象解构写死的键走 `get_prop`**（`const { 0: a } = [7]` 与 `({ 0: b } = [7])`
+   都给 `undefined`，JS 给 `7`；**两半一起**改成走 `get_index`，与 `arr["0"]` 同一条路）；
+   ② **引号名的键在投影那一步整个丢掉**（`const { "x": a } = o` 的 `propertyName` 是
+   `<String>`，而 `isNameNode` 只认 `Identifier` / `Keyword` ⇒ 降级层把**绑定名**当成了键
+   ⇒ `undefined`；取法与 `specifierNameOf` 一字不差）；
+   ③ **`break` 的目标从「块」放宽到「一切不吃标签的语句」**（`lbl: if (…) { break lbl; }` /
+   `lbl: try { … } finally { … }` 原来都报 `unknown label`，**整份文件进不来**——
+   第 234 轮那一支只认裸块；判据改成「体**吃不吃**标签」：循环五档 + `switch` 走
+   `PendingLabels`，其余给一层 `BlockLabel`；**判据要穿过嵌着的标签看**，否则
+   `first: second: for (…)` 的外层会被当成「不吃标签」，第 692 轮刚收掉的 `continue first`
+   又会断）。三处各有判据钉着（`probe693b-d23` / `probe693b-s22` / `probe693b-s24` /
+   `probe693-*` 那一族的对象解构与引号名键）。加权仍是 **95.7%**（分子 +540、分母 +555）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。
@@ -171,7 +187,7 @@ node tests/coverage/run.mjs --no-batch           # 一条一个进程（权威�
 node tests/coverage/run.mjs --emit-ledger        # 按现状打一份台账骨架（给人改，写进用例文件头）
 ```
 
-全矩阵实测墙钟 **~27s**（16 核；第 691 轮加宽到 3992 条之后量到的数）。
+全矩阵实测墙钟 **~37s**（16 核；第 693 轮加宽到 5185 条之后量到的数）。
 
 ## 三条纪律
 
