@@ -119,12 +119,12 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | 层 | 条数 | 覆盖度 |
 | --- | --- | --- |
 | runtime | **595 / 595** | **100%** |
-| exec | **565 / 577** | 97.9% |
+| exec | **567 / 577** | 98.3% |
 | stdlib | **852 / 888** | 95.9% |
 | e2e | **225 / 225** | **100%** |
-| **合计（加权）** | **2237 / 2285** | **98.4%** |
+| **合计（加权）** | **2239 / 2285** | **98.5%** |
 
-那 48 条过不了的是**真缺口**，都登了台账（写清根子）：
+那 46 条过不了的是**真缺口**，都登了台账（写清根子）：
 对象字面量的值是一对圆括号里的二元表达式、宿主 ABI 的 `setTimeout`、
 `Date.prototype.getTimezoneOffset` 与 `toDateString` / `toTimeString` / `toUTCString` 没装、
 `String.prototype.matchAll` 没装（六条 `blocked`）、
@@ -152,7 +152,27 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 量出 well-known symbol 缺的那 7 格，读数 98.4% → **98.3%**，同一个道理；
 **第 679 轮**没有加宽语料，而是**收缺口**：`String.prototype.includes` 补上 `fromIndex`
 （两条用例 `gap-r676-std-string-includes-fromIndex` 与 `r676-std-string-index-family` 一起转正，
-台账里那两行按规矩删掉），读数 98.3% → **98.4%**——分子长了一格、分母没动。
+台账里那两行按规矩删掉），读数 98.3% → **98.4%**——分子长了一格、分母没动；
+**第 680 轮**同样只收不加宽，量的是**属性键那一层**：`Object.defineProperty` 与
+`Object.getOwnPropertyDescriptor` 各自的闸门原来只收字符串键，符号键当场抛
+（`r678-beh-defineproperty-symbol-key` 与 `r678-sym-getownpropertydescriptor-symbol`
+一起转正），读数 98.4% → **98.5%**。
+
+### 第 680 轮：量**属性键那一层**——符号键的两个闸门（coverage 2237/2285 -> **2239/2285**）
+
+第 678 轮（其二 / 其三）把缺口聚到一句话上：**「用 symbol 键装一格」这条链从第一步就断**。
+这一轮把那条链的两半各自过了一遍：
+
+| 用例 | 根子 | 修法 |
+| --- | --- | --- |
+| `r678-beh-defineproperty-symbol-key` | `Object.defineProperty` 的参数闸门是 `args[1].Tag !== ValueTag.String` ⇒ 符号键**当场抛** | 闸门放开 `ValueTag.Symbol`。**下面那条路本来就收符号**（`DefineOwnFromDescriptor` 一律按 `key.Ref` 走），所以这是**窄的是闸门、不是数据** |
+| `r678-sym-getownpropertydescriptor-symbol` | 同一条链的下半截：`Object.getOwnPropertyDescriptor` 也只看字符串键；而且它**一进来就 `TextFrom(键)`**（符号读不成文本 ⇒ 抛 `cannot convert a Symbol value to a string`） | 符号键**跳过「取文本」那一格**、直接进「自有属性表」那一支（下标键 / `length` 那两问对符号本来就没有意义）。这一格是必须的：`Object.getOwnPropertyDescriptors` 的第二趟键**就是**符号 |
+
+**没做成的第三格**：`r678-beh-instanceof-hasinstance` 仍然开着，但根子与符号键**无关**——
+它断在 `typeof (A as any)[Symbol.hasInstance]`（内建的 `Function.prototype[Symbol.hasInstance]`
+本仓没有；用户自定义那一半 `Object.defineProperty(C, Symbol.hasInstance, …)` ＋ `42 instanceof C`
+这一轮已经跟着闸门一起通了）。**一条经验**：闸门放开之后要**顺着同一条链把下半截也走一遍**——
+只放开 `defineProperty` 的话，那两条用例里有一条仍是 `known`（`getOwnPropertyDescriptor` 那一半）。
 
 ### 第 679 轮：**不加宽、只收缺口**——`String.prototype.includes` 的 `fromIndex`
 

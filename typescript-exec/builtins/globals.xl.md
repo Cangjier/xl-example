@@ -3537,8 +3537,18 @@ if (id === ObjectDefineProperty) {
   // `defineProperties` 要的就是「同一件事跑在描述符表上每一格」，
   // 而那段里有两处**不能抄**的判断（默认三个标志全是假、访问器描述符要抛）——
   // 抄成两份就是两处会漂的答案。
-  if (args.length < 3 || !args[0].IsObject() || args[1].Tag !== ValueTag.String || !args[2].IsObject()) {
-    throw new Error("unimplemented: Object.defineProperty needs (object, string key, descriptor object)");
+  // **键也要收符号**（第 680 轮）：`Symbol.hasInstance` / `Symbol.toPrimitive` 这类协议
+  // **只能**用符号键装，而这一句原来只收 `ValueTag.String` ⇒ 「用符号键写一格」这条链
+  // 从第一步就断（实测 `r678-beh-defineproperty-symbol-key` 与同族的
+  // `r678-sym-getownpropertydescriptor-symbol` / `r678-beh-instanceof-hasinstance` 三条）。
+  //
+  // **下面那条路本来就收符号**：`DefineOwnFromDescriptor` 把 `key.Ref` 直接当堆引用
+  //（`FindProperty` / `Property.Accessor` / `new Property` 三处都吃它），而符号值在堆里
+  // **就是** `ValueTag.Symbol + 句柄`（与 `getOwnPropertySymbols` 那一支同一个形状）
+  // ⇒ 缺的只是这一格闸门，不是「符号键的属性不存在」。**窄的是闸门，不是数据**。
+  if (args.length < 3 || !args[0].IsObject()
+    || (args[1].Tag !== ValueTag.String && args[1].Tag !== ValueTag.Symbol) || !args[2].IsObject()) {
+    throw new Error("unimplemented: Object.defineProperty needs (object, string or symbol key, descriptor object)");
   }
   DefineOwnFromDescriptor(room, table, args[0], args[1], args[2]);
   // **返回的还是那个对象**（JS 的口径）。
@@ -3575,12 +3585,44 @@ if (id === ObjectGetOwnPropertyDescriptor) {
   // 第 210 轮）：`Object.getOwnPropertyDescriptor("ab", "1")` 在 JS 里给一个描述符，
   // 而字符串**不是 `IsObject()`**（它是 `HeapString`）——所以这一句要**显式放行**，
   // 只写 `IsObject()` 会把字符串挡在门外（**响亮地抛**，不是静默错值，但那是**假缺口**）。
-  if (args.length < 2 || args[1].Tag !== ValueTag.String
+  // **符号键也收**（第 680 轮，与同轮 `Object.defineProperty` 那一条**同一格闸门**）：
+  // 「用符号键装一格、再读回描述符」是**同一条链的两半**——上半截放开了、下半截还窄着，
+  // 那条链照样断在第二步（实测 `r678-sym-getownpropertydescriptor-symbol`）。
+  // 下面那一段本来就按 `key.Ref` 走（堆引用对字符串与符号是同一种东西）。
+  if (args.length < 2 || (args[1].Tag !== ValueTag.String && args[1].Tag !== ValueTag.Symbol)
     || (!args[0].IsObject() && args[0].Tag !== ValueTag.String)) {
-    throw new Error("unimplemented: Object.getOwnPropertyDescriptor needs (object or string, string key)");
+    throw new Error("unimplemented: Object.getOwnPropertyDescriptor needs (object or string, string or symbol key)");
   }
   const receiver = args[0];
   const ownKey = args[1];
+  // **符号键跳过「取文本」那一格**（第 680 轮）：符号值不能被读成码元表
+  //（`TextFrom` 会当场抛 `cannot convert a Symbol value to a string`），
+  // 而下面那几支判据（下标键 / `length` / 自有属性表）**本来就只对字符串键有意义**
+  // ⇒ 符号键直接进最后一支（`FindProperty` 按堆引用找，对两种键是同一种东西）。
+  // 这一格是**必须有的**：同一条链的上半截（`defineProperty`）放开之后，
+  // `Object.getOwnPropertyDescriptors` 会把符号键**真地**递进来（它两趟键里第二趟就是符号）。
+  if (ownKey.Tag === ValueTag.Symbol) {
+    const symbolFound = FindProperty(room, table, receiver.Ref, ownKey);
+    if (symbolFound === null || symbolFound.Owner !== receiver.Ref) {
+      return Value.Undefined();
+    }
+    const symbolProperty = table.Get(receiver.Ref).Props[symbolFound.Index];
+    if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
+    const symbolDescriptor = NewPlainObject(room, table, protos);
+    if (symbolProperty.Kind === PropertyKind.Accessor) {
+      SetProperty(room, NeverCall, table, symbolDescriptor, NameValue(table, "get"), symbolProperty.Getter);
+      SetProperty(room, NeverCall, table, symbolDescriptor, NameValue(table, "set"), symbolProperty.Setter);
+    } else {
+      SetProperty(room, NeverCall, table, symbolDescriptor, NameValue(table, "value"), symbolProperty.Value);
+      SetProperty(room, NeverCall, table, symbolDescriptor, NameValue(table, "writable"),
+        Value.FromBool((symbolProperty.Flags & PropertyFlagWritable) !== 0));
+    }
+    SetProperty(room, NeverCall, table, symbolDescriptor, NameValue(table, "enumerable"),
+      Value.FromBool((symbolProperty.Flags & PropertyFlagEnumerable) !== 0));
+    SetProperty(room, NeverCall, table, symbolDescriptor, NameValue(table, "configurable"),
+      Value.FromBool((symbolProperty.Flags & PropertyFlagConfigurable) !== 0));
+    return symbolDescriptor;
+  }
   const ownKeyText = TextFrom(table, ownKey);
   // **① 下标键先答**：数组的元素与字符串的下标**不住在 `Props` 里**
   //（与 `Object.keys` / `getOwnPropertyNames` 那两支同一条次序，第 210 轮）。

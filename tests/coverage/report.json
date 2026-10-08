@@ -88,7 +88,7 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 98.36,
+  "progressPercent": 98.47,
   "layers": [
     {
       "layer": "runtime",
@@ -104,11 +104,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 577,
-      "pass": 565,
-      "blocked": 3,
-      "differ": 9,
+      "pass": 567,
+      "blocked": 2,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 97.92
+      "coverage": 98.27
     },
     {
       "layer": "stdlib",
@@ -143,12 +143,6 @@
       "layer": "exec",
       "title": "AST 语料 declarations/decl-obj-destructure-computed-key.ts：decl obj destructure computed key",
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node ComputedPropertyName has no text (at 109..112)"
-    },
-    {
-      "id": "r678-sym-getownpropertydescriptor-symbol",
-      "layer": "exec",
-      "title": "getOwnPropertyDescriptor 取 symbol 键那一格",
-      "detail": "tsrun: 脚本抛出：unimplemented: Object.defineProperty needs (object, string key, descriptor object)"
     },
     {
       "id": "gap-std-set-timeout",
@@ -222,7 +216,7 @@
       "id": "r678-beh-instanceof-hasinstance",
       "layer": "exec",
       "title": "instanceof 与 Symbol.hasInstance 走的是哪条路",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object.defineProperty needs (object, string key, descriptor obj"
+      "detail": "stdout 不同：第 2 行：node «function» vs tsrun «undefined»"
     },
     {
       "id": "r678-beh-boxed-primitives",
@@ -235,12 +229,6 @@
       "layer": "exec",
       "title": "ToPrimitive 先 valueOf 后 toString，以及 Date 反过来",
       "detail": "stdout 不同：第 2 行：node «objectThu Jan 01 1970 08:00:00 GMT+0800 (中国标准时间) string» vs tsrun «objectThu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time) string»"
-    },
-    {
-      "id": "r678-beh-defineproperty-symbol-key",
-      "layer": "exec",
-      "title": "defineProperty 只收字符串键：symbol 键那一档没有",
-      "detail": "stdout 不同：第 1 行：node «装了 1» vs tsrun «抛了»"
     },
     {
       "id": "r678-sym-wellknown-presence",

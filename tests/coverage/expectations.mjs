@@ -1417,10 +1417,13 @@ export const EXPECTATIONS = {
     expect: "differ",
     why: "`String(new Date(0))` 打的是 **UTC** 墙上时间（`Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time)`），`node` 打的是**宿主本地时区**（`GMT+0800 (中国标准时间)`）——与 `Date` 那一族（`gap-r676-std-date-local-time` / `r676-std-date-iso`）**同一个根**：本地分量与本地时区名都还没有，所以这一条是那一族的**第三个出口**（前两个是 `getTime` 与 `toISOString`）",
   },
-  "r678-beh-defineproperty-symbol-key": {
-    expect: "differ",
-    why: "`Object.defineProperty` 只收**字符串键**：symbol 键直接抛 `unimplemented: Object.defineProperty needs (object, string key, descriptor object)` ⇒ `Symbol.hasInstance` / `Symbol.toPrimitive` 这类「用 symbol 键装一格」的写法整条断（同族的 `r678-beh-instanceof-hasinstance` 就是被它挡住的）",
-  },
+  // **第 680 轮收掉两格**：`Object.defineProperty` 与 `Object.getOwnPropertyDescriptor`
+  // 原来各自的闸门只收 `ValueTag.String`，符号键当场抛——而**下面那条路本来就收符号**
+  //（键一律当堆引用用）。`r678-beh-defineproperty-symbol-key` 与
+  // `r678-sym-getownpropertydescriptor-symbol` 一起转正，台账里那两行按规矩删掉。
+  // **仍然开着的是第三格**：`r678-beh-instanceof-hasinstance`——它断在
+  // `typeof (A as any)[Symbol.hasInstance]`（内建的 `Function.prototype[Symbol.hasInstance]`
+  // 本仓没有），与符号键无关。
 
   // ===== 第 678 轮（其三）：符号键 / 私有名那一族量出的缺口（用例在 `cases/exec.mjs` 的 `r678-sym-*`）=====
   // 这一族 19 条里 **17 条 pass** —— 符号键当属性键的读写、`in`、`keys` 与
@@ -1436,11 +1439,6 @@ export const EXPECTATIONS = {
       + "它们是 `Array.prototype.concat` / `with` 与 `with` 语句那两个协议的名字，属于「少装两格」；"
       + "与（其一）`r678-names-symbol` 同一处成员表（那条记的是同一件事的名单形态）",
   },
-  "r678-sym-getownpropertydescriptor-symbol": {
-    expect: "blocked",
-    why: "同（其二）`r678-beh-defineproperty-symbol-key` 那一格：`Object.defineProperty` 只收字符串键，"
-      + "所以「用 symbol 键装一格再 `getOwnPropertyDescriptor` 读回来」这条链子**从第一步就断**，"
-      + "量不到描述符那一半（`getOwnPropertyDescriptor` 自己收字符串键是好的）",
-  },
+  // ===== 第 677 轮：**AST 语料**普查量出的三条缺口（用例在 `cases/exec.mjs` 的 `l677-*` 那一段）=====
 
 };
