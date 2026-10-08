@@ -1360,8 +1360,40 @@ return removed;
 
 ```ts
 const halted = () => failed !== null && failed();
+// **`undefined` 与洞一律排在最后，而且比较器一次都不为它们调**（第 691 轮，量出来的）：
+// JS 的 `SortCompare` 第一句就是「`x` 是 `undefined` ⇒ 返回 1」，洞按 `undefined` 算——
+// 两者都**不进比较器**。原来把它们和别的元素一起丢进去：`3 - undefined` 给 `NaN`
+// ⇒ 判成「不用挪」⇒ `[3, undefined, 1, undefined, 2].sort((a, b) => a - b)`
+// 在 Node 里给 `[1, 2, 3, undefined, undefined]`、本仓给 `[3, undefined, 1, undefined, 2]`
+// （**一句都不报，数组就是原来那个样子**）。
+//
+// **做法是先分区再排**：把「参与排序的」按原次序收进 `definedPart`，
+// 再把尾部按 **`undefined` 在前、洞在后** 铺回去（量出来的次序：
+// `[undefined, , , 2].sort()` 在 Node 里给 `[2, undefined, , ]`——`1 in` 是真）。
+// 然后插入排序只在前 `definedCount` 格上跑（`j` 因此永远到不了尾部那些格）。
+const total = source.GetLength();
+const definedPart: Value[] = [];
+let undefinedCount = 0;
+let holeCount = 0;
+for (let i = 0; i < total; i++) {
+  if (source.IsHole(i)) { holeCount = holeCount + 1; continue; }
+  const value = source.GetAt(i);
+  if (value.Tag === ValueTag.Undefined) { undefinedCount = undefinedCount + 1; continue; }
+  definedPart.push(value);
+}
+const definedCount = definedPart.length;
+if (undefinedCount > 0 || holeCount > 0) {
+  for (let i = 0; i < total; i++) {
+    if (i < definedCount) {
+      source.SetAt(i, definedPart[i]);
+      continue;
+    }
+    source.SetAt(i, Value.Undefined());
+    if (i >= definedCount + undefinedCount) source.SetHole(i);
+  }
+}
 // **插入排序**（稳定）：从第二格起，每格往前挪到该在的位置。
-for (let i = 1; i < source.GetLength(); i++) {
+for (let i = 1; i < definedCount; i++) {
   const item = source.GetAt(i);
   const itemHole = source.IsHole(i);
   let j = i - 1;

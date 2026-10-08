@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
+import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagsAll } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue, FunctionSourceText } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
@@ -3436,7 +3436,54 @@ if (id === ConsoleLog) {
   // **为什么字符串要单独一条**：Node 的 `util.format` 对**字符串实参**用的是它本身，
   // 而嵌套在容器里才加引号（`[ 'a' ]`）——两处口径**必须不同**，
   // 混成一条会让 `console.log('a')` 印成 `'a'`（差两个引号，判据会当场点出来）。
+  // **格式说明符那一档**（第 691 轮）：Node 的 `console.log` 走 `util.format`，
+  // 所以**第一个实参是字符串并且后面还有实参**时，那个字符串是一张**格式串**——
+  // `%s` / `%d` / `%i` / `%f` / `%o` / `%O` 各消耗一个实参、`%c` 与 `%%` 不消耗，
+  // 其余实参按空格接在后面。原来整串当普通字符串印（`console.log("%s", "x")` 给
+  // `%s x`、Node 给 `x`）——**每一句带格式串的日志都多两个字符**。
+  //
+  // **三条边界照 Node 量到的写**：
+  // ① **没有实参可消耗时说明符原样留着**（`console.log("100%")` 还是 `100%`）；
+  // ② **认不出的说明符也原样留着**（`%q` 不动）；
+  // ③ `%c` 只吃掉自己（它管的是 CSS，Node 里也不消耗实参）。
+  // **`%j` 没做**（它要走 `JSON.stringify` 那一整支，而那一支是同一条
+  // `InvokeGlobal` 里的另一个 `id`——**要做**，写在这一处而不是藏在静默里）。
+  const renderArg = (value: Value) => (value.Tag === ValueTag.String ? ValueText(table, value) : InspectText(table, value));
   let line = "";
+  if (args.length > 1 && args[0].Tag === ValueTag.String) {
+    const format = ValueText(table, args[0]);
+    let used = 1;
+    const text: string[] = [];
+    let at = 0;
+    while (at < format.length) {
+      const ch = format.charAt(at);
+      if (ch !== "%" || at + 1 >= format.length) { text.push(ch); at = at + 1; continue; }
+      const code = format.charAt(at + 1);
+      if (code === "%") { text.push("%"); at = at + 2; continue; }
+      if (code === "c") { at = at + 2; continue; }
+      const known = code === "s" || code === "d" || code === "i" || code === "f" || code === "o" || code === "O";
+      if (!known || used >= args.length) { text.push(ch); at = at + 1; continue; }
+      const arg = args[used];
+      used = used + 1;
+      if (code === "s") { text.push(renderArg(arg)); }
+      else if (code === "d" || code === "i") {
+        text.push(NumberToHostText(ToNumberOf(room, call, protos, table, arg)));
+      } else if (code === "f") {
+        // **`%f` 是 `parseFloat`**（Node 的口径）：`%f` 接 `"1.5abc"` 给 `1.5`、
+        // 接 `"abc"` 给 `NaN`——**不是** `Number()`（那个给 `NaN`，两处只在字符串上分岔）。
+        text.push(NumberToHostText(parseFloat(renderArg(arg))));
+      } else {
+        // `%o` / `%O`：Node 给的是 `util.inspect` 那一份（`%o` 还带 `showHidden`）。
+        // 这一层只有一份 inspect，所以两档走同一份——**已知差写在明处**。
+        text.push(InspectText(table, arg));
+      }
+      at = at + 2;
+    }
+    line = text.join("");
+    for (let k = used; k < args.length; k++) line = line + " " + renderArg(args[k]);
+    sink(line);
+    return Value.Undefined();
+  }
   for (let i = 0; i < args.length; i++) {
     if (i > 0) line = line + " ";
     if (args[i].Tag === ValueTag.String) {
@@ -4898,6 +4945,61 @@ const fieldOf = (name: string) => {
   }
   return Value.Undefined();
 };
+// **「这一格字段写没写」与「它的值是不是 `undefined`」是两件事**（第 691 轮）：
+// `ValidateAndApplyPropertyDescriptor` 里**没写的字段 = 不改**，
+// 而 `{ value: undefined }` 是**写明要改成 `undefined`**。原来看不出这个差别，
+// 于是「重定义一个已有属性」的那条路把三个标志**一律按缺省值 `false` 重算**——
+// 实测 `const o = { a: 1 }; Object.defineProperty(o, "a", { value: 2 })` 之后
+// `Object.keys(o)` 是**空的**（Node 给 `["a"]`）：那一格被顺手改成了**不可枚举**。
+const hasField = (name: string) => {
+  for (let i = 0; i < descriptorObject.Props.length; i++) {
+    const property = descriptorObject.Props[i];
+    if (property.Kind === PropertyKind.Accessor) continue;
+    if (table.Get(property.Key).Tag !== ValueTag.String) continue;
+    if (TextFrom(table, Value.FromString(property.Key)) === name) return true;
+  }
+  return false;
+};
+// **`Cannot redefine property: 名字`**（Node 那一句）：字符串键给名字，
+// 符号键给 `Symbol(描述)`——**两处都要**，因为判据会读 `e.message`
+//（`description` 那一格就在 `HeapSymbol` 上，不需要把 `inspect.xl.md` 引进来）。
+const cannotRedefine = () => {
+  if (table.Get(key.Ref).Tag === ValueTag.String) {
+    return new TypeError("Cannot redefine property: " + TextFrom(table, key));
+  }
+  const description = table.Get(key.Ref).AsSymbol().Description;
+  if (description > 0) {
+    return new TypeError("Cannot redefine property: Symbol(" + TextFrom(table, Value.FromString(description)) + ")");
+  }
+  return new TypeError("Cannot redefine property: Symbol()");
+};
+// **不可扩展的对象上**新建一格也抛（第 691 轮）：JS 给
+// `Cannot define property b, object is not extensible`——原来整支不查，
+// 于是 `Object.preventExtensions(o)` 之后 `defineProperty(o, "b", …)` **照装**，
+// 而 `push` 那一路（`array.xl.md`）早就照着同一格 `Extensible` 抛了。
+const cannotDefineOn = () => {
+  if (table.Get(key.Ref).Tag === ValueTag.String) {
+    return new TypeError("Cannot define property " + TextFrom(table, key) + ", object is not extensible");
+  }
+  return new TypeError("Cannot define property, object is not extensible");
+};
+/** 三个标志里**写了的那些**按描述符来、**没写的那些保持原样**（第 691 轮）。 */
+const mergeFlags = (old: number, wantsEnumerable: boolean, wantsWritable: boolean, wantsConfigurable: boolean) => {
+  let merged = old;
+  if (hasField("enumerable")) {
+    if (wantsEnumerable) merged = merged | PropertyFlagEnumerable;
+    else merged = merged & (PropertyFlagsAll - PropertyFlagEnumerable);
+  }
+  if (hasField("writable")) {
+    if (wantsWritable) merged = merged | PropertyFlagWritable;
+    else merged = merged & (PropertyFlagsAll - PropertyFlagWritable);
+  }
+  if (hasField("configurable")) {
+    if (wantsConfigurable) merged = merged | PropertyFlagConfigurable;
+    else merged = merged & (PropertyFlagsAll - PropertyFlagConfigurable);
+  }
+  return merged;
+};
 // **访问器那一支**（第 299 轮）：`{ get: …, set: … }` 以前**整支抛**——
 // 理由写的是「这一层还没有那两格的门」，而**引擎早就有门了**：
 // `Property.Accessor` 那个工厂、`ReadProperty` / `SetProperty` 两条读写的分支、
@@ -4909,28 +5011,41 @@ const fieldOf = (name: string) => {
 //（`Object.getOwnPropertyDescriptor(o, "g").writable` 于是会答假，而 JS 那两格**根本不在**）。
 //
 // **`get` / `set` 不是函数就丢掉**（JS 的口径：`{ get: 1 }` 是「没有 getter」）——
-// 不是「原样存进去」：那会让 `o.g` 去调一个数字，报的是「调了一个不是函数的东西」。
+// 不是「原样存进去」：那会让 `o.g` 去调一个数字，报的是「调了一个不是东西的函数」。
 const accessorGet = fieldOf("get");
 const accessorSet = fieldOf("set");
+const wantsEnumerable = RtToBoolean(table, fieldOf("enumerable")).AsBool();
+const wantsConfigurable = RtToBoolean(table, fieldOf("configurable")).AsBool();
+const wantsWritable = RtToBoolean(table, fieldOf("writable")).AsBool();
 if (accessorGet.Tag !== ValueTag.Undefined || accessorSet.Tag !== ValueTag.Undefined) {
   const storedGetter = IsCallableValue(table, accessorGet) ? accessorGet : Value.Undefined();
   const storedSetter = IsCallableValue(table, accessorSet) ? accessorSet : Value.Undefined();
-  let accessorFlags = 0;
-  if (RtToBoolean(table, fieldOf("enumerable")).AsBool()) accessorFlags = accessorFlags + PropertyFlagEnumerable;
-  if (RtToBoolean(table, fieldOf("configurable")).AsBool()) accessorFlags = accessorFlags + PropertyFlagConfigurable;
   const accessorExisting = FindProperty(room, table, target.Ref, key);
   if (accessorExisting !== null && accessorExisting.Owner === target.Ref) {
+    const oldAccessor = defineTarget.Props[accessorExisting.Index];
+    // **不可配置那一档**（第 691 轮）：只有「本来就是访问器、`get` / `set` 一字未动、
+    // `enumerable` 也没变」才允许——其余（改成数据属性、换 getter、改可枚举）都抛。
+    if ((oldAccessor.Flags & PropertyFlagConfigurable) === 0) {
+      const sameGetter = oldAccessor.Kind === PropertyKind.Accessor
+        && SameValue(table, oldAccessor.Getter, storedGetter)
+        && SameValue(table, oldAccessor.Setter, storedSetter);
+      const sameEnumerable = ((oldAccessor.Flags & PropertyFlagEnumerable) !== 0) === wantsEnumerable;
+      if (!sameGetter || !sameEnumerable) throw cannotRedefine();
+    }
     // **原地换那一格**（与上面数据属性那一支同一个写法）：`Kind` 一改，
     // 读写两条路立刻按访问器走（`ReadProperty` 调 getter、`SetProperty` 调 setter）。
-    const accessorProperty = defineTarget.Props[accessorExisting.Index];
-    accessorProperty.Kind = PropertyKind.Accessor;
-    accessorProperty.Getter = storedGetter;
-    accessorProperty.Setter = storedSetter;
-    accessorProperty.Flags = accessorFlags;
+    oldAccessor.Kind = PropertyKind.Accessor;
+    oldAccessor.Getter = storedGetter;
+    oldAccessor.Setter = storedSetter;
+    oldAccessor.Flags = mergeFlags(oldAccessor.Flags, wantsEnumerable, false, wantsConfigurable);
     return;
   }
   if (!room(PropertyCharge)) throw new Error("out of room");
+  if (!defineTarget.Extensible) throw cannotDefineOn();
   const createdAccessor = Property.Accessor(key.Ref, storedGetter, storedSetter);
+  let accessorFlags = 0;
+  if (wantsEnumerable) accessorFlags = accessorFlags + PropertyFlagEnumerable;
+  if (wantsConfigurable) accessorFlags = accessorFlags + PropertyFlagConfigurable;
   createdAccessor.Flags = accessorFlags;
   defineTarget.Props.push(createdAccessor);
   table.Recount(target.Ref);
@@ -4943,14 +5058,46 @@ if (RtToBoolean(table, fieldOf("configurable")).AsBool()) flags = flags + Proper
 const existing = FindProperty(room, table, target.Ref, key);
 if (existing !== null && existing.Owner === target.Ref) {
   const property = defineTarget.Props[existing.Index];
-  if (property.Kind === PropertyKind.Accessor) {
-    throw new Error("unimplemented: redefining an accessor property needs the accessor path");
+  const wasConfigurable = (property.Flags & PropertyFlagConfigurable) !== 0;
+  const wasWritable = (property.Flags & PropertyFlagWritable) !== 0;
+  const wasEnumerable = (property.Flags & PropertyFlagEnumerable) !== 0;
+  // **「描述符里没写」= 要的就是原值**（第 691 轮）：不做这一步，
+  // `Object.freeze(o)` 之后 `Object.defineProperty(o, "a", { value: 1 })`（**同值**）会
+  // 因为 `enumerable` 缺省成假而被判成「改了可枚举」⇒ 该静默的那一档抛了
+  //（判据 `object-defineproperty-redefine` 的 frozen 那一段）。
+  const wantsEnumerableNow = hasField("enumerable") ? wantsEnumerable : wasEnumerable;
+  const wantsWritableNow = hasField("writable") ? wantsWritable : wasWritable;
+  const wantsConfigurableNow = hasField("configurable") ? wantsConfigurable : wasConfigurable;
+  // **不可配置 = `ValidateAndApplyPropertyDescriptor` 里那一整段**（第 691 轮）：
+  // 能改的只有「`writable` 由真到假」与「同值改写」；改 `configurable` / `enumerable`、
+  // 把数据属性换成访问器（这里走的是数据那一支）、或者在一个**不可写**的格子上换值，
+  // 在 JS 里都是 `TypeError`——原来照写、一句都不报（判据 `object-defineproperty-redefine`）。
+  if (!wasConfigurable) {
+    const keepsShape = !wantsConfigurableNow && wantsEnumerableNow === wasEnumerable;
+    const changesWritable = wantsWritableNow !== wasWritable;
+    const changesValue = hasField("value") && !SameValue(table, property.Value, fieldOf("value"));
+    if (!keepsShape || (changesWritable && wantsWritableNow)
+        || (property.Kind === PropertyKind.Accessor)
+        || (!wasWritable && changesValue)) {
+      throw cannotRedefine();
+    }
   }
-  property.Value = fieldOf("value");
-  property.Flags = flags;
+  if (property.Kind === PropertyKind.Accessor) {
+    // **访问器 → 数据**（可配置那一档才走得到这里）：`Get` / `Set` 两格清掉，
+    // 值取描述符里的 `value`（没写就是 `undefined`——JS 转换那一支正是这么写的）。
+    property.Kind = PropertyKind.Data;
+    property.Value = fieldOf("value");
+    property.Getter = Value.Undefined();
+    property.Setter = Value.Undefined();
+  } else if (hasField("value")) {
+    // **没写 `value` 就不动那一格**（原来看不出「没写」与「写成 `undefined`」的差别）。
+    property.Value = fieldOf("value");
+  }
+  property.Flags = mergeFlags(property.Flags, wantsEnumerable, wantsWritable, wantsConfigurable);
   return;
 }
 if (!room(PropertyCharge)) throw new Error("out of room");
+if (!defineTarget.Extensible) throw cannotDefineOn();
 const created = new Property(key.Ref, fieldOf("value"));
 created.Flags = flags;
 defineTarget.Props.push(created);

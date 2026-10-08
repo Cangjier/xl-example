@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 3933,
+  "total": 3958,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.84,
+  "progressPercent": 95.87,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1028,
-      "pass": 978,
+      "total": 1053,
+      "pass": 1003,
       "blocked": 18,
       "differ": 32,
       "nodefail": 0,
-      "coverage": 95.14
+      "coverage": 95.25
     },
     {
       "category": "e2e",
@@ -1694,6 +1694,18 @@
       "detail": "stdout 不同：第 1 行：node «99 1,99,3 [1,99,3] 3» vs tsrun «2 1,2,3 [1,2,3] 3»"
     },
     {
+      "id": "stdlib/array/144-define-on-array-index",
+      "category": "stdlib",
+      "title": "数组下标上的数据属性改写（与访问器那一档分开量）",
+      "detail": "stdout 不同：第 1 行：node «9 3 [1,9,3] 0,1,2» vs tsrun «2 3 [1,2,3] 0,1,2»"
+    },
+    {
+      "id": "stdlib/array/145-array-tostring-join-dynamic",
+      "category": "stdlib",
+      "title": "`Array.prototype.toString` 要**现读** `this.join`（上一轮登记的缺口）",
+      "detail": "stdout 不同：第 2 行：node «J J» vs tsrun «1,2 1,2»"
+    },
+    {
       "id": "stdlib/console/020-names-console",
       "category": "stdlib",
       "title": "名字逐个取一次：console 的成员（缺 30 个）",
@@ -1710,12 +1722,6 @@
       "category": "stdlib",
       "title": "异步函数与生成器函数的渲染那一档",
       "detail": "stdout 不同：第 1 行：node «[GeneratorFunction: gen]» vs tsrun «[Function: gen]»"
-    },
-    {
-      "id": "stdlib/console/031-con-log-multi-args",
-      "category": "stdlib",
-      "title": "多实参之间空一格、`%s` 不生效",
-      "detail": "stdout 不同：第 2 行：node «x» vs tsrun «%s x»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1739,7 +1745,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19552/src/2879.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20316/src/2885.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1796,10 +1802,10 @@
       "detail": "stdout 不同：第 1 行：node «object f16round function» vs tsrun «object f16round undefined»"
     },
     {
-      "id": "stdlib/object/116-l677p-obj-lock-difference",
+      "id": "stdlib/number/073-number-tolocalestring",
       "category": "stdlib",
-      "title": "口径边界：preventExtensions + defineProperty 在 node（松散）静默、本仓抛（严格）",
-      "detail": "stdout 不同：第 2 行：node «define threw TypeError» vs tsrun «define ok 3»"
+      "title": "`toLocaleString` 那一族现在的样子",
+      "detail": "stdout 不同：第 1 行：node «1,234.5 1234.5» vs tsrun «[object Number] 1234.5»"
     },
     {
       "id": "stdlib/object/118-names-object-proto",
@@ -1836,12 +1842,6 @@
       "category": "stdlib",
       "title": "`arguments` 的标签是 `Arguments`，不是 `Array`",
       "detail": "stdout 不同：第 1 行：node «[object Arguments]» vs tsrun «[object Array]»"
-    },
-    {
-      "id": "stdlib/object/150-defineproperty-redefine",
-      "category": "stdlib",
-      "title": "`defineProperty` 重定义不可配置属性的那几档",
-      "detail": "stdout 不同：第 1 行：node «throw TypeError» vs tsrun «ok 2»"
     },
     {
       "id": "stdlib/object/151-getownpropertynames-array",

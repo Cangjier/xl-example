@@ -84,6 +84,12 @@
    可枚举访问器与 `{}` 同形、匿名类给 `[class ]`），另登记八族新缺口
    （见 [tests/cases/README.md](../cases/README.md) 那一节）。**加权从 96.2% 掉到 95.8%**
    是登记缺口的账，不是回归：新收的 90 条通过是分子，14 条登记缺口也是分母。
+   **同一轮的第二批**（又 25 份新语料、专问属性描述符那一族）：通过 **3644 → 3669**、
+   分母 **3933 → 3958**、`differ 45`（**没涨**：新登记 3 条、收掉 3 条）、`bad` 0、
+   `regressions` 0——收掉的是 `defineProperty` 的
+   `ValidateAndApplyPropertyDescriptor` 那一段（含「没写的字段 = 不改」、
+   「不可扩展上新建一格抛」）、`console.log` 的格式说明符、`sort` 把 `undefined`
+   与洞排到最后；另把 `stdlib/object/116` 那条**量错了**的台账翻了过来。
    （`tests/cases/package.json` 那一份是给「直接 `node <用例>.ts`」用的，实测改它**不影响**读数
    ——判据跑的是 `.work-<pid>/src/` 里现写的那一份。）
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
@@ -119,7 +125,7 @@ node tests/coverage/run.mjs --no-batch           # 一条一个进程（权威�
 node tests/coverage/run.mjs --emit-ledger        # 按现状打一份台账骨架（给人改，写进用例文件头）
 ```
 
-全矩阵实测墙钟 **~32s**（16 核；第 691 轮加宽到 3933 条之后量到的数）。
+全矩阵实测墙钟 **~26s**（16 核；第 691 轮加宽到 3958 条之后量到的数）。
 
 ## 三条纪律
 
