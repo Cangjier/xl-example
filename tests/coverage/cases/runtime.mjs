@@ -5732,4 +5732,44 @@ console.log(s2.join(","));
     title: "包装对象的取值与 typeof",
     src: "\nconst s = new String(\"ab\");\nconst n = new Number(3);\nconst b = new Boolean(false);\nconsole.log(typeof s, typeof n, typeof b, s.length, n + 1);\nconsole.log(s === \"ab\", s == \"ab\", b ? \"t\" : \"f\", Boolean(b));\n",
   },
+  {
+    id: "c651-rt-symbol-toprimitive",
+    title: "Symbol.toPrimitive 各 hint",
+    src: "\nclass Money {\n  constructor(v: number) { this.v = v; }\n  [Symbol.toPrimitive](hint: string): any {\n    return hint === \"number\" ? this.v : \"M\" + this.v;\n  }\n  v: number;\n}\nconst m = new Money(7);\nconsole.log(m + 1, `${m}`, +m, String(m), m * 2);\n",
+  },
+  {
+    id: "c651-rt-error-cause-and-aggregate",
+    title: "Error.cause 与 AggregateError.errors",
+    src: "\nconst inner = new Error(\"inner\");\nconst outer = new Error(\"outer\", { cause: inner });\nconsole.log(outer.message, (outer as any).cause === inner, (outer as any).cause.message);\nconst agg = new AggregateError([new Error(\"a\"), new Error(\"b\")], \"many\");\nconsole.log(agg.errors.length, agg.errors.map((e: any) => e.message).join(\",\"), agg.message);\n",
+  },
+  {
+    id: "c651-rt-getter-setter-symbol-keys",
+    title: "符号键的访问器与计算名字段",
+    src: "\nconst k = Symbol(\"k\");\nclass Box {\n  private store: number[] = [];\n  get [k](): number { return this.store.length; }\n  set [k](v: number) { this.store.push(v); }\n  [\"m\" + \"1\"](): string { return \"m1\"; }\n}\nconst b = new Box();\nb[k] = 1;\nb[k] = 2;\nconsole.log(b[k], b.m1(), Object.getOwnPropertySymbols(b).length);\n",
+  },
+  {
+    id: "c651-rt-array-with-tosorted-family",
+    title: "Array 的 copy 家族与 findLast",
+    src: "\nconst xs = [3, 1, 2];\nconsole.log(xs.with(1, 9).join(\",\"), xs.join(\",\"));\nconsole.log(xs.toSorted().join(\",\"), xs.toSorted((a, b) => b - a).join(\",\"), xs.join(\",\"));\nconsole.log(xs.toReversed().join(\",\"), xs.toSpliced(1, 1, 8, 9).join(\",\"));\nconsole.log(xs.findLast((x) => x < 3), xs.findLastIndex((x) => x < 3), xs.at(-1));\n",
+  },
+  {
+    id: "c651-rt-set-operations",
+    title: "Set 的集合运算方法",
+    src: "\nconst a = new Set([1, 2, 3]);\nconst b = new Set([3, 4]);\nconsole.log([...a.union(b)].join(\",\"), [...a.intersection(b)].join(\",\"), [...a.difference(b)].join(\",\"));\nconsole.log([...a.symmetricDifference(b)].join(\",\"), a.isSubsetOf(b), a.isSupersetOf(b), a.isDisjointFrom(b));\n",
+  },
+  {
+    id: "c651-rt-string-wellformed",
+    title: "isWellFormed / toWellFormed",
+    src: "\nconst lone = \"a\\uD800b\";\nconsole.log(lone.isWellFormed(), \"abc\".isWellFormed(), lone.toWellFormed().length, \"abc\".toWellFormed());\n",
+  },
+  {
+    id: "c651-rt-promise-with-resolvers",
+    title: "Promise.withResolvers",
+    src: "\nconst { promise, resolve, reject } = (Promise as any).withResolvers();\npromise.then((v: any) => console.log(\"resolved\", v));\nresolve(5);\nconsole.log(typeof resolve, typeof reject);\n",
+  },
+  {
+    id: "c651-rt-async-iterator-protocol",
+    title: "Symbol.asyncIterator 与 for await",
+    src: "\nconst bag: any = {\n  [Symbol.asyncIterator]() {\n    let i = 0;\n    return { next: () => Promise.resolve(i < 3 ? { value: i++, done: false } : { value: undefined, done: true }) };\n  },\n};\nasync function main(): Promise<void> {\n  let sum = 0;\n  for await (const v of bag) { sum += v; }\n  console.log(\"sum\", sum);\n}\nmain().then(() => console.log(\"done\"));\n",
+  },
 ];

@@ -307,22 +307,56 @@ while (true) {
 `IsMemberUnit` 不认它 ⇒ **链从此断掉**，后面的二元运算符把那条内层链当成左操作数
 （实测缺 `CallExpression` / `Identifier` 各一、多出同名节点）。
 
-判据只看三格：链底前面是 `.`、再前面是 `!`、而 `!` 前面是一个**能被断言的操作数**
-（`IsAssertableOperand`，与 `NotNullCloseRule.Previous` 同源）。让路之后下一趟
-`NotNull` 先成形，本规则再从 `NotNull` 起头把整条链一次收完。
+判据是**沿链往左走**：链底左边若还挂着链环（`.` / 下标括号 / 成员名本身），就一直走到
+「一个 `!` 的右边」，再看那个 `!` 左边是不是**能被断言的操作数**（`IsAssertableOperand`，
+与 `NotNullCloseRule.Previous` 同源）。让路之后下一趟 `NotNull` 先成形，本规则再从
+`NotNull` 起头把整条链一次收完。
+
+**为什么必须走到底、不能只看相邻那一格**（第 651 轮实测）：`o.a!.b().c[0] + 1` 里
+`c[0]` 自己也是一条链（链底 `c`），它前面隔着一个 `Method(b())`——只看相邻那两格看不见
+`!`，于是它照旧先折走，外层还是接不上（产物里 `c[0]` 掉进二元运算符当左操作数）。
+走到底之后三条形状（`.b`、`.b().c`、`.b().c[0]`）走的是同一道闸。
+
+**`?.` 不算链环**：它那一支归 `NullConditionalOperatorCloseRule`，让路会让两边都收不成。
 
 ```ts
-const dotAt = SkipPreviousWrapSymbol(units, index);
-const dot = Get(units, dotAt);
-if (!(dot instanceof SymbolToken) || dot.TempToString() !== ".") {
+let at = index;
+let guard = 0;
+while (guard < 64) {
+  guard = guard + 1;
+  const prevAt = SkipPreviousWrapSymbol(units, at);
+  const prev = Get(units, prevAt);
+  if (prev === null) {
+    return false;
+  }
+  if (prev instanceof SymbolToken) {
+    const text = prev.TempToString();
+    if (text === "!") {
+      return IsAssertableOperand(Get(units, SkipPreviousWrapSymbol(units, prevAt)));
+    }
+    if (text === ".") {
+      at = prevAt;
+      continue;
+    }
+    return false;
+  }
+  const name = prev.constructor.name;
+  if (
+    prev instanceof Bracket ||
+    name === "ArrayLiteral" ||
+    name === "Identifier" ||
+    name === "Method" ||
+    name === "Keyword" ||
+    name === "PropertyAccess" ||
+    name === "NotNull" ||
+    name === "New"
+  ) {
+    at = prevAt;
+    continue;
+  }
   return false;
 }
-const bangAt = SkipPreviousWrapSymbol(units, dotAt);
-const bang = Get(units, bangAt);
-if (!(bang instanceof SymbolToken) || bang.TempToString() !== "!") {
-  return false;
-}
-return IsAssertableOperand(Get(units, SkipPreviousWrapSymbol(units, bangAt)));
+return false;
 ```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool

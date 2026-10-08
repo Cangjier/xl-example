@@ -4523,4 +4523,14 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     title: "注释夹在语法相邻位置之间（new / for-of / 字段 / 元组成员）",
     src: "\nclass A {\n  v: number;\n  constructor(v: number) {\n    this.v = v;\n  }\n}\nclass B {\n  x /* c */ = 1;\n  y /* c */ ?: number;\n}\nconst a = new /* c */ A(7);\nlet sum = 0;\nfor (const n /* in */ of [1, 2, 3]) {\n  sum += n;\n}\ntype T = [p /* c */?: number, ...rest /* c */: string[]];\nconst t: T = [1, \"a\"];\nconsole.log(a.v, new B().x, sum, t.length);\n",
   },
+  {
+    id: "c651-ex-nonnull-chain-operators",
+    title: "非空断言链接二元 / 下标 / 调用",
+    src: "\nconst o: any = { a: { b: () => ({ c: [1, 2] }) }, n: 2 };\nconsole.log(o.a!.b().c[0] + 1, o.a!.n + 1, o.a![\"n\"] + 1, typeof o.a!.b().c.at(-1));\n",
+  },
+  {
+    id: "c651-ex-template-literal-types-runtime",
+    title: "模板字面量类型 / 映射类型全部擦除",
+    src: "\ntype Keys<T> = { [K in keyof T as `get${string & K}`]: () => T[K] };\ntype Ev = `on-${\"a\" | \"b\"}`;\nclass Store { v = 1; }\nconst s: Keys<Store> = { getv: () => 1 };\nconst e: Ev = \"on-a\";\nconsole.log(s.getv(), e, typeof s, typeof e);\n",
+  },
 ];
