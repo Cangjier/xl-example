@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.98,
+  "progressPercent": 95.99,
   "categories": [
     {
       "category": "token",
@@ -91,11 +91,11 @@
       "category": "exec",
       "weight": 0.25,
       "total": 2149,
-      "pass": 2095,
+      "pass": 2096,
       "blocked": 12,
-      "differ": 42,
+      "differ": 41,
       "nodefail": 0,
-      "coverage": 97.49
+      "coverage": 97.53
     },
     {
       "category": "runtime",
@@ -1796,12 +1796,6 @@
       "detail": "stdout 不同：第 2 行：node «objectThu Jan 01 1970 08:00:00 GMT+0800 (中国标准时间) string» vs tsrun «objectThu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time) string»"
     },
     {
-      "id": "exec/expressions/180-in-operator",
-      "category": "exec",
-      "title": "`in` 查的是整条原型链",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: 'in' needs an object on the right"
-    },
-    {
       "id": "exec/functions/090-iife-this",
       "category": "exec",
       "title": "非严格里裸调用的 `this` 是全局对象；方法调用是接收者",
@@ -1925,7 +1919,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23228/src/3202.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23028/src/3202.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2117,7 +2111,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23228/src/4909.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23028/src/4909.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2141,7 +2135,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23228/src/4959.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23028/src/4959.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",

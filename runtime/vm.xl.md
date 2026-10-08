@@ -3179,32 +3179,48 @@ if (id === RtOp.Typeof) {
 }
 if (id === RtOp.In) {
   RequireArgc(argc, 2, "in");
-  const inReceiver = slots[base + 1];
-  if (!inReceiver.IsObject()) {
-    throw new Error("unimplemented: 'in' needs an object on the right");
-  }
-  // **键先字符串化**（第 123 轮；与 `get_index` / `set_index` 同一套）：
-  // JS 的 `in` 也走 ToPropertyKey——少了这一步，`1 in arr` 会往上抛
-  // 「property keys must be strings or symbols」（判据现场就是这么红的）。
-  // **符号键原样**（身份，不许字符串化）。
-  const rawInKey = slots[base];
-  const inKey = rawInKey.Tag === ValueTag.Symbol
-    ? rawInKey
-    : RtToString(this.Room(), this.Table, rawInKey);
-  // **数组的下标键按「格子」答**：元素不在 `Props` 里，
-  // 只看属性表会把 `1 in [10, 20]` 答成**假**（JS 给真）——**静默给错值比抛更坏**。
-  // **洞不算**（`1 in [1, , 3]` 在 JS 里是假）。
-  if (inReceiver.Tag === ValueTag.Array) {
-    // **`"length"` 是数组的结构属性**（与 `GetProperty` 那一支同一条口径）——
-    // 它不在 `Props` 里，不问这一句就会把 `'length' in arr` 答成**假**（JS 给真）。
-    if (IsLengthKey(this.Table, inKey)) return Value.FromBool(true);
-    const at = ArrayIndexAt(this.Table, inKey);
-    if (at >= 0) {
-      const array = this.Table.Get(inReceiver.Ref).AsArray();
-      return Value.FromBool(at < array.GetLength() && !array.IsHole(at));
+  // **整支包进 `Guard`**（第 713 轮，**实测撞到的**）：这一支现在会抛
+  // **宿主 `TypeError`**（右操作数不是对象那一档，见下面那一句），
+  // 而 rt 层的裸抛**从 `Run()` 直接冒出去**——脚本的 `try { … } catch { … }`
+  // **接不住**（`Guard` 那一段写着这条边界：第 125 轮 `a + b` 量过同一件事）。
+  // 症状很好认：脚本前面几行照常打印、`catch` 一次都不进、tsrun 退出码 1、
+  // 出错那句话与「还没实现的构造或语言层错误」一起印出来
+  //（判据 `exec/expressions/180-in-operator` 第一版就是这个形状）。
+  // **`Guard` 把宿主异常的类翻成 `ErrorKindType`**（它自己的那一句），
+  // 语言层再翻成脚本里的 `TypeError`——一处翻译点，与 `iter_new` / `iter_next` 一字不差。
+  return this.Guard(() => {
+    const inReceiver = slots[base + 1];
+    if (!inReceiver.IsObject()) {
+      // **抛的是 `TypeError`，而不是普通 `Error`**（第 713 轮）：
+      // JS 里 `"a" in 1` 是 **`TypeError`**（规范 `RelationalExpression : RelationalExpression in ShiftExpression`
+      // 那条 `Type` 判据），脚本里 `try { "a" in (1 as any) } catch (e) { e.constructor.name }`
+      // 接得住、给 `"TypeError"`。本仓原来抛普通 `Error` ⇒ 那一格给 `"Error"`。
+      // **话里不带 `unimplemented`**：这不是「还没做」，是**查到的东西不对**。
+      throw new TypeError("'in' needs an object on the right");
     }
-  }
-  return Value.FromBool(HasProperty(this.Table, inReceiver.Ref, inKey));
+    // **键先字符串化**（第 123 轮；与 `get_index` / `set_index` 同一套）：
+    // JS 的 `in` 也走 ToPropertyKey——少了这一步，`1 in arr` 会往上抛
+    // 「property keys must be strings or symbols」（判据现场就是这么红的）。
+    // **符号键原样**（身份，不许字符串化）。
+    const rawInKey = slots[base];
+    const inKey = rawInKey.Tag === ValueTag.Symbol
+      ? rawInKey
+      : RtToString(this.Room(), this.Table, rawInKey);
+    // **数组的下标键按「格子」答**：元素不在 `Props` 里，
+    // 只看属性表会把 `1 in [10, 20]` 答成**假**（JS 给真）——**静默给错值比抛更坏**。
+    // **洞不算**（`1 in [1, , 3]` 在 JS 里是假）。
+    if (inReceiver.Tag === ValueTag.Array) {
+      // **`"length"` 是数组的结构属性**（与 `GetProperty` 那一支同一条口径）——
+      // 它不在 `Props` 里，不问这一句就会把 `'length' in arr` 答成**假**（JS 给真）。
+      if (IsLengthKey(this.Table, inKey)) return Value.FromBool(true);
+      const at = ArrayIndexAt(this.Table, inKey);
+      if (at >= 0) {
+        const array = this.Table.Get(inReceiver.Ref).AsArray();
+        return Value.FromBool(at < array.GetLength() && !array.IsHole(at));
+      }
+    }
+    return Value.FromBool(HasProperty(this.Table, inReceiver.Ref, inKey));
+  });
 }
 throw new Error("unimplemented: rt op " + RtOpName(id));
 ```
