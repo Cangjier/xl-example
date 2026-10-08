@@ -2097,15 +2097,20 @@ return true;
 
 # method IsEmptyContentUnit:(unit:Token)=>bool
 
-被包装的那个单元里**没有实义内容**（只有软换行，或者本来就是空的）。
+被包装的那个单元里**没有实义内容**（只有软换行与注释，或者本来就是空的）。
 
 `T[]` 的 `[]` 与 `[A, B]` 的区别就在这一条：
 **空的**且左边有操作数时是数组类型（`Dirent<X>[]`），**非空的**是元组类型或下标访问，
 **空的但左边没有操作数**时是**空元组**（`[]`——它自己就是一个元组类型，见 `type-bracket.xl.md`）。
 
+**注释也是 trivia**（第 680 轮）：`(A | B)[/* c */]` 里那一对方括号的**实义内容**是空的，
+与 `T[]` 是同一个类型——只跳软换行时它会被判成非空 ⇒ 走「下标访问」那一支
+（实测 `mut-type-union-after-readonly-112`：缺一个 `ArrayType`、多出一个 `IndexedAccessType`）。
+这条判据只用在**类型位**的方括号上，值位的下标（`a[b]`）走的不是这一支。
+
 ```ts
 for (const item of unit.Data) {
-  if (!(item instanceof LineWrap)) {
+  if (!IsTriviaUnit(item)) {
     return false;
   }
 }

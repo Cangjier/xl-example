@@ -105,8 +105,23 @@ return Get(units, cursor + 2) !== null;
 
 `index` 处是不是谓词的开头。
 
-三条：`index` 是容器里的**第一个实义单元**；容器是类型容器（`TypeDefine` / `ReturnType` /
-`TypeParameter` / `TypeDefine` 的父链都在白名单里）；这一格内容整体长成谓词形状。
+四条：`index` 是容器里的**第一个实义单元**或者是**某个标记词右边那一格**；容器是类型容器
+（`TypeDefine` / `ReturnType` / `TypeParameter` / `TypeAssign` … 都在白名单里）；
+**已经在谓词里的不再收**；这一格内容整体长成谓词形状。
+
+**标记词那一支原来只认 `=>`**（第 680 轮补上另两个）：它给的是**函数类型的返回位**
+（`(value: T, …) => value is S`），而同一个形状在另外两处**一模一样**——
+
+    type T = asserts x is A;                    // 类型别名：`=` 右边就是类型位
+    function f<X extends asserts x is A>(…)     // 泛型约束：`extends` 右边就是类型位
+
+两处都不是「容器的第一个实义单元」（`=` / `extends` 在它左边），原来于是整段落成散单元
+（实测 `type-asserts-toplevel` 缺 5 多 2、`type-param-asserts-constraint` 缺 5 多 2）。
+**判据不是「左边是哪个词」，而是「左边那一格是不是一个引出一个类型的标记」**：
+`=>` / `=` 是符号，`extends` 是词（`WordText` 统一取文本），三个都收。
+剩下的两头由别处管着：`asserts` 只在类型位合法（值位的 `asserts` 是普通标识符），
+而调用点只有类型容器那一支——`x = asserts y is A`（值位）里 `=` 的父亲是 `Statement`，
+不在白名单里，一格都不会误收。
 
 ```ts
 const current = Get(units, index);
@@ -127,9 +142,7 @@ if (IsTypeContainerUnit(current.Parent) === false) {
   return false;
 }
 // **起点两处**：容器的第一个实义单元（返回类型位 / 类型别名位），
-// 或者**紧跟函数类型的 `=>`**（`(value: T, …) => value is S` 这种**函数类型的返回位**）——
-// 后者实测一大片（`lib.es2015.core.d.ts` 的 `Array#find`、`@types/node/stream.d.ts` 的 `find`），
-// 函数类型的收集过程把返回类型直接摊平在节点里，没有 `TypeDefine`/`ReturnType` 可挂。
+// 或者**紧跟一个引出类型的标记**（`=>` / `=` / `extends`）。
 let isFirst = true;
 for (let i = 0; i < index; i++) {
   if (!(Get(units, i) instanceof LineWrap)) {
@@ -138,7 +151,13 @@ for (let i = 0; i < index; i++) {
 }
 if (isFirst === false) {
   const before = Get(units, SkipPreviousWrapSymbol(units, index));
-  if (!(before instanceof SymbolToken) || before.Is("=>") === false) {
+  let beforeText = "";
+  if (before instanceof SymbolToken) {
+    beforeText = before.TempToString();
+  } else if (before !== null) {
+    beforeText = WordText(before);
+  }
+  if (beforeText !== "=>" && beforeText !== "=" && beforeText !== "extends") {
     return false;
   }
 }

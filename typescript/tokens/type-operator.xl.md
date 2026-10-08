@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, WordText, IsTypeContainerUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit } from "../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipNextTrivia, WordText, IsTypeContainerUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 ```
@@ -95,10 +95,19 @@ return (item as any).op === "typeof";
 
 `index` 处是不是「类型运算符 + 操作数」这个形状。
 
-四条：本身是那四个词之一（**或者是已经折好的 `typeof` 一元运算**，见 `IsFoldedTypeof`）；
+**四条**：本身是那四个词之一（**或者是已经折好的 `typeof` 一元运算**，见 `IsFoldedTypeof`）；
 容器是纯类型容器；不是成员开头；
 **下一个实义单元是类型操作数**（`IsTypeOperandUnit`——修饰词与引出类型的词都不算，
 所以 `keyof typeof T` 里的 `keyof` 在第一趟不接手，等 `typeof T` 成形）。
+
+**「下一个实义单元」跨过注释**（第 680 轮）：`readonly/* c */ (A | B)[]` 里操作数前面夹着一条块注释，
+只跳软换行时 `operand` 落在注释上 ⇒ `IsTypeOperandUnit` 答否 ⇒ 这一格让开 ⇒
+最后是 `ArrayType` 把 `readonly` 一起吞进去（实测 `mut-type-union-after-readonly-103/104`：
+多出一个 `ArrayType` 与一个 `TypeReference(readonly)`）。
+**`Process` 里那两处 `SkipNextWrapSymbol` 要不要一起改**：不要 —— 注释落在
+`[index, nextIndex]` 这一段里，`ReplaceCountAt` 搬的是整段，注释跟着节点走；
+改 `Process` 只会把注释算进操作数那一格的边界（与 `foreach` / `while` 那几处
+「跨过的注释由 `CommentsIn` 收下」是两种口径，这里不必收）。
 
 **父节点已经是这两种节点、且这一段就是它的全部内容时不再包**（递归守卫）：
 本规则挂在类型队列上，`TypeOperator` / `TypeQuery` 造出来之后自己那一趟会再看到同一个词。
@@ -125,7 +134,7 @@ if (this.IsFoldedTypeof(current)) {
 if (this.PrefixWordOf(current) === "") {
   return false;
 }
-const nextIndex = SkipNextWrapSymbol(units, index);
+const nextIndex = SkipNextTrivia(units, index);
 const operand = Get(units, nextIndex);
 if (IsTypeOperandUnit(operand) === false) {
   return false;

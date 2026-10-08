@@ -86,7 +86,7 @@
 这一趟的结论就是门的那一行输出（`已知缺口：N 条还开着、M 条已经收掉`），
 所以「还差多少」在 `npm run gates` 里直接看得见，不必回 `tmp/` 翻探针。
 
-**当前 225 条**：四批加起来 —— 探针池 `tmp/k7-snips-big.mjs` 收剩的 13 条（第 668 / 669 轮）、
+**当前 219 条**：四批加起来 —— 探针池 `tmp/k7-snips-big.mjs` 收剩的 13 条（第 668 / 669 轮）、
 单独探出来的 2 条、r660 探针池的 26 条（第 673 轮）、657 审计脚本的 174 条（第 674 轮，**其中 4 条抛异常的已在第 679 轮收掉**）、
 第 676 轮 92 条片段探针新量出的 **14 条**（`gap-r676-*`，same 根：注释夹在语法相邻位置之间，
 落点换成类型运算符 / 函数类型 / `new` 的实参括号 / 成员名与形参表 / 泛型实参段附近）。
@@ -97,7 +97,14 @@
 ⇒ 那个 `{` 没被认成「等着体的头」的体 ⇒ `TryCloseRule` 手上的单元表里 `finally` 后面**没有** `{`
 ⇒ 空指针。修法两处：`IsHeaderBodyBrace` 收下 `catch` / `finally`；
 `Statement.IsDeclarationPosition` 往回跳 trivia（但**行注释那一格不跳**——
-`//` 换行是一次 ASI，块注释不是，`} else /* c */ {` 那个 `{` 仍然是 `else` 的体）。
+`//` 换行是一次 ASI，块注释不是，`} else /* c */ {` 那个 `{` 仍然是 `else` 的体`）。
+
+**第 680 轮收掉的 6 条**，两个根，都在「类型谓词 / 类型运算符靠相邻单元找操作数」这一片上：
+
+| 用例 | 根子 |
+| --- | --- |
+| `type-asserts-toplevel`（`type T = asserts x is A;`）、`type-param-asserts-constraint`（`<X extends asserts x is A>`） | `TypePredicateCloseRule.Previous` 的「起点」只认**容器第一个实义单元**与**紧跟 `=>`**，而 `=` / `extends` 右边同样是合法的类型位 ⇒ 整段落成散单元。判据改成「左边那一格是不是一个引出一个类型的标记」（`=>` / `=` / `extends`），白名单与「别处管着值位」两道闸都没动 |
+| `mut-type-union-after-readonly-111`（`readonly (A \| B)/* c */[]`）、`-112`（`(A \| B)[/* c */]`）、`gap-r676-indexed-access-comment`（`T /* c */ [number]`）、`mut-type-mapped-template-key-122` | 两条判据把注释当成实义内容：`TypeBracketCloseRule.Process` 往回只跳软换行 ⇒ 上一格是注释 ⇒「左边没有操作数」；`IsEmptyContentUnit` 只认软换行为空 ⇒ `[/* c */]` 成了非空 ⇒ 走「下标访问」那一支。两处都改成 trivia 口径（`SkipPreviousTrivia` / `IsTriviaUnit`） |
 
 | 用例 | 形状 | 症状 |
 | --- | --- | --- |

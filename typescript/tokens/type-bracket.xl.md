@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipPreviousWrapSymbol, IsTypeContainerUnit, IsEmptyContentUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit, IsTriviaUnit, WordText } from "../text-common-util.xl.md"
+import { SkipPreviousWrapSymbol, SkipPreviousTrivia, IsTypeContainerUnit, IsEmptyContentUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit, IsTriviaUnit, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
@@ -191,7 +191,12 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("TypeBracketCloseRule.Process: current is null");
 }
-const previousIndex = SkipPreviousWrapSymbol(units, index);
+// **注释不算操作数与方括号之间的东西**（第 680 轮）：`readonly (A | B)/* c */[]` 里
+// 上一格是那条块注释，只跳软换行时 `previous` 落在它身上 ⇒ `IsTypeOperandUnit` 答否 ⇒
+// `hasOperand` 假 ⇒ 这个空方括号被当成**空元组**（实测 `mut-type-union-after-readonly-111`：
+// 缺一个 `ArrayType`、多出一个 `TypeOperator`）。
+// 注释是 trivia，`T /* c */ []` 与 `T[]` 在 TypeScript 里是同一个类型。
+const previousIndex = SkipPreviousTrivia(units, index);
 const previous = Get(units, previousIndex);
 const hasOperand = IsTypeOperandUnit(previous);
 // **`X<A, D>[]`：实参段前面那个名字也要一起收进来**（第 172 轮）：产物把「名字」与
