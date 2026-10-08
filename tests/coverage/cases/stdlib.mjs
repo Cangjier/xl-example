@@ -6854,4 +6854,93 @@ console.log("sync");
     title: "String.includes 的 fromIndex 参数",
     src: "\nconst s = \"banana\";\nconsole.log(s.includes(\"nan\", 3), s.includes(\"nan\", 2), s.includes(\"nan\", 4));\nconsole.log(s.includes(\"ban\", -3), s.includes(\"ana\", 99));\n",
   },
+  // ===== 第 677 轮（其二）：**按名字逐个点名**——String / Array / Object / Number / Math / JSON / Set / Map 与 eval 那一族 =====
+  // 17 条：13 条 pass、2 条量出来的缺口（`eval` 没登记、正则字面量不是目标但会把整份文件带断）、
+  // 2 条口径外（正则、动态 `import`，写在用例自己身上的 `skip`）。
+  {
+    id: "l677p-str-nonregex-family",
+    title: "点名：String 的 replaceAll / replace（字符串模式）与 split / substring 全家",
+    src: "\nconst s = \"a-b-c\";\nconsole.log(s.replaceAll(\"-\", \"+\"), s.replace(\"-\", \"+\"), \"aaa\".replaceAll(\"a\", \"b\"));\nconsole.log(s.split(\"-\").join(\"|\"), \"a,b,,c\".split(\",\").length, \"abc\".split(\"\").join(\".\"));\nconsole.log(s.split(\"-\", 2).join(\"|\"), \"abc\".split(\"\", 2).join(\"|\"));\nconsole.log(s.substring(1, 3), s.slice(-2), s.slice(1, -1), s.slice(3, 1), s.substring(3, 1), s.at(-1));\nconsole.log(\"  pad  \".trim(), \"  pad  \".trimStart().length, \"  pad  \".trimEnd().length);\nconsole.log(\"  \\t x \\n \".trim().length, \"a\\u00a0\".trim().length);\nconsole.log(\"ab\".padStart(4, \"0\"), \"ab\".padEnd(4, \"0\"), \"ab\".padStart(1), \"ab\".padEnd(4, \"xy\"));\nconsole.log(\"AB\".toLowerCase(), \"ab\".toUpperCase(), \"ß\".toUpperCase(), \"İ\".toLowerCase().length);\nconsole.log(String.fromCharCode(97, 98), String.fromCodePoint(0x1f600).length, \"😀\".length, [...\"😀\"].length);\nconsole.log(\"a😀b\".codePointAt(1), \"a😀b\".charCodeAt(1), \"abc\".codePointAt(9));\nconsole.log(\"b\" > \"a\", \"abc\".localeCompare(\"abd\"), \"a\".repeat(3), \"a\".repeat(0).length, \"abc\".concat(\"d\"));\n",
+  },
+  {
+    id: "l677p-str-replace-callback",
+    title: "点名：replace 的替换函数（无正则、只用字符串）与 replaceAll 的替换串语义",
+    src: "\nconsole.log(\"xayb\".replace(\"a\", (m) => \"[\" + m + \"]\"));\nconsole.log(\"a-b\".replaceAll(\"-\", \"$$\"), \"a-b\".replace(\"-\", \"$&$&\"));\nconsole.log(\"ab\".replaceAll(\"a\", (m, i) => m + String(i)));\nconsole.log(\"abc\".replaceAll(\"\", \"-\"));\n",
+  },
+  {
+    id: "l677p-str-nonregex-errors",
+    title: "点名：repeat 的非法次数、normalize 的非法形式要走 RangeError",
+    src: "\nfor (const call of [() => \"a\".repeat(-1), () => \"a\".repeat(2.5), () => \"a\".normalize(\"XX\")]) {\n  try {\n    call();\n    console.log(\"no throw\");\n  } catch (e) {\n    console.log(e instanceof RangeError, e.constructor.name);\n  }\n}\nconsole.log(\"a\".repeat(2.0));\n",
+  },
+  {
+    id: "gap-l677p-regex-literal",
+    title: "缺口：正则字面量在降级层直接断（整份文件进不来）",
+    src: "\nconst re = /a(b)/;\nconsole.log(re.test(\"ab\"), \"ab\".replace(re, \"$1\"));\n",
+  },
+  {
+    id: "l677p-arr-nonmutating-family",
+    title: "点名：Array 的 toSorted / toReversed / toSpliced / with / findLast 族",
+    src: "\nconst xs = [3, 1, 2];\nconsole.log(xs.toSorted().join(\",\"), xs.join(\",\"), xs.toSorted((a, b) => b - a).join(\",\"));\nconsole.log(xs.toReversed().join(\",\"), xs.join(\",\"));\nconsole.log(xs.toSpliced(1, 1).join(\",\"), xs.toSpliced(1, 0, 9).join(\",\"), xs.join(\",\"));\nconsole.log(xs.with(0, 9).join(\",\"), xs.join(\",\"));\nconsole.log(typeof xs.with, typeof xs.toSorted, typeof xs.toReversed, typeof xs.toSpliced);\ntry {\n  console.log(xs.with(9, 1));\n} catch (e) {\n  console.log(e.constructor.name, e instanceof RangeError);\n}\n",
+  },
+  {
+    id: "l677p-arr-search-and-flat",
+    title: "点名：findLast / findLastIndex / at / reduceRight / flat / flatMap",
+    src: "\nconst xs = [1, 2, 3, 4];\nconsole.log(xs.findLast((n) => n % 2 === 0), xs.findLastIndex((n) => n % 2 === 0));\nconsole.log(xs.at(-1), xs.at(0), xs.at(9), [].at(0));\nconsole.log(xs.reduceRight((acc, n) => acc + String(n), \"\"));\nconsole.log([1, [2, [3]]].flat().join(\",\"), [1, [2, [3]]].flat(2).join(\",\"), [1, [2]].flat(0).join(\",\"));\nconsole.log([1, 2].flatMap((n) => [n, n * 10]).join(\",\"), [1, 2].flatMap((n) => n).join(\",\"));\nconsole.log([1, 2, 3].copyWithin(0, 1).join(\",\"), [1, 2, 3].fill(9, 1).join(\",\"));\nconsole.log([3, 10, 1].sort().join(\",\"), [3, 10, 1].sort((a, b) => a - b).join(\",\"));\n",
+  },
+  {
+    id: "l677p-obj-static-family",
+    title: "点名：Object 的 hasOwn / is / isExtensible / 原型与自有属性那几格",
+    src: "\nconst o = { a: 1 };\nconsole.log(Object.hasOwn(o, \"a\"), Object.hasOwn(o, \"toString\"), Object.hasOwn(o, \"b\"));\nconsole.log(Object.is(1, 1), Object.is(0, -0), Object.is(NaN, NaN), Object.is(\"a\", \"a\"));\nconsole.log(Object.isExtensible(o), Object.isFrozen(o), Object.isSealed(o));\nconsole.log(Object.getOwnPropertyNames(o).join(\",\"), Object.keys(o).join(\",\"));\nconsole.log(Object.getOwnPropertySymbols(o).length);\nconsole.log(typeof Object.getOwnPropertyDescriptor, typeof Object.getOwnPropertyDescriptors);\nconsole.log(typeof Object.getOwnPropertyDescriptor(o, \"a\"), typeof Object.getOwnPropertyDescriptors);\nconsole.log(typeof Object.setPrototypeOf, typeof Object.create);\nconsole.log(Object.getPrototypeOf({}) === Object.prototype, Object.getPrototypeOf(Object.create(null)));\n",
+  },
+  {
+    id: "l677p-obj-descriptor-shape",
+    title: "点名：getOwnPropertyDescriptor 的形状与 getOwnPropertyDescriptors 的成批形态",
+    src: "\nconst o = { a: 1 };\nconst d = Object.getOwnPropertyDescriptor(o, \"a\");\nconsole.log(Object.keys(d).sort().join(\",\"), d.value, d.writable, d.enumerable, d.configurable, \"get\" in d, \"set\" in d);\nconst all = Object.getOwnPropertyDescriptors(o);\nconsole.log(Object.keys(all).join(\",\"), all.a.value);\nconst withAccessor = { get g() { return 7; } };\nconst dg = Object.getOwnPropertyDescriptor(withAccessor, \"g\");\nconsole.log(typeof dg.get, typeof dg.set, \"value\" in dg, dg.get());\n",
+  },
+  {
+    id: "l677p-obj-lock-difference",
+    title: "口径边界：preventExtensions + defineProperty 在 node（松散）静默、本仓抛（严格）",
+    src: "\nconst frozen = Object.preventExtensions({ b: 2 });\nconsole.log(Object.isExtensible(frozen));\ntry {\n  Object.defineProperty(frozen, \"c\", { value: 3 });\n  console.log(\"define ok\", frozen.c);\n} catch (e) {\n  console.log(\"define threw\", e.constructor.name);\n}\n",
+  },
+  {
+    id: "l677p-obj-iterate-entries",
+    title: "点名：Object.keys / values / entries 与 for...in 的顺序和形参个数",
+    src: "\nconst o = { b: 1, a: 2, 0: 3 };\nconsole.log(Object.keys(o).join(\",\"), Object.values(o).join(\",\"));\nfor (const [k, v] of Object.entries(o)) console.log(k, v);\nconst seen = [];\nfor (const k in o) seen.push(k);\nconsole.log(seen.join(\",\"));\nconsole.log(Object.entries({}).length, Object.keys(\"ab\").join(\",\"), Object.entries(\"ab\").length);\n",
+  },
+  {
+    id: "l677p-num-format-family",
+    title: "点名：Number 的 toString 基数 / toPrecision / toExponential / toFixed 边界",
+    src: "\nconsole.log((255).toString(16), (255).toString(2), (8).toString(8), (1.5).toString(2));\nconsole.log((123.456).toFixed(2), (0.005).toFixed(2), (1.005).toFixed(2), (12).toFixed(0), (1.5).toFixed());\nconsole.log((123.456).toPrecision(4), (0.000123).toPrecision(2), (123456).toPrecision(2));\nconsole.log((12345).toExponential(2), (0.00012).toExponential(1), (1).toExponential());\nconsole.log(Number.isFinite(1), Number.isFinite(\"1\"), Number.isInteger(1.0), Number.isInteger(1.5));\nconsole.log(Number.isSafeInteger(2 ** 53 - 1), Number.isSafeInteger(2 ** 53), Number.isNaN(NaN), Number.isNaN(\"x\"));\nconsole.log(Number.parseInt(\"42px\", 10), Number.parseFloat(\"3.5e2\"), Number.parseInt(\"ff\", 16));\nconsole.log(Number.MAX_SAFE_INTEGER, Number.EPSILON, Number.MAX_VALUE > 1e308, Number.MIN_VALUE > 0);\nconsole.log(Number(\"\"), Number(\" 12 \"), Number(\"x\"), Number(null), Number(undefined), Number(true));\n",
+  },
+  {
+    id: "l677p-math-modern-family",
+    title: "点名：Math 的 cbrt / fround / clz32 / imul / sign / hypot / log2 / expm1 / log1p",
+    src: "\nconsole.log(Math.cbrt(27), Math.cbrt(-8), Math.fround(1.1), Math.clz32(1), Math.clz32(0), Math.imul(3, 4));\nconsole.log(Math.sign(-3), Math.sign(0), Math.sign(-0), Object.is(Math.sign(-0), -0), Math.sign(NaN));\nconsole.log(Math.hypot(3, 4), Math.hypot(), Math.hypot(3, 4, 12));\nconsole.log(Math.log2(8), Math.log10(1000), Math.log1p(0), Math.expm1(0));\nconsole.log(Math.sinh(0), Math.cosh(0), Math.tanh(0), Math.asinh(0), Math.acosh(1), Math.atanh(0));\nconsole.log(Math.trunc(-4.7), Math.trunc(4.7), Math.floor(-0.5), Math.ceil(-0.5), Math.round(-0.5));\nconsole.log(Math.min(), Math.max(), Math.min(1, NaN), Math.max(-0, 0), Object.is(Math.max(-0, 0), 0));\n",
+  },
+  {
+    id: "l677p-json-format-family",
+    title: "点名：JSON.stringify 的 space / replacer 与 JSON.parse 的 reviver、非法输入",
+    src: "\nconsole.log(JSON.stringify({ a: 1, b: [1, 2] }, null, 2));\nconsole.log(JSON.stringify({ a: 1, b: 2 }, [\"a\"]));\nconsole.log(JSON.stringify({ a: 1, b: 2 }, (k, v) => (k === \"b\" ? undefined : v)));\nconsole.log(JSON.stringify({ a: undefined, b: () => 1, c: Symbol(\"s\") }));\nconsole.log(JSON.stringify([undefined, NaN, Infinity]));\nconsole.log(JSON.parse('{\"a\":1}', (k, v) => (typeof v === \"number\" ? v + 1 : v)).a);\nfor (const bad of [\"{\", \"\", \"'a'\", \"undefined\"]) {\n  try {\n    JSON.parse(bad);\n    console.log(\"parsed\");\n  } catch (e) {\n    console.log(e.constructor.name);\n  }\n}\n",
+  },
+  {
+    id: "l677p-set-map-iteration",
+    title: "点名：Set / Map 的迭代、去重、size、forEach 与键顺序",
+    src: "\nconst s = new Set([3, 1, 3, 2]);\nconsole.log(s.size, [...s].join(\",\"), [...s.values()].join(\",\"), [...s.keys()].join(\",\"));\ns.add(4).delete(1);\nconst sseen = [];\ns.forEach((v, k) => sseen.push(String(v) + String(k)));\nconsole.log(sseen.join(\" \"), [...s.entries()].map(([a, b]) => String(a) + String(b)).join(\",\"));\nconst m = new Map([[\"b\", 2], [\"a\", 1]]);\nconsole.log(m.size, [...m.keys()].join(\",\"), [...m.values()].join(\",\"), m.get(\"a\"), m.get(\"zz\"));\nm.set(\"c\", 3);\nconst mseen = [];\nm.forEach((v, k) => mseen.push(k + String(v)));\nconsole.log(mseen.join(\" \"), [...m.entries()].length, m.has(\"c\"), m.has(\"zz\"));\nconst withNaN = new Set([NaN, NaN]);\nconsole.log(withNaN.size, withNaN.has(NaN), new Map([[NaN, 1]]).get(NaN));\n",
+  },
+  {
+    id: "l677p-set-operations-lookup",
+    title: "点名：Set 的集合运算七格（union / intersection / difference / isSubsetOf …）在不在",
+    src: "\nconst s = new Set([1, 2]);\nconst names = [\"union\", \"intersection\", \"difference\", \"symmetricDifference\", \"isSubsetOf\", \"isSupersetOf\", \"isDisjointFrom\"];\nconsole.log(names.map((n) => typeof s[n]).join(\",\"));\nconsole.log([...s].filter((n, i, arr) => arr.indexOf(n) === i).join(\",\"));\n",
+  },
+  {
+    id: "l677p-eval-forms",
+    title: "点名：eval 的两种形态（直接 / 间接）与它的作用域可见性",
+    src: "\nconst local = 1;\nconsole.log(eval(\"local + 1\"));\nconsole.log(eval(\"var xx = 5; xx * 2\"), typeof xx);\nconsole.log(typeof eval, eval.length, (0, eval)(\"typeof globalThis\"));\nconsole.log(eval(\"({a: 1}).a\"), eval(\"[1,2,3].length\"));\n",
+  },
+  {
+    id: "l677p-dynamic-import",
+    title: "口径外：动态 import() 的返回形状（多文件加载不是 v1 目标）",
+    src: "\nconst p = import(\"node:path\");\nconsole.log(typeof p, typeof p.then);\nconst mod = await p;\nconsole.log(typeof mod.join, mod.join(\"a\", \"b\"));\n",
+    skip: "口径外：多文件模块加载由宿主的装载器决定（README 的口径外那一条）；`import()` 的返回形状不是单文件 `tsrun` 的目标",
+  },
 ];

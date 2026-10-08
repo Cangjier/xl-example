@@ -1253,12 +1253,42 @@ export const EXPECTATIONS = {
     why: "对象解构的计算属性名 `{ [k]: v }`：投影出的 ComputedPropertyName 在自己的区间里取不到文本，降级层报 ast node ComputedPropertyName has no text",
   },
 
-  // 三、**嵌套模板字面量、内插与 `}` 之间带空白**：`node` 给 `ab1c`，本仓给 `ab1}c`。
-  // 根子在 token 层：内层模板收尾之后，`TemplateTail` 该从 `}` **之后**起，
-  // 现在它把那个 `}` 与空格算进了自己的文本（`{` 那一支有对照，这一支少了同一处处理）。
-  "l677-expressions-expr-template-nested-spaced": {
+  // 三、**嵌套模板字面量、内插与 `}` 之间带空白**：`node` 给 `ab1c`，本仓当时给 `ab1}c`。
+  // **第 677 轮（其二）已经收掉**（这一行随之删掉）：根子在**投影**那一层不在 token 层——
+  // `TemplateTail` / `TemplateMiddle` 的 `text` 按「表达式的终点 + 1」起算，而内插与 `}`
+  // 之间带空白时表达式终点落在**反引号之后一格**（那个空格上），`+1` 就把 `}` 自己算进了段文本。
+  // 位置那一格第 623 轮已经按「`}` 的右边一格」算了（`pos: endOf(interps[i]) - 1`），
+  // 文本这一格漏了同一处；两格现在同一个起点（`typescript/print-ast-common.xl.md` 的
+  // `stringProject`）。用例 `l677-expressions-expr-template-nested-spaced` 现在**过**。
+
+
+  // ===== 第 677 轮（其二）：**按名字逐个点名**量出的两格（用例在 `cases/stdlib.mjs` 的 `l677p-*` 那一段）=====
+  // 一、**`eval` 这个全局名没登记**：`name is not a local or a capture: eval`。
+  // 与 `setTimeout` 那一格同在宿主 ABI 那张表上——`eval` 是**语言内建**（不是宿主），
+  // 但它要的是「把一段源码交给同一条解析 / 降级 / 执行链」，比定时器还多一层：
+  // 先要有一个「字符串 → 程序」的入口（`RunSources` 就是那个形状），再把内联作用域传进去。
+  "l677p-eval-forms": {
+    expect: "blocked",
+    why: "`eval` 没登记：报 name is not a local or a capture: eval——直接 / 间接两种形态与它要的内联作用域都还没有",
+  },
+
+  // ---- 正则字面量那一格：`RegExp` 是 v1 写死的非目标，但**这一格不是 `skip`**——
+  // `node` 跑得动它（裁判给得出读数），断的是本仓的降级层
+  // （`unimplemented: expression RegularExpressionLiteral`）。按仓库的口径，
+  // 「裁判跑得动、这边过不了」就是**缺口**，所以登在这里（`skip` 只留给
+  // 「裁判都给不出来」的那两档：多文件加载、装饰器运行期语义）。
+  // 它与 `regexp-literal-basic` 那几条同档，只是那几条在**解析侧**。
+  "gap-l677p-regex-literal": {
+    expect: "blocked",
+    why: "正则字面量在降级层直接断（unimplemented: expression RegularExpressionLiteral）：RegExp 是非目标，但 `node` 跑得动这一条 ⇒ 按仓库口径记缺口，不记 skip",
+  },
+
+  // ---- `Object.preventExtensions` 之后 `defineProperty`：本仓抛、node（松散模式）静默。
+  // 这与 README 里那两处**口径边界**同源（`freeze` 之后写属性 / 只读访问器上赋值），
+  // 所以**不算缺口**：留在矩阵里看得见，不进「还差多少」。
+  "l677p-obj-lock-difference": {
     expect: "differ",
-    why: "嵌套模板里内插与 `}` 之间带空白：该给 ab1c，这里给 ab1}c——TemplateTail 从 `}` 起、把花括号与空格算进了自己的文本",
+    why: "口径边界：`preventExtensions` 之后 `defineProperty` 本仓抛（严格模式的选择）、node 把 .ts 当 CJS 跑是松散模式所以静默——与 `freeze` 那一族同档，不算缺口",
   },
 
 };

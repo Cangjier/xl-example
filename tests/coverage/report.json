@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2201,
+  "matrix": 2217,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -63,6 +63,11 @@
       "why": "口径外：`BigInt` 在 docs/runtime-architecture.md §15 那张「明确不做」的表里（与 RegExp / Proxy / Intl 同档）"
     },
     {
+      "id": "l677p-dynamic-import",
+      "layer": "stdlib",
+      "why": "口径外：多文件模块加载由宿主的装载器决定（README 的口径外那一条）；`import()` 的返回形状不是单文件 `tsrun` 的目标"
+    },
+    {
       "id": "c639-e2e-string-matchall-and-index",
       "layer": "e2e",
       "why": true
@@ -83,7 +88,7 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 99.31,
+  "progressPercent": 99.28,
   "layers": [
     {
       "layer": "runtime",
@@ -99,21 +104,21 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 537,
-      "pass": 531,
+      "pass": 532,
       "blocked": 3,
-      "differ": 3,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 98.88
+      "coverage": 99.07
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 844,
-      "pass": 832,
-      "blocked": 5,
-      "differ": 7,
+      "total": 860,
+      "pass": 845,
+      "blocked": 7,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 98.58
+      "coverage": 98.26
     },
     {
       "layer": "e2e",
@@ -174,6 +179,18 @@
       "layer": "stdlib",
       "title": "Date.toUTCString：UTC 的可读文本",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "gap-l677p-regex-literal",
+      "layer": "stdlib",
+      "title": "缺口：正则字面量在降级层直接断（整份文件进不来）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "l677p-eval-forms",
+      "layer": "stdlib",
+      "title": "点名：eval 的两种形态（直接 / 间接）与它的作用域可见性",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: eval"
     }
   ],
   "differ": [
@@ -188,12 +205,6 @@
       "layer": "exec",
       "title": "await using 声明：块结束时该调 Symbol.asyncDispose",
       "detail": "stdout 不同：第 3 行：node «dispose a» vs tsrun «»"
-    },
-    {
-      "id": "l677-expressions-expr-template-nested-spaced",
-      "layer": "exec",
-      "title": "AST 语料 expressions/expr-template-nested-spaced.ts：expr template nested spaced",
-      "detail": "stdout 不同：第 1 行：node «ab1c» vs tsrun «ab1}c»"
     },
     {
       "id": "gap-std-new-object-null",
@@ -236,6 +247,12 @@
       "layer": "stdlib",
       "title": "String.includes 的 fromIndex 参数",
       "detail": "stdout 不同：第 1 行：node «false true false» vs tsrun «true true true»"
+    },
+    {
+      "id": "l677p-obj-lock-difference",
+      "layer": "stdlib",
+      "title": "口径边界：preventExtensions + defineProperty 在 node（松散）静默、本仓抛（严格）",
+      "detail": "stdout 不同：第 2 行：node «define threw TypeError» vs tsrun «define ok 3»"
     }
   ],
   "bad": [],

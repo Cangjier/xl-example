@@ -747,12 +747,20 @@ new Map([
     if (value === undefined) continue;
     // **段内文本**：从 `}` 之后算起；中段到 `$` 之前，尾段到收尾反引号之前。
     //
+    // **起点按「那个 `}` 的右边一格」定，不按表达式的终点**（第 677 轮）：两者只在
+    // 「表达式与 `}` 紧挨着」时相等 —— `` `${ `b${1}` }c` `` 里表达式终点落在**内层
+    // 反引号之后一格**（那个空格上），照它 `+1` 就把 `}` 自己算进了段文本：
+    // `node` 给 `ab1c`、本仓给 `ab1}c`（实测 `expr-template-nested-spaced`，
+    // 执行侧 `l677-expressions-expr-template-nested-spaced` 量的就是它）。
+    // 位置那一格第 623 轮已经这么算了（`pos` 取 `endOf(interps[i]) - 1`），
+    // **文本这一格漏了同一处**——两格现在同一个起点。
+    //
     // **分支按 `isLast` 定，不按 `consts[i + 1]`**：实测两者会不一致
     // （尾段也可能跟着一个常量段），那时按后者会算出一个**反向区间**——
     // `slice(25, 24)` 给的是空串，判据报的是「少了一个 `]`」，而线索离这里很远。
     const literalText = isLast
-      ? ctx.source.slice(value.end + 1, v.end - 1)
-      : ctx.source.slice(value.end + 1, endOf(consts[i + 1]) - 1);
+      ? ctx.source.slice(endOf(interps[i]), v.end - 1)
+      : ctx.source.slice(endOf(interps[i]), endOf(consts[i + 1]) - 1);
     const literal = {
       kind: isLast ? "TemplateTail" : "TemplateMiddle",
       // **字面量段从 `}` 起**（TS 的 `TemplateTail` / `TemplateMiddle` 含那个右花括号），

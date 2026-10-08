@@ -120,11 +120,11 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | --- | --- | --- |
 | runtime | **595 / 595** | **100%** |
 | exec | **531 / 537** | 98.9% |
-| stdlib | **832 / 844** | 98.6% |
+| stdlib | **846 / 860** | 98.4% |
 | e2e | **225 / 225** | **100%** |
-| **合计（加权）** | **2183 / 2201** | **99.3%** |
+| **合计（加权）** | **2197 / 2217** | **99.3%** |
 
-那 18 条过不了的是**真缺口**，都登了台账（写清根子）：
+那 20 条过不了的是**真缺口**，都登了台账（写清根子）：
 对象字面量的值是一对圆括号里的二元表达式、宿主 ABI 的 `setTimeout`、
 `Date.prototype.getTimezoneOffset` 与 `toDateString` / `toTimeString` / `toUTCString` 没装、
 `String.prototype.matchAll` 没装（六条 `blocked`）、
@@ -139,24 +139,54 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 读数从 100% 掉到 99.8% 是**分母变诚实**，不是倒退；**第 676 轮**又加宽了 34 条
 （`r676-*`，同一轮普查量出的缺口另立 7 条 `gap-r676-*`，另有 1 条同族的另算），
 读数再掉到 99.5%，同一个道理；**第 677 轮**换了一条语料来源：不写新片段，
-而是把 **AST 语料**（`tests/parse/cases/**`，见下一节）里凡是会打印的那 57 份整批量一遍——
-36 份 pass 的照原样进矩阵（`l677-*`），另量出 3 条缺口，读数 99.5% → **99.3%**，同一个道理。
+而是把 **AST 语料**（`tests/parse/cases/**`，见下节）里凡是会打印的那 57 份整批量一遍，
+再按**名字逐个点名**把内建族扫一遍——两批一共收 41 条（36 + 13 条 pass）与 5 条缺口
+（1 条在下一轮就收掉了），读数 99.5% → 99.4% → **99.3%**，同一个道理。
 
-### 第 677 轮：**AST 语料**当候选池——1407 份解析用例里量出 3 条执行侧缺口
+### 第 677 轮（其一）：**AST 语料**当候选池——1407 份解析用例里量出 3 条
 
 解析语料（`tests/parse/cases/**`，1411 条）是为 token 层写的，但其中 **57 份**带
 `console.log`——它们同时也是**普通 `.ts`**，正好能整批交给 `sweep.mjs` 量一遍
 （口径不变：`node` 当裁判、stdout 逐字节 + 退出码）。余额是**代码复用**：
 这些文件每个都已经被逐节点对拍过，形状是现成的，不必再手写片段。
+36 份 pass 的照原样进矩阵（`l677-*`，exec 层），另量出 3 条：
 
 | 用例 | 症状 | 根子 |
 | --- | --- | --- |
 | `l677-declarations-cls-semicolon-member` | 类体里单独一个 `;`（TS 的 `SemicolonClassElement`）⇒ `unimplemented: class member SemicolonClassElement` | 降级层的成员遍历只认 Field / MethodDeclaration，无名成员直接抛；空成员没有运行期效果，跳过即可 |
 | `l677-declarations-decl-obj-destructure-computed-key` | `const { [k]: v } = o` ⇒ `ast node ComputedPropertyName has no text (at 109..112)` | 投影出的计算名节点**在自己的区间里取不到文本**——与 `import { "a-b" as c }` 那一族同一个根子：投影这一层按区间再取一次文本，而 `[k]` 的区间口径不一致 |
-| `l677-expressions-expr-template-nested-spaced` | 嵌套模板 `` `a${ `b${1}` }c` `` 该给 `ab1c`，本仓给 `ab1}c` | token 层：内层模板收尾后 `TemplateTail` 该从 `}` **之后**起，现在它把 `}` 与那个空格算进了自己的文本 |
+| `l677-expressions-expr-template-nested-spaced` | 嵌套模板 `` `a${ `b${1}` }c` `` 该给 `ab1c`，本仓给 `ab1}c` | **已在「第 677 轮（其三）」收掉**：投影里 `TemplateTail` 的 `text` 起点算错 |
 
 另 **18 份**是 `nodefail`（片段不完整：`ReferenceError: xs is not defined` 之类），
 **没有进矩阵**——裁判都跑不动的那一档就是「用例自己不合法」，收进去只会污染分母。
+
+### 第 677 轮（其二）：**按名字逐个点名**——内建族再扫一遍，又量出 3 格
+
+与第 676 轮（其三）同一条路（「不问构造、问名字」），这一批把面铺到还没点名过的几族：
+String 的非正则成员、Array 的非变异成员（`toSorted` / `with` 族）、Object 的检查与原型族、
+Number / Math 的现代成员、JSON 的 space / replacer、Set / Map 的迭代、`eval`。
+量出来的是（用例在 `cases/stdlib.mjs` 的 `l677p-*` 那一段）：
+
+| 用例 | 症状 | 根子 |
+| --- | --- | --- |
+| `l677p-eval-forms` | `eval(...)` ⇒ `name is not a local or a capture: eval` | `eval` 这个全局名没登记；它要的是「字符串 → 程序」那条入口（`RunSources` 同形）再把内联作用域传进去 |
+| `gap-l677p-regex-literal` | 正则字面量 ⇒ `unimplemented: expression RegularExpressionLiteral`（整份文件进不来） | `RegExp` 是 v1 非目标，但**裁判跑得动这一条** ⇒ 按仓库口径记**缺口**，不记 `skip` |
+| `l677p-obj-lock-difference` | `preventExtensions` 之后 `defineProperty`：本仓抛、`node` 静默 | **口径边界**（本仓一律抛 = 严格模式的选择；`node` 把 `.ts` 当 CJS 跑是松散模式）——与 `freeze` 那一族同档，**不算缺口**，留在矩阵里看得见 |
+
+**一条口径上的收口**：`skip` 只留给「**裁判都给不出来**」那一档（多文件加载、装饰器运行期语义）；
+「裁判跑得动、这边过不了」的一律进台账记 `blocked` / `differ`——
+`gap-l677p-regex-literal` 第一版写成 `skip` 时被 `run.mjs` 当场判成 `REGRESSION`
+（`skip` 让这条避开台账，而它其实是断的），这一轮按口径改回 `blocked`。
+
+### 第 677 轮（其三）：收掉嵌套模板里内插与 `}` 之间的空白
+
+（其一）从 AST 语料里量到的那条 `differ`（`` `a${ `b${1}` }c` `` 该给 `ab1c`、
+本仓给 `ab1}c`）**在（其三）就收掉了**，所以它只活在 git 历史与 `expectations.mjs` 的注释里。
+根子不在 token 层而在**投影**这一层：`TemplateTail` / `TemplateMiddle` 的 `text` 按
+「表达式的终点 + 1」起算，而内插与 `}` 之间带空白时表达式终点落在**反引号之后一格**（那个空格上），
+`+1` 就把 `}` 自己算进了段文本；位置那一格第 623 轮已经按「`}` 的右边一格」算了
+（`pos: endOf(interps[i]) - 1`）——文本这一格漏了同一处。修法是两格同一个起点
+（`typescript/print-ast-common.xl.md` 的 `stringProject`）。
 
 ### 第 676 轮（其三）：**系统性点名**——把内建表面逐个问一遍
 
