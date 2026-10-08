@@ -281,7 +281,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 | 门 | 口径 |
 | --- | --- |
-| `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界——**七条全 0 才退出码 0** |
+| `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界——**七条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
@@ -294,16 +294,24 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 `cases:shapes` 用的是它去掉 `dist/ts` 的那一份（产物自己写出来的形状不算「必须有用例」）。
 
+**`xl:known-gap`：已知缺口也进语料**（第 670 轮）。凡是量出来的缺口形状，**用例照样写进
+`tests/parse/cases/`**（一条一个排版，根因写在指令后面），只是它的差额走**另一条账**：
+`cases:tsast` 每趟逐条真跑一遍，**还对不上**就记 `KNOWN`（不进那七项，门可以是绿的），
+**已经对上了**就报「收掉了」并**红**——逼你去把那行指令删掉。
+这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
+而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
+规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1564 / 1564 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0**；另有 **15 条 `xl:known-gap` 还开着**（每条的差额逐条印出来） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1182** 条用例，0 条不合格 |
-| `cases:tags` | **1182 条全部带期望**（3088 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1169 份），未覆盖 **0** |
+| `cases:check` | **1197** 条用例，0 条不合格 |
+| `cases:tags` | **1197 条全部带期望**（3132 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1184 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
 | `coverage` | **2122 / 2122**：四层各 **100%**（runtime 591、exec 490、stdlib 818、e2e 223） |
@@ -334,12 +342,11 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口（当前 **15** 条，逐条列在
-  [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md) 的「已知仍开着的缺口」：
-  解构模式前换行、无体声明的尾随 `;`、泛型约束里的三族类型、
-  注释夹在头与括号之间、`switch` 单行块后跟 `default`、`typeof a.b[K]`、`f<string>` …）
-  与「试过什么」见同一份文档；执行侧那 2 条
-  （对象字面量的值是一对括号里的二元表达式、`setTimeout` 这个全局名没登记）见
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **15** 条）：
+  解构模式前换行、无体声明的尾随 `;`、泛型约束里的三族类型、注释夹在头与括号之间、
+  `switch` 单行块后跟 `default`、`typeof a.b[K]`、`f<string>` …
+  一张表 + 逐条根因见 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)；
+  执行侧那 2 条（对象字面量的值是一对括号里的二元表达式、`setTimeout` 这个全局名没登记）见
   [tests/coverage/README.md](tests/coverage/README.md)。
 
 执行侧只剩一条：

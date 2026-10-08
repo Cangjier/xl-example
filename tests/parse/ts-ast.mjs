@@ -432,6 +432,9 @@ function corpus(mode) {
     for (const c of listCases()) {
       if (c.directives.tsInvalid) continue;
       if (c.file.endsWith(".tsx")) continue;
+      // **已知缺口不进七项判据**（第 670 轮，见 `knownGapCheck`）：它们照样被对拍，
+      // 但差额走另一条账 —— 否则门永远是红的，红里分不出「新坏了」与「本来就还没做」。
+      if (c.directives.knownGap !== "") continue;
       files.push(c.file);
     }
   }
@@ -618,6 +621,57 @@ function diffOneFile(file, options) {
   );
   for (const line of r.lines) console.log("  " + line);
   if (!r.lines.length) console.log("  （完全一致）");
+}
+
+/**
+ * **已知缺口那一趟**（第 670 轮）：语料里带 `// xl:known-gap <根因>` 的那些用例，
+ * 逐条对拍一次，**要求它真的还对不上**。
+ *
+ * 为什么要有这一趟：缺口原来只活在 `tmp/` 的探针池里、语料是干净的 ⇒ `npm run gates` 全绿，
+ * 而「还差多少」与「昨天差多少」都得回去翻 `tmp/`（那是**一次普查的现场**，不是门）。
+ * 现在缺口清单长在语料里（用例自己写着根因），这一趟就是它的判据：
+ *
+ * - **还对不上** ⇒ `KNOWN`，差额**不算进那七项**（门因此可以是绿的）；
+ * - **已经对上了** ⇒ `收掉了`，**红**：该去把那行 `xl:known-gap` 删掉 ——
+ *   缺口清单不许只增不减（与 `tests/coverage` 的台账同一条规矩：登记过的照样每次真跑，
+ *   `NEWLY-PASSING` 提示删行）。
+ *
+ * 每一条都打印自己的四方向计数，所以「哪一族收了多少」在这一趟里一眼看得见。
+ */
+function knownGapCheck() {
+  const cases = listCases().filter(
+    (c) => c.directives.knownGap !== "" && !c.directives.tsInvalid && !c.file.endsWith(".tsx"),
+  );
+  if (cases.length === 0) {
+    console.log("=== 已知缺口（`xl:known-gap`）===");
+    console.log("  （语料里一条都没有——缺口清单是空的）");
+    return true;
+  }
+  console.log(`=== 已知缺口（\`xl:known-gap\`）${cases.length} 条 ===`);
+  let closed = 0;
+  for (const c of cases) {
+    let source = fs.readFileSync(c.file, "utf8");
+    if (source.charCodeAt(0) === 0xfeff) source = source.substring(1);
+    let row;
+    try {
+      row = compareSource(source, c.file, { list: false, limit: 0 });
+    } catch (error) {
+      closed++;
+      console.log(`  CRASH  ${c.id}  ${String(error && error.Message ? error.Message : error).split("\n")[0]}`);
+      continue;
+    }
+    if (row.missing + row.drift + row.extra + row.fieldDiff > 0) {
+      console.log(
+        `  KNOWN  ${c.id}  缺 ${row.missing}　漂 ${row.drift}　多 ${row.extra}　字段 ${row.fieldDiff}  ${c.directives.knownGap}`,
+      );
+    } else {
+      closed++;
+      console.log(`  收掉了  ${c.id}  —— 这条缺口已经对上，去删掉那行 \`// xl:known-gap\``);
+    }
+  }
+  console.log("");
+  console.log(`已知缺口：${cases.length - closed} 条还开着、${closed} 条已经收掉（收掉的要来删指令）`);
+  return closed === 0;
 }
 
 /**
@@ -861,7 +915,11 @@ function runBatch(mode, jobs, passthrough) {
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
     console.log("");
     console.log(`${jobs} 片：${jobs - failed} 片通过、${failed} 片失败；墙钟 ${seconds}s`);
-    process.exitCode = failed === 0 ? 0 : 1;
+    // **已知缺口那一趟在父进程里跑一次**（子进程都带 `--shard`，`main()` 里那一趟会自己让开）：
+    // 它是语料级的账，跟着分片跑会在每片里各印一遍、还会把「收掉了」重复报 N 次。
+    console.log("");
+    const gapsOk = knownGapCheck();
+    process.exitCode = failed === 0 && gapsOk ? 0 : 1;
   });
 }
 
@@ -1287,6 +1345,13 @@ async function main() {
   // 第 199 轮把**地基**的三栏也并进退出码：未映射（透传进产物的标签）、缺 range、区间越界。
   // 它们原来是「打印出来给人读」的，于是「完全一致」这句话带着三个未验证的星号；
   // 用户的要求是「PrintAst 必须和 TS 的 AST 完全一致」，那就一条都不许留白。
+  // **已知缺口那一趟**（第 670 轮）：只在**非分片**这一趟里跑（分片时由父进程跑一次，
+  // 见 `runBatch`）——它是语料级的账，不是每片各自算的那七项。
+  const gapsOk = ARGS.includes("--shard") ? true : knownGapCheck();
+  if (ARGS.includes("--shard") === false) {
+    console.log("");
+  }
+
   process.exitCode =
     projectedMissing.size === 0 &&
     projectedDrift.size === 0 &&
@@ -1294,7 +1359,8 @@ async function main() {
     fieldDiffs.size === 0 &&
     unmappedTags.size === 0 &&
     stats.missingRange === 0 &&
-    stats.outOfRange === 0
+    stats.outOfRange === 0 &&
+    gapsOk
       ? 0
       : 1;
 }

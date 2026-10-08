@@ -18,10 +18,12 @@
 
 ## 怎么量缺口
 
-0. **先写小片段探针**（第 657 轮起）：`node tests/parse/ts-ast.mjs --snippets <文件.mjs>`
+0. **先写小片段探针**：`node tests/parse/ts-ast.mjs --snippets <文件.mjs>`
    在**一个进程**里把几百条一两行的片段逐条与 `ts.createSourceFile` 对拍（`{ id, src }` 的数组，
    TS 自己非法的片段跳过、产物抛异常的片段报 `CRASH` 而不会打断整轮）。
    `--file` 是一份文件一个进程，量小片段时进程启动就是全部成本——普查一律走这一条。
+   **量出来一条就补一个带 `xl:known-gap` 的用例**（见「已知仍开着的缺口」那一节）：
+   探针池是产线索的地方，语料才是清单的家。
 1. **语法有效性基准**是 TypeScript 自己的 parser：`ts.createSourceFile(...).parseDiagnostics`，
    只有 TS 认为合法的样本才算缺口。
 2. **两条路一起用**：`cases:tsast` 量**形状**（与 `ts.createSourceFile` 逐节点比 kind / 区间 / 字段名，
@@ -67,35 +69,49 @@
 
 ## 收缺口的两条规矩
 
-- **一次收一族**：把量出来的那一族整个收掉，并把它写成 `tests/parse/cases/` 下的用例——
-  用例进了语料，`cases:tsast` 才会一直替它把关；只修现场那一条，下一轮换个排版又回来。
+- **一次收一族**：把量出来的那一族整个收掉；量出来的时候**先补用例**（带 `xl:known-gap` 进语料），
+  收掉的时候删掉那行指令——只修现场那一条，下一轮换个排版又回来。
 - **先探「同族的第三条」**：`do` 的体自带分号那一族、循环头部括号里出现 `)`、
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的。
 
 ## 已知仍开着的缺口
 
-判据是**片段探针池** `tmp/k7-snips-big.mjs`（388 条合法片段，逐条与 `ts.createSourceFile` 对拍）：
-第 668 轮量出 40 条对不上，两轮收掉 27 条，**还剩 13 条**。加上另外两条单独探出来的
-（`typeof a.b[K]`、泛型实例化表达式 `f<string>`），一共 **15 条**。
-它们都**不在语料里**——所以 `npm run gates` 是绿的：
+**缺口清单长在语料里**（第 670 轮）：每条缺口就是 `tests/parse/cases/` 下的一个用例文件，
+文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
 
-| 形状 | 症状 |
-| --- | --- |
-| `const \n{ a, b: c, d = 1, ...rest } = o` | 换行落在声明关键字与解构模式之间时整条声明解体（缺 11 / 多 15）：`Let` 那一趟与 `{` 都是按「紧邻」找模式的 |
-| `declare function f(): void /* c */ ;` | 无体声明的区间只到自己最后一个实义单元，尾随注释与 `;` 没算进去（TS 的 `FunctionDeclaration` 到 `;` 为止） |
-| `const r20 = function f() {} + 1` | 函数表达式后面还能接运算符，这里整段收成了别的形状（缺 4） |
-| `function* g() { yield* h(); };` | 尾随那个 `;`（空语句）没成壳（缺 1 漂 1 多 1） |
-| `x extends A extends B ? C : D` / `type T = asserts x is A` / `x extends \`a${A}b\`` | 泛型约束里的嵌套条件类型 / 顶层断言谓词 / 模板字面量类型三族（缺 5–15，`t-14-param` 还带一处 `未映射 Bracket`） |
-| `for /* c */ (…)` / `switch /* c */ (a) { case 1: case 2: … }` / `a: b: c: d/* c */ ()` | 注释夹在头与它的括号之间、`case` 落空、多层标签后跟注释三格 |
-| `switch (1) { case 1: { break; } default: break; }` | 单行写完一个块再跟 `default`：语句层把 `default:` 并进了同一个壳，分段只在顶层单元上找 `case` / `default` ⇒ 只有一段。**换行写法是好的**（见 [README](../README.md) 的「开着的缺口」，块当语句边界的改法已被否决） |
-| `do {} while (a) b()` | `do…while` 后面还跟着一条语句时那一格没被收（缺 3） |
-| `type A = typeof a.b[K]` | 点号名那一支：产物是 `TypeQuery` 吞下整个 `a.b[K]`，TS 是 `IndexedAccessType > TypeQuery > QualifiedName(a.b)`。**不带点号的** `typeof a[K]` / `typeof a[]` / `typeof a[K][L]` 第 667 轮已经收掉 |
-| `const a = f<string>;` | **泛型实例化表达式**（TS 4.7）没有规则：产物是 `BinaryExpression(f < string)`，TS 是 `ExpressionWithTypeArguments` |
+- **还对不上** ⇒ 记 `KNOWN`，差额**不算进那七项**（所以 `npm run gates` 可以是绿的）；
+- **已经对上了** ⇒ 报「收掉了」并**红**，逼你回来删掉那行指令——清单不许只增不减。
 
-**怎么用这张表**：`node tests/parse/ts-ast.mjs --snippets tmp/k7-snips-big.mjs` 一次就能把 13 条印全
-（探针池在 `tmp/` 下、不进仓库，所以它是**一次普查的现场**而不是门）——
-收一条就把它从这张表里拿掉，并补一条 `tests/parse/cases/` 下的用例。
+这一趟的结论就是门的那一行输出（`已知缺口：N 条还开着、M 条已经收掉`），
+所以「还差多少」在 `npm run gates` 里直接看得见，不必回 `tmp/` 翻探针。
+
+**当前 15 条**（第 668 轮从探针池 `tmp/k7-snips-big.mjs` 的 40 条里收掉 27 条之后剩下的 13 条，
+外加两条单独探出来的）：
+
+| 用例 | 形状 | 症状 |
+| --- | --- | --- |
+| [destr-object-newline-after-keyword.ts](../tests/parse/cases/declarations/destr-object-newline-after-keyword.ts) | `const \n{ a, b: c, d = 1, ...rest } = o` | 换行落在声明关键字与解构模式之间时整条声明解体（缺 11 / 多 15）：`Let` 那一趟与 `{` 都是按「紧邻」找模式的 |
+| [decl-declare-function-trailing-comment.ts](../tests/parse/cases/declarations/decl-declare-function-trailing-comment.ts) | `declare function f(): void /* c */ ;` | 无体声明的区间只到自己最后一个实义单元，尾随注释与 `;` 没算进去（TS 的 `FunctionDeclaration` 到 `;` 为止） |
+| [expr-function-expression-plus.ts](../tests/parse/cases/expressions/expr-function-expression-plus.ts) | `const r20 = function f() {} + 1` | 函数表达式后面还能接运算符，这里整段收成了别的形状（缺 4） |
+| [expr-generic-instantiation.ts](../tests/parse/cases/expressions/expr-generic-instantiation.ts) | `const a = f<string>;` | **泛型实例化表达式**（TS 4.7）没有规则：产物是 `BinaryExpression(f < string)`，TS 是 `ExpressionWithTypeArguments` |
+| [stmt-generator-trailing-semicolon.ts](../tests/parse/cases/statements/stmt-generator-trailing-semicolon.ts) | `function* g() { yield* h(); };` | 尾随那个 `;`（空语句）没成壳（缺 1 漂 1 多 1） |
+| [stmt-for-comment-before-paren.ts](../tests/parse/cases/statements/stmt-for-comment-before-paren.ts) | `for /* c */ (…)` | 头部取括号只看紧邻那一格 ⇒ 整条 `for` 解体（缺 1 漂 1 多 5） |
+| [stmt-switch-comment-fallthrough.ts](../tests/parse/cases/statements/stmt-switch-comment-fallthrough.ts) | `switch /* c */ (a) { case 1: case 2: … }` | 判别括号认不出 ⇒ `case 1:` 那一格整条落空（缺 5 漂 1 多 3） |
+| [stmt-label-comment-before-call.ts](../tests/parse/cases/statements/stmt-label-comment-before-call.ts) | `a: b: c: d/* c */ ()` | 标签那一趟看到的是注释，最后一层标签没接上被标的语句（缺 1） |
+| [stmt-switch-block-then-default.ts](../tests/parse/cases/statements/stmt-switch-block-then-default.ts) | `switch (1) { case 1: { break; } default: break; }` | 单行写完一个块再跟 `default`：语句层把 `default:` 并进了同一个壳，分段只在顶层单元上找 `case` / `default` ⇒ 只有一段。**换行写法是好的**（见 [README](../README.md) 的「开着的缺口」，块当语句边界的改法已被否决） |
+| [stmt-do-while-then-statement.ts](../tests/parse/cases/statements/stmt-do-while-then-statement.ts) | `do {} while (a) b()` | `do…while` 后面还跟着一条语句时那一格没被收（缺 3） |
+| [type-param-conditional-constraint.ts](../tests/parse/cases/types/type-param-conditional-constraint.ts) | `x extends A extends B ? C : D` | 约束位上的嵌套条件类型不成形（缺 10 / 字段 1） |
+| [type-asserts-toplevel.ts](../tests/parse/cases/types/type-asserts-toplevel.ts) | `type T = asserts x is A` | 断言谓词只在返回类型那一位成形（缺 5 多 2） |
+| [type-param-asserts-constraint.ts](../tests/parse/cases/types/type-param-asserts-constraint.ts) | `x extends asserts x is A` | 约束位上的断言谓词不成形（缺 5 多 2） |
+| [type-param-template-literal-constraint.ts](../tests/parse/cases/types/type-param-template-literal-constraint.ts) | `` x extends `a${A}b` `` | 约束位上的模板字面量类型不成形（缺 15 多 7，还带一处未映射 `Bracket`） |
+| [type-typeof-qualified-index.ts](../tests/parse/cases/types/type-typeof-qualified-index.ts) | `type A = typeof a.b[K]` | 点号名在产物里是平级单元，`TypeQuery` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）。**不带点号的** `typeof a[K]` / `typeof a[]` / `typeof a[K][L]` 第 667 轮已经收掉 |
+
+**怎么收**：改完跑 `node tests/parse/ts-ast.mjs cases` 看那一趟——收掉的那条会印「收掉了」，
+把它的 `xl:known-gap` 行删掉、把这条从上面的表里拿掉，门就少一条账。
+**探针池仍然有用**：`node tests/parse/ts-ast.mjs --snippets <候选.mjs>` 是先量后收的第一站
+（`tmp/` 不进仓库，所以它是**一次普查的现场**，不是门）；量出一条就补一个带 `xl:known-gap` 的用例，
+清单与语料一起长。
 
 **已经收掉的那两族**留个对照，说明这类缺口长什么样：
 

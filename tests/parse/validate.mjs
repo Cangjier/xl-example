@@ -8,7 +8,14 @@
 //   // xl:expect Interface,InterfaceBody,Field   产物里必须出现的节点标签
 //   // xl:absent TernaryOperator                 产物里不允许出现的节点标签
 //   // xl:note 一句话说明这条用例在测什么
+//   // xl:known-gap 一句话根因                     这条用例是**已知缺口**（见下）
 //   // xl:ts-invalid                              故意写非法 TS（默认必须是合法 TS）
+//
+// **`xl:known-gap`**（第 670 轮）：这条用例**故意留着一个已知缺口**——它照样进语料、
+// 照样被 `cases:tsast` 逐节点对拍，但它的差额**不算进那七项判据**（否则门永远是红的，
+// 红里就分不出「新坏了」与「本来就还没做」）。改由 `cases:tsast` 那一趟单独盯着：
+// **它必须真的还对不上**（收掉了就要来删这条指令），原因写在指令后面。
+// 缺口清单因此长在语料里，与用例同生共死，不再只活在 `tmp/` 的探针池里。
 //
 // 体检项：文件名规范、area 目录合法、id 全局唯一、指令语法正确、标签在标签表内、
 //         没有意外的 BOM（`xl:bom` 显式声明时除外）、TS 语法合法（故意非法的除外）。
@@ -90,7 +97,7 @@ export const CASES_DIR = path.join(here, "cases");
 /** 解析一条用例的指令与正文。 */
 export function readCase(filePath) {
   const source = fs.readFileSync(filePath, "utf8");
-  const directives = { expect: [], absent: [], note: "", tsInvalid: false, bom: false };
+  const directives = { expect: [], absent: [], note: "", knownGap: "", tsInvalid: false, bom: false };
   const problems = [];
   for (const line of source.split("\n")) {
     const m = /^\/\/\s*xl:(\S+)\s*(.*)$/.exec(line);
@@ -99,9 +106,15 @@ export function readCase(filePath) {
     if (key === "expect") directives.expect.push(...split(value));
     else if (key === "absent") directives.absent.push(...split(value));
     else if (key === "note") directives.note = value.trim();
+    else if (key === "known-gap") directives.knownGap = value.trim();
     else if (key === "ts-invalid") directives.tsInvalid = true;
     else if (key === "bom") directives.bom = true;
     else problems.push(`未知指令 xl:${key}`);
+  }
+  // **已知缺口要写清根因**：指令后面那一段是给人看的（缺口清单就长在语料里），
+  // 空着等于把「为什么它挂着」留给下一个读的人去猜。
+  if (source.includes("// xl:known-gap") && directives.knownGap === "") {
+    problems.push("xl:known-gap 后面要写一句话根因");
   }
   // BOM 不是解析器的朋友：本项目的库路径不剥 BOM，会污染第一个 token。
   // 所以用例文件默认不许有 BOM，只有显式写 xl:bom 的「BOM 用例」才带。
