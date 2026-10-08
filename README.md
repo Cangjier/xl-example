@@ -306,6 +306,40 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 768 轮：`Map` / `Set` 的 `forEach`——**第二格 `thisArg` 没人接**
+
+**一句话**：这一轮的普查面是**字符串下标族 / 数字字面量 / 转义 / `Math` / `Object` 取值族 /
+getter 抛异常 / `Symbol.toPrimitive` / `Array.from` / `splice` 的洞**——**收掉一格**
+（`Map` / `Set` 的 `forEach` 第二格），其余十条量下来的形状**本来全对**，收进语料当守卫。
+
+- **收掉的那一格**（`stdlib/round768/r768a-01`）：JS 的签名是 `forEach(回调, thisArg)`，
+  而本仓两条支都把接收者**写死成 `undefined`** ⇒
+  `m.forEach(function () { this.tag }, holder)` 里 `this.tag` 给 `undefined`、
+  再参与运算就是 **`NaN`**（**静默错值**：一句异常都没有，看起来像「回调里的 `this` 就是这样」）。
+  改法两处**同一句**（`Map.forEach` / `Set.forEach`）：接收者取「有第二格就用它」。
+  **不装箱**那一档与数组那一族**同一条口径**（`stdlib/round758/p758a-02-map-thisarg-not-boxed`
+  登着的那条差）——两处一起改才有意义，所以这一轮只接线、不顺手改口径。
+- **这一轮量下来的十条（本来全对，收进语料）**：
+  ① **字符串下标族**的三条支口径（`slice` 收负数、`substring` **不收**且会交换起终点、`at` 越界给
+  `undefined` 而 `charAt` 给空串、`charCodeAt` 越界给 `NaN` 而 `codePointAt` 给 `undefined`）；
+  ② **数字字面量**六种写法与 `Number("0b1010")` / `parseInt("0b1010")` 那一对（前者按二进制、
+  后者只认 `0x`）；③ **转义**（`\u0041` 一格、`\u{1F600}` **两格**码元、行尾反斜杠续行不占格、
+  模板里同一批）；④ **`Math`** 的半数取整（负数是向正无穷）、空实参的 `±Infinity`、
+  `max(0, -0)` 用 `1 / 结果` 看正负零、`sign(-0)` 给 `-0`；
+  ⑤ **`Object` 取值族**在字符串 / 数字 / `null` / 类数组上四档（`null` 那三格抛 `TypeError`）；
+  ⑥ **getter 抛异常**时三条取值路各走到哪一步（`Object.keys` **一次 getter 都不进**）；
+  ⑦ **`Symbol.toPrimitive` / `valueOf` / `toString`** 三档的优先级与 `hint`；
+  ⑧ **`Array.from`** 的类数组 / 只有 `length` / 可迭代物三条来路；
+  ⑨ **`splice` / `slice` / `concat`** 的负数参数与**洞**（前两者保留洞、`concat` 也是）；
+  ⑩ 以及上面那十条里的其余分档。
+- **两处探针自己不合法**（按规矩不进矩阵）：`Object.keys(null)` 与 `{ ...抛异常的 getter }`
+  在 Node 里当场炸（**裁判都跑不动**），改写成 `try` 包住之后才进语料；
+  `constructor(public c: number)` 那种**参数属性** Node 的类型擦除不认（`SyntaxError`），
+  改成显式赋值。
+- 语料 **+10 条**（全是 `stdlib/round768`；**10 条全过**），
+  五类 **7859 / 8247 → 7869 / 8257**、`blocked 264`（没动）、`differ 124`（没动）、
+  `bad` 仍 **0**、`regressions` **0**、`moved` 0、`newlyPassing` 0，加权 **95.6%**。
+
 ### 第 767 轮：`Date` 那一族的**两个入口**——无实参要问时钟、`Date` 实参要拷时刻
 
 **一句话**：这一轮的普查面是**类静态那一侧 / 错误家族 / `for..in` / 可选 `catch` 绑定**

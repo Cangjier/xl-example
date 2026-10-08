@@ -381,8 +381,12 @@ if (id === SetForEach) {
     // **三格**（第 288 轮）：JS 的签名是 `(值, 值, 集合)`——前两格是**同一个值**
     //（`s.forEach((v, k) => …)` 里 `k === v`），第三格是**这个 Set 自己**
     //（给的就是接收者 `self`，不是另造一个包装）。判据 `set-methods-and-iteration`。
-    call(args[0], Value.Undefined(), [table.Get(values.Ref).AsArray().GetAt(i),
-      table.Get(values.Ref).AsArray().GetAt(i), self]);
+    // **接收者是第二格 `thisArg`**（第 768 轮，与 `Map.forEach` 一字不差）：
+    // 原来写死 `undefined` ⇒ `s.forEach(function () { this.tag }, holder)` 里的 `this` 没了
+    //（**静默错值**）。**不装箱**那一档同 `Map` / 数组那一族（见 `map.xl.md` 那一处）。
+    call(args[0], args.length > 1 ? args[1] : Value.Undefined(),
+      [table.Get(values.Ref).AsArray().GetAt(i),
+        table.Get(values.Ref).AsArray().GetAt(i), self]);
     // **回调抛出就收摊**（第 228 轮，与 `Map.forEach` / `Array.prototype.forEach` 同一条口径）。
     if (failed !== null && failed()) return Value.Undefined();
   }

@@ -578,8 +578,16 @@ if (id === MapForEach) {
     // ⇒ 读 `.size` 当场炸（判据 `map-iteration-and-foreach` 量到的就是它）。
     // **给的就是接收者 `self`**（不是另造一个包装——JS 给的是**同一个对象**，
     // 判据里那一句 `self === m` 量的就是它）。
-    call(args[0], Value.Undefined(), [table.Get(values.Ref).AsArray().GetAt(i),
-      table.Get(keys.Ref).AsArray().GetAt(i), self]);
+    // **接收者是第二格 `thisArg`**（第 768 轮）：JS 的签名是
+    // `forEach(回调, thisArg)`——有第二格就用它当回调的 `this`，没有才给 `undefined`。
+    // 原来这里**写死 `Value.Undefined()`** ⇒ `m.forEach(function () { this.tag }, holder)`
+    // 里那个 `this` 是 `undefined`（**静默错值**：读 `.tag` 给 `undefined`，
+    // 再参与运算就是 `NaN`——判据 `stdlib/round768/r768a-01`）。
+    // **不装箱**：原始值 `thisArg` 那一档与数组那一族**同一条口径**
+    //（`stdlib/round758/p758a-02-map-thisarg-not-boxed` 登着那一条，两处一起改才有意义）。
+    call(args[0], args.length > 1 ? args[1] : Value.Undefined(),
+      [table.Get(values.Ref).AsArray().GetAt(i),
+        table.Get(keys.Ref).AsArray().GetAt(i), self]);
     // **回调抛出就收摊**（第 228 轮，与 `Array.prototype.forEach` 那条同一条口径）：
     // 不问这一句，回调里那次 `throw` 要等整张表走完才冒出来
     //（**静默**那一类：多跑的每一轮都可能已经改了脚本自己的状态）。
