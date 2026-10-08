@@ -32,7 +32,7 @@ import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, Promise
 （`LogSink`）——宿主可以打到自己的日志、收到数组里、或者丢掉。
 **标准库不假定自己连着 stdout**（那会让「确定性」这一层安全要求漏一个洞）。
 
-# type LogSink = (text:string)=>void
+# type LogSink = (text:string, channel:number)=>void
 
 **一行日志去哪**：宿主说了算。
 
@@ -42,6 +42,23 @@ import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, Promise
 **为什么粒度要定在「行」上**：原来是「一个实参调一次 sink」，那样宿主**再也拼不回行**——
 `console.log('a', 1)` 与 `console.log('a'); console.log(1)` 在它眼里**一模一样**；
 而「把 `.ts` 直接跑起来」的命令行拿 stdout 与 `node` 逐字节对拍时，这个区别就是全部。
+
+**第二个参数是「哪条流」**（第 735 轮）：`0` 是 stdout（`console.log` / `info` / `debug` /
+`dir` / `dirxml` / `table`）、`1` 是 **stderr**（`console.error` / `warn`）。
+**为什么要有这一位**：Node 把 `error` / `warn` 写 stderr，而「与 `node` 逐字节相同」
+那条判据**两条流各自比**——混成一条的话，带 `console.error` 的脚本一定对不上
+（**每一句的位置都错**，而 stdout 那一份反而看着是对的）。
+
+**给的是两个参数、但旧 sink 照样能用**：TS 里「形参更少的函数」可以赋给
+「形参更多的函数类型」——所以这一位是**加宽**，不是把已有的调用点全改一遍
+（`runtime:check` 与 `tests/runtime/*` 里那几十处 `(text) => …` 一个都没动）。
+**注意类型别名里不写缺省值、也不写 `int`**（两处都是**实测撞到的**）：
+`channel:int = 0` 那一档 `tsc` 报
+`TS2371: A parameter initializer is only allowed in a function or constructor implementation`；
+写成 `channel:int` 又报 `TS2304: Cannot find name 'int'`
+——**`# type` 的等号右侧是原文**（`README` 的「类型约定」那一节写着），
+所以它里面只能用**目标语言本来就有**的写法：`number`。能省掉第二个实参的是「实现」，
+而这里只声明形状。
 
 # const MathFloor:int = 201
 
@@ -522,6 +539,38 @@ Node 上它是一个**函数**，所以这里也收成一格可调用的宿主�
 `cannot call a non-closure value`——即**那一格根本没装**（`toFixed` 一直是好的）。
 
 # const ConsoleLog:int = 301
+
+**`console.log(…)`**（第 131 轮）——**一次调用 = 一行**（见 `LogSink`）。
+
+**第 735 轮：`console` 那一族补到「脚本顺手就会用的那九个」**——它们**共用这一份实现**
+（格式串 / `util.inspect` 那一套只写一遍），**差别只有一件事：走哪条流**。
+Node 的实测是：
+
+| 名字 | 流 | 本仓 |
+| --- | --- | --- |
+| `log` / `info` / `debug` / `dir` / `dirxml` / `table` | stdout | 通道 `0` |
+| `error` / `warn` | **stderr** | 通道 `1` |
+
+原来只有 `log` 一格：`console.error("x")` 报
+**`cannot call a non-closure value`**（**那句话听起来像「调用写错了」**，
+其实是**那一格没人挂**）——一个**脚本顺手就会写**的名字，一来就红。
+
+**号开在 `306..313`**（`300..305` 与 `320` 往后都满了，见那一段的账）——
+与 `ConsoleLog` 只隔五格，让「这一族」在一眼之内。
+
+# const ConsoleError:int = 306
+
+# const ConsoleWarn:int = 307
+
+# const ConsoleInfo:int = 308
+
+# const ConsoleDebug:int = 309
+
+# const ConsoleDir:int = 310
+
+# const ConsoleDirxml:int = 311
+
+# const ConsoleTable:int = 312
 
 # const ParseInt:int = 303
 
@@ -4198,7 +4247,13 @@ if (id === StringConcat || id === TemplateConcat) {
   for (let i = 0; i < right.length; i++) joined.push(right[i]);
   return Value.FromString(table.CreateString(joined));
 }
-if (id === ConsoleLog) {
+if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === ConsoleInfo
+  || id === ConsoleDebug || id === ConsoleDir || id === ConsoleDirxml || id === ConsoleTable) {
+  // **这一族的通道**（第 735 轮）：`error` / `warn` 走 stderr，其余走 stdout——
+  // 与 Node 实测的那张表**一一对应**（见 `ConsoleLog` 那一段的表）。
+  // **除通道之外，九个名字共用这一份实现**：格式串、`util.inspect`、
+  // 「一次调用 = 一行」那三条规矩**只写一遍**（写九遍就是九处会漂的答案）。
+  const channel = (id === ConsoleError || id === ConsoleWarn) ? 1 : 0;
   // **一次调用 = 一行**（见 `LogSink`）：实参按 JS 的规矩用空格接起来，**只调一次** `sink`。
   // 少了这一步，宿主拿到的是一串**分不出行**的碎片（`console.log('a', 1)` 与两条
   // 各自一个实参的日志长得一样）——命令行那个「与 node 逐字节相同」的判据就无从谈起。
@@ -4255,7 +4310,7 @@ if (id === ConsoleLog) {
     }
     line = text.join("");
     for (let k = used; k < args.length; k++) line = line + " " + renderArg(args[k]);
-    sink(line);
+    sink(line, channel);
     return Value.Undefined();
   }
   for (let i = 0; i < args.length; i++) {
@@ -4266,7 +4321,7 @@ if (id === ConsoleLog) {
     }
     line = line + InspectText(table, args[i]);
   }
-  sink(line);
+  sink(line, channel);
   return Value.Undefined();
 }
 if (id === ObjectAssign) {
@@ -7689,6 +7744,13 @@ if (id === MathMax || id === MathMin || id === MathPow || id === MathHypot
   return 2;
 }
 if (id === MathRandom) return 0;
+// **`console` 那一族九格**（第 735 轮）：全都是 `0`——它们**没有形参表**
+//（`console.log.length` 在 Node 里就是 `0`，实测）。
+// **`log` 也在这一列**：它是第 131 轮就挂上的那一格，名字与长度一直空着。
+if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === ConsoleInfo
+  || id === ConsoleDebug || id === ConsoleDir || id === ConsoleDirxml || id === ConsoleTable) {
+  return 0;
+}
 // **`Object.prototype` 那四格老辅助**（Annex B）：`__lookupGetter__(键)` 一格。
 if (id === ObjectLookupGetter || id === ObjectLookupSetter) return 1;
 // **`Object` 的静态方法**：一格（`keys` / `values` / `entries` / `getPrototypeOf` /
@@ -7916,6 +7978,26 @@ const logTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ConsoleLog
 // **所以这一格要留在 `SetProperty` 上**：跟规范走的那一族统一收口，
 // 而这一档按实现走——两种口径**写在明处**，不混。
 SetProperty(vm.Room(), NeverCall, table, consoleObject, logKey, logTarget);
+// **第 735 轮：剩下那八个名字**（`error` / `warn` / `info` / `debug` / `dir` /
+// `dirxml` / `table` 七个，加上 `log` 那一格共八个名字、**同一份实现**）。
+// **名字与号按下标一一对齐**（这一层的老规矩：错一格就是**静默**换语义），
+// 而**两张表还要与「哪条流」对齐**——`error` / `warn` 走 stderr，
+// 那个判据在分派那一处（`const channel = …`），不在这张表里：
+// 表里只写名字与号，流是**那一支自己的事**（两处都写就成了两份会漂的答案）。
+// **`name` / `length` 顺手挂上**（与 `Math` 那一族同一个做法）：
+// `console.log.name` 在 Node 里是 `"log"`、`.length` 是 `0`（`console.log` 没有形参表）。
+const consoleRestNames: string[] = ["error", "warn", "info", "debug", "dir", "dirxml", "table"];
+const consoleRestIds: number[] = [ConsoleError, ConsoleWarn, ConsoleInfo, ConsoleDebug,
+  ConsoleDir, ConsoleDirxml, ConsoleTable];
+for (let i = 0; i < consoleRestNames.length; i++) {
+  const restKey = Value.FromString(table.CreateString(Units(consoleRestNames[i])));
+  const restTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(consoleRestIds[i], 0));
+  DefineBuiltinName(vm.Room(), table, restTarget, consoleRestNames[i], 0);
+  SetProperty(vm.Room(), NeverCall, table, consoleObject, restKey, restTarget);
+}
+// **`log` 那一格的名字与形参个数**（第 735 轮）：它是**单独一句**挂的（见上），
+// 所以名字也只能单独一句补——`console.log.name` 在 Node 里是 `"log"`。
+DefineBuiltinName(vm.Room(), table, logTarget, "log", 0);
 
 const objectObject = NewPlainObject(vm.Room(), table, protos);
 const keysKey = Value.FromString(table.CreateString(Units("keys")));

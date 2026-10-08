@@ -31,15 +31,22 @@ if (!manifestPath) {
   process.exit(2);
 }
 const items = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-const write = (line) => process.stdout.write(line + "\n");
+// **协议那一路要绑在「真正的」两条流上**（第 735 轮，**实测撞到的**）：
+// `judgeOne` 会把 `process.stdout.write` / `process.stderr.write` 换成收集器 ✓，
+// 而 `write` 原来写的是 `process.stdout.write(...)` ✓——**它是在调用那一刻取的** ✗
+// ⇒ 如果收集器还在（或恰好没恢复），那一行 JSON 就**落进收集器里** ✓、
+// 父进程永远看不到它 ✓（症状：某几条「没交回结果」⇒ 被按单条重跑 ⇒ 慢，但不报错）。
+// **绑一次、用绑的那一份**：脚本的输出走收集器 ✓、协议走这几行 ✓，两条路不打架。
+const protocolOut = process.stdout.write.bind(process.stdout);
+const realOut = process.stdout.write.bind(process.stdout);
+const realErr = process.stderr.write.bind(process.stderr);
+const write = (line) => protocolOut(line + "\n");
 write(JSON.stringify({ begin: true, count: items.length }));
 
 /** 跑一条：把它的 stdout / stderr 收进缓冲 ✓，顶层抛出算退出码 1 ✓。 */
 async function judgeOne(item) {
   const outChunks = [];
   const errChunks = [];
-  const realOut = process.stdout.write.bind(process.stdout);
-  const realErr = process.stderr.write.bind(process.stderr);
   const collector = (chunks) => (chunk, encoding, callback) => {
     chunks.push(typeof chunk === "string" ? Buffer.from(chunk, encoding || "utf8") : chunk);
     if (typeof encoding === "function") encoding();
@@ -73,7 +80,15 @@ async function judgeOne(item) {
     process.stdout.write = realOut;
     process.stderr.write = realErr;
   }
-  return { status, stdout: Buffer.concat(outChunks).toString("utf8"), stderr: failure === "" ? "" : failure + "\n" };
+  // **`stderr` 那一格是两截接起来的**（第 735 轮，**实测撞到的**）：
+  // ① **脚本自己往 stderr 写的东西**（`console.error` / `warn`——节点把它们
+  //    落到 fd 2，而这里收的是 `process.stderr.write` 那一层，所以收得到）；
+  // ② **跑不成时那一句话**（顶层抛出去的那一档）。
+  // **原来只写 ②**（`failure === "" ? "" : failure + "\n"`）⇒ 收集到的 ①
+  // **一个字节都没交出去** ✓——症状是「裁判那一侧的 stderr 永远是空的」✓，
+  // 而它离现场很远（看起来像「`node` 压根不往 stderr 写」✗）。
+  const sideText = Buffer.concat(errChunks).toString("utf8");
+  return { status, stdout: Buffer.concat(outChunks).toString("utf8"), stderr: sideText + (failure === "" ? "" : failure + "\n") };
 }
 
 for (const item of items) {

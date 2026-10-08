@@ -125,7 +125,15 @@ for (const entry of entries) fs.writeFileSync(caseFile(entry), entry.src.trimEnd
 /** **异步**跑一个进程（第 324 轮）——`spawnSync` 会把事件循环堵住 ⇒ `--jobs` 形同虚设。 */
 function runAsync(argv2) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, argv2, { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+    // **把宿主自己的告警关掉**（第 735 轮，与 `run.mjs` 那一处一字不差）：
+    // 这一层量的是「脚本往两条流写了什么」，而 `node` 跑 `.ts` 时会额外打
+    // `ExperimentalWarning` + `(Use \`node --trace-warnings\` …)` 那几行
+    // ——每一份 exec 候选都有，不关的话它们会冒充「缺口」。
+    const child = spawn(process.execPath, argv2, {
+      cwd: root,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, NODE_NO_WARNINGS: "1" },
+    });
     const out = [];
     const err = [];
     const timer = setTimeout(() => child.kill(), 30000);
@@ -150,6 +158,37 @@ function firstDifference(left, right) {
     if (a[i] !== b[i]) return `第 ${i + 1} 行：node «${a[i] ?? "<没有这一行>"} vs tsrun «${b[i] ?? "<没有这一行>"}»`;
   }
   return "（逐行相同——差异在行尾字节上）";
+}
+
+/**
+ * **把宿主自己的唠叨滤掉**（第 735 轮）——与 `run.mjs` 那一处**一字不差**
+ * （理由全在那里：`(node:…) ExperimentalWarning` / `[MODULE_TYPELESS_PACKAGE_JSON]`
+ * / 栈帧 / `node:internal/…` 都是宿主在说自己的事，与「脚本往 stderr 写了什么」无关）。
+ * **两处必须是同一份判据**：分散写两份一定会漂，而漂出来的正是
+ * 「同一批候选在 `coverage` 里过、在 `sweep` 里不过」。
+ */
+function hostNoiseLines(buffer) {
+  return buffer.toString("utf8").split("\n").filter((line) => {
+    const text = line.trim();
+    if (text === "") return false;
+    if (/^\(node:\d+\)/.test(text)) return false;
+    if (/^\[[A-Z_]+\]\s*Warning:/.test(text)) return false;
+    if (/^(ExperimentalWarning|DeprecationWarning|Warning):/.test(text)) return false;
+    if (/^at\s/.test(text)) return false;
+    if (/^file:\/\//.test(text)) return false;
+    if (/^Node\.js v/.test(text)) return false;
+    if (/^node:internal\//.test(text)) return false;
+    return true;
+  });
+}
+
+/** 两条流的「脚本自己写的那一部分」逐行相同。 */
+function sameScriptStderr(oracle, ours) {
+  const a = hostNoiseLines(oracle);
+  const b = hostNoiseLines(ours);
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -339,6 +378,16 @@ function judge(entry, oracle, ours) {
   }
   if (Buffer.compare(oracle.stdout, ours.stdout) !== 0) {
     return { actual: "differ", detail: `stdout 不同：${firstDifference(oracle.stdout, ours.stdout)}` };
+  }
+  // **stderr 也要比**（第 735 轮，与 `run.mjs` 那一处一字不差）：
+  // `console.error` / `warn` 现在按 Node 的口径落到 stderr，不比的话
+  // 「内容与顺序」一个字节都没人管。**只比「正常收场」那一档**——
+  // 非零退出时 Node 写的是它自己的栈，那是宿主报错格式的差。
+  if (oracle.status === 0 && ours.status === 0 && !sameScriptStderr(oracle.stderr, ours.stderr)) {
+    return {
+      actual: "differ",
+      detail: `stderr 不同：node «${hostNoiseLines(oracle.stderr).join("|")}» vs tsrun «${hostNoiseLines(ours.stderr).join("|")}»`,
+    };
   }
   return { actual: "pass", detail: "" };
 }

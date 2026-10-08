@@ -703,7 +703,14 @@ request.DriveLoop = true;
 // 降级期就会响亮地报「未知名字」——不静默给 undefined）。
 let result = new RunResult();
 try {
-  result = RunSources(request, (line) => {
+  result = RunSources(request, (line, channel) => {
+    // **两条流各自走各自的**（第 735 轮）：`console.error` / `warn` 那一档
+    // 与 Node 一样落到 stderr（宿主的那条判据是**两条流各自逐字节比**——
+    // 混成一条的话，stdout 那一份反而看着是对的，而整体对不上）。
+    if (channel === 1) {
+      RunWriteError(line + "\n");
+      return;
+    }
     RunWrite(line + "\n");
   }, RunAnswer);
 } catch (error) {
@@ -768,6 +775,12 @@ for (let index = 0; index < items.length; index++) {
   const item = items[index];
   const id = String(item.id);
   const lines: Array<string> = [];
+  // **脚本往 stderr 写的那一份**（第 735 轮）：`console.error` / `warn` 走通道 `1`
+  // ——批量的协议里它落在**自己那一格**（`stderr`），**不与 stdout 混**
+  //（混了的话父进程比对时会把两条流的行序搅在一起，而那是**两条流各自比**的判据）。
+  // **它进的是 `stderr` 那一格、不是 `failure`**：`failure` 是「跑不成」，
+  // 而 `console.error` 是**脚本的正常输出**（退出码照旧 0）。
+  const sideLines: Array<string> = [];
   let status = 0;
   let failure = "";
   let content = "";
@@ -784,7 +797,11 @@ for (let index = 0; index < items.length; index++) {
     request.DriveLoop = true;
     let result = new RunResult();
     try {
-      result = RunSources(request, (line) => {
+      result = RunSources(request, (line, channel) => {
+        if (channel === 1) {
+          sideLines.push(line);
+          return;
+        }
         lines.push(line);
       }, RunAnswer);
     } catch (error) {
@@ -802,11 +819,16 @@ for (let index = 0; index < items.length; index++) {
       status = 1;
     }
   }
+  // **两条流各印各的**（第 735 轮）：`stderr` 那一格是
+  // 「脚本写到 stderr 的行」**接上**「跑不成的那一句话」——
+  // 跑得成时后半截是空的（绝大多数用例），跑不成时两截都在
+  //（与单条那一路的次序一致：脚本的输出先落、报错后落）。
+  const sideText = sideLines.length === 0 ? "" : sideLines.join("\n") + "\n";
   const record = {
     id: id,
     status: status,
     stdout: lines.length === 0 ? "" : lines.join("\n") + "\n",
-    stderr: failure === "" ? "" : failure + "\n",
+    stderr: sideText + (failure === "" ? "" : failure + "\n"),
   };
   RunWrite(JSON.stringify(record) + "\n");
 }

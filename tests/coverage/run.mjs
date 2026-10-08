@@ -209,7 +209,21 @@ fs.writeFileSync(
 /** **异步**跑一个进程——并发池真正并行起来靠的就是它（`spawnSync` 会堵住事件循环）。 */
 function runAsync(argv) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, argv, { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+    // **把宿主自己的告警关掉**（第 735 轮）：这一层测的是「脚本往两条流写了什么」，
+    // 而 `node` 跑 `.ts` 时会额外打两三行**它自己的**东西
+    //（`ExperimentalWarning: Transform Types …` + `(Use \`node --trace-warnings\` …)`
+    // + `[MODULE_TYPELESS_PACKAGE_JSON] Warning …`）——**每一份 exec 用例都有**。
+    // **实测**：不关的话通过数从 7480 掉到 7474、`differ` 从 85 涨到 95，
+    // 而红的那十条**一条都不是真缺口**（全是这一档噪声）。
+    // **为什么在这里关而不是在过滤那一支**：告警有几行是**成对**出现的
+    //（第二行以 `(Use …` 开头，形状与第一行完全不同），
+    // 逐个认形状就是一份**会长**的名单；`NODE_NO_WARNINGS` 是**一处关掉源头**。
+    // **被测侧不用关**：`tsrun` 不打这些告警（它不跑 `.ts` 的类型剥离）。
+    const child = spawn(process.execPath, argv, {
+      cwd: root,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, NODE_NO_WARNINGS: "1" },
+    });
     const out = [];
     const err = [];
     const timer = setTimeout(() => child.kill(), 30000);
@@ -238,6 +252,48 @@ function firstDifference(left, right) {
   return "（逐行相同——差异在行尾字节上）";
 }
 
+/**
+ * **把宿主自己的唠叨滤掉**（第 735 轮，**实测撞到的**）。
+ *
+ * `stderr` 这一格一旦开始比，`node` 自己打的那些行就全跑出来了——**它们与脚本无关**：
+ * `(node:1234) ExperimentalWarning: Transform Types is an experimental feature …`
+ * （裁判跑 `.ts` 用的就是那个特性 ⇒ **每一份 exec 用例都有这一行**）、
+ * `[MODULE_TYPELESS_PACKAGE_JSON] Warning: …`（模块类型没声明）、
+ * 以及顶层抛出时那一段**栈**（里面是宿主自己的路径与行号，
+ * 而两条路的工作目录不同 ⇒ **永远不可能逐字节相同**）。
+ *
+ * **判据是「这一行是不是宿主在说自己的事」**：这一档一律丢掉，
+ * 剩下的才是「**脚本往 stderr 写了什么**」——那正是要比的东西。
+ * **不丢的话**后果是**每一份 exec 用例都红**（实测：通过数从 7480 掉到 7474，
+ * `differ` 从 85 涨到 95，而红的那十条**一条都不是真缺口**）。
+ */
+function hostNoiseLines(buffer) {
+  return buffer.toString("utf8").split("\n").filter((line) => {
+    const text = line.trim();
+    if (text === "") return false;
+    // `node` 自己的告警与提示（都带这个形状的前缀）。
+    if (/^\(node:\d+\)/.test(text)) return false;
+    if (/^\[[A-Z_]+\]\s*Warning:/.test(text)) return false;
+    if (/^(ExperimentalWarning|DeprecationWarning|Warning):/.test(text)) return false;
+    // **栈帧**：`at …` 与 `file:///…`（宿主路径与行号，两条路一定不同）。
+    if (/^at\s/.test(text)) return false;
+    if (/^file:\/\//.test(text)) return false;
+    if (/^Node\.js v/.test(text)) return false;
+    // `node:internal/…` 那几行（同样的理由）。
+    if (/^node:internal\//.test(text)) return false;
+    return true;
+  });
+}
+
+/** 两条流的「脚本自己写的那一部分」逐行相同。 */
+function sameScriptStderr(oracle, ours) {
+  const a = hostNoiseLines(oracle);
+  const b = hostNoiseLines(ours);
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 /** 执行尺子判一条：把「裁判那一对」与「被测那一对」比出结论。 */
 function verdictOf(entry, oracle, ours) {
   const mine = ours.stderr.toString("utf8").split("\n").find((line) => line.trim() !== "") || "";
@@ -260,6 +316,21 @@ function verdictOf(entry, oracle, ours) {
   }
   if (Buffer.compare(oracle.stdout, ours.stdout) !== 0) {
     return { actual: "differ", detail: `stdout 不同：${firstDifference(oracle.stdout, ours.stdout)}` };
+  }
+  // **stderr 也要比**（第 735 轮）：原来只比 stdout，因为在此之前**没有一条路
+  // 会往 stderr 写东西**（`console.log` 那一条是唯一的出口）。
+  // 第 735 轮把 `console.error` / `warn` 按 Node 的口径落到 stderr 之后，
+  // 这一条就**非有不可**了——不比的话，`console.error` 的内容与顺序
+  // **一个字节都没人管**（而它恰恰是这一轮新加的那一格）。
+  // **只比「正常收场」那一档**：退出码非 0 时（`xl:may-fail` 那种「两边都抛」的用例）
+  // Node 往 stderr 写的是**它自己的栈**、本仓写的是**一句话**——
+  // 那是**宿主报错格式**的差，与「脚本往 stderr 写了什么」是两件事，
+  // 而这一档的判据一直是「退出码对得上」（见那条用例的 `xl:title`）。
+  if (oracle.status === 0 && ours.status === 0 && !sameScriptStderr(oracle.stderr, ours.stderr)) {
+    return {
+      actual: "differ",
+      detail: `stderr 不同：node «${hostNoiseLines(oracle.stderr).join("|")}» vs tsrun «${hostNoiseLines(ours.stderr).join("|")}»`,
+    };
   }
   return { actual: "pass", detail: "" };
 }
