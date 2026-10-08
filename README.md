@@ -88,6 +88,16 @@ node build/ts/tsrun.js tests/runtime/cases/01-values-and-operators.ts   # **直�
 `npm run build` 是前两步的串联（`xl build && tsc`）。
 
 **产物路径镜像规范路径**：`typescript/tokens/class/class.xl.md` → `dist/ts/typescript/tokens/class/class.ts`。
+token 层的**跳转优先级**与**重组优先级**都在 [typescript/parse-pipeline.xl.md](typescript/parse-pipeline.xl.md)
+（`CreateGeneralQueue` / `GeneralReorganize` / `Install`）——要看「这个语言的解析优先级是什么」，
+读这一个文件就够了，新增 token 的改动点也在这里。队首是声明层、队尾是关键字兜底，
+**顺序本身就是语义**：
+
+```text
+Decorator → Class → Function → Enum → MethodDeclaration → Label → Let → Field → New → Method → …
+… → TypeAssign → Lamda → TypeDefine → Ternary → Try → Switch → IfSet → For → Foreach → While → …
+… → LineWrap → CompoundAssignment → NotNull → Keyword
+```
 
 **打印出来的 XML 是缩进形态**：`cjcli` 走 `CommonUtil.FormatXml`——每个元素一行、按嵌套缩进两格，
 只有文本没有子元素的**叶子**留在同一行（否则每个标识符都要占三行，反而更难读）。
@@ -107,32 +117,12 @@ node build/ts/tsrun.js tests/runtime/cases/01-values-and-operators.ts   # **直�
 `ts.createSourceFile` 的转储对拍 / `diff`。规格见 [docs/ts-ast.md](docs/ts-ast.md)；
 `unmapped`（投影没覆盖、原样透传的产物标签）走 **stderr**，所以 stdout 里只有形状本身。
 
-出口是**逐节点的**（与另外两个出口同构）：`Token.PrintAst(ctx, v)` 是基类挂钩，
-各 token 覆写自己那一格（`ToXmlString` / `ToDictionary` 是同一个组织方式），没覆写的走语言层的
-通用支（`typescript/print-ast-common.xl.md` 的三张表）——两条路的产物逐字节相同。
-
 **三个出口同源**：`CjcliParse` 造出根单元之后才分叉，XML / AST JSON / TS 形状看的是同一棵树，
 结构上没有第二条解析路径。
 
-改完规范之后，验收是这几步：
-
-```bash
-xl check                   # 结构与规则检查
-npm run build              # xl build && tsc
-npm run cases:check        # 用例体检（用例本身合不合格）
-npm run samples            # 三份样本的 TS 形状夹具逐字节对照
-npm run cases:tsast        # **主判据**：全语料逐文件与 ts.createSourceFile 对拍
-npm run cases:tsast:cli    # 发布路径：真的开 cjcli 进程再对拍（慢，按需跑）
-npm run runtime:check      # 执行侧：值模型 / 堆 / GC / IR / 执行器 / 降级层 的判据（快）
-npm run runtime:cli        # **直接执行 .ts**：tsrun 与 node 逐字节对拍（真进程）
-npm run coverage           # **场景覆盖度**：exec / runtime / 标准库 / 端到端，一格一条（尺子，不是门）
-npm run coverage:sweep -- tmp-cand.mjs   # **加宽矩阵的第一步**：候选先普查（不写读数、不看台账、不红）
-npm run cpp:check          # C++ 目标的产物自检（指纹 / include / 成员名 / 字面量）
-```
-
-**第 200 轮起测试集只留 AST 与执行侧这几道**（用户口径）：XML 出口与 token 树质量的那些尺子
-（`diff` / `matrix` / `lossless` / `astjson` / `sweep` / `recon*` / `fuzz*` / `align` …）都不在判据里，
-`coverage` 是**尺子不是门**（它红只在「比昨天差」）。
+测试集只留 AST 与执行侧这几道（用户口径，见「判据与缺口」的六道门）：
+XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` 是**尺子不是门**
+（它红只在「比昨天差」）。
 
 `tsconfig.json` 的 `include` 是 `dist/**/*.ts`、`rootDir` 是 `dist`，所以 `dist/ts/cjcli.ts` 落在
 `build/ts/cjcli.js`——产物路径里的 `ts/` 来自**目标语言目录**，不是 `rootDir` 多出来的一层。
@@ -169,43 +159,18 @@ npm run cpp:check          # C++ 目标的产物自检（指纹 / include / 成�
   `RuntimeObject` 的值、`SyntaxContext` 的变量表、`cjcli` 里取 Node 内建模块的返回值。
   语言层的结构一律用具体类型或 `T | null`。
 - **token 树的第二个出口是 AST JSON**（`ToDictionary` / `ToList`，见 [docs/ast-json.md](docs/ast-json.md)）。
-  这一条**改掉了原先「token 树只产出 XML」的口径**：上游 Cangjie 的 `Token` 本来就同时有
-  `ToXmlString` 与 `ToDictionary` / `ToList`，而下游（IDE、工具链）要的是 JSON。
-  代价如实记在这里：这两个方法返回 `Map<string, any>` / `Array<any>`，
-  对多语言目标是负担（C++ / C# 侧要么用 `std::any` / `object`，要么就是「另一个目标的活儿」）。
-  换来的是两个出口**同源**——`ToDictionary` 就是「这个节点在 XML 里的标签名与属性，加上子单元」，
-  而 `Map` → 普通对象那一步由 `Token.ToJsonString` 收在一处（`JSON.stringify` 对 `Map` 静默给 `{}`，
-  这是必须显式处理的一步，不是风格问题）。
+  上游 Cangjie 的 `Token` 本来就同时有 `ToXmlString` 与 `ToDictionary` / `ToList`，
+  而下游（IDE、工具链）要的是 JSON。代价如实记在这里：这两个方法返回
+  `Map<string, any>` / `Array<any>`，对多语言目标是负担（C++ / C# 侧要么用
+  `std::any` / `object`，要么就是「另一个目标的活儿」）。换来的是两个出口**同源**
+  ——`ToDictionary` 就是「这个节点在 XML 里的标签名与属性，加上子单元」，
+  而 `Map` → 普通对象那一步由 `Token.ToJsonString` 收在一处
+  （`JSON.stringify` 对 `Map` 静默给 `{}`，这是必须显式处理的一步，不是风格问题）。
 - **token 树的第三个出口是 TS 形状**（`typescript/print-ast-common.xl.md` 的 `projectRoot` / `ToJsonText`，
-  见 [docs/ts-ast.md](docs/ts-ast.md)）。这一条**改掉了原先「除此之外的运行时代码里不再有别的投影」**
-  这句口径：投影原来只活在测试侧（`tests/parse/ts-shape.mjs` 那 2464 行 JS），
-  于是「投影的账」与「运行时的账」可以各算各的；现在投影搬进规范、只有一份实现，
-  `cjcli --ts-ast`、`cases:tsast` 与 `samples` 的第三份夹具量的都是它。
-  这份实现是**逐字搬家**（连空白都一样），等价性用一次性尺子在全语料上逐字节对拍过
-  （1399 个文件、0 处不一致，见台账第 75 轮），它的类型标注是文档、产物带 `// @ts-nocheck`
-  ——理由写在规范文件里（`strict` 下那一百多处报错都是「把 JS 的写法改成 TS 的写法」，
-  那是改写，不是搬家）。
-  代价与 AST JSON 那一支同源：投影层是 `Map<string, any>` / `any` 上跑的，
-  C++ 目标要面对同一笔账（比如 `NUMERIC_LITERAL` 的 `RegExp`）。
-
-## 解析优先级在哪
-
-token 层的公共契约——**跳转优先级**与**重组优先级**——只在
-[typescript/parse-pipeline.xl.md](typescript/parse-pipeline.xl.md) 里：
-
-- `ParsePipeline.CreateGeneralQueue()`：每处理一个字符，按这个顺序问每个 `Branch` 要不要接手；
-- `ParsePipeline.GeneralReorganize`：每个单元关闭时，按这个顺序把子单元合并成更高层结构；
-- `ParsePipeline.Install(template)`：往模板上装这两张表**与语言配置**（关键字表、禁用方法名表）。
-  `TextContext` 构造时调它，所以调用方只需要 `new Template()`。
-
-要看「这个语言的解析优先级是什么」，读这一个文件就够了；新增 token 的改动点也在这里。
-队首是声明层、队尾是关键字兜底，**顺序本身就是语义**：
-
-```text
-Decorator → Class → Function → Enum → MethodDeclaration → Label → Let → Field → New → Method → …
-… → TypeAssign → Lamda → TypeDefine → Ternary → Try → Switch → IfSet → For → Foreach → While → …
-… → LineWrap → CompoundAssignment → NotNull → Keyword
-```
+  见 [docs/ts-ast.md](docs/ts-ast.md)）。**逐节点**：`Token.PrintAst(ctx, v)` 是基类挂钩，
+  各 token 覆写自己那一格，没覆写的走语言层的通用支（`print-ast-common.xl.md` 的三张表），
+  两条路的产物逐字节相同。代价与 AST JSON 那一支同源：投影层是 `Map<string, any>` / `any`
+  上跑的，C++ 目标要面对同一笔账（比如 `NUMERIC_LITERAL` 的 `RegExp`）。
 
 ## 支持的语法构造
 
@@ -317,18 +282,18 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-### 当前状态（第 623 轮实测）
+### 当前状态（第 627 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1491 / 1491 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1494 / 1494 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1090** 条用例，0 条不合格 |
+| `cases:check` | **1092** 条用例，0 条不合格 |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
 | `coverage` | **1812 / 1812**（**100%**）：引擎 / 降级 / 标准库 / 端到端四层各 **100%**，台账里 0 条待修 |
-| `npm run gates` | 上面六道一次跑完（实测墙钟 **~22s**） |
+| `npm run gates` | 上面六道一次跑完（实测墙钟 **~29s**） |
 
 ### 口径与已知缺口
 
@@ -337,7 +302,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 装饰器的运行期语义、多文件模块加载（`tsrun` 是单文件口径）。
 整张清单与理由见 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
 
-**仍然开着的缺口**（只剩这些）：
+**开着的缺口**（只剩这些）：
 
 - **括号断言的表达式当链底**：`(x as T)?.m?.()` 与 `(x as T).m?.()`——
   `MethodCloseRule` 抢在链规则前面把那个括号读成一次调用，降级层报
@@ -360,13 +325,6 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   所以 `cases:tsast` 是绿的（形状那一层已经对了，token 树那一层没动）。
   **被否决的改法**：把块当语句边界——切断了复合赋值的展开，**整段内容丢失**，比边界不合严重；
   不要再试。两条形状已经收进用例语料。
-
----
-
-> **逐轮的账不写在这里**：规范、判据、每一轮的根因 / 修法 / 读数都在 **git 历史**里。
-> 两份长期文档只留结论：[docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)
-> （口径边界 / 审计方法 / 不再试的改法）与 [docs/member-layer-plan.md](docs/member-layer-plan.md)
-> （成员层的结论）。
 
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）会在个别 JavaScript 专有形状上抛内部错误
 ——那是 JS 而不是 TypeScript，不在当前范围内。

@@ -124,14 +124,9 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 `report.json` 是**最后一次整跑**的完整清单：`blocked` **0** 条、`differ` **0** 条、
 `bad`（裁判自己都跑不动的用例）**0** 条。加宽矩阵时从哪儿下手就看这一份。
 
-**第 623 轮的两次普查**（`tmp/cand-623.mjs` 64 条 + `tmp/cand-623b.mjs` 35 条，全过）
-把四层各推了一截：内建面的边角（`Date.setUTC*` 之外还补上了**本地那七个 setter** ✓、
-`Number.toFixed` ✓、`Object` 的描述符一族 ✓、`Symbol.for` / `hasInstance` ✓、
-`JSON` 的 reviver / replacer / `toJSON` ✓、稀疏数组 ✓、`Array.sort` 的稳定性 ✓，
-语言语义那一批：`var` 提升 ✓、闭包捕获循环变量 ✓、`arguments` ✓、生成器状态 ✓、
-`try` 跨三层栈 ✓、`enum` 反向映射 ✓、`namespace` 合并 ✓、参数属性 ✓、
-`super` 四档 ✓ ……）。两条**真缺口**当场修掉 ✓：位运算缺 `ToNumber` 那一步 ✓
-（`"3" | 0` 原来报 `unimplemented` ✓）、`Date` 的本地 setter 整族没装 ✓。
+**加宽的历史不进这里**（在 git 历史里）。只有一条经验值得留着：**分母是活的**，
+所以加宽之前先普查（上一节）、加宽之后要 `--emit-expectations` 重打台账骨架——
+读数掉下来是**分母变诚实**，不是倒退。
 
 **两处「口径边界」不算缺口**（它们**注定**逐字节对不上，进了缺口单只会让百分比不可信）：
 `Object.freeze` 之后写属性 / 只读访问器上赋值（本仓一律抛，那是**严格模式**的选择；
@@ -141,13 +136,14 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 
 ## 与另外几条判据的分工
 
-| 判据 | 量什么 | 现在 |
-| --- | --- | --- |
-| `npm run runtime:check` | 引擎的**机制**（IR / 堆 / GC / 帧 / 宿主） | 243 条 |
-| `npm run runtime:cli` | **必须全过**的端到端语料（过不了的进不去） | 79 份 |
-| `npm run cases:tsast` | token 层与真 TS 的 **AST 对拍** | 1491 份逐文件一致 |
-| `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） | 1090 条 |
-| **`npm run coverage`** | **场景覆盖面**（含「现在过不了」的那些） | **1812 条** |
+| 判据 | 量什么 |
+| --- | --- |
+| `npm run runtime:check` | 引擎的**机制**（IR / 堆 / GC / 帧 / 宿主） |
+| `npm run runtime:cli` | **必须全过**的端到端语料（过不了的进不去） |
+| `npm run cases:tsast` | token 层与真 TS 的 **AST 对拍** |
+| `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） |
+| **`npm run coverage`** | **场景覆盖面**（含「现在过不了」的那些） |
 
 前四条是**门**（过不了就红），这一条是**尺**——它把「还差多少」变成可复现的读数，
-并把每一格的缺口写成一张**带原因的清单**（`report.json`）。
+并把每一格的缺口写成一张**带原因的清单**（`report.json`）。各条的当前读数见根目录
+[README](../../README.md) 的「当前状态」。

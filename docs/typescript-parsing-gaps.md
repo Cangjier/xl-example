@@ -1,17 +1,14 @@
 # TypeScript 解析：现状、口径边界与不再试的改法
 
-**这份文件只装「今天还有用」的东西**：判据怎么量、哪些形状明确不做、哪几条改法已经被证伪。
-逐轮的现场（每次的根因、探针、差分读数）在 **git 历史**里，不再往这里堆。
+**这份文件只装「今天还有用」的东西**：口径边界、怎么量缺口、解析层的硬规矩、被证伪的改法。
+逐轮的现场（每次的根因、探针、差分读数）在 **git 历史**里，不再往这里堆；
+**当前读数只有一份**（README 的「当前状态」表），这里不再抄数字，免得两处各说一套。
 
-## 现状（第 623 轮实测）
+## 现状
 
-| 判据 | 读数 |
-| --- | --- |
-| `cases:tsast` | **1491 / 1491 逐文件完全一致**（缺 / 漂移 / 多出 / 字段名四方向全 0） |
-| 未映射标签 / 缺 range / 区间越界 | **0 类 0 处 / 0 / 0** |
-| 语料 | `node_modules` 的 `@types`、`typescript/lib`、`undici-types` + 本项目 `dist/ts/**` + `samples` + `tests/parse/cases/**` |
-
-语料里**所有真实可达的 TS 构造**都已经对上；`SyntaxKind` 全表与语料的差集只剩
+语料的覆盖面：`node_modules` 的 `@types`、`typescript/lib`、`undici-types`
+加本项目的 `dist/ts/**`、`samples`、`tests/parse/cases/**`。
+其中**所有真实可达的 TS 构造**都已经对上；`SyntaxKind` 全表与语料的差集只剩
 **合成节点**（`Bundle` / `Count` / `SyntaxList` / `Synthetic*` / `NotEmitted*` / `PartiallyEmittedExpression`，
 它们不由源码解析产生）与 **JSX 那一族**（见下）。
 
