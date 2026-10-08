@@ -4,6 +4,7 @@ import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { SyntaxException } from "../../../core/exceptions/syntax-exception.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { SearchBack } from "../../../core/extensions/list-extension.xl.md"
@@ -157,7 +158,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   // `for (const x of xs) {}` 的空块在 `ToList` 里**整个摊掉**了 ✓，
   // 而 TS 那边 `ForOfStatement.statement` 仍有一个**空 `Block`** ✓——
   // 投影原来靠「配对头部 `)` + `indexOf("{")` + `MatchingBrace`」**回原文重扫** ✗。
-  result.BodyBraceAt = statementBracket.SourceRange.Start!.Index;
+  result.BodyBrace.Set(statementBracket.SourceRange.Start!.Index, statementBracket.SourceRange);
   statementBracket.MoveDataTo(forBody);
   forBody.SignIn(statementBracket.SourceRange.Start!);
   forBody.SignOut(statementBracket.SourceRange.End!);
@@ -218,7 +219,7 @@ return index;
 与 `For.EmptyBodyAt` / `While.EmptyBodyAt` 同一个来由：判据只在收尾规则那一处算得起，
 投影只读一次（见 `PrintAst`），不再拿 `MatchingParen` + `BodyBlockOf` 重扫原文。
 
-## field BodyBraceAt:int = -1
+## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
 **体那个 `{` 的下标** ✓；体不是花括号块时就是 `-1` ✓（第 619 轮 ✓）。
 
@@ -290,24 +291,16 @@ return index;
   if (emptyAt >= 0) {
     statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
   } else {
-    // **空块直读字段** ✓（第 619 轮 ✓，与 `While` / `DoWhile` 同一条 ✓）：
-    // 体段没有可见子单元、而字段说「那个 `{` 在这一格」⇒ 这就是空 `Block` ✓，
-    // 终点是**本单元的终点** ✓（收尾规则把 `tailEnd` 签在那个 `}` 的后一位 ✓）。
-    const rawBrace = v.attrs !== undefined && typeof v.attrs.get === "function"
-      ? v.attrs.get("bodyBraceAt")
+    // **体那一对花括号直读字段** ✓（第 619 轮那一格，第 641 轮带上整段 ✓，与 `While` 同一条 ✓）：
+    // 两端都是**挂体那一刻**的事实 ✓ ⇒ `BodyBlockOf` 拿到它就**直接**给出那个 `Block` ✓
+    //（空块 `for (const x of y) {}` 也在内 ✓），回原文找 `{` 再配对那一趟**一步都不走** ✓。
+    // **头部那个 `)` 也先读字段** ✓（第 634 轮 ✓）：收尾规则把它当场记下了 ✓。
+    const rawHeader = v.attrs !== undefined && typeof v.attrs.get === "function"
+      ? v.attrs.get("headerCloseAt")
       : undefined;
-    const braceAt = typeof rawBrace === "number" ? rawBrace : -1;
-    if (braceAt >= 0 && body.length === 0) {
-      statement = { kind: "Block", statements: [], pos: braceAt, end: ctx.EndOf(v) };
-    } else {
-      // **头部那个 `)` 也先读字段** ✓（第 634 轮 ✓）：收尾规则把它当场记下了 ✓。
-      const rawHeader = v.attrs !== undefined && typeof v.attrs.get === "function"
-        ? v.attrs.get("headerCloseAt")
-        : undefined;
-      const headerAt = typeof rawHeader === "number" ? rawHeader : -1;
-      const header = headerAt >= 0 ? headerAt : ctx.MatchingParen(ctx.source, v.start);
-      statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
-    }
+    const headerAt = typeof rawHeader === "number" ? rawHeader : -1;
+    const header = headerAt >= 0 ? headerAt : ctx.MatchingParen(ctx.source, v.start);
+    statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body, ctx.Attr(v, "bodyBraceRange"));
   }
   if (statement !== undefined) props.statement = statement;
   const awaitUnit = ctx.Kids(v).find(
@@ -416,7 +409,13 @@ result.set("enumable", this.Enumable.ToList());
 result.set("body", this.Body.ToList());
 result.set("emptyBodyAt", this.EmptyBodyAt);
 // **体那个 `{` 的位置也写出去** ✓（第 619 轮 ✓，与 `While` / `DoWhile` 同一条 ✓）。
-result.set("bodyBraceAt", this.BodyBraceAt);
+if (this.BodyBrace.IsSet) {
+  result.set("bodyBraceAt", this.BodyBrace.File());
+  const braceRange = this.BodyBrace.Range;
+  if (braceRange !== null && braceRange.Start !== null && braceRange.End !== null) {
+    result.set("bodyBraceRange", String(braceRange.Start.Index) + "," + String(braceRange.End.Index));
+  }
+}
 // **`in` / `of` 那一格也写出去**（第 631 轮）：投影靠它分 `ForInStatement` / `ForOfStatement`——
 // 与 `emptyBodyAt` / `bodyBraceAt` 同一条纪律：判据在收尾规则那一处算得起，这里只出字段。
 result.set("isForIn", this.IsForIn);
@@ -446,7 +445,7 @@ const result = new Foreach(this.Template);
 result.Sign(this);
 result.IsForIn = this.IsForIn;
 result.EmptyBodyAt = this.EmptyBodyAt;
-result.BodyBraceAt = this.BodyBraceAt;
+result.BodyBrace = this.BodyBrace;
 result.HeaderCloseAt = this.HeaderCloseAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

@@ -205,7 +205,10 @@ ifSet.MountCondition(source);
     const seg = { start: ctx.StartOf(segments[index]), end: ctx.EndOf(segments[index]) };
     const expr = conditionOf(segments[index]);
     if (expr !== undefined) props.expression = expr;
-    const thenBody = ctx.BlockOfBody(bodyOf(segments[index]), bodyFrom(segments[index]));
+    // **体那一对花括号读字段**（第 641 轮）：`IfSegment.BodyBrace` 在挂体那一刻就把两端记下了
+    // （第 637 轮），所以这里连「找 `{` + `MatchingBrace` 比语句表」那一趟都不走。
+    const thenBody = ctx.BlockOfBody(bodyOf(segments[index]), bodyFrom(segments[index]),
+      ctx.Attr(segments[index], "bodyBraceRange"));
     // **空语句体的右端**：`seg.end` 含尾部换行，而 TS 的 `IfStatement` 到那个 `;` 为止。
     let emptyBodyEnd = -1;
     if (thenBody !== undefined) props.thenStatement = thenBody.node;
@@ -240,7 +243,8 @@ ifSet.MountCondition(source);
         inner.node.pos = typeof rawIfAt === "number" && rawIfAt >= 0 ? rawIfAt : ctx.source.indexOf("if", at + 4);
         end = inner.end;
       } else {
-        const elseBody = ctx.BlockOfBody(bodyOf(segments[index + 1]), bodyFrom(segments[index + 1]));
+        const elseBody = ctx.BlockOfBody(bodyOf(segments[index + 1]), bodyFrom(segments[index + 1]),
+          ctx.Attr(segments[index + 1], "bodyBraceRange"));
         if (elseBody !== undefined) {
           props.elseStatement = elseBody.node;
           end = elseBody.end;

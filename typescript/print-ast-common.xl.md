@@ -6052,17 +6052,50 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   return out;
 ```
 
-# private method bodyBlockOf:(from:int, kids:Array<any>, ctx:any)=>any
+# private method braceSpanOf:(raw:any)=>any
+
+把 token 记下的**整对花括号**（产物字典里的 `bodyBraceRange`，`"起,止"` 闭区间）
+读成 `[起, 止]`；没记过 / 记坏了给 `null`。
+
+**为什么要这一格**（用户口径：token 出字段、投影直读）：`IfSegment.BodyBrace`（第 637 轮）
+与 `Try.TryBrace` 的写法一样——**挂体那一刻那个 `Bracket` 就在手上** ⇒ 两端都是**事实**。
+投影原来只能回原文找 `{` 再 `MatchingBrace` 扫一遍，那一趟会被块里的字符串或注释里的
+假括号骗到（`if (a) { s = "{" }` 就是它）。
+
+```ts
+  if (typeof raw !== "string" || raw.includes(",") === false) return null;
+  const parts = raw.split(",");
+  if (parts.length !== 2) return null;
+  const start = Number(parts[0]);
+  const end = Number(parts[1]);
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) return null;
+  return [start, end];
+```
+
+# private method bodyBlockOf:(from:int, kids:Array<any>, ctx:any, braceRange:string = "")=>any
 
 **循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
+
+**第一判据是 token 记下的整对花括号**（第 641 轮 ✓，`braceRange` = 产物字典里的
+`bodyBraceRange` ✓）：`While.BodyBrace` 在挂体那一刻就把那对括号记下了 ✓，
+有它 ⇒ TS 那边就是一个 `Block` ✓（**空块也在内** ✓），下面那一套「找 `{` + `MatchingBrace`」
+一步都不跑 ✓。
 
 与 `blockOfBody` 的分工：那一支的 `kids` 里已经有成形的语句、靠「第一个语句之前有没有 `{`」
 判断；而 `for` / `while` / `do…while` / `for…of` 的体段在 `ToList` 里**只有语句**
 （花括号那层壳不在树里），所以括号只能**从原文找**——`from` 传头部结束的位置。
+**没有字段的那几档今天就只能这么办** ✗（`For` / `Foreach` / `DoWhile` 还没记这一格）。
 
 ```ts
   const list = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   const projections = projectEach(list, ctx);
+  // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下 ✓
+  //（`While.BodyBrace` 的 `CaptureBodyBrace` 那一处就是这个条件 ✓），
+  // 所以有它 ⇒ TS 那边就是一个 `Block` ✓——空块那一档（`while (c) {}` ✓）也一并落在这里 ✓。
+  const knownBrace = braceSpanOf(braceRange);
+  if (knownBrace !== null) {
+    return { kind: "Block", statements: projections, pos: knownBrace[0], end: knownBrace[1] + 1 };
+  }
   // **空体语句 `while (c);` / `for (const x of y);`**（第 127 轮）：体段为空、
   // 原文里头部之后紧跟一个 `;` ⇒ TS 那边是一个 `EmptyStatement`。
   // 这一支要**排在找花括号之前**：`while (c) ;  return { … };` 里后面那个 `{`
@@ -6094,10 +6127,16 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   return { kind: "Block", statements: projections, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
 ```
 
-# private method blockOfBody:(kids:Array<any>, ctx:any, from:int)=>any
+# private method blockOfBody:(kids:Array<any>, ctx:any, from:int, braceRange:string = "")=>any
 
 一个段的体 → `Block`（或没有花括号时的单条语句）。
 
+**第一判据是 token 记下的整对花括号**（第 641 轮 ✓，`braceRange` = 产物字典里的
+`bodyBraceRange` ✓）：`IfSegment.BodyBrace` 在挂体那一刻就把那对括号记下了 ✓，
+有它就**直接**是那个 `Block` ✓——下面那套「找 `{` + `MatchingBrace` + 比对语句表」
+一步都不跑 ✓（那套是回原文猜的第二份答案 ✓）。
+
+**没有字段时才回原文猜**（`For` / `While` / `DoWhile` / `Foreach` 的体段今天还没记这一格）：
 判据（两处都得看，不能只看第一个 `{`）：先找**第一个语句起点之前**的那个 `{`，
 再要求它配对出来的 `}` **不早于最后一个语句的终点**——
 `if (a) b(); { c(); }` 里那个 `{` 属于**下一条语句**，第一个语句的终点在它之前，
@@ -6107,6 +6146,16 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 ```ts
   const list = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   const projections = projectEach(list, ctx);
+  // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下 ✓
+  //（`CaptureBodyBrace` / `Try` 那两处都是这个条件 ✓），所以有它 ⇒ TS 那边就是一个 `Block` ✓，
+  // 连空体那一档（`if (a) {}` ✓）也一并落在这里 ✓。
+  const known = braceSpanOf(braceRange);
+  if (known !== null) {
+    return {
+      node: { kind: "Block", statements: projections, pos: known[0], end: known[1] + 1 },
+      end: known[1] + 1,
+    };
+  }
   if (projections.length === 0) {
     // **体里只有注释**（第 140 轮）：`} else if (item === "_") { // 注释 }` 的产物里那条
     // `Statement` 只剩一个注释单元（trivia），`projectEach` 投出 `undefined`——
@@ -6320,25 +6369,6 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   const list = nodes.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   if (list.length === 0) return undefined;
   return projectTypeExpression(list, ctx);
-```
-
-# private method quotedModuleNameSpan:(source:string, name:string, from:int)=>any
-
-模块声明那个名字是不是**字符串字面量**（`declare module "assert/strict" {}`）。
-
-产物的 `namespace` 属性里**没有引号**，所以判据只能回到原文：在**体（第一个 `{`）之前**
-的窗口里找 `"name"` / `'name'`。找不到就是普通标识符（`namespace Foo`）——
-窗口必须在 `{` 处截断，否则 `namespace A { const s = "A" }` 里的字符串会被误认成模块名。
-
-```ts
-  const brace = source.indexOf("{", from);
-  const to = brace < 0 ? from + name.length + 40 : brace;
-  const window = source.slice(from, Math.max(to, from + name.length + 2));
-  for (const quote of ['"', "'"]) {
-    const at = window.indexOf(quote + name + quote);
-    if (at >= 0) return { pos: from + at, end: from + at + name.length + 2 };
-  }
-  return undefined;
 ```
 
 # private method computedNameUnit:(v:any, ctx:any)=>any
@@ -6680,7 +6710,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     SynthName: (text, view) => synthName(text, view, ctx),
     StatementOf: (view) => projectStatement(view, ctx),
     Nothing: NOTHING,
-    BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
+    BodyBlockOf: (from, list, braceRange) => bodyBlockOf(from, list, ctx, braceRange),
     MatchingBrace: (source, at) => matchingBrace(source, at),
     MatchingParen: (source, at) => matchingParenOf(source, at),
     IndexBracketOf: (view) => indexBracketOf(view, ctx),
@@ -6695,7 +6725,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     Segment: (view, key) => projectSegment(view, key, ctx),
     UnwrapNodes: (unit) => unwrapNodes(unit),
     TypeOf: (list) => typeOf(list, ctx),
-    BlockOfBody: (list, from) => blockOfBody(list, ctx, from),
+    BlockOfBody: (list, from, braceRange) => blockOfBody(list, ctx, from, braceRange),
     SwitchClause: (seg) => projectSwitchClause(seg, ctx),
     AllKids: (node) => allKids(node instanceof Map ? view(node) : node),
     BindingPattern: (unit) => projectBindingPattern(unit, ctx),

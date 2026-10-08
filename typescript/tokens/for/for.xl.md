@@ -7,6 +7,7 @@ import { TakeRange } from "../../../core/extensions/list-extension.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { CommentsIn, GetSkipNextTrivia } from "../../text-common-util.xl.md"
 import { SkipNextTrivia } from "../../text-common-util.xl.md"
@@ -149,7 +150,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   // 一个可见子单元都没有，投影那边要造一个空 `Block` 就只能回原文里
   // `indexOf(")")` + `indexOf("{")` + `MatchingBrace` 重扫一遍（那是同一条判据的第二份近似）。
   // 记成字段之后投影直读（见 `PrintAst`）。
-  result.BodyBraceAt = statementBracket.SourceRange.Start!.Index;
+  result.BodyBrace.Set(statementBracket.SourceRange.Start!.Index, statementBracket.SourceRange);
   statementBracket.MoveDataTo(forBody);
   forBody.SignIn(statementBracket.SourceRange.Start!);
   forBody.SignOut(statementBracket.SourceRange.End!);
@@ -222,7 +223,7 @@ C 风格 `for` 语句单元。
 `MatchingParen` + 跳空白**重扫一遍原文**，那是同一条判据的第二份近似。
 记成字段之后，投影只做一次字段读取（见 `PrintAst`）。
 
-## field BodyBraceAt:int = -1
+## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
 **体那个 `{` 的下标**；体不是花括号块时就是 `-1`。
 
@@ -272,19 +273,12 @@ C 风格 `for` 语句单元。
   const next = ctx.KidsOf(v, "next").filter((k: any) => !ctx.Invisible.has(k.get("type")));
   if (next.length > 0) props.incrementor = ctx.Expression(next);
   const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  const built = ctx.BlockOfBody(body);
+  // **体那一对花括号直读字段**（第 598 轮那一格，第 641 轮带上整段）：两端都是**挂体那一刻**的
+  // 事实 ⇒ `BlockOfBody` 拿到它就**直接**给出那个 `Block`（空块 `for (;;) {}` 也在内），
+  // 回原文找 `{` 再配对那一趟一步都不走。`from` 这一格在这条路上用不到（给 -1）。
+  const built = ctx.BlockOfBody(body, -1, ctx.Attr(v, "bodyBraceRange"));
   if (built !== undefined) {
     props.statement = built.node;
-  } else {
-    // **空块的起点读 token 的字段**（第 598 轮）：`for (;;) {}` 的体段一个可见子单元都没有，
-    // 而 TS 那边仍有一个空 `Block`——原来靠 `indexOf(")")` + `indexOf("{")` + `MatchingBrace`
-    // **回原文里找**（块里的字符串与注释里同样有括号），那正是同一条判据的第二份近似。
-    // **终点就是本单元的终点**：`ForCloseRule.Process` 的块那一支把 `tailEnd` 签在
-    // 那个 `}` 的**后一位**，所以 `ctx.EndOf(v)` 就是 `Block.end`。
-    const braceAt = ctx.Attr(v, "bodyBraceAt");
-    if (typeof braceAt === "number" && braceAt >= 0) {
-      props.statement = { kind: "Block", statements: [], pos: braceAt, end: ctx.EndOf(v) };
-    }
   }
   if (props.statement === undefined) {
     // **空体语句的 `;` 位置由 token 直接给出**（第 590 轮）：`ForCloseRule` 造这个单元时
@@ -414,7 +408,13 @@ result.set("compare", this.Compare.ToList());
 result.set("next", this.Next.ToList());
 result.set("body", this.Body.ToList());
 result.set("emptyBodyAt", this.EmptyBodyAt);
-result.set("bodyBraceAt", this.BodyBraceAt);
+if (this.BodyBrace.IsSet) {
+  result.set("bodyBraceAt", this.BodyBrace.File());
+  const braceRange = this.BodyBrace.Range;
+  if (braceRange !== null && braceRange.Start !== null && braceRange.End !== null) {
+    result.set("bodyBraceRange", String(braceRange.Start.Index) + "," + String(braceRange.End.Index));
+  }
+}
 result.set("headerCloseAt", this.HeaderCloseAt);
 return result;
 ```
@@ -432,7 +432,7 @@ const result = new For(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((x) => x.Clone()));
 result.EmptyBodyAt = this.EmptyBodyAt;
-result.BodyBraceAt = this.BodyBraceAt;
+result.BodyBrace = this.BodyBrace;
 result.HeaderCloseAt = this.HeaderCloseAt;
 result.TryToClose();
 return result;

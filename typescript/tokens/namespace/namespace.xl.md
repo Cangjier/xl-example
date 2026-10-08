@@ -292,6 +292,17 @@ namespaceInstance.BodyBraceAt = body.SourceRange.Start!.Index;
 if (isStringName === false && nameStarts.length > 0) {
   namespaceInstance.FirstNameAt = nameStarts[0].Index;
 }
+// **字符串模块名那一格的位置也当场记下**（第 641 轮）：`declare module "m" { … }` 的名字
+// 是**含引号**的一个 `String` 单元 ✓，它就在手上 ✓——投影不必再去原文里找那对引号 ✗
+//（原来那一路是「在体的 `{` 之前找第一个 `"` 或 `'` ✓，再找它配对的另一个 ✓」——
+//  遇到名字前面有注释 / 别的字符串时会挑错 ✓，那是**第二份位置答案** ✗）。
+if (isStringName) {
+  const stringName = Get(units, SkipNextTrivia(units, keywordIndex));
+  if (stringName !== null && stringName.SourceRange.Start !== null && stringName.SourceRange.End !== null) {
+    namespaceInstance.NameAt = stringName.SourceRange.Start.Index;
+    namespaceInstance.NameEnd = stringName.SourceRange.End.Index;
+  }
+}
 const namespaceBody = innermost.CreateBody();
 body.MoveDataTo(namespaceBody);
 namespaceBody.Sign(body);
@@ -320,7 +331,12 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
 **字符串模块名的名字是 `StringLiteral`**（第 100 轮）：`declare module "module" { … }` 的 TS 是
 `ModuleDeclaration.name = StringLiteral("module")`（区间**含那对引号**），而产物把名字收进
 `namespace` 属性——照通用支会投成一个 `Identifier`（实测「多出 `Identifier`」112 里的一片）。
-判据落在原文上：`namespace` 属性的值在声明里**带引号**出现时就是字符串名。
+
+**判据的来处**：那对引号的下标由 token 在重组那一刻记进 `NameAt` / `NameEnd`
+（第 641 轮 ✓，见那两个字段 ✓）——投影**直读字段**，不再回原文找引号 ✗
+（第 621 轮之前那一路是「在体的 `{` 之前找第一个引号、再找它配对的另一个」✓，
+名字前面有注释或别的字符串时会挑错 ✓）。没有这对字段时（`Clone` 出来的克隆体）
+才退回那条搜索 ✓。
 
 **点号名字的 `name` 只是第一段**（第 156 轮）：`namespace A.B { … }` 在 TS 那边是
 `ModuleDeclaration(A) > [Identifier(A), ModuleDeclaration(B)]`——外层那个名字只有 `A`
@@ -345,6 +361,18 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
     }
   }
   if (name !== "") {
+    // **字符串模块名整段读字段**（第 641 轮）：那对引号的下标在重组那一刻就记下了
+    // （`String` 单元自己带的区间 ✓），所以这一段**不再回原文找引号** ✗——
+    // 下面那条搜索只是给「没有这对字段」的那一档兜底（`Clone` 出来的克隆体，
+    // 见 `Clone` 那一节：它不复制这几个位置字段）。
+    const rawNameAt = ctx.Attr(v, "nameAt");
+    const rawNameEnd = ctx.Attr(v, "nameEnd");
+    const nameAt = typeof rawNameAt === "number" ? rawNameAt : -1;
+    const nameEnd = typeof rawNameEnd === "number" ? rawNameEnd : -1;
+    if (nameAt >= 0 && nameEnd >= nameAt) {
+      props.name = { kind: "StringLiteral", text: name, pos: nameAt, end: nameEnd + 1 };
+      return ctx.Node("ModuleDeclaration", props, v);
+    }
     // **体的 `{` 也读字段**（第 621 轮）：它是字符串模块名那一趟的**搜索上界**。
     const rawBodyBrace = ctx.Attr(v, "bodyBraceAt");
     const brace = typeof rawBodyBrace === "number" && rawBodyBrace >= 0
@@ -404,6 +432,15 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 **为什么让 token 记着**：重组那一刻 `body`（那个 `Bracket`）就在手上。投影用它做两件事——
 字符串模块名的**搜索上界**、以及（点号名字之外的）位置判据，都不再回原文 `indexOf("{")`。
 
+## field NameAt:int = -1
+
+**字符串模块名那个 `String` 单元的起点**（含引号，闭区间）；名字不是字符串字面量时是 `-1`。
+
+## field NameEnd:int = -1
+
+与 `NameAt` 同进退的**终点**（含收尾那个引号）。投影拿它直接合出 `StringLiteral`
+（TS 那边的区间**含引号**），不再回原文找引号对。
+
 ## method ToXmlString:()=>string
 
 产出 XML：开标签上带 `namespace` / `modifiers`，内容是子单元（主要是 `NamespaceBody`）的 XML。
@@ -443,6 +480,11 @@ if (this.BodyBraceAt >= 0) {
 }
 if (this.FirstNameAt >= 0) {
   result.set("firstNameAt", this.FirstNameAt);
+}
+// **字符串模块名的整段区间**（第 641 轮）：含那对引号，投影直读。
+if (this.NameAt >= 0 && this.NameEnd >= this.NameAt) {
+  result.set("nameAt", this.NameAt);
+  result.set("nameEnd", this.NameEnd);
 }
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
