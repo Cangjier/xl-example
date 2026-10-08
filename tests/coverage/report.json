@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8190,
+  "total": 8192,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.63,
+  "progressPercent": 95.61,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3233,
+      "total": 3235,
       "pass": 3156,
       "blocked": 25,
-      "differ": 52,
+      "differ": 54,
       "nodefail": 0,
-      "coverage": 97.62
+      "coverage": 97.56
     },
     {
       "category": "e2e",
@@ -1853,7 +1853,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27008/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17800/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2135,7 +2135,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27008/src/5253.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17800/src/5253.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2159,7 +2159,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27008/src/5303.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17800/src/5303.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2219,7 +2219,7 @@
       "id": "stdlib/number/073-number-tolocalestring",
       "category": "stdlib",
       "title": "`toLocaleString` 那一族现在的样子",
-      "detail": "stdout 不同：第 1 行：node «1,234.5 1234.5» vs tsrun «[object Number] 1234.5»"
+      "detail": "stdout 不同：第 1 行：node «1,234.5 1234.5» vs tsrun «1234.5 1234.5»"
     },
     {
       "id": "stdlib/object/130-tolocalestring-forwarding-gap",
@@ -2370,6 +2370,18 @@
       "category": "stdlib",
       "title": "数组回调的 `thisArg` 是原始值时：松散模式要装箱",
       "detail": "stdout 不同：第 10 行：node «10 (function () { return [1].map(func ok:object:Number» vs tsrun «10 (function () { return [1].map(func ok:number:5»"
+    },
+    {
+      "id": "stdlib/round759/p759a-01-number-and-date-format",
+      "category": "stdlib",
+      "title": "数字那一族的格式化：`toLocaleString` 不再印成 `[object Number]`",
+      "detail": "stdout 不同：第 9 行：node «9 (function () { return (123456.789) ok:string:123,456.789» vs tsrun «9 (function () { return (123456.789) ok:string:123456.789»"
+    },
+    {
+      "id": "stdlib/round759/p759a-02-map-internal-payload-visible",
+      "category": "stdlib",
+      "title": "`Map` / `Set` 的内部载荷是**可见的自有属性**（`__k` / `__v`）",
+      "detail": "stdout 不同：第 21 行：node «21 (function () { const m = new Map([ ok:string:1:undefined» vs tsrun «21 (function () { const m = new Map([ ok:string:1:1»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

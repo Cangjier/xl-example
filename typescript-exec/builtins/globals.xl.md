@@ -8720,6 +8720,25 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toString"))),
   ObjectProtoMethod(vm, table, NumberToStringRadix, "toString"));
+// **`Number.prototype.toLocaleString`**（第 759 轮，**普查当场红的**）：
+// 在本仓里它**就是 `toString`**——**指到同一个号（`NumberToStringRadix`）**，
+// 与第 689 轮 `Object.prototype.toLocaleString` 指到 `ObjectToString`、
+// `Array.prototype.toLocaleString` 指到 `ArrayJoin` **是同一条先例**
+// （「本仓没有区域设置表，所以两格给的一定是同一个串」——见 `ObjectToString` 那一段）。
+//
+// **少了它是什么样**：`(123456.789).toLocaleString()` 沿原型链落到
+// **`Object.prototype.toLocaleString`**（那一格的算法只有「`Invoke(O, "toString")`」），
+// 于是它调的是承接对象的 **`Object.prototype.toString`** ⇒ 给 **`"[object Number]"`**
+// （Node 给 `"123,456.789"`）。**这是 `toLocaleString` 这一格最坏的形状**：
+// 它不是「少一点区域格式」，而是**把数字印成了一个标签**——
+// 判据 `stdlib/round759/p759a-03-number-and-date-format` 的第 1 / 2 / 5 行量着它。
+//
+// **它收掉的是哪一半**：收掉「印成 `[object Number]`」这一半；
+// **`"123,456.789"` 那个千分位仍然不做**（那要 ICU 的区域表，见 `toDateString` 那一格的账）
+// ⇒ 那一格从「印标签」变成「与 `toString()` 同字」，剩下的差额是**区域表**，不是这一句。
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
+  Value.FromString(table.CreateString(Units("toLocaleString"))),
+  ObjectProtoMethod(vm, table, NumberToStringRadix, "toLocaleString"));
 // **`toPrecision` 与 `valueOf`**（第 182 轮）：与上面两个同一格原型
 // （`toPrecision` 是 `toFixed` 的同族、`valueOf` 只是「返回接收者自己」）。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),

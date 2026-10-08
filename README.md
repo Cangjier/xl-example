@@ -2003,6 +2003,34 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   加权 **95.7% → 95.6%**（分母长了两条、分子没动——**登记缺口本来就会让这个数往下走**，
   而口径是「红只红在比昨天差」）。
 
+### 第 759 轮：**集合与格式化那一侧**——收掉一处（`Number.prototype.toLocaleString` 印成 `[object Number]`）（coverage 7810/8190 → **7810/8192**）
+
+这一轮的探针换到**Set / Map 的方法面**、**JSON 的边界**、**数字与日期的格式化**三面
+（70 条原子探针）。量出**一处收掉、一处新登**，外加一条被 `BigInt` 挡住的探针
+（那三个字本身还没做，会把**整份文件**拦下来——所以 JSON 那一面拆开重跑后**其余全对**）。
+
+- **收掉一处：`Number.prototype.toLocaleString` 把数字印成了 `[object Number]`**
+  （判据 `stdlib/round759/p759a-01-number-and-date-format` 的第 1 / 2 / 5 行）。
+  `(123456.789).toLocaleString()` 在 Node 里是 `"123,456.789"`、本仓给 `"[object Number]"`——
+  **根子**：`Number.prototype` 上**没有那一格**，于是沿原型链落到
+  `Object.prototype.toLocaleString`，而它的算法只有一句「`Invoke(O, "toString")`」，
+  调的是承接对象的 **`Object.prototype.toString`** ⇒ **一个数字被印成了一个标签**。
+  修法一格：`Number.prototype.toLocaleString` 指到 `NumberToStringRadix`
+  （与 `toString` **同一个号**），先例是第 689 轮 `Object.prototype.toLocaleString` 指到
+  `ObjectToString`、`Array.prototype.toLocaleString` 指到 `ArrayJoin`
+  （本仓没有区域设置表，两格给的一定是同一个串）。
+  **剩下的一半如实留着**：千分位（`"123,456.789"` 对 `"123456.789"`）要 ICU 的区域表，
+  与 `toDateString` / `Intl` 同一件事——这一条用例留着当那一格的守卫。
+- **新登一条：`Map` / `Set` 的内部载荷是可见的自有属性**（判据 `p759a-02-map-internal-payload-visible`）。
+  `new Map([[1, 2]])["__k"]` 在 Node 里是 `undefined`、本仓拿得到那个内部表
+  （`Map` / `Set` 在本仓是「带几格隐藏属性的普通对象」，而**隐藏**只做到「不进 `Object.keys`」）。
+  与旧台账 `stdlib/map-set/probe703-m-d10` **同一条根**，这一条把那 24 行里其余 23 行的
+  正确形状一并钉住（键相等、迭代顺序、`forEach` 的三个实参、`WeakMap` / `WeakSet`）。
+- 用例：`stdlib/round759` 2 条（1 differ 收账 + 1 differ 登记）。
+- 五类 **7810 / 8190 → 7810 / 8192**（+2 条语料、通过数没动）、`blocked 263`（**没动**）、
+  `differ 117 → 119`、`bad` 0、`regressions` **0**、`moved` 0、`newlyPassing` 0。
+  加权 **95.6%**（两个数都在这一位）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -2015,7 +2043,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7810 / 8190**，加权 **95.6%**：token 1196/1414、exec 2171/2216、runtime 1045/1081、stdlib 3156/3233、e2e 242/246。差的那些是**真缺口**（`blocked` 263 / `differ` 117），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `coverage` | **五类 7810 / 8192**，加权 **95.6%**：token 1196/1414、exec 2171/2216、runtime 1045/1081、stdlib 3156/3235、e2e 242/246。差的那些是**真缺口**（`blocked` 263 / `differ` 119），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 
