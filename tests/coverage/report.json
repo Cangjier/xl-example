@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 5427,
+  "total": 5577,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.67,
+  "progressPercent": 95.75,
   "categories": [
     {
       "category": "token",
@@ -90,32 +90,32 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1204,
-      "pass": 1172,
+      "total": 1224,
+      "pass": 1192,
       "blocked": 6,
       "differ": 26,
       "nodefail": 0,
-      "coverage": 97.34
+      "coverage": 97.39
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 737,
-      "pass": 729,
+      "total": 757,
+      "pass": 749,
       "blocked": 1,
       "differ": 7,
       "nodefail": 0,
-      "coverage": 98.91
+      "coverage": 98.94
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1837,
-      "pass": 1763,
+      "total": 1947,
+      "pass": 1874,
       "blocked": 21,
-      "differ": 53,
+      "differ": 52,
       "nodefail": 0,
-      "coverage": 95.97
+      "coverage": 96.25
     },
     {
       "category": "e2e",
@@ -1973,7 +1973,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27996/src/3740.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26408/src/3780.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -2118,12 +2118,6 @@
       "category": "stdlib",
       "title": "(function () { return Object.assign([], [1, 2]).length; })()",
       "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «number:0»"
-    },
-    {
-      "id": "stdlib/object/probe694-o34",
-      "category": "stdlib",
-      "title": "(function () { const o = {}; Object.defineProperty(o, \"a\", { get() { return 1; }, enumerable: true }); return JSON.stringify(o); })()",
-      "detail": "stdout 不同：第 1 行：node «string:{\"a\":1}» vs tsrun «string:{}»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

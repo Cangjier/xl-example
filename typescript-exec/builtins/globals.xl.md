@@ -5512,6 +5512,32 @@ for (let i = 0; i < units.length; i++) {
 return text + "\"";
 ```
 
+# method JsonMemberValue:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, anchor:int, depth:int, owner:Value, property:any)=>Value | null
+
+**一格该序列化的值**（第 695 轮）。
+
+数据属性直接给 `property.Value`；**访问器要现读**（`GetProperty` 走**真的 `call`** 通道，
+与 `Object.values` / `entries` 第 655 轮那一处**同一条**口径）。
+
+**没有通道时给 `null`**（调用方 `continue` 跳过）：宁可少一格，也不能凭空给一个
+`undefined`——那是**静默错值**，而「本来就没做」这件事写在 `JsonText` 那一段里。
+
+**读到的值要当场锚住**（`JsonAnchor`）：它与 `toJSON` 的产物**是同一处坎**——
+下面那一趟递归里还会再调脚本（脚本里会分配），只有这一个宿主变量指着的值会被收走。
+
+```ts
+if (property.Kind !== PropertyKind.Accessor) {
+  return property.Value;
+}
+if (call === null) {
+  return null;
+}
+if (!room(PropertyCharge)) throw new Error("out of room");
+const read = GetProperty(room, call, protos, table, owner, Value.FromString(property.Key));
+JsonAnchor(room, table, anchor, depth, read);
+return read;
+```
+
 # method JsonText:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, anchor:int, replacer:Value, value:Value, key:Value, parent:Value, depth:int, insideArray:bool, indent:string)=>string | null
 
 **序列化一个值**；返回 `null` 表示「这个值没有 JSON 形态」（于是**键整个省略**）。
@@ -5532,8 +5558,11 @@ return text + "\"";
 **非整数数值抛**：`1.0` 该写成 `"1"` 还是 `"1.0"`、`0.1+0.2` 那一串尾巴怎么写，
 是**规范级的决定**（与 `ToString` 那一处同一条理由）。**不猜一个然后让它看起来对**。
 
-**访问器跳过**：读它要**重入**（`call`），而这里是个"纯"查询——跳过并写在这里，
-比"顺手调一下"安全（后者会在序列化期间跑脚本）。
+**访问器现读**（第 695 轮改的口径）：原来一律**跳过**（写的是「读它要重入 `call`，
+而这里是个纯查询」）——可那是**静默错值**：`JSON.stringify({ get a() { return 1; } })`
+本仓给 `{}`、Node 给 `{"a":1}`。`Object.values` / `entries` 第 655 轮就已经接上了
+「有 `call` 通道就现读」这条可选服务的纪律，`JsonText` 这一趟照同一条走
+（见 `JsonMemberValue`）：**没有通道时仍旧跳过**，有通道时**读真的那一格**。
 
 ```ts
 if (depth > MaxJsonDepth) {
@@ -5672,9 +5701,10 @@ if (value.Tag === ValueTag.Object) {
       const found = FindProperty(room, table, value.Ref, asked);
       if (found === null || found.Owner !== value.Ref) continue;
       const property = item.Props[found.Index];
-      if (property.Kind === PropertyKind.Accessor) continue;
       if (!property.IsEnumerable()) continue;
-      const rendered = JsonText(room, call, protos, table, anchor, replacer, property.Value,
+      const whiteValue = JsonMemberValue(room, call, protos, table, anchor, depth, value, property);
+      if (whiteValue === null) continue;
+      const rendered = JsonText(room, call, protos, table, anchor, replacer, whiteValue,
         asked, value, depth + 1, false, indent);
       if (rendered === null) continue;
       if (!whiteFirst) whiteText = whiteText + (multi ? ",\n" : ",");
@@ -5694,9 +5724,10 @@ if (value.Tag === ValueTag.Object) {
     for (let oi = 0; oi < order.length; oi++) {
       const probe = item.Props[order[oi]];
       if (table.Get(probe.Key).Tag !== ValueTag.String) continue;
-      if (probe.Kind === PropertyKind.Accessor) continue;
       if (!probe.IsEnumerable()) continue;
-      if (JsonText(room, call, protos, table, anchor, replacer, probe.Value,
+      const probeValue = JsonMemberValue(room, call, protos, table, anchor, depth, value, probe);
+      if (probeValue === null) continue;
+      if (JsonText(room, call, protos, table, anchor, replacer, probeValue,
         Value.FromString(probe.Key), value, depth + 1, false, indent) === null) continue;
       renderedCount = renderedCount + 1;
     }
@@ -5706,9 +5737,10 @@ if (value.Tag === ValueTag.Object) {
       for (let oi = 0; oi < order.length; oi++) {
         const property = item.Props[order[oi]];
         if (table.Get(property.Key).Tag !== ValueTag.String) continue;
-        if (property.Kind === PropertyKind.Accessor) continue;
         if (!property.IsEnumerable()) continue;
-        const renderedHere = JsonText(room, call, protos, table, anchor, replacer, property.Value,
+        const memberValue = JsonMemberValue(room, call, protos, table, anchor, depth, value, property);
+        if (memberValue === null) continue;
+        const renderedHere = JsonText(room, call, protos, table, anchor, replacer, memberValue,
           Value.FromString(property.Key), value, depth + 1, false, indent);
         if (renderedHere === null) continue;
         if (!firstIndented) text = text + ",\n";
@@ -5725,12 +5757,16 @@ if (value.Tag === ValueTag.Object) {
     const property = item.Props[order[oi]];
     const keyValue = table.Get(property.Key);
     if (keyValue.Tag !== ValueTag.String) continue;
-    if (property.Kind === PropertyKind.Accessor) continue;
     // **不可枚举的键不进 JSON**（第 182 轮修）：`JSON.stringify` 只看**可枚举**的自有属性
     // （与 `Object.keys` 同一条口径）——`Object.defineProperty(o, "x", { value: 1 })`
     // 默认不可枚举，所以它**不该**出现在 JSON 里（实测判据当场量到这一格）。
     if (!property.IsEnumerable()) continue;
-    const rendered = JsonText(room, call, protos, table, anchor, replacer, property.Value,
+    // **访问器现读**（第 695 轮）：见 `JsonMemberValue` 那一段——原来这里是
+    // `PropertyKind.Accessor → continue`（**静默错值**：`JSON.stringify({ get a() { return 1; } })`
+    // 给 `{}`，Node 给 `{"a":1}`）。
+    const memberValue = JsonMemberValue(room, call, protos, table, anchor, depth, value, property);
+    if (memberValue === null) continue;
+    const rendered = JsonText(room, call, protos, table, anchor, replacer, memberValue,
       Value.FromString(property.Key), value, depth + 1, false, indent);
     if (rendered === null) continue;
     if (!first) text = text + ",";
@@ -5783,6 +5819,12 @@ table.Get(anchor).AsArray().SetAt(depth, value);
 **判据与 `Object.keys` 共用**（`IsIndexKeyText`）：两处各写一份「什么算下标键」
 就是两处会漂——`"01"` / `"1.5"` / `"-1"` / `"1e3"` **都不是**下标键。
 
+**访问器算不算一格**（第 695 轮）：**算**——原来这里也有一句
+`PropertyKind.Accessor → continue`，于是访问器**连次序表都进不去**，
+`JsonMemberValue` 那一处再怎么现读也轮不到它（实测：改完 `JsonText` 三处仍然给 `{}`）。
+跳不跳现在由**读值那一趟**决定（`call === null` 时跳过），次序这一层只按
+「自有 + 可枚举 + 字符串键」筛——与 `Object.keys` **同一条**。
+
 ```ts
 const item = table.Get(owner);
 const indexAt: number[] = [];
@@ -5791,7 +5833,6 @@ const plainAt: number[] = [];
 for (let i = 0; i < item.Props.length; i++) {
   const property = item.Props[i];
   if (table.Get(property.Key).Tag !== ValueTag.String) continue;
-  if (property.Kind === PropertyKind.Accessor) continue;
   if (!property.IsEnumerable()) continue;
   const text = TextFrom(table, Value.FromString(property.Key));
   if (IsIndexKeyText(text)) {

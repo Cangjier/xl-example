@@ -173,6 +173,19 @@
    迭代器对象没有 `next`、方法里箭头函数用 `super`、**数组下标不是自有属性**那一族
    （`defineProperty` 抛 / `hasOwnProperty(0)` 假 / `Object.assign([], [1,2])` 静默长度 0）、
    `JSON.stringify` 遇访问器给 `{}`。加权仍是 **95.7%**（分子 +235、分母 +242）。
+   **第 695 轮全矩阵**（第六批原子探针 150 份新语料）：通过 **5090 → 5241**、
+   分母 **5427 → 5577**、`blocked` **251 没涨**、`differ 86 → 85`、
+   `bad` 仍 **0**、`regressions` **0**、`moved` 0、`newlyPassing` **1**——收掉一处：
+   **`JSON.stringify` 遇到访问器给 `{}`**（**静默错值**，`{"a":1}` 才是 JS 的答案）。
+   `JsonText` 那一趟**遇到访问器一律跳过**（四处 `PropertyKind.Accessor → continue`），
+   而 `Object.values` / `entries` 第 655 轮就已经接上了「有 `call` 通道就**现读**」
+   这条可选服务的纪律。修法：**读值收成一个方法**（`JsonMemberValue`：数据属性给
+   `property.Value`、访问器走 `GetProperty` + `call`、读到的值当场 `JsonAnchor` 锚住、
+   **没有通道时给 `null`** 让调用方跳过），四处调用点换成它。
+   **同一个根还有第二个门**：`JsonKeyOrder` 那一趟也把访问器筛掉了——不放开它，
+   次序表里根本没有那一格（实测：只改 `JsonText` 三处仍然给 `{}`）。
+   `stdlib/object/probe694-o34` 转绿、台账已撤（`newlyPassing` 就是它）。
+   **本批 150 条全 pass**（这一族没有别的缺口）。加权仍是 **95.7%**（分子 +151、分母 +150）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。
