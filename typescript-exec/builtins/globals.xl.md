@@ -2813,6 +2813,7 @@ return MakeNumber(ToNumberOf(room, call, protos, table, value));
 
 **原始值给它的原型**（JS 会**装箱**再取）：`Object.getPrototypeOf("a")` 是 `String.prototype`——
 本仓不装箱，所以这里按**原始值原型表**（`protos.String` / `Number` / `Boolean`）直接答。
+**唯独 `null` / `undefined` 两格抛 `TypeError`**（第 736 轮，它们连装箱都过不去）。
 
 **闭包 / 函数也要认**（第 357 轮，**实测撞到的**）：`class B extends A { }` 里
 **类对象自己**也是一个对象（`Object.getPrototypeOf(B) === A`，判据
@@ -2826,6 +2827,16 @@ return MakeNumber(ToNumberOf(room, call, protos, table, value));
 if (target.Tag === ValueTag.String) return Value.FromObject(protos.String);
 if (target.Tag === ValueTag.Int32 || target.Tag === ValueTag.Float64) return Value.FromObject(protos.Number);
 if (target.Tag === ValueTag.Bool) return Value.FromObject(protos.Boolean);
+// **`null` / `undefined` 抛 `TypeError`**（第 736 轮）——它们与上面三个原始值
+// **不是同一档**：那两个是 `RequireObjectCoercible` 就挡下的（JS 里
+// `Object.getPrototypeOf(null)` 与 `({}).__proto__` 的 getter 打在 `null` 上都是
+// `TypeError`），而 `"a"` / `1` / `true` 会先 `ToObject`、原型答得出来。
+// **原来它们落进下面那一抛**（普通 `Error`）⇒ 脚本里 `catch (e) { e instanceof TypeError }`
+// 分不出来（判据 `p736b-b13` 量的是它——同批的 `Object.setPrototypeOf(null, {})`
+// 第 720 轮已经改对了，这一格是同一个判据的另一半）。
+if (target.Tag === ValueTag.Null || target.Tag === ValueTag.Undefined) {
+  throw new TypeError("Object.getPrototypeOf called on null or undefined");
+}
 if (target.Tag !== ValueTag.Object && target.Tag !== ValueTag.Array
   && target.Tag !== ValueTag.Closure && target.Tag !== ValueTag.Function) {
   throw new Error("unimplemented: Object.getPrototypeOf over this kind of value");
@@ -4968,6 +4979,20 @@ if (id === ObjectSetPrototypeOf) {
   }
   // **原始值接收者原样返回**（不抛、也不做事）。
   if (!args[0].IsObject()) return args[0];
+  // **不可扩展的接收者换原型要抛 `TypeError`**（第 736 轮）——规范的
+  // `OrdinarySetPrototypeOf` 第一条就是「接收者不可扩展 ⇒ 给假」，而这一格
+  // 拿到假就抛（`Object.setPrototypeOf` 与 `Reflect.setPrototypeOf` **不是同一档**：
+  // 后者给假、前者抛，与第 720 轮那三档同一条分界）。
+  //
+  // **「同一个原型」那一档不抛**（规范的第二句：`SameValue(V, 现行)` 就直接成功）——
+  // `Object.setPrototypeOf(Object.freeze({}), Object.getPrototypeOf(o))` 在 Node 里
+  // 是**好的**，只看「不可扩展」就抛会把这一档判反（判据 `p736b-b14` 两行一起钉住）。
+  // **次序要紧**：先问原型**变没变**、再问可扩展性——反过来的话那一次「原样设回去」
+  // 会先撞上抛。
+  if (IsUnextensible(room, table, args[0])
+    && !SameValue(table, PrototypeOfValue(protos, table, args[0]), args[1])) {
+    throw new TypeError("Object.setPrototypeOf on a non-extensible object (the prototype would change)");
+  }
   return RtSetProto(table, args[0], args[1]);
 }
 if (id === ObjectPreventExtensions) {
@@ -7785,15 +7810,26 @@ if (id === ParseInt || id === ParseFloat || id === IsNaN || id === IsFinite
 if (id === JsonStringify || id === JsonParse) return 1;
 // **`Reflect`** 那一族：与 `Object` 的镜像，**逐个按 Node 量出来的表写**
 //（`apply` 三格、`construct` 两格、`defineProperty` 三格、`set` 三格，
-//  其余是「目标 + 键」那两格或者「目标 + 原型 / 可扩展标志」那两格）。
+//  「目标 + 键」那一族是两格，**单实参那四格是一格**）。
+//
+// **第 736 轮把最后四格量正了**（`p736a-a14` 逐格 `typeof` + `.length` 打出来的表）：
+// `getPrototypeOf` / `isExtensible` / `ownKeys` / `preventExtensions` 在 Node 里
+// **都是 `1`**（都只收目标），而原来这四格与「目标 + 键」那一族一起写成了 `2`
+// ——`Reflect.getPrototypeOf.length` 本仓给 `2`、Node 给 `1`。
+// **它错在一个「顺手归族」上**：`preventExtensions` / `isExtensible` / `ownKeys`
+// 的名字看着像 `getPrototypeOf` 的邻居，可真正的分界是**收几个实参**，
+// 而 `setPrototypeOf` / `deleteProperty` / `has` / `get` /
+// `getOwnPropertyDescriptor` 那五格才是两格（前者收原型、后者收键）。
 if (id === ReflectApply) return 3;
 if (id === ReflectDefineProperty || id === ReflectSet) return 3;
 if (id === ReflectConstruct) return 2;
-if (id === ReflectGetOwnPropertyDescriptor || id === ReflectGetPrototypeOf
-  || id === ReflectIsExtensible || id === ReflectOwnKeys || id === ReflectPreventExtensions
-  || id === ReflectDeleteProperty || id === ReflectHas || id === ReflectGet
-  || id === ReflectSetPrototypeOf) {
+if (id === ReflectGetOwnPropertyDescriptor || id === ReflectDeleteProperty
+  || id === ReflectHas || id === ReflectGet || id === ReflectSetPrototypeOf) {
   return 2;
+}
+if (id === ReflectGetPrototypeOf || id === ReflectIsExtensible
+  || id === ReflectOwnKeys || id === ReflectPreventExtensions) {
+  return 1;
 }
 // **`Map` / `Set` 那一族**（第 733 轮）：**按 Node 逐个量出来的表**——
 // `Map.prototype.set.length` 给 **`2`**（`(键, 值)`），而 `get` / `has` / `delete`
@@ -9036,12 +9072,18 @@ protos.Global = globals.Ref;
 // 而本仓原来两档都给 `"[object Object]"` / `"[object Function]"`（**静默错值**）。
 // **函数那三格能生效的前提是闭包出生时指对了原型**（`vm.xl.md` 的 `MakeClosure`）：
 // 标签是**沿原型链取**的，原型不对时挂得再对也读不到。
+// **第 736 轮补的两格**：`WeakMap` / `WeakSet` 的原型直到第 733 轮才**各自成格**
+//（在那之前与 `Map` / `Set` 共用一格），而标签那一趟没跟着铺过去 ⇒
+// `Object.prototype.toString.call(new WeakMap())` 走到下面那条「缺 `Symbol.toStringTag`」
+// 的响亮一抛（`p736a-a07` 量的是它，Node 两格都给 `"[object WeakMap]"` / `"[object WeakSet]"`）。
 const toStringTagKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
   Value.FromString(table.CreateString(Units("toStringTag"))));
 const tagTargets = [protos.Map, protos.Set, protos.Date, protos.Promise,
+  protos.WeakMap, protos.WeakSet,
   protos.Generator, protos.AsyncGenerator,
   protos.GeneratorFunction, protos.AsyncFunction, protos.AsyncGeneratorFunction];
 const tagNames = ["Map", "Set", "Date", "Promise",
+  "WeakMap", "WeakSet",
   "Generator", "AsyncGenerator",
   "GeneratorFunction", "AsyncFunction", "AsyncGeneratorFunction"];
 for (let i = 0; i < tagTargets.length; i++) {

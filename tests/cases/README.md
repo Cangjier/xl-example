@@ -77,17 +77,44 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **7815** 条（token 1418 / exec 2166 / runtime 863 / stdlib 3135 / e2e 246），判过 **7815** 条。
+语料 **7853** 条（token 1418 / exec 2172 / runtime 873 / stdlib 3157 / e2e 246），判过 **7853** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1405 | **1189** | 216 | 缺的那 216 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 2166 | **2120** | 12 / 34 | 另有 1 条不进分母 |
-| `runtime` | 863 | **852** | 1 / 10 | |
-| `stdlib` | 3135 | **3069** | 25 / 41 | |
+| `exec` | 2172 | **2124** | 12 / 36 | 另有 1 条不进分母 |
+| `runtime` | 873 | **861** | 1 / 11 | |
+| `stdlib` | 3157 | **3088** | 25 / 44 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **7815** | **7472** | 258 / 85 | 加权 **96.2%** |
+| **合计** | **7853** | **7504** | 258 / 91 | 加权 **96.1%** |
+
+**第 736 轮再加 26 条**（分母 7827 → **7853**）：**元编程那一层的四格口径**
+（`stdlib` / `runtime` / `exec` 各一个 `round736/`）——同一轮里**收掉四格**
+（`Reflect` 四个号的形参个数、`WeakMap` / `WeakSet` 的 `toStringTag`、
+`Object.getPrototypeOf(null)` 的 `TypeError`、`Object.setPrototypeOf` 打在不可扩展对象上要抛）：
+
+- **`Reflect` 那四格错在一个「顺手归族」上**：`getPrototypeOf` / `isExtensible` /
+  `ownKeys` / `preventExtensions` 在 Node 里**都是 `1`**（只收目标），
+  而 `BuiltinArity` 把它们与「目标 + 键」那一族一起写成了 `2`
+  ——真正的分界是**收几个实参**，不是名字像不像邻居。
+- **两个标签**：`WeakMap` / `WeakSet` 的原型第 733 轮才各自成格，
+  `Symbol.toStringTag` 那一趟没铺过去 ⇒ `Object.prototype.toString.call(new WeakMap())`
+  走到那条「缺 `Symbol.toStringTag`」的响亮一抛。补法与 `Map` / `Set` / `Date` /
+  `Promise` / 生成器那几族**同一处、同一张表**。
+- **两个 `TypeError`**：`Object.getPrototypeOf(null)`（`RequireObjectCoercible` 那一档，
+  `({}).__proto__` 的 getter 是同一个落点）与
+  `Object.setPrototypeOf(不可扩展的对象, 别的原型)`（规范第一条「不可扩展 ⇒ 给假」，
+  而这一格拿到假就抛——`Reflect.setPrototypeOf` 给假，**不是同一档**；
+  **同一个原型那一档不抛**，所以先比原型、再问可扩展性）。
+- **登记 5 条**（各是另一条根）：`JSON.rawJSON` / `isRawJSON`、
+  `Proxy` / `WeakRef` / `FinalizationRegistry` 三个全局名、
+  `JSON.stringify` 看不见**元素区上的访问器**（与第 721 / 722 轮那条总根同一处）、
+  私有字段漏进 `Object.getOwnPropertyNames`、基类构造经 `super()` 时 **`new.target` 丢了**。
+- **另 17 条钉住这一批本来就是对的**：符号的注册表与 `description`、
+  `Symbol.hasInstance` 与 `instanceof`、`Symbol.toStringTag` 覆写、符号键的可见性、
+  `JSON` 的 replacer / reviver / `space` / getter 次序、描述符与原型、
+  类表达式的名字、`try`/`finally` 的 `return`、`switch` 落空、`throw` 非 `Error`。
 
 **第 734 轮再加 1 条**（分母 7814 → **7815**）：**原型方法那五族的 `name` / `length`**
 （`runtime/round734/p734a-a01`）——`Array` / `String` / `Number` / `Object` / `Error` /

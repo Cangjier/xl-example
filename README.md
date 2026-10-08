@@ -1146,6 +1146,44 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
   **这一轮没有收掉任何台账**——它铺的是一个**没有任何现成判据在量**的形状
   （这正是「加宽语料」那一条的用处：先量出来，再谈收）。
 
+### 第 736 轮：元编程那一层的**四格口径**——`Reflect` 的形参个数、两个标签、两个 `TypeError`（coverage 7483/7827 → **7504/7853**）
+
+这一轮先**普查**（47 条原子探针：符号 / 标签 / `instanceof` 的钩子 / `JSON` 的 replacer /
+`Object` 的描述符 / `class` 的那几格），**36 条当场 pass、11 条没过**，
+把没过的分成「这一轮能收的」与「另一条根，登记」两堆。
+
+- **`Reflect` 那四格的形参个数**（`p736a-a14` 逐格 `typeof` + `.length` 打出来的表）：
+  `getPrototypeOf` / `isExtensible` / `ownKeys` / `preventExtensions` 在 Node 里
+  **都是 `1`**，而 `BuiltinArity` 把它们与「目标 + 键」那一族一起写成了 `2`
+  ——**错在一个「顺手归族」上**：真正的分界是**收几个实参**，不是名字像不像邻居
+  （`setPrototypeOf` / `deleteProperty` / `has` / `get` / `getOwnPropertyDescriptor`
+  那五格才是两格）。四个号从 `2` 挪到 `1`。
+- **`WeakMap` / `WeakSet` 的标签**（`p736a-a07`）：两族的原型直到第 733 轮才**各自成格**，
+  而 `Symbol.toStringTag` 那一趟没跟着铺过去 ⇒ `Object.prototype.toString.call(new WeakMap())`
+  走到「缺 `Symbol.toStringTag`」那条**响亮的一抛**（Node 给 `"[object WeakMap]"`）。
+  补法与 `Map` / `Set` / `Date` / `Promise` / 生成器那几族**同一处、同一张表**（两个名字两格）。
+- **两个 `TypeError`**：
+  - `Object.getPrototypeOf(null)` 原来落进「这一档还没做」那一抛（**普通 `Error`**）——
+    规范里它是 `RequireObjectCoercible` 挡下的（`({}).__proto__` 的 getter 同一处），
+    所以两个调用点一起改对（`p736b-b13`）。`"a"` / `1` / `true` 那三档照旧给原型。
+  - `Object.setPrototypeOf(不可扩展的对象, 别的原型)` 原来**静默成功**（`p736b-b14`）：
+    规范第一条是「不可扩展 ⇒ 给假」，而 `Object.setPrototypeOf` 拿到假就抛
+    （`Reflect.setPrototypeOf` **不是同一档**——那一格给假，第 720 轮定的分界）。
+    **同一个原型那一档不抛**（规范的第二句），所以先比原型、再问可扩展性。
+- **五条如实登记**（都是另一条根，**不与上面那四格混着修**）：
+  `JSON.rawJSON` / `isRawJSON` 要「这个值不许动」那一档；`Proxy` / `WeakRef` /
+  `FinalizationRegistry` 三个全局名（后两个背后是 GC 的观察者时机）；
+  `JSON.stringify` 看不见**元素区上的访问器**（与第 721 / 722 轮那条总根同一处——
+  序列化那一趟也直读元素区）；私有字段漏进 `Object.getOwnPropertyNames`；
+  基类构造里经 `super()` 调用时 **`new.target` 丢了**（降级层的一处接线）。
+- **新语料 26 条**（`stdlib` / `runtime` / `exec` 各一个 `round736/`）：四格修好的各一条，
+  加 17 条把这一批**本来就是对的**钉住（符号的注册表与 `description`、
+  `Symbol.hasInstance` 与 `instanceof`、`Symbol.toStringTag` 覆写、符号键的可见性、
+  `JSON` 的 replacer / reviver / `space` / `getter` 次序、描述符与原型、
+  类表达式的名字、`try`/`finally` 的 `return`、`switch` 落空、`throw` 非 `Error`）。
+- 五类 **7483 / 7827 → 7504 / 7853**、`blocked 258`（没涨）、`differ 91`
+  （`+5` 是本轮登记的缺口、`-4` 是收掉的四格）、`bad` 0、`regressions` 0，加权 **96.1%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1153,13 +1191,13 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **216 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1421** 条用例，0 条不合格 |
-| `cases:tags` | **1421 条**（带期望的逐条核过），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1408 份），未覆盖 **0** |
+| `cases:check` | **1418** 条用例，0 条不合格 |
+| `cases:tags` | **1418 条**（带期望的逐条核过，共 **4804** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **229 份**（用例 1405 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7472 / 7815**，加权 **96.2%**：token 1189/1405、exec 2120/2166、runtime 852/863、stdlib 3069/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 85），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
+| `coverage` | **五类 7504 / 7853**，加权 **96.1%**：token 1189/1405、exec 2124/2172、runtime 861/873、stdlib 3088/3157、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 91），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~37s**） |
 ### 口径与已知缺口
 
 **口径外**（不进分母，也不当缺口）只剩两种：**JSX / TSX**（独立于 TypeScript 的语法扩展）

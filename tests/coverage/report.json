@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7827,
+  "total": 7853,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.17,
+  "progressPercent": 96.12,
   "categories": [
     {
       "category": "token",
@@ -90,32 +90,32 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2166,
-      "pass": 2120,
+      "total": 2172,
+      "pass": 2124,
       "blocked": 12,
-      "differ": 34,
+      "differ": 36,
       "nodefail": 0,
-      "coverage": 97.88
+      "coverage": 97.79
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 863,
-      "pass": 852,
+      "total": 873,
+      "pass": 861,
       "blocked": 1,
-      "differ": 10,
+      "differ": 11,
       "nodefail": 0,
-      "coverage": 98.73
+      "coverage": 98.63
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3147,
-      "pass": 3080,
+      "total": 3157,
+      "pass": 3088,
       "blocked": 25,
-      "differ": 42,
+      "differ": 44,
       "nodefail": 0,
-      "coverage": 97.87
+      "coverage": 97.81
     },
     {
       "category": "e2e",
@@ -1829,7 +1829,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19596/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26168/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1884,6 +1884,18 @@
       "category": "exec",
       "title": "稀疏数组的复制族：洞要变成 undefined（第 724 轮新登记的缺口）",
       "detail": "stdout 不同：第 3 行：node «[3,null,1] true» vs tsrun «[3,null,1] false»"
+    },
+    {
+      "id": "exec/round736/p736c-c03",
+      "category": "exec",
+      "title": "私有字段 / 私有方法 / `#x in o` / 静态私有",
+      "detail": "stdout 不同：第 2 行：node «» vs tsrun «#p»"
+    },
+    {
+      "id": "exec/round736/p736c-c05",
+      "category": "exec",
+      "title": "`new.target` 与派生构造里的 `this` 时机",
+      "detail": "stdout 不同：第 2 行：node «A B» vs tsrun «A none»"
     },
     {
       "id": "exec/statements/probe693b-s30",
@@ -1952,6 +1964,12 @@
       "detail": "stdout 不同：第 1 行：node «m s n1» vs tsrun «  »"
     },
     {
+      "id": "runtime/round736/p736b-b08",
+      "category": "runtime",
+      "title": "`JSON.stringify` 会读 getter（取值一次、按读到的值序列化）",
+      "detail": "stdout 不同：第 2 行：node «[1,\"g\"]» vs tsrun «[1]»"
+    },
+    {
       "id": "stdlib/array/143-getter-array-index",
       "category": "stdlib",
       "title": "数组下标位置上的访问器（`defineProperty`）",
@@ -1985,7 +2003,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19596/src/4976.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26168/src/4992.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2009,7 +2027,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19596/src/5026.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26168/src/5042.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2142,6 +2160,18 @@
       "category": "stdlib",
       "title": "`dir` / `table` 的**专属渲染**还没做（登记缺口）",
       "detail": "stdout 不同：第 2 行：node «┌─────────┬────────┐» vs tsrun «[ 1, 2 ]»"
+    },
+    {
+      "id": "stdlib/round736/p736a-a13",
+      "category": "stdlib",
+      "title": "`JSON.rawJSON` / `JSON.isRawJSON` 在不在",
+      "detail": "stdout 不同：第 1 行：node «function function» vs tsrun «undefined undefined»"
+    },
+    {
+      "id": "stdlib/round736/p736a-a15",
+      "category": "stdlib",
+      "title": "`typeof Proxy` 与 `new Proxy`（登记形状）",
+      "detail": "stdout 不同：第 1 行：node «function function function» vs tsrun «undefined undefined undefined»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",
