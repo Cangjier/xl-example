@@ -65,7 +65,11 @@
 - **(a) 注释 / 换行落在语法相邻位置之间**（占绝大多数）：关键字与名字（`let \na = 1;`）、
   修饰词与成员（`private /*c*/ m() {}`）、运算符与操作数（`-/*c*/ a`）、头与体（`function f()\n{…}`）、
   `export` 与声明（`export /*c*/ const a = 1;`）、`else` 与 `if` 的取词、解构元素与注释。
-  最小片段与读数按族留在 `tmp/` 的探针集合里（不进仓库），复现只需把片段喂给 `--snippets`。
+  **第 660 轮收掉其中两支**：`let` / `const` / `var` / `using` 的声明头（关键词 / 修饰词 / 名字 / `!`
+  与 `:` 之间夹注释 ⇒ `LetBranch` 的三处往回走从「只跳软换行」改成跳全部 trivia，头里那些注释
+  按 `CommentsIn` 收到 `Let` 右边不丢）、以及解构元素**段首**的注释（`BindingElement` 的
+  `SignIn` 从第一个非注释单元起签，注释照旧进 `Data`、不撑区间）。
+  剩下的最小片段照旧按族留在 `tmp/` 的探针集合里（不进仓库）。
 - **(b) 空语句 `;` 与「声明 / 块后面紧跟 `;`」的关闭规则**：`if (a) {} ;` 目前仍抛
   `SourceException: SourceRange.Start == null`，`while (a) {} ;` / `function f() {} ;` 少一个
   `EmptyStatement`、`{ a(); } ;` 的 `Block` 把那个 `;` 吞进区间。第 657 轮收掉了其中一支

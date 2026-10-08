@@ -863,7 +863,7 @@ if (items.Tag === ValueTag.String) {
   // **第 297 轮：这一支不再自己按码元拆**——**同一件规矩原先写在三处**
   //（引擎的 `iter_next`、`Array.from`、与这一处），三处**各自都说自己是对的**，
   // 而第 297 轮把引擎那一处改成**按码点** ⇒ 剩下两处就与它分了岔
-  //（`[...\"😀\"]` 给两个、`for (const c of \"😀\")` 给一个 ✓——**同一种东西两种答案** ✓）。
+  //（`[...\"😀\"]` 给两个、`for (const c of \"😀\")` 给一个——**同一种东西两种答案**）。
   // **收口到引擎那张迭代器上**：`drain` 走的就是 `iter_next`。
   if (drain === null) {
     throw new Error("unimplemented: spreading a string needs the engine's iterator service");

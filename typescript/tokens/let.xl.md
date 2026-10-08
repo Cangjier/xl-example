@@ -16,6 +16,7 @@ import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { ObjectLiteral } from "./json/object-literal.xl.md"
 import { Statement } from "./statement.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
+import { CommentsIn, IsTriviaUnit, SkipPreviousTrivia } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -239,10 +240,15 @@ return result;
 
 ## private method NameIndex:(data:Array<Token>)=>int
 
-**声明名字那一格的下标**：跳过尾部的软换行，再跳过一个**明确赋值断言** `!`。
+**声明名字那一格的下标**：跳过尾部的 trivia（软换行与注释），再跳过一个**明确赋值断言** `!`。
 
 两处（`Condition` 与 `Success`）问的是同一个下标 ⇒ **只写一份** —— 各写一份就会漂
 （`WordOf` 那一处就是为同一件事抽出来的，第 531 轮）。
+
+**注释与软换行一视同仁**（第 660 轮）：`const a /* c */ = 1` 里紧跟名字的是那条
+`AreaAnnotation`，只跳软换行时最后一个「实义单元」看到的是注释 ⇒ 整条声明不成形
+（实测 `const/* c */ a = 1` / `const a/* c */ = 1` / `export/* c */ const a = 1` 一族
+都把整条退化成 `ExpressionStatement` + 一条假 `BinaryExpression`）。
 
 **为什么允许那个 `!`**（第 559 轮）：`let a!: number` 是 TS 的**明确赋值断言**
 （`VariableDeclaration` 上的 `exclamationToken`），而 `LetBranch` 进门那一刻
@@ -260,7 +266,7 @@ return result;
 let index = data.length - 1;
 while (index >= 0) {
   const probe = Get(data, index);
-  if (probe instanceof LineWrap) {
+  if (IsTriviaUnit(probe)) {
     index = index - 1;
     continue;
   }
@@ -272,7 +278,7 @@ if (index >= 1) {
     index = index - 1;
     while (index >= 0) {
       const inner = Get(data, index);
-      if (inner instanceof LineWrap) {
+      if (IsTriviaUnit(inner)) {
         index = index - 1;
         continue;
       }
@@ -316,7 +322,8 @@ if (!(nameUnit instanceof Identifier) && isPatternUnit === false) {
 }
 // 关键词那一格必须是 let / const / var —— 第 531 轮起它可能**已经升成 `Keyword`**
 // （`StatementBranch.Success` 末尾那次 `TryToClose`），所以两种身份都要认。
-const keywordUnit = Get(data, nameIndex - 1);
+// **往回跳 trivia**（第 660 轮）：`const /* c */ a = 1` 里关键词与名字之间夹着注释。
+const keywordUnit = Get(data, SkipPreviousTrivia(data, nameIndex));
 if (!(keywordUnit instanceof Identifier) && !(keywordUnit instanceof Keyword)) {
   return result;
 }
@@ -379,7 +386,7 @@ const isPatternUnit = nameUnit instanceof Bracket && (nameUnit.Is("[", "]") || n
 if (!(nameUnit instanceof Identifier) && isPatternUnit === false) {
   throw new Error("LetBranch: 进门之后名字那一格又不成立了");
 }
-// 往前收修饰词与关键词（跨过软换行，但**不跨过语句边界**——与 let.xl.md 同一份口径）。
+// 往前收修饰词与关键词（跨过 trivia，但**不跨过语句边界**——与 let.xl.md 同一份口径）。
 const modifiers: string[] = [];
 // **每格的位置**（见 `ModifierSpans`）：与 `modifiers` 同序同长，在同一个 `unshift` 处一起记。
 const modifierSpans: string[] = [];
@@ -388,7 +395,8 @@ const spanOf = (one: any): string => {
   const end = one.SourceRange.End;
   return begin === null || end === null ? "" : `${begin.Index}:${end.Index}`;
 };
-let start = nameIndex - 1;
+// **往回跳 trivia**（第 660 轮）：`export /* c */ const a = 1` 里修饰词之间夹着注释。
+let start = SkipPreviousTrivia(data, nameIndex);
 // **文本走 `WordOf`**（第 531 轮起关键词那一格可能已经是 `Keyword`，
 // 它的文本在 `Value` 上而不在 `Temp` 上 —— 见那个方法自己的说明）。
 const keywordUnit = Get(data, start);
@@ -397,10 +405,10 @@ if (keywordUnit instanceof Identifier || keywordUnit instanceof Keyword) {
   modifierSpans.unshift(spanOf(keywordUnit));
 }
 while (start > 0) {
-  const previous = Get(data, start - 1);
-  if (previous instanceof LineWrap) {
-    start = start - 1;
-    continue;
+  const previousIndex = SkipPreviousTrivia(data, start);
+  const previous = Get(data, previousIndex);
+  if (previous === null) {
+    break;
   }
   // **`await using` 的 `await` 也是修饰词**（第 538 轮）：重组那条
   // （`LetCloseRule.Process`）写着「`await using res = open()`：`await` 是显式资源管理
@@ -410,7 +418,7 @@ while (start > 0) {
   if ((previous instanceof Keyword || previous instanceof Identifier) && this.WordOf(previous) === "await") {
     modifiers.unshift("await");
     modifierSpans.unshift(spanOf(previous));
-    start = start - 1;
+    start = previousIndex;
     continue;
   }
   if (previous instanceof Identifier) {
@@ -418,7 +426,7 @@ while (start > 0) {
     if (text === "export" || text === "declare" || text === "default") {
       modifiers.unshift(text);
       modifierSpans.unshift(spanOf(previous));
-      start = start - 1;
+      start = previousIndex;
       continue;
     }
   }
@@ -450,7 +458,7 @@ letUnit.ModifierSpans = modifierSpans.join(",");
 // `const a = 1;` 换行 `const b = 2;`：产物 `[12,25)` vs TS `[13,25)`，全语料这种漂移 493 处）。
 // 替换范围照旧从 `start` 起算（那个软换行跟着并进 `Let`，与重组那条的切法一致）。
 let anchorIndex = start;
-while (anchorIndex <= nameIndex && data[anchorIndex] instanceof LineWrap) {
+while (anchorIndex <= nameIndex && IsTriviaUnit(Get(data, anchorIndex))) {
   anchorIndex = anchorIndex + 1;
 }
 const anchor = data[anchorIndex];
@@ -464,6 +472,11 @@ const tailUnit = data[nameIndex];
 if (tailUnit !== undefined && tailUnit.SourceRange.End !== null) {
   letUnit.SignOut(tailUnit.SourceRange.End);
 }
+// **头里那些注释在替换之前先收出来**（第 660 轮）：它们本来落在 `[start, nameIndex]` 这一段里，
+// 而那一段马上整段折成 `Let` ⇒ 不收就整个从树上消失。收法与 `switch` / `try` / `while`
+// 那一族打包规则**同一条**（`CommentsIn`），位置放在 `Let` 的右边（源序）。
+// **软换行不在此列**：它本来就是排版，进来会让 `<Let>` 旁边凭空多出 `<LineWrap/>`。
+const commentsInHead = CommentsIn(data, start, nameIndex + 1);
 // **原位替换**：截断 `Data` 会让外层派发的下标失效（实测抛「自身不在父单元的子单元里」），
 // 对同一批单元再调 `RemoveSelf` 也一样 —— 用重组同款的 `ReplaceCountAt`，
 // 它把这一段换成一个 `Let` 并返回新下标，外层派发不受影响。
@@ -488,7 +501,7 @@ tailSymbol.AppendAndSignOut(source).SignIn(source);
 let insertAt = nextIndex + 1;
 while (true) {
   const probe = Get(data, insertAt);
-  if (probe instanceof LineWrap) {
+  if (IsTriviaUnit(probe)) {
     insertAt = insertAt + 1;
     continue;
   }
@@ -497,6 +510,13 @@ while (true) {
     continue;
   }
   break;
+}
+// **头里收出来的注释插在 `Let` 的紧右边**（见上面 `commentsInHead`），再插那一格尾巴符号。
+if (commentsInHead.length > 0) {
+  for (let i = 0; i < commentsInHead.length; i++) {
+    data.splice(insertAt + i, 0, commentsInHead[i]);
+  }
+  insertAt = insertAt + commentsInHead.length;
 }
 data.splice(insertAt, 0, tailSymbol);
 tailSymbol.Parent = unit;

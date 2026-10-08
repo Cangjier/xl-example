@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { IsAnnotationUnit, SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -216,7 +216,15 @@ for (const item of content) {
 }
 const element = new BindingElement(owner.Template);
 element.Parent = owner;
-element.SignIn(flattened[0].SourceRange.Start!);
+// **段首的注释不撑区间**（第 660 轮）：`const { /* c */ a } = o` 里那条注释落在元素的段里，
+// 按 `flattened[0]` 起签会把区间左移到注释上（实测产物 `[8,17)` vs TS `[16,17)`）。
+// 与 `HeritageClause` 那一处同一条口径：**透明单元照旧进 `Data`，只是不把父单元的区间撑出去**。
+// 只跳注释、**不跳软换行**（软换行有自己的签名口径，动它会把既有排版一起带偏）。
+let headAt = 0;
+while (headAt < flattened.length - 1 && IsAnnotationUnit(flattened[headAt])) {
+  headAt = headAt + 1;
+}
+element.SignIn(flattened[headAt].SourceRange.Start!);
 element.SignOut(flattened[flattened.length - 1].SourceRange.End!);
 for (const item of flattened) {
   element.AddAndCloseLast(item);

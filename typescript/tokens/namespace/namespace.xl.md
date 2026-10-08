@@ -318,7 +318,7 @@ if (isStringName === false && nameStarts.length > 0) {
 }
 // **字符串模块名那一格的位置也当场记下**（第 641 轮）：`declare module "m" { … }` 的名字
 // 是**含引号**的一个 `String` 单元，它就在手上——投影不必再去原文里找那对引号
-//（原来那一路是「在体的 `{` 之前找第一个 `"` 或 `'` ✓，再找它配对的另一个 ✓」——
+//（原来那一路是「在体的 `{` 之前找第一个 `"` 或 `'`，再找它配对的另一个」——
 //  遇到名字前面有注释 / 别的字符串时会挑错，那是**第二份位置答案**）。
 if (isStringName) {
   const stringName = Get(units, SkipNextTrivia(units, keywordIndex));

@@ -849,7 +849,7 @@ if (id === StringReplace || id === StringReplaceAll) {
   const replaceEverywhere = id === StringReplaceAll;
   // **第 296 轮把另外两半接上了**：
   //   · **替换值是函数**（每一处匹配调它一次，实参 `(匹配文本, 位置, 整个串)`）；
-  //   · **替换文本里的记号**（`$$` / `$&` / `` $` `` / `$'` ✓，见 `JsSubstitutionUnits` ✓）。
+  //   · **替换文本里的记号**（`$$` / `$&` / `` $` `` / `$'`，见 `JsSubstitutionUnits`）。
   // **正则那一半仍旧不做**（`RegExp` 是 v1 写死的非目标）——它现在**响亮地抛**，
   // 而且抛的是「需要字符串模式」而不是「需要两个字符串实参」（话说得更准了）。
   const replacementIsCallable = args.length > 1 && IsCallableValue(table, args[1]);
@@ -922,7 +922,7 @@ if (id === StringReplace || id === StringReplaceAll) {
   if (hits.length === 0) return self;
   // **每一处要用什么替换文本**（第 296 轮）：两种来源、逐处算——
   // 所以长度是**逐处累加**出来的（原来是「每一处一样长」那个乘法：
-  // 记号（`$'` 之类）与函数都会让每一处**不一样长** ✓）。
+  // 记号（`$'` 之类）与函数都会让每一处**不一样长**）。
   const pieces: number[][] = [];
   for (let k = 0; k < hits.length; k++) {
     if (replacementIsCallable) {
@@ -973,7 +973,7 @@ throw new Error("unimplemented: string builtin " + id);
 | `$$` | 一个 `$` |
 | `$&` | **匹配到的那一段** |
 | `` $` `` | 匹配**之前**的那一段 |
-| `$'` | 匹配**之后**的那一段 ✓ |
+| `$'` | 匹配**之后**的那一段 |
 | `$n` / `$nn` | **捕获组**——而**字符串模式没有捕获组** ⇒ **原样留着** |
 
 **`$1` 那一格为什么是「原样留着」而不是「换成空串」**：JS 的规矩是
@@ -982,7 +982,7 @@ throw new Error("unimplemented: string builtin " + id);
 **正则那一档要等 `RegExp`**（口径外），所以这一格**今天永远不会**有捕获组。
 
 **为什么单独一个方法**：`replace` 与 `replaceAll` 共用它，而**逐处的顺序**是语义——
-`$'` 取的是「这一处之后」✓、`` $` `` 取的是「这一处之前」✓，两处都跟着**当前这一处**走 ✓
+`$'` 取的是「这一处之后」、`` $` `` 取的是「这一处之前」，两处都跟着**当前这一处**走
 （写成「整个串的前后」在 `replaceAll` 上会**每一处都一样** ⇒ 静默错值）。
 
 ```ts
