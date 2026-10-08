@@ -953,6 +953,54 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7424 / 7780 → 7427 / 7784**、`blocked 258`（没涨）、`differ 98 → 99`（新登的那条）、
   `bad` 0、`regressions` 0，加权 **96.1%**（两个数都在这一位）。
 
+### 第 730 轮：生成器 / `async` 那一族的**标签与原型**——12 条登记缺口一起转绿
+
+这一轮问的是**函数值自己那一格**：一个闭包出生时 `[[Prototype]]` 是谁指的是谁。
+本仓从第 228 轮起**一律**指 `Function.prototype`，而 JS 里它按**种类**分四档
+（`function` / `function*` / `async function` / `async function*`）——
+标签与 `.constructor.name` **两处都长在那条链上**。六条实测：
+
+| 写法 | Node | 本仓（改前） |
+| --- | --- | --- |
+| `Object.prototype.toString.call(function* () {})` | `"[object GeneratorFunction]"` | `"[object Function]"` |
+| `Object.prototype.toString.call(async function () {})` | `"[object AsyncFunction]"` | `"[object Function]"` |
+| `Object.prototype.toString.call(async function* () {})` | `"[object AsyncGeneratorFunction]"` | `"[object Function]"` |
+| `(function* () {}).constructor.name` | `"GeneratorFunction"` | `"Function"` |
+| `console.log(function* gen() {})` | `"[GeneratorFunction: gen]"` | `"[Function: gen]"` |
+| `Object.prototype.toString.call((function* () {})())` | `"[object Generator]"` | `"[object Object]"` |
+
+- **引擎那两半**：`HeapClosure` 添 `IsGenerator` / `IsAsync` 两位（与 `IsClass` /
+  `IsStrict` / `HasRestricted` **同一处来**——降级层在造闭包那一刻盖上），
+  `new_closure` 第四格的**步长 8 → 32**（`EmitClosure` 同步改，两边是同一份规约的两半）；
+  `Protos` 添 `GeneratorFunction` / `AsyncFunction` / `AsyncGeneratorFunction` 三格原型
+  （都接在 `Function.prototype` 下面），`MakeClosure` 按那两位挑原型。
+- **语言层那一半**：三格原型上挂 `constructor` 与 `Symbol.toStringTag`、三格构造对象挂
+  `name` / `length` / `prototype`（`typeof` 给 `"function"`——载荷**借 `FunctionCtor` 那一格**：
+  「动态造函数」本来就是**同一个缺口**，新开一格只会让同一件事有两种说法）；
+  `Generator` / `AsyncGenerator` 两格也补上 `Symbol.toStringTag`；
+  `inspect` 认四档（生成器 / `async` 排在**类**之前）。
+- **一处次序**：`props.xl.md` 里可调用接收者原来「先自有、再 `protos.Function`、
+  最后才是闭包载荷」——这一轮给**闭包**添一句「自己那条链先走」，
+  但**判据收成「原型是那三格之一」**。第一版给所有闭包走，**实测红三条**：
+  `class E extends Error {}` 的静态链指的就是**父类那个值**（它的 `Proto` 是 `Object.prototype`），
+  于是 `E.name` 从 `"E"` 变成 `"Error"`、`(class extends Array {}).toString()` 从
+  `"class extends Array {}"` 变成 `"[object Function]"`、`class Named` 的 `this.name`
+  被一次静默失败的赋值顶掉——**那三处在第 730 轮之前都只是「碰巧对」**。
+- **试过又退回来的一版**：把「带可调用载荷的对象」在 `ObjectTagOf` 里答成 `"Function"`。
+  单看 `Object.prototype.toString.call(String)` 是**对的**（Node 给 `"[object Function]"`），
+  可这一档**不是只有那一处在用**：`String + 1` / `String(String)` 走 `ToPrimitive` → `toString`，
+  而本仓 `String.toString` 命中的**正是这一格** ⇒ 那一句从**响亮地抛**变成 `"[object Function]1"`
+  （Node 给 `"function String() { [native code] }1"`）——**静默错值**。
+  `tests/runtime/check.mjs` 第 8643 条那一档当场把它拦下来，**改动全部撤回**
+  （要收它得先把「带可调用载荷的对象也走 `protos.Function` 那一趟」做出来，那是另一件事）。
+- **两处剩下的一档照旧登在语料里**：`p730a-a09`（V8 给 `%GeneratorFunction.prototype%`
+  **多造**一格规范里没有的 `prototype`）、`p730a-a10`（`%GeneratorFunction%("a", "yield a")`
+  那一档动态造函数——与 `new Function` **同一条根**）。
+- **语料 +12 条**（`runtime/round730/p730a-a01` … `a12`），收掉 12 条登记缺口
+  （`differ` 那一栏 −10：收 12 条、新登 2 条）。
+- 五类 **7427 / 7784 → 7449 / 7796**、`blocked 258`（没涨）、`differ 99 → 89`、
+  `bad` 0、`regressions` **0**，加权 **96.1% → 96.2%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -965,7 +1013,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1405 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7427 / 7784**，加权 **96.1%**：token 1189/1405、exec 2112/2166、runtime 822/832、stdlib 3062/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 99），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7449 / 7796**，加权 **96.2%**：token 1189/1405、exec 2119/2166、runtime 836/844、stdlib 3063/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 89），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~37s**） |
 
 ### 口径与已知缺口

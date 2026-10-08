@@ -255,6 +255,41 @@ this.Index = index;
 （`GeneratorNextId`，见 `vm.xl.md` 的 `NextStepOf`）——**引擎用能力号认它自己的方法**，
 与「语言层的内建靠能力号分派」是**同一条机制**，只是号的用途不同。
 
+## field GeneratorFunction:int = 0
+
+**`function* () {}` 那一档的 `[[Prototype]]`**（第 730 轮）。
+
+**它是什么**：JS 里生成器函数的原型**不是** `Function.prototype`，而是
+`%GeneratorFunction.prototype%`——`Object.prototype.toString.call(function* () {})`
+给 `"[object GeneratorFunction]"` 的**唯一**来处就是它自己那一格
+`Symbol.toStringTag`（规范里 `Object.prototype.toString` 的第一步就是
+「取 `O[@@toStringTag]`，是字符串就用它」，见 `globals.xl.md` 的 `ObjectTagOf`）。
+本仓原来所有脚本闭包**一律**指 `protos.Function` ⇒ 那一族给的是
+`"[object Function]"`（**静默错值**，第 730 轮量出来的两族缺口之一）。
+
+**谁填它**：`vm.xl.md` 的 `MakeClosure`——`function*` 造出来的闭包
+**出生那一刻**就指这一格（按 `HeapClosure.IsGenerator` 那两位挑）。
+
+**它自己接在 `Function.prototype` 下面**（`InitProtos` 接的）：所以
+`f.call` / `f.apply` 那一族照旧沿链找得到，而 `%GeneratorFunction%.prototype.constructor`
+那一格由建库层挂（"prototype" 与 "constructor" 两格**成对**——与 `Map` / `Set` 那两处
+一字不差：只补一格就是「一半对」）。
+
+## field AsyncFunction:int = 0
+
+**`async function () {}` 那一档的 `[[Prototype]]`**（第 730 轮）——与 `GeneratorFunction`
+**同一个形状、同一条理由**，只是标签是 `"[object AsyncFunction]"`。
+
+## field AsyncGeneratorFunction:int = 0
+
+**`async function* () {}` 那一档的 `[[Prototype]]`**（第 730 轮）。
+
+**为什么它不是前两格之一**：JS 里它是**第三个**内部对象
+（`%AsyncGeneratorFunction.prototype%`），标签是
+`"[object AsyncGeneratorFunction]"`——把 `async function*` 归到前两格里
+就会**答错**（而「答错」比「没有这一格」坏：静默错值）。
+**三格都是「函数那一族的原型」**，所以三格**一起**造、一起进根集。
+
 ## field Promise:int = 0
 
 **`Promise` 的原型**（第 601 轮）——与 `Map` / `Set` / `Date` 那三格同款：
@@ -339,6 +374,12 @@ if (this.Promise > 0) roots.AddHandle(this.Promise);
 // 被收掉的话 `it.next()` 会在某一次回收之后突然变成 `undefined`
 //（症状是「调用一个非闭包」，离现场很远）。
 if (this.Generator > 0) roots.AddHandle(this.Generator);
+// **函数那三族的原型也是根**（第 730 轮）：与上面几格**一字不差**的理由——
+// 它们被脚本闭包**指成 `Proto`**、也被建库层挂着 `constructor` / `toStringTag`，
+// 收掉一格的症状同样是「某一次回收之后标签突然变成 `[object Object]`」。
+if (this.GeneratorFunction > 0) roots.AddHandle(this.GeneratorFunction);
+if (this.AsyncFunction > 0) roots.AddHandle(this.AsyncFunction);
+if (this.AsyncGeneratorFunction > 0) roots.AddHandle(this.AsyncGeneratorFunction);
 // **知名符号那张表也是根**（第 184 轮）：它里面装着**符号值**，
 // 而符号是**引用型**（`IsRef` 那一档）——不收根的话 `Symbol.iterator`
 // 会在某一次回收之后变成一个悬着的句柄（症状是「迭代协议某天突然不认了」）。
@@ -360,8 +401,9 @@ if (this.Global > 0) roots.AddHandle(this.Global);
 `Error.prototype`（JS 里就是如此）——所以 `e instanceof Object` 与
 `new TypeError() instanceof Error` 都成立。
 **这几个成员共用「报错对象的原型」这一件事**，所以 `/ 13` 那个上界跟着
-第 277 轮变成 `/ 14`、第 295 轮变成 **`* 16`**、**第 376 轮变成 `* 18`**
-（`URIError` / `EvalError` 两格）——**这个数是手写的**（`ObjectCharge * 18`），
+第 277 轮变成 `/ 14`、第 295 轮变成 **`* 16`**、**第 376 轮变成 `* 18`**、
+**第 730 轮变成 `* 21`**（函数那三族的原型）
+（`URIError` / `EvalError` 两格）——**这个数是手写的**（`ObjectCharge * 21`），
 改成员数时**两处都要改**
 （少改一处就是「房间问少了」：`CreateObject` 自己**不做房间检查**）。
 **`Map` / `Set` / `Date` 三格接在 `Object.prototype` 上**（第 138 轮）。
@@ -369,7 +411,7 @@ if (this.Global > 0) roots.AddHandle(this.Global);
 **原始值接收者的方法从这里找**（`(1.5).toFixed(2)`、`true.toString()`）。
 
 ```ts
-if (!room(ObjectCharge * 18)) {
+if (!room(ObjectCharge * 21)) {
   throw new Error("out of room");
 }
 // **`Array.prototype` 自己就是一个数组**（第 592 轮）：JS 里 `Array.isArray(Array.prototype)`
@@ -436,6 +478,24 @@ table.Get(protos.Generator).Proto = protos.Object;
 // 「同一个实现、两处挂载」比「继承过来、再想办法遮掉一格」干净。
 protos.AsyncGenerator = table.CreateObject();
 table.Get(protos.AsyncGenerator).Proto = protos.Object;
+// **函数那三族的原型**（第 730 轮）——`GeneratorFunction` / `AsyncFunction` /
+// `AsyncGeneratorFunction`：**三个都接在 `Function.prototype` 下面**
+//（JS 里 `Object.getPrototypeOf(%GeneratorFunction%.prototype)` 就是 `%Function.prototype%`，
+//  实测 Node：`Object.getPrototypeOf(Object.getPrototypeOf(function* () {})) === Function.prototype`
+//  给 `true`）——所以 `.call` / `.apply` / `bind` 三格**照旧沿链找得到**，
+// 而这正是这三格**不能**与 `Function` 合成一格的理由：合成一格的话
+// 「`function*` 与 `function` 的标签」就成了同一件事（第 730 轮要收的**正是**这一处）。
+//
+// **它与 `Generator` 那一格的分工**：`Generator` 是**生成器对象**（`g()` 的成果）的原型，
+// 这三格是**生成器函数**（`g` 自己）的原型——JS 里是两个不同的内部对象，
+// `Object.prototype.toString.call(g)` 给 `"[object GeneratorFunction]"`、
+// `Object.prototype.toString.call(g())` 给 `"[object Generator]"`（判据钉着**两句**）。
+protos.GeneratorFunction = table.CreateObject();
+table.Get(protos.GeneratorFunction).Proto = protos.Function;
+protos.AsyncFunction = table.CreateObject();
+table.Get(protos.AsyncFunction).Proto = protos.Function;
+protos.AsyncGeneratorFunction = table.CreateObject();
+table.Get(protos.AsyncGeneratorFunction).Proto = protos.Function;
 // **`Promise` 那一格**（第 601 轮）：与上面那几格一字不差。
 protos.Promise = table.CreateObject();
 table.Get(protos.Promise).Proto = protos.Object;
@@ -706,6 +766,38 @@ if ((protos !== null && (receiver.Ref === protos.Object || receiver.Ref === prot
       const own = FindProperty(room, table, receiver.Ref, key);
       if (own !== null && own.Owner === receiver.Ref) {
         return ReadProperty(call, table, own, receiver);
+      }
+    }
+    // **闭包自己那条原型链比 `protos.Function` 更具体，先走它**（第 730 轮）——
+    // **但只限「函数那一族」的原型**（`%GeneratorFunction%` 那三格）。
+    //
+    // **为什么需要这一句**：闭包的 `Proto` 是 `MakeClosure` 出生那一刻指的，
+    // 而第 730 轮起 `function*` / `async function` / `async function*` 三族指的是
+    // `%GeneratorFunction%` 一族，那三格上正挂着 `constructor` 与 `Symbol.toStringTag`。
+    // 少了这一句的话，下面那趟「去 `protos.Function` 上找」会**先**命中
+    // `Function.prototype.constructor` ⇒ `(function* () {}).constructor.name` 给
+    // `"Function"`（Node 给 `"GeneratorFunction"`，**静默错值**）。
+    //
+    // **为什么不能给所有闭包走**（**第 730 轮实测撞了三条**）：闭包的 `Proto`
+    // **不一定是函数那一族**——`class E extends Error {}` 的静态链
+    // 指的就是那个**父类值**（`Error` 那个普通对象，它的 `Proto` 是 `protos.Object`），
+    // 于是「先走自己那条链」会**穿过父类**命中 `Error` 自己的 `name`
+    //（`E.name` 从 `"E"` 变成 `"Error"`）、或穿过 `Array` 命中
+    // `Object.prototype.toString`（`(class extends Array {}).toString()` 从
+    // `"class extends Array {}"` 变成 `"[object Function]"`）。
+    // **JS 里不会这样**：那边每个内建函数的 `[[Prototype]]` **真的**是 `Function.prototype`，
+    // 所以链上先遇到的是 `Function.prototype.toString`——差别在本仓内建是「普通对象 +
+    // 一格可调用载荷」（见 `globals.xl.md` 那几处），它们的 `Proto` 是 `Object.prototype`。
+    // 所以判据收成「**这个闭包的原型是不是那三格之一**」：是才走自己那条链，
+    // 其余一律照旧（先借 `protos.Function`）——**不动**上面那三条已经量过的行为。
+    if (receiver.Tag === ValueTag.Closure) {
+      const chainProto = table.Get(receiver.Ref).Proto;
+      const isFunctionKind = chainProto === protos.GeneratorFunction
+        || chainProto === protos.AsyncFunction
+        || chainProto === protos.AsyncGeneratorFunction;
+      if (isFunctionKind) {
+        const onOwnChain = FindProperty(room, table, receiver.Ref, key);
+        if (onOwnChain !== null) return ReadProperty(call, table, onOwnChain, receiver);
       }
     }
     const onFunction = FindProperty(room, table, protos.Function, key);

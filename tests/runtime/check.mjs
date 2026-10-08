@@ -8780,6 +8780,15 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
   table.AttachCallable(callable.Ref, 1, 0);
   ok(ask(callable).indexOf("callable object") >= 0,
     "带可调用载荷 → 点名（JS 印源码文本）：" + ask(callable));
+  // **第 730 轮试过把它改成 `"Function"`、当场退回来了** ✓（**量出来的话**）：
+  // `Object.prototype.toString.call(String)` 在 Node 里**确实**是 `"[object Function]"` ✓，
+  // 可这一档**不是只有 `Object.prototype.toString` 在用** ✗——
+  // `String + 1` / `String(String)` 走 `ToPrimitive` → `toString` ✓，
+  // 而本仓 `String.toString` 命中的**正是这一格** ✗（带可调用载荷的对象不算
+  // `IsCallable()` ✓，`props.xl.md` 那条「借 `protos.Function` 找一次」够不着它 ✗）
+  // ⇒ 上面 `loud` 那一条从**响亮地抛**变成 `"[object Function]1"` ✗
+  //（Node 给 `"function String() { [native code] }1"` ✓）——**静默错值** ✗。
+  // **要收它得先把「带可调用载荷的对象也走 `protos.Function` 那一趟」做出来** ✓。
   // **函数那一档第 334 轮搬走了** ✓：它原来在 `ToPrimitiveOf` 里**响亮地抛** ✓
   // （「JS 印源码文本、而引擎拿不到那一份」✓——那在当时是事实 ✓）；
   // `HeapClosure.Source` 那一格补上之后 ✓，它有**真答案**了 ✓（源码文本 ✓），

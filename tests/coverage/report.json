@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7784,
+  "total": 7796,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.06,
+  "progressPercent": 96.21,
   "categories": [
     {
       "category": "token",
@@ -91,31 +91,31 @@
       "category": "exec",
       "weight": 0.25,
       "total": 2166,
-      "pass": 2112,
+      "pass": 2119,
       "blocked": 12,
-      "differ": 42,
+      "differ": 35,
       "nodefail": 0,
-      "coverage": 97.51
+      "coverage": 97.83
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 832,
-      "pass": 822,
+      "total": 844,
+      "pass": 836,
       "blocked": 1,
-      "differ": 9,
+      "differ": 7,
       "nodefail": 0,
-      "coverage": 98.8
+      "coverage": 99.05
     },
     {
       "category": "stdlib",
       "weight": 0.2,
       "total": 3135,
-      "pass": 3062,
+      "pass": 3063,
       "blocked": 25,
-      "differ": 48,
+      "differ": 47,
       "nodefail": 0,
-      "coverage": 97.67
+      "coverage": 97.7
     },
     {
       "category": "e2e",
@@ -1808,34 +1808,10 @@
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:Error»"
     },
     {
-      "id": "exec/functions/probe703-f-g16",
-      "category": "exec",
-      "title": "Object.prototype.toString.call(async function () {})",
-      "detail": "stdout 不同：第 1 行：node «string:[object AsyncFunction]» vs tsrun «string:[object Function]»"
-    },
-    {
-      "id": "exec/functions/probe703-f-g17",
-      "category": "exec",
-      "title": "Object.prototype.toString.call(function* () {})",
-      "detail": "stdout 不同：第 1 行：node «string:[object GeneratorFunction]» vs tsrun «string:[object Function]»"
-    },
-    {
-      "id": "exec/functions/probe703-f-g30",
-      "category": "exec",
-      "title": "(async () => {}).constructor.name",
-      "detail": "stdout 不同：第 1 行：node «string:AsyncFunction» vs tsrun «string:Function»"
-    },
-    {
       "id": "exec/functions/probe705-t-a36",
       "category": "exec",
       "title": "Function.prototype.toString.call(Math.floor)",
       "detail": "stdout 不同：第 1 行：node «string:function floor() { [native code] }» vs tsrun «throw:TypeError»"
-    },
-    {
-      "id": "exec/iterators/probe-y14",
-      "category": "exec",
-      "title": "(function* () { const x = yield 1; return x; })()",
-      "detail": "stdout 不同：第 1 行：node «object:[object Generator]» vs tsrun «object:[object Object]»"
     },
     {
       "id": "exec/iterators/probe700-i-t03",
@@ -1859,7 +1835,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12988/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27588/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1884,24 +1860,6 @@
       "category": "exec",
       "title": "严格函数的自有名字表",
       "detail": "stdout 不同：第 1 行：node «string:length,name,prototype» vs tsrun «string:length,name,arguments,caller,prototype»"
-    },
-    {
-      "id": "exec/round710/p710c-c06",
-      "category": "exec",
-      "title": "生成器对象自己的 toString 标签",
-      "detail": "stdout 不同：第 1 行：node «string:[object Generator]» vs tsrun «string:[object Object]»"
-    },
-    {
-      "id": "exec/round710/p710c-c08",
-      "category": "exec",
-      "title": "async 箭头函数的构造器名",
-      "detail": "stdout 不同：第 1 行：node «string:AsyncFunction» vs tsrun «string:Function»"
-    },
-    {
-      "id": "exec/round710/p710c-c09",
-      "category": "exec",
-      "title": "GeneratorFunction 的构造器名",
-      "detail": "stdout 不同：第 1 行：node «string:GeneratorFunction» vs tsrun «string:Function»"
     },
     {
       "id": "exec/round711/p711b-b01",
@@ -1946,30 +1904,6 @@
       "detail": "stdout 不同：第 2 行：node «then called» vs tsrun «got { then: [Function: then] }»"
     },
     {
-      "id": "runtime/async/probe697-p13",
-      "category": "runtime",
-      "title": "(async function () {}).constructor.name",
-      "detail": "stdout 不同：第 1 行：node «string:AsyncFunction» vs tsrun «string:Function»"
-    },
-    {
-      "id": "runtime/async/probe697-z04",
-      "category": "runtime",
-      "title": "Object.prototype.toString.call(async function () {})",
-      "detail": "stdout 不同：第 1 行：node «string:[object AsyncFunction]» vs tsrun «string:[object Function]»"
-    },
-    {
-      "id": "runtime/async/probe697-z08",
-      "category": "runtime",
-      "title": "(function* () {}).constructor.name",
-      "detail": "stdout 不同：第 1 行：node «string:GeneratorFunction» vs tsrun «string:Function»"
-    },
-    {
-      "id": "runtime/async/probe697-z09",
-      "category": "runtime",
-      "title": "Object.prototype.toString.call(function* () {})",
-      "detail": "stdout 不同：第 1 行：node «string:[object GeneratorFunction]» vs tsrun «string:[object Function]»"
-    },
-    {
       "id": "runtime/iterators/039-map-mutation-during-forof",
       "category": "runtime",
       "title": "`for...of` 遍历 Map 时删除 / 追加",
@@ -1992,6 +1926,18 @@
       "category": "runtime",
       "title": "`new` 与可选链 / 非空断言 / 下标混用（第 729 轮量出来的两条根都在这里）",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "runtime/round730/p730a-a09",
+      "category": "runtime",
+      "title": "三档原型自己的属性名（V8 那一格多出来的 `prototype`）",
+      "detail": "stdout 不同：第 1 行：node «prototype,constructor» vs tsrun «constructor»"
+    },
+    {
+      "id": "runtime/round730/p730a-a10",
+      "category": "runtime",
+      "title": "借来的那一格载荷：`(function* () {}).constructor(\"a\", \"yield a\")`",
+      "detail": "stdout 不同：第 1 行：node «function* anonymous(a» vs tsrun «throw:Error»"
     },
     {
       "id": "stdlib/array/143-getter-array-index",
@@ -2024,16 +1970,10 @@
       "detail": "stdout 不同：第 1 行：node «<ref *1> { a: 1, self: [Circular *1] }» vs tsrun «{ a: 1, self: { a: 1, self: { a: 1, self: [Object] } } }»"
     },
     {
-      "id": "stdlib/console/030-con-log-async-function",
-      "category": "stdlib",
-      "title": "异步函数与生成器函数的渲染那一档",
-      "detail": "stdout 不同：第 1 行：node «[GeneratorFunction: gen]» vs tsrun «[Function: gen]»"
-    },
-    {
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12988/src/4945.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27588/src/4957.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2057,7 +1997,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12988/src/4995.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27588/src/5007.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",

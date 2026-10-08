@@ -524,6 +524,30 @@ return total;
 那一档由 `props.xl.md` 的 `GetProperty` 现答——它**不在属性表里**
 （与 `Arity` / `Name` 那两格同一个形状）。
 
+## field IsGenerator:bool = false
+
+**这个闭包是不是一个生成器函数**（第 730 轮）——与 `IsClass` / `IsStrict` / `HasRestricted`
+**同一处来、同一条纪律**：只有造它的那一方知道（降级层手里正拿着那个节点）。
+
+**为什么它必须住在闭包上**：`Object.prototype.toString.call(function* () {})` 在 JS 里是
+`"[object GeneratorFunction]"`、`console.log(function* g() {})` 印
+`[GeneratorFunction: g]`——两处的判据都是「这个**函数值**是哪一档」，
+而本仓的闭包只有「代码 / 环境 / 名字 / 形参 / 源码」五格，运行期看不出这件事
+（`function* g(){}` 与 `function g(){}` 在值模型里**一模一样**）。
+
+**它借的是 `new_closure` 第四格的下一位**（值 8）：与 `HasRestricted` 那一位
+**同一个形状**——位宽从三位加到五位、形参个数那一半的步长从 8 变成 **32**
+（降级层 `EmitClosure` **同步**改，两边是同一份规约的两半）。见 `vm.xl.md` 的 `MakeClosure`。
+
+## field IsAsync:bool = false
+
+**这个闭包是不是一个 `async` 函数**（第 730 轮）——与 `IsGenerator` 挨着的下一位（值 16）。
+
+**两族合成一档**：`async function*` **两位置真**——JS 里它是**第三种**原型
+（`%AsyncGeneratorFunction%`）、标签是 `"[object AsyncGeneratorFunction]"`，
+而只有 `IsGenerator` 那一档才是 `"[object GeneratorFunction]"`。
+所以「谁的原型」要按这两位**一起**挑，不能只看一位（`vm.xl.md` 的 `MakeClosure`）。
+
 ## constructor:(code:int, env:int, arity:int, name:int, source:int)=>void
 
 造一个闭包。
@@ -537,6 +561,8 @@ this.Source = source;
 this.IsClass = false;
 this.IsStrict = false;
 this.HasRestricted = false;
+this.IsGenerator = false;
+this.IsAsync = false;
 ```
 
 ## method Charge:()=>int

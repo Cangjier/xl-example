@@ -236,17 +236,44 @@ return "[Object]";
 **名字那一格照旧**：`[class C]` 里的 `C` 还是 `Name`——
 **类名与「是不是类」是两件事**。
 
+**生成器 / `async` 两族也各是一位**（第 730 轮，`HeapClosure.IsGenerator` / `IsAsync`）：
+Node 给 `[GeneratorFunction: gen]` / `[AsyncFunction: af]` /
+`[AsyncGeneratorFunction: agg]`（匿名那一档是 `[GeneratorFunction (anonymous)]`，
+实测 Node）。**它们排在「类」之前**：`class C { *m() {} }` 的 `m` 是**方法 + 生成器**
+（两位都为真时 Node 印 `[GeneratorFunction: m]`，不是 `[class m]`——
+`IsClass` 只在那一位真的落在**构造函数**上时才为真，而这里**先问种类**更保险：
+一位是「语法种类」、一位是「这一趟是不是类的构造函数」，种类**更具体**）。
+
+**三个名字照 Node 的拼法**（不是 `[Generator: …]`）：`GeneratorFunction` /
+`AsyncFunction` / `AsyncGeneratorFunction`——它们是 `%GeneratorFunction%` 一族的
+**构造名**（`f.constructor.name` 给的就是同一个字符串，见 `globals.xl.md` 那三族）。
+**两族合起来的那一档排在最后**（`async function*`：两位都真）。
+
 **匿名的两种不是同一个答案**（第 691 轮量出来的）：匿名**函数**给
 `[Function (anonymous)]`，匿名**类**给 **`[class (anonymous)]`**。
 原来两支都写 `"[class ]"`，还把这句写成了「与 Node 一致」——**量了才知道不一致**
 （判据 `insp-function-and-class-shape` 量的就是它）。
+**第 730 轮那三档的匿名写法与函数那一档同一个拼法**（`[GeneratorFunction (anonymous)]`，
+实测 Node）——所以四支共用同一句判断，不另写一张表。
 
 ```ts
 if (level > InspectDepth) return "[Function]";
 if (value.Tag === ValueTag.Closure) {
-  const name = table.Get(value.Ref).AsClosure().Name;
-  // **类那一档先答**（它的形状不是 `[Function: …]`）。
-  if (table.Get(value.Ref).AsClosure().IsClass) {
+  const closure = table.Get(value.Ref).AsClosure();
+  const name = closure.Name;
+  // **生成器 / `async` 那三档先答**（第 730 轮，形状不是 `[Function: …]`）。
+  let kind = "";
+  if (closure.IsGenerator) {
+    kind = closure.IsAsync ? "AsyncGeneratorFunction" : "GeneratorFunction";
+  } else if (closure.IsAsync) {
+    kind = "AsyncFunction";
+  }
+  if (kind !== "") {
+    if (name > 0) return "[" + kind + ": " + TextFrom(table, Value.FromString(name)) + "]";
+    return "[" + kind + " (anonymous)]";
+  }
+  // **类那一档**（它的形状也不是 `[Function: …]`）。
+  if (closure.IsClass) {
     if (name > 0) return "[class " + TextFrom(table, Value.FromString(name)) + "]";
     return "[class (anonymous)]";
   }

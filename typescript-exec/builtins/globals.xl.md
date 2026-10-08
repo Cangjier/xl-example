@@ -1276,9 +1276,24 @@ return Value.FromString(table.CreateString(Units("__boundArgs")));
 if (IsArgumentsValue(table, value)) return "Arguments";
 // **数组先认**（它有自己的标签，不是「普通对象」）。
 if (value.Tag === ValueTag.Array) return "Array";
-// **函数那一档**：`typeof` 给 `"function"`，这里的标签是 `"Function"`。
+// **函数那一档**：`typeof` 给 `"function"`，这里的标签**默认**是 `"Function"`。
 // **它排在「带可调用载荷的对象」那一条抛之前**，见下面那一条的说明。
-if (value.IsCallable()) return "Function";
+//
+// **函数的标签也要先问 `Symbol.toStringTag`**（第 730 轮）——**这一句是规范的原话**：
+// `Object.prototype.toString` 里 `builtinTag` 只回答「没有 `@@toStringTag` 时给什么」，
+// 而生成器 / `async` 函数**正好有那一格**（在 `%GeneratorFunction.prototype%` 一族上）：
+// `Object.prototype.toString.call(function* () {})` 在 Node 里是
+// `"[object GeneratorFunction]"`，本仓原来给 `"[object Function]"`（**静默错值**）。
+// **次序反了就读不到**：先答 `"Function"` 的话，`Get(O, @@toStringTag)` 那一步
+// **根本轮不到**——而那一步正是 `Map` / `Promise` 那几族标签的**唯一**来处
+// （它们也是**可调用的对象**：`Object.prototype.toString.call(Map)` 在 JS 里是
+// `"[object Function]"`，靠的就是「`Map` 自己没有 `@@toStringTag`」这一点）。
+// 所以这里**不是**给函数另开一档，而是**把规范那一步挪到前面**。
+if (value.IsCallable()) {
+  const callableTag = ObjectTagOverride(room, call, table, protos, value);
+  if (callableTag !== "") return callableTag;
+  return "Function";
+}
 if (value.Tag === ValueTag.HostRef) return "Function";
 // **其余原始值**（第 228 轮）：`typeof` 的名字首字母大写就是 JS 的标签
 // （`"number"` → `"Number"`、`"string"` → `"String"`、`"boolean"` → `"Boolean"`、
@@ -1290,6 +1305,21 @@ if (value.Tag === ValueTag.String) return "String";
 if (value.Tag === ValueTag.Bool) return "Boolean";
 if (value.Tag === ValueTag.Symbol) return "Symbol";
 // **可调用对象**（`String` / `Number` / `Function` 那些宿主载荷）：JS 印源码文本。
+//
+// **第 730 轮试过把这一档答成 `"Function"`、当场退回来了**（**量出来的话留在这一条**）：
+// `Object.prototype.toString.call(String)` 在 Node 里确实是 `"[object Function]"`
+//（实测：`Function.prototype` 与 `%GeneratorFunction%` 也都是），所以「答 `Function`」
+// 单看这一格是**对的**。可**这一档不是只有 `Object.prototype.toString` 在用**：
+// `String + 1` / `String(String)` 走的是 `ToPrimitive` → `toString`，
+// 而本仓 `String.toString` 命中的**正是这一格**（带可调用载荷的对象不算
+// `IsCallable()`，于是 `props.xl.md` 那条「借 `protos.Function` 找一次」够不着它）
+// ⇒ 那一句从**响亮地抛**（`tests/runtime/check.mjs` 第 8643 条那一档钉着它）
+// 变成 `"[object Function]1"` —— **静默错值**（Node 给
+// `"function String() { [native code] }1"`）。
+// **它比「进不了门」危险得多**，所以这一格维持原样：**要收它得先把
+// 「带可调用载荷的对象也走 `protos.Function` 那一趟」做出来**（那样 `String.toString`
+// 才是 `Function.prototype.toString`、`String + 1` 才有真答案），
+// 而那一步要连带解决「`FunctionSourceText` 从中读出函数名」——是另一件事。
 if (table.Get(value.Ref).Host !== null) {
   throw new Error("unimplemented: Object.prototype.toString of a callable object (JS renders source text)");
 }
@@ -1362,7 +1392,13 @@ JS 的 `o[Symbol.toStringTag]` 是一次 **`[[Get]]`**——**访问器要调 ge
 
 ```ts
 if (protos.WellKnownSymbols <= 0) return "";
-if (value.Tag !== ValueTag.Object) return "";
+// **闭包也走这一条**（第 730 轮）：生成器 / `async` 函数的那一格
+// `Symbol.toStringTag` 就挂在**它们自己的原型**上（`%GeneratorFunction.prototype%` 一族），
+// 而闭包在值模型里是 `ValueTag.Closure`（不是 `Object`）——原来那一句
+// 「不是对象就给空串」会把它们**一律**挡在门外 ⇒ `"[object Function]"`。
+// **`ValueTag.Function`（宿主函数）不进来**：本仓给它们挂不到任何原型，
+// 放进来只会多一次走链的查找（答案仍然是空串）。
+if (value.Tag !== ValueTag.Object && value.Tag !== ValueTag.Closure) return "";
 const symbolTable = Value.FromObject(protos.WellKnownSymbols);
 const lookupKey = Value.FromString(table.CreateString(Units("toStringTag")));
 const tagSymbol = GetProperty(NeverRoom, NeverCall, protos, table, symbolTable, lookupKey);
@@ -8162,6 +8198,51 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
   Value.FromString(table.CreateString(Units("toString"))),
   MethodObject(vm.Room(), table, protos, FunctionToString, 0));
+// **函数那三族：原型上的 `constructor` 与构造对象自己那三格**（第 730 轮）——
+// `GeneratorFunction` / `AsyncFunction` / `AsyncGeneratorFunction`。
+//
+// **为什么要有这三格**：`Object.prototype.toString.call(function* () {})` 在 Node 里是
+// `"[object GeneratorFunction]"`、`(async function () {}).constructor.name` 是
+// `"AsyncFunction"`——两处的来处**都是**「这个函数值的原型是哪一格」：
+// 前者读**原型上那一格 `Symbol.toStringTag`**（规范里 `Object.prototype.toString`
+// 的第一步就是取 `@@toStringTag`），后者读 **`原型.constructor.name`**。
+// **原型本身由引擎造**（`props.xl.md` 的 `InitProtos`——`MakeClosure` 在闭包出生
+// 那一刻就要指过去），**这两格属性由这一层挂**：与 `Error.prototype` / `Map.prototype`
+// 那几处**同一条分界**（「结构由引擎提供、内容由语言层给」）。
+//
+// **它们是「普通对象 + 一格可调用载荷」**（与 `Function` / `Array` 那一族同款，
+// 第 145 轮）：JS 里 `%GeneratorFunction%` 是一个**真函数**（`typeof` 给 `"function"`，
+// `(function* () {}).constructor.constructor === Function`），而本仓的普通对象
+// `typeof` 给 `"object"`——**判据 `probe697-p12` 量的正是这一格**
+//（`typeof (async function () {}).constructor`：Node 给 `"function"`）。
+// 挂上载荷之后两件事同时成立：`typeof` 对了、属性表也有了。
+//
+// **载荷号借 `FunctionCtor` 那一格**（343）：JS 里这三个构造干的正是
+// `Function("…")` 同一件事——**从源码现造一个函数**（只是造出来的那一档不同），
+// 而本仓**没有动态代码生成**（`FunctionCtor` 在 `InvokeGlobal` 里**没有分支**，
+// 调它报 `unimplemented: builtin id 343`）。借同一格不是省事：
+// 「`new Function` 那一族还没做」就是**同一件事**，所以错误文本也该是同一句
+// ——新开一格只会让同一个缺口有两种说法。
+//
+// **三格都挂成不可枚举**（`SetHiddenProperty`）：JS 里
+// `Object.keys(Object.getPrototypeOf(function* () {}))` 是 `[]`、
+// `Object.keys(function* () {}.constructor)` 也是 `[]`。
+//
+// **名单与句柄两条数组按下标对齐**（与上面 `Reflect` 那一处同一个写法）：
+// 加第四族只改这两行，不用再抄一遍循环体。
+const functionKindNames: string[] = ["GeneratorFunction", "AsyncFunction", "AsyncGeneratorFunction"];
+const functionKindProtos: number[] = [protos.GeneratorFunction, protos.AsyncFunction,
+  protos.AsyncGeneratorFunction];
+for (let i = 0; i < functionKindNames.length; i++) {
+  const kindProto = Value.FromObject(functionKindProtos[i]);
+  const kindObject = NewPlainObject(vm.Room(), table, protos);
+  table.AttachCallable(kindObject.Ref, FunctionCtor, 0);
+  SetHiddenProperty(vm.Room(), table, kindObject, NameValue(table, "name"),
+    Value.FromString(table.CreateString(Units(functionKindNames[i]))));
+  SetHiddenProperty(vm.Room(), table, kindObject, NameValue(table, "length"), Value.FromInt(1));
+  SetHiddenProperty(vm.Room(), table, kindObject, NameValue(table, "prototype"), kindProto);
+  SetHiddenProperty(vm.Room(), table, kindProto, NameValue(table, "constructor"), kindObject);
+}
 // **`protos.Function` 三格方法** 与 **`protos.Generator.next`** 都在这一带挂上。
 //
 // **生成器那一格**（第 229 轮）：生成器对象**没有属性表**（它就是 `HeapObject`
@@ -8490,14 +8571,27 @@ protos.WellKnownSymbols = wellKnownTable.Ref;
 //（`props.xl.md` 的 `Protos.Global`：**结构由引擎提供、内容由语言层给**）。
 // **`globals` 就在手上**（这一段的开头就是它），所以只是一句赋值。
 protos.Global = globals.Ref;
-// **`Symbol.toStringTag` 要挂到那几族的原型上**（第 229 轮，第 601 轮补了 `Promise`）：
+// **`Symbol.toStringTag` 要挂到那几族的原型上**（第 229 轮，第 601 轮补了 `Promise`，
+// 第 730 轮补了生成器对象与函数那三族）：
 // `Object.prototype.toString.call(new Map())` 在 JS 里是 `"[object Map]"`，
 // 那一格**正是** `Map.prototype[Symbol.toStringTag] = "Map"` 供的（`Date` / `Set` / `Promise` 同理）。
 // 挂成普通属性（符号键不进 `Object.keys` / `JSON` / `for..in`，所以内建那几条读数不受影响）。
+//
+// **第 730 轮补的五格**：`Generator` / `AsyncGenerator` 是**生成器对象**那一档
+//（`g()` 的成果）、`GeneratorFunction` / `AsyncFunction` / `AsyncGeneratorFunction`
+// 是**函数值**那一档（`g` 自己）——四档在 JS 里是四个**不同的**内部对象，
+// 标签也各不相同（`"[object Generator]"` vs `"[object GeneratorFunction]"`），
+// 而本仓原来两档都给 `"[object Object]"` / `"[object Function]"`（**静默错值**）。
+// **函数那三格能生效的前提是闭包出生时指对了原型**（`vm.xl.md` 的 `MakeClosure`）：
+// 标签是**沿原型链取**的，原型不对时挂得再对也读不到。
 const toStringTagKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
   Value.FromString(table.CreateString(Units("toStringTag"))));
-const tagTargets = [protos.Map, protos.Set, protos.Date, protos.Promise];
-const tagNames = ["Map", "Set", "Date", "Promise"];
+const tagTargets = [protos.Map, protos.Set, protos.Date, protos.Promise,
+  protos.Generator, protos.AsyncGenerator,
+  protos.GeneratorFunction, protos.AsyncFunction, protos.AsyncGeneratorFunction];
+const tagNames = ["Map", "Set", "Date", "Promise",
+  "Generator", "AsyncGenerator",
+  "GeneratorFunction", "AsyncFunction", "AsyncGeneratorFunction"];
 for (let i = 0; i < tagTargets.length; i++) {
   SetProperty(room, NeverCall, table, Value.FromObject(tagTargets[i]), toStringTagKey,
     Value.FromString(table.CreateString(Units(tagNames[i]))));

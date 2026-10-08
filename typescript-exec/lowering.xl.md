@@ -1299,7 +1299,8 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成，不会把同一层�
 **「这一趟降的构造函数是不是一个类的」**（第 613 轮）——`null` 表示「不是」。
 
 **为什么必须在进 `LowerFunctionValue` 之前挂上**：那一趟里就发了 `new_closure`，
-而 `EmitClosure` 在**那一刻**就把「这是不是一个类」拼进第四格（`item.Arity * 2 + 1`）
+而 `EmitClosure` 在**那一刻**就把「这是不是一个类」拼进第四格
+（第 730 轮起那一位与「生成器」「`async`」两位一起拼，见 `EmitClosure` 那一段）
 ——**事后补补不上**（与 `SuperName` 不同：那一位到**降级函数体那一趟**才被读）。
 所以照 `FunctionNameHint` 那个形状：进门前挂上、出门就还原（`LowerClass` 一处写、一处还原）。
 
@@ -2398,15 +2399,21 @@ item.Patch = this.Program().AddConst(Constant.OfInt(0));
 const nameConst = item.Name === ""
   ? this.Program().AddConst(Constant.OfUndefined())
   : this.Program().AddConst(Constant.OfString(UnitsOf(item.Name)));
-// **第四格：形参个数，最低三位借给三个标记**（第 613 / 620 / 709 轮）——
-// `MakeClosure`（`vm.xl.md`）把这三位摘掉之后再交给闭包那一格。
+// **第四格：形参个数，最低五位借给五个标记**（第 613 / 620 / 709 / **730** 轮）——
+// `MakeClosure`（`vm.xl.md`）把这五位摘掉之后再交给闭包那一格。
 // **为什么借这一格**：`new_closure` 的五个操作数已经排满了（环境 / code / 名字 /
 // 形参 / 源码），加第六格要同时改枚举、验证层与四个目标；而这几样东西的来处
 // **本来就是同一处**（都在这里、都只在那一次求值时定死）。
 // **代价写在 `MakeClosure` 那一段**：第四格从此不是形参个数本身。
 // **位 1 / 2 / 4**（第 709 轮把「松散普通函数」那一位也拼了进来，于是**步长 4 → 8**）。
-const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 8
-  + (item.IsClass ? 1 : 0) + (item.IsStrict ? 2 : 0) + (item.HasRestricted ? 4 : 0)));
+// **位 8 / 16**（第 730 轮把「生成器」「`async`」两位也拼了进来，于是**步长 8 → 32**）：
+// 它们决定 `MakeClosure` 给这个闭包挑哪个原型——`[object GeneratorFunction]` 那一族
+// 标签与 `.constructor.name` 都从那一格原型来（见 `vm.xl.md` 挑原型那一段）。
+// **`item.IsGenerator` / `item.IsAsync` 在这里一定是好的**：`LowerFunctionValue`
+// 在调这一处之前就把它们从树上读好落进 `item` 了（与 `IsClass` / `IsStrict` 同一处）。
+const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 32
+  + (item.IsClass ? 1 : 0) + (item.IsStrict ? 2 : 0) + (item.HasRestricted ? 4 : 0)
+  + (item.IsGenerator ? 8 : 0) + (item.IsAsync ? 16 : 0)));
 const window = this.Reserve(5);
 const enclosing = this.Env.Last();
 if (enclosing === null) {

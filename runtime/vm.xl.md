@@ -5144,16 +5144,20 @@ try {
 没接上时不说谎，只是不特殊）。
 
 ```ts
-// **第四格的最低三位是「这是一个类」「这是严格代码」「这是松散普通函数」**
-//（第 613 / 620 / 709 轮，见上面那一段）。
+// **第四格的最低五位是「这是一个类」「这是严格代码」「这是松散普通函数」
+// 「这是生成器」「这是 async」**（第 613 / 620 / 709 / **730** 轮，见上面那一段）。
 // **第三位（值 4）是第 709 轮添的**：它决定这个闭包带不带 `arguments` / `caller`
-// 那两格「受限属性」（`HeapClosure.HasRestricted`）——位宽从两位加到三位，
-// 于是形参个数那一半的**步长从 4 变成 8**（降级层 `EmitClosure` 那一处**同步**改，
+// 那两格「受限属性」（`HeapClosure.HasRestricted`）。
+// **第四、五位（值 8 / 16）是第 730 轮添的**：`HeapClosure.IsGenerator` / `IsAsync`，
+// 它们决定**这个函数值的原型是哪一格**（见下面挑原型那一段）——位宽从三位加到五位，
+// 于是形参个数那一半的**步长从 8 变成 32**（降级层 `EmitClosure` 那一处**同步**改，
 // 两边是同一份规约的两半）。
 const isClass = (arity & 1) !== 0;
 const isStrict = (arity & 2) !== 0;
 const isRestricted = (arity & 4) !== 0;
-const paramCount = (arity - (arity & 7)) / 8;
+const isGenerator = (arity & 8) !== 0;
+const isAsync = (arity & 16) !== 0;
+const paramCount = (arity - (arity & 31)) / 32;
 const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code,
   paramCount, 0));
 // **`Guard` 可能什么都没造出来**（room 不够时它把状态置成 `OutOfMemory` 并给 `undefined`）——
@@ -5174,9 +5178,41 @@ if (isRestricted) {
   // 与 `Object.getOwnPropertyNames` 各要问它一次（见 `HeapClosure.HasRestricted`）。
   this.Table.Get(created.Ref).AsClosure().HasRestricted = true;
 }
+if (isGenerator) {
+  // **生成器那一位落进闭包自己那一格**（第 730 轮）：`inspect.xl.md` 印
+  // `[GeneratorFunction: g]` 就是读它；底下挑原型那一趟也要它。
+  this.Table.Get(created.Ref).AsClosure().IsGenerator = true;
+}
+if (isAsync) {
+  // **`async` 那一位**（第 730 轮）：与生成器那一位**挨着**，两处一起读。
+  this.Table.Get(created.Ref).AsClosure().IsAsync = true;
+}
 const protos = this.Protos;
 if (protos !== null && protos.Function > 0) {
-  this.Table.Get(created.Ref).Proto = protos.Function;
+  // **这个函数值以哪个原型出生**（第 730 轮）——**JS 里是哪一档、就看这两位**：
+  // `function*` 的原型是 `%GeneratorFunction.prototype%`、`async function` 是
+  // `%AsyncFunction.prototype%`、`async function*` 是**第三个**
+  // `%AsyncGeneratorFunction.prototype%`，其余才是 `Function.prototype`。
+  //
+  // **为什么这件事不能「反正都是函数」**：`Object.prototype.toString` 的标签
+  // **只**从「原型链上那一格 `Symbol.toStringTag`」来（规范的第一步就是取 `@@toStringTag`）——
+  // 本仓原来所有闭包**一律**指 `Function.prototype` ⇒ 四档全给 `"[object Function]"`
+  // （**静默错值**：`function* g(){}` 在 Node 里是 `"[object GeneratorFunction]"`）。
+  // `.constructor.name`（给 `"GeneratorFunction"` 那一格）也在这条链上，
+  // 所以**改原型一处，两个症状一起收**。
+  //
+  // **没有那一格时退回 `Function`**（与 `DoNew` 的 `Object` 那一格同一条口径：
+  // 没接上时不说谎、只是不特殊）——`protos` 是**语言层填的**，
+  // 手工造的 `Protos`（`tests/runtime/check.mjs` 那几处）里它们是 `0`。
+  let functionProto = protos.Function;
+  if (isGenerator && isAsync && protos.AsyncGeneratorFunction > 0) {
+    functionProto = protos.AsyncGeneratorFunction;
+  } else if (isGenerator && protos.GeneratorFunction > 0) {
+    functionProto = protos.GeneratorFunction;
+  } else if (isAsync && protos.AsyncFunction > 0) {
+    functionProto = protos.AsyncFunction;
+  }
+  this.Table.Get(created.Ref).Proto = functionProto;
 }
 // **名字那一格**：只有真给了字符串才写——`undefined` 保持**匿名**
 //（`Name` 那一格的约定是「句柄 0 表示匿名」，所以这里不能拿 `undefined` 的
