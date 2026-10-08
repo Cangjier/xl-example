@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, PropertyKind } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
+import { RoomChecker, TextUnitsOf, RtToString, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
 import { HostTextUnits, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { GetProperty, NativeCall, Protos, FindProperty, NeverRoom } from "../../runtime/props.xl.md"
 ```
@@ -147,6 +147,33 @@ return text === "-0" ? "0" : text;
 ```ts
 if (value.Tag === ValueTag.Float64) return HostTextUnits(NumberToJsText(value.Dbl));
 return TextUnitsOf(table, value);
+```
+
+# method PropertyKeyValue:(room:RoomChecker, table:HeapTable, key:Value)=>Value
+
+**`ToPropertyKey`：任意值 → 属性键**（第 706 轮）——**符号留着、其余 `ToString`**。
+
+**为什么要有这一格**：这条口径在本仓原来**长得满地都是**——
+`vm.xl.md` 的 `get_index` / `set_index` / `in` 各写了一遍「是符号就原样、否则 `RtToString`」，
+`install.xl.md` 的 `set_hidden` / `define_data` 又各写了一遍，
+而**收得最紧的那几处**（`Object.defineProperty` 的闸门、`delete` 的目标）**一遍都没写**：
+`Object.defineProperty(o, 1, …)` 与 `Object.defineProperty(o, { toString() { return "k"; } }, …)`
+**响亮地抛**（一句话里没有一个字提到「数字键」），而 JS 那一步是 `ToPropertyKey`
+（判据 `p706b-d01` / `p706b-d09`）。**一条口径、一个落点**之后，
+「哪一处忘了走它」就变成**看得见**的一件事。
+
+**为什么落在这一层**：它是「值 → 文本」那一族（与 `JsTextUnits` 同一句 `ToString`），
+而引擎不许做 `ToString` 的对象那一半（`rt.xl.md` 的 `TextUnitsOf` 明写：对象要 `ToPrimitive`，
+那是建库层的事）。**引擎里那几处仍走引擎自己的 `RtToString`**——
+它们手上没有 `JsTextUnits`，而且那几处的键本来就不会是对象以外的东西。
+**两边是同一条语义**（对象都落在「调它自己的 `toString`」上），所以这里不新造第二条。
+
+**`Symbol` 原样返回**（身份，不许字符串化）：字符串化会与同名的字符串键**撞上**——
+`o[Symbol("k")] = 1; o["k"] = 2` 在 JS 里是**两格**。
+
+```ts
+if (key.Tag === ValueTag.Symbol) return key;
+return RtToString(room, table, key);
 ```
 
 # const TextMaxDepth:int = 64

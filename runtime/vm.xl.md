@@ -2935,7 +2935,24 @@ if (id === RtOp.Instanceof) {
 if (id === RtOp.DelProp) {
   RequireArgc(argc, 2, "del_prop");
   if (!slots[base].IsObject()) throw new Error("unimplemented: delete on a primitive receiver");
-  return Value.FromBool(DeleteProperty(this.Table, slots[base].Ref, slots[base + 1]));
+  // **键先过 `ToPropertyKey`**（第 706 轮，**普查当场红的**）——与上面 `in` 那一格
+  // **一字不差**（第 123 轮就写着「JS 的 `in` 也走 ToPropertyKey」）：
+  // `delete o[1]` 里键是一**个数**、`delete o[k]`（`k` 是 `"1"`）里是一**段文本**，
+  // 而 `props.xl.md` 的 `KeyMatches` 见到别的键**当场抛**
+  //「property keys must be strings or symbols」——**整份文件进不来**
+  //（判据 `p706b-e01` / `p706b-e02` / `p706b-e06` / `p706b-e07`）。
+  //
+  // **同一个根在 `get_index` / `set_index` 那两处第 190 / 191 / 305 轮就收过了**：
+  // 读得到、写得了、却**删不掉**，是这条链上唯一漏掉的一环（`delete` 那一支第 92 轮
+  // 只补了「降级这一支」，没补「键怎么归一」）。
+  // **数组元素仍然照删**：`DeleteProperty` 自己认数字下标键（`ArrayIndexAt`），
+  // 而 `"1"` 与 `1` 在它眼里是同一格——归一之后行为不变，变的只有「对象键不再抛」。
+  // **符号键原样**（身份，不许字符串化——与 `in` / `get_index` / `set_index` 同一句）。
+  const rawDelKey = slots[base + 1];
+  const delKey = rawDelKey.Tag === ValueTag.Symbol
+    ? rawDelKey
+    : RtToString(this.Room(), this.Table, rawDelKey);
+  return Value.FromBool(DeleteProperty(this.Table, slots[base].Ref, delKey));
 }
 if (id === RtOp.GetIndex) {
   RequireArgc(argc, 2, "get_index");

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7118,
+  "total": 7251,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.73,
+  "progressPercent": 95.75,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1720,
-      "pass": 1675,
-      "blocked": 9,
-      "differ": 36,
+      "total": 1853,
+      "pass": 1804,
+      "blocked": 11,
+      "differ": 38,
       "nodefail": 0,
-      "coverage": 97.38
+      "coverage": 97.36
     },
     {
       "category": "runtime",
@@ -111,11 +111,11 @@
       "category": "stdlib",
       "weight": 0.2,
       "total": 2934,
-      "pass": 2846,
+      "pass": 2850,
       "blocked": 31,
-      "differ": 57,
+      "differ": 53,
       "nodefail": 0,
-      "coverage": 97
+      "coverage": 97.14
     },
     {
       "category": "e2e",
@@ -1488,6 +1488,18 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
     },
     {
+      "id": "exec/round706/p706b-d09",
+      "category": "exec",
+      "title": "defineProperty 的键是对象时走 ToPropertyKey",
+      "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
+    },
+    {
+      "id": "exec/round706/p706c-x12",
+      "category": "exec",
+      "title": "defineProperty 对象键走 toString",
+      "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
+    },
+    {
       "id": "exec/statements/060-hoisting-tdz",
       "category": "exec",
       "title": "函数声明提升、`let` 的 TDZ",
@@ -1934,6 +1946,18 @@
       "detail": "stdout 不同：第 1 行：node «start,1,fin,caught» vs tsrun «start,1,caught»"
     },
     {
+      "id": "exec/round706/p706b-d08",
+      "category": "exec",
+      "title": "getOwnPropertyDescriptor 数字键",
+      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
+    },
+    {
+      "id": "exec/round706/p706c-x20",
+      "category": "exec",
+      "title": "lookupGetter 自己的名字与长度",
+      "detail": "stdout 不同：第 1 行：node «string:__lookupGetter__,number:1» vs tsrun «undefined,undefined»"
+    },
+    {
       "id": "exec/statements/probe693b-s30",
       "category": "exec",
       "title": "(function () { for (let i = 0; i < 1; i++) { function g() { return 1; } } return typeof g; })()",
@@ -2033,7 +2057,7 @@
       "id": "stdlib/array/144-define-on-array-index",
       "category": "stdlib",
       "title": "数组下标上的数据属性改写（与访问器那一档分开量）",
-      "detail": "stdout 不同：第 1 行：node «9 3 [1,9,3] 0,1,2» vs tsrun «2 3 [1,2,3] 0,1,2»"
+      "detail": "stdout 不同：第 2 行：node «0,2 9 [1,9,3]» vs tsrun «0,2 undefined [1,null,3]»"
     },
     {
       "id": "stdlib/array/145-array-tostring-join-dynamic",
@@ -2093,7 +2117,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27244/src/4480.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27220/src/4613.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2117,7 +2141,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27244/src/4530.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27220/src/4663.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2192,12 +2216,6 @@
       "detail": "stdout 不同：第 1 行：node «1,234.5 1234.5» vs tsrun «[object Number] 1234.5»"
     },
     {
-      "id": "stdlib/object/118-names-object-proto",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Object.prototype 的成员（缺 6 个）",
-      "detail": "stdout 不同：第 1 行：node «object __defineGetter__ function» vs tsrun «object __defineGetter__ undefined»"
-    },
-    {
       "id": "stdlib/object/122-names-function-proto",
       "category": "stdlib",
       "title": "名字逐个取一次：Function.prototype 的成员（缺 2 个）",
@@ -2246,18 +2264,6 @@
       "detail": "stdout 不同：第 1 行：node «number:3» vs tsrun «throw:TypeError»"
     },
     {
-      "id": "stdlib/object/probe694-o19",
-      "category": "stdlib",
-      "title": "(function () { const a = [1, 2]; Object.defineProperty(a, 0, { value: 9 }); return a.join(\",\"); })()",
-      "detail": "stdout 不同：第 1 行：node «string:9,2» vs tsrun «throw:Error»"
-    },
-    {
-      "id": "stdlib/object/probe694-o22",
-      "category": "stdlib",
-      "title": "(function () { const a = [1, 2]; return a.hasOwnProperty(0) + \",\" + a.hasOwnProperty(2); })()",
-      "detail": "stdout 不同：第 1 行：node «string:true,false» vs tsrun «string:false,false»"
-    },
-    {
       "id": "stdlib/object/probe694-o27",
       "category": "stdlib",
       "title": "(function () { return Object.assign([], [1, 2]).length; })()",
@@ -2274,12 +2280,6 @@
       "category": "stdlib",
       "title": "(function () { const o = { toString: () => \"k\" }; return { [o]: 1 }.k; })()",
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:Error»"
-    },
-    {
-      "id": "stdlib/object/probe698-c09",
-      "category": "stdlib",
-      "title": "(function () { const xs = [1, 2, 3]; Object.defineProperty(xs, \"1\", { value: 9 }); return [xs[1], xs.length, Object.keys(xs).join(\",\")].join(\"|\"); })()",
-      "detail": "stdout 不同：第 1 行：node «string:9|3|0,1,2» vs tsrun «string:2|3|0,1,2»"
     },
     {
       "id": "stdlib/object/probe703-o-a38",

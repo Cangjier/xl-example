@@ -4,11 +4,11 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagsAll } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue, FunctionSourceText } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
-import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
-import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox } from "./text.xl.md"
+import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue } from "./text.xl.md"
 import { InspectText, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
 import { SetCtor, WeakSetCtor } from "./set.xl.md"
@@ -389,6 +389,51 @@ Node 上它是一个**函数**，所以这里也收成一格可调用的宿主�
 `Object.setPrototypeOf(o, 1)` 抛 `TypeError`、而 `o.__proto__ = 1` **静默不做事**；
 `Object.setPrototypeOf(1, {})` 抛、而 `1 .__proto__ = {}` **静默不做事**。
 所以这一支**自己不抛**，只把那两档筛掉之后交给 `RtSetProto`（`null` 那一档在那边刚补上）。
+
+# const ObjectLookupGetter:int = 507
+
+**`Object.prototype.__lookupGetter__(键)`**（第 706 轮）——B.2.2.4 那个**老访问器辅助**
+（`__lookupGetter__` / `__lookupSetter__` / `__defineGetter__` / `__defineSetter__` 四格）。
+
+**它们不在 ES 的主线里**（Annex B 的「附加属性」），但在**每个引擎里都在**，
+而且 Node 上 `Object.getOwnPropertyNames(Object.prototype)` 就列着这四个名字
+——所以「这一族在不在」是一条**普通的名字判据**：用例
+`stdlib/object/118-names-object-proto.ts` 原来登的六处差额里，四处就是它们
+（另两处 `__proto__` / `toLocaleString` 第 697 / 689 轮各收掉一格）。
+
+**号为什么落在这里**（`507`）：`500` 那一段只有 `501..506`
+（JSON 两格 + `Date.toJSON` + `toLocaleString` + `__proto__` 那一对），
+而 `600..699` 是 `Map` / `Set`、`700..799` 是**对象辅助函数那一段**
+（`install.xl.md` 的 `InvokeObjectHelper` 先接走）——都进不来。
+
+**实现不是第二份算法**：`__lookupGetter__` 的正身就是
+「取 `[[GetOwnProperty]]`，是访问器就返回它的 `[[Get]]`」——本仓那一趟**已经有了**
+（`ObjectGetOwnPropertyDescriptor`，第 276 轮）。所以这一格只是**问它、再取一格**
+（`__lookupSetter__` 同一支、取另一格：`508` 与它成对）。
+
+# const ObjectLookupSetter:int = 508
+
+**`Object.prototype.__lookupSetter__(键)`**（第 706 轮）——与 `507` **共用一支**，
+只有「取描述符的哪一格」不同。
+
+# const ObjectDefineGetter:int = 509
+
+**`Object.prototype.__defineGetter__(键, 函数)`**（第 706 轮）——与 `__lookupGetter__` 成对。
+
+**语义照规范**：`RequireObjectCoercible(O)` → `ToPropertyKey(P)` →
+`IsCallable(getter)` 为假就抛 `TypeError` → 在**接收者自己**身上造一格**可枚举、可配置**的
+访问器（`Enumerable` / `Configurable` 都为真，`[[Get]]` 是那个函数）。
+
+**挂法与 `__proto__` 那一格同一条**：`SetProperty` 造的是**数据属性**、造不出访问器，
+所以这一处走 `DefineAccessor`（第 613 / 697 轮踩过两次的同一个坎）。
+**`DefineAccessor` 的最后一格就是 `enumerable`**——给 `true`，与 JS 一致
+（`__defineGetter__` 造出来的那一格 `Object.keys` **看得见**，与 `Object.defineProperty`
+的缺省**正好相反**，这是最容易抄错的一处）。
+
+# const ObjectDefineSetter:int = 510
+
+**`Object.prototype.__defineSetter__(键, 函数)`**（第 706 轮）——与 `509` **共用一支**，
+只有「造 `[[Get]]` 还是 `[[Set]]`」不同。
 
 # const ObjectDefineProperties:int = 413
 **`Object.defineProperties(对象, 描述符表)`**（第 276 轮）——一趟写多格。
@@ -1967,7 +2012,13 @@ const stringTarget = value.Tag === ValueTag.String;
 const ownItem = stringTarget ? null : table.Get(value.Ref);
 const indexPositions = IndexKeyPositions(table, value);
 const names: string[] = [];
-for (let i = 0; i < indexPositions.length; i++) names.push("" + indexPositions[i]);
+// **被不可枚举的那一格压住的下标不算键**（第 706 轮）：`IndexKeyPositions` 只看
+// 「元素区在不在」，而 `Object.defineProperty([], 0, { value: 5 })` 造的那一格
+// **在 `Props` 里、不可枚举**（见 `IndexKeyShadowed` 那一段的账）。
+for (let i = 0; i < indexPositions.length; i++) {
+  if (IndexKeyShadowed(table, value, indexPositions[i])) continue;
+  names.push("" + indexPositions[i]);
+}
 const intNames: string[] = [];
 const plainNames: string[] = [];
 if (ownItem !== null) {
@@ -2352,6 +2403,35 @@ if (target.Tag === ValueTag.String) {
   return positions;
 }
 return positions;
+```
+
+# method IndexKeyShadowed:(table:HeapTable, target:Value, at:int)=>bool
+
+**数组第 `at` 格是不是被 `Props` 里同名的那一格「压住」了**（第 706 轮）——
+即 `Object.defineProperty(数组, 下标, { … })` 里那些**不可枚举**的落点。
+
+**为什么需要这一格**：元素区（`HeapArray` 的 `Elements` / `Holes`）**没有逐格标志位**，
+而 `Object.defineProperty([], 0, { value: 5 })` 在 JS 里造的是**不可枚举**的一格
+（缺省 `enumerable: false`）——它**照样把 `length` 顶到 `1`**，却**不进 `Object.keys`**。
+所以「下标在不在」与「下标算不算可枚举键」在这一层是两个问题：
+前者看两摞（`IndexKeyPositions` 那一趟 + 属性表），**后者看这一格**。
+
+**同一条判据两处要用**：`OwnEnumerableKeyTexts`（`Object.keys` / `for..in` 的键表）
+与 `ObjectGetOwnPropertyDescriptor`（读那一格的标志位是 `Props` 说了算）——
+抄一份就是两处会漂的答案。
+
+```ts
+if (target.Tag !== ValueTag.Array) return false;
+const shadowed = table.Get(target.Ref).Props;
+for (let i = 0; i < shadowed.length; i++) {
+  if (table.Get(shadowed[i].Key).Tag !== ValueTag.String) continue;
+  if (!IsIndexKeyText(TextFrom(table, Value.FromString(shadowed[i].Key)))) continue;
+  if (Number(TextFrom(table, Value.FromString(shadowed[i].Key))) !== at) continue;
+  // **只有「不可枚举」那一格才算压住**：可枚举的落点本来就在元素区那一摞里
+  //（`defineProperty` 那一支按这个标志分流），两边不会同时存在。
+  return !shadowed[i].IsEnumerable();
+}
+return false;
 ```
 
 # method IndexKeyValueAt:(room:RoomChecker, table:HeapTable, target:Value, index:int)=>Value
@@ -3009,6 +3089,21 @@ if (id === ObjectHasOwnProperty) {
     && (TextFrom(table, askedKey) === "length" || TextFrom(table, askedKey) === "name")) {
     return Value.FromBool(true);
   }
+  // **数组的下标也是自有属性**（第 706 轮，**普查当场红的**）：元素**不住在 `Props` 里**
+  // （在 `Elements` 上），所以下面那一趟扫描**一格都碰不到它** ⇒ `[7].hasOwnProperty(0)`
+  // 答**假**，而 JS 答**真**（判据 `p706c-x07`：node 给 `true,true`、本仓给 `true,false`）。
+  // **与字符串那一支同一个做法**：问 `getOwnPropertyDescriptor`——
+  // 它那一支早就收下标键（数组元素 / 字符串码元 / 洞与越界给 `undefined`），
+  // 「不是自有属性」的判据就是**它给 `undefined`**。
+  // **两档共用一个答案**，不另写一份「哪些键算数组的自有属性」的名单。
+  // **`Object.hasOwn` 那一支早就是对的**（它走的是同一条路）——
+  // 所以这一处的症状正是「同一个问题两个答案」里那个错的。
+  if (self.Tag === ValueTag.Array && IsIndexKeyText(TextFrom(table, askedKey))) {
+    const arrayDescriptor = InvokeGlobal(room, call, table, protos, ObjectGetOwnPropertyDescriptor,
+      self, [self, askedKey],
+      sink, failed, false);
+    return Value.FromBool(!arrayDescriptor.IsNullish());
+  }
   if (self.Tag !== ValueTag.Object && self.Tag !== ValueTag.Array) return Value.FromBool(false);
   const ownProps = table.Get(self.Ref).Props;
   for (let i = 0; i < ownProps.length; i++) {
@@ -3367,6 +3462,91 @@ if (id === ObjectValueOf) {
   // **返回接收者自己**（第 198 轮，与 `NumberValueOf` 同一条口径）——
   // `Object.prototype.valueOf` 是 JS 里最"空"的一个方法，而它**永远是对的**。
   return self;
+}
+if (id === ObjectLookupGetter || id === ObjectLookupSetter) {
+  // **`Object.prototype.__lookupGetter__(键)` / `__lookupSetter__(键)`**（第 706 轮）——
+  // Annex B 那两个老辅助。**它们不是第二份算法**：规范里那一格的正身就是
+  // 「取 `[[GetOwnProperty]]`，是访问器就交回它的 `[[Get]]`（`[[Set]]`）」，
+  // 而本仓那一趟**已经有了**（`ObjectGetOwnPropertyDescriptor`，第 276 轮）——
+  // 所以这里只问它、再取一格（与 `Object.hasOwn` 那一支复用同一支是同一条先例：
+  // 「一个问法的两半走同一处取法」）。
+  //
+  // **它答的是 `undefined`**（不是抛）：那一格不是访问器（数据属性 / 根本不存在）时，
+  // JS 给的就是 `undefined`——`Object.create(null)` 的 `{}` 与数组下标都走这一档。
+  if (args.length < 1) return Value.Undefined();
+  // **接收者与 `hasOwnProperty` 那一支同一个闸门**（第 691 轮）：JS 在这一步先做
+  // `RequireObjectCoercible` —— `Object.prototype.__lookupGetter__.call(null)` 给
+  // `TypeError: Cannot convert undefined or null to object`，不是 `undefined`。
+  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+    throw new TypeError("Cannot convert undefined or null to object");
+  }
+  // **键先过 `ToPropertyKey`**（第 706 轮，与 `defineProperty` 那一处同一条）：
+  // `o.__lookupGetter__(1)` 与 `(…, "1")` 问的是**同一格**。
+  const lookupKey = PropertyKeyValue(room, table, args[0]);
+  const lookupName = id === ObjectLookupGetter ? "get" : "set";
+  // **这一问要沿原型链走**（第 706 轮，**普查当场红的**）：规范 B.2.2.4 的算法是
+  // `Repeat`：取 `O.[[GetOwnProperty]](P)`，**是访问器就返回它、否则 `O = O.[[Prototype]]`**，
+  // 一路到 `null` 为止。第一版只问了**自有**那一格（`getOwnPropertyDescriptor` 的口径），
+  // 于是 `Object.create({ get g() {} }).__lookupGetter__("g")` 给 `undefined`、
+  // 而 JS 给那个 getter（判据 `p706c-x24`）。
+  // **每一层都按「自有」问**：那一支找到 `Owner !== receiver.Ref` 就答 `undefined`，
+  // 正好是「这一层有没有」，所以走链这件事由这里做、不自写一份查找。
+  let lookupOwner = self;
+  let lookupResult = Value.Undefined();
+  let lookupDone = false;
+  let lookupDepth = 0;
+  while (!lookupDone && lookupOwner.IsObject()) {
+    if (lookupDepth > 64) throw new Error("prototype chain is too deep");
+    const lookupDescriptor = InvokeGlobal(room, call, table, protos, ObjectGetOwnPropertyDescriptor,
+      lookupOwner, [lookupOwner, lookupKey],
+      sink, failed, false);
+    // **不是访问器 ⇒ 继续往上**（数据属性、洞、越界 全是这一档；`undefined` 也是）。
+    if (!lookupDescriptor.IsNullish() && lookupDescriptor.IsObject()) {
+      const accessor = GetProperty(room, NeverCall, protos, table, lookupDescriptor, NameValue(table, lookupName));
+      // **读到 `get` / `set` 两格里的任何一格就算找到了**（规范那一句是
+      // 「有 `[[Get]]` 就返回它」）：只读访问器的 `set` 那一格是 `undefined`，
+      // 而 JS 在 `__lookupSetter__` 上**答的就是 `undefined` 并且停住**。
+      if (!accessor.IsNullish()) {
+        lookupResult = accessor;
+        lookupDone = true;
+      }
+    }
+    if (!lookupDone) lookupOwner = PrototypeOfValue(protos, table, lookupOwner);
+    lookupDepth = lookupDepth + 1;
+  }
+  return lookupResult;
+}
+if (id === ObjectDefineGetter || id === ObjectDefineSetter) {
+  // **`Object.prototype.__defineGetter__(键, 函数)` / `__defineSetter__`**（第 706 轮）——
+  // 与上面两格成对。语义照规范（B.2.2.2 / B.2.2.3）：
+  // `RequireObjectCoercible(O)` → `ToPropertyKey(P)` → 那一格不是函数就抛 `TypeError`
+  // → 在**接收者自己**身上造一格**可枚举、可配置**的访问器。
+  if (args.length < 2) {
+    throw new TypeError("__defineGetter__ needs (property key, function)");
+  }
+  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+    throw new TypeError("Cannot convert undefined or null to object");
+  }
+  // **接收者必须是对象**：`__defineGetter__` 要给**接收者自己**造一格，
+  // 而原始值的箱是**一次性的**（造在那上面等于什么都没做）——
+  // `DefineAccessor` 本来就是这么抛的，这一句只是把话说在前面。
+  if (!self.IsObject()) {
+    throw new TypeError("__defineGetter__ needs an object receiver");
+  }
+  const defineFn = args[1];
+  if (!IsCallableValue(table, defineFn)) {
+    throw new TypeError("__defineGetter__ needs a callable function");
+  }
+  const accessorKey = PropertyKeyValue(room, table, args[0]);
+  // **必须走 `DefineAccessor`**（第 613 / 697 轮踩过两次的同一个坎）：
+  // `SetProperty` 造的是**数据属性**，造不出访问器。
+  // **第七格给 `true`**：JS 里 `__defineGetter__` 造的那一格**可枚举**
+  //（`Object.keys(o)` 看得见它）——这与 `Object.defineProperty` 的缺省**正好相反**，
+  // 是这一族最容易抄错的一处（`DefineAccessor` 的缺省恰好就是 `true`，照写即可）。
+  const defineGetter = id === ObjectDefineGetter ? defineFn : Value.Undefined();
+  const defineSetter = id === ObjectDefineSetter ? defineFn : Value.Undefined();
+  DefineAccessor(room, table, self, accessorKey, defineGetter, defineSetter, true);
+  return Value.Undefined();
 }
 if (id === ObjectToString || id === ObjectToLocaleString) {
   // **`toLocaleString` 与 `toString` 走同一支**（第 689 轮）：规范里
@@ -3939,11 +4119,24 @@ if (id === ObjectDefineProperty) {
   //（`FindProperty` / `Property.Accessor` / `new Property` 三处都吃它），而符号值在堆里
   // **就是** `ValueTag.Symbol + 句柄`（与 `getOwnPropertySymbols` 那一支同一个形状）
   // ⇒ 缺的只是这一格闸门，不是「符号键的属性不存在」。**窄的是闸门，不是数据**。
-  if (args.length < 3 || !args[0].IsObject()
-    || (args[1].Tag !== ValueTag.String && args[1].Tag !== ValueTag.Symbol) || !args[2].IsObject()) {
+  // **键再收一道 `ToPropertyKey`**（第 706 轮，**普查当场红的**）：
+  // JS 那一步是 `ToPropertyKey`——`Object.defineProperty(o, 1, …)` 与
+  // `Object.defineProperty(o, { toString() { return "k"; } }, …)` 都**合法**，
+  // 而这里原来只收字符串 / 符号两种标签 ⇒ **数字键与对象键响亮地抛**
+  //（`unimplemented: Object.defineProperty needs (object, string or symbol key, …)`——
+  //  一句话里没有一个字提到「数字键」；判据 `p706b-d01` / `p706b-d02` / `p706b-d09`）。
+  // **同一个形状在隔壁早有答案**：`getOwnPropertyDescriptor` 那一支第 692 轮就收数字键了
+  //（`Object.hasOwn([1], 0)` 第 691 轮、`o.hasOwnProperty(1)` 更早）——
+  // 而 `defineProperty` 是**写**那一侧，写不进一格比读不出一格更难被发现。
+  // 转换**不新写一份**：走 `PropertyKeyValue`（`text.xl.md`，就是 `ToPropertyKey` 那一句）。
+  if (args.length < 3 || !args[0].IsObject() || !args[2].IsObject()) {
     throw new Error("unimplemented: Object.defineProperty needs (object, string or symbol key, descriptor object)");
   }
-  DefineOwnFromDescriptor(room, table, args[0], args[1], args[2]);
+  const defineKey = PropertyKeyValue(room, table, args[1]);
+  if (defineKey.Tag !== ValueTag.String && defineKey.Tag !== ValueTag.Symbol) {
+    throw new Error("unimplemented: Object.defineProperty needs (object, string or symbol key, descriptor object)");
+  }
+  DefineOwnFromDescriptor(room, table, args[0], defineKey, args[2]);
   // **返回的还是那个对象**（JS 的口径）。
   return args[0];
 }
@@ -4047,6 +4240,30 @@ if (id === ObjectGetOwnPropertyDescriptor) {
       if (at < items.GetLength() && !items.IsHole(at)) {
         element = items.GetAt(at);
         present = true;
+      }
+      // **不可枚举的那一格由 `Props` 说了算**（第 706 轮）：元素区没有标志位，
+      // 而 `Object.defineProperty([], 0, { value: 5 })` 造的那一格在 `Props` 里
+      // （三标志全假）——上面那一趟看元素区会答「三个全真」，那是**静默错值**
+      //（判据 `p706f-w03`：node 给 `enumerable=false`、本仓给 `true`）。
+      // 判据与 `Object.keys` 那一趟**共用 `IndexKeyShadowed`**：一处说「不算可枚举键」、
+      // 另一处说「标志位按属性表答」，两句话说的是同一格。
+      if (IndexKeyShadowed(table, receiver, at)) {
+        const shadowFound = FindProperty(room, table, receiver.Ref, ownKey);
+        if (shadowFound !== null && shadowFound.Owner === receiver.Ref) {
+          const shadowProperty = table.Get(receiver.Ref).Props[shadowFound.Index];
+          if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
+          const shadowDescriptor = NewPlainObject(room, table, protos);
+          // **数据那一档**：`defineProperty` 的访问器落点走的是上面那一支
+          //（「下标 + 访问器」在 JS 里不动 `length`），所以这里只可能是数据属性。
+          SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "value"), shadowProperty.Value);
+          SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "writable"),
+            Value.FromBool((shadowProperty.Flags & PropertyFlagWritable) !== 0));
+          SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "enumerable"),
+            Value.FromBool((shadowProperty.Flags & PropertyFlagEnumerable) !== 0));
+          SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "configurable"),
+            Value.FromBool((shadowProperty.Flags & PropertyFlagConfigurable) !== 0));
+          return shadowDescriptor;
+        }
       }
     } else if (receiver.Tag === ValueTag.String) {
       elementUnits = table.Get(receiver.Ref).AsString().Units;
@@ -5509,6 +5726,64 @@ if (existing !== null && existing.Owner === target.Ref) {
 }
 if (!room(PropertyCharge)) throw new Error("out of room");
 if (!defineTarget.Extensible) throw cannotDefineOn();
+// **数组元素是另一摞**（第 706 轮，**普查当场红的**）：`[[DefineOwnProperty]]` 在数组上
+// 走的是**元素那一趟**（`OrdinaryDefineOwnProperty` 里 `IsArrayIndex` 那一支）：
+// `Object.defineProperty([], 0, { value: 5 })` 在 JS 里给 `[5]`（**`length` 跟着长到 1**），
+// 而这里原来把它当**普通属性**写进 `Props` ⇒ `a.length` 还是 `0`、`a[0]` 是 `undefined`、
+// `JSON.stringify(a)` 给 `[]`（判据 `p706c-x08`：node 给 `[5]`、本仓给 `[]`）。
+// **`Object.getOwnPropertyNames` 也看得出这个差别**（Node 给 `0|length`，本仓给 `length|0`）。
+//
+// **判据与 `delete` / `in` 那几处共用 `ArrayIndexAt`**（前导零不算下标、超 `i32` 不算）——
+// 「`"0"` 是不是下标」这件事只有它有答案，另写一份就是第二处会漂的答案。
+//
+// **只有「可枚举」那一档才落进元素区**（第 706 轮，**本轮第二个当场红**）：
+// 元素区**没有逐格的标志位**（`HeapArray` 只有 `Elements` 与 `Holes` 两摞宿主数组），
+// 而 `Object.keys` 的两条路在那儿合流——`IndexKeyPositions` 把**在的每一格**都算成下标键，
+// 于是 `Object.defineProperty([], 0, { value: 5 })`（**缺省 `enumerable: false`**）之后
+// `Object.keys` 给 `["0"]`，而 JS 给 `[]`（判据 `p706e-z03`：`JSON.stringify` 给 `[5]`、
+// `a.length` 给 `1`**都对**，错的只有「算不算可枚举键」）。
+//
+// **两摞都要写**（这是这一轮最后定下来的形状）：
+//   · **元素区那一格一定要写**——下标一旦被定义，**`length` 就要跟着长**
+//     （`Object.defineProperty([], 3, { value: 5 })` 之后 JS 的 `length` 是 `4`），
+//     只写属性表那一摞的话 `length` 不动（**同一次普查里红的两条是同一件事的两半**）；
+//   · **不可枚举的那一档再进 `Props` 一份**——元素区没有标志位，标志位只能住那里。
+//     于是「那一格在不在」由两摞一起答（`in` / `hasOwnProperty` / `delete` 早就是两摞一起看），
+//     而「算不算可枚举键」由 `IndexKeyShadowed` 那一句把元素区那一格筛掉。
+const wantsElementSlot = target.Tag === ValueTag.Array && key.Tag === ValueTag.String;
+const elementAt = wantsElementSlot ? ArrayIndexAt(table, key) : -1;
+if (elementAt >= 0) {
+  // **这一格该不该按「元素」写**：三档，合起来才是 `ValidateAndApplyPropertyDescriptor`
+  // 在数组下标上的落点——
+  //   · 描述符**写明** `enumerable` ⇒ 按它（真 = 元素区，假 = 属性表那一格标志位）；
+  //   · **没写** ⇒ **沿用那一格原来的枚举性**（`Object.defineProperty(xs, "1", { value: 9 })`
+  //     在 JS 里**只改值**：`xs[1]` 给 `9`、`Object.keys(xs)` 还是 `["0","1","2"]`。
+  //     判据 `probe698-c09` 量的就是它——**原来只认「写明了才落元素区」，
+  //     于是没写的那一档把元素改成不可枚举**，`Object.keys` 少了 `"1"`）；
+  //   · 原来**不在**元素区（洞 / 越界）而描述符又没写 `enumerable` ⇒ 缺省**不可枚举**
+  //     （JS 的口径），所以它只进属性表。
+  const items = table.Get(target.Ref).AsArray();
+  const wasElement = elementAt < items.GetLength() && !items.IsHole(elementAt);
+  const slotEnumerable = hasField("enumerable") ? wantsEnumerable : wasElement;
+  // **元素区那一格一定要写**——下标一旦被定义，**`length` 就要跟着长**
+  //（`Object.defineProperty([], 3, { value: 5 })` 之后 JS 的 `length` 是 `4`），
+  // 只写属性表那一摞的话 `length` 不动（**同一次普查里红的两条是同一件事的两半**）。
+  if (!room(ValueCharge)) throw new Error("out of room");
+  items.SetAt(elementAt, fieldOf("value"));
+  table.Recount(target.Ref);
+  if (slotEnumerable) return;
+  // **不可枚举那一档再记一格标志位**（`new Property` 那一趟在下面，与普通键同一条路）：
+  // 元素区没有逐格标志位，所以「算不算可枚举键」只能由 `Props` 里这一份答
+  //（`IndexKeyShadowed` 那一句把元素区那一格筛掉）。
+}
+// **不可枚举那一档落到下面的 `Props`**：那里**有标志位**，于是 `Object.keys` 看不见它、
+// `getOwnPropertyDescriptor` 读得到真标志（那一支最后就是「自有属性表」那一趟）、
+// `in` / `delete` 也照样认（它们两条路一起看）。
+// **代价写在明处**：那一格于是**住在 `Props` 里**，与元素区不在同一摞——
+// 从脚本那一侧看不出来（三条枚举路都两摞一起看），
+// 但「元素区要不要有逐格标志位」是另一件更大的事（它牵动 `HeapArray` 的形状）。
+// **访问器那一支不走这里**（它在上面就返回了）：JS 里给数组下标定义一个访问器
+// 会在那一格上造属性、**不动 `length`**，所以「下标 + 访问器」两条路的落点不同。
 const created = new Property(key.Ref, fieldOf("value"));
 created.Flags = flags;
 defineTarget.Props.push(created);
@@ -7397,6 +7672,23 @@ DefineAccessor(vm.Room(), vm.Table, Value.FromObject(protos.Object),
   Value.FromString(table.CreateString(Units("__proto__"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectProtoGet, 0)),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectProtoSet, 0)), false);
+// **`__lookupGetter__` / `__lookupSetter__` / `__defineGetter__` / `__defineSetter__`**
+// （第 706 轮）：与上面七格**同一条路**（`Object.prototype` 上的方法、**隐藏**挂上——
+// `Object.keys({})` 必须还是空的）。
+// **为什么这一轮才补**：它们是 Annex B 的附加属性（不在 ES 主线里），而本仓按
+// 「ES 主线的成员表」建库 ⇒ 四格一直空着。判据 `stdlib/object/118-names-object-proto.ts`
+// 就是挨个问名字的那一条——它原来登着**六处**差额（`__proto__` / `toLocaleString` +
+// 这四格），前两处第 697 / 689 轮各收掉一格，**剩下的四格是这一轮**。
+// **挨着 `__proto__` 那一对挂**：它们同属「老访问器辅助」这一族，放远了看不出是一家人。
+// **号连号**（`507..510`）：两格是**读**那一对、两格是**写**那一对——
+// 读的两格共用一支（只差「取描述符的哪一格」）、写的两格同理。
+const protoHelperNames: string[] = ["__lookupGetter__", "__lookupSetter__", "__defineGetter__", "__defineSetter__"];
+const protoHelperIds: number[] = [ObjectLookupGetter, ObjectLookupSetter, ObjectDefineGetter, ObjectDefineSetter];
+for (let i = 0; i < protoHelperNames.length; i++) {
+  SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
+    Value.FromString(table.CreateString(Units(protoHelperNames[i]))),
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(protoHelperIds[i], 0)));
+}
 // **`Object.create` / `Object.getPrototypeOf`**（第 209 轮）：与 `keys` / `values` 那几张
 // **同一张对象**（都是 `Object` 的静态方法），分派在 `InvokeGlobal` 里（那一支有 `table`）。
 SetProperty(vm.Room(), NeverCall, table, objectObject,

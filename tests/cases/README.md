@@ -77,17 +77,62 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **6453** 条（token 1416 / exec 1574 / runtime 796 / stdlib 2421 / e2e 246），判过 **6439** 条。
+语料 **7265** 条（token 1416 / exec 1854 / runtime 815 / stdlib 2934 / e2e 246），判过 **7251** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 1573 | **1536** | 9 / 28 | 另有 1 条不进分母 |
-| `runtime` | 796 | **783** | 1 / 12 | |
-| `stdlib` | 2421 | **2348** | 24 / 49 | |
+| `exec` | 1853 | **1804** | 11 / 38 | 另有 1 条不进分母 |
+| `runtime` | 815 | **801** | 1 / 13 | |
+| `stdlib` | 2934 | **2850** | 31 / 53 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **6439** | **6093** | 257 / 89 | 加权 **95.8%** |
+| **合计** | **7251** | **6881** | 266 / 104 | 加权 **95.8%** |
+
+**第 706 轮再加 133 条**（分母 7118 → **7251**）：第十六批原子探针，专问**对象模型那一层**
+（冻结 / 密封 / 不可扩展、属性描述符与键序、数组的洞、全局对象面、类与访问器、符号、
+`Date` / `JSON` 的文本面）。**这一批七处当场红，收掉三族**：
+
+1. **`Object.defineProperty` 的键没走 `ToPropertyKey`**（**整份文件进不来**）：
+   `Object.defineProperty(o, 1, …)` 与 `Object.defineProperty(o, { toString() { return "k"; } }, …)`
+   都**响亮地抛**（`needs (object, string or symbol key, descriptor object)`——
+   一句话里没有一个字提到「数字键」）。**同一个形状在隔壁早有答案**：
+   `Object.hasOwn`（第 691 轮）/ `hasOwnProperty`（更早）/ `getOwnPropertyDescriptor`（第 692 轮）
+   都收数字键——只有**写**那一侧漏着，而写不进一格比读不出一格更难被发现。
+   修法是**把这条口径收成一个落点**：`text.xl.md` 添 `PropertyKeyValue`
+   （符号留着、其余 `ToString`），`defineProperty` 与 `__lookupGetter__` 那一族都走它。
+2. **`delete` 的键没走 `ToPropertyKey`**（**整份文件进不来**）：
+   `delete o[1]` 报 `property keys must be strings or symbols`（`props.xl.md` 的 `KeyMatches`
+   见到数字键当场抛）——而 `get_index` / `set_index` / `in` 三处第 190 / 191 / 305 / 123 轮
+   就各自收过了。**读得到、写得了、删不掉**是同一条链上唯一漏掉的一环。
+   修在 `vm.xl.md` 的 `del_prop`：与 `in` 那一格**一字不差**（符号原样、其余 `RtToString`）。
+3. **`Object.prototype` 的老访问器辅助四格没装**（Annex B）：
+   `__lookupGetter__` / `__lookupSetter__` / `__defineGetter__` / `__defineSetter__`
+   ——判据 `stdlib/object/118-names-object-proto.ts` 登的六处差额里，四处就是它们
+   （另两处第 697 / 689 轮各收掉一格）。实现**不写第二份算法**：读的两格转交
+   `getOwnPropertyDescriptor`（并且**沿原型链走**——规范那一条算法是 `Repeat` 到 `null`，
+   第一版只问自有那一格，`Object.create({ get g() {} }).__lookupGetter__("g")` 给 `undefined`），
+   写的两格落在 `DefineAccessor` 上（第七格给 `true`：JS 里它造的格子**可枚举**，
+   与 `Object.defineProperty` 的缺省**正好相反**）。
+4. **数组下标的 `[[DefineOwnProperty]]` 那一趟从来没有**（**静默错值**，一条根串起四格）：
+   `Object.defineProperty([], 0, { value: 5 })` 原来写成**一个普通属性** ⇒
+   `a.length` 还是 `0`、`a[0]` 是 `undefined`、`JSON.stringify(a)` 给 `[]`
+   （判据 `p706c-x08`；台账里 `probe694-o19` / `probe694-o22` / `probe698-c09` 三条**同根**，
+   这一轮四条一起转绿、台账已撤）。修法在 `DefineOwnFromDescriptor`：**下标那一档写元素区**
+   （`length` 跟着长），**不可枚举的那一档再进 `Props` 一份**——元素区**没有逐格标志位**，
+   所以「在不在」与「算不算可枚举键」在这一层是两个问题，
+   由新添的 `IndexKeyShadowed` 一句同时管住 `OwnEnumerableKeyTexts`（`Object.keys` / `for..in`）
+   与 `getOwnPropertyDescriptor`（标志位按属性表答）。
+   **没写 `enumerable` 时沿用那一格原来的枚举性**（`Object.defineProperty(xs, "1", { value: 9 })`
+   在 JS 里**只改值**，`Object.keys(xs)` 还是三个键）——那是 `probe698-c09` 的差额。
+
+**另登记三条**（这一轮量出来、没做的）：`getOwnPropertyDescriptor` 的**数字键**那一格
+（`Object.getOwnPropertyDescriptor(o, 1)`，与 `defineProperty` 是同一条闸门的两半）、
+`defineProperty` 的键**是对象**时那一趟 `ToPrimitive`（`TextFrom` 对对象当场抛
+「ToString of this kind of value」，根子在引擎侧那次「值 → 键」没有调用通道）、
+以及**宿主引用那两档没有 `name` / `length`**（`Object.prototype.hasOwnProperty.name`
+取不到——本仓只给闭包与内建构造挂过那两格）。
+**加权 95.7% → 95.8%**（分子 +133、分母 +133；另收掉四条旧台账）。
 
 **第 702 轮（其三）补上五个 `Date.prototype` 成员**
 （`stdlib/date/039-r676-std-date-gettimezoneoffset` 与 `043-r676-std-date-toutcstring` 转绿，

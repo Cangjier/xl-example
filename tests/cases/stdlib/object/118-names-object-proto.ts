@@ -1,8 +1,6 @@
-// xl:title 名字逐个取一次：Object.prototype 的成员（缺 6 个）
+// xl:title 名字逐个取一次：Object.prototype 的成员
 // xl:round 678
 // xl:judge stdout
-// xl:want differ
-// xl:why Object.prototype 的成员：取到 undefined（node 上是 function/object）：__defineGetter__ / __defineSetter__ / __lookupGetter__ / __lookupSetter__ / __proto__ / toLocaleString
 // xl:end
 const b: any = Object.prototype;
 let v = "";
