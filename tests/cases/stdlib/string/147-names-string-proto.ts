@@ -1,8 +1,8 @@
-// xl:title 名字逐个取一次：String.prototype 的成员（缺 19 个）
+// xl:title 名字逐个取一次：String.prototype 的成员（第 718 轮后只剩正则那三个）
 // xl:round 678
 // xl:judge stdout
 // xl:want differ
-// xl:why String.prototype 的成员：取到 undefined（node 上是 function/number）：anchor / big / blink / bold / fixed / fontcolor / fontsize / italics / length / link / match / matchAll / search / small / strike / sub / sup / trimLeft / trimRight
+// xl:why String.prototype 的成员：取到 undefined（node 上是 function）：match / matchAll / search。第 718 轮之前这一行有 19 个名字，其中 16 个是**同一族的两种代价**：anchor / big / blink / bold / fixed / fontcolor / fontsize / italics / link / small / strike / sub / sup 十三格只要字符串拼接（第 718 轮做出来了），trimLeft / trimRight 是 trimStart / trimEnd 的别名（同一轮），length 是那一格 0（同一轮）。**剩下这三个要 RegExp 整族**，与 `RegExp` 待做是同一件事，见 136 与 stdlib/string/probe703-s-e36 那一族。
 // xl:end
 const b: any = String.prototype;
 let v = "";

@@ -67,6 +67,45 @@ import { HostUnitsText, HostTextUnits, HostNormalize } from "../../runtime/host-
 
 **`toLocaleLowerCase()`**（第 617 轮）——与上面那一格**同一份实现**、同一条口径。
 
+# const StringAnchor:int = 136
+
+**HTML 包装那一族**（第 718 轮）的十三个号（`136..148`）——号**照旧追加在表尾**，
+已有的一个都没动。**十三个号、一份实现**（规范的 `CreateHTML`）：
+`(tag, attribute)` 两张表**按 `id` 查**，见 `InvokeString` 里那一支。
+
+**为什么值得单独一轮**：台账 `stdlib/string/147-names-string-proto` 把这一族与
+`match` / `search` / `matchAll` 记在**同一行**里，而两半的代价差着数量级——
+这一半只要**字符串拼接**，那一半要 `RegExp` 整族（仍然记在台账里）。
+**记在同一行里读不出「还差多少」**：一条台账盖住两种代价，于是「能做但没做」
+与「做不了」看起来一样。这一轮把前半收掉，台账那一行随之改写。
+
+# const StringBig:int = 137
+
+# const StringBlink:int = 138
+
+# const StringBold:int = 139
+
+# const StringFixed:int = 140
+
+# const StringFontcolor:int = 141
+
+**有属性值的那四格之一**（`font` + `color`）——另外三格是
+`fontsize`（`font` + `size`）、`link`（`a` + `href`）、`anchor`（`a` + `name`）。
+
+# const StringFontsize:int = 142
+
+# const StringItalics:int = 143
+
+# const StringLink:int = 144
+
+# const StringSmall:int = 145
+
+# const StringStrike:int = 146
+
+# const StringSub:int = 147
+
+# const StringSup:int = 148
+
 # const StringTrim:int = 108
 
 # const StringIncludes:int = 109
@@ -285,15 +324,40 @@ ASCII 填充串两边一致，**代理对**那一类会差一个（记在台账�
 `$1` / `$&` 那一类替换模式——它们的语义靠**正则**与**回调**，
 而这一层两样都还没有。静默把它们当普通文本是最坏的一种。
 
-# method RequireString:(table:HeapTable, self:Value)=>void
+# method RequireString:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, self:Value)=>Array<int>
 
-**原始值接收者这条路上，`self` 是原样的字符串**（没有包装对象）——
-「装箱」这件事没有发生，引擎只是**借它的原型**去找方法。
+**接收者那一关：`RequireObjectCoercible` + `ToString`**，并把结果码元**一次给出**
+（第 718 轮改；原来只做「是不是字符串」那一问、返回 `void`）。
+
+**原来那一版错在哪**（**第 718 轮的原子探针当场量到的**，判据 `p718a-h05`）：
+原来只有一句 `if (self.Tag !== ValueTag.String) { throw new Error("this method needs a string receiver"); }`
+——**字符串方法的接收者不是非得是字符串**。规范里每一个 `String.prototype` 方法都写着
+`RequireObjectCoercible(this)` 之后 **`ToString(this)`**：
+`String.prototype.bold.call(12)` 在 JS 里是 **`<b>12</b>`**（Node 实测），
+本仓抛「这个方法要一个字符串接收者」。**同一条根盖着整个 `String.prototype`**
+（三十来个方法一个不漏），而症状**看起来像调用写错了**——
+与第 617 轮 `toLocaleUpperCase` 那一格缺个号时给的面孔是同一类
+（「一句话里没有一个字提到真正那一格」）。
+
+**它与实参那一族是同一句 `ToString`**（`TextArgUnits` 那条路：`ToPrimitiveOf` + `JsTextUnits`），
+所以这里**不写第二份转换表**——两份一定会漂，而漂出来的正是「接收者」与「实参」
+两个只差一个字的答案。
+
+**两处**要自己抛（`ToString` 不管这两档）：
+
+1. **`null` / `undefined` 抛 `TypeError`**（JS 的 `RequireObjectCoercible`）——
+   顺带把**抛的种类**也改对了：原来抛的是**普通 `Error`**
+   （判据 `p718a-h06`：`String.prototype.bold.call(null)`，Node 给 `TypeError`）；
+2. **符号抛 `TypeError`**（JS 的 `ToString` 不收符号）。
 
 ```ts
-if (self.Tag !== ValueTag.String) {
-  throw new Error("this method needs a string receiver");
+if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+  throw new TypeError("String.prototype method called on null or undefined");
 }
+if (self.Tag === ValueTag.Symbol) {
+  throw new TypeError("cannot convert a Symbol to a string");
+}
+return JsTextUnits(table, ToPrimitiveOf(room, call, protos, table, self, ToPrimitiveString));
 ```
 
 # method SurrogateStep:(units:Array<int>, at:int)=>int
@@ -510,8 +574,7 @@ if (id === StringFromCodePoint) {
 // **它排在这里**（静态方法那几支之后）：那几支的 `self` 是 `String` **对象本身**，
 // 不该被当成包装对象。
 self = UnwrapBox(table, self);
-RequireString(table, self);
-const units = JsTextUnits(table, self);
+const units = RequireString(room, call, protos, table, self);
 // **`isWellFormed` / `toWellFormed`**（第 330 轮）——两条**共用同一条扫描**
 //（`SurrogateStep`，理由见那两个号那一段）。
 if (id === StringIsWellFormed) {
@@ -563,6 +626,58 @@ if (id === StringNormalize) {
   }
   const normalized = HostNormalize(HostUnitsText(units), form);
   const out = HostTextUnits(normalized);
+  if (!room(ObjectCharge + CodeUnitCharge * out.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(out));
+}
+// **HTML 包装那一族**（第 718 轮）：十三个号共用规范的 `CreateHTML` 一条。
+// **它与正则那一族不是同一件事**（那些仍记在台账里）：这里一个字符都不用找，
+// 只有「拼一段前缀 + 原样的接收者 + 拼一段后缀」。
+//
+// **`tag` / `attribute` 两张表按 `id` 查**（与 `install.xl.md` 的号段同一条纪律：
+// 号是**能力名**，`tag` 是它对应的那一句 HTML）。**十三格各写一遍拼接**就是
+// 十三份会漂的判据——而其中九格**连实参都不取**。
+// **有属性值的只有四格**（`anchor` 的 `name`、`fontcolor` 的 `color`、
+// `fontsize` 的 `size`、`link` 的 `href`），所以「取不取实参」也由表决定（`htmlArgument`）。
+//
+// **转义只有一处**：规范的 `CreateHTML` 把属性值里的 `"` 换成 `&quot;`
+// （`"a".link('x"y')` 给 `<a href="x&quot;y">a</a>`），而 **`&` / `<` / `>` 一律不动**
+// ——把「看起来更安全」的那一步加上去，答案就与 Node 不同了。
+//
+// **属性值那一格缺实参当 `undefined`**（第 700 轮给 `TextArgUnits` 立的口径）：
+// `"a".anchor()` 在 Node 里是 `<a name="undefined">a</a>`。
+// **这一处不是可选的**：当空串会得到一个「看起来对」的答案（第 700 轮量过同一件事）。
+let htmlTag = "";
+let htmlAttribute = "";
+let htmlArgument = 0;
+if (id === StringAnchor) { htmlTag = "a"; htmlAttribute = "name"; }
+else if (id === StringBig) { htmlTag = "big"; }
+else if (id === StringBlink) { htmlTag = "blink"; }
+else if (id === StringBold) { htmlTag = "b"; }
+else if (id === StringFixed) { htmlTag = "tt"; }
+else if (id === StringFontcolor) { htmlTag = "font"; htmlAttribute = "color"; }
+else if (id === StringFontsize) { htmlTag = "font"; htmlAttribute = "size"; }
+else if (id === StringItalics) { htmlTag = "i"; }
+else if (id === StringLink) { htmlTag = "a"; htmlAttribute = "href"; }
+else if (id === StringSmall) { htmlTag = "small"; }
+else if (id === StringStrike) { htmlTag = "strike"; }
+else if (id === StringSub) { htmlTag = "sub"; }
+else if (id === StringSup) { htmlTag = "sup"; }
+if (htmlTag !== "") {
+  let head = "<" + htmlTag;
+  if (htmlAttribute !== "") {
+    const raw = HostUnitsText(TextArgUnits(room, call, protos, table, args, htmlArgument));
+    head = head + " " + htmlAttribute + "=\"" + raw.split("\"").join("&quot;") + "\"";
+  }
+  head = head + ">";
+  // **接收者那一段原样搬过来**（不是 `HostUnitsText(units)` 再转回去）：
+  // 落单的代理码元过一趟宿主字符串会被换成 `U+FFFD`，而 `"\\ud800".bold()`
+  // 在 JS 里**原样带着那一格**——`"a".bold().length` 是 `7`，不是 `7` 个别的什么。
+  const prefix = HostTextUnits(head);
+  const suffix = HostTextUnits("</" + htmlTag + ">");
+  const out: number[] = [];
+  for (let i = 0; i < prefix.length; i++) out.push(prefix[i]);
+  for (let i = 0; i < units.length; i++) out.push(units[i]);
+  for (let i = 0; i < suffix.length; i++) out.push(suffix[i]);
   if (!room(ObjectCharge + CodeUnitCharge * out.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(out));
 }
@@ -1129,8 +1244,7 @@ return out;
 // 这一条独立的路（它要 `protos` 造数组），而包装对象的接收者照样要先脱箱
 // ——`new String("a,b").split(",")`。
 self = UnwrapBox(table, self);
-RequireString(table, self);
-const units = JsTextUnits(table, self);
+const units = RequireString(room, call, protos, table, self);
 // **`limit` 那一格**（第 208 轮）：原来这里**抛**（理由写得很对：忽略它会让
 // `split(",", 2)` 静默给错形状）——这一轮把它做出来。
 // **JS 的语义是「最多几段」**：到了上限就**不再收**（连尾巴那一段也不收）——
@@ -1224,7 +1338,12 @@ const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
   // 调的就是这两格——缺了它们报的是 `cannot call a non-closure value`
   //（**那句话听起来像「调用写错了」**，其实是**这一格没人挂**，
   //  与第 308 轮 `Array.prototype[Symbol.iterator]` 同一副面孔）。
-  "toLocaleUpperCase", "toLocaleLowerCase"];
+  "toLocaleUpperCase", "toLocaleLowerCase",
+  // **第 718 轮补的十五格**：十三个 HTML 包装 + `trimLeft` / `trimRight`
+  //（`trimStart` / `trimEnd` 的**别名**，见下面两张表的对齐那一段）。
+  "anchor", "big", "blink", "bold", "fixed", "fontcolor", "fontsize",
+  "italics", "link", "small", "strike", "sub", "sup",
+  "trimLeft", "trimRight"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
   StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
   StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd,
@@ -1237,12 +1356,28 @@ const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlic
   // **与 `entries` 同序**：两张表**按下标一一对应**（见下面那个循环）——
   // 一张多一个、另一张少一个就是**静默挂错方法**（`"a".toLocaleUpperCase()`
   // 会调到别的号上），而这**不报错**。
-  StringToLocaleUpperCase, StringToLocaleLowerCase];
+  StringToLocaleUpperCase, StringToLocaleLowerCase,
+  // **HTML 包装那十三格**（第 718 轮，号 `136..148`）。
+  StringAnchor, StringBig, StringBlink, StringBold, StringFixed,
+  StringFontcolor, StringFontsize, StringItalics, StringLink,
+  StringSmall, StringStrike, StringSub, StringSup,
+  // **`trimLeft` / `trimRight` 是别名、不是新实现**（第 718 轮）：JS 里
+  // `String.prototype.trimLeft === String.prototype.trimStart` **为真**
+  //（同一个函数对象），所以这里**照抄同一个号**——另开两个号写第二份实现
+  // 就会让那条判等给假，而两个实现日后**一定会漂**。
+  StringTrimStart, StringTrimEnd];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   SetHiddenProperty(vm.Room(), table, proto, key, target);
 }
+// **`String.prototype` 自己那个 `length`**（第 718 轮）：它是一个**空串对象**，
+// 所以 `length` 是 `0`——规范里它**不可写 / 不可枚举 / 不可配置**（`flags = 0`，
+// 与第 709 轮 `Math.PI` 那八格同一条）。
+// **它与 `"abc".length` 不是同一条路**：字符串**值**的 `length` 在引擎里直接由
+// 码元个数算（不走属性表），这一格挂的是**原型对象自己**的那一格。
+SetHiddenProperty(vm.Room(), table, proto,
+  Value.FromString(table.CreateString(Units("length"))), Value.FromInt(0), 0);
 ```
 
 # private method CaseUnits:(units:Array<int>, id:int)=>Array<int>

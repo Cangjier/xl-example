@@ -77,7 +77,7 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **7643** 条（token 1416 / exec 2167 / runtime 815 / stdlib 3006 / e2e 246），判过 **7628** 条。
+语料 **7667** 条（token 1416 / exec 2159 / runtime 815 / stdlib 3031 / e2e 246），判过 **7653** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
@@ -85,9 +85,27 @@ console.log(Box.of(1));
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
 | `exec` | 2158 | **2105** | 12 / 41 | 另有 1 条不进分母 |
 | `runtime` | 815 | **806** | 1 / 8 | |
-| `stdlib` | 3006 | **2938** | 25 / 43 | |
+| `stdlib` | 3031 | **2963** | 25 / 43 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **7628** | **7275** | 261 / 92 | 加权 **96.1%** |
+| **合计** | **7653** | **7300** | 261 / 92 | 加权 **96.1%** |
+
+**第 718 轮再加 25 条**（分母 7628 → **7653**）：`String.prototype` 的 HTML 包装那一族
+（`stdlib/round718/p718a-h01` … `h15`）与**接收者那一关**（`p718b-r01` … `r10`）：
+
+- **十三个号、一份实现**（`CreateHTML`）：`(tag, attribute)` 两张表按 `id` 查
+  （`anchor`=`a`+`name`、`fontcolor`=`font`+`color`、`fontsize`=`font`+`size`、
+  `link`=`a`+`href`，其余九格没有属性）；转义**只有一处**（属性值里的 `"` → `&quot;`，
+  `&` / `<` / `>` 一律不动）；属性值缺实参当 `undefined`；**接收者那一段原样搬**
+  （过一趟宿主字符串会把落单的代理码元换成 `U+FFFD`）。
+- **`trimLeft` / `trimRight` 照抄 `trimStart` / `trimEnd` 的号**：JS 里它们是**同一个函数对象**，
+  另开两个号会让 `trimLeft === trimStart` 给假。**`String.prototype.length` 是 `0`**（三个标志全假）。
+- **同一批探针量到的第二个根**：`RequireString` 原来只问「是不是字符串」
+  ⇒ `String.prototype.bold.call(12)` 抛，而 JS 给 `<b>12</b>`——**同一条根盖着整个
+  `String.prototype`**。改成 `RequireObjectCoercible` + `ToString`（与实参那一族**同一句**转换），
+  `null` / `undefined` 与**符号**自己抛 `TypeError`（原来抛的是普通 `Error`）。
+- **台账**：`stdlib/string/147-names-string-proto` 由**19 个名字**改写为**3 个**
+  （`match` / `matchAll` / `search`，要 `RegExp` 整族）；第 717 轮忘了撤的两行
+  （`stdlib/globals/059-reflect-basics`、`stdlib/object/probe705-o-b22`）一起撤掉。
 
 **第 717 轮再加 15 条**（分母 7613 → **7628**）：`Reflect` 那一族（13 格，号 `685..697`）：
 

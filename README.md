@@ -503,6 +503,49 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7254 / 7613 → 7275 / 7628**、`blocked 261`、`differ 92`、
   `bad` 0、`regressions` 0、加权 **96.0% → 96.1%**。
 
+### 第 718 轮：`String.prototype` 的 HTML 包装那一族（13 格，号 `136..148`）＋ 接收者那一关
+
+**这一轮把一条台账拆成两半**：`stdlib/string/147-names-string-proto` 原来一行记着
+**19 个取不到的名字**，而它们的代价差着数量级——13 个 HTML 包装只要**字符串拼接**，
+`match` / `search` / `matchAll` 要 `RegExp` 整族。**记在同一行里读不出「还差多少」**：
+能做但没做、与做不了，看起来一样。
+
+- **十三个号、一份实现**（规范的 `CreateHTML`）：`(tag, attribute)` 两张表**按 `id` 查**，
+  `anchor`=`a`+`name`、`fontcolor`=`font`+`color`、`fontsize`=`font`+`size`、
+  `link`=`a`+`href`，其余九格没有属性。**十三格各写一遍拼接**就是十三份会漂的判据。
+- **转义只有一处**：属性值里的 `"` 换成 `&quot;`（`"a".link('x"y')`）。
+  **`&` / `<` / `>` 一律不动**——把「看起来更安全」的那一步加上去，答案就与 Node 不同了。
+- **属性值缺实参当 `undefined`**（`"a".anchor()` 是 `<a name="undefined">a</a>`）：
+  第 700 轮给实参那一族立的口径，这里**照用**。
+- **接收者那一段原样搬**（不是过一趟宿主字符串）：落单的代理码元会被换成 `U+FFFD`，
+  而 `"\ud800".bold()` 在 JS 里**原样带着那一格**。
+- **`trimLeft` / `trimRight` 是别名、不是新实现**：JS 里
+  `String.prototype.trimLeft === String.prototype.trimStart` **为真**，所以照抄同一个号
+  （另开两个号写第二份实现会让那条判等给假，而两个实现日后一定会漂）。
+- **`String.prototype.length` 是 `0`**（三个标志全假，与第 709 轮 `Math.PI` 那八格同一条）
+  ——它与 `"abc".length` **不是同一条路**：字符串**值**的 `length` 由码元个数算，不走属性表。
+
+**同一批探针当场量到的第二个根**（判据 `p718a-h05` / `p718b-r01` … `r10`）：
+**字符串方法的接收者不是非得是字符串**。`RequireString` 原来只有一句
+`self.Tag !== ValueTag.String` 就抛，于是 `String.prototype.bold.call(12)` 报
+「this method needs a string receiver」——而 JS 的答案是 `<b>12</b>`。
+规范里每个 `String.prototype` 方法都是 `RequireObjectCoercible(this)` 之后 **`ToString(this)`**，
+**同一条根盖着三十来个方法**。修法：那一格改成收 `(room, call, protos, table, self)`
+并**交出码元**，走的是**实参那一族同一句 `ToString`**（`ToPrimitiveOf` + `JsTextUnits`
+——两份转换表一定会漂，而漂出来的正是「接收者」与「实参」两个只差一个字的答案）；
+**两处自己抛**：`null` / `undefined`（`RequireObjectCoercible`）与**符号**，
+而且**抛的种类一起改对**——原来抛的是普通 `Error`，Node 抛 `TypeError`。
+两处调用点（`InvokeString` 与 `String.split` 那条独立的路）一起换。
+
+- **收掉台账**：`stdlib/string/147-names-string-proto` 由 19 个名字改写为 3 个（正则那一族）；
+  第 717 轮**忘了撤**的两行（`stdlib/globals/059-reflect-basics`、
+  `stdlib/object/probe705-o-b22`）这一轮一起撤掉（它们报的是 `NEWLY-PASSING`）。
+- 语料 **+25 条**（`stdlib/round718/p718a-h01` … `h15` 十五格形态与边界、
+  `p718b-r01` … `r10` 十格专钉接收者那一关：数值 / 布尔 / 浮点 / 对象 / 包装对象 /
+  符号 / `null` / 函数，以及 `split` 那条独立的路）。
+- 五类 **7275 / 7628 → 7300 / 7653**、`blocked 261`（没涨）、`differ 92`（没涨）、
+  `bad` 0、`regressions` 0、`moved` 0、`newlyPassing` **2**，加权 **96.1%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -515,7 +558,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7275 / 7628**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 2938/3006、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 92），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7300 / 7653**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 2963/3031、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 92），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~48s**） |
 
 ### 口径与已知缺口
