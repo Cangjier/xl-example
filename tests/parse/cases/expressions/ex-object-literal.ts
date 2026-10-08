@@ -1,4 +1,5 @@
 // xl:note 基线用例（来自缺口审计语料）
+// xl:expect Spread,MethodBody,ObjectLiteral,ArrayLiteral
 const o = {
   a,
   b: 1,

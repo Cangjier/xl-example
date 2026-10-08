@@ -1,4 +1,4 @@
-// xl:expect Interface,InterfaceBody,Decorator,Keyword
+// xl:expect Interface,InterfaceBody,Decorator
 // xl:note 声明头归声明自己：`@dec export declare interface I {}` 的 `InterfaceDeclaration`
 //        从 `@` 起，`Decorator` / `ExportKeyword` / `DeclareKeyword` 都在 `modifiers` 一列里
 //        （TS 口径）。早先这里只往回吃一个 `export` 词，装饰器留在外面成了平级兄弟——

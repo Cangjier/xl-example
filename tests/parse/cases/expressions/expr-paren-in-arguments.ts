@@ -1,3 +1,4 @@
+// xl:expect ParenthesizedType,TupleType,FunctionType,ArrayType
 // 第 162 轮：**实参表里的括号是值位**。
 //
 // token 层的 `IsTypeBracketPosition` 原来把「前面是 `,` 或 `(`」一律当**类型位**——

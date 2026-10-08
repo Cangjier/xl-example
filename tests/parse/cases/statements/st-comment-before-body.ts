@@ -1,5 +1,5 @@
 // xl:note 关键字与结构括号之间夹一条注释——判定要跨 trivia（注释也是 trivia），不是只跨软换行
-// xl:expect IfSet,IfStatement,While,For,Foreach,Switch,Try
+// xl:expect IfSet,IfBody,While,For,Foreach,Switch,Try
 export function bodies(a: number): number {
   let total = 0;
   if /* 条件之前 */ (a > 0) {

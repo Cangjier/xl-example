@@ -44,7 +44,7 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 执行侧的两棵树（`runtime/` ↔ `typescript-exec/`）是上面这两棵的镜像：`runtime/` 与语言无关，
 `typescript-exec/` 是 TS 专有的降级层——**新增一门语言就是新增 `xxx/` + `xxx-exec/`，
 `core/` 与 `runtime/` 一行都不用动**。
-**这两棵树已经在跑**，判据是六道门（见「构建链路」那一节）：
+**这两棵树已经在跑**，判据是七道门（见「构建链路」那一节）：
 
 - **执行侧**：值模型 / 堆与 GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI；类与继承、集合
   （`Map` / `Set` / `WeakMap` / `Date`）、生成器与 `async`、解构与展开 / 剩余、可选链与空值合并、
@@ -120,7 +120,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 **三个出口同源**：`CjcliParse` 造出根单元之后才分叉，XML / AST JSON / TS 形状看的是同一棵树，
 结构上没有第二条解析路径。
 
-测试集只留 AST 与执行侧这几道（用户口径，见「判据与缺口」的六道门）：
+测试集只留 AST 与执行侧这几道（用户口径，见「判据与缺口」的七道门）：
 XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` 是**尺子不是门**
 （它红只在「比昨天差」）。
 
@@ -260,21 +260,22 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 ## 判据与缺口
 
-**主判据是六道门**（`npm run gates` 一次跑完，墙钟 ~29s）：
+**主判据是七道门**（`npm run gates` 一次跑完，墙钟 ~25s）：
 
 | 门 | 口径 |
 | --- | --- |
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界——**七条全 0 才退出码 0** |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
-| `cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） |
+| `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
+| `cases:tags` | **用例自带的期望**：`xl:expect`（存在，或 `Tag:N` 计数）与 `xl:absent` 逐条对产物核实，外加标签表体检 |
 | `runtime:check` / `runtime:cli` | 执行侧的机制与端到端（见「构建链路」那一节） |
 | `coverage` | 场景覆盖度——**尺子不是门**：它红只在「比昨天差」 |
 
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-### 当前状态（第 631 轮实测）
+### 当前状态（第 633 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
@@ -282,10 +283,11 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1097** 条用例，0 条不合格 |
+| `cases:tags` | **1097 条全部带期望**（2782 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
 | `coverage` | **1814 / 1814**（**100%**）：引擎 / 降级 / 标准库 / 端到端四层各 **100%**，台账里 0 条待修 |
-| `npm run gates` | 上面六道一次跑完（实测墙钟 **~29s**） |
+| `npm run gates` | 上面七道一次跑完（实测墙钟 **~25s**） |
 
 ### 口径与已知缺口
 
@@ -397,6 +399,7 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
   npm run build                # xl build && tsc
   npm run samples              # TS 形状夹具逐字节对照；产物本该变化时用 -- --update 重写夹具
   npm run cases:check          # 用例体检
+  npm run cases:tags           # 用例自带的期望（`xl:expect` / `xl:absent`）对产物核实
   npm run cases:tsast          # **主判据**：与 ts.createSourceFile 逐节点对拍（七条全 0）
   npm run cases:tsast:cli      # 发布路径那一把（慢，改到 cjcli / 序列化时才需要）
   ```

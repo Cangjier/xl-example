@@ -1,2 +1,3 @@
 // xl:note 复合赋值 %=（当前符号表只覆盖 += -= *= /=）
+// xl:expect BinaryOperator
 a %= b;

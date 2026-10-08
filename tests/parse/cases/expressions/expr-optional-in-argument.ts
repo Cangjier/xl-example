@@ -5,7 +5,8 @@
 //       判据是「**第一个子单元就是方法名自己**」：被调用者自带 `?.` 时它就在子单元里
 //       （`x?.y?.(1)` 的 `Identifier(x)`），而实参位第一个子单元是实参。
 // xl:expect Method:3
-// xl:expect PropertyAccess:2
+// xl:expect NullConditionalOperator:4
+// xl:absent PropertyAccess
 f(o?.a);
 g(o?.a, 1);
 h?.(o?.a);

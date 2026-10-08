@@ -1,6 +1,6 @@
-// 六道门**一次成批并行**跑（第 318 轮加，用户口径：「分组批量跑，快一点」）。
+// 七道门**一次成批并行**跑（第 318 轮加，用户口径：「分组批量跑，快一点」）。
 //
-// **为什么值得** ✗：六道门彼此**独立** ✓（各自读产物、各写各的临时目录 ✓），
+// **为什么值得** ✗：七道门彼此**独立** ✓（各自读产物、各写各的临时目录 ✓），
 // 而串着跑的总时长是**六段之和** ✓——16 核的机器上大半时间是在等一个进程 ✗。
 // 并行之后墙钟时间约等于**最慢的那一道** ✓（实测：串行 ~7 分钟 → 并行 ~2 分钟 ✓）。
 //
@@ -12,7 +12,7 @@
 // **退出码**：任一门红就是 1 ✓（CI 与我自己都只看这一个数 ✓）。
 //
 // 门的名单**写在这一处** ✓：加一道门只改这里 ✓（与 `package.json` 里那几个脚本**同名同源** ✓
-// ——两边各写一遍就是两处会漂 ✗，而漂了的症状是「我跑了六道、CI 跑了七道」✗）。
+// ——两边各写一遍就是两处会漂 ✗，而漂了的症状是「我跑了七道、CI 跑了八道」✗）。
 
 import { spawn } from "node:child_process";
 import os from "node:os";
@@ -23,7 +23,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
 
 /**
- * 六道门：名字 → 脚本路径（与 `package.json` 一一对应）。
+ * 七道门：名字 → 脚本路径（与 `package.json` 一一对应）。
  *
  * **`shards`**（第 321 轮加的机制）：把一门切成 n 组、每组一个子进程。
  * **本轮它已经没有用户了**：`cases:tsast`（唯一用过它的那一道）自己**默认就是 batch** ——
@@ -45,10 +45,15 @@ const GATES = [
   { name: "runtime:cli", script: "tests/runtime/run-cli.mjs" },
   // **`cases:tsast` 不再由这里分片**（本轮改）：它自己**默认就是 batch**，
   // 按 `os.cpus().length` 切组、每组一个子进程（组数不 hard code）。
-  // 这里再写一个固定片数就是**第二份答案**，而且会把外层 6 道门 × 16 片叠成过载。
+  // 这里再写一个固定片数就是**第二份答案**，而且会把外层 7 道门 × 16 片叠成过载。
   { name: "cases:tsast", script: "tests/parse/ts-ast.mjs" },
   { name: "samples", script: "samples/check.mjs" },
   { name: "cases:check", script: "tests/parse/validate.mjs" },
+  // **`cases:tags`（第 633 轮加）**：用例开头那几行 `xl:expect` / `xl:absent` 的**真判据**。
+  // 它是这一族里唯一读「用例自带的期望」的一道 ✓——`cases:tsast` 比的是形状 ✓，
+  // 它比的是**这条用例说自己该有什么，产物里真的有吗** ✓。加它之前那些期望已经过期 47 处
+  // 而没有任何东西会响 ✗（见 `tests/parse/tags.mjs` 开头）。
+  { name: "cases:tags", script: "tests/parse/tags.mjs" },
   { name: "coverage", script: "tests/coverage/run.mjs" },
 ];
 
@@ -59,9 +64,9 @@ const value = (name, fallback = "") => {
   return at >= 0 && at + 1 < args.length ? args[at + 1] : fallback;
 };
 const verbose = flag("--verbose");
-// **默认是「门数」而不是「核数」** ✓：六道门同时开六条 ✓，而每一条自己还会再开
+// **默认是「门数」而不是「核数」** ✓：七道门同时开七条 ✓，而每一条自己还会再开
 // 用例级的并行 ✓（`coverage` 那一道默认 8 ✓）——两层相乘会过载 ✗，
-// 所以这里给一个能把六道**同时**放下的数就够 ✓（再大也只是多几段等待 ✓）。
+// 所以这里给一个能把七道**同时**放下的数就够 ✓（再大也只是多几段等待 ✓）。
 const jobs = Math.max(1, Math.min(GATES.length, Number(value("--jobs", String(GATES.length)))));
 
 const runOne = (gate) =>
@@ -118,7 +123,7 @@ const pool = async (items, run) => {
 };
 
 const started = Date.now();
-console.log(`六道门并行跑（${jobs} 路，${os.cpus().length} 核）：${GATES.map((g) => g.name).join(" · ")}`);
+console.log(`七道门并行跑（${jobs} 路，${os.cpus().length} 核）：${GATES.map((g) => g.name).join(" · ")}`);
 console.log("");
 const results = await pool(GATES, runOne);
 

@@ -1,4 +1,5 @@
 // xl:note 基线用例（来自缺口审计语料）
+// xl:expect ObjectLiteral,PropertyAccess
 a.class = 1
 a.default = 2
 a.if = 3

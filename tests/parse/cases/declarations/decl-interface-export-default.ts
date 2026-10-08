@@ -1,5 +1,5 @@
 // xl:note export default interface
-// xl:expect Interface,InterfaceBody,Keyword
+// xl:expect Interface,InterfaceBody
 export default interface I {
   a: number
 }

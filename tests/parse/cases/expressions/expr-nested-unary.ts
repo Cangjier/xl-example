@@ -1,3 +1,4 @@
+// xl:expect TypeQuery,TernaryOperator,TernaryOperatorCondition,TernaryOperatorFalseStatement
 // 第 166 轮：**套着写的一元运算符**（`typeof typeof x` / `!!x` / `- -x`）。
 //
 // `typeof typeof x` 原来折成**一个** `UnaryOperator(op="typeof")` 里装着两个 `Keyword`，

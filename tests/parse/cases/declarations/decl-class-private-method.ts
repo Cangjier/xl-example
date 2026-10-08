@@ -1,5 +1,5 @@
 // xl:note #private 方法（含 static #private 与 #private getter）
-// xl:expect Class,ClassBody,Method,MethodBody
+// xl:expect Class,ClassBody,MethodDeclaration,MethodBody
 class C {
   #m() {
     return 1

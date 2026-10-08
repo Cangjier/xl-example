@@ -17,6 +17,7 @@
     "cjcli": "node ./build/ts/cjcli.js",
     "tsrun": "node ./build/ts/tsrun.js",
     "cases:check": "node ./tests/parse/validate.mjs",
+    "cases:tags": "node ./tests/parse/tags.mjs",
     "runtime:check": "node ./tests/runtime/check.mjs",
     "runtime:cli": "node ./tests/runtime/run-cli.mjs",
     "cases:tsast": "node ./tests/parse/ts-ast.mjs",

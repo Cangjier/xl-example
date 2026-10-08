@@ -1,3 +1,4 @@
+// xl:expect LogicalOperator,Export,As,UnionType
 // `as` 的类型在**值位二元运算符**处收尾：`a as T + 1` 是 `(a as T) + 1`
 declare const a: any;
 declare const b: any;

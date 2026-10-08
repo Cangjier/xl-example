@@ -79,6 +79,7 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 | 逐字节确定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比对，**不做归一化**（紧凑单行、键序与 `pos` / `end` 都是确定性的） |
 | 「命令行 = 库 API」 | `npm run samples` | 同一份源码，`cjcli` 进程与库 API 的输出必须逐字节相同 |
 | 用例体检 | `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） |
+| 用例期望 | `npm run cases:tags` | 用例开头的 `xl:expect` / `xl:absent` 逐条对产物核实（产物标签那一层的判据） |
 | 搬家等价性（一次性） | —— | 第 75 轮用一把一次性脚本在全语料上逐字节对拍过：**1399 个文件、0 处不一致**（旧实现 2464 行 JS vs xl 产物）；结论记在台账，脚本随即删除 |
 
 **第 200 轮起测试集只留 AST 相关的这些**（用户口径）：上表最后三行是全部判据。

@@ -1,4 +1,5 @@
 // xl:note 基线用例（来自缺口审计语料）
+// xl:expect Statement,Let
 const a = 0x1f
 const b = 1_000
 const c = 1e10

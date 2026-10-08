@@ -26,17 +26,20 @@ const ts = require(path.join(root, "node_modules", "typescript"));
 export const AREAS = ["declarations", "statements", "expressions", "types", "modules", "lexical", "ambiguous"];
 
 /**
- * 允许出现在 `xl:expect` / `xl:absent` 里的标签（**产物标签名**——`ToXmlString` 取的是类名；
+ * `xl:expect` / `xl:absent` 里允许出现的**产物标签名**（`ToXmlString` 取的是类名；
  * 写错标签会造出假缺口）。
  *
- * 第 200 轮起测试集只留 AST 相关：`xl:expect` 是**用例自己带的期望值**（原 `cases:run` 用），
- * 现在没有尺子再读它们了，但用例文件里的指令仍然照旧校验——它们是用例的说明，也是下一轮
- * 想重新加回一把「标签级」尺子时的现成语料。
+ * 口径是「**这个名字真的可能出现在产物 XML 里**」，由 `tests/parse/tags.mjs` 的标签表体检
+ * 机械地把关：表里每个名字都必须有至少一条用例真的产出过它。反过来，漏一个真标签的代价
+ * 同样是假的：`IfBody` 一直没在表里，于是**块体那一族用例只能写 `xl:expect IfStatement`**，
+ * 而块体投出来的是 `IfBody`——12 条用例的期望因此一直是错的却没人看得见（第 633 轮补上）。
+ *
+ * **永远不进产物的名字走 `GHOST_TAGS`**（下一张表）：它们只能出现在 `xl:absent` 里。
  */
 export const TAGS = new Set([
   "Root", "Statement", "Let", "Field",
   "SymbolToken", "Identifier", "Keyword", "String", "ConstString", "InterpolationString",
-  "VerbatimQuoteGuide", "InterpolationGuide", "InterpolationExitGuide", "RawQuoteExitGuide", "RegexToken",
+  "RegexToken",
   "LineAnnotation", "AreaAnnotation", "PreprocessorDirectives", "Bracket", "LineWrap",
   "GenericType", "Method", "Signature", "TypeDefine", "TypeAssign", "As", "Satisfies", "LogicalOperator", "NullConditionalOperator", "NotNull",
   "PropertyAccess",
@@ -50,15 +53,36 @@ export const TAGS = new Set([
   "Lamda", "LamdaParameters", "Parameter", "LamdaBody",
   "New", "NewType", "NewArguments",
   "Class", "ClassBody", "Interface", "InterfaceBody", "Namespace", "NamespaceBody", "TypeLiteral", "TypeLiteralBody", "Enum", "EnumBody",
-  "SemicolonClassElement", "MetaProperty", "TemplateHead", "TemplateMiddle", "TemplateTail", "AssertClause", "AssertEntry",
+  "SemicolonClassElement",
   "Function", "FunctionBody", "MethodDeclaration", "MethodBody", "ReturnType", "Decorator", "Label", "Import", "Export",
-  "IfSet", "IfSegment", "IfCondition", "IfStatement",
+  "IfSet", "IfSegment", "IfCondition", "IfStatement", "IfBody",
   "Switch", "SwitchCompare", "SwitchSegment", "SwitchCase", "SwitchStatement",
   "Try", "TryBody", "CatchDefine", "CatchBody", "FinallyBody",
   "For", "ForInitial", "ForCompare", "ForNext", "ForBody",
   "Foreach", "ForeachDefine", "ForeachEnumable", "ForeachBody",
   "While", "WhileCompare", "WhileBody", "DoWhile",
   "ObjectLiteral", "ArrayLiteral",
+]);
+
+/**
+ * **永远不进产物的名字**——它们只能写进 `xl:absent`（写进 `xl:expect` 是一条永远红的假缺口）。
+ * 三类：
+ *
+ * - **抽象基类**：`ClassMember` 自己不进 `Data`，进树的是子类（标签取子类类名）；
+ * - **自我摘除的向导**：`VerbatimQuoteGuide` / `InterpolationGuide` / `InterpolationExitGuide` /
+ *   `RawQuoteExitGuide` / `StringGuide` 的 `Navigate` 第一件事就是 `RemoveSelf`——
+ *   `xl:absent InterpolationGuide` 正是「向导没有留在产物里」这条事实的判据；
+ * - **只属于 TS 形状投影的 kind**：`MetaProperty` / `TemplateHead` / `TemplateMiddle` /
+ *   `TemplateTail` / `AssertClause` / `AssertEntry` 是投影**造**出来的节点
+ *   （`print-ast-common.xl.md` / `import.xl.md`），没有对应的产物类。
+ *
+ * 两个方向都由 `tests/parse/tags.mjs` 盯着：`TAGS` 里每个名字都要被至少一条用例产出 ✓，
+ * `GHOST_TAGS` 里每个名字都要在**全语料**里一次都不出现 ✓。
+ */
+export const GHOST_TAGS = new Set([
+  "ClassMember",
+  "VerbatimQuoteGuide", "InterpolationGuide", "InterpolationExitGuide", "RawQuoteExitGuide", "StringGuide",
+  "MetaProperty", "TemplateHead", "TemplateMiddle", "TemplateTail", "AssertClause", "AssertEntry",
 ]);
 
 export const CASES_DIR = path.join(here, "cases");
@@ -107,13 +131,22 @@ export function listCases(filterArea) {
       const parsed = readCase(file);
       const problems = [...parsed.problems];
       if (!AREAS.includes(area)) problems.push(`area 不在 ${AREAS.join(" / ")} 里`);
-      for (const raw of [...parsed.directives.expect, ...parsed.directives.absent]) {
-        // `Tag:2` 是带个数的期望（旧 `run.mjs` 的写法），标签表里查的是冒号前那一段。
-        const separator = raw.indexOf(":");
-        const tag = separator === -1 ? raw : raw.slice(0, separator);
-        if (!TAGS.has(tag)) problems.push(`xl:expect/absent 里的标签 ${raw} 不在标签表里（写错标签会造出假缺口）`);
-        if (separator !== -1 && Number.isFinite(Number(raw.slice(separator + 1))) === false) {
-          problems.push(`xl:expect 里的个数写法 ${raw} 不合法（要写成 Tag:2）`);
+      for (const [directive, raws] of [["expect", parsed.directives.expect], ["absent", parsed.directives.absent]]) {
+        for (const raw of raws) {
+          // `Tag:2` 是带个数的期望（旧 `run.mjs` 的写法），标签表里查的是冒号前那一段。
+          const separator = raw.indexOf(":");
+          const tag = separator === -1 ? raw : raw.slice(0, separator);
+          if (!TAGS.has(tag) && !GHOST_TAGS.has(tag)) {
+            problems.push(`xl:${directive} 里的标签 ${raw} 不在标签表里（写错标签会造出假缺口）`);
+          }
+          // **幽灵标签只能进 `absent`**：它们在产物里永远不会出现，
+          // 写进 `expect` 就是一条永远修不好的假缺口。
+          if (directive === "expect" && GHOST_TAGS.has(tag)) {
+            problems.push(`xl:expect 里的标签 ${raw} 永远不进产物（自我摘除的向导 / 抽象基类 / 投影专有的 kind），只能写进 xl:absent`);
+          }
+          if (separator !== -1 && Number.isFinite(Number(raw.slice(separator + 1))) === false) {
+            problems.push(`xl:${directive} 里的个数写法 ${raw} 不合法（要写成 Tag:2）`);
+          }
         }
       }
       if (seen.has(id)) problems.push(`id 与 ${seen.get(id)} 重复`);
