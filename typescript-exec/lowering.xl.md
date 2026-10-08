@@ -7881,7 +7881,28 @@ if (kind === "DeleteExpression") {
   // **为什么键要落成一格值**：`DelProp` 是 `rt_call`，参数是槽（与 `SetPropertyConst`
   // 那条路不同——那条把键当常量下标用）。所以这里按「接收者 → 键 → 调用」三步走，
   // **顺序与 `=` 的下标写入一致**（副作用的顺序是语义）。
-  const operand = Child(node, "expression");
+  // **透明的壳先剥掉**（第 740 轮）：`delete (o.b as any)` 的表达式最外层是
+  // `ParenthesizedExpression`（里面还套着 `AsExpression`），而这一支只看最外层那一格
+  // ⇒ 报 `unimplemented: delete of ParenthesizedExpression`（**整份文件进不来**，
+  // 而 `delete (o.b)` / `delete o.b` 一直是好的）。括号 / `as` / `satisfies` / `!`
+  // 四个壳都**不改变「删的是哪一格」**，剥完落到属性访问 / 下标那两支上。
+  let operand = Child(node, "expression");
+  for (;;) {
+    const shellKind = NodeKind(operand);
+    if (
+      shellKind !== "ParenthesizedExpression" &&
+      shellKind !== "AsExpression" &&
+      shellKind !== "SatisfiesExpression" &&
+      shellKind !== "NonNullExpression"
+    ) {
+      break;
+    }
+    const inner = Child(operand, "expression");
+    if (inner === undefined || inner === null) {
+      break;
+    }
+    operand = inner;
+  }
   const operandKind = NodeKind(operand);
   const receiver = this.LowerExpression(Child(operand, "expression"));
   let key = -1;

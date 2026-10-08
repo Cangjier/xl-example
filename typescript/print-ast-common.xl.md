@@ -2292,19 +2292,33 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       }
       let opAt = -1;
       for (let at = 0; at < flat.length; at++) {
-        if (isOperatorUnit(flat[at], ctx)) {
-          opAt = at;
-          break;
-        }
+        if (!isOperatorUnit(flat[at], ctx)) continue;
+        // **`.` 不是切点**（第 740 轮，**实测踩过一次**）：`typeof (await Promise.resolve("s"))`
+        // 里那对括号的子单元是**平铺的一串**（`[await, Promise, ., resolve(…)]`，链没折成
+        // `PropertyAccess` 单元）——把那个 `.` 当成运算符切开会折出
+        // `(await Promise) . resolve`，降级期报 `name is not a local or a capture: resolve`。
+        // 它是**成员访问的续接**、不是二元运算符，跳过它之后这一支自然回落到老路
+        //（老路把 `[Promise, ., resolve(…)]` 折成一条链，正是要的形状）。
+        if (textOfNode(flat[at], ctx) === ".") continue;
+        opAt = at;
+        break;
       }
-      // **只有在摊平之后真的能在运算符处切开、而且尾巴里没有 `As` / `Satisfies` 时才走这一支**：
-      // `await x as T` 是平级两格 `[x, As]`（摊平之后一个运算符都没有），
+      // **只有在摊平之后真的能在运算符处切开、而且尾巴里没有 `As` / `Satisfies` / 平铺的 `.`
+      // 时才走这一支**：`await x as T` 是平级两格 `[x, As]`（摊平之后一个运算符都没有），
       // 那两格的结合性本仓另有口径，抢过来说会把 `as` 那一格丢掉
-      //（`await x + 1 as any` 也是同一形状：尾巴里那格 `As` 不归 `foldBinaryFrom` 管）。
+      //（`await x + 1 as any` 也是同一形状：尾巴里那格 `As` 不归 `foldBinaryFrom` 管）；
+      // 尾巴里有**平铺的 `.`**（`[+, b, ., c]`）时 `foldBinaryFrom` 会把那个 `.` 当成
+      // 运算符（`operatorRank` 给不出名字的一律 7）⇒ 右操作数被切在半截上，也回落。
+      const tail = opAt > 0 ? flat.slice(opAt) : [];
       const tailIsOperators =
         opAt > 0 &&
-        flat.length - opAt >= 2 &&
-        flat.slice(opAt).every((unit) => unit.get("type") !== "As" && unit.get("type") !== "Satisfies");
+        tail.length >= 2 &&
+        tail.every(
+          (unit) =>
+            unit.get("type") !== "As" &&
+            unit.get("type") !== "Satisfies" &&
+            !(unit.get("type") === "SymbolToken" && textOfNode(unit, ctx) === "."),
+        );
       if (tailIsOperators) {
         const operand = projectExpression(flat.slice(0, opAt), ctx);
         if (operand !== undefined) {
@@ -2314,7 +2328,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
             pos: startOf(kids[0]),
             end: operand.end,
           };
-          return foldBinaryFrom(awaited, flat.slice(opAt), ctx);
+          return foldBinaryFrom(awaited, tail, ctx);
         }
       }
       const value = projectExpression(kids.slice(1), ctx);
@@ -2659,28 +2673,43 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     // `[UnaryOperator(delete a), NullConditionalOperator(b)]`——`delete` 只是前缀，
     // `?.b` 属于**它的操作数**。直接把 NCO 接到那个一元节点上会得到 `(delete a)?.b`
     // （实测 `expr-optional-delete.ts`：漂移 1 + 多出 2，`DeleteExpression` 的区间只到 `a`）。
+    //
+    // **操作数那一格有两个名字**（第 740 轮，**实测踩过一次**）：`typeof` / `void` / `delete`
+    // 是 `TypeOfExpression` 那一族（字段叫 **`expression`**），而 `!` / `~` / `+` / `-` /
+    // `++` / `--` 是 **`PrefixUnaryExpression`**（字段叫 **`operand`**）——
+    // 这一支原来只认 `expression`，于是 `!o?.p` / `-o?.p` **够不着它**、掉到下面那条通用路：
+    // `?.p` 被接到**那个一元节点的结果**上（`(!o)?.p`）⇒ 本仓给 `undefined`、Node 给 `false`
+    //（`-o?.p` 本仓给 `undefined`、Node 给 `-1`，**静默错值**）。
+    // 这与第 711 / 739 两轮在链那一支踩到的是**同一格**（同一个形状两处各写一遍就会漂）。
     const UNARY_KINDS = new Set([
       "DeleteExpression",
       "TypeOfExpression",
       "VoidExpression",
       "PrefixUnaryExpression",
     ]);
-    if (
-      optional !== undefined &&
-      UNARY_KINDS.has(optional.kind) &&
-      optional.expression !== undefined
-    ) {
-      let inner = optional.expression;
+    // **这一支写成 `if` / `else if` 而不是嵌套三元**（第 740 轮实测）：`cases:tsast` 的语料
+    // **包含产物自己**，而嵌套条件表达式那一格这一版还认不全（缺 `ConditionalExpression` +
+    // `ColonToken`，实测 13 缺 1 漂 2 多）——写成一条条的 `if` 就没有这一格。
+    let operandField = "";
+    if (optional !== undefined && UNARY_KINDS.has(optional.kind)) {
+      if (optional.expression !== undefined) {
+        operandField = "expression";
+      } else if (optional.operand !== undefined) {
+        operandField = "operand";
+      }
+    }
+    if (optional !== undefined && operandField !== "") {
+      let inner:any = operandField === "expression" ? optional.expression : optional.operand;
       let unaryAt = ncoIndex;
       while (unaryAt < kids.length && kids[unaryAt].get("type") === "NullConditionalOperator") {
         inner = chainWithOptional(inner, kids[unaryAt], ctx);
         unaryAt++;
       }
-      const rebuilt = {
+      const rebuilt:any = {
         ...optional,
-        expression: inner,
         end: inner === undefined ? optional.end : inner.end,
       };
+      rebuilt[operandField] = inner;
       if (unaryAt >= kids.length) return rebuilt;
       return foldBinaryFrom(rebuilt, kids.slice(unaryAt), ctx);
     }
