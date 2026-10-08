@@ -58,9 +58,9 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
   `docs/runtime-design-notes.md` 记着那一边的取舍——`runtime/` 转成 C++ 就能嵌进客户的程序，
   不必依赖 wasm、也不必依赖 JS 引擎。
 
-逐轮的变更史不写在这里：它在 git 历史里，缺口的来龙去脉在
-[docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md) 与
-[docs/member-layer-plan.md](docs/member-layer-plan.md) 里。
+逐轮的变更史**不写在这里**：它在 git 历史里。两份长期文档只留**结论**——
+[docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)（口径边界、审计方法、不再试的改法）
+与 [docs/member-layer-plan.md](docs/member-layer-plan.md)（成员层的结论）。
 
 **目录名不是命名空间**：`# namespace` 仍然是扁平的单个 `cangjie`，子层级只用目录表达——
 所以 `typescript/tokens/class/class.xl.md` 里的类就叫 `Class`，不带 `Typescript.Tokens.Class` 这样的前缀。
@@ -330,42 +330,43 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `coverage` | **1812 / 1812**（**100%**）：引擎 / 降级 / 标准库 / 端到端四层各 **100%**，台账里 0 条待修 |
 | `npm run gates` | 上面六道一次跑完（实测墙钟 **~22s**） |
 
-缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
+### 口径与已知缺口
 
-- **类型层**有 `TypeDefine` / `GenericType` / `TypeLiteral` / `Signature` / `FunctionType` /
-  `ConditionalType` / `UnionType` + `IntersectionType` / `MappedType` / `ArrayType` + `TupleType` +
-  `IndexedAccessType` / `TypeOperator`（`keyof` / `readonly` / `unique`）/ `TypeQuery` /
-  `LiteralType` / `ImportType` / `TypeParameter` / `InferType`，以及模板字面量类型的插值段；
-  与 `ts.createSourceFile` 逐节点比，类型的每一种构造都对得上。
+**明确不做**（不是缺陷）：`JSX / TSX`（独立于 TypeScript 的语法扩展）、
+`RegExp` / `BigInt` / `Proxy` / `Intl`（`docs/runtime-architecture.md` §15 那张表）、
+装饰器的运行期语义、多文件模块加载（`tsrun` 是单文件口径）。
+整张清单与理由见 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
+
+**仍然开着的缺口**（只剩这些）：
+
+- **括号断言的表达式当链底**：`(x as T)?.m?.()` 与 `(x as T).m?.()`——
+  `MethodCloseRule` 抢在链规则前面把那个括号读成一次调用，降级层报
+  `unimplemented: expression DotToken` / `NullConditionalOperator`。
+  `(x as T)?.v` / `(x as T)?.m()` / `o.m?.()` / `o?.m?.()` 都是好的。
 - **`Label` 只是标记节点**，不包含它标的那条语句（产物形如 `<Label label="outer" /><While>…</While>`）：
   标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
 - **ASI 是按形状预判的**：判据在 [typescript/tokens/statement.xl.md](typescript/tokens/statement.xl.md) 的
   `Statement.IsLineBreakBoundary`（前一个单元不再要操作数、后一个单元也不能续接 ⇒ 断句，
   加上 `return` / `throw` / `break` / `continue` / `yield` 与后缀 `++` / `--` 的受限产生式）。
   规范里 ASI 还有一条「**语法不允许时**才插分号」，本工程不看完整文法、只看形状，
-  所以个别极端排版仍可能与 TS 不同——这类情况由 `cases:tsast` 巡检
-  （新形状先按 `npm run coverage:sweep` 普查，再收进用例语料）。
-- **JSX / TSX** 没有支持（四个 `.tsx` 用例只钉住「不抛异常 / 不吞掉后面的代码」）。
-  这是**独立于 TypeScript 的语法扩展**，不在 `.ts` 范围内。
+  所以个别极端排版仍可能与 TS 不同——这类情况由 `cases:tsast` 巡检。
 - **嵌套解构的绑定名进的是同一张逗号分隔表**（`arrayPattern`），丢的是**结构**而不是名字：
   `const [[a, b], [, c = 0]] = m` 记成 `a,b,c,0`。
-- **`<RegexToken>` 是空标签**：正则正文与标志在单元的 `Temp` / `Flags` 字段上、刻意不渲染进 XML
-  （见 [typescript/tokens/regex-token.xl.md](typescript/tokens/regex-token.xl.md)）。
 - **语言配置带来的两处差异**（不是解析器缺陷，是这套语言这么定义）：
   `\a` 解成响铃字符而不是字母 `a`；`@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器。
 - **块与表达式之间没有分隔符时**（`{ A }a += 1`：块紧跟着表达式，中间既没有 `;` 也没有换行），
   产物里块与后一条语句仍然**并进同一个 `<Statement>`**（与 TypeScript 的「两条语句」不一致）——
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的（形状那一层已经对了，token 树那一层没动）。
-  **被否决的改法**：把块当语句边界（`StatementReorganization2.Previous`）——切断了复合赋值的
-  展开，**整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
+  **被否决的改法**：把块当语句边界——切断了复合赋值的展开，**整段内容丢失**，比边界不合严重；
+  不要再试。两条形状已经收进用例语料。
 
 ---
 
-> **逐轮的账不写在这里**：规范、判据、每一轮的根因 / 修法 / 读数都在
-> [docs/member-layer-plan.md](docs/member-layer-plan.md)（token / 投影 / AST 那一条线，**停在
-> 第 587 轮**）与 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)
-> （缺口审计，**它的每一条都已经收掉**）里——两份都是**冻结的历史**，本文件只留**现状**与**怎么改**。
+> **逐轮的账不写在这里**：规范、判据、每一轮的根因 / 修法 / 读数都在 **git 历史**里。
+> 两份长期文档只留结论：[docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)
+> （口径边界 / 审计方法 / 不再试的改法）与 [docs/member-layer-plan.md](docs/member-layer-plan.md)
+> （成员层的结论）。
 
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）会在个别 JavaScript 专有形状上抛内部错误
 ——那是 JS 而不是 TypeScript，不在当前范围内。
