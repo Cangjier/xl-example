@@ -306,7 +306,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1103 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1875 / 1875**：四层各 **100%**（runtime 523、exec 429、stdlib 734、e2e 189） |
+| `coverage` | **1876 / 1876**：四层各 **100%**（runtime 523、exec 429、stdlib 735、e2e 189） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口
@@ -337,15 +337,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 - 其余仍开着的解析缺口（`do` 的体是一条 `while` 语句、`switch` 体里单行块后面跟 `case`）
   只有两条，逐条与「试过什么」见 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
 
-执行侧只剩两条：
+执行侧只剩一条：
 
-- **`Object.values` / `Object.entries` 跳过访问器**（第 653 轮普查量到的）：JS 走的是 `[[Get]]`，
-  所以 `{ get a() { return 1 } }` 的 `Object.values` 应该**调一次 getter**（`node` 给 `[1]`，
-  本仓给 `[]`）。`Object.keys` / `getOwnPropertyNames` / 直接读 `o.acc` **都是对的**，
-  差的就是「取值的那个内建要不要真读一次」。**修法有现成的先例**：
-  `Object.assign` 第 306 轮把「访问器的值」推迟到**紧挨着用它的那一句**再读
-  （getter 的结果不属于任何对象，提前抄进宿主数组就是让一个没人指着的值跨越一次分配）
-  ——`values` / `entries` 要走同一条纪律。它现在**没有进矩阵**（进了就红）。
 - **`using` / `await using` 只在 token 层成形，降级层不认它**：`using r = new Res()` 被当成普通
   `const` 降级，块结束时**不会**调 `r[Symbol.dispose]()`（`await using` 同理欠 `Symbol.asyncDispose`）——
   `node` 对这两个声明有运行期语义，`tsrun` 静默少一次释放。上面的 `Symbol.dispose` /
@@ -353,10 +346,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   [`c650-std-symbol-keyed-method`](tests/coverage/cases/stdlib.mjs)），缺的只是**声明本身的降级**。
   解析侧的用例在 [`decl-using-basic.ts`](tests/parse/cases/declarations/decl-using-basic.ts)；
   执行侧**没有进矩阵的用例**（第 651 轮普查过：`node` 给 `new a|new b|body|dispose b|dispose a`，
-  本仓只给前三段），所以覆盖矩阵看不见它。
-  **声明本身还丢了一个标志位**：投影出来的 `VariableDeclarationList.flags` 是 `"Let"`，
-  `using` / `await using` 应有的 `Using` / `AwaitUsing` 没有传下去——补降级之前先要补这一格
-  （`TokenField` 那条线上的活儿）。
+  本仓只给前三段），所以覆盖矩阵看不见它。投影那一格（`VariableDeclarationList.flags` 的
+  `Using` / `AwaitUsing`）第 655 轮已经补上，降级层可以直接读它。
 
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）会在个别 JavaScript 专有形状上抛内部错误
 ——那是 JS 而不是 TypeScript，不在当前范围内。

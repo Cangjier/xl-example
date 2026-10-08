@@ -3896,7 +3896,7 @@ if (id === ObjectKeys) {
 }
 if (id === ObjectValues || id === ObjectEntries) {
   // **值与键值对**（第 120 轮补）：与 `Object.keys` 同一趟扫描，
-  // 差别只有「要不要读值」——所以**访问器在这里必须跳过**（`keys` 不必）。
+  // 差别只有「要不要读值」——**访问器也要读**（第 655 轮：JS 走 `[[Get]]`，`keys` 不必读）。
   //
   // **第 210 轮把下标键也接上**（与 `keys` 那一支同一条口径）：数组的元素、
   // 字符串的下标——它们排在最前面（`Object.values([1,2])` 在 JS 里是 `[1,2]`，
@@ -3937,14 +3937,21 @@ if (id === ObjectValues || id === ObjectEntries) {
   // 在 JS 里是 `["three", 1]`（**值的次序跟着键**）。
   const intKeys: number[] = [];
   const intValues: Value[] = [];
+  const intAccessor: boolean[] = [];
   const plainKeys: number[] = [];
   const plainValues: Value[] = [];
+  const plainAccessor: boolean[] = [];
   if (own !== null) {
   for (let i = 0; i < own.Props.length; i++) {
     if (table.Get(own.Props[i].Key).Tag !== ValueTag.String) continue;
-    if (own.Props[i].IsAccessor()) continue;
     // **可枚举才算**（第 182 轮，与 `keys` 那一条同一处修正）；私有字段是隐藏的，一起筛掉。
     if (!own.Props[i].IsEnumerable()) continue;
+    // **访问器不再跳过**（第 655 轮）：`Object.values` / `Object.entries` 走的是 **`[[Get]]`**
+    //（第 120 轮那一版在这里 `continue`，于是 `{ get a() { return 1 } }` 给 `[]`，`node` 给 `[1]`）
+    // ——与 `Object.assign` 第 306 轮修的是同一件事。
+    // **值这一刻不抄**：getter 的结果**不属于任何对象**，抄进这个宿主数组再分配
+    // 就是让一个没人指着的值跨越一次回收，所以只记下「这一格要现读」。
+    const isAccessor = own.Props[i].IsAccessor();
     // **与下标键重复的那些**（越界写过的下标）不重复收。
     const propText = TextFrom(table, Value.FromString(own.Props[i].Key));
     if (IsIndexKeyText(propText)) {
@@ -3954,35 +3961,43 @@ if (id === ObjectValues || id === ObjectEntries) {
       }
       if (coveredValue) continue;
       intKeys.push(own.Props[i].Key);
-      intValues.push(own.Props[i].Value);
+      intValues.push(isAccessor ? Value.Undefined() : own.Props[i].Value);
+      intAccessor.push(isAccessor);
       continue;
     }
     plainKeys.push(own.Props[i].Key);
-    plainValues.push(own.Props[i].Value);
+    plainValues.push(isAccessor ? Value.Undefined() : own.Props[i].Value);
+    plainAccessor.push(isAccessor);
   }
   }
-  // **整数样的一摞升序**（键与值一起换——两摞是平行的）。
+  // **整数样的一摞升序**（键与值一起换——两摞是平行的）；「要不要现读」那一摞跟着一起换。
   for (let i = 1; i < intKeys.length; i++) {
     const curKey = intKeys[i];
     const curValue = intValues[i];
+    const curAccessor = intAccessor[i];
     let j = i - 1;
     while (j >= 0 && Number(TextFrom(table, Value.FromString(intKeys[j]))) > Number(TextFrom(table, Value.FromString(curKey)))) {
       intKeys[j + 1] = intKeys[j];
       intValues[j + 1] = intValues[j];
+      intAccessor[j + 1] = intAccessor[j];
       j = j - 1;
     }
     intKeys[j + 1] = curKey;
     intValues[j + 1] = curValue;
+    intAccessor[j + 1] = curAccessor;
   }
   const keys: number[] = [];
   const values: Value[] = [];
+  const accessors: boolean[] = [];
   for (let i = 0; i < intKeys.length; i++) {
     keys.push(intKeys[i]);
     values.push(intValues[i]);
+    accessors.push(intAccessor[i]);
   }
   for (let i = 0; i < plainKeys.length; i++) {
     keys.push(plainKeys[i]);
     values.push(plainValues[i]);
+    accessors.push(plainAccessor[i]);
   }
   if (!room(ObjectCharge + ValueCharge * (indexValues.length * 2 + values.length * 2 + 2)
     + CodeUnitCharge * (indexKeys.length + values.length) * 4)) {
@@ -4002,14 +4017,35 @@ if (id === ObjectValues || id === ObjectEntries) {
     result.Push(indexPair);
   }
   for (let i = 0; i < values.length; i++) {
+    // **现读的那一格：读到的值立刻进它该去的地方**（第 655 轮）——
+    // 结果数组**已经分配好**（上面那次 `room` 是唯一的回收点，发生在值还不存在的时候），
+    // 所以第一次 `Push` 就是给这个值生根；`entries` 的键先塞进新数组、值再塞，
+    // 中间隔着的那次 `GetProperty` 因而不会留下没人指着的值。
+    // **没有通道时照旧跳过**（`call === null` 是「宿主没接那一格」，与 `Object.assign`
+    // 那条可选服务的纪律一字不差——那时宁可少一格，也不能凭空给一个 `undefined`）。
+    const needsRead = accessors[i];
+    if (needsRead && call === null) continue;
     if (id === ObjectValues) {
-      result.Push(values[i]);
+      let value = values[i];
+      if (needsRead) {
+        if (call === null) continue;
+        if (!room(PropertyCharge)) throw new Error("out of room");
+        value = GetProperty(room, call, protos, table, args[0], Value.FromString(keys[i]));
+      }
+      result.Push(value);
       continue;
     }
     // `entries` 给的是 `[键, 值]` 的**新数组**（JS 的形状），所以它也要数组原型。
     const pair = NewPlainArray(room, table, protos);
-    table.Get(pair.Ref).AsArray().Push(Value.FromString(keys[i]));
-    table.Get(pair.Ref).AsArray().Push(values[i]);
+    const pairItems = table.Get(pair.Ref).AsArray();
+    pairItems.Push(Value.FromString(keys[i]));
+    let entryValue = values[i];
+    if (needsRead) {
+      if (call === null) continue;
+      if (!room(PropertyCharge)) throw new Error("out of room");
+      entryValue = GetProperty(room, call, protos, table, args[0], Value.FromString(keys[i]));
+    }
+    pairItems.Push(entryValue);
     result.Push(pair);
   }
   return Value.FromArray(handle);

@@ -4770,8 +4770,14 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 
 ```ts
   const modifiers = String(v.attrs.get("modifiers") ?? "");
-  if (modifiers.split(",").includes("const")) return "Const";
-  if (modifiers.split(",").includes("var")) return "None";
+  const words = modifiers.split(",");
+  // **显式资源管理声明是列表自己的标志位**（第 655 轮）：`using x = f()` 是 `Using`、
+  // `await using x = g()` 是 `AwaitUsing`——它们不是 `Let`。
+  // 这一格过去只有 `Const` / `None` / 其余全是 `Let` 三支，`using` 静默落进 `Let`
+  //（`modifiers` 里那两个词**解析期就已经记下了**，是投影这一支没读）。
+  if (words.includes("using")) return words.includes("await") ? "AwaitUsing" : "Using";
+  if (words.includes("const")) return "Const";
+  if (words.includes("var")) return "None";
   return "Let";
 ```
 

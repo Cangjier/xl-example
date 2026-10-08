@@ -6256,4 +6256,9 @@ console.log(Object.keys(obj).join(","), obj[key], Object.getOwnPropertySymbols(o
     title: "Date 的 UTC getter / toISOString / 时间戳往返",
     src: "\nconst d = new Date(Date.UTC(2020, 0, 2, 3, 4, 5, 6));\nconsole.log(d.getTime(), d.toISOString(), d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());\nconsole.log(d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds(), d.getUTCDay());\nconst back = new Date(d.toISOString());\nconsole.log(back.getTime() === d.getTime(), Date.parse(d.toISOString()) === d.getTime());\n",
   },
+  {
+    id: "c655-stdlib-object-values-entries-getters",
+    title: "Object.values / entries 走 [[Get]]：访问器要真读一次、不可枚举的不读、键序不变",
+    src: "\nconst o: any = {};\nlet reads = 0;\nObject.defineProperty(o, \"g\", { get() { reads++; return 7; }, enumerable: true });\nObject.defineProperty(o, \"h\", { get() { return \"x\"; }, enumerable: true });\no.a = 1;\nconsole.log(JSON.stringify(Object.values(o)));\nconsole.log(JSON.stringify(Object.entries(o)));\nconsole.log(reads);\nconsole.log(JSON.stringify(Object.values({ 3: \"three\", \"a-b\": 1, 1: \"one\" })));\nconst arr: any = [10, 20];\nObject.defineProperty(arr, \"k\", { get() { return 30; }, enumerable: true });\nconsole.log(JSON.stringify(Object.values(arr)), JSON.stringify(Object.entries(arr)));\nconsole.log(JSON.stringify(Object.values(\"ab\")));\nconsole.log(Object.values([1, 2]).length, Object.entries({}).length);\nlet order: string[] = [];\nconst p: any = {};\nObject.defineProperty(p, \"b\", { get() { order.push(\"b\"); return 2; }, enumerable: true });\nObject.defineProperty(p, \"a\", { get() { order.push(\"a\"); return 1; }, enumerable: true });\nObject.defineProperty(p, \"z\", { get() { order.push(\"z\"); return 9; }, enumerable: false });\nconsole.log(JSON.stringify(Object.values(p)), order.join(\",\"));\nconsole.log(JSON.stringify(Object.entries(p)));\n",
+  },
 ];
