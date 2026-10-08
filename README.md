@@ -342,7 +342,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **215** 条）：
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **229** 条）：
   主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
   （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
   `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），
@@ -355,8 +355,16 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   **AST 语料**里量出的三条：类体空成员 `;`、对象解构的计算属性名 `{ [k]: v }`、
   嵌套模板里内插与 `}` 之间的空白——**第三条同一轮就收掉了**（投影里 `TemplateTail`
   的 `text` 起点算错），另外「按名字逐个点名」那一批还量出 `eval` 没登记与
-  正则字面量会把整份文件带断）**也已经进矩阵**，
-  登在 [tests/coverage/README.md](tests/coverage/README.md) 的台账里。
+  正则字面量会把整份文件带断）**也已经进矩阵**；
+  **第 678 轮**又用三批语料把**内建成员表**这一层量了一遍（名字 → 行为 → 符号键），
+  新量出的根子是：`length` / `name` / `constructor` 三格从来没人装、`WeakMap` / `WeakSet`
+  的原型表**整张没装**、`Promise.prototype` 的 `then` / `catch` / `finally` 没装、
+  `[[Prototype]]` **没有「改它」的那条路**（`setPrototypeOf` 换不动、`__proto__` 没装）、
+  `defineProperty` 只收字符串键（连累 `Symbol.hasInstance` 这类协议）、盒子对象没有内部标签、
+  well-known symbol 缺 7 格（含与 `RegExp` 无关的 `isConcatSpreadable` / `unscopables`）、
+  `console` 缺 30 格、`Date.prototype` 缺 11 格、`String.prototype` 缺 19 格——
+  每一格的症状与根子逐条登在
+  [tests/coverage/README.md](tests/coverage/README.md) 的台账里。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 
