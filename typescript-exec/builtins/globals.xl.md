@@ -2439,9 +2439,18 @@ if (id === ObjectCtor) {
   throw new Error("unimplemented: Object(symbol) needs a symbol wrapper");
 }
 if (id === ArrayCtor) {  // **一个数是长度、其余是元素**（JS 的口径，见 `ArrayCtor` 那一段）。
-  if (args.length === 1 && args[0].Tag === ValueTag.Int32) {
-    const count = args[0].Int;
-    if (count < 0) throw new Error("unimplemented: new Array(n) needs a non-negative length");
+  // **「一个数字实参」这一档的判据是「是不是数字」，不是「是不是 Int32」**（第 692 轮，普查当场红的）：
+  // JS 的 `Array(len)` 只认 `0 ≤ len ≤ 2^32-2` 的**整数**，其余一律
+  // `RangeError: Invalid array length`（`new Array(-1)` / `new Array(1.5)` /
+  // `new Array(NaN)` / `new Array(Infinity)` / `new Array(2 ** 32 - 1)`）。
+  // **原来两条都错**：负数抛的是**普通 `Error`**（`e instanceof RangeError` 分不出来），
+  // 而 `new Array(1.5)` **根本不进这一支** ⇒ 落到底下「一个实参就是一个元素」那条路
+  // ⇒ **静默给 `[1.5]`**（Node 抛）。
+  if (args.length === 1 && (args[0].Tag === ValueTag.Int32 || args[0].Tag === ValueTag.Float64)) {
+    const count = NumericOf(args[0]);
+    if (Number.isInteger(count) === false || count < 0 || count > 4294967294) {
+      throw new RangeError("Invalid array length");
+    }
     // **洞也要计费**：`Truncate` 会按长度铺满洞（`heap.xl.md` 写着它「变长时新增的全是洞」），
     // 所以先按最坏情况问一次（`ObjectCharge` 那一份由 `NewPlainArray` 自己问）。
     if (!room((ValueCharge + HoleCharge) * count)) throw new Error("out of room");

@@ -130,6 +130,14 @@
    **第 692 轮的四处修法都留了指纹**：`isCallFirstUnit`（投影层）、
    `IsOperand` 里的 `Function`（两份名单）、`SplitShell` 的标签头、
    `PendingLabels` / `LoopContext.Labels`（多标签）——四处的判据都在用例里钉着。
+   **同一轮（其三）又 103 条**（第三批原子探针：闭包与作用域 / `this` 绑定 /
+   承诺与 `async` / `Map`·`Set` 成员面 / 异常流转 / 字符串与模板）：通过
+   **4217 → 4315**、分母 **4527 → 4630**、`blocked` **245 没涨**、`differ 65 → 70`、
+   `bad` 仍 **0**、`regressions` 0——收掉的是 **`new Array(-1)` 抛普通 `Error`**
+   （JS 抛 `RangeError`；同一支里 `new Array(1.5)` 原来**静默给 `[1.5]`**，
+   判据改成「是不是 `0..2^32-2` 的整数」之后两档一起对上）。
+   另登记 5 条：TDZ 的 `typeof`、松散模式原始值接收者**不装箱**（3 条）、
+   `async` 函数的返回值不是承诺。加权 **95.7%**。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

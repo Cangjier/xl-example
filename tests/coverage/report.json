@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4527,
+  "total": 4630,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.78,
+  "progressPercent": 95.68,
   "categories": [
     {
       "category": "token",
@@ -90,32 +90,32 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 822,
-      "pass": 803,
+      "total": 857,
+      "pass": 834,
       "blocked": 1,
-      "differ": 18,
+      "differ": 22,
       "nodefail": 0,
-      "coverage": 97.69
+      "coverage": 97.32
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 632,
-      "pass": 628,
+      "total": 662,
+      "pass": 657,
       "blocked": 1,
-      "differ": 3,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 99.37
+      "coverage": 99.24
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1424,
-      "pass": 1360,
+      "total": 1462,
+      "pass": 1398,
       "blocked": 20,
       "differ": 44,
       "nodefail": 0,
-      "coverage": 95.51
+      "coverage": 95.62
     },
     {
       "category": "e2e",
@@ -1712,6 +1712,30 @@
       "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
     },
     {
+      "id": "exec/functions/probe3-s03",
+      "category": "exec",
+      "title": "(function () { try { return typeof x; let x = 1; } catch (e) { return e.constructor.name; } })()",
+      "detail": "stdout 不同：第 1 行：node «string:ReferenceError» vs tsrun «string:undefined»"
+    },
+    {
+      "id": "exec/functions/probe3-t03",
+      "category": "exec",
+      "title": "(function () { function f() { return this === undefined ? \"u\" : typeof this; } return f.call(1); })()",
+      "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:number»"
+    },
+    {
+      "id": "exec/functions/probe3-t04",
+      "category": "exec",
+      "title": "(function () { function f() { return typeof this; } return f.call(\"x\"); })()",
+      "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:string»"
+    },
+    {
+      "id": "exec/functions/probe3-t14",
+      "category": "exec",
+      "title": "(function () { function f() { return this; } const b = f.bind(\"s\"); return typeof b(); })()",
+      "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:string»"
+    },
+    {
       "id": "exec/iterators/probe-y14",
       "category": "exec",
       "title": "(function* () { const x = yield 1; return x; })()",
@@ -1722,6 +1746,12 @@
       "category": "runtime",
       "title": "`await` 一个 thenable 对象（不是 Promise）",
       "detail": "stdout 不同：第 2 行：node «then called» vs tsrun «got { then: [Function: then] }»"
+    },
+    {
+      "id": "runtime/async/probe3-a12",
+      "category": "runtime",
+      "title": "(function () { const f = async () => 1; return f() instanceof Promise; })()",
+      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
     },
     {
       "id": "runtime/iterators/039-map-mutation-during-forof",
@@ -1859,7 +1889,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-4904/src/3163.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23756/src/3228.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
