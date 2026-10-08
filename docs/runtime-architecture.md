@@ -52,7 +52,7 @@
 core/                 与语言无关的语法层骨架（多语言共用）        ← 已有
 typescript/           TypeScript 的 token 层（本语言专有）        ← 已有
 
-runtime/              ★ 与语言无关的**引擎**（多语言共用）        ← 本层
+runtime/              与语言无关的**引擎**（多语言共用）        ← 本层
   ir.xl.md              指令集、编码、常量池、帧布局、异常表
   ir-verify.xl.md       装载时的结构验证（唯一的安全入口）
   value.xl.md           值模型（胖联合 + tag 表）
@@ -63,7 +63,7 @@ runtime/              ★ 与语言无关的**引擎**（多语言共用）     
   host-abi.xl.md        宿主能力表、Ts_Retain/Ts_Release、限额
   wasm-exec.xl.md       wasm 封闭子集的执行器（P3，**尚未开工**，文件还不存在）
 
-typescript-exec/      ★ TypeScript 的降级层 + 标准库（本语言专有） ← 本层
+typescript-exec/      TypeScript 的降级层 + 标准库（本语言专有） ← 本层
   lowering.xl.md        AST → IR 的总规则（顺序即语义）
   …                    逐构造的降级：声明 / 表达式 / 语句 / 作用域与捕获 / 模块 / 异步
   builtins/             Object / Function / Array / String / Number / Math / JSON / Error / Promise / Symbol / Map / Set / Date
@@ -362,13 +362,13 @@ void    Ts_Collect(TsVm*);               // 给判据用
 
 ## 16. 已知与 Node 的差异（**写在明处**，不是缺陷）
 
-这三条都是**做不了 / 不值得做**那一档 ✓，而它们**不是静默的** ✗——判据一律绕开这些形状 ✓，
-所以这里写清楚，免得下一次有人把它当成回归 ✓。
+这三条都是**做不了 / 不值得做**那一档，而它们**不是静默的**——判据一律绕开这些形状，
+所以这里写清楚，免得下一次有人把它当成回归。
 
-- **`localeCompare` 只在码元序上有确定答案** ✓（本仓没有区域表 ✗）：非 ASCII 输入**响亮地抛** ✓；
-  ASCII 之内的**大小写次序**也与 ICU 不同 ✓——`["b", "a", "B"].sort(localeCompare)`
-  本仓给 `B,a,b` ✓、Node 给 `a,b,B` ✓。判据只用**同一大小写的 ASCII** ✓。
-- **`Promise.all` / `race` / `allSettled` / `any` 收到非可迭代物时抛** ✓，
-  而 JS 给的是一个**被拒绝的承诺** ✓（`Promise.all(1).catch(…)` 在 JS 里接得住 ✓、这里接不住 ✓）。
-- **`decodeURI` / `decodeURIComponent` 把保留字符吐回去时统一大写** ✓
-  （`decodeURI("%2f")` 本仓给 `"%2F"` ✓、Node 原样给 `"%2f"` ✓）。
+- **`localeCompare` 只在码元序上有确定答案**（本仓没有区域表）：非 ASCII 输入**响亮地抛**；
+  ASCII 之内的**大小写次序**也与 ICU 不同——`["b", "a", "B"].sort(localeCompare)`
+  本仓给 `B,a,b`、Node 给 `a,b,B`。判据只用**同一大小写的 ASCII**。
+- **`Promise.all` / `race` / `allSettled` / `any` 收到非可迭代物时抛**，
+  而 JS 给的是一个**被拒绝的承诺**（`Promise.all(1).catch(…)` 在 JS 里接得住、这里接不住）。
+- **`decodeURI` / `decodeURIComponent` 把保留字符吐回去时统一大写**
+  （`decodeURI("%2f")` 本仓给 `"%2F"`、Node 原样给 `"%2f"`）。

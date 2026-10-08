@@ -53,12 +53,12 @@ const idFilter = value("--filter");
 const jobs = Math.max(1, Number(value("--jobs", String(Math.min(8, os.cpus().length)))));
 
 const tsrun = path.join(root, "build", "ts", "tsrun.js");
-// **每个实例一个工作目录** ✓（第 320 轮按用户口径改 ✗）：原来是一个共用的 `.work` ✓，
-// 而这一趟开头会 `rm -rf` 它 ✓ ⇒ 两个实例同时跑时，先跑的那一个会开始报
-// 「找不到输入文件」✗——那看起来像**三条回归** ✓，其实是**另一个进程把它的文件删了** ✗
-// （实测过 ✓）。**按 pid 分开之后两个实例互不相干** ✓，连锁都不必了 ✗
-// （唯一还共用的是 `report.json` ✓：它本来就是「最后一次整跑」的产物 ✓，
-//  两个实例同时写就是后写的那一份 ✓——**读数不会互相污染** ✓）。
+// **每个实例一个工作目录**（第 320 轮按用户口径改）：原来是一个共用的 `.work`，
+// 而这一趟开头会 `rm -rf` 它 ⇒ 两个实例同时跑时，先跑的那一个会开始报
+// 「找不到输入文件」——那看起来像**三条回归**，其实是**另一个进程把它的文件删了**
+// （实测过）。**按 pid 分开之后两个实例互不相干**，连锁都不必了
+// （唯一还共用的是 `report.json`：它本来就是「最后一次整跑」的产物，
+//  两个实例同时写就是后写的那一份——**读数不会互相污染**）。
 const workDir = path.join(here, `.work-${process.pid}`);
 const reportPath = path.join(here, "report.json");
 
@@ -115,13 +115,13 @@ if (listOnly) {
   process.exit(0);
 }
 
-// **退出时删掉自己那一份工作目录** ✓（第 320 轮 ✓）：留着的话每跑一次就多一个
-// `.work-<pid>` ✓（`.gitignore` 里挡着 ✓，但磁盘上会越堆越多 ✗）。
+// **退出时删掉自己那一份工作目录**（第 320 轮）：留着的话每跑一次就多一个
+// `.work-<pid>`（`.gitignore` 里挡着，但磁盘上会越堆越多）。
 process.on("exit", () => {
   try {
     fs.rmSync(workDir, { recursive: true, force: true });
   } catch {
-    // 删不掉**不是错误** ✓（下一次跑用的是新的 pid 目录 ✓）。
+    // 删不掉**不是错误**（下一次跑用的是新的 pid 目录）。
   }
 });
 checkFreshness();
@@ -129,13 +129,13 @@ fs.rmSync(workDir, { recursive: true, force: true });
 fs.mkdirSync(workDir, { recursive: true });
 
 /**
- * **异步**跑一个进程（第 318 轮 ✓）——并发池真正并行起来靠的就是它 ✗。
+ * **异步**跑一个进程（第 318 轮）——并发池真正并行起来靠的就是它。
  *
- * **为什么非改不可** ✗：原来那一个是 `spawnSync` ✓，而它是**同步**的 ✓——
- * 它一进去就把整个事件循环**堵住** ✓ ⇒ 那 8 个「并发」worker 一个接一个地跑 ✓
- * ⇒ **`--jobs` 形同虚设** ✗（用户实测：CPU 只有 12% ✓、`--jobs 8` 与 `--jobs 16`
- * 只差 6 秒 ✓——两件事都是这一条造成的 ✓）。
- * 换成 `spawn` + Promise 之后，同一时刻真的有 8 个 `node` 在跑 ✓。
+ * **为什么非改不可**：原来那一个是 `spawnSync`，而它是**同步**的——
+ * 它一进去就把整个事件循环**堵住** ⇒ 那 8 个「并发」worker 一个接一个地跑
+ * ⇒ **`--jobs` 形同虚设**（用户实测：CPU 只有 12%、`--jobs 8` 与 `--jobs 16`
+ * 只差 6 秒——两件事都是这一条造成的）。
+ * 换成 `spawn` + Promise 之后，同一时刻真的有 8 个 `node` 在跑。
  */
 function runAsync(argv) {
   return new Promise((resolve, reject) => {
@@ -173,7 +173,7 @@ function firstDifference(left, right) {
   return "（逐行相同——差异在行尾字节上）";
 }
 
-/** 判定一条：把「裁判那一对」与「被测那一对」比出结论（第 319 轮抽出来 ✓）。 */
+/** 判定一条：把「裁判那一对」与「被测那一对」比出结论（第 319 轮抽出来）。 */
 function verdictOf(entry, oracle, ours) {
   const elapsed = 0;
   const mine = ours.stderr.toString("utf8").split("\n").find((line) => line.trim() !== "") || "";
@@ -206,24 +206,24 @@ function verdictOf(entry, oracle, ours) {
 // **被测侧：一个进程跑一批**（第 319 轮加，用户口径：「一次 tsrun（一个进程跑多个 case），
 // 同时起 CPU 核心数那么多个」）。
 //
-// **为什么** ✗：裁判那一半已经缓存了 ✓，剩下的全在**被测侧**——1111 条就是 1111 次
-// `node` 启动 ✓（~265ms 里大半是启动 ✓）。`tsrun --batch 清单` 让**一个进程**跑一整批 ✓
-// ⇒ 启动次数从「条数」降到「批数」✓（16 批就是 16 次 ✓）。
+// **为什么**：裁判那一半已经缓存了，剩下的全在**被测侧**——1111 条就是 1111 次
+// `node` 启动（~265ms 里大半是启动）。`tsrun --batch 清单` 让**一个进程**跑一整批
+// ⇒ 启动次数从「条数」降到「批数」（16 批就是 16 次）。
 //
-// **批与批并行** ✓：`--jobs`（默认 `min(核数, 16)` ✓）就是**进程数** ✓——
-// 这正是用户要的那个形状 ✓。
+// **批与批并行**：`--jobs`（默认 `min(核数, 16)`）就是**进程数**——
+// 这正是用户要的那个形状。
 //
-// **每条用例仍然是独立的** ✗：清单里每一条各自一次 `RunSources` ✓（新的机器、新的表 ✓），
-// 与「一条一个进程」**同一个入口** ✓ ⇒ 语义没变 ✓、读数没变 ✓（唯一的差别是 stdout 被
-// 逐条捕获 ✓，见 `tsrun.xl.md` 的 `RunBatch` ✓）。
+// **每条用例仍然是独立的**：清单里每一条各自一次 `RunSources`（新的机器、新的表），
+// 与「一条一个进程」**同一个入口** ⇒ 语义没变、读数没变（唯一的差别是 stdout 被
+// 逐条捕获，见 `tsrun.xl.md` 的 `RunBatch`）。
 //
-// **兜底** ✓：某一条没出现在记录里（整批崩了 / 那条自己把进程带崩了 ✓）⇒
-// **按单条重跑那一条** ✓——批量是加速手段，不许改变任何一条的判定 ✓。
+// **兜底**：某一条没出现在记录里（整批崩了 / 那条自己把进程带崩了）⇒
+// **按单条重跑那一条**——批量是加速手段，不许改变任何一条的判定。
 const useBatch = !flag("--no-batch");
 const manifestsDir = path.join(workDir, "manifests");
 fs.mkdirSync(manifestsDir, { recursive: true });
 
-/** 把选中的用例铺成 `jobs` 批（轮转分，长的短的混在一起 ✓）。 */
+/** 把选中的用例铺成 `jobs` 批（轮转分，长的短的混在一起）。 */
 function makeBatches() {
   const batchCount = Math.max(1, Math.min(jobs, selected.length));
   const groups = Array.from({ length: batchCount }, () => []);
@@ -232,29 +232,29 @@ function makeBatches() {
 }
 
 /**
- * 一条用例的**裁判**能不能进批（第 320 轮 ✓）。
+ * 一条用例的**裁判**能不能进批（第 320 轮）。
  *
- * **只剩一条排除** ✗：**会把进程带走的**（`process.exit` ✓ / `require(` ✓）——
- * 真出现时这一批提前结束 ✓，调用方发现「某几条没交回结果」就**按单条重跑** ✓。
+ * **只剩一条排除**：**会把进程带走的**（`process.exit` / `require(`）——
+ * 真出现时这一批提前结束，调用方发现「某几条没交回结果」就**按单条重跑**。
  *
- * **会排异步工作的也进来了** ✓（第 320 轮第二轮 ✓）：`judge-batch.mjs` 在每条之后
- * **让两个 `setImmediate` 的 tick** 再收工 ✓——`node file.ts` 会在**退出前**把微任务跑干净 ✓，
- * 那两个 tick 覆盖的正是「`main()` 没人在等它」那一类 ✓。
- * **它是一处近似，写在明处** ✗：还没到点的定时器（`setTimeout(f, 100)` ✓）等不到 ✓；
- * 所以配一句**可执行的验证** ✓：`--no-batch`（一条一进程 ✓）跑一整轮，与批量那一轮
- * **逐条对拍** ✓——第 320 轮实测 **1113 条逐条一致** ✓（加权同为 95.17% ✓）。
- * **第一轮试过「碰全局 + 异步」两条都排除** ✓：稳妥 ✓ 但慢（裁判侧 10s ✓ 里大半是那 65 条 ✓）；
- * **第二轮试过「每条等它安静下来」** ✗：判据用了 `process._getActiveHandles()` ✓，
- * 它在**批进程自己**身上本来就有波动 ✓ ⇒ 每条都判成「没安静」✓ ⇒ 整批不交结果 ✓
- * ⇒ 1113 条全部退回单跑 ✓（实测 **121.9s** ✗，比不批还慢 ✓）。
- * **一个错误的判据会把整条加速路吃掉** ✓——与第 318 / 319 轮那两条是同一类 ✓。
+ * **会排异步工作的也进来了**（第 320 轮第二轮）：`judge-batch.mjs` 在每条之后
+ * **让两个 `setImmediate` 的 tick** 再收工——`node file.ts` 会在**退出前**把微任务跑干净，
+ * 那两个 tick 覆盖的正是「`main()` 没人在等它」那一类。
+ * **它是一处近似，写在明处**：还没到点的定时器（`setTimeout(f, 100)`）等不到；
+ * 所以配一句**可执行的验证**：`--no-batch`（一条一进程）跑一整轮，与批量那一轮
+ * **逐条对拍**——第 320 轮实测 **1113 条逐条一致**（加权同为 95.17%）。
+ * **第一轮试过「碰全局 + 异步」两条都排除**：稳妥 但慢（裁判侧 10s 里大半是那 65 条）；
+ * **第二轮试过「每条等它安静下来」**：判据用了 `process._getActiveHandles()`，
+ * 它在**批进程自己**身上本来就有波动 ⇒ 每条都判成「没安静」 ⇒ 整批不交结果
+ * ⇒ 1113 条全部退回单跑（实测 **121.9s**，比不批还慢）。
+ * **一个错误的判据会把整条加速路吃掉**——与第 318 / 319 轮那两条是同一类。
  */
 function judgeGroup(entry) {
   if (/process\.exit|require\(/.test(entry.src)) return null;
   return (entry.nodeArgs || []).join(" ");
 }
 
-/** 把选中的用例按「裁判组」分成若干批 ✓（同组之内再按 jobs 切 ✓）。 */
+/** 把选中的用例按「裁判组」分成若干批（同组之内再按 jobs 切）。 */
 function makeJudgeBatches() {
   const groups = new Map();
   for (let i = 0; i < selected.length; i++) {
@@ -273,7 +273,7 @@ function makeJudgeBatches() {
   return batches;
 }
 
-/** 跑一批裁判：返回 `Map<index, {status, stdout, stderr}>`（缺的就是没跑出来的 ✓）。 */
+/** 跑一批裁判：返回 `Map<index, {status, stdout, stderr}>`（缺的就是没跑出来的）。 */
 async function runJudgeProcess(batch) {
   const manifestPath = path.join(workDir, `judge-${batch.indices[0]}.json`);
   const items = batch.indices.map((index) => ({
@@ -302,7 +302,7 @@ async function runJudgeProcess(batch) {
   return found;
 }
 
-/** 裁判那一半：先跑批 ✓，缺的按单条补 ✓。 */
+/** 裁判那一半：先跑批，缺的按单条补。 */
 async function runJudge() {
   const oracleAll = new Array(selected.length);
   if (!useBatch) {
@@ -319,8 +319,8 @@ async function runJudge() {
     return oracleAll;
   }
   const batches = makeJudgeBatches();
-  // **把「一个进程跑多少条」说出来** ✓（第 320 轮 ✓）：这一条是用户要的形状的直接证据 ✓
-  //（**不是**「一条一个进程、凑一批并行跑」✗）。
+  // **把「一个进程跑多少条」说出来**（第 320 轮）：这一条是用户要的形状的直接证据
+  //（**不是**「一条一个进程、凑一批并行跑」）。
   const batched = batches.reduce((sum, batch) => sum + batch.indices.length, 0);
   console.log(
     `裁判：${batches.length} 个进程跑 ${batched} 条（每个进程约 ${Math.round(batched / Math.max(1, batches.length))} 条）`
@@ -340,7 +340,7 @@ async function runJudge() {
   const missing = [];
   for (let i = 0; i < oracleAll.length; i++) if (oracleAll[i] === undefined) missing.push(i);
   if (missing.length > 0) {
-    console.log(`（裁判批里有 ${missing.length} 条没交回结果：按单条重跑 ✓）`);
+    console.log(`（裁判批里有 ${missing.length} 条没交回结果：按单条重跑）`);
     let at = 0;
     await Promise.all(
       Array.from({ length: Math.min(jobs, missing.length) }, async () => {
@@ -356,7 +356,7 @@ async function runJudge() {
   return oracleAll;
 }
 
-/** 跑一批：返回 `Map<index, {status, stdout, stderr}>`（缺的就是没跑出来的 ✓）。 */
+/** 跑一批：返回 `Map<index, {status, stdout, stderr}>`（缺的就是没跑出来的）。 */
 async function runBatchProcess(indices) {
   const manifestPath = path.join(manifestsDir, `batch-${indices[0]}.json`);
   const items = indices.map((index) => ({
@@ -384,7 +384,7 @@ async function runBatchProcess(indices) {
   return found;
 }
 
-/** 被测侧的结果：先跑批 ✓，缺的按单条补 ✓。 */
+/** 被测侧的结果：先跑批，缺的按单条补。 */
 async function runOurs() {
   const ours = new Array(selected.length);
   if (!useBatch) {
@@ -420,11 +420,11 @@ async function runOurs() {
       }
     }),
   );
-  // **没跑出来的按单条补** ✓（批量是加速手段，不许改变判定 ✓）。
+  // **没跑出来的按单条补**（批量是加速手段，不许改变判定）。
   const missing = [];
   for (let i = 0; i < ours.length; i++) if (ours[i] === undefined) missing.push(i);
   if (missing.length > 0) {
-    console.log(`（批里有 ${missing.length} 条没交回结果：按单条重跑 ✓）`);
+    console.log(`（批里有 ${missing.length} 条没交回结果：按单条重跑）`);
     let at = 0;
     await Promise.all(
       Array.from({ length: Math.min(jobs, missing.length) }, async () => {
@@ -440,7 +440,7 @@ async function runOurs() {
   return ours;
 }
 
-/** 一条用例的源码落在哪儿（批量与单条两条路都用它 ✓）。 */
+/** 一条用例的源码落在哪儿（批量与单条两条路都用它）。 */
 function caseFile(entry) {
   return path.join(workDir, `${entry.id}.ts`);
 }
@@ -571,9 +571,9 @@ const summary = {
   regressions: regressions.map((r) => ({ id: r.entry.id, layer: r.entry.layer, detail: r.detail })),
 };
 
-// **过滤过的一次运行不覆盖读数** ✗（第 205 轮补的）：`report.json` 是**整张矩阵**的读数 ✓，
-// 而 `--layer` / `--filter` 只是一次查看 ✓——让它覆盖的话，那一次**部分**运行会被当成全局读数 ✓
-//（**静默** ✗：文件里还是那份 JSON，只是分母悄悄变了几条 ✓）。
+// **过滤过的一次运行不覆盖读数**（第 205 轮补的）：`report.json` 是**整张矩阵**的读数，
+// 而 `--layer` / `--filter` 只是一次查看——让它覆盖的话，那一次**部分**运行会被当成全局读数
+//（**静默**：文件里还是那份 JSON，只是分母悄悄变了几条）。
 const filteredRun = layerFilter !== "" || idFilter !== "";
 if (writeReport && filteredRun) {
   console.log("（这是**过滤后**的一次运行，`report.json` 不覆盖——去掉 `--layer` / `--filter` 再跑才会写读数）");

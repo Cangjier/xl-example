@@ -100,7 +100,13 @@ for (let i = index + 1; i < units.length; i++) {
   if (HeritageClause.IsClauseWord(item) && WordText(item) === "implements") {
     break;
   }
-  if (!(item instanceof LineWrap)) {
+  // **透明单元不进终点**（第 658 轮）：软换行与注释都不是子句的一部分——
+  // TS 的 `HeritageClause` 到最后一个实体名为止（`class A extends B /* c */ {}` 是 `[8,17)`）。
+  // 原来只跳软换行，于是**行尾那条注释把子句区间撑了出去**（实测产物 `[8,25)` =
+  // `extends B /* c */`，`class` 与 `interface` 两族各一条）。
+  // 与 `Take` 里「段的区间跳过段首 / 段尾的透明单元」是同一条口径：透明单元照样进 `Data`，
+  // 只是不把父单元的区间撑出去。
+  if (!IsTriviaUnit(item)) {
     end = i;
   }
 }

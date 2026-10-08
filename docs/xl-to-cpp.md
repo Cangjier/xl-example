@@ -682,10 +682,10 @@ winlibs MinGW-w64 **GCC 16.2.0** + CMake 4.4.3，`-std=c++20`（文首「地道�
 
 | 调用形式 | 结果 |
 | --- | --- |
-| `A(v, i, [](const std::shared_ptr<T>& c){ … })` | ❌ 推导失败 |
-| `A(v, i, freePred)` | ❌ 推导失败 |
-| `A(v, i, std::function<bool(const std::shared_ptr<T>&)>(lambda))` | ✅ |
-| `template <typename T, typename Predicate> B(…, Predicate p)` | ✅ |
+| `A(v, i, [](const std::shared_ptr<T>& c){ … })` | 推导失败 |
+| `A(v, i, freePred)` | 推导失败 |
+| `A(v, i, std::function<bool(const std::shared_ptr<T>&)>(lambda))` | |
+| `template <typename T, typename Predicate> B(…, Predicate p)` | |
 
 **规则：泛型工具里「接受谓词/回调」的模板形参一律写成可推导的 `typename Predicate`**
 （对 lambda / 函数指针 / `std::function` 全兼容，调用点不用改）。不要把 `const std::function<…>&`

@@ -22,7 +22,7 @@ core/                    与语言无关的语法层骨架（多语言共用）
 typescript/              TypeScript 的 token 层（本语言专有）
   text-document.xl.md      值来自字符串的 Document 实现
   text-context.xl.md       解析入口：装配流水线并驱动根单元
-  parse-pipeline.xl.md     ★ 跳转优先级与重组优先级（顺序即语义）
+  parse-pipeline.xl.md     跳转优先级与重组优先级（顺序即语义）
   text-common-util.xl.md   跳过软换行的取值器
   list-extensions.xl.md    跳过透明单元的相邻查找
   tokens/                  逐构造的 token：
@@ -35,8 +35,8 @@ typescript/              TypeScript 的 token 层（本语言专有）
     json/                    <ObjectLiteral> / <ArrayLiteral>（值位的两种字面量）
     string/                  <String> / <ConstString> 与四个转义向导
 
-runtime/                 ★ 与语言无关的执行层（多语言共用）——值模型 / 对象表与 GC / 帧 / IR / 内建库 / 宿主 ABI
-typescript-exec/         ★ TypeScript 的降级层（本语言专有）——AST → runtime 的 IR
+runtime/                 与语言无关的执行层（多语言共用）——值模型 / 对象表与 GC / 帧 / IR / 内建库 / 宿主 ABI
+typescript-exec/         TypeScript 的降级层（本语言专有）——AST → runtime 的 IR
 
 cjcli.xl.md              命令行入口（不属于语法层本体）
 ```
@@ -298,12 +298,12 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1523 / 1523 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1527 / 1527 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1121** 条用例，0 条不合格 |
-| `cases:tags` | **1121 条全部带期望**（2891 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1104 份），未覆盖 **0** |
+| `cases:check` | **1125** 条用例，0 条不合格 |
+| `cases:tags` | **1125 条全部带期望**（2903 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1112 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
 | `coverage` | **1997 / 1997**：四层各 **100%**（runtime 547、exec 459、stdlib 783、e2e 208） |
