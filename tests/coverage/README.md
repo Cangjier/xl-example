@@ -136,8 +136,8 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | --- | --- | --- |
 | `npm run runtime:check` | 引擎的**机制**（IR / 堆 / GC / 帧 / 宿主） | 243 条 |
 | `npm run runtime:cli` | **必须全过**的端到端语料（过不了的进不去） | 79 份 |
-| `npm run cases:tsast` | token 层与真 TS 的 **AST 对拍** | 1481 份逐文件一致 |
-| `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） | 1080 条 |
+| `npm run cases:tsast` | token 层与真 TS 的 **AST 对拍** | 1484 份逐文件一致 |
+| `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） | 1083 条 |
 | **`npm run coverage`** | **场景覆盖面**（含「现在过不了」的那些） | **1713 条** |
 
 前四条是**门**（过不了就红），这一条是**尺**——它把「还差多少」变成可复现的读数，

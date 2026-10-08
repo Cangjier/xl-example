@@ -246,7 +246,13 @@ ifSet.MountCondition(source);
           end = elseBody.end;
         } else {
           // 空体（`else {}`）：TS 那边仍是一个空 `Block`。
-          const brace = ctx.source.indexOf("{", at + 4);
+          // **位置读字段**（第 621 轮）✗：`BodyBraceAt` 是挂体那一刻当场记下来的
+          // （`MountBodyOrStatement` 里那个括号就在手上），而 `indexOf("{", at + 4)`
+          // 会命中注释里的假括号——那是**第二份位置答案**。字段缺了才退回按原文找。
+          const rawElseBrace = ctx.Attr(segments[index + 1], "bodyBraceAt");
+          const brace = typeof rawElseBrace === "number" && rawElseBrace >= 0
+            ? rawElseBrace
+            : ctx.source.indexOf("{", at + 4);
           const close = brace >= 0 ? ctx.MatchingBrace(ctx.source, brace) : -1;
           if (brace >= 0 && close >= brace) {
             props.elseStatement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
@@ -685,6 +691,9 @@ this.MountedUnit = segment;
 
 ```ts
 if (source.Value === "{") {
+  // **体那个 `{` 当场记进段的 `BodyBraceAt`**（第 621 轮）：括号就在这一格里，
+  // 投影画**空 `else {}`** 时直读它，不再回原文找（`indexOf("{", …)` 会命中注释里的假括号）。
+  this.Segment!.BodyBraceAt = source.Index;
   this.MountBody(source);
   return;
 }

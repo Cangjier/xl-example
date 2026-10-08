@@ -15,6 +15,8 @@ import { JsonArrayCloseRule } from "../json/array-literal.xl.md"
 import { Method } from "../method.xl.md"
 import { ReturnType } from "../function/return-type.xl.md"
 import { Statement } from "../statement.xl.md"
+import { AreaAnnotation } from "../area-annotation.xl.md"
+import { LineAnnotation } from "../line-annotation.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
 import { LamdaBody } from "./lamda-body.xl.md"
@@ -403,7 +405,25 @@ return false;
 一路走完都没找到 `:` 时，若 `=>` 左边是个裸 `Identifier`，它就是裸形参。
 
 ```ts
-const firstIndex = SkipPreviousWrapSymbol(units, index);
+// **注释不是形参表的一部分**（第 621 轮，**实测撞到的**）：块注释在产物树里是一个
+// `AreaAnnotation` 单元（行注释是 `LineAnnotation`）——`(a: number) /* c */ => a + 1` 里
+// 它正好卡在括号与 `=>` 之间 ⇒ 往左第一步就撞上它 ⇒ 上面那四档一条都不成立 ⇒ 给 `-1`
+// ⇒ **这个箭头根本不成形**（投出来是 `BinaryExpression` + `EqualsGreaterThanToken`，
+// 而 TS 那边是 `ArrowFunction`；`(a: number) => /* c */ a + 1` 一直是对的）。
+// **跳过它们与跳过软换行是同一件事** ⇒ 每一档往左走之前都先过一遍这里。
+const previousNonTrivia = (from: number): number => {
+  let at = SkipPreviousWrapSymbol(units, from);
+  while (at >= 0) {
+    const maybe = Get(units, at);
+    if (maybe instanceof AreaAnnotation || maybe instanceof LineAnnotation) {
+      at = SkipPreviousWrapSymbol(units, at);
+      continue;
+    }
+    break;
+  }
+  return at;
+};
+const firstIndex = previousNonTrivia(index);
 const first = Get(units, firstIndex);
 if (first === null) {
   return -1;
@@ -411,11 +431,11 @@ if (first === null) {
 if (first instanceof Bracket && first.startBracket === "(") {
   return this.IsLambdaParameters(units, firstIndex) ? firstIndex : -1;
 }
-let scan = SkipPreviousWrapSymbol(units, firstIndex);
+let scan = previousNonTrivia(firstIndex);
 while (scan >= 0) {
   const item = Get(units, scan);
   if (item instanceof SymbolToken && item.Is(":")) {
-    const candidateIndex = SkipPreviousWrapSymbol(units, scan);
+    const candidateIndex = previousNonTrivia(scan);
     const candidate = Get(units, candidateIndex);
     if (candidate instanceof Bracket && candidate.startBracket === "(") {
       return this.IsLambdaParameters(units, candidateIndex) ? candidateIndex : -1;
@@ -428,7 +448,7 @@ while (scan >= 0) {
   if (item instanceof SymbolToken && (item.Is("=") || item.Is(",") || item.Is(";") || item.Is("=>") || item.Is("?"))) {
     break;
   }
-  scan = SkipPreviousWrapSymbol(units, scan);
+  scan = previousNonTrivia(scan);
 }
 if (first instanceof Identifier) {
   return firstIndex;
@@ -593,8 +613,14 @@ if (asyncUnit instanceof Identifier && asyncUnit.Is("async")) {
 }
 const lambdaStart = Get(units, rangeStart)!.SourceRange.Start!;
 const parametersRangeEnd = parameterUnit.SourceRange.End!;
-const arrowEnd = Get(units, index)!.SourceRange.End!;
-result.SignIn(lambdaStart);if (parametersIndex < lastIndex) {
+const arrow = Get(units, index)!;
+// **`=>` 的位置当场记进 `ArrowAt`**（第 621 轮）：它就在手上（触发本规则的那一格），
+// 而投影那边原来拿 `indexOf("=>", 最后一个形参的终点)` **回原文里找**——那是
+// **第二份位置答案**（`(a: number) /* => */ => a` 会命中注释里那个箭头）。
+result.ArrowAt = arrow.SourceRange.Start!.Index;
+const arrowEnd = arrow.SourceRange.End!;
+result.SignIn(lambdaStart);
+if (parametersIndex < lastIndex) {
   const returnType = result.CreateReturnType();
   for (let t = parametersIndex + 1; t <= lastIndex; t++) {
     const item = Get(units, t);
@@ -787,12 +813,15 @@ Lambda 表达式。
 **从 `ts-ast.xl.md` 的 `projectLamda` 整块搬来**，第 195 轮）。
 
 **`=>` 在产物树里没有单元**（`Lamda` 只收 `parameters` 与 `body` 两段），
-而 TS 那边 `equalsGreaterThanToken` 是子节点——所以这里按原文**合成**一个。
-位置**按原文找**（早先量成「最后一个形参的终点」，`(x) => {}` 于是落在 `x` 后面：
-实测真实语料 154 处漂移就是这么来的）；而且它**占两个字符，不是零宽**。
+而 TS 那边 `equalsGreaterThanToken` 是子节点——所以这里**合成**一个。
+位置**直读字段** `ArrowAt`（第 621 轮 ✓，「token 出字段、投影直读」）：
+它由重组那一刻当场记下来 ✓（触发本规则的那一格就是它 ✓）——
+原来拿 `indexOf("=>", 最后一个形参的终点)` **回原文里找** ✗（那是**第二份位置答案**：
+`(a: number) /* => */ => a` 会命中注释里那个箭头 ✓）；而它**占两个字符，不是零宽** ✓。
+**字段是 `-1`** 时（理论上不该有 ✓）照旧退回那条按原文找的路 ✓。
 
 **空形参表 `() => x`**（第 141 轮）：这时 `unwrapNodes(参数段).pop()` 是 `undefined`，
-要从**参数段自己**的末尾往后搜，否则 `equalsGreaterThanToken` 整个缺。
+那条兜底路要从**参数段自己**的末尾往后搜，否则 `equalsGreaterThanToken` 整个缺。
 
 **表达式体不是 `Block`**（第 102 轮）：`(item) => item instanceof LineWrap` 的 TS `body`
 **就是那个表达式**。判据是「`=>` 之后第一个非空白字符」——**不是**体段自己的起点：
@@ -806,14 +835,15 @@ Lambda 表达式。
   const props: any = ctx.Structural(v, "ArrowFunction");
   const params = ctx.KidsOf(v, "parameters");
   const lastParam = params.length > 0 ? ctx.UnwrapNodes(params[0]).pop() : null;
-  let arrowAt = -1;
+  const rawArrowAt = ctx.Attr(v, "arrowAt");
+  let arrowAt = typeof rawArrowAt === "number" ? rawArrowAt : -1;
   const arrowFrom =
     lastParam !== undefined && lastParam !== null
       ? ctx.EndOf(lastParam)
       : params.length > 0
         ? ctx.EndOf(params[0])
         : v.start;
-  arrowAt = ctx.source.indexOf("=>", arrowFrom);
+  if (arrowAt < 0) arrowAt = ctx.source.indexOf("=>", arrowFrom);
   {
     const pos = arrowAt >= 0 && arrowAt < v.end ? arrowAt : arrowFrom;
     const width = ctx.source.startsWith("=>", pos) ? 2 : 0;
@@ -883,6 +913,15 @@ Lambda 表达式。
 （`next.SourceRange.Start` ✓）⇒ 当场记下来 ✓。投影原来回原文里找 ✗
 （`arrowAt + 2` 起跳空白看第一个字符 ✓），`() => /* c */ { }` 会撞上注释的 `/` ✗
 ⇒ 判成表达式体 ⇒ 整个 `Block` 丢 ✓。
+
+## field ArrowAt:int = -1
+
+**那个 `=>` 的下标**（第 621 轮）。
+
+**为什么让 token 记着**（用户口径：token 出字段、投影直读）：`LamdaCloseRule.Process`
+就是被 `=>` 触发的那一格 ✓（`Get(units, index)` 正是它 ✓）⇒ 当场记下来 ✓。
+投影原来用 `indexOf("=>", 最后一个形参的终点)` **回原文里找** ✗——那是**第二份位置答案** ✓
+（`(a: number) /* => */ => a` 会命中注释里那个箭头 ✓）。
 
 ## constructor:(Template:Template)=>void
 
@@ -991,6 +1030,11 @@ result.set("async", this.IsAsync);
 if (this.BodyBraceAt >= 0) {
   result.set("bodyBraceAt", this.BodyBraceAt);
 }
+// **`=>` 的位置也写出去**（第 621 轮，与 `bodyBraceAt` 同一条口径）：
+// 投影合成 `equalsGreaterThanToken` 时直读，不再回原文重扫。
+if (this.ArrowAt >= 0) {
+  result.set("arrowAt", this.ArrowAt);
+}
 result.set("parameters", this.Parameters.ToList());
 result.set("body", this.Body.ToList());
 if (this.ReturnType !== null) {
@@ -1003,13 +1047,14 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 拷 `IsAsync` / `BodyBraceAt` → 克隆全部子单元 → `TryToClose()`。
+顺序是 `Sign(this)` → 拷 `IsAsync` / `BodyBraceAt` / `ArrowAt` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new Lamda(this.Template);
 result.Sign(this);
 result.IsAsync = this.IsAsync;
 result.BodyBraceAt = this.BodyBraceAt;
+result.ArrowAt = this.ArrowAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

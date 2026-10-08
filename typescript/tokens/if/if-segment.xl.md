@@ -233,6 +233,16 @@ for (const item of this.Data) {
 return `<${name} key="${this.key}">${temp.join("")}</${name}>`;
 ```
 
+## field BodyBraceAt:int = -1
+
+**体那个 `{` 的下标**；体不是花括号块（单语句 / 空语句 / 没有体）时是 `-1`。
+
+**为什么让 token 记着**（用户口径：token 出字段、投影直读）：`MountBodyOrStatement`
+就是判「`{` 还是别的」的那一处 ⇒ **括号正在手上** ⇒ 当场记下来。
+投影画**空的 `else {}`** 时原来用 `indexOf("{", else 的位置 + 4)` **回原文里找** ✗——
+那是**第二份位置答案**（`else /* { */ {}` 会命中注释里那个假括号），
+而空块的终点照旧由 `MatchingBrace` 从这一格配出来。
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `key`，外加两个可选段。
@@ -254,6 +264,11 @@ result.set("key", this.key);
 if (this.IfWordAt >= 0) {
   result.set("ifWordAt", this.IfWordAt);
 }
+// **体那个 `{` 的位置也写出去**（与 `While` / `For` 的 `bodyBraceAt` 同一条口径）：
+// 投影画空 `Block` 时直读，不再回原文重扫。
+if (this.BodyBraceAt >= 0) {
+  result.set("bodyBraceAt", this.BodyBraceAt);
+}
 if (this.Condition !== null) {
   result.set("condition", this.Condition.ToList());
 }
@@ -269,12 +284,13 @@ return result;
 
 克隆自身。
 
-新建一个、**先把 `key` 与 `IfWordAt` 复制过去**（漏了它克隆体就丢掉关键字 / `else if` 的位置）、`Sign(this)`、把子单元逐个克隆后 `AddRange`、最后 `TryToClose()`。
+新建一个、**先把 `key` / `IfWordAt` / `BodyBraceAt` 复制过去**（漏了它克隆体就丢掉关键字、`else if` 与体的位置）、`Sign(this)`、把子单元逐个克隆后 `AddRange`、最后 `TryToClose()`。
 
 ```ts
 const result = new IfSegment(this.Template);
 result.key = this.key;
 result.IfWordAt = this.IfWordAt;
+result.BodyBraceAt = this.BodyBraceAt;
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

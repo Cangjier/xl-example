@@ -286,6 +286,12 @@ const body = Get(units, bracketIndex);
 if (!(body instanceof Bracket)) {
   throw new Error("namespace 语句不满足格式要求：namespace Name{...}");
 }
+// **体的 `{` 与点号名字第一段的位置当场记下**（用户口径：token 出字段、投影直读）：
+// 两样都在这一格里（`body` 与 `nameStarts[0]`），投影不再回原文 `indexOf` 找。
+namespaceInstance.BodyBraceAt = body.SourceRange.Start!.Index;
+if (isStringName === false && nameStarts.length > 0) {
+  namespaceInstance.FirstNameAt = nameStarts[0].Index;
+}
 const namespaceBody = innermost.CreateBody();
 body.MoveDataTo(namespaceBody);
 namespaceBody.Sign(body);
@@ -328,14 +334,22 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
   const rawName = v.attrs.get("namespace");
   const name = typeof rawName === "string" ? rawName : "";
   const dotted = name.split(".");
+  // **点号名字第一段的位置读字段**（第 621 轮）：重组那一刻那个 `Identifier` 就在手上，
+  // 而 `indexOf(dotted[0], v.start)` 会命中注释里的同名标识符。
+  const rawFirstNameAt = ctx.Attr(v, "firstNameAt");
+  const firstNameAt = typeof rawFirstNameAt === "number" ? rawFirstNameAt : -1;
   if (dotted.length > 1 && dotted[0] !== "") {
-    const at = ctx.source.indexOf(dotted[0], v.start);
+    const at = firstNameAt >= 0 ? firstNameAt : ctx.source.indexOf(dotted[0], v.start);
     if (at >= 0) {
       props.name = { kind: "Identifier", text: dotted[0], pos: at, end: at + dotted[0].length };
     }
   }
   if (name !== "") {
-    const brace = ctx.source.indexOf("{", v.start);
+    // **体的 `{` 也读字段**（第 621 轮）：它是字符串模块名那一趟的**搜索上界**。
+    const rawBodyBrace = ctx.Attr(v, "bodyBraceAt");
+    const brace = typeof rawBodyBrace === "number" && rawBodyBrace >= 0
+      ? rawBodyBrace
+      : ctx.source.indexOf("{", v.start);
     const limit = brace < 0 ? v.end : brace;
     const dq = ctx.source.indexOf('"', v.start);
     const sq = ctx.source.indexOf("'", v.start);
@@ -374,6 +388,22 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 修饰词自己的区间，`"起:止"`（闭区间）；没有修饰词时空串。
 来由与 `Class.ModifierSpans` 同一条：修饰词不进 `Data`，位置只有认下声明那一刻知道。
 
+## field FirstNameAt:int = -1
+
+**点号名字第一段（那一段 `Identifier`）的下标**；不是点号名字时是 `-1`。
+
+**为什么让 token 记着**（用户口径：token 出字段、投影直读）：重组那一刻
+**每一段的 `Source` 就在手上**（`nameStarts` 那一摞），第一段就是它。
+投影原来用 `indexOf(dotted[0], v.start)` **回原文里找**——那是**第二份位置答案**：
+`/* A */ namespace A.B {}` 会命中注释里那个 `A`。
+
+## field BodyBraceAt:int = -1
+
+**体那个 `{` 的下标**；没有体（`declare module "m";` 那种）时是 `-1`。
+
+**为什么让 token 记着**：重组那一刻 `body`（那个 `Bracket`）就在手上。投影用它做两件事——
+字符串模块名的**搜索上界**、以及（点号名字之外的）位置判据，都不再回原文 `indexOf("{")`。
+
 ## method ToXmlString:()=>string
 
 产出 XML：开标签上带 `namespace` / `modifiers`，内容是子单元（主要是 `NamespaceBody`）的 XML。
@@ -406,6 +436,13 @@ result.set("modifiers", this.modifiers);
 // **修饰词的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
 if (this.ModifierSpans !== "") {
   result.set("modifierSpans", this.ModifierSpans);
+}
+// **体的 `{` 与点号名字第一段**（第 621 轮）：投影直读，不再回原文 `indexOf` 找。
+if (this.BodyBraceAt >= 0) {
+  result.set("bodyBraceAt", this.BodyBraceAt);
+}
+if (this.FirstNameAt >= 0) {
+  result.set("firstNameAt", this.FirstNameAt);
 }
 if (this.Data.length !== 0) {
   const children: Array<any> = [];

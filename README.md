@@ -338,10 +338,10 @@ token 自己出的那一格最懂自己的形状。
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1481 / 1481 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1484 / 1484 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1080** 条用例，0 条不合格 |
+| `cases:check` | **1083** 条用例，0 条不合格 |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
 | `coverage` | **1713 / 1713**（**100%**）：引擎 / 降级 / 标准库 / 端到端四层各 **100%**，台账里 0 条待修 |
@@ -387,7 +387,7 @@ token 自己出的那一格最懂自己的形状。
 ### 实测规模
 
 `node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `dist/ts/**` + 用例语料
-——`cases:tsast` 的语料就是这一份，**1481 份逐文件完全一致**。
+——`cases:tsast` 的语料就是这一份，**1484 份逐文件完全一致**。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
 JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
 
