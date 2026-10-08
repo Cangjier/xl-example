@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7368,
+  "total": 7449,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.79,
+  "progressPercent": 95.78,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1970,
-      "pass": 1920,
+      "total": 2051,
+      "pass": 1998,
       "blocked": 12,
-      "differ": 38,
+      "differ": 41,
       "nodefail": 0,
-      "coverage": 97.46
+      "coverage": 97.42
     },
     {
       "category": "runtime",
@@ -1964,6 +1964,24 @@
       "detail": "stdout 不同：第 1 行：node «number:1,undefined» vs tsrun «number:3,number:2»"
     },
     {
+      "id": "exec/round708/p708b-l08",
+      "category": "exec",
+      "title": "console.log 的循环引用",
+      "detail": "stdout 不同：第 1 行：node «<ref *1> { a: 1, self: [Circular *1] }» vs tsrun «{ a: 1, self: { a: 1, self: { a: 1, self: [Object] } } }»"
+    },
+    {
+      "id": "exec/round708/p708b-l09",
+      "category": "exec",
+      "title": "console.log 的 Error",
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14644/src/3202.ts:7:13)» vs tsrun «»"
+    },
+    {
+      "id": "exec/round708/p708b-s03",
+      "category": "exec",
+      "title": "search / match 的字符串实参",
+      "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
+    },
+    {
       "id": "exec/statements/probe693b-s30",
       "category": "exec",
       "title": "(function () { for (let i = 0; i < 1; i++) { function g() { return 1; } } return typeof g; })()",
@@ -2123,7 +2141,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14048/src/4730.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14644/src/4811.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2147,7 +2165,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14048/src/4780.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14644/src/4861.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
