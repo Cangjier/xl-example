@@ -8,8 +8,8 @@
 // 修法：只看**词法**——宿主 `(` 前面那一格是名字 / 方法 / 属性访问 / `)` / `]`，
 // 它就是某次调用的实参表，那两个符号在里面只是分隔符与分组。
 //
-// parse 层那一半在 `tests/parse/cases/expressions/expr-paren-in-arguments.ts`
-//（已进 `cases:tsast` 的语料，1430 → 1431）。
+// parse 层那一半在 `tests/cases/token/expressions/expr-paren-in-arguments.ts`
+//（已进 `cases:tsast` 的语料）。
 
 const a = 1;
 const b = 2;

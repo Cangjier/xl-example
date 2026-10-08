@@ -24,21 +24,26 @@
    给有运行期语义、类型剥离拒收的语法（`enum` / `namespace`）换 `--experimental-transform-types`。
    **裁判侧的源码每次现写**到 `.work-<pid>/src/<下标>.ts`（跑完就删），那一份目录里带一个
    `package.json`（`type: commonjs`）——`.ts` 的执行形态由**最近的** `package.json` 决定，
-   显式写下来才不会被人从别处改成**严格模式**
-   （实测差 21 条：写只读属性该静默的那一族 + `this` 绑定的那一族）。
+   显式写下来才不会被人从别处改成**严格模式**。
+   **实测**（把那一份的 `type` 改成 `module` 再跑同一趟）：`bad 3 → 12`、`differ 40 → 50`、
+   总通过 **3520 → 3500**、加权 **95.9% → 95.1%**。差的那 20 条全是**期望值照松散模式写的**
+   用例（`Object.freeze` 之后写属性该静默、`delete` 不可配置属性该静默、
+   非严格调用里 `this` 指向全局）。所以这一份哨兵是**判定的一部分**，不是可有可无的配置。
+   （`tests/cases/package.json` 那一份是给「直接 `node <用例>.ts`」用的，实测改它**不影响**读数
+   ——判据跑的是 `.work-<pid>/src/` 里现写的那一份。）
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。
 
 ## token 那两个数
 
-`token` 原来只有一把**布尔门**（`cases:tsast`：七项全 0 才退出码 0），于是「还剩多少」在读数里看不见。
+`token` 原来只有一把**布尔门**（`cases:tsast`：八项全 0 才退出码 0），于是「还剩多少」在读数里看不见。
 这里把它折成百分比，**两个数都报**：
 
 - **A 逐文件完全一致**：每个文件的四方向 + 三栏地基都为 0（口径最严，含已登记缺口）。
 - **B 没登记缺口的用例里全对的**：A 再排除 `xl:known-gap` 的用例。**加权用的是 B。**
 
-**为什么要 B**：`xl:known-gap` 那 219 条是**已经量出来的缺口**，门把它们排除在七项之外
+**为什么要 B**：`xl:known-gap` 那 219 条是**已经量出来的缺口**，门把它们排除在八项之外
 （否则门永远红，红里分不出「新坏了」与「本来就还没做」）。可「还差多少」不该跟着消失——
 B 把分母定成「本来该全对的用例」，缺口另立一行报（**收掉一条涨一格**）。
 这与执行尺子的台账（`xl:want`）同一精神。
@@ -143,7 +148,7 @@ node tests/coverage/run.mjs --emit-ledger        # 按现状打一份台账骨�
 | --- | --- |
 | `npm run runtime:check` | 引擎的**机制**（IR / 堆 / GC / 帧 / 宿主） |
 | `npm run runtime:cli` | **必须全过**的端到端语料（过不了的进不去） |
-| `npm run cases:tsast` | token 层与真 TS 的 **AST 对拍**（七条全 0 的**门**） |
+| `npm run cases:tsast` | token 层与真 TS 的 **AST 对拍**（**八条**全 0 的**门**） |
 | `npm run cases:check` | 用例文件本身合不合格（文件头指令有没有写错） |
 | `npm run cases:tags` | 用例自带的期望（`xl:expect` / `xl:absent`）对产物核实 |
 | `npm run cases:shapes` | 用例**覆盖了哪些形状** |
@@ -162,5 +167,6 @@ node tests/coverage/run.mjs --emit-ledger        # 按现状打一份台账骨�
 **3 条 `bad` 是运行形态问题，不是配置问题**：`exec/enums-namespaces/006-module-export`、
 `007-module-import`、`stdlib/globals/056-l677p-dynamic-import` 都用 `import` / `export`，
 而裁判侧显式是 `type: commonjs`（见上文）⇒ `node` 把它们当 CJS 跑、`export` 是语法错。
-要修它得让裁判**按每个用例的形态选模式**（或者干脆全部改 ES 模块、
-连带把 21 条照松散模式写的期望值一起改）——那是另一件事，记在这里。
+要修它得让裁判**按每个用例的形态选模式**——而那件事的代价已经量过了：
+整层改成 ES 模块会连带把 20 条照松散模式写的期望值一起打掉（见上文那份实测），
+所以这是个**要一起想清楚**的改动，不是改一个字段。

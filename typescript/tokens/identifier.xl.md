@@ -377,7 +377,8 @@ return items.includes(this.TempToString());
 
 **这一格是它自己出的**（第 77 轮）：标识符 / 数字 / 布尔字面量的文本块在 TS 那边**按文本再分名**
 （`bar` 是 `Identifier`、`0` 是 `NumericLiteral`、`true` 是 `TrueKeyword`、`"x"` 是 `StringLiteral`）。
-这条「按值分名」的规则原来在 `typescript/ts-ast.xl.md` 的中央 `switch` 里，现在跟这个类待在一起。
+这条「按值分名」的规则原来在中央投影表里（`typescript/ts-ast.xl.md`，已 `git mv` 成
+`typescript/print-ast-common.xl.md`），现在跟这个类待在一起。
 
 **转义要**解**开**（第 381 轮）：`const \u0061bc = 1; console.log(abc)` 在 JS / TS 里
 声明的名字就是 `abc`（TS 的 AST `text` 也是 `abc`）。而投影这一格原来直接把

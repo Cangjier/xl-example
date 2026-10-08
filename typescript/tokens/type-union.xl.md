@@ -476,7 +476,7 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ## method PrintAst:(ctx:any, v:any)=>any
 
 **这一格是它自己出的**（第 77 轮）：`A | B` 在 TS 那边就是 `UnionType`，成员是 `types`；
-切分规则由 `parentKind` 选（`|` 那一档，见 `typescript/ts-ast.xl.md` 的 `TYPE_MEMBER_SEPARATORS`）——
+切分规则由 `parentKind` 选（`|` 那一档，见 `typescript/print-ast-common.xl.md` 的 `TYPE_MEMBER_SEPARATORS`）——
 所以「`|` 是成员分隔符」这件事跟着这条规则待在同一个文件里。
 
 ```ts

@@ -32,7 +32,7 @@
 //
 // ## token 那两个数（第 685 轮）
 //
-// 原来 token 只有一把**布尔门**（`cases:tsast`：七项全 0 才退出码 0），
+// 原来 token 只有一把**布尔门**（`cases:tsast`：八项全 0 才退出码 0），
 // 于是「还剩多少」在读数里看不见。这里把它折成百分比，**两个数都报**：
 //
 // - **A. 逐文件完全一致**：每个文件的四个方向 + 三栏地基都为 0。口径最严。
@@ -40,7 +40,7 @@
 //   `xl:ts-invalid` / `.tsx`（口径外的两类）。**加权用的是 B**。
 //
 // **为什么要 B**：`xl:known-gap` 那 218 条是**已经量出来的缺口**，
-// 门把它们排除在七项之外（否则门永远红，红里分不出「新坏了」与「本来就还没做」）。
+// 门把它们排除在八项之外（否则门永远红，红里分不出「新坏了」与「本来就还没做」）。
 // 可「还差多少」不该跟着一起消失——B 把分子定成「没有差额的用例数」，
 // 218 条缺口就在分母里，收掉一条涨一格。这与执行尺子的台账（`xl:want`）同一精神。
 //
@@ -240,7 +240,11 @@ function verdictOf(entry, oracle, ours) {
   return { actual: "pass", detail: "" };
 }
 
-/** AST 尺子判一条：与 `cases:tsast` 的七项同一口径（同一份 `compareSource`）。 */
+/**
+ * AST 尺子判一条：与 `cases:tsast` **同一份实现**（`compareSource`），
+ * 判「过没过」用的是四方向 + 三栏地基（与那边的八项**同源**；
+ * 那边多出来的第八项「抛异常」在这里单独记成 `blocked`）。
+ */
 function verdictOfToken(entry) {
   let row;
   try {
@@ -607,7 +611,7 @@ if (tokenAll.length > 0) {
   const gapStillOpen = tokenGap.filter((r) => (r.diff ?? -1) !== 0).length;
   console.log("");
   console.log("token 的两个数：");
-  console.log(`  A 逐文件完全一致（七项全 0）        ${String(exact).padStart(4)} / ${String(tokenAll.length).padEnd(4)}  = ${((100 * exact) / tokenAll.length).toFixed(1)}%   ← 含 ${tokenGap.length} 条已登记缺口`);
+  console.log(`  A 逐文件完全一致（四方向 + 三栏地基全 0）        ${String(exact).padStart(4)} / ${String(tokenAll.length).padEnd(4)}  = ${((100 * exact) / tokenAll.length).toFixed(1)}%   ← 含 ${tokenGap.length} 条已登记缺口`);
   console.log(`  B 没登记缺口的用例里全对的           ${String(exactNoGap).padStart(4)} / ${String(tokenNoGap.length).padEnd(4)}  = ${((100 * exactNoGap) / Math.max(1, tokenNoGap.length)).toFixed(1)}%   ← 加权用的是这个`);
   console.log(`  （xl:known-gap ${tokenGap.length} 条：还对不上 ${gapStillOpen}、已收掉 ${tokenGap.length - gapStillOpen}——收掉的要来删指令）`);
 }

@@ -348,7 +348,7 @@ void    Ts_Collect(TsVm*);               // 给判据用
 4. `runtime/host-abi.xl.md`（能力表与 retain/release）
 5. `typescript-exec/lowering.xl.md`（先做语句/表达式/作用域，够 P0 的最小闭环）
 6. `typescript-exec/builtins/**` → `for..of`/生成器/async → 模块与 `.d.ts` 绑定
-7. `runtime/wasm-exec.xl.md`（P3，**尚未开工**）
+7. `runtime/wasm-exec.xl.md`（P3，**尚未开工**——**这份规范还没建**，上面六份都在）
 
 ---
 

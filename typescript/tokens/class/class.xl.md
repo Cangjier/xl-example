@@ -34,7 +34,7 @@ import { Decorator } from "../decorator.xl.md"
     [extends 基类] [implements 接口, …] { 类体 }
 ```
 
-**入口落在 `{` 上，不落在 `c` 上**（与 `if` 一族同一条铁律，见 `docs/parse-guide-design.md` 第一节）：
+**入口落在 `{` 上，不落在 `c` 上**（与 `if` 一族同一条铁律，见 [`docs/history/parse-guide-design.md`](../../../docs/history/parse-guide-design.md) 第一节）：
 要判「这个 `c` 是 `class` 的开头」只能看后面几个字符，而输入可能一段一段送来；
 落在 `{` 上则**整个类头都已经读出来了**——`class` / 名字 / 类型参数 / `extends` / `implements`
 此刻就躺在宿主自己的平列表里 ⇒ 判据只读**已经读到的单元**，一个字都不向前看。

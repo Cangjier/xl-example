@@ -10,7 +10,7 @@
 | `typescript/ts-ast.xl.md` | **已不存在**（`git mv` 到 `typescript/print-ast-common.xl.md`） |
 | `projectNode` 里那个按 `v.type` 分派的中央 `switch` | **整段删除**（原来 60 个 `case`，现在 0 个） |
 | 逐标签投影块 | **49 块全部搬进各 token 的 `PrintAst`** |
-| 全量对拍 | 逐文件完全一致，四方向全 0（当前的绝对值见 [README](../README.md) 的「当前状态」） |
+| 全量对拍 | 逐文件完全一致，四方向全 0（当前的绝对值见根 [README](../../README.md) 的「当前状态」） |
 
 `projectNode` 现在的三步：
 

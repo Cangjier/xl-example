@@ -414,7 +414,7 @@ return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
 括号与语句壳都是边界。不放它的话这一趟会走出声明之外——函数体在解析期是**摊平在 `Root` 上的
 一堆 `Statement`**（`((` 那一格往前全是别的语句），回扫会一路穿到**上一条声明的** `:` / `=` / `type` 上，
 把 `while (at < units.length && …)` 里的 `<` 判成类型位
-（实测 `typescript-exec/builtins/globals.ts`：整份文件散架，缺 5385 个 `Identifier`）。
+（实测那批普查用的语料 `dist/ts/typescript-exec/builtins/globals.ts`：整份文件散架，缺 5385 个 `Identifier`）。
 类型位那一档（`type X = K[A<B, C>]` / `let v: K[A<B, C>]`）**根本走不到那些壳**——
 它撞上的是 `=` / `:`。
 
@@ -431,7 +431,7 @@ return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
   本地那一趟照旧（值位对象字面量里的 `<T>()` 缺的正是这一支的反面）。
   **只认方括号**：`(` / `{` 走这条会当场踩到**函数体那个 `{`** ——
   它的前一个实义单元正是返回类型里的 `:` ⇒ 整个函数体被判成类型位
-  （实测 `typescript-exec/builtins/globals.ts`：`while (at < units.length)` 里的 `<` 成了泛型开头，
+  （实测那批普查用的语料 `dist/ts/typescript-exec/builtins/globals.ts`：`while (at < units.length)` 里的 `<` 成了泛型开头，
   整份文件散架，缺 5385 个 `Identifier`）。这一格要的只是 `K[…]` 那种**下标访问**。
 - 最近的边界是 `:` / `?:` 或 `->` / `=>` → 类型位（类型标注、可选成员的标注、返回类型、`<:` 约束、
   函数类型的返回类型）。**`=>` 是第 58 轮补的**：`type F = () => Iterable<T> | AsyncIterable<T>`

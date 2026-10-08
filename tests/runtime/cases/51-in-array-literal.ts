@@ -2,7 +2,7 @@
 //
 // 原来 `[x in y, 2]` 被判成**映射键**（整个数组投成 `TypeParameter`），
 // 于是降级层报 `unimplemented: expression TypeParameter`（整份文件进不来）。
-// 修法见 `tests/parse/cases/expressions/expr-in-array-literal.ts` 的注。
+// 修法见 `tests/cases/token/expressions/expr-in-array-literal.ts` 的注。
 //
 // 类型位那一半（映射类型 / 键重映射 / 嵌套映射键）在同名那条 parse 用例里，
 // 已经进 `cases:tsast` 的语料。

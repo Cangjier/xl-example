@@ -27,7 +27,7 @@ const root = path.resolve(here, "..", "..");
  * 这里再写一个固定片数就是第二份答案。机制留着给以后需要它的门。
  *
  * **`cases:tsast` 的那个 batch 与本文件的并行不是一回事**：那是给「每条用例必须起子进程」的门用的
- * （`runtime:cli` 要对每个 `.ts` 跑 `node` 与 `tsrun` 各一次）。它每片各自算那七项，
+ * （`runtime:cli` 要对每个 `.ts` 跑 `node` 与 `tsrun` 各一次）。它每片各自算那八项，
  * 「每片都 0」⟺「整体都 0」，所以不需要把计数合起来。
  */
 const GATES = [

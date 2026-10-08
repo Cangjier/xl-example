@@ -24,7 +24,7 @@
 // 当前状态（第 645 轮实测）：
 //   **语料 1506 份，逐文件完全一致 1506 / 1506；四方向全 0**，
 //   未映射 0 类 / 0 处、缺 range 0、区间越界 0（trivia 越界单列一行，见 `flattenProduct`）。
-//   退出码按这**七条**算，任何一条不为零就是红的。
+//   退出码按这**八条**算，任何一条不为零就是红的（第七项之后加了「抛异常 0」，第 674 轮）。
 //
 // 输出分四段，**「缺」与「漂移」是两件事**（第 34 轮分开报）：
 //   缺     这一类在投影树里**根本没有**（要补映射）
@@ -432,7 +432,7 @@ function corpus(mode) {
     for (const c of listCases()) {
       if (c.directives.tsInvalid) continue;
       if (c.file.endsWith(".tsx")) continue;
-      // **已知缺口不进七项判据**（第 670 轮，见 `knownGapCheck`）：它们照样被对拍，
+      // **已知缺口不进八项判据**（第 670 轮，见 `knownGapCheck`）：它们照样被对拍，
       // 但差额走另一条账 —— 否则门永远是红的，红里分不出「新坏了」与「本来就还没做」。
       if (c.directives.knownGap !== "") continue;
       files.push(c.file);
@@ -452,7 +452,7 @@ function corpus(mode) {
   // 做法：按大小降序**轮转**分配 ✓（经典的 LPT 近似 ✓）。
   //
   // **正确性为什么不受影响** ✓：这一门的退出码是「缺 / 漂移 / 多出来 / 字段名 /
-  // 未映射 / 缺 range / 越界 **七项全为 0**」✓——**每一片各自算这七项** ✓，
+  // 未映射 / 缺 range / 越界 / 抛异常 **八项全为 0**」✓——**每一片各自算这八项** ✓，
   // 「每片都 0」⟺「整体都 0」✓ ✓（不需要把计数合起来 ✓，那正是分片最容易出错的地方 ✓）。
   // **用模块级的 `ARGS`** ✗（`main()` 里那个 `args` 在 `collectFiles` 里看不见 ✓——
   // 第一版就是那么写的 ✓，运行期当场报 `args is not defined` ✓）。
@@ -520,11 +520,12 @@ function parseWith(source, file) {
  * **对齐本体**（导出给覆盖层复用，第 685 轮）。
  *
  * `tests/coverage/run.mjs` 要给 token 那一类**逐条打分**（它算的是百分比，
- * 而这一把尺子原来是「七项全 0」的布尔门）。打分必须与门**同一口径**，
+ * 而这一把尺子原来是「八项全 0」的布尔门）。打分必须与门**同一口径**，
  * 所以是**同一份实现**被借出去用，不是照着抄一遍——两份实现就是两个口径。
  *
  * 返回 `{ missing, drift, extra, fieldDiff, unmapped, missingRange, outOfRange, ... }`，
- * 前四项与 `unmapped / missingRange / outOfRange` 一起就是那一门的七项。
+ * 前四项与 `unmapped / missingRange / outOfRange / failed` 一起就是那一门的八项。
+ * （`failed` 是「产物抛异常的份数」；**这里不判它**——`coverage` 把抛异常单独记成 `blocked`。）
  */
 export function compareSource(source, file, options) {
   const { list, limit } = options;
@@ -641,7 +642,7 @@ function diffOneFile(file, options) {
  * 而「还差多少」与「昨天差多少」都得回去翻 `tmp/`（那是**一次普查的现场**，不是门）。
  * 现在缺口清单长在语料里（用例自己写着根因），这一趟就是它的判据：
  *
- * - **还对不上** ⇒ `KNOWN`，差额**不算进那七项**（门因此可以是绿的）；
+ * - **还对不上** ⇒ `KNOWN`，差额**不算进那八项**（门因此可以是绿的）；
  * - **已经对上了** ⇒ `收掉了`，**红**：该去把那行 `xl:known-gap` 删掉 ——
  *   缺口清单不许只增不减（与 `tests/coverage` 的台账同一条规矩：登记过的照样每次真跑，
  *   `NEWLY-PASSING` 提示删行）。
@@ -888,7 +889,7 @@ function cliParity(mode, top, sampleLimit) {
  * **下界不是核数，是最大的那一份语料**：实测 `typescript/lib/lib.dom.d.ts`（2.3 MB）
  * 单份就要 8.07s，而分片切不开一个文件 ⇒ 墙钟下界就是它。
  *
- * **每一片各自算那七项**（`每片都 0` ⟺ `整体都 0`），所以父进程不需要把计数合起来
+ * **每一片各自算那八项**（`每片都 0` ⟺ `整体都 0`），所以父进程不需要把计数合起来
  * ——那正是分片最容易出错的地方。
  *
  * `--jobs 1` 退回单进程（要一份**合并**的逐文件账时用它）；
@@ -1360,7 +1361,7 @@ async function main() {
   // 它们原来是「打印出来给人读」的，于是「完全一致」这句话带着三个未验证的星号；
   // 用户的要求是「PrintAst 必须和 TS 的 AST 完全一致」，那就一条都不许留白。
   // **已知缺口那一趟**（第 670 轮）：只在**非分片**这一趟里跑（分片时由父进程跑一次，
-  // 见 `runBatch`）——它是语料级的账，不是每片各自算的那七项。
+  // 见 `runBatch`）——它是语料级的账，不是每片各自算的那八项。
   const gapsOk = ARGS.includes("--shard") ? true : knownGapCheck();
   if (ARGS.includes("--shard") === false) {
     console.log("");

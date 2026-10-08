@@ -72,7 +72,7 @@ return "";
 `item` 是不是**已经被折成值位一元运算的 `typeof`**（`<UnaryOperator op="typeof">`）。
 
 **为什么会有这种单元**：类型位那一段内容在**它的括号关闭那一刻**就先跑过一趟通用队列
-（`typescript/lib/lib.es5.d.ts` 的 `ReturnType<any[][typeof Symbol.iterator]>` 就是这一形状），
+（`node_modules/typescript/lib/lib.es5.d.ts` 的 `ReturnType<any[][typeof Symbol.iterator]>` 就是这一形状），
 那时 `UnaryOperatorCloseRule` 看到「`typeof` + 操作数」就折了一元运算；
 等到类型队列跑起来，裸词已经没有了。所以这里要把那层壳**换掉**——
 类型位的 `typeof` 在 TypeScript 里是 `TypeQuery`，与值位的一元运算不是一个构造

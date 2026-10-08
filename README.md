@@ -281,7 +281,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 | 门 | 口径 |
 | --- | --- |
-| `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界——**七条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
+| `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
@@ -300,7 +300,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 **`xl:known-gap`：已知缺口也进语料**（第 670 轮）。凡是量出来的缺口形状，**用例照样写进
 `tests/cases/token/`**（一条一个排版，根因写在指令后面），只是它的差额走**另一条账**：
-`cases:tsast` 每趟逐条真跑一遍，**还对不上**就记 `KNOWN`（不进那七项，门可以是绿的），
+`cases:tsast` 每趟逐条真跑一遍，**还对不上**就记 `KNOWN`（不进那八项，门可以是绿的），
 **已经对上了**就报「收掉了」并**红**——逼你去把那行指令删掉。
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
@@ -506,7 +506,7 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
   npm run cases:check          # 用例体检
   npm run cases:tags           # 用例自带的期望（`xl:expect` / `xl:absent`）对产物核实
   npm run cases:shapes         # 用例覆盖了哪些形状（外部语料有、用例没有的签名会红）
-  npm run cases:tsast          # **主判据**：与 ts.createSourceFile 逐节点对拍（七条全 0）
+  npm run cases:tsast          # **主判据**：与 ts.createSourceFile 逐节点对拍（八条全 0）
   npm run cases:tsast:cli      # 发布路径那一把（慢，改到 cjcli / 序列化时才需要）
   node tests/parse/ts-ast.mjs --snippets <片段.mjs>   # 普查缺口：一个进程里把 N 条小片段逐条对拍
                                # （`{ id, src }` 的数组；TS 非法的片段跳过、产物抛异常报 CRASH）

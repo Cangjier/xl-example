@@ -183,7 +183,8 @@ return index;
 **`FromCompoundAssignment` 这个标记是必需的**（实测踩过）：
 `Process` 会把 `&&=` 切成 `=` 与一份 `&&` 副本插回去。那份 `&&` **本身也在
 `CompoundAssignmentSymbols` 的判据范围内**——新一轮扫描时它又被当成复合赋值去切，
-切出来的东西又被处理，于是单元数量来回翻倍，`node tests/parse/run.mjs` 直接
+切出来的东西又被处理，于是单元数量来回翻倍，`node tests/parse/run.mjs`（那份判据已随
+测试集收窄删除，脚本在 git 历史里）直接
 `FATAL ERROR: heap out of memory`（单条用例都在 200ms 内跑完，整份
 `expressions/ex-logical-assign` 就发散——是 `Process` 里那条自反馈，不是规则数量的问题）。
 打上标记之后 `Previous` 直接放行这一份副本，它只作为普通运算符参与二元/逻辑折算。

@@ -4,7 +4,7 @@
 > 两个出口的关系。实现分两处：**通用支**（三张表 + 横切助手）在
 > [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md)，
 > **逐标签的投影**在各 token 自己的 `PrintAst(ctx, v)`（第 181~198 轮逐块搬完，
-> 原来的 `typescript/ts-ast.xl.md` 已删，搬迁手册见 [print-ast-migration.md](history/print-ast-migration.md)）；
+> 原来的 `typescript/ts-ast.xl.md` 已删（`git mv` 成 [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md)），搬迁手册见 [print-ast-migration.md](history/print-ast-migration.md)）；
 > 命令行侧在 [`cjcli.xl.md`](../cjcli.xl.md) 的 `CjcliParseTsAst`。
 > 第二个出口（AST JSON）见 [ast-json.md](ast-json.md)。
 
@@ -74,7 +74,7 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 
 | 判据 | 命令 | 口径 |
 | --- | --- | --- |
-| 与 TS 原生 AST 对拍 | `npm run cases:tsast` | 逐节点比 **kind、区间、字段名**；缺（没投出来）与漂移（位置差一点）分开报。退出码按**七条**算：四方向 + 未映射（透传进产物的标签）+ 缺 range + 区间越界 |
+| 与 TS 原生 AST 对拍 | `npm run cases:tsast` | 逐节点比 **kind、区间、字段名**；缺（没投出来）与漂移（位置差一点）分开报。退出码按**八条**算：四方向 + 未映射（透传进产物的标签）+ 缺 range + 区间越界 + **抛异常 0**（第 674 轮加的） |
 | **发布路径**端到端 | `node tests/parse/ts-ast.mjs --cli` | 真的开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 与 `ts.createSourceFile` 对拍（每个文件一个进程，按需跑） |
 | 逐字节确定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比对，**不做归一化**（紧凑单行、键序与 `pos` / `end` 都是确定性的） |
 | 「命令行 = 库 API」 | `npm run samples` | 同一份源码，`cjcli` 进程与库 API 的输出必须逐字节相同 |
@@ -109,7 +109,7 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
    表的**重复键**会静默覆盖（`new Map([...])` 同键后写胜），改表时自己过一眼——
    钉它的那把 `cases:shapelint` 已随测试集收窄删除（脚本在 git 历史里）。
 2. **改完跑**：`xl check` → `npm run build` → `npm run samples` → `npm run cases:tsast`
-   （数字要动，且只按预期动；现在它是**闸门**，七条里红一条就是回归）→ 其余尺子。
+   （数字要动，且只按预期动；现在它是**闸门**，八条里红一条就是回归）→ 其余尺子。
 3. **`PrintAst` 收到的 `v` 是「视图」不是原始 Map**（`projectNode` 开头那句 `const v = view(node)`），
    凡是从 `ctx` 出去、要吃一棵（子）树的出口，先 `node instanceof Map ? view(node) : node` 再转调；
    搬迁手册（踩过的七个坑，按类型归并）在 [print-ast-migration.md](history/print-ast-migration.md)。

@@ -1667,7 +1667,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17624/src/2808.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18820/src/2808.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1818,17 +1818,17 @@
     {
       "id": "exec/enums-namespaces/006-module-export",
       "category": "exec",
-      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-17624\\src\\1543.ts:2"
+      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-18820\\src\\1543.ts:2"
     },
     {
       "id": "exec/enums-namespaces/007-module-import",
       "category": "exec",
-      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-17624\\src\\1544.ts:2"
+      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-18820\\src\\1544.ts:2"
     },
     {
       "id": "stdlib/globals/056-l677p-dynamic-import",
       "category": "stdlib",
-      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-17624\\src\\2907.ts:4"
+      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-18820\\src\\2907.ts:4"
     }
   ],
   "moved": [],
