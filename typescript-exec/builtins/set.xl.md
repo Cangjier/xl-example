@@ -198,7 +198,10 @@ if (id === SetCtor || id === WeakSetCtor) {
   // **「值必须是对象」那条判据的唯一事实来源**（第 681 轮）——与 `Map` 那一格
   // 同名同义（普通集合写 `false`、弱集合写 `true`），`add` 那一支只读它。
   WriteOwn(room, NeverCall, table, created, "__w", Value.FromBool(id === WeakSetCtor));
-  WriteOwn(room, NeverCall, table, created, "size", Value.FromInt(0));
+  // **不再写实例上的 `size` 数据格**（第 687 轮，与 `Map` 那三处同一句话）：
+  // `Set.prototype.size` 已经是一个读 `__v` 长度的**访问器**，而实例上一格同名的
+  // **数据属性会把它整个遮住** ⇒ `delete` 之后 `s.size` 停在旧数上
+  //（判据 `109-mutate-during-iteration` 量到了；`c371-*` 那一条只量 getter 在不在）。
   // **初始值**（第 130 轮）：`new Set([1, 2])`——实参是**数组**的那一种
   // （`new Set(Array.from(x))` / `new Set([...])` 都是这个形状；**注意**后者的 `[...]`
   // 还要展开语法，那是降级层的事）。**复用 `add` 那条路**：去重与 `size` 都不必写第二遍。
@@ -232,8 +235,8 @@ if (id === SetAdd) {
   if (IndexOfSetValue(table, values, args[0]) >= 0) return self;
   if (!room(ObjectCharge + ValueCharge)) throw new Error("out of room");
   table.Get(values.Ref).AsArray().Push(args[0]);
-  WriteOwn(room, NeverCall, table, self, "size",
-    Value.FromInt(table.Get(values.Ref).AsArray().GetLength()));
+  // **这里原来写一格实例上的 `size`**（第 687 轮删）——那一格是**第二份账**，
+  // 而且把原型上的访问器遮住（见构造函数那一段）。
   return self;
 }
 if (id === SetHas) {
@@ -249,14 +252,16 @@ if (id === SetDelete) {
     table.Get(values.Ref).AsArray().SetAt(i, table.Get(values.Ref).AsArray().GetAt(i + 1));
   }
   table.Get(values.Ref).AsArray().Truncate(last);
-  WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(last));
+  // **不写 `size`**（第 687 轮，与 `MapDelete` 同一句话）：getter 读的就是 `__v` 的长度。
   return Value.FromBool(true);
 }
 if (id === SetValues || id === SetKeys) {
   // **`keys()` 与 `values()` 同一支**：集合里键就是值（JS 也这样）。
   const out = NewPlainArray(room, table, protos);
-  const length = table.Get(values.Ref).AsArray().GetLength();
-  for (let i = 0; i < length; i++) {
+  // **长度每一轮现读**（第 687 轮，与 `Map` 那三支同一句话）：`Set.prototype.forEach` /
+  // `for (const v of s)` 的每一步都重读当下那一份——遍历中删掉后面那一格要跳过、
+  // 新加的那一格要看得见。快照一次时 `for (const v of s.values())` 里 `s.add(3)` 走不到。
+  for (let i = 0; i < table.Get(values.Ref).AsArray().GetLength(); i++) {
     const source = table.Get(values.Ref).AsArray();
     if (source.IsHole(i)) continue;
     table.Get(out.Ref).AsArray().Push(source.GetAt(i));
@@ -270,8 +275,8 @@ if (id === SetValues || id === SetKeys) {
 if (id === SetEntries) {
   // **`[值, 值]` 对的数组**（JS 里 Set 的 `entries` 就是这个形状，两个元素相同）。
   const out = NewPlainArray(room, table, protos);
-  const length = table.Get(values.Ref).AsArray().GetLength();
-  for (let i = 0; i < length; i++) {
+  // **长度每一轮现读**（第 687 轮，与 `SetValues` 同一句话）。
+  for (let i = 0; i < table.Get(values.Ref).AsArray().GetLength(); i++) {
     // **视图每次现取**：里面两次 `Push` 都会换底层存储。
     if (table.Get(values.Ref).AsArray().IsHole(i)) continue;
     const pair = NewPlainArray(room, table, protos);
@@ -283,13 +288,13 @@ if (id === SetEntries) {
   return out;
 }
 if (id === SetForEach) {
-  // **回调脚本**（与 `Map` 同一条路）。快照一次长度：回调里可以改这个集合。
+  // **回调脚本**（与 `Map` 同一条路）。**长度每一轮现读**（第 687 轮，与 `Map.forEach`
+  // 一句一字同一条规矩）：遍历中删掉的跳过、新加的看得见。
   // **`call` 也要判空**：宿主没接回调通道时，这里必须**响亮**说清（而不是「调用了非闭包」）。
   if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
     throw new Error("forEach needs a function and a call channel (the host must pass one)");
   }
-  const eachTotal = table.Get(values.Ref).AsArray().GetLength();
-  for (let i = 0; i < eachTotal; i++) {
+  for (let i = 0; i < table.Get(values.Ref).AsArray().GetLength(); i++) {
     if (table.Get(values.Ref).AsArray().IsHole(i)) continue;
     // **三格**（第 288 轮）：JS 的签名是 `(值, 值, 集合)`——前两格是**同一个值**
     //（`s.forEach((v, k) => …)` 里 `k === v`），第三格是**这个 Set 自己**
@@ -302,8 +307,8 @@ if (id === SetForEach) {
   return Value.Undefined();
 }
 if (id === SetClear) {
+  // **不再写实例上的 `size`**（第 687 轮，与 `MapClear` 同一句话）。
   table.Get(values.Ref).AsArray().Truncate(0);
-  WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(0));
   return Value.Undefined();
 }
 // ---- 第 324 轮：ES2025 的集合运算（第 647 轮补齐第七个）----

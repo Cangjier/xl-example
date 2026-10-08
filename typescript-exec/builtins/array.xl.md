@@ -734,7 +734,15 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
   }
   // **回调里的 `this` 就是第二个实参**（第 647 轮，见 `ThisArgOf`）。
   const thisArg = ThisArgOf(args, 0);
-  // **快照一次长度**：回调里可以改这个数组（JS 也允许），改了的下一轮才见。
+  // **长度**：`forEach` **每一轮现读**，`map` / `filter` **进入时快照一次**（第 687 轮分开的）。
+  //
+  // 三条台阶在 JS 里**不是同一条**，量过（判据 `061-mutate-during-iteration`）：
+  //   · `xs.forEach(f)`：回调里 `xs.pop()` ⇒ **后面的下标不再访问**（`[1,2,3]` 只跑两次）；
+  //     回调里 `xs.push(3)` ⇒ **接着访问新加的那一格**；
+  //   · `xs.map(f)`：回调里 `xs.push(3)` ⇒ 结果**还是两层**，新加的那一格不进结果
+  //     （规范里 `map` 收的是**进入时**那一份的 `len`）。
+  // 快照一次用在 `forEach` 上是**静默错值**：长度变短之后仍会按旧长度转下去，
+  // 那一格读出来是 `undefined`（`forEach-shrink` 打出 `"1,2,"`——尾巴上多一个空轮）。
   const eachTotal = source.GetLength();
   let collected = -1;
   if (id !== ArrayForEach) {
@@ -747,6 +755,9 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
     if (keep !== null) keep(Value.FromArray(collected), true);
   }
   for (let i = 0; i < eachTotal; i++) {
+    // **`forEach` 的边界每一轮重问一次**（`map` / `filter` 不问，见上面那一段）：
+    // 这一句是唯一让「回调里改短长度」当场生效的地方。
+    if (id === ArrayForEach && i >= source.GetLength()) break;
     // **洞不访问**（第 210 轮）：JS 的 `forEach` / `map` / `filter` 都**跳过洞**——
     // `[1, , 3].forEach(f)` 只跑 **2** 次（判据 `array-sparse-iteration` 现场红的：
     // 原来跑了 3 次，因为 `GetAt` 对洞给的是 `undefined`、回调照调）。

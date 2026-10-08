@@ -282,7 +282,13 @@ if (id === MapCtor || id === WeakMapCtor) {
   // **两族都写**（不是「弱表才有」）：读一格不存在的内部件是**抛**（`ReadOwn` 的
   // 那条纪律：缺格不许静默当空），所以每条路都得有这一格。
   WriteOwn(room, NeverCall, table, map, "__w", Value.FromBool(id === WeakMapCtor));
-  WriteOwn(room, NeverCall, table, map, "size", Value.FromInt(0));
+  // **不再写实例上的 `size` 数据格**（第 687 轮，第 613 轮留下的三处中的第一处）：
+  // `Map.prototype.size` 已经是一个读 `__k` 长度的**访问器**，而实例上一格同名的
+  // **数据属性会把它整个遮住**（`FindProperty` 从实例起步，先命中的就是那一格）——
+  // 于是 getter 再也读不到，`delete` 之后 `m.size` 停在旧数上
+  //（判据 `c371-stdlib-map-set-size-and-keys` 只量到「getter 在不在」，
+  //  量不到「它有没有被遮住」；第 687 轮的 `109-mutate-during-iteration` 量到了）。
+  // 留着的那两份账（`MapDelete` / `MapClear` 各一处）连同它一起删。
   // **初始条目**（第 130 轮）：`new Map([[k, v], …])`——实参是**数组**的那一种
   // （`new Map(Object.entries(o))` 就是这个形状，日常代码里最常见）。
   // **生成器第 199 轮通了**：`new Map(生成器)` 现在给的是全部产出——
@@ -372,8 +378,8 @@ if (id === MapSet) {
   if (!room(ObjectCharge * 2 + ValueCharge * 2)) throw new Error("out of room");
   table.Get(keys.Ref).AsArray().Push(args[0]);
   table.Get(values.Ref).AsArray().Push(args[1]);
-  WriteOwn(room, NeverCall, table, self, "size",
-    Value.FromInt(table.Get(keys.Ref).AsArray().GetLength()));
+  // **这里原来写一格实例上的 `size`**（第 687 轮删）——那一格是**第二份账**，
+  // 而且它把原型上那个访问器**遮住**（见构造函数那一段）。
   return self;
 }
 if (id === MapGet) {
@@ -396,13 +402,21 @@ if (id === MapDelete) {
   }
   table.Get(keys.Ref).AsArray().Truncate(last);
   table.Get(values.Ref).AsArray().Truncate(last);
-  WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(last));
+  // **不写 `size`**（第 687 轮）：`Map.prototype.size` 那个 getter 读的就是 `__k` 的长度，
+  // 而实例上写一格 `size` 会把它**遮住**（见构造函数那一段）。
   return Value.FromBool(true);
 }
 if (id === MapKeys || id === MapValues) {
   const out = NewPlainArray(room, table, protos);
-  const length = table.Get(id === MapKeys ? keys.Ref : values.Ref).AsArray().GetLength();
-  for (let i = 0; i < length; i++) {
+  // **长度每一轮现读**（第 687 轮，原来快照一次）：这一支上面压着 `forEach` 那一族，
+  // 而**它们共用一个数据源**（`keys` / `values` 两个数组）——
+  // 快照长度时，遍历中删掉后面那一格会**留一个洞给下一次**（`m.forEach` 打出 `"a,b,"`），
+  // 新加的那一格**从头到尾看不见**（`for (const k of m.keys())` 里 `m.set("c", 3)` 之后
+  // 仍然只走两层）。JS 的两条台阶**每一步都重读一次当下那一份**，
+  // 所以删掉的跳过、新加的看得见——判据 `109-mutate-during-iteration`。
+  // **洞照样跳过**：`delete` 把后面的元素往前挪，于是尾部会留下洞，
+  // 按洞跳而不是按长度截，才不会把已删除的键再喂出去一次。
+  for (let i = 0; i < table.Get(id === MapKeys ? keys.Ref : values.Ref).AsArray().GetLength(); i++) {
     const source = table.Get(id === MapKeys ? keys.Ref : values.Ref).AsArray();
     if (source.IsHole(i)) continue;
     table.Get(out.Ref).AsArray().Push(source.GetAt(i));
@@ -420,8 +434,11 @@ if (id === MapEntries) {
   // **`[键, 值]` 对的数组**——JS 里 `for (const e of map)` 拿到的正是这个形状，
   // 所以脚本里 `e[0]` / `e[1]` 两边写法一样（**直接迭代 Map 本体**仍不支持，见文首）。
   const out = NewPlainArray(room, table, protos);
-  const length = table.Get(keys.Ref).AsArray().GetLength();
-  for (let i = 0; i < length; i++) {
+  // **长度每一轮现读**（第 687 轮，与 `MapKeys` / `MapValues` 同一句话）：
+  // 这一支是最常被 `for (const [k, v] of m)` 走到的一条，快照长度时
+  // **遍历中删掉后面那一格仍然会被访问一次**（判据 `109-mutate-during-iteration` 的
+  // `map-delete-future` 走的就是这一支），新加的那一格则永远看不见。
+  for (let i = 0; i < table.Get(keys.Ref).AsArray().GetLength(); i++) {
     // **视图每次现取**：里面两次 `Push` 都会换底层存储。
     if (table.Get(keys.Ref).AsArray().IsHole(i)) continue;
     const pair = NewPlainArray(room, table, protos);
@@ -434,13 +451,18 @@ if (id === MapEntries) {
 }
 if (id === MapForEach) {
   // **回调脚本**（第 116 轮）：`call` 会重入分派循环，所以这里能跑脚本闭包。
-  // **快照一次长度**：回调里可以改这个 Map（JS 也允许）——按当下这一份走，改了的下一轮才见。
+  // **长度每一轮现读**（第 687 轮，原来快照一次）：JS 的 `Map.prototype.forEach`
+  // 每一步都重读**当下那一份**——所以回调里 `delete` 掉后面的键就**跳过它**、
+  // `set` 进来的新键**看得见**（规范 `forEach` 那条台阶：下标每轮加一、
+  // 但「有没有这一格」由当下的表说了算）。快照一次是**静默错值**：
+  // `m.forEach((v, k) => { if (k === "a") m.delete("b") })` 打出 `"a,b,"`（尾巴上多一个空键）、
+  // `m.keys()` 新加的键一层都走不到——判据 `109-mutate-during-iteration`。
+  // **洞照样跳过**（与上面那三支同一条）：`delete` 把后面的键往前挪、尾部留洞。
   // **`call` 也要判空**：宿主没接回调通道时，这里必须**响亮**说清（而不是「调用了非闭包」）。
   if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
     throw new Error("forEach needs a function and a call channel (the host must pass one)");
   }
-  const eachTotal = table.Get(keys.Ref).AsArray().GetLength();
-  for (let i = 0; i < eachTotal; i++) {
+  for (let i = 0; i < table.Get(keys.Ref).AsArray().GetLength(); i++) {
     if (table.Get(keys.Ref).AsArray().IsHole(i)) continue;
     // **回调收 `(值, 键)`**（第 142 轮）：实参表那一格开宽之后，这里就能把**键**也递过去——
     // 上一轮之前只能给一个（`NativeCall` 只带一个实参），
@@ -462,10 +484,11 @@ if (id === MapForEach) {
   return Value.Undefined();
 }
 if (id === MapClear) {
-  // **两个数组一起截到 0**，再把 `size` 写回 0——顺序无所谓（中途没有别人看得见）。
+  // **两个数组一起截到 0**——顺序无所谓（中途没有别人看得见）。
+  // **不再写实例上的 `size`**（第 687 轮）：截到 0 之后 getter 读 `__k` 自然是 0，
+  // 而写一格实例属性会把它遮住（见构造函数那一段）。
   table.Get(keys.Ref).AsArray().Truncate(0);
   table.Get(values.Ref).AsArray().Truncate(0);
-  WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(0));
   return Value.Undefined();
 }
 throw new Error("unimplemented: map id " + id);

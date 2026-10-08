@@ -35,6 +35,10 @@
    `bad 3 → 0`（那 3 条各自回到真实判决：`006-module-export` pass、`007-module-import` differ、
    `056-l677p-dynamic-import` blocked），通过 **3520 → 3521**、`blocked 239 → 240`、
    `differ 40 → 41`，`regressions` 0。
+   **第 687 轮全矩阵**（在那一轮加进来的 4 份新语料之上）：通过 **3521 → 3527**、
+   `differ 41 → 43`、`bad` 仍是 **0**、`regressions` 0——那一轮收掉的是
+   `Map` / `Set` / `Array` 三族**「长度被快照一次」**的七处静默错值
+   （见根目录 README 第 687 轮那一段）。
    反过来**写成 `type: module`**也要不得：ESM 一律严格模式，而这一层语料的期望值全是照
    松散模式写的（`Object.freeze` 之后写属性静默、`delete` 不可配置属性该静默、
    非严格调用里 `this` 指向全局）——实测 `bad 3 → 12`、`differ 40 → 50`、通过掉到 3500、

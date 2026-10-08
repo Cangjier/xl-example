@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 3806,
+  "total": 3810,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.97,
+  "progressPercent": 95.93,
   "categories": [
     {
       "category": "token",
@@ -100,8 +100,8 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 613,
-      "pass": 612,
+      "total": 614,
+      "pass": 613,
       "blocked": 1,
       "differ": 0,
       "nodefail": 0,
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 936,
-      "pass": 890,
+      "total": 939,
+      "pass": 891,
       "blocked": 15,
-      "differ": 31,
+      "differ": 33,
       "nodefail": 0,
-      "coverage": 95.09
+      "coverage": 94.89
     },
     {
       "category": "e2e",
@@ -1679,7 +1679,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27380/src/2812.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24384/src/2813.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1722,6 +1722,18 @@
       "category": "stdlib",
       "title": "名字逐个取一次：WeakSet.prototype 的成员（缺 4 个）",
       "detail": "stdout 不同：第 1 行：node «object add function» vs tsrun «undefined add no»"
+    },
+    {
+      "id": "stdlib/map-set/110-forof-live-view-not-taken",
+      "category": "stdlib",
+      "title": "`for…of` 一个遍历中长大的 Map：看不见新加的键（按名字那只活在 `forEach` 上）",
+      "detail": "stdout 不同：第 1 行：node «map-keys-add a,b,c» vs tsrun «map-keys-add a,b»"
+    },
+    {
+      "id": "stdlib/map-set/111-clear-then-readd-slots",
+      "category": "stdlib",
+      "title": "遍历中 `clear()` + 重新装键：新装的那一格这一趟**看不见**（台账里最窄的一格）",
+      "detail": "stdout 不同：第 1 行：node «map-clear-readd-foreach a,z,y 2 9 8» vs tsrun «map-clear-readd-foreach a,y 2 9 8»"
     },
     {
       "id": "stdlib/math/044-names-math",

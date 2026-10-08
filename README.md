@@ -318,8 +318,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **229 种签名 / 140 种 kind** 全部有用例覆盖（用例 1402 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3525 / 3806**，加权 **96.0%**：token 1180/1402（另有 220 条登记缺口走另一条账）、exec 598/609、runtime 612/613、stdlib 890/936、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 41），全登在用例文件头的台账里；`bad` **0 条**（第 686 轮收掉了原来那 3 条——它们不是用例写错，是裁判侧 `.work-<pid>/src/` 那份哨兵 `package.json` 写了显式 `type: commonjs`，把批那一档的 `import()` 钉死在 CJS 上） |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
+| `coverage` | **五类 3527 / 3810**，加权 **95.9%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 599/609、runtime 613/614、stdlib 891/939、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 43），全登在用例文件头的台账里；`bad` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~32s**） |
 
 ### 口径与已知缺口
 
@@ -420,6 +420,25 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   招待那一格时外层 `{` 的 `Context` 还是空串，`EnclosingBraceContext` 因此给不出答案
   （它跳过 `Context` 为空的那个括号），宿主槽位也还不是 `ObjectLiteral`；
   要收它得让「包着我的那个 `{` 处在哪一位」在那两格上**当场**答得出来。
+  **第 687 轮**换了一层问（**遍历中改集合**，一次 62 条候选、58 条 pass），
+  量出并收掉一族**「长度被快照一次」的静默错值**——`Map` / `Set` / `Array` 三族
+  **七处**同一个根子（`forEach` 与 `keys` / `values` / `entries` 那几支都把长度在进入时读一次）：
+  - `m.forEach((v, k) => { if (k === "a") m.delete("b") })` 打出 `"a,b,"`（**尾巴上多一个空键**），
+    Node 给 `"a,c"`；`delete` 把后面的往前挪、**尾部留一个洞**，而循环按旧长度又转了一圈；
+  - 遍历中 `set` / `add` 进来的那一格**一层都走不到**（`m.keys()`、`s.values()` 同上）；
+  - `[1, 2, 3]` 的 `forEach` 里 `pop()` 之后**还要空转一轮**（Node 只跑两次）。
+  修法**七处同一句**：把长度从「进入时读一次」改成**每一步现读**（洞照旧跳过）；
+  `Array` 那边**只有 `forEach` 跟着当下的长度走**——`map` / `filter` 收的仍是进入时那一份
+  （三条台阶在 JS 里不是同一条，用例把两半都钉住了）。
+  同一次普查还量到 **`Map.prototype.size` / `Set.prototype.size` 这两个访问器被实例上的
+  同名数据格遮住**：`set` / `delete` / `clear` 三处各写一份 `size`（第二份账），
+  于是 `delete` 之后 `s.size` **停在旧数上**（第 613 轮把它们改成 getter 时漏了这三处）——
+  三处一起删掉，读数回到「`__k` / `__v` 的长度就是它」。
+  **另有两格原样登着**：`for…of` 一个遍历中长大的 `Map` **看不见新键**
+  （`map.keys()` 交出来的是一份**快照数组**，「取迭代器」那一半还没做成活视图，
+  登在 `[111-clear-then-readd-slots](tests/cases/stdlib/map-set/111-clear-then-readd-slots.ts)`
+  与 `[110-forof-live-view-not-taken](tests/cases/stdlib/map-set/110-forof-live-view-not-taken.ts)`；
+  后者正是 `109` 收掉的那一件事的另一半）。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 
