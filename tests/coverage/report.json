@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7251,
+  "total": 7368,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.75,
+  "progressPercent": 95.79,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1853,
-      "pass": 1804,
-      "blocked": 11,
+      "total": 1970,
+      "pass": 1920,
+      "blocked": 12,
       "differ": 38,
       "nodefail": 0,
-      "coverage": 97.36
+      "coverage": 97.46
     },
     {
       "category": "runtime",
@@ -111,11 +111,11 @@
       "category": "stdlib",
       "weight": 0.2,
       "total": 2934,
-      "pass": 2850,
+      "pass": 2852,
       "blocked": 31,
-      "differ": 53,
+      "differ": 51,
       "nodefail": 0,
-      "coverage": 97.14
+      "coverage": 97.21
     },
     {
       "category": "e2e",
@@ -1500,6 +1500,12 @@
       "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
     },
     {
+      "id": "exec/round707/p707a-a05",
+      "category": "exec",
+      "title": "Array.isArray 五档",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Uint8Array"
+    },
+    {
       "id": "exec/statements/060-hoisting-tdz",
       "category": "exec",
       "title": "函数声明提升、`let` 的 TDZ",
@@ -1946,16 +1952,16 @@
       "detail": "stdout 不同：第 1 行：node «start,1,fin,caught» vs tsrun «start,1,caught»"
     },
     {
-      "id": "exec/round706/p706b-d08",
-      "category": "exec",
-      "title": "getOwnPropertyDescriptor 数字键",
-      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
-    },
-    {
       "id": "exec/round706/p706c-x20",
       "category": "exec",
       "title": "lookupGetter 自己的名字与长度",
       "detail": "stdout 不同：第 1 行：node «string:__lookupGetter__,number:1» vs tsrun «undefined,undefined»"
+    },
+    {
+      "id": "exec/round707/p707b-d06",
+      "category": "exec",
+      "title": "数组的 length 描述符异形语义",
+      "detail": "stdout 不同：第 1 行：node «number:1,undefined» vs tsrun «number:3,number:2»"
     },
     {
       "id": "exec/statements/probe693b-s30",
@@ -2117,7 +2123,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27220/src/4613.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14048/src/4730.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2141,7 +2147,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27220/src/4663.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14048/src/4780.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2264,12 +2270,6 @@
       "detail": "stdout 不同：第 1 行：node «number:3» vs tsrun «throw:TypeError»"
     },
     {
-      "id": "stdlib/object/probe694-o27",
-      "category": "stdlib",
-      "title": "(function () { return Object.assign([], [1, 2]).length; })()",
-      "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «number:0»"
-    },
-    {
       "id": "stdlib/object/probe697-q32",
       "category": "stdlib",
       "title": "(function () { try { Object.setPrototypeOf({}, 1); return \"no\"; } catch (e) { return e.constructor.name; } })()",
@@ -2280,12 +2280,6 @@
       "category": "stdlib",
       "title": "(function () { const o = { toString: () => \"k\" }; return { [o]: 1 }.k; })()",
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:Error»"
-    },
-    {
-      "id": "stdlib/object/probe703-o-a38",
-      "category": "stdlib",
-      "title": "Object.assign([], [1, 2]).length",
-      "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «number:0»"
     },
     {
       "id": "stdlib/object/probe703-o-a41",

@@ -1,5 +1,5 @@
-// xl:title getOwnPropertyDescriptor 的对象数字键
-// xl:round 706
+// xl:title WeakMap 的键必须是对象
+// xl:round 707
 // xl:judge stdout
 // xl:end
 
@@ -8,4 +8,4 @@ const show = (v) => (v === null ? "null"
   : typeof v + ":" + String(v).split("\n").join("\\n"));
 const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
 
-const o = { 1: "v" }; console.log(show(Object.getOwnPropertyDescriptor(o, 1) !== undefined));
+run(() => { const w = new WeakMap(); w.set(1, 2); console.log(show(w.get(1))); });

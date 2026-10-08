@@ -512,6 +512,37 @@ if (key.Tag === ValueTag.Symbol) {
   if (stored.Tag !== ValueTag.Symbol) return false;
   return stored.AsSymbol().Id === table.Get(key.Ref).AsSymbol().Id;
 }
+// **整数键与「十进制整数文本」是同一格**（第 707 轮，**普查当场红的**）：
+// 对象字面量 `{ 1: "v" }` 的键是**数字字面量**——降级层把它**原样**交上来
+// （`Int32`），而那些**只认字符串**的旁路（`Object.hasOwn(o, 1)`、
+// `Object.getOwnPropertyDescriptor(o, 1)`、`Object.getOwnPropertyDescriptors`）
+// 于是**答假 / 给 `undefined`**，而 `o[1]` / `o["1"]` / `1 in o` 三条**全都是对的**
+//（它们走 `get_index` / `in`，那两处早就会把数字键字符串化）——
+// **同一个属性、四种问法、两个答案**（判据 `p707d-k01` / `p707d-k02`）。
+//
+// **只认非负的十进制整数**：`-1` 与 `1.5` 在 JS 里是**普通属性名**（`"-1"` / `"1.5"`），
+// 而它们**不会**以 `Int32` 的形态落在属性表里（`{ 1.5: "v" }` 造出来的是字符串键
+// `"1.5"`——判据 `p707d-k03` 是绿的）。所以这里只处理 `Int32` 那一档。
+//
+// **十进制码元就地算，不 import `DecimalUnits`**：那一格在 `rt.xl.md` 里，
+// 而**本文件是它 import 的**（`rt.xl.md` 第 7 行）——import 回来就是一个环。
+// 写法与它**一字不差**（从低位往高位取、最后翻一遍）。
+if (stored.Tag === ValueTag.String && key.Tag === ValueTag.Int32 && key.Int >= 0) {
+  const storedString = stored.AsString();
+  const keyUnits: number[] = [];
+  let magnitude = key.Int;
+  if (magnitude === 0) keyUnits.push(48);
+  while (magnitude > 0) {
+    keyUnits.push(magnitude % 10 + 48);
+    magnitude = Math.floor(magnitude / 10);
+  }
+  if (storedString.Units.length !== keyUnits.length) return false;
+  const storedUnits = storedString.Units;
+  for (let i = 0; i < storedUnits.length; i++) {
+    if (storedUnits[i] !== keyUnits[storedUnits.length - 1 - i]) return false;
+  }
+  return true;
+}
 throw new Error("property keys must be strings or symbols");
 ```
 

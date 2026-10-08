@@ -4005,8 +4005,23 @@ if (id === ObjectAssign) {
       if (!room(PropertyCharge * items.GetLength())) throw new Error("out of room");
       for (let i = 0; i < items.GetLength(); i++) {
         if (items.IsHole(i)) continue;
-        SetProperty(room, targetWriter, table, target,
-          Value.FromString(table.CreateString(Units(String(i)))), items.GetAt(i));
+        const sourceKey = Value.FromString(table.CreateString(Units(String(i))));
+        // **目标也是数组时，下标要落进元素区**（第 707 轮，**普查当场红的**）：
+        // `Object.assign([], [1, 2])` 在 JS 里给 `[1, 2]`（`length` 2）——
+        // 而 `SetProperty` **认不得数组下标**（它那一趟写的是属性表，
+        // 元素的 `length` 不跟着长）⇒ 本仓给 `[]`、`length` 还是 `0`
+        //（判据 `p707c-o01`）。台账里 `probe694-o27` / `probe703-o-a38` 两条**同一条根**。
+        // **与 `defineProperty` 那一处同一个判据**（`ArrayIndexAt`）：
+        // 「`"0"` 是不是下标」只有它有答案。
+        // **`SetAt` 不带标志位**（元素区没有逐格标志位）——`Object.assign` 走的是
+        // `[[Set]]`，可枚举是它本来就有的语义，所以这一档与 `defineProperty` 的可枚举那一支合流。
+        if (target.Tag === ValueTag.Array && ArrayIndexAt(table, sourceKey) >= 0) {
+          if (!room(ValueCharge)) throw new Error("out of room");
+          table.Get(target.Ref).AsArray().SetAt(ArrayIndexAt(table, sourceKey), items.GetAt(i));
+          table.Recount(target.Ref);
+          continue;
+        }
+        SetProperty(room, targetWriter, table, target, sourceKey, items.GetAt(i));
       }
       continue;
     }
@@ -4057,6 +4072,16 @@ if (id === ObjectAssign) {
         // 那两处「先问 room、再分配」同一条纪律）。
         if (!room(PropertyCharge)) throw new Error("out of room");
         value = GetProperty(room, call, protos, table, source, keys[i]);
+      }
+      // **目标也是数组时，下标要落进元素区**（第 707 轮）：与上面「源是数组」那一支
+      // **同一句判据**（`ArrayIndexAt`）——`Object.assign([], { 0: "a" })` 在 JS 里
+      // 给 `["a"]`（`length` 1），而 `SetProperty` 只写属性表、`length` 不跟着长。
+      if (target.Tag === ValueTag.Array && keys[i].Tag === ValueTag.String
+        && ArrayIndexAt(table, keys[i]) >= 0) {
+        if (!room(ValueCharge)) throw new Error("out of room");
+        table.Get(target.Ref).AsArray().SetAt(ArrayIndexAt(table, keys[i]), value);
+        table.Recount(target.Ref);
+        continue;
       }
       SetProperty(room, targetWriter, table, target, keys[i], value);
     }
@@ -4186,9 +4211,26 @@ if (id === ObjectGetOwnPropertyDescriptor) {
   //（`Object.getOwnPropertyDescriptor(arr, 0)` 是最普通的写法之一；
   //  `Object.hasOwn([1], 0)` 那一支第 691 轮就收数字了——两套口径不该分家）。
   // **符号键不走这一趟**（`TextFrom` 对符号抛）：下面那一支按**身份**找。
-  const ownKey = args[1].Tag === ValueTag.String || args[1].Tag === ValueTag.Symbol
-    ? args[1]
-    : Value.FromString(table.CreateString(Units(TextFrom(table, args[1]))));
+  // **数字键一律先化成文本**（第 707 轮，**普查当场红的**）：对象字面量 `{ 1: "v" }`
+  // 的键是**数字字面量**，而降级层把它**原样**交上来——`KeyMatches` 现在认得
+  // 「整数两档」（`Int32` 与十进制文本是同一格，`props.xl.md`），
+  // 可**其余那些只认字符串键的旁路**（这一支的 `IsIndexKeyText`、`FindProperty`
+  // 后面那几趟）依然会把它当成一个**普通对象键**：
+  // `Object.getOwnPropertyDescriptor(o, 1)` / `Object.hasOwn(o, 1)` /
+  // `o.propertyIsEnumerable(1)` 于是**答 `undefined` / 假**，
+  // 而 `o[1]` / `o["1"]` / `1 in o` / `o.hasOwnProperty(1)` **四条全对**
+  //（判据 `p707d-k01` / `p707d-k02` / `p707c-o10`）。
+  // **在入口处归一**、不在每一格判据里各认一次：JS 那一步就是 `ToPropertyKey`
+  //（`TextFrom` 对 Int32 / Float64 给的正是 `String(n)`）。
+  // **符号键不走这一趟**（`TextFrom` 对符号抛——下面单独一支按身份找）。
+  const rawOwnKey = args[1];
+  const numericOwnKey = rawOwnKey.Tag === ValueTag.Int32 || rawOwnKey.Tag === ValueTag.Float64;
+  const normalizedOwnKey = numericOwnKey
+    ? Value.FromString(table.CreateString(Units(TextFrom(table, rawOwnKey))))
+    : rawOwnKey;
+  const ownKey = normalizedOwnKey.Tag === ValueTag.String || normalizedOwnKey.Tag === ValueTag.Symbol
+    ? normalizedOwnKey
+    : Value.FromString(table.CreateString(Units(TextFrom(table, normalizedOwnKey))));
   // **符号键跳过「取文本」那一格**（第 680 轮）：符号值不能被读成码元表
   //（`TextFrom` 会当场抛 `cannot convert a Symbol value to a string`），
   // 而下面那几支判据（下标键 / `length` / 自有属性表）**本来就只对字符串键有意义**
@@ -4273,7 +4315,35 @@ if (id === ObjectGetOwnPropertyDescriptor) {
       }
     }
     // **洞与越界都不是自有属性** ⇒ 落到最后的 `undefined`（JS 的口径）。
-    if (!present) return Value.Undefined();
+    // **可普通对象的整数键照样是自有属性**（第 707 轮，**普查当场红的**）：
+    // `{ 1: "v" }` 的键是**数字字面量**，所以那一段**必须接着往下面那一趟走**
+    // （自有属性表）——原来这里对**任何**非数组 / 非字符串接收者都直接 `return undefined`，
+    // 于是 `Object.getOwnPropertyDescriptor(o, 1)` 给 `undefined`、
+    // 而 `Object.keys(o)` / `Object.getOwnPropertyNames(o)` 都看得到那一格
+    //（判据 `p707d-k01`：`o[1]` / `o["1"]` / `1 in o` / `o.hasOwnProperty(1)` 四条全对，
+    //  只有描述符这一条路断路）。**数组与字符串那一档仍然在这里收口**（洞 / 越界）。
+    if (!present) {
+      if (receiver.Tag === ValueTag.Array || receiver.Tag === ValueTag.String) return Value.Undefined();
+      // **不是数组也不是字符串** ⇒ 落到下面「自有属性表」那一趟（`ownKey` 已经归一成文本）。
+      const numericOwnFound = FindProperty(room, table, receiver.Ref, ownKey);
+      if (numericOwnFound === null || numericOwnFound.Owner !== receiver.Ref) return Value.Undefined();
+      const numericProperty = table.Get(receiver.Ref).Props[numericOwnFound.Index];
+      if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
+      const numericDescriptor = NewPlainObject(room, table, protos);
+      if (numericProperty.Kind === PropertyKind.Accessor) {
+        SetProperty(room, NeverCall, table, numericDescriptor, NameValue(table, "get"), numericProperty.Getter);
+        SetProperty(room, NeverCall, table, numericDescriptor, NameValue(table, "set"), numericProperty.Setter);
+      } else {
+        SetProperty(room, NeverCall, table, numericDescriptor, NameValue(table, "value"), numericProperty.Value);
+        SetProperty(room, NeverCall, table, numericDescriptor, NameValue(table, "writable"),
+          Value.FromBool((numericProperty.Flags & PropertyFlagWritable) !== 0));
+      }
+      SetProperty(room, NeverCall, table, numericDescriptor, NameValue(table, "enumerable"),
+        Value.FromBool((numericProperty.Flags & PropertyFlagEnumerable) !== 0));
+      SetProperty(room, NeverCall, table, numericDescriptor, NameValue(table, "configurable"),
+        Value.FromBool((numericProperty.Flags & PropertyFlagConfigurable) !== 0));
+      return numericDescriptor;
+    }
     // **房间要一起问**：字符串那一支要**开一个新串**，所以 `CodeUnitCharge` 也算上
     //（与 `Object.keys` 那一支同一条规矩：开之前先问）。
     if (!room(ObjectCharge + PropertyCharge * 4 + CodeUnitCharge)) throw new Error("out of room");
