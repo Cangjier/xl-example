@@ -1,12 +1,13 @@
-// xl:title 格式串那一格：%s 后面还有说明符 / %s 与 %d 混用 / %s 自己当文本
+// xl:title 格式串那一格：**第一个实参才是格式串**，说明符不够时原样留着
 // xl:round 763
 // xl:judge stdout
-// xl:note 第 763 轮收掉的那一处：`console.group` / `groupCollapsed` / `groupEnd` 三格
-// xl:note 原来**根本没挂**（`cannot call a non-closure value`）。
-// xl:note **缩进落在每一行上**（不只 `log`）——所以出口收成 `ConsoleWriteLine` 一处，
-// xl:note 这一族十一支一起跟着 `group` 动；**状态挂在 `console` 那个对象上**，
-// xl:note 与调用时的接收者无关（`const g = console.group; g("x")` 在 Node 里照样进一级——
-// xl:note 这一格是实测撞到的）。形状与取舍写在 `ConsoleGroup` 那一段里。
+// xl:note 第 763 轮顺手钉住的一条（原来只是把它当守卫收进矩阵）：
+// xl:note `console.log("%s-%d", 7)` 在 Node 里给 `7-%d`——**第二个说明符没有实参可消耗、
+// xl:note 于是原样留着**（而 `%s` 照常换掉那个 `7`）。
+// xl:note **第 764 轮把这一条的口径量正了**：格式串**只有落在第一个实参上**才生效
+// xl:note （`console.log("a", "%s", "x")` 印的是 `a %s x`），这一条钉的是前半句；
+// xl:note 后半句在 `stdlib/round764/r764b-02`。**两条合起来才是 Node 那一层的形状**——
+// xl:note 第 763 轮这一条自己的 `xl:title` 原来写成「%s 后面还有说明符」，那是**读错了自己**。
 // xl:end
 console.log("%s-%d", 7);
 console.log("%s %s", "a");

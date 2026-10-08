@@ -8024,10 +8024,31 @@ return value;
 **三条边界照 Node 量到的写**：
 ① **没有实参可消耗时说明符原样留着**（`console.log("100%")` 还是 `100%`）；
 ② **认不出的说明符也原样留着**（`%q` 不动）；
-③ `%c` 只吃掉自己（它管的是 CSS，Node 里也不消耗实参）。
+③ **`%c` 消耗一个实参、自己换成空串**（它管的是 CSS，Node 里那一格就是「吃掉」）。
 
-**`%j` 没做**（它要走 `JSON.stringify` 那一整支，而那一支是同一条 `InvokeGlobal`
-里的另一个 `id`——**要做**，写在这一处而不是藏在静默里）。
+**`%c` 与 `%j` 的整张表是第 764 轮实测的**（原来这一格写着「`%c` 不消耗实参」、
+`%j` 写着「没做」——**两句话都错**，因为量的时候格式串被放在了**第二个实参**上，
+而 Node 的规矩是**只有第一个实参才是格式串**；判据 `stdlib/round764/r764b-01`）：
+
+| 写法 | Node | 这一层原来给 |
+| --- | --- | --- |
+| `console.log("%c", "css")` | **空行** | `" css"`（把 `css` 当成剩余实参接了上去） |
+| `console.log("%c", "a", "b")` | `" b"` | `" a b"` |
+| `console.log("%c%c", "a", "b")` | **空行** | `" a b"` |
+| `console.log("%c", 1)` | **空行** | `" 1"` |
+| `console.log("%c", { a: 1 })` | **空行** | `" { a: 1 }"` |
+| `console.log(" %c", "css")` | `" "` | `"  css"` |
+| `console.log("%c%s", "css", "x")` | `"x"` | `"css x"` |
+| `console.log("%s%c", "x", "css")` | `"x"` | `"x css"` |
+| `console.log("%j", { b: 1 })` | `'{"b":1}'` | `"%j { b: 1 }"` |
+| `console.log("%j", "s")` | `'"s"'` | `"%j s"` |
+| `console.log("%j", undefined)` | `"undefined"` | `"%j undefined"` |
+
+也就是说 **`console` 这一族与 `util.format` 是同一件事**（`%s` / `%d` / `%i` / `%f` / `%o` /
+`%O` **和** `%j` 都换、`%c` 吃掉一个实参），**只有「格式串必须是第一个实参」这一条**
+是外面那一层的（不是 `util.format` 的）——`console.log("a", "%s", "x")` 印的是 `a %s x`。
+**`%j` 是 `JSON.stringify`**：给不出字符串的那几档（`undefined` / 函数 / 符号）
+Node 的 `util.format` 印的是 `"undefined"`（**判据实测**），这一层照这一条走。
 
 ```ts
 const renderArg = (value: Value) => (value.Tag === ValueTag.String ? ValueText(table, value) : InspectText(table, value));
@@ -8048,13 +8069,19 @@ while (at < format.length) {
   if (ch !== "%" || at + 1 >= format.length) { text.push(ch); at = at + 1; continue; }
   const code = format.charAt(at + 1);
   if (code === "%") { text.push("%"); at = at + 2; continue; }
-  if (code === "c") { at = at + 2; continue; }
-  const known = code === "s" || code === "d" || code === "i" || code === "f" || code === "o" || code === "O";
+  const known = code === "s" || code === "d" || code === "i" || code === "f"
+    || code === "o" || code === "O" || code === "j"
+    // **`%c` 也在这一列**（第 764 轮实测）：它**消耗一个实参**、自己换成空串——
+    // 与 JS 的 `util.format` 一字不差。原来那一版把它写在 `%%` 旁边（「不消耗实参」），
+    // 于是 `console.log("%c", "css")` 给 `" css"`（Node 给**空行**）。
+    || code === "c";
   if (!known || used >= args.length) { text.push(ch); at = at + 1; continue; }
   const arg = args[used];
   used = used + 1;
   if (code === "s") { text.push(renderArg(arg)); }
-  else if (code === "d") {
+  else if (code === "c") {
+    // **CSS 那一格**：实参照旧被吃掉，**一个字符都不印**（Node 实测）。
+  } else if (code === "d") {
     // **`%d` 是 `Number()`**（Node 的口径）。
     text.push(NumberToHostText(ToNumberOf(room, call, protos, table, arg)));
   } else if (code === "i") {
@@ -8063,6 +8090,14 @@ while (at < format.length) {
   } else if (code === "f") {
     // `%f` 是 `parseFloat()`。
     text.push(NumberToHostText(parseFloat(renderArg(arg))));
+  } else if (code === "j") {
+    // **`%j` 是 `JSON.stringify`**（第 764 轮收的一格）。
+    // **`JSON.stringify` 给不出字符串的那几档**（`undefined` / 函数 / 符号）
+    // `util.format` 印的是 **`"undefined"`**——**实测**（判据 `r764b-01` 第 8 行）。
+    // 所以 `null` 那一格（这一层 `JsonText` 的「不可序列化」）**回落成 `"undefined"`**。
+    const renderedJson = JsonText(room, call, protos, table, 0, Value.Undefined(), arg,
+      Value.FromString(table.CreateString(Units(""))), Value.Undefined(), 0, false, "");
+    text.push(renderedJson === null ? "undefined" : renderedJson);
   } else {
     // `%o` / `%O`：Node 给的是 `util.inspect` 那一份（`%o` 还带 `showHidden`）。
     // 这一层只有一份 inspect，所以两档走同一份——**已知差写在明处**。
@@ -8074,6 +8109,11 @@ let line = text.join("");
 for (let k = used; k < args.length; k++) line = line + " " + renderArg(args[k]);
 return line;
 ```
+
+**`JsonText` 那一格的 `anchor` 给 `0`**（第 764 轮）：它是**根锚**（`JsonAnchor` 拿它认环），
+而**没有锚那一趟就不认环**——`%j` 打一个自引用对象时两边都会打很深。
+**这是写在明处的取舍**：`%j` 的判据里没有环那一格（`console.log` 的环由 `InspectText`
+那一份口径管，与这一格无关），所以这里不为了一个没人量的边角多挂一次锚。
 
 # method ConsoleIndent:(table:HeapTable, protos:Protos, room:RoomChecker, self:Value)=>int
 
