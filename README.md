@@ -170,7 +170,9 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   `DoWhile` 的 `BodyBrace`——第 641 轮收齐）——投影那一侧**直读字段**，
   不再回原文 `indexOf` + `MatchingBrace` 重扫一遍（那种二次搜刮遇到块里的字符串或注释里的
   假括号就会给错位置）。同一条线上的还有 `Namespace` 的字符串模块名区间
-  （`NameAt` / `NameEnd`，第 641 轮）与声明名的 `NameStart` / `NameEnd`。
+  （`NameAt` / `NameEnd` / `NameRange`，第 641 / 645 轮）与声明名的 `NameStart` / `NameEnd`，
+  以及**名字那一格**的 `NameAt` / `NameRange`（`Field` 与 `Namespace`，第 645 轮）——
+  投影只按那一格自己推文本区间（开头是引号 ⇒ 取引号之间），字符串名不再回原文猜。
   这是「token 直出 AST」那条线的落点：**判据只算一次，投影不做第二次近似**。
 
 ## 支持的语法构造
@@ -284,7 +286,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-### 当前状态（第 644 轮实测）
+### 当前状态（第 645 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |

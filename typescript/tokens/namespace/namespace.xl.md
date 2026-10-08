@@ -485,6 +485,11 @@ if (this.FirstNameAt >= 0) {
 if (this.NameAt >= 0 && this.NameEnd >= this.NameAt) {
   result.set("nameAt", this.NameAt);
   result.set("nameEnd", this.NameEnd);
+  // **整段区间也照 `bodyBraceRange` 那一格报一份**（第 645 轮）：投影里「声明名」那条共用路
+  // （`synthName`）按**这一格**自己推断文本区间（引号名去掉首尾各一格 ✓），
+  // 于是「模块名是引号名」这件事**只剩一条路**说 ✓——不必再在投影里按节点类型分派 ✗
+  //（`Namespace` 当成员出现时走的正是那条共用路 ✓）。上面那两格仍归它自己那一支用 ✓。
+  result.set("nameRange", this.NameAt + "," + this.NameEnd);
 }
 if (this.Data.length !== 0) {
   const children: Array<any> = [];

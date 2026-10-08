@@ -101,8 +101,8 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `Class` | `type` `name` `extends` `implements` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `implements` 用 `","` 拼；名字有区间时才写那对下标 |
 | `Enum` / `Function` / `MethodDeclaration` | `type` `name` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `Enum` / `MethodDeclaration` 写名字那对下标（`Function` 还没记，见下）；有修饰词时才写 `modifierSpans` |
 | `Interface` | `type` `name` `extends` `export` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `export` 是真布尔（XML 出口的拼法）；`modifiers` 是投影要的那串文本，两者由**同一次**声明头扫描定出来 |
-| `Namespace` | `type` `namespace` `modifiers` + 可选 `modifierSpans` `bodyBraceAt` `firstNameAt` `nameAt` `nameEnd` + `children` | `bodyBraceAt` / `firstNameAt` 是第 621 轮的位置格；`nameAt` / `nameEnd` 是**字符串模块名**（`declare module "m"`）那个 `String` 单元的整段区间（**含引号**，第 641 轮加）——投影拿它直接合出 `StringLiteral`，不再回原文找引号对 |
-| `Field` | `type` `name` `modifiers` `nameStart` `nameEnd` + 可选 `modifierSpans` + `children` | 名字不是普通标识符时那对下标是 `-1` |
+| `Namespace` | `type` `namespace` `modifiers` + 可选 `modifierSpans` `bodyBraceAt` `firstNameAt` `nameAt` `nameEnd` `nameRange` + `children` | `bodyBraceAt` / `firstNameAt` 是第 621 轮的位置格；`nameAt` / `nameEnd` 是**字符串模块名**（`declare module "m"`）那个 `String` 单元的整段区间（**含引号**，第 641 轮加）——投影拿它直接合出 `StringLiteral`，不再回原文找引号对；`nameRange` 是同一对下标的 `"起,止"` 拼法（第 645 轮），给「声明名」那条共用路直读 |
+| `Field` | `type` `name` `modifiers` `nameStart` `nameEnd` + 可选 `nameAt` `nameRange` `modifierSpans` + `children` | 字符串名的 `nameStart` / `nameEnd` 是**引号里那一段**（第 645 轮），`nameAt` / `nameRange` 是名字那一格（含引号）；计算名 / 索引签名 / 私有名的两对下标按各自口径给 |
 | `Method` | `type` `name` + `children` | 名字为空时**照样写 `name`**：与 `<Method name="">` 一致 |
 | `Decorator` | `type` `name` + `children` | |
 | `Signature` | `type` `kind` + `children` | |
@@ -133,9 +133,24 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 
 - **闭区间**，token 在认下名字那一刻写下（`SourceRange` 本来就在手上），所以它是**一份答案**，
   不是投影按文本猜的第二份；
-- `-1` 表示这一档还没记（字符串名 / 计算名那一档，以及 `Function` / `Namespace` / `Decorator`）；
+- `-1` 表示这一档还没记（计算名那一档，以及 `Function` / `Decorator`）；
+- 字符串名（`"a-b" = 2` / `declare module "m"`）记的是**引号里那一段**（第 645 轮）：投影拿它
+  加一减一就推出 `StringLiteral` 的整段，不必回原文 `indexOf("a-b")` 猜（带转义时根本找不到）；
 - 私有名 `#x` 的区间**从 `#` 算起**（名字就是 `#x` 一个 `PrivateIdentifier`）；
+- **整段名字**另有一格 `nameAt` / `nameRange`（第 645 轮，见下）：那才是「名字是怎么写出来的」，
+  引号名与普通名共用一格；
 - 投影**优先读它**，没有才回原文 `indexOf` 猜（见 [`print-ast-common.xl.md`](../typescript/print-ast-common.xl.md) 的 `synthName`）。
+
+### `nameAt` / `nameRange`：名字那一格的整段区间
+
+`nameStart` / `nameEnd` 说的是**名字文本**（引号名不含引号），而「这个名字是怎么写出来的」
+是另一件事——`nameRange` 是**那个单元自己的区间**（闭区间 `"起,止"`，与 `bodyBraceRange` 同一款）：
+引号名的引号也在里面。投影的 `synthName` 拿到它就自己推出文本区间（开头是引号 ⇒ 取引号之间），
+`memberNameOf` 也凭它断定这一格是 `StringLiteral` 还是 `Identifier`——**一处事实、两处直读**。
+
+- `Field` / `Namespace` 在认下名字那一刻写下（第 645 轮）；计算名与索引签名不走这一格
+  （它们各自成形），私有名 `#x` 也不走（那是**两格**，没有哪一格单独说得清 `#x`）；
+- `Namespace` 的 `nameAt` / `nameEnd` 与它同一对下标（含引号），`nameRange` 是它们的 `"起,止"` 拼法。
 
 ### `modifierSpans`：修饰词各自的位置
 
@@ -167,7 +182,7 @@ XML 的开标签上写 `export="true"`（读 XML 的人按布尔读），投影�
 | 属性键名 | 一部分与 XML 漂开了（`MethodName` → `methodName`、`StartBracketChar` → `startBracketChar`、`IsSupportInterpolation` → `isSupportInterpolation`） | **一律与 XML 属性同名** | 本工程的口径是「两个出口说同一棵树」，同名才可校验 |
 | 覆盖范围 | 只有 17 个类覆写 `ToDictionary`，其余走基类的 `{type, children}` | 同样只覆写「XML 里有属性」的类 | 与上游同一取舍 |
 | 额外字段 | `String` 的 JSON 比 XML 多 5 个字段（`stringChar` / `rawIndent` / `isRawIndentFormated` …） | **不多写**：JSON 的键以 XML 属性为准 | 多写的键等于第二个事实来源 |
-| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` / `DoWhile` 的 `emptyBodyAt` 与 `bodyBraceAt`、那四者与 `IfSegment` 的 `bodyBraceRange`（整对花括号）、`For` / `Foreach` / `While` 的 `headerCloseAt`、`Foreach` 的 `isForIn`、`IfSegment` 的 `ifWordAt`、`Namespace` 的 `nameAt` / `nameEnd`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`），以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
+| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` / `DoWhile` 的 `emptyBodyAt` 与 `bodyBraceAt`、那四者与 `IfSegment` 的 `bodyBraceRange`（整对花括号）、`For` / `Foreach` / `While` 的 `headerCloseAt`、`Foreach` 的 `isForIn`、`IfSegment` 的 `ifWordAt`、`Namespace` 的 `nameAt` / `nameEnd` / `nameRange`、`Field` 的 `nameAt` / `nameRange`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`），以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
 | 结构 bug | `TernaryOperator.ToDictionary()` 漏掉了 `type`（它没调基类也没自己写），于是 JSON 里出现没有类型名的节点 | **保留 `type`** | 那是缺陷，不是口径 |
 
 **一句话**：形状、方法名、`range` 的层级与上游一致；**字段名以本工程自己的 XML 出口为准**——

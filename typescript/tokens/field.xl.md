@@ -3,6 +3,7 @@
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
+import { TokenField } from "../../core/syntax/token-field.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsMemberBoundary, IsWordUnit, TakeDeclarationDecorators } from "./declaration-common.xl.md"
@@ -419,15 +420,29 @@ if (result instanceof Field) {
   result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
   // **修饰词各自的位置**（见 `ModifierSpans`）：它们不进 `Data`，位置要在这一趟记下来。
   result.ModifierSpans = DeclarationModifierSpans(units, startIndex, index).join(",");
-  // **名字的位置当场记进字段**（见 `NameStart`）：只认普通标识符——
-  // 字符串名与计算名的区间要留给投影那边按引号 / 方括号自己分派（它读的是 `fieldName` 的**文本**位置）。
+  // **名字的位置当场记进字段**（见 `NameAt` / `NameStart`）：只认**有自己区间**的两种名字——
+  // 普通标识符与字符串字面量 ✓。计算名的区间由投影那边按方括号自己分派 ✓，
+  // 索引签名不是字段名 ✓。
+  // **字符串名的整段（含引号）进 `NameAt`** ✓，文本区间（引号里那一段）由它推出来 ✓：
+  // 投影读到的仍旧是一对下标 ✓，而`"a-b"` 这种名字**不再回原文 `indexOf` 猜** ✗
+  // （带转义时 `indexOf` 根本找不到 ✓）。
   // 私有名的区间从 `#` 那一格算起（`fieldName` 记的是 `#x` 整个名字）。
   const plainName = name instanceof Identifier;
-  const nameStart = !plainName ? null : isPrivateName ? current.SourceRange.Start : name.SourceRange.Start;
-  const nameEnd = plainName ? name.SourceRange.End : null;
-  if (nameStart !== null && nameEnd !== null) {
-    result.NameStart = nameStart.Index;
-    result.NameEnd = nameEnd.Index;
+  const stringName = name instanceof String;
+  if (plainName || stringName) {
+    // **文本区间**：字符串名去掉首尾两个引号 ✓；私有名从 `#` 那一格算起 ✓
+    //（`fieldName` 记的是 `#x` 整个名字 ✓）；其余形态就是名字那一格自己 ✓。
+    result.NameStart = stringName
+      ? name.SourceRange.Start!.Index + 1
+      : isPrivateName ? current.SourceRange.Start!.Index : name.SourceRange.Start!.Index;
+    result.NameEnd = stringName
+      ? name.SourceRange.End!.Index - 1
+      : name.SourceRange.End!.Index;
+    // **名字那一格**（见 `NameAt`）：**私有名不给这一格** ✗——`#x` 是**两格**（`#` 与名字本体），
+    // 没有哪一格单独说得清 `fieldName` 记的那串 `#x` ✓；它的区间由上面那一对说了算 ✓。
+    if (!isPrivateName) {
+      result.NameAt.Set(name.SourceRange.Start!.Index, name.SourceRange);
+    }
   }
 }
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
@@ -587,7 +602,13 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 ## field NameStart:int = -1
 
-名字在源码里的起点（闭区间下标）；名字那一格不是普通标识符（字符串名 / 计算名 / 索引签名）时是 `-1`。
+名字在源码里的起点（闭区间下标）；名字那一格不是普通标识符（计算名 / 索引签名）时是 `-1`。
+
+**字符串名也在内**（第 645 轮 ✓）：`"a-b" = 2` 的 `nameStart` / `nameEnd` 是**引号里那一段**
+（`a-b` 的两个下标）✓——投影拿到这两个下标之后，`source[nameStart-1]` 正是那个开引号 ✓，
+于是 `StringLiteral` 那一格照旧由它推出来 ✓，而**不必再回原文 `indexOf("a-b")` 猜** ✗
+（名字里带转义时 `indexOf` 根本找不到 ✓）。
+**整段名字（含引号）在 `NameAt` 那一格里** ✓，两样挨着、不会漂。
 
 **私有名 `#x` 从 `#` 算起**——`fieldName` 记的是 `#x` 整个名字，投影合出来的也是
 一个 `PrivateIdentifier`，所以区间必须盖住那个 `#`。
@@ -599,7 +620,21 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 ## field NameEnd:int = -1
 
-名字的终点（闭区间下标），与 `NameStart` 同进退。私有名同样是 `x` 的末尾。
+名字的终点（闭区间下标），与 `NameStart` 同进退。私有名同样是 `x` 的末尾，
+字符串名是**闭引号前面那一格**。
+
+## field NameAt:TokenField<number> = new TokenField<number>(-1)
+
+**名字那一格自己的整段区间**（字符串名含那对引号）。
+
+与 `NameStart` / `NameEnd` 的分工：那两格是**名字文本**的区间（字符串名不含引号），
+这一格是**那个单元**的区间——投影要「这名字是怎么写出来的」（是不是引号名）时读它，
+中间不需要任何推断。这就是「token 出字段、投影直读」的那条线。
+
+只认**有自己区间**的两种名字（普通标识符 / 字符串字面量）：计算名与索引签名各自成形，
+不走这一格。**私有名 `#x` 也不走** ✗——它是**两格**（`#` 与名字本体），
+没有哪一格单独说得清 `fieldName` 里那串 `#x`；那种形态的区间由 `NameStart` / `NameEnd` 说
+（`NameStart` 从 `#` 算起）。
 
 ## field modifiers:string = ""
 
@@ -641,6 +676,15 @@ result.set("modifiers", this.modifiers);
 // **名字的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
 result.set("nameStart", this.NameStart);
 result.set("nameEnd", this.NameEnd);
+// **名字那一格的整段区间**（见 `NameAt`）：字符串名的引号也在里面 ✓——
+// 投影要问「这个名字是怎么写出来的」时直读它 ✓（与 `bodyBraceRange` 同一形状：闭区间、`"起,止"`）。
+if (this.NameAt.IsSet) {
+  result.set("nameAt", this.NameAt.File());
+  const nameRange = this.NameAt.Range;
+  if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
+    result.set("nameRange", nameRange.Start.Index + "," + nameRange.End.Index);
+  }
+}
 // **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
 if (this.ModifierSpans !== "") {
   result.set("modifierSpans", this.ModifierSpans);
@@ -659,7 +703,7 @@ return result;
 
 克隆自身。
 
-三个声明字段都要抄。
+四个声明字段都要抄。
 
 ```ts
 const result = new Field(this.Template);
@@ -667,6 +711,7 @@ result.Sign(this);
 result.fieldName = this.fieldName;
 result.NameStart = this.NameStart;
 result.NameEnd = this.NameEnd;
+result.NameAt = this.NameAt;
 result.modifiers = this.modifiers;
 result.ModifierSpans = this.ModifierSpans;
 result.AddRange(this.Data.map((item) => item.Clone()));

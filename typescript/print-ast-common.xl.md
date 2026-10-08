@@ -517,6 +517,12 @@ new Map([
 这套补偿是**第二份近似**：它按文本猜位置，猜不中时（名字的首字母落在修饰词里、注释里有同样的词）
 给出的区间与 token 自己记的那个不一致。字段那条路就是为了**把这份近似从投影里删掉**。
 
+**第 645 轮之后还剩多少**（全语料实测，`nameRange` 那一格上线前后）：补偿从 **1324 处降到 270 处**
+——`Field` **917 → 0**（字符串名的整段区间由 token 写下 ✓）、`Namespace` **401 → 264**。
+剩下的是**点号模块名**（`declare module a.b.c`：名字是**多段**，`nameAt` / `nameRange` 只说得清
+一个 `String` 单元，那种形态今天仍走 `indexOf`）与 `MethodDeclaration` 4 / `NamespaceExport` 2。
+下一轮的落点就是「把点号名整段的区间也记成一格」。
+
 ```ts
   // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
   // 由这条统一合成（见 `leafKindOfText` 的同一条判据），产物那边它只是一个普通文本块。
@@ -529,6 +535,21 @@ new Map([
   const nameText = Translate.DecodeIdentifierEscapes(name);
   const nameKind = nameText.length > 1 && nameText[0] === "#" ? "PrivateIdentifier" : "Identifier";
   if (name === "") return undefined;
+  // **名字那一格的整段区间**（`nameRange`，第 645 轮 ✓）：闭区间 `"起,止"`、**引号也在里面** ✓——
+  // 与 `bodyBraceRange` 同一形状 ✓。有它就能**按那一格自己**推出文本区间：
+  // 开头是引号 ⇒ 引号名，文本在引号之间 ✓；否则整格就是文本 ✓。
+  // **这是「token 出字段、投影直读」那一格** ✓：`Namespace` 的字符串模块名、`Field` 的字符串名
+  // 都从这里出 ✓——它们原先只能回原文 `indexOf(名字文本)` 猜 ✗，而带转义的名字 `indexOf` 根本找不到 ✗。
+  const unitSpan = braceSpanOf(v.attrs.get("nameRange"));
+  if (unitSpan !== null) {
+    const head = ctx.source[unitSpan[0]];
+    const quoted = head === '"' || head === "'";
+    const pos = quoted ? unitSpan[0] + 1 : unitSpan[0];
+    const end = quoted ? unitSpan[1] : unitSpan[1] + 1;
+    if (end >= pos) {
+      return { kind: nameKind, text: nameText, pos, end };
+    }
+  }
   // **首选 token 记的位置**：认下名字那一刻它就在手上（`SourceRange`），于是被记成
   // `nameStart` / `nameEnd` 两个下标（闭区间；见各 token 的 `NameStart`）。
   // 有它就**不做任何猜测**——下面的 `indexOf` 补偿只是给没有这对字段的那几档兜底。
