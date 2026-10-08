@@ -311,6 +311,46 @@ import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, Promise
 （它们**不在属性表里**，见 `getOwnPropertyDescriptor` 那一支同一句话）：JS 里它们是
 **自有、不可枚举** ⇒ `hasOwn` 真、`propertyIsEnumerable` 假。
 
+# const MathF16Round:int = 431
+
+**`Math.f16round(x)`**（第 703 轮）——**最近的那个 f16**（IEEE 754 binary16）。
+
+**为什么拖到今天才被量到**：它（与 `Float16Array` 同一批）比第 273 轮那份普查晚得多，
+而普查是按「已经想到的形状」铺的 ⇒ 没写上；第 703 轮那批原子探针里
+`Math.f16round(1.1)` 当场报 `cannot call a non-closure value`（**那一格根本没装**）。
+
+**它与 `fround` 是同一族的另一半**（`352`）：**一律交给宿主那一格**——
+`Math.f16round(1.1)` 是 `1.099609375`，而「先过 f32 再砍位」自己凑出来的东西
+**看着是对的**（判据是**逐字节**比），所以这里一个字都不自己算。
+
+**号为什么落在这里**（`431`）：`350..366` 是数学那两段、`367..371` 是 `Number` / `Date`
+用掉的、`372..374` 是双曲反函数、`375..376` 是 `URIError` / `EvalError` 两个构造、
+`401..430` 是 `Object` 那一段——`431` 是紧接其后的第一格；
+而 `700..799` 是**对象辅助函数**那一段、`600..699` 是 `Map` / `Set`，都进不来。
+
+# const MathRandom:int = 432
+
+**`Math.random()`**（第 703 轮）——**交给宿主**。本仓不自己写伪随机源：
+规范只要求「近似均匀」，而**任何自己写的源都是一个可预测的答案**——
+那是把一个「故意不确定」的东西做成确定的，比不做更糟。
+
+**判据只量 `typeof`**（`stdlib/math/044-names-math` 那一行自己写着「只问名字，不调它」）
+——**值不可比**（两次调用本来就不该相等），所以这一格**不能**写成逐字节的用例。
+
+# const ErrorCaptureStackTrace:int = 433
+
+**`Error.captureStackTrace(对象, 构造函数?)`**（第 703 轮）——**宿主那一格**。
+
+**它不在规范里**（V8 的自有扩展），而判据钉的是**当前 Node 的形状**：那一格在 Node 上
+是一个**函数**。本仓还没有 `Error.stack`（不是规范的一部分，见台账 `probe697-e11`），
+所以这一格**收下实参、不做事**——它的职责是「存在、可调用」，
+而「栈里有什么」是另一件事（那件事要先定「本仓的帧信息从哪儿来」）。
+
+# const ErrorPrepareStackTrace:int = 434
+
+**`Error.prepareStackTrace`**（第 703 轮）——与 `captureStackTrace` 同一处（V8 扩展）。
+Node 上它是一个**函数**，所以这里也收成一格可调用的宿主引用，同样不做事。
+
 # const ObjectToLocaleString:int = 504
 
 **`Object.prototype.toLocaleString()`**（第 689 轮）——规范里它的正身就是
@@ -2360,6 +2400,26 @@ return ToNumberOf(room, call, protos, table, value);
 return MakeNumber(value);
 ```
 
+# method F16Round:(value:float)=>float
+
+**最近的那个 f16**（第 703 轮）——`Math.f16round` 落地的唯一一处。
+
+**两档退路**（都只问「宿主有没有」，不问「宿主是谁」）：
+先是 `Math.f16round`（这一格在 Node 24 起就有），没有就用 `Float16Array` 那一趟
+（同一批进标准的，赋一次值就是同一次舍入），两样都没有就**原样给回**——
+**不自己按位凑**：自己凑出来的舍入在**次正规数**与**溢出边界**上会差，
+而判据是逐字节比（`Math.f16round(1.1)` 对 `1.099609375`）。
+
+```ts
+if (typeof Math.f16round === "function") return Math.f16round(value);
+if (typeof Float16Array === "function") {
+  const scratch = new Float16Array(1);
+  scratch[0] = value;
+  return scratch[0];
+}
+return value;
+```
+
 # method NumberFromValue:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, value:Value)=>Value
 
 **`Number(x)` 的语义**（第 145 轮）——**第 198 轮起它就是引擎的 `ToNumber`**。
@@ -2790,7 +2850,8 @@ if (id === MathSin || id === MathCos || id === MathTan || id === MathAsin
   if (id === MathAcos) return MathResult(Math.acos(firstTrig));
   return MathResult(Math.atan(firstTrig));
 }
-if (id === MathImul || id === MathClz32 || id === MathFround || id === MathExpm1 || id === MathSinh
+if (id === MathImul || id === MathClz32 || id === MathFround || id === MathF16Round
+  || id === MathExpm1 || id === MathSinh
   || id === MathCosh || id === MathTanh || id === MathLog2 || id === MathLog10 || id === MathLog1p
   // **第 372 轮补的三格**（双曲函数的反函数，号 `372..374`）——
   // 与上面这十格**走同一支**（同一个实参取值器、同一个 `MathResult`、同样不自己凑）。
@@ -2811,6 +2872,8 @@ if (id === MathImul || id === MathClz32 || id === MathFround || id === MathExpm1
   }
   if (id === MathClz32) return MathResult(Math.clz32(first));
   if (id === MathFround) return MathResult(Math.fround(first));
+  // **第 703 轮**：f16 那一格与 fround **同一条口径**（交给宿主，见 `MathF16Round` 那一段）。
+  if (id === MathF16Round) return MathResult(F16Round(first));
   if (id === MathExpm1) return MathResult(Math.expm1(first));
   if (id === MathSinh) return MathResult(Math.sinh(first));
   if (id === MathCosh) return MathResult(Math.cosh(first));
@@ -2821,6 +2884,11 @@ if (id === MathImul || id === MathClz32 || id === MathFround || id === MathExpm1
   if (id === MathLog2) return MathResult(Math.log2(first));
   if (id === MathLog10) return MathResult(Math.log10(first));
   return MathResult(Math.log1p(first));
+}
+if (id === MathRandom) {
+  // **第 703 轮**：`Math.random()` 交给宿主那一格（见 `MathRandom` 那一段号）——
+  // **它一个实参都不取**，所以不进上面那一支（那一支会为 `args[0]` 做一次 `ToNumber`）。
+  return MathResult(Math.random());
 }
 if (id === MathPow) {
   // **两个实参**（与 `max` / `min` 同形）；少给就抛（`MathArgOf(undefined)` 给 `NaN`，
@@ -3389,7 +3457,9 @@ if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor || id === 
   // 理由写在它们那儿）——**每加一个成员要改的地方从两处收到了一处**。
   // **实参走「任意值 → 文本」**（第 124 轮）：`new Error({})` 在 JS 里得到
   // `"[object Object]"`——以前这里用引擎的 `TextFrom`，那会在对象上**抛**。
-  const text = args.length > 0 ? ValueText(table, args[0]) : "";
+  // **第 703 轮：`undefined` 不挂那一格**（`hasMessage`）——见 `NewErrorLike` 那一段。
+  const hasMessage = args.length > 0 && args[0].Tag !== ValueTag.Undefined;
+  const text = hasMessage ? ValueText(table, args[0]) : "";
   // **第二格实参 `{ cause }`**（第 277 轮）：`new Error(msg, { cause: inner })` 在 JS 里
   // 把 `cause` 挂成一个**不可枚举的自有属性**（`Object.keys(e)` 看不见它）⇒ `SetHiddenProperty`。
   //
@@ -3439,15 +3509,19 @@ if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor || id === 
   // `class E extends Error {}` 的实例照样读到 `"Error"`（第 3132 行那段旧注释里
   // 「两种写法结果一样」这句话**只对值成立**，对「自有 / 可枚举」两维都不成立）。
   if (self.IsObject()) {
-    SetHiddenProperty(room, table, self, NameValue(table, "message"),
-      Value.FromString(table.CreateString(Units(text))));
+    // **第 703 轮：`undefined` 那一档不挂**（与 `NewErrorLike` 同一条口径）——
+    // `new Error(undefined).message` 该读原型上那一格的 `""`。
+    if (hasMessage) {
+      SetHiddenProperty(room, table, self, NameValue(table, "message"),
+        Value.FromString(table.CreateString(Units(text))));
+    }
     // **`cause` 也走同一处**：`super(m, { cause })` 在派生类里也该挂上——
     // 少了这一句，`class E extends Error { constructor(m) { super(m, { cause: 1 }) } }`
     // 的实例**没有 `cause`**，而 `new Error(m, { cause: 1 })` 有（**一半对一半错**）。
     if (hasCause) SetHiddenProperty(room, table, self, NameValue(table, "cause"), causeValue);
     return self;
   }
-  const built = NewErrorLike(room, table, protos, ErrorCtorProto(protos, id), selfName, text);
+  const built = NewErrorLike(room, table, protos, ErrorCtorProto(protos, id), selfName, text, hasMessage);
   // **新造的那一条也要挂**（与 `self` 那一支对称）。
   if (hasCause) SetHiddenProperty(room, table, built, NameValue(table, "cause"), causeValue);
   return built;
@@ -3460,16 +3534,23 @@ if (id === AggregateErrorCtor) {
   // 给 `{"errors":[]}`（`message` / `name` 在**原型**上、不是自有属性）——
   // 那一条**记在台账里**（本仓是自有属性 ⇒ 会多印两格）。
   const innerList = args.length > 0 ? args[0] : Value.Undefined();
-  const aggregateText = args.length > 1 ? ValueText(table, args[1]) : "";
+  const aggregateText = args.length > 1 && args[1].Tag !== ValueTag.Undefined ? ValueText(table, args[1]) : "";
+  // **第 703 轮**：与 `Error` 那一支同一条口径（`undefined` / 没给 ⇒ 不挂 `message` 那一格）。
+  const aggregateHasMessage = args.length > 1 && args[1].Tag !== ValueTag.Undefined;
   if (self.IsObject()) {
-    SetProperty(room, NeverCall, table, self, NameValue(table, "message"),
-      Value.FromString(table.CreateString(Units(aggregateText))));
+    // **`message` 也照上面那条挂**（原来是**无条件** `SetProperty`）——
+    // 这一处与 `Error` 那一支是同一个形状，就不各写一份判据了。
+    if (aggregateHasMessage) {
+      SetProperty(room, NeverCall, table, self, NameValue(table, "message"),
+        Value.FromString(table.CreateString(Units(aggregateText))));
+    }
     SetProperty(room, NeverCall, table, self, NameValue(table, "name"),
       Value.FromString(table.CreateString(Units("AggregateError"))));
     SetProperty(room, NeverCall, table, self, NameValue(table, "errors"), innerList);
     return self;
   }
-  const aggregateBuilt = NewErrorLike(room, table, protos, protos.AggregateError, "AggregateError", aggregateText);
+  const aggregateBuilt = NewErrorLike(room, table, protos, protos.AggregateError, "AggregateError", aggregateText,
+    aggregateHasMessage);
   SetProperty(room, NeverCall, table, aggregateBuilt, NameValue(table, "errors"), innerList);
   return aggregateBuilt;
 }
@@ -5129,7 +5210,7 @@ if (id === EvalErrorCtor) return protos.EvalError;
 return protos.Error;
 ```
 
-# method NewErrorLike:(room:RoomChecker, table:HeapTable, protos:Protos, protoHandle:int, name:string, message:string)=>Value
+# method NewErrorLike:(room:RoomChecker, table:HeapTable, protos:Protos, protoHandle:int, name:string, message:string, hasMessage:bool)=>Value
 
 **造一个内建错误对象**（第 137 轮）：`message` 是**自有属性**、`name` 也写成自有属性
 （JS 那边 `name` 住在**原型**上，这里两处都有——自有属性优先，
@@ -5171,8 +5252,15 @@ table.Get(created.Ref).Proto = protoHandle;
 //
 // **所以这里只留 `message`**：`name` 由原型回答（`protos.Error` 上那一格，
 // `ErrorCtorProto` 各族各自建），`e.name` 照样是 `"Error"` / `"TypeError"`。
-SetHiddenProperty(room, table, created, NameValue(table, "message"),
-  Value.FromString(table.CreateString(Units(message))));
+// **`message` 是「给了才挂」**（第 703 轮，`hasMessage`）——
+// JS 的 `Error` 构造那一步是 `If message is not undefined, ...`：
+// `new Error(undefined).message` **不是** `"undefined"`、而是**原型上那一格的 `""`**
+// （`Object.getOwnPropertyNames(new Error(undefined))` 在 Node 里**没有** `message`）。
+// 第 703 轮的原子探针 `p704e-a37` 量的就是它（本仓原来给 `"undefined"`——**静默错值**）。
+if (hasMessage) {
+  SetHiddenProperty(room, table, created, NameValue(table, "message"),
+    Value.FromString(table.CreateString(Units(message))));
+}
 return created;
 ```
 
@@ -5185,7 +5273,7 @@ return created;
 要造 `TypeError` 的地方是**语言层自己**（`invoke` 的 `TypeErrorCtor` 那一支）。
 
 ```ts
-return NewErrorLike(room, table, protos, protos.Error, "Error", message);
+return NewErrorLike(room, table, protos, protos.Error, "Error", message, true);
 ```
 
 # method MarkUnextensible:(room:RoomChecker, table:HeapTable, target:Value)=>void
@@ -6534,12 +6622,19 @@ const mathNames: string[] = ["floor", "abs", "max", "min", "round", "ceil", "tru
   // 它们是第 371 轮加宽语料时**当场量到的**（`Math.asinh(0)` 报
   // `cannot call a non-closure value`——那一族**有写的人、没有装的人**，
   // 与第 304 轮 `setPrototypeOf` / `preventExtensions` 那两格**同一个形状**）。
-  "asinh", "acosh", "atanh"];
+  "asinh", "acosh", "atanh",
+  // **第 703 轮补的两格**（号 `431..432`）——同样**按下标配**。
+  // 它们是第 703 轮那批原子探针**当场量到的**（`Math.f16round(1.1)` 与
+  // `typeof Math.random` 两条：前者报 `cannot call a non-closure value`、
+  // 后者给 `undefined`）。**`random` 的值不可比**，判据只问名字（见号那两段）。
+  "f16round", "random"];
 const mathIds: number[] = [MathFloor, MathAbs, MathMax, MathMin, MathRound, MathCeil, MathTrunc, MathSign,
   MathSqrt, MathPow, MathLog, MathExp, MathCbrt, MathHypot,
   MathImul, MathClz32, MathFround, MathExpm1, MathSinh, MathCosh, MathTanh, MathLog2, MathLog10, MathLog1p,
   MathSin, MathCos, MathTan, MathAsin, MathAcos, MathAtan, MathAtan2,
-  MathAsinh, MathAcosh, MathAtanh];
+  MathAsinh, MathAcosh, MathAtanh,
+  // **第 703 轮的两格**（与上面那串名字**按下标一一对齐**）。
+  MathF16Round, MathRandom];
 for (let i = 0; i < mathNames.length; i++) {
   const key = Value.FromString(table.CreateString(Units(mathNames[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(mathIds[i], 0));
@@ -6685,6 +6780,22 @@ SetProperty(vm.Room(), NeverCall, table, errorObject, NameValue(table, "prototyp
 // 而那正是 JS 的规矩）。**原始值一律假**（`Error.isError("Error")` 在 Node 里是 `false`）。
 SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "isError"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorIsError, 0)));
+// **第 703 轮补的四格**（V8 的扩展 + 构造自己的 `length`）——
+// 判据 `stdlib/error/031-names-error` 与 `probe-e09` 量的是**名字在不在**
+// （四条 `typeof` 分别是 function / number / function / number，与 Node 逐字相同）。
+// **走 `SetHiddenProperty`**（与上面 `isError` 同一条路）：Node 上这四格**都不可枚举**
+// ——`Object.keys(Error)` 在 Node 里是 `[]`，而 `Error.prototype` 那一格本仓历史上
+// 就是可枚举的（不属这一轮的账）。
+// **`stackTraceLimit` 给 `10`**（Node 的缺省值）：判据只问 `typeof`，
+// 可这一格**本来就是个数**，挂成函数就是「答一个形状不对的东西」。
+SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "captureStackTrace"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorCaptureStackTrace, 0)));
+SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "prepareStackTrace"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorPrepareStackTrace, 0)));
+SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "stackTraceLimit"),
+  Value.FromInt(10));
+SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "length"),
+  Value.FromInt(1));
 // **`Error` 的 `prototype` 要登记**（第 137 轮）：它是**宿主引用值**，
 // **没有属性表**——所以 `GetProperty(Error, "prototype")` 永远给 `undefined`，
 // 而 `instanceof` 正是靠读那个属性找目标的。登记一次，

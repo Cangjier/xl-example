@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 6742,
+  "total": 6950,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.66,
+  "progressPercent": 95.72,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1603,
-      "pass": 1558,
+      "total": 1681,
+      "pass": 1635,
       "blocked": 9,
-      "differ": 36,
+      "differ": 37,
       "nodefail": 0,
-      "coverage": 97.19
+      "coverage": 97.26
     },
     {
       "category": "runtime",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2694,
-      "pass": 2607,
-      "blocked": 28,
-      "differ": 59,
+      "total": 2824,
+      "pass": 2739,
+      "blocked": 30,
+      "differ": 55,
       "nodefail": 0,
-      "coverage": 96.77
+      "coverage": 96.99
     },
     {
       "category": "e2e",
@@ -1632,6 +1632,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Reflect"
     },
     {
+      "id": "stdlib/object/probe704-o-d28",
+      "category": "stdlib",
+      "title": "Object.prototype.toString.call(/x/)",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
       "id": "stdlib/string/042-string-match-and-split-regex",
       "category": "stdlib",
       "title": "字符串方法收正则：match / split(/\\s+/)",
@@ -1680,6 +1686,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
+      "id": "stdlib/string/probe704-s-e12",
+      "category": "stdlib",
+      "title": "\"a1b2\".replace(/\\d/g, \"#\")",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
       "id": "e2e/scenarios/181-string-matchall-and-index",
       "category": "e2e",
       "title": "端到端：matchAll + lastIndex + 命名捕获组",
@@ -1722,6 +1734,12 @@
       "category": "exec",
       "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); class A { constructor() { this.a = 1; } } class B extends A { constructor() { let before; try { before = this.a; } catch (e) { b",
       "detail": "stdout 不同：第 1 行：node «string:throw:ReferenceError|number:1» vs tsrun «undefined:undefined|number:1»"
+    },
+    {
+      "id": "exec/classes/probe704-k-c12",
+      "category": "exec",
+      "title": "(class A {}).toString()",
+      "detail": "stdout 不同：第 1 行：node «string:class A {}» vs tsrun «string:// xl:title (class A {}).toString()»"
     },
     {
       "id": "exec/decorators-modifiers/057-private-brand",
@@ -2087,22 +2105,16 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12756/src/4354.ts:2:13)» vs tsrun «»"
-    },
-    {
-      "id": "stdlib/error/031-names-error",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Error 的静态成员（缺 4 个）",
-      "detail": "stdout 不同：第 1 行：node «function captureStackTrace function» vs tsrun «function captureStackTrace undefined»"
-    },
-    {
-      "id": "stdlib/error/probe-e09",
-      "category": "stdlib",
-      "title": "typeof Error.captureStackTrace",
-      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-3576/src/4452.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
+      "category": "stdlib",
+      "title": "typeof new Error(\"m\").stack",
+      "detail": "stdout 不同：第 1 行：node «string:string» vs tsrun «string:undefined»"
+    },
+    {
+      "id": "stdlib/error/probe704-e-a38",
       "category": "stdlib",
       "title": "typeof new Error(\"m\").stack",
       "detail": "stdout 不同：第 1 行：node «string:string» vs tsrun «string:undefined»"
@@ -2162,28 +2174,10 @@
       "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
     },
     {
-      "id": "stdlib/math/044-names-math",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Math 的成员（缺 2 个）",
-      "detail": "stdout 不同：第 1 行：node «object f16round function» vs tsrun «object f16round undefined»"
-    },
-    {
       "id": "stdlib/number/073-number-tolocalestring",
       "category": "stdlib",
       "title": "`toLocaleString` 那一族现在的样子",
       "detail": "stdout 不同：第 1 行：node «1,234.5 1234.5» vs tsrun «[object Number] 1234.5»"
-    },
-    {
-      "id": "stdlib/number/probe703-n-c16",
-      "category": "stdlib",
-      "title": "Math.f16round(1.1)",
-      "detail": "stdout 不同：第 1 行：node «number:1.099609375» vs tsrun «throw:TypeError»"
-    },
-    {
-      "id": "stdlib/number/probe703-n-c17",
-      "category": "stdlib",
-      "title": "typeof Math.random",
-      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
     },
     {
       "id": "stdlib/object/118-names-object-proto",
@@ -2349,27 +2343,7 @@
     }
   ],
   "bad": [],
-  "moved": [
-    {
-      "id": "stdlib/object/probe698-b14",
-      "category": "stdlib",
-      "why": "**计算键是一个对象**（`{ [o]: 1 }` 里 `o` 只有 `toString`）：JS 在这里做 `ToPropertyKey` → `ToPrimitive(o, \"string\")` → 调 `o.toString()`，本仓报 `unimplemented: ToString of this kind of value`（**整份文件进不来**）。根子在引擎侧那次「值 → 键」的转换没有调用通道（它要重入脚本才调得到 `toString`）——与 `ToPrimitive` 那一族的可选项口径同源。",
-      "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:Error»"
-    }
-  ],
-  "newlyPassing": [
-    {
-      "id": "exec/functions/probe700-f-e47",
-      "category": "exec"
-    },
-    {
-      "id": "stdlib/array/probe693-a30",
-      "category": "stdlib"
-    },
-    {
-      "id": "stdlib/object/probe698-f09",
-      "category": "stdlib"
-    }
-  ],
+  "moved": [],
+  "newlyPassing": [],
   "regressions": []
 }

@@ -1197,7 +1197,7 @@ try {
     failedName = "URIError";
   }
   machine.Raise(NewErrorLike(machine.Room(), machine.Table, protos, failedProto, failedName,
-    HostErrorText(error)));
+    HostErrorText(error), true));
   return true;
 } catch (again) {
   return false;

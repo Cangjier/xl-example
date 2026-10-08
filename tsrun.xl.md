@@ -304,10 +304,10 @@ InstallBuiltins(host, protos);
 // 会变成一个普通的 `Error`。
 host.Machine.SetErrorFactory((kind, text) => {
   if (kind === ErrorKindType) {
-    return NewErrorLike(host.Machine.Room(), table, protos, protos.TypeError, "TypeError", text);
+    return NewErrorLike(host.Machine.Room(), table, protos, protos.TypeError, "TypeError", text, true);
   }
   if (kind === ErrorKindRange) {
-    return NewErrorLike(host.Machine.Room(), table, protos, protos.RangeError, "RangeError", text);
+    return NewErrorLike(host.Machine.Room(), table, protos, protos.RangeError, "RangeError", text, true);
   }
   return NewError(host.Machine.Room(), table, protos, text);
 });

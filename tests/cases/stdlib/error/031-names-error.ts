@@ -1,8 +1,6 @@
 // xl:title 名字逐个取一次：Error 的静态成员（缺 4 个）
 // xl:round 678
 // xl:judge stdout
-// xl:want differ
-// xl:why Error 的静态成员：取到 undefined（node 上是 function/number）：captureStackTrace / length / prepareStackTrace / stackTraceLimit
 // xl:end
 const b: any = Error;
 let v = "";

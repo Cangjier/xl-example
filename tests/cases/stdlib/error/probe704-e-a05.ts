@@ -1,0 +1,10 @@
+// xl:title new TypeError("m") instanceof TypeError
+// xl:round 704
+// xl:judge stdout
+// xl:end
+const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+try {
+  console.log(show(new TypeError("m") instanceof TypeError));
+} catch (e) {
+  console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+}

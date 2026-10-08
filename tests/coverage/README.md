@@ -385,6 +385,26 @@
    数组下标不是自有属性（1 条）、`String.prototype` 的 `match` / `search` / `matchAll`
    与字符串实参转 `RegExp`（4 条）。加权 **95.8% → 95.7%**（分子 +281、分母 +303）
    ——新登记缺口的账，不是回归。
+   **第 704 轮全矩阵**（第十四批原子探针 208 份新语料）：通过 **6374 → 6583**、
+   分母 **6742 → 6950**、`blocked 261 → 263`、`differ 107 → 104`、`bad` 仍 **0**、
+   `regressions` **0**、`moved` **0**、`newlyPassing` **5**——收掉三处：
+   ① `Math` 补上 **`f16round`**（交给宿主那一格，与 `fround` 同一条口径）与 **`random`**
+      （同样交给宿主——本仓不自己写伪随机源：那会把一个「故意不确定」的东西做成确定的），
+      `stdlib/math/044-names-math` 转绿；
+   ② `Error` 的四个静态（`captureStackTrace` / `prepareStackTrace` / `stackTraceLimit` /
+      `length`，走 `SetHiddenProperty`——Node 上这四格都**不可枚举**），
+      `stdlib/error/031-names-error` 与 `probe-e09` 两条**一起**转绿；
+   ③ **`new Error(undefined).message` 该是 `""`、本仓给 `"undefined"`**（**静默错值**）：
+      规范那一步是「message 不是 `undefined` **才**挂那一格」，本仓无条件挂了。
+      修法是把「挂不挂」收成 `NewErrorLike` 的一个参数（`hasMessage`），
+      `Error` / `AggregateError` 两支 + 两个宿主调用点（`tsrun.xl.md` 的 `SetErrorFactory`、
+      `install.xl.md` 的 `RaiseFromHost`）一起对齐。
+   另清掉两条**第 702 轮就该撤**的旧台账（`exec/functions/probe700-f-e47`、
+   `stdlib/array/probe693-a30`——`arguments` 那一轮修好、台账留着的）。
+   本批另登记 4 条新缺口（`blocked` +2 / `differ` +2）：正则字面量两处（与第 703 轮
+   `p703s-e33` 同根）、**类的 `toString()` 打印整份源码**（与 `p703f-g23` 同根）、
+   `Error.stack` 那一格（与 `probe697-e11` 同根）。加权 **95.7% → 95.7%**
+   （分子 +209、分母 +208）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。
