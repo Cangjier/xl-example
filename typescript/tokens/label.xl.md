@@ -47,7 +47,7 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 - **循环 / 分支关键字**：`for` / `foreach` / `while` / `do` / `switch` / `try` / `if`。
   **第 392 轮起，其中 `if` 那一支要改成「认已经成形的语句单元」** ✗：`if` 现在是**解析期向导**
-  （`tokens/if/if-guide.xl.md`）造出来的 ✓，它比本规则**更早**成形 ✓
+  （`tokens/if/if-set.xl.md`）造出来的 ✓，它比本规则**更早**成形 ✓
   ⇒ `outer: if (...) {...}` 走到这里时，冒号后面已经是一个 `IfSet` ✓，不再是散着的 `Identifier` ✗
   （实测漏了这一格时 `decl-label-if` 报「缺 8 个节点、多出 `TypeDefine`」✓——
   冒号被更晚的 `TypeDefineCloseRule` 当成类型标注收走了 ✓）。

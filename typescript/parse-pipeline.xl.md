@@ -140,10 +140,14 @@ import { LineWrap, WrapSymbolCloseRule } from "./tokens/line-wrap.xl.md"
 - 它认的字符是 `i` ✓，而排在它前面的那些分支**没有一个会接手 `i`** ✓（正则 / 字符串 / 括号 / 泛型 / 软换行 / 符号 ✓），
   所以插在这儿与插在队尾**只差一件事**：它必须在 `Identifier.AppendIn` **之前** ✓——
   否则那个 `Identifier` 先被造出来 ✓、这个分支再也轮不到 ✓（`Identifier.AppendIn` 返回 `Done` ✓）。
-- 它自己带三条**位置闸**（前一个实义单元不是 `.` / `?.`、宿主不是类型位、宿主不是成员列表 ✓，
-  见 `tokens/if/if-guide.xl.md` ✓），所以放在这么靠前的位置**不会抢走别人认的词** ✓：
+- 它自己带**两条位置闸**（前一个实义单元不是 `.` / `?.` / `NullConditionalOperator` ✓；
+  宿主那个 `{` 不是**值位花括号** ✓——`{ if(): T { … } }` 里那个 `if` 是**成员名** ✓，
+  第 647 轮补 ✓，见 `tokens/if/if-set.xl.md` ✓），所以放在这么靠前的位置**不会抢走别人认的词** ✓：
   `a.if(x)` 的 `if` 仍然落到 `Identifier` 上 ✓，由 `MethodCloseRule` 收成调用 ✓
   （它排在规则队列第 11 位 ✓，与这一条无关 ✓——**那是重组的位次，这里是跳转的位次** ✗，两张表各管各的 ✓）。
+- **「成员列表里不认 if 语句」不在这两条闸里** ✗：它由**跳转队列**保证 ✓
+  （`CreateMemberListQueue` 把 `IfSetBranch.JumpIn` 摘掉了 ✓，见本文那一节 ✓）——
+  队列那一侧一个闸都不用加 ✓。
 
 ```ts
 return new Sequence<Branch>([
@@ -210,23 +214,14 @@ return new Sequence<Branch>([
 ⇒ 「成员列表里不认 if 语句」由**队列本身**保证 ✓，`if` 那一侧一个闸都不用加 ✓。
 
 **这一条队列里不需要摘掉任何东西** ✓：成员位由**队列**保证 ✓，而不是靠某个分支自己让路 ✓。
-嵌套的成员列表（类里再写一个类 ✓）也走同一条路 ✓——里面那个体的括号同样由
-`tokens/bracket.xl.md` 问一次 `IsMemberListHead` 再换 ✓。
+嵌套的成员列表（类里再写一个类 ✓）也走同一条路 ✓——里面那个体的括号由**它自己的体 token** 挂队列 ✓。
 
-**谁用它**（两处）：
-- `tokens/bracket.xl.md`：`{` 开出来之后，问 `IsMemberListHead` ✓，是成员列表就换这条队列 ✓；
-- `tokens/if/if-guide.xl.md`：`if` 的收集器用它 ✓（暂存期间嵌套的 `if` 不该另起向导 ✓）。
-
-**第 393–394 轮之间它还多一个用户**（`tokens/member-list-guide.xl.md` ✓）：那一版是「向导收下整个类头、
-认出体括号、把队列换掉、再交还」✗。第 394 轮按用户的口径把它删了 ✓——
-`class` 本来就由 `Identifier` 照常吃掉 ✓，向导用不着去抢首字母 ✓，
-`{` 那一刻**回头看已经读到的单元**就够了 ✓（见 `IsMemberListHead` 那一节 ✓）。
-那一版还留着一笔账：`if` 与 `interface` **首字母都是 `i`** ✓，两个向导抢同一个字符，
-只能靠**向前看**区分 ✗——而向前看在不完整的输入上会**静默判错** ✓（`Document.GetValue` 越界给 `undefined` ✓，
-判据于是悄悄成假 ✓）。现在的形状根本没有这个入口 ✓。
+**谁用它**（三个体，都是**体自己**在构造器里挂 ✓）：
+`tokens/class/class-body.xl.md` / `tokens/interface/interface-body.xl.md` /
+`tokens/enum/enum-member.xl.md`（枚举成员那个还多摘/插一支，见 `CreateEnumMemberQueue` ✓）。
 
 与 `CreateGeneralQueue` **同一条语义** ✓：每次访问都新建一份 ✓，模板之间不串味 ✓
-（所以三处各拿一份、互不影响 ✓；`Removed` 本身也是产出副本 ✓）。
+（所以几处各拿一份、互不影响 ✓；`Removed` 本身也是产出副本 ✓）。
 
 ```ts
 return ParsePipeline.CreateGeneralQueue().Removed([IfSetBranch.JumpIn]);

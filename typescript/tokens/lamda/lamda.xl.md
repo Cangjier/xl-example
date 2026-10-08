@@ -3,6 +3,7 @@
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack } from "../../../core/extensions/list-extension.xl.md"
 import { CommentsIn, GetSkipPreviousWrapSymbol, IsTypeContainerUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
@@ -690,9 +691,9 @@ if (next instanceof Bracket && next.startBracket === "{") {
 }
 const body = result.CreateBody();
 if (next instanceof Bracket && next.startBracket === "{") {
-  // **是花括号体：那个 `{` 当场记进字段** ✓（第 595 轮 ✓）：投影于是不必回原文里
-  // 猜「`=>` 之后第一个非空白字符是不是 `{`」 ✗（见 `Lamda.BodyBraceAt` ✓）。
-  result.BodyBraceAt = next.SourceRange.Start!.Index;
+  // **是花括号体：那一对花括号当场记进字段** ✓（第 595 轮那一格，第 647 轮带上整段 ✓）：
+  // 投影于是不必回原文里猜「`=>` 之后第一个非空白字符是不是 `{`」 ✗（见 `Lamda.BodyBrace` ✓）。
+  result.BodyBrace.Set(next.SourceRange.Start!.Index, next.SourceRange);
   try {
     next.MoveDataTo(body);
     body.SignIn(next.SourceRange.Start!);
@@ -856,7 +857,8 @@ Lambda 表达式。
   }
   let braced = false;
   let braceAt = -1;
-  // **体是不是花括号块，问 token 的字段**（第 595 轮）：`BodyBraceAt` 是打包那一刻
+  let braceEnd = -1;
+  // **体是不是花括号块，问 token 的字段**（第 595 轮）：`BodyBrace` 是打包那一刻
   // 当场记下来的（那个括号就在手上 ✓）。原来这里回原文里找（`arrowAt + 2` 起跳空白 ✓、
   // 看第一个字符是不是 `{` ✓）——那是**第二份位置答案** ✗：`() => /* c */ { }` 里
   // `arrowAt + 2` 撞上的是注释的 `/` ✗ ⇒ 判成表达式体 ⇒ 整个 `Block` 连同体里的语句一起丢 ✓
@@ -865,6 +867,18 @@ Lambda 表达式。
   if (typeof rawBodyBrace === "number" && rawBodyBrace >= 0) {
     braced = true;
     braceAt = rawBodyBrace;
+  }
+  // **右端也读字段** ✗（第 647 轮 ✓）：`BodyBrace` 把**整对括号**一起带出来 ✓
+  //（与 `While` / `For` / `IfSegment` / `Try` 同一条口径 ✓）——
+  // 原来那一支写的是 `ctx.EndOf(v)` ✓，那背后是「**本单元的终点恰好是那个 `}`**」
+  // 这个**没被记下来的约定** ✗（它今天成立 ✓，可换个记法就会静默错位 ✗）。
+  const rawBodyBraceRange = ctx.Attr(v, "bodyBraceRange");
+  if (typeof rawBodyBraceRange === "string" && rawBodyBraceRange.includes(",")) {
+    const bodyBraceSpan = rawBodyBraceRange.split(",");
+    const spanEnd = Number(bodyBraceSpan[1]);
+    if (Number.isInteger(spanEnd)) {
+      braceEnd = spanEnd + 1;
+    }
   }
   const bodyUnits = ctx.KidsOf(v, "body");
   const raw: any[] = [];
@@ -876,14 +890,14 @@ Lambda 表达式。
     raw.push(unit);
   }
   if (braced) {
-    // **闭括号就是本单元的终点** ✓：花括号体那一支签出时用的正是那个括号的右端 ✓
-    //（`LamdaCloseRule.Process` 的 `result.SignOut(next.SourceRange.End!)` ✓），
-    // 所以这里不必再回原文里配一次括号 ✓。
+    // **两端都读字段** ✓（第 647 轮 ✓）：`BodyBrace` 记的就是那对括号的整段 ✓，
+    // 所以这里既不必回原文里配一次括号 ✓、也不必假设本单元的终点落在那个 `}` 上 ✓
+    //（字段缺了——克隆体之外不该出现 ✓——才退回本单元的终点 ✓）。
     props.body = {
       kind: "Block",
       statements: ctx.ProjectEach(raw, "Block"),
       pos: braceAt,
-      end: ctx.EndOf(v),
+      end: braceEnd >= 0 ? braceEnd : ctx.EndOf(v),
     };
   } else {
     const flat: any[] = [];
@@ -904,15 +918,21 @@ Lambda 表达式。
 
 这个 lambda 前面是不是有 `async`。纯数据字段，没有访问器。
 
-## field BodyBraceAt:int = -1
+## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
-**体是花括号块时，那个 `{` 的下标**；体是表达式时是 `-1`。
+**体是花括号块时，那一对花括号的起点（`Value`）与整段（`Range`）**；体是表达式时未记过。
 
 **为什么让 token 记着**（用户口径：token 出字段、投影直读）：`LamdaCloseRule.Process`
 在 `next instanceof Bracket && next.startBracket === "{"` 那一支里**括号就在手上** ✓
-（`next.SourceRange.Start` ✓）⇒ 当场记下来 ✓。投影原来回原文里找 ✗
+（`next.SourceRange` ✓）⇒ 当场把**两端**都记下来 ✓。投影原来回原文里找 ✗
 （`arrowAt + 2` 起跳空白看第一个字符 ✓），`() => /* c */ { }` 会撞上注释的 `/` ✗
 ⇒ 判成表达式体 ⇒ 整个 `Block` 丢 ✓。
+
+**第 647 轮从「只有起点」（`BodyBraceAt:int`）换成了 `TokenField`** ✓（与
+`While.BodyBrace` / `For.BodyBrace` / `IfSegment.BodyBrace` / `Try.TryBrace` **同一条口径** ✓）：
+投影画那个 `Block` 时**右端也读这一格** ✓——原来写的是 `ctx.EndOf(v)` ✓，
+那背后是「**本单元的终点恰好是那个 `}`**」这个没被记下来的约定 ✗
+（它今天成立 ✓，可它是一处**隐含前提** ✓，而不是一条事实 ✓）。
 
 ## field ArrowAt:int = -1
 
@@ -1027,8 +1047,13 @@ XML 里这些都写不成属性（`<Lamda>` 只有子单元的串接），而 JS
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("async", this.IsAsync);
-if (this.BodyBraceAt >= 0) {
-  result.set("bodyBraceAt", this.BodyBraceAt);
+if (this.BodyBrace.IsSet) {
+  result.set("bodyBraceAt", this.BodyBrace.File());
+  const bodyBraceRange = this.BodyBrace.Range;
+  if (bodyBraceRange !== null && bodyBraceRange.Start !== null && bodyBraceRange.End !== null) {
+    result.set("bodyBraceRange",
+      String(bodyBraceRange.Start.Index) + "," + String(bodyBraceRange.End.Index));
+  }
 }
 // **`=>` 的位置也写出去**（第 621 轮，与 `bodyBraceAt` 同一条口径）：
 // 投影合成 `equalsGreaterThanToken` 时直读，不再回原文重扫。
@@ -1047,13 +1072,13 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 拷 `IsAsync` / `BodyBraceAt` / `ArrowAt` → 克隆全部子单元 → `TryToClose()`。
+顺序是 `Sign(this)` → 拷 `IsAsync` / `BodyBrace` / `ArrowAt` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new Lamda(this.Template);
 result.Sign(this);
 result.IsAsync = this.IsAsync;
-result.BodyBraceAt = this.BodyBraceAt;
+result.BodyBrace = this.BodyBrace;
 result.ArrowAt = this.ArrowAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
