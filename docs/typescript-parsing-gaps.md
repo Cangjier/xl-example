@@ -86,8 +86,10 @@
 这一趟的结论就是门的那一行输出（`已知缺口：N 条还开着、M 条已经收掉`），
 所以「还差多少」在 `npm run gates` 里直接看得见，不必回 `tmp/` 翻探针。
 
-**当前 215 条**：三批加起来 —— 探针池 `tmp/k7-snips-big.mjs` 收剩的 13 条（第 668 / 669 轮）、
-单独探出来的 2 条、r660 探针池的 26 条（第 673 轮）、657 审计脚本的 174 条（第 674 轮，含 4 条抛异常）。
+**当前 229 条**：四批加起来 —— 探针池 `tmp/k7-snips-big.mjs` 收剩的 13 条（第 668 / 669 轮）、
+单独探出来的 2 条、r660 探针池的 26 条（第 673 轮）、657 审计脚本的 174 条（第 674 轮，含 4 条抛异常）、
+第 676 轮 92 条片段探针新量出的 **14 条**（`gap-r676-*`，same 根：注释夹在语法相邻位置之间，
+落点换成类型运算符 / 函数类型 / `new` 的实参括号 / 成员名与形参表 / 泛型实参段附近）。
 
 | 用例 | 形状 | 症状 |
 | --- | --- | --- |
@@ -106,6 +108,34 @@
 | [type-param-asserts-constraint.ts](../tests/parse/cases/types/type-param-asserts-constraint.ts) | `x extends asserts x is A` | 约束位上的断言谓词不成形（缺 5 多 2） |
 | [type-param-template-literal-constraint.ts](../tests/parse/cases/types/type-param-template-literal-constraint.ts) | `` x extends `a${A}b` `` | 约束位上的模板字面量类型不成形（缺 15 多 7，还带一处未映射 `Bracket`） |
 | [type-typeof-qualified-index.ts](../tests/parse/cases/types/type-typeof-qualified-index.ts) | `type A = typeof a.b[K]` | 点号名在产物里是平级单元，`TypeQuery` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）。**不带点号的** `typeof a[K]` / `typeof a[]` / `typeof a[K][L]` 第 667 轮已经收掉 |
+
+### 第六批（第 676 轮）：类型运算符 / 函数类型 / `new` 实参括号 / 成员名与形参表
+
+92 条片段探针（三份候选池，`--snippets` 一条一个构造）量出 **14 条**，全部是同一个根：
+**注释落在语法相邻的两格之间**——此前语料量到的是运算符、关键字、段头那些落点，
+这一批换到了另外几处「靠紧邻找下一格」的地方：
+
+| 用例 | 形状 | 症状 |
+| --- | --- | --- |
+| [gap-r676-new-comment-before-args.ts](../tests/parse/cases/expressions/gap-r676-new-comment-before-args.ts) | `new C /* c */ (1, 2)` | 实参那一段被折成逗号运算符（`BinaryExpression «1, 2»` + `CommaToken`），`new` 的实参段落空 |
+| [gap-r676-new-comment-before-args-dotted.ts](../tests/parse/cases/expressions/gap-r676-new-comment-before-args-dotted.ts) | `new A.B /* c */ (1, 2, 3)` | 同上，带点号的类型名 + 三个实参时折成**两层**逗号运算符 |
+| [gap-r676-generic-comment-before-args.ts](../tests/parse/cases/expressions/gap-r676-generic-comment-before-args.ts) | `f /* c */ <string>(1)` | 注释夹在被调用者与泛型实参段之间 ⇒ 整条调用落成 `BinaryExpression(f < string > (1))`，`CallExpression` 缺（与 `f<string>` 泛型实例化同族） |
+| [gap-r676-call-comment-before-args-generic.ts](../tests/parse/cases/expressions/gap-r676-call-comment-before-args-generic.ts) | `g<number> /* c */ (1)` | 注释夹在泛型实参段与实参括号之间，同一族的另一个落点 |
+| [gap-r676-func-type-comment-before-arrow.ts](../tests/parse/cases/types/gap-r676-func-type-comment-before-arrow.ts) | `type F = (a: number) /* c */ => string` | 注释夹在函数类型的 `=>` 之前：括号留在外面当 `Bracket`、返回类型落成散单元，`FunctionType` 整条缺（已登记的 `mut-type-fn-generic-arg-102/103/90` 是**泛型实参里**的同族，这里是类型别名右侧的裸位置） |
+| [gap-r676-func-type-comment-before-arrow-plain.ts](../tests/parse/cases/types/gap-r676-func-type-comment-before-arrow-plain.ts) | `type F = () /* c */ => void` | 同上，空形参表那一格落成 `ParenthesizedType` |
+| [gap-r676-method-comment-before-paren.ts](../tests/parse/cases/declarations/gap-r676-method-comment-before-paren.ts) | `class A { m /* c */ (): void {} }` | 注释夹在成员名与形参表之间：`()` 被当成类型位的括号（未映射 `Bracket`），`MethodDeclaration` 与它的体都不成形 |
+| [gap-r676-method-comment-before-paren-abstract.ts](../tests/parse/cases/declarations/gap-r676-method-comment-before-paren-abstract.ts) | `abstract m /* c */ (): void;` | 同族：无体签名的形参表单独落成 `CallSignature` |
+| [gap-r676-method-comment-before-paren-signature.ts](../tests/parse/cases/declarations/gap-r676-method-comment-before-paren-signature.ts) | `interface I { m /* c */ (): void; }` | 同族：接口里落成 `CallSignature` 而不是 `MethodSignature` |
+| [gap-r676-keyof-comment-operand.ts](../tests/parse/cases/types/gap-r676-keyof-comment-operand.ts) | `type K = keyof /* c */ T` | 注释夹在 `keyof` 与操作数之间：`TypeOperator` 的区间只到自己（漂移），操作数那半落成散单元（映射键那一格是 `mut-type-mapped-template-key-94/95/122`，这里是裸类型位） |
+| [gap-r676-typeof-comment-operand.ts](../tests/parse/cases/types/gap-r676-typeof-comment-operand.ts) | `type K = typeof /* c */ a` | 同族：`TypeQuery` 这一支同样只看紧邻，整条缺 |
+| [gap-r676-readonly-comment-operand.ts](../tests/parse/cases/types/gap-r676-readonly-comment-operand.ts) | `type K = readonly /* c */ string[]` | 同族：`readonly` 被当成类型引用、`ArrayType` 挂到了整段上（区间从头算起） |
+| [gap-r676-unique-comment-operand.ts](../tests/parse/cases/types/gap-r676-unique-comment-operand.ts) | `declare const s: unique /* c */ symbol` | 同族：`TypeOperator` 只到自己，`unique` 还被额外投成一次类型引用 + 标识符 |
+| [gap-r676-indexed-access-comment.ts](../tests/parse/cases/types/gap-r676-indexed-access-comment.ts) | `type K = T /* c */ [number]` | 注释夹在被索引者与方括号之间：`IndexedAccessType` 整条缺、方括号里的类型也缺 |
+
+这一批里**没有量的**（探针里对上了，所以不立用例）：`if` / `while` / `do…while` / `catch` 四处的
+`/* c */ (` 已经收掉了（第 667 轮那几条）；`else` / `else if` 那一族与 `var` 的声明头 / `switch` 判别括号
+也已经收掉；`class A /* c */ extends B`、`namespace N /* c */ {`、`enum E /* c */ {`、`type T /* c */ =`、
+`const a /* c */ = 1`、`f(1, /* c */ 2)`、`{ get x() {} set x(v) {} }` 这些落点本来就是好的。
 
 **怎么收**：改完跑 `node tests/parse/ts-ast.mjs cases` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这条从上面的表里拿掉，门就少一条账。
