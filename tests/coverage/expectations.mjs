@@ -1458,4 +1458,24 @@ export const EXPECTATIONS = {
       + "（品牌检查 `#v in o` 本身是好的）",
   },
 
+  // ===== 第 683 轮：**数组的 length 描述符**那一格（用例在 `cases/stdlib.mjs` 的
+  // `r683-std-array-length-descriptor`）=====
+  // 这一批 24 条里 23 条 pass；唯一一条是**数组异形对象**那一层：
+  // `Object.defineProperty(a, "length", { value: 1 })` 在 JS 里**削短**数组
+  //（还删掉越界的元素、`length` 跟着变），本仓把 `length` 当**普通数据格**收下，
+  // 数组自己的存储一格没动 ⇒ 读回来还是 `3:3`。第二行（`writable: false` 之后 `push`）
+  // 同根：JS 抛 `TypeError`、本仓照推。
+  // **不补**：数组在这里是**引擎的存储**（`HeapArray`），要让 `length` 变成一个
+  // **有语义的访问器**就得把「数组下标写入」与「length 写入」两条路都接上那段逻辑——
+  // 那是**给数组加一层异形对象语义**，与 `Object.freeze` 那几条同档的**大工程**，
+  // 而这几格在日常代码里几乎只见于库的内部（`arr.length = n` 那条**赋值**是好的，
+  // 走的是另一条路）。两条路的差别写在这里。
+  "r683-std-array-length-descriptor": {
+    expect: "differ",
+    why: "数组的 `length` 描述符没有异形语义：`Object.defineProperty(a, 'length', { value: 1 })`"
+      + "既不削短也不删元素（读回来还是 `3:3`，JS 给 `1:undefined`），"
+      + "`{ writable: false }` 之后 `push` 也不抛（JS 抛 `TypeError`）；"
+      + "`arr.length = 1` 那条**赋值**是好的——差的是「描述符那条路」",
+  },
+
 };

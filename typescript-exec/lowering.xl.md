@@ -4243,8 +4243,21 @@ if (awaits) {
   boundValue = this.Reserve(1);
   this.Emit(Op.Resume, boundValue, -1, -1, -1);
 }
+// **抛出去也要 IteratorClose**（第 683 轮，**实测撞到的**）：JS 的 `for..of` 在
+// **任何突然完成**（`break` / `return` / `throw`）时都要收迭代器，而这一支原来只铺了
+// 前两条路——`for (const v of 自定义可迭代物) { throw new Error(…) }` 里用户写的那个
+// `return()` **一次都不被调**（判据 `r683-rt-iterator-close-throw`：
+// Node 打 `closed,caught:boom`，本仓只打后半截；`finally` 那一档同病）。
+// 形状与 `LowerTry` 那张「重抛网」**一字不差**：循环体外围套一张处理点，
+// 出事时把两个 close 各跑一遍、再把异常**原样**抛出去。
+// **保护范围从 `BindForOfTarget` 起**：绑定解构自己抛（`const [a] = 1`）在 JS 里
+// 同样算这一轮的突然完成、同样要收。
+const closeHandler = this.AddHandler();
+this.Emit(Op.TryPush, closeHandler, -1, -1, -1);
 this.BindForOfTarget(target, boundValue);
 this.LowerStatement(Child(node, "statement"));
+this.Emit(Op.TryPop, -1, -1, -1, -1);
+this.PatchHandlerEnd(closeHandler);
 // `continue` 在这里落点：**下一轮的新环境也要建**（否则 `continue` 就绕过了它）。
 context.ContinueTarget = this.Here();
 if (perIteration) {
@@ -4281,6 +4294,18 @@ this.EmitIteratorClose(iteratorSlot);
 // 所以这里再问一次**被迭代者**就够了——普通数组没有这一格、生成器也没有
 //（它是 `keyText` 那一档，不是 `return`）。
 this.EmitIteratorClose(iterableSlot, "__close");
+// **抛出去那一档的 close**（第 683 轮，见上面 `closeHandler` 那一段）：
+// 两个 close 跑完再把异常原样抛出去。**正常流不许掉进来**（上面那条 close 之后
+// 本来就是「落进循环出口」，这里补一条跳过处理点的跳转）。
+const skipCloseHandler = this.Here();
+this.Emit(Op.Jump, -1, 0, -1, -1);
+this.PatchHandlerTarget(closeHandler, this.Here());
+const savedThrow = this.Reserve(1);
+this.Emit(Op.Caught, savedThrow, -1, -1, -1);
+this.EmitIteratorClose(iteratorSlot);
+this.EmitIteratorClose(iterableSlot, "__close");
+this.Emit(Op.Throw, savedThrow, -1, -1, -1);
+this.PatchTarget(skipCloseHandler, this.Here());
 this.PatchTarget(normalExit, this.Here());
 // **出口也要退回去**（第 315 轮）：`break` 与「迭代到头」都落到这一处
 //（close 那一段**在**这一句之前——它在循环那一层环境里跑，而迭代器那一格

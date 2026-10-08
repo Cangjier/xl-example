@@ -7243,4 +7243,44 @@ console.log("sync");
     title: "Array.from 的映射函数与类数组",
     src: "try { console.log(\"mapfn\", String(Array.from({ length: 3 }, (v: any, i: any) => i * 2).join(','))); } catch (e) { console.log(\"mapfn\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"string-map\", String(Array.from('ab', (ch: any) => ch.toUpperCase()).join(''))); } catch (e) { console.log(\"string-map\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"set\", String(Array.from(new Set(['x', 'y'])).join(','))); } catch (e) { console.log(\"set\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"arraylike-args\", String(Array.from([1, 2], (x: any) => x + 1).join(','))); } catch (e) { console.log(\"arraylike-args\", \"ERR\", String(e && e.name)); }",
   },
+  {
+    id: "r683-std-map-set-direct-iteration",
+    title: "直接迭代 Map / Set 本体（不是 entries()）",
+    src: "const m: any = new Map([[1, 'a'], [2, 'b']]);\nconst s: any = new Set([3, 4]);\ntry { console.log(\"map-spread\", String([...m].map((p: any) => p[0] + p[1]).join(','))); } catch (e) { console.log(\"map-spread\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"set-spread\", String([...s].join(','))); } catch (e) { console.log(\"set-spread\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"map-forof\", String((() => { let out = ''; for (const [k, v] of m) out += k + v; return out; })())); } catch (e) { console.log(\"map-forof\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"set-forof\", String((() => { let out = ''; for (const v of s) out += v; return out; })())); } catch (e) { console.log(\"set-forof\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"map-from\", String(Array.from(m).map((p: any) => p.join('')).join(','))); } catch (e) { console.log(\"map-from\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r683-std-custom-iterable",
+    title: "自定义可迭代物在四处的落点",
+    src: "const range: any = { from: 1, to: 3, [Symbol.iterator]() { let i = this.from; const to = this.to; return { next() { return i <= to ? { value: i++, done: false } : { value: undefined, done: true }; } }; } };\ntry { console.log(\"forof\", String((() => { let out = ''; for (const v of range) out += v; return out; })())); } catch (e) { console.log(\"forof\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"spread\", String([...range].join(','))); } catch (e) { console.log(\"spread\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"array-from\", String(Array.from(range).join(','))); } catch (e) { console.log(\"array-from\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"destructure\", String((() => { const [a, b] = range as any; return a + ':' + b; })())); } catch (e) { console.log(\"destructure\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"function-returns-iterable\", String((() => { function f() { return range; } return [...f()].length; })())); } catch (e) { console.log(\"function-returns-iterable\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r683-std-array-from-iterables",
+    title: "Array.from / 展开对生成器与字符串的落点",
+    src: "function* g() { yield 1; yield 2; }\ntry { console.log(\"from-generator\", String(Array.from(g()).join(','))); } catch (e) { console.log(\"from-generator\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"spread-generator\", String([...g()].join(','))); } catch (e) { console.log(\"spread-generator\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"from-map-fn\", String(Array.from('abc', (ch: any) => ch.toUpperCase()).join(''))); } catch (e) { console.log(\"from-map-fn\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"from-arraylike\", String(Array.from({ length: 2, 0: 'x', 1: 'y' }).join(''))); } catch (e) { console.log(\"from-arraylike\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r683-std-string-raw",
+    title: "String.raw 与模板的 raw 段",
+    src: "try { console.log(\"raw-basic\", String(String.raw`a\\nb`)); } catch (e) { console.log(\"raw-basic\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"raw-sub\", String((() => { const x = 1; return String.raw`a\\n${x}b`; })())); } catch (e) { console.log(\"raw-sub\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"raw-length\", String((() => { const tag: any = (s: any, ...v: any[]) => String(s.raw.length) + ':' + v.length; return tag`a${1}b${2}c`; })())); } catch (e) { console.log(\"raw-length\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"cooked-vs-raw\", String((() => { const tag: any = (s: any) => (s[0] === '\\n') + ':' + (s.raw[0] === '\\\\n'); return tag`\\n`; })())); } catch (e) { console.log(\"cooked-vs-raw\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r683-std-promise-combinators",
+    title: "Promise 的组合子形状",
+    src: "async function run() {\n  const settled = await Promise.allSettled([Promise.resolve(1), Promise.reject('e')]);\n  console.log('settled', settled.map((r: any) => r.status + ':' + String(r.value ?? r.reason)).join(','));\n  const race = await Promise.race([Promise.resolve('fast'), Promise.resolve('slow')]);\n  console.log('race', race);\n  const any = await Promise.any([Promise.reject('x'), Promise.resolve('ok')]);\n  console.log('any', any);\n}\nrun();",
+  },
+  {
+    id: "r683-std-object-internals",
+    title: "对象内部件：键序 / 洞 / 原型链",
+    src: "try { console.log(\"key-order\", String((() => { const o: any = {}; o.b = 1; o['2'] = 2; o.a = 3; o['1'] = 4; return Object.keys(o).join(','); })())); } catch (e) { console.log(\"key-order\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"getownnames-array\", String((() => { const a: any = [1, 2]; a.extra = 'x'; return Object.getOwnPropertyNames(a).join(','); })())); } catch (e) { console.log(\"getownnames-array\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"assign-getter\", String((() => { let n = 0; const src: any = { get v() { n++; return 1; } }; const dst: any = {}; Object.assign(dst, src); return n + ':' + dst.v; })())); } catch (e) { console.log(\"assign-getter\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"hasown-proto\", String((() => { const o: any = Object.create({ inherited: 1 }); o.own = 2; return Object.prototype.hasOwnProperty.call(o, 'inherited') + ':' + ('inherited' in o); })())); } catch (e) { console.log(\"hasown-proto\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r683-std-array-length-descriptor",
+    title: "数组的 length 描述符（削短与越界读）",
+    src: "try { console.log(\"define-length\", String((() => { const a: any = [1, 2, 3]; Object.defineProperty(a, 'length', { value: 1 }); return a.length + ':' + String(a[2]); })())); } catch (e) { console.log(\"define-length\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"define-writable-false\", String((() => { const a: any = [1, 2]; Object.defineProperty(a, 'length', { writable: false }); try { a.push(3); return 'pushed:' + a.length; } catch (e: any) { return 'ERR ' + String(e.name); } })())); } catch (e) { console.log(\"define-writable-false\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r683-std-number-text-forms",
+    title: "数值与文本的边界（再往前一格）",
+    src: "try { console.log(\"tofixed-carry\", String((9.995).toFixed(2))); } catch (e) { console.log(\"tofixed-carry\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"tofixed-big\", String((1e21).toFixed(2))); } catch (e) { console.log(\"tofixed-big\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"parseint-plus\", String(parseInt('+12'))); } catch (e) { console.log(\"parseint-plus\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"parseint-inf\", String(String(parseInt('Infinity')))); } catch (e) { console.log(\"parseint-inf\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"number-empty-hex\", String([Number(''), Number('  '), Number('0b11'), Number('1_000')].join(','))); } catch (e) { console.log(\"number-empty-hex\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"tostring-radix-neg\", String((-255).toString(16))); } catch (e) { console.log(\"tostring-radix-neg\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"uint32\", String((4294967296).toString(16))); } catch (e) { console.log(\"uint32\", \"ERR\", String(e && e.name)); }",
+  },
 ];

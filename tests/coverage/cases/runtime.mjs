@@ -6200,4 +6200,29 @@ console.log(s2.join(","));
     title: "原型上的方法摘出来之后 this 是调用者",
     src: "class P2 { v = 5; read(this: any) { return this === undefined ? 'no-this' : this.v; } }\nconst inst: any = new P2();\nconst protoFn: any = P2.prototype.read;\ntry { console.log(\"via-instance\", String(inst.read())); } catch (e) { console.log(\"via-instance\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"via-prototype\", String((() => { try { return String(protoFn()); } catch (e: any) { return 'ERR ' + String(e.name); } })())); } catch (e) { console.log(\"via-prototype\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"call-with-instance\", String(protoFn.call(inst))); } catch (e) { console.log(\"call-with-instance\", \"ERR\", String(e && e.name)); }",
   },
+  {
+    id: "r683-rt-yield-star-custom",
+    title: "yield* 一个自定义可迭代物与一个生成器",
+    src: "function* inner() { yield 1; yield 2; return 'done'; }\nfunction* outer() { const r = yield* inner(); yield 'after-' + r; }\ntry { console.log(\"delegate\", String([...outer()].join(','))); } catch (e) { console.log(\"delegate\", \"ERR\", String(e && e.name)); }\nconst custom: any = { [Symbol.iterator]() { let i = 0; return { next: () => (i < 2 ? { value: 'c' + i++, done: false } : { value: undefined, done: true }) }; } };\nfunction* mixed() { yield* custom; yield 'end'; }\ntry { console.log(\"yield-star-iterable\", String([...mixed()].join(','))); } catch (e) { console.log(\"yield-star-iterable\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r683-rt-generator-instanceof",
+    title: "生成器对象的身份与原型",
+    src: "function* g() { yield 1; }\nconst it: any = g();\ntry { console.log(\"typeof\", String(typeof it)); } catch (e) { console.log(\"typeof\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"has-next\", String(typeof it.next)); } catch (e) { console.log(\"has-next\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"has-return\", String(typeof it.return)); } catch (e) { console.log(\"has-return\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"has-throw\", String(typeof it.throw)); } catch (e) { console.log(\"has-throw\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"symbol-iterator\", String(typeof it[Symbol.iterator])); } catch (e) { console.log(\"symbol-iterator\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"self-iterable\", String(it[Symbol.iterator]() === it)); } catch (e) { console.log(\"self-iterable\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r683-rt-promise-microtask-order",
+    title: "承诺与 await 的微任务次序（再走一遍混合形状）",
+    src: "const log: string[] = [];\nasync function inner() { log.push('i1'); await null; log.push('i2'); }\n(async () => {\n  log.push('a');\n  const p = inner();\n  log.push('b');\n  await p;\n  log.push('c');\n  await 0;\n  log.push('d');\n  console.log(log.join(','));\n})();",
+  },
+  {
+    id: "r683-rt-iterator-close-throw",
+    title: "抛出去时迭代器的 return 也会被调",
+    src: "const log: string[] = [];\nconst it: any = { [Symbol.iterator]() { let i = 0; return { next: () => (i < 5 ? { value: i++, done: false } : { value: undefined, done: true }), return(v: any) { log.push('closed'); return { value: v, done: true }; } }; } };\ntry { for (const v of it) { if (v === 1) throw new Error('boom'); } } catch (e: any) { log.push('caught:' + e.message); }\nconsole.log(log.join(','));",
+  },
+  {
+    id: "r683-rt-custom-iterator-protocol",
+    title: "自定义迭代器被 for-of / 展开 / 解构共用",
+    src: "function makeIter() { let i = 0; return { [Symbol.iterator]() { return this; }, next() { return i < 3 ? { value: i++, done: false } : { value: undefined, done: true }; } }; }\ntry { console.log(\"forof\", String((() => { let out = ''; for (const v of makeIter() as any) out += v; return out; })())); } catch (e) { console.log(\"forof\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"spread\", String([...(makeIter() as any)].join(','))); } catch (e) { console.log(\"spread\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"destructure\", String((() => { const [a, b] = makeIter() as any; return a + ':' + b; })())); } catch (e) { console.log(\"destructure\", \"ERR\", String(e && e.name)); }",
+  },
 ];

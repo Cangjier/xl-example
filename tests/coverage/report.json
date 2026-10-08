@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2364,
+  "matrix": 2388,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -88,13 +88,13 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 98.52,
+  "progressPercent": 98.51,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 607,
-      "pass": 607,
+      "total": 612,
+      "pass": 612,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -103,28 +103,28 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 601,
-      "pass": 591,
+      "total": 607,
+      "pass": 597,
       "blocked": 1,
       "differ": 9,
       "nodefail": 0,
-      "coverage": 98.34
+      "coverage": 98.35
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 919,
-      "pass": 883,
+      "total": 927,
+      "pass": 890,
       "blocked": 7,
-      "differ": 29,
+      "differ": 30,
       "nodefail": 0,
-      "coverage": 96.08
+      "coverage": 96.01
     },
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 237,
-      "pass": 237,
+      "total": 242,
+      "pass": 242,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -409,6 +409,12 @@
       "layer": "stdlib",
       "title": "名字逐个取一次：globalThis 自己的名字（缺 97 个）",
       "detail": "stdout 不同：第 1 行：node «object AbortController function» vs tsrun «object AbortController undefined»"
+    },
+    {
+      "id": "r683-std-array-length-descriptor",
+      "layer": "stdlib",
+      "title": "数组的 length 描述符（削短与越界读）",
+      "detail": "stdout 不同：第 1 行：node «define-length 1:undefined» vs tsrun «define-length 3:3»"
     }
   ],
   "bad": [],

@@ -2868,4 +2868,29 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     title: "函数缓存：Map + rest + apply",
     src: "function memo(fn: any): any { const cache: Map<string, any> = new Map(); return function (this: any, ...args: any[]) { const key = args.join(','); if (!cache.has(key)) cache.set(key, fn.apply(this, args)); return cache.get(key); }; }\nlet calls = 0;\nconst slow = memo((a: number, b: number) => { calls++; return a * b; });\nconsole.log(slow(2, 3), slow(2, 3), slow(4, 5), calls);",
   },
+  {
+    id: "r683-e2e-iterator-pipeline",
+    title: "自定义可迭代物组成的管道：map / filter / take",
+    src: "function* naturals() { let i = 1; while (true) { yield i++; } }\nfunction take(iterable: any, n: number): any[] { const out: any[] = []; for (const v of iterable) { if (out.length >= n) break; out.push(v); } return out; }\nconst first = take(naturals(), 5);\nconsole.log(first.join(','), first.length);",
+  },
+  {
+    id: "r683-e2e-observer-bus",
+    title: "观察者：Map + Set + 解构 + 展开",
+    src: "class Registry { subs: Map<string, Set<any>> = new Map(); on(ev: string, fn: any): void { if (!this.subs.has(ev)) this.subs.set(ev, new Set()); this.subs.get(ev).add(fn); } off(ev: string, fn: any): void { this.subs.get(ev)?.delete(fn); } fire(ev: string, v: any): number { const set = this.subs.get(ev); if (!set) return 0; const all = [...set]; for (const fn of all) fn(v); return all.length; } }\nconst r = new Registry();\nconst seen: string[] = [];\nconst h = (v: any) => { seen.push('h' + v); };\nr.on('x', h); r.on('x', (v: any) => { seen.push('g' + v); });\nconsole.log(r.fire('x', 1), r.fire('y', 2));\nr.off('x', h);\nconsole.log(r.fire('x', 3), seen.join(','));",
+  },
+  {
+    id: "r683-e2e-async-map-limited",
+    title: "并发的有界映射：Promise.all + 分批",
+    src: "async function mapLimit(xs: number[], limit: number, fn: any): Promise<any[]> { const out: any[] = []; for (let i = 0; i < xs.length; i += limit) { const batch = xs.slice(i, i + limit); out.push(...await Promise.all(batch.map((x: any) => fn(x)))); } return out; }\nmapLimit([1, 2, 3, 4, 5], 2, async (x: number) => x * 2).then((r: any) => console.log(r.join(',')));",
+  },
+  {
+    id: "r683-e2e-matrix-classes",
+    title: "几何：类继承 + getter + 静态工厂 + 数值格式化",
+    src: "class Shape { name: string; constructor(name: string) { this.name = name; } get area(): number { return 0; } describe(): string { return this.name + '=' + this.area.toFixed(2); } static of(name: string): Shape { return new Shape(name); } }\nclass Rect extends Shape { w: number; h: number; constructor(w: number, h: number) { super('rect'); this.w = w; this.h = h; } get area(): number { return this.w * this.h; } }\nclass Square extends Rect { constructor(s: number) { super(s, s); } get name2(): string { return 'sq'; } }\nconsole.log(new Rect(3, 4).describe());\nconsole.log(new Square(5).describe(), Shape.of('none').describe());",
+  },
+  {
+    id: "r683-e2e-parser-lite",
+    title: "小型词法：字符串扫描 + 数组 + switch",
+    src: "function tokenize(src: string): string[] { const out: string[] = []; let i = 0; while (i < src.length) { const ch = src[i]; if (ch === ' ') { i++; continue; } if (ch >= '0' && ch <= '9') { let n = ''; while (i < src.length && src[i] >= '0' && src[i] <= '9') n += src[i++]; out.push('num:' + n); continue; } if (ch === '+' || ch === '*') { out.push('op:' + ch); i++; continue; } out.push('id:' + ch); i++; } return out; }\nconsole.log(tokenize('12 + x*3').join(' '));",
+  },
 ];
