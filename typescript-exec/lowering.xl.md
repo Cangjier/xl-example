@@ -6,7 +6,7 @@ import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames, HasNamedExpression, ReferencesArguments } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
-import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, SetHiddenId, DefineDataId } from "./builtins/install.xl.md"
+import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, SetHiddenId, DefineDataId, SetFunctionNameId } from "./builtins/install.xl.md"
 import { StringConcat, TemplateConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
 ```
 
@@ -6438,6 +6438,12 @@ for (let i = 0; i < properties.length; i++) {
         kind === "GetAccessor"
           ? (staticAccessorName !== "" ? "get " + staticAccessorName : "<getter>")
           : (staticAccessorName !== "" ? "set " + staticAccessorName : "<setter>"));
+      // **算不出来的键由运行期补名字、带 `get ` / `set ` 前缀**（第 755 轮，
+      // 与类成员那一处同一条）：`{ get ["x" + 1]() {} }` 的 getter 名字在 Node 里是
+      // **`"get x1"`**——前缀是编译期的、键是运行期的，两个来源一起才算得出来。
+      // 静态键那一档 `computedHalf` 已经带好名字（上面那一支），这里会被早退挡掉。
+      this.EmitComputedFunctionName(computedHalf, computedKey, Child(name, "expression"),
+        kind === "GetAccessor" ? "get " : "set ");
       this.EmitDefineAccessor(object, computedKey, computedHalf, kind === "GetAccessor");
       continue;
     }
@@ -6546,7 +6552,7 @@ if (kind === "NumericLiteral") return TextOf(node);
 return "";
 ```
 
-## method EmitComputedFunctionName:(closure:int, key:int, keyNode:AstNode)=>void
+## method EmitComputedFunctionName:(closure:int, key:int, keyNode:AstNode, prefix:string = "")=>void
 
 **计算键成员的名字，降级期算不出来时由运行期补写**（第 620 轮）。
 
@@ -6561,10 +6567,31 @@ return "";
 **静态键那一档直接返回**：`{ ["c"]: () => 1 }` 走的是 `FunctionNameHint`
 （`StaticKeyText` 给 `"c"`），再写一遍只是多三条指令。
 
+**`prefix` 那一格是第 755 轮添的**（访问器的 `"get "` / `"set "`）：
+JS 里 `class C { get ["m" + 1]() {} }` 的 getter 名字是 **`"get m1"`**——
+两个来源**一起**才算得出来（前缀是编译期的、键是运行期的）。
+**给了前缀就不认「静态键」那条早退**：那一档的名字只写了键、缺前缀，
+所以这时**照样写一遍**（`prefix + key`，走 `Add`；键是字符串 ⇒ 结果一定是字符串）。
+**写入用的键还是原来那个**（前缀只进名字那一格，不进属性表）。
+
 ```ts
-if (this.StaticKeyText(keyNode) !== "") return;
-const nameKey = this.Program().AddConst(Constant.OfString(UnitsOf("name")));
-this.SetPropertyConst(closure, nameKey, key);
+if (this.StaticKeyText(keyNode) !== "" && prefix === "") return;
+// **交给语言层那一格**（`set_function_name(闭包, 键, 前缀)`，第 755 轮）：
+// 它替我们做三件事——键不是字符串就不取名、已经有名字的不动、有前缀就先拼前缀。
+// **不在降级层做**：符号键走 `set_prop` 会 `RtToString(符号)` 响亮地抛，
+// 而 `typeof` 那一问要发一条 `JumpIfFalse`（第 755 轮第一版就是这么写的，
+// 实测把三条语料打成 `slot out of range`——账留在号那一段）。
+const window = this.Reserve(4);
+this.Emit(Op.Const, window, this.IntConst(SetFunctionNameId), -1, -1);
+this.Emit(Op.Move, window + 1, closure, -1, -1);
+this.Emit(Op.Move, window + 2, key, -1, -1);
+if (prefix === "") {
+  this.Emit(Op.Const, window + 3, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+} else {
+  this.Emit(Op.Const, window + 3, this.Program().AddConst(Constant.OfString(UnitsOf(prefix))), -1, -1);
+}
+this.EmitRt(RtOp.HostCall, window, window, 4);
+this.Release(window);
 ```
 
 ## method SetPropertyConst:(object:int, keyConst:int, value:int)=>void
@@ -7519,12 +7546,35 @@ for (let i = 0; i < members.length; i++) {
   // `Object.getOwnPropertyDescriptor(C.prototype, "x").get.name` 在 JS 里是 **`"get x"`**。
   // **字符串名的后缀去引号**（`TextOf` 给的是原文，带引号）——
   // 对象那一处走 `KeyUnitsOf`、这里只有字符串名要它（标识符与 `#私有名` 照旧 `TextOf`）。
-  let memberDisplay = computedName ? "<computed>" : TextOf(memberName);
-  if (computedName === false && (kind === "GetAccessor" || kind === "SetAccessor")) {
-    const suffix = NodeKind(memberName) === "StringLiteral"
-      ? UnitsText(this.KeyUnitsOf(memberName))
-      : TextOf(memberName);
-    memberDisplay = (kind === "GetAccessor" ? "get " : "set ") + suffix;
+  //
+  // **计算键那一档第 755 轮补上了名字**（**普查当场量到的**，判据 `r755a-01`）：
+  // `class C { ["m" + 1]() {} }` 的 `C.prototype.m1.name` 在 Node 里是 **`"m1"`**、
+  // 本仓给**空串**——`memberDisplay` 原来无条件给 `"<computed>"`（以 `<` 开头 ⇒
+  // `LowerFunctionValue` 按匿名处理），而运行期那条补写路（`EmitComputedFunctionName`）
+  // 当时**还没有**：两半**各自以为对方会取名**，与第 732 轮
+  // `{ ["c"]() {} }.c.name` 那一处是**同一个根**（对象字面量那一半第 732 轮修了，
+  // 类这一半漏了）。做法与对象那一处一字不差：**静态键当场算得出来就给名字**、
+  // 算不出来由运行期补写；访问器再添一个 `get ` / `set ` 前缀。
+  const accessorWord = kind === "GetAccessor" ? "get " : "set ";
+  // **`TextOf` 只能在「不是计算键」那一支里调**：计算键节点**没有 `text`**
+  //（`ast node ComputedPropertyName has no text`）——第一版把它写在 `if` 之前，
+  // 于是**整份文件在降级期就挂了**（`r755a-01` 第一行就报）。
+  let memberDisplay = "";
+  let computedMemberHint = "";
+  if (computedName) {
+    computedMemberHint = this.StaticKeyText(Child(memberName, "expression"));
+    memberDisplay = computedMemberHint !== "" ? computedMemberHint : "<computed>";
+    if (kind === "GetAccessor" || kind === "SetAccessor") {
+      memberDisplay = computedMemberHint !== "" ? accessorWord + computedMemberHint : "<computed>";
+    }
+  } else {
+    memberDisplay = TextOf(memberName);
+    if (kind === "GetAccessor" || kind === "SetAccessor") {
+      const suffix = NodeKind(memberName) === "StringLiteral"
+        ? UnitsText(this.KeyUnitsOf(memberName))
+        : TextOf(memberName);
+      memberDisplay = accessorWord + suffix;
+    }
   }
   const closure = this.LowerFunctionValue(member, memberDisplay);
   // **给刚排队的方法也盖上父类名**（第 104 轮）：构造函数在它自己那一处盖，
@@ -7556,6 +7606,13 @@ for (let i = 0; i < members.length; i++) {
   // 而访问器与普通方法**都要**它——所以这条判据放在那两路**之前**
   //（放在里面就是两个分支各写一遍）。
   const computedKey = computedName ? this.LowerExpression(Child(memberName, "expression")) : -1;
+  // **运行期补名字**（第 755 轮）：静态键那一档由 `memberDisplay` 当场取好了，
+  // 只有**算不出来**的键才在这里补写（`EmitComputedFunctionName` 那一支的第一句
+  // 会把静态键挡掉）。访问器要带前缀（`"get "` / `"set "`）——前缀只进名字那一格。
+  if (computedName) {
+    this.EmitComputedFunctionName(closure, computedKey, Child(memberName, "expression"),
+      (kind === "GetAccessor" || kind === "SetAccessor") ? accessorWord : "");
+  }
   if (kind === "GetAccessor" || kind === "SetAccessor") {
     // **类里的访问器落在 target 上**（JS 就是这样：实例自己不持有它，从原型链上找）——
     // 与对象字面量那一处的唯一区别就是「落在谁身上」，其余全走同一个 `EmitDefineAccessor`。

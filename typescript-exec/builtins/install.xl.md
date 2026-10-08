@@ -292,6 +292,21 @@ return InvokeBuiltin(room, table, protos, call, id, self, args, keep, failed);
 **它不是全局名**：脚本里没有叫这个名字的东西，是**降级层**为了落实现
 「私有字段（`#n = 1`）要藏起来」而发的内部调用（理由写在 `InvokeObjectHelper` 那一支里）。
 
+# const SetFunctionNameId:int = 715
+
+**`set_function_name(闭包, 键)`**（第 755 轮）——把**运行期算出来的那个键**写进闭包的
+`name` 那一格，**键不是字符串就什么都不做**。
+
+**为什么单开一格，而不是在降级层发一条 `set_prop(闭包, "name", 键)`**：
+`props.xl.md` 的 `SetProperty` 里那条「闭包 + `name` + 值是字符串」的快路**只认字符串**
+（`value.IsString()`），符号键落到普通那一支 ⇒ `RtToString(符号)` **响亮地抛**
+（`cannot convert a Symbol value to a string`）——而 JS 的规矩是
+「`ToPropertyKey(key)` 之后**是符号就不取名**」（`{ [Symbol.iterator]() {} }.name` 是 `""`）。
+**降级层自己判不了**：`typeof 键 === "string"` 那一问要发一条 `JumpIfFalse`
+（第 755 轮第一版就是那么写的，实测**当场把三条语料打成 `slot out of range`**——
+那一段的槽账与两处 `PatchTarget` 撞上了，账留在这里）。
+**这一格的判据只有一句**，写在 `InvokeObjectHelper` 里，与 `SetHiddenId` 同一个位置。
+
 # const PropertyKeyId:int = 714
 
 **`ToPropertyKey` 那一步**（第 750 轮）——把**任意值**变成一个属性键
@@ -1332,6 +1347,9 @@ if (DefineDataId > highest) highest = DefineDataId;
 // **`PropertyKeyId`**（第 750 轮）：同一条纪律——漏了它的症状是
 // `capability id is out of range: 714`（与上面那三格一模一样）。
 if (PropertyKeyId > highest) highest = PropertyKeyId;
+// **`SetFunctionNameId`**（第 755 轮）：同一条纪律——漏了它的症状是
+// `capability id is out of range: 715`（与上面那几格一模一样）。
+if (SetFunctionNameId > highest) highest = SetFunctionNameId;
 if (GeneratorNextId > highest) highest = GeneratorNextId;
 // **`return` / `throw` 两格**（第 313 轮）：同一条纪律——漏了它们的症状是
 // `capability id is out of range: 711`（**三格一起加**：只加 `next` 那一格
@@ -1518,7 +1536,7 @@ for (const slot of promiseSlots) {
 // 第 197 轮实测踩过一次：号改了、名单忘改）。
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
   TemplateConcat,
-  ObjectAssign, PowId, SetHiddenId, DefineDataId, PropertyKeyId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
+  ObjectAssign, PowId, SetHiddenId, DefineDataId, PropertyKeyId, SetFunctionNameId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
   PromiseResolveCallbackId, PromiseRejectCallbackId, AsyncGeneratorSelf, GeneratorSelf, ArrayIteratorNext, SpeciesGetterId,
   ArrayIteratorTake, ArrayIteratorDrop, ArrayIteratorToArray];
 for (let i = 0; i < helpers.length; i++) {
@@ -1610,6 +1628,36 @@ if (id === DefineAccessorId) {
 // **一次 `SetHiddenProperty` 就够**：它「找到自有那一格就改值 + 改标志、
 // 没有就**新开一格**」（`props.xl.md` 写着）——所以不必先 `SetProperty` 再标
 //（那是两次写，而且第一写还会**调 setter**：原型上有个同名 setter 时行为就错了）。
+// **`set_function_name(闭包, 键, 前缀)`**（第 755 轮）：运行期算出来的键要写进闭包的
+// `name` 那一格——**前三句判据**（顺序是语义）：
+//   ① 不是字符串 ⇒ **什么都不做**（JS 的 `ToPropertyKey` 之后是符号就不取名，
+//      见号那一段的账；这一句同时挡住 `typeof` 那一问要发的 `JumpIfFalse`）；
+//   ② 已经有名字 ⇒ **不动**（NamedEvaluation：`{ ["c"]: function named(){} }.c.name`
+//      是 `named`，与 `SetProperty` 那条快路同一条判据）；
+//   ③ 有前缀（访问器的 `"get "` / `"set "`）⇒ 写 `前缀 + 键`。
+// **前缀为什么在这一层拼**：`RtOp.Add` 那一步在降级层要多占两格槽，
+// 而这里 `table.CreateString` 一句话就够（第 755 轮第一版在降级层拼，
+// 实测把三条语料打成 `slot out of range`——账留在号那一段）。
+if (id === SetFunctionNameId) {
+  if (args.length < 2) {
+    throw new Error("unimplemented: set_function_name needs (closure, key)");
+  }
+  if (args[0].Tag !== ValueTag.Closure) return Value.Undefined();
+  if (!args[1].IsString()) return Value.Undefined();
+  if (table.Get(args[0].Ref).AsClosure().Name !== 0) return Value.Undefined();
+  let nameValue = args[1];
+  if (args.length > 2 && args[2].IsString()) {
+    const prefix = table.Get(args[2].Ref).AsString().Units;
+    const suffix = table.Get(args[1].Ref).AsString().Units;
+    const joined: number[] = [];
+    for (let i = 0; i < prefix.length; i++) joined.push(prefix[i]);
+    for (let i = 0; i < suffix.length; i++) joined.push(suffix[i]);
+    if (!room(CodeUnitCharge * joined.length + ObjectCharge)) throw new Error("out of room");
+    nameValue = Value.FromString(table.CreateString(joined));
+  }
+  table.Get(args[0].Ref).AsClosure().Name = nameValue.Ref;
+  return Value.Undefined();
+}
 if (id === SetHiddenId) {
   if (args.length < 3) {
     throw new Error("unimplemented: set_hidden needs (object, key, value)");
