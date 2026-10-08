@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1876,
+  "matrix": 1997,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,9 +38,49 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     },
     {
+      "id": "string-regex-in-strings",
+      "layer": "stdlib",
+      "why": "口径外：`RegExp` 字面量是 v1 写死的非目标（docs/runtime-architecture.md §15）"
+    },
+    {
+      "id": "string-split-limit-and-capture",
+      "layer": "stdlib",
+      "why": "口径外：同上——按正则切分要 `RegExp`"
+    },
+    {
+      "id": "builtin-regexp-constructor",
+      "layer": "stdlib",
+      "why": "口径外：同上——`RegExp` 构造器不在目标里（`RegExp` 这个全局名不登记）"
+    },
+    {
+      "id": "json-stringify-bigint",
+      "layer": "stdlib",
+      "why": "口径外：同上——`BigInt` 字面量与 `JSON.stringify` 的 BigInt 分支都不在目标里"
+    },
+    {
+      "id": "builtin-bigint-conversion-forms",
+      "layer": "stdlib",
+      "why": "口径外：`BigInt` 在 docs/runtime-architecture.md §15 那张「明确不做」的表里（与 RegExp / Proxy / Intl 同档）"
+    },
+    {
       "id": "c639-e2e-string-matchall-and-index",
       "layer": "e2e",
       "why": true
+    },
+    {
+      "id": "k7-e2e-number-to-chinese",
+      "layer": "e2e",
+      "why": "口径外：这条 e2e 只用正则做切分，换成 `RegExp` 以外写法的版本已经另收（见同批 pass 的候选）"
+    },
+    {
+      "id": "k7-e2e-word-frequency",
+      "layer": "e2e",
+      "why": "口径外：同上"
+    },
+    {
+      "id": "k7-e2e-template-engine",
+      "layer": "e2e",
+      "why": "口径外：同上"
     }
   ],
   "progressPercent": 100,
@@ -48,8 +88,8 @@
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 523,
-      "pass": 523,
+      "total": 547,
+      "pass": 547,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -58,8 +98,8 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 429,
-      "pass": 429,
+      "total": 459,
+      "pass": 459,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -68,8 +108,8 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 735,
-      "pass": 735,
+      "total": 783,
+      "pass": 783,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -78,8 +118,8 @@
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 189,
-      "pass": 189,
+      "total": 208,
+      "pass": 208,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,

@@ -118,14 +118,30 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 
 | 层 | 条数 | 覆盖度 |
 | --- | --- | --- |
-| runtime | **523 / 523** | **100%** |
-| exec | **429 / 429** | **100%** |
-| stdlib | **734 / 734** | **100%** |
-| e2e | **189 / 189** | **100%** |
-| **合计（加权）** | **1875 / 1875** | **100%** |
+| runtime | **547 / 547** | **100%** |
+| exec | **459 / 459** | **100%** |
+| stdlib | **783 / 783** | **100%** |
+| e2e | **208 / 208** | **100%** |
+| **合计（加权）** | **1997 / 1997** | **100%** |
 
 四层全绿。**一条已知边界**：异步可迭代物那一档是**收完再迭代**（与自定义**同步**迭代器
 那条路同一取舍），所以「无穷异步可迭代物」会一直收下去——口径外的写法，不设第二份上限。
+
+### 第 658 轮普查：量出来、还没收的 24 条
+
+一次 153 条的加宽普查（候选留在 `tmp/`，不进仓库）里 121 条直接过、8 条落进两张口径外的表
+（`RegExp` / `BigInt`，以 `skip` 收进矩阵、不算进分母）。剩下 **24 条是真缺口**，
+**没有进矩阵**——进去了这一层就不再是 100%，而它们该修好之后再进（进的时候连用例带读数一起）。
+按根子归并：
+
+| 根子 | 条数 | 症状 |
+| --- | --- | --- |
+| 内建错误子类没落下来 | 5 | `TypeError` / `RangeError` 一族在引擎里都还是 `Error`（`null:TypeError` vs `null:Error`）；`WeakMap.set("s", 1)` 该抛却收下了 |
+| `padStart` / `padEnd` / `repeat` 的 `Infinity` 不收口 | 2 | 引擎**堆爆**（`heap limit reached`），`node` 给的是 `RangeError` |
+| 原生集合子类化 | 2 | `class M extends Map` → `not a Map receiver (no __k)` |
+| `Reflect` 这个全局名没登记 | 2 | `name is not a local or a capture: Reflect` |
+| ASI：`if` 块之后以 `[` 开头的新语句没切开 | 2 | `unimplemented: assignment to a non-identifier`；同族的 `(` 开头是**过**的，缺口只在 `[` 这一格 |
+| 其余单条 | 11 | 生成器 `yield*` 的 `return()` 收尾、遮蔽期 `typeof` 不抛 TDZ、`using` 不调 `Symbol.dispose`、嵌套 `export namespace`、`String.prototype.search`、`Array.isArray(arguments)`、知名符号的现代槽位、`Map` 边迭代边删、`Date.prototype.setTime`、`void n++`、`C instanceof Function` |
 
 `report.json` 是**最后一次整跑**的完整清单：`blocked` **0** 条、`differ` **0** 条、
 `bad`（裁判自己都跑不动的用例）**0** 条。

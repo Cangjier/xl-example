@@ -306,7 +306,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1104 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1876 / 1876**：四层各 **100%**（runtime 523、exec 429、stdlib 735、e2e 189） |
+| `coverage` | **1997 / 1997**：四层各 **100%**（runtime 547、exec 459、stdlib 783、e2e 208） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口

@@ -5772,4 +5772,126 @@ console.log(s2.join(","));
     title: "Symbol.asyncIterator 与 for await",
     src: "\nconst bag: any = {\n  [Symbol.asyncIterator]() {\n    let i = 0;\n    return { next: () => Promise.resolve(i < 3 ? { value: i++, done: false } : { value: undefined, done: true }) };\n  },\n};\nasync function main(): Promise<void> {\n  let sum = 0;\n  for await (const v of bag) { sum += v; }\n  console.log(\"sum\", sum);\n}\nmain().then(() => console.log(\"done\"));\n",
   },
+
+  // ===== 第 658 轮收编：普查 pass 的候选（24 条）=====
+  {
+    id: "k7-rt-generator-delegate-bidirectional",
+    title: "生成器：yield* 的双向传值（next(v) 送进被代理生成器、return 提前收尾）",
+    src: "\nfunction* inner() {\n  const got = yield \"a\";\n  yield \"inner-saw:\" + got;\n  return \"inner-ret\";\n}\nfunction* outer() {\n  const back = yield* inner();\n  yield \"outer-saw:\" + back;\n}\nconst it = outer();\nconsole.log(JSON.stringify(it.next()));\nconsole.log(JSON.stringify(it.next(\"first\")));\nconsole.log(JSON.stringify(it.next(\"second\")));\nconsole.log(JSON.stringify(it.next()));\n",
+  },
+  {
+    id: "k7-rt-finally-return-interaction",
+    title: "finally 与 return 的相互覆盖：finally 里的 return 赢、无 return 时原值保留",
+    src: "\nfunction keep() { try { return \"try\"; } finally { console.log(\"f1\"); } }\nfunction override() { try { return \"try\"; } finally { return \"finally\"; } }\nfunction lossy() { try { return \"try\"; } finally { console.log(\"f3\"); return; } }\nconsole.log(keep(), override(), lossy());\n",
+  },
+  {
+    id: "k7-rt-finally-break-continue",
+    title: "finally 与 break / continue：循环出口与 finally 的执行顺序",
+    src: "\nconst log: string[] = [];\nfor (let i = 0; i < 3; i++) {\n  try { if (i === 1) continue; log.push(\"body\" + i); } finally { log.push(\"fin\" + i); }\n}\nouter: for (let i = 0; i < 3; i++) {\n  try { if (i === 2) break outer; log.push(\"o\" + i); } finally { log.push(\"of\" + i); }\n}\nconsole.log(log.join(\"|\"));\n",
+  },
+  {
+    id: "k7-rt-generator-throw-into-frame",
+    title: "生成器：throw() 把异常送进挂起的 yield，被 try 接住后还能继续 yield",
+    src: "\nfunction* g() {\n  for (let i = 0; i < 3; i++) {\n    try { yield i; } catch (e) { console.log(\"caught:\" + (e as Error).message); }\n  }\n  return \"done\";\n}\nconst it = g();\nconsole.log(JSON.stringify(it.next()));\nconsole.log(JSON.stringify(it.throw(new Error(\"boom\"))));\nconsole.log(JSON.stringify(it.next()));\nconsole.log(JSON.stringify(it.next()));\n",
+  },
+  {
+    id: "k7-rt-per-iteration-binding",
+    title: "闭包与帧：for 的 let 每次迭代一个新绑定（var 只有一个）",
+    src: "\nconst fs: Array<() => number> = [];\nfor (let i = 0; i < 3; i++) fs.push(() => i);\nconst gs: Array<() => number> = [];\nfor (var j = 0; j < 3; j++) gs.push(() => j);\nconsole.log(fs.map((f) => f()).join(\",\"));\nconsole.log(gs.map((f) => f()).join(\",\"));\n",
+  },
+  {
+    id: "k7-rt-closure-capture-mutation",
+    title: "闭包：捕获的是变量（不是值），两个闭包共享同一格",
+    src: "\nfunction pair() {\n  let n = 0;\n  return { inc: () => ++n, get: () => n };\n}\nconst p = pair();\nconst q = pair();\nconsole.log(p.inc(), p.inc(), p.get(), q.get());\n",
+  },
+  {
+    id: "k7-rt-symbol-toprimitive-three-hints",
+    title: "Symbol.toPrimitive：hint 取 default / number / string 三条路",
+    src: "\nconst o = {\n  [Symbol.toPrimitive](hint: string) { return hint === \"number\" ? 1 : hint === \"string\" ? \"s\" : \"d\"; },\n};\nconsole.log(o + \"\", +o, `${o}`, o == 1, String(o));\n",
+  },
+  {
+    id: "k7-rt-prototype-chain-instanceof",
+    title: "原型链：三层继承上的 instanceof 与 isPrototypeOf，改原型后判定跟着变",
+    src: "\nclass A {} class B extends A {} class C extends B {}\nconst c = new C();\nconsole.log(c instanceof C, c instanceof B, c instanceof A, c instanceof Object);\nconsole.log(A.prototype.isPrototypeOf(c), C.prototype.isPrototypeOf(new B()));\nconsole.log(Object.getPrototypeOf(C.prototype) === B.prototype);\n",
+  },
+  {
+    id: "k7-rt-null-prototype-object",
+    title: "没有原型的对象：Object.create(null) 没有 toString，得靠 Object.prototype 借",
+    src: "\nconst bare = Object.create(null);\nconsole.log(Object.getPrototypeOf(bare), \"toString\" in bare, typeof bare.toString);\nbare.k = 1;\nconsole.log(Object.prototype.hasOwnProperty.call(bare, \"k\"), Object.keys(bare).join(\",\"));\nconsole.log(Object.prototype.toString.call(bare));\n",
+  },
+  {
+    id: "k7-rt-descriptor-accessor-flags",
+    title: "属性描述符：访问器 + enumerable/configurable 的默认值都是 false",
+    src: "\nconst o: any = {};\nlet hidden = 0;\nObject.defineProperty(o, \"v\", { get() { return hidden; }, set(n) { hidden = n; } });\no.v = 7;\nconst d = Object.getOwnPropertyDescriptor(o, \"v\");\nconsole.log(o.v, d.enumerable, d.configurable, d.writable, Object.keys(o).length);\nconsole.log(JSON.stringify(Object.keys(o)));\n",
+  },
+  {
+    id: "k7-rt-shared-closure-counter",
+    title: "值模型：对象标识（同一个对象两份引用），原始值按值比较",
+    src: "\nconst a = { n: 1 };\nconst b = a;\nconst c = { n: 1 };\nb.n = 2;\nconsole.log(a.n, a === b, a === c, JSON.stringify(a) === JSON.stringify(c));\nconsole.log(typeof null, [] === [], null === null, NaN === NaN, Object.is(NaN, NaN));\n",
+  },
+  {
+    id: "k7-rt-optional-chain-shells",
+    title: "可选链的壳：?.() 调用、?.[] 索引、delete 与赋值里不许用（语法层）",
+    src: "\nconst o: any = { f: (n: number) => n + 1, arr: [1, 2] };\nconst n1: any = null;\nconsole.log(o?.f(1), n1?.f(1), o?.arr?.[0], n1?.arr?.[0]);\nconsole.log(n1?.[\"x\"]?.y ?? \"fallback\", o?.missing?.deep?.deeper);\ndelete o?.arr;\nconsole.log(Array.isArray(o.arr), o.arr === undefined);\n",
+  },
+  {
+    id: "k7-rt-exception-through-callers",
+    title: "异常穿帧：三层调用里抛出，栈中途的 finally 依次跑",
+    src: "\nfunction a() { try { b(); } finally { console.log(\"fin-a\"); } }\nfunction b() { try { c(); } finally { console.log(\"fin-b\"); } }\nfunction c() { throw new RangeError(\"deep\"); }\ntry { a(); } catch (e) { console.log((e as Error).name, (e as Error).message); }\n",
+  },
+  {
+    id: "k7-rt-switch-fallthrough-and-default",
+    title: "switch：穿透、default 位置不影响语义、严格相等匹配",
+    src: "\nfunction f(n: number): string {\n  const out: string[] = [];\n  switch (n) {\n    case 1: out.push(\"one\");\n    case 2: out.push(\"two\"); break;\n    default: out.push(\"def\");\n    case 3: out.push(\"three\");\n  }\n  return out.join(\"/\");\n}\nconsole.log(f(1), f(2), f(3), f(9), f(0));\n",
+  },
+  {
+    id: "k7-rt-default-param-evaluation",
+    title: "默认参数：表达式每次调用求值、靠 arguments.length 区分「没传」与「传 undefined」",
+    src: "\nlet calls = 0;\nfunction f(a: number, b: number = ++calls): string {\n  return a + \":\" + b + \":\" + arguments.length;\n}\nconsole.log(f(1), f(1, 5), f(1, undefined), calls);\n",
+  },
+  {
+    id: "k7-rt-this-binding-forms",
+    title: "this 绑定：方法调用 / 裸调用 / call / 箭头函数取外层",
+    src: "\nconst o = { n: \"o\", get() { return this === undefined ? \"undef\" : (this as any).n; } };\nconst bare = o.get;\nconsole.log(o.get(), bare(), o.get.call({ n: \"x\" }));\nconst arrow = () => (this === undefined ? \"top-undef\" : \"top\");\nconsole.log(typeof arrow());\n",
+  },
+  {
+    id: "k7-rt-array-holes-and-length",
+    title: "数组的形状：delete 留洞、length 写大留洞、写小截断，遍历跳过洞",
+    src: "\nconst xs: any[] = [1, 2, 3, 4];\ndelete xs[1];\nconsole.log(xs.length, 1 in xs, xs.join(\",\"), JSON.stringify(xs));\nxs.length = 2;\nconsole.log(xs.length, xs.join(\",\"));\nxs.length = 5;\nconsole.log(xs.length, xs[4], Object.keys(xs).join(\",\"));\n",
+  },
+  {
+    id: "k7-rt-nested-finally-order",
+    title: "嵌套 try：内层 return 时两层 finally 的先后，以及抛错时 finally 的先后",
+    src: "\nfunction f(): string {\n  const log: string[] = [];\n  try {\n    try { return log.push(\"inner\") && \"ret\"; } finally { log.push(\"fin-inner\"); }\n  } finally { log.push(\"fin-outer\"); }\n}\nconsole.log(f());\ntry {\n  try { throw new Error(\"e\"); } finally { console.log(\"A\"); }\n} catch { console.log(\"B\"); } finally { console.log(\"C\"); }\n",
+  },
+  {
+    id: "k7-rt-arraylike-and-length",
+    title: "类数组：靠 length + 下标就能被 Array.from 收，arguments 也是这一类",
+    src: "\nconst like = { 0: \"a\", 1: \"b\", length: 2 };\nconsole.log(Array.from(like).join(\",\"), Array.prototype.slice.call(like).join(\",\"));\nfunction f() { return Array.from(arguments).join(\"+\"); }\nconsole.log(f(1, 2, 3), f.length);\n",
+  },
+  {
+    id: "k7-rt-object-key-order",
+    title: "键序：整数键在前升序、字符串键按插入、Symbol 不进 Object.keys",
+    src: "\nconst o: any = {};\no.b = 1; o[\"2\"] = 2; o.a = 3; o[\"1\"] = 4;\no[Symbol(\"s\")] = 5;\nconsole.log(Object.keys(o).join(\",\"));\nconsole.log(Object.getOwnPropertyNames(o).join(\",\"));\nconsole.log(Object.getOwnPropertySymbols(o).length);\n",
+  },
+  {
+    id: "k7-rt-coercion-plus-and-compare",
+    title: "值模型：+ 的字符串优先、关系比较走数值、== 的转换表",
+    src: "\nconsole.log(1 + \"2\", \"3\" * \"2\", [] + {}, [] + [], [1] + 1, null + 1, undefined + 1);\nconsole.log(\"10\" < \"9\", \"10\" < 9, null == undefined, null === undefined, \"\" == 0, [] == false);\n",
+  },
+  {
+    id: "k7-rt-conditional-expr-shortcircuit",
+    title: "短路求值：&& / || / ?? 的返回值与副作用是否发生",
+    src: "\nlet n = 0;\nconst bump = () => { n++; return \"bumped\"; };\nconsole.log(0 && bump(), 1 || bump(), undefined ?? bump(), n);\nconsole.log(null ?? \"d\", 0 ?? \"d\", \"\" || \"e\", \"0\" && \"f\");\n",
+  },
+  {
+    id: "k7-rt-generator-object-identity",
+    title: "生成器对象：迭代器 === 可迭代物、Symbol.iterator 返回自己、done 之后不再变",
+    src: "\nfunction* g() { yield 1; }\nconst it = g();\nconsole.log(typeof it.next, it[Symbol.iterator]() === it);\nconsole.log(JSON.stringify(it.next()), JSON.stringify(it.next()), JSON.stringify(it.next()));\nconsole.log([...g()].join(\",\"), JSON.stringify([...g()]));\n",
+  },
+  {
+    id: "k7-rt-labeled-break-block",
+    title: "带标签的块：label 挂在块上，break label 跳出块继续往下",
+    src: "\nconst log: string[] = [];\nblk: {\n  log.push(\"in\");\n  if (log.length === 1) break blk;\n  log.push(\"unreachable\");\n}\nlog.push(\"after\");\nconsole.log(log.join(\"|\"));\n",
+  },
 ];

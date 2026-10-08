@@ -4533,4 +4533,159 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     title: "模板字面量类型 / 映射类型全部擦除",
     src: "\ntype Keys<T> = { [K in keyof T as `get${string & K}`]: () => T[K] };\ntype Ev = `on-${\"a\" | \"b\"}`;\nclass Store { v = 1; }\nconst s: Keys<Store> = { getv: () => 1 };\nconst e: Ev = \"on-a\";\nconsole.log(s.getv(), e, typeof s, typeof e);\n",
   },
+
+  // ===== 第 658 轮收编：普查 pass 的候选（30 条）=====
+  {
+    id: "k7-ex-destructure-nested-patterns",
+    title: "解构：嵌套数组 / 嵌套对象 / 混着默认值与改名",
+    src: "\nconst [[a, b], [c = 9, d = 8] = []] = [[1, 2]];\nconst { p: { q, r = 5 } = { q: 6 }, s: [t, u] = [7, 8] } = { p: { q: 1 }, s: [2, 3] };\nconsole.log(a, b, c, d, q, r, t, u);\nconst [x, ...rest] = [1, 2, 3, 4];\nconst { m, ...others } = { m: 1, n: 2, o: 3 };\nconsole.log(x, rest.join(\",\"), m, JSON.stringify(others));\n",
+  },
+  {
+    id: "k7-ex-destructure-params-and-swap",
+    title: "解构参数与交换：函数签名里解构、解构赋值做交换",
+    src: "\nfunction f({ a, b = 2 }: { a: number; b?: number }, [c, d]: number[]): number { return a + b + c + d; }\nconsole.log(f({ a: 1 }, [3, 4]), f({ a: 1, b: 10 }, [3, 4]));\nlet x = 1, y = 2;\n[x, y] = [y, x];\nconst o: any = {};\n({ v: o.v } = { v: 42 });\nconsole.log(x, y, o.v);\n",
+  },
+  {
+    id: "k7-ex-defaults-rest-forms",
+    title: "默认值与剩余：后面还能有普通参数、剩余收进真数组",
+    src: "\nfunction g(a = 1, ...mid: number[]) { return [a, mid.length, mid.join(\"-\")].join(\":\"); }\nconsole.log(g(), g(5), g(5, 6, 7));\nfunction h(first: string, ...rest: string[]): number { return first.length + rest.length; }\nconsole.log(h(\"ab\"), h(\"ab\", \"c\", \"d\"));\nconsole.log([0, ...[1, 2], 3].join(\",\"), [...\"abc\"].join(\",\"));\n",
+  },
+  {
+    id: "k7-ex-optional-nullish-mixed",
+    title: "可选链与空值合并混用：?? 的优先级与括号的必要性",
+    src: "\nconst cfg: any = { a: { b: null }, c: 0, d: false, e: \"\" };\nconsole.log(cfg?.a?.b ?? \"dflt\", cfg?.c ?? \"dflt\", cfg?.d ?? true, cfg?.e ?? \"dflt\");\nconsole.log((cfg?.missing ?? \"m\") === \"m\", (cfg.a?.b || \"or\") === \"or\");\nconst n: any = { v: 0 };\nconsole.log(n?.v ?? -1, (n?.v || -1), n?.v === 0 ? \"zero\" : \"notzero\");\n",
+  },
+  {
+    id: "k7-ex-switch-case-scope",
+    title: "switch 的块作用域：所有 case 共享一个块（同名 let 会撞）",
+    src: "\nfunction f(n: number): string {\n  switch (n) {\n    case 1: { const v = \"one\"; return v; }\n    case 2: { const v = \"two\"; return v; }\n    default: { const v = \"other\"; return v; }\n  }\n}\nconsole.log(f(1), f(2), f(3));\nfunction g(n: number): number {\n  switch (n) { case 0: let z = 1; return z; default: return -1; }\n}\nconsole.log(g(0), g(1));\n",
+  },
+  {
+    id: "k7-ex-catch-binding-forms",
+    title: "catch 的绑定形态：带参 / 省略参数 / 参数是解构 / 类型位",
+    src: "\ntry { throw new Error(\"a\"); } catch (e) { console.log(\"one:\" + (e as Error).message); }\ntry { throw 1; } catch { console.log(\"two\"); }\ntry { throw { code: 7 }; } catch ({ code }: any) { console.log(\"three:\" + code); }\ntry { throw \"s\"; } catch (e: any) { console.log(\"four:\" + typeof e); }\n",
+  },
+  {
+    id: "k7-ex-class-fields-and-static-block",
+    title: "类字段与静态块：字段初始化顺序、静态块拿到 this",
+    src: "\nclass C {\n  a = 1;\n  b = this.a + 1;\n  static s = 10;\n  static {\n    C.s += 5;\n    this.extra = \"block\";\n  }\n  c: number;\n  constructor() { this.c = this.b + C.s; }\n}\nconst o = new C();\nconsole.log(o.a, o.b, o.c, C.s, (C as any).extra);\n",
+  },
+  {
+    id: "k7-ex-private-members",
+    title: "私有成员：# 字段 / # 方法 / static # 与 in 判定",
+    src: "\nclass Counter {\n  #n = 0;\n  static #total = 0;\n  #bump() { this.#n++; Counter.#total++; return this.#n; }\n  step() { return this.#bump(); }\n  static total() { return Counter.#total; }\n  static has(o: any) { return #n in o; }\n}\nconst c = new Counter();\nconsole.log(c.step(), c.step(), Counter.total(), Counter.has(c), Counter.has({}));\n",
+  },
+  {
+    id: "k7-ex-computed-member-names",
+    title: "计算成员名：对象字面量与类里的 [expr]、方法简写",
+    src: "\nconst k = \"dyn\";\nconst n = 1;\nconst o = { [k]: 1, [\"a\" + n]: 2, [`t${n}`]: 3, [\"m\"]() { return \"m\"; } };\nconst c = class { [\"p\"] = 4; [k]() { return 5; } };\nconst inst: any = new c();\nconsole.log(o.dyn, o.a1, o.t1, o.m(), inst.p, inst.dyn());\n",
+  },
+  {
+    id: "k7-ex-labeled-statements",
+    title: "带标签的语句：break 跳出外层循环、continue 跳到外层下一轮",
+    src: "\nconst log: string[] = [];\nouter: for (let i = 0; i < 3; i++) {\n  for (let j = 0; j < 3; j++) {\n    if (j === 2) continue outer;\n    if (i === 2) break outer;\n    log.push(i + \"\" + j);\n  }\n}\nconsole.log(log.join(\",\"));\n",
+  },
+  {
+    id: "k7-ex-comma-operator",
+    title: "逗号运算符：只取最后一个值、for 的更新位、声明里的逗号不是运算符",
+    src: "\nlet a = (1, 2, 3);\nlet i = 0, j = 10;\nfor (let x = 0, y = 5; x < 3; x++, y--) j = y;\nconsole.log(a, j);\nconst f = () => (console.log(\"side\"), \"ret\");\nconsole.log(f());\n",
+  },
+  {
+    id: "k7-ex-template-tag-raw",
+    title: "模板标签：strings 的 raw 与 cooked、插值位置对得上",
+    src: "\nfunction tag(strings: TemplateStringsArray, ...vals: any[]): string {\n  return strings.raw.join(\"|\") + \"#\" + vals.join(\",\") + \"#\" + strings.length;\n}\nconsole.log(tag`a${1}b${2}c`);\nconsole.log(tag`x\\ny`);\nconsole.log(tag`only`);\n",
+  },
+  {
+    id: "k7-ex-abstract-members",
+    title: "抽象成员：abstract 方法与抽象属性只有类型位，子类实现照跑",
+    src: "\nabstract class Shape {\n  abstract area(): number;\n  abstract name: string;\n  describe(): string { return this.name + \":\" + this.area(); }\n}\nclass Sq extends Shape {\n  name = \"sq\";\n  constructor(private side: number) { super(); }\n  area(): number { return this.side * this.side; }\n}\nconsole.log(new Sq(3).describe(), new Sq(2).area());\n",
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "k7-ex-parameter-properties",
+    title: "构造函数参数属性：public / private / readonly 各生成一个实例字段",
+    src: "\nclass P {\n  constructor(public a: number, private b: string, readonly c = true) {}\n  show(): string { return this.a + \"/\" + this.b + \"/\" + this.c; }\n}\nconst p = new P(1, \"x\");\nconsole.log(p.show(), p.a, p.c);\n",
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "k7-ex-overload-signatures",
+    title: "重载声明：只有最后那个实现是运行期代码",
+    src: "\nfunction pick(n: number): string;\nfunction pick(s: string): number;\nfunction pick(v: any): any { return typeof v === \"number\" ? \"n\" + v : v.length; }\nconsole.log(pick(1), pick(\"abc\"), pick.length);\nclass C {\n  m(x: number): number;\n  m(x: string): string;\n  m(x: any): any { return x; }\n}\nconsole.log(new C().m(1), new C().m(\"s\"));\n",
+  },
+  {
+    id: "k7-ex-satisfies-as-const",
+    title: "satisfies 与 as const：都只活在类型位，值原样",
+    src: "\nconst cfg = { mode: \"fast\", n: 2 } satisfies { mode: string; n: number };\nconst tuple = [1, \"a\", true] as const;\nconst frozen = { a: 1 } as const;\nconsole.log(cfg.mode, cfg.n, tuple.length, tuple[0], frozen.a, typeof tuple);\n",
+  },
+  {
+    id: "k7-ex-non-null-and-assertions",
+    title: "非空断言与 as 断言：一整串 ! 与 as unknown as 都不产生运行期代码",
+    src: "\nconst o: { a?: { b?: number } } = { a: { b: 2 } };\nconst v: number = o!.a!.b!;\nconst s = \"abc\" as unknown as number;\nconst arr = [1, 2] as number[];\nconsole.log(v, typeof s, arr.length);\n",
+  },
+  {
+    id: "k7-ex-type-only-imports",
+    title: "类型位导入导出：import type / export type / typeof 型导入都不产生装载",
+    src: "\nimport type { Stats } from \"node:fs\";\nexport type Local = { n: number };\ntype Alias = Stats | Local;\nconst x: Alias = { n: 1 };\nconst t: typeof x = { n: 2 };\nconsole.log(JSON.stringify(x), JSON.stringify(t));\n",
+  },
+  {
+    id: "k7-ex-index-signature-and-optional-props",
+    title: "索引签名与可选属性：接口只有类型位，运行期就是普通对象",
+    src: "\ninterface Bag { [k: string]: number; fixed: number; opt?: string }\nconst b: Bag = { fixed: 1, other: 2 };\nconst c: Bag = { fixed: 3 };\nconsole.log(b.fixed, b.other, b.opt, c.fixed, \"opt\" in c, \"opt\" in b);\n",
+  },
+  {
+    id: "k7-ex-enum-forms",
+    title: "enum 各种形态：自动编号 / 字符串值 / 反向映射 / 表达式初值",
+    src: "\nenum Color { Red, Green = 5, Blue }\nenum Dir { Up = \"UP\", Down = \"DOWN\" }\nenum Calc { A = 1 << 2, B = A | 1 }\nconsole.log(Color.Red, Color.Green, Color.Blue, Color[5], Color[0]);\nconsole.log(Dir.Up, Dir.Down, typeof Dir.Up);\nconsole.log(Calc.A, Calc.B);\n",
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "k7-ex-asi-paren-after-call",
+    title: "ASI 歧义：一条语句之后以 `(` 开头的新语句",
+    src: "\nconst f = (n: number) => n * 2;\nconst log: string[] = [];\nconst g = (s: string) => { log.push(s); };\ng(\"a\")\ng(\"b\")\nconsole.log(log.join(\",\"), f(3));\n",
+  },
+  {
+    id: "k7-ex-destructuring-assignment-member",
+    title: "解构赋值：左侧是成员表达式（this.x / 数组下标 / 计算键）",
+    src: "\nclass Holder {\n  a = 1;\n  b = 2;\n  swap() { [this.a, this.b] = [this.b, this.a]; return this; }\n}\nconst h = new Holder().swap();\nconst arr = [1, 2, 3];\n[arr[0], arr[2]] = [arr[2], arr[0]];\nconst o: any = {};\n[\"x\", \"y\"].forEach((k, n) => { [o[k]] = [n]; });\nconsole.log(h.a, h.b, arr.join(\",\"), JSON.stringify(o));\n",
+  },
+  {
+    id: "k7-ex-logical-assignment-forms",
+    title: "逻辑赋值：&&= / ||= / ??= 的短路与返回值",
+    src: "\nconst log: string[] = [];\nconst bump = () => { log.push(\"bump\"); return \"b\"; };\nconst o: any = { a: 0 };\no.a ||= bump();\no.a &&= \"kept\";\nconsole.log(o.a, log.join(\",\"));\nconst p: any = { b: 0, c: null };\np.b ??= \"dflt\";\np.c ??= \"dflt2\";\np.missing ||= 5;\nconsole.log(p.b, p.c, p.missing);\n",
+  },
+  {
+    id: "k7-ex-super-and-accessors",
+    title: "super 与访问器：子类里 super.x / super.f() 与 get/set 覆盖",
+    src: "\nclass Base {\n  #tag = \"base\";\n  get label(): string { return \"L:\" + this.#tag; }\n  set label(v: string) { this.#tag = v; }\n  who(): string { return \"base\"; }\n}\nclass Sub extends Base {\n  override get label(): string { return super.label + \"!\"; }\n  override set label(v: string) { super.label = v.toUpperCase(); }\n  override who(): string { return super.who() + \"/sub\"; }\n}\nconst s = new Sub();\nconsole.log(s.label, s.who());\ns.label = \"x\";\nconsole.log(s.label, s.who());\n",
+  },
+  {
+    id: "k7-ex-optional-chain-in-args",
+    title: "可选链在实参位与返回位：短路整条表达式、undefined 照传",
+    src: "\nconst log: string[] = [];\nconst take = (a: any, b: any) => { log.push(String(a) + \"/\" + String(b)); return a; };\nconst o: any = { f: () => \"v\" };\nconsole.log(take(o?.f(), o?.missing));\nconst none: any = null;\nconsole.log(take(none?.f(), none?.x?.y), log.join(\",\"));\nconsole.log([o?.f?.(), none?.f?.()].length, [...(o?.list ?? [1])].join(\",\"));\n",
+  },
+  {
+    id: "k7-ex-exponent-and-unary-mix",
+    title: "一元与幂运算的结合：`-2 ** 2` 是语法错、`(-2) ** 2` 才对",
+    src: "\nconsole.log(2 ** 3 ** 2, (-2) ** 2, 2 ** -1, 2 ** 0);\nlet n = 2;\nn **= 3;\nconsole.log(n, typeof (2 ** 3), -(2 ** 2) + 10);\n",
+  },
+  {
+    id: "k7-ex-void-typeof-delete",
+    title: "void / typeof / delete 的组合：都读成表达式",
+    src: "\nlet n = 1;\nconsole.log(void 0, typeof void 0, typeof typeof 1);\nconst o: any = { a: 1 };\nconsole.log(delete o.a, delete o.b, \"a\" in o);\nconsole.log(typeof undeclaredName, typeof (() => {}));\n",
+  },
+  {
+    id: "k7-ex-instanceof-function-operand",
+    title: "instanceof 的右操作数是全局构造器 `Function`（写在 instanceof 右边）",
+    src: "\nclass C {}\nconst c = new C();\nconsole.log(typeof Function, c instanceof C);\nconsole.log(C instanceof Object, C instanceof Function);\n",
+  },
+  {
+    id: "k7-ex-nested-ternary-and-assign",
+    title: "嵌套三元与条件里的赋值：结合性与求值顺序",
+    src: "\nconst f = (n: number): string => (n < 0 ? \"neg\" : n === 0 ? \"zero\" : n < 10 ? \"small\" : \"big\");\nconsole.log([-1, 0, 5, 50].map(f).join(\",\"));\nlet a = 0;\nconst b = (a = 1) ? \"t\" : \"f\";\nconsole.log(a, b, (a = 0) || (a = 2), a);\n",
+  },
+  {
+    id: "k7-ex-computed-class-members",
+    title: "类里的计算成员：静态计算名、getter 计算名、私有与计算名混用",
+    src: "\nconst key = \"dyn\";\nconst tag = Symbol(\"t\");\nclass C {\n  static [key] = \"static-dyn\";\n  [key](): string { return \"method-dyn\"; }\n  get [`g${1}`](): string { return \"getter1\"; }\n  [tag] = \"symbol-field\";\n  read(v: any): any { return v[tag]; }\n}\nconst c: any = new C();\nconsole.log((C as any)[key], c[key](), c.g1, c.read(c), typeof c[tag]);\n",
+  },
 ];

@@ -6261,4 +6261,280 @@ console.log(Object.keys(obj).join(","), obj[key], Object.getOwnPropertySymbols(o
     title: "Object.values / entries 走 [[Get]]：访问器要真读一次、不可枚举的不读、键序不变",
     src: "\nconst o: any = {};\nlet reads = 0;\nObject.defineProperty(o, \"g\", { get() { reads++; return 7; }, enumerable: true });\nObject.defineProperty(o, \"h\", { get() { return \"x\"; }, enumerable: true });\no.a = 1;\nconsole.log(JSON.stringify(Object.values(o)));\nconsole.log(JSON.stringify(Object.entries(o)));\nconsole.log(reads);\nconsole.log(JSON.stringify(Object.values({ 3: \"three\", \"a-b\": 1, 1: \"one\" })));\nconst arr: any = [10, 20];\nObject.defineProperty(arr, \"k\", { get() { return 30; }, enumerable: true });\nconsole.log(JSON.stringify(Object.values(arr)), JSON.stringify(Object.entries(arr)));\nconsole.log(JSON.stringify(Object.values(\"ab\")));\nconsole.log(Object.values([1, 2]).length, Object.entries({}).length);\nlet order: string[] = [];\nconst p: any = {};\nObject.defineProperty(p, \"b\", { get() { order.push(\"b\"); return 2; }, enumerable: true });\nObject.defineProperty(p, \"a\", { get() { order.push(\"a\"); return 1; }, enumerable: true });\nObject.defineProperty(p, \"z\", { get() { order.push(\"z\"); return 9; }, enumerable: false });\nconsole.log(JSON.stringify(Object.values(p)), order.join(\",\"));\nconsole.log(JSON.stringify(Object.entries(p)));\n",
   },
+
+  // ===== 第 658 轮收编：普查 pass 的候选（48 条）=====
+  {
+    id: "array-from-literals-and-sets",
+    title: "Array.from：可迭代物的几种（串 / Set / Map / 生成器）",
+    src: "\nfunction* g() { yield 1; yield 2; }\nconsole.log(Array.from(\"abc\").join(\",\"), Array.from(new Set([1, 1, 2])).join(\",\"));\nconsole.log(Array.from(new Map([[\"a\", 1]])).map((p) => p.join(\"=\")).join(\",\"));\nconsole.log(Array.from(g()).join(\",\"), Array.isArray(Array.from(\"ab\")));\n",
+  },
+  {
+    id: "array-fill-negative-and-undefined",
+    title: "Array.fill：负下标 / 越界 / 不写值就是 undefined",
+    src: "\nconst a = [1, 2, 3, 4];\nconsole.log(a.fill(0, -2).join(\",\"), a.join(\",\"));\nconsole.log([1, 2, 3].fill(9, 1, 1).join(\",\"), [1, 2].fill(9, -1, -1).join(\",\"));\nconsole.log([1, 2].fill(undefined).map((v) => String(v)).join(\",\"));\n",
+  },
+  {
+    id: "array-tostring-join-forms",
+    title: "Array.join / toString：null 与 undefined 都变空、嵌套走 toString",
+    src: "\nconst xs: any[] = [1, null, undefined, [2, 3], { toString() { return \"o\"; } }];\nconsole.log(xs.join(\"-\"), xs.toString(), String(xs));\nconsole.log([].join(\"-\") === \"\", [undefined].join(\"-\") === \"\", [null, null].join(\"-\"));\n",
+  },
+  {
+    id: "array-keys-values-entries-manual",
+    title: "Array.keys / values / entries 的迭代器返回形状",
+    src: "\nconst it = [\"a\", \"b\"].keys();\nconsole.log(JSON.stringify(it.next()), JSON.stringify(it.next()), JSON.stringify(it.next()));\nconsole.log(JSON.stringify([...\"a\"].values().next()));\nconsole.log([...[10, 20].entries()].map((p) => p.join(\":\")).join(\",\"));\n",
+  },
+  {
+    id: "array-sort-stability",
+    title: "Array.sort：比较器取返回值符号、稳定排序保留相等项的原序",
+    src: "\nconst xs = [{ k: 1, n: \"a\" }, { k: 0, n: \"b\" }, { k: 1, n: \"c\" }, { k: 0, n: \"d\" }];\nconsole.log(xs.sort((x, y) => x.k - y.k).map((x) => x.n).join(\"\"));\nconst ys = [3, 1, 2];\nconsole.log(ys.sort().join(\",\"), ys.sort((a, b) => b - a).join(\",\"));\nconsole.log([10, 9, 1].sort().join(\",\"), [10, 9, 1].sort((a, b) => a - b).join(\",\"));\n",
+  },
+  {
+    id: "array-reduce-empty-family",
+    title: "Array.reduce：空数组无初值抛 TypeError、有初值拿初值",
+    src: "\nconsole.log([1, 2, 3].reduce((a, b) => a + b), [1, 2, 3].reduce((a, b) => a + b, 10));\nconsole.log([].reduce((a: number, b: number) => a + b, 0));\ntry { [].reduce((a: number, b: number) => a + b); } catch (e) { console.log(\"no-init:\" + (e as Error).name); }\ntry { [].reduceRight((a: number, b: number) => a + b); } catch (e) { console.log(\"right:\" + (e as Error).name); }\nconsole.log([\"a\", \"b\"].reduceRight((a, b) => a + b));\n",
+  },
+  {
+    id: "array-flat-depth-and-sparse",
+    title: "Array.flat：深度参数、Infinity、空洞被去掉",
+    src: "\nconsole.log([1, [2, [3, [4]]]].flat().join(\",\"), [1, [2, [3, [4]]]].flat(2).join(\",\"));\nconsole.log([1, [2, [3, [4]]]].flat(Infinity).join(\",\"), [1, [2]].flat(0).join(\",\"));\nconst holey: any[] = [1, , 3];\nconsole.log(holey.flat().length, holey.flat().join(\",\"), JSON.stringify(holey.flat()));\n",
+  },
+  {
+    id: "array-isarray",
+    title: "Array.isArray：数组 / 类数组 / 字符串 与 Array 构造器的形态",
+    src: "\nconsole.log(Array.isArray([]), Array.isArray({ length: 0 }), Array.isArray(\"a\"));\nconsole.log(Array.isArray(new Array(3)), Array.isArray(Array.prototype), Array.isArray(null));\n",
+  },
+  {
+    id: "string-replaceall-forms",
+    title: "String.replaceAll（纯字符串形态）：全替换、空串模式插空",
+    src: "\nconsole.log(\"a-b-c\".replaceAll(\"-\", \"+\"), \"aaa\".replaceAll(\"a\", \"b\"), \"abc\".replaceAll(\"\", \"-\"));\nconsole.log(\"a.b.c\".split(\".\").length, \"a.b.c\".split(\".\", 2).join(\"|\"), \"abc\".split(\"\", 0).length);\n",
+  },
+  {
+    id: "string-at-codepoint-boundary",
+    title: "String.at / codePointAt：负下标与代理对边界",
+    src: "\nconst s = \"a😀b\";\nconsole.log(s.length, s.at(0), s.at(-1), s.at(1), s.at(99));\nconsole.log(s.codePointAt(1) === 0x1f600, s.codePointAt(0), s.codePointAt(99));\nconsole.log(\"abc\".charCodeAt(1), \"abc\".charCodeAt(9), Number.isNaN(\"abc\".charCodeAt(9)));\n",
+  },
+  {
+    id: "string-normalize-forms",
+    title: "String.normalize：NFC / NFD / 省略实参都是确定的",
+    src: "\nconst s = \"\\u00e9\";\nconsole.log(s.length, s.normalize().length, s.normalize(\"NFD\").length, s.normalize(\"NFC\") === s);\nconsole.log(\"\\u0041\\u030a\".normalize(\"NFC\"), \"\\u0041\\u030a\".normalize(\"NFD\").length);\n",
+  },
+  {
+    id: "string-trim-whitespace-set",
+    title: "String.trim 家族：各类空白字符与只有空白的串",
+    src: "\nconsole.log(JSON.stringify(\"  \\t\\n a b \\r\\n \".trim()), JSON.stringify(\"  \".trim()));\nconsole.log(JSON.stringify(\"\\u00a0x\\u00a0\".trim()), JSON.stringify(\"\\ufeffx\".trim()));\nconsole.log(JSON.stringify(\" a \".trimStart()), JSON.stringify(\" a \".trimEnd()));\n",
+  },
+  {
+    id: "string-iterator-codepoints",
+    title: "字符串迭代：按码点走、展开成数组、Array.from 同结果",
+    src: "\nconst s = \"a😀b\";\nconsole.log([...s].length, [...s].join(\"|\"), JSON.stringify([...s].map((c) => c.length)));\nconsole.log(Array.from(s).length, [...s][1].codePointAt(0));\n",
+  },
+  {
+    id: "object-getownpropertysymbols-forms",
+    title: "Object.getOwnPropertySymbols：只收自有 Symbol 键、继承的不算",
+    src: "\nconst s1 = Symbol(\"a\");\nconst proto = { [Symbol(\"p\")]: 1 };\nconst o: any = Object.create(proto);\no[s1] = 2;\no.n = 3;\nconsole.log(Object.getOwnPropertySymbols(o).length, Object.getOwnPropertySymbols(o)[0] === s1);\nconsole.log(Object.getOwnPropertySymbols(proto).length, Object.keys(o).join(\",\"));\n",
+  },
+  {
+    id: "object-propertyisenumerable-and-in",
+    title: "Object.prototype.propertyIsEnumerable 与 in：自有可枚举 vs 原型链",
+    src: "\nconst o: any = { a: 1 };\nObject.defineProperty(o, \"h\", { value: 2 });\nconsole.log(o.propertyIsEnumerable(\"a\"), o.propertyIsEnumerable(\"h\"), o.propertyIsEnumerable(\"toString\"));\nconsole.log(\"a\" in o, \"h\" in o, \"toString\" in o, o.hasOwnProperty(\"toString\"));\n",
+  },
+  {
+    id: "object-is-and-setprototypeof",
+    title: "Object.is 的四种边界 + Object.setPrototypeOf 之后 instanceof 跟着变",
+    src: "\nconsole.log(Object.is(NaN, NaN), Object.is(0, -0), Object.is(-0, -0), Object.is(1, \"1\"));\nclass A {} class B {}\nconst o = new A();\nObject.setPrototypeOf(o, B.prototype);\nconsole.log(o instanceof A, o instanceof B, Object.getPrototypeOf(o) === B.prototype);\n",
+  },
+  {
+    id: "object-fromentries-and-entries-forms",
+    title: "Object.fromEntries：数组对 / Map / 重复键后者赢",
+    src: "\nconsole.log(JSON.stringify(Object.fromEntries([[\"a\", 1], [\"b\", 2], [\"a\", 3]])));\nconsole.log(JSON.stringify(Object.fromEntries(new Map([[\"x\", 1]]))));\nconsole.log(Object.keys(Object.fromEntries([])).length, Object.fromEntries([[\"n\", undefined]]).n);\n",
+  },
+  {
+    id: "object-getownpropertynames-array",
+    title: "Object.getOwnPropertyNames(数组)：下标 + length，symbol 不在里面",
+    src: "\nconst xs: any[] = [1, 2];\nxs.extra = \"e\";\nconsole.log(Object.getOwnPropertyNames(xs).join(\",\"));\nconsole.log(Object.keys(xs).join(\",\"), Object.getOwnPropertyNames(\"ab\").join(\",\"));\n",
+  },
+  {
+    id: "object-assign-getters-and-symbols",
+    title: "Object.assign：读的是取值器（不是描述符）、Symbol 键也搬",
+    src: "\nconst s = Symbol(\"s\");\nconst src: any = { get g() { return \"got\"; } };\nsrc[s] = 1;\nconst dst = Object.assign({}, src);\nconsole.log(dst.g, dst[s], Object.getOwnPropertyDescriptor(dst, \"g\").get === undefined);\nconst d2 = Object.getOwnPropertyDescriptor(dst, \"g\");\nconsole.log(d2.writable, d2.enumerable);\n",
+  },
+  {
+    id: "number-tostring-nondecimal",
+    title: "Number.prototype.toString 的非十进制：2 / 8 / 16 / 36 与非法 radix",
+    src: "\nconsole.log((255).toString(16), (8).toString(2), (64).toString(8), (35).toString(36));\nconsole.log((0.5).toString(2), (-255).toString(16), (0).toString(2));\ntry { (1).toString(1); } catch (e) { console.log(\"radix1:\" + (e as Error).name); }\ntry { (1).toString(37); } catch (e) { console.log(\"radix37:\" + (e as Error).name); }\n",
+  },
+  {
+    id: "number-limits-and-epsilon",
+    title: "Number 的边界常量：MAX_SAFE_INTEGER / EPSILON 与加法是否改变数值",
+    src: "\nconsole.log(Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER + 2 === Number.MAX_SAFE_INTEGER + 1);\nconsole.log(Number.EPSILON > 0, 1 + Number.EPSILON !== 1, Number.MAX_VALUE > 1e308, Number.MIN_VALUE > 0);\nconsole.log(Number.isSafeInteger(Number.MAX_SAFE_INTEGER), Number.isSafeInteger(Number.MAX_SAFE_INTEGER + 1));\n",
+  },
+  {
+    id: "number-tofixed-boundaries",
+    title: "Number.toFixed：进位边界、大数的位数、负数与 -0",
+    src: "\nconsole.log((1.005).toFixed(2), (2.5).toFixed(0), (-2.5).toFixed(0), (0).toFixed(2));\nconsole.log((1e21).toFixed(2), (123.456).toFixed(0), (0.0001).toFixed(2));\ntry { (1).toFixed(101); } catch (e) { console.log(\"range:\" + (e as Error).name); }\n",
+  },
+  {
+    id: "number-parse-and-static-forms",
+    title: "Number / parseInt / parseFloat：空白、后缀垃圾、空串、十六进制",
+    src: "\nconsole.log(Number(\"\"), Number(\"  \"), Number(\"1x\"), Number(\"0x10\"), Number(\"1e3\"), Number(null), Number(undefined));\nconsole.log(parseInt(\"12px\", 10), parseInt(\"0x1f\"), parseInt(\"\"), parseInt(\"-7.9\"), parseFloat(\"1.5e2x\"));\nconsole.log(Number.isNaN(Number(\"x\")), Number.isFinite(Number(\"1\")), isFinite(\"1\"));\n",
+  },
+  {
+    id: "number-tostring-radix-roundtrip",
+    title: "Number.toString(radix) 与 parseInt 往返（精度与舍入）",
+    src: "\nconst n = 1234.5678;\nconsole.log(n.toString(36), parseInt(n.toString(36), 36), (123456789).toString(36));\nconsole.log((1 / 3).toString(16).length > 0, (2 ** 53).toString(16), (0.1 + 0.2).toString());\n",
+  },
+  {
+    id: "math-fround-and-clz32",
+    title: "Math.fround / Math.clz32 / Math.imul 的位级结果",
+    src: "\nconsole.log(Math.fround(1.5), Math.fround(0.1), Math.fround(-0), 1 / Math.fround(-0));\nconsole.log(Math.clz32(0), Math.clz32(1), Math.clz32(0xffffffff), Math.clz32(2));\nconsole.log(Math.imul(3, 4), Math.imul(-5, 12), Math.imul(0x7fffffff, 2), Math.imul(2, -2));\n",
+  },
+  {
+    id: "math-minmax-zero-and-nan",
+    title: "Math.min / max：-0 与 0 的取舍、NaN 传染、空实参",
+    src: "\nconsole.log(Math.min(0, -0), 1 / Math.min(0, -0), Math.max(0, -0), 1 / Math.max(0, -0));\nconsole.log(Math.min(NaN, 1), Math.max(NaN, 1), Math.min(), Math.max());\nconsole.log(Math.min(1, 2, 3), Math.max(-1, -2));\n",
+  },
+  {
+    id: "math-trunc-sign-abs-edge",
+    title: "Math.trunc / sign / abs：-0 与小数、NaN、Infinity",
+    src: "\nconsole.log(Math.trunc(1.9), Math.trunc(-1.9), Math.trunc(-0.5), 1 / Math.trunc(-0.5));\nconsole.log(Math.sign(-0), 1 / Math.sign(-0), Math.sign(0), Math.sign(NaN), Math.sign(Infinity));\nconsole.log(Math.abs(-0), 1 / Math.abs(-0), Math.abs(NaN), Math.abs(-Infinity));\n",
+  },
+  {
+    id: "math-sqrt-pow-special",
+    title: "Math.sqrt / pow / exp 的特殊值：负底数、0^0、Infinity",
+    src: "\nconsole.log(Math.sqrt(-1), Math.sqrt(0), 1 / Math.sqrt(-0), Math.sqrt(Infinity));\nconsole.log(Math.pow(0, 0), Math.pow(NaN, 0), Math.pow(1, Infinity), Math.pow(-8, 1 / 3));\nconsole.log(Math.exp(0), Math.exp(-Infinity), Math.log(0), Math.log1p(0));\n",
+  },
+  {
+    id: "math-round-and-fround-grid",
+    title: "Math.round / floor / ceil：半值向 +Infinity、负数与 .5 的取舍",
+    src: "\nconsole.log(Math.round(-0.5), 1 / Math.round(-0.5), Math.round(0.5), Math.round(-1.5), Math.round(2.5));\nconsole.log(Math.floor(-0.5), Math.ceil(-0.5), Math.floor(-1.5), Math.ceil(1.2));\nconsole.log(Math.round(1e21), Math.floor(0.5) + Math.ceil(0.5));\n",
+  },
+  {
+    id: "json-stringify-top-level-primitives",
+    title: "JSON.stringify 的顶格原始值：undefined / 函数 / Symbol 都返回 undefined",
+    src: "\nconsole.log(JSON.stringify(undefined), JSON.stringify(() => 1), JSON.stringify(Symbol(\"s\")));\nconsole.log(JSON.stringify(null), JSON.stringify(true), JSON.stringify(\"s\"), JSON.stringify(0), JSON.stringify(NaN));\nconsole.log(JSON.stringify([undefined, () => 1, Symbol(\"s\")]), JSON.stringify({ a: undefined, b: 1 }));\n",
+  },
+  {
+    id: "json-stringify-cycles",
+    title: "JSON.stringify：循环引用抛 TypeError、深层嵌套照常",
+    src: "\nconst o: any = { a: 1 };\no.self = o;\ntry { JSON.stringify(o); } catch (e) { console.log(\"cycle:\" + (e as Error).name); }\nconst deep = { a: { b: { c: { d: [1, 2, { e: null }] } } } };\nconsole.log(JSON.stringify(deep), JSON.stringify([[1], [2]]));\n",
+  },
+  {
+    id: "json-parse-reviver-and-errors",
+    title: "JSON.parse：reviver 的 delete 语义、非法文本抛 SyntaxError",
+    src: "\nconst r = JSON.parse('{\"a\":{\"b\":1},\"c\":2}', (k, v) => (k === \"b\" ? undefined : typeof v === \"number\" ? v * 10 : v));\nconsole.log(JSON.stringify(r));\nfor (const bad of [\"{'a':1}\", \"{a:1}\", \"\", \"undefined\"]) {\n  try { JSON.parse(bad); console.log(\"ok\"); } catch (e) { console.log(bad + \" -> \" + (e as Error).name); }\n}\n",
+  },
+  {
+    id: "json-stringify-tojson-chain",
+    title: "JSON.stringify 的 toJSON：容器里的对象先过 toJSON、数组里的也一样",
+    src: "\nconst inner = { toJSON() { return \"inner\"; } };\nconsole.log(JSON.stringify({ a: inner, b: [inner], c: { d: inner } }));\nconst d = new Date(0);\nconsole.log(JSON.stringify({ d }), JSON.stringify([d]));\n",
+  },
+  {
+    id: "symbol-description-and-keyfor",
+    title: "Symbol.description / keyFor：注册表里的与临时的分开",
+    src: "\nconst a = Symbol(\"x\");\nconst b = Symbol();\nconst c = Symbol.for(\"reg\");\nconsole.log(a.description, b.description, c.description, Symbol.keyFor(c), Symbol.keyFor(a));\nconsole.log(Symbol.for(\"reg\") === c, Symbol(\"reg\") === a, typeof a);\n",
+  },
+  {
+    id: "symbol-wellknown-identity",
+    title: "well-known Symbol 的同一性：iterator / asyncIterator 是同一格",
+    src: "\nconsole.log(Symbol.iterator === Symbol.iterator, typeof Symbol.asyncIterator, typeof Symbol.hasInstance);\nconsole.log(Symbol.toPrimitive === Symbol[\"toPrimitive\"], Symbol.match === Symbol.match);\n",
+  },
+  {
+    id: "map-key-identity-and-nan",
+    title: "Map 的键同一性：NaN 与 NaN、-0 与 0、对象按引用",
+    src: "\nconst m = new Map<any, string>();\nm.set(NaN, \"nan\");\nm.set(-0, \"zero\");\nm.set({}, \"obj\");\nm.set({}, \"obj2\");\nconsole.log(m.size, m.get(NaN), m.get(0), m.get(-0), m.get({}));\nconsole.log([...m.keys()].map((k) => String(k)).join(\",\"));\n",
+  },
+  {
+    id: "set-dedupe-and-iteration-forms",
+    title: "Set 的去重与迭代：NaN 只算一个、forEach 的三个实参",
+    src: "\nconst s = new Set([1, 1, NaN, NaN, 0, -0, \"1\"]);\nconsole.log(s.size, s.has(NaN), s.has(0), s.has(-0));\nconst args: string[] = [];\ns.forEach((v, k, self) => { args.push(String(v) + \"=\" + String(k) + \"/\" + (self === s)); });\nconsole.log(args.join(\"|\"));\nconsole.log([...s].join(\",\"));\n",
+  },
+  {
+    id: "date-fixed-instant-forms",
+    title: "Date：固定时刻的 ISO / UTC 串 / toJSON / getTime",
+    src: "\nconst d = new Date(0);\nconsole.log(d.getTime(), d.toISOString(), d.toJSON(), d.valueOf());\nconsole.log(new Date(1700000000000).toISOString(), new Date(\"2020-01-02T03:04:05.678Z\").getTime());\nconsole.log(Date.parse(\"2020-01-02T03:04:05.678Z\"), Date.parse(\"not a date\"), Number.isNaN(Date.parse(\"x\")));\n",
+  },
+  {
+    id: "date-utc-and-formatting",
+    title: "Date.UTC / 两位年份 / 越界进位 / 本地时区字段",
+    src: "\nconsole.log(Date.UTC(1970, 0, 1), Date.UTC(99, 0, 1) === Date.UTC(1999, 0, 1), Date.UTC(2020, 12, 1));\nconst d = new Date(Date.UTC(2020, 0, 31, 25, 0, 0));\nconsole.log(d.toISOString(), new Date(Date.UTC(2020, 1, 29)).toISOString());\nconsole.log(new Date(0).getUTCFullYear(), new Date(0).getUTCMonth(), new Date(0).getUTCDay());\n",
+  },
+  {
+    id: "date-setters-normalize",
+    title: "Date 的 setter：越界归一化（setUTCMonth / setUTCDate）与返回的时间戳",
+    src: "\nconst d = new Date(Date.UTC(2020, 0, 1));\nconsole.log(d.setUTCMonth(12), d.toISOString());\nconsole.log(d.setUTCDate(0), d.toISOString());\n",
+  },
+  {
+    id: "date-invalid-and-comparisons",
+    title: "Date 的非法值与比较：NaN 时间、toISOString 抛、差值比较",
+    src: "\nconst bad = new Date(NaN);\nconsole.log(bad.getTime(), Number.isNaN(bad.getTime()));\ntry { bad.toISOString(); } catch (e) { console.log(\"range:\" + (e as Error).name); }\nconsole.log(new Date(1000) < new Date(2000), new Date(2000) - new Date(1000), +new Date(0));\n",
+  },
+  {
+    id: "promise-finally-forms",
+    title: "Promise.finally：原值透传、finally 里抛则覆盖、finally 里 return 无效",
+    src: "\nconst log: string[] = [];\nconst run = async () => {\n  await Promise.resolve(\"v\").finally(() => { log.push(\"fin\"); }).then((v) => log.push(\"then:\" + v));\n  await Promise.reject(new Error(\"e\")).finally(() => { log.push(\"fin2\"); }).catch((e) => log.push(\"catch:\" + (e as Error).message));\n  await Promise.resolve(\"x\").finally(() => \"ignored\").then((v) => log.push(\"kept:\" + v));\n  console.log(log.join(\"|\"));\n};\nrun();\n",
+  },
+  {
+    id: "promise-then-handler-throws",
+    title: "Promise.then：onFulfilled 里抛 ⇒ 下一环走 catch；返回 Promise 会展开",
+    src: "\nconst log: string[] = [];\nconst run = async () => {\n  await Promise.resolve(1).then((v) => { throw new Error(\"t\" + v); }).catch((e) => log.push(\"c:\" + (e as Error).message));\n  await Promise.resolve(1).then(() => Promise.resolve(\"inner\")).then((v) => log.push(\"flat:\" + v));\n  await Promise.resolve(1).then(() => { throw \"str\"; }).catch((e) => log.push(\"str:\" + typeof e));\n  console.log(log.join(\"|\"));\n};\nrun();\n",
+  },
+  {
+    id: "promise-resolve-thenable-and-all-empty",
+    title: "Promise.resolve 吃 thenable；all / race 收空数组",
+    src: "\nconst thenable = { then(res: (v: string) => void) { res(\"t\"); } };\nconst run = async () => {\n  console.log(await Promise.resolve(thenable));\n  console.log(JSON.stringify(await Promise.all([])));\n  console.log(await Promise.race([]).then(() => \"never\", () => \"never\"));\n  console.log(JSON.stringify(await Promise.allSettled([])));\n};\nrun();\n",
+  },
+  {
+    id: "promise-any-and-allsettled-forms",
+    title: "Promise.any 全拒时的 AggregateError 与 allSettled 的两种状态",
+    src: "\nconst run = async () => {\n  const r = await Promise.allSettled([Promise.resolve(1), Promise.reject(new Error(\"x\"))]);\n  console.log(r.map((x) => (x.status === \"fulfilled\" ? \"f\" + x.value : \"r\" + (x.reason as Error).message)).join(\",\"));\n  console.log(await Promise.any([Promise.reject(new Error(\"a\")), Promise.resolve(\"b\")]));\n  try { await Promise.any([Promise.reject(new Error(\"a\"))]); } catch (e) { console.log((e as Error).name, ((e as any).errors as Error[]).length); }\n};\nrun();\n",
+  },
+  {
+    id: "promise-async-return-forms",
+    title: "async 函数的返回：同步值、await 顺序、隐式 undefined、返回 thenable",
+    src: "\nasync function f() { return 1; }\nasync function g() { const v = await f(); return v + 1; }\nasync function h() {}\nasync function i() { return { then(res: (v: number) => void) { res(9); } }; }\nconst run = async () => {\n  console.log(await f(), await g(), await h(), await i());\n  const order: string[] = [];\n  Promise.resolve().then(() => order.push(\"micro\"));\n  order.push(\"sync\");\n  await null;\n  console.log(order.join(\",\"));\n};\nrun();\n",
+  },
+  {
+    id: "global-encode-decode-forms",
+    title: "encodeURI / encodeURIComponent / decode 家族与 URIError",
+    src: "\nconsole.log(encodeURIComponent(\"a b&c=d\"), encodeURI(\"http://x/a b?q=1&r=2\"));\nconsole.log(decodeURIComponent(\"%E4%B8%AD\"), encodeURIComponent(\"中\").length);\ntry { decodeURIComponent(\"%\"); } catch (e) { console.log(\"uri:\" + (e as Error).name); }\ntry { decodeURI(\"%E4%B8\"); } catch (e) { console.log(\"uri2:\" + (e as Error).name); }\n",
+  },
+  {
+    id: "global-parseint-radix-forms",
+    title: "parseInt 的 radix：0x 前缀、前导空白、非法基数与截断",
+    src: "\nconsole.log(parseInt(\"  42abc\", 10), parseInt(\"0x1f\"), parseInt(\"1f\", 16), parseInt(\"11\", 2));\nconsole.log(parseInt(\"-0\"), 1 / parseInt(\"-0\"), parseInt(\"08\"), parseInt(\"z\", 36));\nconsole.log(parseInt(\"10\", 1), parseInt(\"10\", 37), parseInt(\"\"), Number.isNaN(parseInt(\"x\")));\n",
+  },
+
+  // ===== 第 658 轮：口径外（RegExp）的候选，收进来但不算进分母 =====
+  {
+    id: "string-regex-in-strings",
+    title: "正则字面量用在字符串方法上：replace / search / split（正则那一族）",
+    src: "\nconsole.log(\"abcabc\".search(/b/), \"abc\".search(/z/));\nconsole.log(\"a1b2c\".split(/(\\d)/).join(\"|\"));\nconsole.log(\"a1b2\".replace(/\\d/g, \"#\"));\n",
+    skip: "口径外：`RegExp` 字面量是 v1 写死的非目标（docs/runtime-architecture.md §15）",
+  },
+  {
+    id: "string-split-limit-and-capture",
+    title: "String.split：正则里的捕获组会进结果、limit 与空分隔符",
+    src: "\nconsole.log(\"a1b2c\".split(/(\\d)/).join(\"|\"));\nconsole.log(\"a,b,c\".split(/,/, 2).join(\"|\"), \"abc\".split(\"\").join(\"|\"), \"\".split(/,/).length);\n",
+    skip: "口径外：同上——按正则切分要 `RegExp`",
+  },
+  {
+    id: "builtin-regexp-constructor",
+    title: "RegExp 构造器：new RegExp / 字面量与字面量不是一回事",
+    src: "\nconst re = new RegExp(\"a+\", \"g\");\nconsole.log(re.test(\"caaat\"), re.source, re.flags);\nconsole.log(/b/.test(\"abc\"), \"abc\".replace(/b/, \"B\"));\nconsole.log(typeof RegExp, new RegExp(\"x\").toString());\n",
+    skip: "口径外：同上——`RegExp` 构造器不在目标里（`RegExp` 这个全局名不登记）",
+  },
+
+  // ===== 第 658 轮：口径外（BigInt）的候选，收进来但不算进分母 =====
+  {
+    id: "json-stringify-bigint",
+    title: "JSON.stringify：BigInt 值该抛 TypeError（普通程序里会撞上）",
+    src: "\ntry { JSON.stringify({ n: 1n }); } catch (e) { console.log(\"bigint:\" + (e as Error).name); }\ntry { JSON.stringify(2n); } catch (e) { console.log(\"top:\" + (e as Error).name); }\ntry { JSON.stringify([1n]); } catch (e) { console.log(\"in-array:\" + (e as Error).name); }\nconsole.log(typeof 1n, (2n + 3n) === 5n);\n",
+    skip: "口径外：同上——`BigInt` 字面量与 `JSON.stringify` 的 BigInt 分支都不在目标里",
+  },
+  {
+    id: "builtin-bigint-conversion-forms",
+    title: "BigInt：BigInt() 转换、1n 字面量、与 Number 互转",
+    src: "\nconsole.log(BigInt(\"123\") + 1n, typeof BigInt(1), 5n * 2n);\nconsole.log(BigInt(Number.MAX_SAFE_INTEGER) + 2n);\nconsole.log(Number(10n), BigInt(10) === 10n, 1n < 2);\n",
+    skip: "口径外：`BigInt` 在 docs/runtime-architecture.md §15 那张「明确不做」的表里（与 RegExp / Proxy / Intl 同档）",
+  },
 ];
