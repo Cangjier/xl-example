@@ -318,7 +318,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1398 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3520 / 3802**，加权 **95.9%**：token 1179/1398（另有 219 条登记缺口走另一条账）、exec 597/609、runtime 612/613、stdlib 890/936、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 40），全登在用例文件头的台账里；`bad` 3 条是 `import` / `export` 那三份的运行形态问题（见 coverage 的 README） |
+| `coverage` | **五类 3521 / 3802**，加权 **95.9%**：token 1179/1398（另有 219 条登记缺口走另一条账）、exec 598/609、runtime 612/613、stdlib 890/936、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 41），全登在用例文件头的台账里；`bad` **0 条**（第 686 轮收掉了原来那 3 条——它们不是用例写错，是裁判侧 `.work-<pid>/src/` 那份哨兵 `package.json` 写了显式 `type: commonjs`，把批那一档的 `import()` 钉死在 CJS 上） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口

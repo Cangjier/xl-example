@@ -1,8 +1,8 @@
 {
   "//": "用例语料的运行形态：CommonJS / 松散模式。",
   "//2": "为什么有这一份：`.ts` 的执行形态由**最近的** package.json 决定。用例可以直接 `node tests/cases/<类别>/<域>/<名字>.ts` 跑（迁移前是每次现写到 tests/coverage/.work-<pid>/，同样落在仓根那份 type=commonjs 下），这一份把同一件事写在这个树里。",
-  "//3": "与判据的关系（实测过）：**判据不看这一份** —— run.mjs 把每条正文现写到 .work-<pid>/src/，那里另有一份哨兵 package.json，读数由那一份决定（把那一份改成 module 会掉 20 条：bad 3→12、differ 40→50、95.9%→95.1%）。把这一份改成 module 对读数**没有影响**（量过）。",
-  "//4": "为什么两边都写 commonjs：ESM 一律是严格模式，而这一层语料的期望值全是照松散模式写的（Object.freeze 之后写属性静默、delete 不可配置属性静默、非严格调用里 this 指向全局）。",
-  "//5": "代价（记在明处）：import / export 那 3 条用例在 CJS 下 node 直接语法错 ⇒ 判 nodefail（bad）。要修它得让裁判按每个用例的形态选模式。",
+  "//3": "与判据的关系（实测过）：**判据只看这一份的 type** —— run.mjs 把每条正文现写到 .work-<pid>/src/（那里那份哨兵 package.json **故意不写 type**，见 run.mjs 里那段注释），而显式 type 那一格仍然由这一份给出。把这一份改成 module 对读数**没有影响**（量过，因为 .work-<pid>/src/ 不是它的子目录）；把 .work-<pid>/src/ 那份写成显式 module 才会掉 20 条（bad 3→12、differ 40→50、通过 3520→3500）。",
+  "//4": "为什么写 commonjs：ESM 一律是严格模式，而这一层语料的期望值全是照松散模式写的（Object.freeze 之后写属性静默、delete 不可配置属性静默、非严格调用里 this 指向全局）。",
+  "//5": "import / export 那 3 条用例（第 686 轮已修）：原来判 nodefail（bad）——那不是用例的错，是 .work-<pid>/src/ 那份哨兵写了显式 type=commonjs，把裁判**批那一档**的 import() 钉死了（`node <文件>.ts` 会按语法探测重试成 ESM，`import()` 不会）。哨兵改成不写 type 之后，三条各自回到真实判决：006 pass、007 differ、056 blocked（bad 3→0）。",
   "type": "commonjs"
 }

@@ -171,14 +171,38 @@ fs.mkdirSync(workDir, { recursive: true });
 /** 裁判侧那一份份 `.ts` 落在哪儿（见 `judgeSourceFile` 的说明）。 */
 const srcDir = path.join(workDir, "src");
 fs.mkdirSync(srcDir, { recursive: true });
-// **哨兵包**：这一层要 **CommonJS / 松散模式**——与这一层语料一直以来的执行形态一致
-// （期望值全是照松散模式写的：写只读属性静默、`delete` 不可配置属性静默、
-// 非严格调用里 `this` 指向全局）。仓根那份也是 commonjs，这里**显式写下来**，
-// 免得哪天有人在 `tests/` 或 `tests/cases/` 放一份 `"type": "module"` 把它悄悄换掉
-// ——实测换成 module 会让 12 条用例从 pass 变 nodefail、9 条 stdout 不同。
+// **哨兵 `package.json` 要写上，但里面不能有 `type`**（第 686 轮；原来写的是 `{"type":"commonjs"}`）。
+//
+// 那一份**本身是错的**，错在把两种判据的**入口形态**混成一种。`.ts` 的执行形态由最近的
+// `package.json` 决定，而「最近的 `package.json`」对**入口点**与对 **`import()` 进来的模块**
+// 是两回事：
+//
+//   · `node <文件>.ts`（`--no-batch` 那一档）——Node 按最近的 `package.json` 取到 commonjs 后
+//     先按 CJS 解析，**失败再按语法探测重试成 ESM**（`Failed to load the ES module: …`
+//     那句 warning 就是这个重试），所以带 `export` / `import` / 顶层 `await` 的用例**跑得动**；
+//   · 批里那句 `await import(url)`（`judge-batch.mjs`）——**没有那一步重试**，
+//     在显式 `type: commonjs` 下带 ESM 语法的文件就是**硬语法错**。
+//
+// 于是同一条用例在两档里结论不同，而 `verdictOf` 只看裁判的退出码 ⇒ 判 `nodefail` / `bad`
+// （第 685 轮那 3 条 `bad` 就是这么来的：`006-module-export` / `007-module-import` /
+// `056-l677p-dynamic-import`——**它们没有一条真的跑不动**，是这一份哨兵把批那一路弄坏的）。
+//
+// **两种改法都实测过，只有这一种对**（关键是这一层在仓根那份 `type: commonjs` 之下，
+// 仓根那份不能动——`tests/cases/package.json` 也依赖它）：
+//
+//   · **删掉这一份** ✗：最近的 `package.json` 变成仓根那份 `type: commonjs`，批那一路照旧硬错；
+//   · **换成 `{"type":"module"}`** ✗：ESM 一律严格模式，而这一层语料的期望值全是照松散模式
+//     写的（写只读属性静默、`delete` 不可配置属性静默、非严格调用里 `this` 指向全局）——
+//     实测 `bad 3 → 12`、`differ 40 → 50`、通过 3520 → 3500；
+//   · **`{}`（只有注释、没有 `type`）** ✓：**没有显式 `type` ⇒ Node 对 `.ts` 走语法探测**，
+//     批那一路与 `node <文件>.ts` 落到同一个模式上；而这一层仍在仓根的 commonjs 之内，
+//     松散模式那一半原样保住（实测同一条用例在两档下的 `this` / 冻结写 / `delete` 三个读数
+//     逐字相同）。
+//
+// 也就是说这里要的是**「没有显式 type」**，不是「显式换成另一个 type」。
 fs.writeFileSync(
   path.join(srcDir, "package.json"),
-  `${JSON.stringify({ "//": "用例语料的运行形态：CommonJS / 松散模式。见 tests/coverage/run.mjs 的 judgeSourceFile。", type: "commonjs" }, null, 2)}\n`,
+  `${JSON.stringify({ "//": "本目录**故意不写 type**：写了就把批那一路的 import() 钉死在那个模式上（见 run.mjs 里这段注释）。" }, null, 2)}\n`,
   "utf8",
 );
 

@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.89,
+  "progressPercent": 95.93,
   "categories": [
     {
       "category": "token",
@@ -91,11 +91,11 @@
       "category": "exec",
       "weight": 0.25,
       "total": 609,
-      "pass": 597,
+      "pass": 598,
       "blocked": 1,
-      "differ": 9,
-      "nodefail": 2,
-      "coverage": 98.03
+      "differ": 10,
+      "nodefail": 0,
+      "coverage": 98.19
     },
     {
       "category": "runtime",
@@ -112,9 +112,9 @@
       "weight": 0.2,
       "total": 936,
       "pass": 890,
-      "blocked": 14,
+      "blocked": 15,
       "differ": 31,
-      "nodefail": 1,
+      "nodefail": 0,
       "coverage": 95.09
     },
     {
@@ -1512,6 +1512,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: eval"
     },
     {
+      "id": "stdlib/globals/056-l677p-dynamic-import",
+      "category": "stdlib",
+      "title": "口径外：动态 import() 的返回形状（多文件加载不是 v1 目标）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ImportKeyword"
+    },
+    {
       "id": "stdlib/json/050-json-stringify-bigint",
       "category": "stdlib",
       "title": "JSON.stringify：BigInt 值该抛 TypeError（普通程序里会撞上）",
@@ -1584,6 +1590,12 @@
       "category": "exec",
       "title": "私有名的品牌检查与错接收者",
       "detail": "stdout 不同：第 4 行：node «wrong-receiver ERR TypeError» vs tsrun «wrong-receiver undefined»"
+    },
+    {
+      "id": "exec/enums-namespaces/007-module-import",
+      "category": "exec",
+      "title": "`import` 语句（模块解析与加载不在口径内）",
+      "detail": "stdout 不同：第 1 行：node «function» vs tsrun «undefined»"
     },
     {
       "id": "exec/expressions/110-ex-using-declaration-dispose",
@@ -1667,7 +1679,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22420/src/2808.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18124/src/2808.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1814,23 +1826,7 @@
       "detail": "stdout 不同：第 1 行：node «object constructor function» vs tsrun «undefined constructor no»"
     }
   ],
-  "bad": [
-    {
-      "id": "exec/enums-namespaces/006-module-export",
-      "category": "exec",
-      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-22420\\src\\1543.ts:2"
-    },
-    {
-      "id": "exec/enums-namespaces/007-module-import",
-      "category": "exec",
-      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-22420\\src\\1544.ts:2"
-    },
-    {
-      "id": "stdlib/globals/056-l677p-dynamic-import",
-      "category": "stdlib",
-      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-22420\\src\\2907.ts:4"
-    }
-  ],
+  "bad": [],
   "moved": [],
   "newlyPassing": [],
   "regressions": []

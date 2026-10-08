@@ -23,12 +23,22 @@
    两条完整链路、中间没有打桩；比 **stdout 逐字节 + 退出码**。`xl:args` 那一档
    给有运行期语义、类型剥离拒收的语法（`enum` / `namespace`）换 `--experimental-transform-types`。
    **裁判侧的源码每次现写**到 `.work-<pid>/src/<下标>.ts`（跑完就删），那一份目录里带一个
-   `package.json`（`type: commonjs`）——`.ts` 的执行形态由**最近的** `package.json` 决定，
-   显式写下来才不会被人从别处改成**严格模式**。
-   **实测**（把那一份的 `type` 改成 `module` 再跑同一趟）：`bad 3 → 12`、`differ 40 → 50`、
-   总通过 **3520 → 3500**、加权 **95.9% → 95.1%**。差的那 20 条全是**期望值照松散模式写的**
-   用例（`Object.freeze` 之后写属性该静默、`delete` 不可配置属性该静默、
-   非严格调用里 `this` 指向全局）。所以这一份哨兵是**判定的一部分**，不是可有可无的配置。
+   `package.json`，**但它故意不写 `type`**（第 686 轮；原来写的是 `type: commonjs`）——
+   `.ts` 的执行形态由**最近的** `package.json` 决定，而「最近的」对**入口点**与对
+   **`import()` 进来的模块**是两回事：`node <文件>.ts` 拿 `type: commonjs` 先按 CJS 解析、
+   失败再**按语法探测重试成 ESM**，批里那句 `await import()` **没有那一步重试**。
+   于是显式 `type: commonjs` 会把 `export` / `import` / 顶层 `await` 的用例在批那一档判成
+   语法错 ⇒ `nodefail` / `bad`。**不写 `type` ⇒ 两档都走语法探测、落到同一个模式**，
+   而这一层仍在仓根那份 `type: commonjs` 之内，**松散模式那一半原样保住**
+   （实测：同一条用例在两档下的 `this` / 冻结写 / `delete` 三个读数逐字相同）。
+   **实测**（同一趟全矩阵，哨兵从 `type: commonjs` 改成不写 `type`）：
+   `bad 3 → 0`（那 3 条各自回到真实判决：`006-module-export` pass、`007-module-import` differ、
+   `056-l677p-dynamic-import` blocked），通过 **3520 → 3521**、`blocked 239 → 240`、
+   `differ 40 → 41`，`regressions` 0。
+   反过来**写成 `type: module`**也要不得：ESM 一律严格模式，而这一层语料的期望值全是照
+   松散模式写的（`Object.freeze` 之后写属性静默、`delete` 不可配置属性该静默、
+   非严格调用里 `this` 指向全局）——实测 `bad 3 → 12`、`differ 40 → 50`、通过掉到 3500、
+   加权 **95.9% → 95.1%**。所以这里要的是**「没有显式 type」**，不是「显式换成另一个 type」。
    （`tests/cases/package.json` 那一份是给「直接 `node <用例>.ts`」用的，实测改它**不影响**读数
    ——判据跑的是 `.work-<pid>/src/` 里现写的那一份。）
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
