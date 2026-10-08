@@ -186,6 +186,31 @@
    次序表里根本没有那一格（实测：只改 `JsonText` 三处仍然给 `{}`）。
    `stdlib/object/probe694-o34` 转绿、台账已撤（`newlyPassing` 就是它）。
    **本批 150 条全 pass**（这一族没有别的缺口）。加权仍是 **95.7%**（分子 +151、分母 +150）。
+   **第 696 轮全矩阵**（两批原子探针 152 份新语料：102 + 50）：通过 **5241 → 5395**、
+   分母 **5577 → 5729**、`blocked 251 → 253`、`differ 85 → 81`、
+   `bad` 仍 **0**、`regressions` **0**、`moved` 0、`newlyPassing` **5**——收掉的是
+   **类数组接收者那一族**（`Array.prototype.map.call({ length: 2, 0: "a", 1: "b" }, f)`
+   原来报 `this method needs an array receiver`）。**修法不是「每个方法都改成通用的」**
+   （这一块有三十来个分派分支、全建在 `HeapArray` 上，一处一处改就是三十份会漂的判据），
+   而是**先把接收者折成一个真数组**再走**下面同一段**：`ArrayLikeSnapshot` 做
+   `ToObject` + 逐格 `HasProperty`（`length` 走 `ArrayLikeLength`，**在就是值、不在就是洞**，
+   `{ length: 2 }` 折出来是**两个洞**——与 Node 一致），`HeapArray` 本来就表达得了洞
+   （`SetHole` / `IsHole`），所以折出来的是**同构**的、不是近似值。
+   **只接只读那一族**（`IsArrayLikeMethod`）；**会改接收者的那些**要写回那个对象，仍响亮地抛
+   （`probe2-g10` / `g11` / `g14` 三条台账还在）。
+   **两处不在预期里的**：① **第三个实参是原件**——JS 的回调收的第三个实参是 `O`（接收者），
+   快照**不是**它，所以四处回调传的是留下的一份 `receiver`（不传的话
+   `Array.prototype.map.call(o, (v, i, arr) => arr === o)` 会**静默给假**）；
+   ② **`ToObject` 那一半**：`ArrayLikeLength` 一句 `if (!receiver.IsObject()) return 0`
+   把**原始值一律当 0** ⇒ `Array.prototype.slice.call("abc")` 给 `[]`（Node 给 `["a","b","c"]`，
+   第 692 轮登记的 `probe2-g12`）；`null` / `undefined` 要先挡成 `TypeError`，
+   不然会被当成「没有 `length`」而**静默给 `[]`**。
+   **实测**：`probe2-g02` / `g04` / `g08` / `g12` / `g15` 五条台账转绿、已撤
+   （`newlyPassing` 就是这五条）；本批新登记 3 条（两格正则字面量 `blocked`、
+   一格「展开不可迭代对象该给 `TypeError`」），所以 `blocked` +2、`differ` −4。
+   第二批那 50 条**专钉这一处**（洞的四种口径、接收者身份、文本接收者、
+   原始值接收者、数组接收者原样），**全 pass**。加权 **95.7% → 95.8%**
+   （分子 +154、分母 +152）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

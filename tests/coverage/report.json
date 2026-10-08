@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 5577,
+  "total": 5729,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.75,
+  "progressPercent": 95.8,
   "categories": [
     {
       "category": "token",
@@ -90,32 +90,32 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1224,
-      "pass": 1192,
+      "total": 1243,
+      "pass": 1211,
       "blocked": 6,
       "differ": 26,
       "nodefail": 0,
-      "coverage": 97.39
+      "coverage": 97.43
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 757,
-      "pass": 749,
+      "total": 767,
+      "pass": 758,
       "blocked": 1,
-      "differ": 7,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 98.94
+      "coverage": 98.83
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1947,
-      "pass": 1874,
-      "blocked": 21,
-      "differ": 52,
+      "total": 2070,
+      "pass": 2000,
+      "blocked": 23,
+      "differ": 47,
       "nodefail": 0,
-      "coverage": 96.25
+      "coverage": 96.62
     },
     {
       "category": "e2e",
@@ -1620,6 +1620,18 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
+      "id": "stdlib/string/probe696-s02",
+      "category": "stdlib",
+      "title": "\"abc\".replace(/b/, (m) => m + m)",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "stdlib/string/probe696-s05",
+      "category": "stdlib",
+      "title": "\"a,b\".split(/,/).join(\"|\")",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
       "id": "e2e/scenarios/181-string-matchall-and-index",
       "category": "e2e",
       "title": "端到端：matchAll + lastIndex + 命名捕获组",
@@ -1844,6 +1856,12 @@
       "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «throw:TypeError»"
     },
     {
+      "id": "runtime/iterators/probe696-i08",
+      "category": "runtime",
+      "title": "(function () { const o = { length: 2, 0: \"a\", 1: \"b\" }; return [...o].length; })()",
+      "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «throw:Error»"
+    },
+    {
       "id": "stdlib/array/140-array-tostring-custom-join",
       "category": "stdlib",
       "title": "数组的 `toString` 走 `join`，改了 `join` 就跟着改",
@@ -1880,24 +1898,6 @@
       "detail": "stdout 不同：第 1 行：node «true true 3 [2,4,6]» vs tsrun «false true 3 [2,4,6]»"
     },
     {
-      "id": "stdlib/array/probe2-g02",
-      "category": "stdlib",
-      "title": "Array.prototype.map.call({ length: 2, 0: 1, 1: 2 }, (x) => x * 2).join(\",\")",
-      "detail": "stdout 不同：第 1 行：node «string:2,4» vs tsrun «throw:Error»"
-    },
-    {
-      "id": "stdlib/array/probe2-g04",
-      "category": "stdlib",
-      "title": "Array.prototype.indexOf.call({ length: 2, 0: \"a\", 1: \"b\" }, \"b\")",
-      "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:Error»"
-    },
-    {
-      "id": "stdlib/array/probe2-g08",
-      "category": "stdlib",
-      "title": "Array.prototype.filter.call({ length: 3, 0: 1, 1: 2, 2: 3 }, (x) => x > 1).join(\",\")",
-      "detail": "stdout 不同：第 1 行：node «string:2,3» vs tsrun «throw:Error»"
-    },
-    {
       "id": "stdlib/array/probe2-g10",
       "category": "stdlib",
       "title": "(function () { try { return Array.prototype.push.call({ length: 0 }, 1); } catch (e) { return e.constructor.name; } })()",
@@ -1910,22 +1910,10 @@
       "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «throw:Error»"
     },
     {
-      "id": "stdlib/array/probe2-g12",
-      "category": "stdlib",
-      "title": "Array.prototype.slice.call(\"abc\").join(\",\")",
-      "detail": "stdout 不同：第 1 行：node «string:a,b,c» vs tsrun «string:»"
-    },
-    {
       "id": "stdlib/array/probe2-g14",
       "category": "stdlib",
       "title": "Array.prototype.sort.call({ length: 3, 0: 3, 1: 1, 2: 2 }).join(\",\")",
       "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «throw:Error»"
-    },
-    {
-      "id": "stdlib/array/probe2-g15",
-      "category": "stdlib",
-      "title": "Array.prototype.every.call({ length: 0 }, () => false)",
-      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «throw:Error»"
     },
     {
       "id": "stdlib/array/probe693-a30",
@@ -1973,7 +1961,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26408/src/3780.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27028/src/3884.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",

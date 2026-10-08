@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge, PropertyKind, PropertyFlagWritable } from "../../runtime/heap.xl.md"
+import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge, HoleCharge, PropertyKind, PropertyFlagWritable } from "../../runtime/heap.xl.md"
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToInt32Of, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
 import { SetProperty, SetHiddenProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
@@ -365,6 +365,91 @@ return index > length ? length : index;
 return args.length > at + 1 ? args[at + 1] : Value.Undefined();
 ```
 
+# method IsArrayLikeMethod:(id:int)=>bool
+
+**哪些数组方法接「类数组接收者」**（第 696 轮）。
+
+**只列只读的那些**：它们只从接收者**读**（长度 + 每一格），折成真数组之后语义一一对应——
+`find` 那四格要访问洞、`some`/`every`/`indexOf`/`lastIndexOf` 要跳过洞、`includes` 不跳，
+这些差别**全在下游那一段里**，`ArrayLikeSnapshot` 只要把「在不在」原样搬过来。
+
+**会改接收者的那些不在表里**（`push` / `pop` / `shift` / `unshift` / `reverse` / `sort` /
+`splice` / `fill` / `copyWithin`）：它们要**写回那个对象**（`Set` + `length`），是另一处活
+——仍然响亮地抛，台账里登记着（`stdlib/array/probe2-g10` 那一族）。
+
+**`slice` / `join` 也不在表里**：它们在这段之前**已经**有自己的类数组分支
+（第 335 / 338 轮），再列一遍就是两份会漂的判据。
+
+```ts
+return id === ArrayIndexOf || id === ArrayLastIndexOf || id === ArrayIncludes
+  || id === ArrayForEach || id === ArrayMap || id === ArrayFilter
+  || id === ArrayFind || id === ArrayFindIndex || id === ArrayFindLast || id === ArrayFindLastIndex
+  || id === ArraySome || id === ArrayEvery || id === ArrayReduce || id === ArrayReduceRight
+  || id === ArrayFlat || id === ArrayFlatMap
+  || id === ArrayKeys || id === ArrayValues || id === ArrayEntries
+  || id === ArrayAt
+  || id === ArrayToSorted || id === ArrayToReversed || id === ArrayWith || id === ArrayToSpliced;
+```
+
+# method ArrayLikeSnapshot:(room:RoomChecker, table:HeapTable, call:NativeCall | null, protos:Protos, receiver:Value)=>Value
+
+**把一个「不是数组」的接收者折成一个真数组**（第 696 轮）——JS 的 `ToObject` + 逐格 `HasProperty`。
+
+**为什么折、而不是把每个方法都改成通用的**：这一块有**三十来个**分派分支，全都建在
+`HeapArray` 上（`source.GetAt` / `IsHole` / `GetLength`）——一处一处改就是三十份会漂的判据。
+折成真数组之后**下游一个字都不用动**，而「洞」这件事 `HeapArray` 本来就表达得了
+（`SetHole` / `IsHole`），所以折出来的是**同构**的，不是近似值。
+
+**三档接收者**（JS 的 `ToObject` 落下来就这三种）：
+
+- **文本**：`ToObject("abc")` 的每一格**都在**（String 包装对象的逗号属性），没有洞——
+  直接按码元 `Push`；`"😀"[0]` 在 JS 里是**半个代理对**，本仓的字符串按码元存，所以逐码元
+  切出来与它逐位相同。
+- **其余原始值**（数 / 布尔 / 符号 / 大整数）：`ToObject` 之后**没有 `length`** ⇒ 空数组。
+- **对象**：`length` 走 `ArrayLikeLength`（`ToLength(Get(O, "length"))`），
+  每一格问 **`FindProperty`**（沿原型链）——**在就是值、不在就是洞**。
+  这正是 `HasProperty`：`{ length: 2 }` 折出来是**两个洞**（`map` 的回调一次都不跑，
+  与 Node 一致），而 `{ length: 2, 0: "a" }` 是「一个值 + 一个洞」。
+
+**洞怎么搭出来**：先把长度撑到 `length`、把每一格标成洞
+（`SetAt(length - 1, …)` 会自动把前面补成洞，再 `SetHole` 把最后一格也标回洞），
+然后把**在**的那些格 `SetAt` 填上——`SetAt` 会清掉那一格的洞标记。
+
+**原型给 `protos.Array`**：JS 的 `ArraySpeciesCreate` 在接收者不是数组时给的就是一个新数组
+（`Array.prototype`）。
+
+```ts
+const length = ArrayLikeLength(room, table, call, receiver);
+if (!room(ObjectCharge + ValueCharge * length)) throw new Error("out of room");
+const handle = table.CreateArray();
+table.Get(handle).Proto = protos.Array;
+const target = table.Get(handle).AsArray();
+if (receiver.Tag === ValueTag.String) {
+  const units = TextUnitsOf(table, receiver);
+  for (let i = 0; i < length && i < units.length; i++) {
+    target.Push(Value.FromString(table.CreateString([units[i]])));
+  }
+  return Value.FromArray(handle);
+}
+if (!receiver.IsObject()) return Value.FromArray(handle);
+// **对象的洞要另算一格钱**（`HeapArray.Charge` 把 `Holes` 也算进去）——
+// 这里先问一句，免得「折出来的数组」比接收者本身还占地方而没人记账。
+if (!room(HoleCharge * length)) throw new Error("out of room");
+if (length > 0) {
+  target.SetAt(length - 1, Value.Undefined());
+  target.SetHole(length - 1);
+}
+for (let i = 0; i < length; i++) {
+  const text = Units("" + i);
+  if (!room(PropertyCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
+  const key = Value.FromString(table.CreateString(text));
+  const found = FindProperty(room, table, receiver.Ref, key);
+  if (found === null) continue;
+  target.SetAt(i, ReadProperty(call === null ? NeverCall : call, table, found, receiver));
+}
+return Value.FromArray(handle);
+```
+
 # method InvokeArray:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
 
 **数组内建的分派与实现**。
@@ -396,6 +481,11 @@ return args.length > at + 1 ? args[at + 1] : Value.Undefined();
 （`[1,2,3].forEach(v => { if (v === 2) throw })` 里第 3 项照跑，判据 `exc-throw-in-callback`）。
 
 ```ts
+// **回调拿到的第三个实参是「接收者对象」**（第 696 轮）：JS 的口径（`O`）——
+// 类数组那一档折出的快照**不是**它，所以这里先留一份原件，
+// 下面四处回调（`forEach`/`map`/`filter`、谓词族、`reduce`、`flatMap`）传的是**它**。
+// 数组接收者两格是同一个值，行为与改动前一字不差。
+const receiver = self;
 // **静态方法排在 `RequireArray` 前面**（第 123 轮）：`Array.isArray(x)` 的 `self`
 // 是那个 `Array` **普通对象**，过一遍 `RequireArray` 会当场抛。
 if (id === ArrayIsArray) {
@@ -462,6 +552,19 @@ if (id === ArrayJoin && self.Tag !== ValueTag.Array) {
     for (let j = 0; j < likeParts[i].length; j++) likeJoined.push(likeParts[i][j]);
   }
   return Value.FromString(table.CreateString(likeJoined));
+}
+// **类数组接收者那一族**（第 696 轮）：JS 的数组方法**是通用的**——
+// `Array.prototype.map.call({ length: 2, 0: "a", 1: "b" }, f)` 在 Node 里照跑
+//（拉这一族的是第 692 轮登记的 `probe2-g02` / `g04` / `g08` / `g15`）。
+// 这里**先把接收者折成一个真数组**（`ArrayLikeSnapshot`），再走**下面同一段**。
+// **只接只读那一族**（`IsArrayLikeMethod`）：会改接收者的那些要写回那个对象，是另一处活。
+// **`null` / `undefined` 先挡**（与 `RequireArray` 同一句 `TypeError`）：不挡的话
+// `ArrayLikeLength` 会把它们当「没有 `length`」⇒ 空数组 ⇒ **静默给 `[]`**。
+if (self.Tag !== ValueTag.Array && IsArrayLikeMethod(id)) {
+  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+    throw new TypeError("Array.prototype method called on null or undefined");
+  }
+  self = ArrayLikeSnapshot(room, table, call, protos, self);
 }
 RequireArray(table, self);
 const source = table.Get(self.Ref).AsArray();
@@ -603,7 +706,7 @@ if (id === ArrayFlatMap) {
     // **洞跳过**（与 `map` / `forEach` 同一条）。
     if (source.IsHole(i)) continue;
     const item = source.GetAt(i);
-    const answered = call(args[0], thisArg, [item, Value.FromInt(i), self]);
+    const answered = call(args[0], thisArg, [item, Value.FromInt(i), receiver]);
     // **回调抛出就收摊**（第 228 轮）：`answered` 这时是 `undefined`——
     // 不问这一句，`flatMap` 会把它当成一个「不是数组的返回值」**收进结果里**
     // （于是结果数组多出一格 `undefined`，而那一格**根本不该存在**）。
@@ -787,7 +890,7 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
     // 而它只挂在 `source`（调用方的数组）身上……**那也算挂着**，
     // 所以这里挂的是「**不挂在别处**」的那些（见上面那一段判据）。
     // `map` 收的是回调的返回值（紧接着就 `Push`，中间不分配）——它不必挂。
-    const answered = call(args[0], thisArg, [item, Value.FromInt(i), self]);
+    const answered = call(args[0], thisArg, [item, Value.FromInt(i), receiver]);
     // **回调抛出就收摊**（第 228 轮）：`answered` 这时是一个**看起来正常的 `undefined`**
     // （`CallNative` 在状态被改之后就是给 `undefined`）——不问这一句就接着转下一圈，
     // 于是回调里那次 `throw` 要等整个 `forEach` 跑完才冒出来（**静默**那一类）。
@@ -842,7 +945,7 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
     const skipsHoles = id === ArraySome || id === ArrayEvery;
     if (skipsHoles && source.IsHole(i)) continue;
     const item = source.GetAt(i);
-    const answered = RtToBoolean(table, call(args[0], thisArg, [item, Value.FromInt(i), self])).AsBool();
+    const answered = RtToBoolean(table, call(args[0], thisArg, [item, Value.FromInt(i), receiver])).AsBool();
     // **回调抛出就收摊**（第 228 轮，与 `forEach` 那一条同一处口径）：
     // `RtToBoolean` 对 `undefined` 给**假**——不问这一句的话，`some` / `every` 会把这个
     // 「假」当成回调的答案用（`every` 于是当场返回 `false`，**静默错值**）。
@@ -936,7 +1039,7 @@ if (id === ArrayReduce || id === ArrayReduceRight) {
     // `acc + i` 算出 `NaN`（**静默错值**：`[1,2].reduce((a, v, i) => a + i, 0)`
     // 本仓给 `NaN`，Node 给 `1`）。判据 `c304-std-array-reduce-forms` 量的就是它。
     // **`reduceRight` 也走这一句**（它给的就是**真实的那个下标**，不是「第几步」）。
-    const next = call(args[0], Value.Undefined(), [previous, source.GetAt(i), Value.FromInt(i), self]);
+    const next = call(args[0], Value.Undefined(), [previous, source.GetAt(i), Value.FromInt(i), receiver]);
     // **回调抛出就收摊**（第 228 轮）：`next` 这时是 `undefined`——
     // 不问这一句就把它当成**累加器**继续用（下一轮的回调会拿到 `undefined`，
     // 于是脚本看到的是「累加器莫名其妙变空了」，而不是「回调抛了」）。
@@ -1539,6 +1642,12 @@ for (let i = 0; i < ownProps.length; i++) {
 
 ```ts
 if (receiver.Tag === ValueTag.Array) return table.Get(receiver.Ref).AsArray().GetLength();
+// **文本接收者要先做 `ToObject`**（第 696 轮）：JS 里 `Array.prototype.slice.call("abc")`
+// 给 `["a","b","c"]`、`Array.prototype.join.call("abc", "-")` 给 `"a-b-c"`——
+// String 包装对象的 `length` 就是**码元数**。
+// 原来下面那一句 `if (!receiver.IsObject()) return 0;` 把**原始值一律当 0**
+// ⇒ `slice.call("abc")` 给 `[]`（**静默错值**，第 692 轮登记的 `probe2-g12`）。
+if (receiver.Tag === ValueTag.String) return TextUnitsOf(table, receiver).length;
 if (!receiver.IsObject()) return 0;
 const lengthKey = Value.FromString(table.CreateString(Units("length")));
 if (!room(PropertyCharge + CodeUnitCharge * 6)) throw new Error("out of room");
@@ -1583,6 +1692,15 @@ return count < 0 ? 0 : count;
 
 ```ts
 if (receiver.Tag === ValueTag.Array) return table.Get(receiver.Ref).AsArray().GetAt(at);
+// **文本接收者的第 `at` 格**（第 696 轮，与 `ArrayLikeLength` 那一句配对）：
+// `ToObject("abc")` 的每一格都是**那一个码元**自己（越界给 `undefined`）——
+// `"😀"[0]` 在 JS 里是半个代理对，本仓的字符串按码元存，逐码元切出来与它逐位相同。
+if (receiver.Tag === ValueTag.String) {
+  const text = TextUnitsOf(table, receiver);
+  if (at < 0 || at >= text.length) return Value.Undefined();
+  if (!room(CodeUnitCharge)) throw new Error("out of room");
+  return Value.FromString(table.CreateString([text[at]]));
+}
 if (!receiver.IsObject()) return Value.Undefined();
 // **键是十进制的下标文本**（与 `ArrayIndexAt` 的判据对称：那边是「文本 → 下标」）。
 const text = Units("" + at);

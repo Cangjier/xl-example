@@ -77,17 +77,44 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **5591** 条（token 1416 / exec 1225 / runtime 757 / stdlib 1947 / e2e 246），判过 **5577** 条。
+语料 **5743** 条（token 1416 / exec 1244 / runtime 767 / stdlib 2070 / e2e 246），判过 **5729** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 1224 | **1192** | 6 / 26 | 另有 1 条不进分母 |
-| `runtime` | 757 | **749** | 1 / 7 | |
-| `stdlib` | 1947 | **1874** | 21 / 52 | |
+| `exec` | 1243 | **1211** | 6 / 26 | 另有 1 条不进分母 |
+| `runtime` | 767 | **758** | 1 / 8 | |
+| `stdlib` | 2070 | **2000** | 23 / 47 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **5577** | **5241** | 251 / 85 | 加权 **95.7%** |
+| **合计** | **5729** | **5395** | 253 / 81 | 加权 **95.8%** |
+
+**第 696 轮再加 152 条**（分母 5577 → **5729**，两批：102 + 50）：第七批原子探针，专问
+**稀疏数组与洞**（`map` / `filter` / `indexOf` / `includes` / `reduce` 五条对洞的口径都不一样）、
+`String.prototype` 的替换与切分、`Map` / `Set` 的构造与遍历、迭代协议在
+**展开 / `Array.from` / 解构**三处的落法、标签模板的 `raw`，以及类里的访问器与 `super`；
+第二批 50 条**专钉本轮修的那一处**（类数组接收者）。**收掉一处**：
+
+- **类数组接收者那一族**（**静默错值 + 整族抛**）：`Array.prototype.map.call({ length: 2, 0: "a", 1: "b" }, f)`
+  在 JS 里照跑，本仓报 `this method needs an array receiver`——`slice` / `join` 第 335 / 338 轮
+  各有自己的类数组分支，**其余二十来个方法全建在 `HeapArray` 上**。
+  修法不是「把每个方法都改成通用的」（那是三十份会漂的判据），而是**先把接收者折成一个真数组**
+  （`ArrayLikeSnapshot`：`ToObject` + 逐格 `HasProperty`，`length` 走 `ArrayLikeLength`，
+  **在就是值、不在就是洞**——`{ length: 2 }` 折出来是**两个洞**，与 Node 一致），
+  再走**下面同一段**。只接**只读那一族**（`IsArrayLikeMethod`：`map` / `filter` / 谓词族 /
+  `reduce` 两格 / `indexOf` / `lastIndexOf` / `includes` / `flat` / `flatMap` / `keys` / `values` /
+  `entries` / `at` / `toSorted` / `toReversed` / `with` / `toSpliced`）；**会改接收者的那些**
+  （`push` / `pop` / `shift` / `unshift` / `reverse` / `sort` / `splice` / `fill` / `copyWithin`）
+  要**写回那个对象**，是另一处活，仍然响亮地抛（`probe2-g10` / `g11` / `g14` 的台账还在）。
+  **第三个实参是原件**：JS 的回调收的第三个实参是 `O`（接收者对象）——快照**不是**它，
+  所以四处回调传的是留下的一份 `receiver`（`probe696-r36` / `r37` / `r38` 钉的就是这一格）。
+  **`ToObject` 那一半另有两个洞**：文本接收者（`slice.call("abc")` 原来给 `[]`——
+  `ArrayLikeLength` 一句 `if (!receiver.IsObject()) return 0` 把原始值一律当 0，
+  第 692 轮登记的 `probe2-g12`）与 `null` / `undefined`（要 `TypeError`，不然会被当成空数组
+  **静默给 `[]`**）。**实测**：`probe2-g02` / `g04` / `g08` / `g12` / `g15` 五条台账转绿、已撤，
+  `newlyPassing` 5、`regressions` 0。
+
+**加权 95.7% → 95.8%**（分子 +154：收掉的 5 条 + 新过的 149 条；分母 +152）。
 
 **第 695 轮再加 150 条**（分母 5427 → **5577**）：第六批原子探针，专问
 **序列化与属性枚举**（访问器 / `toJSON` / 缩进 / 白名单 / 不可枚举）、`Object` 的静态面、
