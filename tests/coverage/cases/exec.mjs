@@ -4771,4 +4771,89 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     title: "解构赋值的目标是成员 / 下标（交换写法）",
     src: "\nconst a = [1, 2];\n[a[0], a[1]] = [a[1], a[0]];\nconsole.log(a.join(\",\"));\n",
   },
+
+  // ---- 第 666 轮：场景加宽（一条 = 一个真跑的 .ts，裁判是真 node）----
+  {
+    id: "k9-ex-class-declaration-forms",
+    title: "类声明：继承 + 抽象式守卫 + 静态成员 + 计算名",
+    src: "\nconst KEY = \"dyn\";\nclass Base {\n  static kind = \"base\";\n  id: number;\n  constructor(id: number) { this.id = id; }\n  describe(): string { return \"base:\" + this.id; }\n}\nclass Derived extends Base {\n  static kind = \"derived\";\n  [KEY] = 1;\n  tag: string;\n  constructor(id: number, tag: string) { super(id); this.tag = tag; }\n  describe(): string { return \"derived:\" + super.describe() + \":\" + this.tag; }\n}\nconst d = new Derived(1, \"t\");\nconsole.log(d.describe(), Derived.kind, Base.kind, d.dyn, Object.keys(d).join(\",\"));\n",
+  },
+  {
+    id: "k9-ex-interface-runtime-erasure",
+    title: "接口 / 类型别名 / 泛型参数在运行期完全擦除",
+    src: "\ninterface Point { x: number; y: number; }\ntype Pair<T> = [T, T];\nfunction mid<T extends Point>(a: T, b: T): Point {\n  const x = (a.x + b.x) / 2;\n  const y = (a.y + b.y) / 2;\n  return { x, y } as Point;\n}\nconst p: Pair<Point> = [{ x: 0, y: 0 }, { x: 4, y: 6 }];\nconsole.log(JSON.stringify(mid(p[0], p[1])));\nconst asConst = { a: 1 } as const;\nconsole.log(JSON.stringify(asConst));\n",
+  },
+  {
+    id: "k9-ex-enum-and-const-enum",
+    title: "enum / const enum 的运行期取值与反向映射",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nenum Color { Red, Green = 5, Blue }\nconst enum Flag { A = 1, B = 2 }\nconsole.log(Color.Red, Color.Green, Color.Blue, Color[0], Color[5]);\nconsole.log(Flag.A | Flag.B, Flag.A & Flag.B);\n",
+  },
+  {
+    id: "k9-ex-namespace-merging",
+    title: "namespace 与函数 / 接口合并 + export 成员",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nnamespace Util {\n  export const VERSION = \"1.0\";\n  export function twice(n: number) { return n * 2; }\n  export namespace Inner { export const deep = 3; }\n}\nconsole.log(Util.VERSION, Util.twice(21), Util.Inner.deep);\n",
+  },
+  {
+    id: "k9-ex-parameter-properties",
+    title: "构造函数参数属性：public / private / readonly / 默认值",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nclass C {\n  constructor(public a: number, private b: string, readonly c = true) {}\n  dump() { return this.a + \"|\" + this.b + \"|\" + this.c; }\n}\nconst c = new C(1, \"x\");\nconsole.log(c.dump(), c.a, c.c);\n",
+  },
+  {
+    id: "k9-ex-decorator-free-class-expr",
+    title: "类表达式：具名 / 匿名 / 立即实例化 / 作为返回值",
+    src: "\nconst A = class { m() { return \"anon\"; } };\nconst B = class Named { m() { return \"named\"; } };\nconsole.log(new A().m(), new B().m(), B.name);\nfunction make() { return class { v = 7; }; }\nconsole.log(new (make())().v);\n",
+  },
+  {
+    id: "k9-ex-destructure-deep-defaults",
+    title: "解构：深层默认、重命名、剩余、函数形参处",
+    src: "\nconst { a: { b: { c = 3 } = {} } = {}, d = 4, ...rest } = { d: 9, e: 1, f: 2 };\nconsole.log(c, d, JSON.stringify(rest));\nfunction f({ x = 1, y: { z = 2 } = {} }: any, [p, q = 5]: any[] = []) {\n  return [x, z, p, q].join(\",\");\n}\nconsole.log(f({}), f({ x: 9, y: { z: 8 } }, [7]));\n",
+  },
+  {
+    id: "k9-ex-template-literal-nesting",
+    title: "模板串：嵌套、多行、转义、标签函数",
+    src: "\nconst who = \"world\";\nconst inner = `[${1 + 1}]`;\nconsole.log(`hello ${who} ${inner} ${\"x\".repeat(2)}`);\nfunction tag(parts: TemplateStringsArray, ...vals: any[]) {\n  return parts.length + \":\" + vals.join(\",\");\n}\nconsole.log(tag`a${1}b${2}c`);\nconsole.log(`line1\nline2`);\n",
+  },
+  {
+    id: "k9-ex-arrow-this-binding",
+    title: "箭头函数不绑 this；普通函数绑调用者",
+    src: "\nconst obj = {\n  v: 10,\n  arrow() { return (() => this.v)(); },\n  normal() { return function (this: any) { return this === undefined ? \"u\" : \"b\"; }(); },\n};\nconsole.log(obj.arrow(), obj.normal());\n",
+  },
+  {
+    id: "k9-ex-satisfies-and-as",
+    title: "satisfies / as / 非空断言在运行期无痕迹",
+    src: "\nconst cfg = { host: \"h\", port: 1 } satisfies { host: string; port: number };\nconst num = (cfg.port as unknown as number)!;\nconsole.log(cfg.host, num, JSON.stringify(cfg));\n",
+  },
+  {
+    id: "k9-ex-optional-params-and-rest",
+    title: "形参：可选、默认、剩余、arguments 交互",
+    src: "\nfunction f(a: number, b = a * 2, ...rest: number[]) {\n  return [a, b, rest.length, arguments.length].join(\",\");\n}\nconsole.log(f(1), f(1, 2), f(1, 2, 3, 4));\nconst sum = (...xs: number[]) => xs.reduce((p, c) => p + c, 0);\nconsole.log(sum(), sum(1, 2, 3));\n",
+  },
+  {
+    id: "k9-ex-getter-setter-inheritance",
+    title: "访问器继承与 super 访问器",
+    src: "\nclass A { get v() { return 1; } set v(x: number) { console.log(\"A set\", x); } }\nclass B extends A { get v() { return super.v + 10; } set v(x: number) { super.v = x * 2; } }\nconst b = new B();\nconsole.log(b.v);\nb.v = 3;\n",
+  },
+  {
+    id: "k9-ex-label-continue-outer",
+    title: "带标签的循环控制：continue 外层、break 外层",
+    src: "\nconst out: string[] = [];\nouter: for (let i = 0; i < 3; i++) {\n  for (let j = 0; j < 3; j++) {\n    if (j === 1) continue outer;\n    if (i === 2) break outer;\n    out.push(i + \":\" + j);\n  }\n}\nconsole.log(out.join(\" \"));\n",
+  },
+  {
+    id: "k9-ex-do-while-and-while-forms",
+    title: "do…while 至少执行一次；while 与 for(;;) 等价",
+    src: "\nlet n = 0;\ndo { n += 1; } while (n < 0);\nconsole.log(\"do\", n);\nlet m = 0;\nwhile (m < 3) m += 1;\nconsole.log(\"while\", m);\nlet k = 0;\nfor (;;) { k += 1; if (k === 2) break; }\nconsole.log(\"for\", k);\n",
+  },
+  {
+    id: "k9-ex-for-in-prototype-chain",
+    title: "for-in 走原型链、for-of 只走可迭代",
+    src: "\nconst proto = { p: 1 };\nconst child = Object.create(proto);\nchild.c = 2;\nconst keys: string[] = [];\nfor (const k in child) keys.push(k);\nconsole.log(keys.sort().join(\",\"));\nconst arr: any[] = [10, 20];\narr.extra = \"x\";\nconst ofs: any[] = [];\nfor (const v of arr) ofs.push(v);\nconsole.log(ofs.join(\",\"));\n",
+  },
+  {
+    id: "k9-ex-ternary-chain-and-nullish",
+    title: "三元链、?? 与 || 的优先级和短路",
+    src: "\nlet log: string[] = [];\nfunction t(name: string, v: any) { log.push(name); return v; }\nconsole.log(t(\"a\", 0) ?? t(\"b\", 1));\nconsole.log(t(\"c\", 0) || t(\"d\", 1));\nconsole.log(t(\"e\", 1) && t(\"f\", 0));\nconsole.log(log.join(\"\"));\nconst grade = (n: number) => n >= 90 ? \"A\" : n >= 80 ? \"B\" : \"C\";\nconsole.log(grade(95), grade(85), grade(10));\n",
+  },
 ];

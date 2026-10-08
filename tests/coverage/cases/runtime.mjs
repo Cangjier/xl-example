@@ -6023,4 +6023,101 @@ console.log(s2.join(","));
     title: "switch 的穿透、返回与 default 位置",
     src: "\nfunction f(x) {\n  switch (x) {\n    case 1:\n    case 2:\n      return \"low\";\n    default:\n      return \"other\";\n    case 3:\n      return \"three\";\n  }\n}\nconsole.log(f(1), f(2), f(3), f(9));\n",
   },
+
+  // ---- 第 666 轮：场景加宽（一条 = 一个真跑的 .ts，裁判是真 node）----
+  {
+    id: "k9-rt-class-accessors",
+    title: "类访问器：getter/setter 配对、静态访问器、只读缓存",
+    src: "\nclass Temp {\n  private c = 0;\n  get celsius(): number { return this.c; }\n  set celsius(v: number) { this.c = v; }\n  get fahrenheit(): number { return this.c * 9 / 5 + 32; }\n  static get label(): string { return \"temp\"; }\n}\nconst t = new Temp();\nt.celsius = 25;\nconsole.log(t.celsius, t.fahrenheit, Temp.label);\nconst d = Object.getOwnPropertyDescriptor(Temp.prototype, \"celsius\");\nconsole.log(typeof d.get, typeof d.set);\n",
+  },
+  {
+    id: "k9-rt-class-static-block",
+    title: "类静态块：初始化顺序与 this",
+    src: "\nclass Registry {\n  static items: string[] = [];\n  static count: number;\n  static {\n    Registry.count = 0;\n    console.log(\"static block\");\n  }\n  static add(x: string) { Registry.items.push(x); }\n}\nRegistry.add(\"a\");\nconsole.log(Registry.items.join(\",\"), Registry.count);\n",
+  },
+  {
+    id: "k9-rt-private-brand-check",
+    title: "私有字段：品牌检查、同名不同类互不可见",
+    src: "\nclass Box {\n  #v: number;\n  constructor(v: number) { this.#v = v; }\n  static peek(o: unknown): number {\n    return o instanceof Box ? o.#v : -1;\n  }\n}\nclass Other { #v = 9; }\nconsole.log(Box.peek(new Box(5)), Box.peek(new Other()));\n",
+  },
+  {
+    id: "k9-rt-iterator-protocol",
+    title: "自定义同步迭代器 + 展开 + for-of + 解构",
+    src: "\nclass Range {\n  lo: number;\n  hi: number;\n  constructor(lo: number, hi: number) { this.lo = lo; this.hi = hi; }\n  [Symbol.iterator]() {\n    let i = this.lo;\n    const hi = this.hi;\n    return {\n      next() { return i <= hi ? { value: i++, done: false } : { value: 0, done: true }; },\n    };\n  }\n}\nconst r = new Range(1, 4);\nconsole.log([...r].join(\"-\"));\nfor (const v of r) console.log(\"of\", v);\nconst [a, b] = r;\nconsole.log(a, b);\n",
+  },
+  {
+    id: "k9-rt-iterator-return-on-break",
+    title: "for-of 里 break 会调迭代器的 return",
+    src: "\nlet closed = false;\nconst it = {\n  [Symbol.iterator]() {\n    let i = 0;\n    return {\n      next() { return { value: i++, done: i > 5 }; },\n      return() { closed = true; return { value: undefined, done: true }; },\n    };\n  },\n};\nfor (const v of it) { if (v === 2) break; }\nconsole.log(\"closed\", closed);\n",
+  },
+  {
+    id: "k9-rt-generator-throw-catch",
+    title: "生成器：throw 注入到 yield 处、finally 收尾、return 值",
+    src: "\nfunction* g() {\n  try {\n    yield 1;\n    yield 2;\n  } catch (e) {\n    console.log(\"caught\", e);\n    yield 3;\n  } finally {\n    console.log(\"finally\");\n  }\n  return \"end\";\n}\nconst it = g();\nconsole.log(it.next());\nconsole.log(it.throw(\"boom\"));\nconsole.log(it.next());\nconsole.log(it.next());\n",
+  },
+  {
+    id: "k9-rt-spread-call-and-new",
+    title: "展开实参 / new / 数组字面量 / 对象字面量",
+    src: "\nfunction f(a: number, b: number, c: number) { return a + b + c; }\nconsole.log(f(...[1, 2, 3]));\nconsole.log(f(1, ...[2, 3]));\nclass P {\n  x: number;\n  y: number;\n  constructor(x: number, y: number) { this.x = x; this.y = y; }\n}\nconst p = new P(...[4, 5]);\nconsole.log(p.x, p.y, [...\"abc\"].join(\"|\"));\nconst o = { a: 1, ...{ b: 2 }, c: 3 };\nconsole.log(JSON.stringify(o));\n",
+  },
+  {
+    id: "k9-rt-logical-assign-members",
+    title: "逻辑赋值 / 复合赋值的左值只求值一次",
+    src: "\nlet calls = 0;\nconst o = { n: 1, s: \"a\" };\nfunction k() { calls += 1; return \"n\"; }\no[k()] ??= 5;\no[k()] &&= 7;\no[k()] ||= 9;\nconsole.log(o.n, calls);\nlet i = 0;\nconst arr = [10, 20];\narr[i++] += 1;\nconsole.log(arr.join(\",\"), i);\n",
+  },
+  {
+    id: "k9-rt-optional-chain-assign-guard",
+    title: "可选链的短路口径：成员 / 调用 / 下标 / 与 ?? 混用",
+    src: "\nconst o: any = { a: { b: () => 1 } };\nconsole.log(o?.a?.b?.(), o?.x?.y?.(), o?.[\"a\"]?.[\"b\"]?.());\nconst n: any = null;\nconsole.log(n?.a ?? \"fallback\", n?.[0] ?? \"idx\", n?.() ?? \"call\");\nlet hits = 0;\nconst side = () => { hits += 1; return { v: 1 }; };\nconsole.log(side()?.v, hits);\n",
+  },
+  {
+    id: "k9-rt-new-target",
+    title: "new.target：直接调用与 new 调用",
+    src: "\nfunction F(this: any) {\n  if (new.target === undefined) { console.log(\"plain\"); return; }\n  console.log(\"new\", new.target.name);\n}\nF();\nnew (F as any)();\n",
+  },
+  {
+    id: "k9-rt-error-cause-and-instanceof",
+    title: "Error 家族：子类、cause、instanceof 链",
+    src: "\nclass AppError extends Error {\n  code: number;\n  constructor(message: string, code: number) { super(message); this.name = \"AppError\"; this.code = code; }\n}\nconst e = new AppError(\"bad\", 42);\nconsole.log(e instanceof AppError, e instanceof Error, e.message, e.code, e.name);\nconsole.log(String(e));\nconst wrapped = new Error(\"outer\", { cause: e });\nconsole.log(wrapped.message, (wrapped as any).cause === e);\n",
+  },
+  {
+    id: "k9-rt-async-return-await-order",
+    title: "async：返回 thenable、await 顺序、微任务与同步的交替",
+    src: "\nconst log: string[] = [];\nasync function a() { log.push(\"a1\"); await null; log.push(\"a2\"); return \"A\"; }\nasync function b() { log.push(\"b1\"); const r = await a(); log.push(\"b2:\" + r); return \"B\"; }\nb().then((v) => { log.push(\"then:\" + v); console.log(log.join(\" \")); });\nlog.push(\"sync\");\n",
+  },
+  {
+    id: "k9-rt-async-generator-basic",
+    title: "async 生成器：for await 收完再迭代",
+    src: "\nasync function* gen() { yield 1; yield 2; yield 3; }\nasync function main() {\n  let sum = 0;\n  for await (const v of gen()) sum += v;\n  console.log(\"sum\", sum);\n  const all = [];\n  for await (const v of gen()) all.push(v * 2);\n  console.log(all.join(\",\"));\n}\nmain();\n",
+  },
+  {
+    id: "k9-rt-label-block-break",
+    title: "带标签的块与 break：跳出嵌套块",
+    src: "\nouter: {\n  console.log(\"in\");\n  inner: {\n    console.log(\"inner\");\n    break outer;\n  }\n  console.log(\"unreachable\");\n}\nconsole.log(\"done\");\n",
+  },
+  {
+    id: "k9-rt-comma-and-void",
+    title: "逗号表达式、void、delete 的求值顺序",
+    src: "\nlet order: string[] = [];\nfunction t(x: string, v: number) { order.push(x); return v; }\nconst r = (t(\"a\", 1), t(\"b\", 2), t(\"c\", 3));\nconsole.log(r, order.join(\"\"));\nconst o: any = { p: 1 };\nconsole.log(delete o.p, o.p, void 0);\n",
+  },
+  {
+    id: "k9-rt-getter-on-literal-and-super",
+    title: "对象字面量访问器与 super 成员访问",
+    src: "\nconst base = { greet() { return \"base\"; } };\nconst obj = {\n  __proto__: base,\n  greet() { return \"derived+\" + super.greet(); },\n};\nconsole.log(obj.greet());\nconst withAccessor = {\n  _v: 1,\n  get v() { return this._v * 10; },\n  set v(x: number) { this._v = x; },\n};\nwithAccessor.v = 3;\nconsole.log(withAccessor.v, Object.keys(withAccessor).join(\",\"));\n",
+  },
+  {
+    id: "k9-rt-array-from-and-of",
+    title: "Array.from（含映射函数与类数组）/ Array.of",
+    src: "\nconsole.log(Array.from({ length: 3 }, (_: unknown, i: number) => i * 2).join(\",\"));\nconsole.log(Array.from(new Set([1, 2, 2, 3])).join(\",\"));\nconsole.log(Array.from(\"abc\").join(\"-\"));\nconsole.log(Array.of(1, \"a\", true).length);\n",
+  },
+  {
+    id: "k9-rt-string-iteration-codepoints",
+    title: "字符串按码点迭代与代理对",
+    src: "\nconst s = \"a\\u{1F600}b\";\nconsole.log(s.length, [...s].length);\nconsole.log([...s].map((c) => c.codePointAt(0)!.toString(16)).join(\",\"));\nconsole.log(s.at(-1), s.at(0));\n",
+  },
+  {
+    id: "k9-rt-switch-strict-equality",
+    title: "switch 的严格相等与 fallthrough、块级 case",
+    src: "\nfunction kind(v: any) {\n  switch (v) {\n    case \"1\": return \"string\";\n    case 1: return \"number\";\n    case true: return \"bool\";\n    case null: return \"null\";\n    default: return \"other\";\n  }\n}\nconsole.log(kind(\"1\"), kind(1), kind(true), kind(null), kind(undefined));\nlet acc = \"\";\nswitch (2) { case 1: acc += \"a\"; case 2: acc += \"b\"; case 3: acc += \"c\"; break; case 4: acc += \"d\"; }\nconsole.log(acc);\n",
+  },
 ];

@@ -6621,4 +6621,101 @@ console.log(Object.keys(obj).join(","), obj[key], Object.getOwnPropertySymbols(o
     title: "split 的空串分割、上限与相邻分隔符",
     src: "\nconsole.log(JSON.stringify(\"a,b,c\".split(\",\", 2)));\nconsole.log(JSON.stringify(\",a,,b,\".split(\",\")));\nconsole.log(JSON.stringify(\"abc\".split(\"\")));\nconsole.log(JSON.stringify(\"abc\".split(\"\", 0)));\nconsole.log(JSON.stringify(\"no-sep\".split(\";\")));\n",
   },
+
+  // ---- 第 666 轮：场景加宽（一条 = 一个真跑的 .ts，裁判是真 node）----
+  {
+    id: "k9-std-array-at-and-index",
+    title: "Array.prototype.at：正负下标与越界",
+    src: "\nconst a = [1, 2, 3];\nconsole.log(a.at(0), a.at(-1), a.at(2), a.at(3), a.at(-4));\nconsole.log(\"abc\".at(-1), \"abc\".at(1));\n",
+  },
+  {
+    id: "k9-std-array-flat-flatMap",
+    title: "Array.prototype.flat / flatMap：深度与只铺一层",
+    src: "\nconsole.log([1, [2, [3, [4]]]].flat().length);\nconsole.log(JSON.stringify([1, [2, [3, [4]]]].flat(2)));\nconsole.log(JSON.stringify([1, 2, 3].flatMap((x) => [x, x * 2])));\nconsole.log(JSON.stringify([1, 2].flatMap((x) => [[x]])));\n",
+  },
+  {
+    id: "k9-std-array-findlast-and-with",
+    title: "Array.prototype：findLast / findLastIndex / toReversed / toSorted / with",
+    src: "\nconst a = [1, 2, 3, 4];\nconsole.log(a.findLast((x) => x % 2 === 0), a.findLastIndex((x) => x < 3));\nconsole.log(JSON.stringify(a.toReversed()), JSON.stringify(a.toSorted((x, y) => y - x)));\nconsole.log(JSON.stringify(a.with(1, 9)), JSON.stringify(a));\n",
+  },
+  {
+    id: "k9-std-array-splice-copyWithin-fill",
+    title: "变异方法：splice 返回值、copyWithin、fill 的区间",
+    src: "\nconst a = [1, 2, 3, 4, 5];\nconsole.log(JSON.stringify(a.splice(1, 2, \"x\")), JSON.stringify(a));\nconsole.log(JSON.stringify([1, 2, 3, 4].copyWithin(0, 2)));\nconsole.log(JSON.stringify([1, 2, 3, 4].fill(0, 1, 3)));\nconsole.log(JSON.stringify([1, 2, 3].fill(9, -1)));\n",
+  },
+  {
+    id: "k9-std-array-every-some-reduce-edge",
+    title: "every / some / reduce：空数组与初值",
+    src: "\nconsole.log([].every(() => false), [].some(() => true));\nconsole.log([1, 2, 3].every((x) => x > 0), [1, 2, 3].some((x) => x > 2));\ntry { [].reduce((a: number, b: number) => a + b); } catch (e) { console.log((e as Error).name); }\nconsole.log([1, 2, 3].reduce((a, b) => a + b, 10));\nconsole.log([1, 2, 3].reduceRight((a, b) => a + \"\" + b));\n",
+  },
+  {
+    id: "k9-std-string-pad-and-trim",
+    title: "String：padStart / padEnd / trim 家族 / repeat",
+    src: "\nconsole.log(\"5\".padStart(3, \"0\"), \"5\".padEnd(3, \"0\"), \"abc\".padStart(2, \"0\"));\nconsole.log(JSON.stringify(\"  x  \".trim()), JSON.stringify(\"  x  \".trimStart()));\nconsole.log(JSON.stringify(\"  x  \".trimEnd()), \"ab\".repeat(3));\nconsole.log(\"abc\".padStart(6, \"12\"));\n",
+  },
+  {
+    id: "k9-std-string-replace-and-cases",
+    title: "String：replace 首处 / replaceAll / 大小写 / 包含与位置",
+    src: "\nconsole.log(\"a-b-c\".replace(\"-\", \"+\"), \"a-b-c\".replaceAll(\"-\", \"+\"));\nconsole.log(\"AbC\".toUpperCase(), \"AbC\".toLowerCase());\nconsole.log(\"hello\".includes(\"ell\"), \"hello\".startsWith(\"he\"), \"hello\".endsWith(\"lo\"));\nconsole.log(\"hello\".indexOf(\"l\"), \"hello\".lastIndexOf(\"l\"), \"hello\".indexOf(\"z\"));\n",
+  },
+  {
+    id: "k9-std-object-keys-values-entries-order",
+    title: "Object.keys / values / entries：整数键先、插入序",
+    src: "\nconst o: any = { b: 1, 2: \"two\", a: 3, 1: \"one\" };\nconsole.log(Object.keys(o).join(\",\"));\nconsole.log(Object.values(o).join(\",\"));\nconsole.log(Object.entries(o).map(([k, v]) => k + \"=\" + v).join(\" \"));\nconsole.log(Object.keys({}).length, Object.entries({ x: 1 }).length);\n",
+  },
+  {
+    id: "k9-std-object-create-assign-freeze",
+    title: "Object：create / assign / getPrototypeOf / hasOwn",
+    src: "\nconst proto = { inherited: 1 };\nconst o = Object.create(proto);\no.own = 2;\nconsole.log(o.inherited, o.own, Object.getPrototypeOf(o) === proto);\nconsole.log(Object.hasOwn(o, \"own\"), Object.hasOwn(o, \"inherited\"), \"inherited\" in o);\nconsole.log(JSON.stringify(Object.assign({}, { a: 1 }, { b: 2 })));\n",
+  },
+  {
+    id: "k9-std-object-fromentries-groupby",
+    title: "Object.fromEntries / groupBy 的形状",
+    src: "\nconsole.log(JSON.stringify(Object.fromEntries([[\"a\", 1], [\"b\", 2]])));\nconst grouped = Object.groupBy([1, 2, 3, 4], (n) => (n % 2 === 0 ? \"even\" : \"odd\"));\nconsole.log(JSON.stringify(grouped));\n",
+  },
+  {
+    id: "k9-std-number-parse-and-formats",
+    title: "Number：parseInt/parseFloat 的截断、toFixed、进制串",
+    src: "\nconsole.log(parseInt(\"12px\"), parseFloat(\"1.5rem\"), Number(\"  7  \"));\nconsole.log((1.005).toFixed(2), (255).toString(16), (255).toString(2).length);\nconsole.log(Number.isInteger(1.0), Number.isFinite(Infinity), Number.isNaN(NaN));\nconsole.log(Number.MAX_SAFE_INTEGER > 0, Number.EPSILON > 0);\n",
+  },
+  {
+    id: "k9-std-math-rounding-family",
+    title: "Math：round/floor/ceil/trunc/sign 与负数、半值",
+    src: "\nconsole.log(Math.round(2.5), Math.round(-2.5), Math.floor(-2.5), Math.ceil(-2.5), Math.trunc(-2.5));\nconsole.log(Math.sign(-3), Math.sign(0), Math.sign(3));\nconsole.log(Math.min(3, 1, 2), Math.max(3, 1, 2), Math.abs(-0));\n",
+  },
+  {
+    id: "k9-std-json-edge-values",
+    title: "JSON：undefined / 函数 / 循环外的嵌套 / 解析报错",
+    src: "\nconsole.log(JSON.stringify({ a: undefined, b: () => 1, c: [1, undefined] }));\nconsole.log(JSON.stringify([undefined, null]));\nconsole.log(JSON.stringify({ n: null, s: \"x\", t: true }));\ntry { JSON.parse(\"{oops}\"); } catch (e) { console.log((e as Error).name); }\nconsole.log(JSON.parse('{\"a\":[1,2]}').a.length);\n",
+  },
+  {
+    id: "k9-std-map-groupby-and-iteration",
+    title: "Map：构造入参、groupBy、边迭代边删",
+    src: "\nconst m = new Map<string, number>([[\"a\", 1], [\"b\", 2]]);\nconsole.log([...m.keys()].join(\",\"), [...m.values()].join(\",\"));\nconst g = Map.groupBy([1, 2, 3, 4], (n) => (n % 2 === 0 ? \"even\" : \"odd\"));\nconsole.log(g.get(\"even\")!.join(\",\"), g.get(\"odd\")!.join(\",\"));\nfor (const [k, v] of m) { if (k === \"a\") m.delete(k); }\nconsole.log(m.size);\n",
+  },
+  {
+    id: "k9-std-set-operations",
+    title: "Set：交并差 / 子集判断 / 迭代顺序",
+    src: "\nconst a = new Set([1, 2, 3]);\nconst b = new Set([3, 4]);\nconsole.log([...a.intersection(b)].join(\",\"), [...a.union(b)].join(\",\"), [...a.difference(b)].join(\",\"));\nconsole.log(a.isSubsetOf(new Set([1, 2, 3, 4])), a.isSupersetOf(new Set([1])));\nconsole.log([...new Set(\"abca\")].join(\"\"));\n",
+  },
+  {
+    id: "k9-std-date-utc-and-format",
+    title: "Date：UTC 构造、getTime、toISOString、差值",
+    src: "\nconst d = new Date(Date.UTC(2020, 0, 2, 3, 4, 5));\nconsole.log(d.toISOString(), d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());\nconsole.log(d.getTime() === Date.UTC(2020, 0, 2, 3, 4, 5));\nconst e = new Date(Date.UTC(2020, 0, 3));\nconsole.log((e.getTime() - d.getTime()) / 3600000);\n",
+  },
+  {
+    id: "k9-std-symbol-description-and-registry",
+    title: "Symbol：描述、注册表、作键、for-in 看不见",
+    src: "\nconst s = Symbol(\"k\");\nconst o: any = { [s]: 1, plain: 2 };\nconsole.log(s.description, typeof s, Object.keys(o).join(\",\"));\nconsole.log(Symbol.for(\"x\") === Symbol.for(\"x\"), Symbol.keyFor(Symbol.for(\"x\")));\nconsole.log(Object.getOwnPropertySymbols(o).length, o[s]);\n",
+  },
+  {
+    id: "k9-std-promise-allsettled-any",
+    title: "Promise：allSettled / any / race / all 的结果形状",
+    src: "\nasync function main() {\n  const settled = await Promise.allSettled([Promise.resolve(1), Promise.reject(new Error(\"x\"))]);\n  console.log(settled.map((r) => r.status).join(\",\"));\n  console.log(await Promise.any([Promise.reject(new Error(\"a\")), Promise.resolve(\"ok\")]));\n  console.log(await Promise.race([Promise.resolve(\"first\"), Promise.resolve(\"second\")]));\n  try { await Promise.all([Promise.resolve(1), Promise.reject(new Error(\"boom\"))]); }\n  catch (e) { console.log(\"all-rejected\", (e as Error).message); }\n}\nmain();\n",
+  },
+  {
+    id: "k9-std-array-sort-stability",
+    title: "Array.prototype.sort：默认字典序、稳定性、比较器",
+    src: "\nconsole.log([10, 9, 1].sort().join(\",\"));\nconst items = [{ k: 1, n: \"a\" }, { k: 0, n: \"b\" }, { k: 1, n: \"c\" }];\nitems.sort((x, y) => x.k - y.k);\nconsole.log(items.map((i) => i.n).join(\"\"));\nconst mixed = [3, 1, 2];\nconsole.log(mixed.sort().join(\",\"), mixed.join(\",\"));\n",
+  },
 ];

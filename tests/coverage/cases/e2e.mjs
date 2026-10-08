@@ -2771,4 +2771,31 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     title: "记忆化 + 递归（斐波那契与阶乘的缓存命中）",
     src: "\nfunction memo(fn) {\n  const cache = new Map();\n  return (...args) => {\n    const key = args.join(\",\");\n    if (cache.has(key)) return cache.get(key);\n    const value = fn(...args);\n    cache.set(key, value);\n    return value;\n  };\n}\nconst fib = memo((n) => (n < 2 ? n : fib(n - 1) + fib(n - 2)));\nconsole.log(fib(30), fib(10));\nlet calls = 0;\nconst slow = memo((n) => { calls++; return n * 2; });\nconsole.log(slow(3), slow(3), calls);\n",
   },
+
+  // ---- 第 666 轮：场景加宽（一条 = 一个真跑的 .ts，裁判是真 node）----
+  {
+    id: "k9-e2e-matrix-and-vector",
+    title: "完整程序：矩阵乘 + 向量点积（嵌套循环 / 数组 / 数值）",
+    src: "\nfunction multiply(a: number[][], b: number[][]): number[][] {\n  const n = a.length, m = b[0].length, k = b.length;\n  const out: number[][] = [];\n  for (let i = 0; i < n; i++) {\n    const row: number[] = [];\n    for (let j = 0; j < m; j++) {\n      let s = 0;\n      for (let t = 0; t < k; t++) s += a[i][t] * b[t][j];\n      row.push(s);\n    }\n    out.push(row);\n  }\n  return out;\n}\nconst A = [[1, 2], [3, 4]];\nconst B = [[5, 6], [7, 8]];\nconsole.log(JSON.stringify(multiply(A, B)));\nconsole.log(A[0].reduce((p, c, i) => p + c * B[i][0], 0));\n",
+  },
+  {
+    id: "k9-e2e-event-emitter",
+    title: "完整程序：事件总线（Map + 闭包 + 类 + 可选链）",
+    src: "\ntype Handler = (payload: any) => void;\nclass Emitter {\n  private handlers = new Map<string, Handler[]>();\n  on(event: string, fn: Handler) {\n    const list = this.handlers.get(event) ?? [];\n    list.push(fn);\n    this.handlers.set(event, list);\n    return () => this.off(event, fn);\n  }\n  off(event: string, fn: Handler) {\n    const list = this.handlers.get(event) ?? [];\n    this.handlers.set(event, list.filter((h) => h !== fn));\n  }\n  emit(event: string, payload?: any) {\n    for (const h of this.handlers.get(event) ?? []) h(payload);\n  }\n}\nconst bus = new Emitter();\nconst seen: string[] = [];\nconst stop = bus.on(\"ping\", (p) => seen.push(\"a:\" + p));\nbus.on(\"ping\", (p) => seen.push(\"b:\" + p));\nbus.emit(\"ping\", 1);\nstop();\nbus.emit(\"ping\", 2);\nconsole.log(seen.join(\" \"));\n",
+  },
+  {
+    id: "k9-e2e-json-pipeline",
+    title: "完整程序：解析 → 过滤 → 聚合 → 排序 → 输出",
+    src: "\nconst raw = '[{\"name\":\"a\",\"score\":3,\"tags\":[\"x\"]},{\"name\":\"b\",\"score\":1,\"tags\":[]},{\"name\":\"c\",\"score\":3,\"tags\":[\"y\",\"x\"]}]';\nconst rows = JSON.parse(raw) as { name: string; score: number; tags: string[] }[];\nconst withTags = rows.filter((r) => r.tags.length > 0);\nconst byScore = new Map<number, string[]>();\nfor (const r of withTags) {\n  const list = byScore.get(r.score) ?? [];\n  list.push(r.name);\n  byScore.set(r.score, list);\n}\nconst ranked = [...byScore.entries()].sort((x, y) => y[0] - x[0]);\nfor (const [score, names] of ranked) console.log(score + \": \" + names.sort().join(\",\"));\nconsole.log(\"total\", rows.reduce((p, c) => p + c.score, 0));\n",
+  },
+  {
+    id: "k9-e2e-state-machine",
+    title: "完整程序：状态机（对象表 + 生成器驱动 + 异常恢复）",
+    src: "\ntype State = \"idle\" | \"running\" | \"done\";\nclass Machine {\n  state: State = \"idle\";\n  steps = 0;\n  private table: Record<string, State> = { idle: \"running\", running: \"done\", done: \"idle\" };\n  next() {\n    const from = this.state;\n    this.state = this.table[from];\n    this.steps += 1;\n    return from + \"->\" + this.state;\n  }\n}\nconst m = new Machine();\nconst trail: string[] = [];\nfor (let i = 0; i < 5; i++) trail.push(m.next());\nconsole.log(trail.join(\" \"));\nconsole.log(m.steps);\n",
+  },
+  {
+    id: "k9-e2e-text-report",
+    title: "完整程序：文本报表（split / padStart / join / 数值格式化）",
+    src: "\nconst rows = [\n  { item: \"apple\", qty: 3, price: 1.5 },\n  { item: \"banana\", qty: 12, price: 0.25 },\n  { item: \"cherry\", qty: 7, price: 3 },\n];\nlet total = 0;\nconst lines: string[] = [];\nfor (const r of rows) {\n  const sum = r.qty * r.price;\n  total += sum;\n  lines.push(r.item.padEnd(8, \".\") + String(r.qty).padStart(4, \" \") + sum.toFixed(2).padStart(8, \" \"));\n}\nlines.push(\"-\".repeat(20));\nlines.push(\"TOTAL\".padEnd(8, \".\") + total.toFixed(2).padStart(12, \" \"));\nconsole.log(lines.join(\"\\n\"));\n",
+  },
 ];
