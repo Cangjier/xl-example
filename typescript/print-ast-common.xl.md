@@ -3095,6 +3095,64 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       ck.length = 0;
       for (const one of flattened) ck.push(one);
     }
+    // **一元前缀的操作数在后**（第 711 轮，**普查当场红的**）：`typeof o[k]().v` 的产物是
+    // `[UnaryOperator(typeof o[k]), Bracket(()), ., v]`——那个一元单元把 `typeof`
+    // 与**它的操作数**装在同一格里，而链上后面那些格接的是**操作数**
+    //（JS 里 `typeof` 管的是整条链 `o[k]().v`，不是 `o[k]` 那一段）。
+    //
+    // **照原样折会静默错值**：后面那些格被套在 `typeof` 的**结果**上——
+    // `typeof o[k]` 是一个字符串，再对它调一次 ⇒ 报
+    // `cannot call a non-closure value`（`typeof o[k]().v`）；
+    // 而少了调用那一格时（`o[k]().v + ""`）拿到的是**那个函数自己**。
+    // **`typeof (…)` 是同一个形状的第三个出口**：`typeof o[k]()` 早就有判据钉着
+    // （`c307-rt-typeof-element-call-in-args`），它走的是**平级三格**那一条路；
+    // 一旦后面再接一个后缀，token 层的形状就换成了「一元单元 + 链上其余格」。
+    //
+    // **做法与第 178 轮 `?.` 那一处一字不差**（那里也是「一元前缀 + 操作数在后」）：
+    // 把操作数那一格接上链上其余格、**当场递归折完**，再套回那个一元节点——
+    // 下面那个循环因此不再进（整条链在这里已经折完）。
+    // **只在后面真是链上的一格时才走这一支**（`.` / 下标 / 调用 / 成员 / 断言）：
+    // `?.` 与二元那一族由下面那两条尾支管，抢过来会换掉既有形状。
+    const chainTail = (unit: any): bool => {
+      const tailKind = unit.get("type");
+      if (tailKind === "Bracket" || tailKind === "PropertyAccess" || tailKind === "Method") return true;
+      if (tailKind === "NotNull") return true;
+      return tailKind === "SymbolToken" && textOfNode(unit, ctx) === ".";
+    };
+    if (ck.length > 1 && ck[0].get("type") === "UnaryOperator" && chainTail(ck[1])) {
+      const unaryKids = projectableKids(view(ck[0]));
+      let operandAt = 0;
+      while (
+        operandAt < unaryKids.length &&
+        (unaryKids[operandAt].get("type") === "SymbolToken" || unaryKids[operandAt].get("type") === "Keyword")
+      ) {
+        operandAt += 1;
+      }
+      if (operandAt < unaryKids.length) {
+        // **链上其余格用「摊开之前」的那一份**（`kids`，不是 `ck`）：`ck` 里第二格
+        // （`PropertyAccess(Bracket(()), ., v)`）已经被摊成三格平级
+        //（`(` / `.` / `v`）——而 `projectExpression` 的链那一支认的是**没摊开**的形状
+        //（见上面 `isCallFirstUnit` 那一段）。递摊开那一份会让它落进二元那一支：
+        // 折出一个**操作符是 `DotToken` 的 `BinaryExpression`**，
+        // 降级期报 `name is not a local or a capture: v`（实测踩过一次）。
+        const operand = projectExpression([...unaryKids.slice(operandAt), ...kids.slice(1)], ctx);
+        const unaryHead = projectNode(ck[0], ctx);
+        // **操作数那一格有两个名字**（实测踩过一次）：`typeof` / `void` / `delete` / `await`
+        // 是 `TypeOfExpression` 那一族（字段叫 **`expression`**），而 `!` / `~` / `+` / `-` /
+        // `++` / `--` 是 **`PrefixUnaryExpression`**（字段叫 **`operand`**）——
+        // 只认 `expression` 的话 `!o[k]().v` 会**退回**旧路（投成 `(!o[k])().v`，
+        // 运行期报 `cannot call a non-closure value`），而 `typeof o[k]().v` 是好的
+        // ——**同一个形状两种结局**，最费时间的那一种。
+        if (operand !== undefined && unaryHead !== undefined) {
+          if (unaryHead.expression !== undefined) {
+            return { ...unaryHead, expression: operand, end: operand.end };
+          }
+          if (unaryHead.operand !== undefined) {
+            return { ...unaryHead, operand: operand, end: operand.end };
+          }
+        }
+      }
+    }
     let left =
       ck[0].get("type") === "Bracket" && ck[0].get("startBracket") === "("
         ? parenthesizedOf(ck[0], ctx)
