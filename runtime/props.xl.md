@@ -793,9 +793,26 @@ if ((protos !== null && (receiver.Ref === protos.Object || receiver.Ref === prot
     // `protos.Function` 上只有 `call` / `apply` / `bind`，三格在 `protos.Object` 上都没有
     // ⇒ 「先找哪边」看不出来；第 334 轮补上第四格才把它点着。
     //
-    // **宿主引用没有自己的表**（`HostRef` 那一档）⇒ 它们照旧落到下面那一句，
-    // 这正是这一段当初存在的理由（第 228 轮：`.call` 挂在 `protos.Function` 上，
-    // 而宿主引用顺着 `Proto` 走是走不到的）。
+    // **宿主引用今天也有自己的表了**（第 733 轮）：它本来「没有属性表」，
+    // 所以 `.call` 这类挂在 `protos.Function` 上的格子只能靠下面那一句替它找。
+    // 可「宿主引用没有表」**不是一条结构事实**——`HeapObject.Props` 本来就长在
+    // 每一格上（`heap.xl.md`），`HostRef` 只是**从来没人往里写过**。
+    // 第 733 轮往里写了头两格（内建函数的 `name` / `length`，见 `globals.xl.md`
+    // 的 `DefineBuiltinName`），于是它**和普通对象一样**先看自有那一摞。
+    //
+    // **顺序要紧**：这一段必须排在下面那句「去 `protos.Function` 上找」**之前**——
+    // `protos.Function` 自己第 731 轮挂了 `name`（空串）与 `length`（`0`），
+    // 排在后面的话每一个内建的 `name` 都会读到**原型上那一格**（静默错值，
+    // 与第 731 轮那 40 条回归**同一个形状**）。
+    // **只查自有那一摞**（`FindProperty` 会顺着 `Proto` 走）：宿主引用的 `Proto`
+    // 今天还是 `0`（没有原型），走链是空转；而「自有优先」正是 JS 里
+    // `[[GetOwnProperty]]` 先于原型链那一条。
+    if (receiver.Tag === ValueTag.HostRef) {
+      const hostOwn = FindProperty(room, table, receiver.Ref, key);
+      if (hostOwn !== null && hostOwn.Owner === receiver.Ref) {
+        return ReadProperty(call, table, hostOwn, receiver);
+      }
+    }
     if (receiver.Ref === protos.Object || receiver.Ref === protos.Function) {
       const own = FindProperty(room, table, receiver.Ref, key);
       if (own !== null && own.Owner === receiver.Ref) {

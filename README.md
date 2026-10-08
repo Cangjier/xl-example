@@ -1050,6 +1050,44 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7457 / 7806 → 7460 / 7810**、`blocked 258`（没涨）、`differ 91 → 92`（收 1 条、新登 2 条）、
   `bad` 0、`regressions` **0**，加权 **96.1%**（两个数都在这一位）。
 
+### 第 733 轮：内建函数自己那两格（`name` / `length`）（coverage 7460/7810 → **7468/7813**）
+
+第 731 轮把**闭包**那两格与 `Function.prototype` 那两格接上了，**内建这两档一直空着**——
+这一轮收的是同一条根上的另外两档（`p731a-a03` 那一行点名的「已经能挂的那一半」）。
+
+- **一句话的根**：**本仓的内建有两种壳，两种都没人给名字**。
+  ① **宿主引用**（`Math.max` / `Object.prototype.__lookupGetter__` / `Reflect.get` 那一族）
+  **连属性表都没有**（`HeapHostRef` 只有两个 int）⇒ `GetProperty` 走到它就是「找不到」；
+  ② **带可调用载荷的对象**（`Function.prototype` 那四格、`Promise.prototype` 那一族）
+  有表、`length` 第 350 轮就挂上了，**缺的只是「有没有人把名字传进来」**
+  （`MethodObject` 的签名里没有名字那一格）。
+- **修法两处，一小一大**：
+  - `props.xl.md` 的 `GetProperty`：**宿主引用也先看自有那一摞**。
+    「宿主引用没有属性表」**不是一条结构事实**——`HeapObject.Props` 本来就长在每一格上
+    （`heap.xl.md`），只是**从来没人往里写过**。**次序要紧**：这一段必须排在
+    「借 `protos.Function` 找一次」**之前**——`protos.Function` 自己第 731 轮挂了
+    `name`（空串）与 `length`（`0`），排在后面的话每个内建的 `name` 都会读到原型上那一格
+    （静默错值，与第 731 轮那 40 条回归**同一个形状**）。
+  - `globals.xl.md` 新增 `DefineBuiltinName` / `BuiltinHostRef` / `BuiltinArity` /
+    `ObjectProtoMethod` 四件，`MethodObject` 多收一格 `name`（缺省空串 = 老行为一字不改）。
+    标志位按 Node 量出来的那一档（`{ writable: false, enumerable: false, configurable: true }`）
+    ⇒ 只给 `PropertyFlagConfigurable` 一位，**不走 `SetHiddenProperty`**（那个三格全开，
+    `writable` 是**真**——静默可写）。
+- **`BuiltinHostRef` 是这一轮真正的坑**：`CreateHostRef` **每次都 `AllocateRaw`**
+  （第 1081 轮写着它为什么不能按对驻留）⇒ 同一个内建号上可以同时存在好几个句柄、
+  而它们**不是同一个值**。就地新造一个再往上挂 `name`，脚本读到的是**另一个句柄**
+  ⇒ `Math.max.name` 照旧 `undefined`（**静默无效**，一句异常都没有）。
+  所以取能力表里那一个（`vm.HostTable[id - BuiltinBase]`，装载时按号注册过、只读）。
+- **判据五条转绿、台账已撤**：`p706c-x20`（`__lookupGetter__.name` / `.length`）、
+  `p709b-b17` / `p709b-b18` / `p719a-m09`（`Math` 那一族的名字与形参个数）、
+  `p731a-a03`（`Function.prototype.call.name` 那一行）。
+- **新语料 3 条**（`runtime/round733/p733a-a01` / `a02` / `a03`）：三分宿主引用那一档
+  （`Math` / `__lookupGetter__` / `Reflect` / `Object.keys`）、四格 `Function.prototype`
+  自己那一档、以及**那两格的标志位**（`Object.keys(Function.prototype)` 与
+  `Object.keys(Object.prototype)` 都必须是空数组——挂错标志位就是静默漏出去）。
+- 五类 **7460 / 7810 → 7468 / 7813**、`blocked 258`（没涨）、`differ 92 → 87`
+  （收 5 条、新语料 0 条挂账）、`bad` 0、`regressions` **0**，加权 **96.1% → 96.2%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1057,13 +1095,13 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **216 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1418** 条用例，0 条不合格 |
-| `cases:tags` | **1418 条**（1418 条带期望、核过 4804 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1405 份），未覆盖 **0** |
+| `cases:check` | **1421** 条用例，0 条不合格 |
+| `cases:tags` | **1421 条**（带期望的逐条核过），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1408 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7460 / 7810**，加权 **96.1%**：token 1189/1405、exec 2119/2166、runtime 846/858、stdlib 3064/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 92），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~37s**） |
+| `coverage` | **五类 7468 / 7813**，加权 **96.2%**：token 1189/1405、exec 2120/2166、runtime 850/861、stdlib 3067/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 87），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 
 ### 口径与已知缺口
 

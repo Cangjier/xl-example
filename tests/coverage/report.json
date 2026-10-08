@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7810,
+  "total": 7813,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.1,
+  "progressPercent": 96.17,
   "categories": [
     {
       "category": "token",
@@ -91,31 +91,31 @@
       "category": "exec",
       "weight": 0.25,
       "total": 2166,
-      "pass": 2119,
+      "pass": 2120,
       "blocked": 12,
-      "differ": 35,
+      "differ": 34,
       "nodefail": 0,
-      "coverage": 97.83
+      "coverage": 97.88
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 858,
-      "pass": 846,
+      "total": 861,
+      "pass": 850,
       "blocked": 1,
-      "differ": 11,
+      "differ": 10,
       "nodefail": 0,
-      "coverage": 98.6
+      "coverage": 98.72
     },
     {
       "category": "stdlib",
       "weight": 0.2,
       "total": 3135,
-      "pass": 3064,
+      "pass": 3067,
       "blocked": 25,
-      "differ": 46,
+      "differ": 43,
       "nodefail": 0,
-      "coverage": 97.74
+      "coverage": 97.83
     },
     {
       "category": "e2e",
@@ -1820,12 +1820,6 @@
       "detail": "stdout 不同：第 1 行：node «start,1,fin,caught» vs tsrun «start,1,caught»"
     },
     {
-      "id": "exec/round706/p706c-x20",
-      "category": "exec",
-      "title": "lookupGetter 自己的名字与长度",
-      "detail": "stdout 不同：第 1 行：node «string:__lookupGetter__,number:1» vs tsrun «string:,number:0»"
-    },
-    {
       "id": "exec/round708/p708b-l08",
       "category": "exec",
       "title": "console.log 的循环引用",
@@ -1835,7 +1829,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26388/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18364/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1940,12 +1934,6 @@
       "detail": "stdout 不同：第 1 行：node «function* anonymous(a» vs tsrun «throw:Error»"
     },
     {
-      "id": "runtime/round731/p731a-a03",
-      "category": "runtime",
-      "title": "内建方法自己那两格（`call` / `apply` / `bind` / `toString` 那一族）",
-      "detail": "stdout 不同：第 1 行：node «call apply bind» vs tsrun «undefined undefined undefined»"
-    },
-    {
       "id": "runtime/round731/p731a-a10",
       "category": "runtime",
       "title": "`Function.prototype` 上那两格受限属性（`arguments` / `caller`）",
@@ -1997,7 +1985,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26388/src/4971.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18364/src/4974.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2021,7 +2009,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26388/src/5021.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18364/src/5024.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2114,28 +2102,10 @@
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:Error»"
     },
     {
-      "id": "stdlib/round709/p709b-b17",
-      "category": "stdlib",
-      "title": "Math.max 的长度",
-      "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «number:0»"
-    },
-    {
-      "id": "stdlib/round709/p709b-b18",
-      "category": "stdlib",
-      "title": "Math.random 的名字",
-      "detail": "stdout 不同：第 1 行：node «string:random» vs tsrun «string:»"
-    },
-    {
       "id": "stdlib/round710/p710b-b01",
       "category": "stdlib",
       "title": "Object.keys(globalThis) 的长度",
       "detail": "stdout 不同：第 1 行：node «number:15» vs tsrun «number:0»"
-    },
-    {
-      "id": "stdlib/round719/p719a-m09",
-      "category": "stdlib",
-      "title": "`Math` 那一族的名字与长度（宿主引用那一档）",
-      "detail": "stdout 不同：第 2 行：node «string:2|random» vs tsrun «string:0|»"
     },
     {
       "id": "stdlib/round721/p721a-b01",
