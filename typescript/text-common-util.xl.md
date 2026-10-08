@@ -1535,6 +1535,27 @@ return (
 整个类型退化成散单元，那个联合也跟着没了）。
 
 ```ts
+// **括号自己那一格已经答过了，就别再按前文猜一遍**（第 686 轮，**实测撞到的**）：
+// `Bracket.Context` 是在**开括号那一刻**算好的（`bracket.xl.md` 的 `Success` →
+// `DecideBracketContext`），那时 `unit.Data` 里是**词法阶段的平列表**，所以那个判定
+// **不随重组时序变化**；而本函数是按「前一个实义单元是什么符号」猜的。
+// 两者在**对象字面量的值位**上会给出不同答案：
+//
+//     const o = { b: [1 | 2] };
+//
+// 那个 `[` 的前一个单元是 `:`——本函数把它读成「类型标注 ⇒ 类型位」，
+// 可它在对象字面量里是**值的分隔符**；`DecideBracketContext` 那边给的是 `"value"`（实测）。
+// 于是 `|` 折成 `UnionType`、`&` 折成 `IntersectionType`：
+// `const o = { b: [1 | 2] }` 的产物是 `ArrayLiteral > UnionType`，
+// 降级层报 `unimplemented: expression UnionType`（**整份文件进不来**）。
+// 同一个盲区还有 `{ b: (1 | 2) }`（括号那一半）与任意深度的嵌套对象。
+//
+// **只在 `Context === "value"` 时用这个答案**：`"type"` 与 `""` 照旧往下走。
+// `""` 是「算不出」而不是「值是」——`{}` / `[]` 之外的括号一律为空（`bracket.xl.md`），
+// 那种括号必须留给下面那一串按前文判的规则。
+if (unit instanceof Bracket && unit.Context === "value") {
+  return false;
+}
 // **泛型实参段里一律是类型位**（第 129 轮）：`Foo<[string, Iterable<B>]>` 里那个元组括号
 // 的宿主正是 `GenericType`，而它在 `GenericType.Data` 里的下标是 **0**（`<` 之后立刻就是它），
 // 下面那句「前面那一格是什么」于是无从回答、直接判值位——元组里的泛型实参跟着退回比较运算符

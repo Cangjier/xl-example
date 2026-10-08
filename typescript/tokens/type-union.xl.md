@@ -79,9 +79,38 @@ const name = parent.constructor.name;
 // 判据与括号类型那一格**同一句话**：问这个 `ArrayLiteral` 在**它自己那一层**
 // 是不是类型位（`type T = [A | B]` 前面是 `=`、再往左是 `type` ⇒ 是；
 // `const a = [x | y]` ⇒ 不是）。
+//
+// **但「它自己那一层」只有一个前文单元时不够**（第 686 轮，**实测撞到的**）：
+// `IsTypeBracketPosition` 只看**前一个实义单元**是什么符号，而 `:` 在**对象字面量**里
+// 是**值的分隔符**、在类型位里才是**类型标注**。于是
+//
+//     const o = { b: [1 | 2] };        →  owner 是 ObjectLiteral，前一个单元是 `:`
+//     f({ z: [3 & 4] });               →  同一个 `:`
+//
+// 都被判成类型位，`|` 折成 `UnionType`（同一族的 `&` 折成 `IntersectionType`）——
+// 这正是第 682 轮那条修法的**盲区**：`const a = [x | y]`（owner 是 `Statement`，
+// 前一个单元是 `=`）修好了，而**对象字面量里的那一格**照旧。
+//
+// **问 `ArrayLiteral.Context`**：它直接记着这件事（收方括号时从 `Bracket.Context` 抄过来的
+// `"type"` / `"value"`，见 `json/array-literal.xl.md`），而 `Bracket.Context` 是在
+// **开括号那一刻**算好的（`bracket.xl.md` 的 `Success` → `DecideBracketContext`）——
+// 那时 `Data` 里是**词法阶段的平列表**，所以那个答案**不随重组时序变化**。
+// 这一条与 `text-common-util.xl.md` 的 `IsTypeBracketPosition` 里那两条**同源**
+// （那边管括号还没被收成 `ArrayLiteral` 的那些形状）。
 if (name === "ArrayLiteral") {
+  if ((parent as any).Context === "value") {
+    return false;
+  }
   const owner = parent.Parent;
   if (owner === null) {
+    return false;
+  }
+  // **宿主是 `ObjectLiteral` ⇒ 这个数组在值位**（第 686 轮，与上一条同族，**不依赖时序**）：
+  // `Context` 是「开括号那一刻」算的，个别形状上会算成 `"type"` 或者还没算出来（实测：
+  // `f({ z: [3 & 4] })` 里那个 `[` 的 `Context` 是 `"type"`），所以再按**宿主**挡一条——
+  // 类型位那一侧是 `TypeLiteral`，`ObjectLiteral` **只从值位的 `{` 收出来**
+  //（见 `json/object-literal.xl.md`），这一条没有副作用。
+  if (owner.constructor.name === "ObjectLiteral") {
     return false;
   }
   return IsTypeBracketPosition(owner, parent);

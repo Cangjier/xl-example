@@ -310,15 +310,15 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **219 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **220 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1411** 条用例，0 条不合格 |
-| `cases:tags` | **1411 条**（1411 条带期望、核过 4768 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1398 份），未覆盖 **0** |
+| `cases:check` | **1415** 条用例，0 条不合格 |
+| `cases:tags` | **1415 条**（1415 条带期望、核过 4795 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **229 种签名 / 140 种 kind** 全部有用例覆盖（用例 1402 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3521 / 3802**，加权 **95.9%**：token 1179/1398（另有 219 条登记缺口走另一条账）、exec 598/609、runtime 612/613、stdlib 890/936、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 41），全登在用例文件头的台账里；`bad` **0 条**（第 686 轮收掉了原来那 3 条——它们不是用例写错，是裁判侧 `.work-<pid>/src/` 那份哨兵 `package.json` 写了显式 `type: commonjs`，把批那一档的 `import()` 钉死在 CJS 上） |
+| `coverage` | **五类 3524 / 3806**，加权 **95.9%**：token 1179/1402（另有 220 条登记缺口走另一条账）、exec 598/609、runtime 612/613、stdlib 890/936、e2e 242/246。差的那些是**真缺口**（`blocked` 241 / `differ` 41），全登在用例文件头的台账里；`bad` **0 条**（第 686 轮收掉了原来那 3 条——它们不是用例写错，是裁判侧 `.work-<pid>/src/` 那份哨兵 `package.json` 写了显式 `type: commonjs`，把批那一档的 `import()` 钉死在 CJS 上） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口
@@ -350,7 +350,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **219** 条）：
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **220** 条）：
   主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
   （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
   `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），
@@ -405,6 +405,17 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   （`EmitIteratorClose` 的注释写着「break / return / 抛出去三档都要调」，
   代码只铺了两条 ⇒ 自定义可迭代物的 `return()` 在异常路径上一次都不被调；
   for-of 的循环体现在外围套一张处理点，出事时两个 close 各跑一遍再原样抛出去）。
+  **第 686 轮**换了一层问（**值位 vs 类型位**），量出并收掉一族**静默错树**：
+  `IsTypeBracketPosition` 是按「前一个实义单元是什么符号」判类型位的，而 `:` 在
+  **对象字面量**里是**值的分隔符**——于是 `const o = { b: [1 | 2] }` / `f({ z: [3 & 4] })`
+  里的 `|` / `&` 折成 `UnionType` / `IntersectionType`，降级层报
+  `unimplemented: expression UnionType`（**整份文件进不来**）。判据改用括号自己在
+  开括号那一刻算好的 `Bracket.Context`，宿主是 `ObjectLiteral` 时再挡一条（不依赖时序）——
+  已收：裸对象值位、嵌套对象、函数实参里的对象、计算键、括号化对象里的**裸数组**。
+  **还开着一格**（登在 `tests/cases/token/expressions/gap-value-array-bitwise-in-object-paren`）：
+  对象值位里**被括号包住**的数组 / 值表达式，那时 `unit.Context` 已经是 `"type"`、
+  宿主槽位还是 `Bracket`（不是 `ObjectLiteral`），两条判据都接不住；
+  要收它得让 `DecideBracketContext` 在开括号那一刻就认出「我在对象字面量的值位」。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 
