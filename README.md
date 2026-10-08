@@ -142,8 +142,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 - [docs/xl-to-cpp.md](docs/xl-to-cpp.md)：C++ 目标的生成规范（映射规则、部件划分、必读的编译陷阱）。
 - [docs/cpp-design-notes.md](docs/cpp-design-notes.md)：C++ 目标上那些「只能这么写」的结构性取舍。
-- [docs/ast-json.md](docs/ast-json.md)：token 树的**第二个出口**（AST JSON）的规格：形状、逐 token 字段表、
-  与上游 Cangjie 的逐条差异，以及验收它的尺子。
+- [docs/ast-json.md](docs/ast-json.md)：AST JSON 出口的规格（形状 / 逐 token 字段表 / 与上游 Cangjie 的差异）。
+- [docs/ts-ast.md](docs/ts-ast.md)：TS 形状出口的规格（kind 与字段名的对照表）。
 
 ## 类型约定
 
@@ -158,19 +158,11 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 - **`any` 是唯一的例外**，只出现在「宿主环境的动态值」这一类位置：异常的内层异常、
   `RuntimeObject` 的值、`SyntaxContext` 的变量表、`cjcli` 里取 Node 内建模块的返回值。
   语言层的结构一律用具体类型或 `T | null`。
-- **token 树的第二个出口是 AST JSON**（`ToDictionary` / `ToList`，见 [docs/ast-json.md](docs/ast-json.md)）。
-  上游 Cangjie 的 `Token` 本来就同时有 `ToXmlString` 与 `ToDictionary` / `ToList`，
-  而下游（IDE、工具链）要的是 JSON。代价如实记在这里：这两个方法返回
-  `Map<string, any>` / `Array<any>`，对多语言目标是负担（C++ / C# 侧要么用
-  `std::any` / `object`，要么就是「另一个目标的活儿」）。换来的是两个出口**同源**
-  ——`ToDictionary` 就是「这个节点在 XML 里的标签名与属性，加上子单元」，
-  而 `Map` → 普通对象那一步由 `Token.ToJsonString` 收在一处
-  （`JSON.stringify` 对 `Map` 静默给 `{}`，这是必须显式处理的一步，不是风格问题）。
-- **token 树的第三个出口是 TS 形状**（`typescript/print-ast-common.xl.md` 的 `projectRoot` / `ToJsonText`，
-  见 [docs/ts-ast.md](docs/ts-ast.md)）。**逐节点**：`Token.PrintAst(ctx, v)` 是基类挂钩，
-  各 token 覆写自己那一格，没覆写的走语言层的通用支（`print-ast-common.xl.md` 的三张表），
-  两条路的产物逐字节相同。代价与 AST JSON 那一支同源：投影层是 `Map<string, any>` / `any`
-  上跑的，C++ 目标要面对同一笔账（比如 `NUMERIC_LITERAL` 的 `RegExp`）。
+- **后两个出口（AST JSON / TS 形状）的代价是同一个**：它们跑在
+  `Map<string, any>` / `Array<any>` / `any` 上，对多语言目标是负担（C++ / C# 侧要么用
+  `std::any` / `object`，要么就是「另一个目标的活儿」——比如 TS 形状里 `NUMERIC_LITERAL`
+  的 `RegExp` 那一格）。换来的是**三个出口同源**：形状各自只是「同一棵树的另一种拼法」。
+  两个出口的形状见「构建链路」那一节，规格各自的文档在「多目标」那张表里。
 
 ## 支持的语法构造
 
@@ -268,7 +260,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 ## 判据与缺口
 
-**主判据是六道门**（`npm run gates` 一次跑完，墙钟 ~22s）：
+**主判据是六道门**（`npm run gates` 一次跑完，墙钟 ~29s）：
 
 | 门 | 口径 |
 | --- | --- |
