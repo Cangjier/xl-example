@@ -163,6 +163,12 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   `std::any` / `object`，要么就是「另一个目标的活儿」——比如 TS 形状里 `NUMERIC_LITERAL`
   的 `RegExp` 那一格）。换来的是**三个出口同源**：形状各自只是「同一棵树的另一种拼法」。
   两个出口的形状见「构建链路」那一节，规格各自的文档在「多目标」那张表里。
+- **「值 + 它在哪」一律装进 `TokenField<T>`**（`core/syntax/token-field.xl.md`）：
+  `Value` 说是什么、`Range` 说在哪，`Set` 一次写两样 ⇒ **区间在 ⟺ 记过**（`IsSet`）。
+  需要「开括号在哪、整对括号到哪」这类**成对位置**的 token 都走这一格
+  （`Try` 的 `TryBrace` / `IfSegment` 的 `BodyBrace` …）——投影那一侧**直读字段**，
+  不再回原文 `indexOf` + `MatchingBrace` 重扫一遍（那种二次搜刮遇到块里的字符串或注释里的
+  假括号就会给错位置）。这是「token 直出 AST」那条线的落点。
 
 ## 支持的语法构造
 
@@ -275,7 +281,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-### 当前状态（第 635 轮实测）
+### 当前状态（第 637 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |

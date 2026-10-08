@@ -246,17 +246,34 @@ ifSet.MountCondition(source);
           end = elseBody.end;
         } else {
           // 空体（`else {}`）：TS 那边仍是一个空 `Block`。
-          // **位置读字段**（第 621 轮）✗：`BodyBraceAt` 是挂体那一刻当场记下来的
+          // **位置读字段**（第 621 轮）：`BodyBraceAt` 是挂体那一刻当场记下来的
           // （`MountBodyOrStatement` 里那个括号就在手上），而 `indexOf("{", at + 4)`
           // 会命中注释里的假括号——那是**第二份位置答案**。字段缺了才退回按原文找。
+          //
+          // **右端也读字段**（第 637 轮）：`IfSegment.BodyBrace` 把**整对括号**一起带出来
+          //（段的 `Data` 成形那一刻收的，与 `Try.TryBrace` 同一条口径），
+          // 所以这里连 `MatchingBrace` 那一趟**回原文重扫**都不必再走一遍。
           const rawElseBrace = ctx.Attr(segments[index + 1], "bodyBraceAt");
-          const brace = typeof rawElseBrace === "number" && rawElseBrace >= 0
-            ? rawElseBrace
-            : ctx.source.indexOf("{", at + 4);
-          const close = brace >= 0 ? ctx.MatchingBrace(ctx.source, brace) : -1;
-          if (brace >= 0 && close >= brace) {
-            props.elseStatement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
-            end = close + 1;
+          const rawElseRange = ctx.Attr(segments[index + 1], "bodyBraceRange");
+          const elseSpan =
+            typeof rawElseRange === "string" && rawElseRange.includes(",") ? rawElseRange.split(",") : null;
+          if (elseSpan !== null) {
+            props.elseStatement = {
+              kind: "Block",
+              statements: [],
+              pos: Number(elseSpan[0]),
+              end: Number(elseSpan[1]) + 1,
+            };
+            end = Number(elseSpan[1]) + 1;
+          } else {
+            const brace = typeof rawElseBrace === "number" && rawElseBrace >= 0
+              ? rawElseBrace
+              : ctx.source.indexOf("{", at + 4);
+            const close = brace >= 0 ? ctx.MatchingBrace(ctx.source, brace) : -1;
+            if (brace >= 0 && close >= brace) {
+              props.elseStatement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
+              end = close + 1;
+            }
           }
         }
       }

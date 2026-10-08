@@ -4,7 +4,9 @@ import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { Bracket } from "../bracket.xl.md"
 import { IfSet } from "./if-set.xl.md"
 import { IfBody } from "./if-body.xl.md"
 import { IfCondition } from "./if-condition.xl.md"
@@ -83,6 +85,9 @@ const last = this.Last();
 if (last !== null && last.Closed === false && last.SourceRange.Start !== null && last.SourceRange.End !== null) {
   last.TryToClose();
 }
+// **输入到头**那一档也收一次 ✓：这一族平时靠「下一个字符」退场 ✓，
+// 到头时走的是这里 ✓ ⇒ 两条路都要把体那一对括号记下来 ✓。
+this.CaptureBodyBrace();
 ```
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
@@ -132,6 +137,9 @@ if (hasBody) {
   if (tail !== undefined && tail.SourceRange.End !== null && this.SourceRange.End === null) {
     this.SignOut(tail.SourceRange.End);
   }
+  // **体那一对括号就在这一刻收进字段** ✓：段的 `Data` 已经成形 ✓、`IfBody` 那个括号两头都签好了 ✓
+  // ⇒ 投影画 `else {}` 的空 `Block` 时两格都直读 ✓，不必回原文重扫 ✓。
+  this.CaptureBodyBrace();
   this.Quit();
   return;
 }
@@ -243,6 +251,58 @@ return `<${name} key="${this.key}">${temp.join("")}</${name}>`;
 那是**第二份位置答案**（`else /* { */ {}` 会命中注释里那个假括号），
 而空块的终点照旧由 `MatchingBrace` 从这一格配出来。
 
+## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
+
+**体那一对花括号**：值取开括号的下标，`Range` 是**整对括号**。
+
+与 `BodyBraceAt`（一个裸下标 ✓）的分工：那一格说「`{` 在哪」✓，这一格把**配对的那个 `}`** 也带上 ✓
+——与 `Try.TryBrace` / `While.BodyBrace` 同一条口径 ✓。
+
+**为什么补这一格** ✗：投影画 `else {}` 那个空 `Block` 时 ✓，右端原来要
+`MatchingBrace(ctx.source, brace)` **回原文重扫一遍** ✓ ⇒ 缩到那一格还得再扫 ✓
+（见 `if-set.xl.md` 的 `PrintAst` 里「位置读字段」那一段 ✓）。可这一段**打包那一刻括号就在段里** ✓
+（`IfBody` 就是那个 `Bracket` ✓，它自己的区间两头都签好了 ✓）⇒ 当场收下来 ✓，投影两格都直读 ✓。
+
+`Range` 为空（体不是花括号块）时值也是 `-1` ✓——用 `IsSet` 判 ✓。
+
+## method CaptureBodyBrace:()=>void
+
+体那一格就是 `{` 时，把它的**整对区间**记进 `BodyBrace`；否则不动。
+
+只在 `Data` 已经成形之后调（`IfSegment.Process` 里「本段干完了」那一刻 ✓）：
+那时 `IfBody` 那个括号的 `Start` / `End` 都签好了 ✓。
+
+```ts
+for (const item of this.Data) {
+  if (!(item instanceof IfBody)) {
+    continue;
+  }
+  const brace = item.Data.find((x) => x instanceof Bracket && x.startBracket === "{");
+  if (brace !== undefined && brace.SourceRange.Start !== null && brace.SourceRange.End !== null) {
+    this.BodyBrace.Set(brace.SourceRange.Start!.Index, brace.SourceRange);
+  }
+  return;
+}
+```
+
+## method BraceRangeText:()=>string
+
+体那一对括号的**两格下标**，写成 `"起,止"`；没记过时给空串。
+
+**为什么是字符串而不是两个数字** ✗：`ToDictionary` 的数组一律被当成**子单元列表** ✓
+（`WithRangeOf` 会拿它们与 token 逐格配对 ✓）⇒ 一对坐标混进去会被当成一个子节点 ✗。
+一个标量字符串没有这个问题 ✓，而投影拆一次就还原成两格 ✓。
+
+```ts
+if (!this.BodyBrace.IsSet || this.BodyBrace.Range === null ||
+    this.BodyBrace.Range.Start === null || this.BodyBrace.Range.End === null) {
+  return "";
+}
+const from = String(this.BodyBrace.Range.Start!.Index);
+const to = String(this.BodyBrace.Range.End!.Index);
+return from + "," + to;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `key`，外加两个可选段。
@@ -268,6 +328,12 @@ if (this.IfWordAt >= 0) {
 // 投影画空 `Block` 时直读，不再回原文重扫。
 if (this.BodyBraceAt >= 0) {
   result.set("bodyBraceAt", this.BodyBraceAt);
+}
+// **整对括号也写出去**（第 637 轮）：投影画 `else {}` 的空 `Block` 时右端直读它 ✓
+//（原来要靠 `MatchingBrace` 回原文重扫那一趟 ✓）。标量字符串，见 `BraceRangeText`。
+const braceRange = this.BraceRangeText();
+if (braceRange !== "") {
+  result.set("bodyBraceRange", braceRange);
 }
 if (this.Condition !== null) {
   result.set("condition", this.Condition.ToList());
