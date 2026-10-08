@@ -617,7 +617,15 @@ if (value.Tag === ValueTag.Object) {
   }
   if (level > InspectDepth) return InspectMark("Object", level);
   const entries = InspectObjectBody(table, value, level);
-  return BreakEntries(entries, "{", "}", 1, level * 2, 0);
+  // **`null` 原型的对象要多一层前缀**（第 751 轮，**普查当场量到的**）：
+  // `util.inspect` 给的是 `[Object: null prototype] { a: 1 }`，而本仓给 `{ a: 1 }`——
+  // **这一格是 `Object.create(null)` 与 `Object.setPrototypeOf(o, null)` 两族的共同出口**，
+  // 所以判据取**堆上那一格 `Proto` 是不是 `0`**（`heap.xl.md`：`field Proto:int = 0`
+  // 就是「没有原型」那个编码），而不是问语言层的 `protos`——这一族签名里没有 `protos`，
+  // 而「有没有原型」这件事**堆本身就知道**。
+  // **`JSON.stringify` 那一档不受影响**（它不走这里），判据那一行两边的都是 `{}`。
+  const body = BreakEntries(entries, "{", "}", 1, level * 2, 0);
+  return table.Get(value.Ref).Proto === 0 ? "[Object: null prototype] " + body : body;
 }
 return "[Object]";
 ```

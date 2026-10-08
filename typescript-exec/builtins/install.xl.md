@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyCharge, PropertyKind } from "../../runtime/heap.xl.md"
-import { RoomChecker, RtToBoolean, RtToString, IsCallableValue, RtSetProto } from "../../runtime/rt.xl.md"
+import { RoomChecker, RtToBoolean, RtToString, IsCallableValue, RtSetProto, SameValue } from "../../runtime/rt.xl.md"
 import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty, CreateDataProperty, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
@@ -1021,6 +1021,19 @@ if (id === ReflectSetPrototypeOf) {
   // 而 JS 里它就是对象（与 `Object.setPrototypeOf` 那一格同一条，第 720 轮）。
   if (!args[1].IsObject() && args[1].Tag !== ValueTag.Null && args[1].Tag !== ValueTag.HostRef) {
     throw new TypeError("Reflect.setPrototypeOf called with a non-object prototype");
+  }
+  // **不可扩展的目标该给假、且不改原型**（第 751 轮，**普查当场量到的**）：
+  // 规范的 `OrdinarySetPrototypeOf` 第一条就是「目标不可扩展 ⇒ 给**假**」，
+  // 而 `Reflect.setPrototypeOf` 是**把那个假交出去**（`Object.setPrototypeOf`
+  // 拿到假才抛——第 736 轮）——本仓原来这一支**照改不误、还给真**，
+  // 于是 `Reflect.preventExtensions(o)` 之后 `Reflect.setPrototypeOf(o, null)`
+  // 在 Node 里是「假 + 原型没动」，本仓是「真 + 原型改了」（判据 `p750a-a08` 第 4 行）。
+  // **「设成同一个原型」那一档要给真**（规范第二句 `SameValue`）——
+  // 只看「不可扩展」就给假会把 `Reflect.setPrototypeOf(o, Reflect.getPrototypeOf(o))`
+  // 判反，与 `Object.setPrototypeOf` 那一处同一句次序（先问变没变、再问可扩展性）。
+  if (IsUnextensible(room, table, target)
+    && !SameValue(table, PrototypeOfValue(protos, table, target), args[1])) {
+    return Value.FromBool(false);
   }
   RtSetProto(table, target, args[1]);
   return Value.FromBool(true);

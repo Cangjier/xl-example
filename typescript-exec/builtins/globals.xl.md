@@ -4601,8 +4601,21 @@ if (id === ObjectDefineProperty) {
   //（`Object.hasOwn([1], 0)` 第 691 轮、`o.hasOwnProperty(1)` 更早）——
   // 而 `defineProperty` 是**写**那一侧，写不进一格比读不出一格更难被发现。
   // 转换**不新写一份**：走 `PropertyKeyValue`（`text.xl.md`，就是 `ToPropertyKey` 那一句）。
-  if (args.length < 3 || !args[0].IsObject() || !args[2].IsObject()) {
-    throw new Error("unimplemented: Object.defineProperty needs (object, string or symbol key, descriptor object)");
+  // **`null` / `undefined` 目标要抛 `TypeError`**（第 751 轮，**普查当场量到的**）：
+  // 规范第一句是 `ToObject(O)`，它对这两个值**只抛 `TypeError`**——与第 748 轮
+  // 收掉的 `Object.assign(null, {})` **是同一条根**（那一处已经改了，这一处漏着）。
+  // **原始值目标也要抛 `TypeError`**（**同一轮的第二遍实测**）：规范那一步是
+  // `ToObject(1)` ⇒ 造一个**包装对象**、往它身上 `[[DefineOwnProperty]]` ⇒ 那一步
+  // 永远给假 ⇒ `TypeError`（Node：`Object.defineProperty(1, "x", {value:1})` 是
+  // `TypeError`）。本仓没有装箱那一层，但**「抛哪一族」是量得出来的**——
+  // 而这一格原来抛的是普通 `Error` ⇒ 脚本里 `e instanceof TypeError` 分不出来。
+  // **照 `Object.assign` 那条分界**：那一支对原始值目标**响亮地抛普通 `Error`**，
+  // 因为它拿不到「包装对象」这个结果；这一支**拿得到**（那一步恒给假），所以分得出来。
+  if (args.length < 3 || !args[2].IsObject()) {
+    throw new TypeError("Object.defineProperty needs (object, string or symbol key, descriptor object)");
+  }
+  if (!args[0].IsObject()) {
+    throw new TypeError("Object.defineProperty called on a non-object");
   }
   const defineKey = PropertyKeyValue(room, table, args[1]);
   if (defineKey.Tag !== ValueTag.String && defineKey.Tag !== ValueTag.Symbol) {
@@ -6407,6 +6420,26 @@ if (target.Tag === ValueTag.Array && lengthKeyText === "length") {
     ownLength.Value = Value.FromInt(newLength);
   }
   return;
+}
+// **描述符自己的两条合法性检查**（第 752 轮，**普查当场量到的**）：
+// 规范的 `ToPropertyDescriptor` 最后一句就是这两条，而本仓原来一条都不查：
+// ① **`get` / `set` 必须是可调用的**（`{ get: 1 }` 在 Node 里抛 `TypeError`），
+//    而下面那一支写的是「不是函数就丢掉」——**名字对了一半**：
+//    「不写」与「写 `undefined`」是同一档（都是「没有 getter」），
+//    **写一个别的值**则是另一档（抛）。丢掉它等于把「脚本写错了」变成
+//    「一个读起来像没有 getter 的对象」——**静默错值**（判据 `p752a-03` 第 5 行）。
+// ② **数据与访问器两族字段不能混**（`{ get() {}, value: 2 }` 也是 `TypeError`）——
+//    本仓原来按「有 `get` 就走访问器那一支」静默把 `value` 丢掉（判据第 6 行）。
+// **两条都取 `hasField` 判据而不是「值是不是 `undefined`」**：与上面
+// `mergeFlags` 那条「没写的字段 = 不改」同一个理由——`{ get: undefined }` 是**写了**、
+// 而它合法（那就是「没有 getter」），所以①只看值是不是可调用，
+// **不**要求「有没有写」；②看的是**两族各自有没有写**。
+if ((hasField("get") && accessorGet.Tag !== ValueTag.Undefined && !IsCallableValue(table, accessorGet))
+    || (hasField("set") && accessorSet.Tag !== ValueTag.Undefined && !IsCallableValue(table, accessorSet))) {
+  throw new TypeError("Invalid property descriptor: get/set must be a function");
+}
+if ((hasField("get") || hasField("set")) && (hasField("value") || hasField("writable"))) {
+  throw new TypeError("Invalid property descriptor: cannot both specify accessors and a value or writable");
 }
 if (accessorGet.Tag !== ValueTag.Undefined || accessorSet.Tag !== ValueTag.Undefined) {
   const storedGetter = IsCallableValue(table, accessorGet) ? accessorGet : Value.Undefined();

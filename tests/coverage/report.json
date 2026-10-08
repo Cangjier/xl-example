@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8156,
+  "total": 8166,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.67,
+  "progressPercent": 95.69,
   "categories": [
     {
       "category": "token",
@@ -100,18 +100,18 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1059,
-      "pass": 1026,
+      "total": 1065,
+      "pass": 1033,
       "blocked": 2,
-      "differ": 31,
+      "differ": 30,
       "nodefail": 0,
-      "coverage": 96.88
+      "coverage": 97
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3221,
-      "pass": 3142,
+      "total": 3225,
+      "pass": 3146,
       "blocked": 25,
       "differ": 54,
       "nodefail": 0,
@@ -1841,7 +1841,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13808/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-3496/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2054,12 +2054,6 @@
       "detail": "stdout 不同：第 4 行：node «1 1» vs tsrun «{ c: 1 } 1»"
     },
     {
-      "id": "runtime/round750/p750a-a01",
-      "category": "runtime",
-      "title": "原始值接收者：`setPrototypeOf` / `defineProperty` 该抛的都抛",
-      "detail": "stdout 不同：第 3 行：node «throw:TypeError» vs tsrun «throw:Error»"
-    },
-    {
       "id": "runtime/round750/p750a-a04",
       "category": "runtime",
       "title": "原始值上的属性读：`\"abc\".length` / 数字的方法 / 自动装箱",
@@ -2072,12 +2066,6 @@
       "detail": "stdout 不同：第 3 行：node «ok:2» vs tsrun «throw:RangeError»"
     },
     {
-      "id": "runtime/round750/p750a-a08",
-      "category": "runtime",
-      "title": "`Reflect` 与 `Object` 同名的两套口径",
-      "detail": "stdout 不同：第 4 行：node «true false [Object: null prototype] {}» vs tsrun «true true null»"
-    },
-    {
       "id": "runtime/round751/p751a-02",
       "category": "runtime",
       "title": "迭代器的标签：数组 / `Map` / `Set` 三族的 `Object.prototype.toString`",
@@ -2088,6 +2076,12 @@
       "category": "runtime",
       "title": "`globalThis` 上那一族宿主名字：`setTimeout` / `process` 等",
       "detail": "stdout 不同：第 1 行：node «typeof (globalThis as any) ok:string:function» vs tsrun «typeof (globalThis as any) ok:string:undefined»"
+    },
+    {
+      "id": "runtime/round752/p752a-05",
+      "category": "runtime",
+      "title": "迭代中改集合：`for..of` 的活视图与 `forEach` 的快照",
+      "detail": "stdout 不同：第 1 行：node «(function () { const s = ok:string:1,2,3,9» vs tsrun «(function () { const s = ok:string:1,2,3»"
     },
     {
       "id": "stdlib/array/143-getter-array-index",
@@ -2123,7 +2117,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13808/src/5231.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-3496/src/5237.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2147,7 +2141,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13808/src/5281.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-3496/src/5287.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
