@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8203,
+  "total": 8209,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.59,
+  "progressPercent": 95.57,
   "categories": [
     {
       "category": "token",
@@ -100,18 +100,18 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1089,
-      "pass": 1052,
-      "blocked": 4,
+      "total": 1094,
+      "pass": 1056,
+      "blocked": 5,
       "differ": 33,
       "nodefail": 0,
-      "coverage": 96.6
+      "coverage": 96.53
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3238,
-      "pass": 3158,
+      "total": 3239,
+      "pass": 3159,
       "blocked": 25,
       "differ": 55,
       "nodefail": 0,
@@ -1536,6 +1536,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
     },
     {
+      "id": "runtime/round762/r762e-01-typeof-then-prefix-gap",
+      "category": "runtime",
+      "title": "`typeof` 后面紧跟 `void` / `!`：那个 `typeof` 被投成了 `Identifier` ⇒ 整份文件进不来",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: typeof"
+    },
+    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1853,7 +1859,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23612/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19380/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2135,7 +2141,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23612/src/5261.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19380/src/5266.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2159,7 +2165,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23612/src/5311.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19380/src/5316.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2393,7 +2399,7 @@
       "id": "stdlib/round761/r761g-01-console-names-gap",
       "category": "stdlib",
       "title": "`console` 上还缺的名字：`assert` / `trace` / `time` 那一族 / `group` 那一族",
-      "detail": "stdout 不同：第 2 行：node «assert function trace function» vs tsrun «assert undefined trace undefined»"
+      "detail": "stdout 不同：第 2 行：node «assert function trace function» vs tsrun «assert function trace undefined»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

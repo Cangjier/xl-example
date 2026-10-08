@@ -572,6 +572,21 @@ Node 的实测是：
 
 # const ConsoleTable:int = 312
 
+# const ConsoleAssert:int = 315
+
+**`console.assert(条件, …消息)`**（第 762 轮）——条件为真**一声不响**，为假才往 **stderr** 印
+`Assertion failed` 那一行（判据 `stdlib/round762/r762d-01`）。**它不抛**（`assert` 这个名字
+容易让人以为它会抛——Node 里它只是印）。
+
+**前缀那两格是实测的**：**没有消息实参**时印的是 `Assertion failed`（**没有冒号**）、
+有消息时是 `Assertion failed: ` 再跟渲染出来的那一行；前缀**不进**渲染
+（`%` 说明符只看消息实参）。
+
+**它为什么是第 762 轮**：第 761 轮把 `console` 那一族的缺口量清（十五个名字），
+`assert` 是其中**代价最小的一格**——它要的渲染那一趟与 `log` **完全一样**，
+差的只是「读真假 + 挑流 + 固定前缀」。于是这一轮先把那一趟抽成 `FormatConsoleLine`
+（**同一件事不写第二份**），再接上它。
+
 # const ConsoleCount:int = 313
 
 **`console.count(标签?)`**（第 761 轮）——**这一族里唯一有状态的一对**，与 `countReset` 成对。
@@ -4345,83 +4360,44 @@ if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === Con
   // 「一次调用 = 一行」那三条规矩**只写一遍**（写九遍就是九处会漂的答案）。
   const channel = (id === ConsoleError || id === ConsoleWarn) ? 1 : 0;
   // **一次调用 = 一行**（见 `LogSink`）：实参按 JS 的规矩用空格接起来，**只调一次** `sink`。
-  // 少了这一步，宿主拿到的是一串**分不出行**的碎片（`console.log('a', 1)` 与两条
-  // 各自一个实参的日志长得一样）——命令行那个「与 node 逐字节相同」的判据就无从谈起。
   //
-  // **每个实参按 Node 的规矩渲染**（第 131 轮改）：**字符串原样**（`console.log('a')` 印 `a`），
-  // **其余走 `util.inspect` 那一份**（`inspect.xl.md`）——`console.log([1, 2])` 印 `[ 1, 2 ]`、
-  // `console.log({ a: 1 })` 印 `{ a: 1 }`、`console.log(1.5)` 印 `1.5`。
-  //
-  // **为什么字符串要单独一条**：Node 的 `util.format` 对**字符串实参**用的是它本身，
-  // 而嵌套在容器里才加引号（`[ 'a' ]`）——两处口径**必须不同**，
-  // 混成一条会让 `console.log('a')` 印成 `'a'`（差两个引号，判据会当场点出来）。
-  // **格式说明符那一档**（第 691 轮）：Node 的 `console.log` 走 `util.format`，
-  // 所以**第一个实参是字符串并且后面还有实参**时，那个字符串是一张**格式串**——
-  // `%s` / `%d` / `%i` / `%f` / `%o` / `%O` 各消耗一个实参、`%c` 与 `%%` 不消耗，
-  // 其余实参按空格接在后面。原来整串当普通字符串印（`console.log("%s", "x")` 给
-  // `%s x`、Node 给 `x`）——**每一句带格式串的日志都多两个字符**。
-  //
-  // **三条边界照 Node 量到的写**：
-  // ① **没有实参可消耗时说明符原样留着**（`console.log("100%")` 还是 `100%`）；
-  // ② **认不出的说明符也原样留着**（`%q` 不动）；
-  // ③ `%c` 只吃掉自己（它管的是 CSS，Node 里也不消耗实参）。
-  // **`%j` 没做**（它要走 `JSON.stringify` 那一整支，而那一支是同一条
-  // `InvokeGlobal` 里的另一个 `id`——**要做**，写在这一处而不是藏在静默里）。
-  const renderArg = (value: Value) => (value.Tag === ValueTag.String ? ValueText(table, value) : InspectText(table, value));
-  let line = "";
-  if (args.length > 1 && args[0].Tag === ValueTag.String) {
-    const format = ValueText(table, args[0]);
-    let used = 1;
-    const text: string[] = [];
-    let at = 0;
-    while (at < format.length) {
-      const ch = format.charAt(at);
-      if (ch !== "%" || at + 1 >= format.length) { text.push(ch); at = at + 1; continue; }
-      const code = format.charAt(at + 1);
-      if (code === "%") { text.push("%"); at = at + 2; continue; }
-      if (code === "c") { at = at + 2; continue; }
-      const known = code === "s" || code === "d" || code === "i" || code === "f" || code === "o" || code === "O";
-      if (!known || used >= args.length) { text.push(ch); at = at + 1; continue; }
-      const arg = args[used];
-      used = used + 1;
-      if (code === "s") { text.push(renderArg(arg)); }
-      else if (code === "d") {
-        // **`%d` 是 `Number()`**（Node 的口径）。
-        text.push(NumberToHostText(ToNumberOf(room, call, protos, table, arg)));
-      } else if (code === "i") {
-        // **`%i` 是 `parseInt()`，与 `%d` 不是一回事**（第 750 轮，**普查当场红的**）：
-        // Node 的 `util.format` 对 `%i` 走的是 `parseInt(value, 10)`，而 `%d` 走 `Number(value)`
-        // ——两者只在**小数**上分岔：`console.log("%i", "42.9")` Node 给 **`42`**、
-        // `console.log("%d", "42.9")` 给 `42.9`。本仓原来把 `i` 与 `d` **并成一档**，
-        // 于是每一句 `%i` 都多带了小数部分（判据 `p750b-b08` 的第 3 行就是这个现场）。
-        // **`parseInt` 的实参按 Node 那一句取**：`renderArg` 先给文本（字符串原样、
-        // 其余走 `inspect`），与 `%f` 那一档**同一个形状**——两处都是「先成文本、再解析」。
-        text.push(NumberToHostText(parseInt(renderArg(arg))));
-      } else if (code === "f") {
-        // **`%f` 是 `parseFloat`**（Node 的口径）：`%f` 接 `"1.5abc"` 给 `1.5`、
-        // 接 `"abc"` 给 `NaN`——**不是** `Number()`（那个给 `NaN`，两处只在字符串上分岔）。
-        text.push(NumberToHostText(parseFloat(renderArg(arg))));
-      } else {
-        // `%o` / `%O`：Node 给的是 `util.inspect` 那一份（`%o` 还带 `showHidden`）。
-        // 这一层只有一份 inspect，所以两档走同一份——**已知差写在明处**。
-        text.push(InspectText(table, arg));
-      }
-      at = at + 2;
-    }
-    line = text.join("");
-    for (let k = used; k < args.length; k++) line = line + " " + renderArg(args[k]);
-    sink(line, channel);
-    return Value.Undefined();
-  }
-  for (let i = 0; i < args.length; i++) {
-    if (i > 0) line = line + " ";
-    if (args[i].Tag === ValueTag.String) {
-      line = line + ValueText(table, args[i]);
-      continue;
-    }
-    line = line + InspectText(table, args[i]);
-  }
+  // **渲染那一趟抽成了 `FormatConsoleLine`**（第 762 轮）：`assert` 要的是**同一份口径**
+  //（`%s` / `%d` / `%i` / `%f` / `%o` / `%O` 消耗实参、字符串原样、其余 `util.inspect`）——
+  // 照抄一份就是第二份会漂的答案（第 307 / 312 / 320 轮各踩过一次同一个形状）。
+  const line = FormatConsoleLine(table, room, call, protos, args);
+  if (!room(CodeUnitCharge * line.length)) throw new Error("out of room");
   sink(line, channel);
+  return Value.Undefined();
+}
+if (id === ConsoleAssert) {
+  // **`console.assert(条件, …消息)`**（第 762 轮）——条件为真**一声不响**，
+  // 为假才往 **stderr** 印 `Assertion failed: <那一行>`（判据 `stdlib/round762`）。
+  //
+  // **固定前缀那两格**（Node 实测）：**没有消息实参**时印的是 `Assertion failed`
+  //（**没有冒号**）；有消息时是 `Assertion failed: ` 再跟渲染出来的那一行。
+  // 前缀**不进**那一行的渲染——`%` 说明符只看消息实参（`console.assert(false, "100%")`
+  // 印 `Assertion failed: 100%`，`%` 不因为前面多了几个字而变成说明符）。
+  const condition = args.length > 0 ? args[0] : Value.Undefined();
+  if (RtToBoolean(table, condition).AsBool()) return Value.Undefined();
+  // **前缀那两格是实测的**（第 762 轮，**普查当场红过一次**）：`Assertion failed` 后面
+  // **只有在一个字符串实参跟随时才补 `": "`** ——
+  // `console.assert(false, { a: 1 })` 在 Node 里是 `Assertion failed { a: 1 }`（**没有冒号**）、
+  // `console.assert(false, 1)` 是 `Assertion failed 1`，而
+  // `console.assert(false, "s", { a: 1 })` 是 `Assertion failed: s { a: 1 }`。
+  // 所以「拼一个前缀再走渲染」那条写法（第一版就是它）会在这三格上多一个冒号。
+  let line = "Assertion failed";
+  const message = args.length > 1 ? args[1] : Value.Undefined();
+  if (message.Tag === ValueTag.String) {
+    const rest: Value[] = [];
+    for (let i = 1; i < args.length; i++) rest.push(args[i]);
+    line = line + ": " + FormatConsoleLine(table, room, call, protos, rest);
+  } else if (args.length > 1) {
+    for (let i = 1; i < args.length; i++) {
+      line = line + " " + (args[i].Tag === ValueTag.String ? ValueText(table, args[i]) : InspectText(table, args[i]));
+    }
+  }
+  if (!room(CodeUnitCharge * line.length)) throw new Error("out of room");
+  sink(line, 1);
   return Value.Undefined();
 }
 if (id === ConsoleCount || id === ConsoleCountReset) {
@@ -7957,6 +7933,70 @@ return value;
 **同一条现成的路**（`RtSetProto`：自环当场拒、深度上限那一套都在里面）。
 **原型不是对象也不是 `null` 时给假**（JS 的 `Reflect` 口径；`Object` 那一格是抛）。
 
+# method FormatConsoleLine:(table:HeapTable, room:RoomChecker, call:NativeCall | null, protos:Protos, args:Array<Value>)=>string
+
+**把一次 `console.*` 调用的实参渲染成一行**（第 735 / 761 / 762 轮）。
+
+**为什么抽成一格**：`log` 那一族（九个名字）与 `assert`（第 762 轮）**共用同一份口径**——
+`%s` / `%d` / `%i` / `%f` / `%o` / `%O` 消耗实参、`%c` 与 `%%` 不消耗、
+字符串实参**原样**（`console.log('a')` 印 `a`）、其余走 `util.inspect`。
+第 735 轮它写在 `log` 那一支里面（那时只有一处调用方）；`assert` 来了之后
+**照抄一份就是第二份会漂的答案**（第 307 / 312 / 320 轮各踩过一次同一个形状）。
+
+**三条边界照 Node 量到的写**：
+① **没有实参可消耗时说明符原样留着**（`console.log("100%")` 还是 `100%`）；
+② **认不出的说明符也原样留着**（`%q` 不动）；
+③ `%c` 只吃掉自己（它管的是 CSS，Node 里也不消耗实参）。
+
+**`%j` 没做**（它要走 `JSON.stringify` 那一整支，而那一支是同一条 `InvokeGlobal`
+里的另一个 `id`——**要做**，写在这一处而不是藏在静默里）。
+
+```ts
+const renderArg = (value: Value) => (value.Tag === ValueTag.String ? ValueText(table, value) : InspectText(table, value));
+if (!(args.length > 1 && args[0].Tag === ValueTag.String)) {
+  let plain = "";
+  for (let i = 0; i < args.length; i++) {
+    if (i > 0) plain = plain + " ";
+    plain = plain + renderArg(args[i]);
+  }
+  return plain;
+}
+const format = ValueText(table, args[0]);
+let used = 1;
+const text: string[] = [];
+let at = 0;
+while (at < format.length) {
+  const ch = format.charAt(at);
+  if (ch !== "%" || at + 1 >= format.length) { text.push(ch); at = at + 1; continue; }
+  const code = format.charAt(at + 1);
+  if (code === "%") { text.push("%"); at = at + 2; continue; }
+  if (code === "c") { at = at + 2; continue; }
+  const known = code === "s" || code === "d" || code === "i" || code === "f" || code === "o" || code === "O";
+  if (!known || used >= args.length) { text.push(ch); at = at + 1; continue; }
+  const arg = args[used];
+  used = used + 1;
+  if (code === "s") { text.push(renderArg(arg)); }
+  else if (code === "d") {
+    // **`%d` 是 `Number()`**（Node 的口径）。
+    text.push(NumberToHostText(ToNumberOf(room, call, protos, table, arg)));
+  } else if (code === "i") {
+    // **`%i` 是 `parseInt()`，与 `%d` 不是一回事**（第 750 轮，**普查当场红的**）：
+    text.push(NumberToHostText(parseInt(renderArg(arg))));
+  } else if (code === "f") {
+    // `%f` 是 `parseFloat()`。
+    text.push(NumberToHostText(parseFloat(renderArg(arg))));
+  } else {
+    // `%o` / `%O`：Node 给的是 `util.inspect` 那一份（`%o` 还带 `showHidden`）。
+    // 这一层只有一份 inspect，所以两档走同一份——**已知差写在明处**。
+    text.push(InspectText(table, arg));
+  }
+  at = at + 2;
+}
+let line = text.join("");
+for (let k = used; k < args.length; k++) line = line + " " + renderArg(args[k]);
+return line;
+```
+
 # method BuiltinHostRef:(vm:Vm, id:int)=>Value
 
 **内建号 → 那个「有身份」的宿主引用值**（第 733 轮）。
@@ -8039,7 +8079,7 @@ if (id === MathRandom) return 0;
 // **`log` 也在这一列**：它是第 131 轮就挂上的那一格，名字与长度一直空着。
 if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === ConsoleInfo
   || id === ConsoleDebug || id === ConsoleDir || id === ConsoleDirxml || id === ConsoleTable
-  || id === ConsoleCount || id === ConsoleCountReset) {
+  || id === ConsoleCount || id === ConsoleCountReset || id === ConsoleAssert) {
   return 0;
 }
 // **`Object.prototype` 那四格老辅助**（Annex B）：`__lookupGetter__(键)` 一格。
@@ -8302,6 +8342,8 @@ const consoleRestIds: number[] = [ConsoleError, ConsoleWarn, ConsoleInfo, Consol
 // 它们与上面那七个同一条路（同名同号的表、同一个 `SetProperty`），**只是实现不同**
 // （`InvokeGlobal` 里那一支自己分派）。**加进这张表而不是另写一个循环**：
 // 名字与号一一对齐这条规矩只写一份。
+consoleRestNames.push("assert");
+consoleRestIds.push(ConsoleAssert);
 consoleRestNames.push("count");
 consoleRestIds.push(ConsoleCount);
 consoleRestNames.push("countReset");

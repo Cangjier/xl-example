@@ -306,6 +306,32 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 762 轮：`console.assert`——把渲染那一趟抽成 `FormatConsoleLine`
+
+**一句话**：第 761 轮把 `console` 的缺口量清之后，`assert` 是**代价最小的一格**——
+条件为真一声不响、为假往 **stderr** 印一行，渲染那一趟与 `log` **完全一样**。
+差的只是「读真假 + 挑流 + 固定前缀」，所以先把那一趟**抽出来**再接线。
+
+- **抽出来的那一格**（`FormatConsoleLine`）：`%s` / `%d` / `%i` / `%f` / `%o` / `%O` 消耗实参、
+  `%c` 与 `%%` 不消耗、字符串实参**原样**、其余走 `util.inspect`——**同一件事不写第二份**
+  （第 735 轮它写在 `log` 那一支里面，那时只有一处调用方；`assert` 一来就有了第二处）。
+- **前缀那两格是实测的**（**这一轮在这里红过一次**）：`Assertion failed` 后面
+  **只有在一个字符串实参跟随时才补 `": "`**——`console.assert(false, { a: 1 })` 在 Node 里是
+  `Assertion failed { a: 1 }`（**没有冒号**）、`console.assert(false, 1)` 是 `Assertion failed 1`，
+  而 `console.assert(false, "s", { a: 1 })` 是 `Assertion failed: s { a: 1 }`。
+  第一版写成「拼一个前缀再走渲染」⇒ 前两格各多一个冒号（**判据当场点出来**）。
+- **新登记的缺口**（`runtime/round762/r762e-01`）：`typeof void 0` / `typeof !0`
+  **整份文件进不来**（降级期报 `name is not a local or a capture: typeof`），而
+  **`typeof -1` 一直是好的**——分界是「第二个词是**前缀词**（`void` / `!`）还是**符号**（`-` / `+`）」。
+  产物那一侧量到的是：那个 `typeof` **没升成 `Keyword`**、停在 `Identifier` 上，
+  于是 `projectUnary` 按 `op` 找运算符那一格找不到它、把它当**操作数**投了出去。
+  根与第 550 轮 `in` / `instanceof` 停在 `Identifier` 是**同一个**（重组深度那道硬界 +
+  `KeywordCloseRule` 排在最后），改它要连带重跑 1414 份 token 语料 ⇒ **先如实登记**。
+- 语料 **+6 条**（`runtime/round762` 5 条 + `stdlib/round762` 1 条；**5 条通过**、
+  1 条登记缺口）。五类 **7819 / 8203 → 7824 / 8209**、`blocked 263 → 264`（+1 新登）、
+  `differ 121`（没动）、`bad` 仍 **0**、`regressions` **0**、`moved` 0、`newlyPassing` 0，
+  加权 **95.6%**。
+
 ### 第 761 轮：`console.count` / `countReset`——那一族里唯一有状态的一对
 
 **一句话**：`console` 那一族第 735 轮补到九个名字（`log` / `error` / `warn` / `info` /
