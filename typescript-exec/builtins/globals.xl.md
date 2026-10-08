@@ -7,7 +7,7 @@ import { HostUnitsText, NumberFromHostText, NumberToHostText, NumberToJsText } f
 import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt, IndexAccessorAt } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
-import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat } from "./array.xl.md"
+import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat, ArrayAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw, StringCharAt, StringCharCodeAt, StringIndexOf, StringIncludes, StringStartsWith, StringEndsWith, StringRepeat, StringPadStart, StringPadEnd, StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare, StringToUpperCase, StringToLowerCase, StringAnchor, StringFontcolor, StringFontsize, StringLink, StringSlice, StringSubstring, StringSubstr, StringReplace, StringReplaceAll, StringSplit, StringTrim, StringTrimStart, StringTrimEnd, StringToString, StringValueOf, StringIsWellFormed, StringToWellFormed, StringNormalize, StringToLocaleUpperCase, StringToLocaleLowerCase, StringBig, StringBlink, StringBold, StringFixed, StringItalics, StringSmall, StringStrike, StringSub, StringSup } from "./string.xl.md"
 import { JsTextUnits, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue } from "./text.xl.md"
 import { InspectText, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
@@ -7988,7 +7988,14 @@ if (id === ArrayPush || id === ArrayUnshift || id === ArrayFill || id === ArrayF
   || id === ArrayLastIndexOf || id === ArrayIncludes || id === ArrayIndexOf
   || id === ArrayJoin || id === ArraySort || id === ArrayForEach || id === ArrayFilter
   || id === ArrayFlatMap || id === ArrayMap || id === ArrayEvery || id === ArraySome
-  || id === ArrayReduce || id === ArrayReduceRight || id === ArrayToSorted) {
+  || id === ArrayReduce || id === ArrayReduceRight || id === ArrayToSorted
+  // **`at` 是第 751 轮补的**（普查当场红的）：`Array.prototype.at.length` 在 Node 里是
+  // **`1`**（它收一个下标），而这一列原来没有它 ⇒ 本仓给 `0`。
+  // **它错在一个「顺手归族」上**：`at` 的名字与 `values` / `keys` / `entries` 排在同一段
+  // 能力号里（`array.xl.md` 里那几格挨着），于是**落进了下面那一档零个形参的名单**。
+  // 判据 `p751a-01` 一格就把它量出来了——`length` 这一张表**只能逐个量、不能按号段一把抓**，
+  // 与 `Reflect` 那四格（第 736 轮）、`String` 的 HTML 包装那十三格（第 734 轮）是同一条教训。
+  || id === ArrayAt) {
   return 1;
 }
 if (id === ArraySlice || id === ArraySplice || id === ArrayCopyWithin

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8147,
+  "total": 8156,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.74,
+  "progressPercent": 95.67,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1055,
-      "pass": 1024,
+      "total": 1059,
+      "pass": 1026,
       "blocked": 2,
-      "differ": 29,
+      "differ": 31,
       "nodefail": 0,
-      "coverage": 97.06
+      "coverage": 96.88
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3216,
+      "total": 3221,
       "pass": 3142,
       "blocked": 25,
-      "differ": 49,
+      "differ": 54,
       "nodefail": 0,
-      "coverage": 97.7
+      "coverage": 97.55
     },
     {
       "category": "e2e",
@@ -1841,7 +1841,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28564/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13808/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2078,6 +2078,18 @@
       "detail": "stdout 不同：第 4 行：node «true false [Object: null prototype] {}» vs tsrun «true true null»"
     },
     {
+      "id": "runtime/round751/p751a-02",
+      "category": "runtime",
+      "title": "迭代器的标签：数组 / `Map` / `Set` 三族的 `Object.prototype.toString`",
+      "detail": "stdout 不同：第 1 行：node «Object.prototype.toString. ok:string:[object Array Iterator]» vs tsrun «Object.prototype.toString. ok:string:[object Array]»"
+    },
+    {
+      "id": "runtime/round751/p751a-04",
+      "category": "runtime",
+      "title": "`globalThis` 上那一族宿主名字：`setTimeout` / `process` 等",
+      "detail": "stdout 不同：第 1 行：node «typeof (globalThis as any) ok:string:function» vs tsrun «typeof (globalThis as any) ok:string:undefined»"
+    },
+    {
       "id": "stdlib/array/143-getter-array-index",
       "category": "stdlib",
       "title": "数组下标位置上的访问器（`defineProperty`）",
@@ -2111,7 +2123,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28564/src/5227.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13808/src/5231.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2135,7 +2147,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28564/src/5277.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13808/src/5281.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2310,6 +2322,36 @@
       "category": "stdlib",
       "title": "`Object.getOwnPropertyDescriptor` 在数组 / 字符串 / 函数上",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
+    },
+    {
+      "id": "stdlib/round751/p751b-01",
+      "category": "stdlib",
+      "title": "`JSON.isRawJSON`",
+      "detail": "stdout 不同：第 1 行：node «JSON.isRawJSON({}) ok:boolean:false» vs tsrun «JSON.isRawJSON({}) throw:TypeError»"
+    },
+    {
+      "id": "stdlib/round751/p751b-02",
+      "category": "stdlib",
+      "title": "`Symbol` 的静态面与 `Symbol.prototype`",
+      "detail": "stdout 不同：第 1 行：node «Symbol.prototype ok:object:Symbol» vs tsrun «Symbol.prototype ok:undefined:undefined»"
+    },
+    {
+      "id": "stdlib/round751/p751b-03",
+      "category": "stdlib",
+      "title": "`Error` 实例的 `stack`",
+      "detail": "stdout 不同：第 1 行：node «new Error('x').stack ok:string:Error: x» vs tsrun «new Error('x').stack ok:undefined:undefined»"
+    },
+    {
+      "id": "stdlib/round751/p751b-04",
+      "category": "stdlib",
+      "title": "`console` 的 `Console` 那一格与 `globalThis` 上的名字",
+      "detail": "stdout 不同：第 2 行：node «typeof (console as any).Co ok:string:function» vs tsrun «typeof (console as any).Co ok:string:undefined»"
+    },
+    {
+      "id": "stdlib/round751/p751b-05",
+      "category": "stdlib",
+      "title": "裸的 `BigInt` 名字在降级期的待遇",
+      "detail": "stdout 不同：第 1 行：node «typeof (BigInt as any) ok:string:function» vs tsrun «typeof (BigInt as any) ok:string:undefined»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",
