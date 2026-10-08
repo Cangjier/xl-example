@@ -2513,4 +2513,78 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     nodeArgs: ["--experimental-transform-types"],
     src: "\nabstract class Shape {\n  abstract area(): number;\n  describe() { return this.constructor.name + \":\" + this.area(); }\n}\nclass Sq extends Shape { constructor(private s: number) { super(); } area() { return this.s * this.s; } }\nclass Rect extends Shape { constructor(private w: number, private h: number) { super(); } area() { return this.w * this.h; } }\nconst shapes: Shape[] = [new Sq(2), new Rect(2, 3)];\nfor (const s of shapes) console.log(s.describe(), s instanceof Sq, s instanceof Rect);\nconsole.log(shapes.map((s) => s.area()).reduce((a, b) => a + b, 0));\n",
   },
+  // ---- 第 639 轮加宽：矩阵里还空着的普通形状（普查过一遍，见 tests/coverage/README.md） ----
+  {
+    id: "c639-e2e-promise-all-settled",
+    title: "端到端：Promise.allSettled + 状态分桶 + 顺序保持",
+    src: "\nasync function risky(n: number): Promise<number> {\n  if (n % 3 === 0) return Promise.reject(new Error(\"bad \" + n));\n  return n * 2;\n}\nasync function main(): Promise<void> {\n  const settled = [1, 2, 3, 4, 5, 6].map((n) => risky(n));\n  const results = await Promise.allSettled(settled);\n  const ok: string[] = [];\n  const bad: string[] = [];\n  for (const item of results) {\n    if (item.status === \"fulfilled\") ok.push(String(item.value));\n    else bad.push(item.reason.message);\n  }\n  console.log(ok.join(\",\"));\n  console.log(bad.join(\",\"));\n  console.log(results.length, ok.length, bad.length);\n}\nmain();\n",
+  },
+  {
+    id: "c639-e2e-async-iterator-for-await",
+    title: "端到端：异步迭代器 + for await + 提前 break + return 收尾",
+    expect: "blocked",
+    why: "for await 的异步迭代器一 break，IteratorClose 那一侧还没接：降级层报 ast node CallExpression has no text",
+    src: "\nconst trace: string[] = [];\nconst source = {\n  [Symbol.asyncIterator]() {\n    let i = 0;\n    return {\n      next(): Promise<IteratorResult<number>> {\n        i += 1;\n        return Promise.resolve(i <= 5 ? { value: i, done: false } : { value: 0, done: true });\n      },\n      return(): Promise<IteratorResult<number>> {\n        trace.push(\"closed\");\n        return Promise.resolve({ value: 0, done: true });\n      },\n    };\n  },\n};\nasync function main(): Promise<void> {\n  for await (const n of source) {\n    trace.push(\"got \" + n);\n    if (n === 3) break;\n  }\n  console.log(trace.join(\"|\"));\n}\nmain();\n",
+  },
+  {
+    id: "c639-e2e-try-return-finally-order",
+    title: "端到端：try 里 return 与 finally 的覆盖顺序 + 嵌套 try",
+    src: "\nconst log: string[] = [];\nfunction inner(): number {\n  try {\n    log.push(\"inner-try\");\n    return 1;\n  } finally {\n    log.push(\"inner-finally\");\n  }\n}\nfunction outer(): number {\n  try {\n    const v = inner();\n    log.push(\"outer-after \" + v);\n    return v + 10;\n  } finally {\n    log.push(\"outer-finally\");\n    return 99;\n  }\n}\nconsole.log(outer());\nconsole.log(log.join(\",\"));\n",
+  },
+  {
+    id: "c639-e2e-generator-delegation-two-way",
+    title: "端到端：yield* 委派 + 双向传值 + return 值透传",
+    expect: "differ",
+    why: "yield* 的返回值没接上：const got = yield* inner() 拿到 null（Node 给内层的 return 值）；静默错值",
+    src: "\nfunction* inner(): Generator<number, string, number> {\n  const first = yield 1;\n  const second = yield first + 1;\n  return \"inner:\" + second;\n}\nfunction* outer(): Generator<number, void, number> {\n  const got = yield* inner();\n  console.log(got);\n  yield 100;\n}\nconst it = outer();\nconsole.log(JSON.stringify(it.next()));\nconsole.log(JSON.stringify(it.next(10)));\nconsole.log(JSON.stringify(it.next(20)));\nconsole.log(JSON.stringify(it.next()));\n",
+  },
+  {
+    id: "c639-e2e-async-throw-inside-map-array",
+    title: "端到端：async 函数在 map 回调里 throw，再交给 allSettled",
+    expect: "differ",
+    why: "async 函数在 map 回调里 throw 之后，main 一个字都不再跑（连它后面那句 console.log 都没有）；同一形状写成 Promise.reject 是好的",
+    src: "\nasync function risky(n: number): Promise<number> {\n  if (n === 3) throw new Error(\"bad\");\n  return n * 2;\n}\nasync function main(): Promise<void> {\n  const settled = [1, 2, 3].map((n) => risky(n));\n  const results = await Promise.allSettled(settled);\n  console.log(results.length, results[2].status, results[2].reason.message);\n}\nmain();\n",
+  },
+  {
+    id: "c639-e2e-primitive-protocol",
+    title: "端到端：Symbol.toPrimitive / toString / valueOf 的优先级",
+    src: "\nclass Money {\n  private cents: number;\n  constructor(cents: number) { this.cents = cents; }\n  valueOf(): number { return this.cents; }\n  toString(): string { return \"$\" + (this.cents / 100).toFixed(2); }\n  [Symbol.toPrimitive](hint: string): string | number {\n    return hint === \"string\" ? this.toString() : this.cents;\n  }\n}\nconst m = new Money(1250);\nconsole.log(m + 100);\nconsole.log(`${m}`);\nconsole.log(String(m));\nconsole.log(m > 1000, m == 1250, m === 1250);\n",
+  },
+  {
+    id: "c639-e2e-string-matchall-and-index",
+    title: "端到端：matchAll + lastIndex + 命名捕获组",
+    skip: true,
+    why: "口径边界：正则字面量（runtime-architecture.md §15 那张「明确不做」的表）",
+    src: "\nconst text = \"a1=10; b2=20; c3=30\";\nconst rows: string[] = [];\nfor (const m of text.matchAll(/(?<key>[a-z])(?<n>\\d)=(?<v>\\d+)/g)) {\n  rows.push(m.groups!.key + \":\" + Number(m.groups!.v));\n  rows.push(\"at \" + m.index);\n}\nconsole.log(rows.join(\"|\"));\nconst re = /\\d+/g;\nconsole.log(re.lastIndex, re.exec(text)![0], re.lastIndex);\n",
+  },
+  {
+    id: "c639-e2e-array-sort-stability-and-holes",
+    title: "端到端：sort 稳定性 + 稀疏数组 + at 负下标",
+    src: "\nconst rows = [\n  { k: 2, tag: \"a\" },\n  { k: 1, tag: \"b\" },\n  { k: 2, tag: \"c\" },\n  { k: 1, tag: \"d\" },\n];\nrows.sort((x, y) => x.k - y.k);\nconsole.log(rows.map((r) => r.tag).join(\"\"));\nconst sparse: number[] = [1, , 3];\nconsole.log(sparse.length, 1 in sparse, sparse.join(\"-\"));\nconsole.log(sparse.at(-1), sparse.at(-3), sparse.at(-9));\nconst filled = sparse.fill(0, 1, 2);\nconsole.log(filled.join(\"-\"));\n",
+  },
+  {
+    id: "c639-e2e-map-set-object-keys-order",
+    title: "端到端：Map / Set / Object 的键序与相等语义",
+    src: "\nconst m = new Map<unknown, string>();\nm.set(1, \"num\");\nm.set(\"1\", \"str\");\nm.set(true, \"bool\");\nm.set(1, \"num2\");\nconsole.log(m.size, [...m.keys()].map((k) => typeof k).join(\",\"));\nconsole.log(m.get(1), m.get(\"1\"), m.has(true));\nconst s = new Set<number>([1, 2, 2, 3, 1]);\nconsole.log(s.size, [...s].join(\"\"));\nconst obj: Record<string, number> = {};\nobj[\"2\"] = 2;\nobj[\"1\"] = 1;\nobj[\"b\"] = 3;\nobj[\"a\"] = 4;\nconsole.log(Object.keys(obj).join(\",\"));\n",
+  },
+  {
+    id: "c639-e2e-optional-chain-call-assign",
+    title: "端到端：可选链的三种后缀 + 空值合并赋值 + 逻辑赋值",
+    src: "\ntype Cfg = { a?: { b?: { run?: (x: number) => number } } };\nconst c: Cfg = { a: { b: { run: (x) => x + 1 } } };\nconst empty: Cfg = {};\nconsole.log(c.a?.b?.run?.(1));\nconsole.log(empty.a?.b?.run?.(1) ?? \"none\");\nlet n: number | null = null;\nn ??= 5;\nn ||= 9;\nn &&= n + 1;\nlet z = 0;\nz ||= 7;\nconsole.log(n, z);\nconst arr: Array<{ f?: () => number }> = [{}, { f: () => 3 }];\nconsole.log(arr[1]?.f?.(), arr[0]?.f?.() ?? -1);\n",
+  },
+  {
+    id: "c639-e2e-class-private-and-static-init",
+    title: "端到端：私有字段 + 静态初始化顺序 + getter 只算一次",
+    src: "\nconst order: string[] = [];\nclass Counter {\n  static total = 0;\n  static { order.push(\"static-block\"); Counter.total = 100; }\n  #hits = 0;\n  get hits(): number { order.push(\"get\"); return this.#hits; }\n  bump(): number { this.#hits += 1; Counter.total += 1; return this.#hits; }\n  static has(obj: object): boolean { return #hits in obj; }\n}\nconst c = new Counter();\nc.bump();\nc.bump();\nconsole.log(order.join(\",\"));\nconsole.log(c.hits, Counter.total, Counter.has(c));\n",
+  },
+  {
+    id: "c639-e2e-destructure-default-nested-rest",
+    title: "端到端：嵌套解构 + 默认值 + 剩余 + 交换 + 函数参数解构",
+    src: "\nconst payload = { user: { name: \"kim\", tags: [\"a\", \"b\", \"c\"] }, n: 3 };\nconst { user: { name, tags: [first, ...restTags] }, n = 0 } = payload;\nconsole.log(name, first, restTags.join(\"\"), n);\nfunction draw({ w = 1, h = w * 2, label = `x${w}` } = {}) {\n  return `${label}:${w}x${h}`;\n}\nconsole.log(draw(), draw({ w: 3 }), draw({ w: 2, h: 5, label: \"z\" }));\nlet p = 1;\nlet q = 2;\n[p, q] = [q, p];\nconsole.log(p, q);\nconst [[a, b = 9], [, c = 8]] = [[1], [7]];\nconsole.log(a, b, c);\n",
+  },
+  {
+    id: "c639-e2e-switch-fallthrough-and-label",
+    title: "端到端：switch 贯穿 + 标签跳出外层循环 + continue 到标签",
+    src: "\nfunction grade(n: number): string {\n  let out = \"\";\n  switch (n) {\n    case 90:\n    case 91:\n      out += \"A\";\n      break;\n    case 80:\n      out += \"B\";\n    default:\n      out += \"?\";\n  }\n  return out;\n}\nconsole.log(grade(90), grade(80), grade(1));\nconst found: string[] = [];\nouter: for (let i = 0; i < 4; i++) {\n  for (let j = 0; j < 4; j++) {\n    if (j === 1) continue outer;\n    if (i === 2) break outer;\n    found.push(`${i}${j}`);\n  }\n}\nconsole.log(found.join(\",\"));\n",
+  },
 ];

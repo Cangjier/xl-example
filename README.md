@@ -281,7 +281,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-### 当前状态（第 638 轮实测）
+### 当前状态（第 639 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
@@ -292,7 +292,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:tags` | **1101 条全部带期望**（2799 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1814 / 1814**（**100%**）：引擎 / 降级 / 标准库 / 端到端四层各 **100%**，台账里 0 条待修 |
+| `coverage` | **1823 / 1826**：runtime / exec / stdlib 三层各 **100%**，e2e **183 / 186**；台账上 3 条（1 blocked + 2 differ） |
 | `npm run gates` | 上面七道一次跑完（实测墙钟 **~25s**） |
 
 ### 口径与已知缺口
