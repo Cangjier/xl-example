@@ -1,8 +1,11 @@
 // xl:title well-known symbol 的名字在不在（只问名字，不调协议）
 // xl:round 678
 // xl:judge stdout
-// xl:want differ
-// xl:why well-known symbol 只装了一半：13 个里 `iterator` / `asyncIterator` / `toPrimitive` / `toStringTag` / `species` / `hasInstance` 在，缺 `isConcatSpreadable` / `unscopables` 与 `match` / `replace` / `search` / `split` / `matchAll` 五个 —— 后五个正是 `RegExp` 协议那一族 （`RegExp` 是非目标），但 **`isConcatSpreadable` / `unscopables` 与 `RegExp` 无关**，它们是 `Array.prototype.concat` / `with` 与 `with` 语句那两个协议的名字，属于「少装两格」；与（其一）`r678-names-symbol` 同一处成员表（那条记的是同一件事的名单形态）
+// xl:why 第 690 轮**收掉了台账**：缺的七个名字一次补齐（`isConcatSpreadable` /
+//       `unscopables` 与 `match` / `replace` / `search` / `split` / `matchAll`）——
+//       **名字与协议是两件事**：JS 里这些符号永远存在，而用到它们的那几个方法
+//       （`String.prototype.match` 那一族）与 `RegExp` 本身仍是待做项。
+//       名单同时收成一个局部量（原来两处各写一遍，漂了看不出）。
 // xl:end
 
 const names: string[] = ["iterator", "asyncIterator", "toPrimitive", "toStringTag", "species", "hasInstance", "isConcatSpreadable", "match", "replace", "split", "search", "matchAll", "unscopables"];

@@ -1130,6 +1130,11 @@ return Value.FromString(table.CreateString(Units("__boundArgs")));
 **`typeof` 的标签名不在这里算**：这一层要的是**大写的类名**
 （`"Array"` / `"Number"`），与 `props.xl.md` 的 `TypeOfName` 是两张表。
 
+**包装对象那三格是第 690 轮补的**（`new Number(3)` → `"Number"`）：它就是 JS 算法里的
+`[[NumberData]]` / `[[StringData]]` / `[[BooleanData]]` 三个内部格，而本仓的箱
+**已经把那个原值存在 `__box` 那一格里**（`MakeBox`）——所以这一档不是「猜」，
+是**读已经有的那一格**；照原型认反而会把 `Object.create(Number.prototype)` 答错。
+
 ```ts
 // **数组先认**（它有自己的标签，不是「普通对象」）。
 if (value.Tag === ValueTag.Array) return "Array";
@@ -1164,6 +1169,25 @@ if (value.Tag === ValueTag.Object && RtChainHas(table, value, protos.Error)) ret
 // 所以下面那三族照旧抛）。**顺序反了**就会让「自己的 `toStringTag`」被标记格抢先。
 const tag = ObjectTagOverride(room, call, table, protos, value);
 if (tag !== "") return tag;
+// **包装对象**（第 690 轮）：`Object.prototype.toString.call(new Number(3))` 在 JS 里是
+// `"[object Number]"`（`String` / `Boolean` 两族同理）——本仓原来一律落成
+// `"[object Object]"`（**静默错值**：箱造出来了、`typeof` / `valueOf` / 加法都对，
+// 只有这一格在说谎，判据 `137-beh-boxed-primitives` 量的就是它）。
+//
+// **位置是语义**：它**排在 `Symbol.toStringTag` 之后**——JS 的算法是
+// 「先 `Get(O, @@toStringTag)`，不是字符串才用内部标签」，所以箱自己带了
+// `toStringTag` 就该让那个说话（判据 `r690-box-tag-override` 钉着这一句）。
+//
+// **凭什么认出「这是箱」**：`UnwrapBox` 的判据是「**自有**那一格 `__box` 在不在」
+//（`FindProperty` 找到之后还要问 `Owner === 自己`）。所以 `Object.create(Number.prototype)`
+// **不是**箱——JS 给 `"[object Object]"`（它没有内部格），照原型认就会把这一档答反
+//（判据 `r690-box-not-created` 钉着它）。
+if (value.Tag === ValueTag.Object) {
+  const inner = UnwrapBox(table, value);
+  if (inner.Tag === ValueTag.String) return "String";
+  if (inner.Tag === ValueTag.Bool) return "Boolean";
+  if (inner.Tag === ValueTag.Int32 || inner.Tag === ValueTag.Float64) return "Number";
+}
 const marker = DateMarker(table, value);
 if (marker !== "") {
   throw new Error("unimplemented: Object.prototype.toString of a " + marker + " (JS needs Symbol.toStringTag)");
@@ -6781,11 +6805,30 @@ for (let i = 0; i < symbolStaticNames.length; i++) {
 // 所以那种写法会让尺子当场变红（实测：`Room` 被投成一个**零宽**的 `Identifier`）。
 // 那一格与第 179 轮 `xs[0]()` 是同一族（「调用调用结果」），记在台账里。
 const room = vm.Room();
+// **知名度名单只写一份**（第 690 轮）：下面两个循环原来各写了一遍同一张字面量
+//（一处挂到 `Symbol` 自己身上、一处挂到知名符号表上）——**两处漂了看不出**：
+// 症状是「`Symbol.match` 取得到、而引擎那张表里取不到」（或者反过来），
+// 而那两条路各自看起来都是对的。名单收成一个局部量之后，加一格只改一行。
+//
 // **`dispose` / `asyncDispose` 在名单里**：`using` 声明与实现了 `Symbol.dispose` 的类
 // （`class C { [Symbol.dispose]() {} }`）都按这两个符号办事。少了它们，`Symbol.dispose`
 // 是 `undefined`，于是 `[Symbol.dispose]() {}` 的计算名落到 `set_hidden` 上抛
 // `unimplemented: set_hidden with a key that is not a string or a symbol`。
-for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstance", "toStringTag", "species", "dispose", "asyncDispose"]) {
+//
+// **第 690 轮补上另外七个名字**（`isConcatSpreadable` / `unscopables` 与
+// `match` / `replace` / `search` / `split` / `matchAll`）：**名字与协议是两件事**。
+// 前两个各有一个协议（`Array.prototype.concat` 的展开开关、`with` 的作用域屏蔽表），
+// 后五个是 `RegExp` 协议那一族——**协议本身仍是待做项**（`String.prototype.match`
+// 那些格子没装、`RegExp` 也没进降级层），可是 `Symbol.match` **本身就是一个规范里的值**：
+// JS 里它**永远存在**，`typeof Symbol.match` 是 `"symbol"`。
+// 少了它，`class C { [Symbol.match](s) {} }` 这种写法当场报
+// 「`set_hidden` 的键不是字符串也不是符号」——**报的话离现场很远**
+//（与 `dispose` 那两格当初缺着时的症状一字不差）。
+// **判据**：`150-sym-wellknown-presence`（只问名字）与 `134-symbol-wellknown-more`。
+const wellKnownNames: string[] = ["iterator", "asyncIterator", "toPrimitive", "hasInstance",
+  "toStringTag", "species", "dispose", "asyncDispose",
+  "isConcatSpreadable", "unscopables", "match", "replace", "search", "split", "matchAll"];
+for (const wellKnown of wellKnownNames) {
   const fullName = "Symbol." + wellKnown;
   if (!room(ObjectCharge + ValueCharge + CodeUnitCharge * fullName.length)) {
     throw new Error("out of room");
@@ -6799,7 +6842,7 @@ for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstanc
 // （`install.xl.md` 的 `GetIterator`）只拿得到 `protos`，所以给它一个
 // **按名字取符号**的落点——引擎不必认识 `Symbol` 这个全局名。
 const wellKnownTable = NewPlainObject(room, table, protos);
-for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstance", "toStringTag", "species", "dispose", "asyncDispose"]) {
+for (const wellKnown of wellKnownNames) {
   const symbolKey = Value.FromString(table.CreateString(Units(wellKnown)));
   SetProperty(room, NeverCall, table, wellKnownTable, symbolKey,
     GetProperty(room, NeverCall, protos, table, symbolObject, symbolKey));

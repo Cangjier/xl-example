@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 3819,
+  "total": 3826,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.11,
+  "progressPercent": 96.17,
   "categories": [
     {
       "category": "token",
@@ -91,11 +91,11 @@
       "category": "exec",
       "weight": 0.25,
       "total": 609,
-      "pass": 599,
+      "pass": 601,
       "blocked": 0,
-      "differ": 10,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 98.36
+      "coverage": 98.69
     },
     {
       "category": "runtime",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 948,
-      "pass": 908,
+      "total": 955,
+      "pass": 914,
       "blocked": 15,
-      "differ": 25,
+      "differ": 26,
       "nodefail": 0,
-      "coverage": 95.78
+      "coverage": 95.71
     },
     {
       "category": "e2e",
@@ -1622,22 +1622,10 @@
       "detail": "stdout 不同：第 2 行：node «function» vs tsrun «undefined»"
     },
     {
-      "id": "exec/expressions/137-beh-boxed-primitives",
-      "category": "exec",
-      "title": "盒子对象：new Number/String/Boolean 的 typeof 与 valueOf",
-      "detail": "stdout 不同：第 4 行：node «[object Number]» vs tsrun «[object Object]»"
-    },
-    {
       "id": "exec/expressions/143-beh-tostring-valueof-order",
       "category": "exec",
       "title": "ToPrimitive 先 valueOf 后 toString，以及 Date 反过来",
       "detail": "stdout 不同：第 2 行：node «objectThu Jan 01 1970 08:00:00 GMT+0800 (中国标准时间) string» vs tsrun «objectThu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time) string»"
-    },
-    {
-      "id": "exec/expressions/150-sym-wellknown-presence",
-      "category": "exec",
-      "title": "well-known symbol 的名字在不在（只问名字，不调协议）",
-      "detail": "stdout 不同：第 7 行：node «isConcatSpreadable symbol» vs tsrun «isConcatSpreadable undefined»"
     },
     {
       "id": "stdlib/console/020-names-console",
@@ -1667,7 +1655,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25692/src/2813.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24232/src/2813.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1766,6 +1754,12 @@
       "detail": "stdout 不同：第 1 行：node «call-num 1» vs tsrun «call-num [object Number]»"
     },
     {
+      "id": "stdlib/object/138-object-tostring-arguments-gap",
+      "category": "stdlib",
+      "title": "`arguments` 的标签是 `Arguments`，不是 `Array`",
+      "detail": "stdout 不同：第 1 行：node «[object Arguments]» vs tsrun «[object Array]»"
+    },
+    {
       "id": "stdlib/string/136-r676-std-string-regex-members",
       "category": "stdlib",
       "title": "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
@@ -1780,8 +1774,8 @@
     {
       "id": "stdlib/symbol/036-names-symbol",
       "category": "stdlib",
-      "title": "名字逐个取一次：Symbol 的静态成员（缺 9 个）",
-      "detail": "stdout 不同：第 1 行：node «function isConcatSpreadable symbol» vs tsrun «function isConcatSpreadable undefined»"
+      "title": "名字逐个取一次：Symbol 的静态成员（第 690 轮只剩 `prototype` 一格）",
+      "detail": "stdout 不同：第 5 行：node «function prototype object» vs tsrun «function prototype undefined»"
     },
     {
       "id": "stdlib/symbol/037-names-symbol-proto",

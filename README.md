@@ -318,7 +318,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **229 种签名 / 140 种 kind** 全部有用例覆盖（用例 1402 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3544 / 3819**，加权 **96.1%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 599/609、runtime 613/614、stdlib 908/948、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 35），全登在用例文件头的台账里；`bad` **0 条** |
+| `coverage` | **五类 3552 / 3826**，加权 **96.2%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 601/609、runtime 613/614、stdlib 914/955、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 34），全登在用例文件头的台账里；`bad` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~29s**） |
 
 ### 口径与已知缺口
@@ -482,6 +482,20 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
     `function`」——**前半句是错的**。`Function.prototype` 在 JS 里确实可调用，
     `Object.prototype` 是**普通对象**（`typeof` 给 `"object"`）。两者同根不同命，
     认错了会让 `typeof x === "function"` 这种守卫对 `Object.prototype` 判真。
+  - **同一轮的第二批**（包装对象那一格与知名符号名单）：`Object.prototype.toString.call(箱)`
+    三族（`new Number` / `new String` / `new Boolean`）原来一律给 `"[object Object]"`，
+    而 JS 的算法里那三个**内部格**（`[[NumberData]]` 等）就是三个标签。
+    收法**不是照原型认**——本仓的箱在造的时候就把原值存进 `__box` 那一格了（`MakeBox`），
+    判据就是「**自有**那一格在不在」（`UnwrapBox`）：照原型认会把
+    `Object.create(Number.prototype)` 也答成 `"Number"`，而 JS 给 `"Object"`
+    （这一条另立了用例 `137-object-create-is-not-box` 钉住）。
+    位置也有讲究：它必须**排在 `Symbol.toStringTag` 之后**（JS 是先问 `@@toStringTag`），
+    用例 `136-object-tostring-box-override` 量的就是这一句。
+    知名符号那一张名单补齐七个（`isConcatSpreadable` / `unscopables` 与
+    `match` / `replace` / `search` / `split` / `matchAll`）——**名字与协议是两件事**：
+    名字是规范里的值（JS 里永远在），用到它们的那几个方法仍是待做项；
+    顺带把那张名单收成**一个局部量**（原来 `Symbol` 自己与「知名符号表」两处各写一遍，
+    漂了看不出）。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 

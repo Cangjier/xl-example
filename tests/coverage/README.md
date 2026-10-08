@@ -58,6 +58,13 @@
    ①②各收掉一条台账（`109-std-new-object-null` / `111-r676-std-object-groupby-prototype`），
    ③让 `117-names-object` 整条转绿；另有 3 条（`045` / `065` / `109`）是上一轮修好、
    这一轮才把台账撤掉的。
+   **同一轮的第二批**（又 7 份新语料）：通过 **3544 → 3552**、`differ 35 → 34`、
+   `blocked` 240、`bad` 0、`regressions` 0——包装对象的**内部标签**
+   （`Object.prototype.toString.call(new Number(3))` 原来给 `[object Object]`；
+   判据是**自有那一格 `__box` 在不在**，不是照原型认）让 `137-beh-boxed-primitives` 转绿；
+   知名符号名单补齐七个（名字与协议是两件事）让 `150-sym-wellknown-presence` 转绿；
+   另添一条**登记在案**的缺口（`138-object-tostring-arguments-gap`：本仓的 `arguments`
+   就是一个数组 ⇒ 标签给 `[object Array]`、`Array.isArray` 给真，Node 两处都给「不是」）。
    反过来**写成 `type: module`**也要不得：ESM 一律严格模式，而这一层语料的期望值全是照
    松散模式写的（`Object.freeze` 之后写属性静默、`delete` 不可配置属性该静默、
    非严格调用里 `this` 指向全局）——实测 `bad 3 → 12`、`differ 40 → 50`、通过掉到 3500、

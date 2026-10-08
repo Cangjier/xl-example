@@ -1,8 +1,12 @@
-// xl:title 名字逐个取一次：Symbol 的静态成员（缺 9 个）
+// xl:title 名字逐个取一次：Symbol 的静态成员（第 690 轮只剩 `prototype` 一格）
 // xl:round 678
 // xl:judge stdout
 // xl:want differ
-// xl:why Symbol 的静态成员：取到 undefined（node 上是 symbol/number/object）：isConcatSpreadable / length / match / matchAll / prototype / replace / search / split / unscopables
+// xl:why 第 678 轮登记时缺九格，第 690 轮补掉了八格：七个知名符号
+//       （`isConcatSpreadable` / `unscopables` / `match` / `replace` / `search` /
+//       `split` / `matchAll` 与 `length`——后两个在 `length` 那一行量的是 `number`）。
+//       只剩 `Symbol.prototype`：它是**符号包装对象的原型**，本仓还没有那一族
+//       （`Object(sym)` 至今响亮地抛），所以这一格不是「漏挂一个属性」能收的。
 // xl:end
 const b: any = Symbol;
 let v = "";
