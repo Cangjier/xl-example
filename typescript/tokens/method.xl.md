@@ -342,7 +342,13 @@ return groups.filter((group) => group.length > 0);
     // 于是把两个 NCO **当成实参**、投出一个 `(x as T)(?.m, ?.())`（实测：缺
     // `PropertyAccessExpression` + 两个 `QuestionDotToken`，多出 `NullConditionalOperator`）。
     // IIFE（`(function () {})()`）的产物里只有那一对括号**一个**子单元，撞不到这里。
-    if (ncos.length === 0 && brace !== undefined && ctx.Kids(brace).length > 0) {
+    //
+    // **括号必须是第一个子单元**（第 664 轮）：`f!(1)` / `a.b!(1)` 的第一个子单元是那个
+    // `NotNull`，而它后面那一对括号**是这次调用自己的实参表**（不是被调用者）——
+    // 这一支原来只问「有没有一个非空括号」，于是把实参表当成被调用者、把 `NotNull` 当成实参，
+    // 投出 `CallExpression{ expression: ParenthesizedExpression(1), arguments: [NonNullExpression] }`
+    //（实测 `f!(1)` / `f!(1, 2)` / `a.b!(1)` 三条各多一个 `ParenthesizedExpression`）。
+    if (ncos.length === 0 && brace !== undefined && brace === kids[0] && ctx.Kids(brace).length > 0) {
       const rest = kids.filter((k: any) => k !== brace && k.get("type") !== "GenericType");
       let end = ctx.StmtEndOf(v);
       const calleeClose = ctx.MatchingParen(ctx.source, ctx.StartOf(brace));
@@ -367,6 +373,27 @@ return groups.filter((group) => group.length > 0);
   }
   const anonymousCallee =
     calleeText === "" ? kids.find((k: any) => k.get("type") === "NotNull") : undefined;
+  // **`f!(1)` 的实参表要摊平**（第 664 轮）：被调用者是那个 `NotNull`，跟在它后面那一对 `(`
+  // **就是这次调用自己的实参表** —— 与 `f(1)` 同形，只是正常那一档 `MethodCloseRule`
+  // 已经把括号里的内容搬进了 `Method`，而「`!` 夹在中间」这一档**没搬**、内容还装在
+  // `Bracket` 里。摊平之后再按顶层逗号分组，投影出来才是 `arguments: [1]`；
+  // 不摊平的话那一格会被当成「一个带括号的表达式实参」⇒ 凭空多一层 `ParenthesizedExpression`
+  //（实测 `f!(1)` / `f!(1, 2)` / `a.b!(1)` 三条：缺 0 / 漂 0 / **多 1**）。
+  // **空括号（`b!()`）摊平之后仍是空表**，与原来「滤掉那一格」的结果一致。
+  let flatKids = kids;
+  if (anonymousCallee !== undefined) {
+    const ownCall = kids.find(
+      (k: any) =>
+        k !== anonymousCallee &&
+        k.get("type") === "Bracket" &&
+        k.get("startBracket") === "(" &&
+        ctx.StartOf(k) >= ctx.EndOf(anonymousCallee),
+    );
+    if (ownCall !== undefined) {
+      const at = kids.indexOf(ownCall);
+      flatKids = kids.slice(0, at).concat(ctx.Kids(ownCall)).concat(kids.slice(at + 1));
+    }
+  }
   // **空括号只有「被调用者自己那一对」才要滤掉**（第 179 轮修）：
   // 原来凡空括号一律滤，于是 **`f(xs[0]())` 里那个 `()` 被当成空实参表丢掉**——
   // 实参于是只剩一个 `xs[0]`，投影出来是 `CallExpression(console.log, [ElementAccess])`，
@@ -412,12 +439,12 @@ return groups.filter((group) => group.length > 0);
     generic !== undefined && parenAfterCallee >= 0 && ctx.StartOf(generic) < parenAfterCallee
       ? generic
       : undefined;
-  const args = kids.filter(
+  const args = flatKids.filter(
     (k: any) =>
       k !== anonymousCallee &&
       k !== typeArgumentGeneric &&
       (k.get("type") !== "Bracket" ||
-        (ctx.StartOf(k) >= calleeEnd && (ctx.Kids(k).length > 0 || (kids[0] !== k && anonymousCallee === undefined)))),
+        (ctx.StartOf(k) >= calleeEnd && (ctx.Kids(k).length > 0 || (flatKids[0] !== k && anonymousCallee === undefined)))),
   );
   // **这一支只认「被调用者自己带着可选链」那一形状**（第 147 轮修）：
   // 判据是**第一个子单元就是被调用者自己**——`x?.y?.(1)` 的 `Identifier(x)` 与

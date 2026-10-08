@@ -75,6 +75,7 @@ const current = Get(units, index);
 if (!(current instanceof SymbolToken)) {
   throw new Error("current 为空");
 }
+const memberIndex = SkipNextWrapSymbol(units, index);
 const endIndex = SearchBackIndexed(units, index + 1, (itemIndex, item) => {
   if (item instanceof LineWrap) {
     return Statement.IsLineBreakBoundary(units, itemIndex);
@@ -99,6 +100,18 @@ const endIndex = SearchBackIndexed(units, index + 1, (itemIndex, item) => {
       return false;
     }
     return true;
+  }
+  // **`as` / `satisfies` 是断点**（第 664 轮）：`a?.b as T` 里那个词与它右边的类型
+  // **不是链的一部分**（TS：`AsExpression(PropertyAccessExpression(a, b), T)`）。
+  // 少了这一条，`as T` 被收进 NCO **里面** ⇒ `AsCloseRule` 在 NCO 自己的 `Data` 上跑
+  // ⇒ 折出来的 `As` 只盖住 `as T`、左边的 `a?.b` 落在它外面 ⇒ 投影出
+  // 「`a` 平级 + `NCO(b, As(T))`」，四个方向是「缺 `AsExpression` / 漂移 / 多」
+  //（实测 `a?.b as T` / `a?.b satisfies T` / `a?.b() as T` / `a?.() as T` / `a?.[0] as T` 五条）。
+  //
+  // **第一个实义单元不算**：那是**成员名本身**（`a?.as` 里那个 `as` 就是个名字）。
+  const word = Statement.WordOf(item);
+  if (word === "as" || word === "satisfies") {
+    return itemIndex !== memberIndex;
   }
   return false;
 });

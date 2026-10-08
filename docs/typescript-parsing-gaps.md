@@ -86,9 +86,13 @@
   把被吞掉的尾分号还原成一条空语句；投影侧按 kind（`NO_TRAILING_SEMICOLON`）判那个 `;`
   归上一条还是自成一条。**反面同样钉住了**：导入断言 / 环境签名后面那个 `;`
   是声明自己的终结符（`stmt-semicolon-*` 三份 + `decl-ambient-signature-semicolon`）。
-- **(c) 少数构造在组合下整节点丢失**：可选链 × `as` / `satisfies`、`f!(1)` 的实参、
-  泛型实例化表达式 `f<string>`、`async<T>(x) => x`、`get /*c*/ x()` 存取器、
-  `let g = f<string>;`、简写环境模块 `declare module "mm";`。
+- **(c) 少数构造在组合下整节点丢失**：**第 664 轮收掉两支** ——
+  **可选链 × `as` / `satisfies`**（`?.` 后面的 `as` / `satisfies` 是断点，链不再把它吞进去；
+  折断言那一支还要让开 0a0 / 0a 两条 NCO 支路），
+  **`f!(1)` 的实参**（非空断言当被调用者时，那一对括号是这次调用自己的实参表、
+  不是被调用者）。用例 `expr-optional-chain-as` / `expr-nonnull-call-arguments`。
+  还剩：泛型实例化表达式 `f<string>`、`async<T>(x) => x`、`get /*c*/ x()` 存取器、
+  简写环境模块 `declare module "mm";`。
 
 **收的时候一次收一族**（上面 (a) 里每一小项都是独立的一族），并把它写成 `tests/parse/cases/` 下的用例——
 用例进了语料，`cases:tsast` 才会一直替它把关。

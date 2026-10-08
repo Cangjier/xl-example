@@ -2449,6 +2449,16 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // `PropertyAccessExpression` 189 里成片，而且都会连带多出未映射的
   // `<NullConditionalOperator>` 与 `<Bracket>`。
   const ncoIndex = kids.findIndex((k) => k.get("type") === "NullConditionalOperator");
+  // **链后面还挂着 `as` / `satisfies` 时，0a0 / 0a 两条都要让开**（第 664 轮）：
+  // `a?.b as T` 的产物是 `[Identifier(a), NullConditionalOperator(b), As(T)]` 三格 ——
+  // 那两条支路的收尾都是「把 NCO 接到左边、剩下的交给 `foldBinaryFrom`」，
+  // 而 `As` / `Satisfies` **不是二元单元** ⇒ 那一格整格丢掉
+  //（实测缺 `AsExpression` + `TypeReference` + `Identifier`，四个方向里只有「缺」这一栏响）。
+  // 让开之后落到主流程第 2 节（`asIndex` 那一支），`As` / `Satisfies` 的折法只有那一份。
+  // **`f(o?.a as T)` 那种实参位同样受益**：让开之后 0a0 不再抢，主流程照折。
+  const asAfterNco = kids
+    .slice(ncoIndex + 1)
+    .some((k) => k.get("type") === "As" || k.get("type") === "Satisfies");
   // ---- 0a0. **基名与 `?.` 平级**：`f(o?.a)` 那一种（第 143 轮）----
   //
   // **症状**：`?.` 出现在**实参位 / 下标位 / 模板插值位**时，产物是
@@ -2490,6 +2500,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   );
   if (
     ncoIndex > 0 &&
+    asAfterNco === false &&
     prefixHasOperator === false &&
     IsChainBaseNode(kids[ncoIndex - 1]) &&
     projectableKids(view(kids[ncoIndex]))[0]?.get("type") !== "Method"
@@ -2520,7 +2531,8 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       (k.get("type") === "BinaryOperator" || k.get("type") === "LogicalOperator") &&
       projectableKids(view(k))[0]?.get("type") === "NullConditionalOperator",
   );
-  if (ncoIndex > 0 && hasNcoInBinary === false && !(kids[0].get("type") === "BinaryOperator" && kids.slice(1).some((k) => k.get("type") === "NullConditionalOperator" || isSymbol(k, ".")))) {
+  // **尾巴上还挂着 `as` / `satisfies` 时，这一支也要让开**（见上面 `asAfterNco` 那一处）。
+  if (ncoIndex > 0 && hasNcoInBinary === false && asAfterNco === false && !(kids[0].get("type") === "BinaryOperator" && kids.slice(1).some((k) => k.get("type") === "NullConditionalOperator" || isSymbol(k, ".")))) {
     // **前缀里有顶层二元运算符时，NCO 要并进「右边那个操作数段」**（第 145 轮）：
     //
     //     x.Start === y.Start?.Document
