@@ -5,13 +5,19 @@
 // 派生类这一份**自己写构造函数并调 `super(...)`**✓——那是这一层要求的形状。
 
 class Counter {
+  // **类体里的空成员**（单独一个 `;`）在这份语料里是**回归哨**（第 677 轮）：
+  // TS 叫它 `SemicolonClassElement`，运行期什么都不产生——降级层原来在这上面直接抛，
+  // 整份类都进不来。放在最前面，是为了让「这一句被谁吃掉了」一眼看得出来。
+  ;
   constructor(start: number = 0) {
     this.value = start;
   }
+  ;
   bump(by: number): number {
     this.value += by;
     return this.value;
   }
+  ;
   get current(): number {
     return this.value;
   }

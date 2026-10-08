@@ -119,12 +119,12 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | 层 | 条数 | 覆盖度 |
 | --- | --- | --- |
 | runtime | **595 / 595** | **100%** |
-| exec | **531 / 537** | 98.9% |
+| exec | **532 / 537** | 99.1% |
 | stdlib | **846 / 860** | 98.4% |
 | e2e | **225 / 225** | **100%** |
-| **合计（加权）** | **2197 / 2217** | **99.3%** |
+| **合计（加权）** | **2198 / 2217** | **99.3%** |
 
-那 20 条过不了的是**真缺口**，都登了台账（写清根子）：
+那 19 条过不了的是**真缺口**，都登了台账（写清根子）：
 对象字面量的值是一对圆括号里的二元表达式、宿主 ABI 的 `setTimeout`、
 `Date.prototype.getTimezoneOffset` 与 `toDateString` / `toTimeString` / `toUTCString` 没装、
 `String.prototype.matchAll` 没装（六条 `blocked`）、
@@ -178,15 +178,20 @@ Number / Math 的现代成员、JSON 的 space / replacer、Set / Map 的迭代�
 `gap-l677p-regex-literal` 第一版写成 `skip` 时被 `run.mjs` 当场判成 `REGRESSION`
 （`skip` 让这条避开台账，而它其实是断的），这一轮按口径改回 `blocked`。
 
-### 第 677 轮（其三）：收掉嵌套模板里内插与 `}` 之间的空白
+### 第 677 轮（其三）：收掉两格——嵌套模板的段文本、类体里的空成员
 
-（其一）从 AST 语料里量到的那条 `differ`（`` `a${ `b${1}` }c` `` 该给 `ab1c`、
-本仓给 `ab1}c`）**在（其三）就收掉了**，所以它只活在 git 历史与 `expectations.mjs` 的注释里。
-根子不在 token 层而在**投影**这一层：`TemplateTail` / `TemplateMiddle` 的 `text` 按
-「表达式的终点 + 1」起算，而内插与 `}` 之间带空白时表达式终点落在**反引号之后一格**（那个空格上），
-`+1` 就把 `}` 自己算进了段文本；位置那一格第 623 轮已经按「`}` 的右边一格」算了
-（`pos: endOf(interps[i]) - 1`）——文本这一格漏了同一处。修法是两格同一个起点
-（`typescript/print-ast-common.xl.md` 的 `stringProject`）。
+**一、类体里的空成员**（单独一个 `;`，TS 的 `SemicolonClassElement`）：降级层的成员遍历
+只按名字处理 Field / MethodDeclaration，无名成员直接落进最后那句 `throw`
+（`unimplemented: class member SemicolonClassElement`）——**整个类都进不来**，而这只是一种
+排版习惯。空成员在运行期什么都不产生，跳过它即可（`typescript-exec/lowering.xl.md`）；
+回归哨放在 `runtime:cli` 的 `tests/runtime/cases/05-classes.ts`（类体最前面那个 `;`）。
+
+**二、嵌套模板里内插与 `}` 之间的空白**：第 677 轮（其一）从 AST 语料里量到的那条 `differ`
+（`` `a${ `b${1}` }c` `` 该给 `ab1c`、本仓给 `ab1}c`）。根子不在 token 层而在**投影**这一层：
+`TemplateTail` / `TemplateMiddle` 的 `text` 按「表达式的终点 + 1」起算，而内插与 `}` 之间带空白时
+表达式终点落在**反引号之后一格**（那个空格上），`+1` 就把 `}` 自己算进了段文本；
+位置那一格第 623 轮已经按「`}` 的右边一格」算了（`pos: endOf(interps[i]) - 1`）——
+文本这一格漏了同一处。修法是两格同一个起点（`typescript/print-ast-common.xl.md` 的 `stringProject`）。
 
 ### 第 676 轮（其三）：**系统性点名**——把内建表面逐个问一遍
 

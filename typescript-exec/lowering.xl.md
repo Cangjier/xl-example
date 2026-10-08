@@ -6995,6 +6995,12 @@ for (let i = 0; i < members.length; i++) {
   // **字段不在这里**（第 128 轮）：实例字段挂去了构造函数（`FieldDefaults`），
   // 静态字段与静态块**按源码顺序**在原型循环之后一起发（见下面那一趟）。
   if (kind === "PropertyDeclaration" || kind === "ClassStaticBlockDeclaration") continue;
+  // **类体里的空成员**（单独一个 `;`，TS 的 `SemicolonClassElement`，第 677 轮）：
+  // 它在运行期**什么都不产生**——`class C { ; x = 1; ; m() { return 1; } ; }`
+  // 与不带那三个分号的类**逐字相同**（实测 `cls-semicolon-member`）。
+  // 原来它落进下面那句 `throw`：**整份文件进不来**（`unimplemented: class member
+  // SemicolonClassElement`），而这只是一种排版习惯。跳过它与跳过没有体的成员同一个道理。
+  if (kind === "SemicolonClassElement") continue;
   if (kind !== "MethodDeclaration" && kind !== "GetAccessor" && kind !== "SetAccessor") {
     throw new Error("unimplemented: class member " + kind);
   }

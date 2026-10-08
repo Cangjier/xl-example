@@ -88,7 +88,7 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 99.28,
+  "progressPercent": 99.34,
   "layers": [
     {
       "layer": "runtime",
@@ -104,11 +104,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 537,
-      "pass": 532,
-      "blocked": 3,
+      "pass": 533,
+      "blocked": 2,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 99.07
+      "coverage": 99.26
     },
     {
       "layer": "stdlib",
@@ -137,12 +137,6 @@
       "layer": "exec",
       "title": "对象字面量的值是一对圆括号里的二元表达式",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: x"
-    },
-    {
-      "id": "l677-declarations-cls-semicolon-member",
-      "layer": "exec",
-      "title": "AST 语料 declarations/cls-semicolon-member.ts：cls semicolon member",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: class member SemicolonClassElement"
     },
     {
       "id": "l677-declarations-decl-obj-destructure-computed-key",

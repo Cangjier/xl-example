@@ -1235,17 +1235,13 @@ export const EXPECTATIONS = {
   },
 
   // ===== 第 677 轮：**AST 语料**普查量出的三条缺口（用例在 `cases/exec.mjs` 的 `l677-*` 那一段）=====
-  // 一、**类体里的空成员**（单独一个 `;`）：token 层按 TS 的 `SemicolonClassElement` 收了，
-  // 降级层没认这一格 ⇒ `unimplemented: class member SemicolonClassElement`。
-  // 根子在成员表的遍历：它只按名字处理 Field / MethodDeclaration，遇到无名成员直接抛。
-  // 修法是**跳过**（空成员没有任何运行期效果，只需不挡路）。
-  "l677-declarations-cls-semicolon-member": {
-    expect: "blocked",
-    why: "类体里的空成员 `;`（TS 的 SemicolonClassElement）：降级层没认这一格，报 unimplemented: class member SemicolonClassElement",
-  },
-
-  // 二、**对象解构的计算属性名** `const { [k]: v } = o`：降级层要读计算名那一格的**文本**，
-  // 投出来的 `ComputedPropertyName` 在它那个区间里取不到文本（`has no text (at 109..112)`）。
+  // 一、**类体里的空成员**（单独一个 `;`）：已收（第 677 轮（其三））——token 层按 TS 的
+  // `SemicolonClassElement` 收了，降级层原来落在成员遍历最后那句 `throw` 上
+  // （`unimplemented: class member SemicolonClassElement`），于是**整个类都进不来**。
+  // 它运行期什么都不产生，跳过去就对了；现在 `typescript-exec/lowering.xl.md` 里
+  // 有一句显式的 `if (kind === "SemicolonClassElement") continue;`，
+  // 回归哨在 `tests/runtime/cases/05-classes.ts`（类体最前面那个 `;`）。
+  // 二、**对象解构的计算属性名** `const { [k]: v } = o`：降级层要读计算名那一格的**文本**，  // 投出来的 `ComputedPropertyName` 在它那个区间里取不到文本（`has no text (at 109..112)`）。
   // 与 `import { "a-b" as c }` 那一族同一个根子：**投影这一层自己按区间再取一次文本**，
   // 而计算名两端的区间口径不一致（`[k]` 连同方括号一起给了节点）。
   "l677-declarations-decl-obj-destructure-computed-key": {
