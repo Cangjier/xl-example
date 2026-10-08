@@ -2835,16 +2835,22 @@ if (id === ObjectCreate) {
     // **判据就是这一句**：`"toString" in Object.create(null)` 在 JS 里是**假**
     //（判据 `object-create-and-prototype-forms` 量着它）。
     table.Get(made.Ref).Proto = 0;
-    return made;
+  } else {
+    if (proto.Tag !== ValueTag.Object) {
+      throw new Error("unimplemented: Object.create over a prototype that is not an object");
+    }
+    table.Get(made.Ref).Proto = proto.Ref;
   }
-  if (proto.Tag !== ValueTag.Object) {
-    throw new Error("unimplemented: Object.create over a prototype that is not an object");
-  }
-  table.Get(made.Ref).Proto = proto.Ref;
   // **第二格实参：属性描述表**（第 299 轮）——以前**整格丢掉**
   //（`Object.create(proto, { a: { value: 1, enumerable: true } })` 之后 `o.a` 是 `undefined`，
   //  而 `Object.keys(o)` 是空的——**两句都看着像「那个对象就是空的」**，**静默错值**，
   //  判据 `object-create-with-properties` / `object-create-and-prototype-forms` 量的就是它）。
+  //
+  // **第 691 轮补上另一半**：`Object.create(null, 描述表)` 那一档原来**当场 `return`**——
+  // 无原型那一支写完 `Proto = 0` 就交回对象，**第二格实参连看都没看**
+  //（判据 `object-create-with-properties` 量的就是它：`o.a` 是 `undefined`、`Object.keys(o)` 空的，
+  //  与「`proto` 传 `null`」这个无关的差别**一起**静默）。
+  // 两支现在**合流到同一段描述符处理**：无原型只是 `Proto = 0` 的一次赋值，不是一条出路。
   //
   // **走 `DefineOwnFromDescriptor` 那条既有的路**（与 `defineProperties` 一字不差）：
   // 扫描述符表里**可枚举的自有属性**、逐格写——**不新写一条**

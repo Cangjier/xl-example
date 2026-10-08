@@ -234,7 +234,12 @@ return "[Object]";
 `Function.prototype.toString` 以 `class` 开头，而本仓的运行期拿不到源码——
 那一位由降级层在造闭包时盖上（`HeapClosure.IsClass`，见 `heap.xl.md`）。
 **名字那一格照旧**：`[class C]` 里的 `C` 还是 `Name`——
-**类名与「是不是类」是两件事**（匿名类表达式给 `[class ]`，与 Node 一致）。
+**类名与「是不是类」是两件事**。
+
+**匿名的两种不是同一个答案**（第 691 轮量出来的）：匿名**函数**给
+`[Function (anonymous)]`，匿名**类**给 **`[class (anonymous)]`**。
+原来两支都写 `"[class ]"`，还把这句写成了「与 Node 一致」——**量了才知道不一致**
+（判据 `insp-function-and-class-shape` 量的就是它）。
 
 ```ts
 if (level > InspectDepth) return "[Function]";
@@ -243,7 +248,7 @@ if (value.Tag === ValueTag.Closure) {
   // **类那一档先答**（它的形状不是 `[Function: …]`）。
   if (table.Get(value.Ref).AsClosure().IsClass) {
     if (name > 0) return "[class " + TextFrom(table, Value.FromString(name)) + "]";
-    return "[class ]";
+    return "[class (anonymous)]";
   }
   if (name > 0) return "[Function: " + TextFrom(table, Value.FromString(name)) + "]";
   return "[Function (anonymous)]";
@@ -298,19 +303,62 @@ return entries;
 
 # method InspectObjectBody:(table:HeapTable, value:Value, level:int)=>Array<string>
 
-**普通对象的每一格**（自有、字符串键、**访问器跳过**——`keys` / `values` 那一条口径）。
+**普通对象的每一格**（自有、**可枚举**、字符串键与符号键；
+**访问器印成 `[Getter]` 那一档，但不调用它**——Node 的 `util.inspect` 同一句话）。
 
 **键值对之间的冒号后有一个空格**（`{ a: 1 }`）。
+
+**第 691 轮补上两处**（都是量出来的静默错值，判据 `insp-own-enumerable-and-symbol-keys`）：
+
+1. **不可枚举的自有属性不该露面**。原来是「扫 `Props` 全表、只滤掉访问器」——
+   所以 `Object.defineProperty(o, "h", { value: 3 })` 的那一格**照印**，
+   而 Node 的 `util.inspect` 按 `{[ShowHidden]: false}` 只走可枚举的：
+   `console.log(o)` 在 Node 里给 `{ a: 1 }`、本仓给 `{ a: 1, h: 3 }`。
+   `Object.keys` 一直是过滤的，所以**同一个对象「有几格」有两个答案**，
+   而两句看着都像「那就是它的全部」——静默。
+2. **符号键要印**（Node 给 `{ a: 1, Symbol(s): 2 }`）：原来 `Tag !== String` 直接跳过，
+   于是 `o[Symbol("s")] = 2` 那一格**在渲染里不存在**。
+   符号键的写法走 `InspectSymbol` 那一个**既有的**渲染（`Symbol(描述)`），不再写第二份。
+3. **可枚举的访问器要印成 `[Getter]`**（同一轮量的）：原来访问器**整格跳过**，
+   于是 `{ get x() { return 1; } }` 与 `{}` **印出来一模一样**。
+   Node 的写法是三档：只有取值器 `[Getter]`、只有赋值器 `[Setter]`、
+   两个都有 `[Getter/Setter]`。**取值器一次都不调**（Node 读的是描述符）——
+   否则 `console.log` 会变成有副作用的东西。
 
 ```ts
 const entries: string[] = [];
 const item = table.Get(value.Ref);
 for (let i = 0; i < item.Props.length; i++) {
   const prop = item.Props[i];
-  if (table.Get(prop.Key).Tag !== ValueTag.String) continue;
-  if (prop.IsAccessor()) continue;
+  const keyTag = table.Get(prop.Key).Tag;
+  if (keyTag !== ValueTag.String && keyTag !== ValueTag.Symbol) continue;
+  if (!prop.IsEnumerable()) continue;
+  // **访问器照印，但不调用它**（第 691 轮）：Node 给 `[Getter]` / `[Setter]` /
+  // `[Getter/Setter]`——原来整格跳过（理由写的是「`keys` / `values` 那条口径」），
+  // 于是 `{ get x() { … } }` 在 `console.log` 里印成 `{}`——**一个访问器都没有**。
+  // **判据是「读那一格会不会有副作用」**：Node 读的是描述符不是取值器，
+  // 所以这里也只读 `Getter` / `Setter` 两格的**有没有**，绝不调。
+  let rendered = "";
+  if (prop.IsAccessor()) {
+    const hasGetter = !prop.Getter.IsUndefined();
+    const hasSetter = !prop.Setter.IsUndefined();
+    if (hasGetter && hasSetter) rendered = "[Getter/Setter]";
+    else if (hasGetter) rendered = "[Getter]";
+    else if (hasSetter) rendered = "[Setter]";
+    // 两个都没有的访问器**不是访问器**（空槽），照值印。
+    else rendered = InspectValue(table, prop.Value, level + 1);
+  } else {
+    rendered = InspectValue(table, prop.Value, level + 1);
+  }
+  if (keyTag === ValueTag.Symbol) {
+    // **键那一格是句柄**（`Property.Key` 存的是 `HeapSymbol` 的号），
+    // 而 `InspectSymbol` 要的是**值**——`Value.FromRef` 是那一处既有的装箱路。
+    entries.push(InspectSymbol(table, Value.FromRef(ValueTag.Symbol, prop.Key), level) + ": "
+      + rendered);
+    continue;
+  }
   const key = table.Get(prop.Key).AsString().Units;
-  entries.push(InspectKey(key) + ": " + InspectValue(table, prop.Value, level + 1));
+  entries.push(InspectKey(key) + ": " + rendered);
 }
 return entries;
 ```

@@ -77,17 +77,37 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **3841** 条（token 1415 / exec 610 / runtime 614 / stdlib 956 / e2e 246）。
+语料 **3933** 条（token 1415 / exec 643 / runtime 614 / stdlib 1028 / e2e 246）。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1402 | **1182** | 220 | 缺的那 220 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 609 | **601** | 0 / 8 | 另有 1 条不进分母 |
+| `exec` | 643 | **629** | 1 / 13 | 另有 1 条不进分母 |
 | `runtime` | 614 | **613** | 1 / 0 | |
-| `stdlib` | 956 | **916** | 15 / 25 | |
+| `stdlib` | 1028 | **978** | 18 / 32 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **3827** | **3554** | 240 / 33 | 加权 **96.2%** |
+| **合计** | **3933** | **3644** | 244 / 45 | 加权 **95.8%** |
+
+**第 691 轮加了 106 条**（分母 3827 → **3933**）：两批一次性的**角落普查**——
+核心库（`Array` / `String` / `Object` / `JSON` / `Number` / `Math` / `Map` / `Set` / `Symbol` /
+`console` 的渲染）与语言层（运算符表、解构、闭包捕获、`this`、`try`/`finally`、
+带标签的循环、可选链与逻辑赋值）各问一遍。**加宽本身就收掉了五个静默错值**：
+
+1. `Object.create(null, 描述表)` 那一档**当场 `return`**（无原型那一支写完 `Proto = 0`
+   就交回对象），第二格实参连看都没看——`o.a` 与 `Object.keys(o)` 一起静默；
+2. `console.log` 把**不可枚举**的自有属性照印（`Object.defineProperty(o, "h", { value: 3 })`
+   那一格），而 `Object.keys` 一直是过滤的：**同一个对象「有几格」有两个答案**；
+3. 符号键在渲染里**不存在**（`o[Symbol("s")] = 2` 那一格被 `Tag !== String` 跳过）；
+4. 可枚举的访问器**整格跳过**，于是 `{ get x() { return 1; } }` 与 `{}` 印出来一模一样
+   （Node 给 `[Getter]` / `[Setter]` / `[Getter/Setter]`，且**不调用**取值器）；
+5. 匿名**类**印成 `[class ]`，Node 给 `[class (anonymous)]`。
+
+另登记 **8 族新缺口**（`blocked` +4 / `differ` +12，含 3 条 `Reflect` / `RegExp` / `BigInt`
+那一档本来就该做的）：`Object.create` 之外的 `defineProperty` 重定义不可配置属性、
+`Array.prototype.toString` 不现读 `this.join`、`console.log` 的 `%s` 族、循环引用的
+`[Circular *1]`、异步/生成器函数的渲染、`new` 一个 `bind` 出来的构造时的 `new.target`、
+数组下标上的访问器、`in` 的右操作数不是对象时该在运行期抛。
 
 **不进分母的只有两档**（`xl:skip` 1 条 + `.tsx` / `xl:ts-invalid` 13 条 = 14 条）：
 

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 3827,
+  "total": 3933,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.2,
+  "progressPercent": 95.84,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 609,
-      "pass": 601,
-      "blocked": 0,
-      "differ": 8,
+      "total": 643,
+      "pass": 629,
+      "blocked": 1,
+      "differ": 13,
       "nodefail": 0,
-      "coverage": 98.69
+      "coverage": 97.82
     },
     {
       "category": "runtime",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 956,
-      "pass": 916,
-      "blocked": 15,
-      "differ": 25,
+      "total": 1028,
+      "pass": 978,
+      "blocked": 18,
+      "differ": 32,
       "nodefail": 0,
-      "coverage": 95.82
+      "coverage": 95.14
     },
     {
       "category": "e2e",
@@ -1458,6 +1458,12 @@
       "detail": "缺 4　漂 2　多 1　点号名在产物里是平级单元，`typeof` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）"
     },
     {
+      "id": "exec/statements/060-hoisting-tdz",
+      "category": "exec",
+      "title": "函数声明提升、`let` 的 TDZ",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: x"
+    },
+    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1516,6 +1522,24 @@
       "category": "stdlib",
       "title": "口径外：动态 import() 的返回形状（多文件加载不是 v1 目标）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ImportKeyword"
+    },
+    {
+      "id": "stdlib/globals/059-reflect-basics",
+      "category": "stdlib",
+      "title": "`Reflect` 的取/设/删/有无",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Reflect"
+    },
+    {
+      "id": "stdlib/globals/060-regexp-lite",
+      "category": "stdlib",
+      "title": "`RegExp` 那一族现在的样子（口径内该做）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "stdlib/globals/061-bigint-lite",
+      "category": "stdlib",
+      "title": "`BigInt` 那一族现在的样子（口径内该做）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BigIntLiteral"
     },
     {
       "id": "stdlib/json/050-json-stringify-bigint",
@@ -1613,7 +1637,7 @@
       "id": "exec/expressions/128-beh-setproto-change",
       "category": "exec",
       "title": "setPrototypeOf 换链之后读到的成员与 instanceof",
-      "detail": "stdout 不同：第 2 行：node «undefined null» vs tsrun «base { constructor: [Function: Base], tag: 'base' }»"
+      "detail": "stdout 不同：第 2 行：node «undefined null» vs tsrun «base { tag: 'base' }»"
     },
     {
       "id": "exec/expressions/136-beh-instanceof-hasinstance",
@@ -1628,10 +1652,70 @@
       "detail": "stdout 不同：第 2 行：node «objectThu Jan 01 1970 08:00:00 GMT+0800 (中国标准时间) string» vs tsrun «objectThu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time) string»"
     },
     {
+      "id": "exec/expressions/180-in-operator",
+      "category": "exec",
+      "title": "`in` 查的是整条原型链",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: 'in' needs an object on the right"
+    },
+    {
+      "id": "exec/functions/090-iife-this",
+      "category": "exec",
+      "title": "非严格里裸调用的 `this` 是全局对象；方法调用是接收者",
+      "detail": "stdout 不同：第 3 行：node «arrow object» vs tsrun «arrow undefined»"
+    },
+    {
+      "id": "exec/functions/094-bind-apply-primitive",
+      "category": "exec",
+      "title": "`call` / `apply` / `bind` 的接收者是原始值时",
+      "detail": "stdout 不同：第 1 行：node «object 1» vs tsrun «number 1»"
+    },
+    {
+      "id": "exec/functions/095-arguments-length",
+      "category": "exec",
+      "title": "`arguments` 的形状与 `length` 同步",
+      "detail": "stdout 不同：第 2 行：node «9» vs tsrun «1»"
+    },
+    {
+      "id": "exec/functions/096-new-target",
+      "category": "exec",
+      "title": "`new.target` 与 `bind` 出来的构造",
+      "detail": "stdout 不同：第 3 行：node «target true» vs tsrun «target false»"
+    },
+    {
+      "id": "stdlib/array/140-array-tostring-custom-join",
+      "category": "stdlib",
+      "title": "数组的 `toString` 走 `join`，改了 `join` 就跟着改",
+      "detail": "stdout 不同：第 2 行：node «J J» vs tsrun «1,2 1,2»"
+    },
+    {
+      "id": "stdlib/array/143-getter-array-index",
+      "category": "stdlib",
+      "title": "数组下标位置上的访问器（`defineProperty`）",
+      "detail": "stdout 不同：第 1 行：node «99 1,99,3 [1,99,3] 3» vs tsrun «2 1,2,3 [1,2,3] 3»"
+    },
+    {
       "id": "stdlib/console/020-names-console",
       "category": "stdlib",
       "title": "名字逐个取一次：console 的成员（缺 30 个）",
       "detail": "stdout 不同：第 1 行：node «object Console function» vs tsrun «object Console undefined»"
+    },
+    {
+      "id": "stdlib/console/029-con-log-circular",
+      "category": "stdlib",
+      "title": "循环引用打出来是 `[Circular *1]`",
+      "detail": "stdout 不同：第 1 行：node «<ref *1> { a: 1, self: [Circular *1] }» vs tsrun «{ a: 1, self: { a: 1, self: { a: 1, self: [Object] } } }»"
+    },
+    {
+      "id": "stdlib/console/030-con-log-async-function",
+      "category": "stdlib",
+      "title": "异步函数与生成器函数的渲染那一档",
+      "detail": "stdout 不同：第 1 行：node «[GeneratorFunction: gen]» vs tsrun «[Function: gen]»"
+    },
+    {
+      "id": "stdlib/console/031-con-log-multi-args",
+      "category": "stdlib",
+      "title": "多实参之间空一格、`%s` 不生效",
+      "detail": "stdout 不同：第 2 行：node «x» vs tsrun «%s x»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1655,7 +1739,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27848/src/2813.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19552/src/2879.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1752,6 +1836,18 @@
       "category": "stdlib",
       "title": "`arguments` 的标签是 `Arguments`，不是 `Array`",
       "detail": "stdout 不同：第 1 行：node «[object Arguments]» vs tsrun «[object Array]»"
+    },
+    {
+      "id": "stdlib/object/150-defineproperty-redefine",
+      "category": "stdlib",
+      "title": "`defineProperty` 重定义不可配置属性的那几档",
+      "detail": "stdout 不同：第 1 行：node «throw TypeError» vs tsrun «ok 2»"
+    },
+    {
+      "id": "stdlib/object/151-getownpropertynames-array",
+      "category": "stdlib",
+      "title": "数组的 `getOwnPropertyNames` 含 `length`",
+      "detail": "stdout 不同：第 3 行：node «length,name,arguments,caller,prototype» vs tsrun «length,name,prototype»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",
