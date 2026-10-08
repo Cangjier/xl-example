@@ -2334,7 +2334,11 @@ return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol"
   "queueMicrotask",
   // **第 338 轮补的一个名字**（`structuredClone`）——**同一条约定**（名单与 `BuildGlobals`
   // 两边一起加）；号取 `346`（那一段里第一个空号，第 335 轮那道去重检查会拦撞车）。
-  "structuredClone"];
+  "structuredClone",
+  // **第 717 轮补的一个名字**（`Reflect`）——**名单与 `BuildGlobals` 两边一起加**
+  // （少一边的症状写在上面第 2309 行：名单里有、`BuildGlobals` 没挂 ⇒「声明了却没提供」）。
+  // 号开在 `685..697`（13 格），理由见 `ReflectApply` 那一段。
+  "Reflect"];
 ```
 
 **`Function` 是第 228 轮加进来的**（与 `Boolean` / `Promise` 那两条同一个理由）：
@@ -7036,6 +7040,91 @@ if (cursor.At !== text.length) throw new SyntaxError("JSON.parse: trailing chara
 return value;
 ```
 
+# const ReflectApply:int = 685
+
+**`Reflect` 那一族的第一格**（第 717 轮）——13 个号开在 `685..697`（`680..684` 是 `Date`
+那一族、`700..799` 是语言内部辅助那一段，中间这一段空着）。
+
+**为什么 `Reflect` 值得做**：它与 `Proxy` 是**同一批「元编程那一层」的构造**，
+而本仓原来**一格都没有**——降级期就报 `name is not a local or a capture: Reflect`
+（判据 `stdlib/object/probe703-o-a25` … `a28` 四条登着，一句话里没有一个字提到
+「没装」）。**分工与 `Object` 的静态方法那一族重叠但不同**：`Object.defineProperty`
+写不下去就**抛**，`Reflect.defineProperty` 把它折成**一个布尔**；
+`Object.getPrototypeOf(1)` 答 `Number.prototype`，`Reflect.getPrototypeOf(1)` **抛**
+（`Reflect` 那一族**一律先要求第一个实参是对象**，`apply` / `construct` 两格除外）。
+
+**实现落在 `install.xl.md`**（`InvokeReflect`）而不是这一份里：`Reflect.construct`
+要走 `ConstructApply`，而那一格住在 `install.xl.md`（依赖方向只允许它 import 这里）。
+
+# const ReflectConstruct:int = 686
+
+**`Reflect.construct(ctor, 实参数组)`**（第 717 轮）——转交 `ConstructApply`
+（`new C(...xs)` 的落点，第 197 轮）。**三实参那一档（`newTarget`）还没做**：
+给了就**响亮地抛**，不静默拿 `ctor` 顶替。
+
+# const ReflectDefineProperty:int = 687
+
+**`Reflect.defineProperty(对象, 键, 描述符)`**（第 717 轮）——走 `DefineOwnFromDescriptor`
+（与 `Object.defineProperty` **同一处**），成功返回真。**写不下去那一档**在 JS 里是**假**、
+在本仓是**抛**（`DefineOwnFromDescriptor` 的口径）——**已知差写在明处**。
+
+# const ReflectDeleteProperty:int = 688
+
+**`Reflect.deleteProperty(对象, 键)`**（第 717 轮）——与 `delete 对象[键]` **同一处**
+（`props.xl.md` 的 `DeleteProperty`），返回它那个布尔。**键走 `ToPropertyKey`**
+（数字键 / 对象键都收，与第 706 轮给 `delete` 补的那一句同一条）。
+
+# const ReflectGet:int = 689
+
+**`Reflect.get(对象, 键)`**（第 717 轮）——与 `对象[键]` **同一处**（`GetProperty`）。
+**第三格 `receiver` 还没做**：给了就**响亮地抛**（那一格要改 `GetProperty` 的取法本身，
+不是这一轮的事）。
+
+# const ReflectGetOwnPropertyDescriptor:int = 690
+
+**`Reflect.getOwnPropertyDescriptor(对象, 键)`**（第 717 轮）——**不写第二份扫描**：
+转交给 `Object.getOwnPropertyDescriptor` 那一格能力号（两边的答案本来就一字不差）。
+
+# const ReflectGetPrototypeOf:int = 691
+
+**`Reflect.getPrototypeOf(对象)`**（第 717 轮）——与 `Object.getPrototypeOf` /
+`__proto__` 那一格是**同一处取法**（`PrototypeOfValue`）。
+
+# const ReflectHas:int = 692
+
+**`Reflect.has(对象, 键)`**（第 717 轮）——`in` 那一格的正身：走 `FindProperty`
+（**沿原型链**找），找到就是真。**不调 `HasProperty` 的第二份实现**。
+
+# const ReflectIsExtensible:int = 693
+
+**`Reflect.isExtensible(对象)`**（第 717 轮）——与 `Object.isExtensible` 共用
+`IsUnextensible` 那一张底牌（只是不取反）。
+
+# const ReflectOwnKeys:int = 694
+
+**`Reflect.ownKeys(对象)`**（第 717 轮）——**字符串键 + 符号键**，次序按
+`Object.getOwnPropertyNames` 再 `Object.getOwnPropertySymbols`（JS 的次序就是这样：
+整数键在前、其余字符串键按插入次序、符号键最后）。**两趟都不重写**：
+各转交给 `Object` 那一族**同一个能力号**，只把两个结果接起来——
+那条「自己再扫一遍属性表」的路就是第二份会漂的判据。
+
+# const ReflectPreventExtensions:int = 695
+
+**`Reflect.preventExtensions(对象)`**（第 717 轮）——与 `Object.preventExtensions`
+同一处（`MarkUnextensible`），返回真。
+
+# const ReflectSet:int = 696
+
+**`Reflect.set(对象, 键, 值)`**（第 717 轮）——与 `对象[键] = 值` 同一处（`SetProperty`），
+**返回的是那个布尔**（写不下去给假，**不抛**——这正是 `Reflect` 与 `Object` 那一族的分界）。
+**第四格 `receiver` 还没做**（与 `get` 那一格同一条，给了就抛）。
+
+# const ReflectSetPrototypeOf:int = 697
+
+**`Reflect.setPrototypeOf(对象, 原型)`**（第 717 轮）——与 `Object.setPrototypeOf` 走
+**同一条现成的路**（`RtSetProto`：自环当场拒、深度上限那一套都在里面）。
+**原型不是对象也不是 `null` 时给假**（JS 的 `Reflect` 口径；`Object` 那一格是抛）。
+
 # method BuildGlobals:(vm:Vm, protos:Protos, sink:LogSink)=>Value
 
 **造出交给模块的那个环境对象**：`{ Math: {...}, console: {...} }`。
@@ -7777,6 +7866,25 @@ SetHiddenProperty(vm.Room(), table, globals, queueMicrotaskKey,
 const structuredCloneKey = Value.FromString(table.CreateString(Units("structuredClone")));
 SetHiddenProperty(vm.Room(), table, globals, structuredCloneKey,
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StructuredCloneId, 0)));
+
+// **`Reflect`**（第 717 轮）：与 `Math` **同一个形状**（普通对象 + 隐藏挂上的方法）——
+// 名字与号**按下标一一对齐**，理由见 `ReflectApply` 那一段。
+// **方法一律不可枚举**（`SetHiddenProperty`）：JS 里 `Object.keys(Reflect)` 是 `[]`
+// （第 709 轮给 `Math` / `JSON` 那一族改的就是这一格，同一句）。
+const reflect = NewPlainObject(vm.Room(), table, protos);
+const reflectNames: string[] = ["apply", "construct", "defineProperty", "deleteProperty", "get",
+  "getOwnPropertyDescriptor", "getPrototypeOf", "has", "isExtensible", "ownKeys",
+  "preventExtensions", "set", "setPrototypeOf"];
+const reflectIds: number[] = [ReflectApply, ReflectConstruct, ReflectDefineProperty, ReflectDeleteProperty,
+  ReflectGet, ReflectGetOwnPropertyDescriptor, ReflectGetPrototypeOf, ReflectHas, ReflectIsExtensible,
+  ReflectOwnKeys, ReflectPreventExtensions, ReflectSet, ReflectSetPrototypeOf];
+for (let i = 0; i < reflectNames.length; i++) {
+  const key = Value.FromString(table.CreateString(Units(reflectNames[i])));
+  const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(reflectIds[i], 0));
+  SetHiddenProperty(vm.Room(), table, reflect, key, target);
+}
+const reflectKey = Value.FromString(table.CreateString(Units("Reflect")));
+SetHiddenProperty(vm.Room(), table, globals, reflectKey, reflect);
 
 const mathKey = Value.FromString(table.CreateString(Units("Math")));
 const consoleKey = Value.FromString(table.CreateString(Units("console")));

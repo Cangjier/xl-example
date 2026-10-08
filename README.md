@@ -463,6 +463,46 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7237 / 7598 → 7254 / 7613**、`differ 94 → 92`、`blocked 267`（没涨）、
   `bad` 0、`regressions` 0、加权 **96.0%**。
 
+### 第 717 轮：`Reflect` 那一族（13 格，号 `685..697`）
+
+**它原来一格都没有**：降级期就报 `name is not a local or a capture: Reflect`
+（判据 `stdlib/object/probe703-o-a25` … `a28` 四条登着——一句话里没有一个字提到「没装」）。
+它与 `Proxy` 是同一批「元编程那一层」的构造，本仓一律没有。
+
+- **名单与挂载是同一份约定**：`GlobalNames()` 里加 `"Reflect"`、`BuildGlobals` 里
+  造一个普通对象把 13 个方法**隐藏挂上**（`SetHiddenProperty`——JS 里
+  `Object.keys(Reflect)` 是 `[]`，与第 709 轮给 `Math` / `JSON` 改的那一格同一条）。
+  **两张表按下标一一对齐**（名字与号错一格就是静默换语义，第 275 轮那条纪律）。
+- **实现落在 `install.xl.md`**（新方法 `InvokeReflect`）**而不是 `globals.xl.md`**：
+  `Reflect.construct` 要走 `ConstructApply`（`new C(...xs)` 的落点），而那一格住在
+  `install.xl.md`——依赖方向只允许它 import `globals`，反过来会绕出环。
+  分派那一句**必须排在 `id >= 200` 之前**（`685..697` 落在全局段里，
+  排在后面就会被 `InvokeGlobal` 接走）。
+- **能转交的就转交**（同一个能力号，不写第二份扫描）：`ownKeys` 转给
+  `Object.getOwnPropertyNames` + `Object.getOwnPropertySymbols` 再把两份接起来
+  （JS 的次序就是这样：整数键在前、其余字符串键按插入次序、符号键最后），
+  `getOwnPropertyDescriptor` 转给同名的那一格。其余各走一处现成的助手
+  （`GetProperty` / `SetProperty` / `DeleteProperty` / `FindProperty` / `PrototypeOfValue` /
+  `RtSetProto` / `IsUnextensible` / `MarkUnextensible` / `DefineOwnFromDescriptor`）。
+- **两条纪律**：① **除 `apply` / `construct`，第一个实参必须是对象**（JS 的口径——
+  `Reflect.get(1, "x")` 抛，而 `Object.getPrototypeOf(1)` 答得出来：那一族先做 `ToObject`）；
+  ② **没有调用通道就响亮地抛**（`get` / `set` 要走访问器、`apply` 要真调）。
+- **`Reflect.apply` / `construct` 的实参表**收成两个助手（`ReflectListOf` / `ReflectArrayOf`）：
+  JS 里两处走的都是 `CreateListFromArrayLike`（数组、类数组都认），
+  长度与每一格仍是 `ArrayLikeLength` / `ArrayLikeAt` 那两个现成的助手。
+  `ownKeys` 那一趟**要把新数组挂根**（两趟之间会跑脚本，不挂会被收走）。
+- **三处已知差写在明处**（都是「JS 给假 / 本仓给抛」那一类，宁可响也不静默）：
+  `defineProperty` 写不下去那一格、`set` 撞上不可写属性那一格、
+  以及 `get` 的第三格 `receiver` / `construct` 的第三格 `newTarget`（那两格**给了就抛**）。
+- **收掉 6 条台账**：`stdlib/object/probe703-o-a25` … `a28`（`ownKeys` / `get` / `has` /
+  `deleteProperty` 四条）之外，`stdlib/globals/059-reflect-basics` 与
+  `stdlib/object/probe705-o-b22` 也**一起转绿**（它们量的就是同一格），`blocked 267 → 261`。
+- 语料 **+15 条**（`stdlib/round717/p717a-a01` … `a15`）：13 格的形状与边界
+  （`ownKeys` 的符号键、`set` 在不可写属性上给假、非对象第一个实参要抛、
+  `Reflect` 与 `Object` 两边同一件事两种口径）。
+- 五类 **7254 / 7613 → 7275 / 7628**、`blocked 261`、`differ 92`、
+  `bad` 0、`regressions` 0、加权 **96.0% → 96.1%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -475,7 +515,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7254 / 7613**，加权 **96.0%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 2917/2991、e2e 242/246。差的那些是**真缺口**（`blocked` 267 / `differ` 92），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7275 / 7628**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 2938/3006、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 92），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~48s**） |
 
 ### 口径与已知缺口

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7613,
+  "total": 7628,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.03,
+  "progressPercent": 96.07,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2991,
-      "pass": 2917,
-      "blocked": 31,
+      "total": 3006,
+      "pass": 2938,
+      "blocked": 25,
       "differ": 43,
       "nodefail": 0,
-      "coverage": 97.53
+      "coverage": 97.74
     },
     {
       "category": "e2e",
@@ -1590,12 +1590,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ImportKeyword"
     },
     {
-      "id": "stdlib/globals/059-reflect-basics",
-      "category": "stdlib",
-      "title": "`Reflect` 的取/设/删/有无",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Reflect"
-    },
-    {
       "id": "stdlib/globals/060-regexp-lite",
       "category": "stdlib",
       "title": "`RegExp` 那一族现在的样子（口径内该做）",
@@ -1626,40 +1620,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
-      "id": "stdlib/object/probe703-o-a25",
-      "category": "stdlib",
-      "title": "Reflect.ownKeys({ a: 1 }).length",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Reflect"
-    },
-    {
-      "id": "stdlib/object/probe703-o-a26",
-      "category": "stdlib",
-      "title": "Reflect.get({ a: 1 }, \"a\")",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Reflect"
-    },
-    {
-      "id": "stdlib/object/probe703-o-a27",
-      "category": "stdlib",
-      "title": "Reflect.has({ a: 1 }, \"a\")",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Reflect"
-    },
-    {
-      "id": "stdlib/object/probe703-o-a28",
-      "category": "stdlib",
-      "title": "Reflect.deleteProperty({ a: 1 }, \"a\")",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Reflect"
-    },
-    {
       "id": "stdlib/object/probe704-o-d28",
       "category": "stdlib",
       "title": "Object.prototype.toString.call(/x/)",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "stdlib/object/probe705-o-b22",
-      "category": "stdlib",
-      "title": "Reflect === undefined",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Reflect"
     },
     {
       "id": "stdlib/string/042-string-match-and-split-regex",
@@ -1919,7 +1883,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26252/src/3202.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26844/src/3202.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2081,7 +2045,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26252/src/4918.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26844/src/4918.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2105,7 +2069,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26252/src/4968.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26844/src/4968.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2296,6 +2260,15 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "stdlib/globals/059-reflect-basics",
+      "category": "stdlib"
+    },
+    {
+      "id": "stdlib/object/probe705-o-b22",
+      "category": "stdlib"
+    }
+  ],
   "regressions": []
 }

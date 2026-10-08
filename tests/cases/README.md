@@ -77,7 +77,7 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **7627** 条（token 1416 / exec 2167 / runtime 815 / stdlib 2991 / e2e 246），判过 **7613** 条。
+语料 **7643** 条（token 1416 / exec 2167 / runtime 815 / stdlib 3006 / e2e 246），判过 **7628** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
@@ -85,9 +85,24 @@ console.log(Box.of(1));
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
 | `exec` | 2158 | **2105** | 12 / 41 | 另有 1 条不进分母 |
 | `runtime` | 815 | **806** | 1 / 8 | |
-| `stdlib` | 2991 | **2917** | 31 / 43 | |
+| `stdlib` | 3006 | **2938** | 25 / 43 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **7613** | **7254** | 267 / 92 | 加权 **96.0%** |
+| **合计** | **7628** | **7275** | 261 / 92 | 加权 **96.1%** |
+
+**第 717 轮再加 15 条**（分母 7613 → **7628**）：`Reflect` 那一族（13 格，号 `685..697`）：
+
+- **它原来一格都没有**（降级期就报 `name is not a local or a capture: Reflect`）。
+  `GlobalNames()` 与 `BuildGlobals` **两边一起加**这个名字，方法**隐藏挂上**
+  （JS 里 `Object.keys(Reflect)` 是 `[]`）。实现在 `install.xl.md` 的新方法 `InvokeReflect`：
+  `construct` 要用 `ConstructApply`，而那一格住在 `install.xl.md`
+  （依赖方向只允许它 import `globals`）。分派那一句**排在 `id >= 200` 之前**。
+- **能转交的就转交**：`ownKeys` = `Object.getOwnPropertyNames` +
+  `Object.getOwnPropertySymbols` 接起来（JS 的次序就是这样），
+  `getOwnPropertyDescriptor` 转给同名那一格；其余各走一处现成的助手。
+- 十五条钉的是：13 格的形状与边界（`ownKeys` 的符号键、`set` 在不可写属性上给假、
+  非对象第一个实参要抛、`Reflect` 与 `Object` 两边同一件事两种口径）。
+  **收掉 6 条台账**：`stdlib/object/probe703-o-a25` … `a28` 与
+  `stdlib/globals/059-reflect-basics`、`stdlib/object/probe705-o-b22`（`blocked 267 → 261`）。
 
 **第 716 轮再加 15 条**（分母 7598 → **7613**）：`Array.prototype.toString` 那一格
 （`stdlib/round716/p716a-a01` … `a15`）——**现读 `this.join` 再调**：

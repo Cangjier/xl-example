@@ -2,17 +2,17 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyCharge, PropertyKind } from "../../runtime/heap.xl.md"
-import { RoomChecker, RtToBoolean, RtToString, IsCallableValue } from "../../runtime/rt.xl.md"
-import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty, CreateDataProperty } from "../../runtime/props.xl.md"
+import { RoomChecker, RtToBoolean, RtToString, IsCallableValue, RtSetProto } from "../../runtime/rt.xl.md"
+import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty, CreateDataProperty, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
-import { InvokeArray, NeverCall, Units } from "./array.xl.md"
+import { InvokeArray, NeverCall, Units, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
 import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask, PromiseThenableAdopt, ArrayFromAsyncValues, PromiseArrayFromStepId, PromiseArrayFromMapStepId, AsyncIterableValues, AsyncIterableStepId, WellKnownSymbolValue } from "./promise.xl.md"
-import { JsTextUnits, ValueText } from "./text.xl.md"
+import { JsTextUnits, ValueText, PropertyKeyValue } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext, ThisArgOf } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, SpeciesGetterId, InstallDatePrototype, BoundCall } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, SpeciesGetterId, InstallDatePrototype, BoundCall, ReflectApply, ReflectConstruct, ReflectDefineProperty, ReflectDeleteProperty, ReflectGet, ReflectGetOwnPropertyDescriptor, ReflectGetPrototypeOf, ReflectHas, ReflectIsExtensible, ReflectOwnKeys, ReflectPreventExtensions, ReflectSet, ReflectSetPrototypeOf, DefineOwnFromDescriptor, PrototypeOfValue, MarkUnextensible, IsUnextensible, ObjectGetOwnPropertyNames, ObjectGetOwnPropertySymbols, ObjectGetOwnPropertyDescriptor } from "./globals.xl.md"
 import { InvokeMap, MapCtor, MapGroupBy, MapSizeGet, NameValue, ReadOwn, InstallMapPrototype, WeakMapCtor } from "./map.xl.md"
 import { InvokeSet, SetCtor, SetSizeGet, InstallSetPrototype, WeakSetCtor } from "./set.xl.md"
 ```
@@ -236,6 +236,16 @@ if (id === ArrayFromAsync) {
 // **它不收 `failed`**：它一个回调都不跑（只是把实参收成数组）——
 // 与「用不到的不塞进签名」同一条纪律。
 if (id === ArrayOf) return ArrayOfValues(room, table, protos, args);
+// **`Reflect` 那一族**（第 717 轮）：号开在 `685..697`，**判据写成整段**
+// （与上面 `611..659` 那两句同一条口径：认号段、不认当年的名单）。
+// **为什么落在这一层而不是 `InvokeGlobal` 里**：`Reflect.construct` 要走
+// `ConstructApply`（`new C(...xs)` 的落点），而那一格就住在这一份文件里——
+// 依赖方向只允许 `install` 往 `globals` 看，反过来会绕出环。
+// **它必须排在下面 `id >= 200` 那一句之前**：`685..697` 落在全局段里，
+// 排在后面就会被 `InvokeGlobal` 接走（症状是「调了一个没装的全局号」）。
+if (id >= ReflectApply && id <= ReflectSetPrototypeOf) {
+  return InvokeReflect(room, table, protos, call, id, args, keep, failed);
+}
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
 // **`constructing` 是「这一次调用是不是从 `new` 来的」**（第 232 轮）：
 // 它一路从 `DoNew` 那两条宿主分支传到这里（经 `vm.xl.md` 的 `HostConstructing`
@@ -810,6 +820,181 @@ if (produced.IsObject() || produced.Tag === ValueTag.Array
   return produced;
 }
 return created;
+```
+
+# method ReflectListOf:(room:RoomChecker, table:HeapTable, call:NativeCall, list:Value)=>Array<Value>
+
+**把一份「实参表」抄成值数组**（第 717 轮）——`Reflect.apply` / `Reflect.construct` 两格
+要的东西与 `Function.prototype.apply` **一模一样**（JS 里两处走的都是
+`CreateListFromArrayLike`）：数组、类数组都认，其余**响亮地抛**。
+
+**为什么不从 `FunctionApply` 那一支里抽出来**：那一支住在 `globals.xl.md`，
+而这里要用它的时候手里没有 `protos`（抄出来的只是宿主侧的值数组、不造新数组）——
+**判据只有一份**（长度 `ArrayLikeLength`、每一格 `ArrayLikeAt`，两处都是这两个助手）。
+
+```ts
+const items: Value[] = [];
+if (list.Tag === ValueTag.Undefined || list.Tag === ValueTag.Null) return items;
+if (list.Tag === ValueTag.Array) {
+  const supplied = table.Get(list.Ref).AsArray();
+  for (let i = 0; i < supplied.GetLength(); i++) items.push(supplied.GetAt(i));
+  return items;
+}
+if (!list.IsObject()) {
+  throw new TypeError("Reflect: the arguments list has a wrong type");
+}
+const length = ArrayLikeLength(room, table, call, list);
+for (let i = 0; i < length; i++) items.push(ArrayLikeAt(room, table, call, list, i));
+return items;
+```
+
+# method ReflectArrayOf:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall, list:Value)=>Value
+
+**把一份「实参表」抄成一个真数组**（第 717 轮）——`ConstructApply` 收的是
+**一个数组值**（它自己再抄一遍），所以 `Reflect.construct` 那一路要有这一格。
+**已经是数组就原样交回去**（不白抄一份：`ConstructApply` 里那句「实参先抄成一份值数组」
+本来就是为「数组视图不稳定」写的）。
+
+```ts
+if (list.Tag === ValueTag.Array) return list;
+if (!room(ObjectCharge)) throw new Error("out of room");
+const handle = table.CreateArray();
+table.Get(handle).Proto = protos.Array;
+const created = table.Get(handle).AsArray();
+const items = ReflectListOf(room, table, call, list);
+if (!room(ValueCharge * items.length)) throw new Error("out of room");
+for (let i = 0; i < items.length; i++) created.Push(items[i]);
+table.Recount(handle);
+return Value.FromArray(handle);
+```
+
+# method InvokeReflect:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, id:int, args:Array<Value>, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
+
+**`Reflect` 那一族**（第 717 轮）——13 格，号 `685..697`（见 `globals.xl.md` 的 `ReflectApply`
+那一段：为什么开在那一带、以及它与 `Object` 静态那一族**同一件事两种口径**的分界）。
+
+**两条纪律**：
+
+- **除了 `apply` / `construct`，第一个实参必须是对象**（JS 的口径）——
+  `Reflect.get(1, "x")` / `Reflect.ownKeys(null)` 都**抛 `TypeError`**
+  （而 `Object.getPrototypeOf(1)` / `Object.keys(1)` 是**答得出来**的：那两族先做 `ToObject`）。
+- **能转交的就转交**（同一个能力号，不写第二份扫描）：`ownKeys` 转给
+  `Object.getOwnPropertyNames` + `Object.getOwnPropertySymbols`（接起来就是 JS 的次序），
+  `getOwnPropertyDescriptor` 转给同名的那一格。**其余各走一处现成的助手**
+  （`GetProperty` / `SetProperty` / `DeleteProperty` / `FindProperty` / `PrototypeOfValue` /
+  `RtSetProto` / `IsUnextensible` / `MarkUnextensible` / `DefineOwnFromDescriptor`）。
+
+**已知差写在明处**（三处，都是「JS 给假、本仓给抛」那一类，宁可响也不静默）：
+`defineProperty` 写不下去时那一格、`set` 撞上不可写属性时那一格、以及
+`get` 的第三格 `receiver` / `construct` 的第三格 `newTarget`（那两格**给了就抛**）。
+
+```ts
+// **没有调用通道就响亮地抛**：`get` / `set` 要走访问器、`apply` 要真调，
+// 少这一句的症状是「静默什么都没做」（与第 714 轮那一族同一条纪律）。
+if (call === null) {
+  throw new Error("Reflect needs a call channel (the host must pass one)");
+}
+const target = args.length > 0 ? args[0] : Value.Undefined();
+if (id === ReflectApply) {
+  if (args.length < 3 || !IsCallableValue(table, args[0])) {
+    throw new TypeError("Reflect.apply needs (a callable, a this value, an arguments list)");
+  }
+  return call(args[0], args[1], ReflectListOf(room, table, call, args[2]));
+}
+if (id === ReflectConstruct) {
+  if (args.length < 2 || !IsCallableValue(table, args[0])) {
+    throw new TypeError("Reflect.construct needs (a constructor, an arguments list)");
+  }
+  // **三实参那一档（`newTarget`）还没做**：静默拿 `ctor` 顶替是**换语义**，
+  // 所以这里响亮地抛（与「用不到的不塞进签名」同一条纪律：不做的那一档要说出来）。
+  if (args.length > 2) {
+    throw new Error("unimplemented: Reflect.construct with a newTarget");
+  }
+  return ConstructApply(room, table, protos, call, args[0],
+    ReflectArrayOf(room, table, protos, call, args[1]), keep, failed);
+}
+// **下面整族：第一个实参必须是对象**（JS 的口径，见上面那一段）。
+if (!target.IsObject()) {
+  throw new TypeError("Reflect method called on a non-object");
+}
+if (id === ReflectGet || id === ReflectSet || id === ReflectHas || id === ReflectDeleteProperty
+  || id === ReflectGetOwnPropertyDescriptor || id === ReflectDefineProperty) {
+  if (args.length < 2) {
+    throw new TypeError("Reflect needs (target, key)");
+  }
+  const key = PropertyKeyValue(room, table, args[1]);
+  if (id === ReflectGet) {
+    if (args.length > 2) throw new Error("unimplemented: Reflect.get with a receiver");
+    return GetProperty(room, call, protos, table, target, key);
+  }
+  if (id === ReflectHas) {
+    // **`in` 那一格的正身**：`FindProperty` 沿原型链找，找到就是真。
+    return Value.FromBool(FindProperty(room, table, target.Ref, key) !== null);
+  }
+  if (id === ReflectDeleteProperty) {
+    return Value.FromBool(DeleteProperty(table, target.Ref, key));
+  }
+  if (id === ReflectGetOwnPropertyDescriptor) {
+    // **转交给 `Object` 那一格**（同一个能力号）：两边的答案本来就一字不差，
+    // 自己再扫一遍属性表就是第二份会漂的判据。
+    const descriptorFn = Value.FromRef(ValueTag.HostRef,
+      table.CreateHostRef(ObjectGetOwnPropertyDescriptor, 0));
+    return call(descriptorFn, Value.Undefined(), [target, key]);
+  }
+  if (id === ReflectSet) {
+    if (args.length < 3) throw new TypeError("Reflect.set needs (target, key, value)");
+    if (args.length > 3) throw new Error("unimplemented: Reflect.set with a receiver");
+    // **返回的是那个布尔**（写不下去给假、**不抛**）——这正是 `Reflect` 与
+    // `Object.defineProperty` 那一族的分界。
+    return Value.FromBool(SetProperty(room, call, table, target, key, args[2]));
+  }
+  if (args.length < 3 || !args[2].IsObject()) {
+    throw new TypeError("Reflect.defineProperty needs (target, key, descriptor object)");
+  }
+  DefineOwnFromDescriptor(room, table, target, key, args[2]);
+  return Value.FromBool(true);
+}
+if (id === ReflectOwnKeys) {
+  // **字符串键那一趟先走、结果当场收进新数组**，再走符号键那一趟：
+  // 两趟之间会跑脚本（那是两次真调用），手里那个新数组**必须挂根**——
+  // 不挂的话它可能在这中间被收走（`ConstructApply` 那一处写着同一件事）。
+  if (!room(ObjectCharge)) throw new Error("out of room");
+  const handle = table.CreateArray();
+  table.Get(handle).Proto = protos.Array;
+  const out = table.Get(handle).AsArray();
+  const outValue = Value.FromArray(handle);
+  if (keep !== null) keep(outValue, true);
+  const namesFn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetOwnPropertyNames, 0));
+  const names = call(namesFn, Value.Undefined(), [target]);
+  const nameItems = table.Get(names.Ref).AsArray();
+  for (let i = 0; i < nameItems.GetLength(); i++) out.Push(nameItems.GetAt(i));
+  const symbolsFn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetOwnPropertySymbols, 0));
+  const symbols = call(symbolsFn, Value.Undefined(), [target]);
+  const symbolItems = table.Get(symbols.Ref).AsArray();
+  for (let i = 0; i < symbolItems.GetLength(); i++) out.Push(symbolItems.GetAt(i));
+  if (keep !== null) keep(outValue, false);
+  table.Recount(handle);
+  return outValue;
+}
+if (id === ReflectGetPrototypeOf) {
+  return PrototypeOfValue(protos, table, target);
+}
+if (id === ReflectSetPrototypeOf) {
+  if (args.length < 2) throw new TypeError("Reflect.setPrototypeOf needs (target, prototype)");
+  // **原型不是对象也不是 `null` 时给假**（JS 的 `Reflect` 口径；`Object.setPrototypeOf`
+  // 那一格是抛）——`RtSetProto` 自己那一档是「不做事」，所以先在这里答掉。
+  if (!args[1].IsObject() && args[1].Tag !== ValueTag.Null) return Value.FromBool(false);
+  RtSetProto(table, target, args[1]);
+  return Value.FromBool(true);
+}
+if (id === ReflectIsExtensible) {
+  return Value.FromBool(!IsUnextensible(room, table, target));
+}
+if (id === ReflectPreventExtensions) {
+  MarkUnextensible(room, table, target);
+  return Value.FromBool(true);
+}
+throw new Error("unimplemented: Reflect method " + id);
 ```
 
 # method IterDrain:(room:RoomChecker, table:HeapTable, protos:Protos, source:Value, call:NativeCall | null, drain:IteratorDrain | null, keep:RootKeeper | null, failed:CallFailed | null = null)=>Value
