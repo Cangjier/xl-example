@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7777,
+  "total": 7780,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.06,
+  "progressPercent": 96.09,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1405,
-      "pass": 1186,
-      "blocked": 219,
+      "pass": 1189,
+      "blocked": 216,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 84.41
+      "coverage": 84.63
     },
     {
       "category": "exec",
@@ -100,8 +100,8 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 825,
-      "pass": 816,
+      "total": 828,
+      "pass": 819,
       "blocked": 1,
       "differ": 8,
       "nodefail": 0,
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1405,
-    "knownGap": 219,
-    "knownGapStillOpen": 219,
-    "exactFiles": 1186,
-    "scoredWithoutGap": 1186,
-    "passedWithoutGap": 1186
+    "knownGap": 216,
+    "knownGapStillOpen": 216,
+    "exactFiles": 1189,
+    "scoredWithoutGap": 1189,
+    "passedWithoutGap": 1189
   },
   "blocked": [
     {
@@ -624,12 +624,6 @@
       "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/optchain）：DRIFT PropertyAccessExpression TS[10,14) 产物[10,19) «a?.b»"
     },
     {
-      "id": "token/statements/gap-sweep-comment-optchain-03",
-      "category": "token",
-      "title": "SWEEP-comment/optchain 落点（657 审计语料）",
-      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-comment/optchain）：MISS ElementAccessExpression TS[10,24) «a?.b?./*c*/[c]»"
-    },
-    {
       "id": "token/statements/gap-sweep-comment-optchain-04",
       "category": "token",
       "title": "SWEEP-comment/optchain 落点（657 审计语料）",
@@ -880,12 +874,6 @@
       "category": "token",
       "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
       "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：DRIFT PropertyAccessExpression TS[10,14) 产物[10,18) «a?.b»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-optchain-05",
-      "category": "token",
-      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
-      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：MISS ElementAccessExpression TS[10,23) «a?.b?.//c [c]»"
     },
     {
       "id": "token/statements/gap-sweep-linecomment-optchain-06",
@@ -1156,12 +1144,6 @@
       "category": "token",
       "title": "SWEEP-newline/optchain 落点（657 审计语料）",
       "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/optchain）：DRIFT PropertyAccessExpression TS[10,14) 产物[10,15) «a?.b»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-optchain-04",
-      "category": "token",
-      "title": "SWEEP-newline/optchain 落点（657 审计语料）",
-      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/optchain）：MISS ElementAccessExpression TS[10,20) «a?.b?. [c]»"
     },
     {
       "id": "token/statements/gap-sweep-newline-optchain-05",
@@ -1877,7 +1859,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27592/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-4228/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2045,7 +2027,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27592/src/4938.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-4228/src/4941.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2069,7 +2051,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27592/src/4988.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-4228/src/4991.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",

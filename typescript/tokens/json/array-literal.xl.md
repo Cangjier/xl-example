@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, GetSkipPrevious } from "../../../core/extensions/list-extension.xl.md"
-import { IsAssertableOperand, IsValuePositionPrefix, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { IsAssertableOperand, IsTriviaUnit, IsValuePositionPrefix, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Method } from "../method.xl.md"
@@ -37,7 +37,7 @@ Json 数组：把 `[...]` 这种字面量从「一个方括号 + 里面的内容
 
 它与单参数版同名，所以多参数的这个叫 `IsArrayAt`（单参数版仍叫 `IsArray`）。
 
-判定链条（任一条命中就**不是**数组）：父单元是 `NullConditionalOperator` 且 `index == 0`（那是 `?.[` 空条件索引）；上一个跳过软换行的单元是 `Identifier` 且不属于 `return` / `typeof` / `of` / `in`；是 `Bracket`；是 `ArrayLiteral`；是 `String`；是 `Method`；是 `PropertyAccess`；是 `=>` 符号。
+判定链条（任一条命中就**不是**数组）：父单元是 `NullConditionalOperator` 且它前面没有别的实义子单元（那是 `?.[` 空条件索引）；上一个跳过 trivia 的单元是 `Identifier` 且不属于 `return` / `typeof` / `of` / `in`；是 `Bracket`；是 `ArrayLiteral`；是 `String`；是 `Method`；是 `PropertyAccess`；是 `=>` 符号；是 `.` / `?.` 符号（第 728 轮）。
 
 **`PropertyAccess` 必须也在名单里**（成员访问链那一轮补）：`logicalOperator.Data[0]` 里那个 `[`
 前面本来是 `Identifier`（`Data`） 判成元素访问；链在 token 层折成一个 `PropertyAccess`
@@ -50,10 +50,27 @@ Json 数组：把 `[...]` 这种字面量从「一个方括号 + 里面的内容
 const current = Get(units, index);
 if (current instanceof Bracket && current.startBracket === "[") {
   const parent = current.Parent;
-  if (parent instanceof NullConditionalOperator && index === 0) {
-    return false;
+  // **空条件运算符后面那个 `〔` 是下标访问**（第 556 轮起、第 728 轮改成看前一格）：
+  // `a?.[c]` 在 TS 里是 `ElementAccessExpression`，而本仓的既有形状是
+  // 「NCO 里一格**裸方括号**」——投影那一层正是那么读的，所以这里不能把它收成数组字面量。
+  //
+  // **原来写的是 `index === 0`**（那一格正好紧跟在 `?.` 后面、必然是 NCO 的第一个子单元），
+  // 而 `?.` 与 `[` 之间**夹一条注释**时它就不是 0 了（`a?./*c*/[c]` 里注释占第 0 格）
+  // ⇒ 那一条不命中 ⇒ 收成 `ArrayLiteral` ⇒ 链断（实测缺 `ElementAccessExpression`）。
+  // 改成问**它前面还有没有实义单元**：没有 ⇒ 它就是 NCO 的第一个实义子单元，
+  // 也就是「紧跟 `?.`」那一档（`?.` 自己留在**外层**列表上，不在 `Data` 里）。
+  // 两种排版（有注释 / 没注释）走同一句。
+  if (parent instanceof NullConditionalOperator) {
+    const at = parent.Data.indexOf(current);
+    if (at >= 0 && GetSkipPrevious(parent.Data, at, IsTriviaUnit) === null) {
+      return false;
+    }
   }
-  const previous = GetSkipPrevious(units, index, (item) => item instanceof LineWrap);
+  // **注释与软换行都要跳过**（第 728 轮）：`a?./*c*/[c]` 里那个注释比换行更常见，
+  // 只跳 `LineWrap` 时 `previous` 落在那条注释上 ⇒ 下面整条链一个分支都不命中
+  // ⇒ 判成数组字面量。与 `text-common-util` 里那几处（`IsStatementStart` /
+  // `IsObjectLiteralBrace`）**同一个跳过口径**：注释也是 trivia。
+  const previous = GetSkipPrevious(units, index, IsTriviaUnit);
   // **声明词后面那个 `[` 是解构模式，不是下标访问**（第 533 轮）：
   // `const [a = 1, b = a] = …` 的方括号要照旧收成 `ArrayLiteral` ——
   // 投影侧的 `projectLetFrom` 正是拿它当绑定模式用的
@@ -129,6 +146,18 @@ if (current instanceof Bracket && current.startBracket === "[") {
     return false;
   } else if (previous instanceof SymbolToken) {
     if (previous.Is("=>")) {
+      return false;
+    }
+    // **`.` 后面那个 `[` 是下标访问**（第 728 轮）：链上的 `a?./*c*/[c]` /
+    // `a?.\n[c]` 里，`?.` 与 `[` 之间夹着注释或换行时，`.` 还**没有**被
+    // `PropertyAccessCloseRule` 收走（那条规则排在 `JsonArrayCloseRule` 之后），
+    // 「前一个单元」于是落在这格符号上 —— 判成数组字面量的话，链就断在这里
+    // （实测 `a?.b?./*c*/[c]?.(d)` 缺 `ElementAccessExpression`）。
+    // **`.` 是做前缀的那一档的镜像**：点号左边一定是操作数，点号右边只可能是成员名或下标。
+    // 没有注释时前一个单元已经是 `PropertyAccess`，走的是上面那一条，两档同源。
+    // **`?.` 也算**：`?.` 自己就是 `NullConditionalOperator`，它的内容里那个 `[`
+    // 同样是下标——少了这一格，`a?./*c*/[c]` 的链断在 NCO 上（实测）。
+    if (previous.Is(".") || previous.Is("?.")) {
       return false;
     }
     // **`!` 后面那个 `[` 是下标访问，不是数组字面量**（第 651 轮）：

@@ -894,20 +894,53 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7411 / 7771 → 7418 / 7777**、`blocked 262 → 261`（`void` 那一格收掉）、
   `differ 98`（没涨）、`bad` 0、`regressions` 0，加权 **96.0% → 96.1%**。
 
+### 第 728 轮：`?.` 与 `[` / `(` 之间夹注释或换行——**方括号的宿主换了人**
+
+语料里躺着 19 条 `SWEEP-*/optchain`（第 657 轮审计语料）的登记缺口，根子是同一条：
+`a?./*c*/[c]` 与 `a?.[c]` **词法上只差一条注释**，产物却一个是数组字面量、一个是对下标。
+这一轮把那一族收掉。
+
+| 写法 | 原来 | 现在 |
+| --- | --- | --- |
+| `a?.[c]` | NCO 里一格**裸方括号**（对） | 不变 |
+| `a?./*c*/[c]` | NCO 里一格 **`ArrayLiteral`** ⇒ 链断 | NCO 里一格裸方括号 |
+| `a?.b?./*c*/[c]?.(d)` | 缺 `ElementAccessExpression` | 与没有注释的那一版同形 |
+
+- **量出来的根**：`NullConditionalOperatorCloseRule` 从 `?.` 往后收时，`?.[c]` 的那个
+  `[` **被收进 NCO 的 `Data` 里**（投影那一层正好把「NCO 里一格裸方括号」读成下标访问，
+  所以这个形状一直是对的）。而 `JsonArrayCloseRule` 排在它**之后** ⇒ 轮到数组规则时，
+  那个方括号的**宿主已经是 NCO**，`IsArrayAt` 里那句 `parent instanceof NullConditionalOperator
+  && index === 0` 靠的是「它是 NCO 的第一个子单元」——**夹一条注释就不是 0 了**
+  ⇒ 落进下面那条链 ⇒ 判成 `ArrayLiteral`。
+- **改法两处**（都不动既有形状）：
+  ① `IsArrayAt` 里那一格从「`index === 0`」改成「**它前面没有别的实义子单元**」
+  （`GetSkipPrevious(parent.Data, at, IsTriviaUnit) === null`）——`?.` 自己留在**外层**列表上、
+  不在 `Data` 里，所以「前面什么都没有」与「紧跟 `?.`」是同一件事，有无注释走同一句；
+  ② `IsArrayAt` 的「前一个实义单元」那一问从**只跳软换行**改成**跳 trivia**
+  （与 `IsStatementStart` / `IsObjectLiteralBrace` 同一个跳过口径），并补两条：
+  前一个单元是 `.` / `?.` 符号时那个 `[` 也是下标（`a?./*c*/[c]` 里 `?.` 还没成形）。
+- **收掉 3 条登记缺口**（`cases:tsast` 报「已经收掉」、按规矩删掉 `xl:known-gap`）：
+  `gap-sweep-comment-optchain-03`、`gap-sweep-linecomment-optchain-05`、
+  `gap-sweep-newline-optchain-04`（三处的 `xl:expect` 里那个 `ArrayLiteral` 也要撤掉）。
+- **语料 +3 条**：`runtime/round728/p728a-a01` … `a03`（`?.[` / `?.(` / 三处注释换行落点的
+  端到端读数——`node` 那一侧逐字节对上）。
+- 五类 **7418 / 7777 → 7424 / 7780**、`blocked 261 → 258`、`differ 98`（没涨）、
+  `bad` 0、`regressions` 0，加权 **96.1%**（两个数都在这一位）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **219 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **216 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1418** 条用例，0 条不合格 |
-| `cases:tags` | **1418 条**（1418 条带期望、核过 4807 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:tags` | **1418 条**（1418 条带期望、核过 4804 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1405 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7418 / 7777**，加权 **96.1%**：token 1186/1405、exec 2112/2166、runtime 816/825、stdlib 3062/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 98），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~36s**） |
+| `coverage` | **五类 7424 / 7780**，加权 **96.1%**：token 1189/1405、exec 2112/2166、runtime 819/828、stdlib 3062/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 98），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 
 ### 口径与已知缺口
 

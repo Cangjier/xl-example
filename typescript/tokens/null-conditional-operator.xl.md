@@ -4,8 +4,9 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
-import { Get, ReplaceCountAt, SearchBackIndexed, TakeRange } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { Get, GetSkipNext, ReplaceCountAt, SearchBackIndexed, TakeRange } from "../../core/extensions/list-extension.xl.md"
+import { IsTriviaUnit, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Statement } from "./statement.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
@@ -115,6 +116,10 @@ const endIndex = SearchBackIndexed(units, index + 1, (itemIndex, item) => {
   }
   return false;
 });
+// **`[` / `(` 直接跟在 `?.` 后面时，本规则照旧把它们收进来**
+//（`a?.[c]` / `a?.()` 的既有形状是「NCO 里一格裸方括号 / 圆括号」，投影那一层
+// 正好把它读成下标访问 / 实参表；第 728 轮先量过「让路给 JsonArrayCloseRule」那一版 —
+// **改完之后 `a?.[c]` 整条链散架**，所以那一版没有留下）。
 const result = new NullConditionalOperator(template);
 result.SignInToken(current);
 const count = endIndex === -1 ? units.length - index - 1 : endIndex - index - 1;

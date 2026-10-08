@@ -77,17 +77,35 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **7777** 条（token 1418 / exec 2166 / runtime 825 / stdlib 3135 / e2e 246），判过 **7777** 条。
+语料 **7780** 条（token 1418 / exec 2166 / runtime 828 / stdlib 3135 / e2e 246），判过 **7780** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
-| `token` | 1405 | **1186** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
+| `token` | 1405 | **1189** | 216 | 缺的那 216 条**全是** `xl:known-gap`；另有 13 条不进分母 |
 | `exec` | 2166 | **2112** | 12 / 42 | 另有 1 条不进分母 |
-| `runtime` | 825 | **816** | 1 / 8 | |
+| `runtime` | 828 | **819** | 1 / 8 | |
 | `stdlib` | 3135 | **3062** | 25 / 48 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **7777** | **7418** | 261 / 98 | 加权 **96.1%** |
+| **合计** | **7780** | **7424** | 258 / 98 | 加权 **96.1%** |
+
+**第 728 轮再加 3 条**（分母 7777 → **7780**）：**`?.` 与 `[` / `(` 之间夹注释或换行**
+（`runtime/round728/p728a-a01` … `a03`），并**收掉 3 条第 657 轮就登着的审计缺口**：
+
+- **方括号的宿主换了人**：`a?.[c]` 里那个 `[` **被 `NullConditionalOperatorCloseRule`
+  收进 NCO 的 `Data`**（投影那一层正好把「NCO 里一格裸方括号」读成下标访问，所以形状一直是对的），
+  而 `JsonArrayCloseRule` 排在**后面** ⇒ 轮到它时宿主已经是 NCO，
+  `IsArrayAt` 里那句 `parent instanceof NullConditionalOperator && index === 0`
+  问的是「它是 NCO 的第一个子单元」——**夹一条注释就不是 0** ⇒ 判成 `ArrayLiteral` ⇒ 链断。
+- **改法两处**：① 那一格改成「**它前面没有别的实义子单元**」
+  （`GetSkipPrevious(parent.Data, at, IsTriviaUnit) === null`——`?.` 自己留在**外层**列表上，
+  所以「前面什么都没有」与「紧跟 `?.`」是同一件事，有无注释走同一句）；
+  ② 「前一个实义单元」那一问从**只跳软换行**改成**跳 trivia**，并补上
+  「前一个单元是 `.` / `?.` 符号时那个 `[` 也是下标」。
+- **收掉的 3 条**：`gap-sweep-comment-optchain-03` / `gap-sweep-linecomment-optchain-05` /
+  `gap-sweep-newline-optchain-04`（`cases:tsast` 报「已经收掉」，`xl:known-gap` 与
+  `xl:expect` 里的 `ArrayLiteral` 一起撤掉）。`SWEEP-*/optchain` 那一族还剩 16 条
+  （落点在 `const v //c` 这种**声明头中间**的，是另一条根）。
 
 **第 727 轮再加 6 条**（分母 7771 → **7777**）：**`void` 后面跟括号字面量**
 （`runtime/round727/p727a-a01` … `a05` 过掉的五条 + `token/expressions/expr-void-literal-operand`
