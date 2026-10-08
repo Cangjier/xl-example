@@ -1,8 +1,6 @@
 // xl:title 查找族与负数起点
 // xl:round 769
 // xl:judge stdout
-// xl:want differ
-// xl:why `findLast(undefined)` 该抛 `TypeError`、本仓抛的是笼统的 `Error`——内建实参校验那一族抛错了族（与 `r769b-01` 第 13 / 14 行同一个根）
 // xl:end
 const show = (f: () => any) => {
   try {

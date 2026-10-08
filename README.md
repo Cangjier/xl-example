@@ -306,6 +306,52 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 770 轮：**抛出来的族**与**接收者的 `ToObject`**——三处根、两条旧账到期
+
+**一句话**：这一轮的普查面就是上一轮新登的那两条缺口所在的族——
+**内建实参校验抛的是哪个族**、以及**原始值 / 空值当接收者时那一步 `ToObject`**。
+四面（数组回调 / 数组自身的实参 / `Object` 静态方法 / `Reflect` 与函数）量出三处根，
+一次收掉；上一轮新登的两条当场到期。
+
+- **收掉的根①：回调不是函数抛的是笼统的 `Error`**（`stdlib/round770/r770a-01`，14 行）。
+  JS 的九处回调内建第一步都是同一件事（`If IsCallable(callback) is false, throw a TypeError`），
+  而本仓九处写的是 `throw new Error("this array method needs a function and a call channel (…)")`
+  ——**族错了一档**：脚本里 `catch (e) { if (e instanceof TypeError) … }` 那一支**永远走不到**。
+  改法：收成 `CallbackArgOr`（`array.xl.md`），**消息也照 V8**
+  （`number 1 is not a function` / `string "x" is not a function` / `object null is not a function`
+  ——那一句脚本直接打得出来，所以另抽一格 `KindTextOf` 专门给这个说法）；
+  「没有调用通道」是**另一档**（宿主配置错了），分两句。
+  顺手收掉同一段里第二处：`reduce` 原来问的是 `args[0].IsCallable()`（**看不到可调用对象**，
+  `[1, 2].reduce(String)` 会被拒——`map` 那一处第 145 轮踩过同一个坑）。
+- **收掉的根②：通用数组方法遇上空值接收者给的是 `[]` / `""`**（`stdlib/round770/r770a-02`）。
+  JS 的第一步是 `ToObject(this)`：`Array.prototype.slice.call(null)` 在 Node 里抛
+  `TypeError: Cannot convert undefined or null to object`，本仓把它当成「`length` 读不出来」
+  的类数组、**静默给空数组**。改法：在**所有类数组分支之前**挡住 `null` / `undefined`
+  （此前 `concat` 那一处自己有一句、`ArrayLikeSnapshot` 那一处又有一句——**第 770 轮合成一句**，
+  另外两处按 `tsc` 的「没有重叠」删掉）。
+- **收掉的根③：`Object` 静态方法对原始值接收者一律抛**（`stdlib/round770/r770b-01`）。
+  JS 的 `ToObject` 会把数 / 布尔 / 符号**装箱**：`Object.getOwnPropertyDescriptor(1, "x")` 给
+  `undefined`、`getOwnPropertyDescriptors(1)` 给 `{}`、`getOwnPropertySymbols(1)` 给 `[]`、
+  `Object.assign(1, { a: 1 })` 给一个 **`Number` 包装对象**——本仓四处都抛「unimplemented」。
+  改法：三处接收者走**本文件里现成的 `BoxReceiver`**（第 710 轮给 `this` 抽的同一句），
+  空值那一档抛 `TypeError`（V8 的措辞逐字）；`Object.defineProperties(1, {})` 与
+  `Object.create(1)` 两条按 V8 实测**不装箱**，只把族与措辞对上
+  （`Object.defineProperties called on non-object` /
+  `Object prototype may only be an Object or null: 1`）。
+- **两条旧账当场到期**（上一轮新登的）：`runtime/round769/r769a-03` 与 `stdlib/round769/r769b-01`
+  转绿，指令已按规矩删掉。
+- **一条判据随契约更新**：`runtime:check` 那一门里「标准库第三批」原来钉着
+  「原始值当 `Object.assign` 的目标必须**响亮地抛**」——第 770 轮把它做掉了，
+  于是那一格**从 `loud` 挪到 `out` 末尾**去断它给对（`typeof boxedAssign + '/' + boxedAssign.a`
+  给 `object/1`），与第 216 轮 `Array.from` 那一格的挪法同一种。
+- 守卫（这一轮量下来本来全对、收进语料）：`Reflect` 那一族（`get` / `set` / `has` / `ownKeys` /
+  `defineProperty` / `getPrototypeOf` / `apply` / `construct` 的接收者与实参表）与
+  `Function.prototype` 的 `call` / `apply` / `bind` 在原始值与非数组实参表上的口径。
+- 用例：`stdlib/round770` 四条（**4 条全过**）。
+  五类 7880 / 8270 → **7886 / 8274**、blocked 264（没动）、differ 126 → 124（**两条到期**）、
+  bad 0、regressions 0、weighted **95.5% → 95.6%**。
+  八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+
 ### 第 769 轮：下标位上的访问器——**读路径**收成一对助手、**写路径**如实登记
 
 **一句话**：这一轮的普查面是**数组的洞与复制族 / 属性描述符与访问器 / 函数对象与调用形态 /

@@ -5685,8 +5685,9 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
     // 它必须照样响亮地抛（静默当字面量会给出一个看起来对的错答案）。
     // **`'a'.replace(1, 'b')` 那一档挪到 `out` 里断它给对**（见下面）。
     "try { 'a'.replace({ [Symbol.match]() { return false; } }, 'b'); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
-    // ③ 原始值当 `Object.assign` 的目标（JS 会装箱，本仓没有那一层）。
-    "try { Object.assign(1, { a: 1 }); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
+    // ③ **原始值当 `Object.assign` 的目标**：**第 770 轮把它做掉了**（JS 的第一步就是
+    // `ToObject` ⇒ 装箱成 `Number` 包装对象），所以这一条从「必须响」挪到 `out` 里
+    // 断它**给对**（与上面 `Array.from` 那一条同一种挪法）。
     // ④ **自赋值不许转圈**：键与值先抄下来再写，所以它必须正常结束。
     "const same = { a: 1 };",
     "Object.assign(same, same);",
@@ -5695,6 +5696,9 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
     // **第 700 轮**：非字符串、**不是正则**的模式与替换值走 `ToString`
     //（`'a'.replace(1, 'b')` 在 JS 里是 `'a'`——找的是 `"1"`，找不到就原样返回）。
     "out.push('a'.replace(1, 'b'));",
+    // **第 770 轮**：装箱那一档给的是什么（`typeof` 是 `"object"`、写进去的 `a` 读得到）。
+    "const boxedAssign = Object.assign(1, { a: 1 });",
+    "out.push(typeof boxedAssign + '/' + boxedAssign.a);",
     "return [out, loud];",
   ].join("\n");
   const request = new RunRequest();
@@ -5704,7 +5708,7 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
   eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
   const table = res.Table;
   const values = GetIndex(table, res.Value, Value.FromInt(0));
-  const expected = [1, -1, "a-b", "yes", 2, "Hi", "a+b", "y", 2, 1, "arraylike-ok", "a"];
+  const expected = [1, -1, "a-b", "yes", 2, "Hi", "a+b", "y", 2, 1, "arraylike-ok", "a", "object/1"];
   for (let i = 0; i < expected.length; i++) {
     const actual = GetIndex(table, values, Value.FromInt(i));
     if (typeof expected[i] === "number") {
@@ -5715,7 +5719,7 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
   }
   const loud = GetIndex(table, res.Value, Value.FromInt(1));
   const loudCount = table.Get(loud.Ref).AsArray().GetLength();
-  eq(loudCount, 2, "两条该抛的都给了话（`Array.from` 那一条第 216 轮做掉了，见上面）");
+  eq(loudCount, 1, "该抛的那一条给了话（`Array.from` 第 216 轮、`Object.assign` 第 770 轮各做掉一条，见上面）");
   const loudTexts = [];
   for (let i = 0; i < loudCount; i++) {
     loudTexts.push(hostStringOf(table, GetIndex(table, loud, Value.FromInt(i))));
@@ -5725,9 +5729,9 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
       "第 " + i + " 条要指名道姓地说没做：" + loudTexts[i]);
   }
   // **第 216 轮起 `Array.from` 那一档不抛了**（数组式对象按 JS 走逐下标拷贝 ✓），
-  // 原来编号 ① 的那一格挪到 `out` 末尾去断它**给对**（见上面 `arrayLikeLength` 那两行 ✓）。
+  // **第 770 轮起 `Object.assign` 的原始值目标也不抛了**（装箱 ✓）——
+  // 两格各自挪到 `out` 末尾去断它**给对**（见上面 `arrayLikeLength` / `boxedAssign` 那几行 ✓）。
   ok(loudTexts[0].indexOf("String.replace") >= 0, "① 说的是 `String.replace`：" + loudTexts[0]);
-  ok(loudTexts[1].indexOf("Object.assign") >= 0, "② 说的是 `Object.assign`：" + loudTexts[1]);
 });
 
 console.log("");

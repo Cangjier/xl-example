@@ -3682,7 +3682,15 @@ if (id === ObjectCreate) {
     table.Get(made.Ref).Proto = 0;
   } else {
     if (proto.Tag !== ValueTag.Object) {
-      throw new Error("unimplemented: Object.create over a prototype that is not an object");
+      // **第 770 轮：从笼统 `Error` 换成 `TypeError`**（V8 的措辞逐字，含那一格值的文本）：
+      // `Object.create(1)` 在 Node 里是
+      // `TypeError: Object prototype may only be an Object or null: 1`——
+      // 判据 `stdlib/round770/r770b-01` 第 29 行量的就是它（原来给 `Error`）。
+      // **值那一截走 `ValueText`**（它认数字 / 布尔 / 文本那几档；函数与符号会抛——
+      // 而那一档在 JS 里也到不了这里：函数是对象、符号在 V8 给的是它自己的说法）。
+      throw new TypeError("Object prototype may only be an Object or null: "
+        + (proto.Tag === ValueTag.Function || proto.Tag === ValueTag.Closure
+          ? "object" : ValueText(table, proto)));
     }
     table.Get(made.Ref).Proto = proto.Ref;
   }
@@ -4603,14 +4611,15 @@ if (id === ObjectAssign) {
   // 本仓为假（判据 `p748b-b05` 打出 `null target Error`，而 Node 打 `null target TypeError`）。
   // **只改这一档的名字，不改口径**：原始值目标仍然**响亮地抛**（装箱那一层没做，
   // 「给一个假的装箱结果」比抛坏得多）——这一条记在下面那句的措辞里。
-  if (args.length < 1 || args[0].Tag === ValueTag.Null || args[0].Tag === ValueTag.Undefined) {
+  if (args.length < 1 || args[0].IsNullish()) {
     throw new TypeError("Cannot convert undefined or null to object");
   }
-  if (!args[0].IsObject()) {
-    throw new Error("unimplemented: Object.assign needs an object as the target "
-      + "(boxing a primitive is not supported)");
-  }
-  const target = args[0];
+  // **第 770 轮把「原始值目标」从「响亮地抛」改成装箱**：JS 的第一步就是 `ToObject`
+  // （`Object.assign(1, { a: 1 })` 在 Node 里给一个 **`Number` 包装对象**、
+  // 上面那个 `a` 写在它身上，判据 `stdlib/round770/r770b-01` 第 16 行）。
+  // 装箱那一格**就在本文件里**（`BoxReceiver`，第 710 轮给 `this` 抽的同一句）——
+  // 原来那句「装箱那一层没做」第 770 轮过期了。
+  const target = args[0].IsObject() ? args[0] : BoxReceiver(room, table, protos, args[0]);
   // **往目标写的那条通道要给真的 `call`**（第 599 轮）：JS 的 `Object.assign` 走
   // **`[[Set]]`** ⇒ 目标上那个同名的**访问器 setter 会被调用**
   //（`Object.assign({ set s(v) { … } }, { s: 9 })`）。原来几处都传 `NeverCall`
@@ -4858,8 +4867,13 @@ if (id === ObjectDefineProperties) {
   // **只走可枚举的那一份**（JS 在这里用的就是 `Object.keys` 那一套）：
   // 描述符表是一个**普通对象字面量**（`{ a: {…}, b: {…} }`），
   // 里面每一项都可枚举；不可枚举的那些 JS **不看**。
+  // **第 770 轮把这一句从笼统 `Error` 换成 `TypeError`**（V8 的措辞逐字）：
+  // `Object.defineProperties(1, {})` 在 Node 里是
+  // `TypeError: Object.defineProperties called on non-object`——注意它**不装箱**
+  // （`ToObject(1)` 那一步 V8 没走：实测 `dp(1, {})` 也抛），所以这里照旧要求真对象，
+  // 只是**族**与**措辞**对上（判据 `stdlib/round770/r770b-01` 第 28 行）。
   if (args.length < 2 || !args[0].IsObject() || !args[1].IsObject()) {
-    throw new Error("unimplemented: Object.defineProperties needs (object, descriptors object)");
+    throw new TypeError("Object.defineProperties called on non-object");
   }
   const descriptorTable = table.Get(args[1].Ref);
   // **先把条数抄下来再走循环**：写的是**另一个对象**，所以扫的这一摞不会被改；
@@ -4887,11 +4901,19 @@ if (id === ObjectGetOwnPropertyDescriptor) {
   // 「用符号键装一格、再读回描述符」是**同一条链的两半**——上半截放开了、下半截还窄着，
   // 那条链照样断在第二步（实测 `r678-sym-getownpropertydescriptor-symbol`）。
   // 下面那一段本来就按 `key.Ref` 走（堆引用对字符串与符号是同一种东西）。
-  if (args.length < 2
-    || (!args[0].IsObject() && args[0].Tag !== ValueTag.String)) {
-    throw new Error("unimplemented: Object.getOwnPropertyDescriptor needs (object or string, string or symbol key)");
+  // **第 770 轮：接收者走 `ToObject`**（JS 的第一步）——**空值抛 `TypeError`、
+  // 数字 / 布尔 / 符号装箱**（`Object.getOwnPropertyDescriptor(1, "x")` 在 Node 里给
+  // `undefined`，本仓原来抛「unimplemented」，判据 `stdlib/round770/r770b-01` 第 1 / 3 行）。
+  // 字符串**不装箱**（本仓的 `HeapString` 不是对象，而它那两格口径一直是按字符串读的，
+  // 见下面那一段）——所以它照旧原样放行。
+  if (args.length < 1 || args[0].IsNullish()) {
+    throw new TypeError("Cannot convert undefined or null to object");
   }
-  const receiver = args[0];
+  const receiver = args[0].IsObject() || args[0].Tag === ValueTag.String
+    ? args[0] : BoxReceiver(room, table, protos, args[0]);
+  if (args.length < 2) {
+    throw new Error("unimplemented: Object.getOwnPropertyDescriptor needs a property key");
+  }
   // **键先过一趟 `ToPropertyKey`**（第 692 轮，普查当场红的）：JS 里
   // `Object.getOwnPropertyDescriptor([1], 0)` 与 `(…, "0")` **问的是同一格**，
   // 而这里原来只收字符串 / 符号 ⇒ **数字键响亮地抛**
@@ -5173,10 +5195,13 @@ if (id === ObjectGetOwnPropertyDescriptors) {
   // ——数组元素三个真、字符串下标不可写、`length` 不可枚举不可配置、
   // 访问器没有 `value`——**一条都不必在这里再写一遍**）。
   // **抄一遍的代价是「两边会漂」**，而漂出来的是「单数对、复数错」。
-  if (args.length < 1 || (!args[0].IsObject() && args[0].Tag !== ValueTag.String)) {
-    throw new Error("unimplemented: Object.getOwnPropertyDescriptors needs (object or string)");
+  // **第 770 轮：接收者走 `ToObject`**（与上一条**同一个形状**：空值抛 `TypeError`、
+  // 数字 / 布尔装箱；`Object.getOwnPropertyDescriptors(1)` 在 Node 里给 `{}`）。
+  if (args.length < 1 || args[0].IsNullish()) {
+    throw new TypeError("Cannot convert undefined or null to object");
   }
-  const descriptorOwner = args[0];
+  const descriptorOwner = args[0].IsObject() || args[0].Tag === ValueTag.String
+    ? args[0] : BoxReceiver(room, table, protos, args[0]);
   const out = NewPlainObject(room, table, protos);
   // **两趟键：先字符串、后符号**（JS 的 `[[OwnPropertyKeys]]` 次序）——
   // 两支各自的口径（整数键在前、内部标记不算）已经定过了，这里不再想第二遍。
@@ -5716,11 +5741,15 @@ if (id === ObjectGetOwnPropertySymbols) {
   // **`length` 与下标键都不在结果里**：它们不是符号键——
   // 所以这一支**不需要** `IndexKeyPositions` 那一套（那一套是给字符串键用的），
   // 也不需要在数组 / 字符串上特判。
-  const symbolsTarget = args.length > 0 ? args[0] : Value.Undefined();
-  if (symbolsTarget.Tag !== ValueTag.String && symbolsTarget.Tag !== ValueTag.Array
-    && !symbolsTarget.IsObject()) {
-    throw new Error("Object.getOwnPropertySymbols needs an object");
+  const symbolsTargetRaw = args.length > 0 ? args[0] : Value.Undefined();
+  // **第 770 轮：接收者走 `ToObject`**——空值抛 `TypeError`、数字 / 布尔装箱
+  // （`Object.getOwnPropertySymbols(1)` 在 Node 里给 `[]`，本仓原来抛
+  // 「needs an object」，判据 `stdlib/round770/r770b-01` 第 10 行）。
+  if (symbolsTargetRaw.IsNullish()) {
+    throw new TypeError("Cannot convert undefined or null to object");
   }
+  const symbolsTarget = symbolsTargetRaw.IsObject() || symbolsTargetRaw.Tag === ValueTag.String
+    ? symbolsTargetRaw : BoxReceiver(room, table, protos, symbolsTargetRaw);
   // **字符串与数组的符号键在属性表里**（`length` / 下标不在，而它们也不是符号）——
   // 所以这一句与 `getOwnPropertyNames` 那一边的取法一致。
   const symbolsItem = symbolsTarget.Tag === ValueTag.String ? null : table.Get(symbolsTarget.Ref);

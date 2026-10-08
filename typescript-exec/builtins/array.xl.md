@@ -5,7 +5,7 @@ import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, Proper
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToNumberOf, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
 import { SetProperty, SetHiddenProperty, DeleteProperty, GetProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed, IndexAccessorAt } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
-import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits, ToStringOfObject } from "./text.xl.md"
+import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits, ValueText, ToStringOfObject } from "./text.xl.md"
 import { IsArgumentsValue } from "./inspect.xl.md"
 import { BuiltinArity, DefineBuiltinName } from "./globals.xl.md"
 ```
@@ -512,6 +512,55 @@ if (index < 0) {
 return index > length ? length : index;
 ```
 
+# method KindTextOf:(table:HeapTable, value:Value)=>string
+
+**「这一格值」在 V8 那句 `TypeError` 里的说法**（第 770 轮）——`[1].map(1)` 在 Node 里是
+`TypeError: number 1 is not a function`、`map("x")` 是 `string "x" is not a function`、
+`map(null)` 是 `object null is not a function`。
+
+**为什么逐档写、而不直接 `String(值)`**：V8 那句不是 `ToString`——它前面还带一个**类型词**
+（`number` / `string` / `boolean` / `object`），字符串那一档还**带引号**。
+两边分开写的话，`e.message` 就与 Node 差一个词——而这一句**脚本直接打得出来**
+（`catch (e) { console.log(e.message) }`），所以它不是一个内部措辞。
+
+**这里只做本仓表达得了的那几档**：函数 / 符号 / 宿主值一律落到 `"object"` 那一档
+（V8 对它们有更细的说法，而这一层拿不到那些文本——**写在明处**，不假装对得上）。
+
+```ts
+if (value.Tag === ValueTag.Undefined) return "undefined";
+if (value.Tag === ValueTag.Null) return "object null";
+if (value.Tag === ValueTag.Bool) return value.AsBool() ? "boolean true" : "boolean false";
+if (value.Tag === ValueTag.String) return "string \"" + ValueText(table, value) + "\"";
+if (value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Float64) {
+  return "number " + ValueText(table, value);
+}
+return "object";
+```
+
+# method CallbackArgOr:(table:HeapTable, args:Array<Value>, index:int)=>Value
+
+**回调那一格实参**（第 770 轮）——JS 的**每一族回调内建**第一步都是同一件事
+（`map` / `filter` / `forEach` / `find` 四兄弟 / `some` / `every` / `reduce` 两兄弟 /
+`flatMap` 全是 `If IsCallable(callback) is false, throw a TypeError`）。
+
+**原来九处写的是** `throw new Error("this array method needs a function and a call channel (…)")`
+——**族错了一档**：JS 是 `TypeError`，本仓给笼统的 `Error` ⇒
+脚本里 `catch (e) { if (e instanceof TypeError) … }` 那一支**永远走不到**
+（判据 `runtime/round769/r769a-03`、`stdlib/round770/r770a-01` 量的就是它，一次量出十四行）。
+
+**「没有调用通道」不是这一档**：`call === null` 是**宿主没接通道**（配置错了）——
+那句话留在调用点（响亮地说清是哪一种），与「脚本给的不是函数」**分两句**。
+
+**消息照 V8**（`KindTextOf` 那一格写着为什么）：`«说法» is not a function`。
+
+```ts
+const candidate = index < args.length ? args[index] : Value.Undefined();
+if (!IsCallableValue(table, candidate)) {
+  throw new TypeError(KindTextOf(table, candidate) + " is not a function");
+}
+return candidate;
+```
+
 # method ThisArgOf:(args:Array<Value>, at:int)=>Value
 
 **回调那一格的「第二个实参」**（第 647 轮）：JS 的 `xs.map(fn, thisArg)` / `xs.forEach(fn, thisArg)` /
@@ -726,6 +775,17 @@ if (id === ArrayIsArray) {
   if (IsArgumentsValue(table, target)) return Value.FromBool(false);
   return Value.FromBool(target.Tag === ValueTag.Array);
 }
+// **空值接收者要抛 `TypeError`**（第 770 轮）——数组方法虽然是**通用**的，
+// 但 JS 的第一步是 `ToObject(this)`：`Array.prototype.slice.call(null)` 在 Node 里给
+// `TypeError: Cannot convert undefined or null to object`，而本仓原来把它当成一个
+// 「`length` 读不出来」的类数组 ⇒ **返回 `[]`**（判据 `stdlib/round770/r770a-02`
+// 第 7 / 9 行量的就是它：`slice.call(null)` 给 `[]`、`join.call(undefined)` 给 `""`）。
+// **判据只挡 `null` / `undefined`**：字符串与对象照旧走下面那两条类数组分支
+//（`concat` 那一处第 760 轮也是同一句、同一条消息——两处各写一遍就是两处会漂，
+// 所以这一句放在**所有**类数组分支之前）。
+if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+  throw new TypeError("Cannot convert undefined or null to object");
+}
 if (id === ArraySlice && self.Tag !== ValueTag.Array) {
   // **类数组那一档**（第 335 轮）：JS 的数组方法**是通用的**——
   // `[].slice.call({ 0: "a", 1: "b", length: 2 })` 在 Node 里给 `["a", "b"]`
@@ -802,11 +862,9 @@ if (id === ArrayConcat) {
   //
   // **`Symbol.isConcatSpreadable` 从哪来**：`protos.WellKnownSymbols` 那张表，
   // **表没装就整档跳过**（与 `ToPrimitiveOf` 那条同一口径——装库期它还是 `0`）。
-  // **`null` / `undefined` 先挡**（与 `ArrayToString` 那一格同一句 `TypeError`）：
-  // 不挡的话 `ArrayLikeLength` 会把它们当「没有 `length`」。
-  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
-    throw new TypeError("Array.prototype method called on null or undefined");
-  }
+  // **`null` / `undefined` 那一档第 770 轮搬走了**：它现在挡在**所有类数组分支之前**
+  // （一句 `TypeError`，见那一处的说明）——所以到这里 `self` 已经不会是空值，
+  // 这一句再写一遍是**第二份判据**（`tsc` 当场报「没有重叠」，第 770 轮实测）。
   let spreadKey = Value.Undefined();
   if (protos.WellKnownSymbols > 0) {
     spreadKey = GetProperty(room, call === null ? NeverCall : call, protos, table,
@@ -891,12 +949,9 @@ if (id === ArrayConcat) {
 //（拉这一族的是第 692 轮登记的 `probe2-g02` / `g04` / `g08` / `g15`）。
 // 这里**先把接收者折成一个真数组**（`ArrayLikeSnapshot`），再走**下面同一段**。
 // **只接只读那一族**（`IsArrayLikeMethod`）：会改接收者的那些要写回那个对象，是另一处活。
-// **`null` / `undefined` 先挡**（与 `RequireArray` 同一句 `TypeError`）：不挡的话
-// `ArrayLikeLength` 会把它们当「没有 `length`」⇒ 空数组 ⇒ **静默给 `[]`**。
+// **`null` / `undefined` 那一档第 770 轮搬走了**（见所有类数组分支之前那一句）：
+// 到这里 `self` 已经不会是空值——两处各写一遍就是第二份判据（`tsc` 当场报「没有重叠」）。
 if (self.Tag !== ValueTag.Array && IsArrayLikeMethod(id)) {
-  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
-    throw new TypeError("Array.prototype method called on null or undefined");
-  }
   self = ArrayLikeSnapshot(room, table, call, protos, self);
 }
 // **会改接收者的那一族：折成快照 → 走下面同一段 → 写回那个对象**（第 715 轮）。
@@ -1129,8 +1184,11 @@ if (id === ArrayUnshift) {
 if (id === ArrayFlatMap) {
   // **`flatMap(fn)` = `map(fn).flat(1)`**（JS 的定义）——这里**一步做完**：
   // 两步要先造一个中间数组，那既不必要、又给回收器多一个窗口（第 200 轮那类窗口）。
-  if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
-    throw new Error("this array method needs a function and a call channel (the host must pass one)");
+  // **回调不是函数要抛 `TypeError`**（第 770 轮，见 `CallbackArgOr` 那一格）；
+  // 「没有调用通道」是另一档（宿主配置错了），照旧响亮地说清。
+  const callback = CallbackArgOr(table, args, 0);
+  if (call === null) {
+    throw new Error("this array method needs a call channel (the host must pass one)");
   }
   // **回调里的 `this` 就是第二个实参**（第 647 轮，见 `ThisArgOf`）。
   const thisArg = ThisArgOf(args, 0);
@@ -1148,7 +1206,7 @@ if (id === ArrayFlatMap) {
     // `ArrayHasAt` / `ArrayElementAt` 那一对）。
     if (!ArrayHasAt(table, self, i)) continue;
     const item = ArrayElementAt(room, table, protos, call, self, i);
-    const answered = call(args[0], thisArg, [item, Value.FromInt(i), receiver]);
+    const answered = call(callback, thisArg, [item, Value.FromInt(i), receiver]);
     // **回调抛出就收摊**（第 228 轮）：`answered` 这时是 `undefined`——
     // 不问这一句，`flatMap` 会把它当成一个「不是数组的返回值」**收进结果里**
     // （于是结果数组多出一格 `undefined`，而那一格**根本不该存在**）。
@@ -1262,8 +1320,11 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
   // **回调要「能被调」**——判据走 `IsCallableValue`（第 145 轮）：
   // `value.IsCallable()` **看不到可调用对象**，于是 `xs.map(String)` 会被拒
   //（而 `String` 明明可以调：它是一个对象 + 一格载荷）。
-  if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
-    throw new Error("this array method needs a function and a call channel (the host must pass one)");
+  // **第 770 轮**：判据收进 `CallbackArgOr`，抛的是 `TypeError`（JS 那一族）；
+  // 「没有调用通道」是另一档。
+  const callback = CallbackArgOr(table, args, 0);
+  if (call === null) {
+    throw new Error("this array method needs a call channel (the host must pass one)");
   }
   // **回调里的 `this` 就是第二个实参**（第 647 轮，见 `ThisArgOf`）。
   const thisArg = ThisArgOf(args, 0);
@@ -1309,7 +1370,7 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
     // 而它只挂在 `source`（调用方的数组）身上……**那也算挂着**，
     // 所以这里挂的是「**不挂在别处**」的那些（见上面那一段判据）。
     // `map` 收的是回调的返回值（紧接着就 `Push`，中间不分配）——它不必挂。
-    const answered = call(args[0], thisArg, [item, Value.FromInt(i), receiver]);
+    const answered = call(callback, thisArg, [item, Value.FromInt(i), receiver]);
     // **回调抛出就收摊**（第 228 轮）：`answered` 这时是一个**看起来正常的 `undefined`**
     // （`CallNative` 在状态被改之后就是给 `undefined`）——不问这一句就接着转下一圈，
     // 于是回调里那次 `throw` 要等整个 `forEach` 跑完才冒出来（**静默**那一类）。
@@ -1339,8 +1400,10 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
   // **空数组**：`some` 给**假**、`every` 给**真**（JS 的口径；`every` 这一条最容易写反）。
   // **真假也走 `RtToBoolean`**（第 144 轮，与 `filter` 同一条）：
   // `[""].some(s => s)` 是**假**、`[""].find(s => s)` 是 `undefined`——写 `AsBool()` 就会反过来。
-  if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
-    throw new Error("this array method needs a function and a call channel (the host must pass one)");
+  // **回调不是函数要抛 `TypeError`**（第 770 轮，与 `flatMap` 那一处同一句）。
+  const callback = CallbackArgOr(table, args, 0);
+  if (call === null) {
+    throw new Error("this array method needs a call channel (the host must pass one)");
   }
   // **回调里的 `this` 就是第二个实参**（第 647 轮，见 `ThisArgOf`）。
   const thisArg = ThisArgOf(args, 0);
@@ -1364,7 +1427,7 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
     const skipsHoles = id === ArraySome || id === ArrayEvery;
     if (skipsHoles && !ArrayHasAt(table, self, i)) continue;
     const item = ArrayElementAt(room, table, protos, call, self, i);
-    const answered = RtToBoolean(table, call(args[0], thisArg, [item, Value.FromInt(i), receiver])).AsBool();
+    const answered = RtToBoolean(table, call(callback, thisArg, [item, Value.FromInt(i), receiver])).AsBool();
     // **回调抛出就收摊**（第 228 轮，与 `forEach` 那一条同一处口径）：
     // `RtToBoolean` 对 `undefined` 给**假**——不问这一句的话，`some` / `every` 会把这个
     // 「假」当成回调的答案用（`every` 于是当场返回 `false`，**静默错值**）。
@@ -1456,9 +1519,14 @@ if (id === ArraySort || id === ArrayToSorted) {
   return inPlace ? self : Value.FromArray(workRef);
 }
 if (id === ArrayReduce || id === ArrayReduceRight) {
-  // **回调与通道都要有**（少了就响亮地说清，与别的回调族一样）。
-  if (args.length < 1 || !args[0].IsCallable() || call === null) {
-    throw new Error("reduce needs a function and a call channel (the host must pass one)");
+  // **回调与通道都要有**（少了就响亮地说清，与别的回调族一样）；
+  // **第 770 轮两处都换了判据**：① 回调不是函数抛 `TypeError`（JS 那一族，与其余八处同一句
+  // `CallbackArgOr`）；② 原来这里问的是 `args[0].IsCallable()`——它**看不到可调用对象**，
+  // 于是 `[1, 2].reduce(String)` 会被拒（`String` 明明可以调，与 `map` 那一处第 145 轮
+  // 踩过的是同一个坑，`reduce` 这一支当时漏了）。
+  const callback = CallbackArgOr(table, args, 0);
+  if (call === null) {
+    throw new Error("reduce needs a call channel (the host must pass one)");
   }
   const total = source.GetLength();
   // **`reduceRight` 与 `reduce` 共用下面整段**（第 274 轮）：只差 `i` 怎么走。
@@ -1495,7 +1563,7 @@ if (id === ArrayReduce || id === ArrayReduceRight) {
     // `acc + i` 算出 `NaN`（**静默错值**：`[1,2].reduce((a, v, i) => a + i, 0)`
     // 本仓给 `NaN`，Node 给 `1`）。判据 `c304-std-array-reduce-forms` 量的就是它。
     // **`reduceRight` 也走这一句**（它给的就是**真实的那个下标**，不是「第几步」）。
-    const next = call(args[0], Value.Undefined(), [previous, ArrayElementAt(room, table, protos, call, self, i), Value.FromInt(i), receiver]);
+    const next = call(callback, Value.Undefined(), [previous, ArrayElementAt(room, table, protos, call, self, i), Value.FromInt(i), receiver]);
     // **回调抛出就收摊**（第 228 轮）：`next` 这时是 `undefined`——
     // 不问这一句就把它当成**累加器**继续用（下一轮的回调会拿到 `undefined`，
     // 于是脚本看到的是「累加器莫名其妙变空了」，而不是「回调抛了」）。

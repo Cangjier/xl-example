@@ -1,8 +1,6 @@
 // xl:title 描述符读回与继承
 // xl:round 769
 // xl:judge stdout
-// xl:want differ
-// xl:why 两个根：`Object.getOwnPropertyDescriptor(1, 'x')` 在 JS 里先把原始值 `ToObject`（给 `undefined`）、本仓抛；`Object.getOwnPropertyDescriptors(null)` 该抛 `TypeError`、本仓抛的是笼统的 `Error`
 // xl:end
 const show = (f: () => any) => {
   try {
