@@ -519,6 +519,29 @@ return id === ArrayIndexOf || id === ArrayLastIndexOf || id === ArrayIncludes
   || id === ArrayToSorted || id === ArrayToReversed || id === ArrayWith || id === ArrayToSpliced;
 ```
 
+# method IsArrayLikeWriter:(id:int)=>bool
+
+**哪些数组方法接「类数组接收者」、而且**会改接收者**（第 715 轮）。
+
+第 696 轮那一张表（`IsArrayLikeMethod`）是**只读**的——折成快照就完事。
+第 714 轮把 `push` / `pop` 两格单独收进主分派里（「一次 `Set` + 一次 `Set(O, "length", …)`」）。
+这一轮把**整族补齐**，判据是**「这个方法会不会写接收者」**：
+
+- **改两头**：`push` / `pop` / `shift` / `unshift`；
+- **要先读一遍再写一遍**：`reverse` / `sort` / `fill` / `copyWithin` / `splice`
+  （第 714 轮那句「不需要分类」说的正是这几格——现在它们也一起收）。
+
+**两张表互斥**：`IsArrayLikeMethod`（只读那一族）与它**不重叠**——重叠的话，
+先折快照、再写回快照，写的是**快照自己**（静默什么都没发生），
+与第 714 轮那条「只读那一支折成快照，写快照等于白写」是同一条纪律。
+两处都不收的那几个（`concat` / `slice` / `join` / `indexOf` 那一族）各走各的既有分支。
+
+```ts
+return id === ArrayPush || id === ArrayPop || id === ArrayShift || id === ArrayUnshift
+  || id === ArrayReverse || id === ArraySort || id === ArrayFill || id === ArrayCopyWithin
+  || id === ArraySplice;
+```
+
 # method ArrayLikeSnapshot:(room:RoomChecker, table:HeapTable, call:NativeCall | null, protos:Protos, receiver:Value)=>Value
 
 **把一个「不是数组」的接收者折成一个真数组**（第 696 轮）——JS 的 `ToObject` + 逐格 `HasProperty`。
@@ -699,62 +722,74 @@ if (self.Tag !== ValueTag.Array && IsArrayLikeMethod(id)) {
   }
   self = ArrayLikeSnapshot(room, table, call, protos, self);
 }
-// **`push` / `pop` 的类数组接收者：写回那个对象**（第 714 轮）。
+// **会改接收者的那一族：折成快照 → 走下面同一段 → 写回那个对象**（第 715 轮）。
 //
-// **为什么这两格先做**：它们只动**尾部一格 + `length`**——一次 `Set`、一次 `Set(O, "length", …)`，
-// 不需要分类（`sort` 要比较器、`reverse` / `splice` 要「先读一遍再写一遍」那一套）。
-// JS 里 `Array.prototype.push.call({ length: 0 }, 1)` 给 **1**（`length` 也变成 1），
-// 而本仓原来报 `cannot add property to a non-extensible object`（**那句话听起来像
-// 「对象被冻结了」**，其实是 `RequireArray` 没认出这不是数组）——
-// 判据 `stdlib/array/probe2-g10`（`probe2-g02` 那族同一条根）。
+// **为什么折快照、而不是「在接收者上重写一遍通用语义」**：下面那一段真实现有一千多行
+// （交换怎么写、比较器怎么调、`from` / `to` 的正负下标怎么归一、洞怎么跟着走全在里面）——
+// 照着接收者再写一遍就是**第二份会漂的判据**（第 307 / 312 / 320 轮各踩过一次）。
+// 折出来的快照是**同构**的（`HeapArray` 表达得了洞，`ArrayLikeSnapshot` 原样搬过来），
+// 所以「先在快照上跑一遍、再把结果写回 `O`」与「就在 `O` 上跑」在值上是同一件事。
 //
-// **判据是「接收者不是数组、而这一个号是在改接收者的」**，与上面那一支
-// （只读那一族折成快照）**互斥**：折成快照之后写回原对象就没意义了。
+// 这一轮之前的形状：第 714 轮只收了 `push` / `pop` 两格（「只动尾部一格 + `length`」），
+// 其余八格照旧响亮地抛（判据 `probe2-g11` 的 `reverse` / `probe2-g14` 的 `sort` 就是这么登着的）。
+//
+// **与上面那一支（只读那一族）互斥**：那一边折成快照就完事（写快照等于白写），
+// 这一边要**把快照写回 `O`**——JS 的每一个数组方法最后都是
+// `Set(O, ToString(k), v, true)` 加上 `Set(O, "length", len, true)`。
 //
 // **`call` 为 `null` 时响亮地抛**：写回要走访问器（`{ set length(v) { … } }` 那种），
 // 而重入脚本需要调用通道——少这一句的症状是「静默什么都没写」，
 // 与上面「`null` / `undefined` 先挡」同一条纪律。
-if (self.Tag !== ValueTag.Array && (id === ArrayPush || id === ArrayPop)) {
-  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
-    throw new TypeError("Array.prototype method called on null or undefined");
-  }
+//
+// **原始值接收者仍走下面那一句响亮的抛**（写在明处）：JS 里它们先 `ToObject`，
+// 而**写回包装对象那一步一定失败**（字符串的下标是只读的）⇒ 两边都以 `TypeError` 收场，
+// 本仓那句话是 `RequireArray` 说的——差额登在台账里，不在这里静默近似。
+if (self.Tag !== ValueTag.Array && IsArrayLikeWriter(id) && self.IsObject()) {
   if (call === null) {
     throw new Error("an array-like receiver needs a call channel to write back");
   }
-  const likeLength = ArrayLikeLength(room, table, call, self);
-  const likeLengthKey = Value.FromString(table.CreateString(Units("length")));
-  if (id === ArrayPush) {
-    // **不可扩展的接收者要抛**（与 `RequireArrayGrowable` 问的第一句同一件事）：
-    // JS 的 `push` 走 `Set(O, key, v, true)`（那个 `true` 就是「写不下去要抛」），
-    // 而 `SetProperty` 对不可扩展对象**静默返假**——上一句只写不查，
-    // 症状是「冻结的对象照样长」（实测：`Object.freeze({ length: 0 })` 上
-    // `push.call` 本仓给 `1`、Node 抛 `TypeError`）。
-    if (!table.Get(self.Ref).Extensible) {
+  const before = ArrayLikeLength(room, table, call, self);
+  const snapshot = ArrayLikeSnapshot(room, table, call, protos, self);
+  const result = InvokeArray(room, table, protos, call, id, snapshot, args, keep, failed);
+  // **脚本抛了 / 预算用尽**：下面那一段已经收摊，快照是**半成品**——
+  // 写回去就是把「跑了一半的状态」当成结果（与那九处回调循环同一条纪律）。
+  if (failed !== null && failed()) return Value.Undefined();
+  const written = table.Get(snapshot.Ref).AsArray();
+  const after = written.GetLength();
+  const lengthKey = Value.FromString(table.CreateString(Units("length")));
+  // **尾部多出来的那些格要删掉**（结果比原来短：`shift` / `splice` 把尾巴收了）——
+  // 不删的话那几个值**留在接收者上**（`shift` 之后最后一格还在，**静默错值**）。
+  const tail = before > after ? before : after;
+  for (let i = after; i < tail; i++) {
+    if (!room(PropertyCharge)) throw new Error("out of room");
+    DeleteProperty(table, self.Ref, Value.FromString(table.CreateString(Units(String(i)))));
+  }
+  for (let i = 0; i < after; i++) {
+    if (!room(PropertyCharge)) throw new Error("out of room");
+    const key = Value.FromString(table.CreateString(Units(String(i))));
+    // **洞跟着走**：快照里是洞的那一格，接收者上那一格要**删掉**——写成 `undefined`
+    // 会把洞变成真值（与 `reverse` / `copyWithin` 那两处写回时同一条）。
+    if (written.IsHole(i)) {
+      DeleteProperty(table, self.Ref, key);
+      continue;
+    }
+    // **写不下去就是 `TypeError`**：JS 这一路全是 `Set(…, true)`（`CreateDataPropertyOrThrow`
+    // 那一类）——而 `SetProperty` 对不可扩展的接收者**静默返假**，
+    // 不看它的症状是「冻结的对象照样长」（第 714 轮实测撞到：`Object.freeze({ length: 0 })`
+    // 上 `push.call` 本仓给 `1`、Node 抛 `TypeError`）——那一格的判据留在这一句上。
+    if (!SetProperty(room, call, table, self, key, written.GetAt(i))) {
       throw new TypeError("cannot add property to a non-extensible object");
     }
-    // **一格一格按 `Set(O, ToString(n), v, true)` 走**（那个 `true` 与 `RequireArrayGrowable`
-    // 那一段是同一件事：写不下去要抛，不许静默）。
-    for (let i = 0; i < args.length; i++) {
-      const atKey = Value.FromString(table.CreateString(Units(String(likeLength + i))));
-      SetProperty(room, call, table, self, atKey, args[i]);
-    }
-    const next = likeLength + args.length;
-    SetProperty(room, call, table, self, likeLengthKey, Value.FromInt(next));
-    return Value.FromInt(next);
   }
-  // `pop`：空的那一档**不写 `length`**（JS 里 `{ length: 0 }` 的 `pop()` 给 `undefined`，
-  // 而且不动那个对象）——写了就是一个**静默的差别**。
-  if (likeLength === 0) return Value.Undefined();
-  const lastIndex = likeLength - 1;
-  const lastKeyText = Units(String(lastIndex));
-  const lastKey = Value.FromString(table.CreateString(lastKeyText));
-  const popped = GetProperty(room, call, protos, table, self, lastKey);
-  // **删掉那一格**（JS 走 `DeletePropertyOrThrow`）——**最后再写 `length`**：
-  // 反过来的话，那两格里若有一格是访问器，读到的就是**已经改过长度**的那个对象
-  //（与 `push` 先写元素、后写长度同一条次序）。
-  DeleteProperty(table, self.Ref, lastKey);
-  SetProperty(room, call, table, self, likeLengthKey, Value.FromInt(lastIndex));
-  return popped;
+  if (!SetProperty(room, call, table, self, lengthKey, Value.FromInt(after))) {
+    throw new TypeError("cannot add property to a non-extensible object");
+  }
+  // **返回接收者的那四格**（`reverse` / `sort` / `fill` / `copyWithin`）：JS 的返回值是
+  // `O` **本人**，而快照是另一个对象——照搬快照就是把这四格判反。
+  if (id === ArrayReverse || id === ArraySort || id === ArrayFill || id === ArrayCopyWithin) {
+    return self;
+  }
+  return result;
 }
 RequireArray(table, self);
 const source = table.Get(self.Ref).AsArray();
