@@ -4813,6 +4813,45 @@ const mid = { x: (a.x + b.x) / 2 };
 console.log(mid.x);
 `,
   },
+  // **第 672 轮：同一条口径再收两条** —— `README.md` 里那句「执行侧没有进矩阵的用例」
+  // 说的就是这两个（`using` / `await using` 的降级），它们原来只活在文字里，
+  // 所以覆盖矩阵看不见。现在照 `differ` 收进矩阵、登进台账。
+  {
+    id: "gap-ex-using-declaration-dispose",
+    title: "using 声明：块结束时该调 Symbol.dispose",
+    nodeArgs: ["--experimental-transform-types"],
+    src: `
+class Res {
+  name: string;
+  constructor(name: string) { this.name = name; console.log("new " + name); }
+  [Symbol.dispose]() { console.log("dispose " + this.name); }
+}
+{
+  using a = new Res("a");
+  using b = new Res("b");
+  console.log("body");
+}
+`,
+  },
+  {
+    id: "gap-ex-await-using-declaration-dispose",
+    title: "await using 声明：块结束时该调 Symbol.asyncDispose",
+    nodeArgs: ["--experimental-transform-types"],
+    src: `
+class ARes {
+  name: string;
+  constructor(name: string) { this.name = name; console.log("new " + name); }
+  async [Symbol.asyncDispose]() { console.log("dispose " + this.name); }
+}
+async function main() {
+  {
+    await using a = new ARes("a");
+    console.log("body");
+  }
+}
+main();
+`,
+  },
   {
     id: "k9-ex-decorator-free-class-expr",
     title: "类表达式：具名 / 匿名 / 立即实例化 / 作为返回值",

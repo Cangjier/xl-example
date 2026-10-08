@@ -1106,4 +1106,20 @@ export const EXPECTATIONS = {
     expect: "blocked",
     why: "`setTimeout` 这个全局名没登记：宿主 ABI 只接了微任务那一档，定时器整档还没有",
   },
+
+  // ===== 第 672 轮：`using` / `await using` 的降级（原来只写在 `README.md` 的文字里）=====
+  //
+  // 第 651 轮普查过：`node` 给 `new a|new b|body|dispose b|dispose a`，本仓只给前三段 ——
+  // 也就是说这两条**跑得出来、只是静默少一次释放**（不是进不了门）。
+  // 缺的只是**声明本身的降级**：两种声明现在被当成普通 `const` 降级，块结束时不会调
+  // `[Symbol.dispose]()` / `[Symbol.asyncDispose]()`。
+  // 符号本身与符号键计算名的方法都已经能用（`c650-std-symbol-keyed-method`），所以只差这一跳。
+  "gap-ex-using-declaration-dispose": {
+    expect: "differ",
+    why: "`using` 被当普通 `const` 降级：块结束时不调 `[Symbol.dispose]()`，少一次释放（静默）",
+  },
+  "gap-ex-await-using-declaration-dispose": {
+    expect: "differ",
+    why: "`await using` 同上：不调 `[Symbol.asyncDispose]()`，少一次释放（静默）",
+  },
 };

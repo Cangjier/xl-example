@@ -314,7 +314,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1184 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **2122 / 2124**（99.9%）：四层里 runtime / e2e **100%**，exec 490/491、stdlib 818/819 —— 差的那 2 条是**真缺口**，登在台账里（`expect: "blocked"`），不藏着 |
+| `coverage` | **2122 / 2126**（99.8%）：四层里 runtime / e2e **100%**，exec 490/493、stdlib 818/819 —— 差的那 4 条是**真缺口**，全登在台账里（`expect: "blocked" / "differ"`），不藏着 |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口
@@ -349,7 +349,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   执行侧那 2 条（对象字面量的值是一对括号里的二元表达式、`setTimeout` 这个全局名没登记）
   **也已经进矩阵**（`gap-*`，登在 [tests/coverage/README.md](tests/coverage/README.md) 的台账里）。
 
-执行侧只剩一条：
+执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 
 - **`using` / `await using` 只在 token 层成形，降级层不认它**：`using r = new Res()` 被当成普通
   `const` 降级，块结束时**不会**调 `r[Symbol.dispose]()`（`await using` 同理欠 `Symbol.asyncDispose`）——
@@ -357,9 +357,11 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   `Symbol.asyncDispose` 与符号键计算名的方法都已经能用（用例
   [`c650-std-symbol-keyed-method`](tests/coverage/cases/stdlib.mjs)），缺的只是**声明本身的降级**。
   解析侧的用例在 [`decl-using-basic.ts`](tests/parse/cases/declarations/decl-using-basic.ts)；
-  执行侧**没有进矩阵的用例**（第 651 轮普查过：`node` 给 `new a|new b|body|dispose b|dispose a`，
-  本仓只给前三段），所以覆盖矩阵看不见它。投影那一格（`VariableDeclarationList.flags` 的
-  `Using` / `AwaitUsing`）第 655 轮已经补上，降级层可以直接读它。
+  执行侧两格是 [`gap-ex-using-declaration-dispose`](tests/coverage/cases/exec.mjs) 与
+  `gap-ex-await-using-declaration-dispose`（第 651 轮普查过：`node` 给
+  `new a|new b|body|dispose b|dispose a`，本仓只给前三段）。投影那一格
+  （`VariableDeclarationList.flags` 的 `Using` / `AwaitUsing`）第 655 轮已经补上，
+  降级层可以直接读它。
 
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）会在个别 JavaScript 专有形状上抛内部错误
 ——那是 JS 而不是 TypeScript，不在当前范围内。
