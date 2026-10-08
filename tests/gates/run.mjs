@@ -1,18 +1,15 @@
-// 七道门**一次成批并行**跑（第 318 轮加，用户口径：「分组批量跑，快一点」）。
+// `GATES` 里那几道门**一次成批并行**跑。
 //
-// **为什么值得** ✗：七道门彼此**独立** ✓（各自读产物、各写各的临时目录 ✓），
-// 而串着跑的总时长是**六段之和** ✓——16 核的机器上大半时间是在等一个进程 ✗。
-// 并行之后墙钟时间约等于**最慢的那一道** ✓（实测：串行 ~7 分钟 → 并行 ~2 分钟 ✓）。
-//
-// **与 `tests/coverage/run.mjs` 的 `--jobs` 不是一回事** ✗：那一个是**一道门内部**的
-// 用例级并行 ✓（第 205 轮就有 ✓，默认 `min(8, 核数)` ✓）；这一层是**门与门之间**的并行 ✓。
-// 两层叠起来才叫「分组批量跑」✓。
+// 门与门彼此独立（各自读产物、各写各的临时目录），串行跑的总时长是各段之和；
+// 并行之后墙钟约等于**最慢的那一道**（串行 ~7 分钟 → 并行 ~30 秒）。
+// 这一层是**门与门之间**的并行，与 `tests/coverage/run.mjs` 的 `--jobs`（一道门内部的用例级并行）
+// 不是一回事，两层叠起来才是「分组批量跑」。
 //
 // **用法**：`npm run gates`（或 `node tests/gates/run.mjs --jobs 6 --verbose`）。
-// **退出码**：任一门红就是 1 ✓（CI 与我自己都只看这一个数 ✓）。
+// **退出码**：任一门红就是 1。
 //
-// 门的名单**写在这一处** ✓：加一道门只改这里 ✓（与 `package.json` 里那几个脚本**同名同源** ✓
-// ——两边各写一遍就是两处会漂 ✗，而漂了的症状是「我跑了七道、CI 跑了八道」✗）。
+// 门的名单**只写在 `GATES` 这一处**（与 `package.json` 里同名同源的脚本一一对应）：
+// 两边各写一遍就是两处会漂，而漂了的症状是「门数与实际跑的对不上」。
 
 import { spawn } from "node:child_process";
 import os from "node:os";
@@ -23,29 +20,22 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
 
 /**
- * 七道门：名字 → 脚本路径（与 `package.json` 一一对应）。
+ * 门的名单：名字 → 脚本路径（与 `package.json` 一一对应）。
  *
- * **`shards`**（第 321 轮加的机制）：把一门切成 n 组、每组一个子进程。
- * **本轮它已经没有用户了**：`cases:tsast`（唯一用过它的那一道）自己**默认就是 batch** ——
- * 按 `os.cpus().length` 切组、每组一个子进程，组数不 hard code。机制留着给以后需要它的门。
+ * **`shards`**：把一门切成 n 组、每组一个子进程。目前没有门用它——
+ * `cases:tsast` 自己默认就是 batch（按 `os.cpus().length` 切组、贪心 LPT 分片），
+ * 这里再写一个固定片数就是第二份答案。机制留着给以后需要它的门。
  *
- * **改语料时的快循环**（第 351 轮 / 本轮）：
- * 这一门默认把**全部** 1447 份过一遍。本轮之前是**单进程 60s 量级**
- *（大头是 `typescript/lib` / `@types` 那几份大 `.d.ts`，82 万个产物节点）；
- * 本轮把它改成**默认 batch**（按逻辑处理器数量切组、贪心 LPT 分片）之后：**墙钟 ~10s**，
- * 下界就是**最重的那一份语料**（`typescript/lib/lib.dom.d.ts`，2.3 MB，单份约 6.3s 真工 ——
- * 分片切不开一个文件）。只想让一条新用例说话时，`npm run cases:tsast:cases` 更快（2s 量级）。
- * **`--batch`（`tsrun --batch` / `judge-batch.mjs`）是另一件事** ✗：那是给
- * **每个用例必须起子进程**的门用的 ✓（`runtime:cli` 要对每个 `.ts` 跑 `node` 与 `tsrun` 各一次 ✓）。
- * **每片各自算那七项** ✓，「每片都 0」⟺「整体都 0」✓——**不需要把计数合起来** ✓
- *（那正是分片最容易出错的地方 ✓）。
+ * **`cases:tsast` 的那个 batch 与本文件的并行不是一回事**：那是给「每条用例必须起子进程」的门用的
+ * （`runtime:cli` 要对每个 `.ts` 跑 `node` 与 `tsrun` 各一次）。它每片各自算那七项，
+ * 「每片都 0」⟺「整体都 0」，所以不需要把计数合起来。
  */
 const GATES = [
   { name: "runtime:check", script: "tests/runtime/check.mjs" },
   { name: "runtime:cli", script: "tests/runtime/run-cli.mjs" },
   // **`cases:tsast` 不再由这里分片**（本轮改）：它自己**默认就是 batch**，
   // 按 `os.cpus().length` 切组、每组一个子进程（组数不 hard code）。
-  // 这里再写一个固定片数就是**第二份答案**，而且会把外层 7 道门 × 16 片叠成过载。
+  // 这里再写一个固定片数就是**第二份答案**，而且会把外层各道门 × 16 片叠成过载。
   { name: "cases:tsast", script: "tests/parse/ts-ast.mjs" },
   { name: "samples", script: "samples/check.mjs" },
   { name: "cases:check", script: "tests/parse/validate.mjs" },
@@ -54,6 +44,11 @@ const GATES = [
   // 它比的是**这条用例说自己该有什么，产物里真的有吗** ✓。加它之前那些期望已经过期 47 处
   // 而没有任何东西会响 ✗（见 `tests/parse/tags.mjs` 开头）。
   { name: "cases:tags", script: "tests/parse/tags.mjs" },
+  // **`cases:shapes`（本轮加）**：用例**覆盖了哪些形状**。
+  // `cases:tsast` 量的是「对得上的对不对」（用例 + 真实语料），它绿不代表**用例**里有那种形状：
+  // 真实语料来自 `node_modules`（会随依赖升级变、也可能整份消失），用例才是仓库自己的回归网。
+  // 这一门按「kind + 有子节点的字段名」的签名比，外部语料里出现过的签名必须在用例里出现过。
+  { name: "cases:shapes", script: "tests/parse/shapes.mjs" },
   { name: "coverage", script: "tests/coverage/run.mjs" },
 ];
 
@@ -64,9 +59,8 @@ const value = (name, fallback = "") => {
   return at >= 0 && at + 1 < args.length ? args[at + 1] : fallback;
 };
 const verbose = flag("--verbose");
-// **默认是「门数」而不是「核数」** ✓：七道门同时开七条 ✓，而每一条自己还会再开
-// 用例级的并行 ✓（`coverage` 那一道默认 8 ✓）——两层相乘会过载 ✗，
-// 所以这里给一个能把七道**同时**放下的数就够 ✓（再大也只是多几段等待 ✓）。
+// **默认是「门数」而不是「核数」**：所有门同时开一条，而每一条自己还会再开用例级的并行
+// （`coverage` 那一道默认 8）——两层相乘会过载，所以这里给一个能把所有门**同时**放下的数就够。
 const jobs = Math.max(1, Math.min(GATES.length, Number(value("--jobs", String(GATES.length)))));
 
 const runOne = (gate) =>
@@ -123,7 +117,7 @@ const pool = async (items, run) => {
 };
 
 const started = Date.now();
-console.log(`七道门并行跑（${jobs} 路，${os.cpus().length} 核）：${GATES.map((g) => g.name).join(" · ")}`);
+console.log(`${GATES.length} 道门并行跑（${jobs} 路，${os.cpus().length} 核）：${GATES.map((g) => g.name).join(" · ")}`);
 console.log("");
 const results = await pool(GATES, runOne);
 

@@ -44,7 +44,7 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 执行侧的两棵树（`runtime/` ↔ `typescript-exec/`）是上面这两棵的镜像：`runtime/` 与语言无关，
 `typescript-exec/` 是 TS 专有的降级层——**新增一门语言就是新增 `xxx/` + `xxx-exec/`，
 `core/` 与 `runtime/` 一行都不用动**。
-**这两棵树已经在跑**，判据是七道门（见「构建链路」那一节）：
+**这两棵树已经在跑**，判据是 `npm run gates` 那一串门（见「构建链路」那一节）：
 
 - **执行侧**：值模型 / 堆与 GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI；类与继承、集合
   （`Map` / `Set` / `WeakMap` / `Date`）、生成器与 `async`、解构与展开 / 剩余、可选链与空值合并、
@@ -120,7 +120,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 **三个出口同源**：`CjcliParse` 造出根单元之后才分叉，XML / AST JSON / TS 形状看的是同一棵树，
 结构上没有第二条解析路径。
 
-测试集只留 AST 与执行侧这几道（用户口径，见「判据与缺口」的七道门）：
+测试集只留 AST 与执行侧这几道（用户口径，见「判据与缺口」）：
 XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` 是**尺子不是门**
 （它红只在「比昨天差」）。
 
@@ -271,7 +271,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 ## 判据与缺口
 
-**主判据是七道门**（`npm run gates` 一次跑完，墙钟 ~25s）：
+**主判据是 `npm run gates` 一次跑完的那几道门**（墙钟 ~25s；门名单只有 `tests/gates/run.mjs` 的 `GATES` 一处）：
 
 | 门 | 口径 |
 | --- | --- |
@@ -280,25 +280,28 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `cases:tags` | **用例自带的期望**：`xl:expect`（存在，或 `Tag:N` 计数）与 `xl:absent` 逐条对产物核实，外加标签表体检 |
+| `cases:shapes` | **用例覆盖了哪些形状**：外部语料里出现过的「kind + 有子节点的字段名」签名，用例里必须至少有一条 |
 | `runtime:check` / `runtime:cli` | 执行侧的机制与端到端（见「构建链路」那一节） |
 | `coverage` | 场景覆盖度——**尺子不是门**：它红只在「比昨天差」 |
 
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
+`cases:shapes` 用的是它去掉 `dist/ts` 的那一份（产物自己写出来的形状不算「必须有用例」）。
 
-### 当前状态（第 647 轮实测）
+### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1506 / 1506 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1512 / 1512 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1107** 条用例，0 条不合格 |
-| `cases:tags` | **1107 条全部带期望**（2835 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:check` | **1110** 条用例，0 条不合格 |
+| `cases:tags` | **1110 条全部带期望**（2857 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
 | `coverage` | **1852 / 1852**：四层各 **100%**（runtime 515、exec 427、stdlib 724、e2e 186） |
-| `npm run gates` | 上面七道一次跑完（实测墙钟 **~29s**） |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口
 
@@ -414,7 +417,7 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
 - **XML 属性名就是从 class 属性名来的**：`Class` 上那个 `name` 属性的值，就是产物里 `name="…"` 的值。
   所以想改产物上的属性名，就改规范里的字段名与 `ToXmlString` 里那处拼串，两处必须一起动——
   只在拼串里改名，会留下 `this.FieldName` 与 `name="…"` 对不上的产物。
-- 改完跑这几步（也可以直接 `npm run gates` 一次跑完七道门）：
+- 改完跑这几步（也可以直接 `npm run gates` 一次跑完全部门）：
 
   ```bash
   xl check                     # 结构与规则检查（应该是 0 error / 0 warning）
@@ -422,6 +425,7 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
   npm run samples              # TS 形状夹具逐字节对照；产物本该变化时用 -- --update 重写夹具
   npm run cases:check          # 用例体检
   npm run cases:tags           # 用例自带的期望（`xl:expect` / `xl:absent`）对产物核实
+  npm run cases:shapes         # 用例覆盖了哪些形状（外部语料有、用例没有的签名会红）
   npm run cases:tsast          # **主判据**：与 ts.createSourceFile 逐节点对拍（七条全 0）
   npm run cases:tsast:cli      # 发布路径那一把（慢，改到 cjcli / 序列化时才需要）
   ```

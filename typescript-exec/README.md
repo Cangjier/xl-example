@@ -25,7 +25,7 @@
 | 执行侧自测 | `npm run runtime:check` | 引擎的**机制**（值模型 / 堆 / GC / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主） |
 | 直接执行 `.ts` | `npm run runtime:cli` | 必须全过的端到端语料：`node <文件.ts>` 与 `tsrun` 逐字节相同 |
 | 场景覆盖度 | `npm run coverage` | 一份普通 `.ts` 交给 `node`（裁判）与 `tsrun`（被测），比 stdout 逐字节 + 退出码 |
-| 七道门一次跑完 | `npm run gates` | 上面这些 + `cases:tsast` / `cases:tags` / `samples` / `cases:check` |
+| 全部门一次跑完 | `npm run gates` | 上面这些 + `cases:tsast` / `cases:tags` / `cases:shapes` / `samples` / `cases:check` |
 
 **读数只有一份**：在根目录 [README](../README.md) 的「当前状态」里（这里不再抄一遍数字）。
 覆盖度的口径、矩阵与加宽办法见 [tests/coverage/README.md](../tests/coverage/README.md)。
@@ -38,7 +38,7 @@
 
 `tests/parse/` 那一侧（token 层与投影）**还有四条探针量出来的缺口**，
 根因与修法方向写在 [docs/typescript-parsing-gaps.md](../docs/typescript-parsing-gaps.md)——
-它们不在语料里，所以七道门不受影响。
+它们不在语料里，所以 `npm run gates` 不受影响。
 
 ## 两条口径
 
