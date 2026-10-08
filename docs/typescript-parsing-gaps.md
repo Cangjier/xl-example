@@ -55,9 +55,17 @@
 
 ## 已知仍开着的缺口
 
-四条都是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
+五条都是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
 **不在语料里**——所以七道门是绿的，而它们是真实存在的形状：
-
+- **对象字面量里的「语句关键字」当成员名**：`{ if(): T { … } }` / `{ function(): T { … } }`。
+  **其余三十来个保留字都已经对了**（第 640 轮，`return` / `throw` / `delete` / `new` / `in` /
+  `typeof` / `void` / `await` / `yield` / `class` / `default` / `enum` …，
+  判据 [`expr-object-keyword-method-names.ts`](../tests/parse/cases/expressions/expr-object-keyword-method-names.ts)）；
+  这三个是被**更早的规则 / 解析期向导**抢走的：
+  `if` 由 `IfSetBranch` 在 `(` 处认领（`if-set.xl.md`，那是个**跳转向导**，只看「前面那个词是 `if`」，
+  不看位置），`function` 由 `FunctionCloseRule`、`import` 由 `MethodDeclarationCloseRule` 里那条
+  **就地拒收**（`typeof import("m")` 与 `{ import(): T { … } }` 的父单元都是成员体，
+  按父单元分不开——第 640 轮试过、当场被 `types/type-import-typeof-member` 拦下）。
 - **`do` 的体是 `if` 语句**：`do if (a) x++; while (c);`。`if` 由解析期向导造（见
   `if-set.xl.md`），体那一截于是既不是「裸单元」也不是「语句壳」——`DoWhileCloseRule`
   现在认的两种形态都不匹配（实测缺 `DoStatement` 1、多出 3）。其余体形态

@@ -2522,8 +2522,8 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
   {
     id: "c639-e2e-async-iterator-for-await",
     title: "端到端：异步迭代器 + for await + 提前 break + return 收尾",
-    expect: "blocked",
-    why: "for await 的异步迭代器一 break，IteratorClose 那一侧还没接：降级层报 ast node CallExpression has no text",
+    expect: "differ",
+    why: "`get_iterator` 只认 `Symbol.iterator`（第 184 轮那条路），`[Symbol.asyncIterator]` 的自定义异步可迭代物还没有那一档：引擎的 `iter_new` 于是报 `iter_new on this kind of object`。AST 那一层已经修好（对象字面量里的关键字方法名 `return()` / `throw()`，第 640 轮）",
     src: "\nconst trace: string[] = [];\nconst source = {\n  [Symbol.asyncIterator]() {\n    let i = 0;\n    return {\n      next(): Promise<IteratorResult<number>> {\n        i += 1;\n        return Promise.resolve(i <= 5 ? { value: i, done: false } : { value: 0, done: true });\n      },\n      return(): Promise<IteratorResult<number>> {\n        trace.push(\"closed\");\n        return Promise.resolve({ value: 0, done: true });\n      },\n    };\n  },\n};\nasync function main(): Promise<void> {\n  for await (const n of source) {\n    trace.push(\"got \" + n);\n    if (n === 3) break;\n  }\n  console.log(trace.join(\"|\"));\n}\nmain();\n",
   },
   {
@@ -2534,15 +2534,11 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
   {
     id: "c639-e2e-generator-delegation-two-way",
     title: "端到端：yield* 委派 + 双向传值 + return 值透传",
-    expect: "differ",
-    why: "yield* 的返回值没接上：const got = yield* inner() 拿到 null（Node 给内层的 return 值）；静默错值",
     src: "\nfunction* inner(): Generator<number, string, number> {\n  const first = yield 1;\n  const second = yield first + 1;\n  return \"inner:\" + second;\n}\nfunction* outer(): Generator<number, void, number> {\n  const got = yield* inner();\n  console.log(got);\n  yield 100;\n}\nconst it = outer();\nconsole.log(JSON.stringify(it.next()));\nconsole.log(JSON.stringify(it.next(10)));\nconsole.log(JSON.stringify(it.next(20)));\nconsole.log(JSON.stringify(it.next()));\n",
   },
   {
     id: "c639-e2e-async-throw-inside-map-array",
     title: "端到端：async 函数在 map 回调里 throw，再交给 allSettled",
-    expect: "differ",
-    why: "async 函数在 map 回调里 throw 之后，main 一个字都不再跑（连它后面那句 console.log 都没有）；同一形状写成 Promise.reject 是好的",
     src: "\nasync function risky(n: number): Promise<number> {\n  if (n === 3) throw new Error(\"bad\");\n  return n * 2;\n}\nasync function main(): Promise<void> {\n  const settled = [1, 2, 3].map((n) => risky(n));\n  const results = await Promise.allSettled(settled);\n  console.log(results.length, results[2].status, results[2].reason.message);\n}\nmain();\n",
   },
   {

@@ -121,16 +121,17 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | runtime | **515 / 515** | **100%** |
 | exec | **427 / 427** | **100%** |
 | stdlib | **698 / 698** | **100%** |
-| e2e | **183 / 186** | **98.4%** |
-| **合计（加权）** | **1823 / 1826** | **99.7%** |
+| e2e | **185 / 186** | **99.5%** |
+| **合计（加权）** | **1825 / 1826** | **99.9%** |
 
-三格没过（第 639 轮加宽时量到的，都记在台账上）：`yield*` 的**返回值**没接上
-（`const got = yield* inner()` 拿到 `null`，静默错值）、async 函数在 `map` 回调里
-**throw** 之后整段不再跑（同一形状写成 `Promise.reject` 是好的）、`for await` 的
-异步迭代器一 `break`，IteratorClose 那一侧还没接（进不了门）。
-另有一条**口径外**：`matchAll` 要正则字面量，而 `RegExp` 是明确不做的那一档。
+一格没过（第 639 轮加宽时量到的，记在台账上）：`for await` 的自定义
+**异步**可迭代物（`[Symbol.asyncIterator]`）还没有那一档——`get_iterator` 只认
+`Symbol.iterator`（第 184 轮那条路），于是引擎的 `iter_new` 报
+`iter_new on this kind of object`；同一轮里它的 **AST 那一层**（对象字面量里的
+关键字方法名 `return()`）已经修好。另有一条**口径外**：`matchAll` 要正则字面量，
+而 `RegExp` 是明确不做的那一档。
 
-`report.json` 是**最后一次整跑**的完整清单：`blocked` **1** 条、`differ` **2** 条、
+`report.json` 是**最后一次整跑**的完整清单：`blocked` **0** 条、`differ` **1** 条、
 `bad`（裁判自己都跑不动的用例）**0** 条。加宽矩阵时从哪儿下手就看这一份。
 
 **加宽的历史不进这里**（在 git 历史里）。只有一条经验值得留着：**分母是活的**，

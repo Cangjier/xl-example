@@ -43,7 +43,7 @@
       "why": true
     }
   ],
-  "progressPercent": 99.68,
+  "progressPercent": 99.89,
   "layers": [
     {
       "layer": "runtime",
@@ -79,33 +79,20 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 186,
-      "pass": 183,
-      "blocked": 1,
-      "differ": 2,
+      "pass": 185,
+      "blocked": 0,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 98.39
+      "coverage": 99.46
     }
   ],
-  "blocked": [
+  "blocked": [],
+  "differ": [
     {
       "id": "c639-e2e-async-iterator-for-await",
       "layer": "e2e",
       "title": "端到端：异步迭代器 + for await + 提前 break + return 收尾",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node CallExpression has no text (at 277..285)"
-    }
-  ],
-  "differ": [
-    {
-      "id": "c639-e2e-generator-delegation-two-way",
-      "layer": "e2e",
-      "title": "端到端：yield* 委派 + 双向传值 + return 值透传",
-      "detail": "stdout 不同：第 2 行：node «{\"value\":11,\"done\":false}» vs tsrun «{\"value\":null,\"done\":false}»"
-    },
-    {
-      "id": "c639-e2e-async-throw-inside-map-array",
-      "layer": "e2e",
-      "title": "端到端：async 函数在 map 回调里 throw，再交给 allSettled",
-      "detail": "stdout 不同：第 1 行：node «3 rejected bad» vs tsrun «»"
+      "detail": "stdout 不同：第 1 行：node «got 1|got 2|got 3|closed» vs tsrun «»"
     }
   ],
   "bad": [],

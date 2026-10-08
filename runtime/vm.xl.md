@@ -2533,6 +2533,30 @@ if (converted) {
   while (this.Frames.Depth() > convertedDepth) this.Frames.Pop();
   this.Pending = new Value();
   this.Status = this.Frames.IsEmpty() ? VmStatus.Halted : VmStatus.Ready;
+  // **收下的这一抛，对「外面那个内建」不是一次失败** ✗（第 640 轮 ✓）——
+  // 上面那一句只把状态放平 ✓，可 `CallFailed` 还看两样 ✓（`Throws` 计数 ✓、`NativeEscaped` ✓），
+  // 而那两样在**这一支**上说的都不是「回调出事了」✗：
+  //   · `Throws` 是**展开次数** ✓，可这一抛**没有展开到任何人手上** ✗——它变成了一份拒绝 ✓，
+  //     在 JS 里 `async function f() { throw x }` 对调用者**一个字都不冒** ✓；
+  //   · `NativeEscaped` 也在上面那句 `Frames.Clear()` 之前置过真 ✓（那时还不知道这一抛接不接得住）。
+  //
+  // **判据是「重入那一段里还有活帧没有」** ✓（`convertedDepth > NativeBoundary` ✓）：
+  // 重入的被调方那一帧**正好落在边界上** ✓（见 `DoThrow` 上面那一条 ✓）——
+  // 它比边界深 ⇒ 死掉的只是**被它调用的**那个 async 帧 ✓，回调自己**还活着** ✓、
+  // 马上会把返回值写进 `NativeReturnSlot` ✓ ⇒ 内建该照常转下一圈 ✓。
+  //
+  // **反过来那一档不能放** ✗：`[1,2].map(async (x) => { throw … })` 里**回调自己**就是那个 async 帧 ✓
+  // （`convertedDepth === NativeBoundary` ✓）⇒ 它被弹掉之后**没有人会交返回值** ✓，
+  // 内建必须收摊 ✓（照旧置 `NativeFailed` ✓）。
+  //
+  // **实测的现场** ✓（判据 `c639-e2e-async-throw-inside-map-array` ✓）：
+  // `[1, 2, 3].map((n) => risky(n))` 里 `risky(3)` 同步抛出 ✓ ⇒ `map` 拿到 `undefined` ✓
+  // ⇒ `cannot read properties of undefined` ✓、`main` 后面一个字都不跑 ✗；
+  // Node 那边 `map` 给一个**被拒绝的承诺** ✓、`Promise.allSettled` 照常收 ✓。
+  if (convertedDepth > this.NativeBoundary) {
+    this.Throws = this.Throws - 1;
+    this.NativeEscaped = false;
+  }
   return;
 }
 this.Frames.Clear();

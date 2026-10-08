@@ -10,6 +10,7 @@ import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText, GetSkipNextWrapSy
 import { Bracket } from "../bracket.xl.md"
 import { BracketNameText } from "../field.xl.md"
 import { ArrayLiteral } from "../json/array-literal.xl.md"
+import { ObjectLiteral } from "../json/object-literal.xl.md"
 import { ClassBody } from "../class/class-body.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { GenericType } from "../generic-type.xl.md"
@@ -435,7 +436,8 @@ return false;
 
 ## private method MethodNameOf:(unit:Token)=>string
 
-取方法名的文本：`Identifier` 直接取；**字符串字面量名字**（`"m"() { }`）取它第一个 `ConstString` 子单元的文本。
+取方法名的文本：`Identifier` 直接取；**关键字名**（`{ return(): T { … } }` / `class A { new() {} }`）取 `Keyword.Value`；
+**字符串字面量名字**（`"m"() { }`）取它第一个 `ConstString` 子单元的文本。
 
 TypeScript 允许成员名写成字符串字面量（`class C { "m"() { } }`），
 与 `Field` 那边的 `NameText` 是同一套处理——只认 `Identifier` 时这些成员整个丢掉。
@@ -443,6 +445,9 @@ TypeScript 允许成员名写成字符串字面量（`class C { "m"() { } }`）�
 ```ts
 if (unit instanceof Identifier) {
   return unit.TempToString();
+}
+if (unit.constructor.name === "Keyword") {
+  return (unit as any).Value;
 }
 if (unit instanceof String) {
   for (const item of unit.Data) {
@@ -495,7 +500,10 @@ return false;
 **`import` 单独在这里再挡一次**：`typeof import("assert")`（模块查询类型）也是「名字 + 括号」的形状，
 但 `import` **不能**加进 `BanedMethodNames`——那张表是「能不能当方法名」的唯一判据，
 调用规则（`Method`）与声明规则共用它，加进去会连带挡掉动态 `import("m")` 的调用节点。
-所以这里就地拒一次：`import` 不在成员位置当方法名。
+所以这里就地拒一次：`import` 不在成员位置当方法名。**这一条不按成员体放开**（第 640 轮试过、退回了）：
+成员体里 `typeof import("m").A` 的那个 `import` 的**父单元也是成员体**（平铺列表），
+按成员体放开就会把它收成 `MethodDeclaration`（判据 `types/type-import-typeof-member`
+当场报「`absent MethodDeclaration` 却出了 2 个」）。`{ import(): T { … } }` 这一格今天让掉。
 
 **成员位置反而要放开禁用表**：`class A { delete() {} if() {} for() {} new() {} }` /
 `interface I { for(): void }` 里的方法名正是关键字——它们是**成员名**，不存在
@@ -540,12 +548,22 @@ if (isPrivateName) {
 }
 const name = Get(units, nameIndex);
 const isComputedName = (name instanceof Bracket && name.startBracket === "[") || name instanceof ArrayLiteral;
-if (isComputedName === false && !(name instanceof Identifier) && !(name instanceof String)) {
-  return false;
-}
+// **成员体有四种**（第 640 轮补上 `ObjectLiteral`）：类体 / 接口体 / 类型字面量体 / **对象字面量**。
+// 对象字面量的成员名与前三者同权：`{ return(): T { … } }` / `{ delete() {} }` 里的词是**成员名**，
+// 而它们在语句位是关键字（`return (x)` / `delete o.k`）——所以只认「名字的父单元是成员体」。
 const inMemberBody =
   name !== null &&
-  (name.Parent instanceof ClassBody || name.Parent instanceof InterfaceBody || name.Parent instanceof TypeLiteralBody);
+  (name.Parent instanceof ClassBody || name.Parent instanceof InterfaceBody ||
+    name.Parent instanceof TypeLiteralBody || name.Parent instanceof ObjectLiteral);
+// **关键字也能当成员名**（第 640 轮）：`KeywordCloseRule` 跑过之后那个词已经是 `Keyword`
+// （`{ return(): T { … } }` 实测就是它），而 `Keyword` 既不是 `Identifier` 也不是 `String`，
+// 上面那道形状判据会当场拒掉。成员位没有「`if (x)` 被误当成调用」的风险（那个风险只属于表达式位），
+// 所以**只有成员位**才放开。
+const isKeywordName = name !== null && name.constructor.name === "Keyword";
+if (isComputedName === false && !(name instanceof Identifier) && !(name instanceof String) &&
+    !(isKeywordName && inMemberBody)) {
+  return false;
+}
 if (isComputedName === false && inMemberBody === false && name instanceof Identifier && !template.MethodNameTemplate.IsMethodName(name.TempToString())) {
   return false;
 }
@@ -695,10 +713,10 @@ if (computedName) {
 } else {
   result.name = "#" + this.MethodNameOf(nameUnit);
 }
-// **名字的位置当场记进字段**（见 `NameStart`）：只认普通标识符——
+// **名字的位置当场记进字段**（见 `NameStart`）：普通标识符与**关键字名**都记——
 // 字符串名与计算名的分派留给投影（它读的是 `name` 的**文本**位置）；
 // 私有名的区间从 `#` 那一格算起（`name` 记的是 `#x` 整个名字）。
-if (!computedName && nameUnit instanceof Identifier) {
+if (!computedName && (nameUnit instanceof Identifier || nameUnit.constructor.name === "Keyword")) {
   const nameStart = privateMark === null ? nameUnit.SourceRange.Start : privateMark.SourceRange.Start;
   const nameEnd = nameUnit.SourceRange.End;
   if (nameStart !== null && nameEnd !== null) {
@@ -811,7 +829,7 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 ## field NameStart:int = -1
 
-名字在源码里的起点（闭区间下标）；名字不是普通标识符（字符串名 / 计算名）时是 `-1`。
+名字在源码里的起点（闭区间下标）；名字不是普通标识符 / 关键字（字符串名 / 计算名）时是 `-1`。
 
 **私有名 `#x` 从 `#` 算起**——`name` 记的是 `#x` 整个名字，投影合出来的是一个
 `PrivateIdentifier`，区间要盖住那个 `#`（见 `../field.xl.md` 的 `NameStart`，同一个来由）。

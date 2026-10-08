@@ -6537,6 +6537,15 @@ for (let i = 0; i < this.GeneratorReturns.length; i++) {
 `r` 是**上一轮产出的值** ✗（`yield* [1, 2]` 看不出来 ✓——那时 `done` 那一趟的值是
 `undefined` ✓，而**生成器**那一趟有返回值 ✓，所以只有「委托给生成器」这一格现形 ✓）。
 
+**第四处是第 640 轮补的** ✗：**`IterNext` 送的必须是「外层收到的那一份」** ✓。
+JS 把 `yield*` 定义成一段等价循环：`received` 起手是 `undefined`，
+`loop { r = inner.next(received); if (r.done) return r.value; received = yield r.value }`
+——起手 `undefined` ✓，之后**每一轮都是外层 `next(v)` 送进来的那个 `v`** ✓。
+原来那一版写的是常量 `undefined` ✓，而 `Resume` 拿到的 `sentItem` **压根没用** ✗
+⇒ 内层的 `yield` 永远收到 `undefined` ✓（实测 `const first = yield 1` 在
+`it.next(10)` 之后拿到 `null` ✓、`first + 1` 于是是 `NaN` ✓——**静默错值** ✗，
+判据 `c639-e2e-generator-delegation-two-way` 现场量的就是它 ✓）。
+
 **已知差** ✗：转发不了 `throw` / `return` 两个方向 ✓（见 `LowerYield` 那一段 ✓）。
 
 ```ts
@@ -6558,9 +6567,22 @@ const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
 // **也不能把 `pair` 直接用掉** ✗：`pair` 是新分配的一格 ✓，在**下一次 `RtCall2` 之前**
 // 就可能被复用 ✓——所以每一轮都要把值**抄进这一格** ✓（它跨整轮活着 ✓）。
 const lastValue = this.Reserve(1);
+// **要转发出去的那一份也占一格** ✓（第 640 轮 ✓，见上面第四处 ✓）：
+// 起手是 `undefined` ✓（外层的第一次 `next()` 不送值 ✓），每一轮 `Resume` 之后被覆盖 ✓。
+// **起手那一格用 `Const` 装** ✗（不是 `Move` ✓）：`Move` 的第二个操作数是**槽** ✓，
+// 而 `undefinedConst` 是**常量池下标** ✓（写混了就是「slot out of range」✓——装载期就拦下 ✓）。
+const sendValue = this.Reserve(1);
+this.Emit(Op.Const, sendValue, undefinedConst, -1, -1);
 const start = this.Here();
 const context = this.EnterLoop(true, start);
-const pair = this.RtCall2(RtOp.IterNext, iteratorSlot, undefinedConst);
+// **两格都是槽** ✓，所以这里不能借 `RtCall2`（它的第二个参数是常量池下标 ✓）——
+// 手写窗口并把送值那一格也 `Move` 进去 ✓。
+const iterWindow = this.Reserve(2);
+this.Emit(Op.Move, iterWindow, iteratorSlot, -1, -1);
+this.Emit(Op.Move, iterWindow + 1, sendValue, -1, -1);
+const pair = this.Reserve(1);
+this.EmitRt(RtOp.IterNext, pair, iterWindow, 2);
+this.Release(pair + 1);
 const produced = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(0));
 // **抄写排在 `done` 那一判据之前** ✓（第 323 轮修的 ✗）：`done` 为真的那一趟
 // `pair[0]` 是**内层的返回值** ✓，它就是整个 `yield*` 表达式的值 ✓——
@@ -6577,6 +6599,9 @@ this.Emit(Op.JumpIfFalse, running, 0, -1, -1);
 this.Emit(Op.Suspend, produced, -1, -1, -1);
 const sentItem = this.Reserve(1);
 this.Emit(Op.Resume, sentItem, -1, -1, -1);
+// **收到的那一份就是下一轮要转发给内层的值** ✓（第 640 轮 ✓）——
+// 不抄的话 `sentItem` 是一个没人读的格 ✓，内层永远收到 `undefined` ✗。
+this.Emit(Op.Move, sendValue, sentItem, -1, -1);
 this.Emit(Op.Jump, -1, start, -1, -1);
 this.PatchTarget(exitIndex, this.Here());
 this.LeaveLoop(context);

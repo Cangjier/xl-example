@@ -281,19 +281,19 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-### 当前状态（第 639 轮实测）
+### 当前状态（第 640 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1501 / 1501 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1504 / 1504 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1101** 条用例，0 条不合格 |
-| `cases:tags` | **1101 条全部带期望**（2799 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:check` | **1102** 条用例，0 条不合格 |
+| `cases:tags` | **1102 条全部带期望**（2804 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1823 / 1826**：runtime / exec / stdlib 三层各 **100%**，e2e **183 / 186**；台账上 3 条（1 blocked + 2 differ） |
-| `npm run gates` | 上面七道一次跑完（实测墙钟 **~25s**） |
+| `coverage` | **1825 / 1826**：runtime / exec / stdlib 三层各 **100%**，e2e **185 / 186**；台账上 1 条（differ） |
+| `npm run gates` | 上面七道一次跑完（实测墙钟 **~28s**） |
 
 ### 口径与已知缺口
 
@@ -330,6 +330,11 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   所以 `cases:tsast` 是绿的（形状那一层已经对了，token 树那一层没动）。
   **被否决的改法**：把块当语句边界——切断了复合赋值的展开，**整段内容丢失**，比边界不合严重；
   不要再试。两条形状已经收进用例语料。
+- **对象字面量里三个「语句关键字」当成员名**（`{ if(): T {…} }` / `{ function(): T {…} }` /
+  `{ import(): T {…} }`）：其余三十来个保留字（`return` / `throw` / `delete` / `new` / `typeof` …）
+  第 640 轮已经修好并进了语料（[`expr-object-keyword-method-names.ts`](tests/parse/cases/expressions/expr-object-keyword-method-names.ts)），
+  这三个被更早的规则 / 解析期向导抢走，细节与「试过什么」见
+  [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
 
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）会在个别 JavaScript 专有形状上抛内部错误
 ——那是 JS 而不是 TypeScript，不在当前范围内。
