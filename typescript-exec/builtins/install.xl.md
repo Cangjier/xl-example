@@ -1382,6 +1382,16 @@ if (PropertyKeyId > highest) highest = PropertyKeyId;
 // **`SetFunctionNameId`**（第 755 轮）：同一条纪律——漏了它的症状是
 // `capability id is out of range: 715`（与上面那几格一模一样）。
 if (SetFunctionNameId > highest) highest = SetFunctionNameId;
+// **`console.group` / `groupCollapsed` / `groupEnd`**（第 763 轮，`globals.xl.md` 的
+// `ConsoleGroup` = `316` / `ConsoleGroupCollapsed` = `317` / `ConsoleGroupEnd` = `318`）：
+// 同一条纪律，**但这里是这三格唯一露头的地方**——它们是「脚本直接调」的普通内建，
+// 所以**不进** `helpers` 那张「降级层会发的号」的表（那一张是给 700 段的家务事用的）。
+// 漏登记的症状是 `capability id is out of range: 718`，而那句话从 `console.group`
+// 那一行冒出来（离「这一句没跟上」很远——第 210 / 229 / 699 / 750 轮各踩过一次同一个形状）。
+// **写的是号本身而不是常量名**：`globals.xl.md` 与这一份之间**没有常量级的依赖**
+//（`install` 只 import 它那边的函数），为一个格数往回牵一条 import 不划算；
+// 三格各自的名字与号在 `globals.xl.md` 那三段里，那一边才是它们的老家。
+if (318 > highest) highest = 318;
 if (GeneratorNextId > highest) highest = GeneratorNextId;
 // **`return` / `throw` 两格**（第 313 轮）：同一条纪律——漏了它们的症状是
 // `capability id is out of range: 711`（**三格一起加**：只加 `next` 那一格

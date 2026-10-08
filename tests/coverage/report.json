@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8209,
+  "total": 8216,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3239,
-      "pass": 3159,
+      "total": 3246,
+      "pass": 3166,
       "blocked": 25,
       "differ": 55,
       "nodefail": 0,
-      "coverage": 97.53
+      "coverage": 97.54
     },
     {
       "category": "e2e",
@@ -1859,7 +1859,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19380/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18596/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2141,7 +2141,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19380/src/5266.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18596/src/5266.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2165,7 +2165,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19380/src/5316.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18596/src/5316.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2398,7 +2398,7 @@
     {
       "id": "stdlib/round761/r761g-01-console-names-gap",
       "category": "stdlib",
-      "title": "`console` 上还缺的名字：`assert` / `trace` / `time` 那一族 / `group` 那一族",
+      "title": "`console` 上还缺的名字：`trace` / `time` 那一族 / 宿主接口面",
       "detail": "stdout 不同：第 2 行：node «assert function trace function» vs tsrun «assert function trace undefined»"
     },
     {

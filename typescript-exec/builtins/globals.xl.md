@@ -603,12 +603,47 @@ Node 的实测（判据 `stdlib/round761/r761f-01`）——**逐行**：
 - **走 stdout**（与 `log` 同一档），行文本是 `标签: 次数`。
 - **状态放在哪**：这一层**没有模块级可变量**（`InvokeGlobal` 手里只有 `protos`，见
   `Symbol.for` 那张注册表那一段的口径）——所以计数表**挂在 `console` 对象自己的隐藏属性上**。
-  接收者就是它（`console.count()` 的 `this` 是 `console`），而**不是**「随便哪儿的一个全局」：
-  规范里 `countMap` 长在那个 `Console` 实例上，本仓照这一条走。
+  **第 763 轮把它从「调用时的接收者」挪正**：Node 的 `countMap` 长在**模块级那个
+  `Console` 实例**上、**与 `this` 无关**——`const c = console.count; c("k")` 照样接着数
+  （判据 `stdlib/round763/r763c-01`），而按接收者存的那一版在解绑调用上**把数丢了**
+  （症状与「计数没做」一字不差）。取那个对象的助手是 `ConsoleGroupOwner`。
 - **为什么不做 `time` / `timeLog` / `timeEnd`**：它们印的是**墙钟毫秒**
   （`t: 0.008ms`），逐字节不可比 ⇒ 判据立不住，这一层不假装能复现它（**如实留着**）。
 
 # const ConsoleCountReset:int = 314
+
+# const ConsoleGroup:int = 316
+
+**`console.group(标签?)` / `console.groupCollapsed(标签?)` / `console.groupEnd()`**（第 763 轮）
+——这一族里**唯一会改「后面所有输出」**的一对半。
+
+**形状照 Node 实测写**（判据 `stdlib/round763`）：
+
+- `group(标签)`：**先按当前缩进**印那一行标签，再把缩进**加一级**；
+- `group()`：**什么都不印**，只加一级；
+- `groupEnd()`：缩进**减一级**（`0` 上再 `groupEnd()` 是**静默**的——Node 里不抛、
+  也不变成负数）；
+- `groupCollapsed(标签)`：在**这一层（非 TTY）**与 `group` **逐字节相同**
+  （折叠与否是终端的能力，重定向到管道里没有分别）——所以三格**共用同一份实现**。
+
+**缩进落在每一行上，不只 `log`**：`error` / `warn` / `info` / `debug` / `dir` /
+`dirxml` / `table` / `count` / `countReset` / `assert` **一起跟着缩进**
+（判据 `r763a-01` 的第 6 行量的是 `console.error`）。所以缩进**不能**写在某一支里面，
+要落在这一族**共用的那个出口**上（`ConsoleWriteLine`）。
+
+**标签那一行的渲染与 `log` 是同一份**：形参**不消耗** `%` 说明符
+（`console.group("%s-%d", 7)` 在 Node 里印 `7-%d`——与 `util.format` 那条怪口径一致），
+所以这一格直接走 `FormatConsoleLine`（同一件事不写第二份）。
+
+**状态放在哪**：与 `ConsoleCount` 同一条——**没有模块级可变量**，
+缩进挂在接收者自己的隐藏属性上（`ConsoleIndent` 读它）。
+
+**为什么三格三个号而不是一格**：`name` / `length` 是按号查的
+（`Object.keys(console)` 数得出来的**也是名字**）——三格各有各的名字。
+
+# const ConsoleGroupCollapsed:int = 317
+
+# const ConsoleGroupEnd:int = 318
 
 # const ParseInt:int = 303
 
@@ -4365,8 +4400,10 @@ if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === Con
   //（`%s` / `%d` / `%i` / `%f` / `%o` / `%O` 消耗实参、字符串原样、其余 `util.inspect`）——
   // 照抄一份就是第二份会漂的答案（第 307 / 312 / 320 轮各踩过一次同一个形状）。
   const line = FormatConsoleLine(table, room, call, protos, args);
-  if (!room(CodeUnitCharge * line.length)) throw new Error("out of room");
-  sink(line, channel);
+  // **出口收成 `ConsoleWriteLine`**（第 763 轮）：缩进那一格落在这一处，
+  // 所以这一族**十一支**（含 `count` / `assert`）一起跟着 `group` 动——
+  // 各写一句就是十一处会漂的答案。
+  ConsoleWriteLine(table, protos, room, self, sink, line, channel);
   return Value.Undefined();
 }
 if (id === ConsoleAssert) {
@@ -4397,24 +4434,34 @@ if (id === ConsoleAssert) {
     }
   }
   if (!room(CodeUnitCharge * line.length)) throw new Error("out of room");
-  sink(line, 1);
+  // **出口与 `log` 那一族同一处**（第 763 轮）：`group` 开着的时候
+  // `console.assert` 那一行也跟着缩进（Node 实测）。
+  ConsoleWriteLine(table, protos, room, self, sink, line, 1);
   return Value.Undefined();
 }
 if (id === ConsoleCount || id === ConsoleCountReset) {
   // **`console.count` / `console.countReset`**（第 761 轮）——这一族里**唯一有状态的一对**。
   // 形状与 Node 的实测（判据 `stdlib/round761`）写在 `ConsoleCount` 那一段里。
   //
-  // **计数表挂在接收者自己的隐藏属性上**：这一层没有模块级可变量
-  //（`InvokeGlobal` 手里只有 `protos`——与 `Symbol.for` 那张注册表同一个理由），
-  // 而规范里 `countMap` 本来就长在那个 `Console` 实例上，所以挂在 `self` 上**正好**。
+  // **计数表挂在 `console` 那个对象上**（**不是**调用时的接收者）——第 763 轮改的。
+  //
+  // **为什么改**：它与 `group` 那一族是**同一副面孔**。接收者那一版在第 763 轮的普查里
+  // 当场红了一格（`stdlib/round763/r763c-01`）：`const c = console.count; c("k"); c("k")`
+  // 在 Node 里印 `k: 1` / `k: 2`，本仓印 `k: 2` 之后**回到 `k: 1`**——
+  // 解绑调用时接收者是 `undefined`，两张表各建一份 ⇒ **数丢了**，
+  // 而症状与「计数没做」**一字不差**（**静默错值**，一句异常都没有）。
+  // `ConsoleGroupOwner` 那一段写着 Node 的实测口径：`indentLevel` / `countMap`
+  // 都长在**模块级那个 `Console` 实例**上、**与调用时的 `this` 无关**。
+  const counterOwner = ConsoleGroupOwner(protos, table, room, self);
   const countersKey = Value.FromString(table.CreateString(Units("__counts")));
   let counters: Value;
-  const foundCounters = self.IsObject() ? FindProperty(room, table, self.Ref, countersKey) : null;
+  const foundCounters = counterOwner.IsObject()
+    ? FindProperty(room, table, counterOwner.Ref, countersKey) : null;
   if (foundCounters === null) {
     counters = NewPlainObject(room, table, protos);
-    if (self.IsObject()) SetHiddenProperty(room, table, self, countersKey, counters);
+    if (counterOwner.IsObject()) SetHiddenProperty(room, table, counterOwner, countersKey, counters);
   } else {
-    counters = ReadProperty(call === null ? NeverCall : call, table, foundCounters, self);
+    counters = ReadProperty(call === null ? NeverCall : call, table, foundCounters, counterOwner);
   }
   // **标签缺省是 `"default"`**（`console.count()` 与 `console.count("default")` 同一个计数）。
   // 别的实参走 `ValueText`：JS 那一步是 `ToString(标签)`。
@@ -4438,7 +4485,38 @@ if (id === ConsoleCount || id === ConsoleCountReset) {
   // **走 stdout**（与 `log` 同一档），行文本是 `标签: 次数`。
   const counted = label + ": " + NumberToHostText(next);
   if (!room(CodeUnitCharge * counted.length)) throw new Error("out of room");
-  sink(counted, 0);
+  ConsoleWriteLine(table, protos, room, counterOwner, sink, counted, 0);
+  return Value.Undefined();
+}
+if (id === ConsoleGroup || id === ConsoleGroupCollapsed || id === ConsoleGroupEnd) {
+  // **`console.group` / `groupCollapsed` / `groupEnd`**（第 763 轮）——
+  // 形状、为什么三格共用一份实现、缩进落在哪一处，都写在 `ConsoleGroup` 那一段里。
+  //
+  // **状态挂在 `console` 那个对象上**（不是调用时的接收者）：`ConsoleGroupOwner` 那一段
+  // 写着这一格为什么（**解绑调用也照样进一级**——Node 实测，判据 `r763b-01`）。
+  // 缩进那一趟与它读写的是**同一个** holder（`ConsoleWriteLine` 收的就是它）。
+  const holder = ConsoleGroupOwner(protos, table, room, self);
+  const indentKey = Value.FromString(table.CreateString(Units("__indent")));
+  if (id === ConsoleGroupEnd) {
+    // **减一级、到 0 就停**（Node 里 `0` 上再 `groupEnd()` 是**静默**的：不抛、也不变成负数）。
+    const depth = ConsoleIndent(table, protos, room, holder);
+    if (depth > 0 && holder.IsObject()) {
+      SetHiddenProperty(room, table, holder, indentKey, Value.FromInt(depth - 1));
+    }
+    return Value.Undefined();
+  }
+  // **`group` / `groupCollapsed`：先印标签那一行（按当前缩进），再进一级。**
+  // **没有标签时什么都不印**（`console.group()` 在 Node 里就是只进一级）——
+  // 这一句是实测的：`console.group(); console.log("C")` 印的是两格空格的 `C`，
+  // 那一行**没有自己的标签行**。
+  if (args.length > 0) {
+    const label = FormatConsoleLine(table, room, call, protos, args);
+    ConsoleWriteLine(table, protos, room, holder, sink, label, 0);
+  }
+  const nextDepth = ConsoleIndent(table, protos, room, holder) + 1;
+  if (holder.IsObject()) {
+    SetHiddenProperty(room, table, holder, indentKey, Value.FromInt(nextDepth));
+  }
   return Value.Undefined();
 }
 if (id === ObjectAssign) {
@@ -7997,6 +8075,79 @@ for (let k = used; k < args.length; k++) line = line + " " + renderArg(args[k]);
 return line;
 ```
 
+# method ConsoleIndent:(table:HeapTable, protos:Protos, room:RoomChecker, self:Value)=>int
+
+**接收者上那一格缩进**（第 763 轮）——`console.group` / `groupEnd` 那一族的状态。
+
+**为什么是「接收者上的隐藏属性」**：与 `ConsoleCount` 的 `__counts` **一字不差**的理由
+——`InvokeGlobal` 手里只有 `protos`、**没有模块级可变量**，而规范里那一格（`indentLevel`）
+本来就长在 `Console` 实例上。常量名 `__indent` 与 `__counts` 同一条口径（宿主内部件，
+`Object.keys(console)` 看不见它）。
+
+**读不到就是 `0`**：从没 `group` 过的 `console` 与非对象接收者都走这一档，**不抛**
+（JS 里那两处一样是 0 级缩进）。
+
+```ts
+const key = Value.FromString(table.CreateString(Units("__indent")));
+if (!self.IsObject()) return 0;
+const found = FindProperty(room, table, self.Ref, key);
+if (found === null) return 0;
+const held = ReadProperty(NeverCall, table, found, self);
+if (!held.IsNumber()) return 0;
+const depth = held.AsInt();
+return depth > 0 ? depth : 0;
+```
+
+# method ConsoleGroupOwner:(protos:Protos, table:HeapTable, room:RoomChecker, fallback:Value)=>Value
+
+**`group` 那一族把缩进状态写在谁身上**（第 763 轮）——**`console` 那个对象自己**。
+
+**为什么不是调用时的接收者（`self`）**：**实测撞到的一格**——
+`const g = console.group; g("x")` 在 Node 里**照样进一级**（紧接着的 `console.log`
+印两格空格），也就是说 Node 的 `indentLevel` 长在**模块级那个 `Console` 实例**上、
+**与调用时的接收者无关**（解绑调用时 `this` 是 `undefined` / `module.exports`，它根本不看）。
+判据 `r763b-01` 第 3 行量到的就是这一格：按接收者存的那一版给的是**不缩进**。
+
+**怎么拿到它**：`protos.Global` 上那一格 `console` 与 `BuildGlobals` 挂上去的是
+**同一个对象**（`globals.xl.md` 尾部那一句 `SetHiddenProperty(…, globals, consoleKey, consoleObject)`），
+所以按名字取一次就是它——**一条全局属性查找**，不做第二次近似。
+
+**`fallback` 什么时候用得上**：全局那一格还没挂（重入 / 半装载）或它不是对象时，
+退回调用者给的接收者——**不静默丢状态**。
+
+```ts
+const consoleKey = Value.FromString(table.CreateString(Units("console")));
+const owner = GetProperty(room, NeverCall, protos, table, Value.FromRef(ValueTag.Object, protos.Global), consoleKey);
+if (owner.IsObject()) return owner;
+return fallback;
+```
+
+# method ConsoleWriteLine:(table:HeapTable, protos:Protos, room:RoomChecker, self:Value, sink:LogSink, text:string, channel:int)=>void
+
+**这一族的共用出口**（第 763 轮）：**缩进 + 一次调用一行**。
+
+**为什么必须是一处**：`console.group` 的缩进**落在每一行上**——`log` / `error` / `warn` /
+`info` / `debug` / `dir` / `dirxml` / `table` / `count` / `countReset` / `assert`
+**十一支**都要跟着缩进（Node 实测：`console.group("g"); console.error("E")` 印两格空格 + `E`）。
+在每一支里各写一句 `ConsoleIndent` 就是**十一处会漂的答案**（第 307 / 312 / 320 轮
+各踩过一次同一个形状），所以出口收成一格。
+
+**缩进是 `2` 个空格一级**（Node 实测：一级两格、两级四格），**原始文本一行都不动**。
+
+```ts
+const depth = ConsoleIndent(table, protos, room, self);
+let line = text;
+if (depth > 0) {
+  let pad = "";
+  for (let i = 0; i < depth; i++) pad = pad + "  ";
+  if (!room(CodeUnitCharge * (pad.length + text.length))) throw new Error("out of room");
+  line = pad + text;
+} else if (!room(CodeUnitCharge * text.length)) {
+  throw new Error("out of room");
+}
+sink(line, channel);
+```
+
 # method BuiltinHostRef:(vm:Vm, id:int)=>Value
 
 **内建号 → 那个「有身份」的宿主引用值**（第 733 轮）。
@@ -8079,7 +8230,10 @@ if (id === MathRandom) return 0;
 // **`log` 也在这一列**：它是第 131 轮就挂上的那一格，名字与长度一直空着。
 if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === ConsoleInfo
   || id === ConsoleDebug || id === ConsoleDir || id === ConsoleDirxml || id === ConsoleTable
-  || id === ConsoleCount || id === ConsoleCountReset || id === ConsoleAssert) {
+  || id === ConsoleCount || id === ConsoleCountReset || id === ConsoleAssert
+  // **第 763 轮那三格也在这一列**：`console.group.length` / `.groupEnd.length` /
+  // `.groupCollapsed.length` 在 Node 里**都是 `0`**（实测，判据 `r763a-01` 最后一行）。
+  || id === ConsoleGroup || id === ConsoleGroupCollapsed || id === ConsoleGroupEnd) {
   return 0;
 }
 // **`Object.prototype` 那四格老辅助**（Annex B）：`__lookupGetter__(键)` 一格。
@@ -8348,6 +8502,14 @@ consoleRestNames.push("count");
 consoleRestIds.push(ConsoleCount);
 consoleRestNames.push("countReset");
 consoleRestIds.push(ConsoleCountReset);
+// **第 763 轮：`group` 那一族三格**——同一条路（同名同号的表、同一个 `SetProperty`），
+// 实现不同（`InvokeGlobal` 里那一支自己分派）。**缩进状态**也在那一支里。
+consoleRestNames.push("group");
+consoleRestIds.push(ConsoleGroup);
+consoleRestNames.push("groupCollapsed");
+consoleRestIds.push(ConsoleGroupCollapsed);
+consoleRestNames.push("groupEnd");
+consoleRestIds.push(ConsoleGroupEnd);
 for (let i = 0; i < consoleRestNames.length; i++) {
   const restKey = Value.FromString(table.CreateString(Units(consoleRestNames[i])));
   const restTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(consoleRestIds[i], 0));
