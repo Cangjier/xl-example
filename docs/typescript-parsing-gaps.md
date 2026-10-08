@@ -54,6 +54,10 @@
   少了这条，JSX 闭合标签 `</div>` 里的 `/` 会把文件余下内容整段吃掉。
 - **字符串起点有三种引号**（`"` / `'` / `` ` ``，见 `parse-pipeline.xl.md` 的 `ExtendStringStarts`）：
   少了单引号 / 反引号，`import … from './x'` 里的 `/` 会被正则词法接手。
+- **`typeof` 的操作数只到名字为止**（TS 的 EntityName）：类型位那条规则排在方括号之前，
+  照面会把 `a[K]` 先收成一个单元 ⇒ `typeof` 吞下整段。所以方括号那一侧要让一趟
+  （`type-bracket.xl.md` 的 `IsTypeQueryOperand`），让 `typeof 名字` 先成形。
+  `keyof a[K]` 是**反例**（`[]` 绑得更紧），只有 `typeof` 在这个名单里。
 - **语言配置带来的差异不是缺陷**：`\a` 解成响铃字符而不是字母 `a`；
   `@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器。
 
@@ -76,23 +80,14 @@
 
 ## 已知仍开着的缺口
 
-第 666 轮普查（209 条片段探针 + 12 条装饰器专探）量出 11 条真缺口，收掉 9 条，**还剩 2 条**，
-都在 `tmp/` 那种一次一条的小片段里，**不在语料里**——所以 `npm run gates` 是绿的：
+三点，都是**小片段探针**量出来的、**不在语料里**——所以 `npm run gates` 是绿的：
 
 | 形状 | 症状 |
 | --- | --- |
-| `type A = typeof a[K]` | 嵌套次序反了：产物是 `TypeQuery > IndexedAccessType`，TS 是 `IndexedAccessType > TypeQuery`。原因是 `typeof` 的操作数在 TS 语法里是 **EntityName**（只到 `a`），而本仓取的是「右边那一格单元」——`[K]` 先成形就被整个吞进去。`keyof T[]` 恰好相反（`[]` 绑得更紧），两族不能靠调规则次序一起解决 |
-| `switch (a) { /*a*/ case 1: /*b*/ break; /*c*/ }` | 体里在 `case` 前面夹注释时，那个 `case` 词没有被段头吃掉、留在了 `SwitchCase` 里（投成 `Identifier`），且 `break;` 那条 `Statement` 少一格（区间 38 vs 39） |
+| `type A = typeof a.b[K]` | 点号名那一支：产物是 `TypeQuery` 吞下整个 `a.b[K]`，TS 是 `IndexedAccessType > TypeQuery > QualifiedName(a.b)`。**不带点号的** `typeof a[K]` / `typeof a[]` / `typeof a[K][L]` 第 667 轮已经收掉（`TypeBracketCloseRule` 认出「`typeof` 的操作数」就让一趟，让 `TypePrefixCloseRule` 先把 `typeof 名字` 收成 `TypeQuery`）——点号名那一支多一层「`.b` 在产物里是平级单元」的既有口径，投影要跟着拼 |
+| `switch (1) { case 1: { break; } default: break; }` | 语句层把 `default:` 那一截并进了**同一个 `Statement` 壳**，而 `switch` 的分段是在体括号的**顶层单元**上找 `case` / `default`（`switch.xl.md` 的 `SegmentWordOf`）——壳只有一个，于是只有一段，`default` 整条落进前一段的 `SwitchStatement`。**换行写法是好的**，所以只有单行 / 压缩过的代码中招。同族的那条「块后面紧跟着表达式」在 [README](../README.md) 的「开着的缺口」里，改法已被否决过（块当语句边界会切断复合赋值的展开），这一条要修得先能区分「块 + `case`」与「块 + 操作数」 |
+| `const a = f<string>;` | **泛型实例化表达式**（TS 4.7）没有规则：产物是 `BinaryExpression(f < string)`，TS 是 `ExpressionWithTypeArguments`。要新增一条规则，并且它只在**值位、且 `<` 能被实参段闭合**时成立——与泛型调用 `f<string>(1)` 的区分点在右括号之后那一格 |
 
-更早的一条仍然开着（同上一节的口径）：
-
-- **`switch` 体里同一行写完一个块，后面再跟 `case` / `default`**：
-  `switch (1) { case 1: { break; } default: break; }`。语句层把 `default:` 那一截并进了
-  **同一个 `Statement` 壳**，而 `switch` 的分段是在体括号的**顶层单元**上找 `case` / `default`
-  （`switch.xl.md` 的 `SegmentWordOf`）——壳只有一个，于是只有一段，`default` 整条落进前一段的
-  `SwitchStatement`。**换行写法是好的**，所以只有单行 / 压缩过的代码中招。
-  同族的那条「块后面紧跟着表达式」在 [README](../README.md) 的「开着的缺口」里，改法已被否决过
-  （块当语句边界会切断复合赋值的展开），这一条要修得先能区分「块 + `case`」与「块 + 操作数」。
 修好的形状不在这里留名（在 git 历史与用例里），只有一条经验值得留着：
 **先探这一类「同族的第三条」**——`do` 的体自带分号那一族、循环头部括号里出现 `)`、
 括号 / 一次调用当被调用者时的可选链、注释夹在语法相邻位置之间，都是这么一条一条量出来的。

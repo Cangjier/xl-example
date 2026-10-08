@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { CommentsIn, SkipNextTrivia } from "../../text-common-util.xl.md"
+import { CommentsIn, SkipNextTrivia, IsTriviaUnit } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -181,8 +181,22 @@ for (let m = 0; m < markers.length; m++) {
   const list: Array<Token> = inner !== null ? inner : data;
   const begin = inner !== null ? 0 : from;
   const limit = inner !== null ? inner.length : to;
+  // **段头那个词未必在 `begin` 那一格**（第 667 轮）：壳里可以**先有一条注释**
+  //（`switch (a) { /*a*/ case 1: break; }` 实测壳的 `Data` 是
+  // `[AreaAnnotation, case, 1, :, break]`）——`SegmentWordOf` 认壳时已经跳过了它，
+  // 可切段这一侧照 `begin` 起算 ⇒ 那条注释被当成段头词、`case` 与 `1` 一起进了匹配表达式
+  //（实测 `SwitchCase` 里多一个 `Keyword(case)`、少一个 `LiteralType`），
+  // 注释本身也**整条丢掉**（段头之前的那一格没人收）。
+  // 所以这里把「段头词在第几格」单独算出来，后面每一处都从它起算。
+  let headAt = begin;
+  while (headAt < limit) {
+    if (IsTriviaUnit(list[headAt]) === false) {
+      break;
+    }
+    headAt = headAt + 1;
+  }
   let colonIndex = limit;
-  for (let i = begin + 1; i < limit; i++) {
+  for (let i = headAt + 1; i < limit; i++) {
     const item = list[i];
     if (item instanceof SymbolToken && item.Is(":")) {
       colonIndex = i;
@@ -194,12 +208,12 @@ for (let m = 0; m < markers.length; m++) {
   if (colonIndex < limit && list[colonIndex].SourceRange.Start !== null) {
     segment.ColonPos = list[colonIndex].SourceRange.Start!.Index;
   }
-  if (key === "case" && colonIndex > begin + 1) {
+  if (key === "case" && colonIndex > headAt + 1) {
     const caseUnit = segment.CreateCase();
-    for (let i = begin + 1; i < colonIndex; i++) {
+    for (let i = headAt + 1; i < colonIndex; i++) {
       caseUnit.Add(list[i]);
     }
-    caseUnit.SignIn(list[begin + 1].SourceRange.Start!);
+    caseUnit.SignIn(list[headAt + 1].SourceRange.Start!);
     caseUnit.SignOut(list[colonIndex - 1].SourceRange.End!);
     caseUnit.TryToClose();
   }
@@ -269,15 +283,22 @@ for (let m = 0; m < markers.length; m++) {
     // 判据是「**段头壳的终点越过了它自己最后一个子单元**」 ——越过去的那一截就是它吞下的终结符。
     // 只补**最后一条**语句，而且只在它确实还没到那儿时补：
     // `case 1: a(); break;` 里 `break;` 已经是平级的一条壳、终点本来就在壳之内 ⇒ 不动。
+    //
+    // **「最后一条」要按终点找，不是按位置找**（第 667 轮）：段头壳后面可能还跟着**只装注释**的壳
+    //（`case 1: break; /*c*/ }` 实测体的 `Data` 末尾就是这样一条，它的终点 32 比壳的 26 还远），
+    // 照位置取末尾那一格就补不到真正吞下 `;` 的那一条 —— 症状是体内那条 `BreakStatement`
+    // 比 TS 短一格（实测 `[21,25]` vs TS 的 `[21,27)`）。所以**从末尾往前找第一条终点在壳之内的**。
     if (inner !== null && head.SourceRange.End !== null) {
       const bodyEnd = head.SourceRange.End;
-      const tail = statement.Data[statement.Data.length - 1];
-      if (
-        tail !== undefined &&
-        tail.SourceRange.End !== null &&
-        tail.SourceRange.End!.Index < bodyEnd.Index
-      ) {
-        tail.SourceRange.End = bodyEnd;
+      for (let i = statement.Data.length - 1; i >= 0; i--) {
+        const tail = statement.Data[i];
+        if (tail.SourceRange.End === null) {
+          continue;
+        }
+        if (tail.SourceRange.End!.Index < bodyEnd.Index) {
+          tail.SourceRange.End = bodyEnd;
+          break;
+        }
       }
     }
   }

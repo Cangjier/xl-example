@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipPreviousWrapSymbol, IsTypeContainerUnit, IsEmptyContentUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit } from "../text-common-util.xl.md"
+import { SkipPreviousWrapSymbol, IsTypeContainerUnit, IsEmptyContentUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit, IsTriviaUnit, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
@@ -56,6 +56,65 @@ if (name !== "ArrayType" && name !== "TupleType" && name !== "IndexedAccessType"
 return IsOwnContentRange(units, startIndex, endIndex);
 ```
 
+## private method IsTypeQueryOperand:(units:Array<Token>, index:int)=>bool
+
+`index` 处那个方括号的**被操作者**是不是一个 `typeof` 的操作数（`typeof 名字 [` / `typeof 名字 []` /
+`typeof 名字 [K][L]`）。
+
+**为什么方括号要让这一步**：TypeScript 里 `typeof` 后面跟的是 **EntityName**——只到名字为止，
+所以 `typeof a[K]` 是 `(typeof a)[K]`、`typeof a[]` 是 `(typeof a)[]`；可本仓的方括号规则
+排在类型运算符**前面**（`../parse-pipeline.xl.md` 里那个次序），照面就把 `a[K]` 先收成
+`IndexedAccessType`，`typeof` 接着把整个节点吞下去 ⇒ 产物是 `TypeQuery[typeof a[K]]`，
+而 TS 是 `IndexedAccessType > TypeQuery`。
+
+所以认出这个形状时这里返回真、`Previous` 给否：同一趟里排在后面的
+`TypePrefixCloseRule` 先把 `typeof 名字` 收成 `TypeQuery`，收敛环的下一趟方括号才认那个 `TypeQuery`。
+**连续的方括号要一起让**（`typeof a[K][L]`）：`[L]` 紧邻的被操作者是 `[K]` 那个还没收的括号，
+所以要沿着「括号链」往回走，走到名字那一格再问它左边是不是 `typeof`。
+
+**只管 `typeof`**：`keyof a[K]` 恰好相反（`[]` 绑得比 `keyof` 紧，TS 是
+`TypeOperator(keyof, IndexedAccessType(a[K]))`），`readonly` / `unique` 也不是名字操作数。
+
+```ts
+let at = index;
+for (let step = 0; step < 16; step++) {
+  const previousIndex = SkipPreviousWrapSymbol(units, at);
+  const previous = Get(units, previousIndex);
+  if (previous === null) {
+    return false;
+  }
+  if (previous instanceof Bracket && previous.startBracket === "[") {
+    at = previousIndex;
+    continue;
+  }
+  if (IsTriviaUnit(previous)) {
+    at = previousIndex;
+    continue;
+  }
+  const name = previous.constructor.name;
+  if (name !== "Identifier" && name !== "Keyword") {
+    return false;
+  }
+  let wordIndex = previousIndex;
+  for (let inner = 0; inner < 8; inner++) {
+    wordIndex = SkipPreviousWrapSymbol(units, wordIndex);
+    const word = Get(units, wordIndex);
+    if (word === null) {
+      return false;
+    }
+    if (IsTriviaUnit(word)) {
+      continue;
+    }
+    if (WordText(word) !== "typeof") {
+      return false;
+    }
+    return IsTypeMemberStart(word) === false;
+  }
+  return false;
+}
+return false;
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点。
@@ -85,6 +144,11 @@ if (IsTypeContainerUnit(current.Parent) === false) {
   return false;
 }
 if (IsTypeMemberStart(current)) {
+  return false;
+}
+// **`typeof a[K]` / `typeof a[]` 让给 `TypePrefixCloseRule`**（见 `IsTypeQueryOperand`）：
+// 那个名字是 `typeof` 的 EntityName 操作数，方括号比它松。
+if (this.IsTypeQueryOperand(units, index)) {
   return false;
 }
 return true;

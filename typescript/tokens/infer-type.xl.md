@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, WordText, IsTypeContainerUnit } from "../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipNextTrivia, WordText, IsTypeContainerUnit } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -87,8 +87,13 @@ return false;
 `index` 处是不是一个 `infer` 的开头。
 
 三条：是 `infer` 这个词；**容器**是纯类型容器（`TypeDefine` / `TypeAssign` / `TypeParameter` /
-`GenericType` / `TypeOperator` … 都在白名单里）；后面（跳软换行）紧跟一个 `Identifier` 名字
+`GenericType` / `TypeOperator` … 都在白名单里）；后面（跨过 trivia）紧跟一个 `Identifier` 名字
 ——`infer` 后面没有名字就不是推断类型（`infer` 也可能只是别处的标识符）。
+
+**跳的是 trivia 而不是软换行**（第 667 轮）：`infer /*c*/ U` 里的注释夹在语法相邻的两格之间，
+只跳软换行时下一格是那条注释 ⇒ 判否 ⇒ 整个 `InferType` 不成形（实测这一段落成
+`TypeReference(infer)` + `TypeReference(U)`，TS 那边是 `InferType > TypeParameter > U`）。
+`SkipNextTrivia` 是「下一个实义单元」的统一口径，与 `Statement` 那几处同一做法。
 
 ```ts
 const current = Get(units, index);
@@ -98,7 +103,7 @@ if (this.IsInferWord(current) === false) {
 if (current === null || IsTypeContainerUnit(current.Parent) === false) {
   return false;
 }
-return Get(units, SkipNextWrapSymbol(units, index)) instanceof Identifier;
+return Get(units, SkipNextTrivia(units, index)) instanceof Identifier;
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
@@ -118,7 +123,7 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("InferTypeCloseRule.Process: current is null");
 }
-const nameIndex = SkipNextWrapSymbol(units, index);
+const nameIndex = SkipNextTrivia(units, index);
 const name = Get(units, nameIndex);
 if (name === null) {
   throw new Error("InferTypeCloseRule.Process: name is null");
@@ -126,13 +131,13 @@ if (name === null) {
 // 约束段：`extends` 之后一路吃到边界（没有 `extends` 时就只有名字）
 const parts: Token[] = [name];
 let endIndex = nameIndex;
-const extendsIndex = SkipNextWrapSymbol(units, nameIndex);
+const extendsIndex = SkipNextTrivia(units, nameIndex);
 const extendsUnit = Get(units, extendsIndex);
 if (extendsUnit !== null && WordText(extendsUnit) === "extends") {
   // 先把候选约束段扫出来，**收不收**由下面那条判据决定。
   const constraintParts: Token[] = [];
   let constraintEnd = extendsIndex;
-  for (let i = SkipNextWrapSymbol(units, extendsIndex); i < units.length; i++) {
+  for (let i = SkipNextTrivia(units, extendsIndex); i < units.length; i++) {
     const item = Get(units, i);
     if (item === null || this.IsConstraintStop(item)) {
       break;
