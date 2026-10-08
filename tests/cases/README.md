@@ -77,17 +77,31 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **3958** 条（token 1415 / exec 643 / runtime 614 / stdlib 1053 / e2e 246）。
+语料 **3992** 条（token 1415 / exec 645 / runtime 632 / stdlib 1067 / e2e 246）。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1402 | **1182** | 220 | 缺的那 220 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 643 | **629** | 1 / 13 | 另有 1 条不进分母 |
-| `runtime` | 614 | **613** | 1 / 0 | |
-| `stdlib` | 1053 | **1003** | 18 / 32 | |
+| `exec` | 645 | **631** | 1 / 13 | 另有 1 条不进分母 |
+| `runtime` | 632 | **628** | 1 / 3 | |
+| `stdlib` | 1067 | **1014** | 19 / 34 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **3958** | **3669** | 244 / 45 | 加权 **95.9%** |
+| **合计** | **3992** | **3697** | 245 / 50 | 加权 **95.7%** |
+
+**第 691 轮（其三）再加 34 条**：这一批问的是**微任务次序 / 生成器清理 /
+迭代中改集合 / 属性查询的边角**，收掉两处**直接崩**的：
+
+1. `o.propertyIsEnumerable(符号)` 与 `o.hasOwnProperty(符号)` 原来**整份脚本挂掉**
+   （`cannot convert a Symbol value to a string`——键先过了一趟 `ToString`，
+   而符号本来就该**按身份**问）；
+2. `Object.prototype.hasOwnProperty.call(null, "x")` 原来答**假**，
+   JS 在这一步 `RequireObjectCoercible` ⇒ `TypeError`。
+
+另登记五族新缺口（`differ` +5、`blocked` +1）：`await` 一个 thenable 不调它的 `then`、
+`for...of` 遍历 `Map` / `Set` 时不是**活视图**（与 `stdlib/map-set/110` 同一条根）、
+`concat` 不认 `Symbol.isConcatSpreadable`、数组子类不走 `Symbol.species`、
+`replace` 的函数形式要正则字面量（`RegExp` 那一族）。
 
 **第 691 轮（其二）又加了 25 条**，钉的是**属性描述符那一族**与几处新角落——
 这一批**同时**把上一批登记的四处缺口收掉了（所以 `differ` 只从 43 涨到 45）：

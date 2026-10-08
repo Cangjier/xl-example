@@ -90,6 +90,11 @@
    `ValidateAndApplyPropertyDescriptor` 那一段（含「没写的字段 = 不改」、
    「不可扩展上新建一格抛」）、`console.log` 的格式说明符、`sort` 把 `undefined`
    与洞排到最后；另把 `stdlib/object/116` 那条**量错了**的台账翻了过来。
+   **同一轮的第三批**（又 34 份新语料、问微任务次序 / 生成器清理 / 迭代中改集合 /
+   属性查询）：通过 **3669 → 3697**、分母 **3958 → 3992**、`blocked 244 → 245`、
+   `differ 45 → 50`、`bad` 0、`regressions` 0——收掉两处**直接崩**的
+   （`propertyIsEnumerable(符号)` 与 `hasOwnProperty(符号)` 整份脚本挂掉；
+   `hasOwnProperty.call(null, …)` 该抛而答了假），另登记五族新缺口。
    （`tests/cases/package.json` 那一份是给「直接 `node <用例>.ts`」用的，实测改它**不影响**读数
    ——判据跑的是 `.work-<pid>/src/` 里现写的那一份。）
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
@@ -125,7 +130,7 @@ node tests/coverage/run.mjs --no-batch           # 一条一个进程（权威�
 node tests/coverage/run.mjs --emit-ledger        # 按现状打一份台账骨架（给人改，写进用例文件头）
 ```
 
-全矩阵实测墙钟 **~26s**（16 核；第 691 轮加宽到 3958 条之后量到的数）。
+全矩阵实测墙钟 **~27s**（16 核；第 691 轮加宽到 3992 条之后量到的数）。
 
 ## 三条纪律
 

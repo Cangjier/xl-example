@@ -2754,9 +2754,18 @@ if (id === ObjectHasOwnProperty) {
   // 与 `in` 的差别就是这一条，所以两处**不能互相顶替**。
   // **不能用 `FindProperty`**：那一位是**沿链找**（`props.xl.md`）——正是这里要**排除**的那一半。
   if (args.length < 1) return Value.FromBool(false);
+  // **`null` / `undefined` 要抛**（第 691 轮，与 `Object.hasOwn` 那一支同一句话）：
+  // JS 在这一步先做 `RequireObjectCoercible`——
+  // `Object.prototype.hasOwnProperty.call(null, "x")` 给
+  // `TypeError: Cannot convert undefined or null to object`，本仓原来答**假**。
+  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+    throw new TypeError("Cannot convert undefined or null to object");
+  }
   if (self.Tag !== ValueTag.Object && self.Tag !== ValueTag.Array) return Value.FromBool(false);
   // **非字符串的键先过 `ToString`**（JS 的 `ToPropertyKey`）：`o.hasOwnProperty(1)` 是通的。
-  const askedKey = args[0].Tag === ValueTag.String
+  // **符号键不走这一趟**（第 691 轮）：`TextFrom` 对符号抛，而那正是「整份脚本挂掉」；
+  // 符号键本来就该**按身份**问（`KeyMatches` 那条路）。
+  const askedKey = args[0].Tag === ValueTag.String || args[0].Tag === ValueTag.Symbol
     ? args[0]
     : Value.FromString(table.CreateString(Units(TextFrom(table, args[0]))));
   const ownProps = table.Get(self.Ref).Props;
@@ -2780,6 +2789,15 @@ if (id === ObjectHasOwn || id === ObjectPropertyIsEnumerable) {
   const ownAsked = hasOwnMode
     ? (args.length > 1 ? args[1] : Value.Undefined())
     : (args.length > 0 ? args[0] : Value.Undefined());
+  // **`null` / `undefined` 那一档要抛**（第 691 轮，普查当场量到的）：
+  // 下面那条「不是对象 ⇒ 假」的挡板**把它们也当成「假」了**——
+  // 而 JS 的 `RequireObjectCoercible` 在这一步就抛
+  //（`Object.prototype.hasOwnProperty.call(null, "x")` 给
+  // `TypeError: Cannot convert undefined or null to object`，判据 `object-hasown-and-propertyisenumerable`）。
+  // **只有这两档抛**：数字 / 布尔 / 符号走装箱、字符串有下标属性，都答真或假。
+  if (ownReceiver.Tag === ValueTag.Null || ownReceiver.Tag === ValueTag.Undefined) {
+    throw new TypeError("Cannot convert undefined or null to object");
+  }
   // **原始值里只有字符串有自有属性**：`Object.hasOwn("ab", 0)` 在 JS 里是**真**
   //（字符串的每一个码元下标都是自有属性），而数字 / 布尔 / `null` / `undefined` 一律**假**
   //（JS 把它们装箱之后也没有自有属性——`Object.hasOwn(1, "x")` 是假、不抛）。
@@ -2792,16 +2810,26 @@ if (id === ObjectHasOwn || id === ObjectPropertyIsEnumerable) {
   }
   // **键先过一趟 `ToPropertyKey`**（`TextFrom` 就是那一趟）：`Object.hasOwn([1], 0)` 是**真**
   //（数字键与下标键是同一格——`hasOwnProperty` 那一支同一句话）。
-  const ownKeyText = TextFrom(table, ownAsked);
+  //
+  // **符号键不走这一趟**（第 691 轮，普查当场撞到的）：`TextFrom` 对符号**响亮地抛**
+  //（`cannot convert a Symbol value to a string`），于是
+  // `o.propertyIsEnumerable(某个符号)` **整份脚本挂掉**——而 JS 里它答真 / 假。
+  // 符号键本来就该**按身份**问（`KeyMatches` 那条路），所以这里只是**别把它转成文本**：
+  // 交给 `getOwnPropertyDescriptor` 的那一格原样是**符号值**
+  //（第 680 轮起它收符号，见 `ObjectDefineProperty` 那一处的账）。
+  const symbolicOwnKey = ownAsked.Tag === ValueTag.Symbol;
+  const ownKeyText = symbolicOwnKey ? "" : TextFrom(table, ownAsked);
   // **函数上的 `length` / `name` 是唯一手工认的一档**：它们**不住在属性表里**
   //（`getOwnPropertyDescriptor` 那一支对函数**响亮地抛**，同一句话在那边写着）。
   // JS 里这两格是**自有、不可枚举** ⇒ `hasOwn` 真、`propertyIsEnumerable` 假。
-  if ((ownReceiver.Tag === ValueTag.Function || ownReceiver.Tag === ValueTag.Closure)
+  if (!symbolicOwnKey
+    && (ownReceiver.Tag === ValueTag.Function || ownReceiver.Tag === ValueTag.Closure)
     && (ownKeyText === "length" || ownKeyText === "name")) {
     return Value.FromBool(hasOwnMode);
   }
+  const ownKeyValue = symbolicOwnKey ? ownAsked : Value.FromString(table.CreateString(Units(ownKeyText)));
   const ownDescriptor = InvokeGlobal(room, call, table, protos, ObjectGetOwnPropertyDescriptor,
-    ownReceiver, [ownReceiver, Value.FromString(table.CreateString(Units(ownKeyText)))],
+    ownReceiver, [ownReceiver, ownKeyValue],
     sink, failed, false);
   // **「不是自有属性」= 那一支给 `undefined`**（洞、越界、继承来的 全是这一档）。
   if (ownDescriptor.IsNullish()) return Value.FromBool(false);

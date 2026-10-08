@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 3958,
+  "total": 3992,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.87,
+  "progressPercent": 95.71,
   "categories": [
     {
       "category": "token",
@@ -90,32 +90,32 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 643,
-      "pass": 629,
+      "total": 645,
+      "pass": 631,
       "blocked": 1,
       "differ": 13,
       "nodefail": 0,
-      "coverage": 97.82
+      "coverage": 97.83
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 614,
-      "pass": 613,
+      "total": 632,
+      "pass": 628,
       "blocked": 1,
-      "differ": 0,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 99.84
+      "coverage": 99.37
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1053,
-      "pass": 1003,
-      "blocked": 18,
-      "differ": 32,
+      "total": 1067,
+      "pass": 1014,
+      "blocked": 19,
+      "differ": 34,
       "nodefail": 0,
-      "coverage": 95.25
+      "coverage": 95.03
     },
     {
       "category": "e2e",
@@ -1578,6 +1578,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
+      "id": "stdlib/string/167-string-replace-function",
+      "category": "stdlib",
+      "title": "`replace` 的函数形式拿到的实参表",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
       "id": "e2e/scenarios/181-string-matchall-and-index",
       "category": "e2e",
       "title": "端到端：matchAll + lastIndex + 命名捕获组",
@@ -1682,6 +1688,24 @@
       "detail": "stdout 不同：第 3 行：node «target true» vs tsrun «target false»"
     },
     {
+      "id": "runtime/async/041-await-thenable",
+      "category": "runtime",
+      "title": "`await` 一个 thenable 对象（不是 Promise）",
+      "detail": "stdout 不同：第 2 行：node «then called» vs tsrun «got { then: [Function: then] }»"
+    },
+    {
+      "id": "runtime/iterators/039-map-mutation-during-forof",
+      "category": "runtime",
+      "title": "`for...of` 遍历 Map 时删除 / 追加",
+      "detail": "stdout 不同：第 1 行：node «a,b,d 3» vs tsrun «a,b,c 3»"
+    },
+    {
+      "id": "runtime/iterators/040-set-mutation-during-forof",
+      "category": "runtime",
+      "title": "`for...of` 遍历 Set 时删掉当前元素再添加",
+      "detail": "stdout 不同：第 1 行：node «1,3,4 1,3,4» vs tsrun «1,2,3 1,3,4»"
+    },
+    {
       "id": "stdlib/array/140-array-tostring-custom-join",
       "category": "stdlib",
       "title": "数组的 `toString` 走 `join`，改了 `join` 就跟着改",
@@ -1704,6 +1728,18 @@
       "category": "stdlib",
       "title": "`Array.prototype.toString` 要**现读** `this.join`（上一轮登记的缺口）",
       "detail": "stdout 不同：第 2 行：node «J J» vs tsrun «1,2 1,2»"
+    },
+    {
+      "id": "stdlib/array/149-concat-spreadable",
+      "category": "stdlib",
+      "title": "`concat` 展不展一个带 `Symbol.isConcatSpreadable` 的对象",
+      "detail": "stdout 不同：第 1 行：node «[1,\"x\",\"y\"]» vs tsrun «[1,{\"0\":\"x\",\"1\":\"y\",\"length\":2}]»"
+    },
+    {
+      "id": "stdlib/array/150-array-species-subclass",
+      "category": "stdlib",
+      "title": "继承数组的子类上 `map` / `concat` 交出什么",
+      "detail": "stdout 不同：第 1 行：node «true true 3 [2,4,6]» vs tsrun «false true 3 [2,4,6]»"
     },
     {
       "id": "stdlib/console/020-names-console",
@@ -1745,7 +1781,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20316/src/2885.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19628/src/2911.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
