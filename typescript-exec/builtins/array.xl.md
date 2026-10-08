@@ -5,7 +5,7 @@ import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, Proper
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToNumberOf, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
 import { SetProperty, SetHiddenProperty, DeleteProperty, GetProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
-import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits } from "./text.xl.md"
+import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits, ToStringOfObject } from "./text.xl.md"
 import { IsArgumentsValue } from "./inspect.xl.md"
 ```
 
@@ -204,6 +204,24 @@ import { IsArgumentsValue } from "./inspect.xl.md"
 **它是第 304 轮加宽矩阵时量到的**：判据 `c304-std-array-tospliced` 报
 `cannot call a non-closure value`——即**那一格根本没装**
 （`toSorted` / `toReversed` / `with` 三条从第 274 轮起就是好的，它们是**同一族的兄弟**）。
+
+# const ArrayToString:int = 42
+
+**`Array.prototype.toString()`**（第 716 轮）——**现读 `this.join` 再调**。
+
+**第 193 轮那一版把它指到 `ArrayJoin` 那一格能力号上**（「JS 的 `Array.prototype.toString`
+正是 `join(",")`」）——那句话只对了**一半**：规范里它是
+`Get(O, "join")` → **可调就带 `this = O` 调一次**，`join` **不可调**才转交
+`Object.prototype.toString`。指到静态的那一格上之后，**在实例上换掉 `join` 没有用**：
+`a.join = () => "J"` 之后 `String(a)` / `a + ""` / `a.toString()` 全都不变
+（判据 `stdlib/array/140-array-tostring-custom-join` 与 `145-array-tostring-join-dynamic`）。
+
+**它是 `ToPrimitive` 那条路上的一格**（不是另一条旁路）：数组的 `ToPrimitive(o, "string")`
+会沿原型链找 `toString`，找到的就是这一格——所以这一处改对，
+`String(a)` 与 `a + ""` **一起**跟着动（**实测**：给实例挂一个自己的 `toString` 时
+两边本来就跟着走，只有 `join` 那一格是死的）。
+
+**指针那一处也要跟着改**（文末 `InstallArray` 的表）：`"toString"` 从 `ArrayJoin` 换成它。
 
 # const ArraySplice:int = 25
 
@@ -637,6 +655,45 @@ return Value.FromArray(handle);
 // 下面四处回调（`forEach`/`map`/`filter`、谓词族、`reduce`、`flatMap`）传的是**它**。
 // 数组接收者两格是同一个值，行为与改动前一字不差。
 const receiver = self;
+// **`Array.prototype.toString`：现读 `this.join` 再调**（第 716 轮）。
+//
+// 规范里它只有三步：`ToObject(this)` → `Get(O, "join")` → **可调就带 `this = O` 调一次**，
+// 不可调才转交 `Object.prototype.toString`。第 193 轮把它**指到 `ArrayJoin` 那一格能力号**
+// 上（理由是「JS 的它就是 `join(",")`」——只对了一半），于是**在实例上换掉 `join` 没有用**：
+// `a.join = () => "J"` 之后 `String(a)` / `a + ""` / `a.toString()` 一个字都不变
+//（判据 `stdlib/array/140-array-tostring-custom-join`、`145-array-tostring-join-dynamic`）。
+//
+// **它必须排在 `RequireArray` 前面**：接收者可以是**任何对象**
+//（`Array.prototype.toString.call({ join: () => "X" })` 在 JS 里给 `"X"`），
+// 过一遍 `RequireArray` 会当场抛。
+//
+// **`call` 为 `null` 时退回旧的静态那一路**（写在明处）：装库期有些地方拿不到调用通道，
+// 而那时要的正是「就是 `join(",")`」那个答案——退回它与第 193 轮的行为一字不差，
+// 不会把「没有通道」变成一声抛。
+if (id === ArrayToString) {
+  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+    throw new TypeError("Array.prototype method called on null or undefined");
+  }
+  if (call === null) {
+    return InvokeArray(room, table, protos, call, ArrayJoin, self, [], keep, failed);
+  }
+  const joinFn = GetProperty(room, call, protos, table, self,
+    Value.FromString(table.CreateString(Units("join"))));
+  if (!IsCallableValue(table, joinFn)) {
+    // **`join` 不可调就转交 `Object.prototype.toString`**（规范里那一句）。
+    // **两处已知差写在明处**：`Object.prototype.toString` 的**标签表**住在
+    // `globals.xl.md`（`ObjectTagOf`），这一份文件向上 import 它**会绕出环**，
+    // 所以这里只认「数组 ⇒ `[object Array]`」与「其余 ⇒ 那个对象自己的 `toString`，
+    // 没有就是 `[object Object]`」这两档。
+    if (self.Tag === ValueTag.Array) {
+      return Value.FromString(table.CreateString(Units("[object Array]")));
+    }
+    const forwarded = ToStringOfObject(room, call, protos, table, self);
+    if (forwarded !== null) return forwarded;
+    return Value.FromString(table.CreateString(Units("[object Object]")));
+  }
+  return call(joinFn, self, []);
+}
 // **静态方法排在 `RequireArray` 前面**（第 123 轮）：`Array.isArray(x)` 的 `self`
 // 是那个 `Array` **普通对象**，过一遍 `RequireArray` 会当场抛。
 if (id === ArrayIsArray) {
@@ -2069,10 +2126,11 @@ const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach",
   // 而它是第 304 轮加宽矩阵时**当场量到的**（`c304-std-array-tospliced` 报
   // `cannot call a non-closure value`——那一格根本没装）。
   "toSpliced",
-  // **`toString` 就是 `join(",")`**（第 193 轮）：JS 的 `Array.prototype.toString` 正是它
-  // （没给实参时 `join` 的默认分隔符就是 `,`），所以**指到同一格能力号**
-  // ——同一件事不写第二份实现。实测：`[1, [2, 3]].toString()` 原来报
-  // `unimplemented: calling a non-closure value`（那一格根本没装）。
+  // **`toString` 是「现读 `this.join` 再调」**（第 716 轮改的，**不再是** `join` 那一格）：
+  // 第 193 轮把它与 `join` 指到同一个能力号上（「JS 的它就是 `join(",")`」——
+  // 只对了**一半**：规范里先 `Get(O, "join")`，可调才带 `this = O` 调它）⇒
+  // 在实例上换掉 `join` 时 `String(a)` / `a + ""` / `a.toString()` 一个字都不变
+  //（判据 `stdlib/array/140-array-tostring-custom-join` / `145-array-tostring-join-dynamic`）。
   "toString",
   // **`toLocaleString` 指到同一格**（第 295 轮）：JS 的 `Array.prototype.toLocaleString`
   // 是「对每个元素调它自己的 `toLocaleString`（没有就 `toString`）再用 `,` 接起来」——
@@ -2089,7 +2147,7 @@ const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice,
   ArrayFindLast, ArrayFindLastIndex, ArrayReduceRight, ArrayCopyWithin,
   ArrayToSorted, ArrayToReversed, ArrayWith,
   ArrayToSpliced,
-  ArrayJoin, ArrayJoin];
+  ArrayToString, ArrayJoin];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

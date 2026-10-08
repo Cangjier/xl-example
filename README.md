@@ -427,6 +427,42 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7220 / 7583 → 7237 / 7598**、`differ 96 → 94`、`blocked 267`（没涨）、
   `bad` 0、`regressions` 0、加权 **96.0%**。
 
+### 第 716 轮：`Array.prototype.toString` 要**现读** `this.join`
+
+第 193 轮把 `Array.prototype.toString` **指到 `ArrayJoin` 那一格能力号**上
+（理由是「JS 的它就是 `join(",")`」）——那句话只对了**一半**：规范里它是
+`ToObject(this)` → `Get(O, "join")` → **可调就带 `this = O` 调一次**，
+`join` 不可调才转交 `Object.prototype.toString`。指到静态那一格之后，
+**在实例上换掉 `join` 没有用**：`a.join = () => "J"` 之后
+`String(a)` / `a + ""` / `a.toString()` 一个字都不变
+（判据 `stdlib/array/140-array-tostring-custom-join`、`145-array-tostring-join-dynamic`）。
+
+- **它是 `ToPrimitive` 那条路上的一格，不是旁路**：数组的 `ToPrimitive(o, "string")`
+  沿原型链找 `toString`，找到的就是它——所以这一处改对，`String(a)` 与 `a + ""`
+  **一起**跟着动（**实测**：给实例挂一个自己的 `toString` 时两边本来就跟着走，
+  只有 `join` 那一格是死的；第 193 轮那次「`toString` 就是 `join`」的观察正是因为
+  `join` 的缺省分隔符恰好是 `,`）。
+- **收成一个自己的能力号**（`ArrayToString = 42`，与 `ArrayJoin` 分开）：
+  里面走一次 `GetProperty(self, "join")` + `IsCallableValue`，
+  可调就 `call(join, self, [])`；**不可调**才转交 `Object.prototype.toString`
+  （这一份文件向上 import `globals.xl.md` 会绕出环，所以那一档只认
+  「数组 ⇒ `[object Array]`」与「其余 ⇒ 那个对象自己的 `toString`，没有就是
+  `[object Object]`」两档，**已知差写在明处**）。
+- **它排在 `RequireArray` 前面**：接收者可以是**任何对象**
+  （`Array.prototype.toString.call({ join: () => "X" })` 在 JS 里给 `"X"`），
+  过一遍 `RequireArray` 会当场抛；`null` / `undefined` 仍按 `RequireArray` 那句话抛 `TypeError`。
+- **`call` 为 `null` 时退回旧的静态那一路**（写在明处）：装库期有些地方拿不到调用通道，
+  而那时要的正是「就是 `join(",")`」——退回它与第 193 轮一字不差，不把「没有通道」变成一声抛。
+- **文末 `InstallArray` 的表里那一格指针跟着改**（`"toString"` 从 `ArrayJoin` 换成 `ArrayToString`）。
+- 台账 `140` / `145` **两条转绿、已撤**。语料 **+15 条**（`stdlib/round716/p716a-a01` … `a15`：
+  `join` 覆写走的三条路、`call` 到带 `join` 的对象、`join` 当 `this` 用、没有 `join` / `join` 不可调
+  两档的转交、原型链上的 `join`、嵌套与空洞的渲染、`toString` 抛出去接得住）。
+  普查里 **16 条过了 15 条**，唯一没过的 `p716a-t10`（`Array.prototype.toString.length` / `.name`
+  给 `undefined`）量的那个根第 706 轮已经登在台账里（宿主引用那两档没有 `name` / `length`），
+  所以**没有新登记**、也没有收进语料。
+- 五类 **7237 / 7598 → 7254 / 7613**、`differ 94 → 92`、`blocked 267`（没涨）、
+  `bad` 0、`regressions` 0、加权 **96.0%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -439,8 +475,8 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7237 / 7598**，加权 **96.0%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 2900/2976、e2e 242/246。差的那些是**真缺口**（`blocked` 267 / `differ` 94），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~37s**） |
+| `coverage` | **五类 7254 / 7613**，加权 **96.0%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 2917/2991、e2e 242/246。差的那些是**真缺口**（`blocked` 267 / `differ` 92），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~48s**） |
 
 ### 口径与已知缺口
 

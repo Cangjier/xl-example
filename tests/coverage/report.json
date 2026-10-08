@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7598,
+  "total": 7613,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.01,
+  "progressPercent": 96.03,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2976,
-      "pass": 2900,
+      "total": 2991,
+      "pass": 2917,
       "blocked": 31,
-      "differ": 45,
+      "differ": 43,
       "nodefail": 0,
-      "coverage": 97.45
+      "coverage": 97.53
     },
     {
       "category": "e2e",
@@ -1919,7 +1919,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28460/src/3202.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26252/src/3202.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2036,12 +2036,6 @@
       "detail": "stdout 不同：第 1 行：node «number:7» vs tsrun «number:1»"
     },
     {
-      "id": "stdlib/array/140-array-tostring-custom-join",
-      "category": "stdlib",
-      "title": "数组的 `toString` 走 `join`，改了 `join` 就跟着改",
-      "detail": "stdout 不同：第 2 行：node «J J» vs tsrun «1,2 1,2»"
-    },
-    {
       "id": "stdlib/array/143-getter-array-index",
       "category": "stdlib",
       "title": "数组下标位置上的访问器（`defineProperty`）",
@@ -2052,12 +2046,6 @@
       "category": "stdlib",
       "title": "数组下标上的数据属性改写（与访问器那一档分开量）",
       "detail": "stdout 不同：第 2 行：node «0,2 9 [1,9,3]» vs tsrun «0,2 undefined [1,null,3]»"
-    },
-    {
-      "id": "stdlib/array/145-array-tostring-join-dynamic",
-      "category": "stdlib",
-      "title": "`Array.prototype.toString` 要**现读** `this.join`（上一轮登记的缺口）",
-      "detail": "stdout 不同：第 2 行：node «J J» vs tsrun «1,2 1,2»"
     },
     {
       "id": "stdlib/array/149-concat-spreadable",
@@ -2093,7 +2081,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28460/src/4918.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26252/src/4918.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2117,7 +2105,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28460/src/4968.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26252/src/4968.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
