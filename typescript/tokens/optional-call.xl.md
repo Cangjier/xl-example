@@ -147,6 +147,16 @@ return false;
 遇到不认识的单元就停——点号与标识符之外的任何东西（逗号、赋值、运算符、语句关键字）
 都是链的边界。
 
+**语句 / 一元关键字要单独挡一次**（第 694 轮，**实测撞到的**）：`return o.f?.()` 里那个
+`return` 此刻是一个 **`Identifier`**（关键字升级还没轮到它），而 `IsChainLink` 只按**类名**判
+⇒ 往左走时把 `return` 也吃进被调者链 ⇒ 产物里 `Method` 的第一个孩子是 `Keyword(return)`、
+方法名记成 `"return"` ⇒ 降级期报 `name is not a local or a capture: return`
+（**整份文件进不来**；`typeof o.f?.()` 同一处，那一份报的是 `typeof`）。
+
+**只看「左边那一格是不是点号」就够**：`o.return?.()` 里的 `return` 是**属性名**
+（左边是 `.`），不在这一档里——生成器的 `it.return()` 遍地都是，不能一起挡掉。
+`this` / `super` / 字面量**不进名单**：它们可以是链的**头**（`this.x?.()`）。
+
 ```ts
 let start = index;
 while (start - 1 >= 0) {
@@ -154,10 +164,26 @@ while (start - 1 >= 0) {
   if (this.IsChainLink(before) === false) {
     break;
   }
+  if (before instanceof Identifier
+    && OptionalCallCloseRule.NonChainWords.has(before.TempToString())) {
+    const dot = start - 2 >= 0 ? Get(units, start - 2) : null;
+    const afterDot = dot instanceof SymbolToken && (dot.Is(".") || dot.Is("?."));
+    if (afterDot === false) {
+      break;
+    }
+  }
   start = start - 1;
 }
 return start;
 ```
+
+## private static readonly field NonChainWords:Set<string> = new Set(["return", "typeof", "void", "delete", "throw", "new", "in", "instanceof", "case", "default", "of", "do", "else", "var", "let", "const", "function", "class", "extends", "static", "if", "while", "for", "switch", "try", "catch", "finally", "break", "continue", "with", "debugger", "export", "import", "yield", "await"])
+
+**不能当**被调者链一格的词（见 `CalleeStart` 那一段）。
+
+这张表**不是**「所有关键字」：`this` / `super` / `null` / `true` / `false` 是**链的头**
+（`this.x?.()` 合法且常见），所以一个都不在里面；`of` 在（`for (const x of o.f?.())`
+里它同样会被吃掉，与 `return` 那一档同一个症状）。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 

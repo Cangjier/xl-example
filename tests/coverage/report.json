@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 5185,
+  "total": 5427,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.69,
+  "progressPercent": 95.67,
   "categories": [
     {
       "category": "token",
@@ -90,32 +90,32 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1117,
-      "pass": 1086,
-      "blocked": 5,
+      "total": 1204,
+      "pass": 1172,
+      "blocked": 6,
       "differ": 26,
       "nodefail": 0,
-      "coverage": 97.22
+      "coverage": 97.34
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 687,
-      "pass": 681,
+      "total": 737,
+      "pass": 729,
       "blocked": 1,
-      "differ": 5,
+      "differ": 7,
       "nodefail": 0,
-      "coverage": 99.13
+      "coverage": 98.91
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1732,
-      "pass": 1662,
+      "total": 1837,
+      "pass": 1763,
       "blocked": 21,
-      "differ": 49,
+      "differ": 53,
       "nodefail": 0,
-      "coverage": 95.96
+      "coverage": 95.97
     },
     {
       "category": "e2e",
@@ -1458,10 +1458,16 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：heap object is not an environment"
     },
     {
-      "id": "exec/expressions/probe693b-e49",
+      "id": "exec/classes/probe694-k13",
       "category": "exec",
-      "title": "(function () { const o = { f: () => 1 }; return o?.f?.(); })()",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: return"
+      "title": "(function () { class A { m() { return 1; } } class B extends A { m() { const f = () => super.m(); return f() + 1; } } return new B().m(); })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：get_proto needs an object receiver"
+    },
+    {
+      "id": "exec/expressions/probe694-m31",
+      "category": "exec",
+      "title": "(function () { const ns = { C: class { constructor() { this.x = 3; } } }; return new ns[\"C\"]().x; })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling an object as a constructor (this object is not callable)"
     },
     {
       "id": "exec/functions/probe693b-f26",
@@ -1826,6 +1832,18 @@
       "detail": "stdout 不同：第 1 行：node «string:a1» vs tsrun «throw:TypeError»"
     },
     {
+      "id": "runtime/iterators/probe694-g04",
+      "category": "runtime",
+      "title": "(function () { function* g() { yield 1; yield 2; } const it = g(); return it.return(7).value; })()",
+      "detail": "stdout 不同：第 1 行：node «number:7» vs tsrun «number:1»"
+    },
+    {
+      "id": "runtime/iterators/probe694-g18",
+      "category": "runtime",
+      "title": "(function () { return typeof [][Symbol.iterator]().next; })()",
+      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «throw:TypeError»"
+    },
+    {
       "id": "stdlib/array/140-array-tostring-custom-join",
       "category": "stdlib",
       "title": "数组的 `toString` 走 `join`，改了 `join` 就跟着改",
@@ -1955,7 +1973,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19096/src/3573.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27996/src/3740.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -2082,6 +2100,30 @@
       "category": "stdlib",
       "title": "[1, 2, 3].map(Object.keys.call.bind(Object.keys)).length",
       "detail": "stdout 不同：第 1 行：node «number:3» vs tsrun «throw:TypeError»"
+    },
+    {
+      "id": "stdlib/object/probe694-o19",
+      "category": "stdlib",
+      "title": "(function () { const a = [1, 2]; Object.defineProperty(a, 0, { value: 9 }); return a.join(\",\"); })()",
+      "detail": "stdout 不同：第 1 行：node «string:9,2» vs tsrun «throw:Error»"
+    },
+    {
+      "id": "stdlib/object/probe694-o22",
+      "category": "stdlib",
+      "title": "(function () { const a = [1, 2]; return a.hasOwnProperty(0) + \",\" + a.hasOwnProperty(2); })()",
+      "detail": "stdout 不同：第 1 行：node «string:true,false» vs tsrun «string:false,false»"
+    },
+    {
+      "id": "stdlib/object/probe694-o27",
+      "category": "stdlib",
+      "title": "(function () { return Object.assign([], [1, 2]).length; })()",
+      "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «number:0»"
+    },
+    {
+      "id": "stdlib/object/probe694-o34",
+      "category": "stdlib",
+      "title": "(function () { const o = {}; Object.defineProperty(o, \"a\", { get() { return 1; }, enumerable: true }); return JSON.stringify(o); })()",
+      "detail": "stdout 不同：第 1 行：node «string:{\"a\":1}» vs tsrun «string:{}»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

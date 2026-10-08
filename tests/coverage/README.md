@@ -154,6 +154,25 @@
    `first: second: for (…)` 的外层会被当成「不吃标签」，第 692 轮刚收掉的 `continue first`
    又会断）。三处各有判据钉着（`probe693b-d23` / `probe693b-s22` / `probe693b-s24` /
    `probe693-*` 那一族的对象解构与引号名键）。加权仍是 **95.7%**（分子 +540、分母 +555）。
+   **第 694 轮全矩阵**（第五批原子探针 242 份新语料）：通过 **4855 → 5090**、
+   分母 **5185 → 5427**、`blocked 250 → 251`、`differ 80 → 86`、
+   `bad` 仍 **0**、`regressions` **0**、`moved` 0、`newlyPassing` **1**——收掉一处：
+   **`return o.f?.()` 里那个 `return` 被吃进了被调者链**。`?.()`（可选调用）那一条规则
+   往左走成员访问链找**被调者起点**时只按**类名**判（`IsChainLink` 认 `Identifier`），
+   而那一刻 `return` 正是一个 `Identifier`（关键字升级还没轮到它）⇒ 被调者链成了
+   `return . f`、产物的 `Method` 名字记成 `"return"`、`return` 成了它的第一个孩子
+   ⇒ 降级期报 `name is not a local or a capture: return`（**整份文件进不来**；
+   `typeof o.f?.()` 同一处，那一份报的是 `typeof`）。修法：给链的边界添一张
+   **语句 / 一元关键字表**（`NonChainWords`），并且**只看左边那一格是不是点号**
+   ——`o.return?.()` 里的 `return` 是**属性名**（生成器的 `it.return()` 遍地都是），
+   `this` / `super` / 字面量**不进表**（它们可以是链的头）。
+   那一条同时把第 693 轮登记的 `exec/expressions/probe693b-e49`
+   （**连续两次可选调用** `o?.f?.()`）收掉了——`newlyPassing` 就是它，台账已撤。
+   另登记 8 条（`blocked` +5 / `differ` +11，其中 8 条新登、3 条是同根探针收进矩阵）：
+   `new ns.C()`（对象字面量里的类当构造器）、生成器 `return(7)` 的实参（**静默错值**）、
+   迭代器对象没有 `next`、方法里箭头函数用 `super`、**数组下标不是自有属性**那一族
+   （`defineProperty` 抛 / `hasOwnProperty(0)` 假 / `Object.assign([], [1,2])` 静默长度 0）、
+   `JSON.stringify` 遇访问器给 `{}`。加权仍是 **95.7%**（分子 +235、分母 +242）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。
