@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { IsTypeBracketPosition, IsTypeContainerUnit, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { IsAssertableOperand, IsTypeBracketPosition, IsTypeContainerUnit, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -296,6 +296,35 @@ while (true) {
 }
 ```
 
+## private method WaitForNotNull:(units:Array<Token>, index:int)=>bool
+
+链底 `index` 是不是**被一个还没成形的非空断言截断**（`o.a!.b.c` 里的 `b`）。
+
+**为什么要让路**（第 651 轮实测）：`o.a!.b().c` 里 `b().c` 自己就是一条链，
+而 `NotNullCloseRule` 排在 `CompoundAssignmentOperator` 之后——那一趟它还没成形，
+内层这条链于是**先折走**（`[Method(b()), ., c]` ⇒ `PropertyAccess`）：
+外层的 `[NotNull, ., …]` 再想接上时，`.` 后面已经是一个 `PropertyAccess`，
+`IsMemberUnit` 不认它 ⇒ **链从此断掉**，后面的二元运算符把那条内层链当成左操作数
+（实测缺 `CallExpression` / `Identifier` 各一、多出同名节点）。
+
+判据只看三格：链底前面是 `.`、再前面是 `!`、而 `!` 前面是一个**能被断言的操作数**
+（`IsAssertableOperand`，与 `NotNullCloseRule.Previous` 同源）。让路之后下一趟
+`NotNull` 先成形，本规则再从 `NotNull` 起头把整条链一次收完。
+
+```ts
+const dotAt = SkipPreviousWrapSymbol(units, index);
+const dot = Get(units, dotAt);
+if (!(dot instanceof SymbolToken) || dot.TempToString() !== ".") {
+  return false;
+}
+const bangAt = SkipPreviousWrapSymbol(units, dotAt);
+const bang = Get(units, bangAt);
+if (!(bang instanceof SymbolToken) || bang.TempToString() !== "!") {
+  return false;
+}
+return IsAssertableOperand(Get(units, SkipPreviousWrapSymbol(units, bangAt)));
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点。
@@ -318,6 +347,14 @@ while (true) {
 ```ts
 const base = Get(units, index);
 if (this.IsChainBase(base) === false) {
+  return false;
+}
+// **链尾被「还没成形的非空断言」截断时让路**（第 651 轮）：`o.a!.b().c` 里 `b().c`
+// 这一段自己也是一条链（链底是 `Method`），它比 `NotNull` 先成形 ⇒ `.b().c` 被折成
+// **内层**那条链，外层 `[NotNull, ., …]` 再也接不上（实测缺 `CallExpression` / `Identifier`）。
+// 判据：链底前面是 `.`、再前面是 `!`、而 `!` 前面是一个**能被断言的操作数**
+//（`IsAssertableOperand`，与 `NotNullCloseRule` 同源）⇒ 这一格等 `NotNull` 成形。
+if (this.WaitForNotNull(units, index)) {
   return false;
 }
 // **`fn!()` 那一格要等下一趟**（第 592 轮）：链底若是 `(` 括号、而它**前面紧挨着 `!`**，

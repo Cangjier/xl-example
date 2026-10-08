@@ -1463,6 +1463,51 @@ if (before instanceof Bracket) {
 return false;
 ```
 
+# method IsAssertableOperand:(item:Token | null)=>bool
+
+`item` 能不能当**非空断言 `!` 左边那个被断言者**（`a!` / `f()!` / `o.a!` / `x[0]!` / `b!!`）。
+
+**为什么要有这一格**：这条判据有三处要用——`NotNullCloseRule.Previous`（这个 `!` 能不能收）、
+`tokens/json/array-literal.xl.md` 的 `IsArrayAt`（`!` 后面那个 `[` 是下标还是数组字面量）、
+`tokens/property-access.xl.md` 的 `Previous`（链尾被还没成形的 `!` 截断时要不要让路）。
+三处必须同源：说得不一样就会出现「一处认、另一处不认」的半成品形状。
+
+按类名判 `Method` / `PropertyAccess` / `NotNull` / `ArrayLiteral` / `New`：直接 import 它们会绕出环
+（这一份只 import 得进 `Bracket` / `Identifier`）。`New` 是第 651 轮补的（`new A()!.b` ——
+`new` 表达式是一个操作数，`!` 照样能断言它）。`Identifier` 里排掉**语句关键字**——
+本规则跑在 `KeywordCloseRule` 之前，`return !(q instanceof R)` 里的 `return` 那时还是
+`Identifier`，不排掉会把它与被断言者一起收成一个 `NotNull`。
+
+```ts
+if (item === null) {
+  return false;
+}
+if (item instanceof Identifier) {
+  const text = item.TempToString();
+  return (
+    text !== "return" &&
+    text !== "throw" &&
+    text !== "case" &&
+    text !== "default" &&
+    text !== "else" &&
+    text !== "do" &&
+    text !== "break" &&
+    text !== "continue"
+  );
+}
+if (item instanceof Bracket) {
+  return true;
+}
+const name = item.constructor.name;
+return (
+  name === "Method" ||
+  name === "PropertyAccess" ||
+  name === "NotNull" ||
+  name === "ArrayLiteral" ||
+  name === "New"
+);
+```
+
 # method IsTypeBracketPosition:(owner:Token, unit:Token)=>bool
 
 `unit`（括号，或模板字面量那种**内容先重组、父单元还没挂上**的单元）**在它自己那一层**

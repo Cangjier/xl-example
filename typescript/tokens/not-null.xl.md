@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { IsAssertableOperand, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -32,8 +32,10 @@ TypeScript 自己的 AST 里它就是 `NonNullExpression`，差分引擎能直�
 
 # class NotNullCloseRule extends CloseRule
 
-它的 `Previous` 是**四路判定**：`index` 处必须是内容为 `!` 的 `SymbolToken`，且它前一个单元必须是 `Identifier` / `Bracket` / `Method` / `NotNull` 之一。
-换句话说：只有「标识符!」「(...)!」「方法(...)!」以及**连着再断言一次**（`b!!`）这几种形状才当非空断言，别的 `!`（如 `!=`、`!==`、前缀 `!x`）不动。
+它的 `Previous` 是**两路判定**：`index` 处必须是内容为 `!` 的 `SymbolToken`（跳过明确赋值断言），
+且它前一个单元必须是**能被断言的操作数**（`IsAssertableOperand`）。
+换句话说：只有「标识符!」「(...)!」「方法(...)!」「成员链!」以及**连着再断言一次**（`b!!`）
+这几种形状才当非空断言，别的 `!`（如 `!=`、`!==`、前缀 `!x`）不动。
 
 ## static readonly field Instance:NotNullCloseRule = new NotNullCloseRule()
 
@@ -43,8 +45,8 @@ TypeScript 自己的 AST 里它就是 `NonNullExpression`，差分引擎能直�
 
 `index` 处是不是一个非空断言的 `!`。
 
-先取 `index - 1` 处的单元存进 `previous`，再判定 `index` 处是不是 `!`，以及 `previous` 是不是 `Identifier` / `Bracket` / `Method` / `NotNull` 之一；
-这里拆成早返回，语义相同。`Get` 越界给 `null`，所以下标 `0` 处的 `!` 自然落到 `false`。
+先取 `index - 1` 处的单元存进 `previous`，再判定 `index` 处是不是 `!` 与 `previous` 是不是
+能被断言的操作数；这里拆成早返回，语义相同。`Get` 越界给 `null`，所以下标 `0` 处的 `!` 自然落到 `false`。
 
 `NotNull` 那一支是给**连写**的（`b!!`）：第一次断言已经把 `b!` 收成节点，
 第二个 `!` 前面于是不再是 `Identifier`——不认它的话第二个 `!` 会留在原地成为悬空符号。
@@ -61,53 +63,10 @@ if (!(current as SymbolToken).Is("!")) {
 if (this.IsDefiniteAssignment(units, index)) {
   return false;
 }
-if (this.IsStatementKeyword(previous)) {
-  return false;
-}
-// **`ArrayLiteral` 也是「可以被断言的东西」**（第 303 轮）——它在这里代表的是
-// **一次下标访问**（`arr[0]!` 的产物把那个 `[0]` 收成 `<ArrayLiteral>`，
-// 理由与投影那边那一段一字不差）。**不认它的后果**：`x[1]![0]` 里第二个 `!`
-// 会**留在原地**、被 `UnaryOperatorCloseRule` 收成**前缀取反**
-//（实测产物：`<UnaryOperator op="!"><SymbolToken>!</SymbolToken><ArrayLiteral(0)></UnaryOperator>`），
-// 后面那个 `[0]` 于是既不是下标、也不是数组字面量 ⇒ **整段丢掉**
-// （判据 `c303-nonnull-then-index` 第三版量到的就是它：`deep!.a!.b![1]![0]` 给 `[3,4]`，
-// Node 给 `3`——**一句异常都没有**）。
-return (
-  previous instanceof Identifier ||
-  previous instanceof Bracket ||
-  previous instanceof Method ||
-  previous instanceof PropertyAccess ||
-  previous instanceof NotNull ||
-  previous instanceof ArrayLiteral
-);
-```
-
-## private method IsStatementKeyword:(unit:Token | null)=>bool
-
-`unit` 是不是**语句关键字**（`return` / `throw` / `case` / `default` / `else` / `do` / `break` / `continue`）。
-
-**为什么非空断言要排掉它们**（实测补的）：本规则跑在 `KeywordCloseRule`（队列最后）**之前**，
-那时 `return` **还是一个 `Identifier`**——按「前一个单元是 `Identifier` 就当被断言者」判，
-`return !(q instanceof R)` 里的 `!` 会和 `return` 一起被收成一个
-`<NotNull><Identifier>return</Identifier><SymbolToken>!</SymbolToken></NotNull>`（实测产物就是这个），
-括号里的表达式再也拿不到一元节点。这组排除名单与
-`binary-operator.xl.md` / `unary-operator.xl.md` 的 `IsOperand` 是同一份，三处保持一致。
-
-```ts
-if (!(unit instanceof Identifier)) {
-  return false;
-}
-const text = unit.TempToString();
-return (
-  text === "return" ||
-  text === "throw" ||
-  text === "case" ||
-  text === "default" ||
-  text === "else" ||
-  text === "do" ||
-  text === "break" ||
-  text === "continue"
-);
+// 被断言者那一族判据只有一份：`text-common-util.xl.md` 的 `IsAssertableOperand`
+//（见它那一节：`Identifier`（排掉语句关键字）/ `Bracket` / `Method` / `PropertyAccess` /
+// `NotNull` / `ArrayLiteral`）。`ArrayLiteral` 那一支代表**一次下标访问**（`arr[0]!`）。
+return IsAssertableOperand(previous);
 ```
 
 **类体里的 `a!: number` 不是非空断言，是「明确赋值断言」**：`!` 属于**成员声明**的一部分

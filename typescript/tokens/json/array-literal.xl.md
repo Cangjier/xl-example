@@ -5,6 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, GetSkipPrevious } from "../../../core/extensions/list-extension.xl.md"
+import { IsAssertableOperand, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Method } from "../method.xl.md"
@@ -106,6 +107,20 @@ if (current instanceof Bracket && current.startBracket === "[") {
   } else if (previous instanceof SymbolToken) {
     if (previous.Is("=>")) {
       return false;
+    }
+    // **`!` 后面那个 `[` 是下标访问，不是数组字面量**（第 651 轮）：
+    // 跑本规则时那个非空断言**还没成形**（`NotNullCloseRule` 排在 `JsonArrayCloseRule` 之后），
+    // 所以「前一个单元」只是一格 `!` 符号。不挡的话 `o.a![0]` 的 `[0]` 被收成 `ArrayLiteral`，
+    // `PropertyAccessCloseRule` 再也认不出那一环（`IsIndexUnit` 只认方括号）
+    // ⇒ 后面的二元运算符把那个数组字面量当成左操作数
+    //（实测 `o.a![0] + 1` 缺 `ElementAccessExpression` / `BinaryExpression` / `NumericLiteral` 各一）。
+    // 判据与 `NotNullCloseRule` 认被断言者那一族**同源**（`IsAssertableOperand`）。
+    if (previous.Is("!")) {
+      const bangAt = SkipPreviousWrapSymbol(units, index);
+      const asserted = Get(units, SkipPreviousWrapSymbol(units, bangAt));
+      if (IsAssertableOperand(asserted)) {
+        return false;
+      }
     }
   }
   return true;

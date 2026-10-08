@@ -82,16 +82,6 @@
   `SwitchStatement`。**换行写法是好的**，所以只有单行 / 压缩过的代码中招。
   同族的那条「块后面紧跟着表达式」在 [README](../README.md) 的「开着的缺口」里，改法已被否决过
   （块当语句边界会切断复合赋值的展开），这一条要修得先能区分「块 + `case`」与「块 + 操作数」。
-- **非空断言的成员链后面再接两个以上的 `+` 与字符串**：
-  `o.a!.toString() + "x" + "y"` 里**第一个 `+`** 折不出来 ⇒ 后面那个 `"y"` 反而被
-  `PropertyAccessCloseRule` 当成成员链收了（实测缺 `CallExpression` / `PlusToken` /
-  `StringLiteral` 各一）。触发条件是「**`!` 断言的成员链 + 一次调用，再接两个以上的 `+`**」——
-  `o.a.toString() + "x" + "y"`（没有 `!`）、`o.a! + "x"`、`f() + "x" + "y"` 三种都是好的。
-  还没定位到是哪条收尾规则抢跑，判据
-  [`ex-nonnull-member-chain.ts`](../tests/parse/cases/expressions/ex-nonnull-member-chain.ts)。
-  加 `IfSegment.BraceRangeText` 时踩到过它一次，规范源码里的写法是先各取一个 `String`
-  再拼两个局部量，绕开这一档。
-
 修好的形状不在这里留名（在 git 历史与用例里），只有一条经验值得留着：
 **先探这一类「同族的第三条」**——`do` 的体自带分号那一族、循环头部括号里出现 `)`、
 括号 / 一次调用当被调用者时的可选链、注释夹在语法相邻位置之间，都是这么一条一条量出来的。
