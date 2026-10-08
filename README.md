@@ -1628,6 +1628,51 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 `blocked 261`（**没动**）、`differ 97 → 103`（+6 新登）、`bad` 0、`regressions` 0、
 `moved` 0、`newlyPassing` 0，加权 **96.0% → 95.9%**（新登记缺口的账，不是回归）。
 
+### 第 749 轮：**生成器与迭代协议 / `for await` / 模板 / 属性次序**那一侧的普查——零收、三登、两条旧账到期（coverage 7731/8095 → **7754/8121**）
+
+这一轮的探针换到**生成器与迭代协议**那一面，外加模板字面量、属性次序与描述符、
+`for…in`、`call`/`apply`/`bind`、`do…while` 与逗号表达式。26 条探针 **23 条当场通过**，
+**这一轮没有收掉任何一处根**：新登 3 条，另把两条**旧台账**按规矩撤掉。
+
+- **两条旧台账到期**（`coverage` 报 `NEWLY-PASSING`、这一轮撤掉那两行指令）：
+  `runtime/round736/p736b-b08`（`JSON.stringify` 看不见**元素区上**的访问器：
+  `Object.defineProperty(arr, "1", { get })` 之后 `JSON.stringify(arr)` 该给 `[1,"g"]`）
+  与 `stdlib/round721/p721a-b08`（**空数组**上装下标访问器时 `length` 该跟着顶到 `2`）。
+  两条都是第 721 / 736 轮登的，此后的轮次把它们修好了、台账没跟着撤——
+  **这正是「登记过的照样每次真跑」这条纪律的用处**：它们自己会喊。
+- **新登 3 条**（根因逐条写在用例的 `xl:why` 里）：
+  ① **松散模式下形参与 `arguments` 的别名**（`p749a-a12`）：
+     `function h(a) { a = 99; return arguments[0] }` 在 Node 里给 **`99`**、本仓给 `1`
+     （反方向 `arguments[0] = 42; return a` 同样给 `1`）。根在**值模型**：
+     形参住在**帧的槽**里，而 `arguments` 是开帧时（`SetupArguments`）**另造的一个数组**
+     ——**两份存储**，写一份看不见另一份。收它要么让下标读写成**转发**、
+     要么在形参赋值那一趟写回，而「哪些形参被别名」还要按**松散 / 严格**分档
+     （严格模式与箭头函数**不**别名）。同一族的另一处（`arguments` 是数组、
+     `Array.isArray` 为真）第 702 轮已经登在
+     `stdlib/object/138-object-tostring-arguments-gap`。
+  ② **两级可选链 + 二元运算符**（`p749a-a15`，**静默错值**）：
+     `o.a?.b?.c + 1` 本仓给 `[object Object]1`（拿到的是 `o.a` 那个**对象**）、
+     `o.a?.b?.c ?? 9` 给 `{ c: 1 }`——Node 两处都给 `2` / `1`。
+     **分界这一轮量清了**：`o.a?.b`（一级）对、`o.a.b?.c`（点号链后一级）对、
+     `o.a?.b?.c` **单独用（不带运算符）也对**——只有「**两级 `?.` 再接一个运算符**」错。
+     根在 token 层的 `BinaryOperatorCloseRule.Process`（`binary-operator.xl.md`）：
+     第 156 轮给「`?.` 链是一条链」加的往前多走那一趟，判据是「前面是 NCO、
+     NCO 前面**还是** NCO」——从 `NCO(c)` 退到 `NCO(b)` 就停了，
+     于是**链的起点**取成了 `a`，而 `o` 与那个 `.` **留在 `BinaryOperator` 外面**
+     （实测 XML：`[Identifier(o), Symbol(.), BinaryOperator(??)( Identifier(a), NCO(b), NCO(c), ??, 9 )]`）。
+     **这一轮没有动那一支**：它上面压着可选链那一整片判据（第 156 轮的第一版
+     「对所有 NCO 都往前收」当场掉了两条 `cases:tsast`，退回之后才收紧成今天这一条）。
+  ③ **`Error.stack` 那一格**（`p749b-b06`）：Node 给**字符串**、本仓给 `undefined`
+     ——与第 697 / 704 / 708 轮登记的是**同一条根**（`stackTraceLimit` /
+     `captureStackTrace` 第 704 轮挂上了，**栈本身**没有）。本用例把它钉在
+     `Error` 家族形状的旁边（`message` / `name` / `instanceof` 链 /
+     `Object.prototype.toString.call(e)` 那几格**都是对的**）。
+- 用例：`runtime/round749` 16 条、`stdlib/round749` 10 条。
+- 五类 **7731 / 8095 → 7754 / 8121**（+14 runtime、+9 stdlib、另 3 条是新登记的台账）、
+  `blocked 261`（**没动**）、`differ 103 → 106`（+3 新登；两条旧账转绿是**分子**那一侧）、
+  `bad` 0、`regressions` 0、`moved` 0、`newlyPassing` **2 → 0**（撤掉那两行），
+  加权 **95.9% → 95.8%**（新登记缺口的账，不是回归）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1640,7 +1685,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7731 / 8095**，加权 **95.9%**：token 1196/1414、exec 2171/2216、runtime 998/1023、stdlib 3124/3196、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 103），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7754 / 8121**，加权 **95.8%**：token 1196/1414、exec 2171/2216、runtime 1012/1039、stdlib 3133/3206、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 106），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 
