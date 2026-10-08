@@ -298,11 +298,11 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1519 / 1519 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1523 / 1523 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1117** 条用例，0 条不合格 |
-| `cases:tags` | **1117 条全部带期望**（2883 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:check` | **1121** 条用例，0 条不合格 |
+| `cases:tags` | **1121 条全部带期望**（2891 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1104 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
@@ -436,6 +436,8 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
   npm run cases:shapes         # 用例覆盖了哪些形状（外部语料有、用例没有的签名会红）
   npm run cases:tsast          # **主判据**：与 ts.createSourceFile 逐节点对拍（七条全 0）
   npm run cases:tsast:cli      # 发布路径那一把（慢，改到 cjcli / 序列化时才需要）
+  node tests/parse/ts-ast.mjs --snippets <片段.mjs>   # 普查缺口：一个进程里把 N 条小片段逐条对拍
+                               # （`{ id, src }` 的数组；TS 非法的片段跳过、产物抛异常报 CRASH）
   ```
 
   动了**投影的键序或坐标**时，`samples` 是唯一看得见的那把尺子（`cases:tsast` 只比

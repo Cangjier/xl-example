@@ -251,6 +251,15 @@ return `<${name} key="${this.key}">${temp.join("")}</${name}>`;
 那是**第二份位置答案**（`else /* { */ {}` 会命中注释里那个假括号），
 而空块的终点照旧由 `MatchingBrace` 从这一格配出来。
 
+## field EmptyBodyAt:int = -1
+
+**体是一个空语句（`;`）时，那个 `;` 的下标**；体是别的东西时是 `-1`。
+
+**为什么让 token 记着**（用户口径：token 出字段、投影直读）：`MountStatement` 就是把体那一个字符
+喂给新段的那一处 ⇒ **那个 `;` 正在手上** ⇒ 当场记下来。投影那边原来只能按原文从条件的 `)`
+往后扫一个 `;`（`if-set.xl.md` 的 `PrintAst`），而 `if (a) /* ; */ ;` 会命中注释里的假分号；
+`else` 那一支更糟：它原先假定「不是块就是 `{}`」，于是 `else ;` 被画成一个**空的 `Block`**。
+
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
 **体那一对花括号**：值取开括号的下标，`Range` 是**整对括号**。
@@ -332,6 +341,11 @@ if (this.IfWordAt >= 0) {
 if (this.BodyBraceAt >= 0) {
   result.set("bodyBraceAt", this.BodyBraceAt);
 }
+// **空语句体那个 `;` 的位置**（与 `bodyBraceAt` 同一条口径）：投影画 `EmptyStatement`
+// 时直读它，不再按原文找分号，也不会把 `else ;` 画成一个空的 `Block`。
+if (this.EmptyBodyAt >= 0) {
+  result.set("emptyBodyAt", this.EmptyBodyAt);
+}
 // **整对括号也写出去**（第 637 轮）：投影画 `else {}` 的空 `Block` 时右端直读它
 //（原来要靠 `MatchingBrace` 回原文重扫那一趟）。标量字符串，见 `BraceRangeText`。
 const braceRange = this.BraceRangeText();
@@ -353,13 +367,14 @@ return result;
 
 克隆自身。
 
-新建一个、**先把 `key` / `IfWordAt` / `BodyBraceAt` 复制过去**（漏了它克隆体就丢掉关键字、`else if` 与体的位置）、`Sign(this)`、把子单元逐个克隆后 `AddRange`、最后 `TryToClose()`。
+新建一个、**先把 `key` / `IfWordAt` / `BodyBraceAt` / `EmptyBodyAt` 复制过去**（漏了它克隆体就丢掉关键字、`else if` 与体的位置）、`Sign(this)`、把子单元逐个克隆后 `AddRange`、最后 `TryToClose()`。
 
 ```ts
 const result = new IfSegment(this.Template);
 result.key = this.key;
 result.IfWordAt = this.IfWordAt;
 result.BodyBraceAt = this.BodyBraceAt;
+result.EmptyBodyAt = this.EmptyBodyAt;
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

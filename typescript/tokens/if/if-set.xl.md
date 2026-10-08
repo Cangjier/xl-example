@@ -233,13 +233,21 @@ ifSet.MountCondition(source);
       // 而 `projectStatement` 对它的口径是「`;` 必须写在**行首**」（那一处按排版分辨
       // 「防御性分号」与「成员声明后面那个 `;`」）⇒ 跟在 `if (a)` 后面的那个 `;` 被判掉
       // ⇒ `thenStatement` 整格缺（实测 `if (a);` 缺 1 + 字段名 1）。
-      // **与 `for` / `while` 的兜底同一招**：按原文从条件的 `)` 往后找那个 `;`。
-      const close = ctx.MatchingParen(ctx.source, seg.start);
-      let at = close >= 0 ? close + 1 : -1;
-      while (at >= 0 && at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
-      if (at >= 0 && ctx.source[at] === ";") {
-        props.thenStatement = { kind: "EmptyStatement", pos: at, end: at + 1 };
-        emptyBodyEnd = at + 1;
+      // **位置读字段**（第 657 轮）：`IfSegment.EmptyBodyAt` 是 `MountStatement` 喂那个字符时
+      // 当场记下来的（`if (a) /* ; */ ;` 里按原文扫会命中注释里那个假分号）。
+      // 字段缺了才退回原来那条按原文扫的兜底。
+      const rawEmptyAt = ctx.Attr(segments[index], "emptyBodyAt");
+      if (typeof rawEmptyAt === "number" && rawEmptyAt >= 0) {
+        props.thenStatement = { kind: "EmptyStatement", pos: rawEmptyAt, end: rawEmptyAt + 1 };
+        emptyBodyEnd = rawEmptyAt + 1;
+      } else {
+        const close = ctx.MatchingParen(ctx.source, seg.start);
+        let at = close >= 0 ? close + 1 : -1;
+        while (at >= 0 && at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+        if (at >= 0 && ctx.source[at] === ";") {
+          props.thenStatement = { kind: "EmptyStatement", pos: at, end: at + 1 };
+          emptyBodyEnd = at + 1;
+        }
       }
     }
     let pos = seg.start;
@@ -265,6 +273,13 @@ ifSet.MountCondition(source);
           props.elseStatement = elseBody.node;
           end = elseBody.end;
         } else {
+          // **空语句体 `else ;`**（第 657 轮）：位置读字段（见 `IfSegment.EmptyBodyAt`）。
+          // 少了这一支，`else ;` 会掉进下面「空体（`else {}`）」那条路——被画成一个**空的 `Block`**。
+          const rawElseEmpty = ctx.Attr(segments[index + 1], "emptyBodyAt");
+          if (typeof rawElseEmpty === "number" && rawElseEmpty >= 0) {
+            props.elseStatement = { kind: "EmptyStatement", pos: rawElseEmpty, end: rawElseEmpty + 1 };
+            end = rawElseEmpty + 1;
+          } else {
           // 空体（`else {}`）：TS 那边仍是一个空 `Block`。
           // **位置读字段**（第 621 轮）：`BodyBraceAt` 是挂体那一刻当场记下来的
           // （`MountBodyOrStatement` 里那个括号就在手上），而 `indexOf("{", at + 4)`
@@ -294,6 +309,7 @@ ifSet.MountCondition(source);
               props.elseStatement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
               end = close + 1;
             }
+          }
           }
         }
       }
@@ -429,6 +445,17 @@ if (tailIsElse) {
     return;
   }
   if (source.Value === "(") {
+    tail!.RemoveSelf();
+    this.NextSegment("else", elseStart);
+    this.MountStatement(context, source);
+    return;
+  }
+  // **`else` 后面是空语句**（第 657 轮）：判据只看当前这个字符，与上面 `{` / `(` 两格同款。
+  // 原来这一格走「先 `Lex` 再摘 `else`」那条路，而 `Lex` 之间语句层会把 `else` 与这个 `;`
+  // **一起收进同一条 `Statement` 壳** —— `else` 于是不再是本单元的子单元，
+  // 摘它时抛「自身不在父单元的子单元里」，整份文件解析失败（实测 `if (a) ; else ;`）。
+  // 空语句是唯一一种「以符号开头、又不是 `{` / `(`」的语句，所以这一格挡在这里就够。
+  if (source.Value === ";") {
     tail!.RemoveSelf();
     this.NextSegment("else", elseStart);
     this.MountStatement(context, source);
@@ -702,6 +729,12 @@ this.Segment!.MountedUnit = body;
 （实测 `if (a) f()` 换行 `if (b) g()`：第二个 `if` 整条消失，只剩 `(b) g()` 一个 `Statement`）。
 
 ```ts
+// **空语句体那一格当场记进段**（`IfSegment.EmptyBodyAt`，用户口径：token 出字段、投影直读）：
+// 这一格就是那个 `;`，投影画 `thenStatement` / `elseStatement` 的 `EmptyStatement` 时直读它
+//（原来两条路都在猜：then 那一支按原文从 `)` 往后扫分号，else 那一支干脆把 `else ;` 画成空的 `Block`）。
+if (source.Value === ";") {
+  this.Segment!.EmptyBodyAt = source.Index;
+}
 const statement = new IfStatement(this.Template);
 this.Segment!.Add(statement);
 statement.SignIn(source);

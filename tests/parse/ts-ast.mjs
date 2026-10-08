@@ -6,6 +6,9 @@
 //   node tests/parse/ts-ast.mjs --top 20
 //   node tests/parse/ts-ast.mjs --samples 5  每类最多列 5 条样本
 //   node tests/parse/ts-ast.mjs --file <路径> [--list]        逐文件的四个方向
+//   node tests/parse/ts-ast.mjs --snippets <文件.mjs|.json>   一个进程里把 N 条小片段逐条对拍
+//                                             （普查缺口的第一站：`{ id, src }` 的数组，
+//                                               TS 自己非法的片段跳过不算缺口）
 //   node tests/parse/ts-ast.mjs --per-file                    只列不为零的文件
 //   node tests/parse/ts-ast.mjs --cli         **发布路径**：真的开 `cjcli <文件> --ts-ast` 进程，
 //                                             拿它 stdout 的 JSON 与 `ts.createSourceFile` 对拍
@@ -32,7 +35,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { listCases } from "./validate.mjs";
 import { projectRoot } from "./ts-shape.mjs";
 
@@ -510,10 +513,8 @@ function parseWith(source, file) {
  *   node tests/parse/ts-ast.mjs --file <路径> --list      # 连对上的节点也列出来
  *   node tests/parse/ts-ast.mjs --file <路径> --limit 50  # 每个方向最多列几条
  */
-function diffOneFile(file, options) {
+function compareSource(source, file, options) {
   const { list, limit } = options;
-  let source = fs.readFileSync(file, "utf8");
-  if (source.charCodeAt(0) === 0xfeff) source = source.substring(1);
   const stats = {
     total: 0,
     repeatVisits: 0,
@@ -580,19 +581,99 @@ function diffOneFile(file, options) {
     if (lines.filter((l) => l.startsWith("EXTRA")).length < limit)
       lines.push(`EXTRA  ${p.kind}  [${p.start},${p.end})  ${snippet(p.start, p.end)}`);
   }
-  console.log(`${rel}`);
-  console.log(
-    `  TS 节点 ${theirs.length}，投影节点 ${proj.length}；缺 ${missing}　漂移 ${drift}　多出来 ${extra}　字段名 ${fieldDiff}` +
-      `${projected.unmapped.length ? `；未映射标签 ${[...new Set(projected.unmapped)].join(",")}` : ""}`,
-  );
   // 未对上的产物原标签（定位「投影把谁投歪了」用）
   const ourByKind = new Map();
   for (const node of ours) {
     if (!ourByKind.has(node.type)) ourByKind.set(node.type, []);
     ourByKind.get(node.type).push(node);
   }
-  for (const line of lines) console.log("  " + line);
-  if (!lines.length) console.log("  （完全一致）");
+  return {
+    rel,
+    tsNodes: theirs.length,
+    projNodes: proj.length,
+    missing,
+    drift,
+    extra,
+    fieldDiff,
+    unmapped: projected.unmapped,
+    lines,
+    ourByKind,
+    missingRange: stats.missingRange,
+    outOfRange: stats.outOfRange,
+  };
+}
+
+/**
+ * `--file <路径>` 那一把的**打印面**：把 `compareSource` 的读数铺成四个方向。
+ * 对拍本体在 `compareSource` 里 —— 片段探针与它共用同一条口径，不另起一份。
+ */
+function diffOneFile(file, options) {
+  let source = fs.readFileSync(file, "utf8");
+  if (source.charCodeAt(0) === 0xfeff) source = source.substring(1);
+  const r = compareSource(source, file, options);
+  console.log(`${r.rel}`);
+  console.log(
+    `  TS 节点 ${r.tsNodes}，投影节点 ${r.projNodes}；缺 ${r.missing}　漂移 ${r.drift}　多出来 ${r.extra}　字段名 ${r.fieldDiff}` +
+      `${r.unmapped.length ? `；未映射标签 ${[...new Set(r.unmapped)].join(",")}` : ""}`,
+  );
+  for (const line of r.lines) console.log("  " + line);
+  if (!r.lines.length) console.log("  （完全一致）");
+}
+
+/**
+ * **片段探针**（`--snippets <文件.mjs|.json>`）：**一个进程**里把 N 条小片段逐条与 TS 对拍。
+ *
+ * 为什么单开一条路：`--file` 一份文件一个进程，量「一个构造 × 一种排版」这种一两行的小片段时，
+ * 进程启动就是全部成本（几百条要按小时算）；小片段探针只解一次码、起一个进程——
+ * 「搜缺口先写小片段探针」那条纪律（见 `docs/typescript-parsing-gaps.md`）要的就是这个速度。
+ *
+ * 片段文件导出 `{ id, src }` 的数组（`.mjs` 默认导出 `snippets`，或 `.json` 直接是数组）。
+ * **TS 自己就报语法错的片段直接跳过**（无效 TS 不构成缺口），其余逐条报四个方向 + 未映射。
+ */
+async function snippetProbe(file, options) {
+  const { limit, verbose } = options;
+  const mod = file.endsWith(".json")
+    ? { default: JSON.parse(fs.readFileSync(file, "utf8")) }
+    : await import(pathToFileURL(file).href);
+  const snippets = Array.isArray(mod) ? mod : (mod.default ?? mod.snippets);
+  if (!Array.isArray(snippets)) throw new Error(`片段文件要导出 { id, src } 的数组：${file}`);
+  let checked = 0;
+  let bad = 0;
+  let skipped = 0;
+  for (const [index, item] of snippets.entries()) {
+    const id = item.id ?? `snippet-${index + 1}`;
+    const source = String(item.src ?? "");
+    const sf = ts.createSourceFile(`${id}.ts`, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    if (sf.parseDiagnostics.length > 0) {
+      skipped++;
+      if (verbose) console.log(`SKIP   ${id}（TS 自己报 ${sf.parseDiagnostics.length} 条语法错）`);
+      continue;
+    }
+    checked++;
+    let r;
+    try {
+      r = compareSource(source, `${id}.ts`, { list: false, limit });
+    } catch (error) {
+      // **解析自己抛异常**也是缺口的一种（比「形状不对」更硬）：探针不能因此整条停摆，
+      // 否则第一条崩掉的片段会把后面几百条的读数一起吞掉。
+      bad++;
+      console.log(`CRASH  ${id}  ${String(error && error.Message ? error.Message : error).split("\n")[0]}`);
+      continue;
+    }
+    const unmapped = [...new Set(r.unmapped)];
+    if (r.missing || r.drift || r.extra || r.fieldDiff || unmapped.length) {
+      bad++;
+      console.log(
+        `FAIL   ${id}  缺 ${r.missing}　漂移 ${r.drift}　多 ${r.extra}　字段 ${r.fieldDiff}` +
+          `${unmapped.length ? `　未映射 ${unmapped.join(",")}` : ""}`,
+      );
+      for (const line of r.lines) console.log("    " + line);
+    } else if (verbose) {
+      console.log(`ok     ${id}`);
+    }
+  }
+  console.log(`片段探针：${checked} 条合法片段，${bad} 条对不上，${skipped} 条 TS 自己就非法`);
+  process.exitCode = bad ? 1 : 0;
 }
 
 /**
@@ -784,11 +865,20 @@ function runBatch(mode, jobs, passthrough) {
   });
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const mode = args.find((a) => ["real", "cases", "all"].includes(a)) || "all";
   const top = args.includes("--top") ? Number(args[args.indexOf("--top") + 1]) : 20;
   const sampleLimit = args.includes("--samples") ? Number(args[args.indexOf("--samples") + 1]) : 3;
+
+  // **片段探针**（一条构造一两行，见 `snippetProbe`）：普查缺口的第一站，先于语料那几把。
+  if (args.includes("--snippets")) {
+    await snippetProbe(path.resolve(root, args[args.indexOf("--snippets") + 1]), {
+      limit: args.includes("--limit") ? Number(args[args.indexOf("--limit") + 1]) : 6,
+      verbose: args.includes("--verbose"),
+    });
+    return;
+  }
 
   // **发布路径那一把**（第 199 轮）：真的开 `cjcli` 进程，见上面 `cliParity`。
   if (args.includes("--cli")) {
@@ -1210,5 +1300,5 @@ function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
-  main();
+  await main();
 }
