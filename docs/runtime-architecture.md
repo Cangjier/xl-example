@@ -357,3 +357,18 @@ void    Ts_Collect(TsVm*);               // 给判据用
 `RegExp` `Intl` `Proxy` `Reflect` `BigInt` `TypedArray` `WeakMap`/`WeakSet`
 `eval` / `Function` 构造器、动态 `import()` 的加载语义、decorator 的运行时语义
 （先当语法擦除 + 元数据）、压缩 / 分代 GC、`WeakRef` / finalizer、跨 VM 共享对象、线程。
+
+---
+
+## 16. 已知与 Node 的差异（**写在明处**，不是缺陷）
+
+这三条都是**做不了 / 不值得做**那一档 ✓，而它们**不是静默的** ✗——判据一律绕开这些形状 ✓，
+所以这里写清楚，免得下一次有人把它当成回归 ✓。
+
+- **`localeCompare` 只在码元序上有确定答案** ✓（本仓没有区域表 ✗）：非 ASCII 输入**响亮地抛** ✓；
+  ASCII 之内的**大小写次序**也与 ICU 不同 ✓——`["b", "a", "B"].sort(localeCompare)`
+  本仓给 `B,a,b` ✓、Node 给 `a,b,B` ✓。判据只用**同一大小写的 ASCII** ✓。
+- **`Promise.all` / `race` / `allSettled` / `any` 收到非可迭代物时抛** ✓，
+  而 JS 给的是一个**被拒绝的承诺** ✓（`Promise.all(1).catch(…)` 在 JS 里接得住 ✓、这里接不住 ✓）。
+- **`decodeURI` / `decodeURIComponent` 把保留字符吐回去时统一大写** ✓
+  （`decodeURI("%2f")` 本仓给 `"%2F"` ✓、Node 原样给 `"%2f"` ✓）。

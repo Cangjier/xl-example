@@ -1055,10 +1055,19 @@ const units = JsTextUnits(table, self);
 // `split(",", 2)` 静默给错形状 ✗）——这一轮把它做出来 ✓。
 // **JS 的语义是「最多几段」** ✓：到了上限就**不再收**（连尾巴那一段也不收 ✓）——
 // 所以「先全切出来、最后截断到 `limit` 段」与它**等价** ✓（简单分隔符、空分隔符、末尾空段三档都对 ✓）。
+//
+// **`limit` 走的是 `ToUint32`** ✗（第 647 轮 ✓）：JS 先做 `ToUint32(limit)` ✓——
+// `-1` 于是绕回 `4294967295` ✓（**等于「不限」** ✓），而 `0` 是**真的**一段都不收 ✓。
+// 原来把负数**压成 `0`** ✗ ⇒ `"a,b,c".split(",", -1)` 给 `[]` ✓、与 `split(",", 0)`
+// 混成同一件事了 ✗（Node 给 `["a","b","c"]` ✓）。判据 `c647-std-string-split-negative-limit`。
 let limit = -1;
 if (args.length > 1 && !args[1].IsUndefined()) {
   const asked = ArgOr(args, 1, 0);
-  limit = asked < 0 ? 0 : asked;
+  // **整段照 `ToUint32`** ✓：先 `ToIntegerOrInfinity`（`Math.trunc` ✓），再模 2^32 取正 ✓
+  //（`-0.5` 于是给 `0` ✓、`-1` 给 `4294967295` ✓、`2.7` 给 `2` ✓、`4294967296` 给 `0` ✓）。
+  const truncated = Math.trunc(asked);
+  const wrapped = truncated % 4294967296;
+  limit = wrapped < 0 ? wrapped + 4294967296 : wrapped;
 }
 const out = NewPlainArray(room, table, protos);
 const result = table.Get(out.Ref).AsArray();

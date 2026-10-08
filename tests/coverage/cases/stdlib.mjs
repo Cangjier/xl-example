@@ -6049,4 +6049,144 @@ console.log(typeof Error.isError, Error.prototype.constructor === Error);
     title: "Array.sort 的比较器与稳定性",
     src: "\nconsole.log([10, 9, 1].sort().join(\",\"));\nconsole.log([10, 9, 1].sort((x, y) => x - y).join(\",\"));\nconst rows = [{ k: 1, v: \"a\" }, { k: 0, v: \"b\" }, { k: 1, v: \"c\" }];\nconsole.log(rows.sort((x, y) => x.k - y.k).map((r) => r.v).join(\"\"));\nconsole.log([\"b\", \"a\"].sort().join(\",\"));\n",
   },
+
+  // ===== 第 647 轮：普查量出来的新场景（候选 27 条 -> 收 26 条）=====
+  //
+  // **一条都不是凭空写的** ✓：它们是「先写候选、交给 `sweep` 量一遍」量出来的 ✓
+  //（口径见 docs/typescript-parsing-gaps.md 的「怎么量缺口」✓）。其中
+  // `thisArg` / `split` 的负数上限 / `isSupersetOf` / 孤立代理项 四条**当场红了** ✓
+  //（全是**静默错值**那一类 ✓），修完之后连着其余 22 条一起收进来 ✓；
+  // 落选的那一条是 `Promise.all(非可迭代物)`（本仓**抛**、JS 给**被拒绝的承诺** ✓），
+  // 它记在 docs/runtime-architecture.md 的「已知差异」里，不进矩阵 ✓。
+  {
+    id: "c647-std-toreversed-tospliced-tosorted",
+    title: "ES2023 非变体数组方法：toReversed / toSorted / toSpliced / with",
+    src: "\nconst xs = [3, 1, 2];\nconsole.log(JSON.stringify(xs.toReversed()), JSON.stringify(xs.toSorted()), JSON.stringify(xs));\nconsole.log(JSON.stringify(xs.toSpliced(1, 1, 9, 8)), JSON.stringify(xs));\nconsole.log(JSON.stringify(xs.with(0, 7)), JSON.stringify(xs.with(-1, 5)));\nconsole.log(JSON.stringify(xs));\n",
+  },
+  {
+    id: "c647-std-array-with-out-of-range",
+    title: "Array.prototype.with 越界抛 RangeError",
+    src: "\nconst xs = [1, 2, 3];\ntry { xs.with(3, 0); } catch (e) { console.log(e instanceof RangeError, e.name); }\ntry { xs.with(-4, 0); } catch (e) { console.log(e instanceof RangeError, e.name); }\nconsole.log(JSON.stringify(xs.with(1.0, 9)));\n",
+  },
+  {
+    id: "c647-std-callback-thisarg",
+    title: "回调的第二个实参 thisArg：map / filter / forEach / flatMap / 谓词族 / Array.from",
+    src: "\nconst ctx = { k: 10, tag: \"ctx\" };\nconst xs = [1, 2, 3];\nconsole.log(JSON.stringify(xs.map(function (v) { return v + this.k; }, ctx)));\nconsole.log(JSON.stringify(xs.filter(function (v) { return v + this.k > 12; }, ctx)));\nlet seen = \"\";\nxs.forEach(function (v) { seen += this.tag + v; }, ctx);\nconsole.log(seen);\nconsole.log(JSON.stringify(xs.flatMap(function (v) { return [v, this.k]; }, ctx)));\nconsole.log(xs.some(function (v) { return v === this.k; }, ctx), xs.every(function (v) { return v < this.k; }, ctx));\nconsole.log(xs.find(function (v) { return v === this.k; }, ctx), xs.findIndex(function (v) { return v === this.tag; }, ctx));\nconsole.log(JSON.stringify(Array.from(xs, function (v) { return v * this.k; }, ctx)));\nconsole.log(JSON.stringify(xs.map((v) => v * 2)));\n",
+  },
+  {
+    id: "c647-std-object-getownpropertysymbols",
+    title: "Object.getOwnPropertySymbols 与可枚举性",
+    src: "\nconst s = Symbol(\"k\");\nconst o = { a: 1, [s]: 2 };\nconsole.log(Object.getOwnPropertySymbols(o).length, Object.getOwnPropertySymbols(o)[0] === s);\nconsole.log(Object.keys(o).join(\",\"), JSON.stringify(o));\nconsole.log(Object.getOwnPropertySymbols({}).length);\n",
+  },
+  {
+    id: "c647-std-object-extensibility",
+    title: "Object.isExtensible / isFrozen / isSealed 交叉形态",
+    src: "\nconst a = { x: 1 };\nconsole.log(Object.isExtensible(a), Object.isFrozen(a), Object.isSealed(a));\nObject.preventExtensions(a);\nconsole.log(Object.isExtensible(a), Object.isFrozen(a), Object.isSealed(a));\nconst b = Object.seal({ y: 1 });\nconsole.log(Object.isExtensible(b), Object.isFrozen(b), Object.isSealed(b));\nconst c = Object.freeze({ z: 1 });\nconsole.log(Object.isExtensible(c), Object.isFrozen(c), Object.isSealed(c));\n",
+  },
+  {
+    id: "c647-std-set-es2025-operations",
+    title: "ES2025 集合运算：union / intersection / difference / 三问（含 isSupersetOf）",
+    src: "\nconst a = new Set([1, 2, 3]);\nconst b = new Set([3, 4]);\nconsole.log(JSON.stringify([...a.union(b)]), JSON.stringify([...a.intersection(b)]));\nconsole.log(JSON.stringify([...a.difference(b)]), JSON.stringify([...a.symmetricDifference(b)]));\nconsole.log(a.isSubsetOf(b), a.isSupersetOf(b), a.isDisjointFrom(b));\nconsole.log(new Set([1]).isSubsetOf(a), a.isSupersetOf(new Set([1, 2])));\nconsole.log(new Set().isSupersetOf(a), a.isSupersetOf(new Set()), new Set().isDisjointFrom(a));\nconsole.log(typeof a.isSupersetOf, typeof a.union, typeof a.isDisjointFrom);\n",
+  },
+  {
+    id: "c647-std-json-stringify-space-clamp",
+    title: "JSON.stringify 的 space 上限 10 与字符串 space",
+    src: "\nconst o = { a: { b: [1, 2] } };\nconsole.log(JSON.stringify(o, null, 20).split(\"\\n\")[1].length);\nconsole.log(JSON.stringify(o, null, \"abcdefghijklmn\").split(\"\\n\")[1].length);\nconsole.log(JSON.stringify(o, null, 0));\n",
+  },
+  {
+    id: "c647-std-json-parse-proto-key",
+    title: "JSON.parse 的 __proto__ 键是普通自有属性",
+    src: "\nconst o = JSON.parse('{\"__proto__\": {\"x\": 1}, \"a\": 2}');\nconsole.log(Object.keys(o).join(\",\"), JSON.stringify(o.a));\nconsole.log(Object.getPrototypeOf(o) === Object.prototype);\n",
+  },
+  {
+    id: "c647-std-uri-lone-surrogate",
+    title: "encodeURI / encodeURIComponent 遇到孤立代理项抛 URIError",
+    src: "\nconsole.log(encodeURIComponent(\"a b&c=d\"));\ntry { encodeURIComponent(\"\\uD800\"); } catch (e) { console.log(e instanceof URIError, e.name); }\ntry { encodeURI(\"\\uDC00\"); } catch (e) { console.log(e instanceof URIError, e.name); }\nconsole.log(encodeURIComponent(\"\\uD83D\\uDE00\"));\ntry { decodeURIComponent(\"%E0%A4%A\"); } catch (e) { console.log(e instanceof URIError, e.name); }\nconsole.log(decodeURIComponent(\"%41%42\"));\n",
+  },
+  {
+    id: "c647-std-structuredclone-cycle",
+    title: "structuredClone 处理环与 Map / Set / Date",
+    src: "\nconst node = { name: \"root\", child: null };\nnode.child = node;\nconst copy = structuredClone(node);\nconsole.log(copy !== node, copy.child === copy, copy.name);\nconst box = structuredClone({ m: new Map([[\"k\", 1]]), s: new Set([2]), d: new Date(0) });\nconsole.log(box.m.get(\"k\"), box.s.has(2), box.d.getTime());\n",
+  },
+  {
+    id: "c647-std-array-sort-comparator-nan",
+    title: "sort 的比较器返回 NaN 时按 0 处理",
+    src: "\nconst xs = [3, 1, 2];\nconsole.log(JSON.stringify(xs.sort(() => NaN)));\nconsole.log(JSON.stringify([\"b\", \"a\", \"c\"].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0))));\n",
+  },
+  {
+    id: "c647-std-array-includes-nan-and-holes",
+    title: "includes 的 SameValueZero 与稀疏槽",
+    src: "\nconst xs = [1, , NaN, undefined];\nconsole.log(xs.length, xs.includes(NaN), xs.includes(undefined), xs.indexOf(NaN), xs.indexOf(undefined));\nconsole.log(xs.includes(1, 1), xs.includes(1, -4));\n",
+  },
+  {
+    id: "c647-std-string-replaceall-empty-pattern",
+    title: "replaceAll 空串模式与函数替换",
+    src: "\nconsole.log(\"abc\".replaceAll(\"\", \"-\"));\nconsole.log(\"a-b-c\".replaceAll(\"-\", (m) => m + m));\nconsole.log(\"aaa\".replaceAll(\"aa\", \"b\"));\nconsole.log(\"abc\".replaceAll(\"z\", \"y\"));\n",
+  },
+  {
+    id: "c647-std-map-foreach-mutation",
+    title: "Map.forEach 期间增删键的可见性",
+    src: "\nconst m = new Map([[\"a\", 1], [\"b\", 2]]);\nconst seen = [];\nm.forEach((v, k) => {\n  seen.push(k + \":\" + v);\n  if (k === \"a\") { m.delete(\"b\"); m.set(\"c\", 3); }\n});\nconsole.log(seen.join(\",\"), m.size);\n",
+  },
+  {
+    id: "c647-std-symbol-keyfor-description",
+    title: "Symbol.keyFor / description 与注册表",
+    src: "\nconst g = Symbol.for(\"shared\");\nconsole.log(Symbol.keyFor(g), g.description, Symbol.for(\"shared\") === g);\nconsole.log(Symbol.keyFor(Symbol(\"local\")), Symbol(\"local\").description);\nconst s = Symbol();\nconsole.log(s.description, String(s));\n",
+  },
+  {
+    id: "c647-std-number-parseint-radix-zero",
+    title: "parseInt 的 radix 0 / undefined / 16 前缀",
+    src: "\nconsole.log(parseInt(\"0x1f\", 0), parseInt(\"0x1f\", 16), parseInt(\"0x1f\"), parseInt(\"10\", 0));\nconsole.log(parseInt(\"\"), parseInt(\"  42  \"), parseInt(\"42abc\"), parseInt(\"-0\"));\nconsole.log(Number.parseInt === parseInt, Number.parseFloat === parseFloat);\n",
+  },
+  {
+    id: "c647-std-date-setmonth-rollover-forms",
+    title: "Date 月末溢出与 setDate(0)",
+    src: "\nconst d = new Date(Date.UTC(2020, 0, 31));\nconst e = new Date(d.getTime());\ne.setUTCMonth(1);\nconsole.log(e.toISOString());\nconst f = new Date(Date.UTC(2020, 2, 1));\nf.setUTCDate(0);\nconsole.log(f.toISOString());\n",
+  },
+  {
+    id: "c647-std-string-split-negative-limit",
+    title: "split 的 limit：负数是「不限」、0 是一段都不收、超过段数照给",
+    src: "\nconsole.log(JSON.stringify(\"a,b,c\".split(\",\", -1)));\nconsole.log(JSON.stringify(\"a,b,c\".split(\",\", 0)));\nconsole.log(JSON.stringify(\"a,b,c\".split(\",\", 2)));\nconsole.log(JSON.stringify(\"a,b,c\".split(\",\", 9)));\nconsole.log(JSON.stringify(\"abc\".split(\"\", -1)), JSON.stringify(\"abc\".split(\"\", 0)));\n",
+  },
+  {
+    id: "c647-std-string-split-limit-zero",
+    title: "split 的 limit 与省略分隔符",
+    src: "\nconsole.log(JSON.stringify(\"a,b,c\".split(\",\", -1)));\nconsole.log(JSON.stringify(\"a,b,c\".split(\",\", 2)));\nconsole.log(JSON.stringify(\"abc\".split(undefined)));\nconsole.log(JSON.stringify(\"\".split(\"\")));\nconsole.log(JSON.stringify(\"a,b,\".split(\",\")));\n",
+  },
+  {
+    id: "c647-std-array-from-mapper-thisarg",
+    title: "Array.from 的 mapper 与第三个实参 thisArg",
+    src: "\nconst ctx = { k: 10 };\nconst out = Array.from([1, 2], function (v) { return v + this.k; }, ctx);\nconsole.log(JSON.stringify(out));\nconsole.log(JSON.stringify(Array.from(\"abc\")), JSON.stringify(Array.from(new Set([1, 1, 2]))));\nconsole.log(JSON.stringify(Array.from({ length: 3 }, (_, i) => i * 2)));\n",
+  },
+  {
+    id: "c647-std-promise-any-empty",
+    title: "Promise.any 空表与全拒绝的顺序",
+    src: "\nPromise.any([])\n  .then(() => console.log(\"resolved\"))\n  .catch((e) => console.log(e.name, e.errors.length, e instanceof AggregateError));\nPromise.any([Promise.reject(\"x\"), Promise.resolve(\"y\")]).then((v) => console.log(\"any\", v));\n",
+  },
+  {
+    id: "c647-std-async-iterator-symbol",
+    title: "async 生成器带 Symbol.asyncIterator 与 for await",
+    src: "\nasync function* gen() { yield 1; yield 2; }\nconst it = gen();\nconsole.log(typeof it[Symbol.asyncIterator], it[Symbol.asyncIterator]() === it);\n(async () => {\n  let sum = 0;\n  for await (const v of gen()) sum += v;\n  console.log(\"sum\", sum);\n})();\n",
+  },
+  {
+    id: "c647-std-error-instanceof-forms",
+    title: "Error 家族与 instanceof 的判定面",
+    src: "\nconst kinds = [new Error(\"e\"), new TypeError(\"t\"), new RangeError(\"r\"), { name: \"Error\" }, \"x\"];\nfor (const k of kinds) console.log(k instanceof Error);\nconsole.log(new TypeError(\"t\") instanceof Error, new Error(\"e\") instanceof TypeError);\n",
+  },
+  {
+    id: "c647-std-object-entries-roundtrip-symbols",
+    title: "Object.entries / values 忽略 symbol 键与不可枚举",
+    src: "\nconst o = { a: 1, b: 2 };\nObject.defineProperty(o, \"hidden\", { value: 3, enumerable: false });\no[Symbol(\"s\")] = 4;\nconsole.log(JSON.stringify(Object.entries(o)), JSON.stringify(Object.values(o)));\nconsole.log(Object.getOwnPropertyNames(o).join(\",\"));\n",
+  },
+  {
+    id: "c647-std-math-fround-and-clz",
+    title: "Math.fround / Math.imul / Math.clz32 边界",
+    src: "\nconsole.log(Math.fround(0.1), Math.fround(1e300), Math.fround(-0));\nconsole.log(Math.imul(0x7fffffff, 2), Math.clz32(1), Math.clz32(0), Math.clz32(0x80000000));\nconsole.log(Math.hypot(), Math.hypot(3, 4), Math.sign(-0), Object.is(Math.sign(-0), -0));\n",
+  },
+  {
+    id: "c647-std-string-localecompare-ascii",
+    title: "localeCompare 的 ASCII 符号与排序用法",
+    src: "\nconsole.log(\"a\".localeCompare(\"b\") < 0, \"b\".localeCompare(\"a\") > 0, \"a\".localeCompare(\"a\"));\nconsole.log(\"abc\".localeCompare(\"abd\") < 0, \"ab\".localeCompare(\"abc\") < 0);\nconsole.log([\"b\", \"a\", \"c\"].sort((x, y) => x.localeCompare(y)).join(\",\"));\n",
+  },
+
 ];

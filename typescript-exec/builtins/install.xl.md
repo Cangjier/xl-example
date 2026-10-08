@@ -10,7 +10,7 @@ import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
 import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask, PromiseThenableAdopt, ArrayFromAsyncValues, PromiseArrayFromStepId, PromiseArrayFromMapStepId, AsyncIterableValues, AsyncIterableStepId, WellKnownSymbolValue } from "./promise.xl.md"
 import { JsTextUnits, ValueText } from "./text.xl.md"
-import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
+import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext, ThisArgOf } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, SpeciesGetterId, InstallDatePrototype, BoundCall } from "./globals.xl.md"
 import { InvokeMap, MapCtor, MapGroupBy, MapSizeGet, NameValue, ReadOwn, InstallMapPrototype } from "./map.xl.md"
@@ -146,7 +146,13 @@ if (id === MapCtor || id === SetCtor
   // 与 `new Set(生成器)` **一字不差**的理由 ✓（第 199 轮 ✓）。
   // **`Map.groupBy` 的第一个实参也是可迭代物** ✓（第 327 轮 ✓）——同一条理由 ✓。
   || id === MapGroupBy
-  || (id >= 620 && id <= 625)) {
+  // **区间是「那一段」而不是「当年那六个号」** ✗（第 647 轮 ✓）：补第七个 `isSupersetOf`
+  // （`SetSupersetOf = 626` ✓）时这里还写着 `620..625` ✗ ⇒ 那个实参**根本没被 drain** ✓
+  // ⇒ `set.xl.md` 拿到一个 `Set` 对象而不是数组 ✓ ⇒ `other` 判成 `null` ✓
+  // ⇒ **对任何 `b` 都答 `true`** ✓（`a.isSupersetOf(b)` 在 Node 里是 `false` ✓）——
+  // 一处「加号忘了改区间」就是**静默错值** ✓，所以判据写成整段 ✓
+  //（与下面 `611..659` 那两句同一条口径 ✓：**认号段，不认当年的名单** ✓）。
+  || (id >= 620 && id <= 626)) {
   // **`null` / `undefined` 是空集合** ✓（JS 的口径 ✓），**不是**「没有迭代器」✗——
   // 而其余非可迭代物（`new Set(42)` ✓）由 `IterDrain` **响亮地抛** ✓（JS 也是 `TypeError` ✓）。
   if (args.length > 0 && !args[0].IsNullish() && args[0].Tag !== ValueTag.Array) {
@@ -556,6 +562,10 @@ return out;
 ```ts
 const source = args.length > 0 ? args[0] : Value.Undefined();
 const mapper = args.length > 1 ? args[1] : Value.Undefined();
+// **映射函数里的 `this` 就是第三个实参** ✓（第 647 轮 ✓）：`Array.from(x, fn, thisArg)` ✓——
+// 与 `xs.map(fn, thisArg)` 那一边**共用同一句判据** `ThisArgOf` ✓，只是**回调的位置不同** ✗
+//（数组方法那一族回调在 `args[0]` ✓、这里在 `args[1]` ✓ ⇒ 传 `1` ✓）。
+const thisArg = ThisArgOf(args, 1);
 const hasMapper = mapper.IsCallable();const out = NewPlainArray(room, table, protos);
 // **挂根**（第 199 轮 ✓）：`out` 是这一层自己造的 ✓、**不在 `SnapshotRoots` 的名单里** ✗，
 // 而下面**每一条路**里都有 `room(...)`（有的还在循环里 ✓）——不挂根的话，
@@ -605,7 +615,7 @@ if (source.IsObject() && source.Tag !== ValueTag.Array
       target.Push(item);
     }
     if (keep !== null) keep(out, false);
-    return MapArrayItems(room, table, out, mapper, hasMapper, call, failed);
+    return MapArrayItems(room, table, out, mapper, hasMapper, thisArg, call, failed);
   }
 }
 if (source.Tag === ValueTag.String) {
@@ -627,7 +637,7 @@ if (source.Tag === ValueTag.String) {
     table.Get(out.Ref).AsArray().Push(textItems.GetAt(i));
   }
   if (keep !== null) keep(out, false);
-  return MapArrayItems(room, table, out, mapper, hasMapper, call, failed);
+  return MapArrayItems(room, table, out, mapper, hasMapper, thisArg, call, failed);
 }
 const iterable = GetIterator(room, table, protos, source, call, keep);
 // **生成器那一档**（第 199 轮 ✓）：`GetIterator` 对它**原样返回** ✓（`for..of` 要的形状 ✓），
@@ -682,14 +692,16 @@ for (let i = 0; i < count; i++) {
   target.Push(items.GetAt(i));
 }
 if (keep !== null) keep(out, false);
-return MapArrayItems(room, table, out, mapper, hasMapper, call, failed);
+return MapArrayItems(room, table, out, mapper, hasMapper, thisArg, call, failed);
 ```
 
-# method MapArrayItems:(room:RoomChecker, table:HeapTable, out:Value, mapper:Value, hasMapper:bool, call:NativeCall | null, failed:CallFailed | null = null)=>Value
+# method MapArrayItems:(room:RoomChecker, table:HeapTable, out:Value, mapper:Value, hasMapper:bool, thisArg:Value, call:NativeCall | null, failed:CallFailed | null = null)=>Value
 
 **把映射函数套到一个刚造好的数组上**（第 182 轮 ✓）——`Array.from(x, fn)` 的第二个实参 ✓。
 
-**给回调两个实参** ✓（`(值, 下标)` ✓，JS 的口径 ✓）。
+**给回调两个实参** ✓（`(值, 下标)` ✓，JS 的口径 ✓），**而 `this` 是第三个实参** ✓
+（第 647 轮 ✓：`Array.from(x, fn, thisArg)` ✓——原来是 `Value.Undefined()` ✗，
+`function (v) { return v + this.k }` 于是给 `null` ✓，而 Node 给 `v + 10` ✓）。
 
 **没有映射函数就原样返回** ✓——所以三条源各自只在结尾处调它一次 ✓
 （与 JS「读一项、调一次」的次序差写在上面 ✗）。
@@ -703,7 +715,7 @@ if (call === null) throw new Error("unimplemented: Array.from with a mapper need
 const target = table.Get(out.Ref).AsArray();
 const count = target.GetLength();
 for (let i = 0; i < count; i++) {
-  const mapped = call(mapper, Value.Undefined(), [target.GetAt(i), Value.FromInt(i)]);
+  const mapped = call(mapper, thisArg, [target.GetAt(i), Value.FromInt(i)]);
   if (failed !== null && failed()) return Value.Undefined();
   target.SetAt(i, mapped);
 }

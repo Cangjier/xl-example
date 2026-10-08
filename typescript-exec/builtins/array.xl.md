@@ -334,6 +334,26 @@ if (index < 0) {
 return index > length ? length : index;
 ```
 
+# method ThisArgOf:(args:Array<Value>, at:int)=>Value
+
+**回调那一格的「第二个实参」**（第 647 轮 ✓）：JS 的 `xs.map(fn, thisArg)` / `xs.forEach(fn, thisArg)` /
+`xs.filter(fn, thisArg)` / `xs.flatMap(fn, thisArg)` 与谓词族六格、以及 `Array.from(x, fn, thisArg)`
+都把**回调后面那一格**的值当成**回调里的 `this`** ✓。没给就是 `undefined` ✓
+（严格模式下脚本里那句 `this` 于是是 `undefined` ✓——正是本仓的口径 ✓）。
+
+**`at` 是「回调自己在实参表第几格」** ✗：数组方法那一族回调是 `args[0]` ✓（`this` 于是是 `args[1]` ✓），
+`Array.from` 的回调是 `args[1]` ✓（`this` 是 `args[2]` ✓）——**两处只差这一格** ✓，
+所以判据收成一句、由调用方给出回调的位置 ✓（`args[0]` 就传 `0` ✓）。
+
+**为什么要有这一格** ✗：九处回调循环原来各自写 `call(args[0], Value.Undefined(), …)` ✓，
+把第二个实参**整个丢掉** ✓ ⇒ `[1,2].map(function (v) { return v + this.k }, { k: 10 })`
+给的是 `[null, null]` ✓（`this.k` 是 `undefined` ✓、`undefined + 10` 是 `NaN` ✓）——
+**静默错值** ✓，而 Node 给 `[11, 12]` ✓。判据 `c647-std-callback-thisarg`。
+
+```ts
+return args.length > at + 1 ? args[at + 1] : Value.Undefined();
+```
+
 # method InvokeArray:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
 
 **数组内建的分派与实现**。
@@ -557,6 +577,8 @@ if (id === ArrayFlatMap) {
   if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
     throw new Error("this array method needs a function and a call channel (the host must pass one)");
   }
+  // **回调里的 `this` 就是第二个实参** ✓（第 647 轮 ✓，见 `ThisArgOf` ✓）。
+  const thisArg = ThisArgOf(args, 0);
   const flatMapRoom = thisFlatRoom(room, source.GetLength());
   if (!flatMapRoom) throw new Error("out of room");
   const flatMapHandle = table.CreateArray();
@@ -570,7 +592,7 @@ if (id === ArrayFlatMap) {
     // **洞跳过** ✓（与 `map` / `forEach` 同一条 ✓）。
     if (source.IsHole(i)) continue;
     const item = source.GetAt(i);
-    const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i), self]);
+    const answered = call(args[0], thisArg, [item, Value.FromInt(i), self]);
     // **回调抛出就收摊** ✓（第 228 轮）：`answered` 这时是 `undefined` ✓——
     // 不问这一句，`flatMap` 会把它当成一个「不是数组的返回值」**收进结果里** ✗
     // （于是结果数组多出一格 `undefined` ✓，而那一格**根本不该存在** ✗）。
@@ -710,6 +732,8 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
   if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
     throw new Error("this array method needs a function and a call channel (the host must pass one)");
   }
+  // **回调里的 `this` 就是第二个实参** ✓（第 647 轮 ✓，见 `ThisArgOf` ✓）。
+  const thisArg = ThisArgOf(args, 0);
   // **快照一次长度**：回调里可以改这个数组 ✓（JS 也允许），改了的下一轮才见 ✓。
   const eachTotal = source.GetLength();
   let collected = -1;
@@ -741,7 +765,7 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
     // 而它只挂在 `source`（调用方的数组）身上 ✓……**那也算挂着** ✓，
     // 所以这里挂的是「**不挂在别处**」的那些 ✓（见上面那一段判据 ✓）。
     // `map` 收的是回调的返回值 ✓（紧接着就 `Push` ✓，中间不分配 ✓）——它不必挂 ✓。
-    const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i), self]);
+    const answered = call(args[0], thisArg, [item, Value.FromInt(i), self]);
     // **回调抛出就收摊** ✓（第 228 轮 ✓）：`answered` 这时是一个**看起来正常的 `undefined`** ✗
     // （`CallNative` 在状态被改之后就是给 `undefined` ✓）——不问这一句就接着转下一圈 ✓，
     // 于是回调里那次 `throw` 要等整个 `forEach` 跑完才冒出来 ✗（**静默**那一类 ✓）。
@@ -774,6 +798,8 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
   if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
     throw new Error("this array method needs a function and a call channel (the host must pass one)");
   }
+  // **回调里的 `this` 就是第二个实参** ✓（第 647 轮 ✓，见 `ThisArgOf` ✓）。
+  const thisArg = ThisArgOf(args, 0);
   const predicateTotal = source.GetLength();
   // **方向只有这一格** ✓（第 274 轮）：`findLast` / `findLastIndex` 与它们正向的兄弟
   // **共用下面整段** ✗——「洞要跳过」✓、「回调抛出要收摊」✓、「真假走 `RtToBoolean`」✓
@@ -794,7 +820,7 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
     const skipsHoles = id === ArraySome || id === ArrayEvery;
     if (skipsHoles && source.IsHole(i)) continue;
     const item = source.GetAt(i);
-    const answered = RtToBoolean(table, call(args[0], Value.Undefined(), [item, Value.FromInt(i), self])).AsBool();
+    const answered = RtToBoolean(table, call(args[0], thisArg, [item, Value.FromInt(i), self])).AsBool();
     // **回调抛出就收摊** ✓（第 228 轮，与 `forEach` 那一条同一处口径 ✓）：
     // `RtToBoolean` 对 `undefined` 给**假** ✓——不问这一句的话，`some` / `every` 会把这个
     // 「假」当成回调的答案用 ✗（`every` 于是当场返回 `false` ✓，**静默错值** ✗）。

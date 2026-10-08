@@ -887,6 +887,14 @@ while (i < units.length) {
     code = 0x10000 + ((code - 0xd800) * 1024) + (units[i + 1] - 0xdc00);
     width = 2;
   }
+  // **孤立代理项是坏输入，响亮地抛** ✗（第 647 轮 ✓）：JS 的两个编码函数遇到它都抛
+  // `URIError` ✓——一个孤立的代理项**不是一个字符** ✓，而原来把它当成一个普通码点
+  // 编成三字节 ✗（实测 `encodeURIComponent("\uD800")` 给 `%ED%A0%80` ✓，
+  // 而 Node 抛 `URIError: URI malformed` ✓）。**与解码那一侧抛的是同一件事** ✓
+  //（`decodeURIComponent` 的坏字节序列也是这个类、这句话 ✓）。
+  if (code >= 0xd800 && code <= 0xdfff) {
+    throw new URIError("URI malformed");
+  }
   if (code < 128 && UriKeep(code, component)) {
     out.push(code);
     i += width;

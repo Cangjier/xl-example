@@ -79,6 +79,16 @@ import { Vm } from "../../runtime/vm.xl.md"
 # const SetDisjointFrom:int = 625
 **`isDisjointFrom(另一个集合)`**（第 324 轮 ✓）。
 
+# const SetSupersetOf:int = 626
+
+**`isSupersetOf(另一个集合)`**（第 647 轮 ✓）——ES2025 那一族的**第七个** ✓。
+
+**为什么第 324 轮漏了它** ✗：那一轮把六个名字一次做齐 ✓，而 `isSupersetOf` 与 `isSubsetOf`
+**是一对反过来问的话** ✓——一个遍历自己、一个遍历对方 ✓，写的时候只写了前者 ✓。
+漏掉它的症状**不是**「报错说没实现」✗，而是 `typeof s.isSupersetOf` 给 `"undefined"` ✓
+⇒ `s.isSupersetOf(t)` 当场抛 `cannot call a non-closure value` ✓（与第 308 轮
+`Array.prototype[Symbol.iterator]` 同一副面孔 ✓：**没人往那一格挂东西** ✗）。
+
 # const SetSizeGet:int = 662
 **`Set.prototype.size` 那个 getter 的号** ✓（第 613 轮 ✓）——**不是脚本看得到的名字** ✗：
 它是 `InstallSetPrototype` 自己挂上去的一个宿主引用 ✓。号落在 `661`（`MapSizeGet`）后面 ✓，
@@ -106,6 +116,7 @@ if (id === SetDifference) return "difference";
 if (id === SetSymmetricDifference) return "symmetricDifference";
 if (id === SetSubsetOf) return "isSubsetOf";
 if (id === SetDisjointFrom) return "isDisjointFrom";
+if (id === SetSupersetOf) return "isSupersetOf";
 throw new Error("unimplemented: set method id " + id);
 ```
 
@@ -123,7 +134,9 @@ const ids = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear
   // **第 324 轮那六个也要挂** ✓：与上面八个**同一个循环** ✓——少挂一格就是
   // `cannot call a non-closure value` ✓（**那句话听起来像「集合运算还没做」** ✗，
   // 其实只是**没人往那一格挂东西** ✓，与第 308 轮 `Array.prototype[Symbol.iterator]` 同一副面孔 ✓）。
-  SetUnion, SetIntersection, SetDifference, SetSymmetricDifference, SetSubsetOf, SetDisjointFrom];
+  SetUnion, SetIntersection, SetDifference, SetSymmetricDifference, SetSubsetOf, SetDisjointFrom,
+  // **第 647 轮补齐第七个** ✓：`isSupersetOf` 与上面那一对是同一件事的三个方向 ✓。
+  SetSupersetOf];
 for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   WriteOwn(room, NeverCall, table, target, SetMethodNameOf(ids[i]), fn);
@@ -277,17 +290,18 @@ if (id === SetClear) {
   WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(0));
   return Value.Undefined();
 }
-// ---- 第 324 轮：ES2025 的集合运算六个 ----
+// ---- 第 324 轮：ES2025 的集合运算（第 647 轮补齐第七个）----
 //
 // **它们与上面八个是两件事** ✓：上面那些改的是**接收者自己** ✓（`add` / `delete` / `clear` ✓），
-// 这六个**一个都不改** ✗——造一个**新的 `Set`** ✓（四个）或答**一个是非** ✓（两个）。
+// 这七个**一个都不改** ✗——造一个**新的 `Set`** ✓（四个）或答**一个是非** ✓（三个）。
 //
 // **另一个集合到这一层已经是数组** ✓（`install.xl.md` 那一趟 `IterDrain` ✓，
 // 与 `new Set(生成器)` 同一条路 ✓）——所以这里只需要**线性找** ✓
 // （`SameValueZero` ✓，与 `has` / `delete` 同一个表 ✓，`NaN` 于是也对 ✓）。
 // **`null` / `undefined` 按空集算** ✓（与 `new Set(undefined)` 同一条口径 ✓）。
 if (id === SetUnion || id === SetIntersection || id === SetDifference
-  || id === SetSymmetricDifference || id === SetSubsetOf || id === SetDisjointFrom) {
+  || id === SetSymmetricDifference || id === SetSubsetOf || id === SetDisjointFrom
+  || id === SetSupersetOf) {
   let other: HeapArray | null = null;
   if (args.length > 0 && args[0].Tag === ValueTag.Array) other = table.Get(args[0].Ref).AsArray();
   const mine = table.Get(values.Ref).AsArray();
@@ -303,6 +317,19 @@ if (id === SetUnion || id === SetIntersection || id === SetDifference
       else missing = true;
     }
     return Value.FromBool(id === SetSubsetOf ? !missing : !shared);
+  }
+  // **`isSupersetOf` 是上面那一问的**反向** ✓（第 647 轮 ✓）：遍历的是**另一个集合** ✓，
+  // 而「在不在」查的是**我自己** ✓——两处只差方向 ✓，判据仍是 `SetArrayHas` ✓
+  //（`SameValueZero` 一份 ✓，`NaN` 于是也对 ✓）。
+  // **不能拿 `isSubsetOf` 的取值范围去凑** ✗：`a ⊇ b` 与 `a ⊆ b` 只有 `a === b` 时才同真 ✓。
+  if (id === SetSupersetOf) {
+    if (other !== null) {
+      for (let i = 0; i < other.GetLength(); i++) {
+        if (other.IsHole(i)) continue;
+        if (!SetArrayHas(table, mine, other.GetAt(i))) return Value.FromBool(false);
+      }
+    }
+    return Value.FromBool(true);
   }
   const created = InvokeSet(room, protos, table, null, SetCtor, Value.Undefined(), []);
   // **一趟走自己那一侧** ✓：`union` 全要 ✓、`intersection` 要两边都有的 ✓、
