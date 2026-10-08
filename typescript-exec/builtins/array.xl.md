@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge, HoleCharge, PropertyKind, PropertyFlagWritable } from "../../runtime/heap.xl.md"
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToNumberOf, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
-import { SetProperty, SetHiddenProperty, DeleteProperty, GetProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, DeleteProperty, GetProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed, IndexAccessorAt } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits, ToStringOfObject } from "./text.xl.md"
 import { IsArgumentsValue } from "./inspect.xl.md"
@@ -899,8 +899,17 @@ if (id === ArrayJoin) {
     ? TextUnitsOf(table, args[0])
     : Units(",");
   const parts: number[][] = [];
-  let total = separator.length * (source.GetLength() > 0 ? source.GetLength() - 1 : 0);
-  for (let i = 0; i < source.GetLength(); i++) {
+  // **循环的上界是 `length` 那一格、不是元素区的格子数**（第 756 轮，**普查当场量到的**）：
+  // `Object.defineProperty(a, 0, { get() { return 9 } })` 会把那一格**摘成洞**
+  // （`props.xl.md` 的 `IndexAccessorAt` 那一段写着为什么：元素区与属性表两处住不下
+  // 同一格），于是元素区仍是 0 格 ⇒ 循环一次都不进 ⇒ `a.join(",")` 在 Node 里是
+  // `"9,2"`、本仓给 `",2"`（**静默错值**）。
+  // 而 **`length` 本来就已经跟着长**（`defineProperty(a, 1, …)` 之后 `a.length` 是 2，
+  // 本仓那一行一直是对的）——所以上界换 `ArrayLikeLength` 就够：
+  // 它对**数组接收者**取的是同一格 `length`。
+  const joinLength = ArrayLikeLength(room, table, call, self);
+  let total = separator.length * (joinLength > 0 ? joinLength - 1 : 0);
+  for (let i = 0; i < joinLength; i++) {
     // **元素走「任意值 → 文本」**（第 124 轮）：`[obj, [1, 2]].join('|')` 在 JS 里是
     // `"[object Object]|1,2"`——用引擎的 `TextUnitsOf` 会在对象上**抛**（那是它的口径）。
     // **空格（洞 / `null` / `undefined`）渲染成空串**——那条规矩在 `ValueUnitsAt` 里
@@ -915,7 +924,21 @@ if (id === ArrayJoin) {
     // **`JsElementUnits` 收的正是这件事**（理由写在 `text.xl.md`：
     // `ToPrimitive` 自己会走到自定义 `toString` / 数组的 `toString` /
     // `Object.prototype.toString` 三档）。
-    const units = JsElementUnits(room, call, protos, table, source, i, 0);
+    //
+    // **下标位上装了访问器那一格要改走 `GetProperty`**（第 756 轮）：`JsElementUnits`
+    // 收的是**元素区**的格子，而访问器住在属性表里 ⇒ 那一格读成洞。
+    // **判据是 `IndexAccessorAt`**（与 `vm.xl.md` 的 `RtOp.GetIndex` 那一处**同一句**：
+    // 两边各写一遍就是两处会漂）；**没有调用通道时退回元素区那条老路**
+    // （`JsElementUnits` 自己那一句写着同样的取舍）。
+    let units: number[];
+    if (call !== null && IndexAccessorAt(table, self, i)) {
+      const accessorKey = Value.FromString(table.CreateString(Units(String(i))));
+      const got = GetProperty(room, call, protos, table, self, accessorKey);
+      units = (got.Tag === ValueTag.Undefined || got.Tag === ValueTag.Null)
+        ? [] : JsTextUnits(table, ToPrimitiveOf(room, call, protos, table, got, ToPrimitiveString));
+    } else {
+      units = JsElementUnits(room, call, protos, table, source, i, 0);
+    }
     parts.push(units);
     total = total + units.length;
   }

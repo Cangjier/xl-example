@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8183,
+  "total": 8185,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.66,
+  "progressPercent": 95.65,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1078,
-      "pass": 1044,
+      "total": 1080,
+      "pass": 1045,
       "blocked": 3,
-      "differ": 31,
+      "differ": 32,
       "nodefail": 0,
-      "coverage": 96.85
+      "coverage": 96.76
     },
     {
       "category": "stdlib",
       "weight": 0.2,
       "total": 3229,
-      "pass": 3151,
+      "pass": 3153,
       "blocked": 25,
-      "differ": 53,
+      "differ": 51,
       "nodefail": 0,
-      "coverage": 97.58
+      "coverage": 97.65
     },
     {
       "category": "e2e",
@@ -1847,7 +1847,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-7784/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18364/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2096,10 +2096,10 @@
       "detail": "stdout 不同：第 14 行：node «(function () { const { a = fun ok:string:a» vs tsrun «(function () { const { a = fun ok:string:»"
     },
     {
-      "id": "stdlib/array/143-getter-array-index",
-      "category": "stdlib",
-      "title": "数组下标位置上的访问器（`defineProperty`）",
-      "detail": "stdout 不同：第 1 行：node «99 1,99,3 [1,99,3] 3» vs tsrun «99 1,,3 [1,99,3] 3»"
+      "id": "runtime/round756/r756c-02",
+      "category": "runtime",
+      "title": "属性描述符的默认值与冻结后的写",
+      "detail": "stdout 不同：第 11 行：node «(function () { \"use strict\"; c ok:string:TypeError» vs tsrun «(function () { \"use strict\"; c ok:string:wrote»"
     },
     {
       "id": "stdlib/array/149-concat-spreadable",
@@ -2129,7 +2129,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-7784/src/5250.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18364/src/5252.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2153,7 +2153,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-7784/src/5300.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18364/src/5302.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2240,16 +2240,10 @@
       "detail": "stdout 不同：第 1 行：node «number:15» vs tsrun «number:0»"
     },
     {
-      "id": "stdlib/round721/p721a-b01",
-      "category": "stdlib",
-      "title": "下标上的访问器：读那一格",
-      "detail": "stdout 不同：第 1 行：node «number:99,string:1,99,3,string:[1,99,3],number:3» vs tsrun «number:99,string:1,,3,string:[1,99,3],number:3»"
-    },
-    {
       "id": "stdlib/round721/p721a-b02",
       "category": "stdlib",
       "title": "下标上的访问器：get + set",
-      "detail": "stdout 不同：第 1 行：node «number:14,number:14,string:1,14,3» vs tsrun «number:5,number:5,string:1,7,3»"
+      "detail": "stdout 不同：第 1 行：node «number:14,number:14,string:1,14,3» vs tsrun «number:5,number:5,string:1,5,3»"
     },
     {
       "id": "stdlib/round721/p721a-b03",

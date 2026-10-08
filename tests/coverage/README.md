@@ -537,6 +537,20 @@
    （`set_function_name(闭包, 键, 前缀)`，判据全在 `InvokeObjectHelper` 里）。
    本批另登记 1 条（解构默认值里的函数值不取名）。加权 **95.6% → 95.7%**
    （分子 +5、分母 +4）。
+   **第 756 轮全矩阵**（2 条新语料，收掉一处、**两条旧账到期**）：通过
+   **7804 → 7807**、分母 **8183 → 8185**、`blocked 262`（**没动**）、
+   `differ 117 → 116`（新登 1、旧账转绿 2）、`bad` 仍 **0**、`regressions` **0**、
+   `moved` 0、`newlyPassing` **0**——**收掉一处**：**`join` 读不到装在数组下标上的
+   访问器**（`r756c-01` 第 3 行；`stdlib/array/143-getter-array-index` 与
+   `stdlib/round721/p721a-b01` 两条旧台账到期）。
+   **根子**：`ArrayJoin` 那一支按 `source.GetLength()`（**元素区的格子数**）循环，
+   而装访问器会把那一格**摘成洞**（`props.xl.md` 的 `IndexAccessorAt` 那一段）
+   ⇒ 元素区仍是 0 格 ⇒ **循环一次都不进**；而 `length` 本来就已经跟着长。
+   修法：上界换 `ArrayLikeLength`、那一格改走 `GetProperty`
+   （判据 `IndexAccessorAt`，与 `RtOp.GetIndex` 那一处**同一句**）。
+   本批另登记 1 条（**严格代码里写只读属性该抛 `TypeError`**——要动引擎，
+   与 700+ 条语料的「松散模式静默失败」共用一条路）。加权仍是 **95.7%**
+   （分子 +3、分母 +2）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

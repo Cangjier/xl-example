@@ -1,13 +1,12 @@
 // xl:title 下标上的访问器：读那一格
 // xl:round 721
 // xl:judge stdout
-// xl:want differ
-// xl:why **下标上的访问器读不到**：`defineProperty(a, "1", { get() { return 99 } })` 之后
-// xl:why `a[1]` / `a.join()` / `JSON.stringify(a)` **三条路都读元素区**——访问器那一格确实躺在
-// xl:why `Props` 里（描述符那一趟第 721 轮已经读得到它，判据 `p721a-r08` 是绿的），
-// xl:why 可 `get_index` 这条快路径**没有调用通道**（`NativeCall`）⇒ 调不动 getter。
-// xl:why 要做就得把通道一路递进 `GetIndex`，而元素区那三十来处读取（`join` / `map` / 迭代器 /
-// xl:why `JSON`）也要跟着问一遍属性表——那是迭代协议那一层的活。
+// xl:why **第 756 轮收掉了**（指令已撤、用例留着当守卫）：三条路现在都读得到那一格。
+// xl:why **只改了 `join` 这一条**（第 756 轮）：它原来按元素区的格子数循环，
+// xl:why 而装了访问器之后那一格是洞 ⇒ 循环一次都不进；现在上界是 `length` 那一格、
+// xl:why 该格改走 `GetProperty`（判据 `IndexAccessorAt`，与 `RtOp.GetIndex` 同一句）。
+// xl:why **另外两条路（迭代器 / `JSON`）是第 746 / 721 两轮分别收的**——
+// xl:why 这一段账留着做历史：`get_index` 那条快路径原来没有调用通道。
 // xl:end
 const show = (v) => (v === null ? "null"
   : v === undefined ? "undefined"

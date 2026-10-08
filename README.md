@@ -1895,6 +1895,42 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   （两条旧台账到期走的是**分子**，指令已按规矩撤掉、用例留着当守卫）。
   加权 **95.6% → 95.7%**。
 
+### 第 756 轮（收尾轮）：**下标访问器 / 属性描述符**那一侧——收掉一处（`join` 读不到装在数组下标上的访问器）、两条旧账到期（coverage 7804/8183 → **7807/8185**）
+
+这一轮的探针换到**下标与描述符那一侧**：32 条原子探针分两面问
+（数组下标位上的访问器与洞、属性描述符的默认值与冻结 / 密封 / 不可扩展）。
+**一面 16 行全对**、另一面 16 行里 15 行对、**一处收掉**。
+
+- **收掉一处：`join` 在装了访问器的下标上读不到那一格**（判据 `r756c-01` 第 3 行，
+  **两条旧台账一起到期**：`stdlib/array/143-getter-array-index` 与
+  `stdlib/round721/p721a-b01`）。`Object.defineProperty(a, 0, { get() { return 9 } })`
+  之后 `a.join(",")` 在 Node 里是 `"9,2"`、本仓给 `",2"`（**静默错值**）。
+  **根子**：`ArrayJoin` 那一支原来按 `source.GetLength()`——**元素区的格子数**——
+  循环，而装访问器会把那一格**摘成洞**（`props.xl.md` 的 `IndexAccessorAt` 那一段
+  写着为什么：元素区与属性表两处住不下同一格）⇒ 元素区仍是 0 格 ⇒ **循环一次都不进**。
+  而 `length` **本来就已经跟着长**（`defineProperty(a, 1, …)` 之后 `a.length` 是 2，
+  那一条读数一直是对的）。
+  修法两处：上界换 `ArrayLikeLength`（对数组接收者取的是同一格 `length`）、
+  **装了访问器的那一格改走 `GetProperty`**（判据是 `IndexAccessorAt`——
+  与 `vm.xl.md` 的 `RtOp.GetIndex` 那一处**同一句**；`call === null` 时退回元素区那条老路）。
+- **新登一条**（`r756c-02` 第 11 行）：**严格代码里写只读属性该抛 `TypeError`**。
+  `"use strict"; const o = {}; Object.defineProperty(o, "a", { value: 1, writable: false }); o.a = 2;`
+  在 Node 里抛 `TypeError`、本仓**静默不写**（**静默错值**）。
+  `ir.xl.md` 的 `case SetProp` 那一行**本来就写着这一句**（「严格模式下的只读 /
+  不可扩展要抛 `TypeError`」），缺的是**写那一趟不知道「这一段是不是严格」**：
+  严格性今天只喂给「`this` 的绑法」（`vm.xl.md` 的 `DoCallValue` 读闭包的 `IsStrict`），
+  而 `set_prop` 那条算子的签名里**没有这一位**。
+  **要收它得动引擎**（`rt.xl.md` 的 `SetPropertySearched` 那一支返回假之后，
+  由调用方按严格性决定抛不抛），而它与 700+ 条语料的「松散模式静默失败」
+  **共用一条路**——**收尾轮不顺手动那一处**。
+  那一条探针的**前 10 行与后 5 行**（描述符默认值、冻结 / 密封、重新定义、不可扩展）
+  **全对**，所以用例留着当守卫。
+- 用例：`runtime/round756` 2 条（1 pass / 1 differ）。
+- 五类 **7804 / 8183 → 7807 / 8185**（+2 条语料）、`blocked 262`（**没动**）、
+  `differ 117 → 116`、`bad` 0、`regressions` **0**、`moved` 0、`newlyPassing` 0
+  （两条旧台账到期走的是**分子**，指令已按规矩撤掉、用例留着当守卫）。
+  加权 **95.7%**（两个数都在这一位）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1907,7 +1943,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7775 / 8147**，加权 **95.7%**：token 1196/1414、exec 2171/2216、runtime 1024/1055、stdlib 3142/3216、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 111），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `coverage` | **五类 7807 / 8185**，加权 **95.7%**：token 1196/1414、exec 2171/2216、runtime 1045/1080、stdlib 3151/3229、e2e 242/246。差的那些是**真缺口**（`blocked` 262 / `differ` 116），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 
