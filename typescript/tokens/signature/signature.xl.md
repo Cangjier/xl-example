@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { IsDeclarationTailStop } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "../class/class-body.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -17,6 +17,7 @@ import { ReturnType } from "../function/return-type.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { TypeLiteralBody } from "../type-literal/type-literal-body.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
+import { New } from "../new/new.xl.md"
 ```
 
 # namespace cangjie
@@ -222,6 +223,20 @@ if (current instanceof Identifier && current.Is("new")) {
   }
   return this.HasSignatureTail(units, parametersIndex);
 }
+// **`new (…): T` 已经被 `NewCloseRule` 收成一个 `New` 单元**：本规则排在它后面，
+// 于是这里看到的是 `New` 而不是裸的 `new` 词（`new close rule` 的 `Previous` 认
+// 「`new` 后面直接跟括号」这一格）。形状与上面那一支同构，只是括号在 `New` 里面。
+if (current instanceof New) {
+  const newType = current.Data.find((item) => item.constructor.name === "NewType");
+  if (newType === null || newType === undefined) {
+    return false;
+  }
+  const bracket = newType.Data.find((item) => item instanceof Bracket);
+  if (!(bracket instanceof Bracket) || bracket.startBracket !== "(") {
+    return false;
+  }
+  return this.HasSignatureTail(units, index);
+}
 if (current instanceof GenericType) {
   let immediateIndex = index - 1;
   const immediate = Get(units, immediateIndex);
@@ -280,24 +295,46 @@ if (current === null) {
 }
 const isConstruct = current instanceof Identifier;
 const isGenericCall = current instanceof GenericType;
+// **`new (…): T` 已经被 `NewCloseRule` 收成一个 `New` 单元**（本规则排在它后面）：
+// 括号在 `New` 的 `NewType` 段里面，单元列表上那个位置就是 `New` 自己。
+// 原来这一支认不出来，于是 `interface I { abstract /* c */ new (): A }` 整条签名塌成
+// 裸 `ConstructSignature`（`abstract` 与注释都漏在外面）。
+let isNewUnit = false;
+let parametersIndex = index;
+let newParameters: Token | null = null;
+if (current instanceof New) {
+  isNewUnit = true;
+  const newType = current.Data.find((item) => item.constructor.name === "NewType");
+  newParameters = newType === undefined ? null : newType.Data.find((item) => item instanceof Bracket) ?? null;
+  if (newParameters === null) {
+    throw new Error("成员签名不满足格式要求：new (...) : Type");
+  }
+}
 let startIndex = index;
 let abstractUnit: Token | null = null;
-if (isConstruct) {
-  const beforeIndex = SkipPreviousWrapSymbol(units, index);
+if (isConstruct || isNewUnit) {
+  // **`abstract` 与 `new` 之间可以夹注释**：`SkipPreviousWrapSymbol` 只跳软换行，
+  // 注释是一个实义单元（`AreaAnnotation`），于是 `abstract /* new */ new (): A` 里
+  // 那个 `abstract` 认不出来，整条签名落成裸 `ConstructSignature` ✗
+  //（TS 那边是 `MethodSignature` + `AbstractKeyword`）。这里要的是**上一个实义单元**，
+  // 所以用 `SkipPreviousTrivia`（注释也算 trivia）。
+  const beforeIndex = SkipPreviousTrivia(units, index);
   const before = Get(units, beforeIndex);
   if (before instanceof Identifier && before.Is("abstract")) {
     abstractUnit = before;
     startIndex = beforeIndex;
   }
 }
-let parametersIndex = isConstruct ? SkipNextWrapSymbol(units, index) : index;
-if (isConstruct && Get(units, parametersIndex) instanceof GenericType) {
-  parametersIndex = SkipNextWrapSymbol(units, parametersIndex);
+if (isConstruct) {
+  parametersIndex = SkipNextWrapSymbol(units, index);
+  if (Get(units, parametersIndex) instanceof GenericType) {
+    parametersIndex = SkipNextWrapSymbol(units, parametersIndex);
+  }
 }
 if (isGenericCall) {
   parametersIndex = SkipNextWrapSymbol(units, index);
 }
-const parameters = Get(units, parametersIndex);
+const parameters = isNewUnit ? newParameters : Get(units, parametersIndex);
 if (!(parameters instanceof Bracket)) {
   throw new Error("成员签名不满足格式要求：(...) : Type");
 }
@@ -308,11 +345,20 @@ if (tailEnd < 0 || tailStart > tailEnd) {
 }
 const result = new Signature(template);
 result.Parent = current.Parent;
-result.kind = isConstruct ? "construct" : "call";
+result.kind = isConstruct || isNewUnit ? "construct" : "call";
+// **`new` 那个词的位置当场记下**（用户口径：token 出字段、投影直读）：
+// 两个分支拿到的都是 `new` 自己那一段的起点（`Identifier(new)` 或 `New` 单元）。
+if (isConstruct || isNewUnit) {
+  result.NewAt = current.SourceRange.Start!.Index;
+}
 if (abstractUnit !== null) {
   result.AddAndCloseLast(abstractUnit);
 }
-if (isConstruct || isGenericCall) {
+if (isNewUnit) {
+  // `New` 整段（含它自己的 `NewType` 与 `NewArguments` 两段）作为一个子单元收进来：
+  // 投影在它里面找那个括号（见 `PrintAst` 的 `newUnit` 那一支）。
+  result.AddAndCloseLast(current);
+} else if (isConstruct || isGenericCall) {
   result.AddAndCloseLast(current);
   for (let i = index + 1; i < parametersIndex; i++) {
     const item = Get(units, i);
@@ -321,7 +367,9 @@ if (isConstruct || isGenericCall) {
     }
   }
 }
-result.AddAndCloseLast(parameters);
+if (!isNewUnit) {
+  result.AddAndCloseLast(parameters);
+}
 const returnType = result.CreateReturnType();
 for (let i = tailStart; i <= tailEnd; i++) {
   const item = Get(units, i);
@@ -382,7 +430,7 @@ TS 的解析器于是把它读成「名叫 `new` 的方法签名」——
       ...(props.modifiers ?? []),
       { kind: "AbstractKeyword", text: "abstract", pos: at, end: ctx.EndOf(abstractUnit) },
     ];
-    const newAt = ctx.source.indexOf("new", ctx.EndOf(abstractUnit));
+    const newAt = this.NewAt;
     if (newAt >= 0) {
       props.name = { kind: "Identifier", text: "new", pos: newAt, end: newAt + 3 };
     }
@@ -427,6 +475,16 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ## field kind:string = "call"
 
 签名的种类：`call`（`(…): T`）或 `construct`（`new (…): T`）。
+
+## field NewAt:int = -1
+
+**构造签名里 `new` 那个词的下标**；不是构造签名时是 `-1`。
+
+**为什么要有这一格**：`abstract new (): A` 在 TS 那边是 `MethodSignature > [AbstractKeyword,
+Identifier("new"), …]`，所以投影要造出那个 `Identifier("new")` 的名字节点。
+原来用 `ctx.source.indexOf("new", ctx.EndOf(abstractUnit))` **回原文里找**——那是
+**第二份位置答案**：`abstract /* new */ new (): A` 会先命中注释里的 `new`。
+而 `Process` 认下这个签名时 `current` **就是** `new` 那个单元，当场记下来即可。
 
 ## method CreateReturnType:()=>ReturnType
 
@@ -478,6 +536,7 @@ return result;
 const result = new Signature(this.Template);
 result.Sign(this);
 result.kind = this.kind;
+result.NewAt = this.NewAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

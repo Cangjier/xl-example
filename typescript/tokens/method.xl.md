@@ -169,6 +169,9 @@ method.SignOut(bracketUnit.SourceRange.End!);
 if (nameUnit instanceof Identifier) {
   method.name = nameUnit.TempToString();
 }
+// **实参表那个 `(` 的位置当场记下**（用户口径：token 出字段、投影直读）：
+// 它就是触发本规则的那一格（`bracketUnit`），这一刻就在手上。
+method.ParenAt = bracketUnit.SourceRange.Start!.Index;
 if (nameUnit instanceof Bracket) {
   method.AddAndCloseLast(nameUnit);
 }
@@ -387,9 +390,12 @@ return groups.filter((group) => group.length > 0);
   //（判据 `c371-ex-type-assertions-in-operands` ✓：Node 给 `3` ✓、本仓降级期就报
   //  `name is not a local or a capture: number` ✓）。
   const generic = kids.find((k: any) => k.get("type") === "GenericType");
-  const parenAfterCallee = ctx.source.indexOf("(", calleeEnd);
+  // **实参表那个 `(` 的位置读字段**（`ParenAt`，`MethodCloseRule` 认下这次调用时当场记的）：
+  // 原来这句是 `ctx.source.indexOf("(", calleeEnd)` **回原文里找**——`o.m /* ( */ ()`
+  // 会先命中注释里那个假括号，于是判据把类型实参段与实参里的尖括号断言认反。
+  const parenAfterCallee = this.ParenAt;
   const typeArgumentGeneric =
-    generic !== undefined && (parenAfterCallee < 0 || parenAfterCallee > ctx.StartOf(generic))
+    generic !== undefined && parenAfterCallee >= 0 && ctx.StartOf(generic) < parenAfterCallee
       ? generic
       : undefined;
   const args = kids.filter(
@@ -478,6 +484,16 @@ return groups.filter((group) => group.length > 0);
 
 方法名。
 
+## field ParenAt:int = -1
+
+**实参表那个 `(` 的下标**。
+
+**为什么要有这一格**：投影判「第一个 `GenericType` 是类型实参段还是实参里的尖括号断言」时，
+要看**实参表那个 `(` 与 `GenericType` 的先后**（见下面 `PrintAst`）。原来用
+`ctx.source.indexOf("(", calleeEnd)` **回原文里找**——那是**第二份位置答案**：
+`o.m /* ( */ ()` 会命中注释里那个假括号。而触发本规则的那一刻（`Process`）
+那对括号就是 `bracketUnit`，当场记下来即可，投影只读这一格。
+
 ## constructor:(template:Template)=>void
 
 以模板创建，并把本类型的规则队列取出来。
@@ -557,6 +573,7 @@ return result;
 const result = new Method(this.Template);
 result.Sign(this);
 result.name = this.name;
+result.ParenAt = this.ParenAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
