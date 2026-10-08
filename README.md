@@ -301,9 +301,9 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:tsast` | **1564 / 1564 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1178** 条用例，0 条不合格 |
-| `cases:tags` | **1178 条全部带期望**（3075 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1165 份），未覆盖 **0** |
+| `cases:check` | **1181** 条用例，0 条不合格 |
+| `cases:tags` | **1181 条全部带期望**（3087 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1168 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
 | `coverage` | **2122 / 2122**：四层各 **100%**（runtime 591、exec 490、stdlib 818、e2e 223） |
@@ -334,9 +334,11 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口（当前 3 条：`switch` 体里单行块后面跟 `case`、`typeof a.b[K]` 里那个点号名、
-  泛型实例化表达式 `f<string>`）与「试过什么」见
-  [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)；执行侧那 2 条
+- 其余仍开着的解析缺口（当前 **17** 条，逐条列在
+  [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md) 的「已知仍开着的缺口」：
+  解构模式前换行、无体声明的尾随 `;`、具名导出子句、泛型约束里的三族类型、
+  注释夹在头与括号之间、`switch` 单行块后跟 `default`、`typeof a.b[K]`、`f<string>` …）
+  与「试过什么」见同一份文档；执行侧那 2 条
   （对象字面量的值是一对括号里的二元表达式、`setTimeout` 这个全局名没登记）见
   [tests/coverage/README.md](tests/coverage/README.md)。
 

@@ -123,14 +123,24 @@ if (current === null) {
   throw new Error("current 为空");
 }
 const items: Token[] = [];
+let started = false;
 for (let i = index + 1; i < units.length; i++) {
   const item = Get(units, i);
   if (item === null) {
     throw new Error("item 为空");
   }
+  // **`import` 后面那个换行可以换行写**（第 668 轮）：`import` 换行 `{ a } from "m"`
+  // 是合法排法（TS 一样收），而下面那条「遇软换行就停」让**第一格**就 `break` ⇒
+  // `items` 空着往下走 ⇒ `items[items.length - 1]` 是 `undefined` ⇒ `TypeError`
+  //（不是 `SyntaxException`）——整个文件解析失败，报 `throw by line 0`。
+  // 所以**只在还没有收到任何单元时**跨过软换行；收过东西之后那条终止判据照旧。
+  if (started === false && item instanceof LineWrap) {
+    continue;
+  }
   if ((item instanceof SymbolToken && item.Is(";")) || item instanceof LineWrap) {
     break;
   }
+  started = true;
   items.push(item);
 }
 const result = new Import(template);
@@ -162,7 +172,10 @@ const headIsType = headItem instanceof Identifier && headItem.Is("type");
 const children = headIsType ? items.slice(1) : items;
 result.AddRange(children);
 result.SignIn(current.SourceRange.Start!);
-result.SignOut(items[items.length - 1].SourceRange.End!);
+// **`items` 空着也要收得住**（第 668 轮）：`import` 后面什么都没有（`import;` 那种写坏的行）
+// 时终点退回 `import` 自己 —— 少这一句就是 `undefined.SourceRange`。
+const lastItem = items.length > 0 ? items[items.length - 1] : current;
+result.SignOut(lastItem.SourceRange.End!);
 result.TryToClose();
 for (const item of items.slice()) {
   RemoveItem(units, item);

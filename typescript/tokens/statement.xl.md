@@ -8,7 +8,7 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasTypeColonBefore, IsObjectLiteralBrace, IsStatementStart, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasTypeColonBefore, IsObjectLiteralBrace, IsStatementStart, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -1061,7 +1061,90 @@ if (wordEnd > at) {
     return true;
   }
 }
+// **下一行以 `{` 开头，而上一行是「等着体的语句头」**（第 668 轮）：
+// `while (a)` 换行 `{ … }`、`for (;;)` 换行 `/* c */` 换行 `{ … }`、`switch (a)` 换行 `{ … }`
+// 都是「体写在下一行」的日常排法。`{` 本身**起得了一条语句**（裸块），所以不能见 `{` 就收，
+// 只能认「上一格正好是这些头的那个 `)`」——判据在 `IsHeaderBodyBrace`。
+//
+// **少了它会怎样**：换行处照常收壳 ⇒ 头与体被切成两条 ⇒ `WhileCloseRule` 那一趟只看得到
+// 头那一格，体那一支落成平级的裸 `Bracket`（实测 `while (a)\n{}` 的产物是
+// `WhileStatement[0,9)` + 多一个 `EmptyStatement`，TS 是 `WhileStatement[0,12)` 带一个 `Block`）。
+if (head === "{" && Statement.IsHeaderBodyBrace(data)) {
+  return true;
+}
 return head === "|" || head === "&" || head === ".";
+```
+
+## static method IsHeaderBodyBrace:(data:Array<Token>)=>bool
+
+上一行的末尾是不是**一个等着体的声明头**（`while (…)` / `for (…)` / `switch (…)` / `function …`）。
+
+**为什么是「往回走」而不是「看紧邻那一格」**：这些头的尾巴各不相同——
+`while (…)` 的尾巴是 `)`、`function f<T>(x: T): T` 的尾巴是**返回类型**（`TypeDefine`）、
+`switch (…)` 的尾巴是 `)`。所以判据是「从末尾往回走，跳过声明头里会出现的那几种单元，
+**第一个词**是不是这四个之一」。名字那一格（`function f` 里的 `f`）允许出现一次，
+`while` / `switch` 没有名字所以要靠符号/单元类型走出来。
+
+**只收这四个词**：`do` / `else` / `try` / `finally` 后面那一格是词不是 `)`，
+它们换行写体的路本来就走得通（没有这个缺口）；`if (…)` 也一样（`IfSet` 那一趟自己有认体的路）。
+放宽到它们就等于把「本来对的排法」也一起改了。
+
+**为什么必须收**：`{` 本身**起得了一条语句**（裸块），所以不能见 `{` 就答「续接」——
+`foo()` 换行 `{}` 在 TS 里就是两条语句。这一条判据正是把「声明头」与「写完的表达式」分开的那一格。
+
+**`import` / `export` 也在名单里**（同一个理由）：这两个词**结束不了一条语句**，
+后面那一行的 `{` 只可能是它们那个子句（`import` 换行 `{ a } from "m"`、`export` 换行 `{ a }`）。
+少了它们，壳在换行处就关掉 ⇒ `Import` 那一趟只看得到 `import` 那一格
+（实测 `d-import-nl` 的产物是 `ImportDeclaration[0,6)`，多出 12 个节点）。
+
+```ts
+let at = data.length;
+let names = 0;
+for (let step = 0; step < 16; step++) {
+  const index = SkipPreviousTrivia(data, at);
+  const unit = Get(data, index);
+  if (unit === null) {
+    return false;
+  }
+  const name = unit.constructor.name;
+  if (name === "Identifier" || name === "Keyword") {
+    const text = WordText(unit);
+    if (text === "while" || text === "for" || text === "switch" || text === "function" || text === "import" || text === "export") {
+      return true;
+    }
+    // **名字那一格**（`function f` 里的 `f`，返回类型 `: T` 里的 `T`）：声明头里最多两个
+    // （一个名字 + 一个类型名）。`foo()` 换行 `{}` 里那个 `foo` 走到这里之后，
+    // 再往前一格就是语句边界 / 列表开头 ⇒ 照样答否。
+    if (name === "Identifier" && names < 2) {
+      names = names + 1;
+      at = index;
+      continue;
+    }
+    return false;
+  }
+  // **只认参数表那个圆括号**：`{` 与 `[` 一律不跳 —— 它们是「上一条语句已经写完」的信号
+  //（`const h = function () {}` 换行 `foo()` 换行 `{}` 里，往回走会先撞上那个 `{`）。
+  if (unit instanceof Bracket) {
+    if (unit.startBracket !== "(") {
+      return false;
+    }
+    at = index;
+    continue;
+  }
+  if (name === "GenericType" || name === "TypeDefine" || name === "ReturnType" || name === "TypeQuery" || name === "TypeOperator" || name === "UnionType" || name === "IntersectionType" || name === "ArrayType" || name === "LiteralType") {
+    at = index;
+    continue;
+  }
+  if (unit instanceof SymbolToken) {
+    const symbol = unit.TempToString();
+    if (symbol === "*" || symbol === ">" || symbol === "?" || symbol === ":") {
+      at = index;
+      continue;
+    }
+  }
+  return false;
+}
+return false;
 ```
 
 ## static method HasLineBreakBefore:(units:Array<Token>, index:int, source:Source)=>bool

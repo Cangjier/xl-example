@@ -80,17 +80,37 @@
 
 ## 已知仍开着的缺口
 
-三点，都是**小片段探针**量出来的、**不在语料里**——所以 `npm run gates` 是绿的：
+判据是**片段探针池** `tmp/k7-snips-big.mjs`（388 条合法片段，逐条与 `ts.createSourceFile` 对拍）：
+第 668 轮量出 40 条对不上，收掉 25 条，**还剩 15 条**。加上另外两条单独探出来的（`typeof a.b[K]`、
+泛型实例化表达式 `f<string>`），一共 **17 条**。它们都**不在语料里**——所以 `npm run gates` 是绿的：
 
 | 形状 | 症状 |
 | --- | --- |
-| `type A = typeof a.b[K]` | 点号名那一支：产物是 `TypeQuery` 吞下整个 `a.b[K]`，TS 是 `IndexedAccessType > TypeQuery > QualifiedName(a.b)`。**不带点号的** `typeof a[K]` / `typeof a[]` / `typeof a[K][L]` 第 667 轮已经收掉（`TypeBracketCloseRule` 认出「`typeof` 的操作数」就让一趟，让 `TypePrefixCloseRule` 先把 `typeof 名字` 收成 `TypeQuery`）——点号名那一支多一层「`.b` 在产物里是平级单元」的既有口径，投影要跟着拼 |
-| `switch (1) { case 1: { break; } default: break; }` | 语句层把 `default:` 那一截并进了**同一个 `Statement` 壳**，而 `switch` 的分段是在体括号的**顶层单元**上找 `case` / `default`（`switch.xl.md` 的 `SegmentWordOf`）——壳只有一个，于是只有一段，`default` 整条落进前一段的 `SwitchStatement`。**换行写法是好的**，所以只有单行 / 压缩过的代码中招。同族的那条「块后面紧跟着表达式」在 [README](../README.md) 的「开着的缺口」里，改法已被否决过（块当语句边界会切断复合赋值的展开），这一条要修得先能区分「块 + `case`」与「块 + 操作数」 |
-| `const a = f<string>;` | **泛型实例化表达式**（TS 4.7）没有规则：产物是 `BinaryExpression(f < string)`，TS 是 `ExpressionWithTypeArguments`。要新增一条规则，并且它只在**值位、且 `<` 能被实参段闭合**时成立——与泛型调用 `f<string>(1)` 的区分点在右括号之后那一格 |
+| `const \n{ a, b: c, d = 1, ...rest } = o` | 换行落在声明关键字与解构模式之间时整条声明解体（缺 11 / 多 15）：`Let` 那一趟与 `{` 都是按「紧邻」找模式的 |
+| `declare function f(): void /* c */ ;` | 无体声明的区间只到自己最后一个实义单元，尾随注释与 `;` 没算进去（TS 的 `FunctionDeclaration` 到 `;` 为止） |
+| `export /* c */ { a as b }` / `export \n{ a as b }` | 具名导出子句那两格（注释 / 换行）：`Import` 一侧第 666 / 668 轮已经收了，`Export` 一侧还差 |
+| `const r20 = function f() {} + 1` | 函数表达式后面还能接运算符，这里整段收成了别的形状（缺 4） |
+| `function* g() { yield* h(); };` | 尾随那个 `;`（空语句）没成壳（缺 1 漂 1 多 1） |
+| `x extends A extends B ? C : D` / `type T = asserts x is A` / `x extends \`a${A}b\`` | 泛型约束里的嵌套条件类型 / 顶层断言谓词 / 模板字面量类型三族（缺 5–15，`t-14-param` 还带一处 `未映射 Bracket`） |
+| `for /* c */ (…)` / `switch /* c */ (a) { case 1: case 2: … }` / `a: b: c: d/* c */ ()` | 注释夹在头与它的括号之间、`case` 落空、多层标签后跟注释三格 |
+| `switch (1) { case 1: { break; } default: break; }` | 单行写完一个块再跟 `default`：语句层把 `default:` 并进了同一个壳，分段只在顶层单元上找 `case` / `default` ⇒ 只有一段。**换行写法是好的**（见 [README](../README.md) 的「开着的缺口」，块当语句边界的改法已被否决） |
+| `do {} while (a) b()` | `do…while` 后面还跟着一条语句时那一格没被收（缺 3） |
+| `type A = typeof a.b[K]` | 点号名那一支：产物是 `TypeQuery` 吞下整个 `a.b[K]`，TS 是 `IndexedAccessType > TypeQuery > QualifiedName(a.b)`。**不带点号的** `typeof a[K]` / `typeof a[]` / `typeof a[K][L]` 第 667 轮已经收掉 |
+| `const a = f<string>;` | **泛型实例化表达式**（TS 4.7）没有规则：产物是 `BinaryExpression(f < string)`，TS 是 `ExpressionWithTypeArguments` |
 
-修好的形状不在这里留名（在 git 历史与用例里），只有一条经验值得留着：
-**先探这一类「同族的第三条」**——`do` 的体自带分号那一族、循环头部括号里出现 `)`、
-括号 / 一次调用当被调用者时的可选链、注释夹在语法相邻位置之间，都是这么一条一条量出来的。
+**怎么用这张表**：`node tests/parse/ts-ast.mjs --snippets tmp/k7-snips-big.mjs` 一次就能把 15 条印全
+（`tmp/` 不进仓库，这是**一次普查的现场**，不是门）。收的时候**一次收一族**，并把它写成
+`tests/parse/cases/` 下的用例——用例进了语料，`cases:tsast` 才会一直替它把关。
+
+**第 668 轮收掉的那一族**（留个对照，说明这类缺口长什么样）：`while (a)` 换行 `{ … }`、
+`for (;;)` 换行 `/* c */` 换行 `{ … }`、`switch (a)` 换行 `{ … }`、`function f<T>(x: T): T` 换行 `{ … }`
+——**声明头与它的体之间那个换行不是语句边界**（`Statement.NextLineContinuesExpression` 里
+`IsHeaderBodyBrace` 那一格）。`{` 自己起得了一条语句（裸块），所以判据只能认「末尾是不是一个
+等着体的头」，不能见 `{` 就答「续接」：`foo()` 换行 `{}` 在 TS 里是两条语句。
+
+只有一条经验值得留着：**先探这一类「同族的第三条」**——`do` 的体自带分号那一族、
+循环头部括号里出现 `)`、括号 / 一次调用当被调用者时的可选链、注释夹在语法相邻位置之间，
+都是这么一条一条量出来的。
 
 ## 被否决的改法（不要再试）
 
