@@ -923,6 +923,31 @@ SetHiddenProperty(room, table, boxed, BoxKey(table), inner);
 return boxed;
 ```
 
+# method BoxReceiver:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value)=>Value
+
+**松散模式里「原始值当 `this`」要走的 `ToObject`**（第 710 轮）——`f.call(1)` 里
+`this` 该是一个 **`Number` 包装对象**（`typeof this` 给 `"object"`），不是那个数本身。
+
+**它收在一处**：三个入口要的是同一句话（`FunctionCall` / `FunctionApply` 的 `thisArg`、
+`BoundCall` 里那个绑定时的 `this`），而**同一件事写三遍就是三处会漂**
+（与 `MakeBox` 那一族同一条纪律）。
+
+**三档，与 `Object(原始值)` 那一支一字不差**（第 310 轮那一套）：
+字符串走 `MakeStringBox`（它多带下标与 `length` 两样）、数字与布尔走 `MakeBox`。
+**其余一律原样交回**——对象（含 `null` / `undefined`：那一档由引擎换成全局对象）、
+符号（本仓还没有符号包装对象，`Object(sym)` 至今响亮地抛）。
+**`null` / `undefined` 不在这里兜**：`ToObject` 对它们抛，而 JS 的 `[[Call]]`
+在**更早**一步就把它们换成全局对象了（`vm.xl.md` 的 `DoCallValue` 那一支）。
+
+```ts
+if (value.Tag === ValueTag.String) return MakeStringBox(room, table, protos, value);
+if (value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Float64) {
+  return MakeBox(room, table, protos, protos.Number, value);
+}
+if (value.Tag === ValueTag.Bool) return MakeBox(room, table, protos, protos.Boolean, value);
+return value;
+```
+
 # method MakeStringBox:(room:RoomChecker, table:HeapTable, protos:Protos, primitive:Value)=>Value
 
 **造一个字符串包装对象**（第 310 轮）——`MakeBox` 再加两样。
@@ -3323,7 +3348,18 @@ if (id === FunctionCall || id === FunctionApply) {
   }
   // **`thisArg` 的缺省是 `undefined`**（JS 的口径）：`f.call()` 是「不给 `this`」
   // ——不是「`this` 是 `undefined` 这个**值**」那种区别在本仓里看不出来（不装箱）。
-  const invokedThis = args.length > 0 ? args[0] : Value.Undefined();
+  let invokedThis = args.length > 0 ? args[0] : Value.Undefined();
+  // **原始值接收者要装箱**（第 710 轮，**静默错值**）：JS 的 `OrdinaryCallBindThis`
+  // 在**松散**模式下对原始值做一次 `ToObject`——
+  // `(function () { return typeof this; }).call(1)` 在 Node 里给 `"object"`
+  //（`this` 是 `Number` 包装对象），本仓原来把那个数**原样递进去** ⇒ 给 `"number"`。
+  // **严格目标不装箱**（它拿到什么就是什么）——所以判据里要问**目标**那一位
+  //（闭包的 `IsStrict`，第 620 轮起由降级层填）。
+  // **对象 / `null` / `undefined` 三档不碰**：前者的 `ToObject` 就是它自己，
+  // 后一档由引擎换成全局对象（`vm.xl.md` 的 `DoCallValue`）。
+  if (self.Tag === ValueTag.Closure && !table.Get(self.Ref).AsClosure().IsStrict) {
+    invokedThis = BoxReceiver(room, table, protos, invokedThis);
+  }
   let invokedArgs: Value[] = [];
   if (id === FunctionCall) {
     // **`call`：`args[1..]` 就是实参表**——逐个搬进一个新数组。
@@ -3444,6 +3480,17 @@ if (id === BoundCall) {
   // 递实例，其余时候递的是 `Value.Undefined()`——而 `null` / 其它值都可能是
   // 调用方给的 `this`，照 `IsObject` 认就不会把它们错当成实例。
   const effectiveSelf = constructThis.IsObject() ? constructThis : boundSelf;
+  // **绑定时的原始值 `this` 在被调用时也要装箱**（第 710 轮，与 `FunctionCall` 那一条
+  // 同一个根）：JS 的 `bind` 记下的是**原值**，`ToObject` 发生在**每一次调用**上——
+  // 于是 `(function () { return this; }).bind(1)() === 1` 在 Node 里是 **`false`**
+  //（`this` 是一个新造的 `Number` 包装对象），本仓原来给 `true`。
+  // **目标严格就不装**（与 `call` 那一条一字不差）；**构造那一趟不装**
+  //（`constructThis` 是实例，`IsObject()` 已经把它挑走了）。
+  let callSelf = effectiveSelf;
+  if (!constructThis.IsObject() && boundTarget.Tag === ValueTag.Closure
+    && !table.Get(boundTarget.Ref).AsClosure().IsStrict) {
+    callSelf = BoxReceiver(room, table, protos, effectiveSelf);
+  }
   const storedArgs = GetProperty(room, NeverCall, protos, table, self, BoundArgsName(table));
   if (call === null) {
     throw new Error("a bound function needs a call channel (the host must pass one)");
@@ -3456,7 +3503,7 @@ if (id === BoundCall) {
     for (let i = 0; i < stored.GetLength(); i++) merged.push(stored.GetAt(i));
   }
   for (let i = 0; i < args.length; i++) merged.push(args[i]);
-  return call(boundTarget, effectiveSelf, merged);
+  return call(boundTarget, callSelf, merged);
 }
 if (id === StructuredCloneId) {
   // **`structuredClone(v)`**（第 338 轮）：见 `StructuredCloneId` 那一段的账。

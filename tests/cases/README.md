@@ -77,17 +77,49 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **7519** 条（token 1416 / exec 2090 / runtime 815 / stdlib 2952 / e2e 246），判过 **7505** 条。
+语料 **7568** 条（token 1416 / exec 2123 / runtime 815 / stdlib 2968 / e2e 246），判过 **7554** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 2089 | **2035** | 12 / 42 | 另有 1 条不进分母 |
+| `exec` | 2122 | **2069** | 12 / 41 | 另有 1 条不进分母 |
 | `runtime` | 815 | **804** | 1 / 10 | |
-| `stdlib` | 2952 | **2874** | 31 / 47 | |
+| `stdlib` | 2968 | **2889** | 31 / 48 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **7505** | **7139** | 267 / 99 | 加权 **95.9%** |
+| **合计** | **7554** | **7188** | 267 / 99 | 加权 **95.9%** |
+
+**第 710 轮再加 49 条**（分母 7505 → **7554**）：第二十批原子探针，三层——
+**`this` 的装箱**（松散 / 严格 / 类方法 / 箭头四档下 `call` / `apply` / `bind` 与 `new` 的
+原始值接收者、装箱之后的 `instanceof` / `valueOf` / `constructor.name` / `length`）、
+**全局与内建命名空间的标志位**（`Object.keys(globalThis)`、`Object.keys(Number|String|Array|Promise)`、
+`Math.PI` 的整份描述符与赋值、`Error.prototype`、`Function.prototype.call`）、
+**迭代器与生成器的形状**（`Map` 迭代器条目、数组迭代器的 `next`、生成器的标签与构造器名、
+`Set` 展开、`Map.forEach` 次序）。
+**这一批 43 条 pass、登记 6 条缺口**，而**普查本身收掉一族**：
+
+- **`call` / `apply` / `bind` 的原始值接收者要 `ToObject`**（第 710 轮，**静默错值**）：
+  `(function () { return typeof this; }).call(1)` 在 Node 里给 `"object"`
+  （`this` 是 `Number` 包装对象），本仓原样递那个数 ⇒ 给 `"number"`——
+  `this instanceof Number` / `this.constructor.name` / `String(this)` 三处跟着一起错。
+  **修法收在语言层的一处 `BoxReceiver`**（字符串走 `MakeStringBox`、数字与布尔走 `MakeBox`，
+  与 `Object(原始值)` 那一支**一字不差**），三个入口共用：`FunctionCall` / `FunctionApply`
+  的 `thisArg` 与 `BoundCall` 里那个绑定时的 `this`（`bind` 记的是原值、装箱发生在**每一次调用**上）。
+  **严格目标不装箱**（闭包的 `IsStrict` 那一位现问），**`null` / `undefined` 不在这里兜**
+  （引擎更早一步把它们换成全局对象）。台账 `exec/functions/probe3-t03` / `probe3-t04` /
+  `probe3-t14` / `probe700-f-e25` / `probe703-f-g11` / `probe703-f-g12` **六条转绿、台账已撤**；
+  `094-bind-apply-primitive` 的**前四行**也对上了，它剩下的差额是最后一行打印全局对象的渲染
+  （另一条根，台账已改写成实情）。
+- **`Promise` 的八个静态也是「可枚举」挂的**（**实测撞到的**）：`Object.keys(Promise)` 在 Node 里是
+  **`[]`**、本仓是 **8** —— 与第 709 轮那 128 处同一条根，这一轮把 `promise.xl.md` 那八处
+  一起改成 `SetHiddenProperty`（`p710b-b08` 因此转绿）。
+
+**新登记 6 条**：`Map` 迭代器条目按下标读、迭代器对象自己没有 `next`、生成器的
+`[object Generator]` 标签、`AsyncFunction` / `GeneratorFunction` 两个构造器名、
+`Object.keys(globalThis)` 那 15 个**宿主**全局（与 `057-names-globalthis` 同一件事）。
+
+**加权仍是 95.9%**（分子 +49：收掉的 6 条 + 新过的 43 条；分母 +49，另登记 6 条缺口
+——两个数落在同一位上）。
 
 **第 709 轮再加 56 条**（分母 7449 → **7505**）：第十九批原子探针，三层——
 **函数对象自己那几格**（松散普通函数 / 箭头 / 方法 / 访问器 / 生成器 / `async` 六档的

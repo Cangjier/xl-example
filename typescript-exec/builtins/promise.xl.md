@@ -1182,26 +1182,26 @@ const room = vm.Room();
 const table = vm.Table;
 const promiseObject = NewPlainObject(room, table, protos);
 table.AttachCallable(promiseObject.Ref, PromiseCtor, 0);
-SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "resolve"),
+SetHiddenProperty(room, table, promiseObject, NameValue(table, "resolve"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseResolve, 0)));
-SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "reject"),
+SetHiddenProperty(room, table, promiseObject, NameValue(table, "reject"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseReject, 0)));
-SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "all"),
+SetHiddenProperty(room, table, promiseObject, NameValue(table, "all"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseAll, 0)));
-SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "race"),
+SetHiddenProperty(room, table, promiseObject, NameValue(table, "race"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseRace, 0)));
 // **第 295 轮补的两格**（`allSettled` / `any`）——与上面四个**同一张对象**上再挂。
-SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "allSettled"),
+SetHiddenProperty(room, table, promiseObject, NameValue(table, "allSettled"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseAllSettled, 0)));
-SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "any"),
+SetHiddenProperty(room, table, promiseObject, NameValue(table, "any"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseAny, 0)));
 // **第 327 轮补的一格**（`withResolvers`）——与上面六个**同一张对象**上再挂
 //（名字与号**一一对齐**：`PromiseWithResolvers = 248`，而 `248` 正是这一段的下一格）。
-SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "withResolvers"),
+SetHiddenProperty(room, table, promiseObject, NameValue(table, "withResolvers"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseWithResolvers, 0)));
 // **第 331 轮补的一格**（`try`）——与上面七个**同一张对象**上再挂。
 // **它是「同步跑、异步收」那一格**：回调当场跑，而结果承诺照样让出一个 tick。
-SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "try"),
+SetHiddenProperty(room, table, promiseObject, NameValue(table, "try"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseTry, 0)));
 // **`Promise.prototype.constructor` 指回这一份**（第 613 轮）：
 // `Promise.resolve(1).constructor === Promise` 要走**原型上那一格**

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7505,
+  "total": 7554,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.9,
+  "progressPercent": 95.92,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2089,
-      "pass": 2035,
+      "total": 2122,
+      "pass": 2069,
       "blocked": 12,
-      "differ": 42,
+      "differ": 41,
       "nodefail": 0,
-      "coverage": 97.42
+      "coverage": 97.5
     },
     {
       "category": "runtime",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2952,
-      "pass": 2874,
+      "total": 2968,
+      "pass": 2889,
       "blocked": 31,
-      "differ": 47,
+      "differ": 48,
       "nodefail": 0,
-      "coverage": 97.36
+      "coverage": 97.34
     },
     {
       "category": "e2e",
@@ -1811,7 +1811,7 @@
       "id": "exec/functions/094-bind-apply-primitive",
       "category": "exec",
       "title": "`call` / `apply` / `bind` 的接收者是原始值时",
-      "detail": "stdout 不同：第 1 行：node «object 1» vs tsrun «number 1»"
+      "detail": "stdout 不同：第 4 行：node «object <ref *1> Object [global] {» vs tsrun «object {}»"
     },
     {
       "id": "exec/functions/095-arguments-length",
@@ -1838,24 +1838,6 @@
       "detail": "stdout 不同：第 1 行：node «string:ReferenceError» vs tsrun «string:undefined»"
     },
     {
-      "id": "exec/functions/probe3-t03",
-      "category": "exec",
-      "title": "(function () { function f() { return this === undefined ? \"u\" : typeof this; } return f.call(1); })()",
-      "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:number»"
-    },
-    {
-      "id": "exec/functions/probe3-t04",
-      "category": "exec",
-      "title": "(function () { function f() { return typeof this; } return f.call(\"x\"); })()",
-      "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:string»"
-    },
-    {
-      "id": "exec/functions/probe3-t14",
-      "category": "exec",
-      "title": "(function () { function f() { return this; } const b = f.bind(\"s\"); return typeof b(); })()",
-      "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:string»"
-    },
-    {
       "id": "exec/functions/probe693b-f13",
       "category": "exec",
       "title": "(function () { const f = new Function(\"a\", \"b\", \"return a + b\"); return f(1, 2); })()",
@@ -1866,12 +1848,6 @@
       "category": "exec",
       "title": "(function (a) { arguments[0] = 9; return a; })(1)",
       "detail": "stdout 不同：第 1 行：node «number:9» vs tsrun «number:1»"
-    },
-    {
-      "id": "exec/functions/probe700-f-e25",
-      "category": "exec",
-      "title": "(function () { return typeof this; }).call(1)",
-      "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:number»"
     },
     {
       "id": "exec/functions/probe700-f-e36",
@@ -1890,18 +1866,6 @@
       "category": "exec",
       "title": "new Function(\"a\", \"return a\")(1)",
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:Error»"
-    },
-    {
-      "id": "exec/functions/probe703-f-g11",
-      "category": "exec",
-      "title": "(function (a) { return this === undefined ? \"u\" : typeof this; }).call(1)",
-      "detail": "stdout 不同：第 1 行：node «string:object» vs tsrun «string:number»"
-    },
-    {
-      "id": "exec/functions/probe703-f-g12",
-      "category": "exec",
-      "title": "(function () { return this; }).bind(1)() === 1",
-      "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
     },
     {
       "id": "exec/functions/probe703-f-g16",
@@ -1961,7 +1925,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10308/src/3202.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16528/src/3202.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1986,6 +1950,36 @@
       "category": "exec",
       "title": "严格函数的自有名字表",
       "detail": "stdout 不同：第 1 行：node «string:length,name,prototype» vs tsrun «string:length,name,arguments,caller,prototype»"
+    },
+    {
+      "id": "exec/round710/p710c-c01",
+      "category": "exec",
+      "title": "Map 迭代器条目按下标读",
+      "detail": "stdout 不同：第 1 行：node «string:a1» vs tsrun «throw:TypeError»"
+    },
+    {
+      "id": "exec/round710/p710c-c02",
+      "category": "exec",
+      "title": "数组迭代器有没有 next",
+      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «throw:TypeError»"
+    },
+    {
+      "id": "exec/round710/p710c-c06",
+      "category": "exec",
+      "title": "生成器对象自己的 toString 标签",
+      "detail": "stdout 不同：第 1 行：node «string:[object Generator]» vs tsrun «string:[object Object]»"
+    },
+    {
+      "id": "exec/round710/p710c-c08",
+      "category": "exec",
+      "title": "async 箭头函数的构造器名",
+      "detail": "stdout 不同：第 1 行：node «string:AsyncFunction» vs tsrun «string:Function»"
+    },
+    {
+      "id": "exec/round710/p710c-c09",
+      "category": "exec",
+      "title": "GeneratorFunction 的构造器名",
+      "detail": "stdout 不同：第 1 行：node «string:GeneratorFunction» vs tsrun «string:Function»"
     },
     {
       "id": "exec/statements/probe693b-s30",
@@ -2129,7 +2123,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10308/src/4849.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16528/src/4882.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2153,7 +2147,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10308/src/4899.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16528/src/4932.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2274,6 +2268,12 @@
       "category": "stdlib",
       "title": "Math.random 的名字",
       "detail": "stdout 不同：第 1 行：node «string:random» vs tsrun «undefined:undefined»"
+    },
+    {
+      "id": "stdlib/round710/p710b-b01",
+      "category": "stdlib",
+      "title": "Object.keys(globalThis) 的长度",
+      "detail": "stdout 不同：第 1 行：node «number:15» vs tsrun «number:0»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",
