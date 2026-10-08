@@ -9,7 +9,7 @@ import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
 import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox } from "./text.xl.md"
-import { InspectText, DateMarker } from "./inspect.xl.md"
+import { InspectText, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
 import { SetCtor, WeakSetCtor } from "./set.xl.md"
 import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, PromiseFinally } from "./promise.xl.md"
@@ -1159,6 +1159,11 @@ return Value.FromString(table.CreateString(Units("__boundArgs")));
 是**读已经有的那一格**；照原型认反而会把 `Object.create(Number.prototype)` 答错。
 
 ```ts
+// **`arguments` 先分出去**（第 702 轮）：它是数组（`vm.xl.md` 就是这么造的），
+// 可 JS 给的是 `"[object Arguments]"`（判据 `stdlib/object/138-object-tostring-arguments-gap`）。
+// **必须排在下面「数组先认」那一句之前**——那一句的判据就是 `Tag === Array`，
+// 排在它后面等于永远读不到。
+if (IsArgumentsValue(table, value)) return "Arguments";
 // **数组先认**（它有自己的标签，不是「普通对象」）。
 if (value.Tag === ValueTag.Array) return "Array";
 // **函数那一档**：`typeof` 给 `"function"`，这里的标签是 `"Function"`。

@@ -9,7 +9,7 @@ import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot, RtBitAnd, RtBitOr, RtBitXor, RtBitNot, RtShl, RtShr, RtUShr } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
 import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtGetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf, ToNumberOf, MakeNumber } from "./rt.xl.md"
-import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
+import { GetProperty, SetProperty, SetHiddenProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
 import { GetPropertyFrom, SetPropertyFrom } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 import { HostTextUnits } from "./host-text.xl.md"
@@ -1555,7 +1555,7 @@ if (info.IsGenerator) {
   created.Pc = closure.Code;
   created.Env = closure.Env;
   created.This = thisValue;
-  this.FillParameters(created, info, frame, argBase, argArray, count);
+  this.FillParameters(created, info, frame, callee, argBase, argArray, count);
   const generatorHandle = this.Table.CreateGenerator(createdHandle);
   created.Generator = generatorHandle;
   // **生成器对象要带上那一格原型**（第 229 轮）：见 `AttachGeneratorProto`。
@@ -1626,7 +1626,7 @@ if (info.IsAsync) {
   // **一句话里没有一个字提到参数**，离现场很远）。
   // **无参的 async 函数照旧是对的**（没有实参可盖）——所以这个缺口
   // 只在「带参数的 async 函数」上现形（那是最普通的一种）。
-  this.FillParameters(asyncFrame, info, frame, argBase, argArray, count);
+  this.FillParameters(asyncFrame, info, frame, callee, argBase, argArray, count);
   const asyncPromise = this.MakeAsyncPromise(PromiseState.Pending, Value.Undefined());
   if (returnSlot >= 0) frame.Slots[returnSlot] = asyncPromise;
   asyncFrame.AsyncPromise = asyncPromise.Ref;
@@ -1643,7 +1643,7 @@ created.This = thisValue;
 // 判据 `c304-rt-new-target-in-ctor` 第 1 行钉着它）。
 created.ConstructTarget = constructTarget;
 created.NewTarget = constructTarget > 0 ? callee : Value.Undefined();
-this.FillParameters(created, info, frame, argBase, argArray, count);
+this.FillParameters(created, info, frame, callee, argBase, argArray, count);
 ```
 
 ## method ThrownTaker:()=>ThrownTaker
@@ -1806,7 +1806,7 @@ if (argArray < 0) return frame.Slots[argBase + index];
 return this.Table.Get(frame.Slots[argArray].Ref).AsArray().GetAt(index);
 ```
 
-## method FillParameters:(created:HeapFrame, info:FunctionInfo, frame:HeapFrame, argBase:int, argArray:int, count:int)=>void
+## method FillParameters:(created:HeapFrame, info:FunctionInfo, frame:HeapFrame, callee:Value, argBase:int, argArray:int, count:int)=>void
 
 **把实参铺进新帧**（第 133 轮从 `DoCallValue` 里抽出来）——普通与生成器两条路共用。
 
@@ -1867,6 +1867,22 @@ if (!info.HasRest) {
 //（而 `function f(a, ...r)` 那一格反而是好的，**同一句话两种结局**）。
 // **收的是全部 `count` 项**（不是「多出来的」）：`arguments[0]` 必须是第一个形参。
 // **数组带数组原型**（与剩余参数那条一字不差，理由见上）。
+// **第 702 轮起还要挂一格标记与 `callee`**：`arguments` 在本仓的**值是数组**
+// （上面那两条：带数组原型、`arguments[0]` 读得到），可 JS 的 `arguments` **不是数组**——
+// `Array.isArray(arguments)` 是**假**、`Object.prototype.toString.call(arguments)`
+// 是 `"[object Arguments]"`、`Object.getOwnPropertyNames(arguments)` 里还有 `callee`。
+// **为什么不改值模型**（把 `arguments` 造成另一种 `ValueTag`）：那会牵动
+// `arguments[0]` / `arguments.length` / `[...arguments]` 这一整片**本来已经对**的东西——
+// 而它现在对，正是因为它就是个数组。
+// **所以只在它身上记一格**（键名与 `__t` / `__k` / `__v` 同一族）：**谁是谁**由语言层
+// 那几个判据去读（`DateMarker` / `ArrayIsArray` / `ObjectTagOf`），引擎不认识
+// `"Arguments"` 这个标签、也不认识 `callee` 这几个字母，它只负责把标记挂上。
+// **`callee` 就是「这一次被调的那个值」**——调用点手上就有它（`DoCallValue` 的 `callee`），
+// 所以它从形参进来。**不要从 `frame.NewTarget` 上读**（第 702 轮第一版就是那么写的）：
+// `frame` 是**调用者的帧**，不是这一帧的 —— `arguments.callee` 于是恒为 `undefined`
+//（顶层帧的 `NewTarget` 永远是空的），而症状只是「`typeof` 给 `"undefined"`」，
+// 离现场很远。**`new f()` 那一档照样给那个值**：JS 里构造调用的 `arguments.callee`
+// 也是函数自己（严格模式下才没有这一格，而本仓只做松散模式那一档）。
 if (info.NeedsArguments && info.ParamCount >= 0 && info.ParamCount < info.SlotCount) {
   const argCount = this.ArgumentsCountOf(info, count);
   const argsHandle = this.Table.CreateArray();
@@ -1874,7 +1890,17 @@ if (info.NeedsArguments && info.ParamCount >= 0 && info.ParamCount < info.SlotCo
   for (let i = 0; i < argCount; i++) {
     this.Table.Get(argsHandle).AsArray().Push(this.CallArgAt(frame, argBase, argArray, i));
   }
-  created.Slots[info.ParamCount] = Value.FromArray(argsHandle);
+  const argValue = Value.FromArray(argsHandle);
+  // **两格都不可枚举**：`Object.keys(arguments)` 在 JS 里是 `["0","1",…]`
+  //（只有下标那几格可枚举），`callee` 与标记**一个都不该出现**。
+  // **键名的码元走 `HostTextUnits`**（与下面 `MakeIterResult` 那一处一字不差）：
+  // 引擎里「字符串 → 码元」**只有那一处借用**，`tests/runtime/check.mjs` 有一道门
+  // 逐文件扫 `charCodeAt`——第一版在这里手写了个小循环，当场被那道门抓住。
+  SetHiddenProperty(this.Room(), this.Table, argValue,
+    Value.FromString(this.Table.CreateString(HostTextUnits("__a"))), Value.FromInt(argCount));
+  SetHiddenProperty(this.Room(), this.Table, argValue,
+    Value.FromString(this.Table.CreateString(HostTextUnits("callee"))), callee);
+  created.Slots[info.ParamCount] = argValue;
 }
 ```
 

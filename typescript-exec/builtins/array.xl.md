@@ -6,6 +6,7 @@ import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsC
 import { SetProperty, SetHiddenProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits } from "./text.xl.md"
+import { IsArgumentsValue } from "./inspect.xl.md"
 ```
 
 # namespace cangjie
@@ -617,6 +618,11 @@ const receiver = self;
 // 是那个 `Array` **普通对象**，过一遍 `RequireArray` 会当场抛。
 if (id === ArrayIsArray) {
   const target = args.length > 0 ? args[0] : Value.Undefined();
+  // **`arguments` 不是数组**（第 702 轮）：本仓的 `arguments` **值就是个数组**
+  //（`vm.xl.md` 就是这么造的，`arguments[0]` / `.length` / `[...arguments]` 全靠它），
+  // 所以这一问必须**多看一眼那格标记**——不然 `Array.isArray(arguments)` 给**真**，
+  // 而 Node 给**假**（判据 `stdlib/array/probe693-a30` 现场量的就是它）。
+  if (IsArgumentsValue(table, target)) return Value.FromBool(false);
   return Value.FromBool(target.Tag === ValueTag.Array);
 }
 if (id === ArraySlice && self.Tag !== ValueTag.Array) {

@@ -77,17 +77,30 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **6451** 条（token 1416 / exec 1574 / runtime 796 / stdlib 2419 / e2e 246），判过 **6437** 条。
+语料 **6452** 条（token 1416 / exec 1574 / runtime 796 / stdlib 2420 / e2e 246），判过 **6438** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 1573 | **1535** | 9 / 29 | 另有 1 条不进分母 |
+| `exec` | 1573 | **1536** | 9 / 28 | 另有 1 条不进分母 |
 | `runtime` | 796 | **783** | 1 / 12 | |
-| `stdlib` | 2419 | **2342** | 26 / 51 | |
+| `stdlib` | 2420 | **2345** | 26 / 49 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **6437** | **6086** | 259 / 92 | 加权 **95.8%** |
+| **合计** | **6438** | **6090** | 259 / 89 | 加权 **95.8%** |
+
+**第 702 轮（其二）收掉 `arguments` 那一格**（`stdlib/object/138-object-tostring-arguments` 转绿，
+另补一条 `probe702-o-e01`）：本仓的 `arguments` **值就是一个数组**
+（`vm.xl.md` 就是这么造的，`arguments[0]` / `.length` / `[...arguments]` 全靠它），
+所以 `Array.isArray(arguments)` 给真、`Object.prototype.toString.call(arguments)` 给
+`"[object Array]"`——而 Node 两处都给「不是数组」。收法**不是**改值模型
+（那会牵动那一整片本来已经对的东西），而是**在造它的那一处挂两格**：
+`__a`（标记）与 `callee`（值就是 `DoCallValue` 手上那个 `callee`），
+由语言层的 `IsArgumentsValue` / `ObjectTagOf` / `ArrayIsArray` 去读。
+**踩到的第一版**：`callee` 从 `frame.NewTarget` 上读——`frame` 是**调用者的帧**，
+不是这一帧的，于是 `arguments.callee` 恒为 `undefined`（顶层帧的 `NewTarget` 永远是空的）。
+**仍开着的一格**：`arguments[i]` 与形参之间**没有映射**（`arguments[0] = 9` 不改 `a`），
+那要的是 `[[ParameterMap]]`——登在 `exec/functions/095-arguments-length` 的台账里。
 
 **第 702 轮再加 4 条**（分母 6433 → **6437**）：**收掉第 700 轮登记的那一族**
 （`probe700-g-e08` / `e09` … `e19` / `e38` 共 **13 条**转绿），并把这轮的新判断补成 4 条用例

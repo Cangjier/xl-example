@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 6437,
+  "total": 6438,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.77,
+  "progressPercent": 95.8,
   "categories": [
     {
       "category": "token",
@@ -91,11 +91,11 @@
       "category": "exec",
       "weight": 0.25,
       "total": 1573,
-      "pass": 1535,
+      "pass": 1536,
       "blocked": 9,
-      "differ": 29,
+      "differ": 28,
       "nodefail": 0,
-      "coverage": 97.58
+      "coverage": 97.65
     },
     {
       "category": "runtime",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2419,
-      "pass": 2342,
+      "total": 2420,
+      "pass": 2345,
       "blocked": 26,
-      "differ": 51,
+      "differ": 49,
       "nodefail": 0,
-      "coverage": 96.82
+      "coverage": 96.9
     },
     {
       "category": "e2e",
@@ -1832,12 +1832,6 @@
       "detail": "stdout 不同：第 1 行：node «throw:ReferenceError» vs tsrun «undefined:undefined»"
     },
     {
-      "id": "exec/functions/probe700-f-e47",
-      "category": "exec",
-      "title": "(function () { return typeof arguments.callee; })()",
-      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
-    },
-    {
       "id": "exec/functions/probe700-f-t05",
       "category": "exec",
       "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); function f() { return arguments[1]; } console.log(show(f(1, 2)) + \"|\" + show(typeof f.arguments));",
@@ -1994,12 +1988,6 @@
       "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «throw:Error»"
     },
     {
-      "id": "stdlib/array/probe693-a30",
-      "category": "stdlib",
-      "title": "(function () { return Array.isArray(arguments); })()",
-      "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
-    },
-    {
       "id": "stdlib/console/020-names-console",
       "category": "stdlib",
       "title": "名字逐个取一次：console 的成员（缺 30 个）",
@@ -2039,7 +2027,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27804/src/4254.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23012/src/4254.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -2144,12 +2132,6 @@
       "detail": "stdout 不同：第 1 行：node «call-num 1» vs tsrun «call-num [object Number]»"
     },
     {
-      "id": "stdlib/object/138-object-tostring-arguments-gap",
-      "category": "stdlib",
-      "title": "`arguments` 的标签是 `Arguments`，不是 `Array`",
-      "detail": "stdout 不同：第 1 行：node «[object Arguments]» vs tsrun «[object Array]»"
-    },
-    {
       "id": "stdlib/object/151-getownpropertynames-array",
       "category": "stdlib",
       "title": "数组的 `getOwnPropertyNames` 含 `length`",
@@ -2248,6 +2230,15 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "exec/functions/probe700-f-e47",
+      "category": "exec"
+    },
+    {
+      "id": "stdlib/array/probe693-a30",
+      "category": "stdlib"
+    }
+  ],
   "regressions": []
 }

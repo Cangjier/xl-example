@@ -528,6 +528,14 @@ if (value.Tag === ValueTag.Closure || value.Tag === ValueTag.Function) {
 }
 if (value.Tag === ValueTag.HostRef) return "[Function (anonymous)]";
 if (value.Tag === ValueTag.Array) {
+  // **`arguments` 不在这里另印一份**（第 702 轮）：它是数组（`vm.xl.md` 就是这么造的），
+  // 而 Node 的 `util.inspect` 给的是 `[Arguments] { '0': 1, '1': 2 }`。
+  // **本仓按数组印**（`[ 1, 2 ]`）——`InspectArgumentsBody`（照对象那一套印、前面加
+  // `[Arguments] `）与 `BreakEntries` 的**分组算法**要再写一遍（缩进、折叠、`... more items`），
+  // 而那是**第二份会漂的渲染**：`console.log` 的那一行文本**不进判据**，
+  // 进判据的是 `Array.isArray` / `Object.prototype.toString` / `getOwnPropertyNames` 三格
+  //（`stdlib/object/138-object-tostring-arguments-gap` 一族量的正是那三格）。
+  // 所以这里**记一笔、不猜**，等下一条判据真的量它时再补。
   if (level > InspectDepth) return InspectMark("Array", level);
   const item = table.Get(value.Ref).AsArray();
   const count = item.GetLength();
@@ -622,11 +630,29 @@ return TextFrom(table, prop.Value);
 **为什么顺序有意义**：三者的标记互不重叠，所以谁先谁后结果一样；
 写成一串 `if` 是因为**将来多一个集合多一格标记**时，只加一支。
 
+**`Arguments` 那一格是第 702 轮加的**（`vm.xl.md` 的 `ArgumentsMarkerOf`）：它**不是**
+「第四个集合」，而是**一个数组**——所以调用方读它的时候要**排在数组那一支之前**，
+否则永远读不到（`InspectValue` 与 `Object.prototype.toString` 两处都是这个形状）。
+
 ```ts
 if (FindProperty(NeverRoom, table, value.Ref, MarkerKey(table, "__t")) !== null) return "Date";
 if (FindProperty(NeverRoom, table, value.Ref, MarkerKey(table, "__k")) !== null) return "Map";
 if (FindProperty(NeverRoom, table, value.Ref, MarkerKey(table, "__v")) !== null) return "Set";
+if (FindProperty(NeverRoom, table, value.Ref, MarkerKey(table, "__a")) !== null) return "Arguments";
 return "";
+```
+
+# method IsArgumentsValue:(table:HeapTable, value:Value)=>bool
+
+**这个值是不是一个 `arguments` 对象**（第 702 轮）。
+
+**为什么单独一个方法、不用 `DateMarker`**：那个方法要遍历四格标记（四张键、
+四次属性查找），而这一问在 `Array.isArray` 上**每一次都要问**——
+`Array.isArray` 是热路径里最常见的一句。这里只查一格。
+
+```ts
+if (value.Tag !== ValueTag.Array) return false;
+return FindProperty(NeverRoom, table, value.Ref, MarkerKey(table, "__a")) !== null;
 ```
 
 # method MarkerKey:(table:HeapTable, name:string)=>Value
