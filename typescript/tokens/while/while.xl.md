@@ -78,6 +78,9 @@ endIndex = SkipNextTrivia(units, endIndex);
 // 不收就等于删掉（软换行不收，见 `CommentsIn`）。
 result.AddRange(CommentsIn(units, index + 1, endIndex));
 const conditionBracket = Get(units, endIndex) as Bracket;
+// **头部那个 `)` 当场记进 `HeaderCloseAt`** ✓（第 634 轮 ✓）：它就在手上 ✓，
+// 投影于是不必回原文重扫（见 `HeaderCloseAt` 那一格 ✓）。
+result.HeaderCloseAt = conditionBracket.SourceRange.End!.Index;
 const compare = result.CreateCompare();
 compare.SignIn(conditionBracket.SourceRange.Start!);
 compare.SignOut(conditionBracket.SourceRange.End!);
@@ -175,6 +178,16 @@ return index;
 （`WhileCloseRule.Process` 的块那一支把 `tailEnd` 签在那个 `}` 的后一位 ✓）；
 **没字段的**（体是单语句 / 空语句 ✓）照旧走原来的判据 ✓。
 
+## field HeaderCloseAt:int = -1
+
+**头部那个 `)` 的下标** ✓（第 634 轮 ✓，与 `For.HeaderCloseAt` / `Foreach.HeaderCloseAt` 同一条 ✓）。
+
+**为什么要有它** ✗：收尾规则里那个括号**就在手上** ✓（`conditionBracket` ✓），
+而投影原来拿 `ctx.MatchingParen(ctx.source, v.start)` **从 `while` 往回扫原文** ✓——
+同一件事的第二份近似 ✗，而且它在注释 / 字符串里同样会数括号 ✓
+（`while (g(")")) ;` 这种形状里第一份判据是对的、第二份要错 ✓）。
+**只在「体不是空块」那一支用它** ✓：空块那一支由 `BodyBraceAt` 说了算 ✓（连终点都齐了 ✓）。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `while (c) { … }` → `WhileStatement`（`expression` + `statement`；
@@ -210,7 +223,13 @@ return index;
     props.statement = { kind: "Block", statements: [], pos: braceAt, end: ctx.EndOf(v) };
     return ctx.NodeHead("WhileStatement", props, v);
   }
-  const header = ctx.MatchingParen(ctx.source, v.start);
+  // **头部那个 `)` 也先读字段** ✓（第 634 轮 ✓）：收尾规则把它当场记下了 ✓，
+  // 回原文重扫是同一件事的第二份近似 ✗（见 `HeaderCloseAt` 那一格 ✓）。
+  const rawHeaderClose = v.attrs !== undefined && typeof v.attrs.get === "function"
+    ? v.attrs.get("headerCloseAt")
+    : undefined;
+  const headerCloseAt = typeof rawHeaderClose === "number" ? rawHeaderClose : -1;
+  const header = headerCloseAt >= 0 ? headerCloseAt : ctx.MatchingParen(ctx.source, v.start);
   const statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
   if (statement !== undefined) props.statement = statement;
   return ctx.NodeHead("WhileStatement", props, v);
@@ -279,6 +298,8 @@ result.set("type", this.constructor.name);
 result.set("compare", this.Compare.ToList());
 result.set("body", this.Body.ToList());
 result.set("emptyBodyAt", this.EmptyBodyAt);
+// **头部右括号那一格也写出去** ✓（第 634 轮 ✓）：投影直读 ✓，不回原文重扫 ✓。
+result.set("headerCloseAt", this.HeaderCloseAt);
 // **体那个 `{` 的位置也写出去** ✓（第 618 轮 ✓，与 `For.ToDictionary` 那一处同一条 ✓）：
 // 投影空 `Block` 时直读 ✓，不再回原文重扫 ✓。
 result.set("bodyBraceAt", this.BodyBraceAt);
@@ -296,6 +317,7 @@ const result = new While(this.Template);
 result.Sign(this);
 result.EmptyBodyAt = this.EmptyBodyAt;
 result.BodyBraceAt = this.BodyBraceAt;
+result.HeaderCloseAt = this.HeaderCloseAt;
 result.AddRange(this.Data.map((x) => x.Clone()));
 result.TryToClose();
 return result;

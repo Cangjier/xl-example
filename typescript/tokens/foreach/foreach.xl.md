@@ -117,6 +117,8 @@ if (awaitUnit !== null) {
   result.AddAndCloseLast(awaitUnit);
 }
 const conditionBracket = Get(units, currentIndex) as Bracket;
+// **头部那个 `)` 当场记进 `HeaderCloseAt`** ✓（第 634 轮 ✓，与 `while.xl.md` / `for.xl.md` 同一条 ✓）。
+result.HeaderCloseAt = conditionBracket.SourceRange.End!.Index;
 const defineEnd = SearchBack(conditionBracket.Data, -1, (x) => IsWordUnit(x, "in") || IsWordUnit(x, "of"));
 if (defineEnd === -1) {
   throw SyntaxException.FromMessage(conditionBracket.SourceRange, "foreach/for(...){...} 的`(...)`中语句不满足格式要求：`(... in/of ...)`");
@@ -224,6 +226,15 @@ return index;
 `for (const x of xs) {}` 的空块在 `ToList` 时**整个摊掉**了 ✓，
 而 TS 那边 `ForOfStatement.statement` 仍有一个空 `Block` ✓。
 
+## field HeaderCloseAt:int = -1
+
+**头部那个 `)` 的下标** ✓（第 634 轮 ✓，与 `For.HeaderCloseAt` / `While.HeaderCloseAt` 同一条 ✓）。
+
+**为什么要有它** ✗：`Process` 里那个括号**就在手上** ✓（`conditionBracket` ✓），
+而投影原来拿 `ctx.MatchingParen(ctx.source, v.start)` **从 `for` 往后扫原文** ✓——
+同一件事的第二份近似 ✗（括号里的字符串与注释它一样会数 ✓）。
+**只在「体段一个可见子单元都没有、也不是空块 / 空语句」那条兜底支里用它** ✓。
+
 ## field IsForIn:bool = false
 
 **声明与枚举对象之间那个词是 `in`**（`for (const k in o)`）时为 `true`，是 `of` 时为 `false`。
@@ -289,7 +300,12 @@ return index;
     if (braceAt >= 0 && body.length === 0) {
       statement = { kind: "Block", statements: [], pos: braceAt, end: ctx.EndOf(v) };
     } else {
-      const header = ctx.MatchingParen(ctx.source, v.start);
+      // **头部那个 `)` 也先读字段** ✓（第 634 轮 ✓）：收尾规则把它当场记下了 ✓。
+      const rawHeader = v.attrs !== undefined && typeof v.attrs.get === "function"
+        ? v.attrs.get("headerCloseAt")
+        : undefined;
+      const headerAt = typeof rawHeader === "number" ? rawHeader : -1;
+      const header = headerAt >= 0 ? headerAt : ctx.MatchingParen(ctx.source, v.start);
       statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
     }
   }
@@ -404,6 +420,8 @@ result.set("bodyBraceAt", this.BodyBraceAt);
 // **`in` / `of` 那一格也写出去**（第 631 轮）：投影靠它分 `ForInStatement` / `ForOfStatement`——
 // 与 `emptyBodyAt` / `bodyBraceAt` 同一条纪律：判据在收尾规则那一处算得起，这里只出字段。
 result.set("isForIn", this.IsForIn);
+// **头部那个 `)` 也写出去** ✓（第 634 轮 ✓，与 `For` / `While` 同一条 ✓）。
+result.set("headerCloseAt", this.HeaderCloseAt);
 const children: Array<any> = [];
 for (const item of this.Data) {
   if (item instanceof ForeachDefine || item instanceof ForeachEnumable || item instanceof ForeachBody) {
@@ -421,7 +439,7 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 抄 `IsForIn` / `EmptyBodyAt` / `BodyBraceAt` → 克隆全部子单元 → `TryToClose()`。
+顺序是 `Sign(this)` → 抄 `IsForIn` / `EmptyBodyAt` / `BodyBraceAt` / `HeaderCloseAt` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new Foreach(this.Template);
@@ -429,6 +447,7 @@ result.Sign(this);
 result.IsForIn = this.IsForIn;
 result.EmptyBodyAt = this.EmptyBodyAt;
 result.BodyBraceAt = this.BodyBraceAt;
+result.HeaderCloseAt = this.HeaderCloseAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

@@ -103,6 +103,8 @@ currentIndex = SkipNextTrivia(units, currentIndex);
 // 不收就等于删掉（软换行不收，见 `CommentsIn`）。
 result.AddRange(CommentsIn(units, index + 1, currentIndex));
 const conditionBracket = Get(units, currentIndex) as Bracket;
+// **头部那个 `)` 当场记进 `HeaderCloseAt`** ✓（第 634 轮 ✓，与 `while.xl.md` 那一处同一条 ✓）。
+result.HeaderCloseAt = conditionBracket.SourceRange.End!.Index;
 const initialEnd = SearchBack(conditionBracket.Data, -1, (x) => x instanceof SymbolToken && x.Is(";"));
 if (initialEnd === -1) {
   throw new Error("for(...){...} 的`(...)`中语句不满足格式要求：`(initial...;compare...;step...)`");
@@ -230,6 +232,16 @@ C 风格 `for` 语句单元。
 那是同一条判据的第二份近似（块里的字符串与注释里同样有括号）。
 记成字段之后，空 `Block` 的起点直读这一格、终点就是**本单元的终点**（`}` 正好在末尾）。
 
+## field HeaderCloseAt:int = -1
+
+**头部那个 `)` 的下标** ✓（第 634 轮 ✓，与 `While.HeaderCloseAt` / `Foreach.HeaderCloseAt` 同一条 ✓）。
+
+**为什么要有它** ✗：收尾规则里那个括号**就在手上** ✓（`conditionBracket` ✓），
+而投影原来拿 `ctx.MatchingParen(ctx.source, v.start)` **从 `for` 往后扫原文** ✓——
+同一件事的第二份近似 ✗（括号里的字符串与注释它一样会数 ✓）。
+**只在「体段既没有可见子单元、也没有 `emptyBodyAt`」那条兜底支里用它** ✓：
+正常那几支分别由 `BlockOfBody`（非空块 ✓）与 `emptyBodyAt`（空语句 ✓）说了算 ✓。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `for (let i = 0, j = 1; i < j; i++, j--) {}` → `ForStatement`
@@ -288,8 +300,9 @@ C 风格 `for` 语句单元。
     if (emptyAt >= 0) {
       props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
     } else {
-      const close = ctx.MatchingParen(ctx.source, v.start);
-      let at = close >= 0 ? close + 1 : v.start;
+      const close = ctx.Attr(v, "headerCloseAt");
+      const closeAt = typeof close === "number" && close >= 0 ? close : ctx.MatchingParen(ctx.source, v.start);
+      let at = closeAt >= 0 ? closeAt + 1 : v.start;
       while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
       if (ctx.source[at] === ";") {
         props.statement = { kind: "EmptyStatement", pos: at, end: at + 1 };
@@ -402,6 +415,7 @@ result.set("next", this.Next.ToList());
 result.set("body", this.Body.ToList());
 result.set("emptyBodyAt", this.EmptyBodyAt);
 result.set("bodyBraceAt", this.BodyBraceAt);
+result.set("headerCloseAt", this.HeaderCloseAt);
 return result;
 ```
 
@@ -409,8 +423,9 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`——**两个位置字段也要一起带走**
-（漏了 `EmptyBodyAt` 的克隆体认不出 `for (…);`、漏了 `BodyBraceAt` 的认不出空块）。
+顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`——**三个位置字段也要一起带走**
+（漏了 `EmptyBodyAt` 的克隆体认不出 `for (…);`、漏了 `BodyBraceAt` 的认不出空块、
+漏了 `HeaderCloseAt` 的又得回原文重扫头部那个 `)`）。
 
 ```ts
 const result = new For(this.Template);
@@ -418,6 +433,7 @@ result.Sign(this);
 result.AddRange(this.Data.map((x) => x.Clone()));
 result.EmptyBodyAt = this.EmptyBodyAt;
 result.BodyBraceAt = this.BodyBraceAt;
+result.HeaderCloseAt = this.HeaderCloseAt;
 result.TryToClose();
 return result;
 ```

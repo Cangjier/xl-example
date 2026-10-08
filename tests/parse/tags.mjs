@@ -106,14 +106,16 @@ function main() {
   // **标签表体检**：表里每个名字都要有至少一条用例真的产出它 ✓。
   // 少了这一条，表里会一直躺着「不可能出现」的名字 ✓（`xl:expect` 写上去永远红 ✓，
   // 而它看起来像解析器的缺口 ✗——这正是这一轮要清掉的那一类 ✓）。
-  const dead = [...TAGS].filter((tag) => !seen.has(tag)).sort();
+  // **只在跑全量时做** ✓：`--filter` 那种单 area 的运行里，别的 area 的标签当然一个都没有 ✓。
+  const full = filterArea === undefined;
+  const dead = full ? [...TAGS].filter((tag) => !seen.has(tag)).sort() : [];
   if (dead.length > 0) {
     console.log(`BAD  标签表里这些名字没有任何用例产出过：${dead.join(" ")}`);
   }
   // **反方向**：`GHOST_TAGS`（自我摘除的向导 / 抽象基类 / 投影专有的 kind）在整个语料里
   // 一次都不许出现 ✓。它们只能写进 `xl:absent`，`xl:expect` 由 `cases:check` 挡住；
   // 这里再钉住另一半：**它们真的没有留在产物里** ✓。
-  const leaked = [...GHOST_TAGS].filter((tag) => seen.has(tag)).sort();
+  const leaked = full ? [...GHOST_TAGS].filter((tag) => seen.has(tag)).sort() : [];
   if (leaked.length > 0) {
     console.log(`BAD  幽灵标签不该出现在产物里，却出现了：${leaked.join(" ")}`);
   }

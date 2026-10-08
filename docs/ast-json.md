@@ -113,9 +113,9 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `Label` | `type` `label` | 自闭合标签，无子单元 |
 | `NamespaceExport` | `type` `name` | 同上 |
 | `While` / `DoWhile` | `type` `compare` `body` | 两个键都是 `ToList()` 的数组；`DoWhile` 的键序是 `body` → `compare` |
-| `For` | `type` `initial` `compare` `next` `body` `emptyBodyAt` `bodyBraceAt` | `emptyBodyAt` 是**体为那条空语句（`for (…);`）时那个 `;` 的下标**，否则 `-1`；`bodyBraceAt` 是**体那个 `{` 的下标**（体不是花括号块时 `-1`）——两个字段都让投影**直接读**，不再按原文重扫（空块的终点就是本单元的终点） |
-| `Foreach` | `type` `define` `enumable` `body` `emptyBodyAt` | 同上 |
-| `While` 的 `emptyBodyAt` | 同上 | `While` 行的补充：那个字段与 `For` / `Foreach` 同一个来由 |
+| `For` | `type` `initial` `compare` `next` `body` `emptyBodyAt` `bodyBraceAt` `headerCloseAt` | `emptyBodyAt` 是**体为那条空语句（`for (…);`）时那个 `;` 的下标**，否则 `-1`；`bodyBraceAt` 是**体那个 `{` 的下标**（体不是花括号块时 `-1`）；`headerCloseAt` 是**头部那个 `)` 的下标**（第 634 轮加，`While` / `Foreach` 同名同义）——三格都让投影**直接读**，不再按原文重扫 |
+| `Foreach` | `type` `define` `enumable` `body` `emptyBodyAt` | 同上（另有 `bodyBraceAt` `isForIn` `headerCloseAt`） |
+| `While` / `DoWhile` 的位置格 | 同上 | `While` 有 `emptyBodyAt` `bodyBraceAt` `headerCloseAt`；`DoWhile` 有 `bodyBraceAt` `emptyBodyAt`（`do ; while (…)` 那个 `;`，第 635 轮加） |
 | `Try` | `type` `body` + 可选 `catches` `finally` | `catches` 非空才写；`finally` 非 null 才写 |
 | `Switch` | `type` `compare` `segments` | `segments` 是 `SwitchSegment` 数组 |
 | `IfSegment` | `type` `key` + 可选 `condition` `statement` `ifWordAt` | 两个可选段各自非 null 才写；`ifWordAt` 只在 `else if` 这一档写，是那个 `if` 的下标（投影直接读它，不再 `indexOf` 回原文找） |
@@ -166,7 +166,7 @@ XML 的开标签上写 `export="true"`（读 XML 的人按布尔读），投影�
 | 属性键名 | 一部分与 XML 漂开了（`MethodName` → `methodName`、`StartBracketChar` → `startBracketChar`、`IsSupportInterpolation` → `isSupportInterpolation`） | **一律与 XML 属性同名** | 本工程的口径是「两个出口说同一棵树」，同名才可校验 |
 | 覆盖范围 | 只有 17 个类覆写 `ToDictionary`，其余走基类的 `{type, children}` | 同样只覆写「XML 里有属性」的类 | 与上游同一取舍 |
 | 额外字段 | `String` 的 JSON 比 XML 多 5 个字段（`stringChar` / `rawIndent` / `isRawIndentFormated` …） | **不多写**：JSON 的键以 XML 属性为准 | 多写的键等于第二个事实来源 |
-| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` 的 `emptyBodyAt`、`For` 的 `bodyBraceAt`、`IfSegment` 的 `ifWordAt`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`），以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
+| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` / `DoWhile` 的 `emptyBodyAt` 与 `bodyBraceAt`、`For` / `Foreach` / `While` 的 `headerCloseAt`、`Foreach` 的 `isForIn`、`IfSegment` 的 `ifWordAt`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`），以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
 | 结构 bug | `TernaryOperator.ToDictionary()` 漏掉了 `type`（它没调基类也没自己写），于是 JSON 里出现没有类型名的节点 | **保留 `type`** | 那是缺陷，不是口径 |
 
 **一句话**：形状、方法名、`range` 的层级与上游一致；**字段名以本工程自己的 XML 出口为准**——

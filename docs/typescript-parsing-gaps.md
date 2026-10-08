@@ -55,9 +55,14 @@
 
 ## 已知仍开着的缺口
 
-两条都是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
+三条都是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
 **不在语料里**——所以七道门是绿的，而它们是真实存在的形状：
 
+- **`do` 的体是 `if` 语句**：`do if (a) x++; while (c);`。`if` 由解析期向导造（见
+  `if-set.xl.md`），体那一截于是既不是「裸单元」也不是「语句壳」——`DoWhileCloseRule`
+  现在认的两种形态都不匹配（实测缺 `DoStatement` 1、多出 3）。其余体形态
+  （块 / 自带 `;` 的语句 / `;` 空语句 / 无 `;` 的两行写法）都已经修好，见
+  [`../tests/parse/cases/statements/stmt-do-while-body-terminated.ts`](../tests/parse/cases/statements/stmt-do-while-body-terminated.ts)。
 - **`switch` 体里同一行写完一个块，后面再跟 `case` / `default`**：
   `switch (1) { case 1: { break; } default: break; }`。语句层把 `default:` 那一截并进了
   **同一个 `Statement` 壳**，而 `switch` 的分段是在体括号的**顶层单元**上找 `case` / `default`
@@ -74,9 +79,11 @@
   在括号换父成 `IndexedAccessType` 之后**重跑一遍括号自己的队列**（`text-common-util.xl.md`
   的 `IsTypeContainerUnit` 已经认 `IndexedAccessType`，缺的只是那一趟）。
 
-**已经修掉的**（留着是为了说明「哪一类形状值得先探」）：括号 / 一次调用当被调用者时的可选链
-（`(x as T)?.m?.()`，第 630 轮）、注释夹在语法相邻位置之间（`new /* c */ A()`、
-`for (const a /* in */ of xs)`、`a /* c */ = 1`、`[a /* c */?: T]`，第 631 轮）。
+**已经修掉的**（留着是为了说明「哪一类形状值得先探」）：`do` 的体自带分号那一族
+（`do x++; while (c);` / `do ; while (c);` / `do f(); while (c);`，第 635 轮）、
+循环头部括号里出现 `)`（`while (g(")")) ;`，第 634 轮）、
+括号 / 一次调用当被调用者时的可选链（`(x as T)?.m?.()`，第 630 轮）、注释夹在语法相邻位置之间
+（`new /* c */ A()`、`for (const a /* in */ of xs)`、`a /* c */ = 1`、`[a /* c */?: T]`，第 631 轮）。
 
 ## 被否决的改法（不要再试）
 

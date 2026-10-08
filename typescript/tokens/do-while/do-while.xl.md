@@ -13,6 +13,7 @@ import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { IsWordUnit } from "../declaration-common.xl.md"
+import { Statement } from "../statement.xl.md"
 
 import { WhileBody } from "../while/while-body.xl.md"
 import { WhileCompare } from "../while/while-compare.xl.md"
@@ -89,6 +90,35 @@ return -1;
 
 ```ts
 const common = Get(units, index);
+// **两种来路** ✓（第 635 轮 ✓）：顶层单元要么是那个 `do` 词本身 ✓（体还没断句 ✓），
+// 要么是一个**已经断好句的语句壳** ✓——`do x++;` 里那个 `;` 是语句终结符 ✓，
+// 它在 `while` 被读进来**之前**就把 `do x++` 收成了壳 ✗ ⇒ 之后再也看不到顶层的 `do` 词 ✓。
+// 壳里第一格仍是那个 `do` 词 ✓，所以「`do` + 体 + `while` + `(`」这条形状照样成立 ✓。
+if (common instanceof Statement) {
+  const head = Get(common.Data, 0);
+  if (IsWordUnit(head, "do") === false) {
+    return false;
+  }
+  const after = SkipNextWrapSymbol(units, index);
+  // **条件那一截的三种形态** ✓：
+  // 1. 它自成一个语句壳 ✓（`do x++; while (c);` 里两个 `;` 各收一个 ✓）——壳里那一趟
+  //    **可能已经把条件收成了 `While` 单元** ✗（壳先关 ✓、规则后跑 ✓）⇒ 壳里第一格是
+  //    `While` 也算命中 ✓；
+  // 2. 顶层直接是 `while` 词 + `(` 括号 ✓；
+  // 3. 顶层直接是一个 `While` 单元 ✓。
+  const condHolder = Get(units, after);
+  const condUnits = condHolder instanceof Statement ? condHolder.Data : units;
+  const condAt = condHolder instanceof Statement ? 0 : after;
+  const cond = Get(condUnits, condAt);
+  if (cond !== null && cond.constructor.name === "While") {
+    return true;
+  }
+  if (IsWordUnit(cond, "while") === false) {
+    return false;
+  }
+  const condition = GetSkipNextWrapSymbol(condUnits, condAt);
+  return condition instanceof Bracket && condition.startBracket === "(";
+}
 if (IsWordUnit(common, "do") === false) {
   return false;
 }
@@ -123,6 +153,77 @@ return condition instanceof Bracket && condition.startBracket === "(";
 
 ```ts
 const unit = Get(units, index)!;
+// **体先断句的那一档** ✓（第 635 轮 ✓）：顶层是语句壳 ✓、`do` 在壳里第一格 ✓，
+// 条件那一段通常也自成一个壳 ✓（`do x++; while (c);` 里两个 `;` 各收一个 ✓）。
+// 这一支**整段自成一路** ✓：下面那一套（顶层是 `do` 词 ✓）一个字都不动 ✓。
+if (unit instanceof Statement) {
+  const head = Get(unit.Data, 0)!;
+  const result = new DoWhile(template);
+  result.Parent = unit.Parent;
+  result.SignIn(head.SourceRange.Start!);
+  const after = SkipNextWrapSymbol(units, index);
+  // **条件那一截的三种形态** ✓（与 `Previous` 同一份判据 ✓）：壳里可能已经是一个 `While` 单元 ✓
+  //（壳先关、规则后跑 ✓），也可能还是 `while` 词 + 括号 ✓，顶层也可能直接是 `While` ✓。
+  const holder = Get(units, after);
+  const condShell = holder instanceof Statement ? holder : null;
+  const condUnits = condShell === null ? units : condShell.Data;
+  const condAt = condShell === null ? after : 0;
+  let condUnit = Get(condUnits, condAt);
+  // **条件已经是一个 `While` 单元时，取它里面那个 Compare 段** ✓：
+  // 那个段里就是括号整段 ✓（`WhileCloseRule` 把括号的子单元搬进去了 ✓）。
+  let compareSource = null;
+  let stillWord = false;
+  if (condUnit !== null && condUnit.constructor.name === "While") {
+    compareSource = condUnit.Data.find((x) => x.constructor.name === "WhileCompare") ?? null;
+  } else {
+    stillWord = true;
+    compareSource = GetSkipNextWrapSymbol(condUnits, condAt);
+  }
+  // **壳就是体** ✓：把壳里那个 `do` 词摘掉 ✓，剩下的与 `while (c) x++;` 那一支**同形** ✓
+  //（体的内容仍是**一个 `Statement` 壳** ✓ ⇒ 投影照同一条路投 ✓，不必另开一路 ✓）。
+  const bodySegment = result.CreateBody();
+  unit.Data.splice(0, 1);
+  if (unit.Data.length > 0) {
+    // **壳的起点要挪到体的第一格** ✓：壳自己的范围从那个 `do` 词起 ✓（它本来就是个语句 ✓），
+    // 而这里要的是**体** ✓（TS 那边 `DoStatement.statement` 从 `x` 起 ✓）。
+    // `Token.SignIn` 只能设一次 ✓，所以这里直接换掉 `SourceRange.Start` 那个引用 ✓
+    //（它是普通字段 ✓，「只能设一次」那条纪律写在 `Token.SignIn` 里 ✓）。
+    unit.SourceRange.Start = Get(unit.Data, 0)!.SourceRange.Start!;
+  } else {
+    // **`do ; while (…)`** ✓：壳里只剩那个 `do` 词 ✓ ⇒ 体是那条空语句 ✓。
+    // `;` 被 `Statement.FormFrom` 切进了壳的区间 ✓，所以它的下标是**壳的右端** ✓
+    //（与 `While.EmptyBodyAt` 同一个来由 ✓）。
+    result.EmptyBodyAt = unit.SourceRange.End!.Index;
+  }
+  bodySegment.Add(unit);
+  bodySegment.SignIn(unit.SourceRange.Start!);
+  bodySegment.SignOut(unit.SourceRange.End!);
+  bodySegment.TryToClose();
+  const compare = result.CreateCompare();
+  if (compareSource !== null) {
+    compare.SignIn(compareSource.SourceRange.Start!);
+    compare.SignOut(compareSource.SourceRange.End!);
+    compareSource.MoveDataTo(compare);
+    compare.TryToClose();
+  }
+  // **右端**：条件自成壳时 `;` 在壳的区间里 ✓；条件已经是一个 `While` 单元时它的右端就是
+  // 那个 `;` ✓（`while (c);` 收尾时把 `;` 算进去了 ✓）；还是散词时再看列表里有没有 `;` ✓。
+  let lastIndex = condShell === null ? (stillWord ? SkipNextWrapSymbol(units, after) : after) : after;
+  let signOut = condShell !== null
+    ? condShell.SourceRange.End!
+    : (condUnit !== null && stillWord === false ? condUnit.SourceRange.End! : compareSource!.SourceRange.End!);
+  if (condShell === null && stillWord) {
+    const semicolon = Get(units, lastIndex + 1);
+    if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
+      lastIndex = lastIndex + 1;
+      signOut = semicolon.SourceRange.End!;
+    }
+  }
+  result.SignOut(signOut);
+  result.TryToClose();
+  ReplaceCountAt(units, index, lastIndex - index + 1, result);
+  return index;
+}
 const result = new DoWhile(template);
 result.Parent = unit.Parent;
 result.SignIn(unit.SourceRange.Start!);
@@ -199,6 +300,14 @@ return index;
 `do {} while (c)` 的空块在 `ToList` 时**整个摊掉**了 ✓，
 而 TS 那边 `DoStatement.statement` 仍有一个空 `Block` ✓。
 
+## field EmptyBodyAt:int = -1
+
+**体是那条空语句（`do ; while (c);`）时，那个 `;` 的下标** ✓；不是这一档就是 `-1` ✓（第 635 轮 ✓）。
+
+与 `While.EmptyBodyAt` / `For.EmptyBodyAt` 同一个来由 ✓：`;` 被 `Statement.FormFrom`
+切进了**壳的区间** ✓、不进 `Data` ✗ ⇒ 这一格只有在收尾规则里才拿得到 ✓
+（就是壳的右端 ✓，见 `Process` 那一支 ✓）。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `do { … } while (c);` → **`DoStatement`**（`statement` + `expression`；
@@ -219,7 +328,15 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
     ? v.attrs.get("bodyBraceAt")
     : undefined;
   const braceAt = typeof rawBrace === "number" ? rawBrace : -1;
-  if (braceAt >= 0 && body.length === 0) {
+  // **空语句体那一格也直读字段** ✓（第 635 轮 ✓，与 `While.PrintAst` 同一条 ✓）：
+  // `do ; while (c);` 的体是 `EmptyStatement` ✓。
+  const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
+    ? v.attrs.get("emptyBodyAt")
+    : undefined;
+  const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
+  if (emptyAt >= 0) {
+    props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
+  } else if (braceAt >= 0 && body.length === 0) {
     const close = ctx.MatchingBrace(ctx.source, braceAt);
     props.statement = { kind: "Block", statements: [], pos: braceAt, end: close + 1 };
   } else {
@@ -294,6 +411,8 @@ result.set("compare", this.Compare.ToList());
 // **体那个 `{` 的位置也写出去** ✓（第 619 轮 ✓，与 `While.ToDictionary` 同一条 ✓）：
 // 投影空 `Block` 时直读 ✓，不再回原文重扫 ✓。
 result.set("bodyBraceAt", this.BodyBraceAt);
+// **空语句体那一格也写出去** ✓（第 635 轮 ✓，与 `While.ToDictionary` 同一条 ✓）。
+result.set("emptyBodyAt", this.EmptyBodyAt);
 return result;
 ```
 
@@ -307,6 +426,7 @@ return result;
 const result = new DoWhile(this.Template);
 result.Sign(this);
 result.BodyBraceAt = this.BodyBraceAt;
+result.EmptyBodyAt = this.EmptyBodyAt;
 result.AddRange(this.Data.map((x) => x.Clone()));
 result.TryToClose();
 return result;
