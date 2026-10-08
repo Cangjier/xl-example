@@ -943,6 +943,16 @@ if (id === ArrayIndexOf || id === ArrayLastIndexOf) {
   if (id === ArrayLastIndexOf) from = length0 - 1;
   if (args.length > 1) {
     from = IntArgOr(room, call, protos, table, args, 1, from);
+    // **第 745 轮：`from` 要先夹掉 `-0`**（判据 `array-lastindexof-negative-zero`）。
+    // `[1, 2, 3].lastIndexOf(1, -0)` 在 JS 里 `from` 是 **`+0`**，本仓原来给 **`-0`**
+    // ⇒ `console.log` 打出 `-0`（Node 打 `0`）——**静默错值，而且是最容易被当成正常的
+    // 那一种**（`-0` 与 `0` 在 `===` 下相等，只有打印出来才看得见）。
+    // 根子在 `IntOfNumber` 那一句「**向零截断**」：`value < 0 ? Math.ceil(value) : Math.floor(value)`
+    // 对 `-0` 走的是**后一支** `Math.floor(-0)` ⇒ `-0`（那一句本身是对的，规范要的正是
+    // `ToIntegerOrInfinity(-0) = -0`），所以这一格**只能在调用点夹**。
+    // 加一个 `0` 是**唯一**能把 `-0` 折成 `+0` 的写法（`Math.floor(-0)` / `Int32(-0)` 都不行）。
+    // **夹在 `from < 0` 那一判之前**：`-0 < 0` 是假，所以负零会**原样活过**那一支。
+    from = from + 0;
     if (from < 0) from = from + length0;
     if (id === ArrayLastIndexOf) {
       if (from >= length0) from = length0 - 1;
@@ -1376,7 +1386,13 @@ if (id === ArrayReduce || id === ArrayReduceRight) {
     //（`RaiseFromHost`——它看宿主的类、造对应族的脚本错误）。
     // 原来这里抛的是 `Error`，于是脚本里 `catch (e) { e.name }` 拿到 `"Error"`
     //（JS 是 `"TypeError"`，判据 `array-reduce` 现场红的）。
-    throw new TypeError("reduce of an empty array with no initial value");
+    //
+    // **第 745 轮把消息也逐字对上 `node`**（判据 `array-reduce-empty-message`）：
+    // `node` 给的是 `"Reduce of empty array with no initial value"`——
+    // **`R` 大写、`empty` 前面没有冠词**。本仓原来写的是
+    // `"reduce of an empty array with no initial value"`：族是对的、**文本对不上**。
+    // 这一句是**能被脚本看见**的（`e.message` 直接打出来），所以它不是一个内部措辞。
+    throw new TypeError("Reduce of empty array with no initial value");
   }
   return accumulator;
 }
@@ -1470,29 +1486,24 @@ if (id === ArrayFlat) {
   // 代价是**静默错值**：`[1,[2,[3,[4]]]].flat(0).length` 给 3（JS 给 2）——
   // **给了一个看起来成立的答案**，比响亮地抛危险（判据 `array-flat-depth` 量的就是它）。
   //
-  // **不能写 `IntArgOr(room, call, protos, table, args, 0, 1)`**：那个取值器走 `AsInt()`，于是
-  // **`Infinity` 会落成一个与 1 分不开的整数**（`flat(Infinity)` 会**静默只摊一层**）。
-  // 所以这里按**三种值**分开读（与 JS 的 `ToIntegerOrInfinity` 同一张表）：
-  //   · **没给** ⇒ `1`（缺省）；
-  //   · **不是数字** ⇒ `0`（`flat("x")` 在 JS 里是 `0` ⇒ 不摊）；
-  //   · **数字** ⇒ 那一格（负数按 0；`Infinity` 给一个**够大**的上界——
-  //     它就是「摊到底」，而这个数组是有限的，所以上界取到 2³¹-1 与「无限」等价、又不会溢出）。
-  //   · **`NaN`** ⇒ `0`（`NaN !== NaN` 那一判，JS 的 `ToIntegerOrInfinity(NaN)` 也是 0）。
-  let depth = 1;
-  if (args.length > 0) {
-    const raw = args[0];
-    if (raw.Tag === ValueTag.Int32) {
-      depth = raw.Int < 0 ? 0 : raw.Int;
-    } else if (raw.Tag === ValueTag.Float64) {
-      const asFloat = raw.Dbl;
-      if (asFloat !== asFloat) depth = 0;
-      else if (asFloat === Infinity) depth = 2147483647;
-      else if (asFloat < 0) depth = 0;
-      else depth = Math.floor(asFloat);
-    } else {
-      depth = 0;
-    }
-  }
+  // **第 745 轮把它收进共用那一份 `IntArgOr`**。原来这一段是**手写的三种值**，
+  // 理由写着「`IntArgOr` 走 `AsInt()`、`Infinity` 会与 1 分不开」——那一句在
+  // **第 702 轮就已经过期**：`IntArgOr` 现在走 `NumArgOr`（真 `ToNumber`）+
+  // `IntOfNumber`，而 `IntOfNumber` 里 `Infinity` 明明白白折成 `2147483647`。
+  // 手写那一份的代价是**第二张表**（第 283 轮那条教训），实测它比第一张表**窄**：
+  //   · `flat("2")` **静默不摊**（JS 给摊两层）——`ToNumber("2")` 那一档手写版没有；
+  //   · `flat({ valueOf: () => 2 })` 同上（对象那一档也没有）。
+  // 共用那一份按 `ToIntegerOrInfinity` 给全四档：
+  //   · **没给 / `undefined`** ⇒ `1`（缺省）——**这一格第一版写错了**：`fallback` 递的是 `0`
+  //     （照抄 `slice` / `charAt` 那一族的缺省），于是 `[1,[2]].flat(undefined)` **一层都不摊**
+  //     （JS 给摊一层）——`ToIntegerOrInfinity(undefined)` 是 `NaN`，但规范在
+  //     `flat` 里**先**问「这个实参给了没有」：没给与给了 `undefined` 都取 `depthNum = 1`。
+  //     **这一族只有 `flat` 的缺省是 1**（别处都是 0），所以 `fallback` 由调用点给正是它存在的理由。
+  //   · **不是数字** ⇒ `ToNumber` 那一格（`"2"` 给 `2`、`"x"` 给 `0`）；
+  //   · **数字** ⇒ 向零截断（负数按 `0`；`Infinity` 给 2³¹-1——这个数组是有限的，
+  //     所以那个上界与「摊到底」等价、又不会溢出）。
+  //   · **`NaN`** ⇒ `0`（`NaN` 走的是 `ToNumber` 那一格的结果，**不是** `undefined` 那一格）。
+  const depth = IntArgOr(room, call, protos, table, args, 0, 1);
   const flatRoom = thisFlatRoom(room, source.GetLength());
   if (!flatRoom) throw new Error("out of room");
   const flattened = table.CreateArray();

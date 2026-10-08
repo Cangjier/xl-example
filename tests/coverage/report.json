@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8031,
+  "total": 8042,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3164,
-      "pass": 3094,
+      "total": 3175,
+      "pass": 3104,
       "blocked": 25,
-      "differ": 45,
+      "differ": 46,
       "nodefail": 0,
-      "coverage": 97.79
+      "coverage": 97.76
     },
     {
       "category": "e2e",
@@ -1841,7 +1841,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9856/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26740/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2051,7 +2051,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9856/src/5163.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26740/src/5163.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2075,7 +2075,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9856/src/5213.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26740/src/5213.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2226,6 +2226,12 @@
       "category": "stdlib",
       "title": "`JSON.stringify` 对 `Map` / `Set` / 迭代器（都是空对象）",
       "detail": "stdout 不同：第 2 行：node «{} \"ab\"» vs tsrun «[1,2] \"ab\"»"
+    },
+    {
+      "id": "stdlib/round745/gap745-float-literal-eats-nan",
+      "category": "stdlib",
+      "title": "`flat(NaN)` 与同一句里的浮点字面量：那个 `NaN` 被前一个字面量顶掉",
+      "detail": "stdout 不同：第 1 行：node «[1,2,[3]] [1,[2,[3]]]» vs tsrun «[1,2,[3]] [1,2,[3]]»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

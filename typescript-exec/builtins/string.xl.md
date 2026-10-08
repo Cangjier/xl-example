@@ -129,6 +129,33 @@ import { BuiltinArity, DefineBuiltinName } from "./globals.xl.md"
 （那是本仓已记的差异）；`substring` 在 `起 > 止` 时**交换两个参数**（JS 的怪规矩，
 `slice` 给空串）——**两条都照 JS 给**。
 
+# const MaxTextUnits:int = 1073741823
+
+**`repeat` / `padStart` / `padEnd` 的结果最多能有多少码元**（第 745 轮）。
+
+**为什么需要它，而不是只靠 `room`**：`room` 收的字节数是
+`CodeUnitCharge * total`（`CodeUnitCharge = 2`），而那个乘积在 32 位 `int` 里算——
+**总长一过 2³⁰ 附近，乘积自己先溢出**（`2 * 2³⁰ = 2³¹` 绕成负数），
+于是「问房间」那一问答的是**一个负数**（当然放行），
+接着逐码元 `push` 进一个几亿格的 JS 数组，**把宿主进程压死**——
+症状是宿主报 OOM，**不是**一条能被脚本接住的错。
+
+**这个数是怎么来的**：要的是「`CodeUnitCharge * total` 还在 `int` 里」，
+也就是 `total <= (2³¹ - 1) / 2` 向下取整 = **1073741823**（= 2³⁰ - 1）。
+**注意不是 2³⁰**：`2 * 2³⁰` 正好是 2³¹，**差一格就绕过去了**——
+第一版取的就是 2³⁰，实测 `"abcd".repeat(2 ** 28)`（总长恰好 2³⁰）**照样把宿主压死**，
+因为那一格上乘积溢出、`room` 放行。**边界要按乘积算，不按直觉的「10 亿」算。**
+
+**为什么是一个真上限而不是「把乘法改成 64 位」**：规范里
+`String.prototype.repeat` **本来就有一条**：「如果结果长度 > 2⁵³-1 就抛 `RangeError`」——
+这一格要的是**能捕获的错**。本仓的 `int` 到不了 2⁵³，
+所以界取到「`int` 装得下乘积」为止；超过这一关按 `RangeError` 抛，
+与「负数抛 `RangeError`」是同一个族（`catch (e) { e.name }` 拿到 `"RangeError"`）。
+
+**这一档与 `room` 的关系**：正常的用法里**永远是 `room` 先说不**
+（本仓的堆上限是 1MB，`total` 只要过几十万就顶穿了）——
+所以这一关是一个**够不着的地板**，作用只剩「不让乘积溢出」。
+
 # const StringRepeat:int = 113
 
 `repeat(次数)` 的号。
@@ -137,8 +164,23 @@ import { BuiltinArity, DefineBuiltinName } from "./globals.xl.md"
 是 `repeat(-0)` ⇒ **空串**，写成 `floor` 会变成 `-1` ⇒ **抛**）；**负数抛**。
 **第 288 轮这一格才真的对**：次数取自 `ArgOr`，而它在第 288 轮之前对小数**一律给 `0`**
 （`"a".repeat(2.9)` 给空串，JS 给 `"aa"`——**静默错值**，理由记在 `ArgOr` 那一段）。
-**太多次不另设上限**：它自己会在 `room` 那一关被拦下（那是一条**可捕获的错误**），
-再加一个人为上限就是第二个「上限」了——两处不一致比一处更坏。
+
+**「太多次」走 `MaxTextUnits` 那一关，不再只靠 `room`**（第 745 轮）。
+原来这里写着「太多次不另设上限：它自己会在 `room` 那一关被拦下」——**那一句在算术上是错的**：
+`room` 收的字节数是 `CodeUnitCharge * total`，而那个乘积在 32 位 `int` 里算，
+`CodeUnitCharge` 是 `2` ⇒ **总长到 2³⁰ 那一格，乘积就是 2³¹、绕成负数**，
+于是「问房间」那一问答的是**一个负数**（当然放行）。
+实测（判据 `string-pad-repeat-huge`）：`"abcd".repeat(2 ** 28)` 的总长恰好是 2³⁰——
+本该是一条能接住的 `RangeError`，本仓却**逐码元 `push` 把宿主进程压死**
+（`node` 在这里给一个 1GB 的串）。`MaxTextUnits` 那一关按**乘积**定界（见它那一段），
+所以这一格正好落在界外。
+
+**为什么是一个真上限而不是「把乘法改成 64 位」**：规范里
+`String.prototype.repeat` **本来就有一条**：「如果结果长度 > 2⁵³-1 就抛 `RangeError`」——
+这一格要的是**能捕获的错**，不是「尽量多装一点」。
+本仓的 `int` 到不了 2⁵³，所以界取到「`CodeUnitCharge * total` 还在 `int` 里」为止；
+超过这一关按 `RangeError` 抛——与「负数抛 `RangeError`」是同一个族，
+脚本里 `catch (e) { e.name }` 拿到的正是 JS 那一族的名字。
 
 # const StringPadStart:int = 114
 
@@ -151,6 +193,9 @@ import { BuiltinArity, DefineBuiltinName } from "./globals.xl.md"
 **两条边角照 JS 给**：目标长度**不大于**当前长度就**原样返回**；
 **填充串是空串就不补**（JS 也这样——补出来的东西不是「填充」）。
 **填充串要重复、并在最后一段截断**（`"ab".padStart(7, "xy")` → `"xyxyxab"`）。
+**目标长度同样过 `MaxTextUnits` 那一关**（第 745 轮，与 `StringRepeat` 同一条根）：
+`"ab".padStart(2 ** 32, "0")` 在 `node` 里抛 `RangeError`（`StringPad` 自己那条
+「> 2⁵³-1 就抛」），而本仓原来会**一路走到把宿主堆压死**（判据 `string-pad-repeat-huge`）。
 **已知差异写在明处**：JS 按**字符**（码位）补，这里按**码元**——
 ASCII 填充串两边一致，**代理对**那一类会差一个（记在台账）。
 
@@ -995,6 +1040,11 @@ if (id === StringRepeat) {
   const count = raw < 0 ? -1 : raw;
   if (count < 0) throw new RangeError("repeat needs a count that is not negative");
   const total = units.length * count;
+  // **先过规范那一关，再问房间**（第 745 轮，理由见 `MaxTextUnits`）：
+  // 顺序反了的话 `CodeUnitCharge * total` 会在这一问之前溢出，`room` 于是放行一个装不下的串。
+  if (total > MaxTextUnits) {
+    throw new RangeError("repeated string would be longer than the largest possible string");
+  }
   // **上限交给 room**（见 `StringRepeat` 那一段：不另设一个人为的上限）。
   if (!room(ObjectCharge + CodeUnitCharge * total)) throw new Error("out of room");
   const out: number[] = [];
@@ -1018,6 +1068,14 @@ if (id === StringPadStart || id === StringPadEnd) {
     return Value.FromString(table.CreateString(units));
   }
   const total = target - units.length;
+  // **与 `repeat` 同一关**（第 745 轮）：`padStart(2 ** 32)` 在 JS 里抛 `RangeError`，
+  // 本仓原来会走到 `heap limit reached`（`CodeUnitCharge * (units.length + total)` 先溢出）。
+  // **判据写成 `total > MaxTextUnits - units.length`，不是
+  // `units.length + total > MaxTextUnits`**：后一种写法里那个加法**自己就会溢出**
+  //（两边都是 `int`，总长一过 2³¹ 就绕回来）——这正是「防溢出的那一句自己溢出」的形状。
+  if (total > MaxTextUnits - units.length) {
+    throw new RangeError("padded string would be longer than the largest possible string");
+  }
   if (!room(ObjectCharge + CodeUnitCharge * (units.length + total))) throw new Error("out of room");
   const out: number[] = [];
   if (id === StringPadStart) {

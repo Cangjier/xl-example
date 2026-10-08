@@ -1,4 +1,4 @@
-﻿# xl-example
+# xl-example
 
 用 xl 写成的一套语言前端：**`*.xl.md` 是唯一的事实来源**，同一份规范可以生成多种目标语言。
 
@@ -1447,6 +1447,52 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
   `blocked 261`（没动：撤一条、登一条）、`differ 97`、`bad` 0、`regressions` 0、`moved` 0，
   加权 **96.0%**。
 
+### 第 745 轮：**边界口径普查**——四处真错值收掉、一条新登（coverage 7673/8031 → **7683/8042**）
+
+这一轮不追形状（前几轮追的是 token 层的投影），而是**把内建的边界口径整片量一遍**：
+74 条原子探针（`flat` 的深度、`repeat`/`padStart` 的巨值、`reduce` 的消息、
+`lastIndexOf` 的负零、以及 `fill`/`copyOut`/`splice`/`sort`/`split`/`toFixed`/`Math` 那一族的边角），
+量出来的**通过 65 条**照原样进矩阵，**四处真错值**在这一轮收掉：
+
+1. **`flat` 的深度实参走 `IntArgOr`（共用那一份），不再手写第二张表**。
+   手写那一段是第 274 轮留下的，理由写着「`IntArgOr` 走 `AsInt()`、`Infinity` 会与 1 分不开」
+   ——**那一句在第 702 轮就过期了**（`IntArgOr` 现在走 `NumArgOr` + `IntOfNumber`，
+   `Infinity` 明明白白折成 2³¹-1）。代价是**它比共用那一份窄**：
+   `flat("2")` 与 `flat({ valueOf: () => 2 })` **静默不摊**（JS 各摊两层）。
+   收法：`const depth = IntArgOr(room, call, protos, table, args, 0, 1)`——
+   **`fallback` 递 1、不是 0**：这一族只有 `flat` 的缺省是 1，
+   第一版递了 0（照抄 `slice`/`charAt` 的缺省）⇒ `flat(undefined)` 一层都不摊。
+2. **`repeat` / `padStart` / `padEnd` 的乘积溢出**（新常量 `MaxTextUnits`）。
+   `room` 收的字节数是 `CodeUnitCharge * total`，那个乘积在 32 位 `int` 里算——
+   总长到 2³⁰ 那一格乘积就是 2³¹、**绕成负数**，于是「问房间」问的是**一个负数**（当然放行），
+   接着逐码元 `push` 进一个几亿格的 JS 数组，**把宿主进程压死**
+   （症状是宿主 OOM，**不是**一条能被脚本接住的错）。
+   界取 **2³⁰-1**——**按乘积算，不按直觉的「10 亿」算**：第一版取 2³⁰，
+   实测 `"abcd".repeat(2 ** 28)`（总长恰好 2³⁰）**照样压死**。
+   `padStart` 那一格的判据写成 `total > MaxTextUnits - units.length`
+   （写成 `units.length + total > MaxTextUnits` 的话，**防溢出的那一句自己溢出**）。
+3. **`reduce` 空数组的消息逐字对上 `node`**：`"Reduce of empty array with no initial value"`
+   ——原来写的是 `"reduce of an empty array with no initial value"`（族对、**文本不对**，
+   而 `e.message` 是脚本直接看得见的东西）。
+4. **`lastIndexOf` 的负零起点**：`[1,2,3].lastIndexOf(1, -0)` 在 JS 里 `from` 是 `+0`，
+   本仓给 **`-0`**（`console.log` 打出 `-0`，而 `-0 === 0` 为真——最难被当成错的那一种）。
+   根子在 `IntOfNumber` 那一句向零截断（规范要的正是 `ToIntegerOrInfinity(-0) = -0`），
+   所以夹在调用点：`from = from + 0`（唯一能把 `-0` 折成 `+0` 的写法），
+   且必须在 `from < 0` 那一判**之前**（`-0 < 0` 是假，负零会原样活过那一支）。
+
+- **新登记一条**（`stdlib/round745/gap745-float-literal-eats-nan`）：
+  `flat(NaN)` 与同一语句里的一个数值字面量一起喂给同一个内建时，
+  **后一个调用点的实参被前一个顶掉**（`a.flat(1.9), a.flat(NaN)` 里第二格拿到 `1.9` 的折值）。
+  边界已量清：拆成两个 `console.log` 就对；`NaN` 先存进 `const` 再传照样错；
+  整数实参（`flat(2)`）也照样错——所以是**语句内**的实参落格，不是 `flat` 那一支。
+  与上面四处不是同一处，如实登着、**不猜**。
+- 用例：`stdlib/round745` 9 条（`array` 的 `flat` 深度两档 + `Array` 构造的非法长度、
+  `string` 的巨值 `pad/repeat`、`lastIndexOf` 负零、`reduce` 消息、数组 / 字符串数字 Math /
+  Object Map Set JSON 迭代三份普查收编）+ 1 条 `xl:want differ` 的台账。
+- 五类 **7673 / 8031 → 7683 / 8042**（+11 条 stdlib）、`blocked 261`（没动）、
+  `differ 97 → 98`（+1 新登）、`bad` 0、`regressions` 0、`moved` 0、`newlyPassing` 0，
+  加权 **96.0%**（分子 +10、分母 +11——新登的那一条是分母）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1454,12 +1500,12 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **218 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1427** 条用例，0 条不合格 |
+| `cases:check` | **1427** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
 | `cases:tags` | **1427 条**（带期望的逐条核过，共 **4835** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7673 / 8031**，加权 **96.0%**：token 1196/1414、exec 2171/2216、runtime 970/991、stdlib 3094/3164、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 97），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7683 / 8042**，加权 **96.0%**：token 1196/1414、exec 2171/2216、runtime 970/991、stdlib 3104/3175、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 98），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 
