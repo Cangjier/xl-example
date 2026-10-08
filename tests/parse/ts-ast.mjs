@@ -656,8 +656,12 @@ function knownGapCheck() {
     try {
       row = compareSource(source, c.file, { list: false, limit: 0 });
     } catch (error) {
-      closed++;
-      console.log(`  CRASH  ${c.id}  ${String(error && error.Message ? error.Message : error).split("\n")[0]}`);
+      // **产物直接抛异常的已知缺口**（最坏的那一种）也记在这条账上：它照样是「还开着」，
+      // 不红 —— 红的是「登记了却已经好了」。抛异常这件事本身由 `cases:tsast` 的
+      // **抛异常计数**盯着（那一项在第 674 轮进了退出码），所以这里只负责把它印出来。
+      console.log(
+        `  KNOWN-CRASH  ${c.id}  产物抛异常：${String(error && error.Message ? error.Message : error).split("\n")[0]}  ${c.directives.knownGap}`,
+      );
       continue;
     }
     if (row.missing + row.drift + row.extra + row.fieldDiff > 0) {
@@ -1352,6 +1356,10 @@ async function main() {
     console.log("");
   }
 
+  // **「抛异常」也进退出码**（第 674 轮）：原来 `failed`（解析期抛异常的份数）**只印不判**，
+  // 于是「语料里有一份根本解析不了」时这一门照样是绿的 —— 那是这一门唯一一处没接进退出码的读数。
+  // 实测的入口：`try { … } catch (e) //c` 换行 `{ … }`（行注释夹在 `catch` 头与它的体之间）
+  // 会让产物直接抛（`docs/typescript-parsing-gaps.md` 里那两条 `KNOWN-CRASH` 用例就是它）。
   process.exitCode =
     projectedMissing.size === 0 &&
     projectedDrift.size === 0 &&
@@ -1360,6 +1368,7 @@ async function main() {
     unmappedTags.size === 0 &&
     stats.missingRange === 0 &&
     stats.outOfRange === 0 &&
+    failed === 0 &&
     gapsOk
       ? 0
       : 1;

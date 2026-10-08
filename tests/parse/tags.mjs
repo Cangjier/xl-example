@@ -74,12 +74,22 @@ function main() {
   const cases = listCases(filterArea);
   const seen = new Map();
   const bad = [];
+  const crashed = [];
   let checked = 0;
   let assertions = 0;
 
   for (const one of cases) {
     const { expect, absent } = one.directives;
-    const xml = productXml(caseBody(one.source), one.file);
+    // **产物抛异常的用例跳过期望核实**（第 674 轮）：那一条根本没有产物可比。
+    // 它**不在这里判红**——「哪一条解析不了」由 `cases:tsast` 的**抛异常计数**盯着
+    // （那一项进了退出码），这里只把名字报出来，免得同一个事实两处各判一次。
+    let xml;
+    try {
+      xml = productXml(caseBody(one.source), one.file);
+    } catch (error) {
+      crashed.push(`${one.id}  ${String(error && error.Message ? error.Message : error).split("\n")[0]}`);
+      continue;
+    }
     const counts = tagCounts(xml);
     for (const [tag, n] of counts) seen.set(tag, (seen.get(tag) ?? 0) + n);
     if (expect.length === 0 && absent.length === 0) continue;
@@ -101,6 +111,8 @@ function main() {
 
   if (!listOnly) {
     for (const line of bad) console.log(`BAD  ${line}`);
+    // **产物抛异常的用例**：不判红、但要说出来（判红的是 `cases:tsast` 的抛异常计数）。
+    for (const line of crashed) console.log(`CRASH ${line}`);
   }
 
   // **标签表体检**：表里每个名字都要有至少一条用例真的产出它 ✓。
@@ -122,6 +134,7 @@ function main() {
 
   console.log(
     `\n${cases.length} 条用例，其中 ${checked} 条带期望（共 ${assertions} 条断言），${bad.length} 条不一致；` +
+      `产物抛异常 ${crashed.length} 条；` +
       `产物标签 ${seen.size} 种，标签表 ${TAGS.size} 种（没被产出的 ${dead.length} 种），` +
       `幽灵标签 ${GHOST_TAGS.size} 种（漏进产物的 ${leaked.length} 种）`,
   );
