@@ -301,7 +301,12 @@ import { A as B, C } from "m"
   const clauseEnd = ctx.EndOf(clause[clause.length - 1]);
   const clauseProps: any = {};
 
-  const braceOpen = source.indexOf("{", clauseStart);
+  // **`{` 的位置读字段**（`NamedBraceAt`，`ReadClause` 认下命名导入子句时当场记的）：
+  // 原来这句是 `source.indexOf("{", clauseStart)` **回原文里找**——`import /* { */ { A } from "m"`
+  // 会先命中注释里那个假括号。字段缺失（非命名导入子句）时才退回原文找。
+  const rawBraceAt = ctx.Attr(v, "namedBraceAt");
+  const rawBrace = typeof rawBraceAt === "number" && rawBraceAt >= 0 ? rawBraceAt : -1;
+  const braceOpen = rawBrace >= 0 ? rawBrace : source.indexOf("{", clauseStart);
   const braceClose = braceOpen >= 0 && braceOpen < clauseEnd ? ctx.MatchBrace(source, braceOpen) : -1;
   const star = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "*");
   const names = clause.filter((k: any) => k.get("type") === "Identifier" && ctx.TextOf(k) !== "as");
@@ -376,6 +381,16 @@ super(template);
 取的是每一项的**最后一个 `Identifier`**：`A` 取 `A`、`B as C` 取 `C`、`type B` 取 `B` ✓。
 空列表表示这条导入没有具名子句（`import "m"` / 默认导入 / 命名空间导入）。
 
+## field NamedBraceAt:int = -1
+
+**具名导入子句那个 `{` 的下标**；没有具名子句时是 `-1`。
+
+**为什么要有这一格**（用户口径：token 出字段、投影直读）：投影要拿它当 `NamedImports`
+的起点、并借它把默认名（`{` 之前那个）分出来。原来用 `source.indexOf("{", clauseStart)`
+**回原文里找**——那是**第二份位置答案**：`import /* { */ { A } from "m"` 会先命中注释里
+那个假括号。而 `ReadClause` 认下具名子句那一刻括号单元（`Bracket` 或带别名时的
+`ObjectLiteral`）就在手上，当场记下来即可。
+
 **为什么这些属性值得加**（`早期的缺口台账` 的 `_notes.imports-unstructured`）：
 原来 `Import` 只带 `From`，两条形状完全不同的导入只能靠子单元去分辨；
 而且 `From` **根本没有进 XML**（`Import` 没有覆写 `ToXmlString`）——下游拿不到路径。
@@ -441,6 +456,7 @@ if (head instanceof Identifier && head.Is("from") === false) {
   return;
 }
 if (head instanceof Bracket && head.startBracket === "{") {
+  this.NamedBraceAt = head.SourceRange.Start === null ? -1 : head.SourceRange.Start.Index;
   const names: string[] = [];
   let lastCommon: Identifier | null = null;
   for (const item of head.Data) {
@@ -525,6 +541,7 @@ result.typeOnly = this.typeOnly;
 result.defaultImport = this.defaultImport;
 result.namespace = this.namespace;
 result.imported = this.imported.slice();
+result.NamedBraceAt = this.NamedBraceAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
