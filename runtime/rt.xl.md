@@ -148,7 +148,10 @@ if (protos.WellKnownSymbols > 0) {
       const produced = call(method, value,
         [Value.FromString(table.CreateString(HostTextUnits(hintText)))]);
       // **它不许返回对象**（JS 的口径）：给了就抛，不往下走。
-      if (produced.IsObject()) throw new Error("cannot convert object to a primitive value");
+      // **抛的是宿主 `TypeError`**（第 766 轮）：`Guard` 按宿主异常的类折成 `ErrorKindType`，
+      // 语言层再翻成脚本里的 `TypeError`——原来这里是**普通 `Error`** ⇒
+      // `catch (e) { e instanceof TypeError }` 那一档分不出来（判据 `r766e-01` 量的就是它）。
+      if (produced.IsObject()) throw new TypeError("cannot convert object to a primitive value");
       return produced;
     }
   }
@@ -196,8 +199,9 @@ if (IsCallableValue(table, second)) {
   const produced = call(second, value, []);
   if (!produced.IsObject()) return produced;
 }
-// **④ 两步都没给出原始值**：JS 在这里抛 `TypeError`。
-throw new Error("cannot convert object to a primitive value");
+// **④ 两步都没给出原始值**：JS 在这里抛 `TypeError`——**宿主那一档也要对**
+//（第 766 轮：原来抛的是普通 `Error`，脚本里 `e instanceof TypeError` 分不出来）。
+throw new TypeError("cannot convert object to a primitive value");
 ```
 
 # method ToNumberPrimitive:(table:HeapTable, value:Value)=>double

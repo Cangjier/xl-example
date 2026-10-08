@@ -2378,8 +2378,11 @@ this.Pending = value;
 // 它那一层 `try` **仍然在册**。这一趟展开会**顺手走过**它的条目，
 // 照原来的写法就**丢掉了** ⇒ 回来那一抛**一个处理点都找不到**
 //（症状：`try { await f() } catch { … }` 里 `catch` 不跑，**一句异常都没有**）。
-const kept: HandlerEntry[] = [];
-let landed = false;
+//
+// **「落哪一条」按帧的层深认，不按「谁后压进这一摞」**（第 766 轮，见下面那一段）。
+let landing = -1;
+let landingDepth = -1;
+let landingPc = -1;
 // **展开不能跨过 async 帧**（第 610 轮）：一个 async 帧就是**一道墙**——
 // 它里面抛出来的东西**只把它的承诺拒绝掉**，不许落到它**外面**那些 `try` 上。
 //
@@ -2412,41 +2415,66 @@ for (let i = this.Frames.Handles.length - 1; i >= 0; i--) {
     break;
   }
 }
-while (this.Handlers.length > 0) {
-  const entry = this.Handlers[this.Handlers.length - 1];
-  this.Handlers.pop();
+// **第一趟：挑落点**（第 766 轮）——判据是**帧的层深**，不是「谁后压进来」。
+//
+// **为什么非改不可**（实测：生成器里的 `try` 一条都不生效）：
+//
+//     function* g() { try { yield 1; } catch (e) { console.log("caught"); } }
+//     const it = g();
+//     it.next();                        // ← 处理点在这里压进这一摞
+//     try { it.throw(new Error("x")); } // ← **外层的 try** 在这里压进来（压在它上面）
+//     catch (e) { console.log("escaped"); }
+//
+// Node 打 `caught`，本仓打 `escaped`——那句 `catch` **一声不响**。
+// 根子是**挂起的帧恢复时压在别人上面，而它的处理点是更早压进这一摞的**：
+// `it.next()` 那一刻帧栈是 `[模块, 生成器]`（记下深度 1），挂起之后生成器那一帧离开了栈、
+// **处理点留在这一摞里**；随后模块那一层的 `try` 压进来（深度 0）——于是**数组次序与层深次序相反**。
+// 照「取栈顶那一条」走，抛进去的异常就落到了**外层那个 `try`** 上：生成器体里的
+// `catch` / `finally` **一次都不跑**，异常直接从 `it.throw()` 那一句冒出去。
+// `finally` 那一档的症状更难看：`try { yield 1 } finally { cleanup() }` 里那句清理**一声不响**。
+//
+// **为什么层深是唯一说得清的判据**：这一摞处理点里「谁更靠里」= 「谁的帧在栈上更深」。
+// 同一帧上叠了好几层 `try` 时层深相同 ⇒ **取数组里更靠后的那一条**（更晚压进来 = 更靠里），
+// 所以下面的判据写成 `depth >= landingDepth`（相等也认）。
+//
+// **`await` 那一族同一个形状**（第 330 轮那一段留着的那几条）：被 `await` 摘下去的帧
+// 恢复时也是压在调用者上面，而调用者在它挂起之后可能又进了新的 `try`。
+for (let i = 0; i < this.Handlers.length; i++) {
+  const entry = this.Handlers[i];
   const depth = this.DepthOfFrame(entry.Frame);
-  if (depth < 0) {
-    if (this.IsSuspendedFrame(entry.Frame)) kept.push(entry);
-    continue;
-  }
+  if (depth < 0) continue;
   // **这道墙外面的处理点不算**（见上面那一段）：跳过它，
   // 让这一抛照「一个处理点都不剩」那条路走——那正是 JS 的语义。
-  //
-  // **但要留住它**（**实测踩到的**，与 `IsSuspendedFrame` 那一档**同一条理由**）：
-  // 那道墙**下面的帧在转换之后还活着**（转换只弹到墙为止），
-  // 而这一抛**一会儿还会回来**——`await` 到这一帧时 `Op.Resume` 会再抛一次，
-  // 那次要找的正是**这一帧自己的**处理点。丢掉它 ⇒ `await` 那个 `catch` **接不住**
-  // （症状：`try { await boom() } catch { … }` 里 `caught` 一个字都不印、
-  //  退出码还是 0——**静默错值**）。所以按 `kept` 那条路放回去
-  //（倒着压，次序才不会翻）。
-  if (asyncWall >= 0 && depth < asyncWall) {
-    kept.push(entry);
-    continue;
-  }
-  while (this.Frames.Depth() > depth + 1) {
+  if (asyncWall >= 0 && depth < asyncWall) continue;
+  if (landing >= 0 && depth < landingDepth) continue;
+  landing = i;
+  landingDepth = depth;
+  landingPc = entry.Pc;
+}
+// **第二趟：把这一摞收拾干净**——落点那一条取走，死掉的（帧不在栈上、也没挂着）扔掉，
+// 其余**原样留着**。次序一个都不许换：`try_pop` 按帧句柄从后往前找，
+// 「同一帧上哪一层更靠里」靠的就是这个次序。
+//
+// **「其余原样留着」是第 766 轮补上的**：原来那一版把落点**以上**的条目统统弹掉，
+// 而按层深挑之后，落点上面那些是**外层还开着的 `try`**——它们要留着接住
+// **重抛出来的那一份**（`finally` 跑完 `throw saved` 那一步找的正是它们）。
+const survivors: HandlerEntry[] = [];
+for (let i = 0; i < this.Handlers.length; i++) {
+  if (i === landing) continue;
+  const entry = this.Handlers[i];
+  if (this.DepthOfFrame(entry.Frame) < 0 && !this.IsSuspendedFrame(entry.Frame)) continue;
+  survivors.push(entry);
+}
+this.Handlers = survivors;
+if (landing >= 0) {
+  while (this.Frames.Depth() > landingDepth + 1) {
     this.Frames.Pop();
   }
   // **跨过重入那一段的边界了吗**：处理点在外层（层深 ≤ 边界）⇒ 这一段整个被展开了。
-  if (depth <= this.NativeBoundary) this.NativeEscaped = true;
-  this.Frames.Current().Pc = entry.Pc;
-  landed = true;
-  break;
+  if (landingDepth <= this.NativeBoundary) this.NativeEscaped = true;
+  this.Frames.Current().Pc = landingPc;
+  return;
 }
-// **留住的那些按原来的相对次序放回去**：`Handlers` 是一个栈，
-// 所以倒着压——正着压会把它们的次序翻过来，而「哪一条更靠里」正是展开要问的第一个问题。
-for (let i = kept.length - 1; i >= 0; i--) this.Handlers.push(kept[i]);
-if (landed) return;
 // **一个活着的处理点都不剩：异常要冒到宿主，帧栈必须清空。**
 //
 // **清之前先把在册的 async 帧各自拒绝掉**（第 285 轮）：JS 里
@@ -5094,11 +5122,28 @@ if (passThrough) {
   // 是给**回收器**用的——那两格的承诺住在载荷的 `Opaque` 里，而 `Trace` 不看它，
   // 不写这一格的话「回调跑之前来一次回收」就能把结果承诺收走（症状离现场极远）。
   // **没登记那两格就照旧当场传**：少一跳是「不做」，不是「说谎」。
+  // **回调返回了一个承诺 ⇒ 要等它**（第 766 轮）：JS 的 `finally` 展开成
+  // `Promise.resolve(回调()).then(() => 源那一档)`——所以回调**返回的那份承诺**
+  // 被拒绝时，结果承诺跟着**被拒绝**（而不是把源那一档原样传下去）。
+  // 原来这里只把回调的返回值**丢掉**（那一跳照旧传源那一档）⇒
+  // `Promise.resolve(1).finally(() => Promise.reject(new Error("x"))).catch(f)`
+  // 里那个 `f` **一声不响**（Node 打 `x`）——**静默错值**。
+  //
+  // **做法是换一个挂靠点**：把那「一跳」挂在**回调返回的那份承诺**上、
+  // 认档位写 `0`（只认兑现）——于是两条路各归各的：
+  //   · 它兑现 ⇒ 这一跳照常把**源那一档**灌进结果承诺；
+  //   · 它被拒绝 ⇒ 引擎的 `!matched` 那一支把**它的原因**拒绝给结果承诺。
+  // 回调**没返回承诺**时照旧挂一个 `undefined`（= 纯微任务那一跳，一个字都不变）。
   const settleId = reject ? this.SettleRejectId : this.SettleResolveId;
   if (settleId > 0) {
     const hop = Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(settleId, result.Ref));
     const hopArgs: Value[] = [];
     hopArgs.push(carried);
+    const producedIsPromise = produced.IsObject() && this.Table.Get(produced.Ref).Promise !== null;
+    if (producedIsPromise) {
+      this.ScheduleTask(produced, hop, hopArgs, result, 0, false, Value.Undefined());
+      return;
+    }
     this.ScheduleTask(Value.Undefined(), hop, hopArgs, result, 2, false, Value.Undefined());
     return;
   }

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8221,
+  "total": 8235,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.57,
+  "progressPercent": 95.58,
   "categories": [
     {
       "category": "token",
@@ -91,31 +91,31 @@
       "category": "exec",
       "weight": 0.25,
       "total": 2216,
-      "pass": 2171,
+      "pass": 2172,
       "blocked": 12,
-      "differ": 33,
+      "differ": 32,
       "nodefail": 0,
-      "coverage": 97.97
+      "coverage": 98.01
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1094,
-      "pass": 1056,
+      "total": 1099,
+      "pass": 1061,
       "blocked": 5,
       "differ": 33,
       "nodefail": 0,
-      "coverage": 96.53
+      "coverage": 96.54
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3251,
-      "pass": 3170,
+      "total": 3260,
+      "pass": 3178,
       "blocked": 25,
-      "differ": 56,
+      "differ": 57,
       "nodefail": 0,
-      "coverage": 97.51
+      "coverage": 97.48
     },
     {
       "category": "e2e",
@@ -1844,12 +1844,6 @@
       "detail": "stdout 不同：第 1 行：node «string:function floor() { [native code] }» vs tsrun «throw:TypeError»"
     },
     {
-      "id": "exec/iterators/probe700-i-t03",
-      "category": "exec",
-      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); const log = []; function* g() { log.push(\"start\"); try { yield 1; } finally { log.push(\"fin\"); } } const it = g(); log.push(it.n",
-      "detail": "stdout 不同：第 1 行：node «start,1,fin,caught» vs tsrun «start,1,caught»"
-    },
-    {
       "id": "exec/round708/p708b-l08",
       "category": "exec",
       "title": "console.log 的循环引用",
@@ -1859,7 +1853,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6256/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20784/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2141,7 +2135,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6256/src/5266.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20784/src/5271.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2165,7 +2159,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6256/src/5316.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20784/src/5321.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2406,6 +2400,12 @@
       "category": "stdlib",
       "title": "`console.table` 画的是框线表格——这一格还没做",
       "detail": "stdout 不同：第 1 行：node «┌─────────┬────────┐» vs tsrun «[ 1, 2, 3 ]»"
+    },
+    {
+      "id": "stdlib/round766/r766a-07",
+      "category": "stdlib",
+      "title": "`.finally` 的链与另一条链谁先：本仓比 Node 早一跳",
+      "detail": "stdout 不同：第 5 行：node «04 fin» vs tsrun «09 keep»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

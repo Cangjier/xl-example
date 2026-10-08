@@ -306,6 +306,64 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 766 轮：**展开时挑处理点按帧的层深**——生成器里 `throw` 进去的 `catch` / `finally` 一声不响
+
+**一句话**：这一轮的普查从**数组 / 字符串 / 数字的方法面**扫到**类与访问器 / 反射 / 符号协议**，
+再扫到**承诺那一族**——12 条探针只有一条红（那是早已登记的 `RegExp` 那族），
+可换到**生成器注入**与**承诺**两块之后，**四条根**当场露出来；四条一起收，另新登一条。
+
+- **① `DoThrow` 挑的是「谁后压进这一摞」，不是「谁的帧更靠里」**（判据
+  `exec/iterators/probe700-i-t03`，**这一条旧台账当场转绿**）：
+
+  ```ts
+  function* g() { try { yield 1; } catch (e) { console.log("caught"); } }
+  const it = g();
+  it.next();                         // ← 生成器那一帧的处理点在这里压进来（深度 1）
+  try { it.throw(new Error("x")); }  // ← **外层的 try** 在这里压进来（压在它上面，深度 0）
+  catch (e) { console.log("escaped"); }
+  ```
+
+  Node 打 `caught`，本仓打 `escaped`——生成器体里那句 `catch` **一次都不跑**，
+  异常直接从 `it.throw()` 那一句冒出去。`try { yield 1 } finally { cleanup() }`
+  那一档的症状更难看：**清理一声不响**（判据 `runtime/round766/r766a-01` 四种排版一起钉）。
+  **根子是挂起的帧恢复时压在别人上面，而它的处理点是更早压进这一摞的** ⇒
+  数组次序与层深次序相反。**改法是两趟**：第一趟按 `DepthOfFrame` 挑层深最大的一条
+  （同一帧上叠了几层 `try` 时取更靠后的那一条 = 更靠里），第二趟把落点取走、把死掉的扔掉、
+  **其余原样留着**——留着的那些正是外层还开着的 `try`，`finally` 跑完 `throw saved`
+  那一步要找的就是它们。**`await` 那一族是同一个形状**（帧被 `await` 摘下去时，
+  调用者在它挂起之后同样可能又进了新的 `try`），所以这一处改动把两条路一起管住了
+  （`runtime/round766/r766a-03` 三档一起钉）。
+- **② `ToPrimitive` 给不出原始值时抛的是普通 `Error`**（`stdlib/round766/r766a-01`）：
+  JS 抛 `TypeError`（`Cannot convert object to a primitive value`），本仓抛普通 `Error`
+  ⇒ `catch (e) { e instanceof TypeError }` 那一档**分不出来**。两处落点
+  （`Symbol.toPrimitive` 给了对象、普通那两步都没给原始值）一起改成宿主 `TypeError`——
+  `Guard` 按宿主异常的类折成 `ErrorKindType`、语言层再翻成脚本里的 `TypeError`
+  （与第 713 轮 `in` 那一格同一个机关）。
+- **③ `Promise.race` 第一个结清的是拒绝时，结果承诺照样被兑现**（`stdlib/round766/r766a-08`）：
+  `race` 原来按 `wants = 2` 调度（两档都认、回调照跑），而它的回调只会**兑现**结果承诺 ⇒
+  `Promise.race([Promise.reject(e), Promise.resolve(1)])` 本仓**什么都不打**（Node 打 `e`）——
+  **静默错值**。改成 `wants = 0`：兑现那一档跑 `PromiseRaceStep`，
+  拒绝那一档由引擎「没认这一档」那条路把**它的原因**拒绝给结果承诺。
+- **④ `.finally(cb)` 丢掉回调返回的那份承诺**（`stdlib/round766/r766a-09`）：规范里
+  `p.finally(cb)` 是 `then(v => Promise.resolve(cb()).then(() => v))` 拼出来的 ⇒
+  回调**返回的承诺被拒绝**时结果承诺要跟着拒绝，本仓原来只把回调的返回值丢掉 ⇒
+  `Promise.resolve(1).finally(() => Promise.reject(e)).catch(f)` 里那个 `f` **一声不响**。
+  改法是把那一跳挂**回调返回的那份承诺**上、只认兑现那一档（它兑现 ⇒ 照常传源那一档；
+  它被拒绝 ⇒ 引擎把它的原因拒绝给结果）；回调没返回承诺时照旧一个纯微任务那一跳。
+- **新登的一条**（`stdlib/round766/r766a-07`）：**`.finally` 的链与另一条链谁先**——
+  Node 给 `04 fin` 在 `09 keep` 之前，本仓给 `09 keep` 在 `04 fin` 之前（本仓**早一跳**）。
+  **根子**：规范里「用一份承诺去解决另一个承诺」是**单独一次作业**
+  （`NewPromiseResolveThenableJob`），传值那一档要**两跳**；本仓第 620 轮正是把它
+  **缩到一跳**才对上 `c371-stdlib-promise-finally-passthrough` 的行序
+  ⇒ 同一个模型在两格上各对一半。**要收它得让那一跳真的走 thenable 采纳那条路**，
+  不是把跳数改成 2（改回两跳当场把第 620 轮那一格弄红）——
+  这条边界本来就写在明处（`promise.xl.md` 的 `PromiseFinally` 与 `tests/runtime/check.mjs`
+  第 8198 行「次序那一格另外说」），这一轮把它**量成一条用例**。
+- **另有一条量过、写法不改**：`r766b-12` 的两种排版这一轮也转绿了（同一个 ① 的根）。
+- 语料 **+14 条**（`runtime/round766` 5 条 + `stdlib/round766` 9 条；**13 条通过**、1 条登记），
+  五类 **7835 / 8221 → 7849 / 8235**、`blocked 264`（没动）、`differ 122`（**+1 新登、-1 转绿**）、
+  `bad` 仍 **0**、`regressions` **0**、`moved` 0、`newlyPassing` 0，加权 **95.6%**。
+
 ### 第 765 轮：`console.dir` 的 options——**第二格不是第二个要印的实参**
 
 **一句话**：第 735 轮把九个名字并成「一份实现」，代价在 `dir` 上露出来——

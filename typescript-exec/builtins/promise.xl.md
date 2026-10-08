@@ -931,10 +931,17 @@ if (id === PromiseAll || id === PromiseRace || id === PromiseAllSettled || id ==
       : MakePromise(room, table, protos, PromiseState.Fulfilled, item);
     // **`all` 只认兑现那一档**（某一步被拒绝时**回调不跑**、
     // 拒绝顺着「结果承诺」自动传下去——那正是 JS 的语义）；
-    // **`race` 两档都认**（谁先结清谁定）；
+    // **`race` 也走 `0`**（第 766 轮改，**原来写的是 `2`**）：
+    // `2` 的意思是「两档都认、回调照跑」——可回调只有**一个**（`PromiseRaceStep`），
+    // 它只会**兑现**结果承诺 ⇒ 第一个结清的是**拒绝**时，结果承诺照样被兑现
+    // （`.catch` 于是**一声不响**：`Promise.race([Promise.reject(e), Promise.resolve(1)])`
+    // 本仓什么都不打，Node 打 `e`——**静默错值**）。
+    // 走 `0` 之后两条路各归各的：兑现那一档跑 `PromiseRaceStep`（兑现结果），
+    // 拒绝那一档**不匹配**、由引擎的 `!matched` 那一支把**它的原因**拒绝给结果承诺
+    //（`vm.xl.md` 的 `RunNativeTask`）——「谁先结清、按它自己那一档定」一条不差；
     // **`allSettled` / `any` 两档都收、但收到的东西不同**（第 295 轮）
-    // ——所以它们走 `wants = 3`（两个回调），而 `all` / `race` 走 0 / 2。
-    const wants = id === PromiseAll ? 0 : (id === PromiseRace ? 2 : 3);
+    // ——所以它们走 `wants = 3`（两个回调）。
+    const wants = id === PromiseAll ? 0 : (id === PromiseRace ? 0 : 3);
     schedule(one, stepValue, [state, Value.FromInt(i), result], result, wants, false, rejectStepValue);
   }
   return result;
@@ -1061,7 +1068,11 @@ return Value.Undefined();
 
 # method PromiseRaceStep:(room:RoomChecker, table:HeapTable, protos:Protos, self:Value, args:Array<Value>, settle:TaskSettler | null)=>Value
 
-**`Promise.race` 的一步**——**第一个**结清的定胜负。
+**`Promise.race` 的一步**——**第一个**结清的定胜负（**兑现**那一档走到这里）。
+
+**拒绝那一档不进来**（第 766 轮起 `race` 走 `wants = 0`）：引擎那一支
+**不匹配**时把**它的原因**拒绝给结果承诺——「谁先结清、按它自己那一档定」
+两条路各写一半，正是 JS 的语义。
 
 **幂等**：结果已经被别人结清了，这一趟就什么也不做
 （那一步的 `State !== Pending` 一判就挡住了）。
