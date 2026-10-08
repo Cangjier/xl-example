@@ -4435,5 +4435,82 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     "nodeArgs": [
       "--experimental-transform-types"
     ]
-  }
+  },
+  // ============ 第 623 轮加宽：普查 tmp/cand-623b.mjs 收进来的场景 ============
+  {
+    id: "c623-ex-destructure-forof",
+    title: "for..of 里解构每一项（数组 / 对象）",
+    src: "\nfor (const [k, v] of [[\"a\", 1], [\"b\", 2]] as Array<[string, number]>) console.log(k, v);\nfor (const { x, y = 9 } of [{ x: 1 }, { x: 2, y: 3 }] as any[]) console.log(x, y);\n",
+  },
+  {
+    id: "c623-ex-class-expression-named",
+    title: "具名类表达式：内部名只在类体内可见",
+    src: "\nconst C = class Inner {\n  static self() { return typeof Inner; }\n  me() { return typeof Inner; }\n};\nconsole.log(C.self(), new C().me(), typeof Inner);\n",
+  },
+  {
+    id: "c623-ex-super-inheritance",
+    title: "继承链上的 super：构造器 / 方法 / 静态 / 访问器",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nclass A {\n  constructor(public v: number) {}\n  m() { return \"A\" + this.v; }\n  static s() { return \"SA\"; }\n  get g() { return 1; }\n}\nclass B extends A {\n  constructor() { super(2); }\n  m() { return \"B\" + super.m(); }\n  static s() { return \"SB\" + super.s(); }\n  get g() { return super.g + 1; }\n}\nconst b = new B();\nconsole.log(b.m(), B.s(), b.g, b.v);\n",
+  },
+  {
+    id: "c623-ex-computed-fields",
+    title: "计算属性名：类字段 / 方法 / 静态",
+    src: "\nconst k = \"a\" + \"b\";\nclass C {\n  [k] = 1;\n  static [k + \"s\"] = 2;\n  [\"m\" + \"1\"]() { return this.ab; }\n}\nconsole.log(new C().ab, (C as any).abs, new C().m1());\n",
+  },
+  {
+    id: "c623-ex-enum-reverse",
+    title: "数字枚举的反向映射与字符串枚举",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nenum E { A, B = 5, C }\nenum S { X = \"x\", Y = \"y\" }\nconsole.log(E.A, E.B, E.C, E[0], E[5]);\nconsole.log(S.X, S.Y, JSON.stringify(E));\n",
+  },
+  {
+    id: "c623-ex-namespace-merge",
+    title: "namespace 与同名 function / class 合并",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nfunction f() { return 1; }\nnamespace f { export const v = 2; }\nclass C { m() { return 3; } }\nnamespace C { export const w = 4; }\nconsole.log(f(), f.v, new C().m(), C.w);\n",
+  },
+  {
+    id: "c623-ex-param-properties",
+    title: "构造函数参数属性：public / private / readonly / 默认值",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nclass C {\n  constructor(public a: number, private b: string = \"b\", readonly c = 3) {}\n  show() { return this.a + this.b + this.c; }\n}\nconsole.log(new C(1).show(), Object.keys(new C(1)).join(\",\"));\n",
+  },
+  {
+    id: "c623-ex-abstract-erasure",
+    title: "abstract 成员与类型位一起消失，子类可覆盖",
+    src: "\nabstract class A {\n  abstract m(): string;\n  n() { return \"n\" + this.m(); }\n}\nclass B extends A { m() { return \"m\"; } }\nconsole.log(new B().n(), typeof (A as any).prototype.m);\n",
+  },
+  {
+    id: "c623-ex-optional-call",
+    title: "可选调用 f?.() 与可选链上的 this",
+    src: "\nconst o: any = { v: 1, m() { return this.v; } };\nconsole.log(o.m?.(), o.z?.());\nconsole.log(o?.m?.(), o?.z?.());\nconst f: any = undefined;\nconsole.log(f?.());\n",
+  },
+  {
+    id: "c623-ex-default-params-nullish",
+    title: "默认参数只在 undefined（含 null 的差别）时生效",
+    src: "\nfunction f(a = 1, b: any = 2) { return a + \",\" + b; }\nconsole.log(f(), f(undefined, undefined), f(null, null), f(0, \"\"));\n",
+  },
+  {
+    id: "c623-ex-generic-erasure",
+    title: "泛型的约束 / 默认 / 多重约束全部擦掉",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nfunction f<T extends { a: number }, U = string>(x: T, y?: U): number { return x.a; }\nclass Box<T extends object = {}> { constructor(public v: T) {} }\nconsole.log(f({ a: 1 }), new Box({ z: 2 }).v.z);\n",
+  },
+  {
+    id: "c623-ex-as-satisfies-erasure",
+    title: "as / satisfies / 非空断言 / 尖括号断言运行时都不留痕",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nconst a = { x: 1 } as { x: number };\nconst b = { x: 2 } satisfies { x: number };\nconst c = a!.x;\nconst d = <number>(3 as any);\nconsole.log(a.x, b.x, c, d, Object.keys(a).join(\",\"));\n",
+  },
+  {
+    id: "c623-ex-static-inheritance",
+    title: "静态成员与静态方法的继承",
+    src: "\nclass A { static v = 1; static m() { return this.v; } }\nclass B extends A {}\nconsole.log(B.v, B.m(), Object.getPrototypeOf(B) === A);\n",
+  },
+  {
+    id: "c623-ex-getter-inherit",
+    title: "原型上的访问器被继承，赋值走 setter",
+    src: "\nclass A {\n  private _v = 1;\n  get v() { return this._v; }\n  set v(x: number) { this._v = x * 3; }\n}\nclass B extends A {}\nconst b = new B();\nb.v = 2;\nconsole.log(b.v, Object.getOwnPropertyNames(b).join(\",\"));\n",
+  },
 ];

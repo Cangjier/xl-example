@@ -6964,24 +6964,42 @@ check("`ToInt32Of`：先向零截断、再按 2³² 取模、`NaN`/`±Infinity` 
 
 check("七条算子：结果落在 `int32` 里，只有 `>>>` 可能超出（那一条走 `MakeNumber`）", () => {
   const table = new HeapTable();
+  const machine = new Vm(table, 1 << 20, 10000);
+  const protos = InitProtos(machine.Room(), table);
   const value = (n) => Value.FromDouble(n);
   const at = (v) => (v.Tag === ValueTag.Int32 ? v.Int : v.Dbl);
-  eq(at(RtBitAnd(table, Value.FromInt(6), Value.FromInt(3))), 2, "`6 & 3`");
-  eq(at(RtBitOr(table, Value.FromInt(6), Value.FromInt(3))), 7, "`6 | 3`");
-  eq(at(RtBitXor(table, Value.FromInt(6), Value.FromInt(3))), 5, "`6 ^ 3`");
-  eq(at(RtBitNot(table, Value.FromInt(6))), -7, "`~6`");
-  eq(at(RtBitNot(table, Value.FromInt(0))), -1, "`~0`");
-  eq(at(RtShl(table, Value.FromInt(1), Value.FromInt(4))), 16, "`1 << 4`");
+  // **四样参数与算术那一族同款**（第 623 轮 ✓）：`ToInt32` 的前一步是 `ToNumber` ✓，
+  // 而 `ToNumber` 要 `room` / `call` / `protos` / `table` ✓（对象那一档要 `ToPrimitive` ✓）。
+  const and = (a, b) => RtBitAnd(machine.Room(), null, protos, table, a, b);
+  const or = (a, b) => RtBitOr(machine.Room(), null, protos, table, a, b);
+  const xor = (a, b) => RtBitXor(machine.Room(), null, protos, table, a, b);
+  const not = (a) => RtBitNot(machine.Room(), null, protos, table, a);
+  const shl = (a, b) => RtShl(machine.Room(), null, protos, table, a, b);
+  const shr = (a, b) => RtShr(machine.Room(), null, protos, table, a, b);
+  const ushr = (a, b) => RtUShr(machine.Room(), null, protos, table, a, b);
+  eq(at(and(Value.FromInt(6), Value.FromInt(3))), 2, "`6 & 3`");
+  eq(at(or(Value.FromInt(6), Value.FromInt(3))), 7, "`6 | 3`");
+  eq(at(xor(Value.FromInt(6), Value.FromInt(3))), 5, "`6 ^ 3`");
+  eq(at(not(Value.FromInt(6))), -7, "`~6`");
+  eq(at(not(Value.FromInt(0))), -1, "`~0`");
+  eq(at(shl(Value.FromInt(1), Value.FromInt(4))), 16, "`1 << 4`");
   // **回绕**：`2147483647 << 1` 是 `-2` ✓（JS 的位运算就是 `int32` 的 ✓）。
-  eq(at(RtShl(table, Value.FromInt(2147483647), Value.FromInt(1))), -2, "`<<` 按 int32 回绕");
+  eq(at(shl(Value.FromInt(2147483647), Value.FromInt(1))), -2, "`<<` 按 int32 回绕");
   // **移位数的低 5 位**：`8 >> 33` 就是 `8 >> 1` ✓（`33 & 31 = 1` ✓）。
-  eq(at(RtShr(table, Value.FromInt(8), Value.FromInt(33))), 4, "`>>` 取低 5 位");
-  eq(at(RtShr(table, Value.FromInt(-8), Value.FromInt(1))), -4, "`>>` 是算术右移");
-  eq(at(RtUShr(table, value(-1), Value.FromInt(0))), 4294967295, "`-1 >>> 0`（进位成浮点）");
-  eq(RtUShr(table, value(-1), Value.FromInt(0)).Tag, ValueTag.Float64, "它**超出 int32**，所以是 `Float64`");
-  eq(at(RtUShr(table, value(-1), Value.FromInt(28))), 15, "**`-1 >>> 28` 是 15**（第一版给 4294967295）");
-  eq(at(RtUShr(table, value(-1), Value.FromInt(1))), 2147483647, "`-1 >>> 1`");
-  eq(at(RtUShr(table, value(4294967295), Value.FromInt(0))), 4294967295, "`2³² - 1` 原样给出");
+  eq(at(shr(Value.FromInt(8), Value.FromInt(33))), 4, "`>>` 取低 5 位");
+  eq(at(shr(Value.FromInt(-8), Value.FromInt(1))), -4, "`>>` 是算术右移");
+  eq(at(ushr(value(-1), Value.FromInt(0))), 4294967295, "`-1 >>> 0`（进位成浮点）");
+  eq(ushr(value(-1), Value.FromInt(0)).Tag, ValueTag.Float64, "它**超出 int32**，所以是 `Float64`");
+  eq(at(ushr(value(-1), Value.FromInt(28))), 15, "**`-1 >>> 28` 是 15**（第一版给 4294967295）");
+  eq(at(ushr(value(-1), Value.FromInt(1))), 2147483647, "`-1 >>> 1`");
+  eq(at(ushr(value(4294967295), Value.FromInt(0))), 4294967295, "`2³² - 1` 原样给出");
+  // **非数值先过 `ToNumber`** ✓（第 623 轮 ✓）：这一档原来报 `unimplemented` ✓。
+  eq(at(or(Value.FromString(table.CreateString(units("3"))), Value.FromInt(0))), 3, "`\"3\" | 0` 是 3");
+  eq(at(or(Value.FromBool(true), Value.FromInt(0))), 1, "`true | 0` 是 1");
+  eq(at(or(Value.Null(), Value.FromInt(0))), 0, "`null | 0` 是 0");
+  eq(at(or(Value.Undefined(), Value.FromInt(0))), 0, "`undefined | 0` 是 0");
+  eq(at(or(value(NaN), Value.FromInt(0))), 0, "`NaN | 0` 是 0");
+  eq(at(shl(Value.FromString(table.CreateString(units("2"))), Value.FromInt(3))), 16, "`\"2\" << 3` 是 16");
 });
 
 check("端到端：日常形状里的位运算（复合赋值 · 箭头体 · 掩码 · 哈希）", () => {

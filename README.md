@@ -317,17 +317,17 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-### 当前状态（第 621 轮实测）
+### 当前状态（第 623 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1484 / 1484 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1491 / 1491 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1083** 条用例，0 条不合格 |
+| `cases:check` | **1090** 条用例，0 条不合格 |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1713 / 1713**（**100%**）：引擎 / 降级 / 标准库 / 端到端四层各 **100%**，台账里 0 条待修 |
+| `coverage` | **1812 / 1812**（**100%**）：引擎 / 降级 / 标准库 / 端到端四层各 **100%**，台账里 0 条待修 |
 | `npm run gates` | 上面六道一次跑完（实测墙钟 **~22s**） |
 
 缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：

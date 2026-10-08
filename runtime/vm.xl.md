@@ -2644,33 +2644,52 @@ if (id === RtOp.Neg) {
 // 只有 `>>>` 可能超出 ✗（`-1 >>> 0` 是 `4294967295` ✓）——那一条自己走 `MakeNumber` ✓。
 // **`& | ^` 与逻辑那两条同名而不同物** ✗：`&&` / `||` 在降级层落成**控制流** ✓，
 // 根本不到这一层来 ✓（`ir.xl.md` 的 `BitOr` 那条写着这一句 ✓）。
+//
+// **四样参数与算术那一族同款** ✓（第 623 轮 ✓）：`ToInt32` 的前一步是 `ToNumber` ✓，
+// 而 `ToNumber` 要 `ToPrimitive` ✓（对象那一档要调 `valueOf` / `toString` ✓）⇒
+// `room` / `call` / `protos` / `table` 一样都不能少 ✓（原来只给 `table` ✓，
+// 于是 `"3" | 0` 报 `unimplemented: arithmetic on a non-numeric operand` ✓）。
 if (id === RtOp.BitAnd) {
   RequireArgc(argc, 2, "bit_and");
-  return RtBitAnd(this.Table, slots[base], slots[base + 1]);
+  const bitProtos = this.Protos;
+  if (bitProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtBitAnd(this.Room(), this.Native(), bitProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.BitOr) {
   RequireArgc(argc, 2, "bit_or");
-  return RtBitOr(this.Table, slots[base], slots[base + 1]);
+  const bitProtos = this.Protos;
+  if (bitProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtBitOr(this.Room(), this.Native(), bitProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.BitXor) {
   RequireArgc(argc, 2, "bit_xor");
-  return RtBitXor(this.Table, slots[base], slots[base + 1]);
+  const bitProtos = this.Protos;
+  if (bitProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtBitXor(this.Room(), this.Native(), bitProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.BitNot) {
   RequireArgc(argc, 1, "bit_not");
-  return RtBitNot(this.Table, slots[base]);
+  const bitProtos = this.Protos;
+  if (bitProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtBitNot(this.Room(), this.Native(), bitProtos, this.Table, slots[base]));
 }
 if (id === RtOp.Shl) {
   RequireArgc(argc, 2, "shl");
-  return RtShl(this.Table, slots[base], slots[base + 1]);
+  const bitProtos = this.Protos;
+  if (bitProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtShl(this.Room(), this.Native(), bitProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.Shr) {
   RequireArgc(argc, 2, "shr");
-  return RtShr(this.Table, slots[base], slots[base + 1]);
+  const bitProtos = this.Protos;
+  if (bitProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtShr(this.Room(), this.Native(), bitProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.UShr) {
   RequireArgc(argc, 2, "ushr");
-  return RtUShr(this.Table, slots[base], slots[base + 1]);
+  const bitProtos = this.Protos;
+  if (bitProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtUShr(this.Room(), this.Native(), bitProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.Not) {
   RequireArgc(argc, 1, "not");

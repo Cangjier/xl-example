@@ -2469,5 +2469,48 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     "nodeArgs": [
       "--experimental-transform-types"
     ]
-  }
+  },
+  // ============ 第 623 轮加宽：普查 tmp/cand-623b.mjs 收进来的场景 ============
+  {
+    id: "c623-e2e-word-count",
+    title: "端到端：分词统计（Map + sort + 模板串）",
+    src: "\nconst text = \"the quick brown fox the lazy dog the\";\nconst counts = new Map<string, number>();\nfor (const w of text.split(\" \")) counts.set(w, (counts.get(w) ?? 0) + 1);\nconst rows = [...counts.entries()].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1));\nfor (const [w, n] of rows) console.log(`${w}:${n}`);\n",
+  },
+  {
+    id: "c623-e2e-linked-list",
+    title: "端到端：链表（类 + 泛型 + 迭代器协议）",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nclass Node2<T> { next: Node2<T> | null = null; constructor(public value: T) {} }\nclass List<T> {\n  head: Node2<T> | null = null;\n  push(v: T) { const n = new Node2(v); n.next = this.head; this.head = n; return this; }\n  *[Symbol.iterator]() { let c = this.head; while (c !== null) { yield c.value; c = c.next; } }\n}\nconst l = new List<number>().push(1).push(2).push(3);\nconsole.log([...l].join(\",\"), [...l].length);\n",
+  },
+  {
+    id: "c623-e2e-state-machine",
+    title: "端到端：状态机（对象 + switch + 闭包）",
+    src: "\ntype State = \"idle\" | \"run\" | \"done\";\nfunction machine() {\n  let state: State = \"idle\";\n  const log: string[] = [];\n  return {\n    send(e: string) {\n      switch (state) {\n        case \"idle\": state = e === \"go\" ? \"run\" : \"idle\"; break;\n        case \"run\": state = e === \"finish\" ? \"done\" : \"run\"; break;\n        default: break;\n      }\n      log.push(state);\n      return state;\n    },\n    get states() { return log.join(\">\"); },\n  };\n}\nconst m = machine();\nconsole.log(m.send(\"go\"), m.send(\"tick\"), m.send(\"finish\"), m.states);\n",
+  },
+  {
+    id: "c623-e2e-matrix-ops",
+    title: "端到端：矩阵乘法（嵌套数组 + 循环 + 数值）",
+    src: "\nconst a = [[1, 2], [3, 4]];\nconst b = [[5, 6], [7, 8]];\nconst out: number[][] = [];\nfor (let i = 0; i < a.length; i++) {\n  const row: number[] = [];\n  for (let j = 0; j < b[0].length; j++) {\n    let sum = 0;\n    for (let k = 0; k < b.length; k++) sum += a[i][k] * b[k][j];\n    row.push(sum);\n  }\n  out.push(row);\n}\nconsole.log(JSON.stringify(out));\n",
+  },
+  {
+    id: "c623-e2e-event-bus",
+    title: "端到端：事件总线（Map<事件, 处理器数组> + 注销）",
+    src: "\ntype Handler = (payload: any) => void;\nclass Bus {\n  private map = new Map<string, Handler[]>();\n  on(k: string, h: Handler) {\n    const list = this.map.get(k) ?? [];\n    list.push(h);\n    this.map.set(k, list);\n    return () => this.off(k, h);\n  }\n  off(k: string, h: Handler) {\n    const list = this.map.get(k) ?? [];\n    const i = list.indexOf(h);\n    if (i >= 0) list.splice(i, 1);\n  }\n  emit(k: string, payload: any) { for (const h of this.map.get(k) ?? []) h(payload); }\n}\nconst bus = new Bus();\nconst seen: string[] = [];\nconst off = bus.on(\"x\", (p) => seen.push(\"a\" + p));\nbus.on(\"x\", (p) => seen.push(\"b\" + p));\nbus.emit(\"x\", 1);\noff();\nbus.emit(\"x\", 2);\nconsole.log(seen.join(\",\"));\n",
+  },
+  {
+    id: "c623-e2e-async-queue",
+    title: "端到端：串行队列（Promise 链 + async/await）",
+    src: "\nconst log: number[] = [];\nfunction task(n: number) {\n  return new Promise<void>((res) => {\n    log.push(n);\n    Promise.resolve().then(() => res());\n  });\n}\nasync function run() {\n  for (const n of [1, 2, 3]) await task(n);\n  console.log(log.join(\",\"));\n  console.log(await Promise.resolve(\"done\"));\n}\nrun();\nconsole.log(\"queued\");\n",
+  },
+  {
+    id: "c623-e2e-json-roundtrip",
+    title: "端到端：JSON 往返 + 校验 + 错误分支",
+    src: "\ntype Row = { id: number; name: string; tags: string[] };\nfunction parseRow(text: string): Row | null {\n  try {\n    const v = JSON.parse(text);\n    if (typeof v.id !== \"number\" || typeof v.name !== \"string\") return null;\n    return { id: v.id, name: v.name, tags: Array.isArray(v.tags) ? v.tags : [] };\n  } catch { return null; }\n}\nconst ok = parseRow('{\"id\":1,\"name\":\"a\",\"tags\":[\"x\"]}');\nconst bad = parseRow('{\"id\":\"1\"}');\nconsole.log(ok === null ? \"null\" : ok.id + ok.name + ok.tags.join(\"-\"), bad === null);\nconsole.log(JSON.stringify(parseRow('{\"id\":2,\"name\":\"b\"}')));\n",
+  },
+  {
+    id: "c623-e2e-inheritance-polymorphism",
+    title: "端到端：多态分派（抽象基类 + 三个子类 + instanceof）",
+    nodeArgs: ["--experimental-transform-types"],
+    src: "\nabstract class Shape {\n  abstract area(): number;\n  describe() { return this.constructor.name + \":\" + this.area(); }\n}\nclass Sq extends Shape { constructor(private s: number) { super(); } area() { return this.s * this.s; } }\nclass Rect extends Shape { constructor(private w: number, private h: number) { super(); } area() { return this.w * this.h; } }\nconst shapes: Shape[] = [new Sq(2), new Rect(2, 3)];\nfor (const s of shapes) console.log(s.describe(), s instanceof Sq, s instanceof Rect);\nconsole.log(shapes.map((s) => s.area()).reduce((a, b) => a + b, 0));\n",
+  },
 ];

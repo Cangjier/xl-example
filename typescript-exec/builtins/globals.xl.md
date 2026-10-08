@@ -4494,6 +4494,11 @@ const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCD
   // **七个 `setUTC*`** ✓（第 280 轮 ✓）——名字与号**一一对齐** ✓（按下标配 ✓）。
   DateSetUTCFullYear, DateSetUTCMonth, DateSetUTCDate, DateSetUTCHours,
   DateSetUTCMinutes, DateSetUTCSeconds, DateSetUTCMilliseconds,
+  // **本地那七个 setter 与 UTC 共用同一个号** ✓（第 623 轮 ✓）——与上面那一批本地 getter
+  // 同一条先例 ✓：本仓的本地口径就是 UTC ✓，写第二份实现就是第二份会漂的答案 ✗。
+  // 少了它们 `d.setHours(10)` 报 `cannot call a non-closure value` ✓（属性根本不存在 ✓）。
+  DateSetUTCFullYear, DateSetUTCMonth, DateSetUTCDate, DateSetUTCHours,
+  DateSetUTCMinutes, DateSetUTCSeconds, DateSetUTCMilliseconds,
   // **第 293 轮补的九个名字** ✓——**本地那一族与 UTC 共用同一个号** ✓
   //（`getFullYear` = `getUTCFullYear` ✓ …），理由是**本仓的本地口径就是 UTC** ✓
   //（见上面那一段 ✓）：写第二份实现就是第二份会漂的答案 ✗
@@ -4514,6 +4519,7 @@ const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate",
   "toISOString", "toJSON",
   "setUTCFullYear", "setUTCMonth", "setUTCDate", "setUTCHours",
   "setUTCMinutes", "setUTCSeconds", "setUTCMilliseconds",
+  "setFullYear", "setMonth", "setDate", "setHours", "setMinutes", "setSeconds", "setMilliseconds",
   "getMilliseconds", "getUTCMilliseconds", "getDay", "getUTCDay",
   "getFullYear", "getMonth", "getDate", "getHours", "getMinutes", "getSeconds",
   "toString"];

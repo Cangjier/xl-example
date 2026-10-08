@@ -5665,5 +5665,71 @@ console.log(s2.join(","));
     "id": "c371-rt-exception-across-frames",
     "title": "异常跨多层函数帧展开并回到调用者",
     "src": "function level3(): never { throw new Error(\"deep\"); }\nfunction level2(): string { try { return level3(); } catch (e) { throw new Error(\"wrapped(\" + (e as Error).message + \")\"); } }\nfunction level1(): string {\n  const cleanups: string[] = [];\n  try { return level2(); }\n  catch (e) { cleanups.push(\"caught\"); throw e; }\n  finally { cleanups.push(\"finally\"); console.log(cleanups.join(\",\")); }\n}\ntry { level1(); } catch (e) { console.log(\"top\", (e as Error).message); }\nfunction loop(): number {\n  let total = 0;\n  for (let i = 0; i < 5; i++) {\n    try { if (i === 2) throw new Error(\"at \" + i); total += i; }\n    catch { total += 100; }\n    finally { total += 1; }\n  }\n  return total;\n}\nconsole.log(loop());"
-  }
+  },
+  // ============ 第 623 轮加宽：普查 tmp/cand-623b.mjs 收进来的场景 ============
+  {
+    id: "c623-rt-var-hoisting",
+    title: "var 的提升与函数作用域（let 的 TDZ 不谈）",
+    src: "\nfunction f() {\n  console.log(typeof v);\n  var v = 1;\n  return v;\n}\nconsole.log(f(), typeof v);\n",
+  },
+  {
+    id: "c623-rt-closure-loop-let",
+    title: "闭包捕获循环变量：let 每轮一个绑定",
+    src: "\nconst fs: Array<() => number> = [];\nfor (let i = 0; i < 3; i++) fs.push(() => i);\nconsole.log(fs.map((g) => g()).join(\",\"));\nconst gs: Array<() => number> = [];\nfor (var j = 0; j < 3; j++) gs.push(() => j);\nconsole.log(gs.map((g) => g()).join(\",\"));\n",
+  },
+  {
+    id: "c623-rt-mutual-recursion",
+    title: "互递归的闭包对与尾调用深度",
+    src: "\nfunction isEven(n: number): boolean { return n === 0 ? true : isOdd(n - 1); }\nfunction isOdd(n: number): boolean { return n === 0 ? false : isEven(n - 1); }\nconsole.log(isEven(10), isOdd(10), isEven(101));\n",
+  },
+  {
+    id: "c623-rt-arguments",
+    title: "arguments 对象：length / 下标 / 与形参的联动",
+    src: "\nfunction f(a: number, b: number) {\n  console.log(arguments.length, arguments[0], arguments[1], arguments[5]);\n  return a + b;\n}\nconsole.log(f(1, 2));\n",
+  },
+  {
+    id: "c623-rt-deep-prototype",
+    title: "原型链的深度查找与遮蔽",
+    src: "\nconst a = { v: 1, only: \"a\" };\nconst b = Object.create(a);\nconst c = Object.create(b);\nc.v = 3;\nconsole.log(c.v, c.only, b.v);\nconsole.log(Object.getPrototypeOf(Object.getPrototypeOf(c)) === a);\n",
+  },
+  {
+    id: "c623-rt-delete-then-add",
+    title: "删除后再加：键序与 hasOwnProperty",
+    src: "\nconst o: any = { a: 1, b: 2, c: 3 };\ndelete o.b;\no.b = 9;\nconsole.log(Object.keys(o).join(\",\"), o.b, o.hasOwnProperty(\"b\"));\n",
+  },
+  {
+    id: "c623-rt-string-identity",
+    title: "字符串相等按值（拼接 / 切片 / 字面量）",
+    src: "\nconst a = \"ab\" + \"c\";\nconst b = \"abc\";\nconst c = \"xabc\".slice(1);\nconsole.log(a === b, b === c, a === c);\nconsole.log([a, b].indexOf(\"abc\"), new Map([[a, 1]]).get(b));\n",
+  },
+  {
+    id: "c623-rt-number-identity",
+    title: "数值相等：Int32 与 Float64 两档之间的比较",
+    src: "\nconst a = 3;\nconst b = 1.5 * 2;\nconsole.log(a === b, Object.is(a, b), a + b);\nconsole.log([3].includes(1.5 * 2), new Set([3]).has(1.5 * 2));\n",
+  },
+  {
+    id: "c623-rt-catch-non-error",
+    title: "抛出非 Error 值并接住（字符串 / 数字 / 对象）",
+    src: "\nfunction t(v: any) {\n  try { throw v; } catch (e) { console.log(typeof e, String(e)); }\n}\nt(\"s\");\nt(7);\nt({ a: 1 });\n",
+  },
+  {
+    id: "c623-rt-rethrow-across-frames",
+    title: "异常穿过三层调用栈后由最外层接住",
+    src: "\nfunction c() { throw new Error(\"deep\"); }\nfunction b() { c(); }\nfunction a() { try { b(); } catch (e: any) { return \"caught:\" + e.message; } }\nconsole.log(a());\n",
+  },
+  {
+    id: "c623-rt-generator-closure",
+    title: "生成器持有闭包状态并跨 next 保留",
+    src: "\nfunction make() {\n  let n = 0;\n  return function* () { while (true) { n += 1; yield n; } };\n}\nconst it = make()();\nconsole.log(it.next().value, it.next().value, it.next().value);\n",
+  },
+  {
+    id: "c623-rt-array-growth",
+    title: "数组的增长与 length 直接赋值",
+    src: "\nconst a: number[] = [];\na[3] = 1;\nconsole.log(a.length, a.join(\",\"), 0 in a);\na.length = 2;\nconsole.log(a.length, a.join(\",\"));\na.length = 4;\nconsole.log(a.join(\",\"), a[3]);\n",
+  },
+  {
+    id: "c623-rt-boxed-values",
+    title: "包装对象的取值与 typeof",
+    src: "\nconst s = new String(\"ab\");\nconst n = new Number(3);\nconst b = new Boolean(false);\nconsole.log(typeof s, typeof n, typeof b, s.length, n + 1);\nconsole.log(s === \"ab\", s == \"ab\", b ? \"t\" : \"f\", Boolean(b));\n",
+  },
 ];

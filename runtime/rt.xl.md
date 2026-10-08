@@ -587,12 +587,11 @@ return MakeNumber(ToNumberOf(room, call, protos, table, left) % ToNumberOf(room,
 return MakeNumber(-ToNumberOf(room, call, protos, table, value));
 ```
 
-# method ToInt32Of:(value:Value)=>int
+# method Int32OfNumber:(n:double)=>int
 
-**JS 的 `ToInt32`**——七条位运算（`& | ^ ~ << >> >>>`）**共用**的那一步（第 147 轮）。
+**`ToInt32` 的那段算术**——两个入口（`ToInt32Of` 与 `ToInt32Semantic` ✓）共用一份 ✓。
 
-**它不是 `AsInt`** ✗（`value.xl.md` 那条只回答「这一个格子的整数值是多少」✓）：
-`ToInt32` 是**语义** ✓——`NaN` 与 `±Infinity` 给 `0` ✓、小数**向零截断** ✓、
+`NaN` 与 `±Infinity` 给 `0` ✓、小数**向零截断** ✓、
 超出 32 位的**按 2³² 取模再折回有符号** ✓（`4294967296 | 0` 是 `0` ✓、
 `2147483648 | 0` 是 `-2147483648` ✓）。
 
@@ -607,11 +606,7 @@ TS 打印器不会把局部变量的标注翻过来 ✓——生成出来是一�
 这一句的意图靠**这一行 prose** 说清 ✓：**它必须是双精度** ✓（C++ 那一侧写 `double` ✓），
 少了这一条，那一侧会把它收成 `int32_t` ✓，于是 `4294967295 | 0` 这种输入**当场溢出** ✗。
 
-**非数值照旧抛** ✓（`NumericOf` ✓）：JS 会先 `ToNumber`（`"3" & 1` 给 `1` ✓），
-那要 `ToPrimitive` ✗——这一层没做，所以**响亮地抛** ✓，不静默按 `0` 算 ✗。
-
 ```ts
-const n = NumericOf(value);
 if (n !== n || n === Infinity || n === -Infinity) return 0;
 // **先截断、再取模** ✓——**顺序是语义** ✗：`ToInt32` 的截断是**向零**的 ✓，
 // 先加 `2³²` 再截断会把方向弄反 ✓：`-1.9 | 0` 该给 `-1` ✓，
@@ -626,52 +621,82 @@ if (rest >= 2147483648) return rest - 4294967296;
 return rest;
 ```
 
-# method ShiftCountOf:(value:Value)=>int
+# method ToInt32Of:(value:Value)=>int
+
+**JS 的 `ToInt32`，判据表内部那一半**（第 147 轮 ✓）。
+
+**它不是 `AsInt`** ✗（`value.xl.md` 那条只回答「这一个格子的整数值是多少」✓）：
+`ToInt32` 是**语义** ✓——算术那一段在 `Int32OfNumber` 里 ✓。
+
+**非数值照旧抛** ✓（`NumericOf` ✓）：调用方（`SameValueZero` ✓ / `CompareValues` ✓ /
+位运算那一族里那些已经保证过标签的地方 ✓）本来就把标签判过了 ✓。
+JS 的 `"3" & 1` 给 `1` ✓ 要的那一步转换在 `ToInt32Semantic` 那一格里做 ✓（第 623 轮 ✓）。
+
+```ts
+return Int32OfNumber(NumericOf(value));
+```
+
+# method ToInt32Semantic:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, value:Value)=>int
+
+**位运算那一档的 `ToInt32`**：先 `ToNumber`（JS 语义 ✓）再 `ToInt32` ✓。
+
+**为什么不并进 `ToInt32Of`** ✗：那个是**判据表内部**那一半 ✓，它拿不到 `room` / `call` / `protos` ✓，
+而「非数值怎么办」正是两者唯一的分野 ✓——内部那一半**不许**做转换 ✓（调用方已经保证过标签 ✓），
+语义那一半**必须**做 ✓。所以分成两个名字、两份签名 ✓，与 `NumericOf` / `ToNumberOf` 那一对同一口径 ✓。
+
+```ts
+return Int32OfNumber(ToNumberOf(room, call, protos, table, value));
+```
+
+# method ShiftCountOf:(bits:int)=>int
 
 **移位那个数**：JS 的规矩是 `ToUint32(右) & 31` ✓——**低 5 位** ✓。
 
-**为什么这里可以用 `ToInt32Of`** ✓：`ToUint32` 与 `ToInt32` 只差**最高位那一位** ✓
+**为什么这里可以直接吃已经算好的位** ✓：`ToUint32` 与 `ToInt32` 只差**最高位那一位** ✓
 （一个有符号、一个无符号 ✓），而 `& 31` 只看低 5 位 ✓——两者在那 5 位上**逐位相同** ✓。
 所以这一格**不必**再写一遍无符号那一半 ✓（那里会带出「结果可能超出 `int32`」的麻烦 ✗）。
 
+**形参是 `int` 而不是 `Value`** ✓（第 623 轮 ✓）：调用方手上已经是 `ToInt32Semantic` 出来的整数 ✓，
+再包回 `Value` 只是为了走 `NumericOf` 一趟 ✗。
+
 ```ts
-return ToInt32Of(value) & 31;
+return bits & 31;
 ```
 
-# method RtBitAnd:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtBitAnd:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `&`。**两边都过 `ToInt32`** ✓，结果按 `Value.FromInt` 收 ✓（`int32` 与 `int32` 的位运算
 **一定落在 `int32` 里** ✓——不必走 `MakeNumber` ✓）。
 
 ```ts
-return Value.FromInt(ToInt32Of(left) & ToInt32Of(right));
+return Value.FromInt(ToInt32Semantic(room, call, protos, table, left) & ToInt32Semantic(room, call, protos, table, right));
 ```
 
-# method RtBitOr:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtBitOr:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `|`（**按位或**，不是逻辑或 ✗——逻辑那两条在降级层落成控制流 ✓）。
 
 ```ts
-return Value.FromInt(ToInt32Of(left) | ToInt32Of(right));
+return Value.FromInt(ToInt32Semantic(room, call, protos, table, left) | ToInt32Semantic(room, call, protos, table, right));
 ```
 
-# method RtBitXor:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtBitXor:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `^`。
 
 ```ts
-return Value.FromInt(ToInt32Of(left) ^ ToInt32Of(right));
+return Value.FromInt(ToInt32Semantic(room, call, protos, table, left) ^ ToInt32Semantic(room, call, protos, table, right));
 ```
 
-# method RtBitNot:(table:HeapTable, value:Value)=>Value
+# method RtBitNot:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, value:Value)=>Value
 
 一元 `~`。**与 `!` 不是一回事** ✗：`!` 给布尔（`RtNot` ✓），`~` 给整数 ✓。
 
 ```ts
-return Value.FromInt(~ToInt32Of(value));
+return Value.FromInt(~ToInt32Semantic(room, call, protos, table, value));
 ```
 
-# method RtShl:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtShl:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `<<`：左移 ✓。**结果按 `int32` 回绕** ✓（JS 就是 `int32` 的位运算 ✓：
 `2147483647 << 1` 给 `-2` ✓）。
@@ -681,20 +706,20 @@ return Value.FromInt(~ToInt32Of(value));
 「回绕」口径 ✓——**这不是可选项** ✗：不做这一条，同一个 IR 在 TS 与 C++ 上会是两个答案 ✓。
 
 ```ts
-return Value.FromInt(ToInt32Of(left) << ShiftCountOf(right));
+return Value.FromInt(ToInt32Semantic(room, call, protos, table, left) << ShiftCountOf(ToInt32Semantic(room, call, protos, table, right)));
 ```
 
-# method RtShr:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtShr:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `>>`：**带符号**右移 ✓（`-8 >> 1` 是 `-4` ✓）。
 **C++ 那一侧的同一句话**：有符号右移对负数是**实现定义** ✗（算术移位是事实标准 ✓，
 但标准没规定 ✓）——P1 对拍时按算术移位核 ✓。
 
 ```ts
-return Value.FromInt(ToInt32Of(left) >> ShiftCountOf(right));
+return Value.FromInt(ToInt32Semantic(room, call, protos, table, left) >> ShiftCountOf(ToInt32Semantic(room, call, protos, table, right)));
 ```
 
-# method RtUShr:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtUShr:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `>>>`：**无符号**右移 ✓——**结果是 `[0, 2³²)` 里的数** ✓，所以它**可能超出 `int32`** ✗
 （`-1 >>> 0` 是 `4294967295` ✓），于是这一条走 `MakeNumber` 收 ✓
@@ -715,8 +740,8 @@ return Value.FromInt(ToInt32Of(left) >> ShiftCountOf(right));
 而 `k ≥ 1` 时结果一定落在 `[0, 2³¹)` ✓——**非负** ✓，于是它走 `Int32` 那一档 ✓。
 
 ```ts
-const amount = ShiftCountOf(right);
-const shifted = ToInt32Of(left) >> amount;
+const amount = ShiftCountOf(ToInt32Semantic(room, call, protos, table, right));
+const shifted = ToInt32Semantic(room, call, protos, table, left) >> amount;
 // **移位数为 0**：算术右移这一步什么也没做 ✓，负数直接补 `2³²` 就是无符号那一位 ✓。
 // `4294967296` 装不进 `int32` ✓——C++ 那一侧它会提升成更宽的类型 ✓，那正是这里要的 ✗
 //（这一句不该被收窄回 `int32` ✗）。

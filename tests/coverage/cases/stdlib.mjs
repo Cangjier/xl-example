@@ -5727,5 +5727,326 @@ console.log(typeof Error.isError, Error.prototype.constructor === Error);
     "id": "c377-stdlib-promise-resolve-identity",
     "title": "`Promise.resolve` 的身份：已经是本族承诺就原样交回（thenable 那一半还没做）",
     "src": "const p = Promise.resolve(1);\nconsole.log(\"A\", Promise.resolve(p) === p, Promise.resolve(1) === Promise.resolve(1));\nconst q = p.then((v) => v + 1);\nconsole.log(\"B\", Promise.resolve(q) === q);\nconst nested = Promise.resolve(p);\nconsole.log(\"C\", nested === p, nested === q);\nPromise.resolve(5).then((v) => console.log(\"D\", v));\n// 这一半还没做：Promise.resolve(thenable) 在 JS 里会**叫一次 then** ✓、\n// 用它结清的那个值兑现 ✓（本仓把 thenable **本身**当成值收下了 ✓）。记在台账里。\nconst thenable = { then(resolve: any) { resolve(2); } };\nconsole.log(\"E\", Promise.resolve(thenable) === thenable);"
-  }
+  },
+  // ============ 第 623 轮加宽：内建面与语言语义的边角（普查 tmp/cand-623.mjs，64 条全过）============
+  {
+    id: "c623-date-set-utc",
+    title: "Date.setUTC* 三件：分 / 秒 / 毫秒（含进位）",
+    src: "\nconst d = new Date(Date.UTC(2020, 0, 2, 3, 4, 5, 6));\nd.setUTCMinutes(30);\nd.setUTCSeconds(7);\nd.setUTCMilliseconds(8);\nconsole.log(d.toISOString());\nconst e = new Date(Date.UTC(2020, 0, 2, 3, 59, 59, 999));\ne.setUTCMinutes(60);\ne.setUTCSeconds(60);\ne.setUTCMilliseconds(1000);\nconsole.log(e.toISOString());\n",
+  },
+  {
+    id: "c623-date-set-local",
+    title: "Date.setHours / setMinutes / setSeconds / setMilliseconds",
+    src: "\nconst d = new Date(2020, 0, 2, 3, 4, 5, 6);\nd.setHours(10);\nd.setMinutes(11);\nd.setSeconds(12);\nd.setMilliseconds(13);\nconsole.log(d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());\n",
+  },
+  {
+    id: "c623-date-static",
+    title: "Date.now / parse / UTC 与 Date.UTC 的越界归一",
+    src: "\nconsole.log(Date.UTC(2020, 12, 1));\nconsole.log(Date.UTC(2020, 0, 32));\nconsole.log(typeof Date.now() === \"number\");\nconsole.log(Date.parse(\"2020-01-02T03:04:05.006Z\"));\n",
+  },
+  {
+    id: "c623-string-tolocale",
+    title: "String.toLocaleUpperCase / toLocaleLowerCase（无 locale 时等同大小写）",
+    src: "\nconsole.log(\"aBc\".toLocaleUpperCase(), \"aBc\".toLocaleLowerCase());\nconsole.log(\"İ\".toLocaleLowerCase().length, \"ß\".toLocaleUpperCase());\n",
+  },
+  {
+    id: "c623-number-tofixed",
+    title: "Number.toFixed / toPrecision / toExponential（含进位与负数）",
+    src: "\nconsole.log((1.005).toFixed(2), (2.5).toFixed(0), (-1.5).toFixed(1), (0).toFixed(3));\nconsole.log((123.456).toPrecision(4), (0.000123).toExponential(2));\n",
+  },
+  {
+    id: "c623-array-copywithin-fill",
+    title: "Array.copyWithin / fill：负下标与越界",
+    src: "\nconst a = [1, 2, 3, 4, 5];\nconsole.log(a.copyWithin(0, 3).join(\",\"));\nconsole.log(a.copyWithin(1, -2).join(\",\"));\nconsole.log([1, 2, 3].fill(9, -2).join(\",\"));\nconsole.log([1, 2, 3].fill(0, 5).join(\",\"));\n",
+  },
+  {
+    id: "c623-array-findlast-tosorted",
+    title: "Array.findLast / findLastIndex / toSorted / toReversed / with",
+    src: "\nconst a = [5, 1, 4, 2];\nconsole.log(a.findLast((x) => x % 2 === 0), a.findLastIndex((x) => x > 3));\nconsole.log(a.toSorted((x, y) => x - y).join(\",\"), a.join(\",\"));\nconsole.log(a.toReversed().join(\",\"), a.with(1, 9).join(\",\"), a.join(\",\"));\n",
+  },
+  {
+    id: "c623-object-descriptors",
+    title: "Object.getOwnPropertyNames / getOwnPropertyDescriptor / defineProperty",
+    src: "\nconst o: any = { a: 1 };\nObject.defineProperty(o, \"b\", { value: 2, enumerable: false, writable: true, configurable: true });\nconsole.log(Object.getOwnPropertyNames(o).join(\",\"));\nconsole.log(Object.getOwnPropertyDescriptor(o, \"b\").value, Object.getOwnPropertyDescriptor(o, \"b\").enumerable);\nconsole.log(Object.keys(o).join(\",\"));\n",
+  },
+  {
+    id: "c623-object-frozen-sealed",
+    title: "Object.isFrozen / isSealed / preventExtensions / getPrototypeOf",
+    src: "\nconst a = Object.freeze({ x: 1 });\nconst b = Object.seal({ y: 2 });\nconsole.log(Object.isFrozen(a), Object.isSealed(a), Object.isFrozen(b), Object.isSealed(b));\nconsole.log(Object.isExtensible(a), Object.isExtensible({}));\nconsole.log(Object.getPrototypeOf([]) === Array.prototype, Object.getPrototypeOf({}) === Object.prototype);\n",
+  },
+  {
+    id: "c623-object-from-entries",
+    title: "Object.fromEntries / Object.entries 往返",
+    src: "\nconst o = Object.fromEntries([[\"a\", 1], [\"b\", 2]]);\nconsole.log(JSON.stringify(o));\nconsole.log(Object.entries({ x: 1, y: 2 }).map(([k, v]) => k + v).join(\",\"));\n",
+  },
+  {
+    id: "c623-symbol-for-keyfor",
+    title: "Symbol.for / keyFor / description / toString",
+    src: "\nconst s = Symbol.for(\"k\");\nconsole.log(Symbol.keyFor(s), Symbol.for(\"k\") === s, Symbol.keyFor(Symbol(\"z\")));\nconsole.log(Symbol(\"d\").description, String(Symbol(\"d\")), Symbol(\"d\").toString());\n",
+  },
+  {
+    id: "c623-symbol-hasinstance",
+    title: "instanceof 走 Symbol.hasInstance",
+    src: "\nclass Even {\n  static [Symbol.hasInstance](x: any) { return typeof x === \"number\" && x % 2 === 0; }\n}\nconsole.log(2 instanceof Even, 3 instanceof Even);\n",
+  },
+  {
+    id: "c623-map-set-iteration",
+    title: "Map / Set 的 values / keys / entries / forEach 与插入序",
+    src: "\nconst m = new Map<string, number>([[\"b\", 2], [\"a\", 1]]);\nconsole.log([...m.keys()].join(\",\"), [...m.values()].join(\",\"));\nconsole.log([...m.entries()].map(([k, v]) => k + v).join(\",\"));\nm.forEach((v, k) => console.log(k, v));\nconst s = new Set([3, 1, 3, 2]);\nconsole.log([...s].join(\",\"), [...s.entries()].map((e) => e.join(\":\")).join(\",\"));\n",
+  },
+  {
+    id: "c623-json-reviver-replacer",
+    title: "JSON.parse 的 reviver 与 JSON.stringify 的 replacer / space",
+    src: "\nconst o = JSON.parse('{\"a\":1,\"b\":{\"c\":2}}', (k, v) => (typeof v === \"number\" ? v * 10 : v));\nconsole.log(JSON.stringify(o));\nconsole.log(JSON.stringify({ a: 1, b: 2 }, [\"a\"]));\nconsole.log(JSON.stringify({ a: [1, 2] }, null, 2).split(\"\\n\").length);\n",
+  },
+  {
+    id: "c623-json-tojson",
+    title: "JSON.stringify 走 toJSON",
+    src: "\nconst o = { toJSON() { return { z: 1 }; } };\nconsole.log(JSON.stringify(o));\nconsole.log(JSON.stringify({ d: new Date(0) }));\n",
+  },
+  {
+    id: "c623-string-split-limit",
+    title: "String.split 的 limit 与空串分隔",
+    src: "\nconsole.log(\"a,b,c\".split(\",\", 2).join(\"|\"));\nconsole.log(\"abc\".split(\"\").join(\"-\"));\nconsole.log(\"\".split(\",\").length, \"a\".split(\",\").length);\n",
+  },
+  {
+    id: "c623-string-concat-repeat",
+    title: "String.concat / repeat / padStart / padEnd / at",
+    src: "\nconsole.log(\"a\".concat(\"b\", \"c\"), \"ab\".repeat(3), \"x\".padStart(3, \"0\"), \"x\".padEnd(3, \"-\"));\nconsole.log(\"abc\".at(-1), \"abc\".at(0), \"abc\".at(5));\n",
+  },
+  {
+    id: "c623-string-codepoint",
+    title: "String.codePointAt / fromCodePoint（补充平面）",
+    src: "\nconsole.log(\"😀\".codePointAt(0), String.fromCodePoint(128512) === \"😀\");\nconsole.log(\"abc\".codePointAt(1), String.fromCodePoint(98));\n",
+  },
+  {
+    id: "c623-string-normalize",
+    title: "String.normalize 的四种形式",
+    src: "\nconst s = \"\\u00e9\";\nconsole.log(s.normalize(\"NFC\") === s, s.normalize(\"NFD\").length, s.normalize().length);\nconsole.log(\"\\u0041\\u030a\".normalize(\"NFC\"), \"\\u00c5\".normalize(\"NFD\").length);\n",
+  },
+  {
+    id: "c623-error-subclass",
+    title: "Error 子类：name / message / instanceof / cause",
+    src: "\nclass MyError extends Error { constructor(m: string) { super(m); this.name = \"MyError\"; } }\nconst e = new MyError(\"boom\");\nconsole.log(e.name, e.message, e instanceof MyError, e instanceof Error);\nconst w = new Error(\"outer\", { cause: new Error(\"inner\") } as any);\nconsole.log((w as any).cause.message);\n",
+  },
+  {
+    id: "c623-error-families",
+    title: "各错误族构造：TypeError / RangeError / ReferenceError / SyntaxError / URIError / EvalError",
+    src: "\nconst list: any[] = [TypeError, RangeError, ReferenceError, SyntaxError, URIError, EvalError, AggregateError];\nconsole.log(list.map((C) => C.name).join(\",\"));\nconsole.log(new TypeError(\"t\").message, new RangeError().message === \"\", new TypeError(\"t\") instanceof Error);\n",
+  },
+  {
+    id: "c623-math-edges",
+    title: "Math 边角：clz32 / imul / fround / hypot / cbrt / sign / trunc / log2",
+    src: "\nconsole.log(Math.clz32(1), Math.imul(3, 4), Math.fround(1.5), Math.hypot(3, 4));\nconsole.log(Math.cbrt(27), Math.sign(-0), Math.trunc(-1.7), Math.log2(8), Math.log10(1000));\nconsole.log(Math.min(), Math.max(), Math.min(1, NaN));\n",
+  },
+  {
+    id: "c623-math-rounding",
+    title: "Math.round / floor / ceil 的负数与 -0",
+    src: "\nconsole.log(Math.round(-0.5), Object.is(Math.round(-0.5), -0), Math.round(0.5));\nconsole.log(Math.floor(-0.5), Math.ceil(-0.5), Math.floor(-1.5), Math.ceil(-1.5));\n",
+  },
+  {
+    id: "c623-array-from-map",
+    title: "Array.from 的映射函数与类数组 / iterable",
+    src: "\nconsole.log(Array.from([1, 2], (x) => x * 2).join(\",\"));\nconsole.log(Array.from(\"ab\").join(\",\"));\nconsole.log(Array.from(new Set([1, 2])).join(\",\"), Array.from({ length: 2 }, (_: any, i: number) => i).join(\",\"));\n",
+  },
+  {
+    id: "c623-array-of",
+    title: "Array.of 与构造器单数字参数的分野",
+    src: "\nconsole.log(Array.of(3).length, Array.of(3).join(\",\"), new Array(3).length);\nconsole.log(Array.of(1, 2).join(\",\"), Array.isArray([]), Array.isArray(\"x\"));\n",
+  },
+  {
+    id: "c623-object-assign-spread",
+    title: "Object.assign 与对象展开的覆盖序",
+    src: "\nconst a = Object.assign({ x: 1 }, { x: 2 }, { y: 3 });\nconsole.log(JSON.stringify(a));\nconsole.log(JSON.stringify({ ...a, z: 4, ...{ y: 9 } }));\n",
+  },
+  {
+    id: "c623-object-create",
+    title: "Object.create 的原型链与 hasOwnProperty",
+    src: "\nconst proto = { greet() { return \"hi\"; } };\nconst o: any = Object.create(proto);\no.x = 1;\nconsole.log(o.greet(), o.hasOwnProperty(\"x\"), o.hasOwnProperty(\"greet\"));\nconsole.log(Object.getPrototypeOf(o) === proto, \"greet\" in o);\n",
+  },
+  {
+    id: "c623-class-accessors",
+    title: "类的 getter / setter / static 访问器",
+    src: "\nclass C {\n  private _v = 0;\n  get v() { return this._v; }\n  set v(x: number) { this._v = x * 2; }\n  static get tag() { return \"C\"; }\n}\nconst c = new C();\nc.v = 5;\nconsole.log(c.v, C.tag);\n",
+  },
+  {
+    id: "c623-class-private",
+    title: "类的 #私有字段 / #私有方法 / static #",
+    src: "\nclass C {\n  static #n = 1;\n  #m = 2;\n  #inc() { return this.#m + 1; }\n  static get() { return C.#n; }\n  run() { return this.#inc(); }\n}\nconsole.log(C.get(), new C().run());\n",
+  },
+  {
+    id: "c623-class-static-block",
+    title: "类的 static {} 初始化块（按顺序跑）",
+    src: "\nclass C {\n  static a: number;\n  static b: number;\n  static { C.a = 1; }\n  static { C.b = C.a + 1; }\n}\nconsole.log(C.a, C.b);\n",
+  },
+  {
+    id: "c623-class-computed-members",
+    title: "类的计算成员名与 Symbol.iterator",
+    src: "\nconst key = \"m\";\nclass C {\n  [key]() { return 1; }\n  static [Symbol.iterator]() { return [1, 2][Symbol.iterator](); }\n}\nconsole.log(new C().m(), [...C].join(\",\"));\n",
+  },
+  {
+    id: "c623-object-literal-accessors",
+    title: "对象字面量的 getter / setter / 简写 / 计算键",
+    src: "\nlet store = 0;\nconst k = \"dyn\";\nconst o = {\n  a: 1,\n  get g() { return store; },\n  set g(v: number) { store = v; },\n  [k]: 2,\n  m() { return this.a; },\n};\no.g = 7;\nconsole.log(o.g, o.dyn, o.m(), Object.keys(o).join(\",\"));\n",
+  },
+  {
+    id: "c623-spread-rest",
+    title: "展开与剩余：调用 / 数组 / 对象 / 形参",
+    src: "\nfunction f(a: number, ...rest: number[]) { return a + rest.length; }\nconsole.log(f(...[1, 2, 3]));\nconst [x, ...ys] = [1, 2, 3];\nconst { p, ...qs } = { p: 1, q: 2, r: 3 };\nconsole.log(x, ys.join(\",\"), JSON.stringify(qs));\nconsole.log(Math.max(...[1, 9, 3]));\n",
+  },
+  {
+    id: "c623-destructuring-defaults",
+    title: "解构的默认值与嵌套 + 重命名",
+    src: "\nconst { a = 1, b: { c = 2 } = {}, d: e = 3 } = { b: {} } as any;\nconsole.log(a, c, e);\nconst [p = 10, [q = 20] = []] = [] as any;\nconsole.log(p, q);\n",
+  },
+  {
+    id: "c623-optional-call-chain",
+    title: "可选链的三档（属性 / 下标 / 调用）与空值合并",
+    src: "\nconst o: any = { a: { b: () => 1 }, m: null };\nconsole.log(o?.a?.b?.(), o?.m?.[0] ?? \"d\", o?.z?.y ?? \"e\");\nconsole.log(o.a?.b?.(), (null as any)?.x);\n",
+  },
+  {
+    id: "c623-logical-assignment",
+    title: "逻辑赋值 ??= ||= &&= 的短路与返回",
+    src: "\nlet a: any = null;\na ??= 1; a ??= 2;\nlet b: any = 0;\nb ||= 3; b &&= 4;\nconsole.log(a, b);\nconst o: any = {};\no.x ??= \"y\";\nconsole.log(o.x);\n",
+  },
+  {
+    id: "c623-labeled-statements",
+    title: "标签 + break / continue 跨层",
+    src: "\nouter: for (let i = 0; i < 3; i++) {\n  for (let j = 0; j < 3; j++) {\n    if (j === 1) continue outer;\n    if (i === 2) break outer;\n    console.log(i, j);\n  }\n}\n",
+  },
+  {
+    id: "c623-generator-protocol",
+    title: "生成器：next 的 value/done、return、throw、委托",
+    src: "\nfunction* g() { yield 1; yield 2; return 3; }\nconst it = g();\nconsole.log(JSON.stringify(it.next()), JSON.stringify(it.next()), JSON.stringify(it.next()));\nfunction* h() { yield* [1, 2]; yield 3; }\nconsole.log([...h()].join(\",\"));\nfunction* k() { try { yield 1; } finally { console.log(\"fin\"); } }\nconst i2 = k();\ni2.next();\nconsole.log(JSON.stringify(i2.return(9)));\n",
+  },
+  {
+    id: "c623-async-await-forms",
+    title: "async / await：try-finally、串行、返回值",
+    src: "\nasync function f() {\n  try { return await Promise.resolve(1); } finally { console.log(\"f-finally\"); }\n}\nasync function main() {\n  console.log(await f());\n  const xs = [1, 2, 3];\n  let sum = 0;\n  for (const x of xs) sum += await Promise.resolve(x);\n  console.log(sum);\n}\nmain();\nconsole.log(\"sync\");\n",
+  },
+  {
+    id: "c623-promise-combinators",
+    title: "Promise.all / allSettled / race / any 的形状",
+    src: "\nPromise.all([1, Promise.resolve(2)]).then((v) => console.log(\"all\", v.join(\",\")));\nPromise.allSettled([Promise.resolve(1), Promise.reject(new Error(\"x\"))]).then((r) =>\n  console.log(\"settled\", r.map((x: any) => x.status).join(\",\")));\nPromise.race([Promise.resolve(\"a\")]).then((v) => console.log(\"race\", v));\nPromise.any([Promise.reject(new Error(\"y\")), Promise.resolve(\"b\")]).then((v) => console.log(\"any\", v));\n",
+  },
+  {
+    id: "c623-promise-thenable",
+    title: "thenable 的吸收与 then 的链式返回",
+    src: "\nconst thenable = { then(res: any) { res(7); } };\nPromise.resolve(thenable as any).then((v) => console.log(\"thenable\", v));\nPromise.resolve(1).then((v) => v + 1).then((v) => console.log(\"chain\", v));\n",
+  },
+  {
+    id: "c623-try-finally-control",
+    title: "try / catch / finally 里的 return / break / continue",
+    src: "\nfunction f() { try { return 1; } finally { console.log(\"fin\"); } }\nconsole.log(f());\nfor (let i = 0; i < 2; i++) { try { continue; } finally { console.log(\"loop-fin\", i); } }\ntry { throw new Error(\"e\"); } catch (e: any) { console.log(\"caught\", e.message); } finally { console.log(\"end\"); }\n",
+  },
+  {
+    id: "c623-switch-fallthrough",
+    title: "switch 的贯穿、default 居中、块级 case",
+    src: "\nfunction f(x: number) {\n  switch (x) {\n    case 1:\n    case 2:\n      return \"12\";\n    default:\n      return \"d\";\n    case 3:\n      return \"3\";\n  }\n}\nconsole.log(f(1), f(2), f(3), f(9));\n",
+  },
+  {
+    id: "c623-for-in-order",
+    title: "for..in 的键序（整数键在前）与原型链",
+    src: "\nconst o: any = { b: 1, 2: 2, a: 3, 1: 4 };\nconst keys: string[] = [];\nfor (const k in o) keys.push(k);\nconsole.log(keys.join(\",\"));\nconst proto = { p: 1 };\nconst child: any = Object.create(proto);\nchild.c = 2;\nconst ks: string[] = [];\nfor (const k in child) ks.push(k);\nconsole.log(ks.join(\",\"));\n",
+  },
+  {
+    id: "c623-in-operator",
+    title: "in：数组下标 / 原型链 / 空位",
+    src: "\nconst a = [1, , 3];\nconsole.log(0 in a, 1 in a, 2 in a, 3 in a, \"length\" in a, \"push\" in a);\nconsole.log(\"toString\" in {}, \"z\" in { z: undefined });\n",
+  },
+  {
+    id: "c623-instanceof-chain",
+    title: "instanceof 跨继承链与 Function.prototype",
+    src: "\nclass A {}\nclass B extends A {}\nclass C extends B {}\nconst c = new C();\nconsole.log(c instanceof C, c instanceof B, c instanceof A, c instanceof Object);\nconsole.log(A instanceof Function, (() => {}) instanceof Function, [] instanceof Array);\n",
+  },
+  {
+    id: "c623-getter-this-binding",
+    title: "访问器里的 this 与解构取值",
+    src: "\nconst o = {\n  v: 1,\n  get doubled() { return this.v * 2; },\n};\nconst { doubled } = o;\nconsole.log(o.doubled, doubled);\nconst f = o.doubled;\nconsole.log(f);\n",
+  },
+  {
+    id: "c623-method-extraction",
+    title: "方法取出后 this 丢失 + bind / call / apply",
+    src: "\nclass C {\n  v = 5;\n  m(this: any) { return this.v; }\n}\nconst c = new C();\nconsole.log(c.m(), c.m.call({ v: 9 }), c.m.apply({ v: 8 }, []));\nconst bound = c.m.bind({ v: 7 });\nconsole.log(bound(), bound.call({ v: 1 }));\n",
+  },
+  {
+    id: "c623-arrow-this",
+    title: "箭头函数的 this 词法绑定与 class 字段箭头",
+    src: "\nclass C {\n  v = 3;\n  f = () => this.v;\n  g() { return (() => this.v)(); }\n}\nconst c = new C();\nconst f = c.f;\nconsole.log(f(), c.g(), c.f.call({ v: 9 }));\n",
+  },
+  {
+    id: "c623-console-render",
+    title: "console.log 的多实参渲染（对象 / 数组 / 嵌套 / 函数）",
+    src: "\nconsole.log({ a: 1, b: [1, 2], c: { d: null } });\nconsole.log([1, [2, [3]]], [], {});\nconsole.log(\"s\", 1, true, null, undefined, Symbol(\"y\"));\nconsole.log(function named() {}, class Named {});\n",
+  },
+  {
+    id: "c623-number-parsing",
+    title: "parseInt / parseFloat / Number 的边角",
+    src: "\nconsole.log(parseInt(\"0x1f\"), parseInt(\"12px\"), parseInt(\"-3\"), parseInt(\"z\", 36));\nconsole.log(parseFloat(\"1.5e2\"), parseFloat(\".5\"), parseFloat(\"x\"));\nconsole.log(Number(\"\"), Number(\" 12 \"), Number(\"x\"), Number(true), Number(null));\n",
+  },
+  {
+    id: "c623-number-is-methods",
+    title: "Number.isInteger / isFinite / isNaN / isSafeInteger / EPSILON",
+    src: "\nconsole.log(Number.isInteger(1.0), Number.isInteger(\"1\"), Number.isSafeInteger(2 ** 53));\nconsole.log(Number.isFinite(Infinity), globalThis.isFinite(\"1\" as any));\nconsole.log(Number.isNaN(NaN), Number.EPSILON > 0, Number.MAX_SAFE_INTEGER);\n",
+  },
+  {
+    id: "c623-template-tag",
+    title: "标签模板：strings 的 raw 与多段拼接",
+    src: "\nfunction tag(strings: TemplateStringsArray, ...vals: any[]) {\n  return strings.join(\"|\") + \"#\" + vals.join(\",\");\n}\nconsole.log(tag`a${1}b${2}c`);\nconsole.log(tag`z`);\n",
+  },
+  {
+    id: "c623-comma-sequence",
+    title: "逗号表达式与赋值链的返回值",
+    src: "\nlet a = 0;\nlet b = (a = 1, a + 1);\nconsole.log(a, b);\nlet x: number, y: number;\nx = y = 5;\nconsole.log(x, y);\n",
+  },
+  {
+    id: "c623-void-delete",
+    title: "void / delete 的返回值与副作用",
+    src: "\nconst o: any = { a: 1 };\nconsole.log(void 0, delete o.a, o.a, delete (o as any).z);\nconst arr = [1, 2, 3];\ndelete arr[1];\nconsole.log(arr.length, 1 in arr);\n",
+  },
+  {
+    id: "c623-bitwise-coercion",
+    title: "位运算的 32 位截断与无符号右移",
+    src: "\nconsole.log(2147483648 | 0, -1 >>> 0, 1 << 31, (1 << 31) >>> 0);\nconsole.log(5 & 3, 5 | 3, 5 ^ 3, ~0, 1.9 | 0, \"3\" | 0, NaN | 0);\n",
+  },
+  {
+    id: "c623-exponent-assign",
+    title: "** 的右结合与 **=",
+    src: "\nconsole.log(2 ** 3 ** 2, (-2) ** 2);\nlet a = 2;\na **= 3;\nconsole.log(a);\n",
+  },
+  {
+    id: "c623-equality-table",
+    title: "== 与 === 的类型转换表",
+    src: "\nconsole.log(null == undefined, null === undefined, 0 == \"\", 0 == false, \"\" == false);\nconsole.log([] == false, [1] == 1, \"1\" == 1, NaN == NaN, Object.is(NaN, NaN));\n",
+  },
+  {
+    id: "c623-to-primitive",
+    title: "对象转原始值：valueOf / toString / Symbol.toPrimitive 的次序",
+    src: "\nconst o: any = {\n  valueOf() { return 2; },\n  toString() { return \"s\"; },\n};\nconsole.log(o + 1, `${o}`, o * 2);\nconst p: any = { [Symbol.toPrimitive](h: string) { return h === \"number\" ? 5 : \"P\"; } };\nconsole.log(p + 1, `${p}`);\n",
+  },
+  {
+    id: "c623-getter-on-prototype",
+    title: "原型上的访问器被子类实例读到",
+    src: "\nfunction Base(this: any) { this._n = 1; }\nObject.defineProperty(Base.prototype, \"n\", {\n  get() { return this._n; },\n  set(v: number) { this._n = v; },\n  configurable: true,\n});\nconst b: any = new (Base as any)();\nb.n = 4;\nconsole.log(b.n, Object.getOwnPropertyDescriptor(Base.prototype, \"n\").configurable);\n",
+  },
+  {
+    id: "c623-string-iterator",
+    title: "字符串的迭代器按码点切分",
+    src: "\nconsole.log([...\"a😀b\"].length, \"a😀b\".length);\nconsole.log([...\"abc\"].join(\"-\"), Array.from(\"😀\").length);\n",
+  },
+  {
+    id: "c623-array-iterator",
+    title: "数组迭代器与解构、entries 的配合",
+    src: "\nconst [a, b] = [1, 2, 3];\nconsole.log(a, b);\nconst it = [10, 20][Symbol.iterator]();\nconsole.log(JSON.stringify(it.next()), JSON.stringify(it.next()), JSON.stringify(it.next()));\nconsole.log([... [1, 2].entries()].map((e) => e.join(\":\")).join(\",\"));\n",
+  },
+  {
+    id: "c623-array-holes",
+    title: "稀疏数组：length / join / map / forEach 的跳空",
+    src: "\nconst a = [1, , 3];\nconsole.log(a.length, a.join(\",\"), a.map((x) => x).length, a.filter(() => true).length);\nlet seen = 0;\na.forEach(() => seen++);\nconsole.log(seen, JSON.stringify(a), Object.keys(a).join(\",\"));\n",
+  },
+  {
+    id: "c623-array-sort",
+    title: "Array.sort 的比较器与稳定性",
+    src: "\nconsole.log([10, 9, 1].sort().join(\",\"));\nconsole.log([10, 9, 1].sort((x, y) => x - y).join(\",\"));\nconst rows = [{ k: 1, v: \"a\" }, { k: 0, v: \"b\" }, { k: 1, v: \"c\" }];\nconsole.log(rows.sort((x, y) => x.k - y.k).map((r) => r.v).join(\"\"));\nconsole.log([\"b\", \"a\"].sort().join(\",\"));\n",
+  },
 ];
