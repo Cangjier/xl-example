@@ -250,7 +250,16 @@ function makeBatches() {
  * **一个错误的判据会把整条加速路吃掉**——与第 318 / 319 轮那两条是同一类。
  */
 function judgeGroup(entry) {
-  if (/process\.exit|require\(/.test(entry.src)) return null;
+  // **不能进批的三类**（`judge-batch.mjs` 的开头写着为什么）：
+  //   · `process.exit` / `require(` —— 会把批进程带走或换掉模块语义；
+  //   · **排宏任务的**（`setTimeout` / `setInterval` / `setImmediate`）—— 批里一条 `import()`
+  //     返回之后只让两个 `setImmediate` tick 就收工，定时器还没到点 ⇒ **它的输出会落进
+  //     下一条的缓冲**（第 670 轮实测：`gap-std-set-timeout` 里那个 `setTimeout(…, 0)` 让
+  //     排在它后面的 `e2e-event-emitter` 被记成 `stdout 不同：node «timer» vs tsrun «»`
+  //     ——看起来像它**倒退**了，其实那行 `timer` 是上一条迟到的输出）。
+  // **这一条按源码认，不按台账认**：台账说的是「现在过不过」，而它管的是「能不能进批」，
+  // 两件事的寿命不一样（一条用例修好了照样会排定时器）。
+  if (/process\.exit|require\(|setTimeout|setInterval|setImmediate/.test(entry.src)) return null;
   return (entry.nodeArgs || []).join(" ");
 }
 

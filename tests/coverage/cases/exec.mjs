@@ -4801,6 +4801,18 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     nodeArgs: ["--experimental-transform-types"],
     src: "\nclass C {\n  constructor(public a: number, private b: string, readonly c = true) {}\n  dump() { return this.a + \"|\" + this.b + \"|\" + this.c; }\n}\nconst c = new C(1, \"x\");\nconsole.log(c.dump(), c.a, c.c);\n",
   },
+  // **第 670 轮：案外那条缺口进矩阵**（`expect: "blocked"`，根子见 `expectations.mjs`）——
+  // 它原来只写在 `README.md` 的「没有进矩阵」那一段里，于是「还差多少」在读数里看不见。
+  {
+    id: "gap-ex-object-value-paren-binary",
+    title: "对象字面量的值是一对圆括号里的二元表达式",
+    src: `
+const a = { x: 1, y: 3 };
+const b = { x: 2, y: 4 };
+const mid = { x: (a.x + b.x) / 2 };
+console.log(mid.x);
+`,
+  },
   {
     id: "k9-ex-decorator-free-class-expr",
     title: "类表达式：具名 / 匿名 / 立即实例化 / 作为返回值",

@@ -6693,6 +6693,16 @@ console.log(Object.keys(obj).join(","), obj[key], Object.getOwnPropertySymbols(o
     title: "Map：构造入参、groupBy、边迭代边删",
     src: "\nconst m = new Map<string, number>([[\"a\", 1], [\"b\", 2]]);\nconsole.log([...m.keys()].join(\",\"), [...m.values()].join(\",\"));\nconst g = Map.groupBy([1, 2, 3, 4], (n) => (n % 2 === 0 ? \"even\" : \"odd\"));\nconsole.log(g.get(\"even\")!.join(\",\"), g.get(\"odd\")!.join(\",\"));\nfor (const [k, v] of m) { if (k === \"a\") m.delete(k); }\nconsole.log(m.size);\n",
   },
+  // **第 670 轮：案外那条缺口进矩阵**（`expect: "blocked"`，根子见 `expectations.mjs`）——
+  // `setTimeout` 是宿主 ABI 的事，它原来只写在 `README.md` 的「没有进矩阵」那一段里。
+  {
+    id: "gap-std-set-timeout",
+    title: "宿主 ABI：setTimeout（单文件 tsrun 只给微任务那一档）",
+    src: `
+setTimeout(() => { console.log("timer"); }, 0);
+console.log("sync");
+`,
+  },
   {
     id: "k9-std-set-operations",
     title: "Set：交并差 / 子集判断 / 迭代顺序",

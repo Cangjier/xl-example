@@ -314,7 +314,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1184 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **2122 / 2122**：四层各 **100%**（runtime 591、exec 490、stdlib 818、e2e 223） |
+| `coverage` | **2122 / 2124**（99.9%）：四层里 runtime / e2e **100%**，exec 490/491、stdlib 818/819 —— 差的那 2 条是**真缺口**，登在台账里（`expect: "blocked"`），不藏着 |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口
@@ -346,8 +346,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   解构模式前换行、无体声明的尾随 `;`、泛型约束里的三族类型、注释夹在头与括号之间、
   `switch` 单行块后跟 `default`、`typeof a.b[K]`、`f<string>` …
   一张表 + 逐条根因见 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)；
-  执行侧那 2 条（对象字面量的值是一对括号里的二元表达式、`setTimeout` 这个全局名没登记）见
-  [tests/coverage/README.md](tests/coverage/README.md)。
+  执行侧那 2 条（对象字面量的值是一对括号里的二元表达式、`setTimeout` 这个全局名没登记）
+  **也已经进矩阵**（`gap-*`，登在 [tests/coverage/README.md](tests/coverage/README.md) 的台账里）。
 
 执行侧只剩一条：
 

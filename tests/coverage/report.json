@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2122,
+  "matrix": 2124,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -83,7 +83,7 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 100,
+  "progressPercent": 99.91,
   "layers": [
     {
       "layer": "runtime",
@@ -98,22 +98,22 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 490,
+      "total": 491,
       "pass": 490,
-      "blocked": 0,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.8
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 818,
+      "total": 819,
       "pass": 818,
-      "blocked": 0,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.88
     },
     {
       "layer": "e2e",
@@ -126,7 +126,20 @@
       "coverage": 100
     }
   ],
-  "blocked": [],
+  "blocked": [
+    {
+      "id": "gap-ex-object-value-paren-binary",
+      "layer": "exec",
+      "title": "对象字面量的值是一对圆括号里的二元表达式",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: x"
+    },
+    {
+      "id": "gap-std-set-timeout",
+      "layer": "stdlib",
+      "title": "宿主 ABI：setTimeout（单文件 tsrun 只给微任务那一档）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: setTimeout"
+    }
+  ],
   "differ": [],
   "bad": [],
   "moved": [],
