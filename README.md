@@ -723,6 +723,43 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7364 / 7724 → 7383 / 7738**、`blocked 261`（没涨）、`differ 99 → 94`、
   `bad` 0、`regressions` 0、`newlyPassing` 清空，加权 **96.0% → 96.1%**。
 
+### 第 723 轮：`freeze` / `seal` / `preventExtensions` 与**元素区**那一摞
+
+第 721 轮给「下标那一格」补的标志位落点（属性表里那一份）只覆盖
+**`defineProperty` 显式写了标志位**那一档；`freeze` / `seal` 是**整体操作**——
+它们走的是「扫一遍属性表、把标志位清掉」那两趟，而**元素区不在属性表里**，
+于是那一趟**一格元素都扫不到**：
+
+| 写法 | Node | 本仓原来 |
+| --- | --- | --- |
+| `Object.freeze(a); a[1] = 9` | 静默，还是 `2` | **写成 `9`** |
+| `Object.freeze(a); delete a[1]` | `false`，那一格还在 | **`true`**，那一格变洞 |
+| `Object.seal(a); delete a[1]` | `false`（写还写得进去） | **`true`** |
+| `Object.freeze(a)` 之后 `getOwnPropertyDescriptor(a, "1")` | `可写 / 可配置` **都假** | **都真** |
+| `Object.freeze(a); a[3] = 4`（新下标） | 静默，长度不变 | **`[1,2,3,4]`** |
+| `Object.freeze(a); a.sort()` | `TypeError` | 照样排好 |
+
+- **补法与第 721 轮同一个形状**：新方法 `MaterializeElementShadows`
+  （`globals.xl.md`）在 `freeze` / `seal` 时给**现在有的每一格元素**补一份
+  「标志位影子」（可枚举；`seal` 再多一位可写），随后那两趟循环照常清标志位——
+  「不可写」与「不可配置」两问从此都有落点。**洞不补**（洞里根本没有那一格）。
+  `Object.freeze` 第 722 轮已经为 `length` 造过一份，这一轮同一句话覆盖元素那一摞。
+- **`a[新下标] = v` 在不可扩展的数组上要静默**：`SetIndex`（`props.xl.md`）现在先问
+  「那一格在不在」（元素区有、或属性表里有那一份），不在且 `!Extensible`
+  ⇒ **一声不响**。**在的那一格照旧可以写**——`Object.preventExtensions(a)` 之后
+  `a.length = 1` **照样可以**（那条判据 `p723a-a06` 量着它），所以判据是「在不在」，
+  不是「可不可扩展」。
+- **仍开着一条**（`stdlib/round723/p723a-b01`）：**原地改元素的那两格
+  （`sort` / `reverse`）不问「这一格可写吗」**——`Object.freeze(a); a.sort()`
+  在 JS 里抛 `TypeError`（规范里它写元素走 `Set(…, true)`）。它与 `push` 那一档
+  **不是同一条**：`push` 走 `RequireArrayGrowable`（问的是「可扩展吗」），
+  而 `sort` 不新增格子——`Object.preventExtensions(a); a.sort()` 在 JS 里是**好的**，
+  所以那一句不能顺手搬过来。
+- **收掉台账 1 条**：`stdlib/round721/p721a-b07`（第 721 轮登的「`seal` 管不到元素区」）。
+- 语料 **+12 条**（`stdlib/round723/p723a-a01` … `a11` 过掉的 + `p723a-b01` 登记的）。
+- 五类 **7383 / 7738 → 7395 / 7750**、`blocked 261`（没涨）、`differ` **94**
+  （+1 新登记、-1 转绿）、`bad` 0、`regressions` 0，加权 **96.1%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -735,8 +772,8 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7383 / 7738**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2106/2158、runtime 806/815、stdlib 3045/3116、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 94），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~49s**） |
+| `coverage` | **五类 7395 / 7750**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2106/2158、runtime 806/815、stdlib 3057/3128、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 94），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~40s**） |
 
 ### 口径与已知缺口
 

@@ -1,5 +1,5 @@
-// xl:title seal 之后 delete 下标给假、写还是可以
-// xl:round 721
+// xl:title `seal` 之后写已有下标：写得进去；`delete` 给假
+// xl:round 723
 // xl:judge stdout
 // xl:end
 const show = (v) => (v === null ? "null"

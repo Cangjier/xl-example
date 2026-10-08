@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7738,
+  "total": 7750,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3116,
-      "pass": 3045,
+      "total": 3128,
+      "pass": 3057,
       "blocked": 25,
       "differ": 46,
       "nodefail": 0,
-      "coverage": 97.72
+      "coverage": 97.73
     },
     {
       "category": "e2e",
@@ -1877,7 +1877,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22104/src/3202.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16868/src/3202.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2033,7 +2033,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22104/src/4918.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16868/src/4918.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2057,7 +2057,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22104/src/4968.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16868/src/4968.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2198,16 +2198,16 @@
       "detail": "stdout 不同：第 1 行：node «string:1,99,3|string:1,99,3» vs tsrun «string:1,2,3|string:1,2,3»"
     },
     {
-      "id": "stdlib/round721/p721a-b07",
-      "category": "stdlib",
-      "title": "seal 之后 delete 下标给假、写还是可以",
-      "detail": "stdout 不同：第 1 行：node «boolean:false,number:9,number:3» vs tsrun «boolean:true,undefined,number:3»"
-    },
-    {
       "id": "stdlib/round721/p721a-b08",
       "category": "stdlib",
       "title": "空数组上装下标访问器：length 该跟着长",
       "detail": "stdout 不同：第 1 行：node «number:2,number:5,string:[null,5]» vs tsrun «number:0,undefined,string:[]»"
+    },
+    {
+      "id": "stdlib/round723/p723a-b01",
+      "category": "stdlib",
+      "title": "冻结的数组上 `sort` / `reverse`（原地改那两格）",
+      "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «sorted:1,2,3»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

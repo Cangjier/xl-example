@@ -2485,6 +2485,46 @@ if (shadow === null) return false;
 return !shadow.IsEnumerable();
 ```
 
+# method MaterializeElementShadows:(room:RoomChecker, table:HeapTable, target:Value, keepWritable:bool)=>void
+
+**把数组现在有的每一格元素「补一份标志位影子」**（第 723 轮）——`freeze` / `seal` 用。
+
+**为什么需要这一步**：元素区（`HeapArray` 的 `Elements` / `Holes`）**没有逐格标志位**，
+所以 `freeze` / `seal` 那两趟**扫属性表**的循环**一格元素都扫不到** ⇒
+`Object.freeze(a); a[1] = 9` 原来**照样写得进去**（判据 `p723a-r01`）、
+`Object.seal(a); delete a[1]` 原来给**真**（`p723a-r03`）。第 721 轮给
+「`defineProperty` 显式写了标志位」那一档补的落点就是这个形状，这一格是
+**整体操作**那条入口的另一半。
+
+**只补「还没有影子」的那些**（已有的那一份由调用方那两趟循环去改标志位）。
+**洞不补**：洞里根本没有那一格（JS 里 `freeze` 也不会把洞变成实值）。
+标志位给「**可枚举**」（元素本来就是可枚举的；不可枚举那一档由 `IndexKeyShadowed`
+筛掉 `Object.keys`）——`keepWritable` 为真时再加「**可写**」（`seal` 只清「可配置」）。
+
+```ts
+if (target.Tag !== ValueTag.Array) return;
+const shadowItems = table.Get(target.Ref).AsArray();
+const count = shadowItems.GetLength();
+let missing = 0;
+for (let i = 0; i < count; i++) {
+  if (shadowItems.IsHole(i)) continue;
+  if (IndexKeyShadowOf(table, target, i) === null) missing = missing + 1;
+}
+if (missing === 0) return;
+if (!room(PropertyCharge * missing)) throw new Error("out of room");
+for (let i = 0; i < count; i++) {
+  if (shadowItems.IsHole(i)) continue;
+  if (IndexKeyShadowOf(table, target, i) !== null) continue;
+  const indexKey = Value.FromString(table.CreateString(Units("" + i)));
+  const elementShadow = new Property(indexKey.Ref, shadowItems.GetAt(i));
+  let elementFlags = PropertyFlagEnumerable;
+  if (keepWritable) elementFlags = elementFlags + PropertyFlagWritable;
+  elementShadow.Flags = elementFlags;
+  table.Get(target.Ref).Props.push(elementShadow);
+}
+table.Recount(target.Ref);
+```
+
 # method IndexLengthPropertyOf:(table:HeapTable, target:Value)=>Property | null
 
 **数组自己身上那一格 `length` 的属性表项**（第 722 轮）——没有就返回 `null`。
@@ -4282,6 +4322,9 @@ if (id === ObjectFreeze) {
     frozen.Props.push(frozenLength);
     table.Recount(args[0].Ref);
   }
+  // **元素那一摞也要补影子**（第 723 轮，见 `MaterializeElementShadows`）——
+  // 不然下面这一趟扫不到它们，`Object.freeze(a); a[1] = 9` 照样写得进去。
+  MaterializeElementShadows(room, table, args[0], false);
   for (let i = 0; i < frozen.Props.length; i++) {
     const property = frozen.Props[i];
     if (property.Kind === PropertyKind.Accessor) continue;
@@ -4690,6 +4733,9 @@ if (id === ObjectSeal) {  // **`Object.seal(对象)`**（第 276 轮）——**�
       + "(boxing a primitive is not supported)");
   }
   const sealTarget = table.Get(args[0].Ref);
+  // **元素那一摞也要补影子**（第 723 轮）：`seal` 只清「可配置」——
+  // 写完 `a[1] = 9` 照样写得进去、`delete a[1]` 该给假（判据 `p723a-r03`）。
+  MaterializeElementShadows(room, table, args[0], true);
   for (let i = 0; i < sealTarget.Props.length; i++) {
     const property = sealTarget.Props[i];
     if (property.Kind === PropertyKind.Accessor) continue;

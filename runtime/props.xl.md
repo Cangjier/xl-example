@@ -1206,9 +1206,17 @@ if (receiver.Tag === ValueTag.Array) {
   // 而这条路是 `a[i] = v` 的热路径——多走两层表是白花的。
   // **只有非负整数键才比**（`KeyMatches` 对 `Int32` 有「十进制整数文本」那一档；
   // 浮点键在 JS 里是普通属性名，落不到下标那一支）。
+  const slotArray = slotItem.AsArray();
+  // **那一格「在不在」**（第 723 轮）：`Object.freeze` / `seal` / `preventExtensions`
+  // 之后**加新下标**在 JS 里**静默不动**（判据 `p723a-r04`）——原来这一支照写，
+  // `const a = [1]; Object.freeze(a); a[1] = 2` 会给 `[1, 2]`（**静默错值**）。
+  // **在的那一格照旧可以写**（`preventExtensions` 只挡新的）——所以判据是
+  // 「元素区有没有这一格**或**属性表里有没有这一份」，不是「可不可扩展」。
+  let slotKnown = at >= 0 && at < slotArray.GetLength() && !slotArray.IsHole(at);
   if (index.Tag === ValueTag.Int32 && slotItem.Props.length > 0) {
     for (let i = 0; i < slotItem.Props.length; i++) {
       if (!KeyMatches(table, slotItem.Props[i], index)) continue;
+      slotKnown = true;
       const slot = slotItem.Props[i];
       if (slot.Kind === PropertyKind.Accessor) break;
       // **不可写 ⇒ 一声不响什么都没做**（非严格赋值的口径，与 `SetPropertySearched`
@@ -1218,6 +1226,7 @@ if (receiver.Tag === ValueTag.Array) {
       break;
     }
   }
+  if (!slotKnown && !slotItem.Extensible) return value;
   table.Get(receiver.Ref).AsArray().SetAt(at, value);
   table.Recount(receiver.Ref);
   return value;

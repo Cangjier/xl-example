@@ -1,5 +1,5 @@
-// xl:title seal 之后 delete 下标给假、写还是可以
-// xl:round 721
+// xl:title 冻结之后 `Object.keys` / `JSON` / 迭代都不变
+// xl:round 723
 // xl:judge stdout
 // xl:end
 const show = (v) => (v === null ? "null"
@@ -7,6 +7,5 @@ const show = (v) => (v === null ? "null"
   : typeof v + ":" + String(v).split("\n").join("\\n"));
 const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
 const a = [1, 2, 3];
-Object.seal(a);
-a[1] = 9;
-console.log(show(delete a[1]) + "," + show(a[1]) + "," + show(a.length));
+Object.freeze(a);
+console.log(show(Object.keys(a).join(",")) + "," + show(JSON.stringify(a)) + "," + show([...a].join(",")) + "," + show(a.map((x) => x).join(",")));
