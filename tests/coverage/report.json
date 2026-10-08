@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8192,
+  "total": 8197,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.61,
+  "progressPercent": 95.6,
   "categories": [
     {
       "category": "token",
@@ -100,18 +100,18 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1081,
-      "pass": 1045,
+      "total": 1085,
+      "pass": 1048,
       "blocked": 4,
-      "differ": 32,
+      "differ": 33,
       "nodefail": 0,
-      "coverage": 96.67
+      "coverage": 96.59
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3235,
-      "pass": 3156,
+      "total": 3236,
+      "pass": 3157,
       "blocked": 25,
       "differ": 54,
       "nodefail": 0,
@@ -1853,7 +1853,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17800/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22376/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2108,10 +2108,10 @@
       "detail": "stdout 不同：第 11 行：node «(function () { \"use strict\"; c ok:string:TypeError» vs tsrun «(function () { \"use strict\"; c ok:string:wrote»"
     },
     {
-      "id": "stdlib/array/149-concat-spreadable",
-      "category": "stdlib",
-      "title": "`concat` 展不展一个带 `Symbol.isConcatSpreadable` 的对象",
-      "detail": "stdout 不同：第 1 行：node «[1,\"x\",\"y\"]» vs tsrun «[1,{\"0\":\"x\",\"1\":\"y\",\"length\":2}]»"
+      "id": "runtime/round760/r760d-01-bound-function-prototype-gap",
+      "category": "runtime",
+      "title": "`bind` 出来的函数**不该有**自有 `prototype`，本仓抄了一格",
+      "detail": "stdout 不同：第 1 行：node «1 undefined» vs tsrun «1 object»"
     },
     {
       "id": "stdlib/array/150-array-species-subclass",
@@ -2135,7 +2135,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17800/src/5253.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22376/src/5257.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2159,7 +2159,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17800/src/5303.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22376/src/5307.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2382,6 +2382,12 @@
       "category": "stdlib",
       "title": "`Map` / `Set` 的内部载荷是**可见的自有属性**（`__k` / `__v`）",
       "detail": "stdout 不同：第 21 行：node «21 (function () { const m = new Map([ ok:string:1:undefined» vs tsrun «21 (function () { const m = new Map([ ok:string:1:1»"
+    },
+    {
+      "id": "stdlib/round760/r760e-01-string-regexp-method-gap",
+      "category": "stdlib",
+      "title": "`String.prototype` 缺 `match` / `search` / `matchAll` 三个名字",
+      "detail": "stdout 不同：第 1 行：node «1 52» vs tsrun «1 49»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

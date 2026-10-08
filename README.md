@@ -306,6 +306,45 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 760 轮：`concat` 是**通用**的——两条支都没有问 `IsConcatSpreadable`
+
+**一句话**：`Array.prototype.concat` 在规范里对**接收者自己**与**每一个实参**都问一句
+`IsConcatSpreadable`（先看 `Symbol.isConcatSpreadable`、再看「是不是数组」），
+而本仓**长着两条互不相干的支**——一条只认数组接收者、一条类数组接收者——
+**两条都没问那一句**：两个朝向各错一半，而且**都是静默错值**。
+
+- **这一轮普查当场红的四条**（判据 `runtime/round760/r760a-01`）：
+  `Array.prototype.concat.call(1, 2)` 报「this method needs an array receiver」
+  （Node 给 `[1, 2]`）、`concat.call({ 0: "a", length: 1 }, [2])` 也抛
+  （Node 给 `[{0:"a",length:1}, 2]`）、
+  `[0].concat({ [Symbol.isConcatSpreadable]: true, length: 2, 0: "x", 1: "y" })`
+  给 `[0, {…}]`（Node 给 `[0, "x", "y"]`）、
+  `[0].concat(Object.assign([1, 2], { [Symbol.isConcatSpreadable]: false }))`
+  给 `[0, 1, 2]`（Node 给 `[0, [1, 2]]`）。
+- **分成两条路的代价正好是这里**：`IsConcatSpreadable` 问的是**每一个元素**，
+  而「接收者自己」也是**一个元素**——两条路各写一遍，漏掉的就是「谁去问那一句」。
+  收法是**两条并成一条**（`ArrayConcat`），接收者与实参走**同一个** `spreads` 判据：
+  先 `Symbol.isConcatSpreadable`（`protos.WellKnownSymbols` 那张表，**表没装就整档跳过**），
+  再退到「`Tag === Array`」。
+- **顺带把原型那一格补回来**：并成一条之后「原型跟着接收者走」也在**一处**了
+  （数组接收者继承它的原型、其余给 `protos.Array`——与 `slice` / `join` 那两处类数组分支同一口径）。
+- **两处量出来但没顺手改的**（都登在明处）：
+  ① `typeof f.bind(null).prototype` 在 Node 里是 `"undefined"`、本仓给 `"object"`
+  ——第 753 轮为了让 `new (F.bind(null))() instanceof F` 为真，把**目标的 `prototype` 抄到了
+  绑定对象自己身上**（那一轮自己写在明处）。要收得让 `vm.xl.md` 的 `CreateInstance`
+  认得「被调者是不是绑定函数」再转交目标的 `prototype`——那是**每一次 `new` 都要过的路**
+  （与第 750 轮 `a.length = "2"` 同一条取舍），这一轮只登记（`runtime/round760/r760d-01`）。
+  ② `String.prototype` 少三格（`match` / `search` / `matchAll`，`getOwnPropertyNames` 给 49、Node 给 52）
+  ——它们不是「漏挂三个名字」：三条路都要 `RegExp` 整族，而降级层**连正则字面量都不收**
+  （同一批的两条候选报的就是 `unimplemented: expression RegularExpressionLiteral`），
+  与 `stdlib/string/136` / `147` 同一条根（`stdlib/round760/r760e-01`）。
+- **台账**：`stdlib/array/149-concat-spreadable`（第 691 轮登的「`concat` 不认那一位」）
+  **转绿、指令已撤**，用例留着当守卫。
+- 语料 **+5 条**（`runtime/round760` 4 条 + `stdlib/round760` 1 条；**3 条当场通过**、
+  2 条登记缺口）。五类 **7812 / 8192 → 7814 / 8197**、`blocked 263`（**没动**）、
+  `differ 118 → 120`、`bad` 仍 **0**、`regressions` **0**、`newlyPassing` **1**，
+  加权 **95.6%**（`95.7% → 95.6%` 是两条新登记缺口的账，不是回归）。
+
 ### 第 712 轮：`Map` / `Set` 的 `Symbol.iterator` 那一格
 
 **一句话**：`for..of` 一条 `Map` / `Set` 一直是好的，而**显式把那格迭代器取出来自己调**

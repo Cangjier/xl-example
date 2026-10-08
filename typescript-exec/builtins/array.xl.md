@@ -787,6 +787,105 @@ if (id === ArrayJoin && self.Tag !== ValueTag.Array) {
   }
   return Value.FromString(table.CreateString(likeJoined));
 }
+if (id === ArrayConcat) {
+  // **`concat` 那一格：接收者与实参走同一条路**（第 760 轮，**普查当场红的**）。
+  //
+  // 规范里它是通用的：`O = ToObject(this)`，`A = []`，然后对**接收者自己**与**每一个实参**
+  // 各问一句 `IsConcatSpreadable`——是就摊平一层，不是就**原样接一个**。
+  // 原来这里长着**两条**（一条只认数组接收者、一条类数组接收者），而**两条都没问那一句**：
+  // `[0].concat({ [Symbol.isConcatSpreadable]: true, length: 2, 0: "x", 1: "y" })`
+  // 该摊成 `[0, "x", "y"]`、原来给 `[0, {…}]`；反方向
+  // `[0].concat(Object.assign([1, 2], { [Symbol.isConcatSpreadable]: false }))`
+  // 该给 `[0, [1, 2]]`、原来给 `[0, 1, 2]`（**两个朝向都是静默错值**）。
+  // **分成两条路的代价正好是这里**：`IsConcatSpreadable` 那一句**问的是每一个元素**，
+  // 而接收者自己也是「一个元素」——两条路各写一遍就必然漏掉一半（这一处漏的是两边）。
+  //
+  // **`Symbol.isConcatSpreadable` 从哪来**：`protos.WellKnownSymbols` 那张表，
+  // **表没装就整档跳过**（与 `ToPrimitiveOf` 那条同一口径——装库期它还是 `0`）。
+  // **`null` / `undefined` 先挡**（与 `ArrayToString` 那一格同一句 `TypeError`）：
+  // 不挡的话 `ArrayLikeLength` 会把它们当「没有 `length`」。
+  if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+    throw new TypeError("Array.prototype method called on null or undefined");
+  }
+  let spreadKey = Value.Undefined();
+  if (protos.WellKnownSymbols > 0) {
+    spreadKey = GetProperty(room, call === null ? NeverCall : call, protos, table,
+      Value.FromObject(protos.WellKnownSymbols),
+      Value.FromString(table.CreateString(Units("isConcatSpreadable"))));
+  }
+  // **每一格都算一次「摊不摊」**，而且**问的次序就是语义**：先那个符号，后「是不是数组」。
+  // **数组那一档也要先问**：数组可以自己把那一格改成假（上面第二个朝向量的正是它）。
+  // **答「不是数组」的那些类型（文本 / 数 / 布尔 / 符号 / 函数 / 类）不必问符号**：
+  // JS 的 `IsConcatSpreadable` 第一条就要求「它是个对象」，而包装对象上那一格从来不存在。
+  const spreads = (item: Value): boolean => {
+    if (item.Tag !== ValueTag.Array && item.Tag !== ValueTag.Object) return false;
+    if (spreadKey.Tag !== ValueTag.Symbol) return item.Tag === ValueTag.Array;
+    if (!room(PropertyCharge)) throw new Error("out of room");
+    const written = FindProperty(room, table, item.Ref, spreadKey);
+    if (written === null) return item.Tag === ValueTag.Array;
+    const flag = ReadProperty(call === null ? NeverCall : call, table, written, item);
+    if (flag.Tag === ValueTag.Undefined || flag.Tag === ValueTag.Null) return false;
+    return RtToBoolean(table, flag).AsBool();
+  };
+  // **计费先把整份算出来**，再逐格接（与从前那条数组支同一形状）。
+  // 接收者自己那一格**也走同一个判据**（是数组就摊平、不是就一格）。
+  let slots = 0;
+  let holes = 0;
+  const spreadFlags: boolean[] = [];
+  for (let i = -1; i < args.length; i++) {
+    const item = i < 0 ? self : args[i];
+    const spreadsThis = spreads(item);
+    spreadFlags.push(spreadsThis);
+    if (!spreadsThis) {
+      slots = slots + 1;
+      continue;
+    }
+    const partLength = ArrayLikeLength(room, table, call, item);
+    slots = slots + partLength;
+    holes = holes + partLength;
+  }
+  if (!room(ObjectCharge + ValueCharge * slots)) throw new Error("out of room");
+  if (holes > 0 && !room(HoleCharge * holes)) throw new Error("out of room");
+  const handle = table.CreateArray();
+  // **原型跟着接收者走**：接收者是数组就继承它（`table.Get(self.Ref).Proto`）——
+  // 那正是第 123 轮给 `slice` / `toReversed` 定的口径（`class A extends Array` 上
+  // `new A().concat()` 该给一个 `A` 的实例）。非数组接收者给 `protos.Array`
+  // （与 `slice` / `join` 那两处类数组分支同一条）。
+  table.Get(handle).Proto = self.Tag === ValueTag.Array ? table.Get(self.Ref).Proto : protos.Array;
+  const created = table.Get(handle).AsArray();
+  const appendFrom = (item: Value): void => {
+    if (item.Tag !== ValueTag.Array) {
+      // **非数组那一档**：逐格 `Get(O, ToString(i))`——**在就是值、不在就是洞**
+      // （与 `ArrayLikeSnapshot` 的 `HasProperty` 是同一条；`{ length: 2 }` 是两个洞。
+      // 折成一个快照再摊平会留下两份判据，所以这里就逐格读）。
+      const partLength = ArrayLikeLength(room, table, call, item);
+      for (let i = 0; i < partLength; i++) {
+        created.Push(ArrayLikeAt(room, table, call, item, i));
+      }
+      return;
+    }
+    // **数组那一档**：读的时候**现问长度**（`item` 是脚本给的数组，上一格的访问器
+    // 可能已经把它改长了——`[0].concat(growing)` 在 JS 里看得见新格）。
+    // **洞跟着走**（`AppendSlot`）：`[1,,2].concat([3])` 第二个位置**还是洞**，
+    // 把洞 `Push` 成一个显式的 `undefined` 会让 `1 in result` 从假变真。
+    let at = 0;
+    for (;;) {
+      const part = table.Get(item.Ref).AsArray();
+      if (at >= part.GetLength()) break;
+      AppendSlot(created, part, at);
+      at = at + 1;
+    }
+  };
+  for (let i = -1; i < args.length; i++) {
+    const item = i < 0 ? self : args[i];
+    if (!spreadFlags[i + 1]) {
+      created.Push(item);
+      continue;
+    }
+    appendFrom(item);
+  }
+  return Value.FromArray(handle);
+}
 // **类数组接收者那一族**（第 696 轮）：JS 的数组方法**是通用的**——
 // `Array.prototype.map.call({ length: 2, 0: "a", 1: "b" }, f)` 在 Node 里照跑
 //（拉这一族的是第 692 轮登记的 `probe2-g02` / `g04` / `g08` / `g15`）。
@@ -1090,35 +1189,6 @@ if (id === ArraySlice) {
     // `concat` 那一支早就用 `AppendSlot` 处理过同一件事（第 123 轮）——
     // 这一处是同一个坑的另一半（判据 `p721a-r33`）。
     AppendSlot(slice, source, i);
-  }
-  return Value.FromArray(handle);
-}
-if (id === ArrayConcat) {
-  // **只摊平一层**：实参是数组就把**格子**接过来，不是数组就**原样接一个**。
-  // **洞要跟着走**：`[1,,2].concat([3])` 在 JS 里第二个位置**还是洞**——
-  // 把洞 `Push` 成一个显式的 `undefined` 会让 `1 in result` 从假变真（形状变了）。
-  let extra = 0;
-  for (let i = 0; i < args.length; i++) {
-    extra = extra + (args[i].Tag === ValueTag.Array ? table.Get(args[i].Ref).AsArray().GetLength() : 1);
-  }
-  if (!room(ObjectCharge + ValueCharge * (source.GetLength() + extra))) {
-    throw new Error("out of room");
-  }
-  const handle = table.CreateArray();
-  table.Get(handle).Proto = table.Get(self.Ref).Proto;
-  const created = table.Get(handle).AsArray();
-  for (let i = 0; i < source.GetLength(); i++) {
-    AppendSlot(created, source, i);
-  }
-  for (let i = 0; i < args.length; i++) {
-    if (args[i].Tag !== ValueTag.Array) {
-      created.Push(args[i]);
-      continue;
-    }
-    const part = table.Get(args[i].Ref).AsArray();
-    for (let j = 0; j < part.GetLength(); j++) {
-      AppendSlot(created, part, j);
-    }
   }
   return Value.FromArray(handle);
 }
