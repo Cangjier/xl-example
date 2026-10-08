@@ -1356,6 +1356,44 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
   （`+5` 新登记、`-1` 收掉）、`bad` 0、`regressions` 0，加权 **96.0% → 95.9%**
   （分子 +14、分母 +20）。
 
+### 第 742 轮：`switch` 那一族与语句 / 循环的角落普查——收掉基类的 `super`（coverage 7614/7974 → **7658/8017**）
+
+这一轮的普查分两批：**`switch` 那一族**（fallthrough、`default` 在中间、
+未匹配的 `case` 表达式**不求值**、`switch (true)`、带标签的 `switch`、`case` 里的块与闭包、
+嵌套 `switch`、严格相等下的 `NaN` / `-0` / `"1"` 对 `1`）与**语句 / 循环**那一族
+（`do...while` 的 `continue`、无头 `for`、悬垂 `else`、空语句、带标签的块、
+`finally` 的顺序与 `return` 覆盖、非 `Error` 的 `throw`、`for...in` / `for...of` 的跳出），
+共 **42 条**（`runtime` 35 / `exec` 7）——**42 条全过**（这一族本仓已经扎实，
+量下来一条缺口都没有）。
+
+- **收掉的一格：没有 `extends` 的类里的 `super`**（第 693 轮登记的 `differ`，
+  `exec/classes/probe693b-k32`，**静默错值**）：`class A { m() { return super.toString } }`
+  本仓给 `undefined`，Node 给 `Object.prototype.toString` 那个函数。
+  根子是**一个字段承担了两件事**——`SuperName` 是父类的**名字**，
+  而基类「父类叫 `Object`、没有名字」⇒ 空串同时表示「基类成员」与「根本不是类成员」
+  （普通函数里写 `super`），`SuperStartSlot` 只能一律给 `-1`。
+  修法：给排队函数加第三位 **`SuperBase`**（有没有家对象）与对应的 `InSuperBase`，
+  与 `SuperName` / `SuperStatic` **同一处设、同一处恢复**；`SuperStartSlot` 里空串先问这一位，
+  是基类就交给新的 `SuperBaseFromThis`——**从 `this` 反推家对象**
+  （实例成员 `get_proto` 走**两层**：`this` → `C.prototype` → `Object.prototype`；
+  静态成员走**一层**：`this` 就是 `C` → `Function.prototype`）。
+  `super.m()` 那一支也接上同一个起点（**基类里 `super.m()` 现在与 Node 一样抛 `TypeError`**，
+  以前会找到自己 ⇒ 无限递归）；`super.x = v` 那一半共用 `SuperStartSlot`，跟着一起对了。
+  **类降级那两处盖章**从「只有 `baseName !== ""` 才盖」改成**一律盖**——
+  `SuperStatic` 一并挪出那个 `if`（基类静态成员的起点是 `Function.prototype`，
+  不盖的话会和实例成员走同一个层数）。
+  **已知差别写在明处**（与对象字面量那一支同一条口径）：JS 的家对象是**词法**绑定的，
+  这里是**从 `this` 反推**⇒ `C.prototype.m.call({})` 换了接收者就换了起点。
+- **`switch` 那一族量到的一条本仓做对、值得钉住的语义**（新用例当守卫）：
+  匹配上之后**后面的 `case` 表达式不再求值**（`p742c-c03`：`t("e")` 一次都没跑）、
+  `default` 写在中间也**最后才匹配**、匹配到了再往下落（`p742c-c02`）、
+  判别式**只求值一次**（`p742b-b02`）、`switch` 里的 `break` 只出 `switch`
+  而 `continue` 出循环（`p742a-a08`）、`case` 的引用相等与 `-0` / `NaN` 那两格
+  （`p742a-a05` / `p742a-a06` / `p742c-c10`）。
+- 五类 **7614 / 7974 → 7658 / 8017**（**+43 条新用例、+1 条收掉**）、
+  `blocked 259`（没动）、`differ 101 → 100`（`-1` 收掉）、`bad` 0、`regressions` 0、
+  `moved` 0，加权 **95.9% → 95.9%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1368,7 +1406,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **229 份**（用例 1405 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7614 / 7974**，加权 **95.9%**：token 1189/1405、exec 2154/2203、runtime 935/956、stdlib 3094/3164、e2e 242/246。差的那些是**真缺口**（`blocked` 259 / `differ` 101），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7658 / 8017**，加权 **95.9%**：token 1189/1405、exec 2163/2211、runtime 970/991、stdlib 3094/3164、e2e 242/246。差的那些是**真缺口**（`blocked` 259 / `differ` 100），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 

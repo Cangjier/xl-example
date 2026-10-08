@@ -903,6 +903,18 @@ return -1;
 只存名字的话这两处**分不开**，于是静态那一半会去读 `A.prototype.kind`
 ⇒ `undefined`（判据 `rt-class-getter-static-and-inherit` 现场给的正是 `B+undefined`）。
 
+## field SuperBase:bool = false
+
+**这个函数体是**没有 `extends` 的那个类**的成员吗**（第 742 轮）——
+`SuperName` 存的是**父类的名字**，而基类**没有那个名字**：空串于是同时表示
+「基类成员」与「根本不是类成员」两件事，`SuperStartSlot` 只能一律给 `-1`
+⇒ 基类方法里的 `super.toString` 是 `undefined`（JS 给 `Object.prototype.toString`）。
+
+**为什么不用一个哨兵名字**：`SuperName` 的每一处读法都是 `ResolveAccess` 的入参
+（父类名字），哨兵会一路混到「名字解析」里去——而那正是本仓反复踩过的那类形状
+（一个字段承担两件事，第二件事的读法忘了改）。**这一位与 `SuperStatic` 成对进出**：
+「有没有家对象」与「家对象是哪一半」是同一件事的两半。
+
 ## field IsStrict:bool = false
 
 **这个函数体是严格代码吗**（第 620 轮）——由 `LowerFunctionValue` 按 `InStrict` 记下来。
@@ -1441,6 +1453,16 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成，不会把同一层�
 
 **当前这一层是不是静态成员**（第 278 轮）——与 `InSuperName` **成对进出**
 （同一处设、同一处恢复），决定 `super.x` 的起点是父类**自己**还是父类**原型**。
+
+## field InSuperBase:bool = false
+
+**当前这一层是不是「没有 `extends` 的那个类」的成员**（第 742 轮）——
+与 `InSuperName` / `InSuperStatic` **同一处设、同一处恢复**（三个字段是同一件事的三半）。
+
+**它管的只有一件事**：`InSuperName` 是空串时，`super` 到底**没有家对象**
+（普通函数里写了 `super`——TS 本来就是语法错误）还是**有家对象、只是父类叫 `Object`**
+（`class A { m() { return super.toString } }`）。空串分不开这两件事 ⇒ 前者的 `-1`
+被后者一起吃了（判据 `exec/classes/probe693b-k32` 量到的正是它）。
 
 ## field InStrict:bool = false
 
@@ -2189,12 +2211,15 @@ const outerSuperName = this.InSuperName;
 // **「静态」那一半与名字成对进出**（第 278 轮）——只存不恢复的话，
 // 内层函数降级完之后**外层会带着内层的标记继续走**（见 `InSuperStatic` 那一段）。
 const outerSuperStatic = this.InSuperStatic;
+// **「有没有家对象」那第三半也要跟着进出**（第 742 轮）——理由与上面一字不差。
+const outerSuperBase = this.InSuperBase;
 const outerInArrow = this.InArrow;
 const outerInStrict = this.InStrict;
 this.InGenerator = item.IsGenerator;
 this.InAsync = item.IsAsync;
 this.InSuperName = item.SuperName;
 this.InSuperStatic = item.SuperStatic;
+this.InSuperBase = item.SuperBase;
 this.InArrow = item.IsArrow;
 // **严格性只增不减**（第 620 轮）：定义在严格代码里的函数，体也是严格的；
 // 反过来不成立（松散代码里的普通函数照旧松散——`item.IsStrict` 是「定义它的那段」）。
@@ -2333,6 +2358,7 @@ this.InGenerator = outerInGenerator;
 this.InAsync = outerInAsync;
 this.InSuperName = outerSuperName;
 this.InSuperStatic = outerSuperStatic;
+this.InSuperBase = outerSuperBase;
 this.InArrow = outerInArrow;
 this.InStrict = outerInStrict;
 ```
@@ -5076,12 +5102,23 @@ return result;
 **父类怎么找到**：`InSuperName` 是类降级时写进排队函数的父类名，
 照常 `ResolveAccess`，再读一次 `prototype`。
 
+**没有 `extends` 的类也有一条路**（第 742 轮）：那时 `InSuperName` 是空串，
+可 `super` 照样有家对象（当前类自己）——由 `InSuperBase` 那一位认出来，
+起点交给 `SuperBaseFromThis`（`get_proto` 一层 / 两层）。**这一支与上面的「空串 = 没有」必须分开**：
+混在一起的症状就是这一格原来那个 `-1`（`super.toString` 给 `undefined`）。
+
 **不在派生类方法里给 `-1`**（**不抛**）：`super` 写在别处本来就是语法错误，
 走到这一支说明树不该到这儿——**两个调用方各自决定怎么处理**
 （读那一半给 `undefined` 是最省事的那一档；写那一半是**写**，响亮地抛更好查）。
 
 ```ts
-if (this.InSuperName === "") return -1;
+if (this.InSuperName === "") {
+  // **没有 `extends` 的类**（第 742 轮）：这里**有**家对象，只是父类没有名字——
+  // 家对象就是当前类自己（实例成员 `C.prototype`、静态成员 `C`），
+  // 起点是**家对象的原型**（`get_proto` 走一层 / 两层，见 `SuperBaseFromThis`）。
+  if (this.InSuperBase) return this.SuperBaseFromThis();
+  return -1;
+}
 const parentAccess = this.ResolveAccess(this.InSuperName);
 const parent = this.Reserve(1);
 if (parentAccess.InEnv) {
@@ -5092,6 +5129,33 @@ if (parentAccess.InEnv) {
 if (this.InSuperStatic) return parent;
 const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
 return this.RtCall2(RtOp.GetProp, parent, prototypeKey);
+```
+
+## method SuperBaseFromThis:()=>int
+
+**没有 `extends` 的类里，`super` 的起点**（第 742 轮）——**从 `this` 反推家对象**。
+
+**规范那一侧**：`super.x` 的起点是 `GetSuperBase()` = **家对象的 `[[Prototype]]`**，
+而家对象由**方法挂在哪**决定（`[[HomeObject]]`）：实例成员是 `C.prototype`、
+静态成员是 `C` 自己。基类没有父类名字可用（`InSuperName` 是空串），
+所以只能**从 `this` 反推**：实例成员走**两层** `get_proto`（`this` → `C.prototype` → `Object.prototype`），
+静态成员走**一层**（`this` 就是 `C` → `Function.prototype`）。
+
+**已知差别写在明处**（与 `LowerMethodCall` 对象字面量那一支同一条口径）：
+JS 的家对象是**词法**绑定的，所以 `C.prototype.m.call({})` 里 `super.toString`
+照样是 `Object.prototype` 那一格；这里用 `this` 反推 ⇒ 换了接收者就换了起点。
+要真对齐得把家对象当**隐藏形参**传进闭包——**那是另一件事**。
+
+**那两层不 `Release`**：退水位只能退到「最后一个死格之后」，而这里
+`self` / `home` 都还有用（`home` 就是返回值那一档），**不确定就别退**
+（`Release` 那一段写着这条规矩是咬了三次换来的）。
+
+```ts
+const self = this.Reserve(1);
+this.Emit(Op.LoadThis, self, -1, -1, -1);
+const home = this.RtCall1(RtOp.GetProto, self);
+if (this.InSuperStatic) return home;
+return this.RtCall1(RtOp.GetProto, home);
 ```
 
 ## method LowerSuperAssignment:(left:AstNode, right:AstNode)=>int
@@ -5163,7 +5227,11 @@ if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
   // **已知差别写在明处**：JS 用**真的家对象**（方法被摘下来单独调用时 `super` 照样工作），
   // 而这里用 `this` ⇒ `const f = o.greet; f()` 会去取**空值的原型**（NDoe 给 `hi!`）。
   // 要真对齐得把家对象当**隐藏形参**传进闭包（与命名空间体那一帧同一手法）——**那是另一件事**。
-  const superInObjectLiteral = this.InSuperName === "";
+  // **`InSuperBase` 那一支不算对象字面量**（第 742 轮）：两者的 `InSuperName` 都是空串，
+  // 可分不开就串了门——基类的家对象是 `C.prototype`（要走**两层** `get_proto`），
+  // 对象字面量的家对象**就是 `this`**（一层）。串了门的症状是
+  // `class A { m() { return super.m() } }` 找到**自己** ⇒ 无限递归。
+  const superInObjectLiteral = this.InSuperName === "" && !this.InSuperBase;
   if (superInObjectLiteral) {
     const selfForProto = this.Reserve(1);
     this.Emit(Op.LoadThis, selfForProto, -1, -1, -1);
@@ -5194,22 +5262,28 @@ if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
     this.Release(objectBase + 1);
     return objectBase;
   }
-  const parentAccess = this.ResolveAccess(this.InSuperName);
-  const parent = this.Reserve(1);
-  if (parentAccess.InEnv) {
-    this.Emit(Op.EnvGet, parent, parentAccess.Depth, parentAccess.Cell, -1);
-  } else {
-    this.Emit(Op.Move, parent, parentAccess.Slot, -1, -1);
-  }
-  const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
-  // **起点也分两种**（第 278 轮，与 `super.v` 那一支一字不差）：
+  // **起点分三种**（第 742 轮补上「没有 `extends` 的类」那一种，
+  // 与 `super.v` 那一支 `SuperStartSlot` 一字不差）：
   // 静态成员在**父类构造函数自己**身上找方法（`static m() { return super.m() }`），
-  // 实例成员在 `父类.prototype` 上找。
+  // 实例成员在 `父类.prototype` 上找；**基类没有父类名字** ⇒ 从 `this` 反推。
   // **`this` 那两格不受影响**——它照旧是当前实例（静态成员的 `this` 是构造函数，
   // 而 `load_this` 取的就是当前帧的那一格，两类成员都靠它）。
-  let proto = parent;
-  if (!this.InSuperStatic) {
-    proto = this.RtCall2(RtOp.GetProp, parent, prototypeKey);
+  let proto = -1;
+  if (this.InSuperBase) {
+    proto = this.SuperBaseFromThis();
+  } else {
+    const parentAccess = this.ResolveAccess(this.InSuperName);
+    const parent = this.Reserve(1);
+    if (parentAccess.InEnv) {
+      this.Emit(Op.EnvGet, parent, parentAccess.Depth, parentAccess.Cell, -1);
+    } else {
+      this.Emit(Op.Move, parent, parentAccess.Slot, -1, -1);
+    }
+    proto = parent;
+    if (!this.InSuperStatic) {
+      const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
+      proto = this.RtCall2(RtOp.GetProp, parent, prototypeKey);
+    }
   }
   const name = Child(callee, "name");
   if (NodeKind(name) !== "Identifier") {
@@ -7306,8 +7380,12 @@ this.PendingClassSource = savedClassSource;
 if (classSelfEnv >= 0) {
   this.Emit(Op.EnvSet, ctor, 0, 0, -1);
 }
-if (baseName !== "" && this.Pending.length > 0) {
+if (this.Pending.length > 0) {
+  // **没有 `extends` 的类也要盖章**（第 742 轮）：那时父类「叫 `Object`」，
+  // 而 `super` 的家对象是**当前类自己**——所以这一格盖的不是名字，是**那一位**
+  //（见 `PendingFunction.SuperBase`；空名字与「根本没有家对象」在 `SuperStartSlot` 里分不开）。
   this.Pending[this.Pending.length - 1].SuperName = baseName;
+  this.Pending[this.Pending.length - 1].SuperBase = baseName === "";
 }
 if (this.Pending.length > 0 && allInstanceFields.length > 0) {
   // **字段初始化式挂在构造函数上**（第 128 轮）：它们要在那一帧里、`this` 上写属性。
@@ -7453,13 +7531,16 @@ for (let i = 0; i < members.length; i++) {
   // 而方法**以前没盖**——于是方法体里的 `super.m(...)` 一降级就报
   // 「outside a derived class method」（`InSuperName` 挂在排队函数上，空串就是不认识 `super`）。
   // **盖在 `LowerFunctionValue` 之后**：它就是 push 那一格，和构造函数那条路同一个手法。
-  if (baseName !== "") {
-    this.Pending[this.Pending.length - 1].SuperName = baseName;
-    // **静态那一半也盖上**（第 278 轮）：`super.v` / `super.m()` 的**起点**由它决定——
-    // 实例成员从 `父类.prototype` 起、静态成员从**父类自己**起。
-    // **构造函数永远是实例那一半**（`isStatic` 在这里恒为假，写在明处）。
-    this.Pending[this.Pending.length - 1].SuperStatic = isStatic;
-  }
+  // **基类（没有 `extends`）盖的是 `SuperBase` 那一位**（第 742 轮）：名字是空串，
+  // 可家对象照旧在（当前类自己）——两件事得分开，见 `PendingFunction.SuperBase`。
+  this.Pending[this.Pending.length - 1].SuperName = baseName;
+  this.Pending[this.Pending.length - 1].SuperBase = baseName === "";
+  // **静态那一半也盖上**（第 278 轮）：`super.v` / `super.m()` 的**起点**由它决定——
+  // 实例成员从 `父类.prototype` 起、静态成员从**父类自己**起。
+  // **它现在对基类也要盖**（第 742 轮）：基类静态成员的起点是 `Function.prototype`、
+  // 实例成员是 `Object.prototype`——不盖的话两者会走同一个 `get_proto` 层数。
+  // **构造函数永远是实例那一半**（`isStatic` 在这里恒为假，写在明处）。
+  this.Pending[this.Pending.length - 1].SuperStatic = isStatic;
   const target = isStatic ? ctor : proto;
   // **第 340 轮：类成员用「不可枚举」挂**（**实测撞到的**）：
   // JS 里**类的方法与访问器全是不枚举的**（`class A { m() {} }` 之后

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7974,
+  "total": 8017,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.9,
+  "progressPercent": 95.94,
   "categories": [
     {
       "category": "token",
@@ -90,22 +90,22 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2203,
-      "pass": 2154,
+      "total": 2211,
+      "pass": 2163,
       "blocked": 12,
-      "differ": 37,
+      "differ": 36,
       "nodefail": 0,
-      "coverage": 97.78
+      "coverage": 97.83
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 956,
-      "pass": 935,
+      "total": 991,
+      "pass": 970,
       "blocked": 2,
       "differ": 19,
       "nodefail": 0,
-      "coverage": 97.8
+      "coverage": 97.88
     },
     {
       "category": "stdlib",
@@ -1700,12 +1700,6 @@
       "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «undefined:undefined»"
     },
     {
-      "id": "exec/classes/probe693b-k32",
-      "category": "exec",
-      "title": "(function () { class A { m() { return super.toString ? \"has\" : \"no\"; } } return new A().m(); })()",
-      "detail": "stdout 不同：第 1 行：node «string:has» vs tsrun «string:no»"
-    },
-    {
       "id": "exec/classes/probe699-k-t12",
       "category": "exec",
       "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); class A { constructor() { this.a = 1; } } class B extends A { constructor() { let before; try { before = this.a; } catch (e) { b",
@@ -1835,7 +1829,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12684/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25216/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2063,7 +2057,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12684/src/5106.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25216/src/5149.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2087,7 +2081,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12684/src/5156.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25216/src/5199.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
