@@ -223,6 +223,26 @@ import { IsArgumentsValue } from "./inspect.xl.md"
 
 **指针那一处也要跟着改**（文末 `InstallArray` 的表）：`"toString"` 从 `ArrayJoin` 换成它。
 
+# const ArrayIteratorTake:int = 43
+
+**`it.take(n)`**（第 725 轮）——数组形状迭代器（`keys` / `values` / `entries`、`Map` / `Set`
+那三族）身上的**迭代器助手**之一。
+
+**它与 `map` / `filter` 那一批不是一回事**：那几个名字**恰好与 `Array.prototype` 同名**
+（迭代器就是数组 ⇒ 沿原型链命中的是数组那一格，语义上是**急切**的），
+而 `take` / `drop` / `toArray` **数组上没有**，于是原来三个都是 `undefined`
+（`cannot call a non-closure value`——听起来像「那个方法没做」）。
+JS 里这三格住在 `Iterator.prototype` 上。
+
+# const ArrayIteratorDrop:int = 44
+
+**`it.drop(n)`**（第 725 轮）——跳过前 `n` 格，交出**剩下的**（同一条形状）。
+
+# const ArrayIteratorToArray:int = 45
+
+**`it.toArray()`**（第 725 轮）——把**剩下的**收成一个**普通数组**（它**不是**迭代器，
+所以**不挂 `next`**）；接收者按「已经走完」推进（JS 里它会把接收者抽干）。
+
 # const ArraySplice:int = 25
 
 **`splice(起点, 删几个, …插进去的)`**（第 150 轮）——就地改、返回删掉的那些。
@@ -1644,6 +1664,61 @@ if (id === ArrayIteratorNext) {
   table.Recount(stepHandle);
   return step;
 }
+if (id === ArrayIteratorTake || id === ArrayIteratorDrop || id === ArrayIteratorToArray) {
+  // **迭代器助手 `take` / `drop` / `toArray`**（第 725 轮）。
+  //
+  // **它们在这一层为什么长这样**：本仓的迭代器**就是那个数组**（游标 `__i` 与 `next`
+  // 挂在它身上，见 `AttachArrayIterator`），所以三个助手都在**同一份数据**上做切片，
+  // 起点是**当下那个游标**（`it.next()` 走掉的那几格不再交出来——与 JS 的助手一致）。
+  //
+  // **接收者的游标按「这份结果被走完」推进**（一处写在明处的差别）：
+  // JS 的助手是**惰性**的（`it.take(2)` 不抽、被消费时才抽），而这一层拿不到
+  // 「等被消费」那个时机（`next` 是**挂在数组上**的一格能力，没有「结果迭代器」这个对象）。
+  // 于是这里**当场抽干**：`it.take(2)` 之后接收者已经走过 2 格、
+  // `it.drop(1)` 之后走到尾、`toArray()` 之后抽干。**消费掉结果的那条路两边一致**。
+  if (self.Tag !== ValueTag.Array) {
+    throw new TypeError("this method needs an array iterator receiver");
+  }
+  const cursorKey = Value.FromString(table.CreateString(Units("__i")));
+  const cursorAt = FindProperty(room, table, self.Ref, cursorKey);
+  if (cursorAt === null || cursorAt.Owner !== self.Ref) {
+    // **没有游标 ⇒ 这不是一个迭代器**（普通数组上取不到这三格，但原型被接到别处时会走到这里）。
+    throw new TypeError("this method needs an array iterator receiver");
+  }
+  const cursor = table.Get(self.Ref).Props[cursorAt.Index].Value.AsInt();
+  const items = table.Get(self.Ref).AsArray();
+  const total = items.GetLength();
+  const remaining = cursor < total ? total - cursor : 0;
+  // **`ToIntegerOrInfinity` 之后夹到 `[0, remaining]`**（负数当 0、超出当走完）。
+  let skip = 0;
+  let take = remaining;
+  if (id === ArrayIteratorTake) {
+    take = IntArgOr(room, call, protos, table, args, 0, 0);
+    if (take < 0) take = 0;
+    if (take > remaining) take = remaining;
+  } else if (id === ArrayIteratorDrop) {
+    skip = IntArgOr(room, call, protos, table, args, 0, 0);
+    if (skip < 0) skip = 0;
+    if (skip > remaining) skip = remaining;
+    take = remaining - skip;
+  }
+  const from = cursor + skip;
+  if (!room(ObjectCharge + ValueCharge * take + PropertyCharge * 5)) throw new Error("out of room");
+  const pickedHandle = table.CreateArray();
+  table.Get(pickedHandle).Proto = table.Get(self.Ref).Proto;
+  const picked = table.Get(pickedHandle).AsArray();
+  for (let i = 0; i < take; i++) {
+    picked.Push(items.GetAt(from + i));
+  }
+  table.Recount(pickedHandle);
+  table.Get(self.Ref).Props[cursorAt.Index].Value = Value.FromInt(from + take);
+  if (id === ArrayIteratorToArray) {
+    // **`toArray` 交的是一个普通数组**（不挂 `next`——JS 里它也不是迭代器）。
+    return Value.FromArray(pickedHandle);
+  }
+  AttachArrayIterator(room, table, pickedHandle);
+  return Value.FromArray(pickedHandle);
+}
 throw new Error("unimplemented: array builtin " + id);
 ```
 
@@ -1674,6 +1749,19 @@ SetHiddenProperty(room, table, Value.FromArray(handle),
 SetHiddenProperty(room, table, Value.FromArray(handle),
   Value.FromString(table.CreateString(Units("next"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIteratorNext, 0)));
+// **第 725 轮：三个「数组上没有」的迭代器助手也挂在这一处**——
+// 它们与 `next` 是同一件事的三个兄弟（都只对迭代器有意义），
+// 所以**挂的位置与挂的理由都相同**：`Array.prototype` 上没有这几个名字，
+// 挂在迭代器自己身上才既能让 `it.take(2)` 工作、又不污染普通数组。
+SetHiddenProperty(room, table, Value.FromArray(handle),
+  Value.FromString(table.CreateString(Units("take"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIteratorTake, 0)));
+SetHiddenProperty(room, table, Value.FromArray(handle),
+  Value.FromString(table.CreateString(Units("drop"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIteratorDrop, 0)));
+SetHiddenProperty(room, table, Value.FromArray(handle),
+  Value.FromString(table.CreateString(Units("toArray"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIteratorToArray, 0)));
 ```
 
 # method SpliceArray:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, target:HeapArray, targetRef:int, args:Array<Value>, length:int)=>int

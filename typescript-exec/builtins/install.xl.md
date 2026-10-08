@@ -10,7 +10,7 @@ import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
 import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask, PromiseThenableAdopt, ArrayFromAsyncValues, PromiseArrayFromStepId, PromiseArrayFromMapStepId, AsyncIterableValues, AsyncIterableStepId, WellKnownSymbolValue } from "./promise.xl.md"
 import { JsTextUnits, ValueText, PropertyKeyValue } from "./text.xl.md"
-import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext, ThisArgOf } from "./array.xl.md"
+import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext, ArrayIteratorTake, ArrayIteratorDrop, ArrayIteratorToArray, ThisArgOf } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, SpeciesGetterId, InstallDatePrototype, BoundCall, ReflectApply, ReflectConstruct, ReflectDefineProperty, ReflectDeleteProperty, ReflectGet, ReflectGetOwnPropertyDescriptor, ReflectGetPrototypeOf, ReflectHas, ReflectIsExtensible, ReflectOwnKeys, ReflectPreventExtensions, ReflectSet, ReflectSetPrototypeOf, DefineOwnFromDescriptor, PrototypeOfValue, MarkUnextensible, IsUnextensible, ObjectGetOwnPropertyNames, ObjectGetOwnPropertySymbols, ObjectGetOwnPropertyDescriptor } from "./globals.xl.md"
 import { InvokeMap, MapCtor, MapGroupBy, MapSizeGet, NameValue, ReadOwn, InstallMapPrototype, WeakMapCtor } from "./map.xl.md"
@@ -1472,7 +1472,8 @@ for (const slot of promiseSlots) {
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
   TemplateConcat,
   ObjectAssign, PowId, SetHiddenId, DefineDataId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
-  PromiseResolveCallbackId, PromiseRejectCallbackId, AsyncGeneratorSelf, GeneratorSelf, ArrayIteratorNext, SpeciesGetterId];
+  PromiseResolveCallbackId, PromiseRejectCallbackId, AsyncGeneratorSelf, GeneratorSelf, ArrayIteratorNext, SpeciesGetterId,
+  ArrayIteratorTake, ArrayIteratorDrop, ArrayIteratorToArray];
 for (let i = 0; i < helpers.length; i++) {
   // **登记失败要响亮**——**试过，又改回来了**（第 340 轮，账写在下面）。
   // 这一句原来不看返回值（规范原话是「不是静默忽略」）。这一轮把它改成

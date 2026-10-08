@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7759,
+  "total": 7766,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.06,
+  "progressPercent": 96.05,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3128,
-      "pass": 3057,
+      "total": 3135,
+      "pass": 3062,
       "blocked": 25,
-      "differ": 46,
+      "differ": 48,
       "nodefail": 0,
-      "coverage": 97.73
+      "coverage": 97.67
     },
     {
       "category": "e2e",
@@ -1877,7 +1877,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19236/src/3203.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27552/src/3203.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2045,7 +2045,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19236/src/4927.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27552/src/4927.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2069,7 +2069,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19236/src/4977.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27552/src/4977.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2220,6 +2220,18 @@
       "category": "stdlib",
       "title": "冻结的数组上 `sort` / `reverse`（原地改那两格）",
       "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «sorted:1,2,3»"
+    },
+    {
+      "id": "stdlib/round725/p725a-b01",
+      "category": "stdlib",
+      "title": "迭代器**就是数组**那一格（第 725 轮登记的模型差）",
+      "detail": "stdout 不同：第 1 行：node «false Iterator false» vs tsrun «true Array true»"
+    },
+    {
+      "id": "stdlib/round725/p725a-b02",
+      "category": "stdlib",
+      "title": "`Iterator` 这个全局对象没登记（第 725 轮登记的缺口）",
+      "detail": "stdout 不同：第 1 行：node «function» vs tsrun «undefined»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",
