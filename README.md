@@ -167,15 +167,13 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   `Value` 说是什么、`Range` 说在哪，`Set` 一次写两样 ⇒ **区间在 ⟺ 记过**（`IsSet`）。
   需要「开括号在哪、整对括号到哪」这类**成对位置**的 token 都走这一格
   （`Try` 的 `TryBrace`、`IfSegment` 的 `BodyBrace`，以及 `For` / `Foreach` / `While` /
-  `DoWhile` 的 `BodyBrace`——第 641 轮收齐）——投影那一侧**直读字段**，
+  `DoWhile` 的 `BodyBrace`）——投影那一侧**直读字段**，
   不再回原文 `indexOf` + `MatchingBrace` 重扫一遍（那种二次搜刮遇到块里的字符串或注释里的
-  假括号就会给错位置）。同一条线上的还有 `Namespace` 的**名字那一格**
-  与声明名的 `NameStart` / `NameEnd`：`Namespace.NameAt` / `NameEnd` / `NameRange` 三种名字共用
-  （引号模块名指向那个 `String` 单元、`global` 指向那个词、标识符名与点号名的**每一段**指向那一段），
-  投影只按那一格自己推文本区间（开头是引号 ⇒ 取引号之间），
-  点号名的全名在原文里根本不连续，所以那里**不能再有第二份答案**。
+  假括号就会给错位置）。同一条线上的还有**声明名那一格**：`NameAt` / `NameEnd` / `NameRange`
+  或 `NameStart` / `NameEnd`，投影只按那一格自己推文本区间（开头是引号 ⇒ 取引号之间），
+  字符串名与点号模块名都不再回原文猜（点号名的全名在原文里根本不连续，那里**不能再有第二份答案**）。
   这是「token 直出 AST」那条线的落点：**判据只算一次，投影不做第二次近似**——
-  全语料里投影回原文猜名字的次数从 **1324 处降到 0 处**（第 645 / 646 轮，见
+  全语料里投影回原文猜名字的次数从 **1324 处降到 0 处**（见
   [print-ast-common.xl.md](typescript/print-ast-common.xl.md) 的 `synthName`）。
 
 ## 支持的语法构造
@@ -234,8 +232,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 ### 叶子标签的名字
 
-三个「字面量块」原先叫 `Common` / `Symbol` / `WrapSymbol`——名字说的是**实现**（通用字符块、符号块、包装符号），
-不是**语义**。现在按它到底是什么命名，下游（差分脚本、多语言目标）读产物时不必先查表：
+标签按**语义**命名，不按实现——下游（差分脚本、多语言目标）读产物时不必先查表：
 
 | 标签 | 是什么 |
 | --- | --- |
@@ -323,24 +320,20 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   `const [[a, b], [, c = 0]] = m` 记成 `a,b,c,0`。
 - **语言配置带来的两处差异**（不是解析器缺陷，是这套语言这么定义）：
   `\a` 解成响铃字符而不是字母 `a`；`@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器。
-- **非空断言的成员链后面再接两个以上的 `+` 与字符串**（第 638 轮缩过一次）：
+- **非空断言的成员链后面再接两个以上的 `+` 与字符串**：
   `o.a!.toString() + "x" + "y"` 里**第一个 `+`** 折不出来，后面那个 `"y"` 于是被当成成员链收走。
   `o.a.toString() + "x" + "y"`（没有 `!`）、`o.a! + "x"`、`f() + "x" + "y"` 三种**都是好的**——
   触发条件是「`!` 断言的成员链 + 一次调用，再接两个以上的 `+`」。
-  同族的两条已经修掉（`!` 后面跟 `.` 被误判成明确赋值断言、调用结果接字符串被误当成模板标签），
-  用例在 [`ex-nonnull-member-chain.ts`](tests/parse/cases/expressions/ex-nonnull-member-chain.ts) 与
-  [`ex-call-plus-string-chain.ts`](tests/parse/cases/expressions/ex-call-plus-string-chain.ts)；
-  剩下这一档还没定位到是哪条收尾规则抢跑，细节见
-  [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
+  用例 [`ex-nonnull-member-chain.ts`](tests/parse/cases/expressions/ex-nonnull-member-chain.ts)；
+  还没定位到是哪条收尾规则抢跑，细节见 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
 - **块与表达式之间没有分隔符时**（`{ A }a += 1`：块紧跟着表达式，中间既没有 `;` 也没有换行），
   产物里块与后一条语句仍然**并进同一个 `<Statement>`**（与 TypeScript 的「两条语句」不一致）——
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
-  所以 `cases:tsast` 是绿的（形状那一层已经对了，token 树那一层没动）。
-  **被否决的改法**：把块当语句边界——切断了复合赋值的展开，**整段内容丢失**，比边界不合严重；
-  不要再试。两条形状已经收进用例语料。
+  所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
+  **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
 - **对象字面量里三个「语句关键字」当成员名**（`{ if(): T {…} }` / `{ function(): T {…} }` /
-  `{ import(): T {…} }`）：其余三十来个保留字（`return` / `throw` / `delete` / `new` / `typeof` …）
-  第 640 轮已经修好并进了语料（[`expr-object-keyword-method-names.ts`](tests/parse/cases/expressions/expr-object-keyword-method-names.ts)），
+  `{ import(): T {…} }`）：其余三十来个保留字都是好的
+  （[`expr-object-keyword-method-names.ts`](tests/parse/cases/expressions/expr-object-keyword-method-names.ts)），
   这三个被更早的规则 / 解析期向导抢走，细节与「试过什么」见
   [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
 
@@ -420,7 +413,7 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
 - **XML 属性名就是从 class 属性名来的**：`Class` 上那个 `name` 属性的值，就是产物里 `name="…"` 的值。
   所以想改产物上的属性名，就改规范里的字段名与 `ToXmlString` 里那处拼串，两处必须一起动——
   只在拼串里改名，会留下 `this.FieldName` 与 `name="…"` 对不上的产物。
-- 改完跑这几步（第 200 轮收窄后的全部判据）：
+- 改完跑这几步（也可以直接 `npm run gates` 一次跑完七道门）：
 
   ```bash
   xl check                     # 结构与规则检查（应该是 0 error / 0 warning）

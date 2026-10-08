@@ -32,11 +32,11 @@
 
 ## 这一层没有开着的缺口
 
-覆盖矩阵里 **`blocked` 0 条、`differ` 0 条**。收尾那几轮修的是**引擎**的账
+覆盖矩阵里 **`blocked` 0 条、`differ` 0 条**。收尾修过的那些都在**引擎**那一侧
 （挂起帧的处理点栈、`finally` 传值那一跳、严格代码的 `this` / 计算键的名字 / 迭代器的 `return()`），
 根因与现场在 git 历史里，不在这里重述。
 
-`tests/parse/` 那一侧（token 层与投影）**还有三条探针量出来的缺口**，
+`tests/parse/` 那一侧（token 层与投影）**还有四条探针量出来的缺口**，
 根因与修法方向写在 [docs/typescript-parsing-gaps.md](../docs/typescript-parsing-gaps.md)——
 它们不在语料里，所以七道门不受影响。
 
