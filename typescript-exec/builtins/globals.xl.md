@@ -5350,6 +5350,23 @@ if (id === ObjectGetOwnPropertyNames) {
       if (text === "length" && (nameTarget.Tag === ValueTag.Array || nameTarget.Tag === ValueTag.String)) {
         continue;
       }
+      // **私有字段不是一个属性名**（第 737 轮）：降级层把 `#p` 存进属性表
+      //（`lowering.xl.md` 的 `set_hidden`：值找得到、**不可枚举**——`Object.keys` /
+      // `JSON.stringify` 那一侧看不见它），可 `Object.getOwnPropertyNames` 这一支
+      // **恰恰不管 `enumerable`** ⇒ `class A { #p = 1 }` 的实例列出 `["#p"]`，
+      // 而 Node 给 **`[]`**（判据 `p736c-c03`，第 736 轮登记的缺口）。
+      // **判定放在这一层是对的**：`#` 是 TypeScript 的语法，引擎不认识它
+      //（与降级层那句「不要往 heap / props 里散布 `#` 开头的键特殊」同一条）。
+      //
+      // **两问一起问，少一问就答错另一档**：只看「以 `#` 开头」会把**用户的**
+      // `{ "#p": 9 }` 也藏掉（那是一个**真的**自有属性名，JS 给 `["#p"]`）——
+      // 所以还要问「**是不是降级层那一格**」，而那一格的标志位是
+      // `SetHiddenProperty` 的缺省（可写 + 可配置 + **不可枚举**）。
+      // **代价写在明处**：`Object.defineProperty(o, "#p", { value: 1 })`（不可枚举）
+      // 会被一起藏掉——那是这一层能拿到的唯一线索，而它盖住的是**语法上的私有名**。
+      if (text.startsWith("#") && !nameItem.Props[i].IsEnumerable()) {
+        continue;
+      }
       if (IsIndexKeyText(text)) {
         let coveredName = false;
         for (let k = 0; k < nameIndexPositions.length; k++) {

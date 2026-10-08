@@ -169,7 +169,7 @@ JSON 也跟着漏出去（**静默错值**，普查里 `map-internal-slots` 那�
 SetHiddenProperty(room, table, self, NameValue(table, name), value);
 ```
 
-# method InstallMapMethods:(room:RoomChecker, table:HeapTable, map:Value)=>void
+# method InstallMapMethods:(room:RoomChecker, table:HeapTable, map:Value, weak:bool = false)=>void
 
 **把方法挂到一个对象上**（每个值都是带本模块号的宿主引用）。
 
@@ -183,9 +183,28 @@ SetHiddenProperty(room, table, self, NameValue(table, name), value);
 （方法的每一处都读 `self.__k` ⇒ 行为一个字都不变）。
 **函数体不必改**：它收的本来就是 `self`，不是「自己身上那几格方法」。
 
+**第 737 轮多收一格 `weak`**（原来这一格是「Map 与 WeakMap 共用同一张表」⇒
+`WeakMap.prototype` 上多挂了 `keys` / `values` / `entries` / `clear` / `forEach`
+五格，第 733 轮**写在明处**当已知差）。实测 Node：
+
+| 原型 | `Object.getOwnPropertyNames` |
+| --- | --- |
+| `Map.prototype` | `constructor,set,get,has,delete,keys,values,entries,clear,forEach,size` |
+| `WeakMap.prototype` | **`constructor,delete,get,set,has`** |
+| `WeakMap.prototype.keys` | **`undefined`**（不是函数） |
+| `WeakMap.prototype.size` | `undefined` |
+
+所以 `WeakMap.prototype` 只该有**四格方法**。**为什么不是「另写一个方法」**：
+那会变成两张会漂的名单（`Map` 那九格改了、`WeakMap` 那五格忘了），
+而**分界只有一条**——「这个方法在 `WeakMap` 上有没有」。所以它是这一格的**第四个形参**。
+**挂不上去的那些不是缺功能**：`wm.keys` 在 JS 里报的就是 `TypeError`
+（`wm.keys is not a function`），本仓同一句话（`cannot call a non-closure value`）——
+**响亮地抛**，不是静默少挂一格。
+
 ```ts
-const ids = [MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapEntries, MapClear,
-  MapForEach];
+const ids = weak
+  ? [MapSet, MapGet, MapHas, MapDelete]
+  : [MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapEntries, MapClear, MapForEach];
 for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   WriteOwn(room, NeverCall, table, map, MethodNameOf(ids[i]), fn);
@@ -234,14 +253,14 @@ DefineAccessor(vm.Room(), vm.Table, proto, NameValue(vm.Table, "size"),
 // 那样五格名字都取得到，**但 `WeakMap.prototype.size` 会跟着继承过来**
 //（JS 里是 `undefined`）——静默的「一半对」，所以链改回并列、方法在这里补一份。
 //
-// **`size` 那一格故意不挂**：`WeakMap` 没有 `size`
-//（`Object.getOwnPropertyNames(WeakMap.prototype)` 在 Node 里是
-//  `constructor,delete,get,set,has`——**五格**）。其余几格（`clear` / `forEach` /
-// `keys` / `values` / `entries`）是 `Map` 独有的，本仓沿用第 295 轮的口径
-//（`WeakMap` 与 `Map` **共用同一张表**、只多一条「键必须是对象」的判据），
-// 所以那几格照旧挂上去——**记在明处**（`Object.getOwnPropertyNames` 那一格与 Node 不同）。
+// **`WeakMap.prototype` 故意不挂那五格**（第 737 轮，`weak: true`）：
+// `Object.getOwnPropertyNames(WeakMap.prototype)` 在 Node 里是 `constructor,delete,get,set,has`
+// ——**五格**，`keys` / `values` / `entries` / `clear` / `forEach` 一个都不在
+//（`new WeakMap().keys` 就是 `TypeError`）。第 733 轮把这一条**写在明处**当已知差，
+// 这一轮收掉：**多挂的那五格是「静默多给了功能」**（脚本会以为 `wm.forEach` 能用）。
+// `size` 那一格照旧不挂（`WeakMap` 没有 `size`）。
 // `constructor` 由 `globals.xl.md` 挂（它手上才有 `WeakMap` 那个全局值）。
-InstallMapMethods(vm.Room(), vm.Table, Value.FromObject(protos.WeakMap));
+InstallMapMethods(vm.Room(), vm.Table, Value.FromObject(protos.WeakMap), true);
 // **那五格的名字与形参个数**（第 733 轮）——与 `Map.prototype` 上那一份**同一个来源**
 //（`MethodNameOf` + `BuiltinArity`），所以两处不会漂。
 //
@@ -260,9 +279,19 @@ for (let i = 0; i < weakNamedIds.length; i++) {
   const namedKey = NameValue(vm.Table, namedName);
   // **两张表都要走一遍**（`Map.prototype` 与 `WeakMap.prototype`）——
   // 第 733 轮之前**两处都是空的**（`Map.prototype.get.name` 在 Node 里是 `"get"`，本仓给 `""`）。
-  const owned = ReadOwn(NeverRoom, vm.Table, Value.FromObject(protos.WeakMap), namedName);
-  if (owned.Tag === ValueTag.HostRef) {
-    DefineBuiltinName(vm.Room(), vm.Table, owned, namedName, BuiltinArity(weakNamedIds[i]));
+  //
+  // **`WeakMap` 那一半要「找不到就跳过」**（第 737 轮，**实测撞到的**）：
+  // 这一格原来借的是 `ReadOwn`，而 `ReadOwn` 的判据是「**缺这一格就抛**」
+  //（它是给实例读写用的，那一句是有意的）——`WeakMap.prototype` 上不再有
+  // `keys` / `values` / `entries` / `clear` / `forEach` 之后，**装库当场抛**
+  //（`unimplemented: not a Map receiver (no keys)`，整份脚本一行都没跑）。
+  // 所以这里换成与下面 `Map` 那一半**同一形状**的「`FindProperty` + 判空」。
+  const weakFound = FindProperty(NeverRoom, vm.Table, protos.WeakMap, namedKey);
+  if (weakFound !== null) {
+    const owned = ReadProperty(NeverCall, vm.Table, weakFound, Value.FromObject(protos.WeakMap));
+    if (owned.Tag === ValueTag.HostRef) {
+      DefineBuiltinName(vm.Room(), vm.Table, owned, namedName, BuiltinArity(weakNamedIds[i]));
+    }
   }
   const onMapProto = FindProperty(NeverRoom, vm.Table, protos.Map, namedKey);
   if (onMapProto !== null) {

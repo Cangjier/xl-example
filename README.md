@@ -1184,6 +1184,46 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7483 / 7827 → 7504 / 7853**、`blocked 258`（没涨）、`differ 91`
   （`+5` 是本轮登记的缺口、`-4` 是收掉的四格）、`bad` 0、`regressions` 0，加权 **96.1%**。
 
+### 第 737 轮：迭代协议那一层——两格收掉、`yield` 后面跟逻辑运算符那一格登进来（coverage 7504/7853 → **7531/7886**）
+
+这一轮的普查问的是**迭代协议**（36 条：数组 / 字符串 / `Map` / `Set` 的迭代器、
+**码点迭代**、生成器的四种交互、`async` 与 `for await`、`Promise` 的形状），
+29 条当场 pass、7 条没过，其中两条是**这一轮能收的**。
+
+- **`WeakMap.prototype` 多挂了五格**（`p737d-d01`，**静默多给了功能**）：
+  第 733 轮把 `WeakMap.prototype` 做成**并列的另一格对象**，可那五格
+  `keys` / `values` / `entries` / `clear` / `forEach` 是 `Map` 独有的——
+  实测 Node 的 `Object.getOwnPropertyNames(WeakMap.prototype)` 是
+  **`constructor,delete,get,set,has`**（五格），`new WeakMap().keys` 就是 `TypeError`。
+  收法是给 `InstallMapMethods` **加第四个形参 `weak`**（分界只有一条，不另写一张名单）。
+  **顺带撞出来的第二处**：那一趟的「挂名字」借的是 `ReadOwn`，而它是「**缺这一格就抛**」
+  ⇒ 少挂五格之后**装库当场抛**（`not a Map receiver (no keys)`，整份脚本一行都没跑）——
+  换成与 `Map` 那一半同一形状的「`FindProperty` + 判空」。
+- **私有字段不是一个属性名**（`p737d-d02`，第 736 轮登记的缺口）：
+  降级层把 `#p` 存进属性表（不可枚举），而 `Object.getOwnPropertyNames` 这一支
+  **恰恰不管 `enumerable`** ⇒ 实例列出 `["#p"]`，Node 给 `[]`。
+  收法是那一趟加一句过滤，**两问一起问**：以 `#` 开头 **且** 不可枚举
+  （只看开头会把用户真的 `{ "#p": 9 }` 也藏掉；只看不可枚举又收不掉它）。
+  代价写在明处：`defineProperty(o, "#p", …)` 那种不可枚举的会被一起藏掉。
+- **`yield` 后面跟逻辑运算符**（`p737b-b06`，**新登的缺口**）：`yield 1 && 2`
+  **整份文件跑不进来**（`name is not a local or a capture: yield`）——
+  投影出来的是 `BinaryExpression(left: Identifier "yield", &&, 2)`，
+  那个 `1` 一个字都没留下。**分界是运算符的类**：`yield 1 + 2` / `yield a ? b : c` /
+  `yield arr.length` 都对，只有逻辑那一族（`&&` / `||` / `??`）出这一格
+  ——它们在 token 层是 `LogicalOperator` 那一支，链子成形时把前面的 `yield` 单元
+  当成了自己的左操作数（JS 的读法是**整条链待在 `yield` 的操作数格里**）。
+- **同一批又量到四条老根**（都登在已有的账上，**不重复登记**，只把新排版收进语料）：
+  **迭代器就是那个数组**那一族（`[1,2].values()` 的 `JSON.stringify` / `Array.isArray`、
+  取出 `next` 再 `call` 不推进游标——与 `p725a-b01` 同根）、
+  **未启动的生成器上 `it.return(9)`**（与 `probe694-g04` 同根，第 713 轮 128 条回归那一条）、
+  **`await` 一个 thenable 不调它的 `then`**（与 `runtime/async/041-await-thenable` 同根），
+  以及**承诺续链的微任务格数与 Node 差一格**（`finally` 之后那一档早一格、
+  `await` 已拒绝承诺走 `catch` 那一档晚一格——两支的读数都写进 `xl:why`）。
+- **新语料 33 条**（`stdlib` 7 / `runtime` 19 / `exec` 7），另把第 736 轮
+  `p736c-c03` 的台账撤掉（它转绿了）。
+- 五类 **7504 / 7853 → 7531 / 7886**、`blocked 258 → 259`、`differ 91 → 96`
+  （`+6` 新登记、`-1` 收掉）、`bad` 0、`regressions` 0，加权 **96.0%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1196,8 +1236,8 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **229 份**（用例 1405 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7504 / 7853**，加权 **96.1%**：token 1189/1405、exec 2124/2172、runtime 861/873、stdlib 3088/3157、e2e 242/246。差的那些是**真缺口**（`blocked` 258 / `differ` 91），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~37s**） |
+| `coverage` | **五类 7531 / 7886**，加权 **96.0%**：token 1189/1405、exec 2130/2179、runtime 876/892、stdlib 3094/3164、e2e 242/246。差的那些是**真缺口**（`blocked` 259 / `differ` 96），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~36s**） |
 ### 口径与已知缺口
 
 **口径外**（不进分母，也不当缺口）只剩两种：**JSX / TSX**（独立于 TypeScript 的语法扩展）
