@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7954,
+  "total": 7974,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.01,
+  "progressPercent": 95.9,
   "categories": [
     {
       "category": "token",
@@ -90,22 +90,22 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2197,
-      "pass": 2149,
+      "total": 2203,
+      "pass": 2154,
       "blocked": 12,
-      "differ": 36,
+      "differ": 37,
       "nodefail": 0,
-      "coverage": 97.82
+      "coverage": 97.78
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 942,
-      "pass": 925,
-      "blocked": 1,
-      "differ": 16,
+      "total": 956,
+      "pass": 935,
+      "blocked": 2,
+      "differ": 19,
       "nodefail": 0,
-      "coverage": 98.2
+      "coverage": 97.8
     },
     {
       "category": "stdlib",
@@ -1506,6 +1506,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
     },
     {
+      "id": "runtime/round741/p741a-a09",
+      "category": "runtime",
+      "title": "可选调用**返回函数**再调用",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1829,7 +1835,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15672/src/3204.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12684/src/3204.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1896,6 +1902,12 @@
       "category": "exec",
       "title": "异步函数里 `throw` 与 `return await` 的形状",
       "detail": "stdout 不同：第 2 行：node «c:r» vs tsrun «h inner string»"
+    },
+    {
+      "id": "exec/round741/p741b-b05",
+      "category": "exec",
+      "title": "降级层：`?.[]` 之后的调用",
+      "detail": "stdout 不同：第 1 行：node «1 1» vs tsrun «[Function: m] 1»"
     },
     {
       "id": "exec/statements/probe693b-s30",
@@ -1994,10 +2006,28 @@
       "detail": "stdout 不同：第 1 行：node «fin» vs tsrun «pass keep»"
     },
     {
-      "id": "runtime/round739/p739a-a14",
+      "id": "runtime/round741/p741a-a02",
       "category": "runtime",
-      "title": "`await` 与 `as` / 非空断言 / 可选链",
-      "detail": "stdout 不同：第 4 行：node «3» vs tsrun «[object Promise]1»"
+      "title": "`?.[]` 之后的调用与再取成员",
+      "detail": "stdout 不同：第 1 行：node «{ v: 2 } 2» vs tsrun «[Function: m] [Function: m]»"
+    },
+    {
+      "id": "runtime/round741/p741a-a03",
+      "category": "runtime",
+      "title": "可选调用接在**普通成员链**后面",
+      "detail": "stdout 不同：第 2 行：node «undefined 3» vs tsrun «undefined undefined»"
+    },
+    {
+      "id": "runtime/round741/p741a-a06",
+      "category": "runtime",
+      "title": "可选调用接在**await** 后面",
+      "detail": "stdout 不同：第 1 行：node «Promise { 4 }» vs tsrun «{}»"
+    },
+    {
+      "id": "runtime/round741/p741a-a07",
+      "category": "runtime",
+      "title": "可选调用与**二元**的排布",
+      "detail": "stdout 不同：第 3 行：node «3» vs tsrun «{ m: [Function: m] }»"
     },
     {
       "id": "stdlib/array/143-getter-array-index",
@@ -2033,7 +2063,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15672/src/5086.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12684/src/5106.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2057,7 +2087,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15672/src/5136.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12684/src/5156.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",

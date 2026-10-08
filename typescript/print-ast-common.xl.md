@@ -2292,14 +2292,22 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       }
       let opAt = -1;
       for (let at = 0; at < flat.length; at++) {
-        if (!isOperatorUnit(flat[at], ctx)) continue;
+        const unit = flat[at];
+        // **运算符单元本身也是切点**（第 741 轮）：`await o?.p + 1` 里那个
+        // `BinaryOperator` 单元的**第一个孩子是链的续接**（`?.p`），它就是 `await`
+        // 该停的地方（摊平那一趟只摊**头一格**，所以它留在了 `flat` 里）。
+        if (isOperatorFold(unit)) {
+          opAt = at;
+          break;
+        }
+        if (!isOperatorUnit(unit, ctx)) continue;
         // **`.` 不是切点**（第 740 轮，**实测踩过一次**）：`typeof (await Promise.resolve("s"))`
         // 里那对括号的子单元是**平铺的一串**（`[await, Promise, ., resolve(…)]`，链没折成
         // `PropertyAccess` 单元）——把那个 `.` 当成运算符切开会折出
         // `(await Promise) . resolve`，降级期报 `name is not a local or a capture: resolve`。
         // 它是**成员访问的续接**、不是二元运算符，跳过它之后这一支自然回落到老路
         //（老路把 `[Promise, ., resolve(…)]` 折成一条链，正是要的形状）。
-        if (textOfNode(flat[at], ctx) === ".") continue;
+        if (textOfNode(unit, ctx) === ".") continue;
         opAt = at;
         break;
       }
@@ -2329,6 +2337,34 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
             end: operand.end,
           };
           return foldBinaryFrom(awaited, tail, ctx);
+        }
+      }
+      // **`await` 的操作数是一条 `?.` 链、而那个运算符单元把链的续接装在自己第一个孩子里**
+      // （第 741 轮，收掉第 739 轮登记的 `p739a-a14`）：`await o?.p + 1` 的产物是
+      // `[Keyword(await), Identifier(o), BinaryOperator(+( NCO(p), +, 1 ))]`——
+      // `?.p` 属于 **`await` 的操作数**那一截链（JS 里是 `(await (o?.p)) + 1`），
+      // 而它在那个二元单元的**第一个孩子**位置上（与 `t?.get(k) ?? d` 那一族同一形状）。
+      // 少了这一支，老路会把 `?.p` 接到**整个 `await` 节点的结果**上（`(await o)?.p`）⇒
+      // 本仓给 `[object Promise]1`、Node 给 `3`（**静默错值**）。
+      if (tail.length === 1 && isOperatorFold(tail[0])) {
+        const inner = projectableKids(view(tail[0]));
+        if (inner.length >= 2 && inner[0].get("type") === "NullConditionalOperator") {
+          const base = projectExpression(flat.slice(0, opAt), ctx);
+          if (base !== undefined) {
+            let chained = chainWithOptional(base, inner[0], ctx);
+            let chainAt = 1;
+            while (chainAt < inner.length && inner[chainAt].get("type") === "NullConditionalOperator") {
+              chained = chainWithOptional(chained, inner[chainAt], ctx);
+              chainAt += 1;
+            }
+            const awaited = {
+              kind: "AwaitExpression",
+              expression: chained,
+              pos: startOf(kids[0]),
+              end: chained.end,
+            };
+            return foldBinaryFrom(awaited, inner.slice(chainAt), ctx);
+          }
         }
       }
       const value = projectExpression(kids.slice(1), ctx);
