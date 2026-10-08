@@ -1818,6 +1818,59 @@ Node 在 `TZ=UTC` 下与本仓逐字节相同）。
 所以要先 `+4` 再取模）——**这个偏移写错就是静默错一天**，判据 `date-getters-and-setters`
 钉着它。
 
+# const DateToUTCString:int = 680
+
+**`toUTCString` / `toGMTString`**（第 702 轮）——`DateIsoText` 的**可读**那一种拼法。
+
+**为什么它可以做、而 `toDateString` / `toLocaleString` 不行**：UTC 那一种是
+**与时区、区域表都无关**的固定拼法（`Thu, 02 Jan 2020 03:04:05 GMT`），判据逐字节对得上；
+而 `toDateString` 要**本地时区**与**星期/月份英文名**、`toLocaleString` 要**一张区域表**
+（`2020/1/2 11:04:05` 是 ICU 给的形状）——两者都是另一件事
+（前者登在 `stdlib/date/040-r676-std-date-todatestring` 的台账里，后者与 `Intl` 整族一起没做）。
+**`toGMTString` 与它是同一个号**：JS 里那一格就是 `toUTCString` 的**别名**
+（规范直接指过去），写第二份实现就是第二份会漂的答案。
+
+**号为什么落在这里**（`680`）：**`700..799` 是对象辅助函数那一段**
+（`install.xl.md` 的 `InvokeObjectHelper` **先接走**，见 `ObjectToLocaleString` 那一段的账），
+`709..712` 那几格（生成器三格 + `SpeciesGetterId`）也在里面。
+**第一版把这一批排在 `713..717`**，于是 `d.getTimezoneOffset()` 报
+**`unimplemented: object helper 714`**、`d.toUTCString()` 报
+**`define_data needs (object, key, value)`**——**号撞了**，而症状里没有一个字提到号
+（与第 280 轮 `DateUTC` 撞上 `TypeErrorCtor`、第 150 轮 `ArrayAt` 撞上 `ArrayFlat` 同一个形状）。
+`680..684` 是这一段**空着**的格子，且**不在**那道拦截后面。
+
+# const DateGetTimezoneOffset:int = 681
+
+**`getTimezoneOffset`**（第 702 轮）。
+
+**本仓给 `0`**——这是**本仓那条一贯的口径**，不是「没做」：本仓的**本地时间就是 UTC**
+（`InstallDateMethods` 那一段写着：本地那一族 getter 与 UTC 共用同一个号，
+所以「构造用哪个口径、读取就用哪个口径」自洽）。`getTimezoneOffset` 若去答机器的
+真时区，`d.getHours()` 与 `d.getTimezoneOffset()` 就**互相矛盾**了
+（前者按 UTC、后者按 UTC+8）。
+**代价写在明处**：Node 在同一台机器上给 `-480`，所以「拿它算本地时间」的程序
+在本仓会得到一个与 Node 不同的偏移——那一格登在
+`stdlib/date/039-r676-std-date-gettimezoneoffset` 的台账里
+（判据只钉「是个在 `[-1440, 1440]` 里的整数」，那一档两边都真）。
+
+# const DateGetYear:int = 682
+
+**`getYear`**（第 702 轮）——`getFullYear() - 1900`（JS 的**废弃**成员，
+可它实实在在在 `Date.prototype` 上，`Object.getOwnPropertyNames` 数得出来）。
+
+# const DateSetTime:int = 683
+
+**`setTime`**（第 702 轮）——**把 `__t` 直接写成给的那个毫秒数**，返回它。
+
+**它不走 `DateMakeMs`**：JS 的 `setTime` 就是「换一个时间值」，不做日历分解
+（`setTime(NaN)` 于是把实例变成 Invalid Date——与那七个字段 setter 不是一回事）。
+
+# const DateSetYear:int = 684
+
+**`setYear`**（第 702 轮）——**`0..99` 要加 1900**，与 `new Date(年, …)` / `Date.UTC`
+那两条**一字不差**（`d.setYear(99)` 给 1999 年，而 `d.setFullYear(99)` 给公元 99 年——
+**两格差 1900 年**，正是这一条规矩存在的理由）。
+
 # const ReferenceErrorCtor:int = 326
 
 **`ReferenceError`**（第 295 轮）——号**追加在表尾**（`280..283` 那一段已经占了四个）。
@@ -4813,6 +4866,71 @@ if (id === DateToISOString || id === DateToJSON) {
   if (!room(ObjectCharge + CodeUnitCharge * isoText.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units(isoText)));
 }
+if (id === DateToUTCString) {
+  // **`toUTCString`（`toGMTString` 同一个号）**（第 702 轮）——与 `toString` 同一支的形状：
+  // 读 `__t` → 非法日期给 `"Invalid Date"` → 否则按 **UTC** 拼那一段可读文本。
+  // **它不生造拼法**：`DateIsoText` 已经把 `YYYY-MM-DDTHH:mm:ss.sssZ` 拼好了，
+  // 这里只把同一份数字**换个排列**（见 `DateUtcText`）——星期与月份的英文名是**一张常数表**，
+  // 不是区域表（UTC 那一种拼法在规范里就是固定的）。
+  const utcStored = FindProperty(room, table, self.Ref,
+    Value.FromString(table.CreateString(Units("__t"))));
+  if (utcStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  const utcMs = NumericOf(table.Get(utcStored.Owner).Props[utcStored.Index].Value);
+  if (utcMs !== utcMs) {
+    if (!room(ObjectCharge + CodeUnitCharge * 12)) throw new Error("out of room");
+    return Value.FromString(table.CreateString(Units("Invalid Date")));
+  }
+  const utcText = DateUtcText(utcMs);
+  if (!room(ObjectCharge + CodeUnitCharge * utcText.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(Units(utcText)));
+}
+if (id === DateGetTimezoneOffset) {
+  // **本仓的本地时间就是 UTC ⇒ 偏移恒为 `0`**（理由见号那一段）。
+  // 仍然是**实例方法**：不是 Date 接收者要照样抛（与其余 getter 同一道门）。
+  const tzStored = FindProperty(room, table, self.Ref,
+    Value.FromString(table.CreateString(Units("__t"))));
+  if (tzStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  return Value.FromInt(0);
+}
+if (id === DateGetYear) {
+  // **`getYear()` = `getFullYear() - 1900`**（第 702 轮）——非法日期那一档照其余 getter：
+  // 给 `NaN`（Node 给 `NaN`，不抛）。
+  const yearStored = FindProperty(room, table, self.Ref,
+    Value.FromString(table.CreateString(Units("__t"))));
+  if (yearStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  const yearMs = NumericOf(table.Get(yearStored.Owner).Props[yearStored.Index].Value);
+  if (yearMs !== yearMs) return Value.FromDouble(NaN);
+  return Value.FromInt(DateParts(yearMs)[0] - 1900);
+}
+if (id === DateSetTime) {
+  // **`setTime(t)`：直接把 `__t` 换成 `ToNumber(t)`**（第 702 轮）——
+  // **不拆日历**（与那七个字段 setter 不是一回事）：`setTime(NaN)` 于是把实例变成
+  // Invalid Date，而那正是 JS 的口径。返回换上去的那个数。
+  const timeStored = FindProperty(room, table, self.Ref,
+    Value.FromString(table.CreateString(Units("__t"))));
+  if (timeStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  const asked = args.length > 0 ? ToNumberOf(room, call, protos, table, args[0]) : NaN;
+  table.Get(timeStored.Owner).Props[timeStored.Index].Value = Value.FromDouble(asked);
+  return Value.FromDouble(asked);
+}
+if (id === DateSetYear) {
+  // **`setYear(y)`：`0..99` 加 1900**（第 702 轮）——与 `new Date(年, …)` / `Date.UTC`
+  // 那两条**一字不差**（`setFullYear(99)` 给公元 99 年，而 `setYear(99)` 给 1999 年）。
+  // **月与日不动**（JS 的口径：`setYear` 只换年那一格）。
+  const setYearStored = FindProperty(room, table, self.Ref,
+    Value.FromString(table.CreateString(Units("__t"))));
+  if (setYearStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  const setYearMs = NumericOf(table.Get(setYearStored.Owner).Props[setYearStored.Index].Value);
+  const askedYear2 = args.length > 0
+    ? IntOfNumberStrict(ToNumberOf(room, call, protos, table, args[0])) : -2147483648;
+  const yearBits = DateParts(setYearMs);
+  const clock2 = DateClockParts(setYearMs);
+  const fixedYear = askedYear2 >= 0 && askedYear2 <= 99 ? askedYear2 + 1900 : askedYear2;
+  const nextYearMs = DateMakeMs(fixedYear, yearBits[1], yearBits[2],
+    clock2[0], clock2[1], clock2[2], clock2[3]);
+  table.Get(setYearStored.Owner).Props[setYearStored.Index].Value = Value.FromDouble(nextYearMs);
+  return Value.FromDouble(nextYearMs);
+}
 if (id === DateSetUTCFullYear || id === DateSetUTCMonth || id === DateSetUTCDate
   || id === DateSetUTCHours || id === DateSetUTCMinutes || id === DateSetUTCSeconds
   || id === DateSetUTCMilliseconds) {
@@ -4928,7 +5046,13 @@ const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCD
   DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate, DateGetUTCHours,
   DateGetUTCMinutes, DateGetUTCSeconds,
   // **`toString` 单独一个号**（只做 `Invalid Date` 那一档，见号那一段）。
-  DateToString];
+  DateToString,
+  // **第 702 轮补的六格**（`680..684` 与 `toString` 那一半）：`toUTCString` /
+  // `getTimezoneOffset` / `getYear` / `setTime` / `setYear`——四个 getter/setter 是
+  // 「JS 有、本仓没有」的普通成员，而 `toUTCString` 是**与时区无关**的那一种渲染
+  //（`toDateString` / `toLocaleString` 仍不做，理由写在各自那一格）。
+  DateToUTCString, DateToUTCString, DateGetTimezoneOffset, DateGetYear,
+  DateSetTime, DateSetYear];
 // **`valueOf` 就是 `getTime`**（第 198 轮）：JS 的 `Date.prototype.valueOf` 给的正是那一格
 // 毫秒数——**同一个能力号**（同一件事不写第二份实现，与数组的 `toString` = `join` 同款）。
 // 它让**日常那个写法**通了：`+new Date()`（一元 `+` 是 `ToNumber` →
@@ -4943,7 +5067,10 @@ const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate",
   "setFullYear", "setMonth", "setDate", "setHours", "setMinutes", "setSeconds", "setMilliseconds",
   "getMilliseconds", "getUTCMilliseconds", "getDay", "getUTCDay",
   "getFullYear", "getMonth", "getDate", "getHours", "getMinutes", "getSeconds",
-  "toString"];
+  "toString",
+  // **第 702 轮补的六个名字**——`toGMTString` 与 `toUTCString` **同一个号**（JS 里是别名）。
+  "toUTCString", "toGMTString", "getTimezoneOffset", "getYear",
+  "setTime", "setYear"];
 for (let i = 0; i < methodIds.length; i++) {
   // **方法也不可枚举**（第 194 轮）：`Object.keys(new Date())` 在 JS 里是 `[]`。
   SetHiddenProperty(room, table, target,
@@ -5393,6 +5520,33 @@ if (year === -2147483648 || month === -2147483648 || day === -2147483648
   || seconds === -2147483648 || millis === -2147483648) return NaN;
 return DateDaysFromCivil(year, month, day) * 86400000
   + hours * 3600000 + minutes * 60000 + seconds * 1000 + millis;
+```
+
+# method DateUtcText:(ms:float)=>string
+
+**`toUTCString` 那一段文本**（第 702 轮）——`Thu, 02 Jan 2020 03:04:05 GMT`。
+
+**数字全部来自 `DateIsoText`**（不写第二份日历算术）：它给的是
+`YYYY-MM-DDTHH:mm:ss.sssZ`，这里只是**按位置切开**再排列——位置固定，
+所以 `slice` 是安全的（那一段文本是本文件自己拼出来的，不是用户输入）。
+
+**星期与月份是两张常数表**：UTC 那一种拼法在规范里是**固定文本**，与区域表无关
+（`toLocaleString` 那一种才要区域表，那一格没做）。
+
+```ts
+const iso = DateIsoText(ms);
+// `YYYY-MM-DDTHH:mm:ss.sssZ` 的位置：0..3 年、5..6 月、8..9 日、11..12 时、
+// 14..15 分、17..18 秒，末尾那个 `Z` 换成 `GMT`。
+const weeks = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthIndex = NumberFromHostText(iso.slice(5, 7)) - 1;
+// **星期几从「天数对 7 取模」算**（与 `getUTCDay` 那一段同一条口径）：
+// 直接读那段 ISO 文本里的日期会绕远，而这里已经在手边。
+const dayNumber = Math.floor(ms / 86400000);
+const weekIndex = (((dayNumber + 4) % 7) + 7) % 7;
+return weeks[weekIndex] + ", " + iso.slice(8, 10) + " " + months[monthIndex]
+  + " " + iso.slice(0, 4) + " " + iso.slice(11, 19) + " GMT";
 ```
 
 # method DateParseUnits:(units:Array<int>)=>float

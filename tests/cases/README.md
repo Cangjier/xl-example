@@ -77,7 +77,7 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **6452** 条（token 1416 / exec 1574 / runtime 796 / stdlib 2420 / e2e 246），判过 **6438** 条。
+语料 **6453** 条（token 1416 / exec 1574 / runtime 796 / stdlib 2421 / e2e 246），判过 **6439** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
@@ -85,9 +85,29 @@ console.log(Box.of(1));
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
 | `exec` | 1573 | **1536** | 9 / 28 | 另有 1 条不进分母 |
 | `runtime` | 796 | **783** | 1 / 12 | |
-| `stdlib` | 2420 | **2345** | 26 / 49 | |
+| `stdlib` | 2421 | **2348** | 24 / 49 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **6438** | **6090** | 259 / 89 | 加权 **95.8%** |
+| **合计** | **6439** | **6093** | 257 / 89 | 加权 **95.8%** |
+
+**第 702 轮（其三）补上五个 `Date.prototype` 成员**
+（`stdlib/date/039-r676-std-date-gettimezoneoffset` 与 `043-r676-std-date-toutcstring` 转绿，
+另补一条 `probe702-d-e01`）：`toUTCString`（与 `toGMTString` **同一个号**——JS 里是别名）、
+`getTimezoneOffset`、`getYear`、`setTime`、`setYear`。**两处踩到的**：
+
+- **号撞在保留段里**（第一版把这一批排在 `713..717`）：**`700..799` 是对象辅助函数那一段**
+  （`install.xl.md` 的 `InvokeObjectHelper` **先接走**），于是 `d.getTimezoneOffset()` 报
+  **`unimplemented: object helper 714`**、`d.toUTCString()` 报
+  **`define_data needs (object, key, value)`**——症状里**没有一个字**提到号
+  （与第 280 轮 `DateUTC` 撞 `TypeErrorCtor`、第 150 轮 `ArrayAt` 撞 `ArrayFlat` 同一个形状）。
+  改到 `680..684`（那一段空着、且不在那道拦截后面）。
+- **`getTimezoneOffset` 给 `0`**，这是本仓一贯的口径而不是「没做」：本地口径就是 UTC，
+  去答机器真时区会让 `getHours()` 与它**互相矛盾**。代价写在用例台账里
+  （Node 在同机给 `-480`，判据只钉「是个 `[-1440, 1440]` 里的整数」——两边都真）。
+
+**仍不做的两族**（`stdlib/date/045-names-date-proto` 的差额从 11 缩到 5）：
+`toDateString` / `toTimeString` 要**本地墙上时间 + 星期月份的英文名**、
+`toLocaleDateString` / `toLocaleString` / `toLocaleTimeString` 要**一张区域表**
+（与 `Intl` 整族一起没做）。
 
 **第 702 轮（其二）收掉 `arguments` 那一格**（`stdlib/object/138-object-tostring-arguments` 转绿，
 另补一条 `probe702-o-e01`）：本仓的 `arguments` **值就是一个数组**

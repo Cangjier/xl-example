@@ -1,8 +1,12 @@
-// xl:title 名字逐个取一次：Date.prototype 的成员（缺 11 个）
-// xl:round 678
+// xl:title 名字逐个取一次：Date.prototype 的成员（缺 6 个）
+// xl:round 702
 // xl:judge stdout
 // xl:want differ
-// xl:why Date.prototype 的成员：取到 undefined（node 上是 function）：getTimezoneOffset / getYear / setTime / setYear / toDateString / toGMTString / toLocaleDateString / toLocaleString / toLocaleTimeString / toTimeString / toUTCString
+// xl:why Date.prototype 的成员：取到 undefined（node 上是 function）：toDateString / toLocaleDateString / toLocaleString / toLocaleTimeString / toTimeString
+//       第 702 轮收掉五个（getTimezoneOffset / getYear / setTime / setYear / toGMTString / toUTCString）——
+//       剩下的这五个都要**本地时区那一支渲染**：`toDateString` 要星期与月份的英文名 +
+//       本地墙上时间、`toLocaleXxx` 三格要**一张区域表**（`2020/1/2 11:04:05` 是 ICU 给的形状），
+//       而本仓的本地口径就是 UTC（`InstallDateMethods` 那一段），拿它渲染那几格就是**答一个错的**。
 // xl:end
 const b: any = Date.prototype;
 let v = "";

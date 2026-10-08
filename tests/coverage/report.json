@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 6438,
+  "total": 6439,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.8,
+  "progressPercent": 95.82,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2420,
-      "pass": 2345,
-      "blocked": 26,
+      "total": 2421,
+      "pass": 2348,
+      "blocked": 24,
       "differ": 49,
       "nodefail": 0,
-      "coverage": 96.9
+      "coverage": 96.98
     },
     {
       "category": "e2e",
@@ -1512,21 +1512,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BigIntLiteral"
     },
     {
-      "id": "stdlib/date/039-r676-std-date-gettimezoneoffset",
-      "category": "stdlib",
-      "title": "Date.getTimezoneOffset：与 UTC 的分钟差",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "stdlib/date/040-r676-std-date-todatestring",
       "category": "stdlib",
       "title": "Date.toDateString / toTimeString",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "stdlib/date/043-r676-std-date-toutcstring",
-      "category": "stdlib",
-      "title": "Date.toUTCString：UTC 的可读文本",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
@@ -2020,14 +2008,14 @@
     {
       "id": "stdlib/date/045-names-date-proto",
       "category": "stdlib",
-      "title": "名字逐个取一次：Date.prototype 的成员（缺 11 个）",
-      "detail": "stdout 不同：第 1 行：node «object getTimezoneOffset function» vs tsrun «object getTimezoneOffset undefined»"
+      "title": "名字逐个取一次：Date.prototype 的成员（缺 6 个）",
+      "detail": "stdout 不同：第 5 行：node «object toDateString function» vs tsrun «object toDateString undefined»"
     },
     {
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23012/src/4254.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25016/src/4255.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
