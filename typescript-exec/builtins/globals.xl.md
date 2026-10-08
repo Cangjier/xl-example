@@ -10,7 +10,7 @@ import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat, ArrayAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw, StringCharAt, StringCharCodeAt, StringIndexOf, StringIncludes, StringStartsWith, StringEndsWith, StringRepeat, StringPadStart, StringPadEnd, StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare, StringToUpperCase, StringToLowerCase, StringAnchor, StringFontcolor, StringFontsize, StringLink, StringSlice, StringSubstring, StringSubstr, StringReplace, StringReplaceAll, StringSplit, StringTrim, StringTrimStart, StringTrimEnd, StringToString, StringValueOf, StringIsWellFormed, StringToWellFormed, StringNormalize, StringToLocaleUpperCase, StringToLocaleLowerCase, StringBig, StringBlink, StringBold, StringFixed, StringItalics, StringSmall, StringStrike, StringSub, StringSup } from "./string.xl.md"
 import { JsTextUnits, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue } from "./text.xl.md"
-import { InspectText, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
+import { InspectText, InspectDepth, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, MapEntries, MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapClear, MapForEach, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
 import { SetCtor, SetValues, SetAdd, SetHas, SetDelete, SetKeys, SetEntries, SetClear, SetForEach, WeakSetCtor } from "./set.xl.md"
 import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, PromiseFinally } from "./promise.xl.md"
@@ -567,6 +567,26 @@ Node 的实测是：
 # const ConsoleDebug:int = 309
 
 # const ConsoleDir:int = 310
+
+**`console.dir(值, options?)`**（第 735 轮挂上、**第 765 轮分出去**）——这一族里
+**唯一有第二格语义**的一个名字：别的八个（含 `table`）的第二个实参**就是要印的第二个值**，
+而它的第二个实参是 **options**。
+
+**第 765 轮之前它是「九支共用一份实现」里的一支** ⇒ `console.dir({a:1}, {depth:0})`
+印成 `{ a: 1 } { depth: 0 }`（Node 印 `{ a: 1 }`）——**静默错值**：
+读起来像「它把两个都印了」，其实是**那一格根本没人量**（九支共用一份实现这件事
+让「第二格」这个差别**看不见**）。
+
+**收法**：量 options 的那几句**只接在它这一支上**，深度一路带进 `FormatConsoleLine`
+（那一格新加的 `inspectDepth` 形参）——**别的八个名字的第二格照旧**。
+
+**表里那两格是实测的**（判据 `stdlib/round765/r765b-01`）：`depth: n` 收第 n 层以下的容器、
+`depth: null` 是**不设上限**（这一层用 `1 << 20` 表示：不是 `Infinity`——那是浮点，
+而这一格是 `int`；环照旧由深度上限兜住）；**`Date` 不收**（它是叶子）。
+
+**`table` 那一格是另一件事**（**登记在台账里、这一轮不做**）：Node 的 `console.table`
+画的是**框线表格**（列宽按内容算、键名当列名、多出来的列叫 `Values`），
+那要写一整份表格渲染器 —— 见 `stdlib/round765/r765b-02` 的 `xl:why`。
 
 # const ConsoleDirxml:int = 311
 
@@ -4388,10 +4408,11 @@ if (id === StringConcat || id === TemplateConcat) {
   return Value.FromString(table.CreateString(joined));
 }
 if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === ConsoleInfo
-  || id === ConsoleDebug || id === ConsoleDir || id === ConsoleDirxml || id === ConsoleTable) {
+  || id === ConsoleDebug || id === ConsoleDirxml || id === ConsoleTable) {
+  // **`dir` 不在这一支里**（第 765 轮把它分了出去）：它多一格 options（见下面那一支）。
   // **这一族的通道**（第 735 轮）：`error` / `warn` 走 stderr，其余走 stdout——
   // 与 Node 实测的那张表**一一对应**（见 `ConsoleLog` 那一段的表）。
-  // **除通道之外，九个名字共用这一份实现**：格式串、`util.inspect`、
+  // **除通道之外，八个名字共用这一份实现**：格式串、`util.inspect`、
   // 「一次调用 = 一行」那三条规矩**只写一遍**（写九遍就是九处会漂的答案）。
   const channel = (id === ConsoleError || id === ConsoleWarn) ? 1 : 0;
   // **一次调用 = 一行**（见 `LogSink`）：实参按 JS 的规矩用空格接起来，**只调一次** `sink`。
@@ -4404,6 +4425,55 @@ if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === Con
   // 所以这一族**十一支**（含 `count` / `assert`）一起跟着 `group` 动——
   // 各写一句就是十一处会漂的答案。
   ConsoleWriteLine(table, protos, room, self, sink, line, channel);
+  return Value.Undefined();
+}
+if (id === ConsoleDir) {
+  // **`console.dir(值, options?)`**（第 765 轮）——它与上面那一族**只差一件事**：
+  // **第二格是 options，不是第二个要印的实参**。
+  //
+  // **普查当场红的**（判据 `stdlib/round765/r765b-01`）：`console.dir({a:{b:1}}, {depth:0})`
+  // 在 Node 里印 `{ a: [Object] }`，而第 735 轮把九个名字并成一份实现 ⇒ 本仓印
+  // **`{ a: { b: 1 } } { depth: 0 }`**（把 options 当第二个实参接了上去，**静默错值**：
+  // 读起来像「它把两个都印了」，其实是那一格根本没人量）。
+  //
+  // **收法**：量 options 的那几句**只接在 `dir` 这一支**上（别的八个名字的第二格
+  // 就是第二个实参，不能一起改），然后把深度**一路带进 `FormatConsoleLine`**
+  // （`inspectDepth`，第 765 轮新加的那一格形参）。
+  let inspectDepth = InspectDepth;
+  let dirArgs = args;
+  if (args.length > 1) {
+    // **第二格不是对象就抛**（Node 的口径是 `ERR_INVALID_ARG_TYPE`）——
+    // 这一层给一句普通 `Error`：与它那一族其他「响亮地抛」同一个形状。
+    if (!args[1].IsObject()) {
+      throw new TypeError("The \"options\" argument must be of type object");
+    }
+    dirArgs = [args[0]];
+    const depthKey = Value.FromString(table.CreateString(Units("depth")));
+    const foundDepth = FindProperty(room, table, args[1].Ref, depthKey);
+    if (foundDepth !== null) {
+      const depthValue = ReadProperty(call === null ? NeverCall : call, table, foundDepth, args[1]);
+      // **`depth: null` 是「不设上限」**（Node 的口径）：这一层用一个足够大的数表示
+      // ——不用 `Infinity`（那是浮点，而这一格是 `int`），取 `1 << 20`。
+      // **环照旧由深度上限兜住**（`InspectDepth` 那一段写着：没有这一层，
+      // 自引用会让渲染无限递归，而宿主栈溢出**不可捕获**）——把上限抬到一百万
+      // 只是「比任何真实对象都深」，不是「把兜底拆掉」。
+      if (depthValue.Tag === ValueTag.Null) inspectDepth = 1048576;
+      else {
+        // 别的档走 `Number(那一位)`（Node 的口径）：`"2"` 是 2、`true` 是 1；
+        // **量不出数来的那一档回落到默认值**（Node 那一格只接受「整数或 null」，
+        // 其余它自己走默认）。
+        const asNumber = ToNumberOf(room, call, protos, table, depthValue);
+        let wanted = InspectDepth;
+        if (asNumber === asNumber && asNumber >= 0 && asNumber < 1048576) {
+          wanted = Math.floor(asNumber);
+        }
+        inspectDepth = wanted;
+      }
+    }
+  }
+  const line = FormatConsoleLine(table, room, call, protos, dirArgs, inspectDepth);
+  // **`dir` 走 stdout**（与 `log` 同一档——第 735 轮那张通道表里它就在 stdout 那一列）。
+  ConsoleWriteLine(table, protos, room, self, sink, line, 0);
   return Value.Undefined();
 }
 if (id === ConsoleAssert) {
@@ -8011,7 +8081,7 @@ return value;
 **同一条现成的路**（`RtSetProto`：自环当场拒、深度上限那一套都在里面）。
 **原型不是对象也不是 `null` 时给假**（JS 的 `Reflect` 口径；`Object` 那一格是抛）。
 
-# method FormatConsoleLine:(table:HeapTable, room:RoomChecker, call:NativeCall | null, protos:Protos, args:Array<Value>)=>string
+# method FormatConsoleLine:(table:HeapTable, room:RoomChecker, call:NativeCall | null, protos:Protos, args:Array<Value>, inspectDepth:int = InspectDepth)=>string
 
 **把一次 `console.*` 调用的实参渲染成一行**（第 735 / 761 / 762 轮）。
 
@@ -8051,7 +8121,7 @@ return value;
 Node 的 `util.format` 印的是 `"undefined"`（**判据实测**），这一层照这一条走。
 
 ```ts
-const renderArg = (value: Value) => (value.Tag === ValueTag.String ? ValueText(table, value) : InspectText(table, value));
+const renderArg = (value: Value) => (value.Tag === ValueTag.String ? ValueText(table, value) : InspectText(table, value, inspectDepth));
 if (!(args.length > 1 && args[0].Tag === ValueTag.String)) {
   let plain = "";
   for (let i = 0; i < args.length; i++) {
@@ -8101,7 +8171,7 @@ while (at < format.length) {
   } else {
     // `%o` / `%O`：Node 给的是 `util.inspect` 那一份（`%o` 还带 `showHidden`）。
     // 这一层只有一份 inspect，所以两档走同一份——**已知差写在明处**。
-    text.push(InspectText(table, arg));
+    text.push(InspectText(table, arg, inspectDepth));
   }
   at = at + 2;
 }

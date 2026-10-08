@@ -300,10 +300,15 @@ if (item.Description > 0) {
 return "Symbol()";
 ```
 
-# method InspectArrayBody:(table:HeapTable, item:HeapArray, level:int)=>Array<string>
+# method InspectArrayBody:(table:HeapTable, item:HeapArray, level:int, depthLimit:int = InspectDepth)=>Array<string>
 
 **数组的每一项渲染成一段文本**（洞**合并**成一条 `<N empty item(s)>`——
 Node 的口径：连着两个洞是一条 `<2 empty items>`，不是两条 `<1 empty item>`）。
+
+**`depthLimit` 必须一路带下去**（第 765 轮）：它不在这一格自己用，而是**传给下一层**
+——漏了它的症状是「上限只在最上面那一层生效」：`console.dir(x, {depth:0})` 照样把整棵树印出来
+（第 765 轮**实测踩到**：`InspectValue` 收了 `depthLimit`，可这里与 `InspectObjectBody`
+两处递归**没往下传**，于是每一层都回落到默认的 `2`）。
 
 **只渲染前 `InspectMaxArray` 项**；多出来的那一行由调用方补
 （它**不参与分组**——Node 的分组算法把它排除在外，这里同样）。
@@ -322,13 +327,13 @@ while (i < shown) {
     i = i + run;
     continue;
   }
-  entries.push(InspectValue(table, item.GetAt(i), level + 1));
+  entries.push(InspectValue(table, item.GetAt(i), level + 1, depthLimit));
   i = i + 1;
 }
 return entries;
 ```
 
-# method InspectObjectBody:(table:HeapTable, value:Value, level:int)=>Array<string>
+# method InspectObjectBody:(table:HeapTable, value:Value, level:int, depthLimit:int = InspectDepth)=>Array<string>
 
 **普通对象的每一格**（自有、**可枚举**、字符串键与符号键；
 **访问器印成 `[Getter]` 那一档，但不调用它**——Node 的 `util.inspect` 同一句话）。
@@ -373,9 +378,9 @@ for (let i = 0; i < item.Props.length; i++) {
     else if (hasGetter) rendered = "[Getter]";
     else if (hasSetter) rendered = "[Setter]";
     // 两个都没有的访问器**不是访问器**（空槽），照值印。
-    else rendered = InspectValue(table, prop.Value, level + 1);
+    else rendered = InspectValue(table, prop.Value, level + 1, depthLimit);
   } else {
-    rendered = InspectValue(table, prop.Value, level + 1);
+    rendered = InspectValue(table, prop.Value, level + 1, depthLimit);
   }
   if (keyTag === ValueTag.Symbol) {
     // **键那一格是句柄**（`Property.Key` 存的是 `HeapSymbol` 的号），
@@ -528,13 +533,23 @@ while (i < level) {
 return text;
 ```
 
-# method InspectValue:(table:HeapTable, value:Value, level:int)=>string
+# method InspectValue:(table:HeapTable, value:Value, level:int, depthLimit:int = InspectDepth)=>string
 
 **任意值 → `util.inspect` 的那段文本**（第 131 轮）。
 
 分派顺序就是 Node 的顺序：标量先走完，容器再看深度，
 `Object` 那一档要**先认出 `Date` / `Map` / `Set`**（它们在值模型里就是普通对象，
 靠各自的标记格认——与 `GetIterator` 认 `Map` / `Set` 是同一条先例）。
+
+**`depthLimit` 那一格是第 765 轮加的**（`console.dir` 的 `{ depth: n }`）：原来它写死成
+那句 `level > InspectDepth`，**四支里各写一遍**；现在默认值还是 `InspectDepth`，
+`console.dir` 按 options 传一个进来。**默认值那一格是关键**：这一族有十几处
+`InspectValue(...)` 调用点，加一个必填形参会把每一处都改一遍——
+加默认值就只有真正要它的人改（与第 763 / 764 轮「出口收成一格」同一个手法）。
+
+**`Date` 那一支不收**（Node 实测）：`console.dir(new Date(0), { depth: 0 })` 照样印
+`1970-01-01T00:00:00.000Z`——它是叶子，没有「下面那一层」。收的只有
+`Array` / `Object` / `Map` / `Set` 四支。
 
 **`-0` 与 `NaN` / `±Infinity` 交给 `NumberToHostText`**：那一处已经把符号名定死了
 （`console.log(-0)` 在 Node 里印 `-0`，而 `String(-0)` 是 `"0"`——所以**不能**走 `ToString`）。
@@ -563,11 +578,11 @@ if (value.Tag === ValueTag.Array) {
   // 进判据的是 `Array.isArray` / `Object.prototype.toString` / `getOwnPropertyNames` 三格
   //（`stdlib/object/138-object-tostring-arguments-gap` 一族量的正是那三格）。
   // 所以这里**记一笔、不猜**，等下一条判据真的量它时再补。
-  if (level > InspectDepth) return InspectMark("Array", level);
+  if (level > depthLimit) return InspectMark("Array", level);
   const item = table.Get(value.Ref).AsArray();
   const count = item.GetLength();
   const more = count > InspectMaxArray ? count - InspectMaxArray : 0;
-  const entries = InspectArrayBody(table, item, level);
+  const entries = InspectArrayBody(table, item, level, depthLimit);
   return BreakEntries(entries, "[", "]", 0, level * 2, more);
 }
 if (value.Tag === ValueTag.Object) {
@@ -599,24 +614,24 @@ if (value.Tag === ValueTag.Object) {
   // 分别挂着 `__t` / `__k` / `__v`（`Date` 那一族与 `map.xl.md` / `set.xl.md` 造的就是这个形状）。
   const marker = DateMarker(table, value);
   if (marker === "Date") {
-    if (level > InspectDepth) return InspectMark("Date", level);
+    if (level > depthLimit) return InspectMark("Date", level);
     const ms = ReadMarker(table, value, "__t");
     return IsoDate(ms);
   }
   if (marker === "Map") {
-    if (level > InspectDepth) return InspectMark("Map", level);
-    const entries = InspectMapBody(table, value, level);
+    if (level > depthLimit) return InspectMark("Map", level);
+    const entries = InspectMapBody(table, value, level, depthLimit);
     return "Map(" + NumberToHostText(entries.length) + ") "
       + BreakEntries(entries, "{", "}", 1, level * 2, 0);
   }
   if (marker === "Set") {
-    if (level > InspectDepth) return InspectMark("Set", level);
-    const entries = InspectSetBody(table, value, level);
+    if (level > depthLimit) return InspectMark("Set", level);
+    const entries = InspectSetBody(table, value, level, depthLimit);
     return "Set(" + NumberToHostText(entries.length) + ") "
       + BreakEntries(entries, "{", "}", 1, level * 2, 0);
   }
-  if (level > InspectDepth) return InspectMark("Object", level);
-  const entries = InspectObjectBody(table, value, level);
+  if (level > depthLimit) return InspectMark("Object", level);
+  const entries = InspectObjectBody(table, value, level, depthLimit);
   // **`null` 原型的对象要多一层前缀**（第 751 轮，**普查当场量到的**）：
   // `util.inspect` 给的是 `[Object: null prototype] { a: 1 }`，而本仓给 `{ a: 1 }`——
   // **这一格是 `Object.create(null)` 与 `Object.setPrototypeOf(o, null)` 两族的共同出口**，
@@ -630,12 +645,15 @@ if (value.Tag === ValueTag.Object) {
 return "[Object]";
 ```
 
-# method InspectText:(table:HeapTable, value:Value)=>string
+# method InspectText:(table:HeapTable, value:Value, depthLimit:int = InspectDepth)=>string
 
 **入口**：从第 0 层开始。
 
+**`depthLimit` 一路带下去**（第 765 轮）：`console.dir` 的 `{ depth: n }` 从这一格进来，
+其余调用点（`console.log` 那一族、`assert`、模板）走默认值——**行为一字不变**。
+
 ```ts
-return InspectValue(table, value, 0);
+return InspectValue(table, value, 0, depthLimit);
 ```
 
 # method MarkerText:(table:HeapTable, value:Value, name:string)=>string
@@ -741,9 +759,12 @@ for (let i = 0; i < item.Props.length; i++) {
 return null;
 ```
 
-# method InspectMapBody:(table:HeapTable, value:Value, level:int)=>Array<string>
+# method InspectMapBody:(table:HeapTable, value:Value, level:int, depthLimit:int = InspectDepth)=>Array<string>
 
 **`Map` 的每一项**：`键 => 值`（Node 的形状）。
+
+**`depthLimit` 与 `InspectArrayBody` 那一格同一条**（第 765 轮）：它自己不用，
+**传给下一层**——不带下去，`console.dir(m, {depth:0})` 就会把整张表印出来。
 
 ```ts
 const keys = MarkerArray(table, value, "__k");
@@ -752,13 +773,13 @@ const entries: string[] = [];
 if (keys === null || values === null) return entries;
 const count = keys.GetLength();
 for (let i = 0; i < count; i++) {
-  entries.push(InspectValue(table, keys.GetAt(i), level + 1) + " => "
-    + InspectValue(table, values.GetAt(i), level + 1));
+  entries.push(InspectValue(table, keys.GetAt(i), level + 1, depthLimit) + " => "
+    + InspectValue(table, values.GetAt(i), level + 1, depthLimit));
 }
 return entries;
 ```
 
-# method InspectSetBody:(table:HeapTable, value:Value, level:int)=>Array<string>
+# method InspectSetBody:(table:HeapTable, value:Value, level:int, depthLimit:int = InspectDepth)=>Array<string>
 
 **`Set` 的每一项**：值本身。
 
@@ -768,7 +789,7 @@ const entries: string[] = [];
 if (values === null) return entries;
 const count = values.GetLength();
 for (let i = 0; i < count; i++) {
-  entries.push(InspectValue(table, values.GetAt(i), level + 1));
+  entries.push(InspectValue(table, values.GetAt(i), level + 1, depthLimit));
 }
 return entries;
 ```
