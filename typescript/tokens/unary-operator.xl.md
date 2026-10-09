@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, StartsWithTemplate } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, StartsWithTemplate } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { CommonUtil } from "../../core/common-util.xl.md"
@@ -328,7 +328,7 @@ if ((this.OperatorText(current) === "-" || this.OperatorText(current) === "+") &
   // 映射类型的内容全是类型（键、`as` 子句、值类型），里面出现一元运算一定是误判。
   return false;
 }
-const afterIndex = SkipNextWrapSymbol(units, index);
+const afterIndex = SkipNextTrivia(units, index);
 const after = Get(units, afterIndex);
 // **半截的链要等链成形**（第 614 轮）：操作数那一格是 `NotNull`、而它后面**还接着链环**
 // （`.` 成员 / `[` 下标） ⇒ 这一趟让路。
@@ -430,7 +430,7 @@ if (this.IsPlusPlus(current)) {
   if (this.IsOperand(after)) {
     return true;
   }
-  return this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index)));
+  return this.IsOperand(Get(units, SkipPreviousTrivia(units, index)));
 }
 if (this.IsPlusMinus(current) === false) {
   return false;
@@ -438,7 +438,7 @@ if (this.IsPlusMinus(current) === false) {
 if (this.IsOperand(after) === false) {
   return false;
 }
-return this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index))) === false;
+return this.IsOperand(Get(units, SkipPreviousTrivia(units, index))) === false;
 ```
 
 ## private method IsInMappedType:(unit:Token)=>bool
@@ -502,7 +502,7 @@ if (current === null) {
 //（`SkipPreviousWrapSymbol` 会跳过软换行，所以这里看的是**紧挨着的那一格原样单元**）。
 const postfixHere =
   this.IsPlusPlus(current)
-  && this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index)))
+  && this.IsOperand(Get(units, SkipPreviousTrivia(units, index)))
   && !(Get(units, index - 1) instanceof LineWrap)
   // **字面量不能当后缀的操作数**（第 692 轮，**实测撞到的**）：
   // `function f() {} ++n;` 里 `++` 前面紧挨着的正是那个 `Function` 单元——
@@ -517,9 +517,9 @@ const postfixHere =
   // **下一句的前缀**。`Class` 一并排掉：第 328 轮把 `Class` 补进名单时漏了这一格
   //（那一轮没露是因为 `class A {}` 会被 `ClassCloseRule` 放到**容器外层**、
   //  而函数声明留在同一个容器里——`function f() {} ++n` 才撞得到）。
-  && !(Get(units, SkipPreviousWrapSymbol(units, index)) instanceof Function)
-  && !(Get(units, SkipPreviousWrapSymbol(units, index)) instanceof Class);
-const afterIndex = SkipNextWrapSymbol(units, index);
+  && !(Get(units, SkipPreviousTrivia(units, index)) instanceof Function)
+  && !(Get(units, SkipPreviousTrivia(units, index)) instanceof Class);
+const afterIndex = SkipNextTrivia(units, index);
 let after = Get(units, afterIndex);
 // **套着写的前缀：先把里面那一处折完**（第 169 轮）。
 //
@@ -537,12 +537,12 @@ let after = Get(units, afterIndex);
 if (!postfixHere && after !== null
   && (this.IsPrefixSymbol(after) || this.IsPlusPlus(after) || this.IsPlusMinus(after))) {
   this.Process(template, units, afterIndex);
-  after = Get(units, SkipNextWrapSymbol(units, index));
+  after = Get(units, SkipNextTrivia(units, index));
 }
 // **尖括号断言那一支的入口**（第 592 轮）：`IsOperand(GenericType)` 是假，
 // 所以判据要问「类型段**加上**后面那一格」是不是一个操作数——与 `Previous` 同一句。
 const assertedOperand =
-  after instanceof GenericType && this.IsOperand(Get(units, SkipNextWrapSymbol(units, afterIndex)));
+  after instanceof GenericType && this.IsOperand(Get(units, SkipNextTrivia(units, afterIndex)));
 if (!postfixHere && (this.IsOperand(after) || assertedOperand)) {
   // **被操作者后面还跟着调用括号时，那个括号属于这一元运算**（第 309 轮）——
   // JS 里 `typeof o["m"]()` 是 **`typeof (o["m"]())`**（一元运算的作用范围是整个调用），
@@ -652,7 +652,10 @@ if (!postfixHere && (this.IsOperand(after) || assertedOperand)) {
   result.TryToClose();
   return ReplaceCountAt(units, index, operandEnd - index + 1, result);
 }
-const beforeIndex = SkipPreviousWrapSymbol(units, index);
+// **后缀的被操作者也要跨 trivia**（第 828 轮）：`a /*c*/ ++` 里 `++` 与操作数之间
+// 夹着一条注释——`SkipPreviousWrapSymbol` 只跳软换行 ⇒ `before` 落在注释上 ⇒
+// 整条后缀不成形（实测缺 `PostfixUnaryExpression`）。与 `postfixHere` 那一句同源。
+const beforeIndex = SkipPreviousTrivia(units, index);
 const before = Get(units, beforeIndex);
 if (this.IsOperand(before)) {
   const result = new UnaryOperator(template);

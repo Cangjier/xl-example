@@ -75,18 +75,22 @@
   `MethodCloseRule.NameIndex` 往左找被调用者、`BinaryOperatorCloseRule` 判「`,` 是不是逗号表达式」时
   往左看括号外面那一格。**判据只差一个 `Skip*` 的时候，先问「注释与换行在这里是不是同一个意思」**：
   是就一起跳，不是就只用 `Skip*Annotation`。
-- **「从某一格往左/往右找同一条链」的循环，下标不许写 `i ± 1`**（第 828 轮，第 817 轮那条线的第三面）：
-  `OptionalCallCloseRule.CalleeStart` 原来读 `Get(units, start - 1)`（第二问判点号还读 `start - 2`），
-  于是 `a/*c*/?.b?.[c]?.(d)` 往左走到注释上就停——被调者链只剩三个 `NullConditionalOperator`、
-  `name` 空着、`a` 留在 `Method` 外面，症状是**缺 9 个节点**
-  （`CallExpression` / `PropertyAccessExpression` / `ElementAccessExpression` + 三个 `Identifier`）。
-  **注意它不会让 `cases:tags` 响**：注释本来就在 token 树里（`INVISIBLE` 管的是**投影**），
-  所以红只在 `cases:tsast` 那一侧。两处下标换成 `SkipPreviousTrivia` 就收掉 4 条
-  （`gap-sweep-comment-optchain-01/02`、`gap-sweep-linecomment-optchain-03/04`），
-  四条自带的 `xl:expect` 一个字都不用改（`a` 只是从 `Statement` 的一格挪进 `Method` 的第一格）。
-  **为什么容易漏**：第 817 轮是「哪几处判据只差一个 `Skip*`」点着名改的，而**同型的循环**
-  （`ChainEndIndex` / `CalleeStart` / `WaitForNotNull` 那一族）没人一起过一遍。
-  下次动 trivia 口径时**按「有循环 + 判相邻」去搜**，别只改这一轮量到的那几处。
+- **`i ± 1` 是这一族的口味标志**（第 828 轮，第 817 轮那条线的第三面）：判「上一格 / 下一格是不是
+  我这一族的东西」时，下标**不许写成 `i ± 1`**——要走 `SkipPreviousTrivia` / `SkipNextTrivia`。
+  第 817 轮是「哪几处判据只差一个 `Skip*`」**点着名**改的（五处），而**同型的循环**没人一起过一遍；
+  第 828 轮按这条线又量出**四处**，一次收掉 11 条：
+  - `OptionalCallCloseRule.CalleeStart`（原来读 `Get(units, start - 1)`，第二问判点号还读 `start - 2`）：
+    `a/*c*/?.b?.[c]?.(d)` 往左走到注释上就停 ⇒ 被调者链只剩三个 `NullConditionalOperator`、
+    `name` 空着、`a` 留在 `Method` 外面（缺 9 个节点：`CallExpression` / `PropertyAccessExpression` /
+    `ElementAccessExpression` + 三个 `Identifier`）；
+  - `SpreadCloseRule` 的 `IsOperand(SkipNextWrapSymbol(...))`：`{ .../*c*/ { a: 1 } }` 里注释不是操作数
+    ⇒ 那条 `Spread` **完全不成形**（`Previous` 判不下、`Process` 也搬不进来）；
+  - `UnaryOperatorCloseRule` 的前缀入口（`-/*c*/ a` / `!/*c*/ a`）与后缀入口（`a /*c*/ ++`）。
+  **`Previous` 与 `Process` 必须成对改**（第 816 轮）：只改前者会让节点「判得下却搬不进来」，
+  只改后者会让它「根本轮不到」——四处都是成对改的。
+  **症状不会落在 `cases:tags` 上**：注释本来就在 token 树里（`INVISIBLE` 管的是**投影**）——
+  收掉的 11 条自带的 `xl:expect` 一个字都不用改，红只在 `cases:tsast` 那一侧。
+  **下次动 trivia 口径，按「有循环 + 判相邻」去搜一遍**，别只改这一轮量到的那几处。
 - **「有没有内容」也要用 trivia 口径**（第 818 轮）：`IsTriviaUnit` 不只是「跳过」用的名单，
   也是**判空**用的名单。`m(/*c*/) { … }` 括号里只有一个 `AreaAnnotation`，照
   「不是软换行就算内容」判 ⇒ 收下一张空形参表、再包出一个**零宽的 `Parameter`**

@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { BinaryOperator } from "./binary-operator.xl.md"
@@ -140,6 +140,13 @@ return false;
 
 三条同时成立：是内容为 `...` 的 `SymbolToken`；父亲在 `IsSpreadParent` 的白名单里；后面跟着一个表达式。
 
+**「后面」要跨 trivia**（第 828 轮）：`{ .../*c*/ { a: 1 } }` 里 `...` 与它展开的那个对象字面量
+之间夹着一条注释，而 `IsOperand` 只按「紧挨着的那一格」判 ⇒ 判否 ⇒ 那条 `Spread`
+**完全不成形**（产物是平级的 `...` + `AreaAnnotation` + 对象字面量，实测缺 `SpreadAssignment`
+加多一个 `SpreadElement`）。注释与软换行在这里是同一件事（`IsTriviaUnit` 的口径），
+所以三处「`...` 后面那一格」一律走 `SkipNextTrivia`——`Previous` / `Process` 两处必须同源
+（第 816 轮那条：判据跨过的那一段，搬的时候也要跨）。
+
 ```ts
 const current = Get(units, index);
 if (!(current instanceof SymbolToken)) {
@@ -157,7 +164,7 @@ if (this.IsSpreadParent(current.Parent) === false) {
 if (this.IsTupleRest(units, index)) {
   return false;
 }
-return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
+return this.IsOperand(Get(units, SkipNextTrivia(units, index)));
 ```
 
 ## private method IsTupleRest:(units:Array<Token>, index:int)=>bool
@@ -176,12 +183,12 @@ return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
 完全不碰祖先链。
 
 ```ts
-const nameIndex = SkipNextWrapSymbol(units, index);
+const nameIndex = SkipNextTrivia(units, index);
 const operand = Get(units, nameIndex);
 if (operand === null) {
   return false;
 }
-const afterOperand = Get(units, SkipNextWrapSymbol(units, nameIndex));
+const afterOperand = Get(units, SkipNextTrivia(units, nameIndex));
 if (!(afterOperand instanceof Bracket)) {
   return false;
 }
@@ -204,8 +211,8 @@ return afterOperand.startBracket === "[" && afterOperand.Data.length === 0;
 与 `sqlite.d.ts` 的 6 处全是带标注的 rest 参数。
 
 ```ts
-const nameIndex = SkipNextWrapSymbol(units, index);
-const after = Get(units, SkipNextWrapSymbol(units, nameIndex));
+const nameIndex = SkipNextTrivia(units, index);
+const after = Get(units, SkipNextTrivia(units, nameIndex));
 if (after === null) {
   return false;
 }
@@ -259,7 +266,7 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("SpreadCloseRule.Process: current is null");
 }
-const afterIndex = SkipNextWrapSymbol(units, index);
+const afterIndex = SkipNextTrivia(units, index);
 const after = Get(units, afterIndex);
 if (after === null) {
   throw new Error("SpreadCloseRule.Process: 展开运算符后面缺表达式");

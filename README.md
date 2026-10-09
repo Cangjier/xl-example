@@ -306,37 +306,35 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
-### 第 828 轮：**可选调用往左找被调者时也要跨 trivia**——`optchain` 那一族收掉 4 条
+### 第 828 轮：**「相邻的那一格」在循环里也要跨 trivia**——`optchain` / `Spread` / 一元那三族收掉 11 条
 
-**一句话**：`a/*c*/?.b?.[c]?.(d)` 里 `a` 与 `?.` 之间夹着一条注释，而
-`OptionalCallCloseRule.CalleeStart` 往左走用的是「**紧挨着的前一格**」——走到注释上就停
-（注释不是链环）⇒ 被调者链只剩三个 `NullConditionalOperator`、`name` 空着、`a` 留在
-`Method` **外面**。改成 `SkipPreviousTrivia` 之后 `cases:tsast` 的账 **89 → 85**
-（`coverage` **3894 → 3903**，`token` 那一类 blocked 94 → 85）。
+**一句话**：`OptionalCallCloseRule.CalleeStart` 往左找被调者、`SpreadCloseRule` 往右找被展开的表达式、
+`UnaryOperatorCloseRule` 往左右找被操作者——这四处的**循环/取格**都写成「`i ± 1`」，
+于是注释一夹进来就判不出相邻。换成 `Skip*Trivia` 之后 `cases:tsast` 的账 **89 → 78**
+（`coverage` **3903 → 3910**，`token` 那一类 blocked 85 → 78）。
 
-- **根因**：`CalleeStart` 的循环原来读 `Get(units, start - 1)`，第二问「左边那一格是不是点号」
-  读 `Get(units, start - 2)`——**两处都是「紧挨着」**。第 817 / 818 轮给别处定的口径是
-  「链环之间夹一条注释与夹一个软换行是同一件事」（`IsTriviaUnit` 就是那张名单），
-  这一处当时漏了。改法只有一处：两处下标都换 `SkipPreviousTrivia`。
-- **为什么症状是「`Method` 少一截」而不是「多一个注释」**：注释本来就在产物里
-  （`INVISIBLE` 只影响**投影**，不影响 token 树），所以 `cases:tags` 一直是绿的；
-  红的是投影——`Method.PrintAst` 那条可选链支路要求**第一个子单元就是被调者**
-  （`calleeComesFirst`），`a` 留在外面时 `kids[0]` 是个 `NullConditionalOperator`，
-  于是整条链条降级成「名字为空的调用」⇒ 缺 `CallExpression` / `PropertyAccessExpression`
-  / `ElementAccessExpression` 与三个 `Identifier`（共 9 条）。
-- **收掉的 4 条**：`gap-sweep-comment-optchain-01`（`a/*c*/?.b…`）、
-  `gap-sweep-comment-optchain-02`（`a?.b/*c*/?.[c]…`，同一根的另一处落点：那一趟
-  `CalleeStart` 要从 `?.b` 继续往左，同样撞在注释上）、
-  `gap-sweep-linecomment-optchain-03`（`a//c` 换行 `?.b…`）、
-  `gap-sweep-linecomment-optchain-04`（`a?.b//c` 换行 `?.[c]…`）。
-  文件头的 `xl:known-gap` 逐条删掉；四条自带的 `xl:expect` **一个字都没改**
-  （标签计数不变：`a` 只是从 `Statement` 的一格挪进了 `Method` 的第一格）。
-- **留下的**：`gap-c-optchain-nonnull-0{1,2}`（`?.` 与 `!` 混排那一族）与
-  `gap-sweep-*-optchain-0X` 里另外几条（链**尾**落在 NCO 里的形状）本轮不动。
-- **可复用的判据**：`CalleeStart` 这类「从某一格往左/往右找同一条链」的循环里，
-  **下标不许写成 `i ± 1`**——只要它问的是「上一格/下一格是不是我这一族的东西」，
-  就该走 `SkipPreviousTrivia` / `SkipNextTrivia`。第 817 轮把这条写进台账时，
-  只改了当时量到的那五处；**同型的循环要一起过一遍**。
+- **根因**：第 817 轮给「相邻的那一格」定了 trivia 口径，但那是**点着名改的五处判据**，
+  而**同型的循环**（`ChainEndIndex` / `CalleeStart` / `WaitForNotNull` / `IsTupleRest` /
+  一元那一串）没人一起过一遍。这一轮量到的四处都属于后者：
+  - `a/*c*/?.b?.[c]?.(d)`：`CalleeStart` 走到注释上就停 ⇒ 被调者链只剩三个 `NullConditionalOperator`、
+    `name` 空着、`a` 留在 `Method` 外面（缺 9 条）；
+  - `{ .../*c*/ { a: 1 } }`：`IsOperand(注释)` 给假 ⇒ 那条 `Spread` **完全不成形**
+    （缺 `SpreadAssignment`，多一个平级的 `SpreadElement`）；
+  - `-/*c*/ a`：`IsOperand` 同样给假 ⇒ 前缀不成形；
+  - `a /*c*/ ++`：后缀那一支的 `SkipPreviousWrapSymbol` 落在注释上 ⇒ 后缀不成形。
+- **同一处要改两张脸**：`Previous` 与 `Process` 各读一次「相邻那一格」，
+  只改前者会让节点**判得下却搬不进来**（第 816 轮那条：判据跨过的那一段，搬的时候也要跨）。
+  所以四处都是成对改的（`CalleeStart` 两处下标、`SpreadCloseRule` 的 `Previous` / `Process`、
+  一元的前缀入口与后缀入口）。
+- **收掉的 11 条**：`gap-sweep-{comment,linecomment}-optchain-0{1,2,3,4}`、
+  `gap-a-comment-0{2,3,4,5}`（`Spread` / 前缀 `-` / 前缀 `!` / 后缀 `++`）、
+  `gap-sweep-comment-for-01`（`i/*c*/++`）、`mut-fn-decl-9{0,1}`（注释夹在二元运算符两侧）。
+  文件头的 `xl:known-gap` 逐条删掉；七条自带的 `xl:expect` **一个字都没改**
+  （注释在 `INVISIBLE` 里，标签计数不变）。
+- **可复用的判据**：**`i ± 1` 是这一族的口味标志**——只要循环里出现它、而问的又是
+  「上一格/下一格是不是我这一族的东西」，就该走 `SkipPreviousTrivia` / `SkipNextTrivia`。
+  第 817 轮把这条写进台账时只改了当时量到的那五处，第 828 轮又量出四处；
+  **下次动 trivia 口径，按「有循环 + 判相邻」去搜一遍**，别只改这一轮量到的那几处。
 
 ### 第 827 轮：**方法签名那三格**——`iface` 那一族收掉 5 条
 
