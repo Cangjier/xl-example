@@ -8,7 +8,7 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasTypeColonBefore, IsObjectLiteralBrace, IsStatementStart, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsStatementStart, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -140,9 +140,18 @@ if (owner === "GenericType") {
 // `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`**
 // ⇒ 整片投成 `ExpressionStatement`（实测 `ex-object-literal.ts` 缺 37）；
 // 而且壳里那个 `b:` 还会被 `Label` 收走（壳的父亲是 `Statement` ⇒ `IsStatementStart` 答「是」）。
+//
+// **绑定模式的花括号同一条口径**（第 825 轮，`IsBindingPatternBrace`）：`const { a` 换行
+// `, b: [c] } = o;` 里模式的内容由 `BindingElementCloseRule` 按顶层逗号切，壳一收下去
+// 段就变成一格 `Statement` ⇒ 元素的 `name` 投不出来、逗号还会被折进 `BinaryOperator`
+//（实测 `gap-sweep-{newline,linecomment}-destr-0{2,3,4,5}` 七条）。
 if (owner === "Bracket" && (unit as Bracket).startBracket === "{") {
   const holder = unit.Parent;
-  if (holder !== null && IsObjectLiteralBrace(holder.Data, holder.Data.indexOf(unit))) {
+  if (
+    holder !== null &&
+    (IsObjectLiteralBrace(holder.Data, holder.Data.indexOf(unit)) ||
+      IsBindingPatternBrace(holder.Data, holder.Data.indexOf(unit)))
+  ) {
     return;
   }
 }
@@ -345,11 +354,16 @@ let isStatementList =
 // ⇒ 两档都不响 ⇒ 块里那一格**从来没有壳** ⇒ 投影出来是「`Block` 底下直接一个 `Identifier`」，
 // 而 TS 是 `Block > ExpressionStatement > Identifier`（实测 `{ A };` 缺 `ExpressionStatement` 1）。
 //
-// **对象字面量要排掉**（判据与 `FormFrom` 里那一格是同一句）：值位花括号里装的是**成员**，
-// 给 `({ A })` 收一条壳会把简写属性投成 `ExpressionStatement`。
+// **对象字面量与绑定模式都要排掉**（判据与 `FormFrom` 里那一格是同一句）：值位花括号里装的
+// 是**成员**，给 `({ A })` 收一条壳会把简写属性投成 `ExpressionStatement`；
+// 模式里装的是**绑定元素**（第 825 轮，`IsBindingPatternBrace`），壳会把顶层逗号吃掉。
 if (owner === "Bracket" && (unit as Bracket).startBracket === "{") {
   const holder = unit.Parent;
-  if (holder !== null && IsObjectLiteralBrace(holder.Data, holder.Data.indexOf(unit))) {
+  if (
+    holder !== null &&
+    (IsObjectLiteralBrace(holder.Data, holder.Data.indexOf(unit)) ||
+      IsBindingPatternBrace(holder.Data, holder.Data.indexOf(unit)))
+  ) {
     return;
   }
   isStatementList = true;
@@ -2016,9 +2030,15 @@ if (owner === "IfCondition") {
 // `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`**
 // ⇒ 整片投成 `ExpressionStatement`（实测 `ex-object-literal.ts` 缺 37）；
 // 而且壳里那个 `b:` 还会被 `Label` 收走（壳的父亲是 `Statement` ⇒ `IsStatementStart` 答「是」）。
+// **绑定模式的花括号同一条口径**（第 825 轮，`IsBindingPatternBrace`）：`const { a` 换行
+// `, b: [c] } = o;` 里壳会把顶层逗号折进 `BinaryOperator` ⇒ 整张模式收成一个元素。
 if (owner === "Bracket" && (unit as Bracket).startBracket === "{") {
   const holder = unit.Parent;
-  if (holder !== null && IsObjectLiteralBrace(holder.Data, holder.Data.indexOf(unit))) {
+  if (
+    holder !== null &&
+    (IsObjectLiteralBrace(holder.Data, holder.Data.indexOf(unit)) ||
+      IsBindingPatternBrace(holder.Data, holder.Data.indexOf(unit)))
+  ) {
     return result;
   }
 }

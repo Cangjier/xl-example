@@ -1162,6 +1162,66 @@ if (current instanceof Bracket && current.startBracket === "{") {
 return false;
 ```
 
+# method IsBindingPatternBrace:(units:Array<Token>, index:number)=>bool
+
+`index` 处那个 `{` 是不是**绑定模式**的花括号——`const { a, b: [c] } = o` 里那一个。
+
+与 `IsObjectLiteralBrace` 是**同一族的另一格**：那一格问「值位的花括号」（装成员），
+这一格问「模式的花括号」（装绑定元素）。三个**语句成形器**两格都要问（少问这一格就收错壳）。
+
+**为什么模式里也不能收语句壳**（第 825 轮实测）：模式里的内容由
+`BindingElementCloseRule.Process` 按**顶层逗号**切，壳一收下去，段就变成一格 `Statement`
+（元素的 `name` 字段整个投不出来），而且壳里头那条逗号规则还会把 `a , b` 折成
+`BinaryOperator` ⇒ 顶层逗号一个都不剩 ⇒ 整张模式收成**一个**元素
+（实测 `gap-sweep-{newline,linecomment}-destr-0{2,3,4,5}` 一族：`const { a` 换行 `, b: [c] } = o;`
+的产物是 `<BindingElement><Statement><Identifier>a</Identifier></Statement>…`，
+TS 那边是两个平级 `BindingElement`）。
+
+**判据落在「`{` 前面那一格」上，不落在 `Parent` 上**（这一条是踩着坑写下来的）：
+`BindingElementCloseRule` 认模式时看的是 `current.Parent`，可那是**收尾期**——
+那时 `Let` / `BindingElement` 已经成形；而语句成形器问这一句是在**解析期**，
+`const {` 里那个 `{` 的 `Parent` 还是 `Root`（`Let` 要到 `=` 那一刻才由
+`LetCloseRule` 收出来）。所以这一格问的是**词**：`{` 前面那个实义单元是
+`const` / `let` / `var`（也可能是已经升成 `Let` 单元的那一格）。
+
+**嵌套模式递归问外层括号**：`const { a: { b } }` 里内层那个 `{` 前面是 `:`，
+而 `:` 单独说明不了任何事（`case 1: { … }` / `label: { … }` 后面都是**块**）——
+所以内层问的是「**外面那个括号**是不是模式」（拿 `Parent` 找到它、再在它父亲的列表里问一遍）。
+标签 / `case` 后面那个块的外层不是花括号，递归当场判否。
+
+**值位的那一格由 `IsObjectLiteralBrace` 负责**：`const y = { a: 1 }` 前面是 `=` ⇒ 这一格判否，
+调用方那一条 `||` 的另一半会答「是」。
+
+```ts
+const current = Get(units, index);
+if (current === null) {
+  return false;
+}
+if (!(current instanceof Bracket) || (current.startBracket !== "{" && current.startBracket !== "[")) {
+  return false;
+}
+const previous = GetSkipPrevious(units, index, IsTriviaUnit);
+const word = previous === null ? "" : WordText(previous);
+if (word === "const" || word === "let" || word === "var") {
+  return true;
+}
+if (previous !== null && previous.constructor.name === "Let") {
+  return true;
+}
+// **嵌套模式**：自己在外面那个**模式括号**里 ⇒ 把同一个问题问给外层括号。
+const holder = current.Parent;
+if (holder !== null && holder instanceof Bracket && (holder.startBracket === "{" || holder.startBracket === "[")) {
+  const outer = holder.Parent;
+  if (outer !== null) {
+    const at = outer.Data.indexOf(holder);
+    if (at >= 0 && IsBindingPatternBrace(outer.Data, at)) {
+      return true;
+    }
+  }
+}
+return false;
+```
+
 # method IsFunctionTypeArrow:(units:Array<Token>, arrowIndex:number)=>bool
 
 `arrowIndex` 处那个 `=>` 是**函数类型**的箭头（类型位），还是**箭头函数**的箭头（值位）。

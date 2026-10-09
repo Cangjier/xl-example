@@ -306,6 +306,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 826 轮：**绑定模式的花括号里也不收语句壳**——`destr` 那一族收掉 7 条
+
+**一句话**：`const { a` 换行 `, b: [c] } = o;` 里那个换行处，**解析期照常在花括号里收了一个
+`Statement` 壳**——而模式里的内容是要由 `BindingElementCloseRule` 按**顶层逗号**切的。
+三个语句成形器原来只问了「这花括号是不是值位的对象字面量」（`IsObjectLiteralBrace`），
+没有问「是不是**绑定模式**」这一格。补上 `IsBindingPatternBrace` 之后，
+`cases:tsast` 的账 **101 → 94**（`coverage` **3887 → 3894**，`token` 那一类 blocked 101 → 94）。
+
+- **根：壳把顶层逗号吃掉了**。壳一收下去，模式的一个段就变成一格 `Statement`
+  （元素的 `name` 字段整个投不出来）；更狠的是**壳里头**那条逗号规则会把 `a , b` 折成
+  `BinaryOperator` ⇒ 顶层逗号一个都不剩 ⇒ 整张模式收成**一个**元素
+  （实测 `const { a, b: ` 换行 `[c] } = o;` 的产物是
+  `<BindingElement><Statement><BinaryOperator op=",">…`，TS 那边是两个平级 `BindingElement`）。
+- **判据落在「`{` 前面那一格」上，不落在 `Parent` 上**（这一条是**踩出来的**）：
+  一开始照抄 `BindingElementCloseRule` 的宿主名单（`current.Parent` 是 `Let` / `BindingElement` …），
+  实测**一次都不响**——那条规则是**收尾期**跑，那时 `Let` 已经成形；而语句成形器问这一句是
+  **解析期**，`const {` 里那个 `{` 的 `Parent` 还是 `Root`（打一行日志看到的：
+  `[A] Bracket holder= Root obj= false pat= false`）。所以这一格问的是**词**：
+  `{` 前面那个实义单元是 `const` / `let` / `var`（或已经升成 `Let` 单元的那一格）。
+- **嵌套模式递归问外层括号**：`const { a: { b } }` 里内层那个 `{` 前面是 `:`，而 `:` 单独
+  说明不了任何事（`case 1: { … }` / `label: { … }` 后面都是**块**）⇒ 内层问的是
+  「**外面那个括号**是不是模式」（`Parent` 找到它、在它父亲的列表里再问一遍）。
+  标签 / `case` 后面那个块的外层不是花括号，递归当场判否；值位那一格仍由
+  `IsObjectLiteralBrace` 那一半负责（调用方是 `A || B`）。
+- **三个成形器一起改**：`FormFrom`（`;` 那一档）、`FormTail`（裸块那一档）、
+  `StatementBranch.Condition`（换行那一档）——三处原来都是同一句 `IsObjectLiteralBrace`，
+  少改一处就只剩一种排版是绿的。
+- **收掉的 7 条**：`gap-sweep-{newline,linecomment}-destr-0{2,3,4,5}`（`newline-05` /
+  `linecomment-06` 本来就是绿的）。文件头的 `xl:known-gap` 逐条删掉、7 条的 `xl:expect`
+  按新形状逐条重算（`cases:tags` 0 条不一致）。
+- **可复用的判据**：**解析期的「宿主」还不是收尾期的那个宿主**。凡是照抄某条 `CloseRule`
+  的宿主判据到解析期（语句成形器、分支 `Condition`），先问一句「那个单元**现在**成形了吗」——
+  `LineWrap` / `Begin` 那一刻，`Let` / `Class` / `Import` 这些头节点**都还没出生**。
+- **留下一族**：`gap-sweep-*-iface-0{2,3,5,6}`（方法签名 `m(): void;` 上那几格）与
+  `gap-sweep-*-clsmod-*`（类成员修饰词）本轮不动。
+
 ### 第 825 轮：**声明头「还没到形参表」那几格**——函数声明头折行的五处落点收掉 13 条
 
 **一句话**：函数声明的头是**四段拼起来**的（`function` + 名字 + 可选类型参数段 + 形参表 + `:` 返回类型），
@@ -3322,15 +3358,15 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **101 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **94 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1407** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1407 条**（1390 条带期望，共 **4770** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:tags` | **1407 条**（1390 条带期望，共 **4763** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `cases:shapes` | 外部语料 **229 份**（用例 1394 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3887 / 4167**，加权 **94.0%**：token 1293/1394、exec 748/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 142 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `coverage` | **五类 3894 / 4167**，加权 **94.1%**：token 1300/1394、exec 748/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 135 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~30s**） |
 ### 口径与已知缺口
 
@@ -3361,7 +3397,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **101** 条）：
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **94** 条）：
   主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
   （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
   `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），

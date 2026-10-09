@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.01,
+  "progressPercent": 94.09,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1394,
-      "pass": 1293,
-      "blocked": 101,
+      "pass": 1300,
+      "blocked": 94,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 92.75
+      "coverage": 93.26
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1394,
-    "knownGap": 101,
-    "knownGapStillOpen": 101,
-    "exactFiles": 1293,
-    "scoredWithoutGap": 1293,
-    "passedWithoutGap": 1293
+    "knownGap": 94,
+    "knownGapStillOpen": 94,
+    "exactFiles": 1300,
+    "scoredWithoutGap": 1300,
+    "passedWithoutGap": 1300
   },
   "blocked": [
     {
@@ -474,30 +474,6 @@
       "detail": "漂 4　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/cond）：DRIFT VariableStatement TS[0,24) 产物[0,17) «const x = a ? b : //c c;»"
     },
     {
-      "id": "token/statements/gap-sweep-linecomment-destr-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
-      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：MISS BindingElement TS[12,13) «a»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-destr-03",
-      "category": "token",
-      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
-      "detail": "缺 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：FIELD BindingElement [8,9) 产物[] TS[name] «a»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-destr-04",
-      "category": "token",
-      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
-      "detail": "缺 3　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：DRIFT BindingElement TS[8,9) 产物[8,21) «a»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-destr-05",
-      "category": "token",
-      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
-      "detail": "缺 6　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：DRIFT BindingElement TS[8,9) 产物[8,17) «a»"
-    },
-    {
       "id": "token/statements/gap-sweep-linecomment-dowhile-01",
       "category": "token",
       "title": "SWEEP-linecomment/dowhile 落点（657 审计语料）",
@@ -580,24 +556,6 @@
       "category": "token",
       "title": "SWEEP-newline/cond 落点（657 审计语料）",
       "detail": "缺 2　漂 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-newline/cond）：DRIFT VariableStatement TS[0,21) 产物[0,17) «const x = a ? b : c;»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-destr-02",
-      "category": "token",
-      "title": "SWEEP-newline/destr 落点（657 审计语料）",
-      "detail": "缺 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：FIELD BindingElement [8,9) 产物[] TS[name] «a»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-destr-03",
-      "category": "token",
-      "title": "SWEEP-newline/destr 落点（657 审计语料）",
-      "detail": "缺 3　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：DRIFT BindingElement TS[8,9) 产物[8,18) «a»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-destr-04",
-      "category": "token",
-      "title": "SWEEP-newline/destr 落点（657 审计语料）",
-      "detail": "缺 6　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：DRIFT BindingElement TS[8,9) 产物[8,17) «a»"
     },
     {
       "id": "token/statements/gap-sweep-newline-label-01",
@@ -1121,7 +1079,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13320/src/2001.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20360/src/2001.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1463,7 +1421,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13320/src/2984.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20360/src/2984.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1487,7 +1445,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13320/src/3032.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20360/src/3032.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1643,7 +1601,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13320/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20360/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
