@@ -134,6 +134,18 @@ if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as
 if (owner === "GenericType") {
   return;
 }
+// **`${ … }` 里也不收语句壳**（第 836 轮）：模板串内插段装的是**表达式**
+//（`StringExpression` / `TemplateSpan.expression`），不是语句 —— 与 `GenericType` 同一档。
+//
+// **少了它会怎样**（实测 `gap-sweep-newline-tpl-01` / `gap-sweep-linecomment-tpl-0{3,4}`）：
+// `${b` 换行 `}` 里那个换行让壳收下去 ⇒ `InterpolationString` 底下多一格 `Statement`
+// ⇒ 投影把 `b` 投成 `ExpressionStatement`（`EXTRA ExpressionStatement [14,15) «b»`），
+// 而 TS 那边 `TemplateSpan` 里直接就是 `Identifier`。
+// `${//c` 换行 `b}` 那一版更绕：注释先成了一条壳 ⇒ 内插段里出现
+// `[Statement(LineAnnotation), Identifier]` ⇒ 投影报 `FIELD TemplateExpression` 缺 `templateSpans`。
+if (owner === "InterpolationString") {
+  return;
+}
 // **`{` 括号：值位的花括号里也不收语句壳**（第 556 轮）：对象字面量 / 类型字面量里装的是
 // **成员**，不是语句 —— 判据与 `JsonObjectCloseRule` 问的是**同一句**
 //（`IsObjectLiteralBrace`，见 `../text-common-util.xl.md`）。
@@ -2123,6 +2135,11 @@ if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as
 // **泛型实参段里也不收语句壳**（第 583 轮，与 `FormFrom` 那一处同一口径）：
 // `<` 与 `>` 之间装的是**类型**，软换行在那里只是排版 —— 见那一处的说明。
 if (owner === "GenericType") {
+  return result;
+}
+// **`${ … }` 里也不收语句壳**（第 836 轮，与 `FormFrom` 那一处同一口径）：
+// 内插段装的是**表达式**，软换行在那里同样只是排版 —— 见那一处的说明与实测账。
+if (owner === "InterpolationString") {
   return result;
 }
 // **`IfCondition` 里也不收**（第 572 轮）：它就是**条件那一对括号** ——

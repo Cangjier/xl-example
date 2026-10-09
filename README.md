@@ -306,6 +306,31 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 836 轮：**`${ … }` 里不收语句壳**——`tpl` 那一族收掉 3 条
+
+**一句话**：模板串的内插段装的是**表达式**（TS 的 `TemplateSpan.expression`），不是语句 ——
+所以软换行落在 `${ … }` 里时不该收 `Statement` 壳。两处成形器各补一档之后
+`cases:tsast` 的账 **57 → 54**（`coverage` **3936 → 3939**，`token` 那一类 blocked 98 → 95）。
+
+- **根：`Statement` 壳收进了 `<InterpolationString>`**（`statement.xl.md` 的 `FormFrom` / `Condition`）。
+  `${b` 换行 `}` 里那个换行让壳收下去 ⇒ 内插段底下多一格 `Statement` ⇒
+  投影把 `b` 投成 `ExpressionStatement`（`EXTRA ExpressionStatement [14,15) «b»`），
+  而 TS 那边 `TemplateSpan` 里直接就是 `Identifier`。
+  `${//c` 换行 `b}` 那一版更绕：注释先成了一条壳 ⇒ 内插段里出现
+  `[Statement(LineAnnotation), Identifier]` ⇒ 投影报 `FIELD TemplateExpression [10,22)`——
+  `templateSpans` 整段投不出来（四栏 `缺 3 漂 0 多 0`）。
+- **判据与 `GenericType` 同一档**：`<` 与 `>` 之间装的是类型、`${` 与 `}` 之间装的是表达式，
+  两处都是「软换行在这里只是排版」⇒ 两处都按 `owner === "…"` 早早退掉。
+  **两处成形器要一起改**（`FormFrom` 的 `;` 那一档与 `Condition` 的换行那一档）——
+  与第 583 轮泛型那一档的落点一模一样。
+- **收掉的 3 条**：`gap-sweep-newline-tpl-01`、`gap-sweep-linecomment-tpl-0{3,4}`。
+  三条文件头的 `xl:known-gap` 逐条删掉、`xl:expect` 按新形状逐条重算（`cases:tags` 0 条不一致）。
+- **可复用的判据**：**「这里装的是语句吗」是收壳的唯一前提**。已经有三处按这个前提排掉了
+  （`[` / `(` 括号、泛型实参段、对象字面量 / 绑定模式的花括号），这一轮补上第四处（内插段）；
+  每加一处都要**两处成形器一起改**，只改一处就只剩一种排版是绿的。
+- **留下的一族**：`gap-sweep-*-cond-03`（三元里 `:` 后面的注释）、
+  `gap-sweep-*-clsmod-*`（类成员修饰词换行）与 `A-comment` 那一族本轮不动。
+
 ### 第 835 轮：**标签头后面的换行不是语句边界**——`label` 那一族收掉 4 条
 
 **一句话**：`lbl:` 换行 `for (;;) { … }` 在解析期被拆成两个语句壳——`lbl` 与 `:` 一个、
