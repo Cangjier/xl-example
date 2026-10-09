@@ -7449,6 +7449,10 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     StartOf: (node) => (node instanceof Map ? startOf(node) : node.start),
     EndOf: (node) => (node instanceof Map ? endOf(node) : node.end),
     StmtEndOf: (view) => stmtEndOf(view, ctx),
+    // **尾分号那一格的出口**（第 840 轮）：`declare module "mm";` 那个 `;` 到达时
+    // 声明早已成形（收尾规则问「简写」的那一刻列表只到名字），所以它由**投影侧**
+    // 按「没体的声明自己吃尾分号」补进区间——与第 838 轮那条口径同一份实现。
+    SemicolonEndOf: (end) => semicolonEndOf(end, ctx),
     Split: (list, separator) => splitTopLevel(list, ctx, separator),
     Invisible: INVISIBLE,
     IsSymbol: (node, text) => isSymbol(node, text),

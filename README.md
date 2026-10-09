@@ -306,6 +306,52 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 840 轮：**没体的环境模块 `declare module "mm";`**——`M-misc` 那一族收掉 2 条
+
+**一句话**：`ScanBody` 只认「名字后面有一个 `{`」那一档，而 TS 的 `AmbientModuleDeclaration`
+**允许没有体**（`declare module "mm";` / `module "mm";` 在 `ts.createSourceFile` 那边都是
+`ModuleDeclaration` + `StringLiteral`、**零语法错**）——少了这一档，整条声明落成一个
+`ExpressionStatement`（缺 2 多 1）。补上之后 `cases:tsast` 的账 **43 → 41**
+（`coverage` **3955 → 3958**，`token` 那一类 blocked 84 → 82）。
+
+- **根：收尾规则只认「有体」那一种形状**（`namespace/namespace.xl.md`）。
+  新判据 `ShorthandEnd`：名字是 **`String`**、`ScanBody` 找不到 `{`、且名字后面
+  **再没有别的东西**（或只有一个 `;`）⇒ 这是简写档，声明终点在名字上。
+  `Previous` 两档并列（有体 / 简写），`Process` 那一趟按 `bracketIndex < 0` 分岔：
+  没有体就不建 `NamespaceBody`，自己签出到终点。
+- **收尾那一刻列表只到名字**（**踩出来的**）：这条规则在每一格新单元到达时各问一次，
+  问「简写」时 `units` 正好停在名字上（那个 `;` 还没进来，实测
+  `[Identifier:declare, Identifier:module, String]`）。所以「**列表到名字为止**」就是简写的
+  信号；而那个 `;` 到达时它已经成了**另一格**（`Statement`），由**投影侧**按
+  「没体的声明自己吃尾分号」补进区间——`Namespace.PrintAst` 走 `ctx.SemicolonEndOf`
+  （第 838 轮那条口径**同一份实现**，`consumedSemicolons` 于是自然对账：
+  紧跟的那一格不再投成 `EmptyStatement`）。**带体的一档不吃**：`module M { };` 里那个 `;`
+  是另一条 `EmptyStatement`（`ModuleDeclaration` 在 `NO_TRAILING_SEMICOLON` 表里）。
+- **`SkipNext*` 那一族每调一次都至少前进一格**（同一轮踩到的第二处）：
+  `SkipNextWrapSymbol(units, SkipNextTrivia(units, nameIndex))` 会**多跨一格**
+  （第一个已经落在名字后面了）⇒ `Get` 越过那个 `;` 拿回 `null`、简写判成「终点在名字上」——
+  形状对了、可那个 `;` 被留成空语句（实测产物 `ModuleDeclaration[188,210)` + 多一个
+  `EmptyStatement`，TS 是 `[188,211)`）。两处 `SkipNext*` 一律**从同一格出发各问一次**。
+- **收掉的 2 条**：`gap-m-misc-03`（`declare module "*.css";`）与
+  `mod-declare-module-shorthand`（`declare module "mm";`）。两行 `xl:known-gap` 删掉、
+  `xl:expect` 按新形状重算（**这一次标签真的动了**：`declare` / `module` / 字符串
+  折进 `Namespace` 之后 `Keyword` / `String` / `ConstString` 三个标签都没了，
+  换成 `Namespace:1`）。另补一条用例钉住「名字与 `;` 之间夹注释」那一格：
+  `mod-module-shorthand-comment`。
+- **试过又退回的（如实留在这里）**：**类成员修饰词折行**那一族
+  （`gap-sweep-*-clsmod-01/03/04`）。三条的根是同一个（TS 的 `parseModifiers`：那一串修饰词里
+  **只有 `static` 允许被换行跟**，其余每一个后面必须在同一行跟到东西、否则那个词就是成员名），
+  逐词量过（`static` ⇒ 一条成员；`public` / `private` / `protected` / `readonly` / `abstract` /
+  `override` / `accessor` / `async` / `declare` ⇒ 两条）。改法落在 `Field.MemberEnd` +
+  `ClassMember.Process` 的「这个换行算不算边界」上：第一版加进去之后
+  **成员不再被切成两条**（`PropertyDeclaration` 区间对了），可**名字与 `modifiers` 仍然错**
+  （名字成 `static`、`modifiers` 空着）——那是**更前面**那一格（谁被认成名字）决定的，
+  不是这一格。改动**整份撤回**（三份文件一行不留），缺口照旧开着，
+  三条的形状与量出来的读数写在这里给下一轮。
+- **可复用的判据**：**「列表到哪儿为止」决定得下什么形状**。收尾规则在**每一格到达时**各跑一次，
+  所以「后面还有没有东西」这一刻的答案是**当时的**答案——需要后面的信息时要么等它到达
+  （第二次问），要么把那一格交给**投影**（`SemicolonEndOf` 那一档就是这么分工的）。
+
 ### 第 839 轮：**`export` 后面不可能是一行的终点**——`ns` 那一族收掉 2 条
 
 **一句话**：第 822 / 825 / 828 / 835 轮把「这个词后面必须跟东西」逐个补进 `ExpectsOperand`

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4177,
+  "total": 4178,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.64,
+  "progressPercent": 94.66,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1404,
-      "pass": 1361,
-      "blocked": 43,
+      "total": 1405,
+      "pass": 1364,
+      "blocked": 41,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 96.94
+      "coverage": 97.08
     },
     {
       "category": "exec",
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1404,
-    "knownGap": 43,
-    "knownGapStillOpen": 43,
-    "exactFiles": 1361,
-    "scoredWithoutGap": 1361,
-    "passedWithoutGap": 1361
+    "total": 1405,
+    "knownGap": 41,
+    "knownGapStillOpen": 41,
+    "exactFiles": 1364,
+    "scoredWithoutGap": 1364,
+    "passedWithoutGap": 1364
   },
   "blocked": [
     {
@@ -202,18 +202,6 @@
       "category": "token",
       "title": "第 686 轮**还开着的那一格**：对象字面量值位里**被括号包住的数组**——",
       "detail": "缺 4　多 6　实参里的对象 / 括号化对象里，外层 `{` 的 `Context` 在招待那一格时还是空串，"
-    },
-    {
-      "id": "token/modules/gap-m-misc-03",
-      "category": "token",
-      "title": "M-misc 落点（657 审计语料）",
-      "detail": "缺 2　多 1　注释 / 换行落在语法相邻位置之间（M-misc）：MISS ModuleDeclaration TS[0,23) «declare module \"*.css\";»"
-    },
-    {
-      "id": "token/modules/mod-declare-module-shorthand",
-      "category": "token",
-      "title": "简写环境模块声明（没有体）",
-      "detail": "缺 2　多 1　`declare module \"mm\";` 的简写形态不成形（缺 2 多 1）；带 `{}` 的那一条是好的（r663 探针池 c-declare-module-shorthand）"
     },
     {
       "id": "token/statements/expr-async-generic-arrow-spaced",
@@ -773,7 +761,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-8296/src/2011.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12776/src/2012.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1115,7 +1103,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-8296/src/2994.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12776/src/2995.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1139,7 +1127,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-8296/src/3042.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12776/src/3043.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1295,7 +1283,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-8296/src/3685.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12776/src/3686.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

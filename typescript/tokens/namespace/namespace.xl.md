@@ -13,7 +13,7 @@ import { Decorator } from "../decorator.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { NamespaceBody } from "./namespace-body.xl.md"
-import { SkipNextTrivia } from "../../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { ConstString } from "../string/const-string.xl.md"
 import { String } from "../string/string.xl.md"
 ```
@@ -130,6 +130,69 @@ return nextIndex;
 体内所有声明跟着丢（实测 `@types` 里 115 处 `ModuleDeclarationString`，以及它连带的
 `Field` / `Interface` / `TypeAssign` 三笔差额）。
 
+## private method ShorthandEnd:(units:Array<Token>, index:int)=>int
+
+**简写环境模块**（`declare module "mm";`——没有体的那一档）的终点下标；不是这个形状就返回 `-1`。
+
+TS 的 `AmbientModuleDeclaration` 允许**只有名字、没有体**：`declare module "mm";` /
+`module "mm";` / `declare module "mm"` 三档在 `ts.createSourceFile` 那边都是
+`ModuleDeclaration` + `StringLiteral` 两个节点、**零语法错**（逐条量过；有体那一档照旧走
+`ScanBody`）。带 `;` 时那个 `;` **归它自己**（`ModuleDeclaration[0,20)` 含 `;`），
+不带 `;` 时终点就是名字那一格。
+
+**只有字符串名字有简写**：标识符名字（`declare namespace N`）没有体在 TS 那边是语法错
+（量到的是 `ModuleDeclaration` 带一个**空的 `ModuleBlock`** + 一条 `ExpressionStatement`），
+所以这一格只认 `String` 名字。
+
+**认的是「名字后面没有别的东西」**（或者只有一个 `;`）：这一格返回的是**声明的终点**——
+没有 `;` 时就是名字那一格，有 `;` 时就是它。**下一行的 `{` 不算**（那一档归 `ScanBody`，
+而 `ScanBody` 不跨软换行）：宁可留给今天那条路，也不在这里猜。
+
+**为什么「列表到名字为止」也要认**（第 840 轮实测）：这条收尾规则**在每一格新单元到达时
+各问一次**，而问「简写」的那一刻 `units` **正好停在名字上**（`[declare, module, "mm"]`，
+那个 `;` 还没进来）。所以「后面没有了」就是简写的信号；而那个 `;` 到达时它已经成了
+**另一格单元**（`Statement`），由**投影侧**按「没体的声明自己吃尾分号」补进区间
+（`Namespace.PrintAst` 的 `ctx.SemicolonEndOf`，与第 838 轮那条口径同一份）。
+
+**`SkipNext*` 那一族每调一次都至少前进一格**（第 840 轮踩到的）：`SkipNextWrapSymbol(units,
+SkipNextTrivia(units, nameIndex))` 会**多跨一格**（第一个已经落在名字后面了），
+于是 `Get(units, …)` 越过那个 `;` 拿回 `null`、简写判成「终点在名字上」——形状对了、
+可那个 `;` 被留成空语句。所以这里两次都从**同一格**出发各问一次。
+
+```ts
+const current = Get(units, index);
+if (!(current instanceof Identifier)) {
+  return -1;
+}
+const text = current.TempToString();
+if (text !== "module" && text !== "namespace") {
+  return -1;
+}
+const nameIndex = SkipNextTrivia(units, index);
+const nameUnit = Get(units, nameIndex);
+if (!(nameUnit instanceof String)) {
+  return -1;
+}
+// 有体的一档不在这里（`ScanBody` 认得出那个 `{`）。
+if (this.ScanBody(units, index) >= 0) {
+  return -1;
+}
+const afterIndex = SkipNextTrivia(units, nameIndex);
+const after = Get(units, afterIndex);
+if (after === null) {
+  return nameIndex;
+}
+if (after instanceof SymbolToken && after.Is(";")) {
+  return afterIndex;
+}
+const wrappedIndex = SkipNextTrivia(units, SkipNextWrapSymbol(units, afterIndex));
+const wrapped = Get(units, wrappedIndex);
+if (wrapped instanceof SymbolToken && wrapped.Is(";")) {
+  return wrappedIndex;
+}
+return -1;
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个命名空间声明的起点。
@@ -151,7 +214,11 @@ const text = current.TempToString();
 if (text !== "namespace" && text !== "module" && text !== "global") {
   return false;
 }
-return this.ScanBody(units, index) >= 0;
+// **两种形状**：带体那一档找得到那个 `{`（`ScanBody`）；**不带体的简写**
+// （`declare module "mm";`）由 `ShorthandEnd` 认——两处问的是同一件事的两半，
+// 少一半就整条落成一个 `ExpressionStatement`（实测 `mod-module-shorthand` 一族：
+// `ModuleDeclaration` + `StringLiteral` 都缺）。
+return this.ScanBody(units, index) >= 0 || this.ShorthandEnd(units, index) >= 0;
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
@@ -196,7 +263,11 @@ for (let i = startIndex; i < keywordIndex; i++) {
   }
 }
 const bracketIndex = this.ScanBody(units, keywordIndex);
-if (bracketIndex < 0) {
+// **简写环境模块没有体**（第 840 轮）：`declare module "mm";` 在 TS 那边是
+// `ModuleDeclaration` + `StringLiteral`、`body` **缺着**，这里的终点就是那个 `;`
+//（没有 `;` 时是名字那一格）。带体那一档照旧（`bracketIndex >= 0`）。
+const shorthandEnd = bracketIndex < 0 ? this.ShorthandEnd(units, keywordIndex) : -1;
+if (bracketIndex < 0 && shorthandEnd < 0) {
   throw new Error("namespace 语句不满足格式要求：namespace Name{...}");
 }
 // 名字是**字符串字面量**还是**标识符**，决定要不要按点号拆成嵌套的 `Namespace`。
@@ -300,10 +371,6 @@ if (isStringName === false && nameParts.length > 1) {
     namespaceInstance.SourceRange.End = outerEnd;
   }
 }
-const body = Get(units, bracketIndex);
-if (!(body instanceof Bracket)) {
-  throw new Error("namespace 语句不满足格式要求：namespace Name{...}");
-}
 // **名字那一格的整段区间当场记下**（用户口径：token 出字段、投影直读）：
 // 那一段的起止就在 `nameStarts` / `nameEnds` 里，投影不再回原文 `indexOf` 找。
 // 平坦名就是唯一那段；点号名的外层记**第一段**（TS 那边 `namespace A.B` 的外层名字只有 `A`，
@@ -327,17 +394,30 @@ if (isStringName) {
     namespaceInstance.NameEnd = stringName.SourceRange.End.Index;
   }
 }
-const namespaceBody = innermost.CreateBody();
-body.MoveDataTo(namespaceBody);
-namespaceBody.Sign(body);
-namespaceBody.TryToClose();
-if (innermost.SourceRange.End === null) {
-  innermost.SignOutToken(namespaceBody);
+if (bracketIndex >= 0) {
+  const body = Get(units, bracketIndex);
+  if (!(body instanceof Bracket)) {
+    throw new Error("namespace 语句不满足格式要求：namespace Name{...}");
+  }
+  const namespaceBody = innermost.CreateBody();
+  body.MoveDataTo(namespaceBody);
+  namespaceBody.Sign(body);
+  namespaceBody.TryToClose();
+  if (innermost.SourceRange.End === null) {
+    innermost.SignOutToken(namespaceBody);
+  }
+  if (innermost !== namespaceInstance && namespaceInstance.SourceRange.End === null) {
+    namespaceInstance.SignOutToken(namespaceBody);
+  }
+} else {
+  // **简写那一档自己签出到终点**（第 840 轮）：没有体就没有 `namespaceBody` 可以签，
+  // 而 `TryToClose` 要求范围完整（少了这一句抛 `SourceRange.End is null`）。
+  const lastUnit = Get(units, shorthandEnd);
+  if (lastUnit !== null && namespaceInstance.SourceRange.End === null) {
+    namespaceInstance.SignOutToken(lastUnit);
+  }
 }
-if (innermost !== namespaceInstance && namespaceInstance.SourceRange.End === null) {
-  namespaceInstance.SignOutToken(namespaceBody);
-}
-const declarationEnd = bracketIndex;
+const declarationEnd = bracketIndex >= 0 ? bracketIndex : shorthandEnd;
 return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namespaceInstance);
 ```
 
@@ -362,7 +442,20 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
 | `declare global` | `Identifier("global")` | `nameRange` 就是 `global` 那个词 |
 
 ```ts
-  return ctx.Node("ModuleDeclaration", ctx.Structural(v, "ModuleDeclaration"), v);
+  const node = ctx.Node("ModuleDeclaration", ctx.Structural(v, "ModuleDeclaration"), v);
+  // **没体的环境模块把那个 `;` 吃进来**（第 840 轮）：`declare module "mm";` 在 TS 那边
+  // `ModuleDeclaration` 的区间**含** `;`（`AmbientModuleDeclaration` 收尾调 `parseSemicolon`），
+  // 而收尾规则问「简写」的那一刻列表**只到名字**（那个 `;` 还没进来，见 `ShorthandEnd`）
+  // ⇒ 声明自己的区间到名字为止。这里按「没体的声明自己吃尾分号」补一格——
+  // 与第 838 轮那条口径**同一份实现**（`ctx.SemicolonEndOf` 会把那个下标记进
+  // `consumedSemicolons`，紧跟的那一格于是不再投成 `EmptyStatement`）。
+  // **带体的一档不吃**：`module M { };` 里那个 `;` 是**另一条** `EmptyStatement`
+  // （`ModuleDeclaration` 在 `NO_TRAILING_SEMICOLON` 表里）。
+  const hasBody = ctx.AllKids(v).some((k: any) => k.get("type") === "NamespaceBody");
+  if (hasBody === false) {
+    node.end = ctx.SemicolonEndOf(node.end);
+  }
+  return node;
 ```
 
 ## constructor:(template:Template)=>void
