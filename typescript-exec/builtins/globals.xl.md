@@ -10255,5 +10255,33 @@ for (let i = 0; i < builtinNames.length; i++) {
     // 所以这里必须显式给一次，否则 `d.writable` 会答真（判据 `r-builtin-length-desc` 量的就是它）。
     PropertyFlagConfigurable);
 }
+// **内建构造对象自己那一格原型**（第 782 轮）：它们都是「**普通对象 + 一格可调用载荷**」
+// （`AttachCallable`，第 145 轮），而 `NewPlainObject` 给的原型是 `protos.Object`
+// ⇒ `Object.getPrototypeOf(TypeError) === Error` 在 Node 里是**真**、本仓给**假**
+//（第 724 轮 `p724a-b01` 登的、第 781 轮 `r781a-01` 又量了一遍的那一处）；
+// 同一个根还有两个出口：`Object.getPrototypeOf(Error) === Function.prototype`、
+// 以及 `Error instanceof Function`（两份都是假）。
+//
+// **规矩只有两句**（照 JS 的原型链抄，一处写、一张表）：
+//   ① 错误家族**七个后代**的原型是**全局那一个 `Error` 对象**
+//      （Node 实测：只有这七格不是 `Function.prototype`，见 `tmp/probes/proto3.ts` 的读数）；
+//   ② 其余每一个内建构造的原型是 `protos.Function`。
+//
+// **不带 `constructor` 那一格一起看**：这只改**对象自己**那一格，不动
+// `X.prototype`（那是另一条链，`InitProtos` 里接的），所以
+// `new TypeError().constructor === TypeError` 与 `e instanceof Error` 一个字都不动。
+const builtinProtoTargets: Value[] = [objectObject, functionObject, arrayObject, numberObject, stringObject,
+  booleanObject, symbolObject, mapObject, setObject, weakMapObject, weakSetObject, dateObject, errorObject,
+  promiseObject, typeErrorObject, rangeErrorObject, syntaxErrorObject, referenceErrorObject,
+  aggregateErrorObject, uriErrorObject, evalErrorObject];
+const builtinProtoOwners: number[] = [protos.Function, protos.Function, protos.Function, protos.Function,
+  protos.Function, protos.Function, protos.Function, protos.Function, protos.Function, protos.Function,
+  protos.Function, protos.Function, protos.Function, protos.Function, 0, 0, 0, 0, 0, 0, 0];
+for (let i = 0; i < builtinProtoTargets.length; i++) {
+  // **`0` 那一档 = 错误家族的后代**（原型是 `errorObject` 自己那一个值）——
+  // 按号写死一个 `protos.*` 是够不着它的（`Error` 在这一层是**对象**不是原型格）。
+  const owner = builtinProtoOwners[i] === 0 ? errorObject.Ref : builtinProtoOwners[i];
+  table.Get(builtinProtoTargets[i].Ref).Proto = owner;
+}
 return globals;
 ```
