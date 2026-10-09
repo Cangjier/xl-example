@@ -307,6 +307,32 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 893 轮：新片段普查 149 条——**带走类型标注的 `catch` 形参**与**静态索引签名**（AST 两把尺子照旧全绿）
+
+**一句话**：AST 那两把尺子已经全绿，所以这一轮的起点不是「哪里有红」，而是**写一批
+既有语料没压过的小片段**去问一遍（`--snippets` 探针，149 条合法片段、一个进程）。
+逮到两处，都收掉了；两处都**进了语料**（token 那两把尺子从此压着它们）。
+
+- **`catch (e: unknown)`**：TS 那边 `VariableDeclaration` 是 `e: unknown` **整段**
+  （[15,25)）、`type` 是 `UnknownKeyword[17,25)`，而本仓
+  ① 只按名字两端给区间（[15,16) ⇒ 漂一格 + 多一格），
+  ② 把类型投成了**那层 `TypeDefine` 壳**（⇒ 缺 `UnknownKeyword` + 字段名少 `type`）。
+  修法照**形参那一支**：区间读到那个 `TypeDefine`（它含 `:`）、类型走 `ctx.TypeExpression`
+  （「类型位里的原始类型名是关键字节点」这条只在类型位的投影里）。
+  **没有类型标注时一个字都不变**（`catch (e)`）。
+- **`class C { static [k: string]: number; }`**：TS 那边那个 `IndexSignature` 的
+  `modifiers` 是 `[StaticKeyword[10,16)]`，而 `IndexSignature.PrintAst` 那一格
+  **只找 `readonly`**。改成**按源码次序收一摞**（`static readonly [k: string]: number`
+  在 TS 里是**两个**修饰词）——两处各写一句就会漏掉「两个一起写」的那一格。
+- **实测**：片段探针 `149 条合法片段，0 条对不上`；九道门全绿
+  （`cases:tsast` 16/16、`cases:astjson` 六项全 0、`coverage 4077 / 4248`、
+  `differ 132`、`bad 0`、`regressions 0`）。新增两条常驻用例
+  （`token/statements/stmt-catch-define-typed`、`token/statements/stmt-index-signature-static`）。
+- **可复用的判据**：AST 全绿之后，**「没有红」不等于「没有缺口」**——
+  既有语料是被一轮一轮的探查喂大的，它压过的地方就那几处。
+  这一轮的入手式是「**把最近改过的那几个投影（catch / try / 修饰词 / 类型位）
+  各写两三条最小片段**」，比读代码找缺口快得多（149 条一次跑完 ~3 秒）。
+
 ### 第 892 轮（续）：`for..in` 沿原型链那一趟——**「这一格存在」与「这一格算数」是两份名单**（台账 1 条转绿，`differ 133 → 132`）
 
 **一句话**：第 783 轮量出来的那一格（自有的**不可枚举**属性挡不住原型上同名的可枚举格）

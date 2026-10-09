@@ -41,11 +41,20 @@ TS 那边 `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型�
 `IndexSignatureDeclaration`，但本工程一直用短名，改成全名会让这一整类算成「缺 19 + 多 19」）。
 
 TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: string`）、`type`（值类型）、
-`modifiers`（`readonly`）；产物那边是**一串平级子单元**（`Parameter` + `TypeDefine`（+ `readonly`
-那个词）），照通用投影会全塞进一个 `children`（实测 `IndexSignatureDeclaration` 的字段名整类不符）。
+`modifiers`（`readonly` / **`static`**）；产物那边是**一串平级子单元**（`Parameter` + `TypeDefine`
+（+ 修饰词那个单元）），照通用投影会全塞进一个 `children`（实测 `IndexSignatureDeclaration`
+的字段名整类不符）。
 
 `readonly` 在产物里是**子单元**（不是一个属性），所以这里单独把它收成修饰词节点——
 `addModifiers` 读的是 `modifiers` 属性 / 布尔属性，这一格两样都没有。
+
+**`static` 那一位是第 893 轮补的**（**片段普查当场红的**）：`class C { static [k: string]: number; }`
+在 TS 里那个 `IndexSignature` 的 `modifiers` 是 `[StaticKeyword[10,16)]`，而这一格原来
+**只找 `readonly`** ⇒ 缺 `StaticKeyword` 一格、字段名也少一项。
+**两者都要收**（`static readonly [k: string]: number` 在 TS 里是**两个**修饰词，次序就是源码里的次序）：
+所以这一趟收的是**一张表、按源码次序**，不是「两处各写一句」。
+`ctx.Project` 把那个词投成 `StaticKeyword`（与 `readonly` 走同一个关键字表，见
+`print-ast-common.xl.md` 的 `KEYWORD_KIND`）。
 
 **形参的区间要去掉那对方括号**（第 92 轮）：产物的 `Parameter` 单元把 `[` 也圈进来了
 （`[key: string]` 给 [14,26)），而 TS 的 `Parameter` 是 `key: string`（[15,26)）——
@@ -55,9 +64,11 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   const kids = ctx.Kids(v);
   const params = kids.filter((k: any) => k.get("type") === "Parameter");
   const typeNode = kids.find((k: any) => k.get("type") === "TypeDefine");
-  const readonlyUnit = kids.find(
+  // **修饰词那一摞**（第 893 轮）：`readonly` 与 `static` 都是子单元，按源码次序收。
+  const modifierUnits = kids.filter(
     (k: any) =>
-      (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.TextOf(k) === "readonly",
+      (k.get("type") === "Keyword" || k.get("type") === "Identifier") &&
+      (ctx.TextOf(k) === "readonly" || ctx.TextOf(k) === "static"),
   );
   const props: any = {};
   if (params.length > 0) {
@@ -70,8 +81,8 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   if (typeNode !== undefined) {
     props.type = ctx.Project(typeNode);
   }
-  if (readonlyUnit !== undefined) {
-    props.modifiers = [ctx.Project(readonlyUnit)];
+  if (modifierUnits.length > 0) {
+    props.modifiers = modifierUnits.map((one: any) => ctx.Project(one));
   }
   return ctx.NodeHead("IndexSignature", props, v);
 ```

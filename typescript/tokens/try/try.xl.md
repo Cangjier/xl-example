@@ -291,7 +291,42 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
             ? ctx.BindingPattern(binding)
             : ctx.Project(binding);
       if (name !== undefined) {
-        inner.variableDeclaration = { kind: "VariableDeclaration", name, pos: name.pos, end: name.end };
+        // **区间要连类型标注一起**（第 893 轮，**片段普查当场红的**）：
+        // TS 那边的 `VariableDeclaration` 是 `e: unknown` **整段**
+        //（`catch (e: unknown) { }` 实测 [15,25)），而这里原来只按名字的两端给
+        // ⇒ 漂一格（`VariableDeclaration` [15,16)）加**多一格**（那多出来的是
+        // 「名字自己也是一个节点」那一路，区间短的那个把它顶掉了）。
+        // **类型那一格在产物里是 `TypeDefine`**（`catchDefine` 的第二个可见子单元，
+        // 见上面的 XML：`<Identifier>e</Identifier><TypeDefine>…</TypeDefine>`）——
+        // 它的区间**含那个 `:`**（实测 [16,24)，正与 TS 的 [15,25) 差一个右界）。
+        // **没有类型标注时一个字都不变**（`catch (e)`：`e` 的两端就是整段）。
+        //
+        // **第二处：类型那一格要投 `TypeDefine` 的**内容**，不是那层壳**（第 893 轮）。
+        // TS 那边 `variableDeclaration.type` 是**那个类型节点本身**：
+        // `catch (e: unknown)` 给 `UnknownKeyword[17,25)`（`text` 是 `": unknown"`——
+        // 连那个 `:` 一起，那是 TS 的 `getStart()` 口径），而壳上**没有 `UnknownKeyword`
+        // 这一档**（窄化表只认「类型表达式」那个位置里的原始类型名）。
+        // 照壳投出来的是一格 `TypeReference` ⇒ 四个方向里「缺 `UnknownKeyword`」
+        // 与「字段名缺 `type`」同时响。
+        // **`TypeDefine` 的可见子单元就是那个类型表达式**（与形参那一支
+        // `param.type = ctx.Project(typeUnit)` **同一个做法**），所以这里照抄它。
+        let declEnd = name.end;
+        let declType: any = undefined;
+        const typeKid = ctx.AllKids(catchDefine).find((k: any) => k.get("type") === "TypeDefine");
+        // **区间与类型两处都从它来**：壳的两端就是 `·: unknown·`（右边不带到 `)`，实测 [16,24]）。
+        if (typeKid !== undefined) {
+          declEnd = ctx.EndOf(typeKid);
+          // **类型那一格要走 `TypeExpression`**（不是 `Project`）：与形参那一支
+          //（`param.type = ctx.Project(typeUnit)` 之上还有一层 `projectTypeExpression`）
+          // 同一个目的——「原始类型名在类型位是关键字节点」这条**只在类型位的投影里**。
+          const typeUnit = ctx.AllKids(typeKid).find((k: any) => !ctx.Invisible.has(k.get("type")));
+          if (typeUnit !== undefined) {
+            declType = ctx.TypeExpression(ctx.Kids(typeKid));
+          }
+        }
+        inner.variableDeclaration = declType === undefined
+          ? { kind: "VariableDeclaration", name, pos: name.pos, end: declEnd }
+          : { kind: "VariableDeclaration", name, type: declType, pos: name.pos, end: declEnd };
       }
     }
     if (catchBody !== undefined) inner.block = ctx.Project(catchBody);
