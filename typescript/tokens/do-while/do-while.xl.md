@@ -380,6 +380,14 @@ if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
   // 不是就是 ASI 断在括号上（`do {} while (a)` 后面接语句的排法）。
   // **末尾那个 `;` 自己占一格时上面那一问已经吃过了**，这一支只管它不在列表里的那一档。
   //
+  // **上一版那一问的坐标两处都差一格**（第 860 轮实测）：`SourceRange.End` 是**含尾**的位置
+  // ——`(x < 10)` 那一格括号的 `End.Index` 就是 `)` 自己（实测 `tail=24`、`GetValue(24)==")"`），
+  // 不是它后面那一格。所以「从 `tail.Index` 起扫」第一步看到的是 `)` 而不是空格，
+  // 循环当场 `break`、`=== ";"` 那一问永远为假 ⇒ 这一整段是**死代码**，右端照旧停在 `)` 上
+  //（实测 `do { f() } while (x < 10);`：产物 `[0,25)` vs TS `[0,26)`，全语料 9 处 `DoStatement` 漂移）。
+  // 同理 `At(at + 1)` 也越了一格：`;` 在 `at` 上时，**要签出的就是这个位置本身**（含尾口径），
+  // 不是它后面那一格。两处各改一格，扫描从括号后那一格起、签在 `;` 上。
+  //
   // **与它成对的那半还开着**（第 859 轮实测）：`DoWhile` 与后面那条语句仍然挤在同一个语句壳里
   // （`Statement.FormTail` 收的），投影于是多套一层 `ExpressionStatement`。
   // **把 `DoWhile` 补进 `Statement.IsStatementUnit` 试过、退回来了**：壳被 `SplitShell` 拆开之后，
@@ -389,7 +397,7 @@ if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
   let signOut = compare.SourceRange.End!;
   const tail = conditionBracket.SourceRange.End!;
   const tailDoc = tail.Document;
-  let at = tail.Index;
+  let at = tail.Index + 1;
   for (;;) {
     while (at < tailDoc.GetCount() && (tailDoc.GetValue(at) === " " || tailDoc.GetValue(at) === "\t" || tailDoc.GetValue(at) === "\r" || tailDoc.GetValue(at) === "\n")) {
       at = at + 1;
@@ -411,7 +419,7 @@ if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
     break;
   }
   if (at < tailDoc.GetCount() && tailDoc.GetValue(at) === ";") {
-    signOut = tailDoc.At(at + 1);
+    signOut = tailDoc.At(at);
   }
   result.SignOut(signOut);
 }

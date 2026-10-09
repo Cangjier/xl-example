@@ -306,6 +306,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 860 轮：`do … while (…) ;` 那个尾分号的右端——第 859 轮新写的那一支是**死代码**，坐标两处各差一格
+
+**一句话**：全语料 **9 处 `DoStatement` 漂移**（缺 0 漂 9 多 9）一次收掉；
+`cases:tsast` 从 **10 / 16 片** 到 **16 / 16 片**、逐文件一致 **1817 / 1817**。
+
+**上一轮把这一笔账记成了**「那 9 / 9 是 `dist/ts/typescript/tokens/field.ts` 一处旧漂」——
+**不是**：它们是**同一根**，而且根就在上一轮新加的那一段里。
+
+**上一轮那一支为什么一个字都没生效**（[typescript/tokens/do-while/do-while.xl.md](typescript/tokens/do-while/do-while.xl.md)，
+`DoWhileCloseRule.Process` 的尾分号那一支）：判据「问原文」是对的，**坐标两处各差一格** ⇒
+整段**死代码**，右端照旧停在条件括号上：
+
+- **`SourceRange.End` 是含尾的位置**：`(x < 10)` 那个括号的 `End.Index` 就是 `)` **自己**
+  （插桩实测 `tail=24`、`GetValue(24)==")"`、`compareEnd=24`），不是它后面那一格。
+  于是「从 `tail.Index` 起扫」第一步看到的是 `)`、不是空白，
+  循环当场 `break`、`GetValue(at) === ";"` 那一问**永远为假**。
+- **`At(at + 1)` 也越了一格**：`;` 在 `at` 上时，**要签出的就是这个位置本身**（含尾口径）。
+
+**修法**：`let at = tail.Index + 1`、`signOut = tailDoc.At(at)`——两处各一格，其余一个字没动。
+
+**实测**（`tmp/r860/`）：`do { f() } while (x < 10);` 修之前产物 `DoStatement [0,25)`、TS `[0,26)`；
+修之后逐格相同。八种排版一起量：单行体 / 体里换行 / `do f(); while (c);` / 条件竖排 /
+`do while (a) x++; while (b);` / 后面接语句 / 前后带注释 / 无尾分号（ASI）——**全绿**。
+
+**数字**：`cases:tsast` **16 / 16 片通过**（改之前 10 / 16，6 片挂在同一根上）、
+逐文件完全一致 **1817 / 1817**、缺 0 漂 0 多 0、未映射 0、缺 range 0、区间越界 0；
+`已知缺口` 仍是 **8 条还开着**（`stmt-do-while-then-statement` 那一半——壳没拆——这一轮没动）。
+
 ### 第 859 轮：`do { } while (a)` 后面没有分号时的右端——`DoWhile` 不再吃下一条语句
 
 **一句话**：`do {} while (a) b()`（`stmt-do-while-then-statement`）里 `DoStatement` 的右端
