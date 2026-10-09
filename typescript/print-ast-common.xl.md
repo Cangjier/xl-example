@@ -4311,6 +4311,86 @@ if (kind === "PropertyAccess" || kind === "NotNull") {
 return false;
 ```
 
+# private method assertedMember:(left:any, unit:any, ctx:any, questionDot:any)=>any
+
+把一格**「成员名 + `!`」**（`NotNull`）折成 TS 的 `NonNullExpression`（第 852 轮立）。
+返回**已经套好断言的那条链**，`left` 是它的受体；折不出来（没有 `!`、没有名字）给 `undefined`。
+
+为什么单独立一格：同一形状**在两条路上各出现一次**，而两条路原来各折各的——
+
+- `NullConditionalOperator` 的**第一格**就是 `NotNull`（`a?.b!`：产物
+  `[Identifier(a), NCO(NotNull([Identifier(b), !]))]`，第 166 轮）；
+- `?.` 之后的**续格**是「名字为空、被调用者带 `!`」的 `Method`
+  （`a?.b!()`：产物 `NCO[Method name=""[NotNull(b, !), Bracket]]`；
+  `a?.b!.c!()`：`NCO[NotNull(b, !), ., Method name=""[NotNull(c, !), Bracket]]`）。
+
+前者走了「先按名字折一格、再把 `!` 套上去」（第 166 轮），后者**两处调用点都没走**
+（`chainWithOptional` 与 `chainOnto` 都无条件按 `name` 折一格属性访问）⇒
+`name` 是空串时投出一个**名字为空**的 `PropertyAccessExpression`：实测
+`a?.b!()` 缺 `NonNullExpression`（`gap-c-optchain-nonnull-01`）、
+`a?.b!.c!()` 里 `NonNullExpression` / `PropertyAccessExpression` / `Identifier` 三处漂
+（`gap-c-optchain-nonnull-02`）。
+
+**次序是语义**：先把**成员**接到 `left` 上，再把 `!` 套在**整条链**上
+（TS 是 `NonNull(PropertyAccess(…, b))`，不是「名字叫 `b!`」）；
+`?.` 那一格（`questionDot`）挂**内层**那个属性访问（TS 就是这么放的），
+所以调用方传的是**那一格 `?.` 自己**的位置（第一格那一路传 NCO 的起点）。
+
+```ts
+  const inner = projectableKids(view(unit)).filter((k: any) => !INVISIBLE.has(k.get("type")));
+  const bang = inner.find((k: any) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!");
+  const nameUnit = inner.find((k: any) => k !== bang);
+  if (nameUnit === undefined || bang === undefined) return undefined;
+  let node: any;
+  if (nameUnit.get("type") === "PropertyAccess") {
+    // **里面那条链也要逐格接**（第 166 轮）：`a?.b.c!` 的 NCO 内容是
+    // `NotNull(PropertyAccess([b, ., c]))`，TS 那边是两层
+    // `PropertyAccessExpression`（第一格带 `?.`）外面套 `NonNullExpression`——
+    // 只按名字投一格会把 `b.c` 当成一个名字（实测区间 75→81、两个 `Identifier` 都漂）。
+    const members = projectableKids(view(nameUnit));
+    let cur = left;
+    let pending: any = questionDot;
+    for (const member of members) {
+      if (member.get("type") === "NullConditionalOperator") {
+        cur = chainWithOptional(cur, member, ctx);
+        pending = undefined;
+        continue;
+      }
+      if (isDot(member, ctx) || !isNameNode(member)) {
+        continue;
+      }
+      const one: any = {
+        kind: "PropertyAccessExpression",
+        expression: cur,
+        name: nameOf(member, ctx),
+        pos: cur.pos,
+        end: endOf(member),
+      };
+      if (pending !== undefined) {
+        one.questionDotToken = pending;
+        pending = undefined;
+      }
+      cur = one;
+    }
+    node = cur;
+  } else {
+    node = {
+      kind: "PropertyAccessExpression",
+      expression: left,
+      name: nameOf(nameUnit, ctx),
+      pos: left.pos,
+      end: endOf(nameUnit),
+    };
+    if (questionDot !== undefined) node.questionDotToken = questionDot;
+  }
+  return {
+    kind: "NonNullExpression",
+    expression: node,
+    pos: left.pos,
+    end: endOf(bang),
+  };
+```
+
 # private method chainWithOptional:(left:any, unit:any, ctx:any)=>any
 
 `a.b?.c` / `a?.[i]` → 在链上再加一格（带 `questionDotToken`）。
@@ -4338,6 +4418,27 @@ return false;
   // 属性访问，再把调用套上去（TS：`CallExpression > PropertyAccessExpression(?.)`）。
   if (first !== undefined && first.get("type") === "Method") {
     const nameText = String(first.get("name") ?? "");
+    // **被调用者自己带 `!`**（第 852 轮）：`a?.b!()` 里那一格是
+    // `Method(name="")[NotNull(b, !), Bracket]`——`?.` 属于 `NotNull` 里面那条链、
+    // 断言套在链上、调用在最外面（TS：`CallExpression > NonNull > PropertyAccess(?.)`）。
+    // 按下面的「名字 + 调用」折会投出一个**名字为空**的 `PropertyAccessExpression`
+    //（实测缺 `NonNullExpression`、多一格空名属性访问），所以这一档交给 `assertedMember`。
+    if (nameText === "") {
+      const calleeKid = projectableKids(view(first)).filter(
+        (k: any) => k.get("type") !== "GenericType",
+      )[0];
+      if (calleeKid !== undefined && calleeKid.get("type") === "NotNull") {
+        const asserted = assertedMember(left, calleeKid, ctx, questionDot);
+        if (asserted !== undefined) {
+          const call = projectNode(first, ctx);
+          return Object.assign({}, call, {
+            expression: asserted,
+            pos: asserted.pos,
+            end: endOf(unit),
+          });
+        }
+      }
+    }
     const nameAt = startOf(first);
     const member = {
       kind: "PropertyAccessExpression",
@@ -4449,59 +4550,10 @@ return false;
   // `PropertyAccessExpression` 的区间多一格、`NonNullExpression` 少一层
   // （实测 `expr-nonnull-optional.ts` 与 `expr-optional-call-nodes.ts`）。
   if (first !== undefined && first.get("type") === "NotNull") {
-    const inner = projectableKids(view(first)).filter((k) => !INVISIBLE.has(k.get("type")));
-    const bang = inner.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!");
-    const nameUnit = inner.find((k) => k !== bang);
-    if (nameUnit !== undefined && bang !== undefined) {
-      let node: any;
-      if (nameUnit.get("type") === "PropertyAccess") {
-        // **里面那条链也要逐格接**（第 166 轮）：`a?.b.c!` 的 NCO 内容是
-        // `NotNull(PropertyAccess([b, ., c]))`，TS 那边是两层
-        // `PropertyAccessExpression`（第一格带 `?.`）外面套 `NonNullExpression`——
-        // 只按名字投一格会把 `b.c` 当成一个名字（实测区间 75→81、两个 `Identifier` 都漂）。
-        const members = projectableKids(view(nameUnit));
-        let cur = left;
-        let pending: any = questionDot;
-        for (const member of members) {
-          if (member.get("type") === "NullConditionalOperator") {
-            cur = chainWithOptional(cur, member, ctx);
-            pending = undefined;
-            continue;
-          }
-          if (isDot(member, ctx) || !isNameNode(member)) {
-            continue;
-          }
-          const one: any = {
-            kind: "PropertyAccessExpression",
-            expression: cur,
-            name: nameOf(member, ctx),
-            pos: cur.pos,
-            end: endOf(member),
-          };
-          if (pending !== undefined) {
-            one.questionDotToken = pending;
-            pending = undefined;
-          }
-          cur = one;
-        }
-        node = cur;
-      } else {
-        node = {
-          kind: "PropertyAccessExpression",
-          expression: left,
-          name: nameOf(nameUnit, ctx),
-          pos: left.pos,
-          end: endOf(nameUnit),
-        };
-        if (questionDot !== undefined) node.questionDotToken = questionDot;
-      }
-      return chainOnto({
-        kind: "NonNullExpression",
-        expression: node,
-        pos: left.pos,
-        end: endOf(bang),
-      }, kids.slice(1), ctx);
-    }
+    // 折法收在 `assertedMember` 里（第 852 轮）：`a?.b!` 与 `a?.b!()` / `a?.b!.c!()`
+    // 是同一格，`!` 都套在**整条链**上，差的是它后面还接不接东西。
+    const asserted = assertedMember(left, first, ctx, questionDot);
+    if (asserted !== undefined) return chainOnto(asserted, kids.slice(1), ctx);
   }
   // **`a?.b` 加模板串 ⇒ `TaggedTemplateExpression`**（第 175 轮）：`` a?.b`t` `` 的产物是
   // `[Identifier(a), NullConditionalOperator([Identifier(b), String])]`——成员名与那个模板串
@@ -4699,6 +4751,24 @@ return false;
     }
     if (next.get("type") === "Method") {
       const name = String(next.get("name") ?? "");
+      // **被调用者自己带 `!`**（第 852 轮）：`a?.b!.c!()` 里 `.c!()` 那一格是
+      // `Method(name="")[NotNull(c, !), Bracket]`——断言套在**接上 `c` 之后**的那条链上，
+      // 调用在最外面。按名字折会投出名字为空的属性访问（实测三处漂），
+      // 所以这一档交给 `assertedMember`。与上面 `chainWithOptional` 那一处同形同修。
+      if (name === "") {
+        const calleeKid = projectableKids(view(next)).filter(
+          (k: any) => k.get("type") !== "GenericType",
+        )[0];
+        if (calleeKid !== undefined && calleeKid.get("type") === "NotNull") {
+          const asserted = assertedMember(left, calleeKid, ctx, undefined);
+          if (asserted !== undefined) {
+            const call = projectNode(next, ctx);
+            left = Object.assign({}, call, { expression: asserted, pos: asserted.pos });
+            i += 2;
+            continue;
+          }
+        }
+      }
       const at = startOf(next);
       const member = {
         kind: "PropertyAccessExpression",

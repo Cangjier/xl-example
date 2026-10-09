@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.98,
+  "progressPercent": 95,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1413,
-      "pass": 1399,
-      "blocked": 14,
+      "pass": 1401,
+      "blocked": 12,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.01
+      "coverage": 99.15
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1413,
-    "knownGap": 14,
-    "knownGapStillOpen": 14,
-    "exactFiles": 1399,
-    "scoredWithoutGap": 1399,
-    "passedWithoutGap": 1399
+    "knownGap": 12,
+    "knownGapStillOpen": 12,
+    "exactFiles": 1401,
+    "scoredWithoutGap": 1401,
+    "passedWithoutGap": 1401
   },
   "blocked": [
     {
@@ -166,18 +166,6 @@
       "category": "token",
       "title": "`async` 泛型箭头函数（类型参数紧跟 `async`）",
       "detail": "缺 6　多 2　`async<T>(x) => x` 那一段不成形（缺 7）：`async` 与泛型段谁先认领没有定义（r663 探针池 c-async-generic-lamda）"
-    },
-    {
-      "id": "token/statements/gap-c-optchain-nonnull-01",
-      "category": "token",
-      "title": "C-optchain-nonnull 落点（657 审计语料）",
-      "detail": "缺 1　漂 2　多 2　注释 / 换行落在语法相邻位置之间（C-optchain-nonnull）：MISS NonNullExpression TS[30,35) «a?.b!»"
-    },
-    {
-      "id": "token/statements/gap-c-optchain-nonnull-02",
-      "category": "token",
-      "title": "C-optchain-nonnull 落点（657 审计语料）",
-      "detail": "漂 3　多 2　注释 / 换行落在语法相邻位置之间（C-optchain-nonnull）：DRIFT NonNullExpression TS[30,38) 产物[30,35) «a?.b!.c!»"
     },
     {
       "id": "token/statements/gap-d-generics-tuple-mapped-02",
@@ -593,7 +581,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23140/src/2020.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-31004/src/2020.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -935,7 +923,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23140/src/3003.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-31004/src/3003.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -959,7 +947,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23140/src/3051.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-31004/src/3051.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1115,7 +1103,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23140/src/3694.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-31004/src/3694.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

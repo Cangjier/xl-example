@@ -306,6 +306,43 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 852 轮：`?.` 之后那一格「名字 + `!`」——两条路同根，known-gap **14 → 12**
+
+**一句话**：`a?.b!()`（`gap-c-optchain-nonnull-01`）与 `a?.b!.c!()`（`-02`）差在同一格上——
+`?.` 之后的**被调用者自己带着 `!`**。产物把那一段收成
+`NCO[Method name=""[NotNull(b, !), Bracket]]`（`-02` 是
+`NCO[NotNull(b, !), ., Method name=""[NotNull(c, !), Bracket]]`），
+而 `NullConditionalOperator` 的**两条折法**都只按 `name` 折一格属性访问：
+
+- `chainWithOptional` 的**第一格**支（`?.name(args)`，第 107 轮）；
+- `chainOnto` 的**续格**支（`.` 后面那一格是 `Method`，第 333 / 664 轮那一族）。
+
+`name` 是空串时那两句都投出一个**名字为空**的 `PropertyAccessExpression`，
+`NotNull` 于是留在外面当兄弟 ⇒ `-01` 缺一格 `NonNullExpression`、
+`-02` 漂三处（`NonNullExpression` / `PropertyAccessExpression` / `Identifier`）+ 多两格
+（空名属性访问 + 空 `Identifier`）。**第 166 轮只修了第三条路**（`NCO` 的第一格**就是**
+`NotNull`，即 `a?.b!`）——同一个根长在三条路上、当年只接了一条。
+
+**修法一处**：把「按那一格 `NotNull` 折出成员、再把 `!` 套在**整条链**上」收成一个私有方法
+`assertedMember(left, unit, ctx, questionDot)`（`typescript/print-ast-common.xl.md`）——
+第 166 轮写在第一格支里的那段逻辑**原样搬进去**，三条路共用。两处调用点各添一句：
+`name` 是空串且**被调用者那一格是 `NotNull`** 时走它，外面那层调用照旧由
+`projectNode(Method)` 出（只换 `expression` 与 `pos`，实参表一根手指都没动）。
+
+**次序与坐标**（两处都是实测出来的）：先把**成员**接到 `left` 上、再把 `!` 套在整条链上
+（TS 是 `NonNull(PropertyAccess(…, b))`）；`?.` 那一格挂在**内层**那个属性访问上
+（TS 就这么放），所以第一格那一路传的 `questionDot` 是 **NCO 自己的起点**、
+续格那一路传 `undefined`。
+
+**探针**：`tmp/r852-notnull.mjs` 15 条变体（`a!` / `a.b!` / `a?.b!` / `a?.b!()` /
+`a?.b!.c` / `a?.b!.c!` / `a?.b!.c!()` / `a!.b!` / `f()!` / `a! + 1` / `a! as any` ……）
+修完**全绿**（另 1 条 TS 自己就非法），没有新登缺口。
+
+**数字**：两行 `xl:known-gap` 删掉（用例留着当守卫，两条 `xl:expect` 按新形状重算——
+注释行自己就是 `LineAnnotation` + `Statement`），账 **14 → 12 还开着**；
+`coverage` **3994 → 3996 / 4186**（token **1399 → 1401 / 1413**、`blocked 54 → 52`、
+`differ 138`、`bad` **0**、`regressions` **0**）；`npm run gates` 八道全过（墙钟 ~31s）。
+
 ### 第 850 轮：泛型实例化表达式 `f<string>`——四条同根，known-gap **18 → 14**
 
 **一句话**：TS 4.7 的 instantiation expression（`const a = f<string>;`）在 TS 那边是
@@ -4006,15 +4043,15 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **14 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **12 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1426** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1426 条**（1409 条带期望，共 **4902** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:tags` | **1426 条**（1409 条带期望，共 **4904** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `cases:shapes` | 外部语料 **229 份**（用例 1413 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3994 / 4186**，加权 **95.0%**：token 1399/1413、exec 749/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 54 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `coverage` | **五类 3996 / 4186**，加权 **95.0%**：token 1401/1413、exec 749/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 52 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **1 条**（`exec/statements/084-switch-case-block-blocked` 那条旧指令该撤了） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 
