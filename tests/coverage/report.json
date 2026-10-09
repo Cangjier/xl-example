@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 6447,
+  "total": 6376,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.73,
+  "progressPercent": 94.71,
   "categories": [
     {
       "category": "token",
@@ -90,18 +90,18 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1859,
-      "pass": 1818,
+      "total": 1790,
+      "pass": 1749,
       "blocked": 11,
       "differ": 30,
       "nodefail": 0,
-      "coverage": 97.79
+      "coverage": 97.71
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1116,
-      "pass": 1065,
+      "total": 1115,
+      "pass": 1064,
       "blocked": 6,
       "differ": 45,
       "nodefail": 0,
@@ -110,8 +110,8 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1832,
-      "pass": 1741,
+      "total": 1831,
+      "pass": 1740,
       "blocked": 26,
       "differ": 65,
       "nodefail": 0,
@@ -1853,7 +1853,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-7548/src/2844.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16280/src/2775.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2195,7 +2195,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-7548/src/4605.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16280/src/4535.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2219,7 +2219,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-7548/src/4655.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16280/src/4585.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2375,7 +2375,7 @@
       "id": "stdlib/round751/p751b-03",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-7548/src/5717.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16280/src/5647.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/p751b-04",

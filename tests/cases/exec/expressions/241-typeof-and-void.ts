@@ -8,7 +8,7 @@
 //   · exec/expressions/p-op-void-comma
 //   · exec/expressions/probe-o47
 //   · exec/expressions/probe2-b04
-//   · exec/expressions/probe704-x-b24 · b60
+//   · exec/expressions/probe704-x-b24 · b60 · probe694-m23 · m24 · m25（第二批）
 // 判据只有一条：`typeof` 给出的名字（`null` 是 `"object"`、数组是 `"object"`、函数与箭头都是
 // `"function"`），以及 `void` 的结果恒为 `undefined`、逗号表达式取最后一个。
 const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
@@ -37,3 +37,8 @@ let n = 0;
 probe(() => void (n = 5));
 probe(() => n);
 probe(() => (1, 2, 3));
+
+// 第 787 轮并进来的三条（`probe694-m23` / `m24` / `m25`）：调用结果与内建构造器的 `typeof`
+probe(() => (function () { return typeof (function () {})(); })());
+probe(() => (function () { return typeof Function.prototype; })());
+probe(() => (function () { return typeof Object; })());

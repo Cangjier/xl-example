@@ -4,7 +4,7 @@
 // xl:end
 // 第 787 轮把同判定点的探针并进来（正文逐句搬入；只把**独有的断言**留下）：
 //   · exec/expressions/probe698-g01 · g02 · g03 · g06 · g07 · g08
-//   · exec/expressions/probe704-x-b30
+//   · exec/expressions/probe704-x-b30 · probe694-m56 · m57（第二批）
 // 判据只有一条：`delete` 的返回值与它到底删掉了什么——删数组的一格会**留下洞**
 // （`length` 不变、`in` 变假、`Object.keys` 少一格、`join` 印空），不可配置的属性
 // 与非严格模式下的冻结属性都**删不掉但不抛**。
@@ -24,3 +24,7 @@ console.log((function () { const o = {}; Object.defineProperty(o, "a", { value: 
 console.log((function () { const o = { a: 1 }; delete o.a; return Object.keys(o).length; })());
 console.log((function () { const xs = [1, 2]; delete xs[0]; return xs.join(","); })());
 console.log((function () { return delete ({}).a; })());
+
+// 第 787 轮并进来的两条（`probe694-m56` / `m57`）：删掉之后读到什么、`typeof delete` 是什么
+console.log((function () { const o = { a: 1 }; delete o.a; return typeof o.a; })());
+console.log((function () { const o = { a: 1 }; return typeof delete o.a; })());
