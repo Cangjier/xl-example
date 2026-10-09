@@ -1409,6 +1409,21 @@ return (
   name === "Statement" ||
   name === "FunctionBody" ||
   name === "MethodBody" ||
+  // **`LamdaBody` 也是语句列表**（第 776 轮）：箭头函数的体（`() => { … }`）——
+  // 它的 `Data` 里装的就是语句，与 `FunctionBody` / `MethodBody` **并列**。
+  // 少了这一格的症状（实测，三种排版两个出口）：
+  //   · `() => { { let y = 2; } }`（**裸块语句**）——那个 `{` 的父单元不在白名单里
+  //     ⇒ `IsStatementStart` 给假 ⇒ `JsonObjectCloseRule` 把它收成**对象字面量**
+  //     ⇒ 降级期报 `unimplemented: statement ObjectLiteralExpression`；
+  //   · `() => { blk: { g(); break blk; } }`（**标签块**）——`IsObjectLiteralBrace`
+  //     那条「标签冒号 ⇒ 块」的分支要 `IsStatementStart(名字那一格)` 为真，
+  //     给假就落到下面那句 `return true` ⇒ 报
+  //     `unimplemented: object literal member ExpressionStatement`；
+  //   · `[1].forEach(() => { w: { … } })` 是同一处的第三个出口（报
+  //     `name is not a local or a capture: w`——那个标签被当成表达式读了）。
+  // **`x: { }`（空块）碰巧是好的**，所以「箭头体里的标签块」一直看着像只坏一半；
+  // `lbl: for (…)` 也不受影响（标签后面跟的不是花括号，判据走的是另一条）。
+  name === "LamdaBody" ||
   name === "IfStatement" ||
   name === "IfSegment" ||
   name === "ForBody" ||

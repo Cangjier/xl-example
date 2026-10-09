@@ -306,6 +306,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 776 轮：**箭头函数的体是语句列表**——收掉一处（token 层的一句白名单），三种排版一个落点
+
+**一句话**：`text-common-util.xl.md` 的 `IsStatementList` 少了 **`LamdaBody`** 这一格——
+箭头函数的体（`() => { … }`）与 `FunctionBody` / `MethodBody` **并列**、`Data` 里装的同样是语句，
+可它不在白名单里 ⇒ `IsStatementStart` 给假 ⇒ `JsonObjectCloseRule` 把**语句位置的那个 `{`**
+收成**对象字面量**。同一个根，三种排版三个出口：
+
+| 写法（都在箭头体里） | 本仓以前报的错 |
+| --- | --- |
+| `() => { { let y = 2; } }`（裸块语句） | `unimplemented: statement ObjectLiteralExpression` |
+| `() => { blk: { g(); break blk; } }`（标签块） | `unimplemented: object literal member ExpressionStatement` |
+| `[1].forEach(() => { w: { … } })`（当回调） | `name is not a local or a capture: w` |
+
+- **落点**（`typescript/text-common-util.xl.md`）：`IsStatementList` 的类名白名单补一格
+  `LamdaBody`。这一问的**两个用户**（`JsonObjectCloseRule.IsObjectAt` 与两个语句成形器）
+  因此同时被修正 —— 那句注释里写着「放在这一层是因为两边各写一份就会漂」。
+- **为什么一直没露**：`x: { }`（**空**标签块）碰巧是好的（空花括号不走对象那条路），
+  而 `lbl: for (…)` 也不走这一支（标签后面跟的不是花括号）⇒
+  「箭头体里的标签块」看着像**只坏一半**；而裸块语句与回调里的标签块**整份文件跑不进来**。
+- **判据只看「这个 `{` 在不在语句位」**：值位那一半一个都不许动——用例 `r776a-02`
+  把箭头体里**值位**的花括号全钉了一遍（括号化对象体 / `return { … }` / 变量对象 /
+  嵌套对象 / 当实参 / 类型字面量断言 / 形参解构 / `for..of` 解构）。
+- **用例**：`runtime/round776/r776a-01`（15 行，**通过**）+ `r776a-02`（15 行，**通过**）
+  ——前者把三种排版、嵌套标签块、`switch` 分支块、`try` 里的块一起钉住，
+  另带三条哨兵（函数体 / 方法体 / 类字段箭头，那三处**本来就对**）。
+  五类 7903 / 8292 → **7905 / 8294**、blocked **262**（没动）、differ **127**（没动）、
+  bad 0、regressions 0，加权 **95.6%**。八道门全绿（`cases:tsast` 八项仍全 0）；
+  runtime:check 243 条、runtime:cli 79 份一致。
+- **这一轮的普查面**（`runtime` / `stdlib` 各一层）：控制流（标签 / `try..finally` 的次序 /
+  `switch` 落空 / 循环里的闭包与 `var`·`let`）、迭代协议（自定义 `Symbol.iterator` 三写法 /
+  解构默认值与 `...rest`）、访问器（类与字面量的 `get`·`set` / 描述符三档 / `for..in` 的次序）、
+  数字（`toFixed` / `toPrecision` / `radix` / `parseInt`·`parseFloat` / `Math` 的边角）
+  ——**24 条里 22 条当场通过**，另两条是**登记过的旧账**
+  （`(1234.5).toLocaleString()` = `stdlib/number/073`；`new.target` 经 `super()` = `exec/round736/p736c-c05`），
+  没有新登记的缺口。
+
 ### 第 775 轮：**函数 / 类表达式当链的头一格**——收掉一处（投影层，三种排版），两笔旧账到期
 
 **一句话**：`function () { }.bind(o)` / `class { }.prototype` 里那条链的**头一格**是
