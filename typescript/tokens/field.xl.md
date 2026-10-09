@@ -671,6 +671,20 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     const typeStart = ctx.StartOf(typeNode);
     if (ctx.source[typeStart] === "?") {
       props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
+    } else {
+      // **可选标记与冒号之间夹着注释时，`?` 是 `TypeDefine` 的兄弟**（第 855 轮）：
+      // `refs?/* c */: readonly (A | B)[]` 的词法形状是 `refs` `?` 注释 `:`
+      // ——两格各自是符号（注释挡住了词法把它们并成一个 `?:`），于是 `TypeDefine`
+      // 从**注释**那一格起（它的 `SourceRange` 盖住了注释，`[224,…)`），
+      // 上面那条「类型段第一个字符是不是 `?`」当场落空 ⇒ 整个 `questionToken` 丢失
+      // （实测 `PropertySignature` 字段名对不上：产物 `[name,type]` vs TS `[name,questionToken,type]`）。
+      //
+      // 判据与上面那一支**同一个来源**（都是「那个 `?` 在哪」），只是这里要去兄弟里找它：
+      // 找的是**平级的 `SymbolToken("?")`**，取它自己的区间——不再拿 `TypeDefine` 的起点硬算。
+      const question = kids.find(
+        (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "?",
+      );
+      if (question !== undefined) props.questionToken = ctx.Project(question);
     }
     props.type = ctx.Project(typeNode);
   } else {

@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { IsMemberBoundary } from "./declaration-common.xl.md"
-import { IsSwitchLabelColon } from "../text-common-util.xl.md"
+import { IsSwitchLabelColon, IsAnnotationUnit } from "../text-common-util.xl.md"
 import { Statement } from "./statement.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
@@ -48,7 +48,7 @@ if (!(current instanceof SymbolToken)) {
 if (!(current.Is(":") || current.Is("?:"))) {
   return false;
 }
-if (SearchFront(units, index, (item) => item instanceof SymbolToken && item.Is("?")) !== -1) {
+if (this.HasTernaryQuestion(units, index)) {
   return false;
 }
 if (current.Parent !== null && JsonObjectCloseRule.Instance.IsObject(current.Parent)) {
@@ -71,6 +71,70 @@ if (IsSwitchLabelColon(units, index)) {
   return false;
 }
 return true;
+```
+
+## method HasTernaryQuestion:(units:Array<Token>, index:int)=>bool
+
+`index`（一个 `:`）往回扫，撞上的那个 `?` 是不是**三元表达式的**——是的话这个冒号不是类型标注。
+
+原来是 `SearchFront(units, index, item => item.Is("?"))`，也就是「**往前找到过任何** `?`」。
+它在两种形状上给错答案，第 855 轮一起收：
+
+- **可选标记 + 注释**：`interface I { refs?/* c */: readonly (A | B)[] }` 里那个 `?` 是**属性上的
+  可选标记**，它后面紧接的实义单元就是冒号本身。老的写法照样把 `?` 找出来 ⇒ 判成三元 ⇒
+  整段类型标注不收（`TypeOperator` / `ArrayType` / `ParenthesizedType` / `UnionType` 四层一起丢）。
+  合成 `?:` 的形状（`refs?: T`）走不到这里，那一支照旧。
+- **上一个语句里的 `?`**：`const a = b ? c : d;` 换行 `let x: T` 里，第二个 `:` 往回扫会
+  跨过换行、跨过第一个语句的冒号，一路捡到那个三元 `?`（实测 `stmt-ternary-statement-boundary`
+  那一族：`TernaryOperator` 整个不成形、类型标注还多出来）。
+
+**判据收窄成「往回扫，撞上边界就停；遇到 `?` 再看它左边有没有条件」**：
+
+- `a ? b : c` / `a ? b/*c*/ : c`：先撞上 `b`（一个操作数），再撞上 `?`，而 `?` 左边有 `a` ⇒ **三元**；
+- `refs?/* c */:`：往回第一格就是 `?`，可它左边**只有名字 `refs`**，再往左没有操作数
+  （`?` 就在这一格的头部）⇒ **可选标记**，不是三元；
+- 上一句的三元：中间隔着一个 `:` 或 `;` ⇒ 停在那里 ⇒ 判假。
+
+注释跳过（`IsAnnotationUnit`：行注释 / 区域注释 / 预处理指令），**软换行也跳过**
+（`a ?` 换行 `b : c` 是合法的三元排版）。
+
+```ts
+let operand = false;
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    return false;
+  }
+  if (IsAnnotationUnit(item) || item instanceof LineWrap) {
+    continue;
+  }
+  const name = item.constructor.name;
+  if (name === "Keyword") {
+    operand = true;
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    const text = item.TempToString();
+    if (text === "?") {
+      return operand;
+    }
+    if (text === ";" || text === "," || text === ":" || text === "=>") {
+      return false;
+    }
+    if (text === ")" || text === "]" || text === "}") {
+      operand = true;
+      continue;
+    }
+    if (text === "(" || text === "[" || text === "{") {
+      return false;
+    }
+    // 其余符号（`.` / `!` / `+` …）都算「左边还有一个操作数」的那一串。
+    operand = true;
+    continue;
+  }
+  operand = true;
+}
+return false;
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int

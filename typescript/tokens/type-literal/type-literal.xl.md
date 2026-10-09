@@ -246,13 +246,17 @@ if (current.Parent instanceof ObjectLiteral) {
 // 于是同一个联合类型里第一个 `{` 是 `ObjectLiteral`、第二个是 `TypeLiteral`
 //（实测 `mut-type-union-paren-object-162`）。判据与 `IsBindingPatternBrace` /
 // `IsObjectLiteralBrace` 那两处的「跳过 trivia 再问」同源。
-//
-// **`[` 括号这一轮不进这条递归**（试过，整份撤回）：`type T = [{ a: 1 }]` 是元组类型、
-// `let x = [{ a: 1 }]` 是数组字面量，分开它们确实是「外层那一格」——可把这一支
-// 从 `(` 放宽到 `(`/`[` 之后，语料里**值位**的数组字面量成片被收成 `TypeLiteral`
-//（`coverage` 3989 → 3970、blocked 58 → 77，六条 e2e 报
-// `unimplemented: expression TypeLiteral`）。元组元素那一格**登记成缺口**，
-// 等「括号自己的 Context」那条线（见本方法开头那一节）启用时再一起收。
+// **`[` 括号不进这条递归**（第 849 轮试过、整份撤回；第 855 轮复核仍是这个结论）：
+// `type T = [{ a: 1 }]` 是元组类型、`const a = [{ b: 1 }]` 是数组字面量，
+// 分开它们确实是「括号自己那一格」的事——可这一支问的是**外层列表**
+// （括号是外公列表里的一项），而 `f([{ a: 1 }])` 里那个 `[` 前面是 `(`、
+// `const o = { b: [{ c: 1 }] }` 里前面是 `:` ⇒ 按前文判恰好给反。
+// **另一条路（直接读 `Bracket.Context`）第 855 轮实测也不成立**：
+// `DecideBracketContext` 的冒号那一支不看「已经跨过 `=`」，于是
+// `const tree: Tree = { …, kids: [{ value: 2 }] }` 里那个 `[` 是 `"type"`
+// —— 27 条 e2e 当场报 `unimplemented: expression TypeLiteral`。
+// **要收这一格得先修 `DecideBracketContext` 的冒号那一支**（另一件活）；
+// 在那之前元组元素这一格留在缺口账上（`gap-type-tuple-element-literal`）。
 if (SkipPreviousTrivia(units, index) < 0 && current.Parent instanceof Bracket &&
     current.Parent.startBracket === "(") {
   const owner = current.Parent.Parent;
