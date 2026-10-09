@@ -140,8 +140,8 @@
     {
       "id": "token/expressions/gap-instanceof-then-add",
       "category": "token",
-      "title": "`instanceof` 右边那个 `<…>` 后面紧跟 `+` / `-` 时该退回比较式（已知缺口）",
-      "detail": "漂 2　多 2　产物把 `<D> + e` 收成一个 GenericType 式的错折（`+` 与被断言的操作数一起被吞）"
+      "title": "`instanceof` 右边那个 `<…>` 后面跟 `+` / `-` 时的比较链结合方向（已知缺口）",
+      "detail": "漂 2　多 2　同级尖括号比较链折成了右嵌套（`>` 先折、`<` 后折），TS 给左嵌套"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
