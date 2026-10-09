@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4256,
+  "total": 4259,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.41,
+  "progressPercent": 95.38,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1477,
+      "total": 1480,
       "pass": 1477,
-      "blocked": 0,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.8
     },
     {
       "category": "exec",
@@ -129,14 +129,32 @@
     }
   ],
   "token": {
-    "total": 1477,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
+    "total": 1480,
+    "knownGap": 3,
+    "knownGapStillOpen": 3,
     "exactFiles": 1477,
     "scoredWithoutGap": 1477,
     "passedWithoutGap": 1477
   },
   "blocked": [
+    {
+      "id": "token/expressions/gap-r900-arrow-return-type-newline",
+      "category": "token",
+      "title": "箭头函数的返回类型标注冒号后面换行（第 900 轮片段普查量出）：换行被 ASI 判成语句边界，`number => 1` 另起一条 `Statement`（产物里是 3 条语句），箭头只盖到那个冒号",
+      "detail": "缺 3　漂 3　多 8　未映射 1　变量声明里 `(…):` 换行之后的类型段不在「这一行没完」的续接表里——`IsVariableTypeAnnotationColon` 只认同行那一格"
+    },
+    {
+      "id": "token/types/gap-r900-call-signature-no-return-type",
+      "category": "token",
+      "title": "类型字面量里的调用签名只有形参表、没有返回类型标注（第 900 轮片段普查量出）：`{ (a: string) }` 的括号没收成签名节点，散成裸 `Bracket`（署名标签本身在产物里一个都没有——这一格量的是「少了两格、多了一格」）；带 `: void` 的同一条是好的，说明判据挂在「返回类型那一格」上",
+      "detail": "缺 2　多 1　未映射 1　`TypeLiteralBody` 里「`(` 起头且没有 `:`」那一支没有把括号收成签名——签名规则整个挂在返回类型那一格上"
+    },
+    {
+      "id": "token/types/gap-r900-infer-constraint-newline",
+      "category": "token",
+      "title": "`infer` 的约束里 `extends` 后面换行（第 900 轮片段普查量出）：外层条件类型整条认不出来（`Array<` 与 `>` 留在原地，四格与真假分支一起丢，缺 10 格）",
+      "detail": "缺 10　约束段里的换行让 `infer V extends string` 先成了一次形，外层条件类型的回扫仍差一步——`InferType` 那一格已经放行，剩下的一步在约束段自己的边界上"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -503,7 +521,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2084.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2087.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -809,7 +827,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3072.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3075.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -833,7 +851,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3120.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3123.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -989,7 +1007,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3763.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3766.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

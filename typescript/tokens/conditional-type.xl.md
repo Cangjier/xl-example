@@ -124,10 +124,28 @@ for (let i = index - 1; i >= 0; i--) {
   // 于是 `T extends infer U ? U : never` 的回扫会撞上 `InferType` ——
   // 不跳过去就整条条件类型认不出来（判定说有、收集说找不到）。
   // 同类还有参数表 `TypeParameter`（`T extends X<in infer U> ? … : …`）。
+  //
+  // **`InferType` 整段也是透明的**（第 900 轮）：`U extends Array<infer` 换行 `V> ? V : never`
+  // 里那个 `InferType` 的区间**跨过换行**，它自己**含**一个 `LineWrap` ——
+  // 上面那句「`LineWrap` 跳过」只跳**散着**的换行，装在节点里的那个跳不过去。
+  // 于是回扫在 `InferType` 上撞见一个既不是 `LineWrap` 也不是 `InferType` / `TypeParameter`
+  // 的单元 ⇒ `return -1` ⇒ 整条 `ConditionalType` 认不出来。
+  // 实测：补上「`InferType` 整段透明」之后 `Array<infer` 换行 `V> ? V : never`
+  // 那一格转绿（`gap-r900-infer-name-newline` 留着当守卫）；再补上下面那条
+  // 「没成形的尖括号也透明」之后，`infer V extends` 换行 `string` 那一格仍差一步
+  // ——那一步在 `infer-type.xl.md` 的约束段上，账在 `gap-r900-infer-constraint-newline`。
   if (item === null) {
     continue;
   }
   if (item.constructor.name === "InferType" || item.constructor.name === "TypeParameter") {
+    continue;
+  }
+  // **「泛型实参段」在没成形时也要透明**（第 900 轮）：`U extends Array<infer`
+  // 换行 `V> ? V : never` 里那个 `Array<infer V>` **没有收成 `GenericType`**
+  // （`infer V` 里装了换行 ⇒ 尖括号那对留在原地）。
+  // 尖括号与逗号在这里**本来就只是分隔符**（成形的 `GenericType` 已经被上面那句整段跳过，
+  // 段的边界是 `?` / `;` / `=` 这些，不是 `<`），所以两种形态一起认。
+  if (item instanceof SymbolToken && (item.Is("<") || item.Is(">") || item.Is(","))) {
     continue;
   }
   if (item instanceof Identifier) {
