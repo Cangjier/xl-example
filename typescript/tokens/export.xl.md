@@ -121,6 +121,49 @@ while (i < units.length) {
 return i;
 ```
 
+## method IsComplete:(items:Array<Token>)=>bool
+
+收到的这些单元**够不够成一条完整的导出声明**（第 869 轮）。
+
+导出声明有**四种**完整形状，判据因此分三支——这一条比 `import.xl.md` 那一条（只认模块路径）多。
+**收尾规则（`Process`）与语句分派层（`Statement.IsPendingExportHead`）问的是同一句**，
+所以它是一格公开方法，不是私有近似：
+
+  export * as ns from "m";   星号那一支：`*` 后面还必须有 `from` 与路径，缺一样都不完整
+  export { a, b } from "m";  花括号那一支：子句自己就完整，`from` 是可选的
+  export { a };              同上——所以**不能**拿「有没有路径」当唯一判据
+  export = a;                赋值 / 默认导出那一支：`=` / `default` 后面还要有一个实义单元
+  export default a;          （`=` 与 `default` 都只算前缀，操作数还没到手就不算写完）
+
+星号与花括号那两支里，写了 `from` 就必须等到路径：`export { a } from` 换行 `"m"` 与
+`export * from` 换行 `"m"` 都是 TS 照收的排法，而那时路径还没到手。
+
+```ts
+const first = items.length > 0 ? items[0] : null;
+if (first instanceof SymbolToken && first.Is("=")) {
+  return items.length > 1;
+}
+if (first instanceof Identifier && first.Is("default")) {
+  return items.length > 1;
+}
+const brace = items.find(
+  (item) => (item instanceof Bracket && item.startBracket === "{") || item instanceof TypeLiteral,
+);
+const star = items.find((item) => item instanceof SymbolToken && item.Is("*"));
+const fromIndex = items.findIndex((item) => item instanceof Identifier && item.Is("from"));
+const hasPath = items.slice(fromIndex + 1).some((item) => item instanceof String);
+if (star !== undefined) {
+  return fromIndex !== -1 && hasPath;
+}
+if (brace === undefined) {
+  return false;
+}
+if (fromIndex === -1) {
+  return true;
+}
+return hasPath;
+```
+
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 从 `export` 开始往后收集单元，直到遇到 `;` 或软换行，收成一个 `Export`，**返回新的下标**。
@@ -163,17 +206,19 @@ if (isPrefixOnly) {
   }
   endIndex = headEnd;
 } else {
-  let started = false;
   for (let i = index + 1; i < units.length; i++) {
     const item = Get(units, i);
     if (item === null) {
       continue;
     }
-    // **`export` 后面那个换行 / 注释可以写在子句前面**（第 669 轮，与 `import.xl.md` 同一处口径）：
-    // `export` 换行 `{ a as b };` 时收集循环的第一格就是那个软换行 ⇒ 直接 `break` ⇒
-    // `items` 空着 ⇒ 投影那一侧没有 `exportClause`（实测缺 `NamedExports` 一族 8 个节点、
-    // 字段名差 1 处）。所以**只在还没有收到任何单元时**跨过 trivia。
-    if (started === false && IsTriviaUnit(item)) {
+    // **跨 trivia 的判据是「这条导出声明已经成形了吗」**（第 869 轮，与 `import.xl.md` 第 829 轮
+    // 同一口径）——第 669 轮那一版只在**一格都没收到**时跨过 trivia，而导出声明比导入声明多一种
+    // 「自己就完整」的形状（`export { a }` 不带 `from`），所以不能照抄「有没有路径」那一条。
+    // 没成形时注释与软换行一律跨过去（`export * ⏎ as ns ⏎ from "m"` 是合法排法，
+    // TS 那边导出声明在 `;` 之前没有 ASI）：原来在换行那一格 `break` ⇒ 整条断成两截
+    // （实测 `export * as ns from "m"` 的四份换行排版各缺 3 个节点、字段差 1 处）。
+    const done = this.IsComplete(items);
+    if (IsTriviaUnit(item) && done === false) {
       continue;
     }
     if (item instanceof LineWrap) {
@@ -183,7 +228,6 @@ if (isPrefixOnly) {
       endIndex = i;
       break;
     }
-    started = true;
     items.push(item);
     endIndex = i;
   }

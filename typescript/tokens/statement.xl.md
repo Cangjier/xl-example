@@ -12,6 +12,7 @@ import { GetSkipPreviousTrivia, HasTypeColonBefore, IsBindingPatternBrace, IsObj
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
+import { ExportCloseRule } from "./export.xl.md"
 import { Field } from "./field.xl.md"
 import { For } from "./for/for.xl.md"
 import { Foreach } from "./foreach/foreach.xl.md"
@@ -1690,6 +1691,61 @@ for (let i = headAt + 1; i < data.length; i++) {
 return true;
 ```
 
+## static method IsPendingExportHead:(data:Array<Token>, start:int)=>bool
+
+`start` 起到列表末尾这一段**是一条还没写完的导出声明**吗。
+
+**为什么要问这一句**（第 869 轮）：与 `IsPendingImportHead` **同一件事、同一条理由**——
+`export` 声明也没有 ASI，`;` 之前的一切（注释、换行）都归同一条声明。
+差别只在**「写完」怎么判**：导入一定以路径收尾（一个字符串），导出有**四种**收尾形状
+（星号那一支要 `from` 与路径、花括号那一支子句到手就算写完、`=` / `default` 那一支要等操作数）。
+
+判据分两步，与 import 那一格一字不差：
+
+- **段首那个词必须是「真的导出声明头」**：交给 `ExportCloseRule.Instance.Previous` 问**同一句**
+  —— `a.export` 是成员名、`import("./m").default` 那类表达式不在这一档，判据只有那一处；
+- **这一段还没写完**：判据本体复用 `ExportCloseRule.Instance.IsComplete`（收尾规则里那一份），
+  不另写第二份近似——两处问的既然是同一句，写两份必然会漂。
+
+**少了它会怎样**：`export * as ns` 换行 `from "m"` 在换行处收壳 ⇒ `ExportCloseRule` 收出一个
+**半截的** `Export`（区间只到 `ns`、`From` 空着），`from "m";` 另起一条 `ExpressionStatement`
+（实测 `export * as ns ⏎ from "m"` 缺 1 漂 1 多 3、`export * as ns from ⏎ "m"` 漂 1 多 2）。
+
+```ts
+let headAt = start;
+while (headAt < data.length && IsTriviaUnit(Get(data, headAt))) {
+  headAt = headAt + 1;
+}
+const head = Get(data, headAt);
+if (head === null || !(head instanceof Identifier) || head.Is("export") === false) {
+  return false;
+}
+// **`export as namespace <名字>` 这一支单列**：`Previous` 只认 `export` 后面紧跟的那几种
+//（`*` / `{` / `=` / `default`），而这一支的第三格是 `namespace`、第四格才是名字——
+// 换行正好落在名字之前时它是「还没写完」，名字已经读到就是写完了（那时照旧交给下面两问）。
+const asAt = SkipNextTrivia(data, headAt);
+const asUnit = Get(data, asAt);
+if (asUnit instanceof Identifier && asUnit.Is("as")) {
+  const namespaceAt = SkipNextTrivia(data, asAt);
+  const namespaceUnit = Get(data, namespaceAt);
+  if (namespaceUnit instanceof Identifier && namespaceUnit.Is("namespace")) {
+    return SkipNextTrivia(data, namespaceAt) >= data.length;
+  }
+}
+if (ExportCloseRule.Instance.Previous(head.Template, data, headAt) === false) {
+  return false;
+}
+const items: Token[] = [];
+for (let i = headAt + 1; i < data.length; i++) {
+  const item = Get(data, i);
+  if (item === null || IsTriviaUnit(item)) {
+    continue;
+  }
+  items.push(item);
+}
+return ExportCloseRule.Instance.IsComplete(items) === false;
+```
+
 ## static method EndsOperand:(item:Token | null)=>bool
 
 `item` 能不能**结束一个操作数**——也就是「它左边已经凑出一个完整的表达式了」。
@@ -2344,6 +2400,12 @@ if (Statement.IsPendingDecoratorHead(data, frontIndex + 1)) {
 // **导入声明的头还没写完时，换行也不是语句边界**（第 829 轮）：`import` 声明没有 ASI，
 // `;` 之前的一切都归同一条声明（判据、实测账见 `Statement.IsPendingImportHead`）。
 if (Statement.IsPendingImportHead(data, frontIndex + 1)) {
+  return result;
+}
+// **导出声明也一样**（第 869 轮）：`export` 声明没有 ASI，`;` 之前的一切都归同一条声明
+//（判据、实测账见 `Statement.IsPendingExportHead`）。少这一句时 `export * as ns` 换行 `from "m"`
+// 会断成两截：前截是一个只有星号段的 `Export`，`from "m";` 另起一条。
+if (Statement.IsPendingExportHead(data, frontIndex + 1)) {
   return result;
 }
 // **上一行还没写完时，换行不收壳**（第 558 轮）：把 ASI 判据的**左半截**搬进解析期

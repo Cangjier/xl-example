@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4191,
+  "total": 4227,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.13,
+  "progressPercent": 94.82,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1416,
-      "pass": 1416,
-      "blocked": 0,
+      "total": 1452,
+      "pass": 1422,
+      "blocked": 30,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 97.93
     },
     {
       "category": "exec",
@@ -129,14 +129,194 @@
     }
   ],
   "token": {
-    "total": 1416,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
-    "exactFiles": 1416,
-    "scoredWithoutGap": 1416,
-    "passedWithoutGap": 1416
+    "total": 1452,
+    "knownGap": 30,
+    "knownGapStillOpen": 30,
+    "exactFiles": 1422,
+    "scoredWithoutGap": 1422,
+    "passedWithoutGap": 1422
   },
   "blocked": [
+    {
+      "id": "token/declarations/gap-r869-enum-computed-comment-11",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（enum-computed-comment-11）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 3　枚举成员初始值里、二元运算符与操作数之间的注释：初始值那一趟的相邻判据没走 trivia 口径（`BinaryExpression` 与运算符 / 字面量一起丢）"
+    },
+    {
+      "id": "token/declarations/gap-r869-enum-computed-comment-12",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（enum-computed-comment-12）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 3　枚举成员初始值里、二元运算符与操作数之间的注释：初始值那一趟的相邻判据没走 trivia 口径（`BinaryExpression` 与运算符 / 字面量一起丢）"
+    },
+    {
+      "id": "token/declarations/gap-r869-enum-computed-comment-6",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（enum-computed-comment-6）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 3　枚举成员初始值里、二元运算符与操作数之间的注释：初始值那一趟的相邻判据没走 trivia 口径（`BinaryExpression` 与运算符 / 字面量一起丢）"
+    },
+    {
+      "id": "token/declarations/gap-r869-enum-computed-comment-7",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（enum-computed-comment-7）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 3　枚举成员初始值里、二元运算符与操作数之间的注释：初始值那一趟的相邻判据没走 trivia 口径（`BinaryExpression` 与运算符 / 字面量一起丢）"
+    },
+    {
+      "id": "token/declarations/gap-r869-unique-symbol-newline-3",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（unique-symbol-newline-3）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 2　漂 3　多 5　`unique` 与 `symbol` 之间的换行：`unique symbol` 是**两个字连排**的类型运算符，换行那一刻两半都被拆开"
+    },
+    {
+      "id": "token/declarations/gap-r869-unique-symbol-newline-4",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（unique-symbol-newline-4）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 2　漂 3　多 7　`unique` 与 `symbol` 之间的换行：`unique symbol` 是**两个字连排**的类型运算符，换行那一刻两半都被拆开"
+    },
+    {
+      "id": "token/modules/gap-r869-declare-global-newline-2",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（declare-global-newline-2）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 3　多 2　`declare` 换行 `global`：`declare` 是上下文关键字、换行处走 ASI（第 839 轮量过并如实留着），于是 `global` 那个环境模块声明整条认不出来"
+    },
+    {
+      "id": "token/modules/gap-r869-declare-module-wildcard-newline-6",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（declare-module-wildcard-newline-6）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 1　漂 3　多 5　环境模块体里 `const c:` 换行 `string;`：类型标注跨行时那一段被当成下一条语句"
+    },
+    {
+      "id": "token/modules/gap-r869-exp-named-newline-before-from",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（exp-named-newline-before-from）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 1　漂 1　多 3　花括号子句已经完整、`from` 还在下一行：解析期那一条只看得到左边那一半（`from` 还没读进来），而 TS 在子句后面见到 `from` 就把它当同一条声明的模块路径"
+    },
+    {
+      "id": "token/modules/gap-r869-exp-named-newline-then-from-like",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（exp-named-newline-then-from-like）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 1　漂 1　多 4　同一格的纠错形态：`from(\"m\")` 不是字符串字面量，TS 仍把括号表达式当模块路径收进同一条声明"
+    },
+    {
+      "id": "token/modules/gap-r869-import-equals-newline-3",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（import-equals-newline-3）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 1　漂 1　多 4　`import A = require(\"m\")` 里 `=` 与路径之间的换行：`Statement.IsPendingImportHead` 把「已经吃到 `=`」当成写完了（那一档是给 `import A = B.C` 留的），`require(...)` 还没到手"
+    },
+    {
+      "id": "token/modules/gap-r869-import-type-comment-1",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（import-type-comment-1）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 3　多 1　字段 1　`import /*c*/ type { A }` 与 `import type /*c*/ { A }`：`type` 那一格与子句之间的注释没跨过去 ⇒ `typeOnly` 那一支判不出、`ImportClause` 与 `NamedImports.elements` 一起丢"
+    },
+    {
+      "id": "token/modules/gap-r869-import-type-comment-2",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（import-type-comment-2）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 2　字段 1　`import /*c*/ type { A }` 与 `import type /*c*/ { A }`：`type` 那一格与子句之间的注释没跨过去 ⇒ `typeOnly` 那一支判不出、`ImportClause` 与 `NamedImports.elements` 一起丢"
+    },
+    {
+      "id": "token/statements/gap-r869-private-in-newline-12",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（private-in-newline-12）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 2　漂 1　多 2　`#x` 换行 `in o`：私有名与 `in` 之间的换行 ⇒ `#x in o`（二元运算的一支）在换行处收壳"
+    },
+    {
+      "id": "token/types/gap-r869-abstract-construct-comment-4",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（abstract-construct-comment-4）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 4　多 2　`abstract` 与 `new` 之间的注释 / 换行：构造签名类型那一支只认 `new` 紧跟形参表，`abstract` 那一格没接上"
+    },
+    {
+      "id": "token/types/gap-r869-abstract-construct-comment-5",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（abstract-construct-comment-5）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 4　多 2　`abstract` 与 `new` 之间的注释 / 换行：构造签名类型那一支只认 `new` 紧跟形参表，`abstract` 那一格没接上"
+    },
+    {
+      "id": "token/types/gap-r869-abstract-construct-newline-4",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（abstract-construct-newline-4）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 2　漂 1　多 5　`abstract` 与 `new` 之间的注释 / 换行：构造签名类型那一支只认 `new` 紧跟形参表，`abstract` 那一格没接上"
+    },
+    {
+      "id": "token/types/gap-r869-asserts-this-comment-4",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（asserts-this-comment-4）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 5　多 2　`asserts this is A` 里注释落在三段之间：类型谓词那一支的相邻判据没走 trivia 口径"
+    },
+    {
+      "id": "token/types/gap-r869-asserts-this-comment-5",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（asserts-this-comment-5）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 5　多 2　`asserts this is A` 里注释落在三段之间：类型谓词那一支的相邻判据没走 trivia 口径"
+    },
+    {
+      "id": "token/types/gap-r869-asserts-this-comment-6",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（asserts-this-comment-6）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 5　多 2　`asserts this is A` 里注释落在三段之间：类型谓词那一支的相邻判据没走 trivia 口径"
+    },
+    {
+      "id": "token/types/gap-r869-import-typeof-comment-4",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（import-typeof-comment-4）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 3　多 1　`typeof /*c*/ import(\"m\")`：`typeof` 与 `import(...)` 之间的注释没跨过去 ⇒ `ImportType` 被收成 `TypeQuery`"
+    },
+    {
+      "id": "token/types/gap-r869-infer-extends-comment-1",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（infer-extends-comment-1）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 1　漂 1　字段 1　`type /*c*/ T<U> = …`：`type` 与别名之间的注释让**类型参数表**整个没接上（缺 `TypeParameter`、字段少 `typeParameters`）"
+    },
+    {
+      "id": "token/types/gap-r869-infer-extends-comment-5",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（infer-extends-comment-5）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 1　漂 2　多 2　`infer V extends string` 里 `extends` 与约束之间的注释 / 换行：`InferType` 的约束那一格没成形"
+    },
+    {
+      "id": "token/types/gap-r869-infer-extends-newline-7",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（infer-extends-newline-7）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 8　`infer V extends string` 里 `extends` 与约束之间的注释 / 换行：`InferType` 的约束那一格没成形"
+    },
+    {
+      "id": "token/types/gap-r869-mapped-minus-comment-1",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（mapped-minus-comment-1）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 1　漂 1　字段 1　`type /*c*/ T<U> = …`：`type` 与别名之间的注释让**类型参数表**整个没接上（缺 `TypeParameter`、字段少 `typeParameters`）"
+    },
+    {
+      "id": "token/types/gap-r869-mapped-modifiers-comment-1",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（mapped-modifiers-comment-1）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 1　漂 1　字段 1　`type /*c*/ T<U> = …`：`type` 与别名之间的注释让**类型参数表**整个没接上（缺 `TypeParameter`、字段少 `typeParameters`）"
+    },
+    {
+      "id": "token/types/gap-r869-optional-call-signature-comment-8",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（optional-call-signature-comment-8）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 1　多 2　`new /*c*/ (a: number): X`：构造签名里 `new` 与形参表之间的注释没跨过去 ⇒ 被收成 `MethodSignature`"
+    },
+    {
+      "id": "token/types/gap-r869-type-predicate-comment-3",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（type-predicate-comment-3）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 2　多 1　`x is string` 里 `is` 与类型之间的注释 / 换行：类型谓词那一支的相邻判据没走 trivia 口径"
+    },
+    {
+      "id": "token/types/gap-r869-type-predicate-comment-4",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（type-predicate-comment-4）：这一条钉的是上面那条根因的一个落点",
+      "detail": "缺 2　多 1　`x is string` 里 `is` 与类型之间的注释 / 换行：类型谓词那一支的相邻判据没走 trivia 口径"
+    },
+    {
+      "id": "token/types/gap-r869-type-predicate-newline-6",
+      "category": "token",
+      "title": "第 869 轮普查量出的缺口（type-predicate-newline-6）：这一条钉的是上面那条根因的一个落点",
+      "detail": "漂 1　多 1　`x is string` 里 `is` 与类型之间的注释 / 换行：类型谓词那一支的相邻判据没走 trivia 口径"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -509,7 +689,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24520/src/2023.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16356/src/2059.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -851,7 +1031,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24520/src/3008.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16356/src/3044.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -875,7 +1055,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24520/src/3056.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16356/src/3092.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1031,7 +1211,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24520/src/3699.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16356/src/3735.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { SkipNextTrivia } from "../text-common-util.xl.md"
 import { CommonUtil } from "../../core/common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
@@ -38,24 +38,28 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 `index` 处是不是 `export as namespace <名字>` 的起点。
 
-四段判定都跳软换行（`export` 换行 `as` 换行 `namespace` 换行 `Foo` 也算）。
+四段判定都跳 **trivia**（第 869 轮）：软换行与**注释**都算——
+`export /* c */ as namespace Foo;` 是合法排法，只跳软换行时挨着 `export` 的那条注释会被当成第二格
+⇒ 判定为否 ⇒ 四个词退回散单元（实测产品里多出 `AsExpression` / `ExpressionStatement` 一族，
+缺 `NamespaceExportDeclaration` 与名字）。判据走 `SkipNextTrivia`——它是「下一个实义单元」的统一口径，
+与 `export` / `import` 那两处同一做法。
 
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Identifier) || current.Is("export") === false) {
   return false;
 }
-const asIndex = SkipNextWrapSymbol(units, index);
+const asIndex = SkipNextTrivia(units, index);
 const asUnit = Get(units, asIndex);
 if (!(asUnit instanceof Identifier) || asUnit.Is("as") === false) {
   return false;
 }
-const namespaceIndex = SkipNextWrapSymbol(units, asIndex);
+const namespaceIndex = SkipNextTrivia(units, asIndex);
 const namespaceUnit = Get(units, namespaceIndex);
 if (!(namespaceUnit instanceof Identifier) || namespaceUnit.Is("namespace") === false) {
   return false;
 }
-const nameIndex = SkipNextWrapSymbol(units, namespaceIndex);
+const nameIndex = SkipNextTrivia(units, namespaceIndex);
 const nameUnit = Get(units, nameIndex);
 return nameUnit instanceof Identifier;
 ```
@@ -71,9 +75,9 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("current 为空");
 }
-const asIndex = SkipNextWrapSymbol(units, index);
-const namespaceIndex = SkipNextWrapSymbol(units, asIndex);
-const nameIndex = SkipNextWrapSymbol(units, namespaceIndex);
+const asIndex = SkipNextTrivia(units, index);
+const namespaceIndex = SkipNextTrivia(units, asIndex);
+const nameIndex = SkipNextTrivia(units, namespaceIndex);
 const nameUnit = Get(units, nameIndex);
 if (!(nameUnit instanceof Identifier)) {
   throw new Error("命名空间导出不满足格式要求：export as namespace <名字>");

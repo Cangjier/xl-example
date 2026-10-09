@@ -306,6 +306,55 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 869 轮：模块声明那两处「`;` 之前没有 ASI」——`export * as ns` 的换行收掉，同一次普查把 **30 条新缺口**登进语料（known-gap 0 → 30）
+
+**一句话**：`export * ⏎ as ns ⏎ from "m"` 这一族（四种换行排版）与 `export /* c */ as namespace Foo`
+收掉；同一次普查在新一点的构造（`using` / `accessor` / `satisfies` / `infer V extends` /
+`unique symbol` / `abstract new` / 模板字面量类型那一族）上量出 **30 处**与 TS 不同，
+**逐条写成带 `xl:known-gap` 的用例**进语料——所以这一轮的数字是「收掉 7 处、登记 30 条」。
+
+**普查怎么做的**：`tmp/r869/gen.mjs` 把 46 个构造（每个构造一条基线与它的每个 token 边界 ×
+`/*c*/` / 换行两种变体）摊成 **689 条小片段**，交给片段探针
+（`node tests/parse/ts-ast.mjs --snippets tmp/r869/snips.mjs`）：**670 条合法、19 条 TS 自己就非法、
+36 条对不上**。这一轮的修法是前两条，其余按规矩进台账（见下）。
+
+**根子（这一轮修的那两处）**：
+
+1. **`ExportCloseRule.Process` 的「跨 trivia」判据太窄**（[export.xl.md](typescript/tokens/export.xl.md)）：
+   第 669 轮那一版只在**一格都没收到**时跨过注释 / 换行（那是给 `export ⏎ { a as b }` 用的），
+   而导出声明还有三种「写了一半」的形状——`export *` / `export * as ns` / `export * from`
+   ——它们在换行那一格都**还不能算写完**（TS 里导出声明直到 `;` 之前没有 ASI）。
+   判据换成 `IsComplete(items)`：**四种收尾形状**分三支判——星号那一支要 `from` 与路径、
+   花括号那一支子句到手就算写完（写了 `from` 就等路径）、`=` / `default` 那一支要等操作数。
+2. **语句分派层少一格与 `import` 对称的入口**（[statement.xl.md](typescript/tokens/statement.xl.md)）：
+   第 829 轮给导入声明加过 `Statement.IsPendingImportHead`（「头还没写完 ⇒ 换行不是语句边界」），
+   导出这一侧一直没有 ⇒ 壳在换行处就关了，`ExportCloseRule` 只看得到半截。
+   新加的 `Statement.IsPendingExportHead` **复用收尾规则那一份 `IsComplete`**（判据只写一份），
+   另加一支 `export as namespace <名字>`：第三格是 `namespace`、第四格才是名字，换行正好落在名字之前时还没写完。
+3. **`export /* c */ as namespace Foo`**（[namespace-export.xl.md](typescript/tokens/namespace-export.xl.md)）：
+   四段判定原来走 `SkipNextWrapSymbol`（只跳软换行）⇒ 挨着的那条注释被当成第二格。
+   改成 `SkipNextTrivia`——与 `export` / `import` 那两处同一口径（判据本来就是「下一个实义单元」）。
+
+**如实留着的一条**（登了用例、没修）：`export { a }` 换行 `from "m"`。
+花括号子句**自己就完整**，而判定发生在**解析期的换行那一刻**——那一刻 `from` 还没读进来
+（与 `NextLineContinuesExpression` 那条「右半截只有原始字符问得出来」同一个限制），
+要修就得为这一格单开一次原始字符前瞻；形如 `export { a } ⏎ from("m")` 的 TS 纠错形态同族。
+
+**新登的 30 条**（各带一条 `// xl:known-gap`，按落点立着；逐条根因写在文件头）：
+`import /*c*/ type { A }` 与 `type /*c*/ T<U>` 那一格（`type` 与子句 / 别名之间的注释）、
+`typeof /*c*/ import("m")`（`ImportType` 被收成 `TypeQuery`）、`unique ⏎ symbol`、
+`abstract ⏎ new () => X`、`asserts this is A` 与 `x is string` 里注释 / 换行落在三段之间、
+`infer V extends ⏎ string`、`new /*c*/ (a: number): X`（构造签名被收成 `MethodSignature`）、
+枚举成员初始值里 `1 /*c*/ << 2`、`#x ⏎ in o`、`declare ⏎ global`、
+环境模块体里 `const c: ⏎ string`、`import A = ⏎ require("m")`。
+
+**实测**：`npm run gates` **八道全过**（墙钟 33.4s）；`cases:tsast` 那八项（缺 / 漂 / 多 / 字段 /
+未映射 / 缺 range / 越界 / 抛异常）**全 0**、已知缺口 **0 → 30 条还开着、0 条已经收掉**。
+
+**数字**：语料 **1429 → 1465** 条（+30 缺口用例、+6 守卫用例）；
+`coverage` **4013 → 4019 / 4191 → 4227**（blocked **40 → 70**、differ 138、bad 0、加权 95.1% → 94.8%）；
+`cases:tags` 一致 **0** 条；`cases:shapes` 未覆盖 **0**。
+
 ### 第 868 轮：`[` 那一格读它自己的 `Context`——元组元素位的类型字面量收掉，**已知缺口清单空**（known-gap 1 → 0）
 
 **一句话**：`gap-type-tuple-element-literal`（`` type T = [/* c */{ a: 1 }] ``，缺 3 多 2）第三次尝试
@@ -4485,15 +4534,15 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **10 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **30 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1426** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1426 条**（1409 条带期望，共 **4905** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **229 份**（用例 1413 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
+| `cases:check` | **1465** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
+| `cases:tags` | **1465 条**（1413 条带期望，共 **4920** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **229 份**（用例 1452 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3998 / 4186**，加权 **95.0%**：token 1403/1413、exec 749/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 50 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **1 条**（`exec/statements/084-switch-case-block-blocked` 那条旧指令该撤了） |
+| `coverage` | **五类 4019 / 4227**，加权 **94.8%**：token 1422/1452、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 70 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 
