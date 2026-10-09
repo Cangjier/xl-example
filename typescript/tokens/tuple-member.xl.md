@@ -422,6 +422,18 @@ TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；�
 `this` 作元组成员名时必须是 `Identifier`（与形参那一处同源，见 `projectParameter`）。
 `?` 被吞进了 `TypeDefine` 的区间，所以按「类型段第一个字符是不是 `?`」切出来。
 
+**`?` 与冒号之间夹着注释时，`?` 不在 `TypeDefine` 里，也不在成员那一层**
+（第 900 轮）：`[a? /*c*/ : string]` 的产物是
+`NamedTupleMember > [Identifier(a), OptionalType(a?), TypeDefine(string)]`——
+`LiftOptional` 走的是「`TypeDefine` 的**尾巴**是不是 `?`」与「成员最后一格是不是裸 `?`」两支，
+两支持都落空（`?` 在成员**中间**），于是成员那一层留下一个 `OptionalType`。
+上面那条「类型段第一个字符」的量法当场落空 ⇒ 整个 `questionToken` 丢失
+（实测 `NamedTupleMember` 字段名对不上：产物 `[name,type]` vs TS `[name,questionToken,type]`，
+缺 `QuestionToken` 一格）。
+判据与上面那一支**同一个来源**（都是「那个 `?` 在哪」），只是这里要去兄弟里把它找回来：
+先认成员那一层的 `OptionalType`（`?` 是它的尾字符），再认平级的 `SymbolToken("?")`。
+两支都取 `?` 自己的那一格——不再拿 `TypeDefine` 的起点硬算。
+
 ```ts
   const kids = ctx.Kids(v);
   const dots = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "...");
@@ -449,6 +461,19 @@ TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；�
     const typeStart = ctx.StartOf(typeNode);
     if (ctx.source[typeStart] === "?") {
       props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
+    } else {
+      // **`?` 落在成员中间时它是 `OptionalType` 的尾巴**（第 900 轮，见上）：
+      // 那个可选项只装「名字 + `?`」，所以问号就是它区间的最后一个字符。
+      const optional = kids.find((k: any) => k.get("type") === "OptionalType");
+      const flat = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "?");
+      if (optional !== undefined) {
+        const at = ctx.EndOf(optional) - 1;
+        if (at >= 0 && ctx.source[at] === "?") {
+          props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
+        }
+      } else if (flat !== undefined) {
+        props.questionToken = ctx.Project(flat);
+      }
     }
     props.type = ctx.Project(typeNode);
   }

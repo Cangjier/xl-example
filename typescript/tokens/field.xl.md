@@ -477,18 +477,18 @@ if (isBracket === false && (unit === null || unit.constructor.name !== "ArrayLit
 if (unit === null) {
   return false;
 }
-let cursor = 0;
-while (cursor < unit.Data.length && Get(unit.Data, cursor) instanceof LineWrap) {
-  cursor = cursor + 1;
-}
+// **注释与软换行同一条口径**（第 900 轮）：原来这两跳只跳 `LineWrap`，
+// 于是 `[k /*c*/ : string]` 的第二个实义单元读出来是那条**注释** ⇒ 判据给否 ⇒
+// 整条被收成 `Field`（产物一侧多出 `PropertySignature` + `ComputedPropertyName`，
+// 少的正是 `IndexSignature` / `Parameter` / `StringKeyword` 三格）。
+// 括号里面的软换行本来就没有语义（成员边界在括号外面），注释更没有，
+// 所以两跳一律走 `SkipNextTrivia`——与 `type-operator` / `method-declaration` 那几处同一改法。
+let cursor = SkipNextTrivia(unit.Data, -1);
 const first = Get(unit.Data, cursor);
 if (!(first instanceof Identifier)) {
   return false;
 }
-cursor = cursor + 1;
-while (cursor < unit.Data.length && Get(unit.Data, cursor) instanceof LineWrap) {
-  cursor = cursor + 1;
-}
+cursor = SkipNextTrivia(unit.Data, cursor);
 const second = Get(unit.Data, cursor);
 if (second instanceof SymbolToken && second.Is(":")) {
   return true;

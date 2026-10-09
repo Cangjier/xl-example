@@ -45,10 +45,22 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 唯一的实例，注册进通用规则队列时用。
 
-## static readonly field LoopStatementWords:Array<string> = ["for", "foreach", "while", "do", "switch", "try", "if"]
+## static readonly field LoopStatementWords:Array<string> = ["for", "foreach", "while", "do", "switch", "try", "if", "function", "class", "enum", "interface", "namespace", "module", "type"]
 
 能带标签的循环 / 分支词。**只有这一份**：`IsLabeledStatement`（收尾期认已成形的那一格）
 与 `Statement.IsPendingLabelHead`（解析期认还散着的那一格）问的是同一张表。
+
+**声明头也要在这张表里**（第 900 轮，片段普查当场逮到的）：`lbl: function f() {}` /
+`lbl: class C {}` / `lbl: enum E {}` / `lbl: interface I {}` 在 TypeScript 里都是**一条**
+`LabeledStatement`，而标签只认循环 / 分支词的那一版**一条都收不出来**——
+`function` 那一格判据给否 ⇒ `lbl` 与 `:` 留在原地 ⇒ 更晚的 `TypeDefineCloseRule` 顺手把
+`:` 与整个函数声明收成一个类型标注，产物是
+`Statement > [Identifier(lbl), TypeDefine > Function]`（实测：四族各缺
+`LabeledStatement` + 声明本身 + 名字 + 体，多一个 `ExpressionStatement`）。
+**这四格与循环那七格是同一档**：冒号后面那一格能起一条语句，这一对就是标签。
+`type` 也在名单里（`lbl: type T = 1` 同理）——它同样是「冒号后面起一条语句」的形状。
+**加宽这张表不会误伤类型标注**：`let x: T` / `a ? b : c` 那一关挡在
+`IsStatementStart` 上（名字前面不是语句开头），与这里认哪些词无关。
 
 ## static method StatementStartsHere:(units:Array<Token>, index:int)=>bool
 
@@ -80,7 +92,18 @@ if (
   formed === "While" ||
   formed === "DoWhile" ||
   formed === "Switch" ||
-  formed === "Try"
+  formed === "Try" ||
+  // **声明那几格也要认**（第 900 轮）：`lbl: function f() {}` 走到这里时冒号后面
+  // 已经是一个成形的 `Function`（函数 / 类 / 枚举 / 接口 / 命名空间的收尾规则
+  // 都排在 `LabelCloseRule` 前面），而这一串原来只有控制流那七个类名 ⇒ 判据给否
+  // ⇒ 标签收不出来、更晚的 `TypeDefineCloseRule` 把 `:` 与整个声明收成类型标注
+  // （实测四族各缺 `LabeledStatement` + 声明本身 + 名字 + 体，多一个 `TypeDefine`）。
+  // 名单与上面 `LoopStatementWords` 里新加的那几个词**一一对应**。
+  formed === "Function" ||
+  formed === "Class" ||
+  formed === "Enum" ||
+  formed === "Interface" ||
+  formed === "Namespace"
 ) {
   return true;
 }

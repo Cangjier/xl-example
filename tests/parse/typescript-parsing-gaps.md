@@ -412,6 +412,35 @@
 所以「还差多少」在 `npm run gates` 里直接看得见，不必回 `tmp/` 翻探针。
 同一条纪律也适用于 `coverage` 那一侧（`xl:want blocked` / `differ` 的 62 条）。
 
+**第 900 轮**：缺口清单空着的时候另开了一轮普查（`tmp/r900/probe{1,2,4}.mjs`：95 条小片段），
+一次量出**三族**、当场全收掉（清单收完仍是 0 条），三族都不是新构造、而是
+**同一个构造的另一种排版 / 另一种宿主**——这是「一次收一族」那条规矩的又一次验证：
+
+- **索引签名里名字与冒号之间夹注释**（`[k /*c*/ : string]`）：`field.xl.md` 的
+  `IsIndexSignatureName` 那两跳原来只跳 `LineWrap`，第二个实义单元读出来是注释 ⇒ 判据给否
+  ⇒ 整条被收成字段（多 `PropertySignature` + `ComputedPropertyName`、缺
+  `IndexSignature` / `Parameter` / `StringKeyword` 三格）。括号**里面**的软换行本来就没有语义，
+  两跳改走 `SkipNextTrivia`（与 `type-operator` / `method-declaration` 那几处同一改法）。
+  **这是「注释与软换行是同一件事」那条线的第 N 个落点**——同族的第三、第四处还在往出冒。
+- **具名元组元素的 `?` 与冒号之间夹注释**（`[a? /*c*/ : string]`）：`LiftOptional` 只认
+  「成员最后一格是裸 `?`」与「`TypeDefine` 的**尾巴**是 `?`」两支，`?` 落在成员**中间**时两支
+  全落空 ⇒ 成员那一层留下一个 `OptionalType`，而投影按「类型段第一格是不是 `?`」量
+  ⇒ `questionToken` 整格丢失（字段名 `[name,type]` vs TS `[name,questionToken,type]`）。
+  改法与 `field.xl.md` 第 855 轮那一格**同源**：去兄弟里把那个 `?` 找回来
+  （先认成员的 `OptionalType` 尾字符，再认平级 `SymbolToken("?")`）。
+- **声明上的标签**（`lbl: function f() {}` / `lbl: class C {}` / `lbl: enum E {}` /
+  `lbl: interface I {}`）：TypeScript 里这四种都是**一条** `LabeledStatement`，
+  而 `LabelCloseRule` 的两个入口都只认控制流那七个词 / 七个类名——
+  解析期 `LoopStatementWords`（还散着的那一格）、收尾期 `StatementStartsHere` 的类名串
+  （声明**已经成形**的那一格，函数 / 类 / 枚举 / 接口 / 命名空间的收尾规则都排在标签规则前面）
+  ⇒ 标签收不出来、更晚的 `TypeDefineCloseRule` 把 `:` 与整个声明收成一个类型标注
+  （实测四族各缺 `LabeledStatement` + 声明本身 + 名字 + 体，多一个 `ExpressionStatement`）。
+  两处名单一起补（`function` / `class` / `enum` / `interface` / `namespace` / `module` / `type`
+  与对应的五个类名）——**一张表、两处问**，不是两处各写一份近似。
+  加宽不会误伤类型标注：`let x: T` / `a ? b : c` 那一关挡在 `IsStatementStart` 上。
+
+三条各补一个守卫用例（用例留着，缺口行不写——这三族是**收掉之后**才登记进语料的）。
+
 ### 这 89 条长什么样（按根因分三段；下面这三段是第 818 轮实测的分段口径，条数此后又收掉了一批）
 
 按**文件名前缀**数是这三段（第 818 轮实测）：`gap-sweep-*` 128 + `gap-<字母>-*` 17 = **145**；
