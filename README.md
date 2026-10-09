@@ -306,6 +306,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 842 轮：**`async` 是上下文关键字**——`SWEEP-{newline,linecomment}/async` 那两格收掉 2 条
+
+**一句话**：`Keyword.IsUpgradable` 的例外表里立着四档（`as const` / 装饰器名位 / 枚举成员 /
+`override`），而 **`async` 漏在外面**——它同样是**上下文关键字**：TS 那边只有
+「`async` 紧跟 `function`」这一种写法才把它收成修饰词（`AsyncKeyword` 节点），
+其余位置那个词都是**普通 `Identifier`**。`async` 换行（或夹一条行注释）
+`function f() { … }` 里语句层已经按 ASI 把 `async` 收成**单独一条壳**
+（TS 那边正是 `ExpressionStatement > Identifier`），可它一升级就投成 `AsyncKeyword`
+⇒ 那一格「缺 `Identifier` 1 + 多出 `AsyncKeyword` 1」。补上之后 `cases:tsast`
+的账 **36 → 34**（`coverage` **3964 → 3967**，`token` 那一类 blocked 76 → 74）。
+
+- **判据与 `override` 同一档**（`typescript/tokens/keyword.xl.md` 的 `Keyword.IsUpgradable`）：
+  看**后一个实义单元**（`SkipNextTrivia`），是 `function` 才升级。
+  两格都可能是 `Identifier` 或 `Keyword`（升级是一格一格跑的），所以两种形态都认
+  （与 `SwitchCloseRule.WordOf` 同一个写法）。
+- **为什么只看 `function`**：另外两档**都不靠这个 `Keyword` 单元**——
+  箭头那一档（`async (x) => x`）由 `Lamda.IsAsync` 从**前一个 `Identifier`** 认出来
+  （`lamda/lamda.xl.md` 问的正是 `instanceof Identifier`，它跑在升级之前）；
+  函数头与方法那一档由 `modifiers` 那一列**按文本**收
+  （`print-ast-common.xl.md` 的 `["async", "AsyncKeyword"]`）——`async function f() {}`
+  的产物里那个词**根本不在 `Data` 里**（`<Function name="f" modifiers="async">`，
+  子单元只剩名字 / 括号 / 体）。所以不升级一个字都不影响那两档，
+  只把值位那几格**多出来的** `AsyncKeyword` 去掉。
+- **同一形状还能量出三格**（本轮探针，此前不在语料里）：`async;`、`x = async;`、
+  `async(1);` —— 各缺 1 多 1。这一轮**补了一条守卫用例**
+  `tests/cases/token/statements/expr-async-identifier-value.ts`（调用位 + `let` 初始化位），
+  照规矩带 `xl:expect`。
+- **`await` 这一轮不动**：它在值位那几格（`await;` 那种裸写）同样与 TS 不符
+  （探针实测：缺 `Identifier` 1 多 `AwaitKeyword` 1），可它的投影侧还有
+  `AwaitExpression` 那一族靠「前导 `Keyword(await)`」成形
+  （`print-ast-common.xl.md` 的三处），动它要先量清那三处 —— 如实记在这里，
+  不塞进这一轮，`await` 也没有对应的 `xl:known-gap` 用例。
+- **收掉的 2 条**：`gap-sweep-newline-async-01` 与 `gap-sweep-linecomment-async-01`。
+  两行 `xl:known-gap` 删掉、两条 `xl:expect` 按新形状重算（`Keyword:2` → `Keyword`、
+  `Identifier` → `Identifier:2`）；`gap-d-generics-tuple-mapped-02` 那一格
+  （`async` 泛型箭头，仍然是已知缺口）的标签也跟着动了 —— `Keyword` 没了、`Identifier` 6 → 7，
+  按新形状重算。
+
 ### 第 841 轮：`switch` 分段的两个「差一格」——`B-oneline` 那一族收掉 5 条
 
 **一句话**：`switch` 的分段一直靠「**顶层单元里找段头**」，这一轮把它前面那两步判据各补一格。

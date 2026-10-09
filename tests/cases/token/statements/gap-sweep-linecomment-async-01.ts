@@ -1,5 +1,7 @@
 // xl:note SWEEP-linecomment/async 落点（657 审计语料）
-// xl:expect Statement:3,Keyword:2,Bracket,Function,FunctionBody,Identifier,LineAnnotation,Method,Root
-// xl:known-gap 注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/async）：MISS Identifier TS[0,5) «async»
+// xl:expect Bracket,Function,FunctionBody,Identifier:2,Keyword,LineAnnotation:4,Method,Root,Statement:6
+// 第 842 轮转绿（`xl:known-gap` 按规矩撤掉，用例留着当守卫）：缺口原来是
+// `async` 那一格投成了 `AsyncKeyword`（TS 是 `Identifier`）—— 它是**上下文关键字**，
+// 只有紧跟 `function` 时才升级（`keyword.xl.md` 的 `Keyword.IsUpgradable`）。
 async //c
 function f() { await g(); }

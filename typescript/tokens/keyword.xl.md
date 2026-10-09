@@ -8,7 +8,7 @@ import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
-import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipNextTrivia } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -130,6 +130,40 @@ if (unit instanceof Identifier && unit.Is("override")) {
     return true;
   }
   return false;
+}
+// **`async` 只在 `function` 前面升级**（第 842 轮）：它与 `override` 同一档 ——
+// **上下文关键字**。TS 那边只有「`async` 紧跟 `function`」这一种写法才把它收成修饰词
+// （`AsyncKeyword` 节点），其余位置（`async;` / `x = async;` / `async(1)`）那个词都是
+// **普通 `Identifier`**。
+//
+// **少了这一条会怎样**（实测）：`async` 换行（或夹一条行注释）`function f() { … }` 里
+// 语句层已经按 ASI 把 `async` 收成**单独一条壳**（TS 那边正是
+// `ExpressionStatement > Identifier`），可它一升级就投成 `AsyncKeyword`
+// ⇒ 那一格「缺 `Identifier` 1 + 多出 `AsyncKeyword` 1」
+//（`gap-sweep-{newline,linecomment}-async-01` 两条）。同一个形状还能量出
+// `async;` / `x = async;` / `async(1);` 三格（本轮探针，不在语料里）。
+//
+// **为什么只看 `function`**：另外两档都不靠这个 `Keyword` 单元 ——
+// 箭头那一档（`async (x) => x`）由 `Lamda.IsAsync` 从**前一个 `Identifier`** 认出来
+//（`lamda/lamda.xl.md`，它问的正是 `instanceof Identifier`），
+// 方法与函数头那一档由 `modifiers` 那一列**按文本**收
+//（`print-ast-common.xl.md` 的 `["async", "AsyncKeyword"]`，`async function f() {}`
+// 的产物里那个词**根本不在 `Data` 里**：`<Function modifiers="async">`）——
+// 所以不升级一个字都不影响它们，只把那几格**多出来的** `AsyncKeyword` 去掉。
+//
+// **`await` 这一轮不动**：它在值位被判成关键字的那几格（`await;` 那种裸写）
+// 同样与 TS 不符（本轮探针实测），可它的投影侧还有 `AwaitExpression` 那一族
+// 靠「前导 `Keyword(await)`」成形（`print-ast-common.xl.md` 的三处），
+// 动它要先量清那三处，不塞进这一轮。
+if (unit instanceof Identifier && unit.Is("async")) {
+  const after = Get(units, SkipNextTrivia(units, index));
+  let word = "";
+  if (after instanceof Identifier) {
+    word = after.TempToString();
+  } else if (after instanceof Keyword) {
+    word = after.Value;
+  }
+  return word === "function";
 }
 return unit instanceof Identifier && unit.Template.KeywordTemplate.IsKeyword(unit.TempToString());
 ```
