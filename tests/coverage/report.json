@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4302,
+  "total": 4304,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.37,
+  "progressPercent": 95.38,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1523,
-      "pass": 1519,
-      "blocked": 4,
+      "total": 1525,
+      "pass": 1522,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.74
+      "coverage": 99.8
     },
     {
       "category": "exec",
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1523,
-    "knownGap": 4,
-    "knownGapStillOpen": 4,
-    "exactFiles": 1519,
-    "scoredWithoutGap": 1519,
-    "passedWithoutGap": 1519
+    "total": 1525,
+    "knownGap": 3,
+    "knownGapStillOpen": 3,
+    "exactFiles": 1522,
+    "scoredWithoutGap": 1522,
+    "passedWithoutGap": 1522
   },
   "blocked": [
     {
@@ -148,12 +148,6 @@
       "category": "token",
       "title": "注释夹在 `type` 与名字、或者名字与 `=` 之间时，元组里 `...C[]` 的数组后缀落成值位的下标访问",
       "detail": "缺 4　多 2　外层 `[` 的 `Context` 要靠 `DecideBracketContext` 往回扫到 `type`（注释在那条扫描里是 trivia），而内层 `C[]` 的空方括号那一刻还没关闭——`TypeBracketCloseRule` 要等外层升格成 `TupleType` 才够得着它，链规则（"
-    },
-    {
-      "id": "token/types/gap-r919-linecomment-after-return-type",
-      "category": "token",
-      "title": "行注释贴在方法签名的返回类型后面时，那条注释被收进了返回类型、成员区间也多吃一格",
-      "detail": "漂 1　多 1　`interface I { m(): void //c` 换行 `}`：`SignatureTailEnd` 的换行判据只看「换行前那一格是不是符号」，`LineAnnotation` 不是 `LineWrap` 也不是符号之一，于是那条注释被 `tailEnd` 收下、装进返回类型里，`Method"
     },
     {
       "id": "token/types/gap-r919-linecomment-before-tuple-array",
@@ -527,7 +521,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2130.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2132.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -833,7 +827,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3118.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3120.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -857,7 +851,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3166.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3168.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1013,7 +1007,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3809.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3811.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationModifier, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
+import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, HasDeclarationLineBreak, IsDeclarationModifier, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
 import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText, GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BracketNameText } from "../field.xl.md"
@@ -289,6 +289,9 @@ return null;
 折行仍然要支持（`m(): A |` 换行 `B`），所以判法与 `Field.MemberEnd` 同源：
 换行前一个实义单元是 `;` / `,` 以外的**符号**时才继续扫，否则换行即边界。其余四条终止条件照样生效。
 
+**返回的是最后一个实义单元，尾随的注释不算**（第 920 轮）：注释是 trivia，
+TS 那边的节点区间从不含它（见代码里那一节）。
+
 ```ts
 let tailEnd = -1;
 let i = parametersIndex + 1;
@@ -335,6 +338,17 @@ while (i < units.length) {
   tailEnd = i;
   i = i + 1;
 }
+// **尾随 trivia 不属于返回类型**（第 920 轮）：上面那个循环走到一条注释时也会把它记成
+// `tailEnd`——注释不是 `;` / `,`、不是软换行，`IsDeclarationTailStop` 也认不出它。
+// 于是 `interface I { m(): void //c` 换行 `}` 里那条 `LineAnnotation` 被装进了 `ReturnType`、
+// 成员区间也跟着多吃一格（实测 `gap-r919-linecomment-after-return-type`：
+// `MethodDeclaration` `[27,40)` vs TS `[27,36)`；类体里的方法、类型字面量里的调用签名、
+// 块注释三处同根）。
+//
+// 判据借 `SkipPreviousTrivia` 一步问完：**`tailEnd + 1` 往回跳 trivia 的落点就是最后一个实义单元**
+// （`tailEnd` 本来就落在实义单元上时，这一步原地不动）。口径与 `../field.xl.md` 的 `MemberEnd`
+// 同源——「边界落在换行上时返回最后一个**非注释**单元」，那一处记着同一条教训。
+tailEnd = SkipPreviousTrivia(units, tailEnd + 1);
 return tailEnd;
 ```
 
@@ -378,8 +392,18 @@ if (!(parent instanceof ClassBody) && !(parent instanceof InterfaceBody) && !(pa
   return false;
 }
 const tailEnd = this.SignatureTailEnd(units, parametersIndex);
-const afterTail = Get(units, tailEnd >= 0 ? tailEnd + 1 : parametersIndex + 1);
-if (afterTail === null || afterTail instanceof LineWrap) {
+// **这一眼要跨过尾随 trivia 去问**（第 920 轮）：`SignatureTailEnd` 现在会把尾随的注释退掉
+// （见那一节），于是 `interface I { m(): void //c` 换行 `}` 里「返回类型之后的一格」由那条
+// `LineWrap` 变成了那条 `LineAnnotation`——只看一格会判否、整条成员不成形。
+// 跨过去问的仍然是同一句话「这一行写完了没有」，只是**途中见过换行就是答案**
+//（`HasDeclarationLineBreak` 连「块注释原文里那个换行」一起算，与 TS 的 `hasPrecedingLineBreak` 同口径）。
+const afterFrom = tailEnd >= 0 ? tailEnd : parametersIndex;
+const afterAt = SkipNextTrivia(units, afterFrom);
+if (afterAt >= units.length || HasDeclarationLineBreak(units, afterFrom, afterAt)) {
+  return true;
+}
+const afterTail = Get(units, afterAt);
+if (afterTail === null) {
   return true;
 }
 return afterTail instanceof SymbolToken && (afterTail.Is(";") || afterTail.Is(","));
@@ -814,6 +838,23 @@ if (bodyIndex >= 0) {
   const semicolon = Get(units, semicolonAt);
   if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
     memberEnd = semicolonAt;
+  }
+}
+// **返回类型与收尾那个 `;` 之间的 trivia 要搬进自己名下**（第 920 轮）：`tailEnd` 现在停在
+// 最后一个实义单元上（见 `SignatureTailEnd` 那一节），而 `ReplaceCountAt` 会把
+// `[startIndex, memberEnd]` 整段**抹掉**——夹在中间的那条注释不搬进节点就**整格消失**
+//（实测 `gap-sweep-linecomment-iface-06`：`m(): void//c` 换行 `;` 里那条 `LineAnnotation`
+// 从产物里没了，`xl:expect LineAnnotation` 当场红；同一格里 `Field` 是把它折进了类型标注）。
+// 软换行照旧不搬：它是留不住的 trivia，别的规则也这么处理。
+// **只在有返回类型段时搬**（`tailEnd >= 0`）：裸形参表签名（`interface I { m() }`）的
+// `tailEnd` 是 `-1`，不挡的话这个循环会把名字与形参表**再收一遍**（`AddAndCloseLast` 是搬，
+// 第二次收进来的是一个空壳）。
+if (tailEnd >= 0) {
+  for (let t = tailEnd + 1; t < memberEnd; t++) {
+    const item = Get(units, t);
+    if (item !== null && !(item instanceof LineWrap)) {
+      result.AddAndCloseLast(item);
+    }
   }
 }
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);

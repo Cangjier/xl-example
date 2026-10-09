@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { IsDeclarationModifier, IsDeclarationTailStop } from "../declaration-common.xl.md"
+import { HasDeclarationLineBreak, IsDeclarationModifier, IsDeclarationTailStop } from "../declaration-common.xl.md"
 import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousAnnotation, SkipPreviousWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "../class/class-body.xl.md"
@@ -84,7 +84,12 @@ while (i < units.length) {
     break;
   }
   if (item instanceof LineWrap) {
-    const previous = Get(units, i - 1);
+    // **「换行前那一格」取最后一个实义单元**（第 920 轮）：与 `method-declaration.xl.md`
+    // 的 `SignatureTailEnd` 同一条口径（那边第 827 轮就改了，这一份是**独立实现**、
+    // 当时漏掉）。`type T = { (a: string): void //c` 换行 `}` 里换行前紧挨着的是那条
+    // `LineAnnotation`——只跳软换行的话 `continues` 判成假 ⇒ 返回类型在注释那里收尾
+    // ⇒ 那条注释成了整个返回类型。
+    const previous = Get(units, SkipPreviousTrivia(units, i));
     // **返回类型那个 `:` 写在下一行**（第 901 轮）：`(a: string)` 换行 `: void }` 里
     // 换行后面那一格就是返回类型的冒号 —— 那是同一段排版，不是这一行的终点。
     // 这一跳与 `SignatureTailIsColon` 是**同一句判据**（两处必须一致，否则判定说成立、
@@ -115,6 +120,11 @@ while (i < units.length) {
   tailEnd = i;
   i = i + 1;
 }
+// **尾随 trivia 不属于返回类型**（第 920 轮）：与 `method-declaration.xl.md` 的
+// `SignatureTailEnd` 同一条——循环走到一条注释时也会把它记成 `tailEnd`
+// （实测 `type T = { (a: string): void //c` 换行 `}`：那条 `LineAnnotation` 被装进了
+// `ReturnType`）。判据借 `SkipPreviousTrivia` 一步问完，落点就是最后一个实义单元。
+tailEnd = SkipPreviousTrivia(units, tailEnd + 1);
 return tailEnd;
 ```
 
@@ -227,8 +237,14 @@ for (let i = parametersIndex + 1; i <= tailEnd; i++) {
 if (sawArrow) {
   return false;
 }
-const afterTail = Get(units, tailEnd + 1);
-if (afterTail === null || afterTail instanceof LineWrap) {
+// **这一眼也要跨过尾随 trivia**（第 920 轮）：`SignatureTailEnd` 现在把尾随的注释退掉了，
+// 于是「尾部之后的一格」可能是那条注释。跨过去问同一句话，**途中见过换行就是答案**。
+const afterAt = SkipNextTrivia(units, tailEnd);
+if (afterAt >= units.length || HasDeclarationLineBreak(units, tailEnd, afterAt)) {
+  return true;
+}
+const afterTail = Get(units, afterAt);
+if (afterTail === null) {
   return true;
 }
 return afterTail instanceof SymbolToken && afterTail.Is(";");
@@ -622,9 +638,25 @@ if (hasTail) {
   returnType.TryToClose();
   memberEnd = tailEnd;
 }
-const semicolon = Get(units, memberEnd + 1);
+// **收尾那个 `;` 跨 trivia 看**（第 920 轮，与 `method-declaration.xl.md` 同一句）：
+// `SignatureTailEnd` 现在停在最后一个实义单元上，`(a: string): void /*c*/;` 里紧随其后的
+// 是那条注释——只看 `memberEnd + 1` 会把那个 `;` 留在外面成平级单元。
+const semicolonAt = SkipNextTrivia(units, memberEnd);
+const semicolon = Get(units, semicolonAt);
 if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
-  memberEnd = memberEnd + 1;
+  memberEnd = semicolonAt;
+}
+// **返回类型与那个 `;` 之间的 trivia 搬进自己名下**（第 920 轮）：`ReplaceCountAt` 会抹掉
+// 整段区间，不搬就整格消失（与 `method-declaration.xl.md` 那一处同一条）。
+// **只在有返回类型段时搬**（`hasTail`）：裸形参表签名那一档 `tailEnd` 是 `-1`，
+// 不挡的话循环会把形参表再收一遍。
+if (hasTail) {
+  for (let i = tailEnd + 1; i < memberEnd; i++) {
+    const item = Get(units, i);
+    if (item !== null && !(item instanceof LineWrap)) {
+      result.AddAndCloseLast(item);
+    }
+  }
 }
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 const endIndex = memberEnd;
