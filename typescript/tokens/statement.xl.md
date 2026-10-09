@@ -881,7 +881,7 @@ const word = Statement.WordOf(item);
 return word === "return" || word === "throw" || word === "break" || word === "continue" || word === "yield";
 ```
 
-## static method ExpectsOperand:(item:Token | null)=>bool
+## static method ExpectsOperand:(item:Token | null, before:Token | null)=>bool
 
 `item` 之后**还必须跟一个操作数**吗——运算符、开括号、逗号、以及需要右操作数的关键词都属于这一档。
 
@@ -895,12 +895,29 @@ return word === "return" || word === "throw" || word === "break" || word === "co
 符号表是「**不是**收尾符号」的那一批：`;` `)` `]` `}` 是收尾，`!` / `++` / `--` 两可（按需要操作数处理，
 偏保守——多判成「续行」只是少断一条语句，不会造出额外的节点）。
 
+注意：**声明头那三个词也在表里**（`let` / `const` / `var`，第 820 轮）。
+`const` 换行 `a = 1;` 是**一条**声明（TypeScript 的换行在 `const` 与名字之间只是排版），
+而这三格后面**必须**跟一个名字——没有「`const` 单独成句」这种写法
+（它们是保留字，也不可能是属性名 / 成员名）。少了它们时 `StatementBranch` 的
+`LineCannotEnd` 在换行那一刻判「这一行写完了」⇒ 收壳，`const` 自己成一条
+`Statement(Keyword)`、后面整条声明另起一条（实测 `gap-sweep-newline-arr-01/02`、
+`-cond-01/02`、`-obj-01/02`、`-fn-01` 那一族：缺 `VariableStatement` / `FunctionDeclaration`）。
+
+**`const` 前面是 `as` 的那一格不算**（第 820 轮）：`as const` 是**类型断言**的写法，
+`x as const` 换行 `;` 是**写完了**的一条语句，而 `const` 换行 `a = 1;` 是没写完的声明头。
+两者词形一样，分开它们只看**前一个实义单元**：是 `as` ⇒ 断言（不收尾的那一格不算「期待操作数」），
+否则 ⇒ 声明头。少了这一条实测会让 `stmt-asi-as-const-then-statement` 从绿变红
+（`as const` 换行之后被当成续行，两条语句并成一个壳）。
+
 ```ts
 if (item instanceof SymbolToken) {
   const text = item.TempToString();
   return item.Template.SymbolTemplate.IsStatementSymbol(text) === false && text !== ")" && text !== "]" && text !== "}";
 }
 const word = Statement.WordOf(item);
+if ((word === "let" || word === "const" || word === "var") && Statement.WordOf(before) !== "as") {
+  return true;
+}
 return (
   word === "return" ||
   word === "throw" ||
@@ -1431,7 +1448,7 @@ if (previous instanceof SymbolToken && (previous.Is("++") || previous.Is("--") |
 const beforePrevious = Get(units, SkipPreviousTrivia(units, previousRealIndex));
 const previousIsMember =
   beforePrevious instanceof SymbolToken && (beforePrevious.Is(".") || beforePrevious.Is("?."));
-if (previousIsMember === false && Statement.ExpectsOperand(previous)) {
+if (previousIsMember === false && Statement.ExpectsOperand(previous, beforePrevious)) {
   return true;
 }
 return false;

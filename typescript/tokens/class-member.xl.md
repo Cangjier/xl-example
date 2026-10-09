@@ -10,7 +10,7 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
 import { IsDeclarationModifier, IsMemberBoundary } from "./declaration-common.xl.md"
 import { IsTriviaUnit } from "../text-common-util.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { String } from "./string/string.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -153,13 +153,20 @@ if (last instanceof SymbolToken && last.Is(";")) {
   return;
 }
 if (last instanceof LineWrap) {
+  // **换行后面只有一条注释或一个 `;` 的不算边界**（第 820 轮，与 `field.xl.md` 的
+  // `MemberEnd` 同一条）：`a: number` 换行 `;` 里换行之后紧跟的是那个 `;`，
+  // 它属于这一条成员而不是下一条。让 `IsMemberBoundary` 判下去的话
+  // `FollowedByParen` / `IsMemberBoundary` 都会看到「下一行」而把成员切断。
+  const afterWrap = Get(data, SkipNextTrivia(data, tail));
+  const onlyTriviaAfter = afterWrap instanceof SymbolToken && afterWrap.Is(";");
   // **行注释后面那个换行不算边界**（第 819 轮，与 `field.xl.md` 的 `MemberEnd` 同一条）：
   // TypeScript 的 trailing trivia 把 `//` 到行尾**连同那个换行**一起收进注释，
   // 所以 `public static //c` 换行 `readonly a = 1;` 里 `static` 与 `readonly` 之间没有换行。
   // 记下它、下一格再问的话，成员会在 `static` 那里收尾、把真正的尾巴留给下一条成员。
   // 块注释后面那个换行照旧是边界，所以判据只看紧挨着的那一格是不是行注释。
   const beforeWrap = Get(data, tail - 1);
-  if (beforeWrap === null || beforeWrap.constructor.name !== "LineAnnotation") {
+  const afterLineComment = beforeWrap !== null && beforeWrap.constructor.name === "LineAnnotation";
+  if (onlyTriviaAfter === false && afterLineComment === false) {
     this.PendingWrap = tail;
   }
 }

@@ -1,6 +1,5 @@
 // xl:note SWEEP-linecomment/export 落点（657 审计语料）
-// xl:expect Identifier:3,Statement:3,Keyword:2,Bracket,Export,LineAnnotation,Root,SymbolToken
-// xl:known-gap 注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/export）：MISS VariableStatement TS[0,16) «const //c a = 1;»
+// xl:expect Bracket:1,Export:1,Identifier:2,Keyword:1,Let:1,LineAnnotation:1,Root:1,Statement:2,SymbolToken:1
 const //c
 a = 1;
 export { a };

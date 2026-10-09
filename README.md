@@ -306,6 +306,49 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 820 轮：**声明头那三个词等一个名字**——`const` 换行那一族收掉 19 条，另收掉 `member \n ;` 两条
+
+**一句话**：这一轮从两个方向量——**成员尾巴**（`a: number` 换行 `;` 里那个 `;` 属于这条成员）
+与**声明头**（`const` 换行 `a = 1;` 是**一条**声明，TypeScript 的 ASI 不在 `const` 后面断句）。
+两处都只看「换行两边是什么」，`cases:tsast` 的账从 **169 → 148**
+（`coverage` **3819 → 3840** 通过，`token` 那一类 blocked 169 → 148）。
+
+- **根①：`IsMemberBoundary` 会把「换行 + `;`」当成新成员的开头**（`field.xl.md` 的 `MemberEnd`
+  与 `class-member.xl.md` 的 `Process` 各一处）：`a: number` 换行 `;` 里，换行往后跳 trivia
+  看到的是那个 `;`，再跨过名字看到 `;` ⇒ 判成「下一条成员开始了」，
+  于是成员在换行前收尾、那个 `;` 被留在外面（实测 `gap-sweep-newline-iface-01`：
+  `PropertySignature` 给 `[14,23)` 而 TS 是 `[14,25)`）。**改法**：换行后面紧跟的是 `;` 时
+  整条边界判据跳过 —— 收不收它由扫到它的那一格决定（区间仍到它为止）。
+- **根②：`ExpectsOperand` 不认声明头那三个词**（`statement.xl.md`）。`const` 换行 `a = 1;`
+  的换行那一刻，`StatementBranch` 问的 `LineCannotEnd` 落到 `ExpectsOperand(const)`
+  ⇒ 判「左边写完了」⇒ **收壳**：`const` 自己成一条 `Statement(Keyword)`、后面整条声明另起一条
+  （实测 `gap-sweep-newline-arr-01`：缺整条 `VariableStatement` / `VariableDeclaration`）。
+  可 `let` / `const` / `var` 后面**必须**跟一个名字——它们没有「单独成句」那种写法
+  （保留字，也不可能是属性名 / 成员名），所以三个都在表里。
+  一次收掉 19 条：`gap-sweep-{newline,linecomment}/{arr,arrow,cond,destr,ns,obj,optchain,tpl,var}`
+  那一族，加上 `declarations/destr-object-newline-after-keyword` 与 `modules/gap-sweep-linecomment-export-01`。
+  **这一条比它看起来的值钱**：那 19 条原来不是「少一个节点」而是**整条声明解体**
+  （`Statement` 数从 2 变 1、`Identifier` 少一个、多一条孤零零的 `Keyword`）。
+- **`as const` 那一格要挡**（同一个方法）：`x as const` 换行 `;` 是**写完了**的一条语句，
+  而 `const` 换行 `a = 1;` 是没写完的声明头——两者词形一样，分开它们只看**前一个实义单元**
+  是不是 `as`。少了这一条实测 `stmt-asi-as-const-then-statement` 当场从绿变红
+  （`as const` 之后被当成续行，两条语句并成一个壳）。所以 `ExpectsOperand` 多收一个
+  `before` 参数，由两个调用点各传「再往前那一格」。
+- **用例自带的期望跟着改**（`xl:expect`）：18 条 `xl:expect` 逐条重算。
+  这一族的变化是**形状变好了**——原来顶层那一个 `Keyword`（`const`）现在归进 `Let`
+  的子单元、`Statement` 计数从 2 降到 1、名字不再被多算一次；
+  `gap-sweep-*/destr-01` 那一族另把 `BindingElement` / `ObjectLiteral` / `ArrayLiteral` 补上
+  （解构模式这一趟终于成形）。**期望跟着形状走**：`cases:tags` 那一门量的正是
+  「用例说它该有什么、产物里真的有吗」，而**这些形状是不是对的**由 `cases:tsast` 对着
+  `ts.createSourceFile` 逐节点判——两条尺子各管一半。
+- **可复用的判据**：**声明头那三个词（`let` / `const` / `var`）后面必须跟名字**，
+  所以它们出现在换行前时，那一行**一定没写完**；与此同时 **`as const` 是另一回事**。
+  写「换行算不算边界」的判据时，这两件事必须分开问。
+  这条写进了 [typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md) 的「解析层几条硬规矩」。
+- **留下的一条**：`gap-sweep-newline-clsmod-01`（`public static` 换行 `readonly a = 1;`，
+  **没有注释**）仍在台账上——它与第 819 轮收掉的那条只差「换行前面那几格算不算修饰词」，
+  本轮不动它。
+
 ### 第 819 轮：**行注释吃掉它后面那个换行**——成员边界那一格收掉 5 条
 
 **一句话**：这一轮回到最大那一族（「注释 / 换行落在语法相邻位置之间」）里的**成员边界**那一格。

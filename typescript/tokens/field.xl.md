@@ -14,7 +14,7 @@ import { IndexSignature } from "./index-signature.xl.md"
 import { Parameter } from "./lamda/lamda-parameter.xl.md"
 import { InterfaceBody } from "./interface/interface-body.xl.md"
 import { TypeLiteralBody } from "./type-literal/type-literal-body.xl.md"
-import { IsAnnotationUnit, SkipNextAnnotation, SkipNextWrapSymbol, SkipPreviousAnnotation, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { IsAnnotationUnit, SkipNextAnnotation, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Statement } from "./statement.xl.md"
 import { ConstString } from "./string/const-string.xl.md"
 import { Keyword } from "./keyword.xl.md"
@@ -146,6 +146,17 @@ while (i < units.length) {
     return i;
   }
   if (item instanceof LineWrap) {
+    // **换行后面只有一条注释或一个 `;` 的不算边界**（第 820 轮）：`a: number` 换行 `;`
+    // 里，换行之后紧跟的是那个 `;`（TypeScript 两边都合法：一行一条成员、`;` 另起一行）。
+    // `IsMemberBoundary` 会跳过换行看到 `;`、再跳过 `number` 看到 `;` ⇒ 判成「新成员开始了」，
+    // 于是成员在换行前收尾、那个 `;` 被留在外面（实测 `gap-sweep-newline-clsmod-02` 与
+    // `gap-sweep-newline-iface-01`：`PropertyDeclaration` / `PropertySignature` 各自漂一格）。
+    // `;` 收不收进这一条成员由下面那一格自己决定（扫到它就地收尾，区间仍到它为止）。
+    const afterWrap = Get(units, SkipNextTrivia(units, i));
+    if (afterWrap instanceof SymbolToken && afterWrap.Is(";")) {
+      i = i + 1;
+      continue;
+    }
     // **行注释后面那个换行不算成员边界**（第 819 轮）：`public static //c` 换行
     // `readonly a = 1;` 里，换行是那条行注释的一部分（TypeScript 的 trailing trivia
     // 把 `//` 到行尾**连同那个换行**一起收走），所以 `static` 与 `readonly` 之间

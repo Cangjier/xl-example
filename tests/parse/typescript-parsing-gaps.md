@@ -93,6 +93,16 @@
   不用 `IsAnnotationUnit` 那张整表（块注释后面那个换行照旧是边界）。
   同一轮还带回一条：**成员尾巴**要在乎「最后一个非注释单元」，
   而不是「换行下标 - 1」（`a = 1//c` 换行 `;` 里，那个 `;` 属于这条成员）。
+- **声明头那三个词后面必须跟名字**（第 820 轮）：`let` / `const` / `var` 出现在换行前时，
+  那一行**一定没写完**（它们没有「单独成句」那种写法，保留字也不可能是属性名 / 成员名）
+  ⇒ 三个都在 `Statement.ExpectsOperand` 的词表里，`StatementBranch` 的 `LineCannotEnd`
+  于是不在 `const` 换行 `a = 1;` 上收壳。**但 `as const` 要挡**：`x as const` 换行 `;`
+  是**写完了**的一条语句——两者词形一样，分开只看**前一个实义单元**是不是 `as`
+  （所以 `ExpectsOperand` 多收一个 `before` 参数）。少了后半条，
+  `stmt-asi-as-const-then-statement` 当场从绿变红。
+- **换行后面只有一条注释或一个 `;` 的不算成员边界**（第 820 轮，`MemberEnd` /
+  `ClassMember.Process`）：`a: number` 换行 `;` 里那个 `;` 属于**这条**成员，
+  而不是下一条成员的开始；`a = 1` 换行 `//c` 换行 `;` 两半连着看才判得对。
 - **`Parent` 不变式**（`core/syntax/close-rule.xl.md` 的 `ApplyTo`）：规则用 `ReplaceCountAt`
   换进来的节点**不带 `Parent`**（那是核心的 `splice`），每趟 `Process` 之后就地把新换进的那一小段补齐——
   否则「靠当前单元的父亲认容器」的规则（元组成员、方括号类型…）会判不出容器。
