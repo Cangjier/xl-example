@@ -37,6 +37,14 @@ const GATES = [
   // 按 `os.cpus().length` 切组、每组一个子进程（组数不 hard code）。
   // 这里再写一个固定片数就是**第二份答案**，而且会把外层各道门 × 16 片叠成过载。
   { name: "cases:tsast", script: "tests/parse/ts-ast.mjs" },
+  // **`cases:astjson`（第 884 轮加）**：**出口 2**（`cjcli --ast-json`）的专属尺子。
+  // 在那之前它是三个出口里**唯一没有判据**的一个——`docs/ast-json.md` 第 5 节自己写着
+  // 「这个出口今天没有专属的尺子」，改它要靠「自己拿两个出口对一眼」。
+  // 这一门把那条断言判据化：逐节点核「标签名 === type」「XML 的每个属性在 JSON 里同名同值」
+  // 「每个节点都有合法 range」「JSON 多出来的键必须在规格第 2–4 节登记过」「命令行 === 库 API」。
+  // 语料是**用例 + samples**（比 `cases:tsast` 那 37s 的全语料轻得多，~3s），
+  // 因为 `cases:shapes` 已经证明用例侧是外部语料形状签名的超集。
+  { name: "cases:astjson", script: "tests/parse/ast-json.mjs" },
   { name: "samples", script: "samples/check.mjs" },
   { name: "cases:check", script: "tests/parse/validate.mjs" },
   // **`cases:tags`（第 633 轮加）**：用例开头那几行 `xl:expect` / `xl:absent` 的**真判据**。

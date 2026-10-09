@@ -108,7 +108,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `Signature` | `type` `kind` + `children` | |
 | `TypeAssign` | `type` `alias` `modifiers` `nameStart` `nameEnd` + 可选 `modifierSpans` + `children` | |
 | `Export` | `type` `From` `typeOnly` `namespace` `exported` + `children` | `From` 的兜底与 XML 同一处：`null` ⇒ `""` |
-| `Import` | `type` `From` `typeOnly` `defaultImport` `namespace` `imported` + `children` | 同上 |
+| `Import` | `type` `From` `typeOnly` `defaultImport` `namespace` `imported` + 可选 `typeWordAt` + `children` | `From` 的兜底与 XML 同一处：`null` ⇒ `""`；`typeWordAt` 是 `import /*c*/ type { A }` 里那个 `type` 词的下标（第 875 轮）——投影拿它当 `ImportClause` 的起点，少了它就退回「回原文跳空白」、从注释起。**不进 XML** |
 | `Let` | `type` + 三选一（`fieldName` / `arrayPattern` / `objectPattern`）+ `modifiers` `nameStart` `nameEnd` + 可选 `modifierSpans` + `children` | 分支判据与 XML 同一处 `LetType` 链；两个出口共用同一套形态，最后那个 `throw new Error("形态不成立")` 也各有一份 |
 | `Label` | `type` `label` | 自闭合标签，无子单元 |
 | `NamespaceExport` | `type` `name` + 可选 `nameStart` `nameEnd` | 同上；名字那一格由 token 记下（第 646 轮），投影不再回原文 `indexOf` |
@@ -118,13 +118,14 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `While` / `DoWhile` 的位置格 | 同上 | `While` 有 `emptyBodyAt` `bodyBraceAt` `headerCloseAt`；`DoWhile` 有 `bodyBraceAt` `emptyBodyAt`（`do ; while (…)` 那个 `;`，第 635 轮加） |
 | **体那一对花括号**（`For` / `Foreach` / `While` / `DoWhile` / `Lamda`） | 可选 `bodyBraceAt` + `bodyBraceRange` | `bodyBraceAt` 是**体那个 `{` 的下标**（体不是花括号块时不写）；`bodyBraceRange` 是 `"起,止"`（**闭区间**，第 641 轮加，`Lamda` 第 647 轮跟上；`Format` 与 `modifierSpans` 同一款）。**只有体是花括号块时才写**：两端都是**挂体那一刻**的事实，所以投影拿到它就**直接**给出那个 `Block`（空块 `while (c) {}` 也在内），连「找 `{` + 配对」都不走。体是单语句 / 空语句时这两格不写，那两档照旧读 `emptyBodyAt` / `headerCloseAt` |
 | `Try` | `type` `body` + 可选 `catches` `finally` | `catches` 非空才写；`finally` 非 null 才写 |
-| `Switch` | `type` `compare` `segments` | `segments` 是 `SwitchSegment` 数组 |
+| `Switch` | `type` `compare` `segments` + 可选 `bodyAt` | `segments` 是 `SwitchSegment` 数组；`bodyAt` 是**体那个 `{` 的下标**（第 634 轮那一族，不是 `switch` 时不写这一格），投影直接读，不再按原文重扫 |
 | `IfSegment` | `type` `key` + 可选 `condition` `statement` `ifWordAt` | 两个可选段各自非 null 才写；`ifWordAt` 只在 `else if` 这一档写，是那个 `if` 的下标（投影直接读它，不再 `indexOf` 回原文找） |
-| `TernaryOperator` | `type` `condition` `trueStatement` `falseStatement` | 键名沿用上游（`condition` / `trueStatement` / `falseStatement`），比 XML 的 `condtion` 那个拼写更好认 |
+| `TernaryOperator` | `type` `condition` `trueStatement` `falseStatement` + `questionPos` `colonPos` | 键名沿用上游（`condition` / `trueStatement` / `falseStatement`），比 XML 的 `condtion` 那个拼写更好认；`questionPos` / `colonPos` 是 `?` 与 `:` 两个标点的下标——投影直读它合成 `questionToken` / `colonToken`，不再回原文扫 |
 | `Lamda` | `type` `async` + `parameters` `body` + 可选 `returnType` `bodyBraceAt` `bodyBraceRange` `arrowAt` | `async` 是真布尔，而且**只在 JSON 里有**（`<Lamda>` 不写这个属性，不收它就分不出 `async x => x` 与 `x => x`）；`body` 取 `ToList()`，与其它段一致；`arrowAt` 是那个 `=>` 的下标（投影合成 `equalsGreaterThanToken` 时直读） |
 | `New` | `type` `name` `arguments` | `name` 装 `this.Type` 段——`type` 这个键已经被类型名占了，沿用上游的写法 |
-| `SwitchSegment` | `type` `key` + `children` | 与 `IfSegment` 同款的分段节点 |
+| `SwitchSegment` | `type` `key` `colonPos` + `children` | 与 `IfSegment` 同款的分段节点；`colonPos` 是那个 `:` 的下标（投影直读，不再回原文 `lastIndexOf` 猜） |
 | `SwitchSegment` / `IfCondition` / `ForBody`…（各分段类） | `type` + `children` | 分段类本身是普通容器 |
+| `StaticBlock` | `type` + 可选 `braceAt` + `children` | 形状与基类那一份**只差 `braceAt` 一格**：体那个 `{` 的下标；`-1`（不是静态块）时**不写这一格**，与 `LineWrap` 那种自闭合节点同一口径。**它没有 XML 属性**，所以这一格只活在这一节里（见第 6 节第 2 条） |
 
 ### `nameStart` / `nameEnd`：声明名的位置
 
@@ -182,7 +183,7 @@ XML 的开标签上写 `export="true"`（读 XML 的人按布尔读），投影�
 | 属性键名 | 一部分与 XML 漂开了（`MethodName` → `methodName`、`StartBracketChar` → `startBracketChar`、`IsSupportInterpolation` → `isSupportInterpolation`） | **一律与 XML 属性同名** | 本工程的口径是「两个出口说同一棵树」，同名才可校验 |
 | 覆盖范围 | 只有 17 个类覆写 `ToDictionary`，其余走基类的 `{type, children}` | 同样只覆写「XML 里有属性」的类 | 与上游同一取舍 |
 | 额外字段 | `String` 的 JSON 比 XML 多 5 个字段（`stringChar` / `rawIndent` / `isRawIndentFormated` …） | **不多写**：JSON 的键以 XML 属性为准 | 多写的键等于第二个事实来源 |
-| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` / `DoWhile` 的 `emptyBodyAt` 与 `bodyBraceAt`、那四者与 `IfSegment` / `Lamda` 的 `bodyBraceRange`（整对花括号）、`For` / `Foreach` / `While` 的 `headerCloseAt`、`Foreach` 的 `isForIn`、`IfSegment` 的 `ifWordAt`、`Lamda` 的 `arrowAt`、`Namespace` 的 `nameAt` / `nameEnd` / `nameRange`、`Field` 的 `nameAt` / `nameRange`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`），以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
+| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` / `DoWhile` 的 `emptyBodyAt` 与 `bodyBraceAt`、那四者与 `IfSegment` / `Lamda` 的 `bodyBraceRange`（整对花括号）、`For` / `Foreach` / `While` 的 `headerCloseAt`、`Foreach` 的 `isForIn`、`IfSegment` 的 `ifWordAt`、`Lamda` 的 `arrowAt`、`Namespace` 的 `nameAt` / `nameEnd` / `nameRange`、`Field` 的 `nameAt` / `nameRange`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`）、`Import` 的 `typeWordAt`、`Switch` 的 `bodyAt`、`SwitchSegment` 的 `colonPos`、`TernaryOperator` 的 `questionPos` / `colonPos`、`StaticBlock` 的 `braceAt`，以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节）。**这张表不是备忘、是判据的一半**：`cases:astjson` 的 ④ 按第 2–4 节有没有提到这个键名来判，所以**加一格坐标就要补一次这里**（第 884 轮补这一门时，这张表已经漂了 5 格） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
 | 结构 bug | `TernaryOperator.ToDictionary()` 漏掉了 `type`（它没调基类也没自己写），于是 JSON 里出现没有类型名的节点 | **保留 `type`** | 那是缺陷，不是口径 |
 
 **一句话**：形状、方法名、`range` 的层级与上游一致；**字段名以本工程自己的 XML 出口为准**——
@@ -194,20 +195,41 @@ JSON 跟着上游的键名只会让**同一棵树的两个出口在本工程内�
 
 ## 5. 验收
 
-**这个出口今天没有专属的尺子**：从第 200 轮起测试集只留 AST 相关的判据
-（`cases:tsast` / `cases:tsast:cli` / `cases:tags` / `samples` / `cases:check`），
-量的是**产物树与 TS 形状**（`projectRoot` 读的是同一棵树的 `ToList()`，见第 1 节）。
-`cjcli --ast-json` 与 `Token.ToDictionary` / `ToJsonString` 本身照旧在，
-只是「两个出口同源」这条断言当下没有尺子在跑——改动这个出口时要**自己拿两个出口对一眼**
-（见第 6 节第 4 条）。**新增的坐标字段走的是这条出口**（例如第 634 轮的 `headerCloseAt`）：
-`ToDictionary` 里写了、投影才读得到（见第 5 节的字段表）。
+**第 884 轮起这个出口有专属的尺子**：`npm run cases:astjson`
+（[tests/parse/ast-json.mjs](../tests/parse/ast-json.mjs)，`npm run gates` 里的第 9 道门）。
+它把本文的形状约定逐节点核成六项，**全 0 才退出码 0**：
+
+| 判据 | 量的是什么 |
+| --- | --- |
+| ① 标签名 === `type` | 两个出口的类型名同源（都是 `this.constructor.name`） |
+| ② XML 的每个属性都在 JSON 里**同名同值** | **这一条就是「两个出口说同一棵树」那句断言的本体**（属性值先按 `CommonUtil.XmlDecode` 的同一张表解回来再比） |
+| ③ 每个节点都有合法的 `range` | 第 2 节那条「每个节点都有」（trivia 的越界单记一栏、不进退出码，与 `cases:tsast` 同口径） |
+| ④ JSON 多出来的键**必须在本文第 2–4 节登记过** | 键名表只有本文一份；**加了一格坐标却忘了写规格会当场红** |
+| ⑤ 命令行 === 库 API | `cjcli <文件> --ast-json` 的 stdout 逐字节等于 `Root.ToJsonString()` |
+| ⑥ 不抛异常 | 解析 / 两个出口本身都不许抛 |
+
+**④ 是这一门真正防的那件事**。这个出口的唯一事实来源是**同一个文件里的两处拼串**
+（`ToXmlString` 与 `ToDictionary`），而「多出来的键」从前只靠本文那张例外表记着——
+补这一门之前它已经漂了 **5 格**（`Import.typeWordAt`、`Switch.bodyAt`、`SwitchSegment.colonPos`、
+`TernaryOperator.questionPos` / `colonPos`、`StaticBlock.braceAt`：`ToDictionary` 里写了、
+本文一个字没提），这一轮把这 5 格补进第 3 / 4 节、判据同时上锁。
+
+**语料是「用例 + `samples`」**，不吃 `node_modules` / `dist/ts`：`cases:shapes` 已经证明
+用例侧是外部语料那 260 种形状签名的**超集**（444 种），而这一门量的「同一个节点两个出口对不对」
+与形状种类一一对应；整份外部语料单进程要 ~37s、用例那一份只要 ~2s——没有理由为同一句话多花 35s 墙钟。
+
+**新增的坐标字段走的是这条出口**（例如第 634 轮的 `headerCloseAt`）：`ToDictionary` 里写了、
+投影才读得到（见第 3 节的字段表）——**同时也要写进那张表**，否则 ④ 会红。
 
 ---
 
 ## 6. 改这个出口时要动的地方
 
 1. 给某个 token 加/改 XML 属性 → **同一个文件里**的 `ToDictionary` 必须一起改（两处同名同值）。
-2. 加一个全新的 token 类 → 如果它有 XML 属性，就补 `ToDictionary`；没有属性就不必覆写（基类形状已经对）。
+2. 加一个全新的 token 类 → 如果它有 XML 属性，就补 `ToDictionary`；**没有 XML 属性但有坐标格**
+   （`StaticBlock` 的 `braceAt` 那种「只给投影读」的事实）**也要覆写**，而且**同样要写进第 3 节的字段表**
+   ——这一档两个出口都看不出来，只有 ④ 会替你发现；两样都没有才不必覆写（基类形状已经对）。
 3. 加一个分段结构 → 在 `ToDictionary` 里按段名写 `ToList()`，不要摊成 `children`。
-4. 改完**自己拿两个出口对一眼**：`cjcli <文件>` 与 `cjcli <文件> --ast-json` 说的必须是同一棵树
-   （没有尺子代劳，见第 5 节）；`npm run samples` 只覆盖 TS 形状出口。
+4. 改完跑 **`npm run cases:astjson`**（见第 5 节）：`cjcli <文件>` 与 `cjcli <文件> --ast-json` 说的必须是
+   同一棵树——**这一门替你核**（① 标签 / ② 属性 / ③ 坐标 / ⑤ 命令行 / ⑥ 抛异常），
+   而**新加的坐标键还要写进第 3 节的字段表**，否则 ④ 红；`npm run samples` 只覆盖 TS 形状出口。

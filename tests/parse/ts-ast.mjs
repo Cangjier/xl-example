@@ -419,7 +419,10 @@ function walk(dir, out) {
   return out;
 }
 
-function corpus(mode) {
+// **语料只有这一份定义** ✓（第 884 轮 ✓）：`cases:astjson`（出口 2 的尺子）也吃它 ✓——
+// 「哪些文件算语料」「哪几类用例要跳过」写两遍就一定会漂 ✓（`listCases` 的过滤条件是会变的 ✓）。
+// 它导出的是一个**函数** ✗（不是一份快照 ✓）：分片那一趟按 `ARGS` 现算 ✓，两个调用方各拿各的 ✓。
+export function corpus(mode) {
   const files = [];
   if (mode !== "cases") {
     files.push(...walk(path.join(root, "node_modules", "@types"), []));
