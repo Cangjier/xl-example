@@ -169,7 +169,7 @@ token 的 186 条 `gap-sweep-*` / `gap-r676-*` 是 **AST 尺子的逐落点账**
 | 动机 | 「免得把控制台渲染那一族的已知缺口混进来」——即**隔离打印层**，让每条只暴露一个语义差额 |
 | 首现 | 第 692 轮（其一）：**385 条**（其中原子探针 299 条），分母 3992 → 4377 |
 | 之后逐批 | 692（其二）150 · 692（其三）103 · 693 **555** · 694 **242** · 695 150 · 696 152 · 697 159 · 698 85 · 699 202 · 700 158 · 701 100 · 706 133 · 707 117 · 708 81 · 709 56 · 710 49 · 711 26 |
-| 现状（第 804 轮之后） | git 跟踪 **144 条**（`stdlib` 与 `exec` 清零，`runtime` 218 → 144；第 803 轮之后是 170、第 802 轮之后是 218、第 801 轮之后是 289、第 800 轮之后是 522、第 799 轮之后是 546、第 798 轮之后是 584、第 797 轮之后是 624、第 796 轮之后是 648、第 795 轮之后是 674、第 794 轮（三）之后是 734、第 794 轮（二）之后是 759、第 794 轮之后是 793、第 793 轮之后是 827、第 792 轮之后是 871、第 791 轮之后是 920、第 790 轮（三）之后是 973、第 790 轮（二）之后是 1025、第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118），第 790 轮（三）走完 `exec/iterators`（52），第 791 轮走完 `stdlib/error`（53），第 792 轮走完 `exec/destructuring-spread`（48），第 793 轮走完 `stdlib/math`（44），第 794 轮走完 `runtime/exceptions`（34），第 794 轮（二）走完 `runtime/round742`（34），第 794 轮（三）走完 `stdlib/round718`（25），第 795 轮走完 `exec/round709`（35）与 `exec/round711`（25），第 796 轮走完 `stdlib/round719`（26，整域并进 `stdlib/math` 与 `stdlib/number`），第 797 轮走完 `stdlib/round721`（24），第 798 轮走完 `runtime/async`（91 → 22），第 799 轮走完 `stdlib/console`（71 → 11），第 800 轮走完 `stdlib/symbol`（67 → 10），第 801 轮走完 **整个 `stdlib` 的原子探针域**（32 个域 · 233 条探针 → 154 条规则用例，`stdlib` 探针命名清零），第 802 轮走完 **整个 `exec` 的遗留探针命名**（12 个纯探针域 + `expressions` / `statements` / `round778` 三处散条，76 条 → 31 条规则用例，`probe*` / `p<轮次>*` / `p-*` / `r<轮次>*` 四种命名全清零），第 803 轮走完 `runtime/round726`–`round734`（48 条探针 → 12 条规则用例），第 804 轮走完 `runtime/round736` 与 `round738`（26 条探针 → 6 条规则用例） |
+| 现状（第 805 轮之后） | git 跟踪 **110 条**（`stdlib` 与 `exec` 清零，`runtime` 218 → 110；第 804 轮之后是 144、第 803 轮之后是 170、第 802 轮之后是 218、第 801 轮之后是 289、第 800 轮之后是 522、第 799 轮之后是 546、第 798 轮之后是 584、第 797 轮之后是 624、第 796 轮之后是 648、第 795 轮之后是 674、第 794 轮（三）之后是 734、第 794 轮（二）之后是 759、第 794 轮之后是 793、第 793 轮之后是 827、第 792 轮之后是 871、第 791 轮之后是 920、第 790 轮（三）之后是 973、第 790 轮（二）之后是 1025、第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118），第 790 轮（三）走完 `exec/iterators`（52），第 791 轮走完 `stdlib/error`（53），第 792 轮走完 `exec/destructuring-spread`（48），第 793 轮走完 `stdlib/math`（44），第 794 轮走完 `runtime/exceptions`（34），第 794 轮（二）走完 `runtime/round742`（34），第 794 轮（三）走完 `stdlib/round718`（25），第 795 轮走完 `exec/round709`（35）与 `exec/round711`（25），第 796 轮走完 `stdlib/round719`（26，整域并进 `stdlib/math` 与 `stdlib/number`），第 797 轮走完 `stdlib/round721`（24），第 798 轮走完 `runtime/async`（91 → 22），第 799 轮走完 `stdlib/console`（71 → 11），第 800 轮走完 `stdlib/symbol`（67 → 10），第 801 轮走完 **整个 `stdlib` 的原子探针域**（32 个域 · 233 条探针 → 154 条规则用例，`stdlib` 探针命名清零），第 802 轮走完 **整个 `exec` 的遗留探针命名**（12 个纯探针域 + `expressions` / `statements` / `round778` 三处散条，76 条 → 31 条规则用例，`probe*` / `p<轮次>*` / `p-*` / `r<轮次>*` 四种命名全清零），第 803 轮走完 `runtime/round726`–`round734`（48 条探针 → 12 条规则用例），第 804 轮走完 `runtime/round736` 与 `round738`（26 条探针 → 6 条规则用例） |
 | 现状（`gap-*` 一族） | git 跟踪 **186 条**，其中 token 180（`gap-sweep-*` 175 + `gap-r676-*` 11 之类）、runtime / stdlib 6 —— **第 790 轮（二）起这一族也在整理范围内**：同一条根的账并成一条、名字按规范给（`gap746-…` → `002-…-differ` 这种）；token 那 186 条**逐条量的是不同落点**（`xl:known-gap` 一行的差额各不相同），所以**没有重复可去**，仍按 `gap-` 前缀留在 `token/` 里（见下面第 790 轮（二）那一节） |
 
 **它当时的收益是真的**：每一批都当场收掉几处根因，覆盖度从 3697/3992 一路推到目前的 4886/5284。
@@ -232,6 +232,54 @@ runtime **756 / 807 · blocked 6 · differ 45 · bad 0**（两边退出码 0）�
 并组完整性由同一把一次性尺子（`tmp-probe-ruler.mjs` + `tmp-probe-groups-804.json`，未进仓）核对：
 6 组保留条（其中 2 组是单来源改名）的 `tsrun` stdout 与「各被吸收条 stdout 的顺次相接」
 **逐字节相同**（26 条来源）。
+
+**第 805 轮的合并**（**`runtime/round737` 与 `round739` 两个探针域按判定点重排：34 → 19**）：
+
+| 域 | 新条 | 判定点 | 吸收 |
+| --- | --- | --- | --- |
+| `round737` | `001-array-string-map-iteration-values` | 三族迭代器的产物：`next()` 走到底之后的形状 / 码点迭代（代理对算一格）/ `for..of` 一个 `Map` | `p737a-a01` · `a02` · `a03`（3 条） |
+| `round737` | `002-generator-protocol-step-and-return` | 生成器四档：`yield` 返回值与 `next(实参)` / `yield*` 委托 / 生成器自己可迭代 / `return` 与 `finally` 的次序 | `p737a-a07` · `a08` · `a09` · `a10`（4 条） |
+| `round737` | `003-for-await-over-sync-iterable` | `for await` 一个同步可迭代物（**只改名**） | `p737a-a13` |
+| `round737` | `004-async-function-return-and-await-timing` | `async` 返回值与 `await` 时序（**只改名**） | `p737a-a11` |
+| `round737` | `005-promise-statics-settled-and-any` | `Promise` 静态形状与两条聚合路 | `p737a-a15` |
+| `round737` | `006-await-thenable-adoption-differ` | `await` 一个 thenable 要调 `then`（**只改名**） | `p737a-a16` |
+| `round737` | `007-microtask-relative-order` | 微任务相对次序（**只改名**） | `p737a-a19` |
+| `round737` | `008-promise-chain-then-catch-finally-differ` | 承诺续链的 `then` / `catch` / `finally`（**只改名**） | `p737a-a17` |
+| `round737` | `009-iterator-next-taken-off-and-cursor-state-differ` | `next` 取出来再 `call` 的游标状态（**只改名**） | `p737a-a05` |
+| `round737` | `010-iteration-protocol-early-exit-and-build` | `for..of` 提前离开调 `return()` / 数组解构走迭代协议 / 不可迭代物抛 `TypeError` | `p737a-a04` · `a06` · `a14`（3 条） |
+| `round737` | `011-weakmap-weakset-keys-and-shape` | `WeakMap` / `WeakSet` 的键与形状 | `p737a-a20` |
+| `round739` | `001-await-precedence-class-and-relational` | `await` 与算术 / 相等 / 关系运算符（含条件位与三元） | `p739a-a01` · `a03` · `a04`（3 条） |
+| `round739` | `002-await-precedence-logical-and-short-circuit` | `await` 与逻辑 / 空值合并，以及短路下的副作用次序 | `p739a-a02` · `a16`（2 条） |
+| `round739` | `003-await-parenthesized-operand` | 括号化之后 `await` 吃整段 | `p739a-a06` |
+| `round739` | `004-await-under-unary-prefix` | 一元前缀套在 `await` 外面 | `p739a-a09` |
+| `round739` | `005-await-operand-is-literal-index-or-argument` | 操作数形状：字面量 / 下标 / 实参与返回值 / 承诺套承诺 / 两段以上复合 | `p739a-a12` · `a07` · `a15` · `a08`（4 条） |
+| `round739` | `006-await-in-call-chain-template-and-comma` | 调用 · 成员链 / 模板串 / 数组字面量 / 逗号运算符里的 `await` | `p739a-a05` · `a10` · `a11`（3 条） |
+| `round739` | `007-await-in-loop-conditions` | 循环条件里的 `await` | `p739a-a13` |
+| `round739` | `008-await-with-as-notnull-and-optional-chain` | `await` 与 `as` / 非空断言 / 可选链 | `p739a-a14` |
+
+这一轮量出两处**手法边界**，都写在这里给后来的人：
+
+1. **单来源的异步探针不许套壳**。合并条的外壳是「一个 `async function main()`，每块一个被
+   `await` 的 async IIFE」；实测 `p737a-a17`（承诺续链）套上壳之后**续链次序变了**
+   （裸跑 `pass keep, rej r, fin, end c:e2` → 套壳 `pass keep, fin, end c:e2, rej r`）——
+   因为它排下的微任务与外壳自己那一次 `await` 抢同一个挂点。所以凡是**单来源**、
+   量的是异步调度那一层的，一律**只改名、正文一字不动**（第 805 轮这样处理了 7 条）。
+2. **多来源里那些「排了就不管」的顶层调用要当场收住**。来源是「一条一进程、进程退出前把
+   微任务跑干净」，并进一个文件之后只有把块里独占一行的效果调用（`main();` / `report();`）
+   写成 `await …`，才还是原来那条的输出；不收的话实测 `round739/001` 的三块整体错位
+   （`pos` 跑到 `pos neg` 前面）。块里其余每一个字节与来源一字不差。
+
+**保台账（全量批量跑，`--jobs 8 --batch-workers 32`）**：语料 **4440 → 4425**（净少 **15**：
+删 34、添 19）、过 **4044 → 4029**；**blocked 258 / differ 138 / bad 0 一处没动**，
+`MOVED` / `NEWLY-PASSING` / `REGRESSION` **全 0**，加权 93.18% → **93.15%**。
+
+**验证一次**：`--no-batch`（一条一个进程的权威口径）与批量那一轮逐项相同。
+
+**收网扫描（亲手再列一遍）**：`round737` 现存 11 条、`round739` 现存 8 条，序号都从 001 起
+连续、全是 `<三位序号>-<kebab 描述>`；全仓 `probe*` / `p<轮次>*` / `p-*` 命名 **110 条且全在
+`runtime`**（第 804 轮之后是 144），`r<轮次>*` 一族 **171 条**（`runtime` 与 `stdlib` 各半）。
+并组完整性由 `tmp-r805-apply.mjs` + `tmp-r805-ruler.mjs` + `tmp-r805-groups.json`（未进仓）核对：
+19 组保留条的 `tsrun` stdout 与「各被吸收条 stdout 的顺次相接」**逐字节相同**（34 条来源）。
 
 **第 803 轮的合并**（**`runtime` 前九个探针域按判定点重排：48 → 12**）：
 

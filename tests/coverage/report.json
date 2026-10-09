@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4440,
+  "total": 4425,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 93.18,
+  "progressPercent": 93.15,
   "categories": [
     {
       "category": "token",
@@ -100,12 +100,12 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 807,
-      "pass": 756,
+      "total": 792,
+      "pass": 741,
       "blocked": 6,
       "differ": 45,
       "nodefail": 0,
-      "coverage": 93.68
+      "coverage": 93.56
     },
     {
       "category": "stdlib",
@@ -1817,7 +1817,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29188/src/2003.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29648/src/2003.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1910,22 +1910,22 @@
       "detail": "stdout 不同：第 1 行：node «true true» vs tsrun «false false»"
     },
     {
-      "id": "runtime/round737/p737a-a05",
-      "category": "runtime",
-      "title": "手动迭代：`next()` 的 `this` 与取出方法再调用",
-      "detail": "stdout 不同：第 2 行：node «2» vs tsrun «1,2»"
-    },
-    {
-      "id": "runtime/round737/p737a-a16",
+      "id": "runtime/round737/006-await-thenable-adoption-differ",
       "category": "runtime",
       "title": "`await` 一个 thenable：`then` 要真的被调用一次",
       "detail": "stdout 不同：第 1 行：node «caught boom» vs tsrun «got:[object Object]»"
     },
     {
-      "id": "runtime/round737/p737a-a17",
+      "id": "runtime/round737/008-promise-chain-then-catch-finally-differ",
       "category": "runtime",
       "title": "`then` 返回新承诺 / `catch` 恢复 / `finally` 的透传",
       "detail": "stdout 不同：第 1 行：node «fin» vs tsrun «pass keep»"
+    },
+    {
+      "id": "runtime/round737/009-iterator-next-taken-off-and-cursor-state-differ",
+      "category": "runtime",
+      "title": "手动迭代：`next()` 的 `this` 与取出方法再调用",
+      "detail": "stdout 不同：第 2 行：node «2» vs tsrun «1,2»"
     },
     {
       "id": "runtime/round741/p741a-a02",
@@ -2159,7 +2159,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29188/src/3179.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29648/src/3164.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2183,7 +2183,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29188/src/3227.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29648/src/3212.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2339,7 +2339,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29188/src/3871.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29648/src/3856.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

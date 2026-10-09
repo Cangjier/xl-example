@@ -9,6 +9,9 @@
 // xl:why **收它要在 await 那一格加一条**：值是对象且有可调的 `then` 时，先按 thenable 采纳一次
 // xl:why （这正是 `new Promise(executor)` 里 resolve 那一支已经有的逻辑，两处应该合成一处）。
 // xl:end
+// 本文件是 `p737a-a16` 按命名规范改名（第 805 轮）：**正文一字未动**——
+// 它量的是异步调度那一层，包一层壳就会换一个挂点（实测过），所以只改名、不并组。
+
 const log: string[] = [];
 const thenable: any = { then(res: any) { log.push("then-called"); res(7); } };
 async function main() { const v = await thenable; log.push("got:" + v); }

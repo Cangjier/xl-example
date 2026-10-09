@@ -7,6 +7,9 @@
 // xl:why `next` 都从头开始（后面拿到 `1,2`）——因为游标是数组的 `__i`，而取出来的那一格
 // xl:why 是数组方法、`self` 由调用点递进来时**没有带上游标那一份状态**。
 // xl:end
+// 本文件是 `p737a-a05` 按命名规范改名（第 805 轮）：**正文一字未动**——
+// 它量的是异步调度那一层，包一层壳就会换一个挂点（实测过），所以只改名、不并组。
+
 const it = [1, 2].values();
 const next = it.next;
 console.log(JSON.stringify(next.call(it)));
