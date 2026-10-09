@@ -363,7 +363,7 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**4 条**）
+## 已知仍开着的缺口（**3 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
 （第 854 轮实测 **10**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
@@ -390,9 +390,11 @@
 （模块路径装在 `Method(name="from")` 里，`moduleSpecifier` 要找进去一层、那一格是
 `ParenthesizedExpression`）⇒ **5 条**；**第 878 轮**收掉 `infer V` 换行 `extends string` 那一格
 （收尾期的续接表 `Statement.ContinuesExpression` 没认 `extends`，换行被 ASI 判成语句边界
-⇒ 条件类型从第二个 `extends` 起算）⇒ **4 条**，剩下的短线是
-「注释 / 换行落在语法相邻位置之间」那条线的第七面（`abstract /* c */ new`、`#x ⏎ in o`、
-`import m = ⏎ require("m")`、`declare ⏎ global` 之类）。
+⇒ 条件类型从第二个 `extends` 起算）⇒ **4 条**；**第 879 轮**收掉 `#x` 换行 `in o` 那一格
+（**解析期**的续接词表里没有 `in` / `instanceof` 两个保留字，换行被 ASI 判成语句边界）
+⇒ **3 条**，剩下的短线是
+「注释 / 换行落在语法相邻位置之间」那条线的第七面（`abstract /* c */ new`、
+`import m = ⏎ require("m")`、`declare global ⏎ { … }` 之类）。
 
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，

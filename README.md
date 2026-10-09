@@ -306,6 +306,30 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 879 轮：`#x` 换行 `in o` 那一格——解析期的续接词表里没有 `in` / `instanceof`（known-gap 4 → 3）
+
+**一句话**：`return #x` 换行 `in o;` 收掉——那个软换行被**解析期**的 ASI 判成语句边界，
+`in o;` 另起一条 `ExpressionStatement`，而 TS 那边是一条 `ReturnStatement` 带一个 `BinaryExpression`。
+
+**根子**（[statement.xl.md](typescript/tokens/statement.xl.md) 的 `NextLineContinuesExpression`）：
+这一半的判据落在**原始字符**上（换行那一刻下一个单元还没读进来），所以「下一个词」只能靠
+一张**小词表**认——第 668 轮起是 `catch` / `finally`、第 825 轮加了 `extends`。
+`in` / `instanceof` 是**保留字**（起不了一条语句、也不是任何一个成员的开头），
+一行以它们开头只可能是上一行那个操作数的双目运算符，可它们不在表里 ⇒ 换行处收壳。
+
+**为什么只补这两个词**：`of` / `as` / `is` / `satisfies` **是上下文关键字**、本身就是一个
+合法的标识符表达式（`of;` 是一条语句），「一行以它开头」分不出续写与下一条语句。
+这一条与第 878 轮那一格是同一句话的两半：**解析期**这一半看字符、**收尾期**那一半看下一个实义单元
+（`ContinuesExpression` 那张宽表里 `in` / `instanceof` 一直都在）——两半要一起对齐，
+只补一半就会「一个壳里对、另一个壳里错」。
+
+**实测**：`tmp/in-probe.mjs` 6 条探针（这一条 + `instanceof` 同族 + 单行原形 +
+映射类型 `[K ⏎ in keyof U]` + `for (const k ⏎ in obj)` + `a in b` 五条对照）**全绿**
+（后两条本来就绿：它们各自的括号那一层已经按别的口径兜住了）；
+全语料 `cases:tsast` **16 / 16 片**、缺 0 漂 0 多 0、已知缺口 **4 → 3**、收掉 0；
+`cases:check` 1466 / 1466、`cases:tags` 4920 条断言 0 条不一致（XML 一个字节都没动）；
+`coverage` **4046 → 4047 / 4228**（blocked **44 → 43**、differ 138、bad 0）、`gates` 八道全过。
+
 ### 第 878 轮：`infer V` 换行 `extends string` 那一格——收尾期的续接表里没有 `extends`（known-gap 5 → 4）
 
 **一句话**：`U extends infer V` 换行 `extends string ? V : never` 收掉——那个软换行被
@@ -4830,7 +4854,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **4 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–878 九轮共收掉 26 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **3 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–879 十轮共收掉 27 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1466** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -4838,7 +4862,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1453 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4046 / 4228**，加权 **95.1%**：token 1448/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 44 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4047 / 4228**，加权 **95.1%**：token 1448/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 43 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 

@@ -1395,6 +1395,24 @@ if (wordEnd > at) {
   if (word === "extends") {
     return true;
   }
+  // **下一行以 `in` / `instanceof` 开头**（第 879 轮）：与上面那两个词同一条理由
+  // ——它们**是保留字、起不了一条语句**，也不是任何一个成员的开头，所以出现在一行的
+  // 第一个词上只可能是上一行那个操作数的**双目运算符**：
+  //
+  //     return #x ⏎ in o;          class A { #x = 1; static f(o: A) { return #x ⏎ in o; } }
+  //     return a ⏎ instanceof B;   （TS 那边两条都是**一条** `ReturnStatement` 带一个 `BinaryExpression`）
+  //
+  // **`of` / `as` / `is` / `satisfies` 刻意不在名单里**：它们是**上下文关键字**、
+  // 本身就是一个合法的标识符表达式（`of;` 是一条语句），所以「一行以它开头」分不出
+  // 「续写」与「下一条语句」——判据只能留给别处（`ContinuesExpression` 那张表收它们，
+  // 是因为那里问的是**下一个实义单元**、而且走的是另一条口径）。
+  //
+  // **少了它会怎样**：换行处收壳 ⇒ `return #x` 自己成一个 `ReturnStatement`、
+  // `in o;` 另起一条 `ExpressionStatement` ⇒ 缺 `BinaryExpression` + 缺操作数
+  // （实测 `gap-r869-private-in-newline-12`：缺 2 漂 1 多 2）。
+  if (word === "in" || word === "instanceof") {
+    return true;
+  }
 }
 // **下一行以 `{` 开头，而上一行是「等着体的语句头」**（第 668 轮）：
 // `while (a)` 换行 `{ … }`、`for (;;)` 换行 `/* c */` 换行 `{ … }`、`switch (a)` 换行 `{ … }`
