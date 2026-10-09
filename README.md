@@ -306,6 +306,47 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 775 轮：**函数 / 类表达式当链的头一格**——收掉一处（投影层，三种排版），两笔旧账到期
+
+**一句话**：`function () { }.bind(o)` / `class { }.prototype` 里那条链的**头一格**是
+函数 / 类表达式，而链那一支对头一格直接 `projectNode(ck[0], ctx)`——
+`ctx.expressionPosition` **没人置**，于是投出 `FunctionDeclaration` / `ClassDeclaration`，
+降级期报 `unimplemented: expression FunctionDeclaration`（**整份文件一个字节都不跑**，
+读起来像「函数表达式还没实现」——而 `(function () { })()` 那一半一直是好的）。
+
+- **分界是「体后面跟的是什么」**：末尾那对实参括号走投影层 3b 那一支、
+  **递回 `projectExpression`**（标记照常置上）⇒ IIFE 一直是对的；
+  `.bind` / `.call` / `.prototype` / `.length` 那一族走**链那一支** ⇒ 全错。
+  三种排版各差一条判据，一处落点（`typescript/print-ast-common.xl.md` 的 `projectExpression`）：
+  - **① 链的头一格**：新增 `projectChainHead`——**只对 `Function` / `Class` 这两个标签**
+    置 `ctx.expressionPosition`，投完还回去。**判据只看这一格自己**：标记置宽了
+    （留给整棵子树）会让体里的声明也被当成表达式（第 134 轮那条注释记的就是这个坑，
+    症状是 `unimplemented: statement FunctionExpression`）。
+  - **② 紧跟的方括号是下标**：`function () { }["length"]` 的那个 `[` 在 token 层
+    被收成 **`ArrayLiteral`**（前面那一格不是「标识符 / 已折好的链」，与第 303 轮
+    `o.b![1]` **同一处境**）⇒ 链入口与循环里那条「`ArrayLiteral` 也是下标」的判据
+    各补一档：**链头是函数 / 类**（只可能做值的两格）。
+  - **③ 续格与运算符挤在同一个二元单元里**：`() => class { static s = 1; }["s"] * 16`
+    的产物是 `[Class, BinaryOperator(ArrayLiteral(s), «*», 16)]`——与第 743 轮
+    `o["f"]().v + 1` 是同一副面孔，只是续格是**下标**；
+    新增 `indexTailInOperator` / `flattenIndexTailInOperator`（判据与摊法照抄
+    `chainTailInOperator` / `flattenChainTailInOperator`，**递归那一档同一理由**）。
+    **只有链头是那两格时才走**：别的链头本来就由 token 层认成下标，放开会换掉既有形状
+    （实测 `o["i"] * 2` 一直是对的）。
+- **两笔旧账到期**（都是这一处根，用例留着当守卫、指令按规矩撤）：
+  `exec/functions/probe693b-f26`（第 693 轮登的 `function () { }.bind(null)`）与
+  `runtime/round758/p758a-01-return-then-function-declaration`（第 758 轮登的
+  `return function f() {}.name`）。**第 758 轮那句「要动语句切分」是猜错了**：
+  `return function` 那一格 token 层给的形状本来就是对的（`[Keyword(return), Function, …]`），
+  缺的只是投影层这一格标记。
+- **用例**：`runtime/round775/r775a-01`（18 行，**通过**）+ `r775a-02`（18 行，**通过**）
+  ——前者钉修好的三种后缀与两条**不许被带偏**的边界（声明位照旧是声明、
+  **体里的声明照旧是声明**），后者把旁边那一圈邻居一起管住
+  （一元前缀后面的、当实参 / 数组元素 / `new` 目标的、连两次后缀的、括号化的）。
+  五类 7899 / 8290 → **7903 / 8292**、blocked 264 → **262**（两笔旧账）、differ **127**（没动）、
+  bad 0、regressions 0，加权 **95.5% → 95.6%**。八道门全绿；
+  runtime:check 243 条、runtime:cli 79 份一致。
+
 ### 第 774 轮：**括号被调者**那一族——收掉两处（投影 / 降级各一处），透明壳与「不是引用」的边界钉在语料里
 
 **一句话**：第 773 轮登记的 `stdlib/round773/r773b-01` 收掉了——**两处**：

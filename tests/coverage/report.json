@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8290,
+  "total": 8292,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.54,
+  "progressPercent": 95.57,
   "categories": [
     {
       "category": "token",
@@ -91,21 +91,21 @@
       "category": "exec",
       "weight": 0.25,
       "total": 2216,
-      "pass": 2172,
-      "blocked": 12,
+      "pass": 2173,
+      "blocked": 11,
       "differ": 32,
       "nodefail": 0,
-      "coverage": 98.01
+      "coverage": 98.06
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1119,
-      "pass": 1079,
-      "blocked": 5,
+      "total": 1121,
+      "pass": 1082,
+      "blocked": 4,
       "differ": 35,
       "nodefail": 0,
-      "coverage": 96.43
+      "coverage": 96.52
     },
     {
       "category": "stdlib",
@@ -1476,12 +1476,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling an object as a constructor (this object is not callable)"
     },
     {
-      "id": "exec/functions/probe693b-f26",
-      "category": "exec",
-      "title": "(function () { const f = function () { }.bind(null); return typeof f; })()",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
-    },
-    {
       "id": "exec/round706/p706b-d09",
       "category": "exec",
       "title": "defineProperty 的键是对象时走 ToPropertyKey",
@@ -1528,12 +1522,6 @@
       "category": "runtime",
       "title": "`BigInt` 这个全局名的现状",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BigIntLiteral"
-    },
-    {
-      "id": "runtime/round758/p758a-01-return-then-function-declaration",
-      "category": "runtime",
-      "title": "`return` 后面紧跟函数表达式：被读成了函数**声明** ⇒ 整份文件进不来",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
     },
     {
       "id": "runtime/round762/r762e-01-typeof-then-prefix-gap",
@@ -1853,7 +1841,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22256/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19660/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2147,7 +2135,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22256/src/5291.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19660/src/5293.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2171,7 +2159,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22256/src/5341.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19660/src/5343.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",

@@ -3206,6 +3206,43 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     }
     out.push(unit);
   };
+  // **链头是函数 / 类时，续格（下标）可能与运算符一起装在二元单元里**（第 775 轮）：
+  // `() => class { static s = 1; }["s"] * 16` 在箭头体里的产物是
+  // `[Class, Statement(BinaryOperator(ArrayLiteral(s), «*», 16))]`——那个 `["s"]` 先按
+  // **数组字面量**成形（与链入口那条新判据同一处境：前面那一格 token 层认不出是值），
+  // 再与后面的运算符折进同一个单元（与第 743 轮 `o["f"]().v + 1` 是同一副面孔，
+  // 只是续格是**下标**、不是调用）。
+  // **只有「链头只可能做值」的那两格才算数**：别的链头（标识符 / 已折好的链）本来就由
+  // token 层认成下标，轮不到这一支——放开会换掉既有形状（实测 `o["i"] * 2` 一直是对的）。
+  const indexTailInOperator = (unit: any): bool => {
+    if (unit === undefined || unit === null) return false;
+    const kind = unit.get("type");
+    if (kind !== "BinaryOperator" && kind !== "LogicalOperator") return false;
+    const inner = projectableKids(view(unit));
+    if (inner.length < 2) return false;
+    if (isIndexFirstUnit(inner[0], ctx)) return true;
+    return indexTailInOperator(inner[0]);
+  };
+  // 摊法与 `flattenChainTailInOperator` 一字不差（递归那一档同一理由）：
+  // 续格那一格（下标）摊成平级，运算符与右操作数**原样留在后面**，由尾巴那一支折二元。
+  const flattenIndexTailInOperator = (unit: any, out: Array<any>) => {
+    const inner = projectableKids(view(unit));
+    if (inner.length >= 2 && isIndexFirstUnit(inner[0], ctx)) {
+      out.push(inner[0]);
+      for (let j = 1; j < inner.length; j++) out.push(inner[j]);
+      return;
+    }
+    if (
+      inner.length >= 2 &&
+      (inner[0].get("type") === "BinaryOperator" || inner[0].get("type") === "LogicalOperator") &&
+      indexTailInOperator(inner[0])
+    ) {
+      flattenIndexTailInOperator(inner[0], out);
+      for (let j = 1; j < inner.length; j++) out.push(inner[j]);
+      return;
+    }
+    out.push(unit);
+  };
   // **把那个二元单元拆成两段**（第 744 轮）：续格那一格（归**操作数**）与
   // 「运算符 + 右操作数」（归**外层折二元**）。`typeof o["f"]().v + ""` 要的就是这个分法——
   // 一元比二元**紧**，`+ ""` 不在一元的操作数里。
@@ -3241,6 +3278,16 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       // `isIndexFirstUnit` 那一段。少了它，`o.b![1]![0]` 与 `data.list![0].id`
       // **整条链都进不来**（后两个方括号连着丢）。
       (kids[0].get("type") === "NotNull" && isIndexFirstUnit(kids[1], ctx)) ||
+      // **函数 / 类表达式后面紧跟的方括号是下标**（第 775 轮）：`function () { }["length"]` /
+      // `class { }["name"]` 里那个方括号与前一条（`o.b![1]`）**是同一处境**——
+      // 前面那一格不是「标识符 / 已折好的链」，于是它按**数组字面量**成形；
+      // 而链的头一格是**只可能做值**的函数 / 类单元 ⇒ 那个方括号只能是下标。
+      // 少了这一条，链那一支整个进不来：`kids[0]` 单独投出去（`FunctionDeclaration`）、
+      // 方括号整段丢（降级期报 `unimplemented: expression FunctionDeclaration`）。
+      // **续格后面还跟着运算符时**形状又换一格（`["s"] * 16` 折进了同一个二元单元）——
+      // 那一档由 `indexTailInOperator` 认（判据见上面那一段）。
+      ((kids[0].get("type") === "Function" || kids[0].get("type") === "Class") &&
+        (isIndexFirstUnit(kids[1], ctx) || indexTailInOperator(kids[1]))) ||
       // **第二格以一次调用开头**（第 692 轮）：`o["f"]().v` 的产物是
       // `[PropertyAccess(o, [f]), PropertyAccess(Bracket(()), ., v)]`——
       // 调用那一对括号**与它后面的 `.v` 一起**折进了第二个 `PropertyAccess`
@@ -3295,6 +3342,18 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         chainTailInOperator(k)
       ) {
         flattenChainTailInOperator(k, ck);
+        continue;
+      }
+      // **续格（下标）与运算符一起装在二元单元里**（第 775 轮，判据见上面
+      // `indexTailInOperator`）：与上一条同款——续格摊成平级，运算符与右操作数留在后面。
+      // **只在链头是函数 / 类时走**：那一档才有「方括号被收成数组字面量」这件事。
+      if (
+        at > 0 &&
+        (k.get("type") === "BinaryOperator" || k.get("type") === "LogicalOperator") &&
+        (kids[0].get("type") === "Function" || kids[0].get("type") === "Class") &&
+        indexTailInOperator(k)
+      ) {
+        flattenIndexTailInOperator(k, ck);
         continue;
       }
       // **点号后面那一格是一个二元单元**（第 125 轮）：`(a.pos ?? 0)` 的产物把
@@ -3444,17 +3503,44 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         if (attached !== undefined) return attached;
       }
     }
+    // **链的头一格是函数 / 类时，它就是表达式位的**（第 775 轮）：`function () { }.bind(o)` /
+    // `class { }.prototype` 里那一格是**链的头**，而这一支原来直接
+    // `projectNode(ck[0], ctx)`——`ctx.expressionPosition` 没人置，于是投出
+    // `FunctionDeclaration` / `ClassDeclaration`，降级期报
+    // `unimplemented: expression FunctionDeclaration`（听起来像「函数表达式没实现」，
+    // 而 `(function () { })()` 那一半一直是好的——分界正是「体后面跟的是 `(` 还是 `.`」：
+    // 末尾那对实参括号走 3b 那一支、**递回 `projectExpression`**，于是标记照常置上）。
+    // **判据只看这一格自己**：标记置宽了（留给整棵子树）会让体里的声明也被当成表达式
+    //（第 134 轮那条注释记的就是这个坑），所以只对 `Function` / `Class` 这两个标签置位。
+    const projectChainHead = (unit: any): any => {
+      if (unit.get("type") !== "Function" && unit.get("type") !== "Class") {
+        return projectNode(unit, ctx);
+      }
+      const savedExpression = ctx.expressionPosition;
+      ctx.expressionPosition = true;
+      try {
+        return projectNode(unit, ctx);
+      } finally {
+        ctx.expressionPosition = savedExpression;
+      }
+    };
     let left =
       ck[0].get("type") === "Bracket" && ck[0].get("startBracket") === "("
         ? parenthesizedOf(ck[0], ctx)
-        : projectNode(ck[0], ctx);
+        : projectChainHead(ck[0]);
     // **这一条链上出现过非空断言**（第 303 轮）：出现过之后，
     // 后面那些「按数组字面量成形的方括号」**每一格都是下标**——
     // `o.b![1]![0]` 里**两个** `[` 都是这种形状（第二个的前一格是**已经折好的**
     // `ElementAccessExpression`，不再挨着那个 `NotNull`）。
     // 只看「前一格是不是 `NotNull`」的话，第二个下标会**整段丢掉**
     //（判据 `c303-nonnull-then-index` 第二版量的就是它）。
-    let sawNullAssert = ck[0].get("type") === "NotNull";
+    // **链的头一格是「只可能做值」的单元**（第 775 轮扩了这一格）：`NotNull` 是第 303 轮
+    // 那一档（`o.b![1]`），**函数 / 类**是第 775 轮新加的一档（`function () { }["length"]`）——
+    // 两者处境一字不差：token 层认不出「前面那一格是个值」，于是那个方括号按数组字面量成形。
+    let sawNullAssert =
+      ck[0].get("type") === "NotNull" ||
+      ck[0].get("type") === "Function" ||
+      ck[0].get("type") === "Class";
     let i = 1;
     while (i < ck.length) {
       // **下标链接**：`a[i]` → `ElementAccessExpression`（第 80 轮）。
