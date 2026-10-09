@@ -91,6 +91,18 @@
   **症状不会落在 `cases:tags` 上**：注释本来就在 token 树里（`INVISIBLE` 管的是**投影**）——
   收掉的 11 条自带的 `xl:expect` 一个字都不用改，红只在 `cases:tsast` 那一侧。
   **下次动 trivia 口径，按「有循环 + 判相邻」去搜一遍**，别只改这一轮量到的那几处。
+- **「后面必须跟一个语句体」的词也是同一档**（第 828 轮，第 820 / 822 轮那条线的第四格）：
+  `Statement.ExpectsOperand` 那张表原来的口径是「**这个词能不能结束一条语句**」——
+  `let` / `const` / `var`（第 820 轮）与 `function` / `class` / `interface` / `enum`（第 822 轮）
+  都按这一条进去。第 828 轮补的是**后面必须跟一个语句体**的四个词：`try` / `do` / `else` / `finally`。
+  `try` 换行 `{ … } catch (e) { … }` 在 TS 里是**一条** `TryStatement`（换行只是排版），
+  少了这一格 `LineCannotEnd` 在换行那一刻收壳 ⇒ `try` 自己成一条 `ExpressionStatement(Keyword)`、
+  `catch` 另起一条、整条 `TryStatement` 与两个 `Block` / `CatchClause` 全丢
+  （实测 `gap-sweep-{newline,linecomment}-try-01`：各缺 8 条、多 4 条）。
+  **`while` / `for` 不跟它们一起**：那两个词后面跟的是**括号**，`while` 换行 `(cond) { … }`
+  由 `FieldCloseRule.MemberEnd` 那条「下一行以 `(` 开头」的判据管（第 827 轮），
+  而 `try` / `do` / `else` / `finally` 后面跟的是**语句体本身**。
+  **加词之前先问「这个词能不能单独成句」**——这是这张表唯一的入表条件。
 - **「有没有内容」也要用 trivia 口径**（第 818 轮）：`IsTriviaUnit` 不只是「跳过」用的名单，
   也是**判空**用的名单。`m(/*c*/) { … }` 括号里只有一个 `AreaAnnotation`，照
   「不是软换行就算内容」判 ⇒ 收下一张空形参表、再包出一个**零宽的 `Parameter`**

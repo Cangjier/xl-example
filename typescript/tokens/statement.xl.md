@@ -938,6 +938,18 @@ if ((word === "let" || word === "const" || word === "var") && Statement.WordOf(b
 if (word === "function" || word === "class" || word === "interface" || word === "enum") {
   return true;
 }
+// **`try` / `do` / `else` / `finally` 后面必须跟一个语句体**（第 828 轮）：
+// `try` 换行 `{ … } catch (e) { … }` 是**一条** `TryStatement`
+//（TS 那边 `TryStatement` 的区间从 `try` 起，换行只是排版）。
+// 少了这四个词，`LineCannotEnd` 在换行那一刻判「这一行写完了」⇒ 收壳 ⇒
+// `try` 自己成一条 `ExpressionStatement(Keyword)`、`catch` 另起一条、
+// 整条 `TryStatement` 与两个 `Block` / `CatchClause` 全丢（实测 `try` 换行 `{ a(); } catch (e) { b(); }`
+// 与 `try //c` 换行那一版：各缺 8 条、多 4 条）。
+// **为什么不跟 `while` / `for` 一起**：它们后面跟的是**括号**（`while` 换行 `(cond) { … }`
+// 那一格由「下一行以 `(` 开头」那一支管），而这四个词后面跟的是**语句体本身**。
+if (word === "try" || word === "do" || word === "else" || word === "finally") {
+  return true;
+}
 return (
   word === "return" ||
   word === "throw" ||
