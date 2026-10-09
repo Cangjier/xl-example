@@ -100,10 +100,71 @@ const current = Get(units, index);
 if (this.IsInferWord(current) === false) {
   return false;
 }
-if (current === null || IsTypeContainerUnit(current.Parent) === false) {
+if (current === null || (IsTypeContainerUnit(current.Parent) === false && this.IsPendingTypePosition(units, index) === false)) {
   return false;
 }
 return Get(units, SkipNextTrivia(units, index)) instanceof Identifier;
+```
+
+## private method IsPendingTypePosition:(units:Array<Token>, index:int)=>bool
+
+`index`（`infer` 那一格）**还没被收进类型容器**、可它这一行确实落在**类型位**上吗。
+
+**为什么需要这一问**（第 902 轮）：`infer` 所在的整段类型**成形得比它晚**——
+`type T<U> = U extends Array<infer V extends` 换行 `string> ? V : never;` 里，
+`infer` 在**根那一趟**被问到，而 `Array<…>` 的尖括号、外层那个条件类型都还没成形
+⇒ 父单元是 `Statement` / `Root` ⇒ 上面那句 `IsTypeContainerUnit` 判否 ⇒ `InferType` 一个都不成形
+（实测 `token/types/gap-r900-infer-constraint-newline`：缺 10 个节点）。
+**同类先例**：`IsTypeContainerUnit` 的 `Bracket` 那一支（`(infer U)`）就是为同一个时序问题补的。
+
+判据三条（只看**已经读到**的那些单元）：
+
+1. 父单元是 `Root` / `Statement`——`Statement` 是「根那一趟的壳」，`Root` 是「壳都还没收」；
+2. 从 `index` 往回扫，**不跨过语句边界**（用 `WordText` 按词认，不 import `Statement`：那个方向会成环）；
+3. 扫到 `extends` / `=` / `=>` 三者之一 ⇒ 这一段是类型位。
+
+**为什么这三格够用**：`infer` 只可能出现在**类型**里，而「还没成形的 `infer`」只可能落在
+`X extends …`（条件类型 / 泛型约束）或 `= …`（类型别名右值）或 `=> …`（函数类型返回位）
+三种类型的**右边**；值位里 `infer` 只是一个普通标识符，而它前面是 `.` / `(` / `,` / 运算符
+——三者都不是，所以判否，照旧留给标识符规则。
+
+```ts
+const current = Get(units, index);
+if (current === null) {
+  return false;
+}
+const parent = current.Parent;
+if (parent === null) {
+  return false;
+}
+const parentName = parent.constructor.name;
+if (parentName !== "Root" && parentName !== "Statement") {
+  return false;
+}
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    continue;
+  }
+  // 成形的语句 / 块 / 类型位边界 ⇒ 这一段的左边到头了。
+  if (item instanceof LineWrap === false && item instanceof SymbolToken === false) {
+    if (item.constructor.name === "Statement" || item.constructor.name === "Root") {
+      break;
+    }
+  }
+  const word = WordText(item);
+  if (word === "extends" || word === "=" || word === "=>") {
+    return true;
+  }
+  // `;` / `{` / `}` / `,` 是硬边界：再往左就是上一条语句或另一段了。
+  if (item instanceof SymbolToken && item.Is(";")) {
+    break;
+  }
+  if (item.constructor.name === "Statement") {
+    break;
+  }
+}
+return false;
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int

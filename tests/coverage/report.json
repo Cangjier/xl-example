@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.4,
+  "progressPercent": 95.41,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1484,
-      "pass": 1483,
-      "blocked": 1,
+      "pass": 1484,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.93
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1484,
-    "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1483,
-    "scoredWithoutGap": 1483,
-    "passedWithoutGap": 1483
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1484,
+    "scoredWithoutGap": 1484,
+    "passedWithoutGap": 1484
   },
   "blocked": [
-    {
-      "id": "token/types/gap-r900-infer-constraint-newline",
-      "category": "token",
-      "title": "`infer` 的约束里 `extends` 后面换行（第 900 轮片段普查量出）：外层条件类型整条认不出来（`Array<` 与 `>` 留在原地，四格与真假分支一起丢，缺 10 格）",
-      "detail": "缺 10　约束段里的换行让 `infer V extends string` 先成了一次形，外层条件类型的回扫仍差一步——`InferType` 那一格已经放行，剩下的一步在约束段自己的边界上"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
