@@ -89,6 +89,23 @@ console.log(Box.of(1));
 | `e2e` | 246 | **242** | 4 / 0 | |
 | **合计** | **8185** | **7807** | 262 / 116 | 加权 **95.7%** |
 
+**第 780 轮再加 12 条**（分母 8331 → **8343**，`runtime/round780` 7 条 / `stdlib/round780` 5 条）：
+把第 779 轮那一族**整族 dump**（按家族逐格 `typeof` + `name` + `length`，三百余格）——
+**7 条当场通过、5 条登记**（4 `differ` + 1 `blocked`），同一轮里**收掉六处**：
+`Object.getOwnPropertyDescriptors`（`1`）与 `Object.setPrototypeOf`（`2`）整格不在表里、
+`String.fromCharCode` / `fromCodePoint` / `raw` 三格、`Symbol.for` / `keyFor`、
+`Error.isError`（`1`）/ `captureStackTrace`（`2`）、
+`Number.prototype.toLocaleString` 的 `length` **`0`**（与 `toString` 共号 ⇒ 改走 `MethodObject`
+另造一个可调用对象）。**新登两条根**：**函数体里的派生类隐式构造器**
+（`class E extends Base {}` 只要长在函数体里，`new E()` 报
+`new_closure needs an environment or undefined`；同一个形状写在模块顶层是好的，
+与第 778 轮 `r778m-01` 同一处根）、**同一条路径上先读后声明的名字**
+（`try { new C() } catch { } class C { }` 降级期就报 `name used before its declaration`，
+与第 778 轮 `r778l-01` 同一处根）。另两条 `differ`：整族 dump 里只剩
+`String.prototype.match` / `matchAll` / `search` 没装（与 `058` / `135` 同根）、
+**`super` 的四个落点**（类字段箭头指到了自己那一层 / 对象字面量里的 `super` 抛 /
+`super.v = w` 静默不写 / 函数体里派生类的 `instanceof`）。
+
 **第 779 轮再加 21 条**（分母 8310 → **8331**，`runtime/round779` 4 条 / `stdlib/round779` 17 条）：
 **内建函数对象自己那两格**（`name` / `length`）那一族的普查——**17 条当场通过、4 条登记**
 （2 `differ` + 2 `blocked`），同一轮里**收掉四处根**：`Array` / `Number` / `Object` 的静态十三格、

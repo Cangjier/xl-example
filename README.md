@@ -306,6 +306,57 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 780 轮：把那张表**系统地量一遍**——`name` / `length` 剩下六处收掉，另量出 `super` 与隐式构造器两条新根
+
+**一句话**：第 779 轮是「按家族抽查」，这一轮把 `name` / `length` 那一族**整族 dump**
+（按家族逐格 `typeof` + `name` + `length`，`Math` / `JSON` / `Reflect` / `console` /
+`Map`·`Set`·`Weak*` / `Promise`·`Error` / 生成器 / `Date` / `Array` / `Object` / `String` /
+`Number` / `Symbol` 一共三百余格）——**剩下六处**全部收掉；同一趟另拿类语义的九个面探针，
+量出 `super` 与**隐式构造器**两条新根。
+
+- **收掉的六处**（都在 `globals.xl.md`，都是「造出来了、那两格没人写」）：
+  ① `Object.getOwnPropertyDescriptors` 的 `length` 是 **`1`**、`Object.setPrototypeOf` 是 **`2`**
+  （两格原来**整格不在 `BuiltinArity` 表里**）；
+  ② `String.fromCharCode` / `fromCodePoint` / `raw` 三格（名字与长度都没有，都是 `1` 格）；
+  ③ `Symbol.for` / `keyFor`（同一形状、`1` 格）；
+  ④ `Error.isError`（`1`）与 `Error.captureStackTrace`（**`2`**）；
+  ⑤ `Number.prototype.toLocaleString` 的 `length` 是 **`0`**（`toString` 是 `1`）——
+  两格**共用一个能力号** ⇒ 按号查的表给不了两个答案，这一格改用 `MethodObject`
+  **另造一个可调用对象**（同一格能力号、自己那一格 `length`），
+  顺带把 `toLocaleString === toString` 也是假的这一条对上了；
+  ⑥ 第 779 轮那几族的**守卫**（`Object` / `Array` / `Math` / `Reflect` / `console` /
+  集合 / `Promise` / `Date` 的 dump）**全量进语料**，往后这一族漂一格就红。
+- **新登的两条根**（都带 `xl:why`，各写明为什么不顺手收）：
+  ① `runtime/round780/r780b-04`（`differ`）——**函数体里的派生类：隐式构造器那一格**。
+  `class E extends Base { }`（没写构造函数）只要长在**函数体**里，`new E()` 就报
+  `new_closure needs an environment or undefined`（八档里六档；**同一个形状写在模块顶层是好的**）。
+  根在 `LowerClass` 第 203 轮那一句**合成**的默认构造函数（现造的普通节点，
+  没有 `pos` / `parent` 这些真实节点才有的东西）——与第 778 轮
+  `runtime/round778b/r778m-01`（函数体里 `class … extends` **内建**）**是同一处根**：
+  **基类是不是内建无关**，缺的是隐式构造器那一格。八档一起把分界钉住
+  （显式 `constructor(){ super() }` 的、不带基类的对照组都对）。
+  ② `runtime/round780/r780c-03`（`blocked`）——**同一条路径上先读后声明的名字**：
+  `try { new C() } catch { } class C { }` 报 `name used before its declaration: C`
+  （**整份文件进不来**），而 JS 给的是运行期 `ReferenceError`（`try` 自己接得住）。
+  降级期那一趟预扫只看「这一层声明过没有」、不看「这条路径先走了谁」——
+  与第 778 轮 `runtime/round778b/r778l-01`（`switch` 的 `case` 里 `let`）**同一处根**，
+  这一条是最小形状（四档里后两档——先调后面的函数声明、先读后面的 `let`——在 JS 里是好的）。
+- **另登记两条**（`differ`）：`stdlib/round780/r780a-02`——整族 dump 里只剩
+  `String.prototype.match` / `matchAll` / `search` **属性表里根本没有那一格**
+  （与 `stdlib/globals/058` / `stdlib/string/135` 同一条根，`RegExp` 进来时一处点亮三行）；
+  `runtime/round780/r780b-03`——**`super` 的四个落点**：类字段箭头里的 `super` 指到了自己那一层
+  （Node 给 `"base"`、本仓给 `"d+base"`，**静默错值**）、对象字面量里的 `super.m.call(this)`
+  本仓抛 `TypeError`、`set(w) { super.v = w }` **静默不写**、函数体里派生类的 `instanceof` 链
+  走到 `r780b-04` 那一处根上；同一条用例的其余五档（方法 / 静态 / 取值器 / 显式构造 / `hasInstance`）全对。
+- **用例**：`round780` 十二条（**7 条通过、4 条 differ、1 条 blocked**），
+  五类 7933 / 8331 → **7940 / 8343**、blocked 266 → **267**、differ 132 → **136**、
+  bad 0、regressions 0，加权 **95.5% → 95.4%**（分母涨了十二条、其中五条是新登的缺口）。
+  八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+- **这一轮的普查面**（三类）：内建函数那一族的**整族 dump**、类语义九个面
+  （字段初始化次序与 `static` 块 / 私有成员与访问器 / `super` 与继承 / 函数体里的派生类）、
+  作用域与解构（`var` 提升 / TDZ 的 `typeof` / 块里的函数声明 / 循环闭包 / `catch` 作用域 /
+  rest 与展开 / 默认值的惰性）——**当场通过的那些照样进语料当守卫**。
+
 ### 第 779 轮：**内建函数对象自己那两格**——`name` / `length` 那一张表铺到五处新落点，另登记四条
 
 **一句话**：拿「内建函数的 `name` / `length`」这一族当尺子**普查**（第 733 / 734 轮铺过

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8331,
+  "total": 8343,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.47,
+  "progressPercent": 95.38,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1134,
-      "pass": 1091,
-      "blocked": 5,
-      "differ": 38,
+      "total": 1141,
+      "pass": 1094,
+      "blocked": 6,
+      "differ": 41,
       "nodefail": 0,
-      "coverage": 96.21
+      "coverage": 95.88
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3320,
-      "pass": 3230,
+      "total": 3325,
+      "pass": 3234,
       "blocked": 28,
-      "differ": 62,
+      "differ": 63,
       "nodefail": 0,
-      "coverage": 97.29
+      "coverage": 97.26
     },
     {
       "category": "e2e",
@@ -1536,6 +1536,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: v"
     },
     {
+      "id": "runtime/round780/r780c-03",
+      "category": "runtime",
+      "title": "同一条路径上先读后声明的名字：降级期 TDZ 误判",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: C780"
+    },
+    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1865,7 +1871,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20288/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26232/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2156,6 +2162,24 @@
       "detail": "stdout 不同：第 1 行：node «01 sloppy aliasing = 99» vs tsrun «01 sloppy aliasing = 1»"
     },
     {
+      "id": "runtime/round780/r780b-03",
+      "category": "runtime",
+      "title": "`super` 的四个落点",
+      "detail": "stdout 不同：第 4 行：node «04 arrow super = \"base\"» vs tsrun «04 arrow super = \"d+base\"»"
+    },
+    {
+      "id": "runtime/round780/r780b-04",
+      "category": "runtime",
+      "title": "函数体里的派生类：隐式构造器那一格",
+      "detail": "stdout 不同：第 1 行：node «01 implicit ctor in arrow body = \"base\"» vs tsrun «01 implicit ctor in arrow body ! Error»"
+    },
+    {
+      "id": "runtime/round780/r780c-01",
+      "category": "runtime",
+      "title": "闭包 / 提升 / TDZ 的边角",
+      "detail": "stdout 不同：第 2 行：node «02 let TDZ typeof = \"ReferenceError\"» vs tsrun «02 let TDZ typeof = \"undefined\"»"
+    },
+    {
       "id": "stdlib/array/150-array-species-subclass",
       "category": "stdlib",
       "title": "继承数组的子类上 `map` / `concat` 交出什么",
@@ -2177,7 +2201,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20288/src/5307.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26232/src/5314.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2201,7 +2225,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20288/src/5357.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26232/src/5364.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2478,6 +2502,12 @@
       "category": "stdlib",
       "title": "Date 的本地时间写入族：setHours / setDate / setMonth 与非法时刻",
       "detail": "stdout 不同：第 2 行：node «02 setHours 返回新时刻 1579030245500» vs tsrun «02 setHours 返回新时刻 1579059045500»"
+    },
+    {
+      "id": "stdlib/round780/r780a-02",
+      "category": "stdlib",
+      "title": "`String` / `Number` / `Symbol` 那一族的 `name` / `length` 全量",
+      "detail": "stdout 不同：第 30 行：node «String.prototype.match = \"function:match/1\"» vs tsrun «String.prototype.match = \"missing\"»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

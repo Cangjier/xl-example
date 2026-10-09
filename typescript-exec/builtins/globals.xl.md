@@ -8488,6 +8488,18 @@ if (id === ObjectDefineProperties) return 2;
 if (id === ObjectAssign) return 2;
 if (id === ObjectGroupBy) return 2;
 if (id === ObjectCreate) return 2;
+// **第 780 轮系统量出来的三格**：`Object.getOwnPropertyDescriptors` 是 **`1`**
+//（只收目标）、`Object.setPrototypeOf` 是 **`2`**（目标 + 原型）——两格原来**整格不在表里**；
+if (id === ObjectGetOwnPropertyDescriptors) return 1;
+if (id === ObjectSetPrototypeOf) return 2;
+// **`String` 的三个静态**（`fromCharCode` / `fromCodePoint` / `raw`）、
+// **`Symbol.for` / `keyFor`**、**`Error.isError` / `captureStackTrace`**（第 780 轮）——
+// 长度分别是 `1` / `1` / `1` / `1` / `1` / `1` / `2`，**名字在各自的安装点挂**。
+if (id === StringFromCharCode || id === StringFromCodePoint || id === StringRaw
+  || id === SymbolFor || id === SymbolKeyFor || id === ErrorIsError) {
+  return 1;
+}
+if (id === ErrorCaptureStackTrace) return 2;
 // **`Object.getOwnPropertyDescriptor` 也是两格**（第 779 轮量到的）：它收 `(目标, 键)`——
 // 上面那一列一格的名字里没有它（`getOwnPropertyNames` / `getOwnPropertySymbols` 才是一格），
 // 而它原来**整格不在表里** ⇒ `Object.getOwnPropertyDescriptor.length` 本仓给 `0`、Node 给 `2`
@@ -8919,7 +8931,7 @@ SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "prototype"),
 // 与 `instanceof Error` **同一个判据**（`Object.create(Error.prototype)` 也算，
 // 而那正是 JS 的规矩）。**原始值一律假**（`Error.isError("Error")` 在 Node 里是 `false`）。
 SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "isError"),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorIsError, 0)));
+  ObjectProtoMethod(vm, table, ErrorIsError, "isError"));
 // **第 703 轮补的四格**（V8 的扩展 + 构造自己的 `length`）——
 // 判据 `stdlib/error/031-names-error` 与 `probe-e09` 量的是**名字在不在**
 // （四条 `typeof` 分别是 function / number / function / number，与 Node 逐字相同）。
@@ -8929,7 +8941,7 @@ SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "isError"),
 // **`stackTraceLimit` 给 `10`**（Node 的缺省值）：判据只问 `typeof`，
 // 可这一格**本来就是个数**，挂成函数就是「答一个形状不对的东西」。
 SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "captureStackTrace"),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorCaptureStackTrace, 0)));
+  ObjectProtoMethod(vm, table, ErrorCaptureStackTrace, "captureStackTrace"));
 SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "prepareStackTrace"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorPrepareStackTrace, 0)));
 // **`stackTraceLimit` 是 `Error` 上**唯一可枚举**的一格**（第 709 轮，**实测**）：
@@ -9326,9 +9338,14 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
 // **它收掉的是哪一半**：收掉「印成 `[object Number]`」这一半；
 // **`"123,456.789"` 那个千分位仍然不做**（那要 ICU 的区域表，见 `toDateString` 那一格的账）
 // ⇒ 那一格从「印标签」变成「与 `toString()` 同字」，剩下的差额是**区域表**，不是这一句。
+// **`length` 是 `0`、`toString` 是 `1`**（第 780 轮系统量到的）：两格**共用一个能力号**
+// （`NumberToStringRadix`），可按号查的长度只能有一个 ⇒ 这里**另造一个可调用对象**
+// （`MethodObject`：同一格能力号、自己那一格 `length`），于是
+// `Number.prototype.toLocaleString.length` 给 `0`、`toString.length` 照旧给 `1`，
+// 而 `toLocaleString === toString` 在 Node 里本来就是**假**（实测）。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toLocaleString"))),
-  ObjectProtoMethod(vm, table, NumberToStringRadix, "toLocaleString"));
+  MethodObject(vm.Room(), table, protos, NumberToStringRadix, 0, "toLocaleString"));
 // **`toPrecision` 与 `valueOf`**（第 182 轮）：与上面两个同一格原型
 // （`toPrecision` 是 `toFixed` 的同族、`valueOf` 只是「返回接收者自己」）。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
@@ -9349,14 +9366,16 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
 const stringObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(stringObject.Ref, StringCtor, 0);
 const fromCharCodeKey = Value.FromString(table.CreateString(Units("fromCharCode")));
-const fromCharCodeTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringFromCharCode, 0));
+// **`name` / `length` 两格**（第 780 轮系统量到的）：`String.fromCharCode.name` 是
+// `"fromCharCode"`、`.length` 是 **`1`**（`fromCodePoint` / `raw` 同）。三格原来都是裸句柄。
+const fromCharCodeTarget = ObjectProtoMethod(vm, table, StringFromCharCode, "fromCharCode");
 SetHiddenProperty(vm.Room(), table, stringObject, fromCharCodeKey, fromCharCodeTarget);
 // **`String.fromCodePoint`**（第 275 轮）：与 `fromCharCode` **同一张对象**上再挂一格。
 // **两者不是一回事**（一个是码元、一个是码位，越界一个夹住一个抛）——
 // 所以这一格**不能**指到上面那个号上顶替（指过去就是**静默**换语义，
 // `String.fromCodePoint(0x1F600)` 会变成一个越界码元）。
 const fromCodePointKey = Value.FromString(table.CreateString(Units("fromCodePoint")));
-const fromCodePointTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringFromCodePoint, 0));
+const fromCodePointTarget = ObjectProtoMethod(vm, table, StringFromCodePoint, "fromCodePoint");
 SetHiddenProperty(vm.Room(), table, stringObject, fromCodePointKey, fromCodePointTarget);
 // **`String.raw`**（第 333 轮）：它是**静态**（`String.raw\`…\``），
 // 所以挂在这一张**构造函数对象**上——**不是** `protos.String` 上
@@ -9364,7 +9383,7 @@ SetHiddenProperty(vm.Room(), table, stringObject, fromCodePointKey, fromCodePoin
 // 第一版就是挂在原型那张表里的，症状是 `` String.raw`a` `` 报
 // `cannot call a non-closure value`（**离现场很远**）。
 const rawKey = Value.FromString(table.CreateString(Units("raw")));
-const rawTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringRaw, 0));
+const rawTarget = ObjectProtoMethod(vm, table, StringRaw, "raw");
 SetHiddenProperty(vm.Room(), table, stringObject, rawKey, rawTarget);
 const stringKey = Value.FromString(table.CreateString(Units("String")));
 SetHiddenProperty(vm.Room(), table, globals, stringKey, stringObject);
@@ -9837,7 +9856,9 @@ const symbolStaticNames: string[] = ["for", "keyFor"];
 const symbolStaticIds: number[] = [SymbolFor, SymbolKeyFor];
 for (let i = 0; i < symbolStaticNames.length; i++) {
   const symbolStaticKey = Value.FromString(table.CreateString(Units(symbolStaticNames[i])));
-  const symbolStaticTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(symbolStaticIds[i], 0));
+  // **两格名字**（第 780 轮系统量到的）：`Symbol.for.name` 是 `"for"`、`.length` 是 `1`
+  // （`keyFor` 同）——原来挂的是裸句柄 ⇒ 名字空、长度 `0`。
+  const symbolStaticTarget = ObjectProtoMethod(vm, table, symbolStaticIds[i], symbolStaticNames[i]);
   SetHiddenProperty(vm.Room(), table, symbolObject, symbolStaticKey, symbolStaticTarget);
 }
 // **知名符号**：每个名字造**一次**——JS 要求 `Symbol.iterator` **永远是同一个值**
