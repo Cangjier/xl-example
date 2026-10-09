@@ -7,7 +7,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceAt } from "../../core/extensions/list-extension.xl.md"
 import { RemoveItem } from "../list-extensions.xl.md"
-import { GetSkipPreviousWrapSymbol, IsTriviaUnit, SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
+import { GetSkipPreviousWrapSymbol, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -61,7 +61,12 @@ const previous = GetSkipPreviousWrapSymbol(units, index);
 if (previous instanceof SymbolToken && (previous.Is(".") || previous.Is("?."))) {
   return false;
 }
-const next = Get(units, SkipNextWrapSymbol(units, index));
+// **下一格走 trivia 口径**（第 907 轮）：这两道护栏问的是「`import` 后面**那一个实义单元**
+// 是 `(` 还是 `.`」——`import/*c*/.meta.url` 里只跳软换行时 `next` 是那条注释
+// ⇒ 两道都不响 ⇒ 整段被收成一条假导入声明（实测缺 `MetaProperty` /
+// `PropertyAccessExpression` / `Identifier`，多出 `ImportDeclaration` / `ImportClause`）。
+// 注释是 trivia，与换行在这里是同一件事（第 817 轮那条线）。
+const next = Get(units, SkipNextTrivia(units, index));
 if (next instanceof Bracket && next.startBracket === "(") {
   return false;
 }

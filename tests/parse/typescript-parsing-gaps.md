@@ -471,6 +471,16 @@
 但一直没有一份带 `xl:known-gap` 的用例，也没有再量过一次）——下一轮若要接着挖，
 它是最现成的入手处。
 
+**第 907 轮把这一格销了账，结论是「它不是缺口」**：真跑一次
+`function f(x: unknown): asserts` 换行 `x is string {}`，TS 那边**报三条诊断**
+（`Unexpected keyword or identifier.` 与「A type predicate is only allowed in return type
+position for functions and methods.」）；合法的写法是**夹注释**那种
+（`asserts /*c*/ x is string`），而它一直是绿的。也就是说这一格是**口径边界**、
+进不了 `xl:known-gap`（那条账只收「TS 说得通、本仓收不出」的形状）。
+第 900 轮记它时只记了「量出了它」，**没记「量的是合法还是不合法」**——
+这一轮补上那句话，`probe6` 那张表的余量至此走空。**「这是错误恢复」与「这是缺口」
+是两句不同的话，登记之前先量裁判自己怎么说的**（与第 906 轮那条判据同一句）。
+
 **第 900 轮第三轮**：接着上一轮那张表往下走，收掉**签名返回类型那一格**里
 **夹注释**的那一半（上面表里 5 条的下半）：
 
@@ -501,6 +511,33 @@
 每份文件头的 `xl:known-gap` 后面写一句根因），`cases:tsast` 每趟逐条真跑；
 收掉一条就删掉那行指令。**清单不许只增不减**——这一轮就是它该有的样子：
 收掉一格、登记三格，条数从 0 变成 3（另外六格记在上面那栏「待登记」里）。
+
+### 第 907 轮：**换地形**再普查一次（364 条新片段，量出 17 格、当轮收掉 5 格）
+
+第 900 轮那三趟（`probe{1,2,4,5,6}.mjs`）把「注释 / 换行插进每一个相邻位置」问遍了
+**48 个构造**，收完清空之后容易读成「这一片已经没缺口了」。第 907 轮换了**那 48 个之外**
+的构造（`tmp/r907/probe-r907.mjs`：47 个构造 × 每个相邻位置 × `/*c*/` / 换行两种 = 364 条）
+再问一遍同一句话，**一次量出 17 格**。**「清单空了」是清单的性质，不是语法的性质。**
+
+- **量出来的 17 格**逐条登记成 `tests/cases/token/**/gap-r907-*.ts`（各带一条
+  `// xl:known-gap <根因>`，`cases:tsast` 每趟真跑），按根因分四族：
+  - **`import` 那一族**（5 格，当轮全收）：类型位限定名尾巴
+    （`import("m")/*c*/.A` / `typeof import("m")./*c*/A`）与元属性
+    （`import/*c*/.meta.url`）——`SkipNextWrapSymbol` → `SkipNextTrivia`，**判据与搬运同一跳**；
+  - **ASI 续接表那一族**（3 格）：`type T = A` 换行 `["k"]`（下标访问）、
+    `tag` 换行 `` `…` ``（标签模板）、`void` 换行 `0`（一元运算符要操作数）——
+    解析期的 `NextLineContinuesExpression` 表比收尾期的 `IsLineBreakBoundary` 窄；
+  - **「紧跟的那一格」那一族**（6 格）：`class` 换行 `Named {}`、`<T,/*c*/>` 多一格零宽
+    `TypeParameter`、`<T` 换行 `,>`、`abstract override m` 换行 `():void;`、
+    `readonly` 换行 `[k:string]:number`、`case 1:/*c*/ {break;}`；
+  - **区间 / 起点那一族**（3 格）：`export default 1/*c*/;`（TS 的 `end` 到下一格 token 的
+    full start）、`do/*c*/ f();`（体从注释起算）、`else if/*c*/ (b)`。
+- **当轮收掉的 5 格**（见根 [README](../../README.md) 第 907 轮那一节）：改法只有一句话——
+  `import-type.xl.md` 的 `IsNameTailAt` + `Process` 的搬运循环、`import.xl.md` 的
+  `ImportCloseRule.Previous` 两道护栏，**从 `SkipNextWrapSymbol` 改成 `SkipNextTrivia`**。
+  这与第 875 轮那几格同源（「判据与搬运两处各跳各的」），也是第 817 轮那条线
+  （「注释与软换行在这里是同一件事」）的又一个落点。
+- **余下 12 格**就是下一轮的入手处，**照这张表往下走，不必再写一趟探针**。
 
 ### 这 89 条长什么样（按根因分三段；下面这三段是第 818 轮实测的分段口径，条数此后又收掉了一批）
 

@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, WordText, IsTypeContainerUnit } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, WordText, IsTypeContainerUnit } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Method } from "./method.xl.md"
@@ -114,12 +114,16 @@ return true;
 `import("m").A.B` 的 `.A` / `.B` 都属于导入类型（TS 把它们收在 `ImportType` 里），
 所以这一节要一起搬进去。
 
+**两跳都走 trivia 口径**（第 907 轮）：`.` 与名字之间夹一条注释
+（`import("m")./*c*/A`）时，只跳软换行的第二跳落在注释上 ⇒ 限定名整段不收。
+与第 875 轮那几格同源（**判据跨了、`Process` 的搬运也要跟着跨**）。
+
 ```ts
 const dot = Get(units, index);
 if (!(dot instanceof SymbolToken) || dot.Is(".") === false) {
   return false;
 }
-return Get(units, SkipNextWrapSymbol(units, index)) instanceof Identifier;
+return Get(units, SkipNextTrivia(units, index)) instanceof Identifier;
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
@@ -154,9 +158,16 @@ if (nextUnit instanceof Bracket && nextUnit.startBracket === "(") {
   endIndex = cursor;
   cursor = SkipNextWrapSymbol(units, endIndex);
 }
+// **限定名那一段走 trivia 口径**（第 907 轮）：`import("m")` 与 `.` 之间夹一条注释时
+// （`typeof import("m")/*c*/.A`），`SkipNextWrapSymbol` 停在注释上 ⇒ `IsNameTailAt` 给否
+// ⇒ 尾巴留在 `ImportType` 外面（实测 `ImportType` 区间只到 `)`、`Identifier` 那一格整缺）。
+// 判据那边（`IsNameTailAt`）已经跨过 trivia，这里必须从 `endIndex` 起跨**同一跳**——
+// 上面那一跳（找裸括号）只跳软换行是对的：括号与 `import` 之间夹注释那一格由
+// `IsImportStartAt` 决定要不要收，判据给否时这里根本不会被调到。
+cursor = SkipNextTrivia(units, endIndex);
 while (this.IsNameTailAt(units, cursor)) {
-  endIndex = SkipNextWrapSymbol(units, cursor);
-  cursor = SkipNextWrapSymbol(units, endIndex);
+  endIndex = SkipNextTrivia(units, cursor);
+  cursor = SkipNextTrivia(units, endIndex);
 }
 const result = new ImportType(current.Template);
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);

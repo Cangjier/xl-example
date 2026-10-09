@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4269,
+  "total": 4286,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.41,
+  "progressPercent": 95.29,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1490,
-      "pass": 1490,
-      "blocked": 0,
+      "total": 1507,
+      "pass": 1495,
+      "blocked": 12,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.2
     },
     {
       "category": "exec",
@@ -129,14 +129,86 @@
     }
   ],
   "token": {
-    "total": 1490,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
-    "exactFiles": 1490,
-    "scoredWithoutGap": 1490,
-    "passedWithoutGap": 1490
+    "total": 1507,
+    "knownGap": 12,
+    "knownGapStillOpen": 12,
+    "exactFiles": 1495,
+    "scoredWithoutGap": 1495,
+    "passedWithoutGap": 1495
   },
   "blocked": [
+    {
+      "id": "token/declarations/gap-r907-abstract-method-params-newline",
+      "category": "token",
+      "title": "抽象方法的形参表与名字之间换行（第 907 轮片段普查量出）：TS 那边是 `MethodDeclaration`，产物把 `abstract override m` 落成 `PropertyDeclaration`、`():void;` 落成一条无名 `CallSignature`",
+      "detail": "缺 1　多 2　与第 902 / 904 轮那两格同族（`abstract m` 换行 `<T>(): void;`）：解析期在换行处收壳，收尾期的 `MethodDeclarationCloseRule` 拿到的是「一个名字 + 一个括号」两格"
+    },
+    {
+      "id": "token/expressions/gap-r907-arrow-generic-comment-before-close",
+      "category": "token",
+      "title": "箭头函数的泛型参数表：`>` 之前夹一条注释（第 907 轮片段普查量出）：TS 那边只有一个 `TypeParameter`，产物多出一个**零宽的 `TypeParameter`**（尾随注释被当成了一格参数）",
+      "detail": "多 1　泛型段收尾时按逗号切段投参数：段里只剩注释时也切出一段（`Split` 的段非空判据看的是单元个数，不看是不是 trivia）"
+    },
+    {
+      "id": "token/expressions/gap-r907-arrow-generic-newline-before-comma",
+      "category": "token",
+      "title": "箭头函数的泛型参数表：`<T` 与 `,>` 之间换行（第 907 轮片段普查量出）：TS 那边整条是一条 `ArrowFunction`，产物把 `<` 折成 `LessThanToken`、`(a: T) => a` 落进另一条语句（缺 `ArrowFunction` / `TypeParameter` / `Identifier`）",
+      "detail": "缺 3　漂 3　多 9　解析期在换行那一刻判「这一行写完了」（左边是 `T`、下一行以 `,` 起头——逗号那一档不在续接表里），泛型段还没成形"
+    },
+    {
+      "id": "token/expressions/gap-r907-class-expression-name-newline",
+      "category": "token",
+      "title": "具名类表达式：`class` 与名字之间换行（第 907 轮片段普查量出）：TS 那边是 `ClassExpression`（带 `Identifier(Name)`），产物把 `class` 折成 `Identifier`、`Named {}` 落到别处（缺 `ClassExpression` / 名字，多出 `Block` / `EmptyStatement`）",
+      "detail": "缺 2　漂 3　多 6　类表达式的名字那一格走的是「紧跟 `class` 的词」这一跳，换行挡住它；而 `class` 那一格自己成了操作数 ⇒ 解析期把这一行收成了一条表达式语句"
+    },
+    {
+      "id": "token/expressions/gap-r907-tagged-template-newline",
+      "category": "token",
+      "title": "标签模板：标签与模板串之间换行（第 907 轮片段普查量出）：TS 那边是一条 `TaggedTemplateExpression`，产物在标签后收壳 ⇒ 整条断成两条语句",
+      "detail": "缺 1　漂 3　多 4　解析期的 ASI 续接表（`NextLineContinuesExpression`）认 `|` / `&` / `.` / `(` / `[` 那几个字符，**没有模板串那一档**（`` ` `` 起头）；收尾期的 `IsLineBreakBoundary` 表里是有「模板串」的，两处不是同一"
+    },
+    {
+      "id": "token/expressions/gap-r907-void-operand-newline",
+      "category": "token",
+      "title": "一元 `void` 的操作数写在下一行（第 907 轮片段普查量出）：TS 那边是 `VoidExpression`（`void` 要操作数 ⇒ 换行不是边界），产物在 `void` 后收壳 ⇒ 操作数落进另一条语句",
+      "detail": "缺 1　漂 3　多 5　`Statement.LineCannotEnd` 把 `void` 当「两可」词形**一律**排除（那一档是为 `): void` / `=> void` 立的，少了它会红六份用例）——可它是运算符时**一定要**操作数；判据缺的是「这一格 `void` 在值位还是在类型位」"
+    },
+    {
+      "id": "token/modules/gap-r907-export-default-assignment-trailing-comment",
+      "category": "token",
+      "title": "`export default 1/*c*/;` 的尾随注释（第 907 轮片段普查量出）：TS 那边 `ExportAssignment` 的区间是 `[0,22)`（到下一格实义单元的 full start，注释算在里面），产物停在 `1` 之后（`[0,16)`）",
+      "detail": "漂 1　多 1　这一格的区间取的是「表达式最后一个单元」的末尾，而 TS 的 `finishNode` 取的是**下一格 token 的 full start**（注释也在内）——本仓别处那些「收尾期把尾随 trivia 收进节点」的做法没铺到 `export default` 这一支"
+    },
+    {
+      "id": "token/statements/gap-r907-do-body-comment-range",
+      "category": "token",
+      "title": "`do` 与循环体之间夹一条注释（第 907 轮片段普查量出）：TS 那边那条 `ExpressionStatement` 的区间从 `f` 起（`[8,12)`），产物从注释起（`[2,12)`）——注释被算进了体的区间",
+      "detail": "缺 1　多 1　`do` 后面那一格取体的起点时走的是「`do` 的下一个单元」（没跳 trivia），注释于是成了体的第一个单元"
+    },
+    {
+      "id": "token/statements/gap-r907-else-if-comment-before-paren",
+      "category": "token",
+      "title": "`else if` 的 `if` 与 `(` 之间夹一条注释（第 907 轮片段普查量出）：TS 那边整条是一条 `IfStatement`（`elseStatement` 是里层那条），产物的 `IfStatement` 停在第一个块上、`else` 成了 `Identifier`",
+      "detail": "漂 1　多 2　`else` 那一支接里层 `if` 时，判据只看紧跟 `else` 的词、再看 `if` 后面**紧跟**的 `(`；注释让第二跳落空（`SkipNextWrapSymbol` 只跳软换行）"
+    },
+    {
+      "id": "token/statements/gap-r907-switch-block-comment-before-brace",
+      "category": "token",
+      "title": "`case 1:` 与块之间夹一条注释（第 907 轮片段普查量出）：TS 那边块里的 `break;` 是一条 `BreakStatement`，产物把 `break` 落成 `Identifier`、`;` 落成 `SemicolonToken`",
+      "detail": "缺 1　多 2　「段头之后是块」那一支的判据紧跟 `:`（只跳软换行），注释挡住它 ⇒ 块没被认出来，里面的 `break;` 没了语句壳"
+    },
+    {
+      "id": "token/types/gap-r907-index-signature-newline-after-readonly",
+      "category": "token",
+      "title": "索引签名的 `readonly` 与 `[` 之间换行（第 907 轮片段普查量出）：TS 那边是 `IndexSignature`（`readonly` 是它的修饰词），产物把 `readonly` 落成 `PropertySignature`、`[k:string]:number` 落成计算属性名（缺 `IndexSignature` / `Parameter` / `StringKeyword`）",
+      "detail": "缺 4　漂 1　多 2　索引签名那一支的判据要求修饰词与 `[` 相邻（只跳软换行），换行之后 `readonly` 与 `[` 分成两格"
+    },
+    {
+      "id": "token/types/gap-r907-indexed-access-newline",
+      "category": "token",
+      "title": "类型位的下标访问在换行处被 ASI 断成两条语句（第 907 轮片段普查量出）：`type T = A` 换行 `[\"k\"];` 里 TS 那边是一条 `IndexedAccessType`（`[` 起的是续接），产物在 `A` 之后收壳 ⇒ `[\"k\"]` 落进另一条 `ExpressionStatement`",
+      "detail": "缺 2　漂 1　多 3　`Statement.LineCannotEnd` 的左半截在 `A` 那里答「这一行写完了」，而解析期的续接表（`NextLineContinuesExpression`）只认 `|` / `&` / `.` / `?` / `:` / 算术那几个字符——`[` 那一档在 582 轮被单独拿回"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -503,7 +575,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2097.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2114.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -809,7 +881,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3085.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3102.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -833,7 +905,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3133.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3150.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -989,7 +1061,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3776.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3793.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
