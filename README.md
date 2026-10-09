@@ -306,6 +306,30 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 849 轮：括号里的「**第一个 `{`**」要跳过 trivia——`mut-type-union-paren-object-162` 收掉 1 条、新登 1 条
+
+**一句话**：`type T = A & (/* c */{ readonly ok: true } | { readonly no: true })` 里第一个 `{`
+被收成了 `<ObjectLiteral>`（TS 是 `TypeLiteral`）。根在 `type-literal.xl.md` 的 `IsTypePosition`
+入口第 2 条：**括号里的第一个 `{`** 本层回扫看不到左边，所以递归问括号自己那一格 ——
+而那句「第一个」写的是 `index === 0`，注释在本层占了一格 ⇒ 这一支整条跳过 ⇒ 回扫撞上 `(`
+⇒ 按值位判（保守），于是同一个联合类型里第一个是 `ObjectLiteral`、第二个靠 `|` 判对。
+判据与 `IsBindingPatternBrace` / `IsObjectLiteralBrace` 那两处的「跳过 trivia 再问」同源。
+
+- **改法一格**：`index === 0` → `SkipPreviousTrivia(units, index) < 0`
+  （一路跳到底是 `-1`），括号种类仍然是 `(`。
+- **试过又整份撤回的（写进「被否决的改法」）**：把这一支从 `(` 放宽到 `(`/`[`
+  ——`type T = [{ a: 1 }]` 是元组类型、`let x = [{ a: 1 }]` 是数组字面量，
+  分开它们确实是「外层那一格」，可放宽之后**值位的数组字面量成片被收成 `TypeLiteral`**
+  （`coverage` 3989 → 3970、blocked 58 → 77，六条 e2e 报 `unimplemented: expression TypeLiteral`）。
+  **元组元素那一格登记成缺口**（`gap-type-tuple-element-literal`），
+  等「括号自己的 `Context`」那条线（`type-literal.xl.md` 开头那一节）启用时再一起收。
+- **数字**：收掉 1 条（`mut-type-union-paren-object-162`）、新登 1 条（元组元素位），
+  账 **18 → 18 还开着**（`coverage` **3989 → 3990 / 4186**，blocked 58、differ 138、`bad` 0）；
+  8 道门全绿、`cases:tags` 0 条不一致。
+- **同一族里没做的两条**（如实留着）：`mut-type-union-after-readonly-93`
+  （`refs?/* c */: readonly (A | B)[]` 里字段的**类型段整个没成形**，是 `TypeOperator` /
+  `ArrayType` 那一层的事，与「第一个 `{`」不同根）与元组元素那一格。
+
 ### 第 848 轮：**孤立的上下文关键字不升级**——`newline-decl-abstract` / `newline-mod-declare` 收掉 2 条
 
 **一句话**：`abstract` 换行 `class A {}` 与 `declare` 换行 `module "m" {}` 在 TS 那边是

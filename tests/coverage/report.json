@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4185,
+  "total": 4186,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -80,8 +80,8 @@
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1412,
-      "pass": 1394,
+      "total": 1413,
+      "pass": 1395,
       "blocked": 18,
       "differ": 0,
       "nodefail": 0,
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1412,
+    "total": 1413,
     "knownGap": 18,
     "knownGapStillOpen": 18,
-    "exactFiles": 1394,
-    "scoredWithoutGap": 1394,
-    "passedWithoutGap": 1394
+    "exactFiles": 1395,
+    "scoredWithoutGap": 1395,
+    "passedWithoutGap": 1395
   },
   "blocked": [
     {
@@ -222,16 +222,16 @@
       "detail": "缺 3　多 1　那个 `while (a)` 被当成循环头，后面那条语句没被收进 `do` 那一格（缺 3）"
     },
     {
+      "id": "token/types/gap-type-tuple-element-literal",
+      "category": "token",
+      "title": "元组元素位的花括号：`type T = [{ a: 1 }]` 里那个 `{` 是类型字面量",
+      "detail": "缺 3　多 2　元组元素位上的 `{ … }` 被当成值位的对象字面量（TS 是 `TypeLiteral`）：`[` 与 `(` 是同一问（括号自己那一格是不是类型位），而 `IsTypePosition` 里「括号里的第一个 `{`」这一支这一轮只放宽到 `(`——放宽到 `[` 会把值位的数组字面量成片收成 `T"
+    },
+    {
       "id": "token/types/mut-type-union-after-readonly-93",
       "category": "token",
       "title": "类型位修饰词后面的括号也是类型位：`readonly (A | B)[]`",
       "detail": "缺 8　字段 1　注释夹在 `readonly` 与括号之间（或类型与 `[]` 之间）：`readonly (A | B)[]` 整段不成形（r660 探针池 mut-type-union-after-readonly-93）"
-    },
-    {
-      "id": "token/types/mut-type-union-paren-object-162",
-      "category": "token",
-      "title": "括号里的联合类型：第一个 `{` 也要判成类型位（原来第一个是 ObjectLiteral、第二个才是 TypeLiteral）",
-      "detail": "缺 4　多 2　注释夹在括号里联合类型第一个 `{` 之前：那一格被当成值位的对象字面量（r660 探针池 mut-type-union-paren-object-162）"
     },
     {
       "id": "token/types/type-param-template-literal-constraint",
@@ -617,7 +617,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24696/src/2019.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-11260/src/2020.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -959,7 +959,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24696/src/3002.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-11260/src/3003.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -983,7 +983,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24696/src/3050.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-11260/src/3051.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1139,7 +1139,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24696/src/3693.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-11260/src/3694.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

@@ -119,6 +119,13 @@
   「后面有个东西」，`;` 与「什么都没有」都不算。
   **改这一条要跑全语料**：第一版漏了 `New` 那一格，`decl-interface-abstract-construct-signature`
   当场从 `Keyword` 掉成 0 个。
+- **「第一个」是「第一个实义单元」**（第 849 轮）：`IsTypePosition` 入口那句
+  「括号里的**第一个** `{`」原来写的是 `index === 0`，而 `(/* c */{ … } | { … })` 里
+  注释在本层占了一格 ⇒ 那一支整条跳过 ⇒ 回扫撞上 `(` ⇒ 按值位判（保守）⇒
+  同一个联合类型里第一个是 `ObjectLiteral`、第二个靠 `|` 判对。
+  **凡是「列表开头那一格」的判据，都要问「跳过 trivia 之后还有没有东西」**
+  （`SkipPreviousTrivia(units, index) < 0` 就是「没有」）——与 `IsBindingPatternBrace` /
+  `IsObjectLiteralBrace` 那两处同一口径。
 - **「体的第一个单元」不许是 trivia**（第 847 轮）：`if` 的体是**向导自己挂**的
   （`IfSegment.Process` → `MountBodyOrStatement`：`{` ⇒ `IfBody`、其余 ⇒ 单语句体），
   所以注释一到就会被当成体的开头 —— `if (a) /*c*/{ b(); } else { c(); }` 里
@@ -278,8 +285,9 @@
 ## 已知仍开着的缺口（**18 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
-（第 848 轮实测 **18**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
-第 848 轮收掉 2 条；第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
+（第 849 轮实测 **18**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
+第 848 轮收掉 2 条、第 849 轮收掉 1 条并新登 1 条；第 818 轮那段分段口径写在下面，
+条数此后又收掉了一批）。
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
 文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
@@ -438,6 +446,13 @@ TS 那边 `declare` 换行走 ASI），那一族没修、也不在语料里，�
 探针另量到同族 10 条（`declare` 换行 `namespace` / `function` / `var` / `const`、
 函数体里的 `abstract` 换行 `class`……）——同一个根，一并收掉。账从 **20 → 18**。
 
+**第 849 轮收掉 1 条、新登 1 条**：`mut-type-union-paren-object-162`（**括号里的第一个 `{`**
+那一格：注释占位让「第一个」判据整条跳过）。收掉的这行 `xl:known-gap` 删掉、
+`xl:expect` 由 `ObjectLiteral` 改成 `TypeLiteral:2`（同一形状的第二个 `{` 本来就是对的）。
+**新登**的 `gap-type-tuple-element-literal`（元组元素位上的 `{ … }`）是**同一个入口**的另一半——
+那一半（括号种类放宽到 `[`）试过、整份撤回，理由写在「被否决的改法」第 5 条。
+账 **18 → 18**（收 1 登 1）。
+
 **怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。
 **探针池仍然有用**：`node tests/parse/ts-ast.mjs --snippets <候选.mjs>` 是先量后收的第一站
@@ -456,3 +471,10 @@ TS 那边 `declare` 换行走 ASI），那一族没修、也不在语料里，�
    要修得先能区分「体在下一行」与「下一条成员」——只往前看分不出来。
 4. **把语句位上的裸块当语句边界**（`StatementReorganization2.Previous`）：切断了复合赋值的展开，
    **整段内容丢失**，比边界不合严重。
+5. **把「括号里的第一个 `{`」那一支从 `(` 放宽到 `(`/`[`**（第 849 轮试过、整份撤回）：
+   `type T = [{ a: 1 }]` 是元组类型、`let x = [{ a: 1 }]` 是数组字面量，分开它们确实是
+   「外层那一格」，可放宽之后**值位的数组字面量成片被收成 `TypeLiteral`**——
+   实测 `coverage` 3989 → 3970、blocked 58 → 77，六条 e2e 报
+   `unimplemented: expression TypeLiteral`。元组元素那一格登记成缺口
+   （`gap-type-tuple-element-literal`），要等「括号自己的 `Context`」那条线启用
+   （`type-literal.xl.md` 开头那一节写着那条线为什么还不能启用）。

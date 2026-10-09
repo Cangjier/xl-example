@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, IsSwitchLabelColon, IsTriviaUnit } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsSwitchLabelColon, IsTriviaUnit } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -240,7 +240,21 @@ if (current.Parent instanceof ObjectLiteral) {
 // `type T = ({ … })` 回扫 → `=` → `T` → `type` ⇒ 类型位；
 // `f({ … })` 回扫 → `Method` ⇒ 值位；`({ a, b }) => x` 回扫 → 列表开头 ⇒ 值位；
 // `(a) => ({ x: 1 })` 的括号紧跟 `=>`（箭头函数的体）⇒ 值位。
-if (index === 0 && current.Parent instanceof Bracket && current.Parent.startBracket === "(") {
+//
+// **「第一个」是「第一个实义单元」**（第 849 轮）：`(/* c */{ … })` 里那个注释在本层
+// 占了一格，照 `index === 0` 判就整条跳过 ⇒ 回扫撞上 `(` ⇒ 判成**值位**，
+// 于是同一个联合类型里第一个 `{` 是 `ObjectLiteral`、第二个是 `TypeLiteral`
+//（实测 `mut-type-union-paren-object-162`）。判据与 `IsBindingPatternBrace` /
+// `IsObjectLiteralBrace` 那两处的「跳过 trivia 再问」同源。
+//
+// **`[` 括号这一轮不进这条递归**（试过，整份撤回）：`type T = [{ a: 1 }]` 是元组类型、
+// `let x = [{ a: 1 }]` 是数组字面量，分开它们确实是「外层那一格」——可把这一支
+// 从 `(` 放宽到 `(`/`[` 之后，语料里**值位**的数组字面量成片被收成 `TypeLiteral`
+//（`coverage` 3989 → 3970、blocked 58 → 77，六条 e2e 报
+// `unimplemented: expression TypeLiteral`）。元组元素那一格**登记成缺口**，
+// 等「括号自己的 Context」那条线（见本方法开头那一节）启用时再一起收。
+if (SkipPreviousTrivia(units, index) < 0 && current.Parent instanceof Bracket &&
+    current.Parent.startBracket === "(") {
   const owner = current.Parent.Parent;
   if (owner !== null) {
     const at = owner.Data.indexOf(current.Parent);
