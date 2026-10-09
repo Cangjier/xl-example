@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.04,
+  "progressPercent": 95.05,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1414,
-      "pass": 1405,
-      "blocked": 9,
+      "pass": 1406,
+      "blocked": 8,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.36
+      "coverage": 99.43
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1414,
-    "knownGap": 9,
-    "knownGapStillOpen": 9,
-    "exactFiles": 1405,
-    "scoredWithoutGap": 1405,
-    "passedWithoutGap": 1405
+    "knownGap": 8,
+    "knownGapStillOpen": 8,
+    "exactFiles": 1406,
+    "scoredWithoutGap": 1406,
+    "passedWithoutGap": 1406
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-round743-chain-in-binary-both-sides",
-      "category": "token",
-      "title": "下标调用链当**两边**的操作数：`o[\"f\"]().v + o[\"f\"]().v`（第 743 轮登记的缺口）",
-      "detail": "缺 1　多 2　左边的续格在二元单元里、右边的续格掉在单元外面，两个形状同时出现时第二截没接上：降级期报 `name is not a local or a capture: v`。两半各自已经收掉（`p711b-b01` / `p711b-b02`），合起来这一格还没认。要做。"
-    },
     {
       "id": "token/expressions/gap-round744-chain-in-binary-three-operands",
       "category": "token",
@@ -563,7 +557,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6624/src/2021.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-964/src/2021.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -905,7 +899,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6624/src/3004.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-964/src/3004.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -929,7 +923,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6624/src/3052.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-964/src/3052.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1085,7 +1079,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6624/src/3695.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-964/src/3695.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

@@ -1017,6 +1017,44 @@ if (asCursor !== startIndex) {
     throw new Error("BinaryOperatorCloseRule.Process: `as` 的基名没了");
   }
 }
+// **左操作数是一串 `PropertyAccess` 时要连它的基名一起收进来**（第 858 轮）——
+// 与上面 `As` / NCO 两条**同一个形状**，理由也一样：
+// `o["f"]().v + o["f"]().v` 到这一步时列表是
+// `[Let, =, PropertyAccess(o["f"]()), PropertyAccess(.v), +, PropertyAccess(o["f"]()), PropertyAccess(.v)]`
+// ——下标调用链**自成好几格**，只取紧挨着的那一格，`+` 的左操作数就成了**
+// 后半截 `.v`**（实测产物 `BinaryOperator o["f"]().v + o["f"]()` + 外面一个裸 `.v`：
+// 缺 `PropertyAccessExpression` 1、多出 2）。
+//
+// **为什么收窄到「至少两格相邻」**（与 NCO 那条同一个理由，第 156 轮实测过）：
+// 只有**一格** `PropertyAccess` 的形状（`o.f().v + 1`）本来就有投影分支认它，
+// 往前多收只是把那个形状换成另一个、白改。判据是「前一个（只跳软换行的）实义单元
+// 也是 `PropertyAccess`」——也就是「我这一格链的前面还有一截链」。
+const beforeChain = Get(units, SkipPreviousWrapSymbol(units, startIndex));
+let chainCursor = startIndex;
+if (before instanceof PropertyAccess && beforeChain instanceof PropertyAccess) {
+  let chainGuard = 0;
+  while (chainGuard < 64) {
+    chainGuard = chainGuard + 1;
+    const previous = Get(units, SkipPreviousWrapSymbol(units, chainCursor));
+    if (!(previous instanceof PropertyAccess)) {
+      break;
+    }
+    chainCursor = SkipPreviousWrapSymbol(units, chainCursor);
+  }
+}
+if (chainCursor !== startIndex) {
+  startIndex = chainCursor;
+  before = Get(units, startIndex);
+  if (before === null) {
+    throw new Error("BinaryOperatorCloseRule.Process: 链的起点没了");
+  }
+}
+// **右操作数那一侧照旧留着那一格**（第 858 轮量出来的边界，如实记在这里）：
+// `1 + o["f"]().v + 2`（`gap-round744-chain-in-binary-three-operands`）需要**它自己那一格
+// `PropertyAccess` 先让路**——否则 `.v` 那一趟就已经被折进 `o["f"]()` 的链尾，这里看到的
+// 是下一个 `+` 而不是 `PropertyAccess`。让路那一支按两种判据各试过一版，都把
+// `o["f"]().v + o["f"]().v` 的形状改坏（右操作数那一截链不再成形、`.v` 掉出来成裸单元），
+// 所以**整份撤回**：这一轮只收左边那一支。要动的是 `PropertyAccessCloseRule` 那一侧，不是这里。
 const result = new BinaryOperator(template);
 result.Parent = current.Parent;
 result.op = this.OperatorText(current);

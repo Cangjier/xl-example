@@ -1,4 +1,5 @@
 // xl:note 下标调用链当**两边**的操作数：`o["f"]().v + o["f"]().v`（第 743 轮登记的缺口）
-// xl:known-gap 左边的续格在二元单元里、右边的续格掉在单元外面，两个形状同时出现时第二截没接上：降级期报 `name is not a local or a capture: v`。两半各自已经收掉（`p711b-b01` / `p711b-b02`），合起来这一格还没认。要做。
+// 第 858 轮收掉：左操作数那一侧的链由 `BinaryOperatorCloseRule.Process` 往前收基名
+//（与 `As` / NCO 那两支同一个形状），`+` 的两边于是都拿到完整的一格链。
 const o: any = { f: () => ({ v: 1 }) };
 const r = o["f"]().v + o["f"]().v;
