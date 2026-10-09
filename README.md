@@ -306,6 +306,38 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 854 轮：`typeof` 的点号名后面再接下标——known-gap **11 → 10**
+
+**一句话**：`type A = typeof a.b[K]`（`type-typeof-qualified-index`）里 `TypeQuery` 吞下整段
+（缺 `IndexedAccessType` / `QualifiedName` / `TypeReference`，`TypeQuery` 与 `Identifier` 两处漂）。
+产物那一格是**平的**：`[TypeQuery(typeof a), ., IndexedAccessType(b, K)]`——那个 `IndexedAccessType`
+的**左半边**（`b`）才是限定名的右半、`K` 是下标；而 `a.b` 那一条支（第 83 轮）只按名字往右套，
+`[K]` 既不是名字也没人接，于是 `TypeQuery` 的区间一路撑到 `]`。
+
+**修法**（`print-ast-common.xl.md` 的 `projectTypeExpression` + 新私有方法 `absorbIntoTypeQuery`）：
+尾段**先按它自己的规矩投出来**（下标 / 数组的壳与 `<X>` 实参都在里面），再沿
+`objectType` / `elementType` / `typeName` / `left` 往左走到**最左边那一格名字**，
+把它接到已经收好的限定名右边折成 `QualifiedName`、写进 `query.exprName`，**把那一格换掉**；
+外层各壳的起点跟着挪到 `typeof`（TS 的 `TypeQuery` 从 `typeof` 起）。
+四个形状一起对上了：`typeof a.b[K]` / `typeof a.b[K][L]` / `typeof a.b[K][]` /
+`typeof a.b<X>[K]`（`<X>` 那一档把实参收进 `TypeQuery.typeArguments`）。
+
+**踩到的两处**（都留在注释里）：
+
+- **`TypeReference` 那一支不能把递归的返回值再赋给 `exprName`**——递归返回的就是 `query` 自己
+  ⇒ 自环，`kindsInAst` 当场报 `Maximum call stack size exceeded`（第一版 6 条探针全崩）。
+- **`ArrayType.elementType` 在这一层是一个数组**（`ArrayType` 的 `PrintAst` 走 `ctx.Each`），
+  照单节点收会落到 `return undefined` ⇒ `typeof a.b[K][]` 退回旧形状。
+
+**探针**：`tmp/r853-typequery.mjs` 12 条（上面四个 + 不带下标的 `typeof a.b` / `typeof a.b.c`、
+字面量下标 `a["k"]` / `a.b["k"]`、联合里、变量标注位、以及 `typeof a[K]` / `typeof a["k"]`
+这两条**对照**——它们本来就对）；修完**全绿**。**全语料 `ts-ast.mjs all` 退出码 0**
+（`@types` / `typescript/lib` / `dist/ts` / `samples` 143 份一片 × 16 片全绿）。
+
+**数字**：那一行 `xl:known-gap` 删掉，账 **11 → 10 还开着**；`coverage` **3997 → 3998 / 4186**
+（token **1402 → 1403 / 1413**、`blocked 51 → 50`、`differ 138`、`bad` **0**、`regressions` **0**）；
+`npm run gates` 八道全过（墙钟 ~34s）。
+
 ### 第 853 轮：`=>` 体尾巴上那条注释——`let` 声明的终端也走 trivia 口径，known-gap **12 → 11**
 
 **一句话**：`const f = (a, b) => a/*c*/;`（`gap-sweep-comment-arrow-01`）里
@@ -4073,7 +4105,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **11 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **10 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1426** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -4081,7 +4113,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1413 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3997 / 4186**，加权 **95.0%**：token 1402/1413、exec 749/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 51 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **1 条**（`exec/statements/084-switch-case-block-blocked` 那条旧指令该撤了） |
+| `coverage` | **五类 3998 / 4186**，加权 **95.0%**：token 1403/1413、exec 749/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 50 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **1 条**（`exec/statements/084-switch-case-block-blocked` 那条旧指令该撤了） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 

@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.01,
+  "progressPercent": 95.03,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1413,
-      "pass": 1402,
-      "blocked": 11,
+      "pass": 1403,
+      "blocked": 10,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.22
+      "coverage": 99.29
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1413,
-    "knownGap": 11,
-    "knownGapStillOpen": 11,
-    "exactFiles": 1402,
-    "scoredWithoutGap": 1402,
-    "passedWithoutGap": 1402
+    "knownGap": 10,
+    "knownGapStillOpen": 10,
+    "exactFiles": 1403,
+    "scoredWithoutGap": 1403,
+    "passedWithoutGap": 1403
   },
   "blocked": [
     {
@@ -196,12 +196,6 @@
       "category": "token",
       "title": "泛型约束里是一个模板字面量类型",
       "detail": "缺 15　多 7　未映射 1　约束位上的 `` `a${A}b` `` 不成形（缺 15 多 7，还带一处未映射 Bracket）"
-    },
-    {
-      "id": "token/types/type-typeof-qualified-index",
-      "category": "token",
-      "title": "`typeof` 的操作数是一个点号名，后面再跟下标访问",
-      "detail": "缺 4　漂 2　多 1　点号名在产物里是平级单元，`typeof` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
@@ -575,7 +569,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29128/src/2020.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10304/src/2020.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -917,7 +911,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29128/src/3003.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10304/src/3003.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -941,7 +935,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29128/src/3051.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10304/src/3051.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1097,7 +1091,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29128/src/3694.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10304/src/3694.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

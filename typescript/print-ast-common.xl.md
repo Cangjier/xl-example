@@ -5863,6 +5863,23 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
           ? right
           : { kind: "QualifiedName", left: name, right, pos: name.pos, end: right.end };
     }
+    // **点号名后面再跟「下标访问 / 数组后缀」**（第 854 轮）：`type A = typeof a.b[K]` 的产物是
+    // `[TypeQuery(typeof a), ., IndexedAccessType(b, K)]`——那个 `IndexedAccessType` 的
+    // **左半边**（`b`）才是限定名的右半、`K` 是下标；`typeof a.b[K][]` 那一格外还套着
+    // `ArrayType(IndexedAccessType(b, K))`。TS 那边的形状是
+    // `IndexedAccessType{ objectType: TypeQuery(exprName: QualifiedName(a, b)), indexType: K }`。
+    // 照下面那条路收会把 `b` 当成**一个成员名**、`TypeQuery` 的区间一路撑到 `]`
+    //（实测缺 `IndexedAccessType` / `QualifiedName` / `TypeReference` 各一格，
+    //  `TypeQuery` 与 `Identifier` 两处漂）。做法：尾段先按它自己的规矩投出来
+    //（下标 / 数组的壳与 `<X>` 实参都在里面），再把**链上最左边那一格名字**换成整条
+    // `TypeQuery`（`absorbIntoTypeQuery`），外层各壳的起点跟着挪到 `typeof`。
+    const suffixUnit = list
+      .slice(2)
+      .find((k) => k.get("type") === "IndexedAccessType" || k.get("type") === "ArrayType");
+    if (suffixUnit !== undefined && name !== undefined) {
+      const absorbed = absorbIntoTypeQuery(projectNode(suffixUnit, ctx), query, name);
+      if (absorbed !== undefined) return absorbed;
+    }
     if (name !== undefined) {
       query.exprName = name;
       query.end = endOf(list[list.length - 1]);
@@ -6180,6 +6197,88 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     if (projected !== undefined) out.push(projected);
   }
   return out;
+```
+
+# private method absorbIntoTypeQuery:(node:any, query:any, name:any)=>any
+
+把**投好的尾段**接回一条 `TypeQuery` 上，返回带上这条 `TypeQuery` 的那个节点（第 854 轮立）。
+
+**它解决的问题**：`typeof a.b[K]` / `typeof a.b<X>[K]` / `typeof a.b[K][]` 里，
+`typeof` 那一格在产物里**只收 `typeof a`**，`a` 后面那一串（点号名、`<X>`、`[K]`、`[]`）
+都是它外面的平级单元。TS 那边这些后缀**包在 `TypeQuery` 外面**：
+
+| 写法 | TS 的形状 |
+| --- | --- |
+| `typeof a.b` | `TypeQuery > QualifiedName(a, b)` |
+| `typeof a.b[K]` | `IndexedAccessType > [TypeQuery(QualifiedName(a, b)), K]` |
+| `typeof a.b[K][]` | `ArrayType > IndexedAccessType > [TypeQuery(…), K]` |
+| `typeof a.b<X>[K]` | `IndexedAccessType > [TypeQuery(QualifiedName(a, b), typeArguments=[X]), K]` |
+
+**「哪一格是名字」由链自己回答**：沿着 `objectType` / `elementType` / `typeName` / `left`
+一路往左走到**最左边那一格名字**（`b`），把它接到 `name`（`a`）右边折成 `QualifiedName`、
+写进 `query.exprName`，再**把那一格换掉**——外层的壳（`IndexedAccessType` / `ArrayType`）
+于是自然带上整条链，`TypeQuery` 的终点停在最后一个名字上（`<X>` 那一档还要把实参收进来：
+`TypeQuery.end` 与 `typeArguments` 一起取 `TypeReference` 自己的）。
+
+**做不到就给 `undefined`**（链上没有名字那一格），调用方退回原来那条「只接点号名」的路。
+
+```ts
+  if (node === undefined || node === null) return undefined;
+  // **最左边那一格名字**：接上 `name`（左边已经收好的限定名）折成 `QualifiedName`。
+  if (node.kind === "Identifier") {
+    query.exprName =
+      name === undefined
+        ? node
+        : { kind: "QualifiedName", left: name, right: node, pos: name.pos, end: node.end };
+    query.end = node.end;
+    return query;
+  }
+  // **实参那一档**：`b<X>` 在产物里是一个 `TypeReference`（名字 + 实参段），
+  // 实参属于 `TypeQuery`（与第 113 轮那条「点号名 + 类型实参」同一口径）。
+  // **递归只管往左走到名字那一格**（它已经把 `query.exprName` 写好了），所以这里
+  // **不能**把它的返回值再赋给 `exprName`——那个返回值就是 `query` 自己，
+  // 赋值会当场造出一个自环（实测 `kindsInAst` 报 `Maximum call stack size exceeded`）。
+  if (node.kind === "TypeReference") {
+    const absorbed = absorbIntoTypeQuery(node.typeName, query, name);
+    if (absorbed === undefined) return undefined;
+    if (node.typeArguments !== undefined) query.typeArguments = node.typeArguments;
+    query.end = node.end;
+    return query;
+  }
+  if (node.kind === "QualifiedName") {
+    const left = absorbIntoTypeQuery(node.left, query, name);
+    if (left === undefined) return undefined;
+    node.left = left;
+    node.pos = left.pos;
+    return node;
+  }
+  if (node.kind === "IndexedAccessType") {
+    const objectType = absorbIntoTypeQuery(node.objectType, query, name);
+    if (objectType === undefined) return undefined;
+    node.objectType = objectType;
+    node.pos = objectType.pos;
+    return node;
+  }
+  if (node.kind === "ArrayType") {
+    // **`elementType` 在这一层是「一格数组」**（`ArrayType` 的 `PrintAst` 走 `ctx.Each`，
+    // 实测 `type A = X[]` 的产物 JSON 是 `elementType:[{…}]`）——与上面 `TypeReference` /
+    // `QualifiedName` 那几条「单个节点」不同，照单节点收会落到最后那句 `return undefined`
+    //（`typeof a.b[K][]` 就是它：尾段是 `ArrayType(IndexedAccessType(b, K))`）。
+    if (Array.isArray(node.elementType)) {
+      const first = node.elementType[0];
+      const absorbedElement = absorbIntoTypeQuery(first, query, name);
+      if (absorbedElement === undefined) return undefined;
+      node.elementType = [absorbedElement];
+      node.pos = absorbedElement.pos;
+      return node;
+    }
+    const elementType = absorbIntoTypeQuery(node.elementType, query, name);
+    if (elementType === undefined) return undefined;
+    node.elementType = elementType;
+    node.pos = elementType.pos;
+    return node;
+  }
+  return undefined;
 ```
 
 # private method qualifiedNameFrom:(names:Array<any>, ctx:any)=>any

@@ -282,12 +282,12 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**11 条**）
+## 已知仍开着的缺口（**10 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
-（第 853 轮实测 **11**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
+（第 854 轮实测 **10**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
 第 848 轮收掉 2 条、第 849 轮收掉 1 条并新登 1 条、第 850 轮收掉 4 条、第 852 轮收掉 2 条、
-第 853 轮收掉 1 条；第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
+第 853 轮收掉 1 条、第 854 轮收掉 1 条；第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
 文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
@@ -508,6 +508,21 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
 （第一版直接把字典递进去，16 条探针一起报 `产物[0,NaN)`），`view(...)` 一次即可。
 同族的 `const f = 1/*c*/;` 一直是好的：那条注释落在**外层 `Statement`** 里、
 是 `Lamda` 的**兄弟**，这一轮补的是「落在最后一个单元**里面**」那一半。账 **12 → 11**。
+
+**第 854 轮收掉的 1 条**（第三段里那条 `typeof` 点号名）：`type-typeof-qualified-index`
+（`type A = typeof a.b[K]`）。产物那一格是**平的**：
+`[TypeQuery(typeof a), ., IndexedAccessType(b, K)]`——那个 `IndexedAccessType` 的**左半边**
+（`b`）才是限定名的右半、`K` 是下标，而 `a.b` 那一条支（第 83 轮）只按名字往右套 ⇒
+`TypeQuery` 的区间一路撑到 `]`（缺 `IndexedAccessType` / `QualifiedName` / `TypeReference`，
+`TypeQuery` 与 `Identifier` 两处漂）。修法：尾段**先按它自己的规矩投出来**
+（下标 / 数组的壳与 `<X>` 实参都在里面），再沿 `objectType` / `elementType` / `typeName` / `left`
+往左走到**最左边那一格名字**，把它接到限定名右边折成 `QualifiedName`、写进 `query.exprName`，
+**把那一格换掉**（新私有方法 `absorbIntoTypeQuery`），外层各壳的起点跟着挪到 `typeof`。
+`typeof a.b[K]` / `typeof a.b[K][L]` / `typeof a.b[K][]` / `typeof a.b<X>[K]` 四个形状一起对上。
+**两处坑**：① `TypeReference` 那一支不能把递归的返回值再赋给 `exprName`——递归返回的就是
+`query` 自己 ⇒ 自环，`kindsInAst` 当场 `Maximum call stack size exceeded`；
+② `ArrayType.elementType` 在这一层是**一个数组**（`ArrayType` 的 `PrintAst` 走 `ctx.Each`）。
+账 **11 → 10**；全语料 `ts-ast.mjs all` 退出码 **0**（143 份大库文件 × 16 片全绿）。
 
 **怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。
