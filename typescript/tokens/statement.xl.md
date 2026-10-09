@@ -8,7 +8,7 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, NextLineFirstCharAt, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, IsTypeAliasAssignment, NextLineFirstCharAt, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -1315,6 +1315,18 @@ if (head === "(" || head === "[") {
 if (head === "?" || head === ":") {
   return true;
 }
+// **逗号开头**（第 911 轮片段普查量出的 `gap-r907-arrow-generic-newline-before-comma`）：
+// `const f = <T` 换行 `,>(a: T) => a;` 在 TS 那边是**一条** `ArrowFunction`（`<T,>` 是它的
+// 泛型形参表），而解析期这张表里**没有 `,` 那一档** ⇒ 换行处收壳 ⇒ 泛型段还没成形就断了壳
+//（实测：产物把 `<` 折成 `LessThanToken`、`(a: T) => a` 落进另一条语句）。
+//
+// **为什么可以无条件收**（与上面 `?` / `:` 那一条同一句理由）：`,` **起不了一条语句**、
+// 也**起不了一个成员**（语句的开头只有那几族词、`{`、表达式起始符与 `@`；成员的开头是
+// 名字 / 计算名 / 修饰符）⇒ 它出现在一行的第一个实义字符上，只可能是上一行的续接。
+// 收尾期那一半本来就在表里（`ContinuesExpression` 的 `,`），两半一直不一致。
+if (head === ",") {
+  return true;
+}
 // **赋值符开头**（第 824 轮）：`const a` 换行 `= [1, 2, 3];` 是**一条**声明
 // （ASI 不在 `=` 前面断句——JS 里 `x` 换行 `= 5` 也是一条赋值语句）。
 // `=` / `=>` / `==` / `===` **起不了一条语句**（语句的开头没有以 `=` 起头的写法），
@@ -2218,12 +2230,18 @@ return true;
 
 它与 `IsLineBreakIncompleteOnLeft` 差的不是判据，而是**口径的松紧**：解析期一旦判「不是终点」，
 这一行就会与**下一行**并进同一个壳 —— 判错一次就是两条语句合一（而且很难看出是哪儿错的）。
-所以这里只认「**左边一定没写完**」那一档，把两个**两可**的词形排除掉：
+所以这里只认「**左边一定没写完**」那一档，把两个**两可**的词形按**前一格**分辨
+（`:` 一律排除；`void` 见下面 `IsVoidInTypePosition`）：
 
 | 词形 | 为什么两可 | 少了这条排除会怎样（实测） |
 | --- | --- | --- |
 | `:` | `case 1:` / `default:` / `label:` 都以它**收尾**，而 `x:` 换行 `number` 是**续接** | `st-switch.ts` / `stmt-switch-empty-cases.ts` / `stmt-switch-fallthrough.ts` 三份把相邻两个 `case` 并进一个壳（各缺 5 / 多 3） |
-| `void` | 它既是运算符（`void 0`）又是**预定义类型名**，而 `): void` 收尾的排版遍地都是 | `fn-overloads.ts` 缺 **13**、`ty-variance.ts` / `ty-function-ctor.ts` / `type-param-variance-in-out.ts` / `type-fn-declaration-boundary.ts` 各缺 8、`ns-declare-module.ts` 缺 5 —— 六份全是「上一行以 `=> void` / `): void` 收尾」 |
+| `void` | 它既是运算符（`void 0`）又是**预定义类型名**，而 `): void` 收尾的排版遍地都是 | 少了这条排除：`fn-overloads.ts` 缺 **13**、`ty-variance.ts` / `ty-function-ctor.ts` / `type-param-variance-in-out.ts` / `type-fn-declaration-boundary.ts` 各缺 8、`ns-declare-module.ts` 缺 5 —— 六份全是「上一行以 `=> void` / `): void` 收尾」 |
+
+**`void` 这一格第 911 轮**从「一律排除」收窄成「**按它前面那一格**分」：类型位
+（`:` / `=>` / `|` / `&` / 类型别名的 `=`）照旧答「可以收尾」，值位
+（`const a = void`）答「一定没写完」⇒ 操作数跨行。判据只写一份，见 `IsVoidInTypePosition`；
+上面那六份用例全部是类型位，一行都不用改。
 
 **`:` 那一档只在这里排除**（不动 `IsLineBreakIncompleteOnLeft`）：`IsLineBreakBoundary` 问的是
 「ASI 该不该断句」，那里 `x:` 换行 `number` **必须**算续接（`const x:` 换行 `number = 1` 的排版）；
@@ -2270,9 +2288,62 @@ if (previous instanceof SymbolToken && previous.Is(":")) {
   return false;
 }
 if (Statement.WordOf(previous) === "void") {
-  return false;
+  // **`void` 是两可词形**（第 911 轮）：类型位（`): void` / `=> void`）可以收尾，
+  // 值位（`void 0`）**一定要操作数** —— 判据落在**它前面那一格**上，
+  // 见 `IsVoidInTypePosition`（含「为什么只问前一格」与两处刻意不收）。
+  return Statement.IsVoidInTypePosition(units, index) === false;
 }
 return true;
+```
+
+## static method IsVoidInTypePosition:(units:Array<Token>, index:int)=>bool
+
+`index` 之前最后那一格是 `void` 时，这个 `void` 在**类型位**（`): void` / `=> void` / `A | void`）吗。
+
+**为什么需要它**（第 911 轮片段普查量出的 `gap-r907-void-operand-newline`）：`void` 既是**运算符**
+（`void 0`，一定要操作数）又是**预定义类型名**（`): void` 收尾的排版遍地都是）。上面那张表原来
+把它当「两可」**一律**排除（`LineCannotEnd` 在它那里一律答「可以收尾」），可它是运算符时
+**一定没写完** ⇒ `const a = void` 换行 `0;` 在换行处收壳 ⇒ 操作数落进另一条语句
+（实测：缺 `VoidExpression`、多 `VoidKeyword` + `ExpressionStatement`）。
+
+判据只看**它前面那一格**：
+
+| `void` 前面那一格 | 答 | 为什么 |
+| --- | --- | --- |
+| `:` / `=>` | 类型位 | 这两格后面接的就是类型（`function f(): void` / `type F = () => void`） |
+| `|` / `&` | 类型位 | 联合 / 交叉类型里那一格（`type X = A \| void`） |
+| `=` 且 `IsTypeAliasAssignment` | 类型位 | `type X = void`——右边是类型 |
+| 其余一切（`=` 而左边是 `const` / `let`、`(` / `,` / `[` / `return` / 运算符 …） | 值位 | 这些格的右边是**值**，`void` 在那里只可能是运算符 |
+
+**为什么只问前一格、不问整段**：`LineCannotEnd` 是**解析期**那一问，判错的代价是两条语句合一
+（它自己的说明里写着这条口径）——所以只在**一定**是运算符时才收手，而「前一格是值位连接符」
+正是一个**局部**、可判的判据。语料实测：`node_modules/@types` + `typescript/lib` 里
+行尾 `void` 共 44 处，**全部**落在 `:` / `=>` 上（第 911 轮量的），没有一处落在「值位连接符」上。
+
+**两处刻意不收**（保持原来的「可以收尾」，因为那时 `void` 确实可能已经是类型）：
+
+- **三元 / `case` 标签的 `:`**：`c ? a : void` 换行 `0` 里那个 `:` 也是「前一格」，本方法答
+  「类型位」⇒ 换行处收壳 —— 与**今天**的行为一致（今天一律收壳，没更坏）；
+  真要把这一格分开，得问「这个 `:` 是不是三元那一格」，那是另一条线；
+- **`= void` 而 `=` 左边不是 `type`**：答「值位」⇒ 不收壳，`const a = void` 换行 `0;`
+  正是要的这一档。
+
+```ts
+const voidIndex = SkipPreviousTrivia(units, index);
+const beforeIndex = SkipPreviousTrivia(units, voidIndex);
+const before = Get(units, beforeIndex);
+if (before instanceof SymbolToken === false) {
+  return false;
+}
+if (before.Is(":") || before.Is("=>") || before.Is("|") || before.Is("&")) {
+  return true;
+}
+if (before.Is("=")) {
+  // **类型别名的 `=` 右边是类型、变量声明的 `=` 右边是值**：判据是既有的一格
+  // （`IsTypeAliasAssignment` 从 `=` 左边往回找 `type` / `const`），不在这里另写一份。
+  return IsTypeAliasAssignment(units, SkipPreviousTrivia(units, beforeIndex));
+}
+return false;
 ```
 
 ## static method IsLineBreakBoundary:(units:Array<Token>, index:int)=>bool
