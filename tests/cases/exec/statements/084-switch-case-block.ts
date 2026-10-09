@@ -1,12 +1,15 @@
-// xl:title `switch` 的 `case` 后面跟一个裸块（账）
+// xl:title `switch` 的 `case` 后面跟一个裸块
 // xl:round 789
 // xl:judge stdout
-// xl:want blocked
-// xl:why probe693b-s14：`switch` 的 `case` 后面跟一个**裸块**（`case 1: { … }`）本仓接不住：块的 `}` 一落下，后面那个 `case` 被当成普通标识符收进上一条 `CaseClause`（降级期报 `unimplemented: statement Identifier`）。JS 里这是遍地都是的写法（`case` 里要 `let` 就得包一层块）。要做。
 // xl:end
 // **按判定点并组（第 789 轮（三））**：吸收 exec/statements 里逐条一问的 1 条探针
 // （probe693b-s14）。正文逐字搬进各自的 IIFE，输出逐行等于原来那些条之和。
-// case 1: { … } 里块的 } 一落下，后面那个 case 被当成普通标识符收进上一条 CaseClause——降级期就报 unimplemented
+//
+// **这一格第 841 轮就修好了，可台账一直到第 886 轮才撤**（第 841 轮「switch 分段的两个差一格」
+// 收掉了它）：`xl:want blocked` 那一行留在文件头里，于是 `coverage` 连着 44 轮把它列进
+// 「台账该更新了（原来记 blocked、现在过了）」——而 `coverage` 是**尺子不是门**，只提醒、不拦。
+// 这一轮按规矩撤账：删 `xl:want` / `xl:why`、文件名去掉 `-blocked` 尾巴，用例留着当守卫
+// （`case 1: { … }` 后面再跟一个 `case` 的那一格就在这正文里）。
 
 const show = (v) => (v === null ? "null"
   : v === undefined ? "undefined"

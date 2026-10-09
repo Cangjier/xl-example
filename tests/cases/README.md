@@ -345,11 +345,15 @@ switch 那一条收进三段（判别式是自增表达式、判别式是 `typeo
 
 **这一轮量出的一处坑（并组时现形的）**：`switch` 的 `case` 后面**再出现第二个
 `case` / `default` 标签**时，本仓降级期**整份文件进不来**（实测
-`name is not a local or a capture: case`；`exec/statements/084-switch-case-block-blocked`
-是同一处账）——第一版把原样三条断言搬进来时连这一格一起搬了，那条 `runtime` 用例
+`name is not a local or a capture: case`；`exec/statements/084-switch-case-block`
+——当时叫 `…-blocked`，**第 886 轮已撤账**——是同一处账）——第一版把原样三条断言搬进来时连这一格一起搬了，那条 `runtime` 用例
 **当场从 pass 变 blocked**。所以**并进来的断言要先过一遍「它在不在别的账上」**：
 这一轮把那一档只留 `case 1`（`f(1)` 走 `try` → `finally` → `break` → `end`，
 `f(2)` 落空，两档都盖到），**不碰那处已知缺口**。
+（**第 886 轮补记**：那处账与这一格的症状**第 841 轮就一起修好了**——`node` 与 `tsrun`
+在「两个 `case` 标签」与「`case` 后跟裸块」两格上都逐字节相同，所以当时让掉的那一格已经
+在 [runtime/exceptions/003](runtime/exceptions/003-exc-finally-return.ts) 里补回来了。
+**这一段的教训与账本身无关**：并组时「先过一遍它在不在别的账上」这条规矩照样成立。）
 
 **改名**（第 760–762 轮的 17 条）：`r760a-01-…` / `r761f-01-…` / `r762d-01-…` 一律收成
 `<三位序号>-<kebab 描述>`，序号**域内从 001 起连续**，账的尾巴进名字
@@ -1721,7 +1725,7 @@ cases:tags 4748 条断言 0 不一致、cases:tsast 已知缺口 217 条还开�
 | `statements/081-for-in-and-for-of` | `for-in` 与 `for-of`：键的次序、原型链上的可枚举、字符串按码位 | `probe2-c06`、`probe693b-s04·s05·s06`、`probe701-c-e19…e23` |
 | `statements/082-callback-and-generator-bodies` | 语句位上的回调与生成器 | `probe701-c-e24·e25·e26·e33` |
 | `statements/083-error-objects-in-catch` | `catch` 里的错误对象那一格 | `probe701-c-e15·e18·e40` |
-| `statements/084-switch-case-block-blocked` | `case` 后面跟一个裸块（账） | `probe693b-s14` |
+| `statements/084-switch-case-block`（原 `…-blocked`，第 886 轮撤账） | `case` 后面跟一个裸块 | `probe693b-s14` |
 | `statements/085-block-function-hoisting-differ` | 块里函数声明的提升（账） | `probe693b-s30` |
 
 **两种口径对拍**：`--category exec --filter statements/` 批量与 `--no-batch`

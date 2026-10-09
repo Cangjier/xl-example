@@ -307,6 +307,43 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 886 轮：撤掉一条挂了 45 份读数的过期台账——`coverage` 那句「台账该更新了」终于不再亮着
+
+**一句话**：`coverage` 每次都在提醒「台账该更新了（原来记 blocked、现在过了）：
+`exec/statements/084-switch-case-block-blocked`」。这一轮按规矩撤账：删 `xl:want blocked` / `xl:why`、
+文件名去掉 `-blocked` 尾巴（用例留着当守卫）。**这条账第 841 轮就修好了**——
+逐份读 `report.json` 数出来的：第 840 轮还是 `blocked`，第 841 轮（「switch 分段的两个差一格」）
+那份读数里第一次成了 `newlyPassing`，然后**连着 45 份读数（841–885）都没人撤**。
+
+**为什么能挂 45 轮**：`coverage` 是**尺子不是门**（用户口径：它红只在「比昨天差」），
+`newlyPassing` 只**打印一行提醒**、不进退出码；而第 872 轮那份记录把立场写明了——
+「它**在上一轮提交的 `report.json` 里就已经是 `newlyPassing`**……这一轮如实留着，**不替别人撤账**」。
+于是它成了**没人拥有的一格**：改好它的那一轮（841）没有撤，看见它的那几轮都按「不替别人撤账」留着。
+这一轮把它收掉。**收掉一格的人当场撤账**本来是规矩——`cases:tsast` 的 `xl:known-gap` 那一侧
+就是这么设计的（「已经对上了就报『收掉了』并**红**」，逼你当场删行）；`coverage` 这一侧**没有那道红**，
+所以同一句话能在 45 份读数里重复出现而没有任何东西变红。
+
+**顺带补回一格被让掉的覆盖**：同一处账当初还**让掉了一格覆盖**——
+[runtime/exceptions/003-exc-finally-return.ts](tests/cases/runtime/exceptions/003-exc-finally-return.ts)
+原来写着「『第二个 `case` / `default` 标签』在本仓降级期是另一处已知缺口，写进来会把这条用例
+整个带走（实测 `name is not a local or a capture: case`）」，所以那一格只留了 `case 1`、
+`f(2)` 走「落空」那一档。这一轮**先量再改**：`tmp/two-labels-probe.ts` 三个形状
+（两个 `case` 标签、`case` 后跟裸块、裸块里再嵌一个 `switch`）**`node` 与 `tsrun` 逐字节相同**
+⇒ 那两个症状（`unimplemented: statement Identifier` 与 `name is not a local or a capture: case`）
+现在都不再出现。于是把 `case 2` 标签补回去（`g(2)` 走的是一条**真的命中分支**），
+注释改成「当时为什么让、现在为什么能补」——**让掉覆盖的那个理由消失了，就要把覆盖要回来**，
+不然那条注释会一直挡着后人（它说的是一件早就不成立的事）。
+
+**实测**：`newlyPassing` **1 → 0**（`moved` 0、`regressions` 0）；`coverage` **4053 / 4230 不变**
+（blocked 39、differ 138、bad 0——撤账不动覆盖度，它动的是「台账说的」与「实测的」对不对得上）；
+`cases:check` 1466/1466、`cases:tags` 4920 条断言 0 条不一致、`cases:shapes` 未覆盖 0、
+`cases:tsast` 八项全 0、`cases:astjson` 六项全 0、`runtime:*` / `samples` 全过 ⇒ **九道门全绿**（墙钟 34.2s）。
+
+**这一轮的经验**：**「只提醒、不拦」的读数需要有人拥有它**。`coverage` 该不该红是用户口径定的
+（它不该红），但**「谁撤账」不能靠自觉**：看见一行已经对上的账，撤掉它就是这一轮的工作——
+不必等「改出它的那个人」，因为那条账在 `git` 里已经把出处挂好了（`xl:round 789`，
+以及本轮从 `report.json` 历史里数出来的 841）。
+
 ### 第 885 轮：`report.json` 里不许出现「跑一次变一次」的东西——那一份读数是**进仓**的（`.work-<pid>` 折成 `<work>`）
 
 **一句话**：`tests/coverage/report.json` 是**进仓**的读数（每一轮都提交），可它里面有 4 行 `detail`
@@ -783,6 +820,7 @@ differ 138、bad 0、加权 95.0%）；用例 **1465 → 1466** 条（新补的�
   之后 `FunctionTypeCloseRule` 就再也轮不到。用例留着、`xl:known-gap` 留着，
   行里写的就是这条新根因；
 - `coverage` 提醒里那条旧台账 `exec/statements/084-switch-case-block-blocked` 照旧没动（理由见第 872 轮）。
+  **（第 886 轮补记：已撤账**——用例改名 `084-switch-case-block`，`newlyPassing` 清零。）
 
 ### 第 872 轮：二元运算符两侧的操作数改走 trivia 口径——枚举成员初始值那一族四条收掉（known-gap 21 → 17）
 
@@ -809,7 +847,7 @@ differ 138、bad 0、加权 95.0%）；用例 **1465 → 1466** 条（新补的�
 differ 138、bad 0、加权 **94.9% → 95.0%**）；语料 1465 条**没动**。
 
 **另记一笔（这一轮没动）**：`coverage` 的提醒里挂着一条旧台账
-`exec/statements/084-switch-case-block-blocked`——它**在上一轮提交的 `report.json` 里就已经是
+`exec/statements/084-switch-case-block-blocked`（**第 886 轮已撤账**，见那一轮）——它**在上一轮提交的 `report.json` 里就已经是
 `newlyPassing`**（不是这一轮改出来的），这一轮如实留着，不替别人撤账。
 
 ### 第 871 轮：泛型参数表认不出「这一格是声明头」——`type /* c */ T<U>` 那三条收掉（known-gap 24 → 21）

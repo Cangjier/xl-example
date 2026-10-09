@@ -1204,11 +1204,6 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [
-    {
-      "id": "exec/statements/084-switch-case-block-blocked",
-      "category": "exec"
-    }
-  ],
+  "newlyPassing": [],
   "regressions": []
 }
