@@ -306,6 +306,43 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 773 轮：两笔旧账到期（`JSON.parse` 的实参 / `Promise` 静态那两格），另从普查里量出一处**投影层**的新根
+
+**一句话**：这一轮把第 771 / 772 两轮登记的三条台账收掉两条（第三条的一半也收了），
+另在**括号被调者**那一格上量出一条**投影层**的新根——三种症状，一个落点。
+
+- **收掉的根①：`JSON.parse` 的实参没走 `ToString`**（`stdlib/round773/r773a-01`，
+  收掉第 771 轮登记的 `stdlib/round771/r771b-02` 的一半）。JS 的第一句是
+  `ToString(text)`——`JSON.parse(1)` 给 `1`（`"1"` 解析出来就是那个数）、`null` 给 `null`、
+  `true` 给 `true`，而本仓**只收字符串**、别的**一律** `SyntaxError: JSON.parse needs a string`
+  （判据第 2 行：Node 打 `ok:number:1`、本仓打 `throw:SyntaxError`）。
+  修法与 `String(x)` **同一处**（`ToPrimitiveOf` + `JsTextUnits`，不写第二份转换表），
+  **符号那一档单独挡**：`String(sym)` 有一条特例（给 `"Symbol(…)"`），
+  而这里要的 `ToString(sym)` 在 JS 里**抛 `TypeError`**（`JSON.parse(Symbol())` 就是它）。
+- **收掉的根②：`Promise` 那八个静态没有 `name` / `length`**（收掉第 772 轮登记的
+  `stdlib/round772/r772d-01`）。第 733 / 734 轮那一张表铺到了 `Array` / `String` / `Number` /
+  `Boolean` / `Error`，`Promise` 那一族**漏了**——`BuildPromise` 里是
+  「宿主引用直接挂上去」，两格从来没人写过（`Promise.all.length` 给 `0`、`.name` 给 `""`）。
+  修法：`InstallGlobals` 里对八个静态走 `BuiltinHostRef` + `DefineBuiltinName`，
+  `BuiltinArity` 添一列（**七个是一格、`withResolvers` 是零格**，按 Node 逐个量的）。
+- **新登一条**（`stdlib/round773/r773b-01`，`differ`）：**括号被调者**（`(f)(…)`）
+  那一段在**投影层**整段接错。token 层给的是 `Method(name="", children=[Bracket(被调者), 实参…])`，
+  而投影把它读成 `CallExpression{ expression: <实参里那一次调用>, arguments: [<被调者>] }`
+  ——**被调者与实参对调**。**三种症状**：① 实参是**一次调用**时整段对调
+  （`(String)(String(1))` 本仓去调那个 `1` ⇒ `cannot call a non-closure value`）；
+  ② 括号里是**字面量接收者的方法访问**时接收者丢失
+  （`('ab'.toUpperCase)()` 报 `String.prototype method called on null or undefined`）；
+  ③ 而**标识符接收者**（`(o.m)(2)`）与**字面量实参**（`(String)("s")`）那两档本来就对
+  ——用例把这一半也钉住，收的时候不许连累它们。
+  **它与第 771 轮那条 `(JSON.stringify as any)(Symbol('s'))` 是同一条根**：
+  那一句量到的「`JSON.stringify(Symbol())` 抛 TypeError」其实是**括号被调者**的症状，
+  换成方法形态之后两边一字不差（第 1 行就是它）——台账已按现状改写。
+- 用例：`stdlib/round773` 两条（**1 条通过、1 条登记**），另把第 771 / 772 那两条
+  到期的台账按规矩撤掉（用例留着当守卫）。
+  五类 7894 / 8287 → **7897 / 8289**、blocked 264（**没动**）、differ 129 → **128**
+  （新登 1、旧账转绿 2）、bad 0、regressions 0，加权 **95.5%**。
+  八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+
 ### 第 772 轮：**空值接收者**那一族——两处根（调用位 / 写删位），另登记两处
 
 **一句话**：接着第 771 轮那条线往**空值接收者**上量（读 / 调 / 写 / 删 / 下标），

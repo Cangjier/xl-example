@@ -1,8 +1,11 @@
-// xl:title `Promise` 静态方法自己那两格：`length` 与 `name`
+// xl:title `Promise` 静态方法自己那两格：`length` 与 `name`（第 773 轮收掉，这里当守卫）
 // xl:round 772
 // xl:judge stdout
-// xl:want differ
-// xl:why 第 733 / 734 轮给 `Array` / `String` / `Number` / `Boolean` / `Error` 那几族的静态与原型方法补了 `name` / `length`，`Promise` 那一族**漏了**：`Promise.all.length` 该是 `1`、本仓给 `0`；`Promise.all.name` 该是 `"all"`、本仓给 `""`（第 772 轮普查的 `p772d`）。**六个静态（01 / 03 / 04 / 05 / 06 / 07 的长度，02 / 08 / 09 的名字）都要补**；`Promise.prototype.then.length`（`2`）、`Promise.length`（`1`）与 `Promise.name`（`"Promise"`）三行两边本来就是对的，钉住它们不受连累
+// xl:end
+// **第 772 轮登记的那条缺口在第 773 轮收掉了**（`globals.xl.md` 的 `InstallGlobals`：
+// 八个静态走 `BuiltinHostRef` + `DefineBuiltinName`，`BuiltinArity` 那一列写着
+// 「七个是一格、`withResolvers` 是零格」），`xl:want differ` / `xl:why` 按规矩撤掉，
+// 这一条留着当守卫。
 // xl:end
 const show = (f: () => any) => {
   try {

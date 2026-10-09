@@ -13,7 +13,7 @@ import { JsTextUnits, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox
 import { InspectText, InspectDepth, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, MapEntries, MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapClear, MapForEach, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
 import { SetCtor, SetValues, SetAdd, SetHas, SetDelete, SetKeys, SetEntries, SetClear, SetForEach, WeakSetCtor } from "./set.xl.md"
-import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, PromiseFinally } from "./promise.xl.md"
+import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, PromiseFinally, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseAllSettled, PromiseAny, PromiseWithResolvers, PromiseTry } from "./promise.xl.md"
 ```
 
 # namespace cangjie
@@ -5829,8 +5829,18 @@ if (id === JsonParse) {
   //
   // **坏输入抛的是 `SyntaxError`**（第 277 轮）：那 22 处写的是**宿主的**那个类，
   // 由 `RaiseFromHost` 翻成脚本的族（第 227 轮那条桥）。
-  if (args.length < 1 || args[0].Tag !== ValueTag.String) {
-    throw new SyntaxError("JSON.parse needs a string");
+  // **实参先过 `ToString`**（第 773 轮，**普查当场红的**）：JS 的 `JSON.parse`
+  // 第一句就是 `ToString(text)`——`JSON.parse(1)` 在 Node 里给 **`1`**
+  //（`"1"` 解析出来就是那个数）、`JSON.parse(null)` 给 `null`、`JSON.parse(true)` 给 `true`，
+  // 而本仓原来只收字符串（别的**一律** `SyntaxError: JSON.parse needs a string`，
+  // 判据 `stdlib/round771/r771b-02` 的第 2 行：Node 打 `ok:number:1`、本仓打 `throw:SyntaxError`）。
+  // **转换口径与 `String(x)` 同一处**（`ToPrimitiveOf` + `JsTextUnits`，不写第二份转换表），
+  // 只有**符号那一档**单独挡：`String(sym)` 有一条特例（给 `"Symbol(…)"`），
+  // 而 `ToString(sym)`（也就是这里要的那一步）在 JS 里**抛 `TypeError`**
+  //（`JSON.parse(Symbol())` 在 Node 里就是它）。
+  const parseArg = args.length > 0 ? args[0] : Value.Undefined();
+  if (parseArg.Tag === ValueTag.Symbol) {
+    throw new TypeError("Cannot convert a Symbol value to a string");
   }
   // **第二格实参（reviver）**（第 279 轮）：JS 的规矩是**自底向上**走一遍 ——
   // 先让每一格过一遍回调，最后再拿**根**调一次（键是空串）。
@@ -5856,7 +5866,8 @@ if (id === JsonParse) {
   // **先把 holder 锚上、再解析**：`JsonParseText` 自己会分配一大堆，
   // 而它交出来的那棵树**还没有人指着**——锚在前面就没有那个窗口。
   SetHiddenProperty(room, table, Value.FromObject(protos.WellKnownSymbols), anchorKey, rootHolder);
-  const parsed = JsonParseText(room, table, protos, JsTextUnits(table, args[0]));
+  const parsed = JsonParseText(room, table, protos,
+    JsTextUnits(table, ToPrimitiveOf(room, call, protos, table, parseArg, ToPrimitiveString)));
   SetProperty(room, NeverCall, table, rootHolder, Value.FromString(table.CreateString(Units(""))), parsed);
   // **没有 reviver（或它不可调）就到此为止**（JS 的口径：`JSON.parse(x, 1)` 是**忽略**）。
   if (args.length < 2 || !IsCallableValue(table, args[1]) || call === null) {
@@ -8502,6 +8513,17 @@ if (id === MapKeys || id === MapValues || id === MapEntries || id === MapClear
   || id === SetValues || id === SetKeys || id === SetEntries || id === SetClear) {
   return 0;
 }
+// **`Promise` 那八个静态**（第 773 轮）：**七个是一格、`withResolvers` 是零格**——
+// 按 Node 逐个量出来写（`Promise.all.length` / `race` / `allSettled` / `any` /
+// `resolve` / `reject` / `try` 都是 `1`，而 `withResolvers` 一格实参都不收）。
+// **这一族第 733 / 734 轮整族漏掉了**：`Math` / `Reflect` / `console` / `Map`·`Set` 都接了
+// `DefineBuiltinName`，而 `BuildPromise` 那一份是「宿主引用直接挂上去」——名字与长度
+// 两格从来没人写过（判据 `stdlib/round772/r772d-01` 量的就是它）。
+if (id === PromiseAll || id === PromiseRace || id === PromiseAllSettled || id === PromiseAny
+  || id === PromiseResolve || id === PromiseReject || id === PromiseTry) {
+  return 1;
+}
+if (id === PromiseWithResolvers) return 0;
 // **`Array.prototype` 那一族**（第 734 轮）——**按 Node 逐个量出来的表**。
 // 它是第 733 轮那件工具铺开的第二批：`Array.prototype.push.name` 在 Node 里是 `"push"`、
 // `.length` 是 **`1`**（`(值, …)` 那一档在规范里形参只有一个），而本仓原来两格都没有。
@@ -9975,6 +9997,21 @@ SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "name"),
 // **`Promise.length` 也是 1**（第 687 轮）：与上面那一批同一个形状，
 // 位置只能在这里——`promiseObject` 是 `BuildPromise` 现造的（见下面那一句）。
 SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "length"), Value.FromInt(1));
+// **那八个静态自己也有 `name` / `length`**（第 773 轮）：`Math` / `Reflect` / `console` /
+// `Map`·`Set` 那几族走的是 `DefineBuiltinName`，而 `BuildPromise` 那一份是
+// 「宿主引用直接挂上去」——两格**从来没人写过**（`Promise.all.length` 给 `0`、
+// `.name` 给 `""`，判据 `stdlib/round772/r772d-01`）。**名字与号按下标配**（与 `Math` 那一族一字不差），
+// **值取 `BuiltinHostRef`（有身份的那一个）**：就地 `CreateHostRef` 会把名字挂在
+// **另一个句柄**上，而脚本读到的是这一个（静默无效，第 733 轮的账）。
+// **`withResolvers` 是唯一零格的**（`Arity` 表里那一句写着）。
+const promiseStaticNames: string[] = ["resolve", "reject", "all", "race", "allSettled", "any", "withResolvers", "try"];
+const promiseStaticIds: number[] = [PromiseResolve, PromiseReject, PromiseAll, PromiseRace,
+  PromiseAllSettled, PromiseAny, PromiseWithResolvers, PromiseTry];
+for (let i = 0; i < promiseStaticNames.length; i++) {
+  const promiseStatic = BuiltinHostRef(vm, promiseStaticIds[i]);
+  DefineBuiltinName(vm.Room(), table, promiseStatic, promiseStaticNames[i], BuiltinArity(promiseStaticIds[i]));
+  SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, promiseStaticNames[i]), promiseStatic);
+}
 // **不能进上面那张 `builtinNames` 表**：`promiseObject` 在这一句之前**还不存在**
 // （它是 `BuildPromise` 造的），所以它只能在这里补一格——表里放的是**已经造好的变量**。
 SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "prototype"),
