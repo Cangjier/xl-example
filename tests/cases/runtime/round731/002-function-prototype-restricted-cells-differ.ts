@@ -1,4 +1,4 @@
-// xl:title `Function.prototype` 上那两格受限属性（`arguments` / `caller`）
+// xl:title `Function.prototype` 上那两格受限属性（`arguments` / `caller`）（账）
 // xl:round 731
 // xl:judge stdout
 // xl:want differ
@@ -11,5 +11,6 @@
 // xl:why 要收它得给这一处单开一条判据（「这个接收者是不是 `protos.Function`」），
 // xl:why 与第 709 轮那两格**同一条口径**，只是回答的落点不同。要做。
 // xl:end
+// 第 803 轮改名（原 `p731a-a10`）：`xl:want` / `xl:why` 与正文一字未动。
 console.log("arguments" in Function.prototype, "caller" in Function.prototype);
 console.log(Object.prototype.hasOwnProperty.call(Function.prototype, "arguments"));

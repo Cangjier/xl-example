@@ -2,6 +2,12 @@
 // xl:round 733
 // xl:judge stdout
 // xl:end
+// 第 803 轮改名（原 `p733a-a04`；正文一字未动）。
+// 判定点只有一个：**`WeakMap.prototype` / `WeakSet.prototype` 那两格的形状**——
+// `constructor` 指回自己、四个方法都在、**没有** `size`、`instanceof` 成立、
+// 自身不枚举且原型接在 `Object.prototype` 上；顺带钉住 `Map` / `Set` 那两个同名方法的 `name` / `length`。
+// （同域另外三条（宿主引用的 `name` / `length` 那一族）已并进
+//  `runtime/round731/001-function-name-and-length-cells`。）
 const show = (v: any) => (v === null ? "null"
   : v === undefined ? "undefined"
   : typeof v + ":" + String(v).split("\n").join("\\n"));

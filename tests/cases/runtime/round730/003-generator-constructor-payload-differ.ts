@@ -1,4 +1,4 @@
-// xl:title 借来的那一格载荷：`(function* () {}).constructor("a", "yield a")`
+// xl:title 借来的那一格载荷：`(function* () {}).constructor("a", "yield a")`（账）
 // xl:round 730
 // xl:judge stdout
 // xl:want differ
@@ -11,6 +11,7 @@
 // xl:why 这一条只是把同一处钉在**新造的那三格构造对象**上：
 // xl:why 不做动态代码生成时，那三格只能给到 `name` / `length` / `prototype` / `typeof`。
 // xl:end
+// 第 803 轮改名（原 `p730a-a10`）：`xl:want` / `xl:why` 与正文一字未动。
 const gc = (function* () {}).constructor;
 try {
   console.log(String(gc("a", "yield a")));

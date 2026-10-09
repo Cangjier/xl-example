@@ -1,4 +1,4 @@
-// xl:title 三档原型自己的属性名（V8 那一格多出来的 `prototype`）
+// xl:title 三档原型自己的属性名：V8 那一格多出来的 `prototype`（账）
 // xl:round 730
 // xl:judge stdout
 // xl:want differ
@@ -11,5 +11,6 @@
 // xl:why 规范里没有的格子造出来（而 `Object.getOwnPropertyNames` 这一格只在自省时看得见，
 // xl:why 没有任何运行期语义依赖它）——所以先把这一档**原样登在这里**，不猜。
 // xl:end
+// 第 803 轮改名（原 `p730a-a09`）：`xl:want` / `xl:why` 与正文一字未动。
 console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(function* () {})).join(","));
 console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(async function () {})).join(","));

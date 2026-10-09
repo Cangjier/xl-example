@@ -1,4 +1,4 @@
-// xl:title `new` 与可选链 / 非空断言 / 下标混用（第 729 轮量出来的两条根都在这里）
+// xl:title `new` 与可选链 / 非空断言 / 下标混用（账）
 // xl:round 729
 // xl:judge stdout
 // xl:want differ
@@ -13,6 +13,8 @@
 // xl:why `OptionalCallCloseRule.IsCalleeEnd` / `IsChainLink` 认 `NotNull` / `NCO`，
 // xl:why 但真正成形的那一趟落在 `?.` 的**另一侧**，`MethodCloseRule` 与它各收各的。
 // xl:end
+// 第 803 轮改名（原 `p729a-a01`）：`xl:want` / `xl:why` 与正文一字未动。
+// 同族的**过掉的**那些形状在同域 `002-optional-chain-notnull-and-new-shapes`（那是守卫）。
 class C { v = 1; m() { return this.v; } }
 const o: any = new C();
 console.log(o?.v, o?.m?.(), (new C())?.["v"], new C().v);
