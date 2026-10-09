@@ -1346,6 +1346,18 @@ if (head === "=") {
 if (head === "<") {
   return true;
 }
+// **下一行以模板串开头**（第 909 轮片段普查量出的 `gap-r907-tagged-template-newline`）：
+// `tag` 换行 `` `a${b}c` `` 在 TS 那边是一条 `TaggedTemplateExpression`
+//（实测 `ts.createSourceFile` 的区间跨过那个换行），而解析期这张表里**没有模板串那一档**
+// ⇒ 换行处收壳 ⇒ 整条断成「`tag`」+「`` `a${b}c` ``」两条语句。
+//
+// **为什么可以无条件收**（与上面 `<` 那条同一个理由）：`` ` `` 起头的那一格
+// **接在一条表达式后面永远是标签模板**（模板串单独成句时，上面那句
+// `IsStatementBoundary` 早就因为上一格是 `;` / `}` 而早退了，走不到这里）。
+// 收尾期的 `IsLineBreakBoundary` 那张表里本来就有模板串，两半一直不一致。
+if (head === "`") {
+  return true;
+}
 // **双目运算符开头**（第 589 轮）：`return a * 86400000` 换行 `+ b * 3600000` 是**一条**表达式
 // （ASI 不在它前面断句——`+` 能接着上一条表达式写），实测 `dist/ts/typescript-exec/builtins/globals.ts`
 // 与 `inspect.ts` 两份：上一行被收成一个 `ReturnStatement` / `ExpressionStatement`，

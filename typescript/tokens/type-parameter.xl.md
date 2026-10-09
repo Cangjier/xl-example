@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText, IsMappedKeyBracket } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText, IsMappedKeyBracket, IsTriviaUnit } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { GenericType } from "./generic-type.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -396,6 +396,13 @@ return index;
 软换行不装进参数里（类型可以折行排版，那些换行是版面而不是内容——与类型队列里
 `WrapSymbolCloseRule` 的口径一致）。范围两头按第一个 / 最后一个实义单元给。
 
+**只剩 trivia 的段不算一格参数**（第 909 轮片段普查量出的
+`gap-r907-arrow-generic-comment-before-close`）：`const f = <T,/*c*/>(a: T) => a;` 里
+逗号后面那一段只有一条注释，而上面的「空段」判据看的是**单元个数**（只滤了 `LineWrap`）
+⇒ 多包出一个**零宽的 `TypeParameter`**（实测 `EXTRA TypeParameter [13,13)`，TS 那边
+一个参数都没有）。注释照旧**进树**（push 回 `rebuilt`，位置照源序），只是不包进参数 ——
+与 `switch` / `do` 那几手同源：注释是 trivia，不该让「这一段是不是空的」变成否。
+
 ```ts
 const content: Token[] = [];
 for (const item of segment) {
@@ -403,7 +410,16 @@ for (const item of segment) {
     content.push(item);
   }
 }
-if (content.length === 0) {
+let real = 0;
+for (const item of content) {
+  if (!IsTriviaUnit(item)) {
+    real = real + 1;
+  }
+}
+if (real === 0) {
+  for (const item of content) {
+    rebuilt.push(item);
+  }
   return;
 }
 const parameter = new TypeParameter(owner.Template);

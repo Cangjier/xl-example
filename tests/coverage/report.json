@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.32,
+  "progressPercent": 95.35,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1507,
-      "pass": 1498,
-      "blocked": 9,
+      "pass": 1501,
+      "blocked": 6,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.4
+      "coverage": 99.6
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1507,
-    "knownGap": 9,
-    "knownGapStillOpen": 9,
-    "exactFiles": 1498,
-    "scoredWithoutGap": 1498,
-    "passedWithoutGap": 1498
+    "knownGap": 6,
+    "knownGapStillOpen": 6,
+    "exactFiles": 1501,
+    "scoredWithoutGap": 1501,
+    "passedWithoutGap": 1501
   },
   "blocked": [
     {
@@ -142,12 +142,6 @@
       "category": "token",
       "title": "抽象方法的形参表与名字之间换行（第 907 轮片段普查量出）：TS 那边是 `MethodDeclaration`，产物把 `abstract override m` 落成 `PropertyDeclaration`、`():void;` 落成一条无名 `CallSignature`",
       "detail": "缺 1　多 2　与第 902 / 904 轮那两格同族（`abstract m` 换行 `<T>(): void;`）：解析期在换行处收壳，收尾期的 `MethodDeclarationCloseRule` 拿到的是「一个名字 + 一个括号」两格"
-    },
-    {
-      "id": "token/expressions/gap-r907-arrow-generic-comment-before-close",
-      "category": "token",
-      "title": "箭头函数的泛型参数表：`>` 之前夹一条注释（第 907 轮片段普查量出）：TS 那边只有一个 `TypeParameter`，产物多出一个**零宽的 `TypeParameter`**（尾随注释被当成了一格参数）",
-      "detail": "多 1　泛型段收尾时按逗号切段投参数：段里只剩注释时也切出一段（`Split` 的段非空判据看的是单元个数，不看是不是 trivia）"
     },
     {
       "id": "token/expressions/gap-r907-arrow-generic-newline-before-comma",
@@ -162,22 +156,10 @@
       "detail": "缺 2　漂 3　多 6　类表达式的名字那一格走的是「紧跟 `class` 的词」这一跳，换行挡住它；而 `class` 那一格自己成了操作数 ⇒ 解析期把这一行收成了一条表达式语句"
     },
     {
-      "id": "token/expressions/gap-r907-tagged-template-newline",
-      "category": "token",
-      "title": "标签模板：标签与模板串之间换行（第 907 轮片段普查量出）：TS 那边是一条 `TaggedTemplateExpression`，产物在标签后收壳 ⇒ 整条断成两条语句",
-      "detail": "缺 1　漂 3　多 4　解析期的 ASI 续接表（`NextLineContinuesExpression`）认 `|` / `&` / `.` / `(` / `[` 那几个字符，**没有模板串那一档**（`` ` `` 起头）；收尾期的 `IsLineBreakBoundary` 表里是有「模板串」的，两处不是同一"
-    },
-    {
       "id": "token/expressions/gap-r907-void-operand-newline",
       "category": "token",
       "title": "一元 `void` 的操作数写在下一行（第 907 轮片段普查量出）：TS 那边是 `VoidExpression`（`void` 要操作数 ⇒ 换行不是边界），产物在 `void` 后收壳 ⇒ 操作数落进另一条语句",
       "detail": "缺 1　漂 3　多 5　`Statement.LineCannotEnd` 把 `void` 当「两可」词形**一律**排除（那一档是为 `): void` / `=> void` 立的，少了它会红六份用例）——可它是运算符时**一定要**操作数；判据缺的是「这一格 `void` 在值位还是在类型位」"
-    },
-    {
-      "id": "token/modules/gap-r907-export-default-assignment-trailing-comment",
-      "category": "token",
-      "title": "`export default 1/*c*/;` 的尾随注释（第 907 轮片段普查量出）：TS 那边 `ExportAssignment` 的区间是 `[0,22)`（到下一格实义单元的 full start，注释算在里面），产物停在 `1` 之后（`[0,16)`）",
-      "detail": "漂 1　多 1　这一格的区间取的是「表达式最后一个单元」的末尾，而 TS 的 `finishNode` 取的是**下一格 token 的 full start**（注释也在内）——本仓别处那些「收尾期把尾随 trivia 收进节点」的做法没铺到 `export default` 这一支"
     },
     {
       "id": "token/types/gap-r907-index-signature-newline-after-readonly",

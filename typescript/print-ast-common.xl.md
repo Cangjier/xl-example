@@ -7161,12 +7161,45 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     if (value !== undefined) {
       // **尾分号算在 `ExportAssignment` 里**（`export = strict;` 的 TS 是 `[23,39)`，含 `;`）
       //——与第 33 轮记的「没有函数体的可调用签名要带尾分号」同一条口径。
+      //
+      // **尾分号那一格要跨过 trivia 才看得见**（第 909 轮片段普查量出的
+      // `gap-r907-export-default-assignment-trailing-comment`）：`export default 1/*c*/;` 里
+      // `end` 落在 `1` 之后，紧挨着的那个字符是**注释的开头** ⇒ 原来那句
+      // `ctx.source[end] === ";"` 给否 ⇒ 区间停在 `1` 之后（实测产物 `[0,16)`、TS 是 `[0,22)`）。
+      // 所以先把空白与注释跳过去再问一次「是不是 `;`」——注释是 trivia，
+      // 与第 817 轮那条线一致（`export default 1/*c*/ ;` 的 TS 也是 `[0,23)`，含那个 `;`）。
+      // **换行也一起跳**：`export default 1` 换行 `;` 在 TS 那边同样是 `[0,18)`（含 `;`）。
       const end = endOf(expr[expr.length - 1]);
+      let semiAt = end;
+      while (semiAt < ctx.source.length) {
+        const one = ctx.source[semiAt];
+        if (one === " " || one === "\t" || one === "\r" || one === "\n") {
+          semiAt = semiAt + 1;
+          continue;
+        }
+        if (one === "/" && ctx.source[semiAt + 1] === "*") {
+          const close = ctx.source.indexOf("*/", semiAt + 2);
+          if (close < 0) {
+            break;
+          }
+          semiAt = close + 2;
+          continue;
+        }
+        if (one === "/" && ctx.source[semiAt + 1] === "/") {
+          const line = ctx.source.indexOf("\n", semiAt + 2);
+          if (line < 0) {
+            break;
+          }
+          semiAt = line;
+          continue;
+        }
+        break;
+      }
       return {
         kind: "ExportAssignment",
         expression: value,
         pos: view_.start,
-        end: ctx.source[end] === ";" ? end + 1 : end,
+        end: ctx.source[semiAt] === ";" ? semiAt + 1 : end,
       };
     }
   }

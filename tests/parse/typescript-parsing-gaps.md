@@ -544,6 +544,11 @@ position for functions and methods.」）；合法的写法是**夹注释**那�
   `case 1:/*c*/ { … }`（根因在 `IsCaseClauseColon` 的第一跳只跳软换行 ⇒
   `BlockCloseRule` 不给块补语句队列）、`do/*c*/ f();`（`do-while.xl.md` 取体起点时
   没跳 trivia，体的区间从注释起）；**缺口 12 → 9**。
+  **第 909 轮再收 3 格**（三格分别住在三层：`<T,/*c*/>` 多一个零宽 `TypeParameter`
+  ——`type-parameter.xl.md` 的 `AppendSegment` 按**单元个数**判空段；
+  `export default 1/*c*/;` 的区间——`print-ast-common.xl.md` 那一问没跨 trivia 找 `;`；
+  `tag` 换行 `` `a${b}c` ``——解析期的 `NextLineContinuesExpression` 里没有模板串那一档）；
+  **缺口 9 → 6**。
 
 ### 这 89 条长什么样（按根因分三段；下面这三段是第 818 轮实测的分段口径，条数此后又收掉了一批）
 
