@@ -501,3 +501,15 @@ TS 那边 `declare` 换行走 ASI），那一族没修、也不在语料里，�
    `unimplemented: expression TypeLiteral`。元组元素那一格登记成缺口
    （`gap-type-tuple-element-literal`），要等「括号自己的 `Context`」那条线启用
    （`type-literal.xl.md` 开头那一节写着那条线为什么还不能启用）。
+   **第 851 轮又试了一次、以同样方式失败，但把根因钉下来了**：这一轮加的那道闸是
+   `IsTypeBracketPosition`（方括号专属的位置判据），想的是「值位数组会被它挡住」。
+   它确实挡住了 `f([{…}])` / `[{…}]` / `[函数体]` / 三元两支，
+   **可是挡不住带类型标注的声明**：`const tree: Tree = { v: 1, kids: [{ v: 2, kids: [] }] };`
+   里 `kids: [...]` 的那个 `[` 左边是**名字**（`kids`），`IsTypeBracketPosition` 于是
+   顺着「宿主是 `ObjectLiteral` 时算类型位」那一支答**真** ⇒ 数组里的对象成了 `TypeLiteral`。
+   实测 `coverage` 3994 → 3984、blocked 54 → 64（正是第 849 轮那六条 e2e 加四条 runtime）。
+   **下一步要动的不是这一支，而是 `IsTypeBracketPosition` 里「宿主是 `ObjectLiteral` ⇒ 类型位」
+   那一条**：对象字面量的**值**位上不可能有类型，`{ kids: [ … ] }` 的 `[` 是数组字面量。
+   判据得看「那个名字前面是不是 `:`（键分隔符）」——`{ kids: […] }` 是键，
+   `{ [K in T]: … }` 那种映射类型才轮得到类型位。
+   **在那一句修好之前，这一支不要动**（两次都整份撤回，别试第三次）。
