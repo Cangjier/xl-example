@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4289,
+  "total": 4290,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.39,
+  "progressPercent": 95.4,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1510,
-      "pass": 1508,
-      "blocked": 2,
+      "total": 1511,
+      "pass": 1510,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.87
+      "coverage": 99.93
     },
     {
       "category": "exec",
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1510,
-    "knownGap": 2,
-    "knownGapStillOpen": 2,
-    "exactFiles": 1508,
-    "scoredWithoutGap": 1508,
-    "passedWithoutGap": 1508
+    "total": 1511,
+    "knownGap": 1,
+    "knownGapStillOpen": 1,
+    "exactFiles": 1510,
+    "scoredWithoutGap": 1510,
+    "passedWithoutGap": 1510
   },
   "blocked": [
     {
@@ -142,12 +142,6 @@
       "category": "token",
       "title": "箭头函数的泛型参数表：`<T` 与 `,>` 之间换行（第 907 轮片段普查量出）：TS 那边整条是一条 `ArrowFunction`，产物把 `<` 折成 `LessThanToken`、`(a: T) => a` 落进另一条语句（缺 `ArrowFunction` / `TypeParameter` / `Identifier`）",
       "detail": "缺 9　漂 1　多 4　解析期在换行那一刻判「这一行写完了」（左边是 `T`、下一行以 `,` 起头——逗号那一档不在续接表里），泛型段还没成形"
-    },
-    {
-      "id": "token/types/gap-r907-index-signature-newline-after-readonly",
-      "category": "token",
-      "title": "索引签名的 `readonly` 与 `[` 之间换行（第 907 轮片段普查量出）：TS 那边是 `IndexSignature`（`readonly` 是它的修饰词），产物把 `readonly` 落成 `PropertySignature`、`[k:string]:number` 落成计算属性名（缺 `IndexSignature` / `Parameter` / `StringKeyword`）",
-      "detail": "缺 2　多 1　索引签名那一支的判据要求修饰词与 `[` 相邻（只跳软换行），换行之后 `readonly` 与 `[` 分成两格"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
@@ -515,7 +509,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2117.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2118.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -821,7 +815,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3105.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3106.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -845,7 +839,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3153.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3154.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1001,7 +995,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3796.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3797.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

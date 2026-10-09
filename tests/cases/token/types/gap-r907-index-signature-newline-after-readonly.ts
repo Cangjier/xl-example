@@ -1,17 +1,18 @@
 // xl:note 索引签名的 `readonly` 与 `[` 之间换行（第 907 轮片段普查量出）：TS 那边是 `IndexSignature`（`readonly` 是它的修饰词），产物把 `readonly` 落成 `PropertySignature`、`[k:string]:number` 落成计算属性名（缺 `IndexSignature` / `Parameter` / `StringKeyword`）
 // xl:round 907
-// xl:known-gap 索引签名那一支的判据要求修饰词与 `[` 相邻（只跳软换行），换行之后 `readonly` 与 `[` 分成两格
-// **第 910 轮**：收掉了**一半**——原来 `[k:string]:number` 整条认不出索引签名
-//（缺 `IndexSignature` / `Parameter` / `StringKeyword`，多 `ComputedPropertyName`），
-// 因为 `readonly` 那个换行先被 `FieldCloseRule.Previous` 当成「只有名字的字段」的延续、
-// `readonly` 自己成了一条成员，`[` 那一趟再也看不到它。判据补在**换行那一格**上
-//（下一格是 `[` 且里面真是索引签名形状 ⇒ 这一格是修饰词）。
-// **剩下的半边是 TS 自己的读法**（实测 `ts.createSourceFile`）：`interface I { readonly` 换行
-// ` [k:string]:number }` 里 TS 给的是 **`PropertySignature`（名字就是 `readonly`）
-// + `IndexSignature`** 两条——也就是「换行之后 `readonly` 不是修饰词、是属性名」，
-// 而那两条 TS 自己都报诊断（`ts.getPreEmitDiagnostics` 非空）。本仓现在给的是
-// `IndexSignature` 带上一个 `ReadonlyKeyword` 修饰词 ⇒ 缺 `PropertySignature` + `Identifier`、
-// 多 `ReadonlyKeyword`。这一半要「按 TS 的恢复形状投出两条成员」，另开一轮。
+// 第 912 轮转绿（`xl:known-gap` 按规矩撤掉，用例留着当守卫）：**907 / 910 两轮把 TS 的读法记反了**——
+// 实测 `ts.createSourceFile` 给的是「`PropertySignature`（名字就是 `readonly`）+ `IndexSignature`」两条，
+// 也就是**索引签名的修饰词必须与 `[` 同一行**（同一行写才是带 `ReadonlyKeyword` 的那一条，
+// 见 `ty-readonly-index-signature-line`）。两根：
+// ① `FieldCloseRule.Previous` 第 910 轮那一支（「换行后面那个 `[` 是索引签名 ⇒ 这一格是修饰词」）
+//    整个撤掉 —— 按 TS 的读法 `readonly` 就是**一条只有名字的字段**；
+// ② 撤掉之后剩下的半边是**成员边界**：`IsMemberBoundary` 那道 `HasTypeColonBefore` 护栏
+//    往回扫会撞上成员体的 `{`、答「表达式」⇒ 那个 `[` 被当成 `readonly` 的下标续接、
+//    整条被收成一个字段。护栏因此多一条例外：**换行前面那一格是声明修饰词 ⇒ `[` 起的是下一条成员**。
+// **本格还留着一个没登记的余量**（同一族、另开一轮）：`interface I { readonly` 换行
+// ` [Symbol.iterator](): T }`（`[` 是**计算名**、不是索引签名）在 TS 那边也是两条
+//（`PropertySignature` + `MethodSignature`），本仓仍收成一条字段——那一格里 `[` 已经是
+// `ArrayLiteral` 单位的形态，护栏的例外与 `isNameLike` 都只认 `Bracket`。
 // xl:end
 interface I { readonly
  [k:string]:number }

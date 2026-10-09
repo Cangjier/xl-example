@@ -465,10 +465,22 @@ if (after === null) {
 // `1["s" + "t"] = 2`），而 `interface I { ['a']: T` 换行 `['b']: U }` 是**两条**成员
 // （类型标注后面接不了下标，实测 `undici-types/webidl.d.ts` 一族一遍地都是）。
 // 判据是「往回扫先撞上 `=` 还是 `:` / `;`」，见 `HasTypeColonBefore`。
+//
+// **例外：换行前面那一格是声明修饰词时，`[` 起的是下一条成员**（第 912 轮）——
+// `interface I { readonly` 换行 ` [k:string]:number }` 里 TS 给的是
+// **`PropertySignature`（名字就是 `readonly`）+ `IndexSignature`**（实测 `ts.createSourceFile`）：
+// **索引签名的修饰词必须与 `[` 同一行**。少了这一条例外，`HasTypeColonBefore` 往回扫会撞上
+// 成员体的那个 `{`（它的口径是「花括号 = 上一行到此为止、按表达式处理」）⇒ 答「表达式」
+// ⇒ 这个 `[` 被当成上一行（`readonly`）的下标续接 ⇒ 整条 `readonly [k:string]:number`
+// 收成一个字段（实测 `gap-r907-index-signature-newline-after-readonly`）。
+// 只加这一条例外、其余照旧走下面那两条判据：`readonly` 换行 `[Symbol.iterator](): T`
+// 那种**没有 `:` 紧跟**的计算名该不该算成员，仍由 `isNameLike` 与 `follower` 说了算。
+const beforeWrapUnit = Get(units, SkipPreviousTrivia(units, index));
 if (
   after instanceof Bracket &&
   after.startBracket === "[" &&
-  HasTypeColonBefore(units, index) === false
+  HasTypeColonBefore(units, index) === false &&
+  IsDeclarationModifier(beforeWrapUnit) === false
 ) {
   return false;
 }

@@ -429,9 +429,15 @@ if (immediate instanceof LineWrap) {
   // 之间隔着一个换行」⇒ 一问就否、判据一次都不响。这里问的是「这个词**是不是**一个声明
   // 修饰词」（`IsDeclarationModifier`，与 `DeclarationStart` 收修饰词用的是同一个词表）。
   const nextUnit = Get(units, SkipNextTrivia(units, nextReal));
-  if (nextUnit instanceof Bracket && nextUnit.startBracket === "[" && this.IsIndexSignatureName(nextUnit) && IsDeclarationModifier(Get(units, index))) {
-    return false;
-  }
+  // **第 910 轮那一支在这里撤掉了**（第 912 轮）：它判的是「`readonly` 是下一个 `[` 索引签名的
+  // **修饰词**、不是名字」——而 TS 的读法**相反**：修饰词与 `[` 之间隔着一个换行时，
+  // `readonly` 是**一条只有名字的字段**（`PropertySignature`），`[k:string]:number` 另起一条
+  // `IndexSignature`（实测 `ts.createSourceFile`：`interface I { readonly` 换行
+  // ` [k:string]:number }` 给 `PropertySignature` + `IndexSignature` 两条，
+  // 同一行写才是带 `ReadonlyKeyword` 的一条 `IndexSignature`）。
+  // 撤掉之后 `readonly` 照下面那一句就是「只有名字的字段」，而那个 `[` 能不能另起一条成员
+  // 由成员边界那一格说了算（`declaration-common.xl.md` 的 `IsMemberBoundary`：
+  // 换行前面是声明修饰词时，`[` 起的是下一条成员，第 912 轮补的例外）。
   // **下一行以 `(` 开头 ⇒ 这一格是方法名、不是字段名**（第 910 轮）：`abstract override m`
   // 换行 `():void;` 里 TS 那边是**一条** `MethodDeclaration`（成员体里的 ASI 不管换行，
   // 「名字 + `(`」永远读成方法），而这一格原来因为「换行 = 只有名字的字段」先把
