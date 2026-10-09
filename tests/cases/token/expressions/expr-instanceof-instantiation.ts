@@ -7,11 +7,11 @@
 //   ② 投影层没有「被实例化的那头不在开头」那一支（0a 只看头一格）。
 // 本仓原来的产物：缺 `ExpressionWithTypeArguments` + `TypeReference`、多一个
 // `BinaryExpression(b instanceof C)`（实测片段：缺 2 / 漂 2 / 多 1）。
-// xl:expect 只认**产物标签**（token 层那些）：`GenericType` / `Identifier` 是产物里的两格，
+// `xl:expect` 只认**产物标签**（token 层那些）：`GenericType` / `Identifier` 是产物里的两格，
 // `ExpressionWithTypeArguments` 与 `TypeReference` 是**投影**那一层的事，由 `cases:tsast` 那把尺子管。
-// **真正落地的是②**（投影层 0a2）：①那一支（`IsInstanceOfTypeArgument`）写进规范了，
-// 可它拿到的 `source` 是 `null`、**够不着**（同轮登记的另一条 `gap-instanceof-then-add` 量的就是它）。
 // xl:expect BinaryOperator,Keyword,GenericType,Identifier
+// **真正落地的是②**（投影层 0a2）：①那一支（`IsInstanceOfTypeArgument`）写进规范了，
+// 可它拿到的 `source` 是 `null`、**够不着**（同一轮登记的另一条 `gap-instanceof-then-add` 量的就是它）。
 // xl:round 894
 // xl:end
 const a = b instanceof C<D>;
