@@ -249,7 +249,10 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**89 条**）
+## 已知仍开着的缺口（**45 条**）
+
+**这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
+（第 838 轮实测 **45**；第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
 文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
@@ -322,7 +325,6 @@
 | 用例 | 形状 | 症状 |
 | --- | --- | --- |
 | [destr-object-newline-after-keyword.ts](../cases/token/declarations/destr-object-newline-after-keyword.ts) | `const \n{ a, b: c, d = 1, ...rest } = o` | 换行落在声明关键字与解构模式之间时整条声明解体（缺 11 / 多 15）：`Let` 那一趟与 `{` 都是按「紧邻」找模式的 |
-| [decl-declare-function-trailing-comment.ts](../cases/token/declarations/decl-declare-function-trailing-comment.ts) | `declare function f(): void /* c */ ;` | 无体声明的区间只到自己最后一个实义单元，尾随注释与 `;` 没算进去（TS 的 `FunctionDeclaration` 到 `;` 为止） |
 | [expr-function-expression-plus.ts](../cases/token/expressions/expr-function-expression-plus.ts) | `const r20 = function f() {} + 1` | 函数表达式后面还能接运算符，这里整段收成了别的形状（缺 4） |
 | [expr-generic-instantiation.ts](../cases/token/expressions/expr-generic-instantiation.ts)、`expr-generic-inst-let`、`expr-generic-inst-statement`、`gap-d-generics-tuple-mapped-01` | `const a = f<string>;` | **泛型实例化表达式**（TS 4.7）没有规则：产物是 `BinaryExpression(f < string)`，TS 是 `ExpressionWithTypeArguments` |
 | `expr-async-generic-arrow`、`-spaced`、`gap-d-generics-tuple-mapped-02` | `async <T>(x: T) => x` | `async` 与泛型段**谁先认领**没有定义（各缺 7–13） |
@@ -331,7 +333,6 @@
 | [stmt-switch-comment-fallthrough.ts](../cases/token/statements/stmt-switch-comment-fallthrough.ts) | `switch /* c */ (a) { case 1: case 2: … }` | 判别括号认不出 ⇒ `case 1:` 那一格整条落空（缺 5 漂 1 多 3） |
 | [stmt-switch-block-then-default.ts](../cases/token/statements/stmt-switch-block-then-default.ts) | `switch (1) { case 1: { break; } default: break; }` | 单行写完一个块再跟 `default`：语句层把 `default:` 并进了同一个壳，分段只在顶层单元上找 `case` / `default` ⇒ 只有一段。**换行写法是好的**（见根 README 的「开着的缺口」，块当语句边界的改法已被否决） |
 | [stmt-label-comment-before-call.ts](../cases/token/statements/stmt-label-comment-before-call.ts) | `a: b: c: d/* c */ ()` | 标签那一趟看到的是注释，最后一层标签没接上被标的语句（缺 1） |
-| [stmt-generator-trailing-semicolon.ts](../cases/token/statements/stmt-generator-trailing-semicolon.ts) | `function* g() { yield* h(); };` | 尾随那个 `;`（空语句）没成壳（缺 1 漂 1 多 1） |
 | [type-param-conditional-constraint.ts](../cases/token/types/type-param-conditional-constraint.ts) | `x extends A extends B ? C : D` | 约束位上的嵌套条件类型不成形（缺 10 / 字段 1） |
 | `type-asserts-toplevel`、`type-param-asserts-constraint` | `type T = asserts x is A` / `<X extends asserts x is A>` | 断言谓词只在返回类型那一位成形（各缺 5 多 2）：`TypePredicateCloseRule.Previous` 的「起点」只认容器第一个实义单元与紧跟 `=>`，而 `=` / `extends` 右边同样是合法类型位 |
 | [type-param-template-literal-constraint.ts](../cases/token/types/type-param-template-literal-constraint.ts) | `` x extends `a${A}b` `` | 约束位上的模板字面量类型不成形（缺 15 多 7，还带一处未映射 `Bracket`） |
@@ -340,6 +341,13 @@
 
 上表把第三段列全（`expr-generic-*` / `expr-async-*` / `type-asserts-*` 三行各含 2–4 条同族）；
 第一、二段那些条不用在这里再抄一遍——逐条的根因都写在各自文件头的 `xl:known-gap` 后面。
+
+**第 838 轮收掉的 7 条**（都在「尾分号归谁」那一条根上，见根 README 那一轮的记法）：
+`decl-declare-function-trailing-comment`（第三段，已从上面那张表里拿掉）、
+`stmt-generator-trailing-semicolon`（第三段，同上）、`gap-sweep-newline-obj-03`、
+`gap-sweep-newline-export-01`、`gap-m-misc-0{1,2}`、`gap-a-comment-01`。
+判据落在 **kind**（上一条语句自己调不调 `parseSemicolon`）而不是原文那一格字符上，
+两处新出口是 `ownsTrailingSemicolon` 与 `trailingSemicolonOf`。
 
 **怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。

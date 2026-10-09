@@ -306,6 +306,57 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 838 轮：**尾分号归谁，问的是「上一条语句的 kind」而不是原文那一格**——七条收掉
+
+**一句话**：一条语句末尾那个 `;` 归不归它，TS 的判据只有一条——**这条语句自己调不调
+`parseSemicolon`**；而产物这边原来有两处在**看原文的字符**：`projectStatement` 看
+「`;` 前面那一格是不是 `}`」、`astNode` 看「kind 在不在 `SIGNATURE_KINDS` 里」。
+两处都是把**形状**当成了**语法**（`const o = { … }` 与 `function f() {}` 的前一格都是 `}`）。
+四处判据补齐之后 `cases:tsast` 的账 **52 → 45**（`coverage` **3941 → 3952**，
+`token` 那一类 blocked 93 → 86）。
+
+- **根 ①：`;` 的归属只看得到原文那一格**（`print-ast-common.xl.md`）。`projectStatement`
+  那一条空语句的分支写的是 `";}{".includes(source[前一个非空白字符])` —— `}` 一律当「空语句」。
+  可 `const o = { a: 1 }` 换行 `;` 里那个 `;` **归 `VariableStatement`**（它的区间含 `;`），
+  而 `function f() {}` 换行 `;` 里那个是**新的空语句**（带体的声明收在 `}` 上）。
+  修法是把这一问搬到**知道上一条是什么**的那一层（列表那一趟）：新判据
+  `ownsTrailingSemicolon(上一条, ctx)` —— 四档：空语句不吞下一个（`;;` 是两条）、
+  自己已经以 `;` 收尾的不吞（`parseSemicolon` 只吃紧跟的那一个）、带标签的问**被标的那条**、
+  其余按 `NO_TRAILING_SEMICOLON` 那张表（第 663 轮定的，这里只是第一次真的按它判）。
+- **根 ②：「这一格末尾那个 `;`」不能按起点找**（同一个文件）。`function f() {} /*c*/;`
+  里那一格是**「注释 + `;`」**——起点在注释上、`;` 在末尾，按起点判就把整格当 trivia 丢掉
+  ⇒ 空语句整格不见。新判据 `trailingSemicolonOf` 落在**这一格自己的区间末字符**上。
+  **这一条当场踩了一次**：一整行注释以 `;` 收尾时（`//     : never;`，`dist/ts` 里成片都是）
+  末字符也是 `;` —— 所以还要问一句「末尾那一格有没有落在某个子单元的区间里」（注释里的
+  `;` 不算）。**普查里这一处多出 8 份文件各 1–4 个 `EmptyStatement`，是它逮住的。**
+- **根 ③：带体的可调用签名多算一格**（`astNode`）。那条 `SIGNATURE_KINDS` 的规则
+  （第 134 轮）**自己写着**「**没有函数体**的可调用签名」，可代码只看 kind ⇒
+  `function f() {};` 的 `FunctionDeclaration` 多含一个 `;`、同时那条 `EmptyStatement` 又缺
+  （实测 `stmt-generator-trailing-semicolon`：缺 1 漂 1 多 1）。补上 `props.body === undefined`
+  之后，`;` 与 `,` 两档照旧、带体的一档交回列表那趟。
+- **根 ④：自己已经有终结符了还往后找**（`semicolonEndOf`）。`f();` 换行 `;` 里第二行那个 `;`
+  是**新的空语句**，而这一支一路跳过空白与注释把它算成了上一条的终结符
+  （`parseSemicolon` 只吃**紧跟**的那一个）。补一句「自己已经以 `;` 收尾就原样返回」。
+- **两处新出口**：关键字语句（`return` / `throw` / `break` / `continue` / `debugger`）的
+  `end` 补上 `semicolonEndOf`（`for (;;) break;` 那个 `;` 被外层 `For` 收走、`break label;`
+  那个落在兄弟格上，壳里**根本没有** `;`）；**没体的函数声明**（环境签名 / 重载）也补上
+  （`declare function f(): void /* c */ ;` 的区间原来停在最后一个实义单元）。
+- **收掉的 7 条**：`decl-declare-function-trailing-comment`、
+  `gap-sweep-newline-{obj-03,export-01}`、`gap-m-misc-0{1,2}`、`gap-a-comment-01`、
+  `stmt-generator-trailing-semicolon`。七条文件头的 `xl:known-gap` 逐条删掉
+  （`xl:expect` 一条没动——`cases:tags` 本来就是绿的：标签计数与分号归属无关）。
+  **另补 4 条新用例**钉住这次量出来的形状：`stmt-declaration-body-trailing-semicolon`、
+  `stmt-empty-semicolon-next-line`、`stmt-label-block-trailing-semicolon`、
+  `im-import-trailing-semicolon-next-line`。
+- **可复用的判据**：**「归谁」要问语法（kind），不要问排版（字符）**。同一个字符
+  （`}` / `;`）在两种构造下含义相反，而两者在原文里长得一模一样；这类判据只有放到
+  **知道上下文的那一层**（列表那趟知道上一条、投影那层知道有没有体）才不会随排版漂。
+- **留下的一族**：`gap-sweep-*-clsmod-*`（带体声明后面那个 `;` 已收，
+  类成员修饰词折行还没动）、`gap-sweep-*-ifelse-*`、`gap-sweep-*-ns-*`、
+  `gap-sweep-*-dowhile-*`、`gap-sweep-*-async-*` 与 `gap-b-*` / `gap-c-*` 那几族本轮不动。
+- **量出来但没修**（不在语料里，如实留在这里）：`for (;;) break` 换行 `;` 里
+  **`ForStatement` 自己的终点**没跟着体的终点走（`BreakStatement` 已对、`For` 仍差一格）。
+
 ### 第 837 轮：**「假分支还没写」那一问放开到三元**——`cond` 那一族收掉 2 条
 
 **一句话**：第 581 轮那条判据（`IsUnfinishedConditionalType`）先找 `extends`、再从它往后找 `?`，

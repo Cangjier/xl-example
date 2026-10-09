@@ -911,7 +911,19 @@ new Map([
   // 接口 / 类型字面量里的成员可以用逗号分隔，TS 那边那条 `MethodSignature` 的 `end`
   // **含那个逗号**（实测 `undici-types/cache.d.ts` 的
   // `match (…): Promise<…>, has (…): Promise<…>,` 一族：漂移 10 + 多出 10）。
-  if (SIGNATURE_KINDS.has(kind) && (ctx.source[end] === ";" || ctx.source[end] === ",")) end += 1;
+  //
+  // **带体的不收**（第 838 轮）：判据与文字写的一致——「**没有函数体**的可调用签名」。
+  // 带体的函数 / 方法收在自己的 `}` 上、**不调 `parseSemicolon`**，紧跟的那个 `;`
+  // 在 TS 那边是一条新的 `EmptyStatement`（`function f() {};` ⇒ `FunctionDeclaration[0,15)`
+  // + `EmptyStatement[15,16)`）。原来只看 `SIGNATURE_KINDS` ⇒ 带体的一律多算一格，
+  // 于是「空语句」既缺、声明又漂（实测 `stmt-generator-trailing-semicolon` 一族）。
+  if (
+    SIGNATURE_KINDS.has(kind) &&
+    (props === undefined || props.body === undefined) &&
+    (ctx.source[end] === ";" || ctx.source[end] === ",")
+  ) {
+    end += 1;
+  }
   // **`pos` 不落在前导注释上**（第 140 轮）：对拍那一侧取的是 `node.getStart()`，
   // 它**跳过**节点前面的注释；而产物常把一整行注释收进**后一个单元**的区间里——
   //
@@ -1483,54 +1495,54 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
         }
       }
     }
-    // `undefined` = 这个单元在 TS 那边是 trivia（例如只有注释的语句），**不收**。
+    // `undefined` = 这个单元在 TS 那边不是它自己的一格（只有注释的语句、孤零零的 `;`）。
+    //
+    // **这一格里那个收尾 `;` 归谁**（第 838 轮）：`projectStatement` 那一支只看得到原文里
+    // 前面那一格字符（`;` 前面是 `}`），而 TS 问的是**上一条语句自己调不调 `parseSemicolon`**——
+    // `const o = { a: 1 }` 换行 `;` 里那个 `;` 归 `VariableStatement`（它的区间含 `;`），
+    // 而 `function f() {}` 换行 `;` 里那个是**新的空语句**（带体的声明收在 `}` 上）。
+    // 两种形状的前一格都是 `}`，所以这一问必须由**知道上一条是什么**的这一层来问，
+    // 判据只有一份：`ownsTrailingSemicolon`（`NO_TRAILING_SEMICOLON` 那张表 + 三档特例）。
+    //
+    // **只在「这一格自己不成节点」或「它投出来的就是那个空语句」时接管**：
+    // 别的一律照旧走 `projectStatement` 的读数（`;;` 那一格、`;` 顶一条语句那一格都在里面）。
     const projected = projectNode(items[i], ctx, parentKind);
-    if (projected !== undefined) {
-      out.push(projected);
-    } else if (
-      // **被吃掉的 `;` 要算进上一条语句的终点**（第 167 轮）：`let a = 1` 换行 `;[1, 2].forEach(f)`
-      // 里那个 `;` 在 TS 那边是上一条 `VariableStatement` 的**终结符**（`tryParseSemicolon`
-      // 不看换行），所以上一条的区间要含它；`projectStatement` 已经把那个空语句投成
-      // `undefined`，这里补最后一步（实测 `st-asi-array.ts` / `st-asi-paren.ts`：
-      // 上一条语句的终点各短一格）。
-      items[i].get("type") === "Statement" &&
-      ctx.source[items[i].get("pos") ?? startOf(items[i])] === ";" &&
-      out.length > 0
+    const semi = trailingSemicolonOf(items[i], ctx);
+    if (
+      semi !== undefined &&
+      !ctx.consumedSemicolons.has(semi) &&
+      (projected === undefined || (projected.kind === "EmptyStatement" && projected.pos === semi))
     ) {
-      const previous = out[out.length - 1];
-      const semi = items[i].get("pos") ?? startOf(items[i]);
-      // **上一条本身是空语句时不再并**（`;;` 是两个 `EmptyStatement`，各自一格）。
+      const previous = out.length > 0 ? out[out.length - 1] : undefined;
+      // **上一条已经把这一格盖住了**（那个 `;` 落在它的区间里）：`import { a } from "m"`
+      // 换行 `;` 里导入声明自己就吃着那个 `;`（它的区间到 `;` 为止），这一格什么都不出
+      // ——原来那一支只写「并进上一条」，就是靠这一问把这种格子挡在外面的。
+      const covered = previous !== undefined && typeof previous.end === "number" && semi < previous.end;
       if (
+        !covered &&
         previous !== undefined &&
         typeof previous.end === "number" &&
         semi >= previous.end &&
-        previous.kind !== "EmptyStatement"
+        ownsTrailingSemicolon(previous, ctx)
       ) {
-        // **这个 `;` 归上一条还是自成一条，看 TS 的语法**（第 663 轮）
-        // ——「并进上一条」原来是一刀切，于是**块收尾的语句**后面那个 `;` 被并走、
-        // 自己那条 `EmptyStatement` 整格不见（实测 `if (a) {} ;` / `class C {} ;` /
-        // `{ a(); } ;` 各缺 1、上一条各漂 1）。
-        //
-        // 两道判据，缺一不可：
-        // · **上一条的原文已经以 `;` 收尾**（`let a = 1;;` 的第二格）：那它已经有终结符了
-        //   ⇒ 这一格是新的空语句。`projectStatement` 看不出这层（它只看到「行中一个 `;`」）。
-        // · **kind 落在「不吃尾分号」那一张表里**（`NO_TRAILING_SEMICOLON`）：
-        //   TS 那边 `if` / `while` / `for` / `switch` / `try` / 类 / 块收在 `}` 上、
-        //   不调 `parseSemicolon` ⇒ 紧跟的 `;` 是 `EmptyStatement`。
-        //
-        // 反过来，吃尾分号的那些（导入 / 导出 / 变量 / 表达式 / `do…while` / 类型别名…）
-        // 照旧并进来 —— `import d from "./d.json" assert { type: "json" };` 的 `;`
-        // 就是 **ImportDeclaration 自己的**终结符，那不是空语句。
-        const endsWithSemicolon = previous.end > 0 && ctx.source[previous.end - 1] === ";";
-        const kind = String(previous.kind);
-        // **没体的函数声明是环境签名 / 重载**：那个 `;` 归它自己（`declare function f(): void;`）。
-        const signatureOnly = kind === "FunctionDeclaration" && previous.body === undefined;
-        if (endsWithSemicolon || (signatureOnly === false && NO_TRAILING_SEMICOLON.has(kind))) {
-          out.push({ kind: "EmptyStatement", pos: semi, end: semi + 1 });
-        } else {
-          previous.end = semi + 1;
-        }
+        // **被吃掉的 `;` 要算进上一条语句的终点**（第 167 轮）：`let a = 1` 换行 `;[1, 2].forEach(f)`
+        // 里那个 `;` 在 TS 那边是上一条 `VariableStatement` 的**终结符**（`tryParseSemicolon`
+        // 不看换行），所以上一条的区间要含它（实测 `st-asi-array.ts` / `st-asi-paren.ts`：
+        // 上一条语句的终点各短一格）。
+        previous.end = semi + 1;
+        i++;
+        continue;
       }
+      // **不成节点的**那一档要在这里补出空语句（`function f() {} /*c*/;` 里那一格是
+      // 「注释 + `;`」：`projectStatement` 按起点判、起点在注释上，于是整格被丢掉）。
+      if (projected === undefined && !covered) {
+        out.push({ kind: "EmptyStatement", pos: semi, end: semi + 1 });
+        i++;
+        continue;
+      }
+    }
+    if (projected !== undefined) {
+      out.push(projected);
     }
     i++;
   }
@@ -1971,7 +1983,16 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         const value = projectExpression(rest, ctx);
         if (value !== undefined) props[KEYWORD_STATEMENT_EXPRESSION.has(kind) ? "expression" : "label"] = value;
       }
-      return Object.assign({ kind }, props, { pos: v.start, end: stmtEndOf(v, ctx) });
+      // **收尾那个 `;` 归它自己**（第 838 轮）：`parseBreakOrContinueStatement` /
+      // `parseReturnStatement` 收尾都调 `parseSemicolon()`，所以 TS 的区间含 `;`——
+      // 而这一族的产物是「`Keyword` + 一段平级兄弟」、`;` **根本不在壳里**
+      // （`for (;;) break;` 那个 `;` 被外层 `For` 收走，`break label;` 那个落在兄弟格上）
+      // ⇒ 只按壳算就短一格。实测 `gap-m-misc-01`（`break;`）/ `-02`（`continue;`）/
+      // `gap-a-comment-01`（`break label;`）各漂 1。
+      return Object.assign({ kind }, props, {
+        pos: v.start,
+        end: semicolonEndOf(stmtEndOf(v, ctx), ctx),
+      });
     }
   }
   // `head` 是不是名字上的**类型别名**（`TypeAssign`，`export type T = …` 的外壳还是 `Statement`）。
@@ -2009,6 +2030,15 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
             Math.max(stmtEndOf(v, ctx), projected === undefined ? 0 : (projected.end ?? 0)),
             ctx,
           );
+        }
+        // **没体的函数声明也要吃尾分号**（第 838 轮）：`declare function f(): void /* c */ ;`
+        // 在 TS 那边 `FunctionDeclaration` 的区间到 `;` 为止（第 663 轮那张表里它就写着
+        // 「没体的是环境签名 / 重载，那个 `;` 归它自己」），而产物这边声明自己的区间只到
+        // 最后一个实义单元（`;` 前面那条注释被 `stmtEndOf` 剪掉了）⇒ 整条短一大截
+        // （实测 `decl-declare-function-trailing-comment`：缺 1 漂 1 多 1）。
+        // **带体的那一档不在这一档**：它收在 `}` 上，`;` 是另一条 `EmptyStatement`。
+        if (kind === "FunctionDeclaration" && projected.body === undefined) {
+          projected.end = semicolonEndOf(projected.end ?? 0, ctx);
         }
         return projected;
       }
@@ -2061,7 +2091,14 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
 而产物那边那个 `;` 根本不在树里（它是独立的一条空语句），于是短两格
 （实测 `fn-iife.ts` / `stmt-paren-start.ts` 各 2 处漂移）。
 
+**自己已经以 `;` 收尾的不再往后找**（第 838 轮）：`parseSemicolon` 只吃**紧跟**的那一个
+`;`，吃过就不再吃第二个——`f();` 换行 `;` 里第二行那个 `;` 是**新的空语句**，
+原来的写法一路跳过去把它算成了上一条的终结符（实测 `f();` 换行 `;`：上一条漂 1、
+空语句缺 1）。判据落在**这一条自己的原文**上，与 `ownsTrailingSemicolon` 那一格同源。
+
 ```ts
+  if (end > 0 && ctx.source[end - 1] === ";") return end;
+  if (end > 0 && ctx.source[end - 1] === ";") return end;
   let at = end;
   for (;;) {
     while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
@@ -2077,6 +2114,59 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     break;
   }
   return ctx.source[at] === ";" ? (ctx.consumedSemicolons.add(at), at + 1) : end;
+```
+
+# private method trailingSemicolonOf:(item:any, ctx:any)=>int
+
+**这一格（一个产物单元）末尾那个 `;` 的位置**；末尾不是 `;` 就给 `undefined`。
+
+判据落在**这一格自己的原文区间**上，而不是「这一格的起点是不是 `;`」：注释会把紧跟的
+`;` 一起收进同一格（`function f() {} /*c*/;` 的那一格起点在注释上、`;` 在末尾），
+按起点判就会把整格当成 trivia 丢掉（第 838 轮，实测那一格缺一个 `EmptyStatement`）。
+
+**落在注释里面的 `;` 不算**（这一条是**普查当场红的**）：一整行注释以 `;` 收尾时
+（`//     : never;` 这种行——`dist/ts` 里成片都是），这一格的末字符也是 `;`，
+可它属于注释、不是语句终结符。判据是「末尾那一格**有没有落在某个子单元的区间里**」：
+「注释 + `;`」那一格的注释子单元只盖到 `*/`、`;` 在它后面，而这一格整个 `;` 都在注释里。
+
+```ts
+  const end = endOf(item);
+  if (end <= 0) return undefined;
+  if (ctx.source[end - 1] !== ";") return undefined;
+  for (const k of allKids(item instanceof Map ? view(item) : item)) {
+    const range = k.get("range");
+    if (range === undefined) continue;
+    if (range[0] <= end - 1 && end - 1 <= range[1]) return undefined;
+  }
+  return end - 1;
+```
+
+# private method ownsTrailingSemicolon:(node:any, ctx:any)=>bool
+
+**上一条语句自己会不会把紧跟的那个 `;` 当终结符**（第 838 轮的判据：问 kind，不问原文）。
+
+四档，缺一档就有一族形状错位：
+
+- **空语句不吞下一个**（`;;` 是两条 `EmptyStatement`，各自一格）；
+- **自己已经以 `;` 收尾的不吞**（`f();` 换行 `;`：`parseSemicolon` 只吃紧跟的那一个，
+  第二行那个 `;` 是新的空语句）；
+- **带标签的语句问的是被标的那条**：`lab: {}` 换行 `;` 里那个 `;` 不归标签（`Block` 收在
+  `}` 上），而 `lab: x = 1` 换行 `;` 归它（被标的是表达式语句）⇒ 递归问下去，
+  两档由被标的那一条自己答；
+- **`NO_TRAILING_SEMICOLON` 那张表**（第 663 轮）：表里的收在 `}` 上、不调 `parseSemicolon`
+  ⇒ 紧跟的 `;` 是 `EmptyStatement`；表外的一律自己吃。
+  **表里的 `FunctionDeclaration` 要按有没有体分两档**（同第 663 轮的口径）：
+  没体的是环境签名 / 重载，那个 `;` 归它自己。
+
+```ts
+  const kind = String(node.kind);
+  if (kind === "EmptyStatement") return false;
+  if (typeof node.end === "number" && node.end > 0 && ctx.source[node.end - 1] === ";") return false;
+  if (kind === "LabeledStatement" && node.statement !== undefined && node.statement !== null) {
+    return ownsTrailingSemicolon(node.statement, ctx);
+  }
+  if (kind === "FunctionDeclaration" && node.body === undefined) return true;
+  return !NO_TRAILING_SEMICOLON.has(kind);
 ```
 
 # private method isOperatorUnit:(node:any, ctx:any)=>bool

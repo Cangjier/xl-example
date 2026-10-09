@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4172,
+  "total": 4176,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.54,
+  "progressPercent": 94.62,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1399,
-      "pass": 1347,
-      "blocked": 52,
+      "total": 1403,
+      "pass": 1358,
+      "blocked": 45,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 96.28
+      "coverage": 96.79
     },
     {
       "category": "exec",
@@ -129,20 +129,14 @@
     }
   ],
   "token": {
-    "total": 1399,
-    "knownGap": 52,
-    "knownGapStillOpen": 52,
-    "exactFiles": 1347,
-    "scoredWithoutGap": 1347,
-    "passedWithoutGap": 1347
+    "total": 1403,
+    "knownGap": 45,
+    "knownGapStillOpen": 45,
+    "exactFiles": 1358,
+    "scoredWithoutGap": 1358,
+    "passedWithoutGap": 1358
   },
   "blocked": [
-    {
-      "id": "token/declarations/decl-declare-function-trailing-comment",
-      "category": "token",
-      "title": "无体环境声明的返回类型后面夹一条注释、再跟 `;`",
-      "detail": "漂 1　多 1　无体声明的区间只到自己最后一个实义单元，尾随注释与 `;` 没算进去（TS 到 `;` 为止）"
-    },
     {
       "id": "token/declarations/gap-sweep-linecomment-clsmod-04",
       "category": "token",
@@ -216,12 +210,6 @@
       "detail": "缺 2　多 1　注释 / 换行落在语法相邻位置之间（M-misc）：MISS ModuleDeclaration TS[0,23) «declare module \"*.css\";»"
     },
     {
-      "id": "token/modules/gap-sweep-newline-export-01",
-      "category": "token",
-      "title": "SWEEP-newline/export 落点（657 审计语料）",
-      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/export）：DRIFT ExportDeclaration TS[13,27) 产物[13,25) «export { a } ;»"
-    },
-    {
       "id": "token/modules/mod-declare-module-shorthand",
       "category": "token",
       "title": "简写环境模块声明（没有体）",
@@ -250,12 +238,6 @@
       "category": "token",
       "title": "泛型实例化表达式独立成一条语句",
       "detail": "缺 2　多 3　没有这条规则：产物是 `BinaryOperator(f < string)`，TS 是 `ExpressionWithTypeArguments`（r663 探针池 c-generic-inst）"
-    },
-    {
-      "id": "token/statements/gap-a-comment-01",
-      "category": "token",
-      "title": "A-comment 落点（657 审计语料）",
-      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（A-comment）：DRIFT BreakStatement TS[22,34) 产物[22,33) «break label;»"
     },
     {
       "id": "token/statements/gap-a-comment-06",
@@ -304,18 +286,6 @@
       "category": "token",
       "title": "D-generics-tuple-mapped 落点（657 审计语料）",
       "detail": "缺 13　注释 / 换行落在语法相邻位置之间（D-generics-tuple-mapped）：MISS ArrowFunction TS[10,43) «async <T,>(x: T): Promise<T> => x»"
-    },
-    {
-      "id": "token/statements/gap-m-misc-01",
-      "category": "token",
-      "title": "M-misc 落点（657 审计语料）",
-      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（M-misc）：DRIFT BreakStatement TS[9,15) 产物[9,14) «break;»"
-    },
-    {
-      "id": "token/statements/gap-m-misc-02",
-      "category": "token",
-      "title": "M-misc 落点（657 审计语料）",
-      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（M-misc）：DRIFT ContinueStatement TS[10,19) 产物[10,18) «continue;»"
     },
     {
       "id": "token/statements/gap-sweep-comment-arrow-01",
@@ -378,22 +348,10 @@
       "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/ns）：MISS VariableStatement TS[14,34) «export const a = 1;»"
     },
     {
-      "id": "token/statements/gap-sweep-newline-obj-03",
-      "category": "token",
-      "title": "SWEEP-newline/obj 落点（657 审计语料）",
-      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/obj）：DRIFT VariableStatement TS[0,26) 产物[0,24) «const o = { a: 1, b: 2 } ;»"
-    },
-    {
       "id": "token/statements/stmt-do-while-then-statement",
       "category": "token",
       "title": "`do…while` 后面还跟着一条语句",
       "detail": "缺 3　多 1　那个 `while (a)` 被当成循环头，后面那条语句没被收进 `do` 那一格（缺 3）"
-    },
-    {
-      "id": "token/statements/stmt-generator-trailing-semicolon",
-      "category": "token",
-      "title": "函数声明后面那个 `;`（空语句）",
-      "detail": "缺 1　漂 1　多 1　声明收完就断了，尾随的空语句没成壳（缺 1 漂 1 多 1）"
     },
     {
       "id": "token/statements/stmt-switch-block-then-default",
@@ -827,7 +785,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18896/src/2006.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9840/src/2010.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1169,7 +1127,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18896/src/2989.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9840/src/2993.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1193,7 +1151,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18896/src/3037.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9840/src/3041.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1349,7 +1307,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18896/src/3680.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9840/src/3684.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
