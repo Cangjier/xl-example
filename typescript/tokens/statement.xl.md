@@ -1145,7 +1145,23 @@ if (head === "(" || head === "[") {
   if (head === "(" && Statement.IsDeclarationHeadAwaitingParameters(data)) {
     return true;
   }
-  return HasTypeColonBefore(data, data.length) === false;
+  // **「上一行是不是类型标注」只问这一段自己**（第 831 轮）：`HasTypeColonBefore` 撞上
+  // **前面任何一条已经成形的语句**就答「上一行到此为止」——而语料里这一段常常紧跟在
+  // `// xl:…` 那几行注释之后（**每一行注释各是一层 `Statement`**）⇒ `f` 换行 `(1, 2)`
+  // 被判成「注释后面又起了一条语句」⇒ 换行处收壳 ⇒ 调用被劈成 `f` 与 `(1, 2)` 两条
+  // `ExpressionStatement`（实测 `gap-sweep-linecomment-call-01` 与
+  // `gap-sweep-{newline,linecomment}-switch-0{1,2}` 四份，各缺一个 `CallExpression`）。
+  //
+  // 这一问的本意是「**这一行**是类型标注吗」（`interface I { ['a']: T` 换行 `['b']: U }`），
+  // 前面那几条语句与它无关 ⇒ 往回扫的范围收到**这一段**（段首由 `IsStatementBoundary` 划，
+  // 与 `FormFrom` / `Condition` 那几处同一个边界判据）。段内按定义不含任何边界单元，
+  // 于是「撞上已成形语句」那一支在这一问上不再响 —— 正是想要的。
+  const segmentFrom =
+    SearchFrontIndexed(data, data.length, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex)) + 1;
+  // **`case` / `default` 的标签冒号不算类型标注**：`switch` 体里段首常常就是 `case 1:`
+  // —— 那个冒号只是标签，认成类型标注的话 `(` 那一格会被判成「新起一条语句」
+  // （同一个开关，见 `HasTypeColonBefore` 那一处）。
+  return HasTypeColonBefore(data.slice(segmentFrom), data.length - segmentFrom, true) === false;
 }
 // **`?` / `:` 开头**（第 585 轮）：上一条是 `const rendered = a === 0` 换行
 // `? "Symbol()"`，下一条是 `const digits = f(x)` 换行 `: (…)` —— 两处都是**接着写**。

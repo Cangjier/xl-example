@@ -1,5 +1,4 @@
 // xl:note SWEEP-newline/switch 落点（657 审计语料）
-// xl:expect Statement:5,Identifier:3,SwitchSegment:2,SwitchStatement:2,Bracket,Keyword,Method,Root,Switch,SwitchCase,SwitchCompare
-// xl:known-gap 注释 / 换行落在语法相邻位置之间（SWEEP-newline/switch）：DRIFT ExpressionStatement TS[42,47) 产物[42,43) «c ();»
+// xl:expect Identifier:2,Keyword,Method:2,Root,Statement:4,Switch,SwitchCase,SwitchCompare,SwitchSegment:2,SwitchStatement:2
 switch (a) { case 1: b(); break; default: c
 (); }

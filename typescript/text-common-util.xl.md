@@ -667,7 +667,7 @@ return SkipNext(units, index, IsTriviaUnit);
 return GetSkipNext(units, index, IsTriviaUnit);
 ```
 
-# method HasTypeColonBefore:(units:Array<Token>, index:number)=>bool
+# method HasTypeColonBefore:(units:Array<Token>, index:number, caseLabelIsExpression?:bool)=>bool
 
 从 `index`（一个软换行）**往回扫**，在撞上 `=` 之前先撞上 `:` 吗——也就是「上一行是**类型标注**」。
 
@@ -696,6 +696,14 @@ for (let i = index - 1; i >= 0; i--) {
       return false;
     }
     if (text === ":") {
+      // **`case` / `default` 的标签冒号不是类型标注**（第 831 轮，可选）：`switch` 体里
+      // `case 1: b` 换行 `(1, 2);` 那个冒号只是**标签** —— 认成类型标注的话，
+      // `(` 那一格被判成「上一行到此为止、新起一条语句」⇒ 调用被劈成 `b` 与 `(1, 2)`
+      // 两条 `ExpressionStatement`（实测 `gap-sweep-{newline,linecomment}-switch-0{1,2}` 四份）。
+      // 判据复用 `IsSwitchLabelColon`，把外层 `Statement` 那道护栏显式关掉（此刻壳还没收）。
+      if (caseLabelIsExpression === true && IsSwitchLabelColon(units, i, false)) {
+        return false;
+      }
       return true;
     }
     if (text === ";" || text === "," || text === "{" || text === "}") {
@@ -778,7 +786,7 @@ return (
 );
 ```
 
-# method IsSwitchLabelColon:(units:Array<Token>, index:number)=>bool
+# method IsSwitchLabelColon:(units:Array<Token>, index:number, requireStatementParent?:bool)=>bool
 
 `index` 处的冒号是不是 `switch` 体里 `case` / `default` 的**标签冒号**（`case 1: …` / `default: …`）。
 
@@ -805,13 +813,24 @@ return (
 外层必须是**语句那一层**（`Statement` 壳）：`interface I { default: string }` 这种成员名
 是**合法的类型标注**，它的父单元是 `Field`（不是 `Statement`），一并挡掉就把成员的类型丢了。
 
+**`requireStatementParent` 可以显式关掉**（第 831 轮，缺省仍是开的）：解析期问这一句时
+壳**还没收**（`StatementBranch` 排在换行 append 之前）⇒ `Parent` 还是那个容器、不是
+`Statement` ⇒ 那一道护栏会把答案一律压成否。调用方知道自己站在哪儿时传 `false`
+（`HasTypeColonBefore` 那一处：它扫的就是**一条语句壳的内容**，成员名那一档由它自己的
+`;` / `{` 分支管）。
+
 ```ts
 const current = Get(units, index);
-if (current === null || current.Parent === null) {
+if (current === null) {
   return false;
 }
-if (current.Parent.constructor.name !== "Statement") {
-  return false;
+if (requireStatementParent !== false) {
+  if (current.Parent === null) {
+    return false;
+  }
+  if (current.Parent.constructor.name !== "Statement") {
+    return false;
+  }
 }
 for (let i = index - 1; i >= 0; i--) {
   const item = Get(units, i);
