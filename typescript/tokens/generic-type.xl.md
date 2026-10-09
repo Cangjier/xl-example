@@ -35,7 +35,7 @@ import { IsTemplateTypeContent, IsTriviaUnit, IsTypeBracketPosition, SkipPreviou
 1. **名字闸**：宿主单元最后一个子单元必须是 `Identifier`，且不是数字 / 布尔字面量。`3 < 4`、`true < false`、行首的 `<`、`(` 后面的 `<` 都直接判否。
    **例外**：最后一个是 `?` 符号、而它前面是 `Identifier` 时也算数——TypeScript 的可选成员签名写作
    `m?<T>()`（`?` 在类型参数之前），不放这一条，`<T>` 会退回比较符号，整条签名被三元表达式规则抢走。
-2. **内容闸**（`ScanArguments`）：从 `<` 之后按「类型实参字母表」扫到配对的 `>`，带尖括号 / 圆括号 / 方括号嵌套；换行只在嵌套未归零、上一个非空字符是 `,` / `<` / `|` / `&`、下一个非空字符是 `>` / `|` / `&` / `:` / `?`、宿主停在声明头的名字上、**或 `<` 前面按定义还没有左操作数**（`IsOperandStartUnit`：`<T` 换行 `,>(a: T) => a` 那一族）时才续扫，否则视为语句到此为止。
+2. **内容闸**（`ScanArguments`）：从 `<` 之后按「类型实参字母表」扫到配对的 `>`，带尖括号 / 圆括号 / 方括号嵌套；换行只在嵌套未归零、上一个非空字符是 `,` / `<` / `|` / `&`、下一个非空字符是 `>` / `|` / `&` / `:` / `?` / `,`、宿主停在声明头的名字上、**或 `<` 前面按定义还没有左操作数**（`IsOperandStartUnit`：`<T` 换行 `,>(a: T) => a` 那一族）时才续扫，否则视为语句到此为止。
 3. **位置闸**（`IsTypePosition`）：从宿主单元的 `Data` 往前找最近的边界，判定 `<` 处在**类型位**还是**表达式位**——最近的 `:` / `->` 是类型位，最近的 `=` / 括号 / 语句边界是表达式位，声明关键字按「`class`/`func`/`type`/`new`/`as`/`is`/`where` 给类型位，`let`/`var`/`const` 跨过 `=` 之后算表达式位」处理。
 4. **后继闸**（`IsAllowedFollower`）：类型位允许名字 / `) ] } , ; > < . = ( : { ?` / 行尾（含行尾注释）或文件尾；表达式位**只**允许 `(`——这就是 TypeScript 的「泛型调用」形状。数字、引号、算术与逻辑运算符一律判否。
 
@@ -170,13 +170,23 @@ if (closeIndex === -1) {
 return this.IsAllowedFollower(unit, source, closeIndex);
 ```
 
-## private method NextSignificantIsCloseAngle:(document:Document, count:int, index:int)=>bool
+## private method NextSignificantContinuesArguments:(document:Document, count:int, index:int)=>bool
 
 从 `index`（一个换行）往后看，跳过空白与换行，第一个非空字符是不是**类型还在继续**的字符：
-`>`（收尾）、`|` / `&`（联合 / 交叉的下一项）、`:` / `?`（条件类型的分支）。
+`>`（收尾）、`|` / `&`（联合 / 交叉的下一项）、`:` / `?`（条件类型的分支）、
+`,`（类型实参 / 类型参数之间的分隔符）。
 
 给上面那条换行判定用：`<` 里的换行如果紧接着是这几者之一，那这个换行属于**类型参数表的排版**，
 不是语句结束。
+
+**`,` 那一档是第 915 轮补的**（名字也跟着从 `…IsCloseAngle` 改成 `…ContinuesArguments`：
+它认的已经不只是「收尾那个 `>` 了」）。原来只认 `>` / `|` / `&` / `:` / `?`，
+于是**逗号写在下一行开头**的排版整族认不出来——`f<T` 换行 `,U>(x)`（泛型调用）、
+`Map<T` 换行 `,U>`（类型实参）、`new Map<T` 换行 `,U>()`、`a<b` 换行 `, c>(d)`
+（TS 那边也是**带类型实参的调用**）全都在换行处收壳、`<` 退回裸符号。
+按 TS 的读法这一格本来就没有歧义：它那句 `canFollowTypeArgumentsInExpression` 是
+**先把 `<…>` 当类型实参表读完再问后继**，逗号是表内的分隔符而不是语句分隔符
+（后继闸仍然是最后一道：表外那个 `,` 要接上表达式才放行——见 `IsAllowedFollower`）。
 
 `|` / `&` 那一支是给**折行的联合类型实参**的：`interface ParsedUrlQueryInput extends NodeJS.Dict<`
 换行 `| string` 换行 `| number` 换行 `| boolean` 换行 `> { }`。
@@ -197,7 +207,7 @@ while (i < count) {
     i = i + 1;
     continue;
   }
-  return item === ">" || item === "|" || item === "&" || item === ":" || item === "?";
+  return item === ">" || item === "|" || item === "&" || item === ":" || item === "?" || item === ",";
 }
 return false;
 ```
@@ -212,7 +222,7 @@ return false;
 
 **为什么只认这一格**：`<` 前面**有名字**才可能是类型参数表（名字闸已经在 `IsGenericStart` 里问过），
 而「名字前面是声明词」这一条把 `Array<T>`（前面是 `:` / `=` / `(`）与 `f<T>(x)`（调用）
-排除掉——那两处是值位的泛型实参，折行照旧按 `NextSignificantIsCloseAngle` 那三条收紧。
+排除掉——那两处是值位的泛型实参，折行照旧按 `NextSignificantContinuesArguments` 那四条收紧。
 
 ```ts
 const data = unit.Data;
@@ -289,12 +299,15 @@ return (
 表达式位里 `<…>` 后面必须紧跟 `(` 才算数（`a<b, c=d>e` 这类写法在那一关被挡回去）。
 
 换行的取舍：泛型实参表允许折行，但折行不能是「语句结束」。所以只有**嵌套未归零**（`angleDepth > 1` 或 `groupDepth > 0`）、
-**上一个非空字符是 `,` / `<` / `|` / `&`**（明显的续行信号）、**下一个非空字符是这个表的收尾 `>` / `|` / `&` / `:` / `?`**、
+**上一个非空字符是 `,` / `<` / `|` / `&`**（明显的续行信号）、**下一个非空字符是这个表的收尾 `>` / `|` / `&` / `:` / `?` / `,`**、
 宿主停在**声明头的名字**上、或 **`<` 前面按定义还没有左操作数**（`IsOperandStartUnit`）时才跨过换行，否则判否——
 `let n = a<b` 后面另起一行 `foo(bar) > x` 这种跨语句误吞就是这样挡掉的。
-最后一档（第 914 轮补）是 `<T` 换行 `,>(a: T) => a` 那一族：那个位置上**没有左操作数**可比较，
-`<…>` 只可能是类型参数表，而它的换行后面既不是 `>` 也不是 `,`（是`,`、`U` 这些）——
-放行的前提是**这一格本来就不可能是比较式**，不是把比较式那一侧的判据放宽。
+倒数第二档（第 914 轮补）是 `<T` 换行 `,>(a: T) => a` 那一族：那个位置上**没有左操作数**可比较，
+`<…>` 只可能是类型参数表 —— 放行的前提是**这一格本来就不可能是比较式**。
+最后一档（第 915 轮补）是**逗号写在下一行开头**的排版（`f<T` 换行 `,U>(x)` / `Map<T` 换行 `,U>`）：
+逗号在类型实参表里是**表内分隔符**，TS 也是先把 `<…>` 当类型实参表读完再问后继——
+放行的边界仍然交给最后那道 `IsAllowedFollower`（表外接不上操作数的那些字符才放行），
+`const n = a<b` 换行 `, c > d` 这种真·声明列表照样在那一关被挡回去。
 
 **「下一个非空字符是 `>`」这一条是必须的**：真实的声明几乎总是把类型参数表折成多行，而收尾的 `>` 常常独占一行——
 `interface ChildProcessByStdio<` 换行 `I extends null | Writable,` 换行 `O extends null | Readable` 换行
@@ -489,8 +502,8 @@ while (index < count) {
       // 的排版 —— 这一个 `<` 前面是「声明词 + 名字」（`IsDeclarationHeadHost`），
       // 它不是比较式，段里的换行没有「这条语句到此为止」那种读法。
       //
-      // **少了它会怎样**：`NextSignificantIsCloseAngle` 只认「下一个实义字符是 `>` / `|` / `&` /
-      // `:` / `?`」，而这两处的下一个实义字符是 `extends` / 约束类型名 ⇒ 判否 ⇒
+      // **少了它会怎样**：`NextSignificantContinuesArguments` 只认「下一个实义字符是 `>` / `|` / `&` /
+      // `:` / `?` / `,`」，而这两处的下一个实义字符是 `extends` / 约束类型名 ⇒ 判否 ⇒
       // 整个 `<…>` 退回比较运算符 ⇒ 类型参数段认不出来、`FunctionDeclaration` 整条缺
       //（实测 `gap-sweep-newline-generic-03/04` 与 `gap-sweep-linecomment-generic-03/04` 四份）。
       //
@@ -498,9 +511,10 @@ while (index < count) {
       // 正是靠这一条挡住的（那三行注释在上面），而它的下一格也是字母。
       //
       // **`<` 前面按定义没有操作数时，段里的换行一律放行**（第 914 轮）：
-      // `const f = <T` 换行 `,>(a: T) => a` 里的换行后面是 `,`，三条判据一条都不认
-      // （不是 `>` / `|` / `&` / `:` / `?`，上一个实义字符也不是 `,` / `<`），于是整个
-      // `<…>` 退回裸符号、`(a: T) => a` 掉进下一条语句（实测 `gap-r907-arrow-generic-newline-before-comma`：
+      // `const f = <T` 换行 `,>(a: T) => a` 里的换行后面是 `,`，而**第 914 轮那一刻**
+      // 逗号还不在 `NextSignificantContinuesArguments` 里（第 915 轮才补上），
+      // 上一个实义字符也不是 `,` / `<` ⇒ 三条判据一条都不认、整个 `<…>` 退回裸符号、
+      // `(a: T) => a` 掉进下一条语句（实测 `gap-r907-arrow-generic-newline-before-comma`：
       // 缺 9 漂 1 多 4）。
       //
       // **为什么这里可以一律放行**：这一支只在 `IsOperandStartUnit(unit)` 为真时才放行，
@@ -510,12 +524,15 @@ while (index < count) {
       // 名字闸的第二支（第 66 轮）与位置闸（第 379 轮）用的是**同一个** `IsOperandStartUnit`，
       // 那句话原本就写着「第二支的位置上按定义还没有操作数，`<…>` 只可能是类型参数段」——
       // 这一轮只是把同一句话接到换行那一格上。
-      // 比较式那一侧一个字没动：`a < b` 换行 `, c > (d)` 的 `<` 前面是 `a`（一个名字）
-      // ⇒ 这一支不响，仍由下面那两条判据管着。
+      //
+      // **这一支与第 915 轮补的 `,` 那一档不重叠**（两轮各管一半）：`<` 前面**有**名字时
+      // （`f<T` 换行 `,U>(x)` / `a<b` 换行 `, c>(d)`）`IsOperandStartUnit` 答否，走的是
+      // `NextSignificantContinuesArguments` 那个逗号；这一支管的是**没有左操作数**的那几格
+      //（`const f = <T` 换行 `,>`、`type X = <T` 换行 `,>`、语句开头的 `<T` 换行 `,>`）。
       if (
         this.IsOperandStartUnit(unit) === false &&
         this.IsDeclarationHeadHost(unit) === false &&
-        this.NextSignificantIsCloseAngle(document, count, index) === false
+        this.NextSignificantContinuesArguments(document, count, index) === false
       ) {
         return -1;
       }

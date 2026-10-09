@@ -9,8 +9,10 @@
 // 不是把比较式那一侧的判据放宽（`a < b` 换行 `, c > (d)` 的 `<` 前面是 `a`，这一支不响）。
 // 一条根收掉四格（都在 `--snippets` 探针里量过）：`const f = <T` 换行 `,>(a: T) => a`、
 // 多参的 `, U>`、类型位的 `type X = <T` 换行 `,>(a: T) => T`、语句开头的 `<T` 换行 `,>(a: T) => a`。
-// **同一族还留着一格没登记的余量**（另开一轮）：`<` 前面**有**名字时（`f<T` 换行 `,U>(x)`）那一档——
-// 那里是泛型调用 / 声明分隔符两可，不能靠这一句放行。
+// **同一族的另一半在第 915 轮收掉**：`<` 前面**有**名字时（`f<T` 换行 `,U>(x)` / `Map<T` 换行 `,U>`）
+// 走的是另一格——`NextSignificantContinuesArguments` 补上了 `,` 那一档，
+// 用例在 `expr-generic-call-newline-before-comma` / `expr-comparison-newline-before-comma` /
+// `type-arguments-newline-before-comma`。
 // xl:end
 const f = <T
 ,>(a: T) => a;
