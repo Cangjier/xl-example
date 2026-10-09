@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchFront } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousWrapSymbol, IsTypeContainerUnit, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousWrapSymbol, IsTypeContainerUnit, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { IsDeclarationBoundary, IsStatementKeyword } from "./declaration-common.xl.md"
@@ -52,6 +52,12 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 `FindParameters` 是 `LamdaCloseRule` 的实例方法，所以这里用 `Instance` 去问它。
 
+**第 817 轮：往左那一格跨注释**。第 621 轮给 `FindParameters` 补上了「注释不是形参表的一部分」，
+可这条判据自己的第 2 条（往左找形参括号）当时没跟上：`(a: number) /* c */ => string` 里
+`=>` 左边紧邻的是注释 ⇒ 第 2 条当场判否 ⇒ 整条函数类型不成形（实测 `FunctionType` 整条缺、
+括号留在外面当 `Bracket`）。`Process` 那一侧取 `firstIndex` 也是同一个问题（见下）。
+两处一律走 `SkipPreviousTrivia`——**判据跨过什么，搬运就必须跨过什么**。
+
 ```ts
 const current = Get(units, index);
 if (!(current instanceof SymbolToken) || current.Is("=>") === false) {
@@ -67,7 +73,7 @@ const owner = current.Parent;
 if (owner !== null && owner.constructor.name === "FunctionType") {
   return false;
 }
-const firstIndex = SkipPreviousWrapSymbol(units, index);
+const firstIndex = SkipPreviousTrivia(units, index);
 const first = Get(units, firstIndex);
 if (!(first instanceof Bracket) || first.startBracket !== "(") {
   return false;
@@ -139,7 +145,7 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("current 为空");
 }
-let firstIndex = SkipPreviousWrapSymbol(units, index);
+let firstIndex = SkipPreviousTrivia(units, index);
 // **构造类型**：`new () => object` / `abstract new () => object` 的 `new` 贴在形参括号前面，
 // 一起收进节点里（TS 那边是 `ConstructorType`，本工程按函数类型收——不然 `new` 会留在外面）。
 const beforeParams = Get(units, SkipPreviousWrapSymbol(units, firstIndex));

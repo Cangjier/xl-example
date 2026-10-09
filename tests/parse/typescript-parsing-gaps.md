@@ -67,6 +67,14 @@
   改法只有一处（`type-operator.xl.md` 的 `Process` 也走 `SkipNextTrivia`），注释由
   `ReplaceCountAt` 跟着搬进节点、不投影成节点，所以不多出东西。**新写 `Previous` / `Process` 时
   把这两处的「下一个实义单元」对齐**，别各跳各的。
+- **「相邻的那一格」一律走 trivia 口径**（第 817 轮，同一条线的第二面）：判 x 与 y 相邻时，
+  中间夹一条注释与夹一个软换行**是同一件事**（`IsTriviaUnit` 那份名单就是「不该挡住相邻判断」的单元）。
+  这一轮把五处「只看紧邻」的判据改成跨 trivia，一次收掉 23 条：`FunctionTypeCloseRule` 往左找形参括号、
+  `MethodDeclarationCloseRule.ParameterIndex` 往右找 `(`、`SignatureCloseRule.Previous` 往左找方法名
+  （这一处只能用 `SkipPreviousAnnotation`——**软换行在成员体里是边界，不能跳**）、
+  `MethodCloseRule.NameIndex` 往左找被调用者、`BinaryOperatorCloseRule` 判「`,` 是不是逗号表达式」时
+  往左看括号外面那一格。**判据只差一个 `Skip*` 的时候，先问「注释与换行在这里是不是同一个意思」**：
+  是就一起跳，不是就只用 `Skip*Annotation`。
 - **`Parent` 不变式**（`core/syntax/close-rule.xl.md` 的 `ApplyTo`）：规则用 `ReplaceCountAt`
   换进来的节点**不带 `Parent`**（那是核心的 `splice`），每趟 `Process` 之后就地把新换进的那一小段补齐——
   否则「靠当前单元的父亲认容器」的规则（元组成员、方括号类型…）会判不出容器。
@@ -89,7 +97,7 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**209 条**）
+## 已知仍开着的缺口（**186 条**）
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
 文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
@@ -101,26 +109,26 @@
 所以「还差多少」在 `npm run gates` 里直接看得见，不必回 `tmp/` 翻探针。
 同一条纪律也适用于 `coverage` 那一侧（`xl:want blocked` / `differ` 的 62 条）。
 
-### 这 209 条长什么样（按根因分三段）
+### 这 186 条长什么样（按根因分三段）
 
-按**文件名前缀**数是这三段（第 816 轮实测）：`gap-sweep-*` 145 + `gap-<字母>-*` 17 = **162**；
-`gap-r676-*` 9 + `mut-*` 19 = **28**；其余 **19**。
+按**文件名前缀**数是这三段（第 817 轮实测）：`gap-sweep-*` 138 + `gap-<字母>-*` 17 = **155**；
+`gap-r676-*` 2 + `mut-*` 11 = **13**；其余 **18**。
 
 | 段 | 条数 | 一句话 |
 | --- | --- | --- |
-| **注释 / 换行落在语法相邻位置之间** | **162** | 最大的一族，按**落点**逐条立着（见下） |
-| **注释夹在语法相邻的两格之间** | **28** | 同一族换了落点：类型运算符 / 函数类型 / `new` 实参括号 / 成员名与形参表 / 泛型实参段附近 |
-| **其它** | **19** | 各有各的根（见下） |
+| **注释 / 换行落在语法相邻位置之间** | **155** | 最大的一族，按**落点**逐条立着（见下） |
+| **注释夹在语法相邻的两格之间** | **13** | 同一族换了落点：类型运算符 / 函数类型 / `new` 实参括号 / 成员名与形参表 / 泛型实参段附近 |
+| **其它** | **18** | 各有各的根（见下） |
 
-**第一族（162 条）怎么长出来的**：它来自三次普查，每次都把「同一构造的**每一个 token 边界**
+**第一族（155 条）怎么长出来的**：它来自三次普查，每次都把「同一构造的**每一个 token 边界**
 各插一遍 `/*c*/`、`//c` 换行、换行三种变体」——于是落点不同就各自成一条。
 命名上看得见来源：`gap-sweep-{comment,linecomment,newline}-<上下文>-<序号>`，上下文有
 `optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` / `cond` /
 `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` / `class` /
 `call` / `dowhile` / `ifelse` / `typeunion` / `gener` ……另有几小批 `gap-a-*`（A-comment）/
 `gap-b-*`（B-oneline）/ `gap-c-*`（C-optchain-nonnull）/ `gap-d-*`（D-generics-tuple-mapped）/
-`gap-j-*`（J-import-export）/ `gap-m-*`（M-misc）。第二族里那 19 条是 `mut-*` 探针池
-（**第 816 轮收掉 4 条，池子从 23 降到 19**）。
+`gap-j-*`（J-import-export）/ `gap-m-*`（M-misc）。第二族里那 11 条是 `mut-*` 探针池
+（**第 816 轮收掉 4 条、第 817 轮再收 8 条，池子从 23 降到 11**）。
 
 **「一次收一族」在这一族上的意思**：把「注释夹在语法相邻位置之间」这条线**整个按位置过一遍**，
 而不是一条一条打补丁。已经被这条线收掉的地方（对照表，说明这类缺口长什么样）：
@@ -138,6 +146,14 @@
   `var` 的声明头、`switch` 判别括号、`class A /* c */ extends B`、`namespace N /* c */ {`、
   `enum E /* c */ {`、`type T /* c */ =`、`const a /* c */ = 1`、`f(1, /* c */ 2)`、
   `{ get x() {} set x(v) {} }` —— 这些落点本来就是好的（探针里对上了，所以不立用例）。
+- **第 817 轮收掉的那六处**（都是「相邻的那一格」没走 trivia 口径，见「解析层几条硬规矩」）：
+  `keyof` / `typeof` / `readonly` / `unique` 与操作数之间（`type-operator.xl.md`）、
+  函数类型的形参括号与 `=>` 之间（`function-type.xl.md`）、成员名与形参表之间
+  （`method-declaration.xl.md` 的 `ParameterIndex` + `signature.xl.md` 的分工线）、
+  被调用者与实参括号之间（`method.xl.md` 的 `NameIndex`）、
+  `new C` 与实参括号之间（`binary-operator.xl.md` 取「括号外面那一格」）、
+  以及 `for /* c */ (…)` 的头部括号。前五处是这一轮的主线，`for` 那一处随同收掉
+  （`gap-sweep-*-call/fn/class/clsmod/iface` 那些条的形状也跟着变好，见各自的 `xl:expect`）。
 - **`catch` / `finally` 与它的体之间夹一条行注释或一个换行**（`gap-crash-try-*` 那 4 条）
   曾经是**唯一一档「产物直接抛异常」**的：`Statement.IsHeaderBodyBrace` 只认
   `while` / `for` / `switch` / `function` / `import` / `export` ⇒ 那个 `{` 没被认成体
@@ -145,7 +161,7 @@
   `IsHeaderBodyBrace` 收下 `catch` / `finally`；`Statement.IsDeclarationPosition` 往回跳 trivia
   （但**行注释那一格不跳**——`//` 换行是一次 ASI，块注释不是）。
 
-**第三段（19 条）逐条**（它们不属于上面两族，各有各的根）：
+**第三段（18 条）逐条**（它们不属于上面两族，各有各的根）：
 
 | 用例 | 形状 | 症状 |
 | --- | --- | --- |
@@ -156,7 +172,6 @@
 | `expr-async-generic-arrow`、`-spaced`、`gap-d-generics-tuple-mapped-02` | `async <T>(x: T) => x` | `async` 与泛型段**谁先认领**没有定义（各缺 7–13） |
 | [mod-declare-module-shorthand.ts](../cases/token/modules/mod-declare-module-shorthand.ts) | `declare module "mm";` | 简写形态不成形（缺 2 多 1）；**带 `{}` 的那一条是好的** |
 | [stmt-do-while-then-statement.ts](../cases/token/statements/stmt-do-while-then-statement.ts) | `do {} while (a) b()` | `do…while` 后面还跟着一条语句时那一格没被收（缺 3） |
-| [stmt-for-comment-before-paren.ts](../cases/token/statements/stmt-for-comment-before-paren.ts) | `for /* c */ (…)` | 头部取括号只看紧邻那一格 ⇒ 整条 `for` 解体（缺 1 漂 1 多 5） |
 | [stmt-switch-comment-fallthrough.ts](../cases/token/statements/stmt-switch-comment-fallthrough.ts) | `switch /* c */ (a) { case 1: case 2: … }` | 判别括号认不出 ⇒ `case 1:` 那一格整条落空（缺 5 漂 1 多 3） |
 | [stmt-switch-block-then-default.ts](../cases/token/statements/stmt-switch-block-then-default.ts) | `switch (1) { case 1: { break; } default: break; }` | 单行写完一个块再跟 `default`：语句层把 `default:` 并进了同一个壳，分段只在顶层单元上找 `case` / `default` ⇒ 只有一段。**换行写法是好的**（见根 README 的「开着的缺口」，块当语句边界的改法已被否决） |
 | [stmt-label-comment-before-call.ts](../cases/token/statements/stmt-label-comment-before-call.ts) | `a: b: c: d/* c */ ()` | 标签那一趟看到的是注释，最后一层标签没接上被标的语句（缺 1） |
@@ -167,8 +182,8 @@
 | [type-typeof-qualified-index.ts](../cases/token/types/type-typeof-qualified-index.ts) | `type A = typeof a.b[K]` | 点号名在产物里是平级单元，`TypeQuery` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）。**不带点号的** `typeof a[K]` / `typeof a[]` / `typeof a[K][L]` 已经收掉 |
 | `mut-stmt-asi-return-newline-expr-115` | `function f(/* c */)` | 那条注释让 ASI 那一族的形态漂一格（多 1 字段 1） |
 
-**其余 16 条**在 `gap-sweep-*` / `mut-*` 那两族里，根因与上表同型（注释或换行落在某两格之间），
-只是落点更细——逐条的根因就写在各自文件头的 `xl:known-gap` 后面，不必在这里再抄一遍。
+上表把第三段列全（`expr-generic-*` / `expr-async-*` / `type-asserts-*` 三行各含 2–4 条同族）；
+第一、二段那些条不用在这里再抄一遍——逐条的根因都写在各自文件头的 `xl:known-gap` 后面。
 
 **怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。

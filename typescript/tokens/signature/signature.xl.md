@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { IsDeclarationTailStop } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousAnnotation, SkipPreviousWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "../class/class-body.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -169,12 +169,21 @@ return unit instanceof Bracket && unit.startBracket === "[";
 2. 圆括号那条路还要看**前一个实义单元**：它不能是 `Identifier` / `GenericType`——
    `m(): void` 里那个 `(` 前面是方法名 `m`，那是 `MethodDeclaration` 的形状，不是无名签名。
 
-第 2 条是与 `MethodDeclaration` 的分工线，看的是**紧挨着的前一个单元（不跳软换行）**：
+第 2 条是与 `MethodDeclaration` 的分工线，看的是**紧挨着的前一个实义单元（只跨注释，不跳软换行）**：
 
 - `m(): void` 里 `m` 与 `(` 相邻 → 前一个是 `Identifier`，那是方法名 → 不是无名签名；
 - `rename?(a: string): void` 里 `(` 前面是可选标记 `?`，`?` 前面才是方法名 → **也要往后看一格**，
   否则可选方法签名会被拆成「`rename` + `?` + 一个无名签名」；
 - `… : number` 换行 `(): void` 里 `(` 前面是**软换行** → 这是新的一条成员 → 是签名。
+
+**注释要跨过去**（第 817 轮）：`interface I { m /* c */ (): void; }` 里 `(` 前面那个实义单元是
+注释 ⇒ 照「紧挨着的前一格」判，`before` 是 `AreaAnnotation` 而不是方法名 ⇒ 本规则把
+`(): void;` 收成一个无名 `Signature`，而 `m` 与注释漏在外面（实测 `MethodSignature` 缺、
+多出一个 `CallSignature`）。而 **`MethodDeclaration` 那一侧（`ParameterIndex`）已经改了**——
+两边判据不对齐时，谁先把括号认走就决定了产物形状。
+改法只能用 `SkipPreviousAnnotation`（**只跳注释**）：软换行在这里是成员边界、语义上不能跳
+（上面那条），跳了就漏掉真正的无名签名。
+`abstract class A { abstract m /* c */ (): void; }` 与泛型那一支同族。
 
 **不跳软换行**是关键：成员体里「一行一条成员」的排版让软换行天然就是成员边界，
 若跳过它去看，就会把上一条成员的尾部（`number`）当成名字，从而漏掉真正的无名签名。
@@ -191,10 +200,10 @@ if (!this.IsMemberPosition(current)) {
   return false;
 }
 if (current instanceof Bracket && current.startBracket === "(") {
-  let immediateIndex = index - 1;
+  let immediateIndex = SkipPreviousAnnotation(units, index);
   const immediate = Get(units, immediateIndex);
   if (immediate instanceof SymbolToken && immediate.Is("?")) {
-    immediateIndex = immediateIndex - 1;
+    immediateIndex = SkipPreviousAnnotation(units, immediateIndex);
   }
   const before = Get(units, immediateIndex);
   if (before instanceof Identifier || before instanceof GenericType) {
@@ -239,10 +248,10 @@ if (current instanceof New) {
   return this.HasSignatureTail(units, index);
 }
 if (current instanceof GenericType) {
-  let immediateIndex = index - 1;
+  let immediateIndex = SkipPreviousAnnotation(units, index);
   const immediate = Get(units, immediateIndex);
   if (immediate instanceof SymbolToken && immediate.Is("?")) {
-    immediateIndex = immediateIndex - 1;
+    immediateIndex = SkipPreviousAnnotation(units, immediateIndex);
   }
   const before = Get(units, immediateIndex);
   if (before instanceof Identifier || before instanceof String || before instanceof GenericType) {

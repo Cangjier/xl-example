@@ -1554,6 +1554,13 @@ return false;
 `(` 这一条也一起挡：实参表里的括号只可能是**分组**（`f((A | B))` 在 JS 里就是值），
 而类型那一边的 `((A | B))` 宿主前面是 `:` / `=` 之类，挡不到。
 
+**「宿主前面那一格」要跨过 trivia**（第 817 轮）：`f /* c */ (1, 2)` 里那个实义单元是注释，
+只跳软换行时 `before` 落在注释上 ⇒ 表里四条一条都不命中 ⇒ 实参表被当成**分组**，
+里面的 `,` 于是折成逗号运算符（实测多出一个 `BinaryExpression(1, 2)` 与 `CommaToken`，
+而 `new C /* c */ (1, 2)` / `f /* c */ (1, 2)` 同一根）。
+改法：这一处也走 `SkipPreviousTrivia`——**软换行本来就跳**，注释与它同一口径
+（`IsTriviaUnit` 那份名单就是「不该挡住相邻判断」的单元）。
+
 ```ts
 const parent = bracket.Parent;
 if (parent === null) {
@@ -1563,7 +1570,7 @@ const at = parent.Data.indexOf(bracket);
 if (at <= 0) {
   return false;
 }
-const before = Get(parent.Data, SkipPreviousWrapSymbol(parent.Data, at));
+const before = Get(parent.Data, SkipPreviousTrivia(parent.Data, at));
 if (before === null) {
   return false;
 }

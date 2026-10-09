@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationModifier, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText, GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText, GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BracketNameText } from "../field.xl.md"
 import { ArrayLiteral } from "../json/array-literal.xl.md"
@@ -236,14 +236,20 @@ return WordText(before) === "new" || WordText(before) === "abstract";
 
 `Previous` 与 `Process` 共用它。
 
+**第 817 轮：名字与参数表之间跨注释**。原来三处都走 `SkipNextWrapSymbol`（只跳软换行），
+于是 `m /* c */ (): void` 里名字后面紧邻的是注释 ⇒ `ParameterIndex` 给 `-1` ⇒
+`Previous` 判否、方法声明整条不成形（实测 `class A { m /* c */ (): void {} }` 的 `MethodDeclaration`
+与它的 `Block` 都缺、`()` 留在外面当未映射 `Bracket`；接口 / `abstract` 两条同族）。
+三处一律改 `SkipNextTrivia`（注释与软换行同一条口径，与 `function-type.xl.md` 第 817 轮同一改法）。
+
 ```ts
-let i = SkipNextWrapSymbol(units, index);
+let i = SkipNextTrivia(units, index);
 const mark = Get(units, i);
 if (mark instanceof SymbolToken && mark.Is("?")) {
-  i = SkipNextWrapSymbol(units, i);
+  i = SkipNextTrivia(units, i);
 }
 if (Get(units, i) instanceof GenericType) {
-  i = SkipNextWrapSymbol(units, i);
+  i = SkipNextTrivia(units, i);
 }
 const parameters = Get(units, i);
 if (!(parameters instanceof Bracket) || parameters.startBracket !== "(") {

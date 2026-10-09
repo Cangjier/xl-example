@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, StartsWithTemplate } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol, StartsWithTemplate } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { CommonUtil } from "../../core/common-util.xl.md"
@@ -752,7 +752,12 @@ if (openBracket === null) {
   if (owner !== null) {
     const at = owner.Data.indexOf(parent);
     if (at > 0) {
-      outside = owner.Data[at - 1];
+      // **括号外面那一格要跨过 trivia**（第 817 轮）：`new C /* c */ (1, 2)` 里
+      // 括号前面躺着的是那条注释，照「紧邻的前一格」取会给一个 `AreaAnnotation` ⇒
+      // 两条判据都不命中 ⇒ `return true` ⇒ 实参被折成逗号表达式（实测多出
+      // `BinaryExpression(1, 2)` 与 `CommaToken`，构造函数只收到一个实参——**静默错值**）。
+      // 注释与软换行同一口径，取「上一个实义单元」。
+      outside = GetSkipPreviousTrivia(owner.Data, at);
     } else if (at === 0) {
       // 括号是宿主列表的**第一项**：`for (…)` 在最外层时括号的 `Parent` 就是 `Root`/`Statement`，
       // 而 `for` 词在**更外一层**的列表里。上溯一层找它。

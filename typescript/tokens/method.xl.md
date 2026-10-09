@@ -9,7 +9,7 @@ import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { GenericType } from "./generic-type.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
-import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -34,14 +34,21 @@ import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 
 ## private method NameIndex:(units:Array<Token>, index:int)=>int
 
-找 `index` 处那个括号对应的方法名下标：先跳过软换行，若落在一个 `GenericType`（泛型实参段）上就再跳一次。
+找 `index` 处那个括号对应的方法名下标：先跳过 trivia（软换行**与注释**），若落在一个 `GenericType`（泛型实参段）上就再跳一次。
 
 `Previous` 与 `Process` 共用它，两边的「名字在哪」必须一致——`Previous` 认下之后，`Process` 要按同一个下标去取名字、也要按同一个下标去替换。
 
+**第 817 轮：注释也要跳**。原来两处都走 `SkipPreviousWrapSymbol`，于是 `f /* c */ (1, 2)`
+里 `(` 前面那个实义单元是注释 ⇒ 找不到方法名 ⇒ 这次调用不成形（产物是
+`<Identifier>f</Identifier><AreaAnnotation>…</AreaAnnotation><Bracket>` + 里面的
+`<BinaryOperator op=",">`，而 TS 那边是一次 `CallExpression`；`new C /* c */ (1, 2)` 与
+`f /* c */ (1, 2)` 同一根）。**值位里「名字 + 注释 + `(`」就是一次调用**——
+注释是 trivia，不该挡住相邻判断，所以这里与 `SkipNextTrivia` 一侧同一条口径。
+
 ```ts
-const previousIndex = SkipPreviousWrapSymbol(units, index);
+const previousIndex = SkipPreviousTrivia(units, index);
 if (Get(units, previousIndex) instanceof GenericType) {
-  return SkipPreviousWrapSymbol(units, previousIndex);
+  return SkipPreviousTrivia(units, previousIndex);
 }
 return previousIndex;
 ```

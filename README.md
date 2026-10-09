@@ -306,6 +306,38 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 817 轮：**「相邻的那一格」一律走 trivia 口径**——五处判据跨过注释，一次收掉 23 条
+
+**一句话**：上一轮那条根（判据跨过 trivia、搬运没跨）在**同一族里还有第二面**——「x 与 y 相邻」
+这件事本身用「只看紧邻那一格」判的，于是中间夹一条注释就整条构造认不出来。五处判据改成跨 trivia，
+`cases:tsast` 的账从 **209 → 186**（`coverage` 同步 3779 → 3802 通过）。
+
+- **根①：`FunctionTypeCloseRule` 往左找形参括号只看紧邻**（`function-type.xl.md`）。
+  `type F = (a: number) /* c */ => string` 里 `=>` 左边是注释 ⇒ 判据当场给否 ⇒ `FunctionType` 整条缺、
+  括号留在外面当 `Bracket`。`Previous` 与 `Process` 两处一起改 `SkipPreviousTrivia`
+  （第 816 轮那条「判据跨过什么、搬运就必须跨过什么」在这里同样成立）。
+- **根②：`MethodDeclarationCloseRule.ParameterIndex` 往右找 `(` 只看紧邻**（`method-declaration.xl.md`）。
+  `m /* c */ (): void` 里名字后面是注释 ⇒ 找不到参数表。三处改 `SkipNextTrivia`。
+- **根③：`SignatureCloseRule.Previous` 与它抢同一对括号**（`signature.xl.md`）。
+  这一处**不能用 `SkipPreviousTrivia`**——成员体里「一行一条成员」，软换行就是成员边界
+  （跳了会漏掉真正的无名签名），所以用 `SkipPreviousAnnotation`：**只跳注释**。
+  两边判据不对齐时，谁先把括号认走就决定了产物形状（症状：`MethodSignature` 缺、多一个 `CallSignature`）。
+- **根④：`MethodCloseRule.NameIndex` 往左找被调用者只看紧邻**（`method.xl.md`）。
+  `f /* c */ (1, 2)` 认不出这是一次调用 ⇒ 实参表被当成分组。
+- **根⑤：`BinaryOperatorCloseRule` 判 `,` 是不是逗号表达式时，看的是「括号外面那一格」**（`binary-operator.xl.md`）。
+  `new C /* c */ (1, 2)` 里那一格是注释 ⇒ 两条判据都不命中 ⇒ 实参被折成逗号表达式 ⇒
+  **构造函数只收到一个实参（静默错值）**。改成 `GetSkipPreviousTrivia`。
+- **收掉的 23 条**：`gap-r676-method-comment-before-paren{,-signature,-abstract}`、
+  `gap-r676-new-comment-before-args{,-dotted}`、`gap-r676-func-type-comment-before-arrow{,-plain}`、
+  `stmt-for-comment-before-paren`，加上 `gap-sweep-{comment,linecomment,newline}` 里 `call` / `fn` /
+  `class` / `clsmod` / `iface` 那几族与 `mut-*` 池子里的 8 条（池子 19 → 11）。
+  另有 10 条**形状变好但还差一截**的用例（如 `gap-sweep-linecomment-call-01`）留在账上，
+  它们的 `xl:expect` 按新产物改过——**判据改了，用例自带的期望也要跟着改**，
+  否则 `cases:tags` 会拿旧形状的期望当场判红。
+- **可复用的判据**：判「相邻」时先问**注释与软换行在这里是不是同一个意思**。
+  是（大多数类型位 / 实参位）就一起跳；不是（成员体的行边界、ASI 那一族）就只用 `Skip*Annotation`。
+  这条写进了 [typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md) 的「解析层几条硬规矩」。
+
 ### 第 816 轮：**判据跨过注释、搬的那一段没跨**——类型运算符那一格收掉 8 条
 
 **一句话**：这一轮从 `cases:tsast` 里最大的一族（「注释夹在语法相邻的两格之间」）挑出
@@ -3005,7 +3037,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **209 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **186 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1427** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -3044,7 +3076,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **209** 条）：
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **186** 条）：
   主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
   （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
   `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），
