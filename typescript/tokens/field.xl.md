@@ -170,6 +170,23 @@ while (i < units.length) {
       i = i + 1;
       continue;
     }
+    // **名字后面换行、下一行以 `(` 开头是方法签名**（第 827 轮）：`interface I { m` 换行
+    // `(): void; }` 里那个换行**不是**成员边界——形参表写在名字的下一行是日常排法。
+    // 判据两条：这一条成员**目前只写了名字**（`tail` 还停在 `index` 上，一个类型 / 值都没扫到），
+    // 且换行后紧跟一个 `(` 括号。
+    //
+    // **少了它会怎样**：`IsMemberBoundary` 那一句对 `(` 判否（它不是名字），可
+    // `Statement.IsLineBreakBoundary` 随后答「是边界」⇒ 成员在名字那里收尾 ⇒
+    // 前半截成了一条没有类型的 `Field`、后半截落成 `Signature`（实测
+    // `gap-sweep-newline-iface-02` 与 `gap-sweep-linecomment-iface-03` 两条）。
+    //
+    // **为什么 `tail === index` 这一条不能少**：`a = f` 换行 `(1)` 里换行后面**也**是 `(`，
+    // 而那时已经扫过 `=` 与 `f`（`tail` 不在名字上）⇒ 不归这一格管。
+    const afterNameWrap = Get(units, SkipNextTrivia(units, i));
+    if (tail === index && afterNameWrap instanceof Bracket && afterNameWrap.startBracket === "(") {
+      i = i + 1;
+      continue;
+    }
     if (IsMemberBoundary(units, i)) {
       return tail;
     }

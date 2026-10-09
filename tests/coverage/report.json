@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.09,
+  "progressPercent": 94.14,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1394,
-      "pass": 1300,
-      "blocked": 94,
+      "pass": 1305,
+      "blocked": 89,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 93.26
+      "coverage": 93.62
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1394,
-    "knownGap": 94,
-    "knownGapStillOpen": 94,
-    "exactFiles": 1300,
-    "scoredWithoutGap": 1300,
-    "passedWithoutGap": 1300
+    "knownGap": 89,
+    "knownGapStillOpen": 89,
+    "exactFiles": 1305,
+    "scoredWithoutGap": 1305,
+    "passedWithoutGap": 1305
   },
   "blocked": [
     {
@@ -630,36 +630,6 @@
       "detail": "缺 5　漂 1　多 3　判别括号认不出 ⇒ `case 1:` 那一格整条落空（缺 5 漂 1 多 3）"
     },
     {
-      "id": "token/types/gap-sweep-linecomment-iface-03",
-      "category": "token",
-      "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
-      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：MISS MethodSignature TS[25,39) «m//c (): void;»"
-    },
-    {
-      "id": "token/types/gap-sweep-linecomment-iface-05",
-      "category": "token",
-      "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
-      "detail": "缺 1　漂 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：DRIFT MethodSignature TS[25,39) 产物[25,29) «m(): //c void;»"
-    },
-    {
-      "id": "token/types/gap-sweep-linecomment-iface-06",
-      "category": "token",
-      "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
-      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：DRIFT MethodSignature TS[25,39) 产物[25,34) «m(): void//c ;»"
-    },
-    {
-      "id": "token/types/gap-sweep-newline-iface-02",
-      "category": "token",
-      "title": "SWEEP-newline/iface 落点（657 审计语料）",
-      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/iface）：MISS MethodSignature TS[25,36) «m (): void;»"
-    },
-    {
-      "id": "token/types/gap-sweep-newline-iface-03",
-      "category": "token",
-      "title": "SWEEP-newline/iface 落点（657 审计语料）",
-      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/iface）：DRIFT MethodSignature TS[25,36) 产物[25,34) «m(): void ;»"
-    },
-    {
       "id": "token/types/mut-type-cond-generic-in-true-branch-152",
       "category": "token",
       "title": "条件类型真分支里的类型实参：`? F<A, B> : C` 的泛型段必须成形（第 66 轮）",
@@ -1079,7 +1049,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20360/src/2001.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27016/src/2001.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1421,7 +1391,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20360/src/2984.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27016/src/2984.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1445,7 +1415,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20360/src/3032.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27016/src/3032.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1601,7 +1571,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20360/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27016/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

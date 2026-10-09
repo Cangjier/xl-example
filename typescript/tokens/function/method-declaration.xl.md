@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationModifier, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
-import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText, GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText, GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BracketNameText } from "../field.xl.md"
 import { ArrayLiteral } from "../json/array-literal.xl.md"
@@ -298,7 +298,12 @@ while (i < units.length) {
     break;
   }
   if (item instanceof LineWrap) {
-    const previous = Get(units, i - 1);
+    // **「换行前那一格」取最后一个实义单元**（第 827 轮）：`m(): //c` 换行 `void;` 里换行
+    // 前面紧挨着的是那条 `LineAnnotation` —— 只跳软换行的话 `continues` 判成假
+    // ⇒ 返回类型在注释那里收尾 ⇒ 那条注释成了**整个返回类型**，`void` 掉到外面成了
+    // 下一条成员（实测 `gap-sweep-linecomment-iface-05`）。
+    // 与第 819 / 820 轮那两处同一条口径：**判「上一行写完了没有」时要看代码，不看注释**。
+    const previous = Get(units, SkipPreviousTrivia(units, i));
     const continues = previous instanceof SymbolToken && !previous.Is(";") && !previous.Is(",");
     // **条件类型的假分支可以另起一行**（第 100 轮）：
     // ```
@@ -794,9 +799,16 @@ let memberEnd = tailEnd >= 0 ? tailEnd : parametersIndex;
 if (bodyIndex >= 0) {
   memberEnd = bodyIndex;
 } else {
-  const semicolon = Get(units, memberEnd + 1);
+  // **收尾那个 `;` 跨 trivia 看**（第 827 轮）：`m(): void` 换行 `;` 与
+  // `m(): void//c` 换行 `;` 里，`;` 前面隔着一个软换行 / 一条行注释 ——
+  // 只看 `memberEnd + 1` 时它是那个 `LineWrap` ⇒ 不认 ⇒ 区间停在返回类型末尾、
+  // 那个 `;` 掉在外面成了平级单元（实测 `gap-sweep-newline-iface-03` 与
+  // `gap-sweep-linecomment-iface-06`：`MethodSignature` 产物 `[25,34)` vs TS `[25,39)`）。
+  // 口径与 `Field.MemberEnd` 的「换行后面只有一条注释或一个 `;` 的不算边界」同源。
+  const semicolonAt = SkipNextTrivia(units, memberEnd);
+  const semicolon = Get(units, semicolonAt);
   if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
-    memberEnd = memberEnd + 1;
+    memberEnd = semicolonAt;
   }
 }
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);

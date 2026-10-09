@@ -209,6 +209,50 @@ if (current instanceof Bracket && current.startBracket === "(") {
   if (before instanceof Identifier || before instanceof GenericType) {
     return false;
   }
+  // **名字写在上一行**（第 827 轮）：`interface I { m` 换行 `(): void; }` 里那个 `(` 是
+  // `m` 的形参表（TS 那边是 `MethodSignature`），不是无名签名 —— 成员体里 ASI 不管换行，
+  // 「名字 + `(`」永远读成方法。
+  //
+  // **判据是「上一行只写了一个名字」**：往前跳过 trivia 得到那个名字，再看名字**自己**前面
+  // 是不是一条成员的起点（体那个 `{`、`;` / `,`、修饰词、或列表开头）。
+  // 少了「名字前面那一格」这一问，`interface I { a: number` 换行 `(): void }` 那条**真正的**
+  // 无名签名会被上一行的类型名 `number` 误认成方法名（那条文档里写着「不跳软换行」的理由）。
+  if (before instanceof LineWrap) {
+    const nameIndex = SkipPreviousTrivia(units, immediateIndex);
+    const name = Get(units, nameIndex);
+    if (name instanceof Identifier) {
+      const headIndex = SkipPreviousTrivia(units, nameIndex);
+      const head = Get(units, headIndex);
+      if (headIndex < 0) {
+        return false;
+      }
+      if (head instanceof Bracket && head.startBracket === "{") {
+        return false;
+      }
+      if (head instanceof SymbolToken && (head.Is(";") || head.Is(",") || head.Is("}"))) {
+        return false;
+      }
+      if (head instanceof Identifier || (head !== null && head.constructor.name === "Keyword")) {
+        const word = head instanceof Identifier ? head.TempToString() : (head as any).Value;
+        if (
+          word === "public" ||
+          word === "private" ||
+          word === "protected" ||
+          word === "static" ||
+          word === "readonly" ||
+          word === "abstract" ||
+          word === "async" ||
+          word === "get" ||
+          word === "set" ||
+          word === "declare" ||
+          word === "export" ||
+          word === "default"
+        ) {
+          return false;
+        }
+      }
+    }
+  }
   // **`=` 后面不是签名**（第 66 轮）：类字段 `f = (a: number): void => {}` 是一条**值**字段，
   // 括号前面是赋值号。本规则排在 `FieldCloseRule` 之前，此刻那个 `(` 的父单元还是
   // `ClassBody`（`IsMemberPosition` 成立），不挡的话整条字段被收成一个
