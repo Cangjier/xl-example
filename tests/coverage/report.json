@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8310,
+  "total": 8331,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.52,
+  "progressPercent": 95.47,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1130,
-      "pass": 1089,
+      "total": 1134,
+      "pass": 1091,
       "blocked": 5,
-      "differ": 36,
+      "differ": 38,
       "nodefail": 0,
-      "coverage": 96.37
+      "coverage": 96.21
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3303,
-      "pass": 3215,
-      "blocked": 26,
+      "total": 3320,
+      "pass": 3230,
+      "blocked": 28,
       "differ": 62,
       "nodefail": 0,
-      "coverage": 97.34
+      "coverage": 97.29
     },
     {
       "category": "e2e",
@@ -1644,6 +1644,18 @@
       "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
     },
     {
+      "id": "stdlib/round779/r779j-01",
+      "category": "stdlib",
+      "title": "`RegExp` 构造器那一半：全局名没登记",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: RegExp"
+    },
+    {
+      "id": "stdlib/round779/r779j-02",
+      "category": "stdlib",
+      "title": "字符串方法接 `RegExp` 对象那一半",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: RegExp"
+    },
+    {
       "id": "stdlib/string/042-string-match-and-split-regex",
       "category": "stdlib",
       "title": "字符串方法收正则：match / split(/\\s+/)",
@@ -1853,7 +1865,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22612/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20288/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2132,6 +2144,18 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：heap object is not an environment"
     },
     {
+      "id": "runtime/round779/r779r-01",
+      "category": "runtime",
+      "title": "`arguments` 的形状：它不是数组",
+      "detail": "stdout 不同：第 4 行：node «04 has map = \"undefined\"» vs tsrun «04 has map = \"function\"»"
+    },
+    {
+      "id": "runtime/round779/r779r-02",
+      "category": "runtime",
+      "title": "`arguments` 与形参的别名（松散模式）",
+      "detail": "stdout 不同：第 1 行：node «01 sloppy aliasing = 99» vs tsrun «01 sloppy aliasing = 1»"
+    },
+    {
       "id": "stdlib/array/150-array-species-subclass",
       "category": "stdlib",
       "title": "继承数组的子类上 `map` / `concat` 交出什么",
@@ -2153,7 +2177,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22612/src/5303.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20288/src/5307.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2177,7 +2201,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22612/src/5353.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20288/src/5357.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",

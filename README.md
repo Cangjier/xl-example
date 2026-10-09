@@ -306,6 +306,64 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 779 轮：**内建函数对象自己那两格**——`name` / `length` 那一张表铺到五处新落点，另登记四条
+
+**一句话**：拿「内建函数的 `name` / `length`」这一族当尺子**普查**（第 733 / 734 轮铺过
+`Math` / `Object` / `Array.prototype` / `String.prototype`），量出**五处落点**——每一处都是
+「宿主引用（或可调用对象）造出来了，可没人往里写那两格」，四处当场收掉、一处如实登记。
+
+- **收掉的根①：`Array` / `Number` / `Object` 的静态那一批走的是裸句柄**（第 779 轮）。
+  `Array.isArray` / `Array.from` / `Array.of` / `Array.fromAsync` / `Object.create` /
+  `Object.getPrototypeOf` / `Object.getOwnPropertyNames` / `Object.getOwnPropertySymbols` /
+  `Object.fromEntries` / `Number.isInteger` / `Number.isSafeInteger` / `Number.isNaN` /
+  `Number.isFinite` 十三格原来写的是 `Value.FromRef(HostRef, table.CreateHostRef(id, 0))`
+  ——句柄是现造的，`name` 两格压根没人写 ⇒ 脚本读到的是「没有名字的那种内建」
+  （`Array.isArray.name` 给 `""`、`.length` 给 `0`）。**修法就是第 733 轮那个收口**
+  （`ObjectProtoMethod` = `BuiltinHostRef` + `DefineBuiltinName`），**没有新写一份**。
+- **收掉的根②：`Date` 的三格静态与两格全局**。`Date.UTC` / `Date.parse` / `Date.now`、
+  全局的 `parseInt` / `parseFloat` / `isNaN` / `isFinite` / 百分号编解码四个、
+  `queueMicrotask` / `structuredClone`、`Map.groupBy`——同一形状、同一修法。
+  其中 **`parseInt.length` 是 `2`**（`(文本, 基数)`，原来与 `parseFloat` 那一格**顺手归成一族**）。
+- **收掉的根③：`Date.prototype` 那一族二十六个槽位一个名字都没有**（判据 `r779s-01`）：
+  `Date.prototype.toISOString.name` 在 Node 里是 `"toISOString"`、本仓给空串。
+  `InstallDateMethods` 多收一格 `vm`（取「有身份的那个句柄」要用它），
+  循环里**造一个、挂一个、存同一个**。**八个名字共号的那几对**（`getTime` / `valueOf`、
+  `toUTCString` / `toGMTString`、本地与 UTC 的 setter）**各挂各的句柄**——
+  JS 里 `Date.prototype.getTime !== Date.prototype.valueOf`（实测），
+  所以这里**不能**走 `ObjectProtoMethod`（按号取同一个值的话，后写的名字会把先写的顶掉）。
+- **收掉的根④：生成器那三格与 `[Symbol.iterator]` 那几格**。`it.next` / `.return` / `.throw`
+  是「对象 + 可调用载荷」（属性表本来就有），缺的只是名字与 `1` 格形参；
+  `Array.prototype[Symbol.iterator]`（= `values`）、`String` 的、`Generator` / `AsyncGenerator` 的、
+  `Map` / `Set` 的那五格原来都是裸句柄 ⇒ 名字空着，顺带把
+  `[][Symbol.iterator] === [].values` / `Map.prototype[Symbol.iterator] === Map.prototype.entries`
+  这两条**同一性**也对上了（按号取同一个值）。
+- **`BuiltinArity` 那张表补的格**：`parseInt` 从「一格」那一列**挑出来**（是 `2`）、
+  `JSON.parse` 是 `2` / `JSON.stringify` 是 `3`（原来写成一句「都是一格」）、
+  `Object.getOwnPropertyDescriptor` 是 `2`、`Array.from` / `Array.isArray` 是 `1`、
+  `Date.UTC` 是 `7` / `Date.parse` 是 `1`、七个 `set*` 是 `1..4`、`toJSON` 是 `1`、
+  `map.groupBy` 是 `2`、`structuredClone` 是 `2`、`queueMicrotask` 是 `1`。
+  **错误家族八个构造器自己的 `length`**（七个 `1`、`AggregateError` 是 `2`）——
+  `Error` 那一格第 703 轮就挂了，其余七格一直空着（`TypeError.length` 给 `undefined`）。
+- **新登记的两条**（各带 `xl:why`）：
+  ① `runtime/round779/r779r-01`——**`arguments` 不是数组**（本仓的值就是数组，
+  第 702 轮的有意取舍），四个面与 JS 不同：`typeof arguments.map` 给 `"function"`、
+  原型不是 `Object.prototype`、`hasOwnProperty("length")` 给假、自有名表里多一格内部的 `__a`；
+  ② `r779r-02`——**松散模式下形参与 `arguments` 的别名**（与 `exec/functions/095` 同一条根，
+  这一条把严格模式那一半与函数自己的 `length` 一起钉住）。
+- **另两条 `blocked`**（`stdlib/round779/r779j-01` / `j-02`）：`RegExp` 这个**全局名根本没登记**
+  （`new RegExp("a")` 报 `name is not a local or a capture: RegExp`，**整份文件进不来**）
+  ——它与正则字面量是**同一个缺失的两半**，两条用例把构造器那一半与「字符串方法接 RegExp 对象」
+  那一半写成进来之后的判据。
+- **用例**：`round779` 二十一条（**17 条通过、2 条 differ、2 条 blocked**），
+  五类 7916 / 8310 → **7933 / 8331**、blocked 264 → **266**、differ 130 → **132**、
+  bad 0、regressions 0，加权 **95.5%**。八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+- **这一轮的普查面**（九层）：正则（构造器 / 字符串方法接 RegExp 对象）、强制转换
+  （`ToPrimitive` 两条提示、松相等十二格、加法的四种操作数）、数字格式化（进制 / 定点 / 指数 /
+  精度 / 解析）、数组新族（`sort` 稳定性 / `flat` / `at` / `toReversed` / 洞与长度）、
+  `JSON`（缩进 / replacer / reviver 的 `this` 与次序）、集合（`Map` / `Set` 的键与迭代）、
+  字符串与日期与 `Math` 的边角、内建函数的 `name` / `length`、`arguments` 的形状
+  ——**当场通过的那些也一起收进语料当守卫**。
+
 ### 第 778 轮（续）：六个面各量一遍——**一处收掉（计算键的对象那一档还开着）**，另登记四处
 
 **一句话**：接着上面那一轮的六个面（解构 / 未接住的异常 / 对象字面量 / 字符串的 Unicode /

@@ -6307,12 +6307,21 @@ if (id === DateUTC) {
 throw new Error("unimplemented: global builtin " + id);
 ```
 
-# method InstallDateMethods:(room:RoomChecker, table:HeapTable, target:Value)=>void
+# method InstallDateMethods:(vm:Vm, room:RoomChecker, table:HeapTable, target:Value)=>void
 
 **把 Date 那一族的方法挂到一个对象上**（第 341 轮从 `DateCtor` 那一支**原样搬出来**）——
 调用点从「每个实例」改成「原型那一格」，理由与 `map.xl.md` 的 `InstallMapMethods`
 那一段**一字不差**。**函数体不必改**：它们读的是 `self.__t`，
 而 `DoCallMethod` 递进去的 `self` 仍然是**那个实例**。
+
+**第 779 轮多收一格 `vm`**：这一族也要给自己的 `name` / `length`（判据 `r779s-01`：
+`Date.prototype.toISOString.name` 在 Node 里是 `"toISOString"`、本仓给空串），
+而 `DefineBuiltinName` 的两格**要挂在脚本读到的那一个句柄上**——`vm` 是取那个句柄
+（`BuiltinHostRef`）的入口。**八个名字共号的那几对**（`getTime` / `valueOf`、
+`toUTCString` / `toGMTString`、本地与 UTC 的 setter）**各挂各的句柄**：
+JS 里 `Date.prototype.getTime !== Date.prototype.valueOf`（实测），
+所以这里**不能**走 `ObjectProtoMethod`（那个按号取**同一个**值，
+后写的名字会把先写的顶掉——`getTime.name` 会变成 `"valueOf"`）。
 
 ```ts
 const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate,
@@ -6362,10 +6371,15 @@ const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate",
   "toUTCString", "toGMTString", "getTimezoneOffset", "getYear",
   "setTime", "setYear"];
 for (let i = 0; i < methodIds.length; i++) {
+  // **名字与形参个数两格**（第 779 轮）：每一个**槽位**各造一个句柄、各挂各的名字
+  //（同名共号的那几对在上面那一段写着理由）。**句柄必须是「挂过名字的那一个」**——
+  // 造一个、挂一个、存同一个（第 733 轮那条账：挂错句柄就是静默无效）。
+  const methodValue = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(methodIds[i], 0));
+  DefineBuiltinName(room, table, methodValue, methodNames[i], BuiltinArity(methodIds[i]));
   // **方法也不可枚举**（第 194 轮）：`Object.keys(new Date())` 在 JS 里是 `[]`。
   SetHiddenProperty(room, table, target,
     Value.FromString(table.CreateString(Units(methodNames[i]))),
-    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(methodIds[i], 0)));
+    methodValue);
 }
 ```
 
@@ -6375,7 +6389,7 @@ for (let i = 0; i < methodIds.length; i++) {
 同一个位置、同一个形状。
 
 ```ts
-InstallDateMethods(vm.Room(), vm.Table, Value.FromObject(protos.Date));
+InstallDateMethods(vm, vm.Room(), vm.Table, Value.FromObject(protos.Date));
 ```
 
 # method ErrorCtorName:(id:int)=>string
@@ -8474,20 +8488,57 @@ if (id === ObjectDefineProperties) return 2;
 if (id === ObjectAssign) return 2;
 if (id === ObjectGroupBy) return 2;
 if (id === ObjectCreate) return 2;
+// **`Object.getOwnPropertyDescriptor` 也是两格**（第 779 轮量到的）：它收 `(目标, 键)`——
+// 上面那一列一格的名字里没有它（`getOwnPropertyNames` / `getOwnPropertySymbols` 才是一格），
+// 而它原来**整格不在表里** ⇒ `Object.getOwnPropertyDescriptor.length` 本仓给 `0`、Node 给 `2`
+// （判据 `r779q-02` 的第 9 行：名字那一格是对的，只有长度漂）。
+if (id === ObjectGetOwnPropertyDescriptor) return 2;
+if (id === MapGroupBy) return 2;
+// **`structuredClone` 是两格**（`(值, options)`）、**`queueMicrotask` 是一格**（第 779 轮量到的）。
+if (id === StructuredCloneId) return 2;
+if (id === PromiseQueueMicrotask) return 1;
+// **`Array.fromAsync` 是一格**（第 779 轮量到的；`from` / `of` / `isArray` 见下面数组那一段）。
+if (id === ArrayFromAsync) return 1;
+// **`Date` 的三格**（第 779 轮量到的）：`Date.UTC` 是 **`7`**
+//（年 + 月 + 日 + 时 + 分 + 秒 + 毫秒——七个位置参数，**不是**「可变实参所以 0」）、
+// `Date.parse` 是 **`1`**、`Date.now` 是 **`0`**（后者走缺省那一档，不单列）。
+if (id === DateUTC) return 7;
+if (id === DateParse) return 1;
+// **`Date.prototype` 那一族**（第 779 轮，**逐个按 Node 量出来的**）：
+// 七个 `set*` 不是一格——`setUTCFullYear` / `setFullYear` 是 **`3`**、
+// `setUTCMonth` / `setMonth` 与 `setUTCSeconds` / `setSeconds` 是 **`2`**、
+// `setUTCHours` / `setHours` 是 **`4`**、`setTime` / `setDate` / `setYear` /
+// `setUTCDate` / `setMilliseconds` / `setUTCMilliseconds` 是 **`1`**；
+// `toJSON` 是 **`1`**（它收一个键）。**其余（getter / `toISOString` / `toString` /
+// `toUTCString` 那一族）都是 `0`**，走下面缺省那一档。
+if (id === DateSetTime || id === DateSetUTCDate || id === DateSetUTCMilliseconds
+  || id === DateSetYear || id === DateToJSON) {
+  return 1;
+}
+if (id === DateSetUTCMonth || id === DateSetUTCSeconds) return 2;
+if (id === DateSetUTCFullYear) return 3;
+if (id === DateSetUTCHours) return 4;
 if (id === ObjectIs) return 2;
 if (id === ObjectHasOwn) return 2;
 if (id === ObjectHasOwnProperty || id === ObjectIsPrototypeOf
   || id === ObjectPropertyIsEnumerable) return 1;
-// **全局函数**：`parseInt` / `parseFloat` / `isNaN` / `isFinite` /
+// **全局函数**：`parseFloat` / `isNaN` / `isFinite` /
 // `Number.isInteger` 那一族 / 百分号编解码那一族——**都是一格**。
-if (id === ParseInt || id === ParseFloat || id === IsNaN || id === IsFinite
+// **第 779 轮把 `parseInt` 从这一列挑出去了**（普查当场量到的）：`parseInt.length`
+// 在 Node 里是 **`2`**（`(文本, 基数)`），而这一列原来把它与 `parseFloat`（真的是 `1`）
+// **顺手归成一族** ⇒ 本仓给 `1`。判据是 `r779q-01` 的第 5 行。
+if (id === ParseFloat || id === IsNaN || id === IsFinite
   || id === EncodeURI || id === EncodeURIComponent || id === DecodeURI
   || id === DecodeURIComponent || id === NumberIsInteger || id === NumberIsSafeInteger
   || id === NumberIsNaN || id === NumberIsFinite) {
   return 1;
 }
-// **`JSON`**：一格（`stringify` / `parse`）。
-if (id === JsonStringify || id === JsonParse) return 1;
+if (id === ParseInt) return 2;
+// **`JSON` 那两个入口不是一格**（第 779 轮量到的）：`JSON.parse.length` 在 Node 里是 **`2`**
+// （`(文本, reviver)`）、`JSON.stringify.length` 是 **`3`**（`(值, replacer, space)`）——
+// 这一格原来把两个写成了一句「都是一格」⇒ 本仓给 `1`。判据 `r779q-02` 的第 14 / 15 行。
+if (id === JsonStringify) return 3;
+if (id === JsonParse) return 2;
 // **`Reflect`** 那一族：与 `Object` 的镜像，**逐个按 Node 量出来的表写**
 //（`apply` 三格、`construct` 两格、`defineProperty` 三格、`set` 三格，
 //  「目标 + 键」那一族是两格，**单实参那四格是一格**）。
@@ -8539,6 +8590,10 @@ if (id === PromiseAll || id === PromiseRace || id === PromiseAllSettled || id ==
   return 1;
 }
 if (id === PromiseWithResolvers) return 0;
+// **`Array` 的三个静态**（第 779 轮量到的）：`Array.from.length` 与 `Array.isArray.length`
+// 在 Node 里都是 **`1`**，而 `Array.of.length` 是 **`0`**（收可变实参）——
+// 前两个原来**整格不在表里** ⇒ 本仓给 `0`（判据 `r779q-02` 的第 11 / 13 行）。
+if (id === ArrayFrom || id === ArrayIsArray) return 1;
 // **`Array.prototype` 那一族**（第 734 轮）——**按 Node 逐个量出来的表**。
 // 它是第 733 轮那件工具铺开的第二批：`Array.prototype.push.name` 在 Node 里是 `"push"`、
 // `.length` 是 **`1`**（`(值, …)` 那一档在规范里形参只有一个），而本仓原来两格都没有。
@@ -8982,6 +9037,19 @@ SetHiddenProperty(vm.Room(), table, evalErrorObject, NameValue(table, "name"),
 SetHiddenProperty(vm.Room(), table, evalErrorObject, NameValue(table, "prototype"),
   Value.FromObject(protos.EvalError));
 vm.RegisterConstructorProto(EvalErrorCtor, protos.EvalError);
+// **错误家族八个构造器自己的 `length`**（第 779 轮量到的）：`Error` 那一格第 703 轮就挂了
+// （`Value.FromInt(1)`，写在上面），而**其余七格一直没人写**——
+// 于是 `TypeError.length` 给 `undefined`（判据 `r779q-03` 的第 7 行：`.name` 是对的、
+// 只有长度那一格空着）。Node 上的值是：七个 **`1`**、`AggregateError` 是 **`2`**
+//（`(errors, message)`——它比同族多收一格）。
+// **一处写、一张表**：八个对象与八个数按下标对齐，与 `Math` / `Reflect` 那两张表同一条做法。
+const errorCtorValues: Array<Value> = [errorObject, typeErrorObject, rangeErrorObject, syntaxErrorObject,
+  referenceErrorObject, aggregateErrorObject, uriErrorObject, evalErrorObject];
+const errorCtorArities: number[] = [1, 1, 1, 1, 1, 2, 1, 1];
+for (let i = 0; i < errorCtorValues.length; i++) {
+  SetHiddenProperty(vm.Room(), table, errorCtorValues[i], NameValue(table, "length"),
+    Value.FromInt(errorCtorArities[i]));
+}
 // **`WeakMap` / `WeakSet`**（第 295 轮）：**值就是 `Map` / `Set` 那两个构造**——
 // 本仓**没有弱引用那一档**（回收器不认「弱」这个属性），
 // 而它们拖着的两条判据只量 `set` / `get` / `has` / `delete` / `add`——
@@ -9115,25 +9183,31 @@ SetHiddenProperty(vm.Room(), table, evalErrorProtoValue, NameValue(table, "const
 const arrayObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(arrayObject.Ref, ArrayCtor, 0);
 const isArrayKey = Value.FromString(table.CreateString(Units("isArray")));
-const isArrayTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIsArray, 0));
+// **`name` / `length` 两格**（第 779 轮）：`Array.isArray.name` 在 Node 里是 `"isArray"`、
+// `.length` 是 `1`。这一族原来走的是**裸 `CreateHostRef`**——句柄是现造的、
+// 名字两个字压根没人写 ⇒ 脚本读到的是「没有名字的那种内建」（`/0`）。
+// `ObjectProtoMethod` 就是这一格的收口（`BuiltinHostRef` + `DefineBuiltinName`）。
+const isArrayTarget = ObjectProtoMethod(vm, table, ArrayIsArray, "isArray");
 SetHiddenProperty(vm.Room(), table, arrayObject, isArrayKey, isArrayTarget);
 // `Array.from`（第 130 轮）：与 `isArray` 同一张对象（这两个都是 `Array` 的**静态方法**）。
 // **号在数组段、分派在 `install.xl.md`**——它要原型表（返回新数组），
 // 理由与 `String.split` 那条一字不差。
 const fromKey = Value.FromString(table.CreateString(Units("from")));
-const fromTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayFrom, 0));
+// **`Array.from.name` / `.length`**（第 779 轮，与 `isArray` 同一处、同一条理由）。
+const fromTarget = ObjectProtoMethod(vm, table, ArrayFrom, "from");
 SetHiddenProperty(vm.Room(), table, arrayObject, fromKey, fromTarget);
 // **`Array.of`**（第 206 轮）：与 `isArray` / `from` 同一张对象（都是静态方法）——
 // **号在数组段、分派在 `install.xl.md`**，理由与 `from` 那条一字不差（要原型表）。
 const ofKey = Value.FromString(table.CreateString(Units("of")));
-const ofTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayOf, 0));
+// **`Array.of.name` / `.length`**（第 779 轮；`.length` 是 `0`——它收的是可变实参）。
+const ofTarget = ObjectProtoMethod(vm, table, ArrayOf, "of");
 SetHiddenProperty(vm.Room(), table, arrayObject, ofKey, ofTarget);
 // **`Array.fromAsync`**（第 369 轮）：与 `from` / `of` 同一张对象、同一个形状
 //（静态方法、号在数组段、分派在 `install.xl.md`）。
 // **它比那两个多要一条通道**：承诺那条（`schedule` / `settle` / `invoke`）——
 // 而 `InvokeArray` 那一支递不下来，所以走 `install` 这条（与 `from` 同一个理由，**多一条**）。
 const fromAsyncKey = Value.FromString(table.CreateString(Units("fromAsync")));
-const fromAsyncTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayFromAsync, 0));
+const fromAsyncTarget = ObjectProtoMethod(vm, table, ArrayFromAsync, "fromAsync");
 SetHiddenProperty(vm.Room(), table, arrayObject, fromAsyncKey, fromAsyncTarget);
 const arrayKey = Value.FromString(table.CreateString(Units("Array")));
 SetHiddenProperty(vm.Room(), table, globals, arrayKey, arrayObject);
@@ -9163,24 +9237,32 @@ table.AttachCallable(numberObject.Ref, NumberCtor, 0);
 // 两次 `CreateHostRef(同一个号)` 造的是**两个句柄** ⇒ 两个值不相等。
 // 「同一个函数」这件事在 JS 里是**能被脚本看见的**（实测 `Number.parseInt === parseInt`），
 // 所以只能**共用同一个值**，不能在两处各造一个。
-const parseIntTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseInt, 0));
-const parseFloatTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseFloat, 0));
+// **两个值在这里就把名字挂上**（第 779 轮）：它们是**共用的同一个值**
+//（全局那两个 + `Number.parseInt` / `Number.parseFloat` 四处），所以名字与长度
+// 只能挂一次、挂在这一个句柄上——`ObjectProtoMethod` 取的是**有身份**的那一个，
+// 于是四处读到的是同一份。`parseInt` 是 **2** 格（`(文本, 基数)`）、`parseFloat` 是 **1** 格。
+const parseIntTarget = ObjectProtoMethod(vm, table, ParseInt, "parseInt");
+const parseFloatTarget = ObjectProtoMethod(vm, table, ParseFloat, "parseFloat");
 const isIntegerKey = Value.FromString(table.CreateString(Units("isInteger")));
-const isIntegerTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsInteger, 0));
+// **`Number.isInteger` 那一族自己也有名字**（第 779 轮）：`Number.isInteger.name` 在 Node 里
+// 是 `"isInteger"`、`.length` 是 `1`；这一族原来与 `Array.isArray` 同款（裸句柄、两个空）。
+const isIntegerTarget = ObjectProtoMethod(vm, table, NumberIsInteger, "isInteger");
 SetHiddenProperty(vm.Room(), table, numberObject, isIntegerKey, isIntegerTarget);
 // **`Number.isSafeInteger`**（第 288 轮）：与 `isInteger` **同一支实现**
 //（只差一句区间判据，见那一支的理由）——所以这里挂的是**另一个能力号**，
 // 而**不是另一份实现**。
 const isSafeIntegerKey = Value.FromString(table.CreateString(Units("isSafeInteger")));
-const isSafeIntegerTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsSafeInteger, 0));
+const isSafeIntegerTarget = ObjectProtoMethod(vm, table, NumberIsSafeInteger, "isSafeInteger");
 SetHiddenProperty(vm.Room(), table, numberObject, isSafeIntegerKey, isSafeIntegerTarget);
 const isNaNAKey = Value.FromString(table.CreateString(Units("isNaN")));
-const isNaNTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsNaN, 0));
+const isNaNTarget = ObjectProtoMethod(vm, table, NumberIsNaN, "isNaN");
 SetHiddenProperty(vm.Room(), table, numberObject, isNaNAKey, isNaNTarget);
 // **`Number.isFinite`**（第 149 轮）：与全局的 `isFinite` 不是一个东西
 //（那个先转、这个不转），所以两处各挂一格。
 const isFiniteKey = Value.FromString(table.CreateString(Units("isFinite")));
-const isFiniteTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsFinite, 0));
+// **`Number.isFinite` 与全局的 `isFinite` 是两个号、两格名字**（第 779 轮）：
+// 两个都是 `"isFinite"` / `1`，但**不是同一个值**（JS 里它们本来就不是）。
+const isFiniteTarget = ObjectProtoMethod(vm, table, NumberIsFinite, "isFinite");
 SetHiddenProperty(vm.Room(), table, numberObject, isFiniteKey, isFiniteTarget);
 // **`Number.parseInt` / `Number.parseFloat`**（第 206 轮）：它们与**全局那两个是同一个个函数**
 //（JS 就是这么定的：`Number.parseInt === parseInt` 为真）——所以这里挂的是**同一个能力号**，
@@ -9466,6 +9548,10 @@ for (let i = 0; i < functionKindNames.length; i++) {
 // 那是**指令**，宿主侧的内建调不到它。
 const generatorNext = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(generatorNext.Ref, GeneratorNextId, 0);
+// **两格名字**（第 779 轮）：`it.next.name` 在 Node 里是 `"next"`、`.length` 是 `1`
+//（`return` / `throw` 同）——这一族是「对象 + 可调用载荷」，属性表本来就有，
+// 缺的只是「有没有人把名字传进来」（与 `MethodObject` 那一档同一条）。
+DefineBuiltinName(vm.Room(), table, generatorNext, "next", 1);
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Generator),
   Value.FromString(table.CreateString(Units("next"))), generatorNext);
 // **`return` / `throw` 两格**（第 313 轮）：与 `next` **同一个形状**
@@ -9477,10 +9563,12 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Generator),
 // 挂上去报的是「还差什么」。
 const generatorReturn = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(generatorReturn.Ref, GeneratorReturnId, 0);
+DefineBuiltinName(vm.Room(), table, generatorReturn, "return", 1);
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Generator),
   Value.FromString(table.CreateString(Units("return"))), generatorReturn);
 const generatorThrow = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(generatorThrow.Ref, GeneratorThrowId, 0);
+DefineBuiltinName(vm.Room(), table, generatorThrow, "throw", 1);
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Generator),
   Value.FromString(table.CreateString(Units("throw"))), generatorThrow);
 // **同一批方法还要挂到异步生成器那一格上**（第 320 轮）——**不能靠继承**：
@@ -9508,13 +9596,13 @@ SetHiddenProperty(vm.Room(), table, globals, parseFloatKey, parseFloatTarget);
 // 「把一次调用排进微任务队列」那条通道（`schedule`）——理由写在 `promise.xl.md` 那一段。
 const queueMicrotaskKey = Value.FromString(table.CreateString(Units("queueMicrotask")));
 SetHiddenProperty(vm.Room(), table, globals, queueMicrotaskKey,
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseQueueMicrotask, 0)));
+  ObjectProtoMethod(vm, table, PromiseQueueMicrotask, "queueMicrotask"));
 // **`structuredClone` 也是全局函数**（第 338 轮）——与上面三个同一形状
 //（`String.raw` 那次踩过「挂在原型上 ⇒ cannot call a non-closure value」，
 //  所以这里照旧挂在**全局对象**上）。
 const structuredCloneKey = Value.FromString(table.CreateString(Units("structuredClone")));
 SetHiddenProperty(vm.Room(), table, globals, structuredCloneKey,
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StructuredCloneId, 0)));
+  ObjectProtoMethod(vm, table, StructuredCloneId, "structuredClone"));
 
 // **`Reflect`**（第 717 轮）：与 `Math` **同一个形状**（普通对象 + 隐藏挂上的方法）——
 // 名字与号**按下标一一对齐**，理由见 `ReflectApply` 那一段。
@@ -9629,23 +9717,27 @@ for (let i = 0; i < protoHelperNames.length; i++) {
 }
 // **`Object.create` / `Object.getPrototypeOf`**（第 209 轮）：与 `keys` / `values` 那几张
 // **同一张对象**（都是 `Object` 的静态方法），分派在 `InvokeGlobal` 里（那一支有 `table`）。
+// **这一族五格也补上 `name` / `length`**（第 779 轮）：它们与上面的 `keys` / `values`
+// 那几张表**同一张对象**，可那几张走的是 `ObjectProtoMethod`、这五格走的是**裸句柄**
+// ⇒ 名字两个字没人写（`Object.create.name` 给 `""`、`.length` 给 `0`）。
+// 长度按号查 `BuiltinArity`（`create` / `getOwnPropertyDescriptor` 是 2，其余是 1）。
 SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("create"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectCreate, 0)));
+  ObjectProtoMethod(vm, table, ObjectCreate, "create"));
 SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("getPrototypeOf"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetPrototypeOf, 0)));
+  ObjectProtoMethod(vm, table, ObjectGetPrototypeOf, "getPrototypeOf"));
 SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("getOwnPropertyNames"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetOwnPropertyNames, 0)));
+  ObjectProtoMethod(vm, table, ObjectGetOwnPropertyNames, "getOwnPropertyNames"));
 // **`Object.getOwnPropertySymbols`**（第 288 轮）：与 `getOwnPropertyNames` **挨着挂**
 //（同一族、同一趟扫描、同一个 `417` 的号——放远了看不出它们是镜像）。
 SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("getOwnPropertySymbols"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetOwnPropertySymbols, 0)));
+  ObjectProtoMethod(vm, table, ObjectGetOwnPropertySymbols, "getOwnPropertySymbols"));
 SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("fromEntries"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectFromEntries, 0)));
+  ObjectProtoMethod(vm, table, ObjectFromEntries, "fromEntries"));
 // **`Object` 这个名字自己可以被调、也可以被 `new`**（第 232 轮）：
 // 它原来只是「一格普通对象 + 一堆静态方法」——于是 `Object({ a: 1 })` 报
 // `calling a non-closure value`、`new Object(null)` 报
@@ -9673,18 +9765,19 @@ SetHiddenProperty(vm.Room(), table, globals, infinityKey, Value.FromDouble(Infin
 // 是**两个**东西（那两个挂在上面的 `Number` 对象上），所以这里各挂一格。
 SetHiddenProperty(vm.Room(), table, globals,
   Value.FromString(table.CreateString(Units("isNaN"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(IsNaN, 0)));
+  ObjectProtoMethod(vm, table, IsNaN, "isNaN"));
 SetHiddenProperty(vm.Room(), table, globals,
   Value.FromString(table.CreateString(Units("isFinite"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(IsFinite, 0)));
+  ObjectProtoMethod(vm, table, IsFinite, "isFinite"));
 // **百分号编解码四个名字**（第 311 轮）：与 `isNaN` / `isFinite` **同一条路**
 //（全局对象上的四个函数）——`GlobalNames` 那张名单里也有它们（**两边是同一份约定**）。
+// **四个名字各一格名字**（第 779 轮）：都是 `1` 格，名字与键同名。
 const percentNames: string[] = ["encodeURI", "encodeURIComponent", "decodeURI", "decodeURIComponent"];
 const percentIds: number[] = [EncodeURI, EncodeURIComponent, DecodeURI, DecodeURIComponent];
 for (let i = 0; i < percentNames.length; i++) {
   SetHiddenProperty(vm.Room(), table, globals,
     Value.FromString(table.CreateString(Units(percentNames[i]))),
-    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(percentIds[i], 0)));
+    ObjectProtoMethod(vm, table, percentIds[i], percentNames[i]));
 }
 // **`globalThis` 指向那个环境对象自己**（第 149 轮）：`globalThis.Math === Math`。
 // **加它的直接原因是 `typeof` 那一格的新规矩**：未声明的名字给 `"undefined"`，
@@ -9705,7 +9798,7 @@ SetHiddenProperty(vm.Room(), table, globals, mapKey, mapObject);
 // **号是 660**（不是 `611`）：`600..610` 满了、`611..659` 是 `Set` 的——见 `map.xl.md`。
 SetHiddenProperty(vm.Room(), table, mapObject,
   Value.FromString(table.CreateString(Units("groupBy"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(MapGroupBy, 0)));
+  ObjectProtoMethod(vm, table, MapGroupBy, "groupBy"));
 // `Set` 从前是**宿主的引用值**，第 613 轮起改成**可调用对象**（与 `Map` 同款）——
 // 理由与 `Map` 那一格一字不差：`Set.name` / `new Set().constructor.name` 要读得到，
 // 而宿主引用**没有属性表**（第 343 轮给 `Error` 换壳时踩的就是同一个坎）。
@@ -9914,8 +10007,11 @@ if (speciesKey.Tag === ValueTag.Symbol) {
 const arrayIteratorKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
   Value.FromString(table.CreateString(Units("iterator"))));
 if (arrayIteratorKey.Tag === ValueTag.Symbol) {
+  // **名字两格**（第 779 轮）：`[][Symbol.iterator].name` 在 Node 里是 `"values"`，
+  // 而这一格原来挂的是裸句柄 ⇒ 空名字。**它同时是 `Array.prototype.values`**
+  //（`[][Symbol.iterator] === [].values` 在 Node 里为真），所以名字按 `values` 那一格给。
   SetProperty(room, NeverCall, table, Value.FromObject(protos.Array), arrayIteratorKey,
-    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayValues, 0)));
+    ObjectProtoMethod(vm, table, ArrayValues, "values"));
   // **字符串那一族也要挂**（第 345 轮，**实测撞到的**）：`for..of` / `[...s]`
   // 走的是**引擎**那条 `iter_next`（字符串它自己认），而**手写那一句**
   // `"ab"[Symbol.iterator]()` 走的是**这一格** ⇒ 不挂就报
@@ -9923,7 +10019,7 @@ if (arrayIteratorKey.Tag === ValueTag.Symbol) {
   // **同一个键**（知名符号只造一次，从同一张小表里取），挂的是**另一个号**
   // （字符串那个迭代器要把码点收成数组，见 `StringIteratorSelf`）。
   SetProperty(room, NeverCall, table, Value.FromObject(protos.String), arrayIteratorKey,
-    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringIteratorSelf, 0)));
+    ObjectProtoMethod(vm, table, StringIteratorSelf, "[Symbol.iterator]"));
 }
 // **异步生成器那一格：`Symbol.asyncIterator`**（第 320 轮）——与上面那一条
 // **同一个形状**（同一个知名符号表取键、挂一格宿主引用），差的是**挂在别的原型上**。
@@ -9935,7 +10031,7 @@ const asyncIteratorKey = GetProperty(room, NeverCall, protos, table, wellKnownTa
   Value.FromString(table.CreateString(Units("asyncIterator"))));
 if (asyncIteratorKey.Tag === ValueTag.Symbol && protos.AsyncGenerator > 0) {
   SetProperty(room, NeverCall, table, Value.FromObject(protos.AsyncGenerator), asyncIteratorKey,
-    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(AsyncGeneratorSelf, 0)));
+    ObjectProtoMethod(vm, table, AsyncGeneratorSelf, "[Symbol.asyncIterator]"));
 }
 // **同步生成器那一格：`Symbol.iterator`**（第 320 轮，做上面那一格时顺手量到的）
 // ——挂 `Generator`（异步生成器**继承**它，所以两族都有，与 JS 一致）。
@@ -9943,7 +10039,7 @@ const generatorIteratorKey = GetProperty(room, NeverCall, protos, table, wellKno
   Value.FromString(table.CreateString(Units("iterator"))));
 if (generatorIteratorKey.Tag === ValueTag.Symbol && protos.Generator > 0) {
   SetProperty(room, NeverCall, table, Value.FromObject(protos.Generator), generatorIteratorKey,
-    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(GeneratorSelf, 0)));
+    ObjectProtoMethod(vm, table, GeneratorSelf, "[Symbol.iterator]"));
 }
 // **`Map.prototype[Symbol.iterator]` / `Set.prototype[Symbol.iterator]`**（第 712 轮）
 // ——与上面第 308 轮 `Array.prototype[Symbol.iterator]` 是**同一副面孔**。
@@ -9973,9 +10069,9 @@ const mapIteratorKey = GetProperty(room, NeverCall, protos, table, wellKnownTabl
   Value.FromString(table.CreateString(Units("iterator"))));
 if (mapIteratorKey.Tag === ValueTag.Symbol && protos.Map > 0 && protos.Set > 0) {
   SetProperty(room, NeverCall, table, Value.FromObject(protos.Map), mapIteratorKey,
-    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(MapEntries, 0)));
+    ObjectProtoMethod(vm, table, MapEntries, "entries"));
   SetProperty(room, NeverCall, table, Value.FromObject(protos.Set), mapIteratorKey,
-    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SetValues, 0)));
+    ObjectProtoMethod(vm, table, SetValues, "values"));
 }
 // `Date` 是一个**普通对象**（像 `Math` 一样），上面挂 `now`——
 // 而 `now` 指向的是**宿主**要回答的能力号（见 `ClockNow` 的说明：建库层没有时钟）。
@@ -9984,17 +10080,20 @@ if (mapIteratorKey.Tag === ValueTag.Symbol && protos.Map > 0 && protos.Set > 0) 
 const dateObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(dateObject.Ref, DateCtor, 0);
 const nowKey = Value.FromString(table.CreateString(Units("now")));
-const nowTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ClockNow, 0));
+// **`Date` 那三格也补上 `name` / `length`**（第 779 轮）：`Date.now.name` 是 `"now"`（`0` 格）、
+// `Date.UTC.name` 是 `"UTC"`（**7** 格）、`Date.parse.name` 是 `"parse"`（`1` 格）。
+// 三个原来都是裸句柄 ⇒ 脚本读到 `/0`。
+const nowTarget = ObjectProtoMethod(vm, table, ClockNow, "now");
 SetHiddenProperty(vm.Room(), table, dateObject, nowKey, nowTarget);
 // **`Date.UTC`**（第 280 轮）：与 `now` **同一张对象**上再挂一格
 //（`Date` 既是对象、也能被 `new`——两件事同时成立，见第 145 轮）。
 const utcKey = Value.FromString(table.CreateString(Units("UTC")));
-const utcTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(DateUTC, 0));
+const utcTarget = ObjectProtoMethod(vm, table, DateUTC, "UTC");
 SetHiddenProperty(vm.Room(), table, dateObject, utcKey, utcTarget);
 // **`Date.parse`**（第 293 轮）：与 `now` / `UTC` **同一张对象**上再挂一格
 //（`Date` 既是对象、也能被 `new`——两件事同时成立，见第 145 轮）。
 const dateParseKey = Value.FromString(table.CreateString(Units("parse")));
-const dateParseTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(DateParse, 0));
+const dateParseTarget = ObjectProtoMethod(vm, table, DateParse, "parse");
 SetHiddenProperty(vm.Room(), table, dateObject, dateParseKey, dateParseTarget);
 const dateKey = Value.FromString(table.CreateString(Units("Date")));
 SetHiddenProperty(vm.Room(), table, globals, dateKey, dateObject);

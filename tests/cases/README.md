@@ -89,6 +89,21 @@ console.log(Box.of(1));
 | `e2e` | 246 | **242** | 4 / 0 | |
 | **合计** | **8185** | **7807** | 262 / 116 | 加权 **95.7%** |
 
+**第 779 轮再加 21 条**（分母 8310 → **8331**，`runtime/round779` 4 条 / `stdlib/round779` 17 条）：
+**内建函数对象自己那两格**（`name` / `length`）那一族的普查——**17 条当场通过、4 条登记**
+（2 `differ` + 2 `blocked`），同一轮里**收掉四处根**：`Array` / `Number` / `Object` 的静态十三格、
+`Date` 的三格静态与八格全局函数原来走的是**裸句柄**（名字与形参个数两格没人写，
+`Array.isArray.name` 给 `""`）；`Date.prototype` 二十六个槽位一个名字都没有
+（`InstallDateMethods` 多收一格 `vm`，**按槽位各挂各的句柄**——`getTime` / `valueOf` 在 Node 里
+**不是同一个函数**，所以按号取同一个值会把先写的名字顶掉）；生成器 `next` / `return` / `throw`
+与五格 `[Symbol.iterator]` 同款。`BuiltinArity` 补的格：`parseInt` 是 **`2`**（原来与
+`parseFloat` 顺手归成一族）、`JSON.parse` 是 `2` / `JSON.stringify` 是 `3`（原来写成「都是一格」）、
+`Object.getOwnPropertyDescriptor` 是 `2`、`Date.UTC` 是 `7`、七个 `set*` 是 `1..4`、
+以及错误家族八个构造器自己的 `length`（七个 `1`、`AggregateError` 是 `2`）。
+登记的四条：`arguments` **不是数组**（第 702 轮的有意取舍：四个面与 JS 不同）+
+松散模式下形参与 `arguments` 的别名（与 `exec/functions/095` 同一条根）、
+`RegExp` **全局名根本没登记**（构造器那一半与「字符串方法接 RegExp 对象」那一半）。
+
 **第 756 轮再加 2 条**（分母 8183 → **8185**，全是 `runtime/round756`）：
 **下标访问器与数组的洞 / 属性描述符的默认值与冻结**——**1 条当场通过**（16 行全对），
 同一轮里**收掉一处根**：**`join` 在装了访问器的下标上读不到那一格**
