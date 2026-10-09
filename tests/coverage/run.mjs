@@ -749,6 +749,29 @@ show("台账该更新了（原来记 blocked、现在过了）", newly, (r) => `
 show("进了一步（原来进不了门，现在跑得出来但还不对）", moved, (r) => `${r.entry.category.padEnd(8)} ${r.entry.id.padEnd(46)} ${r.detail}`);
 show("**倒退**（台账记 pass、现在过不了）", regressions, (r) => `${r.entry.category.padEnd(8)} ${r.entry.id.padEnd(46)} ${r.detail}`);
 
+/**
+ * `detail` 里**不许出现「跑一次变一次」的东西**（第 884 轮）。
+ *
+ * `report.json` 是**进仓**的读数。可它里面有一批 `detail` 会把
+ * `file:///…/tests/coverage/.work-<pid>/src/<下标>.ts` **原样抄进去**——
+ * 那些用例是**故意打印 Error 的栈**的（`stdlib/console/011` 那一族：
+ * `console.log(new Error("boom"))` 的栈就是被测的那一格），栈帧里当然带着裁判跑的那个临时路径。
+ * 临时目录**按 pid 分开是故意的**（并行实例互不干扰，见 `workDir`），可它一旦进了读数，
+ * **同一次运行、两次写出来的 `report.json` 就不是同一份字节**：第 883 → 884 轮实测，
+ * 那一轮的 diff **整整 4 行全是 `.work-5500` → `.work-28348`**，没有一行是台账真的动了。
+ * 那不只是噪声：**真正的台账变化会被这 4 行淹掉**（这一份文件进仓的全部意义就是给人看 diff）。
+ *
+ * 所以这里在**写读数那一刻**把工作目录折成一个稳定的占位符——**只动报告，不动运行**：
+ * 盘符、大小写、反斜杠 / 正斜杠（`file://` URL 那边是正斜杠）都放过，
+ * 剩下的 pid 尾巴也兜一格（换了 pid 来源时仍然稳定）。
+ */
+function stableDetail(text) {
+  if (typeof text !== "string" || text === "") return text;
+  // 反斜杠 / 正斜杠都认：`workDir` 是 `…\.work-123`，而 `file://` URL 里是 `…/.work-123`。
+  const escaped = workDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\\/g, "[\\\\/]");
+  return text.replace(new RegExp(escaped, "g"), "<work>").replace(/\.work-\d+/g, "<work>");
+}
+
 const summary = {
   round: value("--round", ""),
   total: scored.length,
@@ -773,12 +796,12 @@ const summary = {
     scoredWithoutGap: tokenNoGap.length,
     passedWithoutGap: tokenNoGap.filter((r) => (r.diff ?? -1) === 0).length,
   },
-  blocked: blocked.map((r) => ({ id: r.entry.id, category: r.entry.category, title: r.entry.directives.title, detail: r.detail })),
-  differ: differ.map((r) => ({ id: r.entry.id, category: r.entry.category, title: r.entry.directives.title, detail: r.detail })),
-  bad: bad.map((r) => ({ id: r.entry.id, category: r.entry.category, detail: r.detail })),
-  moved: moved.map((r) => ({ id: r.entry.id, category: r.entry.category, why: r.entry.directives.why || "", detail: r.detail })),
+  blocked: blocked.map((r) => ({ id: r.entry.id, category: r.entry.category, title: r.entry.directives.title, detail: stableDetail(r.detail) })),
+  differ: differ.map((r) => ({ id: r.entry.id, category: r.entry.category, title: r.entry.directives.title, detail: stableDetail(r.detail) })),
+  bad: bad.map((r) => ({ id: r.entry.id, category: r.entry.category, detail: stableDetail(r.detail) })),
+  moved: moved.map((r) => ({ id: r.entry.id, category: r.entry.category, why: r.entry.directives.why || "", detail: stableDetail(r.detail) })),
   newlyPassing: newly.map((r) => ({ id: r.entry.id, category: r.entry.category })),
-  regressions: regressions.map((r) => ({ id: r.entry.id, category: r.entry.category, detail: r.detail })),
+  regressions: regressions.map((r) => ({ id: r.entry.id, category: r.entry.category, detail: stableDetail(r.detail) })),
 };
 
 // **过滤过的一次运行不覆盖读数**：`report.json` 是**整张矩阵**的读数，
