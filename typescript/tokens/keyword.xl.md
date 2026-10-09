@@ -165,6 +165,36 @@ if (unit instanceof Identifier && unit.Is("async")) {
   }
   return word === "function";
 }
+// **`declare` / `abstract` 只在后面确实跟着「要被修饰的东西」时才升级**（第 848 轮）：
+// 这两个词都是**上下文关键字** —— `abstract` 换行 `class A {}`、`declare` 换行
+// `module "m" {}`、`declare;` 在 TS 那边那个词都是**普通 `Identifier`**
+// （`ExpressionStatement > Identifier`）：语句层已经按 ASI 把它收成**单独一条壳**
+// （于是本单元后面**什么都没有**），而 `;` 不是「能被修饰的东西」。
+//
+// **判据与 `override` / `async` 同一档**（看后一个实义单元）：只有 Identifier /
+// 引号名 / 关键字这一档才算「后面有个东西」，`;` / `=` / `)` 这些一律不算。
+// **同行的写法一个字都不误伤**：`abstract class A {}` / `declare module "m" {}` /
+// `declare const a = 1` 里那个词后面就是同一个壳里的 `class` / `module` / `const`。
+//
+// **少了这一条会怎样**（实测十条片段同形）：那一格「缺 `Identifier` 1 +
+// 多出 `AbstractKeyword` / `DeclareKeyword` 1」——`gap-sweep-newline-decl-abstract-01`
+// 与 `gap-sweep-newline-mod-declare-01` 就是其中两条（顶层与函数体里各量到一格）。
+if (unit instanceof Identifier && (unit.Is("declare") || unit.Is("abstract"))) {
+  const after = Get(units, SkipNextTrivia(units, index));
+  if (after === null) {
+    return false;
+  }
+  if (after instanceof Identifier || after instanceof Keyword) {
+    return true;
+  }
+  // **抽象构造签名那一格**（第 848 轮实测的第二处）：`interface I { abstract new (): A }` 里
+  // 后面跟的是 `New` **单元**（整条 `new (): A`），不是词——它同样是被修饰的东西
+  //（少了这一格 `decl-interface-abstract-construct-signature` 当场从 `Keyword` 掉成 0 个）。
+  if (after.constructor.name === "New") {
+    return true;
+  }
+  return after.constructor.name === "String";
+}
 return unit instanceof Identifier && unit.Template.KeywordTemplate.IsKeyword(unit.TempToString());
 ```
 

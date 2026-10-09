@@ -306,6 +306,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 848 轮：**孤立的上下文关键字不升级**——`newline-decl-abstract` / `newline-mod-declare` 收掉 2 条
+
+**一句话**：`abstract` 换行 `class A {}` 与 `declare` 换行 `module "m" {}` 在 TS 那边是
+**两条语句**（`ExpressionStatement > Identifier` + 那条声明），而产物把那个词升级成了
+`<Keyword>` ⇒ 投影多一个 `AbstractKeyword` / `DeclareKeyword`（各「缺 `Identifier` 1 多 1」）。
+根与第 842 轮 `async`、第 383 轮 `override` **同一档**（`keyword.xl.md` 的 `Keyword.IsUpgradable`）：
+这两个词都是**上下文关键字**，只有当后面确实跟着「要被修饰的东西」时才算关键字。
+
+- **判据看后一个实义单元**（`SkipNextTrivia`）：Identifier / 关键字 / 引号名 / `New` 单元
+  这一档才算「后面有个东西」；**什么都不剩**（语句层已经按 ASI 把那个词收成单独一条壳）
+  与 `;` 都不是。同行写法一个字都不误伤：`abstract class A {}` / `declare module "m" {}` /
+  `declare const a = 1` 里后面那个词就在同一个壳里。
+- **两处实测出来的边界**：
+  - `declare;` / `abstract;` 后面是 `;`——TS 那边同样只是 `Identifier`（`;` 不是
+    「能被修饰的东西」），所以「列表到哪儿为止」不算数，得看**后一格是什么**；
+  - `interface I { abstract new (): A }` 后面跟的是 **`New` 单元**（整条 `new (): A`）而不是词
+    ——少了这一格，守卫用例 `decl-interface-abstract-construct-signature` 当场从
+    `Keyword` 掉成 0 个（**改一条判据要跑全语料**这句话的现场）。
+- **收掉的 2 条**：`gap-sweep-newline-decl-abstract-01`（顶层）与
+  `gap-sweep-newline-mod-declare-01`（顶层 `declare`）——两行 `xl:known-gap` 删掉、
+  两条 `xl:expect` 按新形状重算（`Keyword` 没了，换成 `Statement` / `Identifier`）。
+  另补一条守卫用例 `decl-standalone-declare-abstract`（`declare;` / `abstract;` /
+  `declare` 换行 `const a = 1;` / `abstract` 换行 `class A {}` 四条一起钉）。
+- **探针量到同族 10 条**（不在语料里、这一轮一并收掉）：`declare` 换行
+  `namespace` / `function` / `var` / `const`、函数体里的 `abstract` 换行 `class` 都是同一个根。
+- **数字**：`cases:tsast` 的账 **20 → 18 还开着**（`coverage` **3986 → 3989 / 4185**，
+  blocked **60 → 58**，`bad` 0、`regressions` 0）；8 道门全绿、`cases:tags` 0 条不一致。
+
 ### 第 847 轮：**注释不能当体的第一个单元**——`SWEEP-{comment,linecomment}/ifelse` 收掉 2 条
 
 **一句话**：`if (a) /*c*/{ b(); } else { c(); }` 里那个 `/` 是 **trivia**，可 `IfSet` 的体是

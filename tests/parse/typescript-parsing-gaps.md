@@ -109,6 +109,16 @@
   `gap-sweep-{newline,linecomment}-label-02`）。判别括号对这三个词是**语法上不可省**的一段，
   与「后面必须跟一个语句体」是同一档。**不会误伤成员名**：`obj.for` / `a.while`
   由「点号后面是成员名」那一问挡着（与 `default` / `new` 同一档）。
+- **上下文关键字只在「后面确实跟着要被修饰的东西」时升级**（第 848 轮，第 842 轮那条线的第二格）：
+  `declare` / `abstract` 与 `async` / `override` 同一档（`keyword.xl.md` 的 `Keyword.IsUpgradable`）。
+  `abstract` 换行 `class A {}` / `declare` 换行 `module "m" {}` / `declare;` 在 TS 那边那个词
+  都是**普通 `Identifier`**（语句层已经按 ASI 把它收成单独一条壳）⇒ 不升级；
+  而同行写的 `abstract class A {}` / `declare module "m" {}` 后面那个词就在同一个壳里。
+  **判据看后一个实义单元**：Identifier / 关键字 / 引号名 / **`New` 单元**
+  （`interface I { abstract new (): A }` 里跟的就是整条 `new (): A`）这一档才算
+  「后面有个东西」，`;` 与「什么都没有」都不算。
+  **改这一条要跑全语料**：第一版漏了 `New` 那一格，`decl-interface-abstract-construct-signature`
+  当场从 `Keyword` 掉成 0 个。
 - **「体的第一个单元」不许是 trivia**（第 847 轮）：`if` 的体是**向导自己挂**的
   （`IfSegment.Process` → `MountBodyOrStatement`：`{` ⇒ `IfBody`、其余 ⇒ 单语句体），
   所以注释一到就会被当成体的开头 —— `if (a) /*c*/{ b(); } else { c(); }` 里
@@ -265,11 +275,11 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**20 条**）
+## 已知仍开着的缺口（**18 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
-（第 847 轮实测 **20**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条；
-第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
+（第 848 轮实测 **18**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
+第 848 轮收掉 2 条；第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
 文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
@@ -418,6 +428,15 @@ TS 那边 `declare` 换行走 ASI），那一族没修、也不在语料里，�
 （`st-comment-after-head` / `st-comment-holds-brace`）的 `xl:expect` 由 `IfStatement`
 改成 `IfBody`（同一条根：形状变好、判定点不变），并补一条守卫用例
 `stmt-if-body-regex-not-comment`（**正则不许被当成注释**）。账从 **22 → 20**。
+
+**第 848 轮收掉的 2 条**：`gap-sweep-newline-decl-abstract-01` 与
+`gap-sweep-newline-mod-declare-01`（**孤立的上下文关键字**，两条都在顶层）。
+根是 `Keyword.IsUpgradable` 里漏了这一档（`declare` / `abstract` 只在后面跟着
+「要被修饰的东西」时才升级，判据与 `override` / `async` 同一档，见「解析层几条硬规矩」）。
+两行 `xl:known-gap` 删掉、两条 `xl:expect` 重算（`Keyword` 没了、换成 `Statement` / `Identifier`），
+另补守卫用例 `decl-standalone-declare-abstract`（`;` 那一档与「换行后面还有声明」那一档）。
+探针另量到同族 10 条（`declare` 换行 `namespace` / `function` / `var` / `const`、
+函数体里的 `abstract` 换行 `class`……）——同一个根，一并收掉。账从 **20 → 18**。
 
 **怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。
