@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 92.76,
+  "progressPercent": 92.85,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1394,
-      "pass": 1177,
-      "blocked": 217,
+      "pass": 1185,
+      "blocked": 209,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 84.43
+      "coverage": 85.01
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1394,
-    "knownGap": 217,
-    "knownGapStillOpen": 217,
-    "exactFiles": 1177,
-    "scoredWithoutGap": 1177,
-    "passedWithoutGap": 1177
+    "knownGap": 209,
+    "knownGapStillOpen": 209,
+    "exactFiles": 1185,
+    "scoredWithoutGap": 1185,
+    "passedWithoutGap": 1185
   },
   "blocked": [
     {
@@ -1248,30 +1248,6 @@
       "detail": "缺 3　多 1　未映射 1　注释夹在函数类型的 `=>` 之前：括号留在外面当 Bracket、`=>` 与返回类型落成散单元，`FunctionType` 整条缺（已登记的那两条是**泛型实参里**的同族；这里是类型别名右侧的裸位置，r676 探针 func-type-comment-before-arrow）"
     },
     {
-      "id": "token/types/gap-r676-keyof-comment-operand",
-      "category": "token",
-      "title": "类型运算符 `keyof` 与它的操作数之间夹一条注释",
-      "detail": "缺 2　漂 1　多 3　注释夹在 `keyof` 与操作数之间：`TypeOperator` 的区间只到自己（漂移），操作数那半落成散单元、`T` 的引用与名称都缺（映射键那一格已登记，这里是类型别名右侧的裸位置，r676 探针 keyof-comment-operand）"
-    },
-    {
-      "id": "token/types/gap-r676-readonly-comment-operand",
-      "category": "token",
-      "title": "类型运算符 `readonly` 与它的操作数之间夹一条注释",
-      "detail": "缺 2　多 3　注释夹在 `readonly` 与 `string[]` 之间：`readonly` 被当成类型引用、`ArrayType` 挂到了整段上（区间从头算起），操作数那一半缺（r676 探针 readonly-comment-operand）"
-    },
-    {
-      "id": "token/types/gap-r676-typeof-comment-operand",
-      "category": "token",
-      "title": "类型查询 `typeof` 与它的操作数之间夹一条注释",
-      "detail": "缺 1　漂 1　多 1　注释夹在 `typeof` 与操作数之间：类型查询整条缺（与 `keyof` 那条同族，`TypeQuery` 这一支同样只看紧邻，r676 探针 typeof-comment-operand）"
-    },
-    {
-      "id": "token/types/gap-r676-unique-comment-operand",
-      "category": "token",
-      "title": "类型运算符 `unique` 与它的操作数之间夹一条注释",
-      "detail": "缺 1　漂 1　多 3　注释夹在 `unique` 与 `symbol` 之间：`TypeOperator` 的区间只到自己（漂移），`unique` 还被额外投成一次类型引用与标识符，操作数缺（r676 探针 unique-comment-operand）"
-    },
-    {
       "id": "token/types/gap-sweep-comment-iface-01",
       "category": "token",
       "title": "SWEEP-comment/iface 落点（657 审计语料）",
@@ -1374,18 +1350,6 @@
       "detail": "缺 3　多 1　未映射 1　注释夹在函数类型的 `=>` 周围 / 泛型实参里：类型段落成散单元（带一处未映射 Bracket）（r660 探针池 mut-type-fn-generic-arg-90）"
     },
     {
-      "id": "token/types/mut-type-mapped-template-key-94",
-      "category": "token",
-      "title": "模板字面量类型作映射类型的键重映射",
-      "detail": "缺 2　漂 1　多 3　注释夹在映射类型键的 `keyof` 周围 / `T[K]` 的 `[` 前面：映射类型或下标访问不成形（r660 探针池 mut-type-mapped-template-key-94）"
-    },
-    {
-      "id": "token/types/mut-type-mapped-template-key-95",
-      "category": "token",
-      "title": "模板字面量类型作映射类型的键重映射",
-      "detail": "缺 2　漂 1　多 3　注释夹在映射类型键的 `keyof` 周围 / `T[K]` 的 `[` 前面：映射类型或下标访问不成形（r660 探针池 mut-type-mapped-template-key-95）"
-    },
-    {
       "id": "token/types/mut-type-overload-interface-105",
       "category": "token",
       "title": "接口里的两个重载签名",
@@ -1396,18 +1360,6 @@
       "category": "token",
       "title": "接口里的两个重载签名",
       "detail": "缺 1　多 1　注释夹在接口重载名与参数表之间：第二条签名认不出（r660 探针池 mut-type-overload-interface-126）"
-    },
-    {
-      "id": "token/types/mut-type-union-after-readonly-103",
-      "category": "token",
-      "title": "类型位修饰词后面的括号也是类型位：`readonly (A | B)[]`",
-      "detail": "缺 7　多 3　注释夹在 `readonly` 与括号之间（或类型与 `[]` 之间）：`readonly (A | B)[]` 整段不成形（r660 探针池 mut-type-union-after-readonly-103）"
-    },
-    {
-      "id": "token/types/mut-type-union-after-readonly-104",
-      "category": "token",
-      "title": "类型位修饰词后面的括号也是类型位：`readonly (A | B)[]`",
-      "detail": "缺 7　多 3　注释夹在 `readonly` 与括号之间（或类型与 `[]` 之间）：`readonly (A | B)[]` 整段不成形（r660 探针池 mut-type-union-after-readonly-104）"
     },
     {
       "id": "token/types/mut-type-union-after-readonly-93",
@@ -1817,7 +1769,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27936/src/2001.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27452/src/2001.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -2159,7 +2111,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27936/src/2984.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27452/src/2984.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2183,7 +2135,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27936/src/3032.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27452/src/3032.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2339,7 +2291,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27936/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27452/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

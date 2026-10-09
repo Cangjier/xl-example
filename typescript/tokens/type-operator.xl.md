@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipNextTrivia, WordText, IsTypeContainerUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit } from "../text-common-util.xl.md"
+import { SkipNextTrivia, WordText, IsTypeContainerUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 ```
@@ -104,10 +104,15 @@ return (item as any).op === "typeof";
 只跳软换行时 `operand` 落在注释上 ⇒ `IsTypeOperandUnit` 答否 ⇒ 这一格让开 ⇒
 最后是 `ArrayType` 把 `readonly` 一起吞进去（实测 `mut-type-union-after-readonly-103/104`：
 多出一个 `ArrayType` 与一个 `TypeReference(readonly)`）。
-**`Process` 里那两处 `SkipNextWrapSymbol` 要不要一起改**：不要 —— 注释落在
-`[index, nextIndex]` 这一段里，`ReplaceCountAt` 搬的是整段，注释跟着节点走；
-改 `Process` 只会把注释算进操作数那一格的边界（与 `foreach` / `while` 那几处
-「跨过的注释由 `CommentsIn` 收下」是两种口径，这里不必收）。
+
+**`Process` 取操作数那一格也要跨注释**（第 816 轮）：判据（`Previous`）跨注释而搬的那一段
+（`Process`）不跨，两者就**指的不是同一个单元**——`Process` 的 `operand` 落在注释上，
+于是 `SignOut` 收在注释末尾、`AddAndCloseLast` 收下的是注释，真正的操作数留在节点**外面**。
+实测 `type K = keyof /* c */ T;`：`TypeOperator` 区间 `[9,14)`（到 `keyof` 为止）而 TS 是 `[9,24)`，
+`T` 那半整条缺，还多出 `TypeReference` / `Identifier(keyof)` 两个节点
+（`gap-r676-keyof-comment-operand` / `-typeof-` / `-readonly-` / `-unique-` 同一根）。
+改法就是这一处也走 `SkipNextTrivia`：注释落进 `[index, nextIndex]` 这一段、
+由 `ReplaceCountAt` 跟着搬进节点（注释不投影成节点，所以不多出东西）。
 
 **父节点已经是这两种节点、且这一段就是它的全部内容时不再包**（递归守卫）：
 本规则挂在类型队列上，`TypeOperator` / `TypeQuery` 造出来之后自己那一趟会再看到同一个词。
@@ -174,7 +179,7 @@ if (this.IsFoldedTypeof(current)) {
   folded.TryToClose();
   return ReplaceCountAt(units, index, 1, folded);
 }
-const nextIndex = SkipNextWrapSymbol(units, index);
+const nextIndex = SkipNextTrivia(units, index);
 const operand = Get(units, nextIndex);
 if (operand === null) {
   throw new Error("TypePrefixCloseRule.Process: operand is null");

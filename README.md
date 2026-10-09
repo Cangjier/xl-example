@@ -306,6 +306,30 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 816 轮：**判据跨过注释、搬的那一段没跨**——类型运算符那一格收掉 8 条
+
+**一句话**：这一轮从 `cases:tsast` 里最大的一族（「注释夹在语法相邻的两格之间」）挑出
+**类型运算符那一格**：`keyof` / `typeof` / `readonly` / `unique` 与它的操作数之间夹一条注释时，
+节点收下的「操作数」其实是那条注释，真正的操作数留在节点外面——**根只有一处**，
+`TypePrefixCloseRule` 的判据（`Previous`）与搬运（`Process`）各跳各的 trivia。改一处，8 条一起转绿。
+
+- **根：`Previous` 走 `SkipNextTrivia`、`Process` 走 `SkipNextWrapSymbol`**（`type-operator.xl.md`）。
+  第 680 轮把判据那半改成跨注释（`readonly/* c */ (A | B)[]` 那一族），可 `Process` 取 `operand`
+  那一格没跟着改：软换行被跳过、注释没有 ⇒ `operand` 落在注释上 ⇒ `SignOut` 收在注释末尾、
+  `AddAndCloseLast` 收下的是注释，`ReplaceCountAt` 搬走的也只是「词 + 注释」这一小段。
+  实测 `type K = keyof /* c */ T;`：产物 `TypeOperator[9,14)`（到 `keyof` 为止）而 TS 是 `[9,24)`，
+  `T` 那半整条缺，还多出 `TypeReference` / `Identifier(keyof)` 两个节点。
+  **改法**：`Process` 也走 `SkipNextTrivia`。注释落进 `[index, nextIndex]` 这一段、
+  由 `ReplaceCountAt` 跟着搬进节点；注释不投影成节点，所以不多出东西（`keyof /* c */ typeof /* c */ T`
+  这种两层嵌套也一趟成形）。
+- **收掉的 8 条**：`gap-r676-{keyof,typeof,readonly,unique}-comment-operand` 四条
+  （各带自己的探针读数：区间漂移 + 操作数缺 + 多出来两个节点），加上早先按别的根登记、
+  其实是同一处的 `mut-type-mapped-template-key-94/95` 与 `mut-type-union-after-readonly-103/104`。
+  文件头的 `xl:known-gap` 逐条删掉，`cases:tsast` 的账从 **217 → 209**（`coverage` 同步 **+8**）。
+- **可复用的判据**：`CloseRule` 的 `Previous` 与 `Process` 是两处独立的「找操作数」，
+  **判据跨过 trivia，搬运也必须跨**，否则两者指的不是同一个单元——这条写进了
+  [typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md) 的「解析层几条硬规矩」。
+
 ### 第 782 轮：**接收者自己那一格**与**内建构造的原型**——收掉四处（含一处静默错值），`Error.stack` 那一格补齐，五笔旧账到期
 
 **一句话**：这一轮从两个方向量——**属性写入的次序**（`super.x = v` 为什么静默不写）与
@@ -2981,7 +3005,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **218 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **209 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1427** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -3020,7 +3044,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **220** 条）：
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **209** 条）：
   主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
   （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
   `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），

@@ -58,6 +58,15 @@
   本工程不看完整文法、只看形状，所以极端排版仍可能与 TS 不同，这类情况由 `cases:tsast` 巡检。
 - **不看未来**那条铁律：判据只用**已经读到**的东西，所以「成员层」这类没有入口字符的构造
   靠**体自己认边界**（见 [member-layer-plan.md](../../docs/member-layer-plan.md)）。
+- **判据跨过 trivia，搬的那一段也必须跨**（第 816 轮）：`CloseRule` 的 `Previous` 与 `Process`
+  是两处独立的「找操作数」——`Previous` 走 `SkipNextTrivia`（注释也算 trivia）、
+  `Process` 走 `SkipNextWrapSymbol`（只跳软换行）时，两者**指的不是同一个单元**：
+  节点收下的那个「操作数」其实是注释，真正的操作数留在节点外面，区间也停在注释末尾。
+  实测 `type K = keyof /* c */ T;` 一族 8 条（`gap-r676-{keyof,typeof,readonly,unique}-comment-operand`
+  与 `mut-type-mapped-template-key-94/95`、`mut-type-union-after-readonly-103/104`）同一个根，
+  改法只有一处（`type-operator.xl.md` 的 `Process` 也走 `SkipNextTrivia`），注释由
+  `ReplaceCountAt` 跟着搬进节点、不投影成节点，所以不多出东西。**新写 `Previous` / `Process` 时
+  把这两处的「下一个实义单元」对齐**，别各跳各的。
 - **`Parent` 不变式**（`core/syntax/close-rule.xl.md` 的 `ApplyTo`）：规则用 `ReplaceCountAt`
   换进来的节点**不带 `Parent`**（那是核心的 `splice`），每趟 `Process` 之后就地把新换进的那一小段补齐——
   否则「靠当前单元的父亲认容器」的规则（元组成员、方括号类型…）会判不出容器。
@@ -80,7 +89,7 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**219 条**）
+## 已知仍开着的缺口（**209 条**）
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
 文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
@@ -92,22 +101,26 @@
 所以「还差多少」在 `npm run gates` 里直接看得见，不必回 `tmp/` 翻探针。
 同一条纪律也适用于 `coverage` 那一侧（`xl:want blocked` / `differ` 的 62 条）。
 
-### 这 219 条长什么样（按根因分三段）
+### 这 209 条长什么样（按根因分三段）
+
+按**文件名前缀**数是这三段（第 816 轮实测）：`gap-sweep-*` 145 + `gap-<字母>-*` 17 = **162**；
+`gap-r676-*` 9 + `mut-*` 19 = **28**；其余 **19**。
 
 | 段 | 条数 | 一句话 |
 | --- | --- | --- |
-| **注释 / 换行落在语法相邻位置之间** | **165** | 最大的一族，按**落点**逐条立着（见下） |
-| **注释夹在语法相邻的两格之间** | **35** | 同一族换了落点：类型运算符 / 函数类型 / `new` 实参括号 / 成员名与形参表 / 泛型实参段附近 |
+| **注释 / 换行落在语法相邻位置之间** | **162** | 最大的一族，按**落点**逐条立着（见下） |
+| **注释夹在语法相邻的两格之间** | **28** | 同一族换了落点：类型运算符 / 函数类型 / `new` 实参括号 / 成员名与形参表 / 泛型实参段附近 |
 | **其它** | **19** | 各有各的根（见下） |
 
-**第一族（165 条）怎么长出来的**：它来自三次普查，每次都把「同一构造的**每一个 token 边界**
+**第一族（162 条）怎么长出来的**：它来自三次普查，每次都把「同一构造的**每一个 token 边界**
 各插一遍 `/*c*/`、`//c` 换行、换行三种变体」——于是落点不同就各自成一条。
 命名上看得见来源：`gap-sweep-{comment,linecomment,newline}-<上下文>-<序号>`，上下文有
 `optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` / `cond` /
 `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` / `class` /
 `call` / `dowhile` / `ifelse` / `typeunion` / `gener` ……另有几小批 `gap-a-*`（A-comment）/
 `gap-b-*`（B-oneline）/ `gap-c-*`（C-optchain-nonnull）/ `gap-d-*`（D-generics-tuple-mapped）/
-`gap-j-*`（J-import-export）/ `gap-m-*`（M-misc）与 `mut-*` 探针池的 23 条。
+`gap-j-*`（J-import-export）/ `gap-m-*`（M-misc）。第二族里那 19 条是 `mut-*` 探针池
+（**第 816 轮收掉 4 条，池子从 23 降到 19**）。
 
 **「一次收一族」在这一族上的意思**：把「注释夹在语法相邻位置之间」这条线**整个按位置过一遍**，
 而不是一条一条打补丁。已经被这条线收掉的地方（对照表，说明这类缺口长什么样）：
