@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack } from "../../../core/extensions/list-extension.xl.md"
-import { CommentsIn, GetSkipPreviousWrapSymbol, IsTriviaUnit, IsTypeContainerUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { CommentsIn, GetSkipPreviousWrapSymbol, IsTriviaUnit, IsTypeContainerUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BinaryOperator } from "../binary-operator.xl.md"
 import { GenericType } from "../generic-type.xl.md"
@@ -72,7 +72,20 @@ if (current === null) {
 if (current.Parent instanceof GenericType) {
   return false;
 }
-const previousIndex = SkipPreviousWrapSymbol(units, index);
+// **往左第一步要跨注释**（第 881 轮）：这一问与 `FindParameters` / `FunctionTypeCloseRule.Previous`
+// 问的是同一件事（「这个 `(` 前面是什么」），而**那两处早就走 trivia 口径了**
+//（`FindParameters` 的 `previousNonTrivia`、`Previous` 的 `SkipPreviousTrivia`）。
+// 本判据原来只跳软换行 ⇒ 注释落在 `(` 前面时 `previous` 取到的是那条注释
+// ⇒ 下面每一档都不命中 ⇒ 落到末尾那句 `return true`（「形参表」）——
+// 于是 `FunctionTypeCloseRule` 拿到 `FindParameters >= 0`、把这段**函数类型**让给了箭头函数，
+// 两边一起判错、整条构造类型不成形（实测 `token/types/gap-r869-abstract-construct-comment-5`：
+// 缺 `ConstructorType` / `AbstractKeyword`，多出 `TypeReference` + `Identifier`）。
+// 同一个形状还能量到 `type T = /*c*/ (a: number) => B` 与 `let f: /*c*/ (a: A) => B`
+// 两格（前者散成裸单元、后者被收成 `<Lamda>`）。
+//
+// **只动这一格，内层那两处照旧**：`?` 那一支与括号回溯都在做**符号配对**，
+// 与「`(` 前面是什么」不是同一个问题（见下面那一段扫描的说明）。
+const previousIndex = SkipPreviousTrivia(units, index);
 const previous = Get(units, previousIndex);
 if (previousIndex < 0) {
   return this.IsWrappedByTypeContext(current) === false;
@@ -154,8 +167,14 @@ if (previous instanceof SymbolToken && (previous.Is(":") || previous.Is("?:"))) 
   }
   return false;
 }
-if (previous instanceof Identifier && previous.Is("new")) {
+if (previous !== null && WordText(previous) === "new") {
   // `new () => object` 是**构造类型**，`new` 直接贴在形参括号前面。
+  //
+  // **按词认、不按类认**（第 881 轮）：通用队列里 `KeywordCloseRule` 排在最后，
+  // 注释 / 换行会让它在 `FunctionCloseRule` 之前先跑一趟 ⇒ 这里那个 `new` 到这一刻
+  // 可能已经是 `Keyword`（第 873 轮在 `function-type.xl.md` 的 `Process` 里实测同一件事）。
+  // 只认 `Identifier` 时这一档整条不成立、函数类型被让给箭头函数。`WordText` 正是
+  // 「两种单元取同一个词」的入口（见 `text-common-util.xl.md`）。
   return false;
 }
 if (previous instanceof Identifier && previous.Is("extends")) {

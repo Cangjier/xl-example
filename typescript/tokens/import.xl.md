@@ -7,7 +7,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceAt } from "../../core/extensions/list-extension.xl.md"
 import { RemoveItem } from "../list-extensions.xl.md"
-import { GetSkipPreviousWrapSymbol, IsTriviaUnit, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousWrapSymbol, IsTriviaUnit, SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -148,9 +148,19 @@ for (let i = index + 1; i < units.length; i++) {
   // 或者已经吃到了 `=`（`import A = B.C` / `import A = require("m")` 的名字引用段）。
   // **只按「有没有 `String`」判是不够的**：`import A = B.C` 一个字符串都没有，
   // 那样会把下一行的语句也吞进来。完整之后照旧：换行 / `;` 都收尾。
-  const done =
-    this.FindStringUnit(items) !== null ||
-    items.some((unit) => unit instanceof SymbolToken && unit.Is("="));
+  // **「吃到了 `=`」不是「写完了」**（第 881 轮，与 `Statement.IsPendingImportHead`
+  // 第 876 轮那条判据问的是同一件事）：`import m =` 换行 `require("m")` 里那个 `=`
+  // 的**右操作数还没到手**——`import A = B.C` 那种「`=` 后面已经有东西」才算写完。
+  // 两处只有一份答案：末了那个实义单元是不是 `=`（`Statement.LineEndsWithEquals`
+  // 的同一句判据，这里按同一个口径写，因为它要的是**这一列 items** 而不是语句的 `Data`）。
+  //
+  // **少了它会怎样**：这个循环在换行那一格 `break` ⇒ 收出一个区间只到 `=` 的
+  // `Import`，`require("m");` 另起一条 `ExpressionStatement`
+  //（实测 `token/modules/gap-r869-import-equals-newline-3`：缺 `ExternalModuleReference`、
+  //  漂 1、多 4）。
+  const lastKeptItem = items.length > 0 ? items[SkipPreviousTrivia(items, items.length)] : null;
+  const endsWithEquals = lastKeptItem instanceof SymbolToken && lastKeptItem.Is("=");
+  const done = this.FindStringUnit(items) !== null || (endsWithEquals === false && items.some((unit) => unit instanceof SymbolToken && unit.Is("=")));
   if (IsTriviaUnit(item) && done === false) {
     continue;
   }

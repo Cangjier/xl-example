@@ -306,6 +306,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 881 轮：第 869 轮普查的最后两格一起收掉——`import m = ⏎ require("m")` 与 `abstract new /*c*/ () => X`（known-gap 2 → 0）
+
+**一句话**：两条登记的缺口各自收掉，**已知缺口清单第一次清空**。两条的根因都不是
+「还差一个词」，而是**同一个问题的两份答案漂了**——一处判据走了 trivia 口径、另一处没走。
+
+**第一条**（[import.xl.md](typescript/tokens/import.xl.md) 的 `ImportCloseRule.Process`）：
+`import m =` 换行 `require("m")` 里那个 `=` 的**右操作数还没到手**，可那一趟把
+「已经吃到 `=`」当成这条声明写完了（那一档本来是给 `import A = B.C` 留的）⇒ 在换行那一格 `break`
+⇒ 收出一个区间只到 `=` 的 `Import`，`require("m");` 另起一条 `ExpressionStatement`
+（缺 `ExternalModuleReference`、漂 1、多 4）。语句层那半边第 876 轮已经问对了
+（`Statement.IsPendingImportHead` 走 `Statement.LineEndsWithEquals`：**末了那个实义单元是 `=`**），
+只是**导入声明的收尾规则跑在语句壳之前**、它一并壳这一段就再也轮不到下一行 —— 所以两边必须同一句话。
+修法是在那一趟里按**同一口径**算「写完了没有」：`items` 里那个 `=` 只有**不在末了**时才说明写完了
+（`SkipPreviousTrivia` 取末了那个实义单元）。
+
+**第二条**（[lamda.xl.md](typescript/tokens/lamda/lamda.xl.md) 的 `IsLambdaParameters`）：
+`abstract new /*c*/ () => X` 整条构造类型不成形。原先记的根因是「`abstract` 在注释收尾那一趟被升级成
+`Keyword` 的**时序**」——**不对**。真正的原因是 `IsLambdaParameters` 往左看**只跳软换行、不跳注释**
+（`SkipPreviousWrapSymbol`）：`(` 前面紧邻的是那条 `AreaAnnotation` ⇒ 后面每一档
+（`:` / `new` / `extends` / `GenericType` / `?` / `=`）都不命中 ⇒ 落到末尾那句 `return true`「这是形参表」
+⇒ `FunctionTypeCloseRule` 从 `FindParameters` 拿到 `>= 0`、把这段**函数类型**让给了箭头函数。
+而**同一个问题的另外两处早就走 trivia 口径了**——`FindParameters` 的 `previousNonTrivia`
+（第 621 轮）与 `FunctionTypeCloseRule.Previous` 的 `SkipPreviousTrivia`（第 817 轮）——
+三处只有这一处没跟上。修法两格：往左第一步改成 `SkipPreviousTrivia`；
+`new` 那一档顺手从「按 `Identifier` 类认」改成「按词认」（`WordText`，注释 / 换行会让这个词
+被问到时已经是 `Keyword`，第 873 轮在 `function-type.xl.md` 的 `Process` 里量到过同一件事）。
+
+**同一个形状不止用例那一格**（片段探针实测，都不在语料里）：
+`type T = /*c*/ (a: number) => B` 原先散成裸单元、
+`let f: /*c*/ (a: A) => B` 原先被收成 `<Lamda>`（值位标签），修完两条都成形为函数类型。
+
+**实测**：全语料 `cases:tsast` **16 / 16 片**、缺 0 漂 0 多 0 字段 0、
+已知缺口 **2 → 0**（两条都报「收掉了」⇒ 各删掉文件头那行 `xl:known-gap`，用例留着当守卫）、
+收掉 0；`cases:check` 1466 / 1466、`cases:tags` 4920 条断言 0 条不一致、
+`cases:shapes` 未覆盖 0；`coverage` **4048 → 4050 / 4228**（token **1451/1453 → 1453/1453**、
+blocked **42 → 40**、differ 138、bad 0、加权 **95.11% → 95.13%**）；`runtime:*` / `samples` 全过 ⇒ **八道门全绿**。
+
+**这一轮的两条经验**（都值得留）：① **「已经吃到 X」不等于「写完了」**——判据要落在
+**末了那一格**上，否则 `A = B.C` 与 `A = ⏎ require("m")` 分不开；② **同一句判据写了两份就一定会漂**——
+这一轮两条缺口的根都是「一处跳 trivia、另一处只跳软换行」，凡是「往左 / 往右找相邻单元」的判据，
+先在这三处之间对齐口径再改。
+
 ### 第 880 轮：`declare global` 换行 `{ … }` 那一格——`declare` 进「等着体的声明头」词表，只认段首（known-gap 3 → 2）
 
 **一句话**：`declare global` 换行 `{ interface W { a: number } }` 收掉——那个 `{` 是
@@ -4881,7 +4923,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **2 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–880 十一轮共收掉 28 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **0 条**（第 869 轮普查量出的 30 条，第 870–881 十二轮全部收掉；每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1466** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -4889,7 +4931,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1453 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4048 / 4228**，加权 **95.1%**：token 1448/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 42 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4050 / 4228**，加权 **95.13%**：token **1453/1453**、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 40 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 
@@ -4920,7 +4962,12 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **89** 条）：
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **40** 条）。
+  **它们与「已知缺口 0 条」不矛盾，量的是两把尺子**（第 881 轮清空的是后者）：
+  `cases:tsast` 量的是**投影成 TS 形状**之后的对拍，而这一批缺口在 **XML 产物（token 树）**上——
+  投影那一层按 TS 的划分出节点，所以 `cases:tsast` 是绿的、`xl:known-gap` 却照旧挂着
+  （与上面「块与表达式之间没有分隔符」那一条同一个形状）。**第 881 轮起 `cases:tsast`
+  一把尺子上已经没有登记的缺口了**；下面这 40 条是 token 树那一把尺子的账：
   主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
   （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
   `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），

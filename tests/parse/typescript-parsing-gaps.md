@@ -363,7 +363,7 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**2 条**）
+## 已知仍开着的缺口（**0 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
 （第 854 轮实测 **10**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
@@ -394,8 +394,12 @@
 （**解析期**的续接词表里没有 `in` / `instanceof` 两个保留字，换行被 ASI 判成语句边界）
 ⇒ **3 条**；**第 880 轮**收掉 `declare global` 换行 `{ … }` 那一格（「等着体的声明头」词表补
 `declare`，但只认**段首**——段首要用 `SearchFrontIndexed` + `IsStatementBoundary` 划，
-`SkipNextTrivia(data, -1)` 会被注释头挡住）⇒ **2 条**，剩下的短线是
-`abstract /* c */ new` 的升级时序与 `import m = ⏎ require("m")` 那一格。
+`SkipNextTrivia(data, -1)` 会被注释头挡住）⇒ **2 条**；**第 881 轮**把最后两格一起收掉：
+`import m = ⏎ require("m")`（`ImportCloseRule.Process` 的「写完了没有」与
+`Statement.LineEndsWithEquals` 对齐成一份——末了那个实义单元是 `=` ⇒ 还没写完）与
+`abstract new /*c*/ () => X`（根因不在升级时序，而在 `LamdaCloseRule.IsLambdaParameters`
+往左第一格只跳软换行、不跳注释 ⇒ `(` 前面那条注释让每一档都不命中、落到末尾那句「是形参表」；
+那一格改成 trivia 口径，`new` 那一档顺手从「按类认」改成「按词认」）⇒ **0 条**。
 
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
