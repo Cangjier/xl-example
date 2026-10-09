@@ -138,17 +138,33 @@ this.Operators = operators;
 变量声明的多声明符、`for` 子句——它们的分隔符都是 `,`。
 判据只认一种形状：**`(` 括号内部的顶层 `,`**（参数表 / 实参表同样是 `(`，靠调用方排除）。
 
-## static readonly field BitwiseInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["|", "&", "^"])
+## static readonly field BitwiseAndInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["&"])
 
-位运算 `a | b` / `a & b` / `a ^ b`（值位）。
+位与（值位）。**第 916 轮从 `BitwiseInstance` 里拆出来的三层之一。**
 
-**这一支只收「父单元是语句」的那种**（见 `IsValuePositionOperator` 的说明）：
-`|` / `&` 在类型位另有含义（联合 / 交叉类型），类型位的那两个在轮到本规则时
-**已经被 `TypeAssign` / `TypeDefine` 收进节点里**，不再是同层单元，所以按「父单元是不是语句」
-就能把两种位置分开。`^` 只有值位一种含义，但也一并走这条判据，保持一处逻辑。
+## static readonly field BitwiseXorInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["^"])
 
-优先级放在相等比较与 `in` 之间（与 TypeScript 的 `&` > `^` > `|` 简化成一层：
-真实代码里混写这三种且不写括号的情况极少，拆成三层收益不成比例）。
+位异或（值位）。
+
+## static readonly field BitwiseOrInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["|"])
+
+位或（值位）。
+
+**这三个原来是一层**（`["|", "&", "^"]` 合成一个 `BitwiseInstance`），
+当时的账写着「与 TypeScript 的 `&` > `^` > `|` 简化成一层：真实代码里混写这三种且不写括号的情况极少，
+拆成三层收益不成比例」。**那一句是估计，第 916 轮把它量了**（`tmp/r916/prec.mjs`）：
+一条 `const a = b | c & d;` 就够——TS 给 `b | (c & d)`（`&` 比 `|` 紧），
+合成一层之后本仓给 `(b | c) & d`，产物 XML 里那两格是**反的**。
+
+- **值这一侧看不出**：`tsrun` 跑 `console.log(4 | 1 & 1)` 与 `node` 逐字节相同（`5`）——
+  降级层自己不按这棵树的嵌套算优先级，所以这**不是**一条运行期错值的账；
+- **树那一侧看得出**：`--ts-ast` 逐节点对拍当场报「缺 `BinaryExpression(c & d)` / 多 `BinaryExpression(b | c)`」，
+  而 XML 是**三个出口同源**的那棵树（另一个目标语言、以及任何直接读树的工具拿到的是错嵌套）。
+
+拆成三层之后 `a | b & c` / `a ^ b & c` / `a | b ^ c` 的顺序与 TS 一致，
+链上的位置**原地不动**（仍排在 `LogicalAssignmentInstance` 与 `NullishInstance` 之间）——
+这一轮只动这三者**相互之间**的次序，与别的运算符的先后一位没改。
+`IsValuePositionOperator` 那道位置闸三个实例各问一次（同一个方法，没有第二份判据）。
 
 ## static readonly field NullishInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["??"])
 

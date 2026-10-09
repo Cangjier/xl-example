@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4295,
+  "total": 4298,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.41,
+  "progressPercent": 95.4,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1516,
-      "pass": 1516,
-      "blocked": 0,
+      "total": 1519,
+      "pass": 1518,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.93
     },
     {
       "category": "exec",
@@ -129,14 +129,20 @@
     }
   ],
   "token": {
-    "total": 1516,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
-    "exactFiles": 1516,
-    "scoredWithoutGap": 1516,
-    "passedWithoutGap": 1516
+    "total": 1519,
+    "knownGap": 1,
+    "knownGapStillOpen": 1,
+    "exactFiles": 1518,
+    "scoredWithoutGap": 1518,
+    "passedWithoutGap": 1518
   },
   "blocked": [
+    {
+      "id": "token/types/gap-tuple-element-array-newline-after-assign",
+      "category": "token",
+      "title": "元组元素里的数组类型、而且元组写在 `=` 的下一行：`type X =` 换行 `[C[]];`——TS 那边仍是 `TupleType > ArrayType`，产物把 `C[]` 收成值位的 `ElementAccessExpression`",
+      "detail": "缺 2　多 1　`=` 之后那个换行让外层 `[` 晚一步才被认成类型位（那一刻它还是裸括号），内层 `[]` 先被 `PropertyAccessCloseRule` 当成下标吃掉；外层后来收成 `TupleType` 时，内层的父亲已经是 `PropertyAccess`，`IsTypeContainerUnit`"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -503,7 +509,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2123.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2126.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -809,7 +815,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3111.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3114.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -833,7 +839,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3159.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3162.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -989,7 +995,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3802.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3805.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

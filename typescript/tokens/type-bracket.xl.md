@@ -214,7 +214,17 @@ if (previous !== null && previous.constructor.name === "GenericType") {
   }
 }
 if (IsEmptyContentUnit(current) && hasOperand) {
-  if (this.IsNestedInTypeBracket(current, previousIndex, index, units)) {
+  // **守卫问的是「这一个方括号」，不是「从操作数起的这一段」**（第 916 轮）：
+  // 原来这里递的是 `previousIndex`，于是「左操作数 + 方括号」正好铺满父单元内容时也判成
+  // 「又重新看到同一个方括号了」——`type X = [C[]];` 的父单元 `TupleType` 内容就是
+  // `[Identifier(C), Bracket]` 两格，`[0..1]` 铺满 ⇒ 守卫命中 ⇒ 什么都不做 ⇒
+  // 那个空方括号**留成裸 `Bracket`**（TS 那边是 `ArrayType > TypeReference`，
+  // 实测缺 1；带换行的那几份还多出一个 `ElementAccessExpression`）。
+  // `IsOwnContentRange` 自己的原话就是「这一段覆盖了整个父亲就不许再包」，
+  // 而「同一个方括号被重新看到」的充要条件是**方括号自己**铺满父单元内容——
+  // 元组那一支（下面第三条）递的本来就是 `index, index`，两处口径本来就不一致。
+  // 收窄之后 `(A | B)[]` 那一族照旧被挡住（那里方括号自己就是唯一一格）。
+  if (this.IsNestedInTypeBracket(current, index, index, units)) {
     return index;
   }
   const array = new ArrayType(current.Template);
