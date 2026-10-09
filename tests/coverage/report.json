@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.8,
+  "progressPercent": 94.89,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1410,
-      "pass": 1379,
-      "blocked": 31,
+      "pass": 1387,
+      "blocked": 23,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 97.8
+      "coverage": 98.37
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1410,
-    "knownGap": 31,
-    "knownGapStillOpen": 31,
-    "exactFiles": 1379,
-    "scoredWithoutGap": 1379,
-    "passedWithoutGap": 1379
+    "knownGap": 23,
+    "knownGapStillOpen": 23,
+    "exactFiles": 1387,
+    "scoredWithoutGap": 1387,
+    "passedWithoutGap": 1387
   },
   "blocked": [
     {
@@ -144,34 +144,10 @@
       "detail": "缺 1　多 1　修饰词换行：`abstract` 已经不再收进 `modifiers` 了，可它作为**散词**被 `KeywordCloseRule` 升级成 `<Keyword>` ⇒ 投影多一个 `AbstractKeyword`；TS 那边是 `ExpressionStatement > Identifier`"
     },
     {
-      "id": "token/declarations/mut-cls-generic-method-arrow-field-58",
-      "category": "token",
-      "title": "基线用例（来自缺口审计语料）",
-      "detail": "缺 6　多 3　未映射 1　注释夹在方法名与泛型段 / 参数表之间，或字段 `=` 与箭头函数之间（r660 探针池 mut-cls-generic-method-arrow-field-58）"
-    },
-    {
-      "id": "token/declarations/mut-cls-generic-method-arrow-field-61",
-      "category": "token",
-      "title": "基线用例（来自缺口审计语料）",
-      "detail": "缺 6　多 3　未映射 1　注释夹在方法名与泛型段 / 参数表之间，或字段 `=` 与箭头函数之间（r660 探针池 mut-cls-generic-method-arrow-field-61）"
-    },
-    {
       "id": "token/expressions/expr-generic-instantiation",
       "category": "token",
       "title": "泛型实例化表达式（TS 4.7）",
       "detail": "缺 2　多 3　没有这条规则：产物是 `BinaryOperator(f < string)`，TS 是 `ExpressionWithTypeArguments`（缺 2 多 3）"
-    },
-    {
-      "id": "token/expressions/gap-r676-call-comment-before-args-generic",
-      "category": "token",
-      "title": "调用泛型实参段之后、实参括号之前夹一条注释",
-      "detail": "缺 2　多 6　注释夹在泛型实参段与实参括号之间：调用整条落成 `BinaryExpression(g < number > (1))`，`CallExpression` 缺（与「被调用者与泛型段之间」那条同族，落点不同，r676 探针 call-comment-before-args-generic）"
-    },
-    {
-      "id": "token/expressions/gap-r676-generic-comment-before-args",
-      "category": "token",
-      "title": "调用被调用者与它的泛型实参段之间夹一条注释",
-      "detail": "缺 2　多 6　注释夹在 `f` 与 `<string>` 之间：整条调用落成 `BinaryExpression(f < string > (1))`，`CallExpression` 缺（与 `f<string>(1)` 那条泛型实例化同族，这里是**带注释**的排版，r676 探针 generic-comment"
     },
     {
       "id": "token/expressions/gap-round743-chain-in-binary-both-sides",
@@ -222,12 +198,6 @@
       "detail": "缺 2　多 3　没有这条规则：产物是 `BinaryOperator(f < string)`，TS 是 `ExpressionWithTypeArguments`（r663 探针池 c-generic-inst）"
     },
     {
-      "id": "token/statements/gap-a-comment-06",
-      "category": "token",
-      "title": "A-comment 落点（657 审计语料）",
-      "detail": "缺 3　注释 / 换行落在语法相邻位置之间（A-comment）：MISS MethodDeclaration TS[12,26) «* /*c*/ g() {}»"
-    },
-    {
       "id": "token/statements/gap-c-optchain-nonnull-01",
       "category": "token",
       "title": "C-optchain-nonnull 落点（657 审计语料）",
@@ -258,12 +228,6 @@
       "detail": "漂 2　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-comment/arrow）：DRIFT VariableDeclarationList TS[0,21) 产物[0,26) «const f = (a, b) => a»"
     },
     {
-      "id": "token/statements/gap-sweep-comment-generic-01",
-      "category": "token",
-      "title": "SWEEP-comment/generic 落点（657 审计语料）",
-      "detail": "缺 11　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/generic）：MISS FunctionDeclaration TS[0,51) «function f/*c*/<T extends U>(x: T): T { return x; }»"
-    },
-    {
       "id": "token/statements/gap-sweep-comment-ifelse-01",
       "category": "token",
       "title": "SWEEP-comment/ifelse 落点（657 审计语料）",
@@ -280,18 +244,6 @@
       "category": "token",
       "title": "`do…while` 后面还跟着一条语句",
       "detail": "缺 3　多 1　那个 `while (a)` 被当成循环头，后面那条语句没被收进 `do` 那一格（缺 3）"
-    },
-    {
-      "id": "token/types/mut-type-cond-generic-in-true-branch-152",
-      "category": "token",
-      "title": "条件类型真分支里的类型实参：`? F<A, B> : C` 的泛型段必须成形（第 66 轮）",
-      "detail": "缺 6　漂 2　多 2　注释夹在条件类型真分支的类型名与实参段之间：`F<A, B>` 不成形（r660 探针池 mut-type-cond-generic-in-true-branch-152）"
-    },
-    {
-      "id": "token/types/mut-type-fn-generic-arg-90",
-      "category": "token",
-      "title": "函数类型作为泛型实参",
-      "detail": "缺 3　多 1　未映射 1　注释夹在函数类型的 `=>` 周围 / 泛型实参里：类型段落成散单元（带一处未映射 Bracket）（r660 探针池 mut-type-fn-generic-arg-90）"
     },
     {
       "id": "token/types/mut-type-union-after-readonly-93",
@@ -695,7 +647,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15212/src/2017.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24740/src/2017.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1037,7 +989,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15212/src/3000.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24740/src/3000.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1061,7 +1013,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15212/src/3048.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24740/src/3048.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1217,7 +1169,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15212/src/3691.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24740/src/3691.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

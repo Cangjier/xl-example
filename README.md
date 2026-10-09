@@ -306,6 +306,35 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 845 轮：泛型段 / 生成器星号的**名字闸要看实义单元**——`mut-cls-generic-*` 那一族收掉 8 条
+
+**一句话**：一个词与它后面那段东西之间的**注释**是 trivia，而三处判据都拿「紧挨着的那一格」当答案：
+
+- `generic-type.xl.md` 的 `IsGenericStart` 名字闸取 `unit.Last()`——`m/* c */<T>(x: T): T { … }`
+  里 `<` 前面是那条注释 ⇒ 判否 ⇒ `<…>` 退回裸符号 ⇒ 参数表那一段找不到 `GenericType`
+  ⇒ 整条成员散架（`mut-cls-generic-method-arrow-field-58`、`gap-sweep-comment-generic-01`）；
+- `method-declaration.xl.md` 的 `GeneratorMark` 之后用 `SkipNextWrapSymbol`（只跳软换行）——
+  `{ * /*c*/ g() {} }` 里 `nameIndex` 落在注释上 ⇒ 生成器方法整条不成形（`gap-a-comment-06`）；
+- `IsAllowedFollower` 的「只看同一行」那一句把**块注释开头**当成这一行到此为止——
+  `m<T>/* c */(x: T): T { … }` 里成员位**不是类型位** ⇒ 这次试读被判否
+  （`mut-cls-generic-method-arrow-field-61`）。
+
+- **名字闸改成「最后一个实义单元」**：`LineWrap` 与 `IsTriviaUnit` 往回跳过（写法与同文件的
+  `IsDeclarationHeadHost` 同源），没有 trivia 时落点就是原来那一格。`?` 那支的两格一起改
+  （`m?/* c */<T>()`）。
+- **`GeneratorMark` 之后两处 `SkipNextWrapSymbol` → `SkipNextTrivia`**（`Previous` 与 `Process`）：
+  与第 817 轮那三处（名字与参数表之间）同一条口径，这一格是漏网。
+- **`IsAllowedFollower` 跨过块注释再看后继**：`/* … */` 只是 trivia，`>` 后面的后继就是那个 `(`；
+  注释里带换行、或者没闭合，照旧按「这一行到此为止」。
+- **收掉的 8 条**：`mut-cls-generic-method-arrow-field-58` / `-61`、`gap-a-comment-06`、
+  `gap-sweep-comment-generic-01`、`gap-r676-generic-comment-before-args`、
+  `gap-r676-call-comment-before-args-generic`、`mut-type-cond-generic-in-true-branch-152`、
+  `mut-type-fn-generic-arg-90`（后两条是同一根的另一处落点）。八行 `xl:known-gap` 删掉，
+  三条 `xl:expect` 按新形状重算（`SymbolToken` / `TypeLiteral` 那一套没了，换成
+  `GenericType` / `Function` / `TypeParameter` / `Parameter` / `ReturnType` / `Method`）。
+- **数字**：`cases:tsast` 的账 **31 → 23 还开着**（`coverage` **3974 → 3982 / 4183**，
+  blocked **71 → 63**，`bad` 0、`regressions` 0）；16 片全绿、`cases:tags` 0 条不一致。
+
 ### 第 844 轮：修饰词**要看下一格**——`SWEEP-{newline,linecomment}/clsmod` 收掉 3 条，另收 1 条同族
 
 **一句话**：修饰词原来只按**词形**认（`declaration-common.xl.md` 的 `IsDeclarationModifier` 一张表），

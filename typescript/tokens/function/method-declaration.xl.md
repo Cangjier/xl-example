@@ -545,7 +545,11 @@ return false;
 let nameIndex = index;
 const generator = this.GeneratorMark(units, index);
 if (generator !== null) {
-  nameIndex = SkipNextWrapSymbol(units, index);
+  // **`*` 与名字之间跨注释**（第 845 轮）：`{ * /*c*/ g() {} }` 里 `*` 后面紧跟的是那条注释，
+  // 只跳软换行时 `nameIndex` 落在注释上 ⇒ 名字判据当场判否 ⇒ 整条方法声明不成形
+  //（实测 `gap-a-comment-06`：缺 `MethodDeclaration` / `Identifier` / `Block` 三条）。
+  // 第 817 轮那三处（名字与参数表之间）已经改成 trivia 口径，这一格是同一族的漏网。
+  nameIndex = SkipNextTrivia(units, index);
 }
 const current = Get(units, nameIndex);
 const isPrivateName = current instanceof SymbolToken && current.Is("#");
@@ -688,7 +692,8 @@ const startIndex = DeclarationStart(units, index);
 let nameIndex = index;
 const generator = this.GeneratorMark(units, index);
 if (generator !== null) {
-  nameIndex = SkipNextWrapSymbol(units, index);
+  // 与 `Previous` 那一格同一条口径（第 845 轮）：`*` 与名字之间跨注释。
+  nameIndex = SkipNextTrivia(units, index);
 }
 const markUnit = Get(units, nameIndex);
 const privateMark = markUnit instanceof SymbolToken && markUnit.Is("#") ? markUnit : null;

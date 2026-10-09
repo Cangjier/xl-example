@@ -11,6 +11,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { UnitToken } from "../../core/syntax/unit-token.xl.md"
 import { Bracket } from "./bracket.xl.md"
+import { Get } from "../../core/extensions/list-extension.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Keyword } from "./keyword.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -109,7 +110,6 @@ if (unit.Data.length === 0) {
   const emptyHostClose = this.ScanArguments(unit, source);
   return emptyHostClose !== -1 && this.IsAllowedFollower(unit, source, emptyHostClose);
 }
-let last = unit.Last();
 // **字符串字面量名也是名字，但只认成员体里的那一档**（第 833 轮）：
 // `interface I { "a"<T>(x: T): T }` / `type X = { "a"<T>(x: T): T }` / `class C { "a"<T>() {} }`
 // 里 `<` 前面是那个 `String` 单元 —— 与 `Array<T>` / `m<T>()` 的 `<` 同一条名字闸。
@@ -128,11 +128,27 @@ let hostName = unit.constructor.name;
 let inMemberHost =
   hostName === "InterfaceBody" || hostName === "ClassBody" ||
   (unit instanceof Bracket && unit.startBracket === "{");
+// **名字闸要看的是最后一个「实义」单元，不是最后一格**（第 845 轮）：`m/* c */<T>(x: T): T { … }`
+// 里 `<` 前面紧挨着的是那条注释，`unit.Last()` 拿到它 ⇒ 名字闸判否 ⇒ 整个 `<…>` 退回裸符号
+// ⇒ 参数表那一段找不到 `GenericType` ⇒ 整条成员散架（实测 `mut-cls-generic-method-arrow-field-58/61`
+// 与 `gap-sweep-comment-generic-01`）。注释与软换行都只是排版，往回跳过它们之后
+// 判据与原来一字不差（没有 trivia 时落点就是原来那一格）。
+// 往回走的写法与同文件的 `IsDeclarationHeadHost` 同源。
+let lastAt = unit.Data.length - 1;
+while (lastAt >= 0 && (unit.Data[lastAt] instanceof LineWrap || IsTriviaUnit(unit.Data[lastAt]))) {
+  lastAt = lastAt - 1;
+}
+let last = lastAt >= 0 ? Get(unit.Data, lastAt) : null;
 let hasName = last instanceof Identifier || (last instanceof String && inMemberHost);
 if (last instanceof SymbolToken && last.Is("?")) {
-  const beforeMark = unit.Data[unit.Data.length - 2];
+  // `?` 前面那一格同样要跨 trivia（`m?/* c */<T>()`）
+  let beforeAt = lastAt - 1;
+  while (beforeAt >= 0 && (unit.Data[beforeAt] instanceof LineWrap || IsTriviaUnit(unit.Data[beforeAt]))) {
+    beforeAt = beforeAt - 1;
+  }
+  const beforeMark = beforeAt >= 0 ? Get(unit.Data, beforeAt) : null;
   const isComputedName =
-    beforeMark !== undefined &&
+    beforeMark !== null &&
     (beforeMark.constructor.name === "ArrayLiteral" || (beforeMark instanceof Bracket && beforeMark.startBracket === "["));
   if (!(beforeMark instanceof Identifier) && isComputedName === false) {
     return false;
@@ -891,15 +907,42 @@ return false;
 ```ts
 const document = source.Document;
 let index = closeIndex + 1;
+const isTypePosition = this.IsTypePosition(unit);
 while (index < document.GetCount()) {
   const item = document.GetValue(index);
   if (item === " " || item === "\t") {
     index++;
     continue;
   }
+  // **块注释要跨过去**（第 845 轮）：`m<T>/* c */(x: T): T { … }` 里配对 `>` 后面紧跟的
+  // 就是那条注释，而注释只是 trivia —— TS 那边的后继字符是那个 `(`。
+  // 原来「遇到注释开头就算这一行到此为止」直接返回「是不是类型位」，而成员体里的 `<T>`
+  // **不是**类型位 ⇒ 这次试读被判否 ⇒ `<…>` 退回裸符号 ⇒ 整条方法声明散架
+  //（实测 `mut-cls-generic-method-arrow-field-61`）。跨过去之后判据与原来一字不差
+  //（`>` 后面本来就没有注释时，走的就是原来那条路）。
+  // **注释里带换行**照样算这一行到此为止；没闭合的块注释也当到此为止。
+  if (item === "/" && index + 1 < document.GetCount() && document.GetValue(index + 1) === "*") {
+    let scan = index + 2;
+    let closed = -1;
+    while (scan + 1 < document.GetCount()) {
+      const char = document.GetValue(scan);
+      if (char === "\n" || char === "\r") {
+        return isTypePosition;
+      }
+      if (char === "*" && document.GetValue(scan + 1) === "/") {
+        closed = scan + 2;
+        break;
+      }
+      scan = scan + 1;
+    }
+    if (closed < 0) {
+      return isTypePosition;
+    }
+    index = closed;
+    continue;
+  }
   break;
 }
-const isTypePosition = this.IsTypePosition(unit);
 if (index >= document.GetCount()) {
   return isTypePosition;
 }
