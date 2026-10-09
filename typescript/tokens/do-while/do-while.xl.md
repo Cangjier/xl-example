@@ -369,18 +369,51 @@ if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
   // ⇒ 上面那一问永远拿不到它 ⇒ `DoWhile` 的右端比 TS 少一格
   //（实测 `do { f() } while (x < 10);`：产物 `DoStatement [49,76)` vs TS `[49,77)` ——
   //  单看就是「漂移 1 + 多出 1」）。
-  // 壳体右端比条件括号**多出来的那一格就是它** ⇒ 宿主是 `Statement` 时取宿主的右端。
-  // **只认 `Statement`**：别的宿主（`Root` / 各种体）的右端是**整个容器**的末尾，
-  // 照取会把 `DoWhile` 一路拉到文件尾。
-  const last = Get(units, endIndex);
-  const owner = unit.Parent;
-  const ownerEnd = owner !== null && owner.constructor.name === "Statement" ? owner.SourceRange.End : null;
-  const lastEnd = last === null ? null : last.SourceRange.End;
-  if (ownerEnd !== null && lastEnd !== null && ownerEnd.Index > lastEnd.Index) {
-    result.SignOut(ownerEnd);
-  } else {
-    result.SignOut(lastEnd!);
+  //
+  // **判据落在原文上，不再问宿主的右端**（第 859 轮）：早先那一版是
+  //「宿主是 `Statement` 且右端比最后一格更远 ⇒ 取宿主右端」——`ownerEnd` 是**整条语句壳**的右端，
+  // 壳体里可以装着**下一条语句**（`do {} while (a) b()` 里那个 `b()` 就在同一个壳里）
+  // ⇒ 照取会把 `DoWhile` 一路撑到 `b()` 的末尾（实测 `stmt-do-while-then-statement`：
+  // 产物 `DoStatement [123,143)` vs TS `[123,138)` —— 多出来的正是 `b()`）。
+  // 这里改成问**原文**：条件括号之后跳过空白与注释，下一个字符是不是 `;` ——
+  // 是就是自己的终结符（TS 的 `parseDoStatement` 收尾调 `parseSemicolon()`），
+  // 不是就是 ASI 断在括号上（`do {} while (a)` 后面接语句的排法）。
+  // **末尾那个 `;` 自己占一格时上面那一问已经吃过了**，这一支只管它不在列表里的那一档。
+  //
+  // **与它成对的那半还开着**（第 859 轮实测）：`DoWhile` 与后面那条语句仍然挤在同一个语句壳里
+  // （`Statement.FormTail` 收的），投影于是多套一层 `ExpressionStatement`。
+  // **把 `DoWhile` 补进 `Statement.IsStatementUnit` 试过、退回来了**：壳被 `SplitShell` 拆开之后，
+  // 尾巴那条壳的右端会落到**文件末尾**（见 `Statement.SplitShell` 取 `unit.SourceRange.End`）——
+  // `lib.dom.d.ts` 一片当场缺 14418 个 `Identifier`（`@types` / `typescript/lib` 成片红）。
+  // 那一格要跟本单元的右端一起收，属于下一轮的活。
+  let signOut = compare.SourceRange.End!;
+  const tail = conditionBracket.SourceRange.End!;
+  const tailDoc = tail.Document;
+  let at = tail.Index;
+  for (;;) {
+    while (at < tailDoc.GetCount() && (tailDoc.GetValue(at) === " " || tailDoc.GetValue(at) === "\t" || tailDoc.GetValue(at) === "\r" || tailDoc.GetValue(at) === "\n")) {
+      at = at + 1;
+    }
+    if (at + 1 < tailDoc.GetCount() && tailDoc.GetValue(at) === "/" && (tailDoc.GetValue(at + 1) === "/" || tailDoc.GetValue(at + 1) === "*")) {
+      if (tailDoc.GetValue(at + 1) === "/") {
+        while (at < tailDoc.GetCount() && tailDoc.GetValue(at) !== "\n") {
+          at = at + 1;
+        }
+      } else {
+        at = at + 2;
+        while (at + 1 < tailDoc.GetCount() && !(tailDoc.GetValue(at) === "*" && tailDoc.GetValue(at + 1) === "/")) {
+          at = at + 1;
+        }
+        at = at + 2;
+      }
+      continue;
+    }
+    break;
   }
+  if (at < tailDoc.GetCount() && tailDoc.GetValue(at) === ";") {
+    signOut = tailDoc.At(at + 1);
+  }
+  result.SignOut(signOut);
 }
 result.TryToClose();
 ReplaceCountAt(units, index, endIndex - index + 1, result);

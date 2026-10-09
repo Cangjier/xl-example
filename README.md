@@ -306,6 +306,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 859 轮：`do { } while (a)` 后面没有分号时的右端——`DoWhile` 不再吃下一条语句
+
+**一句话**：`do {} while (a) b()`（`stmt-do-while-then-statement`）里 `DoStatement` 的右端
+比 TS 多一截（TS `[123,138)`、产物 `[123,143)`）——多出来的正是**下一条语句** `b()`。
+
+**根子在 `DoWhileCloseRule.Process` 那一支的判据**（[typescript/tokens/do-while/do-while.xl.md](typescript/tokens/do-while/do-while.xl.md)）：
+尾分号不在列表里时（`Statement.FormFrom` 把它切进壳的区间、不进 `Data`），
+原来的写法是「宿主是 `Statement` 且右端比最后一格更远 ⇒ 取**宿主右端**」。
+可宿主是**整条语句壳**——它里面可以装着下一条语句：`do {} while (a) b()` 里
+`DoWhile` 与 `b()` 就住在**同一个**壳里（`Statement.FormTail` 把它们收在一起），
+于是「宿主右端」= `b()` 的末尾 ⇒ `DoWhile` 一路撑过去。
+
+**修法**：判据从「问宿主」改成「**问原文**」——条件括号之后跳过空白与注释，
+下一个字符是不是 `;`：是就是自己的终结符（TS 的 `parseDoStatement` 收尾调 `parseSemicolon()`），
+不是就是 ASI 断在括号上（`do {} while (a)` 后面接语句的排法）。
+**末尾那个 `;` 自己占一格时上面那一问已经吃过了**，新写的这一支只管它不在列表里的那一档
+（`do x++; while (c);` 那种形状一个字节没动）。
+
+**四个探针**（`tmp/`）：`do {} while (a) b()` / `do {} while (a) b();` / `do {} while (a)` 换行 `b()` /
+`do {} while (a) /*c*/; let y = 1`——修完 `DoStatement` 的右端分别是 15 / 15 / 15 / 15，
+与 TS 逐格相同。
+
+**还开着的那半**（登记在用例文件头）：`DoWhile` 与后面那条语句**仍然挤在同一个语句壳**里
+⇒ 投影多套一层 `ExpressionStatement`（TS 是**两条**语句）。
+把 `DoWhile` 补进 `Statement.IsStatementUnit` 试过一次（那样 `SplitShell` 就会把壳拆开）：
+**实测退回来**——`@types` / `typescript/lib` 那几片成片变红（`lib.dom.d.ts` 一片缺
+14418 个 `Identifier`）。壳被拆开之后尾巴那条壳的右端会落到**文件末尾**（`SplitShell` 取
+`unit.SourceRange.End`，而 `DoWhile` 的右端在这条修法之后只到条件括号）——
+那一格要跟 `DoWhile` 的右端一起收，属于下一轮的活。
+
+**数字**：用例文件头的期望与 doc 行按新形状重算（`Statement` 3 → 4），
+`xl:known-gap` 那一行留着、措辞换成新根因；账仍是 **8 条还开着**；
+全语料 `ts-ast.mjs all --jobs 1`：**1809 / 1817 份逐位置一致、缺 0 漂 9 多 9**
+（与改之前**逐项相同**——那 9 / 9 是 `dist/ts/typescript/tokens/field.ts` 一处旧漂）；
+`cases:check` 1427 条 **0 条不合格**、`cases:tags` **0 条不一致**。
+
 ### 第 854 轮：`typeof` 的点号名后面再接下标——known-gap **11 → 10**
 
 **一句话**：`type A = typeof a.b[K]`（`type-typeof-qualified-index`）里 `TypeQuery` 吞下整段
