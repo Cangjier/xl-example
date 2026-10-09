@@ -10,7 +10,7 @@ import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayElementAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat, ArrayAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw, StringCharAt, StringCharCodeAt, StringIndexOf, StringIncludes, StringStartsWith, StringEndsWith, StringRepeat, StringPadStart, StringPadEnd, StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare, StringToUpperCase, StringToLowerCase, StringAnchor, StringFontcolor, StringFontsize, StringLink, StringSlice, StringSubstring, StringSubstr, StringReplace, StringReplaceAll, StringSplit, StringTrim, StringTrimStart, StringTrimEnd, StringToString, StringValueOf, StringIsWellFormed, StringToWellFormed, StringNormalize, StringToLocaleUpperCase, StringToLocaleLowerCase, StringBig, StringBlink, StringBold, StringFixed, StringItalics, StringSmall, StringStrike, StringSub, StringSup } from "./string.xl.md"
 import { JsTextUnits, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue, PropertyKeyName } from "./text.xl.md"
-import { InspectText, InspectDepth, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
+import { InspectText, InspectDepth, DateMarker, IsArgumentsValue, IsErrorFamilyName } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, MapEntries, MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapClear, MapForEach, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
 import { SetCtor, SetValues, SetAdd, SetHas, SetDelete, SetKeys, SetEntries, SetClear, SetForEach, WeakSetCtor } from "./set.xl.md"
 import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, PromiseFinally, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseAllSettled, PromiseAny, PromiseWithResolvers, PromiseTry } from "./promise.xl.md"
@@ -6493,6 +6493,35 @@ if (hasMessage) {
   SetHiddenProperty(room, table, created, NameValue(table, "message"),
     Value.FromString(table.CreateString(Units(message))));
 }
+// **`stack` 那一格**（第 782 轮）：Node 里 `new Error("x").stack` 是**自有 + 不可枚举**的
+// **字符串**（`Object.getOwnPropertyNames` 给 `["stack","message"]`、`Object.keys` 仍是 `[]`），
+// 而本仓**根本没有这一格** ⇒ `typeof e.stack` 给 `"undefined"`（第 697 / 704 / 708 / 749 轮
+// 各登过一次，四处是**同一条根**：这一格没人写）。
+//
+// **这一版给的是「一行」而不是「一整段栈」**，写在明处：
+// `util.inspect` 对错误印的**是整个栈**（`console.log(new Error("m"))` 的头一行是
+// `Error: m`，后面跟 `    at …` 若干行），而**帧里的路径与行号是本仓自己的实现细节**
+// （`file:///…/tsrun.js:12:34` 那一串）——**照抄宿主栈**会把「本仓的实现长什么样」钉进
+// 脚本看得见的值里，而那是**最不该冻结**的一格（改一行实现就会漂）。
+// 所以这一格给的是**那一段的头部**：`<名>[: <消息>]`——与 `util.inspect` 的**头一行**
+// 逐字相同，`typeof` 是 `"string"`、`"stack" in e` 是真、自有且不可枚举也都对；
+// **帧那一半如实登记为缺口**（`stdlib/error/001-console-log-error-stack` 那一档仍是 differ）。
+//
+// **名从原型上读**（不在这里另写一张表）：`ErrorCtorProto` 给的就是各族那一格，
+// 而那一格上的 `"name"` 是**各族各自写进去的**（下面 `BuildGlobals` 里那一段）——
+// 在这里照抄一遍就是**第二份会漂的答案**。读到的名**必须在那八个之内**
+// （`IsErrorFamilyName`，与 `util.inspect` 共用同一格判据）：`e.name = "Custom"` 那种
+// 实例名的错误**不该改 `stack` 的头一行**（JS 里 `stack` 在构造那一刻就定下了）。
+{
+  const protoValue = Value.FromObject(protoHandle);
+  const nameFound = FindProperty(NeverRoom, table, protoValue.Ref, NameValue(table, "name"));
+  const stackName = nameFound === null
+    ? "Error" : TextFrom(table, table.Get(nameFound.Owner).Props[nameFound.Index].Value);
+  const stackHead = !IsErrorFamilyName(stackName) ? "Error"
+    : hasMessage && message !== "" ? stackName + ": " + message : stackName;
+  SetHiddenProperty(room, table, created, NameValue(table, "stack"),
+    Value.FromString(table.CreateString(Units(stackHead))));
+}
 return created;
 ```
 
@@ -10264,19 +10293,27 @@ for (let i = 0; i < builtinNames.length; i++) {
 //
 // **规矩只有两句**（照 JS 的原型链抄，一处写、一张表）：
 //   ① 错误家族**七个后代**的原型是**全局那一个 `Error` 对象**
-//      （Node 实测：只有这七格不是 `Function.prototype`，见 `tmp/probes/proto3.ts` 的读数）；
+//      （Node 实测：只有这七格不是 `Function.prototype`）；
 //   ② 其余每一个内建构造的原型是 `protos.Function`。
 //
 // **不带 `constructor` 那一格一起看**：这只改**对象自己**那一格，不动
 // `X.prototype`（那是另一条链，`InitProtos` 里接的），所以
 // `new TypeError().constructor === TypeError` 与 `e instanceof Error` 一个字都不动。
-const builtinProtoTargets: Value[] = [objectObject, functionObject, arrayObject, numberObject, stringObject,
-  booleanObject, symbolObject, mapObject, setObject, weakMapObject, weakSetObject, dateObject, errorObject,
-  promiseObject, typeErrorObject, rangeErrorObject, syntaxErrorObject, referenceErrorObject,
-  aggregateErrorObject, uriErrorObject, evalErrorObject];
-const builtinProtoOwners: number[] = [protos.Function, protos.Function, protos.Function, protos.Function,
-  protos.Function, protos.Function, protos.Function, protos.Function, protos.Function, protos.Function,
-  protos.Function, protos.Function, protos.Function, protos.Function, 0, 0, 0, 0, 0, 0, 0];
+// **第 782 轮先只接错误家族那一半**（**实测退回来的**）：`objectObject` / `arrayObject` /
+// `dateObject` / `promiseObject` 这些也接 `protos.Function` 在 JS 里是对的（见上面那两句），
+// 可**本仓接不了**——它们是「普通对象 + 一格可调用载荷」，那个载荷**没有源码文本**，
+// 而接上 `Function.prototype` 之后 `String(String)` 会走**继承来的**
+// `Function.prototype.toString` ⇒ 从原来的「响亮地抛」（`tests/runtime/check.mjs`
+// 第 202 轮那两条钉着它）变成 `"function () { [native code] }"`
+// ——**静默错值**（Node 给 `"function String() { [native code] }"`）。
+// `globals.xl.md` 上面 `ObjectTagOf` 那一段把这条账写得很清楚：
+// **要收它得先做出「带可调用载荷的对象也有源码文本」**，那是另一件事。
+// 所以这一轮**只把错误家族接对**（它不碰 `toString`：`Error.prototype.toString` 在链的更前面
+// 就命中了），其余那一格**如实留到今天的样子**（`Object.getPrototypeOf(Array) === Function.prototype`
+// 仍是假，与 `String.prototype.match` 那一族一样是登记过的缺口）。
+const builtinProtoTargets: Value[] = [errorObject, typeErrorObject, rangeErrorObject, syntaxErrorObject,
+  referenceErrorObject, aggregateErrorObject, uriErrorObject, evalErrorObject];
+const builtinProtoOwners: number[] = [protos.Function, 0, 0, 0, 0, 0, 0, 0];
 for (let i = 0; i < builtinProtoTargets.length; i++) {
   // **`0` 那一档 = 错误家族的后代**（原型是 `errorObject` 自己那一个值）——
   // 按号写死一个 `protos.*` 是够不着它的（`Error` 在这一层是**对象**不是原型格）。
