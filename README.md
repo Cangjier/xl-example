@@ -330,11 +330,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 **还开着的那半**（登记在用例文件头）：`DoWhile` 与后面那条语句**仍然挤在同一个语句壳**里
 ⇒ 投影多套一层 `ExpressionStatement`（TS 是**两条**语句）。
-把 `DoWhile` 补进 `Statement.IsStatementUnit` 试过一次（那样 `SplitShell` 就会把壳拆开）：
-**实测退回来**——`@types` / `typescript/lib` 那几片成片变红（`lib.dom.d.ts` 一片缺
-14418 个 `Identifier`）。壳被拆开之后尾巴那条壳的右端会落到**文件末尾**（`SplitShell` 取
-`unit.SourceRange.End`，而 `DoWhile` 的右端在这条修法之后只到条件括号）——
-那一格要跟 `DoWhile` 的右端一起收，属于下一轮的活。
+
+**这一半试过、退回来了，账记在这里**（第 859 轮，两处一起改的）：
+
+1. 把 `DoWhile` 补进 `Statement.IsStatementUnit`（`SplitShell` 只看第一格是不是语句级单元）；
+2. `Statement.SplitShell` 里尾巴那条壳的右端改取**尾巴自己的最后一格**。
+
+改完 `do {} while (a) b()` 确实对了（`stmt-do-while-then-statement` 逐位置一致、缺口收掉），
+可**同一族的另外几条当场漂**：
+
+    stmt-do-while-body-terminated  漂 2 多 2   `do x++; while (x < 3);` → TS[313,334) 产物[313,333)
+                                             `do { x++; } while (x < 5);` → TS[335,361) 产物[335,360)
+    stmt-do-while-semicolon        漂 1 多 1
+    stmt-do-while-if-body          漂 1 多 1
+    stmt-do-while-while-body       漂 1 多 1
+
+**A/B 做过两趟**（把编译产物里那两处条件分别换成恒假，各跑一次）：两组探针的漂**一模一样**
+⇒ 那 4 条漂**不是这两处改动带来的**：把 `do-while.xl.md` 也退回 HEAD 重编再量，
+`stmt-do-while-body-terminated.ts` **同样是漂 2 多 2**（逐格相同）。
+也就是说它们是**这一族本来就有的**另一处缺口（`DoStatement` 的右端在「内部不带裸 `;` 的体」
++ 后面还跟着别的 `do…while` 时短一格），只是**此前那一条用例的对拍没把它单列出来**。
+**它没有进 `xl:known-gap`**（第 859 轮只登记了 `stmt-do-while-then-statement` 这一条）——
+下一轮要先把它量清楚再登记，然后才谈把壳拆开。
+
+**顺便记一笔机制上的坑**：壳拆开之后，尾巴那条壳的右端若照旧借壳那一格
+（`unit.SourceRange.End`），会落到**头自己的终点**上（`DoWhile` 修完只到条件括号）
+⇒ 投影把两条语句又粘回一条；而一律改取「尾巴最后一格」会打断
+`stmt-declaration-body-trailing-semicolon.ts` 那个 `EmptyStatement`（缺 1）。
+所以那一格要**按头的族分别给**，不能一刀切。
 
 **数字**：用例文件头的期望与 doc 行按新形状重算（`Statement` 3 → 4），
 `xl:known-gap` 那一行留着、措辞换成新根因；账仍是 **8 条还开着**；
