@@ -6,7 +6,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { TokenField } from "../../core/syntax/token-field.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsMemberBoundary, IsWordUnit, TakeDeclarationDecorators } from "./declaration-common.xl.md"
+import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationModifier, IsMemberBoundary, IsWordUnit, TakeDeclarationDecorators } from "./declaration-common.xl.md"
 import { ClassBody } from "./class/class-body.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -14,7 +14,7 @@ import { IndexSignature } from "./index-signature.xl.md"
 import { Parameter } from "./lamda/lamda-parameter.xl.md"
 import { InterfaceBody } from "./interface/interface-body.xl.md"
 import { TypeLiteralBody } from "./type-literal/type-literal-body.xl.md"
-import { SkipNextAnnotation, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { IsAnnotationUnit, SkipNextAnnotation, SkipNextWrapSymbol, SkipPreviousAnnotation, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Statement } from "./statement.xl.md"
 import { ConstString } from "./string/const-string.xl.md"
 import { Keyword } from "./keyword.xl.md"
@@ -117,6 +117,18 @@ return text;
 它同时看「下一行像不像新成员」与「前一个是不是续行符号」（`>` 不在续行符号之列），
 判出边界就停。
 
+**换行前面那几条注释不算「成员的末尾」**（第 819 轮）：`a = 1//c` 换行 `;` 里，换行前面
+紧挨着的是那条 `LineAnnotation`——`IsMemberBoundary` 往回取到的「换行前那一格」就是它，
+既不是续行符号、也不是名字；而它往后看到的是**下一行**的词 ⇒ 常被判成「下一个成员开始了」。
+于是成员在注释那里收尾，真正的尾巴（`1`、那个 `;`）被留在外面成了**下一条成员**
+（实测 `gap-sweep-linecomment-clsmod-01` 与 `-03`：`PropertyDeclaration` 漂成 `[10,23)` / `[10,38)`，
+各自多出一个把 `readonly` / `1` 当名字的字段与一个 `SemicolonClassElement`）。
+
+所以这一趟要**记住最后一个非注释单元**（`tail`），边界落在换行上时返回**它**——
+`IsAnnotationUnit` 只说注释、**不含软换行**：软换行**是**成员边界本身，不能一起跨。
+`public static //c` 换行 `readonly a = 1;` 于是收成一条成员：头是 `public static`，
+注释与换行留在它自己的 `Data` 里（`modifiers` 之外的那部分照旧不动），区间到那个 `;` 为止。
+
 **判不出时不要退回「前一个是不是符号」那条粗判据**（第 61 轮改）：
 前导 `|` 的多行联合里，换行前一个是**标识符**
 （`importModuleDynamically?:` 换行 `| A` 换行 `| B` 换行 `| undefined`），粗判据当场判成
@@ -127,25 +139,42 @@ return text;
 
 ```ts
 let i = index + 1;
+let tail = index;
 while (i < units.length) {
   const item = Get(units, i);
   if (item instanceof SymbolToken && (item.Is(";") || item.Is(","))) {
     return i;
   }
   if (item instanceof LineWrap) {
+    // **行注释后面那个换行不算成员边界**（第 819 轮）：`public static //c` 换行
+    // `readonly a = 1;` 里，换行是那条行注释的一部分（TypeScript 的 trailing trivia
+    // 把 `//` 到行尾**连同那个换行**一起收走），所以 `static` 与 `readonly` 之间
+    // **没有换行**。不挡它的话 `IsMemberBoundary` 会看到下一行的 `readonly a =`
+    // ⇒ 判成「下一个成员开始了」，成员在 `static` 那里断掉
+    //（实测 `gap-sweep-linecomment-clsmod-01`：`PropertyDeclaration` 漂成 `[10,23)`）。
+    // 块注释后面那个换行**照旧**是边界（`a /* c */` 换行 `b` 是两条成员）——
+    // 所以判据只看行注释，不是 `IsAnnotationUnit` 那张整表。
+    const beforeWrap = Get(units, i - 1);
+    if (beforeWrap !== null && beforeWrap.constructor.name === "LineAnnotation") {
+      i = i + 1;
+      continue;
+    }
     if (IsMemberBoundary(units, i)) {
-      return i - 1;
+      return tail;
     }
     if (Statement.IsLineBreakBoundary(units, i)) {
-      return i - 1;
+      return tail;
     }
   }
   if (this.IsDeclarationTailEnd(item, Get(units, i + 1))) {
     return i;
   }
+  if (!IsAnnotationUnit(item)) {
+    tail = i;
+  }
   i = i + 1;
 }
-return units.length - 1;
+return tail;
 ```
 
 ## private method IsDeclarationTailEnd:(item:Token | null, next:Token | null)=>bool
@@ -310,8 +339,25 @@ if (previous instanceof SymbolToken && !(previous.Is(";") || previous.Is(","))) 
 // （判据 `cm-member-question`：缺 `PropertyDeclaration` + 多出 `EqualsToken` /
 // `SemicolonClassElement`）。软换行**不能**一起跳（`a` 换行是「只有名字的字段」）。
 const immediate = Get(units, SkipNextAnnotation(units, nameIndex));
-if (immediate === null || immediate instanceof LineWrap) {
+if (immediate === null) {
+  // 名字后面什么都没有：只有名字的字段。
   return true;
+}
+if (immediate instanceof LineWrap) {
+  // **注释后面那个换行是「名字写完了」**（`a` 换行是「只有名字的字段」）……
+  const skipped = Get(units, units.indexOf(immediate) - 1);
+  const spaced = skipped !== null && skipped.constructor.name === "LineAnnotation";
+  if (spaced === false) {
+    return true;
+  }
+  // ……**除了行注释**（第 819 轮）：`public static //c` 换行 `readonly a = 1;` 里，
+  // 那个换行是注释的一部分（TypeScript 的 trailing trivia 把它一起收走），
+  // `static` 与 `readonly` 之间其实**没有换行**——`readonly` 是同一个成员的修饰词，
+  // 不是新成员的名字（实测 `gap-sweep-linecomment-clsmod-01`：整条被劈成两条成员，
+  // 而第二条把 `readonly` 与 `a` 一起当成了名字）。所以这一格不收尾、
+  // 也**不认成名字**：让上一个成员（`public static`）把换行跨过去（`MemberEnd` 同一条判据）。
+  // 单独一个修饰词照旧不是名字：`private` 换行 `m() { }` 里没有注释，这个成员到此为止。
+  return false;
 }
 if (immediate instanceof SymbolToken) {
   return (

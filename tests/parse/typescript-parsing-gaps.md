@@ -83,6 +83,16 @@
   `lamda.xl.md` 造 `LamdaParameters` 那一段），一次收掉 12 条。
   **`AppendSegment` 那一侧还要把注释推回 `rebuilt`**：落在被替换区间里的注释要么显式收下、
   要么推回去，直接 `return` 等于把它从产物里删掉。
+- **行注释吃掉它后面那个换行，块注释不吃**（第 819 轮）：`public static //c` 换行
+  `readonly a = 1;` 里，那个换行是**注释的一部分**（TypeScript 的 trailing trivia 把 `//`
+  到行尾连同换行一起收走）⇒ `static` 与 `readonly` 之间**没有换行**、是同一条成员。
+  这与「注释与软换行在相邻判定里是同一件事」（第 817 / 818 轮）**不是同一条**：
+  那里注释不挡相邻，这里注释**改变**了换行的存在。所以「换行算不算边界」的判据
+  （`FieldCloseRule.MemberEnd`、`ClassMember.Process`）要先看**紧挨在换行前面那一格
+  是不是 `LineAnnotation`** ——是就整条边界判据跳过；判据只看行注释那一格，
+  不用 `IsAnnotationUnit` 那张整表（块注释后面那个换行照旧是边界）。
+  同一轮还带回一条：**成员尾巴**要在乎「最后一个非注释单元」，
+  而不是「换行下标 - 1」（`a = 1//c` 换行 `;` 里，那个 `;` 属于这条成员）。
 - **`Parent` 不变式**（`core/syntax/close-rule.xl.md` 的 `ApplyTo`）：规则用 `ReplaceCountAt`
   换进来的节点**不带 `Parent`**（那是核心的 `splice`），每趟 `Process` 之后就地把新换进的那一小段补齐——
   否则「靠当前单元的父亲认容器」的规则（元组成员、方括号类型…）会判不出容器。

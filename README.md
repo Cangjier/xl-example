@@ -306,6 +306,51 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 819 轮：**行注释吃掉它后面那个换行**——成员边界那一格收掉 5 条
+
+**一句话**：这一轮回到最大那一族（「注释 / 换行落在语法相邻位置之间」）里的**成员边界**那一格。
+`IsMemberBoundary` 判「换行后面像不像新成员」时被那条行注释挡住了：它往回取到的
+「换行前那一格」正是 `LineAnnotation`（既不是续行符号、也不是名字），
+于是 `public static //c` 换行 `readonly a = 1;` 在它眼里成了**两条**成员。
+而 TypeScript 的 trailing trivia 把 `//` 到行尾**连同那个换行**一起收走
+⇒ `static` 与 `readonly` 之间其实**没有换行**。两处判据（`FieldCloseRule.MemberEnd` 与
+`ClassMember.Process` 各一处）改成这一口径，`cases:tsast` 的账从 **174 → 169**
+（`coverage` **3814 → 3819** 通过，`token` 那一类 blocked 174 → 169）。
+
+- **根①：`MemberEnd` 把「换行前那一格」当成成员尾巴**（`field.xl.md`）。两条终止都判不出来
+  ⇒ 成员在注释那里收尾，真正的尾巴（`1`、那个 `;`）留在外面成了**下一条成员**。
+  实测 `gap-sweep-linecomment-clsmod-03`：`PropertyDeclaration` 给 `[10,38)` 而 TS 是 `[10,43)`，
+  多出一个 `SemicolonClassElement`。**改法**有两半：这一趟记住**最后一个非注释单元**（`tail`），
+  边界落在换行上时返回**它**而不是 `i - 1`；而**行注释紧挨在换行前面**时整条边界判据跳过
+  （`i + 1` 继续扫）。块注释后面那个换行照旧是边界（`a /* c */` 换行 `b` 是两条成员）——
+  所以判据只看紧挨着的那一格是不是 `LineAnnotation`，不是 `IsAnnotationUnit` 那张整表。
+- **根②：`FieldCloseRule.Previous` 把注释后面的换行当成「只有名字的字段」**（同一份规范）。
+  `public static //c` 换行 `readonly a = 1;` 里 `readonly` 是**同一个成员的修饰词**，
+  可 `Previous` 只看「跳过注释之后紧挨着的是不是换行」⇒ 把 `static` 认成这条成员的名字、
+  把 `readonly` 认成下一条成员的名字，于是第一条连名字都判错
+  （实测产物 `Field[name="static"]`，`readonly` 与 `a` 一起被当成它的孩子，
+  整条 `PropertyDeclaration` 劈成 `[10,23)` + `[28,43)`）。**改法**：跳过注释之后若是换行，
+  再看**那一格之前是不是行注释**——是就判否（不认成名字、让上一个成员把换行跨过去），
+  不是就照旧判「名字写完了」。`private` 换行 `m() { }` 那种没有注释的排版行为不变。
+- **接口那一侧同一个根**（顺带收掉三条里的两条）：`gap-sweep-linecomment-iface-01`
+  （`a: //c` 换行 `number;`）与 `-02`（`a: number//c` 换行 `;`）——类型标注与那个 `;`
+  原来被劈在成员外面（`PropertySignature` 给 `[14,16)` / `[14,23)` 而 TS 是 `[14,28)`）。
+  文件头的 `xl:known-gap` 五条逐条删掉（`-03` 不在其中：它记的是另一处缺口，
+  这一轮只是**顺带**把它的形状从「两个 `Field`」收敛成一个，用例自带的 `xl:expect` 随之改）。
+- **用例自带的期望也要跟着改**：这六条用例的 `xl:expect` 与产物一起动了——
+  `Field:2` → `Field`（两条成员并成一条）、去掉 `SemicolonClassElement` / `SymbolToken`
+  （它们被收进成员区间里了）、`gap-sweep-linecomment-iface-01` 补上 `Identifier`
+  （成员名 `a` 这一趟终于成形）。**期望跟着形状走，不是形状跟着期望走**：
+  `cases:tags` 那一门量的正是「用例说它该有什么、产物里真的有吗」。
+- **可复用的判据**：**行注释吃掉它后面那个换行，块注释不吃**。这一格与
+  「注释与软换行在相邻判定里是同一件事」（第 817 / 818 轮）**不是同一条**：
+  那里注释不挡相邻，这里注释**改变**了换行的存在。写「换行算不算边界」的判据时先问一句：
+  **这个换行是不是某条注释的一部分**（往后看一格是不是 `LineAnnotation`）。
+  这条写进了 [typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md) 的「解析层几条硬规矩」。
+- **留下的一条**：`gap-sweep-linecomment-clsmod-04`（`…; private //c` 换行 `m() { }`）
+  仍留在台账上——TS 在那里给一个 `[40,47)` 的 `PropertyDeclaration`（只有 `private` 的字段），
+  要收它得先有「一个光秃秃的修饰词也能是一条成员」这条口径，本轮不动它。
+
 ### 第 818 轮：**判空也要用 trivia 名单**——「只有注释的形参表」收掉 12 条
 
 **一句话**：`IsTriviaUnit` 那份名单不只在「跳过」时用，**判空**时也要用。

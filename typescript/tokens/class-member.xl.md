@@ -10,7 +10,7 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
 import { IsDeclarationModifier, IsMemberBoundary } from "./declaration-common.xl.md"
 import { IsTriviaUnit } from "../text-common-util.xl.md"
-import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { String } from "./string/string.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -124,9 +124,15 @@ const data = this.Data;
 if (data.length === 0) {
   return;
 }
-const last = data.length - 1;
-const newest = Get(data, last);
-if (newest instanceof SymbolToken && newest.Is(";")) {
+// **尾随的 trivia 不算「最新一格」**（第 819 轮）：`a = 1//c` 换行 `;` 里最新一格是
+// 那条 `LineAnnotation`，只看它的话两条终止（`;` 与换行）都判不出来 ⇒ 成员在注释那里
+// 收不下去（实测 `gap-sweep-linecomment-clsmod-03`：`PropertyDeclaration` 漂到 `[10,38)`
+// + 多一个 `SemicolonClassElement`）。所以先往回跳到**最后一个实义单元**再判终止。
+// 判 `;` 时取的是那个实义单元的下标——`EndIndex` 之下的单元（含夹在中间的注释与那个 `;`）
+// 都留在成员自己的 `Data` 里，由它那一趟重组摘掉分号、注释照旧留在产物里。
+const tail = SkipPreviousTrivia(data, data.length);
+const last = Get(data, tail);
+if (last instanceof SymbolToken && last.Is(";")) {
   // **`;` 不进树，但区间要含它**（第 434 轮两处实测）：
   // 还给上一级的话，体那条语句队列会把它包成一个**空 `<Statement>`**（绿树上没有这个节点）；
   // 而 TS 那边成员的区间**含**这个 `;`（`… | undefined;` 的 `PropertySignature` 是 `[135,171)`）。
@@ -140,14 +146,22 @@ if (newest instanceof SymbolToken && newest.Is(";")) {
   // 一路吞到文件末尾、后面 115 个节点全缺。
   // 区间仍要**含**它：TS 那边成员区间含这个 `;`（`… | undefined;` 是 `[135,171)`）。
   this.Ended = true;
-  if (newest.SourceRange.End !== null && this.SourceRange.End === null) {
-    this.SignOut(newest.SourceRange.End);
+  if (last.SourceRange.End !== null && this.SourceRange.End === null) {
+    this.SignOut(last.SourceRange.End);
   }
   this.EndIndex = data.length;
   return;
 }
-if (newest instanceof LineWrap) {
-  this.PendingWrap = last;
+if (last instanceof LineWrap) {
+  // **行注释后面那个换行不算边界**（第 819 轮，与 `field.xl.md` 的 `MemberEnd` 同一条）：
+  // TypeScript 的 trailing trivia 把 `//` 到行尾**连同那个换行**一起收进注释，
+  // 所以 `public static //c` 换行 `readonly a = 1;` 里 `static` 与 `readonly` 之间没有换行。
+  // 记下它、下一格再问的话，成员会在 `static` 那里收尾、把真正的尾巴留给下一条成员。
+  // 块注释后面那个换行照旧是边界，所以判据只看紧挨着的那一格是不是行注释。
+  const beforeWrap = Get(data, tail - 1);
+  if (beforeWrap === null || beforeWrap.constructor.name !== "LineAnnotation") {
+    this.PendingWrap = tail;
+  }
 }
 // **每吃一格都拿那个换行再问一次**（第 434 轮实测改正）：
 // `IsMemberBoundary` 要「跨过名字与修饰词之后紧跟 `:` / `?:` / `(` / `=` / `;`」，
