@@ -959,12 +959,51 @@ return false;
 而真正的比较式 `a + b < c > d` 里 `<` 前面是 `b`（一个名字）⇒ 这一支不成立。
 **`<` / `>` 自己不列**（`a < <T>b` 不是合法写法，列进去只会给比较链开口子）。
 
+**「宿主这一格还剩什么」要按实义单元算，不能按最后一格算**（第 890 轮）：
+往回跳过软换行、注释，以及**只装着注释的 `Statement`**——与 `IsTypePosition`（第 144 轮）
+和名字闸（第 845 轮）**同一句话**。语句开头那一条 `//` 注释在产物里是一层独立的
+`Statement`，那时 `<` 的宿主（`Root`）`Data` 里只有它 ⇒ 位置闸答否、名字闸也答否
+⇒ `<T>x` 退回裸符号（实测：去掉注释就成形，留着就不成形）。
+
 ```ts
   // **宿主还是空的**（语句 / 实参的开头）：按定义还没有操作数。
   if (unit.Data.length === 0) {
     return true;
   }
-  const last = unit.Last();
+  // **往回跳过「纯排版」的那几格**（第 890 轮）：软换行、注释，以及**只装着注释的 `Statement`**
+  // ——与 `IsTypePosition` 第 144 轮那条例外**同一句话**（`// xl:note …` 那类行在本工程里
+  // 是一层 `Statement` 包着一个注释单元）。
+  //
+  // **少了这一档会怎样**：`// c1` 换行 `<T>x > y` 里那个 `<` 的宿主是 `Root`、
+  // `Data` 只有那个**注释壳**（插桩实测 `host=Root data=[Statement]`）
+  // ⇒ `last` 是 `Statement` ⇒ 名字闸（`hasName`）与位置闸**双双答否**
+  // ⇒ `<…>` 退回裸符号。反过来说：**语句开头那一条注释，把整个尖括号断言挡在门外**
+  //（实测 `gap-angle-assertion-then-compare`：去掉头两行注释，`<T>` 立刻成形）。
+  let lastAt = unit.Data.length - 1;
+  while (lastAt >= 0) {
+    const item = unit.Data[lastAt];
+    if (item instanceof LineWrap || IsTriviaUnit(item)) {
+      lastAt = lastAt - 1;
+      continue;
+    }
+    if (item.constructor.name === "Statement" && item.Data.every((one) => IsTriviaUnit(one))) {
+      lastAt = lastAt - 1;
+      continue;
+    }
+    // **别的语句是「边界」，不是操作数**：`<T>x;` 换行 `<T[]>xs;` 里第二个 `<` 回扫
+    // 只看得见**前一条语句**那个壳（它后面只剩软换行）⇒ 这个 `<` 就在新语句的开头。
+    // 与 `IsTypePosition` 把语句壳当边界、`IsOperandStartUnit` 只问「这一层里前面有没有操作数」
+    // 是同一口径。
+    if (item.constructor.name === "Statement") {
+      return true;
+    }
+    break;
+  }
+  // **一整段都是排版** ⇒ 与空宿主同一档：`<` 前面按定义还没有操作数。
+  if (lastAt < 0) {
+    return true;
+  }
+  const last = Get(unit.Data, lastAt);
   if (last instanceof SymbolToken) {
     // **赋值 / 声明那几档**（原来就有的）——
     // `let x = <T>…`、`type X = <T>() => T`、`f(a, <T>b)`。
@@ -1039,7 +1078,22 @@ TS 那边是 `ExpressionWithTypeArguments`），不可能是比较式：`a < b` 
 连 `MethodDeclaration` 都没有（`@types/node/sqlite.d.ts` 与
 `lib.es2019.array.d.ts` 的 `flatMap<…>(…): …[]` 就是这一形状）。
 
-**只看同一行**：跳过空格与制表符之后，遇到换行 / `\r` / 文件尾 / 注释开头（`//`、`/*`）就算这一行到此为止，直接返回「是不是类型位」。不跨行看，是因为越过换行之后看到的多半是**下一条语句**的开头，把它当成后继字符只会误判——`type Pair = Array<Int64>` 后面跟一句注释或 `let`，泛型必须照样成立。
+**只看同一行，可「行尾」自己是一档**（第 890 轮订正）：跳过空格与制表符之后，遇到换行 / `\r` /
+文件尾 / 注释开头（`//`、`/*`）就算这一行到此为止。**这一档的答案现在是「放行」**——
+TS 那句 `canFollowTypeArgumentsInExpression` 的第一句就是 `hasPrecedingLineBreak()`：
+后继那一格只要前面带着一个换行，`<…>` 就是类型实参段 / 实例化表达式。
+
+**为什么「不跨行看」与「行尾放行」不矛盾**：不跨行看的是**下一个非空字符是什么**
+（越过换行看到的多半是下一条语句的开头，拿它当后继字符只会误判——
+`type Pair = Array<Int64>` 后面跟一句注释或 `let`，泛型必须照样成立）；
+而「行尾放行」根本**不去看**那个字符。前者是类型位的判据，后者是表达式位的判据，
+两句话问的不是同一件事。
+
+**表达式位原来在这一档答「否」**（返回 `isTypePosition`，而表达式位是假）
+⇒ `const f = a<b>` 换行 `const g = a.b.c<string>` 整条读成比较式
+（实测 `gap-instantiation-line-end`：TS 两边都是 `ExpressionWithTypeArguments`，
+第一句到 `>` 就收、`c;` 是**另一条**语句）。这一改**只动表达式位**——
+类型位原来就在这一档返回真，行为一字不差。
 
 数字刻意不在类型位的白名单里：`foo(bar) > 3` 这种被误当成泛型的收尾，最后会被这一条挡掉。
 
@@ -1066,7 +1120,8 @@ while (index < document.GetCount()) {
     while (scan + 1 < document.GetCount()) {
       const char = document.GetValue(scan);
       if (char === "\n" || char === "\r") {
-        return isTypePosition;
+        // **注释里带着换行** ⇒ 后继那一格前面就有一个换行 ⇒ 与行尾同一档（第 890 轮）。
+        return true;
       }
       if (char === "*" && document.GetValue(scan + 1) === "/") {
         closed = scan + 2;
@@ -1075,7 +1130,9 @@ while (index < document.GetCount()) {
       scan = scan + 1;
     }
     if (closed < 0) {
-      return isTypePosition;
+      // **没闭合的块注释 = 走到文件尾**：后继那一格是 EOF，TS 那边
+      // `canFollowTypeArgumentsInExpression` 的最后一句 `!isStartOfExpression()` 放行。
+      return true;
     }
     index = closed;
     continue;
@@ -1083,14 +1140,24 @@ while (index < document.GetCount()) {
   break;
 }
 if (index >= document.GetCount()) {
-  return isTypePosition;
+  return true;
 }
 const item = document.GetValue(index);
 if (item === "\n" || item === "\r") {
-  return isTypePosition;
+  // **行尾本身就是放行条件**（第 890 轮）：TS 那句
+  // `return scanner2.hasPrecedingLineBreak() || isBinaryOperator2() || !isStartOfExpression();`
+  // 里，`hasPrecedingLineBreak()` 是**第一句**——配对 `>` 后面那一格只要换了行，
+  // `<…>` 就是类型实参段（TS 4.7 的实例化表达式），与它后面接什么无关。
+  //
+  // **少了这一格会怎样**：`const f = a<b>` 换行 `const g = a.b.c<string>` 整条读成比较式
+  // ⇒ 两条语句都塌（实测 `gap-instantiation-line-end`：TS 第一句到 `>` 就收、`c;` 是另一条语句）。
+  // 类型位那一支原来就返回 `isTypePosition`（真），所以这一改**只动表达式位**。
+  return true;
 }
 if (item === "/" && index + 1 < document.GetCount() && (document.GetValue(index + 1) === "/" || document.GetValue(index + 1) === "*")) {
-  return isTypePosition;
+  // **注释开头同样算「这一行到此为止」**：`//` 一定吃到行尾、`/*` 没闭合也吃到文件尾
+  // ⇒ 后继那一格**必然**带着一个换行 ⇒ 上面那句放行条件成立。
+  return true;
 }
 if (!isTypePosition) {
   // **表达式位里那个「只许 `(`」的例外：尖括号断言**（第 379 轮）。

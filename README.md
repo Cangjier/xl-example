@@ -307,6 +307,88 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 890 轮：缺口清单上的两条一起收掉——**「行尾」自己是一档，「被断言的那个操作数」只有一格**（已知缺口 2 → 0）
+
+**一句话**：`cases:tsast` 的缺口清单上只剩第 888 / 889 轮登记的那两条，这一轮把两条一起收掉；
+收的过程中同族又量出**两处**同根的格子和**一条**新缺口。
+
+**两条缺口的根因各是一句话**：
+
+1. **行尾是一档放行条件**（[`generic-type.xl.md`](typescript/tokens/generic-type.xl.md) 的 `IsAllowedFollower`，
+   用例 `gap-instantiation-line-end`）：TS 的 `canFollowTypeArgumentsInExpression` **第一句**就是
+   `scanner2.hasPrecedingLineBreak()`——配对 `>` 后面那一格只要换了行，`<…>` 就是类型实参段，
+   与它后面接什么无关。本仓那一格在表达式位答「不是类型位」（返回 `isTypePosition`，而它是假）
+   ⇒ `const f = a<b>` 换行 `const g = a.b.c<string>` 整条读成比较式，**两条语句一起塌**。
+   改法是把**行尾 / 文件尾 / 注释开头**那三条早退一起改成 `true`（`//` 一定吃到行尾、
+   没闭合的 `/*` 吃到文件尾 ⇒ 后继那一格必然带着一个换行）。
+   **这一改只动表达式位**：类型位原来就在这一档返回真，行为一字不差。
+   它同时保住了「不跨行看」那条老判据——不跨行看的是**下一个非空字符是什么**，
+   而这一档根本不去看那个字符（越过换行看到的多半是下一条语句的开头）。
+
+2. **断言的被断言者是「一个一元表达式」**（[`binary-operator.xl.md`](typescript/tokens/binary-operator.xl.md) 的
+   `IsAngleAssertionHead`，用例 `gap-angle-assertion-then-compare`）：`<T>x > y` 在 TS 里是
+   `(<T>x) > y`——断言是**前缀**那一档（与 `!x` / `typeof x` 同级），只吃**一个一元表达式**。
+   本仓的 `<T>` 是操作数位上的 `GenericType`，`x` / `>` / `y` 与它**平级**，二元规则先把 `x > y` 折掉
+   ⇒ 投影收到 `[GenericType, BinaryOperator(x > y)]` ⇒ 投出一个**吞掉整个比较**的断言
+   （实测缺 `BinaryExpression` / `LessThanToken` / `GreaterThanToken`，断言区间从 `<T>x` 撑到 `y`）。
+   改法是**这一层有断言头就不接手**（判据：这一层的第一个实义单元是 `GenericType`），
+   把那几格留成**平的**——投影第 379 轮那条「断言只吃一个操作数、剩下交给 `foldBinaryFrom`」正好接住。
+   **为什么整层都不接手**：`foldBinaryFrom` 是按优先级与结合性折的（`<T>a + b * c` 会先把 `b * c` 收进去、
+   `<T>x > y > z` 会左结合成 `((<T>x) > y) > z`）；只挡紧挨着的那一格反而会折出右嵌套。
+
+**同族普查又量出两处**（`tmp/r890/snips.mjs`，16 条片段，逐条与 `ts.createSourceFile` 对拍）：
+
+| 片段 | 修前 | 修后 |
+| --- | --- | --- |
+| `<number>a + b` | 缺 1 / 漂 1 / 多 2 | **0** |
+| `// c1` 换行 `<T>x;` | `<…>` 退回裸符号（注释壳把断言整族挡在门外） | **0** |
+| `<T>(x) > y` | 外层同样错 | 外层 0，**断言的类型那一格仍差 1**（新登记） |
+
+- **`<number>a + b` 与上面第 2 条同根**：第 379 轮那条理由当时写对了（「断言只吃一个操作数、
+  剩下的交给 `foldBinaryFrom`」），可它**暗中假定了「操作数与运算符平级」这一态**——
+  第 889 轮把 `<` / `>` 放进关系层之后，`x > y` 会在收尾期先折，那个前提就不再成立。
+  同一个理由在**两个阶段**要各说一遍：这一次说的是「本规则不许接手」。
+- **语句开头那一条注释**（插桩实测 `host=Root data=[Statement]`）：
+  `IsOperandStartUnit` 原来是 `unit.Last()`，拿到的是那个**只装着注释的语句壳**
+  ⇒ 名字闸（`hasName`）与位置闸**双双答否**，`<T>x` 退回裸符号。
+  判据改成往回跳过纯排版（软换行、注释、**只装着注释的 `Statement`**），并把**别的语句当边界**
+  ——与 `IsTypePosition` 第 144 轮那条例外**同一句话**。
+  **这一格是被语料当场逮住的**：`expr-angle-assertion.ts` 的 `<T>x;` / `<T[]>xs;` 里，
+  第一句把第二条整条带坏（`T[]` 投成 `ElementAccessExpression`，16 片里 **1 片红**）。
+  第一版判据写成「跳过注释壳就停手」也不对——`<T>x;` 换行 `<T[]>xs;` 里第二个 `<` 回扫
+  只看得见**前一条语句**的壳，停在它上面照样判否。
+- **新登记的缺口**（`gap-angle-assertion-paren-operand`）：`<T>(x) > y` 里断言的**类型**投成
+  `TypeParameter(T)`，TS 那边是 `TypeReference(T)`（实测缺 1 多 1）——
+  [`type-parameter.xl.md`](typescript/tokens/type-parameter.xl.md) 的 `IsParameterList` 有一条
+  「泛型段后面紧跟 `(` 就算参数表」（给 `const g: <T>(x: T) => T` 用的），断言那一格撞上了它。
+  它在 `GenericType` **里面**、早于二元折叠，与本轮这两格无关 ⇒ **另案**，用例登进语料。
+
+**用例**：新增 3 条 token（
+[`decl-instantiation-line-end`](tests/cases/token/declarations/decl-instantiation-line-end.ts)（行尾那一档）、
+[`expr-angle-assertion-then-operator`](tests/cases/token/expressions/expr-angle-assertion-then-operator.ts)（
+`xl:absent BinaryOperator`——断言那一层不再折）、
+[`expr-angle-assertion-after-comment`](tests/cases/token/expressions/expr-angle-assertion-after-comment.ts)）
+与 1 条登记缺口（
+[`gap-angle-assertion-paren-operand`](tests/cases/token/expressions/gap-angle-assertion-paren-operand.ts)）；
+两条老缺口用例按规矩撤掉 `xl:known-gap`、留作守卫。
+
+**实测**：`cases:tsast` **16 片全过**、全语料 **1879 / 1879 个文件逐位置完全一致**
+（缺 0 / 漂 0 / 多 0 / 字段 0），缺口清单 **2 条已收掉、1 条新登记还开着**；
+同族探针 `tmp/r890/snips.mjs` **16 条里 15 条对上**（剩下那条就是新登记的那一格）；
+`cases:astjson` 六项全 0（1471 份 / 34932 个节点）；`cases:check` **1482 / 1482**、
+`cases:tags` 4940 条断言 0 条不一致、`cases:shapes` 未覆盖 0；
+`coverage` **4064 / 4243 → 4069 / 4247**（`blocked 41 → 40`：两条老缺口转绿、新登记那条补上，
+`differ 138` / `bad 0` 没动，加权 95.2%）；`runtime:*` / `samples` 全过 ⇒ **九道门全绿**（墙钟 29.7s）。
+
+**这一轮的经验**：**缺口清单是「轮次之间」的交接面，别让它长过一轮**。
+第 888 轮量出行尾那一格时就写下了 TS 那句原文（`hasPrecedingLineBreak() || isBinaryOperator2() ||
+!isStartOfExpression()`），第 889 轮又量出「断言没先成形」那一格——两句话都在案上，
+收起来各是十行以内。**同一份原文分两轮收**本身没错（分阶段说清是对的），
+错的是让**已经量到根因**的格子过夜：它们每次都进 `coverage` 的 `blocked` 账，
+看久了就当成「本来就还没做」。第二条经验与第 889 轮同款但更狠：
+**改一层的判据要立刻跑全语料**——这一轮的回归不在探针池里（16 条全绿），
+而在 `expr-angle-assertion.ts` 那条**别的**用例上，是 16 片对拍逮住的。
+
 ### 第 889 轮：比较运算符的同级左结合——`<` / `>` 进关系层（9 条收掉，语料当场逮回一处回归）
 
 **一句话**：第 888 轮那份后继字符普查顺带量出 `x < y >= z` / `x < y == z` 这一族

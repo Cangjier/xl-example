@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, SkipNextTrivia, SkipPreviousTrivia, SkipPreviousWrapSymbol, StartsWithTemplate } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, SkipNextTrivia, SkipPreviousTrivia, SkipPreviousWrapSymbol, StartsWithTemplate, IsTriviaUnit } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { CommonUtil } from "../../core/common-util.xl.md"
@@ -466,6 +466,21 @@ if (this.IsValuePositionOperator(current) === false) {
 // 折下去就把整条断言拆成 `BinaryOperator(T > x)`（实测 `expr-angle-assertion`：
 // 缺 `TypeAssertionExpression` / `TypeReference` / `Identifier` 共 4、多 1）。
 if (this.IsAngleAssertionCloser(units, index, current)) {
+  return false;
+}
+// **被尖括号断言吃掉的那个操作数不是本规则的操作数**（第 890 轮）。
+//
+// `<T>x > y` 在 TS 里是 `(<T>x) > y`：断言是**前缀**那一档（与 `!x` / `typeof x` 同级），
+// 只吃**一个一元表达式**（`x`），后面那次比较的左边站的是**折好的断言**。
+// 本仓的 `<T>` 是操作数位上的 `GenericType`，`x` / `>` / `y` 与它**平级**——
+// 本规则若先把 `x > y` 折掉，投影收到的是 `[GenericType, BinaryOperator(x > y)]`
+// ⇒ 投出一个**吞掉整个比较**的断言（实测 `gap-angle-assertion-then-compare`：
+// 缺 `BinaryExpression` / `LessThanToken` / `GreaterThanToken`，多出重复的一层，
+// 断言区间从 `<T>x` 撑到 `y`）。`<number>a + b` 是同一格（实测同样缺 1 / 漂 1 / 多 2）。
+//
+// 不接手之后那几格留成**平的**，`print-ast-common.xl.md` 第 379 轮那条
+// 「断言只吃一个操作数、剩下的交给 `foldBinaryFrom`」正好把整条链折对。
+if (this.IsAngleAssertionHead(units)) {
   return false;
 }
 if (this.IsCommaExpressionComma(units, index) === false) {
@@ -1011,6 +1026,49 @@ for (let i = index - 1; i >= 0; i--) {
   return beforeLt === null || this.IsOperand(beforeLt) === false;
 }
 return false;
+```
+
+## private method IsAngleAssertionHead:(units:Array<Token>)=>bool
+
+`units` 这一层的**第一个实义单元**是不是操作数位上的 `GenericType`——也就是尖括号断言的 `<…>`。
+
+判据与投影那条断言规则（`print-ast-common.xl.md` 第 379 轮）**同一句话**：那一支的前提正是
+「表达式列表的第一个单元是 `GenericType`、第二格不是 `Lamda`」——所以这里问的东西
+与「投影会不会把这一层读成断言」是同一件事，不是新口径。
+
+**为什么整层都不接手，而不是只挡紧挨着的那一个运算符**：留成平的之后，
+投影那一支把剩下的整串交给 `foldBinaryFrom`，而它是按**优先级与结合性**折的——
+`<T>a + b * c` 会先把 `b * c` 收进去（TS 正是这个形状），
+`<T>x > y > z` 会左结合成 `((<T>x) > y) > z`。只挡紧挨着的那一格反而会折出右嵌套
+（`<T>x > (y > z)`）——**同一个理由要一次说清，不要一个运算符一个运算符地试**。
+
+**反向那一格一个字没动**：有左操作数的比较式（`x < y > z` / `f(a<b, c>d)`）第一格不是
+`GenericType`（是那个 `x` / `f`），本判据不响。
+
+```ts
+let at = 0;
+while (at < units.length) {
+  const one = Get(units, at);
+  if (one === null) {
+    return false;
+  }
+  // **纯排版不算「第一格」**（与名字闸 / 位置闸同一份名单）：软换行、注释、
+  // 以及只装着注释的 `Statement`（语句开头那条 `//` 注释）。
+  if (one instanceof LineWrap || IsTriviaUnit(one)) {
+    at = at + 1;
+    continue;
+  }
+  if (one.constructor.name === "Statement" && one.Data.every((x) => IsTriviaUnit(x))) {
+    at = at + 1;
+    continue;
+  }
+  break;
+}
+if (at >= units.length) {
+  return false;
+}
+const head = Get(units, at);
+return head !== null && head instanceof GenericType;
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
