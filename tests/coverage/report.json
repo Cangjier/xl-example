@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.31,
+  "progressPercent": 95.34,
   "categories": [
     {
       "category": "token",
@@ -101,11 +101,11 @@
       "category": "runtime",
       "weight": 0.25,
       "total": 776,
-      "pass": 728,
+      "pass": 729,
       "blocked": 6,
-      "differ": 42,
+      "differ": 41,
       "nodefail": 0,
-      "coverage": 93.81
+      "coverage": 93.94
     },
     {
       "category": "stdlib",
@@ -800,12 +800,6 @@
       "detail": "stdout 不同：第 1 行：node «01 arrow literal = throw:TypeError» vs tsrun «01 arrow literal = ok:object»"
     },
     {
-      "id": "runtime/round783/004-forin-nonenum-shadow-differ",
-      "category": "runtime",
-      "title": "`for..in`：**自有的不可枚举属性要挡住**原型上同名的那一格",
-      "detail": "stdout 不同：第 1 行：node «01 own nonenum data shadows proto = []» vs tsrun «01 own nonenum data shadows proto = [\"a\"]»"
-    },
-    {
       "id": "stdlib/array/169-array-index-accessors-and-proto",
       "category": "stdlib",
       "title": "数组上挂访问器 / 往 `Array.prototype` 加格：两条越界登记",
@@ -1177,6 +1171,10 @@
   "newlyPassing": [
     {
       "id": "runtime/round783/003-function-prototype-descriptor-differ",
+      "category": "runtime"
+    },
+    {
+      "id": "runtime/round783/004-forin-nonenum-shadow-differ",
       "category": "runtime"
     }
   ],

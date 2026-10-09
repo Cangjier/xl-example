@@ -2391,6 +2391,65 @@ for (let i = 0; i < plainNames.length; i++) names.push(plainNames[i]);
 return names;
 ```
 
+# method OwnStringKeyTexts:(table:HeapTable, value:Value)=>Array<string>
+
+**一个对象「自有」的全部字符串键——不看可不可枚举**（第 892 轮）。
+
+**为什么单开一格**：`OwnEnumerableKeyTexts`（上一格）答的是「要交出去的键」，
+而 `for..in` 沿原型链那一趟还要答**另一个问题**：「这一层的哪个名字**已经存在**了」
+（规范 `EnumerateObjectProperties` 的 `visited` 标记用的是 `[[GetOwnProperty]]`，
+**不看 `enumerable`**）。两件事各用一份名单：交给调用方的、与标记已访问的。
+
+**次序照 JS 的那一条**（下标键升序在前、其余按创建顺序）——与 `OwnEnumerableKeyTexts`
+**同一套下标判据**（`IndexKeyPositions` / `IndexKeyShadowed` / `IsIndexKeyText`），
+只是**不筛 `IsEnumerable`**。**符号键照旧不要**（`for..in` 不看符号；
+这里筛的是「键是字符串」那一档，与可枚举与否无关）。
+**私有名筛得掉**：它们走隐藏属性，而隐藏属性的键是字符串
+（`IsEnumerable` 假那一条在上一格管可枚举名单；这一格要的是「这一格在不在」，
+私有名那一格**在**，所以它会把同名格标记掉——JS 里私有名不可能与字符串键同名，
+这一档不会撞上）。
+
+```ts
+const allItem = value.Tag === ValueTag.String ? null : table.Get(value.Ref);
+const allPositions = IndexKeyPositions(table, value);
+const allNames: string[] = [];
+const allIndexNames: string[] = [];
+for (let i = 0; i < allPositions.length; i++) {
+  if (IndexKeyShadowed(table, value, allPositions[i])) continue;
+  allIndexNames.push("" + allPositions[i]);
+}
+const allPlainNames: string[] = [];
+if (allItem !== null) {
+  for (let i = 0; i < allItem.Props.length; i++) {
+    if (table.Get(allItem.Props[i].Key).Tag !== ValueTag.String) continue;
+    const text = TextFrom(table, Value.FromString(allItem.Props[i].Key));
+    if (IsIndexKeyText(text)) {
+      let covered = false;
+      for (let k = 0; k < allPositions.length; k++) {
+        if (allPositions[k] === Number(text)) covered = true;
+      }
+      if (covered) continue;
+      allIndexNames.push(text);
+      continue;
+    }
+    allPlainNames.push(text);
+  }
+}
+// **整数样的一摞升序**（与上一格同一个插入排序——键数很少）。
+for (let i = 1; i < allIndexNames.length; i++) {
+  const cur = allIndexNames[i];
+  let j = i - 1;
+  while (j >= 0 && Number(allIndexNames[j]) > Number(cur)) {
+    allIndexNames[j + 1] = allIndexNames[j];
+    j = j - 1;
+  }
+  allIndexNames[j + 1] = cur;
+}
+for (let i = 0; i < allIndexNames.length; i++) allNames.push(allIndexNames[i]);
+for (let i = 0; i < allPlainNames.length; i++) allNames.push(allPlainNames[i]);
+return allNames;
+```
+
 # method CollectForInKeys:(room:RoomChecker, table:HeapTable, value:Value, protos:Protos)=>int
 
 **`for..in` 要的那串键**（第 340 轮）——**沿原型链往上走**，每一层取
@@ -2428,6 +2487,32 @@ while (handle > 0 && guard < 64) {
     if (dup) continue;
     seen.push(own[i]);
     names.push(own[i]);
+  }
+  // **不可枚举的自有格也要「标记已访问」**（第 892 轮）——**这是与「收来当键」分开的一件事**。
+  // 规范 §14.7.5.6 的 `EnumerateObjectProperties` 用的是 `[[GetOwnProperty]]`：
+  // 自有那一格**存在**就 `visited` 掉、**不再沿原型链往下找同名的那一格**，
+  // 与「可不可枚举」**无关**。原来这里只有一句 `seen.push(可枚举的键)`，
+  // 于是「自有不可枚举」那一格**什么都没留下**，原型上同名的可枚举格照样被收进来
+  //（判据 `runtime/round783/004` 四档：Node 给 `[]`、本仓给 `["a"]`）。
+  //
+  // **它必须在这一趟循环体里、而且用的是 `layer`**（**实测踩过一次**）：放到 `while`
+  // **外面**的话，标记是在原型链走完之后才补的 ⇒ 那些层**已经被收过了**，
+  // 判据**一条都没变**（第一版就是这么写的，八档输出与改之前逐字相同）。
+  // 用 `layer` 而不是 `value` 是规范那一句的直译：**走到哪一层就标记哪一层**的自有格。
+  //
+  // **为什么是「标记」而不是「收进 `names`」**：`seen` 是「这个名字已经出现过」的名单、
+  // `names` 是**要交出去的键**。两件事合成一件就会把不可枚举的格也交出去——
+  // 那是**另一个方向的错**（`for..in` 列出不可枚举的键）。
+  // **已经对的那一半不动**：自有的**可枚举**格由上面那一趟收（下面这趟见到 `seen` 里有
+  // 它就跳过）；删掉当前那一格之后它**仍然出现一次**（那一趟在**进入循环之前**就取好了键数组，
+  // 见 `LowerForIn`），所以 `runtime/round755` / `round769` 那条对照判据照旧。
+  const ownAllKeys = OwnStringKeyTexts(table, layer);
+  for (let i = 0; i < ownAllKeys.length; i++) {
+    let marked = false;
+    for (let k = 0; k < seen.length; k++) {
+      if (seen[k] === ownAllKeys[i]) marked = true;
+    }
+    if (!marked) seen.push(ownAllKeys[i]);
   }
   handle = item.Proto;
 }
