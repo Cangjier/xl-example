@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4259,
+  "total": 4263,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.38,
+  "progressPercent": 95.37,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1480,
-      "pass": 1477,
-      "blocked": 3,
+      "total": 1484,
+      "pass": 1480,
+      "blocked": 4,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.8
+      "coverage": 99.73
     },
     {
       "category": "exec",
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1480,
-    "knownGap": 3,
-    "knownGapStillOpen": 3,
-    "exactFiles": 1477,
-    "scoredWithoutGap": 1477,
-    "passedWithoutGap": 1477
+    "total": 1484,
+    "knownGap": 4,
+    "knownGapStillOpen": 4,
+    "exactFiles": 1480,
+    "scoredWithoutGap": 1480,
+    "passedWithoutGap": 1480
   },
   "blocked": [
     {
@@ -154,6 +154,12 @@
       "category": "token",
       "title": "`infer` 的约束里 `extends` 后面换行（第 900 轮片段普查量出）：外层条件类型整条认不出来（`Array<` 与 `>` 留在原地，四格与真假分支一起丢，缺 10 格）",
       "detail": "缺 10　约束段里的换行让 `infer V extends string` 先成了一次形，外层条件类型的回扫仍差一步——`InferType` 那一格已经放行，剩下的一步在约束段自己的边界上"
+    },
+    {
+      "id": "token/types/gap-r900-signature-return-newline",
+      "category": "token",
+      "title": "类型字面量里的调用签名：形参表与返回类型标注之间夹**软换行**（第 900 轮片段普查量出）：解析期已经按 ASI 把这一行收成语句，收尾期的判据再跳 trivia 也追不回来（注释那一档已经收掉，差别就在「注释不算行尾、换行算」）",
+      "detail": "缺 2　多 1　未映射 1　解析期的续接表不认识「`(… )` 之后换行接 `:`」这一档——与箭头函数返回类型那一格同一根"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
@@ -521,7 +527,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2087.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2091.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -827,7 +833,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3075.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3079.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -851,7 +857,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3123.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3127.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1007,7 +1013,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3766.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3770.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

@@ -102,8 +102,22 @@ return tailEnd;
 要求那个 `:` 存在，是为了把 `(f())` 这类**括号表达式**挡在外面：后者后面没有冒号，
 它属于表达式层，不该被当成成员。
 
+**那一跳走 trivia 口径**（第 900 轮，片段普查当场逮到的）：形参表与返回类型那个 `:`
+之间夹**一条注释**在 TypeScript 里是合法排法——
+`type T = { (a: string)/*c*/: void }`。
+原来只跳软换行 ⇒ 看到的下一格是那条注释 ⇒ 判否 ⇒ 括号留在原地成了裸 `Bracket`、
+签名一个都不成形（实测：调用签名 / 泛型签名 / 构造签名三族，类型字面量与接口两种宿主，
+缺 `CallSignature` / `Parameter`、多 `Bracket`）。
+`Process` 那一侧早就是 `SkipNextTrivia` 了（见下），这里与它对齐——
+**判据与搬运问的必须是同一格**，两处各跳各的就是第二份会漂的答案。
+
+**夹一个软换行的那一档仍然开着**（`(a: string)` 换行 `: void`）：`SkipNextTrivia` 跳得过
+那个换行，可在**收尾期**判据成立之前，解析期已经把这一行按 ASI 收成语句了
+（账在 `gap-r900-signature-return-newline`，与箭头函数返回类型那一格同一根）。
+注释那一档与换行那一档的分别就在这里——**注释不算行尾，换行算**。
+
 ```ts
-const colon = Get(units, SkipNextWrapSymbol(units, parametersIndex));
+const colon = Get(units, SkipNextTrivia(units, parametersIndex));
 if (!(colon instanceof SymbolToken) || colon.Is(":") === false) {
   return false;
 }
@@ -409,7 +423,10 @@ const parameters = isNewUnit ? newParameters : Get(units, parametersIndex);
 if (!(parameters instanceof Bracket)) {
   throw new Error("成员签名不满足格式要求：(...) : Type");
 }
-const tailStart = SkipNextWrapSymbol(units, parametersIndex);
+// **与 `HasSignatureTail` 问同一格**（第 900 轮）：那边判「形参表之后跨过 trivia 是不是 `:`」，
+// 这边取「返回类型段从哪儿起」——两处必须同一个 `Skip`，否则判定说成立、搬运却停在注释上
+// （`SignatureTailEnd` 是独立一份，`tailStart` 只用来做「找没找到」的一致性检查）。
+const tailStart = SkipNextTrivia(units, parametersIndex);
 const tailEnd = this.SignatureTailEnd(units, parametersIndex);
 if (tailEnd < 0 || tailStart > tailEnd) {
   throw new Error("成员签名不满足格式要求：(...) : Type");

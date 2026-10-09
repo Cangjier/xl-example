@@ -462,6 +462,24 @@
 逐条都记在上面这张表里（谁接手下一轮，照着这一栏往下走就是，
 不比再写一趟探针贵）。这一轮**只登记了三条**——条数从 0 变成 3。
 
+**第 900 轮第三轮**：接着上一轮那张表往下走，收掉**签名返回类型那一格**里
+**夹注释**的那一半（上面表里 5 条的下半）：
+
+- **根因**（`signature/signature.xl.md` 的 `HasSignatureTail`）：形参表之后要看
+  「跨过 trivia 是不是 `:`」，而那一跳原来写的是 `SkipNextWrapSymbol`（**只跳软换行**）
+  ——夹一条注释时看到的下一格就是那条注释 ⇒ 判否 ⇒ 括号留在原地成了裸 `Bracket`
+  （`CallSignature` / `Parameter` 一起丢、`Bracket` 一个都不少）。
+  `Process` 那一侧早就是 `SkipNextTrivia`，所以这是「**判据与搬运两处各跳各的**」
+  这个老毛病的又一格——两处对齐之后，调用签名 / 泛型签名 / 构造签名三支、
+  类型字面量与接口两种宿主一起转绿（`probe5` 的失败数 16 → 13）。
+- **夹软换行的那一半仍然开着**（`(a: string)` 换行 `: void`）：`SkipNextTrivia`
+  跳得过那个换行，可**解析期**已经把这一行按 ASI 收成语句了，收尾期追不回来。
+  账立成 `gap-r900-signature-return-newline`——它与上一轮登记的
+  `gap-r900-arrow-return-type-newline` **同一根**（解析期的续接表不认识
+  「`)` 之后换行接 `:`」这一档），下一轮两条一起收。
+- 三个守卫用例进语料（调用签名夹注释、泛型签名夹注释、构造签名夹注释），
+  外加一条缺口用例。token 语料 1484 份、缺口 4 条还开着。
+
 **收掉的那一格根因**（`conditional-type.xl.md` 的 `FindExtendsIndex`）：
 `U extends Array<infer` ⏎ `V> ? V : never` 里那个 `Array<infer V>` **没有收成 `GenericType`**
 （`infer V` 里装了换行 ⇒ 尖括号那对留在原地），于是回扫在 `Array` 左边撞上**裸的 `<`**
