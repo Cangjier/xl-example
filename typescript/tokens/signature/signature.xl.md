@@ -276,6 +276,71 @@ if (unit instanceof ArrayLiteral) {
 return unit instanceof Bracket && unit.startBracket === "[";
 ```
 
+## private method NameOnPreviousLine:(units:Array<Token>, index:int)=>bool
+
+`index` 处是一个软换行：**上一行只写了一个名字**吗——也就是「那个名字 + 这一行」整条是**一个成员**。
+
+**判据是「名字自己前面那一格」**：往前跳过 trivia 得到那个名字，再看名字**自己**前面
+是不是一条成员的起点（体那个 `{`、`;` / `,` / `}`、修饰词、或列表开头）。
+少了「名字前面那一格」这一问，`interface I { a: number` 换行 `(): void }` 那条**真正的**
+无名签名会被上一行的类型名 `number` 误认成方法名（本文件里「不跳软换行」的理由说的就是这一格）。
+
+**这一格原来只长在 `(` 那一支里（第 827 轮），`<T>` 那一支漏了**（第 904 轮量清）：
+`class A { m` 换行 `<T>(): void; }` 里那个 `<T>` 前面是软换行 ⇒ 泛型那一支的
+「前一个是名字 / `GenericType`」守卫整格失效（它只跨注释、不跨软换行）⇒
+本规则（队列位次在 `MethodDeclarationCloseRule` **之前**）把 `<T>(): void;` 抢成一个
+无名 `Signature`，而 `m` 只剩给 `Field` ⇒ 产物是 `PropertyDeclaration` + `CallSignature`
+（实测 `gap-r902-abstract-method-newline`；`abstract` / `public` / `static` 三个修饰词
+与不带修饰词的四种写法同一个根）。
+**抽成一份**：两处各写一遍就是两处会漂——`(` 那一支改口径时这一支必然漏。
+
+**名字也可以是字符串**（与 `(` 那一支的 `before instanceof String` 同一条口径）：
+`interface I { "a"` 换行 `<T>(x: T): T }` 与 `m` 换行 `<T>…` 同形，只认 `Identifier`
+时这一格不响，`"a"<T>` 照样被抢成无名签名。
+
+```ts
+const at = Get(units, index);
+if (!(at instanceof LineWrap)) {
+  return false;
+}
+const nameIndex = SkipPreviousTrivia(units, index);
+const name = Get(units, nameIndex);
+if (!(name instanceof Identifier) && !(name instanceof String)) {
+  return false;
+}
+const headIndex = SkipPreviousTrivia(units, nameIndex);
+if (headIndex < 0) {
+  return true;
+}
+const head = Get(units, headIndex);
+if (head instanceof Bracket && head.startBracket === "{") {
+  return true;
+}
+if (head instanceof SymbolToken && (head.Is(";") || head.Is(",") || head.Is("}"))) {
+  return true;
+}
+if (head instanceof Identifier || (head !== null && head.constructor.name === "Keyword")) {
+  const word = head instanceof Identifier ? head.TempToString() : (head as any).Value;
+  if (
+    word === "public" ||
+    word === "private" ||
+    word === "protected" ||
+    word === "static" ||
+    word === "readonly" ||
+    word === "abstract" ||
+    word === "async" ||
+    word === "get" ||
+    word === "set" ||
+    word === "declare" ||
+    word === "export" ||
+    word === "default"
+  ) {
+    return true;
+  }
+}
+return false;
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个成员签名的开头（`(` 括号或 `new` 词）。
@@ -334,47 +399,10 @@ if (current instanceof Bracket && current.startBracket === "(") {
   }
   // **名字写在上一行**（第 827 轮）：`interface I { m` 换行 `(): void; }` 里那个 `(` 是
   // `m` 的形参表（TS 那边是 `MethodSignature`），不是无名签名 —— 成员体里 ASI 不管换行，
-  // 「名字 + `(`」永远读成方法。
-  //
-  // **判据是「上一行只写了一个名字」**：往前跳过 trivia 得到那个名字，再看名字**自己**前面
-  // 是不是一条成员的起点（体那个 `{`、`;` / `,`、修饰词、或列表开头）。
-  // 少了「名字前面那一格」这一问，`interface I { a: number` 换行 `(): void }` 那条**真正的**
-  // 无名签名会被上一行的类型名 `number` 误认成方法名（那条文档里写着「不跳软换行」的理由）。
-  if (before instanceof LineWrap) {
-    const nameIndex = SkipPreviousTrivia(units, immediateIndex);
-    const name = Get(units, nameIndex);
-    if (name instanceof Identifier) {
-      const headIndex = SkipPreviousTrivia(units, nameIndex);
-      const head = Get(units, headIndex);
-      if (headIndex < 0) {
-        return false;
-      }
-      if (head instanceof Bracket && head.startBracket === "{") {
-        return false;
-      }
-      if (head instanceof SymbolToken && (head.Is(";") || head.Is(",") || head.Is("}"))) {
-        return false;
-      }
-      if (head instanceof Identifier || (head !== null && head.constructor.name === "Keyword")) {
-        const word = head instanceof Identifier ? head.TempToString() : (head as any).Value;
-        if (
-          word === "public" ||
-          word === "private" ||
-          word === "protected" ||
-          word === "static" ||
-          word === "readonly" ||
-          word === "abstract" ||
-          word === "async" ||
-          word === "get" ||
-          word === "set" ||
-          word === "declare" ||
-          word === "export" ||
-          word === "default"
-        ) {
-          return false;
-        }
-      }
-    }
+  // 「名字 + `(`」永远读成方法。判据见 `NameOnPreviousLine`（与泛型那一支**同一份**，
+  // 第 904 轮抽出来：这一格原来只写在 `(` 这一支里，`<T>` 那一支漏了 ⇒ 见那个方法）。
+  if (this.NameOnPreviousLine(units, immediateIndex)) {
+    return false;
   }
   // **`=` 后面不是签名**（第 66 轮）：类字段 `f = (a: number): void => {}` 是一条**值**字段，
   // 括号前面是赋值号。本规则排在 `FieldCloseRule` 之前，此刻那个 `(` 的父单元还是
@@ -428,6 +456,11 @@ if (current instanceof GenericType) {
     return false;
   }
   if (this.IsComputedMemberName(before)) {
+    return false;
+  }
+  // **名字写在上一行**（第 904 轮）：`m` 换行 `<T>(): void;` 里那个 `<T>` 是 `m` 的类型参数段，
+  // 不是一条无名签名 —— 与 `(` 那一支**同一份**判据（`NameOnPreviousLine`）。
+  if (this.NameOnPreviousLine(units, immediateIndex)) {
     return false;
   }
   const parametersIndex = SkipNextTrivia(units, index);

@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.38,
+  "progressPercent": 95.39,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1488,
-      "pass": 1485,
-      "blocked": 3,
+      "pass": 1486,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.8
+      "coverage": 99.87
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1488,
-    "knownGap": 3,
-    "knownGapStillOpen": 3,
-    "exactFiles": 1485,
-    "scoredWithoutGap": 1485,
-    "passedWithoutGap": 1485
+    "knownGap": 2,
+    "knownGapStillOpen": 2,
+    "exactFiles": 1486,
+    "scoredWithoutGap": 1486,
+    "passedWithoutGap": 1486
   },
   "blocked": [
-    {
-      "id": "token/declarations/gap-r902-abstract-method-newline",
-      "category": "token",
-      "title": "抽象方法的名字与类型参数表之间换行（第 900 轮片段普查记在「待登记」那一栏的第 E 格、第 902 轮登记）：`abstract m` 换行 `<T>(): void;` 里方法声明整条认不出来（`abstract m` 落成 `PropertyDeclaration`、`<T>(): void;` 落成一个无名 `CallSignature`）",
-      "detail": "缺 1　多 2　`MethodDeclarationCloseRule` 的名字与类型参数段不在同一行时「名字 + `<T>` + `(`」的扫描跨不过那个换行——根因尚未量清，如实登记、不猜"
-    },
     {
       "id": "token/expressions/gap-r902-new-typeargs-newline",
       "category": "token",
