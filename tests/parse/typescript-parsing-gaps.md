@@ -75,6 +75,14 @@
   `MethodCloseRule.NameIndex` 往左找被调用者、`BinaryOperatorCloseRule` 判「`,` 是不是逗号表达式」时
   往左看括号外面那一格。**判据只差一个 `Skip*` 的时候，先问「注释与换行在这里是不是同一个意思」**：
   是就一起跳，不是就只用 `Skip*Annotation`。
+- **「有没有内容」也要用 trivia 口径**（第 818 轮）：`IsTriviaUnit` 不只是「跳过」用的名单，
+  也是**判空**用的名单。`m(/*c*/) { … }` 括号里只有一个 `AreaAnnotation`，照
+  「不是软换行就算内容」判 ⇒ 收下一张空形参表、再包出一个**零宽的 `Parameter`**
+  （实测 `EXTRA Parameter [x,x)` 加 `FIELD MethodDeclaration` 多一个 `parameters`）。
+  两处判空都改成 `IsTriviaUnit`（`parameter.xl.md` 的 `Previous` / `AppendSegment`、
+  `lamda.xl.md` 造 `LamdaParameters` 那一段），一次收掉 12 条。
+  **`AppendSegment` 那一侧还要把注释推回 `rebuilt`**：落在被替换区间里的注释要么显式收下、
+  要么推回去，直接 `return` 等于把它从产物里删掉。
 - **`Parent` 不变式**（`core/syntax/close-rule.xl.md` 的 `ApplyTo`）：规则用 `ReplaceCountAt`
   换进来的节点**不带 `Parent`**（那是核心的 `splice`），每趟 `Process` 之后就地把新换进的那一小段补齐——
   否则「靠当前单元的父亲认容器」的规则（元组成员、方括号类型…）会判不出容器。
@@ -97,7 +105,7 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**186 条**）
+## 已知仍开着的缺口（**174 条**）
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
 文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
@@ -109,26 +117,26 @@
 所以「还差多少」在 `npm run gates` 里直接看得见，不必回 `tmp/` 翻探针。
 同一条纪律也适用于 `coverage` 那一侧（`xl:want blocked` / `differ` 的 62 条）。
 
-### 这 186 条长什么样（按根因分三段）
+### 这 174 条长什么样（按根因分三段）
 
-按**文件名前缀**数是这三段（第 817 轮实测）：`gap-sweep-*` 138 + `gap-<字母>-*` 17 = **155**；
-`gap-r676-*` 2 + `mut-*` 11 = **13**；其余 **18**。
+按**文件名前缀**数是这三段（第 818 轮实测）：`gap-sweep-*` 128 + `gap-<字母>-*` 17 = **145**；
+`gap-r676-*` 2 + `mut-*` 9 = **11**；其余 **18**。
 
 | 段 | 条数 | 一句话 |
 | --- | --- | --- |
-| **注释 / 换行落在语法相邻位置之间** | **155** | 最大的一族，按**落点**逐条立着（见下） |
-| **注释夹在语法相邻的两格之间** | **13** | 同一族换了落点：类型运算符 / 函数类型 / `new` 实参括号 / 成员名与形参表 / 泛型实参段附近 |
+| **注释 / 换行落在语法相邻位置之间** | **145** | 最大的一族，按**落点**逐条立着（见下） |
+| **注释夹在语法相邻的两格之间** | **11** | 同一族换了落点：类型运算符 / 函数类型 / `new` 实参括号 / 成员名与形参表 / 泛型实参段附近 |
 | **其它** | **18** | 各有各的根（见下） |
 
-**第一族（155 条）怎么长出来的**：它来自三次普查，每次都把「同一构造的**每一个 token 边界**
+**第一族（145 条）怎么长出来的**：它来自三次普查，每次都把「同一构造的**每一个 token 边界**
 各插一遍 `/*c*/`、`//c` 换行、换行三种变体」——于是落点不同就各自成一条。
 命名上看得见来源：`gap-sweep-{comment,linecomment,newline}-<上下文>-<序号>`，上下文有
 `optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` / `cond` /
 `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` / `class` /
 `call` / `dowhile` / `ifelse` / `typeunion` / `gener` ……另有几小批 `gap-a-*`（A-comment）/
 `gap-b-*`（B-oneline）/ `gap-c-*`（C-optchain-nonnull）/ `gap-d-*`（D-generics-tuple-mapped）/
-`gap-j-*`（J-import-export）/ `gap-m-*`（M-misc）。第二族里那 11 条是 `mut-*` 探针池
-（**第 816 轮收掉 4 条、第 817 轮再收 8 条，池子从 23 降到 11**）。
+`gap-j-*`（J-import-export）/ `gap-m-*`（M-misc）。第二族里那 9 条是 `mut-*` 探针池
+（**第 816 轮收掉 4 条、第 817 轮 8 条、第 818 轮 2 条，池子从 23 降到 9**）。
 
 **「一次收一族」在这一族上的意思**：把「注释夹在语法相邻位置之间」这条线**整个按位置过一遍**，
 而不是一条一条打补丁。已经被这条线收掉的地方（对照表，说明这类缺口长什么样）：
@@ -154,6 +162,10 @@
   `new C` 与实参括号之间（`binary-operator.xl.md` 取「括号外面那一格」）、
   以及 `for /* c */ (…)` 的头部括号。前五处是这一轮的主线，`for` 那一处随同收掉
   （`gap-sweep-*-call/fn/class/clsmod/iface` 那些条的形状也跟着变好，见各自的 `xl:expect`）。
+- **第 818 轮收掉的那一处**：**只有注释的形参表**——`m(/*c*/) { … }` / `function f(/*c*/) { … }` /
+  `interface I { m(/*c*/): void }` / `(/*c*/) => 1` / `private m(/*c*/) { }` 五处同形，
+  收成「空形参表 + 一个零宽 `Parameter`」。根是**判空**没用 trivia 名单（见「解析层几条硬规矩」），
+  改的是 `parameter.xl.md` 与 `lamda.xl.md`。
 - **`catch` / `finally` 与它的体之间夹一条行注释或一个换行**（`gap-crash-try-*` 那 4 条）
   曾经是**唯一一档「产物直接抛异常」**的：`Statement.IsHeaderBodyBrace` 只认
   `while` / `for` / `switch` / `function` / `import` / `export` ⇒ 那个 `{` 没被认成体

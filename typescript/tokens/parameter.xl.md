@@ -8,6 +8,7 @@ import { Bracket } from "./bracket.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { Parameter } from "./lamda/lamda-parameter.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
+import { IsTriviaUnit } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -109,7 +110,14 @@ return (
 `index` 处是不是一张还没收过的形参表。
 
 三条：`IsParameterListBracket` 成立；括号里还没有 `Parameter`（第二趟守卫）；
-括号里至少有一个实义单元（空形参表 `()` 不必收）。
+括号里至少有一个**实义**单元（空形参表 `()` 不必收）。
+
+**注释不算实义内容**（第 818 轮）：`m(/*c*/) { … }` 里括号内只有一个 `AreaAnnotation`，
+照「不是软换行就算内容」判 ⇒ 规则收下一张**空形参表**，`AppendSegment` 又把那条注释
+包成一个**零宽的 `Parameter`**（实测 `EXTRA Parameter [12,12)`、`FIELD MethodDeclaration`
+多一个 `parameters`；`function f(/*c*/)` / `interface I { m(/*c*/): void }` /
+`(/*c*/) => 1` 同一根）。判据与 `IsTriviaUnit` 那份名单同一口径——注释、软换行、
+预处理指令都不承载语义。（块注释与行注释都算：`//c` 后面那个换行本来就是软换行。）
 
 ```ts
 const current = Get(units, index);
@@ -124,7 +132,7 @@ for (const item of current.Data) {
   if (item.constructor.name === "Parameter") {
     return false;
   }
-  if (!(item instanceof LineWrap)) {
+  if (IsTriviaUnit(item) === false) {
     hasContent = true;
   }
 }
@@ -169,21 +177,32 @@ return index;
 
 ## private method AppendSegment:(rebuilt:Array<Token>, segment:Array<Token>, owner:Token)=>void
 
-把一段（一个形参的单元）收成 `Parameter`；空段（只有软换行）跳过。
+把一段（一个形参的单元）收成 `Parameter`；**只有 trivia 的段跳过**——软换行丢掉，
+注释**推回 `rebuilt`**（它不属于任何形参，但也不该从产物里消失）。
 
 `Parameter` 自己挂通用队列（见 `./lamda/lamda-parameter.xl.md`），所以
 `name?: T = 默认值` 里的类型标注与默认值会在它自己那一趟里继续成形。
+
+**为什么注释要推回去**（第 818 轮）：`f(a, /*c*/)` 的第二段只有一个注释，
+照原来的「不是软换行就算实义」会包出一个零宽 `Parameter`（与 `Previous` 那条同一根）；
+直接 `return` 又会把那条注释**从产物里删掉**（`CommentsIn` 那一族的教训：
+落在被替换区间里的注释要么显式收下、要么推回去）。
 
 ```ts
 const content: Token[] = [];
 let hasReal = false;
 for (const item of segment) {
   content.push(item);
-  if (!(item instanceof LineWrap)) {
+  if (IsTriviaUnit(item) === false) {
     hasReal = true;
   }
 }
 if (hasReal === false) {
+  for (const item of content) {
+    if (!(item instanceof LineWrap)) {
+      rebuilt.push(item);
+    }
+  }
   return;
 }
 const parameter = new Parameter(owner.Template);

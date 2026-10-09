@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 93.1,
+  "progressPercent": 93.23,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1394,
-      "pass": 1208,
-      "blocked": 186,
+      "pass": 1220,
+      "blocked": 174,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 86.66
+      "coverage": 87.52
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1394,
-    "knownGap": 186,
-    "knownGapStillOpen": 186,
-    "exactFiles": 1208,
-    "scoredWithoutGap": 1208,
-    "passedWithoutGap": 1208
+    "knownGap": 174,
+    "knownGapStillOpen": 174,
+    "exactFiles": 1220,
+    "scoredWithoutGap": 1220,
+    "passedWithoutGap": 1220
   },
   "blocked": [
     {
@@ -148,24 +148,6 @@
       "category": "token",
       "title": "换行落在 `const` 与解构模式之间",
       "detail": "缺 11　多 15　`Let` 那一趟按「紧邻」找模式，中间那个换行让它整条解体（缺 11 / 多 15）"
-    },
-    {
-      "id": "token/declarations/gap-sweep-comment-class-02",
-      "category": "token",
-      "title": "SWEEP-comment/class 落点（657 审计语料）",
-      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/class）：FIELD MethodDeclaration [20,42) 产物[body,name,parameters] TS[body,name] «m(/*c*/) { return 1; }»"
-    },
-    {
-      "id": "token/declarations/gap-sweep-comment-clsmod-02",
-      "category": "token",
-      "title": "SWEEP-comment/clsmod 落点（657 审计语料）",
-      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/clsmod）：FIELD MethodDeclaration [40,60) 产物[body,modifiers,name,parameters] TS[body,modifiers,name] «private m(/*c*/) { "
-    },
-    {
-      "id": "token/declarations/gap-sweep-linecomment-class-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/class 落点（657 审计语料）",
-      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/class）：FIELD MethodDeclaration [20,41) 产物[body,name,parameters] TS[body,name] «m(//c ) { return 1; }»"
     },
     {
       "id": "token/declarations/gap-sweep-linecomment-clsmod-01",
@@ -190,12 +172,6 @@
       "category": "token",
       "title": "SWEEP-linecomment/clsmod 落点（657 审计语料）",
       "detail": "缺 3　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/clsmod）：MISS PropertyDeclaration TS[40,47) «private»"
-    },
-    {
-      "id": "token/declarations/gap-sweep-linecomment-clsmod-06",
-      "category": "token",
-      "title": "SWEEP-linecomment/clsmod 落点（657 审计语料）",
-      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/clsmod）：FIELD MethodDeclaration [40,59) 产物[body,modifiers,name,parameters] TS[body,modifiers,name] «private m(//c )"
     },
     {
       "id": "token/declarations/gap-sweep-newline-clsmod-01",
@@ -274,12 +250,6 @@
       "category": "token",
       "title": "第 686 轮**还开着的那一格**：对象字面量值位里**被括号包住的数组**——",
       "detail": "缺 4　多 6　实参里的对象 / 括号化对象里，外层 `{` 的 `Context` 在招待那一格时还是空串，"
-    },
-    {
-      "id": "token/lexical/mut-lex-private-field-142",
-      "category": "token",
-      "title": "private name used as a class field",
-      "detail": "多 1　字段 1　注释夹在私有字段那个类的方法名 / 参数表里（r660 探针池 mut-lex-private-field-142）"
     },
     {
       "id": "token/modules/gap-j-import-export-01",
@@ -492,12 +462,6 @@
       "detail": "漂 2　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-comment/arrow）：DRIFT VariableDeclarationList TS[0,21) 产物[0,26) «const f = (a, b) => a»"
     },
     {
-      "id": "token/statements/gap-sweep-comment-async-01",
-      "category": "token",
-      "title": "SWEEP-comment/async 落点（657 审计语料）",
-      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/async）：FIELD FunctionDeclaration [0,38) 产物[body,modifiers,name,parameters] TS[body,modifiers,name] «async function f(/*"
-    },
-    {
       "id": "token/statements/gap-sweep-comment-dowhile-01",
       "category": "token",
       "title": "SWEEP-comment/dowhile 落点（657 审计语料）",
@@ -508,12 +472,6 @@
       "category": "token",
       "title": "SWEEP-comment/for 落点（657 审计语料）",
       "detail": "缺 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/for）：MISS PostfixUnaryExpression TS[23,31) «i/*c*/++»"
-    },
-    {
-      "id": "token/statements/gap-sweep-comment-gener-01",
-      "category": "token",
-      "title": "SWEEP-comment/gener 落点（657 审计语料）",
-      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/gener）：FIELD FunctionDeclaration [0,31) 产物[asteriskToken,body,name,parameters] TS[asteriskToken,body,name] «function* g"
     },
     {
       "id": "token/statements/gap-sweep-comment-generic-01",
@@ -600,12 +558,6 @@
       "detail": "缺 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/async）：MISS FunctionDeclaration TS[0,37) «async function //c f() { await g(); }»"
     },
     {
-      "id": "token/statements/gap-sweep-linecomment-async-03",
-      "category": "token",
-      "title": "SWEEP-linecomment/async 落点（657 审计语料）",
-      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/async）：FIELD FunctionDeclaration [0,37) 产物[body,modifiers,name,parameters] TS[body,modifiers,name] «async function "
-    },
-    {
       "id": "token/statements/gap-sweep-linecomment-call-01",
       "category": "token",
       "title": "SWEEP-linecomment/call 落点（657 审计语料）",
@@ -682,12 +634,6 @@
       "category": "token",
       "title": "SWEEP-linecomment/fn 落点（657 审计语料）",
       "detail": "缺 7　多 6　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/fn）：DRIFT Parameter TS[15,16) 产物[15,19) «a»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-gener-01",
-      "category": "token",
-      "title": "SWEEP-linecomment/gener 落点（657 审计语料）",
-      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/gener）：FIELD FunctionDeclaration [0,30) 产物[asteriskToken,body,name,parameters] TS[asteriskToken,body,name] «functio"
     },
     {
       "id": "token/statements/gap-sweep-linecomment-generic-01",
@@ -1110,12 +1056,6 @@
       "detail": "缺 5　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/var）：MISS VariableStatement TS[0,11) «let a = 1;»"
     },
     {
-      "id": "token/statements/mut-stmt-asi-return-newline-expr-115",
-      "category": "token",
-      "title": "ASI：return 换行后跟表达式 —— 受限产生式，等于 return; 加一条表达式语句",
-      "detail": "多 1　字段 1　`function f(/* c */)` 里那条注释让 ASI 那一族的形态漂一格（r660 探针池 mut-stmt-asi-return-newline-expr-115）"
-    },
-    {
       "id": "token/statements/stmt-do-while-then-statement",
       "category": "token",
       "title": "`do…while` 后面还跟着一条语句",
@@ -1140,12 +1080,6 @@
       "detail": "缺 5　漂 1　多 3　判别括号认不出 ⇒ `case 1:` 那一格整条落空（缺 5 漂 1 多 3）"
     },
     {
-      "id": "token/types/gap-sweep-comment-iface-02",
-      "category": "token",
-      "title": "SWEEP-comment/iface 落点（657 审计语料）",
-      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/iface）：FIELD MethodSignature [25,40) 产物[name,parameters,type] TS[name,type] «m(/*c*/): void;»"
-    },
-    {
       "id": "token/types/gap-sweep-linecomment-iface-01",
       "category": "token",
       "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
@@ -1162,12 +1096,6 @@
       "category": "token",
       "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
       "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：MISS MethodSignature TS[25,39) «m//c (): void;»"
-    },
-    {
-      "id": "token/types/gap-sweep-linecomment-iface-04",
-      "category": "token",
-      "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
-      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：FIELD MethodSignature [25,39) 产物[name,parameters,type] TS[name,type] «m(//c ): void;»"
     },
     {
       "id": "token/types/gap-sweep-linecomment-iface-05",
@@ -1631,7 +1559,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30144/src/2001.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10280/src/2001.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1973,7 +1901,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30144/src/2984.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10280/src/2984.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1997,7 +1925,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30144/src/3032.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10280/src/3032.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2153,7 +2081,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30144/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10280/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

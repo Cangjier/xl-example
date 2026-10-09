@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack } from "../../../core/extensions/list-extension.xl.md"
-import { CommentsIn, GetSkipPreviousWrapSymbol, IsTypeContainerUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { CommentsIn, GetSkipPreviousWrapSymbol, IsTriviaUnit, IsTypeContainerUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BinaryOperator } from "../binary-operator.xl.md"
 import { GenericType } from "../generic-type.xl.md"
@@ -639,29 +639,32 @@ if (parameterUnit instanceof Bracket) {
   for (const unit of parameterUnit.Data) {
     this.CollectParameterUnits(unit, flatParameters);
   }
+  // **只有 trivia 的一段不成形参**（第 818 轮）：`(/*c*/) => 1` 里扁平化之后只有那条注释，
+  // 照原样会包出一个**零宽 `Parameter`**（实测 `EXTRA Parameter [11,11)`、
+  // `FIELD ArrowFunction` 多一个 `parameters`；`m(/*c*/)` 那一族在 `parameter.xl.md` 同根一起收掉）。
+  // 注释不带走——它留在原处（形参表括号的 `Data` 里），投影时是 `INVISIBLE`。
+  const flushParameter = (): void => {
+    if (tempParameters.every((item) => IsTriviaUnit(item))) {
+      tempParameters.length = 0;
+      return;
+    }
+    const parameter = new Parameter(template);
+    parameter.SignIn(tempParameters[0].SourceRange.Start!);
+    parameter.SignOut(tempParameters[tempParameters.length - 1].SourceRange.End!);
+    parameter.AddRange(tempParameters);
+    parameter.TryToClose();
+    parameters.Add(parameter);
+    tempParameters.length = 0;
+  };
   for (let i = 0; i < flatParameters.length; i++) {
     const item = flatParameters[i];
     if (item instanceof SymbolToken && item.Is(",")) {
-      if (tempParameters.length !== 0) {
-        const parameter = new Parameter(template);
-        parameter.SignIn(tempParameters[0].SourceRange.Start!);
-        parameter.SignOut(tempParameters[tempParameters.length - 1].SourceRange.End!);
-        parameter.AddRange(tempParameters);
-        parameter.TryToClose();
-        parameters.Add(parameter);
-        tempParameters.length = 0;
-      }
-    } else if (i === flatParameters.length - 1) {
-      tempParameters.push(item);
-      const parameter = new Parameter(template);
-      parameter.SignIn(tempParameters[0].SourceRange.Start!);
-      parameter.SignOut(tempParameters[tempParameters.length - 1].SourceRange.End!);
-      parameter.AddRange(tempParameters);
-      parameter.TryToClose();
-      parameters.Add(parameter);
-      tempParameters.length = 0;
+      flushParameter();
     } else {
       tempParameters.push(item);
+      if (i === flatParameters.length - 1) {
+        flushParameter();
+      }
     }
   }
 } else if (parameterUnit instanceof Identifier) {
