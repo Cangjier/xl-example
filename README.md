@@ -306,6 +306,30 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 862 轮：紧贴的 `async<T>(x) => x`——第 856 轮那一支撤掉，两种排版合流（known-gap 6 → 5）
+
+**一句话**：`expr-async-generic-arrow`（紧贴那一档，缺 2 字段 1）收掉——
+`async<T>(x) => x` 与 `async <T>(x: T) => x` 现在**逐位置都完全一致**。
+
+**第 856 轮那一支的代价**：它管「`async` 与形参表之间隔着一个泛型段」，做法是把
+`rangeStart` 拉到 `async`、`IsAsync` 置真。可 `Lamda` 的**替换范围**是从 `rangeStart` 起算的
+（[typescript/tokens/lamda/lamda.xl.md](typescript/tokens/lamda/lamda.xl.md) 的 `Process`）——
+泛型段于是落进那段范围**却没人收**：`[async, GenericType, Lamda]` 三格被换成**一格** `Lamda`
+⇒ `typeParameters` 与 `T` 那一格永远缺（实测缺 2 字段 1）。
+
+**修法**：把那一支**整个撤掉**。第 861 轮已经在投影层收掉了
+「三格 `[Identifier(async), GenericType, Lamda]`」那一档（0a'），紧贴与隔空格于是
+**走同一份判据**：`async` 与泛型段照旧留在 `Lamda` 外面，投影补 `typeParameters` 与 `AsyncKeyword`。
+留着那一支反而把树压成一格、让投影看不到泛型段。
+
+**实测**：`const h = async<T>(x) => x;` 与 `const h = async <T>(x: T) => x;` 两档都是
+**缺 0 漂 0 多 0 字段 0**；XML 侧紧贴这一档现在多出 `<Identifier>async</Identifier>` 与
+`<GenericType>` 两格平级（`xl:expect Lamda` 不用改，`cases:tags` **0 条不一致**）。
+
+**数字**：`cases:tsast` **16 / 16 片通过**、已知缺口 **6 → 5 还开着**
+（收掉的那条按规矩删掉 `xl:known-gap`）；`coverage` **4003 → 4004 / 4187**、
+blocked **46 → 45**、differ 138、bad 0；`npm run gates` **八道全过**。
+
 ### 第 861 轮：隔空格的 `async <T>(x) => x`——`async` 与泛型段谁先认领：0a 那一支抢在前面（known-gap 8 → 6）
 
 **一句话**：`expr-async-generic-arrow-spaced`（`async <T>(x: T) => x`，缺 8 多 2）与

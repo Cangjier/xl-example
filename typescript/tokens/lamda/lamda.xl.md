@@ -612,28 +612,16 @@ const asyncUnit = Get(units, asyncIndex);
 if (asyncUnit instanceof Identifier && asyncUnit.Is("async")) {
   rangeStart = asyncIndex;
   result.IsAsync = true;
-} else if (asyncUnit instanceof GenericType) {
-  // **`async` 与形参表之间隔着一个泛型段**（第 856 轮）：`async<T>(x) => x` 里形参表前面
-  // 那一格是 `<T>`，`async` 在它**更左边**——只认「紧挨着的前一格」时这一档的
-  // `IsAsync` 永远是假、`Lamda` 的起点也停在 `(` 上。
-  //
-  // **只在「`async` 与 `<` 之间没有空白」时认**（第 856 轮实测的边界）：
-  // `async<T>(x) => x` 里那个 `<` 只可能是类型参数段（`async < T` 是比较式）；
-  // 而 `async <T>(x: T) => x`（隔了空格）在那些**本来就成形的写法**上会与
-  // `gap-d-generics-tuple-mapped-02`（`async <T,>(x: T): Promise<T> => x`）那一族的
-  // 词法取法冲突——实测照「隔空格也认」改会把那条用例的 `GenericType` / `TypeParameter`
-  // 整片打破（`cases:tags` 4 条不一致），所以这一格**收窄到紧贴**，留待另一轮。
-  const beforeGeneric = SkipPreviousWrapSymbol(units, asyncIndex);
-  const asyncWord = Get(units, beforeGeneric);
-  if (asyncWord instanceof Identifier && asyncWord.Is("async")) {
-    const gap = asyncWord.SourceRange.End!.Index + 1;
-    const genericStart = asyncUnit.SourceRange.Start!.Index;
-    if (gap === genericStart) {
-      rangeStart = beforeGeneric;
-      result.IsAsync = true;
-    }
-  }
 }
+// **「`async` 与形参表之间隔着一个泛型段」那一支整个撤掉了**（第 862 轮）：
+// 它原来（第 856 轮）管 `async<T>(x) => x`——把 `rangeStart` 拉到 `async`、`IsAsync` 置真。
+// 代价是**泛型段落进替换范围却没人收**：`[async, GenericType, Lamda]` 三格被换成**一格** `Lamda`
+// ⇒ `typeParameters` 与 `T` 那一格永远缺（实测 `expr-async-generic-arrow` 缺 2 字段 1）。
+// 第 861 轮在投影层收掉了「三格 `[Identifier(async), GenericType, Lamda]`」那一档之后，
+// 紧贴与隔空格**两种排版走的是同一份判据**：留在这里反而把树压成一格、让投影看不到泛型段。
+// 所以这一支整个撤掉——`async` 与泛型段照旧留在 `Lamda` 外面，由投影补
+// `typeParameters` 与 `AsyncKeyword`（见 `print-ast-common.xl.md` 的 0a'）。
+// **两条排版现在同一条路**：`async<T>(x) => x` 与 `async <T>(x: T) => x` 逐位置都完全一致。
 const lambdaStart = Get(units, rangeStart)!.SourceRange.Start!;
 const parametersRangeEnd = parameterUnit.SourceRange.End!;
 const arrow = Get(units, index)!;

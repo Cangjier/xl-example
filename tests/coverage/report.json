@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.07,
+  "progressPercent": 95.08,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1414,
-      "pass": 1408,
-      "blocked": 6,
+      "pass": 1409,
+      "blocked": 5,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.58
+      "coverage": 99.65
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1414,
-    "knownGap": 6,
-    "knownGapStillOpen": 6,
-    "exactFiles": 1408,
-    "scoredWithoutGap": 1408,
-    "passedWithoutGap": 1408
+    "knownGap": 5,
+    "knownGapStillOpen": 5,
+    "exactFiles": 1409,
+    "scoredWithoutGap": 1409,
+    "passedWithoutGap": 1409
   },
   "blocked": [
     {
@@ -148,12 +148,6 @@
       "category": "token",
       "title": "第 686 轮**还开着的那一格**：对象字面量值位里**被括号包住的数组**——",
       "detail": "缺 4　多 6　实参里的对象 / 括号化对象里，外层 `{` 的 `Context` 在招待那一格时还是空串，"
-    },
-    {
-      "id": "token/statements/expr-async-generic-arrow",
-      "category": "token",
-      "title": "`async` 泛型箭头函数（类型参数紧跟 `async`）",
-      "detail": "缺 2　字段 1　`async<T>(x) => x` 那一段不成形（缺 7）：`async` 与泛型段谁先认领没有定义（r663 探针池 c-async-generic-lamda）"
     },
     {
       "id": "token/statements/stmt-do-while-then-statement",
@@ -545,7 +539,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-4528/src/2021.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9576/src/2021.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -887,7 +881,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-4528/src/3004.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9576/src/3004.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -911,7 +905,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-4528/src/3052.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9576/src/3052.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1067,7 +1061,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-4528/src/3695.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9576/src/3695.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
