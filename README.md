@@ -306,6 +306,25 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 871 轮：泛型参数表认不出「这一格是声明头」——`type /* c */ T<U>` 那三条收掉（known-gap 24 → 21）
+
+**一句话**：`type /* c */ T<U> = …` / `type /* c */ T<U> = { … }` 那一族（3 条）收掉——
+`<U>` 现在被包成 `TypeParameter`，`TypeAliasDeclaration` 的 `typeParameters` 那一格回来了。
+
+**根子**（[type-parameter.xl.md](typescript/tokens/type-parameter.xl.md)）：参数表那三条件里有一条
+`IsDeclarationHeaderBefore`——「`<T>` 前面那个名字的**再前面**是不是 `function` / `class` / `type`…」。
+它两步都走 `SkipPreviousWrapSymbol`（**只跳软换行**），而 `type` 与名字之间的注释在产物里是
+一条 `AreaAnnotation` ⇒ 第二步撞在注释上 ⇒ 答否 ⇒ `IsParameterList` 整条不成立 ⇒
+`<U>` 不成参数表（实测缺 `TypeParameter`、`typeParameters` 字段整个没有、名字那一格漂到注释上）。
+同一条线上的另外三处（`IsParameterList` 里「成员体的 `<T>` 后面紧跟 `(`」那一格、
+`IsExpressionParameterList` 的左右两格）一起换成 trivia 口径——**同一件事只留一种跳过口径**。
+
+**实测**：`npm run gates` **八道全过**（墙钟 31.2s）；`cases:tsast` 八项全 0、
+已知缺口 **24 → 21 条还开着、0 条已经收掉**（3 条的 `xl:known-gap` 行按规矩删掉，用例留着当守卫）。
+
+**数字**：`coverage` **4025 → 4028 / 4227**（blocked **64 → 61**、differ 138、bad 0、加权 94.9%）；
+语料 1465 条**没动**。
+
 ### 第 870 轮：类型谓词那一族六条收掉——`x is T` / `asserts this is A` 里夹注释、返回类型的谓词跨行（known-gap 30 → 24）
 
 **一句话**：上一轮普查登记的 30 条里，**类型谓词**那一族（6 条）先收：
@@ -4563,7 +4582,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **24 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870 轮收掉 6 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **21 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870 / 871 两轮共收掉 9 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1465** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -4571,7 +4590,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1452 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4025 / 4227**，加权 **94.9%**：token 1428/1452、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 64 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4028 / 4227**，加权 **94.9%**：token 1431/1452、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 61 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 

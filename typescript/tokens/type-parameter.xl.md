@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText, IsMappedKeyBracket } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText, IsMappedKeyBracket } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { GenericType } from "./generic-type.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -129,13 +129,17 @@ const parent = unit.Parent;
 if (parent === null) {
   return false;
 }
+// **两步都走 trivia 口径**（第 871 轮）：`type /* c */ X<T> = …` 里名字与 `type` 之间夹着
+// 注释（产物里是一条 `AreaAnnotation`），只跳软换行时第一步落在注释上 ⇒ 认不出「这是声明头」
+// ⇒ `<T>` 不被当成参数表（实测 `type /* c */ T<U> = …`：缺 `TypeParameter`、字段少
+// `typeParameters`、名字那一格漂到注释上）。
 const at = parent.Data.indexOf(unit);
-const nameIndex = SkipPreviousWrapSymbol(parent.Data, at);
+const nameIndex = SkipPreviousTrivia(parent.Data, at);
 const name = Get(parent.Data, nameIndex);
 if (!(name instanceof Identifier)) {
   return false;
 }
-const beforeIndex = SkipPreviousWrapSymbol(parent.Data, nameIndex);
+const beforeIndex = SkipPreviousTrivia(parent.Data, nameIndex);
 const before = Get(parent.Data, beforeIndex);
 if (before === null || !(before instanceof Identifier)) {
   return false;
@@ -180,7 +184,7 @@ if (parent !== null) {
   // 实参段后面绝不会紧跟形参表（`a: X<T>` 后面是 `;` / 换行 / `}`）。
   if (name === "ClassBody" || name === "InterfaceBody") {
     const at = parent.Data.indexOf(unit);
-    const next = Get(parent.Data, SkipNextWrapSymbol(parent.Data, at));
+    const next = Get(parent.Data, SkipNextTrivia(parent.Data, at));
     return next instanceof Bracket && next.startBracket === "(";
   }
   // 函数 / 函数类型 / 箭头函数 / 方法声明的**自己的**参数表：
@@ -207,7 +211,7 @@ if (parent !== null) {
   // 只有「后面紧跟一个 `(` 括号」这一条能认出它。`cases:align` 因此报过 1 处缺节点。
   if (parent !== null) {
     const at = parent.Data.indexOf(unit);
-    const next = Get(parent.Data, SkipNextWrapSymbol(parent.Data, at));
+    const next = Get(parent.Data, SkipNextTrivia(parent.Data, at));
     if (next instanceof Bracket && next.startBracket === "(") {
       return true;
     }
@@ -229,8 +233,8 @@ if (parent === null) {
   return false;
 }
 const at = parent.Data.indexOf(unit);
-const before = Get(parent.Data, SkipPreviousWrapSymbol(parent.Data, at));
-const after = Get(parent.Data, SkipNextWrapSymbol(parent.Data, at));
+const before = Get(parent.Data, SkipPreviousTrivia(parent.Data, at));
+const after = Get(parent.Data, SkipNextTrivia(parent.Data, at));
 if (!(after instanceof Bracket) || after.startBracket !== "(") {
   return false;
 }

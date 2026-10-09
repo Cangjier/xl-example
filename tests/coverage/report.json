@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.89,
+  "progressPercent": 94.92,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1452,
-      "pass": 1428,
-      "blocked": 24,
+      "pass": 1431,
+      "blocked": 21,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 98.35
+      "coverage": 98.55
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1452,
-    "knownGap": 24,
-    "knownGapStillOpen": 24,
-    "exactFiles": 1428,
-    "scoredWithoutGap": 1428,
-    "passedWithoutGap": 1428
+    "knownGap": 21,
+    "knownGapStillOpen": 21,
+    "exactFiles": 1431,
+    "scoredWithoutGap": 1431,
+    "passedWithoutGap": 1431
   },
   "blocked": [
     {
@@ -246,12 +246,6 @@
       "detail": "缺 3　多 1　`typeof /*c*/ import(\"m\")`：`typeof` 与 `import(...)` 之间的注释没跨过去 ⇒ `ImportType` 被收成 `TypeQuery`"
     },
     {
-      "id": "token/types/gap-r869-infer-extends-comment-1",
-      "category": "token",
-      "title": "第 869 轮普查量出的缺口（infer-extends-comment-1）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 1　漂 1　字段 1　`type /*c*/ T<U> = …`：`type` 与别名之间的注释让**类型参数表**整个没接上（缺 `TypeParameter`、字段少 `typeParameters`）"
-    },
-    {
       "id": "token/types/gap-r869-infer-extends-comment-5",
       "category": "token",
       "title": "第 869 轮普查量出的缺口（infer-extends-comment-5）：这一条钉的是上面那条根因的一个落点",
@@ -262,18 +256,6 @@
       "category": "token",
       "title": "第 869 轮普查量出的缺口（infer-extends-newline-7）：这一条钉的是上面那条根因的一个落点",
       "detail": "缺 8　`infer V extends string` 里 `extends` 与约束之间的注释 / 换行：`InferType` 的约束那一格没成形"
-    },
-    {
-      "id": "token/types/gap-r869-mapped-minus-comment-1",
-      "category": "token",
-      "title": "第 869 轮普查量出的缺口（mapped-minus-comment-1）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 1　漂 1　字段 1　`type /*c*/ T<U> = …`：`type` 与别名之间的注释让**类型参数表**整个没接上（缺 `TypeParameter`、字段少 `typeParameters`）"
-    },
-    {
-      "id": "token/types/gap-r869-mapped-modifiers-comment-1",
-      "category": "token",
-      "title": "第 869 轮普查量出的缺口（mapped-modifiers-comment-1）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 1　漂 1　字段 1　`type /*c*/ T<U> = …`：`type` 与别名之间的注释让**类型参数表**整个没接上（缺 `TypeParameter`、字段少 `typeParameters`）"
     },
     {
       "id": "token/types/gap-r869-optional-call-signature-comment-8",
@@ -653,7 +635,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25824/src/2059.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9544/src/2059.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -995,7 +977,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25824/src/3044.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9544/src/3044.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1019,7 +1001,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25824/src/3092.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9544/src/3092.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1175,7 +1157,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25824/src/3735.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9544/src/3735.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
