@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol, StartsWithTemplate } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, SkipNextTrivia, SkipPreviousTrivia, SkipPreviousWrapSymbol, StartsWithTemplate } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { CommonUtil } from "../../core/common-util.xl.md"
@@ -480,8 +480,13 @@ if (this.IsOperator(current) === false) {
 // 一行里串三个 `x.End!.Index` 读起来远不如三句直白（第 303 / 304 轮那一族
 // 「非空断言串在成员链上」已经在第 598 轮的右操作数护栏里收掉了——
 // 现在写成 `x.End!.Index > y.Start!.Index` 也是对的，所以这里留着的理由只剩可读性）。
+// **左操作数那一格走 trivia 口径**（第 872 轮）：判「上一格是不是我的操作数」时，
+// 夹一条注释与夹一个软换行**是同一件事**（`IsTriviaUnit` 那张名单就是「不该挡住相邻判断」的单元）。
+// 只跳软换行时 `1 /*c*/ << 2` 的「左操作数」是那条注释 ⇒ `IsOperand` 判否
+// ⇒ 整格根本不折（实测枚举成员初始值缺 `BinaryExpression` / 运算符 / 字面量 3 条）。
+// `Process` 那两处必须成对改（第 816 轮）：只改这里会让节点「判得下却搬不进来」。
 const opStart = current.SourceRange.Start;
-const leftUnit = Get(units, SkipPreviousWrapSymbol(units, index));
+const leftUnit = Get(units, SkipPreviousTrivia(units, index));
 if (leftUnit !== null && opStart !== null) {
   const leftEnd = leftUnit.SourceRange.End;
   if (leftEnd !== null && leftEnd.Index > opStart.Index) {
@@ -508,7 +513,7 @@ if (this.IsOperand(leftUnit) === false) {
 const rightAssociative =
   current instanceof SymbolToken && current.TempToString() === "**";
 if (rightAssociative) {
-  const nextIndex = SkipNextWrapSymbol(units, SkipNextWrapSymbol(units, index));
+  const nextIndex = SkipNextTrivia(units, SkipNextTrivia(units, index));
   const next = Get(units, nextIndex);
   if (next instanceof SymbolToken && next.Is("**")) {
     return false;
@@ -542,9 +547,9 @@ if (rightAssociative) {
 // **`PropertyAccess(模板, ., length)`**——标签在外面、模板与后缀在同一个 `PropertyAccess` 里
 //（投影 0c 那一段写着这个形状）。所以判据是「**这个单元以模板开头**」：
 // 它自己就是 `String`，或者它是一个 `PropertyAccess` 、**第一个可投影子单元是 `String`**。
-const rightOperandIndex = SkipNextWrapSymbol(units, index);
-const afterOperand = Get(units, SkipNextWrapSymbol(units, rightOperandIndex));
-const leftOperandIndex = SkipPreviousWrapSymbol(units, index);
+const rightOperandIndex = SkipNextTrivia(units, index);
+const afterOperand = Get(units, SkipNextTrivia(units, rightOperandIndex));
+const leftOperandIndex = SkipPreviousTrivia(units, index);
 if (StartsWithTemplate(afterOperand) && this.CanBeTag(Get(units, leftOperandIndex))) {
   return false;
 }
@@ -565,7 +570,7 @@ if (StartsWithTemplate(afterOperand) && this.CanBeTag(Get(units, leftOperandInde
 // 所以「右操作数 + `.` + 一个实义单元」这个相邻关系**只可能是**成员访问
 // ——与上面那条模板标签是同一条推理，也就不必在这里再抄一份
 // `property-access.xl.md` 的成员名判据。
-const afterMember = Get(units, SkipNextWrapSymbol(units, SkipNextWrapSymbol(units, rightOperandIndex)));
+const afterMember = Get(units, SkipNextTrivia(units, SkipNextTrivia(units, rightOperandIndex)));
 if (afterOperand instanceof SymbolToken && afterOperand.Is(".") && afterMember !== null) {
   return false;
 }
@@ -576,7 +581,9 @@ if (current instanceof SymbolToken && current.FromCompoundAssignment
   && this.ExtendsRightOperand(afterOperand)) {
   return false;
 }
-return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
+// **右操作数那一格也走 trivia 口径**（第 872 轮，与左操作数那一处同一条）：
+// `1 << /*c*/ 2` 的右操作数是那条注释 ⇒ `IsOperand` 判否 ⇒ 整格不折。
+return this.IsOperand(Get(units, SkipNextTrivia(units, index)));
 ```
 
 ## private method CanBeTag:(unit:Token | null)=>bool
@@ -940,8 +947,11 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("BinaryOperatorCloseRule.Process: current is null");
 }
-const beforeIndex = SkipPreviousWrapSymbol(units, index);
-const afterIndex = SkipNextWrapSymbol(units, index);
+// **两侧的操作数都按 trivia 口径取**（第 872 轮，与 `Previous` 那几处成对）：
+// 判据跨过什么，搬运就必须跨过什么（第 816 轮）——注释落在操作数与运算符之间时
+// 这里要拿到的是**操作数本身**，不是那条注释。
+const beforeIndex = SkipPreviousTrivia(units, index);
+const afterIndex = SkipNextTrivia(units, index);
 let before = Get(units, beforeIndex);
 const after = Get(units, afterIndex);
 if (before === null || after === null) {
@@ -966,17 +976,17 @@ let startIndex = beforeIndex;
 // 把基名挪进 `BinaryOperator` 只是把那个形状换成了另一个，白改。
 // **多 NCO 那条链才是没被认过的**（`o?.b?.c ?? 0`），所以判据收紧到它：
 // 「前面那一格是 NCO，而 NCO 前面**还是** NCO」——单条 `?.` 一个字节都不动。
-const beforeBefore = Get(units, SkipPreviousWrapSymbol(units, beforeIndex));
+const beforeBefore = Get(units, SkipPreviousTrivia(units, beforeIndex));
 if (before instanceof NullConditionalOperator && beforeBefore instanceof NullConditionalOperator) {
   let cursor = beforeIndex;
   let guard = 0;
   while (guard < 64) {
     guard = guard + 1;
-    const previous = Get(units, SkipPreviousWrapSymbol(units, cursor));
+    const previous = Get(units, SkipPreviousTrivia(units, cursor));
     if (previous === null) {
       break;
     }
-    cursor = SkipPreviousWrapSymbol(units, cursor);
+    cursor = SkipPreviousTrivia(units, cursor);
     if (!(previous instanceof NullConditionalOperator)) {
       break;
     }
@@ -1008,7 +1018,7 @@ while (asGuard < 64) {
     break;
   }
   asGuard = asGuard + 1;
-  asCursor = SkipPreviousWrapSymbol(units, asCursor);
+  asCursor = SkipPreviousTrivia(units, asCursor);
 }
 if (asCursor !== startIndex) {
   startIndex = asCursor;
@@ -1029,17 +1039,17 @@ if (asCursor !== startIndex) {
 // 只有**一格** `PropertyAccess` 的形状（`o.f().v + 1`）本来就有投影分支认它，
 // 往前多收只是把那个形状换成另一个、白改。判据是「前一个（只跳软换行的）实义单元
 // 也是 `PropertyAccess`」——也就是「我这一格链的前面还有一截链」。
-const beforeChain = Get(units, SkipPreviousWrapSymbol(units, startIndex));
+const beforeChain = Get(units, SkipPreviousTrivia(units, startIndex));
 let chainCursor = startIndex;
 if (before instanceof PropertyAccess && beforeChain instanceof PropertyAccess) {
   let chainGuard = 0;
   while (chainGuard < 64) {
     chainGuard = chainGuard + 1;
-    const previous = Get(units, SkipPreviousWrapSymbol(units, chainCursor));
+    const previous = Get(units, SkipPreviousTrivia(units, chainCursor));
     if (!(previous instanceof PropertyAccess)) {
       break;
     }
-    chainCursor = SkipPreviousWrapSymbol(units, chainCursor);
+    chainCursor = SkipPreviousTrivia(units, chainCursor);
   }
 }
 if (chainCursor !== startIndex) {
