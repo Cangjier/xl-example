@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 93.51,
+  "progressPercent": 93.57,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1394,
-      "pass": 1246,
-      "blocked": 148,
+      "pass": 1252,
+      "blocked": 142,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 89.38
+      "coverage": 89.81
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1394,
-    "knownGap": 148,
-    "knownGapStillOpen": 148,
-    "exactFiles": 1246,
-    "scoredWithoutGap": 1246,
-    "passedWithoutGap": 1246
+    "knownGap": 142,
+    "knownGapStillOpen": 142,
+    "exactFiles": 1252,
+    "scoredWithoutGap": 1252,
+    "passedWithoutGap": 1252
   },
   "blocked": [
     {
@@ -504,12 +504,6 @@
       "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/async）：MISS Identifier TS[0,5) «async»"
     },
     {
-      "id": "token/statements/gap-sweep-linecomment-async-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/async 落点（657 审计语料）",
-      "detail": "缺 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/async）：MISS FunctionDeclaration TS[0,37) «async function //c f() { await g(); }»"
-    },
-    {
       "id": "token/statements/gap-sweep-linecomment-call-01",
       "category": "token",
       "title": "SWEEP-linecomment/call 落点（657 审计语料）",
@@ -564,22 +558,10 @@
       "detail": "缺 6　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/dowhile）：MISS DoStatement TS[0,26) «do { a(); } //c while (b);»"
     },
     {
-      "id": "token/statements/gap-sweep-linecomment-fn-01",
-      "category": "token",
-      "title": "SWEEP-linecomment/fn 落点（657 审计语料）",
-      "detail": "缺 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/fn）：MISS FunctionDeclaration TS[0,34) «function //c f(a, b) { return a; }»"
-    },
-    {
       "id": "token/statements/gap-sweep-linecomment-fn-02",
       "category": "token",
       "title": "SWEEP-linecomment/fn 落点（657 审计语料）",
       "detail": "缺 7　多 6　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/fn）：DRIFT Parameter TS[15,16) 产物[15,19) «a»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-generic-01",
-      "category": "token",
-      "title": "SWEEP-linecomment/generic 落点（657 审计语料）",
-      "detail": "缺 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/generic）：MISS FunctionDeclaration TS[0,50) «function //c f<T extends U>(x: T): T { return x; }»"
     },
     {
       "id": "token/statements/gap-sweep-linecomment-generic-02",
@@ -744,12 +726,6 @@
       "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/async）：MISS Identifier TS[0,5) «async»"
     },
     {
-      "id": "token/statements/gap-sweep-newline-async-02",
-      "category": "token",
-      "title": "SWEEP-newline/async 落点（657 审计语料）",
-      "detail": "缺 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-newline/async）：MISS FunctionDeclaration TS[0,34) «async function f() { await g(); }»"
-    },
-    {
       "id": "token/statements/gap-sweep-newline-cond-02",
       "category": "token",
       "title": "SWEEP-newline/cond 落点（657 审计语料）",
@@ -786,22 +762,10 @@
       "detail": "缺 12　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：MISS VariableStatement TS[0,25) «const { a, b: [c] } = o;»"
     },
     {
-      "id": "token/statements/gap-sweep-newline-fn-01",
-      "category": "token",
-      "title": "SWEEP-newline/fn 落点（657 审计语料）",
-      "detail": "缺 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/fn）：MISS FunctionDeclaration TS[0,31) «function f(a, b) { return a; }»"
-    },
-    {
       "id": "token/statements/gap-sweep-newline-fn-02",
       "category": "token",
       "title": "SWEEP-newline/fn 落点（657 审计语料）",
       "detail": "缺 7　多 6　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/fn）：DRIFT Parameter TS[12,13) 产物[12,16) «a»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-generic-01",
-      "category": "token",
-      "title": "SWEEP-newline/generic 落点（657 审计语料）",
-      "detail": "缺 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/generic）：MISS FunctionDeclaration TS[0,47) «function f<T extends U>(x: T): T { return x; }»"
     },
     {
       "id": "token/statements/gap-sweep-newline-generic-02",
@@ -1403,7 +1367,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9672/src/2001.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25780/src/2001.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1745,7 +1709,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9672/src/2984.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25780/src/2984.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1769,7 +1733,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9672/src/3032.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25780/src/3032.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1925,7 +1889,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9672/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25780/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

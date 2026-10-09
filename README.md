@@ -306,6 +306,33 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 822 轮：**声明头的词族都「必须跟名字」**——`function` / `class` / `interface` / `enum` 换行那一族收掉 6 条
+
+**一句话**：第 820 轮往 `Statement.ExpectsOperand` 里放了 `let` / `const` / `var`
+（「这三个词后面必须跟名字」），这一轮问的是**同一个问题的其余成员**——
+`function` / `class` / `interface` / `enum` 同样**语法上不可能单独成句**，
+所以它们出现在换行前时那一行一定没写完。四个词一起进词表，
+`cases:tsast` 的账从 **148 → 142**（`coverage` **3840 → 3846** 通过，`token` 那一类 blocked 148 → 142）。
+
+- **根：`ExpectsOperand` 的词表只列了声明头那三个词**（`statement.xl.md`）。
+  `function` 换行 `f(a, b) { return a; }` 的换行那一刻，`StatementBranch` 问的
+  `LineCannotEnd` 落到 `ExpectsOperand(function)` ⇒ 判「左边写完了」⇒ **收壳**：
+  `function` 自己成一条、后面整条声明另起一条（实测 `gap-sweep-newline-fn-01`：
+  缺整条 `FunctionDeclaration`，多出 `Keyword` / `Statement` 各一）。
+  这与第 820 轮那一族是**同一个根**，只是词表少了一档——第 820 轮只按「`const` 换行那一族」
+  量到哪儿改到哪儿。
+- **收掉的 6 条**：`gap-sweep-{newline,linecomment}-fn-01`、`-generic-01`、`-async-02`
+  （`async` 那两条的缺口落在它后面那个 `function` 上，词表补上就一起成形了）。
+  文件头的 `xl:known-gap` 逐条删掉，用例自带的 `xl:expect` 按新形状逐条重算
+  （`Statement` 从 3 降到 2、`Function` / `FunctionBody` / `Parameter` 那一族补上）——
+  **形状变好了，期望跟着形状走**（`cases:tags` 那一门量的正是这两者一不一致）。
+- **可复用的判据**：写 `ExpectsOperand` 这类「这个词后面还得跟东西」的判据时，
+  **问的是「它能不能结束一条语句」，不是「它是不是保留字」**——`as` / `default` / `new`
+  在别的位置上是名字，`readonly` 在成员位上是修饰词，把它们放进去会改坏既有排版。
+  这条写进了 [typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md) 的「解析层几条硬规矩」。
+- **留下的一族**：`gap-sweep-{newline,linecomment}-optchain-*` 与 `-switch-*` 仍在台账上
+  （`a//c ?.b?.[c]?.(d)` 那一族：注释夹在点号与属性名之间时区间往后多吃一段），本轮不动它。
+
 ### 第 821 轮：**两处试过又退回来的改法**（读数一条未动，`cases:tsast` 仍 148）
 
 **一句话**：这一轮量了两处——**「修饰词单独起一行」**（`public static` 换行 `readonly a = 1;`）
@@ -3192,16 +3219,16 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **174 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **142 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1427** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1427 条**（带期望的逐条核过，共 **4835** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
+| `cases:check` | **1407** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
+| `cases:tags` | **1407 条**（1390 条带期望，共 **4740** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **229 份**（用例 1394 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7810 / 8192**，加权 **95.6%**：token 1196/1414、exec 2171/2216、runtime 1045/1081、stdlib 3156/3235、e2e 242/246。差的那些是**真缺口**（`blocked` 263 / `differ` 119），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
+| `coverage` | **五类 3846 / 4167**，加权 **93.6%**：token 1252/1394、exec 748/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 183 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~30s**） |
 ### 口径与已知缺口
 
 **口径外**（不进分母，也不当缺口）只剩两种：**JSX / TSX**（独立于 TypeScript 的语法扩展）
@@ -3231,7 +3258,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **174** 条）：
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **142** 条）：
   主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
   （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
   `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），

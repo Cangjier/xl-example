@@ -100,6 +100,14 @@
   是**写完了**的一条语句——两者词形一样，分开只看**前一个实义单元**是不是 `as`
   （所以 `ExpectsOperand` 多收一个 `before` 参数）。少了后半条，
   `stmt-asi-as-const-then-statement` 当场从绿变红。
+- **声明头的词族都「必须跟名字」，不止那三个**（第 822 轮）：`function` 换行 `f() { … }`
+  与 `const` 换行 `a = 1;` 是**同一件事**（TypeScript 的换行只是排版），
+  所以 `function` / `class` / `interface` / `enum` 也在 `Statement.ExpectsOperand` 的词表里。
+  少了它们时症状与第 820 轮那一族一字不差（`StatementBranch` 的 `LineCannotEnd` 在换行那一刻
+  收壳 ⇒ 整条声明解体），实测收掉 `gap-sweep-{newline,linecomment}-{fn,generic,async}-*` 六条。
+  **判据是「这个词能不能结束一条语句」**，不是「它是不是保留字」：`as` / `default` / `new`
+  这些词在别的位置上是名字，只有 `function` / `class` / `interface` / `enum` 与
+  `let` / `const` / `var` 这一档**语法上不可能单独成句**。
 - **换行后面只有一条注释或一个 `;` 的不算成员边界**（第 820 轮，`MemberEnd` /
   `ClassMember.Process`）：`a: number` 换行 `;` 里那个 `;` 属于**这条**成员，
   而不是下一条成员的开始；`a = 1` 换行 `//c` 换行 `;` 两半连着看才判得对。

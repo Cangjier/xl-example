@@ -918,6 +918,12 @@ const word = Statement.WordOf(item);
 if ((word === "let" || word === "const" || word === "var") && Statement.WordOf(before) !== "as") {
   return true;
 }
+// **声明头那几个词也在表里**（第 822 轮）：`function` 换行 `f() { … }` 是**一条**声明
+// （TypeScript 的换行在 `function` 与名字之间只是排版），`class` / `interface` 同理。
+// 少了它们时 `StatementBranch` 的 `LineCannotEnd` 在换行那一刻判「这一行写完了」⇒ 收壳。
+if (word === "function" || word === "class" || word === "interface" || word === "enum") {
+  return true;
+}
 return (
   word === "return" ||
   word === "throw" ||
