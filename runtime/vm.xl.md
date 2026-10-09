@@ -1370,7 +1370,8 @@ const count = this.CallArgCount(frame, argBase, argc, argArray);
 // `IsStrict`（`lowering.xl.md` 的 `HasUseStrictDirective`）；**文件级那一档仍然没有**
 // （`.ts` 本仓按松散跑，第 337 轮选定）。引擎这一侧一个字都不用改——它认的一直是这一位。
 if ((thisValue.IsUndefined() || thisValue.Tag === ValueTag.Null) && callee.Tag === ValueTag.Closure
-  && !this.Table.Get(callee.Ref).AsClosure().IsStrict) {
+  && !this.Table.Get(callee.Ref).AsClosure().IsStrict
+  && !this.Table.Get(callee.Ref).AsClosure().IsArrow) {
   const globalProtos = this.Protos;
   if (globalProtos !== null && globalProtos.Global > 0) {
     thisValue = Value.FromObject(globalProtos.Global);
@@ -3024,7 +3025,27 @@ if (id === RtOp.Instanceof) {
     this.PrototypeKey, slots[base], instanceRight));
 }
 if (id === RtOp.DelProp) {
-  RequireArgc(argc, 2, "del_prop");
+  // **第三格是「这段代码严格吗」**（第 892 轮）——`delete` 是**唯一**一个
+  // 「同一个表达式在两种模式下答案不同」的算子：删不掉时松散代码给 `false`、
+  // 严格代码**抛 `TypeError`**（规范 §13.5.1.2 的 `DeletePropertyOrThrow`）。
+  // **它由降级层按编译期已知的严格性写死**（`lowering.xl.md` 那一支）——
+  // 与 `IsStrict` 那一格同一个来源：函数体自己的指令序言、类体、以及沿词法继承。
+  // **实参个数从 2 变 3**：`RequireArgc` 是「严格等于」，两边**必须同时改**
+  // （降级层 `RtCallValues(RtOp.DelProp, receiver, key, strict)`）。
+  RequireArgc(argc, 3, "del_prop");
+  const strictDelete = slots[base + 2].AsBool();
+  // **严格那一档的收口**：`[[Delete]]` 答假时抛 `TypeError`（松散那一档原样交回假）。
+  // **在调用点就地写、不收成一个方法**：`this.Guard` 要的是「当场抛」，
+  // 而下面**两条返回路**（原始值那一支、对象那一支）**都要过它**——
+  // 收成方法就要多传一个 `this`、多一层（`props.xl.md` 的 `DeleteProperty` 是纯函数，
+  // 它连 `room` 都不需要，**不许**为了这一句把它改成方法）。
+  const deleteOrThrow = (deleted: boolean): Value => {
+    if (deleted) return Value.FromBool(true);
+    if (!strictDelete) return Value.FromBool(false);
+    return this.Guard(() => {
+      throw new TypeError("cannot delete property (it is not configurable)");
+    }, ErrorKindType);
+  };
   // **原始值接收者给 `true`**（第 748 轮，**普查当场红的**）：JS 里 `delete` 对一个
   // 原始值**从来不动手**——`ToObject` 造出来的那个包装对象当场被丢掉，而规范那一步
   // （`DeletePropertyOrThrow`）只看「这一步成功了吗」，松松散散的模式下答案恒为 **`true`**。
@@ -3060,15 +3081,20 @@ if (id === RtOp.DelProp) {
     // 键先归一成 `ToString`（与符号那一档的 `ToPropertyKey` 同一步，只是这里不需要保留身份），
     // 再问「是不是 `"length"`」（共用 `IsLengthKey`，那一格的唯一答案）或
     // 「下标且落在长度以内」（按 `TextUnitsOf` 的码元个数判——**不另写一份长度**）。
+    let primitiveDeleted = true;
     if (slots[base].Tag === ValueTag.String) {
       const stringKey = RtToString(this.Room(), this.Table, slots[base + 1]);
-      if (IsLengthKey(this.Table, stringKey)) return Value.FromBool(false);
+      if (IsLengthKey(this.Table, stringKey)) primitiveDeleted = false;
       const stringIndexAt = ArrayIndexAt(this.Table, stringKey);
       if (stringIndexAt >= 0 && stringIndexAt < TextUnitsOf(this.Table, slots[base]).length) {
-        return Value.FromBool(false);
+        primitiveDeleted = false;
       }
     }
-    return Value.FromBool(true);
+    // **严格这一档要抛**（第 892 轮）：`"use strict"` 下 `delete "abc"[0]` 在 Node 里抛
+    // `TypeError`（规范 §13.5.1.2：结果为假时严格代码抛）——原来这一支**不分模式**、
+    // 一律给 `false`（判据 `runtime/round783/002` 第 5 档）。
+    // **松散那一档一个字不动**：同上四档照旧静默给 `false`。
+    return deleteOrThrow(primitiveDeleted);
   }
   // **键先过 `ToPropertyKey`**（第 706 轮，**普查当场红的**）——与上面 `in` 那一格
   // **一字不差**（第 123 轮就写着「JS 的 `in` 也走 ToPropertyKey」）：
@@ -3087,7 +3113,7 @@ if (id === RtOp.DelProp) {
   const delKey = rawDelKey.Tag === ValueTag.Symbol
     ? rawDelKey
     : RtToString(this.Room(), this.Table, rawDelKey);
-  return Value.FromBool(DeleteProperty(this.Table, slots[base].Ref, delKey));
+  return deleteOrThrow(DeleteProperty(this.Table, slots[base].Ref, delKey));
 }
 if (id === RtOp.GetIndex) {
   RequireArgc(argc, 2, "get_index");
@@ -3676,7 +3702,9 @@ const closure = this.Table.Get(callee.Ref).AsClosure();
 // 并在两处都留一行注释指向对方。
 if (thisValue.IsUndefined() || thisValue.Tag === ValueTag.Null) {
   // **严格闭包不兜**（第 620 轮，与 `DoCallValue` 那一支一字不差）。
-  if (!closure.IsStrict) {
+  // **箭头也不兜**（第 892 轮，同样与那一支一字不差）：它没有自己的 `this`，
+  // 这一格到不了它手里——见 `HeapClosure.IsArrow` 那一格。
+  if (!closure.IsStrict && !closure.IsArrow) {
     const globalProtos = this.Protos;
     if (globalProtos !== null && globalProtos.Global > 0) {
       thisValue = Value.FromObject(globalProtos.Global);
@@ -5493,20 +5521,25 @@ try {
 没接上时不说谎，只是不特殊）。
 
 ```ts
-// **第四格的最低五位是「这是一个类」「这是严格代码」「这是松散普通函数」
-// 「这是生成器」「这是 async」**（第 613 / 620 / 709 / **730** 轮，见上面那一段）。
+// **第四格的最低六位是「这是一个类」「这是严格代码」「这是松散普通函数」
+// 「这是生成器」「这是 async」「这是箭头」**（第 613 / 620 / 709 / **730** / **892** 轮，
+// 见上面那一段）。
 // **第三位（值 4）是第 709 轮添的**：它决定这个闭包带不带 `arguments` / `caller`
 // 那两格「受限属性」（`HeapClosure.HasRestricted`）。
 // **第四、五位（值 8 / 16）是第 730 轮添的**：`HeapClosure.IsGenerator` / `IsAsync`，
 // 它们决定**这个函数值的原型是哪一格**（见下面挑原型那一段）——位宽从三位加到五位，
 // 于是形参个数那一半的**步长从 8 变成 32**（降级层 `EmitClosure` 那一处**同步**改，
 // 两边是同一份规约的两半）。
+// **第六位（值 32）是第 892 轮添的**：`HeapClosure.IsArrow`——它**不改原型**，
+// 只在「当普通函数调时 `this` 给谁」那一问上把箭头挡掉（箭头没有自己的 `this`，
+// 见 `HeapClosure.IsArrow` 那一格）。**步长 32 → 64**，降级层同步。
 const isClass = (arity & 1) !== 0;
 const isStrict = (arity & 2) !== 0;
 const isRestricted = (arity & 4) !== 0;
 const isGenerator = (arity & 8) !== 0;
 const isAsync = (arity & 16) !== 0;
-const paramCount = (arity - (arity & 31)) / 32;
+const isArrow = (arity & 32) !== 0;
+const paramCount = (arity - (arity & 63)) / 64;
 const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code,
   paramCount, 0));
 // **`Guard` 可能什么都没造出来**（room 不够时它把状态置成 `OutOfMemory` 并给 `undefined`）——
@@ -5535,6 +5568,11 @@ if (isGenerator) {
 if (isAsync) {
   // **`async` 那一位**（第 730 轮）：与生成器那一位**挨着**，两处一起读。
   this.Table.Get(created.Ref).AsClosure().IsAsync = true;
+}
+if (isArrow) {
+  // **箭头那一位**（第 892 轮）：它**不改原型**——只把「没有接收者时 `this` 给谁」
+  // 那一问对箭头关掉（`DoCallValue` / `CallNative` 两处都读它）。
+  this.Table.Get(created.Ref).AsClosure().IsArrow = true;
 }
 const protos = this.Protos;
 if (protos !== null && protos.Function > 0) {

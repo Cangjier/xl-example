@@ -524,6 +524,30 @@ return total;
 所以「摘下来的方法」`const f = d.m; f()` 里那句 `this.v` **该抛**
 （松散那一档给全局对象，第 337 轮选定、`c304` / `c337` 两条钉着它）。
 
+**第 892 轮起多了一个读处**：`delete` 那一支也读它（严格模式下删不可配置的属性要抛
+`TypeError`，见 `vm.xl.md` 的 `del_prop`）。**但「当普通函数调时的 `this`」那一档要跟
+`IsArrow` 一起读**——理由见那一格：箭头**没有自己的 `this`**，就算它是严格代码，
+那一格也不是它的。**只读 `IsStrict` 会把箭头读错**。
+
+## field IsArrow:bool = false
+
+**这个闭包是不是一个箭头函数**（第 892 轮）——与 `IsClass` / `IsStrict` / `IsGenerator`
+**同一处来、同一条纪律**（只有造它的那一方知道：降级层手里正拿着那个节点）。
+
+**为什么必须住在闭包上**：`IsStrict` 从第 892 轮起**不止管 `this`**了（`delete` 也读它），
+而箭头体里的 `"use strict"` 指令序言**同样是严格代码**（`(() => { "use strict"; … })` 里
+`delete` 不可配置的属性在 JS 里抛 `TypeError`）⇒ 那一格**必须置真**。
+**可是「没有接收者时 `this` 给谁」那一问不认它**：箭头的 `this` 是**词法**的
+（从捕获的环境格读），从来没有「自己的 `this`」可兜——照 `IsStrict` 一路兜下去的话，
+`function outer() { const f = () => { "use strict"; return typeof this; }; return f(); }`
+会从 `"object"` 变成 `"undefined"`（**那是错的**：外层 `outer` 是松散的，
+JS 给 `"object"`，`exec/functions/120-strict-mode-and-module-this` 第 6 档钉着它）。
+所以调用点那两处**要多问这一位**（`vm.xl.md` 的 `DoCallValue` / `CallNative`）。
+
+**它借的是 `new_closure` 第四格的下一位**（值 32）：与 `IsGenerator` / `IsAsync` 那两位
+**同一个形状**——位宽从五位加到六位、形参个数那一半的步长从 32 变成 **64**
+（降级层 `EmitClosure` **同步**改，两边是同一份规约的两半）。见 `vm.xl.md` 的 `MakeClosure`。
+
 ## field HasRestricted:bool = false
 
 **这个闭包带不带那两格「受限属性」`arguments` / `caller`**（第 709 轮）。
@@ -580,6 +604,7 @@ this.Name = name;
 this.Source = source;
 this.IsClass = false;
 this.IsStrict = false;
+this.IsArrow = false;
 this.HasRestricted = false;
 this.IsGenerator = false;
 this.IsAsync = false;

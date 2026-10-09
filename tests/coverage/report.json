@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.25,
+  "progressPercent": 95.31,
   "categories": [
     {
       "category": "token",
@@ -101,11 +101,11 @@
       "category": "runtime",
       "weight": 0.25,
       "total": 776,
-      "pass": 726,
+      "pass": 728,
       "blocked": 6,
-      "differ": 44,
+      "differ": 42,
       "nodefail": 0,
-      "coverage": 93.56
+      "coverage": 93.81
     },
     {
       "category": "stdlib",
@@ -800,18 +800,6 @@
       "detail": "stdout 不同：第 1 行：node «01 arrow literal = throw:TypeError» vs tsrun «01 arrow literal = ok:object»"
     },
     {
-      "id": "runtime/round783/002-strict-delete-nonconfigurable-differ",
-      "category": "runtime",
-      "title": "严格模式下的 `delete`：不可配置那一格要抛 `TypeError`",
-      "detail": "stdout 不同：第 1 行：node «01 strict non-configurable prop = throw:TypeError» vs tsrun «01 strict non-configurable prop = ok:false»"
-    },
-    {
-      "id": "runtime/round783/003-function-prototype-descriptor-differ",
-      "category": "runtime",
-      "title": "普通函数 `prototype` 那一格的描述符：`configurable` 该是假",
-      "detail": "stdout 不同：第 1 行：node «01 plain configurable = false» vs tsrun «01 plain configurable = true»"
-    },
-    {
       "id": "runtime/round783/004-forin-nonenum-shadow-differ",
       "category": "runtime",
       "title": "`for..in`：**自有的不可枚举属性要挡住**原型上同名的那一格",
@@ -1186,6 +1174,11 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "runtime/round783/003-function-prototype-descriptor-differ",
+      "category": "runtime"
+    }
+  ],
   "regressions": []
 }

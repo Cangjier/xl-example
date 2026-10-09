@@ -307,6 +307,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 892 轮：严格模式下的 `delete`——**严格性在编译期就写死成一个实参**（台账 2 条转绿，`differ 135 → 133`）
+
+**一句话**：第 783 轮量出来的那一格（`"use strict"` 下删一个**不可配置**的属性该抛
+`TypeError`，本仓一声不响地删掉）是**四个出口同一个根**——`DeleteProperty`
+（`props.xl.md`）**自己就答了真**，严格位根本没参与判定。这一轮把严格性**从降级层带进引擎**：
+它本来就是**编译期已知**的（类体 / 函数体自己的指令序言 / 沿词法继承都记在 `InStrict` 里），
+所以 `del_prop` 的实参从 2 变 3，第三格就是「这段代码严格吗」。
+
+- **根 ①：`delete` 是唯一一个「两种模式下答案不同」的算子**。规范里两种模式走的是
+  同一步 `[[Delete]]`，差别只在**调用方**（`DeletePropertyOrThrow` 答假时严格代码抛）。
+  所以引擎那一支收成**一条** `deleteOrThrow`，原始值那一支与对象那一支**都过它**——
+  两处各写一遍就是两处会漂的答案（第 307 / 312 / 320 轮各踩过一次）。
+- **根 ②：`IsStrict` 从这一轮起多了一个读处**，于是「箭头体里的指令序言」必须置真
+  （`(() => { "use strict"; delete o.a })` 里那句 `delete` 在 JS 里抛）。
+  第 701 轮**故意**没给箭头这一档（标成严格会连「没有接收者时 `this` 给谁」一起改掉），
+  所以这一轮把两件事**拆开**：`IsStrict` 照置（`delete` 读它），
+  而 `this` 那一问在**调用点**多问一位 `HeapClosure.IsArrow`（新增字段，
+  借 `new_closure` 第四格的第六位、**步长 32 → 64**，降级层同步）。
+  **不这么拆的话**：`exec/functions/120-strict-mode-and-module-this` 第 6 档会从
+  `"object"` 掉成 `"undefined"`（实测：第 701 轮就是被这一条挡住的）。
+- **根 ③：函数的 `prototype` 那一格抄错了一位**（**这一轮顺手量出来的**）。
+  JS 从 ES2015 起是 `{ writable: true, enumerable: false, configurable: false }`
+  （`MakeConstructor` 的第二步），而本仓走的是 `SetHiddenProperty` 的缺省口径
+  （可写 + **可配置**）⇒ 严格模式下 `delete f.prototype` 给真、
+  `typeof f.prototype` 从 `"object"` 变 `"undefined"`。判据第 2 / 22 档量的正是它。
+- **收掉 2 条**：`runtime/round783/002-strict-delete-nonconfigurable-differ`
+  （台账撤掉、留作守卫：五个严格档该抛的抛、七个松散档照旧静默）与
+  `runtime/round760/004-bound-function-prototype-differ` 的**第 1 / 2 档**
+  （`typeof f.bind(null).prototype` 与 `hasOwnProperty("prototype")` 现在都对；
+  那一族剩下的两档——`bind` 出来的函数**不该有**自有 `prototype`——要动
+  `CreateInstance`，仍记在台账里）。
+- **实测** `coverage 4074 / 4248 → 4076 / 4248`（`differ 135 → 133`、`blocked 39`、`bad 0`、
+  `regressions 0`）；九道门全绿（`cases:tsast` 16/16、`cases:astjson` 六项全 0）。
+- **可复用的判据**：「同一个表达式在两种模式下答案不同」的东西**不止 `this` 一个**。
+  写「严格性只影响一件事」这种句子时，先问一句：**还有谁在规范里读 [[ThisMode]] 这一位**
+  ——`delete` 是第二个，而它的**答案在编译期就定得下来**（因为它是语法层面的模式，
+  不是运行期的值）⇒ 该带进引擎的是一个**实参**，不是一次运行期判断。
+
 ### 第 891 轮：绑定函数那一族——**「记账号」不是属性**（台账 3 条转绿，`differ 138 → 135`）
 
 **一句话**：AST 那两把尺子全绿之后，红账只剩 `coverage` 的台账（`blocked` / `differ`）。

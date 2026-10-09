@@ -1,7 +1,17 @@
 // xl:title 严格模式下的 `delete`：不可配置那一格要抛 `TypeError`
 // xl:round 783
 // xl:judge stdout
-// xl:want differ
+// xl:end
+// **第 892 轮收掉**（台账撤掉、留作守卫）：严格性是**编译期已知**的，降级层把它写死成
+// `del_prop` 的第三个实参（`InStrict`：类体 / 函数体自己的指令序言 / 沿词法继承），
+// 引擎那边「删不掉且严格 ⇒ 抛 `TypeError`」收在一条 `deleteOrThrow` 里
+//（原始值那一支与对象那一支都过它）。
+// **同一个根的另一半是「箭头的指令序言也算严格代码」**：`IsStrict` 从这一轮起多了一个读处
+//（`delete`），所以 `(() => { "use strict"; … })` 那一格必须置真——而「没有接收者时
+// `this` 给谁」那一问**不认它**（借 `HeapClosure.IsArrow` 在调用点挡掉，否则
+// `exec/functions/120-strict-mode-and-module-this` 第 6 档会从 `"object"` 掉成 `"undefined"`）。
+// 下面那一段是**收之前记的账**（一字未改），留作「这一条在测什么」的说明。
+//
 // xl:why 第 783 轮量到的：`"use strict"` 下 `delete` 一个**不可配置**的属性在 JS 里抛
 // xl:why `TypeError`（规范 §13.5.1.2：`delete` 的结果是假时，严格代码抛），
 // xl:why 本仓**一声不响地真删掉**——四个出口同一处根：

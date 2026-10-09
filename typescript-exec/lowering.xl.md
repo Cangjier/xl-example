@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { Value } from "../runtime/value.xl.md"
+import { PropertyFlagWritable } from "../runtime/heap.xl.md"
 import { Program, Instruction, Op, RtOp, Constant, FunctionInfo, Handler } from "../runtime/ir.xl.md"
 import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
@@ -1473,8 +1474,16 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成，不会把同一层�
 **这一格里唯一的「严格源」是类体**（`LowerClass` 进门设、出门还原）——本仓没有
 `"use strict"` 指令那一档，`.ts` 按 CJS 跑是松散的（第 337 轮选定，`c304` / `c337` 两条钉着它）。
 
-**它只影响一件事**：函数被当普通函数调（没有接收者）时 `this` 是 `undefined` 还是全局对象
-（引擎那一支在 `DoCallValue` / `CallNative`）——降级期把它记进闭包（`IsStrict` 那一格）。
+**第 701 轮起还有第二个来源**：**函数体自己的指令序言**（`HasUseStrictDirective`）——
+`LowerFunctionBody` 进门时把它并进来（于是体内嵌套的函数 / 类 / 块都跟着严格）。
+**第 892 轮起箭头也算**（`(() => { "use strict"; … })` 里 `delete` 要按严格抛）——
+代价是「没有接收者时 `this` 给谁」那一问会在调用点多问一次 `IsArrow`，
+见 `HeapClosure.IsArrow` 那一格。
+
+**它影响两件事**：函数被当普通函数调（没有接收者）时 `this` 是 `undefined` 还是全局对象
+（引擎那一支在 `DoCallValue` / `CallNative`——**箭头除外**，那两处用 `IsArrow` 挡掉），
+以及 `delete` 删不掉时**抛不抛**（第 892 轮：降级层把它写死成一个实参，
+`vm.xl.md` 的 `del_prop`）。
 
 **为什么它与 `InSuperName` 必须一起进出**：两个字段描述的是**同一件事的两半**
 （「有没有父类」 与「从哪一半找」）——只恢复一个的话，
@@ -2224,6 +2233,17 @@ this.InArrow = item.IsArrow;
 // **严格性只增不减**（第 620 轮）：定义在严格代码里的函数，体也是严格的；
 // 反过来不成立（松散代码里的普通函数照旧松散——`item.IsStrict` 是「定义它的那段」）。
 this.InStrict = this.InStrict || item.IsStrict;
+// **体自己的指令序言在这里再问一次**（第 892 轮）——**这是箭头的唯一一条路**。
+// 第 701 轮把「函数体开头的 `"use strict"`」记进了 `item.IsStrict`，但那一处
+// **对箭头是关着的**（理由见 `LowerFunctionValue` 那一段：标成严格会连
+// 「没有接收者时 `this` 给谁」一起改掉，而箭头根本没有自己的 `this`）。
+// 第 892 轮起 `IsStrict` **多了一个读处**：`delete` 要按它决定抛不抛
+// ⇒ 那一格对箭头**必须置真**（`(() => { "use strict"; delete o.a })` 在 JS 里抛
+// `TypeError`，而 `o.a` 是不可配置的）——「`this` 那一问不认箭头」改在**调用点**
+// 用 `IsArrow` 挡（`vm.xl.md` 的 `DoCallValue` / `CallNative`）。
+// **它排在 `item.IsStrict` 之后**：`InStrict` 是「只增不减」的那一格，
+// 两条来源在这里合流（与 `LowerFunctionValue` 里那一句**同一个答案**）。
+this.InStrict = this.InStrict || this.HasUseStrictDirective(body);
 // **解构形参里的名字也要进「这一层声明了什么」**（第 134 轮）：`CollectDeclaredNames`
 // 扫的是**函数体**，而模式里的名字**只出现在形参表上**——漏了它们，
 // 「本层变量」会被当成「未知名字」（症状与 `scope.xl.md` 那条注释写的一字不差），
@@ -2435,11 +2455,15 @@ const nameConst = item.Name === ""
 // **位 8 / 16**（第 730 轮把「生成器」「`async`」两位也拼了进来，于是**步长 8 → 32**）：
 // 它们决定 `MakeClosure` 给这个闭包挑哪个原型——`[object GeneratorFunction]` 那一族
 // 标签与 `.constructor.name` 都从那一格原型来（见 `vm.xl.md` 挑原型那一段）。
+// **位 32**（第 892 轮的「箭头」，于是**步长 32 → 64**）：它**不改原型**，只在
+// 「没有接收者时 `this` 给谁」那一问上把箭头挡掉（见 `HeapClosure.IsArrow` 那一格）
+// ——那一问读的是 `IsStrict`，而箭头体里的指令序言**也会**把 `IsStrict` 置真
+// （`delete` 要它），两位必须分开问。
 // **`item.IsGenerator` / `item.IsAsync` 在这里一定是好的**：`LowerFunctionValue`
 // 在调这一处之前就把它们从树上读好落进 `item` 了（与 `IsClass` / `IsStrict` 同一处）。
-const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 32
+const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 64
   + (item.IsClass ? 1 : 0) + (item.IsStrict ? 2 : 0) + (item.HasRestricted ? 4 : 0)
-  + (item.IsGenerator ? 8 : 0) + (item.IsAsync ? 16 : 0)));
+  + (item.IsGenerator ? 8 : 0) + (item.IsAsync ? 16 : 0) + (item.IsArrow ? 32 : 0)));
 const window = this.Reserve(5);
 const enclosing = this.Env.Last();
 if (enclosing === null) {
@@ -5951,7 +5975,18 @@ this.Release(current);
 
 **标志位怎么传**：`set_hidden` 的第四格给 `0` = **一位都不置**
 （不可写、不可枚举、不可配置——正好是 JS 类的那三格）；
-普通函数那一档照旧给缺省 `-1`（可写 + 可配置，第 194 轮起的口径）。
+普通函数那一档给 **`PropertyFlagWritable`（值 2）**——**不可枚举、不可配置**。
+
+**第 892 轮改的口径**：原来普通函数那一档给缺省 `-1`（可写 + **可配置**，第 194 轮起的
+`SetHiddenProperty` 口径），而 JS 从 ES2015 起**函数的 `prototype` 是
+`{ writable: true, enumerable: false, configurable: false }`**
+（`MakeConstructor(F, false)` 的第二步；ES5 里才是可配置的）。
+**这一位不是装饰**：严格模式下 `delete f.prototype` 在 Node 里**抛 `TypeError`**
+（自有 + 不可配置 ⇒ `[[Delete]]` 答假 ⇒ 严格代码抛），
+而本仓原来把那一位抄成「可配置」⇒ **真的删掉**、`typeof f.prototype` 从 `"object"` 变 `"undefined"`
+（`runtime/round760/004` 那一族量的正是它）。
+**类的 `prototype` 那一档不受影响**（它本来就是 `0` 位——`0` 里没有可配置那一位，
+与按类调那一档**同一个答案**）。
 
 **`prototype.constructor` 的回指今天不挂**：那个回指是为 `instanceof` 服务的，
 要和它一起做；现在挂上去，反而会让人以为 `instanceof` 已经能用。
@@ -5966,8 +6001,10 @@ this.Release(current);
 const proto = this.Reserve(1);
 this.EmitRt(RtOp.NewObject, proto, proto, 0);
 const key = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
-// **类那一格不可写**（见方法开头那一格）：`writablePrototype` 假时给 `0` 位。
-this.EmitHiddenSet(closure, key, proto, writablePrototype ? -1 : 0);
+// **类那一格不可写**（见方法开头那一格）：`writablePrototype` 假时给 `0` 位；
+// **普通函数那一档给 `PropertyFlagWritable`**（可写、**不可枚举、不可配置**）——
+// 第 892 轮改的口径，理由见上面那一段（严格模式下 `delete f.prototype` 该抛）。
+this.EmitHiddenSet(closure, key, proto, writablePrototype ? PropertyFlagWritable : 0);
 // **`prototype.constructor` 回指**：JS 里每个函数的原型都指回函数自己
 // （`x.constructor` 那种写法靠它，`instanceof` 的语义也要求这个形状）。
 //
@@ -6056,6 +6093,11 @@ item.IsClass = this.PendingClassNode !== null && this.PendingClassNode === node;
 // 只会让引擎按严格那一支给帧一个 `undefined`，而那一格正是它读 `this` 的地方
 // ⇒ `typeof this` 给 `"undefined"`（Node 给 `"object"`：外层是松散代码）。
 // **外层本来就严格的话它照样严格**（`InStrict` 那一半没动）。
+// **第 892 轮起箭头体里的指令序言也置真**——但**不在这一格**：这一格写的是
+// `item.IsStrict`（那个闭包的**出生**时刻，`EmitClosure` 当场用），而
+// 「箭头有没有指令序言」要等**体被降级**时才知道（`LowerFunctionBody` 那一句）。
+// 两处**同一个答案**：`HasUseStrictDirective` 只有一份判据。
+// **调用点那两处多问 `IsArrow`**，所以 `this` 那一档一个字都没变。
 item.IsStrict = this.InStrict || (!item.IsArrow && this.HasUseStrictDirective(node));
 // **`arguments` / `caller` 那两格受限属性带不带**（第 709 轮）：
 // 判据是**语法种类**，而这里正好有全部素材——**松散的普通函数**才有
@@ -6509,7 +6551,12 @@ return UnitsOf(TextOf(name));
 
 ## method HasUseStrictDirective:(node:AstNode)=>bool
 
-**这一个函数体的「指令序言」里有没有 `"use strict"`**（第 701 轮）。
+**这一段代码的「指令序言」里有没有 `"use strict"`**（第 701 轮）。
+
+**两种传法**（第 892 轮）：传**函数节点**（看它的 `body`，第 701 轮那条路）
+或直接传**那个 `Block`**——后者是 `LowerFunctionBody` 要的：它在**函数体那一层**
+问一句「这一段严格吗」，而那里手上正好就是 `Block`（`item.Body`）。
+**两处必须是同一个答案**：这一格的判据只有一份，第二处调用点不许再抄一遍。
 
 **为什么单开一格**：严格性的两个来源是**词法的**（类体 / 严格代码里嵌套的函数）
 与**这一格**（函数体自己开头那句指令）。词法那一半由 `InStrict` 带着走，
@@ -6525,9 +6572,12 @@ return UnitsOf(TextOf(name));
 那一档要收就得改比原文，代价是这个 helper 要拿源码区间——记在这里，今天不做。
 
 ```ts
-const body = OptionalChild(node, "body");
-if (body === null || NodeKind(body) !== "Block") return false;
-const prologue = ListOf(body, "statements");
+let strictBody = OptionalChild(node, "body");
+// **直接给一个 `Block` 也算**（第 892 轮）：函数体那一层手上没有「函数节点」，
+// 只有那个块自己（`PendingFunction.Body`）——两条入口在这里归一成同一个块。
+if (strictBody === null && NodeKind(node) === "Block") strictBody = node;
+if (strictBody === null || NodeKind(strictBody) !== "Block") return false;
+const prologue = ListOf(strictBody, "statements");
 for (let i = 0; i < prologue.length; i++) {
   if (NodeKind(prologue[i]) !== "ExpressionStatement") return false;
   const expression = OptionalChild(prologue[i], "expression");
@@ -8071,7 +8121,15 @@ if (kind === "DeleteExpression") {
   } else {
     throw new Error("unimplemented: delete of " + operandKind);
   }
-  return this.RtCallValues(RtOp.DelProp, receiver, key);
+  // **第三格是「这段代码严格吗」**（第 892 轮）——`delete` 是唯一一个
+  // 「两种模式下答案不同」的算子（删不掉时：松散给 `false`、严格**抛 `TypeError`**）。
+  // **它在编译期就定死了**：`InStrict` 记的正是「正在降级的这段代码严不严格」
+  // （函数体自己的指令序言 / 类体 / 沿词法继承），引擎那一支不再猜。
+  // **走 `RtCall3`**（`set_prop` / `set_index` 那一格同一个形状）：实参有三个，
+  // 两边的个数必须**一起**改——引擎那边 `RequireArgc` 是「严格等于」。
+  const strictSlot = this.Reserve(1);
+  this.Emit(Op.Const, strictSlot, this.Program().AddConst(Constant.OfBool(this.InStrict)), -1, -1);
+  return this.RtCall3(RtOp.DelProp, receiver, key, strictSlot);
 }
 if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
   // **一元前缀与后缀**（第 64 轮补的前缀、第 91 轮补的更新表达式）：投影带 `operator`
