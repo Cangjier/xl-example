@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { WordText, IsTypeContainerUnit, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { WordText, IsTypeContainerUnit, IsTriviaUnit, SkipNextTrivia, SkipPreviousTrivia } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -70,6 +70,11 @@ return false;
 （`x is A | B`），所以本规则整段收下，让 `TypePredicate` 自己挂通用队列把里面的类型继续成形
 （与 TS 的 `TypePredicate > UnionType` 一对一）。
 
+**每一格都走 trivia 口径**（第 869 轮）：`asserts /* c */ this is A` / `x /* c */ is string`
+是合法排法（与 `Previous` 那一边同一件事，见「相邻的那一格一律走 trivia」那条硬规矩），
+原来一路 `+ 1` / `+ 2` 数下标，撞上注释就判不出谓词形状——实测两处：`x /* c */ is string`
+（缺 `TypePredicate` / `StringKeyword`）与 `asserts /* c */ this is A`（缺 5 多 2）。
+
 ```ts
 const first = Get(units, index);
 if (first === null) {
@@ -77,7 +82,7 @@ if (first === null) {
 }
 let cursor = index;
 if (this.IsPredicateWord(first, "asserts")) {
-  cursor = cursor + 1;
+  cursor = SkipNextTrivia(units, cursor);
 }
 const name = Get(units, cursor);
 if (name === null) {
@@ -90,7 +95,8 @@ const word = WordText(name);
 if (word === "" || word === "asserts" || word === "is") {
   return false;
 }
-const next = Get(units, cursor + 1);
+const nextAt = SkipNextTrivia(units, cursor);
+const next = Get(units, nextAt);
 if (next === null) {
   // `asserts x`：整段到这里结束（单独的 `x` 不是谓词——所以必须见过 `asserts`）
   return cursor > index;
@@ -98,7 +104,7 @@ if (next === null) {
 if (this.IsPredicateWord(next, "is") === false) {
   return false;
 }
-return Get(units, cursor + 2) !== null;
+return Get(units, SkipNextTrivia(units, nextAt)) !== null;
 ```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
@@ -108,6 +114,8 @@ return Get(units, cursor + 2) !== null;
 四条：`index` 是容器里的**第一个实义单元**或者是**某个标记词右边那一格**；容器是类型容器
 （`TypeDefine` / `ReturnType` / `TypeParameter` / `TypeAssign` … 都在白名单里）；
 **已经在谓词里的不再收**；这一格内容整体长成谓词形状。
+这两条「起点」判定与「这一格长成什么形状」那一段**都跨 trivia**（第 869 轮）——
+注释与软换行在类型位里是同一件事，撞上就判不出形状。
 
 **标记词那一支原来只认 `=>`**（第 680 轮补上另两个）：它给的是**函数类型的返回位**
 （`(value: T, …) => value is S`），而同一个形状在另外两处**一模一样**——
@@ -143,14 +151,18 @@ if (IsTypeContainerUnit(current.Parent) === false) {
 }
 // **起点两处**：容器的第一个实义单元（返回类型位 / 类型别名位），
 // 或者**紧跟一个引出类型的标记**（`=>` / `=` / `extends`）。
+// **两处都走 trivia 口径**（第 869 轮）：`function f(x): /* c */ x is T { … }` 里
+// 那个注释是容器里的第一格——原来只跳过 `LineWrap` ⇒ `isFirst` 当场变假、再往左又撞上注释
+// ⇒ 整段谓词不成形（实测 `type-predicate-comment-3`：缺 `TypePredicate` / `StringKeyword`、
+// 多一个 `TypeReference`）。
 let isFirst = true;
 for (let i = 0; i < index; i++) {
-  if (!(Get(units, i) instanceof LineWrap)) {
+  if (!IsTriviaUnit(Get(units, i))) {
     isFirst = false;
   }
 }
 if (isFirst === false) {
-  const before = Get(units, SkipPreviousWrapSymbol(units, index));
+  const before = Get(units, SkipPreviousTrivia(units, index));
   let beforeText = "";
   if (before instanceof SymbolToken) {
     beforeText = before.TempToString();

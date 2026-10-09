@@ -306,6 +306,35 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 870 轮：类型谓词那一族六条收掉——`x is T` / `asserts this is A` 里夹注释、返回类型的谓词跨行（known-gap 30 → 24）
+
+**一句话**：上一轮普查登记的 30 条里，**类型谓词**那一族（6 条）先收：
+`x /* c */ is string`、`asserts /* c */ this is A`、以及 `function f(x): x is string` 换行 `{`。
+
+**根子两个，都在「相邻」这一件事上**：
+
+1. **判据一路数下标**（[type-predicate.xl.md](typescript/tokens/type-predicate.xl.md)）：
+   `IsPredicateAt` 原来写的是 `Get(units, cursor + 1)` / `Get(units, cursor + 2)`,
+   `Previous` 的「容器的第一格」也只跳过 `LineWrap`（`SkipPreviousWrapSymbol`）——
+   注释插在 `asserts` 与名字之间、名字与 `is` 之间、`is` 与类型之间，或落在第一格之前，
+   形状就判不出来（实测 `asserts /* c */ this is A` 缺 5 多 2、`x /* c */ is string` 缺 2 多 1）。
+   改法就是第 817 / 828 轮那条线的第四面：**四格全部走 `SkipNextTrivia` / `SkipPreviousTrivia`**，
+   「第一格」那一段的跳过口径也从「只跳软换行」改成 `IsTriviaUnit`
+   （注释与软换行在类型位里是同一件事）。
+2. **声明头的往回走只给两个名字的预算**（[statement.xl.md](typescript/tokens/statement.xl.md) 的
+   `IsHeaderBodyBrace`）：`function f(x: unknown): x is string` 换行 `{` 里，返回类型位是
+   **三个标识符**（`x` / `is` / `string`）——判据走到第三个就答否 ⇒ 壳在换行处关掉 ⇒
+   `FunctionDeclaration` 的区间少一截、多一个同名节点（实测 `type-predicate-newline-6`）。
+   修法：**谓词里的 `is` / `asserts` 不占名字预算**，而见过 `is` 之后那个谓词参数名多占一格
+   （返回类型位上它不是「类型名」）。预算这一条本身没放宽——`foo()` 换行 `{}` 照旧答否。
+
+**实测**：`npm run gates` **八道全过**（墙钟 33.6s）；`cases:tsast` 八项全 0、
+已知缺口 **30 → 24 条还开着、0 条已经收掉**（收掉的 6 条按规矩**删掉各自的 `xl:known-gap` 行**，
+用例留在语料里当守卫——`xl:expect` 一个字没改，因为红只在 `cases:tsast` 那一侧）。
+
+**数字**：`coverage` **4019 → 4025 / 4227**（blocked **70 → 64**、differ 138、bad 0、
+加权 94.8% → 94.9%）；语料 1465 条**没动**（这 6 条是上一轮就登进来的）。
+
 ### 第 869 轮：模块声明那两处「`;` 之前没有 ASI」——`export * as ns` 的换行收掉，同一次普查把 **30 条新缺口**登进语料（known-gap 0 → 30）
 
 **一句话**：`export * ⏎ as ns ⏎ from "m"` 这一族（四种换行排版）与 `export /* c */ as namespace Foo`
@@ -4534,7 +4563,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **30 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **24 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870 轮收掉 6 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1465** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -4542,7 +4571,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1452 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4019 / 4227**，加权 **94.8%**：token 1422/1452、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 70 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4025 / 4227**，加权 **94.9%**：token 1428/1452、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 64 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 

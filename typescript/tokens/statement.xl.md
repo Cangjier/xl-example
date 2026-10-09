@@ -1408,6 +1408,7 @@ return head === "|" || head === "&" || head === ".";
 ```ts
 let at = data.length;
 let names = 0;
+let seenPredicateWord = false;
 for (let step = 0; step < 16; step++) {
   const index = SkipPreviousTrivia(data, at);
   const unit = Get(data, index);
@@ -1432,7 +1433,18 @@ for (let step = 0; step < 16; step++) {
     // **名字那一格**（`function f` 里的 `f`，返回类型 `: T` 里的 `T`）：声明头里最多两个
     // （一个名字 + 一个类型名）。`foo()` 换行 `{}` 里那个 `foo` 走到这里之后，
     // 再往前一格就是语句边界 / 列表开头 ⇒ 照样答否。
-    if (name === "Identifier" && names < 2) {
+    //
+    // **类型谓词的尾巴要多一格**（第 869 轮）：`function f(x): x is string` 换行 `{` 里，
+    // 返回类型位是**三个标识符**（`x` / `is` / `string`）——`is` 与 `asserts` 是谓词里的词、
+    // **不占名字预算**，但见过 `is` 之后那个谓词参数名（`x`）要多占一格
+    //（返回类型位上它不算「类型名」）。少了它会一路走到 `x` 那一格就答否
+    //（实测 `type-predicate-newline-6`：`FunctionDeclaration` 区间少一截、多一个同名节点）。
+    if (text === "is" || text === "asserts") {
+      seenPredicateWord = true;
+      at = index;
+      continue;
+    }
+    if (name === "Identifier" && names < (seenPredicateWord ? 3 : 2)) {
       names = names + 1;
       at = index;
       continue;
