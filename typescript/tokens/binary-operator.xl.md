@@ -90,10 +90,19 @@ this.Operators = operators;
 
 移位。
 
-## static readonly field RelationalInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["<=", ">="])
+## static readonly field RelationalInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["<=", ">=", "<", ">"])
 
-大小比较。**只收 `<=` / `>=`**：单独的 `<` / `>` 与泛型实参同形，
-`GenericTypeBranch` 在词法阶段就要靠它们配对，语法层再动它们会互相打坏。
+大小比较。
+
+**`<` / `>` 也进来了**（第 889 轮）。原来只收 `<=` / `>=`，理由是「单独的 `<` / `>` 与泛型实参同形，
+`GenericTypeBranch` 在词法阶段就要靠它们配对」——那条理由说的是**词法阶段**，而本规则跑在**收尾期**：
+真正的泛型段那时已经是一个 `GenericType` **节点**（`generic-type.xl.md` 是 `Branch`，不是 `CloseRule`），
+同层里还剩下的裸 `<` / `>` 就只可能是比较运算符。
+**不收它们的代价**（实测 `tmp/r887/snips5.mjs` 18 条里 9 条对不上）：同级左结合被折成**右嵌套**——
+`x < y >= z` 里只有 `>=` 在运算符集里 ⇒ 它先折成 `BinaryOperator(y >= z)`，`<` 留在外面，
+投影只能给 `x < (y >= z)`，而 TS 给 `(x < y) >= z`；`x == y < z` 同理被折成 `(x == y) < z`
+（TS 给 `x == (y < z)`——`<` 比 `==` 紧，可它根本不在关系层里，于是等不到自己那一趟）。
+**判据靠位置不靠文本**（与 `|` / `&` / `^` 那一支同一个做法）：见下面 `IsValuePositionOperator`。
 
 ## static readonly field EqualityInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["==", "!=", "===", "!=="])
 
@@ -133,7 +142,7 @@ this.Operators = operators;
 
 位运算 `a | b` / `a & b` / `a ^ b`（值位）。
 
-**这一支只收「父单元是语句」的那种**（见 `IsValuePositionBitwise` 的说明）：
+**这一支只收「父单元是语句」的那种**（见 `IsValuePositionOperator` 的说明）：
 `|` / `&` 在类型位另有含义（联合 / 交叉类型），类型位的那两个在轮到本规则时
 **已经被 `TypeAssign` / `TypeDefine` 收进节点里**，不再是同层单元，所以按「父单元是不是语句」
 就能把两种位置分开。`^` 只有值位一种含义，但也一并走这条判据，保持一处逻辑。
@@ -449,7 +458,14 @@ if (IsWordUnit(current, "in") && current.Parent instanceof Bracket) {
     }
   }
 }
-if (this.IsValuePositionBitwise(current) === false) {
+if (this.IsValuePositionOperator(current) === false) {
+  return false;
+}
+// **尖括号类型断言的那个 `>` 不是比较运算符**（第 889 轮，与上面那一支同一趟补的）。
+// `<T>x` 里 `>` 的左边明明站着 `T`（`IsOperand` 会放行），可它配对的是**操作数位上那个 `<`**——
+// 折下去就把整条断言拆成 `BinaryOperator(T > x)`（实测 `expr-angle-assertion`：
+// 缺 `TypeAssertionExpression` / `TypeReference` / `Identifier` 共 4、多 1）。
+if (this.IsAngleAssertionCloser(units, index, current)) {
   return false;
 }
 if (this.IsCommaExpressionComma(units, index) === false) {
@@ -899,28 +915,39 @@ for (let i = 0; i < index; i++) {
 return false;
 ```
 
-## private method IsValuePositionBitwise:(unit:Token)=>bool
+## private method IsValuePositionOperator:(unit:Token)=>bool
 
-`unit` 是 `|` / `&` 这类**两种位置都有含义**的符号时，判断它此刻处在值位——
-也就是「本实例该不该接手」。反过来：不是这类符号（`+ - * /` …）一律返回 `true`，
-走原来的路径。
+`unit` 是那些**两种位置都有含义**的符号时，判断它此刻处在值位——也就是「本实例该不该接手」。
+反过来：不是这类符号（`+ - * /` …）一律返回 `true`，走原来的路径。
 
-判据只有一条：**这个符号的父单元是不是语句级容器**。
+**两种位置都有含义的符号有两族**：
 
-**为什么这一条够用**：类型位的那两个在轮到本规则时已经**被收进节点**了——
+| 族 | 类型位那一边 | 值位那一边 |
+| --- | --- | --- |
+| `\|` / `&` / `^` | 联合 / 交叉类型（`type T = A \| B`） | 位运算（`a \| b`） |
+| `<` / `>` | 泛型实参段（`Array<T>`） | 大小比较（`a < b`） |
+
+判据这两族共用一条：**这个符号的父单元是不是值位容器**（语句 / 枚举成员的初始化式）。
+
+**为什么这一条够用**：类型位的那两份在轮到本规则时已经**被收进节点**了——
 `type T = A | B;` 里 `A | B` 属于 `TypeAssign` 的子单元（`const x = a | b;` 里则是语句的直接子单元），
-`let v: A & B;` 里属于 `TypeDefine`。所以「父单元是语句」正好把值位那份挑出来。
+`let v: A & B;` 里属于 `TypeDefine`；`Array<T>` 那一份更彻底：它是 `GenericTypeBranch` 在**词法阶段**
+试读出来的**节点**（不是 `CloseRule`），所以同层里剩下的裸 `<` / `>` 只可能是比较。
+所以「父单元是值位容器」正好把值位那份挑出来。
 （实测插桩：值位那一支的符号父单元是 `Statement`，类型位那一支根本不会被问到。）
 
 **不能只看运算符文本**：`ReplaceCountAt` 会把 `a = a | b` 这类复合赋值展开出的符号留在同一层，
 而它们与真正的值位位运算同形——所以判据必须落在位置上，不能落在文本上。
+
+**`<` / `>` 这一档是第 889 轮补的**：少了它，同一个比较链里只有 `<=` / `>=` 能被折，
+`x < y >= z` 于是折成了右嵌套（见 `RelationalInstance` 那一节）。
 
 ```ts
 if (!(unit instanceof SymbolToken)) {
   return true;
 }
 const text = unit.TempToString();
-if (text !== "|" && text !== "&" && text !== "^") {
+if (text !== "|" && text !== "&" && text !== "^" && text !== "<" && text !== ">") {
   return true;
 }
 const parent = unit.Parent;
@@ -937,8 +964,56 @@ if (parent.constructor.name === "EnumMember") {
 return parent.constructor.name === "Statement";
 ```
 
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
+## private method IsAngleAssertionCloser:(units:Array<Token>, index:int, current:Token)=>bool
 
+`index` 处那个 `>` 是不是**尖括号类型断言 `<T>x` 的收尾**——是的话它配对的是**操作数位上那个 `<`**，
+本规则不许接手。
+
+判据是**往回找与它配对的那个 `<`，再看它左边有没有操作数**——配对的那一个是**同一层里最靠右的
+还没被配掉的 `<`**（往回扫时遇到 `>` 记一层、遇到 `<` 消一层，`depth === 0` 时遇到的那个就是它）。
+
+- `x < y > z` 里 `>` 往回第一个 `<` 左边站着 `x`（操作数）⇒ **是比较**，放行；
+  这一条同时兜住「同一个实例已经先折过 `x < y`」的那一态——那时 `<` 已经在 `BinaryOperator` 里，
+  往回扫根本遇不到裸 `<` ⇒ 同样放行。
+- `<T>x` 里 `>` 配对的那个 `<` **左边什么都没有**（它是这一段的第一个单元）⇒ 是断言，挡住；
+  `a + <T>x` 里那个 `<` 左边是 `+`（不是操作数）⇒ 同样挡住。
+- `<T>x > y`（断言之后还有一次比较）里**第二个 `>`**：往回扫先遇到第一个 `>`（记一层），
+  再遇到 `<` 把它消掉，于是没有「未配对的 `<`」⇒ 放行——那一格是真比较。
+
+**只认同一层里的裸符号**：中间夹着的标识符 / 括号 / 逗号一概跳过（`<A, B>x` 里的逗号也在其中），
+因为「配没配对」这件事只由 `<` 与 `>` 的个数决定。
+
+```ts
+if (!(current instanceof SymbolToken) || !current.Is(">")) {
+  return false;
+}
+let depth = 0;
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    break;
+  }
+  if (!(item instanceof SymbolToken)) {
+    continue;
+  }
+  if (item.Is(">")) {
+    depth = depth + 1;
+    continue;
+  }
+  if (item.Is("<") === false) {
+    continue;
+  }
+  if (depth > 0) {
+    depth = depth - 1;
+    continue;
+  }
+  const beforeLt = Get(units, SkipPreviousTrivia(units, i));
+  return beforeLt === null || this.IsOperand(beforeLt) === false;
+}
+return false;
+```
+
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 把「左操作数 / 运算符 / 右操作数」三个单元（中间夹着的软换行一并吞掉）收成一个 `BinaryOperator`，
 **返回新的下标**。
 
