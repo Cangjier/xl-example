@@ -307,6 +307,39 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 895 轮：`instanceof` 那一支「够不着」的**真根因是递归**——量清了，但缺口照旧开着（九道门全绿、数字一个没动）
+
+**一句话**：上一轮把 `IsInstanceOfTypeArgument` 记成「写对了但够不着，因为 `source` 是 `null`」，
+并留下一条行动项「把第 4 个实参补上就行」。这一轮照那条行动项做了，**当场栈溢出**——
+量清之后发现**上一轮的诊断是错的**：`source` 不是拿不到，是**不能传**。
+
+- **上一轮那句话怎么来的**（如实记）：插桩看到 `IsTypePosition` 收到的 `source` 是空，
+  就推成「调用点没带」；可那一次**就是** `IsAllowedFollower` 里那一句 `this.IsTypePosition(unit)`
+  ——它按设计只传 `unit`。数据流一句话能说清，难的是**传下去会怎样**。
+- **传下去会成环**（第 895 轮实测，`tmp/r896/patch.mjs` + `probe8`）：
+  `IsAllowedFollower → IsTypePosition(source) → instanceof 那一支 → IsInstanceOfTypeArgument
+  → IsAllowedFollower → IsTypePosition(source) → …`。栈里这两个方法交替出现，
+  而第 894 轮把这个栈溢出的第一行读成了 `throw by line 0`。
+- **修法**：那一格**就地判据**——配对 `>` 后面那一个字符若是 `<` / `>` / `+` / `-`
+  就判否（`IsAllowedFollower` 表达式位里「接不上表达式」的正是这四格），其余放行。
+  **不回头问后继闸**，环就断了。
+- **接线补上之后缺口照旧开着**：`b instanceof C<D> + e` 的产物与 TS **逐 token 一致**了
+  （`((b instanceof C) < D) > (+e)`），可**结合方向相反**——TS 左结合给
+  `BinaryOperator(BinaryOperator(b instanceof C, <, D), >, +e)`，本仓给**右嵌套**。
+  所以 `cases:tsast` 仍然是 `KNOWN 漂 2 / 多 2`，缺口一行不动。
+- **同一轮试过、当场撤掉的一档**：以为右嵌套是 `IsValuePositionOperator` 把
+  「父单元是折好的 `BinaryOperator`」判成了非值位，就加了那一档——**实测一个字没动**
+  （插桩：`instanceof` 与 `<` / `>` 在同一趟里被问到时，`<` 的父单元仍是 `Statement`，
+  因为 `InstanceofInstance` 排在 `RelationalInstance` **后面**，折发生在更晚一趟）。
+  按本仓规矩「没被验证过的判断不留」，已撤，把这一次的账写进
+  [`binary-operator.xl.md`](typescript/tokens/binary-operator.xl.md) 那一节。
+- **实测**：`cases:tsast` 16/16（`抛异常 0`——那两份上一轮会崩的用例现在照跑）、
+  `cases:astjson` 六项全 0、`cases:tags` / `cases:shapes` / `samples` / `runtime:*` 全绿、
+  `coverage 4080 / 4252`（`differ 132`、`blocked 40`、`bad 0`）——**数字一个没动**。
+- **可复用的判据**：**「这一支拿不到数据」与「这一支不能拿数据」是两回事**。
+  上一轮从「`source` 是 `null`」直接推到「补上实参就能修」，缺的正是那一趟**传下去到底会怎样**；
+  插桩看**入口**（谁没带参数）与插桩看**回路**（带上之后谁又被问了一次）是两个实验。
+
 ### 第 894 轮：`instanceof` 右边那个实例化表达式——**「被实例化的那头不在开头」是投影的一格**（缺口清单照旧是空的）
 
 **一句话**：起手仍是第 893 轮那个手法（AST 全绿不等于没缺口，**写一批小片段去问**），

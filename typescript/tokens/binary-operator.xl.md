@@ -957,6 +957,14 @@ return false;
 **`<` / `>` 这一档是第 889 轮补的**：少了它，同一个比较链里只有 `<=` / `>=` 能被折，
 `x < y >= z` 于是折成了右嵌套（见 `RelationalInstance` 那一节）。
 
+**第 895 轮试过在这里再加一档「父单元是折好的 `BinaryOperator` 也算值位」，没成**（如实记）：
+理由是「左结合的链折过一格之后，后面那几格运算符的父单元就是那个 `BinaryOperator`」——
+听上去成立，可**实测那一档根本没被问到**（`tmp/r896/` 的插桩：`instanceof` 与 `<` / `>`
+在**同一趟**里被问到时，`<` 的父单元仍是 `Statement`——`InstanceofInstance` 排在
+`RelationalInstance` **后面**，折是在更晚一趟才发生的）。
+而 `b instanceof C<D> + e` 那一格真正的拦路虎在**别处**（`<` 那一次 `Previous` 判否），
+所以这一档加进去 `cases:tsast` 一个字不动，已撤。
+
 ```ts
 if (!(unit instanceof SymbolToken)) {
   return true;

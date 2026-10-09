@@ -1101,22 +1101,25 @@ return false;
 `isBinaryOperator2()` 与 `.` 无关，`.` 走的是 `!isStartOfExpression()` ⇒ 答真）。
 这里不自己重新发明一张表：**只问那四个字符**，其余交给 `IsAllowedFollower`。
 
-**⚠️ 这一支现在是「写对了但够不着」的死格**（第 894 轮实测，如实记在这里）：
-`IsTypePosition` 走到 `instanceof` 那一格时，**`source` 是 `null`**
-（`IsAllowedFollower` 里那次调用只传 `unit`，第 4 个形参走默认值），
-于是这一支的第一句就答否 ⇒ **`b instanceof C<D> + e` 仍然是缺口**
-（产物把 `<D> + e` 收成一个 `GenericType` 式的错折：漂 2 / 多 2）。
-**要收它得先把 `Source` 送到这一格**——`IsAllowedFollower` 手里有 `source`，
-`IsTypePosition` 的其余分支一个都不用 ⇒ 那次调用补第 4 个实参是唯一的改动点；
-但那一趟的真实数据流在第 894 轮没量清（插桩实测：`IsGenericStart` 那次调用带的是
-`Root` 宿主、`Data` 是 `[Let, =, b, instanceof, C]`，而 `IsTypePosition` 收到的 `source` 已是空），
-所以这一轮**只把它登记成缺口**（`gap-instanceof-then-add`），不猜。
-保留方法体本身：判据与 TS 那句原文一对一，接线是机械动作。
+**⚠️ 为什么这一支**不能**把 `source` 交给 `IsAllowedFollower`**（第 895 轮量清）：
+上一轮把它记成「带上 `source` 会当场 `throw by line 0`」，这一轮把那一趟的真实数据流量出来了
+（`tmp/r896/patch.mjs` 插桩 + `probe8`）：那**不是**坐标问题，是**递归**——
+
+    IsAllowedFollower → IsTypePosition(source) → instanceof 那一支
+      → IsInstanceOfTypeArgument → IsAllowedFollower → IsTypePosition(source) → …
+
+插桩栈把这一圈印得清清楚楚（`IsAllowedFollower` 与 `IsTypePosition` 交替出现）。
+所以第 894 轮「补第 4 个实参」的设想**根本不成立**：那一格的答案必须在
+`IsTypePosition` 这一趟里**就地**给出，不能再回去问后继闸。
+
+就地判据用的是**同一句话的窄版**：那四格（`<` / `>` / `+` / `-`）本来就是
+`IsAllowedFollower` 表达式位里**接不上表达式**的那一档，所以「是这四格 ⇒ 判否」
+在 `instanceof` 这个位置上与「把整条后继闸问一遍」**同结论**，而不会绕回来。
 
 ```ts
-// **没有 `Source` 时这一支不参与**（第 4 个形参是这一轮新加的，默认 null）：
-// 那几处调用本来就走不到 `instanceof` 这一格（`IsInstanceOfTypeArgument` 只在
-// `IsGenericStart` 那一路上有 `source`），保守答否，行为与加这一支之前一字不差。
+// **没有 `Source` 时这一支不参与**（第 4 个形参默认 null）：
+// `IsTypePosition` 还有三处调用没有 `source`（`type-literal.xl.md` 两处、三元那一处），
+// 那些位置本来就走不到 `instanceof` 这一格，保守答否，行为与加这一支之前一字不差。
 if (source === null) {
   return false;
 }
@@ -1135,11 +1138,10 @@ while (at < document.GetCount() && (document.GetValue(at) === " " || document.Ge
 if (at >= document.GetCount()) {
   return true;
 }
+// **就地判据**：那四格之外一律放行（`;` / `)` / `,` / 行尾 / 标识符… 在 `instanceof`
+// 右边都只能读成实例化表达式）。**不把 `source` 交给 `IsAllowedFollower`**——见上面那段递归账。
 const next = document.GetValue(at);
-if (next === "<" || next === ">" || next === "+" || next === "-") {
-  return false;
-}
-return this.IsAllowedFollower(unit, source, closeIndex);
+return next !== "<" && next !== ">" && next !== "+" && next !== "-";
 ```
 
 ## private method IsAllowedFollower:(unit:Token, source:Source, closeIndex:int)=>bool
@@ -1201,14 +1203,12 @@ TS 那句 `canFollowTypeArgumentsInExpression` 的第一句就是 `hasPrecedingL
 ```ts
 const document = source.Document;
 let index = closeIndex + 1;
-// **这一格不把 `source` 带下去**（第 894 轮（三）实测：带上会当场崩）。
-// `instanceof` 那一支（`IsInstanceOfTypeArgument`）要看配对 `>` 后面那一个字符，
-// 所以它本来该从这里拿到 `source`；可实测把第 4 个实参补上之后
-// `expr-instanceof-instantiation` 与 `instanceof-chain` 两份**当场 `throw by line 0`**
-//（`IsTypePosition` 会在**括号递归**那一支里被换宿主再问一次，而那一次 `source`
-// 未必还有 `Document`），而 `b instanceof C<D> + e` 那一格**照样错**。
-// 所以这一轮**不动数据流**：那一支留在文件里（判据与 TS 原文一对一），
-// 由 `gap-instanceof-then-add` 记着它够不着。**要动它得先把「哪几次调用真的带 source」量清**。
+// **这一格不把 `source` 带下去**（第 894 轮（三）写下、第 895 轮量清了为什么）：
+// 带上它会与 `instanceof` 那一支**成环**——
+// `IsAllowedFollower → IsTypePosition(source) → IsInstanceOfTypeArgument → IsAllowedFollower → …`，
+// 栈溢出的样子在第 894 轮被读成了「`throw by line 0`」。
+// 所以 `instanceof` 那一格改成**就地判据**（见 `IsInstanceOfTypeArgument` 那一节），
+// 这里继续只传 `unit`：那一支现在不需要后继闸，也不需要 `source`。
 const isTypePosition = this.IsTypePosition(unit);
 while (index < document.GetCount()) {
   const item = document.GetValue(index);
