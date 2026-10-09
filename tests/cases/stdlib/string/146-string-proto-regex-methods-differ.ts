@@ -2,11 +2,12 @@
 // xl:round 789
 // xl:judge stdout
 // xl:want differ
-// xl:why probe703-s-e36：`String.prototype.match` 没装（`typeof` 给 `undefined`，Node 给 `"function"`）——与 `stdlib/string/136` / `147` 同一条根。要做。；probe703-s-e37：`String.prototype.matchAll` 没装——同上。；probe703-s-e38：`String.prototype.search` 没装——同上。
+// xl:why probe703-s-e36：`String.prototype.match` 没装（`typeof` 给 `undefined`，Node 给 `"function"`）——与 `stdlib/string/211-string-proto-member-table-regex-members-missing` 同一条根。要做。；probe703-s-e37：`String.prototype.matchAll` 没装——同上。；probe703-s-e38：`String.prototype.search` 没装——同上。
 // xl:end
 // **按判定点并组（第 789 轮）**：吸收 stdlib/string 里逐条一问的 3 条探针
 // （probe703-s-e36…38）。正文逐字搬进各自的 IIFE，输出逐行等于原来那些条之和。
-// match / matchAll / search 在属性表里根本没有那一格——与 stdlib/string/136 / 147 同一条根
+// match / matchAll / search 在属性表里根本没有那一格——与 stdlib/string/211 同一条根
+// （第 812 轮把原来并排的两条 `136` / `147` 并成了一条 211，引用跟着改。）
 
 const show = (v) => (v === null ? "null"
   : v === undefined ? "undefined"

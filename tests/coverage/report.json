@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4305,
+  "total": 4282,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 92.98,
+  "progressPercent": 92.95,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1094,
-      "pass": 1010,
+      "total": 1071,
+      "pass": 987,
       "blocked": 21,
       "differ": 63,
       "nodefail": 0,
-      "coverage": 92.32
+      "coverage": 92.16
     },
     {
       "category": "e2e",
@@ -1817,7 +1817,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10328/src/2003.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24564/src/2003.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -2159,7 +2159,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10328/src/3086.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24564/src/3086.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2183,7 +2183,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10328/src/3134.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24564/src/3134.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2339,7 +2339,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10328/src/3778.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24564/src/3778.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
@@ -2486,12 +2486,6 @@
       "detail": "stdout 不同：第 1 行：node «01 own names = length,name» vs tsrun «01 own names = __boundTarget,__boundThis,__boundArgs,length,prototype,name»"
     },
     {
-      "id": "stdlib/string/136-r676-std-string-regex-members",
-      "category": "stdlib",
-      "title": "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
-      "detail": "stdout 不同：第 1 行：node «at,padStart,replaceAll,match,search,matchAll,split,trim» vs tsrun «at,padStart,replaceAll,,,,split,trim»"
-    },
-    {
       "id": "stdlib/string/144-localecompare-differ",
       "category": "stdlib",
       "title": "localeCompare 是区域设置那一族（账）",
@@ -2510,9 +2504,15 @@
       "detail": "stdout 不同：第 11 行：node «object match function» vs tsrun «object match undefined»"
     },
     {
-      "id": "stdlib/string/202-abc-search-b",
+      "id": "stdlib/string/211-string-proto-member-table-regex-members-missing",
       "category": "stdlib",
-      "title": "\"abc\".search(\"b\")",
+      "title": "`String.prototype` 的成员表：正则那一族三格没装（账）",
+      "detail": "stdout 不同：第 1 行：node «at,padStart,replaceAll,match,search,matchAll,split,trim» vs tsrun «at,padStart,replaceAll,,,,split,trim»"
+    },
+    {
+      "id": "stdlib/string/212-string-search-string-argument-differ",
+      "category": "stdlib",
+      "title": "`\"abc\".search(\"b\")`：实参是字符串时该先转 RegExp（账）",
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
     }
   ],
