@@ -307,6 +307,51 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 894 轮：`instanceof` 右边那个实例化表达式——**「被实例化的那头不在开头」是投影的一格**（缺口清单照旧是空的）
+
+**一句话**：起手仍是第 893 轮那个手法（AST 全绿不等于没缺口，**写一批小片段去问**），
+99 条合法片段量出**一处**：`const a = b instanceof C<D>;`。它在**两层**各缺一格，
+两处一起收；收完片段探针 **99 条 0 条对不上**、九道门全绿、token 缺口清单照旧空。
+
+- **TS 那边怎么读**（先问的不是本仓的代码，是上游那一句话）：`b instanceof C<D>` 是
+  `BinaryExpression(b, InstanceOfKeyword, ExpressionWithTypeArguments(C<D>))`——
+  也就是**实例化表达式**（TS 4.7 那一族）。TS 自己还专门留了一条**语法错**来拒它
+  （`checkExpressionWithTypeArguments`：`The right hand side of an instanceof expression
+  must not be an instantiation expression`）——**那条错误本身就是证据**：
+  解析这一层确实照实例化表达式读，只是再从这里把语义拒掉。
+- **① token 层**（[`generic-type.xl.md`](typescript/tokens/generic-type.xl.md) 的 `IsTypePosition`）：
+  `C` 后面那个 `<` 回扫撞上的是 `C`（一个操作数）⇒ 判表达式位 ⇒ 后继闸在表达式位
+  **只放行 `(`** ⇒ `<…>` 退回比较运算符。修法是加一支：**`instanceof` 右边那一格是类型位**
+  （`instanceof` 与 `in` 一样是 `Keyword`，而 `KeywordCloseRule` 排在队列最后 ⇒
+  **两种身份都要认**，与 `in` 那一支同款）。**判据要求 `instanceof` 与那个名字之间不许隔实义单元**
+  ⇒ `a instanceof b.c<D>` 里 `c` 前面是 `.`，这一支不响，与原来一字不差。
+- **② 投影层**（[`print-ast-common.xl.md`](typescript/print-ast-common.xl.md) 的 0a2）：
+  0a 那一支（泛型实例化表达式）**只看头一格**，而这里被实例化的那头是**第三格**。
+  产物落下来的形状是**两格** `[BinaryOperator(b, instanceof, C), GenericType(<D>)]`
+  （`instanceof` 那一趟照样折），所以这一支先把那个 `BinaryOperator` 摊开
+  （`unwrapNodes`，与 `projectTypeArguments` 同一把尺子）再判，
+  **摊开的四格与折好的两格并成一条**——同一句话写两遍就是两处会漂。
+- **一处踩出来的内部错误**：第一版把这一格交给 `foldBinaryFrom` 收尾
+  （`foldBinaryFrom(left, [op, self, …])`），当场
+  `TypeError: opener.get is not a function`——那个函数的 `rest` 是**原始单元**（`Map`，
+  它按 `k.get("type")` 问类型），而这里要递进去的是一个**已经投好的节点**。
+  修法：这一层二元**自己折**（`pos` 取左操作数、`end` 取右操作数，
+  与 `foldBinaryFrom` 的二元那一支同一个形状），**尾巴上还有运算符时才交回** `foldBinaryFrom`。
+  **可复用的判据**：「把节点塞进一个只要原始单元的接口」这种事，报的从来不是类型错，
+  而是**在远处某一个 `.get` 上崩**——那个位置与出错的原因隔着十几层调用。
+- **实测**：片段探针 **99 条合法片段、0 条对不上**（修前 1 条）；
+  `cases:tsast` 16 片全过、**缺口清单是空的**；`cases:astjson` 六项全 0
+  （1475 份 / 35071 个节点，比上轮多 1 份 37 个节点——就是这条新用例）；
+  `cases:check` 1485 / 1485、`cases:tags` 4948 条断言 0 条不一致、`cases:shapes` 未覆盖 0；
+  `coverage` **4079 / 4250 → 4080 / 4251**（token 那一侧 1471 → 1472 条，全过；
+  `blocked 39` / `differ 132` / `bad 0` 一处没动，加权 95.3%）；`runtime:*` / `samples` 全过
+  ⇒ **九道门全绿**（墙钟 30.9s）。
+- **新增一条常驻用例**
+  [`expr-instanceof-instantiation`](tests/cases/token/expressions/expr-instanceof-instantiation.ts)
+  （`xl:expect BinaryOperator,Keyword,GenericType,Identifier`——**期望只能写产物标签**，
+  `ExpressionWithTypeArguments` 是投影那一层的 kind、不在 token 的标签表里，
+  写上去 `cases:check` 当场红）。探针留在 `tmp/r894/snips.mjs`（未进仓）。
+
 ### 第 893 轮：新片段普查 149 条——**带走类型标注的 `catch` 形参**与**静态索引签名**（AST 两把尺子照旧全绿）
 
 **一句话**：AST 那两把尺子已经全绿，所以这一轮的起点不是「哪里有红」，而是**写一批

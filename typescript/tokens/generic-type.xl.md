@@ -881,6 +881,37 @@ for (let i = from >= 0 ? from : unit.Data.length - 1; i >= 0; i--) {
       default:
         break;
     }
+    // **`instanceof` 右边那一格是类型位**（第 894 轮，实测补的）：
+    // `b instanceof C<D>` 在 TS 那边是 `BinaryExpression(b, instanceof, ExpressionWithTypeArguments(C<D>))`，
+    // 也就是**实例化表达式**（`generic-type.xl.md` 第 850 轮那一族）——TS 自己为它
+    // 专门留了一条语法错（`The right hand side of an instanceof expression must not be
+    // an instantiation expression`，见 `checkExpressionWithTypeArguments`），
+    // 说明它**照实例化表达式读**，再从语法上拒掉。
+    //
+    // **它为什么和别的运算符不一样**：`b + C<D>;` 能读成实例化表达式是因为
+    // 「C 后面那个 `<` 在 token 层被判成泛型」——而那件事由后继闸（`>` 后面是 `;`）决定。
+    // `instanceof` 的右操作数**与左操作数同为「关系层」**，`b instanceof C < D` 在
+    // TS 里也照实例化表达式读（那里 `>` 后面还是 `;`，后继闸照样放行）。
+    //
+    // **不这么做会怎样**：`C<D>` 退回裸符号 ⇒ 产物是 `Identifier` + `SymbolToken(<)` +
+    // `Identifier` + `SymbolToken(>)`，而 TS 那边是 `ExpressionWithTypeArguments > TypeReference`
+    //（实测片段 `const a = b instanceof C<D>;`：缺 2 / 漂 2 / 多 1）。
+    //
+    // **只认「`typeof` 那一族里紧邻的前一个名字是 `instanceof`」**：`instanceof` 与 `in` 一样
+    // 是 `Keyword`，而 `KeywordCloseRule` 排在队列最后 ⇒ 这里两种身份都要认
+    //（`in` 那一支在上面就是这么写的）。**`instanceof` 与名字之间不许隔任何实义单元**，
+    // 所以 `a instanceof b.c<D>` 里 `c` 前面是 `.`（不是 `instanceof`）⇒ 这一支不响，
+    // 与原来一字不差。
+    let instanceAt = i - 1;
+    while (instanceAt >= 0 && (unit.Data[instanceAt] instanceof LineWrap || IsTriviaUnit(unit.Data[instanceAt]))) {
+      instanceAt = instanceAt - 1;
+    }
+    const beforeName = instanceAt >= 0 ? unit.Data[instanceAt] : null;
+    const beforeNameWord =
+      beforeName instanceof Identifier ? beforeName.TempToString() : (beforeName instanceof Keyword ? beforeName.Value : "");
+    if (beforeNameWord === "instanceof") {
+      return true;
+    }
     // **`=` 左边紧挨着的那个名字是声明自己的名字**（`const c = …` 里的 `c`），
     // 不是操作数：`const c = <string>x` 的回扫顺序是 `=` → `c` → `const`，
     // 把 `c` 记成「看见操作数」会让声明关键字那一支判回表达式位（第 144 轮）。

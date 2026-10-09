@@ -2326,6 +2326,83 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       return foldBinaryFrom(self, rest, ctx);
     }
   }
+  // ---- 0a2。`instanceof` 右边那个实例化表达式 `b instanceof C<D>`（第 894 轮）----
+  //
+  // **与 0a 同一族，只是被实例化的那头不在开头**：产物是四格
+  // `[Identifier(b), Keyword(instanceof), Identifier(C), GenericType(<D>)]`，
+  // 而 0a 的判据只看**头一格** ⇒ 这一形状落到通用支：
+  // `C` 投成 `Identifier`、`GenericType` 投成 `TypeReference` ⇒ 缺
+  // `ExpressionWithTypeArguments`（实测片段 `const a = b instanceof C<D>;`：缺 2 / 漂 2 / 多 1）。
+  //
+  // **TS 那边怎么读**：`BinaryExpression(b, InstanceOfKeyword, ExpressionWithTypeArguments(C<D>))`——
+  // 语法上就是实例化表达式，TS 另外用一条**语法错**把它拦下来
+  //（`checkExpressionWithTypeArguments`：`The right hand side of an instanceof expression
+  // must not be an instantiation expression`），说明解析这一层确实这么读。
+  //
+  // **为什么敢在投影这一层认**：`instanceof` 右边那一格的 `<…>` 只有在
+  // token 层的 `IsTypePosition` 认了「`instanceof` 后面是类型位」时才成形
+  //（见 `generic-type.xl.md` 第 894 轮那一支），所以走到这里的三格**就是**它。
+  // 比较式（`a instanceof b < c`）在那一层根本没让 `<…>` 成形 ⇒ 这一支一次都不会响。
+  //
+  // **被实例化的那头只认名字**（与 0a 的豁免不同）：`a instanceof b.c<D>` 里 `c` 前面是 `.`
+  // ⇒ token 层那一支不响 ⇒ `GenericType` 根本不存在；`a instanceof (b)<D>` 在 TS 里
+  // 也不是实例化表达式。所以这里只列 `Identifier` 一格。
+  //
+  // **左边可能已经被收成 `BinaryOperator`**（实测）：`instanceof` 那一趟照样折，
+  // 所以产物落下来是**两格** `[BinaryOperator(b, instanceof, C), GenericType(<D>)]`——
+  // 那个 `BinaryOperator` 是**左操作数 + 运算符 + 被实例化的名字**，正好是本支要的前三格。
+  // 两种形状（摊开的四格 / 折好的两格）在这里**先并成一条**再判，
+  // 免得同一句话写两遍（写两遍就是两处会漂）。
+  let instanceKids =
+    kids.length >= 4 ? kids : [];
+  if (
+    kids.length === 2 &&
+    (kids[0].get("type") === "BinaryOperator" || kids[0].get("type") === "LogicalOperator") &&
+    kids[1].get("type") === "GenericType"
+  ) {
+    const folded = unwrapNodes(kids[0]);
+    if (folded.length === 3) {
+      instanceKids = [...folded, kids[1]];
+    }
+  }
+  if (
+    instanceKids.length >= 4 &&
+    isOperatorUnit(instanceKids[1], ctx) &&
+    textOfNode(instanceKids[1], ctx) === "instanceof" &&
+    instanceKids[2].get("type") === "Identifier" &&
+    instanceKids[3].get("type") === "GenericType"
+  ) {
+    const callee = projectNode(instanceKids[2], ctx, "");
+    if (callee !== undefined) {
+      const args = projectTypeArguments(instanceKids[3], ctx);
+      const self: any = {
+        kind: "ExpressionWithTypeArguments",
+        expression: callee,
+        pos: startOf(instanceKids[2]),
+        end: endOf(instanceKids[3]),
+      };
+      if (args.length > 0) self.typeArguments = args;
+      // **这一格不能交回 `foldBinaryFrom` 去折**（实测）：那个函数的 `rest` 是**原始单元**
+      // （`Map`，它按 `k.get("type")` 问类型），而这里要交给它的是一个**已经投好的节点**
+      // ——折到那一格会当场 `TypeError: opener.get is not a function`
+      //（`angleAssertionLength` 对着一格普通对象问 `.get`）。
+      //
+      // 所以这里自己把这一层二元折出来（与 `foldBinaryFrom` 的二元那一支同一个形状：
+      // `pos` 取左操作数、`end` 取右操作数），尾巴上还有运算符（`as` 那种）时才交回它。
+      // 运算符节点仍走 `operatorTokenOf`——`instanceof` 在这一层常常还是 `Identifier`。
+      const binary: any = {
+        kind: "BinaryExpression",
+        left: projectNode(instanceKids[0], ctx, ""),
+        operatorToken: operatorTokenOf(instanceKids[1], ctx),
+        right: self,
+        pos: startOf(instanceKids[0]),
+        end: self.end,
+      };
+      const rest = instanceKids.slice(4);
+      if (rest.length === 0) return binary;
+      return foldBinaryFrom(binary, rest, ctx);
+    }
+  }
   // ---- 0。尖括号类型断言 `<T>x`（第 144 轮）----
   //
   // TS 那边是 `TypeAssertionExpression > [type, expression]`，而产物把它记成**平级两格**：
