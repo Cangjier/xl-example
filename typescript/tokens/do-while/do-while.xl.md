@@ -10,6 +10,7 @@ import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { GetSkipNextWrapSymbol, IsTriviaUnit } from "../../text-common-util.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { CommentsIn, SkipNextTrivia, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
@@ -94,7 +95,13 @@ while (i < units.length) {
   // **体起点那一格是体本身、不是终止符**：`do while (a) x++; while (b);` 的第一个 `while`
   // 就是体（上面那条「壳里第一格」也可能命中它），跳过它再往后找。
   if (isWhileStart && i !== index) {
-    return i - 1;
+    // **体尾巴上的 trivia 不算体**（第 843 轮）：`do { a(); } /*c*/while (b);` 里
+    // `while` 前面紧挨着的是那条注释（注释也算 trivia）——照 `i - 1` 取会把注释当成体的最后一格
+    //  ⇒ `Previous` 走到 `SkipNext*` 那一步看到的是注释、`while` 认不出来
+    //（实测 `gap-sweep-{comment,linecomment}-dowhile-01` 两条：整条 `do` 退回
+    //  `WhileCloseRule`，产物是「散 `do` 关键字 + 一个独立的 `While`」，各缺 6 多 2）。
+    // 软换行本来就该跳（第 501 轮那条口径），这里只是把注释并进同一档。
+    return SkipPreviousTrivia(units, i);
   }
   i = i + 1;
 }
@@ -119,16 +126,25 @@ if (common instanceof Statement) {
   if (IsWordUnit(head, "do") === false) {
     return false;
   }
-  const after = SkipNextWrapSymbol(units, index);
+  const after = SkipNextTrivia(units, index);
   // **条件那一截的三种形态**：
   // 1. 它自成一个语句壳（`do x++; while (c);` 里两个 `;` 各收一个）——壳里那一趟
   //    **可能已经把条件收成了 `While` 单元**（壳先关、规则后跑）⇒ 壳里第一格是
   //    `While` 也算命中；
   // 2. 顶层直接是 `while` 词 + `(` 括号；
   // 3. 顶层直接是一个 `While` 单元。
+  // **跨 trivia 而不是只跨软换行**（第 843 轮）：夹一条注释的写法（`do { … } /*c*/while (b);`）
+  // 与换行是同一种排版，只跳软换行时这一格看到的是注释 ⇒ 整条 `do` 落到 `WhileCloseRule` 手里。
   const condHolder = Get(units, after);
   const condUnits = condHolder instanceof Statement ? condHolder.Data : units;
-  const condAt = condHolder instanceof Statement ? 0 : after;
+  let condAt = condHolder instanceof Statement ? 0 : after;
+  // **壳里那条注释要先跳过去**（第 843 轮）：`do x++; /*c*/ while (c);` 里条件那条壳是
+  // `[AreaAnnotation, while, (c)]`（语句壳只丢软换行、不丢注释，见 `Statement.FormFrom`）
+  // —— 照 `Data[0]` 取看到的是注释 ⇒ `while` 认不出来 ⇒ 整条 `do` 退回 `WhileCloseRule`
+  //（实测这一格缺 4 多 4：`do x++;` 与 `while (c);` 各成一条）。
+  while (condHolder instanceof Statement && condAt < condUnits.length && IsTriviaUnit(Get(condUnits, condAt))) {
+    condAt = condAt + 1;
+  }
   const cond = Get(condUnits, condAt);
   if (cond !== null && cond.constructor.name === "While") {
     return true;
@@ -147,7 +163,9 @@ const bodyEnd = this.BodyEnd(units, i);
 if (bodyEnd < 0) {
   return false;
 }
-i = SkipNextWrapSymbol(units, bodyEnd);
+i = SkipNextTrivia(units, bodyEnd);
+// **体与 `while` 之间夹的注释也算 trivia**（第 843 轮，与上面壳里那一支同一口径）：
+// 只跳软换行时这一格看到的是注释 ⇒ `while` 认不出来 ⇒ 整条 `do` 退回 `WhileCloseRule`。
 // 条件那一截与上面同一份判据：可能在壳里（壳先关、规则后跑），也可能顶层就是词或 `While` 单元。
 const holder = Get(units, i);
 const condUnits = holder instanceof Statement ? holder.Data : units;
@@ -188,13 +206,18 @@ if (unit instanceof Statement) {
   const result = new DoWhile(template);
   result.Parent = unit.Parent;
   result.SignIn(head.SourceRange.Start!);
-  const after = SkipNextWrapSymbol(units, index);
+  const after = SkipNextTrivia(units, index);
   // **条件那一截的三种形态**（与 `Previous` 同一份判据）：壳里可能已经是一个 `While` 单元
   //（壳先关、规则后跑），也可能还是 `while` 词 + 括号，顶层也可能直接是 `While`。
   const holder = Get(units, after);
   const condShell = holder instanceof Statement ? holder : null;
   const condUnits = condShell === null ? units : condShell.Data;
-  const condAt = condShell === null ? after : 0;
+  let condAt = condShell === null ? after : 0;
+  // **与 `Previous` 同一格**（第 843 轮）：壳里那条注释要先跳过去，
+  // `do x++; /*c*/ while (c);` 的条件壳是 `[AreaAnnotation, while, (c)]`。
+  while (condShell !== null && condAt < condUnits.length && IsTriviaUnit(Get(condUnits, condAt))) {
+    condAt = condAt + 1;
+  }
   let condUnit = Get(condUnits, condAt);
   // **条件已经是一个 `While` 单元时，取它里面那个 Compare 段**：
   // 那个段里就是括号整段（`WhileCloseRule` 把括号的子单元搬进去了）。
@@ -230,6 +253,14 @@ if (unit instanceof Statement) {
   bodySegment.SignIn(unit.SourceRange.Start!);
   bodySegment.SignOut(unit.SourceRange.End!);
   bodySegment.TryToClose();
+  // **跨过的注释要收下**（第 843 轮）：体与条件之间那条注释落在被 `ReplaceCountAt`
+  // 替换掉的那一段里，不显式收下就等于删掉（与 `switch` 第 595 轮同一手，`CommentsIn` 的说明）。
+  // 两条来路：顶层那两个单元之间（`units`），以及**条件那条壳里**（`do x++; /*c*/ while (c);`
+  // 那条注释住在条件壳里，壳自己被替换掉时就一起没了）。
+  result.AddRange(CommentsIn(units, index + 1, after));
+  if (condShell !== null) {
+    result.AddRange(CommentsIn(condShell.Data, 0, condShell.Data.length));
+  }
   const compare = result.CreateCompare();
   if (compareSource !== null) {
     compare.SignIn(compareSource.SourceRange.Start!);
@@ -282,7 +313,13 @@ if (bodyCandidate instanceof Bracket && bodyCandidate.startBracket === "{") {
   bodySegment.SignOut(Get(units, bodyEnd)!.SourceRange.End!);
 }
 bodySegment.TryToClose();
-endIndex = SkipNextWrapSymbol(units, bodyEnd);
+// **体与 `while` 之间的 trivia 要跨过去**（第 843 轮，与 `Previous` 同一口径）：
+// `do { a(); } /*c*/while (b);` 里那一格是注释 —— 只跳软换行时 `endIndex` 停在注释上，
+// `while` 词与它后面那个括号一位都对不上 ⇒ 整条 `do` 只能退回 `WhileCloseRule`。
+endIndex = SkipNextTrivia(units, bodyEnd);
+// **跨过的注释要收下**（同第 843 轮）：它们落在被 `ReplaceCountAt` 替换掉的那一段里，
+// 不显式收下就等于删掉（`CommentsIn` 只收注释、软换行照旧丢掉，与 `switch` 同一手）。
+result.AddRange(CommentsIn(units, bodyEnd + 1, endIndex));
 // **条件自成壳或已成形时走这一支**（`do if (a) x++; while (c);`，与上面壳里那一支同一份判据）：
 // 顶层那一格是条件**那一整条语句**，不是一个 `while` 词跟着括号 ⇒ 不能再按「词 + 括号」取。
 const condHolder = Get(units, endIndex);

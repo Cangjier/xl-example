@@ -306,6 +306,43 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 843 轮：`do…while` 的体与 `while` 之间的 trivia——`SWEEP-{comment,linecomment}/dowhile` 收掉 2 条
+
+**一句话**：`do-while.xl.md` 里从「体」走到「`while`」的那两步走的是 `SkipNextWrapSymbol`
+（只跳软换行），而 TS 那边体与 `while` 之间**夹一条注释与夹一个换行是同一种排版**
+（第 817 / 818 轮那条口径）⇒ 判据看到的是注释、`while` 认不出来 ⇒ 整条 `do` 退回
+`WhileCloseRule`，产物成了「散 `do` 关键字 + 一个独立的 `While`」（各缺 6 多 2）。
+三处（`BodyEnd` 取体尾 / `Previous` 认形状 / `Process` 真搬）都改成 trivia 口径，
+并把跨过的注释**显式收进 `DoWhile`**（`CommentsIn`，与 `switch` 第 595 轮同一手：
+注释落在被 `ReplaceCountAt` 替换掉的那一段里，不收就等于删掉）。
+补上之后 `cases:tsast` 的账 **34 → 32**（`coverage` **3967 → 3970**，
+`token` 那一类 blocked 74 → 72）。
+
+- **`BodyEnd` 那一格**：`do { a(); } /*c*/while (b);` 里 `while` 前面紧挨着的是那条注释，
+  照 `i - 1` 取就把注释当成体的最后一格 ⇒ 改成 `SkipPreviousTrivia`（软换行本来就跳，
+  这里只是把注释并进同一档）。
+- **`Previous` / `Process` 那两格**：`SkipNextWrapSymbol` → `SkipNextTrivia`
+  （顶层是 `do` 词那一支，与上面壳里那一支各自一份）。
+- **条件自成一条壳时，壳里第一格也可能是注释**（第 843 轮实测的第二处）：
+  `do x++; /*c*/ while (c);` 里 `x++;` 的 `;` 先把体收成壳，条件那一段又收成一条壳
+  —— 而**语句壳只丢软换行、不丢注释**（`Statement.FormFrom`）⇒ 条件壳是
+  `[AreaAnnotation, while, (c)]`，照 `Data[0]` 取看到的是注释。
+  所以取条件之前先跳过壳里的 trivia；而且条件壳**自己会被替换掉**，
+  里面那条注释要单独 `CommentsIn(condShell.Data, …)` 收一遍。
+- **没做的两格（如实记在这里）**：
+  - **`do {} while (a) b()`**（`stmt-do-while-then-statement`，仍开着）：TS 在 `do…while` 的
+    `)` 后面**无条件**按 ASI 断句（下一格是不是换行都断），我们这边那条语句与 `DoWhile`
+    住**同一条壳**里 ⇒ 多一个 `ExpressionStatement [0,19)`。要收它得让语句层在
+    `do…while` 形状的末尾断壳 —— 是另一笔账，不在这一轮。
+  - **`do x++; //c`** 换行 **`while (c);`**：行注释**自成一条只装 trivia 的壳**
+    （`Statement > LineAnnotation`）⇒ 上面那条「跳过壳里的 trivia」还得多一层
+    「跳过只装 trivia 的壳」。这一格不在语料里（本轮探针量的），也留着。
+- **收掉的 2 条**：`gap-sweep-comment-dowhile-01` 与 `gap-sweep-linecomment-dowhile-01`。
+  两行 `xl:known-gap` 删掉、两条 `xl:expect` 按新形状重算（`While` / `WhileBody` /
+  `WhileCompare` + 散 `Bracket` / `Keyword` 那一套没了，换成 `DoWhile`）。
+  另补一条守卫用例 `tests/cases/token/statements/stmt-do-while-expr-comment.ts`
+  （体是**表达式语句** + 块注释）——语料里那两条的体都是块，`BodyEnd` 那一格此前没人钉。
+
 ### 第 842 轮：**`async` 是上下文关键字**——`SWEEP-{newline,linecomment}/async` 那两格收掉 2 条
 
 **一句话**：`Keyword.IsUpgradable` 的例外表里立着四档（`as const` / 装饰器名位 / 枚举成员 /

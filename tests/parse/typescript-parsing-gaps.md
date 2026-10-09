@@ -249,10 +249,10 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**34 条**）
+## 已知仍开着的缺口（**32 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
-（第 842 轮实测 **34**；第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
+（第 843 轮实测 **32**；第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
 文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
@@ -381,6 +381,16 @@ TS 那边 `declare` 换行走 ASI），那一族没修、也不在语料里，�
 （`Lamda.IsAsync` 认的是 `Identifier`，方法头靠 `modifiers` 文本列），所以一个字都不误伤。
 `await` 的同形缺口（裸 `await;`）**这一轮不动**，理由写在根 README 那一轮。
 另补了一条守卫用例 `expr-async-identifier-value`（调用位 + 初始化位），账从 **36 → 34**。
+
+**第 843 轮收掉的 2 条**：`gap-sweep-comment-dowhile-01` 与 `gap-sweep-linecomment-dowhile-01`
+（第一族里的 `dowhile` 落点）。根在 `do-while.xl.md`：从「体」走到「`while`」的那三处
+（`BodyEnd` 取体尾 / `Previous` 认形状 / `Process` 真搬）走的是 `SkipNextWrapSymbol`
+（只跳软换行）—— 夹一条注释与夹一个换行在 TS 里是同一种排版 ⇒ `while` 认不出来
+⇒ 整条 `do` 退回 `WhileCloseRule`（产物是「散 `do` 关键字 + 一个独立的 `While`」，各缺 6 多 2）。
+三处改成 trivia 口径 + `CommentsIn` 收下跨过的注释（与 `switch` 第 595 轮同一手）。
+**另外两格没做、如实留着**：`do {} while (a) b()`（TS 在 `)` 后无条件 ASI 断句，
+要动语句层）与 `do x++; //c` 换行 `while (c);`（行注释自成一条只装 trivia 的壳，
+还要多一层跳过）。新守卫用例 `stmt-do-while-expr-comment`，账从 **34 → 32**。
 
 **怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。
