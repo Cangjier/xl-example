@@ -1,22 +1,11 @@
-// xl:title 函数的 name 推导：字面量 / 类成员 / 绑定（第 883 轮起只剩绑定那一格）
+// xl:title 函数的 name 推导：字面量 / 类成员 / 绑定（第 883 / 890 轮各收掉一半）
 // xl:round 778
 // xl:judge stdout
-// xl:want differ
-// xl:why **第 778 轮量出来的那一行已经收掉了**：`let x; x = function () {}` 之后
-// xl:why `x.name` 原来是 `""`（Node 给 `"x"`——`NamedEvaluation` 里**赋值**也是一处命名位）。
-// xl:why 第 883 轮在 `typescript-exec/lowering.xl.md` 的 `LowerBinary` 那条 `=` 分支上
-// xl:why 补了**第四处** `FunctionNameHint`（前两处是变量声明第 238 轮、形参默认值第 882 轮，
-// xl:why 判据都是同一个 `NamesFunctionValue`），本文件第 3 行那一条于是与 Node 逐字节相同。
-// xl:why **没有碰** `o.m = …` / `arr[0] = …` 两条分支（规范在那两处没有 NamedEvaluation，
-// xl:why JS 本来就不取名——第 8 行那一半一直是对的）。
-// xl:why
-// xl:why **本文件今天唯一还红的是第 17 行**：`typeof f.bind(null).prototype` 本仓给
-// xl:why `"object"`、Node 给 `"undefined"`——**根不在这一条用例里**，而在第 753 轮的
-// xl:why `FunctionBind`（`globals.xl.md`：它把目标的 `prototype` 抄到了绑定对象自己身上，
-// xl:why 为的是 `new (F.bind(null))() instanceof F`）。同一个根在
-// xl:why `stdlib/round783/003-bound-function-own-cells-differ` 上有完整台账
-// xl:why （两条要同一轮收：`CreateInstance` 认绑定对象时改从 `[[BoundTargetFunction]]`
-// xl:why 取原型）。这一条用例**留着当那一轮的另一只眼**，所以 `xl:want differ` 照旧。
+// xl:note 第 890 轮转绿（`xl:want differ` 与那几行 `xl:why` 按规矩撤掉，用例留着当守卫）：
+// xl:note 第 883 轮收掉了「赋值也是命名位」那一半（`x = function () {}` 的 `name`）；
+// xl:note 剩的最后一格 `typeof f.bind(null).prototype`（本仓给 `"object"`、Node 给 `"undefined"`）
+// xl:note 与 `stdlib/round753/003` / `stdlib/round783/003` **同一条根**，第 890 轮一起收掉——
+// xl:note 绑定对象上转抄的那一格 `prototype` 改成了记账格，用户那头看不见它。
 // xl:end
 // 第 778 轮普查面：`Function.prototype.name` 与 `prototype` 那一族。
 // `name` 由**赋值位置**推导（`const f = () => {}` 给 `"f"`、`{ m: function () {} }` 给 `"m"`、

@@ -1,10 +1,10 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagsAll } from "../../runtime/heap.xl.md"
+import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagsAll, PropertyFlagInternal } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue, FunctionSourceText } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText, NumberToJsText } from "../../runtime/host-text.xl.md"
-import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, ReadProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt, IndexAccessorAt } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, GetInternalProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, ReadProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt, IndexAccessorAt } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayElementAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat, ArrayAt } from "./array.xl.md"
@@ -3886,10 +3886,19 @@ if (id === FunctionBind) {
   // `calling a non-closure value`——那句话听起来像调用写错了，
   // 其实是**这一格没人填**（与闭包那一格第 228 轮修的是同一个形状）。
   table.Get(bound.Ref).Proto = protos.Function;
-  SetHiddenProperty(room, table, bound, BoundTargetName(table), self);
+  // **三格载荷写成「记账格」**（第 890 轮）：`__boundTarget` / `__boundThis` / `__boundArgs`
+  // 是引擎自己要读的东西，**在 JS 里根本不是一个属性**——
+  // `"__boundTarget" in f.bind(x)` 是假、`Object.getOwnPropertyNames` 只给 `["length","name"]`。
+  // 所以它们带 `PropertyFlagInternal`：读属性 / `in` / 自有名表那几处一律看不见，
+  // 只有 `GetInternalProperty`（`BoundCall` 那三处读）看得见。
+  //
+  // **不能按名字滤**：用户自己写 `{ ["__boundTarget"]: 1 }` 是一个**真的**自有属性名
+  //（JS 会给它），按名字滤会把它一起藏掉——标记必须跟着那一格走。
+  const boundInternal = PropertyFlagWritable + PropertyFlagConfigurable + PropertyFlagInternal;
+  SetHiddenProperty(room, table, bound, BoundTargetName(table), self, boundInternal);
   SetHiddenProperty(room, table, bound, BoundThisName(table),
-    args.length > 0 ? args[0] : Value.Undefined());
-  SetHiddenProperty(room, table, bound, BoundArgsName(table), boundArgs);
+    args.length > 0 ? args[0] : Value.Undefined(), boundInternal);
+  SetHiddenProperty(room, table, bound, BoundArgsName(table), boundArgs, boundInternal);
   // **`bound.length` / `bound.name`**（第 291 轮）——第 228 轮那一句注释里
   // 明写着「`bound.length`（本仓没做）」，这一轮把它补上。
   //
@@ -3918,19 +3927,19 @@ if (id === FunctionBind) {
   // ⇒ 退到 `Protos.Object` ⇒ **`instanceof F` 给假、`Object.getPrototypeOf(inst) === F.prototype`
   // 也给假**（判据 `p753b-03` 第 8 行）。
   //
-  // **为什么是「转抄一格」而不是去改 `CreateInstance`**：那一格是**每次 `new` 都要过的路**
-  // （见第 750 轮 `a.length = "2"` 那条同类的取舍），而这里只需一句赋值——
-  // 而且 JS 的绑定函数**恰好**就是「`[[Prototype]]` 是 `Function.prototype`、
-  // 没有自有 `prototype`、构造时用目标的」这三句，用目标那一格表达它**一字不差**。
+  // **第 890 轮把「两件事同时成立」做齐了**：JS 里绑定函数
+  // ① `G.prototype` 是 `undefined`（**没有自有那一格**）、② `new G() instanceof F` 是真。
+  // 第 753 轮抄这一格只做到 ②，① 于是挂着（台账 `p753b-03` 第 5 行）。
+  // 现在这一格带 `PropertyFlagInternal` ⇒ **用户那头**看它一眼都看不见
+  // （读给 `undefined`、`in` 给假、名表里没有），而 `CreateInstance` 走
+  // `GetInternalProperty` 照旧读得到 ⇒ ①② 同时成立，**不必动每一次 `new` 都要过的那条路**。
+  //
   // **目标自己没有 `prototype` 就不抄**（如 `bind` 出来又 `bind` 一层：
   // 里层那个绑定对象身上有上面这一句抄来的那一格，照抄即传递到底）。
-  // **`G.prototype === F.prototype` 在 Node 里是假**（`G.prototype` 是 `undefined`）——
-  // 这一条**如实记在台账里**（`p753b-03` 那条用例的 `xl:why`），
-  // 因为它要的是「绑定对象没有自有 `prototype`」这另一件事。
   const boundProtoKey = Value.FromString(table.CreateString(Units("prototype")));
   const targetProto = GetProperty(room, NeverCall, protos, table, self, boundProtoKey);
   if (targetProto.IsObject()) {
-    SetHiddenProperty(room, table, bound, boundProtoKey, targetProto);
+    SetHiddenProperty(room, table, bound, boundProtoKey, targetProto, boundInternal);
   }
   const boundNameKey = Value.FromString(table.CreateString(Units("name")));
   const targetName = GetProperty(room, NeverCall, protos, table, self, boundNameKey);
@@ -3946,11 +3955,15 @@ if (id === BoundCall) {
   if (!self.IsObject()) {
     throw new Error("a bound function must be an object (the engine passes the receiver as this)");
   }
-  const boundTarget = GetProperty(room, NeverCall, protos, table, self, BoundTargetName(table));
+  // **三格载荷走 `GetInternalProperty`**（第 890 轮）：它们是记账格
+  //（带 `PropertyFlagInternal`），用户口径的 `GetProperty` 看不见它们——
+  // 那正是「`"__boundTarget" in f.bind(x)` 给假」这条 JS 口径的实现方式。
+  // 引擎自己读它们，所以走这个显式入口（`props.xl.md` 那一格写着为什么单开一个方法）。
+  const boundTarget = GetInternalProperty(room, table, self, BoundTargetName(table));
   if (!IsCallableValue(table, boundTarget)) {
     throw new Error("a bound function lost its target");
   }
-  const boundSelf = GetProperty(room, NeverCall, protos, table, self, BoundThisName(table));
+  const boundSelf = GetInternalProperty(room, table, self, BoundThisName(table));
   // **`new` 底下目标要的是实例，不是 `boundThis`**（第 617 轮）：
   // `new (fn.bind(null))(5)` 是**构造调用**——JS 里绑定函数被 `new` 时
   // **绑定过的 `this` 不算数**（`[[Construct]]` 把新对象交下去），
@@ -3976,7 +3989,7 @@ if (id === BoundCall) {
     && !table.Get(boundTarget.Ref).AsClosure().IsStrict) {
     callSelf = BoxReceiver(room, table, protos, effectiveSelf);
   }
-  const storedArgs = GetProperty(room, NeverCall, protos, table, self, BoundArgsName(table));
+  const storedArgs = GetInternalProperty(room, table, self, BoundArgsName(table));
   if (call === null) {
     throw new Error("a bound function needs a call channel (the host must pass one)");
   }
@@ -5691,6 +5704,12 @@ if (id === ObjectGetOwnPropertyNames) {
   if (nameItem !== null) {
     for (let i = 0; i < nameItem.Props.length; i++) {
       if (table.Get(nameItem.Props[i].Key).Tag !== ValueTag.String) continue;
+      // **记账格不是一个属性名**（第 890 轮，与 `#p` 那一格同一个坎）：
+      // `PropertyFlagInternal` 那些格（绑定函数的 `__bound*` 与转抄的 `prototype`）
+      // 在 JS 里**根本不存在**——`Object.getOwnPropertyNames(f.bind(x))` 只给
+      // `["length","name"]`。按**标记**滤，不按名字滤（用户自己写 `{ ["__boundTarget"]: 1 }`
+      // 是一个真的自有属性名，按名字滤会把它一起藏掉）。
+      if ((nameItem.Props[i].Flags & PropertyFlagInternal) !== 0) continue;
       // 而这一支的判据恰恰是「**不管 `enumerable`**」——所以它会漏出来
       //  JS 给 `["x"]`）。**这一句是这一支与 `Object.keys` 唯一的差别多出来的一行**。
   // **第 333 轮起没有那个内部标记属性了**（`heap.xl.md` 的 `Extensible`）——

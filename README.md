@@ -307,6 +307,70 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 891 轮：绑定函数那一族——**「记账号」不是属性**（台账 3 条转绿，`differ 138 → 135`）
+
+**一句话**：AST 那两把尺子全绿之后，红账只剩 `coverage` 的台账（`blocked` / `differ`）。
+按第 883 轮写下的落点，收掉**绑定函数**那一族：`f.bind(x)` 交出来的那个函数，
+自有格应当是 `["length","name"]`，而本仓给
+`__boundTarget,__boundThis,__boundArgs,length,prototype,name`——**四格不该存在的东西**。
+
+**根因一句话**：那四格是**引擎自己的载荷**，而它们被写成了**真的属性**。
+JS 里 `f.bind(x)` 上既没有 `__boundTarget`（那是本仓的记账）、也没有自有的 `prototype`
+（规范 §10.4.1.3 只做 `SetFunctionLength` / `SetFunctionName`）——所以
+`"__boundTarget" in bound`、`Object.getOwnPropertyNames(bound)`、`typeof bound.prototype`
+三问在 Node 里分别是**假 / `["length","name"]` / `"undefined"`**。
+
+**为什么不能按名字滤**（第 883 轮就把这一条钉住了）：用户自己写
+`{ ["__boundTarget"]: 1 }` 是一个**真的**自有属性名（Node 会给它）——按名字滤会把它一起藏掉。
+标记必须跟着**那一格**走。于是这一轮给 `Property.Flags` 补上**第 4 位**
+`PropertyFlagInternal`（`heap.xl.md`；界说得很死：**它不是一个属性**，
+所以读属性 / `in` / 赋值 / 自有名表那几处都要滤掉它），`FunctionBind` 写那四格时置上。
+
+**落在哪几处（都是「什么时候看得见」这件事的出口）**：
+
+| 出口 | 改成什么 | 为什么 |
+| --- | --- | --- |
+| `FindProperty`（`props.xl.md`） | 多一格 `includeInternal:bool = false`，缺省**滤掉** | 它同时管着 `GetProperty`、`in`、`SetProperty` 的查找——一处收住三问 |
+| `GetInternalProperty`（同文件，新） | **只看自有**那一格、只认数据属性 | 引擎自己读载荷的**显式**入口（不给 `GetProperty` 加第 7 个位置参数：那条路上有几十个调用点） |
+| `BoundCall`（`globals.xl.md`） | 那三格改走 `GetInternalProperty` | 引擎读自己的记账 |
+| `Object.getOwnPropertyNames` | 那一趟按标记 `continue` | 与 `#p` 那一族**同一个坎**（第 737 轮） |
+| `SetPropertySearched` 的「接收者自己那一格」那一趟 | 按标记 `continue` | `bound.prototype = 7` 在 JS 里是**新开一格普通属性**；不滤就会**就地改掉记账那一份** |
+| `CreateInstance`（`vm.xl.md`） | 用户口径读不到对象时，补一次 `GetInternalProperty` | `new G()` 要用**目标**那一格（规范的 `[[Construct]]` 对绑定函数是转交） |
+| `RtInstanceOf`（`rt.xl.md`） | 同上 | `new bound() instanceof F` 与 `x instanceof bound` 走的是同一个原型 |
+
+**「两件事同时成立」是这一格的形状**：JS 里 `G.prototype` 是 `undefined`（**没有自有那一格**）
+**而** `new G() instanceof F` 是真。第 753 轮为了让后者成立把目标的 `prototype` 抄了过来，
+前者于是挂着（台账 `p753b-03` 第 5 行）。抄**还是**要抄——只是那一格现在是**记账格**：
+用户那头一眼都看不见它，引擎走 `GetInternalProperty` 照旧读得到
+⇒ ①② 同时成立，**而且不必动「每一次 `new` 都要过」的那条路**（第 750 轮那条取舍的答案）。
+
+**语料当场逮回一处回归**（与第 889 轮同款，但这次逮住它的是红账那一栏）：
+`runtime/round767/005-instanceof-forms` 从绿变红（`the right side of instanceof has no
+prototype object`）——`instanceof` 读的是**用户口径**的 `prototype`，
+那一格看不见之后 `new bound() instanceof F` 就断了。这一处正是上表最后一行，
+补上 `RtInstanceOf` 的记账口径读之后回到绿。
+
+**用例**：三条**台账用例**按规矩撤掉 `xl:want differ` 与那几行 `xl:why`、留作守卫
+（[`round753/003`](tests/cases/stdlib/round753/003-construct-and-bind-prototype-differ.ts)、
+[`round783/003`](tests/cases/stdlib/round783/003-bound-function-own-cells-differ.ts)、
+[`round778/001`](tests/cases/runtime/round778/001-function-name-inference-differ.ts)——
+第三条的文件头原本就写着「两条要同一轮收」），另新增一条**守卫用例**
+[`round890/001`](tests/cases/stdlib/round890/001-internal-flag-not-name-guard.ts)：
+用户自己的同名属性仍然是真属性、`bound.prototype = 7` 之后读回 7 而 `new bound()`
+照旧用**目标**的原型（六行与 Node 逐字节相同）。
+
+**实测**：`coverage` **4070 / 4247 → 4074 / 4248**（`differ 138 → 135`、`blocked 39` /
+`bad 0` 没动，加权 95.2%）；`cases:tsast` 缺口清单照样是空的、16 片全过；
+`cases:astjson` 六项全 0；`cases:check` / `cases:tags` / `cases:shapes` 全过；
+`runtime:check` 243 条、`runtime:cli` 79 份一致、`samples` 全过 ⇒ **九道门全绿**（墙钟 29.8s）。
+
+**这一轮的经验**：**「什么时候看得见」这件事有多个出口，要一次列齐**。
+`PropertyFlagInternal` 这一位本身只是一句 `&`，难的是**出口清单**：
+读属性 / `in` / 赋值 / 自有名表 / 造实例 / `instanceof`——漏一个就是一处**静默错值**
+（这一轮漏的正是最后一个，被语料当场逮住）。
+第二条：**「不能按名字滤」那一条要先用一条用例钉住**——它是这一类修法最容易走岔的地方，
+而且走岔之后**用户自己的属性会消失**，比原来的账更坏。
+
 ### 第 890 轮：缺口清单上的两条一起收掉——**「行尾」自己是一档，「被断言的那个操作数」只有一格**（已知缺口 2 → 0）
 
 **一句话**：`cases:tsast` 的缺口清单上只剩第 888 / 889 轮登记的那两条，这一轮把两条一起收掉；

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4247,
+  "total": 4248,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.17,
+  "progressPercent": 95.25,
   "categories": [
     {
       "category": "token",
@@ -101,21 +101,21 @@
       "category": "runtime",
       "weight": 0.25,
       "total": 776,
-      "pass": 725,
+      "pass": 726,
       "blocked": 6,
-      "differ": 45,
+      "differ": 44,
       "nodefail": 0,
-      "coverage": 93.43
+      "coverage": 93.56
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 965,
-      "pass": 881,
+      "total": 966,
+      "pass": 884,
       "blocked": 21,
-      "differ": 63,
+      "differ": 61,
       "nodefail": 0,
-      "coverage": 91.3
+      "coverage": 91.51
     },
     {
       "category": "e2e",
@@ -737,7 +737,7 @@
       "id": "runtime/round760/004-bound-function-prototype-differ",
       "category": "runtime",
       "title": "`bind` 出来的函数**不该有**自有 `prototype`，本仓抄了一格",
-      "detail": "stdout 不同：第 1 行：node «1 undefined» vs tsrun «1 object»"
+      "detail": "stdout 不同：第 2 行：node «2 false» vs tsrun «2 true»"
     },
     {
       "id": "runtime/round767/007-yield-star-throw-forwarding-differ",
@@ -750,12 +750,6 @@
       "category": "runtime",
       "title": "写回路径上的下标访问器（本轮登记的缺口）",
       "detail": "stdout 不同：第 1 行：node «01 JSON.stringify(mk().reverse().slice()) ok:string:[null,7]» vs tsrun «01 JSON.stringify(mk().reverse().slice()) ok:string:[7,null]»"
-    },
-    {
-      "id": "runtime/round778/001-function-name-inference-differ",
-      "category": "runtime",
-      "title": "函数的 name 推导：字面量 / 类成员 / 绑定（第 883 轮起只剩绑定那一格）",
-      "detail": "stdout 不同：第 17 行：node «17 bind 出来的没有 prototype \"undefined\"» vs tsrun «17 bind 出来的没有 prototype \"object\"»"
     },
     {
       "id": "runtime/round778b/001-destructuring-boundaries-differ",
@@ -1046,12 +1040,6 @@
       "detail": "stdout 不同：第 5 行：node «(() => this === undefined)() ok:boolean:false» vs tsrun «(() => this === undefined)() ok:boolean:true»"
     },
     {
-      "id": "stdlib/round753/003-construct-and-bind-prototype-differ",
-      "category": "stdlib",
-      "title": "构造与 `bind` 的形状：`new` 的返回值、`prototype`、`new.target`",
-      "detail": "stdout 不同：第 7 行：node «(function () { function F(this ok:boolean:true» vs tsrun «(function () { function F(this ok:boolean:false»"
-    },
-    {
       "id": "stdlib/round758/001-callback-thisarg-boxing-differ",
       "category": "stdlib",
       "title": "数组回调的 `thisArg` 是原始值时：松散模式要装箱",
@@ -1164,12 +1152,6 @@
       "category": "stdlib",
       "title": "`Symbol.prototype` 自己那一张名表：`constructor` / `toString` / `valueOf` / `description`",
       "detail": "stdout 不同：第 1 行：node «01 own names = constructor,description,toString,valueOf» vs tsrun «01 own names = »"
-    },
-    {
-      "id": "stdlib/round783/003-bound-function-own-cells-differ",
-      "category": "stdlib",
-      "title": "绑定函数的自有格：多出三格**内部实现的名字**，还多一格 `prototype`",
-      "detail": "stdout 不同：第 1 行：node «01 own names = length,name» vs tsrun «01 own names = __boundTarget,__boundThis,__boundArgs,length,prototype,name»"
     },
     {
       "id": "stdlib/string/144-localecompare-differ",

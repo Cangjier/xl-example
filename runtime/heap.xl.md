@@ -78,9 +78,25 @@ getter/setter 的调用、`delete`、`in`、内联缓存）不在这里，它们
 
 属性可配置（可 `delete`、可改属性种类）。
 
+# const PropertyFlagInternal:int = 8
+
+**引擎自己的记账格**（第 890 轮）——它**不是一个属性**：所有「用户看得见」的出口都要滤掉它。
+
+前三格（1 / 2 / 4）是 JS 规范的属性特性；这一位是**本仓的**：绑定函数那三格
+`__boundTarget` / `__boundThis` / `__boundArgs`（以及转抄过来的 `prototype`）是引擎
+自己要读的载荷，而 JS 里它们**根本不存在**——`"__boundTarget" in f.bind(x)` 是假、
+`Object.getOwnPropertyNames(f.bind(x))` 只有 `["length","name"]`。
+
+**为什么不能用「按名字滤」**：用户自己写 `{ ["__boundTarget"]: 1 }` 是一个**真的**
+自有属性名（JS 的 `Object.getOwnPropertyNames` 会给它）——按名字滤会把它一起藏掉。
+标记必须跟着**那一格**走，与 `#p` 那一族（`globals.xl.md` 第 737 轮）同一个坎。
+
+**它不进 `PropertyFlagsAll`**：`All` 说的是「三个规范位全开」，
+而「内部」是正交的一位——普通赋值造出来的属性永远是 7。
+
 # const PropertyFlagsAll:int = 7
 
-三个标志全开——普通赋值产生的属性就是它。
+三个**规范**标志全开——普通赋值产生的属性就是它（`PropertyFlagInternal` 不在里面）。
 
 # method PopInt:(items:Array<int>)=>int
 
@@ -148,7 +164,11 @@ return hash;
 
 ## field Flags:int = 7
 
-三个属性标志的位掩码，默认全开（`PropertyFlagsAll`）。
+属性标志的位掩码，默认全开（`PropertyFlagsAll`）。
+
+**第四位（`PropertyFlagInternal`）是「这不是一个属性」**：读属性 / `in` / 自有名表
+那几处都要按它滤掉（`props.xl.md` 的 `FindProperty` 有一格 `includeInternal`，
+只有引擎自己读载荷时才给真）。
 
 ## constructor:(key:int, value:Value)=>void
 

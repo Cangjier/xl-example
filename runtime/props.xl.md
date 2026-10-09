@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, Property, PropertyKind, ObjectCharge, PropertyCharge, ValueCharge } from "./heap.xl.md"
-import { PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagEnumerable, PropertyFlagsAll } from "./heap.xl.md"
+import { PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagEnumerable, PropertyFlagsAll, PropertyFlagInternal } from "./heap.xl.md"
 import { RootSet } from "./gc.xl.md"
 import { RoomChecker, IsCallableValue } from "./rt.xl.md"
 ```
@@ -704,11 +704,21 @@ if (stored.Tag === ValueTag.String && key.Tag === ValueTag.Int32 && key.Int >= 0
 throw new Error("property keys must be strings or symbols");
 ```
 
-# method FindProperty:(room:RoomChecker, table:HeapTable, receiver:int, key:Value)=>PropRef | null
+# method FindProperty:(room:RoomChecker, table:HeapTable, receiver:int, key:Value, includeInternal:bool = false)=>PropRef | null
 
 沿原型链找 `key`，返回**第一处**命中的（自有属性优先）。
 
 **返回 `null` 是正常结果**（属性不存在），不是错误。深度上限见 `MaxProtoDepth`。
+
+**`includeInternal` 缺省为假 = 「按用户的口径找」**（第 890 轮）：
+带 `PropertyFlagInternal` 的那些格**不是一个属性**（`heap.xl.md` 那一格写着为什么），
+所以读属性 / `in` / 赋值**全都看不见它们**——`f.bind(x).prototype` 给 `undefined`、
+`"prototype" in f.bind(x)` 给假（Node 两边都是这样）。
+**这一格只有引擎自己读载荷时才给真**（`vm.xl.md` 造实例时读那一格 `prototype`、
+`globals.xl.md` 的 `BoundCall` 读那三格 `__bound*`）——**两个调用点，都写在明处**。
+
+**为什么滤在这一层而不是「按名字滤」**：用户自己写 `{ ["__boundTarget"]: 1 }`
+是一个**真的**自有属性名，按名字滤会把它一起藏掉（与 `#p` 那一族同一个坎）。
 
 ```ts
 let current = receiver;
@@ -717,6 +727,9 @@ while (current > 0) {
   if (depth > MaxProtoDepth) throw new Error("prototype chain is too deep");
   const item = table.Get(current);
   for (let i = 0; i < item.Props.length; i++) {
+    if (includeInternal === false && (item.Props[i].Flags & PropertyFlagInternal) !== 0) {
+      continue;
+    }
     if (KeyMatches(table, item.Props[i], key)) return new PropRef(current, i);
   }
   current = item.Proto;
@@ -729,8 +742,38 @@ return null;
 
 `key in receiver`：**沿原型链找得到就算**（`in` 的语义就是它，不是「自有属性」）。
 
+**记账格不算属性**（第 890 轮）：`FindProperty` 的缺省口径会把
+`PropertyFlagInternal` 那些格滤掉，所以 `"__boundTarget" in f.bind(x)` 给假
+（Node 就是这样；它在 `heap.xl.md` 那一格写着为什么）。
+
 ```ts
 return FindProperty(NeverRoom, table, receiver, key) !== null;
+```
+
+# method GetInternalProperty:(room:RoomChecker, table:HeapTable, receiver:Value, key:Value)=>Value
+
+**读一格「引擎自己的记账」**（第 890 轮）——只有**自有**那一格算数（不沿原型链），
+不是数据属性或找不到都给 `undefined`。
+
+**为什么单独有一个方法**：`GetProperty` 是**用户口径**的读（它按 `FindProperty` 的缺省
+把记账格滤掉），而引擎有两处必须读到那些格——`vm.xl.md` 造实例时读绑定对象上那一格
+`prototype`、`globals.xl.md` 的 `BoundCall` 读 `__boundTarget` / `__boundThis` /
+`__boundArgs`。把「要不要看见记账」摊成一个显式的入口，比在 `GetProperty` 上加第 7 个
+参数更难写错（那条路上有几十个调用点，多一个位置参数就是几十处静默的实参错位）。
+
+```ts
+if (!receiver.IsObject()) {
+  return Value.Undefined();
+}
+const found = FindProperty(room, table, receiver.Ref, key, true);
+if (found === null || found.Owner !== receiver.Ref) {
+  return Value.Undefined();
+}
+const property = table.Get(found.Owner).Props[found.Index];
+if (property.Kind !== PropertyKind.Data) {
+  return Value.Undefined();
+}
+return property.Value;
 ```
 
 # method GetProperty:(room:RoomChecker, call:NativeCall, protos:Protos, table:HeapTable, receiver:Value, key:Value)=>Value
@@ -1192,6 +1235,12 @@ if (found === null || found.Owner !== receiver.Ref) {
   const own = table.Get(receiver.Ref).Props;
   for (let i = 0; i < own.length; i++) {
     if (!KeyMatches(table, own[i], key)) continue;
+    // **记账格不是一个属性，赋值也看不见它**（第 890 轮）：`bound.prototype = 7`
+    // 在 JS 里是**新开一格普通属性**（那一格是记账，本来就"不该存在"），
+    // 不滤的话会**就地改掉记账那一份** ⇒ 用户读不到（`bound.prototype` 给 `undefined`）
+    // 而 `new bound()` 拿到的原型被悄悄换成了 `7`（`instanceof` 跟着塌）。
+    // 滤掉之后这一趟落空，下面的第 4 条照常新建一个自有属性。
+    if ((own[i].Flags & PropertyFlagInternal) !== 0) continue;
     if (own[i].Kind === PropertyKind.Accessor) {
       if (!IsCallableValue(table, own[i].Setter)) {
         return false;
@@ -1557,7 +1606,10 @@ if (!receiver.IsObject()) {
 }
 // **缺省标志位**（见上面那一格）：不给 `flags` 就是第 194 轮起那条口径。
 const wanted = flags < 0 ? PropertyFlagWritable + PropertyFlagConfigurable : flags;
-const hiddenFound = FindProperty(room, table, receiver.Ref, key);
+// **这一处是引擎自己写**（第 890 轮）：查找要**带上记账格**（`includeInternal`）——
+// 不然给同一格写第二次时找不到旧的，会新开一格同名的记账格
+//（`SetHiddenProperty` 的语义是「写这一格」，不是「按用户口径找这一格」）。
+const hiddenFound = FindProperty(room, table, receiver.Ref, key, true);
 if (hiddenFound !== null && hiddenFound.Owner === receiver.Ref) {
   const hiddenProperty = table.Get(hiddenFound.Owner).Props[hiddenFound.Index];
   if (hiddenProperty.Kind !== PropertyKind.Accessor) {

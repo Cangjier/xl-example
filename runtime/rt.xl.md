@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge } from "./heap.xl.md"
-import { GetProperty, NativeCall, MaxProtoDepth, Protos } from "./props.xl.md"
+import { GetProperty, GetInternalProperty, NativeCall, MaxProtoDepth, Protos } from "./props.xl.md"
 import { HostTextUnits, HostUnitsText, NumberFromHostText, NumberToHostText, NumberToJsText } from "./host-text.xl.md"
 ```
 
@@ -461,7 +461,17 @@ if (call !== null && protos.WellKnownSymbols > 0) {
   }
 }
 const key = Value.FromString(prototypeKey);
-const target = GetProperty(room, call, protos, table, right, key);
+let target = GetProperty(room, call, protos, table, right, key);
+// **绑定函数那一格是「记账」**（第 890 轮）：`F.bind(null)` 交出来的对象上，
+// 目标的 `prototype` 是**转抄**来的一格（`globals.xl.md` 的 `FunctionBind`），
+// 带 `PropertyFlagInternal` ⇒ 上面那次**用户口径**的读看不见它
+//（JS 里 `F.bind(null).prototype` 就是 `undefined`），可 `instanceof` 要用它——
+// 规范的 `[[HasInstance]]` 对绑定函数**转交给目标**，而转抄过来的正是目标那一格。
+// 与 `vm.xl.md` 的 `CreateInstance` **同一句话、同一个次序**：
+// 用户自己赋过的 `prototype`（一个**普通**自有属性）先胜出，走到这里才是记账那一格。
+if (!target.IsObject()) {
+  target = GetInternalProperty(room, table, right, key);
+}
 if (!target.IsObject()) {
   throw new Error("the right side of instanceof has no prototype object");
 }

@@ -9,7 +9,7 @@ import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot, RtBitAnd, RtBitOr, RtBitXor, RtBitNot, RtShl, RtShr, RtUShr } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
 import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtGetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf, ToNumberOf, MakeNumber } from "./rt.xl.md"
-import { GetProperty, SetProperty, SetHiddenProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey, IndexAccessorAt } from "./props.xl.md"
+import { GetProperty, SetProperty, SetHiddenProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey, IndexAccessorAt, GetInternalProperty } from "./props.xl.md"
 import { GetPropertyFrom, SetPropertyFrom } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 import { HostTextUnits } from "./host-text.xl.md"
@@ -2285,6 +2285,16 @@ if (this.PrototypeKey > 0 && callee.IsObject()) {
   const key = Value.FromString(this.PrototypeKey);
   const found = GetProperty(this.Room(), this.Native(), protos, this.Table, callee, key);
   if (found.IsObject()) proto = found.Ref;
+  // **绑定函数那一格是「记账」**（第 890 轮）：`f.bind(x)` 交出来的对象上，
+  // 目标的 `prototype` 是**转抄**过来的一格（`globals.xl.md` 的 `FunctionBind`），
+  // 它带 `PropertyFlagInternal` ⇒ 上面那句**用户口径**的读看不见它
+  //（JS 里 `f.bind(x).prototype` 就是 `undefined`），可 `new` 要用它。
+  // 所以这里补一次**记账口径**的自有读：用户自己赋过的 `prototype`（一个**普通**自有属性）
+  // 已经在上面那一句里胜出，走到这里只可能是「那一格本来就没有」的情形。
+  else {
+    const stored = GetInternalProperty(this.Room(), this.Table, callee, key);
+    if (stored.IsObject()) proto = stored.Ref;
+  }
 }
 if (!this.NeedRoom(ObjectCharge + ValueCharge)) throw new Error("out of room");
 // **`class X extends Array` 的实例是一个「真的数组」**（第 335 轮）：
