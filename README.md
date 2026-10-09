@@ -306,6 +306,38 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 878 轮：`infer V` 换行 `extends string` 那一格——收尾期的续接表里没有 `extends`（known-gap 5 → 4）
+
+**一句话**：`U extends infer V` 换行 `extends string ? V : never` 收掉——那个软换行被
+**收尾期**的 ASI 判成语句边界，`ConditionalTypeCloseRule.FindStart` 回扫第一步就停在那儿，
+条件类型于是从**第二个** `extends` 起算、`InferType` 的约束那一格整段丢掉。
+
+**根子**（[statement.xl.md](typescript/tokens/statement.xl.md) 的 `ContinuesExpression`）：
+ASI 有**两半**，各自一份实现——解析期那一半（`NextLineContinuesExpression`，判据落在**原始字符**
+上、第 568 轮起）与收尾期那一半（`ContinuesExpression`，判据落在**下一个实义单元**上）。
+第 825 轮给解析期那一半补了 `extends`（`function f<T` 换行 `extends U>(…)` 那一族），
+**收尾期这一半没跟上**：
+
+    type T<U> = U extends infer V ⏎  extends string ? V : never;
+
+左边 `V` 写完了（`IsLineBreakIncompleteOnLeft` 答否），右边的词 `extends` 又不在续接表里
+⇒ `IsLineBreakBoundary` 答「是边界」⇒ `FindStart` 从 `extends` 那里起算，
+收出 `ConditionalType[第二个 extends, never]`，而 `infer V` 落在外面成了平级单元——
+`InferType.Process` 再来问时，`V` 后面已经不是 `extends` 了（那一格被条件类型吃掉了），
+于是约束整格丢掉（实测缺 `ConditionalType` / `InferType` / `TypeParameter` /
+`StringKeyword` / `TypeReference` / `Identifier` / `NeverKeyword` 共 8 处、多 0、漂 0）。
+
+**修法只有一格**：把 `extends` 补进收尾期的续接表——它**起不了一条语句**
+（继承子句、接口的 `extends`、泛型形参的约束、条件类型的 `A extends B` 都接着上一行写）。
+`catch` / `finally` **不补**：它们虽然也起不了一条语句，但左边那一半（`try { … }`）已经写完，
+「起不了一条语句」与「上一行还没写完」是两句不同的话。
+
+**实测**：`tmp/infer-probe.mjs` 6 条探针（这一条 + 单行原形、无行尾空格、
+注释夹在 `infer` 前、换行落在 `infer` 与名字之间、换行落在约束之后，五条对照）**全绿**；
+全语料 `cases:tsast` **16 / 16 片**、缺 0 漂 0 多 0、已知缺口 **5 → 4**、收掉 0；
+`cases:check` 1466 / 1466、`cases:tags` 4920 条断言 0 条不一致（XML 一个字节都没动）；
+`coverage` **4045 → 4046 / 4228**（blocked **45 → 44**、differ 138、bad 0）、`gates` 八道全过。
+
 ### 第 877 轮：`export { a } ⏎ from("m")` 那一格——路径装在 `Method` 里（known-gap 6 → 5）
 
 **一句话**：`export { a }` 换行 `from("m")` 收掉——那条模块路径不是平级的 `String`，
@@ -4798,7 +4830,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **5 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–877 八轮共收掉 25 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **4 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–878 九轮共收掉 26 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1466** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -4806,7 +4838,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1453 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4045 / 4228**，加权 **95.1%**：token 1448/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 45 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4046 / 4228**，加权 **95.1%**：token 1448/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 44 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 

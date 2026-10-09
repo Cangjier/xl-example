@@ -1070,6 +1070,12 @@ return (
   （`a` 换行 `++b` 是两条语句），这正是 ASI 的受限产生式；
 - **`(` / `[` / 模板串在续接表里**：`f` 换行 `(1)` 在 TypeScript 里是一次调用，不是两条语句。
 
+**`extends` 在表里、而 `catch` / `finally` 不在**（第 878 轮）：`extends` **起不了一条语句**，
+出现在一行的开头只可能是上一行的续写；`catch` / `finally` 虽然也起不了一条语句，但它们是
+`try` 声明的**下一个子句**、左边那一半（`try { … }`）已经写完，所以照旧判边界
+（`NextLineContinuesExpression` 那一半收它们是为了别的落点，见那一处说明）。
+两半的分工是「**解析期判得宽的、收尾期未必跟**」，所以这里只补 `extends` 一个词。
+
 ```ts
 if (item instanceof SymbolToken) {
   const text = item.TempToString();
@@ -1093,7 +1099,24 @@ if (item instanceof SymbolToken) {
   return true;
 }
 const word = Statement.WordOf(item);
-return word === "as" || word === "satisfies" || word === "in" || word === "of" || word === "instanceof" || word === "is";
+return (
+  word === "as" ||
+  word === "satisfies" ||
+  word === "in" ||
+  word === "of" ||
+  word === "instanceof" ||
+  word === "is" ||
+  // **`extends` 与它们同一条理由**（第 878 轮）：它**起不了一条语句**——
+  // 继承子句、接口的 `extends`、泛型形参的约束、条件类型的 `A extends B`
+  // 全是接着上一行写的。**解析期那一半早就这么判了**（`NextLineContinuesExpression`
+  // 第 825 轮就收了 `extends`），只有收尾期这一半没跟上：
+  // `infer V` 换行 `extends string ? V : never` 里那个换行被 `IsLineBreakBoundary`
+  // 判成边界 ⇒ `ConditionalTypeCloseRule.FindStart` 回扫第一步就停 ⇒
+  // 条件类型从**第二个** `extends` 起算、`InferType` 的约束那一格整段丢掉
+  // （实测 `gap-r869-infer-extends-newline-7`：缺 `ConditionalType` / `InferType` /
+  // `StringKeyword` 等 8 处）。两半口径在这里对齐。
+  word === "extends"
+);
 ```
 
 ## private static method NextLineFirstCharIndex:(source:Source)=>int

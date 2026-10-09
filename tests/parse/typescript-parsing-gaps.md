@@ -363,7 +363,7 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**5 条**）
+## 已知仍开着的缺口（**4 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
 （第 854 轮实测 **10**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
@@ -388,7 +388,9 @@
 ⇒ **7 条**；**第 876 轮**收掉 `export { a }` 换行 `from "m"` 那一格
 （花括号子句「自己就完整」也要看**右边那一行**）⇒ **6 条**；**第 877 轮**收掉 `export { a }` 换行 `from("m")` 那一格
 （模块路径装在 `Method(name="from")` 里，`moduleSpecifier` 要找进去一层、那一格是
-`ParenthesizedExpression`）⇒ **5 条**，剩下的短线是
+`ParenthesizedExpression`）⇒ **5 条**；**第 878 轮**收掉 `infer V` 换行 `extends string` 那一格
+（收尾期的续接表 `Statement.ContinuesExpression` 没认 `extends`，换行被 ASI 判成语句边界
+⇒ 条件类型从第二个 `extends` 起算）⇒ **4 条**，剩下的短线是
 「注释 / 换行落在语法相邻位置之间」那条线的第七面（`abstract /* c */ new`、`#x ⏎ in o`、
 `import m = ⏎ require("m")`、`declare ⏎ global` 之类）。
 
