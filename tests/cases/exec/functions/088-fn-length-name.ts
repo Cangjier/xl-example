@@ -57,6 +57,10 @@ probe(() => ({ m() {} }).m.name);
 probe(() => { const o = { f: function () { return 1; } }; return o.f.name; });
 probe(() => { const o = { f: function g() { return 1; } }; return o.f.name; });
 probe(() => { const o = { f: () => 1 }; return o.f.length; });
+// 赋值推断出来的名字，以及两参箭头（第 788 轮从 exec/classes 搬进来的两条独有断言；
+// 同批 `probe693-c05…c10` 的断言这里逐条已有，只删不搬）
+probe(() => { const f = function () { }; return f.name; });
+probe(() => ((a, b) => a).length);
 
 // `bind` 之后：名字带前缀、长度照旧是绑定后的形参个数
 probe(() => (function () {}).bind(null).name);

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 6376,
+  "total": 6120,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.71,
+  "progressPercent": 94.63,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1790,
-      "pass": 1749,
-      "blocked": 11,
+      "total": 1534,
+      "pass": 1494,
+      "blocked": 10,
       "differ": 30,
       "nodefail": 0,
-      "coverage": 97.71
+      "coverage": 97.39
     },
     {
       "category": "runtime",
@@ -1440,28 +1440,22 @@
       "detail": "缺 4　漂 2　多 1　点号名在产物里是平级单元，`typeof` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）"
     },
     {
-      "id": "exec/classes/probe693b-k27",
+      "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
-      "title": "(function () { class A extends Array { } const a = new A(); a.push(1); return a.length; })()",
+      "title": "`class A extends Array`：内建构造当基类时，构造帧里那条路还没接上",
       "detail": "tsrun: 还没实现的构造或语言层错误：heap object is not an environment"
     },
     {
-      "id": "exec/classes/probe694-k13",
+      "id": "exec/classes/100-class-extends-null-blocked",
       "category": "exec",
-      "title": "(function () { class A { m() { return 1; } } class B extends A { m() { const f = () => super.m(); return f() + 1; } } return new B().m(); })()",
-      "detail": "tsrun: 还没实现的构造或语言层错误：get_proto needs an object receiver"
-    },
-    {
-      "id": "exec/classes/probe699-k-e41",
-      "category": "exec",
-      "title": "class A extends Array { } new A(3).length",
-      "detail": "tsrun: 还没实现的构造或语言层错误：heap object is not an environment"
-    },
-    {
-      "id": "exec/classes/probe699-k-t01",
-      "category": "exec",
-      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); class B extends null {} try { new B(); console.log(\"no-throw\"); } catch (e) { console.log(\"throw:\" + e.constructor.name); }",
+      "title": "`class B extends null {}`：继承目标那一趟只按名字解析",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: null"
+    },
+    {
+      "id": "exec/classes/101-super-in-arrow-blocked",
+      "category": "exec",
+      "title": "方法里的箭头函数用 `super`：`[[HomeObject]]` 取不到",
+      "detail": "tsrun: 还没实现的构造或语言层错误：get_proto needs an object receiver"
     },
     {
       "id": "exec/expressions/probe694-m31",
@@ -1724,15 +1718,15 @@
   ],
   "differ": [
     {
-      "id": "exec/classes/probe-c05",
+      "id": "exec/classes/098-private-brand-check",
       "category": "exec",
-      "title": "(class { #p = 1; get() { return this.#p; } }).prototype.get.call({})",
+      "title": "私有名的**品牌检查**：`#p` 落在别的接收者上该抛 `TypeError`",
       "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «undefined:undefined»"
     },
     {
-      "id": "exec/classes/probe699-k-t12",
+      "id": "exec/classes/102-super-before-this-differ",
       "category": "exec",
-      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); class A { constructor() { this.a = 1; } } class B extends A { constructor() { let before; try { before = this.a; } catch (e) { b",
+      "title": "派生类构造函数里 `super()` **之前**访问 `this`：该抛 `ReferenceError`",
       "detail": "stdout 不同：第 1 行：node «string:throw:ReferenceError|number:1» vs tsrun «undefined:undefined|number:1»"
     },
     {
@@ -1853,7 +1847,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16280/src/2775.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29296/src/2519.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2195,7 +2189,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16280/src/4535.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29296/src/4279.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2219,7 +2213,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16280/src/4585.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29296/src/4329.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2375,7 +2369,7 @@
       "id": "stdlib/round751/p751b-03",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16280/src/5647.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29296/src/5391.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/p751b-04",
