@@ -1397,6 +1397,12 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
       if (statement !== undefined) {
         // **体必须是「语句」**（第 566 轮，与 `projectStatement` 那一支同一句）：
         // 这一路是根列表 / 段，手里没有语句壳 ⇒ 终点就取体自己的。
+        //
+        // **这里也是「一个单元」的口径**（第 778 轮）：与 `projectStatement` 那一支同源，
+        // 只是这一条只在**顶层列表 / 段**上跑。上面那条「连续标签」的判据把标签吃光之后，
+        // 剩下那一格就是被标的语句——`outer: for (…)` 那种一个成形单元的写法一直是对的；
+        // 「标签 + 表达式语句」在顶层会先被语句规则收进一个 `Statement` 壳，
+        // 所以真正走这里的是**被别的容器收好的**那一档（见 `Statement` 壳那一支的说明）。
         let wrapped = asStatement(statement, statement.end ?? 0);
         for (let k = labels.length - 1; k >= 0; k--) {
           wrapped = labeled(labels[k], wrapped, ctx);
@@ -1860,19 +1866,39 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       labels.push(kids[at]);
       at++;
     }
-    const body = at < kids.length ? projectNode(kids[at], ctx) : undefined;
-    if (body !== undefined) {
-      // **体必须是「语句」**（第 566 轮）：表达式要套一层 `ExpressionStatement`
-      //（`done: f()` / `a: 1`）；终点取壳体与体里更远的那个、再吃一个尾分号
-      //（`done: f();` 的那层壳在 TS 那边含 `;`，见 `asStatement`）。
-      let wrapped = asStatement(
-        body,
-        semicolonEndOf(Math.max(stmtEndOf(v, ctx), body.end ?? 0), ctx),
-      );
-      for (let k = labels.length - 1; k >= 0; k--) {
-        wrapped = labeled(labels[k], wrapped, ctx);
+    // **体要按「一条语句」投影，不能只投紧跟的那一个单元**（第 778 轮，**普查当场红的**）。
+    // 标签在产物里**只收前缀**（`label.xl.md`：名字 + 冒号折成自闭合的 `Label`），
+    // 被标的那条语句与它**平级**——于是 `lab: s += "1"` 在壳里是
+    // `[Label, Identifier(s), SymbolToken(=), BinaryOperator(+)]` 四个单元。
+    // 早先这里 `projectNode(kids[at])` **只投第一个单元** ⇒ 整条语句被换成那个孤零零的
+    // `Identifier`（实测：`cjcli --ts-ast` 给 `ExpressionStatement > Identifier`，
+    // 区间还盖着整条语句；执行侧于是把 `s += "1"` 整条丢掉、只剩下一行 `s += "2"`）。
+    // 循环 / 分支 / 块那几档看不出来——它们是**已经成形的一个单元**，
+    // 一个单元本来就是一条语句（`outer: for (…)` / `blk: { … }` 一直是对的）。
+    //
+    // **判据是「剩下的那一串按一条语句投」**，与 `lab: { … }` 那一格同源：
+    // 这里造一个只装剩下那些单元的同区间视图，交回**同一个** `projectStatement`
+    //（`ctx.StatementOf`）——那里已经有「语句壳 / 表达式壳 / `;` 归属」的全套口径，
+    // 另写一份就是第二处会漂的答案。**不会复发**：剩下那一串的**第一个单元不再是 `Label`**
+    //（上面那个 `while` 已经吃掉了连续的标签）。
+    const restKids = kids.slice(at);
+    if (restKids.length > 0) {
+      const rest = {
+        type: "Statement",
+        start: startOf(restKids[0]),
+        end: endOf(restKids[restKids.length - 1]),
+        value: undefined,
+        attrs: new Map(),
+        segments: new Map([["children", restKids]]),
+      };
+      const body = ctx.StatementOf(rest);
+      if (body !== undefined) {
+        let wrapped = body;
+        for (let k = labels.length - 1; k >= 0; k--) {
+          wrapped = labeled(labels[k], wrapped, ctx);
+        }
+        return wrapped;
       }
-      return wrapped;
     }
   }
   // **`export = X` / `export default X`**：产物那边表达式是 `Export` 单元的**平级兄弟**

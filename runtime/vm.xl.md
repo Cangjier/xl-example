@@ -3037,6 +3037,26 @@ if (id === RtOp.DelProp) {
         throw new TypeError("cannot delete properties of " + delWhat);
       }, ErrorKindType);
     }
+    // **字符串是那一族里唯一的例外**（第 778 轮，**普查当场红的**）：上面那句「别的原始值恒为真」
+    // 是按数字 / 布尔量出来的（它们**一条自有属性都没有**——`delete (5).toFixed` 在 JS 里
+    // 也给 `true`，因为 `toFixed` 在**原型**上、不在包装对象上）。而字符串的包装对象
+    // **有自有属性**：每一个码元位（`0` … `length-1`）与 `length` 自己，两者都是**不可配置**的
+    // ⇒ 规范那一步给的答案是 **`false`**（`delete "abc"[0]` / `delete "abc".length`）。
+    // 实测对照：`delete "abc".nope` 给真、`delete "abc"[9]` 给真（越过 `length` 就是「本来没有」）、
+    // `delete (5).toFixed` 给真——**分界是「这一个键在包装对象上有没有一格」**，不是「是不是原始值」。
+    //
+    // **判据只认字符串**（另有 `ValueTag.Symbol` 那一档没有包装对象，留给下面照旧）：
+    // 键先归一成 `ToString`（与符号那一档的 `ToPropertyKey` 同一步，只是这里不需要保留身份），
+    // 再问「是不是 `"length"`」（共用 `IsLengthKey`，那一格的唯一答案）或
+    // 「下标且落在长度以内」（按 `TextUnitsOf` 的码元个数判——**不另写一份长度**）。
+    if (slots[base].Tag === ValueTag.String) {
+      const stringKey = RtToString(this.Room(), this.Table, slots[base + 1]);
+      if (IsLengthKey(this.Table, stringKey)) return Value.FromBool(false);
+      const stringIndexAt = ArrayIndexAt(this.Table, stringKey);
+      if (stringIndexAt >= 0 && stringIndexAt < TextUnitsOf(this.Table, slots[base]).length) {
+        return Value.FromBool(false);
+      }
+    }
     return Value.FromBool(true);
   }
   // **键先过 `ToPropertyKey`**（第 706 轮，**普查当场红的**）——与上面 `in` 那一格

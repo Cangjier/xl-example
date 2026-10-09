@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8296,
+  "total": 8303,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -81,41 +81,41 @@
       "category": "token",
       "weight": 0.15,
       "total": 1414,
-      "pass": 1196,
-      "blocked": 218,
+      "pass": 1197,
+      "blocked": 217,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 84.58
+      "coverage": 84.65
     },
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2216,
+      "total": 2217,
       "pass": 2173,
-      "blocked": 11,
+      "blocked": 12,
       "differ": 32,
       "nodefail": 0,
-      "coverage": 98.06
+      "coverage": 98.02
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1124,
-      "pass": 1086,
+      "total": 1126,
+      "pass": 1088,
       "blocked": 4,
       "differ": 34,
       "nodefail": 0,
-      "coverage": 96.62
+      "coverage": 96.63
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3296,
-      "pass": 3210,
+      "total": 3300,
+      "pass": 3213,
       "blocked": 25,
-      "differ": 61,
+      "differ": 62,
       "nodefail": 0,
-      "coverage": 97.39
+      "coverage": 97.36
     },
     {
       "category": "e2e",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1414,
-    "knownGap": 218,
-    "knownGapStillOpen": 218,
-    "exactFiles": 1196,
-    "scoredWithoutGap": 1196,
-    "passedWithoutGap": 1196
+    "knownGap": 217,
+    "knownGapStillOpen": 217,
+    "exactFiles": 1197,
+    "scoredWithoutGap": 1197,
+    "passedWithoutGap": 1197
   },
   "blocked": [
     {
@@ -1224,12 +1224,6 @@
       "detail": "缺 1　漂 1　多 1　声明收完就断了，尾随的空语句没成壳（缺 1 漂 1 多 1）"
     },
     {
-      "id": "token/statements/stmt-label-comment-before-call",
-      "category": "token",
-      "title": "多层标签后面、调用前面夹一条注释",
-      "detail": "缺 1　标签那一趟看到的是注释，最后一层标签的名字没接上被标的语句（缺 1）"
-    },
-    {
       "id": "token/statements/stmt-switch-block-then-default",
       "category": "token",
       "title": "单行写完一个块，后面再跟 `default`",
@@ -1492,6 +1486,12 @@
       "category": "exec",
       "title": "Array.isArray 五档",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Uint8Array"
+    },
+    {
+      "id": "exec/round778/r778g-01",
+      "category": "exec",
+      "title": "默认实参里的**函数表达式**：那一格被投成声明，整份文件进不来",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
     },
     {
       "id": "exec/statements/060-hoisting-tdz",
@@ -1841,7 +1841,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17676/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22612/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2012,12 +2012,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "runtime/round748/p748a-a08",
-      "category": "runtime",
-      "title": "删除进行中的名字：`delete` 的返回值与属性去向",
-      "detail": "stdout 不同：第 3 行：node «false a» vs tsrun «true a»"
-    },
-    {
       "id": "runtime/round748/p748a-a11",
       "category": "runtime",
       "title": "渲染：环 / 深度 / 符号键 / 不可枚举",
@@ -2108,6 +2102,12 @@
       "detail": "stdout 不同：第 1 行：node «01 JSON.stringify(mk().reverse().slice()) ok:string:[null,7]» vs tsrun «01 JSON.stringify(mk().reverse().slice()) ok:string:[7,null]»"
     },
     {
+      "id": "runtime/round778/r778a-01",
+      "category": "runtime",
+      "title": "函数的 name 推导：字面量 / 类成员 / 绑定",
+      "detail": "stdout 不同：第 3 行：node «03 变量赋值 \"x\"» vs tsrun «03 变量赋值 \"\"»"
+    },
+    {
       "id": "stdlib/array/150-array-species-subclass",
       "category": "stdlib",
       "title": "继承数组的子类上 `map` / `concat` 交出什么",
@@ -2129,7 +2129,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17676/src/5296.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22612/src/5299.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2153,7 +2153,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17676/src/5346.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22612/src/5349.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2424,6 +2424,12 @@
       "category": "stdlib",
       "title": "符号上的**下标读**：`description` / `toString` 两格读不到",
       "detail": "stdout 不同：第 2 行：node «02 description 下标读 \"s\"» vs tsrun «02 description 下标读 undefined»"
+    },
+    {
+      "id": "stdlib/round778/r778c-01",
+      "category": "stdlib",
+      "title": "Date 的本地时间写入族：setHours / setDate / setMonth 与非法时刻",
+      "detail": "stdout 不同：第 2 行：node «02 setHours 返回新时刻 1579030245500» vs tsrun «02 setHours 返回新时刻 1579059045500»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

@@ -1185,6 +1185,20 @@ return value;
 而且 `Object.keys(new String("ab"))` 是 **`["0", "1"]`**（那两格**是可枚举的自有属性**，
 不是内部格——所以它们走 `SetProperty`，只有 `length` 走隐藏那一支）。
 
+**那两格是「只读 + 不可配置」的**（第 778 轮，**普查当场红的**）：JS 的字符串奇异对象上，
+下标格与 `length` **都是** `{ writable: false, enumerable: <见下>, configurable: false }`
+——所以 `const w = Object("abc"); w[0] = "z"` 在 Node 里**一声不响、值不变**
+（`w[0]` 照样是 `"a"`），而本仓原来把那几格当成普通可写属性 ⇒ **静默错值**
+（判据 `stdlib/round778/r778f-01` 第 16 行：Node 给 `"a:a:3"`、本仓给 `"a:z:3"`）。
+**同一处也管住后面那几件事**：`delete w[0]` / `delete w.length` 该给 `false`
+（不可配置 ⇒ 删不掉），而 `Object.getOwnPropertyDescriptor(w, 0)` 该照实给
+`writable: false` / `configurable: false`——**一处落定，三处一致**。
+
+**可枚举性照旧**：那几格是**可枚举的自有属性**（`Object.keys(new String("ab"))` 给
+`["0", "1"]`），所以 `length` 走 `SetHiddenProperty` 的**缺省**（不可枚举）、
+而每个下标位要显式给 `PropertyFlagEnumerable`——**`SetHiddenProperty` 的 `flags` 那一格
+就是为这种「不是全开」的写法留的口子**（第 605 轮），不另开一条路。
+
 **不补这两样会怎样**：`s.length` 沿原型链找不到 ⇒ `undefined`（**静默错值**）；
 `s[0]` 同理。判据 `c305-std-string-wrapper-methods` 量的正是这两格。
 
@@ -1193,9 +1207,10 @@ const boxed = MakeBox(room, table, protos, protos.String, primitive);
 const units = table.Get(primitive.Ref).AsString().Units;
 if (!room(PropertyCharge * (units.length + 1) + ObjectCharge)) throw new Error("out of room");
 for (let i = 0; i < units.length; i++) {
-  SetProperty(room, NeverCall, table, boxed,
+  SetHiddenProperty(room, table, boxed,
     Value.FromString(table.CreateString(Units(String(i)))),
-    Value.FromString(table.CreateString([units[i]])));
+    Value.FromString(table.CreateString([units[i]])),
+    PropertyFlagEnumerable);
 }
 // **`length` 不可枚举**（JS 的口径）——它走隐藏那一支。
 SetHiddenProperty(room, table, boxed, NameValue(table, "length"), Value.FromInt(units.length));
