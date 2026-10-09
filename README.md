@@ -306,6 +306,51 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 883 轮：简单赋值那一格也是命名位置——`NamedEvaluation` 的第四处 `FunctionNameHint`
+
+**一句话**：`let x; x = function () {}` 之后 `x.name` 原来是 `""`（Node 给 `"x"`）——
+第 778 轮就登记在 `runtime/round778/001-function-name-inference-differ` 上；
+这一轮把那一行收掉，**同一句话在本仓一共要问四处**，这是第四处。
+
+**判据本来就只有一份，缺的是「问的位置」**：JS 的 `NamedEvaluation` 认三处——
+变量声明（`LowerVariable`，第 238 轮起就有）、**形参默认值**（第 882 轮补）、
+**简单赋值**（这一轮）。三处用的都是同一个 `NamesFunctionValue`（「右边那东西在不在命名位置上」：
+`f = cond ? () => 1 : () => 2` 里两个箭头**都不算**），名字也都由调用方给。
+`typescript-exec/lowering.xl.md` 的 `LowerBinary` 那条 `=` 分支上，
+`leftKind === "Identifier"` 的两条路（`access.InEnv` 与非 `InEnv`）原来直接
+`LowerInto(…, Child(node, "right"))`——**没置 `FunctionNameHint`**，于是那个匿名闭包
+一直是匿名的。补法与另外两处一字不差：存、置、降完还原。
+
+**反例一条都没动、也钉住了**（新用例 `exec/round883/001-assignment-named-evaluation`，
+十行与 `node` 逐字节相同）：`o.m = function () {}` 与 `arr[0] = function () {}` 在规范里
+**没有** NamedEvaluation（JS 给空串），它们走的是 `PropertyAccessExpression` /
+`ElementAccessExpression` 两条分支；三元那一格也不取名（`t = flag ? f1 : f2` 两个都匿名）；
+**自己的名字优先**（`w = function named() {}` 给 `"named"`，不是 `"w"`）。
+
+**这一轮的另一半是「量清楚但不猜」**：`runtime/round778/001` 与
+`stdlib/round783/003-bound-function-own-cells-differ` 今天还红的那一格是
+**绑定函数的 `prototype`**——`FunctionBind`（`globals.xl.md`）把目标的 `prototype`
+抄到了绑定对象**自己**身上（为的是 `new (F.bind(null))() instanceof F`），
+于是 `typeof f.bind(null).prototype` 给 `"object"`（Node 给 `"undefined"`）、
+`Object.getOwnPropertyNames(bound)` 还多出 `__boundTarget` / `__boundThis` / `__boundArgs` 三格。
+**这不是单点**：删掉那一句抄写就会把 `stdlib/round753/003` 顶红（`instanceof` 那一半），
+所以两条要**同一轮收**——修法是 `vm.xl.md` 的 `CreateInstance` 认「被构造的是一个绑定对象」时
+改从 `[[BoundTargetFunction]]` 取原型（`HostConstructThis` 那一段本来就区分「构造」与「调用」），
+而三个内部名的收法与 `#p` 那一格同一个坎（**不能在名表那一趟按名字过滤**：
+用户自己写 `{ ["__boundTarget"]: 1 }` 是一个真的自有属性名）——
+要收只能给 `heap.xl.md` 的 `Property.Flags`（1/2/4 三位，第 4 位空着）**加一位「内部」标记**。
+两条台账各记一份、指向同一处，**这一轮按规矩不动手**。
+
+**实测**：`cases:tsast` 16/16 片、四方向 0、已知缺口 0；`cases:check` 1466/1466、
+`cases:tags` 4920 条断言 0 条不一致、`cases:shapes` 未覆盖 0；
+`coverage` **4052 → 4053 / 4230**（exec **753/791 → 754/792**、blocked 39、differ 138、
+bad 0、加权 95.17%）；`runtime:*` / `samples` 全过 ⇒ **八道门全绿**。
+
+**这一轮的经验**：**「同一个形状问几处」要一次数清**。第 882 轮补形参默认值时记下的
+那句教训（「每一条建 `PendingFunction` 的路都要问一遍」）这一轮马上又兑现了一次——
+同一条判据在三处落点里漂了两轮。凡是要「把某一格带下去」的改动，
+**先把所有落点数一遍再动手**，比修一处、量一处、再修下一处省一轮。
+
 ### 第 882 轮：形参默认值那一格——投影走了「取一格当节点」、降级没把它当命名位置（blocked → 全过）
 
 **一句话**：`function withDefault(f: any = function () { return 16; }) { return f.name; }`

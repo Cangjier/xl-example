@@ -8599,13 +8599,25 @@ if (operatorText === "=") {
   }
   const access = this.ResolveAccess(TextOf(left));
   const before = this.NextFree;
+  // **赋值那一格也是命名位置**（第 883 轮）：JS 的 `NamedEvaluation` 认三处——
+  // 变量声明（`LowerVariable` 那一支，第 238 轮起就有）、**形参默认值**（第 882 轮补）
+  // 与**简单赋值**（`x = function () {}` ⇒ `x.name === "x"`）。
+  // 判据与那两处**一字不差**：值在不在命名位置上由 `NamesFunctionValue` 答（`f = cond ? … : …`
+  // 里那个三元**不算**），名字就是左边那个标识符的文本。
+  // **`o.m = function () {}` / `arr[0] = …` 本来就不取名**（规范里那两处没有 NamedEvaluation）
+  // ⇒ 上面两条属性 / 下标的分支照旧**一个字都不动**。
+  // **解构那一条也不给**（`[a] = [function () {}]` 在 JS 里那个函数是匿名的）。
+  const savedHint = this.FunctionNameHint;
+  this.FunctionNameHint = this.NamesFunctionValue(Child(node, "right")) ? TextOf(left) : "";
   if (!access.InEnv) {
     this.LowerInto(access.Slot, Child(node, "right"));
+    this.FunctionNameHint = savedHint;
     this.Release(before);
     return access.Slot;
   }
   const slot = this.Reserve(1);
   this.LowerInto(slot, Child(node, "right"));
+  this.FunctionNameHint = savedHint;
   this.Emit(Op.EnvSet, slot, access.Depth, access.Cell, -1);
   // 槽留着：赋值表达式的值就是它（调用方用完自己退水位）
   return slot;
