@@ -418,6 +418,46 @@ if (pendingElse instanceof Identifier && pendingElse.Is("else") && IsTriviaUnit(
   pendingElse.RemoveSelf();
   this.NextSegment("else", elseStart);
 }
+// **`else if/*c*/ (…)`：`else` + `if` + trivia + `(`**（第 907 轮片段普查量出的
+// `gap-r907-else-if-comment-before-paren`）。
+//
+// 这一格与上面那条 `pendingElse` 同源，只是多了一级：注释到达时 `if` 已经读完、
+// `(` 还没到 —— 那一刻尾巴是**那条注释**，而下面那条
+// `beforeIsElse && tail instanceof Identifier` 要求 `tail` 是 `if` 那个词
+// ⇒ 判不到 ⇒ 它落进「`else` 后面是一条以 `if` 开头的语句」那一支
+//（实测产物 `IfStatement [0,9)` 加一个多出来的 `Identifier`(`else`)，TS 是 `[0,29)` 一条）。
+//
+// 所以这一格**跨过 trivia 往回找那一对**（`SkipPreviousTrivia` 两跳，与
+// `Statement.IsLineBreakBoundary` 的「两个 `previous`」同一口径），
+// 并且只在**当前这一格确实是 `(`** 时才签 —— 那正是 `else if` 唯一可能的后继，
+// 于是不会把别的排版误收进来。签法与上面那条一字不差：
+// 段签在 `else` 的起点上、`else` 与 `if` 两个词摘掉、注释留在本单元里。
+if (source.Value === "(" && IsTriviaUnit(data[data.length - 1])) {
+  const pendingIfIndex = SkipPreviousTrivia(data, data.length);
+  const pendingIf = Get(data, pendingIfIndex);
+  const pendingElseIndex = SkipPreviousTrivia(data, pendingIfIndex);
+  const pendingElseForIf = Get(data, pendingElseIndex);
+  if (
+    pendingIf instanceof Identifier &&
+    pendingIf.Is("if") &&
+    pendingElseForIf instanceof Identifier &&
+    pendingElseForIf.Is("else")
+  ) {
+    const elseStart = pendingElseForIf.SourceRange.Start!;
+    const ifWordAt = pendingIf.SourceRange.Start!.Index;
+    if (pendingIf.Closed === false) {
+      pendingIf.TryToClose();
+    }
+    pendingIf.RemoveSelf();
+    pendingElseForIf.RemoveSelf();
+    this.NextSegment("if", elseStart);
+    if (this.Segment !== null) {
+      this.Segment.IfWordAt = ifWordAt;
+    }
+    this.MountCondition(source);
+    return;
+  }
+}
 const scope = this.Segment!;
 const hasCondition = scope.Data.some((item) => item instanceof IfCondition);
 const bodyDone = scope.Data.some((item) => item instanceof IfBody || item instanceof IfStatement);

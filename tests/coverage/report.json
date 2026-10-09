@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.29,
+  "progressPercent": 95.32,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1507,
-      "pass": 1495,
-      "blocked": 12,
+      "pass": 1498,
+      "blocked": 9,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.2
+      "coverage": 99.4
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1507,
-    "knownGap": 12,
-    "knownGapStillOpen": 12,
-    "exactFiles": 1495,
-    "scoredWithoutGap": 1495,
-    "passedWithoutGap": 1495
+    "knownGap": 9,
+    "knownGapStillOpen": 9,
+    "exactFiles": 1498,
+    "scoredWithoutGap": 1498,
+    "passedWithoutGap": 1498
   },
   "blocked": [
     {
@@ -178,24 +178,6 @@
       "category": "token",
       "title": "`export default 1/*c*/;` 的尾随注释（第 907 轮片段普查量出）：TS 那边 `ExportAssignment` 的区间是 `[0,22)`（到下一格实义单元的 full start，注释算在里面），产物停在 `1` 之后（`[0,16)`）",
       "detail": "漂 1　多 1　这一格的区间取的是「表达式最后一个单元」的末尾，而 TS 的 `finishNode` 取的是**下一格 token 的 full start**（注释也在内）——本仓别处那些「收尾期把尾随 trivia 收进节点」的做法没铺到 `export default` 这一支"
-    },
-    {
-      "id": "token/statements/gap-r907-do-body-comment-range",
-      "category": "token",
-      "title": "`do` 与循环体之间夹一条注释（第 907 轮片段普查量出）：TS 那边那条 `ExpressionStatement` 的区间从 `f` 起（`[8,12)`），产物从注释起（`[2,12)`）——注释被算进了体的区间",
-      "detail": "缺 1　多 1　`do` 后面那一格取体的起点时走的是「`do` 的下一个单元」（没跳 trivia），注释于是成了体的第一个单元"
-    },
-    {
-      "id": "token/statements/gap-r907-else-if-comment-before-paren",
-      "category": "token",
-      "title": "`else if` 的 `if` 与 `(` 之间夹一条注释（第 907 轮片段普查量出）：TS 那边整条是一条 `IfStatement`（`elseStatement` 是里层那条），产物的 `IfStatement` 停在第一个块上、`else` 成了 `Identifier`",
-      "detail": "漂 1　多 2　`else` 那一支接里层 `if` 时，判据只看紧跟 `else` 的词、再看 `if` 后面**紧跟**的 `(`；注释让第二跳落空（`SkipNextWrapSymbol` 只跳软换行）"
-    },
-    {
-      "id": "token/statements/gap-r907-switch-block-comment-before-brace",
-      "category": "token",
-      "title": "`case 1:` 与块之间夹一条注释（第 907 轮片段普查量出）：TS 那边块里的 `break;` 是一条 `BreakStatement`，产物把 `break` 落成 `Identifier`、`;` 落成 `SemicolonToken`",
-      "detail": "缺 1　多 2　「段头之后是块」那一支的判据紧跟 `:`（只跳软换行），注释挡住它 ⇒ 块没被认出来，里面的 `break;` 没了语句壳"
     },
     {
       "id": "token/types/gap-r907-index-signature-newline-after-readonly",

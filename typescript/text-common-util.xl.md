@@ -1623,9 +1623,17 @@ return IsObjectLiteralBrace(up.Data, at);
 
 `index` 处的单元前面那个实义单元是不是**开关分支的冒号**（`case X:` / `default:` 的那个 `:`）。
 
-判据：从 `index` 往左，跳过软换行，第一个实义单元必须是 `SymbolToken(":")`；
+判据：从 `index` 往左，**跳过 trivia**，第一个实义单元必须是 `SymbolToken(":")`；
 再从这个冒号往左走，**先撞上 `case` / `default` 就是**，撞上别的 `;` / `?` / `:` / `}` / `{`
 （也就是走到了另一段）就不是。
+
+**第一跳为什么是 trivia 口径**（第 907 轮片段普查量出的
+`gap-r907-switch-block-comment-before-brace`）：`case 1:/*c*/ { break; }` 里那个 `{`
+与冒号之间夹着一条注释——只跳软换行时读到的「前一个实义单元」是**那条注释**
+⇒ 本判据给否 ⇒ `IsStatementStart` 给否 ⇒ `BlockCloseRule` 不认这个块、**不给它补语句队列**
+⇒ 块里的 `break;` / `let x = 1;` 全退化成散单元（实测缺 `BreakStatement`，
+多出 `Identifier`(`break`) + `SemicolonToken`）。注释是 trivia、与软换行在这里是同一件事
+（第 817 轮那条线），而同一个函数的**第二跳**下面那句 `continue` 早就把注释当透明。
 
 **为什么必须单独判**：`outer: { … }`（标签 + 块）与 `let x: T`（声明 + 类型标注）在
 `IsStatementStart` 里已经靠「前一个实义单元是不是 `Identifier`」分开了，但
@@ -1638,7 +1646,7 @@ return IsObjectLiteralBrace(up.Data, at);
 `Identifier` 与 `Keyword` 没有共同的取文本方法，必须分两支写）。
 
 ```ts
-const colonIndex = SkipPreviousWrapSymbol(units, index);
+const colonIndex = SkipPreviousTrivia(units, index);
 const colon = Get(units, colonIndex);
 if (!(colon instanceof SymbolToken) || colon.Is(":") === false) {
   return false;

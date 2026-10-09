@@ -242,7 +242,12 @@ if (unit instanceof Statement) {
     // 而这里要的是**体**（TS 那边 `DoStatement.statement` 从 `x` 起）。
     // `Token.SignIn` 只能设一次，所以这里直接换掉 `SourceRange.Start` 那个引用
     //（它是普通字段，「只能设一次」那条纪律写在 `Token.SignIn` 里）。
-    unit.SourceRange.Start = Get(unit.Data, 0)!.SourceRange.Start!;
+    //
+    // **「第一格」要跳过 trivia**（第 907 轮片段普查量出的
+    // `gap-r907-do-body-comment-range`）：`do/*c*/ f(); while (1);` 里 `Data[0]` 是那条
+    // 注释 ⇒ 体的区间从注释起（实测产物 `ExpressionStatement [2,12)`，TS 是 `[8,12)`）；
+    // 上面那句 `bodyUnits` 已经把 trivia 滤掉了，这里用**同一个口径**取第一格。
+    unit.SourceRange.Start = bodyUnits[0].SourceRange.Start!;
   } else {
     // **`do ; while (…)`**：壳里只剩那个 `do` 词 ⇒ 体是那条空语句。
     // `;` 被 `Statement.FormFrom` 切进了壳的区间，所以它的下标是**壳的右端**
@@ -289,8 +294,18 @@ if (unit instanceof Statement) {
 const result = new DoWhile(template);
 result.Parent = unit.Parent;
 result.SignIn(unit.SourceRange.Start!);
-let endIndex = SkipNextWrapSymbol(units, index);
+let endIndex = SkipNextTrivia(units, index);
 const bodyStart = endIndex;
+// **`do` 与体之间夹 trivia**（第 907 轮片段普查量出的 `gap-r907-do-body-comment-range`）：
+// `do/*c*/ f(); while (1);` / `do//c` 换行 `f();` 里，只跳软换行时 `bodyStart` 落在
+// **那条注释**上 ⇒ 体的区间从注释起（实测产物 `ExpressionStatement [2,12)`，
+// TS 是 `[8,12)`——注释不是体的第一个单元）。判据跨 trivia 之后，
+// 跳过的注释按第 843 轮那一手**显式收下**（它们落在被 `ReplaceCountAt`
+// 替换掉的那一段里，不显式收下就等于删掉；`CommentsIn` 只收注释、软换行照旧丢掉）。
+if (bodyStart >= units.length) {
+  throw new Error("`do` 后需要跟语句，如 `do {...} while (...)` 或 `do ...; while (...)`");
+}
+result.AddRange(CommentsIn(units, index + 1, bodyStart));
 const bodyEnd = this.BodyEnd(units, bodyStart);
 if (bodyEnd < 0) {
   throw new Error("`do` 后需要跟语句，如 `do {...} while (...)` 或 `do ...; while (...)`");
