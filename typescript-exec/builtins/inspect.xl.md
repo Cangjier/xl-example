@@ -110,6 +110,29 @@ return Pad4(parts[0]) + "-" + Pad2(parts[1] + 1) + "-" + Pad2(parts[2]) + "T"
   + Pad2(Math.floor(millis / 10)) + NumberToHostText(millis % 10) + "Z";
 ```
 
+# method IsErrorFamilyName:(name:string)=>bool
+
+**那八个错误族的名字**（第 782 轮）：`util.inspect` 对错误走 `Error.prototype.toString`
+那个文本，所以印出来的是**读到的那个 `name`**——八格按 Node 实测列在这里。
+
+它是**渲染**那一侧的名单，不是语言层的族表：`ErrorCtorName` 那一张按**能力号**答，
+这一张按**名字**答，两者服务的入口不同、也不该混成一份。
+
+**为什么要有名单**：`{ name: "Error" }` 这种普通对象会被「读得到名就算错误」误认
+（`util.inspect` 问的是内部槽）——名单把这一档挡在外面，与 `Error.isError` 同一精神。
+
+```ts
+if (name === "Error") return true;
+if (name === "TypeError") return true;
+if (name === "RangeError") return true;
+if (name === "SyntaxError") return true;
+if (name === "ReferenceError") return true;
+if (name === "AggregateError") return true;
+if (name === "URIError") return true;
+if (name === "EvalError") return true;
+return false;
+```
+
 # method QuotedText:(units:Array<int>)=>string
 
 **容器里的字符串加引号**（顶层不加以外的那些）。
@@ -605,10 +628,21 @@ if (value.Tag === ValueTag.Object) {
   // 为一行文本把它们全穿一遍不划算；而「`name` 是 `Error`」正是本仓 `new Error(msg)`
   // 造出来的形状（实测那一格印出来的自有属性就是 `{ message: 'boom', name: 'Error' }`）。
   // **消息为空时只印 `name`**（与 JS 的 `Error.prototype.toString` 一字不差）。
+  //
+  // **第 782 轮：名的判据从「等于 `Error`」改成「**是那八个之一**」**——
+  // 这一处是那条近似的**第二个出口**：`MarkerText` 是**沿原型链**找的
+  // （`FindProperty` 走链），所以 `new TypeError("t")` 读到的 `name` 本来就是
+  // `"TypeError"`，可原来那一句只认 `"Error"` ⇒ 它**落到普通对象那一支**去印
+  // （`console.log(new TypeError("t"))` 给 `{}`，而 Node 给 `TypeError: t`）。
+  // 同一个根还有第二格：印出来的文本把**名写死成 `"Error"`** ⇒
+  // `new RangeError("r")` 会给 `Error: r`（**静默错值**，比 `{}` 更难发现）。
+  // **两个落点一起改**：用读到的那个名（八格按 Node 实测列在下面那张表里）。
+  // **为什么不是「读得到名就算错误」**：`{ name: "Error" }` 这种普通对象会被误认成错误
+  //（`util.inspect` 问的是内部槽）——名单把这一档挡在外面，与 `Error.isError` 同一精神。
   const errorName = MarkerText(table, value, "name");
-  if (errorName === "Error") {
+  if (IsErrorFamilyName(errorName)) {
     const errorMessage = MarkerText(table, value, "message");
-    return errorMessage === "" ? "Error" : "Error: " + errorMessage;
+    return errorMessage === "" ? errorName : errorName + ": " + errorMessage;
   }
   // **先认那三样**（第 131 轮）：`Date` / `Map` / `Set` 在值模型里都是普通对象，
   // 分别挂着 `__t` / `__k` / `__v`（`Date` 那一族与 `map.xl.md` / `set.xl.md` 造的就是这个形状）。
