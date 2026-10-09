@@ -15,6 +15,7 @@ import { InterfaceBody } from "../interface/interface-body.xl.md"
 import { ArrayLiteral } from "../json/array-literal.xl.md"
 import { ReturnType } from "../function/return-type.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
+import { String } from "../string/string.xl.md"
 import { TypeLiteralBody } from "../type-literal/type-literal-body.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
 import { New } from "../new/new.xl.md"
@@ -206,7 +207,13 @@ if (current instanceof Bracket && current.startBracket === "(") {
     immediateIndex = SkipPreviousAnnotation(units, immediateIndex);
   }
   const before = Get(units, immediateIndex);
-  if (before instanceof Identifier || before instanceof GenericType) {
+  // **字符串字面量名也是名字**（第 833 轮）：`interface I { "a"(x: string): void }` 里 `(` 前面
+  // 是那个 `String` 单元 —— 与 `m(): void` 同一条分工线（本规则必须让给 `MethodDeclaration`，
+  // 它那一侧的 `MethodNameOf` / 名字判据早就认 `String`，缺的只是这里让路）。
+  // 少了这一档：字符串名的方法被抢成一个无名 `Signature`，那个名字掉在成员列表里当散单元
+  // （实测 `"a"(x: string): void` 的产物是 `StringLiteral` + `CallSignature`，
+  // 而 TS 是**一个** `MethodSignature`）。
+  if (before instanceof Identifier || before instanceof GenericType || before instanceof String) {
     return false;
   }
   // **名字写在上一行**（第 827 轮）：`interface I { m` 换行 `(): void; }` 里那个 `(` 是
@@ -326,6 +333,12 @@ TypeScript 允许成员签名自己带类型参数段：`interface I { <TIn exte
 那是 `MethodDeclaration` 的形状。少了这条守卫，本规则（位次在 `MethodDeclarationCloseRule`
 **之前**）会把 `m<T>(…)` 收成一个 `Signature`，丢掉 `MethodDeclaration`
 （`decl-interface-method-generics` / `type-object-method-generic` 两条用例当场报缺）。
+
+**名字也可以是字符串**（`interface I { "a"<T>(x: T): T }`，第 833 轮）：所以那条守卫是
+`Identifier` / `String` / `GenericType` 三档。**`String` 这一档原先一次都没生效过**——
+它没在 `# dependencies` 里，生成出来的 TS 里 `before instanceof String` 命中的是
+**JS 内建的那个 `String`** ⇒ 恒为假 ⇒ 字符串名的方法被本规则抢成无名 `Signature`
+（与第 832 轮 `statement.xl.md` 那一处同一个根）。
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 

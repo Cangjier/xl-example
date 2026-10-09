@@ -14,6 +14,7 @@ import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Keyword } from "./keyword.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
+import { String } from "./string/string.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { IsTemplateTypeContent, IsTriviaUnit, IsTypeBracketPosition, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 ```
@@ -109,7 +110,21 @@ if (unit.Data.length === 0) {
   return emptyHostClose !== -1 && this.IsAllowedFollower(unit, source, emptyHostClose);
 }
 let last = unit.Last();
-let hasName = last instanceof Identifier;
+// **字符串字面量名也是名字，但只认成员体里的那一档**（第 833 轮）：
+// `interface I { "a"<T>(x: T): T }` / `type X = { "a"<T>(x: T): T }` / `class C { "a"<T>() {} }`
+// 里 `<` 前面是那个 `String` 单元 —— 与 `Array<T>` / `m<T>()` 的 `<` 同一条名字闸。
+// 少了这一档：`<T>` 退回裸符号 ⇒ 参数表那一段找不到 `GenericType` ⇒ 整条成员散架成
+// `StringLiteral` + `<` + `T` + `>` + `CallSignature`（TS 那边是**一个** `MethodSignature`）。
+//
+// **为什么必须限定宿主**：表达式位 `"a" < b && c > (d)` 里同一个 `<` 是**比较符**
+// （TS 读成两条二元表达式，我们这边的 `a < b && c > (d)` 本来就已经对不上，
+// 见 `typescript-parsing-gaps.md` 的那一族）—— 名字闸一放开，字符串那一份会被拖进
+// **同一条既有缺口**里：本来是好的那份读数变红。所以判据落在「宿主是不是成员体」上。
+let hostName = unit.constructor.name;
+let inMemberHost =
+  hostName === "InterfaceBody" || hostName === "ClassBody" ||
+  (unit instanceof Bracket && unit.startBracket === "{");
+let hasName = last instanceof Identifier || (last instanceof String && inMemberHost);
 if (last instanceof SymbolToken && last.Is("?")) {
   const beforeMark = unit.Data[unit.Data.length - 2];
   const isComputedName =
