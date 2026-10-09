@@ -161,7 +161,7 @@ console.log(Box.of(1));
 | 动机 | 「免得把控制台渲染那一族的已知缺口混进来」——即**隔离打印层**，让每条只暴露一个语义差额 |
 | 首现 | 第 692 轮（其一）：**385 条**（其中原子探针 299 条），分母 3992 → 4377 |
 | 之后逐批 | 692（其二）150 · 692（其三）103 · 693 **555** · 694 **242** · 695 150 · 696 152 · 697 159 · 698 85 · 699 202 · 700 158 · 701 100 · 706 133 · 707 117 · 708 81 · 709 56 · 710 49 · 711 26 |
-| 现状（第 788 轮（三）之后） | git 跟踪 **1759 条**（第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中 |
+| 现状（第 789 轮之后） | git 跟踪 **1503 条**（第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮把 `exec/functions`（165 条）与 `exec/round706`（125 条）两个域一次走完 |
 
 **它当时的收益是真的**：每一批都当场收掉几处根因，覆盖度从 3697/3992 一路推到 5090/5427。
 **它的代价是现在才显出来的**：同一判定点被**逐批重抄**——第 692 轮抄一遍、693 再抄一遍、
@@ -183,6 +183,60 @@ console.log(Box.of(1));
 也就是说：**探针这个方法要留，探针的重复不要留。**
 
 ## 分母里有什么（数字是最近一次全量实测）
+
+**第 789 轮的合并**（**`exec/functions` 与 `exec/round706` 两个域按判定点重排**）：这两个域是
+**同一个手法还没走过的地方**——`exec/functions` 268 条里有 **165 条** `probe*` 命名
+（第 692 / 693 / 700 / 701 / 703 / 705 六批逐条一问重抄的原子探针），`exec/round706` 129 条里有 **125 条**
+（`p706a/b/c/d/e/f-*`：同一个域里 `a` / `b` / `c` 三批把数组的洞、键序、`defineProperty` 各测了三遍）。
+按判定点并成 **23 条规则用例**——删 **290** 条、添 **23** 条：
+语料 **6001 → 5720**、判过 **5987 → 5706**、过 **5584 → 5317**（净少 **267**），
+**blocked 263 / differ 140 / bad 0 一处没动**，`MOVED` / `NEWLY-PASSING` / `REGRESSION` 全 0。
+两个域的目录读数：`exec/functions` **268 → 115**、`exec/round706` **129 → 15**，两个域里 `probe*` / `p-*` 命名清零。
+
+| 新条 | 判定点 | 吸收的探针 |
+| --- | --- | --- |
+| `functions/116-function-length-and-name` | 函数自己那两格：`length` 数到第一个默认值 / 剩余参数、`name` 的推断与 `bind` 前缀 | `p-rest-param`、`probe-f05`、`probe693b-f11·f27·f28·f29`、`probe700-f-e07·e08·e09·e13·e40`、`probe703-f-g06·g07·g08·g18`、`probe705-t-a17·a23·a25·a26` |
+| `functions/117-function-prototype-toString` | `Function.prototype.toString` 与函数自己那一份源码文本（含内建那一档的账） | `probe703-f-g22`、`probe705-t-a01…a13·a33·a34·a35·a36·a38·a39·a40` |
+| `functions/118-function-own-shape` | 函数对象自己那一格：`prototype` / `constructor` / `call.length` / 自有名表 / 标签 | `probe-f07`、`probe693b-f12·f14·f26`、`probe700-f-e38·e41`、`probe703-f-g13·g15·g20·g27·g28·g30`、`probe705-t-a30·a32·a37` |
+| `functions/119-this-binding-basics` | `this` 的绑法：裸调用 / 方法 / 摘出来 / `call`·`apply`·`bind` / 箭头 | `probe-f09…f12`、`probe3-s18`、`probe3-t01…t15` 里 13 条、`probe693b-f01·f04·f05·f06·f08·f16…f19·f24·f25`、`probe700-f-e23…e25·e33·e34·e39·e42…e45·t02·t04`、`probe703-f-g10·g11·g12` |
+| `functions/120-strict-mode-and-module-this` | 严格模式指令的位置与模块顶层的 `this` | `probe701-s-t01…t10` |
+| `functions/121-arguments-object` | `arguments` 的长度 / 下标 / 来源 / 与形参的别名 | `probe-f14`、`probe3-t11·t12`、`probe693b-f02·f03·f10·f30`、`probe700-f-e18·e19·e48·e50·t05`、`probe703-f-g25` |
+| `functions/122-new-and-new-target` | `new` 与 `new.target` 的取值 | `probe-f13`、`probe700-f-e22` |
+| `functions/123-hoisting-scope-blocks` | 提升与作用域：函数 / `var` / `let`、块与闭包 | `probe3-s01…s20` 里 17 条、`probe700-f-e26·e28…e32·t06` |
+| `functions/124-arrow-and-default-params` | 箭头函数与形参默认值（解构 / 求值次序 / 默认值里的 TDZ） | `probe700-f-e01…e06·e14…e17·e35·e36·e49·t01·t03·t07`、`probe693b-f20·f21` |
+| `functions/125-function-constructors-and-eval-globals` | `eval` 全局名（账） | `probe-f18` |
+| `functions/126` / `127-new-function-construct*-differ` | 运行期造函数 `new Function(...)`（同一处根，两条账） | `probe693b-f13`、`probe703-f-g09` |
+| `round706/005-sparse-arrays-and-holes` | 数组的洞与长度：赋值 / `defineProperty` / 访问器那一格、几种名表、`length` 的描述符 | `p706a-a01·a03·a04·a05`、`p706c-x01…x10`、`p706d-y01…y08`、`p706e-z01…z08`、`p706f-w01…w06`（34 条） |
+| `round706/006-key-order-and-delete` | 键的次序与 `delete`：整数键 / 字符串键 / 符号键 | `p706a-k01…k06`、`p706b-e01…e07`、`p706c-x14…x18` |
+| `round706/007-defineproperty-and-key-coercion` | `defineProperty` 与键的强制转换（含对象键那一档的账） | `p706a-o11…o16`、`p706b-d01…d08`、`p706c-x11` |
+| `round706/008-accessor-members-and-enumerability` | 访问器成员与可枚举性：`__lookupGetter__` / `__defineGetter__` / `enumerable` | `p706a-o09`、`p706b-g01…g08`、`p706c-x19…x27`、`p706d-y04`、`p706a-p06` |
+| `round706/009-freeze-seal-preventextensions` | 冻结 / 密封 / 不可扩展 | `p706a-o01·o03…o08` |
+| `round706/010-globals-and-native-constructors` | `globalThis` / `Object()` / `Array()` / 原始值的原型 | `p706a-f03·f04·f05`、`p706a-p01…p05` |
+| `round706/011-symbol-surface` | `Symbol` 的面：`for` / `keyFor` / `description` / `toStringTag` | `p706a-s01…s05` |
+| `round706/012-json-stringify-and-parse` | `JSON` 两格的值形状与边界 | `p706a-j01…j06` |
+| `round706/013-date-shapes` | `Date` 的形状 | `p706a-d01…d04` |
+| `round706/014-class-member-shapes` | 类成员那一格：访问器 / 静态 / 计算键 / 继承与 `super` | `p706a-c01…c08` |
+| `round706/015-functions-and-this` | 函数裸调用的 `this`（严格 / 松散） | `p706a-f01·f02` |
+
+**并法沿用前几轮，但这一轮多了一步自查**：每条探针的正文**逐字搬进一个自己的 IIFE**
+（`(() => { … })();`）——IIFE 既是作用域（同名声明互不打架）、又保证 `this` 仍从模块那一层取；
+探针各自抄的那两行小壳（`const show = …` / `const run = …` / `const probe = …`）
+**只在它与文件头那几行逐行一致时**才摘掉：**不是正则猜**——`const show = (v) => …` 与探针正文里
+自己的箭头函数长得一样，猜会把断言一起删掉（这一步实测踩过一次）。
+**对拍**：新文件与**原来那 290 条**逐条比 stdout（`node` 与 `tsrun` 各跑一遍）——
+**逐行相同**；其中 8 条本来就是 `differ` 的账，两口径不一致是应该的，新文件里原样保留。
+
+**两种口径对拍**：`--filter functions/` 与 `--filter round706/`，批量与 `--no-batch`
+（一条一个进程的权威口径）**逐项相同**：`functions/` **141 条判过 · 129 过 · blocked 0 · differ 12**、
+`round706/` **15 条判过 · 14 过 · blocked 1 · differ 0 · bad 0**。八道门全绿；
+runtime:check 243 条、runtime:cli 79 份一致、cases:check 1407 条 0 不合格、cases:tags 4748 条断言 0 不一致。
+
+**下一步的收网面（写在这里，别再翻一遍语料找）**：`probe*` 命名还剩 **1503 条**，最密的几个域是
+`stdlib/map-set`（113 条）、`stdlib/string`（111 条）、`exec/statements`（96 条）、
+`exec/round708`（81 条）、`runtime/iterators`（73 条）、`exec/iterators`（52 条）、
+`stdlib/error`（53 条）、`exec/destructuring-spread`（49 条）、`stdlib/math`（44 条）、
+`runtime/async`（40 条）、`stdlib/console`（38 条）——手法与这一轮相同：**同一个域一次走完**
+（先分判定点家族，再一个家族一个文件；只有逐字节相同的正文才算同一条）。
 
 **第 788 轮（三）的合并**（**`exec/round710` 整个域按判定点重排**）：这个轮次目录里 31 条
 **逐条一问**的原子探针（`p710a-*` / `p710c-*` / `p710d-*`）按判定点并成 **3 条规则用例**
@@ -383,24 +437,25 @@ ToPrimitive 的探针因此并进了**新条**而不是它——账不被稀释�
 **blocked / differ / bad 三条账一处没动**（合并只去重复，不改判据）。
 即：**分母里那 1549 条水挤掉了，判定力一条没少**。
 
-**语料 6001 条**（token 1407 / exec 1402 / runtime 1115 / stdlib 1831 / e2e 246），判过 **5987** 条。
+**语料 5720 条**（token 1407 / exec 1134 / runtime 1115 / stdlib 1831 / e2e 246），判过 **5706** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1394 | **1177** | 217 / 0 | 缺的那 217 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 1401 | **1361** | 10 / 30 | 另有 1 条不进分母 |
+| `exec` | 1134 | **1094** | 10 / 30 | 另有 1 条不进分母 |
 | `runtime` | 1115 | **1064** | 6 / 45 | |
 | `stdlib` | 1831 | **1740** | 26 / 65 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **5987** | **5584** | 263 / 140 | 加权 **94.6%** |
+| **合计** | **5706** | **5317** | 263 / 140 | 加权 **94.4%** |
 
-（第 788 轮（三）那一版是 5987 / 5584，第 788 轮（二）那一版是 6015 / 5612，
+（第 789 轮那一版是 5706 / 5317 —— **blocked 263 / differ 140 与上一版逐项相同**，
+第 788 轮（三）那一版是 5987 / 5584，第 788 轮（二）那一版是 6015 / 5612，
 第 788 轮那一版是 6120 / 5717，
 第 787 轮（三）那一版是 6376 / 5972，
 第 787 轮（二）那一版是 6447 / 6043，
 第 787 轮那一版是 6508 / 6104，第 786 轮那一版是 6676 / 6272，
-第 784 轮那一版是 6750 / 6346、第 783 轮那一版是 6810 / 6406——九版的
+第 784 轮那一版是 6750 / 6346、第 783 轮那一版是 6810 / 6406——十版的
 `blocked` / `differ` **逐项相同**：分母小了，加权读数跟着轻降，这就是上面那句
 「不是退化」的实例。）
 
