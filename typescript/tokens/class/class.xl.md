@@ -327,6 +327,42 @@ result.Success = this.ScanHead(units, classIndex, null);
 return result;
 ```
 
+## static method IsPendingHead:(units:Array<Token>)=>bool
+
+这一串单元是不是**停在一个还没写体的类头上**——`const A = class Named` 换行 `{ … }` 里换行那一刻问的正是这一句。
+
+**为什么要单独问它**（第 912 轮片段普查量出的 `gap-r907-class-expression-name-newline`）：
+`class` 那一格 `ExpectsOperand` 已经答「要操作数」，所以 `const A = class` 换行 `{` 是通的；
+可**名字写在 `class` 后面**时换行落在名字那一格（`const A = class Named` 换行 `{`）——
+名字是一个写完的操作数 ⇒ ASI 那一问答「这一行写完了」⇒ 壳关掉 ⇒ `{}` 落成裸块、
+`ClassExpression` 整条缺（实测 缺 2 漂 3 多 6）。`class extends B` 换行 `{` 是同一个根。
+
+**判据直接问 `ScanHead`**：它是本类的进门判据（名字 / 类型参数段 / `extends` / `implements`
+各占哪几格、头有没有恰好用完），而这一问要的正是同一句话 —— **不在这里重写第二份**。
+`ScanHead` 顺手记 `NameIndex`，所以用一个**探路实例**问它（与 `Condition` 的
+「探路传 `null`、不留半截状态」同一条口径）：`JumpIn` 身上一个字段都不动。
+
+**为什么摆在静态方法上**：`Statement.NextLineContinuesExpression` 的 `{` 那一支要问它
+（`statement.xl.md`），而那一刻手上**没有** `Class` 实例——类头还没成形。
+
+```ts
+const probe = new ClassBranch();
+const classIndex = probe.FindClassWord(units);
+if (classIndex < 0) {
+  return false;
+}
+// **位置闸**：`a.class` 换行 `{}` 里那个 `class` 是成员名，不是类头
+//（与 `Condition` 同一份判断）。
+const previous = probe.PreviousWord(units, classIndex);
+if (previous instanceof SymbolToken && (previous.Is(".") || previous.Is("?."))) {
+  return false;
+}
+if (previous !== null && previous.constructor.name === "NullConditionalOperator") {
+  return false;
+}
+return probe.ScanHead(units, classIndex, null);
+```
+
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 建 `Class`、把整个类头**搬进它自己名下**、再挂 `ClassBody` 并把字符路由过去。

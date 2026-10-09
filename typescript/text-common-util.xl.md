@@ -813,7 +813,8 @@ return GetSkipNext(units, index, IsTriviaUnit);
 用来回答 ASI 里唯一的那处差别：`x => x` 换行 `[1, 2, 3]` 是**续行**（上一行是表达式），
 而 `interface I { ['a']: T` 换行 `['b']: U }` 是**两条成员**（上一行是类型，类型后面接不了下标）。
 
-- 先撞上 `=` ⇒ 上一行是表达式 ⇒ `false`；
+- 先撞上 `=` ⇒ 上一行是表达式 ⇒ `false`——**除非那个 `=` 是类型别名的 `=`**
+  （`type T = A` 换行 `["k"];`：右边是**类型**，第 912 轮，判据是 `IsTypeAliasAssignment`）；
 - 先撞上 `:` ⇒ 上一行是类型标注 ⇒ `true`；
 - 撞上 `;` / `,` / `{` / `}` / 括号 ⇒ 上一行到此为止，按「表达式」处理（`false`——
   `{ x => x` 换行 `[1, 2, 3] }` 的 `{` 就落在这里）；
@@ -832,7 +833,13 @@ for (let i = index - 1; i >= 0; i--) {
   if (item instanceof SymbolToken) {
     const text = item.TempToString();
     if (text === "=") {
-      return false;
+      // **类型别名的 `=` 右边是类型**（第 912 轮）：`type T = A` 换行 `["k"];` 里上一行是
+      // **类型位**（TS 那边 `TypeAliasDeclaration` 在 `A` 处收尾、`["k"];` 另起一条
+      // `ExpressionStatement`），而原来这里撞上 `=` 一律答「上一行是表达式」⇒ 那两道
+      // `[` 护栏（`statement.xl.md` 的解析期与收尾期各一处）一起放行 ⇒ 接出半个
+      // `IndexedAccessType`（实测 `gap-r907-indexed-access-newline`：缺 2 漂 1 多 3）。
+      // 判据复用 `IsTypeAliasAssignment`（从 `=` 左边往回找 `type` / `const`），不另写一份。
+      return IsTypeAliasAssignment(units, i - 1);
     }
     if (text === ":") {
       // **`case` / `default` 的标签冒号不是类型标注**（第 831 轮，可选）：`switch` 体里

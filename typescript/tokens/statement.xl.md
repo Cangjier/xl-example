@@ -10,7 +10,7 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
 import { GetSkipPreviousTrivia, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, IsTypeAliasAssignment, NextLineFirstCharAt, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
-import { Class } from "./class/class.xl.md"
+import { Class, ClassBranch } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
 import { ExportCloseRule } from "./export.xl.md"
 import { Field } from "./field.xl.md"
@@ -1465,7 +1465,15 @@ if (wordEnd > at) {
 // **少了它会怎样**：换行处照常收壳 ⇒ 头与体被切成两条 ⇒ `WhileCloseRule` 那一趟只看得到
 // 头那一格，体那一支落成平级的裸 `Bracket`（实测 `while (a)\n{}` 的产物是
 // `WhileStatement[0,9)` + 多一个 `EmptyStatement`，TS 是 `WhileStatement[0,12)` 带一个 `Block`）。
-if (head === "{" && Statement.IsHeaderBodyBrace(data)) {
+// **类头也在这一档里**（第 912 轮片段普查量出的 `gap-r907-class-expression-name-newline`）：
+// `const A = class Named` 换行 `{};` 与 `const A = class extends B` 换行 `{}` 都是**一条**
+// `ClassExpression`（体写在下一行），而 `class` 那一格后面**还有内容**（名字 / 继承子句）时
+// 换行落在名字上 ⇒ `IsHeaderBodyBrace` 那张词表走到名字就停了 ⇒ 壳在换行处关掉 ⇒
+// `{}` 落成裸块、`ClassExpression` 整条缺（实测 缺 2 漂 3 多 6）。
+// **判据不在这里重写**：`ClassBranch.IsPendingHead` 直接问类自己那一份进门判据
+// （`ScanHead`）——头怎么算完、名字 / 类型参数 / `extends` / `implements` 各占哪几格，
+// 只有一份实现。`a.class` 换行 `{}` 由它自己的位置闸挡掉。
+if (head === "{" && (Statement.IsHeaderBodyBrace(data) || ClassBranch.IsPendingHead(data))) {
   return true;
 }
 // **下一行以 `<` 开头，而上一行是一个「等着类型参数段」的声明头**（第 825 轮）：
