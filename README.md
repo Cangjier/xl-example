@@ -306,6 +306,46 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 821 轮：**两处试过又退回来的改法**（读数一条未动，`cases:tsast` 仍 148）
+
+**一句话**：这一轮量了两处——**「修饰词单独起一行」**（`public static` 换行 `readonly a = 1;`）
+与 **`import` / `export` 的尾随 `;` 另起一行**——两处都写出了判据、都改进了读数以外的部分，
+但**各自都让既有的绿用例变红**，所以都退回来了。**这一轮不进任何数字**，
+只把两处**已经量清的死路**记在这里（免得下一轮再走一遍）。
+
+- **试过一：换行后面是「修饰词 + 名字 + 延续符号」时不收尾**（`field.xl.md` 的 `MemberEnd`）。
+  判据本身是对的：`IsMemberBoundary` 把 `readonly` 当**名字**（它后面有 `a`、再后有 `=`），
+  可修饰词不是名字。加上「跨过修饰词再看延续符号」这一问之后，
+  `gap-sweep-newline-clsmod-01` 确实成形了，**但八条既有绿用例当场变红**：
+  `itf-basic` / `decl-class-modifiers` / `decl-class-member-modifier-order` /
+  `decl-interface-optional-readonly` / `decl-class-accessor` / `cls-declare-fields` /
+  `decl-computed-field-after-generic` / `ty-object-literal`——全是 **`readonly` 当成员名**那一族：
+  `b?: string` 换行 `readonly c: boolean` 在 TS 那边是**两条** `PropertySignature`，
+  而这一问把第二条并进了第一条。
+  **补的第二问也没救回来**：想用「这一条成员在换行前封口了没有」分开两族
+  （`b?: string` 的 `?:` 封了口 / `public static` 没封口），
+  可**那一刻 `units` 里能看到的是已经成形的兄弟单元**（`Field`），
+  封口符号 `?:` 早被收进上一条成员里了 ⇒ 判据在 `units` 这一层问不出来。
+  **要收它得换一层**：让**成员名那一格自己**回答「我后面还有没有名字」
+  （`FieldCloseRule.Previous` 里 `readonly` 的 `IsNameUnit` 那一问已经是第二次问同一件事），
+  而不是在 `MemberEnd` 里反扫 `units`。这条留在这里。
+- **试过二：`import` / `export` 的循环遇换行时再看一眼后面那一格**（`import.xl.md` / `export.xl.md`）。
+  `import { a, b as c }` 换行 `from "m";` 在 TS 那边是**一条** `ImportDeclaration`
+  （实测产物只到 `{ a, b as c }`、`from "m";` 另起一条 `ExpressionStatement`），
+  `export { a }` 换行 `;` 同理（TS `ExportDeclaration[13,27)`，产物 `[13,25)` + 一个 `EmptyStatement`）。
+  改法写了两处（`import` 侧「换行后面还有子句单元就继续收」、`export` 侧收完之后再扫一眼 `;`），
+  **两处都没让读数动一格**：`import` 那一侧改了之后读数**一字不变**
+  （说明那条冲突发生在更早的地方——`from "m"` 与 `{ a, b as c }` 之间那个换行
+  在收 `{ … }` 那一趟就已经把它切开了），`export` 那一侧的那个 `;`
+  **根本不在 `units` 这一层**（`{ a }` 是一个括号单元，它里面的排版看不见）。
+  两条都是同一个教训：**判据要问的那一格是不是还在这一层**——不在就别在这一层问。
+
+- **可复用的判据（这一轮唯一的产出）**：**改一处之前先问「我要问的那一格还在不在这一层」**。
+  两处死路的共同症状不是判据写错，而是**判据问错了地方**：
+  `MemberEnd` 反扫 `units` 时封口符号已经被收进兄弟成员，
+  `Export.Process` 找 `;` 时那个 `;` 在括号单元里面。
+  症状是「改了读数不动」或「读数动了但别的用例红」，两种都在这一轮里各出现一次。
+
 ### 第 820 轮：**声明头那三个词等一个名字**——`const` 换行那一族收掉 19 条，另收掉 `member \n ;` 两条
 
 **一句话**：这一轮从两个方向量——**成员尾巴**（`a: number` 换行 `;` 里那个 `;` 属于这条成员）
