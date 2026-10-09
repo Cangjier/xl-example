@@ -2571,6 +2571,13 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       return arrow;
     }
   }
+  // **带 `async` 的泛型箭头函数**（第 856 轮）：`async<T>(x) => x` 的产物是
+  // `[Identifier(async), GenericType(<T>), Lamda(…)]`——上面那一支只认**两格**
+  // （`<T>` + `Lamda`）。**这一格在实测里没有跑到**（第 856 轮拿探针对过：
+  // `const h = async<T>(x) => x;` 那条路根本不进本方法，`ARROW-TP` 那条临时诊断
+  // 一次都没响），所以**不在这里落代码**——留下的只是这条经度过的结论：
+  // 要收这一档得先找到是谁投的这条 `Lamda`（`IsAsync` 与起点已经在
+  // `lamda.xl.md` 的 `Process` 里补齐了，`typeParameters` 那一格仍缺）。
   // **表达式位的标记**（第 141 轮）：`Function` / `Class` 这一个产物标签在
   // 声明位是 `FunctionDeclaration` / `ClassDeclaration`、在表达式位是
   // `FunctionExpression` / `ClassExpression`，产物同形——唯一可靠的区分是「谁在投它」。

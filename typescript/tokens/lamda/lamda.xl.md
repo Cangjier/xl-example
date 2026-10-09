@@ -606,11 +606,33 @@ if (parameterUnit === null) {
   throw new Error("参数错误");
 }
 let rangeStart = parametersIndex;
+result.IsAsync = false;
 const asyncIndex = SkipPreviousWrapSymbol(units, parametersIndex);
 const asyncUnit = Get(units, asyncIndex);
 if (asyncUnit instanceof Identifier && asyncUnit.Is("async")) {
   rangeStart = asyncIndex;
   result.IsAsync = true;
+} else if (asyncUnit instanceof GenericType) {
+  // **`async` 与形参表之间隔着一个泛型段**（第 856 轮）：`async<T>(x) => x` 里形参表前面
+  // 那一格是 `<T>`，`async` 在它**更左边**——只认「紧挨着的前一格」时这一档的
+  // `IsAsync` 永远是假、`Lamda` 的起点也停在 `(` 上。
+  //
+  // **只在「`async` 与 `<` 之间没有空白」时认**（第 856 轮实测的边界）：
+  // `async<T>(x) => x` 里那个 `<` 只可能是类型参数段（`async < T` 是比较式）；
+  // 而 `async <T>(x: T) => x`（隔了空格）在那些**本来就成形的写法**上会与
+  // `gap-d-generics-tuple-mapped-02`（`async <T,>(x: T): Promise<T> => x`）那一族的
+  // 词法取法冲突——实测照「隔空格也认」改会把那条用例的 `GenericType` / `TypeParameter`
+  // 整片打破（`cases:tags` 4 条不一致），所以这一格**收窄到紧贴**，留待另一轮。
+  const beforeGeneric = SkipPreviousWrapSymbol(units, asyncIndex);
+  const asyncWord = Get(units, beforeGeneric);
+  if (asyncWord instanceof Identifier && asyncWord.Is("async")) {
+    const gap = asyncWord.SourceRange.End!.Index + 1;
+    const genericStart = asyncUnit.SourceRange.Start!.Index;
+    if (gap === genericStart) {
+      rangeStart = beforeGeneric;
+      result.IsAsync = true;
+    }
+  }
 }
 const lambdaStart = Get(units, rangeStart)!.SourceRange.Start!;
 const parametersRangeEnd = parameterUnit.SourceRange.End!;
