@@ -89,6 +89,26 @@ console.log(Box.of(1));
 | `e2e` | 246 | **242** | 4 / 0 | |
 | **合计** | **8185** | **7807** | 262 / 116 | 加权 **95.7%** |
 
+**第 782 轮再加 3 条**（分母 8349 → **8352**，全在 `stdlib/round782`）：**接收者自己那一格**与
+**内建构造的原型**——**2 条当场通过、1 条登记**，同一轮里**收掉四处**：
+① `SetPropertySearched` 少了「接收者自己那一格」⇒ `super.x = v` 在派生实例上**再建一格重名自有属性**、
+读那一格先命中旧的那一份（**静默错值**，第 780 轮 `r780b-03` 的四个落点之一）；
+② 内建构造对象自己那一格原型（错误家族七个后代接 `Error`、`Error` 自己接 `Function.prototype`）
+⇒ `Object.getPrototypeOf(TypeError) === Error` / `Error instanceof Function`；
+③ `util.inspect` 的错误那一档把名写死成 `"Error"`（`console.log(new TypeError("t"))` 印 `{}`、
+`new RangeError("r")` 印成 `Error: r`）；
+④ `Error.stack` 那一格（自有 + 不可枚举的字符串，**给的是那一段的头一行**——
+帧里的路径与行号是本仓的实现细节，照抄宿主栈会把实现钉进脚本看得见的值里；
+头一行与 `util.inspect` 印的头一行逐字相同，判据就从两个出口把同一句读回来比）。
+**试过又退回来的一格**：其余内建构造（`Array` / `Date` / `Map` / `Promise` …）也接
+`Function.prototype` 在 JS 里同样对，整批接上去之后 `runtime:check` 当场红两条
+（`String(String)` 走继承来的 `Function.prototype.toString` ⇒ `"function () { [native code] }"`，
+**静默错值**）⇒ 退回只接错误家族，另一半登记在 `r782a-02`（`differ`，25 行照 JS 的答案写）。
+**五笔旧账到期**：`exec/round724/p724a-b01`、`stdlib/error/probe697-e11`、`probe704-e-a38`、
+`stdlib/round749/p749b-b06`、`stdlib/round781/r781a-01`（`xl:want` / `xl:why` 按规矩撤掉）。
+覆盖度 7943 / 8349 → **7950 / 8352**、blocked **267**（没动）、differ 139 → **135**、bad 0、
+regressions 0，加权 **95.4%**。
+
 **第 781 轮再加 6 条**（分母 8343 → **8349**，全在 `stdlib/round781`）：错误家族 /
 抛出与接住 / 分组 / `structuredClone` / 弱集合 / 新族方法——**3 条当场通过、3 条登记**，
 同一轮里**收掉一处**：`Object.groupBy` 的**键**原来无条件 `ValueText` 成字符串

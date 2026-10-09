@@ -306,6 +306,65 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 782 轮：**接收者自己那一格**与**内建构造的原型**——收掉四处（含一处静默错值），`Error.stack` 那一格补齐，五笔旧账到期
+
+**一句话**：这一轮从两个方向量——**属性写入的次序**（`super.x = v` 为什么静默不写）与
+**错误家族自己那一族**（`console.log` 印成 `{}`、`Object.getPrototypeOf(TypeError) === Error`、
+`typeof e.stack`）——四处根收掉，另把「其余内建构造的原型」那一半**如实登记**。
+
+- **收掉的根①（静默错值）：`SetPropertySearched` 少了「接收者自己那一格」**（`props.xl.md`）。
+  `super.x = v` 那一趟的起点是**原型**（`SetPropertyFrom`），于是 `found` 只看得见原型链上那一格；
+  可规范的三步是「① 起点找访问器 → ② **接收者自己的**那一格就地改值 → ③ 都没有才新建」，
+  本仓原来只有 ① 与 ③ ⇒ 派生实例上**已经有** `v` 时，`super.v = w` 会**再建一格重名的自有属性**
+  （`Object.getOwnPropertyNames(e)` 给 `["v","v"]`），而读那一格先命中**先前那一份**
+  ⇒ `e.v` 还是旧值。**症状是静默错值**（不抛、不报错、两个名字同名）。
+  修法是**补上规范的第二步**（`found` 不是接收者自己那一格时，先扫一次接收者的自有属性：
+  数据属性就地改值 / 访问器照调 setter / 不可写返回假）——**没有新写第二份规矩**，
+  与前面「继承来的访问器」那一条同一个形状。第 780 轮 `r780b-03` 登记的四个落点之一
+  （`set(w) { super.v = w }` 静默不写）**当场收掉**。
+- **收掉的根②：内建构造对象自己那一格原型**（`globals.xl.md`）。本仓的内建构造是
+  「普通对象 + 一格可调用载荷」，`NewPlainObject` 给的原型是 `Object.prototype` ⇒
+  `Object.getPrototypeOf(TypeError) === Error` 在 Node 里为真、本仓为假（第 724 轮
+  `p724a-b01` 登的、第 781 轮 `r781a-01` 又量了一遍），同一个根还有两个出口：
+  `Object.getPrototypeOf(Error) === Function.prototype` 与 `Error instanceof Function`。
+  修法是**一张表**：错误家族七个后代接**全局那一个 `Error` 对象**、`Error` 自己接 `protos.Function`。
+- **收掉的根③：`util.inspect` 的错误那一档把名写死成 `Error`**（`inspect.xl.md`）。
+  判据原来是「沿链读到的 `name` **恰好等于** `"Error"`」，而且印出来的文本**写死**成
+  `"Error: " + message`——两个落点各在一半的族上露头：`console.log(new TypeError("t"))`
+  落到普通对象那一支印 `{}`，而 `new RangeError("r")` 会印成 `Error: r`（**静默错值**）。
+  修法是八族按名走（`IsErrorFamilyName` 那一张表，与 `Error.isError` 同一精神，
+  `{ name: "Error" }` 那种普通对象被名单挡在外面）。
+- **收掉的根④：`Error.stack` 那一格**（`globals.xl.md`）。Node 里它是**自有 + 不可枚举**的
+  **字符串**，而本仓**没有这一格** ⇒ `typeof new Error("x").stack` 给 `"undefined"`
+  （第 697 / 704 / 708 / 749 轮各登过一次，四处同一条根）。
+  **这一版给的是「那一段的头一行」**（`<名>[: <消息>]`），写在明处：
+  帧里的路径与行号是**本仓自己的实现细节**，照抄宿主栈会把「实现长什么样」钉进脚本看得见的值里；
+  而头一行与 `util.inspect` 印的**头一行逐字相同**（判据 `r782b-01` 就是从 `stack` 与
+  `console.log` 两个出口把同一句读回来比的）。**帧那一半如实登记为缺口**
+  （`stdlib/error/001-console-log-error-stack` 仍是 differ）。
+  **名从原型上读**（不另写一张表）、**必须在那八个之内**（`e.name = "Custom"` 不该改头一行）。
+- **试过又退回来的一格（写在明处）**：`Object` / `Array` / `Date` / `Map` / `Promise` 那些
+  **同一个形状**的对象接 `Function.prototype` 在 JS 里也对，第 782 轮**整批接上去之后
+  `tests/runtime/check.mjs` 当场红两条**：`String(String)` 不再抛，而走**继承来的**
+  `Function.prototype.toString` ⇒ `"function () { [native code] }"`（Node 给
+  `"function String() { [native code] }"`）——**静默错值**比抛坏得多。
+  要收它得先做出「**带可调用载荷的对象也有源码文本**」（每一格内建都要有一段自己的文本），
+  所以退回**只接错误家族**，另一半登记在 `stdlib/round782/r782a-02`（`differ`，25 行照 JS 的答案写）。
+- **五笔旧账到期**（`NEWLY-PASSING`，按规矩撤掉 `xl:want` / `xl:why`，用例留着当守卫）：
+  `exec/round724/p724a-b01`（构造那一层的原型链）、`stdlib/error/probe697-e11` /
+  `probe704-e-a38`（`typeof e.stack`）、`stdlib/round749/p749b-b06`（`Error` 家族形状旁的栈）、
+  `stdlib/round781/r781a-01`（错误家族十八档里的最后两行）。
+- **用例**：`stdlib/round782` 三条（**2 条通过、1 条登记**）——`r782a-01`（35 行，
+  错误家族那一半的三个出口 + 「不许被带偏」的十七行）、`r782a-02`（25 行，`differ`，
+  其余内建构造那一半）、`r782b-01`（24 行，八族各印各的名 + 「没有消息只印名」+ `stack` 那一格）。
+  五类 7943 / 8349 → **7950 / 8352**、blocked **267**（没动）、differ 139 → **135**
+  （五笔旧账转绿、新登一条）、bad 0、regressions 0，加权 **95.4%**。
+  八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+- **这一轮的普查面**（两层）：**属性写入的次序**（`super.x = v` 的四个落点 / `Object.assign` /
+  展开 / 内建整体操作打在原始值上 / 数组长度与下标 / 冻结与不可扩展 / 访问器与描述符）、
+  **错误家族与内建对象自己那一格**（八族的形状与标签 / `instanceof` 链 / `console.log` 的印法 /
+  `stack` / `name` 与 `length` / 代际的原型链）——**当场通过的那些照样进语料当守卫**。
+
 ### 第 781 轮：`Object.groupBy` 的**键**走 `ToPropertyKey`——收掉一处（符号键与对象键一起），另登记三条
 
 **一句话**：`Object.groupBy([1, 2], () => Symbol("s"))` 在 JS 里给一个**符号键**的格子
