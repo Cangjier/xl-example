@@ -169,7 +169,7 @@ token 的 186 条 `gap-sweep-*` / `gap-r676-*` 是 **AST 尺子的逐落点账**
 | 动机 | 「免得把控制台渲染那一族的已知缺口混进来」——即**隔离打印层**，让每条只暴露一个语义差额 |
 | 首现 | 第 692 轮（其一）：**385 条**（其中原子探针 299 条），分母 3992 → 4377 |
 | 之后逐批 | 692（其二）150 · 692（其三）103 · 693 **555** · 694 **242** · 695 150 · 696 152 · 697 159 · 698 85 · 699 202 · 700 158 · 701 100 · 706 133 · 707 117 · 708 81 · 709 56 · 710 49 · 711 26 |
-| 现状（第 797 轮之后） | git 跟踪 **624 条**（第 796 轮之后是 648、第 795 轮之后是 674、第 794 轮（三）之后是 734、第 794 轮（二）之后是 759、第 794 轮之后是 793、第 793 轮之后是 827、第 792 轮之后是 871、第 791 轮之后是 920、第 790 轮（三）之后是 973、第 790 轮（二）之后是 1025、第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118），第 790 轮（三）走完 `exec/iterators`（52），第 791 轮走完 `stdlib/error`（53），第 792 轮走完 `exec/destructuring-spread`（48），第 793 轮走完 `stdlib/math`（44），第 794 轮走完 `runtime/exceptions`（34），第 794 轮（二）走完 `runtime/round742`（34），第 794 轮（三）走完 `stdlib/round718`（25），第 795 轮走完 `exec/round709`（35）与 `exec/round711`（25），第 796 轮走完 `stdlib/round719`（26，整域并进 `stdlib/math` 与 `stdlib/number`），第 797 轮走完 `stdlib/round721`（24） |
+| 现状（第 798 轮之后） | git 跟踪 **584 条**（第 797 轮之后是 624、第 796 轮之后是 648、第 795 轮之后是 674、第 794 轮（三）之后是 734、第 794 轮（二）之后是 759、第 794 轮之后是 793、第 793 轮之后是 827、第 792 轮之后是 871、第 791 轮之后是 920、第 790 轮（三）之后是 973、第 790 轮（二）之后是 1025、第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118），第 790 轮（三）走完 `exec/iterators`（52），第 791 轮走完 `stdlib/error`（53），第 792 轮走完 `exec/destructuring-spread`（48），第 793 轮走完 `stdlib/math`（44），第 794 轮走完 `runtime/exceptions`（34），第 794 轮（二）走完 `runtime/round742`（34），第 794 轮（三）走完 `stdlib/round718`（25），第 795 轮走完 `exec/round709`（35）与 `exec/round711`（25），第 796 轮走完 `stdlib/round719`（26，整域并进 `stdlib/math` 与 `stdlib/number`），第 797 轮走完 `stdlib/round721`（24），第 798 轮走完 `runtime/async`（91 → 22） |
 | 现状（`gap-*` 一族） | git 跟踪 **186 条**，其中 token 180（`gap-sweep-*` 175 + `gap-r676-*` 11 之类）、runtime / stdlib 6 —— **第 790 轮（二）起这一族也在整理范围内**：同一条根的账并成一条、名字按规范给（`gap746-…` → `002-…-differ` 这种）；token 那 186 条**逐条量的是不同落点**（`xl:known-gap` 一行的差额各不相同），所以**没有重复可去**，仍按 `gap-` 前缀留在 `token/` 里（见下面第 790 轮（二）那一节） |
 
 **它当时的收益是真的**：每一批都当场收掉几处根因，覆盖度从 3697/3992 一路推到目前的 4886/5284。
@@ -192,6 +192,69 @@ token 的 186 条 `gap-sweep-*` / `gap-r676-*` 是 **AST 尺子的逐落点账**
 也就是说：**探针这个方法要留，探针的重复不要留。**
 
 ## 分母里有什么（数字是最近一次全量实测）
+
+**第 798 轮的合并**（**`runtime/async` 整个域按判定点重排：91 → 22**）：
+这是五类语料里探针最密的一个域——40 条 `probe3-*` / `probe697-p*` / `probe697-z*`，
+外加 51 条编号条（其中 **9 条**在问同一个「微任务次序」、**7 条**在问同一族异步生成器、
+**7 条**在问同一条承诺链的值与采纳）。91 条按判定点并成 **22 条规则用例**，
+`probe*` / `p<轮次>*` 命名清零，四条的 `-r<轮次>` 尾巴（`013-async-generator-basic-r305` 这种）
+一并去掉——轮次本来就该待在 `xl:round` 那一格。
+
+| 新条 | 判定点 | 吸收（原条） |
+| --- | --- | --- |
+| `001-promise-chain-values-and-adoption` | 承诺链的逐级透传 / `then` 返回承诺的展开 / 兑现值是承诺时的采纳与拒绝传播 | `001` · `009` · `012` · `019` · `025` · `032` · `045` |
+| `002-promise-catch-and-finally` | `catch` 接住之后回到兑现、`finally` 不改值也不吞拒绝 | `002` · `003` · `017` |
+| `003-promise-combinators` | `all` / `race` / `allSettled` 的次序、空表与普通值混排 | `004` · `016` · `037` · `044` |
+| `004-microtask-order` | 同步先跑完、`then` 逐环推进、`await` 与 `then` 同队混排 | `007` · `008` · `015` · `026` · `029` · `036` · `039` · `040` · `043` · `probe3-a01/a02/a05/a10/a13` · `probe697-p02/p15` |
+| `005-async-function-order-and-value` | `async` 的同步段、`await` 的次序与返回值的形状 | `005` · `034` · `042` |
+| `006-async-throw-and-reject` | `throw` / 执行器里抛 / `await` 一个被拒的承诺 | `006` · `024` · `027` · `047` |
+| `007-await-in-try-finally` | `await` 落在 `try` / `finally` 里的收尾次序与 `finally` 里的 `return` | `011` · `021` · `046` · `049` |
+| `008-await-in-loop` | 循环里顺序 `await`（每一轮一个新微任务） | `010` · `048` |
+| `009-async-generator-basic-and-for-await` | 异步生成器 `yield` 的值与 `for await` 的收尾 | `013` · `035` |
+| `010-async-generator-await-inside` | 生成器体里 `await` 之后的 `yield` | `014`（只改名） |
+| `011-async-generator-suspend-kinds` | `await` 摘的挂起与 `yield` 摘的挂起不是一回事 | `020`（只改名） |
+| `012-async-generator-for-await-protocol` | 异步生成器与 `for await` 的完整回合（手动 `next()` 三档） | `028`（只改名） |
+| `013-async-generator-await-and-return` | `for await` 的顺序与 `return()` | `033`（只改名） |
+| `014-async-generator-for-await-mixed` | `yield` / `yield await` / `return` 三格 + 混合可迭代 | `051`（只改名；它本身第 784 轮并过一次） |
+| `015-await-rejection-paths` | `await` 一个被拒承诺的三条路（`catch` 体里 / 循环里 / 手动 `try`） | `018` · `022` · `023` |
+| `016-async-thenable-adoption` | `async` 返回一个 thenable：会被采纳 | `038` |
+| `017-await-non-promise-thenable-differ` | `await` 一个不是 Promise 的 thenable（**账**） | `041`（只改名，`xl:want` / `xl:why` 一字未动） |
+| `018-promise-with-resolvers` | `Promise.withResolvers` | `030` |
+| `019-symbol-asynciterator-protocol` | `Symbol.asyncIterator` 与 `for await` | `031` |
+| `020-promise-object-tostring-tag` | `Object.prototype.toString.call(Promise.resolve())` | `050`（它本身已并过 `probe697-p10` / `z13`） |
+| `021-promise-instance-and-static-shape` | 承诺的对象形状：`instanceof` / `constructor` / 方法与静态面的 `typeof` | `probe3` a03/a04/a06/a07/a08/a09/a11/a12/a14/a15 · `probe697` p01/p04/p06/p08/p09/p11/p12/p14 · z02/z03/z10/z12/z14（共 23 条） |
+| `022-promise-and-async-function-names` | `name` / `constructor.name` / `prototype` / 自有属性表 | `probe697` p03/p05/p13 · z01/z05/z06/z07/z08/z11/z15（共 10 条） |
+
+**保台账（全量批量跑，`--jobs 8 --batch-workers 32`）**：语料 **4806 → 4737**（净少 **69**：删 91、添 22）、
+过 **4410 → 4341**；**blocked 258 / differ 138 / bad 0 一处没动**（differ 是同一本账：
+老 `041-await-thenable` → 新 `017-await-non-promise-thenable-differ`），
+`MOVED` / `NEWLY-PASSING` / `REGRESSION` **全 0**，加权 93.66% → **93.55%**。
+
+**验证一次**：域内两种口径**逐项相同** —— 批量（`--jobs 8 --batch-workers 32`）与
+`--no-batch`（一条一个进程的权威口径）都是 23 条：**22 过 · differ 1 · blocked 0 · bad 0**
+（第 23 条是过滤器带出来的邻域 `runtime/exceptions/022-throw-in-async-caught`）。
+并入的完整性用一把一次性的尺子（`tmp/round798/verify.mjs`）机械核对：
+22 条的 stdout 与「**各被并入条 stdout 的顺次相接**」**逐字节相同**（91 条来源、`concat=true` 22/22），
+唯一一处 `node ≠ tsrun` 就是那条本来就 differ 的 `017`。
+
+**收网扫描（亲手再过一遍）**：`runtime/async` 现存 22 条（序号 001–022 连续、全是
+`<三位序号>-<kebab 描述>`，域内 `probe*` / `p<轮次>*` / `-r<轮次>` 命名 **0 条**），
+每条一个判定点族；域内**没有留下**同判定点的重复。
+
+**这一轮撞出来的两件事**（写在这里，别再踩）：
+
+1. **合并的块与块之间必须排空一次微任务队列**：两块各自的承诺链在同一份文件里会交叉推进，
+   读数就成了「并发形状」的读数、不再是各条原来那个判定点的读数。实测：不排空时
+   「承诺链」那一条与「异步生成器」那一条**当场 differ**，`REGRESSION` 报 2 条
+   （覆盖度 15/18）。改法是每块后面排 200 轮 `await null`（各块的链深远小于 200）——
+   排空之后 22 条的 stdout 与各条单独跑的 stdout **顺次相接、逐字节相同**。
+2. **异步生成器那一族不能进这个排空壳**：`await null` 排在异步生成器后面时 tsrun 会丢输出
+   （单块实测：`028` 排空后 **0 字节**，`014` / `020` / `033` / `051` 也都变 differ；
+   不排空时 7 条全对）。所以 `014` / `020` / `028` / `033` / `051` 这一轮**只改名、不合并**，
+   只有 `013` + `035` 实测可以排空、并成 `009`。**这一条不新登台账**（保台账要求
+   blocked / differ 一处不动），如实记在这里：**「异步生成器之后还能继续 await 别的」
+   这件事在 tsrun 上是坏的**——一个能复现的最小形状是
+   `(async () => { (function () { gen(); })(); for (let i = 0; i < 200; i++) await null; })()`。
 
 **第 797 轮的合并**（**`stdlib/round721` 整个域按判定点重排：25 → 7**）：
 这个域是**纯探针域**（`p721a-a01`…`a17` 17 条 + `p721a-b01`…`b06` / `b08` 7 条，外加一条早先并过的
