@@ -1,8 +1,19 @@
-// xl:title 全局对象 / `Math` / `JSON` / `Reflect` 的 `Symbol.toStringTag`
+// xl:title 全局对象 / `Math` / `JSON` / `Reflect` 的 `Symbol.toStringTag` 与自有键数
 // xl:round 754
 // xl:judge stdout
-// xl:note 第 754 轮普查里的一条（期望值由 `node` 现给，打印口径 `typeof:值`）
 // xl:end
+// **按判定点并组（第 805 轮）**：把 round754 里同判定点的
+// 1 条原子探针并成这一条：p754c-01
+// 正文逐字搬进各自的块里——**块只为隔离同名声明，不改作用域语义**；
+// 块本身是一个**被 await 的 async IIFE**，所以「这一条先在微任务里跑干净、再跑下一条」，
+// 每块的 stdout 与原来那条一一对应，顺次相接即本条的输出（`main()` 这一个宏任务里收尾）。
+// 块本身是一个**被 await 的 async IIFE**，块里顶层的效果调用（`main();` 这种）
+// 一律写成 `await …`——来源是「一条一进程、进程退出前把微任务跑干净」，
+// 并进一个文件之后只有当场等干净，才还是原来那条的输出。
+async function main() {
+
+// ===== 吸收 tests/cases/runtime/round754/p754c-01.ts · 全局对象 / `Math` / `JSON` / `Reflect` 的 `Symbol.toStringTag` =====
+await (async () => {
 const show = (f: () => any) => {
   try {
     const v = f();
@@ -28,3 +39,6 @@ console.log('Object.keys(Reflect).length', show(() => Object.keys(Reflect).lengt
 console.log('(Math as any)[Symbol.toStringT', show(() => (Math as any)[Symbol.toStringTag]));
 console.log('(JSON as any)[Symbol.toStringT', show(() => (JSON as any)[Symbol.toStringTag]));
 console.log('(Reflect as any)[Symbol.toStri', show(() => (Reflect as any)[Symbol.toStringTag]));
+})();
+}
+main();
