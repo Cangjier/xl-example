@@ -13,6 +13,8 @@
 //  ① `replace` 换**第一处**、`replaceAll` 换**每一处**（不重叠、从左往右）；
 //  ② 空模式：`replace("", "X")` 在**串首**插一次，`replaceAll("", "-")` 在**每个码元之间**都插；
 //  ③ 模式里带 `$` 时按**字面**匹配（字符串模式不解析模式里的记号）。
+// **第 812 轮（二）再并进 1 条**（正文见下面各块；来源已下盘）：
+//   066-string-replace-forms-r304。
 const show = (v: any): string => (v === null ? "null" : typeof v + ":" + String(v));
 
 try {
@@ -68,4 +70,13 @@ console.log("abc".replaceAll("", "."));
 console.log("a.b".replaceAll(".", "-"));
 console.log("aaa".replaceAll("a", "$$"));
 try { "abc".replaceAll("b", "$&"); } catch (e: any) { console.log("catch", e.constructor.name); }
+})();
+
+// ===== 第 812 轮并入：1 条同判定点来源（正文逐字照搬） =====
+
+// ---- 并自 066-string-replace-forms-r304.ts ----
+(() => {
+console.log("a-b-c".replace("-", "+"), "a-b-c".replaceAll("-", "+"));
+console.log("abc".replace("b", "[$&]"), "abc".replace("b", "[$`]"), "abc".replace("b", "[$']"));
+console.log("ab".replace("a", "$$"));
 })();

@@ -487,6 +487,54 @@ switch 那一条收进三段（判别式是自增表达式、判别式是 `typeo
 `exec/round708`（46 条，与 `stdlib/*` 的域大面积同判定点）、`stdlib/array` 余下三个功能族
 （谓词族 / `reduce` 族 / 迭代器族）。手法与这一轮相同：先量并组、再下盘、再保台账。
 
+**第 812 轮（二）的合并**（**`stdlib/string` 最后七条 `-r<轮次>` 尾巴 + `exec/round708` 六条跨类重复：4282 → 4269**）：
+
+**这一轮把两处一直留在明处的重复收掉**：
+
+1. **`stdlib/string` 剩下的七条 `-r<轮次>` 尾巴**（第 811 轮收尾时如实留在盘上的那一批）：
+
+| 保留条 | 吸收 | 判定点 |
+| --- | --- | --- |
+| `192-string-char-code-and-codepoint` | `058-string-codepoint-iteration-r297` · `102-string-iterator-codepoints-r371` · `140-string-codepoint-iteration-r676` | 码元 / 码点两把尺子（代理对算一格） |
+| `201-string-raw-forms` | `074-string-raw-r323` · `098-string-raw-r371` · `157-string-raw-r683` | `String.raw` 取 `raw` 那一栏、转义不生效 |
+| `197-string-replace-string-mode` | `066-string-replace-forms-r304` | 字符串模式的替换次数与记号 |
+
+2. **`exec/round708` 里与 `stdlib/string` 同判定点的六条**（第 810 轮写下的「下一轮去向」第二条）——
+   跨类别、权重不同（`exec` 25% / `stdlib` 20%），但**判定点是同一个**，所以照并：
+
+| 保留条（`stdlib/string`） | 下盘的（`exec/round708`） | 判定点 |
+| --- | --- | --- |
+| `190-string-pad-and-repeat` | `039-string-replace-and-repeat` | `repeat` / `padStart` 的目标长度与次数（那一条另有的 `replace` 半行归 `197`） |
+| `194-string-tostring-of-values` | `042-string-to-number-coercion` · `044-template-literal-interpolation` | `String(…)` / `${…}` 那张表（数字格式化档、模板插值形状） |
+| `192-string-char-code-and-codepoint` | `046-string-surrogate-pairs` | 代理对的 `length` / 迭代 / `codePointAt` |
+| `208-string-at-negative-and-beyond` | `043-string-at-and-indexing` | `at` 与下标读 |
+| `210-string-indexof-fromindex` | `045-string-includes-starts-with-ends-with` | 三个方法各自的位次实参 |
+
+**凡「并」必有据**：一把一次性并组器（`tmp\x812b-merge.cjs`，在 `.gitignore` 的 `tmp-*` 里，未进仓）
+把「**保留条改前那一份 ＋ 各来源**的 `node` / `tsrun` 产出**顺次相接**」与**合并后保留条**的产出
+逐行对拍，**两侧都必须相同才落盘**（十三组，两侧全中）。块首 `---- 并自 … ----` 的条数
+由收网那一遍逐文件数过（`190`=1 · `192`=4 · `194`=3 · `197`=6 · `198`=6 · `200`=9 · `201`=3 ·
+`207`=2 · `208`=2 · `209`=1 · `210`=2 · `211`=1），**没有一条重复块**。
+
+**这一轮顺手量清的一件事**：`stdlib/string` 的 `-r<轮次>` 尾巴**清零**；
+**全仓还剩 3 条**（都在 `stdlib/array`）：`054-array-every-some-empty-r305` ·
+`076-array-every-some-empty-r371` · `088-array-of-r623`——它们的判定点是各自的
+（空数组谓词 / `Array.of` 与 `new Array` 的分野），**没有同判定点可并**，
+留给下一轮只做「改名」那一件事（它们三个是第 810 轮收尾时点名的遗留）。
+
+**保台账（全量批量跑，`--jobs 8 --batch-workers 32`）**：语料 **4282 → 4269**（净少 **13**，
+全部是被吸收过的来源，其中 0 条 `blocked` / 0 条 `differ`）、过 **3886 → 3873**；
+**blocked 258 / differ 138 / bad 0 一处没动**，`MOVED` / `NEWLY-PASSING` / `REGRESSION` **全 0**，
+加权 92.95% → **92.93%**。
+
+**验证一次**：`--no-batch --jobs 8`（一条一个进程的权威口径）与批量那一轮**逐项相同**——
+**3873 / 4269 · blocked 258 · differ 138 · bad 0**。
+
+**收网扫描（DSH 自己逐目录读盘，不用脚本代替）**：`stdlib/string` 现存 **129 条**、
+`exec/round708` 现存 **40 条**；`stdlib/string` 的 `-r<轮次>` 命名 **0 条**（全仓剩 `stdlib/array` 3 条）；
+`probe*` / `p<轮次>*` / `p-*` / `r<轮次>*` 四种旧命名仍是 0 条（第 809 轮（三）清掉的那一批一个都没回来）；
+保留条里 `---- 并自 … ----` 的条数与文件头点名的来源条数逐条对齐（见上），重复块 0 处。
+
 **第 812 轮的合并**（**`stdlib/string` 的 `normalize` / `replace` / `toWellFormed` 三族与四条散条下盘：159 → 136**）：
 
 同一类重复（保留条早就自称「合并过」、来源文件却一直留在盘上）在 `stdlib/string` 剩下的三族：

@@ -13,6 +13,9 @@
 //  ① **码元**：`charAt` / `charCodeAt` / 下标读按 UTF-16 码元数，越界给 `""` / `NaN` / `undefined`；
 //  ② **码点**：`codePointAt` / `at` / 迭代器按码位走，代理对算**一个**。
 // 两者在代理对（`"\u{1f600}"` / `"😀"`）上给出不同的答案，所以必须在同一条里对照着钉。
+// **第 812 轮又并进 4 条**（正文见下面各块；来源已下盘）：
+//   058-string-codepoint-iteration-r297 · 102-string-iterator-codepoints-r371 ·
+//   140-string-codepoint-iteration-r676 · exec/round708/046-string-surrogate-pairs。
 const show = (v: any): string => (v === null ? "null" : typeof v + ":" + String(v));
 const s: any = "abc";
 
@@ -47,3 +50,45 @@ try {
 } catch (e) {
   console.log("throw:" + (e && (e as any).constructor ? (e as any).constructor.name : "?"));
 }
+
+// ===== 第 812 轮并入：3 条同判定点来源（正文逐字照搬） =====
+
+// ---- 并自 058-string-codepoint-iteration-r297.ts ----
+(() => {
+const s = "a\u{1F600}b";
+const seen: string[] = [];
+for (const c of s) seen.push(c);
+console.log(s.length, [...s].length, Array.from(s).length, seen.length, seen[1].length);
+const [x, y] = "a\u{1F600}";
+console.log(x, y.length, [..."\uDC00\uD800"].length);
+console.log(JSON.stringify([..."\uD800"]), JSON.stringify("\uD83D\uDE00"));
+})();
+
+// ---- 并自 102-string-iterator-codepoints-r371.ts ----
+(() => {
+const s = "a\u{1F600}b";
+console.log(s.length, [...s].length, Array.from(s).length);
+console.log([...s].map((c) => c.length).join(","));
+for (const ch of s) console.log("ch", ch.length);
+console.log(s[1], s[2], s.slice(1, 3).length);
+})();
+
+// ---- 并自 140-string-codepoint-iteration-r676.ts ----
+(() => {
+const s = "a\u{1F600}b";
+console.log(s.length, [...s].length, s.codePointAt(1) === s.codePointAt(2));
+console.log(String.fromCodePoint(97, 0x1f600), [...s].map((c) => c.codePointAt(0)!.toString(16)).join(","));
+})();
+
+// ===== 第 812 轮并入：1 条同判定点来源（正文逐字照搬） =====
+
+// ---- 并自 C:\Users\Admin\Documents\GitHub\xl-example\tmp\x812b-src\046-string-surrogate-pairs.ts ----
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
+
+const s = "\u{1F600}";
+console.log(show(s.length) + "," + show([...s].length) + "," + show(s.codePointAt(0)));
+})();

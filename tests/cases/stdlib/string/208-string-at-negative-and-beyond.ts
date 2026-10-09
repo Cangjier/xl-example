@@ -6,6 +6,8 @@
 //   205-abc-at-1（`"abc".at(-1)`——它原来是探针命名改造后留下的 `abc-at-1` 外形）
 // 判定点只有一个：**下标读那一格的两套口径**——`at` 认负下标（从尾部数）、越界给 `undefined`；
 //  `charAt` 不认负下标（给空串）、越界也给空串；小数下标各自怎么落位。
+// **第 812 轮（二）再并进 1 条**（同判定点的跨类重复；来源已下盘）：
+//   exec/round708/043-string-at-and-indexing（`"abc".at(-1)` / `"abc"[1]` / `"abc".at(5)`）。
 const s = "hello";
 console.log(s.at(0), s.at(-1), s.at(-5), s.at(5), s.at(-6));
 console.log(s.charAt(0), s.charAt(-1), s.charAt(5), JSON.stringify(s.charAt(5)));
@@ -26,4 +28,16 @@ try {
 } catch (e) {
   console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
 }
+})();
+
+// ===== 第 812 轮并入：1 条同判定点来源（正文逐字照搬） =====
+
+// ---- 并自 C:\Users\Admin\Documents\GitHub\xl-example\tmp\x812b-src\043-string-at-and-indexing.ts ----
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
+
+console.log(show("abc".at(-1)) + "," + show("abc"[1]) + "," + show("abc".at(5)));
 })();

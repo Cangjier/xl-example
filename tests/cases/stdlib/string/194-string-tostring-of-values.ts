@@ -11,6 +11,9 @@
 //  ① 原始值四档：`null` / `undefined` / `true` / 数字（含 `1e21` / `1e-7` / `0.000001` 三个格式化档）；
 //  ② 对象走 `ToPrimitive`：数组给 `join(",")`、普通对象给 `[object Object]`；
 //  ③ **符号**：`String(sym)` 给 `"Symbol(x)"`，而 `${sym}` / `+` 抛 `TypeError`。
+// **第 812 轮又并进 3 条**（正文见下面各块；来源已下盘）：
+//   195-string-symbol-to-string-throws · exec/round708/042-string-to-number-coercion ·
+//   exec/round708/044-template-literal-interpolation。
 const show = (v: any): string => (v === null ? "null" : typeof v + ":" + String(v));
 const sym = Symbol("x");
 
@@ -65,4 +68,33 @@ try {
 } catch (e) {
   console.log("throw:" + (e && (e as any).constructor ? (e as any).constructor.name : "?"));
 }
+})();
+
+// ===== 第 812 轮并入：2 条同判定点来源（正文逐字照搬） =====
+
+// ---- 并自 C:\Users\Admin\Documents\GitHub\xl-example\tmp\x812b-src\042-string-to-number-coercion.ts ----
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
+
+console.log(show(Number("  12  ")) + "," + show(Number("0x10")) + "," + show(Number("")) + "," + show(Number("1e2")));
+
+(() => {
+const o = { toString() { return "T"; } };
+console.log(show(String(o)) + "," + show(String(null)) + "," + show(String([1, 2])));
+})();
+})();
+
+// ---- 并自 C:\Users\Admin\Documents\GitHub\xl-example\tmp\x812b-src\044-template-literal-interpolation.ts ----
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
+
+const a = 1;
+console.log(`x${a}y${a + 1}z`);
+console.log(show(`${null}${undefined}${[1, 2]}`));
 })();

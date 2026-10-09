@@ -11,6 +11,8 @@
 //  ② 普通调用那一档：`String.raw({ raw: ["x", "y"] }, 1)` 按替换位插值；
 //  ③ 标签拿到的第一个实参上 `raw` 与 `0` 是两个不同的串（`\t` 那一格）；
 //  ④ 插值个数与 `raw.length - 1` 对得上。
+// **第 812 轮又并进 3 条**（正文见下面各块；来源已下盘）：
+//   074-string-raw-r323 · 098-string-raw-r371 · 157-string-raw-r683。
 const show = (v: any): string => (v === null ? "null" : typeof v + ":" + String(v));
 const tag = (s: any, ...v: any[]): string => s.raw[0] + "|" + s[0] + "|" + v.length;
 
@@ -23,3 +25,30 @@ try {
 } catch (e) {
   console.log("throw:" + (e && (e as any).constructor ? (e as any).constructor.name : "?"));
 }
+
+// ===== 第 812 轮并入：3 条同判定点来源（正文逐字照搬） =====
+
+// ---- 并自 074-string-raw-r323.ts ----
+(() => {
+const s = String.raw`a\nb`;
+console.log(s, s.length);
+console.log(String.raw`x${1 + 1}y\t`, String.raw({ raw: ["p", "q"] }, "-"));
+})();
+
+// ---- 并自 098-string-raw-r371.ts ----
+(() => {
+console.log(String.raw`a\nb`);
+function tag(parts: TemplateStringsArray, ...vals: unknown[]) {
+  console.log(parts.raw[0] === "x\\ny", parts.length, vals.join(","));
+  return parts.join("|");
+}
+console.log(tag`x\ny${1}z${2}`);
+})();
+
+// ---- 并自 157-string-raw-r683.ts ----
+(() => {
+try { console.log("raw-basic", String(String.raw`a\nb`)); } catch (e) { console.log("raw-basic", "ERR", String(e && e.name)); }
+try { console.log("raw-sub", String((() => { const x = 1; return String.raw`a\n${x}b`; })())); } catch (e) { console.log("raw-sub", "ERR", String(e && e.name)); }
+try { console.log("raw-length", String((() => { const tag: any = (s: any, ...v: any[]) => String(s.raw.length) + ':' + v.length; return tag`a${1}b${2}c`; })())); } catch (e) { console.log("raw-length", "ERR", String(e && e.name)); }
+try { console.log("cooked-vs-raw", String((() => { const tag: any = (s: any) => (s[0] === '\n') + ':' + (s.raw[0] === '\\n'); return tag`\n`; })())); } catch (e) { console.log("cooked-vs-raw", "ERR", String(e && e.name)); }
+})();

@@ -17,6 +17,11 @@
 //  ② 填充串多字符 **循环取用**、只取到目标长度为止；
 //  ③ 省略填充串给空格；
 //  ④ `repeat` 的次数先取整（小数向下）、负数抛 `RangeError`。
+// **第 812 轮又并进 7 条**（正文见下面各块；来源已下盘）：
+//   exec/round708/039-string-replace-and-repeat（跨类别的同判定点）·
+//   066-string-replace-forms-r304 · 074-string-raw-r323 · 098-string-raw-r371 ·
+//   102-string-iterator-codepoints-r371 · 140-string-codepoint-iteration-r676 ·
+//   157-string-raw-r683 —— 后六条里与 pad/repeat 无关的那几行归各自判定点，正文照搬。
 const show = (v: any): string => (v === null ? "null" : typeof v + ":" + String(v));
 
 try {
@@ -205,4 +210,21 @@ try { console.log("repeat-neg", String('ab'.repeat(-1))); } catch (e) { console.
 console.log("5".padStart(3, "0"), "5".padEnd(3, "ab"), "abc".padStart(2));
 console.log("ab".repeat(0), "ab".repeat(2));
 try { "a".repeat(-1); } catch (e: any) { console.log("repeat-neg", e.constructor.name); }
+})();
+
+// ===== 第 812 轮并入：1 条同判定点来源（正文逐字照搬） =====
+
+// ---- 并自 C:\Users\Admin\Documents\GitHub\xl-example\tmp\x812b-src\039-string-replace-and-repeat.ts ----
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
+
+console.log(show("a-b-c".replace("-", "+")) + "," + show("a-b-c".replaceAll("-", "+")));
+
+(() => {
+console.log(show("ab".repeat(0)) + "," + show("ab".repeat(2)) + "," + show("ab".padStart(1)));
+run(() => { "ab".repeat(-1); });
+})();
 })();
