@@ -306,6 +306,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 824 轮：**下一行以 `=` 开头是在接着写**——`const a` 换行 `= …` 那一族收掉 22 条
+
+**一句话**：解析期的 ASI 右半截（`NextLineContinuesExpression`，看**原始字符**）原来只认
+`|` / `&` / `.` / `?` / `:` / `(` / `[` / 几个双目运算符 / `catch` / `finally` / 声明头。
+`=` **起不了一条语句**（语句的开头没有以 `=` 起头的写法），所以它与 `?` / `:` 同一条理由
+——出现在一行的第一个实义字符上只可能是上一行的续接。补上这一格，
+`cases:tsast` 的账从 **136 → 114**（`coverage` **3852 → 3874** 通过，`token` 那一类 blocked 136 → 114）。
+
+- **根：`NextLineContinuesExpression` 的原始字符表里没有 `=`**（`statement.xl.md`）。
+  `const a` 换行 `= [1, 2, 3];` 的换行那一刻，左半截问的是 `a`（不期待操作数）⇒ 判「左边写完了」，
+  右半截又不认 `=` ⇒ **收壳**：`const a` 自己成一条、`= [1, 2, 3];` 另起一条
+  ⇒ 整条 `VariableStatement` / `VariableDeclaration` 缺（实测那一族各「缺 1～15、多 4～7」）。
+- **收掉的 22 条**：`gap-sweep-{newline,linecomment}-{arr,arrow,cond,destr,obj,optchain,tpl,var,ns}-02`
+  那一族（含 `arrow-03` / `destr-05/06` / `ns-03`），加上 `types/gap-sweep-{newline,linecomment}-typeunion-01`
+  与 `modules/gap-sweep-linecomment-export-02`。**这一条比它看起来的值钱**：变化的不是「少一个节点」，
+  而是整条声明从解体变回一条（`Statement` 数下降、`Let` 里终于有名字、`TernaryOperator` / `BindingElement` /
+  `LamdaParameters` 那些段一起成形）。文件头的 `xl:known-gap` 逐条删掉，
+  22 条用例的 `xl:expect` 按新形状逐条重算（`cases:tags` 0 条不一致）。
+- **为什么护栏不需要**：`(` / `[` 那两族要护栏，是因为它们**能起一条语句**（括号表达式、数组字面量）；
+  `=` / `=>` / `==` / `===` **一个语句都起不了**，与 `?` / `:` 是同一档
+  （一行以 `= 2` 开头在 TS 里也是上一行的续写）。
+- **可复用的判据**：写解析期那一问（**只看原始字符**）时，先问**这一行的第一个字符能不能起一条语句**——
+  不能就直接答「续接」，且不必配护栏；能（`(` / `[` / `+` / `-` / 模板串）才要上下文护栏。
+  这条写进了 [typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md) 的「解析层几条硬规矩」。
+- **留下的一族**：`gap-sweep-*-async-01`（`async` 换行 `function`）、`switch` 里 `b//c` 换行 `();`、
+  `destr-02/03/04` 与 `fn-02` / `generic-*`（注释或换行落在**形参 / 绑定单元自己**的尾巴上，
+  区间多吃一截——与第 823 轮那条同型，落在另一族单元上）本轮不动。
+
 ### 第 823 轮：**空条件链不吃尾随 trivia**——`a?.b //c` 换行 `?.[c]?.(d)` 那一族收掉 6 条
 
 **一句话**：`NullConditionalOperator` 从 `?.` 之后一路收到断点，而断点常常落在**后一个 `?.`**
@@ -3250,15 +3278,15 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **136 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **114 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1407** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1407 条**（1390 条带期望，共 **4740** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:tags` | **1407 条**（1390 条带期望，共 **4742** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `cases:shapes` | 外部语料 **229 份**（用例 1394 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3852 / 4167**，加权 **93.6%**：token 1258/1394、exec 748/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 177 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `coverage` | **五类 3874 / 4167**，加权 **93.9%**：token 1280/1394、exec 748/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 155 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~30s**） |
 ### 口径与已知缺口
 
@@ -3289,7 +3317,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **136** 条）：
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **114** 条）：
   主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
   （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
   `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），

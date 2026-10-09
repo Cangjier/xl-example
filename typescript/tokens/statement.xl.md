@@ -1131,6 +1131,18 @@ if (head === "(" || head === "[") {
 if (head === "?" || head === ":") {
   return true;
 }
+// **赋值符开头**（第 824 轮）：`const a` 换行 `= [1, 2, 3];` 是**一条**声明
+// （ASI 不在 `=` 前面断句——JS 里 `x` 换行 `= 5` 也是一条赋值语句）。
+// `=` / `=>` / `==` / `===` **起不了一条语句**（语句的开头没有以 `=` 起头的写法），
+// 所以与 `?` / `:` 同一条理由：出现在一行的第一个实义字符上只可能是上一行的续接。
+//
+// **少了它会怎样**：换行处收壳 ⇒ `const a` 自己成一个壳、`= [1, 2, 3];` 另起一个
+// ⇒ `VariableStatement` / `VariableDeclaration` 整条缺、`Let` 里没有名字
+//（实测 `gap-sweep-newline-{arr,cond,destr,obj,arrow,optchain}-02` 与
+// `gap-sweep-linecomment-{var,obj,tpl,optchain}-02` 那一族：各缺整条声明 + 多出零散节点）。
+if (head === "=") {
+  return true;
+}
 // **双目运算符开头**（第 589 轮）：`return a * 86400000` 换行 `+ b * 3600000` 是**一条**表达式
 // （ASI 不在它前面断句——`+` 能接着上一条表达式写），实测 `dist/ts/typescript-exec/builtins/globals.ts`
 // 与 `inspect.ts` 两份：上一行被收成一个 `ReturnStatement` / `ExpressionStatement`，

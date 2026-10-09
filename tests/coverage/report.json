@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 93.64,
+  "progressPercent": 93.87,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1394,
-      "pass": 1258,
-      "blocked": 136,
+      "pass": 1280,
+      "blocked": 114,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 90.24
+      "coverage": 91.82
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1394,
-    "knownGap": 136,
-    "knownGapStillOpen": 136,
-    "exactFiles": 1258,
-    "scoredWithoutGap": 1258,
-    "passedWithoutGap": 1258
+    "knownGap": 114,
+    "knownGapStillOpen": 114,
+    "exactFiles": 1280,
+    "scoredWithoutGap": 1280,
+    "passedWithoutGap": 1280
   },
   "blocked": [
     {
@@ -238,12 +238,6 @@
       "category": "token",
       "title": "SWEEP-comment/import 落点（657 审计语料）",
       "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/import）：DRIFT ImportDeclaration TS[0,35) 产物[0,29) «import { a, b as c } from \"m\"/*c*/;»"
-    },
-    {
-      "id": "token/modules/gap-sweep-linecomment-export-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/export 落点（657 审计语料）",
-      "detail": "缺 5　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/export）：MISS VariableStatement TS[0,16) «const a //c = 1;»"
     },
     {
       "id": "token/modules/gap-sweep-linecomment-import-01",
@@ -468,24 +462,6 @@
       "detail": "缺 6　注释 / 换行落在语法相邻位置之间（SWEEP-comment/optchain）：DRIFT PropertyAccessExpression TS[10,14) 产物[10,19) «a?.b»"
     },
     {
-      "id": "token/statements/gap-sweep-linecomment-arr-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/arr 落点（657 审计语料）",
-      "detail": "缺 8　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/arr）：MISS VariableStatement TS[0,24) «const a //c = [1, 2, 3];»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-arrow-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/arrow 落点（657 审计语料）",
-      "detail": "缺 11　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/arrow）：MISS VariableStatement TS[0,26) «const f //c = (a, b) => a;»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-arrow-03",
-      "category": "token",
-      "title": "SWEEP-linecomment/arrow 落点（657 审计语料）",
-      "detail": "缺 4　漂 3　多 7　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/arrow）：DRIFT VariableStatement TS[0,26) 产物[0,16) «const f = (a, b) //c => a;»"
-    },
-    {
       "id": "token/statements/gap-sweep-linecomment-async-01",
       "category": "token",
       "title": "SWEEP-linecomment/async 落点（657 审计语料）",
@@ -496,12 +472,6 @@
       "category": "token",
       "title": "SWEEP-linecomment/call 落点（657 审计语料）",
       "detail": "缺 1　漂 1　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/call）：EXTRA BinaryExpression [6,10) «1, 2»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-cond-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/cond 落点（657 审计语料）",
-      "detail": "缺 10　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/cond）：MISS VariableStatement TS[0,24) «const x //c = a ? b : c;»"
     },
     {
       "id": "token/statements/gap-sweep-linecomment-cond-03",
@@ -532,12 +502,6 @@
       "category": "token",
       "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
       "detail": "缺 6　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：DRIFT BindingElement TS[8,9) 产物[8,17) «a»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-destr-06",
-      "category": "token",
-      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
-      "detail": "缺 12　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：MISS VariableStatement TS[0,28) «const { a, b: [c] } //c = o;»"
     },
     {
       "id": "token/statements/gap-sweep-linecomment-dowhile-01",
@@ -606,24 +570,6 @@
       "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/ns）：MISS VariableStatement TS[14,37) «export //c const a = 1;»"
     },
     {
-      "id": "token/statements/gap-sweep-linecomment-ns-03",
-      "category": "token",
-      "title": "SWEEP-linecomment/ns 落点（657 审计语料）",
-      "detail": "缺 5　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/ns）：MISS VariableStatement TS[14,37) «export const a //c = 1;»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-obj-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/obj 落点（657 审计语料）",
-      "detail": "缺 11　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/obj）：MISS VariableStatement TS[0,29) «const o //c = { a: 1, b: 2 };»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-optchain-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
-      "detail": "缺 14　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：MISS VariableStatement TS[0,29) «const v //c = a?.b?.[c]?.(d);»"
-    },
-    {
       "id": "token/statements/gap-sweep-linecomment-optchain-03",
       "category": "token",
       "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
@@ -648,12 +594,6 @@
       "detail": "缺 1　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/switch）：DRIFT ExpressionStatement TS[42,50) 产物[42,43) «c//c ();»"
     },
     {
-      "id": "token/statements/gap-sweep-linecomment-tpl-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/tpl 落点（657 审计语料）",
-      "detail": "缺 4　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/tpl）：MISS VariableStatement TS[0,23) «const s //c = `a${b}c`;»"
-    },
-    {
       "id": "token/statements/gap-sweep-linecomment-tpl-03",
       "category": "token",
       "title": "SWEEP-linecomment/tpl 落点（657 审计语料）",
@@ -672,40 +612,10 @@
       "detail": "缺 12　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/try）：MISS TryStatement TS[0,52) «try //c { a(); } catch (e) { b(); } finally { c(); }»"
     },
     {
-      "id": "token/statements/gap-sweep-linecomment-var-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/var 落点（657 审计语料）",
-      "detail": "缺 5　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/var）：MISS VariableStatement TS[0,14) «let a //c = 1;»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-arr-02",
-      "category": "token",
-      "title": "SWEEP-newline/arr 落点（657 审计语料）",
-      "detail": "缺 8　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/arr）：MISS VariableStatement TS[0,21) «const a = [1, 2, 3];»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-arrow-02",
-      "category": "token",
-      "title": "SWEEP-newline/arrow 落点（657 审计语料）",
-      "detail": "缺 11　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/arrow）：MISS VariableStatement TS[0,23) «const f = (a, b) => a;»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-arrow-03",
-      "category": "token",
-      "title": "SWEEP-newline/arrow 落点（657 审计语料）",
-      "detail": "缺 4　漂 3　多 7　注释 / 换行落在语法相邻位置之间（SWEEP-newline/arrow）：DRIFT VariableStatement TS[0,23) 产物[0,16) «const f = (a, b) => a;»"
-    },
-    {
       "id": "token/statements/gap-sweep-newline-async-01",
       "category": "token",
       "title": "SWEEP-newline/async 落点（657 审计语料）",
       "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/async）：MISS Identifier TS[0,5) «async»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-cond-02",
-      "category": "token",
-      "title": "SWEEP-newline/cond 落点（657 审计语料）",
-      "detail": "缺 10　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/cond）：MISS VariableStatement TS[0,21) «const x = a ? b : c;»"
     },
     {
       "id": "token/statements/gap-sweep-newline-cond-03",
@@ -730,12 +640,6 @@
       "category": "token",
       "title": "SWEEP-newline/destr 落点（657 审计语料）",
       "detail": "缺 6　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：DRIFT BindingElement TS[8,9) 产物[8,17) «a»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-destr-05",
-      "category": "token",
-      "title": "SWEEP-newline/destr 落点（657 审计语料）",
-      "detail": "缺 12　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：MISS VariableStatement TS[0,25) «const { a, b: [c] } = o;»"
     },
     {
       "id": "token/statements/gap-sweep-newline-fn-02",
@@ -792,28 +696,10 @@
       "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/ns）：MISS VariableStatement TS[14,34) «export const a = 1;»"
     },
     {
-      "id": "token/statements/gap-sweep-newline-ns-03",
-      "category": "token",
-      "title": "SWEEP-newline/ns 落点（657 审计语料）",
-      "detail": "缺 5　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-newline/ns）：MISS VariableStatement TS[14,34) «export const a = 1;»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-obj-02",
-      "category": "token",
-      "title": "SWEEP-newline/obj 落点（657 审计语料）",
-      "detail": "缺 11　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/obj）：MISS VariableStatement TS[0,26) «const o = { a: 1, b: 2 };»"
-    },
-    {
       "id": "token/statements/gap-sweep-newline-obj-03",
       "category": "token",
       "title": "SWEEP-newline/obj 落点（657 审计语料）",
       "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/obj）：DRIFT VariableStatement TS[0,26) 产物[0,24) «const o = { a: 1, b: 2 } ;»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-optchain-02",
-      "category": "token",
-      "title": "SWEEP-newline/optchain 落点（657 审计语料）",
-      "detail": "缺 14　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/optchain）：MISS VariableStatement TS[0,26) «const v = a?.b?.[c]?.(d);»"
     },
     {
       "id": "token/statements/gap-sweep-newline-switch-01",
@@ -838,12 +724,6 @@
       "category": "token",
       "title": "SWEEP-newline/try 落点（657 审计语料）",
       "detail": "缺 12　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/try）：MISS TryStatement TS[0,49) «try { a(); } catch (e) { b(); } finally { c(); }»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-var-02",
-      "category": "token",
-      "title": "SWEEP-newline/var 落点（657 审计语料）",
-      "detail": "缺 5　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/var）：MISS VariableStatement TS[0,11) «let a = 1;»"
     },
     {
       "id": "token/statements/stmt-do-while-then-statement",
@@ -888,12 +768,6 @@
       "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：DRIFT MethodSignature TS[25,39) 产物[25,34) «m(): void//c ;»"
     },
     {
-      "id": "token/types/gap-sweep-linecomment-typeunion-01",
-      "category": "token",
-      "title": "SWEEP-linecomment/typeunion 落点（657 审计语料）",
-      "detail": "缺 7　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/typeunion）：MISS TypeAliasDeclaration TS[0,19) «type T //c = A | B;»"
-    },
-    {
       "id": "token/types/gap-sweep-newline-iface-02",
       "category": "token",
       "title": "SWEEP-newline/iface 落点（657 审计语料）",
@@ -904,12 +778,6 @@
       "category": "token",
       "title": "SWEEP-newline/iface 落点（657 审计语料）",
       "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/iface）：DRIFT MethodSignature TS[25,36) 产物[25,34) «m(): void ;»"
-    },
-    {
-      "id": "token/types/gap-sweep-newline-typeunion-01",
-      "category": "token",
-      "title": "SWEEP-newline/typeunion 落点（657 审计语料）",
-      "detail": "缺 7　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/typeunion）：MISS TypeAliasDeclaration TS[0,16) «type T = A | B;»"
     },
     {
       "id": "token/types/mut-type-cond-generic-in-true-branch-152",
@@ -1331,7 +1199,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30944/src/2001.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14920/src/2001.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1673,7 +1541,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30944/src/2984.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14920/src/2984.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1697,7 +1565,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30944/src/3032.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14920/src/3032.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1853,7 +1721,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30944/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14920/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
