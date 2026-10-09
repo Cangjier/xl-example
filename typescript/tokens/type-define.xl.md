@@ -179,6 +179,13 @@ return false;
 - 收集期间每个单元都要非空，取不到就抛错。
 - 新单元用**当前单元**（`index` 处那个）作为 `Parent` 的来源：先 `new` 再赋值。
 - 收集到的一批单元用 `AddRange` 整批加入；终点取**最后一个收集项**的 `End`。
+  **但尾部 trivia 不参与算终点**（第 902 轮，片段普查当场逮到的）：
+  `catch (e: unknown/*c*/)` 里那条注释是**尾部 trivia**——它被收进来是对的
+  （产物 XML 里它在 `<TypeDefine>` 里），可**区间**带上它就不对了：
+  投影出来的 `VariableDeclaration` 右界会多出注释那一段
+  （实测 TS[14,24) vs 产物[14,29)，漂 1 + 多 1）。
+  与 `Statement.FirstMeaningful` 是同一件事、方向相反：**那个跳前导、这里跳尾部**。
+  只跳**尾部**那几格：中间夹注释的类型标注（`A /*c*/ | B`）一个字都不动。
 - **收集为空时什么都不做、返回原下标**：冒号后面直接就是终止符（`units[index + 1]` 是 `;` / `,` / 赋值符号）
   会走到这里。少了这一步，`items[items.length - 1]` 取的是 `items[-1]` → `undefined`，
   下一句读 `.SourceRange` 就抛**裸 `TypeError`**（实测：返回类型被 `import` / `abstract` 截断时
@@ -216,8 +223,14 @@ if (items.length === 0) {
 const result = new TypeDefine(template);
 result.Parent = current.Parent;
 result.AddRange(items);
+// **终点跳过尾部注释**（第 902 轮）：`IsAnnotationUnit` 是「注释单元」那一格
+//（与 `IsTriviaUnit` 不同：**软换行不算**——它落在类型段里是排版、不是尾部注释）。
+let tail = items.length - 1;
+while (tail > 0 && IsAnnotationUnit(items[tail])) {
+  tail = tail - 1;
+}
 result.SignIn(current.SourceRange.Start!);
-result.SignOut(items[items.length - 1].SourceRange.End!);
+result.SignOut(items[tail].SourceRange.End!);
 result.TryToClose();
 return ReplaceCountAt(units, index, endIndex - index + 1, result);
 ```

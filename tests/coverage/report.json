@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4263,
+  "total": 4267,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.41,
+  "progressPercent": 95.38,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1484,
-      "pass": 1484,
-      "blocked": 0,
+      "total": 1488,
+      "pass": 1485,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.8
     },
     {
       "category": "exec",
@@ -129,14 +129,32 @@
     }
   ],
   "token": {
-    "total": 1484,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
-    "exactFiles": 1484,
-    "scoredWithoutGap": 1484,
-    "passedWithoutGap": 1484
+    "total": 1488,
+    "knownGap": 3,
+    "knownGapStillOpen": 3,
+    "exactFiles": 1485,
+    "scoredWithoutGap": 1485,
+    "passedWithoutGap": 1485
   },
   "blocked": [
+    {
+      "id": "token/declarations/gap-r902-abstract-method-newline",
+      "category": "token",
+      "title": "抽象方法的名字与类型参数表之间换行（第 900 轮片段普查记在「待登记」那一栏的第 E 格、第 902 轮登记）：`abstract m` 换行 `<T>(): void;` 里方法声明整条认不出来（`abstract m` 落成 `PropertyDeclaration`、`<T>(): void;` 落成一个无名 `CallSignature`）",
+      "detail": "缺 1　多 2　`MethodDeclarationCloseRule` 的名字与类型参数段不在同一行时「名字 + `<T>` + `(`」的扫描跨不过那个换行——根因尚未量清，如实登记、不猜"
+    },
+    {
+      "id": "token/expressions/gap-r902-new-typeargs-newline",
+      "category": "token",
+      "title": "`new` 与它的类型实参表之间换行（第 900 轮片段普查记在「待登记」那一栏的第 F 格、第 902 轮登记）：`new A` 换行 `<B>()` 被 ASI 在换行处断句 ⇒ `new A` 一条语句、`<B>()` 另起一条（落成 `TypeAssertionExpression`），四个区间各漂一格、多出 7 格",
+      "detail": "漂 4　多 7　`new` 后面紧跟类型实参段时，那个 `<` 跨行不在解析期的续接表里——根因尚未量清，如实登记、不猜"
+    },
+    {
+      "id": "token/statements/gap-r902-throw-no-argument-newline",
+      "category": "token",
+      "title": "没有表达式的 `throw` 后面换行（第 900 轮片段普查记在「待登记」那一栏的第 H 格、第 902 轮登记）：`throw` 换行 `}` 里 `ThrowStatement` 的 `expression` 字段本仓给 `[]`（TS 那边**有一个零宽 `Identifier`**——那是它坏了以后的报错恢复），缺 1 格、字段名不符 1 处",
+      "detail": "缺 1　字段 1　非法 TS 的报错恢复形状：TS 在 `throw` 后面补一个零宽 `Identifier`，本仓只给空字段——根因尚未量清，如实登记、不猜"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -503,7 +521,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2091.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2095.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -809,7 +827,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3079.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3083.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -833,7 +851,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3127.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3131.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -989,7 +1007,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3770.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3774.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

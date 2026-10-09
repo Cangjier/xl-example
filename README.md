@@ -5814,20 +5814,52 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   `coverage` **4093 / 4263 → 4094 / 4263**、`blocked 40 → 39`、`differ 130`（没动）。
   **九道门一次全绿**（墙钟 ~30s）。
 
+### 第 903 轮：**把第 900 轮「待登记」那一栏的四格逐个真跑**——收掉一格（`catch` 形参的尾部注释），登记三格（coverage 4094/4263 → **4095/4267**）
+
+第 900 轮收工时在 gaps 文档的「待登记」栏里留了 **E–H 四格**（当轮只登记了前四条）。
+这一轮拿 `tests/parse/ts-ast.mjs --snippets` 把它们**逐条真跑一遍**，
+四格**全部还在**——于是按规矩：**能收的收、不能收的登记成 `xl:known-gap`**。
+
+- **收掉第 G 格（`catch (e: unknown/*c*/)`）**：四方向 **漂 1 + 多 1**——
+  TS 的 `VariableDeclaration` 是 `[14,24)`（`e: unknown`），本仓给 `[14,29)`（带上了那条注释）。
+  根因**不在** `CatchDefine` 上（我先把区间修在那里、实测**没用**：`TryToClose` 重算之后
+  右界又回到注释尾巴上），而在 **`TypeDefineCloseRule.Process` 的终点**：
+  它取 `items[items.length - 1].SourceRange.End`，而**尾部注释也是一格 item**
+  （产物 XML 里那条注释**确实**在 `<TypeDefine>` 里，收进来是对的，只有**区间**不该带它）。
+  改法一行：终点**跳过尾部注释**（`IsAnnotationUnit`；只跳注释、**不跳软换行**——
+  换行落在类型段里是排版而不是尾部注释）。同轮把 `Try/catch` 那处试探改动撤掉，
+  最后只落在这一格上。用例 `token/statements/try-catch-define-comment` 留着当守卫。
+- **登记三格**（各带一条 `// xl:known-gap <根因>`，`cases:tsast` 每趟真跑；
+  **根因未量清的不猜**）：
+  - `gap-r902-abstract-method-newline`：`abstract class A { abstract m` 换行 `<T>(): void; }`
+    ——`abstract m` 落成 `PropertyDeclaration`、`<T>(): void;` 落成一个无名 `CallSignature`
+    （缺 1、多 2）。
+  - `gap-r902-new-typeargs-newline`：`const a = new A` 换行 `<B>();`——ASI 在换行处断句，
+    `new A` 一条、`<B>()` 另起一条（落成 `TypeAssertionExpression`；漂 4、多 7）。
+  - `gap-r902-throw-no-argument-newline`：`function f(): never { throw` 换行 `}`——
+    `ThrowStatement` 的 `expression` 本仓给 `[]`，TS 补一个零宽 `Identifier`
+    （缺 1、字段名不符 1）。
+- **数字**：`cases:check` **1497 → 1501**（+4 份语料：1 份守卫 + 3 份登记）、0 条不合格；
+  `cases:tags` **0 条不一致**；`cases:astjson` / `cases:shapes` 全 0；
+  `cases:tsast` 已知缺口 **0 → 3 还开着**（新登记的三条；第 901–902 轮清空的那一页不受影响）；
+  `coverage` **4094 / 4263 → 4095 / 4267**、`blocked 39 → 42`（三条登记）、
+  `differ 130`（没动）、`bad` 0。**九道门一次全绿**（墙钟 ~31s）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **0 条**（第 869 轮普查量出的 30 条由第 870–881 轮收完，第 900 轮片段普查量出的 4 条由第 901–902 轮收完；**缺口清单第二次清空**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **3 条还开着**（第 869 轮普查量出的 30 条由第 870–881 轮收完、第 900 轮片段普查量出的 4 条由第 901–902 轮收完，**那一页清空过两次**；第 903 轮把第 900 轮「待登记」栏里的 E / F / H 三格登记进来，根因都**尚未量清**、如实挂着不猜） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1497** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1497 条**（1441 条带期望，共 **4997** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **229 份**（用例 1484 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
+| `cases:check` | **1501** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
+| `cases:tags` | **1501 条**（1441 条带期望，共 **4997** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **229 份**（用例 1488 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4094 / 4263**，加权 **95.4%**。差的那些是**真缺口**（`blocked` 39 / `differ` 130），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~30s**） |
+| `coverage` | **五类 4095 / 4267**，加权 **95.4%**。差的那些是**真缺口**（`blocked` 42 / `differ` 130），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~31s**） |
+
 
 ### 口径与已知缺口
 
@@ -5858,8 +5890,9 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **0** 条 ——
-  **第 901–902 轮把第 900 轮量出的最后 4 条也收掉了，`cases:tsast` 的缺口清单第二次清空**）。
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **3** 条 ——
+  **第 901–902 轮把第 900 轮量出的 4 条收完了，第 903 轮又把第 900 轮「待登记」栏里的
+  E / F / H 三格登记进来**）。
   **它们与「已知缺口 0 条」不矛盾，量的是两把尺子**（第 881 轮清空的是后者）：
   `cases:tsast` 量的是**投影成 TS 形状**之后的对拍，而这一批缺口在 **XML 产物（token 树）**上——
   投影那一层按 TS 的划分出节点，所以 `cases:tsast` 是绿的、`xl:known-gap` 却照旧挂着
@@ -5868,7 +5901,9 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   量的是「类型位 / 值位那个没写完的 `:`」与「没有返回类型的调用签名」），
   **第 901–902 轮全部收掉**：
   `gap-r900-{arrow-return-type-newline,signature-return-newline,call-signature-no-return-type,infer-constraint-newline}`
-  （各自的根因与实测账见上面第 901 / 902 两节）。**缺口清单第二次清空**（第一次是第 881 轮）。
+  （各自的根因与实测账见上面第 901 / 902 两节）。**缺口清单第二次清空**（第一次是第 881 轮）；
+  **第 903 轮又新登记三条**（`gap-r902-{abstract-method,new-typeargs,throw-no-argument}-newline`，
+  第 900 轮「待登记」栏里 E / F / H 三格真跑确认之后登记，根因都尚未量清）。
   更早那些「主力是注释 / 换行落在语法相邻位置之间」的账**已经逐族收完**（第 679–881 轮），
   逐条根因见 [tests/parse/typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md)；
   `TypePredicateCloseRule` 的起点原来只认「容器第一格」与「紧跟 `=>`」，
