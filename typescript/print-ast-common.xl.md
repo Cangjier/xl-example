@@ -1979,9 +1979,29 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     if (kind !== undefined) {
       const rest = kids.slice(1);
       const props = {};
+      // **没有表达式的 `throw`：TS 补一个零宽 `Identifier`**（第 906 轮）。
+      //
+      // `throw` 是 ASI 的**受限产生式**（换行就断句），而后面没有表达式时本仓的产物是
+      // 光秃秃一个 `Keyword(throw)`（合法 TS 里不会出现——它是一条语法错，TS 那边
+      // `parseDiagnostics` 只在**同一行**那种写法上报 "Expression expected."，
+      // 换行那种写法**一条诊断都不报**，所以它可以是一条普通语料用例）。
+      // TS 仍然建了一个**零宽** `Identifier` 当 `expression`（`forEachChild` 会访问它），
+      // 于是尺子上报「缺 1 格 + 字段名不符 1 处」——`FIELD ThrowStatement 产物[] vs TS[expression]`。
+      //
+      // **位置取 `stmtEndOf`（不含尾分号的那一格）**，实测就是 TS 放那一格的地方：
+      // `function f(){ throw` 换行 `}` ⇒ `ThrowStatement [13,19)`、`Identifier [19,19)`；
+      // `const a = 1; throw;` ⇒ `Identifier [18,18)`（`;` 那一格）；文件末尾的 `throw` ⇒ [`5,5`)。
+      // 三处都与「语句自己那一段的末尾」重合（本仓的语句壳本来就**不含**尾随 trivia），
+      // 所以这一格不必回原文再扫一遍。
+      //
+      // **与数组的洞那一条同一个先例**（第 176 轮的 `OmittedExpression`）：
+      // 产物里那一格什么都没有时，补一个零宽节点把「这一段是空的」这件事说出来。
+      const bareEnd = stmtEndOf(v, ctx);
       if (rest.length > 0) {
         const value = projectExpression(rest, ctx);
         if (value !== undefined) props[KEYWORD_STATEMENT_EXPRESSION.has(kind) ? "expression" : "label"] = value;
+      } else if (kind === "ThrowStatement") {
+        props["expression"] = [{ kind: "Identifier", pos: bareEnd, end: bareEnd }];
       }
       // **收尾那个 `;` 归它自己**（第 838 轮）：`parseBreakOrContinueStatement` /
       // `parseReturnStatement` 收尾都调 `parseSemicolon()`，所以 TS 的区间含 `;`——
@@ -1991,7 +2011,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       // `gap-a-comment-01`（`break label;`）各漂 1。
       return Object.assign({ kind }, props, {
         pos: v.start,
-        end: semicolonEndOf(stmtEndOf(v, ctx), ctx),
+        end: semicolonEndOf(bareEnd, ctx),
       });
     }
   }
