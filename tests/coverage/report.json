@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4541,
+  "total": 4496,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 93.35,
+  "progressPercent": 93.29,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 845,
-      "pass": 805,
+      "total": 800,
+      "pass": 760,
       "blocked": 10,
       "differ": 30,
       "nodefail": 0,
-      "coverage": 95.27
+      "coverage": 95
     },
     {
       "category": "runtime",
@@ -1458,9 +1458,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：get_proto needs an object receiver"
     },
     {
-      "id": "exec/expressions/probe694-m31",
+      "id": "exec/expressions/250-object-member-new-bracket-blocked",
       "category": "exec",
-      "title": "(function () { const ns = { C: class { constructor() { this.x = 3; } } }; return new ns[\"C\"]().x; })()",
+      "title": "对象字面量里的类当构造器：`new ns[\"C\"]()` 整份文件进不来（账）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling an object as a constructor (this object is not callable)"
     },
     {
@@ -1476,9 +1476,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Uint8Array"
     },
     {
-      "id": "exec/round778/r778g-01",
+      "id": "exec/round778/001-default-param-function-expression-blocked",
       "category": "exec",
-      "title": "默认实参里的**函数表达式**：那一格被投成声明，整份文件进不来",
+      "title": "默认实参里的**函数表达式**：那一格被投成声明，整份文件进不来（账）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
     },
     {
@@ -1817,7 +1817,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29600/src/2006.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-764/src/2003.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1838,27 +1838,27 @@
       "detail": "stdout 不同：第 1 行：node «string:length,name,prototype» vs tsrun «string:length,name,arguments,caller,prototype»"
     },
     {
-      "id": "exec/round724/p724a-b02",
+      "id": "exec/round724/003-sparse-array-copy-family-differ",
       "category": "exec",
-      "title": "稀疏数组的复制族：洞要变成 undefined（第 724 轮新登记的缺口）",
+      "title": "稀疏数组的复制族：洞要变成 `undefined`（账）",
       "detail": "stdout 不同：第 3 行：node «[3,null,1] true» vs tsrun «[3,null,1] false»"
     },
     {
-      "id": "exec/round736/p736c-c05",
+      "id": "exec/round736/002-new-target-in-derived-constructor-differ",
       "category": "exec",
-      "title": "`new.target` 与派生构造里的 `this` 时机",
+      "title": "`new.target` 与派生构造里的 `this` 时机（账）",
       "detail": "stdout 不同：第 2 行：node «A B» vs tsrun «A none»"
     },
     {
-      "id": "exec/round737/p737b-b07",
+      "id": "exec/round737/005-async-throw-and-return-await-differ",
       "category": "exec",
-      "title": "异步函数里 `throw` 与 `return await` 的形状",
+      "title": "异步函数里 `throw` 与 `return await` 的形状（账）",
       "detail": "stdout 不同：第 2 行：node «c:r» vs tsrun «h inner string»"
     },
     {
-      "id": "exec/round741/p741b-b05",
+      "id": "exec/round741/002-optional-index-then-call-differ",
       "category": "exec",
-      "title": "降级层：`?.[]` 之后的调用",
+      "title": "`?.` 后面紧跟下标那一格：整条链落回「按成员名折属性访问」（账）",
       "detail": "stdout 不同：第 1 行：node «1 1» vs tsrun «[Function: m] 1»"
     },
     {
@@ -2159,7 +2159,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29600/src/3280.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-764/src/3235.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2183,7 +2183,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29600/src/3328.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-764/src/3283.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2339,7 +2339,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29600/src/3972.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-764/src/3927.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
