@@ -302,10 +302,19 @@ return false;
   且冒号与花括号之间已经有了返回类型文本时，这个 `{` 是**体**（值位）——
   `export function f(): string { … }` 的 `Context` 判错会把函数体里返回的数组字面量
   当成元组类型（第 66 轮实测 36 处）。**三元表达式的 `:` 除外**：它前面隔着 `?`；
+  **跨过 `=` 之后撞上的冒号也不是本括号的标注**（第 868 轮）：它属于**外层那个声明**——
+  `const tree: Tree = { … }` 往回扫先撞上 `=`、再跨过 `Tree`、最后才撞上标注那个 `:`
+  ⇒ 值位。少了这一条，那个对象字面量（**连它里面每一层括号**）的 `Context` 都是 `"type"`，
+  而第 868 轮新开的那条「`[` 读自己的 `Context`」当场把 `kids: [{ … }]` 收成类型字面量
+  （实测 27 条 e2e 会红）；
 - 前一个是 `?` → 值位；`|` / `&` → 类型位；
 - 前一个是 `=` → 记下「跨过赋值」继续往前：再遇到 `type` 是类型位，遇到 `let` / `const` / `var` 是值位；
 - `import` / `export` 后面的 `type`、且它后面**没有别的单元**（开括号紧跟其后）→ 值位（导入 / 导出列表）；
-- 类型位关键字（`type` / `as` / `satisfies` / `extends` / `implements` / `readonly` / `keyof` / `typeof` / `infer` / `new` / `declare` / `asserts` / `is`）→ 类型位；
+- 类型位关键字（`type` / `as` / `satisfies` / `extends` / `implements` / `readonly` / `keyof` / `typeof` / `infer` / `new` / `declare` / `asserts` / `is`）→ 类型位，
+  **但 `[` 撞上 `typeof` 时要继续往前扫**（第 868 轮）：`typeof` 是这批词里唯一一个
+  **值位也天天出现**的（一元运算），`typeof ([{ v: 1 }] as any)[0]` 里那个 `[` 照判就成了 `"type"`
+  ⇒ 里面的 `{ v: 1 }` 被收成 `TypeLiteral`（实测 `exec/round711/001-call-chain-then-member` 红）。
+  继续往前扫的落点与 `type T = typeof A[B]` 那一档一致：`type` / `:` 都会接住它；
 - **普通标识符继续往前扫**（不急着下结论）：`const o = { … }` 要跨过 `o` 才看得见 `const`；
 - 其它符号 / 收尾括号 / 字符串 → 值位；
 - 扫到头（含爬到顶）没有信号 → 值位（保守，与原来的默认一致）。
@@ -379,6 +388,9 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         const holder = EnclosingBraceContext(host);
         if (holder !== "") {
           return holder;
+        }
+        if (crossedAssignment) {
+          return "value";
         }
         return "type";
       }
@@ -470,7 +482,13 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         text === "asserts" ||
         text === "is"
       ) {
-        if (openChar === "{") {
+        // **`typeof` 在 `[` 上也要继续往前扫**（第 868 轮实测）：它是**唯一一个既在类型位
+        // 又在值位出现的词**（`typeof x` 是一元运算），而 `typeof [` 是合法的值写法
+        //（`typeof ([{ v: 1 }] as any)[0]`）。原来 `[` 撞上它一句话判死 ⇒ 那个数组字面量的
+        // `Context` 成了 `"type"` ⇒ 第 868 轮那条「`[` 读自己的 `Context`」当场把里面的
+        // `{ v: 1 }` 收成 `TypeLiteral`（实测 `exec/round711/001-call-chain-then-member` 红）。
+        // 继续往前扫的落点与 `type T = typeof A[B]` 那一档一致：`type` / `:` 都会接住它。
+        if (openChar === "{" || (openChar === "[" && text === "typeof")) {
           i = i - 1;
           continue;
         }

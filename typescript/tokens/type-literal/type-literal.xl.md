@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsSwitchLabelColon, IsTriviaUnit } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsSwitchLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, IsBindingPatternBrace } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -246,17 +246,59 @@ if (current.Parent instanceof ObjectLiteral) {
 // 于是同一个联合类型里第一个 `{` 是 `ObjectLiteral`、第二个是 `TypeLiteral`
 //（实测 `mut-type-union-paren-object-162`）。判据与 `IsBindingPatternBrace` /
 // `IsObjectLiteralBrace` 那两处的「跳过 trivia 再问」同源。
-// **`[` 括号不进这条递归**（第 849 轮试过、整份撤回；第 855 轮复核仍是这个结论）：
+// **`[` 括号不走这条递归，走它自己那一档**（第 868 轮收掉；第 849 / 855 轮试过两版都撤回）：
 // `type T = [{ a: 1 }]` 是元组类型、`const a = [{ b: 1 }]` 是数组字面量，
-// 分开它们确实是「括号自己那一格」的事——可这一支问的是**外层列表**
-// （括号是外公列表里的一项），而 `f([{ a: 1 }])` 里那个 `[` 前面是 `(`、
+// 分开它们确实是「括号自己那一格」的事——而这一支问的是**外层列表**
+// （括号是外公列表里的一项），`f([{ a: 1 }])` 里那个 `[` 前面是 `(`、
 // `const o = { b: [{ c: 1 }] }` 里前面是 `:` ⇒ 按前文判恰好给反。
-// **另一条路（直接读 `Bracket.Context`）第 855 轮实测也不成立**：
+// 直接读 `Bracket.Context` 那一版当年也不成立，**因为它本身是错的**：
 // `DecideBracketContext` 的冒号那一支不看「已经跨过 `=`」，于是
 // `const tree: Tree = { …, kids: [{ value: 2 }] }` 里那个 `[` 是 `"type"`
-// —— 27 条 e2e 当场报 `unimplemented: expression TypeLiteral`。
-// **要收这一格得先修 `DecideBracketContext` 的冒号那一支**（另一件活）；
-// 在那之前元组元素这一格留在缺口账上（`gap-type-tuple-element-literal`）。
+//（27 条 e2e 当场报 `unimplemented: expression TypeLiteral`）。
+// 第 868 轮把那半修好（冒号那一支 + `typeof` 那一支 + 绑定模式那道闸），
+// `[` 这一档才立得住——判据、遮断与实测见下面那一段。
+if (current.Parent instanceof Bracket && current.Parent.startBracket === "[") {
+  // **索引签名 / 映射类型的键括号不归这一支管**（第 868 轮实测撞到的）：`{ [K in T]: … }` /
+  // `{ [k: string]: X }` 里那个 `[` 是**键那一格**，它里面还可能装着别的 `{`——
+  // `O[K]["default"] extends {} ? K : never` 这种 `as` 子句里就有（实测
+  // `@types/node/util.d.ts` 一处 `TypeLiteral` 被这我一支抢成 `ObjectLiteralExpression`）。
+  // 判据：这个 `[` 是**外面那个花括号的第一个实义单元**（键括号只有这一个落点）。
+  // 不抢之后落回下面那段老走法（`extends` 那一档本来就判得对）。
+  const squareHolder:Token | null = current.Parent.Parent;
+  const isKeyBracket = squareHolder !== null && squareHolder instanceof Bracket &&
+    squareHolder.startBracket === "{" &&
+    SkipPreviousTrivia(squareHolder.Data, squareHolder.Data.indexOf(current.Parent)) < 0;
+  if (isKeyBracket === false) {
+    // **绑定模式那一档先挡掉**：`const { x: [{ y }] } = o` 里那个 `[` 的 `Context` 是 `"type"`
+    //（它往回撞上的是重命名那个 `:`，而 `DecideBracketContext` 撞冒号时 `crossedAssignment`
+    // 还是假）。判据用现成的 `IsBindingPatternBrace`（`text-common-util.xl.md` 第 825 轮：
+    // 「`{` 前面是 `const` / `let` / `var`，或者自己在另一个模式括号里」），
+    // 沿括号链往上问——撞到**表达式花括号**（对象字面量 / 类型字面量）就停。
+    let node:Token | null = current.Parent;
+    while (node !== null && node instanceof Bracket) {
+      const holder:Token | null = node.Parent;
+      if (holder === null) {
+        break;
+      }
+      const atNode = holder.Data.indexOf(node);
+      if (atNode >= 0 && IsBindingPatternBrace(holder.Data, atNode)) {
+        return false;
+      }
+      if (node.startBracket === "{" && BraceInExpression(node)) {
+        break;
+      }
+      node = holder;
+    }
+    const brace = EnclosingBraceToken(current.Parent);
+    if (brace !== null && BraceInExpression(brace) === false) {
+      return false;
+    }
+    // **这一档不要求「自己是第一个实义单元」**（第 868 轮实测补）：`type T = [{ a: 1 }, { b: 2 }]`
+    // 的第二个元素往回撞上的是 `,`（「其它符号 ⇒ 值位」当场判死）——
+    // 而元组元素的类型位由**外层那个 `[`** 决定，与自己在第几格无关。
+    return current.Parent.Context === "type";
+  }
+}
 if (SkipPreviousTrivia(units, index) < 0 && current.Parent instanceof Bracket &&
     current.Parent.startBracket === "(") {
   const owner = current.Parent.Parent;
