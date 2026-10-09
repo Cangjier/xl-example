@@ -978,6 +978,24 @@ if (word === "try" || word === "do" || word === "else" || word === "finally") {
 if (word === "for" || word === "while" || word === "switch") {
   return true;
 }
+// **`export` 后面必须跟一条声明 / 一个导出子句**（第 839 轮）：`export` 换行 `const a = 1;`
+// 是**一条**声明——TS 的 `parseExportDeclaration` 不看换行（导出声明里没有 ASI），
+// 而 `export` 是保留字：它不可能是标识符、也不可能单独成句
+// ⇒ 与 `let` / `function` / `class` 同一条理由（「这个词不可能结束一条语句」）。
+//
+// **`declare` 不在表里**（同一轮实测）：`declare` **是**上下文关键字、可以当标识符，
+// TS 那边 `declare` 换行之后走的是 **ASI** —— `declare` 自己成一条表达式语句
+//（`ExpressionStatement > Identifier`）、下一行另起一条。两行排版一样、结论相反，
+// 判据只能按 TS 的读法分，不能按词形分（`--snippets` 量的四份 `declare` 换行都在
+// 「改成 Identifier、而不是并进下一条声明」那一档上，本轮不动）。
+//
+// **少了它会怎样**：换行处收壳 ⇒ `export` 自己成一条 `ExpressionStatement(Keyword)`、
+// 声明另起一条 ⇒ 前缀与声明**不在同一个壳里**（列表那趟的 `export` + 声明合并只认平级、
+// 认不出「已经分家」）⇒ TS 那条带 `ExportKeyword` 的声明整条缺
+//（实测 `gap-sweep-{newline,linecomment}-ns-01` 两条，各缺 1 多 2）。
+if (word === "export") {
+  return true;
+}
 return (
   word === "return" ||
   word === "throw" ||

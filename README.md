@@ -306,6 +306,43 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 839 轮：**`export` 后面不可能是一行的终点**——`ns` 那一族收掉 2 条
+
+**一句话**：第 822 / 825 / 828 / 835 轮把「这个词后面必须跟东西」逐个补进 `ExpectsOperand`
+（`let` / `const` / `var`、`function` / `class` / `interface` / `enum`、`try` / `do` / `else` /
+`finally`、`for` / `while` / `switch`），**漏了 `export`** —— 而导出声明里没有 ASI
+（TS 的 `parseExportDeclaration` 不看换行），`export` 换行 `const a = 1;` 是**一条**声明。
+补上这一个词之后 `cases:tsast` 的账 **45 → 43**（`coverage` **3952 → 3955**，
+`token` 那一类 blocked 86 → 84）。
+
+- **根：`export` 不在 `ExpectsOperand` 的词表里**（`statement.xl.md`）。
+  换行那一刻 `LineCannotEnd` 判「这一行写完了」⇒ 收壳 ⇒ `export` 自己成一条
+  `ExpressionStatement(Keyword)`、声明另起一条 ⇒ 前缀与声明**不在同一个壳里**，
+  而列表那趟的「`export` + 一条声明」合并只认**平级的两格**、认不出「已经分家」⇒
+  TS 那条带 `ExportKeyword` 的声明整条缺（实测两条：缺 1 多 2）。
+- **判据与 `let` / `function` 同一条**：这个词**不可能结束一条语句**——`export` 是保留字，
+  既不能当标识符、也没有「`export` 单独成句」这种写法；而它在**成员位**上
+  （`a.export`）由「点号后面是成员名」那一问挡着，与 `default` / `new` 同一档。
+- **`declare` 不在这一档，而且方向相反**（同一轮 `--snippets` 实测）：`declare` 是
+  **上下文关键字**、可以当标识符，TS 那边 `declare` 换行之后走的是 **ASI** ——
+  `declare` 自己成一条表达式语句、下一行另起。**两行排版一样、结论相反**，
+  所以这一格只能按 TS 的读法分，不能按词形分。**这一族没修**（产物把那个孤零零的
+  `declare` 投成了 `ExpressionStatement > DeclareKeyword`，TS 是 `> Identifier`；
+  分词是对的、只是投影那一格把词当成了修饰词），也不在语料里。
+- **形状覆盖**：`export` + 换行 / 行注释 + `const` / `function` / `class` / `interface` /
+  `type` / `enum` / `namespace` 七种声明、顶层与 `namespace` 体内两种位置，共 **10 条片段**
+  本轮一起变绿（`--snippets` 量过）。
+- **收掉的 2 条**：`gap-sweep-{newline,linecomment}-ns-01`。两行 `xl:known-gap` 删掉，
+  **`xl:expect` 要重算**（这一次标签真的动了：`Keyword` 那一个标签没了——
+  `export` 与声明同一个壳之后它成了 `Let` 的 `modifiers`、不再单独占一格；
+  `Statement` 3 → 2）。另补一条用例钉住顶层那种位置：`mod-export-newline-declaration`。
+- **可复用的判据**：**「这个词后面必须跟东西」的词表要按「它能不能单独成句」判**，
+  不是按「它是不是声明词」判 —— `declare` 是声明词却**能**单独成句（上下文关键字可以当
+  标识符），`export` 不是声明词却**不能**。同一张表上两行排版一样的例子对着写着。
+- **留下的一族**：`declare` 换行那一族（见上）、`gap-sweep-*-clsmod-*`（类成员修饰词折行）、
+  `gap-sweep-*-ifelse-*`、`gap-sweep-*-dowhile-*`、`gap-sweep-*-async-*` 与 `gap-b-*` /
+  `gap-c-*` 那几族本轮不动。
+
 ### 第 838 轮：**尾分号归谁，问的是「上一条语句的 kind」而不是原文那一格**——七条收掉
 
 **一句话**：一条语句末尾那个 `;` 归不归它，TS 的判据只有一条——**这条语句自己调不调

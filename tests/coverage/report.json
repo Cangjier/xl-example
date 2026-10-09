@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4176,
+  "total": 4177,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.62,
+  "progressPercent": 94.64,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1403,
-      "pass": 1358,
-      "blocked": 45,
+      "total": 1404,
+      "pass": 1361,
+      "blocked": 43,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 96.79
+      "coverage": 96.94
     },
     {
       "category": "exec",
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1403,
-    "knownGap": 45,
-    "knownGapStillOpen": 45,
-    "exactFiles": 1358,
-    "scoredWithoutGap": 1358,
-    "passedWithoutGap": 1358
+    "total": 1404,
+    "knownGap": 43,
+    "knownGapStillOpen": 43,
+    "exactFiles": 1361,
+    "scoredWithoutGap": 1361,
+    "passedWithoutGap": 1361
   },
   "blocked": [
     {
@@ -330,22 +330,10 @@
       "detail": "缺 4　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/ifelse）：DRIFT IfStatement TS[0,33) 产物[0,19) «if (a) //c { b(); } else { c(); }»"
     },
     {
-      "id": "token/statements/gap-sweep-linecomment-ns-01",
-      "category": "token",
-      "title": "SWEEP-linecomment/ns 落点（657 审计语料）",
-      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/ns）：MISS VariableStatement TS[14,37) «export //c const a = 1;»"
-    },
-    {
       "id": "token/statements/gap-sweep-newline-async-01",
       "category": "token",
       "title": "SWEEP-newline/async 落点（657 审计语料）",
       "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/async）：MISS Identifier TS[0,5) «async»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-ns-01",
-      "category": "token",
-      "title": "SWEEP-newline/ns 落点（657 审计语料）",
-      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/ns）：MISS VariableStatement TS[14,34) «export const a = 1;»"
     },
     {
       "id": "token/statements/stmt-do-while-then-statement",
@@ -785,7 +773,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9840/src/2010.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-8296/src/2011.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1127,7 +1115,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9840/src/2993.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-8296/src/2994.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1151,7 +1139,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9840/src/3041.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-8296/src/3042.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1307,7 +1295,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9840/src/3684.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-8296/src/3685.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
