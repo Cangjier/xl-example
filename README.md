@@ -306,6 +306,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 875 轮：`import type` 与 `typeof import(...)` 那两格——注释落在 `type` / `typeof` 两侧（known-gap 10 → 7）
+
+**一句话**：三条同根的缺口一起收掉——`import /*c*/ type { A }`、`import type /*c*/ { A }`
+（两条 `import-type-comment-*`）与 `typeof /*c*/ import("m")`（`import-typeof-comment-4`）。
+
+**根子有两处，都是「相邻的那一格」这条线的第六面**（第 817 / 828 / 872 / 874 轮那条线）：
+
+1. **`import` / `export` 后面那个 `type` 词**（[type-literal.xl.md](typescript/tokens/type-literal/type-literal.xl.md)）：
+   `IsTypePosition` 里那条「`type` 前面是 `import`/`export` **而且** `type` 后面紧跟一个 `{`」
+   走的是 `SkipPreviousWrapSymbol` / `SkipNextWrapSymbol`（只跳软换行）。夹一条注释时
+   `afterType` 是那条 `AreaAnnotation`（`import type /*c*/ {`）、或者 `beforeType` 是它
+   （`import /*c*/ type {`）⇒ 答否 ⇒ 那个 `{` 被收成 **`TypeLiteral`**、里面每个名字还成了一个
+   `Field`（`import /*c*/ type { A }` 实测缺 `ImportClause` / `ImportSpecifier` / `Identifier`
+   各一格、多一个 `[7,23)` 的 `ImportClause`；`-2` 缺 `ImportSpecifier` / `Identifier` 各一格）。
+   **判据只写一份**：[text-common-util.xl.md](typescript/text-common-util.xl.md) 新增
+   `IsImportExportTypeClauseBrace(units, index, requireBrace)`，把原来的那一句搬进去、两侧都走
+   `SkipPreviousTrivia` / `SkipNextTrivia`；`DecideBracketContext` 在**开括号那一刻**问的是同一句
+   （它那一趟括号还没进 `units`，所以第三个参数为 `false`——「跨过 trivia 之后后面什么都没有」）。
+2. **`ImportTypeCloseRule.Process` 往左找 `typeof`**（[import-type.xl.md](typescript/tokens/import-type.xl.md)）：
+   原来也走 `SkipPreviousWrapSymbol` ⇒ `typeof /*c*/ import("m")` 里 `previous` 是注释、
+   `WordText` 读不出 `typeof` ⇒ 那个词留在外面、整段退回 **`TypeQuery`**
+   （缺 `ImportType` / `LiteralType` / `StringLiteral` 各一格）。改成 `SkipPreviousTrivia` 之后
+   注释由 `Process` 的搬运循环一起收进来——**判据跨了、搬运也跟着跨**（第 816 轮那条规矩）。
+
+**顺带补的一格口径**（同一个现场量出来的）：`ImportClause` 的起点原来**回原文里跳空白**
+（`ctx.FirstCodeAfter(source, v.start + "import".length)`）——`import /*c*/ type { A }` 里它先命中
+注释 ⇒ 起点落在 `/*c*/` 上。现在**认下那一格的那一刻就把位置记下来**：
+`Import` 多一个 `TypeWordAt` 字段（`ReadClause` 认出 `type` 时写，与 `NamedBraceAt` 同款），
+投影从字段读、字段缺失才退回原文找。它**不进 XML**（`ToXmlString` 那五个属性照旧），
+只进 `ToDictionary`——投影读的是字典，不带这一格等于没写。
+
+**实测**：`tmp/r875/import-type.mjs` 5 条探针**全绿**（三处缺口 + `import type { A }` /
+`typeof import("m")` 两条对照）；全语料 `cases:tsast` **16 / 16 片**、缺 0 漂 0 多 0、
+已知缺口 **10 → 7**；`cases:check` 1466 / 1466、`cases:tags` 4920 条断言 0 条不一致
+（**XML 一个字节都没动**——`TypeWordAt` 不进 XML 就是为这个）；
+`coverage` **4040 → 4043 / 4228**（blocked **50 → 47**、differ 138、bad 0）、`gates` 八道全过。
+三条用例的 `xl:known-gap` 行换成「第 875 轮转绿」的说明，**用例留着当守卫**。
+
 ### 第 874 轮：`infer` 的约束那一格——`IsInsideExtendsType` 的回扫跨过注释（known-gap 11 → 10）
 
 **一句话**：`U extends /*c*/ infer V extends string ? V : never` 收掉——`infer` 的约束不再被丢掉。
@@ -4688,7 +4726,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **10 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–874 五轮共收掉 20 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **7 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–875 六轮共收掉 23 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1466** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -4696,7 +4734,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1453 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4040 / 4228**，加权 **95.0%**：token 1443/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 50 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4043 / 4228**，加权 **95.1%**：token 1446/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 47 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 

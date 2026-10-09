@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText, IsTypeContainerUnit } from "../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, WordText, IsTypeContainerUnit } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Method } from "./method.xl.md"
@@ -87,6 +87,12 @@ return next.startBracket === "(";
 **`typeof` 由本规则一起吸收**：`Process` 会往左看一格，如果是 `typeof` 就把它也收进来
 （TS 那边 `ImportType` 自带 `isTypeOf`）。所以这里不需要为 `typeof` 加判定。
 
+**左边那一格走 trivia 口径**（第 875 轮）：`typeof /*c*/ import("m")` 里 `typeof` 与
+`import` 之间夹着一条注释——只跳软换行时 `previousIndex` 落在注释上，`WordText` 读不出
+`typeof` ⇒ 那个词留在外面 ⇒ 整段退回 `TypeQuery`（实测缺 `ImportType` / `LiteralType` /
+`StringLiteral` 各一格、多一个 `TypeQuery`）。注释由 `Process` 的搬运循环一起收进来
+（与 `import.xl.md` 的 `ReadClause` 同款——**判据跨了、搬运也跟着跨**）。
+
 ```ts
 const current = Get(units, index);
 if (current === null) {
@@ -133,7 +139,7 @@ if (current === null) {
   throw new Error("ImportTypeCloseRule.Process: current is null");
 }
 let startIndex = index;
-const previousIndex = SkipPreviousWrapSymbol(units, index);
+const previousIndex = SkipPreviousTrivia(units, index);
 const previous = Get(units, previousIndex);
 if (previous !== null && (previous instanceof Identifier || previous.constructor.name === "Keyword")) {
   if (WordText(previous) === "typeof") {

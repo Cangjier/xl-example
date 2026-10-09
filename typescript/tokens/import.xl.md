@@ -329,9 +329,16 @@ import { A as B, C } from "m"
   // 起点从 `type` 退到了 `{`（实测 undici-types 一族：缺 10 + 多出 10）。
   // 两种都认，不再依赖 `String`（本文件里它没被遮蔽，但别的 token 文件里会）。
   const typeOnly = v.attrs.get("typeOnly");
+  // **`ImportClause` 的起点读字段**（`TypeWordAt`，`ReadClause` 认出那个 `type` 词时当场记的）：
+  // 原来这句是 `ctx.FirstCodeAfter(source, v.start + "import".length)` **回原文里跳空白**——
+  // `import /*c*/ type { A } from "m"` 里它先命中注释 ⇒ 区间从 `/*c*/` 起
+  // （实测多一个 `[7,23)` 的 `ImportClause`，TS 是 `[13,23)`）。
+  // 与 `NamedBraceAt` 同一条：**位置答案只有一份，就在字段里**；字段缺失才退回原文找。
+  const rawTypeWordAt = ctx.Attr(v, "typeWordAt");
+  const typeWordAt = typeof rawTypeWordAt === "number" && rawTypeWordAt >= 0 ? rawTypeWordAt : -1;
   const clauseStart =
     typeOnly === true || typeOnly === "true"
-      ? ctx.FirstCodeAfter(source, v.start + "import".length)
+      ? (typeWordAt >= 0 ? typeWordAt : ctx.FirstCodeAfter(source, v.start + "import".length))
       : ctx.StartOf(clause[0]);
   const clauseEnd = ctx.EndOf(clause[clause.length - 1]);
   const clauseProps: any = {};
@@ -445,6 +452,15 @@ super(template);
 而且 `From` **根本没有进 XML**（`Import` 没有覆写 `ToXmlString`）——下游拿不到路径。
 现在这些信息都成了属性，`ToXmlString` 一并渲染。
 
+## field TypeWordAt:int = -1
+
+**`import type …` 里那个 `type` 词的下标**；不是 type-only 导入时是 `-1`。
+
+投影拿它当 `ImportClause` 的起点（TS 那边 `import type { A } from "m"` 的 `ImportClause`
+是从 `type` 开始的）。与 `NamedBraceAt` 同一条理由：**认下这一格的那一刻记下来**，
+不回原文找第二份位置答案——`import /*c*/ type { A }` 里回原文找会先命中注释
+（第 875 轮实测：多出一个 `[7,23)` 的 `ImportClause`，TS 是 `[13,23)`）。
+
 ## method ReadClause:(items:Array<Token>)=>void
 
 从子句里读出 `typeOnly` / `defaultImport` / `namespace` / `imported`。
@@ -463,10 +479,20 @@ super(template);
 判据必须带上**后面紧跟 `*`** 这半条——`import defer from "./defer.js"` 是**合法的默认导入**，
 名字就叫 `defer`，无条件跳过会把它读丢（实测）。
 
+**`TypeWordAt` 在认出 `type` 那一刻当场记下**（第 875 轮）：投影要拿它当 `ImportClause`
+的起点（TS 的 `import type { A } from "m"` 里 `ImportClause` 是从 `type` 那个词开始的）。
+原来那一格是**回原文里找**——`FirstCodeAfter(import + 6)` 只跳空白，遇到
+`import /*c*/ type { A }` 就先命中注释 ⇒ 区间从 `/*c*/` 起（多出一个 `[7,23)` 的
+`ImportClause`，与 TS 的 `[13,23)` 对不上）。判据与 `NamedBraceAt` 同一条：
+**认下这一格的那一刻就把它记下来，不再回原文找第二份位置答案**。
+`type` 是 `items` 里第一个实义单元（`Process` 的收集循环跨过 trivia），所以它的下标就是
+`SourceRange.Start`。
+
 ```ts
 let start = 0;
 if (items.length > 0 && items[0] instanceof Identifier && (items[0] as Identifier).Is("type")) {
   this.typeOnly = true;
+  this.TypeWordAt = items[0].SourceRange.Start === null ? -1 : items[0].SourceRange.Start.Index;
   start = 1;
 }
 if (
@@ -566,6 +592,11 @@ result.set("typeOnly", this.typeOnly);
 result.set("defaultImport", this.defaultImport);
 result.set("namespace", this.namespace);
 result.set("imported", this.imported.join(","));
+// **`typeWordAt` 只给投影用**（`ReadClause` 认下那个 `type` 词时当场记的位置，
+// 见 `TypeWordAt` 那一节）：它不进 XML（`ToXmlString` 那五个属性照旧），
+// 但投影是从**字典**读属性的，所以这里必须写上——少了它 `ImportClause`
+// 的起点又退回「回原文跳空白」，`import /*c*/ type { A }` 会从注释起（第 875 轮）。
+result.set("typeWordAt", this.TypeWordAt);
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {
@@ -591,6 +622,7 @@ result.defaultImport = this.defaultImport;
 result.namespace = this.namespace;
 result.imported = this.imported.slice();
 result.NamedBraceAt = this.NamedBraceAt;
+result.TypeWordAt = this.TypeWordAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

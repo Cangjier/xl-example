@@ -92,6 +92,21 @@
   （`:` 或 `=` 右边），否则一个叫 `unique` 的变量独占一行也会被判成续接。
   同一件事在解析期（`LineCannotEnd`）与收尾期（`IsLineBreakBoundary` / `AliasEnd`）各写一遍就会漂，
   所以 `IsPendingTypeModifier` **只写一份**、两处都问它。
+- **同一个「左边那一格」的判据，在解析期（开括号那一刻）与收尾期各有一份**（第 875 轮）：
+  `import` / `export` 后面那个 `type` 词是不是**引入一个子句**（`import type { A }`）而不是
+  类型别名（`export type X = { … }`），要在**两处**问——`DecideBracketContext` 在开括号那一刻
+  （括号还没进 `units`，「后面什么都没有」就是它的答案）、`TypeLiteralCloseRule.IsTypePosition`
+  在收尾期回扫（括号已经在 `units` 里，要问「后面那一格是不是那个 `{`」）。
+  两处**都必须跨 trivia**，而且**只能有一份实现**：`IsImportExportTypeClauseBrace`
+  （`text-common-util.xl.md`，第三个参数就是这两种形态的差别）。
+  **症状是「一个 `{` 被收成 `TypeLiteral`」**：`import /*c*/ type { A }` 里导入列表整段不见、
+  里面每个名字成一个 `Field`——**AST 那边一个属性都没有**。
+- **位置答案不许有第二份**（第 875 轮，同一条线的另一面）：`ImportClause` 的起点原来是
+  `ctx.FirstCodeAfter(source, import + 6)`——**回原文跳空白**，可 `import /*c*/ type { A }` 里
+  它先命中的是那条注释 ⇒ 区间从 `/*c*/` 起。规矩与 `NamedBraceAt` 同款：
+  **认下那一格的那一刻就把下标记进字段**（`Import.TypeWordAt`），投影从字段读、字段缺失才回原文找。
+  **新增字段要记得放进 `ToDictionary`**（投影读的是字典；`ToXmlString` 不是它的出口，
+  这也正好让 XML 一个字节都不动）。
 - **`i ± 1` 是这一族的口味标志**（第 828 轮，第 817 轮那条线的第三面）：判「上一格 / 下一格是不是
   我这一族的东西」时，下标**不许写成 `i ± 1`**——要走 `SkipPreviousTrivia` / `SkipNextTrivia`。
   第 817 轮是「哪几处判据只差一个 `Skip*`」**点着名**改的（五处），而**同型的循环**没人一起过一遍；
@@ -322,7 +337,7 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**10 条**）
+## 已知仍开着的缺口（**7 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
 （第 854 轮实测 **10**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
@@ -342,9 +357,11 @@
 ⇒ **21 条**；**第 872 轮**收掉枚举成员初始值那一族 4 条（二元运算符两侧的操作数改走 trivia 口径）
 ⇒ **17 条**；**第 873 轮**再收 6 条（构造签名 / 函数类型的 trivia 口径 4 条 + 两条新的 ASI 判据：
 变量声明的类型标注冒号、还在等操作数的类型词）⇒ **11 条**；**第 874 轮**收掉 `infer` 约束那一格
-（`IsInsideExtendsType` 的回扫跨过注释）⇒ **10 条**，剩下的短线是「注释 / 换行落在语法
-相邻位置之间」那条线的第四面（`typeof /* c */ import(...)`、`abstract /* c */ new`、
-`#x ⏎ in o`、`import /* c */ type { A }`、`infer V ⏎ extends string`、`declare ⏎ global` 之类）。
+（`IsInsideExtendsType` 的回扫跨过注释）⇒ **10 条**；**第 875 轮**收掉三条同根的
+（`import` / `export` 后面那个 `type` 词的两侧注释、`typeof` 与 `import(...)` 之间的注释）
+⇒ **7 条**，剩下的短线是「注释 / 换行落在语法
+相邻位置之间」那条线的第五面（`abstract /* c */ new`、`#x ⏎ in o`、
+`import A = ⏎ require("m")`、`export { a } ⏎ from "m"`、`declare ⏎ global` 之类）。
 
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，

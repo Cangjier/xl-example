@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsSwitchLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, IsBindingPatternBrace } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsSwitchLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, IsBindingPatternBrace, IsImportExportTypeClauseBrace } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -178,7 +178,12 @@ return false;
      **判据要两条齐全**：`type` 前面是 `import` / `export`，**而且 `type` 后面紧跟一个 `{` 括号**。
      只看前一条会把 `export type CliOptions = { … }` 也挡掉（测试跑出来 `cjcli.ts`
      的 5 个 `Field` 全丢、5 条 type-only 用例报 `缺 TypeLiteral`）——那种写法里 `type` 后面是
-     **别名**，花括号在 `=` 之后，属于正常的类型字面量；
+     **别名**，花括号在 `=` 之后，属于正常的类型字面量。
+     **两条都要走 trivia 口径**（第 875 轮）：`import /*c*/ type { A }` 与
+     `import type /*c*/ { A }` 里 `type` 的左右各可能夹一条注释，只跳软换行时
+     「后面紧跟一个 `{`」当场答否 ⇒ 导入列表又被收成 `TypeLiteral`。
+     这一句**只写一份**（`text-common-util.xl.md` 的 `IsImportExportTypeClauseBrace`），
+     `DecideBracketContext` 在开括号那一刻问的是同一句；
    - `=>` → **箭头**：先记下「正在跨箭头」，等把它的形参表也跨过去之后，再按形参表**左边**是什么下结论
      （见下一条）；
    - `|` / `&` → 类型位（联合 / 交叉类型的一项）；
@@ -440,17 +445,11 @@ for (let i = index - 1; i >= 0; i--) {
     if (beforeWord instanceof SymbolToken && (beforeWord.Is(".") || beforeWord.Is("?."))) {
       continue;
     }
-    if (text === "type") {
-      const beforeType = Get(units, SkipPreviousWrapSymbol(units, i));
-      const afterType = Get(units, SkipNextWrapSymbol(units, i));
-      if (
-        beforeType instanceof Identifier &&
-        (beforeType.Is("import") || beforeType.Is("export")) &&
-        afterType instanceof Bracket &&
-        afterType.startBracket === "{"
-      ) {
-        return false;
-      }
+    // **`import` / `export` 后面那个 `type` 词**（`import type { A } from "m"`）：
+    // 判据只写一份，住在 `text-common-util.xl.md` 的 `IsImportExportTypeClauseBrace`
+    //（`DecideBracketContext` 问的是同一句，两处的差别只有第三个参数）。
+    if (text === "type" && IsImportExportTypeClauseBrace(units, i, true)) {
+      return false;
     }
     // **`of` / `in` 右边是值**（第 589 轮）：`for (const v of { … })` 往回扫会跨过
     // `of`、`v` 撞上 `const` ⇒ 这个对象字面量被收成 `TypeLiteral` ⇒ 降级层报

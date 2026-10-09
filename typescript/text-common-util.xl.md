@@ -340,6 +340,15 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
       i = i - 1;
       continue;
     }
+    // **注释在这条扫描里也是 trivia**（第 875 轮）：`import /*c*/ type { A }` 与
+    // `type T = [/*c*/{ a: 1 }]` 是同一件事——注释不该是这条回扫的**终点**。
+    // 少了这一条，注释占住「前一个实义单元」那一格 ⇒ `DecideBracketContext` 当场
+    // 掉到「其它符号 ⇒ 值位」，而它判的是**括号自己的 `Context`**（开括号那一刻算好），
+    // 与 `IsTypePosition` 那份**跨 trivia** 的回扫（那里注释是 `continue`）对不上口径。
+    if (IsAnnotationUnit(item)) {
+      i = i - 1;
+      continue;
+    }
     if (item instanceof Bracket) {
       if (item.Closed) {
         return "value";
@@ -428,14 +437,12 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
     if (item instanceof Identifier) {
       sawUnit = true;
       const text = item.TempToString();
+      // **`type` 后面那一格要走 trivia 口径**（第 875 轮）：`import /*c*/ type { A }` 与
+      // `import type /*c*/ { A }` 里 `type` 与 `{` 之间可能夹一条注释——那**不是**
+      // 「`type` 后面没有别的单元」，判据只差一次 `SkipNextTrivia`。判据与
+      // `IsImportExportTypeClauseBrace`（本文件）**同一句**，两处都问它。
       if (text === "type") {
-        const beforeType = GetSkipPrevious(units, i, (x) => x instanceof LineWrap);
-        const afterType = GetSkipNext(units, i, (x) => x instanceof LineWrap);
-        if (
-          beforeType instanceof Identifier &&
-          (beforeType.Is("import") || beforeType.Is("export")) &&
-          afterType === null
-        ) {
+        if (IsImportExportTypeClauseBrace(units, i, false)) {
           return "value";
         }
         return "type";
@@ -1700,6 +1707,44 @@ if (before === null) {
   return false;
 }
 return before instanceof SymbolToken && (before.Is(":") || before.Is("="));
+```
+
+# method IsImportExportTypeClauseBrace:(units:Array<Token>, index:number, requireBrace:bool)=>bool
+
+`index` 处那个 `type` 是不是**导入 / 导出子句里的那个 `type` 词**（`import type { A }` /
+`export type { A }`），而不是类型别名的开头。
+
+**为什么要它**：`import type { A } from "m"` 里那个 `{` 往回扫会撞上 `type`，
+按「类型位关键字」判就整段收成 `TypeLiteral`（里面每个名字还成了一个 `Field`）——
+**AST 那边一个属性都没有**。判据要两条齐全：`type` 前面是 `import` / `export`，
+**而且 `type` 后面就是那个 `{` 括号**（少了后一条会把 `export type CliOptions = { … }`
+一起挡掉，那种写法里 `type` 后面是别名、花括号在 `=` 之后，属于正常的类型字面量）。
+
+**两处调用、两种形态，所以有第三个参数**：
+
+| 调用方 | 那一刻的形态 | `requireBrace` |
+| --- | --- | --- |
+| `type-literal.xl.md` 的 `TypeLiteralCloseRule.IsTypePosition`（收尾期回扫） | 括号**已经在** `units` 里 | `true` |
+| `DecideBracketContext`（**开括号那一刻**，括号还没进 `units`） | `type` 后面那一格就是**空**（`null`） | `false` |
+
+**注释是 trivia，软换行也是**（第 875 轮）：`import /*c*/ type { A }` 与
+`import type /*c*/ { A }` 在 TS 里是同一件事，两处判据都必须跨过去——
+`requireBrace` 为假的那一处「后面什么都没有」讲的也正是这个「跨过 trivia 之后没有东西」。
+
+```ts
+const word = Get(units, index);
+if (!(word instanceof Identifier) || word.Is("type") === false) {
+  return false;
+}
+const beforeType = Get(units, SkipPreviousTrivia(units, index));
+if (!(beforeType instanceof Identifier) || (beforeType.Is("import") || beforeType.Is("export")) === false) {
+  return false;
+}
+if (requireBrace === false) {
+  return SkipNextTrivia(units, index) >= units.length;
+}
+const afterType = Get(units, SkipNextTrivia(units, index));
+return afterType instanceof Bracket && afterType.startBracket === "{";
 ```
 
 # method IsTypeAliasAssignment:(units:Array<Token>, from:number)=>bool
