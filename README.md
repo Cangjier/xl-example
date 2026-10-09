@@ -306,6 +306,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 778 轮（续）：六个面各量一遍——**一处收掉（计算键的对象那一档还开着）**，另登记四处
+
+**一句话**：接着上面那一轮的六个面（解构 / 未接住的异常 / 对象字面量 / 字符串的 Unicode /
+`switch` 的词法作用域 / 函数体里的类）各写一条**最小形状**的用例——**7 条通过、4 条登记**，
+其中一处（`define_data` 的对象键）量到了**同一个落点上的两份答案**。
+
+- **新登记的四处**（都带 `xl:why`，各写明「为什么不顺手收」）：
+  ① `runtime/round778b/r778h-01`——**数组解构把迭代器抽干**：`const [a = 1, b = 2] = it`
+  本仓给 `n0,n1,n2,def:p`、Node 给 `n0,def:p,n1`。根在降级层：数组模式先过
+  `MaterializeIterable`（`GetIterator` + `IterDrain`，第 151 / 199 轮），
+  而规范是「按位置、按需取」。数组与 `Set` 上看不出差别，**只有自定义迭代器分得开**。
+  ② `runtime/round778b/r778l-01`——**跨 `case` 的 `let` 被降级期误判成 TDZ**：
+  `switch (x) { case 1: return String(v); case 2: let v = "two"; }` 报
+  `name used before its declaration: v`（**整份文件进不来**），而 Node 给运行时
+  `ReferenceError`、脚本自己接得住。同一个 `switch` 块共用一个作用域，而那一趟预扫
+  只看「声明出现过没有」、不看「这条路径先走了谁」。
+  ③ `stdlib/round778b/r778j-02`——**计算键里放一个对象**：`{ [k]: 1 }`（`k` 是带
+  `toString` 的对象）报 `unimplemented: ToString of this kind of value`。
+  `vm.xl.md` 的 `PropertyKeyOf`（引擎侧）对对象会回调 `PropertyKeyHookId`
+  （`o[k]` 那一路一直是好的），而 `define_data` 那一格把同一份规矩**照抄在语言层**、
+  用的是 `RtToString`——**一句话住着两份**，收它要先挪到一处。
+  ④ `runtime/round778b/r778m-01`——**函数体里 `class … extends` 一个内建**：
+  `heap object is not an environment`（与第 697 轮 `probe697-e16` 同一条根，
+  这一条把分界缩到最小：同一个 `extends Error` 写在顶层是对的、
+  `extends` 一个**用户类**写在函数里也是对的——差别只剩「函数体 + 内建基类」）。
+- **对照全对的那几档**（同一条用例里钉着，收缺口时不许连累它们）：解构的默认值触发条件与
+  求值次序（`r778h-01` 的其余 18 档）、`switch` 的空转 / 落空 / `default` 位置 /
+  `case` 里的块与 `var`（`r778l-01` 的其余 14 档）、对象字面量的重复键 / `__proto__` /
+  键的次序 / getter-setter 配对 / 展开 / `super`（`r778j-01` 全 16 档）、
+  字符串的码点与码元 / 大小写映射 / 四种正规化 / `at` / `padStart`（`r778k-01` 全 18 档）、
+  函数体里的类字段 / 方法 / 构造器 / 静态字段（`r778m-01` 的 01…05）。
+- 用例：`round778b` 七条（**3 条通过、4 条登记**，另 `round778` 那一批
+  **4 条通过、3 条登记**）。五类 7913 / 8304 → **7916 / 8310**、blocked 262 → **264**、
+  differ 129 → **130**（+4 登记）、bad 0、regressions 0，加权 **95.5%**。
+  八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+
 ### 第 777 轮：**原始值上的下标读**——收掉一句早退、一笔旧账到期，另登记一处同族的符号缺口
 
 **一句话**：`vm.xl.md` 的 `get_index` 里有一句「**不是对象就给 `undefined`**」的早退，

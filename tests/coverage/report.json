@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8303,
+  "total": 8310,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.59,
+  "progressPercent": 95.52,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1126,
-      "pass": 1088,
-      "blocked": 4,
-      "differ": 34,
+      "total": 1130,
+      "pass": 1089,
+      "blocked": 5,
+      "differ": 36,
       "nodefail": 0,
-      "coverage": 96.63
+      "coverage": 96.37
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3300,
-      "pass": 3213,
-      "blocked": 25,
+      "total": 3303,
+      "pass": 3215,
+      "blocked": 26,
       "differ": 62,
       "nodefail": 0,
-      "coverage": 97.36
+      "coverage": 97.34
     },
     {
       "category": "e2e",
@@ -1530,6 +1530,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: typeof"
     },
     {
+      "id": "runtime/round778b/r778l-01",
+      "category": "runtime",
+      "title": "`switch` 的词法作用域：块级声明的初始化、重复 `let` 与函数声明",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: v"
+    },
+    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1630,6 +1636,12 @@
       "category": "stdlib",
       "title": "Object.prototype.toString.call(/x/)",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "stdlib/round778b/r778j-02",
+      "category": "stdlib",
+      "title": "计算键里放一个对象：`ToPropertyKey` 是「先 `ToPrimitive`」",
+      "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
     },
     {
       "id": "stdlib/string/042-string-match-and-split-regex",
@@ -2108,6 +2120,18 @@
       "detail": "stdout 不同：第 3 行：node «03 变量赋值 \"x\"» vs tsrun «03 变量赋值 \"\"»"
     },
     {
+      "id": "runtime/round778b/r778h-01",
+      "category": "runtime",
+      "title": "解构的边界：默认值触发条件、求值次序、嵌套与洞",
+      "detail": "stdout 不同：第 19 行：node «19 数组解构里的默认值也是逐个求值 \"p|x|n0,def:p,n1\"» vs tsrun «19 数组解构里的默认值也是逐个求值 \"p|x|n0,n1,n2,def:p\"»"
+    },
+    {
+      "id": "runtime/round778b/r778m-01",
+      "category": "runtime",
+      "title": "函数体里 `class … extends` 一个内建：`heap object is not an environment`",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：heap object is not an environment"
+    },
+    {
       "id": "stdlib/array/150-array-species-subclass",
       "category": "stdlib",
       "title": "继承数组的子类上 `map` / `concat` 交出什么",
@@ -2129,7 +2153,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22612/src/5299.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22612/src/5303.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2153,7 +2177,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22612/src/5349.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-22612/src/5353.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",

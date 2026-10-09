@@ -1753,6 +1753,18 @@ if (id === DefineDataId) {
   // `class A { [1 + 1] = 5 }` 报 `define_data with a key that is not a string or a symbol`
   // （**整份文件进不来**），而同一个键写成 `o[1 + 1] = 5` 是好的——
   // `set_index` 那一支本来就替我们做完了 `ToPropertyKey`（与 `SetPropertyValue` 那条注释同源）。
+  //
+  // **对象键这一档仍然没做**（第 778 轮**普查当场量到、按规矩登记**）：
+  // `const k = { toString() { return "kk" } }; const o = { [k]: 1 }` 在 Node 里给 `o.kk === 1`，
+  // 本仓报 `unimplemented: ToString of this kind of value`（**整份文件进不来**，判据
+  // `stdlib/round778b/r778j-01` 第 5 行）。**它有一个现成的落点**：`vm.xl.md` 的
+  // `PropertyKeyOf`（引擎那一侧）对对象会回调 `PropertyKeyHookId`（`set_index` / `get_index`
+  // 走的就是它，所以 `o[k]` 那种写法一直是好的）——而这一格把 `PropertyKeyOf` 那份规矩
+  // **照抄在了语言层**，对象于是落进 `RtToString` ⇒ 响亮地抛。
+  // **为什么不顺手收**：这一处的调用方是**语言内建**，手上只有 `table` / `room`，
+  // 没有 VM 实例（`CallHostValue` / `PropertyKeyHookId` 都在引擎那一侧）——
+  // 要收得先把「对象 → 属性键」这条规矩**挪到一处**（现在是引擎一份、语言一份），
+  // 那是一次重构，不是修一处笔误。**先如实登记，不猜**。
   const dataKey = args[1].Tag === ValueTag.Symbol ? args[1] : RtToString(room, table, args[1]);
   CreateDataProperty(room, table, args[0], dataKey, args[2]);
   return Value.Undefined();
