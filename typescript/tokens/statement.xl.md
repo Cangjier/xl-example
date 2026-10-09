@@ -1510,6 +1510,31 @@ for (let step = 0; step < 16; step++) {
       at = index;
       continue;
     }
+    // **`declare` 也是「等着体的声明头」那一族的词**（第 880 轮）：`declare global` 换行
+    // `{ interface W { … } }` 是**环境模块声明**的日常排法（TS 那边是一条 `ModuleDeclaration`
+    // 带一个 `ModuleBlock`），少了它壳在换行处就关掉 ⇒ `declare global` 自己成一条
+    // `ExpressionStatement`、`{ … }` 落成裸 `Block`（实测 `gap-r869-declare-global-newline-2`：
+    // 缺 `ModuleDeclaration` / `Identifier` / `ModuleBlock` 三处、多 2）。
+    //
+    // **`declare` 不能像 `while` / `function` 那样无条件算头**：它是**上下文关键字**、
+    // 本身就是一个合法的标识符（`foo(declare)` 换行 `{}` 里那个 `declare` 是个实参，
+    // 回扫路上 `)` 是透明的 ⇒ 无条件算头会把那两行并起来）⇒ 只认**这一段的段首**那一格。
+    //
+    // **段首不能用 `SkipNextTrivia(data, -1)` 求**（第一版就是这么写的，实测**只对了没有注释头的
+    // 片段**）：`data` 是**容器**的子单元表，语料里这一段的**前面永远有几行 `// xl:…` 注释**，
+    // 那些注释各是一层 `Statement` ⇒ 段首算出来是**注释**那一格、`declare` 于是被判「不是段首」
+    // ⇒ 缺口照旧（`gap-r869-declare-global-newline-2` 实测不转绿）。段首只能由**语句边界**
+    // 划：与 `NextLineContinuesExpression` 里 `HasTypeColonBefore` 那一处用**同一句**
+    // `SearchFrontIndexed(… IsStatementBoundary …) + 1`。
+    if (text === "declare") {
+      const segmentFrom =
+        SearchFrontIndexed(data, data.length, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex)) + 1;
+      if (index === segmentFrom) {
+        return true;
+      }
+      at = index;
+      continue;
+    }
     if (name === "Identifier" && names < (seenPredicateWord ? 3 : 2)) {
       names = names + 1;
       at = index;

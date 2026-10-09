@@ -306,6 +306,33 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 880 轮：`declare global` 换行 `{ … }` 那一格——`declare` 进「等着体的声明头」词表，只认段首（known-gap 3 → 2）
+
+**一句话**：`declare global` 换行 `{ interface W { a: number } }` 收掉——那个 `{` 是
+**环境模块声明的体**，可「等着体的声明头」那张词表里没有 `declare` ⇒ 换行处收壳。
+
+**根子**（[statement.xl.md](typescript/tokens/statement.xl.md) 的 `IsHeaderBodyBrace`）：
+`{` 本身**起得了一条语句**（裸块），所以 `NextLineContinuesExpression` 只能认「上一行的末尾是一个
+还差体的声明头」——遍历往回走，碰到 `while` / `for` / `switch` / `function` / `import` /
+`export` / `catch` / `finally` 这八个词就答「是」。这八个**全是保留字**，所以可以无条件算头；
+`declare` **是上下文关键字**（`foo(declare)` 换行 `{}` 里那个 `declare` 就是个实参，
+回扫路上 `)` 是透明的）⇒ 只能认**这一段的段首**那一格。
+
+**踩到的坑（第一版就踩了）**：段首不能用 `SkipNextTrivia(data, -1)` 求。`data` 是**容器**的子单元表，
+而语料里这一段的**前面永远有几行 `// xl:…` 注释**——那些注释各是一层 `Statement`，
+于是段首算出来是**注释**那一格、`declare` 被判「不是段首」，片段探针（没有注释头的两行版）
+全绿而**真用例纹丝不动**。段首只能由**语句边界**划：与同一个方法里 `HasTypeColonBefore` 那一处
+用**同一句** `SearchFrontIndexed(… IsStatementBoundary …) + 1`。这条经验值一提：
+**片段探针不带注释头，而语料永远带**——凡是「段首 / 上一格是谁」的判据，两边都要跑。
+
+**实测**：`tmp/declare-probe.mjs` 11 条探针（这一条 + 有 / 无注释头两版 + 同行原形 +
+行尾注释 + CRLF + `export declare global` + `declare module "m"` + `declare namespace N`
++ 三条**反例**：`declare const x = 1` 换行 `{}`、`foo(declare)` 换行 `{}`、`foo()` 换行 `{}`）
+**全绿**，三条反例一条都没被并起来；
+全语料 `cases:tsast` **16 / 16 片**、缺 0 漂 0 多 0、已知缺口 **3 → 2**、收掉 0；
+`cases:check` 1466 / 1466、`cases:tags` 4920 条断言 0 条不一致（XML 一个字节都没动）；
+`coverage` **4047 → 4048 / 4228**（blocked **43 → 42**、differ 138、bad 0）、`gates` 八道全过。
+
 ### 第 879 轮：`#x` 换行 `in o` 那一格——解析期的续接词表里没有 `in` / `instanceof`（known-gap 4 → 3）
 
 **一句话**：`return #x` 换行 `in o;` 收掉——那个软换行被**解析期**的 ASI 判成语句边界，
@@ -4854,7 +4881,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **3 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–879 十轮共收掉 27 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **2 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–880 十一轮共收掉 28 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1466** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -4862,7 +4889,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1453 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4047 / 4228**，加权 **95.1%**：token 1448/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 43 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4048 / 4228**，加权 **95.1%**：token 1448/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 42 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 
