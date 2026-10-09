@@ -306,6 +306,37 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 823 轮：**空条件链不吃尾随 trivia**——`a?.b //c` 换行 `?.[c]?.(d)` 那一族收掉 6 条
+
+**一句话**：`NullConditionalOperator` 从 `?.` 之后一路收到断点，而断点常常落在**后一个 `?.`**
+上（中间那个换行不是语句边界）——于是**注释与换行被一起收进这一格的 `Data`**，
+区间跟着盖住它们。收窄到「最后一个实义单元」为止，`cases:tsast` 的账从 **142 → 136**
+（`coverage` **3846 → 3852** 通过，`token` 那一类 blocked 142 → 136）。
+
+- **根：`NullConditionalOperatorCloseRule.Process` 的 `count` 把尾随 trivia 也算进去了**
+  （`null-conditional-operator.xl.md`）。`const v = a?.b//c` 换行 `?.[c]?.(d);` 里，
+  `SearchBackIndexed` 找到的断点是**第二个 `?.`**（那个换行以 `?.` 开头 ⇒ `ContinuesExpression` 判续行
+  ⇒ 不是语句边界），`count = endIndex - index - 1` 于是把 `LineAnnotation` 与 `LineWrap` 都圈进
+  `TakeRange`。产物 `Method` 里那一格是 `NullConditionalOperator[11,17)`（`?.b//c` + 那个换行），
+  而 TS 的 `PropertyAccessExpression` 是 `[10,14)`——**差的那 4 个字符就是注释与换行**，
+  另有一个「多出来」的节点同一个根。
+  **改法一处**：取完 `count` 之后从尾巴往回缩，落点是 trivia 就减一
+  （`IsTriviaUnit`：软换行 / 行注释 / 区域注释 / 预处理指令）。注释留在外层列表里，
+  所以产物里照旧看得见它，只是它不再属于这一格。
+- **收掉的 6 条**：`gap-sweep-comment-optchain-04/05`、`gap-sweep-linecomment-optchain-06/07`、
+  `gap-sweep-newline-optchain-03/05`（`ElementAccessExpression` / `CallExpression` /
+  `PropertyAccessExpression` 三个投影形状各一处，全是同一格的区间）。
+  文件头的 `xl:known-gap` 逐条删掉；其中四条用的是块注释（`/* c */`），
+  `xl:expect` 按新形状重算（`AreaAnnotation` / `LineAnnotation` 那一项按产物跟着改）。
+- **可复用的判据**：**「收到断点为止」这类循环，收的是「语法上属于这一格的单元」，
+  不是「断点之前的全部单元」**——断点前面挂着的那一截 trivia 属于外层。
+  第 816 轮那条（判据跨 trivia、搬运也要跨）说的是**中间**的 trivia；
+  这一条说的是**尾巴**上的 trivia：两者方向相反，别合成一条。
+- **留下的一族**：`gap-sweep-{linecomment,newline}-optchain-02/03` 仍在台账上
+  （`a?.b` 后面那半截 `?.[c]?.(d)` 的**父节点**还没成形，缺的是整条 `CallExpression` /
+  `VariableStatement`，不是这一格的区间），以及 `switch` 里 `b//c` 换行 `();` 那一格
+  （注释把被调用者与实参表切开，缺的是一次调用），本轮不动它们。
+
 ### 第 822 轮：**声明头的词族都「必须跟名字」**——`function` / `class` / `interface` / `enum` 换行那一族收掉 6 条
 
 **一句话**：第 820 轮往 `Statement.ExpectsOperand` 里放了 `let` / `const` / `var`
@@ -3219,7 +3250,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **142 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **136 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1407** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -3227,7 +3258,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1394 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3846 / 4167**，加权 **93.6%**：token 1252/1394、exec 748/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 183 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `coverage` | **五类 3852 / 4167**，加权 **93.6%**：token 1258/1394、exec 748/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 177 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~30s**） |
 ### 口径与已知缺口
 
@@ -3258,7 +3289,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **142** 条）：
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **136** 条）：
   主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
   （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
   `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），

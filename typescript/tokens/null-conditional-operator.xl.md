@@ -122,7 +122,15 @@ const endIndex = SearchBackIndexed(units, index + 1, (itemIndex, item) => {
 // **改完之后 `a?.[c]` 整条链散架**，所以那一版没有留下）。
 const result = new NullConditionalOperator(template);
 result.SignInToken(current);
-const count = endIndex === -1 ? units.length - index - 1 : endIndex - index - 1;
+let count = endIndex === -1 ? units.length - index - 1 : endIndex - index - 1;
+// **尾随 trivia 不进这一格**（第 823 轮）：`a?.b //c` 换行 `?.[c]?.(d)` 里，
+// 断点落在**后一个 `?.`** 上（换行不是语句边界），于是注释与那个换行被一起收进 Data
+// ⇒ 这一格的区间盖住了它们（实测 `PropertyAccessExpression` 给 `[10,18)` 而 TS 是 `[10,14)`，
+// 多出来的那一个节点也是它）。收窄到「最后一个实义单元」为止：
+// trivia 留在外层列表里（注释照旧出现在产物里，只是不再属于这一格）。
+while (count > 0 && IsTriviaUnit(Get(units, index + count))) {
+  count = count - 1;
+}
 result.AddRange(TakeRange(units, index + 1, count));
 const nextIndex = ReplaceCountAt(units, index, count + 1, result);
 if (result.Data.length === 0) {
