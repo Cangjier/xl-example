@@ -307,6 +307,40 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 897 轮：收掉最后一格 `xl:known-gap`——**`<` / `>` 左边还有没折的 `instanceof` 就先让开**（缺口清单**空了**）
+
+**一句话**：第 896 轮把那一格缩到「只有尖括号那一对会反」，这一轮把**次序量清了**
+（不是判据错，是两条规则的**趟序**），收掉之后 `cases:tsast` 的已知缺口表**一条不剩**。
+
+- **根因一句话**：`RelationalInstance` 比 `InstanceofInstance` **早**问到 `<`
+  （`parse-pipeline.xl.md` 的 `GeneralCloseRule` 里 `… RelationalInstance, InInstance,
+  InstanceofInstance, EqualityInstance …`），于是 `<` 那一趟看到的左边是 `C`、不是
+  「折好的 `b instanceof C`」⇒ `b instanceof ((C < D) > d)`（与 TS 逐 token 一致、
+  **嵌套方向相反**，正是 `漂 2 / 多 2` 那两个节点）。
+  **插桩（`tmp/r897/prev.mjs`，把 `Previous` 的目标切片打出来）**：`<` 在 idx=5 被问到时
+  左边是 `Identifier:C`，而 `instanceof` 那一趟问的是**已经折过一次的列表**
+  （`list=Let = b instanceof BinaryOperator`）——两次问的**不是同一个状态**。
+- **修法**（`binary-operator.xl.md` 的 `YieldsToInstanceof`）：`<` / `>` 在
+  `IsValuePositionOperator` 之后多问一句「**我左边同一层里还有一格能折的 `instanceof` 吗**」，
+  有就先让开、让排在后面的 `InstanceofInstance` 那一趟先折。
+  判据**原样交给 `InstanceofInstance.Previous`**（连同它的位置闸、`?.` 闸、尖括号断言闸）——
+  自己再写一张「左右都是操作数」的表就是第二份答案，而漂了的症状正是这一格。
+- **为什么只让 `<` / `>`**：`<=` / `>=` 与泛型实参不同形，`GenericTypeBranch` 根本不会试读它们
+  （第 896 轮量过：`b instanceof C <= D >= d` 一直是对的）；让开它们只会白改一趟。
+- **右边那一格也得是操作数**：本规则折出来的 `BinaryOperator` 正是要递进去当 `instanceof` 的
+  右操作数，所以 `b instanceof + e`（`+` 开局）这一支**不响**，照原来的路走。
+- **收掉 1 条**：`tests/cases/token/expressions/gap-instanceof-then-add.ts`
+  （`xl:known-gap` 按规矩撤掉、用例留着当守卫）⇒ `cases:tsast` 的缺口表**空了**。
+- **实测**：九道门全绿（墙钟 31.4s）——`cases:tsast` 16/16 且缺口 0 条、
+  `cases:astjson` 六项全 0（1476 份 / 35132 个节点）、`cases:check` 1486 / 1486、
+  `cases:tags` 4948 条断言 0 条不一致、`cases:shapes` 未覆盖 0；
+  `coverage 4080 / 4252 → 4081 / 4252`（`blocked 39` / `differ 132` / `bad 0` 一处没动，
+  加权 95.3%）——**红的只有那一条缺口，而它转绿了**。
+- **可复用的判据**：**「这个判据写错了」与「这个判据轮到得太早」是两回事**。
+  第 896 轮把嫌疑钉在「尖括号那两格在二元折叠里的次序」上，这一轮证明顺序本身没错
+  （后折的 `instanceof` 确实把左边的结果吃进去了）——错的是**谁先被问到**。
+  插桩要问的不是「判据返回了什么」，而是「**两次问的是不是同一个列表状态**」。
+
 ### 第 896 轮：把那一格缩到**最小片段**——「只有尖括号那一对会反」（九道门全绿、数字照旧一个没动）
 
 **一句话**：第 895 轮收工的读数是「缺口照旧、要收的是同级比较链的结合方向」，

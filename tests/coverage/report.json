@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.33,
+  "progressPercent": 95.34,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1473,
-      "pass": 1472,
-      "blocked": 1,
+      "pass": 1473,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.93
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1473,
-    "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1472,
-    "scoredWithoutGap": 1472,
-    "passedWithoutGap": 1472
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1473,
+    "scoredWithoutGap": 1473,
+    "passedWithoutGap": 1473
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-instanceof-then-add",
-      "category": "token",
-      "title": "`instanceof` 右边那个 `<…>` 后面跟 `+` / `-` 时的比较链结合方向（已知缺口）",
-      "detail": "漂 2　多 2　同级尖括号比较链折成了右嵌套（`>` 先折、`<` 后折），TS 给左嵌套"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",

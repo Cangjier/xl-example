@@ -461,6 +461,10 @@ if (IsWordUnit(current, "in") && current.Parent instanceof Bracket) {
 if (this.IsValuePositionOperator(current) === false) {
   return false;
 }
+// **左边还有一格 `instanceof` 没折时，`<` / `>` 先让开**（第 897 轮）。
+if (this.YieldsToInstanceof(units, index, current)) {
+  return false;
+}
 // **尖括号类型断言的那个 `>` 不是比较运算符**（第 889 轮，与上面那一支同一趟补的）。
 // `<T>x` 里 `>` 的左边明明站着 `T`（`IsOperand` 会放行），可它配对的是**操作数位上那个 `<`**——
 // 折下去就把整条断言拆成 `BinaryOperator(T > x)`（实测 `expr-angle-assertion`：
@@ -985,6 +989,60 @@ if (parent.constructor.name === "EnumMember") {
   return true;
 }
 return parent.constructor.name === "Statement";
+```
+
+## private method YieldsToInstanceof:(units:Array<Token>, index:int, current:Token)=>bool
+
+`index` 处那个 `<` / `>` 是不是该**先让开**——它左边同一层里还躺着一格**能折的 `instanceof`**，
+而那一格排在 `InstanceofInstance` 那一趟（**比 `RelationalInstance` 晚**，见 `../parse-pipeline.xl.md` 的
+`GeneralCloseRule`）。
+
+**为什么非让不可**（第 896 轮缩到的最小片段、第 897 轮量清的机制）：本规则一趟里
+`RelationalInstance` 先问到 `<`，它按「左边是操作数、右边是操作数」照折——那时左边站的是 `C`：
+
+| 源码 | 本仓（不让） | TS |
+| --- | --- | --- |
+| `b instanceof C < D > d;` | `b instanceof ((C < D) > d)` ✗ | `((b instanceof C) < D) > d` |
+
+产物与 TS **逐 token 一致**、只是**嵌套方向相反**——所以 `cases:tsast` 记的是漂 2 / 多 2。
+折的次序是 `C < D` → `> d` → `b instanceof (…)`，而 TS 是 `b instanceof C` **先**折。
+**`<=` / `>=` 不受影响**：它们与泛型实参不同形，`GenericTypeBranch` 不会去试读它们
+（第 896 轮量过：`b instanceof C <= D >= d` 本来就读对）。
+
+**判据不另立一套**：往回找同一层里最近的那个 `instanceof` 词，然后**把那一格交给
+`InstanceofInstance.Previous` 原样问一遍**——问的是「这一刻它能不能折」，
+与 `InstanceofInstance` 那一趟问的**是同一句话**（`instanceof` 是 `Keyword` 时与 `Identifier` 时
+都认，`IsOperator` / `OperatorText` 本来就是两种写法都收）。
+自己再写一张「左右都是操作数」的表就是**第二份答案**：两处会漂，而漂了的症状正是这一格。
+
+**右边那一格也要是操作数**：本规则折出来的那个 `BinaryOperator` 正是要递进去当
+`instanceof` 的右操作数（`b instanceof C<D> + e` 里那一格是 `C`，
+而 `b instanceof + e` 里 `+` 开局 ⇒ 这一支不响，照原来的路走，两个出口一字不差）。
+
+```ts
+if (!(current instanceof SymbolToken)) {
+  return false;
+}
+if (current.Is("<") === false && current.Is(">") === false) {
+  return false;
+}
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    break;
+  }
+  if (IsWordUnit(item, "instanceof") === false) {
+    continue;
+  }
+  if (this.IsOperand(Get(units, SkipPreviousTrivia(units, i))) === false) {
+    return false;
+  }
+  if (this.IsOperand(Get(units, SkipNextTrivia(units, i))) === false) {
+    return false;
+  }
+  return BinaryOperatorCloseRule.InstanceofInstance.Previous(units[i]!.Template, units, i);
+}
+return false;
 ```
 
 ## private method IsAngleAssertionCloser:(units:Array<Token>, index:int, current:Token)=>bool
