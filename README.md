@@ -979,7 +979,7 @@ getter 抛异常 / `Symbol.toPrimitive` / `Array.from` / `splice` 的洞**——
   外层挂在 `yield*` 上时，`it.throw(e)` 在 JS 里要**转给被委托那个迭代器** ⇒ 内层 `catch`
   接得住；本仓把这一抛留在**外层帧**上展开（内层的帧不在栈上、处理点被留着但落不到）
   ⇒ 内层 `catch` **一次都不跑**、异常直接从 `it.throw()` 冒出去。**第 766 轮改好的是
-  「同一个生成器自己那一层」**（`runtime/round766/r766a-01` 四种排版全过），
+  「同一个生成器自己那一层」**（`runtime/round766/001-throw-into-generator` 四种排版全过），
   跨生成器这一档要的是**在挂起点先把这一抛转交出去**（与 `.next()` 那条对称）——
   那是降级层的一条新路（认得出当前挂起点是不是 `yield*`、是就调它的 `throw`），先如实登记。
 - **新登的另一条：`Function.prototype[Symbol.hasInstance]` 那一格是空的**
@@ -1022,7 +1022,7 @@ getter 抛异常 / `Symbol.toPrimitive` / `Array.from` / `splice` 的洞**——
 
   Node 打 `caught`，本仓打 `escaped`——生成器体里那句 `catch` **一次都不跑**，
   异常直接从 `it.throw()` 那一句冒出去。`try { yield 1 } finally { cleanup() }`
-  那一档的症状更难看：**清理一声不响**（判据 `runtime/round766/r766a-01` 四种排版一起钉）。
+  那一档的症状更难看：**清理一声不响**（判据 `runtime/round766/001-throw-into-generator` 四种排版一起钉）。
   **根子是挂起的帧恢复时压在别人上面，而它的处理点是更早压进这一摞的** ⇒
   数组次序与层深次序相反。**改法是两趟**：第一趟按 `DepthOfFrame` 挑层深最大的一条
   （同一帧上叠了几层 `try` 时取更靠后的那一条 = 更靠里），第二趟把落点取走、把死掉的扔掉、
@@ -1030,7 +1030,7 @@ getter 抛异常 / `Symbol.toPrimitive` / `Array.from` / `splice` 的洞**——
   那一步要找的就是它们。**`await` 那一族是同一个形状**（帧被 `await` 摘下去时，
   调用者在它挂起之后同样可能又进了新的 `try`），所以这一处改动把两条路一起管住了
   （`runtime/round766/r766a-03` 三档一起钉）。
-- **② `ToPrimitive` 给不出原始值时抛的是普通 `Error`**（`stdlib/round766/r766a-01`）：
+- **② `ToPrimitive` 给不出原始值时抛的是普通 `Error`**（`stdlib/round766/001-toprimitive-typeerror`）：
   JS 抛 `TypeError`（`Cannot convert object to a primitive value`），本仓抛普通 `Error`
   ⇒ `catch (e) { e instanceof TypeError }` 那一档**分不出来**。两处落点
   （`Symbol.toPrimitive` 给了对象、普通那两步都没给原始值）一起改成宿主 `TypeError`——
@@ -1157,7 +1157,7 @@ getter 抛异常 / `Symbol.toPrimitive` / `Array.from` / `splice` 的洞**——
   它们是「脚本直接调」的普通内建，**不进** `helpers` 那张「降级层会发的号」的表
   （那一张是给 700 段的家务事用的）——漏登记的症状是 `capability id is out of range: 718`。
 - 语料 **+7 条**（`stdlib/round763`：`r763a-01` … `a04`、`r763b-01` / `b02`、`r763c-01`；
-  **7 条全通过**）。台账 `stdlib/round761/r761g-01` 那一行跟着更新（缺的名字 **15 → 11**、
+  **7 条全通过**）。台账 `stdlib/round761/002-console-names-differ` 那一行跟着更新（缺的名字 **15 → 11**、
   键数 **10 → 13**）。五类 **7824 / 8209 → 7831 / 8216**、`blocked 264`（没动）、
   `differ 121`（没动）、`bad` 仍 **0**、`regressions` **0**、`newlyPassing` 0，
   加权 **95.6%**。
@@ -1176,7 +1176,7 @@ getter 抛异常 / `Symbol.toPrimitive` / `Array.from` / `splice` 的洞**——
   `Assertion failed { a: 1 }`（**没有冒号**）、`console.assert(false, 1)` 是 `Assertion failed 1`，
   而 `console.assert(false, "s", { a: 1 })` 是 `Assertion failed: s { a: 1 }`。
   第一版写成「拼一个前缀再走渲染」⇒ 前两格各多一个冒号（**判据当场点出来**）。
-- **新登记的缺口**（`runtime/round762/r762e-01`）：`typeof void 0` / `typeof !0`
+- **新登记的缺口**（`runtime/round762/005-typeof-then-prefix-blocked`）：`typeof void 0` / `typeof !0`
   **整份文件进不来**（降级期报 `name is not a local or a capture: typeof`），而
   **`typeof -1` 一直是好的**——分界是「第二个词是**前缀词**（`void` / `!`）还是**符号**（`-` / `+`）」。
   产物那一侧量到的是：那个 `typeof` **没升成 `Keyword`**、停在 `Identifier` 上，
@@ -1195,7 +1195,7 @@ getter 抛异常 / `Symbol.toPrimitive` / `Array.from` / `splice` 的洞**——
 而 `count` / `countReset` **根本没挂**——`console.count()` 报
 `cannot call a non-closure value`（**那句话听起来像「调用写错了」**，其实是那一格没人挂）。
 
-- **形状照 Node 实测写**（判据 `stdlib/round761/r761f-01`）：标签缺省是 `"default"`
+- **形状照 Node 实测写**（判据 `stdlib/round761/001-console-count-and-reset`）：标签缺省是 `"default"`
   （`console.count()` 与 `console.count("default")` 是**同一个计数**）、走 stdout、
   行文本是 `标签: 次数`、`countReset(标签)` 只清那一个、`countReset()` 清 `default`，
   **没数过的标签不报错**（Node 只在 TTY 上打一句 `Warning`，而这一层没有 TTY）。
@@ -1204,7 +1204,7 @@ getter 抛异常 / `Symbol.toPrimitive` / `Array.from` / `splice` 的洞**——
   规范里 `countMap` 本来就长在那个 `Console` 实例上，而 `console.count()` 的 `this` 正是它。
 - **故意不做的三格**：`time` / `timeEnd` / `timeLog` 印的是**墙钟毫秒**（`t: 0.008ms`），
   逐字节不可比 ⇒ 判据立不住，这一层**不假装能复现它**（写在 `ConsoleCount` 那一段里）。
-- **还缺的十五个名字如实登记**（`stdlib/round761/r761g-01`）：`assert` 只差「读真假 + 挑流 +
+- **还缺的十五个名字如实登记**（`stdlib/round761/002-console-names-differ`）：`assert` 只差「读真假 + 挑流 +
   固定前缀」那一小段（**下一轮可收**）、`group` 那一族要**缩进状态**（缩进落在每一行上，
   不只 `log`）、`trace` 要真帧栈（与 `Error.stack` 同一条根）、
   `_stdout` / `_times` 那一族是 Node 自己的内部件、**不在规范里**。
@@ -1220,7 +1220,7 @@ getter 抛异常 / `Symbol.toPrimitive` / `Array.from` / `splice` 的洞**——
 而本仓**长着两条互不相干的支**——一条只认数组接收者、一条类数组接收者——
 **两条都没问那一句**：两个朝向各错一半，而且**都是静默错值**。
 
-- **这一轮普查当场红的四条**（判据 `runtime/round760/r760a-01`）：
+- **这一轮普查当场红的四条**（判据 `runtime/round760/001-concat-generic-and-spreadable`）：
   `Array.prototype.concat.call(1, 2)` 报「this method needs an array receiver」
   （Node 给 `[1, 2]`）、`concat.call({ 0: "a", length: 1 }, [2])` 也抛
   （Node 给 `[{0:"a",length:1}, 2]`）、
@@ -1240,11 +1240,11 @@ getter 抛异常 / `Symbol.toPrimitive` / `Array.from` / `splice` 的洞**——
   ——第 753 轮为了让 `new (F.bind(null))() instanceof F` 为真，把**目标的 `prototype` 抄到了
   绑定对象自己身上**（那一轮自己写在明处）。要收得让 `vm.xl.md` 的 `CreateInstance`
   认得「被调者是不是绑定函数」再转交目标的 `prototype`——那是**每一次 `new` 都要过的路**
-  （与第 750 轮 `a.length = "2"` 同一条取舍），这一轮只登记（`runtime/round760/r760d-01`）。
+  （与第 750 轮 `a.length = "2"` 同一条取舍），这一轮只登记（`runtime/round760/004-bound-function-prototype-differ`）。
   ② `String.prototype` 少三格（`match` / `search` / `matchAll`，`getOwnPropertyNames` 给 49、Node 给 52）
   ——它们不是「漏挂三个名字」：三条路都要 `RegExp` 整族，而降级层**连正则字面量都不收**
   （同一批的两条候选报的就是 `unimplemented: expression RegularExpressionLiteral`），
-  与 `stdlib/string/136` / `147` 同一条根（`stdlib/round760/r760e-01`）。
+  与 `stdlib/string/136` / `147` 同一条根（`stdlib/round760/001-string-regexp-methods-differ`）。
 - **台账**：`stdlib/array/149-concat-spreadable`（第 691 轮登的「`concat` 不认那一位」）
   **转绿、指令已撤**，用例留着当守卫。
 - 语料 **+5 条**（`runtime/round760` 4 条 + `stdlib/round760` 1 条；**3 条当场通过**、
@@ -2808,7 +2808,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 **三条探针全 pass**（枚举次序、洞与新方法、格式化**一条不差**——80 行读数逐字相同），
 名字那一条 16 行里 15 行对、**一处收掉**。
 
-- **收掉一处：计算键成员的名字**（判据 `r755a-01` 第 8 / 12 行，**两条旧台账一起到期**：
+- **收掉一处：计算键成员的名字**（判据 `runtime/round755/001-function-and-accessor-names` 第 8 / 12 行，**两条旧台账一起到期**：
   第 732 轮的 `p732a-a02` / `p732a-a03`）。
   `class C { ["m" + 1]() {} }.prototype.m1.name` 在 Node 里是 **`"m1"`**、
   `{ get ["x" + 1]() {} }` 的 getter 叫 **`"get x1"`**，而本仓两处都给**空串**。
@@ -2832,7 +2832,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   （不是字符串就不做、已经有名字的不动、有前缀就先拼）——
   **降级层一个字都不判**。这一格同时把「符号键要写名字」那 8 条的红消掉了
   （`SetProperty` 那条快路只认字符串，符号键会落到 `RtToString(符号)` 上响亮地抛）。
-- **新登一条**（`r755a-01` 留下的那一行）：**解构默认值里的函数值不取名**——
+- **新登一条**（`runtime/round755/001-function-and-accessor-names` 留下的那一行）：**解构默认值里的函数值不取名**——
   `const { a = function () {} } = {}` 的 `a.name` 在 Node 里是 `"a"`（解构默认值
   **也是命名位置**），本仓给空串（`Destructure` 那条路一格名字提示都没挂）。
 - 用例：`runtime/round755` 4 条（3 pass / 1 differ，pass 的那三条各钉一面）。
@@ -2847,7 +2847,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 （数组下标位上的访问器与洞、属性描述符的默认值与冻结 / 密封 / 不可扩展）。
 **一面 16 行全对**、另一面 16 行里 15 行对、**一处收掉**。
 
-- **收掉一处：`join` 在装了访问器的下标上读不到那一格**（判据 `r756c-01` 第 3 行，
+- **收掉一处：`join` 在装了访问器的下标上读不到那一格**（判据 `runtime/round756/001-index-accessors-and-holes` 第 3 行，
   **两条旧台账一起到期**：`stdlib/array/143-getter-array-index` 与
   `stdlib/round721/p721a-b01`）。`Object.defineProperty(a, 0, { get() { return 9 } })`
   之后 `a.join(",")` 在 Node 里是 `"9,2"`、本仓给 `",2"`（**静默错值**）。
@@ -2859,7 +2859,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   修法两处：上界换 `ArrayLikeLength`（对数组接收者取的是同一格 `length`）、
   **装了访问器的那一格改走 `GetProperty`**（判据是 `IndexAccessorAt`——
   与 `vm.xl.md` 的 `RtOp.GetIndex` 那一处**同一句**；`call === null` 时退回元素区那条老路）。
-- **新登一条**（`r756c-02` 第 11 行）：**严格代码里写只读属性该抛 `TypeError`**。
+- **新登一条**（`runtime/round756/002-property-descriptors-differ` 第 11 行）：**严格代码里写只读属性该抛 `TypeError`**。
   `"use strict"; const o = {}; Object.defineProperty(o, "a", { value: 1, writable: false }); o.a = 2;`
   在 Node 里抛 `TypeError`、本仓**静默不写**（**静默错值**）。
   `ir.xl.md` 的 `case SetProp` 那一行**本来就写着这一句**（「严格模式下的只读 /

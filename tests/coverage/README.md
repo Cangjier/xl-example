@@ -525,7 +525,7 @@
    **7799 → 7804**、分母 **8179 → 8183**、`blocked 262`（**没动**）、
    `differ 118 → 117`（新登 1、旧账转绿 2）、`bad` 仍 **0**、`regressions` **0**、
    `moved` 0、`newlyPassing` **0**——**收掉一处**：**计算键成员的名字**
-   （`r755a-01` 第 8 / 12 行；第 732 轮的 `p732a-a02` / `a03` 两条旧台账到期）。
+   （`runtime/round755/001-function-and-accessor-names` 第 8 / 12 行；第 732 轮的 `p732a-a02` / `a03` 两条旧台账到期）。
    类成员那一支原来 `memberDisplay` 无条件给 `"<computed>"`、而运行期那条补写路
    （`EmitComputedFunctionName`）当时还没有——同一个形状两条路只接了一条
    （对象字面量那半第 620 / 732 轮修过）。
@@ -541,7 +541,7 @@
    **7804 → 7807**、分母 **8183 → 8185**、`blocked 262`（**没动**）、
    `differ 117 → 116`（新登 1、旧账转绿 2）、`bad` 仍 **0**、`regressions` **0**、
    `moved` 0、`newlyPassing` **0**——**收掉一处**：**`join` 读不到装在数组下标上的
-   访问器**（`r756c-01` 第 3 行；`stdlib/array/143-getter-array-index` 与
+   访问器**（`runtime/round756/001-index-accessors-and-holes` 第 3 行；`stdlib/array/143-getter-array-index` 与
    `stdlib/round721/p721a-b01` 两条旧台账到期）。
    **根子**：`ArrayJoin` 那一支按 `source.GetLength()`（**元素区的格子数**）循环，
    而装访问器会把那一格**摘成洞**（`props.xl.md` 的 `IndexAccessorAt` 那一段）

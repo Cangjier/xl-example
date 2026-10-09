@@ -7547,7 +7547,7 @@ for (let i = 0; i < members.length; i++) {
   // **字符串名的后缀去引号**（`TextOf` 给的是原文，带引号）——
   // 对象那一处走 `KeyUnitsOf`、这里只有字符串名要它（标识符与 `#私有名` 照旧 `TextOf`）。
   //
-  // **计算键那一档第 755 轮补上了名字**（**普查当场量到的**，判据 `r755a-01`）：
+  // **计算键那一档第 755 轮补上了名字**（**普查当场量到的**，判据 `runtime/round755/001-function-and-accessor-names`）：
   // `class C { ["m" + 1]() {} }` 的 `C.prototype.m1.name` 在 Node 里是 **`"m1"`**、
   // 本仓给**空串**——`memberDisplay` 原来无条件给 `"<computed>"`（以 `<` 开头 ⇒
   // `LowerFunctionValue` 按匿名处理），而运行期那条补写路（`EmitComputedFunctionName`）
@@ -7558,7 +7558,7 @@ for (let i = 0; i < members.length; i++) {
   const accessorWord = kind === "GetAccessor" ? "get " : "set ";
   // **`TextOf` 只能在「不是计算键」那一支里调**：计算键节点**没有 `text`**
   //（`ast node ComputedPropertyName has no text`）——第一版把它写在 `if` 之前，
-  // 于是**整份文件在降级期就挂了**（`r755a-01` 第一行就报）。
+  // 于是**整份文件在降级期就挂了**（`runtime/round755/001-function-and-accessor-names` 第一行就报）。
   let memberDisplay = "";
   let computedMemberHint = "";
   if (computedName) {

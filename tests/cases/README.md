@@ -322,6 +322,48 @@ runtime **756 / 807 · blocked 6 · differ 45 · bad 0**（两边退出码 0）�
    （`不打印的通过等于没验`）。恢复被误删的来源要用 `git checkout HEAD -- <path>`，
    恢复之后**先跑一遍 node 看它出不出话**，再拿去并组。
 
+**第 809 轮的合并**（**跨域重复的同一个判定点并组：四条源文件下盘；第 760–762 轮的
+`r<轮次>*` 名按规范收编：17 条**）：
+
+这一轮**不按域走，按「同一个判定点在另一个类别 / 另一个域里又写了一遍」走**——
+第 802 轮收尾时**如实留在明处**的那批跨域重复（见下面「跨域 / 跨类别的重复如实留在这里」
+那一节），这一轮把其中**同类别**的四对并掉：
+
+| 保留条 | 并掉的源文件 | 为什么是同一条 |
+| --- | --- | --- |
+| `runtime/round742/001-switch-match-semantics` | `exec/round742/001-switch-match-evaluation` | 判别式与 `case` 怎么比、各求值几次——同一句话在两处各写了一遍 |
+| `exec/expressions/248-class-expressions-and-new` | `exec/round736/003-class-expression-name-and-tostring` | 类表达式当值时自己那一格（`name` 与 `toString` 的开头） |
+| `exec/round737/002-array-from-iterables-and-array-likes` | `exec/round709/005-array-from-array-likes` | `Array.from` 认哪一支（迭代协议 / 类数组） |
+| `runtime/exceptions/003-exc-finally-return` | `exec/round736/004-finally-abrupt-completion` | `finally` 对突然收场的接管（谁的话算数） |
+
+四条被并掉的源文件里**独有的断言逐句搬进保留条**（不是整条删掉）：
+switch 那一条收进三段（判别式是自增表达式、判别式是 `typeof`、`NaN` / `"1"` 落空）、
+类表达式收进三条（匿名类的 `name`、`toString` 的开头、`new` 的被调者）、
+`Array.from` 收进两行（`{ length: 2 }` 与 `{}`）、`finally` 收进一档
+（`switch` 里 `break` 也要先走 `finally`）；保留条里被搬进来的正文**一字未改**，
+只在前面挂一句「809 · 原 …」的出处注释。
+
+**这一轮量出的一处坑（并组时现形的）**：`switch` 的 `case` 后面**再出现第二个
+`case` / `default` 标签**时，本仓降级期**整份文件进不来**（实测
+`name is not a local or a capture: case`；`exec/statements/084-switch-case-block-blocked`
+是同一处账）——第一版把原样三条断言搬进来时连这一格一起搬了，那条 `runtime` 用例
+**当场从 pass 变 blocked**。所以**并进来的断言要先过一遍「它在不在别的账上」**：
+这一轮把那一档只留 `case 1`（`f(1)` 走 `try` → `finally` → `break` → `end`，
+`f(2)` 落空，两档都盖到），**不碰那处已知缺口**。
+
+**改名**（第 760–762 轮的 17 条）：`r760a-01-…` / `r761f-01-…` / `r762d-01-…` 一律收成
+`<三位序号>-<kebab 描述>`，序号**域内从 001 起连续**，账的尾巴进名字
+（`-differ` / `-blocked`）；`xl:round` **不动**（轮次本来就该待在那两格里）。
+改名逐字节等于原文件，逐条用 `node` 与 `tsrun` 各跑一遍核对过。
+
+**保台账（全量批量跑，`--jobs 8 --batch-workers 32`）**：语料 **4409 → 4405**（净少 **4**：
+删 4、改名 17 条不计增减）、过 **4013 → 4009**；**blocked 258 / differ 138 / bad 0 一处没动**，
+`MOVED` / `NEWLY-PASSING` / `REGRESSION` **全 0**，加权 93.11%。
+
+**收网扫描（亲手再列一遍）**：全仓遗留 `r<轮次>*` / `probe*` / `p<轮次>*` 命名 **154 条**
+（本轮之前 **171**：第 760–762 轮那 17 条收掉了），全在 `runtime`（76）与 `stdlib`（78）两侧的
+第 763–783 轮域里；第 760–762 轮六个域**逐目录列一遍**，不以数字开头的 **0 条**。
+
 **第 803 轮的合并**（**`runtime` 前九个探针域按判定点重排：48 → 12**）：
 
 这一轮走 `runtime/round726`–`round734` 九个纯探针域（`round734` 随之清零、目录消失），
@@ -470,6 +512,8 @@ runtime **776 / 827 · blocked 6 · differ 45 · bad 0**（两边退出码 0）�
 与 `typeof class {}` 各占一格，本条钉的是一元与二元位置那一半）；
 `statements/087` 与 `statements/079-labeled-statements`（079 的十条全在 IIFE 里，本条钉的是
 「尾巴有没有被壳吞掉」那一半）。
+**上面前四条（`round737/002` · `round736/003` · `round736/004` · `round742/001`）第 809 轮已经并掉**
+（源文件下盘、独有断言搬进保留条，见上面第 809 轮那一节）；留在这里的是**本轮没动**的那几条。
 
 **第 801 轮的合并**（**整个 `stdlib` 的原子探针域按判定点重排：233 → 154**，探针命名清零）：
 
