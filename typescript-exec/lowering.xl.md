@@ -3618,7 +3618,7 @@ this.Emit(Op.Move, slot, value, -1, -1);
 this.DeclareLocal(name, slot);
 ```
 
-## method DestructureDefault:(initializer:AstNode, value:int)=>void
+## method DestructureDefault:(initializer:AstNode, value:int, nameHint:string = "")=>void
 
 **解构元素上的默认值**：读出来的那一格**严格等于 `undefined`** 就用默认值。
 
@@ -3635,13 +3635,25 @@ this.DeclareLocal(name, slot);
 **它只写 `value` 那一格**（`GetIndex` / `GetProp` / 剩下那两条内建给的都是一次性的临时格）：
 调用方拿着的还是同一个槽号，不必关心「有没有被默认值换过」。
 
+**第三个参数 `nameHint` 是第 899 轮加的**（JS 的 NamedEvaluation）：
+`const { a = function () {} } = {}` 里那个函数叫 **`"a"`**，本仓原来给空串
+（判据 `runtime/round755/001` 第 14 行）。**名字由调用方给**（只有它知道这一格的绑定名），
+这一层只负责「**默认值在不在命名位置上**」这一句判据——与字段初始化式那一处
+（`FieldInitialValue`）**共用** `NamesFunctionValue`：
+`{ a = cond ? () => 1 : () => 2 }` 在 JS 里两个箭头**都是匿名的**，照样不给名。
+**函数表达式自带真名时它赢**（`{ a = function named() {} }` 给 `"named"`）——
+这一层只是把提示挂上去，谁赢由 `LowerFunctionValue` 那三档次序定。
+
 ```ts
 const undef = this.Reserve(1);
 this.Emit(Op.Const, undef, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
 const missing = this.RtCallValues(RtOp.CmpEqStrict, value, undef);
 const skipDefault = this.Here();
 this.Emit(Op.JumpIfFalse, missing, 0, -1, -1);
+const savedHint = this.FunctionNameHint;
+this.FunctionNameHint = this.NamesFunctionValue(initializer) ? nameHint : "";
 const fallback = this.LowerExpression(initializer);
+this.FunctionNameHint = savedHint;
 this.Emit(Op.Move, value, fallback, -1, -1);
 this.Release(fallback);
 this.PatchTarget(skipDefault, this.Here());
@@ -3858,10 +3870,17 @@ for (let i = 0; i < elements.length; i++) {
     value = this.RtCall2(RtOp.GetIndex, items, index);
   }
   // **默认值**（第 132 轮；第 146 轮起那一段在 `DestructureDefault` 里，与赋值那一半共用）。
-  const initializer = OptionalChild(element, "initializer");
-  if (initializer !== null) this.DestructureDefault(initializer, value);
+  // **名字提示从目标那一格来**（第 899 轮）：`const { a = function () {} } = {}` 里那个函数
+  // 叫 `"a"`，取的是**绑定的那个名字**——`{ x: c = … }` 给 `"c"`、`{ ["y"]: d = … }` 给 `"d"`
+  //（都不是属性名）。**嵌套模式只认简单名**：`{ a: { b = … } }` 由里面那一格自己命名，
+  // 所以目标不是 `Identifier` 时给空串（那一层马上会再进来一次，名字在那一趟挂）。
+  // 目标原来在**求完默认值之后**才读——现在必须提前，这不改语义（`Child` 只是取字段）。
   const target = Child(element, "name");
   const targetKind = NodeKind(target);
+  const initializer = OptionalChild(element, "initializer");
+  if (initializer !== null) {
+    this.DestructureDefault(initializer, value, targetKind === "Identifier" ? TextOf(target) : "");
+  }
   if (targetKind === "ObjectBindingPattern" || targetKind === "ArrayBindingPattern") {
     this.Destructure(target, value, isVar);
     continue;
@@ -4036,8 +4055,13 @@ const operator = Child(element, "operatorToken");
 if (TextOf(operator) !== "=") {
   throw new Error("unimplemented: destructuring element with " + TextOf(operator));
 }
-this.DestructureDefault(Child(element, "right"), value);
-return Child(element, "left");
+// **命名位置这一半也一样**（第 899 轮）：赋值模式的目标是个**标识符**时，
+// 默认值里的匿名函数叫那个名字（`({ a = function () {} } = {})` 给 `"a"`）；
+// 目标是成员（`({ m: o.n = function () {} } = {})`）时在 JS 里**是匿名的**——
+// 名字只从「绑定 / 引用名」来，不从「写进去的那个位置」来，所以非 `Identifier` 给空串。
+const target = Child(element, "left");
+this.DestructureDefault(Child(element, "right"), value, NodeKind(target) === "Identifier" ? TextOf(target) : "");
+return target;
 ```
 
 ## method StoreAssignTarget:(target:AstNode, value:int)=>void

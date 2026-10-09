@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.34,
+  "progressPercent": 95.38,
   "categories": [
     {
       "category": "token",
@@ -101,11 +101,11 @@
       "category": "runtime",
       "weight": 0.25,
       "total": 776,
-      "pass": 729,
+      "pass": 730,
       "blocked": 6,
-      "differ": 41,
+      "differ": 40,
       "nodefail": 0,
-      "coverage": 93.94
+      "coverage": 94.07
     },
     {
       "category": "stdlib",
@@ -720,12 +720,6 @@
       "category": "runtime",
       "title": "`Symbol.unscopables` 那一格（数组的自有屏蔽表）",
       "detail": "stdout 不同：第 2 行：node «typeof Array.prototype[Symbol. ok:string:object» vs tsrun «typeof Array.prototype[Symbol. ok:string:undefined»"
-    },
-    {
-      "id": "runtime/round755/001-function-and-accessor-names-differ",
-      "category": "runtime",
-      "title": "函数与访问器的名字推导（`name` 那一格）",
-      "detail": "stdout 不同：第 14 行：node «(function () { const { a = fun ok:string:a» vs tsrun «(function () { const { a = fun ok:string:»"
     },
     {
       "id": "runtime/round756/002-property-descriptors-differ",
