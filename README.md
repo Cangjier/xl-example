@@ -322,7 +322,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 - **箭头函数那一份是第二处**（`lamda.xl.md`）：`Lamda` 造 `LamdaParameters` 时自己切分括号内容
   （逗号早被折成 `BinaryOperator op=","`，要先 `CollectParameterUnits` 拆平），
   同一个「只有注释的一段」也会包出零宽 `Parameter`（实测 `(/*c*/) => 1`）。
-  两处合起来把这五形状一次收掉：`m(/*c*/) { … }` / `private m(/*c*/) { }` /
+  两处合起来把这七种排版一次收掉：`m(/*c*/) { … }` / `private m(/*c*/) { }` /
   `function f(/*c*/) { … }` / `async function f(/*c*/) { … }` / `function* g(/*c*/) { … }` /
   `interface I { m(/*c*/): void }` / `(/*c*/) => 1`。
 - **收掉的 12 条**：`gap-sweep-{comment,linecomment}-{class,clsmod,async,gener,iface}` 里的 10 条、
