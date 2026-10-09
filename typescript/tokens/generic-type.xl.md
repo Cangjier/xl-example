@@ -116,10 +116,14 @@ let last = unit.Last();
 // 少了这一档：`<T>` 退回裸符号 ⇒ 参数表那一段找不到 `GenericType` ⇒ 整条成员散架成
 // `StringLiteral` + `<` + `T` + `>` + `CallSignature`（TS 那边是**一个** `MethodSignature`）。
 //
-// **为什么必须限定宿主**：表达式位 `"a" < b && c > (d)` 里同一个 `<` 是**比较符**
-// （TS 读成两条二元表达式，我们这边的 `a < b && c > (d)` 本来就已经对不上，
-// 见 `typescript-parsing-gaps.md` 的那一族）—— 名字闸一放开，字符串那一份会被拖进
-// **同一条既有缺口**里：本来是好的那份读数变红。所以判据落在「宿主是不是成员体」上。
+// **表达示位那一份还没接**（第 834 轮量清了它到底缺在哪）：`const s = "a" < b > (c);`
+// 在 TS 那边是一次泛型调用 `"a"<b>(c)`，这里放开位置闸之后 `GenericType` 确实成形了，
+// 可**没有规则把 `String` + `GenericType` + `(` 收成一个 `Method`**
+//（`method.xl.md` 的名字判据只认 `Identifier`，而 `PrintAst` 那边还要按
+// `v.start + calleeText.length` 算被调者的终点 —— 字符串名会把这段算错）。
+// 也就是说：**这一格的真缺口在 `Method` 那一侧**，与本文件的名字闸无关；
+// 位置闸在这里放开只会把「两条二元表达式」换成「缺 typeArguments 的调用」，
+// 两种都还是错，读数不改善 ⇒ **先不放开**（要动的是 `Method` + 投影那两处）。
 let hostName = unit.constructor.name;
 let inMemberHost =
   hostName === "InterfaceBody" || hostName === "ClassBody" ||
@@ -345,6 +349,15 @@ while (index < count) {
     continue;
   }
   if (item === "|" || item === "&") {
+    // **`&&` / `||` 不是类型**（第 834 轮）：单个 `|` / `&` 必须放行（联合 / 交叉类型），
+    // 但**连着两个**在类型里不可能出现 —— `A && B` / `A || B` 只可能是值位的逻辑运算。
+    // 少了这一条：`const s = a < b && c > (d);` 里 `<b && c>` 被当成合法的类型实参表
+    // ⇒ 整条读成一次泛型调用，而 TS 那边是**两条二元表达式**
+    //（`a < b` 与 `c > (d)`，实测：缺 6 个节点、多一个 `CallExpression`）。
+    // 判据用 `lastSignificant`（空格 / 换行不改它），所以 `& &` 这种排版也一并挡住。
+    if (lastSignificant === item) {
+      return -1;
+    }
     seenArgument = true;
     lastSignificant = item;
     index++;
