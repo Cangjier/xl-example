@@ -21,7 +21,7 @@ import { Identifier } from "./identifier.xl.md"
 import { Import, ImportCloseRule } from "./import.xl.md"
 import { Interface } from "./interface/interface.xl.md"
 import { Keyword } from "./keyword.xl.md"
-import { Label } from "./label.xl.md"
+import { Label, LabelCloseRule } from "./label.xl.md"
 import { MethodDeclaration } from "./function/method-declaration.xl.md"
 import { String } from "./string/string.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -951,6 +951,21 @@ if (word === "function" || word === "class" || word === "interface" || word === 
 if (word === "try" || word === "do" || word === "else" || word === "finally") {
   return true;
 }
+// **`for` / `while` / `switch` 后面必须跟一个判别括号**（第 835 轮）：`for (;;) …` 里的
+// 那对括号是这几条语句**语法上不可省**的一段，所以这个词同样**不可能结束一条语句**。
+//
+// **第 828 轮把这三个词留在表外**，理由是「它们后面跟的是括号，那一格由『下一行以 `(` 开头』
+// 那一支管」—— 那条路只在**括号真的在下一行**时成立，而标签头把换行提前了：
+// `lbl: for` 换行 `(;;) { … }` 在 `for` 那一格问 `LineCannotEnd`，`(` 还没读到
+// ⇒ 收壳 ⇒ `<Label/><Keyword>for</Keyword>` 一个壳、条件括号与循环体另一个壳
+//（实测 `gap-sweep-{newline,linecomment}-label-02` 两条：`LabeledStatement` 漂到 `[0,8)`）。
+// 补上这三个词之后那两条与 `-01` 两条一起成形。
+//
+// **不会误伤成员名**：`obj.for` / `a.while` 那种写法由上面「点号后面是成员名」那一问挡着
+// （`previousIsMember`），与 `default` / `new` 同一档。
+if (word === "for" || word === "while" || word === "switch") {
+  return true;
+}
 return (
   word === "return" ||
   word === "throw" ||
@@ -1785,6 +1800,15 @@ if (previous instanceof SymbolToken && previous.Is(":")) {
   // 少了它：换行处收壳 ⇒ 函数头与返回类型分家 ⇒ `FunctionDeclaration` 整条缺
   //（实测 `gap-sweep-newline-generic-06` 与 `gap-sweep-linecomment-generic-06` 两份）。
   if (Statement.IsFunctionHeadReturnColon(units)) {
+    return true;
+  }
+  // **标签头那一档**（第 835 轮）：`lbl:` 换行 `for (;;) { … }` 是**一条** `LabeledStatement`。
+  // 判据在 `LabelCloseRule.IsPendingLabelHead`（`label.xl.md`）——它自己会把
+  // 「`let a:` 换行 `B`」那种类型标注与 `case 1:` 那种段头排掉，这里只转问一次。
+  // 少了它：换行处收壳 ⇒ `lbl` 与 `:` 关进一个壳、`for` 另起一条 ⇒ `Label`（**收尾期**才跑）
+  // 再也看不到那一对 ⇒ `LabeledStatement` 整条缺、循环体一起降级
+  //（实测 `gap-sweep-{newline,linecomment}-label-0{1,2}` 四条）。
+  if (LabelCloseRule.IsPendingLabelHead(units)) {
     return true;
   }
   return false;

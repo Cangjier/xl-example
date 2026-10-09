@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.45,
+  "progressPercent": 94.49,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1399,
-      "pass": 1338,
-      "blocked": 61,
+      "pass": 1342,
+      "blocked": 57,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 95.64
+      "coverage": 95.93
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1399,
-    "knownGap": 61,
-    "knownGapStillOpen": 61,
-    "exactFiles": 1338,
-    "scoredWithoutGap": 1338,
-    "passedWithoutGap": 1338
+    "knownGap": 57,
+    "knownGapStillOpen": 57,
+    "exactFiles": 1342,
+    "scoredWithoutGap": 1342,
+    "passedWithoutGap": 1342
   },
   "blocked": [
     {
@@ -366,18 +366,6 @@
       "detail": "缺 4　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/ifelse）：DRIFT IfStatement TS[0,33) 产物[0,19) «if (a) //c { b(); } else { c(); }»"
     },
     {
-      "id": "token/statements/gap-sweep-linecomment-label-01",
-      "category": "token",
-      "title": "SWEEP-linecomment/label 落点（657 审计语料）",
-      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/label）：MISS LabeledStatement TS[0,32) «lbl: //c for (;;) { break lbl; }»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-label-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/label 落点（657 审计语料）",
-      "detail": "缺 4　漂 1　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/label）：DRIFT LabeledStatement TS[0,32) 产物[0,8) «lbl: for //c (;;) { break lbl; }»"
-    },
-    {
       "id": "token/statements/gap-sweep-linecomment-ns-01",
       "category": "token",
       "title": "SWEEP-linecomment/ns 落点（657 审计语料）",
@@ -406,18 +394,6 @@
       "category": "token",
       "title": "SWEEP-newline/cond 落点（657 审计语料）",
       "detail": "缺 2　漂 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-newline/cond）：DRIFT VariableStatement TS[0,21) 产物[0,17) «const x = a ? b : c;»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-label-01",
-      "category": "token",
-      "title": "SWEEP-newline/label 落点（657 审计语料）",
-      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/label）：MISS LabeledStatement TS[0,29) «lbl: for (;;) { break lbl; }»"
-    },
-    {
-      "id": "token/statements/gap-sweep-newline-label-02",
-      "category": "token",
-      "title": "SWEEP-newline/label 落点（657 审计语料）",
-      "detail": "缺 4　漂 1　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/label）：DRIFT LabeledStatement TS[0,29) 产物[0,8) «lbl: for (;;) { break lbl; }»"
     },
     {
       "id": "token/statements/gap-sweep-newline-ns-01",
@@ -881,7 +857,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20396/src/2006.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28788/src/2006.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1223,7 +1199,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20396/src/2989.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28788/src/2989.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1247,7 +1223,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20396/src/3037.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28788/src/3037.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1403,7 +1379,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20396/src/3680.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28788/src/3680.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

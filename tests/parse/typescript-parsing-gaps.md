@@ -103,6 +103,20 @@
   由 `FieldCloseRule.MemberEnd` 那条「下一行以 `(` 开头」的判据管（第 827 轮），
   而 `try` / `do` / `else` / `finally` 后面跟的是**语句体本身**。
   **加词之前先问「这个词能不能单独成句」**——这是这张表唯一的入表条件。
+  **第 835 轮把 `for` / `while` / `switch` 补了回去**：上面那句「由『下一行以 `(` 开头』管」
+  只在**括号真的在下一行**时成立，而标签头会把换行提前 —— `lbl: for` 换行 `(;;) { … }`
+  死在 `for` 那一格（`(` 还没读到）⇒ `LabeledStatement` 只盖住标签（实测
+  `gap-sweep-{newline,linecomment}-label-02`）。判别括号对这三个词是**语法上不可省**的一段，
+  与「后面必须跟一个语句体」是同一档。**不会误伤成员名**：`obj.for` / `a.while`
+  由「点号后面是成员名」那一问挡着（与 `default` / `new` 同一档）。
+- **解析期那一问只看得见左边**（第 835 轮）：`Statement.LineCannotEnd` 与
+  `LabelCloseRule.IsPendingLabelHead` 都是**解析期**的判据，那一刻 `Data` 里只有
+  **已经读到的**单元 —— 同一行后面的东西还没进来（`SkipNextTrivia(data, i)` 会落到
+  `data.length` 上、`Get` 给 `null`）。**别把收尾期那一问原样搬过来**（探针实测：
+  第一版 `IsPendingLabelHead` 里复用了收尾期的 `StatementStartsHere`，恒为假）。
+  与第 820 / 822 / 828 轮那条「头还没写完 ⇒ 换行不是边界」是同一族
+  （`IsPendingImportHead` / `IsPendingDecoratorHead` / 本轮的 `IsPendingLabelHead`）：
+  判据**只用左边**，右边那一格如果是续接符，`Condition` 里后面那两条本来就不收壳。
 - **「有没有内容」也要用 trivia 口径**（第 818 轮）：`IsTriviaUnit` 不只是「跳过」用的名单，
   也是**判空**用的名单。`m(/*c*/) { … }` 括号里只有一个 `AreaAnnotation`，照
   「不是软换行就算内容」判 ⇒ 收下一张空形参表、再包出一个**零宽的 `Parameter`**

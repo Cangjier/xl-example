@@ -1,5 +1,6 @@
 // xl:note SWEEP-newline/label 落点（657 审计语料）
-// xl:expect Statement:3,Bracket:2,Keyword:2,SymbolToken:2,Identifier,Label,Root
-// xl:known-gap 注释 / 换行落在语法相邻位置之间（SWEEP-newline/label）：DRIFT LabeledStatement TS[0,29) 产物[0,8) «lbl: for (;;) { break lbl; }»
+// xl:expect Statement:4,Identifier,For,ForBody,ForCompare,ForInitial,ForNext,Keyword,Label,Root
+// 第 835 轮收掉：`lbl: for` 换行 `(;;) { … }` 原本在 `for` 后面那一格收壳
+//（`for` 不在「期待操作数」表里）⇒ `LabeledStatement` 只盖住标签。
 lbl: for 
 (;;) { break lbl; }

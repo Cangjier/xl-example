@@ -306,6 +306,52 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 835 轮：**标签头后面的换行不是语句边界**——`label` 那一族收掉 4 条
+
+**一句话**：`lbl:` 换行 `for (;;) { … }` 在解析期被拆成两个语句壳——`lbl` 与 `:` 一个、
+`for` 另一个——而 `LabelCloseRule` 是**收尾期**才跑的，那时它再也看不到那一对。
+两处判据补上之后 `cases:tsast` 的账 **61 → 57**（`coverage` **3932 → 3936**，
+`token` 那一类 blocked 102 → 98）。
+
+- **根 ①：`LineCannotEnd` 见 `:` 就答「这一行写完了」**（`statement.xl.md`）。
+  解析期的右手边（`Condition`）在换行那一刻问「左边写完没有」，而 `:` 那一支
+  （第 558 / 825 轮定的）只放行两个特例：条件类型的假分支、函数声明的返回类型。
+  标签头不在里面 ⇒ 收壳 ⇒ `lbl` 与 `:` 被关进一个壳、`for` 另起一条
+  （实测 `gap-sweep-newline-label-01`：`LabeledStatement` 整条缺；`-linecomment-01` 更狠——
+  冒号被更晚的 `TypeDefineCloseRule` 当成类型标注，注释成了整个类型：
+  `<Identifier>lbl</Identifier><TypeDefine><LineAnnotation>c</LineAnnotation></TypeDefine>`）。
+  补的是「`… <名字> <:>` 收尾、且那个名字**自己**是一条语句的开头」这一问
+  （`LabelCloseRule.IsPendingLabelHead`）——与第 829 / 830 轮的 `IsPendingImportHead`
+  同一档：**头还没写完，换行不是语句边界**。
+- **「名字自己是不是语句开头」那一问不能省**：`let a:` 换行 `B` 的行尾也是 `:`，
+  可 `a` 在产物里住在 `Statement` 壳里 ⇒ `IsStatementStart` 答否 ⇒ 这一格不生效
+  ⇒ 类型标注照旧交给 `TypeDefineCloseRule`（改完 1412 条用例的形状一条没动）。
+- **根 ②：`for` / `while` / `switch` 不在 `ExpectsOperand` 表里**。
+  第 828 轮把这三个词留在表外的理由写着「它们后面跟的是括号，那一格由『下一行以 `(` 开头』
+  那一支管」—— 那条路只在**括号真的在下一行**时成立，而标签头把换行提前了：
+  `lbl: for` 换行 `(;;) { … }` 死在 `for` 那一格（`(` 还没读到）⇒
+  `<Label/><Keyword>for</Keyword>` 一个壳、条件括号与循环体另一个壳
+  ⇒ `LabeledStatement` 只盖住 `[0,8)`（实测 `-02` 与 `-linecomment-02` 两条）。
+  这三个词是**判别括号不可省**的那一档，与 `try` / `do` / `else` / `finally` 同一个理由。
+  **不会误伤成员名**：`obj.for` / `a.while` 由「点号后面是成员名」那一问挡着
+  （`previousIsMember`，与 `default` / `new` 同一档）。
+- **踩出来的坑：解析期看不见同一行后面的单元**。第一版 `IsPendingLabelHead` 里还想问一句
+  「冒号后面那一格能不能起一条语句」（复用收尾期的 `StatementStartsHere`），
+  可那一刻 `Data` 只装着**已经读到的**单元 ⇒ `SkipNextTrivia(data, colonIndex)` 直接落到
+  `data.length` 上、`Get` 给 `null` ⇒ 那一问恒为假（探针实测 `[lbl, :, LineWrap]`：
+  `nextAt=5`、`data.length=5`）。**右边那一格也不必问**：它如果是运算符 / `.` / `(` / `[`
+  之类的续接符，`Condition` 里后面那两条本来就不收壳。
+- **一处抽取**：`StatementStartsHere`（`label.xl.md` 的静态方法）**只有一份**——
+  收尾期的 `IsLabeledStatement` 与解析期的 `IsPendingLabelHead` 问的是同一张表
+  （`LoopStatementWords`），一处写成「词表」、另一处写成「类名表」就是第二份会漂的答案。
+- **收掉的 4 条**：`gap-sweep-{newline,linecomment}-label-0{1,2}`。四条文件头的
+  `xl:known-gap` 逐条删掉、`xl:expect` 按新形状逐条重算（`cases:tags` 0 条不一致）。
+- **可复用的判据**：**解析期那一问只看得见左边**。写「头还没写完 ⇒ 换行不是边界」这类判据时，
+  别把收尾期那一问（那时整行都在 `Data` 里）原样搬过来——同一个问题在两个时期
+  手里的**证据**不同：收尾期能看右边，解析期只能看左边。
+- **留下的一族**：`gap-sweep-*-switch-0X`（`case` 段里的注释）与 `A-comment` 那一族
+  （散在六种单元尾巴上）本轮不动。
+
 ### 第 828 轮：**「相邻的那一格」在循环里也要跨 trivia**（外加 `try` 换行那一格）——三族收掉 13 条
 
 **一句话**：三处同型——`OptionalCallCloseRule.CalleeStart` 往左找被调者、`SpreadCloseRule` 往右找

@@ -6,7 +6,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { IsDeclarationModifier } from "./declaration-common.xl.md"
-import { CommentsIn, IsStatementStart, IsSwitchLabelColon, SkipNextTrivia } from "../text-common-util.xl.md"
+import { CommentsIn, IsStatementStart, IsSwitchLabelColon, SkipNextTrivia, SkipPreviousTrivia } from "../text-common-util.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -33,11 +33,108 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 `LabelCloseRule` 写在 `Label` **之前**。
 
+**冒号后面换行 / 夹注释时，换行处不收语句壳**（第 835 轮）：`lbl:` 换行 `for (;;) { … }`
+在 TypeScript 里是**一条** `LabeledStatement`，而解析期的 `StatementBranch` 在换行那一刻
+会问「这一行写完了没有」，看到上一格是 `:` 就答「写完了」⇒ 收壳 ⇒ `lbl` 与 `:` 被关进一个壳、
+`for` 另起一条 ⇒ 标签规则再也看不到那一对（实测 `gap-sweep-{newline,linecomment}-label-0{1,2}`
+四条：`LabeledStatement` 整条缺、`Label` 与循环体一起降级）。判据是 `IsPendingLabelHead`。
+
 # class LabelCloseRule extends CloseRule
 
 ## static readonly field Instance:LabelCloseRule = new LabelCloseRule()
 
 唯一的实例，注册进通用规则队列时用。
+
+## static readonly field LoopStatementWords:Array<string> = ["for", "foreach", "while", "do", "switch", "try", "if"]
+
+能带标签的循环 / 分支词。**只有这一份**：`IsLabeledStatement`（收尾期认已成形的那一格）
+与 `Statement.IsPendingLabelHead`（解析期认还散着的那一格）问的是同一张表。
+
+## static method StatementStartsHere:(units:Array<Token>, index:int)=>bool
+
+`index` 处这一格**能不能起一条语句**（不看它左右那两格，只看它自己）。
+`IsLabeledStatement` 与 `IsPendingLabelHead` 共用这一份：一处写成「词表」、另一处写成
+「类名表」就是第二份会漂的答案。
+
+```ts
+const item = Get(units, index);
+if (item === null) {
+  return false;
+}
+if (item instanceof SymbolToken && item.Is("{")) {
+  return true;
+}
+if (item instanceof Bracket) {
+  return item.startBracket === "{";
+}
+// **已经成形的语句单元也要认**（第 392 轮）——名单与 `LoopStatementWords` **一一对应**，
+// 所以往后每把一条控制流规则改成向导，这里一个字都不用动。
+//
+// 按**类名**判而不是 `instanceof`：`statement.xl.md` 自己 import 本文件，
+// 反过来 import 会绕出环（与 `statement.xl.md` 用类名认 `StaticBlock` / `Namespace` 同一条理由）。
+const formed = item.constructor.name;
+if (
+  formed === "IfSet" ||
+  formed === "For" ||
+  formed === "Foreach" ||
+  formed === "While" ||
+  formed === "DoWhile" ||
+  formed === "Switch" ||
+  formed === "Try"
+) {
+  return true;
+}
+if (!(item instanceof Identifier)) {
+  return false;
+}
+if (item.IsAny(LabelCloseRule.LoopStatementWords)) {
+  return true;
+}
+// 表达式语句（`done: f()`），或又一个标签（`a: b: for(;;) { … }`）。
+return true;
+```
+
+## static method IsPendingLabelHead:(data:Array<Token>)=>bool
+
+`data` 这一段的**末尾**是不是一个标签头——即 `… <名字> <:>` 收尾，而那个名字是**一条语句的开头**。
+
+**问它的是解析期的 `Statement.LineCannotEnd`**（`statement.xl.md`）：那一刻软换行还没进
+`Data`，所以 `data.length` 就是那个虚拟下标，判据只往左看。
+
+**为什么非有它**：`lbl:` 换行 `for (;;) { … }` 里，上一格是 `:` ⇒
+`LineCannotEnd` 走到「`:` 收尾 ⇒ 这一行写完了」那一支 ⇒ 收壳 ⇒ 标签那一对与 `for`
+分家（`Label` 规则是**收尾期**跑的，那时 `lbl` 已经在壳里、`for` 已经在另一个壳里）。
+这与 `IsPendingImportHead` / `IsPendingDecoratorHead` 是同一档：**头还没写完，换行不是语句边界**。
+
+**判据只看左边**（实测踩出来的）：一开始还想在这里问一句「冒号后面那一格能不能起一条语句」
+（`StatementStartsHere`），可解析期**同一行后面的单元还不在 `Data` 里** ——
+`SkipNextTrivia(data, colonIndex)` 直接落到 `data.length` 上、`Get` 给 `null`
+⇒ 那一问恒为假（探针实测：`[lbl, :, LineWrap]` 那一趟 `nextAt=5`、`data.length=5`）。
+这也是**不必**问它：右边那一格如果是运算符 / `.` / `(` / `[` 之类的续接符，
+`Condition` 里后面那两条（`IsLineBreakIncompleteOnLeft` 之后的 `ContinuesExpression`
+与原始字符版的 `NextLineContinuesExpression`）本来就不收壳。
+
+**「这个名字是不是语句开头」那一问不能省**：`let a:` 换行 `B` 的行尾也是 `:`，
+可 `a` 在产物里住在 `Statement` 壳里（`let` 与它是同一个壳）⇒ `IsStatementStart` 答否
+⇒ 这一格不生效（类型标注照旧交给 `TypeDefineCloseRule`）。`a ? b :` 换行 `c` 同理。
+
+```ts
+const colonIndex = SkipPreviousTrivia(data, data.length);
+const colon = Get(data, colonIndex);
+if (!(colon instanceof SymbolToken) || colon.Is(":") === false) {
+  return false;
+}
+const nameIndex = SkipPreviousTrivia(data, colonIndex);
+if (!(Get(data, nameIndex) instanceof Identifier)) {
+  return false;
+}
+if (IsStatementStart(data, nameIndex) === false) {
+  return false;
+}
+// **`switch` 段头里的冒号不是标签冒号**（`case 1:` / `default:`）：判据与
+// `Previous` 那一处问的是同一句（`text-common-util.xl.md`）。
+return IsSwitchLabelColon(data, colonIndex) === false;
+```
 
 ## private method IsLabeledStatement:(units:Array<Token>, index:int)=>bool
 
@@ -62,40 +159,7 @@ import { SymbolToken } from "./symbol-token.xl.md"
 `let x: T` / `a ? b : c` 这类同形写法挡在外面。
 
 ```ts
-const item = Get(units, index);
-if (item === null) {
-  return false;
-}
-if (item instanceof SymbolToken && item.Is("{")) {
-  return true;
-}
-if (item instanceof Bracket) {
-  return item.startBracket === "{";
-}
-// **已经成形的语句单元也要认**（第 392 轮）——名单与上面那串关键字**一一对应**，
-// 所以往后每把一条控制流规则改成向导，这里一个字都不用动。
-//
-// 按**类名**判而不是 `instanceof`：`statement.xl.md` 自己 import 本文件，
-// 反过来 import 会绕出环（与 `statement.xl.md` 用类名认 `StaticBlock` / `Namespace` 同一条理由）。
-const formed = item.constructor.name;
-if (
-  formed === "IfSet" ||
-  formed === "For" ||
-  formed === "Foreach" ||
-  formed === "While" ||
-  formed === "DoWhile" ||
-  formed === "Switch" ||
-  formed === "Try"
-) {
-  return true;
-}
-if (!(item instanceof Identifier)) {
-  return false;
-}
-if (item.IsAny(["for", "foreach", "while", "do", "switch", "try", "if"])) {
-  return true;
-}
-return true;
+return LabelCloseRule.StatementStartsHere(units, index);
 ```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
