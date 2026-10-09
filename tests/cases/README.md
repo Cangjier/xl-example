@@ -89,6 +89,17 @@ console.log(Box.of(1));
 | `e2e` | 246 | **242** | 4 / 0 | |
 | **合计** | **8185** | **7807** | 262 / 116 | 加权 **95.7%** |
 
+**第 781 轮再加 6 条**（分母 8343 → **8349**，全在 `stdlib/round781`）：错误家族 /
+抛出与接住 / 分组 / `structuredClone` / 弱集合 / 新族方法——**3 条当场通过、3 条登记**，
+同一轮里**收掉一处**：`Object.groupBy` 的**键**原来无条件 `ValueText` 成字符串
+（`() => Symbol("s")` 在 Node 里给一个**符号键**的格子、本仓响亮地抛 `TypeError`；
+对象的键同一处），修法是走 `text.xl.md` 的 `PropertyKeyName`（与 `get_index` / `set_index`
+同一条路，不写第二份转换表）。登记的三条：错误家族里 `Error.stack` 与
+`Object.getPrototypeOf(TypeError) === Error` 两条**旧账的新排版**（`class My extends Error {}`
+写在函数体里仍是 `r778m-01` / `r780b-04` 那一处根，所以那条用例里不写它）、
+`structuredClone` 对不可克隆的值抛的是 `DOMException`（本仓抛 `TypeError`，没有那一族）、
+`typeof WeakRef`（第 736 轮登记的三个全局名那一族）。
+
 **第 780 轮再加 12 条**（分母 8331 → **8343**，`runtime/round780` 7 条 / `stdlib/round780` 5 条）：
 把第 779 轮那一族**整族 dump**（按家族逐格 `typeof` + `name` + `length`，三百余格）——
 **7 条当场通过、5 条登记**（4 `differ` + 1 `blocked`），同一轮里**收掉六处**：

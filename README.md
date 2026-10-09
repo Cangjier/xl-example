@@ -306,6 +306,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 781 轮：`Object.groupBy` 的**键**走 `ToPropertyKey`——收掉一处（符号键与对象键一起），另登记三条
+
+**一句话**：`Object.groupBy([1, 2], () => Symbol("s"))` 在 JS 里给一个**符号键**的格子
+（符号不许字符串化），而本仓那一句把键**无条件 `ValueText`** 成字符串 ⇒ 符号上**响亮地抛**
+（`TypeError`）；同一句对**对象的键**也一样（`() => ({ toString() { return "k" } })` 该给 `"k"`）。
+
+- **收掉的那一处**（`globals.xl.md` 的 `ObjectGroupBy`）：这一格原来自己写了一句
+  `Value.FromString(table.CreateString(Units(ValueText(table, bucketName))))`
+  ——**同一份「值 → 属性键」的规矩住着第二份**。修法是走现成的那一格：
+  `text.xl.md` 的 `PropertyKeyName`（符号**原样返回**、其余 `ToString`、对象先 `ToPrimitive`），
+  与 `get_index` / `set_index` **同一条路**，**没有新写第二份转换表**。
+  判据 `stdlib/round781/r781b-01`：符号键（含两个同描述但不同身份的符号各占一格）、
+  对象键、数字键、字符串键、空输入、null 原型六档。
+- **三条登记的**：
+  ① `stdlib/round781/r781a-01`（`differ`）——错误家族十八档里只剩**两行**不同，
+  两行都是**旧账的新排版**：`Error.stack` 那一格（`typeof` 给 `undefined`）、
+  `Object.getPrototypeOf(TypeError) === Error` 本仓给假（第 724 轮 `p724a-b01`）。
+  **另注**：`class My extends Error {}` 写在**函数体**里会让**整份文件进不来**
+  （`heap object is not an environment`）——那是 `r778m-01` / `r780b-04` 那一处根，
+  所以这条用例**不写它**，免得把另外十六档一起带走。
+  ② `r781c-01`（`differ`）——`structuredClone` 遇到**不可克隆的值**（函数、符号）抛的
+  在 Node 里是 `DOMException`、本仓是 `TypeError`（本仓没有那一族）；其余十三档全对。
+  ③ `r781d-01`（`differ`）——十二档里只剩 `typeof WeakRef` 一格
+  （第 736 轮登记的「`Proxy` / `WeakRef` / `FinalizationRegistry` 三个全局名」，这一条
+  把它与 `WeakMap` / `WeakSet` 自己的形状钉在一起）。
+- **用例**：`round781` 六条（**3 条通过、3 条 differ**）——另三条当守卫：
+  错误的抛出与接住（`try` / `finally` 的次序与覆盖 / 重抛 / 承诺里的抛）、
+  `Object.groupBy` 与 `Map.groupBy` 的落点、新族方法（`toSorted` / `toReversed` / `toSpliced` /
+  `with` / `isWellFormed` / `toWellFormed`）。
+  五类 7940 / 8343 → **7943 / 8349**、blocked **267**（没动）、differ 136 → **139**、
+  bad 0、regressions 0，加权 **95.4%**。八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+- **这一轮的普查面**（五层）：错误家族（`cause` / `AggregateError` / 子类 / 标签 / 原型链）、
+  抛出与接住的上下文（`finally` 的覆盖、重抛、承诺里的抛）、分组（`Object.groupBy` /
+  `Map.groupBy` 的键与回调形状）、`structuredClone`（共享引用 / 环 / 不可克隆的值）、
+  弱集合与 `WeakRef`、新族方法——**当场通过的那些照样进语料当守卫**。
+
 ### 第 780 轮：把那张表**系统地量一遍**——`name` / `length` 剩下六处收掉，另量出 `super` 与隐式构造器两条新根
 
 **一句话**：第 779 轮是「按家族抽查」，这一轮把 `name` / `length` 那一族**整族 dump**

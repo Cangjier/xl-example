@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8343,
+  "total": 8349,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.38,
+  "progressPercent": 95.36,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3325,
-      "pass": 3234,
+      "total": 3331,
+      "pass": 3237,
       "blocked": 28,
-      "differ": 63,
+      "differ": 66,
       "nodefail": 0,
-      "coverage": 97.26
+      "coverage": 97.18
     },
     {
       "category": "e2e",
@@ -1871,7 +1871,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26232/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10012/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2201,7 +2201,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26232/src/5314.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10012/src/5314.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2225,7 +2225,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26232/src/5364.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10012/src/5364.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2508,6 +2508,24 @@
       "category": "stdlib",
       "title": "`String` / `Number` / `Symbol` 那一族的 `name` / `length` 全量",
       "detail": "stdout 不同：第 30 行：node «String.prototype.match = \"function:match/1\"» vs tsrun «String.prototype.match = \"missing\"»"
+    },
+    {
+      "id": "stdlib/round781/r781a-01",
+      "category": "stdlib",
+      "title": "错误家族的形状：`cause` / `AggregateError` / 标签 / 原型链",
+      "detail": "stdout 不同：第 7 行：node «10 stack typeof = \"string\"» vs tsrun «10 stack typeof = \"undefined\"»"
+    },
+    {
+      "id": "stdlib/round781/r781c-01",
+      "category": "stdlib",
+      "title": "`structuredClone` 的边界：不可克隆的值抛的是 `DOMException`",
+      "detail": "stdout 不同：第 12 行：node «12 function throws = \"DOMException\"» vs tsrun «12 function throws = \"TypeError\"»"
+    },
+    {
+      "id": "stdlib/round781/r781d-01",
+      "category": "stdlib",
+      "title": "`WeakMap` / `WeakSet` 的形状与边界",
+      "detail": "stdout 不同：第 12 行：node «12 weakref typeof = \"function\"» vs tsrun «12 weakref typeof = \"undefined\"»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

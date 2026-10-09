@@ -9,7 +9,7 @@ import { Vm } from "../../runtime/vm.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayElementAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat, ArrayAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw, StringCharAt, StringCharCodeAt, StringIndexOf, StringIncludes, StringStartsWith, StringEndsWith, StringRepeat, StringPadStart, StringPadEnd, StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare, StringToUpperCase, StringToLowerCase, StringAnchor, StringFontcolor, StringFontsize, StringLink, StringSlice, StringSubstring, StringSubstr, StringReplace, StringReplaceAll, StringSplit, StringTrim, StringTrimStart, StringTrimEnd, StringToString, StringValueOf, StringIsWellFormed, StringToWellFormed, StringNormalize, StringToLocaleUpperCase, StringToLocaleLowerCase, StringBig, StringBlink, StringBold, StringFixed, StringItalics, StringSmall, StringStrike, StringSub, StringSup } from "./string.xl.md"
-import { JsTextUnits, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue } from "./text.xl.md"
+import { JsTextUnits, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox, PropertyKeyValue, PropertyKeyName } from "./text.xl.md"
 import { InspectText, InspectDepth, DateMarker, IsArgumentsValue } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, MapEntries, MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapClear, MapForEach, NameValue, ReadOwn, WeakMapCtor } from "./map.xl.md"
 import { SetCtor, SetValues, SetAdd, SetHas, SetDelete, SetKeys, SetEntries, SetClear, SetForEach, WeakSetCtor } from "./set.xl.md"
@@ -4331,7 +4331,16 @@ if (id === ObjectGroupBy) {
   for (let i = 0; i < groupSource.GetLength(); i++) {
     const member = groupSource.GetAt(i);
     const bucketName = call(args[1], Value.Undefined(), [member, Value.FromInt(i)]);
-    const bucketKey = Value.FromString(table.CreateString(Units(ValueText(table, bucketName))));
+    // **键走 `ToPropertyKey`，不是 `ValueText`**（第 781 轮，普查当场红的）：
+    // `Object.groupBy([1], () => Symbol("s"))` 在 JS 里给一个**符号键**的格子
+    //（符号**不许字符串化**：`o[Symbol("k")]` 与 `o["k"]` 是两格），而这一句原来
+    // 无条件 `ValueText` ⇒ 符号上**响亮地抛**（判据 `r781b-01` 第 09 行：
+    // Node 给 `"1"`、本仓给 `TypeError`）；**对象的键**同一处（`() => ({ toString() { return "k" } })`
+    // 该给 `"k"`，而 `ValueText` 对对象是响亮地抛）。
+    // **收法就是走现成的那一格**（`text.xl.md` 的 `PropertyKeyName`：符号原样返回、
+    // 其余 `ToString`、对象先 `ToPrimitive`）——与 `get_index` / `set_index` 同一条路，
+    // **不写第二份转换表**。`call` 在这一支里已经查过非空（上面那一句）。
+    const bucketKey = PropertyKeyName(room, call, protos, table, bucketName);
     let bucket = GetProperty(room, NeverCall, protos, table, groups, bucketKey);
     if (bucket.Tag !== ValueTag.Array) {
       // **先问 room、再分配**：`SetProperty` 自己也会问 room——
