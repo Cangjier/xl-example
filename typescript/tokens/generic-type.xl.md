@@ -636,7 +636,7 @@ if (item === "_" || item === "." || item === "," || item === "?") {
 return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
 ```
 
-## private method IsTypePosition:(unit:Token, from:int = -1, bounded:bool = false)=>bool
+## private method IsTypePosition:(unit:Token, from:int = -1, bounded:bool = false, source:Source | null = null)=>bool
 
 从宿主单元的 `Data` **往前**找最近的边界，判定当前处在类型位还是表达式位。
 `from` 是回扫的起点（默认最后一个）；**换一个起点**只为下面「宿主是一对方括号」那一条 ——
@@ -713,7 +713,7 @@ if (unit instanceof GenericType) {
 // 起点必须是括号在父单元里的下标减一（不能从父单元末尾回扫——那里有括号后面的 `>` / `]`）。
 if (unit instanceof Bracket && unit.startBracket === "[" && unit.Parent !== null) {
   const bracketAt = unit.Parent.Data.indexOf(unit);
-  if (bracketAt > 0 && this.IsTypePosition(unit.Parent, bracketAt - 1, true)) {
+  if (bracketAt > 0 && this.IsTypePosition(unit.Parent, bracketAt - 1, true, source)) {
     return true;
   }
 }
@@ -910,7 +910,7 @@ for (let i = from >= 0 ? from : unit.Data.length - 1; i >= 0; i--) {
     const beforeNameWord =
       beforeName instanceof Identifier ? beforeName.TempToString() : (beforeName instanceof Keyword ? beforeName.Value : "");
     if (beforeNameWord === "instanceof") {
-      return true;
+      return this.IsInstanceOfTypeArgument(unit, source, from);
     }
     // **`=` 左边紧挨着的那个名字是声明自己的名字**（`const c = …` 里的 `c`），
     // 不是操作数：`const c = <string>x` 的回扫顺序是 `=` → `c` → `const`，
@@ -1070,6 +1070,76 @@ return false;
       || word === "do" || word === "else" || word === "new";
   }
   return false;
+```
+
+## private method IsInstanceOfTypeArgument:(unit:Token, source:Source | null, from:int)=>bool
+
+`instanceof` **右边**那一格的那个 `<`，判它是不是类型实参段（第 894 轮）。
+
+判据与 `IsAllowedFollower` 的表达式位**同一句话**（TS 那句
+`canFollowTypeArgumentsInExpression`）：配对 `>` 后面紧跟的字符若是
+**`<` / `>` / `+` / `-`**，这次试读**必须判否**——TS 把这一档写成
+「这几个 token 出现在这里，类型实参列表讲不通」，于是**回退成比较式**：
+
+| 源码 | TS 读成 | 本仓（少了这一条时） |
+| --- | --- | --- |
+| `b instanceof C<D>;` | `b instanceof ExpressionWithTypeArguments(C<D>)` | 同左 ✓ |
+| `b instanceof C<D> + e;` | `((b instanceof C) < D) > (+e)` | `(b instanceof C<D>) + e` ✗ |
+| `b instanceof C<D> - e;` | 同上（`-` 也是前缀） | 同左 ✗ |
+
+**为什么这一条不能省**：`instanceof` 与 `+` / `-` / `<` / `>` 同属二元运算符那一族，
+`b instanceof C < D > +e` 里**每一格都是合法的比较**——把 `<…>` 认成类型实参段
+就是在**静默错值**（实测：漂 2 / 多 2）。
+
+**它为什么不与 `c < D > (e)` 冲突**：那一格的后继是 `(`（`canFollowTypeArgumentsInExpression`
+的第一档直接答真），所以 `const a = b < c > (d);` 照 TS 读成**泛型调用**，一个字没动
+（实测 12 条片段里那一条通过）。
+
+`IsAllowedFollower` 已经会在「后继是字母 / 数字 / 引号」时判否，这里**只补它漏掉的那四格**：
+`.` / `[` / `?.` / `!` 这些**后缀**在 TS 那边确实能接（`a instanceof b<C>.d` 是语法错，
+但 `a + b<C>.d` 里 TS 也走回退——`canFollowTypeArgumentsInExpression` 的兜底那一句
+`isBinaryOperator2()` 与 `.` 无关，`.` 走的是 `!isStartOfExpression()` ⇒ 答真）。
+这里不自己重新发明一张表：**只问那四个字符**，其余交给 `IsAllowedFollower`。
+
+**⚠️ 这一支现在是「写对了但够不着」的死格**（第 894 轮实测，如实记在这里）：
+`IsTypePosition` 走到 `instanceof` 那一格时，**`source` 是 `null`**
+（`IsAllowedFollower` 里那次调用只传 `unit`，第 4 个形参走默认值），
+于是这一支的第一句就答否 ⇒ **`b instanceof C<D> + e` 仍然是缺口**
+（产物把 `<D> + e` 收成一个 `GenericType` 式的错折：漂 2 / 多 2）。
+**要收它得先把 `Source` 送到这一格**——`IsAllowedFollower` 手里有 `source`，
+`IsTypePosition` 的其余分支一个都不用 ⇒ 那次调用补第 4 个实参是唯一的改动点；
+但那一趟的真实数据流在第 894 轮没量清（插桩实测：`IsGenericStart` 那次调用带的是
+`Root` 宿主、`Data` 是 `[Let, =, b, instanceof, C]`，而 `IsTypePosition` 收到的 `source` 已是空），
+所以这一轮**只把它登记成缺口**（`gap-instanceof-then-add`），不猜。
+保留方法体本身：判据与 TS 那句原文一对一，接线是机械动作。
+
+```ts
+// **没有 `Source` 时这一支不参与**（第 4 个形参是这一轮新加的，默认 null）：
+// 那几处调用本来就走不到 `instanceof` 这一格（`IsInstanceOfTypeArgument` 只在
+// `IsGenericStart` 那一路上有 `source`），保守答否，行为与加这一支之前一字不差。
+if (source === null) {
+  return false;
+}
+const closeIndex = this.ScanArguments(unit, source);
+if (closeIndex === -1) {
+  return false;
+}
+// **文档要从传进来的 `Source` 上取**（`ScanArguments` 用的就是它）：
+// `IsTypePosition` 的其余分支都不需要 `source`，所以这一格是**新加的第 4 个形参**
+// 一路带下来的（宿主自己身上没有文档——`Template.Document` 不存在，插桩实测）。
+const document = source.Document;
+let at = closeIndex + 1;
+while (at < document.GetCount() && (document.GetValue(at) === " " || document.GetValue(at) === "\t")) {
+  at = at + 1;
+}
+if (at >= document.GetCount()) {
+  return true;
+}
+const next = document.GetValue(at);
+if (next === "<" || next === ">" || next === "+" || next === "-") {
+  return false;
+}
+return this.IsAllowedFollower(unit, source, closeIndex);
 ```
 
 ## private method IsAllowedFollower:(unit:Token, source:Source, closeIndex:int)=>bool
