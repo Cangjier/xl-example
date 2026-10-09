@@ -306,6 +306,49 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 864 轮：`{` 是父括号的**第一个实义单元**时——`BraceInExpression` 答不出「它在表达式里」（known-gap 4 → 3）
+
+**一句话**：`gap-value-array-bitwise-in-object-paren`（缺 4 多 6）收掉——
+`const b = ({ w: [5 | 6] });` 与 `f({ z: [3 & 4] });` 里那个 `[` 现在是**值位**，
+`|` / `&` 折成位运算而不是 `UnionType` / `IntersectionType`。
+
+**根因**：第 686 轮已经把「冒号在对象字面量里是**属性分隔符**」这一问接到
+`EnclosingBraceContext` 上，可它在那两格上给的是**空串**——因为 `BraceInExpression`
+（它的守卫）答「不在表达式里」。判据只看「这个 `{` 前面那一格」：
+
+    ({ w: [5 | 6] })             `{` 是父括号 `(` 的**第一个**单元 → 前面什么都没有 → 假
+    f({ z: [3 & 4] })            `{` 是实参括号的**第一个**单元     → 假
+    const o = { b: [1 | 2] }     `{` 前面是 `=`（第 686 轮修的那一格）→ 真
+
+于是花括号里那个**分隔冒号**被当成类型标注、`[` 判成类型位（实测插桩：`{` 自己的
+`Context` 明明是 `"value"`）。
+
+**修法一处**（[text-common-util.xl.md](typescript/text-common-util.xl.md) 的 `BraceInExpression`）：
+**「前面一个实义单元都没有」且父单元是括号时**，改问 `{` **自己那一格**的 `Context`
+（开括号那一刻由 `DecideBracketContext` 算好，而那个判定会**跨过 `(` / `[` 往上扫**，
+所以这一档它照样答得出来）。四种排版实测都对：
+
+    ({ w: [5 | 6] })            `{` ⇒ "value"
+    f({ z: [3 & 4] })           `{` ⇒ "value"
+    const o = [{ a: [1 | 2] }]  `{` ⇒ "value"
+    type T = [{ a: 1 }]         `{` ⇒ "type"（元组成员是类型字面量，行为一字未动）
+
+**判据收得比「父是括号」更窄**：只有「前面一个实义单元都没有」才走这一支——
+类体 / 接口体 / 命名空间体的 `{` 前面是名字，落不进这里（`interface I { m: { a: [1 | 2] } }`
+那一份实测一个字节没变）。
+
+**实测**（`tmp/r863/probe*.mjs` 之外，本轮另量了 g1…g7 七份小片段：括号化对象 / 裸对象 /
+实参里的对象 / 元组类型 / 数组里的对象 / 接口里的类型字面量 / 深层嵌套）：
+前三格与「数组里的对象」转绿，元组类型与接口那两格逐格不动。
+
+**数字**：`cases:tsast` 已知缺口 **4 → 3 还开着**（收掉的那条删掉 `xl:known-gap`，
+`xl:expect` 从 `UnionType,IntersectionType` 重算成 `ArrayLiteral,ObjectLiteral,SymbolToken`）；
+`coverage` **4007 → 4010 / 4189 → 4191**（token **1411 → 1413 / 1415 → 1416**、
+blocked **44 → 43**、differ 138、bad 0）；用例 **1428 → 1429**
+（token 守卫 1 条 `expr-round864-object-value-array-in-paren.ts` + exec 守卫 1 条
+`exec/round864/001-…`，后者钉的是「修之前整份文件进不来」那一档）；
+`npm run gates` **八道全过**（墙钟 33.8s）。
+
 ### 第 863 轮：链的续格搬进了**下一个二元单元**——`1 + o["f"]().v + 2` 收掉，顺带收掉逗号在语句层那一档（known-gap 5 → 4）
 
 **一句话**：`gap-round744-chain-in-binary-three-operands`（缺 2 漂 1 多 3）收掉；

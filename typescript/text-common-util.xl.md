@@ -580,7 +580,30 @@ const before = GetSkipPrevious(units, at, (item) => item instanceof LineWrap);
 if (before instanceof SymbolToken) {
   return true;
 }
-return before instanceof Identifier && before.IsAny(["return", "typeof"]);
+if (before instanceof Identifier && before.IsAny(["return", "typeof"])) {
+  return true;
+}
+// **它是父括号的「第一个实义单元」**（第 864 轮）：`({ … })` / `f({ … })` / `[{ … }]` 里那个 `{`
+// 在 `Parent.Data` 里**前面什么都没有**（`(` / `[` 才刚开），上面那两句于是只能答「不在表达式里」
+// ⇒ `EnclosingBraceContext` 给空串 ⇒ 花括号里那个属性的**分隔冒号**被当成类型标注：
+// 实测 `const b = ({ w: [5 | 6] })` 与 `f({ z: [3 & 4] })` 里那个 `[` 都判成类型位，
+// `|` / `&` 折成 `UnionType` / `IntersectionType`（缺 4 多 6）。
+//
+// **这一档只问它自己那一格**：`Bracket.Context` 是**开括号那一刻**算的
+//（`DecideBracketContext`），而那个判定会**跨过 `(` / `[` 往上扫**——
+// 所以「首个实义单元」这一档它照样答得出来，且实测四种排版都对：
+//
+//     ({ w: [5 | 6] })          `{` ⇒ "value"   （对象字面量）
+//     f({ z: [3 & 4] })         `{` ⇒ "value"
+//     const o = [{ a: [1 | 2] }] `{` ⇒ "value"
+//     type T = [{ a: 1 }]       `{` ⇒ "type"    （元组成员是类型字面量）
+//
+// **判据收得比「父是括号」更窄**：只有「前面一个实义单元都没有」才走这一支——
+// 类体 / 接口体 / 命名空间的 `{` 前面是名字（`Identifier`），落不进这里，行为一个字节不变。
+if (before === null && brace instanceof Bracket && brace.Parent instanceof Bracket) {
+  return brace.Context === "value";
+}
+return false;
 ```
 
 # method EnclosingBraceContext:(host:Token)=>string

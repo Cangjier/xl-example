@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4189,
+  "total": 4191,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,23 +75,23 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.09,
+  "progressPercent": 95.1,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1415,
-      "pass": 1411,
-      "blocked": 4,
+      "total": 1416,
+      "pass": 1413,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.72
+      "coverage": 99.79
     },
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 789,
-      "pass": 750,
+      "total": 790,
+      "pass": 751,
       "blocked": 9,
       "differ": 30,
       "nodefail": 0,
@@ -129,20 +129,14 @@
     }
   ],
   "token": {
-    "total": 1415,
-    "knownGap": 4,
-    "knownGapStillOpen": 4,
-    "exactFiles": 1411,
-    "scoredWithoutGap": 1411,
-    "passedWithoutGap": 1411
+    "total": 1416,
+    "knownGap": 3,
+    "knownGapStillOpen": 3,
+    "exactFiles": 1413,
+    "scoredWithoutGap": 1413,
+    "passedWithoutGap": 1413
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-value-array-bitwise-in-object-paren",
-      "category": "token",
-      "title": "第 686 轮**还开着的那一格**：对象字面量值位里**被括号包住的数组**——",
-      "detail": "缺 4　多 6　实参里的对象 / 括号化对象里，外层 `{` 的 `Context` 在招待那一格时还是空串，"
-    },
     {
       "id": "token/statements/stmt-do-while-then-statement",
       "category": "token",
@@ -533,7 +527,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-11304/src/2022.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18152/src/2023.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -875,7 +869,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-11304/src/3006.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18152/src/3008.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -899,7 +893,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-11304/src/3054.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18152/src/3056.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1055,7 +1049,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-11304/src/3697.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-18152/src/3699.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
