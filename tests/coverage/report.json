@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 5720,
+  "total": 5513,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.4,
+  "progressPercent": 94.34,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1831,
-      "pass": 1740,
-      "blocked": 26,
-      "differ": 65,
+      "total": 1624,
+      "pass": 1538,
+      "blocked": 23,
+      "differ": 63,
       "nodefail": 0,
-      "coverage": 95.03
+      "coverage": 94.7
     },
     {
       "category": "e2e",
@@ -1662,33 +1662,15 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
+      "id": "stdlib/string/145-regex-literal-blocked",
+      "category": "stdlib",
+      "title": "正则字面量还没进语法层（账）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
       "id": "stdlib/string/167-string-replace-function",
       "category": "stdlib",
       "title": "`replace` 的函数形式拿到的实参表",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "stdlib/string/probe696-s02",
-      "category": "stdlib",
-      "title": "\"abc\".replace(/b/, (m) => m + m)",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "stdlib/string/probe696-s05",
-      "category": "stdlib",
-      "title": "\"a,b\".split(/,/).join(\"|\")",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "stdlib/string/probe703-s-e33",
-      "category": "stdlib",
-      "title": "\"abc\".replace(/b/, \"X\")",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "stdlib/string/probe704-s-e12",
-      "category": "stdlib",
-      "title": "\"a1b2\".replace(/\\d/g, \"#\")",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
@@ -1847,7 +1829,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29336/src/2147.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29500/src/2147.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2189,7 +2171,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29336/src/3879.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29500/src/3879.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2213,7 +2195,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29336/src/3929.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29500/src/3929.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2252,9 +2234,9 @@
       "detail": "stdout 不同：第 1 行：node «map-clear-readd-foreach a,z,y 2 9 8» vs tsrun «map-clear-readd-foreach a,y 2 9 8»"
     },
     {
-      "id": "stdlib/map-set/probe703-m-d10",
+      "id": "stdlib/map-set/143-map-internal-payload-visible-differ",
       "category": "stdlib",
-      "title": "new Map([[1, 2]])[\"__k\"] === undefined",
+      "title": "Map 的内部载荷是可见的自有属性（账）",
       "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
     },
     {
@@ -2369,7 +2351,7 @@
       "id": "stdlib/round751/p751b-03",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29336/src/4991.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29500/src/4887.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/p751b-04",
@@ -2522,6 +2504,18 @@
       "detail": "stdout 不同：第 1 行：node «at,padStart,replaceAll,match,search,matchAll,split,trim» vs tsrun «at,padStart,replaceAll,,,,split,trim»"
     },
     {
+      "id": "stdlib/string/144-localecompare-differ",
+      "category": "stdlib",
+      "title": "localeCompare 是区域设置那一族（账）",
+      "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
+    },
+    {
+      "id": "stdlib/string/146-string-proto-regex-methods-differ",
+      "category": "stdlib",
+      "title": "String.prototype 上那三个接正则的方法没装（账）",
+      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
+    },
+    {
       "id": "stdlib/string/147-names-string-proto",
       "category": "stdlib",
       "title": "名字逐个取一次：String.prototype 的成员（第 718 轮后只剩正则那三个）",
@@ -2532,30 +2526,6 @@
       "category": "stdlib",
       "title": "\"abc\".search(\"b\")",
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
-    },
-    {
-      "id": "stdlib/string/probe693-y29",
-      "category": "stdlib",
-      "title": "\"aBc\".localeCompare(\"abc\") < 0",
-      "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
-    },
-    {
-      "id": "stdlib/string/probe703-s-e36",
-      "category": "stdlib",
-      "title": "typeof \"abc\".match",
-      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
-    },
-    {
-      "id": "stdlib/string/probe703-s-e37",
-      "category": "stdlib",
-      "title": "typeof \"abc\".matchAll",
-      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
-    },
-    {
-      "id": "stdlib/string/probe703-s-e38",
-      "category": "stdlib",
-      "title": "typeof \"abc\".search",
-      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
     }
   ],
   "bad": [],
