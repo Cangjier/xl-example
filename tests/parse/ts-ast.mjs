@@ -1019,7 +1019,15 @@ async function main() {
   };
   let parsed = 0;
   let failed = 0;
-  let alignedFiles = 0;
+  // **`alignedFiles`「按 kind 序列逐位置对齐的文件」这一栏第 898 轮撤掉了。**
+  // 它原来量的是**未投影**的产物节点：那一侧带着 `<Bracket>` / `<Keyword>` 这些
+  // TS 语义集合里没有的标签，`theirs.length === ours.length` 因此**恒假**，
+  // 打印出来永远是 0 —— 和紧接着那一行「完全一致的文件 1473 / 1473」当场自相矛盾。
+  //   · 它**不能**改量在投影后的序列上：字段顺序**不在约定里**（`docs/ts-ast.md` 只约定
+  //     `kind` 名字 / `pos`、`end` / 字段名），实测投影的遍历顺序与 `ts.forEachChild`
+  //     不同（产物按 XML 属性顺序给字段，TS 按文法顺序），拿它当尺子只会再造一个
+  //     「判据说全对、粗指标说对不上」的矛盾；
+  //   · 判据本来就只有一条：下面那四个方向（缺 / 漂移 / 多出来 / 字段名）。
   let ourTotal = 0;
   let tsTotal = 0;
   let kindSameTotal = 0;
@@ -1034,7 +1042,8 @@ async function main() {
   // **「完全一致」的第三个方向**（第 84 轮补）：产物**多出来**的节点。
   // TS 的语义节点集合是**闭的**——少一个不是完全一致，多一个也不是。
   // 这一栏与「缺 / 漂移 / 字段名」并列；四个方向都为零的文件才叫「逐文件完全一致」。
-  // （`alignedFiles` 那个旧判据只看 kind 序列，太松，留着当粗指标。）
+  // **`alignedFiles` 那一栏第 898 轮撤掉**（原因写在它原来声明的地方）：
+  // 它恒为 0，而且「逐位置对齐」这件事**不在约定里**——约定只有四方向。
   const projectedExtra = new Map();
   const projectedExtraSamples = new Map();
   let exactFiles = 0;
@@ -1143,7 +1152,6 @@ async function main() {
       const key = node.type;
       extra.set(key, (extra.get(key) || 0) + 1);
     }
-    if (theirs.length === ours.length && theirs.every((t, i) => t.kind === ours[i]?.kind)) alignedFiles++;
     phase.match += clock() - at;
 
     // ---- 投影后的对拍：把产物树投成 TS 形状，再与 `ts.createSourceFile` 比 ----
@@ -1262,8 +1270,9 @@ async function main() {
 
   console.log(
     `TS AST 对拍尺子：语料 ${files.length} 个文件，解析成功 ${parsed}，抛异常 ${failed}\n` +
+      `                （下面是**投影前**的粗数：产物侧带着 TS 语义集合里没有的标签）\n` +
       `                产物节点 ${ourTotal} 个，TS 语义节点 ${tsTotal} 个，` +
-      `同 kind 同区间 ${kindSameTotal} 个（${((100 * kindSameTotal) / Math.max(1, tsTotal)).toFixed(1)}%），逐位置完全一致的文件 ${alignedFiles} 个\n`,
+      `同 kind 同区间 ${kindSameTotal} 个（${((100 * kindSameTotal) / Math.max(1, tsTotal)).toFixed(1)}%）\n`,
   );
 
   // **「和 TS 的 AST 完全一致」的那一行**（第 84 轮）：四个方向都为 0 才算。

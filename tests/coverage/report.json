@@ -1168,11 +1168,6 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [
-    {
-      "id": "runtime/round783/003-function-prototype-descriptor-differ",
-      "category": "runtime"
-    }
-  ],
+  "newlyPassing": [],
   "regressions": []
 }
