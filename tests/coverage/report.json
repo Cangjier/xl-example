@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 5284,
+  "total": 5280,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.11,
+  "progressPercent": 94.1,
   "categories": [
     {
       "category": "token",
@@ -100,18 +100,18 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1007,
-      "pass": 956,
+      "total": 1005,
+      "pass": 954,
       "blocked": 6,
       "differ": 45,
       "nodefail": 0,
-      "coverage": 94.94
+      "coverage": 94.93
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1624,
-      "pass": 1538,
+      "total": 1622,
+      "pass": 1536,
       "blocked": 23,
       "differ": 63,
       "nodefail": 0,
@@ -1829,7 +1829,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26016/src/2120.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-740/src/2120.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1964,16 +1964,16 @@
       "detail": "stdout 不同：第 3 行：node «3» vs tsrun «{ m: [Function: m] }»"
     },
     {
-      "id": "runtime/round746/gap746-forof-early-exit-not-lazy",
+      "id": "runtime/round746/002-forof-early-exit-not-lazy-differ",
       "category": "runtime",
       "title": "`for..of` 提前退出：迭代器的 `next()` 该只走一步、并且要调 `return()`",
       "detail": "stdout 不同：第 1 行：node «n0,v0,r» vs tsrun «n0,n1,n2,n3,v0,r»"
     },
     {
-      "id": "runtime/round747/gap747-promise-chain-order",
+      "id": "runtime/round747/002-promise-chain-microtask-order-differ",
       "category": "runtime",
       "title": "承诺链与另一条链的**微任务次序**",
-      "detail": "stdout 不同：第 3 行：node «chain caught:boom2» vs tsrun «after fin 2»"
+      "detail": "stdout 不同：第 10 行：node «chain caught:boom2» vs tsrun «after fin 2»"
     },
     {
       "id": "runtime/round748/p748a-a01",
@@ -2171,7 +2171,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26016/src/3650.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-740/src/3648.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2195,7 +2195,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26016/src/3700.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-740/src/3698.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2318,13 +2318,13 @@
       "detail": "stdout 不同：第 2 行：node «{} \"ab\"» vs tsrun «[1,2] \"ab\"»"
     },
     {
-      "id": "stdlib/round745/gap745-float-literal-eats-nan",
+      "id": "stdlib/round745/001-flat-depth-argument-slot-differ",
       "category": "stdlib",
-      "title": "`flat(NaN)` 与同一句里的浮点字面量：那个 `NaN` 被前一个字面量顶掉",
-      "detail": "stdout 不同：第 1 行：node «[1,2,[3]] [1,[2,[3]]]» vs tsrun «[1,2,[3]] [1,2,[3]]»"
+      "title": "flat 的深度实参落格：字面量顶掉同句里另一格的参数（账）",
+      "detail": "stdout 不同：第 3 行：node «[1,2,[3]] [1,[2,[3]]]» vs tsrun «[1,2,[3]] [1,2,[3]]»"
     },
     {
-      "id": "stdlib/round746/gap746-array-accessor-out-of-range-enumerable",
+      "id": "stdlib/round746/001-array-accessor-out-of-range-enumerable-differ",
       "category": "stdlib",
       "title": "`defineProperty` 装一个**越界**下标访问器时的可枚举性",
       "detail": "stdout 不同：第 1 行：node «3 5 » vs tsrun «3 5 2»"
@@ -2351,7 +2351,7 @@
       "id": "stdlib/round751/p751b-03",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26016/src/4658.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-740/src/4654.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/p751b-04",

@@ -101,8 +101,16 @@ console.log(Box.of(1));
 | `ty-` / `type-` | 类型 | `type-cond-infer-constraint` |
 | `decl-` | 声明 | `decl-class-computed-field` |
 | `mod-` / `im-` | 模块 | `mod-export-assignment` |
-| `gap-` | **已知缺口**（`xl:known-gap`） | `gap-r676-unique-comment-operand` |
+| `gap-` | **已知缺口**（`xl:known-gap`）——**只在 `token/` 里当前缀**（AST 尺子的逐落点账，见下） | `gap-r676-unique-comment-operand` |
 | `mut-` | 变异体（同一形状换一处） | `mut-type-union-after-readonly-93` |
+
+**`gap-` 前缀的边界（第 790 轮（二）定）**：这一族在 `token/` 里是**前缀**，那是因为
+token 的 186 条 `gap-sweep-*` / `gap-r676-*` 是 **AST 尺子的逐落点账**——一文件一次对拍，
+落点序号（`-01` / `-02`…）本身就是名字要表达的东西。
+**其余四类里 `gap` 不进文件名**：账的性质由 `xl:want`（`blocked` / `differ`）+ `xl:why` 表达、
+轮次由 `xl:round` 表达，名字只写**描述 + 账的尾巴**——
+`stdlib/round746/001-array-accessor-out-of-range-enumerable-differ` ✅ ／
+`gap746-array-accessor-out-of-range-enumerable` ❌。
 
 ### 2. 一条用例只问**一个判定点**
 
@@ -161,7 +169,8 @@ console.log(Box.of(1));
 | 动机 | 「免得把控制台渲染那一族的已知缺口混进来」——即**隔离打印层**，让每条只暴露一个语义差额 |
 | 首现 | 第 692 轮（其一）：**385 条**（其中原子探针 299 条），分母 3992 → 4377 |
 | 之后逐批 | 692（其二）150 · 692（其三）103 · 693 **555** · 694 **242** · 695 150 · 696 152 · 697 159 · 698 85 · 699 202 · 700 158 · 701 100 · 706 133 · 707 117 · 708 81 · 709 56 · 710 49 · 711 26 |
-| 现状（第 790 轮之后） | git 跟踪 **1029 条**（第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118） |
+| 现状（第 790 轮（二）之后） | git 跟踪 **1025 条**（第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118） |
+| 现状（`gap-*` 一族） | git 跟踪 **186 条**，其中 token 180（`gap-sweep-*` 175 + `gap-r676-*` 11 之类）、runtime / stdlib 6 —— **第 790 轮（二）起这一族也在整理范围内**：同一条根的账并成一条、名字按规范给（`gap746-…` → `002-…-differ` 这种）；token 那 186 条**逐条量的是不同落点**（`xl:known-gap` 一行的差额各不相同），所以**没有重复可去**，仍按 `gap-` 前缀留在 `token/` 里（见下面第 790 轮（二）那一节） |
 
 **它当时的收益是真的**：每一批都当场收掉几处根因，覆盖度从 3697/3992 一路推到目前的 4886/5284。
 **它的代价是现在才显出来的**：同一判定点被**逐批重抄**——第 692 轮抄一遍、693 再抄一遍、
@@ -255,7 +264,39 @@ console.log(Box.of(1));
 `MOVED` / `NEWLY-PASSING` / `REGRESSION` 全 0。八道门全绿；
 `cases:check` 1407 条 0 不合格、`cases:tags` 4748 条断言 0 不一致。
 
-**下一步的收网面**：`probe*` 命名还剩 **1029 条**，最密的几个域是
+**第 790 轮（二）：`gap-*` 老语料进整理范围——查重、同根并账、按规范改名**。
+口径先说清楚，因为这一族与前几轮的 `probe*` **不是同一种东西**：
+
+- **`probe*` 是同一判定点被逐批重抄** ⇒ 能去重（分母里的水）。
+- **`gap-*` 是「还没实现」的账**（`xl:known-gap`），**一条一个落点**。这一轮把 191 条
+  `gap-*` 的**正文逐条比对**：**191 条正文互不相同，重复组 0 组**
+  （`gap-sweep-<sep>/<feature>-NN` 的 NN 是落点序号，不是批次号——
+  同一个 feature 下 `01`/`02`… 各是**另一种排版**，`xl:known-gap` 那一行的差额各不相同）。
+  ⇒ **没有重复可去**，删任何一条都是把缺口藏起来。
+- 所以这一族做的是**另外三件事**：**同名根的账并成一条**、**名字里的轮次号去掉、
+  按 `<序号>-<描述>[-blocked|-differ]` 命名**、**把同族的守卫并进账里**。
+- **判定力只增不减**：并账时把「同一族里当场是对的」那些探针一起收进账（守卫留在文件里），
+  而**账的条数只减不增**：`differ` / `blocked` 的总数两轮下来**一处没动**（260 / 138）。
+- **token 那 186 条 `gap-sweep-*` 原样留着**（名字不动）：它们是 **AST 尺子**的逐落点账，
+  每个文件是**独立一次对拍**；把它们拼进一个文件会把「一文件一处差额」摊成一次大对拍，
+  读数反而更粗（这正是本轮不做的那个取舍）。
+
+| 新条 / 改名 | 判定点 | 吸收的落点 |
+| --- | --- | --- |
+| `stdlib/round745/001-flat-depth-argument-slot-differ` | `flat` 的深度实参落格：同句里另一个字面量把这一格顶掉（**账**） | `gap745-flat-infinity-argument-slot`（同一条根的反方向）+ `gap745-float-literal-eats-nan` + `p745a-a02`（`ToNumber` 那一档是对的，当守卫） |
+| `runtime/round746/001-generator-return-and-throw-protocol` | 生成器 `return` / `throw` 协议：没跑过 / 跑了一半 / `finally` 链 / `yield*` 委托 | `p746a-a01` + `p746a-a02`（同一个判定点族） |
+| `runtime/round746/002-forof-early-exit-not-lazy-differ` | `for..of` 提前退出不惰性（**账**） | `gap746-forof-early-exit-not-lazy`（只改名） |
+| `runtime/round747/002-promise-chain-microtask-order-differ` | 两条互不相干的承诺链同时飞时的微任务次序（**账**） | `gap747-promise-chain-order` + `p747a-a05`（每条链单独跑都对——守卫并进账） |
+| `stdlib/round746/001-array-accessor-out-of-range-enumerable-differ` | 越界下标访问器的可枚举性（**账**） | `gap746-array-accessor-out-of-range-enumerable`（只改名） |
+
+读数的净变化：语料 **5294 → 5290**（净少 **4**：删 7、改 3 个名、添 3 条——其中
+`stdlib/round745` **11 → 9**、`runtime/round746` **3 → 2**、`runtime/round747` **13 → 12**、
+`stdlib/round746` **7 → 7**（只改名））；**blocked 260 / differ 138 / bad 0 一处没动**。
+四个域的两种口径对拍**逐项相同**（域内读数：1/2 · 11/12 · 8/9 · 6/7，各域一张账原样）。
+这条规矩写进下面「命名」那一节：**`gap-` 只在 `token/` 里是前缀（AST 尺子的已知缺口），
+其余类别里 `gap` 一律不进文件名**（轮的号进 `xl:round`，性质进 `xl:want`）。
+
+**下一步的收网面**：`probe*` 命名还剩 **1025 条**，最密的几个域是
 `stdlib/error`（53）、`exec/iterators`（52）、`exec/destructuring-spread`（49）、
 `stdlib/math`（44）、`runtime/async`（40）、`stdlib/console`（38）、`exec/round709`（35）、
 `runtime/round742`（34）、`runtime/exceptions`（34）、`stdlib/round719`（26）——

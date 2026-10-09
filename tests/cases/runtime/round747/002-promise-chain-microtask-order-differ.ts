@@ -23,6 +23,7 @@
 // xl:why **这不是「先后无所谓」**：`await` 的次序是脚本看得见的东西
 // xl:why （判据 `c338-e2e-async-queue-and-generators` 量过另一种形态的同一件事）。
 // xl:end
+
 Promise.resolve(1)
   .then((v) => v + 1)
   .then((v) => { throw new Error("boom" + v); })
@@ -31,3 +32,19 @@ Promise.resolve(1)
   .then((v) => console.log("chain", v));
 Promise.resolve(1).then((v) => v + 1).finally(() => console.log("fin")).then((v) => console.log("after fin", v));
 console.log("sync");
+
+(() => {
+Promise.resolve(1)
+  .then((v) => v + 1)
+  .then((v) => { throw new Error("boom" + v); })
+  .then(() => "not here")
+  .catch((e) => "caught:" + (e as Error).message)
+  .then((v) => console.log("chain", v));
+Promise.reject("r").catch((e) => console.log("caught2", e));
+Promise.resolve(1).then((v) => { throw new Error("m"); }).catch((e) => console.log("c3", (e as Error).message));
+Promise.all([1, 2]).then((v) => console.log("all", JSON.stringify(v)));
+Promise.allSettled([1, Promise.reject("x")]).then((v) => console.log("settled", JSON.stringify(v)));
+Promise.race([1, 2]).then((v) => console.log("race", v));
+Promise.any([Promise.reject("e"), 2]).then((v) => console.log("any", v));
+console.log("sync");
+})();
