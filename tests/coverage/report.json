@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4175,
+  "total": 4171,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 92.78,
+  "progressPercent": 92.77,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 790,
-      "pass": 750,
+      "total": 788,
+      "pass": 748,
       "blocked": 10,
       "differ": 30,
       "nodefail": 0,
-      "coverage": 94.94
+      "coverage": 94.92
     },
     {
       "category": "runtime",
@@ -110,18 +110,18 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 970,
-      "pass": 886,
+      "total": 969,
+      "pass": 885,
       "blocked": 21,
       "differ": 63,
       "nodefail": 0,
-      "coverage": 91.34
+      "coverage": 91.33
     },
     {
       "category": "e2e",
       "weight": 0.15,
-      "total": 246,
-      "pass": 242,
+      "total": 245,
+      "pass": 241,
       "blocked": 4,
       "differ": 0,
       "nodefail": 0,
@@ -1674,7 +1674,7 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
-      "id": "e2e/scenarios/211-word-frequency-r7",
+      "id": "e2e/scenarios/211-word-frequency",
       "category": "e2e",
       "title": "端到端：词频统计 + 排序输出（Map / 数组 / 字符串归一）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
@@ -1817,7 +1817,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29368/src/2003.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12564/src/2001.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -2159,7 +2159,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29368/src/2986.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12564/src/2984.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2183,7 +2183,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29368/src/3034.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12564/src/3032.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2339,7 +2339,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29368/src/3678.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12564/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
