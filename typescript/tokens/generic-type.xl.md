@@ -1201,6 +1201,14 @@ TS 那句 `canFollowTypeArgumentsInExpression` 的第一句就是 `hasPrecedingL
 ```ts
 const document = source.Document;
 let index = closeIndex + 1;
+// **这一格不把 `source` 带下去**（第 894 轮（三）实测：带上会当场崩）。
+// `instanceof` 那一支（`IsInstanceOfTypeArgument`）要看配对 `>` 后面那一个字符，
+// 所以它本来该从这里拿到 `source`；可实测把第 4 个实参补上之后
+// `expr-instanceof-instantiation` 与 `instanceof-chain` 两份**当场 `throw by line 0`**
+//（`IsTypePosition` 会在**括号递归**那一支里被换宿主再问一次，而那一次 `source`
+// 未必还有 `Document`），而 `b instanceof C<D> + e` 那一格**照样错**。
+// 所以这一轮**不动数据流**：那一支留在文件里（判据与 TS 原文一对一），
+// 由 `gap-instanceof-then-add` 记着它够不着。**要动它得先把「哪几次调用真的带 source」量清**。
 const isTypePosition = this.IsTypePosition(unit);
 while (index < document.GetCount()) {
   const item = document.GetValue(index);
