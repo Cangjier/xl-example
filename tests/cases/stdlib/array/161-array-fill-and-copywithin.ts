@@ -19,6 +19,14 @@
 //  ② `copyWithin(target, start, end)`：同样三格实参与负下标；**重叠时按拷贝方向处理**
 //     （先取出来再写，不会出现「边写边读」的错位）；
 //  ③ 两者都返回**原数组**、都是原地改。
+//   `115-arg-array-range`
+//   正文逐字接在下面（每块一个 IIFE、块首写明出处）；并组完整性由一把一次性尺子核对：
+//   合并后的 `node` / `tsrun` stdout 与「本文件改前那一份 ＋ 各来源 stdout 的顺次相接」逐字节相同。
+// **第 813 轮（合并，下盘）**：下面这些同判定点的来源**这一轮真的从盘上删掉了**
+//   （它们早就被上面那张清单点过名，文件却一直留在盘上——同判定点重复、分母被灌水）：
+//   `115-arg-array-range`
+//   正文逐字接在下面（每块一个 IIFE、块首写明出处）；并组完整性由一把一次性尺子核对：
+//   合并后的 `node` / `tsrun` stdout 与「本文件改前那一份 ＋ 各来源 stdout 的顺次相接」逐字节相同。
 const show = (v: any): string => (v === null ? "null" : typeof v + ":" + String(v));
 
 try {
@@ -116,4 +124,16 @@ const a: any = [1, 2, 3, 4, 5];
 console.log(JSON.stringify(a.copyWithin(0, 3)));
 console.log(JSON.stringify(a.fill(9, -2)));
 console.log(JSON.stringify([1, 2, 3].copyWithin(-2, 0)));
+})();
+//  ---- 并自 115-arg-array-range.ts ----
+(function () {
+const f: any = [1, 2, 3, 4].fill(0, 1, 3);
+const cp: any = [1, 2, 3, 4, 5].copyWithin(0, 3);
+const eq: any = [1, 2, 3, 4].fill(0, -2);
+try { console.log("fill", String(f)); } catch (e) { console.log("fill", "ERR", String(e && e.name)); }
+try { console.log("copyWithin", String(cp)); } catch (e) { console.log("copyWithin", "ERR", String(e && e.name)); }
+try { console.log("fill-neg", String(eq)); } catch (e) { console.log("fill-neg", "ERR", String(e && e.name)); }
+try { console.log("slice--2", String([1, 2, 3].slice(-2))); } catch (e) { console.log("slice--2", "ERR", String(e && e.name)); }
+try { console.log("slice-1--1", String([1, 2, 3].slice(1, -1))); } catch (e) { console.log("slice-1--1", "ERR", String(e && e.name)); }
+try { console.log("slice--9", String([1, 2, 3].slice(-9))); } catch (e) { console.log("slice--9", "ERR", String(e && e.name)); }
 })();

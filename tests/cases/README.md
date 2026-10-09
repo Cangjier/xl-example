@@ -487,6 +487,77 @@ switch 那一条收进三段（判别式是自增表达式、判别式是 `typeo
 `exec/round708`（46 条，与 `stdlib/*` 的域大面积同判定点）、`stdlib/array` 余下三个功能族
 （谓词族 / `reduce` 族 / 迭代器族）。手法与这一轮相同：先量并组、再下盘、再保台账。
 
+**第 813 轮的合并**（**`stdlib/array` 里「早就自称合并过、文件却还在盘上」的 89 条真的下盘：111 → 17**）：
+
+这一轮走的是**第 810 轮留下的那一类**：保留条的文件头写着「合并了原先同一个判定点的
+二十余条＋ `004-array-find-family` / `005-array-reduce` / …」，而那些**被点名的文件一条都没从盘上删掉**——
+于是同一个判定点仍然有十几条在量，任何一处实现改动会让十几条一起红（判定力等于一条、分母被灌了十几倍）。
+**先把「自称合并过」与「真的合并过」量开**：一次性尺子（`tmp-r813-claimed.mjs`）按
+「保留条头里的合并清单」列盘，量出 **75 条被点名却还在盘上**；再用另一把尺子
+（`tmp-r813-verify-array.mjs`，逐条对保留条的 `tsrun` / `node` 产出做**按行子序列包含**）
+量的结果是 **`ok=0 lost=75`**——也就是说这些来源的读数**一条都不在保留条里**：
+它们不是「已并入的残留」，是**从没并过的重复条**。
+
+**12 个保留条吸收 89 条来源**（75 条被点名的 ＋ 14 条**连点名都没有**的遗留条）：
+
+| 保留条 | 吸收 | 判定点 |
+| --- | --- | --- |
+| `155-array-search-and-at` | 4 条（`114-arg-array-fromindex` · `133-includes-nan-negzero` · `137-indexof-fromindex` · `125-at-negative`） | `indexOf` / `lastIndexOf` / `includes` / `at` 的比较与起点 |
+| `156-array-structure-and-mutation` | 8 条（`028` · `044` · `070` · `083` · `132` · `001-array-push-pop` · `002-array-shift-unshift` · `135-slice-negative`） | `slice` / `splice` / `concat` / `reverse` / 栈队列那一族的返回值与实参个数 |
+| `157-array-join-and-tostring` | 8 条（`003` · `018` · `031` · `074` · `136` · `140` · `145` · `118-arg-array-join-holes`） | 元素 → 文本那一趟：洞与空值、`toString` 走 `join` |
+| `159-array-construction` | 19 条（`007` · `009` · `024` · `036` · `049` · `055` · `072` · `080` · `081` · `088` · `095` · `098` · `103` · `121` · `122` · `129` · `008-array-from-arraylike` · `011-array-spread-conditional` · `063-array-fromasync`） | `Array` 构造 / `of` / `from` / `isArray` |
+| `160-array-flat-and-flatmap` | 1 条（`117-arg-array-flat-reduce`） | `flat` / `flatMap` 的深度实参 |
+| `161-array-fill-and-copywithin` | 1 条（`115-arg-array-range`） | `fill` / `copyWithin` / `slice` 的两个下标 |
+| `162-array-length-writes` | 8 条（`012` · `042` · `060` · `078` · `084` · `130` · `141` · `079-array-index-and-length-key`） | `length` 那一格与下标格的联动 |
+| `163-array-holes-per-method` | 5 条（`013` · `082` · `090` · `120` · `148`） | 洞在回调族与取值族里是两回事 |
+| `164-array-predicates` | 10 条（`004` · `014` · `017` · `041` · `047` · `054` · `061` · `076` · `109` · `126`） | 谓词族的答案与短路 |
+| `165-array-reduce` | 11 条（`005` · `015` · `029` · `033` · `039` · `050` · `073` · `097` · `101` · `134` · `147`） | 初值那一位决定一切 |
+| `166-array-iterators` | 6 条（`022` · `035` · `051` · `067` · `077` · `089`） | 三个迭代器的步进值与 `next()` 的三段形状 |
+| `168-array-generic-methods` | 2 条（`085-function-apply-array-like` · `151-array-from-arguments`） | `Array.prototype.*.call` 对类数组 / 字符串 / 原始值 |
+| `169-array-index-accessors-and-proto` | 6 条（`142` · `143` · `144` · `149` · `150` · `154`） | 数组上挂访问器 / 往 `Array.prototype` 加格 |
+| `exec/functions/088-fn-length-name` | 5 条（`023` · `032` · `043` · `056` · `057`） | **放错域**：函数自己那两格（`length` 数到第一个默认值 / 剩余参数为止、`name` 从推断来） |
+
+**凡「并」必有据，而且这一轮量的是最强的那条口径**：三把一次性并组器
+（`tmp-r813-merge.mjs` · `tmp-r813-merge2.mjs` · `tmp-r813-merge3.mjs`，都在 `.gitignore` 的
+`tmp-*` 里、未进仓）把「**保留条改前那一份 ＋ 各来源**的 `node` / `tsrun` 产出**顺次相接**」
+与**合并后保留条**的产出对拍，**两侧都必须逐字节相同才写盘**（19 组，两侧全中）；
+核验不过就**一条都不写**（并组器是事务性的，不留半成品）。
+
+**这一轮撞到的三处坑（都记在这里）**：
+
+1. **两块 `const a` 会撞名**：并进来的块原来都是「一条一进程」，并进一个文件之后
+   `const a` 在顶层重复声明 ⇒ **`node` 当场 `SyntaxError`**（而本仓的 `tsrun` 那一趟照样绿——
+   它的作用域处理比 node 松）。改法是**每块套一个 `(function () { … })();`**（块里的正文一字未改），
+   套壳之后两侧才都逐字节相同。
+2. **异步条不许并**：`stdlib/array/058-promise-all-with-rejection` 与
+   `stdlib/promise/029-promise-all-mixed` 同判定点，直接并进去实测**微任务次序就变了**
+   （`sync` 跑到 `empty 0` 前面）——与第 805 / 809 / 812 轮那几处同一条手法边界，**这一条不并**。
+3. **并进来的一档把一条 `pass` 变成 `differ`**：`150-array-species-subclass` 那一档
+   （`class MyArr extends Array {}` 上 `a.map(…)`）并进 `169` 之后，`node` 给
+   `b instanceof MyArr === true`、`tsrun` 给 `false`——**这是真差异，不是并组弄坏的**
+   （单独跑那一条本来就差）。按规矩**如实登账**：`169` 的头部加 `xl:want differ` 与
+   `xl:why`（写清只差第一个字段、其余各块两侧相同），这样 `differ` 撤掉一条、登记一条，
+   仍是 **138**、`REGRESSION` 0。
+
+**保台账（全量批量跑，`--jobs 8 --batch-workers 32`）**：语料 **4269 → 4175**（净少 **94**：
+`stdlib/array` 89 条下盘、5 条并进 `exec/functions/088`，其中 0 条 `blocked` / 0 条 `differ`）、
+过 **3873 → 3779**；**blocked 258 / differ 138 / bad 0 一处没动**，
+`MOVED` / `NEWLY-PASSING` / `REGRESSION` **全 0**，加权 92.93% → **92.78%**
+（分母变小、缺口条数一条不变，百分比按算术下降）。
+
+**验证一次**：`--no-batch --jobs 8`（一条一个进程的权威口径）与批量那一轮**逐项相同**——
+**3779 / 4175 · blocked 258 · differ 138 · bad 0**。
+
+**收网扫描（DSH 自己逐目录读盘，不用脚本代替）**：`stdlib/array` 现存 **17 条**
+（`113-names-array` · `155`–`169` 十五条 · `058-promise-all-with-rejection`），
+**每条都是 `<三位序号>-<kebab 描述>`**、序号不重；13 个保留条的头部都记着
+「第 813 轮下盘了哪几条」与「正文在下面各块」；
+`exec` / `runtime` / `stdlib` / `e2e` 四类里**不以三位序号开头的用例 0 条**，
+`probe*` / `p<轮次>*` / `p-*` / `r<轮次>*` 四种旧命名仍是 **0 条**。
+**这一轮量清的一处过期文档**：第 812 轮（三）写着「全仓 `-r<轮次>` 命名 0 条」——
+**这句是错的**：逐目录读盘数出来的是 **135 条带 `-r<轮次>` 尾巴的用例**
+（`e2e` 31 · `exec` 55 · `runtime` 18 · `stdlib` 31），留给第 814 轮按「轮次进 `xl:round` 那一格」的规矩处理。
+
 **第 812 轮（三）：收网扫描（这一轮一条用例都没动，只把读数与一处过期的文档更正）**
 
 前三轮（812 · 812（二））把 `stdlib/string` 的重复条收完之后，这一轮**只做第 7 / 9 步**：

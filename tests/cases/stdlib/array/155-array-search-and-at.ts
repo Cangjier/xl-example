@@ -43,3 +43,32 @@ try {
 } catch (e) {
   console.log("throw:" + (e && (e as any).constructor ? (e as any).constructor.name : "?"));
 }
+//  ---- 并自 114-arg-array-fromindex.ts ----
+(function () {
+const a: any = [1, 2, 3, 2, 1];
+try { console.log("indexOf-2--2", String(a.indexOf(2, -2))); } catch (e) { console.log("indexOf-2--2", "ERR", String(e && e.name)); }
+try { console.log("indexOf-1--1", String(a.indexOf(1, -1))); } catch (e) { console.log("indexOf-1--1", "ERR", String(e && e.name)); }
+try { console.log("lastIndexOf-1--1", String(a.lastIndexOf(1, -1))); } catch (e) { console.log("lastIndexOf-1--1", "ERR", String(e && e.name)); }
+try { console.log("lastIndexOf-2-2", String(a.lastIndexOf(2, 2))); } catch (e) { console.log("lastIndexOf-2-2", "ERR", String(e && e.name)); }
+try { console.log("includes-1--100", String(a.includes(1, -100))); } catch (e) { console.log("includes-1--100", "ERR", String(e && e.name)); }
+try { console.log("includes-1-4", String(a.includes(1, 4))); } catch (e) { console.log("includes-1-4", "ERR", String(e && e.name)); }
+try { console.log("indexOf-any-99", String(a.indexOf(9, 99))); } catch (e) { console.log("indexOf-any-99", "ERR", String(e && e.name)); }
+})();
+//  ---- 并自 133-includes-nan-negzero.ts ----
+(function () {
+console.log([NaN].includes(NaN), [NaN].indexOf(NaN));
+console.log([-0].indexOf(0), [-0].includes(0));
+console.log([0].indexOf(-0), [0].includes(-0));
+})();
+//  ---- 并自 137-indexof-fromindex.ts ----
+(function () {
+const a: any = [1, 2, 1, 2];
+console.log(a.indexOf(1, -1), a.indexOf(1, -3), a.indexOf(2, -100));
+console.log(a.lastIndexOf(1, -2), a.lastIndexOf(2, -100));
+})();
+//  ---- 并自 125-at-negative.ts ----
+(function () {
+const a: any = [1, 2, 3];
+console.log(a.at(-1), a.at(-4), a.at(3));
+console.log("abc".at(-1), "abc".at(9));
+})();

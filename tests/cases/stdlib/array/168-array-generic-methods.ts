@@ -24,6 +24,14 @@
 //  ③ 字符串当类数组（按**码元**，`slice.call("abc")` 给三个字符）；
 //  ④ `null` / `undefined` 当 `this` 抛 `TypeError`，原始值先 `ToObject`（长度 0）；
 //  ⑤ 回调的第三个实参就是**那个类数组自己**（不是新造的数组）。
+//   `085-function-apply-array-like` · `151-array-from-arguments`
+//   正文逐字接在下面（每块一个 IIFE、块首写明出处）；并组完整性由一把一次性尺子核对：
+//   合并后的 `node` / `tsrun` stdout 与「本文件改前那一份 ＋ 各来源 stdout 的顺次相接」逐字节相同。
+// **第 813 轮（合并，下盘）**：下面这些同判定点的来源**这一轮真的从盘上删掉了**
+//   （它们早就被上面那张清单点过名，文件却一直留在盘上——同判定点重复、分母被灌水）：
+//   `085-function-apply-array-like` · `151-array-from-arguments`
+//   正文逐字接在下面（每块一个 IIFE、块首写明出处）；并组完整性由一把一次性尺子核对：
+//   合并后的 `node` / `tsrun` stdout 与「本文件改前那一份 ＋ 各来源 stdout 的顺次相接」逐字节相同。
 const show = (v: any): string => (v === null ? "null" : typeof v + ":" + String(v));
 const err = (f: () => any): string => {
   try { return "no-throw:" + String(f()); } catch (e) { return (e as any).constructor.name; }
@@ -94,3 +102,24 @@ try {
 } catch (e) {
   console.log("throw:" + (e && (e as any).constructor ? (e as any).constructor.name : "?"));
 }
+//  ---- 并自 085-function-apply-array-like.ts ----
+(function () {
+function f(this: any, a: number, b: number) { return [this.tag, a, b].join(":"); }
+console.log("A", f.apply({ tag: "T" }, [1, 2]));
+console.log("B", f.apply({ tag: "T" }, { length: 2, 0: 1, 1: 2 } as any));
+console.log("C", f.apply({ tag: "T" }, { length: "2", 0: 1, 1: 2 } as any));
+console.log("D", f.apply({ tag: "T" }, { length: 0 } as any));
+console.log("E", f.apply({ tag: "T" }, { length: 5, 0: 1 } as any));
+function viaArguments(): string { return f.apply({ tag: "A" }, arguments as any); }
+console.log("F", viaArguments(7, 8));
+console.log("G", f.apply({ tag: "T" }, [] as any), f.call({ tag: "C" }, 3, 4));
+})();
+//  ---- 并自 151-array-from-arguments.ts ----
+(function () {
+function f(): number[] { return Array.prototype.slice.call(arguments); }
+console.log(JSON.stringify(f(1, 2, 3)));
+function g(): string { return [].join.call(arguments, "-"); }
+console.log(g("a", "b"));
+function h(): number { return Array.prototype.reduce.call(arguments, (a: any, b: any) => a + b, 0); }
+console.log(h(1, 2, 3));
+})();

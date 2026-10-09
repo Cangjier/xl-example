@@ -65,3 +65,39 @@ probe(() => ((a, b) => a).length);
 // `bind` 之后：名字带前缀、长度照旧是绑定后的形参个数
 probe(() => (function () {}).bind(null).name);
 probe(() => (function () {}).bind(null).length);
+//  ---- 并自 023-function-length-and-name.ts ----
+(function () {
+function three(a: number, b: number, c: number) { return a + b + c; }
+const two = (a: number, b: number) => a + b;
+const o = { method(a: number, b: number, c: number, d: number) { return d; } };
+console.log(three.length, two.length, o.method.length, three.name, two.name);
+})();
+//  ---- 并自 032-function-length-with-defaults.ts ----
+(function () {
+function a(x: number, y: number) {}
+function b(x: number, y = 1) {}
+function c(x: number, ...r: number[]) {}
+console.log(a.length, b.length, c.length);
+})();
+//  ---- 并自 043-function-name-and-length-forms.ts ----
+(function () {
+function decl(a: number, b: number) { return a + b; }
+const expr = function named(x: number) { return x; };
+const arrow = (a: number, b = 1) => a + b;
+const meth = { m(p: number) { return p; } };
+console.log(decl.name, expr.name, arrow.name, meth.m.name);
+console.log(decl.length, expr.length, arrow.length, meth.m.length);
+})();
+//  ---- 并自 056-function-method-length-and-name.ts ----
+(function () {
+class C {
+  m(a: number, b = 1, ...rest: number[]) { return a + b + rest.length; }
+}
+console.log(C.prototype.m.length, C.prototype.m.name, new C().m(1));
+})();
+//  ---- 并自 057-bound-function-length.ts ----
+(function () {
+function f(a: number, b: number, c: number) { return a + b + c; }
+const g = f.bind(null, 1, 2);
+console.log(g(3), g.length, g.name);
+})();

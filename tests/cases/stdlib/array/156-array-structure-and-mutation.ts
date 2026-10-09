@@ -21,6 +21,14 @@
 //  ③ `concat` 摊平**一层**、非数组实参原样接上；
 //  ④ `reverse` / `push` / `pop` / `shift` / `unshift` 各自的返回值（`push` 给新长度、
 //     `pop` 给弹出的值、`shift` 给被移走的那一个、`unshift` 给新长度）。
+//   `028-array-splice-forms` · `044-array-splice-return-and-negative` · `070-array-splice-return-and-argc` · `083-splice-argument-forms` · `132-splice-negative` · `001-array-push-pop` · `002-array-shift-unshift` · `135-slice-negative`
+//   正文逐字接在下面（每块一个 IIFE、块首写明出处）；并组完整性由一把一次性尺子核对：
+//   合并后的 `node` / `tsrun` stdout 与「本文件改前那一份 ＋ 各来源 stdout 的顺次相接」逐字节相同。
+// **第 813 轮（合并，下盘）**：下面这些同判定点的来源**这一轮真的从盘上删掉了**
+//   （它们早就被上面那张清单点过名，文件却一直留在盘上——同判定点重复、分母被灌水）：
+//   `028-array-splice-forms` · `044-array-splice-return-and-negative` · `070-array-splice-return-and-argc` · `083-splice-argument-forms` · `132-splice-negative` · `001-array-push-pop` · `002-array-shift-unshift` · `135-slice-negative`
+//   正文逐字接在下面（每块一个 IIFE、块首写明出处）；并组完整性由一把一次性尺子核对：
+//   合并后的 `node` / `tsrun` stdout 与「本文件改前那一份 ＋ 各来源 stdout 的顺次相接」逐字节相同。
 const show = (v: any): string => (v === null ? "null" : typeof v + ":" + String(v));
 
 try {
@@ -53,3 +61,75 @@ try {
 } catch (e) {
   console.log("throw:" + (e && (e as any).constructor ? (e as any).constructor.name : "?"));
 }
+//  ---- 并自 028-array-splice-forms.ts ----
+(function () {
+const a = [1, 2, 3, 4];
+console.log(a.splice(1, 1).join(","), a.join(","));
+const b = [1, 2, 3, 4];
+console.log(b.splice(1, 0, "x").length, b.join(","));
+const c = [1, 2, 3];
+console.log(c.splice(-2, 5).join(","), c.join(","));
+})();
+//  ---- 并自 044-array-splice-return-and-negative.ts ----
+(function () {
+const xs = [1, 2, 3, 4];
+console.log(xs.splice(1, 2).join(","), xs.join(","));
+console.log([1, 2, 3].splice(-1, 1).join(","));
+console.log([1, 2, 3].splice(1).join(","), [1, 2, 3].splice(9).length);
+})();
+//  ---- 并自 070-array-splice-return-and-argc.ts ----
+(function () {
+const a = [1, 2, 3, 4];
+console.log(JSON.stringify(a.splice(1, 2)), JSON.stringify(a));
+const b = [1, 2, 3];
+console.log(JSON.stringify(b.splice(1)), JSON.stringify(b));
+const c = [1, 2, 3];
+console.log(JSON.stringify(c.splice(-1)), JSON.stringify(c));
+const d = [1, 2, 3];
+console.log(JSON.stringify(d.splice()), JSON.stringify(d));
+})();
+//  ---- 并自 083-splice-argument-forms.ts ----
+(function () {
+const a = [1, 2, 3, 4];
+console.log("A", JSON.stringify(a.splice()), JSON.stringify(a));
+const b = [1, 2, 3];
+console.log("B", JSON.stringify(b.splice(1)), JSON.stringify(b));
+const c = [1, 2, 3];
+console.log("C", JSON.stringify(c.splice(1, undefined)), JSON.stringify(c));
+const d = [1, 2, 3];
+console.log("D", JSON.stringify(d.splice(1, 0, 9)), JSON.stringify(d));
+const e = [1, 2, 3];
+console.log("E", JSON.stringify(e.splice(-2)), JSON.stringify(e));
+const f = [1, 2, 3];
+console.log("F", JSON.stringify(f.splice(5)), JSON.stringify(f));
+const g = [1, 2, 3];
+console.log("G", JSON.stringify(g.splice(0, 99)), JSON.stringify(g));
+})();
+//  ---- 并自 132-splice-negative.ts ----
+(function () {
+const a: any = [1, 2, 3, 4, 5];
+console.log(JSON.stringify(a.splice(-2, 1)));
+console.log(JSON.stringify(a));
+const b: any = [1, 2, 3];
+console.log(JSON.stringify(b.splice(1)));
+console.log(JSON.stringify(b));
+})();
+//  ---- 并自 001-array-push-pop.ts ----
+(function () {
+const xs = [1, 2];
+console.log(xs.push(3, 4), xs.join(","));
+console.log(xs.pop(), xs.join(","), [].pop());
+})();
+//  ---- 并自 002-array-shift-unshift.ts ----
+(function () {
+const xs = [2, 3];
+console.log(xs.shift(), xs.join(","));
+console.log(xs.unshift(0, 1), xs.join(","));
+console.log([].shift());
+})();
+//  ---- 并自 135-slice-negative.ts ----
+(function () {
+const a: any = [1, 2, 3, 4, 5];
+console.log(JSON.stringify(a.slice(-2)), JSON.stringify(a.slice(1, -1)), JSON.stringify(a.slice(3, 1)));
+console.log("abcde".slice(-2), "abcde".slice(1, -1), "abcde".slice(3, 1));
+})();

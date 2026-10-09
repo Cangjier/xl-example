@@ -18,6 +18,14 @@
 //  ② `flatMap` 永远只摊 **1 层**（等于 `map` + `flat()`）；
 //  ③ 摊的时候**洞被去掉**（结果里没有洞）；
 //  ④ 只认真数组（`Symbol.isConcatSpreadable` 不参与这一族）。
+//   `117-arg-array-flat-reduce`
+//   正文逐字接在下面（每块一个 IIFE、块首写明出处）；并组完整性由一把一次性尺子核对：
+//   合并后的 `node` / `tsrun` stdout 与「本文件改前那一份 ＋ 各来源 stdout 的顺次相接」逐字节相同。
+// **第 813 轮（合并，下盘）**：下面这些同判定点的来源**这一轮真的从盘上删掉了**
+//   （它们早就被上面那张清单点过名，文件却一直留在盘上——同判定点重复、分母被灌水）：
+//   `117-arg-array-flat-reduce`
+//   正文逐字接在下面（每块一个 IIFE、块首写明出处）；并组完整性由一把一次性尺子核对：
+//   合并后的 `node` / `tsrun` stdout 与「本文件改前那一份 ＋ 各来源 stdout 的顺次相接」逐字节相同。
 const show = (v: any): string => (v === null ? "null" : typeof v + ":" + String(v));
 const deep: any = [[1, [2, [3]]]];
 
@@ -143,4 +151,15 @@ const nested: any = [1, [2, [3]]];
 console.log(JSON.stringify(nested.flat(1)));
 console.log(JSON.stringify(nested.flat(0)));
 console.log(JSON.stringify([].flat()));
+})();
+//  ---- 并自 117-arg-array-flat-reduce.ts ----
+(function () {
+try { console.log("flat-1", String([1, [2, [3, [4]]]].flat())); } catch (e) { console.log("flat-1", "ERR", String(e && e.name)); }
+try { console.log("flat-2", String([1, [2, [3, [4]]]].flat(2))); } catch (e) { console.log("flat-2", "ERR", String(e && e.name)); }
+try { console.log("flat-0", String([1, [2]].flat(0))); } catch (e) { console.log("flat-0", "ERR", String(e && e.name)); }
+try { console.log("flatMap", String([1, 2].flatMap((x) => [x, x * 2]))); } catch (e) { console.log("flatMap", "ERR", String(e && e.name)); }
+try { console.log("reduceRight", String(['a', 'b', 'c'].reduceRight((acc, x) => acc + x, ''))); } catch (e) { console.log("reduceRight", "ERR", String(e && e.name)); }
+try { console.log("from-length", String(Array.from({ length: 3 }, (v, i) => i * 2))); } catch (e) { console.log("from-length", "ERR", String(e && e.name)); }
+try { console.log("from-string", String(Array.from('ab'))); } catch (e) { console.log("from-string", "ERR", String(e && e.name)); }
+try { console.log("of", String(Array.of(1, 'a'))); } catch (e) { console.log("of", "ERR", String(e && e.name)); }
 })();
