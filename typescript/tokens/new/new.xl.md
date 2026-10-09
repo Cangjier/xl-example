@@ -9,6 +9,7 @@ import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { GetSkipNextWrapSymbol, IsAnnotationUnit, SkipNextTrivia, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
+import { GenericType } from "../generic-type.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
@@ -115,6 +116,22 @@ while (i < units.length) {
     break;
   }
   if (item instanceof LineWrap) {
+    // **换行后面紧跟类型实参段时，换行不是边界**（第 905 轮）：`new A` 换行 `<B>()`
+    // 在 TS 那边是**一条** `NewExpression`（`new` 的类型实参表可以另起一行——
+    // 那里没有受限产生式）。断在换行处会把 `<B>()` 留在外面（实测
+    // `gap-r902-new-typeargs-newline`：漂 4 多 7）。
+    //
+    // **判据是「下一格是不是已经成形的 `GenericType`」**：`<B>` 在跳转那一趟
+    // 就挂成了 `GenericType`（名字闸往回看时软换行是透明单元），所以这里看到的是一个
+    // **单元**、不是裸的 `<` 符号。这一点很重要——只看「下一个字符是 `<`」会把
+    // `new A` 换行 `< B` 这种比较链也并进来；`GenericType` 只在那四道闸门全过时才成形。
+    //
+    // **与 `const b = new A` 换行 `const c = new B()` 那个反例不冲突**：那一行的下一格是
+    // `const`（既不是括号也不是 `GenericType`），照旧走到 `break`。
+    if (Get(units, SkipNextTrivia(units, i)) instanceof GenericType) {
+      i = i + 1;
+      continue;
+    }
     break;
   }
   if (IsAnnotationUnit(item)) {
@@ -136,7 +153,13 @@ result.SignIn(current.SourceRange.Start!);
 const newType = result.CreateType();
 newType.SignIn(current.SourceRange.Start!);
 for (let t = index + 1; t <= typeEnd; t++) {
-  newType.Add(Get(units, t)!);
+  const item = Get(units, t)!;
+  // **跨过的那个软换行不进 `NewType`**（第 905 轮）：扫描现在允许在
+  // 「换行 + 类型实参段」处跨过去（见上面那一支），那格换行是排版、不属于类型名。
+  if (item instanceof LineWrap) {
+    continue;
+  }
+  newType.Add(item);
 }
 newType.SignOut(Get(units, typeEnd)!.SourceRange.End!);
 const newArguments = result.CreateArguments();
