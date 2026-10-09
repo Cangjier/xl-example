@@ -167,6 +167,52 @@ while (i < count) {
 return false;
 ```
 
+## private method IsDeclarationHeadHost:(unit:Token)=>bool
+
+`<` 的宿主是不是停在一个**声明头的名字**上——`function f<T extends U>` 里的那个 `f`。
+
+判据两条：宿主 `Data` 里**最后一个实义单元是名字**（`Identifier`），名字前面那一格是声明头那个词
+（`function` / `class` / `interface` / `type` / `enum` / `namespace` / `module`）。
+`LineWrap` 与 trivia 一路跳过（注释与软换行都只是排版）。
+
+**为什么只认这一格**：`<` 前面**有名字**才可能是类型参数表（名字闸已经在 `IsGenericStart` 里问过），
+而「名字前面是声明词」这一条把 `Array<T>`（前面是 `:` / `=` / `(`）与 `f<T>(x)`（调用）
+排除掉——那两处是值位的泛型实参，折行照旧按 `NextSignificantIsCloseAngle` 那三条收紧。
+
+```ts
+const data = unit.Data;
+let at = data.length - 1;
+while (at >= 0 && (data[at] instanceof LineWrap || IsTriviaUnit(data[at]))) {
+  at = at - 1;
+}
+if (at < 0 || !(data[at] instanceof Identifier)) {
+  return false;
+}
+at = at - 1;
+while (at >= 0 && (data[at] instanceof LineWrap || IsTriviaUnit(data[at]))) {
+  at = at - 1;
+}
+if (at < 0) {
+  return false;
+}
+const head = data[at];
+let word = "";
+if (head instanceof Identifier) {
+  word = head.TempToString();
+} else if (head instanceof Keyword) {
+  word = head.Value;
+}
+return (
+  word === "function" ||
+  word === "class" ||
+  word === "interface" ||
+  word === "type" ||
+  word === "enum" ||
+  word === "namespace" ||
+  word === "module"
+);
+```
+
 ## private method ScanArguments:(unit:Token, source:Source)=>int
 
 从 `<` 之后扫到配对的 `>`，返回那个 `>` 的下标；扫不通返回 `-1`。
@@ -369,7 +415,22 @@ while (index < count) {
       lastSignificant !== "|" &&
       lastSignificant !== "&"
     ) {
-      if (this.NextSignificantIsCloseAngle(document, count, index) === false) {
+      // **声明头的类型参数段：折行一律放行**（第 825 轮）：`function f<T` 换行
+      // `extends U>(x: T): T { … }` 与 `function f<T extends` 换行 `U>(…)` 都是**同一个**参数表
+      // 的排版 —— 这一个 `<` 前面是「声明词 + 名字」（`IsDeclarationHeadHost`），
+      // 它不是比较式，段里的换行没有「这条语句到此为止」那种读法。
+      //
+      // **少了它会怎样**：`NextSignificantIsCloseAngle` 只认「下一个实义字符是 `>` / `|` / `&` /
+      // `:` / `?`」，而这两处的下一个实义字符是 `extends` / 约束类型名 ⇒ 判否 ⇒
+      // 整个 `<…>` 退回比较运算符 ⇒ 类型参数段认不出来、`FunctionDeclaration` 整条缺
+      //（实测 `gap-sweep-newline-generic-03/04` 与 `gap-sweep-linecomment-generic-03/04` 四份）。
+      //
+      // **为什么不能放宽成「下一格是字母就放行」**：`let n = a<b` 换行 `foo(bar) > x`
+      // 正是靠这一条挡住的（那三行注释在上面），而它的下一格也是字母。
+      if (
+        this.IsDeclarationHeadHost(unit) === false &&
+        this.NextSignificantIsCloseAngle(document, count, index) === false
+      ) {
         return -1;
       }
     }
@@ -593,6 +654,13 @@ for (let i = from >= 0 ? from : unit.Data.length - 1; i >= 0; i--) {
     }
     return false;
   }
+  // **`function` 已经升成 `Keyword` 时也要认**（第 825 轮）：`IsTypePosition` 与
+  // `KeywordCloseRule` **跑在同一趟里**（后者排在队列最后，可同一趟会跑两遍）——
+  // 只认 `Identifier` 那一支的话，第二遍看到的 `function` 是 `Keyword`、回扫又判回操作数。
+  // 其余关键词照旧落到末尾那条「其余单元是操作数」的兜底上（本支一句话不说）。
+  if (item instanceof Keyword && item.Value === "function") {
+    return true;
+  }
   if (item instanceof Identifier) {
     const text = item.TempToString();
     // **映射类型的键 `[K in X<U>]`**（第 133 轮）：`in` 左边的 `K` 与右边的约束都是**类型**，
@@ -611,6 +679,15 @@ for (let i = from >= 0 ? from : unit.Data.length - 1; i >= 0; i--) {
       case "extend":
       case "extends":
       case "func":
+      // **`function` 也是声明头**（第 825 轮）：`function f<T extends U>` 换行 `(x: T): T { … }`
+      // 里 `<` 的宿主是那个语句壳（`Data` 是 `[function, f]`），回扫撞上的正是这个词。
+      // 不认它 ⇒ 判表达式位 ⇒ 后继闸那一支只看同一行，而 `>` 后面那一格是**换行**
+      // （`IsAllowedFollower` 直接 `return isTypePosition`）⇒ 答否 ⇒ 整个 `<…>` 退回比较运算符
+      // ⇒ 类型参数段认不出来、`FunctionDeclaration` 整条缺
+      //（实测 `gap-sweep-newline-generic-05` 与 `gap-sweep-linecomment-generic-05` 两份，
+      //  以及同族的 02 / 04 两条的收尾那一关）。
+      // **安全**：名字闸已经要求 `<` 前面是一个名字，所以这一格只可能是函数声明的头。
+      case "function":
       case "type":
       case "where":
       case "new":

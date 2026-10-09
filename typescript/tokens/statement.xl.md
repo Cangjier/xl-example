@@ -1107,6 +1107,18 @@ if (head === "(" || head === "[") {
   if (last instanceof Bracket && last.startBracket === "{") {
     return false;
   }
+  // **声明头的形参表**（第 825 轮）：`function f<T extends U>` 换行 `(x: T): T { … }` 里
+  // 那个 `(` 起的是**这一条声明的形参表**，不是下一条语句（判据见
+  // `IsDeclarationHeadAwaitingParameters`）。
+  //
+  // **为什么非要单独认它**：下面那句 `HasTypeColonBefore` 撞上**前面任何一条已经成形的语句**
+  // 就答「上一行到此为止」（第 681 行那条口径）——而语料里的用例**前面永远有几行 `// xl:…`
+  // 注释**，那些注释各是一层 `Statement` ⇒ 这一格于是判否、壳在换行处关掉
+  //（实测 `gap-sweep-newline-generic-05` 与 `gap-sweep-linecomment-generic-05` 两份：
+  //  注释掉那三行注释就正好绿，是这一句把它按住的）。
+  if (head === "(" && Statement.IsDeclarationHeadAwaitingParameters(data)) {
+    return true;
+  }
   return HasTypeColonBefore(data, data.length) === false;
 }
 // **`?` / `:` 开头**（第 585 轮）：上一条是 `const rendered = a === 0` 换行
@@ -1201,6 +1213,16 @@ if (wordEnd > at) {
   if (word === "catch" || word === "finally") {
     return true;
   }
+  // **下一行以 `extends` 开头**（第 825 轮）：`extends` 与 `catch` / `finally` 同一条理由
+  // ——它**起不了一条语句**（继承子句、接口的 `extends`、条件类型的 `A extends B`、
+  // 泛型形参的约束都接着上一行写），所以出现在一行的第一个词上只可能是上一行的续写。
+  //
+  // **少了它会怎样**：`function f<T` 换行 `extends U>(x: T): T { … }` 里那个换行被判成边界
+  // ⇒ 头被切成两半 ⇒ `FunctionDeclaration` 整条缺（实测 `gap-sweep-newline-generic-03`
+  // 与 `gap-sweep-linecomment-generic-03` 两份）。
+  if (word === "extends") {
+    return true;
+  }
 }
 // **下一行以 `{` 开头，而上一行是「等着体的语句头」**（第 668 轮）：
 // `while (a)` 换行 `{ … }`、`for (;;)` 换行 `/* c */` 换行 `{ … }`、`switch (a)` 换行 `{ … }`
@@ -1211,6 +1233,19 @@ if (wordEnd > at) {
 // 头那一格，体那一支落成平级的裸 `Bracket`（实测 `while (a)\n{}` 的产物是
 // `WhileStatement[0,9)` + 多一个 `EmptyStatement`，TS 是 `WhileStatement[0,12)` 带一个 `Block`）。
 if (head === "{" && Statement.IsHeaderBodyBrace(data)) {
+  return true;
+}
+// **下一行以 `<` 开头，而上一行是一个「等着类型参数段」的声明头**（第 825 轮）：
+// `function f` 换行 `<T extends U>(x: T): T { … }` 是**一条**声明。
+//
+// **`<` 不能无条件收**：`.ts` 里 `<T>x` 是**尖括号断言**，一行的第一个字符完全可以是它
+// （`IsTypePosition` 的 `;` 那一支就是为「两条断言各占一行」写的）⇒ 只能认「左边是一个
+// 还差类型参数段的声明头」这一格，判据在 `IsDeclarationHeadAwaitingTypeParameters`。
+//
+// **少了它会怎样**：换行处收壳 ⇒ `function f` 自己成一条、`<T extends U>…` 另起一条
+// ⇒ `FunctionDeclaration` 整条缺（实测 `gap-sweep-newline-generic-02` 与
+// `gap-sweep-linecomment-generic-02` 两份，各缺 11 个节点）。
+if (head === "<" && Statement.IsDeclarationHeadAwaitingParameters(data)) {
   return true;
 }
 return head === "|" || head === "&" || head === ".";
@@ -1303,6 +1338,81 @@ for (let step = 0; step < 16; step++) {
   return false;
 }
 return false;
+```
+
+## static method IsFunctionHeadReturnColon:(data:Array<Token>)=>bool
+
+上一行末尾那个 `:` 是不是**函数声明头的返回类型**那一格——`function f(x: T):` 换行 `T { … }`。
+
+判据三条：末尾的实义单元是 `:`；`:` 前面那一格是一个**收好的形参表**（`(` 括号）；
+段首（跳过修饰词）是 `function`。
+
+**为什么不能见 `:` 就判「没写完」**：`case 1:` / `default:` / `label:` 都以 `:` **收尾**
+（`LineCannotEnd` 那一段的账），所以 `:` 在解析期只能按「可能收尾」处理。
+这一条把「返回类型那一格」认回来的正是另外两条：那个 `)` 把「标签 / `case` 的冒号」全部排除，
+而段首那个 `function` 把「变量的类型标注」（`const x:` 换行 `number = 1`，左边没有 `)`）排除。
+
+```ts
+const colonIndex = SkipPreviousTrivia(data, data.length);
+const colon = Get(data, colonIndex);
+if (!(colon instanceof SymbolToken) || colon.Is(":") === false) {
+  return false;
+}
+const parameters = Get(data, SkipPreviousTrivia(data, colonIndex));
+if (!(parameters instanceof Bracket) || parameters.startBracket !== "(") {
+  return false;
+}
+const frontIndex = SearchFrontIndexed(data, data.length - 1, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
+const modifiers = ["export", "declare", "abstract", "default", "async"];
+let wordIndex = SkipNextTrivia(data, frontIndex);
+let word = Statement.WordOf(Get(data, wordIndex));
+while (word !== "" && modifiers.indexOf(word) >= 0) {
+  wordIndex = wordIndex + 1;
+  word = Statement.WordOf(Get(data, wordIndex));
+}
+return word === "function";
+```
+
+## static method IsDeclarationHeadAwaitingParameters:(data:Array<Token>)=>bool
+
+上一行是不是停在一个**还没到形参表**的声明头上——`function f` 换行 `<T extends U>(…)`、
+`function f<T extends U>` 换行 `(x: T): T { … }`。
+
+判据三条（都只看**已经读到的**单元，所以换行那一刻问得出来）：
+
+- 末尾那一格是**名字**（`Identifier`）——名字后面**允许已经有一个** `GenericType`
+  （`function f<T extends U>` 的那一格），一格一格往回跳；
+- 名字**前面**那一格是声明头那个词（`function` / `class` / `interface` / `type` / `enum` /
+  `namespace` / `module`）。
+
+**与 `IsHeaderBodyBrace` 是同一族的两格**：那一格问「末尾等着 `{` 吗」（`while (…)` / `function f(…)`
+那几种尾巴），这一格问「末尾等着 `<` 或 `(` 吗」——`function f` / `function f<T>` 后面那一格
+只有名字（外加一个类型参数段），别的什么都没有。
+
+**为什么必须问左边**：`<` 在 `.ts` 里能起一条语句（尖括号断言 `<T>x`）、`(` 能起一条语句
+（括号表达式），所以「一行以它们开头」本身说明不了任何事；而「声明词 + 名字」这个左边后面
+只可能跟类型参数段、`(`、`extends`、`{` 四样 ⇒ 这两格就够用了。
+
+```ts
+let at = SkipPreviousTrivia(data, data.length);
+let name = Get(data, at);
+if (name !== null && name.constructor.name === "GenericType") {
+  at = SkipPreviousTrivia(data, at);
+  name = Get(data, at);
+}
+if (!(name instanceof Identifier)) {
+  return false;
+}
+const word = Statement.WordOf(Get(data, SkipPreviousTrivia(data, at)));
+return (
+  word === "function" ||
+  word === "class" ||
+  word === "interface" ||
+  word === "type" ||
+  word === "enum" ||
+  word === "namespace" ||
+  word === "module"
+);
 ```
 
 ## static method HasLineBreakBefore:(units:Array<Token>, index:int, source:Source)=>bool
@@ -1567,6 +1677,13 @@ if (Statement.IsLineBreakIncompleteOnLeft(units, index) === false) {
 const previousRealIndex = SkipPreviousTrivia(units, index);
 const previous = Get(units, previousRealIndex);
 if (previous instanceof SymbolToken && previous.Is(":")) {
+  // **函数声明头的返回类型**（第 825 轮）：`function f(x: T):` 换行 `T { … }` 里那个 `:` 后面
+  // 那一格**一定**是返回类型，不可能是别的 —— 判据见 `IsFunctionHeadReturnColon`。
+  // 少了它：换行处收壳 ⇒ 函数头与返回类型分家 ⇒ `FunctionDeclaration` 整条缺
+  //（实测 `gap-sweep-newline-generic-06` 与 `gap-sweep-linecomment-generic-06` 两份）。
+  if (Statement.IsFunctionHeadReturnColon(units)) {
+    return true;
+  }
   return false;
 }
 if (Statement.WordOf(previous) === "void") {

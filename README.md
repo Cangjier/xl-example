@@ -306,6 +306,50 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 825 轮：**声明头「还没到形参表」那几格**——函数声明头折行的五处落点收掉 13 条
+
+**一句话**：函数声明的头是**四段拼起来**的（`function` + 名字 + 可选类型参数段 + 形参表 + `:` 返回类型），
+而「注释 / 换行落在语法相邻位置之间」那一族在**每一段的缝上**各留了一条。这一轮把三处判据补齐：
+解析期 ASI 的右半截、类型参数段自己的折行闸门、以及「`>` 后面紧跟换行」时那一问要用的位置判据。
+`cases:tsast` 的账 **114 → 101**（`coverage` **3874 → 3887**，`token` 那一类 blocked 114 → 101）。
+
+- **根 ①：解析期 ASI 的右半截不认「声明头的续行」**（`statement.xl.md` 的 `NextLineContinuesExpression`），
+  四格一起补。判据是刚写进硬规矩的那一句「**先问这个字符能不能起一条语句**」：
+  - **起不了一条语句**的 `extends`（与 `catch` / `finally` 同一档）：`function f<T` 换行 `extends U>…`；
+  - **能起一条语句**的 `<` 与 `(`：`<T>x` 是尖括号断言、`(…)` 是括号表达式，所以这两格只能问**左边**
+    ——「段首是声明词 + 末尾是名字」（`IsDeclarationHeadAwaitingParameters`，
+    名字后面**允许已经有一个**类型参数段，所以 `function f<T>` 换行 `(` 也认）；
+  - **`:` 那一格**：`case 1:` / `default:` / `label:` 都以 `:` 收尾，所以见 `:` 就判「没写完」是不行的；
+    把它认回来的是另外两条——`:` 前面是一个**收好的形参表** `)`（排除标签与 `case`）、
+    段首（跳过修饰词）是 `function`（排除变量的类型标注），见 `IsFunctionHeadReturnColon`。
+- **根 ②：类型参数段的折行闸门只认「下一格是不是 `>` / `|` / `&` / `:` / `?`」**
+  （`generic-type.xl.md` 的 `ScanArguments`）。`function f<T` 换行 `extends U>` 与
+  `function f<T extends` 换行 `U>` 的下一格都是**字母** ⇒ 判否 ⇒ 整个 `<…>` 退回比较运算符 ⇒
+  类型参数段认不出来、整条声明跟着塌。补的是 `IsDeclarationHeadHost`（`<` 前面是「声明词 + 名字」
+  ⇒ 这是**类型参数表**，段里的换行没有「这条语句到此为止」那种读法）。
+  **不能放宽成「下一格是字母就放行」**：`let n = a<b` 换行 `foo(bar) > x` 正是靠那三条挡住的，
+  它的下一格也是字母。
+- **根 ③：`IsTypePosition` 的词表里没有 `function`**（同一个文件）。`>` 后面紧跟着**换行**
+  （或行尾注释）时，后继闸（`IsAllowedFollower`）只能问「这个 `<` 在不在类型位」——
+  回扫撞上 `function` 时它落到「其余单元是操作数」的兜底上 ⇒ 答否。同一个词表里
+  `class` / `interface` / `type` / `enum` 都在，只漏了 `function`。
+- **一处踩出来的坑：`HasTypeColonBefore` 撞上前面任何一条已经成形的语句就答「上一行到此为止」**
+  （`text-common-util.xl.md` 第 681 行那条口径）。语料里的用例**前面永远有几行 `// xl:…` 注释**、
+  每条注释各是一层 `Statement` ⇒ `function f<T extends U>` 换行 `(x: T): T { … }` 那一格被判成边界
+  （**把用例前面那三行注释删掉就正好绿**，是这一句把它按住的）。
+  所以 `(` 那一格要先认「声明头的形参表」，再落到那道护栏上。
+- **收掉的 13 条**：`gap-sweep-{newline,linecomment}-generic-{02,03,04,05,06}`（10 条）、
+  `gap-sweep-comment-generic-02`（`>` 与 `(` 之间夹块注释）、
+  `gap-sweep-{newline,linecomment}-fn-02`（`function f` 换行 `(a, b) { return a; }`）。
+  文件头的 `xl:known-gap` 逐条删掉、13 条的 `xl:expect` 按新形状逐条重算（`cases:tags` 0 条不一致）。
+- **可复用的判据**：写「一行以 X 开头算不算续接」时先分两档——**起不了一条语句**的
+  （`extends` / `catch` / `finally` / `?` / `:` / `=` / `|` / `&` / `.`）直接答续接；
+  **能起一条语句**的（`<` / `(` / `[` / `+` / `-` / 模板串 / 正则）必须问左边那一段是什么构造。
+  这条写进了 [typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md) 的「解析层几条硬规矩」。
+- **留下的一族**：`gap-sweep-comment-generic-01`（`function` 与名字之间夹**块注释**，带一处未映射）；
+  同族的 `gap-sweep-*-{iface,destr,clsmod}-*`（方法签名 `m(): void;`、绑定单元尾巴上的 trivia、
+  类成员修饰词）与 `gap-sweep-*-async-01`（`async` 换行 `function`）本轮不动。
+
 ### 第 824 轮：**下一行以 `=` 开头是在接着写**——`const a` 换行 `= …` 那一族收掉 22 条
 
 **一句话**：解析期的 ASI 右半截（`NextLineContinuesExpression`，看**原始字符**）原来只认
@@ -3278,15 +3322,15 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **114 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **101 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1407** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1407 条**（1390 条带期望，共 **4742** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:tags` | **1407 条**（1390 条带期望，共 **4770** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `cases:shapes` | 外部语料 **229 份**（用例 1394 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3874 / 4167**，加权 **93.9%**：token 1280/1394、exec 748/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 155 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `coverage` | **五类 3887 / 4167**，加权 **94.0%**：token 1293/1394、exec 748/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 142 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~30s**） |
 ### 口径与已知缺口
 
@@ -3317,7 +3361,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **114** 条）：
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **101** 条）：
   主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
   （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
   `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），

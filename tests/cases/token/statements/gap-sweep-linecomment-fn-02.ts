@@ -1,5 +1,4 @@
 // xl:note SWEEP-linecomment/fn 落点（657 审计语料）
-// xl:expect Identifier:4,Statement:2,Bracket,Function,FunctionBody,Keyword,LineAnnotation,Parameter:2,Root,SymbolToken
-// xl:known-gap 注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/fn）：DRIFT Parameter TS[15,16) 产物[15,19) «a»
+// xl:expect Identifier:4,Parameter:2,Statement:2,Bracket,Function,FunctionBody,Keyword,LineAnnotation,Root,SymbolToken
 function f//c
 (a, b) { return a; }
