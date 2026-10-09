@@ -2287,8 +2287,31 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   //
   // `endOf` 就是 TS 的 `end`（`range[1]`）——`startOf` / `endOf` 这一对在下面写着，
   // 全文件的口径一致（第 850 轮第一版多加了 1，实测四条用例一起报区间漂移）。
-  if (kids.length >= 2 && kids[0].get("type") === "Identifier" && kids[1].get("type") === "GenericType") {
-    const expression = projectNode(kids[0], ctx, "");
+  // **被实例化的那头不止是个名字**（第 888 轮）：`g<number>` 之外还有
+  // `a.b.c<string>`（链在 token 层已经折成**一格** `PropertyAccess`）与
+  // `(a.b)<string>`（一格 `Bracket`，值位投出来是 `ParenthesizedExpression`）。
+  // 原来这一格只认 `Identifier` ⇒ 那两格落到通用支：头一格投成 `PropertyAccessExpression`、
+  // `GenericType` 投成 `TypeReference` ⇒ 缺 `ExpressionWithTypeArguments` + 缺实参里的关键字
+  // （实测 `const f = a.b.c<string>;`：缺 2 / 多 0；`a[c]<string>` 同形——下标链折出来的
+  // 也是 `PropertyAccess`）。
+  // **为什么敢把这两类一起放进来**：`IsAllowedFollower` 那道闸在 token 层，
+  // 走到这里的两格**就是**实例化表达式（第 850 轮那句话在这一格同样成立）；
+  // 而比较式（`a.b.c<string> + 1`）在 token 层已经退回裸符号 ⇒ 产物里没有 `GenericType`，
+  // 这一支一次都不会响（实测那一份的产物与 TS 逐格相同）。
+  // `Bracket` 只认**圆括号**：`[a]<string>` / `{ a }<string>` 不是这条形状。
+  const instHead = kids[0].get("type");
+  const instCallee =
+    instHead === "Identifier" ||
+    instHead === "PropertyAccess" ||
+    (instHead === "Bracket" && kids[0].get("startBracket") === "(");
+  if (kids.length >= 2 && instCallee && kids[1].get("type") === "GenericType") {
+    // **圆括号那一格要走 `projectExpression`**：`(a.b)<string>` 里的头一格是值位括号，
+    // 而 TS 那边它是 `ParenthesizedExpression`（`ExpressionWithTypeArguments > ParenthesizedExpression`）。
+    // `projectNode(Bracket, …)` 不认这一层（那一支在 `projectExpression` 里，
+    // 见它那句「值位括号 `(expr)`」）⇒ 直接把括号单元原样投出来 ⇒ 实测「缺
+    // `ParenthesizedExpression` 1 / 多一个未映射的 `Bracket` 1」。
+    const expression =
+      instHead === "Bracket" ? projectExpression([kids[0]], ctx) : projectNode(kids[0], ctx, "");
     if (expression !== undefined) {
       const args = projectTypeArguments(kids[1], ctx);
       const self: any = {

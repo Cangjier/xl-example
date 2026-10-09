@@ -307,6 +307,70 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 888 轮：实例化表达式那一族的四格——**被实例化的那头不止是名字**，后继字符还差五个（大普查 30 → 23）
+
+**一句话**：第 887 轮那份新普查把 `const f = a.b.c<string>;`（TS 4.7 的 instantiation expression）
+整族 7 条一次摆了出来。这一轮把它收干净，顺路量出**三处**同族的格子：
+
+1. **被实例化的那头不止是个名字**（[`print-ast-common.xl.md`](typescript/print-ast-common.xl.md) 的规则 0a）：
+   第 850 轮那一格只认 `Identifier` ⇒ `a.b.c<string>`（链在 token 层已经折成**一格** `PropertyAccess`）
+   落到通用支：头一格投成 `PropertyAccessExpression`、`GenericType` 投成 `TypeReference`
+   ⇒ **缺 `ExpressionWithTypeArguments` + 缺实参里的关键字**（实测 `const f = a.b.c<string>;` 缺 2 / 多 0；
+   `a[c]<string>` 同形——下标链折出来的也是 `PropertyAccess`）。
+   放行的判据**一点没放宽**：`IsAllowedFollower` 那道闸在 token 层，走到这里的两格**就是**实例化表达式；
+   比较式（`a.b.c<string> + 1`）在 token 层已经退回裸符号 ⇒ 产物里没有 `GenericType`，这一支一次都不响。
+2. **括号那一格要走 `projectExpression`**：`(a.b)<string>` 的头一格是值位括号，TS 那边是
+   `ExpressionWithTypeArguments > ParenthesizedExpression`；`projectNode(Bracket, …)` 不认这一层
+   （值位括号那一支在 `projectExpression` 里）⇒ 实测「缺 `ParenthesizedExpression` 1 / 多一个未映射的 `Bracket` 1」。
+3. **后继闸在表达式位还差五个字符**（[`generic-type.xl.md`](typescript/tokens/generic-type.xl.md) 的
+   `IsAllowedFollower`）：`]`、`?`、`:`、`||`、`&&`。它与第 850 轮补的 `;` / `)` / `,` / `??`
+   是**同一条判据**——「`>` 后面那一格接不上一个操作数」⇒ `a<b>` 只可能是类型实参段：
+   `[a<b>]`、`a<b> ? x : y`、`x ? a<b> : c`、`a<b> || c`、`a<b> && c`。
+   **实测**（`tmp/r887/snips4.mjs`，17 条逐字符片段）：修前 **8** 条对不上、修后 **3** 条
+   ——其中五格是这一档，另外三条见下（一条故意不收、两条另案）。
+
+**三处待办，这一轮不碰**（都记在案上）：
+
+- **`=` 不放行**（TS 认 `a<b> = c`，实测如此）：`=` 紧跟配对 `>` 时那两格是 **`>=`**
+  （`a < b >= c` 是合法比较），而这里判据是**跳过空白之后的那一个字符**，拿不到「紧不紧邻」这条信息
+  ⇒ 放行它会当场把 `>=` 读错。要收它得先改判据的形状。
+- **行尾那一格是新登记的缺口**：TS 的 `canFollowTypeArgumentsInExpression` 最后一句是
+  `return scanner2.hasPrecedingLineBreak() || isBinaryOperator2() || !isStartOfExpression();`
+  ——**换行本身就是放行条件**。本仓这一格在表达式位遇到换行直接答「不是类型位」
+  ⇒ `const f = a<b>` ⏎ `const g = a.b.c<string>` 整条读成比较式（TS 两边都是
+  `ExpressionWithTypeArguments`，实测 TS 的 AST 里第一句到 `>` 就收、`c;` 是**另一条**语句）。
+  这一格**登进语料**：[`gap-instantiation-line-end.ts`](tests/cases/token/declarations/gap-instantiation-line-end.ts)
+  （`xl:known-gap`）⇒ `cases:tsast` 报「已知缺口 1 条还开着」（门照旧绿）。
+  同一句里 `isBinaryOperator` 那一半还告诉我们：**单个 `|` / `&` 也该放行**（TS 那边是二元运算符），
+  本仓同样没收——与行尾那一格同一族，留给后面一起量。
+- **比较链的结合性**（`x < y >= z` / `x < y == z` 那一族）：`tmp/r887/snips5.mjs` 18 条里 **9** 条对不上
+  （`x < y >= z`、`x < y == z`、`x == y < z`、`x != y < z`、`x === y < z`、`x < y in z`、
+  `x < y instanceof z` …），症状是**同级左结合被折成了右嵌套**
+  （TS 给 `(x<y) >= z`，产物给 `x < (y >= z)`）。它与实例化表达式无关，是另一族。
+
+**用例**：新增 4 条 token（`decl-instantiation-chain` / `decl-instantiation-paren` /
+`decl-instantiation-followers` / `decl-instantiation-not-comparison`——最后一条是**守卫**：
+`f<number> + 1` 与 `x < y > z` 必须照旧读成比较式，`xl:absent GenericType`）
+与 1 条登记缺口（上面那条 `gap-instantiation-line-end`）。
+两条坑记在这里：**token 用例不写 `xl:round`**（会按覆盖层判层、要求 `// xl:end`）；
+`xl:expect` 里的标签必须是**产物标签**（`PropertyAccess` / `GenericType` / `Bracket`），
+写 TS 形状的 kind（`ExpressionWithTypeArguments` / `TypeReference` / `ParenthesizedExpression`）
+会被 `cases:check` 当场挡下（不在标签表里）。
+
+**实测**：大普查 993 条 **30 → 23**（收掉的正是实例化表达式链那 7 条，没有一条新的对不上）；
+同族探针 `snips3`（17 条）**2 → 0**、`snips4`（17 条）**8 → 3**；
+`coverage` **4059 / 4236 → 4063 / 4241**（4 条新 token 用例全过；`blocked 39 → 40` 是那条
+**登记的缺口**，`differ 138` / `bad 0` 没动，加权 95.2%）；
+`cases:tsast` 八项全 0、**已知缺口 1 条还开着**（就是上面那条）、`cases:astjson`
+六项全 0（1465 份 / 34769 个节点）、`cases:check` 1476/1476、`cases:tags` 4935 条断言 0 条不一致、
+`cases:shapes` 未覆盖 0、`runtime:*` / `samples` 全过 ⇒ **九道门全绿**（墙钟 32.1s）。
+
+**这一轮的经验**：**「这一格凭什么敢认」这句话要跟着判据一起搬**。第 850 轮那条规则写下了
+「`IsAllowedFollower` 只在接不上表达式时才让 `<…>` 成形」，可它把**「接不上」写成了四个字符**——
+于是同一个理由在 `]` / `?` / `:` / `||` / `&&` 上要重说一遍，在**行尾**上还要说第三遍。
+修法的形状因此是：**先读上游那道闸的原文（TS 的 `canFollowTypeArgumentsInExpression` 是一句
+`switch` 加一句 fall-through）**，再决定本仓这一格该长成什么样——而不是一个字符一个字符地试。
+
 ### 第 887 轮：绑定模式里「注释算不算内容 / 算不算首位」两格——`IsTriviaUnit` 不只是**跳过**的名单，也是**判空**的名单
 
 **一句话**：`cases:tsast` / `cases:astjson` 两侧全绿 ⇒ **AST 出口上没有「红着」的东西可修**，
