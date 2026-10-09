@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.28,
+  "progressPercent": 94.35,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1394,
-      "pass": 1318,
-      "blocked": 76,
+      "pass": 1324,
+      "blocked": 70,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 94.55
+      "coverage": 94.98
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1394,
-    "knownGap": 76,
-    "knownGapStillOpen": 76,
-    "exactFiles": 1318,
-    "scoredWithoutGap": 1318,
-    "passedWithoutGap": 1318
+    "knownGap": 70,
+    "knownGapStillOpen": 70,
+    "exactFiles": 1324,
+    "scoredWithoutGap": 1324,
+    "passedWithoutGap": 1324
   },
   "blocked": [
     {
@@ -210,34 +210,10 @@
       "detail": "缺 4　多 6　实参里的对象 / 括号化对象里，外层 `{` 的 `Context` 在招待那一格时还是空串，"
     },
     {
-      "id": "token/modules/gap-j-import-export-01",
-      "category": "token",
-      "title": "J-import-export 落点（657 审计语料）",
-      "detail": "缺 1　漂 1　多 1　字段 1　注释 / 换行落在语法相邻位置之间（J-import-export）：FIELD ImportSpecifier [15,21) 产物[name] TS[name,propertyName] «b as c»"
-    },
-    {
       "id": "token/modules/gap-m-misc-03",
       "category": "token",
       "title": "M-misc 落点（657 审计语料）",
       "detail": "缺 2　多 1　注释 / 换行落在语法相邻位置之间（M-misc）：MISS ModuleDeclaration TS[0,23) «declare module \"*.css\";»"
-    },
-    {
-      "id": "token/modules/gap-sweep-comment-import-01",
-      "category": "token",
-      "title": "SWEEP-comment/import 落点（657 审计语料）",
-      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/import）：DRIFT ImportDeclaration TS[0,35) 产物[0,29) «import { a, b as c } from \"m\"/*c*/;»"
-    },
-    {
-      "id": "token/modules/gap-sweep-linecomment-import-01",
-      "category": "token",
-      "title": "SWEEP-linecomment/import 落点（657 审计语料）",
-      "detail": "缺 5　漂 1　多 8　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/import）：DRIFT ImportDeclaration TS[0,34) 产物[0,6) «import //c { a, b as c } from \"m\";»"
-    },
-    {
-      "id": "token/modules/gap-sweep-linecomment-import-02",
-      "category": "token",
-      "title": "SWEEP-linecomment/import 落点（657 审计语料）",
-      "detail": "缺 1　漂 2　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/import）：DRIFT ImportSpecifier TS[12,18) 产物[12,22) «b as c»"
     },
     {
       "id": "token/modules/gap-sweep-linecomment-import-03",
@@ -258,12 +234,6 @@
       "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/export）：DRIFT ExportDeclaration TS[13,27) 产物[13,25) «export { a } ;»"
     },
     {
-      "id": "token/modules/gap-sweep-newline-import-01",
-      "category": "token",
-      "title": "SWEEP-newline/import 落点（657 审计语料）",
-      "detail": "缺 1　漂 1　多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/import）：FIELD ImportSpecifier [12,18) 产物[name] TS[name,propertyName] «b as c»"
-    },
-    {
       "id": "token/modules/gap-sweep-newline-import-02",
       "category": "token",
       "title": "SWEEP-newline/import 落点（657 审计语料）",
@@ -280,12 +250,6 @@
       "category": "token",
       "title": "简写环境模块声明（没有体）",
       "detail": "缺 2　多 1　`declare module \"mm\";` 的简写形态不成形（缺 2 多 1）；带 `{}` 的那一条是好的（r663 探针池 c-declare-module-shorthand）"
-    },
-    {
-      "id": "token/modules/mut-mod-import-default-71",
-      "category": "token",
-      "title": "default import binding",
-      "detail": "漂 1　多 1　注释夹在 `import a from \"m\"` 与 `;` 之间：那一段没被收进 `Import`（r660 探针池 mut-mod-import-default-71）"
     },
     {
       "id": "token/statements/expr-async-generic-arrow-spaced",
@@ -971,7 +935,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19304/src/2001.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9068/src/2001.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1313,7 +1277,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19304/src/2984.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9068/src/2984.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1337,7 +1301,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19304/src/3032.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9068/src/3032.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1493,7 +1457,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19304/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9068/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

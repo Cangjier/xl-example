@@ -7,7 +7,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceAt } from "../../core/extensions/list-extension.xl.md"
 import { RemoveItem } from "../list-extensions.xl.md"
-import { GetSkipPreviousWrapSymbol, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousWrapSymbol, IsTriviaUnit, SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -123,7 +123,6 @@ if (current === null) {
   throw new Error("current 为空");
 }
 const items: Token[] = [];
-let started = false;
 for (let i = index + 1; i < units.length; i++) {
   const item = Get(units, i);
   if (item === null) {
@@ -133,14 +132,31 @@ for (let i = index + 1; i < units.length; i++) {
   // 是合法排法（TS 一样收），而下面那条「遇软换行就停」让**第一格**就 `break` ⇒
   // `items` 空着往下走 ⇒ `items[items.length - 1]` 是 `undefined` ⇒ `TypeError`
   //（不是 `SyntaxException`）——整个文件解析失败，报 `throw by line 0`。
-  // 所以**只在还没有收到任何单元时**跨过软换行；收过东西之后那条终止判据照旧。
-  if (started === false && item instanceof LineWrap) {
+  //
+  // **第 829 轮把「跨 trivia」从「第一格」放宽到「路径还没到手」**：注释 / 换行落在
+  // `import` 与子句之间、子句与 `from` 之间、`from` 与路径之间，TS 一律照收
+  //（导入声明没有 ASI：`;` 之前全归同一条声明）：
+  //
+  //     import //c ⏎ { a, b as c } from "m";   ← 注释 + 换行在 `import` 之后
+  //     import { a, b as c } ⏎ from "m";       ← 换行在子句与 `from` 之间
+  //     import { a } from //c ⏎ "m";           ← 注释 + 换行在 `from` 与路径之间
+  //
+  // 原来只在**一格都没收到**时跨过 `LineWrap`（且注释根本不跨）：上面三种排法都在换行那一格
+  // `break`，整条声明断成两截（前截只到 `import` / `}`），实测那四份用例各得一处漂移。
+  // 收尾的判据改成**「这条声明已经完整了吗」**——完整 = 找得到模块路径（含
+  // `import x = require("m")` 那种嵌在 `Method` 里的，所以走递归的 `FindStringUnit`），
+  // 或者已经吃到了 `=`（`import A = B.C` / `import A = require("m")` 的名字引用段）。
+  // **只按「有没有 `String`」判是不够的**：`import A = B.C` 一个字符串都没有，
+  // 那样会把下一行的语句也吞进来。完整之后照旧：换行 / `;` 都收尾。
+  const done =
+    this.FindStringUnit(items) !== null ||
+    items.some((unit) => unit instanceof SymbolToken && unit.Is("="));
+  if (IsTriviaUnit(item) && done === false) {
     continue;
   }
   if ((item instanceof SymbolToken && item.Is(";")) || item instanceof LineWrap) {
     break;
   }
-  started = true;
   items.push(item);
 }
 const result = new Import(template);
@@ -266,7 +282,12 @@ import { A as B, C } from "m"
     }
   }
   let end = ctx.StmtEndOf(v);
-  if (ctx.source[end] === ";") end += 1;
+  // **`;` 前面夹着注释也照样算终结符**（第 829 轮）：`import { a } from "m"/*c*/;` 的 TS 终点
+  // 是那个 `;` **之后**（节点区间含中间的 trivia），而 `stmtEndOf` 把尾部注释剪掉之后
+  // `source[end]` 读到的正是注释的首字符 `/`——于是原来那句 `=== ";"` 永远为假，实测漂移 1。
+  // 先跳过空白与注释，再看那一个字符是不是 `;`。
+  const semiAt = ctx.SkipSourceTrivia(ctx.source, end);
+  if (ctx.source[semiAt] === ";") end = semiAt + 1;
 
   const fromNode = kids.find((k: any) => k.get("type") === "Identifier" && ctx.TextOf(k) === "from");
   const equals = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=");

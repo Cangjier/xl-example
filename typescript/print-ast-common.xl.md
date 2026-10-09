@@ -6260,6 +6260,38 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   return i;
 ```
 
+# private method skipSourceTrivia:(source:string, from:int)=>int
+
+从 `from` 起跳过**空白与注释**（`//…` 到行尾、`/*…*/`），返回第一个实义字符的下标。
+
+`firstCodeAfter` 只跳空白；而 TS 的节点区间虽然**不含尾部 trivia**，却**含中间的 trivia**——
+`import { a } from "m"/*c*/;` 的 `ImportDeclaration` 终点是那个 `;` 之后（注释夹在中间），
+所以「`StmtEndOf` 之后那个字符是不是 `;`」这一问必须先跳过注释才有答案。
+
+```ts
+  let i = from;
+  while (i < source.length) {
+    const ch = source[i];
+    if (/\s/.test(ch)) {
+      i++;
+      continue;
+    }
+    if (ch === "/" && source[i + 1] === "/") {
+      i += 2;
+      while (i < source.length && source[i] !== "\n") i++;
+      continue;
+    }
+    if (ch === "/" && source[i + 1] === "*") {
+      i += 2;
+      while (i < source.length && !(source[i] === "*" && source[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    break;
+  }
+  return i;
+```
+
 # private method matchBrace:(source:string, open:int)=>int
 
 ```ts
@@ -6290,18 +6322,28 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 ```ts
   const out = [];
   let segment = [];
+  // **`As` 那一格的替身标记**（第 829 轮）：折拢形态里 `as` 不再是一个平铺的
+  // `Identifier`，所以分段时用它占「`as` 那一格」的位置（见 `walkSpecifierUnit`）。
+  const AS_SEPARATOR: Map<string, any> = new Map([["type", "AsSeparator"]]);
   const flush = () => {
     if (segment.length === 0) return;
     const units = segment;
     segment = [];
-    const pos = startOf(units[0]);
-    const end = endOf(units[units.length - 1]);
+    // 位置只从**带区间的实义单元**上取（标记本身没有 `range`）：
+    // `startOf` / `endOf` 对没有 `range` 的 Map 一律给 0，落在段首 / 段尾就是一处假区间。
+    const ranged = units.filter((k) => k !== AS_SEPARATOR);
+    const pos = startOf(ranged.length > 0 ? ranged[0] : units[0]);
+    const end = endOf(ranged.length > 0 ? ranged[ranged.length - 1] : units[units.length - 1]);
     // **段首的 `type` 是标志**：`import { type B }` / `export { type D }` 的 specifier 区间含 `type`，
     // 但 `name` 只是后面那个名字。只剩一个单元的 `{ type }` 不跳（那个 `type` 就是名字）。
     const head = (k) => (k.get("type") === "Identifier" || k.get("type") === "Keyword") && textOfNode(k, ctx) === "type";
     const body = units.length > 1 && head(units[0]) ? units.slice(1) : units;
     if (body.length === 0) return;
-    const asAt = body.findIndex((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === "as");
+    const asAt = body.findIndex(
+      (k) =>
+        k === AS_SEPARATOR ||
+        (k.get("type") === "Identifier" && textOfNode(k, ctx) === "as"),
+    );
     const name = specifierNameOf(body[body.length - 1], ctx);
     if (asAt > 0) {
       out.push({ kind, propertyName: specifierNameOf(body[asAt - 1], ctx), name, pos, end });
@@ -6317,6 +6359,18 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   const walkSpecifierUnit = (unit:any) => {
     const type = unit.get("type");
     if (type === "Statement" || type === "BinaryOperator") {
+      for (const child of projectableKids(view(unit))) walkSpecifierUnit(child);
+      return;
+    }
+    // **`As` 是「`as` + 别名」的折拢形态**（第 829 轮）：`import { a, b as c ⏎ } from "m"`
+    // （带注释时同样）里 `as` 不再是平铺的 `Identifier` —— 逗号运算符把前面那段折成
+    // `BinaryOperator(a, `,`, b)`，`as c` 这一段折成一个 `As` 单元（它的区间**从 `as` 起**，
+    // 子单元只有那个别名）。原来把 `As` 当普通单元压进段里 ⇒ 整段只有一个单元 ⇒
+    // `asAt` 找不到 ⇒ specifier 少了 `propertyName`、`name` 变成整个 `As` 单元的投影
+    //（实测 `b as c` 的 `Identifier` 区间成了 `as c` / `as c //c`，缺 1 漂移 2）。
+    // 这里把它摊成「一个分隔标记 + 它的子单元」，与平铺形态走同一条判据。
+    if (type === "As") {
+      segment.push(AS_SEPARATOR);
       for (const child of projectableKids(view(unit))) walkSpecifierUnit(child);
       return;
     }
@@ -7324,6 +7378,9 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     Attr: (node, key) => (node instanceof Map ? view(node) : node).attrs.get(key),
     FirstCodeAfter: (text, at) => firstCodeAfter(text, at),
     MatchBrace: (text, at) => matchBrace(text, at),
+    // **跳过源文本里的空白与注释**（第 829 轮）：`import … from "m"/*c*/;` 那种
+    // 「尾分号前面夹一条注释」的排法要能问到那个 `;`（见 `skipSourceTrivia`）。
+    SkipSourceTrivia: (text, at) => skipSourceTrivia(text, at),
     NamedSpecifiers: (brace, kind) => namedSpecifiersOf(brace, kind, ctx),
     MemberNameOf: (view) => memberNameOf(view, ctx),
     AddModifiers: (view, props, baseStart) => addModifiers(view, props, ctx, baseStart),
