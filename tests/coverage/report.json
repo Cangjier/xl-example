@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.89,
+  "progressPercent": 94.9,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1410,
-      "pass": 1387,
-      "blocked": 23,
+      "pass": 1388,
+      "blocked": 22,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 98.37
+      "coverage": 98.44
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1410,
-    "knownGap": 23,
-    "knownGapStillOpen": 23,
-    "exactFiles": 1387,
-    "scoredWithoutGap": 1387,
-    "passedWithoutGap": 1387
+    "knownGap": 22,
+    "knownGapStillOpen": 22,
+    "exactFiles": 1388,
+    "scoredWithoutGap": 1388,
+    "passedWithoutGap": 1388
   },
   "blocked": [
     {
@@ -256,12 +256,6 @@
       "category": "token",
       "title": "括号里的联合类型：第一个 `{` 也要判成类型位（原来第一个是 ObjectLiteral、第二个才是 TypeLiteral）",
       "detail": "缺 4　多 2　注释夹在括号里联合类型第一个 `{` 之前：那一格被当成值位的对象字面量（r660 探针池 mut-type-union-paren-object-162）"
-    },
-    {
-      "id": "token/types/type-param-conditional-constraint",
-      "category": "token",
-      "title": "泛型约束里是一个嵌套条件类型",
-      "detail": "缺 10　字段 1　约束位上的 `A extends B ? C : D` 不成形（缺 10）"
     },
     {
       "id": "token/types/type-param-template-literal-constraint",
@@ -647,7 +641,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24740/src/2017.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30148/src/2017.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -989,7 +983,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24740/src/3000.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30148/src/3000.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1013,7 +1007,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24740/src/3048.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30148/src/3048.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1169,7 +1163,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24740/src/3691.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30148/src/3691.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

@@ -306,6 +306,35 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 846 轮：约束位上的**条件类型**——`type-param-conditional-constraint` 收掉 1 条
+
+**一句话**：`<X extends A extends B ? C : D>` 里那个约束是**条件类型**，而产物把
+「名字 + `extends` + 条件类型」整段收成**一个** `ConditionalType` 挂在 `TypeParameter` 底下
+——投影那边只摊 `UnionType` / `IntersectionType` 两种包装（第 83 / 108 / 155 轮那几笔账），
+条件类型这一格没摊 ⇒ `extIndex` / `nameIndex` 双双找不到 ⇒ `TypeParameter` 的
+`name` / `constraint` 全丢（实测 `FIELD TypeParameter 产物[] vs TS[constraint,name]`、缺 10）。
+
+- **摊开的名单加上 `ConditionalType`**（`type-parameter.xl.md` 的 `wrappedIndex`）：
+  摊开之后 `kids` 就是平铺的 `[X, extends, A, extends, B, ?, C, :, D]`，
+  名字与 `extends` 当场就找得到。
+- **约束那一段要按条件类型折，不能用 `TypeOf`**：`TypeOf`（→ `projectTypeExpression`）
+  折不动平铺的 `extends` / `?` / `:`——只投出第一个 `TypeReference(A)`，
+  后面 `B` / `C` / `D` 三对节点整片丢（缺 7）。判据与共享层的 `conditionalNode` 同源
+  （这一段里有顶层 `?` 与 `:`、且 `extends` 前面有 checkType），折的时候调
+  `ctx.ConditionalNode`。
+- **两处「别把默认值当约束」的闸**（本轮实测的第二次）：`<ReturnType = F extends (…args: any) => infer T ? T>`
+  里那个 `extends` 属于**默认值**。`extends` 必须落在 `=` **之前**才算约束；
+  而下面那段「把被包进联合的约束补全」的收尾重建**只对联合 / 交叉两档**跑
+  （它是按联合成员重切的，对条件类型会把刚折好的节点又覆盖成 `TypeReference(A)`）。
+  不挡这两下时 `@types/node/test.d.ts` 当场红（两处 `FIELD`：产物 `[constraint,default,name]`
+  vs TS `[default,name]`）。
+- **收掉的 1 条**：`type-param-conditional-constraint`（那一行 `xl:known-gap` 删掉）。
+- **数字**：`cases:tsast` 的账 **23 → 22 还开着**（`coverage` **3982 → 3983 / 4183**，
+  blocked **63 → 62**，`bad` 0、`regressions` 0）；16 片全绿、`cases:tags` 0 条不一致。
+- **同一族里还开着的那一条**：`type-param-template-literal-constraint`
+  （`<X extends \`a${A}b\`>`）是**另一根**——那一格连整条 `FunctionDeclaration` 都不成形
+  （缺 15 多 7、带一处未映射 `Bracket`），不在「投影摊开」这一层。
+
 ### 第 845 轮：泛型段 / 生成器星号的**名字闸要看实义单元**——`mut-cls-generic-*` 那一族收掉 8 条
 
 **一句话**：一个词与它后面那段东西之间的**注释**是 trivia，而三处判据都拿「紧挨着的那一格」当答案：
