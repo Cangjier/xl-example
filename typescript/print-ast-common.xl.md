@@ -7146,8 +7146,37 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     }
   }
   // `export { a } from "m"` 的模块名（TS：`moduleSpecifier`，与 `exportClause` 并列）。
-  const module_ = kids.find((k) => k.get("type") === "String");
-  if (module_ !== undefined) props.moduleSpecifier = projectNode(module_, ctx);
+  // **括号那一档**（第 877 轮）：`from("m")` 的字符串在 `Method(name="from")` **里面**
+  // ⇒ 那个 `Method` 就是 TS 的 `ParenthesizedExpression`（`moduleSpecifier` 仍是括号**里**那个
+  // `StringLiteral`，与 TS 一致：语义报错是「模块名不是字符串字面量」，语法树里那对括号还在）。
+  // 少了这一句实测缺 `ParenthesizedExpression` 一格。
+  const module_ = moduleSpecifierIn(kids);
+  if (module_ !== undefined) {
+    const projected = projectNode(module_, ctx);
+    const holder = moduleHolderOf(kids, module_);
+    if (holder === undefined) {
+      props.moduleSpecifier = projected;
+    } else {
+      // **括号那一档**（第 877 轮）：`from("m")` 里那个字符串装在
+      // `Method(name="from")` 里面（`Method` 的字典把实参表**摊平**成 `children`，
+      // 所以 `holder` 就是那个 `Method`）——TS 那边这条语句仍是一条 `ExportDeclaration`，
+      // 而那一格是 `ParenthesizedExpression`（`moduleSpecifier` 是括号**里**那个
+      // `StringLiteral`：语义上会报「模块名不是字符串字面量」，语法树上那对括号还在）。
+      // 少了它实测缺 `ParenthesizedExpression` 一格。
+      //
+      // **区间两头都从那个字符串推**：TS 给的是 `[17,22)`，而字符串自己的区间是 `[19,22)`
+      // ⇒ 起点是字符串起点**减一**（那个 `(` —— `from` 那两个字符不算），终点是字符串终点**加一**
+      //（`endOf` 在这一层给的是**闭**右端，见 `parenthesizedOf` 那一处的用法；
+      // 而 TS 的 `ParenthesizedExpression` **不含**那个右括号）。照 `Method` 自己的两端给会多出
+      // 一格 `[13,22)`（把 `from` 也圈进去，实测「缺一格 + 多一格」两边各差一格）。
+      props.moduleSpecifier = {
+        kind: "ParenthesizedExpression",
+        expression: projected,
+        pos: Math.max(0, startOf(module_) - 1),
+        end: endOf(module_) + 1,
+      };
+    }
+  }
   return props;
 ```
 
@@ -7872,6 +7901,56 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     unmapped: [...ctx.unmapped].filter((tag) => landed.has(tag)).sort(),
     count: ctx.count,
   };
+```
+
+# private method moduleSpecifierIn:(kids:Array<any>)=>any
+
+在这几格（以及它们的子格）里找**模块路径**那个字符串节点；找不到给 `undefined`。
+
+**为什么要递归**（第 877 轮）：`export { a }` 换行 `from("m")` 里那个 `from` 被
+`MethodCloseRule` 收成了一个 `Method(name="from")`，字符串在**它里面**——
+TS 那边这条语句照样是一条 `ExportDeclaration`（`moduleSpecifier` 是括号里的字符串，
+`from` 自己不是节点）。原来那句只在**本层**找 `String` ⇒ 具名导出的 `moduleSpecifier`
+整格丢，而那对括号连带字符串又被通用投影投成一个平级的 `ParenthesizedExpression`
+（实测缺 `StringLiteral` / `ParenthesizedExpression` 各一格、字段名差 1）。
+**判据仍然是「有没有那个字符串」**，只是把「里面」也算进来——与 `import.xl.md` 的
+`FindStringUnit`（`import fs = require("fs")` 那一档）**同一句话**。
+
+```ts
+  for (const kid of kids) {
+    if (!(kid instanceof Map)) continue;
+    if (kid.get("type") === "String") return kid;
+  }
+  // **只往 `Method` 里面看**（第 877 轮）：`export { a } ⏎ from("m")` 里那个字符串装在
+  // `Method(name="from")` 里面。**不能一律递归**——`export { "a-b" as c }` 的字符串名就在
+  // 具名子句的**花括号里**，那是 `ExportSpecifier` 的名字、不是模块路径
+  //（实测 `mod-export-string-name` 当场红：字段名差 1）。
+  for (const kid of kids) {
+    if (!(kid instanceof Map) || kid.get("type") !== "Method") continue;
+    const one = kid.attrs === undefined ? view(kid) : kid;
+    for (const inner of allKids(one)) {
+      if (inner instanceof Map && inner.get("type") === "String") return inner;
+    }
+  }
+  return undefined;
+```
+
+# private method moduleHolderOf:(kids:Array<any>, target:any)=>any
+
+`target`（那个模块路径字符串）**装在谁里面**；它自己就在 `kids` 这一层时给 `undefined`。
+
+`from("m")` 里那个字符串装在 `Method(name="from")` 里面，而 TS 那边那一格是
+`ParenthesizedExpression` ⇒ 投影要知道「它是不是被括号裹着」（见 `namedExportClause`）。
+
+```ts
+  for (const kid of kids) {
+    if (!(kid instanceof Map) || kid.get("type") !== "Method") continue;
+    const one = kid.attrs === undefined ? view(kid) : kid;
+    for (const inner of allKids(one)) {
+      if (inner === target) return kid;
+    }
+  }
+  return undefined;
 ```
 
 # method ToJsonText:(projected:any)=>string

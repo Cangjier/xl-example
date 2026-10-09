@@ -92,6 +92,18 @@
   （`:` 或 `=` 右边），否则一个叫 `unique` 的变量独占一行也会被判成续接。
   同一件事在解析期（`LineCannotEnd`）与收尾期（`IsLineBreakBoundary` / `AliasEnd`）各写一遍就会漂，
   所以 `IsPendingTypeModifier` **只写一份**、两处都问它。
+- **「在哪一层找那个东西」也是判据的一部分**（第 877 轮）：`export { a }` 换行 `from("m")`
+  的模块路径**不在** `Export` 的本层——`MethodCloseRule` 先把 `from("m")` 收成了一个
+  `Method(name="from")`，字符串在**它里面**（`Method` 的字典把实参表摊平成 `children`，
+  所以子节点里连 `Bracket` 都没有，`allKids` 给的就是那个 `String`）。
+  找进去一层时**只认 `Method`**，别写成一律递归——`export { "a-b" as c }` 的字符串名就在
+  具名子句的**花括号里**，那是 `ExportSpecifier` 的名字（第一版一律递归，
+  `mod-export-string-name` 当场红：字段名差 1）。
+  那一格在 TS 那边是 `ParenthesizedExpression`，区间是 `[左括号, 字符串末尾)`
+  （**不含右括号**；`endOf` 在这一层给闭右端 ⇒ 要 `+1`）。
+  **两个形状坑**：① `projectableKids(view(x))` 是错的（视图再 `view` 一次 ⇒
+  `k instanceof Map` 全为假）——要子节点用 `allKids(view(x))`；② `Method.ParameterIndex` 那类
+  「名字 + 形参表」的产物会把括号摊平，别指望在子节点里找到那个 `Bracket`。
 - **「这一段写完了没有」有两半，左边那一半看不出来时问右边**（第 876 轮）：
   `export { a }` 换行 `from "m"` 里花括号子句到手那一刻 `IsComplete` 就答「写完了」
   （`from` 对花括号子句是**可选**的 —— `export { a };` 本来就是完整声明），
@@ -351,7 +363,7 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**6 条**）
+## 已知仍开着的缺口（**5 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
 （第 854 轮实测 **10**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
@@ -374,9 +386,11 @@
 （`IsInsideExtendsType` 的回扫跨过注释）⇒ **10 条**；**第 875 轮**收掉三条同根的
 （`import` / `export` 后面那个 `type` 词的两侧注释、`typeof` 与 `import(...)` 之间的注释）
 ⇒ **7 条**；**第 876 轮**收掉 `export { a }` 换行 `from "m"` 那一格
-（花括号子句「自己就完整」也要看**右边那一行**）⇒ **6 条**，剩下的短线是
-「注释 / 换行落在语法相邻位置之间」那条线的第六面（`abstract /* c */ new`、`#x ⏎ in o`、
-`import m = ⏎ require("m")`、`export { a } ⏎ from("m")`、`declare ⏎ global` 之类）。
+（花括号子句「自己就完整」也要看**右边那一行**）⇒ **6 条**；**第 877 轮**收掉 `export { a }` 换行 `from("m")` 那一格
+（模块路径装在 `Method(name="from")` 里，`moduleSpecifier` 要找进去一层、那一格是
+`ParenthesizedExpression`）⇒ **5 条**，剩下的短线是
+「注释 / 换行落在语法相邻位置之间」那条线的第七面（`abstract /* c */ new`、`#x ⏎ in o`、
+`import m = ⏎ require("m")`、`declare ⏎ global` 之类）。
 
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，

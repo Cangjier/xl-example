@@ -306,6 +306,40 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 877 轮：`export { a } ⏎ from("m")` 那一格——路径装在 `Method` 里（known-gap 6 → 5）
+
+**一句话**：`export { a }` 换行 `from("m")` 收掉——那条模块路径不是平级的 `String`，
+而是被 `MethodCloseRule` 收进了 `Method(name="from")` 里面。
+
+**根子**（[print-ast-common.xl.md](typescript/print-ast-common.xl.md) 的 `namedExportClause`）：
+具名导出的 `moduleSpecifier` 原来只在 `Export` 的**本层**找 `String`
+（`kids.find(k => k.type === "String")`）。`from("m")` 里那个字符串在**里面**，
+于是整格丢；而那一对括号连带字符串又被通用投影投成一个平级的 `ParenthesizedExpression`
+（实测缺 `StringLiteral` / `ParenthesizedExpression` 各一格、字段名差 1）。
+修法三格：
+
+1. **`moduleSpecifierIn`**：本层找 `String`；找不到时**只往 `Method` 里面**再看一层
+   （`allKids`）。**不能一律递归**——`export { "a-b" as c }` 的字符串名就在具名子句的
+   **花括号里**，那是 `ExportSpecifier` 的名字、不是模块路径（第一版一律递归，
+   `mod-export-string-name` 当场红：字段名差 1）。
+2. **`moduleHolderOf`**：那个字符串**装在谁里面**；自己就在本层时给 `undefined`
+   （那条路照旧直接投字符串）。
+3. **那一格是 `ParenthesizedExpression`**：TS 那边 `from("m")` 的 `moduleSpecifier` 是
+   **括号里**那个 `StringLiteral`，而括号那一格是 `ParenthesizedExpression`——
+   区间 `[左括号, 字符串末尾)`（**不含右括号**；`endOf` 在这一层给的是闭右端，所以写 `+1`）。
+   照 `Method` 自己的两端给会多出一格 `[13,22)`（把 `from` 也圈进去）。
+
+**踩到的两格**：① `Method` 的字典把实参表**摊平**成 `children`，所以 `holder` 就是那个 `Method`、
+`holder` 的子节点里**没有** `Bracket`——别去找括号（找不到）；② **`projectableKids(view(x))`
+是错的**（`view` 之后再 `projectableKids` 会把已经是视图的对象再 `view` 一次 ⇒
+`k instanceof Map` 全为假）。要子节点用 `allKids(view(x))` 或 `kidsOf(x, "children")`。
+
+**实测**：`tmp/r875/exp2.mjs` 4 条探针**全绿**（这一条 + `export * as ns ⏎ from "m"`、
+`export { a } ⏎ from "m"`、`export { a }` 换行 `const x = 1;` 三条对照）；
+全语料 `cases:tsast` **16 / 16 片**、缺 0 漂 0 多 0、已知缺口 **6 → 5**；
+`cases:check` 1466 / 1466、`cases:tags` 4920 条断言 0 条不一致；
+`coverage` **4044 → 4045 / 4228**（blocked **46 → 45**、differ 138、bad 0）、`gates` 八道全过。
+
 ### 第 876 轮：`export { a } ⏎ from "m"` 那一格——「自己就完整」也要看右边那一行（known-gap 7 → 6）
 
 **一句话**：`export { a }` 换行 `from "m"` 收掉——花括号子句到手时 `IsComplete` 就答「写完了」，
@@ -4764,7 +4798,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **6 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–876 七轮共收掉 24 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **5 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–877 八轮共收掉 25 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1466** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -4772,7 +4806,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1453 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4044 / 4228**，加权 **95.1%**：token 1447/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 46 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4045 / 4228**，加权 **95.1%**：token 1448/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 45 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 
