@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.4,
+  "progressPercent": 95.41,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1519,
-      "pass": 1518,
-      "blocked": 1,
+      "pass": 1519,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.93
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1519,
-    "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1518,
-    "scoredWithoutGap": 1518,
-    "passedWithoutGap": 1518
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1519,
+    "scoredWithoutGap": 1519,
+    "passedWithoutGap": 1519
   },
   "blocked": [
-    {
-      "id": "token/types/gap-tuple-element-array-newline-after-assign",
-      "category": "token",
-      "title": "元组元素里的数组类型、而且元组写在 `=` 的下一行：`type X =` 换行 `[C[]];`——TS 那边仍是 `TupleType > ArrayType`，产物把 `C[]` 收成值位的 `ElementAccessExpression`",
-      "detail": "缺 2　多 1　`=` 之后那个换行让外层 `[` 晚一步才被认成类型位（那一刻它还是裸括号），内层 `[]` 先被 `PropertyAccessCloseRule` 当成下标吃掉；外层后来收成 `TupleType` 时，内层的父亲已经是 `PropertyAccess`，`IsTypeContainerUnit`"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",

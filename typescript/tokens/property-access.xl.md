@@ -359,6 +359,46 @@ while (guard < 64) {
 return false;
 ```
 
+## private method IsTypePositionEmptyBracket:(unit:Token | null)=>bool
+
+`unit` 是不是**类型位上的空方括号**（`名字[]` 里那一对）——即「它只可能是数组类型、不可能是下标」。
+
+两条一起成立才算：
+
+- 它是 `[` 开头的裸 `Bracket`（已经不是 `ArrayLiteral` / `ArrayType`：那两种是别的规则
+  已经收走的形状，轮到链规则时链该照折——`type E3 = [...A[]]` 就是那个形状）；
+- 它的 `Context` 是 `"type"`（`bracket.xl.md`：开括号那一刻按前文算好，与重组时序无关），
+  并且**内容为空**（`type X = C[]` 那一对）。
+
+**为什么不是「父单元是类型容器」**：那一刻问不出来——`type X =` 换行 `[C[]];` 里内层括号的
+父亲还是外层那个括号，而外层括号那时候还没被认成元组（第 917 轮实测，见 `Previous` 里那段注释）。
+
+**为什么空括号也要判**：值位上 `C[]` 本来就是语法错，所以「类型位 + 空」这一档没有值位读者；
+而 `a[0]` / `a["k"]` 这一类内容非空，一个都不受影响。
+
+**只认裸括号**：已经被 `JsonArrayCloseRule` 收成 `ArrayLiteral` 的那一档（`type E3 = [...A[]]`）
+由 `TypeBracketCloseRule` 的 `Previous` 那一支接手（它认 `ArrayLiteral`），链规则在这里**不插手**
+——多认一种形状就是给同一个问题写第二份判据。
+
+```ts
+if (unit === null) {
+  return false;
+}
+if (unit instanceof Bracket) {
+  if (unit.startBracket !== "[") {
+    return false;
+  }
+  if (unit.Closed === false) {
+    return false;
+  }
+  if (unit.Context !== "type") {
+    return false;
+  }
+  return unit.Data.length === 0;
+}
+return false;
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点。
@@ -414,6 +454,23 @@ if (base instanceof Bracket && base.startBracket === "(") {
 }
 const endIndex = this.ChainEndIndex(units, index);
 if (endIndex === index) {
+  return false;
+}
+// **链尾那个空方括号处在类型位时让路**（第 917 轮）：`type X =` 换行 `[C[]];` 里
+// 外层 `[` 是被 `=` 之后那个换行**推迟**才认出类型位的（`DecideBracketContext` 扫到 `=`、
+// 跨过它撞上 `type` ⇒ 那个外层括号 `Context` 是 `"type"`），而内层空括号跑规则时
+// 它的父亲还是那个**括号**（不是 `TupleType`）⇒ `IsTypeContainerUnit` 那一刻问不出类型位
+// ⇒ `TypeBracketCloseRule` 放它过去（同一条规则里那句注释写着「括号关闭时那一趟本来也判不出来」）。
+// 于是链在这里起头、把内层空括号吞成下标 ⇒ 外层收成 `TupleType` 时里面装的已经是
+// `PropertyAccess`，`IsTypeContainerUnit` 再也放不过它（实测那格是
+// `TupleType > PropertyAccess(C, Bracket[])`，TS 是 `TupleType > ArrayType(C)`；
+// 同一行写就没有这个时间差，`TypeBracketCloseRule` 排在链规则之前）。
+//
+// 判据用**括号自己的 `Context`**（开括号那一刻算好、与重组时序无关，见 `bracket.xl.md`）
+// 加上「内容为空」：类型位上的 `名字[]` 只可能是数组类型，值位上它根本不是合法写法，
+// 而 `a[0]` / `a["k"]` 的内容非空、照旧折链。
+// 让路之后链这一趟不成形，`TypeBracketCloseRule` 下一趟拿到的就是裸括号 ⇒ 收成 `ArrayType`。
+if (this.IsTypePositionEmptyBracket(Get(units, endIndex))) {
   return false;
 }
 const parent:Token | null = base!.Parent;
