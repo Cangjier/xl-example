@@ -1602,14 +1602,21 @@ return word === "function";
 
 ## static method IsVariableTypeAnnotationColon:(data:Array<Token>, index:int)=>bool
 
-`index` 前面那个实义单元是不是**变量声明的类型标注**那一格的 `:`——`const s:` 换行 `string = ""`。
+`index` 前面那个实义单元是不是**一格的 `:`、而它后面一定是类型**——`const s:` 换行
+`string = ""`（变量声明的类型标注）与 `const f = (a: string):` 换行 `number => 1;`
+（值位箭头的返回类型标注）。
 
-判据两条（只看**已经读到**的单元）：末尾的实义单元是 `:`；`:` 前面那一格是**声明头那个单元**
-（`Let`——`const s:` 到这一刻 `const` 与名字已经折进 `Let` 自己的字段里，见 `let.xl.md`）。
+判据（只看**已经读到**的单元）：末尾的实义单元是 `:`；`:` 前面那一格是**声明头那个单元**
+（`Let`——`const s:` 到这一刻 `const` 与名字已经折进 `Let` 自己的字段里，见 `let.xl.md`），
+**或者**是一张**值位箭头的形参表**（`(` 括号，判据见 `IsValueArrowReturnColon`）。
+
+**为什么两格合成一问**：两处问的是**同一句话**（「末尾这个 `:` 一定是类型标注 ⇒ 这一行
+没写完」），所以挂在同一个入口上 ⇒ 解析期（`LineCannotEnd`）与收尾期
+（`IsLineBreakIncompleteOnLeft`）两处口径自动一致；写成两份必然会漂。
 
 **为什么不能见 `:` 就判「没写完」**：`case 1:` / `default:` / `label:` 都以 `:` **收尾**
 （`LineCannotEnd` 那一段的账），与 `IsFunctionHeadReturnColon`（认 `function f(x):`）同一条口径；
-这一条认的是**变量声明头**那一格。
+这一条认的是**变量声明头**与**值位箭头的返回类型**那两格。
 
 **为什么按 `Let` 那个单元判、而不是按 `let` / `const` / `var` 三个词判**（实测踩过）：
 走到这一问时那三个词**已经不在 `Data` 里**了——`LetBranch.Success` 把它们与名字一起收进
@@ -1621,7 +1628,8 @@ return word === "function";
 **少了它会怎样**（第 873 轮实测）：`let s:` 换行 `string;` 里解析期在换行处收壳
 ⇒ 类型标注整段落进下一条 `Statement`（`VariableStatement` / `VariableDeclaration` 区间漂、
 `StringKeyword` 缺）；同一格的 `declare const s:` 换行 `unique symbol;` 就是语料里
-`gap-r869-unique-symbol-newline-3` 那一份。
+`gap-r869-unique-symbol-newline-3` 那一份。**箭头返回类型那一格**（第 901 轮）的实测账
+写在 `IsValueArrowReturnColon` 里。
 
 ```ts
 const colonIndex = SkipPreviousTrivia(data, index);
@@ -1629,8 +1637,115 @@ const colon = Get(data, colonIndex);
 if (!(colon instanceof SymbolToken) || colon.Is(":") === false) {
   return false;
 }
-const before = Get(data, SkipPreviousTrivia(data, colonIndex));
-return before !== null && before.constructor.name === "Let";
+const beforeIndex = SkipPreviousTrivia(data, colonIndex);
+const before = Get(data, beforeIndex);
+if (before !== null && before.constructor.name === "Let") {
+  return true;
+}
+// **值位箭头的返回类型标注**（第 901 轮）：`const f = (a: string):` 换行 `number => 1;`
+// 里那个 `:` 同样是**没写完**的那一格 —— 判据见 `IsValueArrowReturnColon`。
+if (Statement.IsValueArrowReturnColon(data, beforeIndex)) {
+  return true;
+}
+// **成员签名那个返回类型的 `:` 写在下一行**（第 901 轮）：`type T = { (a: string)` 换行
+// `: void };` 里末尾是 `(` 括号，而**换行后面那一格就是 `:`** —— 判据见
+// `IsPendingSignatureReturnColon`。少了它：解析期在这一行收壳 ⇒ 签名与返回类型分家
+//（实测 `token/types/gap-r900-signature-return-newline`：缺 `CallSignature` / `Parameter`、
+// 多 `Bracket`）。
+return Statement.IsPendingSignatureReturnColon(data, index);
+```
+
+## static method IsPendingSignatureReturnColon:(data:Array<Token>, index:int)=>bool
+
+`index` 处是一个软换行、而它**后面那一格就是 `:`** ——而且左边停着的是一对 `(` 括号
+吗——`type T = { (a: string)` 换行 `: void };`。
+
+**这一问的判据是三条，不是「在不在成员体里」**：
+
+1. `index` 那一格是软换行；
+2. 跨过 trivia 之后下一格是 `:` ——TypeScript 里**没有**一条语句或一个成员是以 `:` 开头的，
+   ASI 那条「语法不允许时才插分号」在这里同样成立；
+3. 换行左边那一格是 `(` 括号，而**它前面那一格不是** `=` / `.` / `?.` / `?` / `=>`。
+
+**第 3 条为什么那样写**：`const v = (x)` 换行 `: 1` 这种排版里 `(x)` 前面是 `=` ⇒ 那一段是
+**表达式**（`(x)` 的括号、与后面那个 `:` 无关）⇒ 答否。`a ? (b)` 换行 `: c` 里括号前面是 `?`、
+`o.f (x)` 换行 `: 1` 里前面是 `.`（或被调用的名字）同理。反过来，签名那一格前面只可能是
+成员体的开头（`{`）、上一条成员的 `;` / `,`、修饰词或列表开头 —— 都不在那张表里。
+
+**为什么不在这一格里去问「父单元是不是成员体」**：解析期在换行那一刻，那对括号的父单元
+还是 `Root`（`TypeLiteralBody` 要等 `}` 到达、由 `TypeLiteralCloseRule` 造出来），
+所以那句话在这个时机**恒为假**。收尾期那一侧的口径在 `SignatureCloseRule.IsBareParameters`
+里（那时父单元已经有了），两处问的是同一件事、时机不同，所以判据各写各的。
+
+**少了它会怎样**（第 901 轮实测）：解析期在换行处收壳 ⇒ `{ (a: string)` 与 `: void }` 分家
+（实测 `token/types/gap-r900-signature-return-newline`：缺 `CallSignature` / `Parameter`、
+多 `Bracket`）。
+
+```ts
+const unit = Get(data, index);
+if (unit === null || unit instanceof LineWrap === false) {
+  return false;
+}
+const after = Get(data, SkipNextTrivia(data, index));
+if (!(after instanceof SymbolToken) || after.Is(":") === false) {
+  return false;
+}
+const parameters = Get(data, SkipPreviousTrivia(data, index));
+if (!(parameters instanceof Bracket) || parameters.startBracket !== "(") {
+  return false;
+}
+const before = Get(data, SkipPreviousTrivia(data, SkipPreviousTrivia(data, index) - 1));
+if (before === null) {
+  return true;
+}
+if (before instanceof SymbolToken && (before.Is("=") || before.Is(".") || before.Is("?.") || before.Is("?") || before.Is("=>"))) {
+  return false;
+}
+return true;
+```
+
+## static method IsValueArrowReturnColon:(data:Array<Token>, parametersIndex:int)=>bool
+
+`parametersIndex` 那一格的 `(` 括号是**值位箭头函数的形参表**、而它右边紧跟一个 `:` 吗
+——`const f = (a: string):` 换行 `number => 1;`。
+
+**为什么这一问与 `IsVariableTypeAnnotationColon` 放一起**：两个都问「末尾这个 `:` 后面
+一定是类型 ⇒ 这一行没写完」，只是一个跟在 `Let` 后面、一个跟在形参表后面。而两个的
+**否定面也一致**：`case 1:` / `default:` / `lbl:` 的冒号前面是名字、不是括号，
+`let f: (a: A) => B` 里那个冒号后面虽然也有括号，可**括号在冒号右边**、不在左边
+（这一问看的是「冒号左边是不是形参表」）⇒ 都不会被误收。
+
+判据三条（都只看**已经读到**的单元，所以换行那一刻问得出来）：
+
+1. `parametersIndex` 那一格是 `(` 括号；
+2. 它**左边那一格是 `=`** —— 值位赋值号的右边才是箭头函数
+   （`const f = (a: string):`）；类型标注 `let f: (a: A) => B` 的括号左边是 `:` ⇒ 判否；
+3. 括号里装着**实义内容** —— 空括号 `()` 与 `( … )` 在类型位与值位长得一样，
+   而本仓的类型位不走这一支（见下），所以只看「是不是空」。
+
+**为什么不去问「这是不是形参表」**：那一问是 `LamdaCloseRule.IsLambdaParameters`
+（`lamda.xl.md`），而它**不能在这一格里复用** —— 那一问在解析期与 `StatementBranch`、
+`LetBranch`、`LabelCloseRule` 全都互相引用，`IsVariableTypeAnnotationColon` 又同时挂在
+解析期（`LineCannotEnd`）与收尾期（`IsLineBreakIncompleteOnLeft`）两处 ⇒ 一引就是环。
+**实际也不需要它**：本方法只在**末尾那个 `:`** 上响，而在 `.ts` 里
+「`)` 之后紧接 `:` 且这个 `)` 左边是 `=`」只有**值位箭头函数的返回类型标注**一种读法
+—— 这一段既然左边是 `=`，它就不是类型位（类型位那几档在 `IsLambdaParameters` 里
+按 `:` / `?:` / `new` / `GenericType` 各自早退，走的不是 `=` 这一支）。
+
+**少了它会怎样**（第 901 轮实测）：换行处收壳 ⇒ `const f = (a: string):` 自成一条
+`VariableStatement`、返回类型 `number` 与箭头体落进下一条 `Statement`（四方向
+`缺 3　漂 3　多 8`，实测 `token/expressions/gap-r900-arrow-return-type-newline`）。
+
+```ts
+const parameters = Get(data, parametersIndex);
+if (!(parameters instanceof Bracket) || parameters.startBracket !== "(") {
+  return false;
+}
+const before = Get(data, SkipPreviousTrivia(data, parametersIndex));
+if (!(before instanceof SymbolToken) || before.Is("=") === false) {
+  return false;
+}
+return Statement.FirstMeaningful(parameters.Data) !== null;
 ```
 
 ## static method IsDeclarationHeadAwaitingParameters:(data:Array<Token>)=>bool

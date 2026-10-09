@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.37,
+  "progressPercent": 95.4,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1484,
-      "pass": 1480,
-      "blocked": 4,
+      "pass": 1483,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.73
+      "coverage": 99.93
     },
     {
       "category": "exec",
@@ -130,36 +130,18 @@
   ],
   "token": {
     "total": 1484,
-    "knownGap": 4,
-    "knownGapStillOpen": 4,
-    "exactFiles": 1480,
-    "scoredWithoutGap": 1480,
-    "passedWithoutGap": 1480
+    "knownGap": 1,
+    "knownGapStillOpen": 1,
+    "exactFiles": 1483,
+    "scoredWithoutGap": 1483,
+    "passedWithoutGap": 1483
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r900-arrow-return-type-newline",
-      "category": "token",
-      "title": "箭头函数的返回类型标注冒号后面换行（第 900 轮片段普查量出）：换行被 ASI 判成语句边界，`number => 1` 另起一条 `Statement`（产物里是 3 条语句），箭头只盖到那个冒号",
-      "detail": "缺 3　漂 3　多 8　未映射 1　变量声明里 `(…):` 换行之后的类型段不在「这一行没完」的续接表里——`IsVariableTypeAnnotationColon` 只认同行那一格"
-    },
-    {
-      "id": "token/types/gap-r900-call-signature-no-return-type",
-      "category": "token",
-      "title": "类型字面量里的调用签名只有形参表、没有返回类型标注（第 900 轮片段普查量出）：`{ (a: string) }` 的括号没收成签名节点，散成裸 `Bracket`（署名标签本身在产物里一个都没有——这一格量的是「少了两格、多了一格」）；带 `: void` 的同一条是好的，说明判据挂在「返回类型那一格」上",
-      "detail": "缺 2　多 1　未映射 1　`TypeLiteralBody` 里「`(` 起头且没有 `:`」那一支没有把括号收成签名——签名规则整个挂在返回类型那一格上"
-    },
     {
       "id": "token/types/gap-r900-infer-constraint-newline",
       "category": "token",
       "title": "`infer` 的约束里 `extends` 后面换行（第 900 轮片段普查量出）：外层条件类型整条认不出来（`Array<` 与 `>` 留在原地，四格与真假分支一起丢，缺 10 格）",
       "detail": "缺 10　约束段里的换行让 `infer V extends string` 先成了一次形，外层条件类型的回扫仍差一步——`InferType` 那一格已经放行，剩下的一步在约束段自己的边界上"
-    },
-    {
-      "id": "token/types/gap-r900-signature-return-newline",
-      "category": "token",
-      "title": "类型字面量里的调用签名：形参表与返回类型标注之间夹**软换行**（第 900 轮片段普查量出）：解析期已经按 ASI 把这一行收成语句，收尾期的判据再跳 trivia 也追不回来（注释那一档已经收掉，差别就在「注释不算行尾、换行算」）",
-      "detail": "缺 2　多 1　未映射 1　解析期的续接表不认识「`(… )` 之后换行接 `:`」这一档——与箭头函数返回类型那一格同一根"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",

@@ -5742,20 +5742,66 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   `differ 117 → 119`、`bad` 0、`regressions` **0**、`moved` 0、`newlyPassing` 0。
   加权 **95.6%**（两个数都在这一位）。
 
+### 第 901 轮：**类型位与值位那三格「没写完的 `:`」**——`xl:known-gap` 4 → 1（coverage 4090/4263 → **4093/4263**、blocked 43 → 40）
+
+这一轮量的是**第 900 轮片段普查留下的那 4 条 `xl:known-gap`**——它们量的是 **token 树（XML）**，
+而 `cases:tsast`（投影成 TS 形状那把尺子）一直是绿的。逐条看下来**三条同根**：
+**末尾停在一个「后面一定是类型」的 `:` 上时，解析期把它当成了行尾**。
+
+- **收掉 `token/expressions/gap-r900-arrow-return-type-newline`**（`const f = (a: string):` 换行
+  `number => 1;`）：`Statement.IsVariableTypeAnnotationColon` 原来只认「`:` 前面是 `Let`」这一格
+  （变量声明的类型标注）。值位箭头那一格**同样是「后面一定是类型」**——它靠新加的
+  `IsValueArrowReturnColon` 认：`:` 前面是 `(` 括号、括号前面是 `=`、括号里有实义内容。
+  **不引 `LamdaCloseRule.IsLambdaParameters`**（那一问与 `StatementBranch` / `LetBranch` /
+  `LabelCloseRule` 互相引用，而本判据同时挂在解析期与收尾期两处 ⇒ 一引就是环）——
+  实际也不需要：`.ts` 里「`)` 之后紧接 `:`、且这个 `)` 左边是 `=`」只有值位箭头一种读法。
+  收掉后四方向 **缺 3　漂 3　多 8 → 全 0**。
+- **收掉 `token/types/gap-r900-signature-return-newline`**（`type T = { (a: string)` 换行 `: void };`）：
+  解析期这一格由新加的 `Statement.IsPendingSignatureReturnColon` 兜住——**换行后面那一格就是 `:`**
+  时不收壳（`.ts` 里没有一条语句或一个成员以 `:` 开头）。收尾期还要让 `SignatureTailEnd`
+  跨过那个换行（它与 `SignatureTailIsColon` 是同一句判据，两处必须一致）。
+  收掉后四方向 **缺 2　多 1 → 全 0**。
+- **收掉 `token/types/gap-r900-call-signature-no-return-type`**（`type T = { (a: string) };`）：
+  `HasSignatureTail` 原来**要求那个 `:` 存在**，理由是「把 `(f())` 这类括号表达式挡在外面」——
+  可**括号表达式不可能住在 `InterfaceBody` / `ClassBody` / `TypeLiteralBody` 里**
+  （那三个容器装的只能是成员），而 `MethodDeclaration` 那一侧**早就是这个口径**
+  （`IsMemberSignature` 的 `tailEnd < 0` 那一支）。新加的 `IsBareParameters` 把这一格补齐：
+  **形参表之后没有实义单元、或只有一个软换行** ⇒ 裸形参表签名。
+  `Process` 同步改成「没有尾部时不建 `ReturnType` 段」。
+  收掉后四方向 **缺 2　多 1 → 全 0**。
+- **实测撞到一次回归、当场量清根因**：`IsBareParameters` 第一版放进 `HasSignatureTail` 之后，
+  `@types/node/dgram.d.ts` / `https.d.ts` / `stream.d.ts` / `http.d.ts` / `http2.d.ts` 等
+  **11 份 `.d.ts` 从绿变红**（16 片里 8 片失败）。根因是**括号套括号**：
+  `interface I { lookup?: ((hostname: string, …) => void) | undefined }` 里，
+  本方法拿到的「形参表」是**外层**那个 `(`，而它的内容是一整段**函数类型**——
+  于是 `SignatureTailIsColon` 与 `SignatureTailEnd` 都从**内层形参自己的类型标注**那个 `:`
+  上算出了尾部（探针实测：`parametersIndex+1` 的下一格是联合类型的 `|`，而尾部停在内层冒号上）。
+  判据补两句、**都是同一件事**：**形参表右端到尾部之间出现过 `=>` ⇒ 这是函数类型、不是签名**
+  （调用签名的返回类型位里不可能有平级箭头）。补完 16 片全绿。
+- **仍然开着的那一条**：`token/types/gap-r900-infer-constraint-newline`
+  （`U extends Array<infer V extends` 换行 `string> ? V : never`）：约束段里的换行让
+  `infer V extends string` 先成了一次形，外层条件类型的回扫仍差一步——**这一轮量清了它不在
+  上面三条根上**（`InferType` 那一格已经放行，剩下的一步在约束段自己的边界上），如实留着。
+- **数字**：`cases:tsast` 已知缺口 **4 → 1 还开着、0 条已经收掉**（三条按规矩删掉
+  `xl:known-gap`、用例留着当守卫）；`cases:tags` **0 条不一致**、`cases:check` **0 条不合格**、
+  `cases:astjson` 六项全 0、`cases:shapes` 未覆盖 0；`coverage` **4090 / 4263 → 4093 / 4263**、
+  `blocked 43 → 40`、`differ 130`（没动）、`bad` 0。**九道门一次全绿**（墙钟 ~30s）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **0 条**（第 869 轮普查量出的 30 条，第 870–881 十二轮全部收掉；每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **1 条还开着**（第 869 轮普查量出的 30 条已全部收掉；第 900 轮片段普查量出的 4 条，第 901 轮收掉 3 条、剩 `token/types/gap-r900-infer-constraint-newline` 一条，根因已量清） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1466** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1466 条**（1413 条带期望，共 **4920** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **229 份**（用例 1453 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
+| `cases:check` | **1497** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
+| `cases:tags` | **1497 条**（1441 条带期望，共 **4997** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **229 份**（用例 1484 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4052 / 4229**，加权 **95.17%**：token **1453/1453**、exec **753/791**、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 39 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
+| `coverage` | **五类 4093 / 4263**，加权 **95.4%**。差的那些是**真缺口**（`blocked` 40 / `differ` 130），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~30s**） |
+
 ### 口径与已知缺口
 
 **口径外**（不进分母，也不当缺口）只剩两种：**JSX / TSX**（独立于 TypeScript 的语法扩展）
@@ -5785,19 +5831,20 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **40** 条）。
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **1** 条）。
   **它们与「已知缺口 0 条」不矛盾，量的是两把尺子**（第 881 轮清空的是后者）：
   `cases:tsast` 量的是**投影成 TS 形状**之后的对拍，而这一批缺口在 **XML 产物（token 树）**上——
   投影那一层按 TS 的划分出节点，所以 `cases:tsast` 是绿的、`xl:known-gap` 却照旧挂着
   （与上面「块与表达式之间没有分隔符」那一条同一个形状）。**第 881 轮起 `cases:tsast`
-  一把尺子上已经没有登记的缺口了**；下面这 40 条是 token 树那一把尺子的账：
-  主力是「**注释 / 换行落在语法相邻位置之间**」那一族——按落点逐条立着
-  （`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` /
-  `cond` / `arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` …），
-  另有解构模式前换行、无体声明的尾随 `;`、泛型约束里的三族类型、`switch` 单行块后跟 `default`、
-  `typeof a.b[K]`、`f<string>`、简写环境模块（**第 679 轮起没有一条是产物直接抛异常的**：
-  `catch (e)` / `finally` 与它的体之间夹一条行注释或一个换行的那 4 条已经收掉）。
-  **第 680 轮又收掉 6 条**，两个根都在「**类型谓词 / 类型运算符靠相邻单元找操作数**」这一片上：
+  一把尺子上已经没有登记的缺口了**；**第 900 轮片段普查量出 4 条**（都在 token 树这一把尺子上，
+  量的是「类型位 / 值位那个没写完的 `:`」与「没有返回类型的调用签名」），**第 901 轮收掉 3 条**：
+  `gap-r900-{arrow-return-type-newline,signature-return-newline,call-signature-no-return-type}`
+  （各自的根因与实测账见上面第 901 轮那一节）。**只剩 1 条**：
+  `token/types/gap-r900-infer-constraint-newline`（`U extends Array<infer V extends` 换行
+  `string> ? V : never`）——约束段里的换行让 `infer V extends string` 先成了一次形，
+  外层条件类型的回扫仍差一步；**根因已经量清**（不在上面那三条根上），如实留着。
+  更早那些「主力是注释 / 换行落在语法相邻位置之间」的账**已经逐族收完**（第 679–881 轮），
+  逐条根因见 [tests/parse/typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md)；
   `TypePredicateCloseRule` 的起点原来只认「容器第一格」与「紧跟 `=>`」，
   而 `type T = asserts x is A`（`=` 右边）与 `<X extends asserts x is A>`（`extends` 右边）
   同样是类型位；`TypeBracketCloseRule` 与 `IsEmptyContentUnit` 原来把**注释**当成实义内容

@@ -67,6 +67,12 @@ import { New } from "../new/new.xl.md"
 
 - `;` / `,` 终止；
 - **软换行就是成员边界**——但换行前一个实义单元是 `;` / `,` 以外的符号时继续扫（支持折行的联合类型）；
+- **换行的下一格是 `:` 时要跨过去**（第 901 轮，见 `HasSignatureTail` 那一段的账）；
+- **还没找到冒号时，成员体自己的 `}` 也跨过去**（第 901 轮）：`type T = { (a: string): void }`
+  的列表里，返回类型 `void` 后面紧跟着的就是那对花括号的 `}` ——它是**这个体的收尾**、
+  不是下一条声明的开头（`IsDeclarationTailStop` 把任何非类型字面量的 `{` 都当体，
+  `}` 走的是另一支，这里补上）。
+  **只在本方法还没见到那个 `:` 时跳**：见到之后 `}` 就是这一段的终点，不能越过它去吞下一条成员。
 - `IsDeclarationTailStop` 的其余终止条件照样生效。
 
 ```ts
@@ -79,10 +85,27 @@ while (i < units.length) {
   }
   if (item instanceof LineWrap) {
     const previous = Get(units, i - 1);
+    // **返回类型那个 `:` 写在下一行**（第 901 轮）：`(a: string)` 换行 `: void }` 里
+    // 换行后面那一格就是返回类型的冒号 —— 那是同一段排版，不是这一行的终点。
+    // 这一跳与 `SignatureTailIsColon` 是**同一句判据**（两处必须一致，否则判定说成立、
+    // 搬运却停在换行上）。
+    const after = Get(units, SkipNextTrivia(units, i));
+    if (after instanceof SymbolToken && after.Is(":")) {
+      i = i + 1;
+      continue;
+    }
     const continues = previous instanceof SymbolToken && !previous.Is(";") && !previous.Is(",");
     if (continues === false) {
       break;
     }
+    i = i + 1;
+    continue;
+  }
+  if (tailEnd < 0 && item instanceof Bracket && item.startBracket === "}") {
+    i = i + 1;
+    continue;
+  }
+  if (tailEnd < 0 && item instanceof Bracket && item.startBracket === "}") {
     i = i + 1;
     continue;
   }
@@ -95,34 +118,113 @@ while (i < units.length) {
 return tailEnd;
 ```
 
-## private method HasSignatureTail:(units:Array<Token>, parametersIndex:int)=>bool
+## private method SignatureTailIsColon:(units:Array<Token>, parametersIndex:int)=>bool
 
-参数表之后是不是「`: 返回类型` 而且到此收尾」——调用签名与构造签名都**必须**有返回类型。
+参数表之后是不是「一个 `:` 起头的返回类型」——跨过 trivia（注释与软换行）之后那个实义单元。
 
-要求那个 `:` 存在，是为了把 `(f())` 这类**括号表达式**挡在外面：后者后面没有冒号，
-它属于表达式层，不该被当成成员。
-
-**那一跳走 trivia 口径**（第 900 轮，片段普查当场逮到的）：形参表与返回类型那个 `:`
-之间夹**一条注释**在 TypeScript 里是合法排法——
-`type T = { (a: string)/*c*/: void }`。
+**为什么那一跳要走 `SkipNextTrivia`**（第 900 轮，片段普查当场逮到的）：形参表与返回类型那个 `:`
+之间夹**一条注释**在 TypeScript 里是合法排法——`type T = { (a: string)/*c*/: void }`。
 原来只跳软换行 ⇒ 看到的下一格是那条注释 ⇒ 判否 ⇒ 括号留在原地成了裸 `Bracket`、
 签名一个都不成形（实测：调用签名 / 泛型签名 / 构造签名三族，类型字面量与接口两种宿主，
-缺 `CallSignature` / `Parameter`、多 `Bracket`）。
-`Process` 那一侧早就是 `SkipNextTrivia` 了（见下），这里与它对齐——
-**判据与搬运问的必须是同一格**，两处各跳各的就是第二份会漂的答案。
+缺 `CallSignature` / `Parameter`、多 `Bracket`）。`Process` 那一侧早就是 `SkipNextTrivia` 了，
+这里与它对齐——**判据与搬运问的必须是同一格**，两处各跳各的就是第二份会漂的答案。
 
-**夹一个软换行的那一档仍然开着**（`(a: string)` 换行 `: void`）：`SkipNextTrivia` 跳得过
-那个换行，可在**收尾期**判据成立之前，解析期已经把这一行按 ASI 收成语句了
-（账在 `gap-r900-signature-return-newline`，与箭头函数返回类型那一格同一根）。
-注释那一档与换行那一档的分别就在这里——**注释不算行尾，换行算**。
+**夹一个软换行的那一档**（`(a: string)` 换行 `: void`）第 901 轮一起收掉：`SkipNextTrivia`
+本来就跳得过那个换行，缺的只是**解析期不许在它前面收壳**——那一格由
+`Statement.IsPendingSignatureReturnColon` 兜住（账在 `gap-r900-signature-return-newline`）。
 
 ```ts
 const colon = Get(units, SkipNextTrivia(units, parametersIndex));
-if (!(colon instanceof SymbolToken) || colon.Is(":") === false) {
+return colon instanceof SymbolToken && colon.Is(":");
+```
+
+## private method IsBareParameters:(units:Array<Token>, parametersIndex:int, parameters:Token | null)=>bool
+
+`parameters` 这一对 `(` 括号是成员体里**一条没有返回类型的签名**吗——`type T = { (a: string) }`。
+
+**为什么这一档必须存在**：`HasSignatureTail` 原来要求那个 `:` 存在（理由原本是
+「把 `(f())` 这类**括号表达式**挡在外面」），可**括号表达式不可能出现在成员体里** ——
+`InterfaceBody` / `ClassBody` / `TypeLiteralBody` 装的只能是成员（`Field` /
+`MethodDeclaration` / `Signature`），而一个裸的 `( … )` 在那里**只有调用签名一种读法**。
+`MethodDeclaration` 那一侧早就是这个口径（`IsMemberSignature` 的 `tailEnd < 0` 那一支：
+「参数表之后什么都没有」照样算成员签名），这里与它对齐。
+少了这一格：`type T = { (a: string) }` 里那对括号留在原地成了裸 `Bracket`、
+签名一个都不成形（实测 `token/types/gap-r900-call-signature-no-return-type`：
+缺 `CallSignature` / `Parameter`、多 `Bracket`）。
+
+**判据一条**：参数表之后**没有别的单元**（列表末尾）或**只有一个软换行**。
+
+**为什么「列表末尾」这一支是安全的**（片段普查实测过）：成员体那个 `}` **不在**这一层列表里
+（`MoveDataTo` 只搬内容、不搬那对花括号），所以「最后一名成员的参数表之后再无实义单元」
+正好就是这一档。反过来，函数类型里那对括号**永远不住在成员体的列表里**——它是
+`ParenthesizedType` / `FunctionType` 的内容，另有归宿。
+
+**函数类型那一路的另一个入口也要堵**（第 901 轮实测撞出来的，`@types/node/dgram.d.ts`
+等 11 份 `.d.ts` 从绿变红）：`interface I { lookup?: ((hostname: string, …) => void) | undefined }`
+里内层那对括号的**自己那张表**里也有一个 `:`（就在它自己的形参里：`hostname: string`），
+于是 `SignatureTailIsColon` 在那张表上答「是」⇒ 整段函数类型被抢成一个 `CallSignature`。
+那一格由 `HasSignatureTail` 开头那句「**形参表后面紧跟 `=>` ⇒ 是函数类型**」堵住。
+
+```ts
+if (!(parameters instanceof Bracket) || parameters.startBracket !== "(") {
   return false;
+}
+// **后面跟着 `=>` ⇒ 这是函数类型的形参表**（第 901 轮）：与 `HasSignatureTail` 开头那一句
+// 同一条判据（两处都要问，因为两条入口各走各的）。
+const after = Get(units, SkipNextTrivia(units, parametersIndex));
+if (after instanceof SymbolToken && after.Is("=>")) {
+  return false;
+}
+return after === null || after instanceof LineWrap;
+```
+
+## private method HasSignatureTail:(units:Array<Token>, parametersIndex:int)=>bool
+
+参数表之后是不是「`: 返回类型` 而且到此收尾」。
+
+**没有返回类型那一档见 `IsBareParameters`**（第 901 轮）：`type T = { (a: string) }` 里
+那对括号同样是调用签名 —— 判据、为什么可以只看父单元、少了它会怎样都写在那一处。
+
+```ts
+// **形参表后面紧跟 `=>` ⇒ 这一段是函数类型，不是签名**（第 901 轮，实测撞出来的）：
+// `interface I { lookup?: ((hostname: string, …) => void) | undefined }` 里，
+// 内层那对括号的**自己那张表**里也有一个 `:`（就在它自己的形参里：`hostname: string`），
+// 于是 `SignatureTailIsColon` 在那张表上答「是」（探针实测：那张表是
+// `[Bracket, LineWrap, =>, void]`）⇒ 整段函数类型被抢成一个 `CallSignature`
+//（第 901 轮实测 `@types/node/dgram.d.ts` 等 11 份 `.d.ts` 从绿变红）。
+// **那一跳要跨 trivia**：探针里那个 `=>` 与形参表之间正夹着一个软换行。
+// **这一句是安全的**：调用签名与构造签名的形参表右边**永远不会**直接跟 `=>`
+//（`(a) => b` 只有函数类型与箭头函数两种读法，两种都不归本规则）。
+const parameters = Get(units, parametersIndex);
+const afterParameters = Get(units, SkipNextTrivia(units, parametersIndex));
+if (afterParameters instanceof SymbolToken && afterParameters.Is("=>")) {
+  return false;
+}
+// **没有返回类型那一档**：形参表之后什么都没有 / 只有一个软换行 ⇒ 裸形参表签名。
+if (this.SignatureTailIsColon(units, parametersIndex) === false) {
+  return this.IsBareParameters(units, parametersIndex, parameters);
 }
 const tailEnd = this.SignatureTailEnd(units, parametersIndex);
 if (tailEnd < 0) {
+  return false;
+}
+// **尾部之前夹着 `=>` ⇒ 这一段也是函数类型**（第 901 轮，与上面那句同一条根的另一处落点）：
+// `((hostname: string, …) => void)` 那种**括号套括号**里，本方法拿到的「形参表」
+// 是**外层**那个 `(`，而它的实义内容是内层那一整段函数类型——于是
+// `SignatureTailEnd` 从**内层形参自己的类型标注**那个 `:`
+//（`hostname: string`）上算出了尾部（探针实测：`parametersIndex+1` 的下一格是联合类型的 `|`，
+// 而 `tailEnd` 停在内层那个冒号上）。
+// 判据是「**从形参表右端到那个尾部之间有没有 `=>`**」——调用签名的返回类型位里
+// 不可能出现一个平级的箭头。
+let sawArrow = false;
+for (let i = parametersIndex + 1; i <= tailEnd; i++) {
+  const item = Get(units, i);
+  if (item instanceof SymbolToken && item.Is("=>")) {
+    sawArrow = true;
+    break;
+  }
+}
+if (sawArrow) {
   return false;
 }
 const afterTail = Get(units, tailEnd + 1);
@@ -426,9 +528,13 @@ if (!(parameters instanceof Bracket)) {
 // **与 `HasSignatureTail` 问同一格**（第 900 轮）：那边判「形参表之后跨过 trivia 是不是 `:`」，
 // 这边取「返回类型段从哪儿起」——两处必须同一个 `Skip`，否则判定说成立、搬运却停在注释上
 // （`SignatureTailEnd` 是独立一份，`tailStart` 只用来做「找没找到」的一致性检查）。
+// **没有返回类型那一档**（第 901 轮）：`SignatureTailIsColon` 答否时那对括号就是一条
+// **裸形参表签名**（`type T = { (a: string) }`）——判据与 `HasSignatureTail` 同一句，
+// 这里只是不再抛错（`IsBareParameters` 已经保证它确实是一条签名）。
+const hasTail = this.SignatureTailIsColon(units, parametersIndex);
 const tailStart = SkipNextTrivia(units, parametersIndex);
-const tailEnd = this.SignatureTailEnd(units, parametersIndex);
-if (tailEnd < 0 || tailStart > tailEnd) {
+const tailEnd = hasTail ? this.SignatureTailEnd(units, parametersIndex) : -1;
+if (hasTail && (tailEnd < 0 || tailStart > tailEnd)) {
   throw new Error("成员签名不满足格式要求：(...) : Type");
 }
 const result = new Signature(template);
@@ -458,17 +564,20 @@ if (isNewUnit) {
 if (!isNewUnit) {
   result.AddAndCloseLast(parameters);
 }
-const returnType = result.CreateReturnType();
-for (let i = tailStart; i <= tailEnd; i++) {
-  const item = Get(units, i);
-  if (!(item instanceof LineWrap)) {
-    returnType.AddAndCloseLast(item!);
+let memberEnd = parametersIndex;
+if (hasTail) {
+  const returnType = result.CreateReturnType();
+  for (let i = tailStart; i <= tailEnd; i++) {
+    const item = Get(units, i);
+    if (!(item instanceof LineWrap)) {
+      returnType.AddAndCloseLast(item!);
+    }
   }
+  returnType.SignIn(Get(units, tailStart)!.SourceRange.Start!);
+  returnType.SignOut(Get(units, tailEnd)!.SourceRange.End!);
+  returnType.TryToClose();
+  memberEnd = tailEnd;
 }
-returnType.SignIn(Get(units, tailStart)!.SourceRange.Start!);
-returnType.SignOut(Get(units, tailEnd)!.SourceRange.End!);
-returnType.TryToClose();
-let memberEnd = tailEnd;
 const semicolon = Get(units, memberEnd + 1);
 if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
   memberEnd = memberEnd + 1;
