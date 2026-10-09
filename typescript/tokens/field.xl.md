@@ -411,12 +411,27 @@ if (immediate === null) {
   return true;
 }
 if (immediate instanceof LineWrap) {
-  // **注释后面那个换行是「名字写完了」**（`a` 换行是「只有名字的字段」）。
-  // **第 844 轮起这一格不再看「换行前面是不是行注释」**：那个区别由上面那条
-  // `ModifierFollowsDeclaration` 一次性判掉——行注释后面那一格如果是修饰词，
-  // 在 `Previous` 开头就已经判否了；走到这里的一定是名字
-  //（`private //c` 换行 `m() { }` 里 `private` 就是一条只有名字的字段，TS 那边是
-  // `PropertyDeclaration`，注释与换行都是它的 trailing trivia）。
+  // **下一个实义单元是索引签名的 `[` ⇒ 这一格是修饰词、不是名字**（第 910 轮）：
+  // `readonly` 换行 `[k:string]:number` 里 TS 那边是一条 `IndexSignature`
+  // （`readonly` 是它的修饰词），而上面那一条「换行 = 只有名字的字段」会先把
+  // `readonly` 收成一条字段 —— 之后 `[` 再走这一趟时，`readonly` 那一格已经变成
+  // 一个成形的 `Field` 单元、`ModifierFollowsDeclaration` 再也拿不到它
+  //（实测：判据写在下面 `[` 那一支上**不响**）。
+  // 所以判据要落在**换行第一次被当作名字延续**的那一格上：这一格是修饰词、
+  // 而换行后面那个 `[` 真是索引签名的形状（`IsIndexSignatureName`，与 `Process`
+  // 分流用的是同一个方法）⇒ 判否 ⇒ `readonly` 留给 `DeclarationStart` 收进修饰词。
+  //
+  // **必须带「真是索引签名」这一条**：`readonly` 换行 `[Symbol.iterator](): T` 里
+  // `readonly` 是**属性名**（TS 那边是 `PropertyDeclaration`，计算名那种写法）。
+  //
+  // **不能借 `ModifierFollowsDeclaration` 来判「这一格是不是修饰词」**（实测踩过）：
+  // 它对 `readonly` 这一类要求**同一行**，而这一格要收的排版**正是**「修饰词与 `[`
+  // 之间隔着一个换行」⇒ 一问就否、判据一次都不响。这里问的是「这个词**是不是**一个声明
+  // 修饰词」（`IsDeclarationModifier`，与 `DeclarationStart` 收修饰词用的是同一个词表）。
+  const nextUnit = Get(units, SkipNextTrivia(units, nextReal));
+  if (nextUnit instanceof Bracket && nextUnit.startBracket === "[" && this.IsIndexSignatureName(nextUnit) && IsDeclarationModifier(Get(units, index))) {
+    return false;
+  }
   return true;
 }
 if (immediate instanceof SymbolToken) {
