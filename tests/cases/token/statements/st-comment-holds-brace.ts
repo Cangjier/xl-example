@@ -1,5 +1,5 @@
 // xl:note 注释里也写着 `{`——结构括号的位置必须来自 token 字段，不能回原文里 indexOf
-// xl:expect StaticBlock,Switch,IfSet,IfStatement,Lamda
+// xl:expect StaticBlock,Switch,IfSet,IfBody,Lamda
 class Trap {
   static /* { */ {
   }

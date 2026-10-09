@@ -398,10 +398,27 @@ if (
   return;
 }
 const data = this.Data;
-const scope = this.Segment;
-if (scope === null) {
+if (this.Segment === null) {
   return;
 }
+// **`else` 与它的体之间夹 trivia 时，先把 `else` 那一段签下来**（第 847 轮）。
+//
+// 注释是 trivia、不是体的第一个单元，所以在注释还没读完之前不能挂体；而 `else` 那个词
+// 一旦留在尾巴上，等注释读完时它已经不是「尾巴上最后一个实义单元」了（尾巴上多了注释）
+// ⇒ 下面那条 `tailIsElse` 与 `beforeIsElse && tail instanceof Identifier` 都判不到
+// ⇒ 整条 `else` 段连体一起丢（实测 `if (a) { b(); } else //c` 换行 `c();`：
+// 产物 `IfStatement [0,15)`，TS 是 `[0,29)`）。
+//
+// 所以这一格把「`else` + trivia」这个局面当场收掉：段签在 `else` 上、那个词摘掉，
+// 注释**留在本单元里**（与 `if (a) { b(); } /*c*/ else { c(); }` 同一形状）、
+// 体等注释读完之后的第一个实义字符来挂。
+const pendingElse = data[data.length - 2];
+if (pendingElse instanceof Identifier && pendingElse.Is("else") && IsTriviaUnit(data[data.length - 1])) {
+  const elseStart = pendingElse.SourceRange.Start!;
+  pendingElse.RemoveSelf();
+  this.NextSegment("else", elseStart);
+}
+const scope = this.Segment!;
 const hasCondition = scope.Data.some((item) => item instanceof IfCondition);
 const bodyDone = scope.Data.some((item) => item instanceof IfBody || item instanceof IfStatement);
 const tail = data[data.length - 1];
@@ -411,6 +428,25 @@ const tailIsElse = tail instanceof Identifier && tail.Is("else");
 
 // **② 本段的体还没齐 ⇒ 这一格就是体的开头**。
 if (bodyDone === false) {
+  // **注释是 trivia，不是体的第一个单元**（第 847 轮）：`if (a) /*c*/{ b(); }` 里那个 `/`
+  // 原来直接挂出一个单语句体 ⇒ `{ b(); }` 成了体**内部**的括号、`else` 也一起被吞进去
+  // （实测 `if (a) /*c*/{ b(); } else { c(); }`：`IfStatement` 少 `elseStatement`、
+  // 多一条盖住 `{ b(); } else { c(); }` 的 `ExpressionStatement`）。
+  //
+  // 注释起头要看**第二个字符**（`//` / `/*`），所以这一格与下面尾巴上那一手同源：
+  // `/` 先进 `Data` 等一等，第二个字符到达时 `AreaAnnotationBranch` / `LineAnnotationBranch`
+  // 会把它收回去、挂上注释单元；注释读完（`Quit`）之后下一个字符才是体的开头。
+  // **只看 `/` 后面那一个字符**：正则也以 `/` 开头，而它**是**体的第一个单元，
+  // 所以只有 `//` / `/*` 这一档才让路（判据见本类的 `IsCommentStart`）。
+  if (this.IsCommentStart(source)) {
+    this.Lex(context, source);
+    return;
+  }
+  if (this.IsPendingCommentTail(this, source)) {
+    // 注释的第二个字符：交给队列，那两条注释分支会把上一个 `/` 收回去
+    this.Lex(context, source);
+    return;
+  }
   if (source.Value === "{") {
     if (tailIsElse) {
       const start = tail!.SourceRange.Start!;
@@ -434,6 +470,13 @@ if (bodyDone === false) {
 // **③ 体已经齐了 ⇒ 只剩 `else` 这一件事**。
 // `else` 刚读完：这一格是它后面的一格。
 if (tailIsElse) {
+  // **`else` 与它的体之间夹注释**（第 847 轮）：与上面步骤 ② 那一格同源 ——
+  // `else /*c*/{ … }` / `else //c` 换行 `{ … }` 里那个 `/` 先在尾巴里等一等，
+  // 注释读完之后的第一个实义字符才是体的开头（`else` 那一段由本方法开头那一格签下来）。
+  if (this.IsCommentStart(source)) {
+    this.Lex(context, source);
+    return;
+  }
   if (tail!.Closed === false) {
     tail!.TryToClose();
   }
@@ -606,6 +649,81 @@ for (const item of this.ProcessQueue.Data) {
     return;
   }
 }
+```
+
+## private method LexInto:(host:Token, context:SyntaxContext, source:Source)=>void
+
+**把当前字符交给本单元的跳转队列，但挂在 `host` 名下**——与 `Lex` 只差一个宿主（第 847 轮）。
+
+**为什么不能一律挂 `this`**：`if (a) /*c*/{ … }` 里那个 `/` 是在**体的位置**上进来的，
+而那一刻本单元（`IfSet`）的最后一个子单元是**当前那一段**（`IfSegment`）——它还没签出
+（体还没挂上，段的终点要等体收尾才签）。符号分支的 `Success` 走
+`unit.AddAndCloseLast(…)`（`symbol-token.xl.md`）：挂 `this` 就会去关那个没签出的段
+⇒ `SourceException: SourceRange.Start == null || SourceRange.End == null`（整份文件解析失败）。
+挂到段上时，它最后一格是**已经关掉的** `IfCondition`，关它是无操作；
+注释也就近挂在段里（`<IfSegment>` 的子单元顺序是 `IfCondition` → 注释 → 体）。
+
+`LastSource` 照旧记在本单元上（它是「这一格是谁在处理的」，与挂载无关）。
+
+```ts
+if (this.ProcessQueue === null) {
+  return;
+}
+for (const item of this.ProcessQueue.Data) {
+  if (item.Transit(context, host, source) === BranchStates.Done) {
+    this.LastSource = source;
+    return;
+  }
+}
+```
+
+## private method IsCommentStart:(source:Source)=>bool
+
+**当前这个 `/` 是不是注释的开头**（`//` / `/*`）——第 847 轮为「体的第一个单元不能是注释」立的一格。
+
+**为什么要往前看一个字符**：`/` 同时是注释与正则的开头，而两条注释分支认的都是**第二个字符**
+（`AreaAnnotationBranch` 看 `*`、`LineAnnotationBranch` 看 `/`，见 `area-annotation.xl.md` 的 `Condition`）。
+拿不准的时候让路是错的：正则**是**体的第一个单元（`if (a) /re/.test(x);` 的体就是那条表达式语句），
+而注释是 trivia、根本不该当体 —— 所以判据只看 `/` 后面那一格是 `*` 还是 `/`。
+
+扫原始字符的写法与 `Statement.NextLineContinuesExpression` 扫注释那一手同源
+（`Document.GetValue` + `Document.GetCount`，不经任何单元）。
+
+```ts
+if (source.Value !== "/") {
+  return false;
+}
+const document = source.Document;
+const next = source.Index + 1;
+if (next >= document.GetCount()) {
+  return false;
+}
+const value = document.GetValue(next);
+return value === "/" || value === "*";
+```
+
+## private method IsPendingCommentTail:(host:Token, source:Source)=>bool
+
+**当前字符是不是「已经开了头的注释」的第二个字符**——即 `host` 的最后一格是刚词法化出来的 `/`
+（`SymbolToken`），而这个字符是 `*` 或 `/`。第 847 轮与 `IsCommentStart` 配对使用：
+前者认「从这一格开始等」，这一格认「等到了，交给注释分支」。
+
+判据要**真的相邻**（前一个单元的终点就是 `source.Index - 1`），否则别处的 `/` 会被当成本条注释的开头。
+
+`host` 是**那个 `/` 挂在哪一级**：`Navigate` 那一格是 `IfSet`（`else` 与它的体之间那一档），
+`MountBodyOrStatement` 那一格是**当前那一段**（`if` 与它的体之间那一档）——两处各查各的，
+不能只看 `this`（段里那个 `/` 在 `IfSet` 的 `Data` 里根本看不见）。
+
+```ts
+if (source.Value !== "*" && source.Value !== "/") {
+  return false;
+}
+const tail = host.Last();
+if (!(tail instanceof SymbolToken) || tail.Is("/") === false) {
+  return false;
+}
+const end = tail.SourceRange.End;
+return end !== null && end.Index === source.Index - 1;
 ```
 
 ## private method GiveBack:(context:SyntaxContext, source:Source, consumed:bool)=>void
@@ -788,7 +906,19 @@ this.MountedUnit = segment;
 **体的形状只在这一处判**：`{` ⇒ `IfBody`（开口由本类消费）；其余 ⇒ `IfStatement`（字符喂给它）。
 段与 `Navigate` 都走这里，所以不会出现「同一件事两处判」。
 
+**注释要先让路**（第 847 轮）：`if (a) /*c*/{ … }` 里那个 `/` 是**段**（`IfSegment.Process`）
+递到这一格的（`if` 段有条件 ⇒ 下一个就是体），所以让路必须判在这里 ——
+把字符交给**当前那一段**（`LexInto`，不是 `Lex`：`IfSet` 的最后一格是那一段、
+它还没签出，符号分支的 `AddAndCloseLast` 会去关它 ⇒ `SourceRange.Start == null`），
+由队列把 `/` 先词法化、等第二个字符（判据见 `IsCommentStart` / `IsPendingCommentTail`）。
+少了这一格，`/*c*/` 会挂出一个单语句体、把后面的 `{ … }` 与 `else` 一起吞进去。
+
 ```ts
+const scope = this.Segment;
+if (scope !== null && (this.IsCommentStart(source) || this.IsPendingCommentTail(scope, source))) {
+  this.LexInto(scope, context, source);
+  return;
+}
 if (source.Value === "{") {
   // **体那个 `{` 当场记进段的 `BodyBraceAt`**（第 621 轮）：括号就在这一格里，
   // 投影画**空 `else {}`** 时直读它，不再回原文找（`indexOf("{", …)` 会命中注释里的假括号）。

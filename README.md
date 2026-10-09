@@ -306,6 +306,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 847 轮：**注释不能当体的第一个单元**——`SWEEP-{comment,linecomment}/ifelse` 收掉 2 条
+
+**一句话**：`if (a) /*c*/{ b(); } else { c(); }` 里那个 `/` 是 **trivia**，可 `IfSet` 的体是
+**自己挂**的（`IfSegment.Process` → `MountBodyOrStatement`：`{` ⇒ `IfBody`、其余 ⇒ 单语句体），
+于是注释一到就被当成**体的第一个单元** ⇒ `{ b(); }` 成了体**内部**的括号、`else` 也一起被吞
+（实测 `FIELD IfStatement [0,34)`：产物 `[expression,thenStatement]`，TS 有 `elseStatement`；
+带 `else` 时才显形——不带 `else` 的那一条因为「体内容只有一个花括号块」正好投影成 `Block`，
+所以就藏在那里，是同一根的第二面）。
+
+- **判据落成两个新方法**（`if-set.xl.md`）：`IsCommentStart`（当前这个 `/` 后面那一格是 `*`
+  还是 `/`——**`/` 同时是注释与正则的开头**，两条注释分支认的都是第二个字符）
+  与 `IsPendingCommentTail`（第二个字符到了：交给队列，注释分支会把那个 `/` 收回去）。
+  扫原始字符的写法与 `Statement.NextLineContinuesExpression` 扫注释那一手同源。
+  **正则不许误伤**：`if (a) /re/.test(x);` 的体**就是**那条表达式语句（探针 7 条全绿，
+  这一格另补了守卫用例 `tests/cases/token/statements/stmt-if-body-regex-not-comment.ts`）。
+- **`else` 那一侧是同一个根的第二处**：`else /*c*/{ … }` 里 `else` 那个词一留在尾巴上，
+  注释读完时它就**不是**「尾巴上最后一个实义单元」了（尾巴上多了注释）⇒ 下面那条
+  `tailIsElse` 与 `beforeIsElse && tail instanceof Identifier` 两支都判不到 ⇒
+  **整条 `else` 段连体一起丢**（实测 `if (a) { b(); } else //c` 换行 `c();`：
+  产物 `IfStatement [0,15)`，TS 是 `[0,29)`）。判据落在 `Navigate` 开头那一格：
+  「`else` + trivia」当场把段签在 `else` 上、那个词摘掉，注释留在本单元里
+  （与 `if (a) { b(); } /*c*/ else { c(); }` 同一形状），体等注释读完再挂。
+- **踩出来的那一格：`Lex` 不是哪里都能用**（本轮第一版整份文件解析失败）。
+  `MountBodyOrStatement` 里让路之后要把 `/` 词法化，而那一刻 `IfSet` 的**最后一个子单元是
+  当前那一段**（`IfSegment`）——体还没挂上、段还没签出，符号分支的 `AddAndCloseLast`
+  会顺手去关它 ⇒ `SourceException: SourceRange.Start == null || SourceRange.End == null`。
+  改法是新加的 `LexInto(host, …)`：**同一个队列、换一个宿主**，挂到段上
+  （段最后一格是已经关掉的 `IfCondition`）。注释也就近挂在段里：
+  `<IfSegment><IfCondition/><AreaAnnotation/><IfBody/></IfSegment>`。
+- **收掉的 2 条**：`gap-sweep-comment-ifelse-01` 与 `gap-sweep-linecomment-ifelse-01`
+  （两行 `xl:known-gap` 删掉，两条 `xl:expect` 按新形状重算：`Bracket` / `IfStatement` /
+  `Keyword` 那一套没了，换成 `IfBody:2` / `IfSegment:2`）。另两条守卫用例
+  （`st-comment-after-head` / `st-comment-holds-brace`）的 `xl:expect` 同一条根：
+  `IfStatement` → `IfBody`——它们钉的是「注释里那个 `{` 不许被回原文 `indexOf` 捡走」，
+  形状变好、判定点不变。
+- **数字**：`cases:tsast` 的账 **22 → 20 还开着**（`coverage` **3983 → 3986 / 4184**，
+  blocked **62 → 60**，`bad` 0、`regressions` 0）；8 道门全绿、`cases:tags` 0 条不一致。
+
 ### 第 846 轮：约束位上的**条件类型**——`type-param-conditional-constraint` 收掉 1 条
 
 **一句话**：`<X extends A extends B ? C : D>` 里那个约束是**条件类型**，而产物把

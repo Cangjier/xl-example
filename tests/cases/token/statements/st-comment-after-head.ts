@@ -1,5 +1,5 @@
 // xl:note 结构括号与关键字之间夹一条注释——关键字与 `)` / `{` 的相邻判定要跨 trivia
-// xl:expect Switch,Try,IfSet,IfStatement,While,For,Foreach
+// xl:expect Switch,Try,IfSet,IfBody,While,For,Foreach
 export function bodies(a: number): number {
   let total = 0;
   switch (a) /* 判别与体之间 */ {
@@ -15,11 +15,10 @@ export function bodies(a: number): number {
   } finally /* 体之前 */ {
     total += 0;
   }
-  // **这一条只在体那一格没有注释时才成立** ✓（第 595 轮量的 ✓）：
-  // `if (a) /* c */ { … } else { … }` 里那个 `/` 会被当成**单语句体的开头** ✓
-  // ⇒ 整个 `else` 被吞进同一条 `IfStatement` ✓（那是 `IfSet.Navigate` 第 ② 步的老口径 ✓，
-  // 与本轮的 trivia 跨格是两件事 ✓——`/` 既是注释开头也是正则开头 ✓，
-  // 在只有当前字符、不许向下看的前提下分不开 ✓）。
+  // **体那一格夹注释（两条口径都守着）** ✓：
+  // `if (a) /* c */ { … } else { … }` 里那个 `/` 是 **trivia**、不是体的开头 ✓
+  // ⇒ 体是 `IfBody`、`else` 照常认成下一段（第 847 轮收掉的那一族）✓；
+  // 下一句量的是**另一处**：注释夹在 `else` 与它的体之间 ✓（同一轮，两根各一处）。
   if (a) {
     total += 1;
   } else /* else 与体之间 */ {
