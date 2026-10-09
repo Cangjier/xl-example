@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8349,
+  "total": 8223,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.36,
+  "progressPercent": 95.27,
   "categories": [
     {
       "category": "token",
@@ -91,31 +91,31 @@
       "category": "exec",
       "weight": 0.25,
       "total": 2217,
-      "pass": 2173,
+      "pass": 2174,
       "blocked": 12,
-      "differ": 32,
+      "differ": 31,
       "nodefail": 0,
-      "coverage": 98.02
+      "coverage": 98.06
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1141,
+      "total": 1145,
       "pass": 1094,
       "blocked": 6,
-      "differ": 41,
+      "differ": 45,
       "nodefail": 0,
-      "coverage": 95.88
+      "coverage": 95.55
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3331,
-      "pass": 3237,
+      "total": 3201,
+      "pass": 3107,
       "blocked": 28,
       "differ": 66,
       "nodefail": 0,
-      "coverage": 97.18
+      "coverage": 97.06
     },
     {
       "category": "e2e",
@@ -1871,7 +1871,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10012/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28772/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1896,12 +1896,6 @@
       "category": "exec",
       "title": "严格函数的自有名字表",
       "detail": "stdout 不同：第 1 行：node «string:length,name,prototype» vs tsrun «string:length,name,arguments,caller,prototype»"
-    },
-    {
-      "id": "exec/round724/p724a-b01",
-      "category": "exec",
-      "title": "Error 子类自己那一格的原型链（第 724 轮新登记的缺口）",
-      "detail": "stdout 不同：第 1 行：node «true» vs tsrun «false»"
     },
     {
       "id": "exec/round724/p724a-b02",
@@ -2180,6 +2174,30 @@
       "detail": "stdout 不同：第 2 行：node «02 let TDZ typeof = \"ReferenceError\"» vs tsrun «02 let TDZ typeof = \"undefined\"»"
     },
     {
+      "id": "runtime/round783/r783a-01-new-nonconstructor",
+      "category": "runtime",
+      "title": "`new` 一个不可构造的值：**该抛 TypeError** 的那些位置",
+      "detail": "stdout 不同：第 1 行：node «01 arrow literal = throw:TypeError» vs tsrun «01 arrow literal = ok:object»"
+    },
+    {
+      "id": "runtime/round783/r783a-02-strict-delete-nonconfigurable",
+      "category": "runtime",
+      "title": "严格模式下的 `delete`：不可配置那一格要抛 `TypeError`",
+      "detail": "stdout 不同：第 1 行：node «01 strict non-configurable prop = throw:TypeError» vs tsrun «01 strict non-configurable prop = ok:false»"
+    },
+    {
+      "id": "runtime/round783/r783a-04-function-prototype-descriptor",
+      "category": "runtime",
+      "title": "普通函数 `prototype` 那一格的描述符：`configurable` 该是假",
+      "detail": "stdout 不同：第 1 行：node «01 plain configurable = false» vs tsrun «01 plain configurable = true»"
+    },
+    {
+      "id": "runtime/round783/r783a-05-forin-nonenum-shadow",
+      "category": "runtime",
+      "title": "`for..in`：**自有的不可枚举属性要挡住**原型上同名的那一格",
+      "detail": "stdout 不同：第 1 行：node «01 own nonenum data shadows proto = []» vs tsrun «01 own nonenum data shadows proto = [\"a\"]»"
+    },
+    {
       "id": "stdlib/array/150-array-species-subclass",
       "category": "stdlib",
       "title": "继承数组的子类上 `map` / `concat` 交出什么",
@@ -2201,7 +2219,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10012/src/5314.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28772/src/5318.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2225,19 +2243,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10012/src/5364.ts:2:13)» vs tsrun «»"
-    },
-    {
-      "id": "stdlib/error/probe697-e11",
-      "category": "stdlib",
-      "title": "typeof new Error(\"m\").stack",
-      "detail": "stdout 不同：第 1 行：node «string:string» vs tsrun «string:undefined»"
-    },
-    {
-      "id": "stdlib/error/probe704-e-a38",
-      "category": "stdlib",
-      "title": "typeof new Error(\"m\").stack",
-      "detail": "stdout 不同：第 1 行：node «string:string» vs tsrun «string:undefined»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28772/src/5368.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2378,12 +2384,6 @@
       "detail": "stdout 不同：第 1 行：node «a1,c3,d4 a,c,d» vs tsrun «a1,b2,c3 a,c,d»"
     },
     {
-      "id": "stdlib/round749/p749b-b06",
-      "category": "stdlib",
-      "title": "`Error` 家族的形状与 `instanceof` 链",
-      "detail": "stdout 不同：第 5 行：node «string true» vs tsrun «undefined true»"
-    },
-    {
       "id": "stdlib/round750/p750b-b03",
       "category": "stdlib",
       "title": "`Object.getOwnPropertyDescriptor` 在数组 / 字符串 / 函数上",
@@ -2399,7 +2399,7 @@
       "id": "stdlib/round751/p751b-03",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 1 行：node «new Error('x').stack ok:string:Error: x» vs tsrun «new Error('x').stack ok:undefined:undefined»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28772/src/7276.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/p751b-04",
@@ -2510,12 +2510,6 @@
       "detail": "stdout 不同：第 30 行：node «String.prototype.match = \"function:match/1\"» vs tsrun «String.prototype.match = \"missing\"»"
     },
     {
-      "id": "stdlib/round781/r781a-01",
-      "category": "stdlib",
-      "title": "错误家族的形状：`cause` / `AggregateError` / 标签 / 原型链",
-      "detail": "stdout 不同：第 7 行：node «10 stack typeof = \"string\"» vs tsrun «10 stack typeof = \"undefined\"»"
-    },
-    {
       "id": "stdlib/round781/r781c-01",
       "category": "stdlib",
       "title": "`structuredClone` 的边界：不可克隆的值抛的是 `DOMException`",
@@ -2526,6 +2520,30 @@
       "category": "stdlib",
       "title": "`WeakMap` / `WeakSet` 的形状与边界",
       "detail": "stdout 不同：第 12 行：node «12 weakref typeof = \"function\"» vs tsrun «12 weakref typeof = \"undefined\"»"
+    },
+    {
+      "id": "stdlib/round782/r782a-02",
+      "category": "stdlib",
+      "title": "其余内建构造自己那一格原型（`Function.prototype`）——同一条根的另一半",
+      "detail": "stdout 不同：第 1 行：node «01 Object<-Function.prototype = true» vs tsrun «01 Object<-Function.prototype = false»"
+    },
+    {
+      "id": "stdlib/round783/r783b-02-string-proto-regex-members",
+      "category": "stdlib",
+      "title": "`String.prototype` 上那三个**收正则**的成员：`match` / `matchAll` / `search`",
+      "detail": "stdout 不同：第 1 行：node «01 match in = true, typeof = function» vs tsrun «01 match in = false, typeof = undefined»"
+    },
+    {
+      "id": "stdlib/round783/r783b-03-symbol-prototype-own-cells",
+      "category": "stdlib",
+      "title": "`Symbol.prototype` 自己那一张名表：`constructor` / `toString` / `valueOf` / `description`",
+      "detail": "stdout 不同：第 1 行：node «01 own names = constructor,description,toString,valueOf» vs tsrun «01 own names = »"
+    },
+    {
+      "id": "stdlib/round783/r783b-04-bound-function-own-cells",
+      "category": "stdlib",
+      "title": "绑定函数的自有格：多出三格**内部实现的名字**，还多一格 `prototype`",
+      "detail": "stdout 不同：第 1 行：node «01 own names = length,name» vs tsrun «01 own names = __boundTarget,__boundThis,__boundArgs,length,prototype,name»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

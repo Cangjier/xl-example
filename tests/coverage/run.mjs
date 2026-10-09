@@ -85,6 +85,16 @@ const writeReport = !flag("--no-report");
 const categoryFilter = value("--category");
 const idFilter = value("--filter");
 const jobs = Math.max(1, Number(value("--jobs", String(Math.min(8, os.cpus().length)))));
+// **批数（=并行进程数）与并行度（=同时跑几个）是两件事，原来绑在一起。**
+//
+// 原来 `makeBatches()` / `makeJudgeBatches()` 都写 `batchCount = jobs` ⇒ 8 个 tsrun 进程、
+// 而 `runOurs()` 的 worker 数也是 `jobs` ⇒ **8 路并行**。这台机器 16 核，
+// 于是 CPU 只吃到 **63%**（实测采样 10 次：均值 62.6%、峰值 71%）——**一半的核在空转**。
+//
+// 批切细之后 work-stealing 才成立：worker 一空就领下一批，核一直有活。
+// 代价是**进程启动次数**（每个 tsrun 启动实测约 100ms，见 `judge-batch.mjs` 的实测），
+// 所以批数也不能无限大——`--batch-workers` 可调，默认按核数（这台机器 16）。
+const batchWorkers = Math.max(1, Number(value("--batch-workers", String(Math.max(jobs, Math.min(32, os.cpus().length))))));
 const useBatch = !flag("--no-batch");
 
 const tsrun = path.join(root, "build", "ts", "tsrun.js");
@@ -400,7 +410,7 @@ function judgeSourceFile(row) {
 }
 
 function makeBatches() {
-  const batchCount = Math.max(1, Math.min(jobs, stdoutEntries.length));
+  const batchCount = Math.max(1, Math.min(batchWorkers, stdoutEntries.length));
   const groups = Array.from({ length: batchCount }, () => []);
   for (let i = 0; i < stdoutEntries.length; i++) groups[i % batchCount].push(stdoutEntries[i]);
   return groups.filter((g) => g.length > 0);
@@ -426,7 +436,7 @@ function makeJudgeBatches() {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
   }
-  const batchCount = Math.max(1, Math.min(jobs, stdoutEntries.length));
+  const batchCount = Math.max(1, Math.min(batchWorkers, stdoutEntries.length));
   const batches = [];
   for (const [key, rows] of groups) {
     const slices = Array.from({ length: Math.min(batchCount, rows.length) }, () => []);
@@ -496,7 +506,7 @@ async function runJudge() {
   );
   let cursor = 0;
   await Promise.all(
-    Array.from({ length: Math.min(jobs, batches.length) }, async () => {
+    Array.from({ length: Math.min(batchWorkers, batches.length) }, async () => {
       for (;;) {
         const index = cursor++;
         if (index >= batches.length) return;
@@ -551,7 +561,7 @@ async function runOurs() {
   const batches = makeBatches();
   let cursor = 0;
   await Promise.all(
-    Array.from({ length: Math.min(jobs, batches.length) }, async () => {
+    Array.from({ length: Math.min(batchWorkers, batches.length) }, async () => {
       for (;;) {
         const index = cursor++;
         if (index >= batches.length) return;
