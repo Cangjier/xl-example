@@ -2942,6 +2942,56 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     if (at >= kids.length) return optional;
     return foldBinaryFrom(optional, kids.slice(at), ctx);
   }
+  // **链的续格长在二元单元里面**（第 743 轮）：`o["f"]().v + 1` 的产物是
+  //
+  //     [PropertyAccess(o, [f]), BinaryOperator( PropertyAccess(Bracket(()), ., v), «+», 1 )]
+  //
+  // ——`o["f"]().v` 那一截（**调用括号 + 后缀**，见 `isCallFirstUnit`）是那个二元单元的
+  // **第一个孩子**，而链的头一格是它的**前一个兄弟**。
+  // **判据只认「第一格以一次调用开头」**（与 `isCallFirstUnit` 同一句）：点号开头的
+  // 那一份不在这里——`o.f().v + 1` 的 token 层把整条链折成了一个 `Method` 单元，
+  // 本来就走得通（实测），放开 `.` 那一档会换掉既有形状。
+  //
+  // **要递归**（第 743 轮同一批量的）：`o[k]().v * 2 + 1` 是**两层**二元单元套着
+  //（外层的第一个孩子是内层那个 `*`）——只看一层的话这一条整支不进，
+  // 而它的症状与不修时一字不差（交出那个函数自己）。
+  //
+  // **它排在 0a2 前面**（第 863 轮，只是把定义往上搬）：0a2 那一支也要问同一个问题——
+  // 「这一格的第一格以一次调用开头吗」，而它比下面那条链支**先跑**。
+  const chainTailInOperator = (unit: any): bool => {
+    if (unit === undefined || unit === null) return false;
+    const kind = unit.get("type");
+    if (kind !== "BinaryOperator" && kind !== "LogicalOperator") return false;
+    const inner = projectableKids(view(unit));
+    if (inner.length < 2) return false;
+    if (isCallFirstUnit(inner[0], ctx)) return true;
+    return chainTailInOperator(inner[0]);
+  };
+  // **把那个二元单元摊到「续格 + 运算符」一层**（第 863 轮）：0a2 那一支要的是这个分法
+  // ——尾巴里那个单元拆成「续格那一格（**整格**留着自己去投）+ 它自己的运算符与右操作数」。
+  // **与 `flattenChainTailInOperator` 只差一处**：那一支要**裸的续格几格**
+  //（链支的入口判据不认「外面包着 `()` 的那种单元」），这一支要**续格那一格自己**
+  //（0a2 把尾巴交给 `foldBinaryFrom`，它的右操作数再递回链支——那一支认的是没摊开的形状）。
+  // **递归那一档**：`o[k]().v * 2 + 1` 是**两层**二元单元套着，一路走到最里面那一层
+  //（第一格以一次调用开头）才停，再把沿途每一层的运算符与右操作数按**从里到外**接上。
+  const unwindChainTailInOperator = (unit: any, out: Array<any>) => {
+    const inner = projectableKids(view(unit));
+    if (inner.length >= 2 && isCallFirstUnit(inner[0], ctx)) {
+      out.push(inner[0]);
+      for (let j = 1; j < inner.length; j++) out.push(inner[j]);
+      return;
+    }
+    if (
+      inner.length >= 2 &&
+      (inner[0].get("type") === "BinaryOperator" || inner[0].get("type") === "LogicalOperator") &&
+      chainTailInOperator(inner[0])
+    ) {
+      unwindChainTailInOperator(inner[0], out);
+      for (let j = 1; j < inner.length; j++) out.push(inner[j]);
+      return;
+    }
+    out.push(unit);
+  };
   // ---- 0a2. `?.` 那一串被包进了**二元的操作数位**（第 124 轮）----
   //
   // **二元单元排在列表最前面、右操作数延续到它外面的兄弟**（第 145 轮）：
@@ -2971,15 +3021,54 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   const tailIsChain = kids
     .slice(1)
     .some((k) => k.get("type") === "NullConditionalOperator" || isSymbol(k, ".") || isCallFirstUnit(k, ctx));
-  if (tailIsChain && kids.length >= 2 && kids[0].get("type") === "BinaryOperator") {
+  // **续格与更松的运算符一起装在下一个二元单元里**（第 863 轮）：`1 + o["f"]().v + 2` 的产物是
+  //
+  //     [BinaryOperator( 1, «+», PropertyAccess(o, [f]) ),
+  //      BinaryOperator( PropertyAccess(Bracket(()), ., v), «+», 2 )]
+  //
+  // ——链头 `o["f"]` 是**第一个单元的最后一个孩子**，续格 `().v` 是**第二个单元的第一个孩子**，
+  // 两个 `+` 之间还隔着这一层：TS 是 `(1 + o["f"]().v) + 2`。
+  // 少了这一档，下面那条链支会拿**整个第一个单元**当链头（`1 + o["f"]`）：
+  // 投出 `PropertyAccess( CallExpression( BinaryExpression(1 + o["f"]), [] ) )`——
+  // 缺 `PropertyAccessExpression` / `CallExpression` 各一格、漂一个 `BinaryExpression`，
+  // 又多出三个盖住前缀的节点（实测缺口 `gap-round744-chain-in-binary-three-operands`）。
+  // **与 `tailIsChain` 是同一件事的两种排版**：`1 + o["f"]().v` 里续格是**外面的兄弟**（走上面），
+  // 再往后接一个运算符时它就**搬进了下一个单元**（走这里）。
+  const tailInOperator = kids
+    .slice(1)
+    .some(
+      (k) =>
+        (k.get("type") === "BinaryOperator" || k.get("type") === "LogicalOperator") &&
+        chainTailInOperator(k),
+    );
+  if (
+    (tailIsChain || tailInOperator) &&
+    kids.length >= 2 &&
+    kids[0].get("type") === "BinaryOperator"
+  ) {
     const headInner = projectableKids(view(kids[0]));
     if (headInner.length >= 2) {
       const operatorUnit = headInner[headInner.length - 2];
       const base = projectExpression(headInner.slice(0, headInner.length - 2), ctx);
       if (base !== undefined && isOperatorUnit(operatorUnit, ctx)) {
+        // **尾巴里那个二元单元要摊开**（第 863 轮）：摊法是 `unwindChainTailInOperator`
+        //（续格那一格**整格**留下——链支认的是没摊开的形状，第 744 轮踩过一次），
+        //它自己的运算符与右操作数原样跟在后面、由 `foldBinaryFrom` 折。
+        const tail: Array<any> = [];
+        for (const one of kids.slice(1)) {
+          const oneKind = one.get("type");
+          if (
+            (oneKind === "BinaryOperator" || oneKind === "LogicalOperator") &&
+            chainTailInOperator(one)
+          ) {
+            unwindChainTailInOperator(one, tail);
+            continue;
+          }
+          tail.push(one);
+        }
         return foldBinaryFrom(
           base,
-          [operatorUnit, ...headInner.slice(headInner.length - 1), ...kids.slice(1)],
+          [operatorUnit, ...headInner.slice(headInner.length - 1), ...tail],
           ctx,
         );
       }
@@ -3221,15 +3310,34 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     for (let at = 1; at < kids.length; at++) {
       const unit = kids[at];
       if (unit.get("type") !== "BinaryOperator" && unit.get("type") !== "LogicalOperator") continue;
-      const before = kids[at - 1];
-      if (before.get("type") !== "SymbolToken") continue;
-      const beforeText = textOfNode(before, ctx);
-      const isAssign =
-        beforeText === "=" ||
-        (beforeText.length > 1 &&
-          beforeText.endsWith("=") &&
-          !["==", "===", "!=", "!==", "<=", ">="].includes(beforeText));
-      if (!isAssign) continue;
+      // **赋值号不一定紧贴着这个单元**（第 863 轮）：`x = 1 + o["f"]().v, y` 的产物是
+      //
+      //     [x, «=», BinaryOperator( 1, «+», PropertyAccess(o, [f]) ),
+      //      BinaryOperator(,)( PropertyAccess(Bracket(()), ., v), «,», y )]
+      //
+      // ——RHS 里那条调用链把**逗号单元推到了隔着一个兄弟**的位置（链的续格与逗号折进了
+      // 同一个单元），于是「前一个兄弟是赋值号」那一问在这里**为假**、整支不进 ⇒
+      // 逗号被当成 RHS 的一部分：TS 是 `(x = 1 + o["f"]().v), y`，产物给 `x = (…, y)`
+      //（实测 `tmp/r863/ctl-4` / `ctl-5`）。
+      // **判据改成「本层左边有没有一个赋值号」**，取**最左边**那一个——逗号比任何赋值都松，
+      // 切点就该落在最外面那一层赋值上（`x = y = 1, z` 切在第一个 `=`，折出来是 `(x = y = 1), z`）。
+      // `a = b + 1` 那一档照旧由下面「这个单元里是逗号吗」挡住，不受影响。
+      let assignAt = -1;
+      for (let j = 1; j < at; j++) {
+        const one = kids[j];
+        if (one.get("type") !== "SymbolToken") continue;
+        const text = textOfNode(one, ctx);
+        const isAssign =
+          text === "=" ||
+          (text.length > 1 &&
+            text.endsWith("=") &&
+            !["==", "===", "!=", "!==", "<=", ">="].includes(text));
+        if (isAssign) {
+          assignAt = j;
+          break;
+        }
+      }
+      if (assignAt < 0) continue;
       const unitInner = projectableKids(view(unit));
       if (unitInner.length < 3) continue;
       if (textOfNode(unitInner[unitInner.length - 2], ctx) !== ",") continue;
@@ -3345,28 +3453,6 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     if (tailKind === "Bracket" || tailKind === "PropertyAccess" || tailKind === "Method") return true;
     if (tailKind === "NotNull") return true;
     return tailKind === "SymbolToken" && textOfNode(unit, ctx) === ".";
-  };
-  // **链的续格长在二元单元里面**（第 743 轮）：`o["f"]().v + 1` 的产物是
-  //
-  //     [PropertyAccess(o, [f]), BinaryOperator( PropertyAccess(Bracket(()), ., v), «+», 1 )]
-  //
-  // ——`o["f"]().v` 那一截（**调用括号 + 后缀**，见 `isCallFirstUnit`）是那个二元单元的
-  // **第一个孩子**，而链的头一格是它的**前一个兄弟**。
-  // **判据只认「第一格以一次调用开头」**（与 `isCallFirstUnit` 同一句）：点号开头的
-  // 那一份不在这里——`o.f().v + 1` 的 token 层把整条链折成了一个 `Method` 单元，
-  // 本来就走得通（实测），放开 `.` 那一档会换掉既有形状。
-  //
-  // **要递归**（第 743 轮同一批量的）：`o[k]().v * 2 + 1` 是**两层**二元单元套着
-  //（外层的第一个孩子是内层那个 `*`）——只看一层的话这一条整支不进，
-  // 而它的症状与不修时一字不差（交出那个函数自己）。
-  const chainTailInOperator = (unit: any): bool => {
-    if (unit === undefined || unit === null) return false;
-    const kind = unit.get("type");
-    if (kind !== "BinaryOperator" && kind !== "LogicalOperator") return false;
-    const inner = projectableKids(view(unit));
-    if (inner.length < 2) return false;
-    if (isCallFirstUnit(inner[0], ctx)) return true;
-    return chainTailInOperator(inner[0]);
   };
   // **把那个二元单元摊进 `ck`**（判据与理由见上面 `chainTailInOperator`）：
   // 续格那一截按原样摊成平级（与 `isCallFirstUnit` 那一支同一个手法），

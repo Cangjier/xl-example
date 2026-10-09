@@ -306,6 +306,58 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 863 轮：链的续格搬进了**下一个二元单元**——`1 + o["f"]().v + 2` 收掉，顺带收掉逗号在语句层那一档（known-gap 5 → 4）
+
+**一句话**：`gap-round744-chain-in-binary-three-operands`（缺 2 漂 1 多 3）收掉；
+同一根上量出来的**逗号那一档**（`x = 1 + o["f"]().v + 2, y`，此前没登记）一并收掉。
+
+**根因**：`1 + o["f"]().v` 的产物是
+
+    [BinaryOperator( 1, «+», PropertyAccess(o, [f]) ), PropertyAccess(Bracket(()), ., v)]
+
+——续格是**外面的兄弟**，0a2 那一支（第 743 轮）正是照这个形状切开的。可**再往后接一个运算符**
+时 token 层换了排版：
+
+    [BinaryOperator( 1, «+», PropertyAccess(o, [f]) ),
+     BinaryOperator( PropertyAccess(Bracket(()), ., v), «+», 2 )]
+
+续格 `().v` 与第二个 `+` **折进了同一个单元**，于是链头变成「**前一个单元的最后一个孩子**」。
+0a2 的判据 `tailIsChain` 只认 `NullConditionalOperator` / `.` / `isCallFirstUnit` 三档，
+而这里第二格是**二元单元**、不是链的续格 ⇒ 整支让开 ⇒ 下面那条链支接手，
+把**整个第一个单元**（`1 + o["f"]`）当成链头 ⇒ `PropertyAccess( CallExpression( BinaryExpression(1 + o["f"]), [] ) )`。
+
+**修法三处**（都在 [print-ast-common.xl.md](typescript/print-ast-common.xl.md)）：
+
+1. `chainTailInOperator` **只是把定义往上搬**到 0a2 前面——0a2 要问的是同一个问题
+   （「这一格的第一格以一次调用开头吗」），而它比链支先跑（`const` 有 TDZ，不能就地引用）。
+2. 0a2 入口加一格 **`tailInOperator`**：尾巴里那个二元单元的第一格以一次调用开头时也算续接；
+   尾巴用新助手 **`unwindChainTailInOperator`** 摊开——**续格那一格整格留下**，
+   它自己的运算符与右操作数原样跟到后面（`foldBinaryFrom` 按「以运算符开头的一串」折）。
+   与既有 `flattenChainTailInOperator` **只差这一处**：那一支要**裸的续格几格**（链支的入口判据
+   不认「外面包着 `()` 的那种单元」），这一支要**续格那一格自己**（0a2 的右操作数要递回链支）。
+   **递归那一档**（`o[k]().v * 2 + 1` 两层套着）一路走到最里面那层才停，沿途的运算符从里到外接上。
+3. 0f（赋值后面跟着逗号）的判据从「**前一个兄弟**是赋值号」放宽成「**本层左边**有赋值号」，
+   取**最左边**那一个（逗号比任何赋值都松，切点就该落在最外面那层赋值上）——
+   `x = 1 + o["f"]().v, y` 里逗号单元被链推到了**隔着一个兄弟**的位置，
+   旧判据为假 ⇒ 逗号被当成 RHS 的一部分（TS 是 `(x = …), y`，产物给 `x = (…, y)`）。
+   `a = b + 1` 那一档照旧由「这个单元里是逗号吗」挡住。
+
+**踩到的那一条**（第 744 轮同一处，这次又验了一遍）：续格**必须整格递回去**——
+摊成平级的几格时链支的入口判据（裸的 `(` 不在名单里）不进，会折出**操作符是 `DotToken`
+的 `BinaryExpression`**。
+
+**实测**（`tmp/r863/probe.mjs` 16 条 + `probe2.mjs` 8 条，共 24 条探针全绿）：
+三操作数 / 嵌套 `* 2 + 3` / 连加 `+ 2 + 3` / 逻辑 / 比较 / 三元 / 实参位 / 数组元素位 /
+逗号在语句层 / `1 + 2 + o["f"]().v`（首格是纯操作数的对照）/ `o.a().b + 1 + 2`（点号链的对照）
+都逐位置与 `ts.createSourceFile` 一致。
+
+**数字**：`cases:tsast` 已知缺口 **5 → 4 还开着**（收掉的那条按规矩删掉 `xl:known-gap`，
+换成本轮的说明；`xl:expect` 按新形状重算成 `BinaryOperator,PropertyAccess,Bracket`）；
+`coverage` **4004 → 4007 / 4187 → 4189**（token **1409 → 1411 / 1414 → 1415**、
+blocked **45 → 44**、differ 138、bad 0）；用例 **1427 → 1428**（token 守卫 1 条
+`expr-round863-chain-in-binary-tail.ts` + exec 守卫 1 条 `exec/round863/001-…`）；
+`npm run gates` **八道全过**（墙钟 31.4s）。
+
 ### 第 862 轮：紧贴的 `async<T>(x) => x`——第 856 轮那一支撤掉，两种排版合流（known-gap 6 → 5）
 
 **一句话**：`expr-async-generic-arrow`（紧贴那一档，缺 2 字段 1）收掉——
