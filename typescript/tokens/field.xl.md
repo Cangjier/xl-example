@@ -432,6 +432,21 @@ if (immediate instanceof LineWrap) {
   if (nextUnit instanceof Bracket && nextUnit.startBracket === "[" && this.IsIndexSignatureName(nextUnit) && IsDeclarationModifier(Get(units, index))) {
     return false;
   }
+  // **下一行以 `(` 开头 ⇒ 这一格是方法名、不是字段名**（第 910 轮）：`abstract override m`
+  // 换行 `():void;` 里 TS 那边是**一条** `MethodDeclaration`（成员体里的 ASI 不管换行，
+  // 「名字 + `(`」永远读成方法），而这一格原来因为「换行 = 只有名字的字段」先把
+  // `m`（连同 `abstract override`）收成 `Field` ⇒ 后面那个 `()` 谁也认不下、
+  // 被 `SignatureCloseRule` 抢成一条无名 `CallSignature`
+  //（实测 `gap-r907-abstract-method-params-newline`：多 `PropertyDeclaration` + `CallSignature`）。
+  //
+  // **实测三种写法 TS 都是方法**（`ts.createSourceFile`）：
+  // `class A { x` 换行 `(y) => y }` ⇒ `MethodDeclaration(x, Parameter(y), Block)`；
+  // `class A { m` 换行 `(): void; }` ⇒ `MethodDeclaration`；
+  // `class A { x` 换行 `(1); }` ⇒ `MethodDeclaration(x, Parameter)`。
+  // 也就是说**这一格没有反例**：成员体里一个名字后面跟着 `(`，不可能是「字段 + 括号表达式」。
+  if (nextUnit instanceof Bracket && nextUnit.startBracket === "(") {
+    return false;
+  }
   return true;
 }
 if (immediate instanceof SymbolToken) {

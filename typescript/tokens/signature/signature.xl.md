@@ -298,6 +298,15 @@ return unit instanceof Bracket && unit.startBracket === "[";
 `interface I { "a"` 换行 `<T>(x: T): T }` 与 `m` 换行 `<T>…` 同形，只认 `Identifier`
 时这一格不响，`"a"<T>` 照样被抢成无名签名。
 
+**`override` 在第 910 轮补进那张词表**（实测量出来的）：`abstract override m` 换行
+`(): void;` 里名字前面那一格是 `override`，它原来**不在**这张表里 ⇒ 这一问答否 ⇒
+`(` 被 `SignatureCloseRule` 抢成无名 `CallSignature`。
+**这一格是「同一张表两处各写一份」的又一个落点**：`DeclarationStart` /
+`DeclarationModifiers` 用的是 `IsDeclarationModifier` 那张**权威词表**，
+而这里手写了一份近似 —— `override` / `accessor` / `in` / `out` 四个词就在差集里。
+这一轮按最小改动**只补量出来的那一个**（补成 `IsDeclarationModifier` 会一并放开
+另外三个，那需要各自量一遍）；下一轮若再遇到同族的词，就该把它换成权威词表。
+
 ```ts
 const at = Get(units, index);
 if (!(at instanceof LineWrap)) {
@@ -328,6 +337,7 @@ if (head instanceof Identifier || (head !== null && head.constructor.name === "K
     word === "static" ||
     word === "readonly" ||
     word === "abstract" ||
+    word === "override" ||
     word === "async" ||
     word === "get" ||
     word === "set" ||
@@ -395,6 +405,16 @@ if (current instanceof Bracket && current.startBracket === "(") {
   // （实测 `"a"(x: string): void` 的产物是 `StringLiteral` + `CallSignature`，
   // 而 TS 是**一个** `MethodSignature`）。
   if (before instanceof Identifier || before instanceof GenericType || before instanceof String) {
+    return false;
+  }
+  // **名字写在上一行、而这个名字左边还有修饰词**（第 910 轮）：`abstract override m` 换行
+  // `():void;` 里 `(` 前面那个实义单元是**软换行**（名字在上一行），所以上面那一问
+  // （`before instanceof Identifier`）看不见 `m` —— 本规则于是把 `()` 抢成一条无名
+  // `CallSignature`、`m` 那几个词留在原地。可那一行 TS 读的是**一条** `MethodDeclaration`
+  //（成员体里 ASI 不管换行，「名字 + `(`」永远读成方法）。
+  // 判据复用 `NameOnPreviousLine`（与下面「名字写在上一行」那一格**同一份**）——
+  // 它问的正是「上一行只写了一个名字吗」，而它自己会把「名字前面那一格」也量过。
+  if (this.NameOnPreviousLine(units, immediateIndex)) {
     return false;
   }
   // **名字写在上一行**（第 827 轮）：`interface I { m` 换行 `(): void; }` 里那个 `(` 是

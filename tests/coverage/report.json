@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.35,
+  "progressPercent": 95.36,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1507,
-      "pass": 1501,
-      "blocked": 6,
+      "pass": 1502,
+      "blocked": 5,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.6
+      "coverage": 99.67
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1507,
-    "knownGap": 6,
-    "knownGapStillOpen": 6,
-    "exactFiles": 1501,
-    "scoredWithoutGap": 1501,
-    "passedWithoutGap": 1501
+    "knownGap": 5,
+    "knownGapStillOpen": 5,
+    "exactFiles": 1502,
+    "scoredWithoutGap": 1502,
+    "passedWithoutGap": 1502
   },
   "blocked": [
-    {
-      "id": "token/declarations/gap-r907-abstract-method-params-newline",
-      "category": "token",
-      "title": "抽象方法的形参表与名字之间换行（第 907 轮片段普查量出）：TS 那边是 `MethodDeclaration`，产物把 `abstract override m` 落成 `PropertyDeclaration`、`():void;` 落成一条无名 `CallSignature`",
-      "detail": "缺 1　多 2　与第 902 / 904 轮那两格同族（`abstract m` 换行 `<T>(): void;`）：解析期在换行处收壳，收尾期的 `MethodDeclarationCloseRule` 拿到的是「一个名字 + 一个括号」两格"
-    },
     {
       "id": "token/expressions/gap-r907-arrow-generic-newline-before-comma",
       "category": "token",
