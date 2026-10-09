@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4737,
+  "total": 4677,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 93.55,
+  "progressPercent": 93.5,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1389,
-      "pass": 1305,
+      "total": 1329,
+      "pass": 1245,
       "blocked": 21,
       "differ": 63,
       "nodefail": 0,
-      "coverage": 93.95
+      "coverage": 93.68
     },
     {
       "category": "e2e",
@@ -1817,7 +1817,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30632/src/2006.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24384/src/2006.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -2144,22 +2144,22 @@
       "detail": "stdout 不同：第 1 行：node «true true 3 [2,4,6]» vs tsrun «false true 3 [2,4,6]»"
     },
     {
-      "id": "stdlib/console/020-names-console",
+      "id": "stdlib/console/009-console-member-names-differ",
       "category": "stdlib",
       "title": "名字逐个取一次：console 的成员（缺 30 个）",
       "detail": "stdout 不同：第 1 行：node «object Console function» vs tsrun «object Console undefined»"
     },
     {
-      "id": "stdlib/console/029-con-log-circular",
+      "id": "stdlib/console/010-console-log-circular-reference-differ",
       "category": "stdlib",
       "title": "循环引用打出来是 `[Circular *1]`",
       "detail": "stdout 不同：第 1 行：node «<ref *1> { a: 1, self: [Circular *1] }» vs tsrun «{ a: 1, self: { a: 1, self: { a: 1, self: [Object] } } }»"
     },
     {
-      "id": "stdlib/console/probe705-c-e18",
+      "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
-      "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30632/src/3338.ts:2:13)» vs tsrun «»"
+      "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24384/src/3280.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2183,7 +2183,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30632/src/3388.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24384/src/3328.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2339,7 +2339,7 @@
       "id": "stdlib/round751/p751b-03",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30632/src/4111.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-24384/src/4051.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/p751b-04",

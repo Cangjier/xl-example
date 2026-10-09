@@ -6,6 +6,7 @@
 //       （`InspectDepth = 2`）——不会转圈（宿主栈溢出不可捕获），但形状与 Node 不同。
 //       这一条是 `inspect.xl.md` 已知差表里的第一条：要做就得带一张「正在展开的句柄表」。
 // xl:end
+
 const o: any = { a: 1 };
 o.self = o;
 console.log(o);

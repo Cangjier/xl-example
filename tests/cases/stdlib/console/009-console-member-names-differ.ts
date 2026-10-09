@@ -4,6 +4,7 @@
 // xl:want differ
 // xl:why console 的成员：取到 undefined（node 上是 function/boolean/object）：Console / _ignoreErrors / _stderr / _stderrErrorHandler / _stdout / _stdoutErrorHandler / _times / assert / clear / context / count / countReset / createTask / debug / dir / dirxml / error / group / groupCollapsed / groupEnd / info / profile / profileEnd / table / time / timeEnd / timeLog / timeStamp / trace / warn
 // xl:end
+
 const b: any = console;
 let v = "";
 v = "no";
