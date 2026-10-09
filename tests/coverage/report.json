@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4405,
+  "total": 4399,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1193,
-      "pass": 1109,
+      "total": 1187,
+      "pass": 1103,
       "blocked": 21,
       "differ": 63,
       "nodefail": 0,
-      "coverage": 92.96
+      "coverage": 92.92
     },
     {
       "category": "e2e",
@@ -1817,7 +1817,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30740/src/2003.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30072/src/2003.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -2159,7 +2159,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30740/src/3144.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30072/src/3144.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2183,7 +2183,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30740/src/3192.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30072/src/3192.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2339,7 +2339,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30740/src/3836.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30072/src/3836.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
@@ -2396,39 +2396,39 @@
       "detail": "stdout 不同：第 2 行：node «assert function trace function» vs tsrun «assert function trace undefined»"
     },
     {
-      "id": "stdlib/round765/r765b-02",
+      "id": "stdlib/round765/002-console-table-rendering-differ",
       "category": "stdlib",
       "title": "`console.table` 画的是框线表格——这一格还没做",
       "detail": "stdout 不同：第 1 行：node «┌─────────┬────────┐» vs tsrun «[ 1, 2, 3 ]»"
     },
     {
-      "id": "stdlib/round766/r766a-07",
+      "id": "stdlib/round766/007-finally-chain-order-differ",
       "category": "stdlib",
       "title": "`.finally` 的链与另一条链谁先：本仓比 Node 早一跳",
       "detail": "stdout 不同：第 5 行：node «04 fin» vs tsrun «09 keep»"
     },
     {
-      "id": "stdlib/round767/r767b-01",
+      "id": "stdlib/round767/005-hasinstance-cell-missing-differ",
       "category": "stdlib",
       "title": "缺省的 `Function.prototype[Symbol.hasInstance]`：本仓那一格是空的",
       "detail": "stdout 不同：第 1 行：node «01 function» vs tsrun «01 undefined»"
     },
     {
-      "id": "stdlib/round771/r771a-03",
+      "id": "stdlib/round771/003-symbol-receiver-and-boxing-differ",
       "category": "stdlib",
       "title": "`Symbol` 接收者与原始值装箱",
       "detail": "stdout 不同：第 1 行：node «01 Object.keys(Symbol('s') as any) ok:object:Array» vs tsrun «01 Object.keys(Symbol('s') as any) throw:Error»"
     },
     {
-      "id": "stdlib/round771/r771b-03",
+      "id": "stdlib/round771/005-promise-argument-validation-differ",
       "category": "stdlib",
       "title": "`Promise` 那一族的实参校验",
       "detail": "stdout 不同：第 1 行：node «01 (Promise.all as any)(1).catch((e: any) ok:object:Promise» vs tsrun «01 (Promise.all as any)(1).catch((e: any) throw:Error»"
     },
     {
-      "id": "stdlib/round772/r772c-01",
+      "id": "stdlib/round772/001-optional-call-null-receiver-differ",
       "category": "stdlib",
-      "title": "空值接收者上的可选调用：那一读被整段跳过",
+      "title": "空值接收者上的属性读那一格：`?.` 只护它左边那一步，读空值要抛",
       "detail": "stdout 不同：第 1 行：node «01 u.x?.() throw:TypeError» vs tsrun «01 u.x?.() ok:undefined:undefined»"
     },
     {

@@ -8,6 +8,9 @@
 // xl:note **两处落点一起改**（`Symbol.toPrimitive` 给了对象、普通那两步都没给原始值）：
 // xl:note 抛宿主 `TypeError`，`Guard` 按宿主异常的类折成 `ErrorKindType`、
 // xl:note 语言层再翻成脚本里的 `TypeError`（与第 713 轮 `in` 那一格同一个机关）。
+// xl:note **第 809 轮并进来的一条**（原 `r766a-01` 就是它自己；同判定点的另一半
+// xl:note 「`valueOf` / `toString` / `Symbol.toPrimitive` 的优先序」本来就在这张表的后半，
+// xl:note 所以这一条本来就只该有一条）——两条来源逐字节相同的那一份已按规矩下盘。
 // xl:end
 const bothObjects: any = { valueOf() { return {}; }, toString() { return {}; } };
 try { bothObjects + ""; } catch (e) { console.log("01", (e as Error).constructor.name, e instanceof TypeError); }

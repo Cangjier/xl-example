@@ -1,4 +1,4 @@
-// xl:title 空值接收者上的可选调用：那一读被整段跳过
+// xl:title 空值接收者上的属性读那一格：`?.` 只护它左边那一步，读空值要抛
 // xl:round 772
 // xl:judge stdout
 // xl:want differ
