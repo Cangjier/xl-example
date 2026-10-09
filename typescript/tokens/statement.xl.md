@@ -1712,26 +1712,31 @@ if (previousIsMember === false && Statement.ExpectsOperand(previous, beforePrevi
 return false;
 ```
 
-## static method IsUnfinishedConditionalType:(units:Array<Token>, index:int)=>bool
+## static method IsUnfinishedQuestionColon:(units:Array<Token>, index:int)=>bool
 
-`index` 处（将要）是一个软换行时，**左边那一行正停在一个条件类型的假分支之前**吗。
+`index` 处（将要）是一个软换行时，**左边那一行正停在一个「`? … :` 对」的假分支之前**吗。
 
-判据三条（都只看**已经读到的单元**，所以换行那一刻问得出来）：
+这一问原来叫 `IsUnfinishedConditionalType`（第 581 轮），只认**条件类型**那一族
+（`A extends B ? C : D`）。第 837 轮把它放开到**三元表达式**（`a ? b : c`）：
+两者的形状判据**一模一样**，硬找出一个「这不是类型位」的判据只会是第二份会漂的答案 ——
+而且放开是**安全**的：答案只在「这一行确实还差一个假分支」时才为真，而那种行尾
+在 TS 里只有「还没写完」一种读法（`?` 与 `:` 之间不可能有平级 `,` / `;`，
+见 `ternary-operator.xl.md` 的 `Previous` 那一段）。
 
-1. 这一段里有一个**顶层的 `extends` 词**（`A extends B ? C : D` 的那个）——
-   `extends` 只可能出现在声明头与条件类型里，而声明头（`class` / `interface` 那几族）
-   在 `StatementBranch` 里**排在这一问之前**就早退了（`declarationWords` 那一支）；
-2. 它后面有一个**顶层的 `?`** —— 少了这一条就会误伤**最常见的一族**：
-   `type X<T extends U> = { … }` 换行（那个 `extends` 在**泛型形参表**里、
-   而花括号里的 `a: string` 是 `Bracket` 单元里的内容 ⇒ 顶层一个 `:` 都没有）
-   ⇒ 判成「没写完」⇒ 下一条语句被并进同一个壳；
-3. 那个 `?` 之后**顶层没有 `:`，或者那个 `:` 就是这一段的最后一格** —— 有 `:` 且它后面还有实义单元才说明假分支已经写了。
-   括号里的 `:`（`? { a: 1 }` / `? [1, 2]`）不算：它们是单元内部的内容，
-   而这一问要的正是「**这个条件类型自己那个 `:`** 到了没有」。
+判据两条（都只看**已经读到的单元**，所以换行那一刻问得出来）：
 
-**为什么是「最后一个 ` extends`」**：嵌套条件类型里
-（`A extends B ? C : D extends E ? F : G`）前一个 `extends` 后面**有** `:`
-⇒ 照第一个判会答「写完了」；取最后一个才不会漏。
+1. 这一段里有一个**顶层的 `?`** —— 三元与条件类型都靠它（见下面「为什么把 `extends` 那一问撤掉」）；
+2. 那个 `?` 之后**顶层没有 `:`，或者那个 `:` 就是这一段的最后一格** ——
+   有 `:` 且它后面还有实义单元才说明假分支已经写了。括号里的 `:`（`? { a: 1 }` / `? [1, 2]`）
+   不算：它们是单元内部的内容，而这一问要的正是「**这个三元 / 条件类型自己那个 `:`** 到了没有」。
+
+**为什么把原来那句 `extends` 那一问撤掉**：第 581 轮那一版先找 `extends`、再从它往后找 `?`，
+为的是躲开 `type X<T extends U> = { … }` 换行（那个 `extends` 在泛型形参表里）。
+可**只认 `?` 就够了**：上面那个例子里 `?` 一个都没有（`{ … }` 里那个 `a: string` 是
+`Bracket` 单元内部的内容、不在这一层的 `units` 里）⇒ 判否。
+反过来说，「顶层有 `?`、且它的 `:` 还没写」这句话对**声明头**永远不成立
+（声明头里不可能出现一个裸 `?`）⇒ 撤掉那一问不会放开任何误判，
+而**留着它会把三元整族挡在外面**（`const x = a ? b :` 换行 `c;` 里一个 `extends` 都没有）。
 
 **为什么落在 `LineCannotEnd` 上而不是 `IsLineBreakIncompleteOnLeft`**：口径的松紧不同
 （见那两个方法的说明）——`IsLineBreakBoundary` 问的是「ASI 该不该断句」，
@@ -1739,26 +1744,20 @@ return false;
 `IsLineBreakBoundary` 那一侧由 `ConditionalTypeCloseRule.Process` 自己那三条
 「换行后面紧跟 `:`」的放行兜着（`conditional-type.xl.md` 第 100 轮），
 两处合起来正好：**解析期不收壳** + **成形期跨过那个换行**。
+三元那边由 `TernaryOperatorCloseRule.Process` 的 `endIndex` 扫描兜着 ——
+它只看 `,` / `;` / `:` 这三格，**软换行与注释都不在它的终止符表里**
+⇒ 假分支跨行时它照样一路收到 `;`（实测 `gap-sweep-newline-cond-03`）。
 
 ```ts
 const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
-let extendsAt = -1;
-for (let i = frontIndex + 1; i < index; i++) {
-  const item = Get(units, i);
-  if (item !== null && Statement.WordOf(item) === "extends") {
-    extendsAt = i;
-  }
-}
-if (extendsAt < 0) {
-  return false;
-}
 let questionAt = -1;
-for (let i = extendsAt + 1; i < index; i++) {
+for (let i = frontIndex + 1; i < index; i++) {
   const item = Get(units, i);
   if (item instanceof SymbolToken && item.Is("?")) {
     questionAt = i;
   }
 }
+// **一个 `?` 都没有 ⇒ 这一行与三元 / 条件类型都无关**（`extends` 单独出现说明是声明头那一族）。
 if (questionAt < 0) {
   return false;
 }
@@ -1794,11 +1793,12 @@ return true;
 而解析期这一问只敢在**一定没写完**时收手 —— 两个问题不同，所以两个方法。
 
 ```ts
-// **条件类型的假分支还没写**（第 581 轮）：`A extends B ? C` 换行 `: D` 那一档 ——
-// 判据、为什么要有它、为什么落在这一问上，见 `IsUnfinishedConditionalType`。
+// **三元 / 条件类型的假分支还没写**（第 581 轮，第 837 轮放开到三元那一族）：
+// `a ? b :` 换行 `c` 与 `A extends B ? C` 换行 `: D` 都是同一档 ——
+// 判据、为什么要有它、为什么落在这一问上，见 `IsUnfinishedQuestionColon`。
 // 排在下面那三条之前：那三条判的是「上一格是不是期待操作数」（`ExpectsOperand`），
 // 而 `TReturn` 这种名字**不期待操作数** ⇒ 它们在这一档上一次都不响。
-if (Statement.IsUnfinishedConditionalType(units, index)) {
+if (Statement.IsUnfinishedQuestionColon(units, index)) {
   return true;
 }
 if (Statement.IsLineBreakIncompleteOnLeft(units, index) === false) {
