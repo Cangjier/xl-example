@@ -5265,7 +5265,16 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     group.push(k);
   }
   if (group.length > 0) groups.push(group);
-  const listEnd = kids.length > 0 ? Math.min(stmtEnd, endOf(kids[kids.length - 1])) : stmtEnd;
+  // **尾部 trivia 要剪掉**（第 853 轮）：TS 的节点终点**从不含 trivia**，而产物常把尾随注释
+  // 收进**最后一个单元里面**——`const f = (a, b) => a/*c*/;` 那条注释落在
+  // `LamdaBody > Statement` 里，`Lamda` 自己的区间就盖到了注释末尾（实测 `[10,26)`，
+  // 而 TS 的 `ArrowFunction` 是 `[10,21)`）⇒ 声明列表与声明各长出一截
+  // （`gap-sweep-comment-arrow-01`：漂 2 多 2）。判据走 `stmtEndOf`——它就是投影层
+  // 「节点终点不含尾部 trivia」的那一份实现（第 132 轮，投影出的每个节点都走它），
+  // 这里不另写一份「往回吃注释」的循环。**`stmtEndOf` 收的是视图**（与 `endOf` 那个
+  // 读 `range` 的助手不同）：这一层的 `kids` 是节点字典，所以要 `view(...)` 一次。
+  const listEnd =
+    kids.length > 0 ? Math.min(stmtEnd, stmtEndOf(view(kids[kids.length - 1]), ctx)) : stmtEnd;
   // **容器可能是视图、也可能是字典格**（第 79 轮）：`projectLet`（语句位）传的是视图，
   // `structuralProps`（`for (let i = 0; …)` 的头部）传的是 `view(...)`。原来这里一律
   // `view(container)`，于是前者会 `view(view)` 抛 `TypeError`——那条路平时走不到
@@ -5326,7 +5335,9 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
       name: oneName,
       initializer,
       pos: oneName.pos,
-      end: one.length > 0 ? Math.min(stmtEnd, endOf(one[one.length - 1])) : listEnd,
+      // **同一个口径**（第 853 轮）：声明自己的终点是「这个声明符**最后一个单元**的终点」，
+      // 而那一格里面可能含着尾随注释——剪法与上面 `listEnd` 一字不差（`stmtEndOf`）。
+      end: one.length > 0 ? Math.min(stmtEnd, stmtEndOf(view(one[one.length - 1]), ctx)) : listEnd,
     };
     // **类型标注是声明的一部分，但它在 `Statement` 那一层**：`let a: string;` 的产物是
     // `Statement > [Let(``let a``), TypeDefine(``: string``)]`——`TypeDefine` 是 `Let` 的**兄弟**，

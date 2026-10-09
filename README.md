@@ -306,6 +306,36 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 853 轮：`=>` 体尾巴上那条注释——`let` 声明的终端也走 trivia 口径，known-gap **12 → 11**
+
+**一句话**：`const f = (a, b) => a/*c*/;`（`gap-sweep-comment-arrow-01`）里
+`VariableDeclarationList` / `VariableDeclaration` 的右端比 TS 多一截
+（TS `[0,21)`、产物 `[0,26)`，漂 2 多 2）。**根子在「谁算最后一个单元」**：
+那条注释被收进 `LamdaBody > Statement` 里（XML 实测
+`<LamdaBody><Statement><Identifier>a</Identifier><AreaAnnotation>c</AreaAnnotation></Statement></LamdaBody>`），
+于是 `Lamda` 自己的区间盖到了注释末尾（`[10,26)`），而 `projectLetFrom` 取的正是
+**最后一个单元的原始终点**（`endOf`）——`endOf` 读的是 `range`，看不见 trivia。
+
+**修法一处**（`print-ast-common.xl.md` 的 `projectLetFrom`）：那两处（列表的右端、
+每个声明符的右端）从 `endOf(...)` 换成 `stmtEndOf(view(...), ctx)`——它就是投影层
+「**节点终点从不含尾部 trivia**」的那一份既有实现（第 132 轮，投影出的每个节点都走它，
+沿「区间终点正好等于当前 `end`」那条链递归找注释）。不另写一份「往回吃注释」的循环，
+两处口径也就不会各漂各的。
+
+**踩到的第一版**：`stmtEndOf` 收的是**视图**（内部读 `v.start` / `v.end`），
+而这一层的 `kids` 是节点字典 ⇒ 直接把字典递进去得到 `NaN`（16 条探针一起报
+`产物[0,NaN)`）。`endOf` 那个助手读的是 `range`，两者不能混——`view(...)` 一次即可。
+
+**探针**：`tmp/r852-arrow.mjs` 16 条（`=> a` 带 / 不带注释、`x => x/*c*/`、
+`async () => 1/*c*/`、`const f = 1/*c*/`、`let a = 1, b = 2/*c*/`、`(1)/*c*/`、
+对象 / 数组 / 模板串 / 函数表达式那几档、以及 `a /*c*/ + 1` 那种**中间**夹注释的对照）
+修完**全绿**；同族的 `const f = 1/*c*/;` 一直是好的（那条注释落在**外层 `Statement`**
+里、是 `Lamda` 的**兄弟**），这一轮改的正是「落在最后一个单元**里面**」那一半。
+
+**数字**：那一行 `xl:known-gap` 删掉（`xl:expect` 按新形状重算），账 **12 → 11 还开着**；
+`coverage` **3996 → 3997 / 4186**（token **1401 → 1402 / 1413**、`blocked 52 → 51`、
+`differ 138`、`bad` **0**、`regressions` **0**）；`npm run gates` 八道全过（墙钟 ~33s）。
+
 ### 第 852 轮：`?.` 之后那一格「名字 + `!`」——两条路同根，known-gap **14 → 12**
 
 **一句话**：`a?.b!()`（`gap-c-optchain-nonnull-01`）与 `a?.b!.c!()`（`-02`）差在同一格上——
@@ -4043,15 +4073,15 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **12 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **11 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1426** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1426 条**（1409 条带期望，共 **4904** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:tags` | **1426 条**（1409 条带期望，共 **4905** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `cases:shapes` | 外部语料 **229 份**（用例 1413 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3996 / 4186**，加权 **95.0%**：token 1401/1413、exec 749/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 52 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **1 条**（`exec/statements/084-switch-case-block-blocked` 那条旧指令该撤了） |
+| `coverage` | **五类 3997 / 4186**，加权 **95.0%**：token 1402/1413、exec 749/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 51 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **1 条**（`exec/statements/084-switch-case-block-blocked` 那条旧指令该撤了） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 
