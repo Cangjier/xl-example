@@ -23,3 +23,15 @@
   console.log(typeof b, "random", v, "(只问名字，不调它)");
   console.log("缺", 2, "个名字");
 })();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-m09.ts（第 1–2 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => typeof Math.max + "|" + typeof Math.random + "|" + typeof Math.f16round));
+console.log(t(() => (Math as any).max.length + "|" + (Math as any).random.name));
+})();

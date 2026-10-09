@@ -148,3 +148,15 @@
     console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
   }
 })();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-m10.ts（第 1–2 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => Math.abs("-3" as any) + "|" + Math.floor("2.7" as any)));
+console.log(t(() => Math.max(1, "5" as any, true as any) + "|" + Math.min(null as any, 1)));
+})();

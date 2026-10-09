@@ -157,3 +157,26 @@
     console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
   }
 })();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-m03.ts（第 1–2 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => Math.pow(0, -1) + "|" + Math.pow(NaN, 0) + "|" + Math.pow(1, NaN)));
+console.log(t(() => Math.pow(-8, 1 / 3) + "|" + Math.pow(-2, 3) + "|" + Math.pow(2, 1 / 0)));
+})();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-m04.ts（第 1–1 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => Math.hypot() + "|" + Math.hypot(3, 4) + "|" + Math.hypot(1, 1 / 0)));
+})();

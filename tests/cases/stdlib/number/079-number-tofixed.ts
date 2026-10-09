@@ -48,3 +48,65 @@ try {
 } catch (e) {
   console.log("throw:" + (e && (e as any).constructor ? (e as any).constructor.name : "?"));
 }
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-n01.ts（第 1–3 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => (1.005).toFixed(2) + "|" + (2.5).toFixed(0) + "|" + (-2.5).toFixed(0)));
+console.log(t(() => (1234.5678).toFixed(2) + "|" + (0).toFixed(2) + "|" + (1.5).toFixed(0)));
+console.log(t(() => (8.575).toFixed(2) + "|" + (1.45).toFixed(1) + "|" + (0.615).toFixed(2)));
+})();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-n02.ts（第 1–3 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => (1e21).toFixed(2)));
+console.log(t(() => (1e-7).toFixed(10)));
+console.log(t(() => (123456789012345680000).toFixed(0)));
+})();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-n03.ts（第 1–3 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => (1).toFixed(-1)));
+console.log(t(() => (1).toFixed(101)));
+console.log(t(() => (1).toFixed(100).length));
+})();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-n04.ts（第 1–2 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => (1.5).toFixed(undefined as any) + "|" + (1.5).toFixed(null as any)));
+console.log(t(() => (1.565).toFixed(2.9 as any) + "|" + (1).toFixed(true as any)));
+})();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-n10.ts（第 1–1 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => (-0).toString() + "|" + String(-0) + "|" + (-0).toFixed(2)));
+})();

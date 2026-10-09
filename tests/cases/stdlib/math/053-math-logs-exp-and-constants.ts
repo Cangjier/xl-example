@@ -114,3 +114,27 @@
     console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
   }
 })();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-m06.ts（第 1–2 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => Math.expm1(0) + "|" + Math.log1p(0) + "|" + Math.expm1(1e-10)));
+console.log(t(() => Math.log1p(1e-10) + "|" + Math.expm1(-40)));
+})();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-m08.ts（第 1–2 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => Math.PI.toFixed(10) + "|" + Math.E.toFixed(10) + "|" + Math.SQRT2.toFixed(10)));
+console.log(t(() => Math.LN2.toFixed(10) + "|" + Math.LOG10E.toFixed(10)));
+})();

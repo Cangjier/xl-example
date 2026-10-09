@@ -169,7 +169,7 @@ token 的 186 条 `gap-sweep-*` / `gap-r676-*` 是 **AST 尺子的逐落点账**
 | 动机 | 「免得把控制台渲染那一族的已知缺口混进来」——即**隔离打印层**，让每条只暴露一个语义差额 |
 | 首现 | 第 692 轮（其一）：**385 条**（其中原子探针 299 条），分母 3992 → 4377 |
 | 之后逐批 | 692（其二）150 · 692（其三）103 · 693 **555** · 694 **242** · 695 150 · 696 152 · 697 159 · 698 85 · 699 202 · 700 158 · 701 100 · 706 133 · 707 117 · 708 81 · 709 56 · 710 49 · 711 26 |
-| 现状（第 795 轮之后） | git 跟踪 **674 条**（第 794 轮（三）之后是 734、第 794 轮（二）之后是 759、第 794 轮之后是 793、第 793 轮之后是 827、第 792 轮之后是 871、第 791 轮之后是 920、第 790 轮（三）之后是 973、第 790 轮（二）之后是 1025、第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118），第 790 轮（三）走完 `exec/iterators`（52），第 791 轮走完 `stdlib/error`（53），第 792 轮走完 `exec/destructuring-spread`（48），第 793 轮走完 `stdlib/math`（44），第 794 轮走完 `runtime/exceptions`（34），第 794 轮（二）走完 `runtime/round742`（34），第 794 轮（三）走完 `stdlib/round718`（25），第 795 轮走完 `exec/round709`（35）与 `exec/round711`（25） |
+| 现状（第 796 轮之后） | git 跟踪 **648 条**（第 795 轮之后是 674、第 794 轮（三）之后是 734、第 794 轮（二）之后是 759、第 794 轮之后是 793、第 793 轮之后是 827、第 792 轮之后是 871、第 791 轮之后是 920、第 790 轮（三）之后是 973、第 790 轮（二）之后是 1025、第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118），第 790 轮（三）走完 `exec/iterators`（52），第 791 轮走完 `stdlib/error`（53），第 792 轮走完 `exec/destructuring-spread`（48），第 793 轮走完 `stdlib/math`（44），第 794 轮走完 `runtime/exceptions`（34），第 794 轮（二）走完 `runtime/round742`（34），第 794 轮（三）走完 `stdlib/round718`（25），第 795 轮走完 `exec/round709`（35）与 `exec/round711`（25），第 796 轮走完 `stdlib/round719`（26，整域并进 `stdlib/math` 与 `stdlib/number`） |
 | 现状（`gap-*` 一族） | git 跟踪 **186 条**，其中 token 180（`gap-sweep-*` 175 + `gap-r676-*` 11 之类）、runtime / stdlib 6 —— **第 790 轮（二）起这一族也在整理范围内**：同一条根的账并成一条、名字按规范给（`gap746-…` → `002-…-differ` 这种）；token 那 186 条**逐条量的是不同落点**（`xl:known-gap` 一行的差额各不相同），所以**没有重复可去**，仍按 `gap-` 前缀留在 `token/` 里（见下面第 790 轮（二）那一节） |
 
 **它当时的收益是真的**：每一批都当场收掉几处根因，覆盖度从 3697/3992 一路推到目前的 4886/5284。
@@ -192,6 +192,47 @@ token 的 186 条 `gap-sweep-*` / `gap-r676-*` 是 **AST 尺子的逐落点账**
 也就是说：**探针这个方法要留，探针的重复不要留。**
 
 ## 分母里有什么（数字是最近一次全量实测）
+
+**第 796 轮的合并**（**`stdlib/round719` 整个域跨域并进 `stdlib/math` 与 `stdlib/number`：26 → 0**）：
+这个域是第 719 轮**成批重抄**标准域量过的边角（`p719a-m*` 10 条问 `Math`、`p719a-n*` 16 条问
+`Number`），它与 `stdlib/math`（050–056）、`stdlib/number`（074–083）**同判定点**——探针里那一句
+表达式，保留条里早就量过。所以这一轮不做「域内重排」，做**跨域并账**（与第 788 轮把 7 条函数
+`name` / `length` 探针并进 `exec/functions/088` 同一手法）：24 条探针的正文**逐字**搬进 15 条保留条
+的文件尾（各套自己的 `show` / `t` 壳、各套一个 IIFE），另外 2 条（`m01` / `m02`）的断言
+**已全在保留条里**，直接删。域内 26 条清零，目录随之消失。
+
+| 保留条（目标） | 判定点 | 吸收（探针 · 行） |
+| --- | --- | --- |
+| `stdlib/math/051-math-min-max-and-abs` | `min` / `max` / `abs` 的边角 | `m10`（1–2） |
+| `stdlib/math/052-math-pow-sqrt-and-roots` | `pow` / `sqrt` / `cbrt` / `hypot` | `m03`（1–2）· `m04`（1） |
+| `stdlib/math/053-math-logs-exp-and-constants` | 对数 / 指数 / 常量 | `m06`（1–2）· `m08`（1–2） |
+| `stdlib/math/054-math-32bit-tools` | `imul` / `clz32` / `fround` | `m04`（2）· `m05`（1–2） |
+| `stdlib/math/055-math-trig-and-hyperbolic` | 三角 / 双曲 | `m07`（1–2） |
+| `stdlib/math/056-math-member-names` | 名字与 `length` | `m09`（1–2） |
+| `stdlib/number/074-math-and-number-statics` | `Number` 常量 | `n11`（1–2） |
+| `stdlib/number/075-number-conversion-table` | `Number(x)` 转换表 | `n12`（1–3） |
+| `stdlib/number/076-number-parseint-parsefloat` | `parseInt` / `parseFloat` | `n13`（1–3） |
+| `stdlib/number/077-number-tostring-radix` | `toString(radix)` 与越界 | `n07`（1–3）· `n08`（1–3） |
+| `stdlib/number/078-number-tostring-default` | 默认 `ToString` | `n09`（1–3） |
+| `stdlib/number/079-number-tofixed` | `toFixed` 与 `digits` | `n01`（1–3）· `n02`（1–3）· `n03`（1–3）· `n04`（1–2）· `n10`（1） |
+| `stdlib/number/080-number-toprecision-toexponential` | `toPrecision` / `toExponential` | `n05`（1–3）· `n06`（1–3） |
+| `stdlib/number/081-number-predicates` | `Number.is*` 与浮点误差 | `n14`（1–2）· `n16`（1–2） |
+| `stdlib/number/083-number-wrapper-and-negative-zero` | 包装对象与 `-0` | `n10`（2）· `n15`（1–3） |
+| （不并，直接删） | — | `m01` · `m02`（断言已全在 `050` / `051` 里） |
+
+**保台账（全量批量跑，`--jobs 8 --batch-workers 32`）**：语料 **4850 → 4824**（净少 **26**：删 26、添 0）、
+过 **4454 → 4428**；**blocked 258 / differ 138 / bad 0 一处没动**，
+`MOVED` / `NEWLY-PASSING` / `REGRESSION` **全 0**。
+
+**验证一次**：两个受影响的域两种口径**逐项相同** —— 批量与 `--no-batch` 都是 `stdlib/math`
+**7 过**、`stdlib/number` **15 过 · differ 1**（`073-number-tolocalestring`，与这一轮无关的老账）；
+并入的完整性用一把一次性的尺子（`tmp-r796-verify.mjs`）机械核对 —— 15 条保留条改后的 stdout 与
+「**HEAD 那一份的 stdout ＋ 各搬入块（探针原文件的行区间）的 stdout**」**逐字节相同**
+（改后 368 行 / 改前 309 行，搬入 26 块 59 行），**不一致 0 条**。
+
+**收网扫描（亲手再过一遍）**：`stdlib/round719` 已不存在（26 条清零、`probe*` / `p-*` 命名随之清零）；
+`stdlib/math` 现存 7 条（050–056）、`stdlib/number` 现存 16 条，全是 `<三位序号>-<kebab 描述>`；
+本轮的 15 条保留条各自仍然只有一个判定点（搬进去的块**只加断言、不改判据**）。
 
 **第 795 轮的合并**（**`exec/round709` 与 `exec/round711` 两个纯探针域按判定点重排：
 37 → 6、25 → 2**）：两个域都是**整体一批原子探针**（`p709a/c/d-*` 35 条 + 原本就并过一次的

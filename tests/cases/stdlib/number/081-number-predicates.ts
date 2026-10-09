@@ -43,3 +43,27 @@ try {
 } catch (e) {
   console.log("throw:" + (e && (e as any).constructor ? (e as any).constructor.name : "?"));
 }
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-n14.ts（第 1–2 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => Number.isInteger(1) + "|" + Number.isInteger(1.5) + "|" + Number.isInteger("1" as any)));
+console.log(t(() => Number.isSafeInteger(2 ** 53) + "|" + Number.isFinite("1" as any) + "|" + Number.isNaN("a" as any)));
+})();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-n16.ts（第 1–2 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => (0.1 + 0.2).toString() + "|" + (0.1 + 0.2).toFixed(20)));
+console.log(t(() => (0.3 - 0.1).toString() + "|" + (1e16 + 1).toString()));
+})();

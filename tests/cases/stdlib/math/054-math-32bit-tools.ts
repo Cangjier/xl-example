@@ -118,3 +118,26 @@
     console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
   }
 })();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-m04.ts（第 2–2 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => Math.cbrt(-8) + "|" + Math.clz32(1) + "|" + Math.clz32(0) + "|" + Math.imul(-1, 8)));
+})();
+
+// ===== 第 796 轮：吸收 tests/cases/stdlib/round719/p719a-m05.ts（第 1–2 行）=====
+(() => {
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v === "symbol" ? "symbol"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const t = (f) => { try { return show(f()); } catch (e) { return "throw:" + (e && e.constructor ? e.constructor.name : "?"); } };
+
+console.log(t(() => Math.fround(1.1) + "|" + Math.f16round(1.1)));
+console.log(t(() => Math.fround(1 / 3) + "|" + Math.f16round(65504 + 1)));
+})();
