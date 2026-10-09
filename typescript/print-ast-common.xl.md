@@ -2241,6 +2241,34 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // 后面真正的表达式整段丢掉（实测 `dist/ts/typescript/ts-ast.ts` 缺 15 / 多出 3）。
   kids = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   if (kids.length === 0) return undefined;
+  // ---- 0a'。**隔空格的 async 泛型箭头** `async <T>(x: T) => x`（第 860 轮）----
+  //
+  // 这一档必须**排在 0a 前面**：它的产物是**三格** `[Identifier(async), GenericType(<T>), Lamda(…)]`，
+  // 而 0a 的判据只问「头一格是 `Identifier`、第二格是 `GenericType`」——它当场把 `async <T>`
+  // 认成实例化表达式（`ExpressionWithTypeArguments`），剩下的 `Lamda` 再走 `foldBinaryFrom`
+  // ⇒ 实测 `expr-async-generic-arrow-spaced`：**缺 8 多 2**（`ArrowFunction` / `AsyncKeyword` /
+  // `Parameter` / `EqualsGreaterThanToken` 整片缺，多出 `ExpressionWithTypeArguments` 与 `async`）。
+  //
+  // **与紧贴那一档的分工**：`async<T>(x) => x`（`async` 与 `<` 紧贴）在 `lamda.xl.md` 的
+  // `Process` 里已经把泛型段**收进 `Lamda` 的替换范围**（那一档的产物只有一格 `Lamda`，
+  // 本条一次都不会响）；隔空格那一档 `IsAsync` 仍是假、泛型段仍是**平级兄弟**，
+  // 所以这里要自己把 `async` 与 `typeParameters` 两样补上，并把 `pos` 挪到 `async` 那一格
+  //（`Lamda` 自己的起点是形参表）。
+  if (kids.length === 3 && kids[0].get("type") === "Identifier" && kids[1].get("type") === "GenericType" && kids[2].get("type") === "Lamda" && textOfNode(kids[0], ctx) === "async") {
+    const arrow: any = projectNode(kids[2], ctx);
+    if (arrow !== undefined) {
+      const typeParams = unwrapNodes(kids[1]).filter((k) => k.get("type") === "TypeParameter");
+      if (typeParams.length > 0) arrow.typeParameters = projectEach(typeParams, ctx);
+      // **`AsyncKeyword` 得自己补进 `modifiers`**：那一格平时由 `Lamda.IsAsync` 那条路合成，
+      // 而这条路的 `IsAsync` 是假（隔空格那一档规矩如此）⇒ 只在投影这一层补一个节点，
+      // 位置就取 `async` 那一格自己的两端（与 `async x => x` 合成出来的形状逐格相同）。
+      const asyncNode = { kind: "AsyncKeyword", text: "async", pos: startOf(kids[0]), end: endOf(kids[0]) };
+      if (Array.isArray(arrow.modifiers)) arrow.modifiers.push(asyncNode);
+      else arrow.modifiers = [asyncNode];
+      arrow.pos = startOf(kids[0]);
+      return arrow;
+    }
+  }
   // ---- 0a。泛型实例化表达式 `f<string>`（第 850 轮）----
   //
   // TS 4.7 的 instantiation expression：`f<string>` 本身就是一个表达式，

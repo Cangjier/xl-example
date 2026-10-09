@@ -306,6 +306,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 861 轮：隔空格的 `async <T>(x) => x`——`async` 与泛型段谁先认领：0a 那一支抢在前面（known-gap 8 → 6）
+
+**一句话**：`expr-async-generic-arrow-spaced`（`async <T>(x: T) => x`，缺 8 多 2）与
+`gap-d-generics-tuple-mapped-02`（`async <T,>(x: T): Promise<T> => x`，缺 12 多 2）
+**两条一起收掉**（现在逐位置完全一致），已知缺口 **8 → 6**。
+
+**根因**：这一档的产物是**三格** `[Identifier(async), GenericType(<T>), Lamda(…)]`，
+而 `projectExpression` 里排在最前面的 **0a**（泛型实例化表达式 `f<string>`，第 850 轮）
+判据只问「头一格是 `Identifier`、第二格是 `GenericType`」——它当场把 `async <T>`
+认成 `ExpressionWithTypeArguments`，剩下的 `Lamda` 走 `foldBinaryFrom`
+⇒ `ArrowFunction` / `AsyncKeyword` / `Parameter` / `EqualsGreaterThanToken` 整片缺、多出两格。
+
+**上一轮那一支为什么一次都没响**（第 856 轮把「三格」写在**第 134 轮那个两格支**旁边，
+并注明「实测没有跑到」）：它写对了形，却排在 0a **后面**——控制流在 0a 就返回了。
+这一轮把那一支**挪到 0a 前面**（[typescript/print-ast-common.xl.md](typescript/print-ast-common.xl.md)），
+并按投影层的口径补齐两样：`typeParameters` 取泛型段里的 `TypeParameter`；
+`AsyncKeyword` **自己补一个节点**（那一格平时由 `Lamda.IsAsync` 合成，而隔空格这一档
+`IsAsync` 是假——`lamda.xl.md` 第 856 轮把它收窄到「`async` 与 `<` 紧贴」），
+区间就取 `async` 那一格自己的两端，与 `async x => x` 合成出来的形状逐格相同。
+
+**紧贴那一档一个字节没动**：`async<T>(x) => x` 的泛型段已经被 `lamda.xl.md` 的 `Process`
+收进 `Lamda` 的替换范围，产物只有一格 `Lamda`，本条一次都不会响
+（实测仍是**缺 2 字段 1**——`typeParameters` 那一格——照旧登记着）。
+
+**数字**：`cases:tsast` **16 / 16 片通过**、已知缺口 **8 → 6 还开着**
+（收掉的两条按规矩删掉各自的 `xl:known-gap` 行，两条 `xl:expect` 一个字节没改——XML 侧不受投影改动影响）；
+`coverage` **4001 → 4003 / 4187**、blocked **48 → 46**、differ 138、bad 0；`npm run gates` **八道全过**。
+
 ### 第 860 轮：`do … while (…) ;` 那个尾分号的右端——第 859 轮新写的那一支是**死代码**，坐标两处各差一格
 
 **一句话**：全语料 **9 处 `DoStatement` 漂移**（缺 0 漂 9 多 9）一次收掉；
