@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack, SearchFront, TakeRange } from "../../../core/extensions/list-extension.xl.md"
-import { IsTriviaUnit, IsTypeContainerUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { IsTriviaUnit, IsTypeContainerUnit, MatchingQuestionIndex, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
@@ -38,13 +38,18 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 
 `index` 处是不是一个可以当作三元运算符的 `:`。
 
-条件是四层：先要求是 `SymbolToken` 且 `Is(":")`，再往前找 `?`；`?` 不存在（`-1`）或紧邻（`questionIndex == index - 1`）都算不成立。
+条件是五层：先要求是 `SymbolToken` 且 `Is(":")`（第一层）。
+**第二层是配对**（第 857 轮）：这一格 `:` 要能与**同一层**的某一格 `?` 配成一对
+（`MatchingQuestionIndex`）——配不上（`-1`）⇒ 它根本不是三元的冒号
+（属性冒号 / 类型标注的冒号 / 元组的具名元素 `[name: D]` 都是这一档），当场否。
+在**左**嵌套 `a ? b ? c : d : e` 里，是这一层把「内层那个 `:`」与「外层的 `?`」拆开的。
 **第三层是位置**：处在类型位的 `? :` 是**条件类型**，不是三元表达式（判据见下面的 `IsTypePosition`）。
 少了这一层，括号里的条件类型会长出一个 `TernaryOperator` 节点
 （`type-cond-nested` / `type-cond-union-member` 两条用例报的 `不该有 TernaryOperator` 就是它）。
-**第四层是嵌套**：**假值段里还有别的 `?`** 时先不成，把内层让出来。
+**第四层是紧邻**：`?` 与 `:` 紧挨着（`questionIndex == index - 1`）算不成立。
+**第五层是嵌套**：**假值段里还有别的 `?`** 时先不成，把内层让出来。
 
-**为什么必须有第四层**：规则是**按规则轮询、每条规则从左往右扫一遍所有下标**
+**为什么必须有第五层**：规则是**按规则轮询、每条规则从左往右扫一遍所有下标**
 （见 `core/syntax/token.xl.md` 的 `Reorganize`），所以**靠左的 `:` 先被问到**。
 `a ? b : c ? d : e` 这种右结合嵌套里，第一个 `:` 会先把假值段切成 `c ? d : e` 四个平铺单元
 （`?` / `:` 都留在里面），内层再也没机会成形。
@@ -78,11 +83,20 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 （自己的产物 `dist/ts/typescript/tokens/string/string.ts` 实测就是这样，
 当时那把对齐尺子的「缺 `ArrayType`」把它抓出来）。
 
-**已知限制：左结合嵌套 `a ? b ? c : d : e` 还不能完全成形。**
-TypeScript 的解是 `a ? (b ? c : d) : e`，现状是 `a` / `?` / `b` 平铺，后三层成节点。
-试过加「条件段里还有 `?` 就不成」的对称守卫，结果**两层都被挡掉**、整条退化成平铺符号
-（这类写法在真实语料里为 0，所以先留着不修；要修得让 `Previous` 有能力判断
-「这个 `:` 属于哪一个 `?`」，不能只看平铺列表里的相对位置）。
+**左结合嵌套 `a ? b ? c : d : e`：第 857 轮补上了配对那一层。**
+TypeScript 的解是 `a ? (b ? c : d) : e`；从第 66 轮起这里一直平铺着
+（`a` / `?` / `b` 三个单元留在三元外面），当时的记录是「这类写法在真实语料里为 0，先留着不修」。
+那句话是错的——**自己的产物里就有**（`dist/ts/typescript/tokens/json/object-literal.ts` 的
+`computed === undefined ? … ? … : … : {…}`），实测 `ConditionalExpression` 缺 3 漂 1 多 2。
+试过、**整份撤回**的改法：加「条件段里还有 `?` 就不成」的对称守卫——两层都被挡掉、
+整条退化成平铺符号。要修只能让这一层有本事判断「这个 `:` 属于哪一个 `?`」。
+
+**第五层是配对**（第 857 轮）：`QuestionIndexBefore` 只保证「左边有 `?`」，
+**这一格 `:` 与哪一格 `?` 是一对**要问 `MatchingQuestionIndex`——它俩不是同一个下标时
+这个 `:` 属于**别的**三元（`a ? b ? c : d : e` 里内层那个 `:` 左边第一个 `?` 是外层的）。
+`QuestionIndexBefore` 因此在规则本体里只剩「第四层「假值段里还有没有 `?`」那一处
+`innerQuestion` 的回扫起点」这一个用途的邻居；`Previous` 与 `Process` 两处
+**必须指向同一格 `?`**，所以都读 `MatchingQuestionIndex`。
 
 ```ts
 const current = Get(units, index);
@@ -90,7 +104,7 @@ if (current instanceof SymbolToken && current.Is(":")) {
   if (this.IsTypePosition(current)) {
     return false;
   }
-  const questionIndex = this.QuestionIndexBefore(units, index);
+  const questionIndex = this.MatchingQuestionIndex(units, index);
   if (questionIndex === -1) {
     return false;
   }
@@ -160,6 +174,11 @@ return false;
 
 `Previous` 与 `Process` 共用它：两边的「哪个 `?`」必须一致，各写一份就会出现
 「判定说有、收集说找不到」的错位（`conditional-type.xl.md` 的 `FindExtendsIndex` 记过同一个教训）。
+
+**第 857 轮起，两个调用点都换成了 `MatchingQuestionIndex`**：真正要「配成一对」的那一格
+不能只看「左边有没有 `?`」——左嵌套 `a ? b ? c : d : e` 里内层 `:` 左边第一个 `?` 是**外层**的，
+照它去收，内层会把外层的 `:` 一起吞掉。这个方法留着给上面那道「假值段里还有没有 `?`」
+的守卫当方向判据（它只问「有没有」，不问「是哪一格」）。
 
 ```ts
 for (let i = index - 1; i >= 0; i--) {
@@ -246,6 +265,21 @@ return parent.Data.some((item) => {
   }
   return false;
 });
+```
+
+## private method MatchingQuestionIndex:(units:Array<Token>, colonIndex:int)=>int
+
+**`colonIndex` 这个 `:` 自己配对的 `?` 是哪一格**——左嵌套唯一的判据。
+
+**本体不在这里**（第 857 轮）：判据与 `TypeDefineCloseRule.HasTernaryQuestion` 问的是**同一句**
+（「这个冒号配的是哪一格 `?`」），两处各写一份必然漂，所以落成
+`../../text-common-util.xl.md` 的模块级 `MatchingQuestionIndex`。这一格只留一个转调，
+为的是让本文件里两处调用点读起来仍然是「问本规则一句话」（`this.MatchingQuestionIndex(...)`）。
+
+为什么必须有这一问、为什么是括号那样的深度，见那个模块级函数的说明。
+
+```ts
+return MatchingQuestionIndex(units, colonIndex);
 ```
 
 ## static method IsTernaryOperatorStart:(current:Token)=>bool
@@ -361,7 +395,7 @@ return false;
 ```ts
 const current = Get(units, index)!;
 const elseIndex = index;
-const questionIndex = this.QuestionIndexBefore(units, index);
+const questionIndex = this.MatchingQuestionIndex(units, index);
 const startIndex = SearchFront(units, questionIndex, TernaryOperatorCloseRule.IsTernaryOperatorStart);
 // **假值段的终点**：`Previous` 里那个 `segmentEnd` 的同一条判据（第 123 / 127 轮）。
 //
@@ -371,10 +405,21 @@ const startIndex = SearchFront(units, questionIndex, TernaryOperatorCloseRule.Is
 //     后面那个 `:` 属于**外层的三元**。少这一条，内层会把 `d : e` 整段吞掉
 //     （实测 `dist/ts/typescript/ts-ast.ts` 里 `computed === undefined ? … ? a : b : {…}`
 //     这一族：内层三元的一个都没成形，产物把整段读成 `BinaryExpression`）。
-//     判据是「自己那个 `:` 之后出现过 `?` 没有」：出现过 ⇒ 后面那个 `:` 是**内层**的，
-//     放行；没出现过 ⇒ 它是外层的，收工。
+//
+// **「哪一个 `:` 是内层的」也按配对算**（第 857 轮）：原来纪律是一个布尔
+// （「自己那个 `:` 之后见过 `?` 没有」），它答不了「那个 `?` 配的是不是本层的 `:`」。
+// 判据改成同一个 `MatchingQuestionIndex`：往右遇到 `:` 时问一句
+// 「你配对的 `?` 在**我这一个 `?` 的左边**吗」——
+//   · 在左边 ⇒ 它整个是本三元真值段里的内层三元（`a ? b : c ? d : e` 里 `c ? d : e` 的
+//     那个 `:` 配的是**右边**那个 `?`，所以是「不在左边」，放行）；
+//   · 不然 ⇒ 这个 `:` 属于**包着自己的**那个三元（左嵌套 `a ? b ? c : d : e` 里
+//     内层 `:` 的假值段只到 `d`，后面那个 `:` 是外层的），收工。
+//
+// **判据写成 `other < questionIndex`，不能写成 `other <= elseIndex`**：右嵌套里内层那个
+// `:` 的配对 `?` 就在右面（`other > elseIndex`），写成后者会把它当外层冒号、假值段当场截断。
+// 而外层冒号自己那个 `?` **一定在本 `?` 的左边**（`questionIndex` 就是左嵌套里层数更浅的那个
+// `?`——`MatchingQuestionIndex` 已经把这一层算进去了）。
 let endIndex = units.length;
-let questionSinceColon = false;
 for (let i = elseIndex + 1; i < units.length; i++) {
   const item = Get(units, i);
   if (item === null) {
@@ -387,17 +432,12 @@ for (let i = elseIndex + 1; i < units.length; i++) {
     endIndex = i;
     break;
   }
-  if (item.Is("?")) {
-    questionSinceColon = true;
-    continue;
-  }
   if (item.Is(":")) {
-    if (questionSinceColon) {
-      questionSinceColon = false;
-      continue;
+    const other = this.MatchingQuestionIndex(units, i);
+    if (other === -1 || other < questionIndex) {
+      endIndex = i;
+      break;
     }
-    endIndex = i;
-    break;
   }
 }
 // 真值段不能越过**下一个 `?`**：`a ? b ? c : d : e` 里 `b ? c` 不是真值段，

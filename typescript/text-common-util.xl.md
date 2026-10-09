@@ -850,6 +850,69 @@ for (let i = index - 1; i >= 0; i--) {
 return false;
 ```
 
+# method MatchingQuestionIndex:(units:Array<Token>, colonIndex:number)=>int
+
+**`colonIndex` 这个 `:` 自己配对的 `?` 是哪一格**（第 857 轮）——左嵌套 `a ? b ? c : d : e` 唯一的判据。
+
+两处规则都要问这一句，问的必须是**同一份答案**：`tokens/ternary-operator.xl.md` 的
+`TernaryOperatorCloseRule`（哪一格 `:` 与哪一格 `?` 是一对）与 `tokens/type-define.xl.md` 的
+`HasTernaryQuestion`（这个冒号够不够格当类型标注）。落成**模块级函数**而不是某一边的私有方法，
+理由与 `IsSwitchLabelColon` 落在这里相同：**两边各自写一份必然漂**。
+
+**它解决的形状**（实测）：`const x = a ? b ? c : d : e;`。靠左的 `:` 先被问到，
+它往左一扫撞上的是**外层**那个 `?`（`QuestionIndexBefore` 只保证「左边有 `?`」），
+于是内层把外层的 `:` 也收进假值段 ⇒ 产物是 `<BinaryOperator>a ? b` +
+`<TernaryOperator>b ? c : d : e>`（`ConditionalExpression` 缺 3 漂 1 多 2）。
+
+**判据是括号那样的深度**：从 `:` 往左走，见到 `:` **先** `depth` 加一（把它自己算进层里），
+见到 `?` 再减一 —— **减到 0 的那一格 `?` 就是配对的**。语法合法的输入里 `depth` 不会降到负
+（`?` 与 `:` 各自都严格地先出现再配对，所以每到一个 `?`，前面没配掉的 `:` 一定比它多一个）。
+
+**这道闸不能省**：`Previous` / `Process` 一路假设「左边那个 `?` 就是我的」，
+而右结合的嵌套里这个假设恰好成立（内层先成形、`?` 从列表里消失），左嵌套里不成立。
+
+边界只有两条，都在这一层：
+
+- `;` —— 语句到头了；
+- trivia（软换行与注释）跳过。软换行**只跳不看**：真正的语句边界那一档由调用方自己那道
+  `Statement` 判据接住（`TernaryOperatorCloseRule` 用 `QuestionIndexBefore` 的同款边界、
+  `TypeDefineCloseRule` 的 `Process` 本来就停在 `;` / 换行边界上）。
+  跳软换行是必须的：`a ?` 换行 `b : c` 是合法排版；跳注释同理——注释里出现的 `?` / `:`
+  会被当成真的标点对上。
+
+```ts
+let depth = 0;
+for (let i = colonIndex; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    return -1;
+  }
+  if (IsTriviaUnit(item)) {
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    if (item.Is(";")) {
+      return -1;
+    }
+    if (item.Is(":")) {
+      depth = depth + 1;
+      continue;
+    }
+    if (item.Is("?")) {
+      depth = depth - 1;
+      if (depth === 0) {
+        return i;
+      }
+      if (depth < 0) {
+        return -1;
+      }
+      continue;
+    }
+  }
+}
+return -1;
+```
+
 # method IsStatementStart:(units:Array<Token>, index:number)=>bool
 
 `index` 处的单元是不是**一条语句的第一个实义单元**。

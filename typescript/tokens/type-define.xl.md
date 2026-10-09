@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { IsMemberBoundary } from "./declaration-common.xl.md"
-import { IsSwitchLabelColon, IsAnnotationUnit } from "../text-common-util.xl.md"
+import { IsSwitchLabelColon, IsAnnotationUnit, MatchingQuestionIndex } from "../text-common-util.xl.md"
 import { Statement } from "./statement.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
@@ -95,6 +95,23 @@ return true;
   （`?` 就在这一格的头部）⇒ **可选标记**，不是三元；
 - 上一句的三元：中间隔着一个 `:` 或 `;` ⇒ 停在那里 ⇒ 判假。
 
+**遇到 `:` 那一步要看配对**（第 857 轮）。原来见 `:` 一律 `return false`（「上一个冒号就是
+上一条标注的终点」），在**左嵌套三元**里就错了：
+
+    const x = a ? b ? c : d : e;
+
+内层那个 `: ` 收完之后，尾巴 `d : e` 那一段往回扫先撞上 `d`（操作数）、再撞上**内层那个 `:`**
+——老写法在这里停，答「不是三元」，于是 `d : e` 被收成一个 `TypeDefine`；
+而**外层三元的冒号正是这一格**，它从此被关在 `TypeDefine` 里、外层再也配不上它
+⇒ 产物是 `<BinaryOperator>a ? b` + `<TernaryOperator>b ? c : d : e>`
+（实测 `ConditionalExpression` 缺 3 漂 1 多 2）。判据是「这个 `:` 配对的 `?` 在**我自己左边**吗」：
+
+- 是（左嵌套里内层那个 `:`）⇒ 它属于**外层**那个三元，跨过去继续往回扫；
+- 否（兄弟三元 `a ? b : c ? d : e` 里第一个 `:`——它的配对 `?` 就在它右边）⇒ 照旧停。
+
+配对与三元规则问的是**同一句**（`MatchingQuestionIndex`，落成 `text-common-util` 的模块级函数），
+不在这里另写一份。
+
 注释跳过（`IsAnnotationUnit`：行注释 / 区域注释 / 预处理指令），**软换行也跳过**
 （`a ?` 换行 `b : c` 是合法的三元排版）。
 
@@ -118,7 +135,16 @@ for (let i = index - 1; i >= 0; i--) {
     if (text === "?") {
       return operand;
     }
-    if (text === ";" || text === "," || text === ":" || text === "=>") {
+    if (text === ":") {
+      // **配对的 `?` 在我左边 ⇒ 这个 `:` 是外层三元的冒号**（第 857 轮）：
+      // 跨过去继续往回扫，别在这里停下（停下就把外层的冒号关进 `TypeDefine` 里了）。
+      const matched = MatchingQuestionIndex(units, i);
+      if (matched !== -1 && matched < i) {
+        continue;
+      }
+      return false;
+    }
+    if (text === ";" || text === "," || text === "=>") {
       return false;
     }
     if (text === ")" || text === "]" || text === "}") {
