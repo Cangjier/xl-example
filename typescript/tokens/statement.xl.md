@@ -8,7 +8,7 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsStatementStart, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -1509,6 +1509,39 @@ while (word !== "" && modifiers.indexOf(word) >= 0) {
 return word === "function";
 ```
 
+## static method IsVariableTypeAnnotationColon:(data:Array<Token>, index:int)=>bool
+
+`index` 前面那个实义单元是不是**变量声明的类型标注**那一格的 `:`——`const s:` 换行 `string = ""`。
+
+判据两条（只看**已经读到**的单元）：末尾的实义单元是 `:`；`:` 前面那一格是**声明头那个单元**
+（`Let`——`const s:` 到这一刻 `const` 与名字已经折进 `Let` 自己的字段里，见 `let.xl.md`）。
+
+**为什么不能见 `:` 就判「没写完」**：`case 1:` / `default:` / `label:` 都以 `:` **收尾**
+（`LineCannotEnd` 那一段的账），与 `IsFunctionHeadReturnColon`（认 `function f(x):`）同一条口径；
+这一条认的是**变量声明头**那一格。
+
+**为什么按 `Let` 那个单元判、而不是按 `let` / `const` / `var` 三个词判**（实测踩过）：
+走到这一问时那三个词**已经不在 `Data` 里**了——`LetBranch.Success` 把它们与名字一起收进
+`Let` 的 `modifiers` / `fieldName` 两个字段，平列表上只剩 `[Let, :]`
+（XML：`<Statement><Let fieldName="s" modifiers="let" /><SymbolToken>:</SymbolToken></Statement>`）。
+按词判**一次都不响**——第 826 轮那条「把 `CloseRule` 的宿主判据搬到解析期之前，
+先问那个单元现在成形了吗」在这里又验了一遍。
+
+**少了它会怎样**（第 873 轮实测）：`let s:` 换行 `string;` 里解析期在换行处收壳
+⇒ 类型标注整段落进下一条 `Statement`（`VariableStatement` / `VariableDeclaration` 区间漂、
+`StringKeyword` 缺）；同一格的 `declare const s:` 换行 `unique symbol;` 就是语料里
+`gap-r869-unique-symbol-newline-3` 那一份。
+
+```ts
+const colonIndex = SkipPreviousTrivia(data, index);
+const colon = Get(data, colonIndex);
+if (!(colon instanceof SymbolToken) || colon.Is(":") === false) {
+  return false;
+}
+const before = Get(data, SkipPreviousTrivia(data, colonIndex));
+return before !== null && before.constructor.name === "Let";
+```
+
 ## static method IsDeclarationHeadAwaitingParameters:(data:Array<Token>)=>bool
 
 上一行是不是停在一个**还没到形参表**的声明头上——`function f` 换行 `<T extends U>(…)`、
@@ -1825,6 +1858,20 @@ if (previous instanceof SymbolToken && (previous.Is("++") || previous.Is("--") |
   }
 }
 const beforePrevious = Get(units, SkipPreviousTrivia(units, previousRealIndex));
+// **类型词没等到操作数**（第 873 轮）：`const s: unique` 换行 `symbol` 与
+// `type T = abstract` 换行 `new () => X` 是同一档——末尾那个词（`unique` / `abstract`）
+// **不可能**结束一个类型，判据（含「为什么还要问它自己在不在类型位」）见
+// `IsPendingTypeModifier`。少了它：换行处收壳 ⇒ 后半截落进下一条 `Statement`
+//（实测 `gap-r869-unique-symbol-newline-4` / `gap-r869-abstract-construct-newline-4`）。
+if (IsPendingTypeModifier(units, index)) {
+  return true;
+}
+// **变量声明的类型标注那一格**（第 873 轮）：`const s:` 换行 `string = ""` 是**一条**声明——
+// 与 `LineCannotEnd` 那一侧的 `:` 分支问的是同一个问题，所以判据只写一份（本方法）。
+// `IsLineBreakBoundary` 走的就是这里（它调本方法），所以两处口径一致。
+if (Statement.IsVariableTypeAnnotationColon(units, index)) {
+  return true;
+}
 const previousIsMember =
   beforePrevious instanceof SymbolToken && (beforePrevious.Is(".") || beforePrevious.Is("?."));
 if (previousIsMember === false && Statement.ExpectsOperand(previous, beforePrevious)) {
@@ -1932,6 +1979,13 @@ if (previous instanceof SymbolToken && previous.Is(":")) {
   // 那一格**一定**是返回类型，不可能是别的 —— 判据见 `IsFunctionHeadReturnColon`。
   // 少了它：换行处收壳 ⇒ 函数头与返回类型分家 ⇒ `FunctionDeclaration` 整条缺
   //（实测 `gap-sweep-newline-generic-06` 与 `gap-sweep-linecomment-generic-06` 两份）。
+  // **变量声明的类型标注**（第 873 轮）：`const s:` 换行 `string = ""` 里那个 `:` 后面
+  // **一定**是类型（名字前面是 `let` / `const` / `var`）——与上面那条同族，判据见
+  // `IsVariableTypeAnnotationColon`。少了它：换行处收壳 ⇒ 类型标注落进下一条 `Statement`
+  //（实测 `declare const s:` 换行 `unique symbol;` 那一份 `gap-r869-unique-symbol-newline-3`）。
+  if (Statement.IsVariableTypeAnnotationColon(units, units.length)) {
+    return true;
+  }
   if (Statement.IsFunctionHeadReturnColon(units)) {
     return true;
   }

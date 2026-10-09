@@ -1675,6 +1675,33 @@ return (
 );
 ```
 
+# method IsPendingTypeModifier:(units:Array<Token>, index:number)=>bool
+
+`index` 前面那个实义单元是不是一个**还在等操作数的类型词**（`IsTypeModifier` 那张名单里的一个）。
+
+**为什么还要问「它自己在类型位吗」**：那八个词里 `keyof` / `readonly` / `unique` / `infer` /
+`asserts` 都**不是保留字**、当名字用是合法的（`let unique = 1;`）⇒ 只看词形会把
+「一个叫 `unique` 的变量独占一行」也判成续接、把下一条语句并进来。
+证据取**它前面那一格**：`:`（类型标注）或 `=`（类型别名）——这两格的右边**一定**是类型，
+所以「一个类型词收尾」在这里**一定**没写完。`new` / `abstract` 也只在这两格里才算类型词。
+
+**第 873 轮实测的两格**：`const s: unique` 换行 `symbol;`（`gap-r869-unique-symbol-newline-4`）
+与 `type T = abstract` 换行 `new () => X;`（`gap-r869-abstract-construct-newline-4`）——
+少了它，解析期在换行处收壳 ⇒ 后半截落进下一条 `Statement`。
+
+```ts
+const at = SkipPreviousTrivia(units, index);
+const word = Get(units, at);
+if (IsTypeModifier(word) === false) {
+  return false;
+}
+const before = Get(units, SkipPreviousTrivia(units, at));
+if (before === null) {
+  return false;
+}
+return before instanceof SymbolToken && (before.Is(":") || before.Is("="));
+```
+
 # method IsTypeAliasAssignment:(units:Array<Token>, from:number)=>bool
 
 从 `from` 往左走，判断这个 `=` 是**类型别名的等号**（左边有 `type`）还是**变量声明的等号**

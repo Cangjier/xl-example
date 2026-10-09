@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchFront } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousWrapSymbol, IsTypeContainerUnit, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousWrapSymbol, IsTypeContainerUnit, SkipNextWrapSymbol, SkipPreviousTrivia, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { IsDeclarationBoundary, IsStatementKeyword } from "./declaration-common.xl.md"
@@ -148,12 +148,22 @@ if (current === null) {
 let firstIndex = SkipPreviousTrivia(units, index);
 // **构造类型**：`new () => object` / `abstract new () => object` 的 `new` 贴在形参括号前面，
 // 一起收进节点里（TS 那边是 `ConstructorType`，本工程按函数类型收——不然 `new` 会留在外面）。
-const beforeParams = Get(units, SkipPreviousWrapSymbol(units, firstIndex));
-if (beforeParams instanceof Identifier && beforeParams.Is("new")) {
-  firstIndex = SkipPreviousWrapSymbol(units, firstIndex);
-  const maybeAbstract = Get(units, SkipPreviousWrapSymbol(units, firstIndex));
-  if (maybeAbstract instanceof Identifier && maybeAbstract.Is("abstract")) {
-    firstIndex = SkipPreviousWrapSymbol(units, firstIndex);
+//
+// **`new` 与 `abstract` 那两格走 trivia 口径**（第 873 轮）：`abstract /*c*/ new () => X` 与
+// `abstract new /*c*/ () => X` 里，夹一条注释与夹一个软换行**是同一件事**（`IsTriviaUnit`
+// 就是「不该挡住相邻判断」的名单）。只跳软换行时取到的是那条 `AreaAnnotation` ⇒ 这一支整条不成立
+// ⇒ `abstract` 留在类型位当裸 `Identifier`（实测缺 `ConstructorType` / `AbstractKeyword` 等）。
+// **`new` / `abstract` 要按**词**认、不能按 `Identifier` 认**（第 873 轮实测）：
+// `abstract new /*c*/ () => X`（注释夹在 `new` 与形参表之间）里，那条注释会让通用队列
+// **先**跑一趟 `KeywordCloseRule`，于是 `new` / `abstract` 到这一刻已经是 `Keyword`
+// 而不是 `Identifier` ⇒ 两支都判否 ⇒ 整条构造类型不成形（实测缺 `ConstructorType` /
+// `AbstractKeyword`，多出两个 `TypeReference`）。`WordText` 就是「两种单元取同一个词」的入口。
+const beforeParams = Get(units, SkipPreviousTrivia(units, firstIndex));
+if (beforeParams !== null && WordText(beforeParams) === "new") {
+  firstIndex = SkipPreviousTrivia(units, firstIndex);
+  const maybeAbstract = Get(units, SkipPreviousTrivia(units, firstIndex));
+  if (maybeAbstract !== null && WordText(maybeAbstract) === "abstract") {
+    firstIndex = SkipPreviousTrivia(units, firstIndex);
   }
 }
 const first = Get(units, firstIndex);

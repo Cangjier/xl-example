@@ -62,9 +62,15 @@ TypeScript 那边形参一律是 `Parameter` 节点（名字 + 可选的 `?` + �
 
 这个 `NewType` 是不是**构造签名**的：括号是它第一个实义子单元，**而且括号里有顶层冒号**。
 
+**「第一个实义子单元」按 trivia 口径判**（第 873 轮）：判据自己写的就是「**实义**」，
+原来只跳 `LineWrap` ⇒ `new /*c*/ (a: number): X` 里第一个单元是那条 `AreaAnnotation`
+⇒ 答否 ⇒ 括号里的形参一个都收不成 `Parameter`（实测缺 `Parameter`，
+形状与「括号里没有形参表」一模一样，而 outer 的 `ConstructSignature` 是对的）。
+与 `IsBindingPatternBrace` / `IsObjectLiteralBrace` 那两处同一口径（第 849 轮那条「第一个」）。
+
 ```ts
 for (const item of owner.Data) {
-  if (item instanceof LineWrap) {
+  if (IsTriviaUnit(item)) {
     continue;
   }
   if (item !== bracket) {

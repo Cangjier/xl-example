@@ -8,7 +8,7 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Get, ReplaceCountAt, SearchBack, TakeRange } from "../../core/extensions/list-extension.xl.md"
 import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationBoundary, IsStatementKeyword, ReorganizeDeclarationDecorators } from "./declaration-common.xl.md"
-import { SkipNextTrivia, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { IsPendingTypeModifier, SkipNextTrivia, SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { Decorator } from "./decorator.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { GenericType } from "./generic-type.xl.md"
@@ -104,6 +104,15 @@ while (i < units.length) {
     return i;
   }
   if (item instanceof LineWrap) {
+    // **类型词还没等到操作数 ⇒ 这一行没写完**（第 873 轮）：`type T = abstract` 换行
+    // `new () => X` 里下一行以 `new` 开头，而 `new` 在声明头的词表里 ⇒ 原来在这里收尾
+    // ⇒ 右端只剩一个 `abstract`（实测 `gap-r869-abstract-construct-newline-4`：
+    // `TypeAliasDeclaration` 区间漂、`ConstructorType` / `AbstractKeyword` 一起缺）。
+    // 判据与解析期那一问**同一份实现**（`IsPendingTypeModifier`）：`=` 右边一定是类型。
+    if (IsPendingTypeModifier(units, i)) {
+      i = i + 1;
+      continue;
+    }
     const next = Get(units, SkipNextWrapSymbol(units, i));
     if (next === null || IsStatementKeyword(next) || IsDeclarationBoundary(next)) {
       return i - 1 >= index ? i - 1 : i;

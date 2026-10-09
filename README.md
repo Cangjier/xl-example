@@ -306,6 +306,54 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 873 轮：构造签名那一族 + 两条 ASI 判据——六条收掉（known-gap 17 → 11）
+
+**一句话**：第 869 轮普查剩下的 17 条里再收 6 条，落点是**两个根**：
+构造签名 / 函数类型的 trivia 口径（4 条），以及「**头还没写完 ⇒ 换行不是语句边界**」那一族的
+两个新落点（2 条）。
+
+**根一：`new` / `abstract` 那两格也是「相邻的那一格」**（第 872 轮那条线的第六面）——
+[binary-operator.xl.md](typescript/tokens/binary-operator.xl.md) 之外还有三处只看紧邻：
+
+- [function-type.xl.md](typescript/tokens/function-type.xl.md)：`Process` 往左找形参表前面的 `new` / `abstract`
+  用的是 `SkipPreviousWrapSymbol` ⇒ `abstract /*c*/ new () => X` 与 `abstract new /*c*/ () => X`
+  里那两格取到的是 `AreaAnnotation` ⇒ 整条构造类型不成形（`gap-r869-abstract-construct-comment-4` / `-newline-4`）；
+- [signature.xl.md](typescript/tokens/signature/signature.xl.md)：成员签名 `new /*c*/ (a: number): X`
+  （`Previous` 与 `Process` 成对改）⇒ 少了它这条签名被 `MethodDeclarationCloseRule` 抢成 `MethodSignature`
+  （`gap-r869-optional-call-signature-comment-8`）；
+- [parameter.xl.md](typescript/tokens/parameter.xl.md)：`IsConstructSignature` 的判据**自己写的是
+  「第一个实义子单元」**，代码只跳 `LineWrap` ⇒ 注释占第一格时形参表里一个 `Parameter` 都收不成。
+
+**根二：两条 ASI 判据**（[statement.xl.md](typescript/tokens/statement.xl.md)）——
+`IsLineBreakBoundary` / `LineCannotEnd` 那一族补了两个「左边一定没写完」的形状：
+
+- `IsVariableTypeAnnotationColon`：末尾是 `:`，而它前面是**声明头那个 `Let` 单元**
+  （`const` / `let` / `var` 那三个词到这一刻已经折进 `Let` 的字段里——按**词**判一次都不响，
+  第 826 轮「先问那个单元现在成形了吗」在这里又验了一遍）⇒ `const s:` 换行 `string = ""` 是一条声明
+  （收掉 `gap-r869-unique-symbol-newline-3` 与 `gap-r869-declare-module-wildcard-newline-6`）；
+- `IsPendingTypeModifier`（住在 [text-common-util.xl.md](typescript/text-common-util.xl.md)，
+  `AliasEnd` 与 `IsLineBreakIncompleteOnLeft` 共用一份实现）：末尾是**还在等操作数的类型词**
+  （`keyof` / `typeof` / `readonly` / `unique` / `infer` / `asserts` / `new` / `abstract`）
+  **而它前面是 `:` 或 `=`**（证据是「这两格右边一定是类型」，否则一个叫 `unique` 的变量独占一行
+  也会被判成续接）⇒ 收掉 `gap-r869-unique-symbol-newline-4` / `gap-r869-abstract-construct-newline-4`；
+  另按规矩补一条守卫用例 `declarations/var-type-annotation-newline`（`let s:` 换行 `string;`
+  与 `const t: unique` 换行 `symbol;`——这两种排版原来的语料里一次都没出现过）。
+
+**实测**：`npm run gates` **八道全过**（墙钟 29.8s）；`cases:tsast` 八项全 0、
+已知缺口 **17 → 11 条还开着、0 条已经收掉**（6 条的 `xl:known-gap` 行按规矩删掉，用例留着当守卫）。
+
+**数字**：`coverage` **4032 → 4039 / 4228**（token **1435 → 1442 / 1453**、blocked **57 → 51**、
+differ 138、bad 0、加权 95.0%）；用例 **1465 → 1466** 条（新补的那条守卫用例）。
+
+**没做、如实留着的两格**（都是这一轮**量到**的，不是没看见）：
+
+- `abstract new /*c*/ () => X`（注释夹在 `new` 与形参表之间、**而前面还有一个 `abstract`**）
+  仍然不成形——它不是 trivia 口径的问题（`zzz new /*c*/ () => X` / `readonly new /*c*/ ()` 都是好的），
+  根在 `Keyword.IsUpgradable`（第 848 轮）那一趟：注释收尾时 `abstract` 被换成 `Keyword`，
+  之后 `FunctionTypeCloseRule` 就再也轮不到。用例留着、`xl:known-gap` 留着，
+  行里写的就是这条新根因；
+- `coverage` 提醒里那条旧台账 `exec/statements/084-switch-case-block-blocked` 照旧没动（理由见第 872 轮）。
+
 ### 第 872 轮：二元运算符两侧的操作数改走 trivia 口径——枚举成员初始值那一族四条收掉（known-gap 21 → 17）
 
 **一句话**：`enum E { A = 1 /*c*/ << 2 }` 那一族（4 条）收掉——运算符两侧「相邻的那一格」现在按
@@ -4610,15 +4658,15 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **17 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870 / 871 / 872 三轮共收掉 13 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **11 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870 / 871 / 872 / 873 四轮共收掉 19 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1465** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1465 条**（1413 条带期望，共 **4920** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **229 份**（用例 1452 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
+| `cases:check` | **1466** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
+| `cases:tags` | **1466 条**（1413 条带期望，共 **4920** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **229 份**（用例 1453 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4032 / 4227**，加权 **95.0%**：token 1435/1452、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 57 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4039 / 4228**，加权 **95.0%**：token 1442/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 51 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 

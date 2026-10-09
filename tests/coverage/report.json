@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4227,
+  "total": 4228,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.96,
+  "progressPercent": 95.02,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1452,
-      "pass": 1435,
-      "blocked": 17,
+      "total": 1453,
+      "pass": 1442,
+      "blocked": 11,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 98.83
+      "coverage": 99.24
     },
     {
       "category": "exec",
@@ -129,37 +129,19 @@
     }
   ],
   "token": {
-    "total": 1452,
-    "knownGap": 17,
-    "knownGapStillOpen": 17,
-    "exactFiles": 1435,
-    "scoredWithoutGap": 1435,
-    "passedWithoutGap": 1435
+    "total": 1453,
+    "knownGap": 11,
+    "knownGapStillOpen": 11,
+    "exactFiles": 1442,
+    "scoredWithoutGap": 1442,
+    "passedWithoutGap": 1442
   },
   "blocked": [
-    {
-      "id": "token/declarations/gap-r869-unique-symbol-newline-3",
-      "category": "token",
-      "title": "第 869 轮普查量出的缺口（unique-symbol-newline-3）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 2　漂 3　多 5　`unique` 与 `symbol` 之间的换行：`unique symbol` 是**两个字连排**的类型运算符，换行那一刻两半都被拆开"
-    },
-    {
-      "id": "token/declarations/gap-r869-unique-symbol-newline-4",
-      "category": "token",
-      "title": "第 869 轮普查量出的缺口（unique-symbol-newline-4）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 2　漂 3　多 7　`unique` 与 `symbol` 之间的换行：`unique symbol` 是**两个字连排**的类型运算符，换行那一刻两半都被拆开"
-    },
     {
       "id": "token/modules/gap-r869-declare-global-newline-2",
       "category": "token",
       "title": "第 869 轮普查量出的缺口（declare-global-newline-2）：这一条钉的是上面那条根因的一个落点",
       "detail": "缺 3　多 2　`declare` 换行 `global`：`declare` 是上下文关键字、换行处走 ASI（第 839 轮量过并如实留着），于是 `global` 那个环境模块声明整条认不出来"
-    },
-    {
-      "id": "token/modules/gap-r869-declare-module-wildcard-newline-6",
-      "category": "token",
-      "title": "第 869 轮普查量出的缺口（declare-module-wildcard-newline-6）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 1　漂 3　多 5　环境模块体里 `const c:` 换行 `string;`：类型标注跨行时那一段被当成下一条语句"
     },
     {
       "id": "token/modules/gap-r869-exp-named-newline-before-from",
@@ -198,22 +180,10 @@
       "detail": "缺 2　漂 1　多 2　`#x` 换行 `in o`：私有名与 `in` 之间的换行 ⇒ `#x in o`（二元运算的一支）在换行处收壳"
     },
     {
-      "id": "token/types/gap-r869-abstract-construct-comment-4",
-      "category": "token",
-      "title": "第 869 轮普查量出的缺口（abstract-construct-comment-4）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 4　多 2　`abstract` 与 `new` 之间的注释 / 换行：构造签名类型那一支只认 `new` 紧跟形参表，`abstract` 那一格没接上"
-    },
-    {
       "id": "token/types/gap-r869-abstract-construct-comment-5",
       "category": "token",
       "title": "第 869 轮普查量出的缺口（abstract-construct-comment-5）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 4　多 2　`abstract` 与 `new` 之间的注释 / 换行：构造签名类型那一支只认 `new` 紧跟形参表，`abstract` 那一格没接上"
-    },
-    {
-      "id": "token/types/gap-r869-abstract-construct-newline-4",
-      "category": "token",
-      "title": "第 869 轮普查量出的缺口（abstract-construct-newline-4）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 2　漂 1　多 5　`abstract` 与 `new` 之间的注释 / 换行：构造签名类型那一支只认 `new` 紧跟形参表，`abstract` 那一格没接上"
+      "detail": "缺 4　多 2　`abstract new /*c*/ () => X`：注释夹在 `new` 与形参表之间、**而前面还有一个 `abstract`** 时整条构造类型不成形——前面那个 `abstract` 会在注释收尾那一趟被升级成 `Keyword`（第 848 轮的 `IsUpgradable`：后面跟着 `"
     },
     {
       "id": "token/types/gap-r869-import-typeof-comment-4",
@@ -232,12 +202,6 @@
       "category": "token",
       "title": "第 869 轮普查量出的缺口（infer-extends-newline-7）：这一条钉的是上面那条根因的一个落点",
       "detail": "缺 8　`infer V extends string` 里 `extends` 与约束之间的注释 / 换行：`InferType` 的约束那一格没成形"
-    },
-    {
-      "id": "token/types/gap-r869-optional-call-signature-comment-8",
-      "category": "token",
-      "title": "第 869 轮普查量出的缺口（optional-call-signature-comment-8）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 1　多 2　`new /*c*/ (a: number): X`：构造签名里 `new` 与形参表之间的注释没跨过去 ⇒ 被收成 `MethodSignature`"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
@@ -611,7 +575,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-2756/src/2059.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-2616/src/2060.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -953,7 +917,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-2756/src/3044.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-2616/src/3045.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -977,7 +941,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-2756/src/3092.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-2616/src/3093.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1133,7 +1097,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-2756/src/3735.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-2616/src/3736.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { IsDeclarationTailStop } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousAnnotation, SkipPreviousWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousAnnotation, SkipPreviousWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "../class/class-body.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -274,9 +274,12 @@ if (current instanceof Bracket && current.startBracket === "(") {
   return this.HasSignatureTail(units, index);
 }
 if (current instanceof Identifier && current.Is("new")) {
-  let parametersIndex = SkipNextWrapSymbol(units, index);
+  // **`new` 与形参表之间的注释**（第 873 轮）：与 `Process` 那一侧成对改成 trivia 口径——
+  // `new /*c*/ (a: number): X` 里只跳软换行会把注释当成形参表 ⇒ 本规则让路 ⇒
+  // 那条签名被 `MethodDeclarationCloseRule` 抢成 `MethodSignature`（实测多 `Identifier(new)`）。
+  let parametersIndex = SkipNextTrivia(units, index);
   if (Get(units, parametersIndex) instanceof GenericType) {
-    parametersIndex = SkipNextWrapSymbol(units, parametersIndex);
+    parametersIndex = SkipNextTrivia(units, parametersIndex);
   }
   const parameters = Get(units, parametersIndex);
   if (!(parameters instanceof Bracket) || parameters.startBracket !== "(") {
@@ -311,7 +314,7 @@ if (current instanceof GenericType) {
   if (this.IsComputedMemberName(before)) {
     return false;
   }
-  const parametersIndex = SkipNextWrapSymbol(units, index);
+  const parametersIndex = SkipNextTrivia(units, index);
   const parameters = Get(units, parametersIndex);
   if (!(parameters instanceof Bracket) || parameters.startBracket !== "(") {
     return false;
@@ -393,13 +396,14 @@ if (isConstruct || isNewUnit) {
   }
 }
 if (isConstruct) {
-  parametersIndex = SkipNextWrapSymbol(units, index);
+  // 与 `Previous` 那一侧成对（第 873 轮）：`new /*c*/ (…)` 里形参表要跨过注释才找得到。
+  parametersIndex = SkipNextTrivia(units, index);
   if (Get(units, parametersIndex) instanceof GenericType) {
-    parametersIndex = SkipNextWrapSymbol(units, parametersIndex);
+    parametersIndex = SkipNextTrivia(units, parametersIndex);
   }
 }
 if (isGenericCall) {
-  parametersIndex = SkipNextWrapSymbol(units, index);
+  parametersIndex = SkipNextTrivia(units, index);
 }
 const parameters = isNewUnit ? newParameters : Get(units, parametersIndex);
 if (!(parameters instanceof Bracket)) {
