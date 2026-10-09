@@ -6,7 +6,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { TokenField } from "../../core/syntax/token-field.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationModifier, IsMemberBoundary, IsWordUnit, TakeDeclarationDecorators } from "./declaration-common.xl.md"
+import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, HasDeclarationLineBreak, IsDeclarationModifier, IsLineBreakTrivia, IsMemberBoundary, IsWordUnit, ModifierFollowsDeclaration, TakeDeclarationDecorators } from "./declaration-common.xl.md"
 import { ClassBody } from "./class/class-body.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -165,8 +165,15 @@ while (i < units.length) {
     //（实测 `gap-sweep-linecomment-clsmod-01`：`PropertyDeclaration` 漂成 `[10,23)`）。
     // 块注释后面那个换行**照旧**是边界（`a /* c */` 换行 `b` 是两条成员）——
     // 所以判据只看行注释，不是 `IsAnnotationUnit` 那张整表。
+    //
+    // **第 844 轮收窄到「名字后面已经扫到东西」那一半**（`tail !== index`）：
+    // 这一条原来是给「名字被认错成 `static`」那个 bug 兜底的，而那一根已经在
+    // `Previous` 的 `ModifierFollowsDeclaration` 那里判掉了。留着它管「只有名字」那一半
+    // 会把 `private //c` 换行 `m() { }` 里 `private` 那条成员整个吞掉——
+    // TS 那边它是**一条只有名字的字段**，换行就是它的边界
+    //（实测 `gap-sweep-linecomment-clsmod-04`）。
     const beforeWrap = Get(units, i - 1);
-    if (beforeWrap !== null && beforeWrap.constructor.name === "LineAnnotation") {
+    if (beforeWrap !== null && beforeWrap.constructor.name === "LineAnnotation" && tail !== index) {
       i = i + 1;
       continue;
     }
@@ -191,6 +198,24 @@ while (i < units.length) {
       return tail;
     }
     if (Statement.IsLineBreakBoundary(units, i)) {
+      return tail;
+    }
+  }
+  // **注释里面那个换行也是一条边界**（第 844 轮）：TS 的 ASI 问的是「下一个 token 前面有没有换行」
+  // （`canParseSemicolon` 读 `hasPrecedingLineBreak`），而换行落在**块注释里面**时
+  // 上面那条 `item instanceof LineWrap` 根本轮不到——`public /*x` 换行 `*/ m() {}` 里
+  // 成员于是从 `public` 一路吞到注释后面（实测产物 `PropertyDeclaration [10,31)` 而 TS 是 `[10,16)`）。
+  //
+  // **只在「这一条成员目前只写了名字」时收**（`tail === index`，与上面那条 `afterNameWrap` 同一档）：
+  // 换行在注释里、而注释前面已经扫过类型 / 初始化式时（`a: /*c` 换行 `*/ number;`）TS 那边
+  // 那一格是**类型的一部分**，不是成员边界。
+  // **下一格是延续符号或 `(` 时也不收**：`a /*c` 换行 `*/ = 1` / `m /*c` 换行 `*/ (): void` 都还是一条成员。
+  if (tail === index && item instanceof LineWrap === false && IsLineBreakTrivia(item)) {
+    const afterComment = Get(units, SkipNextTrivia(units, i));
+    const continues =
+      (afterComment instanceof Bracket && afterComment.startBracket === "(") ||
+      (afterComment instanceof SymbolToken && afterComment.IsAny([":", "?:", "=", ";", ",", "!", "?"]));
+    if (continues === false) {
       return tail;
     }
   }
@@ -343,6 +368,19 @@ const parent = current.Parent;
 if (!(parent instanceof ClassBody) && !(parent instanceof InterfaceBody) && !(parent instanceof TypeLiteralBody)) {
   return false;
 }
+// **能当修饰词用的词不是名字**（第 844 轮）：`public static` 换行 `readonly a = 1;` 里
+// `static` 后面虽然是一个换行，可它在 TS 那边仍旧是**修饰词**——`static` 不看同一行，
+// 而它后面那一格 `readonly` 是字面属性名（`ModifierFollowsDeclaration`）。
+// 不挡这一下的话 `static` 会被当成「只有名字的字段」（下面那条 `immediate instanceof LineWrap`
+// 的分支），成员在 `static` 那里收尾、`readonly a = 1;` 另起一条
+//（实测 `gap-sweep-newline-clsmod-01`：漂移 1 + 多出来 3）。
+// 行注释那一版（`public static //c` 换行 `readonly a = 1;`）原来靠下面那个 `spaced`
+// 特例挡着，现在同一条判据一起管——`private //c` 换行 `m() { }` 那边 TS 认的是
+// **属性名**（`private` 不看同一行不成立：它后面那一格 `m` 在新的一行上），
+// 那一格因此照旧是名字（实测 `gap-sweep-linecomment-clsmod-04`）。
+if (ModifierFollowsDeclaration(units, index, SkipNextTrivia(units, index))) {
+  return false;
+}
 let nameIndex = index;
 const isPrivateName = current instanceof SymbolToken && current.Is("#");
 if (isPrivateName) {
@@ -366,26 +404,20 @@ if (previous instanceof SymbolToken && !(previous.Is(";") || previous.Is(","))) 
 // 整条成员散成 `<Identifier>a</Identifier><AreaAnnotation/><SymbolToken>=</SymbolToken>`
 // （判据 `cm-member-question`：缺 `PropertyDeclaration` + 多出 `EqualsToken` /
 // `SemicolonClassElement`）。软换行**不能**一起跳（`a` 换行是「只有名字的字段」）。
-const immediate = Get(units, SkipNextAnnotation(units, nameIndex));
+const nextReal = SkipNextAnnotation(units, nameIndex);
+const immediate = Get(units, nextReal);
 if (immediate === null) {
   // 名字后面什么都没有：只有名字的字段。
   return true;
 }
 if (immediate instanceof LineWrap) {
-  // **注释后面那个换行是「名字写完了」**（`a` 换行是「只有名字的字段」）……
-  const skipped = Get(units, units.indexOf(immediate) - 1);
-  const spaced = skipped !== null && skipped.constructor.name === "LineAnnotation";
-  if (spaced === false) {
-    return true;
-  }
-  // ……**除了行注释**（第 819 轮）：`public static //c` 换行 `readonly a = 1;` 里，
-  // 那个换行是注释的一部分（TypeScript 的 trailing trivia 把它一起收走），
-  // `static` 与 `readonly` 之间其实**没有换行**——`readonly` 是同一个成员的修饰词，
-  // 不是新成员的名字（实测 `gap-sweep-linecomment-clsmod-01`：整条被劈成两条成员，
-  // 而第二条把 `readonly` 与 `a` 一起当成了名字）。所以这一格不收尾、
-  // 也**不认成名字**：让上一个成员（`public static`）把换行跨过去（`MemberEnd` 同一条判据）。
-  // 单独一个修饰词照旧不是名字：`private` 换行 `m() { }` 里没有注释，这个成员到此为止。
-  return false;
+  // **注释后面那个换行是「名字写完了」**（`a` 换行是「只有名字的字段」）。
+  // **第 844 轮起这一格不再看「换行前面是不是行注释」**：那个区别由上面那条
+  // `ModifierFollowsDeclaration` 一次性判掉——行注释后面那一格如果是修饰词，
+  // 在 `Previous` 开头就已经判否了；走到这里的一定是名字
+  //（`private //c` 换行 `m() { }` 里 `private` 就是一条只有名字的字段，TS 那边是
+  // `PropertyDeclaration`，注释与换行都是它的 trailing trivia）。
+  return true;
 }
 if (immediate instanceof SymbolToken) {
   return (
@@ -397,6 +429,17 @@ if (immediate instanceof SymbolToken) {
     immediate.Is("!") ||
     immediate.Is("?")
   );
+}
+// **注释里面那个换行也是换行**（第 844 轮）：TS 的 ASI 问的是「下一个 token 前面有没有换行」
+// （`canParseSemicolon` 读 `hasPrecedingLineBreak`），而块注释**里面**的换行一样置位。
+// `public /*x` 换行 `*/ m() {}` 里那个换行就在注释里，`m` 前面因此算换行 ⇒
+// `public` 是一条**只有名字的字段**（TS 那边是 `PropertyDeclaration` + `MethodDeclaration`）。
+// 只在 `immediate instanceof LineWrap` 上判会漏掉它：那时 `public` 谁也认不下、
+// 最后被 `KeywordCloseRule` 升级成一个散 `<Keyword>public</Keyword>`，
+// 投影出来是多一个 `PublicKeyword`（实测这条探针：缺 2 多 1）。
+// **放在延续符号之后**：`a /*c` 换行 `d*/ = 1` 里 `=` 照旧是初始化式，不当成新成员。
+if (HasDeclarationLineBreak(units, nameIndex, nextReal)) {
+  return true;
 }
 return false;
 ```

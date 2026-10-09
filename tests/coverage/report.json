@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4180,
+  "total": 4183,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.79,
+  "progressPercent": 94.8,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1407,
-      "pass": 1375,
-      "blocked": 32,
+      "total": 1410,
+      "pass": 1379,
+      "blocked": 31,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 97.73
+      "coverage": 97.8
     },
     {
       "category": "exec",
@@ -129,31 +129,19 @@
     }
   ],
   "token": {
-    "total": 1407,
-    "knownGap": 32,
-    "knownGapStillOpen": 32,
-    "exactFiles": 1375,
-    "scoredWithoutGap": 1375,
-    "passedWithoutGap": 1375
+    "total": 1410,
+    "knownGap": 31,
+    "knownGapStillOpen": 31,
+    "exactFiles": 1379,
+    "scoredWithoutGap": 1379,
+    "passedWithoutGap": 1379
   },
   "blocked": [
     {
-      "id": "token/declarations/gap-sweep-linecomment-clsmod-04",
+      "id": "token/declarations/gap-sweep-newline-decl-abstract-01",
       "category": "token",
-      "title": "SWEEP-linecomment/clsmod 落点（657 审计语料）",
-      "detail": "缺 3　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/clsmod）：MISS PropertyDeclaration TS[40,47) «private»"
-    },
-    {
-      "id": "token/declarations/gap-sweep-newline-clsmod-01",
-      "category": "token",
-      "title": "SWEEP-newline/clsmod 落点（657 审计语料）",
-      "detail": "缺 1　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-newline/clsmod）：DRIFT PropertyDeclaration TS[10,40) 产物[10,23) «public static readonly a = 1;»"
-    },
-    {
-      "id": "token/declarations/gap-sweep-newline-clsmod-03",
-      "category": "token",
-      "title": "SWEEP-newline/clsmod 落点（657 审计语料）",
-      "detail": "缺 3　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/clsmod）：MISS PropertyDeclaration TS[40,47) «private»"
+      "title": "顶层：`abstract` 与 `class` 之间换行（657 审计语料那一族的顶层版）",
+      "detail": "缺 1　多 1　修饰词换行：`abstract` 已经不再收进 `modifiers` 了，可它作为**散词**被 `KeywordCloseRule` 升级成 `<Keyword>` ⇒ 投影多一个 `AbstractKeyword`；TS 那边是 `ExpressionStatement > Identifier`"
     },
     {
       "id": "token/declarations/mut-cls-generic-method-arrow-field-58",
@@ -202,6 +190,12 @@
       "category": "token",
       "title": "第 686 轮**还开着的那一格**：对象字面量值位里**被括号包住的数组**——",
       "detail": "缺 4　多 6　实参里的对象 / 括号化对象里，外层 `{` 的 `Context` 在招待那一格时还是空串，"
+    },
+    {
+      "id": "token/modules/gap-sweep-newline-mod-declare-01",
+      "category": "token",
+      "title": "顶层：`declare` 与 `module` 之间换行（657 审计语料那一族的顶层版）",
+      "detail": "缺 1　多 1　修饰词换行：`declare` 已经不再收进 `modifiers` 了，可它作为**散词**被 `KeywordCloseRule` 升级成 `<Keyword>` ⇒ 投影多一个 `DeclareKeyword`；TS 那边是 `ExpressionStatement > Identifier`（顶"
     },
     {
       "id": "token/statements/expr-async-generic-arrow-spaced",
@@ -701,7 +695,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27256/src/2014.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15212/src/2017.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1043,7 +1037,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27256/src/2997.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15212/src/3000.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1067,7 +1061,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27256/src/3045.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15212/src/3048.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1223,7 +1217,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27256/src/3688.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15212/src/3691.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

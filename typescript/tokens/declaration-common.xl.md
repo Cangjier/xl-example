@@ -142,6 +142,114 @@ while (scan < adjusted) {
 return adjusted;
 ```
 
+# method CanFollowDeclarationModifier:(unit:Token | null, accessorPrefix:bool)=>bool
+
+**TS 的 `canFollowModifier` / `canFollowGetOrSetKeyword`**：这一格能不能是「修饰词后面那一格」。
+
+判据就是 TS 那两张表：字面属性名（标识符 / 关键字 / 字符串字面量）恒可；`[` 是计算名；
+`{` / `*` / `...` 只有非 `get` / `set` 那一支才认（`accessorPrefix` 为真时只认前两者）。
+`Decorator` 也认：`export @dec class C {}` 里 `export` 后面那一格正是装饰器。
+
+> **这一份表的用处不是「多认一个」，而是「少认一个」**：它挡的是
+> 「一个词后面跟的东西根本不可能是名字」那种排版（`public )` 之类），
+> 那些排版里那个词本来就不是修饰词。
+
+```ts
+if (unit === null) {
+  return false;
+}
+if (unit instanceof Identifier || unit instanceof String) {
+  return true;
+}
+if (unit.constructor.name === "Keyword") {
+  return true;
+}
+// **私有名 `#x` 也是字面属性名**（TS 的 `isLiteralPropertyName` 里含 `PrivateIdentifier`）：
+// `static #n() {}` / `get #v() {}` 里 `static` / `get` 后面那一格就是那个 `#`。
+// 不认它时 `static` 被当成名字，整条成员从 `#n` 起算（实测 `decl-class-private-method`）。
+if (unit instanceof SymbolToken && unit.Is("#")) {
+  return true;
+}
+if (unit instanceof Decorator) {
+  return true;
+}
+if (unit instanceof Bracket) {
+  return unit.startBracket === "[" || (accessorPrefix === false && unit.startBracket === "{");
+}
+if (accessorPrefix) {
+  return false;
+}
+if (unit instanceof SymbolToken) {
+  return unit.IsAny(["*", "..."]);
+}
+return false;
+```
+
+# method IsLineBreakTrivia:(item:Token | null)=>bool
+
+这一格 trivia 里有没有换行：`LineWrap` 算；**块注释原文里那个换行也算**
+（TS 的 `hasPrecedingLineBreak` 只看扫到的 trivia 里有没有换行，`/*x` 换行 `*/` 一样置位）。
+行注释 `//c` 本身不含换行——它后面那个 `LineWrap` 才是那一格。
+
+```ts
+if (item === null) {
+  return false;
+}
+if (item instanceof LineWrap) {
+  return true;
+}
+// 注释那串原文（`AreaAnnotation.Tmp` / `LineAnnotation.Tmp`）——两族的字段名都是 `Tmp`。
+const text = (item as any).Tmp;
+return typeof text === "string" && text.indexOf("\n") >= 0;
+```
+
+# method HasDeclarationLineBreak:(units:Array<Token>, fromIndex:int, toIndex:int)=>bool
+
+`(fromIndex, toIndex)` **之间**（不含两端）有没有换行（判据见 `IsLineBreakTrivia`）。
+
+```ts
+for (let i = fromIndex + 1; i < toIndex; i++) {
+  if (IsLineBreakTrivia(Get(units, i))) {
+    return true;
+  }
+}
+return false;
+```
+
+# method ModifierFollowsDeclaration:(units:Array<Token>, index:int, nextIndex:int)=>bool
+
+**`index` 那一格的修饰词，TypeScript 认不认**（TS 的 `parseAnyContextualModifier`：
+`isModifierKind(token()) && tryParse(nextTokenCanFollowModifier)`）。
+
+只有**下一格能不能跟修饰词**这一半、加上**同一行**那一半——两半缺一不可：
+
+| 这个词 | 同一行 | 下一格 |
+| --- | --- | --- |
+| `static` | **不要求**（TS 的 `nextTokenCanFollowModifier` 对它是 `nextToken(); canFollowModifier()`） | 字面属性名 / `[` / `{` / `*` / `...` |
+| `get` / `set` | **不要求** | 字面属性名 / `[` |
+| `export` / `default` / `const` | **不要求**（各自那条路都不看换行） | 字面属性名 / `@` |
+| 其余（`public` / `private` / `protected` / `readonly` / `abstract` / `override` / `async` / `declare` / `accessor`） | **要求** | 字面属性名 / `[` / `{` / `*` / `...` |
+
+**为什么必须有这一条**（第 844 轮实测）：`class C { public static readonly a = 1; private` 换行
+`m() { } }` 里 TS 那边 `private` **不是**修饰词——它是**属性名**（ASI 之后 `m() { }` 才是方法）；
+本工程原来按词形一律收进 `modifiers`，于是整条成了「带 `private` 修饰的 `m`」。
+同一根子盖着三格：`gap-sweep-{newline,linecomment}-clsmod-03` 与 `gap-sweep-linecomment-clsmod-04`。
+反向走法里「下一格」就是循环当前的 `nextIndex`（上一轮停下的那一格），不必再往前看。
+
+```ts
+const item = Get(units, index);
+if (IsDeclarationModifier(item) === false) {
+  return false;
+}
+const word = (item as Identifier).TempToString();
+const accessorPrefix = word === "get" || word === "set";
+const sameLineExempt = accessorPrefix || word === "static" || word === "export" || word === "default" || word === "const";
+if (sameLineExempt === false && HasDeclarationLineBreak(units, index, nextIndex)) {
+  return false;
+}
+return CanFollowDeclarationModifier(Get(units, nextIndex), accessorPrefix);
+```
+
 # method DeclarationStart:(units:Array<Token>, index:int)=>int
 
 从关键字（`class` / `function` / `enum` / 方法名）所在的下标出发，**向前**吃掉连续的修饰词与装饰器，
@@ -153,6 +261,11 @@ return adjusted;
 循环在每个位置上只做一次「前一个实义单元是不是修饰词或 `Decorator`」的判定，
 命中就前移一位继续，不命中就停——与 `Interface.CloseRule` 里那条「只看前一位是不是 `export`」的写法同源，
 只是把一位扩成一段。
+
+**修饰词还要 TypeScript 那边认**（第 844 轮）：光看词形会把 `private` 换行 `m() { }` 里的
+`private` 也收进头里，而 TS 认的是**修饰词后面那一格**（`ModifierFollowsDeclaration`）——
+那一格根本不像名字时，这个词就不是修饰词，而是**这一条成员的名字**。
+反向走法天然知道「下一格」：就是上一轮停下时那个 `start`。
 
 ```ts
 let start = index;
@@ -167,7 +280,7 @@ while (true) {
     break;
   }
   const previous = Get(units, previousIndex);
-  if (previous instanceof Decorator || IsDeclarationModifier(previous)) {
+  if (previous instanceof Decorator || ModifierFollowsDeclaration(units, previousIndex, start)) {
     start = previousIndex;
     continue;
   }

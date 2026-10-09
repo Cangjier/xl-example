@@ -306,6 +306,54 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 844 轮：修饰词**要看下一格**——`SWEEP-{newline,linecomment}/clsmod` 收掉 3 条，另收 1 条同族
+
+**一句话**：修饰词原来只按**词形**认（`declaration-common.xl.md` 的 `IsDeclarationModifier` 一张表），
+而 TS 那边 `parseAnyContextualModifier` 还要问**下一格**（`nextTokenCanFollowModifier`）：
+`public` / `private` / `readonly` / `abstract` / `async` / `declare` 这些词，下一格**必须与它同一行**、
+而且得**像个名字**（字面属性名 / `[` / `{` / `*` / `...` / `#x`）；只有
+`static` / `get` / `set` / `export` / `default` / `const` 那一档**不看同一行**。
+于是 `class C { …; private` 换行 `m() { } }` 里 TS 认的是「一条名叫 `private` 的属性（ASI）+ 一条方法」，
+本工程把 `private` 收进了 `modifiers`（`gap-sweep-newline-clsmod-03` 缺 3 多 2、
+`gap-sweep-linecomment-clsmod-04` 缺 3 多 2）；`public static` 换行 `readonly a = 1;` 里
+`static` 反而是修饰词（它不看同一行），本工程却在 `static` 那里断成两条成员
+（`gap-sweep-newline-clsmod-01` 漂 1 多 3）——**一根子两个方向**。
+
+- **判据落在 `declaration-common.xl.md` 的三个新方法上**：`CanFollowDeclarationModifier`
+  （TS 的 `canFollowModifier` / `canFollowGetOrSetKeyword` 两张表，外加 `#x` 那一格）、
+  `IsLineBreakTrivia` / `HasDeclarationLineBreak`（trivia 里有没有换行，**块注释里的换行也算**
+  ——TS 的 `hasPrecedingLineBreak` 就是这么置位的）、`ModifierFollowsDeclaration`（两半合起来）。
+  `DeclarationStart` 的反向走法天然知道「下一格」——就是上一轮停下的那个 `start`。
+- **`FieldCloseRule.Previous` 开头也要问同一句**：这一格是修饰词就**不是名字**
+  （`public static` 换行 `readonly a = 1;` 里 `static` 后面虽然是一个换行，可它下一格是字面属性名）。
+  不挡这一下，成员在 `static` 那里就断了——第 819 轮那个只看行注释的 `spaced` 特例要兜的
+  正是这一根，现在两处合一条判据，那个特例删掉。
+- **`MemberEnd` 的行注释那一支收窄到 `tail !== index`**：它原来是给上面那个错认兜底的；
+  留着管「只有名字」那一半会把 `private //c` 换行 `m() { }` 里 `private` 那条成员整个吞掉
+  （TS 那边它是**一条只有名字的字段**，注释与换行都是 trailing trivia）。
+- **`MemberEnd` 另补一格「注释里面的换行」**（本轮实测的第二处）：TS 的 ASI 读的是
+  `hasPrecedingLineBreak`，换行落在**块注释里面**时上面那条 `item instanceof LineWrap` 根本轮不到——
+  `class C { public /*x` 换行 `y*/ m() {} }` 里成员从 `public` 一路吞到注释后面
+  （产物 `PropertyDeclaration [10,31)` 而 TS 是 `[10,16)`）。判据与上一条 `afterNameWrap` 同一档：
+  **只在「这一条成员目前只写了名字」且下一格不是延续符号 / `(`** 时才收尾
+  （`a: /*c` 换行 `*/ number;` 那一格是类型的一部分，`a /*c` 换行 `*/ = 1` 还是一条成员）。
+- **收掉的 3 条**：`gap-sweep-newline-clsmod-01` / `gap-sweep-newline-clsmod-03` /
+  `gap-sweep-linecomment-clsmod-04`。三行 `xl:known-gap` 删掉，`-01` 的 `xl:expect`
+  从 `Field:2` 改成一条（它原来那次分裂正是这个 bug 的另一半）。
+  另补一条守卫用例 `tests/cases/token/declarations/decl-modifier-blockcomment-linebreak.ts`
+  （块注释里那个换行）——语料里那三条的换行都在注释**外面**，这一格此前没人钉。
+- **量到、新登的 2 条**（顶层版本，`--snippets` 量的）：
+  [gap-sweep-newline-mod-declare-01.ts](tests/cases/token/modules/gap-sweep-newline-mod-declare-01.ts)
+  （`declare` 换行 `module "m" {}`）与
+  [gap-sweep-newline-decl-abstract-01.ts](tests/cases/token/declarations/gap-sweep-newline-decl-abstract-01.ts)
+  （`abstract` 换行 `class A {}`）。**根因换了**：这两个词现在**不再**收进 `modifiers` 了，
+  可它们作为**散词**被 `KeywordCloseRule` 升级成 `<Keyword>` ⇒ 投影多一个 `DeclareKeyword` /
+  `AbstractKeyword`，而 TS 那边是 `ExpressionStatement > Identifier`——**顶层那个词的归宿在语句层**
+  （与第 842 轮 `async` 那条同一档：`Keyword.IsUpgradable` 的例外表），不在这一轮。
+- **数字**：`cases:tsast` 的账 **32 → 31 还开着**（收掉 3 条、新登 2 条；
+  `coverage` **3970 → 3974 / 4183**，blocked **72 → 71**，`bad` 0、`regressions` 0、
+  `newlyPassing` 没有新增）；16 片全绿、`cases:tags` 0 条不一致、`cases:shapes` 0 未覆盖。
+
 ### 第 843 轮：`do…while` 的体与 `while` 之间的 trivia——`SWEEP-{comment,linecomment}/dowhile` 收掉 2 条
 
 **一句话**：`do-while.xl.md` 里从「体」走到「`while`」的那两步走的是 `SkipNextWrapSymbol`
