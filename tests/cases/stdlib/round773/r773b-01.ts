@@ -1,8 +1,13 @@
-// xl:title 括号被调者那一格：被调者与实参整段接错
+// xl:title 括号被调者那一格（第 774 轮收掉，这里当守卫）
 // xl:round 773
 // xl:judge stdout
-// xl:want differ
-// xl:why **括号被调者**（`(f)(…)`）那一段在**投影层**整段接错（第 773 轮普查量到的，`p773b`）。token 层给的是 `Method(name="", children=[Bracket(被调者), 实参…])`，而投影把它读成 `CallExpression{ expression: <实参里那一次调用>, arguments: [<被调者>] }`——**两者对调**。三种症状：① 实参是**一次调用**时整段对调（01 / 03 / 07 / 08 行：`(String)(String(1))` 本仓去调那个 `1`）；② 括号里是**字面量接收者的方法访问**时接收者丢失（05 / 06 行：`('ab'.toUpperCase)()` 报 `String.prototype method called on null or undefined`）；③ 而**标识符接收者**（`o.m`）与**字面量实参**那两档本来就是对的（02 / 04 / 09 / 10 行钉着这一半，收的时候不许连累它们）
+// xl:end
+// **第 773 轮登记的那条缺口在第 774 轮收掉了**（两处，都在「括号被调者」这一格上）：
+// ① `typescript/tokens/method.xl.md` 的 `PrintAst`——「内层那次调用是被调用者」
+// 那一支要求它**就是第一个子单元**（原来 `kids.find(...)` 会命中**实参**里那一个）；
+// ② `typescript-exec/lowering.xl.md` 的 `LowerCall`——括号 / `as` / `satisfies` / `!`
+// 这四个**透明壳**要剥掉再选分支（`([1, 2].join)("")` 的 `this` 仍然是那个数组）。
+// `xl:want differ` / `xl:why` 按规矩撤掉，这一条留着当守卫。
 // xl:end
 const p = (s: string) => console.log(s);
 const show = (f: () => any) => { try { const v = f(); return "ok:" + String(v); } catch (e) { return "throw:" + (e as any).constructor.name + "|" + (e as any).message; } };

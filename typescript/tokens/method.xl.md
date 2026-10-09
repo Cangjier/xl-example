@@ -311,7 +311,20 @@ return groups.filter((group) => group.length > 0);
     // 正是内层那次调用（`Method(name="f")`），可它不是「对调用结果再调一次」——
     // 整条 `?.m?.()` 才是这次调用的内容。让开之后落到下面那条链的支路，
     // 由 `beforeNco`（那一格 Method）投出被调用者，再逐格接 `?.m` / `?.(…)`。
-    if (ncos.length === 0 && innerCall !== undefined) {
+    //
+    // **内层那次调用必须就是第一个子单元**（第 774 轮，**普查当场红的**）：
+    // 上面那句「里面那次调用是它的第一个子单元」原来只是**注释**，判据写的是
+    // `kids.find(...)`——**任何一个** `Method` 子单元都会命中，包括**实参**里那一个。
+    // 症状：`(String)(Symbol("s"))` 的产物是
+    // `Method(name="", children=[Bracket(String), Method(name="Symbol")])`，
+    // 于是这一支把**实参**（`Symbol("s")`）当成被调用者、把**被调用者**（那对括号）
+    // 当成实参 ⇒ 投出 `CallExpression{ expression: Symbol("s"), arguments: [Parenthesized(String)] }`
+    // ——**被调者与实参整段对调**（判据 `stdlib/round773/r773b-01`：
+    // Node 打 `ok:Symbol(s)`、本仓打 `throw:TypeError|cannot call a non-closure value`）。
+    // 让开之后落到下面那条 IIFE 支路（它本来就要求**括号是第一个子单元**，第 664 轮），
+    // 那一条正好把这个形状接对：被调用者是那对括号、实参是后面那一格。
+    // 判据与那一条**同款**（`brace === kids[0]`）——两处各写一半就是两处会漂的答案。
+    if (ncos.length === 0 && innerCall !== undefined && innerCall === kids[0]) {
       const rest = kids.filter(
         (k: any) => k !== innerCall && k.get("type") !== "GenericType",
       );

@@ -9063,9 +9063,30 @@ return dest;
 // `LowerExpression` 剥掉（第 234 轮那一段）——差别正是**在哪一步剥**
 //（在那里剥已经太晚：分支已经选完了）。
 const calleeNode = Child(node, "expression");
-const callee = NodeKind(calleeNode) === "SpreadElement"
+const peeled = NodeKind(calleeNode) === "SpreadElement"
   ? (OptionalChild(calleeNode, "expression") ?? calleeNode)
   : calleeNode;
+// **透明壳也要剥掉**（第 774 轮，**普查当场红的**）：括号 / `as` / `satisfies` / `!`
+// **不改引用**——`([1, 2].join)("")` 在 JS 里 `this` 仍然是那个数组
+//（Node 打 `"12"`），而本仓原来按 `NodeKind(被调者)` 分支，`ParenthesizedExpression`
+// 一条都不命中 ⇒ 落进「别的形状」那条通用路（`D` 给 `-1`、`this` 是 `undefined`）
+// ⇒ `Array.prototype.join` 报 `Cannot convert undefined or null to object`。
+// **同一件事在别处已经写过一遍**（`NamesFunctionValue` 那个八次循环：命名位置上的
+// 「不改语义的壳」正是这四个）——两处各写一份名单就是两处会漂的答案，所以这一份
+// 与那一份**同源**（同四个 kind）。
+// **`(a, b)()` 不在里面**：逗号那一格在 JS 里**不是**引用 ⇒ `this` 是 `undefined`
+// ——剥完落到通用路，正是它该去的地方。
+let callee = peeled;
+for (let guard = 0; guard < 8; guard++) {
+  const shell = NodeKind(callee);
+  if (shell !== "ParenthesizedExpression" && shell !== "AsExpression"
+    && shell !== "SatisfiesExpression" && shell !== "NonNullExpression") {
+    break;
+  }
+  const inner = OptionalChild(callee, "expression");
+  if (inner === null) break;
+  callee = inner;
+}
 const calleeKind = NodeKind(callee);
 if (calleeKind === "PropertyAccessExpression") {
   return this.LowerMethodCall(node, callee);

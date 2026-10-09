@@ -306,6 +306,41 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 774 轮：**括号被调者**那一族——收掉两处（投影 / 降级各一处），透明壳与「不是引用」的边界钉在语料里
+
+**一句话**：第 773 轮登记的 `stdlib/round773/r773b-01` 收掉了——**两处**：
+token 层那一支「内层那次调用是被调用者」的判据太宽，降级层选分支之前**没剥透明壳**。
+
+- **收掉的根①：`Method.PrintAst` 的「内层调用」那一支会命中实参**
+  （`typescript/tokens/method.xl.md`）。那一支本来只写给 `f()()`（外面那次调用收成
+  `Method(name="")`、**里面那次调用是它的第一个子单元**）——可判据写的是
+  `kids.find(k => k.type === "Method")`，于是**实参**里那一个 `Method` 也算数。
+  `(String)(Symbol("s"))` 的产物是
+  `Method(name="", children=[Bracket(String), Method(name="Symbol")])`，
+  它把**实参**当成被调用者、把**被调用者**当成实参 ⇒ 投出
+  `CallExpression{ expression: Symbol("s"), arguments: [Parenthesized(String)] }`
+  ——**被调者与实参整段对调**（Node 打 `ok:Symbol(s)`、本仓去打那个符号）。
+  **修法与旁边那条 IIFE 支路同款**（`brace === kids[0]`，第 664 轮）：
+  内层那次调用必须**就是第一个子单元**，否则让开——让开之后那条 IIFE 支路
+  正好把这个形状接对（被调用者是那对括号、实参是后面那一格）。
+- **收掉的根②：降级层选调用分支时没剥透明壳**（`typescript-exec/lowering.xl.md`
+  的 `LowerCall`）。它按 `NodeKind(被调者)` 分三条路（成员 / 下标 / 通用），
+  而**括号 / `as` / `satisfies` / `!` 这四个壳不改引用**——`([1, 2].join)("")`
+  在 JS 里 `this` 仍然是那个数组，本仓却落进通用那条路（`D` 给 `-1`、
+  `this` 是 `undefined`）⇒ `Array.prototype.join` 报
+  `Cannot convert undefined or null to object`（判据 11 / 12 行）。
+  **修法**：选分支之前把这四个壳剥掉（**与 `NamesFunctionValue` 那张名单同源**，
+  两处各写一份就是两处会漂的答案）。**`(0, o.m)(1)` 不在名单里**——
+  逗号那一格在 JS 里**不是引用** ⇒ `this` 是 `undefined`，它该走通用路（第 9 / 14 行钉着）。
+- **用例**：`runtime/round774/r774a-01`（24 行，**通过**）——把**两半**一起钉住：
+  透明壳（括号 / `as` / `!` / 双层括号 / 下标 / 字面量接收者）`this` 照旧是接收者，
+  而**变量 / 逗号 / `bind`** 那几档照旧是 `undefined`；另把 `new (C)()` /
+  `(new C().get)()` / `(C.prototype.get).call(…)` / 三种 IIFE / `(String)(Symbol(…))`
+  那一族一起收进来。第 773 轮那条台账按规矩撤掉（用例留着当守卫）。
+  五类 7897 / 8289 → **7899 / 8290**、blocked 264（**没动**）、differ 128 → **127**
+  （旧账转绿 1、新用例 1 条通过）、bad 0、regressions 0，加权 **95.5%**。
+  八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+
 ### 第 773 轮：两笔旧账到期（`JSON.parse` 的实参 / `Promise` 静态那两格），另从普查里量出一处**投影层**的新根
 
 **一句话**：这一轮把第 771 / 772 两轮登记的三条台账收掉两条（第三条的一半也收了），
