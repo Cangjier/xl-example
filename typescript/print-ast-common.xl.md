@@ -2347,7 +2347,22 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     //
     // **修法**：断言只吃**一个操作数**（前缀运算符连着算），剩下那几格交给
     // `foldBinaryFrom`——第 141 / 180 轮那两处用的就是它（这里不另写一份折叠）。
-    const asserted = projectTypeExpression(projectableKids(view(kids[0])), ctx);
+    const assertedTypeKids = projectableKids(view(kids[0]));
+    let asserted = projectTypeExpression(assertedTypeKids, ctx);
+    // **「参数表」那层包装不是断言的类型**（第 890 轮）。
+    //
+    // `type-parameter.xl.md` 的 `IsParameterList` 有一条判据是「泛型段后面紧跟 `(`」——
+    // 那是给泛型箭头 / 函数类型（`const g: <T>(x: T) => T`、`<T>(x: T) => x`）用的。
+    // 可**定下它的时候后面那对括号还没扫完**（`=>` 也还没出现），所以那一格只能猜；
+    // 断言正好撞在同一形状上：`<T>(x) > y` 里 `<T>` 后面也是 `(`。
+    // 能分辨这件事的**只有这一层**：走到这里时括号已经成形，而**第二格不是 `Lamda`**
+    //（上面那条判据）⇒ 这次 `<…>` 不可能是参数表。于是把包装拆掉、按**类型**重投一遍
+    //（`<T>` 的内容是名字 ⇒ `TypeReference`，TS 那边正是它）。
+    //
+    // 实测：`<T>(x) > y` 修前缺 `TypeReference(T)` 多 `TypeParameter(T)`（缺 1 多 1）。
+    if (asserted !== undefined && asserted.kind === "TypeParameter" && assertedTypeKids.length === 1) {
+      asserted = projectTypeExpression(projectableKids(view(assertedTypeKids[0])), ctx);
+    }
     // **操作数有多长**：前缀运算符一串，然后**一格**就是整个操作数——
     // 后缀链（`.b` / `(…)` / `[…]`）在产物里**已经折成一格**了
     //（`PropertyAccess` / `Method` / `Bracket`），所以不必在这里再拼后缀。

@@ -310,7 +310,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 ### 第 890 轮：缺口清单上的两条一起收掉——**「行尾」自己是一档，「被断言的那个操作数」只有一格**（已知缺口 2 → 0）
 
 **一句话**：`cases:tsast` 的缺口清单上只剩第 888 / 889 轮登记的那两条，这一轮把两条一起收掉；
-收的过程中同族又量出**两处**同根的格子和**一条**新缺口。
+收的过程中同族又量出**两处**同根的格子，第三处（断言的类型那一格）也在同一轮里收干净了
+——**登记的缺口一条都没有过夜**。
 
 **两条缺口的根因各是一句话**：
 
@@ -336,13 +337,13 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
    **为什么整层都不接手**：`foldBinaryFrom` 是按优先级与结合性折的（`<T>a + b * c` 会先把 `b * c` 收进去、
    `<T>x > y > z` 会左结合成 `((<T>x) > y) > z`）；只挡紧挨着的那一格反而会折出右嵌套。
 
-**同族普查又量出两处**（`tmp/r890/snips.mjs`，16 条片段，逐条与 `ts.createSourceFile` 对拍）：
+**同族普查又量出三处**（`tmp/r890/snips.mjs`，16 条片段，逐条与 `ts.createSourceFile` 对拍）：
 
 | 片段 | 修前 | 修后 |
 | --- | --- | --- |
 | `<number>a + b` | 缺 1 / 漂 1 / 多 2 | **0** |
 | `// c1` 换行 `<T>x;` | `<…>` 退回裸符号（注释壳把断言整族挡在门外） | **0** |
-| `<T>(x) > y` | 外层同样错 | 外层 0，**断言的类型那一格仍差 1**（新登记） |
+| `<T>(x) > y` | 外层同样错，断言的类型是 `TypeParameter(T)` | **0** |
 
 - **`<number>a + b` 与上面第 2 条同根**：第 379 轮那条理由当时写对了（「断言只吃一个操作数、
   剩下的交给 `foldBinaryFrom`」），可它**暗中假定了「操作数与运算符平级」这一态**——
@@ -357,37 +358,47 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   第一句把第二条整条带坏（`T[]` 投成 `ElementAccessExpression`，16 片里 **1 片红**）。
   第一版判据写成「跳过注释壳就停手」也不对——`<T>x;` 换行 `<T[]>xs;` 里第二个 `<` 回扫
   只看得见**前一条语句**的壳，停在它上面照样判否。
-- **新登记的缺口**（`gap-angle-assertion-paren-operand`）：`<T>(x) > y` 里断言的**类型**投成
-  `TypeParameter(T)`，TS 那边是 `TypeReference(T)`（实测缺 1 多 1）——
-  [`type-parameter.xl.md`](typescript/tokens/type-parameter.xl.md) 的 `IsParameterList` 有一条
-  「泛型段后面紧跟 `(` 就算参数表」（给 `const g: <T>(x: T) => T` 用的），断言那一格撞上了它。
-  它在 `GenericType` **里面**、早于二元折叠，与本轮这两格无关 ⇒ **另案**，用例登进语料。
+- **断言的类型那一格**（`<T>(x) > y`）：[`type-parameter.xl.md`](typescript/tokens/type-parameter.xl.md) 的
+  `IsParameterList` 有一条判据是「泛型段后面紧跟 `(` 就算参数表」（给 `const g: <T>(x: T) => T`、
+  语句开头的 `<T>(x: T) => x` 用的），断言正好撞在**同一形状**上 ⇒ 断言的类型投成 `TypeParameter(T)`。
+  **能分辨这件事的只有投影那一层**：定下「参数表」那一刻，后面那对括号还没扫完、`=>` 也还没出现
+  （TS 自己也是靠回溯分的），而走到断言那一支时括号已经成形、**第二格不是 `Lamda`**
+  ⇒ 这次 `<…>` 不可能是参数表。修法是把那层包装拆掉、按**类型**重投一遍
+  （`<T>` 的内容是名字 ⇒ `TypeReference`，正是 TS 的形状）。
 
 **用例**：新增 3 条 token（
 [`decl-instantiation-line-end`](tests/cases/token/declarations/decl-instantiation-line-end.ts)（行尾那一档）、
 [`expr-angle-assertion-then-operator`](tests/cases/token/expressions/expr-angle-assertion-then-operator.ts)（
 `xl:absent BinaryOperator`——断言那一层不再折）、
-[`expr-angle-assertion-after-comment`](tests/cases/token/expressions/expr-angle-assertion-after-comment.ts)）
-与 1 条登记缺口（
-[`gap-angle-assertion-paren-operand`](tests/cases/token/expressions/gap-angle-assertion-paren-operand.ts)）；
-两条老缺口用例按规矩撤掉 `xl:known-gap`、留作守卫。
+[`expr-angle-assertion-after-comment`](tests/cases/token/expressions/expr-angle-assertion-after-comment.ts)）；
+第三条格子先按规矩登记成缺口（
+[`gap-angle-assertion-paren-operand`](tests/cases/token/expressions/gap-angle-assertion-paren-operand.ts)）、
+**同一轮里收掉之后当场把那行 `xl:known-gap` 删掉**、留作守卫——
+登记的缺口在仓里待的时间越短越好。
+两条老缺口用例（`gap-instantiation-line-end` / `gap-angle-assertion-then-compare`）
+同样按规矩撤掉 `xl:known-gap`、留作守卫。
 
 **实测**：`cases:tsast` **16 片全过**、全语料 **1879 / 1879 个文件逐位置完全一致**
-（缺 0 / 漂 0 / 多 0 / 字段 0），缺口清单 **2 条已收掉、1 条新登记还开着**；
-同族探针 `tmp/r890/snips.mjs` **16 条里 15 条对上**（剩下那条就是新登记的那一格）；
-`cases:astjson` 六项全 0（1471 份 / 34932 个节点）；`cases:check` **1482 / 1482**、
-`cases:tags` 4940 条断言 0 条不一致、`cases:shapes` 未覆盖 0；
-`coverage` **4064 / 4243 → 4069 / 4247**（`blocked 41 → 40`：两条老缺口转绿、新登记那条补上，
-`differ 138` / `bad 0` 没动，加权 95.2%）；`runtime:*` / `samples` 全过 ⇒ **九道门全绿**（墙钟 29.7s）。
+（缺 0 / 漂 0 / 多 0 / 字段 0），**缺口清单是空的**（2 条老缺口 + 1 条本轮登记的，全部收掉）；
+同族探针 `tmp/r890/snips.mjs` **16 条全对上**；
+`cases:astjson` 六项全 0（1472 份 / 34952 个节点）；`cases:check` **1482 / 1482**、
+`cases:tags` 4941 条断言 0 条不一致、`cases:shapes` 未覆盖 0；
+`coverage` **4064 / 4243 → 4070 / 4247**（`blocked 41 → 39`：三条缺口全转绿，
+`differ 138` / `bad 0` 没动，加权 95.2%）；`runtime:*` / `samples` 全过 ⇒ **九道门全绿**（墙钟 32.4s）。
 
 **这一轮的经验**：**缺口清单是「轮次之间」的交接面，别让它长过一轮**。
 第 888 轮量出行尾那一格时就写下了 TS 那句原文（`hasPrecedingLineBreak() || isBinaryOperator2() ||
 !isStartOfExpression()`），第 889 轮又量出「断言没先成形」那一格——两句话都在案上，
-收起来各是十行以内。**同一份原文分两轮收**本身没错（分阶段说清是对的），
+收起来各是十行以内。这一轮顺手量出的第三处（断言的类型那一格）**当天就收掉了**：
+先按规矩登记成 `xl:known-gap`（那是本仓记缺口的老实做法），收掉之后当场把那行删掉。
+**同一份原文分两轮收**本身没错（分阶段说清是对的），
 错的是让**已经量到根因**的格子过夜：它们每次都进 `coverage` 的 `blocked` 账，
 看久了就当成「本来就还没做」。第二条经验与第 889 轮同款但更狠：
 **改一层的判据要立刻跑全语料**——这一轮的回归不在探针池里（16 条全绿），
 而在 `expr-angle-assertion.ts` 那条**别的**用例上，是 16 片对拍逮住的。
+第三条：**「这一格只有谁能分辨」也要问出口**——`<T>(x)` 到底是参数表还是断言的类型，
+词法阶段（括号还没扫完、`=>` 还没出现）根本分辨不了（TS 自己也是靠回溯），
+所以那条判据留在**参数表**那一层只会错，正确的落点是**投影那一层**（那里已经知道第二格不是 `Lamda`）。
 
 ### 第 889 轮：比较运算符的同级左结合——`<` / `>` 进关系层（9 条收掉，语料当场逮回一处回归）
 

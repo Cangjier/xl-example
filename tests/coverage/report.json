@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.16,
+  "progressPercent": 95.17,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1469,
-      "pass": 1468,
-      "blocked": 1,
+      "pass": 1469,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.93
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1469,
-    "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1468,
-    "scoredWithoutGap": 1468,
-    "passedWithoutGap": 1468
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1469,
+    "scoredWithoutGap": 1469,
+    "passedWithoutGap": 1469
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-angle-assertion-paren-operand",
-      "category": "token",
-      "title": "断言的被断言者是一对括号时（`<T>(x) > y`）：外层那一层已经对了，类型那一格还没对",
-      "detail": "缺 1　多 1　泛型实参段后面紧跟 `(` 时，那一段被当成**类型参数表**（泛型函数类型 `<T>(a: A) => B` 的读法）"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
