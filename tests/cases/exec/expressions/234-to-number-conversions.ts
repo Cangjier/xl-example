@@ -11,6 +11,7 @@
 //   · exec/expressions/177-number-coercion · 183-null · 184-undefined · 185-unary-plus-empty-string
 //   · exec/expressions/186-unary-plus-empty-array · 187-unary-plus-single-element-array · 188-unary-plus-object
 //   · exec/expressions/171-numeric-separator-and-literals
+//   · exec/expressions/probe693b-e05（第二批）
 // 判据只有一条：值 → 数字的那一趟转换（`ToNumber` 的各种入口，含 `parseInt` / `parseFloat` 的松紧差别）。
 const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
 const probe = (f) => {
@@ -85,3 +86,6 @@ probe(() => true + true);
 
 // 符号进不了 ToNumber
 probe(() => +Symbol("a"));
+
+// 一元前缀叠在同一个算式里（第 787 轮并进来的 `probe693b-e05`）
+probe(() => +"1" + -"1");

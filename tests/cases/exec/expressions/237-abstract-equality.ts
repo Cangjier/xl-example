@@ -9,6 +9,7 @@
 //   · exec/expressions/probe-o18 · o21 · o22
 //   · exec/expressions/probe699-c-e03 · e04 · e09 · e33 · e34 · e62 · e63 · t08
 //   · exec/expressions/probe704-x-b54 · b55
+//   · exec/expressions/probe693b-e14 · e17（第二批）
 // 判据只有一条：`==` 的转换表（`null` / `undefined` 只与彼此相等；数字与字符串比数字；
 // 布尔先转数字；对象经 ToPrimitive 之后按原始值比）。
 const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
@@ -53,3 +54,7 @@ probe(() => "abc" == ["abc"]);
 
 // `NaN` 谁都不等
 probe(() => NaN == NaN);
+
+// 第 787 轮并进来的两条（`probe693b-e14` / `e17`）
+probe(() => "1" == 1);
+probe(() => (({}) == "[object Object]"));

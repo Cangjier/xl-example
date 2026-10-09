@@ -10,6 +10,7 @@
 //   · exec/expressions/probe-o31 · o37 · o38 · o39 · o40
 //   · exec/expressions/probe699-c-e15 · e16
 //   · exec/expressions/probe704-x-b39 · b40 · b41 · b42
+//   · exec/expressions/probe693b-e07 · e31 · e32 · e33（第二批）
 // 判据只有一条：数值运算符那一层——`%` 的符号跟着被除数、`**` 右结合且一元负号要括号、
 // 位运算一律过 32 位有符号（`>>>` 是无符号），除零给出 `Infinity` / `NaN`。
 const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
@@ -63,3 +64,9 @@ probe(() => (-1.9) | 0);
 probe(() => 1 - "2");
 probe(() => "5" * "2");
 probe(() => 2 + "2" - 1);
+
+// 第 787 轮并进来的四条（`probe693b-e07` / `e31` / `e32` / `e33`）
+probe(() => (2 ** 3) ** 2);
+probe(() => 1 << 3);
+probe(() => -8 >> 1);
+probe(() => -8 >>> 28);

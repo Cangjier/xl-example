@@ -5,6 +5,7 @@
 // 第 787 轮**同一判定点并组**。吸收的条（正文逐句搬进来）：
 //   · exec/expressions/probe-o13 · o14
 //   · exec/expressions/probe2-b01 · b02 · b03 · b16 · b17 · b18
+//   · exec/expressions/probe693b-e04（第二批）
 // 判据只有一条：`ToBoolean` 不看内容只看那一档——对象（含空数组、空包装对象、符号包装）
 // 恒为真，空串 / `0` / `NaN` / `null` / `undefined` 恒为假。
 const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
@@ -24,3 +25,6 @@ probe(() => Boolean(new String("")));
 probe(() => Boolean(Symbol()));
 probe(() => !!0);
 probe(() => !![]);
+
+// 真假结果与位运算混在一句里（第 787 轮并进来的 `probe693b-e04`）
+probe(() => !1 + "," + !!"" + "," + ~0);
