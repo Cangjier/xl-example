@@ -169,7 +169,7 @@ token 的 186 条 `gap-sweep-*` / `gap-r676-*` 是 **AST 尺子的逐落点账**
 | 动机 | 「免得把控制台渲染那一族的已知缺口混进来」——即**隔离打印层**，让每条只暴露一个语义差额 |
 | 首现 | 第 692 轮（其一）：**385 条**（其中原子探针 299 条），分母 3992 → 4377 |
 | 之后逐批 | 692（其二）150 · 692（其三）103 · 693 **555** · 694 **242** · 695 150 · 696 152 · 697 159 · 698 85 · 699 202 · 700 158 · 701 100 · 706 133 · 707 117 · 708 81 · 709 56 · 710 49 · 711 26 |
-| 现状（第 790 轮（三）之后） | git 跟踪 **973 条**（第 790 轮（二）之后是 1025、第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118），第 790 轮（三）走完 `exec/iterators`（52） |
+| 现状（第 791 轮之后） | git 跟踪 **907 条**（第 790 轮（三）之后是 973、第 790 轮（二）之后是 1025、第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118），第 790 轮（三）走完 `exec/iterators`（52），第 791 轮走完 `stdlib/error`（53） |
 | 现状（`gap-*` 一族） | git 跟踪 **186 条**，其中 token 180（`gap-sweep-*` 175 + `gap-r676-*` 11 之类）、runtime / stdlib 6 —— **第 790 轮（二）起这一族也在整理范围内**：同一条根的账并成一条、名字按规范给（`gap746-…` → `002-…-differ` 这种）；token 那 186 条**逐条量的是不同落点**（`xl:known-gap` 一行的差额各不相同），所以**没有重复可去**，仍按 `gap-` 前缀留在 `token/` 里（见下面第 790 轮（二）那一节） |
 
 **它当时的收益是真的**：每一批都当场收掉几处根因，覆盖度从 3697/3992 一路推到目前的 4886/5284。
@@ -192,6 +192,88 @@ token 的 186 条 `gap-sweep-*` / `gap-r676-*` 是 **AST 尺子的逐落点账**
 也就是说：**探针这个方法要留，探针的重复不要留。**
 
 ## 分母里有什么（数字是最近一次全量实测）
+
+**第 791 轮的合并**（**`stdlib/error` 整个域按判定点重排：93 → 13**）：这个域里
+**逐条一问**的 53 条原子探针（`probe-e*` / `probe697-e*` / `probe704-e-a*` 三批重抄）与
+**逐轮重抄**的 28 条编号条（`002`–`036` 里同一个「错误家族的形状」被写了九遍）按判定点并成
+**13 条规则用例**；`probe*` 命名清零、两个带轮次号的名字（`-r291` / `-r304` / `-r623` / `-r682`）
+随小条一起消失。删 **87** 条、添 **13** 条、改名 **1** 条（`025-error-print-and-types` →
+`025-error-own-keys-and-enumerable`），另有 **9** 条按「同一条根并账」并进了它们在各域的主人。
+
+| 现存的条 | 判定点 | 吸收 |
+| --- | --- | --- |
+| `001-console-log-error-stack` | `console.log(Error)` 的栈**没有渲染**（differ 账） | 原样留着 |
+| `004-error-engine-throws` | 引擎自己抛的错：`null` / `undefined` 上取属性、调用非函数、`[1].reduce` | `003` + `probe-e08` / `probe-e12` / `probe697-e18` / `probe697-e20` |
+| `005-error-tostring-forms` | `Error.prototype.toString` / `String(err)` 的拼法（name 空串、改名、无 message） | `013`·`015`·`018`·`034` + `probe-e05` / `probe697-e12` / `probe697-e19` / `probe704-e-a08`·`a33` |
+| `006-error-custom-subclass` | `extends Error` 的那一层：构造器 / 额外字段 / name / 两级继承 / 抛出来接得住 | `014`·`020`·`024`·`027`·`033`·`035` |
+| `007-symbol-concat-error-family` | 符号进字符串拼接抛的是 `TypeError`（族不是笼统的 `Error`） | 原样留着 |
+| `008-error-cause-chain` | `cause`：显式传了才有、链、值原样（非 Error 的 `cause` 也在） | `009`·`012`·`017`·`021`·`036` |
+| `010-error-aggregate` | `AggregateError`：名字 / 消息 / `errors` 数组 | `probe704-e-a15` |
+| `019-error-iserror` | `Error.isError` 的判定面（+ `bind` 的部分实参与 `super` 的 `this`） | `022` + `probe704-e-a16`…`a18` |
+| `025-error-own-keys-and-enumerable` | 错误对象的自有键 / `name` 可写 / `JSON.stringify` / `propertyIsEnumerable` | 只改名 |
+| `031-error-static-member-names` | `Error` 自己那一格的名表（`captureStackTrace` 等四格缺、`Error.prototype` 全齐） | `032`·`087` + `probe-e10` / `probe704-e-a23`·`a24` |
+| `084-error-stack-type` | `new Error().stack` 是字符串（自有 + 不可枚举） | 原样留着 |
+| `085-error-family-shapes` | 七个族的 name / message / instanceof / 原型链 / 自有格 / `AggregateError` | `002`·`011`·`016`·`023`·`026`·`028`·`029`·`030`·`089`·`090` + `probe-e02`·`e04`·`e11` / `probe697-e04` / `probe704-e-a13`·`a14`·`a34`·`a39`·`a40` |
+| `088-error-message-argument-coercion` | `message` 从实参来：缺省 / 字符串 / `1` / `null` / `undefined` | `086` + `probe704-e-a35`…`a37` |
+
+**跨域并账的 9 条**（同一个根，并进它在别域的主人，原文件保留、只往后接正文）：
+
+- `exec/statements/075-catch-undefined-function-error-name` ← `probe-e07`
+  （没声明过的名字在降级期就抛——第 783 轮已经把逐字节相同的那一条并进来了）；
+- `exec/statements/078-try-catch-finally` ← `probe704-e-a29`…`a32`（`finally` 覆盖 return、次序）；
+- `exec/statements/083-error-objects-in-catch` ← `probe704-e-a25`…`a27`（catch 绑定接住抛出来的东西）；
+- `exec/classes/099-class-extends-builtin-blocked` ← `probe697-e16`
+  （函数体 + 内建基类 ⇒ `heap object is not an environment`）。
+
+**纯重复的 16 条直接删掉**（断言在保留条里已经有了，逐条对照如下；其余 71 条是**并进**保留条、
+正文一字未改，不是删）：
+
+| 删掉的 | 断言已经在谁那里 |
+| --- | --- |
+| `probe-e01`（`new Error("x").message`） | `088`（同一个表达式，只换了字面量） |
+| `probe697-e02`（`new TypeError("m").name`） | `085` 吸收的 `probe-e02` |
+| `probe697-e05`（`null.x` 抛的那个） | `004` 吸收的 `probe-e08` |
+| `probe697-e06`（`try { null.x } catch (e) { e.constructor.name }`） | `exec/statements/069`（**逐字节同一条**） |
+| `probe697-e10`（`cause: 42`） | `008` 吸收的 `036`（同一格、同一个值） |
+| `probe697-e14`（`Error("x") instanceof Error`） | `085` 吸收的 `probe-e04` |
+| `probe704-e-a02`·`a03`·`a04`·`a05`·`a07` | `085`（`new Error("m")` 的 name / `Error("m").message` / 两条 `instanceof` / `constructor` 都在它里面） |
+| `probe704-e-a11`·`a12`（`SyntaxError` / `ReferenceError` 的 name） | `085`（同一句，换了字面量） |
+| `probe704-e-a20`·`a21`·`a22`（`Error.prepareStackTrace` / `stackTraceLimit` / `length` 的 `typeof`） | `031`（逐格都在它里面） |
+
+**这一轮撞出来的一个坑（并把法要照它办）**：把被吸收的正文裹进 IIFE 不是**无条件**等价的——
+`class M extends Error { name = "…" }` 这种**没有构造函数、又带字段**的派生类，降级层只在
+**模块顶层**接得上；裹进箭头体（哪怕它是 IIFE）之后**整份文件**报 `heap object is not an
+environment`。所以 `008-error-cause-chain` 里 `017` 那一段**不裹壳**，按原位置排在模块顶层
+（第 780 轮 `runtime/round780/r780b-04` 的八档清单量过同一件事）。被吸收的正文里只要出现
+这种类，就必须走这条例外，否则台账会从 `pass` 掉成 `blocked`。
+
+**保台账（全量批量跑，`--jobs 8 --batch-workers 32`）**：语料 **5247 → 5168**（净少 **79**：
+删 92、添 13）、判过 **5154**、过 **4839 → 4758**；**blocked 260 → 258**（只并掉上面那两条
+同根的账：`probe-e07` 与 `probe697-e16`，两条主人本来就已被判 `blocked`）、
+**differ 138 一处没动、bad 0**，`MOVED` / `NEWLY-PASSING` / `REGRESSION` **全 0**。
+
+**验证一次（batch + 一条一进程的多进程口径逐条对拍）**：三个被动到的域**逐条相同**——
+`stdlib/error` 13 条、`exec/statements` 86 条、`exec/classes` 53 条，`Compare-Object` 差异 0。
+八道门全绿（runtime:check 243、runtime:cli 79 一致、cases:tsast 已知缺口 217 条还开着 0 条收掉、
+cases:check 1407 条 0 不合格、cases:tags 4748 条断言 0 不一致、cases:shapes 0 未覆盖、
+samples 三份一致、coverage 4758/5154）。
+
+**收网扫描（最后一道把关，人看）**：全语料按正文指纹（去文件头、去纯注释行与空行、去行首缩进）
+扫出 **42 组同正文**，其中 **39 组是跨尺子**（token 的 AST 尺子 vs 执行尺子，历来不算重复）；
+**同一把尺子里的 3 组逐条读过、全部不是重复**——`lex-bom` / `lex-comment-*` / `lex-shebang`
+那五条是**五份不同的词法输入**（指纹把**注释行也当噪声去掉了**，而它们量的正是注释本身）；
+`lx-shebang` vs `stmt-eof-no-trailing-newline-let` 是**有没有 hashbang**；
+`stmt-asi-two-calls` vs `stmt-eof-no-trailing-newline-call` 逐字节比过**末字节**——
+前者末字节是 `0a`、后者是 `29`（**没有结尾换行**），是两份不同的输入。
+**结论：全语料按正文去重已经没有重复可去**（与第 790 轮（三）同结论，只是这一轮的指纹多查了
+一处：**行尾换行也算正文**，否则这两个 EOF 用例会被误判成一对重复）。
+
+**下一步的收网面**（第 791 轮之后实测）：名字里还带轮次号（`-r<轮次>`）的 **193 条**、
+`probe*` / `p<轮次>*` 命名还剩 **907 条**，最密的几个域是
+`exec/destructuring-spread`（48）、`stdlib/math`（41）、`runtime/async`（40）、
+`stdlib/console`（38）、`exec/round709`（35）、`runtime/exceptions`（34）、
+`runtime/round742`（34）——手法与第 791 轮相同：**同一个域一次走完**（先分判定点家族，
+再一个家族一个文件；`xl:want` 不是 `pass` 的账**单独留档、只改名**，不许并被吸收）。
 
 **第 790 轮（二）的合并**（**`runtime/iterators` 整个域按判定点重排**）：这个域 118 条里
 **逐条一问**的原子探针（`probe693b-g*` / `probe694-g*` / `probe695-g*` / `probe696-i*` /
@@ -330,7 +412,8 @@ cases:tags 4748 条断言 0 不一致、cases:tsast 已知缺口 217 条还开�
 （**ASI 两行 vs 末行没有换行**，ASI 的边界不同）——两组都是**不同的判定点**，也留着。
 **结论：全语料按正文去重已经没有重复可去**。
 
-**下一步的收网面**：`probe*` 命名还剩 **973 条**（第 790 轮（三）之后），最密的几个域是
+**当时的下一步的收网面**（第 790 轮（三）之后的读数，**已经被第 791 轮那一节取代**：
+`stdlib/error` 那一格当轮走完了，剩下的最新名单见上面第 791 轮）：`probe*` 命名还剩 **973 条**，最密的几个域是
 `stdlib/error`（53）、`exec/destructuring-spread`（49）、`stdlib/math`（44）、
 `runtime/async`（40）、`stdlib/console`（38）、`exec/round709`（35）、
 `runtime/round742`（34）、`runtime/exceptions`（34）、`stdlib/round719`（26）——

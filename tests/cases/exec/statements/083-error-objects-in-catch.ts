@@ -40,3 +40,34 @@ const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.con
     console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
   }
 })();
+
+// **同一条根并账（第 791 轮）**：catch 绑定接住抛出来的东西（Error / 数字 / 字符串）
+// 吸收 stdlib/error/probe704-e-a25.ts（同一条根）
+(() => {
+  const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+  try {
+    console.log(show((function () { try { throw new Error("x"); } catch (e) { return e.message; } })()));
+  } catch (e) {
+    console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+  }
+})();
+
+// 吸收 stdlib/error/probe704-e-a26.ts（同一条根）
+(() => {
+  const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+  try {
+    console.log(show((function () { try { throw 1; } catch (e) { return typeof e; } })()));
+  } catch (e) {
+    console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+  }
+})();
+
+// 吸收 stdlib/error/probe704-e-a27.ts（同一条根）
+(() => {
+  const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+  try {
+    console.log(show((function () { try { throw "s"; } catch (e) { return e; } })()));
+  } catch (e) {
+    console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+  }
+})();

@@ -17,3 +17,14 @@ try {
 } catch (e) {
   console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
 }
+
+// **同一条根并账（第 791 轮）**：同一处根（函数体 + 内建基类 ⇒ `heap object is not an environment`）
+// 吸收 stdlib/error/probe697-e16.ts（同一条根）
+(() => {
+  const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+  try {
+    console.log(show((function () { class M extends Error {} const m = new M("x"); return [m.name, m.message, m instanceof Error].join(","); })()));
+  } catch (e) {
+    console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+  }
+})();

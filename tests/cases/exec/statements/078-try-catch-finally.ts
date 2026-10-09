@@ -210,3 +210,44 @@ const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.con
     console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
   }
 })();
+
+// **同一条根并账（第 791 轮）**：try / catch / finally 的次序与返回值覆盖——这一域的主人就是 078
+// 吸收 stdlib/error/probe704-e-a29.ts（同一条根）
+(() => {
+  const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+  try {
+    console.log(show((function () { try { return 1; } finally { return 2; } })()));
+  } catch (e) {
+    console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+  }
+})();
+
+// 吸收 stdlib/error/probe704-e-a30.ts（同一条根）
+(() => {
+  const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+  try {
+    console.log(show((function () { try { throw 1; } catch (e) { return e; } finally { } })()));
+  } catch (e) {
+    console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+  }
+})();
+
+// 吸收 stdlib/error/probe704-e-a31.ts（同一条根）
+(() => {
+  const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+  try {
+    console.log(show((function () { let s = ""; try { s += "a"; throw 1; } catch (e) { s += "b"; } finally { s += "c"; } return s; })()));
+  } catch (e) {
+    console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+  }
+})();
+
+// 吸收 stdlib/error/probe704-e-a32.ts（同一条根）
+(() => {
+  const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+  try {
+    console.log(show((function () { try { try { throw new Error("x"); } finally { } } catch (e) { return e.message; } })()));
+  } catch (e) {
+    console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+  }
+})();

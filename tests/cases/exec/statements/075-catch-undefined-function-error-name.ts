@@ -15,3 +15,14 @@ try {
 } catch (e) {
   console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
 }
+
+// **同一条根并账（第 791 轮）**：同一个根（没声明过的名字在降级期就抛）——第 783 轮已经把逐字节相同的那一条并进来了
+// 吸收 stdlib/error/probe-e07.ts（同一条根）
+(() => {
+  const show = (v) => (v === null ? "null" : typeof v + ":" + String(v));
+  try {
+    console.log(show((function () { try { undefinedFn(); } catch (e) { return e instanceof ReferenceError; } })()));
+  } catch (e) {
+    console.log("throw:" + (e && e.constructor ? e.constructor.name : "?"));
+  }
+})();
