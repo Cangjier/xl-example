@@ -701,7 +701,15 @@ return item instanceof IfSet
   // 那边写着「`Namespace` 的 `body` 只在**父亲也是 `Namespace`** 时成立」，
   // 少了那一半，嵌套那一档会**静默**变错（内层命名空间根本没建，
   // 脚本报的是 `cannot read properties of undefined` —— 离现场很远）。
-  || item.constructor.name === "Namespace";
+  || item.constructor.name === "Namespace"
+  // **`DoWhile` 在表里**（第 866 轮实测）：`do {} while (a) b()` 里 `DoWhile` 与后面那条语句
+  // 挤在**同一个**壳里（`;` 与 `\n` 两档都不响，壳由 `FormTail` 收）——
+  // 不认它，`SplitShell` 的入口（头是不是语句级单元）当场为假、标签那一支也为假
+  // ⇒ 两条语句粘成一条 `ExpressionStatement`（实测这一族 12 条一起红：
+  // `dw-then-call` / `dw-then-let` / `dw-then-if` / `dw-then-while` / `dw-then-do` /
+  // `dw-then-comment` / `dw-then-class` / `dw-then-func` / `dw-then-return` /
+  // `dw-nested-then` / `dw-in-func-then` / `dw-label-then`）。
+  || item.constructor.name === "DoWhile";
 ```
 
 ## static method FirstMeaningful:(children:Array<Token>)=>Token

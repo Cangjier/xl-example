@@ -306,6 +306,40 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 866 轮：`do {} while (a) b()` 那一格——`DoWhile` 补进 `IsStatementUnit`，整族 12 条一起收（known-gap 3 → 2）
+
+**一句话**：`stmt-do-while-then-statement`（缺 3 多 1）收掉——`do … while (c)` 后面跟着的那条语句
+现在**自己成一条语句**，不再与 `DoWhile` 粘成一条 `ExpressionStatement`。
+
+**根子**：TS 的 `parseDoStatement` 收尾无条件调 `parseSemicolon()` ⇒ `)` 后面按 ASI 断句；
+而产物里那个壳是 `Statement.FormTail` 在**容器关闭时**收的（`;` 与 `\n` 两档都不响），
+壳里 `DoWhile` 与后面那条语句**并排**。`Statement.SplitShell` 的入口（头是不是语句级单元）
+与标签那一支（`lbl: do … while (a) b()`）**都问 `Statement.IsStatementUnit`**，
+而 `DoWhile` 不在那张表里 ⇒ 两处都为假 ⇒ 壳拆不开 ⇒ 投影把两条语句投成一条。
+
+**修法一处**（[statement.xl.md](typescript/tokens/statement.xl.md) 的 `IsStatementUnit`）：
+```ts
+  || item.constructor.name === "DoWhile";
+```
+**用类名判定**：`statement.xl.md` 不 import `do-while.xl.md`（与本文件里 `StaticBlock` /
+`NamespaceExport` 同款，避免绕出更深的环）。**`SplitShell` 一处都不动** ——
+第 859 轮退回来的那一版多改了「尾巴那条壳的右端一律取尾巴自己的最后一格」，
+那一处会打断 `stmt-declaration-body-trailing-semicolon` 的 `EmptyStatement`（缺 1）；
+这一轮量到**只补表就够**。
+
+**实测**（`tmp/r866/do-while.mjs`，20 条）：`do {} while (a) b()` / 带 `;` / 换行写法 /
+`let` / `if` / `while` 体 / `do` 体 / 夹注释 / `class` / `function` / 函数体里的 `return` /
+标签那一档 / 嵌套那一档**全部转绿**（修前 12 条红），四条对照（`do x++; while (x < 3);` 一族）
+逐格不动。**同族缺口比登记的多**：第 859 轮只登记了这一条，实测那一族 12 条同一个根。
+
+**副作用只量到一处**：`DoWhile` 进了表 ⇒ 它**直接站在 `Root` 下**（与 `While` / `Try` 同款），
+`stmt-do-while-expr-comment` 的 `xl:expect` 里 `Statement:2 → 1`（形状变好、判定点不变）。
+
+**数字**：`cases:tsast` 已知缺口 **3 → 2 还开着**（收掉的那条按规矩删掉 `xl:known-gap`、
+用例留着当守卫）；全语料缺 0 漂 0 多 0、16 / 16 片；
+`coverage` **4010 → 4011 / 4191**（blocked **43 → 42**、differ 138、bad 0）；
+`npm run gates` **八道全过**（墙钟 34.1s）。
+
 ### 第 865 轮：元组元素位那一格——两半都成立，但**解构掉四条**，整份撤回（数字一位没动：known-gap 3、coverage 4010 / 4191）
 
 **一句话**：冲 `gap-type-tuple-element-literal`（`type T = [{ a: 1 }]` 里那个 `{`）去了，

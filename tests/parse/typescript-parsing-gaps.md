@@ -381,7 +381,6 @@
 | [expr-generic-instantiation.ts](../cases/token/expressions/expr-generic-instantiation.ts)、`expr-generic-inst-let`、`expr-generic-inst-statement`、`gap-d-generics-tuple-mapped-01` | `const a = f<string>;` | **泛型实例化表达式**（TS 4.7）没有规则：产物是 `BinaryExpression(f < string)`，TS 是 `ExpressionWithTypeArguments` |
 | `expr-async-generic-arrow`、`-spaced`、`gap-d-generics-tuple-mapped-02` | `async <T>(x: T) => x` | `async` 与泛型段**谁先认领**没有定义（各缺 7–13） |
 | [mod-declare-module-shorthand.ts](../cases/token/modules/mod-declare-module-shorthand.ts) | `declare module "mm";` | 简写形态不成形（缺 2 多 1）；**带 `{}` 的那一条是好的** |
-| [stmt-do-while-then-statement.ts](../cases/token/statements/stmt-do-while-then-statement.ts) | `do {} while (a) b()` | `do…while` 后面还跟着一条语句时那一格没被收（缺 3） |
 | [stmt-label-comment-before-call.ts](../cases/token/statements/stmt-label-comment-before-call.ts) | `a: b: c: d/* c */ ()` | 标签那一趟看到的是注释，最后一层标签没接上被标的语句（缺 1） |
 | [type-param-conditional-constraint.ts](../cases/token/types/type-param-conditional-constraint.ts) | `x extends A extends B ? C : D` | 约束位上的嵌套条件类型不成形（缺 10 / 字段 1） |
 | `type-asserts-toplevel`、`type-param-asserts-constraint` | `type T = asserts x is A` / `<X extends asserts x is A>` | 断言谓词只在返回类型那一位成形（各缺 5 多 2）：`TypePredicateCloseRule.Previous` 的「起点」只认容器第一个实义单元与紧跟 `=>`，而 `=` / `extends` 右边同样是合法类型位 |
@@ -540,6 +539,32 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
 `query` 自己 ⇒ 自环，`kindsInAst` 当场 `Maximum call stack size exceeded`；
 ② `ArrayType.elementType` 在这一层是**一个数组**（`ArrayType` 的 `PrintAst` 走 `ctx.Each`）。
 账 **11 → 10**；全语料 `ts-ast.mjs all` 退出码 **0**（143 份大库文件 × 16 片全绿）。
+
+**第 866 轮收掉的 1 条**（第三段里那条 `do…while`，已从上面那张表里拿掉）：
+[stmt-do-while-then-statement.ts](../cases/token/statements/stmt-do-while-then-statement.ts)
+（`do {} while (a) b()`）。**根子是「这个单元本身算不算一条语句」**：TS 的
+`parseDoStatement` 收尾无条件调 `parseSemicolon()` ⇒ `)` 后面按 ASI 断句，`b()` 是**另一条**语句；
+而产物里那条壳是 `Statement.FormTail` 在**容器关闭时**收的（`;` 与 `\n` 两档都不响），
+壳里 `DoWhile` 与 `b()` **并排**——`Statement.SplitShell` 的入口（头是不是语句级单元）
+与标签那一支（`lbl: do … while (a) b()`）都问 `Statement.IsStatementUnit`，
+而 `DoWhile` **不在那张表里** ⇒ 两处都为假 ⇒ 壳不拆 ⇒ 投影把两条语句投成一条
+`ExpressionStatement`（缺 3 多 1）。
+
+**修法一处**（`typescript/tokens/statement.xl.md` 的 `IsStatementUnit`）：把 `DoWhile` 补进表里，
+**用类名判定**（`item.constructor.name === "DoWhile"`）——`statement.xl.md` 不 import
+`do-while.xl.md`（与本文件里 `StaticBlock` / `NamespaceExport` 同款，避免绕出更深的环）。
+**不需要**动 `SplitShell` 的尾巴右端：`;` 那一档的右端照旧借壳那一格（终结符不在 `Data` 里）。
+
+**第 859 轮试过一次、退回来的那一版多改了一处**（尾巴那条壳的右端改成一律取尾巴自己的最后一格）——
+那一处会打断 `stmt-declaration-body-trailing-semicolon` 的 `EmptyStatement`（缺 1），
+而这一轮量到**只补表就够**：`tmp/r866/do-while.mjs` 那一族 **20 条探针全绿**
+（`dw-then-call` / `-let` / `-if` / `-while` / `-do` / `-comment` / `-class` / `-func` / `-return`、
+函数体里那一档、标签那一档、嵌套那一档，以及 `dw-body-terminated` / `-semicolon` / `-if-body` /
+`-while-body` 四条**对照**——它们本来就对）。
+**副作用只量到一处**：`DoWhile` 进了表 ⇒ `stmt-do-while-expr-comment` 里它**直接站在 `Root` 下**
+（与 `While` / `Try` 同款），那条用例的 `xl:expect` 里 `Statement:2 → 1`（同一形状变好、判定点不变）。
+账 **3 → 2**；全语料 `cases:tsast` **16 / 16 片**、缺 0 漂 0 多 0、`npm run gates` **八道全过**
+（coverage 4010 → **4011 / 4191**、blocked 43 → **42**）。
 
 **怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。

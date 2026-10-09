@@ -388,12 +388,16 @@ if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
   // 同理 `At(at + 1)` 也越了一格：`;` 在 `at` 上时，**要签出的就是这个位置本身**（含尾口径），
   // 不是它后面那一格。两处各改一格，扫描从括号后那一格起、签在 `;` 上。
   //
-  // **与它成对的那半还开着**（第 859 轮实测）：`DoWhile` 与后面那条语句仍然挤在同一个语句壳里
+  // **与它成对的那半在第 866 轮收掉了**：`DoWhile` 与后面那条语句原来挤在同一个语句壳里
   // （`Statement.FormTail` 收的），投影于是多套一层 `ExpressionStatement`。
-  // **把 `DoWhile` 补进 `Statement.IsStatementUnit` 试过、退回来了**：壳被 `SplitShell` 拆开之后，
-  // 尾巴那条壳的右端会落到**文件末尾**（见 `Statement.SplitShell` 取 `unit.SourceRange.End`）——
-  // `lib.dom.d.ts` 一片当场缺 14418 个 `Identifier`（`@types` / `typescript/lib` 成片红）。
-  // 那一格要跟本单元的右端一起收，属于下一轮的活。
+  // 修法不在本文件，在 `statement.xl.md`：**把 `DoWhile` 补进 `Statement.IsStatementUnit`**
+  // （用类名判定，本文件与 `statement.xl.md` 之间不能互相 import）——
+  // `Statement.SplitShell` 的入口与标签那一支都问那张表，认了它，壳当场拆成两条语句。
+  // **第 859 轮试过一次、退回来的那一版**多改了一处（`SplitShell` 里尾巴那条壳的右端
+  // 改成一律取尾巴自己的最后一格）：那一处会打断 `stmt-declaration-body-trailing-semicolon`
+  // 的 `EmptyStatement`（缺 1），**不需要**——尾巴的右端照旧借壳那一格（`;` 不在 `Data` 里）。
+  // `tmp/r866/do-while.mjs` 那一族 20 条探针全绿（`dw-then-*` / 标签 / 函数体 / 注释 / 嵌套），
+  // `cases:tsast` 全语料缺 0 漂 0 多 0、已知缺口 3 → 2。
   let signOut = compare.SourceRange.End!;
   const tail = conditionBracket.SourceRange.End!;
   const tailDoc = tail.Document;
