@@ -306,6 +306,40 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 850 轮：泛型实例化表达式 `f<string>`——四条同根，known-gap **18 → 14**
+
+**一句话**：TS 4.7 的 instantiation expression（`const a = f<string>;`）在 TS 那边是
+`ExpressionWithTypeArguments`，本工程把它读成了 `BinaryOperator(f < string)`。同一条根上挂着
+四条用例：`expr-generic-instantiation` / `expr-generic-inst-let` / `expr-generic-inst-statement` /
+`gap-d-generics-tuple-mapped-01`。两处各缺一半：
+
+- **token 层**（`generic-type.xl.md` 的 `IsAllowedFollower`）：表达式位原来只放行 `(`——
+  那是给**泛型调用** `f<T>(x)` 准备的（`<…>` 后面不接 `(` 就退回比较运算符，
+  为的是 `f(a<b, c>d)` / `a<b>c` 那种写法）。可 `>` 后面跟着 `;` / `)` / `,` / `??` 时，
+  后面那一格**接不上表达式**，`<…>` 只可能是实例化表达式（`a < b` 的右边还得要一个操作数，
+  而 `a < b ?? c` 在 TS 里本身就是语法错、`??` 左边要一个完整的操作数）。
+  补的就是这四个字符，判据照旧只看**配对的 `>` 后面那一个字符**——
+  `a < b > c`（后面是名字）与 `f(a<b, c>d)`（后面是 `d`）一位都没动。
+- **投影层**（`print-ast-common.xl.md` 的 `projectExpression` 第 0a 支）：补一格
+  「`Identifier` + `GenericType` ⇒ `ExpressionWithTypeArguments`」（`expression` = 名字、
+  `typeArguments` 复用现成的 `projectTypeArguments`）。产物那边这两格是**平级**的
+  （泛型实参段是宿主的一个子单元），走通用支就投成 `Identifier` + `TypeReference`。
+  带 `(` 的那一路不受影响：`f<string>(x)` 仍走链 / 调用那一支，还是 `CallExpression`。
+
+**第一版多算 1 格**：`endOf` 与 `startOf` 是一对（`endOf` 已经是 TS 的 `end`），
+第一版写成 `endOf(generic) + 1`，四条一起报区间漂移——改回 `endOf(generic)` 即绿。
+
+**探针**：`tmp/r850-snippets.mjs` 量了同族 16 条变体（实参位 / 数组元素位 / `return` 位 /
+括号化 / `f<Array<string>>` 嵌套 / `??` 之后 / 比较式对照那几条），修完**除 1 条 `f<string>.name`
+（TS 自己就非法）之外全绿**，没有新登缺口。
+
+**数字**：四条 `xl:known-gap` 行换成「第 850 轮转绿」的说明（用例留着当守卫），
+其中 `gap-d-generics-tuple-mapped-01` 的 `xl:expect` 顺带重算（`SymbolToken:3 → 1`、
+`Statement:2 → 5`，那是**老读数**——第 836 轮把模板串里的语句壳收掉之后就没再对过；
+这一轮动的是投影，XML 那两格不变）。
+账 **18 → 14 还开着**（`coverage` **3990 → 3994 / 4186**，blocked 58 → 54、differ 138、`bad` 0）；
+8 道门全绿、`cases:tags` 0 条不一致。
+
 ### 第 849 轮：括号里的「**第一个 `{`**」要跳过 trivia——`mut-type-union-paren-object-162` 收掉 1 条、新登 1 条
 
 **一句话**：`type T = A & (/* c */{ readonly ok: true } | { readonly no: true })` 里第一个 `{`
@@ -3972,16 +4006,16 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **89 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **14 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1407** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1407 条**（1390 条带期望，共 **4762** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **229 份**（用例 1394 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
+| `cases:check` | **1426** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
+| `cases:tags` | **1426 条**（1409 条带期望，共 **4902** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **229 份**（用例 1413 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3899 / 4167**，加权 **94.1%**：token 1305/1394、exec 748/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 130 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~30s**） |
+| `coverage` | **五类 3994 / 4186**，加权 **95.0%**：token 1399/1413、exec 749/788、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 54 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 
 **口径外**（不进分母，也不当缺口）只剩两种：**JSX / TSX**（独立于 TypeScript 的语法扩展）

@@ -282,12 +282,12 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**18 条**）
+## 已知仍开着的缺口（**14 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
-（第 849 轮实测 **18**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
-第 848 轮收掉 2 条、第 849 轮收掉 1 条并新登 1 条；第 818 轮那段分段口径写在下面，
-条数此后又收掉了一批）。
+（第 850 轮实测 **14**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
+第 848 轮收掉 2 条、第 849 轮收掉 1 条并新登 1 条、第 850 轮收掉 4 条；
+第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
 文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
@@ -452,6 +452,29 @@ TS 那边 `declare` 换行走 ASI），那一族没修、也不在语料里，�
 **新登**的 `gap-type-tuple-element-literal`（元组元素位上的 `{ … }`）是**同一个入口**的另一半——
 那一半（括号种类放宽到 `[`）试过、整份撤回，理由写在「被否决的改法」第 5 条。
 账 **18 → 18**（收 1 登 1）。
+
+**第 850 轮收掉 4 条**（同一条根，全是**泛型实例化表达式** `f<string>`）：
+`expr-generic-instantiation` / `expr-generic-inst-let` / `expr-generic-inst-statement` /
+`gap-d-generics-tuple-mapped-01`。TS 4.7 的 instantiation expression 在 TS 那边是
+`ExpressionWithTypeArguments`，本工程两处各缺一半：
+
+- **token 层**：`IsAllowedFollower` 在表达式位只放行 `(`（那是给**泛型调用** `f<T>(x)` 准备的），
+  于是 `const a = f<string>;` 里那个 `<…>` 试读被判否、退回裸符号，
+  投影只能读成 `BinaryOperator(f < string)`。补的是「**`>` 后面那一格接不上表达式**」那几个字符：
+  `;` / `)` / `,` / `??`（`??` 左边要一个**完整的**操作数，`a < b ?? c` 在 TS 里本身就是语法错）。
+  判据照旧只看配对的 `>` 后面那**一个**字符 ⇒ `a < b > c`（后面是名字）与 `f(a<b, c>d)`
+  一位都没动。
+- **投影层**：补一格「`Identifier` + `GenericType` ⇒ `ExpressionWithTypeArguments`」
+  （`print-ast-common.xl.md` 的 `projectExpression` 第 0a 支；`typeArguments` 用现成的
+  `projectTypeArguments`）。带 `(` 的那一路不受影响——`f<string>(x)` 走链 / 调用那一支，
+  仍然是 `CallExpression`。
+
+四条用例的 `xl:known-gap` 行换成「第 850 轮转绿」的说明（用例留着当守卫），
+其中 `gap-d-generics-tuple-mapped-01` 的 `xl:expect` 顺带重算
+（`SymbolToken:3 → 1`、`Statement:2 → 5`——那是**老读数**，第 836 轮把模板串里的语句壳收掉之后
+就没再对过；这一轮修的是投影，XML 那两格不变）。
+账 **18 → 14**。探针另量了同族的 9 条变体（`f<Array<string>>`、实参位 / 数组元素位 / `return` 位、
+括号化、`??` 之后……），**本轮全绿**，没有新登。
 
 **怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。

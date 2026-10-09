@@ -2241,6 +2241,40 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // 后面真正的表达式整段丢掉（实测 `dist/ts/typescript/ts-ast.ts` 缺 15 / 多出 3）。
   kids = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   if (kids.length === 0) return undefined;
+  // ---- 0a。泛型实例化表达式 `f<string>`（第 850 轮）----
+  //
+  // TS 4.7 的 instantiation expression：`f<string>` 本身就是一个表达式，
+  // TS 那边是 `ExpressionWithTypeArguments`（`expression` = 名字、`typeArguments` = 实参段）。
+  // 产物那边它是**平级的两格**——`Identifier(f)` + `GenericType(<string>)`：
+  // 泛型实参段在 token 层是主机的一个子单元（见 `generic-type.xl.md` 的名字闸），
+  // 不是名字的孩子。
+  //
+  // 走通用支的后果（实测四条用例）：`f` 投成 `Identifier`、`GenericType` 投成 `TypeReference`，
+  // 于是「缺 `ExpressionWithTypeArguments` + 缺实参的关键字 + 多出两格」。
+  //
+  // **这一格凭什么敢认**：token 层的 `IsAllowedFollower` 只在「`>` 后面那一格接不上表达式」时
+  // 才让 `<…>` 成形（`;` / `)` / `,` / `??` / `(`），所以走到这里的两格**就是**实例化表达式；
+  // 比较式（`a < b > c`）在 token 层就已经退回裸符号了，根本到不了这一支。
+  // 带 `(` 的那一路仍然走链 / 调用那一支（`f<string>(x)` 是 `CallExpression`）。
+  //
+  // `endOf` 就是 TS 的 `end`（`range[1]`）——`startOf` / `endOf` 这一对在下面写着，
+  // 全文件的口径一致（第 850 轮第一版多加了 1，实测四条用例一起报区间漂移）。
+  if (kids.length >= 2 && kids[0].get("type") === "Identifier" && kids[1].get("type") === "GenericType") {
+    const expression = projectNode(kids[0], ctx, "");
+    if (expression !== undefined) {
+      const args = projectTypeArguments(kids[1], ctx);
+      const self: any = {
+        kind: "ExpressionWithTypeArguments",
+        expression,
+        pos: startOf(kids[0]),
+        end: endOf(kids[1]),
+      };
+      if (args.length > 0) self.typeArguments = args;
+      const rest = kids.slice(2);
+      if (rest.length === 0) return self;
+      return foldBinaryFrom(self, rest, ctx);
+    }
+  }
   // ---- 0。尖括号类型断言 `<T>x`（第 144 轮）----
   //
   // TS 那边是 `TypeAssertionExpression > [type, expression]`，而产物把它记成**平级两格**：

@@ -879,7 +879,18 @@ return false;
 
 配对 `>` 之后跟着什么，决定这次试读算不算数。
 
-类型位给的是「名字或类型收尾」这一档：标识符字符、`) ] } [ , ; > < . = ( : { ? | &`、行尾或文件尾。表达式位只给 `(`——TypeScript 的泛型调用形状（`f<Int64>(x)`）：在表达式里，`<…>` 后面不接 `(` 的写法一律按比较运算符读，这样 `f(a<b, c>d)`、`a<b>c` 都会退回 `SymbolToken`。
+类型位给的是「名字或类型收尾」这一档：标识符字符、`) ] } [ , ; > < . = ( : { ? | &`、行尾或文件尾。表达式位原来只给 `(`——TypeScript 的泛型调用形状（`f<Int64>(x)`）：在表达式里，`<…>` 后面不接 `(` 的写法一律按比较运算符读，这样 `f(a<b, c>d)`、`a<b>c` 都会退回 `SymbolToken`。
+
+**表达式位还要放行「后面那一格接不上表达式」的那几个字符**（第 850 轮）：`;`、`)`、`,`，以及 `??`。
+它们出现时 `<…>` **只可能是泛型实例化表达式**（TS 4.7 的 instantiation expression `f<string>`，
+TS 那边是 `ExpressionWithTypeArguments`），不可能是比较式：`a < b` 的右边还得要一个操作数，
+而 `;` / `)` / `,` 都接不上，`??` 左边要的是一个**完整的**操作数（`a < b ?? c` 在 TS 里也是语法错）。
+少了这一格，`const a = f<string>;` 那种写法里 `<…>` 退回裸符号，
+投影就只能把它读成 `BinaryOperator(f < string)`（实测四条用例：`expr-generic-instantiation` /
+`expr-generic-inst-let` / `expr-generic-inst-statement` / `gap-d-generics-tuple-mapped-01`）。
+
+判据仍然只问「**紧跟配对的 `>` 的那一个字符**」：`a < b > c` 后面是 `c`，不在这一档里，照旧读成比较式
+（`f(a<b, c>d)` 同理——`>` 后面是 `d`）。
 
 **`|` 与 `&` 必须单独列出来**（实测补的）：**嵌套泛型的实参后面跟联合 / 交叉**是极常见的写法，
 `T extends Array<X> | Y`、`Record<string, X> | undefined` 都是它。
@@ -969,7 +980,9 @@ if (!isTypePosition) {
   //
   // **`<` 前面有左操作数时这一条不成立**（`IsOperandStartUnit` 为假）——
   // 所以 `a < b > c` 那种比较式一位都没动。
-  if (item === "(") {
+  // **`;` / `)` / `,` / `??` 是第 850 轮补的那一档**（泛型实例化表达式 `f<string>;`）：
+  // 那四个字符后面接不上表达式，`<…>` 只可能是实例化表达式。判据见上面那一节。
+  if (item === "(" || item === ";" || item === ")" || item === "," || (item === "?" && index + 1 < document.GetCount() && document.GetValue(index + 1) === "?")) {
     return true;
   }
   if (this.IsOperandStartUnit(unit)) {
