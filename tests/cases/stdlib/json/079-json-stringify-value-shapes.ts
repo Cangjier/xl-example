@@ -31,3 +31,18 @@ probe(() => JSON.stringify(Object.assign({}, { a: 1 })));
 probe(() => JSON.stringify({ a: null }));
 probe(() => JSON.stringify({ a: {}, b: [] }));
 probe(() => JSON.stringify({ "a b": 1 }));
+// **第 786 轮并入**：stdlib/json/probe-q01 / q02 / q03 / q04 / q12 / q21 / q24 与
+// probe703-j-f01 / f02 / f08 / f12 / f22 / f23 —— 同一判定点（值的形状）的另外十三档。
+probe(() => JSON.stringify(1));
+probe(() => JSON.stringify(true));
+probe(() => JSON.stringify("a"));
+probe(() => JSON.stringify([1, [2]]));
+probe(() => JSON.stringify(Infinity));
+probe(() => JSON.stringify(Symbol()));
+probe(() => JSON.stringify({ a: { b: null } }));
+probe(() => JSON.stringify({ a: 1 }));
+probe(() => JSON.stringify([1, 2]));
+probe(() => JSON.stringify({ a: [1, { b: 2 }] }));
+probe(() => JSON.stringify(undefined));
+probe(() => JSON.stringify(Object.create(null)));
+probe(() => JSON.stringify({ a: { b: { c: 1 } } }));

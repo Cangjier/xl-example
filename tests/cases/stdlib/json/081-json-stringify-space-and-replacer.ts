@@ -25,3 +25,7 @@ probe(() => JSON.stringify({ get a() { return 1; } }, (k, v) => v));
 probe(() => JSON.stringify({ a: 1 }, null, 0));
 probe(() => JSON.stringify({ a: { b: 1 } }, null, 2).length > 10);
 probe(() => JSON.stringify([1, [2, [3]]], null, 1).length);
+// **第 786 轮并入**：stdlib/json/probe-q07（replacer 白名单挑不中）与
+// probe703-j-f19（字符串 space）——同一判定点的另外两档。
+probe(() => JSON.stringify({ a: 1 }, ["b"]));
+probe(() => JSON.stringify({ a: 1 }, null, " "));

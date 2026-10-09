@@ -14,3 +14,5 @@ const probe = (f) => {
 };
 probe(() => (function () { try { return JSON.parse("{"); } catch (e) { return e.constructor.name; } })());
 probe(() => (function () { try { return JSON.parse("[1,]"); } catch (e) { return e.constructor.name; } })());
+// **第 786 轮并入**：stdlib/json/probe-q18（前导零 `01` 也是坏输入）——同一判定点。
+probe(() => (function () { try { JSON.parse("01"); return "no-throw"; } catch (e) { return e.constructor.name; } })());

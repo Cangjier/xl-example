@@ -16,3 +16,8 @@ probe(() => JSON.stringify("a\"b"));
 probe(() => JSON.stringify("\n"));
 probe(() => JSON.stringify({ a: "x\ny" }));
 probe(() => JSON.stringify({ a: "\u0001" }));
+// **第 786 轮并入**：stdlib/json/probe-q14 / q15 与 probe703-j-f10 —— 同一判定点的另外三档
+// （非 ASCII 原样、`<>&` 不转义、单引号串里的双引号）。
+probe(() => JSON.stringify("é"));
+probe(() => JSON.stringify({ a: "<>&" }));
+probe(() => JSON.stringify('a"b'));
