@@ -2335,7 +2335,8 @@ return IndexAccessorAt(table, self, at);
 读路径上各错一遍——`slice` / `toReversed` / `toSorted` / `toSpliced` / `with` / `concat` /
 `flat` / `map` / `filter` / `find` / `reduce` / `includes` / `indexOf` / `at` /
 `values` / `entries` / `Array.from` / `apply` 全是。判据
-`runtime/round769/r769a-02` 与 `r769e-01` 一次量出二十多行（**静默错值**：
+`runtime/round769/001-index-accessor-copy-and-read-family` 与
+`runtime/round769/006-index-accessor-on-read-path` 一次量出二十多行（**静默错值**：
 读到的全是洞给的那个 `undefined`）。**一处一处写就是这个样子**，所以这里收成一个助手，
 凡「读接收者第 `i` 格」的地方都来问它。
 
@@ -2444,7 +2445,7 @@ return leftUnits.length < rightUnits.length ? -1 : 1;
 **下标位上装了访问器那一格要**先**问一句**（第 769 轮）：那一格在元素区里**也是洞**
 （装访问器时摘掉的），照上面那条走会把 `{ get() { return 7 } }` 接成一个洞——
 Node 里 `slice` / `toReversed` / `with` / `toSpliced` / `concat` / `toSorted` 抄的是
-**那个值**（判据 `runtime/round769/r769a-02` 一次量出三行）。所以次序是
+**那个值**（判据 `runtime/round769/001-index-accessor-copy-and-read-family` 一次量出三行）。所以次序是
 **先问访问器、再问洞**，而读值那一句就是 `ArrayElementAt`（同一处判据）。
 **接收者参数因此从 `HeapArray` 换成 `Value`**：`IndexAccessorAt` 问的是那个值
 （元素区那一摞之外还有属性表），光有 `HeapArray` 问不出来。

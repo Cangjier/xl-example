@@ -5,6 +5,8 @@
 // 第 771 轮登记的 `runtime/round771/r771c-01` 在这一轮收掉了：
 // `u.x` 那一读抛得出来，而紧接着那次调用原来落在脚本的 `try` **外面**
 //（`DoCallMethod` 在 `Guard` 已经展开之后照旧往下调 `DoCallValue`）。
+// **第 809 轮把 `runtime/round771/r771c-01` 并了进来**（同一个判定点在两个域里各写了一遍：
+// 它只有三行，都是这一条的 01 / 02 / 03 的最小形态）——它独有的**变量接收者**那两行接在下面。
 const show = (f: () => any) => {
   try {
     const v = f();
@@ -24,3 +26,6 @@ console.log('07 u?.x()', show(() => u?.x()));
 console.log('08 u.x.y.z()', show(() => u.x.y.z()));
 console.log('09 之后的语句照旧', show(() => "after"));
 console.log('10 原始值接收者照旧', show(() => (1 as any).x()));
+// 809 · 原 runtime/round771/r771c-01（变量接收者的那两行最小形态）
+console.log('11 变量接收者', show(() => (function () { const u: any = undefined; return u.x(); })()));
+console.log('12 变量接收者（嵌套链）', show(() => (function () { const u: any = undefined; return u.x.y(); })()));

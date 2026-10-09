@@ -2120,7 +2120,8 @@ if (symbolCallee.Tag !== ValueTag.Undefined) {
 // **两个症状，同一个根**（都由这一轮的普查量到）：
 //   ① `const u: any = undefined; try { u.x(); } catch {}`——`u.x` 那一读**抛得出来**
 //      （`RtOp.GetProp` 那条路是好的），可紧接着那次调用落在脚本的 `try` **外面**
-//      （第 771 轮登记的 `runtime/round771/r771c-01` 正是这个形状）；
+//      （第 771 轮登记的 `runtime/round771/r771c-01` 正是这个形状，第 809 轮并进
+//       `runtime/round772/001-nullish-receiver-member-call`）；
 //   ② **调用位上的 getter 抛错**：`const o = { get g() { throw new TypeError("boom") } }; o.g()`
 //      同样被带走——`GetProperty` 自己会去调那个 getter，那一抛走的是**重入**那条路，
 //      于是**连 `Guard` 都没经过**（它不在这一句的 JS 调用栈里）。

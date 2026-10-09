@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4399,
+  "total": 4398,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 93.11,
+  "progressPercent": 93.1,
   "categories": [
     {
       "category": "token",
@@ -100,12 +100,12 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 776,
-      "pass": 725,
+      "total": 775,
+      "pass": 724,
       "blocked": 6,
       "differ": 45,
       "nodefail": 0,
-      "coverage": 93.43
+      "coverage": 93.42
     },
     {
       "category": "stdlib",
@@ -1518,13 +1518,13 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: typeof"
     },
     {
-      "id": "runtime/round778b/r778l-01",
+      "id": "runtime/round778b/003-switch-lexical-scope-blocked",
       "category": "runtime",
       "title": "`switch` 的词法作用域：块级声明的初始化、重复 `let` 与函数声明",
       "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: v"
     },
     {
-      "id": "runtime/round780/r780c-03",
+      "id": "runtime/round780/007-read-before-declaration-same-path-blocked",
       "category": "runtime",
       "title": "同一条路径上先读后声明的名字：降级期 TDZ 误判",
       "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: C780"
@@ -1608,19 +1608,19 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
-      "id": "stdlib/round778b/r778j-02",
+      "id": "stdlib/round778b/002-computed-key-object-blocked",
       "category": "stdlib",
       "title": "计算键里放一个对象：`ToPropertyKey` 是「先 `ToPrimitive`」",
       "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
     },
     {
-      "id": "stdlib/round779/r779j-01",
+      "id": "stdlib/round779/001-regexp-constructor-blocked",
       "category": "stdlib",
       "title": "`RegExp` 构造器那一半：全局名没登记",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: RegExp"
     },
     {
-      "id": "stdlib/round779/r779j-02",
+      "id": "stdlib/round779/002-string-methods-with-regexp-blocked",
       "category": "stdlib",
       "title": "字符串方法接 `RegExp` 对象那一半",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: RegExp"
@@ -1817,7 +1817,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30072/src/2003.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20340/src/2003.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -2036,13 +2036,13 @@
       "detail": "stdout 不同：第 2 行：node «typeof Array.prototype[Symbol. ok:string:object» vs tsrun «typeof Array.prototype[Symbol. ok:string:undefined»"
     },
     {
-      "id": "runtime/round755/r755a-01",
+      "id": "runtime/round755/001-function-and-accessor-names-differ",
       "category": "runtime",
       "title": "函数与访问器的名字推导（`name` 那一格）",
       "detail": "stdout 不同：第 14 行：node «(function () { const { a = fun ok:string:a» vs tsrun «(function () { const { a = fun ok:string:»"
     },
     {
-      "id": "runtime/round756/r756c-02",
+      "id": "runtime/round756/002-property-descriptors-differ",
       "category": "runtime",
       "title": "属性描述符的默认值与冻结后的写",
       "detail": "stdout 不同：第 11 行：node «(function () { \"use strict\"; c ok:string:TypeError» vs tsrun «(function () { \"use strict\"; c ok:string:wrote»"
@@ -2054,85 +2054,85 @@
       "detail": "stdout 不同：第 1 行：node «1 undefined» vs tsrun «1 object»"
     },
     {
-      "id": "runtime/round767/r767b-01",
+      "id": "runtime/round767/007-yield-star-throw-forwarding-differ",
       "category": "runtime",
       "title": "`yield*` 的 `throw` 转发：`it.throw(e)` 该送进**被委托**那个生成器",
       "detail": "stdout 不同：第 5 行：node «  inner caught boom» vs tsrun «04 escaped boom»"
     },
     {
-      "id": "runtime/round769/r769f-01",
+      "id": "runtime/round769/008-index-accessor-on-write-path-differ",
       "category": "runtime",
       "title": "写回路径上的下标访问器（本轮登记的缺口）",
       "detail": "stdout 不同：第 1 行：node «01 JSON.stringify(mk().reverse().slice()) ok:string:[null,7]» vs tsrun «01 JSON.stringify(mk().reverse().slice()) ok:string:[7,null]»"
     },
     {
-      "id": "runtime/round778/r778a-01",
+      "id": "runtime/round778/001-function-name-inference-differ",
       "category": "runtime",
       "title": "函数的 name 推导：字面量 / 类成员 / 绑定",
       "detail": "stdout 不同：第 3 行：node «03 变量赋值 \"x\"» vs tsrun «03 变量赋值 \"\"»"
     },
     {
-      "id": "runtime/round778b/r778h-01",
+      "id": "runtime/round778b/001-destructuring-boundaries-differ",
       "category": "runtime",
       "title": "解构的边界：默认值触发条件、求值次序、嵌套与洞",
       "detail": "stdout 不同：第 19 行：node «19 数组解构里的默认值也是逐个求值 \"p|x|n0,def:p,n1\"» vs tsrun «19 数组解构里的默认值也是逐个求值 \"p|x|n0,n1,n2,def:p\"»"
     },
     {
-      "id": "runtime/round778b/r778m-01",
+      "id": "runtime/round778b/004-class-extends-builtin-in-function-differ",
       "category": "runtime",
       "title": "函数体里 `class … extends` 一个内建：`heap object is not an environment`",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：heap object is not an environment"
     },
     {
-      "id": "runtime/round779/r779r-01",
+      "id": "runtime/round779/003-arguments-shape-differ",
       "category": "runtime",
       "title": "`arguments` 的形状：它不是数组",
       "detail": "stdout 不同：第 4 行：node «04 has map = \"undefined\"» vs tsrun «04 has map = \"function\"»"
     },
     {
-      "id": "runtime/round779/r779r-02",
+      "id": "runtime/round779/004-arguments-aliasing-differ",
       "category": "runtime",
       "title": "`arguments` 与形参的别名（松散模式）",
       "detail": "stdout 不同：第 1 行：node «01 sloppy aliasing = 99» vs tsrun «01 sloppy aliasing = 1»"
     },
     {
-      "id": "runtime/round780/r780b-03",
+      "id": "runtime/round780/003-super-four-landings-differ",
       "category": "runtime",
       "title": "`super` 的四个落点",
       "detail": "stdout 不同：第 4 行：node «04 arrow super = \"base\"» vs tsrun «04 arrow super = \"d+base\"»"
     },
     {
-      "id": "runtime/round780/r780b-04",
+      "id": "runtime/round780/004-derived-class-in-function-body-differ",
       "category": "runtime",
       "title": "函数体里的派生类：隐式构造器那一格",
       "detail": "stdout 不同：第 1 行：node «01 implicit ctor in arrow body = \"base\"» vs tsrun «01 implicit ctor in arrow body ! Error»"
     },
     {
-      "id": "runtime/round780/r780c-01",
+      "id": "runtime/round780/005-closure-hoisting-and-tdz-differ",
       "category": "runtime",
       "title": "闭包 / 提升 / TDZ 的边角",
       "detail": "stdout 不同：第 2 行：node «02 let TDZ typeof = \"ReferenceError\"» vs tsrun «02 let TDZ typeof = \"undefined\"»"
     },
     {
-      "id": "runtime/round783/r783a-01-new-nonconstructor",
+      "id": "runtime/round783/001-new-nonconstructor-differ",
       "category": "runtime",
       "title": "`new` 一个不可构造的值：**该抛 TypeError** 的那些位置",
       "detail": "stdout 不同：第 1 行：node «01 arrow literal = throw:TypeError» vs tsrun «01 arrow literal = ok:object»"
     },
     {
-      "id": "runtime/round783/r783a-02-strict-delete-nonconfigurable",
+      "id": "runtime/round783/002-strict-delete-nonconfigurable-differ",
       "category": "runtime",
       "title": "严格模式下的 `delete`：不可配置那一格要抛 `TypeError`",
       "detail": "stdout 不同：第 1 行：node «01 strict non-configurable prop = throw:TypeError» vs tsrun «01 strict non-configurable prop = ok:false»"
     },
     {
-      "id": "runtime/round783/r783a-04-function-prototype-descriptor",
+      "id": "runtime/round783/003-function-prototype-descriptor-differ",
       "category": "runtime",
       "title": "普通函数 `prototype` 那一格的描述符：`configurable` 该是假",
       "detail": "stdout 不同：第 1 行：node «01 plain configurable = false» vs tsrun «01 plain configurable = true»"
     },
     {
-      "id": "runtime/round783/r783a-05-forin-nonenum-shadow",
+      "id": "runtime/round783/004-forin-nonenum-shadow-differ",
       "category": "runtime",
       "title": "`for..in`：**自有的不可枚举属性要挡住**原型上同名的那一格",
       "detail": "stdout 不同：第 1 行：node «01 own nonenum data shadows proto = []» vs tsrun «01 own nonenum data shadows proto = [\"a\"]»"
@@ -2159,7 +2159,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30072/src/3144.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20340/src/3143.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2183,7 +2183,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30072/src/3192.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20340/src/3191.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2339,7 +2339,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-30072/src/3836.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20340/src/3835.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
@@ -2432,55 +2432,55 @@
       "detail": "stdout 不同：第 1 行：node «01 u.x?.() throw:TypeError» vs tsrun «01 u.x?.() ok:undefined:undefined»"
     },
     {
-      "id": "stdlib/round777/r777b-01",
+      "id": "stdlib/round777/001-symbol-index-read-differ",
       "category": "stdlib",
       "title": "符号上的**下标读**：`description` / `toString` 两格读不到",
       "detail": "stdout 不同：第 2 行：node «02 description 下标读 \"s\"» vs tsrun «02 description 下标读 undefined»"
     },
     {
-      "id": "stdlib/round778/r778c-01",
+      "id": "stdlib/round778/002-date-local-time-writes-differ",
       "category": "stdlib",
       "title": "Date 的本地时间写入族：setHours / setDate / setMonth 与非法时刻",
       "detail": "stdout 不同：第 2 行：node «02 setHours 返回新时刻 1579030245500» vs tsrun «02 setHours 返回新时刻 1579059045500»"
     },
     {
-      "id": "stdlib/round780/r780a-02",
+      "id": "stdlib/round780/002-string-number-symbol-name-length-differ",
       "category": "stdlib",
       "title": "`String` / `Number` / `Symbol` 那一族的 `name` / `length` 全量",
       "detail": "stdout 不同：第 30 行：node «String.prototype.match = \"function:match/1\"» vs tsrun «String.prototype.match = \"missing\"»"
     },
     {
-      "id": "stdlib/round781/r781c-01",
+      "id": "stdlib/round781/003-structuredclone-boundaries-differ",
       "category": "stdlib",
       "title": "`structuredClone` 的边界：不可克隆的值抛的是 `DOMException`",
       "detail": "stdout 不同：第 12 行：node «12 function throws = \"DOMException\"» vs tsrun «12 function throws = \"TypeError\"»"
     },
     {
-      "id": "stdlib/round781/r781d-01",
+      "id": "stdlib/round781/004-weakmap-weakset-shape-differ",
       "category": "stdlib",
       "title": "`WeakMap` / `WeakSet` 的形状与边界",
       "detail": "stdout 不同：第 12 行：node «12 weakref typeof = \"function\"» vs tsrun «12 weakref typeof = \"undefined\"»"
     },
     {
-      "id": "stdlib/round782/r782a-02",
+      "id": "stdlib/round782/002-builtin-constructor-prototype-rest-differ",
       "category": "stdlib",
       "title": "其余内建构造自己那一格原型（`Function.prototype`）——同一条根的另一半",
       "detail": "stdout 不同：第 1 行：node «01 Object<-Function.prototype = true» vs tsrun «01 Object<-Function.prototype = false»"
     },
     {
-      "id": "stdlib/round783/r783b-02-string-proto-regex-members",
+      "id": "stdlib/round783/001-string-proto-regex-members-differ",
       "category": "stdlib",
       "title": "`String.prototype` 上那三个**收正则**的成员：`match` / `matchAll` / `search`",
       "detail": "stdout 不同：第 1 行：node «01 match in = true, typeof = function» vs tsrun «01 match in = false, typeof = undefined»"
     },
     {
-      "id": "stdlib/round783/r783b-03-symbol-prototype-own-cells",
+      "id": "stdlib/round783/002-symbol-prototype-own-cells-differ",
       "category": "stdlib",
       "title": "`Symbol.prototype` 自己那一张名表：`constructor` / `toString` / `valueOf` / `description`",
       "detail": "stdout 不同：第 1 行：node «01 own names = constructor,description,toString,valueOf» vs tsrun «01 own names = »"
     },
     {
-      "id": "stdlib/round783/r783b-04-bound-function-own-cells",
+      "id": "stdlib/round783/003-bound-function-own-cells-differ",
       "category": "stdlib",
       "title": "绑定函数的自有格：多出三格**内部实现的名字**，还多一格 `prototype`",
       "detail": "stdout 不同：第 1 行：node «01 own names = length,name» vs tsrun «01 own names = __boundTarget,__boundThis,__boundArgs,length,prototype,name»"
