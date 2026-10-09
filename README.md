@@ -306,6 +306,37 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 865 轮：元组元素位那一格——两半都成立，但**解构掉四条**，整份撤回（数字一位没动：known-gap 3、coverage 4010 / 4191）
+
+**一句话**：冲 `gap-type-tuple-element-literal`（`type T = [{ a: 1 }]` 里那个 `{`）去了，
+**改法本身在这两半上都实测成立，代价却落在解构上**，所以整份撤回——这一轮的产出只有账。
+
+**改了哪两半**（第 855 轮记下的前提正是第一半）：
+
+1. `DecideBracketContext` 的**冒号那一支**：跨过 `=` 之后撞上的冒号不是本括号的标注 ⇒ 值位。
+   实测插桩：`const tree: Tree = { … }` 那个对象字面量**连它里面每一层括号**的 `Context`
+   都从 `"type"` 变成 `"value"`。
+2. `IsTypePosition` 里「括号里的第一个 `{`」那一支**放宽到 `[`**，`[` 直接读自己的 `Context`
+   （第 849 / 855 轮「另一条路不成立」的原因正是第一半还没修）。四种排版当场都对：
+   `type T = [{ a: 1 }]` 转绿，`const a = [{ b: 1 }]` / `f([{ a: 1 }])` /
+   `const tree: Tree = { …, kids: [{ … }] }` 一档都没动，`cases:tsast` **缺 0 漂 0 多 0**。
+
+**代价**（`coverage` 4010 → 4007、blocked 43 → **47**）：掉下去的四条**全是解构**——
+`runtime/round762/001-destructuring-and-spread`（`unimplemented: expression TypeLiteral`）、
+`runtime/values/202-nested-destructuring-defaults` 与 `e2e/scenarios/067-…`
+（两条都是 `ast node BindingElement has no child name`）、`exec/round711/001-call-chain-then-member`。
+
+**两半分不开**：把元组那一支用 `&& false` 单独关掉**照样掉**，而元组那一支又**必须**有冒号那一半
+⇒ 要么一起要、要么一起不要。
+
+**没查完的那一格**（写进 [「被否决的改法」](tests/parse/typescript-parsing-gaps.md) 第 6 条）：
+掉的四条都是解构，症状是某个绑定模式的 `{ … }` 翻了面。本轮试过「逐对量括号 `Context` 序列」，
+可第一版比对脚本**把补丁打到了两份拷贝上**（比的是同一份、于是「零差异」）——
+下一轮的第一站是重做这一次比对：一份去掉冒号那一支、一份留着，找出**第一个翻面的括号**。
+
+**数字**：一位没动——`cases:tsast` 已知缺口 **3 条还开着**、`coverage` **4010 / 4191**
+（blocked 43、differ 138、bad 0）、用例 **1429** 条；`npm run gates` **八道全过**（墙钟 34.5s）。
+
 ### 第 864 轮：`{` 是父括号的**第一个实义单元**时——`BraceInExpression` 答不出「它在表达式里」（known-gap 4 → 3）
 
 **一句话**：`gap-value-array-bitwise-in-object-paren`（缺 4 多 6）收掉——

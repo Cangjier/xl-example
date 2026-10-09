@@ -578,3 +578,32 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
    判据得看「那个名字前面是不是 `:`（键分隔符）」——`{ kids: […] }` 是键，
    `{ [K in T]: … }` 那种映射类型才轮得到类型位。
    **在那一句修好之前，这一支不要动**（两次都整份撤回，别试第三次）。
+6. **元组元素位那一格（第 865 轮试过、整份撤回）**：目标是把 `gap-type-tuple-element-literal`
+   收掉——`type T = [{ a: 1 }]` 里那个 `{` 该是类型字面量。改的是**两半**：
+
+   - **`DecideBracketContext` 的冒号那一支**：跨过 `=` 之后撞上的冒号不是本括号的标注
+     ⇒ 判值位（`const tree: Tree = { … }` 往回扫先撞上 `=`、再跨过 `Tree`、最后才撞上
+     类型标注那个冒号）。**这一半实测是对的**：插桩看，那个对象字面量连它里面每一层括号的
+     `Context` 都从 `"type"` 变成 `"value"`。
+   - **`IsTypePosition` 里「括号里的第一个 `{`」那一支放宽到 `[`**，而 `[` 那一档**读它自己的
+     `Context`**（第 849 / 855 两轮记下的「另一条路不成立」正是因为上面那一半还没修）。
+     这一半也当场成立：`type T = [{ a: 1 }]` 转绿、`const a = [{ b: 1 }]` / `f([{ a: 1 }])` /
+     `const tree: Tree = { …, kids: [{ … }] }` 三档逐格不动，`cases:tsast` 缺 0 漂 0 多 0。
+
+   **代价**：`coverage` **4010 → 4007**、blocked **43 → 47**——掉下去的四条**全是解构**：
+
+       runtime/round762/001-destructuring-and-spread   unimplemented: expression TypeLiteral
+       runtime/values/202-nested-destructuring-defaults  ast node BindingElement has no child name
+       e2e/scenarios/067-destructuring-and-spread        ast node BindingElement has no child name
+       exec/round711/001-call-chain-then-member          unimplemented: expression TypeLiteral
+
+   **两半分不开**：只留冒号那一半（把元组那一支用 `&& false` 关掉）**照样掉**——
+   而元组那一支又**必须**有冒号那一半（`kids: [...]` 那个 `[` 的 `"value"` 是从外层 `{`
+   的 `Context` 传下来的）⇒ 要么一起要、要么一起不要，所以整份撤回。
+
+   **没查完的那一格**（下一轮的第一站）：四条掉的都是**解构**，症状是某个 `{ … }`
+   （绑定模式的括号）翻成了值 / 类型。逐对量「改前 / 改后」的括号 `Context` 序列是本轮
+   试过的手法，但**第一版比对脚本把补丁打到了两份拷贝上**（比的是同一份、因此「零差异」），
+   要重做：一份**去掉**冒号那一支、一份留着，逐条对齐找出**第一个翻面的括号**。
+
+   **在那一格量清楚之前，这一支不要再整份试第三次**。
