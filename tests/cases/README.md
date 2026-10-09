@@ -161,9 +161,9 @@ console.log(Box.of(1));
 | 动机 | 「免得把控制台渲染那一族的已知缺口混进来」——即**隔离打印层**，让每条只暴露一个语义差额 |
 | 首现 | 第 692 轮（其一）：**385 条**（其中原子探针 299 条），分母 3992 → 4377 |
 | 之后逐批 | 692（其二）150 · 692（其三）103 · 693 **555** · 694 **242** · 695 150 · 696 152 · 697 159 · 698 85 · 699 202 · 700 158 · 701 100 · 706 133 · 707 117 · 708 81 · 709 56 · 710 49 · 711 26 |
-| 现状（第 789 轮（二）之后） | git 跟踪 **1278 条**（第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111） |
+| 现状（第 789 轮（三）之后） | git 跟踪 **1183 条**（第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96） |
 
-**它当时的收益是真的**：每一批都当场收掉几处根因，覆盖度从 3697/3992 一路推到 5090/5427。
+**它当时的收益是真的**：每一批都当场收掉几处根因，覆盖度从 3697/3992 一路推到目前的 5029/5427。
 **它的代价是现在才显出来的**：同一判定点被**逐批重抄**——第 692 轮抄一遍、693 再抄一遍、
 697 又抄一遍（`probe2` / `probe693` / `probe694` / `probe695` / `probe697` / `probe700` /
 `probe703` / `probe704` / `probe705` / `probe-j`），于是：
@@ -183,6 +183,32 @@ console.log(Box.of(1));
 也就是说：**探针这个方法要留，探针的重复不要留。**
 
 ## 分母里有什么（数字是最近一次全量实测）
+
+**第 789 轮（三）的合并**（**`exec/statements` 按判定点重排**）：这个域 172 条里有 **96 条**
+`probe*` 命名（第 692 / 693 / 698 / 701 四批重抄：`probe2-c*` / `probe693b-s*` / `probe698-e*` /
+`probe701-c-e*`，光 `switch` 就被测了四遍）。按判定点并成 **10 条规则用例**——删 **96** 条、添 **10** 条：
+语料 **5527 → 5441**、判过 **5513 → 5427**、过 **5115 → 5029**（净少 **86**），
+**blocked 260 / differ 138 / bad 0 一处没动**，`MOVED` / `NEWLY-PASSING` / `REGRESSION` 全 0。
+域内 **172 → 86**、`probe*` 命名清零。
+
+| 新条 | 判定点 | 吸收的探针 |
+| --- | --- | --- |
+| `statements/076-loop-forms-and-labels` | 循环与标签：`for` / `while` / `do-while`、`continue` / `break` 与带标签的跳转 | `p-label-continue`、`probe2-c03·c12`、`probe693b-s01·s02·s03·s07…s11·s19·s38·s39·s40·s45`、`probe698-e04·e05·e10`、`probe701-c-e04·e05·e06·e10·e31·e32·e37·e39`（27 条） |
+| `statements/077-switch-statements` | `switch`：穿透 / `default` 的位置 / 严格相等 / 标签 `break` | `p-switch-default-middle`、`probe2-c07`、`probe693b-s12·s13·s15·s26`、`probe698-e07`、`probe701-c-e01·e02·e03·e30·e36` |
+| `statements/078-try-catch-finally` | `try` / `catch` / `finally`：返回值的覆盖、`finally` 与 `continue`·`break` 的次序、不绑名的 `catch` | `probe2-c02·c09·c10·c11·c14·c15`、`probe693b-s16·s17·s18`、`probe698-e02·e08·e09`、`probe701-c-e07·e08·e09·e14·e27·e29·e35·e38` |
+| `statements/079-labeled-statements` | 带标签的语句：块 / `if` / `while` / `try` / `switch` / `for-of` / `do-while` 上的 `break` | `probe693b-s20…s29`、`probe701-c-e11` |
+| `statements/080-comma-and-empty-statements` | 逗号表达式与空语句（含块级遮蔽与 `var` 提升） | `probe693b-s32…s37·s41·s42·s44` |
+| `statements/081-for-in-and-for-of` | `for-in` 与 `for-of`：键的次序、原型链上的可枚举、字符串按码位 | `probe2-c06`、`probe693b-s04·s05·s06`、`probe701-c-e19…e23` |
+| `statements/082-callback-and-generator-bodies` | 语句位上的回调与生成器 | `probe701-c-e24·e25·e26·e33` |
+| `statements/083-error-objects-in-catch` | `catch` 里的错误对象那一格 | `probe701-c-e15·e18·e40` |
+| `statements/084-switch-case-block-blocked` | `case` 后面跟一个裸块（账） | `probe693b-s14` |
+| `statements/085-block-function-hoisting-differ` | 块里函数声明的提升（账） | `probe693b-s30` |
+
+**两种口径对拍**：`--category exec --filter statements/` 批量与 `--no-batch`
+（一条一个进程的权威口径）**逐项相同**：**86 条判过 · 82 过 · blocked 3 · differ 1 · bad 0**
+——域内两张账的**条数**与并之前逐项相同：这一域本来就有一条 blocked 与一条 differ，
+被吸收的那 96 条里另有一条 blocked（`s14`）与一条 differ（`s30`），
+它们各并成一条同根账（`084` / `085`），合计仍是 3 条 blocked、1 条 differ。八道门全绿。
 
 **第 789 轮（二）的合并**（**`stdlib/map-set` 与 `stdlib/string` 两个域按判定点重排**）：
 `map-set` 248 条里有 **113 条** `probe*` / `p-map-*`（692 / 693 / 694 / 696 / 703 / 705 六批重抄），
@@ -273,11 +299,11 @@ console.log(Box.of(1));
 `round706/` **15 条判过 · 14 过 · blocked 1 · differ 0 · bad 0**。八道门全绿；
 runtime:check 243 条、runtime:cli 79 份一致、cases:check 1407 条 0 不合格、cases:tags 4748 条断言 0 不一致。
 
-**下一步的收网面（写在这里，别再翻一遍语料找）**：`probe*` 命名还剩 **1278 条**，最密的几个域是
-`exec/statements`（96 条）、`exec/round708`（81 条）、`runtime/iterators`（73 条）、
-`exec/iterators`（52 条）、`stdlib/error`（53 条）、`exec/destructuring-spread`（49 条）、
-`stdlib/math`（44 条）、`runtime/async`（40 条）、`stdlib/console`（38 条）、
-`exec/round709`（35 条）、`runtime/exceptions`（34 条）、`runtime/round742`（34 条）——
+**下一步的收网面（写在这里，别再翻一遍语料找）**：`probe*` 命名还剩 **1183 条**，最密的几个域是
+`exec/round708`（81 条）、`runtime/iterators`（73 条）、`stdlib/error`（53 条）、
+`exec/iterators`（52 条）、`exec/destructuring-spread`（49 条）、`stdlib/math`（44 条）、
+`runtime/async`（40 条）、`stdlib/console`（38 条）、`exec/round709`（35 条）、
+`runtime/exceptions`（34 条）、`runtime/round742`（34 条）、`stdlib/round719`（26 条）——
 手法与这一轮相同：**同一个域一次走完**
 （先分判定点家族，再一个家族一个文件；只有逐字节相同的正文才算同一条）。
 
@@ -480,26 +506,27 @@ ToPrimitive 的探针因此并进了**新条**而不是它——账不被稀释�
 **blocked / differ / bad 三条账一处没动**（合并只去重复，不改判据）。
 即：**分母里那 1549 条水挤掉了，判定力一条没少**。
 
-**语料 5527 条**（token 1407 / exec 1134 / runtime 1115 / stdlib 1624 / e2e 246），判过 **5513** 条。
+**语料 5441 条**（token 1407 / exec 1048 / runtime 1115 / stdlib 1624 / e2e 246），判过 **5427** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1394 | **1177** | 217 / 0 | 缺的那 217 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 1134 | **1094** | 10 / 30 | 另有 1 条不进分母 |
+| `exec` | 1048 | **1008** | 10 / 30 | 另有 1 条不进分母 |
 | `runtime` | 1115 | **1064** | 6 / 45 | |
 | `stdlib` | 1624 | **1538** | 23 / 63 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **5513** | **5115** | 260 / 138 | 加权 **94.3%** |
+| **合计** | **5427** | **5029** | 260 / 138 | 加权 **94.3%** |
 
-（第 789 轮（二）那一版是 5513 / 5115（blocked 260 / differ 138：两处净变化都是「同根合并」，
+（第 789 轮（三）那一版是 5427 / 5029 —— **blocked 260 / differ 138 与上一版逐项相同**，
+第 789 轮（二）那一版是 5513 / 5115（blocked 260 / differ 138：两处净变化都是「同根合并」，
 见上面那一节），第 789 轮那一版是 5706 / 5317 —— **blocked 263 / differ 140 与上一版逐项相同**，
 第 788 轮（三）那一版是 5987 / 5584，第 788 轮（二）那一版是 6015 / 5612，
 第 788 轮那一版是 6120 / 5717，
 第 787 轮（三）那一版是 6376 / 5972，
 第 787 轮（二）那一版是 6447 / 6043，
 第 787 轮那一版是 6508 / 6104，第 786 轮那一版是 6676 / 6272，
-第 784 轮那一版是 6750 / 6346、第 783 轮那一版是 6810 / 6406——十一版的
+第 784 轮那一版是 6750 / 6346、第 783 轮那一版是 6810 / 6406——十二版的
 `blocked` / `differ` **逐项相同**：分母小了，加权读数跟着轻降，这就是上面那句
 「不是退化」的实例。）
 

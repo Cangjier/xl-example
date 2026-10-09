@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 5513,
+  "total": 5427,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.34,
+  "progressPercent": 94.26,
   "categories": [
     {
       "category": "token",
@@ -90,12 +90,12 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1134,
-      "pass": 1094,
+      "total": 1048,
+      "pass": 1008,
       "blocked": 10,
       "differ": 30,
       "nodefail": 0,
-      "coverage": 96.47
+      "coverage": 96.18
     },
     {
       "category": "runtime",
@@ -1494,9 +1494,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
     },
     {
-      "id": "exec/statements/probe693b-s14",
+      "id": "exec/statements/084-switch-case-block-blocked",
       "category": "exec",
-      "title": "(function () { let s = \"\"; switch (1) { case 1: { s += \"x\"; break; } case 2: s += \"y\"; } return s; })()",
+      "title": "`switch` 的 `case` 后面跟一个裸块（账）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement Identifier"
     },
     {
@@ -1829,7 +1829,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29500/src/2147.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27552/src/2147.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1874,9 +1874,9 @@
       "detail": "stdout 不同：第 1 行：node «1 1» vs tsrun «[Function: m] 1»"
     },
     {
-      "id": "exec/statements/probe693b-s30",
+      "id": "exec/statements/085-block-function-hoisting-differ",
       "category": "exec",
-      "title": "(function () { for (let i = 0; i < 1; i++) { function g() { return 1; } } return typeof g; })()",
+      "title": "块里的函数声明在松散模式下的提升（账）",
       "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
     },
     {
@@ -2171,7 +2171,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29500/src/3879.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27552/src/3793.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2195,7 +2195,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29500/src/3929.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27552/src/3843.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2351,7 +2351,7 @@
       "id": "stdlib/round751/p751b-03",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29500/src/4887.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27552/src/4801.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/p751b-04",
