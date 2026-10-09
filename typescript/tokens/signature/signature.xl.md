@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { IsDeclarationTailStop } from "../declaration-common.xl.md"
+import { IsDeclarationModifier, IsDeclarationTailStop } from "../declaration-common.xl.md"
 import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousAnnotation, SkipPreviousWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "../class/class-body.xl.md"
@@ -304,8 +304,8 @@ return unit instanceof Bracket && unit.startBracket === "[";
 **这一格是「同一张表两处各写一份」的又一个落点**：`DeclarationStart` /
 `DeclarationModifiers` 用的是 `IsDeclarationModifier` 那张**权威词表**，
 而这里手写了一份近似 —— `override` / `accessor` / `in` / `out` 四个词就在差集里。
-这一轮按最小改动**只补量出来的那一个**（补成 `IsDeclarationModifier` 会一并放开
-另外三个，那需要各自量一遍）；下一轮若再遇到同族的词，就该把它换成权威词表。
+第一轮按最小改动只补了量出来的那一个；**同一轮第二轮把整张表换成 `IsDeclarationModifier`**
+（同一个问题两处各写一份就是两处会漂，见 `statement.xl.md` 第 556 / 555 轮的账）。
 
 ```ts
 const at = Get(units, index);
@@ -329,22 +329,13 @@ if (head instanceof SymbolToken && (head.Is(";") || head.Is(",") || head.Is("}")
   return true;
 }
 if (head instanceof Identifier || (head !== null && head.constructor.name === "Keyword")) {
-  const word = head instanceof Identifier ? head.TempToString() : (head as any).Value;
-  if (
-    word === "public" ||
-    word === "private" ||
-    word === "protected" ||
-    word === "static" ||
-    word === "readonly" ||
-    word === "abstract" ||
-    word === "override" ||
-    word === "async" ||
-    word === "get" ||
-    word === "set" ||
-    word === "declare" ||
-    word === "export" ||
-    word === "default"
-  ) {
+  // **词表换成 `IsDeclarationModifier` 那一份**（第 910 轮第二轮）：这里原来手写了一份
+  // 近似（`public` / `private` / `protected` / `static` / `readonly` / `abstract` / `async` /
+  // `get` / `set` / `declare` / `export` / `default`），而 `DeclarationStart` /
+  // `DeclarationModifiers` 用的是那张**权威词表** ⇒ 差集里的词（`override` / `accessor` /
+  // `in` / `out`）在这一格上答否。第一轮只补了量出来的 `override`；这一轮**换成同一份表**
+  // —— 同一个问题两处各写一份就是两处会漂（本仓第 556 / 555 轮各踩过一次）。
+  if (IsDeclarationModifier(head)) {
     return true;
   }
 }

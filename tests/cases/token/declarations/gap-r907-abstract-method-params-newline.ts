@@ -5,7 +5,8 @@
 //    而这里名字在上一行 ⇒ 那一问看不见 `m`，`()` 被抢成无名 `CallSignature`。
 //    补法与它下面「名字写在上一行」那一格**同一份判据**（`NameOnPreviousLine`）。
 // ② 那份判据的词表里**没有 `override`**（`abstract override m` 里名字前面正是它）
-//    ⇒ 一并补上。
+//    ⇒ 先补上它，再把整张手写的近似换成 `IsDeclarationModifier`（权威词表，
+//    与 `DeclarationStart` 收修饰词用的是同一份）。
 // xl:end
 abstract class B extends A { abstract override m
 ():void; }
