@@ -1,4 +1,6 @@
 // xl:note B-oneline 落点（657 审计语料）
-// xl:expect Keyword:3,Statement:3,Identifier:2,Bracket,Root,Switch,SwitchCase,SwitchCompare,SwitchSegment,SwitchStatement,TypeDefine
-// xl:known-gap 注释 / 换行落在语法相邻位置之间（B-oneline）：DRIFT CaseClause TS[13,31) 产物[13,47) «case 1: { break; }»
+// xl:expect Bracket,Identifier:2,Keyword:2,LineAnnotation:3,Root,Statement:6,Switch,SwitchCase,SwitchCompare,SwitchSegment:2,SwitchStatement:2
+// 第 841 轮转绿（`xl:known-gap` 按规矩撤掉，用例留着当守卫）：缺口原来是
+// `CaseClause` 漂到 `[13,47)` —— 段头前面紧挨着块括号、切点问 `:` 问不到
+//（`statement.xl.md` 的 `LastClauseHeadIndex`，第 841 轮把 `{` 那一档补进判据）。
 switch (1) { case 1: { break; } default: break; }

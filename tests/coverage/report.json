@@ -75,27 +75,27 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.66,
+  "progressPercent": 94.75,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1405,
-      "pass": 1364,
-      "blocked": 41,
+      "pass": 1369,
+      "blocked": 36,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 97.08
+      "coverage": 97.44
     },
     {
       "category": "exec",
       "weight": 0.25,
       "total": 788,
-      "pass": 748,
-      "blocked": 10,
+      "pass": 749,
+      "blocked": 9,
       "differ": 30,
       "nodefail": 0,
-      "coverage": 94.92
+      "coverage": 95.05
     },
     {
       "category": "runtime",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1405,
-    "knownGap": 41,
-    "knownGapStillOpen": 41,
-    "exactFiles": 1364,
-    "scoredWithoutGap": 1364,
-    "passedWithoutGap": 1364
+    "knownGap": 36,
+    "knownGapStillOpen": 36,
+    "exactFiles": 1369,
+    "scoredWithoutGap": 1369,
+    "passedWithoutGap": 1369
   },
   "blocked": [
     {
@@ -234,24 +234,6 @@
       "detail": "缺 3　注释 / 换行落在语法相邻位置之间（A-comment）：MISS MethodDeclaration TS[12,26) «* /*c*/ g() {}»"
     },
     {
-      "id": "token/statements/gap-b-oneline-01",
-      "category": "token",
-      "title": "B-oneline 落点（657 审计语料）",
-      "detail": "缺 2　漂 1　多 3　注释 / 换行落在语法相邻位置之间（B-oneline）：DRIFT CaseClause TS[13,31) 产物[13,47) «case 1: { break; }»"
-    },
-    {
-      "id": "token/statements/gap-b-oneline-02",
-      "category": "token",
-      "title": "B-oneline 落点（657 审计语料）",
-      "detail": "缺 3　漂 1　多 3　注释 / 换行落在语法相邻位置之间（B-oneline）：DRIFT CaseClause TS[13,31) 产物[13,46) «case 1: { break; }»"
-    },
-    {
-      "id": "token/statements/gap-b-oneline-03",
-      "category": "token",
-      "title": "B-oneline 落点（657 审计语料）",
-      "detail": "缺 3　漂 1　多 3　注释 / 换行落在语法相邻位置之间（B-oneline）：DRIFT DefaultClause TS[13,32) 产物[13,47) «default: { break; }»"
-    },
-    {
       "id": "token/statements/gap-c-optchain-nonnull-01",
       "category": "token",
       "title": "C-optchain-nonnull 落点（657 审计语料）",
@@ -328,18 +310,6 @@
       "category": "token",
       "title": "`do…while` 后面还跟着一条语句",
       "detail": "缺 3　多 1　那个 `while (a)` 被当成循环头，后面那条语句没被收进 `do` 那一格（缺 3）"
-    },
-    {
-      "id": "token/statements/stmt-switch-block-then-default",
-      "category": "token",
-      "title": "单行写完一个块，后面再跟 `default`",
-      "detail": "缺 2　漂 1　多 3　语句层把 `default:` 并进了同一个壳，而分段只在顶层单元上找 `case` / `default` ⇒ 只有一段（缺 2 漂 1 多 3）"
-    },
-    {
-      "id": "token/statements/stmt-switch-comment-fallthrough",
-      "category": "token",
-      "title": "`switch` 与它的判别括号之间夹一条注释 + `case` 落空",
-      "detail": "缺 5　漂 1　多 3　判别括号认不出 ⇒ `case 1:` 那一格整条落空（缺 5 漂 1 多 3）"
     },
     {
       "id": "token/types/mut-type-cond-generic-in-true-branch-152",
@@ -436,12 +406,6 @@
       "category": "exec",
       "title": "(function () { try { undefinedFn(); } catch (e) { return e.constructor.name; } })()",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
-    },
-    {
-      "id": "exec/statements/084-switch-case-block-blocked",
-      "category": "exec",
-      "title": "`switch` 的 `case` 后面跟一个裸块（账）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement Identifier"
     },
     {
       "id": "runtime/round741/009-optional-call-result-called-blocked",
@@ -761,7 +725,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12776/src/2012.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17216/src/2012.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1103,7 +1067,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12776/src/2995.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17216/src/2995.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1127,7 +1091,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12776/src/3043.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17216/src/3043.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1283,7 +1247,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12776/src/3686.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17216/src/3686.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
@@ -1462,6 +1426,11 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "exec/statements/084-switch-case-block-blocked",
+      "category": "exec"
+    }
+  ],
   "regressions": []
 }

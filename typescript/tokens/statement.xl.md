@@ -251,7 +251,14 @@ statement.TryToClose();
 
 两处细节：
 
-- **跨过软换行**（`SkipPreviousWrapSymbol`）：`switch (x)` 换行 `{` 是合法排法；
+- **跨过 trivia**（第 841 轮）：`switch (x)` 换行 `{` 是合法排法，而
+  `switch /* c */ (a) { … }` 与 `switch (a) /* c */ { … }` 在 TypeScript 里**同样是**
+  `switch` 语句（注释是 trivia）—— 与 `SwitchCloseRule.Previous` 一字不差的口径。
+  原先这里跨的是 `SkipPreviousWrapSymbol`（只跳软换行）⇒ 那两种排法下往回看到的是注释、
+  `WordOf` 给空串 ⇒ **体括号认不出** ⇒ 切壳那一支一次都不响 ⇒
+  `case 1: case 2: b();` 这种落穿写法两个段头进了同一条壳
+  （实测 `stmt-switch-comment-fallthrough`：`CaseClause` 漂到 `[21,48)`、
+  第二个 `CaseClause` 与 `b()` 整条落空，缺 5 漂 1 多 3）；
 - **词那一格用 `Statement.WordOf`**：`switch` 可能已经被升级成 `Keyword`
   （`KeywordCloseRule`），两种形态都要认（与 `SwitchCloseRule.WordOf` 同一口径）。
 
@@ -267,12 +274,12 @@ const at = holder.Data.indexOf(unit);
 if (at < 0) {
   return false;
 }
-const compareIndex = SkipPreviousWrapSymbol(holder.Data, at);
+const compareIndex = SkipPreviousTrivia(holder.Data, at);
 const compare = Get(holder.Data, compareIndex);
 if ((compare instanceof Bracket) === false || (compare as Bracket).startBracket !== "(") {
   return false;
 }
-const wordIndex = SkipPreviousWrapSymbol(holder.Data, compareIndex);
+const wordIndex = SkipPreviousTrivia(holder.Data, compareIndex);
 return Statement.WordOf(Get(holder.Data, wordIndex)) === "switch";
 ```
 
@@ -287,9 +294,23 @@ return Statement.WordOf(Get(holder.Data, wordIndex)) === "switch";
 1. **从 `frontIndex + 2` 起**：`frontIndex + 1` 是这一段的**段首** ——
    `case 1: f();` 的壳里就一个段头，从它起切会切出一条**空壳**；
 2. **只认顶层单元**：`f(case)` 里的那个词住在括号里面，不住在这一层，够不到；
-3. **前面紧挨着的实义单元是 `:`**：少了它，`case 1: obj.default = 1;` 的 `default`
-   （前面是 `.`）会被当成段头切开。判据用 `SkipPreviousTrivia`
+3. **前面紧挨着的实义单元是 `:` 或一个 `{` 块**：少了它，`case 1: obj.default = 1;` 的
+   `default`（前面是 `.`）会被当成段头切开。判据用 `SkipPreviousTrivia`
    （注释也算 trivia，`case 1: /* c */ case 2:` 这种排法也算）。
+
+**为什么那个 `{` 也算**（第 841 轮）：上一段的体要是**一个块**，
+段头前面那一格就是 `}` 而不是 `:` —— `switch (a) { case 1: { break; } default: break; }`
+里 `default` 前面紧挨着的是那个块括号。
+只看 `:` 时这一格找不到切点 ⇒ 壳从 `case 1:` 一路收到末尾那个 `;`
+⇒ **两段进同一条壳** ⇒ 顶层扫描只看得到第一个段头 ⇒ 只有一段
+（实测 `gap-b-oneline-0{1,2,3}` 与 `stmt-switch-block-then-default`：`CaseClause`
+漂到 `[13,47)`，`DefaultClause` / 第二个 `CaseClause` 整条缺、`default` 投成
+`ExpressionStatement > DefaultKeyword`，各缺 2~3 多 3）。
+**换行写法不受影响**：`case 1: { break; }` 换行 `default:` 里那个换行已经收过壳，
+两条壳本来就在顶层（实测同一形状的 `s8` 一直是绿的）。
+
+**只加不改**：原来那一档（前面是 `:`）一个字不动 —— 落穿写法
+（`case 1: case 2: b();`）与 `case 1: obj.default = 1;` 那一档都还走老路。
 
 ```ts
 let found = -1;
@@ -299,6 +320,12 @@ for (let i = frontIndex + 2; i < index; i++) {
     continue;
   }
   const before = Get(data, SkipPreviousTrivia(data, i));
+  // **上一段的体收在一个块里**：`case 1: { break; } default: …` 里 `default` 前面是 `}`
+  //（那一段没有 `;`，所以壳还没被切过）—— 与「前面是 `:`」同一档待遇。
+  if (before instanceof Bracket && (before as Bracket).startBracket === "{") {
+    found = i;
+    continue;
+  }
   if (before instanceof SymbolToken && before.Is(":")) {
     found = i;
   }

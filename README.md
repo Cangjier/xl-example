@@ -306,6 +306,47 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 841 轮：`switch` 分段的两个「差一格」——`B-oneline` 那一族收掉 5 条
+
+**一句话**：`switch` 的分段一直靠「**顶层单元里找段头**」，这一轮把它前面那两步判据各补一格。
+（1）**切壳那一支只认「段头前面紧挨着 `:`」**：上一段的体收在**块**里时（`case 1: { break; }`
+后面直接跟 `default:`，中间没有 `;`），段头前面那一格是 `}` 而不是 `:` ⇒ 找不到切点
+⇒ 壳从 `case 1:` 一路收到末尾那个 `;` ⇒ 两段进同一条壳 ⇒ 顶层扫描只看得到第一个段头（缺 2~3 漂 1 多 3）。
+（2）**`IsSwitchBodyBracket` 往回走的是 `SkipPreviousWrapSymbol`（只跳软换行）**：
+`switch /* c */ (a) { … }` 里它看到的是那条注释 ⇒ 体括号认不出 ⇒ 切壳这一支**一次都不响**
+（缺 5 漂 1 多 3）。两处补上之后 `cases:tsast` 的账 **41 → 36**
+（`coverage` **3958 → 3964**，`token` 那一类 blocked 82 → 76）。
+
+- **根一：切点把「上一段的体是个块」漏在外面**（`typescript/tokens/statement.xl.md` 的
+  `LastClauseHeadIndex`）。这个帮手只在**终结符落下的那一刻**被 `FormFrom` 问一次
+  （第 576 轮立的口径），它原来的三条判据里第三条是「前面紧挨着的实义单元是 `:`」——
+  那一格是为 `case 1: case 2: y();` 这种**落穿**写法立的。可上一段的体要是块，
+  段头前面就是 `}`：`switch (a) { case 1: { break; } default: break; }` 里
+  那个 `;` 是**最后**一段的终结符，那一刻列表里 `default` 前面紧挨着的是块括号
+  ⇒ `found = -1` ⇒ 一刀不切。补法只是**并列加一条**：前面是 `{` 开的括号也算段头前面那一格。
+  原来那一档（前面是 `:`）一个字没动 —— 落穿写法与 `case 1: obj.default = 1;`
+  那一档（前面是 `.`，第 574 轮实测 1027 → 1025 退回来的那一格）都还走老路。
+- **为什么不改语句层**：用例头原来那句记的是「块当语句边界的改法已被否决」——
+  让 `}` 结束一条语句是不行的（`f({}) g()` 那种排版在 TS 里也不是两条语句，
+  而块在**值位**与**语句位**是两种东西）。这一轮**没有**动语句层：
+  判据只落在 `switch` 体那一支上，而 `FormFrom` 早就把「体括号是不是 `switch` 的」
+  问成了 `IsSwitchBodyBracket`（第 576 轮），所以放宽的范围天然只覆盖 `switch` 体。
+- **根二：`IsSwitchBodyBracket` 该跨 trivia**（同一份文件）。它站在那个 `{` 上往回看
+  「前面是不是 `switch` 再一个 `(`」，而 `SwitchCloseRule.Previous` 认这条语句时
+  跨的是 **trivia**（第 595 轮：`switch /* c */ (a) { }` 与 `switch (a) /* c */ { }`
+  在 TypeScript 里都是 `switch` 语句）——两处口径不一致，症状是「**认得出、切不了**」：
+  `Previous` 把那一段收成 `Switch`，可切壳那一支一次不响 ⇒
+  `switch /* c */ (a) { case 1: case 2: b(); break; default: c(); }` 里
+  第一个 `CaseClause` 漂到 `[21,48)`、第二个 `CaseClause` 与 `b()` 整条落空。
+  两处 `SkipPreviousWrapSymbol` 改成 `SkipPreviousTrivia`，与 `Previous` 一字不差。
+- **收掉的 5 条**：`gap-b-oneline-0{1,2,3}`、`stmt-switch-block-then-default`、
+  `stmt-switch-comment-fallthrough`。五行 `xl:known-gap` 删掉；三条 `B-oneline` 的
+  `xl:expect` 按新形状重算（这一次标签真的动了：`TypeDefine` / 那个多出来的 `Identifier`
+  没了，换成 `SwitchSegment:2` / `SwitchStatement:2`；`cases:tags` 0 条不一致）。
+- **换行写法一直是绿的**：`case 1: { break; }` 换行 `default:` 里那个换行已经收过壳，
+  两条壳本来就在顶层 ⇒ 同一形状的多行版（探针 `s8`）从来没红过 —— 这一轮补的正是
+  「**单行**」那一格，`B-oneline` 这个前缀就是这么来的。
+
 ### 第 840 轮：**没体的环境模块 `declare module "mm";`**——`M-misc` 那一族收掉 2 条
 
 **一句话**：`ScanBody` 只认「名字后面有一个 `{`」那一档，而 TS 的 `AmbientModuleDeclaration`

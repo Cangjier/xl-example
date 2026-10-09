@@ -249,10 +249,10 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**41 条**）
+## 已知仍开着的缺口（**36 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
-（第 840 轮实测 **41**；第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
+（第 841 轮实测 **36**；第 818 轮那段分段口径写在下面，条数此后又收掉了一批）。
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
 文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
@@ -320,7 +320,7 @@
   `IsHeaderBodyBrace` 收下 `catch` / `finally`；`Statement.IsDeclarationPosition` 往回跳 trivia
   （但**行注释那一格不跳**——`//` 换行是一次 ASI，块注释不是）。
 
-**第三段（18 条）逐条**（它们不属于上面两族，各有各的根）：
+**第三段（16 条）逐条**（它们不属于上面两族，各有各的根）：
 
 | 用例 | 形状 | 症状 |
 | --- | --- | --- |
@@ -330,8 +330,6 @@
 | `expr-async-generic-arrow`、`-spaced`、`gap-d-generics-tuple-mapped-02` | `async <T>(x: T) => x` | `async` 与泛型段**谁先认领**没有定义（各缺 7–13） |
 | [mod-declare-module-shorthand.ts](../cases/token/modules/mod-declare-module-shorthand.ts) | `declare module "mm";` | 简写形态不成形（缺 2 多 1）；**带 `{}` 的那一条是好的** |
 | [stmt-do-while-then-statement.ts](../cases/token/statements/stmt-do-while-then-statement.ts) | `do {} while (a) b()` | `do…while` 后面还跟着一条语句时那一格没被收（缺 3） |
-| [stmt-switch-comment-fallthrough.ts](../cases/token/statements/stmt-switch-comment-fallthrough.ts) | `switch /* c */ (a) { case 1: case 2: … }` | 判别括号认不出 ⇒ `case 1:` 那一格整条落空（缺 5 漂 1 多 3） |
-| [stmt-switch-block-then-default.ts](../cases/token/statements/stmt-switch-block-then-default.ts) | `switch (1) { case 1: { break; } default: break; }` | 单行写完一个块再跟 `default`：语句层把 `default:` 并进了同一个壳，分段只在顶层单元上找 `case` / `default` ⇒ 只有一段。**换行写法是好的**（见根 README 的「开着的缺口」，块当语句边界的改法已被否决） |
 | [stmt-label-comment-before-call.ts](../cases/token/statements/stmt-label-comment-before-call.ts) | `a: b: c: d/* c */ ()` | 标签那一趟看到的是注释，最后一层标签没接上被标的语句（缺 1） |
 | [type-param-conditional-constraint.ts](../cases/token/types/type-param-conditional-constraint.ts) | `x extends A extends B ? C : D` | 约束位上的嵌套条件类型不成形（缺 10 / 字段 1） |
 | `type-asserts-toplevel`、`type-param-asserts-constraint` | `type T = asserts x is A` / `<X extends asserts x is A>` | 断言谓词只在返回类型那一位成形（各缺 5 多 2）：`TypePredicateCloseRule.Previous` 的「起点」只认容器第一个实义单元与紧跟 `=>`，而 `=` / `extends` 右边同样是合法类型位 |
@@ -360,6 +358,20 @@ TS 那边 `declare` 换行走 ASI），那一族没修、也不在语料里，�
 尾分号」补进区间（`ctx.SemicolonEndOf`，与第 838 轮同一份）。**类成员修饰词折行那一族
 （`gap-sweep-*-clsmod-01/03/04`）这一轮试过又整份撤回**，量到的读数与撤回的理由写在根 README
 那一轮（改法只修到「区间对了」，名字与 `modifiers` 那一格在更前面，得先动「谁被认成名字」）。
+
+**第 841 轮收掉的 5 条**：第三段里那两条 `switch`（`stmt-switch-comment-fallthrough`、
+`stmt-switch-block-then-default`，已从上面那张表里拿掉）+ 三条 `gap-b-oneline-0{1,2,3}`。
+两处根各差一格，都在 `typescript/tokens/statement.xl.md`：
+
+- `LastClauseHeadIndex` 的第三条判据原来只认「段头前面紧挨着 `:`」，而上一段的体收在**块**里时
+  段头前面是 `}` ⇒ 切点找不到（补一条并列：前面是 `{` 开的括号也算）；
+- `IsSwitchBodyBracket` 往回走的是 `SkipPreviousWrapSymbol`（只跳软换行），
+  而 `SwitchCloseRule.Previous` 认这条语句时跨的是 trivia（第 595 轮）⇒
+  `switch /* c */ (a) { … }` 里体括号认不出、切壳一次不响（两处改成 `SkipPreviousTrivia`）。
+
+**没有动语句层**：用例头原来记的「块当语句边界的改法已被否决」仍然成立 ——
+放宽的只是 `switch` 体那一支（`IsSwitchBodyBracket` 早就把宿主问出来了）。
+三条 `B-oneline` 的 `xl:expect` 按新形状重算，账从 **41 → 36**。
 
 **怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。
