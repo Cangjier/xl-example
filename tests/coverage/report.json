@@ -1,6 +1,6 @@
 {
-  "round": "",
-  "total": 8223,
+  "round": "784",
+  "total": 6750,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,47 +75,47 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.27,
+  "progressPercent": 94.83,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1414,
-      "pass": 1197,
+      "total": 1394,
+      "pass": 1177,
       "blocked": 217,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 84.65
+      "coverage": 84.43
     },
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2217,
-      "pass": 2174,
-      "blocked": 12,
-      "differ": 31,
+      "total": 2088,
+      "pass": 2047,
+      "blocked": 11,
+      "differ": 30,
       "nodefail": 0,
-      "coverage": 98.06
+      "coverage": 98.04
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1145,
-      "pass": 1094,
+      "total": 1116,
+      "pass": 1065,
       "blocked": 6,
       "differ": 45,
       "nodefail": 0,
-      "coverage": 95.55
+      "coverage": 95.43
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3201,
-      "pass": 3107,
-      "blocked": 28,
-      "differ": 66,
+      "total": 1906,
+      "pass": 1815,
+      "blocked": 26,
+      "differ": 65,
       "nodefail": 0,
-      "coverage": 97.06
+      "coverage": 95.23
     },
     {
       "category": "e2e",
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1414,
+    "total": 1394,
     "knownGap": 217,
     "knownGapStillOpen": 217,
-    "exactFiles": 1197,
-    "scoredWithoutGap": 1197,
-    "passedWithoutGap": 1197
+    "exactFiles": 1177,
+    "scoredWithoutGap": 1177,
+    "passedWithoutGap": 1177
   },
   "blocked": [
     {
@@ -1470,15 +1470,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling an object as a constructor (this object is not callable)"
     },
     {
-      "id": "exec/round706/p706b-d09",
+      "id": "exec/round706/003-defineproperty-is-object-walks-topropertykey",
       "category": "exec",
       "title": "defineProperty 的键是对象时走 ToPropertyKey",
-      "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
-    },
-    {
-      "id": "exec/round706/p706c-x12",
-      "category": "exec",
-      "title": "defineProperty 对象键走 toString",
       "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
     },
     {
@@ -1500,16 +1494,16 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: x"
     },
     {
+      "id": "exec/statements/075-catch-undefined-function-error-name",
+      "category": "exec",
+      "title": "(function () { try { undefinedFn(); } catch (e) { return e.constructor.name; } })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
+    },
+    {
       "id": "exec/statements/probe693b-s14",
       "category": "exec",
       "title": "(function () { let s = \"\"; switch (1) { case 1: { s += \"x\"; break; } case 2: s += \"y\"; } return s; })()",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement Identifier"
-    },
-    {
-      "id": "exec/statements/probe701-c-e17",
-      "category": "exec",
-      "title": "(function () { try { undefinedFn(); } catch (e) { return e.constructor.name; } })()",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
     },
     {
       "id": "runtime/round741/p741a-a09",
@@ -1564,12 +1558,6 @@
       "category": "stdlib",
       "title": "(function () { class M extends Error {} const m = new M(\"x\"); return [m.name, m.message, m instanceof Error].join(\",\"); })()",
       "detail": "tsrun: 还没实现的构造或语言层错误：heap object is not an environment"
-    },
-    {
-      "id": "stdlib/error/probe697-e17",
-      "category": "stdlib",
-      "title": "(function () { try { undefinedFn(); } catch (e) { return e.constructor.name; } })()",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
     },
     {
       "id": "stdlib/globals/006-regexp-literal-basic",
@@ -1630,12 +1618,6 @@
       "category": "stdlib",
       "title": "宿主 ABI：setTimeout（单文件 tsrun 只给微任务那一档）",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: setTimeout"
-    },
-    {
-      "id": "stdlib/object/probe693-o44",
-      "category": "stdlib",
-      "title": "Object.prototype.toString.call(/a/)",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
       "id": "stdlib/object/probe704-o-d28",
@@ -1871,7 +1853,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28772/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29880/src/3073.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1880,22 +1862,16 @@
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
     },
     {
-      "id": "exec/round709/p709a-a16",
-      "category": "exec",
-      "title": "严格函数读 arguments",
-      "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «string:undefined»"
-    },
-    {
-      "id": "exec/round709/p709a-a19",
+      "id": "exec/round709/001-function-at-strict-blockin",
       "category": "exec",
       "title": "函数声明在严格模块里",
       "detail": "stdout 不同：第 1 行：node «string:length,name,prototype» vs tsrun «string:length,name,arguments,caller,prototype»"
     },
     {
-      "id": "exec/round709/p709d-d06",
+      "id": "exec/round709/p709a-a16",
       "category": "exec",
-      "title": "严格函数的自有名字表",
-      "detail": "stdout 不同：第 1 行：node «string:length,name,prototype» vs tsrun «string:length,name,arguments,caller,prototype»"
+      "title": "严格函数读 arguments",
+      "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «string:undefined»"
     },
     {
       "id": "exec/round724/p724a-b02",
@@ -2219,7 +2195,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28772/src/5318.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29880/src/4834.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2243,7 +2219,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28772/src/5368.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29880/src/4884.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2399,7 +2375,7 @@
       "id": "stdlib/round751/p751b-03",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28772/src/7276.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-29880/src/6020.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/p751b-04",
@@ -2558,22 +2534,16 @@
       "detail": "stdout 不同：第 11 行：node «object match function» vs tsrun «object match undefined»"
     },
     {
+      "id": "stdlib/string/202-abc-search-b",
+      "category": "stdlib",
+      "title": "\"abc\".search(\"b\")",
+      "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
+    },
+    {
       "id": "stdlib/string/probe693-y29",
       "category": "stdlib",
       "title": "\"aBc\".localeCompare(\"abc\") < 0",
       "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
-    },
-    {
-      "id": "stdlib/string/probe693-y30",
-      "category": "stdlib",
-      "title": "\"abc\".search(\"b\")",
-      "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
-    },
-    {
-      "id": "stdlib/string/probe703-s-e35",
-      "category": "stdlib",
-      "title": "\"abc\".search(\"b\")",
-      "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
     },
     {
       "id": "stdlib/string/probe703-s-e36",

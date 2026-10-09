@@ -9,3 +9,9 @@ class C {
   show() { return this.a + this.b + this.c; }
 }
 console.log(new C(1).show(), Object.keys(new C(1)).join(","));
+class D {
+  constructor(public a: number, private b: string, readonly c = true) {}
+  dump() { return this.a + "|" + this.b + "|" + this.c; }
+}
+const d = new D(1, "x");
+console.log(d.dump(), d.a, d.c);
