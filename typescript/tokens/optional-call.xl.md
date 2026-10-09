@@ -4,7 +4,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Method } from "./method.xl.md"
@@ -157,22 +157,34 @@ return false;
 （左边是 `.`），不在这一档里——生成器的 `it.return()` 遍地都是，不能一起挡掉。
 `this` / `super` / 字面量**不进名单**：它们可以是链的**头**（`this.x?.()`）。
 
+**往左走要跨 trivia**（第 828 轮，与第 817 / 818 轮同一条口径）：`a/*c*/?.b?.[c]?.(d)`
+里 `a` 与 `?.` 之间夹着一条注释，原来按「紧邻那一格」走 ⇒ 走到注释上就停（它不是链环）
+⇒ 被调者链**只剩下三个 NCO**、`name` 空着、`a` 留在 `Method` 外面（实测缺 `CallExpression`
+/ `PropertyAccessExpression` / `ElementAccessExpression` 与三个 `Identifier`，共 9 条）。
+**注释与软换行在这里是同一件事**：链环之间夹一条注释（`a/*c*/?.b`）与夹一个换行
+（`a` 换行 `?.b`）都还是同一条链——所以「上一个链环」一律用 `SkipPreviousTrivia`
+（跨过软换行**与注释**），而不是 `SkipPreviousWrapSymbol`。
+`o.return?.()` 那一问（「左边那一格是不是点号」）同样要跨 trivia：注释夹在 `.` 与
+`return` 之间时那一格仍是属性名。
+
 ```ts
 let start = index;
 while (start - 1 >= 0) {
-  const before = Get(units, start - 1);
+  const beforeIndex = SkipPreviousTrivia(units, start);
+  const before = Get(units, beforeIndex);
   if (this.IsChainLink(before) === false) {
     break;
   }
   if (before instanceof Identifier
     && OptionalCallCloseRule.NonChainWords.has(before.TempToString())) {
-    const dot = start - 2 >= 0 ? Get(units, start - 2) : null;
+    const dotIndex = SkipPreviousTrivia(units, beforeIndex);
+    const dot = Get(units, dotIndex);
     const afterDot = dot instanceof SymbolToken && (dot.Is(".") || dot.Is("?."));
     if (afterDot === false) {
       break;
     }
   }
-  start = start - 1;
+  start = beforeIndex;
 }
 return start;
 ```

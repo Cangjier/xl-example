@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.14,
+  "progressPercent": 94.19,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1394,
-      "pass": 1305,
-      "blocked": 89,
+      "pass": 1309,
+      "blocked": 85,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 93.62
+      "coverage": 93.9
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1394,
-    "knownGap": 89,
-    "knownGapStillOpen": 89,
-    "exactFiles": 1305,
-    "scoredWithoutGap": 1305,
-    "passedWithoutGap": 1305
+    "knownGap": 85,
+    "knownGapStillOpen": 85,
+    "exactFiles": 1309,
+    "scoredWithoutGap": 1309,
+    "passedWithoutGap": 1309
   },
   "blocked": [
     {
@@ -444,18 +444,6 @@
       "detail": "缺 4　多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/ifelse）：FIELD IfStatement [0,34) 产物[expression,thenStatement] TS[elseStatement,expression,thenStatement] «if (a) /*"
     },
     {
-      "id": "token/statements/gap-sweep-comment-optchain-01",
-      "category": "token",
-      "title": "SWEEP-comment/optchain 落点（657 审计语料）",
-      "detail": "缺 9　注释 / 换行落在语法相邻位置之间（SWEEP-comment/optchain）：MISS CallExpression TS[10,29) «a/*c*/?.b?.[c]?.(d)»"
-    },
-    {
-      "id": "token/statements/gap-sweep-comment-optchain-02",
-      "category": "token",
-      "title": "SWEEP-comment/optchain 落点（657 审计语料）",
-      "detail": "缺 6　注释 / 换行落在语法相邻位置之间（SWEEP-comment/optchain）：DRIFT PropertyAccessExpression TS[10,14) 产物[10,19) «a?.b»"
-    },
-    {
       "id": "token/statements/gap-sweep-linecomment-async-01",
       "category": "token",
       "title": "SWEEP-linecomment/async 落点（657 审计语料）",
@@ -502,18 +490,6 @@
       "category": "token",
       "title": "SWEEP-linecomment/ns 落点（657 审计语料）",
       "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/ns）：MISS VariableStatement TS[14,37) «export //c const a = 1;»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-optchain-03",
-      "category": "token",
-      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
-      "detail": "缺 9　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：MISS CallExpression TS[10,28) «a//c ?.b?.[c]?.(d)»"
-    },
-    {
-      "id": "token/statements/gap-sweep-linecomment-optchain-04",
-      "category": "token",
-      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
-      "detail": "缺 6　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：DRIFT PropertyAccessExpression TS[10,14) 产物[10,18) «a?.b»"
     },
     {
       "id": "token/statements/gap-sweep-linecomment-switch-01",
@@ -1049,7 +1025,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27016/src/2001.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6776/src/2001.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -1391,7 +1367,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27016/src/2984.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6776/src/2984.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -1415,7 +1391,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27016/src/3032.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6776/src/3032.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1571,7 +1547,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27016/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-6776/src/3675.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
