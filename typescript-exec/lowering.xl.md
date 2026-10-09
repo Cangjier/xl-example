@@ -5908,7 +5908,20 @@ const missing = this.RtCall2(RtOp.CmpEqStrict, current, undefinedConst);
 const skip = this.Here();
 // 极性：`missing` 为假（传了值）就跳过默认值那一段。
 this.Emit(Op.JumpIfFalse, missing, 0, -1, -1);
+// **默认值那一格也是命名位置**（第 882 轮）：JS 的 NamedEvaluation 在
+// `Initializer : = AssignmentExpression` 那一支上要的是**被绑定名字的文本**——
+// `function f(a = function () {}) {}` 里那个匿名函数叫 **`"a"`**（判据
+// `exec/round778/001-default-param-function-expression`：Node 给 `"f"`，本仓给 `""`）。
+// **与字段初始化式那一处共用同一条判据**（`EmitFieldInit` 的 `nameHint`：
+// 「值在不在命名位置上」由 `NamesFunctionValue` 答，名字由调用方给）——
+// 两处各写一遍的话，改一处就只改到一半（那一格注释里记着同一条教训）。
+// **`name` 这一格只有普通标识符形参才有文本**：解构形参传进来的是空串，
+// 而 JS 那边 `function f({q} = function () {}) {}` 里那个函数本来也**不取名**
+//（绑定模式那一支没有 NamedEvaluation）⇒ 空串这一档正好落回匿名，不用再判一次。
+const savedHint = this.FunctionNameHint;
+this.FunctionNameHint = this.NamesFunctionValue(initializer) ? name : "";
 const value = this.LowerExpression(initializer);
+this.FunctionNameHint = savedHint;
 if (access.InEnv) {
   this.Emit(Op.EnvSet, value, access.Depth, access.Cell, -1);
 } else {

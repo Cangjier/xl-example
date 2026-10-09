@@ -16,10 +16,13 @@
 // 对象访问器给 `"get g"`、类成员给类给的键），`bind` 出来的再加 `"bound "` 前缀；
 // 箭头函数与简写方法**没有** `prototype`。这一条把这几档逐一钉住。
 //
-// **第 20 行原来是「默认实参里的函数表达式」**（`function (f: any = function () {}) { return f.name }`）
-// ——那一格当场把整份文件带走（`unimplemented: expression FunctionDeclaration`，
-// 见 `token/round778/r778g-01` 那条投影层缺口）。**这一条只留全对的那几档**，
-// 缺口在那一份 token 语料里单独记着；缺口收掉之后把那一行接回来即可。
+// **原来记着「默认实参里的函数表达式」那一格**（`function (f: any = function () {}) { return f.name }`）
+// ——那一格当场把整份文件带走（`unimplemented: expression FunctionDeclaration`）。
+// **第 882 轮两条根因都收掉了**（投影：`lamda-parameter.xl.md` 的 `PrintAst` 改走
+// `ctx.Expression`；降级：`LowerParamDefault` 补上 NamedEvaluation 的名字）⇒
+// 那一格已经在 `tests/cases/exec/round882/001-param-default-named-evaluation.ts` 里
+// **单独钉住**（八种可调用体 + 一个解构反例），所以这条用例不再把它接回来
+// ——同一条判据放两处只会漂。
 const show = (v: any): string => (typeof v === "string" ? JSON.stringify(v) : String(v));
 const constArrow = () => 1;
 console.log('01 const 箭头', show(constArrow.name));

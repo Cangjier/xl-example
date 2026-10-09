@@ -306,6 +306,46 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 882 轮：形参默认值那一格——投影走了「取一格当节点」、降级没把它当命名位置（blocked → 全过）
+
+**一句话**：`function withDefault(f: any = function () { return 16; }) { return f.name; }`
+第 778 轮量出来时**整份文件进不来**（`unimplemented: expression FunctionDeclaration`）；
+这一轮两条根因一起收掉，`tsrun` 与 `node` 逐字节相同。**两条根因是两件事，缺一不可**：
+
+**① 投影**（[lamda-parameter.xl.md](typescript/tokens/lamda/lamda-parameter.xl.md) 的 `PrintAst`）：
+默认值那一格走的是「取一格当节点」（`ctx.Project(init)`），**它不置 `ctx.expressionPosition`**
+⇒ 那个 `function () { … }` 按产物标签投成了 `FunctionDeclaration`，降级层当然不认。
+**分界不是「函数表达式」**：`const f = function () {}` / `(function () {})()` / **当实参**那一格
+都是好的（那几处早就走 `projectExpression`）——差的只有**形参默认值**这一格。
+修法是与 `projectBindingElement` 的默认值那一支**对齐成同一条口径**：改走 `ctx.Expression(...)`。
+两处问的既然是同一件事（「这个默认值是不是表达式」），写两份必然会漂。
+顺带把「默认值加个括号」那一格（第 681 轮）也交给同一条路——`projectExpression` 自己认
+「单个 `(` 括号 ⇒ `ParenthesizedOf`」，这里不再单列一支。
+
+**② 降级**（[lowering.xl.md](typescript-exec/lowering.xl.md) 的 `LowerParamDefault`）：
+①修好之后**名字仍是空的**——JS 的 `NamedEvaluation` 在 `Initializer : = AssignmentExpression`
+那一支上要的是**被绑定名字的文本**，所以 `function f(a = function () {}) {}` 里那个匿名函数叫
+**`"a"`**。**与字段初始化式那一处共用同一条判据**（`EmitFieldInit` 的 `nameHint`：
+「值在不在命名位置上」由 `NamesFunctionValue` 答、名字由调用方给）。
+**解构形参不给名**（`function f({ q } = function () {}) {}` 在 JS 里那个函数本来就是匿名的），
+而那一档 `name` 传进来正好是空串 ⇒ 落回匿名，不用再判一次。
+
+**实测**（新用例 `exec/round882/001-param-default-named-evaluation`，八种可调用体各一格）：
+函数声明 / 箭头 / 对象方法 / 类表达式 / 嵌套箭头 / **加括号的** / **自带名字的**
+（`function named(){}` ⇒ `"named"`，自己的名字优先）**全部与 `node` 逐字节相同**，
+外加一个**解构反例**（`i({ q } = function () {})` 两边都给 `undefined`——
+默认值被忽略、拆的是那个函数对象自己）。
+`cases:tsast` 16/16 片、四方向 0、已知缺口 0；`cases:check` 1466/1466、
+`cases:tags` 4920 条断言 0 条不一致、`cases:shapes` 未覆盖 0；
+`coverage` **4050 → 4052 / 4229**（exec **751/790 → 753/791**、blocked **40 → 39**、
+differ 138、bad 0、加权 **95.11% → 95.17%**）；`runtime:*` / `samples` 全过 ⇒ **八道门全绿**。
+
+**这一轮的两条经验**：① **「一个标签、两种语义」的地方，判据只有一份**——
+`Function` / `Class` 在声明位与表达式位同名不同 kind，靠的是**谁在投它**（`ctx.expressionPosition`），
+所以凡是从产物标签直接 `Project` 的地方都要先问一句「这一格在表达式位吗」；
+② **同一条形状的两个落点要一起修**：这一格修好投影只把 `blocked` 变成 `differ`，
+名字那一半不补上，用例照样是红的（`coverage` 那一行把这条差额如实印了出来）。
+
 ### 第 881 轮：第 869 轮普查的最后两格一起收掉——`import m = ⏎ require("m")` 与 `abstract new /*c*/ () => X`（known-gap 2 → 0）
 
 **一句话**：两条登记的缺口各自收掉，**已知缺口清单第一次清空**。两条的根因都不是
@@ -4931,7 +4971,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1453 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4050 / 4228**，加权 **95.13%**：token **1453/1453**、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 40 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4052 / 4229**，加权 **95.17%**：token **1453/1453**、exec **753/791**、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 39 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 

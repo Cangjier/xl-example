@@ -96,10 +96,21 @@ TS 那边是一个文本就是那个词的 `Identifier`（真实语料 `Paramete
     // 走的是「取一格当节点」那条路——与解构默认值那一处**必须同一口径**
     // （`projectBindingElement` 走的是 `ctx.Expression`，它内部认括号）。
     const init = body[eq + 1];
+    // **默认值要走表达式那一条路**（第 882 轮）：`ctx.Project(init)` 是「取一格当节点」，
+    // 它**不置 `ctx.expressionPosition`** ⇒ 默认值位那个 `function () { … }` 被投成
+    // `FunctionDeclaration`，降级层当场报 `unimplemented: expression FunctionDeclaration`
+    //（**整份文件进不来**，实测 `exec/round778/001-default-param-function-expression-blocked`：
+    //  `function withDefault(f: any = function () { return 16; }) { return f.name; }`，Node 给 `"f"`）。
+    // 分界不是「函数表达式」——`const f = function () {}` / `(function () {})()` / 当实参那一格
+    // 都是好的（那几处早就走 `projectExpression`），差的只有**形参默认值**这一格。
+    // `projectBindingElement` 的默认值那一支（同一件事的另一面：`{ a = function () {} }`）走的就是
+    // `projectExpression(rest, ctx)`，这里与它对齐成**同一条口径**——两处只有一份答案。
+    // 顺带把「默认值加个括号」那一格（第 681 轮）也交给同一条路：`projectExpression`
+    // 自己认「单个 `(` 括号 ⇒ `ParenthesizedOf`」（见那一处），不再需要这里单列一支。
     props.initializer =
       init.get("type") === "Bracket" && init.get("startBracket") === "("
         ? ctx.ParenthesizedOf(init)
-        : ctx.Project(init);
+        : ctx.Expression(body.slice(eq + 1));
   }
   if (dots !== undefined) {
     props.dotDotDotToken = {
