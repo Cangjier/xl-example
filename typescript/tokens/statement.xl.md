@@ -18,7 +18,7 @@ import { Foreach } from "./foreach/foreach.xl.md"
 import { Function } from "./function/function.xl.md"
 import { IfSet } from "./if/if-set.xl.md"
 import { Identifier } from "./identifier.xl.md"
-import { Import } from "./import.xl.md"
+import { Import, ImportCloseRule } from "./import.xl.md"
 import { Interface } from "./interface/interface.xl.md"
 import { Keyword } from "./keyword.xl.md"
 import { Label } from "./label.xl.md"
@@ -1533,6 +1533,60 @@ for (let i = start; i < data.length; i++) {
 return true;
 ```
 
+## static method IsPendingImportHead:(data:Array<Token>, start:int)=>bool
+
+`start` 起到列表末尾这一段**是一条还没写完的导入声明头**吗——也就是「`import` 后面还没有路径」。
+
+**为什么要问这一句**（第 829 轮）：`import` 声明**没有 ASI**，`;` 之前的一切（注释、换行）
+都归同一条声明（TS 一样收）：
+
+    import { a, b as c } ⏎ from "m";
+    import { a } from //c ⏎ "m";
+
+而换行那一刻 `from "m"` **还没读进来** ⇒ 这一段只装着 `import { … }` ⇒ 换行处收壳之后，
+壳里那一格马上被 `ImportCloseRule` 收成一个**半截的** `Import`（区间只到 `}`、`From` 空着），
+后面 `from "m";` 另起一条 `ExpressionStatement`
+（实测四份：`gap-sweep-{newline,linecomment}-import-02/03/04` 各缺一个 `StringLiteral`、漂移一处）。
+
+判据分两步：
+
+- **段首那个词必须是「真的导入声明头」**：交给 `ImportCloseRule.Instance.Previous` 问**同一句**
+  —— `import(` 是动态导入、`import.meta` 是元属性、`a.import` 是成员名，三条都在那里
+  （那是收尾规则里唯一的判据，这里再写一份必然会漂）。少了这一条，`import("./m")` 换行
+  `.then(f)` 与 `import.meta.url` 换行 这种**表达式**也会被当成没写完的声明；
+- **段里还没有路径**：出现 `String` 单元就算写完了（`import "m"` / `import x from "m"`）。
+
+`=` 那一档单列：`import A = B.C` 里**一个字符串都没有** —— 只看 `String` 的话
+「`import A = B.C` 换行 `const x = 1;`」会被并进**同一条**语句（实测语料里有这种排版）。
+`import A = require("m")` 不必另判：它前面一定已经有一个 `=`。
+
+```ts
+let headAt = start;
+while (headAt < data.length && IsTriviaUnit(Get(data, headAt))) {
+  headAt = headAt + 1;
+}
+const head = Get(data, headAt);
+if (head === null || !(head instanceof Identifier) || head.Is("import") === false) {
+  return false;
+}
+if (ImportCloseRule.Instance.Previous(head.Template, data, headAt) === false) {
+  return false;
+}
+for (let i = headAt + 1; i < data.length; i++) {
+  const item = Get(data, i);
+  if (item === null) {
+    continue;
+  }
+  if (item instanceof String) {
+    return false;
+  }
+  if (item instanceof SymbolToken && item.Is("=")) {
+    return false;
+  }
+}
+return true;
+```
+
 ## static method EndsOperand:(item:Token | null)=>bool
 
 `item` 能不能**结束一个操作数**——也就是「它左边已经凑出一个完整的表达式了」。
@@ -2168,6 +2222,11 @@ if (declarationWords.indexOf(word) >= 0) {
 // `cls-decorator-calls.ts`、`ex-decorator-expression.ts`）；
 // 判据本体见 `Statement.IsPendingDecoratorHead`（段首是 `@` 且段内只有装饰器那几类单元）。
 if (Statement.IsPendingDecoratorHead(data, frontIndex + 1)) {
+  return result;
+}
+// **导入声明的头还没写完时，换行也不是语句边界**（第 829 轮）：`import` 声明没有 ASI，
+// `;` 之前的一切都归同一条声明（判据、实测账见 `Statement.IsPendingImportHead`）。
+if (Statement.IsPendingImportHead(data, frontIndex + 1)) {
   return result;
 }
 // **上一行还没写完时，换行不收壳**（第 558 轮）：把 ASI 判据的**左半截**搬进解析期
