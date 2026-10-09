@@ -3112,8 +3112,17 @@ if (id === RtOp.GetIndex) {
     return this.Guard(() => GetProperty(this.Room(), this.Native(), shapeProtoTable, this.Table,
       indexReceiver, indexKeyText));
   }
-  // **对象**走属性；**其它原始值**给 \`undefined\`（JS 的 \`(5)["x"]\` 就是它）。
-  if (!indexReceiver.IsObject()) return Value.Undefined();
+  // **数字 / 布尔这些原始值也走属性**（第 777 轮）：JS 里 \`(5)["toFixed"]\` 与 \`(5).toFixed\`
+  // **是同一件事**（先 \`ToObject\` 再沿原型找），本仓原来是「不是对象就给 \`undefined\`」⇒
+  // \`n["toFixed"] === Number.prototype.toFixed\` 给**假**（判据 \`p750a-a04\` 第 5 行：
+  // Node 给 \`true\`、本仓给 \`false\`——**静默错值**，读起来像「那个方法不存在」）。
+  // **点号那一路（\`RtOp.GetProp\`）一直是好的**：它无条件交给 \`GetProperty\`，
+  // 而 \`GetProperty\` 自己会装箱（\`(5).toFixed\` / \`true.toString()\` 都对）——
+  // 这一支的早退是**它自己多出来的一句**，与那一份实现漂了。
+  // **符号不在这一档**：它连属性表都没有（\`description\` / \`toString\` 那两格由
+  // \`RtOp.GetProp\` 特判，见上面「符号不是对象」那一段）——照搬过来只会给 \`undefined\`，
+  // 所以符号照旧早退，与今天一字不差。
+  if (!indexReceiver.IsObject() && indexReceiver.Tag === ValueTag.Symbol) return Value.Undefined();
   const indexProtoTable = this.Protos;
   if (indexProtoTable === null) throw new Error("no prototype table");
   return this.Guard(() => GetProperty(this.Room(), this.Native(), indexProtoTable, this.Table,

@@ -306,6 +306,41 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 777 轮：**原始值上的下标读**——收掉一句早退、一笔旧账到期，另登记一处同族的符号缺口
+
+**一句话**：`vm.xl.md` 的 `get_index` 里有一句「**不是对象就给 `undefined`**」的早退，
+于是 `n["toFixed"]` 给 `undefined`、而**同一格的 `n.toFixed`** 是好的——
+JS 里两者是同一件事（先 `ToObject` 再沿原型找），那一句是**这一支自己多出来的**。
+
+- **收掉的根**（`runtime/vm.xl.md` 的 `RtOp.GetIndex`）：点号那一路（`RtOp.GetProp`）
+  **无条件**交给 `GetProperty`，而 `GetProperty` 自己会装箱（`(5).toFixed` /
+  `true.toString()` 一直是对的）⇒ 两份实现漂在这一句早退上。
+  改法：早退只留给**符号**（它连属性表都没有，那两格另由 `RtOp.GetProp` 特判），
+  其余非对象接收者照常落到下面那次 `GetProperty`——**没有新写一份装箱**。
+- **症状是静默错值**：`n["toFixed"] === Number.prototype.toFixed` 给**假**
+  （读起来像「那个方法不存在」）；`n["toFixed"](2)` 直接报
+  `cannot call a non-closure value`。用户看得见的那几处：
+  `arr.map(Number.prototype.toFixed)`、`===` 比较、`Set` 去重。
+- **一笔旧账到期**：`runtime/round750/p750a-a04`（第 750 轮登的那一格，`xl:want` 已按规矩撤，
+  用例留着当守卫）。**注意它的 `xl:why` 当年把根记成了「`CreateHostRef` 每次新造句柄」——
+  这一轮量出来的是另一处**（`CreateHostRef` 那条路第 733 轮就收过了，
+  `Number.prototype.toFixed` 与 `n.toFixed` 本来就是同一个句柄，差的只是下标这一支根本没走到装箱）。
+- **另登记一处**（`stdlib/round777/r777b-01`，`differ`）：**符号上的下标读**
+  （`Symbol("s")["description"]` Node 给 `"s"`、本仓给 `undefined`；`["toString"]` 同一句）。
+  它与这一轮收掉的那一格是**同一句话的两个出口**，只是符号没有目标可查 ⇒ 留在早退那一支上。
+  **为什么不顺手收**：那两格的特判长在 `RtOp.GetProp` 的代码里，让两处住到一处是一次重构，
+  照抄一份就是「两处会漂」——**先如实登记，不猜**。
+- **用例**：`runtime/round777/r777a-01`（18 行，**通过**）——数字 / 布尔 / 字符串三档的
+  下标读与点号读逐一对照，另钉两条边界（不存在的键照旧 `undefined`、对象与数组那两档不许被带偏）。
+  五类 7905 / 8294 → **7907 / 8296**、blocked **262**（没动）、differ **127**
+  （旧账转绿 1、新登记 1）、bad 0、regressions 0，加权 **95.6%**。八道门全绿；
+  runtime:check 243 条、runtime:cli 79 份一致。
+- **这一轮的普查面**（四层 9 条）：类语义（静态成员的继承与 `super` / 私有成员与品牌检查 /
+  `extends` 表达式与计算成员）、承诺与 `async`（`await` 的值与次序 / `Promise` 静态与实例 /
+  executor 的同步与抛）、生成器（`return` 值 / `yield*` 委托 / `throw` 进去 / 标签与 `typeof`）、
+  对象（展开的落点与 getter / `Object` 取值族与相等）——**7 条当场通过**，
+  另 2 条是探针自己不合法的 `nodefail`（生成器里留了没结清的承诺），**不进语料**。
+
 ### 第 776 轮：**箭头函数的体是语句列表**——收掉一处（token 层的一句白名单），三种排版一个落点
 
 **一句话**：`text-common-util.xl.md` 的 `IsStatementList` 少了 **`LamdaBody`** 这一格——

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8294,
+  "total": 8296,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.57,
+  "progressPercent": 95.59,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1123,
-      "pass": 1084,
+      "total": 1124,
+      "pass": 1086,
       "blocked": 4,
-      "differ": 35,
+      "differ": 34,
       "nodefail": 0,
-      "coverage": 96.53
+      "coverage": 96.62
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3295,
+      "total": 3296,
       "pass": 3210,
       "blocked": 25,
-      "differ": 60,
+      "differ": 61,
       "nodefail": 0,
-      "coverage": 97.42
+      "coverage": 97.39
     },
     {
       "category": "e2e",
@@ -1841,7 +1841,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16380/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17676/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2042,12 +2042,6 @@
       "detail": "stdout 不同：第 4 行：node «1 1» vs tsrun «{ c: 1 } 1»"
     },
     {
-      "id": "runtime/round750/p750a-a04",
-      "category": "runtime",
-      "title": "原始值上的属性读：`\"abc\".length` / 数字的方法 / 自动装箱",
-      "detail": "stdout 不同：第 5 行：node «5.00 true» vs tsrun «5.00 false»"
-    },
-    {
       "id": "runtime/round750/p750a-a06",
       "category": "runtime",
       "title": "数组：`length` 的非法值与越界下标",
@@ -2135,7 +2129,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16380/src/5295.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17676/src/5296.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2159,7 +2153,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16380/src/5345.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17676/src/5346.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2424,6 +2418,12 @@
       "category": "stdlib",
       "title": "空值接收者上的可选调用：那一读被整段跳过",
       "detail": "stdout 不同：第 1 行：node «01 u.x?.() throw:TypeError» vs tsrun «01 u.x?.() ok:undefined:undefined»"
+    },
+    {
+      "id": "stdlib/round777/r777b-01",
+      "category": "stdlib",
+      "title": "符号上的**下标读**：`description` / `toString` 两格读不到",
+      "detail": "stdout 不同：第 2 行：node «02 description 下标读 \"s\"» vs tsrun «02 description 下标读 undefined»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",
