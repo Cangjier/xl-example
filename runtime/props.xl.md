@@ -1175,6 +1175,37 @@ if (!receiver.IsObject()) {
 // 三条语义（访问器调 setter / 数据属性写到**接收者**上 / 没找到就新建）
 // **一个字都不新写**，两个入口只差这一句查找。
 const found = searchRef < 0 ? null : FindProperty(room, table, searchRef, key);
+// **接收者自己的那一格要投一次票**（第 782 轮，**实测撞到的**）：`super.x = v` 那一趟
+// 的起点是**原型**（`SetPropertyFrom`），于是 `found` 只看得见原型链上那一格——
+// 而规范的三步次序是：
+//   ① 从**起点**出发找访问器（找到就调它的 setter）；
+//   ② **接收者自己的**那一格（`GetOwnProperty(receiver, key)`）——数据属性就**就地改值**；
+//   ③ 都没有才在接收者上新建。
+// 本仓原来只有 ① 与 ③ ⇒ 派生实例上**已经有** `v` 时，`super.v = w` 会**再建一格**
+// 同名的自有属性（`Object.getOwnPropertyNames(e)` 给 `["v","v"]`），而读那一格先命中
+// **先前那一份** ⇒ `e.v` 还是旧值（**静默错值**，第 780 轮 `r780b-03` 登记的四个落点之一）。
+// **同名自有属性只能是访问器那一格**（数据属性已在上面就地改完）——
+// 与前面「继承来的访问器」那一条**同一条规矩**：没有 setter 就返回假，不抛。
+// **只在 `found` 不是接收者自己那一格时才查**：起点就是接收者时上面已经找过了
+// （多查一次是一趟白跑，而这是**每一次属性写入**都要过的那条路）。
+if (found === null || found.Owner !== receiver.Ref) {
+  const own = table.Get(receiver.Ref).Props;
+  for (let i = 0; i < own.length; i++) {
+    if (!KeyMatches(table, own[i], key)) continue;
+    if (own[i].Kind === PropertyKind.Accessor) {
+      if (!IsCallableValue(table, own[i].Setter)) {
+        return false;
+      }
+      call(own[i].Setter, receiver, [value]);
+      return true;
+    }
+    if ((own[i].Flags & PropertyFlagWritable) === 0) {
+      return false;
+    }
+    own[i].Value = value;
+    return true;
+  }
+}
 if (found !== null) {
   const property = table.Get(found.Owner).Props[found.Index];
   if (property.Kind === PropertyKind.Accessor) {
