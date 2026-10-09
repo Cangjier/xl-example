@@ -307,6 +307,68 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 887 轮：绑定模式里「注释算不算内容 / 算不算首位」两格——`IsTriviaUnit` 不只是**跳过**的名单，也是**判空**的名单
+
+**一句话**：`cases:tsast` / `cases:astjson` 两侧全绿 ⇒ **AST 出口上没有「红着」的东西可修**，
+所以这一轮按本仓找缺口的老办法**先做一次新普查**：`tmp/r887/gen.mjs` 把 81 个**第 869 轮那张表
+之后没扫过、或很少见**的构造摆开（实例化表达式 / 导入属性 / 取值器设值器 / 参数属性 /
+`for await` / `yield*` / 泛型函数类型 / 模式里的洞 …），每个词边界各插一遍 `/*c*/`（块注释）
+与换行（`\n`）两种变体 ⇒ **993 条**片段（970 条 TS 自己合法，23 条 TS 自己就非法，跳过）。
+一上手逮出 **33 条对不上**，其中一族**同一个根因、两种表现**，这一轮把它们收干净。
+
+**根因只有一句话**（两处都在 [`typescript/tokens/binding-element.xl.md`](typescript/tokens/binding-element.xl.md)）：
+**「这一段有没有内容 / 这个括号是不是首位」两处判据只把软换行当透明单元**，而注释
+（`LineAnnotation` / `AreaAnnotation`）在同一份口径里是**同一件事**（第 817 / 818 轮定下的
+`IsTriviaUnit` 那张名单）。两处各自的症状是：
+
+1. **`Previous` 的「形参首位」那一格**（`for (let i = 0; i < index; i++)` 那个循环）：
+   原来写的是 `before instanceof LineWrap` ⇒ `function f(a = 1, /*c*/ { b } = {}, [c] = []) {}`
+   里那条注释算成「前面有东西」⇒ **模式判否** ⇒ 模式里的 `b` 一个 `BindingElement` 都收不到
+   （实测产物 `ObjectBindingPattern` 的 `elements` 空着，TS 那边是一个 `BindingElement`：
+   缺 2 / 字段名 1）。换成 `IsTriviaUnit(before)` 之后收对了，而**真正要挡的那一档一点没松**：
+   `function f(a = /*c*/ { b }) {}` 里那个 `{ b }` 是**初始化式**——`=` 不在名单里，照旧判否。
+2. **`AppendSegment` 的判空（以及 `Previous` 里同一个 `hasContent` 循环）**：
+   原来写的是 `!(item instanceof LineWrap)` ⇒ **只装着一条注释的段**被算成「有真东西」⇒
+   收成一个**零宽的 `BindingElement`**。实测 `const [a, /*c*/ , b = 2, ...rest] = arr;`：
+   产物多一个零宽 `BindingElement`、TS 那边那一格是 `OmittedExpression`（第 135 轮那条
+   「洞 = 零宽 `OmittedExpression`」的投影认得的是**空段**，段里多一条注释它就不认了）；
+   `const { /*c*/ } = o` 同理（`Previous` 的 `hasContent` 判「有内容」⇒ 进去切段 ⇒ 多 1 个节点）。
+
+**同族普查**（`tmp/r887/snips2.mjs`，29 条手写片段，一个进程里对拍）：修前 **16 条**对不上、
+修后 **0 条**——四个宿主（`Parameter` / `BindingElement` 嵌套 / `ForeachDefine` / `CatchDefine`）、
+洞在头 / 在中间 / 在尾、行注释与块注释各一档，全收。**值位那几格当守卫留着**：
+`const y = /*c*/ { a };` / `f(/*c*/ { a });` / `const { a = /*c*/ { b } } = o;` 修前修后都绿
+（它们本来就不该被收成绑定模式）。大普查 993 条：**33 → 30**，减掉的正是这一族三条，
+没有一条新的对不上（同一个探针池连跑三次，逐条一致——这一轮的读数不是抖出来的）。
+
+**用例**：新增 5 条 token（`decl-param-obj-pattern-comment` / `decl-param-arr-pattern-comment` /
+`decl-arr-destructure-hole-comment` / `decl-obj-destructure-only-comment` /
+`decl-destructure-comment-hosts`）与 1 条 runtime（
+[`029-fn-param-destructure-comment`](tests/cases/runtime/functions/029-fn-param-destructure-comment.ts)，
+`node` 与 `tsrun` 逐字节相同：`6` / `1 3` / `ok`）。token 用例**不写 `xl:round`**——
+`case-file.mjs` 按「头里有没有覆盖层那几个键」判层，写了 `round` 就要求 `// xl:end` 收尾
+（这一轮踩到过一次，记在这里免得下次再写）。
+
+**实测**：`coverage` **4053 / 4230 → 4059 / 4236**（新增 6 条全过：token 1453 → 1458、
+runtime 775 → 776；`blocked 39` / `differ 138` / `bad 0` 一格没动，加权 95.2%）；
+用例 **1466 → 1471**（断言 4929 → 4928：矩阵那一条按「至少一个」写，标签计数不同）；
+`cases:tsast` 八项全 0、`cases:astjson` 六项全 0（1461 份 / 34648 个节点）、
+`cases:check` / `cases:tags` / `cases:shapes` / `runtime:*` / `samples` 全过 ⇒ **九道门全绿**（墙钟 30.7s）。
+
+**这一轮没动的 30 条**（同一份普查里剩下的，家族已分好，留给下一轮）：
+导入属性 `with { type: "json" }` 的换行变体 7 条、实例化表达式 `a.b.c<string>` 7 条、
+泛型函数类型里 `<` 后面的注释 3 条、`async /*c*/ (x) => x` 与 `= /*c*/ <T,>(x) => x` 2 条、
+`readonly` 换行后的索引签名 / `accessor` 换行的私有名 / 第二个 `case` 标签换行 /
+`do /*c*/ x++` / `else if /*c*/ (c)` / `void \n 0` / `x satisfies T /*c*/ satisfies U` 各 1 条，
+以及三格**行首 `<`** 的 ASI（`const x = a \n < b > c;`——TS 那一侧按类型断言读，本仓按比较读；
+这一族是不是「缺口」要先想清楚口径再动手）。
+
+**这一轮的经验**：**「注释与软换行在相邻判定里是同一件事」这条口径，写在 `Skip*` 那一侧写在 817 / 818 轮，
+可「判空」的那一侧漏了两处** —— 而 `IsTriviaUnit` 那张名单**本来就是两用的**（第 818 轮的原话：
+「不只是『跳过』用的名单，也是**判空**用的名单」）。第二件：**AST 出口全绿不等于没有 AST 缺口**
+——缺口在「语料没写到的排版」里，而语料只会被**新构造 + 新排版**的普查加宽；
+探针池里不摆新构造，口径再严也永远是绿的。
+
 ### 第 886 轮：撤掉一条挂了 45 份读数的过期台账——`coverage` 那句「台账该更新了」终于不再亮着
 
 **一句话**：`coverage` 每次都在提醒「台账该更新了（原来记 blocked、现在过了）：

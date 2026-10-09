@@ -5,9 +5,8 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
-import { IsAnnotationUnit, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { IsAnnotationUnit, IsTriviaUnit, SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
-import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
 
@@ -84,10 +83,16 @@ if (
 // **形参里只有「首位」那个才是绑定模式**（实测踩过）：`function f({ a = 0 }: T)` 的
 // 默认值 / 类型标注里也可能有 `{}` 字面量，那些是**表达式**、不是模式。
 // 模式的判据是它在参数的最前面（TS 那边也是 `Parameter > ObjectBindingPattern`）。
+// **「最前面」要走 trivia 口径**（第 887 轮）：原来这一格只跳软换行，于是
+// `function f(a = 1, /*c*/ { b } = {}, [c] = []) {}` 里那条注释算成了「前面有东西」
+// ⇒ 判否 ⇒ 模式里的 `b` 一个 `BindingElement` 都收不到（实测产物 `ObjectBindingPattern` 的
+// `elements` 空着、TS 那边是一个 `BindingElement`）。注释与软换行在这里是同一件事
+// （`IsTriviaUnit` 那份名单就是「不该挡住相邻判断」的单元），而真正要挡的是 `=` 那一档——
+// `function f(a = /*c*/ { b }) {}` 里那个 `{ b }` 是**初始化式**：`=` 不在名单里，照旧判否。
 if (ownerName === "Parameter") {
   for (let i = 0; i < index; i++) {
     const before = Get(units, i);
-    if (before === null || before instanceof LineWrap) {
+    if (before === null || IsTriviaUnit(before)) {
       continue;
     }
     // **剩余参数允许前面有个 `...`**：`next(...[value]: [] | [TNext])` 是
@@ -130,7 +135,10 @@ for (const item of current.Data) {
   if (item.constructor.name === "BindingElement") {
     return false;
   }
-  if (!(item instanceof LineWrap)) {
+  // **「有没有内容」也走 trivia 口径**（第 887 轮）：`const { /*c*/ } = o` 里模式里只有一条注释，
+  // 原来按「不是软换行就算内容」判 ⇒ 判「有内容」⇒ 进去切段，而那个空段又会被
+  // `AppendSegment` 收成一个只装着注释的 `BindingElement`（实测多 1 个节点）。
+  if (!IsTriviaUnit(item)) {
     hasContent = true;
   }
 }
@@ -193,7 +201,12 @@ const content: Token[] = [];
 let hasReal = false;
 for (const item of segment) {
   content.push(item);
-  if (!(item instanceof LineWrap)) {
+  // **空段的判据是 trivia 名单，不是软换行一个类**（第 887 轮，与 `Previous` 的
+  // `hasContent` 同一句话）：`const [a, /*c*/ , b = 2, ...rest] = arr;` 里那个洞的段里
+  // 只有一条注释 —— 按「不是软换行就算真」判会把它收成一个零宽的 `BindingElement`
+  //（实测产物多 1 个节点、TS 那边是 `OmittedExpression`）。注释照旧留在 `Data` 里
+  //（它是不撑区间的透明单元），只是不把这一段算成「有元素」。
+  if (!IsTriviaUnit(item)) {
     hasReal = true;
   }
 }
