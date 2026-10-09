@@ -23,6 +23,7 @@ import { Interface } from "./interface/interface.xl.md"
 import { Keyword } from "./keyword.xl.md"
 import { Label } from "./label.xl.md"
 import { MethodDeclaration } from "./function/method-declaration.xl.md"
+import { String } from "./string/string.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { Signature } from "./signature/signature.xl.md"
 import { Switch } from "./switch/switch.xl.md"
@@ -1593,6 +1594,12 @@ for (let i = headAt + 1; i < data.length; i++) {
   if (item === null) {
     continue;
   }
+  // **`String` 必须是这一份的 `String`**（第 832 轮）：它原来没在 `# dependencies` 里，
+  // 生成出来的 TS 里那句 `item instanceof String` 落到了**JS 内建的那个 `String`** 上
+  // ⇒ 永远为假 ⇒ 「段里已经有路径」这一步形同不存在 ⇒ 任何 `import …` 换行都被当成
+  // 「头还没写完」。实测：`import './pool'` 换行 `export default Agent` 换行 `class A {}`
+  // 三段并进**同一个** `Statement`（`export,default` 于是被折成 `Class` 的修饰词，
+  // `export default` 那一条 `ExportAssignment` 整条不见）。
   if (item instanceof String) {
     return false;
   }
