@@ -306,6 +306,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 867 轮：泛型段扫描器的字母表里没有 `` ` ``——模板字面量类型整段吃掉（known-gap 2 → 1）
+
+**一句话**：`type-param-template-literal-constraint`（缺 14 多 7，还带一处未映射 `Bracket`）收掉——
+`function f<X extends `a${A}b`>(x: X): X { return x; }` 现在整条成形。
+
+**根子**：`GenericTypeBranch.ScanArguments` 只认一张「类型实参字母表」，而 `` ` `` 与 `$`
+**都在表外**（表里明写着「其余字符一律中止」）⇒ 扫描在开引号那里当场中止
+⇒ `<X extends `a${A}b`>` 整段**退回比较运算符**（产物里 `<` / `>` 各自是一个符号单元）
+⇒ 类型参数段认不出来、整条声明塌成 `BinaryExpression`。
+
+**修法**：字母表补一条**模板字面量整段吃掉**的分支（[generic-type.xl.md](typescript/tokens/generic-type.xl.md)
+的 `SkipTemplate` / `SkipTemplateExpression` 两个私有方法）：
+
+```text
+`   →  SkipTemplate            扫到闭合的 `，途中 \ 转义、${ 交给下一层
+${  →  SkipTemplateExpression  花括号自己计数，字符串 / 注释 / 嵌套模板各自成对吃
+```
+
+**`>` 必须一起吃掉**：`` `${A extends B ? C : D}` `` 里那个 `>` 若参与尖括号计数，
+`<X extends `a${A}>B`>` 这类写法会**提前收尾**、类型参数段被切成两半。
+**值位一个字没动**：后继闸 `IsAllowedFollower`（表达式位里 `<…>` 后面必须紧跟 `(`）照旧兜住。
+
+**量到的边界**（一开始把账记成了「约束位」）：探针一铺才发现根**不在约束位**——
+`function f<X extends `ab`>`（**不带插值**）、`type T<X extends `a${A}b`> = X`、
+`class` / `interface` / 方法 / 箭头函数**五处同根**，而 `` let v: `a${A}b` `` /
+`` type U = `a${A}b` `` / 形参与返回类型标注**本来就是好的**（那些位置的 `` ` `` 不在扫描器手上）。
+
+**实测**（`tmp/r867/template-type.mjs`，18 条）：修前 9 条红，修后**全绿**
+（函数 / 方法 / 箭头 / 类 / 接口 / `type` 别名 / 联合约束 / 默认值位 / 嵌套插值，加四条对照）。
+这一处改动让 `@types` / `typescript/lib` 里**成片的类型参数段**第一次成形：
+投影节点 44940 → **64447**，**全部与 TS 同 kind 同区间**（16 / 16 片、缺 0 漂 0 多 0）。
+
+**数字**：`cases:tsast` 已知缺口 **2 → 1 还开着**（收掉的那条按规矩删掉 `xl:known-gap`、
+用例留着当守卫，`xl:expect` 一个字节没改）；`coverage` **4011 → 4012 / 4191**
+（blocked **42 → 41**、differ 138、bad 0）；`npm run gates` **八道全过**（墙钟 30.7s）。
+
 ### 第 866 轮：`do {} while (a) b()` 那一格——`DoWhile` 补进 `IsStatementUnit`，整族 12 条一起收（known-gap 3 → 2）
 
 **一句话**：`stmt-do-while-then-statement`（缺 3 多 1）收掉——`do … while (c)` 后面跟着的那条语句

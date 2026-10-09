@@ -384,7 +384,6 @@
 | [stmt-label-comment-before-call.ts](../cases/token/statements/stmt-label-comment-before-call.ts) | `a: b: c: d/* c */ ()` | 标签那一趟看到的是注释，最后一层标签没接上被标的语句（缺 1） |
 | [type-param-conditional-constraint.ts](../cases/token/types/type-param-conditional-constraint.ts) | `x extends A extends B ? C : D` | 约束位上的嵌套条件类型不成形（缺 10 / 字段 1） |
 | `type-asserts-toplevel`、`type-param-asserts-constraint` | `type T = asserts x is A` / `<X extends asserts x is A>` | 断言谓词只在返回类型那一位成形（各缺 5 多 2）：`TypePredicateCloseRule.Previous` 的「起点」只认容器第一个实义单元与紧跟 `=>`，而 `=` / `extends` 右边同样是合法类型位 |
-| [type-param-template-literal-constraint.ts](../cases/token/types/type-param-template-literal-constraint.ts) | `` x extends `a${A}b` `` | 约束位上的模板字面量类型不成形（缺 15 多 7，还带一处未映射 `Bracket`） |
 | [type-typeof-qualified-index.ts](../cases/token/types/type-typeof-qualified-index.ts) | `type A = typeof a.b[K]` | 点号名在产物里是平级单元，`TypeQuery` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）。**不带点号的** `typeof a[K]` / `typeof a[]` / `typeof a[K][L]` 已经收掉 |
 | `mut-stmt-asi-return-newline-expr-115` | `function f(/* c */)` | 那条注释让 ASI 那一族的形态漂一格（多 1 字段 1） |
 
@@ -565,6 +564,36 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
 （与 `While` / `Try` 同款），那条用例的 `xl:expect` 里 `Statement:2 → 1`（同一形状变好、判定点不变）。
 账 **3 → 2**；全语料 `cases:tsast` **16 / 16 片**、缺 0 漂 0 多 0、`npm run gates` **八道全过**
 （coverage 4010 → **4011 / 4191**、blocked 43 → **42**）。
+
+**第 867 轮收掉的 1 条**（第三段里那条模板字面量类型，已从上面那张表里拿掉）：
+[type-param-template-literal-constraint.ts](../cases/token/types/type-param-template-literal-constraint.ts)
+（`` function f<X extends `a${A}b`>(x: X): X { return x; } ``）。**根子是泛型段扫描器的字母表**：
+`GenericTypeBranch.ScanArguments` 只认「类型实参字母表」，而 `` ` `` 与 `$` 都在表外
+（表里明写着「其余字符一律中止」）⇒ 扫描在开引号那里当场中止 ⇒ `<X extends `a${A}b`>` 整段
+**退回比较运算符** ⇒ 类型参数段认不出来、`function` / `type` / `class` / `interface` / 方法 /
+箭头函数**整条塌成 `BinaryExpression`**（缺 14 多 7、还带一处未映射 `Bracket`）。
+
+**修法**：给字母表补一条**模板字面量整段吃掉**的分支（两个私有方法，
+`generic-type.xl.md` 的 `SkipTemplate` / `SkipTemplateExpression`）：
+
+    `  →  SkipTemplate       扫到闭合的 `，途中 \ 转义、${ 交给下一层
+    ${ →  SkipTemplateExpression   花括号自己计数，字符串 / 注释 / 嵌套模板各自成对吃
+
+**`>` 必须一起吃掉**：`` `${A extends B ? C : D}` `` 里那个 `>` 若参与尖括号计数，
+`<X extends `a${A}>B`>` 这类写法会**提前收尾**、类型参数段被切成两半。
+**值位那一边一个字没动**：后继闸 `IsAllowedFollower`（表达式位里 `<…>` 后面必须紧跟 `(`）
+照旧兜住 `a < `x` > (b)` 这种排版。
+
+**量到的边界（这一轮实测，写在这里）**：缺口**不止约束位**——一开始以为它是「`extends` 约束」
+那一格，探针一铺才发现 `function f<X extends `ab`>`（**不带插值**的模板）与
+`type T<X extends `a${A}b`> = X`、`class` / `interface` / 方法 / 箭头函数**五处同根**，
+而 `` let v: `a${A}b` `` / `type U = `a${A}b` `` / 形参与返回类型标注**本来就是好的**
+（那些位置的 `` ` `` 不在泛型段扫描器手上）。所以这一条的名字虽然叫「约束位」，根其实在扫描器。
+
+探针 `tmp/r867/template-type.mjs` **18 条全绿**（函数 / 方法 / 箭头 / 类 / 接口 / `type` 别名 /
+联合约束 / 默认值位 / 嵌套插值，加四条对照）。账 **2 → 1**；全语料 `cases:tsast` **16 / 16 片**、
+缺 0 漂 0 多 0；这一处改动让 `@types` / `typescript/lib` 里**成片的类型参数段**第一次成形
+（投影节点 44940 → **64447**，全部与 TS 同 kind 同区间）。
 
 **怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
 把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。

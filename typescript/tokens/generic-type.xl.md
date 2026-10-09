@@ -256,8 +256,14 @@ return (
 `|` 与 `&`（联合 / 交叉类型）、**`-` 与 `+`（映射类型的 `-readonly` / `+readonly` / `-?` / `+?` 修饰符、
 负数字面量类型）**、**成对的字符串字面量**（`Exclude<K, "a">` 这种字面量类型实参），
 加上成对的 `< >` / `( )` / `[ ]` / `{ }`，以及 `->`（函数类型）。其余字符一律中止：
-`/`、`%`、`^`、`~`、`!`、`@`、`#`、`$`、`` ` ``、`;`，
+`/`（注释除外）、`%`、`^`、`~`、`!`、`@`、`#`、`;`（括号组里除外），
 以及**括号层级为 0 时**的 `)` / `]` / `}`（它闭合的是 `<` 外面的东西，说明这里根本不是泛型）。
+
+**模板字面量整段在字母表里**（第 867 轮）：`` ` `` 一到就交给 `SkipTemplate`，
+连 `${ … }` 那一截（花括号 / 字符串 / 注释 / 嵌套模板）一起吃到底——
+所以 `$` / `{` / `}` / `%` / `!` 这些字符**在模板里面**都合法，`` ` `` 自己也不再是中止符。
+少了这一条：`function f<X extends `a${A}b`>(x: X): X { return x; }` 整条塌掉
+（缺 14 多 7、未映射 `Bracket`，见 `SkipTemplate` 那一节）。
 
 **字符串字面量是必须放进字母表的**：`Exclude<K, "a">` / `Record<"x", T>` 这类写法到处都是，
 `"` 在字母表外时扫描在它那里中止、整个 `<…>` 退回符号。
@@ -425,6 +431,21 @@ while (index < count) {
     index++;
     continue;
   }
+  // **模板字面量（第 867 轮）**：`` `a${A}b` `` 整段吃掉，`${ … }` 里再递归（见 `SkipTemplate`）。
+  // 少了这一条：`` ` `` 不在字母表里 ⇒ 扫描在它那里中止 ⇒ `<X extends `a${A}b`>` 整段退回
+  // **比较运算符** ⇒ 类型参数段认不出来、整条 `function` / `type` / `interface` / `class` 跟着塌
+  //（实测 `function f<X extends `a${A}b`>(x: X): X { return x; }` 缺 14 多 7、未映射 `Bracket`）。
+  // 值位那一边照旧由后继闸 `IsAllowedFollower` 兜住（`<…>` 后面必须紧跟 `(`）。
+  if (item === "`") {
+    const after = this.SkipTemplate(document, count, index);
+    if (after < 0) {
+      return -1;
+    }
+    seenArgument = true;
+    lastSignificant = "`";
+    index = after;
+    continue;
+  }
   if (item === "=" || item === ":") {
     seenArgument = true;
     lastSignificant = item;
@@ -492,6 +513,112 @@ while (index < count) {
     continue;
   }
   return -1;
+}
+return -1;
+```
+
+## private method SkipTemplate:(document:Document, count:int, index:int)=>int
+
+`index` 指在**开引号** `` ` `` 上时，跳到闭合那个 `` ` `` **之后**一格；扫不通返回 `-1`（第 867 轮）。
+
+模板字面量是**类型位与值位共用的字面量**，它的正文里可以出现字母表外的字符（`` ` `` 自己、
+`$`、`{`、`}`、`%`、`!`、`/`…），也可以换行 —— 所以它只能**整段吃掉**，不能按字符逐个放行。
+`${ … }` 那一截是**表达式 / 类型**，里面可以有嵌套的花括号、字符串、注释
+（`` `${ { a: 1 }.a }` ``），甚至再套一层模板（`` `a${`b${C}d`}e` ``）⇒ 递归回本方法。
+
+**为什么 `>` 也要一起吃掉**：`` `${A extends B ? C : D}` `` 里那个 `>` 若参与尖括号计数，
+`<X extends `a${A > B}b`>` 会**提前收尾**、类型参数段被切成两半。
+
+```ts
+let at = index + 1;
+while (at < count) {
+  const item = document.GetValue(at);
+  if (item === "\\") {
+    // 转义：`` \` `` 与 `\$` 都不结束这一格
+    at += 2;
+    continue;
+  }
+  if (item === "`") {
+    return at + 1;
+  }
+  if (item === "$" && at + 1 < count && document.GetValue(at + 1) === "{") {
+    at = this.SkipTemplateExpression(document, count, at + 2);
+    if (at < 0) {
+      return -1;
+    }
+    continue;
+  }
+  at++;
+}
+return -1;
+```
+
+## private method SkipTemplateExpression:(document:Document, count:int, index:int)=>int
+
+`${` 之后那一截的扫描器：`index` 指在 `{` **之后**一格，返回配对的 `}` **之后**一格；扫不通返回 `-1`（第 867 轮）。
+
+花括号自己计数（对象字面量 / 块都在里面）、成对的字符串按转义吃、注释吃到头，
+再撞上 `` ` `` 就交给 `SkipTemplate` —— 三者与 `ScanArguments` 自己的口径同源，只是这里**不判类型合法性**。
+
+```ts
+let depth = 1;
+let at = index;
+while (at < count) {
+  const item = document.GetValue(at);
+  if (item === "{") {
+    depth++;
+    at++;
+    continue;
+  }
+  if (item === "}") {
+    depth--;
+    at++;
+    if (depth === 0) {
+      return at;
+    }
+    continue;
+  }
+  if (item === "`") {
+    at = this.SkipTemplate(document, count, at);
+    if (at < 0) {
+      return -1;
+    }
+    continue;
+  }
+  if (item === "\"" || item === "'") {
+    const closer = item;
+    at++;
+    while (at < count && document.GetValue(at) !== closer) {
+      if (document.GetValue(at) === "\\") {
+        at++;
+      }
+      at++;
+    }
+    if (at >= count) {
+      return -1;
+    }
+    at++;
+    continue;
+  }
+  if (item === "/") {
+    const next = at + 1 < count ? document.GetValue(at + 1) : "";
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.GetValue(at) !== "\n") {
+        at++;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && (document.GetValue(at) !== "*" || document.GetValue(at + 1) !== "/")) {
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  at++;
 }
 return -1;
 ```
