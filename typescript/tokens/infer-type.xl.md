@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipNextTrivia, WordText, IsTypeContainerUnit } from "../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipNextTrivia, SkipPreviousTrivia, WordText, IsTypeContainerUnit } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -190,15 +190,19 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 `LineWrap` 跳过；撞上别的实义单元（`?` / `;` / `=` / 逗号 / 括号…）就算「不是」。
 见 `Process` 里那一处的说明。
 
+**注释也算 trivia**（第 874 轮）：`U extends /*c*/ infer V extends string ? V : never` 里
+那个 `infer` **就在** `extendsType` 的位置上，可它前面紧挨着的是那条 `AreaAnnotation`——
+只跳软换行时回扫第一步就撞上注释 ⇒ 答否 ⇒ `Process` 那条三元判据翻向另一边
+⇒ **约束被整段丢掉**（实测 `gap-r869-infer-extends-comment-5`：`InferType` 只到 `V` 为止、
+缺 `StringKeyword`）。这一问要的是**上一个实义单元**，所以走 `SkipPreviousTrivia`
+——与 `Previous` 里那一处（第 667 轮）同一个口径。
+
 ```ts
-for (let i = index - 1; i >= 0; i--) {
-  const item = Get(units, i);
-  if (item === null || item instanceof LineWrap) {
-    continue;
-  }
-  return WordText(item) === "extends";
+const before = Get(units, SkipPreviousTrivia(units, index));
+if (before === null) {
+  return false;
 }
-return false;
+return WordText(before) === "extends";
 ```
 
 # class InferType extends IndependentToken
