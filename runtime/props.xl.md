@@ -738,7 +738,7 @@ while (current > 0) {
 return null;
 ```
 
-# method HasProperty:(table:HeapTable, receiver:int, key:Value)=>bool
+# method HasProperty:(table:HeapTable, receiver:int, key:Value, functionProto:int = 0)=>bool
 
 `key in receiver`：**沿原型链找得到就算**（`in` 的语义就是它，不是「自有属性」）。
 
@@ -746,7 +746,25 @@ return null;
 `PropertyFlagInternal` 那些格滤掉，所以 `"__boundTarget" in f.bind(x)` 给假
 （Node 就是这样；它在 `heap.xl.md` 那一格写着为什么）。
 
+**两格「受限属性」要先答**（第 899 轮）：`arguments` / `caller` **不在属性表里**
+（按闭包载荷那一位答，见 `GetProperty` 那一支），所以只查属性表会把它们答成**假**——
+`"arguments" in function f() {}` 在 Node 里是**真**（自有那两格），本仓原来给假
+（**静默错值**：同一份文件里 `hasOwnProperty` 答真、`in` 答假，两个出口互相打脸）。
+两档形状不同，都要认：
+
+- **松散的普通函数**：那一位在闭包载荷上（`HeapClosure.HasRestricted`）；
+- **`Function.prototype` 自己**：它按规范也自有这两格，而它是个**普通对象**
+  （带一格可调用载荷）、**没有闭包载荷可问** ⇒ 只能按**身份**认。
+  身份由调用方给（`functionProto`）——引擎认识的是句柄、不是名字，
+  与 `ConstructorProtoOf` 那几处「语言层登记、引擎按号认」同一条分界；
+  **默认 `0` 表示「没给」**，那几处照旧只按属性表答。
+
 ```ts
+if (IsRestrictedKey(table, key)) {
+  const holder = table.Get(receiver);
+  if (holder.Tag === ValueTag.Closure && holder.AsClosure().HasRestricted) return true;
+  if (functionProto !== 0 && receiver === functionProto) return true;
+}
 return FindProperty(NeverRoom, table, receiver, key) !== null;
 ```
 
@@ -986,8 +1004,14 @@ if (receiver.Tag === ValueTag.Undefined || receiver.Tag === ValueTag.Null) {
 //  那是 `[[ParameterMap]]` 同族的待做项，见 `exec/functions/095-arguments-length` 的台账）。
 // **只有 `HasRestricted` 那一位为真的闭包才有**（箭头 / 方法 / 生成器 / `async` /
 // 类 / 严格代码都没有这两格，判据在降级层现量）。
-if (receiver.Tag === ValueTag.Closure && IsRestrictedKey(table, key)
-  && table.Get(receiver.Ref).AsClosure().HasRestricted) {
+// **`Function.prototype` 自己也有这两格**（第 899 轮）：它按规范是一个**松散函数对象**，
+// 而它在本仓是「普通对象 + 一格可调用载荷」、**没有闭包载荷可问** ⇒ 按**身份**认
+//（`protos.Function`，这一层手上正好有 `protos`）。值同样给 `null`——
+// `in` / `hasOwnProperty` / 读三个出口因此说同一句话（`HasProperty` 与
+// `globals.xl.md` 的 `hasOwnProperty` 各补了同一句判据）。
+if (IsRestrictedKey(table, key)
+  && ((receiver.Tag === ValueTag.Closure && table.Get(receiver.Ref).AsClosure().HasRestricted)
+    || (protos !== null && receiver.IsObject() && receiver.Ref === protos.Function))) {
   return Value.Null();
 }
 if (!receiver.IsObject()) {

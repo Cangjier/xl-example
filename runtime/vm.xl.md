@@ -3409,6 +3409,11 @@ if (id === RtOp.In) {
     // **数组的下标键按「格子」答**：元素不在 `Props` 里，
     // 只看属性表会把 `1 in [10, 20]` 答成**假**（JS 给真）——**静默给错值比抛更坏**。
     // **洞不算**（`1 in [1, , 3]` 在 JS 里是假）。
+    // **两格「受限属性」要按身份认**（第 899 轮）：`arguments` / `caller` 不在属性表里，
+    // 而 `"arguments" in function f() {}` 与 `"arguments" in Function.prototype` 在 JS 里
+    // **都是真**。前者按闭包载荷那一位答、后者只能按**身份**答（它是个普通对象）——
+    // 所以把 `protos.Function` 那个句柄一并交给 `HasProperty`（那一层的注释写着为什么）。
+    const inFunctionProto = this.Protos !== null ? this.Protos.Function : 0;
     if (inReceiver.Tag === ValueTag.Array) {
       // **`"length"` 是数组的结构属性**（与 `GetProperty` 那一支同一条口径）——
       // 它不在 `Props` 里，不问这一句就会把 `'length' in arr` 答成**假**（JS 给真）。
@@ -3421,12 +3426,12 @@ if (id === RtOp.In) {
         // 先看元素区就会把 `1 in a` 答成**假**（JS 给真，判据 `p746b-b01`）。
         // **数据属性的影子也一样**（第 721 轮那一族）：两摞都有的时候以属性表为准——
         // 本仓的纪律一直是「属性表是标志位与访问器的家」（`IndexKeyShadowOf` 那一段）。
-        if (HasProperty(this.Table, inReceiver.Ref, inKey)) return Value.FromBool(true);
+        if (HasProperty(this.Table, inReceiver.Ref, inKey, inFunctionProto)) return Value.FromBool(true);
         const array = this.Table.Get(inReceiver.Ref).AsArray();
         return Value.FromBool(at < array.GetLength() && !array.IsHole(at));
       }
     }
-    return Value.FromBool(HasProperty(this.Table, inReceiver.Ref, inKey));
+    return Value.FromBool(HasProperty(this.Table, inReceiver.Ref, inKey, inFunctionProto));
   });
 }
 throw new Error("unimplemented: rt op " + RtOpName(id));

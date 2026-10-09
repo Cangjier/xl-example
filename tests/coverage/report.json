@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.38,
+  "progressPercent": 95.41,
   "categories": [
     {
       "category": "token",
@@ -101,11 +101,11 @@
       "category": "runtime",
       "weight": 0.25,
       "total": 776,
-      "pass": 730,
+      "pass": 731,
       "blocked": 6,
-      "differ": 40,
+      "differ": 39,
       "nodefail": 0,
-      "coverage": 94.07
+      "coverage": 94.2
     },
     {
       "category": "stdlib",
@@ -588,12 +588,6 @@
       "category": "runtime",
       "title": "借来的那一格载荷：`(function* () {}).constructor(\"a\", \"yield a\")`（账）",
       "detail": "stdout 不同：第 1 行：node «function* anonymous(a» vs tsrun «throw:Error»"
-    },
-    {
-      "id": "runtime/round731/002-function-prototype-restricted-cells-differ",
-      "category": "runtime",
-      "title": "`Function.prototype` 上那两格受限属性（`arguments` / `caller`）（账）",
-      "detail": "stdout 不同：第 1 行：node «true true» vs tsrun «false false»"
     },
     {
       "id": "runtime/round737/006-await-thenable-adoption-differ",

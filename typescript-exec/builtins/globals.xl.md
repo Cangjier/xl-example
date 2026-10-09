@@ -3654,9 +3654,14 @@ if (id === ObjectHasOwnProperty) {
   // **受限属性那两格也是自有的**（第 709 轮）：`(function f() {}).hasOwnProperty("arguments")`
   // 在 Node 里是**真**（`arguments` / `caller` 是松散普通函数的自有属性）——
   // 与上面 `length` / `name` 同一句话，只是**多问一位**（箭头 / 方法那一档答假）。
-  if (self.Tag === ValueTag.Closure && askedKey.Tag === ValueTag.String
-    && table.Get(self.Ref).AsClosure().HasRestricted
-    && (TextFrom(table, askedKey) === "arguments" || TextFrom(table, askedKey) === "caller")) {
+  // **`Function.prototype` 自己也算**（第 899 轮）：它按规范是一个松散函数对象、
+  // 自有这两格，而它在本仓是「普通对象 + 一格可调用载荷」、没有闭包载荷可问 ⇒
+  // 按**身份**认（与 `props.xl.md` 的 `HasProperty` 那一句**同一份判据**：
+  // 一处管 `in`、一处管 `hasOwnProperty`，两个出口必须说同一句话）。
+  if (askedKey.Tag === ValueTag.String
+    && (TextFrom(table, askedKey) === "arguments" || TextFrom(table, askedKey) === "caller")
+    && ((self.Tag === ValueTag.Closure && table.Get(self.Ref).AsClosure().HasRestricted)
+      || (self.IsObject() && self.Ref === protos.Function))) {
     return Value.FromBool(true);
   }
   // **数组的下标也是自有属性**（第 706 轮，**普查当场红的**）：元素**不住在 `Props` 里**
