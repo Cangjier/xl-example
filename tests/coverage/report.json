@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8282,
+  "total": 8287,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.51,
+  "progressPercent": 95.52,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1116,
-      "pass": 1075,
-      "blocked": 6,
+      "total": 1118,
+      "pass": 1078,
+      "blocked": 5,
       "differ": 35,
       "nodefail": 0,
-      "coverage": 96.33
+      "coverage": 96.42
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3290,
-      "pass": 3205,
+      "total": 3293,
+      "pass": 3206,
       "blocked": 25,
-      "differ": 60,
+      "differ": 62,
       "nodefail": 0,
-      "coverage": 97.42
+      "coverage": 97.36
     },
     {
       "category": "e2e",
@@ -1542,12 +1542,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: typeof"
     },
     {
-      "id": "runtime/round771/r771c-01",
-      "category": "runtime",
-      "title": "成员调用落在空值接收者上：整份脚本被带走",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "runtime/values/079-bigint-forms",
       "category": "runtime",
       "title": "BigInt：字面量、运算、typeof、转换",
@@ -1859,7 +1853,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27832/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23392/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2153,7 +2147,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27832/src/5288.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23392/src/5290.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2177,7 +2171,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27832/src/5338.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-23392/src/5340.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2442,6 +2436,18 @@
       "category": "stdlib",
       "title": "`Promise` 那一族的实参校验",
       "detail": "stdout 不同：第 1 行：node «01 (Promise.all as any)(1).catch((e: any) ok:object:Promise» vs tsrun «01 (Promise.all as any)(1).catch((e: any) throw:Error»"
+    },
+    {
+      "id": "stdlib/round772/r772c-01",
+      "category": "stdlib",
+      "title": "空值接收者上的可选调用：那一读被整段跳过",
+      "detail": "stdout 不同：第 1 行：node «01 u.x?.() throw:TypeError» vs tsrun «01 u.x?.() ok:undefined:undefined»"
+    },
+    {
+      "id": "stdlib/round772/r772d-01",
+      "category": "stdlib",
+      "title": "`Promise` 静态方法自己那两格：`length` 与 `name`",
+      "detail": "stdout 不同：第 1 行：node «01 Promise.all.length ok:number:1» vs tsrun «01 Promise.all.length ok:number:0»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

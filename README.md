@@ -306,6 +306,64 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 772 轮：**空值接收者**那一族——两处根（调用位 / 写删位），另登记两处
+
+**一句话**：接着第 771 轮那条线往**空值接收者**上量（读 / 调 / 写 / 删 / 下标），
+量出**两处根**：一处让**整份脚本被引擎带走**（`u.x()`），一处把 `null` / `undefined`
+上的写入与删除**静默当成成功**；另登记两处（可选调用那一格被整段跳过、
+`Promise` 静态方法少了 `name` / `length`）。
+
+- **收掉的根①：`DoCallMethod` 在 `Guard` 已经展开之后照旧往下调**
+  （`runtime/round772/r772a-01` / `a02`，收掉第 771 轮登记的
+  `runtime/round771/r771c-01`——那条台账按规矩撤了，用例留着当守卫）。
+  `u.x()`（`u` 是 `undefined` / `null`）在 JS 里是 **TypeError、脚本自己接得住**；
+  本仓**整份脚本被带走**（`cannot call a non-closure value`，退出码 1、后面的行一行都不打印）。
+  **根子**：`DoCallMethod` 的第一次属性读是包在 `Guard` 里的（第 254 轮为这条读补的），
+  可 `Guard` 把那一抛翻成脚本站内异常之后**控制流已经交给处理点**，而**这一句之后照旧会跑**
+  ——底下那次 `DoCallValue` 拿到的是 `Value.Undefined()` ⇒ 再抛一次，
+  而**处理点已经被上一次展开取走了** ⇒ 这一抛没有落点。
+  **同一个根的第二个症状**（这一轮普查量到的）：**调用位上的 getter 抛错**
+  （`const o = { get g() { throw new TypeError("boom") } }; o.g()`）同样被带走——
+  那一抛走的是**重入**那条路，**连 `Guard` 都不经过**。
+  **修法**：读完先问「帧还在不在原处」，判据是三样合起来——
+  `readThrew`（那一抛是 `GetProperty` 自己抛的宿主异常，就地记一格最准）、
+  `frame.Pc !== pcBeforeRead`（落点在**本帧**时改的就是它）、
+  `Frames.Depth() !== depthBeforeRead`（落点在本帧**外面**时本帧被弹掉、
+  `Pc` 留在原处，只剩层深说得清）。
+  **为什么不能只看 `this.Throws` 变没变**（`CallNative` 里那条惯用法）：
+  getter **自己接住**了它里面那一抛时它照样加一，而那一刻 `GetProperty` 是**正常返回**的
+  ⇒ 会把一次正常的调用整段跳掉（**静默错值**）。用例里那两个「自己接住」的 getter
+  就是这一条的哨兵（`a02` 的第 4 / 5 行）。
+- **收掉的根②：`null` / `undefined` 上的写与删是静默的**（`stdlib/round772/r772b-01`）。
+  规范第一句是 `RequireObjectCoercible`，而第 750 轮把「原始值接收者」那一档**整个**收进
+  `return false` 之后，**空值**也被顺带当成「写不下去、一声不响」：
+  `u.x = 1` / `u[0] = 1` / `delete u.x` 本仓都当成功（判据 `r772b-01` 的 01…07 行：
+  Node 全给 `throw:TypeError`）。**修法三处一起**（同一句判据、三个落点）：
+  `props.xl.md` 的 `SetPropertySearched`、`vm.xl.md` 的 `del_prop` 与 `set_index`
+  ——空值那一档抛 `TypeError`（走 `Guard`，`Guard` 认得出宿主 `TypeError` 这一类），
+  **别的原始值一个字都没动**：`(1).x = 1` / `"abc".length = 9` 仍然静默、
+  `delete (1).x` 仍然给真（用例的 08…11 行钉着这一半）。
+- **新登两条**（都带 `xl:why`）：
+  ① `stdlib/round772/r772c-01`——**`u.x?.()` 那一读被整段跳过**（**静默错值**）：
+  JS 里 `?.` 只护**它左边那一格**（`u.x` 的读要 `RequireObjectCoercible`，
+  所以空值接收者上照样抛 `TypeError`），本仓把整条链当成可选的 ⇒ 给 `undefined`、
+  **连 `try` 都不进**。分界由同一份用例的其余六行钉着（`u?.x()` 两边都给 `undefined`、
+  `u.x.y?.()` / `u.x!()` / `u["x"]?.()` 两边都抛、`o.x?.()` 两边都给 `undefined`）。
+  ② `stdlib/round772/r772d-01`——**`Promise` 静态方法少了 `name` / `length`**：
+  第 733 / 734 轮那一张表铺到了 `Array` / `String` / `Number` / `Boolean` / `Error`，
+  `Promise` 那一族漏了（`Promise.all.length` 该是 `1`、本仓给 `0`；`.name` 该是 `"all"`、
+  本仓给 `""`），六个静态一起；`Promise.prototype.then.length`（`2`）与
+  `Promise.length`（`1`）本来就是对的，用例把这两半钉在同一份语料里。
+- 守卫（这一轮量下来本来全对、收进语料）：空值接收者上的**读**
+  （`u.x` / `u[0]` / `u?.x` 三条路都已经是 `TypeError` 或 `undefined`）、
+  原始值接收者上的写删（第 750 轮收的那一档）、`try` / `finally` / `return` /
+  箭头函数四种上下文里的空值调用（`a02` 的 06…08 行）、
+  一次**已经接住过**的异常之后再调方法（`Throws` 那条惯用法会误伤的形状）。
+- 用例：`runtime/round772` 两条 + `stdlib/round772` 三条（**3 条通过、2 条登记**）。
+  五类 7890 / 8282 → **7894 / 8287**、blocked 265 → **264**（收掉的那条）、
+  differ 127 → **129**（+2 新登记）、bad 0、regressions 0，加权 **95.5%**。
+  八道门全绿；runtime:check 243 条、runtime:cli 79 份一致。
+
 ### 第 771 轮：**不匹配的接收者**那一族——十三处一起换成 `TypeError`，另登记四处
 
 **一句话**：接着第 770 轮那条线往**别的内建**上量（`String` / `Number` / 集合 / `Date` /

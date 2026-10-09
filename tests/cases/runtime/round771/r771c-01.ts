@@ -1,9 +1,10 @@
-// xl:title 成员调用落在空值接收者上：整份脚本被带走
+// xl:title 成员调用落在空值接收者上（第 772 轮收掉，这里当守卫）
 // xl:round 771
 // xl:judge stdout
-// xl:want blocked
-// xl:why `u.x()`（`u` 是 `undefined` / `null`）在 JS 里是 `TypeError`、**脚本自己接得住**；本仓整份脚本被引擎带走（`cannot call a non-closure value`，退出码 1、后面的行一行都不打印）——`u.x` 那一读抛得出来，紧接着那次调用却落在脚本的 `try` **外面**。判据这一档是 `blocked`（不是 `differ`）：**这条用例在本仓根本跑不完**，比不出 stdout
 // xl:end
+// **第 771 轮登记的那条缺口已在第 772 轮收掉**（`vm.xl.md` 的 `DoCallMethod`：
+// `Guard` 展开之后不再往下调 `DoCallValue`），`xl:want blocked` / `xl:why` 按规矩撤掉，
+// 这一条留着当守卫——它钉的是「`u.x` 那一读抛得出来、紧接着那次调用也落在脚本的 `try` 里」。
 const show = (f: () => any) => {
   try {
     const v = f();

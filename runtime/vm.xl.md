@@ -2111,8 +2111,47 @@ if (symbolCallee.Tag !== ValueTag.Undefined) {
   this.DoCallValue(frame, symbolCallee, instr.C, instr.D, instr.C, receiver, 0);
   return;
 }
-const callee = this.Guard(() => GetProperty(this.Room(), this.Native(), this.Protos!, this.Table, receiver, key),
-  ErrorKindType);
+// **这一次读之后，帧还在不在原处**（第 772 轮，**实测撞到的**）：`Guard` 把那一抛翻成
+// 脚本站内异常之后**控制流已经交给处理点**（`DoThrow` 退帧 / 改 `Pc`），可**这一句之后照旧会跑**——
+// 于是底下那次 `DoCallValue` 拿到的是 `Value.Undefined()` ⇒ 它再抛一次
+// `cannot call a non-closure value`，而**处理点已经被上一次展开取走了**
+// ⇒ 这一抛**没有落点**、整份脚本被引擎带走（退出码 1、`catch` 里一个字都没打）。
+//
+// **两个症状，同一个根**（都由这一轮的普查量到）：
+//   ① `const u: any = undefined; try { u.x(); } catch {}`——`u.x` 那一读**抛得出来**
+//      （`RtOp.GetProp` 那条路是好的），可紧接着那次调用落在脚本的 `try` **外面**
+//      （第 771 轮登记的 `runtime/round771/r771c-01` 正是这个形状）；
+//   ② **调用位上的 getter 抛错**：`const o = { get g() { throw new TypeError("boom") } }; o.g()`
+//      同样被带走——`GetProperty` 自己会去调那个 getter，那一抛走的是**重入**那条路，
+//      于是**连 `Guard` 都没经过**（它不在这一句的 JS 调用栈里）。
+//
+// **判据为什么是三样合起来**（`readThrew` / `Pc` / 层深），一样都不能省：
+//   · **`readThrew`** 管①：那一抛是 `GetProperty` **自己抛出来的宿主异常**，
+//     就地记一格最准（`Guard` 接住它之前只有这里看得见）；
+//   · **`Pc`** 管②里「处理点还在这一帧」那一半：`DoThrow` 的落点若在**本帧**，
+//     它改的是 `frame.Pc`（主循环进每条指令前先 `frame.Pc = pc + 1`，
+//     所以这一格在这一次读里**只可能被落点改**）；
+//   · **层深**管②里「处理点在本帧**外面**」那一半：那时本帧被弹掉、`Pc` 留在原处，
+//     说的出话的只剩层深（**不能拿 `Frames.Current()` 顶替**——空栈时它要抛）。
+//
+// **为什么不能只看 `this.Throws` 变没变**（那条惯用法在 `CallNative` 里是对的）：
+// `Throws` 是**展开次数**——getter **自己接住**了它里面那一抛时它照样加一，
+// 而那一刻 `GetProperty` 是**正常返回**的 ⇒ 拿它当判据会把一次正常的调用整段跳掉
+// （**静默错值**，比原来那个响亮地崩更难查）。上面这三样都不会被「里面接住了」骗到：
+// 接住之后本帧的 `Pc` 与层深都回到原样。
+const pcBeforeRead = frame.Pc;
+const depthBeforeRead = this.Frames.Depth();
+let readThrew = false;
+const callee = this.Guard(() => {
+  try {
+    return GetProperty(this.Room(), this.Native(), this.Protos!, this.Table, receiver, key);
+  } catch (error) {
+    readThrew = true;
+    throw error;
+  }
+}, ErrorKindType);
+// **控制流已经交出去了**：这一句之后没有一行会被跑到（与 `DoCallValue` 那两处同一条约定）。
+if (readThrew || frame.Pc !== pcBeforeRead || this.Frames.Depth() !== depthBeforeRead) return;
 this.DoCallValue(frame, callee, instr.C, instr.D, instr.C, receiver, 0);
 ```
 
@@ -2986,7 +3025,20 @@ if (id === RtOp.DelProp) {
   // **排在 `ToPropertyKey` 那一步之前**：键的**求值**仍然发生（那是实参的求值，
   // 上面已经做完了），而「删哪一格」对原始值根本没有意义——没有第二份账要记。
   // **它不是「静默收下」**：这正是 JS 的答案，返回值与 Node 逐字节相同。
-  if (!slots[base].IsObject()) return Value.FromBool(true);
+  // **`null` / `undefined` 要先抛 `TypeError`**（第 772 轮，与 `set_prop` 那一族**同一句**）：
+  // `delete u.x`（`u` 是 `undefined` / `null`）在 JS 里抛 `TypeError`
+  // （求那个成员引用就要 `RequireObjectCoercible`），而**别的原始值**才是「恒为真」。
+  // 本条判据原来把两档合在一句 `IsObject()` 里 ⇒ `delete u.x` **静默给 `true`**
+  // （判据 `runtime/round772/r772b-02` 现场：Node 打 `throw:TypeError`、本仓打 `ok:boolean:true`）。
+  if (!slots[base].IsObject()) {
+    if (slots[base].Tag === ValueTag.Undefined || slots[base].Tag === ValueTag.Null) {
+      const delWhat = slots[base].Tag === ValueTag.Null ? "null" : "undefined";
+      return this.Guard(() => {
+        throw new TypeError("cannot delete properties of " + delWhat);
+      }, ErrorKindType);
+    }
+    return Value.FromBool(true);
+  }
   // **键先过 `ToPropertyKey`**（第 706 轮，**普查当场红的**）——与上面 `in` 那一格
   // **一字不差**（第 123 轮就写着「JS 的 `in` 也走 ToPropertyKey」）：
   // `delete o[1]` 里键是一**个数**、`delete o[k]`（`k` 是 `"1"`）里是一**段文本**，
@@ -3103,6 +3155,16 @@ if (id === RtOp.SetIndex) {
     });
   }
   if (!indexTarget.IsObject()) {
+    // **`null` / `undefined` 要先抛 `TypeError`**（第 772 轮）：与 `get_index`
+    // （第 136 轮那一句）以及 `set_prop` / `del_prop` 那两处**同一句**——
+    // `u[0] = 1`（`u` 是 `undefined` / `null`）在 JS 里是 `TypeError`，
+    // 而**别的原始值**才是空操作。
+    if (indexTarget.Tag === ValueTag.Undefined || indexTarget.Tag === ValueTag.Null) {
+      const indexSetWhat = indexTarget.Tag === ValueTag.Null ? "null" : "undefined";
+      return this.Guard(() => {
+        throw new TypeError("cannot set properties of " + indexSetWhat);
+      }, ErrorKindType);
+    }
     // **非严格：给原始值写一格也一声不响**（第 342 轮，**实测撞到的**）：
     // `(s as any)[0] = "z"` 与 `(boxed as any)[0] = "q"`（第 333 / 342 轮那两条判据）
     // 在 JS 里**都是空操作**——字符串是不可变的、装箱对象那种写法也没有可写的元素格

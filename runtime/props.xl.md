@@ -1136,6 +1136,23 @@ if (IsLengthKey(table, key) && receiver.Tag === ValueTag.Array) {
 // 字符串的 `length` 确实是只读的，但它**不是对象**——下面那条
 // 「primitive receiver」自己会挡（`"ab".length = 1` 照样抛）。
 if (!receiver.IsObject()) {
+  // **`null` / `undefined` 要先抛 `TypeError`**（第 772 轮，**普查当场红的**）：
+  // 规范第一句是 `RequireObjectCoercible`——`u.x = 1`（`u` 是 `undefined` / `null`）
+  // 在 JS 里**抛 `TypeError`**（Node 的措辞是 `Cannot set properties of undefined
+  // (setting 'x')`），而**别的原始值**（数字 / 字符串 / 布尔 / 符号）才是「一声不响」。
+  //
+  // **本条分支原来把两档合在一句 `return false` 里**（第 750 轮收「原始值接收者」时
+  // 只量了 `s.x = 1` / `"abc".length = 5` 那两档）⇒ `u.x = 1` 被**静默当成写成功**
+  // （判据 `runtime/round772/r772b-01` 现场：Node 打 `throw:TypeError`、
+  // 本仓打 `ok:string:wrote`）。
+  //
+  // **抛的是宿主 `TypeError`**：`set_prop` / `set_index` 两处都走 `Guard`，
+  // 而 `Guard` 认得出这一类（`error instanceof TypeError` ⇒ `ErrorKindType`，
+  // 不必在这里递类别）。**别的原始值那一档一个字都没动**。
+  if (receiver.Tag === ValueTag.Undefined || receiver.Tag === ValueTag.Null) {
+    const what = receiver.Tag === ValueTag.Null ? "null" : "undefined";
+    throw new TypeError("cannot set properties of " + what);
+  }
   // **原始值接收者：一声不响什么都没做**（第 750 轮，**普查当场红的**）——
   // 返回**假**（「没写下去」），与「不可写的属性」那一格**同一条口径**。
   //
