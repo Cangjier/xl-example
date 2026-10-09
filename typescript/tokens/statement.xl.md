@@ -8,7 +8,7 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, NextLineFirstCharAt, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -1096,6 +1096,57 @@ const word = Statement.WordOf(item);
 return word === "as" || word === "satisfies" || word === "in" || word === "of" || word === "instanceof" || word === "is";
 ```
 
+## private static method NextLineFirstCharIndex:(source:Source)=>int
+
+`NextLineFirstCharAt` 那一格需要**下标**（`NextLineContinuesExpression` 要看紧跟在它
+后面的第二个字符，用来分辨 `++` / `--`）。本体的跳字符循环在
+`text-common-util.xl.md` 的 `SkipSourceTriviaFrom`（理由见那一格），这里只是换个起点。
+
+```ts
+return SkipSourceTriviaFrom(source, source.Index + 1);
+```
+
+## static method NextLineFirstCharAt:(source:Source)=>string
+
+`source` 处那个软换行**后面**那一行的第一个**实义字符**（跳过空白与注释）；扫到文件末尾给空串。
+
+**本体住在 `text-common-util.xl.md`**（第 876 轮）：`export.xl.md` 的 `ExportCloseRule.Process`
+要问**同一段扫描**（`export { a }` 换行 `from "m"`），而 `export.xl.md` 反过来被本文件 import
+（`export_1` 那一格）⇒ 共用的一格只能放在两者共同的下层。
+本文件这两格只是转发（名字保留：`NextLineContinuesExpression` 那一段的注释都写着它）。
+
+**注释也算 trivia**（与 `IsLineBreakBoundary` 的跳过口径对齐）：`x as` 换行 `// 注` 换行 `| A`
+里那个 `|` 才是下一行的第一个实义字符。
+
+```ts
+return NextLineFirstCharAt(source);
+```
+
+## static method NextLineStartsWithWord:(source:Source, word:string)=>bool
+
+`source` 处那个软换行**后面**那一行是不是以 `word` 这个**词**开头。本体同样在
+`text-common-util.xl.md`（见上一格写的理由）——`export` 声明的收尾规则与
+`IsPendingExportHead` 问的是**同一句**，所以这里也只是转发。
+
+```ts
+return NextLineStartsWithWord(source, word);
+```
+
+## static method LineEndsWithEquals:(data:Array<Token>)=>bool
+
+这一段**最后一个实义单元**是不是一个 `=`。
+
+**为什么要问它**（第 876 轮）：`import A =` 换行 `require("m")` 与 `import A = B.C` 的**左半边
+一模一样**，分开它们只能看右边；而解析期在换行那一刻右边还没读进来
+（`NextLineStartsWithWord` 那一格是同一件事的另一面）。
+`import` 声明的收尾规则与语句分派层问的是同一句，所以它是一格公开方法。
+
+```ts
+const at = SkipPreviousTrivia(data, data.length);
+const last = Get(data, at);
+return last instanceof SymbolToken && last.Is("=");
+```
+
 ## static method NextLineContinuesExpression:(data:Array<Token>, source:Source)=>bool
 
 `source` 处那个软换行**后面**那一行会不会接着写下去——**ASI 右半截的解析期版本**（第 568 轮）。
@@ -1169,37 +1220,11 @@ if (previous instanceof SymbolToken && (previous.Is("++") || previous.Is("--")))
 }
 const document = source.Document;
 const count = document.GetCount();
-let at = source.Index + 1;
-for (;;) {
-  if (at >= count) {
-    return false;
-  }
-  const one = document.GetValue(at);
-  if (one === " " || one === "\t" || one === "\r" || one === "\n" || one === "\f" || one === "\v") {
-    at = at + 1;
-    continue;
-  }
-  if (one === "/" && at + 1 < count && document.GetValue(at + 1) === "/") {
-    while (at < count && document.GetValue(at) !== "\n") {
-      at = at + 1;
-    }
-    continue;
-  }
-  if (one === "/" && at + 1 < count && document.GetValue(at + 1) === "*") {
-    at = at + 2;
-    while (at + 1 < count && (document.GetValue(at) !== "*" || document.GetValue(at + 1) !== "/")) {
-      at = at + 1;
-    }
-    at = at + 2;
-    continue;
-  }
-  break;
-}
-if (at >= count) {
+const at = Statement.NextLineFirstCharIndex(source);
+const head = NextLineFirstCharAt(source);
+if (head === "") {
   return false;
-}
-const head = document.GetValue(at);
-// **`(` / `[` 开头**（第 582 轮）：`x = y` 换行 `(function () { … })()` 与
+}// **`(` / `[` 开头**（第 582 轮）：`x = y` 换行 `(function () { … })()` 与
 // `x => x` 换行 `[1, 2, 3]` 都是**接着写**（TS 那边是一条 `CallExpression` / `ElementAccessExpression`），
 // 而解析期只认 `|` / `&` / `.` 三个符号时它们一律断句 ⇒ 后半截落进另一个壳
 //（实测 `stmt-asi-paren-call.ts` `0 4 5`、`am-block-lambda-array-compound.ts` `5 2 4`）。
@@ -1701,7 +1726,16 @@ return true;
 
 `=` 那一档单列：`import A = B.C` 里**一个字符串都没有** —— 只看 `String` 的话
 「`import A = B.C` 换行 `const x = 1;`」会被并进**同一条**语句（实测语料里有这种排版）。
-`import A = require("m")` 不必另判：它前面一定已经有一个 `=`。
+
+**但「有没有 `=`」不是「写完了没有」**（第 876 轮）：`import m =` 换行 `require("m")` 里那个
+`=` 的**右操作数还没到手**——`IsComplete` 要问的是「这一格算不算**完成了**」，
+而 `=` 后面的东西此刻还没读进来（与 `export` / `default` 那两格同一件事：
+`Statement.ExpectsOperand` 里 `=` 本来就要求右操作数，`LineCannotEnd` 已经答「这一行没完」，
+问题在于**导入声明的收尾规则跑在语句壳之前**，它一并壳这一段就再也轮不到下一行了）。
+判据落在**原始字符**上：末尾是 `=`、而下一行第一个实义字符**做得了一个操作数**
+（标识符字符起头，`{` 那种字面量也算）⇒ 还没写完。下一格是运算符 / `)` / `;` / `,` 这些
+「起不了一个操作数」的字符时**照旧算写完**——那样 `import A = B.C` 换行 `const x = 1;` 那种排版
+一位都不动。判据本体是 `LineEndsWithEquals` + `NextLineFirstCharAt`（两处只有一份）。
 
 ```ts
 let headAt = start;
@@ -1730,13 +1764,16 @@ for (let i = headAt + 1; i < data.length; i++) {
     return false;
   }
   if (item instanceof SymbolToken && item.Is("=")) {
-    return false;
+    // **落到这一格为止，那一段末了是不是只剩一个 `=`**（第 876 轮）：
+    // 是 ⇒ 右操作数还没到手 ⇒ 这一段当然还没写完（`require("m")` / `B.C` 都还没读进来）
+    // ⇒ **待定**；不是（`=` 后面已经有东西）⇒ 照旧算写完。
+    return Statement.LineEndsWithEquals(data);
   }
 }
 return true;
 ```
 
-## static method IsPendingExportHead:(data:Array<Token>, start:int)=>bool
+## static method IsPendingExportHead:(data:Array<Token>, start:int, source:Source)=>bool
 
 `start` 起到列表末尾这一段**是一条还没写完的导出声明**吗。
 
@@ -1755,6 +1792,13 @@ return true;
 **少了它会怎样**：`export * as ns` 换行 `from "m"` 在换行处收壳 ⇒ `ExportCloseRule` 收出一个
 **半截的** `Export`（区间只到 `ns`、`From` 空着），`from "m";` 另起一条 `ExpressionStatement`
 （实测 `export * as ns ⏎ from "m"` 缺 1 漂 1 多 3、`export * as ns from ⏎ "m"` 漂 1 多 2）。
+
+**「花括号那一支自己就完整」也要看右边**（第 876 轮）：`export { a }` 换行 `from "m"` 里
+花括号子句到手那一刻 `IsComplete` 就已经答「写完了」（`from` 是可选的，所以左边看不出来），
+换行处收壳 ⇒ 声明断成「`export { a }` + `from "m";`」两条
+（实测 `gap-r869-exp-named-newline-before-from`：漂 1 多 3）。
+判据落在**原始字符**上：这一段是花括号那一支、**还没吃到 `from`**、而下一行以 `from` 这个词开头
+⇒ 还没写完（`Statement.NextLineStartsWithWord`，与 `NextLineContinuesExpression` 同一段扫描）。
 
 ```ts
 let headAt = start;
@@ -1788,7 +1832,20 @@ for (let i = headAt + 1; i < data.length; i++) {
   }
   items.push(item);
 }
-return ExportCloseRule.Instance.IsComplete(items) === false;
+if (ExportCloseRule.Instance.IsComplete(items)) {
+  // **花括号那一支的右边那一格**（第 876 轮）：`export { a }` 换行 `from "m"` 到这里
+  // `IsComplete` 已经答「写完了」（`from` 对花括号子句是可选的）——可下一行那个 `from`
+  // 说明**还没写完**。只在「有花括号、还没有 `from`」时问右边那一行。
+  const brace = items.some(
+    (item) => item instanceof Bracket && item.startBracket === "{",
+  );
+  const fromAt = items.findIndex((item) => item instanceof Identifier && item.Is("from"));
+  if (brace && fromAt === -1 && NextLineStartsWithWord(source, "from")) {
+    return true;
+  }
+  return false;
+}
+return true;
 ```
 
 ## static method EndsOperand:(item:Token | null)=>bool
@@ -2471,7 +2528,7 @@ if (Statement.IsPendingImportHead(data, frontIndex + 1)) {
 // **导出声明也一样**（第 869 轮）：`export` 声明没有 ASI，`;` 之前的一切都归同一条声明
 //（判据、实测账见 `Statement.IsPendingExportHead`）。少这一句时 `export * as ns` 换行 `from "m"`
 // 会断成两截：前截是一个只有星号段的 `Export`，`from "m";` 另起一条。
-if (Statement.IsPendingExportHead(data, frontIndex + 1)) {
+if (Statement.IsPendingExportHead(data, frontIndex + 1, source)) {
   return result;
 }
 // **上一行还没写完时，换行不收壳**（第 558 轮）：把 ASI 判据的**左半截**搬进解析期

@@ -92,6 +92,20 @@
   （`:` 或 `=` 右边），否则一个叫 `unique` 的变量独占一行也会被判成续接。
   同一件事在解析期（`LineCannotEnd`）与收尾期（`IsLineBreakBoundary` / `AliasEnd`）各写一遍就会漂，
   所以 `IsPendingTypeModifier` **只写一份**、两处都问它。
+- **「这一段写完了没有」有两半，左边那一半看不出来时问右边**（第 876 轮）：
+  `export { a }` 换行 `from "m"` 里花括号子句到手那一刻 `IsComplete` 就答「写完了」
+  （`from` 对花括号子句是**可选**的 —— `export { a };` 本来就是完整声明），
+  可下一行那个 `from` 说明它还没写完。换行那一刻 `from` 还没读进来 ⇒ 判据只能落在
+  **原始字符**上（`text-common-util.xl.md` 的 `NextLineStartsWithWord` / `NextLineFirstCharAt`
+  / `SkipSourceTriviaFrom`）。**两处必须问同一句**：语句壳那一侧
+  （`Statement.IsPendingExportHead`）与收尾规则那一侧（`ExportCloseRule.Process`）——
+  只改后者的症状是「`Export` 区间对了、`From` 与路径还在外面」（实测）。
+  **共用的一格要放在两者共同的下层**：`export.xl.md` 反过来被 `statement.xl.md` import
+  （`export_1` 那一格），所以这三格住在 `text-common-util.xl.md`，`Statement` 那两格只是转发。
+  **两个踩过的坑**：① `Process` 里可能有**同名的外层 `i`**（`isPrefixOnly` 那一支用过它）——
+  新建 `Source` 要取 `unit.SourceRange.Start.Index`，不要用 `i`；② 判据的**返回值方向**
+  要对着 `if` 读一遍（`IsPendingImportHead` 里 `LineEndsWithEquals(data) === false` 是写反的，
+  本轮顺手改对了，但那条缺口的收尾规则那一侧仍然先收壳）。
 - **同一个「左边那一格」的判据，在解析期（开括号那一刻）与收尾期各有一份**（第 875 轮）：
   `import` / `export` 后面那个 `type` 词是不是**引入一个子句**（`import type { A }`）而不是
   类型别名（`export type X = { … }`），要在**两处**问——`DecideBracketContext` 在开括号那一刻
@@ -337,7 +351,7 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**7 条**）
+## 已知仍开着的缺口（**6 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
 （第 854 轮实测 **10**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
@@ -359,9 +373,10 @@
 变量声明的类型标注冒号、还在等操作数的类型词）⇒ **11 条**；**第 874 轮**收掉 `infer` 约束那一格
 （`IsInsideExtendsType` 的回扫跨过注释）⇒ **10 条**；**第 875 轮**收掉三条同根的
 （`import` / `export` 后面那个 `type` 词的两侧注释、`typeof` 与 `import(...)` 之间的注释）
-⇒ **7 条**，剩下的短线是「注释 / 换行落在语法
-相邻位置之间」那条线的第五面（`abstract /* c */ new`、`#x ⏎ in o`、
-`import A = ⏎ require("m")`、`export { a } ⏎ from "m"`、`declare ⏎ global` 之类）。
+⇒ **7 条**；**第 876 轮**收掉 `export { a }` 换行 `from "m"` 那一格
+（花括号子句「自己就完整」也要看**右边那一行**）⇒ **6 条**，剩下的短线是
+「注释 / 换行落在语法相邻位置之间」那条线的第六面（`abstract /* c */ new`、`#x ⏎ in o`、
+`import m = ⏎ require("m")`、`export { a } ⏎ from("m")`、`declare ⏎ global` 之类）。
 
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，

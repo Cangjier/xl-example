@@ -13,7 +13,8 @@ import { SymbolToken } from "./symbol-token.xl.md"
 import { ConstString } from "./string/const-string.xl.md"
 import { String } from "./string/string.xl.md"
 import { TypeLiteral } from "./type-literal/type-literal.xl.md"
-import { SkipPreviousWrapSymbol, IsTriviaUnit } from "../text-common-util.xl.md"
+import { Source } from "../../core/syntax/source.xl.md"
+import { NextLineStartsWithWord, SkipPreviousWrapSymbol, IsTriviaUnit } from "../text-common-util.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 ```
 
@@ -217,7 +218,30 @@ if (isPrefixOnly) {
     // 没成形时注释与软换行一律跨过去（`export * ⏎ as ns ⏎ from "m"` 是合法排法，
     // TS 那边导出声明在 `;` 之前没有 ASI）：原来在换行那一格 `break` ⇒ 整条断成两截
     // （实测 `export * as ns from "m"` 的四份换行排版各缺 3 个节点、字段差 1 处）。
+    //
+    // **「花括号那一支自己就完整」也要看右边**（第 876 轮）：`export { a }` 换行 `from "m"` 里
+    // `done` 在换行那一刻就是真（`from` 对花括号子句是可选的），可下一行那个 `from` 说明
+    // **还没写完** ⇒ 照旧 `continue`。判据与 `Statement.IsPendingExportHead` 那一格**同一句**
+    // （`NextLineStartsWithWord`，本体在 `text-common-util.xl.md`——两处共用一格、又都不能
+    // 反过来 import 对方，所以放在两者共同的下层），语句壳那一侧也问它。
+    // **起点从那个单元自己的 `SourceRange.Start` 取，不用下标 `i`**（踩过）：这一段在
+    // `Process` 里，而外层还有一个同名的 `i`（`headEnd` 那一支用的是它）——`i` 在这条支路上
+    // 是**外层那个**（`export = …` 的等号位置），拿它建 `Source` 会从 `export` 中间开始扫。
     const done = this.IsComplete(items);
+    if (done) {
+      const brace = items.some(
+        (item) =>
+          (item instanceof Bracket && item.startBracket === "{") || item instanceof TypeLiteral,
+      );
+      const fromAt = items.findIndex((item) => item instanceof Identifier && item.Is("from"));
+      if (brace && fromAt === -1) {
+        const newline = Get(units, i);
+        const start = newline === null ? null : newline.SourceRange.Start;
+        if (start !== null && NextLineStartsWithWord(new Source(start.Document, start.Index), "from")) {
+          continue;
+        }
+      }
+    }
     if (IsTriviaUnit(item) && done === false) {
       continue;
     }

@@ -306,6 +306,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 876 轮：`export { a } ⏎ from "m"` 那一格——「自己就完整」也要看右边那一行（known-gap 7 → 6）
+
+**一句话**：`export { a }` 换行 `from "m"` 收掉——花括号子句到手时 `IsComplete` 就答「写完了」，
+可下一行那个 `from` 说明这条声明还没写完。
+
+**根子**（[export.xl.md](typescript/tokens/export.xl.md) + [statement.xl.md](typescript/tokens/statement.xl.md)）：
+`ExportCloseRule.IsComplete` 对花括号那一支的判据是「子句到手就完整」（`from` 是可选的，
+`export { a };` 就是一条完整声明）——**左边看不出来**。换行那一刻 `from` 还没读进来，
+所以判据只能落在**原始字符**上：这一段有花括号、还没有 `from`、而下一行以 `from` 这个词开头
+⇒ 还没写完。两处问的是同一句（语句壳 `Statement.IsPendingExportHead` 与收尾规则
+`ExportCloseRule.Process`），所以本体只写一份：`NextLineStartsWithWord`。
+
+**为什么它住在 `text-common-util.xl.md`**：`export.xl.md` 反过来被 `statement.xl.md` import
+（`export_1` 那一格）⇒ 两处共用的那一格只能放在**两者共同的下层**。同一个扫描
+（跳过空白与注释取下一行第一个实义字符）的三个用户一起搬过去了：
+`SkipSourceTriviaFrom` / `NextLineFirstCharAt` / `NextLineStartsWithWord`；
+`Statement` 那两格现在只是转发（`NextLineContinuesExpression` 的注释里一直写着它们）。
+
+**踩到的两格**（都写进了各自的注释里，别再踩）：
+① `ExportCloseRule.Process` 里那个 `i` 是**外层**的（`isPrefixOnly` 那一支用的是它）——
+新建 `Source` 时要取 `newline.SourceRange.Start.Index`，拿 `i` 会从 `export` 中间开始扫；
+② `IsPendingImportHead` 里 `=` 那一格的返回值**写反了**（`LineEndsWithEquals(data) === false`）——
+`true` 是「还没写完」，所以直接返回它。
+
+**实测**：`tmp/r875/remaining.mjs` 9 条探针（7 条已知缺口 + 2 条对照）里这一条转绿；
+全语料 `cases:tsast` **16 / 16 片**、缺 0 漂 0 多 0、已知缺口 **7 → 6**；
+`cases:check` 1466 / 1466、`cases:tags` 4920 条断言 0 条不一致（XML 一个字节都没动）；
+`coverage` **4043 → 4044 / 4228**（blocked **47 → 46**、differ 138、bad 0）、`gates` 八道全过。
+
+**同一轮里试过、**没**收掉的那一条**（`gap-r869-import-equals-newline-3`）：`import m =` 换行
+`require("m")` 里 `=` 的右操作数还没到手，而 `ImportCloseRule.Process` 在换行那一格就 `break`
+（它按「已经吃到 `=` 就算完整」判）。这一轮把 `IsPendingImportHead` 的那一格判据修对了
+（`LineEndsWithEquals` 那一处返回值写反），语句壳那一侧现在**答得对**（实测
+`IsPendingImportHead(data) === true`），可收尾规则那一侧仍然先收壳——两处的时序还没理清，
+如实留着（差额从「多 4」没动）。**下一步的第一站**：`ImportCloseRule.Process` 与
+`StatementBranch.Condition` 在换行那一格谁先跑（`GeneralCloseRule` 里 `Import` 排在
+`Statement` 之前，而语句壳是**解析期**的 `Branch`）。
+
 ### 第 875 轮：`import type` 与 `typeof import(...)` 那两格——注释落在 `type` / `typeof` 两侧（known-gap 10 → 7）
 
 **一句话**：三条同根的缺口一起收掉——`import /*c*/ type { A }`、`import type /*c*/ { A }`
@@ -4726,7 +4764,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **7 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–875 六轮共收掉 23 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **6 条 `xl:known-gap` 还开着**（第 869 轮普查量出的那一批、第 870–876 七轮共收掉 24 条，每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1466** 条 **token** 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
@@ -4734,7 +4772,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1453 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4043 / 4228**，加权 **95.1%**：token 1446/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 47 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4044 / 4228**，加权 **95.1%**：token 1447/1453、exec 751/790、runtime 724/775、stdlib 881/965、e2e 241/245。差的那些是**真缺口**（`blocked` 46 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 ### 口径与已知缺口
 

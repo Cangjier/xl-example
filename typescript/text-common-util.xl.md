@@ -6,6 +6,7 @@ import { Bracket } from "./tokens/bracket.xl.md"
 import { Identifier } from "./tokens/identifier.xl.md"
 import { Keyword } from "./tokens/keyword.xl.md"
 import { Document } from "../core/syntax/document.xl.md"
+import { Source } from "../core/syntax/source.xl.md"
 import { String } from "./tokens/string/string.xl.md"
 import { SymbolToken } from "./tokens/symbol-token.xl.md"
 import { LineWrap } from "./tokens/line-wrap.xl.md"
@@ -54,6 +55,96 @@ for (const child of unit.Data) {
   return StartsWithTemplate(child);
 }
 return false;
+```
+
+# method NextLineFirstCharAt:(source:Source)=>string
+
+`source` 处那个软换行**后面**那一行的第一个**实义字符**；扫到末尾给空串。
+
+```ts
+const at = SkipSourceTriviaFrom(source, source.Index + 1);
+if (at < 0) {
+  return "";
+}
+return source.Document.GetValue(at);
+```
+
+# method NextLineStartsWithWord:(source:Source, word:string)=>bool
+
+`source` 处那个软换行**后面**那一行是不是以 `word` 这个**词**开头（跳过空白与注释）。
+
+`export { a }` 换行 `from "m"` 那一格要它（见 `export.xl.md` 的 `Process` 与
+`statement.xl.md` 的 `IsPendingExportHead`）：「这一段写完了没有」在换行那一刻只能落在
+**原始字符**上问一次。判据是「词头相等**且**词尾不是标识符字符」——`fromage` 不是 `from`。
+
+```ts
+if (word.length === 0) {
+  return false;
+}
+const at = SkipSourceTriviaFrom(source, source.Index + 1);
+if (at < 0) {
+  return false;
+}
+const document = source.Document;
+const count = document.GetCount();
+if (at + word.length > count) {
+  return false;
+}
+for (let i = 0; i < word.length; i++) {
+  if (document.GetValue(at + i) !== word[i]) {
+    return false;
+  }
+}
+const after = at + word.length;
+if (after < count && /[A-Za-z0-9_$]/.test(document.GetValue(after))) {
+  return false;
+}
+return true;
+```
+
+# method SkipSourceTriviaFrom:(source:Source, from:int)=>int
+
+从 `from` 起跳过**空白与注释**（`//…` 到行尾、`/* … */`），返回第一个实义字符的下标；扫到末尾给 `-1`。
+
+**注释也算 trivia**（与 `IsLineBreakBoundary` 的跳过口径对齐）：`x as` 换行 `// 注` 换行 `| A`
+里那个 `|` 才是下一行的第一个实义字符。
+
+**为什么这一格也住在这一层**（第 876 轮）：同一个扫描有两个用户——
+`Statement.NextLineContinuesExpression`（看那个字符是不是 `|` / `&` / `.` 那几张表里的一个）
+与 `export.xl.md` 的 `ExportCloseRule.Process`（`export { a }` 换行 `from "m"` 要看下一行
+起头那个词）。而 `export.xl.md` 反过来被 `statement.xl.md` import（`export_1` 那一格），
+两处共用一格就只能把它放在**两者共同的下层**——`text-common-util` 正是那一层，
+它谁都不 import（见本文件开头那一段）。
+
+```ts
+const document = source.Document;
+const count = document.GetCount();
+let at = from;
+for (;;) {
+  if (at >= count) {
+    return -1;
+  }
+  const one = document.GetValue(at);
+  if (one === " " || one === "\t" || one === "\r" || one === "\n" || one === "\f" || one === "\v") {
+    at = at + 1;
+    continue;
+  }
+  if (one === "/" && at + 1 < count && document.GetValue(at + 1) === "/") {
+    while (at < count && document.GetValue(at) !== "\n") {
+      at = at + 1;
+    }
+    continue;
+  }
+  if (one === "/" && at + 1 < count && document.GetValue(at + 1) === "*") {
+    at = at + 2;
+    while (at + 1 < count && (document.GetValue(at) !== "*" || document.GetValue(at + 1) !== "/")) {
+      at = at + 1;
+    }
+    at = at + 2;
+    continue;
+  }
+  return at;
+}
 ```
 
 # method IsAnnotationUnit:(item:Token | null)=>bool

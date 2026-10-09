@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.06,
+  "progressPercent": 95.07,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1453,
-      "pass": 1446,
-      "blocked": 7,
+      "pass": 1447,
+      "blocked": 6,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.52
+      "coverage": 99.59
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1453,
-    "knownGap": 7,
-    "knownGapStillOpen": 7,
-    "exactFiles": 1446,
-    "scoredWithoutGap": 1446,
-    "passedWithoutGap": 1446
+    "knownGap": 6,
+    "knownGapStillOpen": 6,
+    "exactFiles": 1447,
+    "scoredWithoutGap": 1447,
+    "passedWithoutGap": 1447
   },
   "blocked": [
     {
@@ -144,16 +144,10 @@
       "detail": "缺 3　多 2　`declare` 换行 `global`：`declare` 是上下文关键字、换行处走 ASI（第 839 轮量过并如实留着），于是 `global` 那个环境模块声明整条认不出来"
     },
     {
-      "id": "token/modules/gap-r869-exp-named-newline-before-from",
-      "category": "token",
-      "title": "第 869 轮普查量出的缺口（exp-named-newline-before-from）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 1　漂 1　多 3　花括号子句已经完整、`from` 还在下一行：解析期那一条只看得到左边那一半（`from` 还没读进来），而 TS 在子句后面见到 `from` 就把它当同一条声明的模块路径"
-    },
-    {
       "id": "token/modules/gap-r869-exp-named-newline-then-from-like",
       "category": "token",
       "title": "第 869 轮普查量出的缺口（exp-named-newline-then-from-like）：这一条钉的是上面那条根因的一个落点",
-      "detail": "缺 1　漂 1　多 4　同一格的纠错形态：`from(\"m\")` 不是字符串字面量，TS 仍把括号表达式当模块路径收进同一条声明"
+      "detail": "缺 2　字段 1　同一格的纠错形态：`from(\"m\")` 不是字符串字面量，TS 仍把括号表达式当模块路径收进同一条声明"
     },
     {
       "id": "token/modules/gap-r869-import-equals-newline-3",
@@ -551,7 +545,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28336/src/2060.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-1652/src/2060.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -893,7 +887,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28336/src/3045.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-1652/src/3045.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -917,7 +911,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28336/src/3093.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-1652/src/3093.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1073,7 +1067,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-28336/src/3736.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-1652/src/3736.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
