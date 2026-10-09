@@ -8,6 +8,9 @@
 // xl:why 实参括号与**已折好的那一格**之间没有接线（`OptionalCallCloseRule` 认得 `IsCalleeEnd`，
 // xl:why 可真正成形的那一趟落在 `?.` 的另一侧）。
 // xl:end
+// 本文件是 `p741a-a02` 按命名规范改名（第 805 轮）：**正文一字未动**——
+// 它量的是异步调度那一层，包一层壳就会换一个挂点（实测过），所以只改名、不并组。
+
 const o: any = { m() { return { v: 2 }; } };
 console.log(o?.["m"](), o?.["m"]().v);
 console.log(o?.m?.().v, o?.["m"]?.().v);

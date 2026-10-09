@@ -7,6 +7,9 @@
 // xl:why `(await o?.m)()` 于是调到了 `await` 的结果上 ⇒ 与 Node 差一整层（`{}` 对 `Promise { 4 }`）。
 // xl:why 与 `p741a-a02` / `p741a-a03` **同一条根**。
 // xl:end
+// 本文件是 `p741a-a06` 按命名规范改名（第 805 轮）：**正文一字未动**——
+// 它量的是异步调度那一层，包一层壳就会换一个挂点（实测过），所以只改名、不并组。
+
 async function main() {
   const o: any = { m: () => Promise.resolve(4) };
   console.log((await o?.m)());
