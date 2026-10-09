@@ -169,7 +169,7 @@ token 的 186 条 `gap-sweep-*` / `gap-r676-*` 是 **AST 尺子的逐落点账**
 | 动机 | 「免得把控制台渲染那一族的已知缺口混进来」——即**隔离打印层**，让每条只暴露一个语义差额 |
 | 首现 | 第 692 轮（其一）：**385 条**（其中原子探针 299 条），分母 3992 → 4377 |
 | 之后逐批 | 692（其二）150 · 692（其三）103 · 693 **555** · 694 **242** · 695 150 · 696 152 · 697 159 · 698 85 · 699 202 · 700 158 · 701 100 · 706 133 · 707 117 · 708 81 · 709 56 · 710 49 · 711 26 |
-| 现状（第 799 轮之后） | git 跟踪 **546 条**（第 798 轮之后是 584、第 797 轮之后是 624、第 796 轮之后是 648、第 795 轮之后是 674、第 794 轮（三）之后是 734、第 794 轮（二）之后是 759、第 794 轮之后是 793、第 793 轮之后是 827、第 792 轮之后是 871、第 791 轮之后是 920、第 790 轮（三）之后是 973、第 790 轮（二）之后是 1025、第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118），第 790 轮（三）走完 `exec/iterators`（52），第 791 轮走完 `stdlib/error`（53），第 792 轮走完 `exec/destructuring-spread`（48），第 793 轮走完 `stdlib/math`（44），第 794 轮走完 `runtime/exceptions`（34），第 794 轮（二）走完 `runtime/round742`（34），第 794 轮（三）走完 `stdlib/round718`（25），第 795 轮走完 `exec/round709`（35）与 `exec/round711`（25），第 796 轮走完 `stdlib/round719`（26，整域并进 `stdlib/math` 与 `stdlib/number`），第 797 轮走完 `stdlib/round721`（24），第 798 轮走完 `runtime/async`（91 → 22），第 799 轮走完 `stdlib/console`（71 → 11） |
+| 现状（第 800 轮之后） | git 跟踪 **522 条**（第 799 轮之后是 546、第 798 轮之后是 584、第 797 轮之后是 624、第 796 轮之后是 648、第 795 轮之后是 674、第 794 轮（三）之后是 734、第 794 轮（二）之后是 759、第 794 轮之后是 793、第 793 轮之后是 827、第 792 轮之后是 871、第 791 轮之后是 920、第 790 轮（三）之后是 973、第 790 轮（二）之后是 1025、第 790 轮之后是 1029、第 789 轮（三）之后是 1183、第 789 轮（二）之后是 1278、第 789 轮之后是 1503、第 788 轮（三）之后是 1759、第 788 轮（二）之后是 1793、第 788 轮之后是 1909、第 787 轮（三）之后是 2127、第 783 轮那一次是 3039）——逐轮按判定点收敛中；第 789 轮走完 `exec/functions`（165）与 `exec/round706`（125），第 789 轮（二）走完 `stdlib/map-set`（113）与 `stdlib/string`（111），第 789 轮（三）走完 `exec/statements`（96），第 790 轮走完 `exec/round708`（81）与 `runtime/iterators`（118），第 790 轮（三）走完 `exec/iterators`（52），第 791 轮走完 `stdlib/error`（53），第 792 轮走完 `exec/destructuring-spread`（48），第 793 轮走完 `stdlib/math`（44），第 794 轮走完 `runtime/exceptions`（34），第 794 轮（二）走完 `runtime/round742`（34），第 794 轮（三）走完 `stdlib/round718`（25），第 795 轮走完 `exec/round709`（35）与 `exec/round711`（25），第 796 轮走完 `stdlib/round719`（26，整域并进 `stdlib/math` 与 `stdlib/number`），第 797 轮走完 `stdlib/round721`（24），第 798 轮走完 `runtime/async`（91 → 22），第 799 轮走完 `stdlib/console`（71 → 11），第 800 轮走完 `stdlib/symbol`（67 → 10） |
 | 现状（`gap-*` 一族） | git 跟踪 **186 条**，其中 token 180（`gap-sweep-*` 175 + `gap-r676-*` 11 之类）、runtime / stdlib 6 —— **第 790 轮（二）起这一族也在整理范围内**：同一条根的账并成一条、名字按规范给（`gap746-…` → `002-…-differ` 这种）；token 那 186 条**逐条量的是不同落点**（`xl:known-gap` 一行的差额各不相同），所以**没有重复可去**，仍按 `gap-` 前缀留在 `token/` 里（见下面第 790 轮（二）那一节） |
 
 **它当时的收益是真的**：每一批都当场收掉几处根因，覆盖度从 3697/3992 一路推到目前的 4886/5284。
@@ -192,6 +192,44 @@ token 的 186 条 `gap-sweep-*` / `gap-r676-*` 是 **AST 尺子的逐落点账**
 也就是说：**探针这个方法要留，探针的重复不要留。**
 
 ## 分母里有什么（数字是最近一次全量实测）
+
+**第 800 轮的合并**（**`stdlib/symbol` 整个域按判定点重排：67 → 10**）：
+43 条编号条 + 24 条原子探针（`probe697-y*` 17 · `probe-y*` 5 · `p-sym-*` 2）里，
+**描述与文本形态**被写了十几遍、**注册表**（`for` / `keyFor`）被写了十几遍。
+67 条按判定点并成 **10 条规则用例**，`probe*` 与 `p-sym-*` 命名清零。
+块都是同步的（唯一一处异步生成器 `030` 是单来源、原样留在顶层），
+所以与第 799 轮一样不需要排空壳。
+
+| 新条 | 判定点 | 吸收（原条） |
+| --- | --- | --- |
+| `001-symbol-description-and-text` | 符号的描述与文本形态：`description` / `toString` / `String(s)` / `typeof` / 唯一性 | `005` · `006` · `009` · `012` · `016` · `033` · `035` · `137` · `138` · `139` · `probe697-y01/y02/y09/y18` · `probe-y02/y05/y07` · `p-sym-tostring` · `p-sym-unique`（19 条） |
+| `002-symbol-registry-for-and-keyfor` | `Symbol.for` / `keyFor` 的注册表：identity、键的取出、实参强制转换 | `008` · `010` · `013` · `023` · `024` · `027` · `029` · `probe697-y05/y06/y07/y20` · `probe-y03`（12 条） |
+| `003-symbol-as-property-key` | 符号作属性键：不进 `Object.keys` / `JSON`，能列进 `getOwnPropertySymbols`、`in` / `entries` / `assign` | `032` · `probe697-y11`…`y17`（8 条） |
+| `004-symbol-well-known-identity` | 内建符号的名字表与同一性（`iterator` / `asyncIterator` / `hasInstance` / `toStringTag` / `dispose` / `match` 那一族） | `025` · `031` · `034` · `036` · `037` · `134` · `135` · `probe697-y10`（8 条） |
+| `005-symbol-iterator-custom-iterables` | 自定义 `Symbol.iterator` 的可迭代物：展开 / `for..of` / 手动 `next()` | `001` · `014` · `017` · `019` · `020` · `021` · `022`（7 条） |
+| `006-symbol-toprimitive` | `Symbol.toPrimitive` 的三种 hint | `002` · `011` · `015` · `136`（4 条） |
+| `007-symbol-hasinstance` | `Symbol.hasInstance` 自定义 `instanceof`（与 `Symbol.species`） | `003` · `026` · `028`（3 条） |
+| `008-symbol-tostringtag` | `Symbol.toStringTag` 影响 `Object.prototype.toString` | `004` · `018`（2 条） |
+| `009-symbol-string-and-compare-throws` | 符号进拼接 / 模板串 / 比较要抛 `TypeError` | `007` · `probe697-y19` · `probe-y06`（3 条） |
+| `010-async-generator-asynciterator` | 异步生成器带 `Symbol.asyncIterator` 与 `for await` | `030`（只改名） |
+
+**保台账（全量批量跑，`--jobs 8 --batch-workers 32`）**：语料 **4677 → 4620**（净少 **57**：删 67、添 10）、
+过 **4281 → 4224**；**blocked 258 / differ 138 / bad 0 一处没动**，
+`MOVED` / `NEWLY-PASSING` / `REGRESSION` **全 0**，加权 93.50% → **93.44%**。
+
+**验证一次**：域内两种口径**逐项相同** —— 批量（`--jobs 8 --batch-workers 32`）与
+`--no-batch` 都是 24 条：**23 过 · differ 1 · blocked 0 · bad 0**
+（10 条自己 + 过滤器带出来的邻域；那 1 条 differ 是老账
+`stdlib/round783/r783b-03-symbol-prototype-own-cells`，与这一轮无关）。
+并入的完整性用一把一次性的尺子（`tmp/round800/verify.mjs`）机械核对：
+10 条的 stdout 与「各被并入条 stdout 的顺次相接」**逐字节相同**（67 条来源，`concat=true` 10/10、
+`node==tsrun` 10/10）。
+
+**收网扫描（亲手再过一遍）**：`stdlib/symbol` 现存 10 条（序号 001–010 连续、全是
+`<三位序号>-<kebab 描述>`，域内 `probe*` / `p-sym-*` 命名 **0 条**），每条一个判定点；
+域内同判定点的重复一处没留。两条「守卫」（原来的 `036` / `037`，台账已撤、留着当守卫）
+并进 `004`，它们头部那段解释按规矩降成正文散文（`//  xl:why`，两个斜杠加两个空格——
+第一版只改了首行、续行仍是 `// xl:why`，当场发现并改掉）。
 
 **第 799 轮的合并**（**`stdlib/console` 整个域按判定点重排：71 → 11**）：
 这个域是**同一个判定点被逐批重抄**最厉害的一个——33 条编号条里有 23 条在问同一件事

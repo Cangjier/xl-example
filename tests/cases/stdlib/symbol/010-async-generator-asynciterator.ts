@@ -1,4 +1,4 @@
-// xl:title async 生成器带 Symbol.asyncIterator 与 for await
+// xl:title 异步生成器带 `Symbol.asyncIterator` 与 `for await`
 // xl:round 647
 // xl:judge stdout
 // xl:end
