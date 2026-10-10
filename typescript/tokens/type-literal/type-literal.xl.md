@@ -596,17 +596,44 @@ return false;
 
 **只闸没关闭的那个括号**：容器已经是 `TypeLiteral`（升格之后）时照旧按形状答，那一档与位置无关。
 
+**位置要问「外面那一层」**（第 952 轮）：`const o = { a: { [K in T]: X } }` 里**里层**那个 `{` 往回扫，
+撞上的是**属性那个 `:`**，本层只会答「类型位」——可真正分开类型与值的，是**它外面那一层**
+（`const o = {` 还是 `type Q = {`）。所以位置沿**直接嵌着**的花括号链往上爬到最外面那一格再问，
+**两处停**：
+
+- **父亲不是花括号就停**——停下的地方正是类型重新进场的地方（`(` / `:` / `=>` / `<` 都不是花括号），
+  所以 `const o = { a: (x: { [K in T]: X }) => 1 }` 这种形状**爬不出去**（里层的父亲是 `(`，
+  归它自己那一格问，答「类型位」——对的）；
+- **父亲不是「表达式里的 `{`」也停**（`BraceInExpression`，第 952 轮实测**必须加这一条**）：
+  `declare module "os" { type SignalConstants = { [key in NodeJS.Signals]: number } }` 里，
+  里层那个 `{` 的父亲是**模块体**——它不是表达式里的花括号，位置判据对它答的是「值位」
+  （它前面是模块名那个字符串），顺着爬上去会把整整两族的真映射类型判掉
+  （实测 `@types/node/os.d.ts` / `fs.d.ts` / `util.d.ts` 三片各报「多出来」）。
+  声明体的 `{` 不是「里面还有一层位置」的花括号，所以链到它就断。
+
 ```ts
 if (unit === null) {
   return false;
 }
 const container:Token | null = unit.Parent;
 if (container !== null && container instanceof Bracket && container.startBracket === "{" && container.Closed === false) {
-  const host:Token | null = container.Parent;
+  // **爬到「直接嵌在花括号里」的最外那一层**：它自己那一格才是位置判据问得准的地方。
+  let node:Token = container;
+  for (let hop = 0; hop < 8; hop++) {
+    const parent:Token | null = node.Parent;
+    if (parent === null || !(parent instanceof Bracket) || parent.startBracket !== "{" || parent.Closed === true) {
+      break;
+    }
+    if (BraceInExpression(parent) === false) {
+      break;
+    }
+    node = parent;
+  }
+  const host:Token | null = node.Parent;
   if (host === null) {
     return false;
   }
-  const at = host.Data.indexOf(container);
+  const at = host.Data.indexOf(node);
   if (at < 0) {
     return false;
   }
