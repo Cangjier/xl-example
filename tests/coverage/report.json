@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.49,
+  "progressPercent": 95.5,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1580,
-      "pass": 1578,
-      "blocked": 2,
+      "pass": 1579,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.87
+      "coverage": 99.94
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1580,
-    "knownGap": 2,
-    "knownGapStillOpen": 2,
-    "exactFiles": 1578,
-    "scoredWithoutGap": 1578,
-    "passedWithoutGap": 1578
+    "knownGap": 1,
+    "knownGapStillOpen": 1,
+    "exactFiles": 1579,
+    "scoredWithoutGap": 1579,
+    "passedWithoutGap": 1579
   },
   "blocked": [
     {
@@ -142,12 +142,6 @@
       "category": "token",
       "title": "值位对象字面量的**计算属性名**里有 `in`（第 949 轮登记）。",
       "detail": "缺 11　多 4　值位计算属性名里的 `in` 被当成映射键（本文件两条共缺 11 多 4：不带 `as` 的那条缺 2 多 2、带 `as` 键重映射的那条缺 9 多 2）"
-    },
-    {
-      "id": "token/expressions/gap-r949-object-member-new-signature",
-      "category": "token",
-      "title": "值位对象字面量里名叫 `new` 的**不带体**成员（第 949 轮登记）。",
-      "detail": "缺 3　多 3　值位对象字面量里 `new (a: number): I` 该是一条成员签名（缺 3 多 3）"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",

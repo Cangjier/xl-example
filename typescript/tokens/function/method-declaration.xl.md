@@ -388,7 +388,33 @@ if (current === null) {
   return false;
 }
 const parent = current.Parent;
-if (!(parent instanceof ClassBody) && !(parent instanceof InterfaceBody) && !(parent instanceof TypeLiteralBody)) {
+// **值位对象字面量那一档要窄认**（第 950 轮）：`{ new (a: number): I }` 在 TS 那边是一条
+// `MethodDeclaration`（名字 `new` + 形参表 + 返回类型），可**整档放开 `ObjectLiteral` 会把
+// 面铺得太大**——第 949 轮实测：对象字面量里任何 `name(...)` 形状都成了成员签名
+//（`coverage 4192 → 4155`、`blocked 27 → 56`、e2e 六条挂 `unimplemented: expression MethodDeclaration`），
+// 所以那一版撤回了。这一版只认**一条缝**，两条都要成立：
+//
+// 1. **形参表之后紧跟 `:`**（真的写了返回类型）——这一条挡住 `{ a: b(c) }` 这类实参形状
+//    与 `{ f(x) }` 这种没写返回类型的写法（它们保持原来的产物）；
+// 2. **这一格在成员位**——父单元里它前面那个实义单元是**开头**、`;` 或 `,`
+//    （`{ a: b(c) }` 的 `b` 前面是属性冒号，`{ x = f(1) }` 的 `f` 前面是赋值号，都判否）。
+//
+// 类 / 接口 / 类型字面量那三档**不加这两条**：那里本来就是成员位置，判据没有歧义。
+const inObjectLiteral = parent instanceof ObjectLiteral;
+if (inObjectLiteral) {
+  const afterParamsForObject = Get(units, SkipNextTrivia(units, parametersIndex));
+  if (!(afterParamsForObject instanceof SymbolToken && afterParamsForObject.Is(":"))) {
+    return false;
+  }
+  const atInParent = parent.Data.indexOf(current);
+  const beforeAtInParent = SkipPreviousTrivia(parent.Data, atInParent);
+  const beforeInParent = Get(parent.Data, beforeAtInParent);
+  const atMemberStart = beforeAtInParent < 0 || (beforeInParent instanceof SymbolToken && (beforeInParent.Is(",") || beforeInParent.Is(";")));
+  if (atMemberStart === false) {
+    return false;
+  }
+}
+if (!(parent instanceof ClassBody) && !(parent instanceof InterfaceBody) && !(parent instanceof TypeLiteralBody) && !inObjectLiteral) {
   return false;
 }
 const tailEnd = this.SignatureTailEnd(units, parametersIndex);
