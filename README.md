@@ -7724,6 +7724,44 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
     「真门量下来一处没动」）。这类结论不是错的，而是**没验证过**——
     排查一层没动之前，先确认 `dist/ts/` 与 `build/` 确实是从手头这份规范生成的。
 
+- **第 968 轮：把上一条走通之后，三格 `xl:known-gap` 的现状**（**只量不修**，数字一处没动）：
+
+  ```text
+  gap-r964-nonnull-call-twice-member   a!()().c      缺 4　漂 0
+  gap-r964-opt-assert-member-member    a?.b!.c.d     缺 0　漂 2
+  gap-r964-opt-call-triple             a?.b()()()    缺 2　漂 1　字段 1
+  ```
+
+  三格**都不是「构建没跟上」造成的**（同上一条那三步走完再量的），逐格如下：
+
+  - **`a?.b!.c.d`（漂 2）**：token 树是
+    `[Identifier(a), NCO([NotNull([b, !]), ., PropertyAccess([c, ., d])])]`——
+    走 `chainWithOptional` 的 `NotNull` 那一支，`assertedMember` 折出
+    `NonNull(PropertyAccess(a, ?.b))`，剩下的 `[., PropertyAccess]` 交给 `chainOnto`。
+    `chainOnto` 的循环在那一格 `PropertyAccess` 上既不是 `.`、也不是下标 / 括号 / `Method`
+    ⇒ `break`。**试过两版修法、都按规矩撤回**：把这一格摊成平级
+    （`units.splice(i, 1, …projectableKids(view(unit)))`）**逐字不动**；
+    改成无条件摊（去掉 `i + 1 < units.length` 那个闸门）也**逐字不动**。
+    再往下要量的是**那一格到底由谁吃掉的**（`assertedMember` 第 4349 起那一段自己也在
+    逐格接 `PropertyAccess`，两条路都够得着同一个形状）。
+  - **`a?.b()()()`（缺 2 漂 1）**：token 树是
+    `NCO([Method(name=""[Method(name=""[Method(name="b")])])])`——
+    **三个 `Method` 单元**，而 `chainWithOptional` 收到的 `kids` 是**两个**
+    （`[Identifier(a), NCO]`）。`Method` 的 `PrintAst` 自己会递归投出 `CallExpression@3-6`
+    → 再套成 `@3-8`，可 `chainWithOptional` 的「内层 `Method`」那一支把
+    `projectNode(calleeKid)` 的**受体换成了 `left`**，中间那一层于是被压掉。
+    **下一处入手处**：那一支要问一句「这一格自己盖着几层」——`Method` 的
+    `PrintAst` 第 968 轮改过的那句（把 `Math.max(ctx.StmtEndOf(v), argsClose + 1)`
+    改成 `argsClose + 1`）**实测让 `f()()` / `f()()()` / `a!()()` / `a?.b()()` /
+    `o?.m()()` 五格全绿、没有回归**，但**没动这三格**（NCO 那一路上够不着），
+    按本仓「一处不动的改动不算收口」的规矩撤回了——它值一次单独的验证。
+  - **`a!()().c`（缺 4）**：token 树是
+    `[NotNull([a, !]), PropertyAccess([Method(name=""[Method(name=""[Bracket(())]])]), .,
+    Identifier(c)])]`——**没有 NCO**，所以走的是 `projectExpression` 的链那一支；
+    实测投出来只剩一个 `NonNullExpression@0-2`，**链循环一次都没进**
+    （插桩在 `while (i < ck.length)` 上没有打印）。下一处入手处是先量清楚
+    「这个形状到底进了 `projectExpression` 的哪一支」。
+
 - **一轮一提交**：一轮的改动跑完尺子之后 `git commit`，提交信息按轮次写
   （`第 N 轮：…（coverage X -> **Y / Z**）`，正文写根因 / 修法 / 数字）。
   攒着不提交的话，「哪一轮把哪个数字动了」在 `git log` 里就查不到了。
