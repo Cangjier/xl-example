@@ -319,6 +319,163 @@ ifSet.MountCondition(source);
   return build(0).node;
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 998 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+**这一页的三处兜底都换成了「让开」**：`PrintAst` 里三条回原文的路
+（头部 `)` 附近找 `;`、`else` 那一段里 `indexOf("if")`、空块找 `{` + 配对 `}`）
+各自都有**对应的那一格字段**（`emptyBodyAt` / `ifWordAt` / `bodyBraceRange`，第 657 / 634 / 637 轮）。
+
+**让开必须发生在「一个节点都还没投」之前**（第 998 轮实测到的坑）：`ctx.Expression` /
+`ctx.BlockOfBody` 一调用就**记一次账**（`projectNode` 的 `count`），而让开之后 `PrintAst`
+会把同一格再投一遍 ⇒ 两趟的 `count` 差出来（实测 `stmt-empty-blocks` +1、`stmt-if-empty-else-block` +2，
+产物字节一模一样、只有记账不等）。所以这里先跑一趟**只看字段、不投任何东西**的 `canBuild`
+（`ctx.Attr` / `ctx.Kids` / `ctx.KidsOf` / `ctx.Invisible` 都不记账），它答否就整条链让开。
+
+```ts
+  const segments = ctx.Kids(v).filter((k: any) => k.get("type") === "IfSegment");
+  if (segments.length === 0) {
+    return ctx.NodeHead("IfStatement", {}, v);
+  }
+  const conditionOf = (seg: any) => {
+    const cond = ctx.KidsOf(seg, "condition");
+    return cond.length === 0 ? undefined : ctx.Expression(cond);
+  };
+  const bodyOf = (seg: any) => {
+    const cond = new Set(ctx.KidsOf(seg, "condition"));
+    const kept: any[] = [];
+    for (const k of ctx.AllKids(seg)) {
+      if (ctx.Invisible.has(k.get("type")) || cond.has(k)) continue;
+      if (k.get("type") === "IfBody") {
+        for (const inner of ctx.Kids(k)) kept.push(inner);
+        continue;
+      }
+      kept.push(k);
+    }
+    return kept;
+  };
+  const bodyFrom = (seg: any) => {
+    const cond = ctx.KidsOf(seg, "condition");
+    return cond.length === 0 ? -1 : ctx.EndOf(cond[cond.length - 1]);
+  };
+  // **只读字段的预判**（不投任何节点 ⇒ 不记账）：体段一个可见子单元都没有时，
+  // 那一格的位置只能来自字段（整对花括号 `bodyBraceRange` 或空语句 `emptyBodyAt`）。
+  const hasSpan = (seg: any) => {
+    const range = ctx.Attr(seg, "bodyBraceRange");
+    return typeof range === "string" && range.includes(",");
+  };
+  const hasEmptyAt = (seg: any) => {
+    const at = ctx.Attr(seg, "emptyBodyAt");
+    return typeof at === "number" && at >= 0;
+  };
+  const canBuild = (index: number): boolean => {
+    const seg = segments[index];
+    if (bodyOf(seg).length === 0 && !hasSpan(seg) && !hasEmptyAt(seg)) {
+      return false;
+    }
+    if (index + 1 >= segments.length) {
+      return true;
+    }
+    const key = ctx.Attr(segments[index + 1], "key");
+    if (key === "if") {
+      const ifAt = ctx.Attr(segments[index + 1], "ifWordAt");
+      if (typeof ifAt !== "number" || ifAt < 0) {
+        return false;
+      }
+      return canBuild(index + 1);
+    }
+    const next = segments[index + 1];
+    if (bodyOf(next).length === 0 && !hasSpan(next) && !hasEmptyAt(next)) {
+      return false;
+    }
+    return true;
+  };
+  if (!canBuild(0)) {
+    return undefined;
+  }
+  const build = (index: number): any => {
+    const props: any = {};
+    const seg = { start: ctx.StartOf(segments[index]), end: ctx.EndOf(segments[index]) };
+    const expr = conditionOf(segments[index]);
+    if (expr !== undefined) props.expression = expr;
+    const thenBody = ctx.BlockOfBody(bodyOf(segments[index]), bodyFrom(segments[index]),
+      ctx.Attr(segments[index], "bodyBraceRange"));
+    let emptyBodyEnd = -1;
+    if (thenBody !== undefined) props.thenStatement = thenBody.node;
+    else {
+      // **空语句体 `if (a);`**：位置的唯一来源是 `IfSegment.EmptyBodyAt`（第 657 轮）。
+      const rawEmptyAt = ctx.Attr(segments[index], "emptyBodyAt");
+      if (typeof rawEmptyAt === "number" && rawEmptyAt >= 0) {
+        props.thenStatement = { kind: "EmptyStatement", pos: rawEmptyAt, end: rawEmptyAt + 1 };
+        emptyBodyEnd = rawEmptyAt + 1;
+      } else {
+        // `canBuild` 已经保证走不到这里；真走到了也不猜——但这一格会多记一次账，
+        // 所以它是**不该发生**的那条路（`cases:direct` 的 `count` 会当场点名）。
+        return { node: null, end: 0 };
+      }
+    }
+    let pos = seg.start;
+    let end = thenBody === undefined ? (emptyBodyEnd >= 0 ? emptyBodyEnd : seg.end) : thenBody.end;
+    if (index + 1 < segments.length) {
+      const key = ctx.Attr(segments[index + 1], "key");
+      if (key === "if") {
+        const inner = build(index + 1);
+        if (inner.node === null) {
+          return { node: null, end: 0 };
+        }
+        props.elseStatement = inner.node;
+        // **`else if` 里那个 `if` 的位置**只有 `IfWordAt` 这一格事实（第 634 轮那一族）。
+        const rawIfAt = ctx.Attr(segments[index + 1], "ifWordAt");
+        if (typeof rawIfAt !== "number" || rawIfAt < 0) {
+          return { node: null, end: 0 };
+        }
+        inner.node.pos = rawIfAt;
+        end = inner.end;
+      } else {
+        const elseBody = ctx.BlockOfBody(bodyOf(segments[index + 1]), bodyFrom(segments[index + 1]),
+          ctx.Attr(segments[index + 1], "bodyBraceRange"));
+        if (elseBody !== undefined) {
+          props.elseStatement = elseBody.node;
+          end = elseBody.end;
+        } else {
+          // **空语句体 `else ;`**（第 657 轮）：位置读字段。
+          const rawElseEmpty = ctx.Attr(segments[index + 1], "emptyBodyAt");
+          if (typeof rawElseEmpty === "number" && rawElseEmpty >= 0) {
+            props.elseStatement = { kind: "EmptyStatement", pos: rawElseEmpty, end: rawElseEmpty + 1 };
+            end = rawElseEmpty + 1;
+          } else {
+            // **空体（`else {}`）**：整对括号读 `BodyBraceRange`（第 637 轮，两端都在）。
+            // 只有起点那一格（`BodyBraceAt`）时要回原文配对 `}` ⇒ `canBuild` 已经挡下了。
+            const rawElseRange = ctx.Attr(segments[index + 1], "bodyBraceRange");
+            const elseSpan =
+              typeof rawElseRange === "string" && rawElseRange.includes(",") ? rawElseRange.split(",") : null;
+            if (elseSpan !== null) {
+              props.elseStatement = {
+                kind: "Block",
+                statements: [],
+                pos: Number(elseSpan[0]),
+                end: Number(elseSpan[1]) + 1,
+              };
+              end = Number(elseSpan[1]) + 1;
+            } else {
+              return { node: null, end: 0 };
+            }
+          }
+        }
+      }
+    }
+    return { node: { kind: "IfStatement", pos, end, ...props }, end };
+  };
+  const out = build(0);
+  if (out.node === null) {
+    return undefined;
+  }
+  return out.node;
+```
+
 ## private field Segment:IfSegment | null = null
 
 当前那一段（`if` / `else if` / `else` 各一段）。**段自己也不吃字符**——

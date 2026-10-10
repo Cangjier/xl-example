@@ -376,6 +376,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 998 轮：`MappedType` 与 `IfSet` 两页拿到直出版——**「让开」必须发生在投出第一个节点之前**（`count` 记账当场逮到两次）；直出 **68.1% → 68.5%**，全语料 **87.6%**
+
+**一句话**：再搬两页「已有 `PrintAst`、差几处回原文」的页；`MappedType` 用的是第 996 轮那格事实的**第二个消费者**，
+`IfSet` 用的是**三处兜底换让开**——而这一次逮到一条**新的错法**：让开的位置放错会**改记账、不改产物**。
+
+- **`MappedType`（50 → 0）**：词形那一批 `ctx.TextOf` → `ctx.ValueOf`（`;` / `readonly` / `+` / `-` / `?` /
+  `in` / `as`），可选映射那个 `?` 改成读**值类型段自己记的 `questionAt`**。
+  为此 `TypeDefine.ToDictionary` 多写一格 `questionAt`（`>= 0` 时才写；**XML 一个字不动**）——
+  `MappedType` 手上只有 `rest[0]` 的**视图**，不是 `TypeDefine` 实例，「值在字段上」这条因此必须经字典。
+- **`IfSet`（52 次里 39 次直出、13 次让开）**：`PrintAst` 的三条回原文路各自有一格对应字段
+  （`emptyBodyAt` / `ifWordAt` / `bodyBraceRange`），直出版**只在字段没记过时让开**——
+  整条 `if` 链一个节点都不出。**让开次数是量出来的**：13 次落回不是缺陷，是这一页让开的那一档。
+- **这一轮真正留下的一条判据：「让开」必须发生在「一个节点都还没投」之前**
+  （`cases:direct` 的第三项——`count` 记账——逮到的）：第一版把让开写在 `build` 里
+  （`ctx.Expression` / `ctx.BlockOfBody` 已经调用之后），产物**逐字节相同**、只有 `count` 差
+  （`stmt-empty-blocks` **+1**、`stmt-if-empty-else-block` **+2**）——因为让开之后 `PrintAst`
+  会把同一格**再投一遍**，那些已经记过的账就多出来了。
+  修法是先跑一趟**只看字段、不投任何东西**的 `canBuild`（`ctx.Attr` / `ctx.Kids` / `ctx.KidsOf` /
+  `ctx.Invisible` 都不记账）。**产物相同不等于两趟相同**——记账也是判据的一半。
+- **另一条（`cases:astjson` 逮到的）**：JSON 比 XML 多出来的键**要登记**
+  （`docs/ast-json.md` 第 2–4 节，④ 按名字判）。新加的 `questionAt` 先让这一门红成
+  「未登记的键：1 种 / 62 处」——补进字段表与第 4 节那张「例外」清单后转绿
+  （登记名 **159 → 163**）。这与 `headerCloseAt` / `bodyBraceAt` 那几格同一条规矩。
+- **记账**：`cases:direct` **1639 份 / 21818 节点，直出 14851 → 14940（68.1% → 68.5%）**，同答 0、抛异常 0；
+  `cases:direct --all` **2050 份 / 536611 节点，直出 470128（87.6%）**、0 处不一致；
+  `direct:lint` **直出版 58 段 / 58 页、0 条违反**，待搬 **7 → 5 页**
+  （`mapped-type` / `if-set` 出列；余下 `import`（80）/ `import-type`（60）/ `signature`（33）/
+  `regex-token`（22）/ `const-string`）。
+- **门 suite**：**11 道 10 通过、1 失败**——那一道仍是 `cases:tsast` 的同一片已知红
+  （`for…of` 的枚举对象是条件表达式）；`cases:astjson` 六项**全 0**、`coverage 4259 / 4422`
+  （blocked 29、differ 134、加权 95.7%）——墙钟 34.2s。
+- **落回清单（下一轮的入口，`tmp/r996-gap.mjs` 量出来的）**：**16 个类 / 1576 次**，
+  榜首仍是**没有 `PrintAst` 的那一族**——`MethodDeclaration` 309 / `Function` 259 / `Class` 230 /
+  `Interface` 152 / `TypeLiteral` 94 / `ExpressionWithTypeArguments` 85 / `LiteralType` 83 /
+  `ParenthesizedType` 71；余下 5 页「待搬」里的 `Import` 80 / `ImportType` 60 也在这张表里。
+  ⇒ **下一轮的分叉点就是第 997 轮记下的那句**：那一族要**两半一起写**（`PrintAst` + `PrintDirectAst`），
+  而这 5 页只要把剩下的几处回原文去掉。
+
 ### 第 997 轮：两页「只差格」的循环语句拿到直出版（`while` 28 / `for` 45 → 0）——直出 **67.7% → 68.1%**，全语料 **86.1%**
 
 **一句话**：接着第 996 轮留下的排序往下搬，但先挑**最省的那两页**：`while` 与 `for` 的

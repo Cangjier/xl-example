@@ -95,6 +95,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `BlockToken` 族（`Identifier` / `SymbolToken` / `ConstString` …） | `type` `value` | 文本块；`value` 是**未转义**的原文本（转义是 XML 出口自己的事） |
 | `AreaAnnotation` / `LineAnnotation` / `PreprocessorDirectives` | `type` `value` | 同上，文本来自 `Tmp` |
 | `Keyword` | `type` `value` | |
+| `TypeDefine` | `type` + 可选 `questionAt` + `children` | `questionAt` 是这个类型标注前面那个 `?` 的**下标**（第 996 / 998 轮加）：`a?: T` 的 `?` 与 `:` 被词法并成**一格** `SymbolToken("?:")`、**不进 `Data`**，所以只有这一格记得住它；不是可选标注时**不写**。消费它的是 `Field` / `Parameter` / `MappedType` 的直出版——它们手上只有**子单元的视图**，所以这一格必须经字典递过去（XML 那边一个字不动） |
 | `Bracket` | `type` `startBracket` `endBracket` + `children` | `Context`（类型位 / 值位判定）**不进 JSON**——它也不进 XML，那是解析期结论，不是节点形状 |
 | `GenericType` | `type` `startBracket` `endBracket` + `children` | |
 | `BinaryOperator` / `UnaryOperator` | `type` `op` + `children` | |
@@ -184,7 +185,7 @@ XML 的开标签上写 `export="true"`（读 XML 的人按布尔读），投影�
 | 属性键名 | 一部分与 XML 漂开了（`MethodName` → `methodName`、`StartBracketChar` → `startBracketChar`、`IsSupportInterpolation` → `isSupportInterpolation`） | **一律与 XML 属性同名** | 本工程的口径是「两个出口说同一棵树」，同名才可校验 |
 | 覆盖范围 | 只有 17 个类覆写 `ToDictionary`，其余走基类的 `{type, children}` | 同样只覆写「XML 里有属性」的类 | 与上游同一取舍 |
 | 额外字段 | `String` 的 JSON 比 XML 多 5 个字段（`stringChar` / `rawIndent` / `isRawIndentFormated` …） | **不多写**：JSON 的键以 XML 属性为准 | 多写的键等于第二个事实来源 |
-| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` / `DoWhile` 的 `emptyBodyAt` 与 `bodyBraceAt`、那四者与 `IfSegment` / `Lamda` 的 `bodyBraceRange`（整对花括号）、`For` / `Foreach` / `While` 的 `headerCloseAt`、`Foreach` 的 `isForIn`、`IfSegment` 的 `ifWordAt`、`Lamda` 的 `arrowAt`、`Namespace` 的 `nameAt` / `nameEnd` / `nameRange`、`Field` 的 `nameAt` / `nameRange`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`）、`Import` 的 `typeWordAt`、`Switch` 的 `bodyAt`、`SwitchSegment` 的 `colonPos`、`TernaryOperator` 的 `questionPos` / `colonPos`、`StaticBlock` 的 `braceAt`，以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节）。**这张表不是备忘、是判据的一半**：`cases:astjson` 的 ④ 按第 2–4 节有没有提到这个键名来判，所以**加一格坐标就要补一次这里**（第 884 轮补这一门时，这张表已经漂了 5 格） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
+| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` / `DoWhile` 的 `emptyBodyAt` 与 `bodyBraceAt`、那四者与 `IfSegment` / `Lamda` 的 `bodyBraceRange`（整对花括号）、`For` / `Foreach` / `While` 的 `headerCloseAt`、`Foreach` 的 `isForIn`、`IfSegment` 的 `ifWordAt`、`Lamda` 的 `arrowAt`、`Namespace` 的 `nameAt` / `nameEnd` / `nameRange`、`Field` 的 `nameAt` / `nameRange`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`）、`Import` 的 `typeWordAt`、`Switch` 的 `bodyAt`、`SwitchSegment` 的 `colonPos`、`TernaryOperator` 的 `questionPos` / `colonPos`、`TypeDefine` 的 `questionAt`（第 996 / 998 轮：`a?: T` 那个 `?` 的位置，`Field` / `Parameter` / `MappedType` 的直出版要直读它）、`StaticBlock` 的 `braceAt`，以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节）。**这张表不是备忘、是判据的一半**：`cases:astjson` 的 ④ 按第 2–4 节有没有提到这个键名来判，所以**加一格坐标就要补一次这里**（第 884 轮补这一门时，这张表已经漂了 5 格） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
 | 结构 bug | `TernaryOperator.ToDictionary()` 漏掉了 `type`（它没调基类也没自己写），于是 JSON 里出现没有类型名的节点 | **保留 `type`** | 那是缺陷，不是口径 |
 
 **一句话**：形状、方法名、`range` 的层级与上游一致；**字段名以本工程自己的 XML 出口为准**——
