@@ -9,6 +9,7 @@ import { WordText, IsTypeContainerUnit, IsTriviaUnit, SkipNextTrivia, SkipPrevio
 import { Identifier } from "./identifier.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { MethodCloseRule } from "./method.xl.md"
+import { MethodDeclarationCloseRule } from "./function/method-declaration.xl.md"
 import { ParenthesizedTypeCloseRule } from "./parenthesized-type.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
@@ -58,11 +59,24 @@ TypeScript 那边它是一个**独立的类型节点**（`TypePredicate`：`para
 先跨 trivia 撞上 `is`，再跨一次 trivia 撞上名字；`asserts x` 那一档（没有 `is`）
 由后面第二跳的 `.Is("is")` 挡掉，原样落在名字上。
 
+**第 959 轮：第二个转发点**（`MethodDeclarationCloseRule.PredicateShape`）。
+`BodyIndex` 往回走找「本签名自己的形参表」时会撞上谓词里那对 `(`
+（`class C { m(x: unknown): x is (string) { … } }`），它前面是 `is`、不是一个类型续接符，
+于是那一趟把 `(string)` 当形参表比原文——**而 `m` 自己的形参表在下标 2 上逐字相同**，
+中途就 `break` 了 ⇒ `is` 被认成「名字 + `(` + 体」⇒ 整条 `m` 塌成一次调用。
+那一格要问的正是同一个问题（「这一对括号是不是谓词里的类型」），所以装上同一个箭头函数。
+
+**副作用在这一格要交代清楚**：那个箭头函数是 `Claim`——答真的同时**当场把括号收成
+`ParenthesizedType`**（第 957 轮就是为了这件事才把它放在抢走之前）。`BodyIndex` 探的是
+只读问题，因此**答真之后本趟立即收手**（`units` 里那一格已经不是 `Bracket` 了），
+成形交给括号自己的队列。`null` 表示还没装上，那一格照旧。
+
 ```ts
 super();
 MethodCloseRule.PredicateShape = (units: Array<Token>, bracketIndex: number): boolean => {
   return this.Claim(units, bracketIndex);
 };
+MethodDeclarationCloseRule.PredicateShape = MethodCloseRule.PredicateShape;
 ```
 
 ## method Claim:(units:Array<Token>, bracketIndex:int)=>bool
@@ -79,9 +93,8 @@ MethodCloseRule.PredicateShape = (units: Array<Token>, bracketIndex: number): bo
 这里要的是**在抢走它之前**就把它收好）。换父这一个动作必须在**认下这一格的那一刻**做掉；
 收完之后括号自己的队列由 `ParenthesizedTypeCloseRule.Process` 重跑（它本来就是干这个的）。
 
-**两个调用点、一份实现**：`MethodCloseRule`（值位 / 类型的通用趟）与
-`MethodDeclarationCloseRule`（类成员那一趟，它排在更前面、且先看到「名字 + `(` + 体」的
-形状）都只是转发到这一个方法——**判据只有一份**。
+**两个调用点、一份实现**（第 957 轮的 `MethodCloseRule` 与第 959 轮补上的
+`MethodDeclarationCloseRule`，见上一节）：两处都只是转发到这一个方法——**判据只有一份**。
 
 ```ts
 const wordAt = SkipPreviousTrivia(units, bracketIndex);

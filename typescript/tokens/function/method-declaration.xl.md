@@ -88,6 +88,21 @@ import { LineWrap } from "../line-wrap.xl.md"
 `MethodDeclaration`、三元整个消失；`f(x)[0] ? { … } : g` 那种**下标**同理
 （下标是括号、不是运算符，所以另有一条 Bracket 判定）。
 
+## static field PredicateShape:(units:Array<Token>, bracketIndex:int)=>bool = null as any
+
+**类型谓词那一格的判据**，与 `MethodCloseRule.PredicateShape` 是**同一份实现**：
+`TypePredicateCloseRule` 在构造时把同一个箭头函数装到两处（见
+`tokens/type-predicate.xl.md`）。第 875 轮的规矩：同一个问题只能有一份实现，
+所以这里**不另写**一份谓词判据，只转发。
+
+`null` 表示「还没装上」——那一格照旧（与装上之前逐字节相同）。
+
+**它在这一格只用来问「不要收它」，副作用要挡住**：那个箭头函数是
+`TypePredicateCloseRule.Claim`——答真的同时**会把括号当场收成 `ParenthesizedType`**
+（原地替换 `units` 里那一格）。`BodyIndex` 探的是**只读**问题（这一对 `(` 是谓词的类型、
+不是本签名的形参表），所以调用它之前先把**括号本身**取在手上：答真之后
+`units` 里那一格已经不是 `Bracket` 了，本趟就此收手（那一格的成形交给它自己的队列）。
+
 ## private method ParameterText:(unit:Token)=>string
 
 取一个参数表括号（或类型参数段）在**源码里的原文**。
@@ -139,13 +154,35 @@ return text;
 所以往回走时**跳过「前面是类型续接符」的括号**（见 `IsTypeContinuationBefore`），
 只在撞上形参表那种括号时才比原文。
 
-**这一条试过三种写法，只有它没有净回归**：
-- 「见过 `:` 后一跨换行就否决」→ 打掉接口里成片的多行重载与一行一条的 `get x(): number`
-  （实测真缺 18 → 37 / 41，两次都是净回归）；
-- 「换行后面是『一个词 + `(`』就算下一条签名」→ 把**带体的 getter**里的
-  `return (this.Y as String)!` 误判成下一条签名（`return` 被当成方法名），
-  于是 `NotNull` 真缺从 0 涨到 3；
-- 原文比较只看**参数表**这一小段，既不依赖换行、也不依赖 `return` 这类词。
+**谓词类型那一格要单独认**（第 959 轮，缺口 `gap-r958-class-method-predicate-paren`）：
+`class C { m(x: unknown): x is (string) { return true; } }` 里往回走撞上的第一对 `(` 就是
+`(string)`，而它**前面是 `is`、不是一个类型续接符**（`IsTypeContinuationBefore` 给假）
+⇒ 拿它跟「本签名自己的形参表」比原文（`(string)` vs `(x: unknown)`）**当轮就判否**？
+不是——**看它在列表里的位置**：`m` 那一趟往回走时下标还停在 `m` 自己那个形参表上
+（`(x: unknown)` 与它逐字相同）⇒ 中途 `break`、跳过 `is` 与 `(string)` 直接答真，
+于是 `is` 那一趟被认成「名字 + `(` + 体」、整条 `m` 塌成一次调用。
+
+判据因此是**「这一对括号是不是谓词里的类型」**：是的话它**不是形参表**，
+照返回类型那一格的办法**接着往回找**，由真正的形参表来决定这一条声明有没有体。
+这一格与 `IsTypeContinuationBefore` 必须**分成两支**：后者是「只读 `Is()` 的纯谓词」，
+而谓词那一份判据（`TypePredicateCloseRule.Claim`）**答真的同时会收掉括号**，
+所以要挡在这个位置——**先把括号取在手上再去问**（`Claim` 会就地替换 `units` 里那一格，
+那之后 `item` 才是这一步真正要看的东西）。
+
+**「跳过」而不是「收手」**要按两档分开量（第 959 轮实测定下来的）：
+
+- `interface I { m(x: unknown): x is (string) }` 这种**无体**的签名：往回走撞上 `(string)`，
+  跳过它再往回撞上 `(x: unknown)`——与当前形参表逐字相同 ⇒ 这就是本签名的形参表
+  ⇒ 有体？`ScanDeclarationBody` 已经答了体在哪，所以这一支照样答真；
+- `is` 自己那一趟（下标在 `is` 上、当前形参表是 `(string)`）：跳过之后撞上 `(x: unknown)`，
+  与 `(string)` **不同** ⇒ `-1`——`is` 不是方法声明的名字。
+
+两档的分别正是「真正的形参表在哪」，所以跳过之后那一句原文比较**一个字都不用改**。
+
+**这一条不是第 958 轮撤回的那一版**：那一版把闸门下在 `Previous` 的入口（那是「这一格
+整体是不是一条方法声明」），于是一次调用 `m(x: unknown)` 也在判据覆盖之内——实测
+18 条普通方法声明一起判否（片段 2 → 20 条对不上）。这里问的是**往回走的那一对括号**，
+只在「已经认定这一格有一个体」之后才轮到它。
 
 ```ts
 const body = ScanDeclarationBody(units, index);
@@ -169,6 +206,19 @@ while (before >= 0) {
       before = before - 1;
       continue;
     }
+    let isPredicateType = false;
+    if (MethodDeclarationCloseRule.PredicateShape !== null) {
+      isPredicateType = MethodDeclarationCloseRule.PredicateShape(units, before);
+    }
+    if (isPredicateType) {
+      // **谓词里的类型那一格**（`x is (string)`）：它**不是**本签名的形参表。
+      // 判据是**转发的** `TypePredicateCloseRule.Claim`——它答真的同时已经把这一格
+      // 收成 `ParenthesizedType` 换掉了（所以上面那句问话之前不能再用 `Get` 去看它）。
+      // 与 `IsTypeContinuationBefore` 那一支同一个去处：接着往回找真正的形参表，
+      // 由后面那句原文比较决定「这是本签名自己的形参表」还是「这是下一条签名」。
+      before = before - 1;
+      continue;
+    }
     if (this.ParameterText(item) !== this.ParameterText(parameters)) {
       return -1;
     }
@@ -181,6 +231,14 @@ while (before >= 0) {
 }
 return body;
 ```
+
+**这一条试过三种写法，只有它没有净回归**：
+- 「见过 `:` 后一跨换行就否决」→ 打掉接口里成片的多行重载与一行一条的 `get x(): number`
+  （实测真缺 18 → 37 / 41，两次都是净回归）；
+- 「换行后面是『一个词 + `(`』就算下一条签名」→ 把**带体的 getter**里的
+  `return (this.Y as String)!` 误判成下一条签名（`return` 被当成方法名），
+  于是 `NotNull` 真缺从 0 涨到 3；
+- 原文比较只看**参数表**这一小段，既不依赖换行、也不依赖 `return` 这类词。
 
 ## private method IsTypeContinuationBefore:(units:Array<Token>, index:int)=>bool
 

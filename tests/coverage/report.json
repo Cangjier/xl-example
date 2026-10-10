@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.49,
+  "progressPercent": 95.5,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1588,
-      "pass": 1586,
-      "blocked": 2,
+      "pass": 1587,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.87
+      "coverage": 99.94
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1588,
-    "knownGap": 2,
-    "knownGapStillOpen": 2,
-    "exactFiles": 1586,
-    "scoredWithoutGap": 1586,
-    "passedWithoutGap": 1586
+    "knownGap": 1,
+    "knownGapStillOpen": 1,
+    "exactFiles": 1587,
+    "scoredWithoutGap": 1587,
+    "passedWithoutGap": 1587
   },
   "blocked": [
     {
@@ -142,12 +142,6 @@
       "category": "token",
       "title": "`yield` / `await` 在**生成器 / async 之外**是普通标识符（第 955 轮片段普查量出）：",
       "detail": "缺 4　多 4　yield / await 在生成器 / async 之外是普通标识符，本仓一律投成 YieldExpression / AwaitKeyword（缺 Identifier 1、多 1）"
-    },
-    {
-      "id": "token/types/gap-r958-class-method-predicate-paren",
-      "category": "token",
-      "title": "谓词里那个括号落在**类成员的返回类型位**、而那条成员**又带方法体**时，",
-      "detail": "缺 19　多 5　谓词落在带方法体的类成员返回类型位上时整条 MethodDeclaration 不成形（缺 6 / 多 2）"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
