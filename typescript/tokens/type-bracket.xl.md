@@ -362,6 +362,16 @@ return result;
 return "ArrayType";
 ```
 
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：`T[]` 只有**一个**类型
+（被数组化的那个），没有同级的分隔符，所以答 `{ separator: null }`——整批子单元合起来
+投成一个类型（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+```ts
+return { separator: null };
+```
+
 # class TupleType extends IndependentToken
 
 元组类型（`[A, B]` / `readonly [A, B]`）。类名必须与产物的标签名一致。
@@ -419,6 +429,16 @@ return result;
 
 ```ts
 return "TupleType";
+```
+
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：元组的元素之间是 `,`，
+所以答 `{ separator: "," }`——切完再整段投，那个逗号本身不是元素
+（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+```ts
+return { separator: "," };
 ```
 
 # class IndexedAccessType extends IndependentToken
@@ -481,4 +501,14 @@ return result;
 
 ```ts
 return "IndexedAccessType";
+```
+
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：`T[K]` 的两个成员
+（对象类型与下标类型）之间**没有**分隔符，它们是**一个**下标访问类型的两个字段，
+所以答 `{ separator: null }`（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+```ts
+return { separator: null };
 ```

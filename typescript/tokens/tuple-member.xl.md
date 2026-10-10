@@ -372,6 +372,16 @@ return result;
 return "OptionalType";
 ```
 
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：可选元素里除了 `?` 记号
+之外只有**一个**类型，没有同级的分隔符，所以答 `{ separator: null }`
+（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+```ts
+return { separator: null };
+```
+
 # class RestType extends IndependentToken
 
 元组里的变长元素（`...B`）。类名必须与产物的标签名一致。
@@ -425,6 +435,16 @@ return result;
 
 ```ts
 return "RestType";
+```
+
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：变长元素里除了 `...` 记号
+之外只有**一个**类型，没有同级的分隔符，所以答 `{ separator: null }`
+（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+```ts
+return { separator: null };
 ```
 
 # class NamedTupleMember extends IndependentToken
@@ -532,4 +552,14 @@ return result;
 
 ```ts
 return "NamedTupleMember";
+```
+
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：具名元素里是「名字 +
+被指的类型」，它们是**一个**成员的两半、没有同级的分隔符，所以答 `{ separator: null }`
+（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+```ts
+return { separator: null };
 ```

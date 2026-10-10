@@ -206,3 +206,13 @@ return result;
 ```ts
 return "ParenthesizedType";
 ```
+
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：括号里是**一个**类型
+（`(A | B)` 的联合已经在自己那一层成形），没有同级的分隔符，所以答 `{ separator: null }`
+（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+```ts
+return { separator: null };
+```

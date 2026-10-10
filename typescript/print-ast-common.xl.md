@@ -952,38 +952,18 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   return built;
 ```
 
-# private const TYPE_MEMBER_KINDS:Set<string>
+# private method typeMemberGroups:(list:Array<any>, separator:string | null, ctx:any)=>Array<Array<any>>
 
-**类型容器**：它们的子单元**本身也是类型**，所以要以类型位的方式逐个投影
-（原始类型名要变成 `StringKeyword` 这类关键字、具名类型要套 `TypeReference`），
-不能按普通子节点投。
+类型容器的一批子单元 → **切好的若干组**（每组是「一个类型」的全部单元）。
 
-漏了这一条的后果实测很集中：`"a" | "b" | string` 里的 `string` 出不来 `StringKeyword`、
-`any[]` 里的 `any` 出不来 `AnyKeyword`、函数类型的返回类型同理——
-真实语料里这三类各占两千上下，都是同一个原因（父节点是 `UnionType` / `ArrayType` / `FunctionType`）。
+**分隔符是问容器自己要来的**（第 1035 轮）：过去这里按 `parentKind` 查投影层那张
+`TYPE_MEMBER_SEPARATORS`（`UnionType` → `|`、`IntersectionType` → `&`、`TupleType` → `,`），
+而**那些 kind 名就是那些类自己的名字、那个符号就是那些类自己的符号**——所以它搬回了各自
+那一页（`Token.TypeMemberPlan`），这一格只收一个 `separator`。
 
-```ts
-new Set([
-  "UnionType",
-  "IntersectionType",
-  "ArrayType",
-  "TupleType",
-  "IndexedAccessType",
-  "ParenthesizedType",
-  "TypeOperator",
-  "OptionalType",
-  "RestType",
-  "NamedTupleMember",
-])
-```
-
-# private const TYPE_MEMBER_SEPARATORS:Map<string, string>
-
-**成员之间的分隔符**：类型容器的成员表按这个符号切段，**切完再整段投**。
-
-第 76 轮的根因：`projectEachIn` 原来对类型容器的子单元**逐个**投
-（`projectTypeExpression([item])`），可产物在类型位把「名字 + 实参」摆成**平级的两格**
-（`ArrayLike` 与 `GenericType(<number>)` 是兄弟），于是
+**第 76 轮的根因**（那两张表的说明原来挂在这里，随判据一起搬到用法那一处）：原来对类型容器的
+子单元**逐个**投（`projectTypeExpression([item])`），可产物在类型位把「名字 + 实参」摆成
+**平级的两格**（`ArrayLike` 与 `GenericType(<number>)` 是兄弟），于是
 
     ArrayLike<number> | string
       → TypeReference[7780,7789)      ← 只有名字，实参整片丢掉
@@ -995,33 +975,20 @@ new Set([
 `projectTypeExpression` 里那个限定名循环**一次都进不去**（`QualifiedName` 缺 844 处、
 `TypeReference` 漂移 1761 处，实测数字见 README 第 76 轮）。
 
-**只有这三种容器要切**：它们的成员之间**真的有**分隔符。其余容器
-（`T[]` / `(A \| B)` / `keyof T` / `A[K]`）的子单元合起来就是**一个**类型，
-没有「同级的另一个类型」这回事——那里维持逐个投。
-
-```ts
-new Map([
-  ["UnionType", "|"],
-  ["IntersectionType", "&"],
-  ["TupleType", ","],
-])
-```
-
-# private method typeMemberGroups:(list:Array<any>, parentKind:string, ctx:any)=>Array<Array<any>>
-
-类型容器的一批子单元 → **切好的若干组**（每组是「一个类型」的全部单元）。
+**只有三种容器要切**（它们的成员之间**真的有**分隔符）：`separator` 是 `null` 时
+整批子单元合起来就是**一个**类型（`T[]` / `(A \| B)` / `keyof T` / `A[K]` /
+`A?` / `...A` / `name: T`），没有「同级的另一个类型」这回事——那里维持整段一个。
 
 分隔符那一格**不进任何一组**：它不是类型的一部分（与 `projectTypeArguments` 切逗号同一口径），
 留下的空组（`type A = | B` 的前导 `|`、尾随逗号）由 `filter` 挡掉。
 
 ```ts
-  const separator = TYPE_MEMBER_SEPARATORS.get(parentKind);
   // **没有分隔符的容器整段算一个类型**（第 164 轮）：`T[]` / `(A | B)` / `keyof T` / `A[K]`
   // 的子单元合起来就是**一个**类型，没有「同级的另一个类型」这回事——原先这里返回
   // `list.map((item) => [item])`（逐个成组），于是 `(F<A>)[]` 里那个「名字 + 实参段」
   // 被拆成两个节点（实测 `type-paren-content-nodes.ts`：`TypeReference[11,12)` 与
   // 一个盖住 `<A>` 的 `TypeReference`，缺的是 `F<A>` 那一格）。
-  if (separator === undefined) return list.length === 0 ? [] : [list];
+  if (separator === null) return list.length === 0 ? [] : [list];
   const groups = [];
   let current = [];
   for (const item of list) {
@@ -1056,7 +1023,7 @@ new Set(["InterfaceDeclaration", "TypeLiteral", "ClassDeclaration", "EnumDeclara
 投出来是 `ExpressionStatement > BinaryExpression`（实测「多出来」榜的第一名 `BinaryExpression`
 1806 与第二名 `CommaToken` 1158 同源，样本全是 `export enum … { JsxClosingTag = "…", … }`）。
 
-# private method projectEachIn:(list:Array<any>, ctx:any, parentKind:string)=>Array<any>
+# private method projectEachIn:(list:Array<any>, ctx:any, parentKind:string, parent:any)=>Array<any>
 
 投影一批子单元，并在**签名上下文**里切换标记。
 
@@ -1104,12 +1071,21 @@ new Set(["InterfaceDeclaration", "TypeLiteral", "ClassDeclaration", "EnumDeclara
     }
     list = flat;
   }
-  // 类型容器的子单元按**类型位**投（见 `TYPE_MEMBER_KINDS`），
-  // 而且**按成员切好再投**（见 `TYPE_MEMBER_SEPARATORS` / `typeMemberGroups`）——
-  // 逐个投会把 `ArrayLike<number>` / `NodeJS.TypedArray` 这类「一对多格」的写法拆散。
-  if (TYPE_MEMBER_KINDS.has(parentKind)) {
+  // 类型容器的子单元按**类型位**投，而且**按成员切好再投**——
+  // **「哪些是类型容器、按哪个符号切」这一格第 1035 轮改由容器自己答**
+  // （`parent.TypeMemberPlan()`，见 `core/syntax/token.xl.md`）：名单里的 kind 名
+  // （`UnionType` / `IntersectionType` / `ArrayType` / …）**就是那些类自己的名字**、
+  // 分隔符也是它们自己的符号，所以它住在各自那一页，投影这一侧不再存第二份
+  // （原来这里是 `TYPE_MEMBER_KINDS` / `TYPE_MEMBER_SEPARATORS` 两张按 kind 查的表）。
+  //
+  // **为什么这一格要收「父单元」而不是那个 kind 名**：判据的主人是那一格 token 自己。
+  // 三处调用点给的都**就是**投影意义上的父单元：段循环给的是正在投的那一格 `v`、
+  // 包装提层给的是**外层声明**（`ClassBody` 的成员属于 `ClassDeclaration`）、
+  // 直出版给的是 `ctx.Each(view, …)` 里那个 `view`——与 `parentKind` 说的是同一格事实。
+  const typePlan = parent.TypeMemberPlan();
+  if (typePlan !== undefined) {
     const out = [];
-    for (const group of typeMemberGroups(list, parentKind, ctx)) {
+    for (const group of typeMemberGroups(list, typePlan.separator, ctx)) {
       const projected = projectTypeExpression(group, ctx);
       if (projected !== undefined) out.push(projected);
     }
@@ -8969,8 +8945,8 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 把一串单元按**顶层分隔符**切成若干组（分隔符自己不进任何一组）。
 
 对象字面量的成员（`,`）、数组字面量的元素（`,`）、类型容器的成员（`|` / `&` / `,`）
-都是这一种切法——`typeMemberGroups` 是它在类型位的那一份（按 `parentKind` 选分隔符），
-这里这份给**值位**用。
+都是这一种切法——`typeMemberGroups` 是它在类型位的那一份（分隔符问容器自己那一格
+`Token.TypeMemberPlan`，第 1035 轮），这里这份给**值位**用。
 
 ```ts
   const groups = [];
@@ -9181,7 +9157,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       const projected =
         kept[0].Tag() === "Let"
           ? [projectLetFrom(kept, ctx, (kept[kept.length - 1])).list]
-          : projectEachIn(kept, ctx, kind);
+          : projectEachIn(kept, ctx, kind, v);
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;
     }
     for (const [target, nodes] of promoted) {
@@ -9204,7 +9180,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       // `ClassDeclaration`（类里的 `constructor` 要按这个上下文投成 `ConstructorDeclaration`），
       // 不是 `ClassBody` 自己。
       const membersParent = kind === "ClassBody" ? "ClassDeclaration" : kind;
-      const projected = projectEachIn(nodes, ctx, membersParent);
+      const projected = projectEachIn(nodes, ctx, membersParent, v);
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;
     }
   }
@@ -9385,7 +9361,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // `undefined` 在 `JSON.stringify` 里不出现（`projectParameter` 的 `name` / `type` 也是这个写法），
     // 于是覆写与通用支的产物逐字节相同——这一条是第 77 轮对拍时抓出来的（10 个空元组 / 具名元组文件）。
     Each: (view, parentKind) => {
-      const out = projectEachIn(kidsOf(view, "children"), ctx, parentKind);
+      const out = projectEachIn(kidsOf(view, "children"), ctx, parentKind, view);
       return out.length === 0 ? undefined : out;
     },
     Project: (node, parentKind) => projectNode(node, ctx, parentKind),
@@ -9447,7 +9423,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 实现与通用支那一支**共用同一份**（`projectEachIn`，`parentKind` 传 `"TypeLiteral"`：
     // 那一格同时决定「成员之间不切」与 `ctx.signature`——`Field` 因此投成
     // `PropertySignature` 而不是 `PropertyDeclaration`）。
-    MemberList: (list, parentKind) => projectEachIn(list, ctx, parentKind),
+    MemberList: (list, parentKind, view) => projectEachIn(list, ctx, parentKind, view),
     KidsOf: (node, key) => kidsOf(node, key),
     NamedSpecifiers: (brace, kind) => namedSpecifiersOf(brace, kind, ctx),
     MemberNameOf: (view) => memberNameOf(view, ctx),

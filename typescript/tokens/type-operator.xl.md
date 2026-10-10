@@ -277,6 +277,16 @@ return result;
 return "TypeOperator";
 ```
 
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：`keyof T` 里除了那个算子词
+之外只有**一个**操作数类型，没有同级的分隔符，所以答 `{ separator: null }`
+（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+```ts
+return { separator: null };
+```
+
 # class TypeQuery extends IndependentToken
 
 类型查询（类型位的 `typeof x`）。类名必须与产物的标签名一致。

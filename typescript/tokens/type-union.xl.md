@@ -546,6 +546,16 @@ return result;
 return "UnionType";
 ```
 
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：联合类型的两个成员之间
+是 `|`，所以答 `{ separator: "|" }`——切完再整段投，否则「名字 + 实参」那种一对多格的写法
+会被逐个拆散（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+```ts
+return { separator: "|" };
+```
+
 # class IntersectionType extends IndependentToken
 
 交叉类型（`A & B`）。类名必须与产物的标签名一致。
@@ -603,4 +613,13 @@ return result;
 
 ```ts
 return "IntersectionType";
+```
+
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：交叉类型的两个成员之间
+是 `&`，所以答 `{ separator: "&" }`（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+```ts
+return { separator: "&" };
 ```

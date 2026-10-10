@@ -952,6 +952,29 @@ return false;
 return false;
 ```
 
+## method TypeMemberPlan:()=>any
+
+**我这一批子单元要不要按「类型位」投、按哪个符号切段**（第 1035 轮）：
+是类型容器的话答 `{ separator }`——`separator` 是一个符号（`"|"` / `"&"` / `","`）时
+成员之间按它切段，是 `null` 时整批子单元合起来是**一个**类型；不是类型容器的话答 `undefined`。
+
+类型容器的子单元**本身也是类型**，照普通子节点投会散：`"a" | "b" | string` 里的 `string`
+出不来 `StringKeyword`，`ArrayLike<number> | string` 的「名字 + 实参」被拆成两个节点，
+`any[]` 里的 `any` 同理（实测这三类各占两千上下）。判据的那两张表
+（`typescript/print-ast-common.xl.md` 的 `TYPE_MEMBER_KINDS` 与 `TYPE_MEMBER_SEPARATORS`）
+过去写成投影层**按 kind 名查**的两份名单，而**那些 kind 名就是这些类自己的名字**、
+**那个分隔符就是这些类自己的符号**——所以是每一页自己的事实，被写在投影那一页里。
+
+今天基类答 `undefined`、那十页各自覆写，投影只问这一格（`parent.TypeMemberPlan()`）。
+**它不能按 `AstKind()` 抄一份名单**：留一张表就还是「同一份事实两处声明」。
+
+**基类答 `undefined`**：绝大多数 token 的子单元是普通子节点；需要它的 token 在自己那一页覆写
+（`## method`，与 `IsMemberTag` / `FunctionFlags` / `AstKind` 同一形态）。
+
+```ts
+return undefined;
+```
+
 ## method FunctionFlags:()=>any
 
 **我这一格是不是函数体**（第 1031 轮）：是的话答 `{ generator, async }`，不是的话答 `undefined`。
