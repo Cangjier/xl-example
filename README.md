@@ -284,7 +284,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:astjson` | **出口 2（AST JSON）的尺子**（第 884 轮加）：逐节点比「标签名 === `type`」「XML 的每个属性在 JSON 里**同名同值**」「每个节点都有合法 `range`」「JSON 多出来的键在 [docs/ast-json.md](docs/ast-json.md) 第 2–4 节**登记过**」，外加「命令行 === 库 API」与「不抛异常」——**六项全 0 才退出码 0** |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
-| `cases:direct` | **重投一致**（第 992 轮加，第 1013 轮改口径）：第三个出口（`Token.PrintDirectAst`）现在是**唯一**的写法，所以量的是「同一份输入投两遍」——`ToJsonText` **逐字节**相同 + `unmapped` / `count` 记账同，两项全 0 才退 0；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`） |
+| `cases:direct` | **重投一致 + 固定样本的形状**（第 992 轮加，第 1013 轮改口径，第 1014 轮加第三条）：第三个出口（`Token.PrintDirectAst`）现在是**唯一**的写法，所以量的是「同一份输入投两遍」——`ToJsonText` **逐字节**相同 + `unmapped` / `count` 记账同；再加一条**绝对**的地板：固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`（前两条都是相对的，一头恒返回 `undefined` 的投影也满足）；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`） |
 | `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据、第 1014 轮再加一条）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；扫**共享投影那一页的代码块**那一末条：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层；**第 1014 轮**再加一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算） |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
@@ -308,6 +308,24 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1014 轮（三）：`cases:direct` 补一条**绝对**判据（固定样本形状逐格点名）——前两条都是相对的，一头恒返回 `undefined` 的投影也满足它们
+
+**一句话**：第三个出口的两条判据（重投一致、不抛异常）量的都是**这个实现跟自己比**；
+补一条「这一趟到底出没出形状」的地板，报错时能指名道姓说缺哪一格。
+
+- **加的那一项**：固定样本 `const a = b(c);` 必须投出 `SourceFile` / `VariableStatement` /
+  `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression` 六格，
+  且每个节点都带 `pos` / `end`（第三个出口不用 `range`，那是产物树自己的闭区间键）。
+  现在读数：**6 / 6 格到齐、`pos` / `end` 两键 0 处缺**。
+- **为什么它不替代 `cases:tsast`**：`cases:tsast` 才是逐节点对 TS 原生 AST 的那把尺子，
+  但它的报错是「缺 N / 漂 N」那种**事后统计**；这一项只钉一条地板，**便宜、固定、能点名**。
+- **顺手核出来的一件事**：`const a = b(c);` 这一趟 `projectNode` 只被问 3 次（`count=3`），
+  而这 3 次**都没有走 token 自己那一格**（`node.__token` 没挂上，节点由通用支出形状；
+  `direct=3` 记的是别处的直出）——所以这项判据量的是**整条投影链的地板**，不是
+  「`PrintDirectAst` 被调了几次」。这一点写进探针注释里，免得下一轮把它当成「直出版的覆盖率」读。
+- **探针**（`tmp/r1014/`）：`scan-stale-name.mjs`（全仓量「老名字」那 154 行的分布）、
+  `probe-who-asks.cjs`（上面那 3 次问路是谁问的）、`probe-direct-shape.cjs`（打补丁那一版）。
 
 ### 第 1014 轮：把「成对方法合并」这句话**逐段核对**了一遍（75 对里 68 对与老那一节逐字节同一份），并把「老名字」这条残留学进 `direct:lint`
 

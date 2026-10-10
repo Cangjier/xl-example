@@ -23,10 +23,17 @@
 // 正因为同答是既成事实，用户口径才要求**删掉冗余的那一份**：
 // 留下的这一份自己跟自己比，管的是「同一份输入不许投出两个答案」。
 //
-// ## 判据（两项）
+// ## 判据（三项）
 //
 //   ① **重投一致**：同一份输入投两遍，`ToJsonText` 逐字节相同，`unmapped` / `count` 也相同；
-//   ② **不抛异常**：解析或投影抛了就是红（`corpus("cases")` 已经滤掉 `tsInvalid` / `known-gap`）。
+//   ② **不抛异常**：解析或投影抛了就是红（`corpus("cases")` 已经滤掉 `tsInvalid` / `known-gap`）；
+//   ③ **固定样本的形状逐格点名**（第 1014 轮加）：`const a = b(c);` 这一句必须投出
+//      `SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` /
+//      `Identifier` / `CallExpression` 六格，且每个节点都带 `pos` / `end`。
+//      **为什么要有第③项**：①②两项都是**相对**的——一头恒返回 `undefined` 的投影也满足
+//      「两遍一样、不抛异常」。这一项是**绝对**的：无论语料怎么变，这一份固定的输入必须出这六格。
+//      **它不替代 `cases:tsast`**（那才是逐节点对 TS 原生 AST 比的尺子）：它钉的是
+//      「这一趟有没有出形状」这一条地板，报错时能指名道姓说缺哪一格。
 //
 // **退出码**：两项全 0 才是 0。**「token 自己出的比例」不进退出码**——它是
 // 「这一格自己出不出」的读数（`direct / count`），不是缺陷；读数照样印出来，README 的台账抄它。
@@ -147,6 +154,84 @@ for (const file of run) {
 }
 
 const share = nodes === 0 ? 0 : (direct / nodes) * 100;
+
+/**
+ * **这一趟真的出了形状吗**（第 1014 轮加的第三项）。
+ *
+ * **为什么「重投一致」不够** ✗：那是「同一份输入投两遍、逐字节相同」——一头**恒返回
+ * `undefined`** 的投影也满足它（两遍都空、逐字节相同）。真正会把这一条按住的是
+ * `cases:tsast`（逐个节点对 TS 原生 AST 比），可它的**报错方式**是「缺 N / 漂 N」那种
+ * 事后统计：等它响的时候，已经分不清是哪一格坏的。
+ *
+ * 所以这里钉一个**最小、固定、不看语料**的输入，逐格点名断言：`const a = b(c);` 这一句
+ * 必须投出 `VariableStatement > VariableDeclarationList > VariableDeclaration > Identifier(a)`
+ * 与 `CallExpression(callee=Identifier(b), arguments=[Identifier(c)])`。
+ * 这七格各自来自一个具体 token 页（`Let` / `Statement` / `Identifier` / `Method`），
+ * 任何一格答不出都会在这里**点名**，而不是等到 `cases:tsast` 报一个总数。
+ */
+const SPECIMEN = "const a = b(c);";
+const REQUIRED_KINDS = [
+  "SourceFile",
+  "VariableStatement",
+  "VariableDeclarationList",
+  "VariableDeclaration",
+  "Identifier",
+  "CallExpression",
+];
+const shapeProblems = [];
+{
+  try {
+    const context = new TextContext(new Template());
+    context.Process(new TextDocument(SPECIMEN));
+    const projected = projectRoot(context.Root.ToList(), SPECIMEN);
+    // **坐标键也要点名**：`pos` / `end` 是三个出口共用的那一对（第三个出口**不用** `range`，
+    // 那是产物树自己的闭区间键）——缺一个就说明造节点那一层被绕过去了
+    // （`ctx.Node` / `ctx.NodeHead` 都写全了它们）。
+    const walk = (node, out) => {
+      if (node === null || typeof node !== "object") return out;
+      if (Array.isArray(node)) {
+        for (const item of node) walk(item, out);
+        return out;
+      }
+      if (typeof node.kind === "string" && !("pos" in node)) out.push(`缺 pos：${node.kind}`);
+      if (typeof node.kind === "string" && !("end" in node)) out.push(`缺 end：${node.kind}`);
+      for (const key of Object.keys(node)) {
+        if (key === "kind" || key === "pos" || key === "end") continue;
+        walk(node[key], out);
+      }
+      return out;
+    };
+    const problems = walk(projected.ast, []);
+    const seen = new Set();
+    const collect = (node) => {
+      if (node === null || typeof node !== "object") return;
+      if (Array.isArray(node)) {
+        for (const item of node) collect(item);
+        return;
+      }
+      if (typeof node.kind === "string") seen.add(node.kind);
+      for (const key of Object.keys(node)) {
+        if (key === "kind" || key === "pos" || key === "end") continue;
+        collect(node[key]);
+      }
+    };
+    collect(projected.ast);
+    for (const kind of REQUIRED_KINDS) {
+      if (!seen.has(kind)) problems.push(`这一格没投出来：${kind}`);
+    }
+    if (projected.count <= 0) problems.push(`一个节点都没问过（count=${projected.count}）`);
+    shapeProblems.push(...problems);
+  } catch (error) {
+    shapeProblems.push(`固定样本抛异常：${String(error && error.message ? error.message : error)}`);
+  }
+}
+if (shapeProblems.length > 0) {
+  console.log(
+    `\nFAIL  固定样本 \`${SPECIMEN}\` 的形状不对（${shapeProblems.length} 条，第 1014 轮加的这一项）：`,
+  );
+  for (const one of shapeProblems.slice(0, 10)) console.log(`      ${one}`);
+}
+
 console.log(
   `cases:direct —— 语料 ${run.length} 份（解析 ${parsed}）、投影 ${nodes} 个节点，` +
     `其中 token 自己出的 ${direct} 个（${share.toFixed(1)}%）`,
@@ -172,6 +257,6 @@ if (flag("--verbose") || mismatches.length > 0 || errors.length > 0) {
   if (errors.length > TOP) console.log(`（另有 ${errors.length - TOP} 处异常）`);
 }
 
-if (mismatches.length > 0 || errors.length > 0) process.exit(1);
-console.log(`第三个出口只有一条路，重投逐字节一致（${run.length} 份语料）`);
+if (mismatches.length > 0 || errors.length > 0 || shapeProblems.length > 0) process.exit(1);
+console.log(`第三个出口只有一条路，重投逐字节一致（${run.length} 份语料）；固定样本的形状逐格点名通过`);
 process.exit(0);
