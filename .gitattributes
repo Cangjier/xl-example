@@ -3,13 +3,3 @@
 # 否则在 Windows 上克隆（core.autocrlf=true）会把每个 *.xl.md 变成 CRLF，
 # 每个检查都会失败。
 * text=auto eol=lf
-
-# `tests/compare-shape-token-ast/` 下每个 token 目录里的 `xml/` 与 `ast/` 是**生成物**，
-# 一个出口一份（`run.mjs --snapshot` 写的）：
-#   `xml/<用例>.xml`  = `Token.ToXmlString()` 的原样（出口 1）
-#   `ast/<用例>.json` = `cjcli <文件> --ts-ast` 的 stdout 原样（出口 3，紧凑单行 JSON）
-# 它们进仓是为了「形状一变，git diff 里看得见」——所以**保留**（不 ignore），
-# 也**不抑制 diff**（写成 `-diff` 的话 git 把它们当二进制，读起来只剩「Bin」两个字）。
-# 只把行尾钉住：生成物是 LF，`eol=lf` 保证检出后仍是 LF（与上面那条同一条理由）。
-tests/compare-shape-token-ast/**/*.xml text eol=lf
-tests/compare-shape-token-ast/**/*.json text eol=lf

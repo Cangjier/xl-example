@@ -65,7 +65,7 @@ console.log(Box.of(1));
 而 `^//\s*xl:(\S+)\s*(.*)$` 里的 `$` 在 `\r` **之前**不成立、`.` 也不吃 `\r`
 ⇒ 整条正则失败 ⇒ 文件头被当成正文，`xl:expect` / `xl:known-gap` 全部静默失效。
 
-**这个坑藏了很久**：`cases:tags` 只报「期望与产物不符」，而**读不到的期望不产生断言**——
+**这个坑藏了很久**：`cases:tags`（第 1017 轮删）只报「期望与产物不符」，而**读不到的期望不产生断言**——
 所以它一路是绿的。修好之后断言数从 **4764 涨到 4778**：那两份 CRLF 用例各贡献 7 条
 （`xl:expect` 两行共 7 个标签），是一批**从来没执行过**的期望；其中 **4 条当场报错**——
 `Const` / `BlockToken` 这两个标签名在产品里根本不存在（`const` 投成 `Let`、`{` 投成 `Bracket`），
@@ -3482,8 +3482,10 @@ regressions 0，加权 **95.4%**。
 ```bash
 npm run cases:tsast     # token：八条全 0 才绿（门）
 npm run cases:check     # 用例文件本身合不合格
-npm run cases:tags      # xl:expect / xl:absent 对产物核实
-npm run cases:shapes    # 形状覆盖
 npm run coverage        # 五类 + 两种尺子 + 覆盖度报告
 npm run gates           # 上面这几道一次跑完
 ```
+
+**第 1017 轮删掉的两条命令**：`npm run cases:tags`（`xl:expect` / `xl:absent` 对产物核实）
+与 `npm run cases:shapes`（形状覆盖）——理由与留下的洞见根 [README](../../README.md) 的
+「判据与缺口」。**这一页里那些 `xl:expect` 仍然是写下来的期望，但今天没有命令会替你核它们。**

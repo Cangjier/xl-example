@@ -1,8 +1,11 @@
 # AST JSON 出口
 
 > **第 1016 轮：命令行的那一条出口删掉了。** `cjcli --ast-json`、它的专属尺子 `cases:astjson`
-> 与本文第 5 节那张验收表一起撤掉；**库这一侧一格没动**（`Token.ToDictionary()` / `ToList()` /
-> `ToJsonString()` / `WithRange()` 都在，本文也因此整篇留着当形状与字段表的规格）。
+> 与本文第 5 节那张验收表一起撤掉；**库这一侧当时一格没动**（`Token.ToDictionary()` / `ToList()` /
+> `WithRange()` 都在，本文也因此整篇留着当形状与字段表的规格）。
+> **第 1017 轮又删掉一格**：`Token.ToJsonString()`——它是「把 `ToList()` 串成 JSON」的那一步，
+> 而命令行那条路删掉之后它在全仓**一个调用者都没有**。序列化本身没消失：
+> TS 形状出口的 `ToJsonText()` 走的是同一条 `Token.ToPlain` 深转（见下面第 2 节末）。
 > 今天还有两个命令行出口：XML（默认）与 TS 形状（`cjcli --ts-ast`，规格见 [ts-ast.md](ts-ast.md)）——
 > 下面凡提到 `cjcli … --ast-json` 的地方，读作「**改这个出口时要动的地方**」，
 > 而不是一条今天能敲的命令。
@@ -28,7 +31,7 @@ TS 形状挂在 `typescript/print-ast-common.xl.md` 的 `projectRoot` 上（core
 | 出口 | 入口 | 形态 | 给谁 |
 | --- | --- | --- | --- |
 | XML（默认） | `Token.ToXmlString()` / `Root.ToString()` | 元素树；`cjcli` 打印时按嵌套缩进 | 给人读 |
-| AST JSON | `Token.ToDictionary()` / `ToList()` / `ToJsonString()` | 紧凑单行 JSON | 给下游程序读（**第 1016 轮起不再由命令行放出**） |
+| AST JSON | `Token.ToDictionary()` / `ToList()` | 紧凑单行 JSON | 给下游程序读（**第 1016 轮起不再由命令行放出**） |
 | TS 形状 | `projectRoot()` / `ToJsonText()` | `ts.createSourceFile` 同形（`kind` 用名字 + `pos` / `end`） | 与 TS 原生 AST 对拍 / diff |
 
 命令行侧**曾经**由 `cjcli` 的 `--ast-json` 切换（第 1016 轮删）：
@@ -48,9 +51,14 @@ JSON 不经过 `CommonUtil.FormatXml`：那个函数只认 XML。**这一段口�
 ```ts
 const context = new TextContext(new Template());
 context.Process(new TextDocument(source));
-const json = context.Root.ToJsonString();  // 紧凑单行
-const array = context.Root.ToList();       // 还没序列化的那一层（Map）
+const array = context.Root.ToList();                    // 这一层就是本文的形状（`range` 已补满）
+const json = JSON.stringify(Token.ToPlain(array));      // 要字符串时自己过一遍 `ToPlain`
 ```
+
+**第 1017 轮之前这里有第三行**：`context.Root.ToJsonString()`（就是上面那一行的封装）。
+它随命令行那条出口一起变成死代码，于是整格删掉——序列化这一步的**唯一**消费者
+是 TS 形状出口的 `ToJsonText()`（[print-ast-common.xl.md](../typescript/print-ast-common.xl.md)），
+它做的是同一件事（`Token.ToPlain` 深转之后 `JSON.stringify`）。
 
 ---
 
@@ -90,7 +98,10 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 
 `ToDictionary` 返回的是 `Map<string, any>`，而 `JSON.stringify` 对 `Map` **一律给 `{}`**
 （条目不在自有可枚举属性里）。这不是可以绕过的风格问题，是**会静默打出 `[{},{},{}]` 的坑**——
-`Token.ToJsonString` 因此先过一遍 `Token.ToPlain`（深转，不就地改），再 `JSON.stringify`。
+所以序列化那一步**必须先过一遍 `Token.ToPlain`**（深转，不就地改），再 `JSON.stringify`。
+第 1017 轮删掉的 `Token.ToJsonString()` 当年做的就是这一句；今天做这件事的是
+`print-ast-common` 的 `ToJsonText()`（TS 形状出口），而**直接读本文这份 JSON 的调用方
+要自己记住这一条**——`ToPlain` 还在，它是公开 API。
 
 ---
 
@@ -189,12 +200,12 @@ XML 的开标签上写 `export="true"`（读 XML 的人按布尔读），投影�
 | 项 | 上游 | 本工程 | 为什么 |
 | --- | --- | --- | --- |
 | 方法名 | `ToDictionary()` / `ToList()` | 同名同签名 | 同一个契约 |
-| 根 | `code.analyse` 取 `Root.ToList()` | `Root.ToJsonString()` 内取 `Root.ToList()` | |
+| 根 | `code.analyse` 取 `Root.ToList()` | 同（`Root.ToJsonString()` 内当年取的就是它；那一格第 1017 轮删了，`ToList()` 没动） | |
 | 坐标 | `ToList` 给每个节点补 `range` | 同（只是本工程**递归铺满**：每个节点都有坐标，而不仅仅是 `ToList` 直接收的那一层——TS 的每个节点都带 `pos` / `end`，投影要用） | |
 | 属性键名 | 一部分与 XML 漂开了（`MethodName` → `methodName`、`StartBracketChar` → `startBracketChar`、`IsSupportInterpolation` → `isSupportInterpolation`） | **一律与 XML 属性同名** | 本工程的口径是「两个出口说同一棵树」，同名才可校验 |
 | 覆盖范围 | 只有 17 个类覆写 `ToDictionary`，其余走基类的 `{type, children}` | 同样只覆写「XML 里有属性」的类 | 与上游同一取舍 |
 | 额外字段 | `String` 的 JSON 比 XML 多 5 个字段（`stringChar` / `rawIndent` / `isRawIndentFormated` …） | **只多写一格**：`String.stringChar`（第 1001 轮）——`ExpressionWithTypeArguments` 的直出版要判「这一格是不是反引号串」，而它手上只有**子单元的字典**（`IsTemplateString` 吃的是实例）⇒ 那一格必须经字典递过来。其余（`rawIndent` / `isRawIndentFormated`）**不写**：JSON 的键以 XML 属性为准 | 多写的键等于第二个事实来源，所以每多一格都要有「投影读不到它就只能回原文」的理由 |
-| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` / `DoWhile` 的 `emptyBodyAt` 与 `bodyBraceAt`、那四者与 `IfSegment` / `Lamda` 的 `bodyBraceRange`（整对花括号）、`For` / `Foreach` / `While` 的 `headerCloseAt`、`Foreach` 的 `isForIn`、`IfSegment` 的 `ifWordAt`、`Lamda` 的 `arrowAt`、`Namespace` 的 `nameAt` / `nameEnd` / `nameRange`、`Field` 的 `nameAt` / `nameRange`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`）、`Import` 的 `typeWordAt` / `namedBraceAt`、`Switch` 的 `bodyAt`、`SwitchSegment` 的 `colonPos`、`TernaryOperator` 的 `questionPos` / `colonPos`、`TypeDefine` 的 `questionAt`（第 996 / 998 轮：`a?: T` 那个 `?` 的位置，`Field` / `Parameter` / `MappedType` 的直出版要直读它）、`String` 的 `stringChar`（第 1001 轮：这一格是哪个引号，`ExpressionWithTypeArguments` 的直出版判反引号串要直读它）、`StaticBlock` 的 `braceAt`，以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节）。**这张表不是备忘、是判据的一半**：`cases:astjson` 的 ④ 按第 2–4 节有没有提到这个键名来判，所以**加一格坐标就要补一次这里**（第 884 轮补这一门时，这张表已经漂了 5 格） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
+| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` / `DoWhile` 的 `emptyBodyAt` 与 `bodyBraceAt`、那四者与 `IfSegment` / `Lamda` 的 `bodyBraceRange`（整对花括号）、`For` / `Foreach` / `While` 的 `headerCloseAt`、`Foreach` 的 `isForIn`、`IfSegment` 的 `ifWordAt`、`Lamda` 的 `arrowAt`、`Namespace` 的 `nameAt` / `nameEnd` / `nameRange`、`Field` 的 `nameAt` / `nameRange`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`）、`Import` 的 `typeWordAt` / `namedBraceAt`、`Switch` 的 `bodyAt`、`SwitchSegment` 的 `colonPos`、`TernaryOperator` 的 `questionPos` / `colonPos`、`TypeDefine` 的 `questionAt`（第 996 / 998 轮：`a?: T` 那个 `?` 的位置，`Field` / `Parameter` / `MappedType` 的直出版要直读它）、`String` 的 `stringChar`（第 1001 轮：这一格是哪个引号，`ExpressionWithTypeArguments` 的直出版判反引号串要直读它）、`StaticBlock` 的 `braceAt`，以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节）。**这张表当年是判据的一半**：`cases:astjson` 的 ④ 按第 2–4 节有没有提到这个键名来判（那一门第 1016 轮删了，而**这条规矩照旧**），所以**加一格坐标就要补一次这里**（第 884 轮补这一门时，这张表已经漂了 5 格） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
 | 结构 bug | `TernaryOperator.ToDictionary()` 漏掉了 `type`（它没调基类也没自己写），于是 JSON 里出现没有类型名的节点 | **保留 `type`** | 那是缺陷，不是口径 |
 
 **一句话**：形状、方法名、`range` 的层级与上游一致；**字段名以本工程自己的 XML 出口为准**——
@@ -234,9 +245,12 @@ JSON 跟着上游的键名只会让**同一棵树的两个出口在本工程内�
 **上锁的那把锁今天摘了，这条规矩还在**：加一格坐标就补一次第 3 / 4 节，
 否则下一个人只能从代码里读形状。
 
-**那把尺子当年量的语料是「用例 + `samples`」**，不吃 `node_modules` / `dist/ts`：`cases:shapes`
-已经证明用例侧是外部语料那 260 种形状签名的**超集**（444 种），而这一门量的「同一个节点两个出口对不对」
-与形状种类一一对应；整份外部语料单进程要 ~37s、用例那一份只要 ~2s——没有理由为同一句话多花 35s 墙钟。
+**那把尺子当年量的语料是「用例 + `samples`」**，不吃 `node_modules` / `dist/ts`：当时的理由是
+`cases:shapes` 已经证明用例侧是外部语料那 260 种形状签名的**超集**（444 种），而这一门量的
+「同一个节点两个出口对不对」与形状种类一一对应；整份外部语料单进程要 ~37s、用例那一份只要 ~2s
+——没有理由为同一句话多花 35s 墙钟。
+（**`cases:shapes` 第 1017 轮也删了**——它量的是依赖库的形状清单、从加进来那天起就是绿的。
+于是「用例侧是外部语料的超集」这句话今天**没有门再复核**，它只是第 648 / 884 轮量过的一条读数。）
 
 **新增的坐标字段走的仍然是这条出口**（例如第 634 轮的 `headerCloseAt`）：`ToDictionary` 里写了、
 投影才读得到（见第 3 节的字段表）——**同时也要写进那张表**，否则形状就只有代码知道。

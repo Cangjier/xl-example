@@ -46,17 +46,17 @@ const ts = require(path.join(root, "node_modules", "typescript"));
  */
 export const DOMAINS = ["declarations", "statements", "expressions", "types", "modules", "lexical", "ambiguous"];
 
-/** 旧的导出名，仍然指向同一份名单（`tags.mjs` / 调用方还在用 `AREAS`）。 */
-export const AREAS = DOMAINS;
-
 /**
  * `xl:expect` / `xl:absent` 里允许出现的**产物标签名**（`ToXmlString` 取的是类名；
  * 写错标签会造出假缺口）。
  *
- * 口径是「**这个名字真的可能出现在产物 XML 里**」，由 `tests/parse/tags.mjs` 的标签表体检
- * 机械地把关：表里每个名字都必须有至少一条用例真的产出过它。反过来，漏一个真标签的代价
- * 同样是假的：`IfBody` 一直没在表里，于是**块体那一族用例只能写 `xl:expect IfStatement`**，
- * 而块体投出来的是 `IfBody`——12 条用例的期望因此一直是错的却没人看得见（第 633 轮补上）。
+ * 口径是「**这个名字真的可能出现在产物 XML 里**」。第 1017 轮之前这一格由
+ * `cases:tags` 的「标签表体检」机械地把关（表里每个名字都必须有至少一条用例真的产出过它），
+ * **那一门第 1017 轮删了**——今天这张表只当「合法标签名」的名册用（`cases:check` 拿它拦
+ * 写成别的名字的期望），**没有门再核它有没有多余的名字**。
+ * 反过来，漏一个真标签的代价同样是假的：`IfBody` 一直没在表里，于是**块体那一族用例
+ * 只能写 `xl:expect IfStatement`**，而块体投出来的是 `IfBody`——12 条用例的期望因此
+ * 一直是错的却没人看得见（第 633 轮补上）。
  *
  * **永远不进产物的名字走 `GHOST_TAGS`**（下一张表）：它们只能出现在 `xl:absent` 里。
  */
@@ -107,8 +107,9 @@ export const TAGS = new Set([
  * 见 `token.xl.md` 的 `ToXmlString`）取差集 ⇒ **59** 个；上面两类已经盖掉其中 4 个，
  * 余下 **55** 个全列在下面。**写 `xl:expect` 时拿 TS 那边的 kind 名来指产物，当场就会被逮住。**
  *
- * 两个方向都由 `tests/parse/tags.mjs` 盯着：`TAGS` 里每个名字都要被至少一条用例产出 ✓，
- * `GHOST_TAGS` 里每个名字都要在**全语料**里一次都不出现 ✓。
+ * **这两个方向第 1017 轮起没有门盯着了**（原来由 `tests/parse/tags.mjs` 的标签表体检核）：
+ * `TAGS` 里每个名字都要被至少一条用例产出、`GHOST_TAGS` 里每个名字都要在**全语料**里
+ * 一次都不出现——两条都是这个文件**自己声明、没人复核**的口径了。
  */
 export const GHOST_TAGS = new Set([
   "ClassMember",
@@ -160,7 +161,7 @@ export function listCases(filterArea) {
       const id = `token/${area}/${name.replace(/\.tsx?$/, "")}`;
       const parsed = readCase(file);
       const problems = [...parsed.problems];
-      if (!AREAS.includes(area)) problems.push(`area 不在 ${AREAS.join(" / ")} 里`);
+      if (!DOMAINS.includes(area)) problems.push(`area 不在 ${DOMAINS.join(" / ")} 里`);
       for (const [directive, raws] of [["expect", parsed.directives.expect], ["absent", parsed.directives.absent]]) {
         for (const raw of raws) {
           // `Tag:2` 是带个数的期望（旧 `run.mjs` 的写法），标签表里查的是冒号前那一段。

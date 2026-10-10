@@ -767,28 +767,6 @@ return this.constructor.name;
 return undefined;
 ```
 
-## method ToJsonString:()=>string
-
-把 `ToList()` 串成一个 JSON 字符串（紧凑单行）。
-
-**第 1016 轮起本仓没有出口用它**：读它的那一条命令行出口（`cjcli --ast-json`）连同它的尺子
-（`cases:astjson`）一起删掉了——形状与字段表的规格留在
-[docs/ast-json.md](../docs/ast-json.md)，但那条路今天只能从代码里走。
-这一格留着的理由：它**是 `Token` 的公开 API**（与 `ToDictionary` / `ToList` 同一族），
-而 `ToList()` 本身仍然被第三个出口（TS 形状投影）养着——「怎么把树印成 JSON」
-因此还有唯一一个说得清的入口。
-
-**为什么要先过 `ToPlain`**：`ToDictionary` 给的是 `Map`，而 `JSON.stringify` 对 `Map` 一律给 `{}`
-（`Map` 的条目不在自有可枚举属性里）。这不是可以绕过的细节，是**会静默打出空对象**的坑，
-所以转换是这一步的必做项，而不是可选的优化。
-
-`ToList` 的元素补过 `range`，所以**带坐标的节点就是「被 `ToList` 收进来的那些」**——
-根那一层与各 token 的段数组；`ToDictionary` 自己不带坐标。与上游一致。
-
-```ts
-return JSON.stringify(Token.ToPlain(this.ToList()));
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——

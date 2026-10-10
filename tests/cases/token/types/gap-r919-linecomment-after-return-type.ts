@@ -7,7 +7,7 @@
 // 现在收尾一律退回最后一个**实义单元**（`SkipPreviousTrivia`），判据与 `field.xl.md` 的
 // `MemberEnd` 同源；同根的三处（类型字面量里的调用签名、块注释、类体里的方法）另有用例守着。
 // **不写 `LineAnnotation:1`**：头部这些说明行自己也会被解析成 `<LineAnnotation>`
-// （`cases:tags` 只剥 `// xl:` 开头的行），写个数就成了一条假的期望。
+// （`cases:tags` 第 1017 轮删之前会剥掉 `// xl:` 开头的行），写个数就成了一条假的期望。
 // xl:expect MethodDeclaration:1,ReturnType:1,TypeDefine:1
 // xl:end
 interface I { m(): void //c

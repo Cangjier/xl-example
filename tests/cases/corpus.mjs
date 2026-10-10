@@ -32,9 +32,10 @@ export function casePath(id) {
 
 /** 扫一个类别的所有文件（按路径排序，与文件系统顺序无关）。 */
 export function listCategory(category, options = {}) {
-  // `.tsx` 只有 token 语料有（4 份 JSX 用例）；`cases:tags` / `cases:check` 认它们，
+  // `.tsx` 只有 token 语料有（4 份 JSX 用例）；`cases:check` 认它们
+  //（`cases:tags` 第 1017 轮删了——它当年也认），
   // 而 AST 尺子（`ts-ast.mjs`）按 TS 语义节点对拍时**自己把 `.tsx` 排除**——
-  // 这一层的口径照旧：**认出来，用不用由上面那两把尺子决定**。
+  // 这一层的口径照旧：**认出来，用不用由上面那把尺子决定**。
   const extensions = options.extensions ?? [".ts", ".tsx"];
   const dir = path.join(CASES_ROOT, category);
   if (!fs.existsSync(dir)) return [];

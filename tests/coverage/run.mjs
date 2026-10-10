@@ -67,7 +67,7 @@ import { fileURLToPath } from "node:url";
 import { CATEGORIES, isSkipped, listAll, listCategory } from "../cases/corpus.mjs";
 import { LAYER_WEIGHTS } from "./matrix.mjs";
 import { compareSource } from "../parse/ts-ast.mjs";
-import { caseBody } from "../parse/tags.mjs";
+import { caseBody } from "../cases/case-file.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");

@@ -569,7 +569,8 @@ B 把分母定成「本来该全对的用例」，缺口另立一行报（**收�
 这与执行尺子的台账（`xl:want`）同一精神。
 
 `xl:ts-invalid`（故意写非法 TS，9 份）与 `.tsx`（4 份）**不进任何一边的分母**：
-AST 尺子的裁判对它们没有基准。它们照样在语料里、照样被 `cases:check` / `cases:tags` 盯着。
+AST 尺子的裁判对它们没有基准。它们照样在语料里、照样被 `cases:check` 盯着
+（第 1017 轮之前 `cases:tags` 也盯它们——那一门删了）。
 
 ## 跑一次
 
@@ -670,8 +671,6 @@ node tests/coverage/run.mjs --emit-ledger        # 按现状打一份台账骨�
 | `npm run runtime:cli` | **必须全过**的端到端语料（过不了的进不去） |
 | `npm run cases:tsast` | token 层与真 TS 的 **AST 对拍**（**八条**全 0 的**门**） |
 | `npm run cases:check` | 用例文件本身合不合格（文件头指令有没有写错） |
-| `npm run cases:tags` | 用例自带的期望（`xl:expect` / `xl:absent`）对产物核实 |
-| `npm run cases:shapes` | 用例**覆盖了哪些形状** |
 | **`npm run coverage`** | **场景覆盖面**（含「现在过不了」的那些） |
 
 前四条是**门**（过不了就红），这一条是**尺**——它把「还差多少」变成可复现的读数，

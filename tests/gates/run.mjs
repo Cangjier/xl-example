@@ -44,29 +44,31 @@ const GATES = [
   // 第 1016 轮**命令行那一条出口整条删掉**（`--ast-json` 与它一起），于是这一门没有量得到的对象：
   // 它量的一半是「两个出口说的是不是同一棵树」，而那棵树现在只剩 XML 与 TS 形状两条路
   // （TS 形状那一条由 `cases:tsast` / `samples` 看着）。
-  // **库那一层一格没动**：`ToDictionary` / `ToList` / `ToJsonString` 与
+  // **库那一层一格没动**：`ToDictionary` / `ToList` / `ToPlain` / `WithRange` 与
   // [docs/ast-json.md](../docs/ast-json.md) 那份规格都还在，只是不再有门核它们。
-  // **`cases:direct` + `direct:lint`（第 992 轮加，第 1013 轮改口径）**：第三个出口
+  //（`ToJsonString()` 第 1017 轮删了——它在全仓一个调用者都没有；
+  // 序列化那一步今天只有 TS 形状出口的 `ToJsonText()` 在做。）
+  // **`cases:direct` + `direct:lint`（第 992 轮加，第 1013 / 1017 轮改口径）**：第三个出口
   // （`Token.PrintDirectAst`，现在是它**唯一**的写法）的两条判据，一动态一静态——
-  // `cases:direct` 把同一份输入**重投两遍**逐字节比（连 `unmapped` / `count` 记账一起），
+  // `cases:direct` 把全语料投一遍（**不抛异常**）并对一份**固定样本**逐格点名（六格 kind + `pos` / `end`），
   // `direct:lint` 逐页扫方法体（不许 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，
   // 也不许按字符串键查）。两条分开是因为它们坏的方式不同：
-  // 静态那条坏了是「又回原文查了」（只在坏输入上显形），动态那条坏了是「同一份输入两个答案」（当场显形）。
-  // **第 1013 轮之前**动态那条比的是「与 `PrintAst` 同答」（开关两遍对拍）——老路删掉之后就改成重投。
+  // 静态那条坏了是「又回原文查了」（只在坏输入上显形），动态那条坏了是「这一格投不出形状」（当场点名）。
+  // **第 1013 轮之前**动态那条比的是「与 `PrintAst` 同答」（开关两遍对拍）；老路删掉之后改成
+  // 「同一份输入重投两遍逐字节相同」；**第 1017 轮把那一项撤了**——同一份输入在同一个进程里投两遍，
+  // 确定性代码必然逐字节相同（这一门自己的注释就写着「一头恒返回 `undefined` 的投影也满足它」），
+  // 它量不出任何一格真的错了。留下的两条都是**绝对**的：抛异常、固定样本缺格。
   { name: "cases:direct", script: "tests/parse/direct-ast.mjs" },
   { name: "direct:lint", script: "tests/parse/direct-lint.mjs" },
   { name: "samples", script: "samples/check.mjs" },
   { name: "cases:check", script: "tests/parse/validate.mjs" },
-  // **`cases:tags`（第 633 轮加）**：用例开头那几行 `xl:expect` / `xl:absent` 的**真判据**。
-  // 它是这一族里唯一读「用例自带的期望」的一道 ✓——`cases:tsast` 比的是形状 ✓，
-  // 它比的是**这条用例说自己该有什么，产物里真的有吗** ✓。加它之前那些期望已经过期 47 处
-  // 而没有任何东西会响 ✗（见 `tests/parse/tags.mjs` 开头）。
-  { name: "cases:tags", script: "tests/parse/tags.mjs" },
-  // **`cases:shapes`（本轮加）**：用例**覆盖了哪些形状**。
-  // `cases:tsast` 量的是「对得上的对不对」（用例 + 真实语料），它绿不代表**用例**里有那种形状：
-  // 真实语料来自 `node_modules`（会随依赖升级变、也可能整份消失），用例才是仓库自己的回归网。
-  // 这一门按「kind + 有子节点的字段名」的签名比，外部语料里出现过的签名必须在用例里出现过。
-  { name: "cases:shapes", script: "tests/parse/shapes.mjs" },
+  // **`cases:tags`（第 633 轮加、第 1017 轮删）**：用例开头那几行 `xl:expect` / `xl:absent` 的
+  // 专属尺子（外加「标签表体检」与一条 `<Label />` 结构不变式）。它量的是**产物标签**这一层，
+  // 而既定口径是「XML 出口与 token 树质量的尺子不进判据」——**这一条留下的洞记在 README 里**
+  // （`xl:expect` / `xl:absent` 的语法照旧由 `cases:check` 管，但**没有门再把它们跟产物核一遍**）。
+  // **`cases:shapes`（第 648 轮加、第 1017 轮删）**：用例覆盖了外部语料（`node_modules`）里
+  // 出现过的**哪些形状签名**。它量的是**依赖库的形状清单**，不是本工程；从加进来那天起就是绿的，
+  // 此后每一次读数都是「未覆盖 0」——一次没红过的门不构成判据。
   { name: "coverage", script: "tests/coverage/run.mjs" },
 ];
 

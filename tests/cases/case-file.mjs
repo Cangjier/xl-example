@@ -74,7 +74,7 @@ export const DIRECTIVE_KEYS = [...DIRECTIVE_OWNER.keys()];
  *
  * 第 2 行是**第 1 行那个值的续行**（不带 `xl:`），而 `xl:expect` 跟在它后面**仍然是指令**。
  * 旧解析器逐行扫全文，所以 `xl:expect` 收得到；把「非指令行」当结束的写法会当场丢掉它——
- * 实测**丢掉 92 份用例的期望**（`cases:tags` 的断言从 4768 掉到 4441）。
+ * 实测**丢掉 92 份用例的期望**（`cases:tags` 的断言从 4768 掉到 4441；那一门第 1017 轮删了）。
  *
  * **两条口径与旧解析器逐位等价**（`tmp/refactor/legacy-directives.mjs` 逐文件对拍过）：
  *   1. **键只在文件头那一段第一次出现时生效**。`xl:note` 写两遍时旧解析器是后者覆盖前者
@@ -138,6 +138,24 @@ export function parseDirectives(source) {
     break; // 第一行真代码：头部结束
   }
   return { directives, bodyStart: at, terminated, problems };
+}
+
+/**
+ * 一份用例的**正文**：把 `//  xl:` 开头的整行去掉（不论它在文件头还是正文里）。
+ *
+ * 与 `readCaseFile()` 的 `body` **不是一回事**：那个只切在「文件头结束」那一处，
+ * 正文里那些 `xl:` 注释（实测 92 份把「这条在测什么」写进了正文）**留在里面**；
+ * 这一格剥掉**任何位置**的整行——调用方要的是「只有代码的那一份」
+ *（`tests/coverage/run.mjs` 拿它写给裁判侧，指令行混进去会算进被测的形状里）。
+ *
+ * **第 1017 轮之前它住在 `tests/parse/tags.mjs`**：那一道门（`cases:tags`）删了，
+ * 而 `coverage` 还在用它——「用例文件怎么读」本来就只有这一处，所以搬到这里。
+ */
+export function caseBody(source) {
+  return source
+    .split("\n")
+    .filter((line) => !/^\/\/\s*xl:/.test(line))
+    .join("\n");
 }
 
 /** 一份用例文件读出来的东西：`{ source, body, directives, ...两套判据的字段 }`。 */

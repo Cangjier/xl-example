@@ -113,7 +113,8 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 **第 1016 轮删掉了旧的「出口 2」（AST JSON，`cjcli <文件> --ast-json`）**：形状照上游 Cangjie 的
 `Token.ToDictionary` / `ToList`——顶层是数组、每个节点 `{ type, … , children? }`。
 删的是**命令行那一条路**（连同它的尺子 `cases:astjson`）：库这一侧一格没动
-（`ToDictionary` / `ToList` / `ToJsonString` / `WithRange` 都在），形状与逐 token 字段表的规格
+（`ToDictionary` / `ToList` / `WithRange` 都还在；`ToJsonString` 当时也在，**第 1017 轮随
+「全仓没有任何调用者」删掉了**），形状与逐 token 字段表的规格
 也整篇留着，见 [docs/ast-json.md](docs/ast-json.md)。撤它的理由：那条出口的唯一用途是给下游程序读树，
 而下游要的是 TS 形状（`--ts-ast` 与它同源、且真的在跟 `ts.createSourceFile` 对拍）；
 留两条 JSON 出口只会让「哪一条才算数」没有答案。
@@ -122,7 +123,8 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 结构上没有第二条解析路径。
 
 测试集只留 AST 与执行侧这几道（用户口径，见「判据与缺口」）：
-XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` 是**尺子不是门**
+XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 1017 轮把最后两道也撤了**
+（`cases:tags` 与 `cases:shapes`，留下的洞见「判据与缺口」）；`coverage` 是**尺子不是门**
 （它红只在「比昨天差」）。
 
 `tsconfig.json` 的 `include` 是 `dist/**/*.ts`、`rootDir` 是 `dist`，所以 `dist/ts/cjcli.ts` 落在
@@ -145,7 +147,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 - [docs/cpp-design-notes.md](docs/cpp-design-notes.md)：C++ 目标上那些「只能这么写」的结构性取舍。
 - [docs/ast-json.md](docs/ast-json.md)：AST JSON 出口的规格（形状 / 逐 token 字段表 / 与上游 Cangjie 的差异）。
   **第 1016 轮起这一条出口只活在库里**：命令行的 `--ast-json` 与它的尺子 `cases:astjson` 都删了，
-  这份规格整篇留着（`ToDictionary()` / `ToList()` / `ToJsonString()` / `WithRange()` 一格没动）。
+  这份规格整篇留着（`ToDictionary()` / `ToList()` / `WithRange()` 一格没动；
+  `ToJsonString()` 第 1017 轮删——它已经没有调用者）。
 - [docs/ts-ast.md](docs/ts-ast.md)：TS 形状出口的规格（kind 与字段名的对照表）。
 
 ## 类型约定
@@ -286,12 +289,10 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | --- | --- |
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
-| `cases:direct` | **重投一致 + 固定样本的形状**（第 992 轮加，第 1013 轮改口径，第 1014 轮加第三条）：第三个出口（`Token.PrintDirectAst`）现在是**唯一**的写法，所以量的是「同一份输入投两遍」——`ToJsonText` **逐字节**相同 + `unmapped` / `count` 记账同；再加一条**绝对**的地板：固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`（前两条都是相对的，一头恒返回 `undefined` 的投影也满足）；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`） |
+| `cases:direct` | **第三个出口投不投得出来**（第 992 轮加，第 1013 / 1017 轮改口径）：`Token.PrintDirectAst` 是**唯一**的写法，所以量的是两条**绝对**的判据——① 全语料投一遍**不许抛异常**；② 固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。**第 1013 轮之前**它与 `PrintAst` 开 / 关两遍对拍，第 1013 ~ 1016 轮改量「同一份输入重投两遍逐字节相同」——**那一项第 1017 轮撤了**：两遍都在同一个进程里、问的都是同一份 `Root.ToList()`，确定性代码必然逐字节相同，**它不可能失败** |
 | `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据、第 1014 轮再加一条、**第 1015 轮再加一条**）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；扫**共享投影那一页的代码块**那一末条：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层；第 1014 轮再加一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算）；**第 1015 轮**再加一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的九个出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace`）——出口删掉之后，方法体那条判据才从「大家记得别写」变成**结构上做不到** |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
-| `cases:tags` | **用例自带的期望**：`xl:expect`（存在，或 `Tag:N` 计数）与 `xl:absent` 逐条对产物核实，外加标签表体检 |
-| `cases:shapes` | **用例覆盖了哪些形状**：外部语料里出现过的「kind + 有子节点的字段名」签名，用例里必须至少有一条 |
 | `runtime:check` / `runtime:cli` | 执行侧的机制与端到端（见「构建链路」那一节） |
 | `coverage` | 场景覆盖度——**尺子不是门**：它红只在「比昨天差」 |
 
@@ -303,9 +304,23 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 [docs/ast-json.md](docs/ast-json.md) 第 5 节：XML 开标签上的 `range="[起,止]"` 从第 987 轮起就只为它而加，
 **今天仍然印着，但没有任何门看着**。
 
+**第 1017 轮撤掉的两道门**（用户口径「清理没有意义的 gates」）：
+
+- `cases:tags`（第 633 轮加）——把用例开头那几行 `xl:expect` / `xl:absent` 当**真判据**跑一遍，
+  外加「标签表体检」（`TAGS` 里每个名字都要有用例真的产出过、`GHOST_TAGS` 一个都不许漏进产物）
+  与一条 `<Label … />` 结构不变式（第 929 轮）。它量的是**产物标签**这一层，
+  不在「AST 与执行侧」这个口径里。**它留下三格洞**（记在这里，免得下一个人以为它们被验证着）：
+  ① `xl:expect` / `xl:absent` 的**语法**照旧由 `cases:check` 管，但**没有门再拿它们跟产物核一遍**
+  （原来那 5372 条断言没了）；② 标签表那两个方向**没有门看着了**（表本身还在 `validate.mjs` 里，
+  继续给 `cases:check` 当「合法标签名」的名册）；③ `<Label />` 那条结构不变式只剩语料里那句话，
+  `cases:tsast` 看不见它（那正是它当初被单独钉在这里的理由）。
+- `cases:shapes`（第 648 轮加）——用例覆盖了外部语料（`node_modules`）里出现过的**哪些形状签名**。
+  它量的是**依赖库的形状清单**、不是本工程；从加进来那天起就是绿的，此后每一次读数都是「未覆盖 0」
+  ——**一次没红过的门不构成判据**。
+
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/cases/token/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
-`cases:shapes` 用的是它去掉 `dist/ts` 的那一份（产物自己写出来的形状不算「必须有用例」）。
+（`cases:shapes` 当年吃的是它去掉 `dist/ts` 的那一份——那一门第 1017 轮删了。）
 
 **用例语料住在 `tests/cases/<类别>/<功能域>/`**（第 685 轮起）：五类同一形状
 ——**一条用例 = 一个 `.ts` 文件**，元数据写在文件头（`// xl:…`，以 `// xl:end` 收尾）。
@@ -360,6 +375,55 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   `runtime:check` 243 / 243、`runtime:cli` 79 / 79——**与第 1015 轮逐项相同**（这一轮只删代码与门）。
 - **命令行侧的三条实测**：`cjcli samples/hello.ts --ast-json` ⇒ stderr「未知选项 --ast-json」、退出码 1；
   `cjcli samples/hello.ts` ⇒ XML 仍带 `range="[0,130]"` 那一格；`cjcli samples/hello.ts --ts-ast` ⇒ 照旧。
+
+### 第 1017 轮：清理「没有意义的门」与「没有被用到的代码」——**八道门 8 通过 0 失败**，读数一处没动
+
+**一句话**：用户口径「清理：① 没有意义的 gates ② 没有被用到的代码」。这一轮**只删不加**：
+两道门连同脚本整条删掉、`cases:direct` 里那条**不可能失败**的判据撤掉、四处已经没人用的代码清干净
+——`coverage` 与 `cases:tsast` 的读数与第 1015 / 1016 轮**逐项相同**（变的只有门数）。
+
+- **删掉的两道门**（理由与**留下的洞**都写在上面「判据与缺口」那一节里）：
+  1. `cases:tags`（第 633 轮加）——量的是**产物标签**这一层：`xl:expect` / `xl:absent` 逐条对产物核实、
+     标签表体检（`TAGS` 每个名字都要有用例产出、`GHOST_TAGS` 一个都不许漏）、一条 `<Label … />` 结构不变式。
+     它不在「AST 与执行侧」这个既定口径里。**留下的三格洞**：5372 条期望断言没有门再核；
+     标签表那两个方向没有门再看；`<Label … />` 那条不变式只剩语料里那句话（`cases:tsast` 看不见它）。
+     它里面**唯一还有消费者的一格**（`caseBody`，`coverage` 拿它写给裁判侧）搬进了
+     `tests/cases/case-file.mjs`——「用例文件怎么读」本来就只有那一处，搬完 `tags.mjs` 才真的没用了。
+  2. `cases:shapes`（第 648 轮加）——量的是 **`node_modules` 的形状清单**、不是本工程：
+     从加进来那天起就是绿的，此后**每一次读数都是「未覆盖 0」**。一次没红过的门不构成判据。
+- **撤掉的一条判据**：`cases:direct` 的「同一份输入重投两遍逐字节相同」（第 1013 轮起；
+  在那之前是「与 `PrintAst` 同答」的开 / 关两遍对拍）。**它不可能失败**：两遍都在同一个进程里、
+  问的都是同一份 `Root.ToList()`，中间没有任何随机源——确定性代码必然逐字节相同，
+  而这一门自己的注释就写着「一头恒返回 `undefined` 的投影也满足它」。
+  留下的是两条**绝对**判据：全语料**不抛异常** + 固定样本 `const a = b(c);` 六格逐格点名
+  （每格还要有 `pos` / `end`）。顺带把那一项用的 `ToJsonText` import 与 `firstDiff()` 一起删了
+  （删完就没有消费者了）。
+- **清掉的四类死代码**：
+  1. **死脚本**：`package.json` 的 `shape:token` / `shape:token:snapshot`——它们指向
+     `tests/compare-shape-token-ast/run.mjs`，而那个目录**第 987 轮（八）就删了**（全仓 0 处引用）；
+  2. **死配置**：`.gitattributes` 里给同一个目录写的三行（`xml/` / `ast/` 两份快照按 LF 检出）；
+  3. **死 API**：`Token.ToJsonString()`——第 1016 轮删掉 `--ast-json` 之后它在全仓
+     **一个调用者都没有**（逐文件扫 `build/ts` + `tests` + `samples` + `bin`，只剩它自己的定义）。
+     连带查过 `ToPlain`：**它还在用**（`print-ast-common` 的 `ToJsonText`），所以只删这一格；
+  4. **陈旧产物树**：`build/ts/ts/**`（182 份 .js，与 `build/ts/**` 的文件名一一对应、**没有一份更新**）。
+     它是某次 `tsc --outDir build/ts` 留下的：今天 `tsconfig.json` 是 `rootDir: dist` / `outDir: build`，
+     根本产不出这一层（`dist/ts/ts` 不存在），而它里面**还压着第 1016 轮已经删掉的 `AstJson` 代码**
+     ——每一次全仓 grep 都会被它污染（这一轮的探针就被它骗过一次：`ToJsonString` 看起来「有人在调」）。
+- **读数（第 1017 轮实测）**：**八道门 8 通过 0 失败**（墙钟 36.5s）——
+  `runtime:check` 243 / 243、`runtime:cli` 79 / 79、`cases:tsast` 16 片全过（`xl:known-gap` 仍 3 条）、
+  `cases:direct` 1640 份语料 **0 处抛异常** + 固定样本逐格通过、`direct:lint` 0 条违反、
+  `samples` 三份逐字节一致、`cases:check` **1656 / 1656**、
+  `coverage` **4260 / 4422**（blocked 28、differ 134、bad 0、加权 95.7%）
+  ——除门数（**10 → 8**）外与第 1015 / 1016 轮逐项相同。
+- **这一轮的量法**（一次性探针 `tmp/probe-unused.mjs`，不进仓）：把全部 `*.xl.md` 的定义面抽出来
+  （`## method` / `## field` / `## property` / `# type|const|class`，**2308 格**），
+  再拿**产物与尺子**（`build/ts/**/*.js` + `tests` + `samples` + `bin`）逐格数引用——
+  点号访问与裸调用都算，方法定义那一行不算。读数：**72 格一次都没被引用过**
+  （`symbol-template` 的十个 `*Symbol`、`source-range` 的 `Get*Line*` 家族、`vm` 的
+  `EnqueueTask` / `GeneratorNext`…）。
+  **这 72 格这一轮没删**：它们是**规范里声明的 API 面**（上游 Cangjie 有对应物），
+  删不删是另一个口径；这一轮只删了**调用者刚刚消失**的那一格（`ToJsonString`）。
+  这条读数与探针留着给下一轮当入口。
 
 ### 第 1015 轮（二）：`IfSegment` 缺的那两格事实补上——`IfSet` 的让开 **13 → 0**、`coverage` **4247 → 4260 / 4422**、`cases:tsast` 从红转绿，十一道门**全绿**
 
@@ -9407,8 +9471,6 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
   npm run build                # xl build && tsc
   npm run samples              # TS 形状夹具逐字节对照；产物本该变化时用 -- --update 重写夹具
   npm run cases:check          # 用例体检
-  npm run cases:tags           # 用例自带的期望（`xl:expect` / `xl:absent`）对产物核实
-  npm run cases:shapes         # 用例覆盖了哪些形状（外部语料有、用例没有的签名会红）
   npm run cases:tsast          # **主判据**：与 ts.createSourceFile 逐节点对拍（八条全 0）
   npm run cases:tsast:cli      # 发布路径那一把（慢，改到 cjcli / 序列化时才需要）
   node tests/parse/ts-ast.mjs --snippets <片段.mjs>   # 普查缺口：一个进程里把 N 条小片段逐条对拍

@@ -21,12 +21,14 @@ import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 `pos` / `end` 与 TS 那边的字段名，给 `cases:tsast` 的对拍与人工 diff 用）。
 
 **第 1016 轮删掉的那条出口**：`--ast-json`（AST JSON，形状是上游 Cangjie 的
-`Token.ToDictionary` / `ToList`）连同它的尺子 `cases:astjson` 与规格 `docs/ast-json.md` 一起撤了。
-`Token.ToJsonString()` / `ToList()` / `ToDictionary()` 那些**库**一格都没动——`ToList()` 还被
+`Token.ToDictionary` / `ToList`）连同它的尺子 `cases:astjson` 一起撤了（规格 `docs/ast-json.md` 留着）。
+`ToList()` / `ToDictionary()` 那些**库**一格都没动——`ToList()` 还被
 TS 形状出口的投影养着，只是命令行不再有那条路。
 撤它的理由：那条出口的**唯一**用途是给下游程序读树，而下游要的是 TS 形状
 （`--ts-ast` 与它同源、且真的在跟 `ts.createSourceFile` 对拍）；留两条 JSON 出口等于
 让「哪一条才算数」没有答案。XML 的开标签上仍然印 `range`（第 987 轮那一条口径不动）。
+（`Token.ToJsonString()` 当年也留着，**第 1017 轮随「全仓没有一个调用者」删掉了**：
+序列化那一步的唯一消费者是 TS 形状出口的 `ToJsonText()`。）
 
 **两个出口同源**：都挂在同一次 `Process` 造出来的那棵树上（`CjcliParse`），
 区别只在最后取哪一份——`Root.ToXmlString()` / `Root.ToList()` 交给 `projectRoot` 投影。
