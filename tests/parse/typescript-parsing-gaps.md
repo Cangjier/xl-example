@@ -439,6 +439,28 @@
     收进同一条壳。两处对齐（共用 `Statement.LastClauseHeadIndex`），
     下标口径差一格：换行那一档的 `index` 是**最后一个内容单元**（换行还没进 `Data`）⇒
     上界递 `index + 1`。**这就是第 836 / 928 轮那条「每加一处都要两处成形器一起改」。**
+  - **词法把两个字符并成一个单元时，「按词判」的判据要连那个合并形态一起认**（第 934 轮
+    第四批普查量出的 `mappedmods-n13`）：`{ -readonly [K in keyof U]-?:U` 换行 `[K] }` 里
+    可选标记与冒号是**一个** `SymbolToken("?:")`（`class-member.xl.md` 的 `ExitOrPre` 早就在
+    「拆回字符还」那一句里记过这个事实），而成员的位置判据里那条「前面得先有值类型那一段」
+    只认裸 `:` ⇒ 判否 ⇒ 成员不成形（缺 `PropertySignature` / `ComputedPropertyName` /
+    `Identifier`）。**凡是以 `:` 为信号的位置判据，都要问一句「它会不会与 `?` 并成 `?:`」**：
+    当前只有 `?:` 这一个合并形态（`SymbolTemplate` 管着），但同类判据要一起过一遍。
+  - **尾随 trivia 不算区间**（第 934 轮，同一批普查第三趟）：**区间的右端取最后一个实义单元**
+    ——第 920 轮在 `SignatureTailEnd`（方法签名的返回类型）上立过这一条，第 902 轮在
+    `TypeDefine` 上只做了**一半**（跳的是 `IsAnnotationUnit`，**不含软换行**，理由写的是
+    「软换行落在类型段里是排版、不是尾部注释」）——那句话对**中间**成立、对**尾部**不成立：
+    **行注释会把它后面那个换行一起吃进来**（TS 的 trailing trivia），于是
+    `type T = [a: string//c` 换行 `, b?: number];` 的 `TypeDefine` 收集到
+    `[string, LineAnnotation, LineWrap]`、跳完尾部注释**还剩那个换行** ⇒ 区间比类型多一格
+    ⇒ 装它的 `NamedTupleMember` / `Parameter` 跟着多一格（实测 TS[10,18) vs 产物[10,22)）。
+    两处一起改：`TypeDefine` 的尾部跳过 `IsTriviaUnit`、`Parameter` 的 `SignOut` 取
+    「最后一个实义单元」的末尾（`Parameter` 的 `Data` 里 trivia 照旧留着，改的只是区间）。
+    **哨兵**：`tests/cases/token/types/type-tail-linecomment.ts`（28 个宿主：元组五种 /
+    类型字面量与接口 / 变量声明 / 形参 / 类型实参 / 联合两档 / 数组后缀 / 返回类型 /
+    函数类型两档 / 条件类型 / `infer` / `import("m").A` / `keyof` / 泛型形参表 / 枚举成员 /
+    类字段 / 继承子句 / 映射键 / 模板字面量类型）。**同族的下一个落点**：
+    凡是「按收集到的最后一个单元签出」的单元，都要问一句「那一格是不是 trivia」。
 - **「这个冒号是标签冒号吗」只该有一份判据**（第 930 轮）：`done: f` 换行 `()` 在 TS 那边是
   一次调用，而解析期那张续接表的 `(` 那一档先问 `HasTypeColonBefore`（「上一行是类型标注吗」）——
   它往回扫先撞上的正是**标签**那个 `:`，却一律照类型标注答 ⇒ 判「上一行到此为止」⇒ 收壳 ⇒

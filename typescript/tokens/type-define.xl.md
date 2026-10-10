@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { IsMemberBoundary } from "./declaration-common.xl.md"
-import { IsSwitchLabelColon, IsAnnotationUnit, MatchingQuestionIndex } from "../text-common-util.xl.md"
+import { IsSwitchLabelColon, IsAnnotationUnit, IsTriviaUnit, MatchingQuestionIndex } from "../text-common-util.xl.md"
 import { Statement } from "./statement.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
@@ -223,10 +223,17 @@ if (items.length === 0) {
 const result = new TypeDefine(template);
 result.Parent = current.Parent;
 result.AddRange(items);
-// **终点跳过尾部注释**（第 902 轮）：`IsAnnotationUnit` 是「注释单元」那一格
-//（与 `IsTriviaUnit` 不同：**软换行不算**——它落在类型段里是排版、不是尾部注释）。
+// **终点跳过尾部 trivia**（第 902 轮，第 934 轮补齐软换行那一档）：`IsTriviaUnit` 是
+// 「注释 + 软换行」那一格。第 902 轮只跳了 `IsAnnotationUnit`（**不含软换行**，理由写的是
+// 「软换行落在类型段里是排版、不是尾部注释」）——那句话对**中间**成立，对**尾部**不成立：
+// 行注释会把它后面那个换行一起吃进来（TS 的 trailing trivia），于是
+// `type T = [a: string//c` 换行 `, b?: number];` 的 `TypeDefine` 收集到
+// `[string, LineAnnotation, LineWrap]`、按 `IsAnnotationUnit` 跳完尾部**还剩那个换行**
+// ⇒ `SignOut` 落在换行末尾、区间比类型多一格 ⇒ 装它的 `NamedTupleMember` / `Parameter`
+// 跟着多一格（实测 TS[10,18) vs 产物[10,22)）。口径与第 920 轮 `SignatureTailEnd` 那一句
+// 一致（那里借 `SkipPreviousTrivia` 一步问完）：**区间的右端取最后一个实义单元**。
 let tail = items.length - 1;
-while (tail > 0 && IsAnnotationUnit(items[tail])) {
+while (tail > 0 && IsTriviaUnit(items[tail])) {
   tail = tail - 1;
 }
 result.SignIn(current.SourceRange.Start!);

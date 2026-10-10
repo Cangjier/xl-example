@@ -213,8 +213,19 @@ if (hasReal === false) {
 }
 const parameter = new Parameter(owner.Template);
 parameter.Parent = owner;
+// **区间的右端取最后一个实义单元**（第 934 轮）：`content` 里带着这一段收集到的
+// **全部**单元（注释与软换行都算，它们照旧装进 `Parameter`——见上面「软换行留在
+// `Parameter` 里」那一句），可**区间**带上尾部 trivia 就不对了：
+// `function f(a: string//c` 换行 `, b: number) {}` 里那个行注释连同它吃掉的换行都是
+// trailing trivia（TS 的 `Parameter` 是 `[11,20)`），照 `content` 的末格签出会多出一格
+//（实测 `tt-param`：漂 1 + 多 1）。与第 920 轮 `SignatureTailEnd`、第 934 轮 `TypeDefine`
+// 那两处**同一条口径**：尾部 trivia 不算区间。
+let tail = content.length - 1;
+while (tail > 0 && IsTriviaUnit(content[tail])) {
+  tail = tail - 1;
+}
 parameter.SignIn(content[0].SourceRange.Start!);
-parameter.SignOut(content[content.length - 1].SourceRange.End!);
+parameter.SignOut(content[tail].SourceRange.End!);
 for (const item of content) {
   parameter.AddAndCloseLast(item);
 }

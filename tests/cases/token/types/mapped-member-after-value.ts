@@ -2,8 +2,10 @@
 // 那一族）：TypeScript 的 `parseMappedType` 在值类型之后照样 `parseTypeMembers()`，
 // 而**同一行**写在值类型后面的方括号是**下标访问**（`parsePostfixTypeOrHigher` 的
 // `while (!scanner.hasPrecedingLineBreak())`）。两档只差那个换行。
-// 守卫四条：换行 + 计算名 / 换行 + 空方括号（TS 那边是**没有形参的** `IndexSignature`）/
-// `;` 之后再跟一格 / 同一行（仍旧是下标访问，形状不能变）。
+// 守卫六条：换行 + 计算名 / 换行 + 空方括号（TS 那边是**没有形参的** `IndexSignature`）/
+// `;` 之后再跟一格 / 同一行（仍旧是下标访问，形状不能变）/
+// `-readonly … -?` 那一档（可选标记与冒号在词法上是**一个** `?:` 单元，第 934 轮补）/
+// `readonly` 修饰的键。
 // xl:round 934
 // xl:end
 type A = { [K in keyof U]:U
@@ -14,4 +16,8 @@ type C = { [K in keyof U]:U;
 [K] };
 type D = { [K in keyof U]:U[K] };
 type E = { [K in keyof U as `k${K}`]:U
+[K] };
+type F = { -readonly [K in keyof U]-?:U
+[K] };
+type G = { readonly [K in keyof U]:U
 [K] };

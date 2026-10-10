@@ -391,7 +391,11 @@ if (inMappedType) {
   let sawValueType = false;
   for (let i = 0; i < at; i++) {
     const item = Get(parentData, i);
-    if (item instanceof SymbolToken && item.Is(":")) {
+    // **`?:` 是**一个**单元**（第 934 轮实测）：`{ -readonly [K in keyof U]-?:U` 换行 `[K] }`
+    // 里那个可选标记与冒号被词法并成一个 `SymbolToken("?:")` ⇒ 只认 `:` 时这一格判否、
+    // 成员不成形（实测 `mappedmods-n13`：缺 `PropertySignature` / `ComputedPropertyName` / `Identifier`）。
+    // 与 `class-member.xl.md` 的 `ExitOrPre` 那一句「`?:` 要拆回字符还」是同一个词法事实。
+    if (item instanceof SymbolToken && (item.Is(":") || item.Is("?:"))) {
       sawValueType = true;
     }
     if (item !== null && item.constructor.name === "TypeDefine") {
