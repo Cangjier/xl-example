@@ -154,3 +154,38 @@
    那个投影），好处是结构口径已经被 1400 余份语料钉死；代价是投影目前跑在
    `Map<string, any>` / JSON 形状上，会分配。是否给 token 层加一个**同逻辑、不 JSON 化**的
    紧凑 AST 出口，等 P0 的实测数据说话。
+
+---
+
+## 六、一次量翻又撤回的改法：`JSON.rawJSON` / `JSON.isRawJSON`（第 983 轮）
+
+**结论先写**：这一族**没有落地**，两处尝试都**按实测撤回**，台账原样留着
+（`stdlib/json/056-names-json` · `stdlib/json/088-*` · `stdlib/round736/008-*` ·
+`stdlib/round751/001-*` 四条仍是 `xl:want differ`）。**下面两件事是量出来的，别重踩。**
+
+### 1. 能力号撞车是**静默走错分支**，不是报错
+
+第一版把两个新号开在 `503` / `504`，理由是仓库里那句「`500` 那一段只有 `501..503`」——
+**那句话是错的**：`503` 是 `DateToJSON`、`504` 是 `ObjectToLocaleString`
+（`globals.xl.md` 的 `# const` 段一眼可见）。撞号的症状不是编译错，是
+`JSON.stringify(new Date())` 走进 `503`、于是 `Date.prototype.toJSON` 那一次调用落进
+**新函数**、交出一个布尔 ⇒ 实测**当场红 15 条**（`stdlib/date/041` 一族 5 条 blocked、
+`stdlib/json/*` 10 条 differ），其中一条把 Date 印成 `{"d":d}`。
+
+**可复用的判据**：加能力号之前**先把那一段 `# const … :int = N` 全量列出来**对一遍
+（一行 Node 正则就够），不要相信任何一句散文里的「空着」。
+
+### 2. 判定层能表达的「内部」只有 `PropertyFlagInternal`，而那与属性名判据不同源
+
+`JSON.rawJSON` 在规范里造的是一个带**内部槽** `[[IsRawJSON]]` 的普通对象，
+`JSON.stringify` / `JSON.isRawJSON` 按那个槽认。本层能表达「脚本看不见」的只有
+`SetHiddenProperty` + `FindProperty(…, true)` 那一格，所以能造出来。
+**但第二版仍然没能落地**：`JsonText` 是 `JSON.stringify` 递归里**每一格**都过的地方，
+多出来的那几次键字符串分配把回收时机推到了另一处 ⇒
+`runtime:check` 的「语言层手里的中间数组要有根」那一条当场红
+（`[...一个 3 千项的 Symbol.iterator]` 里的 `Array.from` 抛 `the script threw`），
+**加了 `IsObject()` 早挡之后仍然红**。
+
+**这一条留给以后**：要动它就得连**根集那一族判据**一起量
+（`tests/runtime/check.mjs` 第 199 / 200 轮那两条是**阈值敏感**的：递归里多几次分配就换一处回收点）。
+**不要**把它当成「挂两个名字」的小活。
