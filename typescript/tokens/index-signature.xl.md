@@ -87,6 +87,42 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   return ctx.NodeHead("IndexSignature", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx.Kids(v);
+  const params = kids.filter((k: any) => k.get("type") === "Parameter");
+  const typeNode = kids.find((k: any) => k.get("type") === "TypeDefine");
+  // **修饰词那一摞**（第 893 轮）：`readonly` 与 `static` 都是子单元，按源码次序收。
+  const modifierUnits = kids.filter(
+    (k: any) =>
+      (k.get("type") === "Keyword" || k.get("type") === "Identifier") &&
+      (ctx.ValueOf(k) === "readonly" || ctx.ValueOf(k) === "static"),
+  );
+  const props: any = {};
+  if (params.length > 0) {
+    props.parameters = ctx.ProjectEach(params, "IndexSignature").map((one: any) => ({
+      ...one,
+      pos: one.name !== undefined ? one.name.pos : one.pos,
+      end: one.type !== undefined ? one.type.end : one.end,
+    }));
+  }
+  if (typeNode !== undefined) {
+    props.type = ctx.Project(typeNode);
+  }
+  if (modifierUnits.length > 0) {
+    props.modifiers = modifierUnits.map((one: any) => ctx.Project(one));
+  }
+  return ctx.NodeHead("IndexSignature", props, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**——参数类型与值类型都要照常成形

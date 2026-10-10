@@ -268,6 +268,52 @@ TS 那边 `TypeAliasDeclaration` 没有 `typeParameters` 这一格。
   };
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx
+    .Kids(v)
+    .filter((k: any) => !(k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ";"));
+  const eqIndex = kids.findIndex(
+    (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=",
+  );
+  const rawAlias = v.attrs.get("alias");
+  const aliasText = typeof rawAlias === "string" ? rawAlias : "";
+  const lhs = eqIndex >= 0 ? kids.slice(0, eqIndex) : kids;
+  const rhs = eqIndex >= 0 ? kids.slice(eqIndex + 1) : [];
+  const nameNode = lhs.find((k: any) => k.get("type") === "Identifier");
+  const nameText = nameNode === undefined ? aliasText : ctx.ValueOf(nameNode);
+  const generic = lhs.find((k: any) => k.get("type") === "GenericType");
+  const props: any = {
+    name: nameNode === undefined ? ctx.SynthName(nameText, v) : ctx.Project(nameNode),
+    type: ctx.TypeOf(rhs),
+  };
+  if (generic !== undefined) {
+    const params = ctx.UnwrapNodes(generic).filter((k: any) => k.get("type") === "TypeParameter");
+    if (params.length > 0) props.typeParameters = ctx.ProjectEach(params);
+  }
+  const baseStart = ctx.baseStart;
+  ctx.AddModifiers(v, props, baseStart);
+  // **装饰器也进 `modifiers`**（第 610 轮）：它与关键字修饰词同住 TS 的 `modifiers` 一列，
+  // 而 `Decorator` 是带子树的**子单元**——`AddModifiers` 只看文本字段，看不见它。
+  // 与通用支共用同一份实现（`print-ast-common.xl.md` 的 `addDecorators`）。
+  ctx.Decorators(v, props);
+  // **这一条不能走 `ctx.Node`**：`pos` 要用外层递进来的 `baseStart`（`ctx.Node` 只会用 `v.start`）。
+  return {
+    kind: "TypeAliasDeclaration",
+    pos: baseStart === undefined ? v.start : baseStart,
+    end: ctx.StmtEndOf(v),
+    ...props,
+  };
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把自己的规则队列装上**。

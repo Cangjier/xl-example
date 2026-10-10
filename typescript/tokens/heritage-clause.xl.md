@@ -286,6 +286,54 @@ TS 那边 `HeritageClause` 的 `forEachChild` **只访问 `types`**：`extends` 
   return ctx.NodeHead("HeritageClause", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx.Kids(v);
+  // **子句词是节点的属性、不参与遍历**（TS 那边就是这样）——
+  // 所以它**不能留在 `types` 里**（下面那一句就是干这件事的：
+  // 实测「投影后多出来的节点」里 `ExtendsKeyword` 有 2192 个）。
+  //
+  // **但它也是唯一能分清 `extends` 与 `implements` 的地方**（第 281 轮）：
+  // 两条子句投影之后**形状一模一样**（都只有 `types`），
+  // 于是「`class C implements I {}` 的父类是谁」这个问题在**降级层无从回答**
+  //（实测：它把 `I` 当成了父类，报 `name is not a local or a capture: I`——
+  // **响亮**，可现场离真相很远）。
+  //
+  // **所以这一轮把它作为 `token` 属性收进来**：名字照 TS 那一格（TS 的
+  // `HeritageClause` 正是 `{ token, types }`），值是**关键词文本**——
+  // 与这一层「kind 一律用名字」同一条口径（`"Identifier"` / `"ClassDeclaration"`
+  // 都是名字，不是 TS 的数字）。
+  // **它不进 `types`**，所以**节点集合一个都没变**——
+  // `cases:tsast` 那一把尺子的「字段名」只统计**值里含节点**的键，
+  // 而这是一个字符串，四方向因此都不受影响。
+  let clauseWord = "";
+  const kept: any[] = [];
+  for (let i = 0; i < kids.length; i++) {
+    const k = kids[i];
+    if (
+      (k.get("type") === "Keyword" || k.get("type") === "Identifier") &&
+      (ctx.ValueOf(k) === "extends" || ctx.ValueOf(k) === "implements")
+    ) {
+      // **一条子句里只可能有一个子句词**，取到就走（后面那几个是实体名）。
+      if (clauseWord === "") clauseWord = ctx.ValueOf(k);
+      continue;
+    }
+    kept.push(k);
+  }
+  const projected = ctx.ProjectEach(kept, "HeritageClause");
+  const props: any = clauseWord === "" ? {} : { token: clauseWord };
+  if (projected.length > 0) props.types = projected;
+  return ctx.NodeHead("HeritageClause", props, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 **本类不挂规则队列**——子句在 `Take` 里就已经成形（见那一节）：

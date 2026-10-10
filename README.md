@@ -376,6 +376,46 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 993 轮：把「读**某个子单元自己记的值**」那一族搬成直出版（19 段 / 17 页，`ctx.TextOf` → `ctx.ValueOf`）；全语料直出覆盖 **69.6%**
+
+**一句话**：上一轮立了直出版通道（27 段），这一轮按**同一个判据**成批搬第二族——
+方法体里**唯一的回原文查**就是 `ctx.TextOf(某个子单元)` 的那些页面。它们要的其实是
+**那一格自己记的值**（`SymbolToken` 的 `!` / `...` / `@` / `=`、`Keyword` 的 `keyof` /
+`readonly` / `asserts` / `extends`…），换成 `ctx.ValueOf` 就**一次原文都不读**：
+`ctx.TextOf` 在那一格没有 `value` 时会退回 `source.slice(起, 止)`，`ctx.ValueOf` 只读那一格，
+读不到就给空串、**不猜**（值真不在那儿 ⇒ 判据当场点名 ⇒ 该做的事是把值记到 token 上）。
+
+- **判据按「同一份出口清单」判、不按方法名**：候选是「方法体里有 `ctx.TextOf` **且**没有
+  `ctx.source` / `ctx.Text` / `ctx.StringText`」——
+  `slice(` / `indexOf(` **不算**（数组那一大堆也在用 `kids.slice(...)`），
+  真正的原文读法都带 `ctx.source`。换法是**机械替换**，换完脚本自己核一遍「还剩不剩那三个出口」。
+- **搬了 19 段 / 17 页**：`binary-operator` / `decorator` / `enum-member` / `heritage-clause` /
+  `index-signature` / `array-literal` / `object-literal` / `logical-operator` / `not-null` /
+  `spread` / `tuple-member`（2 段）/ `type-assign` / `type-define` / `type-operator`（2 段）/
+  `type-parameter` / `type-predicate` / `unary-operator`。
+- **`cases:direct` 多一个 `--all`**（真语料那一趟）：搬页时要跑一遍——真实语料里的排法比用例杂，
+  这一轮就是靠它兜住的（**2050 份 / 530471 个节点 / 0 处不一致**）。
+
+**实测**：`xl check` 182 文件 0 错 0 警、`tsc` 0 错；
+`cases:direct`（用例 + samples）**1639 份 / 21818 个节点，直出 13128 个（45.7% → 60.2%），0 处不一致**；
+`cases:direct --all`（+ `node_modules` / `dist/ts`）**2050 份 / 530471 个节点，直出 368989 个（69.6%），0 处不一致**；
+`direct:lint` **直出版 47 段 / 47 页、0 条违反**，还没直出的 **33 → 16 页**；
+`samples` 三份逐字节一致；`cases:astjson` 六项全 0；`cases:tsast:cases` 1639 / 1639 份完全一致（四方向 0、100.0%）。
+
+**还剩 16 页，按「缺哪一格」分类**（`direct:lint --verbose` 印的就是这份）：
+- **回原文量的**（`ctx.source`）：`field` / `foreach` / `import` / `lamda-parameter` / `method` /
+  `signature` / `tuple-member`（第 3 段）/ `mapped-type` / `while` —— 一页一轮地补属性；
+  其中 `while` 最像「只差一格」：它**已经**优先读 `emptyBodyAt` / `bodyBraceRange` / `headerCloseAt`
+  三个字段，只有字段缺失时才退回 `ctx.MatchingParen(ctx.source, …)`——直出版要做的正是
+  **把那条兜底去掉**，而「全语料里它到底跑没跑过」是可以量的。
+- **要的是别的字符串**：`import-type` / `const-string`（`ctx.StringText`——字符串正文有自己的解码）
+  / `regex-token`（正则的结束位置与 flags，今天整段回原文扫）。
+- **没有 `TextOf` 可换**：`for` / `if-set` / `lamda` / `new` / `try`（它们的问题在**别的**出口上）。
+
+**可复用的判据**：**「换法」本身也要留证据**——这一轮的 19 段是一次机械替换，
+所以脚本在写盘前逐段核「换完之后那三个出口一个都不剩」，而不是换完靠门去发现；
+门（`cases:direct`）管的是**行为**（逐字节同答），两者不重复。
+
 ### 第 992 轮：`Token.PrintDirectAst` 落地——第三个出口多一条**直出版**通道；一次搬 27 段，直出覆盖 **45.7%**
 
 **一句话**：`PrintAst` 那一层里混着**回原文查**的路（`ctx.Text` / `ctx.TextOf` / `ctx.StringText` /

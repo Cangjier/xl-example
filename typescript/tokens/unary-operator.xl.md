@@ -757,6 +757,54 @@ return index + 1;
     { operand, operator: operatorText }, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx.Kids(v);
+  const declaredOp = typeof v.attrs.get("op") === "string" ? v.attrs.get("op") : "";
+  // **先按 `op` 属性找那一格**（第 623 轮）：`op` 是这一元运算的**真身**，
+  // 而 `IsOperatorUnit` 只问「是不是 `SymbolToken`」 —— `typeof import.meta` 的操作数里
+  // 那个 `.` 也是 `SymbolToken` ⇒ 它先被认成运算符（实测：`TypeOfExpression.expression`
+  // 投成 `TypeOfKeyword`、缺 `MetaProperty` + `Identifier`）。
+  // 按**文本**找不会认错：`op` 那一格是唯一的（`typeof` / `void` / `delete` 是词，
+  // 其余是符号），而操作数那些单元（链 / 括号 / 调用 / 嵌套一元）的文本都比它长。
+  let opIndex = declaredOp !== "" ? kids.findIndex((k: any) => ctx.ValueOf(k) === declaredOp) : -1;
+  if (opIndex < 0) {
+    opIndex = kids.findIndex((k: any) => ctx.IsOperatorUnit(k));
+  }
+  const operandKids = opIndex >= 0 ? kids.filter((_: any, i: number) => i !== opIndex) : kids;
+  const operand = ctx.Expression(operandKids);
+  const isPostfix = opIndex >= 0 && opIndex === kids.length - 1;
+  if (!isPostfix) {
+    const wordKinds: any = {
+      typeof: "TypeOfExpression",
+      void: "VoidExpression",
+      delete: "DeleteExpression",
+    };
+    const wordKind = wordKinds[declaredOp];
+    if (wordKind !== undefined) return ctx.Node(wordKind, { expression: operand }, v);
+  }
+  // **`operator` 要带上**（第 66 轮）：TS 的 `PrefixUnaryExpression.operator` 是个
+  // `SyntaxKind` **数字**，投影原来「只留节点型字段」就把它丢了——于是 `-1` 与 `!x`
+  // 在产物里**一模一样**，**负数字面量根本用不了**（降级层分不出正负，只能抛）。
+  //
+  // 这里放**运算符文本**（优先取那个运算符单元自己的文本，取不到再用 `declaredOp`）。
+  // 对拍尺子只比**字段名**（TS 那边也有 `operator` 这个名字），所以不会多报。
+  //
+  // **值位的一元节点是在这一层造的**，不在 `print-ast-common` 那条通用路里——
+  // 我在那边先后加过两处挂钩，从来没执行过（第 64 / 65 / 66 轮实测才定位到这里）。
+  const operatorText = opIndex >= 0 ? ctx.ValueOf(kids[opIndex]) : declaredOp;
+  return ctx.Node(isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression",
+    { operand, operator: operatorText }, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器。

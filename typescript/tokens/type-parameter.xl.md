@@ -622,6 +622,172 @@ rebuilt.push(parameter);
   return ctx.NodeHead("TypeParameter", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids0 = ctx.Kids(v);
+  // **约束被整个包进一个节点时要摊开**（第 846 轮）：`<X extends A extends B ? C : D>` 里
+  // 产物把**名字 + `extends` + 条件类型**一起收成一个 `ConditionalType`
+  //（`<X extends A ? B : C>` 也是这个形状，条件类型的 `extends` 让整个参数段成了那个类型节点）。
+  // 原来只摊 `UnionType` / `IntersectionType` 两种 ⇒ `ConditionalType` 那一格在
+  // `kids` 里是一个整体 ⇒ `extIndex` / `nameIndex` 双双找不到 ⇒ 投影出空字段
+  //（实测 `type-param-conditional-constraint`：`TypeParameter` 的 `name` / `constraint` 全丢、缺 10）。
+  const wrappedIndex = kids0.findIndex(
+    (k: any) =>
+      k.get("type") === "UnionType" || k.get("type") === "IntersectionType" || k.get("type") === "ConditionalType",
+  );
+  const wrapped = wrappedIndex >= 0 ? kids0[wrappedIndex] : undefined;
+  const prefix = wrapped === undefined ? [] : kids0.slice(0, wrappedIndex);
+  const tail = wrapped === undefined ? [] : kids0.slice(wrappedIndex + 1);
+  const unionKids = wrapped === undefined ? [] : ctx.Kids(wrapped);
+  const flattenInner = (list: any) => {
+    const head = list[0];
+    if (
+      head !== undefined &&
+      (head.get("type") === "UnionType" || head.get("type") === "IntersectionType")
+    ) {
+      return [...ctx.Kids(head), ...list.slice(1)];
+    }
+    return list;
+  };
+  const kids = wrapped === undefined ? kids0 : flattenInner([...prefix, ...unionKids, ...tail]);
+  const extIndex = kids.findIndex(
+    (k: any) =>
+      (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.ValueOf(k) === "extends",
+  );
+  const eqIndex = kids.findIndex(
+    (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=",
+  );
+  const inIndex = kids.findIndex(
+    (k: any) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.ValueOf(k) === "in",
+  );
+  // 名字 = 第一个 Identifier，但要排掉 `extends`（词法身份不固定）与修饰词
+  //（`out` 在产物里就是 `Identifier`，不排掉的话 `<out T>` 会把 `out` 当成名字）。
+  const nameIndex = kids.findIndex(
+    (k: any) =>
+      k.get("type") === "Identifier" &&
+      ctx.ValueOf(k) !== "extends" &&
+      !ctx.IsTypeParameterModifier(k),
+  );
+  const nameNode = nameIndex >= 0 ? kids[nameIndex] : undefined;
+  const props: any = { name: nameNode === undefined ? undefined : ctx.Project(nameNode) };
+  // **`extends` 必须真的在约束位上**（第 846 轮）：`<ReturnType = F extends (…args: any) => infer T ? T>`
+  // 里那个 `extends` 属于**默认值**（`=` 后面的条件类型），不是约束——不挡这一下会多出一个
+  // `constraint` 键（实测 `@types/node/test.d.ts` 两处 `FIELD`：产物 `[constraint,default,name]`
+  // vs TS `[default,name]`）。判据与下面「收尾」那一句同源：`extends` 在 `=` **之前**才算约束。
+  if (extIndex >= 0 && (eqIndex < 0 || extIndex < eqIndex)) {
+    const end = eqIndex > extIndex ? eqIndex : kids.length;
+    const body = kids.slice(extIndex + 1, end).filter((k: any) => !ctx.IsTypeParameterModifier(k));
+    if (body.length > 0) {
+      // **约束本身是条件类型时要按条件类型折**（第 846 轮）：`<X extends A extends B ? C : D>` 里
+      // 约束那一段是**平铺**的 `[A, extends, B, ?, C, :, D]`，而 `TypeOf`
+      // （→ `projectTypeExpression`）折不动平铺的 `extends` / `?` / `:` —— 只投出第一个 `TypeReference(A)`，
+      // 后面三个名字整片丢掉（实测 `type-param-conditional-constraint`：缺 `ConditionalType`
+      // + `B` / `C` / `D` 三对 `TypeReference`/`Identifier`）。
+      // 判据与 `conditionalNode` 自己那一套同源：这一段里有顶层 `?` 与 `:`，且 `extends` 前面有 checkType。
+      const isSym = (k: any, text: string) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === text;
+      const hasQuestion = body.some((k: any) => isSym(k, "?"));
+      const hasColon = body.some((k: any) => isSym(k, ":"));
+      const bodyExt = body.findIndex(
+        (k: any) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.ValueOf(k) === "extends",
+      );
+      props.constraint =
+        hasQuestion && hasColon && bodyExt > 0
+          ? ctx.ConditionalNode(body, 0, body.length)
+          : ctx.TypeOf(body);
+    }
+  }
+  if (extIndex < 0 && nameIndex >= 0 && inIndex > nameIndex) {
+    const body = kids.slice(inIndex + 1).filter((k: any) => !ctx.IsTypeParameterModifier(k));
+    if (body.length > 0) props.constraint = ctx.TypeOf(body);
+  }
+  if (eqIndex >= 0) {
+    const eqUnit =
+      wrappedIndex > 0 && wrapped !== undefined && kids0[wrappedIndex - 1] !== undefined
+        ? kids0[wrappedIndex - 1]
+        : undefined;
+    const isDefaultUnion =
+      eqUnit !== undefined && eqUnit.get("type") === "SymbolToken" && ctx.ValueOf(eqUnit) === "=";
+    props.default = isDefaultUnion ? ctx.Project(wrapped) : ctx.TypeOf(kids.slice(eqIndex + 1));
+  } else {
+    const tailEq = tail.findIndex(
+      (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=",
+    );
+    if (tailEq >= 0) props.default = ctx.TypeOf(tail.slice(tailEq + 1));
+  }
+  const modifiers = kids.filter(
+    (k: any, i: number) => (nameIndex < 0 || i < nameIndex) && ctx.IsTypeParameterModifier(k),
+  );
+  if (modifiers.length > 0) {
+    const modifierKinds = new Map([
+      ["in", "InKeyword"],
+      ["out", "OutKeyword"],
+      ["const", "ConstKeyword"],
+    ]);
+    props.modifiers = modifiers.map((k: any) => {
+      const word = ctx.ValueOf(k);
+      const kind = modifierKinds.get(word);
+      if (kind === undefined) {
+        return ctx.Project(k);
+      }
+      return { kind, text: word, pos: ctx.StartOf(k), end: ctx.EndOf(k) };
+    });
+  }
+  // **收尾：把被包进联合的约束补全**（见上面 `wrapped`）：只在**确实有 `extends`** 时重建约束
+  //（`<T = A | B>` 的联合是**默认值**，不是约束）。
+  //
+  // **只对联合 / 交叉那两档重建**（第 846 轮）：`wrapped` 现在也可能是 `ConditionalType`
+  //（见上面 `wrappedIndex` 那一格），而这一段是按**联合成员**重切的——条件类型那一段
+  // 会被它按 `&` 切一次、再用 `TypeExpression` 投出**第一个**类型，于是上面刚折好的
+  // `ConditionalType` 又被覆盖成一个 `TypeReference(A)`（实测 `type-param-conditional-constraint`）。
+  if (
+    wrapped !== undefined &&
+    extIndex >= 0 &&
+    (wrapped.get("type") === "UnionType" || wrapped.get("type") === "IntersectionType")
+  ) {
+    const separator = wrapped.get("type") === "UnionType" ? "|" : "&";
+    // 切的是**联合单元自己的内容**，不是上面那个「前缀 + 联合 + 尾巴」的拼合序列。
+    const members = ctx.Split(flattenInner(unionKids), separator);
+    const firstMember = members.length > 0 ? members[0] : [];
+    const extAt = firstMember.findIndex(
+      (k: any) =>
+        (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.ValueOf(k) === "extends",
+    );
+    const head = extAt >= 0 ? firstMember.slice(extAt + 1) : firstMember;
+    const types: any[] = [];
+    const firstType = head.length > 0 ? ctx.TypeExpression(head) : undefined;
+    if (firstType !== undefined) types.push(firstType);
+    for (const group of members.slice(1)) {
+      const one = ctx.TypeExpression(group);
+      if (one !== undefined) types.push(one);
+    }
+    if (types.length === 1) {
+      props.constraint = types[0];
+    } else if (types.length > 1) {
+      props.constraint = {
+        kind: wrapped.get("type"),
+        types,
+        // **坐标取那个 `UnionType` 单元自己的**（第 586 轮）：重切出来的 `types` 里
+        // **没有分隔符**，按 `types[0].pos` 起会从第一个**成员**起 —— 而前导 `|` 那种写法
+        //（`T extends` 换行 `| A` 换行 `| B`）在 TS 那边 `UnionType` 正是**从那个 `|` 起**
+        // ⇒ 每一处记「漂移 1 + 多出 1」
+        //（真实语料 `vm.d.ts` / `fs.d.ts` / `querystring.d.ts` / `lib.es5.d.ts` / `globals.ts`
+        // 五份一共 14 + 18 + 3 + 11 + 16 处）。
+        pos: ctx.StartOf(wrapped),
+        end: ctx.EndOf(wrapped),
+      };
+    }
+  }
+  return ctx.NodeHead("TypeParameter", props, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**。

@@ -280,6 +280,27 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
   return projected;
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx.Kids(v);
+  const colon = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ":");
+  const afterColon = colon === undefined ? kids : kids.slice(kids.indexOf(colon) + 1);
+  const projected = ctx.TypeExpression(afterColon);
+  if (projected === undefined) {
+    ctx.unmapped.add("TypeDefine(空)");
+    return ctx.Node("TypeReference", {}, v);
+  }
+  return projected;
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把自己的规则队列装上**。

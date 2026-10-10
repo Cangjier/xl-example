@@ -294,6 +294,109 @@ TS 那边的 `properties` 是**成员数组**：
   return ctx.NodeHead("ObjectLiteralExpression", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const properties: any[] = [];
+  for (const group of ctx.Split(ctx.Kids(v), ",")) {
+    const first = group[0];
+    if (first.get("type") === "Spread") {
+      const inner = ctx.Kids(first).filter(
+        (k: any) => !(k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "..."),
+      );
+      properties.push({
+        kind: "SpreadAssignment",
+        expression: inner.length > 0 ? ctx.Expression(inner) : undefined,
+        pos: ctx.StartOf(first),
+        end: ctx.EndOf(first),
+      });
+      continue;
+    }
+    const colonAt = group.findIndex(
+      (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ":",
+    );
+    if (colonAt < 0) {
+      if (group.length === 1) {
+        // **对象字面量成员不吃尾随逗号**（第 142 轮）：`{ m() {}, n: 1 }` 的产物把那个逗号
+        // 圈进了 `MethodDeclaration` 的区间，而 TS 那边成员节点到 `}` 之前就结束。
+        // 用上下文标记告诉通用支「我在对象字面量里」（与 `ctx.signature` 同一手法）。
+        const savedInObject = ctx.inObjectLiteral;
+        ctx.inObjectLiteral = true;
+        let one;
+        try {
+          one = ctx.Project(group[0]);
+        } finally {
+          ctx.inObjectLiteral = savedInObject;
+        }
+        if (one !== undefined && ctx.MemberInObject.has(one.kind)) {
+          properties.push(one);
+        } else {
+          properties.push({
+            kind: "ShorthandPropertyAssignment",
+            name: one,
+            pos: ctx.StartOf(group[0]),
+            end: ctx.EndOf(group[0]),
+          });
+        }
+      } else {
+        const one = ctx.Expression(group);
+        if (one !== undefined) properties.push(one);
+      }
+      continue;
+    }
+    const nameUnits = group.slice(0, colonAt);
+    const valueUnits = group.slice(colonAt + 1);
+    const computed =
+      nameUnits.length === 1 &&
+      (ctx.IsIndexBracket(nameUnits[0]) || nameUnits[0].get("type") === "ArrayLiteral")
+        ? nameUnits[0]
+        : undefined;
+    const name =
+      computed === undefined
+        ? nameUnits.length === 1 && ctx.IsNameNode(nameUnits[0])
+          ? ctx.NumericLiteral.test(ctx.ValueOf(nameUnits[0]))
+            ? {
+                kind: "NumericLiteral",
+                text: ctx.ValueOf(nameUnits[0]),
+                pos: ctx.StartOf(nameUnits[0]),
+                end: ctx.EndOf(nameUnits[0]),
+              }
+            : ctx.NameOf(nameUnits[0])
+          : ctx.Expression(nameUnits)
+        : {
+            kind: "ComputedPropertyName",
+            expression: ctx.ComputedNameExpression(computed),
+            pos: ctx.StartOf(computed),
+            end: ctx.EndOf(computed),
+          };
+    // **终点是值那一格的终点，不是「最后一格的终点」**（第 923 轮）：值单元自己可能
+    // **含尾随 trivia**——`{ f: () => ({ v: 1 })/*c*/ }` 里那条注释落在箭头的体里
+    // （`LamdaBody > Statement`），于是 `EndOf(最后一格)` 盖到了注释末尾
+    // ⇒ 属性多出一整截（实测 TS `PropertyAssignment[17,36)` vs 产物 `[17,41)`：漂 1 多 1）。
+    // `StmtEndOf` 就是投影层「节点终点不含尾部 trivia」的那一份实现（第 132 / 853 轮
+    // 在语句族与 `Let` 上用过同一条），这里直接借它，不另写一份「往回吃注释」的循环。
+    const initializer = valueUnits.length > 0 ? ctx.Expression(valueUnits) : undefined;
+    const propertyEnd =
+      initializer === undefined ? ctx.EndOf(group[group.length - 1]) : initializer.end;
+    properties.push({
+      kind: "PropertyAssignment",
+      name,
+      initializer,
+      pos: ctx.StartOf(group[0]),
+      end: propertyEnd,
+    });
+  }
+  const props = properties.length === 0 ? {} : { properties };
+  return ctx.NodeHead("ObjectLiteralExpression", props, v);
+```
+
+
 ## constructor:(Template:Template)=>void
 
 转调基类构造器，然后从规则模板里取出「本类」对应的一组收尾规则。

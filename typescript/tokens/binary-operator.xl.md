@@ -1396,6 +1396,58 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
   };
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx.Kids(v);
+  let opIndex = -1;
+  let bestRank = 999;
+  for (let i = 1; i < kids.length; i++) {
+    if (!ctx.IsOperatorUnit(kids[i])) continue;
+    const rank = ctx.OperatorRank(ctx.ValueOf(kids[i]));
+    if (rank < bestRank) {
+      bestRank = rank;
+      opIndex = i;
+    }
+  }
+  const declaredOp = v.attrs.get("op");
+  const left = opIndex > 0 ? ctx.Expression(kids.slice(0, opIndex)) : undefined;
+  if (opIndex > 0 && kids[opIndex].get("type") === "SymbolToken") {
+    return ctx.FoldBinaryFrom(left, kids.slice(opIndex));
+  }
+  const right =
+    opIndex >= 0 && opIndex + 1 < kids.length ? ctx.Expression(kids.slice(opIndex + 1)) : undefined;
+  if (left === undefined && right === undefined) {
+    return kids.length > 0 ? ctx.Expression(kids) : undefined;
+  }
+  const opNode =
+    opIndex >= 0
+      // **运算符那一格按文本定 kind**（第 550 轮）：`in` / `instanceof` 在深度界那一层
+      // 还是 `Identifier`，`ctx.Project` 会把它投成 `Identifier("in")`
+      //（同一个节点同时记「缺 `InKeyword`」与「多出 `Identifier`」，见 `operatorTokenOf`）。
+      ? ctx.OperatorNode(kids[opIndex])
+      : {
+          kind: ctx.TokenKind(typeof declaredOp === "string" ? declaredOp : "?"),
+          pos: v.start,
+          end: v.start,
+        };
+  return {
+    kind: "BinaryExpression",
+    left,
+    operatorToken: opNode,
+    right,
+    pos: left ? left.pos : v.start,
+    end: right ? right.end : v.end,
+  };
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把自己的规则队列装上**。

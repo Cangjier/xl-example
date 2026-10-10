@@ -324,6 +324,37 @@ return ReplaceCountAt(units, index, units.length - index, result);
   return ctx.NodeHead("TypePredicate", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx.Kids(v);
+  const props: any = {};
+  let i = 0;
+  if (i < kids.length && kids[i].get("type") === "Keyword" && ctx.ValueOf(kids[i]) === "asserts") {
+    props.assertsModifier = ctx.Project(kids[i]);
+    i++;
+  }
+  if (i < kids.length && ctx.IsNameNode(kids[i])) {
+    props.parameterName = ctx.Project(kids[i]);
+    i++;
+  }
+  if (i < kids.length && ctx.ValueOf(kids[i]) === "is") {
+    i++;
+  }
+  if (i < kids.length) {
+    const type = ctx.TypeExpression(kids.slice(i));
+    if (type !== undefined) props.type = type;
+  }
+  return ctx.NodeHead("TypePredicate", props, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**——谓词里的类型要继续成形

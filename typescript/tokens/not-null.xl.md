@@ -218,6 +218,25 @@ TS 那边 `!` 是节点的属性（`exclamationToken`），`forEachChild` **不�
   return ctx.NodeHead("NonNullExpression", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx.Kids(v).filter(
+    (k: any) => !(k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "!"),
+  );
+  const props: any = {};
+  const expression = kids.length > 0 ? ctx.Expression(kids) : undefined;
+  if (expression !== undefined) props.expression = expression;
+  return ctx.NodeHead("NonNullExpression", props, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器。

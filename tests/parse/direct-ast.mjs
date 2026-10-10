@@ -1,6 +1,7 @@
 // 第三个出口的**直出版**（`Token.PrintDirectAst`）的专属尺子（第 992 轮）。
 //
-//   node tests/parse/direct-ast.mjs            # 全语料
+//   node tests/parse/direct-ast.mjs            # 全语料（用例 + samples）
+//   node tests/parse/direct-ast.mjs --all      # 再加上 node_modules / dist/ts（搬页时跑一遍）
 //   node tests/parse/direct-ast.mjs --limit 50 # 只跑前 50 份（调这一格的时候用）
 //
 // ## 为什么要有这一把
@@ -26,9 +27,11 @@
 //
 // ## 语料口径
 //
-// **用例 + `samples`**，与 `cases:astjson` 同一份、同一个理由：`cases:shapes` 已经证明用例侧是
+// **用例 + `samples`** 是这一门的默认口径（`--all` 会再加上 `node_modules` / `dist/ts`），
+// 与 `cases:astjson` 同一份、同一个理由：`cases:shapes` 已经证明用例侧是
 // 外部语料形状签名的**超集**，而全语料（`node_modules` + `dist/ts`）单进程要 ~37s——
 // 这一门量的是「同一个节点两个出口对不对」，形状种子一一对应，用例那一份是最强的网。
+// **搬页那一轮要额外跑一次 `--all`**：真实语料里的排法比用例杂（这一轮就是靠它兜住的）。
 // `corpus("cases")` 是**同一个函数**（`ts-ast.mjs` 导出），`tsInvalid` / `.tsx` / `known-gap`
 // 的跳过条件只有那一处。
 
@@ -70,7 +73,7 @@ function firstDiff(a, b) {
   };
 }
 
-const files = corpus("cases");
+const files = flag("--all") ? corpus() : corpus("cases");
 const run = LIMIT > 0 ? files.slice(0, LIMIT) : files;
 
 let nodes = 0;

@@ -333,6 +333,60 @@ return new Map([["ArrayLiteralExpression", new Map([["children", "elements"]])]]
   return ctx.NodeHead("ArrayLiteralExpression", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const elements: Array<any> = [];
+  let group: Array<any> = [];
+  const list = ctx.Kids(v);
+  let lastEnd = ctx.StartOf(v) + 1;
+  // **上一个逗号的下标**（第 933 轮）：洞的起点是「**前一个逗号**之后那一格」——
+  // `[1, , 2]` 的两个洞在 TS 那边是 `[13,13)` 与 `[15,15)`，而每个洞都是零宽的。
+  let previousSeparator = -1;
+  const flush = (separator: any) => {
+    if (group.length === 0) {
+      // **洞的位置**（第 933 轮）：TS 放的是「上一个逗号之后那一格」。
+      // 原来写的是 `lastEnd + 1`（上一个**元素**的终点 + 1）——元素与逗号之间夹着
+      // 一条注释 / 一个换行时两者不是同一格：`[1/*c*/, , 2]` 的洞在 TS 那边是
+      // `[18,18)`（第一条逗号在 17 ⇒ 18），而 `lastEnd` 停在那条注释之前（= 12）⇒ 差一格
+      //（实测漂 1 + 多 1，夹换行那一档同形）。
+      // **第一个洞**（`[, 1]` 那种）没有上一个逗号：TS 放的是**紧跟 `[` 之后那一格**
+      //（`const a = [, 1];` 的洞是 `[11,11)`，即 `lastEnd` 自己——实测）。
+      const at = previousSeparator === -1 ? lastEnd : previousSeparator + 1;
+      elements.push({ kind: "OmittedExpression", pos: at, end: at });
+    } else {
+      const one = ctx.Expression(group);
+      if (one !== undefined) {
+        elements.push(one);
+      }
+      lastEnd = ctx.EndOf(group[group.length - 1]);
+    }
+    group = [];
+    if (separator !== undefined) {
+      previousSeparator = ctx.StartOf(separator);
+    }
+  };
+  for (const item of list) {
+    if (item.get("type") === "SymbolToken" && ctx.ValueOf(item) === ",") {
+      flush(item);
+      continue;
+    }
+    group.push(item);
+  }
+  if (group.length > 0) {
+    flush(undefined);
+  }
+  const props = elements.length === 0 ? {} : { elements };
+  return ctx.NodeHead("ArrayLiteralExpression", props, v);
+```
+
+
 ## field Context:string = ""
 
 本单元是从哪个 `[` 括号收来的、那个括号当时处在**类型位**还是**值位**

@@ -199,6 +199,27 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
   return ctx.NodeHead("Decorator", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx.Kids(v).filter(
+    (k: any) => !(k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "@"),
+  );
+  const props: any = {};
+  if (kids.length > 0) {
+    const inner = ctx.Expression(kids);
+    if (inner !== undefined) props.expression = inner;
+  }
+  return ctx.NodeHead("Decorator", props, v);
+```
+
+
 ## field name:string = ""
 
 装饰器的名字：`@ns.Name` 记 `ns.Name`，`@Name` 记 `Name`。

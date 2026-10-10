@@ -251,6 +251,29 @@ TS 那边那个词（`keyof` / `readonly` / `unique`）是节点的**属性**（
   return ctx.NodeHead("TypeOperator", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx.Kids(v).filter(
+    (k: any) =>
+      !(
+        k.get("type") === "Keyword" &&
+        (ctx.ValueOf(k) === "keyof" || ctx.ValueOf(k) === "readonly" || ctx.ValueOf(k) === "unique")
+      ),
+  );
+  const props: any = {};
+  const operand = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
+  if (operand !== undefined) props.type = operand;
+  return ctx.NodeHead("TypeOperator", props, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 搬进来的那一段要再跑一趟**类型队列**（`keyof typeof T` 的内层、操作数里的联合在那里成形）。
@@ -333,6 +356,39 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   }
   return ctx.NodeHead("TypeQuery", props, v);
 ```
+
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  const kids = ctx.Kids(v);
+  const names = kids.filter((k: any) => ctx.IsNameNode(k) && ctx.ValueOf(k) !== "typeof");
+  const props: any = {};
+  const access = kids.find((k: any) => k.get("type") === "PropertyAccess");
+  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+      const one = ctx.TypeExpression(group);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  if (access === undefined && names.length === 1) {
+    props.exprName = ctx.NameOf(names[0]);
+  } else if (access !== undefined || names.length > 1) {
+    const parts =
+      access === undefined ? names : ctx.Kids(access).filter((k: any) => ctx.IsNameNode(k));
+    props.exprName = ctx.QualifiedNameFrom(parts);
+  }
+  return ctx.NodeHead("TypeQuery", props, v);
+```
+
 
 ## constructor:(template:Template)=>void
 
