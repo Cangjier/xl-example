@@ -307,6 +307,38 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 954 轮：第 953 轮登记的那一格收掉——**计算属性名里那对圆括号**（缺口 1 → 0，清单第十三次清空）
+
+**一句话**：第 953 轮登记的那一格按它自己写下的入手处收掉——根因**不在括号判据里**，在
+`computedNameExpression` 给**单个子单元**开的那句近路上：单格直接 `projectNode`，
+于是「值位括号 → `ParenthesizedExpression`」那条现成判据（`projectExpression` 的 `parenthesizedOf`）
+一次都没被问到。九道门全绿。
+
+- **根因**：`print-ast-common` 的 `computedNameExpression` 原来是
+  `if (kids.length === 1) return projectNode(kids[0], ctx);`。计算名 `[(x in y)]` 的产物里
+  **只有一个** `Bracket` ⇒ 走那句近路 ⇒ 投出一格裸 `Bracket`（未映射）⇒ 缺
+  `ParenthesizedExpression` 1、多 `Bracket` 1。**同一形状在别的落点一直是好的**
+  （`const v = (x in y);` / `f((x in y));` 逐节点一致），因为那里走的是 `projectExpression`。
+- **修法**：那句近路删掉，单子单元也**交给 `projectExpression` 问一次**——
+  **判据一条没新写**。单个非括号单元仍落到 `projectExpression` 末尾那句
+  `return projectNode(kids[0], ctx)`，逐格同一结果（这也是「不许新写判据」的落法：
+  要问的那条判据长在谁身上，就把这一格交给谁）。
+- **读数**（片段探针 `tmp/r954/snips.json`，**25 条形状**）：**0 条对不上**——对象字面量 /
+  类字段 / 类静态字段 / 类方法 / getter / 嵌两层括号，以及括号里是箭头 · 函数表达式 · `new` ·
+  三元 · 逗号 · 赋值 · 模板串 · `as` 表达式 · 属性访问 · `in` 比较，一次全过
+  （**这一族一轮收完**，没有留下第二格）。
+- **守卫用例**：[`gap-r953-computed-paren-name`](tests/cases/token/expressions/gap-r953-computed-paren-name.ts)
+  （`xl:known-gap` 按规矩撤掉、用例留着当守卫；这一轮另加了类字段 / 类方法 / 嵌两层三条排版，
+  `xl:expect ObjectLiteral:3,ArrayLiteral:5,Bracket:7,BinaryOperator:6` +
+  `xl:absent TypeParameter`）。
+- **实测**：九道门全绿（墙钟 30.7s）——`cases:tsast` 16/16、**已知缺口清单空了**（第 954 轮清空，
+  投影 39551 / 39551 逐节点同 kind 同区间、字段名不一致 0）、`cases:astjson` 六项全 0
+  （1586 份 / 39957 个节点）、`cases:check` 1596 / 1596、`cases:tags` 5318 条断言 0 条不一致、
+  `cases:shapes` 未覆盖 0；`coverage 4196 / 4362 → 4197 / 4362`（`blocked 28 → 27`、`differ 138` 没动）。
+- **可复用的判据**：**「近路」会把这一层现成的判据整条绕过去**。量到「同一形状在别的落点是好的」时，
+  先看那个好落点走的是哪一条函数，再看目标落点是不是在它**前面**就抄近路走掉了——
+  这一族的根不在括号判据、不在成员名判据，而在那一句 `kids.length === 1` 上。
+
 ### 第 953 轮：缺口清单空着时的第四次普查——**三批 678 条片段**，量出两格：当轮收掉一格、登记一格
 
 **一句话**：手法照第 907 / 946 / 947 / 948 轮（清单空着就换一批构造再量一遍）。这一轮换了**三批**：

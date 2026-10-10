@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.5,
+  "progressPercent": 95.51,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1583,
-      "pass": 1582,
-      "blocked": 1,
+      "pass": 1583,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.94
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1583,
-    "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1582,
-    "scoredWithoutGap": 1582,
-    "passedWithoutGap": 1582
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1583,
+    "scoredWithoutGap": 1583,
+    "passedWithoutGap": 1583
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r953-computed-paren-name",
-      "category": "token",
-      "title": "计算属性名里**套一层圆括号**时括号不成形（第 953 轮普查量出）。",
-      "detail": "缺 2　多 2　未映射 1　计算属性名里套圆括号时括号不成形（缺 ParenthesizedExpression 1、多未映射 Bracket 1）"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",

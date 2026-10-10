@@ -7890,7 +7890,14 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   const names = kids.filter((k) => isNameNode(k));
   const dots = kids.filter((k) => isDot(k, ctx)).length;
   if (dots > 0 && names.length === dots + 1) return dottedExpression(names, ctx);
-  if (kids.length === 1) return projectNode(kids[0], ctx);
+  // **单个子单元也走 `projectExpression`**（第 954 轮）：原来这里是「一格直接 `projectNode`」，
+  // 于是 `{ [(x in y)]: 1 }` 那一格——计算名里**套一层圆括号**——投出一格裸 `Bracket`
+  //（未映射），而 TS 那边是 `ComputedPropertyName > ParenthesizedExpression > BinaryExpression`
+  //（实测缺 `ParenthesizedExpression` 1、多未映射 `Bracket` 1，与 `in` 无关：
+  // `{ [(a + b)]: 1 }` / `{ [(f(x))]: 1 }` 同形）。**判据一条没新写**：值位括号 →
+  // `ParenthesizedExpression` 那一条长在 `projectExpression` 里（见那里 0a 之前那一支），
+  // 这里只是把单格也交给它问一次；单个非括号单元仍落到它的末尾那一句
+  //（`return projectNode(kids[0], ctx)`）——与原来逐格同一结果。
   return projectExpression(kids, ctx);
 ```
 
