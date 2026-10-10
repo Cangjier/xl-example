@@ -376,6 +376,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 994 轮：直出版**逐页计数**（47 个类 / 全语料 2050 份）——量出 `Let` 与 `Root` **一次都没被问到**；顺带记下「构建要盖满规范树」这条纪律
+
+**一句话**：上一轮把「这一格有没有被用到」交给门去看（静态门扫方法体、动态门比产物），
+这一轮**直接数**：把每一个 `PrintDirectAst` 在运行期包一层计数，跑全语料，
+看「搬过去的 47 个类里，谁真的被问到了」。结论与第 991 轮量 `BodyField` 那一族时**同一种**：
+**不是每一格都被问到**——`Let` 与 `Root` 是 **0**。
+
+- **读数**（一次性尺子，`NODE_OPTIONS` 那套 hook 的等价物，跑完即删）：全语料 **2050 份 / 530471 个节点**，
+  带直出版的类 **47 个**。榜首是基类 `Token` **140607 次**——它是**兜底那一格**被问的次数
+  （没有直出版的节点照样要问一次，答 `undefined` 再走 `PrintAst`／通用支）；
+  其后 `Identifier` 105001、`TypeDefine` 76547、`Statement` 60262、`PropertyAccess` 30136、
+  `SymbolToken` 26832、`String` 21456、`BinaryOperator` 16304、`UnionType` 9059、`Keyword` 8082；
+  尾部 `StaticBlock` 6、`SemicolonClassElement` 3，**`Let` 0、`Root` 0**。
+- **两个 0 各自的理由**：`Root` 那一格**从来不进 `projectNode`**（`projectRoot` 自己合出 `SourceFile`，
+  根那一层的 `Root` 标签没有对应节点）；`Let` 由语句那条路经 `ctx.LetFrom` **拆开投**
+  （`VariableDeclaration` 是 `LetFrom` 造的），`Let` 这个标签自己不当节点。
+  **两条事实都留着**（换个输入仍然会答），但「搬过去的每一格都会被调用」这句话**又不成立**——
+  与第 991 轮 `LamdaBody` **0 / 0** 是同一种如实记法。
+- **下一轮的排序依据因此变了**：`direct:lint` 的「待搬」清单该按**被问次数**排，
+  而不是按页面大小排——`while` / `for` / `if-set` / `field` / `import` 这几页被问得多，
+  搬它们换来的「不再回原文查」的量最大（这一轮没改判据，只把排序依据量出来）。
+
+**门 suite 读数（`npm run gates`）**：**11 道门 10 通过、1 失败**——那一道是 `cases:tsast`，
+而它**唯一**一片红就是第 992 轮登记的那一格（`dist/ts/typescript/print-ast-common.ts` 151 / 152，
+缺 51 / 多 2 = `for…of` 的枚举对象是条件表达式）；**其余每一片都是 100% 完全一致**。
+其余门：`runtime:check` 243 条通过 0 条失败、`runtime:cli` 79 份一致 0 份不一致、
+`cases:astjson` 六项全 0、`cases:direct` 0 处不一致、`direct:lint` 0 条违反、`samples` 三份逐字节一致、
+`cases:check` 1656 条 0 条不合格、`cases:tags` 5372 条断言 0 条不一致、`cases:shapes` 未覆盖 0、
+`coverage` 4259 / 4422（blocked 29、differ 134、加权 95.7%）——墙钟 33.3s。
+
+**一条构建纪律（这一轮踩到的，值得留着）**：`xl build` **只给部分路径**（`core` / `typescript`）时，
+`runtime/**` 与 `typescript-exec/**` 的产物会**比规范旧**——`runtime:check` / `runtime:cli` / `coverage`
+三道门会一起报「`xxx.xl.md` 比产物新 → 跑 `xl_build --force`」。跑门之前要把**整棵规范树**盖满
+（或 `--force` 一次），否则看到的是三道假红。这三道门的报错口径本身是对的。
+
+**清场**：三个一次性探针目录（`tmp/r992-probe` / `tmp/r993-probe` / `tmp/r994-probe`）按本仓惯例删掉——
+唯一带走的结论是上面那两栏读数与这句话：**判「搬完了没有」要看被问次数，不是看页数**。
+
 ### 第 993 轮：把「读**某个子单元自己记的值**」那一族搬成直出版（19 段 / 17 页，`ctx.TextOf` → `ctx.ValueOf`）；全语料直出覆盖 **69.6%**
 
 **一句话**：上一轮立了直出版通道（27 段），这一轮按**同一个判据**成批搬第二族——
