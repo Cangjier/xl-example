@@ -4845,6 +4845,32 @@ if (kind === "NotNull" || kind === "PropertyAccess") {
 return false;
 ```
 
+# private method isBareCallMethod:(unit:any, ctx:any)=>bool
+
+**这一格是不是「裸的一次调用」**（第 965 轮）——名字为空、并且第一个实义子单元是
+**内层 `Method` / 实参括号 / `NotNull`** 的 `Method`。
+
+**为什么要单独立一条**：`a?.[b]()()` 的 NCO 里第二格是
+`Method(name="")[Bracket(())]`——那**是一次调用**，而**外面这一次调用只体现在它自己的区间上**
+（与第 962 轮「外面还有没有一层」是同一句话）。这种单元在交给 `chainOnto` 之前
+**不能摊开**：摊成裸括号之后那次调用就没有节点了、外层 `CallExpression` 的区间也短一格
+（实测 `gap-r964-opt-index-call-twice`：漂 2）。所以「摊开」那一步要先问这一句，
+认了就把**整格**交给 `chainOnto`（它第 965 轮认了这一档）。
+
+`NotNull` 那一档同样要挡住摊开：`a?.b!()()` 里那一格是
+`Method(name="")[NotNull(b, !), …]`，摊开之后断言与名字都会掉出去。
+
+```ts
+  if (unit === undefined || unit === null || unit.get("type") !== "Method") return false;
+  if (String(unit.get("name") ?? "") !== "") return false;
+  const kids = projectableKids(view(unit)).filter((k: any) => k.get("type") !== "GenericType");
+  if (kids.length === 0) return false;
+  const head = kids[0];
+  return head.get("type") === "Method"
+    || (head.get("type") === "Bracket" && head.get("startBracket") === "(")
+    || head.get("type") === "NotNull";
+```
+
 # method isCallFirstUnit:(unit:any, ctx:any)=>bool
 
 **这一格是不是「以一次调用开头」**（第 692 轮）——`isIndexFirstUnit` 的姊妹。
@@ -5177,6 +5203,16 @@ return false;
       // 摊开之后与 `projectExpression` 链那一支里那一份**是同一件事**。
       const rest: Array<any> = [];
       for (const unit of kids.slice(1)) {
+        // **裸的一次调用不要摊开**（第 965 轮）：`a?.[b]()()` 的第二格是
+        // `Method(name="")[Bracket(())]`——它是**一次调用**、而外面那次调用只体现在
+        // 这个 `Method` 自己的区间上（与第 962 轮那条「外面还有没有一层」同源）。
+        // 摊开成裸括号之后 `chainOnto` 见到的只是内层那对实参括号 ⇒ 外层那次调用
+        // **没有节点**、区间也短一格（实测 `gap-r964-opt-index-call-twice`：外层漂 2）。
+        // 整格交给 `chainOnto`（它认了这一档）。
+        if (isBareCallMethod(unit, ctx)) {
+          rest.push(unit);
+          continue;
+        }
         if (isCallFirstUnit(unit, ctx)) {
           for (const inner of projectableKids(view(unit))) rest.push(inner);
           continue;
@@ -5470,6 +5506,86 @@ return false;
       };
       i += 1;
       continue;
+    }
+    // **这一格自己就是一次调用**（第 965 轮）：`a?.[b]()()` 的 NCO 里是
+    // `[Bracket([b]), Method(name="")[Bracket(())]]`——那一格 `Method` 前面**没有点号**
+    // （它要说的正是「对左边那个结果再调一次」），所以它在下面 `isDot` 那道门槛前
+    // 就 `break` 了 ⇒ **那次调用整格丢**（实测 `gap-r964-opt-index-call-twice`：
+    // 外层 `CallExpression` 的区间只到第一个 `)`）。
+    // 判据与 `chainWithOptional` 的「内层是 `Method`」那一支**同源**（第 962 轮立的两步走
+    // 加区间判据），区别只是**点号没有出现**；空名字那一档也走同一条路
+    //（`Method(name="")[Bracket(...)]` 的投影本身就是「被调用者是 `left` 的一次调用」）。
+    if (unit.get("type") === "Method") {
+      const callKids = projectableKids(view(unit)).filter((k: any) => k.get("type") !== "GenericType");
+      const callHead = callKids.length > 0 ? callKids[0] : undefined;
+      const bareName = String(unit.get("name") ?? "");
+      if (bareName === "" && callHead !== undefined && callHead.get("type") === "NotNull") {
+        const asserted = assertedMember(left, callHead, ctx, undefined);
+        if (asserted !== undefined) {
+          const call = projectNode(unit, ctx);
+          left = Object.assign({}, call, { expression: asserted, pos: asserted.pos });
+          i += 1;
+          continue;
+        }
+      }
+      if (bareName === "" && callHead !== undefined && callHead.get("type") === "Method") {
+        const innerName = String(callHead.get("name") ?? "");
+        const innerAt = startOf(callHead);
+        const innerMember: any = {
+          kind: "PropertyAccessExpression",
+          expression: left,
+          name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length },
+          pos: left.pos,
+          end: innerAt + innerName.length,
+        };
+        const innerCall = Object.assign({}, projectNode(callHead, ctx), {
+          expression: innerMember,
+          pos: innerMember.pos,
+        });
+        left = Object.assign({}, projectNode(unit, ctx), {
+          expression: innerCall,
+          pos: innerCall.pos,
+          end: endOf(unit),
+        });
+        i += 1;
+        continue;
+      }
+      if (bareName === "" && callHead !== undefined && callHead.get("type") === "Bracket"
+        && callHead.get("startBracket") === "(" && endOf(callHead) < endOf(unit)) {
+        const innerCall: any = {
+          kind: "CallExpression",
+          expression: left,
+          arguments: splitTopLevel(projectableKids(view(callHead)), ctx, ",")
+            .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+            .filter((a: any) => a !== undefined),
+          pos: left.pos,
+          end: endOf(callHead),
+        };
+        left = Object.assign({}, projectNode(unit, ctx), {
+          expression: innerCall,
+          pos: innerCall.pos,
+          end: endOf(unit),
+        });
+        i += 1;
+        continue;
+      }
+      if (bareName !== "") {
+        const at = startOf(unit);
+        const member: any = {
+          kind: "PropertyAccessExpression",
+          expression: left,
+          name: { kind: "Identifier", text: bareName, pos: at, end: at + bareName.length },
+          pos: left.pos,
+          end: at + bareName.length,
+        };
+        left = Object.assign({}, projectNode(unit, ctx), {
+          expression: member,
+          pos: member.pos,
+          end: endOf(unit),
+        });
+        i += 1;
+        continue;
+      }
     }
     if (!isDot(unit, ctx) || i + 1 >= units.length) break;
     // **点号后面那一格可能自带一个 `!`**（第 333 轮）：`o?.a!.b!` 的 NCO 里是

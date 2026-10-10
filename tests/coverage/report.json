@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.6,
+  "progressPercent": 95.62,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1601,
-      "pass": 1593,
-      "blocked": 8,
+      "pass": 1595,
+      "blocked": 6,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.5
+      "coverage": 99.63
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1601,
-    "knownGap": 8,
-    "knownGapStillOpen": 8,
-    "exactFiles": 1593,
-    "scoredWithoutGap": 1593,
-    "passedWithoutGap": 1593
+    "knownGap": 6,
+    "knownGapStillOpen": 6,
+    "exactFiles": 1595,
+    "scoredWithoutGap": 1595,
+    "passedWithoutGap": 1595
   },
   "blocked": [
     {
@@ -148,12 +148,6 @@
       "category": "token",
       "title": "",
       "detail": "缺 4　第 964 轮普查量到的形状：缺 `PropertyAccessExpression` / 两个 `CallExpression` / `Identifier` 各一：双层调用后面那个成员整段丢。根因还没量到——如实登记，不猜。"
-    },
-    {
-      "id": "token/expressions/gap-r964-opt-assert-member-assert-call-twice",
-      "category": "token",
-      "title": "",
-      "detail": "缺 2　第 964 轮普查量到的形状：缺两个 `CallExpression`：断言成员后面那次双层调用整段丢。根因还没量到——如实登记，不猜。"
     },
     {
       "id": "token/expressions/gap-r964-opt-assert-member-member",
@@ -178,12 +172,6 @@
       "category": "token",
       "title": "",
       "detail": "缺 2　多 2　第 964 轮普查量到的形状：缺 `ElementAccessExpression` / `StringLiteral`，多一格名字是 `['b']` 的属性访问。根因还没量到——如实登记，不猜。"
-    },
-    {
-      "id": "token/expressions/gap-r964-opt-index-call-twice",
-      "category": "token",
-      "title": "",
-      "detail": "漂 1　第 964 轮普查量到的形状：`CallExpression` 漂 2：第二次调用（`()` 又跟一次）没有接上。根因还没量到——如实登记，不猜。"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
