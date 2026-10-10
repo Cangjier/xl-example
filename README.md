@@ -307,6 +307,26 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 973 轮：第 971 轮登记的第二格收掉——**子链那一支抬出 `isDot` 段，下标那一份补进子链循环**（缺口 1 → 0，清单第十五次清空）
+
+**一句话**：`a?.b![0].c` 是**两处各缺一份**——`chainOnto` 的循环在
+`if (!isDot(unit, ctx) || i + 1 >= units.length) break` 上收工，而子链那一支住在
+`isDot` 那一段**里面**（`unit` 自己就是 `PropertyAccess` 时根本走不到）；
+抬出来之后那条子链的第一格是 `Bracket([0])`，而 `chainOnto` 的子链循环里
+**没有下标括号那一支**（`chainWithOptional` 的子链分支里早就有）。
+
+- **收掉的那一格**（`xl:known-gap` 按规矩撤掉、用例留着当守卫）：
+  [gap-r971-opt-assert-index-member](tests/cases/token/expressions/gap-r971-opt-assert-index-member.ts)
+  ——`a?.b![0].c`：**缺 3 漂 1 → 全 0**。
+- **两处修法**（都在 [typescript/print-ast-common.xl.md](typescript/print-ast-common.xl.md) 的 `chainOnto`）：
+  1. 循环入口改成 `const dotStep = isDot(unit, ctx) && i + 1 < units.length` 与
+     `loneSubChain = dotStep === false && unit.get("type") === "PropertyAccess"`，
+     末尾那句 `i += 2` 跟着改成 `i += dotStep ? 2 : 1`——抬出来那一档**只跨 1 格**。
+  2. `chainOnto` 的子链循环补上 `Bracket startBracket === "["` 那一支，
+     判据与折法与 `chainWithOptional` 子链分支里那一支**一字不差**（不写第二份）。
+- **数字**：`cases:tsast` 已知缺口 **1 → 0 条还开着**（清单**第十五次清空**），
+  八项照旧全 0；九道门全绿。
+
 ### 第 972 轮：第 971 轮登记的第一格收掉——**两处判据各缺一句**，中间一版修法按规矩撤回（缺口 2 → 1）
 
 **一句话**：`a!()()().c` 缺的**不是一处**——入口 `isCallFirstUnit` 认不下「头一格又是一格

@@ -6057,7 +6057,16 @@ return false;
         continue;
       }
     }
-    if (!isDot(unit, ctx) || i + 1 >= units.length) break;
+    // **这一格自己就是一条子链、而前面没有点号**（第 973 轮，**普查当场红的**）：
+    // `a?.b![0].c` 的 NCO 里第二格是 `PropertyAccess([Bracket([0]), Identifier(c)])`——
+    // `chainWithOptional` 的 `NotNull` 那一支折出断言之后，把剩下的 `[那一格]` 交给这里；
+    // 可子链那一支原来住在下面 `isDot` 那一段**里面** ⇒ 这一格既不是点号、也不是下标括号 /
+    // 圆括号 / `Method`，循环在它前面就 `break` ⇒ **整格丢**（实测
+    // `gap-r971-opt-assert-index-member`：缺 3 漂 1）。抬出来之后这一格照子链折，
+    // 跨过的格子数是 **1**（没有点号要跨），`pendingBang` 那两格照旧。
+    const dotStep = isDot(unit, ctx) && i + 1 < units.length;
+    const loneSubChain = dotStep === false && unit.get("type") === "PropertyAccess";
+    if (dotStep === false && loneSubChain === false) break;
     // **点号后面那一格可能自带一个 `!`**（第 333 轮）：`o?.a!.b!` 的 NCO 里是
     // `[NotNull(a), ., NotNull(b)]`——那个 `!` 与成员名**在同一格里**
     //（token 层把「名字 + 非空断言」折成了一个 `NotNull`）。
@@ -6070,7 +6079,7 @@ return false;
     // **次序是语义**：先把**成员**接上，再把 `!` 套在**整条链**上
     //（TS 是 `NonNull(PropertyAccess(…, b))`，不是「名字叫 `b!`」）。
     let bangUnit: any = undefined;
-    let next = units[i + 1];
+    let next = dotStep ? units[i + 1] : unit;
     // **断言该盖到哪一格**（第 966 轮）：`a?.b!.c.d` 里那条子链（`PropertyAccess([c, ., d])`）
     // 接的是**断言之后**那一条链，而「把 `!` 套上去」这件事发生在**子链分支内部**——
     // 那里需要知道终点在哪，`bangEnd` 就是那一格 `NotNull` 自己的末端。
@@ -6226,6 +6235,32 @@ return false;
           j += 1;
           continue;
         }
+        // **下标括号也是链上的一格**（第 973 轮）：`a?.b![0].c` 那条子链的第一格是
+        // `Bracket([0])`——`chainWithOptional` 的子链分支里早就有这一支，而这里没有：
+        // 它落到循环末尾那句空转的 `j += 1` ⇒ **下标整格丢**（实测
+        // `gap-r971-opt-assert-index-member`：缺 `ElementAccessExpression` / `NumericLiteral`）。
+        // 折法与 `chainWithOptional` 子链分支里那一支**一字不差**（同一形状、同一个判据），
+        // 顺序也一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
+        if (member.get("type") === "Bracket" && member.get("startBracket") === "[") {
+          if (pendingBang !== undefined) {
+            left = {
+              kind: "NonNullExpression",
+              expression: left,
+              pos: left.pos,
+              end: pendingBang,
+            };
+            pendingBang = undefined;
+          }
+          left = {
+            kind: "ElementAccessExpression",
+            expression: left,
+            argumentExpression: projectExpression(projectableKids(view(member)), ctx),
+            pos: left.pos,
+            end: endOf(member),
+          };
+          j += 1;
+          continue;
+        }
         j += 1;
       }
       // **子链吃完还没用掉的那个断言，仍然要套在整条链上**（第 966 轮）：
@@ -6247,7 +6282,9 @@ return false;
     if (bangUnit !== undefined) {
       left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(bangUnit) };
     }
-    i += 2;
+    // **跨过几格**：点号那一档是「点号 + 成员」两格；抬出来的那一档（`unit` 自己是子链）
+    // 只有 **1** 格（第 973 轮）。
+    i += dotStep ? 2 : 1;
   }
   return left;
 ```

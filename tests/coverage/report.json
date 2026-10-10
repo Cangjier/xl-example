@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.66,
+  "progressPercent": 95.67,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1604,
-      "pass": 1603,
-      "blocked": 1,
+      "pass": 1604,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.94
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1604,
-    "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1603,
-    "scoredWithoutGap": 1603,
-    "passedWithoutGap": 1603
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1604,
+    "scoredWithoutGap": 1604,
+    "passedWithoutGap": 1604
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r971-opt-assert-index-member",
-      "category": "token",
-      "title": "",
-      "detail": "缺 3　漂 1　第 971 轮普查量到：`!` 后面**没有点号**、直接跟一条下标子链时，`chainOnto` 的循环在 `if (!isDot(unit, ctx) || i + 1 >= units.length) break` 上收工——子链那一支住在 `isDot` 那一段**里面**，根本走不到。"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
