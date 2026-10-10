@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4380,
+  "total": 4383,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.67,
+  "progressPercent": 95.66,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1601,
-      "pass": 1601,
-      "blocked": 0,
+      "total": 1604,
+      "pass": 1602,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.88
     },
     {
       "category": "exec",
@@ -129,14 +129,26 @@
     }
   ],
   "token": {
-    "total": 1601,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
-    "exactFiles": 1601,
-    "scoredWithoutGap": 1601,
-    "passedWithoutGap": 1601
+    "total": 1604,
+    "knownGap": 2,
+    "knownGapStillOpen": 2,
+    "exactFiles": 1602,
+    "scoredWithoutGap": 1602,
+    "passedWithoutGap": 1602
   },
   "blocked": [
+    {
+      "id": "token/expressions/gap-r971-nonnull-call-thrice-member",
+      "category": "token",
+      "title": "",
+      "detail": "缺 5　第 971 轮普查量到：`isCallFirstUnit` 的 `Method` 那一支只认「第一格是实参括号 / 断言盖着实参括号」，而这一格的第一格**又是 `Method`** ⇒ 链那一支整个进不来。"
+    },
+    {
+      "id": "token/expressions/gap-r971-opt-assert-index-member",
+      "category": "token",
+      "title": "",
+      "detail": "缺 3　漂 1　第 971 轮普查量到：`!` 后面**没有点号**、直接跟一条下标子链时，`chainOnto` 的循环在 `if (!isDot(unit, ctx) || i + 1 >= units.length) break` 上收工——子链那一支住在 `isDot` 那一段**里面**，根本走不到。"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -419,7 +431,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2208.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2211.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -701,7 +713,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3196.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3199.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -725,7 +737,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3244.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3247.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/051-builtin-regexp-constructor",
@@ -893,7 +905,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3887.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3890.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

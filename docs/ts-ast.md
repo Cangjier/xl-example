@@ -96,7 +96,7 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 第 674 轮又把「抛异常 0」并进退出码。
 它原来是一把量成绩的尺子（红着的一栏就是缺口榜），现在它同时是**闸门**——
 红一条就不许合。**当前读数只有一份**（根 [README](../README.md) 的「当前状态」表），
-这里不抄数字；`xl:known-gap` 那 219 条走另一条账（见
+这里不抄数字；`xl:known-gap` 那些用例走另一条账（见
 [typescript-parsing-gaps.md](../tests/parse/typescript-parsing-gaps.md)）。
 
 ---

@@ -5654,40 +5654,34 @@ return false;
               continue;
             }
           }
-          if (callHead !== undefined && callHead.get("type") === "Method"
-            && String(callHead.get("name") ?? "") === "") {
-            // **两层调用、内层名字也是空的**（第 966 轮）：`a?.b()()` 的 NCO 里那一格是
-            // `Method(name=""[Method(name="")[…]])`——内层是第一次调用、外层是第二次。
-            // 取名字那一支会把 `""` 当成成员名 ⇒ 投出一格名字为空的属性访问。
-            // 折法与 `chainOnto` 那一处**一字不差**：各投各的，内层的受体换成 `node`。
-            const innerCall = Object.assign({}, projectNode(callHead, ctx), {
-              expression: node,
-              pos: node.pos,
-            });
-            if (pending !== undefined) innerCall.questionDotToken = pending;
-            node = Object.assign({}, projectNode(member, ctx), {
-              expression: innerCall,
-              pos: innerCall.pos,
-            });
-            pending = undefined;
-            j += 1;
-            continue;
-          }
           if (callHead !== undefined && callHead.get("type") === "Method") {
-            const innerName = String(callHead.get("name") ?? "");
-            const innerAt = startOf(callHead);
-            const innerMember: any = {
-              kind: "PropertyAccessExpression",
-              expression: node,
-              name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length },
-              pos: node.pos,
-              end: innerAt + innerName.length,
-            };
-            if (pending !== undefined) innerMember.questionDotToken = pending;
-            const innerCall = Object.assign({}, projectNode(callHead, ctx), {
-              expression: innerMember,
-              pos: innerMember.pos,
-            });
+            // **这一格盖着一层或好几层调用**（第 966 轮立、第 971 轮按「最里面那一格」补齐）：
+            // `a?.b()()` / `a?.b()()()` / `a?.b()()().c` 的 NCO 里那一格都是
+            // `Method(name="")[Method(name="")[…]]`——名字为空的每一格都是「对结果再调一次」，
+            // **真正带成员名的是最里面那一格**；外层再用 `projectNode(member)` 套一层。
+            // 只读 `callHead` **第一格**的名字（第 966 轮那一版）会把三层当成两层：
+            // 实测 `a?.b()()().c` 漂 2、字段 1、`Identifier(b)` 整格丢。
+            // 折法与 `chainWithOptional` 的「被调用者是 `Method`」那一支**一字不差**：
+            // 走到最里面那一格用 `innermostMethod`，换被调用者用 `graftCallee`
+            //（它一路下到最里面那一层调用，不会把中间几层丢掉）。
+            const deepest = innermostMethod(callHead);
+            const deepName = String(deepest.get("name") ?? "");
+            let callee: any = node;
+            let deepDot: any = pending;
+            if (deepName !== "") {
+              const deepAt = startOf(deepest);
+              const innerMember: any = {
+                kind: "PropertyAccessExpression",
+                expression: node,
+                name: { kind: "Identifier", text: deepName, pos: deepAt, end: deepAt + deepName.length },
+                pos: node.pos,
+                end: deepAt + deepName.length,
+              };
+              if (pending !== undefined) innerMember.questionDotToken = pending;
+              callee = innerMember;
+              deepDot = undefined;
+            }
+            const innerCall = graftCallee(projectNode(callHead, ctx), callee, deepDot);
             node = Object.assign({}, projectNode(member, ctx), {
               expression: innerCall,
               pos: innerCall.pos,
