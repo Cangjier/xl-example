@@ -14,7 +14,7 @@ import { IndexSignature } from "./index-signature.xl.md"
 import { Parameter } from "./lamda/lamda-parameter.xl.md"
 import { InterfaceBody } from "./interface/interface-body.xl.md"
 import { TypeLiteralBody } from "./type-literal/type-literal-body.xl.md"
-import { IsAnnotationUnit, SkipNextAnnotation, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { HasLineBreakBetween, IsAnnotationUnit, SkipNextAnnotation, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Statement } from "./statement.xl.md"
 import { ConstString } from "./string/const-string.xl.md"
 import { Keyword } from "./keyword.xl.md"
@@ -365,8 +365,48 @@ if (current === null) {
   return false;
 }
 const parent = current.Parent;
-if (!(parent instanceof ClassBody) && !(parent instanceof InterfaceBody) && !(parent instanceof TypeLiteralBody)) {
+// **映射类型也是成员体**（第 934 轮）：TS 的 `parseMappedType` 在值类型之后照样
+// `parseTypeMembers()` —— `{ [K in keyof U]:U` 换行 `[K] }` 里那个 `[K]` 是一条
+// `PropertySignature`（名字是 `ComputedPropertyName`）。`MappedType` 自己挂的就是成员队列
+// （见 `type-literal/mapped-type.xl.md` 的构造器），所以这里必须把它放进白名单。
+const inMappedType = parent !== null && parent.constructor.name === "MappedType";
+if (!(parent instanceof ClassBody) && !(parent instanceof InterfaceBody) && !(parent instanceof TypeLiteralBody) && inMappedType === false) {
   return false;
+}
+// **映射类型里只有「值类型之后」才是成员**（第 934 轮）：同一个 `MappedType` 里，
+// 键那一格（`[K in T]`）与键之后的成员形状一模一样，分开它们只能看**位置**——
+// 两条判据各挡一档：
+//
+// 1. **前面得先有值类型那一段**（`:` 或已经成形的 `TypeDefine`）：键那一格前面只有
+//    `readonly` / `+` / `-` 修饰词，所以它过不了这一条；
+// 2. **本格得在换行或 `;` 之后**：同一行写在值类型后面的方括号是**下标访问**
+//    （`{ [K in T]: U[K] }`，TypeScript 的 `parsePostfixTypeOrHigher` 只在同一行上吃 `[`），
+//    不是成员。少了这一条，`U[K]` 里那个 `[K]` 会被收成一条成员、下标访问整片丢掉。
+//
+// **换行要按原始字符问**（`HasLineBreakBetween`）：值类型那一段被 `TypeDefine` 收走之后
+// 列表里的 `LineWrap` 就没了（第 934 轮实测），按单元表问第二趟会答「没有」。
+if (inMappedType) {
+  const parentData = (parent as Token).Data;
+  const at = parentData.indexOf(current);
+  let sawValueType = false;
+  for (let i = 0; i < at; i++) {
+    const item = Get(parentData, i);
+    if (item instanceof SymbolToken && item.Is(":")) {
+      sawValueType = true;
+    }
+    if (item !== null && item.constructor.name === "TypeDefine") {
+      sawValueType = true;
+    }
+  }
+  const previousAt = SkipPreviousTrivia(parentData, at);
+  const previousUnit = Get(parentData, previousAt);
+  const previousEnd = previousUnit === null ? null : previousUnit.SourceRange.End;
+  const currentStart = current.SourceRange.Start;
+  const afterBreak = previousEnd !== null && currentStart !== null && HasLineBreakBetween(previousEnd, currentStart);
+  const afterSemicolon = previousUnit instanceof SymbolToken && previousUnit.Is(";");
+  if (sawValueType === false || (afterBreak === false && afterSemicolon === false)) {
+    return false;
+  }
 }
 // **能当修饰词用的词不是名字**（第 844 轮）：`public static` 换行 `readonly a = 1;` 里
 // `static` 后面虽然是一个换行，可它在 TS 那边仍旧是**修饰词**——`static` 不看同一行，
@@ -521,6 +561,15 @@ if (unit === null) {
 // 所以两跳一律走 `SkipNextTrivia`——与 `type-operator` / `method-declaration` 那几处同一改法。
 let cursor = SkipNextTrivia(unit.Data, -1);
 const first = Get(unit.Data, cursor);
+// **空括号也是索引签名**（第 934 轮片段普查量出的「空方括号在成员位」那一族）：
+// `type X = { a: A` 换行 `[] };` 在 TS 那边是一条**没有形参的** `IndexSignature`
+//（`parseIndexSignatureDeclaration` 先吃 `[`、再吃（空的）形参表、再一个 `]`）——
+// 成员位里那对空方括号**只有**这一种读法（计算名不可能是空的）。
+// 少了这一条：空括号走 `Field` ⇒ 产物多出 `PropertySignature` + `ComputedPropertyName`
+//（实测 `e-a` / `e-b` / `e-c` / `e-d` 四条：各缺 `IndexSignature`、多 2）。
+if (first === null) {
+  return true;
+}
 if (!(first instanceof Identifier)) {
   return false;
 }
@@ -629,21 +678,24 @@ if (name instanceof Bracket || isIndexSignature) {
     // 此刻括号内容还是裸单元（`key` / `:` / `string`），整段就是那一个形参——
     // 由一个 `Parameter` 收下，类型标注在它自己的队列里凑成 `TypeDefine`。
     const parameter = new Parameter(template);
-    parameter.SignIn(name.SourceRange.Start!);
     const contents: Token[] = [];
     for (const item of name.Data) {
       if (!(item instanceof LineWrap)) {
         contents.push(item);
       }
     }
+    // **空括号不造形参**（第 934 轮）：TS 那边 `{ [] }` 的 `IndexSignature` 就是
+    // 「一个形参都没有」（没有 `parameters` 那一格）。造一个零宽 `Parameter` 会让
+    // 产物多出一个节点、而且它签不出区间（`SignIn` 有、`SignOut` 没有）。
     if (contents.length > 0) {
+      parameter.SignIn(name.SourceRange.Start!);
       parameter.SignOut(contents[contents.length - 1].SourceRange.End!);
+      result.AddAndCloseLast(parameter);
+      for (const item of contents) {
+        parameter.AddAndCloseLast(item);
+      }
+      parameter.TryToClose();
     }
-    result.AddAndCloseLast(parameter);
-    for (const item of contents) {
-      parameter.AddAndCloseLast(item);
-    }
-    parameter.TryToClose();
   } else {
     result.AddAndCloseLast(name);
   }

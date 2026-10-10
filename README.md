@@ -6106,16 +6106,16 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **4 条还开着**（**第 933 轮**换第三批构造再普查一次：770 条片段里 755 条合法，量出 **4 格**、另有**一族当轮收掉**——数组的洞 `OmittedExpression` 的位置；那 4 格按规矩登记进语料，见下面「开着的缺口」那一段。此前的账：第 931 轮量出 6 格、三族当轮收掉三格登记，**第 932 轮把那三格也收掉 ⇒ 第七次清空**）。更早那一串账：第 869 轮普查量出的 30 条由第 870–881 轮收完、第 900 轮片段普查量出的 4 条由第 901–902 轮收完、第 900 轮「待登记」栏里的 3 条由第 904–906 轮收完；第 907 轮换地形再普查一次，量出 17 格、当轮收掉 5 格，第 908 轮收 3 格、第 909 轮收 3 格；第 926 轮登记的 1 格由第 927 轮收掉 ⇒ **第四次清空**；第 927 轮（二）登记「柯里化的函数类型里层不成形」、第 927 轮（三）收掉它并登记「箭头的返回类型是带括号的函数类型」、**第 928 轮连它那一族一起收掉 ⇒ 缺口清单第五次清空**；第 929 轮把标签那一族又普查一遍、登记 5 格，其中「标签链中间换行」当轮收掉 ⇒ 4 格，**第 930 轮三趟把余下 4 格全收掉，其中最后两格当轮转绿 ⇒ 缺口清单第六次清空**；**第 931 轮又登记 3 格、第 932 轮全部收掉 ⇒ 第七次清空**；**第 933 轮换第三批构造再量一次，量出 4 格、登记 4 条**） |
-| `cases:astjson` | 出口 2 与出口 1 说的同一棵树：**1556 份 / 37593 个节点**，标签 / 属性 / 坐标 / 键名登记 / 命令行 / 抛异常**六项全 0** |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **0 条还开着**（**第 934 轮**把第 933 轮登记的四格**全部收掉 ⇒ 缺口清单第八次清空**，四份用例撤掉 `xl:known-gap`、留着当守卫；另补 4 份守卫用例，语料 1570 → 1574。第 933 轮那次：换第三批构造再普查一次，770 条片段里 755 条合法，量出 **4 格**、另有**一族当轮收掉**——数组的洞 `OmittedExpression` 的位置；那 4 格按规矩登记进语料，见下面「开着的缺口」那一段。此前的账：第 931 轮量出 6 格、三族当轮收掉三格登记，**第 932 轮把那三格也收掉 ⇒ 第七次清空**）。更早那一串账：第 869 轮普查量出的 30 条由第 870–881 轮收完、第 900 轮片段普查量出的 4 条由第 901–902 轮收完、第 900 轮「待登记」栏里的 3 条由第 904–906 轮收完；第 907 轮换地形再普查一次，量出 17 格、当轮收掉 5 格，第 908 轮收 3 格、第 909 轮收 3 格；第 926 轮登记的 1 格由第 927 轮收掉 ⇒ **第四次清空**；第 927 轮（二）登记「柯里化的函数类型里层不成形」、第 927 轮（三）收掉它并登记「箭头的返回类型是带括号的函数类型」、**第 928 轮连它那一族一起收掉 ⇒ 缺口清单第五次清空**；第 929 轮把标签那一族又普查一遍、登记 5 格，其中「标签链中间换行」当轮收掉 ⇒ 4 格，**第 930 轮三趟把余下 4 格全收掉，其中最后两格当轮转绿 ⇒ 缺口清单第六次清空**；**第 931 轮又登记 3 格、第 932 轮全部收掉 ⇒ 第七次清空**；**第 933 轮换第三批构造再量一次，量出 4 格、登记 4 条；第 934 轮把那四格全收掉 ⇒ 第八次清空**） |
+| `cases:astjson` | 出口 2 与出口 1 说的同一棵树：**1564 份 / 38175 个节点**，标签 / 属性 / 坐标 / 键名登记 / 命令行 / 抛异常**六项全 0** |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1570** 条 token 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1570 条**（1498 条带期望，共 **5238** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **67** 种一个都没漏进产物；**结构不变式**（`Label` 必须包住它标的语句）0 条违反 |
-| `cases:shapes` | 外部语料 **229 份**（用例 1557 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
+| `cases:check` | **1574** 条 token 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
+| `cases:tags` | **1574 条**（1498 条带期望，共 **5238** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **67** 种一个都没漏进产物；**结构不变式**（`Label` 必须包住它标的语句）0 条违反 |
+| `cases:shapes` | 外部语料 **229 份**（用例 1561 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4163 / 4336**，加权 **95.4%**。差的那些是**真缺口**（`blocked` 43 / `differ` 130），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**（`blocked` 39 → 43 是本轮新登记的四格缺口，不是回归） |
+| `coverage` | **五类 4171 / 4340**，加权 **95.4%**。差的那些是**真缺口**（`blocked` 39 / `differ` 130），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**（第 934 轮把第 933 轮新登记的四格收掉 ⇒ `blocked` 43 → 39，同时先前那两格误伤的守卫用例一并转绿） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~31s**） |
 
 
@@ -6154,17 +6154,43 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   `const [[a, b], [, c = 0]] = m` / `const { a: { b }, c } = m` / `const [x, { y: [z] }] = m`
   的产物都是嵌套的 `BindingElement`、投影都是嵌套的 `ArrayBindingPattern` / `ObjectBindingPattern`，
   名字一格不丢（那句「进的是同一张逗号分隔表」的说法已经过期）。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **4** 条 ——
-  都是**第 933 轮**换第三批构造（45 个构造 × 每个相邻位置 × `/*c*/` / 换行 = 770 条片段，
-  755 条合法）普查量出来的那次余量，四条各是一族、根因都**尚未量清**
-  （量下来的是「同一个构造的其它排版都对、只有这一格不对」）：
-  `token/declarations/gap-r933-overload-generic-newline.ts`（重载方法的类型参数表与形参表之间换行）、
-  `token/statements/gap-r933-switch-case-newline.ts`（连着写的两个 `case` 标签、
-  **第二个**冒号后换行时两条并成一条；换行落在第一个冒号后面那一档是对的）、
-  `token/types/gap-r933-mapped-value-newline.ts`（映射类型的值那一格：
-  名字与下标之间换行 ⇒ `[K]` 被读成 `IndexedAccessType`）、
-  `token/types/gap-r933-typeof-import-newline.ts`（`typeof import` 与形参表之间的换行
-  被解析期判成语句边界）。
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **0** 条 ——
+  **第 934 轮**把**第 933 轮**换第三批构造（45 个构造 × 每个相邻位置 × `/*c*/` / 换行 = 770 条片段，
+  755 条合法）普查量出来的那四格**全部收掉 ⇒ 缺口清单第八次清空**，四份用例撤掉
+  `xl:known-gap`、留着当守卫。四格的根因各一句话（都记在
+  [typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md) 的「解析层几条硬规矩」里）：
+
+  - **`typeof import` 与形参表之间换行**（`token/types/gap-r933-typeof-import-newline.ts`）：
+    解析期那张「哪些词结束得了一条语句」的表（`Statement.ExpectsOperand`）里**没有 `import`**
+    —— 而它是保留字、后面必须跟东西（子句 / 名字 / `(`）⇒ 补进那张表，换行处不再收壳。
+    **同一族的第二面**（成员位：`type T = { f: typeof import` 换行 `("m") }`）另有一格：
+    `SignatureCloseRule` 会把括号抢成**无名签名**（`NameOnPreviousLine` 在那一格答否，
+    因为 `typeof` 不是成员的开头）⇒ 新增 `IsImportTypeArguments` 让路。
+  - **重载方法的类型参数表与形参表之间换行**（`token/declarations/gap-r933-overload-generic-newline.ts`）：
+    `NameOnPreviousLine`（`SignatureCloseRule` 与「名字 + `(`」那条分工线共用的**唯一一份**判据）
+    原来只看「换行前面那一格是不是名字」，而 `m<T>` 换行 `(a:T):void;` 里那一格是**类型参数段**
+    ⇒ 名字在再往前一格也要认。少了它，`(a:T):void;` 被抢成无名 `CallSignature`、
+    `m` 只剩给类型位（`GenericType` 投成 `TypeReference`）。
+  - **连着写的两个 `case` 标签、第二个冒号后换行**
+    （`token/statements/gap-r933-switch-case-newline.ts`）：`;` 那一档的成形器
+    （`Statement.FormFrom`）早就会在 `switch` 体里按**最后一个段头**切壳
+    （`LastClauseHeadIndex`），而**换行那一档**（`StatementBranch.Success`）漏了同一句 ⇒
+    两个段头进了同一条壳。**两处成形器对齐**（第 836 / 928 轮那条「一处加、两处改」）。
+  - **映射类型的值那一格换行**（`token/types/gap-r933-mapped-value-newline.ts`）：两半——
+    ① TypeScript 的 `parsePostfixTypeOrHigher` 只在**同一行**上吃 `[`
+    （`while (!scanner.hasPrecedingLineBreak())`）⇒ 换行之后的方括号**不是**下标访问
+    （`type-bracket` 的 `Previous` 让路，判据按**原始字符**问：`HasLineBreakBetween`）；
+    ② 映射类型在值类型之后照样 `parseTypeMembers()`（`parseMappedType`）⇒ 那个 `[K]` 是一条
+    `PropertySignature`（`field` 的成员体白名单收下 `MappedType`，判据是「值类型之后 **且**
+    换行或 `;` 之后」，投影那一侧 `MappedType` 多出 `members` 一格）。
+    **同族顺手收掉的一格**：成员位里的**空方括号**（`{ a: A` 换行 `[] }`）在 TS 那边是
+    **没有形参的** `IndexSignature`（`IsIndexSignatureName` 多一条「空括号也是索引签名」）。
+  此前的账：**第 931 轮**换一批构造（52 个构造 × 每个相邻位置 × `/*c*/` / 换行 = 710 条片段，
+  697 条合法）普查一次，量出 6 格；**三族当轮收掉、三格按规矩登记**，
+  而**第 932 轮把那三格也一起收掉 ⇒ 缺口清单第七次清空**，三份用例撤掉 `xl:known-gap`、
+  留着当守卫（`token/expressions/gap-r931-new-arguments-newline.ts` /
+  `token/types/gap-r931-asserts-is-newline.ts` /
+  `token/expressions/gap-r931-typeof-regex-range.ts` → `expr-typeof-regex-range.ts`）。
   **同一轮收掉的一族**（守卫 `token/expressions/expr-array-holes-trivia.ts`）：
   **数组的洞 `OmittedExpression` 是零宽节点，位置是「上一个逗号之后那一格」**——
   原来写的是 `lastEnd + 1`（上一个**元素**的终点 + 1），元素与逗号之间夹一条注释 / 一个换行时

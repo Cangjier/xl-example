@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipPreviousWrapSymbol, SkipPreviousTrivia, IsTypeContainerUnit, IsEmptyContentUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit, IsTriviaUnit, WordText } from "../text-common-util.xl.md"
+import { SkipPreviousWrapSymbol, SkipPreviousTrivia, IsTypeContainerUnit, IsEmptyContentUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit, IsTriviaUnit, WordText, HasLineBreakBetween } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
@@ -150,6 +150,41 @@ if (IsTypeMemberStart(current)) {
 // 那个名字是 `typeof` 的 EntityName 操作数，方括号比它松。
 if (this.IsTypeQueryOperand(units, index)) {
   return false;
+}
+// **跨了换行的方括号不是下标访问 / 数组类型**（第 934 轮）：TypeScript 的
+// `parsePostfixTypeOrHigher` 只在**同一行**上继续吃 `[`
+//（`while (!scanner.hasPrecedingLineBreak())`，见 `node_modules/typescript/lib/typescript.js`）——
+// `type X = A` 换行 `[B];` 在 TS 那边是两条（类型别名到 `A` 为止、`[B]` 另起一条），
+// 而映射类型的值那一格（`{ [K in keyof U as \`k${K}\`:U` 换行 `[K] }`）里，
+// 那个 `[K]` 是值类型**后面**的一条成员（`PropertySignature`，名字是 `ComputedPropertyName`）。
+//
+// **少了它会怎样**：`IsTypeOperandUnit` 跨 trivia 往回取到 `U` ⇒ 这个方括号被收成
+// `IndexedAccessType(U, K)` ⇒ 映射类型的 `members` 整格丢掉、值类型多一个下标访问
+//（实测 `gap-r933-mapped-value-newline`：缺 `PropertySignature` + `ComputedPropertyName`，
+// 多 `IndexedAccessType` + `TypeReference`，字段名那一栏也差一项）。
+//
+// **判据只看紧邻的那一格**（与 TS 的扫描器同口径）：`HasLineBreakBetween` 问的是
+// 「上一个实义单元与本格之间有没有换行」——**按原始字符问**（`LineWrap` 在值类型那一段
+// 被 `TypeDefine` 收走之后就不在列表里了，按单元表问第二趟会答「没有」，见那一格）。
+// 注释**不算**换行：`A /*c*/ [B]` 照旧是下标访问（那一档一直是对的）；
+// 换行落在**块注释原文里**时照 TS 的口径也算（`hasPrecedingLineBreak` 是扫描器的标志位）。
+//
+// **只在「左边真有一个被操作的类型」时才问**（第 934 轮实测退回的一版）：TS 那个
+// `hasPrecedingLineBreak` 的闸门在 `parsePostfixTypeOrHigher` 里，前面**已经**
+// `parseNonArrayType()` 拿到了一个类型——方括号左边**没有**操作数时它走的是另一条路
+//（元组 / 空元组：`type X =` 换行 `[C[]]` 里外层那个 `[` 左边是 `=`）。
+// 少了这一条：`type X =` 换行 `[C[]];` 与 `type X //c` 换行 `= [A, B?, ...C[]];`
+// 里，**外层那个元组括号**因为前面隔着换行而被判否 ⇒ `TupleType` 整条不成形
+//（实测 `gap-tuple-element-array-newline-after-assign` / `gap-r919-linecomment-before-tuple-array`
+// 两条守卫用例当场红：`cases:tags` 各缺 `TupleType` / `RestType` / `ArrayType`）。
+const operandAt = SkipPreviousTrivia(units, index);
+const operand = Get(units, operandAt);
+if (IsTypeOperandUnit(operand)) {
+  const operandEnd = operand === null ? null : operand.SourceRange.End;
+  const bracketStart = current.SourceRange.Start;
+  if (operandEnd !== null && bracketStart !== null && HasLineBreakBetween(operandEnd, bracketStart)) {
+    return false;
+  }
 }
 return true;
 ```

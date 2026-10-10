@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { HasDeclarationLineBreak, IsDeclarationModifier, IsDeclarationTailStop } from "../declaration-common.xl.md"
-import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousAnnotation, SkipPreviousWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousAnnotation, SkipPreviousWrapSymbol, SkipPreviousTrivia, WordText } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "../class/class-body.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -323,12 +323,26 @@ return unit instanceof Bracket && unit.startBracket === "[";
 第一轮按最小改动只补了量出来的那一个；**同一轮第二轮把整张表换成 `IsDeclarationModifier`**
 （同一个问题两处各写一份就是两处会漂，见 `statement.xl.md` 第 556 / 555 轮的账）。
 
+**名字后面允许已经有一个类型参数段**（第 934 轮）：`class A { m<T>` 换行 `(a:T):void; }` 里
+换行前面那一格是 `<T>`（`GenericType`）、名字在**再往前一格** —— 与 `m` 换行 `(a: T): void`
+是同一件事，`<T>` 只是名字与形参表之间那一段。少了这一档时本方法答否 ⇒ `(` 那一支的
+`before` 是那条软换行、`NameOnPreviousLine` 又答否 ⇒ 本规则（队列位次在
+`MethodDeclarationCloseRule` **之前**）把 `(a:T):void;` 抢成无名 `CallSignature`
+⇒ 重载方法那一格整条丢掉（实测 `gap-r933-overload-generic-newline`：缺
+`MethodDeclaration` + `TypeParameter`、多 `CallSignature` + `TypeReference`）。
+**必须收在这一份判据里**：`(` 与 `<T>` 两支问的是同一句话（同一行只写了一个名字吗），
+两处各写一个近似就是两处会漂（第 904 轮抽这一份的理由）。
+
 ```ts
 const at = Get(units, index);
 if (!(at instanceof LineWrap)) {
   return false;
 }
-const nameIndex = SkipPreviousTrivia(units, index);
+let nameIndex = SkipPreviousTrivia(units, index);
+// **换行前面那一格是类型参数段时，名字在再往前一格**（第 934 轮）：`m<T>` 换行 `(a:T)`。
+if (Get(units, nameIndex) instanceof GenericType) {
+  nameIndex = SkipPreviousTrivia(units, nameIndex);
+}
 const name = Get(units, nameIndex);
 if (!(name instanceof Identifier) && !(name instanceof String)) {
   return false;
@@ -358,8 +372,39 @@ if (head instanceof Identifier || (head !== null && head.constructor.name === "K
 return false;
 ```
 
-## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
+## private method IsImportTypeArguments:(units:Array<Token>, wrapIndex:int)=>bool
 
+`wrapIndex` 处那个软换行**后面**的括号，是不是一个**模块查询类型**（`typeof import("m")`）的实参表。
+
+**为什么要问它**（第 934 轮片段普查量出的 `gap-r933-typeof-import-newline` 的第二面）：
+`type T = { f: typeof import` 换行 `("m") }` 里换行前面那一格是 `import`、再往前是 `typeof` ——
+那一段是 `ImportType`（`typeof import("m")`），括号是它的实参表。
+`NameOnPreviousLine` 在这里答**否**（`typeof` 不是成员的开头，`import` 不是那个成员的名字），
+于是本规则把 `("m")` 收成一条**裸形参表签名**（`IsBareParameters`：形参表之后什么都没有）⇒
+`import` 与那条 `Signature` 随后被 `ImportCloseRule` 收成一条**假导入声明**
+（实测缺 `ImportType` / `LiteralType` / `StringLiteral`，多 `TypeQuery`）。
+同行写法不中：那时 `before` 是 `import` 这个名字，上面那一问早退了。
+
+**判据两条**：`wrapIndex` 处是软换行；跨过去是一个内容恰好为 `import` 的 `Identifier`，
+而它**再往前一个实义单元是 `typeof`**（模块查询类型的那个词）。
+两条缺一不可 —— 只有 `import` 而没有 `typeof` 时（`import` 单独起一行）那一格本来就该是签名 / 别的东西。
+
+```ts
+const at = Get(units, wrapIndex);
+if (!(at instanceof LineWrap)) {
+  return false;
+}
+const nameAt = SkipPreviousTrivia(units, wrapIndex);
+const name = Get(units, nameAt);
+if (!(name instanceof Identifier) || !name.Is("import")) {
+  return false;
+}
+const beforeAt = SkipPreviousTrivia(units, nameAt);
+const before = Get(units, beforeAt);
+return before !== null && WordText(before) === "typeof";
+```
+
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 `index` 处是不是一个成员签名的开头（`(` 括号或 `new` 词）。
 
 **两条位置判据**，缺一不可：
@@ -440,6 +485,11 @@ if (current instanceof Bracket && current.startBracket === "(") {
     return false;
   }
   if (this.IsComputedMemberName(before)) {
+    return false;
+  }
+  // **`typeof import` 换行 `("m")` 里的括号不是签名**（第 934 轮）：那一段是模块查询类型，
+  // 括号是它的实参表 —— 判据与实测账见 `IsImportTypeArguments`。
+  if (this.IsImportTypeArguments(units, immediateIndex)) {
     return false;
   }
   return this.HasSignatureTail(units, index);

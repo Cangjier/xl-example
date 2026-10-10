@@ -65,6 +65,13 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
       for (const inner of ctx.UnwrapNodes(k)) flat.push(inner);
       continue;
     }
+    // **成员之间的 `;` 不是节点**（第 934 轮）：`{ [K in keyof U]:A;` 换行 `[K] }` 里那个
+    // `;` 是 TS 的 `parseSemicolon()` 吃掉的语法（值类型之后那一个），任何节点都不含它 ——
+    // 留在 `flat` 里会投成一个平级的 `SemicolonToken`（实测 `t-mapped-nl-semi`：多 1）。
+    // 口径与通用支「顶层逗号不是语义子节点」那一句同源（分隔符不进产物）。
+    if (k.get("type") === "SymbolToken" && ctx.TextOf(k) === ";") {
+      continue;
+    }
     flat.push(k);
   }
   const props: any = {};
@@ -73,6 +80,18 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   let typeParameter;
   let nameType;
   const rest: any[] = [];
+  // **值类型之后还能再有成员**（第 934 轮）：TS 的 `parseMappedType` 在值类型之后照样
+  // `parseTypeMembers()` —— `{ [K in keyof U]:U` 换行 `[K] }` 里那个 `[K]` 是一条
+  // `PropertySignature`（名字是 `ComputedPropertyName`），所以 TS 的 `MappedType` 带
+  // `members` 一格。产物那一侧它就是值类型**后面**那个平级单元（`Field`，见
+  // `field.xl.md` 的白名单与位置判据）。
+  //
+  // 判据是「**已经见过值类型那一段**」：值类型装在 `TypeDefine` 里（那一格是 `:` 之后
+  // 那一段的归宿），它之后的平级单元只可能是成员 —— 与 TS 的分工线一字不差。
+  // 成员按**成员位**投（`ctx.ProjectEach(… , "TypeLiteral")`：`Field` 因此投成
+  // `PropertySignature`，计算名投成 `ComputedPropertyName`）。
+  const members: any[] = [];
+  let sawValueType = false;
   for (let i = 0; i < flat.length; i++) {
     const k = flat[i];
     const kind = k.get("type");
@@ -138,6 +157,16 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
       typeParameter = ctx.Project(k);
       continue;
     }
+    // **值类型那一格**（`:` 之后那一段）：记下「已经见过值类型」，它之后才是成员。
+    if (kind === "TypeDefine") {
+      sawValueType = true;
+      rest.push(k);
+      continue;
+    }
+    if (sawValueType) {
+      members.push(k);
+      continue;
+    }
     rest.push(k);
   }
   if (readonlyToken !== undefined) props.readonlyToken = readonlyToken;
@@ -153,6 +182,9 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   if (questionToken !== undefined) props.questionToken = questionToken;
   const typeNode = rest.length > 0 ? ctx.TypeExpression(rest) : undefined;
   if (typeNode !== undefined) props.type = typeNode;
+  // **成员表按成员位投**（见上面 `members` 那一段的说明）：`"TypeLiteral"` 是成员表的
+  // parentKind —— `Field` 在它下面投成 `PropertySignature`（`ctx.signature` 那一格）。
+  if (members.length > 0) props.members = ctx.MemberList(members, "TypeLiteral");
   return ctx.NodeHead("MappedType", props, v);
 ```
 

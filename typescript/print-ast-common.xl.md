@@ -8137,6 +8137,14 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     Expression: (list) => projectExpression(list, ctx),
     TypeExpression: (list) => projectTypeExpression(list, ctx),
     ProjectEach: (list, parentKind) => projectEach(list, ctx, parentKind),
+    // **把一串单元当作「成员表」投**（第 934 轮）：`MappedType` 的值类型之后还能再跟成员
+    // （TS 的 `parseMappedType` 在值类型之后照样 `parseTypeMembers()`），而那一格住不进
+    // `ToDictionary` 的成员段（映射类型的字典是「修饰词 / 键 / 值类型」那一套）⇒
+    // 由它的 `PrintAst` 把那一小段按成员位投一次。
+    // 实现与通用支那一支**共用同一份**（`projectEachIn`，`parentKind` 传 `"TypeLiteral"`：
+    // 那一格同时决定「成员之间不切」与 `ctx.signature`——`Field` 因此投成
+    // `PropertySignature` 而不是 `PropertyDeclaration`）。
+    MemberList: (list, parentKind) => projectEachIn(list, ctx, parentKind),
     KidsOf: (node, key) => kidsOf(node instanceof Map ? view(node) : node, key),
     Attr: (node, key) => (node instanceof Map ? view(node) : node).attrs.get(key),
     FirstCodeAfter: (text, at) => firstCodeAfter(text, at),

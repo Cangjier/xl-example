@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4336,
+  "total": 4340,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.37,
+  "progressPercent": 95.41,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1557,
-      "pass": 1553,
-      "blocked": 4,
+      "total": 1561,
+      "pass": 1561,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.74
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -129,38 +129,14 @@
     }
   ],
   "token": {
-    "total": 1557,
-    "knownGap": 4,
-    "knownGapStillOpen": 4,
-    "exactFiles": 1553,
-    "scoredWithoutGap": 1553,
-    "passedWithoutGap": 1553
+    "total": 1561,
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1561,
+    "scoredWithoutGap": 1561,
+    "passedWithoutGap": 1561
   },
   "blocked": [
-    {
-      "id": "token/declarations/gap-r933-overload-generic-newline",
-      "category": "token",
-      "title": "重载声明的**类型参数表与形参表之间**换行（第 933 轮片段普查量出）：",
-      "detail": "缺 2　多 2　重载方法的类型参数表与形参表之间换行，根因尚未量清"
-    },
-    {
-      "id": "token/statements/gap-r933-switch-case-newline",
-      "category": "token",
-      "title": "`switch` 体的两个 `case` 标签连着写、而**第二个标签的冒号后面**换行（第 933 轮片段普查量出）：",
-      "detail": "缺 2　漂 1　多 3　`switch` 体里连着写的两个 case 标签、第二个冒号后换行时两条被并成一条"
-    },
-    {
-      "id": "token/types/gap-r933-mapped-value-newline",
-      "category": "token",
-      "title": "映射类型的**值那一格**换行（第 933 轮片段普查量出）：",
-      "detail": "缺 2　多 2　字段 1　映射类型的值那一格：名字与下标之间换行时 `[K]` 被读成 IndexedAccessType"
-    },
-    {
-      "id": "token/types/gap-r933-typeof-import-newline",
-      "category": "token",
-      "title": "`typeof import` 与它的形参表之间换行（第 933 轮片段普查量出）：",
-      "detail": "缺 2　漂 1　多 4　`typeof import` 与形参表之间的换行被解析期判成语句边界"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -527,7 +503,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2164.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2168.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -833,7 +809,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3152.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3156.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -857,7 +833,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3200.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3204.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -1013,7 +989,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3843.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3847.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

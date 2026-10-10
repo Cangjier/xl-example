@@ -69,6 +69,38 @@ if (at < 0) {
 return source.Document.GetValue(at);
 ```
 
+# method HasLineBreakBetween:(from:Source, to:Source)=>bool
+
+`from` 与 `to` 两个位置**之间**（不含两端）有没有换行——**按原始字符判**（第 934 轮）。
+
+**判据只在原始字符上问得出来**：`LineWrap` 是透明单元，它在 `Data` 里的去留取决于容器——
+`type T = { [K in keyof U]:U` 换行 `[K] }` 里那个换行在 `{ }` 括号的列表里是 `LineWrap`，
+可值类型那一段被 `TypeDefineCloseRule` 收走之后它就**不在**列表里了 ⇒
+「上一格与本格之间有没有换行」这类判据**不能只看单元表**（第 934 轮实测：`type-bracket` 的
+`Previous` 第一趟答「有换行」，`TypeDefine` 成形之后的第二趟答「没有」⇒ 判据失效）。
+
+**两处调用方共用这一份**：`statement.xl.md` 的 `HasLineBreakBefore`（「上一格与本格之间」）
+与 `type-bracket.xl.md` 的「上一个实义单元与这个方括号之间」——同一个问题两处各写一个近似
+就是两处会漂（本仓第 817 / 856 轮各踩过一次）。
+
+```ts
+if (from === null || to === null) {
+  return false;
+}
+if (from.Document !== to.Document) {
+  return false;
+}
+let at = from.Index + 1;
+while (at < to.Index) {
+  const one = to.Document.GetValue(at);
+  if (one === "\n" || one === "\r") {
+    return true;
+  }
+  at = at + 1;
+}
+return false;
+```
+
 # method NextLineStartsWithWord:(source:Source, word:string)=>bool
 
 `source` 处那个软换行**后面**那一行是不是以 `word` 这个**词**开头（跳过空白与注释）。

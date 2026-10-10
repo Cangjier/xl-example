@@ -8,7 +8,7 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, IsTypeAliasAssignment, NextLineFirstCharAt, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasLineBreakBetween, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, IsTypeAliasAssignment, NextLineFirstCharAt, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class, ClassBranch } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -1132,6 +1132,18 @@ if ((word === "let" || word === "const" || word === "var") && Statement.WordOf(b
 if (word === "function" || word === "class" || word === "interface" || word === "enum") {
   return true;
 }
+// **`import` 后面也必须跟东西**（第 934 轮片段普查量出的 `gap-r933-typeof-import-newline`）：
+// `type T = typeof import` 换行 `("m");` 在 TS 那边是**一条**（`ImportType` 从 `typeof` 跨到
+// `"m"` 的右括号），`import` 换行 `("m");`（动态 import）同样是一条调用 ——
+// `import` 是**保留字**：它结束不了一条语句，也不可能是属性名（`a.import` 由
+// `previousIsMember` 那一问挡着，走不到这里）。
+// 少了它：换行处收壳 ⇒ `typeof import` 被前面的类型运算符收成一个 `TypeQuery`、
+// `("m");` 另起一条语句（实测 `TypeAliasDeclaration[0,22)` + 多 `ParenthesizedExpression`）。
+// **与 `IsPendingImportHead` 是两件事**：那一格问「导入声明的头写完了没有」（`{` / `*` / `=`），
+// 这一格问的是「这个词能不能结束一条语句」——同一个词、两条不同的判据，各管各的落点。
+if (word === "import") {
+  return true;
+}
 // **`try` / `do` / `else` / `finally` 后面必须跟一个语句体**（第 828 轮）：
 // `try` 换行 `{ … } catch (e) { … }` 是**一条** `TryStatement`
 //（TS 那边 `TryStatement` 的区间从 `try` 起，换行只是排版）。
@@ -2091,6 +2103,11 @@ return (
 空隙里只可能是空白 / 注释 / 换行（两侧都是已经定下来的单元），
 所以这一问等价于「当前这个字符是**新的一行**上的」，而且**不用等下一个单元**。
 
+**本体已经抽到 `text-common-util.xl.md` 的 `HasLineBreakBetween`**（第 934 轮）：
+`type-bracket.xl.md` 问的是同一句话（「上一个实义单元与这一格之间有没有换行」），
+而那里问的两端**都不是** `units[index - 1]`（中间隔着已经成形的类型单元）⇒
+同一个问题必须只有一份实现，这里只做转发。
+
 ```ts
 const previous = Get(units, index - 1);
 if (previous === null) {
@@ -2100,16 +2117,7 @@ const end = previous.SourceRange.End;
 if (end === null) {
   return false;
 }
-const document = source.Document;
-let at = end.Index + 1;
-while (at < source.Index) {
-  const one = document.GetValue(at);
-  if (one === "\n" || one === "\r") {
-    return true;
-  }
-  at = at + 1;
-}
-return false;
+return HasLineBreakBetween(end, source);
 ```
 
 ## static method IsPendingDecoratorHead:(data:Array<Token>, start:int)=>bool
@@ -3112,7 +3120,30 @@ return result;
 const data = unit.Data;
 const index = data.length - 1;
 const frontIndex = SearchFrontIndexed(data, index, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
-let children = data.slice(frontIndex + 1, index + 1);
+// **`switch` 体里，第二个及以后的段头要自己起一条壳**（第 934 轮）：`case 1: case 2:` 换行
+// `break;` 里那个换行是**这条壳的终结符**，而两个段头都在壳的范围内 —— 切点取
+// 「最后一个前面紧挨着 `:` 的 `case` / `default` 词」（`LastClauseHeadIndex`，与
+// `FormFrom` 的 `;` 那一档**同一份判据**）。
+//
+// **少了它会怎样**：壳从 `case 1:` 一路收到 `case 2:`（实测 `Statement` 的 `Data` 是
+// `[case, 1, :, case, 2, :]`）⇒ `SwitchCloseRule` 的分段只看**顶层单元**（`SegmentWordOf`）
+// ⇒ 第二个 `case` 住在壳里、它根本看不见 ⇒ 两个 `case` 并进**同一个** `CaseClause`，
+// 第二条又另落成一条 `ExpressionStatement`（实测 `gap-r933-switch-case-newline`：
+// 缺 `CaseClause` + `NumericLiteral`、漂 1 多 3）。
+//
+// **为什么这一格原来只有 `;` 那一支有**：`FormFrom` 是「终结符已经进 `Data` 之后」那条路
+// （`;`），而这一支是换行那一档（终结符**还没进** `Data`）—— 同一个问题的两份成形器，
+// 第 836 / 928 轮那条规矩：「每加一处都要两处成形器一起改」。
+// 下标口径跟着那一支走：这里 `index` 是**最后一个内容单元**（换行不在表里），
+// 所以 `LastClauseHeadIndex` 的上界递 `index + 1`。
+let startIndex = frontIndex;
+if (Statement.IsSwitchBodyBracket(unit)) {
+  const clauseIndex = Statement.LastClauseHeadIndex(data, frontIndex, index + 1);
+  if (clauseIndex > 0) {
+    startIndex = clauseIndex - 1;
+  }
+}
+let children = data.slice(startIndex + 1, index + 1);
 // 去掉前导 trivia（前一条语句留下的软换行）—— 否则语句起点差一位
 //（实测 let a = 1; 后面那条：产物 [10,30) vs 期望 [11,31)）。
 let head = 0;
@@ -3140,7 +3171,7 @@ if (first.SourceRange.Start !== null && lastUnit.SourceRange.End !== null) {
 } else {
   throw new Error("StatementBranch source range is not complete.");
 }
-ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
+ReplaceCountAt(data, startIndex + 1, index - startIndex, statement);
 // **造完就关一次**（第 531 轮）：与 `FormFrom` 末尾那一句**同一个理由** ——
 // 壳里的 `return` / `throw` / `break` / `continue` / `debugger` 那类词要升成 `Keyword`，
 // 投影侧「关键字开头的语句」那一支才认得。

@@ -393,6 +393,52 @@
   `名字 :`，是就再往左一格）：链上任意一个名字在语句开头，整串就都是标签头。
   **同族的判据都要问一句「我是不是只看了一格」**——第 828 轮的 `i ± 1`、第 817 轮的
   「相邻那一格」，与这一条是同一句话的第 N 个落点。
+- **换行之后那一格由「它的左边是什么」决定，而 TypeScript 的开关在扫描器上**（第 934 轮；
+  这一条是**第 933 轮登记的那四格**收完之后量出来的总纲，所以它排在这一族的最前面读，
+  下面第 930–933 轮那几条都是它的落点）：
+  四格登记了三轮，量清之后每条根因都是「左边那一格是谁」。四条合起来是一句话：
+  **TS 的 parser 是「先拿左边那个构造、再看某个 token 能不能接上去」，而本仓的判据是
+  「看那一格单元的形状」——两者的差集全在「左边那一格说的是什么」上。**
+  - **`import` 结束不了一条语句**：`type T = typeof import` 换行 `("m");` 在 TS 那边是一条
+    （`ImportType`）——解析期那张表（`Statement.ExpectsOperand`）原来只收「声明词 + 字面量词」，
+    而 `import` 与 `function` / `const` 同一档：保留字，后面必须跟东西（子句 / 名字 / `(`）。
+    **加词之前先问「这个词能不能单独成句」**（第 828 轮那条入表条件的同一句话）。
+    同族的第二面在**成员位**：`type T = { f: typeof import` 换行 `("m") }` 里
+    `SignatureCloseRule` 会把 `("m")` 抢成**裸形参表签名**（`IsBareParameters`：形参表之后什么都没有）
+    ⇒ `import` 与那条 `Signature` 随后被 `ImportCloseRule` 收成一条**假导入声明**
+    （实测缺 `ImportType` / `LiteralType` / `StringLiteral`、多 `TypeQuery`）。
+    让路的是新判据 `IsImportTypeArguments`（软换行 + 名字是 `import` + 再往前一格是 `typeof`）。
+    **同族的下一个落点在哪儿**：凡是「`名字 + (`」在成员位被收成签名的地方，都要问一句
+    「那个名字是不是 `import`」——`MethodDeclarationCloseRule` 早就单独挡过这一格（对象字面量除外），
+    签名那一侧漏了。
+  - **「名字写在上一行」那一问，名字后面允许已经有一个 `GenericType`**：`m<T>` 换行 `(a:T):void;`
+    与 `m` 换行 `(a: T): void` 是同一件事，`NameOnPreviousLine` 原来只看「换行前面那一格是不是名字」
+    ⇒ 重载方法那一格被 `SignatureCloseRule` 抢走。**这一问只有一份实现**（`(` 与 `<T>` 两支
+    第 904 轮就抽成同一份）——这正是「同一个问题两处各写一份就是两处会漂」的反面用法：
+    一份实现改一处，两支一起对。
+  - **换行之后那个 `[` 不是下标访问**：TypeScript 的 `parsePostfixTypeOrHigher` 外面套着
+    `while (!scanner.hasPrecedingLineBreak())` —— 后置的 `[`（下标访问 / 数组类型）**从不跨行**，
+    而那个闸门在 `parseNonArrayType()` **之后**（左边没拿到类型时它走的是元组那条路）。
+    所以判据要**成对**：`type-bracket` 的 `Previous` 里只在 `IsTypeOperandUnit(左邻)` 时才问
+    「中间有没有换行」（少了这半条，`type X =` 换行 `[C[]];` 的外层元组括号会被一起挡掉——
+    实测两份守卫用例当场红）。**换行要在原始字符上问**（`HasLineBreakBetween`）：
+    值类型那一段被 `TypeDefine` 收走之后，列表里的 `LineWrap` 就没了，按单元表问第二趟会答「没有」。
+  - **映射类型在值类型之后照样 `parseTypeMembers()`**：`{ [K in keyof U]:U` 换行 `[K] }` 里那个
+    `[K]` 是**一条成员**（`PropertySignature`，名字是 `ComputedPropertyName`），不是值类型的一部分。
+    于是三处各补一块：`FieldCloseRule` 的成员体白名单收下 `MappedType`（位置判据两条——
+    「值类型之前没有 `:`」挡掉键那一格、「换行或 `;` 之后」挡掉同一行的下标访问）、
+    `MappedType.PrintAst` 多出 `members` 一格（`ctx.MemberList`：按成员位投，
+    `Field` 因此投成 `PropertySignature`）、成员之间的 `;` 不进 `flat`（分隔符不是节点）。
+    **同一族的顺手一格**：成员位里的**空方括号**（`{ a: A` 换行 `[] }`）在 TS 那边是
+    **没有形参的** `IndexSignature`（`parseIndexSignatureDeclaration` 的形参表可以是空的）
+    ⇒ `IsIndexSignatureName` 多一条「空括号也是索引签名」，`Process` 那一侧空括号不造 `Parameter`
+    （造出来的零宽形参签不出区间）。
+  - **两处成形器的老账又收一格**：`switch` 体里「第二个及以后的段头要自己起一条壳」这件事，
+    `;` 那一档（`Statement.FormFrom`）第 576 轮就有了，而**换行那一档**
+    （`StatementBranch.Success`）一直没有 —— `case 1: case 2:` 换行 `break;` 于是把两个段头
+    收进同一条壳。两处对齐（共用 `Statement.LastClauseHeadIndex`），
+    下标口径差一格：换行那一档的 `index` 是**最后一个内容单元**（换行还没进 `Data`）⇒
+    上界递 `index + 1`。**这就是第 836 / 928 轮那条「每加一处都要两处成形器一起改」。**
 - **「这个冒号是标签冒号吗」只该有一份判据**（第 930 轮）：`done: f` 换行 `()` 在 TS 那边是
   一次调用，而解析期那张续接表的 `(` 那一档先问 `HasTypeColonBefore`（「上一行是类型标注吗」）——
   它往回扫先撞上的正是**标签**那个 `:`，却一律照类型标注答 ⇒ 判「上一行到此为止」⇒ 收壳 ⇒
@@ -454,17 +500,16 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**4 条**）
+## 已知仍开着的缺口（**0 条**）
 
-**第 933 轮那次普查（`tmp/r933/gen.mjs`：45 个构造 × 每个相邻位置 × `/*c*/` / 换行 =
-770 条片段、755 条合法）量出 4 格**，四条各是一族、根因**尚未量清**（量下来的是
-「同一个构造的其它排版都对、只有这一格不对」）：
-`gap-r933-overload-generic-newline`（重载方法的类型参数表与形参表之间换行）、
-`gap-r933-switch-case-newline`（连着写的两个 `case`、**第二个**冒号后换行时并成一条）、
-`gap-r933-mapped-value-newline`（映射类型的值：名字与下标之间换行）、
-`gap-r933-typeof-import-newline`（`typeof import` 与形参表之间的换行）。
-**同一轮收掉一族**：数组的洞 `OmittedExpression` 的位置（守卫
-`expr-array-holes-trivia`）。此前的账：第 931 轮量出 6 格、三族当轮收掉、三格登记，
+**第 934 轮把第 933 轮登记的那 4 格全部收掉 ⇒ 缺口清单第八次清空**
+（四份用例撤掉 `xl:known-gap`、留着当守卫；四格的根因各一句话写在「解析层几条硬规矩」里，
+各自那一族的守卫用例见 `cases/token/{types,declarations,statements}/` 下同名的四份：
+`mapped-member-after-value` / `method-generic-params-newline` / `switch-case-label-newline` /
+`typeof-import-newline`）。第 933 轮那次普查（`tmp/r933/gen.mjs`：45 个构造 × 每个相邻位置 ×
+`/*c*/` / 换行 = 770 条片段、755 条合法）量出这 4 格、并**当轮收掉一族**：
+数组的洞 `OmittedExpression` 的位置（守卫 `expr-array-holes-trivia`）。
+此前的账：第 931 轮量出 6 格、三族当轮收掉、三格登记，
 **第 932 轮把那三格也收掉 ⇒ 清单第七次清空**。
 **清单的条数以 `cases:tsast` 最后一行「已知缺口：N 条还开着」为准**；
 口径与判据写在根 [README](../../README.md) 的「开着的缺口」那一段。
