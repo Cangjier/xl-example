@@ -457,6 +457,24 @@ if (!this.IsMemberPosition(current)) {
   return false;
 }
 if (current instanceof Bracket && current.startBracket === "(") {
+  // **冒号后面那个 `(` 是类型，不是形参表**（第 956 轮）：`type T = { a: (B) }` /
+  // `interface I { m(): (B) }` / `type T = { get a(): (B) }` 里，一条成员的**类型**（或返回类型）
+  // 是一个**括号化的类型**（TS 那边是 `ParenthesizedType`），而本规则看见的只是一对 `(`、
+  // 前面那个实义单元是**冒号** ⇒ 收成一条无名 `CallSignature`
+  //（实测 `(B)` 变成 `<Signature kind="call">` + `<Parameter>`，缺 `ParenthesizedType` + `TypeReference`）。
+  // **为什么只有最后一条中**：后面还有一条成员时 `HasSignatureTail` 看得见那个 `;` / `,` ⇒ 判否
+  //（`type T = { m(): (B); n(): void }` 一直是好的，第 956 轮片段普查量到的就是这一格）；
+  // 列表到 `}` 就为止时它答真。
+  // **判据只问一句**「上一个**实义**单元是不是 `:`」——签名语法里形参表前面不会有冒号；
+  // `type T = { a: (x: number) => void }` 那种箭头类型一并让开（它本来就由字段那一侧投）。
+  // **软换行也要跳**：`a:` 换行 `(B)` 与 `a: /*c*/ (B)` 同形（两种排版都在普查里量到过）。
+  // **`?:` 是一个单元**（第 956 轮补）：可选成员那个标记在产物里是**一格** `SymbolToken("?:")`
+  // （`method-declaration.xl.md` 的 `IsTypeContinuationBefore` 就是这么认它的），
+  // 只认 `:` 时 `type T = { a?: (B) }` 照样被抢成签名（普查里量到的那一格）。
+  const typedBefore = Get(units, SkipPreviousTrivia(units, index));
+  if (typedBefore instanceof SymbolToken && (typedBefore.Is(":") || typedBefore.Is("?:"))) {
+    return false;
+  }
   let immediateIndex = SkipPreviousAnnotation(units, index);
   const immediate = Get(units, immediateIndex);
   if (immediate instanceof SymbolToken && immediate.Is("?")) {

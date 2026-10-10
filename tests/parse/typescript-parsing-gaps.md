@@ -588,7 +588,42 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**1 条**）
+## 已知仍开着的缺口（**2 条**）
+
+**第 956 轮：近路普查第二轮——成员最后那一格的括号化类型当轮收掉、谓词里的括号化类型登记**
+
+- **手法**：照第 955 轮那条结论（**近路普查比宽面普查便宜**）再铺一批：专挑「括号落在
+  只认一种身份的槽位里」的落点（装饰器名 `@(a)`、`instanceof (B)`、`case (a)`、
+  `return (x)`、`spread ...(a)`、`enum E { A = (1) }`、`as (T)` / `satisfies (T)`、
+  `keyof (A)`、`readonly (A[])`、索引签名 `[k: (string)]`、`f<((A))>(x)`、
+  `extends (a as any)`、`catch ((e))`、`(a) ? (b) : (c)` …共 60 条）——量出**两族**；
+  再把两族各自摊成 33 条与 20 条。
+- **收掉的那一族**：**成员最后那一格的括号化类型**。`type T = { a: (B) }` /
+  `interface I { m(): (B) }` / `type T = { get a(): (B) }` / `type T = { a?: (B) }` 里
+  TS 是 `ParenthesizedType`，产物却收成一条无名 `<Signature kind="call">`
+  （缺 `ParenthesizedType` + `TypeReference`、多 `CallSignature` + `Parameter`）。
+  **根因**：`SignatureCloseRule.Previous` 看见「成员位置上的一对 `(`」就按「无名签名的形参表」收，
+  而**后面没有别的成员**时 `HasSignatureTail` 答真（有 `;` / `,` / 下一条成员时它答否
+  ⇒ 此前只有**最后一条**中：`{ m(): (B); n(): void }` 一直是好的）。
+  **修法**：多问一句「上一个**实义**单元是不是 `:` / `?:`」——签名语法里形参表前面不会有冒号；
+  软换行与注释都跳（`a:` 换行 `(B)` 与 `a: /*c*/ (B)` 同形），**`?:` 在产物里是一格
+  `SymbolToken`**（`MethodDeclarationCloseRule.IsTypeContinuationBefore` 就是这么认它的，
+  只认 `:` 时 `a?: (B)` 照样红——这一格是补第二遍才量的）。
+  读数：33 条那一批 **19 → 7**、20 条那一批 **9 → 0**、60 条那一批 **4 → 2**
+  （剩下的全是下面那一条）；`cases:tsast` 逐节点一致。
+  守卫用例 [`ty-member-last-paren-type`](../../tests/cases/token/types/ty-member-last-paren-type.ts)。
+- **登记的那一条**（`xl:known-gap`）：[`gap-r956-predicate-paren-type`](../../tests/cases/token/types/gap-r956-predicate-paren-type.ts)
+  ——**类型谓词里那个类型套一层圆括号**时整条谓词不成形（`function f(x): x is (string)`：
+  缺 `TypePredicate` / `ParenthesizedType` / 类型自己的关键字，多若干格）。
+  与收掉的那一族**同形不同路**：那一族的判据在「成员位置的 `(`」那条分工线上，
+  谓词走的是另一条投影路径（`tokens/type-predicate.xl.md` 的 `PrintAst`）。
+  **不带括号的谓词一直是好的**（`x is string` / `asserts x is string` 逐节点一致）。
+  **入手处**：让谓词的类型那一格走**与成员类型同一条**的投影入口，**别在谓词里另写一份括号判据**。
+- **可复用的判据**：**「谁先把这一格认走」是这类缺口的分水岭**——两族都长在
+  「一个槽位只认一种身份 / 一条规则先伸手」上：第 955 轮是 `ScanHead` 的实体名只认 `Identifier`，
+  这一轮是签名规则先伸手把「冒号后面那个 `(`」认成形参表。**问「上一格是什么」比问「这一格是什么」便宜**
+  （`:` / `?:` 一句话就把整族挡住），而**那句问话用的词表要抄现成的**
+  （`?:` 是一格、不是两格——现成的 `IsTypeContinuationBefore` 里写着）。
 
 **第 955 轮：清单空着时的第五次普查——259 条片段量出两族：接口继承的圆括号当轮收掉、`yield` / `await` 的「第三态」登记**
 
