@@ -860,6 +860,37 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
 （`tmp/` 不进仓库，所以它是**一次普查的现场**，不是门）；量出一条就补一个带 `xl:known-gap` 的用例，
 清单与语料一起长。
 
+**第 923 轮：把「每一处相邻位置插一条块注释」扩到整份 token 语料**
+（`tmp/r923-census.mjs`：1537 份用例各自去掉 `//` 文件头当片段，在 `:` / `=>` / `)` / `]` /
+`}` / `,` / `|` / `=` / `;` / `<` 十种缝上各插一条 `/*c*/` ⇒ **9787 条变异体**，
+片段探针跑到 **9632 条合法 / 119 条对不上**）。这一轮收掉 16 条、**并把两条余量记在这里**：
+
+- **收掉**：对象字面量属性值的尾随注释（`{ f: () => ({ v: 1 })/*c*/ }`）——属性终点原来取
+  「最后一格的终点」，而那一格（箭头的体）自己含着注释 ⇒ TS `[12,31)` vs 产物 `[12,36)`。
+  改法是把终点取成**值那一格投影出来的 `end`**（它已经过 `stmtEndOf` 剪过 trivia，
+  与第 132 / 853 轮在语句族与 `Let` 上用过的同一条）。守卫用例
+  `token/expressions/expr-object-value-trailing-comment-range.ts`。119 → **103**。
+- **余量一：混合比较链的结合性**。`const b = x == y < z`（**没有任何注释**，不是变异体才有的形状）
+  本仓给 `(x == y) < z`、TS 给 `x == (y < z)`（实测缺 `BinaryExpression "y < z"`、
+  多 `BinaryExpression "x == y"`）。**token 树是对的**（XML 里就是 `==` 套 `<` 那一层），
+  错在**投影**：`BinaryOperator.PrintAst` 只把「平级的 `SymbolToken` 运算符」当运算符，
+  嵌着的那个 `BinaryOperator`（`op="<"`）被当成**操作数** ⇒ `left = Expression([x])`、
+  右边再折 ⇒ 折出一个 TS 不会造的树。**排除过的改法**：把 `EqualityInstance` 换到
+  `RelationalInstance` 前面（`parse-pipeline.xl.md` 的通用队列次序）——实测
+  `x == y < z` 一个字不动，反倒把本来是绿的 `const c = x < y in z` 打红（`in` 那一格
+  要的是「关系层先折」）。所以病在投影那一层，`operatorRank` 的分档（`==` 是 6、
+  `<` / `in` / `instanceof` 是 7）**是对的**，不要动它。
+- **余量二：返回类型里「括号 + 注释 + 箭头」**。`class E { on(): ()/*c*/ => void { return; } }`
+  缺 `FunctionType` / `VoidKeyword` / `ReturnStatement`，多出 `ParenthesizedType` 与一个孤立的
+  `return`。问出来的次序是：`TypeDefineCloseRule` 先把 `()` 收进 `TypeDefine`（同一个单元里），
+  于是 `FunctionTypeCloseRule` 再也看不到「`(` 与 `=>` 同层」这一步——**注释把两格拆到了两个单元里**。
+  不夹注释时（`on(): () => void { }`）`FunctionType` 先折、一切正常；同一份里
+  `const f: ()/*c*/ => void = …` 与函数的**参数**位（`on(fn: (p: number)/*c*/ => void)`）都是绿的，
+  所以只有「**方法 / 函数的返回类型**」这一个宿主。**排除过的改法**：
+  `method-declaration.xl.md` 的 `IsTypeContinuationBefore` 由 `SkipPreviousWrapSymbol`
+  改成 `SkipPreviousTrivia`——9787 条变异体的失败数一格没动（119 → 119），已撤回。
+  入口在 `TypeDefineCloseRule` 与 `FunctionTypeCloseRule` 的**次序**上，不在这一格。
+
 ## 被否决的改法（不要再试）
 
 1. **`Token.Reorganize` 改成「每条规则重复扫到无改动」**：能让三层以上嵌套三元收敛，
