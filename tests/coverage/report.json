@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.67,
+  "progressPercent": 95.71,
   "categories": [
     {
       "category": "token",
@@ -91,11 +91,11 @@
       "category": "exec",
       "weight": 0.25,
       "total": 792,
-      "pass": 756,
+      "pass": 757,
       "blocked": 7,
-      "differ": 29,
+      "differ": 28,
       "nodefail": 0,
-      "coverage": 95.45
+      "coverage": 95.58
     },
     {
       "category": "runtime",
@@ -354,12 +354,6 @@
       "category": "exec",
       "title": "`arguments` 的形状与 `length` 同步",
       "detail": "stdout 不同：第 2 行：node «9» vs tsrun «1»"
-    },
-    {
-      "id": "exec/functions/096-new-target",
-      "category": "exec",
-      "title": "`new.target` 与 `bind` 出来的构造",
-      "detail": "stdout 不同：第 3 行：node «target true» vs tsrun «target false»"
     },
     {
       "id": "exec/functions/117-function-prototype-toString",

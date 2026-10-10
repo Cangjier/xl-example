@@ -67,7 +67,7 @@ if (id >= 1 && id < 100) return InvokeArray(room, table, protos, call, id, self,
 throw new Error("unimplemented: builtin id " + id);
 ```
 
-# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null, drain:IteratorDrain | null = null, keep:RootKeeper | null = null, failed:CallFailed | null = null, constructing:bool = false, invoke:InvokeCallback | null = null, takeThrown:ThrownTaker | null = null, constructThis:Value = new Value())=>Value
+# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null, drain:IteratorDrain | null = null, keep:RootKeeper | null = null, failed:CallFailed | null = null, constructing:bool = false, invoke:InvokeCallback | null = null, takeThrown:ThrownTaker | null = null, constructThis:Value = new Value(), newTarget:Value = new Value())=>Value
 
 **宿主实际接的那个通道**：带 `sink` 的总分派。
 
@@ -266,7 +266,7 @@ if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args
 // 而目标函数要的是实例，一个 `this` 位表达不了两件事，见那一支）。
 // **不让 `InvokeGlobal` 自己去问机器**：这一层**没有机器**（它只收 `room` / `table`），
 // 而为了这一位把机器灌进来会让「用不到它的那二十格」也以为自己在构造。
-if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink, failed, constructing, constructThis);
+if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink, failed, constructing, constructThis, newTarget);
 return InvokeBuiltin(room, table, protos, call, id, self, args, keep, failed);
 ```
 

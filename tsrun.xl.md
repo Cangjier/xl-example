@@ -316,7 +316,7 @@ host.Machine.SetErrorFactory((kind, text) => {
   }
   return NewError(host.Machine.Room(), table, protos, text);
 });
-host.InstallHost((target, self, args, room, constructThis) => {
+host.InstallHost((target, self, args, room, constructThis, newTarget) => {
   const id = table.Get(target.Ref).AsHost().CapabilityId;
   // **宿主这条通道的兜底**（第 121 轮）：内建（或客户能力）失败时，把**宿主异常**
   // 抬成**脚本异常**——脚本的 `try { … } catch { … }` 才接得住。
@@ -337,7 +337,7 @@ host.InstallHost((target, self, args, room, constructThis) => {
     // `call` 那个通道是**反的**（宿主被调），内建主动调要另给一格；
     // `ThrownTaker()` 是「刚才那一调抛了吗、抛的是什么」（执行器自己抛 ⇒ 结果承诺被拒绝）。
     // 与前面几样一样：**方法引用会丢 `this`**，两样都包一层箭头函数。
-    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native(), host.Machine.Scheduler(), host.Machine.Settler(), host.Machine.IteratorDrainer(), host.Machine.RootKeeper(), () => host.Machine.CallFailed(), host.Machine.HostConstructing, host.Machine.Invoker(), host.Machine.ThrownTaker(), constructThis);
+    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native(), host.Machine.Scheduler(), host.Machine.Settler(), host.Machine.IteratorDrainer(), host.Machine.RootKeeper(), () => host.Machine.CallFailed(), host.Machine.HostConstructing, host.Machine.Invoker(), host.Machine.ThrownTaker(), constructThis, newTarget);
   } catch (error) {
     // **抬不动就原样冒出去**（`RaiseFromHost` 给假：多半是连错误对象都开不出来）——
     // 响亮地失败，比假装抛了一个空错误好。

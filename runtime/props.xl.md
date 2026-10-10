@@ -32,7 +32,7 @@ import { RoomChecker, IsCallableValue } from "./rt.xl.md"
 内建原型）。但这一层仍然给一个**深度上限**（`MaxProtoDepth`）：万一哪天加了改原型的路，
 也不会变成死循环。
 
-# type NativeCall = (callee:Value, thisValue:Value, args:Array<Value>)=>Value
+# type NativeCall = (callee:Value, thisValue:Value, args:Array<Value>, newTarget?:Value)=>Value
 
 **从语义层回调进脚本**：`callee` 用 `thisValue` 当 `this` 调一次，**按 `args` 逐个铺实参**，
 返回它的返回值。
@@ -50,6 +50,18 @@ import { RoomChecker, IsCallableValue } from "./rt.xl.md"
 
 **回调不是随便能重入的**：机器那边有**重入深度上限**（安全第 4 层）——
 脚本可以在 getter 里再读同一个属性，没有上限就是栈溢出的另一种写法。
+
+**第四格是「这一次调用的 `new.target`」**（第 977 轮）——**可选**：
+二十来处 `call(回调, this, 实参)` 的老调用点**一个字都不用改**。
+**为什么是可选而不是带默认值**：`NativeCall` 是**类型别名**（不是函数声明），
+TypeScript 不许在别名里写参数默认值（第 977 轮实测：`tsc` 报 `TS2371`）。
+**少写一格与写 `undefined` 是同一档**：两者都表示「不是绑定函数转交的构造」，
+于是目标帧的 `new.target` 照旧是**它自己**（`CallNative` 那一格的默认值）。
+**谁给这一格**：只有绑定函数那条路（`globals.xl.md` 的 `BoundCall`）——
+它的 `[[Construct]]` 按规范是 `Construct(target, args, newTarget)`，
+而 `newTarget` 是**绑定函数自己**（机器那一侧由 `HostConstructNewTarget` 递下来）。
+**为什么放在这一格的签名上、而不是让语言层去问机器**：语言层**没有机器**
+（`InvokeGlobal` 只收 `room` / `table`），这正是 `constructThis` 当年走同一条路的原因。
 
 # type CallFailed = ()=>boolean
 

@@ -3207,7 +3207,7 @@ if (protoHandle === 0) return Value.Null();
 return Value.FromRef(table.Get(protoHandle).Tag, protoHandle);
 ```
 
-# method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, failed:CallFailed | null = null, constructing:bool = false, constructThis:Value = new Value())=>Value
+# method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, failed:CallFailed | null = null, constructing:bool = false, constructThis:Value = new Value(), newTarget:Value = new Value())=>Value
 
 **全局内建的分派与实现**。
 
@@ -4244,7 +4244,28 @@ if (id === BoundCall) {
     for (let i = 0; i < stored.GetLength(); i++) merged.push(stored.GetAt(i));
   }
   for (let i = 0; i < args.length; i++) merged.push(args[i]);
-  return call(boundTarget, callSelf, merged);
+  // **构造那一趟要把「最终那个函数」交上去当 `new.target`**（第 977 轮）：
+  // `new (F.bind(null))()` 里 `F` 体内的 `new.target` 按规范是**原函数 `F`**——
+  // 而宿主递进来的第六格装的是**调用者身份**（那个绑定函数 `G`）⇒
+  // 沿 `__boundTarget` 一路解到最里面那个。**非构造那一趟交 `undefined`**
+  // （JS 里 `G()` 的 `new.target` 就是它），落到引擎那一边正好是 `CallNative` 的默认值。
+  // **套多层也要解到底**：`f.bind(a).bind(b)` 的目标自己又是一个绑定对象。
+  // **链有界**：每一层绑定都换了一格内部属性，环上必然出现「目标是自己」——
+  // 那一档按 `depth` 停下来（用户造不出环，这是防御）。
+  let newTargetForTarget = Value.Undefined();
+  if (constructThis.IsObject()) {
+    newTargetForTarget = IsCallableValue(table, newTarget) ? newTarget : boundTarget;
+    let depth = 0;
+    while (newTargetForTarget.IsObject() && depth < 16) {
+      const target = newTargetForTarget;
+      if (table.Get(target.Ref).Host === null) break;
+      const next = GetInternalProperty(room, table, target, BoundTargetName(table));
+      if (!IsCallableValue(table, next) || next.Ref === target.Ref) break;
+      newTargetForTarget = next;
+      depth = depth + 1;
+    }
+  }
+  return call(boundTarget, callSelf, merged, newTargetForTarget);
 }
 if (id === StructuredCloneId) {
   // **`structuredClone(v)`**（第 338 轮）：见 `StructuredCloneId` 那一段的账。

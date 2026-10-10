@@ -66,7 +66,7 @@ JS 那边这一类全是 **`TypeError`**，而**「叫这个名字」是语言�
 这一格补的是**引擎自己**那条路——两处各管各的一半，
 判据 `array-reduce` / `symbol-concat-throws` 量的正是**后者**那一条。
 
-# type HostInvoker = (target:Value, self:Value, args:Array<Value>, room:RoomChecker, constructThis:Value)=>Value
+# type HostInvoker = (target:Value, self:Value, args:Array<Value>, room:RoomChecker, constructThis:Value, newTarget:Value)=>Value
 
 # type TaskScheduler = (promise:Value, callback:Value, args:Array<Value>, result:Value, wants:number, carry:boolean, onRejected:Value)=>void
 
@@ -520,6 +520,36 @@ this.Depth = 0;
 **它必须是根**（`SnapshotRoots` 加进去）——它是**实例**，
 而 `HostConstructThis` 活着的那一段正是宿主在跑脚本、随时可能回收。
 
+## field HostConstructNewTarget:Value = new Value()
+
+**这一次 `new` 的「被调方是谁」**（第 977 轮）——`HostConstructThis` 的**学生兄弟**：
+同一对窗口（`DoNew` 置上、调完立刻还原）、同一条理由（`self` 被 `bind` 占掉了）。
+
+**为什么必须有这一格**：JS 的绑定函数被 `new` 时（`new (F.bind(null))()`）
+它的 `[[Construct]]` 是 `Construct(target, args, newTarget)`——**`newTarget` 交的是绑定函数自己**，
+于是 `F` 体内的 `new.target === F` 是**真**。而本仓 `BoundCall` 最后那句
+`call(boundTarget, callSelf, merged)` 只交三格，**没有地方放 `new.target`**
+⇒ 目标那一路开帧时 `constructTarget > 0` 但 `callee` 是目标自己……**更准确地说**：
+那条路是**重入**（`CallNative`），它压根不置 `ConstructTarget` ⇒ 目标帧里 `new.target` 是 `undefined`
+（判据 `exec/functions/096-new-target` 第 3 行：node 给 `target true`、本仓给 `target false`）。
+**差一格就够**：绑定函数**自己**就是 `newTarget`，而它在 `DoNew` 那一刻正是 `callee`。
+
+**它不是 `HostConstructThis` 的重复**：那一格答「实例是谁」（目标要的 `this`），
+这一格答「谁被 `new` 的」（目标要的 `new.target`）——`new.target` 与实例**不是一回事**
+（`vm.xl.md` 的 `NewTarget` 那一格写着同一句话）。
+
+**窗口与 `HostConstructing` 逐字相同**：`DoNew` 置上、`DoCallValue` 调完立刻还原，
+存的是**上一个值**（嵌套 `new` 靠后进先出自然成立）。
+
+**它必须是根**（`SnapshotRoots` 加进去）——它是**一个可调用值**，
+而它活着的那一段正是宿主在跑脚本、随时可能回收（与 `HostConstructThis` 同一条纪律）。
+
+**为什么仍不给 ABI 减一格**：`HostConstructing` / `HostConstructThis` 两格的历史理由
+是「`HostInvoker` 是公开契约、加一位是破坏性改动」。这一轮**确实动了那位契约**——
+因为不改契约就**没有别的地方**能放「这一次 `new` 的是谁」：
+`HostConstructing` 只是一位布尔，`HostConstructThis` 装的是实例，两个都替代不了它。
+**驱动那一侧同步改一处**（`tsrun.xl.md` 的 `InstallHost`），客户宿主照抄那一处的签名即可。
+
 ## field HostConstructing:bool = false
 
 **这一次宿主调用是不是从 `new` 来的**（第 232 轮）——**只在「宿主可调用值当构造函数」
@@ -853,6 +883,9 @@ if (this.NativeResult.IsRef()) this.Roots.AddValue(this.NativeResult);
 // 漏了它的症状与 `Retained` 那一族一字不差：**实例某天被收走**，
 // 而目标往里写属性时读到一个死句柄（报的是 `invalid handle`，离现场很远）。
 if (this.HostConstructThis.IsRef()) this.Roots.AddValue(this.HostConstructThis);
+// **`new.target` 那一格也是根**（第 977 轮）：它是**绑定函数自己**（一个可调用对象），
+// 窗口与上面那一格逐字相同——同一段宿主跑脚本的时间里随时可能回收。
+if (this.HostConstructNewTarget.IsRef()) this.Roots.AddValue(this.HostConstructNewTarget);
 for (let i = 0; i < this.Microtasks.length; i++) {
   const entry = this.Microtasks[i];
   if (entry >= 0) {
@@ -1306,7 +1339,7 @@ if (returnSlot >= 0) {
 }
 ```
 
-## method DoCallValue:(frame:HeapFrame, callee:Value, argBase:int, argc:int, returnSlot:int, thisValue:Value, constructTarget:int, argArray:int = -1)=>void
+## method DoCallValue:(frame:HeapFrame, callee:Value, argBase:int, argc:int, returnSlot:int, thisValue:Value, constructTarget:int, argArray:int = -1, newTargetOverride:Value | null = null)=>void
 
 调用一个值。**两种被调方**：闭包（压帧，控制权回循环）与**宿主函数**（直接调、直接拿回值）。
 
@@ -1498,10 +1531,19 @@ if (this.IsHostCallable(callee)) {
   const boundCall = this.IsBoundCall(callee);
   const hostThis = boundCall ? callee : thisValue;
   const savedConstructThis = this.HostConstructThis;
+  const savedConstructNewTarget = this.HostConstructNewTarget;
   // **只在构造那一趟挂上**（构造之外它必须是「无」——与那一格同一条窗口）。
   this.HostConstructThis = boundCall && this.HostConstructing ? thisValue : Value.Undefined();
+  // **「这一次 `new` 的是谁」就是 `callee` 自己**（第 977 轮）——`new (F.bind(null))()` 里
+  // `new.target` 按规范交的是**绑定函数**，而它正是此刻手上这一格。
+  // **窗口与上面那一格一字不差**：非构造那一趟是 `undefined`，嵌套靠后进先出。
+  // **装的是 `thisValue`**（第 977 轮订正二）：`callee` 是那个**绑定函数**，
+// 而 `new.target` 按规范是**原函数**——它正是调用方手上这一格
+// （宿主直接构造那两条路上 `DoCallValue` 收到的 `thisValue` 就是被 `new` 的那个函数）。
+this.HostConstructNewTarget = boundCall && this.HostConstructing ? thisValue : Value.Undefined();
   const produced = this.CallHostValue(callee, hostThis, args);
   this.HostConstructThis = savedConstructThis;
+  this.HostConstructNewTarget = savedConstructNewTarget;
   // **`null` 表示展开已经发生**（宿主请求了一次脚本站内异常）：**连结果都不许写**——
   // 写下去会盖掉处理点正要用的那一格（原来那版在这里 `return`，正是为了这一条）。
   if (produced === null) return;
@@ -1626,8 +1668,11 @@ if (info.IsAsync) {
   // 所以另开一格存**被调的那个值**（宿主引用 / 闭包 / 可调用对象 都行）。
   // **不是构造调用时给 `undefined`**（JS 的 `F()` 里 `new.target` 就是 `undefined`，
   // 判据 `c304-rt-new-target-in-ctor` 第 1 行钉着它）。
+  // **第 977 轮多一档覆盖**：绑定函数转交下来的构造（`new (F.bind(null))()`）里
+  // `new.target` 按规范是**原函数**（不是那个绑定函数）——覆盖由调用方明说。
   asyncFrame.ConstructTarget = constructTarget;
-  asyncFrame.NewTarget = constructTarget > 0 ? callee : Value.Undefined();
+  asyncFrame.NewTarget = newTargetOverride !== null ? newTargetOverride
+    : (constructTarget > 0 ? callee : Value.Undefined());
   // **先把实参抄进新帧，再把承诺写回调用者那一格**（第 286 轮实测**逼出来**的）。
   //
   // **反过来的那份顺序是错的**（第一版就是先写承诺）：这里「写回哪一格」
@@ -1655,8 +1700,12 @@ created.This = thisValue;
 // 所以另开一格存**被调的那个值**（宿主引用 / 闭包 / 可调用对象 都行）。
 // **不是构造调用时给 `undefined`**（JS 的 `F()` 里 `new.target` 就是 `undefined`，
 // 判据 `c304-rt-new-target-in-ctor` 第 1 行钉着它）。
+// **第 977 轮多一档覆盖**：见上面 `async` 那一支的账——绑定函数转交构造时
+// `NewTarget` 要的是**原函数**，而 `callee` 在这里正是原函数、覆盖是多余的；
+// 覆盖真正的用处是「调用方手上有一个更权威的答案」（`Reflect.construct` 那一类）。
 created.ConstructTarget = constructTarget;
-created.NewTarget = constructTarget > 0 ? callee : Value.Undefined();
+created.NewTarget = newTargetOverride !== null ? newTargetOverride
+  : (constructTarget > 0 ? callee : Value.Undefined());
 this.FillParameters(created, info, frame, callee, argBase, argArray, count);
 ```
 
@@ -1811,7 +1860,7 @@ if (value.Tag === ValueTag.Object) return this.Table.Get(value.Ref).Host !== nul
 return false;
 ```
 
-## method CallHostValue:(callee:Value, thisValue:Value, args:Array<Value>)=>Value | null
+## method CallHostValue:(callee:Value, thisValue:Value, args:Array<Value>, newTarget:Value | null = null)=>Value | null
 
 **调一次宿主可调用值**（第 145 轮从 `DoCallValue` 里抽出来）——宿主函数与
 可调用对象**共用这一份**（`DoCallValue` 的调用路、`CallNative` 的重入路）。
@@ -1829,7 +1878,16 @@ if (invoker === null) throw new Error("calling a host function with no host inst
 // **对象自己**才读得到三样载荷（`self`），而 `new` 底下**目标**要的是实例——
 // 一个参数表达不了两件事，所以实例单独走一格（见 `HostConstructThis`）。
 // **非构造那一趟它是 `undefined`**（与 `HostConstructing` 同一条口径）。
-const produced = invoker(callee, thisValue, args, this.Room(), this.HostConstructThis);
+// **第六格是「这一次 `new` 的被调方」**（第 977 轮）：与第五格同一对窗口、同一条理由——
+// `bind` 那一格把它转交给目标（`BoundCall`），于是 `new (F.bind(null))()` 里
+// `F` 体内的 `new.target` 是**那个绑定函数**（JS 的口径），而不是 `undefined`。
+// **第四格（可选）优先**（第 977 轮）：重入那条路上「这一次 `new` 的是谁」由调用方明说
+// （`BoundCall` 转交构造时把它带下来）——机器那一格只在**宿主直接当构造函数调**的
+// 那两条路上才置得上，而重入那一趟是**另一条路**（`CallNative` 手上没有 `DoNew` 的窗口）。
+// **`null` 表示「按机器那一格」**：与这一层其余可选参数同一条口径。
+const hostNewTarget = newTarget !== null ? newTarget : this.HostConstructNewTarget;
+const produced = invoker(callee, thisValue, args, this.Room(), this.HostConstructThis,
+  hostNewTarget);
 // **取走是必须的**：留着它，下一次宿主调用会莫名其妙地抛上一次的错。
 const raised = this.TakeRaise();
 if (raised !== null) {
@@ -2294,8 +2352,13 @@ if (this.IsHostCallable(callee)) {
   const constructed = this.IsBoundCall(callee)
     ? this.Guard(() => this.CreateInstance(callee)) : Value.Undefined();
   const savedConstructThis = this.HostConstructThis;
+  const savedConstructNewTarget = this.HostConstructNewTarget;
   this.HostConstructing = true;
   this.HostConstructThis = constructed;
+  // **`new` 的是 `callee` 自己**（第 977 轮）：与上一格同一对窗口——
+  // `new F()` 里 `F` 体内的 `new.target` 是 `F`，而这一格正是它从那以后走到目标的通道。
+  // **装的是 `callee`**（第 977 轮）：宿主直接构造那一条路上，被 `new` 的正是它。
+  this.HostConstructNewTarget = callee;
   // **返回槽照旧交 `instr.B`**（第 617 轮）：宿主把它的返回值写在那里
   //（「展开已经发生」那一档**不写**，见 `CallHostValue`），下面就地读它。
   // **`-1` 是错的**（第一版写的就是它）：那一格的含义是「没有调用者」
@@ -2304,6 +2367,7 @@ if (this.IsHostCallable(callee)) {
   this.DoCallValue(frame, callee, instr.B, instr.C, instr.B, constructed, 0);
   this.HostConstructing = false;
   this.HostConstructThis = savedConstructThis;
+  this.HostConstructNewTarget = savedConstructNewTarget;
   // **JS 的 `[[Construct]]` 收尾就地做完**（第 617 轮）：目标**返回了对象就用它**
   //（`function C() { return {a: 1} }` 与 `new Map()` / `new Date(0)` 都属于这一档），
   // 否则用**当初造出来的那个**（`Point.bind(null)` 那一趟目标返回 `undefined`
@@ -3399,7 +3463,10 @@ if (id === RtOp.HostCall) {
   // **第五格：`host_call` 那条路上没有实例**（第 617 轮）——
   // 它不是从 `DoNew` 进来的（`HostConstructing` 在这里恒为假），
   // 所以照「没有实例」交 `undefined`（与 `HostConstructThis` 的默认值一致）。
-  const produced = invoker(target, Value.Undefined(), args, this.Room(), Value.Undefined());
+  // **第六格同一条口径**（第 977 轮）：`host_call` 这条路上更没有「`new` 的是谁」——
+  // 它是**能力调用**（`Array.prototype.map` 那一条），与 `new` 无关。
+  const produced = invoker(target, Value.Undefined(), args, this.Room(), Value.Undefined(),
+    Value.Undefined());
   this.NativeFailed = this.NativeFailed || this.Throws !== thrownBefore || this.NativeEscaped;
   this.NativeEscaped = this.NativeEscaped || escapedBefore;
   this.NativeFailed = this.NativeFailed || failedBefore;
@@ -3543,8 +3610,8 @@ return (promise: Value, callback: Value, args: Value[], result: Value, wants: nu
 **这是第二处适配**（第一处是 `Room`）：rt / props 不该认识 `Vm`，而 `Vm` 认识它们。
 
 ```ts
-return (callee: Value, thisValue: Value, args: Value[]) =>
-  this.CallNative(callee, thisValue, args);
+return (callee: Value, thisValue: Value, args: Value[], newTarget?: Value) =>
+  this.CallNative(callee, thisValue, args, newTarget === undefined ? null : newTarget);
 ```
 
 ## method CallFailed:()=>bool
@@ -3606,7 +3673,14 @@ return this.NativeFailed || this.NativeEscaped
   || (this.Status !== VmStatus.Ready && this.Status !== VmStatus.Halted);
 ```
 
-## method CallNative:(callee:Value, thisValue:Value, args:Array<Value>)=>Value
+## method CallNative:(callee:Value, thisValue:Value, args:Array<Value>, newTarget:Value | null = null)=>Value
+
+**第四格是「这一次调用要装进新帧的 `new.target`」**（第 977 轮）——**`null` 表示按默认**，
+默认是 `undefined`（重入这一条**不是**构造调用；宿主直接构造那两条路的默认写在 `DoCallValue` 里）。
+**谁会给它**：绑定函数转交构造时（`globals.xl.md` 的 `BoundCall`）——
+`new (F.bind(null))()` 里目标帧的 `new.target` 按规范是**原函数**（不是那个绑定函数），
+而这一趟的 `callee` 正是原函数，所以照传即可。`Native()` 那道门面把「少写一格」
+折成 `null`（类型别名不许有参数默认值，见 `props.xl.md` 的 `NativeCall`）。
 
 **重入分派循环**调一个脚本函数，拿它的返回值。访问器（getter / setter）与内建方法
 （`Array.prototype.map` 那种）只有这一条路。
@@ -3721,9 +3795,20 @@ if (this.IsHostCallable(callee)) {
   const boundCall = this.IsBoundCall(callee);
   const hostThis = boundCall ? callee : thisValue;
   const savedConstructThis = this.HostConstructThis;
+  const savedConstructNewTarget = this.HostConstructNewTarget;
   this.HostConstructThis = boundCall && this.HostConstructing ? thisValue : Value.Undefined();
-  const produced = this.CallHostValue(callee, hostThis, args);
+  // **与 `DoCallValue` 那一处一字不差**（第 977 轮）：两处共用同一条重入分派路，
+  // 少一处就是「直接 `new` 对、把构造函数传出去再 `new` 不对」那个形状。
+  // **装的是 `thisValue`**（第 977 轮订正二）：`callee` 是那个**绑定函数**，
+// 而 `new.target` 按规范是**原函数**——它正是调用方手上这一格
+// （宿主直接构造那两条路上 `DoCallValue` 收到的 `thisValue` 就是被 `new` 的那个函数）。
+this.HostConstructNewTarget = boundCall && this.HostConstructing ? thisValue : Value.Undefined();
+  // **第四格一并交下去**（第 977 轮）：重入这一趟**没有 `DoNew` 的窗口**，
+  // 所以「这一次 `new` 的是谁」只能由调用方（`BoundCall`）明说——
+  // 与 `constructThis` 走同一条路（那一格也是这么递进来的）。
+  const produced = this.CallHostValue(callee, hostThis, args, newTarget);
   this.HostConstructThis = savedConstructThis;
+  this.HostConstructNewTarget = savedConstructNewTarget;
   if (produced === null) return Value.Undefined();
   return produced;
 }
@@ -3809,6 +3894,11 @@ if (info.IsGenerator) {
   const createdHandle = this.Table.CreateFrame(closure.Code, info.SlotCount, 0, -1);
   const created = this.Table.Get(createdHandle).AsFrame();
   created.Pc = closure.Code;
+  // **`new.target` 也要铺**（第 977 轮）：生成器这一支**绕开了 `DoCallValue`**——
+  // 而绑定函数转交下来的构造正是从这里进来的。
+  // **没给就是 `undefined`**：JS 里生成器函数本来就不能被 `new`，
+  // 这一格只在「有人明确说了被构造的是谁」时才有值。
+  created.NewTarget = newTarget !== null ? newTarget : Value.Undefined();
   created.Env = closure.Env;
   created.This = thisValue;
   for (let i = 0; i < args.length && i < info.SlotCount; i++) {
@@ -3844,9 +3934,12 @@ if (info.IsAsync) {
   const asyncPromise = this.MakeAsyncPromise(PromiseState.Pending, Value.Undefined());
   const asyncDepth = this.Frames.Depth();
   const asyncHandle = this.Frames.Push(closure.Code, info.SlotCount, NativeReturnSlot);
+
   const asyncFrame = this.Table.Get(asyncHandle).AsFrame();
   asyncFrame.Env = closure.Env;
   asyncFrame.This = thisValue;
+  // **与生成器那一支一字不差**（第 977 轮）：这一格也绕开了 `DoCallValue`。
+  asyncFrame.NewTarget = newTarget !== null ? newTarget : Value.Undefined();
   // **实参照上面那条铺**（同一份规矩：铺到帧的格数为止）。
   for (let i = 0; i < args.length && i < info.SlotCount; i++) {
     asyncFrame.Slots[i] = args[i];
@@ -3875,9 +3968,15 @@ this.NativeEscaped = false;
 this.NativeDepth = this.NativeDepth + 1;
 this.NativeResult = new Value();
 const handle = this.Frames.Push(closure.Code, info.SlotCount, NativeReturnSlot);
+
 const frame = this.Table.Get(handle).AsFrame();
 frame.Env = closure.Env;
 frame.This = thisValue;
+// **`new.target` 那一格**（第 977 轮）：重入这一条**不走 `DoCallValue`**，
+// 所以那一处的默认值要在这里自己写一遍。**第四格给了就用它**
+// （绑定函数转交构造时答案是**原函数**，而这一趟的 `callee` 正是它）；
+// 没给就是「不是构造调用」⇒ `undefined`（JS 的口径：`new.target` 只对构造那一趟有值）。
+frame.NewTarget = newTarget !== null ? newTarget : Value.Undefined();
 // **按实参表铺**（第 142 轮）：铺到帧的格数为止——多出来的丢掉
 //（JS 也这样：多传的实参没有名字接，只是 `arguments` 看得见，而本仓没有它）。
 for (let i = 0; i < args.length && i < info.SlotCount; i++) {
