@@ -588,7 +588,52 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**1 条**）
+## 已知仍开着的缺口（**0 条**）
+
+**第 960 轮：`yield` / `await` 的「第三态」按「有没有操作数」量到底——裸的那个词按上下文分**
+
+- **收掉的那一条**是第 955 轮登记的最后那一格
+  （[`gap-r955-yield-await-outside-context`](../../tests/cases/token/expressions/gap-r955-yield-await-outside-context.ts)，
+  `xl:known-gap` 按规矩撤掉，用例留着当守卫）：`const v = yield;` / `function f() { return (yield); }`
+  / `const w = await;` / `function g() { return await; }` 一律投成 `YieldExpression` / `AwaitKeyword`，
+  而 TS 那边是 `Identifier`（缺 1 多 1）。
+- **第 955 轮登记时写下的入手处是「给投影一个『当前函数是不是生成器 / async』的上下文」，
+  这一轮量下来发现它**只对了一半**——判据不是「我在不在上下文里」，而是
+  **「这个词有没有操作数」与「在不在上下文里」两条一起**。按 TS 逐档量出来的表：
+
+  | 写法 | TS |
+  | --- | --- |
+  | 生成器里 `yield 1` / `yield* g()` | `YieldExpression` |
+  | **非生成器**的 `function f() { yield g(); }` | `YieldExpression`（TS 照收，运行期才报） |
+  | **裸** `yield`（`const v = yield;` / `return (yield);`）——非生成器 | **`Identifier`** |
+  | `async` 函数里 `await 1` | `AwaitExpression` |
+  | **非 async** 的 `function f() { await g(); }` | `AwaitExpression`（同上） |
+  | **裸** `await`（`const w = await;` / `return await;`）——非 async | **`Identifier`** |
+  | **模块顶层** `await 0;`（不在任何函数体里） | `AwaitExpression` |
+
+- **修法两条一起**：①这一格只有那个词（`kids.length === 1`，没有操作数、没有 `*`）；
+  ②祖先链上没有生成器 / `async`（新判据 `print-ast-common.xl.md` 的 `functionContextOf`）。
+- **两个半边都实测红过**（这一轮踩的两次，记下来别再各试一半）：
+  - 只看 ②（「不在生成器 / async 里就是标识符」）⇒ `await 0;` 这种**模块顶层 await**
+    一起判掉，`expr-dynamic-import-not-type` / `im-dynamic` / `mod-import-dynamic-await` /
+    `mod-top-level-await` / `gap-sweep-*-async-01` **五条守卫当场红**（`blocked 28 → 33`）；
+  - 只按 `headKind === "Keyword"` 放行（忘了再认一次词）⇒ 产物里 `this` **同样是 `Keyword`**，
+    每一格 `this` 都被投成 `Identifier`（整份文件 `ThisKeyword` 全没、降级期报
+    `name is not a local or a capture: this`）⇒ `coverage 4201 → 3814`、`blocked 28 → 314`。
+- **`yield` / `await` 的祖先链上有三种「函数体」标签**（`Function` / `MethodDeclaration` / `Lamda`），
+  生成器记号是 `Function` / `MethodDeclaration` 里**形参表之前**的一格 `SymbolToken`，
+  `async` 折进 `modifiers`（`Lamda` 另外还有 `IsAsync` 字段、`async` 箭头那一档
+  `async` 留在 `Data` 里当一个 `Identifier`）。
+- **上下文的问法是祖先链，不是 `ctx` 标志**：`projectExpression` 收到的每一格都带
+  `__token`（`WithRangeOf` 记的），`Parent` 链就是产物树——语句 → 体 → 函数，一两跳就到；
+  而带 `ctx` 标志要改的是每一处进函数体的投影路径，漏一处就退化成「在生成器里也不认」。
+- **读数**：`cases:tsast` 已知缺口 **1 → 0**（**清单第十四次清空**）、逐节点一致；
+  `coverage` **4201 / 4367 → 4204 / 4369**（那一条转绿、另加两条守卫：`blocked 28 → 27`、
+  `differ 138` 没动）；九道门当轮全绿。
+- **可复用的判据**：**「同一个词两态」的清单要按「有没有操作数」再核一遍**——
+  第 130 / 739 轮为 `await` / `yield` 写的是「这个词在不在这一格」，
+  而 TS 那边真正的分界是**「带操作数 ⇒ 一律是表达式」+「裸词 ⇒ 才看上下文」**。
+  登记时写下的「给投影一个上下文」只是一半；**下一处这类落点先问「这个词后面跟没跟东西」**。
 
 **第 959 轮：谓词那个括号落在「带体的类成员返回类型位」时往回走那一趟认错形参表**
 

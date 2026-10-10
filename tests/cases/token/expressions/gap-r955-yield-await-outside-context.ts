@@ -1,17 +1,33 @@
-// xl:note `yield` / `await` 在**生成器 / async 之外**是普通标识符（第 955 轮片段普查量出）：
-// `const v = yield;` / `function f() { return (yield); }` / `const w = await;` 这三档里
-// TS 那边都是 `Identifier`（脚本语境的 `yield` 是**普通名字**、非 async 函数里的 `await` 同理），
-// 而产物一律投成 `YieldExpression` / `AwaitKeyword`（缺 `Identifier` 1、多 1）。
-// **根因是「上下文」**：`projectExpression` 那一格认的是「这一格是不是 `yield` / `await` 这个词」
-// （第 130 / 739 轮为「同一个词的两态」写的判据），而**要问的是「我在不在生成器 / async 里」**
-// ——本仓到现在没有那个上下文（token 层也没有：`const await = 1;` 那种**名字位**是好的，
-// 坏的全在**表达式位**）。
-// **与括号无关**：`const v = yield;` 与 `const v = (yield);` 同形（第 954 轮收掉的那条是括号，
-// 这一条不是）；`{ yield: 1 }` 那种**属性名**也是好的。
-// **下一轮的入手处**：给投影（以及 token 层那一趟）一个「当前函数是不是生成器 / async」的上下文
-// ——**别在这一格写第二个近似判据**（第 130 / 739 轮已经写明「同一个词两态都要认」，
-// 缺的是第三态：**不在上下文里**）。这一族一旦收，两个词、九条排版一起绿。
-// xl:known-gap yield / await 在生成器 / async 之外是普通标识符，本仓一律投成 YieldExpression / AwaitKeyword（缺 Identifier 1、多 1）
+// xl:note 第 960 轮转绿（`xl:known-gap` 按规矩撤掉，用例留着当守卫）：缺口原来是
+// `yield` / `await` **两处上下文都不在**时被投成 `YieldExpression` / `AwaitKeyword`，
+// 而 TS 那边是普通 `Identifier`（缺 `Identifier` 1、多 1）。
+//
+// **判据不在「我在不在生成器 / `async` 里」，而在「这个词有没有操作数」**——这一轮按 TS
+// 逐档量了一遍，两种写法**各自两态**：
+//
+// | 写法 | TS |
+// | --- | --- |
+// | 生成器里 `yield 1` / `yield* g()` | `YieldExpression` |
+// | **非生成器**的 `function f() { yield g(); }` | `YieldExpression`（TS 照收，运行期才报） |
+// | **裸** `yield`（`const v = yield;` / `return (yield);`） | **`Identifier`** |
+// | `async` 函数里 `await 1` | `AwaitExpression` |
+// | **非 async** 的 `function f() { await g(); }` | `AwaitExpression`（同上） |
+// | **裸** `await`（`const w = await;` / `return await;` / 顶层 `await;`） | **`Identifier`** |
+//
+// 所以修法是**两条一起**：①这一格只有那个词（`kids.length === 1`，没有操作数、没有 `*`）；
+// ②祖先链上没有生成器 / `async`（`print-ast-common.xl.md` 的 `functionContextOf`）。
+// **只看 ② 会把 `await 0;` 这种模块顶层 await 一起判掉**（TS 那边是 `AwaitExpression`，
+// 片段普查实测 5 条守卫当场红）；**只看 ① 会把生成器里的裸 `yield` 判掉**。
+//
+// **`word` 那一道也不能省**：产物里 `this` 同样是一格 `Keyword`，只按 kind 放行会把
+// 每一格 `this` 投成 `Identifier`（实测整份文件 `ThisKeyword` 全没、降级期报
+// `name is not a local or a capture: this`）。
+//
+// **上下文的问法是祖先链**（不是 `ctx` 标志）：`projectExpression` 收到的每一格都带
+// `__token`（`WithRangeOf` 记的），`Parent` 链就是产物树——语句 → 体 → 函数，一两跳就到。
+//
+// 四档守卫：裸 `yield`（脚本顶层与普通函数里）、裸 `await`（同上）。
+// 反向的五档（生成器 / async / 带操作数 / 顶层 await）由 `expr-yield-await-context.ts` 钉住。
 // xl:end
 const v = yield;
 function f() { return (yield); }

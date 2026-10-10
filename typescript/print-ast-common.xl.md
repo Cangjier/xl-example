@@ -886,6 +886,82 @@ new Map([
 一个节点都不出的（例如 `projectStatement` 对那些「已经是上一条语句终结符」的空语句
 返回 `undefined`）。所以那些出口改为返回 `ctx.Nothing`，`projectNode` 见到它就**直接返回
 `undefined`**，不再往下走通用支。
+
+# private const FUNCTION_LIKE_TAGS:Set<string> = new Set(["Function", "MethodDeclaration", "Lamda"])
+
+**值位的函数体**（三个标签）：`function f() {}` / `class C { m() {} }` / `(x) => x`。
+
+`export function` / `declare function` 那一族最后也收成 `Function`（修饰词折进 `modifiers`），
+所以三个标签就够了；类型位的 `FunctionType` / `ConstructorType` **不在**这张表里
+（那里不可能有 `yield` / `await` 这两个词）。
+
+# private method functionContextOf:(ctx:any, token:any)=>any
+
+从一个产物的 token 出发，找出**最近的那一层函数体**（见 `FUNCTION_LIKE_TAGS`），
+答 `{ generator, async }`；一路上没有函数体就答 `null`（脚本 / 模块顶层）。
+
+**为什么要有这一格**（第 960 轮，缺口 `gap-r955-yield-await-outside-context`）：
+`yield` / `await` 在**生成器 / `async` 之外**是**普通标识符**
+（`const v = yield;` / `function f() { return (yield); }` / `const w = await;` ——
+TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**词本身**
+（第 130 / 739 轮为「同一个词的两态」写的判据）⇒ 一律投成 `YieldExpression` / `AwaitKeyword`。
+缺的是**第三态：不在上下文里**，而上下文只能从祖先链上问。
+
+**判据落在 token 树上**（不是 `ctx` 标志）：`projectExpression` 收到的每一格都带着
+`__token`（`WithRangeOf` 记的），它的 `Parent` 链就是产物树——所以从 `yield` 那一格
+往上一路走到函数体是**一两跳**的事（语句 → 体 → 函数）。带 `ctx` 标志要改的是
+每一处进函数体的投影路径（`Function` / `MethodDeclaration` / `Lamda` / 对象字面量成员…），
+漏一处就退化成「在生成器里也不认」，而祖先链上没有可漏的地方。
+
+**`ctx` 只用来取原文**（`ctx.source`）：`SymbolToken` 上**没有 `TempToString`**
+（那一格是 `Bracket` / `Keyword` 才有的），所以记号一律按源码切片取。
+生成器记号是一个平级的 `SymbolToken`（`function* g() {}` 与 `class C { *m() {} }`
+都把它放在 `Data` 里，位置分别在名字之后 / 名字之前），`async` 则有三种落法
+（折进 `modifiers`、留在 `Data` 里当一个 `Identifier`、或 `Lamda` 的 `IsAsync` 字段）。
+
+```ts
+  let cursor = token;
+  while (cursor !== null && cursor !== undefined) {
+    const tag = cursor.constructor.name;
+    if (FUNCTION_LIKE_TAGS.has(tag)) {
+      let generator = false;
+      let async = false;
+      if (typeof cursor.modifiers === "string" && cursor.modifiers.split(",").includes("async")) {
+        async = true;
+      }
+      if (Array.isArray(cursor.Data)) {
+        for (const item of cursor.Data) {
+          // **只在形参表之前找记号**：`function* g(a * b)` 这种乘法在括号**里面**，
+          // 撞上那个 `(` 就收手，免得把一个乘法记号读成生成器。
+          // 本文件**不 import `Bracket`**（见文件头：只 import 了 `Token` 与 `Translate`），
+          // 所以这里按 `constructor.name` 认标签——与 `wrapperTarget` 那一处同一条口径。
+          if (item.constructor.name === "Bracket" && item.startBracket === "(") {
+            break;
+          }
+          if (item.constructor.name === "SymbolToken") {
+            const range = item.SourceRange;
+            if (range.Start !== null && range.Start !== undefined && range.Start.Value === "*") {
+              generator = true;
+            }
+          }
+          if (item.constructor.name === "Identifier") {
+            const range = item.SourceRange;
+            if (range.Start !== null && range.End !== null && ctx.source.slice(range.Start.Index, range.End.Index + 1) === "async") {
+              async = true;
+            }
+          }
+        }
+      }
+      if (cursor.IsAsync === true) {
+        async = true;
+      }
+      return { generator: generator, async: async };
+    }
+    cursor = cursor.Parent;
+  }
+  return null;
+```
+
 # private const SIGNATURE_KINDS:Set<string> = new Set(["FunctionDeclaration", "MethodDeclaration", "MethodSignature", "CallSignature", "ConstructSignature"])
 
 没有函数体的**可调用签名**：它们的 `end` 要**带上尾随分号**（TS 的口径）。
@@ -2578,6 +2654,46 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   const headWord = textOfNode(kids[0], ctx);
   if (headKind === "Keyword" || (headKind === "Identifier" && (headWord === "await" || headWord === "yield"))) {
     const word = headWord;
+    // **第三态：裸的那个词**（第 960 轮，缺口 `gap-r955-yield-await-outside-context`）。
+    //
+    // 这个分支到第 959 轮为止只认「这一格是不是 `yield` / `await` 这个词」，而 TS 那边
+    // 这两种写法**各自有两态**，分界**不在「我在不在生成器 / `async` 里」，而在「这个词有没有操作数」**：
+    //
+    // | 写法 | TS |
+    // | --- | --- |
+    // | 生成器里 `yield 1` / `yield* g()` | `YieldExpression` |
+    // | **非生成器**的 `function f() { yield g(); }` | `YieldExpression`（TS 照收，运行期才报） |
+    // | **两处都算**的裸 `yield`（`const v = yield;` / `return (yield);`） | **`Identifier`** |
+    // | `async` 函数里 `await 1` | `AwaitExpression` |
+    // | **非 async** 的 `function f() { await g(); }` | `AwaitExpression`（同上） |
+    // | **两处都算**的裸 `await`（`const w = await;` / `return await;` / 顶层 `await;`） | **`Identifier`** |
+    //
+    // 所以判据是**两条一起**：①这一格**只有那个词**（`kids.length === 1`，没有操作数、
+    // 没有 `*`）；②我**不在**那个上下文里（见 `functionContextOf`）。两条都成立才是普通标识符。
+    // 只看 ② 会把 `await 0;` 这种**模块顶层 await** 一起判掉（那一条 TS 是 `AwaitExpression`），
+    // 只看 ① 会把生成器里的裸 `yield` 判掉（那一条 TS 是 `YieldExpression`）。
+    //
+    // **`word` 这一道不能省**：这一格拿到的 `Keyword` **不止这两个词**——
+    // `this` 在产物里也是一格 `Keyword`（`leafKindOfText` 把它投成 `ThisKeyword`），
+    // 只按 `headKind === "Keyword"` 放行就会把每一格 `this` 都投成普通的 `Identifier`
+    //（实测：整份文件的 `ThisKeyword` 全没了、降级期报 `name is not a local or a capture: this`）。
+    //
+    // **区间必须收在词自己身上**：不折时这一格是**一个标识符**，TS 的 `Identifier[9,15)`
+    // 就是那个词；而下面 `yield` 那一支的 `end` 会拉到操作数末尾，照抄过来就会多出一段。
+    // 所以这一支**自己造 `Identifier`**、不落下去。
+    if (headKind === "Keyword" && (word === "yield" || word === "await") && kids.length === 1) {
+      const owner = kids[0].__token;
+      const context = owner === undefined ? null : functionContextOf(ctx, owner);
+      const inContext = context !== null && (word === "yield" ? context.generator === true : context.async === true);
+      if (inContext === false) {
+        return {
+          kind: "Identifier",
+          text: word,
+          pos: startOf(kids[0]),
+          end: endOf(kids[0]),
+        };
+      }
+    }
     // **`yield` 可以没有操作数、也可以带 `*`**（第 130 轮）：`yield;` 的 TS 是
     // `YieldExpression[146,151)`（就是那个词），`yield* other()` 的 `*` 进
     // `asteriskToken`、`other()` 进 `expression`。少了这两支，裸 `yield` 会被投成
