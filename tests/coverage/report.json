@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.58,
+  "progressPercent": 95.6,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1601,
-      "pass": 1591,
-      "blocked": 10,
+      "pass": 1593,
+      "blocked": 8,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.38
+      "coverage": 99.5
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1601,
-    "knownGap": 10,
-    "knownGapStillOpen": 10,
-    "exactFiles": 1591,
-    "scoredWithoutGap": 1591,
-    "passedWithoutGap": 1591
+    "knownGap": 8,
+    "knownGapStillOpen": 8,
+    "exactFiles": 1593,
+    "scoredWithoutGap": 1593,
+    "passedWithoutGap": 1593
   },
   "blocked": [
     {
@@ -184,18 +184,6 @@
       "category": "token",
       "title": "",
       "detail": "漂 1　第 964 轮普查量到的形状：`CallExpression` 漂 2：第二次调用（`()` 又跟一次）没有接上。根因还没量到——如实登记，不猜。"
-    },
-    {
-      "id": "token/expressions/gap-r964-opt-index-index-call",
-      "category": "token",
-      "title": "",
-      "detail": "缺 1　第 964 轮普查量到的形状：缺一个 `CallExpression`：第二次下标之后那次调用整格丢。根因还没量到——如实登记，不猜。"
-    },
-    {
-      "id": "token/expressions/gap-r964-opt-member-tagged-call",
-      "category": "token",
-      "title": "",
-      "detail": "缺 1　第 964 轮普查量到的形状：缺 `CallExpression`：模板串被当标签之后那次调用没有接上。根因还没量到——如实登记，不猜。"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",

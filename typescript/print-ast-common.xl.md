@@ -5218,13 +5218,22 @@ return false;
         end: endOf(tagName),
       };
       if (questionDot !== undefined) member.questionDotToken = questionDot;
-      return {
+      // **模板串后面还跟着兄弟时，链要接着往下接**（第 965 轮）：`` a?.b`t`() `` 的产物是
+      // `[Identifier(a), NCO(Identifier(b), String)]`，而那次调用是 **NCO 的下一个兄弟**
+      // （与上面 `a?.[b][c]()` 那一档同形：链的最后一格在 NCO 里、续格在 NCO 外面）。
+      // 原来这里直接交出一个 `TaggedTemplateExpression` 就完了 ⇒ 那次调用**整格丢**
+      //（实测 `gap-r964-opt-member-tagged-call`：缺一个 `CallExpression`）。
+      // 剩下的兄弟交给 `chainOnto`——「紧跟一对圆括号 ⇒ 再调一次」那一支正是这一档要的。
+      const tagged: any = {
         kind: "TaggedTemplateExpression",
         tag: member,
         template: projectNode(stringUnit, ctx),
         pos: left.pos,
         end: endOf(stringUnit),
       };
+      const afterString = kids.indexOf(stringUnit) + 1;
+      if (afterString < kids.length) return chainOnto(tagged, kids.slice(afterString), ctx);
+      return tagged;
     }
   }
   // **这一格自己又是一条链**（第 124 轮）：`a?.b.c` 的产物是
@@ -5362,7 +5371,15 @@ return false;
       pending = undefined;
       j += 1;
     }
-    return node;
+    // **这一格后面还跟着兄弟时，链要接着往下接**（第 965 轮）：`a?.[b][c]()` 的产物是
+    // `[Identifier(a), NCO(PropertyAccess([Bracket([b]), Bracket([c])]), Bracket(()))]`——
+    // **两个下标装在 NCO 里的那一格 `PropertyAccess` 里**，而那次调用是 NCO 的**下一个兄弟**。
+    // 原来这里直接 `return node`（下标接完就交差）⇒ 那次调用**整格丢**，
+    // `ElementAccessExpression` 的区间也只到 `[c]` 为止（实测
+    // `gap-r964-opt-index-index-call`：缺一个 `CallExpression`）。
+    // 剩下的兄弟交给 `chainOnto`——「紧跟一对圆括号 ⇒ 再调一次」那一支正是这一档要的，
+    // 与上面 `?.[i]` 那一支里同一个写法（第 962 轮立），不写第二份。
+    return kids.length > 1 ? chainOnto(node, kids.slice(1), ctx) : node;
   }
   // **成员名一律是 `Identifier`**（第 175 轮）：`a?.import` 里那个 `import` 在产物中是
   // `Keyword`，照通用支投会得到 `ImportKeyword`，而 TS 那边点号后面一律是**属性名**

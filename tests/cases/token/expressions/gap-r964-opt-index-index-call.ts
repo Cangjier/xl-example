@@ -1,4 +1,7 @@
-// xl:known-gap 第 964 轮普查量到的形状：缺一个 `CallExpression`：第二次下标之后那次调用整格丢。根因还没量到——如实登记，不猜。
+// xl:note 第 965 轮收掉：第二次下标之后那次调用原来整格丢——`chainWithOptional` 的
+// `PropertyAccess` 那一支（NCO 里装着两个下标）折完下标就 `return node`，
+// 没把 NCO 剩下的那一格 `Bracket(())` 交给 `chainOnto`。
+// 修法就是那一句：还有兄弟就接着接（与 `?.[i]` 那一支同一个写法），`xl:known-gap` 按规矩撤掉。
 // xl:round 964
 // 第 964 轮换一批底样普查（调用 / 可选链 / 非空断言 / 下标，47 条里 11 条对不上）量出来的，
 // 与第 962 / 963 两轮收掉的那一族**同域**——都在 `print-ast-common.xl.md` 的**投影层**
