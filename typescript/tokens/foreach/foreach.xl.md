@@ -290,7 +290,7 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
 
 ```ts
   const props: any = {};
-  const define = ctx.KidsOf(v, "define").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const define = ctx.KidsOf(v, "define").filter((k: any) => !k.IsInvisible());
   if (define.length > 0) {
     if (define[0].Tag() === "Let") {
       props.initializer = ctx.LetFrom(define, v).list;
@@ -310,10 +310,10 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
       }
     }
   }
-  const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !k.IsInvisible());
   if (enumable.length > 0) props.expression = ctx.Expression(enumable);
   const kind = v.isForIn === true ? "ForInStatement" : "ForOfStatement";
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible());
   const rawEmpty = v.emptyBodyAt;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
   let statement;

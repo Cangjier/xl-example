@@ -490,7 +490,7 @@ return new Map([["DoStatement", new Map([["compare", "condition"], ["body", "sta
 
 ```ts
   const props: any = {};
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible());
   // **体那一对花括号直读字段**（第 619 轮那一格，第 641 轮带上整段，与 `While` 同一条）：
   // 两端都是**挂体那一刻**的事实 ⇒ 空块与带块的体都由 `BodyBlockOf` 直接给出
   //（`do {} while (c);` 的右端取**配对的花括号**，不是本单元的终点——那后面还有
@@ -505,7 +505,7 @@ return new Map([["DoStatement", new Map([["compare", "condition"], ["body", "sta
     const statement = ctx.BodyBlockOf(v.start + "do".length, body, v.bodyBraceRange);
     if (statement !== undefined) props.statement = statement;
   }
-  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !k.IsInvisible());
   if (compare.length > 0) props.expression = ctx.Expression(compare);
   return ctx.NodeHead("DoStatement", props, v);
 ```

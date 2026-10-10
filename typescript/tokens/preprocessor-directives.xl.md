@@ -255,6 +255,17 @@ context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
 return BranchStates.Done;
 ```
 
+## method IsInvisible:()=>bool
+
+**预处理指令在投影里不是一个节点**（第 1030 轮）：它在语法结构里不挡住相邻判断，
+投影出来的树上没有它，所以这一格答 `true`（口径见 `core/syntax/token.xl.md` 的 `IsInvisible`）。
+这份名单过去写在投影层的 `INVISIBLE` 里（另有一份在 `text-common-util` 的 `IsTriviaUnit`），
+两处都改成问这一格。
+
+```ts
+return true;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

@@ -234,9 +234,9 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
 
 ```ts
   const props: any = {};
-  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !k.IsInvisible());
   if (compare.length > 0) props.expression = ctx.Expression(compare);
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible());
   // **空体那一格先读 token 上的字段**（第 590 轮）：有它就不必配对括号 + 扫原文。
   const rawEmpty = v.emptyBodyAt;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;

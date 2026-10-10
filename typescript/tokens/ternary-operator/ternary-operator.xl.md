@@ -604,7 +604,7 @@ if (condition.Data.length === 0 || trueStatement.Data.length === 0 || falseState
 // 提到换行上，而 TS 的 `getStart()` **从不含前导 trivia**（实测这一族以
 // `ConditionalExpression` 为首，`漂移` 榜上一整片）。段尾同理。
 //
-// 换行仍然留在段的 `Data` 里（投影侧按 `INVISIBLE` 跳过它们），只是**不参与签入签出**。
+// 换行仍然留在段的 `Data` 里（投影侧按 `IsInvisible()` 跳过它们），只是**不参与签入签出**。
 // 第 127 轮把**注释**也一并跳过：`? // 说明` 换行 `nameUnits…` 这种排版里，
 // 段首是一个 `LineAnnotation`，拿它签入会把整条三元的 `pos` 提到注释开头。
 const firstReal = (data: Array<Token>): Token => {

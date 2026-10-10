@@ -285,16 +285,16 @@ return new Map([["ForStatement", new Map([["initial", "initializer"], ["compare"
 
 ```ts
   const props: any = {};
-  const initial = ctx.KidsOf(v, "initial").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const initial = ctx.KidsOf(v, "initial").filter((k: any) => !k.IsInvisible());
   if (initial.length > 0) {
     props.initializer =
       initial[0].Tag() === "Let" ? ctx.LetFrom(initial, v).list : ctx.Expression(initial);
   }
-  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !k.IsInvisible());
   if (compare.length > 0) props.condition = ctx.Expression(compare);
-  const next = ctx.KidsOf(v, "next").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const next = ctx.KidsOf(v, "next").filter((k: any) => !k.IsInvisible());
   if (next.length > 0) props.incrementor = ctx.Expression(next);
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible());
   // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
   const built = ctx.BlockOfBody(body, -1, v.bodyBraceRange);
   if (built !== undefined) {

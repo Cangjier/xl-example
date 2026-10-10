@@ -807,12 +807,12 @@ return new Map([["CallSignature", new Map([["children", "parameters"]])], ["Cons
     const inner = ctx.Kids(newUnit);
     const bracket = inner.find((k: any) => k.Tag() === "Bracket");
     if (bracket !== undefined) {
-      const params = ctx.UnwrapNodes(bracket).filter((k: any) => !ctx.Invisible.has(k.Tag()));
+      const params = ctx.UnwrapNodes(bracket).filter((k: any) => !k.IsInvisible());
       props.parameters = ctx.ProjectEach(params, kind);
     }
     const returnType = inner.find((k: any) => k.Tag() === "ReturnType");
     if (returnType !== undefined) {
-      const inner2 = ctx.UnwrapNodes(returnType).filter((k: any) => !ctx.Invisible.has(k.Tag()));
+      const inner2 = ctx.UnwrapNodes(returnType).filter((k: any) => !k.IsInvisible());
       const t = ctx.TypeOf(inner2);
       if (t !== undefined) props.type = t;
     }

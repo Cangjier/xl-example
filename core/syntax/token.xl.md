@@ -911,6 +911,26 @@ return undefined;
 return undefined;
 ```
 
+## method IsInvisible:()=>bool
+
+**我在投影出来的那棵树里出不出现**（第 1030 轮）——答 `true` 就是说「我不是一个节点」、
+投影跳过我与相邻判定都当我不存在。
+
+这一格是**那四个类自己的事实**（`LineWrap` 软换行、`LineAnnotation` 行注释、
+`AreaAnnotation` 区域注释、`PreprocessorDirectives` 预处理指令），过去它写成投影层的一个
+**按类名查的名单**（`typescript/print-ast-common.xl.md` 的 `INVISIBLE`）与
+`typescript/text-common-util.xl.md` 里**同一份名单的第二遍**（`IsTriviaUnit`，那一页的注释
+自己写着「两处必须一起改」）——同一份事实三处声明，加一条就要跑三个地方。
+今天基类答 `false`、那四页各自覆写，问法只有这一个（`item.IsInvisible()`），
+`INVISIBLE` 与 `IsTriviaUnit` 都改成转调它。
+
+**基类答 `false`**：绝大多数 token 在投影里都是一个节点；需要它的 token 在自己那一页覆写
+（`## method`，与 `AstKind` / `StatementKind` / `SegmentNames` 同一形态）。
+
+```ts
+return false;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

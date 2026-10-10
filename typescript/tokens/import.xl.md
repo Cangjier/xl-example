@@ -337,7 +337,7 @@ return index;
   const assertUnits: any[] = [];
   const moduleAt = kids.indexOf(moduleNode);
   if (moduleNode !== undefined && moduleAt >= 0) {
-    const after = kids.slice(moduleAt + 1).filter((k: any) => !ctx.Invisible.has(k.Tag()));
+    const after = kids.slice(moduleAt + 1).filter((k: any) => !k.IsInvisible());
     const braceAt = after.findIndex(
       (k: any) => k.Tag() === "Bracket" && k.startBracket === "{",
     );
@@ -403,7 +403,7 @@ return index;
   }
   const clause = kids.filter(
     (k: any) =>
-      k !== moduleNode && k !== fromNode && !assertUnits.includes(k) && !ctx.Invisible.has(k.Tag()),
+      k !== moduleNode && k !== fromNode && !assertUnits.includes(k) && !k.IsInvisible(),
   );
   if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
   // **`ImportClause` 的起点**：type-only 读 `TypeWordAt`（上面已经确认它记过），

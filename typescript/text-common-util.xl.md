@@ -1002,22 +1002,25 @@ return out;
 
 判断单元**不是**按 `LineWrap` 一个类：注释在产物树里是独立的 `LineAnnotation` /
 `AreaAnnotation`（见 `parse-pipeline.xl.md` 的「注释不在这里被摘掉」），而预处理指令
-是 `PreprocessorDirectives`。`Token.PrintDirectAst` 那一侧也有同一份名单（`INVISIBLE`），
-两处必须一起改——它们说的是同一件事：「这个单元在语法结构里不该挡住相邻判断」。
+是 `PreprocessorDirectives`。
 
-按**类名**判而不是 `instanceof`：`text-common-util` 这一层向上 import 那三个类会绕出环。
+**这一格今天只是转调**（第 1030 轮）：那四个类各自答 `IsInvisible()`
+（`core/syntax/token.xl.md` 的基类答 `false`），判断的是同一件事
+——「这个单元在语法结构里不该挡住相邻判断」。搬过来之前这里按 `constructor.name`
+逐名比，而投影层还写着**同一份名单的第二份**（`INVISIBLE`，本页的说明当时写着
+「两处必须一起改」）——同一份事实三处声明，加一条要跑三个地方。
+
+按**类名**判而不是 `instanceof` 的老理由（`text-common-util` 向上 import 那三个类会绕出环）
+在这条路上已经不成立了：问的是一格虚方法，不需要 import 任何一个类。
 
 ```ts
 if (item === null) {
   return false;
 }
-const name = item.constructor.name;
-return (
-  name === "LineWrap" ||
-  name === "LineAnnotation" ||
-  name === "AreaAnnotation" ||
-  name === "PreprocessorDirectives"
-);
+// 问单元自己那一格（第 1030 轮）：名单只有一份，住在那四个类各自的 IsInvisible() 里
+// （基类答 false，见 core/syntax/token.xl.md）。这里过去按 constructor.name 逐名比 ——
+// 那是同一份名单的第二遍，本页的说明自己写着「两处必须一起改」。
+return item.IsInvisible();
 ```
 
 # method IsSwitchLabelColon:(units:Array<Token>, index:number, requireStatementParent?:bool)=>bool

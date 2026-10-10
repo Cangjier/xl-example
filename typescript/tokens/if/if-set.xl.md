@@ -169,7 +169,7 @@ ifSet.MountCondition(source);
 `ctx.BlockOfBody` 一调用就**记一次账**（`projectNode` 的 `count`），而让开之后 `PrintDirectAst`
 会把同一格再投一遍 ⇒ 两趟的 `count` 差出来（实测 `stmt-empty-blocks` +1、`stmt-if-empty-else-block` +2，
 产物字节一模一样、只有记账不等）。所以这里先跑一趟**只看字段、不投任何东西**的 `canBuild`
-（`ctx.Attr` / `ctx.Kids` / `ctx.KidsOf` / `ctx.Invisible` 都不记账），它答否就整条链让开。
+（`ctx.Attr` / `ctx.Kids` / `ctx.KidsOf` / 单元自己的 `IsInvisible()` 都不记账），它答否就整条链让开。
 
 ```ts
   const segments = ctx.Kids(v).filter((k: any) => k.Tag() === "IfSegment");
@@ -184,7 +184,7 @@ ifSet.MountCondition(source);
     const cond = new Set(ctx.KidsOf(seg, "condition"));
     const kept: any[] = [];
     for (const k of ctx.AllKids(seg)) {
-      if (ctx.Invisible.has(k.Tag()) || cond.has(k)) continue;
+      if (k.IsInvisible() || cond.has(k)) continue;
       if (k.Tag() === "IfBody") {
         for (const inner of ctx.Kids(k)) kept.push(inner);
         continue;

@@ -429,13 +429,13 @@ return new Map([["NewExpression", new Map([["name", "expression"]])]]);
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
 
 **这一页本来就是「全字段」的**（`PrintDirectAst` 里的每一问都读 `name` / `arguments` 两个段与子单元自己的东西），
-所以直出版是**逐行同一份**：`ctx.KidsOf` / `ctx.Invisible` / `ctx.ParenthesizedOf` / `ctx.Expression` /
+所以直出版是**逐行同一份**：`ctx.KidsOf` / 单元自己的 `IsInvisible()` / `ctx.ParenthesizedOf` / `ctx.Expression` /
 `ctx.Split` / `ctx.TypeExpression` / `ctx.NodeHead` 都是出口助手，没有一处回原文查。
 唯一一处「判据落在 token 自己的字段上」的是 `IsTemplateString`——它读的是 `String.StringChar`
 （那一格自己记着用哪个引号开头），不是原文里那个字符。
 
 ```ts
-  const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !k.IsInvisible());
   const genericAt = nameUnits.findIndex((k: any) => k.Tag() === "GenericType");
   // **问那一格它自己**（第 1022 轮）：`view` 那一层删掉之后节点就是 token，
   // `.__token` 恒为 `undefined` ⇒ `IsTemplateString(null)` 恒为否
@@ -466,7 +466,7 @@ return new Map([["NewExpression", new Map([["name", "expression"]])]]);
     }
     if (typeArguments.length > 0) props.typeArguments = typeArguments;
   }
-  const args = ctx.KidsOf(v, "arguments").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const args = ctx.KidsOf(v, "arguments").filter((k: any) => !k.IsInvisible());
   const argGroups = ctx.Split(args, ",");
   const argumentList = [];
   for (const group of argGroups) {

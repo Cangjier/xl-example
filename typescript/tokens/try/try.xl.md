@@ -245,7 +245,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 也没有一处需要让开。
 
 ```ts
-  const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !k.IsInvisible());
   const props: any = {};
   const blockOf = (field: any, statements: any) => {
     const range = field.Range;
@@ -260,7 +260,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
   if (catchDefine !== undefined || catchBody !== undefined) {
     const inner: any = {};
     if (catchDefine !== undefined) {
-      const binding = ctx.AllKids(catchDefine).find((k: any) => !ctx.Invisible.has(k.Tag()));
+      const binding = ctx.AllKids(catchDefine).find((k: any) => !k.IsInvisible());
       const isPattern =
         binding !== undefined &&
         (binding.Tag() === "ObjectLiteral" ||
@@ -279,7 +279,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
         const typeKid = ctx.AllKids(catchDefine).find((k: any) => k.Tag() === "TypeDefine");
         if (typeKid !== undefined) {
           declEnd = ctx.EndOf(typeKid);
-          const typeUnit = ctx.AllKids(typeKid).find((k: any) => !ctx.Invisible.has(k.Tag()));
+          const typeUnit = ctx.AllKids(typeKid).find((k: any) => !k.IsInvisible());
           if (typeUnit !== undefined) {
             declType = ctx.TypeExpression(ctx.Kids(typeKid));
           }

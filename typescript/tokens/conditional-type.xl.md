@@ -309,7 +309,7 @@ for (let i = index + 1; i < units.length; i++) {
     // 注释是一个 `LineAnnotation` 单元，原来它被当成「别的单元」把 `afterColon` 清成 `false`，
     // 紧接着那个换行的边界判定就成立、整条条件类型在注释处收尾
     // （实测 `lib.es5.d.ts` 的 `Awaited`：缺 43 个节点，假分支里那一整条内层条件类型全没了）。
-    // 注释是 trivia，与软换行一样**不参与**这段判定；它仍然进 `Data`（投影侧按 `INVISIBLE` 跳过）。
+    // 注释是 trivia，与软换行一样**不参与**这段判定；它仍然进 `Data`（投影侧按 `IsInvisible()` 跳过）。
     const isComment = item instanceof LineAnnotation || item instanceof AreaAnnotation;
     if (!isComment) {
       const isColon = item instanceof SymbolToken && item.Is(":");

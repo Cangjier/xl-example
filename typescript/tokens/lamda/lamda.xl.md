@@ -720,7 +720,7 @@ if (parameterUnit instanceof Bracket) {
   // **只有 trivia 的一段不成形参**（第 818 轮）：`(/*c*/) => 1` 里扁平化之后只有那条注释，
   // 照原样会包出一个**零宽 `Parameter`**（实测 `EXTRA Parameter [11,11)`、
   // `FIELD ArrowFunction` 多一个 `parameters`；`m(/*c*/)` 那一族在 `parameter.xl.md` 同根一起收掉）。
-  // 注释不带走——它留在原处（形参表括号的 `Data` 里），投影时是 `INVISIBLE`。
+  // 注释不带走——它留在原处（形参表括号的 `Data` 里），投影时按 `IsInvisible()` 跳过。
   const flushParameter = (): void => {
     if (tempParameters.every((item) => IsTriviaUnit(item))) {
       tempParameters.length = 0;
