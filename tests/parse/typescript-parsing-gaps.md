@@ -588,7 +588,31 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**0 条**）
+## 已知仍开着的缺口（**13 条**）
+
+**第 972 / 973 / 974 轮：第 971 轮登记的两格收掉（清单第十五次清空），同一轮的普查又量出 13 格**
+
+- **收掉的两格**（`xl:known-gap` 按规矩撤掉，用例留着当守卫）：
+  [`gap-r971-nonnull-call-thrice-member`](../../tests/cases/token/expressions/gap-r971-nonnull-call-thrice-member.ts)
+  （`a!()()().c`）与
+  [`gap-r971-opt-assert-index-member`](../../tests/cases/token/expressions/gap-r971-opt-assert-index-member.ts)
+  （`a?.b![0].c`）——两格都是**两处判据各缺一句**（入口 + 层数 / 子链抬出 `isDot` 段 + 子链循环缺下标那一支），
+  逐句来龙去脉写在各自的用例头里。
+- **登记的那 13 格**（第 974 轮换一批**更深**的底样普查：30 条同族片段里 13 条对不上）：
+  `gap-r973-*` 一共 13 份，全在 `tests/cases/token/expressions/`，按三族分——
+  1. **「层数」要递归着问**：`nonnull-call-quad`（`a!()()()()`）、`nonnull-call-quad-member`、
+     `nonnull-member-call-quad`、`nonnull-call-assert-call-assert`、`nonnull-call-twice-assert`、
+     `member-call-thrice-member`；
+  2. **同形副本**：`opt-assert-call-thrice`（`a?.b!()()()`）、`opt-assert-call-thrice-member`、
+     `opt-index-call-thrice`——第 972 轮改的是 `projectExpression` 链循环那一份，
+     `chainWithOptional` 的子链分支里还住着同形的另一份；
+  3. **断言 + 下标 / 断言 + 调用落在 NCO 尾巴上**：`opt-assert-index-index-member`
+     （`a?.b![0]![1].c`）、`opt-assert-index-call-member`、`opt-call-assert-index`、
+     `opt-call-assert-index-member`。
+- **下一轮的入手处**：从上面第 1 族那 6 格挑——它们同一个问句（「这一格自己盖着几层调用」），
+  一次能把一族收掉；第 2 族要先数清**同形副本有几处**（第 970 轮的教训：锚点要选那一段独有的字符串）。
+- **数字**：`cases:tsast` 已知缺口 **2 → 0 → 13**；`coverage` **4221 / 4383 → 4223 / 4396**
+  （分子 +2 是那两格转绿、分母 +13 是这一轮登记的账，`blocked 27 → 38`）、加权 **95.6%**；九道门全绿。
 
 **第 960 轮：`yield` / `await` 的「第三态」按「有没有操作数」量到底——裸的那个词按上下文分**
 
