@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsArrowReturnTypeBracket, IsSwitchLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, IsBindingPatternBrace, IsImportExportTypeClauseBrace, IsMappedKeyBracket } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsArrowReturnTypeBracket, IsSwitchLabelColon, IsLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, IsBindingPatternBrace, IsImportExportTypeClauseBrace, IsMappedKeyBracket } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -610,6 +610,11 @@ return false;
   （它前面是模块名那个字符串），顺着爬上去会把整整两族的真映射类型判掉
   （实测 `@types/node/os.d.ts` / `fs.d.ts` / `util.d.ts` 三片各报「多出来」）。
   声明体的 `{` 不是「里面还有一层位置」的花括号，所以链到它就断。
+- **父亲是标签块的体也停**（第 953 轮普查量出来的）：`lbl: { const o = { [K in T]: X }; }` 里，
+  里层 `{` 的父亲是**标签块那个 `{`**，而它在 `BraceInExpression` 眼里是「表达式里的 `{`」
+  （它前面是那个标签冒号 —— 一个符号）⇒ 爬进去之后位置判据撞上**标签冒号**、答「类型位」。
+  **标签是语句**，块里没有「这一层处在类型位还是值位」这回事 ⇒ 链到它也断
+  （判据用第 930 轮收成一份的 `IsLabelColon`，不再写第四份近似）。
 
 ```ts
 if (unit === null) {
@@ -625,6 +630,18 @@ if (container !== null && container instanceof Bracket && container.startBracket
       break;
     }
     if (BraceInExpression(parent) === false) {
+      break;
+    }
+    // **标签块的体也停**（第 953 轮）：`lbl: { … }` 里装的是**语句**，链爬进去之后
+    // 位置判据撞上的是那个标签冒号 ⇒ 只会答「类型位」（实测 `lbl: { const o = { [K in T]: X }; }`）。
+    // **判据用现成的 `IsLabelColon`**（第 930 轮收成一份的那条），**并且要求父亲那一格不在花括号里**：
+    // `{ a: { b: { … } } }` 里 `a:` 也是「语句开头的名字 + 冒号」的形状（`IsLabelColon` 对它答真），
+    // 少这一句就会在**成员位**停下、把嵌两层那一族判回去（实测 `value-nested-2` 当场红）。
+    const parentHost:Token | null = parent.Parent;
+    const parentAt = parentHost === null ? -1 : parentHost.Data.indexOf(parent);
+    const hostIsBrace = parentHost !== null && parentHost instanceof Bracket && parentHost.startBracket === "{";
+    const colonAt = parentAt < 0 ? -1 : SkipPreviousTrivia(parentHost!.Data, parentAt);
+    if (colonAt >= 0 && hostIsBrace === false && IsLabelColon(parentHost!.Data, colonAt)) {
       break;
     }
     node = parent;

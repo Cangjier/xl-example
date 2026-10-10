@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4360,
+  "total": 4362,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.51,
+  "progressPercent": 95.5,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1581,
-      "pass": 1581,
-      "blocked": 0,
+      "total": 1583,
+      "pass": 1582,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.94
     },
     {
       "category": "exec",
@@ -129,14 +129,20 @@
     }
   ],
   "token": {
-    "total": 1581,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
-    "exactFiles": 1581,
-    "scoredWithoutGap": 1581,
-    "passedWithoutGap": 1581
+    "total": 1583,
+    "knownGap": 1,
+    "knownGapStillOpen": 1,
+    "exactFiles": 1582,
+    "scoredWithoutGap": 1582,
+    "passedWithoutGap": 1582
   },
   "blocked": [
+    {
+      "id": "token/expressions/gap-r953-computed-paren-name",
+      "category": "token",
+      "title": "计算属性名里**套一层圆括号**时括号不成形（第 953 轮普查量出）。",
+      "detail": "缺 2　多 2　未映射 1　计算属性名里套圆括号时括号不成形（缺 ParenthesizedExpression 1、多未映射 Bracket 1）"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -431,7 +437,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2188.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2190.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -731,7 +737,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3176.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3178.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -755,7 +761,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3224.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3226.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/051-builtin-regexp-constructor",
@@ -923,7 +929,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3867.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3869.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
