@@ -348,6 +348,74 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
   return ctx.NodeHead("TryStatement", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 995 轮）：与上面的 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+
+**这一页早就把三处「回原文找」搬成字段了**（第 586 / 893 轮：`TryBrace` / `CatchBrace` /
+`FinallyBrace` / `CatchWord`），所以直出版与上面是**逐行同一份**——没有一处回原文查，
+也没有一处需要让开。
+
+```ts
+  const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const props: any = {};
+  const blockOf = (field: any, statements: any) => {
+    const range = field.Range;
+    if (range === null || range.Start === null || range.End === null) return undefined;
+    return { kind: "Block", statements, pos: range.Start.Index, end: range.End.Index + 1 };
+  };
+  const tryBlock = blockOf(this.TryBrace, ctx.ProjectEach(seg("body"), "Block"));
+  if (tryBlock !== undefined) props.tryBlock = tryBlock;
+  const catches = seg("catches");
+  const catchDefine = catches.find((k: any) => k.get("type") === "CatchDefine");
+  const catchBody = catches.find((k: any) => k.get("type") === "CatchBody");
+  if (catchDefine !== undefined || catchBody !== undefined) {
+    const inner: any = {};
+    if (catchDefine !== undefined) {
+      const binding = ctx.AllKids(catchDefine).find((k: any) => !ctx.Invisible.has(k.get("type")));
+      const isPattern =
+        binding !== undefined &&
+        (binding.get("type") === "ObjectLiteral" ||
+          binding.get("type") === "ArrayLiteral" ||
+          (binding.get("type") === "Bracket" &&
+            (binding.get("startBracket") === "{" || binding.get("startBracket") === "[")));
+      const name =
+        binding === undefined
+          ? undefined
+          : isPattern
+            ? ctx.BindingPattern(binding)
+            : ctx.Project(binding);
+      if (name !== undefined) {
+        let declEnd = name.end;
+        let declType: any = undefined;
+        const typeKid = ctx.AllKids(catchDefine).find((k: any) => k.get("type") === "TypeDefine");
+        if (typeKid !== undefined) {
+          declEnd = ctx.EndOf(typeKid);
+          const typeUnit = ctx.AllKids(typeKid).find((k: any) => !ctx.Invisible.has(k.get("type")));
+          if (typeUnit !== undefined) {
+            declType = ctx.TypeExpression(ctx.Kids(typeKid));
+          }
+        }
+        inner.variableDeclaration = declType === undefined
+          ? { kind: "VariableDeclaration", name, pos: name.pos, end: declEnd }
+          : { kind: "VariableDeclaration", name, type: declType, pos: name.pos, end: declEnd };
+      }
+    }
+    if (catchBody !== undefined) inner.block = ctx.Project(catchBody);
+    const at = this.CatchWord.Value >= 0 ? this.CatchWord.Value : ctx.StartOf(catchDefine !== undefined ? catchDefine : catchBody);
+    props.catchClause = {
+      kind: "CatchClause",
+      pos: at,
+      end: catchBody !== undefined ? ctx.EndOf(catchBody) : ctx.EndOf(catchDefine),
+      ...inner,
+    };
+  }
+  const finallyBlock = blockOf(this.FinallyBrace, ctx.ProjectEach(seg("finally"), "Block"));
+  if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
+  return ctx.NodeHead("TryStatement", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器。

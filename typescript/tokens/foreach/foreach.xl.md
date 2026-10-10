@@ -366,6 +366,68 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
   return ctx.NodeHead(kind, props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 995 轮）：与上面的 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+
+**换了什么**：三处 `ctx.TextOf` 换 `ctx.ValueOf`（声明词那四格与 `await` 都只读
+那一格自己记的 `value`）。
+
+**唯一让开的一处**：头部那个 `)` 的位置（`HeaderCloseAt`，收尾规则当场记的）**不在这一格上**时，
+`PrintAst` 会 `ctx.MatchingParen(ctx.source, v.start)` **回原文里配一次括号**——那正是直出版
+不许有的第二份近似 ⇒ 答 `undefined`，交回它走那一条。
+
+```ts
+  const props: any = {};
+  const define = ctx.KidsOf(v, "define").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (define.length > 0) {
+    if (define[0].get("type") === "Let") {
+      props.initializer = ctx.LetFrom(define, v).list;
+    }
+    // **判据是段里有没有那个声明词**（第 982 轮）：直出版读那一格自己记的值。
+    const isDeclareWordKid = (k: any) => {
+      const text = ctx.ValueOf(k);
+      return text === "const" || text === "let" || text === "var" || text === "using";
+    };
+    if (props.initializer === undefined) {
+      if (define.some(isDeclareWordKid)) {
+        const head = ctx.HeadDeclare(define, v);
+        if (head !== undefined) props.initializer = head;
+      } else {
+        const asExpression = ctx.Expression(define);
+        if (asExpression !== undefined) props.initializer = asExpression;
+      }
+    }
+  }
+  const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (enumable.length > 0) props.expression = ctx.Expression(enumable);
+  const kind = v.attrs.get("isForIn") === true ? "ForInStatement" : "ForOfStatement";
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const rawEmpty = typeof v.attrs.get === "function" ? v.attrs.get("emptyBodyAt") : undefined;
+  const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
+  let statement;
+  if (emptyAt >= 0) {
+    statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
+  } else {
+    const rawHeader = typeof v.attrs.get === "function" ? v.attrs.get("headerCloseAt") : undefined;
+    const headerAt = typeof rawHeader === "number" ? rawHeader : -1;
+    // **头部那个 `)` 的位置不在这一格上** ⇒ 交回 `PrintAst`（它回原文里配一次括号）。
+    if (headerAt < 0) {
+      return undefined;
+    }
+    statement = ctx.BodyBlockOf(headerAt + 1, body, ctx.Attr(v, "bodyBraceRange"));
+  }
+  if (statement !== undefined) props.statement = statement;
+  const awaitUnit = ctx.Kids(v).find(
+    (k: any) => k.get("type") === "Keyword" && ctx.ValueOf(k) === "await",
+  );
+  if (kind === "ForOfStatement" && awaitUnit !== undefined) {
+    props.awaitModifier = ctx.Project(awaitUnit);
+  }
+  return ctx.NodeHead(kind, props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把它自己的队列装上**。
