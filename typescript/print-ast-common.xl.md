@@ -6,6 +6,7 @@
 import { Token } from "../core/syntax/token.xl.md"
 import { Translate } from "./tokens/string/translate.xl.md"
 import { SymbolToken } from "./tokens/symbol-token.xl.md"
+import { Identifier } from "./tokens/identifier.xl.md"
 ```
 
 # namespace cangjie
@@ -77,7 +78,8 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
 `ctx` 不另立 class：它的四个字段（`source` / `unmapped` / `count` / `signature`）在树里
 以 `ctx.source` 这种写法出现 30 多处，立 class 就要连名带点一起改——**那属于改写，不属于搬家**。
 
-`NUMERIC_LITERAL` 标 `RegExp`：TS 目标上它是准的；换到 C++ 目标时这一类要另想办法
+叶子那张词汇表（数字字面量的写法 `NUMERIC_LITERAL`、`LeafKindOfText`）第 1029 轮搬到了
+`tokens/identifier.xl.md`：它标 `RegExp`，TS 目标上这一格是准的；换到 C++ 目标时这一类要另想办法
 （登记在 README 的目标差异里），**不为了一个还不存在的目标改动已经量过的实现**。
 
 ---
@@ -121,15 +123,11 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 # const INVISIBLE:Set<string> = new Set(["LineWrap", "AreaAnnotation", "LineAnnotation", "PreprocessorDirectives"])
 
-# private const NUMERIC_LITERAL:RegExp = /^(0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|(\d[\d_]*(\.[\d_]*)?|\.[\d_]+)([eE][+-]?\d[\d_]*)?)n?$/
-
-**这一版修过两处**（第 160 轮）：
-
-- **指数里的分隔符**：`1_0e1_0` 原来不匹配（`[eE][+-]?\d+` 不许 `_`），于是投成 `Identifier`
-  ——TS 那边它是 `NumericLiteral`（实测 `lex-number-separator-exponent.ts`）；
-- **小数部分可以为空**：`1.`（`1..toString()` 的前半截）原来也不匹配，
-  同样掉成 `Identifier`（TS：`NumericLiteral("1.")`）。小数点的两种写法合成
-  `(\d[\d_]*(\.[\d_]*)?|\.[\d_]+)`：整数可带空小数、`.5` 这种前导点单独一支。
+**叶子那张词汇表第 1029 轮也搬走了**（`NUMERIC_LITERAL` 与 `leafKindOfText` →
+`typescript/tokens/identifier.xl.md` 的 `NUMERIC_LITERAL` / `LeafKindOfText` / `IsNumericLiteral`）：
+键是**叶子自己的正文**、值是「这一格在 TS 那边叫什么」，本来就是那一页的事实。
+投影这一侧只剩三处按**文本**问它（`projectBindingElement` 的默认值、`memberNameOf` 的数字名、
+`synthName` 的私有名），走的是本文件 import 进来的静态入口——**一份词汇、一个入口**。
 
 **这张表第 1025 轮整张删掉了**：79 档里 **77 档说的是「标签 → 节点名」**，
 而标签就是 token 自己的类名（`Token.Tag()`）——每一档说的都是**某一页自己的事实**，
@@ -221,7 +219,8 @@ new Map([
 
 ```ts
   // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
-  // 由这条统一合成（见 `leafKindOfText` 的同一条判据），产物那边它只是一个普通文本块。
+  // 由这一页的判断合成（**判据只有一份**：`Identifier.LeafKindOfText`——第 1029 轮起
+  // 这一族的词汇住在 `identifier.xl.md`），产物那边它只是一个普通文本块。
   // **位置用「原文」，`text` 用解开的**（第 381 轮）——两件事要的字符串不一样：
   // `\u0066` 这个名字在源码里占 **6 个字符**（`indexOf` 与 `end` 都按它算），
   // 而它的**名字**是 `f`（TS 的 AST `text` 也是 `f`）。
@@ -229,7 +228,9 @@ new Map([
   // ⇒ 函数声明的名字区间短一截 ⇒ 参数表跟着错位（`function f\u0066() {}` 报
   // `unimplemented: parameter without a name`）。
   const nameText = Translate.DecodeIdentifierEscapes(name);
-  const nameKind = nameText.length > 1 && nameText[0] === "#" ? "PrivateIdentifier" : "Identifier";
+  // **私有名那一格只问一次**（第 1029 轮）：判据在 `Identifier.LeafKindOfText` 那一页，
+  // 这里不再自己写一遍 `#` 前缀的比较（同一份事实两处声明就是这么长出来的）。
+  const nameKind = Identifier.LeafKindOfText(nameText) === "PrivateIdentifier" ? "PrivateIdentifier" : "Identifier";
   if (name === "") return undefined;
   // **名字那一格的整段区间**（`nameRange`，第 645 轮）：闭区间 `"起,止"`、**引号也在里面**——
   // 与 `bodyBraceRange` 同一形状。有它就能**按那一格自己**推出文本区间：
@@ -395,42 +396,6 @@ new Map([
 ```ts
   if (typeof v.value === "string" && v.value !== "") return v.value;
   return ctx.source.slice(v.start, v.end);
-```
-
-# method leafKindOfText:(text:string)=>string
-
-```ts
-  // **`1n` 是 `BigIntLiteral`**（第 160 轮）：TS 那边整数字面量带 `n` 后缀时是**另一个 kind**
-  // （`BigIntLiteral`），照 `NumericLiteral` 投会同时记「缺 `BigIntLiteral`」与
-  // 「多出 `NumericLiteral`」（实测 `lex-number-bigint.ts` / `lx-numeric-literals.ts` /
-  // `ty-literal-types.ts` 各一处）。
-  if (NUMERIC_LITERAL.test(text)) return text.endsWith("n") ? "BigIntLiteral" : "NumericLiteral";
-  if (/^["'`]/.test(text)) return "StringLiteral";
-  if (text === "true") return "TrueKeyword";
-  if (text === "false") return "FalseKeyword";
-  if (text === "null") return "NullKeyword";
-  // **`#x` 是 `PrivateIdentifier`**（第 131 轮）：类里的私有名在 TS 那边有自己的 kind
-  // （`PrivateIdentifier`，区间含那个 `#`）。产物把它当普通文本块，照 `Identifier` 投
-  // 会同时记「缺 `PrivateIdentifier`」与「多出 `Identifier`」
-  // （实测 `cls-hash-in-operator.ts` / `cls-private-fields.ts` 一族 22 处）。
-  if (text.length > 1 && text[0] === "#") return "PrivateIdentifier";
-  // **`super` 永远是 `SuperKeyword`**（第 98 轮）：`super(1)` / `super.x` 的 TS 是
-  // `CallExpression > SuperKeyword` / `PropertyAccessExpression > SuperKeyword`，
-  // 而产物把那两个名字投成了 `Identifier`（实测缺 `SuperKeyword` 134 + 多出 `Identifier` 134）。
-  // 它不可能是一个标识符名（`super` 是保留字），所以这一条没有副作用。
-  if (text === "super") return "SuperKeyword";
-  // **`this` 永远是 `ThisKeyword`**（第 146 轮）：值位与类型位在 TS 那边都是它
-  // （`x?.Document === y.Document` 那种比较式里产物把 `this` 记成普通 `Identifier`，
-  // 实测 `dist/ts/core/syntax/source-range.ts`：缺 `ThisKeyword` 1 + 多出 `Identifier` 1）。
-  // **成员名 / 绑定名不走这里**（`nameOf` 一律给 `Identifier`），所以 `a.this` / `{ this: 1 }` 不受影响；
-  // 形参名那一处也单独走 `nameOf`。
-  if (text === "this") return "ThisKeyword";
-  // **`undefined` 不走这里**（第 91 轮修）：它是**上下文关键字**——值位的 `x === undefined`
-  // 在 TS 那边是一个 `Identifier`（`undefined` 不是保留字），只有**类型位**的 `: undefined`
-  // 才是 `UndefinedKeyword`。这条表管的是**叶子**（值位标识符），把它算成 `UndefinedKeyword`
-  // 会同时记「多出 `UndefinedKeyword` 147 + 缺 `Identifier` 一大片」。
-  // 类型位那一边由 `PRIMITIVE_TYPE_KIND` 负责（那里面有 `undefined`）。
-  return "Identifier";
 ```
 
 # private method projectString:(v:any, ctx:any)=>any
@@ -2619,7 +2584,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     // 只看 ① 会把生成器里的裸 `yield` 判掉（那一条 TS 是 `YieldExpression`）。
     //
     // **`word` 这一道不能省**：这一格拿到的 `Keyword` **不止这两个词**——
-    // `this` 在产物里也是一格 `Keyword`（`leafKindOfText` 把它投成 `ThisKeyword`），
+    // `this` 在产物里也是一格 `Keyword`（`Identifier.LeafKindOfText` 把它投成 `ThisKeyword`），
     // 只按 `headKind === "Keyword"` 放行就会把每一格 `this` 都投成普通的 `Identifier`
     //（实测：整份文件的 `ThisKeyword` 全没了、降级期报 `name is not a local or a capture: this`）。
     //
@@ -7284,7 +7249,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     props.initializer =
       only !== undefined && isNameNode(only)
         ? {
-            kind: leafKindOfText(textOfNode(only, ctx)),
+            kind: Identifier.LeafKindOfText(textOfNode(only, ctx)),
             text: textOfNode(only, ctx),
             pos: startOf(only),
             end: endOf(only),
@@ -8227,7 +8192,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       unit: direct === undefined ? null : direct,
     };
   }
-  if (direct === undefined && NUMERIC_LITERAL.test(name)) {
+  if (direct === undefined && Identifier.IsNumericLiteral(name)) {
     return { name: { kind: "NumericLiteral", text: name, pos: at.pos, end: at.end }, computed: null, unit: null };
   }
   return { name: at, computed: null, unit: direct === undefined ? null : direct };
@@ -9526,10 +9491,10 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // **字符串 / 模板串这一格**（第 99 轮）：模板串要递归投内插里的表达式或类型，
     // 那不是 token 层能做的事，所以实现留在 `projectString`、由 token 的 `PrintDirectAst` 转过来。
     Template: (view) => projectString(view, ctx),
-    LeafKind: (text) => leafKindOfText(text),
-    // **按文本查词的两个出口第 1028 轮删掉了**（`KeywordKind` / `TokenKind`）：那两张词汇表
-    // 搬回了各自那一页（`Keyword.KeywordKind()` / `SymbolToken.KindOfText`，见本文件上面
-    // `LITERAL_TYPE_KEYWORDS` 前那一段记录），投影层不再有第二个按文本查词的地方，
+    // **按文本查词的出口第 1028 / 1029 轮全删掉了**（`KeywordKind` / `TokenKind` / `LeafKind` /
+    // `NumericLiteral`）：那三张词汇表搬回了各自那一页（`Keyword.KeywordKind()` /
+    // `SymbolToken.KindOfText` / `Identifier.LeafKindOfText`，见本文件上面
+    // `INVISIBLE` 后那两段记录），投影层不再有第二个按文本查词的地方，
     // 所以这一层也拿不到它们——与 `Text` / `TextOf` / `StringText` 那三个出口同一手法：
     // 能力面收窄之后，「大家记得别写」才变成**结构上做不到**。
     // **搬迁用的补充出口**（第 181 轮）：`case "X": return projectX(v, ctx)` 那 100 条要逐块
@@ -9618,7 +9583,9 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       projectDeclaration(view, ctx, parentKind ?? ctx.parentKind, make ?? ctx.Make(view), kind),
     IsTypeParameterModifier: (node) => isTypeParameterModifier(node, ctx),
     MemberInObject: MEMBER_IN_OBJECT,
-    NumericLiteral: NUMERIC_LITERAL,
+    // **`NumericLiteral` 那张正则第 1029 轮搬走了**：数字字面量的写法是 `Identifier` 那一页的事实，
+    // 要问它的两处（`memberNameOf` 与 `object-literal.xl.md`）走 `Identifier.IsNumericLiteral(text)`——
+    // 递一个问句，不把整张表复制到 `ctx` 上。
     // **运算符那一格的叶子节点**（第 550 轮）：`in` / `instanceof` 在深度界那一层
     // 还是 `Identifier`，照 `Project` 投会投成 `Identifier("in")` ——
     // `BinaryOperator.PrintDirectAst` 那一支正需要它（见 `operatorTokenOf`）。

@@ -425,7 +425,7 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
     let node =
       beforeNco.length === 0
         ? {
-            kind: ctx.LeafKind(calleeText),
+            kind: Identifier.LeafKindOfText(calleeText),
             text: calleeText,
             pos: v.start,
             end: v.start + calleeText.length,
@@ -440,7 +440,7 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
         ? { kind: "ImportKeyword", text: "import", pos: v.start, end: v.start + "import".length }
         : anonymousCallee !== undefined
           ? ctx.Project(anonymousCallee)
-          : { kind: ctx.LeafKind(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
+          : { kind: Identifier.LeafKindOfText(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
     arguments: groupsToArguments(args),
     pos: v.start,
     end: ctx.StmtEndOf(v),

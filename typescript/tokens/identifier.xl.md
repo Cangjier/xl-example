@@ -383,7 +383,75 @@ return items.includes(this.TempToString());
   // **文本读 token 自己的 `Temp`**（第 992 轮）：`ctx.Text(v)` 在值为空时会回原文切一刀，
   // 那是这条路上不许有的第二份近似；`Identifier` 的正文就是它自己攒下来的那串字符。
   const text = this.TempToString();
-  return ctx.Node(ctx.LeafKind(text), { text: Translate.DecodeIdentifierEscapes(text) }, v);
+  return ctx.Node(this.LeafKind(), { text: Translate.DecodeIdentifierEscapes(text) }, v);
+```
+
+## method LeafKind:()=>string
+
+**我这一格在 TS 那边是哪个 kind**（第 1029 轮）：标识符 / 数字 / 布尔字面量 / 字符串 / 私有名
+在产物里**都是 `<Identifier>` 这个文本块**，而 TS 那边各有一个 `SyntaxKind`——
+这一页是它们的家，所以由这一页按**自己的正文**答。
+
+```ts
+  return Identifier.LeafKindOfText(this.TempToString());
+```
+
+## static method LeafKindOfText:(text:string)=>string
+
+**给一段叶子文本，答它在 TS 那边的 kind**（第 1029 轮从投影层搬到这里）。
+
+搬过来之前它是 `typescript/print-ast-common.xl.md` 的 `# method leafKindOfText`，投影经
+`ctx.LeafKind(text)` 问它——而**键是叶子自己的正文**（`Identifier.TempToString()` /
+`Keyword.Value` 那一族），也就是**这一页自己的事实**。今天读法有两个：
+`Identifier.LeafKind()`（自己的正文）与投影里那两处「手上只有一段名字文本」的地方
+（`projectBindingElement` 的默认值、`method.xl.md` 的调用名）走这个静态入口。
+
+```ts
+  // **`1n` 是 `BigIntLiteral`**（第 160 轮）：TS 那边整数字面量带 `n` 后缀时是**另一个 kind**
+  // （`BigIntLiteral`），照 `NumericLiteral` 投会同时记「缺 `BigIntLiteral`」与
+  // 「多出 `NumericLiteral`」（实测 `lex-number-bigint.ts` / `lx-numeric-literals.ts` /
+  // `ty-literal-types.ts` 各一处）。
+  if (NUMERIC_LITERAL.test(text)) return text.endsWith("n") ? "BigIntLiteral" : "NumericLiteral";
+  if (/^["'`]/.test(text)) return "StringLiteral";
+  if (text === "true") return "TrueKeyword";
+  if (text === "false") return "FalseKeyword";
+  if (text === "null") return "NullKeyword";
+  // **`#x` 是 `PrivateIdentifier`**（第 131 轮）：类里的私有名在 TS 那边有自己的 kind
+  // （`PrivateIdentifier`，区间含那个 `#`）。产物把它当普通文本块，照 `Identifier` 投
+  // 会同时记「缺 `PrivateIdentifier`」与「多出 `Identifier`」
+  // （实测 `cls-hash-in-operator.ts` / `cls-private-fields.ts` 一族 22 处）。
+  if (text.length > 1 && text[0] === "#") return "PrivateIdentifier";
+  // **`super` 永远是 `SuperKeyword`**（第 98 轮）：`super(1)` / `super.x` 的 TS 是
+  // `CallExpression > SuperKeyword` / `PropertyAccessExpression > SuperKeyword`，
+  // 而产物把那两个名字投成了 `Identifier`（实测缺 `SuperKeyword` 134 + 多出 `Identifier` 134）。
+  // 它不可能是一个标识符名（`super` 是保留字），所以这一条没有副作用。
+  if (text === "super") return "SuperKeyword";
+  // **`this` 永远是 `ThisKeyword`**（第 146 轮）：值位与类型位在 TS 那边都是它
+  // （`x?.Document === y.Document` 那种比较式里产物把 `this` 记成普通 `Identifier`，
+  // 实测 `dist/ts/core/syntax/source-range.ts`：缺 `ThisKeyword` 1 + 多出 `Identifier` 1）。
+  // **成员名 / 绑定名不走这里**（投影的 `nameOf` 一律给 `Identifier`），所以 `a.this` / `{ this: 1 }` 不受影响；
+  // 形参名那一处也单独走 `nameOf`。
+  if (text === "this") return "ThisKeyword";
+  // **`undefined` 不走这里**（第 91 轮修）：它是**上下文关键字**——值位的 `x === undefined`
+  // 在 TS 那边是一个 `Identifier`（`undefined` 不是保留字），只有**类型位**的 `: undefined`
+  // 才是 `UndefinedKeyword`。这一格管的是**叶子**（值位标识符），把它算成 `UndefinedKeyword`
+  // 会同时记「多出 `UndefinedKeyword` 147 + 缺 `Identifier` 一大片」。
+  // 类型位那一边由投影页的 `PRIMITIVE_TYPE_KIND` 负责（那里面有 `undefined`）。
+  return "Identifier";
+```
+
+## static method IsNumericLiteral:(text:string)=>bool
+
+**这段文本是不是数字字面量**（第 1029 轮）：判据就是这一页下面那张 `NUMERIC_LITERAL`。
+
+它单独成一个入口，是因为**数字字面量的写法是这一页的事实**，而投影里有两处要判它
+却不持有叶子单元：`memberNameOf`（成员名那一格是数字 ⇒ `NumericLiteral`）与
+`object-literal.xl.md`（对象字面量的键是数字 ⇒ `NumericLiteral` 而不是 `Identifier`）。
+搬过来之前投影经 `ctx.NumericLiteral` 把那张正则**整个**递出去，等于把这一页的词汇
+复制到 `ctx` 上；现在只递一个问句。
+
+```ts
+  return NUMERIC_LITERAL.test(text);
 ```
 
 
@@ -400,3 +468,20 @@ result.Temp.push(...this.Temp);
 result.TryToClose();
 return result;
 ```
+
+# private const NUMERIC_LITERAL:RegExp = /^(0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|(\d[\d_]*(\.[\d_]*)?|\.[\d_]+)([eE][+-]?\d[\d_]*)?)n?$/
+
+**数字字面量的写法**（第 1029 轮从投影层搬到这里）：十进制 / 十六进制 / 二进制 / 八进制 /
+指数 / 数字分隔符 / `BigInt` 的 `n` 后缀都认——数字字面量在产物里就是一格 `<Identifier>`，
+所以它的写法是**这一页自己的事实**（`LeafKindOfText` 与 `IsNumericLiteral` 读的都是它）。
+
+**这一版修过两处**（第 160 轮）：
+
+- **指数里的分隔符**：`1_0e1_0` 原来不匹配（`[eE][+-]?\d+` 不许 `_`），于是投成 `Identifier`
+  ——TS 那边它是 `NumericLiteral`（实测 `lex-number-separator-exponent.ts`）；
+- **小数部分可以为空**：`1.`（`1..toString()` 的前半截）原来也不匹配，
+  同样掉成 `Identifier`（TS：`NumericLiteral("1.")`）。小数点的两种写法合成
+  `(\d[\d_]*(\.[\d_]*)?|\.[\d_]+)`：整数可带空小数、`.5` 这种前导点单独一支。
+
+**它标 `RegExp`**：TS 目标上这一格是准的；换到 C++ 目标时这一类要另想办法（登记在 README
+的目标差异里），**不为了一个还不存在的目标改动已经量过的实现**。

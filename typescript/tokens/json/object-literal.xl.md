@@ -245,7 +245,7 @@ return new Map([["ObjectLiteralExpression", new Map([["children", "properties"]]
     const name =
       computed === undefined
         ? nameUnits.length === 1 && ctx.IsNameNode(nameUnits[0])
-          ? ctx.NumericLiteral.test(ctx.ValueOf(nameUnits[0]))
+          ? Identifier.IsNumericLiteral(ctx.ValueOf(nameUnits[0]))
             ? {
                 kind: "NumericLiteral",
                 text: ctx.ValueOf(nameUnits[0]),

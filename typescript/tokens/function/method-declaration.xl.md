@@ -734,8 +734,8 @@ if (afterParameters instanceof SymbolToken && afterParameters.IsAny(MethodDeclar
 if (afterParameters instanceof Bracket && afterParameters.startBracket === "[") {
   return false;
 }
-// **形参表后面紧贴一个逗号 ⇒ 那是实参表**（第 76 轮）：`mk(leafKindOfText(text), { text })`
-// 里 `leafKindOfText(text)` 后面就是逗号——`BodyIndex` 一路扫到后面那个 `{`，
+// **形参表后面紧贴一个逗号 ⇒ 那是实参表**（第 76 轮）：`mk(Identifier.LeafKindOfText(text), { text })`
+// 里那次调用后面就是逗号——`BodyIndex` 一路扫到后面那个 `{`，
 // 于是那次调用被收成一个 `MethodDeclaration`（`ReturnType` 是那个逗号、`MethodBody` 是 `{ text }`），
 // 连带把简写属性 `{ text }` 读成标签、把里面的东西读成参数与字面量类型
 // （实测 `cases:align` 的「产物里有标签、源码里没有对应构造」4 类全是这一处）。
