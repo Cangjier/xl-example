@@ -4284,8 +4284,27 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
           // 表面上跑得通，`cases:tsast` 一比就漂（实测 `arr![0]![0]`：缺两个
           // `ElementAccessExpression` + 两个 `NumericLiteral`、`NonNullExpression` 漂 4）。
           const bangKids = projectableKids(view(ck[i]));
-          if (bangKids.length >= 1 && isIndexFirstUnit(bangKids[0], ctx)) {
-            const bracket = bangKids[0];
+          const bangHead = bangKids.length >= 1 ? bangKids[0] : undefined;
+          // **`f()!` 这种「先调用、再断言」的一格**（第 975 轮）：`a!()!()!()` 的第二格是
+          // `NotNull([Bracket(()) , !])`——那个括号是**一次调用**（对 `left` 的），`!` 套在
+          // **调用结果**上（TS：`NonNull(CallExpression(a!))`）。下面那条只认
+          // `isIndexFirstUnit`（下标那一档），于是这一格直接把 `left` 包进 `NonNullExpression`
+          // ⇒ **那次调用的节点整格丢**（实测 `gap-r973-nonnull-call-assert-call-assert`：
+          // 最里面那个 `CallExpression` 缺、`NonNullExpression` 漂 1）。
+          // 判据与下标那一支**一字不差**（`endOf(括号) < endOf(这一格)`）：先建调用、再套断言。
+          if (bangHead !== undefined && bangHead.get("type") === "Bracket"
+            && bangHead.get("startBracket") === "(" && endOf(bangHead) < endOf(ck[i])) {
+            left = {
+              kind: "CallExpression",
+              expression: left,
+              arguments: splitTopLevel(projectableKids(view(bangHead)), ctx, ",")
+                .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+                .filter((a: any) => a !== undefined),
+              pos: left.pos,
+              end: endOf(bangHead),
+            };
+          } else if (bangHead !== undefined && isIndexFirstUnit(bangHead, ctx)) {
+            const bracket = bangHead;
             const argument = projectExpression(projectableKids(view(bracket)), ctx);
             left = {
               kind: "ElementAccessExpression",
@@ -4386,6 +4405,35 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
               (k: any) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!"),
             );
             const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
+            // **断言里的核是一格 `Method`**（第 975 轮）：`a!()()!()` 的这一格是
+            // `Method(name=""[NotNull(Method(name=""[Bracket(())]), !), Bracket(())])`——
+            // 断言盖的**不是一对括号**、而是**一格调用单元**（那一格自己还盖着两层调用，
+            // 第 966 轮那句话）。原来这里只认「核是实参括号」⇒ 这一支整条不进、
+            // 链在下面 `break` ⇒ 三格 `CallExpression` 与那个 `NonNullExpression` 一起丢
+            //（实测 `gap-r973-nonnull-call-twice-assert`：缺 3 漂 1）。
+            // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**：
+            // 走到最里面那一格（`innermostMethod`）、被调用者交给 `innermostCallee`、
+            // 换法交给 `graftCallee`——再把 `!` 套在整条调用链外面。
+            if (assertHead !== undefined && assertHead.get("type") === "Method") {
+              const innerCall = graftCallee(
+                projectNode(assertHead, ctx),
+                innermostCallee(left, innermostMethod(assertHead), ctx),
+                undefined,
+              );
+              const assertedCall: any = {
+                kind: "NonNullExpression",
+                expression: innerCall,
+                pos: innerCall.pos,
+                end: endOf(callHead),
+              };
+              left = Object.assign({}, projectNode(ck[i], ctx), {
+                expression: assertedCall,
+                pos: assertedCall.pos,
+                end: endOf(ck[i]),
+              });
+              i += 1;
+              continue;
+            }
             if (assertHead !== undefined && assertHead.get("type") === "Bracket"
               && assertHead.get("startBracket") === "(") {
               const innerCall: any = {
@@ -4551,17 +4599,21 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
           const innerKids = projectableKids(view(next));
           const innerMethod = innerKids.length > 0 && innerKids[0].get("type") === "Method" ? innerKids[0] : undefined;
           if (innerMethod !== undefined) {
-            const innerName = String(innerMethod.get("name") ?? "");
-            const innerAt = startOf(innerMethod);
-            const innerMember = {
-              kind: "PropertyAccessExpression",
-              expression: left,
-              name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length },
-              pos: left.pos,
-              end: innerAt + innerName.length,
-            };
-            const innerCall = projectNode(innerMethod, ctx);
-            left = Object.assign({}, innerCall, { expression: innerMember, pos: innerMember.pos });
+            // **最里面那一格要一路问到底**（第 975 轮）：`a.b()()().c` 的外层空名字 `Method`
+            // 里**套着两格**（`Method("")[Method("")[Method("b")]]`）——原来只问**第一格**
+            // 的名字（答空串）⇒ 投出一格名字为空的属性访问，而**最里面那次调用**（`b()`）
+            // 连同它上面那一层一起丢（实测 `gap-r973-member-call-thrice-member`：
+            // 漂 3 多 2，多出来的正是那格空名字的属性访问）。
+            // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**
+            //（`innermostMethod` + `innermostCallee` + `graftCallee`）：整串壳照
+            // `projectNode(next)` 给出的层数接上，只把**最里面那一格**的被调用者换掉。
+            left = graftCallee(
+              projectNode(next, ctx),
+              innermostCallee(left, innermostMethod(next), ctx),
+              undefined,
+            );
+            i += 2;
+            continue;
           }
           // **第一个子单元是「名字 + `!`」**（第 962 轮）：`o!.m!()` 的产物是
           // `PropertyAccess([NotNull(o!), ., Method name=""[NotNull(m!), Bracket]])`——
@@ -5056,7 +5108,14 @@ if (kind === "Method") {
       (k: any) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!"),
     );
     const inner = asserted.length > 0 ? asserted[0] : undefined;
-    return inner !== undefined && inner.get("type") === "Bracket" && inner.get("startBracket") === "(";
+    if (inner === undefined) return false;
+    if (inner.get("type") === "Bracket" && inner.get("startBracket") === "(") return true;
+    // **断言里的核自己也是一次调用**（第 975 轮）：`a!()()!()` 的第一格是
+    // `NotNull(Method(name=""[Bracket(())]), !)`——`!` 盖在一格 `Method` 上，而那一格
+    // 本身就是「以一次调用开头」。上面那一句只认「核是实参括号」⇒ 判据答否 ⇒
+    // 链那一支整个进不来（实测 `gap-r973-nonnull-call-twice-assert`：缺 3 漂 1）。
+    // 递归问它即可——判据与 `Method` 那一支同源（都问「这一格是不是以一次调用开头」）。
+    return isCallFirstUnit(inner, ctx);
   }
   // **头一格自己又是一格 `Method`**（第 972 轮，**普查当场红的**）：`a!()()().c` 的第二格是
   // `PropertyAccess(Method(name=""[Method(name=""[Bracket(())])]), ., c)`——两格 `Method`
@@ -5167,6 +5226,20 @@ return false;
       cur = one;
     }
     node = cur;
+  } else if (nameUnit.get("type") === "Method") {
+    // **断言里的核是一格调用单元**（第 975 轮）：`a?.b()!` 的 NCO 内容是
+    // `NotNull([Method(name="b"), !])`——`!` 盖在**那次调用**的结果上
+    //（TS：`NonNull(CallExpression(PropertyAccess(a?.b)))`）。照下面那条通用支走会把
+    // `b()` 整段当成一个名字（实测 `gap-r973-opt-call-assert-index`：多一格名字叫
+    // `b()` 的属性访问、缺那一格 `CallExpression`，两个方向一起响）。
+    // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**
+    //（`innermostMethod` + `innermostCallee` + `graftCallee`）：先走到最里面那一格、
+    // 把她当被调用者接上，`?.` 挂在**新接出来那一格**上（TS 的放法），
+    // 没那么一格时交给 `graftCallee` 挂到最里面那次调用上。
+    const callee = innermostCallee(left, innermostMethod(nameUnit), ctx);
+    const built = callee !== left;
+    if (built && questionDot !== undefined) callee.questionDotToken = questionDot;
+    node = graftCallee(projectNode(nameUnit, ctx), callee, built ? undefined : questionDot);
   } else {
     node = {
       kind: "PropertyAccessExpression",
@@ -5913,6 +5986,50 @@ return false;
       i += 1;
       continue;
     }
+    // **这一格自己是一个非空断言**（第 975 轮）：`a?.b![0]![1].c` 的 NCO 里第二格是
+    // `NotNull([Bracket([0]), !])`——「**先下标、再断言**」的一格（与链循环里
+    // `isIndexFirstUnit` 那一支、以及第 975 轮补的「先调用、再断言」同形）。
+    // 这一支原来根本没有 ⇒ 它既不是点号、也不是下标 / 圆括号 / `Method`，
+    // 循环在它前面就 `break` ⇒ **断言与那个下标一起丢**（实测
+    // `gap-r973-opt-assert-index-index-member`：缺 5 漂 2）。
+    // **次序是语义**：TS 是 `((a?.b![0])![1])`——先把下标接上、再把 `!` 套在那个结果上。
+    if (unit.get("type") === "NotNull") {
+      const bangKids = projectableKids(view(unit)).filter(
+        (k: any) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!"),
+      );
+      const bangHead = bangKids.length > 0 ? bangKids[0] : undefined;
+      let asserted: any = left;
+      if (bangHead !== undefined && bangHead.get("type") === "Bracket"
+        && bangHead.get("startBracket") === "[") {
+        asserted = {
+          kind: "ElementAccessExpression",
+          expression: left,
+          argumentExpression: projectExpression(projectableKids(view(bangHead)), ctx),
+          pos: left.pos,
+          end: endOf(bangHead),
+        };
+      } else if (bangHead !== undefined && bangHead.get("type") === "Bracket"
+        && bangHead.get("startBracket") === "(" && endOf(bangHead) < endOf(unit)) {
+        asserted = {
+          kind: "CallExpression",
+          expression: left,
+          arguments: splitTopLevel(projectableKids(view(bangHead)), ctx, ",")
+            .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+            .filter((a: any) => a !== undefined),
+          pos: left.pos,
+          end: endOf(bangHead),
+        };
+      } else if (bangHead !== undefined && bangHead.get("type") === "Method") {
+        asserted = graftCallee(
+          projectNode(bangHead, ctx),
+          innermostCallee(left, innermostMethod(bangHead), ctx),
+          undefined,
+        );
+      }
+      left = { kind: "NonNullExpression", expression: asserted, pos: left.pos, end: endOf(unit) };
+      i += 1;
+      continue;
+    }
     // **这一格自己就是一次调用**（第 965 轮）：`a?.[b]()()` 的 NCO 里是
     // `[Bracket([b]), Method(name="")[Bracket(())]]`——那一格 `Method` 前面**没有点号**
     // （它要说的正是「对左边那个结果再调一次」），所以它在下面 `isDot` 那道门槛前
@@ -6243,6 +6360,69 @@ return false;
             kind: "PropertyAccessExpression",
             expression: left,
             name: nameOf(member, ctx),
+            pos: left.pos,
+            end: endOf(member),
+          };
+          j += 1;
+          continue;
+        }
+        // **这一格自己是一次（或好几层）调用**（第 975 轮）：`a?.b!()()().c` 那条子链的
+        // 第一格是 `Method(name=""[Method(name=""[Bracket(())])])`——子链循环里原来只有
+        // 「名字」「下标」两支，`Method` 落到循环末尾那句空转的 `j += 1` ⇒ **三层调用整段丢**
+        //（实测 `gap-r973-opt-assert-call-thrice-member`：缺 3）。
+        // 折法与 `chainWithOptional` 子链分支那一支**同源**（第 975 轮收拢成同一对：
+        // `innermostMethod` + `innermostCallee` + `graftCallee`）。
+        // **核是 `NotNull` 的那一档让开**：它要按断言折（把 `!` 套在调用结果上），
+        // 由 `chainWithOptional` / 本函数别处那几支管——这里只认「纯调用」那三种壳。
+        const memberIsCall = (unit: any): bool => {
+          const name = String(unit.get("name") ?? "");
+          if (name !== "") return true;
+          const inner = projectableKids(view(unit)).filter((k: any) => k.get("type") !== "GenericType");
+          const head = inner.length > 0 ? inner[0] : undefined;
+          if (head === undefined) return false;
+          return head.get("type") === "Method"
+            || (head.get("type") === "Bracket" && head.get("startBracket") === "(");
+        };
+        if (member.get("type") === "Method" && memberIsCall(member)) {
+          if (pendingBang !== undefined) {
+            left = {
+              kind: "NonNullExpression",
+              expression: left,
+              pos: left.pos,
+              end: pendingBang,
+            };
+            pendingBang = undefined;
+          }
+          left = graftCallee(
+            projectNode(member, ctx),
+            innermostCallee(left, innermostMethod(member), ctx),
+            undefined,
+          );
+          j += 1;
+          continue;
+        }
+        // **一对平级的圆括号也是链上的一格**（第 975 轮）：`a?.b![0]().c` 那条子链的
+        // 第一格是 `Bracket(())`——它是**对左边那个结果再调一次**（与 `chainOnto` 顶端
+        // 「紧跟一对圆括号 ⇒ 再调一次」那一支同一件事）。子链循环里原来只有「下标」那一支
+        // ⇒ 圆括号落到循环末尾那句空转的 `j += 1` ⇒ **那次调用整格丢**
+        //（实测 `gap-r973-opt-assert-index-call-member`：缺 1）。
+        // 顺序与上面两支一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
+        if (member.get("type") === "Bracket" && member.get("startBracket") === "(") {
+          if (pendingBang !== undefined) {
+            left = {
+              kind: "NonNullExpression",
+              expression: left,
+              pos: left.pos,
+              end: pendingBang,
+            };
+            pendingBang = undefined;
+          }
+          left = {
+            kind: "CallExpression",
+            expression: left,
+            arguments: splitTopLevel(projectableKids(view(member)), ctx, ",")
+              .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+              .filter((a: any) => a !== undefined),
             pos: left.pos,
             end: endOf(member),
           };

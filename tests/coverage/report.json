@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.6,
+  "progressPercent": 95.67,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1617,
-      "pass": 1609,
-      "blocked": 8,
+      "pass": 1617,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.51
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,61 +130,13 @@
   ],
   "token": {
     "total": 1617,
-    "knownGap": 8,
-    "knownGapStillOpen": 8,
-    "exactFiles": 1609,
-    "scoredWithoutGap": 1609,
-    "passedWithoutGap": 1609
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1617,
+    "scoredWithoutGap": 1617,
+    "passedWithoutGap": 1617
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r973-member-call-thrice-member",
-      "category": "token",
-      "title": "",
-      "detail": "漂 3　多 2　第 973 轮普查量到：`a.b()()().c`：漂 3 多 2——**不是**空名字那一族：`Method(name=\"b\")` 里又套着两层调用，而多出来的两格是名字为空 / 叫 `a.` 的属性访问，说明链那一支把它当成了「名字 + 一次调用」而不是一条调用链。"
-    },
-    {
-      "id": "token/expressions/gap-r973-nonnull-call-assert-call-assert",
-      "category": "token",
-      "title": "",
-      "detail": "漂 1　第 973 轮普查量到：`a!()!()!()`：漂 1（最里面那一格 `CallExpression` 盖到 `[0,10)`）——断言与调用交替出现时，层数只按「一格一次」算，没有按区间重量。"
-    },
-    {
-      "id": "token/expressions/gap-r973-nonnull-call-twice-assert",
-      "category": "token",
-      "title": "",
-      "detail": "缺 3　漂 1　第 973 轮普查量到：`a!()()!()`：缺 3 漂 1——断言的核是**实参括号**、而外面还有两层调用（第 966 轮那一档的下一层）。"
-    },
-    {
-      "id": "token/expressions/gap-r973-opt-assert-call-thrice-member",
-      "category": "token",
-      "title": "",
-      "detail": "缺 3　第 973 轮普查量到：`a?.b!()()().c`：缺三层 `CallExpression`（`[0,7)` / `[0,9)` / `[0,11)`）——第 972 轮补的是 `projectExpression` 链循环里那一档，而这一格走的是 `chainWithOptional` 子链分支里**同形"
-    },
-    {
-      "id": "token/expressions/gap-r973-opt-assert-index-call-member",
-      "category": "token",
-      "title": "",
-      "detail": "缺 1　第 973 轮普查量到：`a?.b![0]().c`：缺一格 `CallExpression`（`[0,10)`）——子链接完下标之后那一对平级的圆括号没人接（`chainOnto` 的「紧跟一对圆括号 ⇒ 再调一次」那一支没轮到它）。"
-    },
-    {
-      "id": "token/expressions/gap-r973-opt-assert-index-index-member",
-      "category": "token",
-      "title": "",
-      "detail": "缺 5　漂 2　第 973 轮普查量到：`a?.b![0]![1].c`：缺 5 漂 2——第 973 轮抬出来的那一档只认**子链的第一格**；`![0]` 之后**再跟一格 `![1]`** 时链没有接着往下接（断言与第二个下标一起丢）。"
-    },
-    {
-      "id": "token/expressions/gap-r973-opt-call-assert-index-member",
-      "category": "token",
-      "title": "",
-      "detail": "缺 1　漂 2　多 2　第 973 轮普查量到：`a?.b()![0].c`：与上一条同形（多一个后缀成员），读数一样：缺 1 漂 2 多 2——断言 + 下标那一格落在 NCO 尾巴上时没人认。"
-    },
-    {
-      "id": "token/expressions/gap-r973-opt-call-assert-index",
-      "category": "token",
-      "title": "",
-      "detail": "缺 1　漂 2　多 2　第 973 轮普查量到：`a?.b()![0]`：缺 1 漂 2 多 2——`()` 之后那一格是 `![0]`（断言盖着下标），而它被读成了**成员名**（多出一格名字叫 `b()` 的属性访问）。"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
