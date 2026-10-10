@@ -1,4 +1,8 @@
-// xl:known-gap 第 970 轮（二）把上一格记错的现场改正了：链那一支**根本没进**（摊开循环一次都没打印），所以根因在**入口判据**那一段之前的某一支，不在 `chainOnto` 的 `break` 上。
+// xl:note 第 971 轮收掉：入口判据 `isCallFirstUnit` 原来只认**平级的**实参括号，
+// 而这一格的第二格是 `PropertyAccess(Method(name=""[Bracket(())]), ., c)`——括号在 `Method`
+// **里面**，于是链那一支整个进不来、只剩一个盖到 `a!` 的 `NonNullExpression`。
+// 多问一句「头一格是不是 `Method` 外壳的那一次调用」之后，两个 `CallExpression`、`.c` 与断言
+// 各就各位（缺 4 → 0）；那一行 `xl:known-gap` 按规矩撤掉，用例留着当守卫。
 // xl:round 964
 // 第 964 轮换一批底样普查（调用 / 可选链 / 非空断言 / 下标，47 条里 11 条对不上）量出来的，
 // 与第 962 / 963 两轮收掉的那一族**同域**——都在 `print-ast-common.xl.md` 的**投影层**
@@ -24,13 +28,14 @@
 // 而那个字面量在**别的支路**里也有一份（`flattenChainTailInOperator`），
 // 于是打印落到了死代码上、看起来「进了支、没进循环」。**锚点要选那一段独有的字符串**。
 //
-// **现在的下一处入手处**：这一次要量的是**入口判据那一段**——
+// **第 970 轮量出的下一处入手处，第 971 轮就是照着它修的**：
 // 链支的条件是 `kids.length >= 2 && (isSymbol(kids[1], ".") || isIndexBracket(kids[1]) ||
 // isCallFirstUnit(kids[1], ctx) || …)`，而这一格 `kids[1]` 是
-// `PropertyAccess([Method(name="")[Bracket(())]])`：
-// `isCallFirstUnit` 对它的头一格（`Method` 里的 `Bracket`）**应当**答真，
-// 所以下一步是在**那一段前面**（`projectExpression` 开头到链支之间那几支）
-// 量清楚是谁先把这一格吃掉的——插桩必须打在**链支条件那一条 `if` 上**，
-// 而不是它内部。
+// `PropertyAccess([Method(name="")[Bracket(())]])`：`isCallFirstUnit` 对它的头一格
+//（`Method` 里的 `Bracket`）**应当**答真——实测它答的是假。
+// 修法就在那一句上（`print-ast-common.xl.md` 的 `isCallFirstUnit`）：`PropertyAccess` /
+// `NotNull` 那一支先问「头一格是平级的实参括号吗」，再问一句
+// 「头一格是 `Method` 外壳的那一次调用吗」（判据转交给 `Method` 那一支，**不写第二份**）。
+// 链那一支于是进得去，摊开与 `chainOnto` 的 Method 分支（第 966 轮补的）照常把它折完。
 // xl:end
 a!()().c;

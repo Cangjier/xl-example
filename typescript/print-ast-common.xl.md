@@ -5051,7 +5051,17 @@ if (kind === "PropertyAccess" || kind === "NotNull") {
   const inner = projectableKids(view(unit));
   if (inner.length >= 1) {
     const head = inner[0];
-    return head.get("type") === "Bracket" && head.get("startBracket") === "(";
+    if (head.get("type") === "Bracket" && head.get("startBracket") === "(") return true;
+    // **头一格是「外面那次调用」在 `Method` 里**（第 971 轮，**普查当场红的**）：
+    // `a!()().c` 的第二格是
+    // `PropertyAccess(Method(name=""[Bracket(())]), ., c)`——实参括号在 `Method`
+    // **里面**，于是这一格同样是「以一次调用开头」。原来这里只认**平级的** `Bracket`，
+    // 于是链那一支整个进不来、`kids[0]` 单独投出去：实测只剩一个盖到 `a!` 的
+    // `NonNullExpression`，两个 `CallExpression`、`PropertyAccessExpression` 与
+    // `Identifier(c)` 一起丢（`gap-r964-nonnull-call-twice-member`，缺 4 格）。
+    // 判据只多问一句 `isCallFirstUnit(头一格)`，认的仍然只有 `Method` 那一档
+    // ——**平级的裸 `(` 兄弟照旧不在名单里**（理由与上面那一句一字不差）。
+    return head.get("type") === "Method" && isCallFirstUnit(head, ctx);
   }
 }
 return false;

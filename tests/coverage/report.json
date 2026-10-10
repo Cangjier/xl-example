@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.65,
+  "progressPercent": 95.66,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1601,
-      "pass": 1598,
-      "blocked": 3,
+      "pass": 1599,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.81
+      "coverage": 99.88
     },
     {
       "category": "exec",
@@ -130,30 +130,24 @@
   ],
   "token": {
     "total": 1601,
-    "knownGap": 3,
-    "knownGapStillOpen": 3,
-    "exactFiles": 1598,
-    "scoredWithoutGap": 1598,
-    "passedWithoutGap": 1598
+    "knownGap": 2,
+    "knownGapStillOpen": 2,
+    "exactFiles": 1599,
+    "scoredWithoutGap": 1599,
+    "passedWithoutGap": 1599
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r964-nonnull-call-twice-member",
-      "category": "token",
-      "title": "",
-      "detail": "缺 4　第 964 轮普查量到的形状：缺 `PropertyAccessExpression` / 两个 `CallExpression` / `Identifier` 各一：双层调用后面那个成员整段丢。根因还没量到——如实登记，不猜。"
-    },
     {
       "id": "token/expressions/gap-r964-opt-assert-member-member",
       "category": "token",
       "title": "",
-      "detail": "漂 2　第 964 轮普查量到的形状：`PropertyAccessExpression` 与 `Identifier` 各漂：断言之后那条链只接了一格。根因还没量到——如实登记，不猜。"
+      "detail": "漂 2　第 970 轮把现场量到「那一格 PropertyAccess 由谁吃掉」上：`chainOnto` 的成员循环在它上面 `j += 1` 就收工，`.d` 与断言的位置全错。"
     },
     {
       "id": "token/expressions/gap-r964-opt-call-triple",
       "category": "token",
       "title": "",
-      "detail": "缺 2　漂 1　字段 1　第 964 轮普查量到的形状：`CallExpression` / `PropertyAccessExpression` / `Identifier` 三处漂，另多一格**名字为空**的属性访问——三层调用只折了两层。根因还没量到——如实登记，不猜。"
+      "detail": "缺 2　漂 1　字段 1　第 970 轮把「三层只折了两层」量到 `Method.PrintAst` 那个空括号闸门上（`ctx.Kids(brace).length > 0`），不是 `chainWithOptional` 的折法。"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
