@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4311,
+  "total": 4314,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.41,
+  "progressPercent": 95.4,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1532,
-      "pass": 1532,
-      "blocked": 0,
+      "total": 1535,
+      "pass": 1534,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.93
     },
     {
       "category": "exec",
@@ -129,14 +129,20 @@
     }
   ],
   "token": {
-    "total": 1532,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
-    "exactFiles": 1532,
-    "scoredWithoutGap": 1532,
-    "passedWithoutGap": 1532
+    "total": 1535,
+    "knownGap": 1,
+    "knownGapStillOpen": 1,
+    "exactFiles": 1534,
+    "scoredWithoutGap": 1534,
+    "passedWithoutGap": 1534
   },
   "blocked": [
+    {
+      "id": "token/types/gap-fn-curried-return",
+      "category": "token",
+      "title": "柯里化的函数类型：返回类型那一段自己也是函数类型（token 层按第 141 行的口径整段收在一个节点里）",
+      "detail": "缺 2　多 1　未映射 1　返回类型那一段是平铺的 `(` `=>` `T` 三格，`projectTypeExpression` 不认这形状（缺里层 `FunctionType` + `VoidKeyword`、多一个裸 `Bracket`）"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -503,7 +509,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2139.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2142.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -809,7 +815,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3127.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3130.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -833,7 +839,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3175.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3178.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -989,7 +995,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3818.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3821.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

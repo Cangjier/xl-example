@@ -363,7 +363,7 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**0 条**）
+## 已知仍开着的缺口（**1 条**）
 
 **这一格跟着门走**：条数以 `npm run cases:tsast` 最后一行「已知缺口：N 条还开着」为准
 （第 854 轮实测 **10**：第 845 轮收掉 8 条、第 846 轮收掉 1 条、第 847 轮收掉 2 条、
@@ -402,7 +402,9 @@
 那一格改成 trivia 口径，`new` 那一档顺手从「按类认」改成「按词认」）⇒ **0 条**。
 **第 910–925 轮**把第 907 轮登记后余下的那 6 格逐格收完；**第 926 轮登记 1 格**
 （`token/declarations/gap-return-type-fn-comment-body.ts`）、**第 927 轮收掉它**
-⇒ **缺口清单第四次清空**（标题上那个「0 条」是第 927 轮实测的读数）。
+⇒ **缺口清单第四次清空**（标题上那个条数是第 927 轮（二）实测的读数：
+**柯里化的返回类型那一格** —— `token/types/gap-fn-curried-return.ts`，
+根因与修法见下面第 927 轮（二）那一节）。
 
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
@@ -993,7 +995,8 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
      `ctx.TypeOf([Bracket, SymbolToken(=>), Keyword(void)])` —— 平铺的三格，
      `projectTypeExpression` 不认这形状（投出那个裸 `Bracket`、`void` 整格不见）。
      修法在**投影那一层**（元 `typeOf` 里给「平铺的 `( … ) => T` 段」补一支），
-     与 token 层的折叠次序无关；**还没做**，也还没铺成 `xl:known-gap` 用例。
+     与 token 层的折叠次序无关；**还没做**，第 927 轮（二）把它铺成了
+     `xl:known-gap` 用例 `token/types/gap-fn-curried-return.ts`。
 - **账**：`npm run gates` 九道全过；coverage 4140 / 4309 → **4141 / 4311**
   （blocked 39 → **40**，多的那一条正是登记的余量）、differ 130、bad 0；
   cases:check 1545 条 0 不合格、cases:tags 5134 条断言 0 不一致。
@@ -1027,10 +1030,56 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
   `void { … }` 值位那两档照旧全绿（`t-param-then-comment-before-paren` 也绿：
   注释夹在返回类型冒号与形参表之间同样收得住）。
 - **还开着的**：柯里化那一格（上一节第 2 条），**与注释无关**，病在投影 —— 换地形量出来的，
-  见上面那条。
+  见下面第 927 轮（二）那一节；这一轮把它铺成了 `xl:known-gap` 用例
+  （`token/types/gap-fn-curried-return.ts`）。
 - **账**：`npm run gates` 九道全过；`cases:tsast` 缺口 **1 → 0 条还开着**
   （登记的用例转绿、`xl:known-gap` 按规矩撤掉、用例留着当守卫，并补 `xl:expect Statement:1`）；
   coverage **4141 / 4311 → 4142 / 4311**（blocked **40 → 39**：那条缺口转绿）、differ 130、bad 0。
+
+**第 927 轮（二）：顺着同一条线再收两格——「第二段箭头」那一族与第 927 轮开头量到的那一格**
+
+上一节收工时留下两条「与注释无关」的余量（柯里化的返回类型、以及顺着探针翻出来的
+`type /*c*/ T = () => void;`）。这一轮把它们各自量到**层**，然后一收一登：
+
+- **`type /*c*/ T = () => void;` 病在解析期**（不是投影）：`IsTypeAliasAssignment`
+  （`lamda.xl.md`）往左只跳 `LineWrap` / `GenericType` ⇒ 撞上那条 `AreaAnnotation` 就
+  `return false`（「这不是类型别名的等号」）⇒ `IsLambdaParameters` 判「这是形参表」⇒
+  `FunctionTypeCloseRule.Previous` 拿到 `FindParameters >= 0` 就把整段函数类型让了出去
+  ⇒ **token 树里一个节点都不成形**（`TypeAssign` 底下是平的 `Bracket` / `=>` / `void`）。
+  修法与第 927 轮同源：那一格也走 `IsTriviaUnit`。守卫 `token/types/type-fn-alias-comment.ts`。
+- **箭头函数的返回类型是函数类型那一格**（`const f = (): () => void => { return; };`）
+  有**两根**，一根在折叠、一根在回扫：
+  1. `FunctionTypeCloseRule.Process` 的收集循环里 `=>` **一律不终止**（那一句的口径是
+     「柯里化的函数类型整段收进同一个节点即可」）——于是内层那个 `FunctionType`
+     从左括号一路收过 `void`、**外层 `=>`**、直到函数体（实测产物是一个 `[14,39)` 的
+     `FunctionType`：缺 `ArrowFunction` / `EqualsGreaterThanToken` / `Block` / `ReturnStatement`）。
+     判据只差一格：`=>` 往左（跳 trivia）**是不是形参表那个 `(`**——是 ⇒ 柯里化的下一段（继续收）；
+     不是 ⇒ 类型到此为止（`void => x` 根本不是类型）。
+  2. 修完第一根，体那个 `{` 又被收成 `TypeLiteral`：`type-literal.xl.md` 的 `IsTypePosition`
+     从体那个 `{` 回扫，**跨箭头**那个状态（`crossingArrow`）原来见到 `(` 就清掉 ——
+     而这里回扫先撞上**外层** `=>`、再撞上**内层** `=>`（返回类型自己那段函数类型），
+     内层那个 `(` 把状态清早了 ⇒ 状态熄灭之后撞上的是**外层箭头的返回类型冒号** ⇒ 判类型位。
+     修法是**数箭头**（`arrowsCrossed`）：叠着几条箭头就等几个形参表，只有最外面那条的
+     `(` 才结束「跨箭头」。
+  - 守卫 `token/expressions/expr-arrow-return-function-type.ts`（修前缺 `Block`、多 `TypeLiteral`）。
+  - **量到的收益**（探针 `tmp/r927/probe4.mjs` 5 条：修前 2 红、修后 **0 红**；
+    `tmp/r927/probe5.mjs` 15 条：修后 **13 绿**——只剩柯里化那两条形状）。
+- **仍然开着的一格**：柯里化的返回类型（`type T = () => () => void;`）——
+  token 层按设计把整段收在**同一个** `FunctionType` 里（上面那一句口径没变），
+  于是返回类型那一格交给 `ctx.TypeOf` 的是**平铺**的 `Bracket` / `SymbolToken(=>)` / `Keyword`
+  三格，而 `projectTypeExpression` 不认这形状（投出那个裸 `Bracket`、`void` 整格不见）。
+  **修法在投影那一层**（给元 `typeOf` 里「平铺的 `( … ) => T` 段」补一支），
+  这一轮**没做**，按规矩登记成 `xl:known-gap`：
+  `token/types/gap-fn-curried-return.ts`（`cases:tsast` 报「1 条还开着」）。
+- **账**：`npm run gates` 九道全过；coverage **4142 / 4311 → 4144 / 4314**
+  （blocked **39 → 40**：新登记的那一条进分母；differ 130、bad 0 没动）；
+  `cases:check` **1548** 条 0 不合格、`cases:tags` **5145** 条断言 0 不一致、
+  `cases:astjson` 36717 个节点六项全 0。
+- **可复用的判据**：**「与注释无关」是一条很有用的分诊线**——它把「trivia 口径」那条线排除掉之后，
+  剩下的根只可能长在**折叠时序**或**投影**上，而这两层各有各的探针（`--snippets` 看四方向、
+  `cjcli` 看 XML）。这一轮三格（`IsFunctionTypeArrow` / `IsTypeAliasAssignment` /
+  `crossingArrow`）全都是「往回走的那一格少跳了一种 trivia 或少数了一层」。
+
 
 
 ## 被否决的改法（不要再试）

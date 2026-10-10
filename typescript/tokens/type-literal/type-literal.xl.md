@@ -323,6 +323,9 @@ if (SkipPreviousTrivia(units, index) < 0 && current.Parent instanceof Bracket &&
 }
 let crossedAssignment = false;
 let crossingArrow = false;
+// **正在跨的那条箭头左边还叠着几条箭头**（第 927 轮）：只有**最外面那一条**的形参表
+// 才结束「跨箭头」——见下面 `Bracket` 那一支与 `=>` 那一支的说明。
+let arrowsCrossed = 0;
 // **「这一格与那个 `new` 之间跨过实义单元没有」**（第 375 轮）——
 // 与 `text-common-util.xl.md` 的 `DecideBracketContext` 里那个 `sawUnit` **同一条判据**
 //（两处是同一个判断的两份实现，本文件那一段注释里写着为什么不合并）。
@@ -402,7 +405,15 @@ for (let i = index - 1; i >= 0; i--) {
       return true;
     }
     if (text === "=>") {
+      // **跨箭头那一段要数箭头**（第 927 轮）：`const f = (): () => void => { … }` 里
+      // 返回类型**自己**是一段函数类型，于是从体那个 `{` 回扫会先撞上**外层** `=>`、
+      // 再撞上内层那一个。原来两个都只把状态**置真**、而下面那个 `(` 见到 `(` 就把状态清掉
+      // ⇒ 丢掉的是**外层**箭头的形参表（它更左）⇒ 回扫接着撞上外层箭头的**返回类型冒号**
+      // ⇒ 判成类型位 ⇒ 体被收成 `TypeLiteral`
+      //（实测：缺 `Block`、多一个 `TypeLiteral`；`const f = (): () => void => { return; };`）。
+      // 数下来之后，内层那个 `(` 只把计数减一、状态继续亮着。
       crossingArrow = true;
+      arrowsCrossed = arrowsCrossed + 1;
       continue;
     }
     if (text === "=" && crossedAssignment === false) {
@@ -427,8 +438,17 @@ for (let i = index - 1; i >= 0; i--) {
       // 判据 `c371-e2e-coordinate-geometry` / `c371-e2e-sudoku-validator` 两条）。
       // **对照**：`(): number => { … }` 与 `(): Array<number> => { … }` 一直是好的——
       // 它们没有那个 `[`（`Array<…>` 是一个 `GenericType`，在更上面那一支里 `continue`）。
+      //
+      // **叠着箭头时只减一层**（第 927 轮）：这一对括号属于**返回类型里那个函数类型**时
+      // （它自己也有 `=>`，见上面那个计数），它不该结束「跨箭头」——要继续往左找
+      // **最外面那条箭头**的形参表。
       if (item.startBracket === "(") {
-        crossingArrow = false;
+        if (arrowsCrossed > 1) {
+          arrowsCrossed = arrowsCrossed - 1;
+        } else {
+          crossingArrow = false;
+          arrowsCrossed = 0;
+        }
       }
       continue;
     }

@@ -275,16 +275,26 @@ return false;
 
 `index` 处的 `=` 是不是**类型别名**的等号。
 
-往左只跨 `Identifier`（别名、`export` / `declare` 这些修饰词）与 `GenericType` / 软换行：
+往左只跨 `Identifier`（别名、`export` / `declare` 这些修饰词）、`GenericType` 与 **trivia**：
 
 - 找到 `type` ⇒ 是类型别名；
 - 找到 `let` / `var` / `const` ⇒ 不是；
 - 碰到别的（符号、括号、列表开头）⇒ 不是（保守：宁可当值位，行为与既有一致）。
 
+**第 927 轮：`LineWrap` 那一格换成 `IsTriviaUnit`**。这一条与 `IsLambdaParameters` 的第 1 步、
+`FunctionTypeCloseRule.Previous`、`IsFunctionTypeArrow` 问的是**同一件事的两半**
+（「这个 `=` / `(` 左边那一格是什么」），而那三处都早已走 trivia 口径。这一处只跳软换行时：
+`type /*c*/ T = () => void;` 往回走看到的是那条注释 ⇒ 落到最后那句 `return false`
+⇒ `IsLambdaParameters` 判「这是形参表」⇒ `FunctionTypeCloseRule.Previous` 拿到
+`FindParameters >= 0` 就把整段**函数类型**让了出去 ⇒ **一个节点都不成形**
+（实测：token 树里 `TypeAssign` 底下是平的 `Bracket` / `=>` / `void`，
+投影缺 `FunctionType` + `VoidKeyword`、多一个裸 `Bracket`；无注释的对照态全绿）。
+这才是第 927 轮量到的「第二段箭头」那一族的**另一个根**——它在**解析期**，不在投影期。
+
 ```ts
 for (let i = index - 1; i >= 0; i--) {
   const item = Get(units, i);
-  if (item instanceof LineWrap || item instanceof GenericType) {
+  if (item instanceof GenericType || IsTriviaUnit(item)) {
     continue;
   }
   if (item instanceof Identifier) {

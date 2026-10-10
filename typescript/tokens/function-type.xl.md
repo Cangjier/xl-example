@@ -132,13 +132,27 @@ return false;
   只按 `Statement.IsLineBreakBoundary` 判时 `void` 是个 `Identifier`、而被判成「还能续接」，
   于是整条 `type B<…>` 会被吞进上一行的 `FunctionType`，实测把两个声明并成了一个）；
   再加上 `Statement.IsLineBreakBoundary` 兜住表达式内部那种受限产生式的边界；
+- **`=>` 只在「柯里化的下一段」里继续**（第 927 轮）：见下面那一段。
 - 一路没遇到终止符就收到列表末尾（`A |` 换行 `B` 这种合法折行因此不受影响）；
 - 起始下标是 `firstIndex`（形参括号），终点取最后一个收集项——收集为空时退回 `=>` 自己那一格，
   免得 `SignOut` 取到 `undefined`。
 
 **`|` / `&` 不终止**：`x: () => A | B` 的返回类型就是联合类型，`&` 同理。
-**`=>` 也不终止**：`(a: A) => (b: B) => C` 是柯里化的函数类型，整段收进同一个节点即可
-（右侧那段不会再被单独收一次——同一条规则在同一层只认最左边那个 `=>`）。
+
+**`=>` 只在「它左边是形参表」时继续**（第 927 轮；原来一律继续）：
+`(a: A) => (b: B) => C` 是柯里化的函数类型，整段收进同一个节点是对的
+（右侧那段不会再被单独收一次——同一条规则在同一层只认最左边那个 `=>`），
+可它**多收了一种形状**：**箭头函数的返回类型是函数类型**时，
+那第二段 `=>` 是**箭头函数自己的**，不是类型的一部分——
+`const f = (): () => void => { return; };` 里内层那个 `FunctionType`
+从左括号一路收过 `void`、外层 `=>`、直到函数体
+（实测产物是**一个** `[14,39)` 的 `FunctionType`：缺 `ArrowFunction` / `EqualsGreaterThanToken` /
+`Block` / `ReturnStatement`，多一个裸 `Bracket`（外层那个形参表））。
+**分开两者的判据只有一格**：`=>` 往左（跳 trivia）**是不是形参表那个 `(` 括号**——
+是 ⇒ 柯里化的下一段（继续收）；不是（`void` / 名字 / 右括号以外的东西）⇒ 类型到此为止。
+语法上也站得住：`void => x` 根本不是类型，而 `(B) => C` 才是。
+**`abstract new () => A` / `<T>(a) => B` 不受影响**：那两处的 `=>` 只有一个，
+收集本来就从它右边开始。
 
 ```ts
 const current = Get(units, index);
@@ -181,6 +195,17 @@ for (let i = index + 1; i < units.length; i++) {
   if (item instanceof SymbolToken) {
     if (item.Is(";") || item.Is(",") || template.SymbolTemplate.IsAssignmentSymbol(item.TempToString())) {
       break;
+    }
+    // **`=>` 只在「左边是形参表」时继续**（第 927 轮）：柯里化的下一段
+    // （`(a: A) => (b: B) => C`）里那个 `=>` 前面正是上一段的形参括号；
+    // 而**箭头函数的返回类型**里那个 `=>` 前面是返回类型自己（`void` / 名字 / …）
+    // ⇒ 它是箭头函数自己的箭头，类型到此为止（少了这一格，
+    // `const f = (): () => void => { return; };` 的 `FunctionType` 会把外层箭头与函数体一起吞掉）。
+    if (item.Is("=>")) {
+      const beforeArrow = Get(units, SkipPreviousTrivia(units, i));
+      if (!(beforeArrow instanceof Bracket) || beforeArrow.startBracket !== "(") {
+        break;
+      }
     }
     if ((item.Is("?") || item.Is(":")) && sawExtends === false) {
       // 返回类型**自己**的条件类型（`() => T extends U ? A : B`）里那个 `?` 属于返回类型，
