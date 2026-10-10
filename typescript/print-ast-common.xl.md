@@ -626,18 +626,10 @@ new Map([
 返回 `undefined`）。所以那些出口改为返回 `ctx.Nothing`，`projectNode` 见到它就**直接返回
 `undefined`**，不再往下走通用支。
 
-# private const FUNCTION_LIKE_TAGS:Set<string> = new Set(["Function", "MethodDeclaration", "Lamda"])
+# private method functionContextOf:(token:any)=>any
 
-**值位的函数体**（三个标签）：`function f() {}` / `class C { m() {} }` / `(x) => x`。
-
-`export function` / `declare function` 那一族最后也收成 `Function`（修饰词折进 `modifiers`），
-所以三个标签就够了；类型位的 `FunctionType` / `ConstructorType` **不在**这张表里
-（那里不可能有 `yield` / `await` 这两个词）。
-
-# private method functionContextOf:(ctx:any, token:any)=>any
-
-从一个产物的 token 出发，找出**最近的那一层函数体**（见 `FUNCTION_LIKE_TAGS`），
-答 `{ generator, async }`；一路上没有函数体就答 `null`（脚本 / 模块顶层）。
+从一个产物的 token 出发，找出**最近的那一层函数体**，答 `{ generator, async }`；
+一路上没有函数体就答 `null`（脚本 / 模块顶层）。
 
 **为什么要有这一格**（第 960 轮，缺口 `gap-r955-yield-await-outside-context`）：
 `yield` / `await` 在**生成器 / `async` 之外**是**普通标识符**
@@ -652,55 +644,25 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
 带 `ctx` 标志要改的是每一处进函数体的投影路径（`Function` / `MethodDeclaration` / `Lamda` /
 对象字面量成员…），漏一处就退化成「在生成器里也不认」，而祖先链上没有可漏的地方。
 
-**`ctx` 只用来取原文**（`ctx.source`）：`SymbolToken` 上**没有 `TempToString`**
-（那一格是 `Bracket` / `Keyword` 才有的），所以记号一律按源码切片取。
-生成器记号是一个平级的 `SymbolToken`（`function* g() {}` 与 `class C { *m() {} }`
-都把它放在 `Data` 里，位置分别在名字之后 / 名字之前），`async` 则有三种落法
-（折进 `modifiers`、留在 `Data` 里当一个 `Identifier`、或 `Lamda` 的 `IsAsync` 字段）。
+**这一格第 1031 轮只剩「沿链问一句」**：过去这里有一张按类名查的 `FUNCTION_LIKE_TAGS`
+（`Function` / `MethodDeclaration` / `Lamda`）与一段扫描 `Data` 的循环（在 `(` 之前找 `*` 记号、
+找内容为 `async` 的 `Identifier`，再读 `IsAsync`），最后还要用 `ctx.source` 切出 `async` 的原文——
+那三格说的都是**那一页自己的属性与子单元**，所以搬回各自那一页（`Token.FunctionFlags()`，
+见 `core/syntax/token.xl.md`）：投影只问这一格，`ctx` 这一格也一并去掉（它只用来取原文）。
 
 ```ts
   let cursor = token;
   while (cursor !== null && cursor !== undefined) {
-    const tag = cursor.constructor.name;
-    if (FUNCTION_LIKE_TAGS.has(tag)) {
-      let generator = false;
-      let async = false;
-      if (typeof cursor.modifiers === "string" && cursor.modifiers.split(",").includes("async")) {
-        async = true;
-      }
-      if (Array.isArray(cursor.Data)) {
-        for (const item of cursor.Data) {
-          // **只在形参表之前找记号**：`function* g(a * b)` 这种乘法在括号**里面**，
-          // 撞上那个 `(` 就收手，免得把一个乘法记号读成生成器。
-          // 本文件**不 import `Bracket`**（见文件头：只 import 了 `Token` 与 `Translate`），
-          // 所以这里按 `constructor.name` 认标签——与 `wrapperTarget` 那一处同一条口径。
-          if (item.constructor.name === "Bracket" && item.startBracket === "(") {
-            break;
-          }
-          if (item.constructor.name === "SymbolToken") {
-            const range = item.SourceRange;
-            if (range.Start !== null && range.Start !== undefined && range.Start.Value === "*") {
-              generator = true;
-            }
-          }
-          if (item.constructor.name === "Identifier") {
-            const range = item.SourceRange;
-            if (range.Start !== null && range.End !== null && ctx.source.slice(range.Start.Index, range.End.Index + 1) === "async") {
-              async = true;
-            }
-          }
-        }
-      }
-      if (cursor.IsAsync === true) {
-        async = true;
-      }
-      return { generator: generator, async: async };
+    // **这一格自己答**（第 1031 轮）：不是函数体的页面答 `undefined`（基类那一格），
+    // 是函数体的那三页各答 `{ generator, async }`——「哪些类是函数体」不再由投影记第二遍。
+    const flags = typeof cursor.FunctionFlags === "function" ? cursor.FunctionFlags() : undefined;
+    if (flags !== undefined) {
+      return flags;
     }
     cursor = cursor.Parent;
   }
   return null;
 ```
-
 # private const SIGNATURE_KINDS:Set<string> = new Set(["FunctionDeclaration", "MethodDeclaration", "MethodSignature", "CallSignature", "ConstructSignature"])
 
 没有函数体的**可调用签名**：它们的 `end` 要**带上尾随分号**（TS 的口径）。
@@ -2602,7 +2564,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       // 原来写的是 `kids[0].__token`——这个字段**在 token 自己身上是 `undefined`**
       // ⇒ `functionContextOf` 一次都没被问到 ⇒ 上下文外的 `yield` / `await` 判不出来
       //（实测 `expr-yield-await-context`：缺 1 多 1）。
-      const context = functionContextOf(ctx, kids[0]);
+      const context = functionContextOf(kids[0]);
       const inContext = context !== null && (word === "yield" ? context.generator === true : context.async === true);
       if (inContext === false) {
         return {

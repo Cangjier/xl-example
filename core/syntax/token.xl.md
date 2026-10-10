@@ -931,6 +931,24 @@ return undefined;
 return false;
 ```
 
+## method FunctionFlags:()=>any
+
+**我这一格是不是函数体**（第 1031 轮）：是的话答 `{ generator, async }`，不是的话答 `undefined`。
+
+`yield` / `await` 在**生成器 / `async` 之外**是**普通标识符**，而「最近的那一层函数体是不是生成器 /
+async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`async` 这个词、箭头函数那一格 `IsAsync`
+全在它自己的属性与子单元里。过去它写在投影层——一张按类名查的 `FUNCTION_LIKE_TAGS`
+（`Function` / `MethodDeclaration` / `Lamda`）加一段扫描 `Data` 的循环，还得回原文切 `async`
+（`typescript/print-ast-common.xl.md` 的 `functionContextOf`）：同一份事实被声明了两遍。
+今天由那三页各自覆写，投影只沿 `Parent` 链问这一格。
+
+**基类答 `undefined`**（`core` 与语言无关，不知道哪些类是函数体）：需要它的 token 在自己那一页覆写
+（`## method`，与 `AstKind` / `StatementKind` / `IsInvisible` 同一形态）。
+
+```ts
+return undefined;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

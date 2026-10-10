@@ -1203,3 +1203,29 @@ return result;
 ```ts
 return "ArrowFunction";
 ```
+
+## method FunctionFlags:()=>any
+
+**我这一格是不是函数体**（第 1031 轮）：箭头函数就是函数体，答 `{ generator, async }`——
+两个标记都取**自己的属性与子单元**，不回原文查（口径见 `core/syntax/token.xl.md` 的 `FunctionFlags`）。
+
+- **`async`**：首选**自己那一格 `IsAsync`**（`Process` 认下 `async` 那一刻置真）；按同一份扫描再兜一遍
+  `Data` 里那个内容为 `async` 的 `Identifier`，与另两页读法一致。
+- **生成器**：箭头函数没有生成器记号，这一支照抄同一份扫描（`*` 若真出现也只是自己的子单元）。
+
+```ts
+let generator = false;
+let async = this.IsAsync === true;
+for (const item of this.Data) {
+  if (item instanceof Bracket && item.startBracket === "(") {
+    break;
+  }
+  if (item instanceof SymbolToken && item.Is("*")) {
+    generator = true;
+  }
+  if (item instanceof Identifier && item.Is("async")) {
+    async = true;
+  }
+}
+return { generator: generator, async: async };
+```

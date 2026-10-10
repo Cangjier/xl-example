@@ -1208,3 +1208,29 @@ return result;
 ```ts
 return "MethodDeclaration";
 ```
+
+## method FunctionFlags:()=>any
+
+**我这一格是不是函数体**（第 1031 轮）：方法声明就是函数体，答 `{ generator, async }`——
+两个标记都取**自己的属性与子单元**，不回原文查（口径见 `core/syntax/token.xl.md` 的 `FunctionFlags`）。
+
+- **生成器方法**：`*` 记号是**自己的一个子单元**——它在**名字前面**（`class C { *g() {} }`），
+  `Process` 已经把它吃进 `Data`；扫到形参表那个 `(` 就收手。
+- **`async`**：修饰词折进 `modifiers`；没折进去时它是 `Data` 里的一个 `Identifier`——两条都算。
+
+```ts
+let generator = false;
+let async = this.modifiers.split(",").includes("async");
+for (const item of this.Data) {
+  if (item instanceof Bracket && item.startBracket === "(") {
+    break;
+  }
+  if (item instanceof SymbolToken && item.Is("*")) {
+    generator = true;
+  }
+  if (item instanceof Identifier && item.Is("async")) {
+    async = true;
+  }
+}
+return { generator: generator, async: async };
+```
