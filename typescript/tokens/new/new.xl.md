@@ -505,6 +505,56 @@ return new Map([["NewExpression", new Map([["name", "expression"]])]]);
   return ctx.NodeHead("NewExpression", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 995 轮）：与上面的 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+
+**这一页本来就是「全字段」的**（`PrintAst` 里的每一问都读 `name` / `arguments` 两个段与子单元自己的东西），
+所以直出版是**逐行同一份**：`ctx.KidsOf` / `ctx.Invisible` / `ctx.ParenthesizedOf` / `ctx.Expression` /
+`ctx.Split` / `ctx.TypeExpression` / `ctx.NodeHead` 都是出口助手，没有一处回原文查。
+唯一一处「判据落在 token 自己的字段上」的是 `IsTemplateString`——它读的是 `String.StringChar`
+（那一格自己记着用哪个引号开头），不是原文里那个字符。
+
+```ts
+  const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const genericAt = nameUnits.findIndex((k: any) => k.get("type") === "GenericType");
+  const templateAfterGeneric =
+    genericAt >= 0 &&
+    genericAt + 1 < nameUnits.length &&
+    IsTemplateString(nameUnits[genericAt + 1].__token ?? null);
+  const generic = genericAt >= 0 && !templateAfterGeneric ? nameUnits[genericAt] : undefined;
+  const calleeUnits = nameUnits.filter((k: any) => k !== generic);
+  const props: any = {};
+  if (
+    calleeUnits.length === 1 &&
+    calleeUnits[0].get("type") === "Bracket" &&
+    calleeUnits[0].get("startBracket") === "("
+  ) {
+    props.expression = ctx.ParenthesizedOf(calleeUnits[0]);
+  } else if (calleeUnits.length > 0) {
+    props.expression = ctx.Expression(calleeUnits);
+  }
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+      const one = ctx.TypeExpression(group);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  const args = ctx.KidsOf(v, "arguments").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const argGroups = ctx.Split(args, ",");
+  const argumentList = [];
+  for (const group of argGroups) {
+    if (group.length === 0) continue;
+    const one = ctx.Expression(group);
+    if (one !== undefined) argumentList.push(one);
+  }
+  if (argumentList.length > 0) props.arguments = argumentList;
+  return ctx.NodeHead("NewExpression", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器。
