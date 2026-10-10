@@ -7687,6 +7687,43 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
   动了**投影的键序或坐标**时，`samples` 是唯一看得见的那把尺子（`cases:tsast` 只比
   kind / 区间 / 字段名）；动了 token 层时反过来，`cases:tsast` 会告诉你形状还对不对。
 
+- **这条链上有两个 `xl`，走错一个就等于什么都没改**（第 968 轮实测，务必先读这一条）：
+
+  | 名字 | 是什么 | 这台机器上有没有 |
+  | --- | --- | --- |
+  | `xl` | `npm run build` / `npm run check` 里调的那个可执行 | **没有**——`npm run build` 当场报 `'xl' is not recognized`，`node_modules/.bin` 里只有 `tsc` |
+  | `xl_build` / `xl_check` | **DSH 的 xl 插件工具**（本会话里可用的工具） | 有 |
+
+  所以**改规范的完整一条链是这三步**，缺一步数字都不会动：
+
+  ```text
+  *.xl.md  --xl_build-->  dist/ts/**/*.ts  --npx tsc-->  build/ts/**/*.js  -->  九道门
+              （工具调用）        （不跟踪）      （tsc）        （不跟踪）        （量的是 build/）
+  ```
+
+  - **`dist` 与 `build` 都在 `.gitignore` 里**（`.gitignore` 第 2/3 行）：尺子量的是
+    **`build/`**（`tests/parse/ts-ast.mjs` 那一行 `require(build/…/print-ast-common.js)`），
+    所以「只改 `.xl.md`」对九道门**一点影响都没有**——`dist/ts/` 是脏的还是别人留下的旧产物，
+    `build/` 就跟着是旧的，门却照报全绿。**第 968 轮实测**：只改规范不重新生成，
+    `cases:tsast` 的已知缺口与 `coverage` 的每一个数**逐字不变**。
+  - **`xl_build` 的缓存会误判「已是最新」**：它按源指纹跳过已满足的产物，
+    而 `dist/` 是不跟踪的 ⇒ 换一台机器 / 清过目录之后很容易落在「hash 对得上、
+    文件其实不对」那一格。要它真重新生成，传 `force: true`；只想动一份规范时传
+    `paths: ["typescript/…xl.md"]`（不传就是整仓，慢得多）。
+  - **一条可复现的范例**（第 968 轮实测的墙钟）：
+
+    ```text
+    xl_build{paths:["typescript/print-ast-common.xl.md"],targets:["ts"],force:true}
+      → 1 written, 0 error(s)
+    npx tsc                → exit 0
+    npm run gates          → 9 道通过、0 道失败，墙钟 33.2s
+    ```
+
+  - **为什么这条值得写进 README**：`git log` 里那一串「第 N 轮：…缺口 6 → 3」的结论，
+    有一部分是**只改了 `.xl.md`、没有重新生成**就写下的（第 967 轮自己记着
+    「真门量下来一处没动」）。这类结论不是错的，而是**没验证过**——
+    排查一层没动之前，先确认 `dist/ts/` 与 `build/` 确实是从手头这份规范生成的。
+
 - **一轮一提交**：一轮的改动跑完尺子之后 `git commit`，提交信息按轮次写
   （`第 N 轮：…（coverage X -> **Y / Z**）`，正文写根因 / 修法 / 数字）。
   攒着不提交的话，「哪一轮把哪个数字动了」在 `git log` 里就查不到了。
