@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.67,
+  "progressPercent": 95.68,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1643,
-      "pass": 1639,
-      "blocked": 4,
+      "pass": 1640,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.76
+      "coverage": 99.82
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1643,
-    "knownGap": 4,
-    "knownGapStillOpen": 4,
-    "exactFiles": 1639,
-    "scoredWithoutGap": 1639,
-    "passedWithoutGap": 1639
+    "knownGap": 3,
+    "knownGapStillOpen": 3,
+    "exactFiles": 1640,
+    "scoredWithoutGap": 1640,
+    "passedWithoutGap": 1640
   },
   "blocked": [
     {
@@ -148,12 +148,6 @@
       "category": "token",
       "title": "继承子句里的模板串：整条类都不见了",
       "detail": "缺 9　多 2　第 985 轮第十批底样（嵌套宿主）量出：**继承子句里的模板串**——`class D extends `a${X}b` {}` 整条类**没有成形**（产物是 `<Statement><Keyword>class</Keyword>…<Bracket>{}</Bracket>`：缺 `ClassDe"
-    },
-    {
-      "id": "token/statements/gap-r992-forof-ternary-iterable",
-      "category": "token",
-      "title": "`for…of` 的枚举对象是条件表达式：`for (const x of a ? [b] : [c]) { … }` 该整条收成 `ForOfStatement`",
-      "detail": "缺 51　多 2　第 992 轮量出（**不是本轮引入的**）：`for…of` 的枚举对象是**条件表达式**时，整条语句退化成一个 `ExpressionStatement`——TS 那边这一条是 `ForOfStatement` + `VariableDeclarationList` + `VariableDec"
     },
     {
       "id": "token/types/gap-r985-jsdoc-nonnull-in-type-position",

@@ -309,6 +309,49 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1007 轮：`for (const x of a ? b : c)` 那一格**按实测收掉**——判据落在「这一列的宿主括号是不是 `for (`」（**不**按 `of` 这个词判）；`cases:tsast` **16 片全过** ⇒ **十一道门 11 通过、0 失败**（第 992 轮登记那条缺口以来第一次全绿）
+
+**一句话**：第 992 轮登记的那条已知缺口（`for…of` 的枚举对象是条件表达式时整条语句退化成一个
+`ExpressionStatement`）这一轮**先量到断点、再按实测收掉**；断点不在 `ForeachCloseRule`，
+而在三元自己的条件起点，所以判据也不在 `foreach` 那一页。
+
+- **量出来的断点**（一次性探针，`tmp/p-forof.mjs`，跑完即删）：在 `TernaryOperatorCloseRule.Process`
+  外面包一层、打印折叠那一刻的 `units` 与各自的 `Parent`——
+  `Identifier(const) Identifier(x) Identifier(of) Identifier(a) SymbolToken(?) ArrayLiteral SymbolToken(:) ArrayLiteral`，
+  而**每一格的 `Parent` 都是那一格 `(` 括号**（后来的 `Statement` 那时还没成形）。
+  ⇒ 断点是：`SearchFront` 在 `const` / `x` / `of` / `a` 上全答「不是表达式起点」
+  ⇒ `startIndex = -1` ⇒ 条件段把 `const x of a` **一整段**收进去 ⇒ 括号里长出 `TernaryOperator`
+  ⇒ 到了 `)` 那里 `of` 已经不在括号的 `Data` 里，`Foreach` 再也长不出来。
+- **收法**（`typescript/tokens/ternary-operator/ternary-operator.xl.md` 新增 private
+  `IterableStartInForeachHeader` + `Process` 里一处 `startIndex === -1` 的**加法**）：
+  只有当回扫一个起点都没找到时，才问「这一列的**宿主括号**是不是 `for (`」——是的话用括号里
+  **最后一个** `of` / `in` 词当下标（与 `ForeachCloseRule.Process` 同口径）。
+  正常三元（`a ? b : c`）总能撞上 `=` / `,` / `;` / `(` 这些起点，够不到这条加法上。
+- **为什么不按「有没有 `of` 这个词」判**（反例当场写进页面）：`of` 在 TypeScript 里**不是保留字**，
+  `const of = 1; const t = of ? 1 : 2;` 与 `return of ? 1 : 2` 都合法；按词判会把那两种写法的
+  条件段切空（`condition.Data.length === 0` ⇒ 干脆不成三元）——**静默错值**。
+  「宿主括号 + 它前面那个 `for`」两个事实都是这一列自己的东西，只有这一族会走到这里。
+- **一处实测的坑**（写进页面，免得再踩）：**内联箭头那一档的返回类型名不会被换成目标语言的写法**——
+  `const isWord = (item: Token | null, word: string): bool => {…}` 原样进产物，
+  `tsc` 报 `TS2304: Cannot find name 'bool'`（`print-ast-common.xl.md` 里那七处内联 `bool` 能过，
+  是因为那个文件头顶有 `// @ts-nocheck`）；成员签名那一档才会换。
+  所以那个「两词形」判据写成 private 方法 `IsWord`（`Identifier` 与 `Keyword` 两种词形共用一份，
+  四个调用点）。
+- **数字**：`cases:tsast` **16 片全过**、已知缺口 **4 → 3 条还开着、0 条已经收掉**；
+  `coverage 4259 → 4260 / 4422`（**分子 +1**、`blocked 29 → 28`、`differ 134` 一处没动、加权 95.7%）；
+  `cases:astjson 1642 → 1643 份 / 42594 → 42696 个节点`、`cases:direct 1639 → 1640 份逐字节同答`
+  （`--all`：`2050 → 2051 份 / 540887 节点、直出 95.9%`、0 处不一致）；
+  `cases:check 1656 条用例 0 条不合格`；`cases:tags` / `cases:shapes` 与两道 `runtime` 门
+  读数一处没动；**十一道门 11 通过、0 失败**（墙钟 36.8s）。
+- **收掉的那条第 992 轮用例按规矩撤掉 `xl:known-gap`、改成 `xl:note`**
+  （`tests/cases/token/statements/gap-r992-forof-ternary-iterable.ts` 留着当守卫：
+  收法与根因写在它自己的头两行），于是它**进了语料**——分母那一处 +1 就是它。
+- **可复用的判据**：**「已知缺口」不是「不修」**——第 992 轮量清的是「它不是本轮引入的」，
+  这一轮量的才是「它断在哪一步」；两件事都要有读数才站得住。
+  另一条：**同一个问句有几个断点候选时，先量「那一列自己手里有什么」**——
+  这一格最后用的两个事实（`Parent` 是括号、括号前面是 `for`）都是探针打印出来的，
+  不是读代码猜的。
+
 ### 第 1006 轮：名字那一格从「字符串名单」搬成 token 自己的一格事实（`Token.NameField`，十三页各答自己那个字段）——`tokenNameOf` 里最后一处「按字符串键查 token」收掉；`cases:direct --all` 2050 份逐字节同答、其余十道门读数一处没动
 
 **一句话**：第 1005 轮把「这一格叫什么」从字典键改成了 token 事实，但那一格事实是**试出来的**——

@@ -359,6 +359,120 @@ if (Statement.IsRestrictedKeyword(current)) {
 return false;
 ```
 
+## private method IsWord:(item:Token | null, word:string)=>bool
+
+`item` 是不是**文本等于 `word` 的词**——`Identifier` 与 `Keyword` 都算。
+
+**为什么不能只认 `Identifier`**：`KeywordCloseRule` 会把命中的词从 `Identifier` 升级成
+`Keyword`，而两者**没有继承关系**（判据与教训见 `../declaration-common.xl.md` 的 `IsWordUnit`
+与上面 `IsTypePosition` 那段「注意 `Identifier` 与 `Keyword` 没有共同的取文本方法」）。
+`for` / `await` / `of` / `in` 四个词都要按这一格问，所以本页留一份、四个调用点共用
+（不 import `declaration-common` 那一份：那一页是声明族的公共件，本页只要这四行）。
+
+**为什么写成方法而不是内联箭头**（本轮实测）：内联箭头那一档的返回类型名**不会被换成目标语言的写法**
+（`(x: T): bool => {}` 原样进产物 ⇒ `tsc` 报 `TS2304: Cannot find name 'bool'`），
+成员签名那一档才会换。
+
+```ts
+if (item === null || item === undefined) {
+  return false;
+}
+if (item instanceof Identifier) {
+  return item.TempToString() === word;
+}
+if (item instanceof Keyword) {
+  return item.Value === word;
+}
+return false;
+```
+
+## private method IterableStartInForeachHeader:(units:Array<Token>, questionIndex:int)=>int
+
+**这一列是不是 `for (` 头里那一串**——是的话答「枚举对象的起点」（那个 `of` / `in` 词的下标），
+否则答 `-1`。
+
+**为什么要有它**（第 1007 轮，量出来的形状）：`for (const x of a ? b : c)` 里 `? :` 属于
+**枚举对象**，而探针在折叠那一刻打印出来的是
+`Identifier(const) Identifier(x) Identifier(of) Identifier(a) SymbolToken(?) …`——
+回扫找不到任何「表达式起点」（`const` / `x` / `of` / `a` 都不是），于是 `startIndex` 落到 `-1`、
+条件段把 `const x of a` **一整段**收进去，括号里长出一个 `TernaryOperator`，
+`ForeachCloseRule` 到了 `)` 那里再也找不到 `of` 词 ⇒ 整条语句退化成 `ExpressionStatement`
+（`cases:tsast` 的 `gap-r992-forof-ternary-iterable` 就是这一格：缺 51 / 多 2）。
+
+**判据不看「有没有 `of` 这个词」**：`of` 在 TypeScript 里**不是保留字**，它可以是普通标识符
+（`const of = 1; const t = of ? 1 : 2;` / `return of ? 1 : 2`）——按词判就会把那两种写法
+的条件段切空（`condition.Data.length === 0` ⇒ 干脆不成三元），是**静默错值**。
+所以判据落在**宿主括号**上：这一串单元的 `Parent` 全是那一格 `(` 括号（实测），
+而那一格括号在它的父亲那一列里**紧跟在 `for` 后面**（`for await (…)` 中间那个 `await` 跳掉）。
+两件事都是这一列自己的事实，不回原文查。
+
+**它只在 `SearchFront` 一个起点都没找到时被问到**（见 `Process`）：正常三元
+（`a ? b : c`）总能撞上 `=` / `,` / `;` / `(` 这些起点，够不到这里；能走到这里的
+只有「`for (` 头里那个枚举对象」这一族，所以这是**加法**，不是换判据。
+
+`of` / `in` 的取法与 `ForeachCloseRule.Process` 同口径：括号里**最后一个** `of` / `in` 词。
+
+```ts
+if (questionIndex <= 0) {
+  return -1;
+}
+const first = Get(units, 0);
+if (first === null) {
+  return -1;
+}
+// **宿主括号就是这一列的 `Parent`**（实测）：折 `? :` 那一刻，这一串单元的 `Parent`
+// 全是那一格 `(` 括号本身（后来的 `Statement` 那时还没成形）。
+const holder: Token | null = first.Parent;
+if (!(holder instanceof Bracket) || holder.startBracket !== "(") {
+  return -1;
+}
+const grand: Token | null = holder.Parent;
+if (grand === null || grand === undefined) {
+  return -1;
+}
+// **两种词形都认**：`KeywordCloseRule` 会把一部分词从 `Identifier` 升级成 `Keyword`，
+// 两者没有继承关系（`../declaration-common.xl.md` 的 `IsWordUnit` 记着这条教训）——
+// 所以走本页自己的 `IsWord`，不写内联箭头（那一档的类型名不会被换成目标语言的写法）。
+const siblings = grand.Data;
+let at = -1;
+for (let i = 0; i < siblings.length; i++) {
+  if (Get(siblings, i) === holder) {
+    at = i;
+    break;
+  }
+}
+if (at < 0) {
+  return -1;
+}
+let back = at - 1;
+while (back >= 0 && IsTriviaUnit(Get(siblings, back))) {
+  back = back - 1;
+}
+// `for await (… of …)`：`await` 夹在 `for` 与括号之间（与 `ForeachCloseRule.Previous` 同口径）。
+if (this.IsWord(Get(siblings, back), "await")) {
+  back = back - 1;
+  while (back >= 0 && IsTriviaUnit(Get(siblings, back))) {
+    back = back - 1;
+  }
+}
+if (!this.IsWord(Get(siblings, back), "for")) {
+  return -1;
+}
+let found = -1;
+for (let i = 0; i < questionIndex && i < units.length; i++) {
+  const item = Get(units, i);
+  if (this.IsWord(item, "of") || this.IsWord(item, "in")) {
+    found = i;
+  }
+}
+// **`of` 前面必须真的有「定义」那一半**：`for (of xs)` 不是合法排版，
+// 而「`of` 落在第 0 格」只可能是一个叫 `of` 的标识符（`of ? 1 : 2`）。
+if (found <= 0) {
+  return -1;
+}
+return found;
+```
+
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：切出条件 / 真值 / 假值三段，组装成 `TernaryOperator`，**返回新的下标**。
@@ -396,7 +510,18 @@ return false;
 const current = Get(units, index)!;
 const elseIndex = index;
 const questionIndex = this.MatchingQuestionIndex(units, index);
-const startIndex = SearchFront(units, questionIndex, TernaryOperatorCloseRule.IsTernaryOperatorStart);
+let startIndex = SearchFront(units, questionIndex, TernaryOperatorCloseRule.IsTernaryOperatorStart);
+// **`for (` 头里的枚举对象**（第 1007 轮）：`for (const x of a ? b : c)` 的 `? :` 是
+// **枚举对象**的，不是整条 for 头的。回扫在 `const` / `x` / `of` / `a` 上都答「不是起点」
+// ⇒ 条件段会把 `const x of a` 一整段收进去 ⇒ 括号里长出 `TernaryOperator`、
+// 到了 `)` 那里 `of` 已经不在括号的 `Data` 里 ⇒ `Foreach` 再也长不出来。
+// 判据与反例见 `IterableStartInForeachHeader`（`of` 可以是普通标识符，所以不能按词判）。
+if (startIndex === -1) {
+  const iterableStart = this.IterableStartInForeachHeader(units, questionIndex);
+  if (iterableStart !== -1) {
+    startIndex = iterableStart;
+  }
+}
 // **假值段的终点**：`Previous` 里那个 `segmentEnd` 的同一条判据（第 123 / 127 轮）。
 //
 // 三种终止符：
