@@ -92,8 +92,13 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
       }
       continue;
     }
+    // **`-` / `+` 已经认领过这一格时，平级的 `?` 只是尾随符号**（第 923 轮）：
+    // 修饰词与冒号之间隔一个空格（或夹一条注释）时，`?` 与 `:` 之间的那一格
+    // 不再被值类型段吞掉（`TypeDefine` 从 `:` 起，见第 93 轮那一支），
+    // 于是 `?` 落成一个平级 `SymbolToken`。不设防的话它会把 `-` 顶掉
+    // ⇒ 缺 `MinusToken`、多出一个 `QuestionToken`（实测 `-? :` 与 `-?/*c*/:`）。
     if (word === "?") {
-      questionToken = ctx.Project(k);
+      if (questionToken === undefined) questionToken = ctx.Project(k);
       continue;
     }
     if (word === "in") continue;

@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.39,
+  "progressPercent": 95.41,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1528,
-      "pass": 1526,
-      "blocked": 2,
+      "pass": 1528,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.87
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,25 +130,13 @@
   ],
   "token": {
     "total": 1528,
-    "knownGap": 2,
-    "knownGapStillOpen": 2,
-    "exactFiles": 1526,
-    "scoredWithoutGap": 1526,
-    "passedWithoutGap": 1526
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1528,
+    "scoredWithoutGap": 1528,
+    "passedWithoutGap": 1528
   },
   "blocked": [
-    {
-      "id": "token/types/gap-r922-mapped-modifier-space-before-colon",
-      "category": "token",
-      "title": "映射类型的 `-?` 修饰词与冒号之间空一格（或夹一条注释）时，`-` 丢了、`?` 变成平级符号",
-      "detail": "缺 1　多 1　`type M<T> = { [K in keyof T]-? : T[K] };`：`-?` 与 `:` **紧挨着写**（`-?:`）"
-    },
-    {
-      "id": "token/types/gap-r922-tuple-rest-empty-bracket-comment",
-      "category": "token",
-      "title": "元组里的变长元素、空方括号里只有一条注释：`...number[/*c*/]`",
-      "detail": "缺 3　多 3　空方括号里只有注释时**内容判空是对的**（`IsEmptyContentUnit` 第 680 轮就跨 trivia 了），"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",

@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextTrivia, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, IsEmptyContentUnit } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { BinaryOperator } from "./binary-operator.xl.md"
@@ -177,10 +177,17 @@ return this.IsOperand(Get(units, SkipNextTrivia(units, index)));
 - `[...items]` / `call(...args)` / `{ ...base }` / `new Foo(...parts)` —— 后面是 `]` / `)` / `}` 不命中 照收；
 - `...a[0]`（真展开后面带下标）—— 那个 `[` **不空** 不命中 照收。
 
+**「空」的判据是「没有实义内容」，不是 `Data.length === 0`**（第 923 轮）：
+`[...number[/*c*/]]` 里那个方括号装了一条区域注释 ⇒ 长度是 1 ⇒ 原来判否 ⇒
+`...number` 被收成 `Spread`、方括号反过来把它当操作数收成 `ArrayType`
+（实测缺 `RestType` / `ArrayType` / `NumberKeyword`，多出 `SpreadElement` / `Identifier`）。
+注释是 trivia，`number[/*c*/]` 与 `number[]` 在 TypeScript 里是同一个类型——
+判据与 `type-bracket` 那三条用的是**同一个** `IsEmptyContentUnit`（第 680 轮起它就跨 trivia 了）。
+
 **为什么不用「祖先链里有没有 `TypeDefine`」**（第 32、34 轮试过三版都失败）：
 单元被上层规则收走之后 **`Parent` 指针是过期的** —— 调试打印里那个 `ArrayLiteral` 的祖先链是
 `ArrayLiteral < Root`，可它在产物里明明位于 `TypeAssign` 里面。所以这里改成看**操作数右边紧邻的单元**，
-完全不碰祖先链。
+完全不碰祖先链——这一条与「空」的判据无关，仍然照旧。
 
 ```ts
 const nameIndex = SkipNextTrivia(units, index);
@@ -192,7 +199,7 @@ const afterOperand = Get(units, SkipNextTrivia(units, nameIndex));
 if (!(afterOperand instanceof Bracket)) {
   return false;
 }
-return afterOperand.startBracket === "[" && afterOperand.Data.length === 0;
+return afterOperand.startBracket === "[" && IsEmptyContentUnit(afterOperand);
 ```
 
 ## private method IsRestParameter:(units:Array<Token>, index:int)=>bool

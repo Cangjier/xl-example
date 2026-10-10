@@ -1,11 +1,11 @@
 // xl:note 元组里的变长元素、空方括号里只有一条注释：`...number[/*c*/]`
 // xl:round 922
-// xl:known-gap 空方括号里只有注释时**内容判空是对的**（`IsEmptyContentUnit` 第 680 轮就跨 trivia 了），
-// 出问题的是「**左操作数**」那一格：`...number` 先被 `SpreadCloseRule` 收成了一个 `Spread` 单元，
-// 于是方括号规则把**整个 `...number`** 当成被数组化的类型（实测多出 `ArrayType[20,36)` 与
-// `SpreadElement[20,29)`、缺 `RestType` / `ArrayType` / `NumberKeyword`）。
-// 不带 `...`（`[string?, number[/*c*/]]`）与不带注释（`[...number[]]`）两种写法都是对的，
-// 说明缺的是「展开规则在**类型位的空方括号**前面让路」那一格（与第 921 轮链规则那一格同形）。
+// 第 923 轮收掉（已知缺口）：缺 `RestType` / `ArrayType` / `NumberKeyword`，
+// 多出 `SpreadElement` 与 `Identifier`——`...number` 先被 `SpreadCloseRule` 收成了 `Spread`。
+// 根因是 `IsTupleRest` 的「空方括号」判据写成了 `Data.length === 0`：这个方括号里装着
+// 一条注释 ⇒ 长度是 1 ⇒ 判否。注释是 trivia，`number[/*c*/]` 与 `number[]` 是同一个类型，
+// 所以改成与方括号那三条规则**同一个** `IsEmptyContentUnit`（它从第 680 轮起就跨 trivia）。
+// `[...number[]]`（不带注释）与 `[string?, number[/*c*/]]`（不带 `...`）照旧。
 // xl:expect TupleType:1
 // xl:end
 type T = [...number[/*c*/]];
