@@ -164,8 +164,26 @@ const nameIndex = SkipPreviousTrivia(data, colonIndex);
 if (!(Get(data, nameIndex) instanceof Identifier)) {
   return false;
 }
-if (IsStatementStart(data, nameIndex) === false) {
-  return false;
+// **「这个名字是不是语句开头」那一问要顺着标签链往左走**（第 929 轮片段普查量到的）：
+// `a : b :` 换行 `for (…)` 里末尾那个名字是 `b`，而它前面是 `a :` ⇒ 只问第一格
+// （`IsStatementStart(data, nameIndex)`）给否 ⇒ 换行处按 ASI 收壳 ⇒ 两个标签各成一条
+// `LabeledStatement`（TS 那边是一条**嵌套**的）。链上任意一个名字在语句开头，
+// 这一串就都是标签头——所以一格一格地往左问，不再只问末尾那一格。
+let at = nameIndex;
+for (;;) {
+  if (IsStatementStart(data, at)) {
+    break;
+  }
+  const earlierColonAt = SkipPreviousTrivia(data, at);
+  const earlierColon = Get(data, earlierColonAt);
+  if (!(earlierColon instanceof SymbolToken) || earlierColon.Is(":") === false) {
+    return false;
+  }
+  const earlierNameAt = SkipPreviousTrivia(data, earlierColonAt);
+  if (!(Get(data, earlierNameAt) instanceof Identifier)) {
+    return false;
+  }
+  at = earlierNameAt;
 }
 // **`switch` 段头里的冒号不是标签冒号**（`case 1:` / `default:`）：判据与
 // `Previous` 那一处问的是同一句（`text-common-util.xl.md`）。

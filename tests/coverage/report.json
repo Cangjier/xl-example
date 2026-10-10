@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.36,
+  "progressPercent": 95.37,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1547,
-      "pass": 1542,
-      "blocked": 5,
+      "pass": 1543,
+      "blocked": 4,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.68
+      "coverage": 99.74
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1547,
-    "knownGap": 5,
-    "knownGapStillOpen": 5,
-    "exactFiles": 1542,
-    "scoredWithoutGap": 1542,
-    "passedWithoutGap": 1542
+    "knownGap": 4,
+    "knownGapStillOpen": 4,
+    "exactFiles": 1543,
+    "scoredWithoutGap": 1543,
+    "passedWithoutGap": 1543
   },
   "blocked": [
     {
@@ -148,12 +148,6 @@
       "category": "token",
       "title": "第 929 轮片段普查量到的一格：被标语句是**调用**时，名字与 `(` 之间换行。",
       "detail": "缺 1　漂 2　多 4　解析期的续接表在「标签的体」这一侧没认「下一行以 `(` 开头」⇒ 换行处收壳"
-    },
-    {
-      "id": "token/statements/gap-r929-label-chain-newline",
-      "category": "token",
-      "title": "第 929 轮片段普查量到的一格：**标签链中间换行**。",
-      "detail": "缺 1　漂 1　多 2　`IsPendingLabelHead` 要求末尾那个名字是**语句开头**（`IsStatementStart`），"
     },
     {
       "id": "token/statements/gap-r929-label-comment-before-colon-tail",
