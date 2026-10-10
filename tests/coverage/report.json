@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.7,
+  "progressPercent": 95.71,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1628,
-      "pass": 1627,
-      "blocked": 1,
+      "pass": 1628,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.94
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1628,
-    "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1627,
-    "scoredWithoutGap": 1627,
-    "passedWithoutGap": 1627
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1628,
+    "scoredWithoutGap": 1628,
+    "passedWithoutGap": 1628
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r979-new-inst-tagged",
-      "category": "token",
-      "title": "`new f<T>`t``：投影那一层已经能把「`callee<…>` + 模板串」合成标签模板了（第 979 轮），",
-      "detail": "缺 2　漂 1　多 5　`new f<T>`t`` 里 `f<T>` 没成形（`new` 那一趟不认后继是反引号），标签模板整片塌"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",

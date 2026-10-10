@@ -1390,6 +1390,19 @@ if (!isTypePosition) {
 if (unit.Template.SymbolTemplate.IsLetter(item) || item === "_") {
   return true;
 }
+// **反引号那一格是给 `new f<T>`t`` 的**（第 980 轮）：`new` 在 `IsTypePosition` 的类型词表里
+// （为了构造签名 `new (a: number) => A` / `new <T>() => T`），于是**表达式位**的 `new f<T>`
+// 被这一趟回扫判成了**类型位**——而上面那张表（名字与类型收尾）放不下反引号 ⇒ 这次试读判否
+// ⇒ `<…>` 退回裸符号、`f<T>` 不成形、整条标签模板塌（实测 `new f<T>`t``：
+// 产物是 `BinaryExpression(BinaryExpression(New(f), <, T), >, `t`)`，TS 那边是
+// `NewExpression > TaggedTemplateExpression`）。
+//
+// **为什么放行它不会把类型读法改坏**：在**类型位**里反引号本来接不上任何东西——
+// `type X = F<T>`t`` / `let v: F<T>`t`` 都不是 TypeScript 的合法类型，
+// 而能走到这一格的合法形状（`new f<T>`t`` / `x as F<T>`t`` / `x satisfies F<T>`t``）
+// 在 TS 里都是**标签模板**：`<…>` 本来就是那条表达式的类型实参段。
+// 与表达式位第 977 轮补的那一格（`IsAllowedFollower` 表达式位收下反引号）是**同一句话**，
+// 只是这里落在类型位那条分支上——两张表各缺一格。
 switch (item) {
   case ")":
   case "]":
@@ -1407,6 +1420,7 @@ switch (item) {
   case "?":
   case "|":
   case "&":
+  case "`":
     return true;
   default:
     return false;

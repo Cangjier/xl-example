@@ -420,8 +420,26 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
 
 ```ts
   const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  const generic = nameUnits.find((k: any) => k.get("type") === "GenericType");
-  const calleeUnits = nameUnits.filter((k: any) => k.get("type") !== "GenericType");
+  // **`<…>` 归谁**（第 980 轮）：`` new f<T>`t` `` 的 `name` 段是
+  // `[Identifier(f), GenericType(<T>), String(反引号)]`——那个 `<T>` 是**标签模板自己的**
+  // 类型实参（TS：`NewExpression > TaggedTemplateExpression{ tag, typeArguments, template }`），
+  // **不是** `NewExpression` 的 `typeArguments`。拿真 TS 复量过（`tmp-r979/ts-newfields.cjs`）：
+  // `` new f<T>`t` `` / `` new f<T>`t`.b `` / `` new f<T>`t`(1) `` 三条的外层 `NewExpression`
+  // **都只有 `expression`**，`typeArguments` 挂的是里面那一层。
+  //
+  // **判据**：紧跟 `GenericType` 的那一格是**反引号模板**时，这一段连同它后面的一起归
+  // **被构造者**（`ctx.Expression` 那一趟会把它合成 `TaggedTemplateExpression`）；
+  // 只有 `GenericType` 是 `name` 段**最后一个实义单元**时才是 `New` 自己的实参段
+  //（`new Map<string, number>()` / `new C<T>` 换行 `(x)` 那一族）。
+  // 引号那一问与 0b / 0c / 0d 同源：`IsTemplateString` 看的是**原文那个引号**
+  //（产物里普通字符串与模板串属性一模一样）。
+  const genericAt = nameUnits.findIndex((k: any) => k.get("type") === "GenericType");
+  const templateAfterGeneric =
+    genericAt >= 0 &&
+    genericAt + 1 < nameUnits.length &&
+    IsTemplateString(nameUnits[genericAt + 1].__token ?? null);
+  const generic = genericAt >= 0 && !templateAfterGeneric ? nameUnits[genericAt] : undefined;
+  const calleeUnits = nameUnits.filter((k: any) => k !== generic);
   const props: any = {};
   if (
     calleeUnits.length === 1 &&
