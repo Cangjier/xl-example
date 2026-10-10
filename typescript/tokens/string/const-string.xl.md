@@ -151,7 +151,7 @@ for (const i of this.Temp) {
   }
 }
 const name = this.constructor.name;
-return `<${name}>${str}</${name}>`;
+return `<${name} range="${this.RangeOf()}">${str}</${name}>`;
 ```
 
 ## method Contains:(Value:string)=>bool

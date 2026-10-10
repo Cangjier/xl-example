@@ -238,7 +238,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} key="${this.key}">${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}" key="${this.key}">${temp.join("")}</${name}>`;
 ```
 
 ## field BodyBraceAt:int = -1

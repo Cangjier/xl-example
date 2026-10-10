@@ -1536,7 +1536,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} startBracket="${CommonUtil.XmlDecode(this.startBracket)}" endBracket="${CommonUtil.XmlDecode(this.endBracket)}">${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}" startBracket="${CommonUtil.XmlDecode(this.startBracket)}" endBracket="${CommonUtil.XmlDecode(this.endBracket)}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

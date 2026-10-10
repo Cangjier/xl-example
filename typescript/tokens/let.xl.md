@@ -143,7 +143,7 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```ts
 const name = this.constructor.name;
 if (this.LetType === LetType.Field) {
-  return `<${name} fieldName="${this.fieldName}" modifiers="${this.modifiers}" />`;
+  return `<${name} range="${this.RangeOf()}" fieldName="${this.fieldName}" modifiers="${this.modifiers}" />`;
 }
 // **解构模式带子单元**（第 66 轮第八批）：模式括号与里面的单元现在留在树上
 // （`binding-element.xl.md` 会把每个元素收成 `<BindingElement>`），所以这两种形态
@@ -151,10 +151,10 @@ if (this.LetType === LetType.Field) {
 // （给人读的递归收集结果），节点里的结构才是权威。
 const children = this.Data.map((item) => item.ToXmlString()).join("");
 if (this.LetType === LetType.Array) {
-  return `<${name} arrayPattern="${this.arrayPattern.join(",")}" modifiers="${this.modifiers}">${children}</${name}>`;
+  return `<${name} range="${this.RangeOf()}" arrayPattern="${this.arrayPattern.join(",")}" modifiers="${this.modifiers}">${children}</${name}>`;
 }
 if (this.LetType === LetType.Object) {
-  return `<${name} objectPattern="${this.objectPattern.join(",")}" modifiers="${this.modifiers}">${children}</${name}>`;
+  return `<${name} range="${this.RangeOf()}" objectPattern="${this.objectPattern.join(",")}" modifiers="${this.modifiers}">${children}</${name}>`;
 }
 throw new Error("形态不成立");
 ```

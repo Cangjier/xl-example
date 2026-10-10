@@ -138,7 +138,7 @@ return ReplaceCountAt(units, index, nameIndex - index + 1, result);
 
 ```ts
 const name = this.constructor.name;
-return `<${name} name="${CommonUtil.XmlDecode(this.name)}" />`;
+return `<${name} range="${this.RangeOf()}" name="${CommonUtil.XmlDecode(this.name)}" />`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

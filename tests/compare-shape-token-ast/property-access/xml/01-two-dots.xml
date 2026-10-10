@@ -1,1 +1,1 @@
-<Root><Statement><PropertyAccess><Identifier>a</Identifier><SymbolToken>.</SymbolToken><Identifier>b</Identifier><SymbolToken>.</SymbolToken><Identifier>c</Identifier></PropertyAccess></Statement></Root>
+<Root range="[0,4]"><Statement range="[0,4]"><PropertyAccess range="[0,4]"><Identifier range="[0,0]">a</Identifier><SymbolToken range="[1,1]">.</SymbolToken><Identifier range="[2,2]">b</Identifier><SymbolToken range="[3,3]">.</SymbolToken><Identifier range="[4,4]">c</Identifier></PropertyAccess></Statement></Root>

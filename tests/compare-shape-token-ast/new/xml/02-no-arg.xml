@@ -1,1 +1,1 @@
-<Root><Statement><New><NewType><Identifier>C</Identifier></NewType><NewArguments></NewArguments></New></Statement></Root>
+<Root range="[0,6]"><Statement range="[0,6]"><New range="[0,6]"><NewType range="[0,4]"><Identifier range="[4,4]">C</Identifier></NewType><NewArguments range="[5,6]"></NewArguments></New></Statement></Root>

@@ -18,6 +18,11 @@
 //   ② **XML 的每个属性都在 JSON 里同名同值**：这是「两个出口说同一棵树」那句断言的本体。
 //      XML 属性值过 `CommonUtil.XmlDecode`（会转义 `&` / `<` / `>` 与反斜杠一族），
 //      所以比之前先按同一张表**反过来解一遍**，不然 `op="&lt;="` 这种会假红。
+//      **唯一一处「同一个名字、两种形状」是 `range`**（第 987 轮）：XML 属性只能是字符串
+//      （`range="[55,57]"`），而 JSON 那一侧是**数组** `[55,57]`——投影（`cases:tsast`）
+//      就靠 `range[0]` / `range[1]` 读它，改成字符串会把第三个出口打坏。
+//      所以这一格不按字符串比，改成**按两个整数比**（下面第 ③ 项里那一段）：
+//      形状不同、数值必须同一个——两处都从 `Token.RangeOf()` 来。
 //   ③ **每个节点都有合法的 `range`**：规格第 2 节说 `range` 每个节点都有（闭区间、整数、
 //      `0 ≤ 起 ≤ 止 ≤ 源码长度`）。trivia（注释 / 软换行）的越界**单记一栏、不进退出码**——
 //      那是约定的形态，与 `cases:tsast` 的同一栏同口径。
@@ -190,6 +195,10 @@ function checkToken(node, file, where, source) {
       stats.attrMissing.push(`${file} ${where} <${tagName}> 属性 ${key}="${value}" 在 JSON 里没有`);
       continue;
     }
+    // **`range` 是唯一一处「同名不同形」**：XML 只能是字符串，JSON 是数组。
+    // 它的比对挪到第 ③ 项（按两个整数比），这里按名跳过但是**不放过**：
+    // 值那一侧对不上照样红，只是红的判据在下面那一段。
+    if (key === "range") continue;
     if (num(dict.get(key)) !== value) {
       stats.attrValue.push(`${file} ${where} <${tagName}> ${key}：XML="${value}" JSON="${num(dict.get(key))}"`);
     }
@@ -207,6 +216,21 @@ function checkToken(node, file, where, source) {
     } else {
       stats.badRange.push(`${file} ${where} <${tagName}> 越界 ${JSON.stringify(range)}（源码 ${source.length} 字符）`);
     }
+  }
+  // ③b **XML 那份坐标与 JSON 那份必须是同两个整数**（形状不同，数值同一个）：
+  // `range="[55,57]"` 对 `[55, 57]`。数字本身用 `num()` 那个口径比（`-0` 与 `0` 算同一个）。
+  if (attrs.has("range")) {
+    const text = attrs.get("range");
+    const parsed = /^\[(-?\d+),(-?\d+)\]$/.exec(text);
+    if (parsed === null) {
+      stats.attrValue.push(`${file} ${where} <${tagName}> range：XML="${text}" 不是 "[起,止]" 那个形状`);
+    } else if (num(range?.[0]) !== parsed[1] || num(range?.[1]) !== parsed[2]) {
+      stats.attrValue.push(
+        `${file} ${where} <${tagName}> range：XML="${text}" JSON=${JSON.stringify(range)}（两个整数对不上）`,
+      );
+    }
+  } else {
+    stats.attrValue.push(`${file} ${where} <${tagName}> JSON 有 range ${JSON.stringify(range)}，XML 开标签上没有 range`);
   }
   // ④ 多出来的键必须在规格里登记过
   for (const key of dict.keys()) {

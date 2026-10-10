@@ -1,1 +1,1 @@
-<Root><Statement><BinaryOperator op="in"><Identifier>k</Identifier><Keyword>in</Keyword><Identifier>obj</Identifier></BinaryOperator></Statement></Root>
+<Root range="[0,7]"><Statement range="[0,7]"><BinaryOperator range="[0,7]" op="in"><Identifier range="[0,0]">k</Identifier><Keyword range="[2,3]">in</Keyword><Identifier range="[5,7]">obj</Identifier></BinaryOperator></Statement></Root>

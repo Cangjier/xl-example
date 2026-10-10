@@ -1,1 +1,1 @@
-<Root><Statement><Let objectPattern="" modifiers="let"><ObjectLiteral><BindingElement><Identifier>a</Identifier></BindingElement></ObjectLiteral></Let><SymbolToken>=</SymbolToken><Identifier>o</Identifier></Statement></Root>
+<Root range="[0,12]"><Statement range="[0,12]"><Let range="[0,8]" objectPattern="" modifiers="let"><ObjectLiteral range="[4,8]"><BindingElement range="[6,6]"><Identifier range="[6,6]">a</Identifier></BindingElement></ObjectLiteral></Let><SymbolToken range="[10,10]">=</SymbolToken><Identifier range="[12,12]">o</Identifier></Statement></Root>

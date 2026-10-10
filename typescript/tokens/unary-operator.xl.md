@@ -780,7 +780,7 @@ let body = "";
 for (const item of this.Data) {
   body = body + item.ToXmlString();
 }
-return `<${name} op="${CommonUtil.XmlDecode(this.op)}">${body}</${name}>`;
+return `<${name} range="${this.RangeOf()}" op="${CommonUtil.XmlDecode(this.op)}">${body}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

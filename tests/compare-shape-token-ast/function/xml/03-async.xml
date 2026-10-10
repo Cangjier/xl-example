@@ -1,1 +1,1 @@
-<Root><Function name="f" modifiers="async"><Identifier>f</Identifier><Bracket startBracket="(" endBracket=")"></Bracket><FunctionBody></FunctionBody></Function></Root>
+<Root range="[0,20]"><Function range="[0,20]" name="f" modifiers="async"><Identifier range="[15,15]">f</Identifier><Bracket range="[16,17]" startBracket="(" endBracket=")"></Bracket><FunctionBody range="[19,20]"></FunctionBody></Function></Root>

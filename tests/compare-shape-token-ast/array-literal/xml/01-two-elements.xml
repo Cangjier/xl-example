@@ -1,1 +1,1 @@
-<Root><Statement><ArrayLiteral><Identifier>1</Identifier><SymbolToken>,</SymbolToken><Identifier>2</Identifier></ArrayLiteral></Statement></Root>
+<Root range="[0,5]"><Statement range="[0,5]"><ArrayLiteral range="[0,5]"><Identifier range="[1,1]">1</Identifier><SymbolToken range="[2,2]">,</SymbolToken><Identifier range="[4,4]">2</Identifier></ArrayLiteral></Statement></Root>

@@ -1,1 +1,1 @@
-<Root><Statement><Method name="f"><Identifier>x</Identifier></Method></Statement></Root>
+<Root range="[0,3]"><Statement range="[0,3]"><Method range="[0,3]" name="f"><Identifier range="[2,2]">x</Identifier></Method></Statement></Root>

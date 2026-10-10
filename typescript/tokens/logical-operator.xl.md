@@ -315,7 +315,7 @@ for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
 const operatorName = this.op === "||" ? "Or" : "And";
-return `<${name} op="${operatorName}">${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}" op="${operatorName}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

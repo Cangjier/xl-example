@@ -367,13 +367,13 @@ return nextIndex + kept.length;
 ```ts
 const name = this.constructor.name;
 if (this.Data.length === 0) {
-  return `<${name} label="${this.label}" />`;
+  return `<${name} range="${this.RangeOf()}" label="${this.label}" />`;
 }
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} label="${this.label}">${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}" label="${this.label}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

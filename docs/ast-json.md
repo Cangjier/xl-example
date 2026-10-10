@@ -61,6 +61,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `value` | 叶子节点（只有文本的元素）写它，**不写** `children` |
 | 具名分段 | 有分段结构的节点不写扁平 `children`，而是每段一个键（值是该段的 `ToList()`），例如 `For` 的 `initial` / `compare` / `next` / `body` |
 | `range` | 闭区间的 `[起始下标, 结束下标]`，**每个节点都有**：`ToList()` 用 `Token.WithRange()` 取子单元，而 `WithRange` 又递归处理它自己的子节点（见 [core/syntax/token.xl.md](../core/syntax/token.xl.md) 的 `WithRangeOf`）。`ToDictionary` 本身不带坐标——它是「形状」，与 XML 的标签/属性一一对应；坐标是给**投影成 TypeScript AST** 用的（TS 的每个节点都带 `pos` / `end`） |
+| `range` 在 XML 侧 | **第 987 轮起，XML 出口的每个开标签上也印 `range="[起,止]"`**（`Token.RangeOf()`，与这一份同源）。两边**同一个名字、两种形状**：XML 属性只能是字符串，这一份是数组——所以 `cases:astjson` 那一项按**两个整数**比，不是按字符串比，而「数值必须同一个」照样是硬判据。`ToXmlString` 的开标签因此多一个属性，覆写了它的 token 各自补上这一格 |
 
 几个直接例子（同一段源码的两个出口）：
 

@@ -127,7 +127,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name}>${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}">${temp.join("")}</${name}>`;
 ```
 
 ## method Process:(Context:SyntaxContext, Src:Source)=>void

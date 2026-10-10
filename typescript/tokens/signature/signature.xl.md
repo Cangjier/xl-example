@@ -858,7 +858,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} kind="${this.kind}">${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}" kind="${this.kind}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

@@ -448,15 +448,18 @@ this.Parent.Data.splice(index, 1);
 
 ## method ToXmlString:()=>string
 
-产出 XML：标签名是**运行时类型名**，内容是子单元的 XML 串接。
+产出 XML：标签名是**运行时类型名**，开标签上带 `range`，内容是子单元的 XML 串接。
 
 标签名取 `this.constructor.name`，所以类名就是它产出的 XML 标签名。
 
-**标签名就是全部**：从前这里还有一个 `DSH_XL_TRACE=1` 的诊断档 ——
-它把「这个单元是谁造的」打进标签（`xl:born="…"`），而那个口径的两端**都已经不在了**：
-写点随第 561 轮删掉全局重组那一趟一起消失（`Token.CreatedByRule` 从此恒为空串），
-读点也就只能打出一个**与标签名一模一样**的值 —— 一个什么都换不来的环境开关
-⇒ 第 565 轮连同那两个字段一起摘掉（与本仓删 `DSH_XL_REORG` / `DSH_XL_NO_REORG` 同一条口径）。
+**开标签上的 `range="[起,止]"`**：口径与第三种出口的 `range` 键同一处
+（`RangeOf` 那一段写着为什么必须同一个来源）。XML 从前没有坐标——坐标只活在
+`ToList()` 那一层；现在两个出口都印，`cases:astjson` 那条「XML 的每个属性在 JSON 里同名同值」
+于是多了一条真的在核的断言。
+
+**覆写了本方法的 token 都要自己补上这一格**：属性是逐个 token 拼出来的，
+没有一处能替它们统一加（`Bracket` / `Let` / `String` / `Import` … 二十多处各拼各的）。
+按「类名 + `range` + 各自那几个属性」的顺序写，这一门与 `cases:astjson` 都按名取值，顺序不影响判据。
 
 ```ts
 const name = this.constructor.name;
@@ -464,8 +467,14 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name}>${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}">${temp.join("")}</${name}>`;
 ```
+
+**标签名就是全部**：从前这里还有一个 `DSH_XL_TRACE=1` 的诊断档 ——
+它把「这个单元是谁造的」打进标签（`xl:born="…"`），而那个口径的两端**都已经不在了**：
+写点随第 561 轮删掉全局重组那一趟一起消失（`Token.CreatedByRule` 从此恒为空串），
+读点也就只能打出一个**与标签名一模一样**的值 —— 一个什么都换不来的环境开关
+⇒ 第 565 轮连同那两个字段一起摘掉（与本仓删 `DSH_XL_REORG` / `DSH_XL_NO_REORG` 同一条口径）。
 
 ## method ToString:()=>string
 
@@ -522,6 +531,51 @@ TS 的每个节点都带 `pos` / `end`，没有坐标就只能靠原文搜索猜
 return this.WithRangeOf(this.ToDictionary(), this.Data);
 ```
 
+## method RangeStart:()=>int
+
+本单元的起点：`SourceRange.Start` 的 `Index`；**还没签入**时写 `0`（`WithRange` 那一节的口径）。
+
+```ts
+return this.SourceRange.Start === null ? 0 : this.SourceRange.Start.Index;
+```
+
+## method RangeEnd:()=>int
+
+本单元的终点：`SourceRange.End` 的 `Index`；**还没签出、或签反了**（`end < start`）时，
+取**子单元终点的最大值**兜底 —— 理由见 `WithRangeOf` 那一节（`if (… else …)` 的 `IfSegment`
+只有起点、终点从来没签过，直接用两头会给出 `[55,0]` 这种反序区间）。
+
+```ts
+const start = this.RangeStart();
+let end = this.SourceRange.End === null ? 0 : this.SourceRange.End.Index;
+if (end < start) {
+  for (const item of this.Data) {
+    const childEnd = item.RangeEnd();
+    if (childEnd > end) {
+      end = childEnd;
+    }
+  }
+}
+return end;
+```
+
+## method RangeOf:()=>string
+
+本单元的区间，**印成属性值的样子**：`[起始, 结束]`（闭区间、方括号、逗号之间不留空）。
+
+**坐标只有一个来源**：`SourceRange` 的两头 —— 起点走 `RangeStart`、终点走 `RangeEnd`
+（终点缺失/反序时取子单元最大值兜底）。两个出口都用它：
+
+- 第三出口的 `range` 键：`WithRangeOf` 的 `node.set("range", [this.RangeStart(), this.RangeEnd()])`；
+- **第一出口（XML）开标签上的 `range="…"`**：就是本方法。
+
+**为什么必须同一处**：两个出口各算一遍，`IfSegment` 那种只有起点的单元就会给出**不同的数**，
+而 `cases:astjson` 那一门正是逐属性核「XML 的每个属性在 JSON 里同名同值」。
+
+```ts
+return "[" + this.RangeStart() + "," + this.RangeEnd() + "]";
+```
+
 ## method WithRangeOf:(node:Map<string, any>, list:Array<Token>)=>Map<string, any>
 
 给一个**已经造好的字典**补坐标：本节点、以及它的子节点（递归）。
@@ -558,23 +612,9 @@ return this.WithRangeOf(this.ToDictionary(), this.Data);
 正常的区间一个字节都不动。
 
 ```ts
-const start = this.SourceRange.Start === null ? 0 : this.SourceRange.Start.Index;
-let end = this.SourceRange.End === null ? 0 : this.SourceRange.End.Index;
+const span: string[] = this.RangeOf().slice(1, -1).split(",");
+node.set("range", [Number(span[0]), Number(span[1])]);
 const children = this.Data;
-const childSpans: Array<any> = [];
-for (const item of children) {
-  const childStart = item.SourceRange.Start === null ? 0 : item.SourceRange.Start.Index;
-  const childEnd = item.SourceRange.End === null ? 0 : item.SourceRange.End.Index;
-  childSpans.push([childStart, childEnd]);
-}
-if (end < start) {
-  for (const span of childSpans) {
-    if (span[1] > end) {
-      end = span[1];
-    }
-  }
-}
-node.set("range", [start, end]);
 // **记下「这一格是哪个 token 出的」**：第三个出口（`PrintAst`）按 token 分派——
 // 投影器拿到一个字典格时先问它的 token「你自己出不出形状」（覆写了就用它自己出的那一格）。
 // 这一处配对本来就做完了（上面的 `taken[i] = token`），所以只是把它记下来，不多算一步。
@@ -583,10 +623,9 @@ node.set("range", [start, end]);
 // 都看不见它，所以 XML 出口与 AST JSON 出口一个字节都不受影响。
 (node as any).__token = this;
 // 一个子单元在字典里的区间（`[起, 止]`），配「区间也相同」那一趟用。
+// **走 `RangeStart` / `RangeEnd`**：与 XML 那一格同一个来源（见 `RangeOf`）。
 const spanOf = (one: Token): Array<number> => {
-  const oneStart = one.SourceRange.Start === null ? 0 : one.SourceRange.Start.Index;
-  const oneEnd = one.SourceRange.End === null ? 0 : one.SourceRange.End.Index;
-  return [oneStart, oneEnd];
+  return [one.RangeStart(), one.RangeEnd()];
 };
 for (const [key, value] of node.entries()) {
   if (!Array.isArray(value)) {

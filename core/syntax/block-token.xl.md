@@ -137,13 +137,16 @@ this.SourceRange.End = source;
 
 ## method ToXmlString:()=>string
 
-产出 XML：标签名是运行时类型名，内容是本块累积的字符（先转义）。
+产出 XML：标签名是运行时类型名，开标签上带 `range`，内容是本块累积的字符（先转义）。
 
 标签名取 `this.constructor.name`，内容经 `CommonUtil.XmlDecode` 转义。
 
+**`range` 也要印**（与基类同一口径、同一处取数，见 `Token.RangeOf`）：块是**叶子**，
+它的坐标只在这里出现，`Identifier` / `String` / 注释这些单元全都走这一条。
+
 ```ts
 const name = this.constructor.name;
-return `<${name}>${CommonUtil.XmlDecode(this.Temp.join(""))}</${name}>`;
+return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Temp.join(""))}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

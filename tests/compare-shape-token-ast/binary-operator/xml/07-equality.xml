@@ -1,1 +1,1 @@
-<Root><Statement><BinaryOperator op="==="><Identifier>a</Identifier><SymbolToken>===</SymbolToken><Identifier>b</Identifier></BinaryOperator></Statement></Root>
+<Root range="[0,6]"><Statement range="[0,6]"><BinaryOperator range="[0,6]" op="==="><Identifier range="[0,0]">a</Identifier><SymbolToken range="[2,4]">===</SymbolToken><Identifier range="[6,6]">b</Identifier></BinaryOperator></Statement></Root>

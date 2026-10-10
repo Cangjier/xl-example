@@ -112,7 +112,7 @@ this.Closed = true;
 
 ```ts
 const name = this.constructor.name;
-return `<${name} />`;
+return `<${name} range="${this.RangeOf()}" />`;
 ```
 
 ## method Clone:()=>Token

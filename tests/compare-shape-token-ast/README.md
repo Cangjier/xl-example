@@ -45,7 +45,7 @@ node tests/compare-shape-token-ast/run.mjs --json tmp/rep.json  # 逐条读数�
 
 | 文件 | 出口 | 是谁的字节 |
 | --- | --- | --- |
-| `xml/<用例>.xml` | **出口 1**（默认） | `Token.ToXmlString()` 的**原样**——**不过 `FormatXml`**（排版只发生在打印层；要看缩进的样子，`cjcli <文件>` 打出来就是） |
+| `xml/<用例>.xml` | **出口 1**（默认） | `Token.ToXmlString()` 的**原样**——**不过 `FormatXml`**（排版只发生在打印层；要看缩进的样子，`cjcli <文件>` 打出来就是）。**每个开标签上带 `range="[起,止]"`**（第 987 轮起，出口 1 自己也印坐标） |
 | `ast/<用例>.json` | **出口 3**（`--ts-ast`） | **真开 `cjcli <文件> --ts-ast` 进程**拿的 stdout，原样紧凑单行 |
 
 **为何出口 3 那一份要真开进程**：它有两个层次——`cases:tsast` 的默认量的是**库路径**

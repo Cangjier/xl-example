@@ -164,7 +164,7 @@ return true;
 
 ```ts
 const name = this.constructor.name;
-return `<${name}>${this.Tmp}</${name}>`;
+return `<${name} range="${this.RangeOf()}">${this.Tmp}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

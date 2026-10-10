@@ -108,13 +108,16 @@ super(template);
 
 ## method ToXmlString:()=>string
 
-自己出 XML：**没有属性、没有子单元**，所以是一个自闭合的 `<SemicolonClassElement />`。
+自己出 XML：**没有子单元**，所以是一个自闭合标签，只带 `range`。
 
 不覆写的话 `Token.ToXmlString` 会展开 `Data`（空的）⇒ 产物里出现一对空标签 ——
 那对标签在 XML 上是合法的，但这一格的形状就是「光秃秃一个成员」，自闭合更贴近它。
 
+**`range` 不能省**（第 987 轮）：它是个**叶子成员**，坐标只在它自己的开标签上出现；
+省掉这一格，`cases:astjson` 会当场报「JSON 有 `range`、XML 开标签上没有」（实测 3 处）。
+
 ```ts
-return "<" + this.constructor.name + " />";
+return "<" + this.constructor.name + " range=\"" + this.RangeOf() + "\" />";
 ```
 
 ## method Clone:()=>Token

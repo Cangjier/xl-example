@@ -91,7 +91,7 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 ```ts
 const name = this.constructor.name;
-return `<${name}>${CommonUtil.XmlDecode(this.Tmp)}</${name}>`;
+return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Tmp)}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

@@ -321,7 +321,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} interpolation="${interpolation}" verbatim="${verbatim}" raw="${raw}" interpolationCount="${this.interpolationCount}" rawQuoteCount="${this.rawQuoteCount}">${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}" interpolation="${interpolation}" verbatim="${verbatim}" raw="${raw}" interpolationCount="${this.interpolationCount}" rawQuoteCount="${this.rawQuoteCount}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

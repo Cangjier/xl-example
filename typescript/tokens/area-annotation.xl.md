@@ -151,7 +151,7 @@ JSDoc 里的 `@type {Array<T>}` 这类写法必须转义，否则产物不是合
 
 ```ts
 const name = this.constructor.name;
-return `<${name}>${CommonUtil.XmlDecode(this.Tmp)}</${name}>`;
+return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Tmp)}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

@@ -266,7 +266,7 @@ super(template);
 标签名是字面量，`Value` 直接拼进去，不做转义（连字符块那条路径不同）。
 
 ```ts
-return `<Keyword>${this.Value}</Keyword>`;
+return `<Keyword range="${this.RangeOf()}">${this.Value}</Keyword>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>
