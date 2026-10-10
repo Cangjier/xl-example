@@ -626,10 +626,13 @@ throw new Error("找不到匹配的子单元");
 
 产出 XML：开标签上带 `name` / `extends` / `implements` / `modifiers` 四个属性。
 
-**类名的位置不在这四个属性里**——它是 `Data` 里那个 `Identifier` 自带的 `SourceRange`
-（投影直接读子单元的坐标）。
+**类名的位置**：名字与它的区间装在一个字段里（见 `name` 那一格），所以**开标签上也印它的两个下标**
+（`nameStart` / `nameEnd`，闭区间）——与 `ToDictionary` 那两处**同名同值**，也与 `Let` 的
+`fieldName` + `nameStart` / `nameEnd` 同一套写法。
 
-`implements` 用 `join(",")` 拼——与 `Let` 的两组解构名同一种写法。
+匿名类没有名字 ⇒ `Range` 是 `null` ⇒ **两个属性都不写**（不给一个假的 `-1`：
+`-1` 是一个**位置**，而这里的事实是「没有」。这与 `Let` 的解构形态给 `-1` 那一条不同——
+那边 `NameStart/NameEnd` 是 `int` 字段、`-1` 是它自己的「没记过」哨兵）。
 
 ```ts
 const name = this.constructor.name;
@@ -637,7 +640,13 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="${this.extends.Text()}" implements="${this.implements.Text()}" modifiers="${this.modifiers.Text()}">${temp.join("")}</${name}>`;
+// **类名的区间**（见 `name` 那一格）：与 `ToDictionary` 的 `nameStart` / `nameEnd` 同源。
+const nameRange = this.name.Range;
+let nameSpan = "";
+if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
+  nameSpan = ` nameStart="${nameRange.Start.Index}" nameEnd="${nameRange.End.Index}"`;
+}
+return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="${this.extends.Text()}" implements="${this.implements.Text()}" modifiers="${this.modifiers.Text()}"${nameSpan}>${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

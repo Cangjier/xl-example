@@ -1,1 +1,1 @@
-<Root range="[0,12]"><Class range="[0,12]" name="C" extends="" implements="" modifiers=""><Decorator range="[0,1]" name="d"><SymbolToken range="[0,0]">@</SymbolToken><Identifier range="[1,1]">d</Identifier></Decorator><ClassBody range="[11,12]"></ClassBody></Class></Root>
+<Root range="[0,12]"><Class range="[0,12]" name="C" extends="" implements="" modifiers="" nameStart="9" nameEnd="9"><Decorator range="[0,1]" name="d"><SymbolToken range="[0,0]">@</SymbolToken><Identifier range="[1,1]">d</Identifier></Decorator><ClassBody range="[11,12]"></ClassBody></Class></Root>

@@ -180,6 +180,62 @@ token 层只能记「文本上可知的事实」，把 AST 形状搬下去等于
 `f(x)` 的产物树里真的没有那个 `Identifier`（对齐视图第一栏），
 而 `ParenAt` 真的躺在字段上没出去（`method.xl.md` 第 227 行赋值、第 649 行只印 `name`）。
 
+## 4d. `TokenField` 是这一族**已经有的**机制——缺的是「两级出口都印」
+
+用户口径（第 987 轮，四）：「像 `name="f"`，这类改成 `TokenField`」。查下来它不是要新造机制，
+**机制已经在用**（`core/syntax/token-field.xl.md`，第 641 轮起 `BodyBrace` 那一批全换成了它）：
+`TokenField<T>` = **值 + 它在源码里的区间**，而且它的类注释第 22–23 行**明确写了为什么字段里不放那个节点**：
+
+> **为什么不是让字段直接持那个单元**：单元一旦留在 `Data` 里就是个 XML 子节点，
+> 而 meta 信息进 `Data` 正是要避免的那件事。要的是**值 + 区间**这两样事实，不是那个节点本身。
+
+所以这一族**不该**改成「留节点」，该做的是**把区间也印出去**。以 `Class` 为例（`class.xl.md`）：
+
+| 处 | 代码 | 出来的是什么 |
+| --- | --- | --- |
+| 字段 | `## field name:TokenField<string>`（第 577 行） | 值 + 区间**都在手上** |
+| XML | `<Class name="${this.name.Text()}">`（第 640 行） | **只有值** |
+| JSON | `result.set("nameStart", …)` / `nameEnd`（第 668–669 行） | **值 + 区间** |
+
+投影那侧（`print-ast-common.xl.md` 第 506–507 / 554–556 行）已经写着：
+
+> `Field` / `MethodDeclaration` 都在认下名字那一刻把它的下标记成 `nameStart` / `nameEnd`……
+> **有这对字段就不做任何猜测**，下面那套补偿一步都不跑。
+
+**于是这一族的动作是机械的两条**：
+
+1. **凡是 `TokenField`，XML 也印它的区间**（`nameStart` / `nameEnd` 这种名字，与 `Let` 同一套）。
+   改的只是各 token 的 `ToXmlString` 多两个属性，**投影一行都不动**——它「有就不猜」的分支早就写好了。
+   `cases:astjson` 只核「XML 属性都在 JSON 里」，反方向没核，所以这一处漏了没人响（本轮补的 §4b/§4c 之后，
+   XML 与 JSON 的对称性才进了视野）。
+2. **`TokenField` 表达不了的才留子单元**：`Method` 的实参括号（`ParenAt` 是 `int`，不是区间，
+   要改成记区间或另加一格）、`Method` 的被调用者（TS 那边要的是**表达式节点**，
+   而声明那几格根本不需要「节点」这个形状）。判据：**TS 那边要节点 ⟺ 留子单元；只要位置 ⟺ 用 `TokenField`**。
+
+### 4d-1 全仓 `TokenField` 的扫面（生成器 `tmp/pa-tf.py`）
+
+| 文件 | 字段 | XML 出区间 | JSON 出区间 |
+| --- | --- | --- | --- |
+| `class` | `name` | **已补（第 987 轮四）** | 有 |
+| `class` | `extends` / `implements` / `modifiers` | — | — |
+| `enum` | `name` | **缺** | 有 |
+| `interface` | `name` | **缺** | 有 |
+| `if-segment` | `BodyBrace` | — | 有 |
+| `field` | `NameAt` | — | — |
+| `try` | `TryBrace` / `CatchWord` / `CatchBrace` / `FinallyWord` / `FinallyBrace` | — | — |
+| `foreach` / `for` / `while` / `do-while` / `lamda` | `BodyBrace` | — | — |
+
+两条读法：
+
+- **`name` 这一族（`class` / `enum` / `interface`）才需要印**：投影要合一个 `Identifier` 节点，
+  名字的区间是它唯一的落点。`class` 已经补上；`enum` / `interface` 是**同一处漏**，各差两个属性。
+- **`BodyBrace` / `TryBrace` 那一族不印是对的**：那些是**配对用**的位置（投影拿它去原文里找配对的括号），
+  不是「某个 AST 子节点的落点」。所以别照抄「凡是 TokenField 都印」——
+  判据是**这一格的区间要不要落到 AST 的一个节点上**。
+
+`class` 这一格的试点已经做完并过门：出口 1 现在印 `nameStart="22" nameEnd="22"`（对 TS 的
+`Identifier [22,23)`），**出口 3 一个字节没变**，九道门全绿。
+
 ## 5. 订正：我先前记错的两处
 
 1. **「`ArrayLiteral` 多一个 `Bracket` 节点」——错。** 对齐视图与闭/半开区间一比就露了：
