@@ -203,6 +203,20 @@ for (let i = index + 1; i < units.length; i++) {
     endIndex = i - 1;
     break;
   }
+  // **`of` / `in` 也是收工点**（第 982 轮）：`for (a as any of xs) {}` / `for (a satisfies any
+  // in xs) {}` 里那个词是 **`for` 头的关键词**，不是类型的一部分——TS 那边 `parseType()` 在
+  // 它前面就停了（`a as any` 是完整的类型段）。少了这一条，`of xs` 被吞进 `As`、括号里
+  // 再也看不到那个 `of` ⇒ `ForeachCloseRule.Previous` 判否 ⇒ **整条 `for-of` 塌成
+  // ExpressionStatement**（实测 `gap-r982-for-head-as-of.ts`：缺 6 多 2）。
+  //
+  // **第一个实义单元不算**：与 `NullConditionalOperatorCloseRule` 那一条同一个口径——
+  // `for (a as of xs)` 里 `of` 就是那个类型名本身（TS 照收 `TypeReference(of)`）。
+  // 类型位里 `of` / `in` 本来也不当关键词用（`in` 只在映射类型的 `[K in T]` 里出现、
+  // 而那一格在外面套着自己的方括号，本规则看到的是那个括号单元）。
+  if (item instanceof Identifier && (item.Is("of") || item.Is("in")) && items.length > 0) {
+    endIndex = i - 1;
+    break;
+  }
   if (item instanceof Identifier && item.Is("extends")) {
     sawExtends = true;
   }

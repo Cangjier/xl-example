@@ -109,9 +109,16 @@ const endIndex = SearchBackIndexed(units, index + 1, (itemIndex, item) => {
   // 「`a` 平级 + `NCO(b, As(T))`」，四个方向是「缺 `AsExpression` / 漂移 / 多」
   //（实测 `a?.b as T` / `a?.b satisfies T` / `a?.b() as T` / `a?.() as T` / `a?.[0] as T` 五条）。
   //
-  // **第一个实义单元不算**：那是**成员名本身**（`a?.as` 里那个 `as` 就是个名字）。
+  // **`of` / `in` 也是断点**（第 982 轮）：`for (a?.b of xs) {}` / `for (a?.b in xs) {}` 里
+  // 那个词是 **`for` 头的关键词**，不是链上的一格（TS：`ForOfStatement.initializer` 是
+  // `PropertyAccessExpression(a?.b)`）。少了这一条，`of xs` 被收进 NCO、括号里再也看不到
+  // 那个 `of` ⇒ `ForeachCloseRule.Previous` 判否 ⇒ **整条 `for-of` 塌成 ExpressionStatement**
+  //（实测 `gap-r982-for-head-optional-of.ts`：缺 7 多 2）。
+  //
+  // **第一个实义单元不算**：那是**成员名本身**（`a?.as` 里那个 `as`、`a?.of` 里那个 `of`
+  // 都是名字，TS 照收 `PropertyAccessExpression` 的 `name`）。
   const word = Statement.WordOf(item);
-  if (word === "as" || word === "satisfies") {
+  if (word === "as" || word === "satisfies" || word === "of" || word === "in") {
     return itemIndex !== memberIndex;
   }
   return false;
