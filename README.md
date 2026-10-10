@@ -285,7 +285,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:astjson` | **出口 2（AST JSON）的尺子**（第 884 轮加）：逐节点比「标签名 === `type`」「XML 的每个属性在 JSON 里**同名同值**」「每个节点都有合法 `range`」「JSON 多出来的键在 [docs/ast-json.md](docs/ast-json.md) 第 2–4 节**登记过**」，外加「命令行 === 库 API」与「不抛异常」——**六项全 0 才退出码 0** |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `cases:direct` | **直出版同答**（第 992 轮加）：整个语料跑两遍（直出通道开 / 关）**逐字节**比 `ToJsonText`，外加 `unmapped` / `count` 记账同——三项全 0 才退 0；直出覆盖率只印（见 `Token.PrintDirectAst`） |
-| `direct:lint` | **直出版只用 token 自己的东西**（第 992 轮加；第 1005 轮加第三条）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，不许转手 `this.PrintAst`，也**不许按字符串键查字典**（`.get("…")` / `.set("…")` / `.has("…")`，逐键计数、例外表已归零） |
+| `direct:lint` | **直出版只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 轮各加一条）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，不许转手 `this.PrintAst`，也**不许按字符串键查字典**（`.get("…")` / `.set("…")` / `.has("…")`，逐键计数、例外表已归零）；第四条扫的是**共享投影那一页的代码块**：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——直出版是坐 helper 出去的，只扫方法体的那三条看不见这一层 |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `cases:tags` | **用例自带的期望**：`xl:expect`（存在，或 `Tag:N` 计数）与 `xl:absent` 逐条对产物核实，外加标签表体检 |
@@ -308,6 +308,38 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1008 轮：直出版那一趟的 **helper 也守「名字那一格」的口径**——五处 `attrs.get("name"/"fieldName"/"namespace")` 收成 `tokenNameOf` 一个入口；顺带量出 `tokenNameOf` **认不出视图**（实测 `coverage` 4260 → 2504、`blocked` 1831）并把两种接收者都补上；`direct:lint` 加第四条（名字那一格按字符串键读 = 0 处）
+
+**一句话**：第 1005 / 1006 两轮把「这一格叫什么」收成了 token 事实，但**直出版那一趟要经过 helper**
+（`projectDeclaration` / `memberNameOf` / `structuralProps` / `projectLet` / 命名空间那一段），
+而那几处仍在按字符串键读字典——静态门只扫 `PrintDirectAst` 的**方法体**，扫不到 helper。
+
+- **量出来的形状**：`typescript/print-ast-common.xl.md` 的代码块里一共 **5 处**按字符串键读名字那一格
+  （`attrs.get("name")` 一处、三词名单两处、`attrs.get("fieldName")` 一处、`attrs.get("namespace")` 一处）。
+  **后两处是本轮新加的第四条门当场扫出来的**：先按 `attrs.get("name")` 量出 3 处、改完再开门，
+  门立刻报出另外 2 处——这就是「门比自觉可靠」的又一份现场。
+- **收法**：五处一律走 `tokenNameOf(v)`——它先问 token 自己的 `NameField`（第 1006 轮），
+  问不到才退回字典那个 `name` 键。三词名单（`name` / `fieldName` / `namespace`）随之消失：
+  那三格本来就是**各页 `NameField` 回答的同一格事实**，投影这一层不该再维护第二份名单。
+- **顺带量出的一格真缺口**（**这一轮最值钱的那一条**）：`tokenNameOf` 原来只认**字典格**
+  （`node instanceof Map` 才去拿 `__token`），而 helper 拿到的是**视图**——视图不是 `Map`，
+  于是同一个问句在视图上答 `undefined` ⇒ `FunctionDeclaration` / `ClassDeclaration`
+  **整格丢名字**，`coverage` 当场从 **4260 / 4422（`blocked` 28）** 掉到 **2504 / 4422（`blocked` 1831）**，
+  降级层报 `ast node FunctionDeclaration has no child name`。
+  补法是**两种接收者各走各的退路**：字典格走 `__token` → 字典 `name` 键；
+  视图走 `view()` 抄下来的 `token` → `view()` 建视图时算好的 `name` 属性（普通属性，不会绕回本方法）。
+  **这一格只有动态那一门看得见**（静态门看不见「问错了接收者」）。
+- **数字**：`cases:direct` **1640 份 / 同答 0**、`--all` **2051 份 / 540896 节点、直出 95.9%**、0 处不一致；
+  `cases:tsast` 16 片全过、已知缺口仍是 3 条；`cases:astjson` **1643 份 / 42696 个节点**六项全 0；
+  `coverage 4260 / 4422`（`blocked 28` / `differ 134` / 加权 95.7%）与两道 `runtime` 门
+  **读数一处没动**；`direct:lint` **0 条违反**，新增的第四条报「名字那一格按字符串键读 **0** 处」；
+  **十一道门 11 通过、0 失败**。
+- **可复用的判据**：**「门扫的是方法体，而直出版是坐 helper 出去的」**——
+  一条只扫 `PrintDirectAst` 方法体的静态判据**天生覆盖不到 helper 那一层**；
+  这一轮把那句口径钉成第四条门（扫**代码块**、注释不算，恰好 0 处）。
+  另一条：**换读法之前先量「接收者有几种」**——五处里三处的接收者是视图、两处是字典格，
+  而旧函数只认后者（改完当场红掉 1756 份语料）。
 
 ### 第 1007 轮：`for (const x of a ? b : c)` 那一格**按实测收掉**——判据落在「这一列的宿主括号是不是 `for (`」（**不**按 `of` 这个词判）；`cases:tsast` **16 片全过** ⇒ **十一道门 11 通过、0 失败**（第 992 轮登记那条缺口以来第一次全绿）
 

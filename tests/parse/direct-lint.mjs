@@ -200,6 +200,42 @@ for (const file of files.sort()) {
   if (text.includes(HEAD_AST) && !text.includes(HEAD_DIRECT)) unconverted.push(rel);
 }
 
+/**
+ * **名字那一格：不许再按字符串键读**（第 1008 轮）。
+ *
+ * `typescript/print-ast-common.xl.md` 的**代码块**里不许再出现
+ * `.attrs.get("name")` / `.attrs.get("fieldName")` / `.attrs.get("namespace")`——
+ * 这三格是**各页 `NameField` 自己回答的同一格事实**（第 1006 轮，
+ * `core/syntax/token.xl.md`），读法只有一个入口：`tokenNameOf`。
+ *
+ * **为什么这一条要单独扫、不并进上面那三条** ✗：上面那些判据只扫 `PrintDirectAst` 的
+ * **方法体**，而第 1008 轮实测到——直出版投一个类要经过 helper
+ * （`projectDeclaration` / `memberNameOf` / `structuralProps`），
+ * **按字符串键查字典正是在 helper 里活下来的**：静态门扫不到，动态那一门更看不见
+ * （那两处三词名单逐字节同答；`view()` 那一格早就是 token 事实，helper 这一格还是字典键）。
+ * 所以这一条把「名字那一格」的读法钉成一处。口径：只看**代码块**、注释不算（`codeOnly`），
+ * 恰好 0 处才对。
+ */
+const NAME_KEY = /\.attrs\.get\(\s*["'](name|fieldName|namespace)["']\s*\)/g;
+const SHARED_FILE = "typescript/print-ast-common.xl.md";
+let nameKeyHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const match of code.matchAll(NAME_KEY)) {
+      nameKeyHits += 1;
+      if (nameKeyHits <= 3) {
+        violations.push({
+          file: SHARED_FILE,
+          why: `名字那一格按字符串键读：\`${match[0]}\`（只许走 tokenNameOf / 各页的 NameField）`,
+        });
+      }
+    }
+  }
+}
+
 // **按字符串键查的账**（第 1005 轮）：逐键比额度——多了红（有人写回来了），
 // 少了也红（收掉了就来把例外表那一行删掉）。
 const stringKeys = [...new Set([...STRING_KEY_ALLOWED.keys(), ...stringKeyHits.keys()])].sort();
@@ -230,6 +266,9 @@ console.log(
   `按字符串键查：${stringKeyTotal} 处（例外 ${stringKeyLeft} 处：${[...STRING_KEY_ALLOWED.entries()]
     .map(([k, v]) => `${k} ${v}`)
     .join("、")}）`,
+);
+console.log(
+  `名字那一格（${SHARED_FILE} 的代码块）：按字符串键读 ${nameKeyHits} 处（0 处才是对的，读法只走 tokenNameOf）`,
 );
 if (verbose) {
   for (const one of directPages) console.log(`  direct  ${one.file}:${one.line}`);

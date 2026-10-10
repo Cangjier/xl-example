@@ -507,13 +507,28 @@ new Map([
 ——`MethodDeclaration` 的名字是子单元。第 1005 轮试过照 `annotate` 的写法硬挂 `name`：
 全语料 **823 份红**（`TypeAliasDeclaration.name` 整格丢）。
 
+**两种接收者都要认**（第 1008 轮，实测踩到的）：这一格过去只认**字典格**（`Map` 上的 `__token`），
+而 helper（`memberNameOf` / `structuralProps` / `projectDeclaration`）拿到的是**视图**——
+视图不是 `Map`，于是同一个问句在视图上答 `undefined` ⇒ `FunctionDeclaration` / `ClassDeclaration`
+**整格丢名字**（实测 `coverage` 从 4260 掉到 2504、`blocked` 1831，
+降级层报 `ast node FunctionDeclaration has no child name`）。
+视图上那两格事实本来就在：`token`（`view()` 抄的 `__token`）与 `name`（`view()` 建视图时
+按这一格算好的值）——所以退出照旧按「离事实多近」排，只是**两种接收者各走各的退路**。
+
 ```ts
-  const owner: any = node instanceof Map ? (node as any).__token : undefined;
-  if (owner !== undefined) {
+  const isMap: bool = node instanceof Map;
+  const owner: any = isMap
+    ? (node as any).__token
+    : node === null || node === undefined
+      ? undefined
+      : node.token;
+  if (owner !== undefined && owner !== null) {
     const own = owner.NameField();
     if (typeof own === "string" && own !== "") return own;
   }
-  return node instanceof Map ? node.get("name") : undefined;
+  if (isMap) return node.get("name");
+  // **视图那一份是建视图时算好的**（普通属性，不是取值器）——所以这里不会绕回本方法。
+  return node === null || node === undefined ? undefined : node.name;
 ```
 
 # private method annotate:(node:any)=>void
@@ -1323,9 +1338,13 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
   else if (
     v.type === "MethodDeclaration" &&
     (parentKind === "ClassDeclaration" || parentKind === "ClassExpression") &&
-    v.attrs.get("name") === "constructor"
+    tokenNameOf(v) === "constructor"
   ) {
-    // **判据是 `name` 属性、不是 `textOf`**：方法单元自己没有 `value`，
+    // **判据是「这一格叫什么」那一格事实、不是 `textOf`**（第 1008 轮改成走 `tokenNameOf`）：
+    // 它问的是 token 自己的 `NameField`（第 1006 轮）、问不到才退回字典那个 `name` 键；
+    // 直接写 `v.attrs.get("name")` 是**按字符串键查字典**——这条口径对 **helper** 一样成立
+    // （直出版那一趟投一个类要经过 `projectDeclaration`，它就在这条 helper 里）。
+    // 方法单元自己没有 `value`，
     // `textOf` 会退回 `source.slice(v.start, v.end)`（那是整段方法体，不是名字）。
     //
     // kind 名是 **`Constructor`**（`ts.SyntaxKind[177]` 印出来就是 `Constructor`；
@@ -7352,7 +7371,9 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   const containerView = container instanceof Map ? view(container) : container;
   const letView = letNode === null ? containerView : view(letNode);
   const listStart = modifierStart(letView, ctx);
-  const declared = String(letView.attrs.get("fieldName") ?? "");
+  // **声明名那一格走 `tokenNameOf`**（第 1008 轮）：`fieldName` 是 `Let` 自己 `NameField`
+  // 回答的那一格事实，读法只有一个入口（这里是**视图**，见 `tokenNameOf` 的两种接收者）。
+  const declared = String(tokenNameOf(letView) ?? "");
   // **解构声明的名字用产物自己的那个 `ArrayLiteral` / `ObjectLiteral`**（踩过）：
   // 它们就是绑定模式（`ArrayLiteral[6,21]` 与 TS 的 `ArrayBindingPattern[6,22)` 逐格一致），
   // 里面还带着结构化的 `BindingElement`。早先我从源码括号里**另造了一个空壳**，
@@ -8494,7 +8515,11 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   算好了（推过修饰词、优先用 `nameStart` / `nameEnd`），直接问它左边那一格。
 
 ```ts
-  const rawName = v.attrs.get("name") ?? v.attrs.get("fieldName") ?? v.attrs.get("namespace");
+  // **名字那一格走 `tokenNameOf`**（第 1008 轮）：它先问 token 自己的 `NameField`
+  // （第 1006 轮：`name` / `fieldName` / `namespace` 由各页自己回答），问不到才退回字典。
+  // 原来这里是一张三词名单（`attrs.get("name") ?? …("fieldName") ?? …("namespace")`）——
+  // 那是**按字符串键查字典**，而且与 `view()` 那一格是同一句话的第二个入口（两处会漂）。
+  const rawName = tokenNameOf(v);
   // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
   // `Let.fieldName` 这个**属性**上（不是子单元），`x.\u0061` 的键同理。
   // **与 `Identifier.PrintAst` 共用一份解码**（`text-common-util.xl.md` 的
@@ -8521,7 +8546,10 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // `ModuleDeclaration(A) > ModuleDeclaration(B) > …`）：那一段的区间由 `Namespace`
   // 重组时记进 `nameRange`，这里直读。只有 `namespace` 这一个属性会带点号
   // （引号名 `"a.b"` 走的是别的属性），所以按它分流不会误伤。
-  const rawNamespace = v.attrs.get("namespace");
+  // **这一格也走 `tokenNameOf`**（第 1008 轮）：`namespace` 是 `Namespace` / `Import` / `Export`
+  // 三页 `NameField` 回答的那一格事实；上面那个 `rawName` 与它是**同一格**，
+  // 所以这里不再按字符串键另读一遍（两处会漂——`name` 与 `namespace` 一度就是两个入口）。
+  const rawNamespace = tokenNameOf(v);
   const dotAt = typeof rawNamespace === "string" ? rawNamespace.indexOf(".") : -1;
   const lookup = dotAt > 0 ? rawNamespace.substring(0, dotAt) : name;
   const direct = projectableKids(v).find((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === lookup);
@@ -9604,10 +9632,10 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   // `Decorator` 整类缺（实测 12 处），以及 `ClassDeclaration.children` 被当成继承段
   // （`heritageClauses` 字段凭空多出，因为那张表把 `children` 映射成了 `heritageClauses`）。
   const decorators = [];
-  // **`name` 按产物节点自己的属性给**，不维护 kind 白名单——白名单漏一个 kind，
-  // 「字段名对拍」就多一处看不出根因的假差异。
-  // 命名空间是唯一的例外：它的名字落在 `namespace` 属性上（不是 `name`）。
-  const rawName = v.attrs.get("name") ?? v.attrs.get("fieldName") ?? v.attrs.get("namespace");
+  // **`name` 按这一格自己的那一格事实给**（第 1008 轮），不维护 kind 白名单——白名单漏一个 kind，
+  // 「字段名对拍」就多一处看不出根因的假差异；也不按字符串键查字典（见 `tokenNameOf`）。
+  // 命名空间那个例外也随之消失：`namespace` 是各页 `NameField` 自己答的那一格之一。
+  const rawName = tokenNameOf(v);
   // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
   // `Let.fieldName` 这个**属性**上（不是子单元），`x.\u0061` 的键同理。
   // **与 `Identifier.PrintAst` 共用一份解码**（`text-common-util.xl.md` 的
