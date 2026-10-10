@@ -7762,6 +7762,51 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
     （插桩在 `while (i < ck.length)` 上没有打印）。下一处入手处是先量清楚
     「这个形状到底进了 `projectExpression` 的哪一支」。
 
+- **第 970 轮：三格 `xl:known-gap` 的根因逐格量到现场**（**只量不修**，数字一处没动）。
+  第 968 轮留下的三个「下一处入手处」这一轮各走了一步；三处的现场笔记已经写进**用例自己**
+  （那三份 `tests/cases/token/expressions/gap-r964-*.ts` 的头部注释就是现场，数字与这里一字不差）：
+
+  ```text
+  gap-r964-nonnull-call-twice-member   a!()().c      缺 4　漂 0　多 0　字段 0   （一处没动）
+  gap-r964-opt-assert-member-member    a?.b!.c.d     缺 0　漂 2　多 0　字段 0   （一处没动）
+  gap-r964-opt-call-triple             a?.b()()()    缺 2　漂 1　多 0　字段 1   （一处没动）
+  ```
+
+  逐格的新读数（**都是插桩或 `cjcli` 实测，不是推断**）：
+
+  - **`a!()().c`**：第 968 轮那句「链循环一次都没进」**被这一轮的插桩推翻**——
+    `projectExpression` 的入口实测到的是 `PE kids=[NotNull(2-2) PropertyAccess(3-8)]`，
+    链那一支**进得去**（入口判据里 `isCallFirstUnit(kids[1], ctx)` 答真）。
+    真正卡住的是**摊开之后**：`kids[1]` 那一格 `PropertyAccess` 的第 3992 行判据
+    （要求 `isIndexFirstUnit`）答否、第 4002 行答真 ⇒ 摊成
+    `[NotNull, Method(name=""), ., Identifier(c)]`，而 `chainOnto` 的续格循环只认
+    「下标括号 / 圆括号 / 点号」⇒ 在那格 `Method` 上 `if (!isDot(unit, ctx)) break`。
+    **下一处入手处**：让循环遇到 `Method` 时接着折（第 966 轮那几支空名字 `Method` 的
+    分支正是按区间判「外面还有一层」），`.c` 作为下一个兄弟由循环接上。
+  - **`a?.b!.c.d`**：第 968 轮记的两版修法「逐字不动」这一轮找到了原因——
+    **那一格 `PropertyAccess` 由 `chainWithOptional` 自己的成员循环吃掉**，
+    而那个循环**只接一格就收工**（接完 `.c` 就 `j += 2`，`.d` 前面没有点号了 ⇒
+    那个 `isDot(member, ctx) && j + 1 < members.length` 判据不成立）。
+    **下一处入手处**：整格交给 `chainOnto` 走一遍，但**判据不能放宽到
+    「头一格以一次调用开头」**——第 970 轮试过，`a?.b.c`（无断言那一族）会当场回归
+    （`PropertyAccessExpression` 漂 3 / 多 2），已整份撤回。
+  - **`a?.b()()()`**：**不在投影层**。`cjcli` 实测 token 树确实是三个 `Method`，
+    但根因在 `tokens/method.xl.md` 的 `PrintAst`：最外层那格走「括号是被调用者」那条
+    支路时要过一道闸门 `ctx.Kids(brace).length > 0`（第 419 行），而 `a?.b()()`
+    最外层**实参表是空的** ⇒ 闸门答否 ⇒ 那条支路不进。第 968 轮说的
+    `Math.max(ctx.StmtEndOf(v), argsClose + 1)` 是**同一条支路里的另一句**（第 391 行）。
+    **下一处入手处**：在 `method.xl.md` 里量那道闸门该不该对「空实参表」放开，
+    以及放开会不会带偏 `f!(1)` 那一族（第 414–418 轮记的正是这个风险）。
+
+  **这一轮真正想留下来的一句话**：第 968 轮那三格里有**两格的方向是错的**
+  （`a!()().c` 的「进不去链那一支」、`a?.b()()()` 的「投影层压掉中间那层」）——
+  错在**只看产物、没插桩**。所以这一轮的现场笔记一律写上**读到的那一行原文**
+  （`PE kids=[…]` / `ICFU …` / `cjcli` 的 XML），而不是「应该是」。
+  第 970 轮试过一版修法（`a!()().c` 那一格的摊开判据 + `chainWithOptional` 的
+  子链成员循环整格交给 `chainOnto`），门量下来**两格一处没动、另在 `a?.b.c` 上量出回归**，
+  已按本仓「一处不动的改动不算收口」的规矩**整份撤回**：`print-ast-common.xl.md` 与
+  第 970 轮开工前**逐字节相同**（`git diff` 干净）。
+
 - **一轮一提交**：一轮的改动跑完尺子之后 `git commit`，提交信息按轮次写
   （`第 N 轮：…（coverage X -> **Y / Z**）`，正文写根因 / 修法 / 数字）。
   攒着不提交的话，「哪一轮把哪个数字动了」在 `git log` 里就查不到了。
