@@ -141,6 +141,19 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 这一支的修饰词是 `LetBranch.Success` 逐个 `unshift` 攒起来的（不是一段连续区间），所以位置也在
 同几处顺手记下——来由与 `Class.ModifierSpans` 同一条：修饰词不进 `Data`，位置只有那一刻知道。
 
+## method NameField:()=>string | undefined
+
+**这一格自己的名字**（第 1006 轮）：名字就在本页的 `fieldName` 字段上，所以由这一页回答——
+投影那一层过去拿一张「哪些页把名字叫什么」的字符串名单逐个试
+（`owner["name"]` / `owner["fieldName"]` / `owner["namespace"]`），现在只问这一格
+（见 `typescript/print-ast-common.xl.md` 的 `tokenNameOf`）。
+
+基类那一格答 `undefined`＝「名字不在字段上」（见 `core/syntax/token.xl.md`）。
+
+```ts
+return this.fieldName === "" ? undefined : this.fieldName;
+```
+
 ## method ToXmlString:()=>string
 
 产出 XML：自闭合标签，属性名由 `LetType` 决定，另带 `modifiers`、名字的两个下标与修饰词的位置。

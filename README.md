@@ -285,7 +285,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:astjson` | **出口 2（AST JSON）的尺子**（第 884 轮加）：逐节点比「标签名 === `type`」「XML 的每个属性在 JSON 里**同名同值**」「每个节点都有合法 `range`」「JSON 多出来的键在 [docs/ast-json.md](docs/ast-json.md) 第 2–4 节**登记过**」，外加「命令行 === 库 API」与「不抛异常」——**六项全 0 才退出码 0** |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `cases:direct` | **直出版同答**（第 992 轮加）：整个语料跑两遍（直出通道开 / 关）**逐字节**比 `ToJsonText`，外加 `unmapped` / `count` 记账同——三项全 0 才退 0；直出覆盖率只印（见 `Token.PrintDirectAst`） |
-| `direct:lint` | **直出版只用 token 自己的东西**（第 992 轮加；第 1005 轮加第三条）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，不许转手 `this.PrintAst`，也**不许按字符串键查字典**（`.get("…")` / `.set("…")` / `.has("…")`，逐键计数、例外表只留 `name` 那 2 处） |
+| `direct:lint` | **直出版只用 token 自己的东西**（第 992 轮加；第 1005 轮加第三条）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，不许转手 `this.PrintAst`，也**不许按字符串键查字典**（`.get("…")` / `.set("…")` / `.has("…")`，逐键计数、例外表已归零） |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `cases:tags` | **用例自带的期望**：`xl:expect`（存在，或 `Tag:N` 计数）与 `xl:absent` 逐条对产物核实，外加标签表体检 |
@@ -308,6 +308,38 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1006 轮：名字那一格从「字符串名单」搬成 token 自己的一格事实（`Token.NameField`，十三页各答自己那个字段）——`tokenNameOf` 里最后一处「按字符串键查 token」收掉；`cases:direct --all` 2050 份逐字节同答、其余十道门读数一处没动
+
+**一句话**：第 1005 轮把「这一格叫什么」从字典键改成了 token 事实，但那一格事实是**试出来的**——
+`tokenNameOf` 拿一张字符串名单（`["name", "fieldName", "namespace"]`）在 token 上逐个试
+（`owner[key]`）；而那张名单**看着像「每个 token 都有这三个字段」，实测每一页只有一个**。
+这一轮把名单拆回各页：`Token` 上多一格 `NameField`，投影只问一个入口。
+
+- **量出来的形状**：按「名字住在哪个字段上」数一遍，一共 **13 页各一个字段**——
+  `name:string` 五页（`Decorator` / `Method` / `NamespaceExport` / `Function` / `MethodDeclaration`）、
+  `name:TokenField<string>` 三页（`Class` / `Enum` / `Interface`）、
+  `namespace:string` 三页（`Export` / `Import` / `Namespace`）、`fieldName:string` 两页（`Field` / `Let`）。
+  **没有一页同时有两个**，所以旧名单那三步试探与「每页只答自己那一格」逐字节等价
+  （这一点由 `cases:direct` 全语料逐字节同答当场证明，不由读代码保证）。
+- **收法**（`core/syntax/token.xl.md` 的 `## method NameField:()=>string | undefined`）：基类答 `undefined`
+  ＝「名字不在字段上」——名字是**子单元**的那些页不覆写，投影于是退回字典那个 `name` 键
+  （那是**段**，不是字段）。十三页各覆写一次，答的就是自己那个字段；
+  `TokenField<string>` 那三页走它自己的出口（`Text()`），**「值是字符串还是 `TokenField`」不再由投影那一层猜**。
+- **`tokenNameOf` 只剩三步**：问 `owner.NameField()` → 退回字典 `name` 键 → `undefined`。
+  三步的顺序与旧名单的优先级一致（`name` → `fieldName` → `namespace` → 字典），
+  而每一页只有一个字段，所以两份答案同一个字。
+- **数字**：`cases:direct` **1639 份 / 21818 节点、直出 75.6%、同答 0、抛异常 0**（与上一轮逐字节相同）；
+  `cases:direct --all` **2050 份 / 540515 节点、直出 95.9%**、0 处不一致；
+  `direct:lint` **0 条违反**（按字符串键查仍是 0 处、例外表归零）；
+  `cases:tsast` / `cases:astjson`（1642 份 / 42594 节点）/ `cases:tags` / `cases:shapes` /
+  `coverage 4259 / 4422`（`blocked 29` / `differ 134` / 加权 95.7%）与两道 `runtime` 门
+  **读数一处没动**；唯一那道红仍是第 992 轮登记的已知缺口（`gap-r992-forof-ternary-iterable`，与本轮无关）。
+- **可复用的判据**：**「有一张名单」往往就是「有一格事实没有归位」**——
+  名单越长越像「共有属性」（三个字符串看着像三个字段），量一遍才知道它是「十三页各一格」；
+  把名单拆回各页之后，投影那一层的「猜存法」（`string` 还是 `TokenField`）也一起消失了。
+  另一条：**搬这一格只改「谁答」，不改「答什么」**——判据就是那两道逐字节门，
+  它们绿说明搬对了，不需要为这一格新写一条尺子。
 
 ### 第 1005 轮：直出版的「字符串键查字典」**220 / 220 全部收掉**（例外表归零）——`Token.Tag`、字典格/视图上的同名属性、以及 `tokenNameOf` 补的那一格 `name` 事实；`direct:lint` 加第三条（按字符串键查，逐键计数）；`cases:direct` 全语料 2050 份逐字节同答、其余十道门读数一处没动
 

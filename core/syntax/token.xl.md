@@ -739,6 +739,26 @@ XML 的标签名、字典（与 AST JSON）的 `type`、TS 形状那一层的 ki
 return this.constructor.name;
 ```
 
+## method NameField:()=>string | undefined
+
+**这一格自己的名字**（第 1006 轮）：名字住在**这一页自己的哪个字段**上，由这一页回答；
+名字不在字段上（是子单元、或者根本没有名字）就答 `undefined`。
+
+**为什么这一格必须存在**：投影要问「这一格叫什么」时，过去是拿一张**字符串名单**
+在 token 上逐个试（`owner["name"]` / `owner["fieldName"]` / `owner["namespace"]`）——
+那是**按字符串键查 token**，与直出版那条判据要消掉的东西同一族；
+而且那张名单读起来像「所有 token 共有的三个字段」，实测**每一页只有一个**
+（`name` 六页、`namespace` 三页、`fieldName` 两页、`name:TokenField<string>` 三页）。
+名字是**这一页自己的事实**，所以由这一页答，投影只读一个入口。
+
+**基类答 `undefined`**＝「我的名字不在字段上」：名字是**子单元**的那些页
+（`MethodDeclaration` 的名字是一格 `Identifier`）不覆写这一格，
+投影于是退回字典那个 `name` 键（那是**段**，不是字段）。
+
+```ts
+return undefined;
+```
+
 ## method ToJsonString:()=>string
 
 把 `ToList()` 串成一个 JSON 字符串（紧凑单行）——`cjcli --ast-json` 打的就是它。

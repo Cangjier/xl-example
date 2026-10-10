@@ -1128,6 +1128,20 @@ throw new Error("找不到匹配的子单元");
   // **形状交回共享实现**（第三格是这一格自己的造节点闭包、第四格是刚算出来的 kind）。
   return ctx.Declaration(v, undefined, ctx.Make(v), kind);
 ```
+## method NameField:()=>string | undefined
+
+**这一格自己的名字**（第 1006 轮）：名字就在本页的 `name` 字段上，所以由这一页回答——
+投影那一层过去拿一张「哪些页把名字叫什么」的字符串名单逐个试
+（`owner["name"]` / `owner["fieldName"]` / `owner["namespace"]`），现在只问这一格
+（见 `typescript/print-ast-common.xl.md` 的 `tokenNameOf`）。
+
+基类那一格答 `undefined`＝「名字不在字段上」（见 `core/syntax/token.xl.md`）；
+`name` 为空时也答 `undefined`——那时名字可能在**子单元**里，交给投影那一层的下一站去问。
+
+```ts
+return this.name === "" ? undefined : this.name;
+```
+
 ## method ToXmlString:()=>string
 
 产出 XML：开标签上带 `name`、`modifiers` 与名字的两个下标（`nameStart` / `nameEnd`）。

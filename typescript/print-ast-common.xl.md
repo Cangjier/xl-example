@@ -468,8 +468,9 @@ new Map([
   // `value` 是叶子的文本（视图上面已经有这一格，缺了由 `textOfNode` 按区间回原文取）；
   // 而 `name` 要的是**这一格叫什么**：`MethodDeclaration` 的名字是**子单元** `Identifier`，
   // 字典里那个 `name` 键两处都取不到（直出版因此一直写 `v.attrs.get("name")`）。
-  // 这一格按 token 自己记的字段答——`Token.NameField` 读的是各页那几个字段
-  // （`Name` / `FieldName` / `Namespace`），**这才是「补一格 token 事实」**
+  // 这一格按 token 自己记的字段答——`Token.NameField`（第 1006 轮：基类答 `undefined`，
+  // **十三页各覆写自己那一格**，`name` / `fieldName` / `namespace`），
+  // **这才是「补一格 token 事实」**
   // （硬把字典那个键挂成属性实测 823 份语料红：`TypeAliasDeclaration.name` 整格丢）。
   Object.defineProperty(out, "name", {
     value: tokenNameOf(node),
@@ -487,15 +488,20 @@ new Map([
 
 三条路，按「离事实多近」排：
 
-1. **token 自己的字段**——名字在那里是**一格 token 事实**，而且**各页的叫法就三种**
-   （量出来的：`name` 六页、`namespace` 两页、`fieldName` 两页）；
+1. **token 自己的那一格事实**——`Token.NameField()`（第 1006 轮）：名字在**哪一页的哪个字段**上
+   由那一页自己回答（`name` / `fieldName` / `namespace`，含 `TokenField<string>` 那一档）；
 2. **字典里那个 `name` 键**——有些页把名字当**段**装进去（`Method` 的 `name`），
    这时它就是一个真键；
 3. **`undefined`**——没有名字的节点（匿名函数、块），直出版那一侧当空串处理。
 
-**两种存法都要认**：`name` 有的页是 `string`、有的页是 `TokenField<string>`
-（`Class` / `Enum` / `Interface` 三页走的是「值 + 它在哪」那一格，第 987 轮那批），
-所以拿到一个不是字符串的东西时要问它 `.Value`——那是 `TokenField` 自己的出口。
+**为什么「哪一页的哪个字段」不再写在这里**（第 1006 轮）：原来是本方法里的一张
+**字符串名单**（`for (const key of ["name", "fieldName", "namespace"]) owner[key]`）——
+那是**按字符串键查 token**，而那张名单读起来像「每个 token 都有这三个字段」，
+实测**每一页只有一个**。名字是 token 自己的事实，所以搬进各页的 `NameField`
+（`core/syntax/token.xl.md` 给基类、十三页各覆写自己那一格）；
+本方法只剩「问这一格 → 退回段 → `undefined`」三步。
+搬法逐字节等价：两种存法（`string` 与 `TokenField<string>`）都由**那一页**去认，
+`TokenField` 那一档在页内走它自己的出口（`Text()`），不再由这里猜 `.Value`。
 
 **为什么不在 `annotate` 里挂**：`annotate` 挂的是「字典里那个键」，而 `name` **常常根本不在字典里**
 ——`MethodDeclaration` 的名字是子单元。第 1005 轮试过照 `annotate` 的写法硬挂 `name`：
@@ -504,11 +510,8 @@ new Map([
 ```ts
   const owner: any = node instanceof Map ? (node as any).__token : undefined;
   if (owner !== undefined) {
-    for (const key of ["name", "fieldName", "namespace"]) {
-      const raw = owner[key];
-      if (typeof raw === "string" && raw !== "") return raw;
-      if (raw !== undefined && raw !== null && typeof raw.Value === "string" && raw.Value !== "") return raw.Value;
-    }
+    const own = owner.NameField();
+    if (typeof own === "string" && own !== "") return own;
   }
   return node instanceof Map ? node.get("name") : undefined;
 ```
