@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.39,
+  "progressPercent": 95.41,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1547,
-      "pass": 1545,
-      "blocked": 2,
+      "pass": 1547,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.87
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,25 +130,13 @@
   ],
   "token": {
     "total": 1547,
-    "knownGap": 2,
-    "knownGapStillOpen": 2,
-    "exactFiles": 1545,
-    "scoredWithoutGap": 1545,
-    "passedWithoutGap": 1545
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1547,
+    "scoredWithoutGap": 1547,
+    "passedWithoutGap": 1547
   },
   "blocked": [
-    {
-      "id": "token/statements/gap-r929-label-comment-before-colon-tail",
-      "category": "token",
-      "title": "第 929 轮片段普查量到的一族：**名字与冒号之间夹注释**，而且后面还跟着一条语句。",
-      "detail": "缺 7　多 2　`LabelCloseRule.Process` 把那一带的注释搬到 `Label` **左边**（它的说明里写着"
-    },
-    {
-      "id": "token/statements/gap-r929-label-comment-head-of-shell",
-      "category": "token",
-      "title": "第 929 轮片段普查量到的同族另一格：注释落在**语句壳的第一格**上。",
-      "detail": "缺 2　多 1　与 `gap-r929-label-comment-before-colon-tail` 同一个根（壳的头不是标签就"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",

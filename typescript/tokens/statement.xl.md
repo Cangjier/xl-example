@@ -502,9 +502,35 @@ const data = unit.Data;
 if (Array.isArray(data) === false || data.length < 1) {
   return;
 }
-const head = Get(data, 0);
+// **头那一格要跳过前导 trivia**（第 930 轮）：`outer/*c*/: for (…) { … } g();` 里
+// `LabelCloseRule.Process` 把名字与冒号之间那条注释放在 **`Label` 左边**（那个位置只能放左边，
+// 见 `label.xl.md` 的说明），于是壳的**第一格**成了那条注释 ⇒ 下面「头是不是标签」当场为否
+// ⇒ 尾巴不拆 ⇒ 整段并成一个 `ExpressionStatement`（实测：`g();` / `h(x);` / `return 1;`
+// 被一起吞进标签那一格，缺 7 与缺 2 两族）。
+//
+// **只给「头是标签」那一档放行**：其余形状走的还是原来那条路（`data.slice(1)` 那一套下标
+// 都按 0 起算），所以跳过 trivia 之后头不是标签时照旧早退——这一改动的落点只有一格。
+// **条件要与下面那一支一字不差**（`Label` 且 `Data` 为空）：只判「是不是 `Label`」会漏掉
+// 「已经包住语句的标签」那一种，它落到通用那一支里（`tail = data.slice(1)` 从 **1** 起 ⇒
+// 标签既被搬进父亲、又留在新壳里，同一格出现两次、旁边那条注释一起消失——实测
+// `decl-label-comment-after-name` 与 exec 的 `049-declarations-decl-label-block-comment`
+// 当场红：产物是 `<Root><Label …/><Statement><Label …/></Statement></Root>`，注释 0 个）。
+let headAt = 0;
+for (;;) {
+  const one = Get(data, headAt);
+  if (one === null || IsTriviaUnit(one) === false) {
+    break;
+  }
+  headAt = headAt + 1;
+}
+const head = Get(data, headAt);
 if (head === null || Statement.IsStatementUnit(head) === false) {
   return;
+}
+if (headAt !== 0) {
+  if (head.constructor.name !== "Label" || head.Data.length !== 0) {
+    return;
+  }
 }
 const parent = unit.Parent;
 if (parent === null || Array.isArray(parent.Data) === false) {
@@ -522,7 +548,7 @@ if (head.constructor.name === "Label" && head.Data.length === 0) {
   // **标签与被标的语句之间的注释 / 软换行也要跨**（第 929 轮）：判据跳了、搬运就必须跟着跳
   // ——`outer:/* c */ while (…)` 里 `bodyAt` 原来落在那条注释上 ⇒ 判不出「被标的是语句」
   // ⇒ 尾巴不拆（整段留在同一个壳里）。一份判据在 `LabelRunEnd` 里。
-  const bodyAt = Statement.LabelRunEnd(data, 0);
+  const bodyAt = Statement.LabelRunEnd(data, headAt);
   const body = Get(data, bodyAt);
   if (body === null || Statement.IsLabeledStatementBody(body) === false) {
     return;
