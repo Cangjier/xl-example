@@ -259,12 +259,12 @@ return index;
 **这一格是不是「顶层逗号」**（第 302 轮）：类型是 `BinaryOperator`、且它里面有一枚 `,` 符号。
 
 **为什么要问「里面」而不是问原文**：这个单元的区间是**整段** `1, 2`
-（实测 `ctx.TextOf` 给的就是 `"1, 2"`），拿原文比 `","` 永远为假。
+（那一段的文本就是 `"1, 2"`），拿原文比 `","` 永远为假。
 
 ```ts
 if (kid.get("type") !== "BinaryOperator") return false;
 for (const inner of ctx.Kids(kid)) {
-  if (inner.get("type") === "SymbolToken" && ctx.TextOf(inner) === ",") return true;
+  if (inner.get("type") === "SymbolToken" && ctx.ValueOf(inner) === ",") return true;
 }
 return false;
 ```
@@ -317,7 +317,7 @@ while (true) {
 const groups: any[] = [];
 let current: any[] = [];
 for (const kid of pending) {
-  if (kid.get("type") === "SymbolToken" && ctx.TextOf(kid) === ",") {
+  if (kid.get("type") === "SymbolToken" && ctx.ValueOf(kid) === ",") {
     groups.push(current);
     current = [];
     continue;
