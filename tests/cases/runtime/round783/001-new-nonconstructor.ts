@@ -1,19 +1,16 @@
 // xl:title `new` 一个不可构造的值：**该抛 TypeError** 的那些位置
 // xl:round 783
 // xl:judge stdout
-// xl:want differ
-// xl:why 第 783 轮量到的：本仓的 `new` **不判可构造性**——箭头函数、对象方法、`async` 函数、
-// xl:why 生成器函数、绑定出来的箭头、以及内建方法（`Math.max`）**全都建得出来**
-// xl:why （一个空对象），而 JS 除「绑定过的普通函数」以外**一律抛 `TypeError`**。
-// xl:why 规范 §10.2.1 `[[Construct]]`：只有**普通函数**、**类**、以及
-// xl:why 「有 `[[Construct]]` 的目标」才走得下去；箭头函数 / 方法简写 / `async` /
-// xl:why 生成器**根本没有这一格**（`[[Construct]]` 不存在 ⇒ `TypeError`）。
-// xl:why 本仓的判据落在**调用位那一趟**（`vm.xl.md` 的构造那一支只问「这个值可调用吗」，
-// xl:why 而「可调用」是**比可构造更宽**的一格）——所以 `new o.m()` 与 `new (() => 0)()`
-// xl:why 是**同一处根**的两个出口。**要收它得给值模型加一位「可构造」**
-// xl:why （今天闭包载荷里那一位没有），不是语言层一句话。
-// xl:why **不许被带偏的那一半**：`new` 普通函数 / 类 / 绑定过的普通函数**都要照旧能建**，
-// xl:why 而且 `new F()` 给的对象原型要接 `F.prototype`（所以这一条不光是「抛不抛」）。
+// xl:note 第 935 轮收掉（`xl:want differ` 按规矩撤掉，用例留着当守卫）：
+// xl:note 第 783 轮量到的缺口是「本仓的 `new` **不判可构造性**」——箭头函数、对象方法、
+// xl:note `async` 函数、生成器函数、绑定出来的箭头、以及内建方法（`Math.max`）
+// xl:note **全都建得出来**（一个空对象），而 JS 里除「绑定过的普通函数」以外
+// xl:note **一律抛 `TypeError`**（规范 §10.2.1：那四档根本没有 `[[Construct]]`）。
+// xl:note **收在值模型那一位上**：降级层把「方法」那一位拼进 `new_closure` 第四格
+// xl:note （`HeapClosure.IsMethod`，步长 64 → 128），引擎的 `IsConstructable`
+// xl:note 按「闭包四位 + 对象自己那一格」答，`DoNew` 与 `ConstructApply` 两处共用它。
+// xl:note **不许被带偏的那一半仍然钉在这里**：`new` 普通函数 / 类 / 绑定过的普通函数
+// xl:note 照旧建得出来，而且 `new F()` 给的对象原型仍然接 `F.prototype`（第 14 档）。
 // xl:end
 
 const show = (label: string, f: () => any): void => {

@@ -1745,6 +1745,53 @@ this.Status = this.Frames.IsEmpty() ? VmStatus.Halted : VmStatus.Ready;
 return value;
 ```
 
+## method IsConstructable:(value:Value)=>bool
+
+**这个值能不能当构造函数**——也就是 JS 规范里那个 `IsConstructor`（§7.2.4）。
+
+**它比 `IsHostCallable` 窄一格**：可调用（有 `[[Call]]`）**不等于**可构造（有 `[[Construct]]`）。
+规范 §10.2.1：箭头函数 / 方法 / `async` 函数 / 生成器**四档都没有 `[[Construct]]`**
+（`new (() => 0)()`、`new ({ m() {} }).m()`、`new (async () => 0)()`、
+`new (function* () {})()` 在 Node 里**全抛 `TypeError`**），
+而本仓的闭包在值模型里就是普通对象 ⇒ **这一问只能靠降级层记下的那几位**。
+
+**四位的判据各是什么**（都住在闭包上，见 `HeapClosure`）：
+`IsArrow` / `IsMethod` / `IsAsync` / `IsGenerator`——**任意一位为真就不可构造**。
+**`IsClass` 不在这四位里**：类**恰恰是**可构造的那一档。
+**生成器与 `HasRestricted` 是两问**：生成器没有 `arguments` / `caller`，
+可它**有** `prototype`（Node 实测），所以不能拿 `HasRestricted` 顶替这里。
+
+**宿主那一档的判据是 `HeapObject.IsConstructable`**（**实测撞到的**）：它由
+`AttachCallable` 在挂可调用载荷那一刻写定——**大多数挂上去的就是构造函数**
+（`Array` / `Error` / `Map` / `Date` / `Promise` / `Function` / `Object` …，所以默认真），
+显式传假的只有四格（生成器的 `next` / `return` / `throw` 与 `Symbol`）。
+**`bind` 那一趟传的是目标的答案**——`new (f.bind(null))()` 在 JS 里合法、必须放行，
+而 `new (Math.max.bind(Math))()` 抛 `TypeError`（内建方法没有 `[[Construct]]`）。
+那一位**不能在这里现算**：绑定函数的可构造性是从 `__boundTarget` 推出来的，
+而那个名字是**语言层的常数**——引擎要读它就得**认识那个名字**，
+而引擎不认识它（见 `globals.xl.md` 的 `BoundTargetName` 那一段）。
+所以答案由挂载荷的那一趟算好、写进 `HeapObject.IsConstructable`，这里只读。
+
+**为什么收成一个方法**：这一问有**两个入口**——引擎的 `DoNew`（`Op.New` 那条路）
+与语言层的 `ConstructApply`（`Reflect.construct` / `new C(...xs)` 展开那一档，
+它**自己造实例**、根本不经过 `DoNew`）。写两遍就是两处会漂，
+而漂了的症状正是「`new (() => 0)()` 抛了、`Reflect.construct(() => 0, [])` 没抛」。
+
+```ts
+if (value.Tag === ValueTag.Closure) {
+  const closure = this.Table.Get(value.Ref).AsClosure();
+  if (closure.IsArrow || closure.IsMethod || closure.IsAsync || closure.IsGenerator) return false;
+  return true;
+}
+if (value.Tag === ValueTag.Object) {
+  // **只有 `bind` 造出来的那个对象算可构造**（见上面那一段）：那一位由 `bind`
+  // 那一趟算好写下（`HeapObject.IsConstructable`）——引擎在这里读不到
+  // `__boundTarget`（那个名字是语言层的常数），所以**答案必须是现成的**。
+  return this.Table.Get(value.Ref).IsConstructable;
+}
+return false;
+```
+
 ## method IsHostCallable:(value:Value)=>bool
 
 **这个值能不能被调用**——`HostRef` 与**带可调用载荷的对象**都算（第 145 轮）。
@@ -2200,6 +2247,19 @@ if (this.Program === null) throw new Error("no program loaded");
 const protos = this.Protos;
 if (protos === null) throw new Error("no prototype table");
 const callee = frame.Slots[instr.A];
+// **不可构造的值在这里就抛**（第 935 轮）：箭头 / 方法 / `async` / 生成器四档
+// 在 JS 里没有 `[[Construct]]`，而本仓的闭包是普通对象——不判这一格的话
+// `new (() => 0)()` 会**静默造出一个空对象**（第 783 轮量到的，那一族八条全中）。
+// **判据收在 `IsConstructable` 一处**：`Reflect.construct` 那条路
+// （语言层的 `ConstructApply`，它自己造实例、不经过这里）读的是同一个方法。
+// **走 `Guard` 是为了「可接住」**：这是一条脚本异常（`try { new x() } catch` 要接得住），
+// 与上面那句 `calling a non-closure value` 同一条处置（见它的注释）。
+if (!this.IsConstructable(callee)) {
+  this.Guard(() => {
+    throw new TypeError("this value is not a constructor (it has no [[Construct]])");
+  }, ErrorKindType);
+  return;
+}
 // **宿主那一档**（`new Map()` / `new Date(ms)` 这一类：那个全局名是一个宿主引用，
 // 或者是一个**带可调用载荷的对象**——第 145 轮把后者接了进来）：
 // **不造实例、不看原型**——让宿主自己把对象造好并返回，这正是 JS 的
@@ -5538,13 +5598,20 @@ try {
 // **第六位（值 32）是第 892 轮添的**：`HeapClosure.IsArrow`——它**不改原型**，
 // 只在「当普通函数调时 `this` 给谁」那一问上把箭头挡掉（箭头没有自己的 `this`，
 // 见 `HeapClosure.IsArrow` 那一格）。**步长 32 → 64**，降级层同步。
+// **第七位（值 64）是第 935 轮添的**：`HeapClosure.IsMethod`——对象方法 / 类方法 /
+// 访问器。它**不改原型**，只在「这个函数值可不可构造」那一问上把方法挡掉
+// （JS 里方法没有 `[[Construct]]`，见 `IsConstructable`）。**步长 64 → 128**，降级层同步。
+// **位宽与步长这两处永远是同一个数**：摘位那一段与 `paramCount` 那一句必须一起改——
+// 只改一处的话，形参个数会被算成「原值除以两倍」
+// （症状是 `fn.length` 静默错值，而**一个异常都没有**）。
 const isClass = (arity & 1) !== 0;
 const isStrict = (arity & 2) !== 0;
 const isRestricted = (arity & 4) !== 0;
 const isGenerator = (arity & 8) !== 0;
 const isAsync = (arity & 16) !== 0;
 const isArrow = (arity & 32) !== 0;
-const paramCount = (arity - (arity & 63)) / 64;
+const isMethod = (arity & 64) !== 0;
+const paramCount = (arity - (arity & 127)) / 128;
 const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code,
   paramCount, 0));
 // **`Guard` 可能什么都没造出来**（room 不够时它把状态置成 `OutOfMemory` 并给 `undefined`）——
@@ -5578,6 +5645,11 @@ if (isArrow) {
   // **箭头那一位**（第 892 轮）：它**不改原型**——只把「没有接收者时 `this` 给谁」
   // 那一问对箭头关掉（`DoCallValue` / `CallNative` 两处都读它）。
   this.Table.Get(created.Ref).AsClosure().IsArrow = true;
+}
+if (isMethod) {
+  // **方法那一位**（第 935 轮）：与箭头那一位**同一个用途的另一半**——
+  // 两者都关掉 `[[Construct]]`（见 `IsConstructable`），但答案各不相同，所以是两位。
+  this.Table.Get(created.Ref).AsClosure().IsMethod = true;
 }
 const protos = this.Protos;
 if (protos !== null && protos.Function > 0) {

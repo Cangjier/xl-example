@@ -860,6 +860,25 @@ return out;
 if (argValues.Tag !== ValueTag.Array) {
   throw new Error("unimplemented: new_apply needs an arguments array");
 }
+// **不可构造的脚本函数在这里就抛**（第 935 轮）：这一条路**自己造实例**、不经过
+// 引擎的 `DoNew`（上面那一段写着为什么），所以 `DoNew` 里那道闸拦不到它——
+// `new (f)(...[])` 与 `Reflect.construct(...)` 都从这里过。
+// **判据与引擎那一处是同一句话**（`vm.xl.md` 的 `IsConstructable`）：
+// 「闭包按降级层记下的四位答，别的值按它自己那一格答」。
+// 这里**重写了一遍而不是调它**，因为这一层手里没有 `Vm` 的实例
+//（`ConstructApply` 收的是 `room` / `table` / `protos`），而那一问只读 `table`——
+// **两处必须同步改**（引擎那一处是 `new` 的正身，这一处是展开构造那一档），
+// 漏改一边的症状是「`new (() => 0)()` 抛了、`new (f)(...[])` 没抛」。
+// **宿主可调用值那一档这里判不了、也不该判**：`bind` 出来的对象要能 `new`、
+// 而内建方法（`Math.max`）不能，那个答案是语言层在 `bind` 那一刻写进
+// `HeapObject.IsConstructable` 的（引擎那一处读它）——这里猜一个就是第二份会漂的判据。
+// **四位的含义见 `HeapClosure`**：箭头 / 方法 / `async` / 生成器，任意一位为真就不可构造。
+if (ctor.Tag === ValueTag.Closure) {
+  const fn = table.Get(ctor.Ref).AsClosure();
+  if (fn.IsArrow || fn.IsMethod || fn.IsAsync || fn.IsGenerator) {
+    throw new TypeError("this value is not a constructor (it has no [[Construct]])");
+  }
+}
 const source = table.Get(argValues.Ref).AsArray();
 const count = source.GetLength();
 // **实参先抄成一份值数组**：下面要调构造函数，而调用可能分配 / 让出，

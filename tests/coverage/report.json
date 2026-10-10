@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.41,
+  "progressPercent": 95.44,
   "categories": [
     {
       "category": "token",
@@ -92,8 +92,8 @@
       "weight": 0.25,
       "total": 792,
       "pass": 754,
-      "blocked": 8,
-      "differ": 30,
+      "blocked": 7,
+      "differ": 31,
       "nodefail": 0,
       "coverage": 95.2
     },
@@ -101,11 +101,11 @@
       "category": "runtime",
       "weight": 0.25,
       "total": 776,
-      "pass": 731,
+      "pass": 732,
       "blocked": 6,
-      "differ": 39,
+      "differ": 38,
       "nodefail": 0,
-      "coverage": 94.2
+      "coverage": 94.33
     },
     {
       "category": "stdlib",
@@ -154,12 +154,6 @@
       "category": "exec",
       "title": "方法里的箭头函数用 `super`：`[[HomeObject]]` 取不到",
       "detail": "tsrun: 还没实现的构造或语言层错误：get_proto needs an object receiver"
-    },
-    {
-      "id": "exec/expressions/250-object-member-new-bracket-blocked",
-      "category": "exec",
-      "title": "对象字面量里的类当构造器：`new ns[\"C\"]()` 整份文件进不来（账）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling an object as a constructor (this object is not callable)"
     },
     {
       "id": "exec/round706/003-defineproperty-is-object-walks-topropertykey",
@@ -420,6 +414,12 @@
       "category": "exec",
       "title": "ToPrimitive 先 valueOf 后 toString，以及 Date 反过来",
       "detail": "stdout 不同：第 2 行：node «objectThu Jan 01 1970 08:00:00 GMT+0800 (中国标准时间) string» vs tsrun «objectThu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time) string»"
+    },
+    {
+      "id": "exec/expressions/250-object-member-new-bracket-blocked",
+      "category": "exec",
+      "title": "对象字面量里的类当构造器：`new ns[\"C\"]()` 整份文件进不来（账）",
+      "detail": "stdout 不同：第 1 行：node «number:3» vs tsrun «throw:TypeError»"
     },
     {
       "id": "exec/functions/090-iife-this",
@@ -780,12 +780,6 @@
       "category": "runtime",
       "title": "闭包 / 提升 / TDZ 的边角",
       "detail": "stdout 不同：第 2 行：node «02 let TDZ typeof = \"ReferenceError\"» vs tsrun «02 let TDZ typeof = \"undefined\"»"
-    },
-    {
-      "id": "runtime/round783/001-new-nonconstructor-differ",
-      "category": "runtime",
-      "title": "`new` 一个不可构造的值：**该抛 TypeError** 的那些位置",
-      "detail": "stdout 不同：第 1 行：node «01 arrow literal = throw:TypeError» vs tsrun «01 arrow literal = ok:object»"
     },
     {
       "id": "stdlib/array/169-array-index-accessors-and-proto",
@@ -1155,7 +1149,14 @@
     }
   ],
   "bad": [],
-  "moved": [],
+  "moved": [
+    {
+      "id": "exec/expressions/250-object-member-new-bracket-blocked",
+      "category": "exec",
+      "why": "**对象字面量里的类**当构造器（`const ns = { C: class { … } }; new ns.C()`）本仓报 `unimplemented: calling an object as a constructor (this object is not callable)`（**整份文件进不来**）——`new` 的被调者形状只认「标识符 / 括号」，认不出「成员访问交回来的类」。`new a.b.C()` 那一族整个待做。要做。",
+      "detail": "stdout 不同：第 1 行：node «number:3» vs tsrun «throw:TypeError»"
+    }
+  ],
   "newlyPassing": [],
   "regressions": []
 }

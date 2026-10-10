@@ -753,6 +753,20 @@ return -1;
 `this` 读成了模块那一格（宿主给入口的接收者，通常是 `undefined`）。
 **它只在「模块里恰好有箭头」时才出现**，所以最初几条判据全绿也发现不了。
 
+## field IsMethod:bool = false
+
+**这个函数体是一个「方法」**（第 935 轮）——对象方法 / 类方法 / `get` / `set` 的访问器。
+
+**判据是节点种类**（`MethodDeclaration` / `GetAccessor` / `SetAccessor`）：
+`{ m() {} }` 与 `class { m() {} }` 两条路都从这里过，
+而 `{ m: function () {} }` 那种写法**是**普通函数（kind 是 `FunctionExpression`）。
+
+**为什么降级层必须记这一位**：JS 里方法**没有 `[[Construct]]`**，`new ({}).m()` 抛 `TypeError`——
+而运行期从值上看不出来（本仓的闭包就是普通对象）。与 `IsArrow` / `IsClass` **同一条分工**：
+只有造它的那一方（手里正拿着那个节点）知道。
+
+**它进的是 `new_closure` 第四格的第六位**（值 64）——见 `EmitClosure` 那一段。
+
 ## field IsGenerator:bool = false
 
 这是一个**生成器函数**（`function*` / `function* () {}` / `{ *m() {} }`）。
@@ -2459,11 +2473,16 @@ const nameConst = item.Name === ""
 // 「没有接收者时 `this` 给谁」那一问上把箭头挡掉（见 `HeapClosure.IsArrow` 那一格）
 // ——那一问读的是 `IsStrict`，而箭头体里的指令序言**也会**把 `IsStrict` 置真
 // （`delete` 要它），两位必须分开问。
+// **位 64**（第 935 轮的「方法」，于是**步长 64 → 128**）：它与箭头那一位**合起来**
+// 才是「这个函数值可不可构造」（见 `vm.xl.md` 的 `IsConstructable`）——
+// 箭头 / 方法 / `async` / 生成器四档全不可构造，而**只有方法这一档**在降级层
+// 之前没有任何一位记着它（`item.IsMethod` 与 `HasRestricted` 共用 `isMethodLike`）。
 // **`item.IsGenerator` / `item.IsAsync` 在这里一定是好的**：`LowerFunctionValue`
 // 在调这一处之前就把它们从树上读好落进 `item` 了（与 `IsClass` / `IsStrict` 同一处）。
-const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 64
+const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 128
   + (item.IsClass ? 1 : 0) + (item.IsStrict ? 2 : 0) + (item.HasRestricted ? 4 : 0)
-  + (item.IsGenerator ? 8 : 0) + (item.IsAsync ? 16 : 0) + (item.IsArrow ? 32 : 0)));
+  + (item.IsGenerator ? 8 : 0) + (item.IsAsync ? 16 : 0) + (item.IsArrow ? 32 : 0)
+  + (item.IsMethod ? 64 : 0)));
 const window = this.Reserve(5);
 const enclosing = this.Env.Last();
 if (enclosing === null) {
@@ -6133,6 +6152,11 @@ item.IsStrict = this.InStrict || (!item.IsArrow && this.HasUseStrictDirective(no
 // **它也要在 `EmitClosure` 之前落进 `item`**：与 `IsClass` / `IsStrict` 同一处拼进第四格。
 const nodeKind = NodeKind(node);
 const isMethodLike = nodeKind === "MethodDeclaration" || nodeKind === "GetAccessor" || nodeKind === "SetAccessor";
+// **「这是一个方法」这一位**（第 935 轮）：与 `IsArrow` 那一位**同一个用途的另一半**——
+// 两者都关掉 `[[Construct]]`（JS 里方法没有这一格，`new ({}).m()` 抛 `TypeError`），
+// 但**不是同一件事**：箭头与方法的 `this` / `prototype` 口径都不同，所以是两位。
+// 与 `HasRestricted` 那一句共用同一个判据（`isMethodLike`）——**一份语法事实只算一次**。
+item.IsMethod = isMethodLike;
 item.HasRestricted = !isMethodLike && !item.IsArrow && !item.IsClass && !item.IsStrict
   && !item.IsGenerator && !item.IsAsync;
 // **具名函数表达式的词法绑定**（第 332 轮）：`function self() { … self … }` 里的

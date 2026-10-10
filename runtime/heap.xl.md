@@ -548,6 +548,25 @@ JS 给 `"object"`，`exec/functions/120-strict-mode-and-module-this` 第 6 档�
 **同一个形状**——位宽从五位加到六位、形参个数那一半的步长从 32 变成 **64**
 （降级层 `EmitClosure` **同步**改，两边是同一份规约的两半）。见 `vm.xl.md` 的 `MakeClosure`。
 
+## field IsMethod:bool = false
+
+**这个闭包是不是一个「方法」**（第 935 轮）——对象方法 / 类方法 / `get` / `set`
+（降级层的判据是节点种类：`MethodDeclaration` / `GetAccessor` / `SetAccessor`）。
+与 `IsArrow` / `IsClass` / `IsStrict` / `IsGenerator` / `IsAsync` **同一处来、同一条纪律**：
+只有造它的那一方知道（降级层手里正拿着那个节点）。
+
+**为什么必须住在闭包上**：JS 里方法**没有 `[[Construct]]`**（规范 §10.2.1——
+箭头 / 方法 / `async` / 生成器都造不出来），而本仓的闭包在值模型里是普通对象，
+运行期看不出「这个函数值是方法还是函数表达式」。
+**它不是 `HasRestricted` 那一位的重复**：那一位答的是「有没有 `arguments` / `caller` 两格」，
+而**生成器**同样没有那两格却**有** `prototype`（Node 实测：`function* g() {}` 有 `prototype`），
+构造性只看这里这一位加上 `IsArrow` / `IsAsync` / `IsGenerator`（见 `vm.xl.md` 的
+`IsConstructable`）——两问的答案在生成器这一档上**分开了**，所以是两位。
+
+**它借的是 `new_closure` 第四格的下一位**（值 64）：与 `IsArrow` 那一位同一个形状——
+位宽从六位加到七位、形参个数那一半的步长从 64 变成 **128**
+（降级层 `EmitClosure` **同步**改，两边是同一份规约的两半）。见 `vm.xl.md` 的 `MakeClosure`。
+
 ## field HasRestricted:bool = false
 
 **这个闭包带不带那两格「受限属性」`arguments` / `caller`**（第 709 轮）。
@@ -605,6 +624,7 @@ this.Source = source;
 this.IsClass = false;
 this.IsStrict = false;
 this.IsArrow = false;
+this.IsMethod = false;
 this.HasRestricted = false;
 this.IsGenerator = false;
 this.IsAsync = false;
@@ -1170,6 +1190,30 @@ Node 给 `1 undefined true false`，本仓给 `1 3 false false`——**三个都
 **默认是真**（新造的对象都可扩展，与 JS 一致）；
 **只追加字段**（线形态与回收器都不受影响——它不指向任何堆格子）。
 
+## field IsConstructable:bool = false
+
+**这个对象能不能当构造函数**（第 935 轮）——给「对象 + 一格可调用载荷」那一档用
+（`ValueTag.Object` 且 `Host !== null`，第 145 轮那条路）。
+
+**为什么这一位必须住在对象上**：这一档里**只有 `bind` 造出来的那个对象**是可构造的
+（`new (f.bind(null))()` 在 JS 里合法），而它的可构造性**是从目标那里推出来的**——
+箭头 / 方法 / `async` / 生成器绑出来的那个对象**不可构造**，普通函数与类绑出来的**可以**。
+可那条判据的**两位都只住在闭包里**（`HeapClosure.IsArrow` / `IsMethod` / …），
+而引擎在 `new` 的时候手里只有**绑定对象**：它读不到 `__boundTarget`
+（那个名字是**语言层**的常数，引擎一个字都不认识，见 `globals.xl.md` 的
+`BoundTargetName` 那一段）——所以答案必须在 `bind` 那一刻**算好、写在这里**。
+
+**谁写它**：`AttachCallable`（下一格）——它的第三个参数就是这一位，**默认真**
+（挂可调用载荷的那些值绝大多数**就是**构造函数：`Array` / `Error` / `Map` / `Date` /
+`Promise` / `Function` …），只有四格显式传假（生成器的三个方法 `next` / `return` /
+`throw`，以及 `Symbol`——`new Symbol()` 在 JS 里抛 `TypeError`）。
+`bind` 那一趟则传**目标的答案**（`globals.xl.md` 的 `FunctionBind`）。
+**谁读它**：引擎的 `IsConstructable`（`new` 那条路）。
+
+**默认是假**（新造的对象不是构造函数）；**只追加字段**（线形态与回收器都不受影响——
+它不指向任何堆格子，与 `Extensible` 同一条写法）。**回收过的格子走 `Clear()` 复位**，
+所以「随便一个对象能被 `new`」不会是上一次留下的答案。
+
 ## field Props:Array<Property> = []
 
 自有属性表。v1 是线性数组；超过阈值转哈希索引是**这一层**的事（存储优化），
@@ -1251,6 +1295,13 @@ this.Tag = ValueTag.Undefined;
 this.Mark = false;
 this.ChargedBytes = 0;
 this.Proto = 0;
+// **这两格也要复位**（第 935 轮，与载荷清空同一条纪律）：它们是**布尔**、
+// 不指向任何堆格子，所以「忘了它们」不会让回收器走错——可它会让**下一个**
+// 复用这一格的对象带着上一次的答案出生（`Extensible` 的真/假、
+// `IsConstructable` 的真/假），而那是**最难查的一种**（与上面那句
+// 「回收之后还活着」同一族：一个错误答案、一个异常都没有）。
+this.Extensible = true;
+this.IsConstructable = false;
 this.Props = [];
 this.Str = null;
 this.Sym = null;
@@ -1609,10 +1660,20 @@ this.Finish(handle);
 return handle;
 ```
 
-## method AttachCallable:(handle:int, capabilityId:int, opaque:int)=>void
+## method AttachCallable:(handle:int, capabilityId:int, opaque:int, isConstructable:bool = true)=>void
 
 **给一个已经存在的对象挂上「可被调用」那一格载荷**（第 145 轮）——于是它同时是
 **对象**（属性、原型、`Object.keys` 都照旧）与**可调用值**（`String(x)` / `new Date(ms)`）。
+
+**第四个参数是「它同时也能被 `new` 吗」**（第 935 轮）：可调用**不等于**可构造——
+挂在这一格上的值**绝大多数就是构造函数**（`Array` / `Error` / `Map` / `Date` / `Promise` /
+`Function` / `Object` …），所以**默认真**；显式传假的只有四格：
+生成器的三个方法（`next` / `return` / `throw`）与 `Symbol`
+（`new Symbol()` / `new (g().next)()` 在 Node 里都抛 `TypeError`）。
+`bind` 那一趟传的是**目标的答案**（目标可构造才可构造）。
+**它不是 `opaque` 那一格**：`opaque` 按文首那条约定是**宿主自己的载荷**，
+规范层不许解释它的内部——而这一位是引擎要读的语义，所以单开一格
+（`HeapObject.IsConstructable` 那一段写着为什么）。
 
 **为什么是「对象带一格宿主载荷」，而不是「宿主引用带一张属性表」**：
 两条候选修法都摆在台账里（`vm.xl.md` 的 `DoNew` 那一段），选这一条的理由是
@@ -1636,6 +1697,7 @@ return handle;
 const item = this.Objects[handle];
 if (item.Tag !== ValueTag.Object) throw new Error("attach_callable needs an object");
 item.Host = new HeapHostRef(capabilityId, opaque);
+item.IsConstructable = isConstructable;
 this.Recount(handle);
 ```
 

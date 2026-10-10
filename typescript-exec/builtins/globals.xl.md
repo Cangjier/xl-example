@@ -3967,7 +3967,31 @@ if (id === FunctionBind) {
   for (let i = 1; i < args.length; i++) boundElements.Push(args[i]);
   table.Recount(boundArgs.Ref);
   const bound = NewPlainObject(room, table, protos);
-  table.AttachCallable(bound.Ref, BoundCall, 0);
+  // **绑定出来的那个对象能不能被 `new`，取决于目标**（第 935 轮）：
+  // JS 里 `f.bind(x)` 的 `[[Construct]]` 是**照目标抄的**——
+  // `new (function () {}.bind(null))()` 合法（目标可构造），
+  // 而 `new (Math.max.bind(Math))()` / `new ((() => 0).bind(null))()` 抛 `TypeError`
+  //（目标没有这一格）。**答案必须在这里算好、随载荷一起挂上去**：
+  // 引擎在 `new` 的时候手里只有这个绑定对象，而它读不到 `__boundTarget`
+  //（那个名字是本层的常数，引擎一个字都不认识，见 `BoundTargetName` 那一段）。
+  //
+  // **判据与引擎那一处是同一句话**（`vm.xl.md` 的 `IsConstructable`）：
+  // 「闭包按降级层记下的四位答，别的值按它自己那一格答」。
+  // 这里**重写了一遍而不是调它**，因为这一层手里没有 `vm`
+  //（`InvokeGlobal` 的签名里没有它），而那一问只读 `table`——
+  // **两处必须同步改**：引擎那一处是 `new` 的正身，这一处是 `bind` 的答案。
+  // 漏改一边的症状是「`new (() => 0)` 抛了、`new ((() => 0).bind(null))` 没抛」
+  //（或者反过来），而这正是本轮量的第八档。
+  let targetConstructable = false;
+  if (self.Tag === ValueTag.Closure) {
+    const targetFn = table.Get(self.Ref).AsClosure();
+    targetConstructable = !targetFn.IsArrow && !targetFn.IsMethod
+      && !targetFn.IsAsync && !targetFn.IsGenerator;
+  } else if (self.Tag === ValueTag.Object) {
+    // **套两层的绑定**（`f.bind(a).bind(b)`）：目标自己那一格就是答案。
+    targetConstructable = table.Get(self.Ref).IsConstructable;
+  }
+  table.AttachCallable(bound.Ref, BoundCall, 0, targetConstructable);
   // **绑定出来的东西的原型是 `Function.prototype`**（第 228 轮）：
   // JS 里 `f.bind(o)` 返回的是一个**函数**，所以 `bound.call(...)`、
   // `bound.bind(...)`、`bound.length`（**第 291 轮补上了**，见下面那一段）
@@ -9713,7 +9737,7 @@ for (let i = 0; i < functionKindNames.length; i++) {
 // **为什么不把 `next` 做成一个普通宿主方法**：走一步生成器要发 `iter_next`，
 // 那是**指令**，宿主侧的内建调不到它。
 const generatorNext = NewPlainObject(vm.Room(), table, protos);
-table.AttachCallable(generatorNext.Ref, GeneratorNextId, 0);
+table.AttachCallable(generatorNext.Ref, GeneratorNextId, 0, false);
 // **两格名字**（第 779 轮）：`it.next.name` 在 Node 里是 `"next"`、`.length` 是 `1`
 //（`return` / `throw` 同）——这一族是「对象 + 可调用载荷」，属性表本来就有，
 // 缺的只是「有没有人把名字传进来」（与 `MethodObject` 那一档同一条）。
@@ -9728,12 +9752,12 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Generator),
 // `cannot call a non-closure value`（听起来像「脚本写错了」），
 // 挂上去报的是「还差什么」。
 const generatorReturn = NewPlainObject(vm.Room(), table, protos);
-table.AttachCallable(generatorReturn.Ref, GeneratorReturnId, 0);
+table.AttachCallable(generatorReturn.Ref, GeneratorReturnId, 0, false);
 DefineBuiltinName(vm.Room(), table, generatorReturn, "return", 1);
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Generator),
   Value.FromString(table.CreateString(Units("return"))), generatorReturn);
 const generatorThrow = NewPlainObject(vm.Room(), table, protos);
-table.AttachCallable(generatorThrow.Ref, GeneratorThrowId, 0);
+table.AttachCallable(generatorThrow.Ref, GeneratorThrowId, 0, false);
 DefineBuiltinName(vm.Room(), table, generatorThrow, "throw", 1);
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Generator),
   Value.FromString(table.CreateString(Units("throw"))), generatorThrow);
@@ -9981,7 +10005,7 @@ SetHiddenProperty(vm.Room(), table, globals, setKey, setTarget);
 // 所以 `Symbol("x")` 照旧走 `Op.Call`、`typeof Symbol` 照旧给 `"function"`
 //（第 145 轮把 `typeof` 那一格改成认「能被调」）。
 const symbolObject = NewPlainObject(vm.Room(), table, protos);
-table.AttachCallable(symbolObject.Ref, SymbolCtor, 0);
+table.AttachCallable(symbolObject.Ref, SymbolCtor, 0, false);
 // **`Symbol.prototype` 那一格**（第 754 轮）：`globals.xl.md` 这一层才是
 // 「`Symbol` 这个名字指向哪个对象」的出处，而那一格对象由 `InitProtos` 造
 // （`protos.Symbol`，与 `String` / `Number` / `Boolean` 三格同一个位置）。

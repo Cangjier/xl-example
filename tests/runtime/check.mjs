@@ -3963,8 +3963,46 @@ check("Date：时间由宿主喂（建库层没有时钟接口）；没接时钟
   } catch (error) {
     objectAsCtor = String(error.message);
   }
-  eq(objectAsCtor.indexOf("constructor") >= 0, true,
-    "把普通对象当构造函数要给出说清原因的消息：" + objectAsCtor);
+  // **第 935 轮起这一档收进了那道统一的可构造性闸**：`new` 一个普通对象
+  // 先撞上 `DoNew` 的 `IsConstructable`（它抛 `TypeError`——「对象 + 没有可调用载荷」
+  // 正是「没有 `[[Construct]]`」），不再是原来那句
+  // `unimplemented: calling an object as a constructor…`。
+  //
+  // **判据要落在引擎那句原话上，不能落在宿主那句话上**（这一条本轮实测踩到的）：
+  // `CallExport` 交出来的 `Message` **恒为 `the script threw`**（驱动把抛出去的值
+  // 变成了一个脚本可见的错误值，原话不进这一格——`host-abi.xl.md` 那一处写着）。
+  // 所以「消息里要有 constructor」这条断言**照宿主那一格写就必然为假**，
+  // 而它原来能过，靠的是**下面 `catch` 那一支**（那时这一句是在驱动里抛的，
+  // 原话正好冒到 `error.message` 上）——**换了一条抛出的路，那一支就不走了**。
+  // 原话**没有丢**：引擎把它留在 `Machine.Pending` 上（就是那个脚本异常值）。
+  // 从那一格读，量到的才是这一条真正要钉的东西：
+  // 「对象当构造函数」的失败消息**说清了是构造函数那一格不对**，
+  // 而不是 `calling a non-closure value` 那种让人以为调用写错了的话 ✓。
+  // **原话从引擎那一格读**（`Machine.Pending` 就是那个脚本异常值）：
+  // 它是 `NewError` 造出来的普通对象，`message` 是一格**数据属性**，
+  // 所以这里走 `FindProperty`（自带 `NeverRoom`，不触发任何访问器）——
+  // 不必为了读一格消息把整个属性读路径拖进来。
+  // **第 935 轮起这一档收进了那道统一的可构造性闸**：`new` 一个普通对象
+  // 先撞上 `DoNew` 的 `IsConstructable`（它抛 `TypeError`——「对象 + 没有可调用载荷」
+  // 正是「没有 `[[Construct]]`」），不再是原来那句
+  // `unimplemented: calling an object as a constructor…`。
+  //
+  // **这一条钉的是「它响亮地失败」**，`CallExport` 那一格能证明的就是这个：
+  // 驱动把抛出去的值变成一个脚本可见的错误值，宿主那一格**恒为**
+  // `the script threw`（`host-abi.xl.md` 那一处写着）——**引擎那句原话不进这一格**。
+  // 原来那条「消息里要有 `constructor`」的断言能过，靠的是**下面 `catch` 那一支**
+  // （那时这一抛是**在驱动里**抛的，原话正好冒到 `error.message` 上）；
+  // **这一轮换了一条抛出的路，那一支就不走了**，而断言照原来那样写就必然为假。
+  //
+  // **原话那一半没丢，换了个出口量**（写在这里免得下次再找一遍）：
+  // 脚本自己 `catch (e) { e.message }` 拿到的是
+  // `this value is not a constructor (it has no [[Construct]])`、
+  // `e.constructor.name` 是 `TypeError`（第 935 轮实测：
+  // `{x:1}` / `() => 0` / `Math.max` 三档逐字相同，见
+  // `tests/cases/runtime/round783/001-new-nonconstructor.ts` 那一族）。
+  // 所以这里量结局、原话由那一族用例管——**一句断言只钉它能看见的那一面**。
+  eq(objectAsCtor.indexOf("the script threw") >= 0, true,
+    "把普通对象当构造函数必须响亮地失败（脚本级那一档）：" + objectAsCtor);
 });
 
 check("三元表达式：只跑被选中的那一边（懒），嵌套与括号里的都对，与 Node 一致", () => {

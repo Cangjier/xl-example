@@ -307,6 +307,57 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 935 轮：`new` 一个不可构造的值——**值模型补上「可构造」那一位**（第 783 轮登记的缺口收掉，八档全中）
+
+**一句话**：这一轮的普查面是**执行侧那 130 条 `differ` / 38 条 `blocked`**（AST 那一面
+第 894 轮量过、缺口清单仍然是空的），第一站取第 769 轮写在明处的那个入口——
+**「可调用」比「可构造」宽一格**：本仓的 `new` 只问「这个值可调用吗」，
+于是箭头函数 / 对象方法 / `async` / 生成器 / 绑定出来的箭头 / 内建方法（`Math.max`）
+**六档全都建得出来**（一个空对象），而 JS 除「绑定过的普通函数」以外**一律抛 `TypeError`**。
+
+- **根因一句话**：`[[Call]]` 与 `[[Construct]]` 是**两格**（规范 §10.2.1），
+  而本仓的值模型里**只有第一格**——降级层知道「这个函数值是方法还是函数表达式」，
+  可它**一个字都没记下来** ⇒ 到了运行期就问不出来了。
+- **修法**（三处，一笔账）：
+  1. **降级层多拼一位**：`item.IsMethod` 由 `LowerFunctionValue` 按节点种类定
+     （`MethodDeclaration` / `GetAccessor` / `SetAccessor`——**与 `HasRestricted` 共用
+     `isMethodLike` 同一份语法事实**），拼进 `new_closure` 第四格的**第六位（值 64）**，
+     于是形参个数那一半的**步长 64 → 128**（`EmitClosure` 与 `MakeClosure` 两处同步改，
+     见 `HeapClosure.IsMethod`）。**没有另加操作数**：`new_closure` 的五格排满了，
+     而这些标记的来处本来就是同一处（第 613 轮的账）。
+  2. **引擎收一处判据** `Vm.IsConstructable`：闭包看四位
+     （`IsArrow` / `IsMethod` / `IsAsync` / `IsGenerator`——任意一位为真就不可构造；
+     **`IsClass` 不在里面**，类恰恰是可构造的那一档），对象看**它自己那一格**。
+  3. **两个入口共用它**：`DoNew`（`Op.New` 那条路）与语言层的 `ConstructApply`
+     （`Reflect.construct` / `new C(...xs)` 展开那一档**自己造实例**、根本不经过 `DoNew`）。
+- **「对象 + 一格可调用载荷」那一档是这一轮真正的坑**（**实测撞到、当场红了 31 条**）：
+  第一版写成「对象一律不可构造」，于是 `new Error("x")` / `new Promise(...)` /
+  `Map` / `Date` / `Function` **全抛**——因为**宿主的构造函数正是这一档**
+  （第 145 轮的 `AttachCallable`）。所以判据改挂在 `AttachCallable` 的**第四个参数**上、
+  **默认真**（挂上去的绝大多数就是构造函数），只有四格显式传假
+  （生成器的 `next` / `return` / `throw` 与 `Symbol`）；`bind` 那一趟传**目标的答案**
+  （`new (f.bind(null))()` 合法、`new ((() => 0).bind(null))()` 不合法——
+  而引擎读不到 `__boundTarget`，那个名字是语言层的常数，所以答案必须在 `bind` 那一刻算好）。
+- **顺手补一格**（与载荷清空同一条纪律）：`HeapObject.Clear()` 原来**没有复位**
+  `Extensible`——复用空格的对象会带着上一次的答案出生。这一轮把 `Extensible` 与新的
+  `IsConstructable` 一起复位（两个布尔、不指向任何堆格子，所以「忘了」不会让回收器走错，
+  只会给一个**静默的错答案**）。
+- **收掉 1 条**：`tests/cases/runtime/round783/001-new-nonconstructor.ts`
+  （`xl:want differ` 按规矩撤账、`-differ` 从文件名撤掉，用例留着当守卫，
+  十七档（01–08 该抛、11–16 该建、17–21 不限）**与 Node 逐字节一致**）。
+- **实测**：九道门全绿（墙钟 29.7s）——`runtime:check` **243 / 243**、
+  `runtime:cli` 79 / 79、`cases:tsast` 缺口 0 条、`cases:astjson` 六项全 0、
+  `coverage 4173 / 4342 → **4174 / 4342**`（`blocked 39 → **38**`、`differ 130` 不动、
+  `bad 0`、`regressions 0`）。
+- **那条旧判据**（`tests/runtime/check.mjs` 里「把普通对象当构造函数要给出说清原因的消息」）：
+  它原来靠「原话冒到 `error.message` 上」过——而这一轮换了一条抛出的路，
+  `CallExport` 那一格**恒为 `the script threw`** ⇒ 断言照原样写必然为假。
+  收窄成「**必须响亮地失败**」（这才是那一格能证明的事），
+  「说清原因」那一半由上面那族用例自己 `catch (e) { e.message }` 量——
+  实测三档原话逐字相同：`this value is not a constructor (it has no [[Construct]])`。
+  **可复用的判据**：**一句断言只钉它能看见的那一面**；
+  出口变了（谁抛、在哪一层抛）就要重问「这个出口还剩多少信息」。
+
 ### 第 897 轮：收掉最后一格 `xl:known-gap`——**`<` / `>` 左边还有没折的 `instanceof` 就先让开**（缺口清单**空了**）
 
 **一句话**：第 896 轮把那一格缩到「只有尖括号那一对会反」，这一轮把**次序量清了**
