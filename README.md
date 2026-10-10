@@ -307,6 +307,58 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 948 轮：缺口清单空着时的第三次普查——**类型位**那一侧 1202 条，量出三族、当轮收掉
+
+**一句话**：手法照第 907 / 946 / 947 轮（缺口清单空着就换一批构造再量一遍），这一批换到
+**类型位**那一侧：40 个类型底样 × 每个**词的边界** × 三种 trivia = **1202 条 TS 合法片段**
+（`tmp/r948/sweep.mjs`，判据仍是真的门那一条 `compareSource` 的四方向）。
+读数 **9 条对不上 → 4 条**，其中 5 条是三族真缺口、**当轮收掉**；剩下 4 条是**同一族**
+（表达式位的对象字面量成员），登记成下一轮的入口。
+
+| 族 | 片段 | 症状 |
+| --- | --- | --- |
+| **映射类型的值那一格** | `type T = { [K in T]: //c` 换行 ` X };` | 缺 `TypeReference` 1、多 `PropertyDeclaration` 1 |
+| **带符号的数字字面量类型** | `type T = -/*c*/1;` | 缺 `LiteralType` / `PrefixUnaryExpression` / `NumericLiteral` 各 1、多 `MinusToken` 1 |
+| **推断类型的尾随注释** | `type T<U> = U extends infer V extends string //c` 换行 ` ? V : never;` | `InferType` 漂 1 多 1（区间跨过那条注释） |
+
+- **映射类型那一格**（`field.xl.md`）：`SkipPreviousTrivia` 跳回的是**冒号自己**，
+  而 `HasLineBreakBetween` 在 `:` 与 `X` 之间量得到那个换行（注释把 `:` 与 `X` 夹开）
+  ⇒ 判成「值类型之后的成员」⇒ `X` 被收成一条**没有类型的 `Field`**。
+  TS 的 `parseMappedType` 里 `:` 之后那一段**只可能是值类型**，成员一律在它**收完之后**
+  ⇒ 成员判据补一条：上一格是 `:` / `?:` / `?` 时这一格不是成员名。
+  **它与第 934 轮那条「得有换行或 `;`」不是二选一**：那条管「值类型收完之后」，
+  这条管「值类型自己那一格」——缺哪一条都会把值类型那一格吞掉。
+- **带符号数字那一格**（`literal-type.xl.md`）：`IsSignedNumberStart` 只跳**软换行**
+  （`SkipNextWrapSymbol`），夹一条注释就判否 ⇒ `-` 留在外面当 `SymbolToken`。
+  改成 `SkipNextTrivia`（「下一个实义单元」的统一口径）；**中间那条注释跟着搬进新节点**——
+  `ReplaceCountAt` 是整段替换，只把 `-` 与数字加进来就把注释从树上抹掉了
+  （它在 XML / AST JSON 两个出口里是**真实存在的文本**），而软换行照旧不进
+  （它是透明单元，与原来一字不差）。子单元顺序就是源码顺序：`-`、注释、数字。
+- **推断类型那一格**（`infer-type.xl.md`）：约束段的扫描把 `//c` 当成约束的一格
+  ⇒ `SignOut` 取到注释末尾（实测 `TS[19,36) vs 产物[19,39)`）。改成 trivia
+  **既不进约束段、也不进区间**：夹在实义单元**中间**的 trivia 跟着约束段走
+  （它们在区间里面，不加会被整段替换抹掉），**末尾**那一段留在节点外面；
+  「约束段后面是不是 `?`」那一问同时改成跨 trivia 的口径。
+- **留下的一族**（登记成第 949 轮的入口，**不进 `xl:known-gap`**——语料里没有这个形状）：
+  **表达式位的对象字面量成员**。它由 `type` 换行那一格露出来，可**与 `type` 无关**——
+  单独喂 `const v = { [K in T]: X };` 一样对不上：TS 那边 `[K in T]` 是
+  `ComputedPropertyName > BinaryExpression{ InKeyword }`，产物读成 `TypeParameter`（缺 2 多 2）；
+  `{ new (a: number): I }` 在 TS 那边是一条 `MethodDeclaration`（名字 `new`），
+  产物读成 `PropertyAssignment > NewExpression`（缺 3 多 3）。
+- **实测**：九道门全绿（墙钟 31.4s）——`cases:tsast` 16/16 且缺口 0 条、`cases:astjson`
+  六项全 0（1581 份 / 39642 个节点）、`cases:check` 1591 / 1591、`cases:tags` 5296 条断言
+  0 条不一致、`cases:shapes` 未覆盖 0；`coverage 4189 / 4354 → 4192 / 4357`
+  （token 1575 → 1578 条全过；`differ 138` / `blocked 27` / `bad 0` 一处没动，加权 95.5%）；
+  发布路径那一趟（`cases:tsast:cli`，1986 个文件真开进程）**完全一致 1986 / 1986**。
+- **新增三条常驻用例**：
+  [`type-mapped-value-comment-newline`](tests/cases/token/types/type-mapped-value-comment-newline.ts)、
+  [`type-literal-signed-comment`](tests/cases/token/types/type-literal-signed-comment.ts)、
+  [`type-infer-extends-comment-tail`](tests/cases/token/types/type-infer-extends-comment-tail.ts)。
+- **可复用的判据**：**「同一格被两条判据管着」时，先问它们管的是不是同一件事**。
+  第 934 轮那条「值类型之后才是成员」用的是**位置近似**（上一格与这一格之间有换行），
+  它在「值类型自己那一格也被换行隔开」时答错了；补的那一条问的是**语法事实**
+  （上一格是不是那个冒号）——两条并排之后，近似那一条的适用范围才被钉死。
+
 ### 第 935 轮（二）：`Symbol.prototype` 自己那一张名表——**四格缺三格**（17 / 19 档转绿，两格留下）
 
 **一句话**：接着上一段的普查面往下走，取第 783 轮登记的 `differ`

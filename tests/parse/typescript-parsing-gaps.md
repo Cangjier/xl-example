@@ -590,6 +590,28 @@
 
 ## 已知仍开着的缺口（**0 条**）
 
+**第 948 轮：缺口清单空着时的第三次普查——类型位那一侧 1202 条，量出三族、当轮收掉**
+（`tmp/r948/sweep.mjs`：40 个**类型位**底样 × 每个**词的边界** × 三种 trivia
+= **1202 条 TS 合法片段**，判据仍是真的门那一条 `compareSource`；读数 **9 条对不上 → 4 条**，
+剩下那 4 条是**同一族**、见下面那段「留下的一族」）：
+
+| 族 | 症状 | 根因与修法 |
+| --- | --- | --- |
+| **映射类型的值那一格**（`: //c` 换行 `X`） | 缺 `TypeReference` 1、多 `PropertyDeclaration` 1 | `SkipPreviousTrivia` 跳回的是**冒号自己**，而 `HasLineBreakBetween` 在 `:` 与 `X` 之间量得到那个换行（注释把它夹在中间）⇒ 判成「值类型之后的成员」⇒ `X` 被收成一条没有类型的 `Field`。TS 的 `parseMappedType` 里 `:` 之后那一段**只可能是值类型** ⇒ `field.xl.md` 的成员判据补一条：上一格是 `:` / `?:` / `?` 时这一格不是成员名（与「得有换行或 `;`」那一条**不是二选一**：那条管值类型**收完之后**，这条管值类型**自己那一格**） |
+| **带符号的数字字面量类型**（`-/*c*/1` / `-//c` 换行 `1` / `- /*c*/ 1`） | 缺 `LiteralType` / `PrefixUnaryExpression` / `NumericLiteral` 各 1、多 `MinusToken` 1 | `IsSignedNumberStart` 只跳**软换行**（`SkipNextWrapSymbol`）⇒ 夹注释时判否 ⇒ `-` 留在外面当 `SymbolToken`。修成 `SkipNextTrivia`（「下一个实义单元」的统一口径）；**中间那条注释跟着搬进新节点**（`ReplaceCountAt` 是整段替换，不加进来注释就从 XML / AST JSON 两个出口里没了），软换行照旧不进 |
+| **推断类型的尾随注释**（`infer C extends D//c` 换行 `? E : F`） | `InferType` 漂 1 多 1（区间跨过那条注释） | 约束段的扫描把行注释当成一格 ⇒ `SignOut` 取到注释末尾。改成 trivia **既不进约束段、也不进区间**：夹在实义单元**中间**的跟着约束段走（它们在区间里面，不加会被整段替换抹掉），**末尾**那一段留在节点外面；「约束段后面是不是 `?`」那一问同时改成跨 trivia 的口径 |
+
+**留下的一族（登记成第 949 轮的入口，不是 `xl:known-gap`——语料里没有这个形状）**：
+**表达式位的对象字面量成员**。DSL 里它由 `type` 换行那一格露出来
+（`type` 换行 `A = { … };` 在 TS 那边是两条语句：`type` 一条、`A = { … }` 一条），
+但**与 `type` 无关**——单独喂 `const v = { [K in T]: X };` 一样对不上：
+
+| 片段 | TS | 产物 | 差额 |
+| --- | --- | --- | --- |
+| `const v = { [K in T]: X };` | `ComputedPropertyName > BinaryExpression{ InKeyword }` | `TypeParameter`（`K in T` 整段） | 缺 2 多 2 |
+| `const v = { [K in T as \`get${K}\`]: X };` | 同上 + `AsExpression` + `TemplateLiteralType` | `TypeParameter` + `TypeReference` | 缺 9 多 2 |
+| `const v = { new (a: number): I };` | 一条 `MethodDeclaration`（名字 `new`） | `PropertyAssignment > NewExpression` | 缺 3 多 3 |
+
 **现状（第 947 轮（三）实测）**：`cases:tsast` 那一行是「（语料里一条都没有——缺口清单是空的）」
 ——**第十一次清空**，距上一次登记只隔一个 commit（第 947 轮登记的那一格当轮收掉）。
 

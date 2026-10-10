@@ -404,6 +404,17 @@ if (inMappedType) {
   }
   const previousAt = SkipPreviousTrivia(parentData, at);
   const previousUnit = Get(parentData, previousAt);
+  // **`:` 后面那一格永远先是值类型**（第 948 轮）：`{ [K in T]: //c` 换行 ` X }` 里
+  // `SkipPreviousTrivia` 跳回的就是那个 `:` 自己，而 `HasLineBreakBetween` 在 `:` 与 `X`
+  // 之间量得到那个换行（注释把它夹在中间）⇒ 判成「值类型之后的成员」⇒ `X` 被收成一条
+  // 没有类型的 `Field`（实测 `type A = { [K in T]: //c` 换行 ` X };`：缺 `TypeReference` 1、
+  // 多 `PropertyDeclaration` 1）。TS 的 `parseMappedType` 里 `:` 之后那一段**只可能是值类型**，
+  // 成员一律在它**收完之后**——所以上一格是冒号（或与冒号并成一格的 `?:`、单独一格的 `?`）
+  // 时，这一格不是成员名。这一条与下面那条「得有换行或 `;`」**不是二选一**：
+  // 那条管「值类型收完之后」，这条管「值类型自己那一格」——缺哪一条都会把值类型那一格吞掉。
+  if (previousUnit instanceof SymbolToken && (previousUnit.Is(":") || previousUnit.Is("?:") || previousUnit.Is("?"))) {
+    return false;
+  }
   const previousEnd = previousUnit === null ? null : previousUnit.SourceRange.End;
   const currentStart = current.SourceRange.Start;
   const afterBreak = previousEnd !== null && currentStart !== null && HasLineBreakBetween(previousEnd, currentStart);

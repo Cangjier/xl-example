@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, IsTypeContainerUnit, IsTypeMemberStart } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipPreviousWrapSymbol, IsTriviaUnit, IsTypeContainerUnit, IsTypeMemberStart } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { String } from "./string/string.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -188,6 +188,13 @@ TypeScript 那边的 `PrefixUnaryExpression` 也就对不上了。
 
 判据与 `IsLiteralUnit` 的数字那一支共用同一个 `IsNumericLiteral`。
 
+**跳的是 trivia 而不是软换行**（第 948 轮）：`-/*c*/1` / `- /*c*/ 1` / `-//c` 换行 `1`
+里的注释夹在语法相邻的两格之间——只跳软换行时下一格是那条注释 ⇒ 判否 ⇒
+`-` 留在外面当 `SymbolToken`、只有数字被包成 `LiteralType`
+（实测 `type A = -/*c*/1 | 0 | 1;`：缺 `LiteralType` / `PrefixUnaryExpression` / `NumericLiteral`
+各 1、多 `MinusToken` 1）。`SkipNextTrivia` 是「下一个实义单元」的统一口径
+（`infer` / `field` / `binary-operator` 那几处同一做法）。
+
 ```ts
 const current = Get(units, index);
 if (current === null || !(current instanceof SymbolToken)) {
@@ -197,7 +204,7 @@ const text = current.TempToString();
 if (text !== "-" && text !== "+") {
   return false;
 }
-const nextIndex = SkipNextWrapSymbol(units, index);
+const nextIndex = SkipNextTrivia(units, index);
 const operand = Get(units, nextIndex);
 return operand instanceof Identifier && operand.TempToString().length > 0 && this.IsNumericLiteral(operand);
 ```
@@ -263,12 +270,23 @@ if (current === null) {
   throw new Error("LiteralTypeCloseRule.Process: current is null");
 }
 if (this.IsSignedNumberStart(units, index)) {
-  const nextIndex = SkipNextWrapSymbol(units, index);
+  const nextIndex = SkipNextTrivia(units, index);
   const operand = Get(units, nextIndex)!;
   const signedResult = new LiteralType(current.Template);
   signedResult.SignIn(current.SourceRange.Start!);
   signedResult.SignOut(operand.SourceRange.End!);
+  // **中间夹着的 trivia 要跟着搬进来**（第 948 轮）：`-/*c*/1` 里那条注释落在 TS 那个
+  // `LiteralType` 的区间**里面**，而 `ReplaceCountAt` 是整段替换 —— 只把 `-` 与数字加进来，
+  // 注释就被从树上抹掉了（它在 XML / AST JSON 两个出口里是**真实存在的文本**）。
+  // 加进子单元的顺序就是**源码顺序**：`-`、中间那些注释、数字；软换行照旧不进
+  //（它是透明单元，与原来一字不差）。
   signedResult.AddAndCloseLast(current);
+  for (let i = index + 1; i < nextIndex; i++) {
+    const between = Get(units, i);
+    if (between !== null && IsTriviaUnit(between) && between.constructor.name !== "LineWrap") {
+      signedResult.AddAndCloseLast(between);
+    }
+  }
   signedResult.AddAndCloseLast(operand);
   signedResult.TryToClose();
   return ReplaceCountAt(units, index, nextIndex - index + 1, signedResult);

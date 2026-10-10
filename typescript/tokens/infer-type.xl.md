@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipNextTrivia, SkipPreviousTrivia, WordText, IsTypeContainerUnit } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipPreviousTrivia, WordText, IsTriviaUnit, IsTypeContainerUnit } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -196,14 +196,34 @@ const extendsIndex = SkipNextTrivia(units, nameIndex);
 const extendsUnit = Get(units, extendsIndex);
 if (extendsUnit !== null && WordText(extendsUnit) === "extends") {
   // 先把候选约束段扫出来，**收不收**由下面那条判据决定。
+  //
+  // **trivia 不进约束段、也不进区间**（第 948 轮）：`infer C extends D//c` 换行 ` ? E : F`
+  // 里那条行注释原来被当成约束段的一格 ⇒ `SignOut` 取到它的末尾 ⇒ `InferType` 的区间跨过
+  // 注释（实测 `TS[19,36) vs 产物[19,39)`：漂 1 + 多 1）。TS 那个 `InferType` 到 `D` 为止，
+  // 注释是**节点外面**的 trivia。所以这里：夹在实义单元**中间**的 trivia 跟着约束段走
+  // （它们在区间里面，不加进子单元就会被 `ReplaceCountAt` 抹掉），**末尾**那一段留在外面。
   const constraintParts: Token[] = [];
   let constraintEnd = extendsIndex;
-  for (let i = SkipNextTrivia(units, extendsIndex); i < units.length; i++) {
+  let lastReal = extendsIndex;
+  let pending: Token[] = [];
+  for (let i = extendsIndex + 1; i < units.length; i++) {
     const item = Get(units, i);
-    if (item === null || this.IsConstraintStop(item)) {
+    if (item === null) {
       break;
     }
+    if (IsTriviaUnit(item)) {
+      pending.push(item);
+      continue;
+    }
+    if (this.IsConstraintStop(item)) {
+      break;
+    }
+    for (const held of pending) {
+      constraintParts.push(held);
+    }
+    pending = [];
     constraintParts.push(item);
+    lastReal = i;
     constraintEnd = i;
   }
   // **`?` 紧跟约束段之后时，这个 `extends` 未必是约束**（第 148 轮）：同一段文本
@@ -215,7 +235,10 @@ if (extendsUnit !== null && WordText(extendsUnit) === "extends") {
   // （实测 `ts.createSourceFile`：前者的 `TypeParameter` 到 `string` 为止，后者只到 `E`。）
   // 判据是「从 `infer` 往回看，最近的实义单元是 `extends` 还是别的」：前者的 `infer`
   // 落在某个条件类型的 **extendsType** 位置上（回扫先撞上那个 `extends`），后者回扫先撞上 `?`。
-  const nextAfter = Get(units, SkipNextWrapSymbol(units, constraintEnd));
+  // **这一问也要跨过 trivia**（第 948 轮）：`constraintEnd` 现在是**最后一个实义单元**，
+  // 它和 `?` 之间可能夹着一条注释（`infer U extends string /*c*/ ? U : never`）——
+  // 只跳软换行时会撞上那条注释、`questionNext` 答否，三元判据当场翻向另一边、约束整段丢掉。
+  const nextAfter = Get(units, SkipNextTrivia(units, constraintEnd));
   const questionNext = nextAfter instanceof SymbolToken && nextAfter.Is("?");
   if (constraintParts.length === 0 || questionNext === false || this.IsInsideExtendsType(units, index)) {
     parts.push(extendsUnit);
