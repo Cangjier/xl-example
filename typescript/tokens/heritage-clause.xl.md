@@ -326,7 +326,25 @@ return result;
   const generic = kids.find((k: any) => k.get("type") === "GenericType");
   const names = kids.filter((k: any) => ctx.IsNameNode(k));
   const props: any = {};
-  if (names.length > 0) {
+  // **名字后面紧跟模板串 ⇒ `TaggedTemplateExpression`**（第 986 轮）：`class D extends tag`t` {}` 里
+  // 标签与模板在 token 层是**两格平级**（与值位 `tag`t`` 完全同一个形状，合成是投影那一层的事），
+  // 而这一格原来只把名字投进 `expression` ⇒ 模板整格丢（缺 `TaggedTemplateExpression` +
+  // `NoSubstitutionTemplateLiteral` 共 2、漂 0 多 0）。判据与值位那一支同源：那个 `String`
+  // 的**首字符是反引号**（普通字符串字面量不是模板，`extends "m"` 那种写坏的排法不该走到这里）。
+  const template = kids.find(
+    (k: any) => k.get("type") === "String" && ctx.source[ctx.StartOf(k)] === "`",
+  );
+  if (template !== undefined && names.length > 0) {
+    const tag = ctx.DottedExpression(names);
+    const body = ctx.Project(template);
+    props.expression = {
+      kind: "TaggedTemplateExpression",
+      tag,
+      template: body,
+      pos: tag.pos,
+      end: body.end,
+    };
+  } else if (names.length > 0) {
     props.expression = ctx.DottedExpression(names);
   } else {
     const paren = kids.find((k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "(");

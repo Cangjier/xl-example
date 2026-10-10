@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsArrowReturnTypeBracket, IsSwitchLabelColon, IsLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, IsBindingPatternBrace, IsImportExportTypeClauseBrace, IsMappedKeyBracket } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsArrowReturnTypeBracket, IsSwitchLabelColon, IsLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, EnclosingBraceContext, IsBindingPatternBrace, IsImportExportTypeClauseBrace, IsMappedKeyBracket } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -311,6 +311,26 @@ if (SkipPreviousTrivia(units, index) < 0 && current.Parent instanceof Bracket &&
     const at = owner.Data.indexOf(current.Parent);
     if (at > 0) {
       const beforeBracket = Get(owner.Data, SkipPreviousWrapSymbol(owner.Data, at));
+      // **属性分隔冒号 ⇒ 值位**（第 986 轮）：`const v = { k: ({ a: 1 }) }` 里括号前面那个 `:`
+      // 是**对象字面量的属性分隔符**，而这一支拿 `IsTypePosition` 判，它只看前一个单元是什么符号
+      // ⇒ 读成类型标注 ⇒ 里面收成 `TypeLiteral`（实测 `{ k: ({ a: 1 }) }` 缺 2 多 3、
+      // `{ k: ({ ...o }) }` 缺 2 多 2）。同一族的「`DecideBracketContext` 的冒号那一支」
+      // 早就用 `EnclosingBraceContext` 修过（第 76 轮），这一处没接上。
+      //
+      // **判据两条**：① 外层那个 `{` 是**值位**（`EnclosingBraceContext`，同一句）；
+      // ② 这个冒号**不是返回类型的冒号**——返回类型那一格的冒号前面是一个**收好的形参表**。
+      // 少了第二条，`const o = { m(): ({ a: 1 }) { … } }` 里那个返回类型会被收成对象字面量。
+      if (
+        beforeBracket instanceof SymbolToken &&
+        (beforeBracket.Is(":") || beforeBracket.Is("?:")) &&
+        EnclosingBraceContext(current.Parent) === "value"
+      ) {
+        const colonAt = SkipPreviousWrapSymbol(owner.Data, at);
+        const beforeColon = Get(owner.Data, SkipPreviousTrivia(owner.Data, colonAt));
+        if (!(beforeColon instanceof Bracket && beforeColon.startBracket === "(")) {
+          return false;
+        }
+      }
       // 括号紧跟 `=>` ⇒ 它是**箭头函数的体**（值位），不要拿外层那一格去判类型。
       // 少了这一条，`const f = (a): { x: number } => ({ x: 1 })` 的表达式体会被收成 `TypeLiteral`
       // （用例 `expr-arrow-return-object-type` 钉住：体必须仍是 `ObjectLiteral`）。

@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.66,
+  "progressPercent": 95.68,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1642,
-      "pass": 1637,
-      "blocked": 5,
+      "pass": 1639,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.7
+      "coverage": 99.82
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1642,
-    "knownGap": 5,
-    "knownGapStillOpen": 5,
-    "exactFiles": 1637,
-    "scoredWithoutGap": 1637,
-    "passedWithoutGap": 1637
+    "knownGap": 3,
+    "knownGapStillOpen": 3,
+    "exactFiles": 1639,
+    "scoredWithoutGap": 1639,
+    "passedWithoutGap": 1639
   },
   "blocked": [
     {
@@ -144,22 +144,10 @@
       "detail": "缺 6　第 985 轮第十批底样（嵌套宿主）量出：**继承子句里的可选链**——`class D extends a?.b {}` / `class D implements a?.b {}` 在 TypeScript 那边是 `ExpressionWithTypeArguments > PropertyAccessE"
     },
     {
-      "id": "token/declarations/gap-r985-heritage-tagged-template",
-      "category": "token",
-      "title": "继承子句里的标签模板：`extends tag`t``",
-      "detail": "缺 4　第 985 轮第十批底样（嵌套宿主）量出：**继承子句里的标签模板**——`class D extends tag`t` {}` 在 TypeScript 那边是 `ExpressionWithTypeArguments > TaggedTemplateExpression`（`tag` 与那个 `NoSubs"
-    },
-    {
       "id": "token/declarations/gap-r985-heritage-template-expression",
       "category": "token",
       "title": "继承子句里的模板串：整条类都不见了",
       "detail": "缺 9　多 2　第 985 轮第十批底样（嵌套宿主）量出：**继承子句里的模板串**——`class D extends `a${X}b` {}` 整条类**没有成形**（产物是 `<Statement><Keyword>class</Keyword>…<Bracket>{}</Bracket>`：缺 `ClassDe"
-    },
-    {
-      "id": "token/expressions/gap-r985-paren-object-inside-object-value",
-      "category": "token",
-      "title": "对象字面量的属性值里那个 `({ … })` 分组：里面是**对象字面量**，不是类型字面量",
-      "detail": "缺 6　多 8　第 985 轮第十批底样（嵌套宿主）量出：**对象字面量里那个 `(` 分组、组内第一个实义单元是 `{`** 时，`TypeLiteralCloseRule` 那一支（`type-literal.xl.md` 的「括号里的第一个 `{`」）拿 `IsTypePosition(外层列表, 括号那一格)`"
     },
     {
       "id": "token/types/gap-r985-jsdoc-nonnull-in-type-position",
