@@ -374,6 +374,33 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 989 轮：把 `FIELD_BY_KIND` 从 **41 档删到 4 档**——投影层不再按 kind 背「我的段该叫什么」；同时修一处 `view` 不带 token 的断链
+
+**一句话**：第 988 轮把段名搬上了 token（`SegmentNames`），但那张中央表还在——
+这一轮**把已经搬过去的一档一档删掉**，只留下**投影自己换出来的 kind**
+（产物里没有同名标签，也就没有哪一页能声明它）。删前逐档核对：
+**表里的每一条必须与 token 声明的那一条逐字相同**才删（`tmp/r989-verify.mjs`），
+所以这一轮是**纯删除**，读数应当一处不动。
+
+- **`FIELD_BY_KIND`：41 档 → 4 档**（段内 **169 行 → 26 行**）。剩下的四档：
+  `ArrayBindingPattern` / `ObjectBindingPattern`（绑定位，`projectBindingPattern` 换出来的）、
+  `TypeAliasDeclaration`（别名位）、`FunctionExpression`（表达式位）。
+- **`print-ast-common.xl.md` 行数：9972 → 9838**（净减 134 行；这一轮还**加了**说明）。
+- **一处断链**（删完才露出来）：`segmentNameOf` 拿的是 `view` 的产物，而 `view` 只抄
+  `entries()`——`__token` 是 `WithRangeOf` 记在字典格上的**普通属性**，视图上没有它
+  ⇒ 问不到 token ⇒ 落回那张表 ⇒ `ClassDeclaration.heritageClauses` 变成 `children`。
+  修法是**在建视图那一步把 `token` 抄进来**（`view` 的返回值多一格 `token`），
+  `segmentNameOf` 两种形态都收（视图取 `.token`、原始 `Map` 取 `.__token`）。
+  **`samples` 又一次当场抓出**（`cases:tsast` 那一格是绿的，理由与第 988 轮那次相同）。
+
+**实测**：`cases:check` 1655 / 1655、`cases:tags` 5372 条断言 0 条不一致、
+`cases:astjson` 六项全 0、`samples` 三份逐字节一致、
+`cases:tsast` **投影节点 100.0% 同 kind 同区间、字段名也 100.0% 一致**；`tsc` 0 错。
+
+**可复用的判据**：**「搬完」不等于「删完」**——搬家那一轮读数不会动（两处答案相同），
+只有把中央那份删掉，才算真的只有一个出处；而删的时候必须**逐条核对**
+（这里有一条 41 档的表，任何一条抄错都会在字段名那一栏红，但**只在那一栏**）。
+
 ### 第 988 轮：把**段名**从投影层搬回各 token——`Token.SegmentNames` 落地（39 页 / 43 格），投影的「字段名」一项从「按 kind 查中央表」改成「问这一格的主人」
 
 **一句话**：用户口径是「token 的属性与 `Data` 要更全、让 `Token.PrintAst` 尽量直出，

@@ -327,168 +327,24 @@ new Map([
 
 `children` / 分段名 → TS 那边的字段名。**按 kind 查**，查不到就用原名。
 
-分段名本来就叫 `initial` / `compare` / `body` / `parameters`…（这套 token 层从一开始
-就照着 TS 起的名字），所以这张表只补**叫法不同**的那些。
+**第 988~989 轮起它只剩「没有自己标签的那几档」**：段名本来由各 token 的
+`SegmentNames` 声明（`While` 的 `compare` / `For` 的 `initial` / `Class` 的 `children`…，
+见 `core/syntax/token.xl.md` 那一节），投影**先问那一格、空表才落到这里**。
+搬过来之后这张表从 **41 档缩到 4 档**，剩下的四档都是**投影自己换出来的 kind**
+（产物里没有同名标签）：绑定位的两种模式与「表达式位 / 别名位」那两格。
 
 ```ts
 new Map([
-  ["ObjectLiteralExpression", new Map([["children", "properties"]])],
-  ["ArrayLiteralExpression", new Map([["children", "elements"]])],
-  ["LiteralType", new Map([["children", "literal"]])],
-  ["HeritageClause", new Map([["children", "types"]])],
-  ["ExpressionWithTypeArguments", new Map([["children", "expression"]])],
-  ["TypeLiteral", new Map([["children", "members"]])],
-  // 类型位的三段：数组元素的 `elementType`、联合/交叉的 `types`、括号类型的 `type`。
-  // 产物里它们都摊成平级的 `children`，TS 那边各有一个具名字段。
-  ["ArrayType", new Map([["children", "elementType"]])],
-  ["UnionType", new Map([["children", "types"]])],
-  ["IntersectionType", new Map([["children", "types"]])],
-  ["ParenthesizedType", new Map([["children", "type"]])],
-  ["TypeOperator", new Map([["children", "type"]])],
-  // `SpreadElement.expression`（`...xs` 里的 `xs`）。
-  ["SpreadElement", new Map([["children", "expression"]])],
-  // 三元表达式：产物的分段名是 `condition` / `trueStatement` / `falseStatement`
-  // （上游 Cangjie 起的名字），而 TS 那边早已改成 `whenTrue` / `whenFalse`，
-  // 并且 `?` / `:` 两个标点也算子节点（`questionToken` / `colonToken`）。
-  [
-    "ConditionalExpression",
-    new Map([
-      ["trueStatement", "whenTrue"],
-      ["falseStatement", "whenFalse"],
-    ]),
-  ],
-  // 函数类型：TS 的 `FunctionType` 是 `parameters` + `type`（形参表与返回类型）。
-  // 产物那边 `() => T` 是 `[Bracket(形参), SymbolToken(=>), 返回类型]` 三个平级单元。
-  ["FunctionType", new Map([["children", "parameters"]])],
-  // `new`：产物那边类型段叫 `name`，TS 那边被调用者叫 `expression`。
-  ["NewExpression", new Map([["name", "expression"]])],
-  // 非空断言 `x!`：TS 的 `NonNullExpression.expression`。
-  ["NonNullExpression", new Map([["children", "expression"]])],
-  // `typeof X`：TS 的 `TypeQuery.exprName`。
-  ["TypeQuery", new Map([["children", "exprName"]])],
-  // 元组：元素数组叫 `elements`；具名/可选/变长元素各自是 `NamedTupleMember` 等，照旧。
-  ["TupleType", new Map([["children", "elements"]])],
-  // 枚举成员：`A = 1` 是 `name` + `initializer`。
-  ["EnumMember", new Map([["children", "initializer"]])],
-  ["SourceFile", new Map([["children", "statements"]])],
-  ["ModuleBlock", new Map([["children", "statements"]])],
-  // 块：函数 / 方法 / 命名空间的体。TS 那边 `Block.statements`。
-  ["Block", new Map([["children", "statements"]])],
-  // 命名空间体：TS 那边叫 `body`（`NamespaceBody` 会**提层**到 `ModuleDeclaration.body`，
-  // 这里的映射是给它自己作为独立模块块时用的）。
-  ["NamespaceBody", new Map([["children", "body"]])],
-  // 条件类型：TS 有四个具名字段，产物那边是在 `?` / `:` 处切开的平级单元。
-  [
-    "ConditionalType",
-    new Map([
-      ["children", "checkType"],
-      ["children1", "extendsType"],
-      ["children2", "trueType"],
-      ["children3", "falseType"],
-    ]),
-  ],
-  // 绑定元素：`BindingElement.name`（`[a]` 是 `a`；`{p: q}` 是 `p`，`q` 进 `PropertyName`）。
-  // 产物那边 `[]` / `{}` 只是分组括号，摊平后是 `[identifier, ...]`，所以按字段名取第一个。
-  ["BindingElement", new Map([["children", "name"]])],
   // 解构的两种绑定模式：TS 那边 `elements` 是一串 `BindingElement`。
+  // 这两个 kind 是**投影自己换出来的**（绑定位的 `ArrayLiteral` / `ObjectLiteral`，
+  // 见 `projectBindingPattern`），产物里没有同名标签 ⇒ 没有哪一页能声明它。
   ["ArrayBindingPattern", new Map([["children", "elements"]])],
   ["ObjectBindingPattern", new Map([["children", "elements"]])],
-  ["EnumDeclaration", new Map([["children", "members"]])],
-  // 类型参数段：产物那边是一个 `GenericType` 包装（`A<T>`、`T<U>` 与类型引用同形），
-  // TS 那边 `typeParameters` 是一串 `TypeParameter`——所以 `GenericType` 要**提层**：
-  // 它的内容提到 `typeParameters`，包装自己不出节点。这一条覆盖类 / 接口 / 函数 / 别名四处。
-  //
-  // **一个 kind 在这两张表里只能出现一次**（`Map` 的键唯一，后写的会**静默覆盖**前一条）。
-  // 这里踩过：`ClassDeclaration` 写了两遍，第二遍没有 `HeritageClause` 那条，
-  // 于是 `heritageClauses` 整类字段凭空消失——而尺子只报「TS 多了 heritageClauses」，
-  // 看不出「是我把映射写重了」。所以每个 kind 的映射**只写一处、写全**。
-  [
-    "ClassDeclaration",
-    new Map([
-      ["GenericType", "typeParameters"],
-      ["HeritageClause", "heritageClauses"],
-      // `children` 里剩下的只有继承段（`ClassBody` 已被提层到 `members`），
-      // 所以这里映射到 `heritageClauses`**而不是** `members`——
-      // 写成 `members` 会让继承段顶着 `members` 这个名字输出，而真正的成员被覆盖掉。
-      ["children", "heritageClauses"],
-    ]),
-  ],
-  // **类表达式同形**（第 176 轮）：`class extends B {}` 作为表达式时 TS 的 kind 是
-  // `ClassExpression`，字段与 `ClassDeclaration` 一样（`heritageClauses` / `members`）——
-  // 只给 `ClassDeclaration` 写映射时，类表达式那一支会把继承段顶着 `children` 投出去
-  // （实测 `cls-expression.ts`：字段名 `children` vs `heritageClauses`）。
-  [
-    "ClassExpression",
-    new Map([
-      ["GenericType", "typeParameters"],
-      ["HeritageClause", "heritageClauses"],
-      ["children", "heritageClauses"],
-    ]),
-  ],
-  [
-    "InterfaceDeclaration",
-    new Map([
-      ["GenericType", "typeParameters"],
-      ["HeritageClause", "heritageClauses"],
-      ["children", "heritageClauses"],
-    ]),
-  ],
+  // 类型别名：`type A<T> = …` 的类型参数段要**提层**成 `typeParameters`。
   ["TypeAliasDeclaration", new Map([["GenericType", "typeParameters"]])],
-  ["FunctionDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
-  // 方法与**方法签名**（接口里的）都要把 `children` 叫成 `parameters`——
-  // 早先只登记了 `GenericType`，于是 `children` 这个字段名一路错下去（真实语料 6k+ 处）。
-  //
-  // **注意同一个 kind 在这张表里只能出现一次**：写两遍时**后一条会静默覆盖前一条**
-  // （`Map` 的键唯一），症状是「某个字段名整类不对」而看不出原因。这个坑在第 9 轮
-  // （`ClassDeclaration`）与第 33 轮（`MethodDeclaration`）各踩过一次——改这张表时**自己盯住重复键**。
-  ["MethodDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
-  ["MethodSignature", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
-  // **取值器 / 设值器**（第 93 轮加）：与函数一样，形参表叫 `parameters`——
-  // 不登记时 `set x(v) {}` 的形参会顶着 `children` 出去（实测字段名差）。
-  ["GetAccessor", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
-  ["SetAccessor", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
-  // 类构造：类里的 `constructor` 投成 `Constructor`（`SyntaxKind[177]`），字段名与函数一样是 `parameters`
-  // ——没有这一行时它的形参会顶着 `children` 出去（实测 137 + 109 处字段名差异）。
-  ["Constructor", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  // **函数表达式同形**：`(function () {})` 的产物标签还是 `Function`，只有**表达式位**
+  // 才投成 `FunctionExpression`（`projectNode` 按谁在投它分辨），字段与 `FunctionDeclaration` 一样。
   ["FunctionExpression", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
-  // **箭头的返回类型字段叫 `type`**（第 120 轮）：`ReturnType` 在 `WRAPPER_FIELDS` 里统一映射成
-  // `type`，但 `ArrowFunction` 这一格在 `BODY_FIELDS` / 段名那一支里漏了改名——
-  // 于是 `(a): B => c` 的字段名是 `returnType`，而 TS 是 `type`（实测字段名差 5 + 4）。
-  ["ArrowFunction", new Map([["GenericType", "typeParameters"], ["children", "parameters"], ["returnType", "type"]])],
-  // **循环两族的段名**（第 76 轮）：产物从一开始就按上游 Cangjie 的段名记
-  // （`for…of` 是 `define` / `enumable` / `body`），TS 那边是另外三个名字。
-  // 段名对不上时**只有「字段名」那一栏会红**（kind 与区间都是对的），实测：
-  // `ForOfStatement` 185 处、`ForStatement` 126 处。
-  [
-    "ForOfStatement",
-    new Map([
-      ["define", "initializer"],
-      ["enumable", "expression"],
-      ["body", "statement"],
-    ]),
-  ],
-  [
-    "ForStatement",
-    new Map([
-      ["initial", "initializer"],
-      ["compare", "condition"],
-      ["next", "incrementor"],
-      ["body", "statement"],
-    ]),
-  ],
-  // `while (c) { … }`：产物的段名是 `compare` / `body`（上游 Cangjie 的叫法），
-  // TS 是 `expression` / `statement`（实测 70 处）。
-  [
-    "WhileStatement",
-    new Map([
-      ["compare", "expression"],
-      ["body", "statement"],
-    ]),
-  ],
-  // **可调用 / 可构造签名的形参表**：产物那一格是 `children`（形参括号摊平后落在里面；
-  // 第 73 轮把 `New` 里那一层也摊平了），TS 叫 `parameters`（实测 146 + 57 处）。
-  ["CallSignature", new Map([["children", "parameters"]])],
-  ["ConstructSignature", new Map([["children", "parameters"]])],
 ])
 ```
 
@@ -614,6 +470,11 @@ new Map([
     start: range ? range[0] : 0,
     end: range ? range[1] + 1 : 0,
     value: attrs.get("value"),
+    // **产出这一格的那个 token 也带进来**（第 989 轮）：`WithRangeOf` 补坐标时把它记成
+    // 字典格上的 `__token`（一个**普通属性**，`entries()` 看不见），而 `view` 只抄 `entries()`
+    // ⇒ 视图上没有它。`SegmentNames`（段名）要问的正是那个 token，所以在**建视图这一步**
+    // 抄一次——不然每个读点都要回头去拿原始 Map。
+    token: (node as any).__token,
     attrs,
     segments,
   };
@@ -858,17 +719,19 @@ new Map([
 
 `kind` 为 `undefined` 时只试单元自己的标签名。
 
-**这一格是「问基类」的**（`core/syntax/token.xl.md` 的 `SegmentNames` 那一节）：基类答空表，
-覆写过它的 token 答自己的那一份——所以这里不需要判「有没有这个成员」，
-也不需要对 `any` 说好话（`owner` 就是 `Token`）。
+**这一格是「问基类」的**（`core/syntax/token.xl.md` 的 `SegmentNames` 那一节）：基类答空表
+（`core` 不知道任何目标语言的字段名），覆写过它的 token 答自己的那一份——所以这里不需要判
+「有没有这个成员」，也不需要对 `any` 说好话（`owner` 就是 `Token`）。
+
+**收了两种形态**：调用点递进来的可能是**视图**（`view` 的产物，上面带着 `token` 那一格）
+或**原始字典格**（`Map`，`WithRangeOf` 在它上面记了 `__token`）——两处取同一个东西。
 
 ```ts
-  if (!(node instanceof Map)) return undefined;
-  const owner = node.__token;
+  const owner: any = node instanceof Map ? (node as any).__token : node?.token;
   if (owner === undefined || owner === null) return undefined;
   const table = owner.SegmentNames();
   if (!(table instanceof Map) || table.size === 0) return undefined;
-  const tag = node.get("type");
+  const tag: any = node instanceof Map ? node.get("type") : node?.type;
   for (const name of kind === undefined ? [tag] : [kind, tag]) {
     const inner = table.get(name);
     if (!(inner instanceof Map)) continue;
@@ -880,16 +743,19 @@ new Map([
 
 # private method fieldNameFor:(kind:string, key:string, node?:any)=>string
 
-`children` / 分段名 → TS 那边的字段名。**按 kind 查**，查不到就用原名。
+`children` / 分段名 → TS 那边的字段名。**先问这一格的主人，再按 kind 查表，都没有就用原名**。
 
 **首选问单元自己**（第 988 轮）：`SegmentNames` 就住在那个 token 上（见 `segmentNameOf`）——
-段名是它自己的事实，所以投影只读，不再替每个 kind 背一份。查不到才落到下面这张表：
-表里剩下的那些 kind 是**还没有搬过去的**（以及由上下文换名而来、自己没有标签的那几个：
-`MethodSignature` / `GetAccessor` / `Constructor` / `ClassExpression` 都挂在
-`MethodDeclaration` / `Class` 那两页上，它们的段名由宿主 token 一并声明）。
+段名是它自己的事实，所以投影只读。**第 989 轮把能搬的都搬完了**：这张表从 41 档缩到 4 档，
+剩下的四档都是**投影自己换出来的 kind**（产物里没有同名标签，也就没有哪一页能声明它）：
+`ArrayBindingPattern` / `ObjectBindingPattern`（绑定位）与
+`TypeAliasDeclaration` / `FunctionExpression`（别名位 / 表达式位）。
+
+**`node` 是可选参数**：有些调用点手上没有那一格（`kind` 是替调用方算出来的），
+那就只查表——与搬家前的行为一字不差。
 
 ```ts
-  const own = segmentNameOf(node, kind, key);
+  const own = node === undefined ? undefined : segmentNameOf(node, kind, key);
   if (own !== undefined) return own;
   const table = FIELD_BY_KIND.get(kind);
   return table?.get(key) ?? key;
