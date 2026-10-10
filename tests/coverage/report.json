@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.37,
+  "progressPercent": 95.38,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1547,
-      "pass": 1543,
-      "blocked": 4,
+      "pass": 1544,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.74
+      "coverage": 99.81
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1547,
-    "knownGap": 4,
-    "knownGapStillOpen": 4,
-    "exactFiles": 1543,
-    "scoredWithoutGap": 1543,
-    "passedWithoutGap": 1543
+    "knownGap": 3,
+    "knownGapStillOpen": 3,
+    "exactFiles": 1544,
+    "scoredWithoutGap": 1544,
+    "passedWithoutGap": 1544
   },
   "blocked": [
     {
@@ -142,12 +142,6 @@
       "category": "token",
       "title": "第 929 轮片段普查量到的一族：被标语句的**头部与它自己体之间**换行。",
       "detail": "缺 7　漂 2　多 11　标签那一层的续接判据没认这三格（`while` 与条件括号之间、`interface` /"
-    },
-    {
-      "id": "token/statements/gap-r929-label-body-call-newline",
-      "category": "token",
-      "title": "第 929 轮片段普查量到的一格：被标语句是**调用**时，名字与 `(` 之间换行。",
-      "detail": "缺 1　漂 2　多 4　解析期的续接表在「标签的体」这一侧没认「下一行以 `(` 开头」⇒ 换行处收壳"
     },
     {
       "id": "token/statements/gap-r929-label-comment-before-colon-tail",

@@ -806,7 +806,7 @@ return SkipNext(units, index, IsTriviaUnit);
 return GetSkipNext(units, index, IsTriviaUnit);
 ```
 
-# method HasTypeColonBefore:(units:Array<Token>, index:number, caseLabelIsExpression?:bool)=>bool
+# method HasTypeColonBefore:(units:Array<Token>, index:number, labelColonIsExpression?:bool)=>bool
 
 从 `index`（一个软换行）**往回扫**，在撞上 `=` 之前先撞上 `:` 吗——也就是「上一行是**类型标注**」。
 
@@ -822,6 +822,11 @@ return GetSkipNext(units, index, IsTriviaUnit);
   上一行是完整的一条语句（`// 注释` 换行 `[1, 2] as const;` 里那个注释就是一层 `Statement`），
   续接没有意义；
 - 一路扫到头也 ⇒ `false`。
+
+**`labelColonIsExpression`（可选，第 831 轮起；第 930 轮加宽）**：调用方站在**解析期**、
+问的是「一条语句壳里那半截」时传 `true` —— 那时壳还没收，`case 1:` / `default:` 的段头冒号
+与 `done:` 这种**标签冒号**都还分不出来，而两者都不是类型标注（判据见 `IsSwitchLabelColon`
+与 `IsLabelColon`）。传 `true` 时这两族一律答「上一行是表达式」。
 
 ```ts
 let sawReal = false;
@@ -847,7 +852,14 @@ for (let i = index - 1; i >= 0; i--) {
       // `(` 那一格被判成「上一行到此为止、新起一条语句」⇒ 调用被劈成 `b` 与 `(1, 2)`
       // 两条 `ExpressionStatement`（实测 `gap-sweep-{newline,linecomment}-switch-0{1,2}` 四份）。
       // 判据复用 `IsSwitchLabelColon`，把外层 `Statement` 那道护栏显式关掉（此刻壳还没收）。
-      if (caseLabelIsExpression === true && IsSwitchLabelColon(units, i, false)) {
+      //
+      // **`名字:` 那种标签冒号同理**（第 930 轮）：`done: f` 换行 `();` 里先撞上的那个 `:`
+      // 是**标签**的冒号（`LabelCloseRule` 收的就是这一对），可这里一律照类型标注答 ⇒
+      // `(` 那一格被判成新起一条语句 ⇒ 调用劈成两条（实测 `label-call-newline` 一条：
+      // 缺 `CallExpression`、漂 2 多 4，语料里那条 `gap-r929-label-body-call-newline` 就是它）。
+      // 判据是 `IsLabelColon`：名字处在语句开头的那一格 —— `let a: f` 换行 `()` 的名字
+      // 前面是 `let` ⇒ 照旧答「类型标注」，一个字都不变。
+      if (labelColonIsExpression === true && (IsSwitchLabelColon(units, i, false) || IsLabelColon(units, i))) {
         return false;
       }
       return true;
@@ -1209,6 +1221,30 @@ return true;
 于是整个 `switch` / 函数体被**重复重组**一遍（实测 `switch` 的六个用例与样例夹具当场变形）。
 只有接在 `}` 之后才算新语句（`{ … } { … }`）。
 
+# method IsLabelColon:(units:Array<Token>, index:number)=>bool
+
+`index` 处的冒号是不是**标签冒号**（`outer: while (…)` / `done: f()` 里那一格）——
+也就是「一个处在**语句开头**的名字 + 冒号」这个形状。
+
+**为什么单独成格**（第 930 轮）：这是**同一个问题**，而它原来在两处各写了一份 ——
+`IsObjectLiteralBrace` 里那一支（标签冒号后面那个 `{` 是块）与 `HasTypeColonBefore`
+（往回扫时先撞上的那个 `:` 是标签冒号，不能算类型标注）。两份判据迟早会漂：第 930 轮
+量到的两格缺口（`done: f` 换行 `()` 的调用被劈成两条语句）正是后者缺了这一问。
+
+判据就是 `IsStatementStart` 那一对：名字是 `Identifier`、且它**处在语句开头**
+（`let x: T` 的 `x` 前面是 `let` ⇒ 不是标签；`a ? b : c` 的 `b` 前面是 `?` 的同一条语句内部 ⇒ 也不是）。
+`case 1:` / `default:` 那两类归 `IsSwitchLabelColon` 管，不在这里 —— 它们根本没有「名字」。
+
+```ts
+const colon = Get(units, index);
+if (!(colon instanceof SymbolToken) || colon.Is(":") === false) {
+  return false;
+}
+const nameIndex = SkipPreviousTrivia(units, index);
+const name = Get(units, nameIndex);
+return name instanceof Identifier && IsStatementStart(units, nameIndex);
+```
+
 # method IsObjectLiteralBrace:(units:Array<Token>, index:number)=>bool
 
 `index` 处那个 `{` 是不是**值位的花括号**——对象字面量（也含类型字面量那种「装成员」的花括号）。
@@ -1284,13 +1320,9 @@ if (current instanceof Bracket && current.startBracket === "{") {
   // 体里的语句整段散架（实测 `lb-comment` 少 5 个节点）。
   if (previous instanceof SymbolToken && previous.Is(":")) {
     const colonIndex = SkipPreviousTrivia(units, index);
-    const nameIndex = SkipPreviousTrivia(units, colonIndex);
-    const name = Get(units, nameIndex);
-    if (
-      name instanceof Identifier &&
-      IsStatementStart(units, nameIndex) &&
-      EnclosingBraceIsObject(units, index) === false
-    ) {
+    // **这一问与 `HasTypeColonBefore` 共用一格**（第 930 轮）：两处说的都是
+    // 「这个冒号是标签冒号吗」，只是这里还要再问一句外层花括号是不是值位。
+    if (IsLabelColon(units, colonIndex) && EnclosingBraceIsObject(units, index) === false) {
       return false;
     }
     return true;
