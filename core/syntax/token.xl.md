@@ -952,6 +952,29 @@ return false;
 return false;
 ```
 
+## method IsDeclarationUnit:()=>bool
+
+**我在 `export` 后面算不算一个「声明单元」**（第 1036 轮）。
+
+`export default interface I { }` 在产物那边是**两格平级的兄弟**：
+`Export([Keyword(export), Keyword(default)])` 与 `Interface(…)`；目标语言那边却是**一个**
+`InterfaceDeclaration`，`export` / `default` 是它的 `modifiers`。要把那两格合成一格，
+就得先认出「右边那一格是一条声明」——判据的那份名单（`Interface` / `Class` / `Function` /
+`Enum` / `Namespace`）过去写成投影层的一个**按标签名查的集合**
+（`typescript/print-ast-common.xl.md` 的 `DECLARATION_UNITS`），而**标签名就是那些类自己的
+名字**（`Tag()` 答的就是类名）——所以那是每一页自己的事实，被写在投影那一页里。
+
+今天基类答 `false`、那五页各自覆写，两处入口问的都是这一格
+（`items[i + 1].IsDeclarationUnit()`，`projectEach` 与 `projectExport` 共用同一句）。
+
+**它不能按 `Tag()` 抄一份名单**：留一张表就还是「同一份事实两处声明」。
+**基类答 `false`**：绝大多数 token 在 `export` 后面不是一个声明单元；需要它的 token
+在自己那一页覆写（`## method`，与 `IsMemberTag` / `AstKind` / `IsInvisible` 同一形态）。
+
+```ts
+return false;
+```
+
 ## method TypeMemberPlan:()=>any
 
 **我这一批子单元要不要按「类型位」投、按哪个符号切段**（第 1035 轮）：

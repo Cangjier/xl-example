@@ -753,3 +753,14 @@ return result;
 ```ts
 return "ClassDeclaration";
 ```
+
+## method IsDeclarationUnit:()=>bool
+
+**我在 `export` 后面是一个「声明单元」**（第 1036 轮）：`export default class C { }`
+在产物里是 `Export` 与 `Class` 两格平级兄弟，合成一个 `ClassDeclaration` 时要先认出右边
+那一格是声明——`Class` 就是这一页自己的类名，所以这一格答 `true`
+（口径见 `core/syntax/token.xl.md` 的 `IsDeclarationUnit`）。
+
+```ts
+return true;
+```

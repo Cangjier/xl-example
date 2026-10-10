@@ -1264,12 +1264,32 @@ new Set(["InterfaceDeclaration", "TypeLiteral", "ClassDeclaration", "EnumDeclara
     // `projectStatement` 那一支上——而这一格**根本没有语句壳**（顶层平级）。两个入口问同一句
     // （与第 507 / 556 轮同一条理由：各写一份会漂）。
     //
+    // **「哪些标签算声明单元」这件事第 1036 轮改由单元自己答**（`Token.IsDeclarationUnit`）：
+    // 名单里那五个标签（`Interface` / `Class` / `Function` / `Enum` / `Namespace`）
+    // **就是那五页自己的类名**，所以它住在各自那一页，投影这一侧不再存第二份
+    // （原来这里是 `DECLARATION_UNITS` 那个集合）。
+    // **名单仍是第 153 轮那一份**（第 579 轮试过收窄到 `interface` / `class` / `function`
+    // 三种，又放回来了）：TS 那边能把 `export default` 收成**修饰词**的确实只有这三种，
+    // 可三种别的形状一量，收窄的净效果是**一处变好、一处变差**——
+    //
+    // | 形状（`tmp/recon/r579-shapes/`） | 第 578 轮 | 收窄后 |
+    // | --- | --- | --- |
+    // | `export default interface I { … }` | 缺 1 / 多 2 | **四栏全零** |
+    // | `export default namespace N { … }` | 缺 4 / 多 4 | 缺 3 / **漂 1** / 多 3 |
+    // | `export default enum E { A }` | 缺 3 / 多 3 | 缺 3 / 多 3 |
+    //
+    // 后两种本来就**不是合法 TS**（`export default enum` 两个词实测在 `ts.createSourceFile`
+    // 那边是**一个 `ExportAssignment`**：`MISS ExportAssignment TS[0,14)` +
+    // `MISS Identifier TS[14,14)`），两版都不可能是零；而「漂移」比「缺 + 多」难收拾
+    //（一个区间要挪、两个节点要挪），所以那一轮不动名单——只把「哪一格问哪一份」收成一份。
+    //
     // 判据两道：① 这一格的文本以 `default` 收尾（`export = X` / `export { a }` 都排除在外——
     // `export { a }` 后面跟一条声明时**不是**这个形状，语料里有那种排版）；
-    // ② 紧跟那一格的标签在 `DECLARATION_UNITS` 里。
+    // ② 紧跟那一格**自己答**它是一个声明单元（`IsDeclarationUnit`，第 1036 轮——
+    // 名单里的五个标签就是那五页自己的类名，所以它住在各自那一页）。
     if (items[i].Tag() === "Export" && i + 1 < items.length) {
       const unitText = ctx.source.slice(startOf(items[i]), endOf(items[i]) + 1).trim();
-      if (/\bdefault$/.test(unitText) && DECLARATION_UNITS.has(items[i + 1].Tag())) {
+      if (/\bdefault$/.test(unitText) && items[i + 1].IsDeclarationUnit()) {
         const merged = projectExport(items[i], ctx, items.slice(i + 1), endOf(items[i + 1]));
         if (merged !== undefined) {
           out.push(merged);
@@ -1512,34 +1532,6 @@ new Set([
   "VariableStatement",
   "WhileStatement",
 ])
-```
-
-# private const DECLARATION_UNITS:Set<string>
-
-`export` 前缀后面那几种**声明**的产物标签（第 153 轮起在 `projectExport` 里，第 579 轮提到这一层）。
-
-两个入口问**同一份**名单：`projectExport`（`Export` 单元 + 声明的合并）与
-`projectEach`（顶层 / 段的平级列表上同一个合并）。各写一份就会漂——第 579 轮之前
-只有 `projectStatement` 那一支接得上 `Export` 单元，顶层那两格平级的形状
-（`export default interface I {}`）就漏在外面。
-
-**名单仍是第 153 轮那一份**（第 579 轮试过收窄到 `interface` / `class` / `function` 三种，
-又放回来了）：TS 那边能把 `export default` 收成**修饰词**的确实只有这三种，
-可三种别的形状一量，收窄的净效果是**一处变好、一处变差**——
-
-| 形状（`tmp/recon/r579-shapes/`） | 第 578 轮 | 收窄后 |
-| --- | --- | --- |
-| `export default interface I { … }` | 缺 1 / 多 2 | **四栏全零** |
-| `export default namespace N { … }` | 缺 4 / 多 4 | 缺 3 / **漂 1** / 多 3 |
-| `export default enum E { A }` | 缺 3 / 多 3 | 缺 3 / 多 3 |
-
-后两种本来就**不是合法 TS**（`export default enum` 两个词实测在 `ts.createSourceFile`
-那边是**一个 `ExportAssignment`**：`MISS ExportAssignment TS[0,14)` + `MISS Identifier TS[14,14)`），
-两版都不可能是零；而「漂移」比「缺 + 多」难收拾（一个区间要挪、两个节点要挪），
-所以**这一轮不动名单**——只把「哪一格问哪一份」这件事收成一份。
-
-```ts
-new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
 ```
 
 # private method projectStatement:(v:any, ctx:any)=>any
@@ -8464,7 +8456,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   // （实测 `decl-interface-export-default.ts`：缺 `InterfaceDeclaration` / `ExportKeyword` /
   // `DefaultKeyword`，多出 `ExportAssignment`）。
   const declared = (following ?? []).find(
-    (k) => k instanceof Token && DECLARATION_UNITS.has(k.Tag()),
+    (k) => k instanceof Token && k.IsDeclarationUnit(),
   );
   if (declared !== undefined) {
     const node = projectNode(declared, ctx);

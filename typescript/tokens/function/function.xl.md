@@ -463,6 +463,17 @@ return result;
 return "FunctionDeclaration";
 ```
 
+## method IsDeclarationUnit:()=>bool
+
+**我在 `export` 后面是一个「声明单元」**（第 1036 轮）：`export default function f() { }`
+在产物里是 `Export` 与 `Function` 两格平级兄弟，合成一个 `FunctionDeclaration` 时要先认出
+右边那一格是声明——`Function` 就是这一页自己的类名，所以这一格答 `true`
+（口径见 `core/syntax/token.xl.md` 的 `IsDeclarationUnit`）。
+
+```ts
+return true;
+```
+
 ## method FunctionFlags:()=>any
 
 **我这一格是不是函数体**（第 1031 轮）：`Function` 就是函数体，答 `{ generator, async }`——
