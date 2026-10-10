@@ -1,15 +1,16 @@
-// xl:known-gap `new` 的被构造者是一段**后置下标链**、而这一整段后缀里**没有一次调用**时，
-// 下标该留在 `New` 外面：`new A[0]` 在 TS 那边是
-// `NewExpression(expression: A)` 再被 `[0]` 挂一次（`ElementAccessExpression` 的 `expression`
-// 才是那个 `NewExpression`，两个区间不同）——与 `new A[0]()`（`New` 包住下标）**不是一回事**。
-// 第 946 轮把「后面接得上 `(` / `.` / `[` / 模板」那一半收掉了
-// （`IsClosedBracket` + `PostfixIndexRunEnd` 那一问），这一格是它的**补集**：
-// 判据要能「撤回」已经收进去的下标，而 `new.xl.md` 的扫描是**一路往前**的
-// ——`Process` 返回到 `ReplaceCountAt` 之后那一格已经不是它能改的了。
-// 实测（`tmp/r946/sweep.mjs`：20 个底样 × 每个缝隙 × 三种 trivia = 1005 条，
-// TS 合法的 630 条里 **68 条**是这一族，全是这一格、不是 68 个根）。
-// 修法方向记在这里：把「下标归谁」挪到**投影层**（`NewExpression` 的 `end` 取被构造者的末尾、
-// 下标另投一层），别在扫描里做「先收再撤」。
+// xl:note 第 947 轮转绿（`xl:known-gap` 按规矩撤掉，用例留着当守卫）：缺口原来是
+// 「`new` 的被构造者是一段**后置下标链**、而这一整段后缀里**没有一次调用**」时，
+// 下标被留在 `New` **外面**（`ElementAccessExpression` 的 `expression` 才是那个 `NewExpression`）。
+//
+// 第 946 轮的判据是「这一段下标**后面接不接得上** `(` / `.` / `[` / 模板」，
+// 而这一格正是它的补集；第 947 轮实测把那条判据**整体推翻**了：
+// `const a = new A` 换行 `[1]();` 在 TS 那边是**一条** `NewExpression`
+// （`expression` 是 `ElementAccessExpression(A, 1)`），不是「两个 `NewExpression` / `CallExpression`」。
+// TS 的 `parseMemberExpressionOrHigher` **先整段取「构造者」**（`.` 与 `[]` 一起贪心走完、
+// 换行也不让路），**再看末尾是不是 `(`**——有没有那对实参括号只决定 `arguments` 挂不挂，
+// **不决定下标归谁**。于是判据只剩「这一段下标**收好了**没有」（`IsClosedBracket`），
+// 收好了就整段跨过去、落进 `NewType`，`new ns[a]` 与 `new ns[a]()` 走同一条路。
+// 五档：下标是数字 / 标识符 / 字符串，以及下标后面再接 `.成员` / 再接下标。
 // xl:expect New,NewType,Identifier
 const a = new ns[0];
 const b = new ns[x];

@@ -7,7 +7,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol, IsAnnotationUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, StartsWithTemplate } from "../../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, IsAnnotationUnit, IsTemplateString, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Class } from "../class/class.xl.md"
 import { Function } from "../function/function.xl.md"
@@ -70,7 +70,7 @@ return false;
 再往右走的是它的内容，不是同级的下一段。
 
 **它只回答「这一段到哪结束」**，不回答「这一段归谁」——归谁由 `Process` 里那条
-「后面接不接得上一次调用」决定。
+「这一段下标收好了没有」决定（第 947 轮起：收好了就整段归被构造者，见 `Process`）。
 
 ```ts
 let at = index;
@@ -183,48 +183,30 @@ while (i < units.length) {
     // 记下来之后，下面那一段按 `startBracket` 分岔：`(` 照旧搬进 `NewArguments`，
     // `[` 只借它的**前一格**当类型段的终点（括号自己留给 `PropertyAccessCloseRule`）。
     //
-    // **但下标段后面接上一次调用时，它就是被构造者的一部分**（第 946 轮收掉的那一格）：
-    // `new ns[a]()` 在 TS 那边是 **`NewExpression`**（`expression` 是 `ns[a]`、`arguments` 是 `()`），
-    // 与 `new ns(a)` / `new ns[a]` **三种排版各不相同**：
+    // **整段下标都属于被构造者**（第 947 轮把这一格一次认清）：
     //
-    //     new ns[a]()    → NewExpression(expression: ElementAccessExpression(ns, a), arguments: [])
-    //     new ns(a)      → NewExpression(expression: ns, arguments: [a])
-    //     new ns[a]      → NewExpression(expression: ns) 再被挂一次下标
-    //
-    // 分开它们的是 **`[` 后面接不接得上一次调用**：TS 的 `parseMemberExpressionOrHigher`
-    // 先整段取「构造者」（`.成员` 与 `下标` 一起走），再看末尾是不是 `(`；
-    // 不是 `(` 时那个下标**不属于构造者**（TS 用 `[` 前面有没有换行把这一档排除掉——
-    // `const a = new A` 换行 `[1]()` 在 TS 那边是**两个** `NewExpression` / `CallExpression`，
-    // 实测；而本仓既有的三支「跨行续接」本来就走 `.` / `[`，两边的口径在这一格上一致）。
-    // 少了这一支，下标被 `PropertyAccessCloseRule` 挂到 `New` **外面**、
-    // 末尾那对括号又成了对它的又一次调用 ⇒ 产物是
-    // `CallExpression[ElementAccessExpression[New, a]]` 而 TS 是 `NewExpression` 包着两者。
-    //
-    // **判据是「这一段下标后面那一格还能不能接下去」**（第 946 轮（二）把它一次认清）：
-    // `.成员` / `(` 实参表 / 模板串都是 TS 的 `parseMemberExpressionRest` 会**贪心吞下去**的
-    // 后缀，而 `[` 又是一段下标——这四格出现时，整段下标都属于**被构造者**：
-    //
-    //     new ns[a]()     → 见上
+    //     new ns[a]       → NewExpression(expression: ElementAccessExpression(ns, a))
+    //     new ns[a]()     → NewExpression(expression: ElementAccessExpression(ns, a), arguments: [])
     //     new ns[a].b     → NewExpression > PropertyAccessExpression > ElementAccessExpression
     //     new ns[a][b]()  → NewExpression > ElementAccessExpression > ElementAccessExpression
     //     new ns[a]`t`    → NewExpression > TaggedTemplateExpression > ElementAccessExpression
     //
-    // **`new ns[a]` 单独一格要留在门外**：它后面什么都没有，
-    // TS 那边是 `ElementAccessExpression(New(ns), a)`（`New` 只盖住 `ns`）——
-    // 也就是「`[` 后面接不接得上东西」就是这两档的分水岭。
-    // 模板那一档走 `StartsWithTemplate`（`text-common-util.xl.md` 里那一格，
-    // 判「这一个单元是不是以模板开头」——字符串字面量不可能紧跟在操作数后面，
-    // 所以「操作数 + 字符串」只可能是带标签的模板）。
+    // 也就是 TS 的 `parseMemberExpressionOrHigher` **先整段取「构造者」**
+    //（`.成员` 与 `下标` 一起贪心走完、换行也不让路），**再看末尾是不是 `(`**——
+    // 有没有那对实参括号只决定 `arguments` 挂不挂，**不决定下标归谁**。
+    //
+    // **第 946 轮那一支的判据是反的**（这一轮实测推翻，如实记）：它按「后面接不接得上
+    // `(` / `.` / `[` / 模板」分岔，而 `const a = new A` 换行 `[1]();` 在 TS 那边是
+    // **一条** `NewExpression`（`expression` 是 `ElementAccessExpression(A, 1)`），
+    // 不是那一轮记的「两个 `NewExpression` / `CallExpression`」——`[` 前面那个换行
+    // 挡不住成员访问，`new A` 后面那个**分号**才挡得住（`const a = new A;` 换行 `[1]();`
+    // 是语句边界，那一条由上面的 `break` 管）。
+    // 于是少收的那一格（`new ns[a]` 单独出现、后面什么都没接）与已经收掉的四格
+    // 变成**同一格**：判据只剩「这一段下标**收好了**没有」——
+    // 收好了（`IsClosedBracket`）就整段跨过去，让它落进 `NewType`。
     if (item.startBracket === "[") {
       const indexRunEnd = this.PostfixIndexRunEnd(units, i);
-      const afterIndex = Get(units, SkipNextTrivia(units, indexRunEnd - 1));
-      const indexContinues =
-        afterIndex instanceof Bracket && afterIndex.startBracket === "[";
-      const indexIsCallee =
-        (afterIndex instanceof Bracket && afterIndex.startBracket === "(") ||
-        (afterIndex instanceof SymbolToken && afterIndex.Is(".")) ||
-        StartsWithTemplate(afterIndex);
-      if (indexContinues || indexIsCallee) {
+      if (indexRunEnd > i) {
         i = indexRunEnd;
         continue;
       }
@@ -280,6 +262,22 @@ while (i < units.length) {
       ((afterWrap instanceof SymbolToken && afterWrap.Is(".")) ||
         (afterWrap instanceof Bracket && afterWrap.startBracket === "["))
     ) {
+      i = i + 1;
+      continue;
+    }
+    // **换行后面紧跟模板串时也不是边界**（第 947 轮）：`new A[0]` 换行 `` `t` `` 在 TS 那边是
+    // **一条** `NewExpression`（`expression` 是 `TaggedTemplateExpression(A[0], `t`)`）——
+    // 换行挡不住成员访问，也挡不住紧随其后的模板串（`` tag `` 换行 `` `t` `` 就是一次标签调用，
+    // 实测 `const v = new A` 换行 `` `t` `` 是一条 `NewExpression`）。少了这一支，扫描停在
+    // 换行上 ⇒ 模板留在 `New` 外面 ⇒ 投出来是 `NewExpression` 再挂一个模板单元
+    //（实测 `tmp/r947/gate-sweep.mjs` 那 4 条：缺 2 漂 1 多 1 / 缺 6 漂 1 多 1）。
+    //
+    // **判据要判到反引号上**（`IsTemplateString`，不是 `StartsWithTemplate`）：
+    // `const v = new A` 换行 `"x";` 在 TS 那边是**两条语句**（下一格接不上 ⇒ ASI 插分号，实测），
+    // 只看类名会把那个普通字符串并进被构造者。
+    //
+    // **与 `new A` 换行 `const c = …` 那个反例不冲突**：那里跨完 trivia 撞上的是 `const`。
+    if (IsTemplateString(afterWrap)) {
       i = i + 1;
       continue;
     }
@@ -358,8 +356,10 @@ if (bracketIndex === -1) {
   result.SignOut(Get(units, typeEnd)!.SourceRange.End!);
 } else {
   const bracket = Get(units, bracketIndex) as Bracket;
-  // **`[` 那一格从来不是实参表**（第 937 轮）：扫描在 `(` **与 `[`** 两处都 `break`，
-  // 而这一支过去一律把落点当实参表——`new ns` 换行 `[a]()` 于是把下标括号整个
+  // **`[` 那一格从来不是实参表**（第 937 轮）：**收好了**的 `[` 在上面那一支就整段
+  // 跨过去了（第 947 轮），落到这里的只有「我们此刻正在这个下标里面」那一档
+  // （`IsClosedBracket` 为假、`PostfixIndexRunEnd` 停在原地）——它当然不是实参表。
+  // 这一支过去一律把落点当实参表——`new ns` 换行 `[a]()` 于是把下标括号整个
   // 搬进了 `NewArguments`（实测缺 `ElementAccessExpression` 1、漂 1、多 3）。
   // 下标括号应当与 `.` 走同一条路：**留在单元列表上**，随后由 `PropertyAccessCloseRule`
   // 折成元素访问，再被末尾那对实参括号调用。
@@ -377,8 +377,9 @@ if (bracketIndex === -1) {
 newType.TryToClose();
 newArguments.TryToClose();
 result.TryToClose();
-// **收掉这一段的终点也跟着分岔**（与上一段同一件事）：`[` 那一格不在 `New` 里面，
-// 它要留给 `PropertyAccessCloseRule` 折成元素访问。
+// **收掉这一段的终点也跟着分岔**（与上一段同一件事）：落在 `bracketIndex` 上的 `[`
+// 是**没收好**的那一档，它不在 `New` 里面——但那一档本来就不该在这里出现
+// （收好的 `[` 已经由上面那一支跨过去、进 `NewType` 了，第 947 轮）。
 //
 // **但 `New` 与 `[` 之间那几格 trivia 也不进这一段**（第 937 轮试过一版把它们收进来，
 // 没成）：收进来之后 `[` 确实能挂上链（`PropertyAccess[New, [a]]` 出来了），

@@ -57,6 +57,30 @@ for (const child of unit.Data) {
 return false;
 ```
 
+# method IsTemplateString:(unit:Token | null)=>bool
+
+**这一格是不是「反引号开头的 `String`」**（第 947 轮）。
+
+它与 `StartsWithTemplate` **只差一问：引号本身**。那一份只问「是不是 `String`」，
+服务的是「**操作数后面紧跟着一个字符串**」这种相邻关系——合法 JS 里那种相邻关系
+只有模板串一种可能（`t "x"` 不是合法 JS），按类名判就够了。
+这一份服务的是**换行两侧**的相邻关系（`new A[0]` 换行 `` `t` ``）：
+那里 `new A` 换行 `"x"` 在 TS 那边是**两条语句**（下一格接不上 ⇒ ASI 插分号，实测），
+按类名判会把那个普通字符串并进被构造者。
+
+**判据落在 `String.StringChar` 上**（字符串自己记着它是用哪个引号开头的），
+递归那一半与 `StartsWithTemplate` 逐字相同——同样不 import 容器类。
+
+```ts
+if (unit === null) return false;
+if (unit instanceof String) return unit.StringChar === "`";
+for (const child of unit.Data) {
+  if (child instanceof LineWrap) continue;
+  return IsTemplateString(child);
+}
+return false;
+```
+
 # method NextLineFirstCharAt:(source:Source)=>string
 
 `source` 处那个软换行**后面**那一行的第一个**实义字符**；扫到末尾给空串。
