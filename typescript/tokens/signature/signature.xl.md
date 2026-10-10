@@ -828,6 +828,62 @@ TS 的解析器于是把它读成「名叫 `new` 的方法签名」——
   return { kind, pos: v.start, end, ...props };
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 1000 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+上面那一份里只有两处回原文查：
+
+- **`abstract` 那个词**：`ctx.TextOf(k)` → `ctx.ValueOf(k)`（只读那一格记的 `value`）；
+- **结尾那个 `;`**：`ctx.source[StmtEndOf(v)]` 换成 `ctx.SemicolonEndOf`——它与原来那一眼
+  **同一份实现**（跳空白与注释、再看一个字符是不是 `;`，第 838 / 840 轮那条口径；
+  `Namespace` / `Import` 的直出版也是这么写的）。
+  自己已经以 `;` 收尾时 `SemicolonEndOf` **原样返回**，与原来那句「看下一个字符」等价。
+
+```ts
+  let kind = v.attrs.get("kind") === "construct" ? "ConstructSignature" : "CallSignature";
+  const props: any = ctx.Structural(v, kind);
+  const kids = ctx.Kids(v);
+  const abstractUnit = kids.find((k: any) => ctx.ValueOf(k) === "abstract");
+  if (kind === "ConstructSignature" && abstractUnit !== undefined) {
+    kind = "MethodSignature";
+    const at = ctx.StartOf(abstractUnit);
+    props.modifiers = [
+      ...(props.modifiers ?? []),
+      { kind: "AbstractKeyword", text: "abstract", pos: at, end: ctx.EndOf(abstractUnit) },
+    ];
+    const newAt = this.NewAt;
+    if (newAt >= 0) {
+      props.name = { kind: "Identifier", text: "new", pos: newAt, end: newAt + 3 };
+    }
+  }
+  if (kind === "ConstructSignature" && Array.isArray(props.parameters)) {
+    props.parameters = props.parameters.filter(
+      (p: any) => !(p !== null && p !== undefined && p.kind === "NewKeyword"),
+    );
+  }
+  const newUnit = kids.find((k: any) => k.get("type") === "New");
+  if (newUnit !== undefined) {
+    const inner = ctx.Kids(newUnit);
+    const bracket = inner.find((k: any) => k.get("type") === "Bracket");
+    if (bracket !== undefined) {
+      const params = ctx.UnwrapNodes(bracket).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+      props.parameters = ctx.ProjectEach(params, kind);
+    }
+    const returnType = inner.find((k: any) => k.get("type") === "ReturnType");
+    if (returnType !== undefined) {
+      const inner2 = ctx.UnwrapNodes(returnType).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+      const t = ctx.TypeOf(inner2);
+      if (t !== undefined) props.type = t;
+    }
+    delete props.children;
+  }
+  const end = ctx.SemicolonEndOf(ctx.StmtEndOf(v));
+  return { kind, pos: v.start, end, ...props };
+```
+
 ## constructor:(template:Template)=>void
 
 创建时把本类型的收尾规则挂上来（模板里没有专门给 `Signature` 注册就用通用队列）。

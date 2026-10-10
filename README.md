@@ -376,6 +376,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 1000 轮：最后三页直出版拿到手，**「待搬」清单第一次清零**（3 → 0 页）——`RegexToken` 那一页顺带量出**标志位少了 `d` / `v` 两个字母**（词法那一趟的缺口，不是投影的）；用例语料直出 **69.1% → 69.4%**
+
+**一句话**：`print-ast` 这一族的「已有 `PrintAst`、差几处回原文」**做完了**——
+`Signature` / `RegexToken` / `ConstString` 三页出列，`direct:lint` 的待搬清单 **0 页**；
+而 `RegexToken` 那一页把一条**藏了很久**的缺口翻了出来：它认的标志位只有六个字母。
+
+- **`Signature`（33 → 0）**：两处——`ctx.TextOf(k)` 判 `abstract` 换成 `ctx.ValueOf(k)`；
+  结尾那个 `;` 换成 `ctx.SemicolonEndOf(ctx.StmtEndOf(v))`（与原来那一眼**同一份实现**，
+  `Namespace` / `Import` 的直出版也是这么写的）。`NewAt` 那一格早就在 token 上（第 111 / 172 轮）。
+- **`RegexToken`（22 → 0）**：`PrintAst` 是**从那个 `/` 起回原文扫一遍**（跳转义、跳字符类、吃掉标志位），
+  而这件事**词法那一趟已经做过一次**——直出版交出去的正是**单元自己的区间**（`pos: v.start` / `end: v.end`）。
+  一交出去就当场红了：`expr-regex-flags` / `lex-regex-flags` 两份用例里 TS 的
+  `RegularExpressionLiteral` 是 `[55,65)` / `[99,111)`，我们只到 `[55,58)` / `[99,104)`。
+  **根因不在投影**：`ExitOrPre` 认标志位的那一串 `||` 只有 `m g i s u y`——
+  **`d`（`hasIndices`，ES2022）与 `v`（Unicode 集合，ES2024）不在里面**，
+  于是 `/a/dgimsuy` 在 `d` 上当场收尾：`Flags` 空、单元区间只到收尾的 `/`，
+  后面那串字母被重新词法成标识符。补上两个字母之后两处都归零——
+  **这也是「先写直出版、让它去量」的一次收益**：那条缺口在投影的兜底重扫下**一直看不见**。
+- **`ConstString`（0 次被问到）**：把 `ctx.StringText` 的两步拆开写
+  （`ctx.KidsOf(unit, "children")` + `ctx.ValueOf`，与 `import-type` 的直出版同一份写法）。
+  **这一格恒为空串**：`ConstString` 是块单元、文本在 `Temp` 上、自己没有子单元 ⇒
+  `StringText` 的第一步永远找不到那一格；外层 `String` 的文本是 `String.PrintAst` 经
+  `ctx.Template` 取走的。实测**全语料 2050 份里这一格一次都没被问到**（第 994 轮 `Let` / `Root` 的
+  「0 次」是同一种如实记法）——照旧搬完，判据是它与 `PrintAst` 写下的是**同一个答案**。
+- **记账**：`cases:direct` **1639 份 / 21818 节点，直出 15080 → 15135（69.1% → 69.4%）**，同答 0、抛异常 0；
+  `cases:direct --all` **2050 份 / 539204 节点，直出 476531（88.4%）**、0 处不一致；
+  `direct:lint` **直出版 63 段 / 63 页、0 条违反**，**待搬 3 → 0 页**（这一族清空）。
+- **`cases:tsast` 那边的一格顺带改善**：`cases:astjson` 的节点数 **42596 → 42594**——
+  那两个「多出来的标识符」正是 `d` 标志位被读丢之后重新词法出来的（六项仍然全 0）。
+- **门 suite**：**11 道 10 通过、1 失败**——那一道仍是 `cases:tsast` 的同一片已知红
+  （`for…of` 的枚举对象是条件表达式：缺 51 / 多 2，与第 992 / 998 / 999 轮同数）；
+  其余全绿：`samples` 逐字节一致、`cases:check` 1656 / 0、`cases:tags` 5372 条断言 0 不一致、
+  `cases:shapes` 未覆盖 0、`coverage 4259 / 4422`（blocked 29、differ 134、加权 95.7%）——墙钟 34.2s。
+- **落回清单（下一轮的入口，`tmp-probe/gap.mjs` 量出来的）**：用例语料 **1381 次 / 12 个类**——
+  `MethodDeclaration` 309 / `Function` 259 / `Class` 230 / `Interface` 152 / `TypeLiteral` 94 /
+  `ExpressionWithTypeArguments` 85 / `LiteralType` 83 / `ParenthesizedType` 71 / `Bracket` 43 /
+  `Enum` 29 / `NamedTupleMember` 21 / `NamespaceExport` 5；全语料（2050 份）**41736 次 / 同样这 12 个类**，
+  榜首 `LiteralType` 13843。**这 12 个类与「待搬」那 5 页不是一回事**：
+  它们**连 `PrintAst` 都没有**（投影走的是通用支 `KIND_BY_TAG` + `structuralProps`），
+  所以搬它们要**两半一起写**（`PrintAst` + `PrintDirectAst`）——`direct:lint` 的判据②要求同页留着
+  `PrintAst` 当同答的基线。这正是第 997 轮记下的那条分水岭。
+
 ### 第 999 轮：`Import` 与 `ImportType` 两页拿到直出版——一页要**给 token 补一格并把它写进字典**（`NamedBraceAt` 从来没进过字典）；用例语料直出 **68.5% → 69.1%**、全语料 **88.1%**
 
 **一句话**：再搬两页「已有 `PrintAst`、差几处回原文」的页，而这两页各欠**一格事实**而不是「再写一遍那一格」：

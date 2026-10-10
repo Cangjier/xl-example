@@ -335,6 +335,27 @@ while (true) {
 return ctx.Node("StringLiteral", { text: ctx.StringText(v) }, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 1000 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+**这一格把 `ctx.StringText` 的两步拆开写**：它的第一步是「找**子单元**里的 `ConstString`」、
+第二步才是「读那一格的值（值不在时回原文 `slice`）」。直出版只做前两步里**不回原文**的那一步
+（`ctx.KidsOf` + `ctx.ValueOf`）——与 `import-type.xl.md` 的直出版同一份写法。
+
+**为什么这里恒为空串**（量出来的，不是猜的）：`ConstString` 是块单元，**文本在 `Temp` 上**
+（`BlockToken.ToDictionary` 把它写成 `value`）、**自己没有子单元** ⇒ 第一步永远找不到那一格
+⇒ `StringText` 对它恒为 `""`。而 `String` 那一层的文本是外层 `String.PrintAst` 经
+`ctx.Template` 取走的（`string.xl.md`），所以**全语料 2050 份里这一格一次都没被问到**。
+两个出口在**同一份判据**上写下同一个答案，正是这一格的诚实写法。
+
+```ts
+  const content = ctx.KidsOf(v, "children").find((k: any) => k.get("type") === "ConstString");
+  return ctx.Node("StringLiteral", { text: content === undefined ? "" : ctx.ValueOf(content) }, v);
+```
+
 ## method Clone:()=>Token
 
 克隆自身：`Sign(this)` → `Temp.push(...this.Temp)` → `TryToClose()`。
