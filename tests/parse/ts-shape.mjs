@@ -25,9 +25,8 @@ const runtime = createRequire(import.meta.url)(path.join(root, "build", "ts", "t
 export const projectRoot = runtime.projectRoot;
 export const projectNode = runtime.projectNode;
 export const leafKindOfText = runtime.leafKindOfText;
-export const tokenKind = runtime.tokenKind;
 export const INVISIBLE = runtime.INVISIBLE;
-export const KEYWORD_KIND = runtime.KEYWORD_KIND;
-export const KIND_BY_TAG = runtime.KIND_BY_TAG;
-export const TOKEN_KIND = runtime.TOKEN_KIND;
 export const FIELD_BY_KIND = runtime.FIELD_BY_KIND;
+// **第 1028 轮删掉的四行**：`tokenKind` / `KEYWORD_KIND` / `TOKEN_KIND`（两张词汇表搬回
+// `Keyword` 与 `SymbolToken` 各自那一页）、`KIND_BY_TAG`（第 1025 轮删）。它们在这里
+// 本来就一个消费者都没有（`ts-ast.mjs` 只 import `projectRoot`），转发一层早就是空的。

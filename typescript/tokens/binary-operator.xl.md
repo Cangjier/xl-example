@@ -1374,7 +1374,7 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
       //（同一个节点同时记「缺 `InKeyword`」与「多出 `Identifier`」，见 `operatorTokenOf`）。
       ? ctx.OperatorNode(kids[opIndex])
       : {
-          kind: ctx.TokenKind(typeof declaredOp === "string" ? declaredOp : "?"),
+          kind: SymbolToken.KindOfText(typeof declaredOp === "string" ? declaredOp : "?"),
           pos: v.start,
           end: v.start,
         };

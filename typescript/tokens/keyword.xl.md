@@ -291,7 +291,7 @@ return this.Value;
   const text = this.Value;
   // 上下文关键字 `get` / `set` 一律按 `Identifier` 投（理由见上面的 `PrintDirectAst`）。
   const contextual = text === "get" || text === "set";
-  const kind = contextual ? undefined : ctx.KeywordKind(text);
+  const kind = contextual ? undefined : this.KeywordKind();
   return ctx.Node(kind === undefined ? "Identifier" : kind, { text }, v);
 ```
 
@@ -308,6 +308,23 @@ return this.Value;
 
 ```ts
   return KEYWORD_STATEMENT_KINDS.get(this.Value);
+```
+
+## method KeywordKind:()=>string | undefined
+
+**我这个词在 TS 那边是哪个 kind**（第 1028 轮）——查得到就答那个 `SyntaxKind` 名，查不到答 `undefined`
+（＝投影按 `Identifier` 投它）。
+
+键是**我这一页的 `Value`**、值是「我这个词在 TS 词汇表里叫什么」：两样都是这一页自己的事实。
+过去它住在投影层那一张按文本查的 `KEYWORD_KIND` 里（44 档），于是同一份词汇被声明了两遍，
+改一个词要跑两个地方；现在与 `StatementKind()` 同一形态——**投影问这一格，不替它记第二遍**。
+
+**它不是 `AstKind()`** ✗：上下文关键字 `get` / `set` 在投影里按 `Identifier` 投
+（见上面的 `PrintDirectAst`），所以「我这个词对应哪个关键字 kind」与「我这一格投成哪个节点」
+是两件事，由这一格单独答。
+
+```ts
+  return KEYWORD_KIND.get(this.Value);
 ```
 
 ## method Clone:()=>Token
@@ -345,5 +362,40 @@ new Map([
   ["break", "BreakStatement"],
   ["continue", "ContinueStatement"],
   ["debugger", "DebuggerStatement"],
+])
+```
+
+# private const KEYWORD_KIND:Map<string, string>
+
+**关键字词汇表**：`Value` → 它在 TS 词汇表里的 `SyntaxKind` 名（第 1028 轮从投影层搬到这里）。
+
+这一格是 `KeywordKind()` 要读的那份词汇——键与值都是**这一页自己的事实**
+（词住在我这里，`Value` 就是那个词）。搬过来之前它叫 `KEYWORD_KIND`、住在
+`typescript/print-ast-common.xl.md`，而投影对它的用法只有一处（`Keyword.PrintDirectAst`
+拿自己的 `Value` 去查），于是同一份词汇在两个地方各有一份声明：改一个词要跑两个地方，
+而投影那一份的读者其实只有这一个 token 页。
+
+```ts
+new Map([
+  ["string", "StringKeyword"], ["number", "NumberKeyword"], ["boolean", "BooleanKeyword"],
+  ["void", "VoidKeyword"], ["any", "AnyKeyword"], ["unknown", "UnknownKeyword"],
+  ["never", "NeverKeyword"], ["object", "ObjectKeyword"], ["symbol", "SymbolKeyword"],
+  ["bigint", "BigIntKeyword"], ["undefined", "UndefinedKeyword"], ["null", "NullKeyword"],
+  ["true", "TrueKeyword"], ["false", "FalseKeyword"], ["readonly", "ReadonlyKeyword"],
+  ["typeof", "TypeOfKeyword"], ["keyof", "KeyOfKeyword"], ["unique", "UniqueKeyword"],
+  ["infer", "InferKeyword"], ["extends", "ExtendsKeyword"], ["this", "ThisKeyword"],
+  ["abstract", "AbstractKeyword"], ["declare", "DeclareKeyword"], ["export", "ExportKeyword"],
+  ["import", "ImportKeyword"], ["new", "NewKeyword"], ["async", "AsyncKeyword"],
+  ["await", "AwaitKeyword"], ["static", "StaticKeyword"], ["public", "PublicKeyword"],
+  ["private", "PrivateKeyword"], ["protected", "ProtectedKeyword"], ["override", "OverrideKeyword"],
+  ["get", "GetKeyword"], ["set", "SetKeyword"], ["default", "DefaultKeyword"],
+  ["as", "AsKeyword"], ["satisfies", "SatisfiesKeyword"],
+  // **`in` / `instanceof` 是 `Keyword`、也是 TS 的语义子节点**（`BinaryExpression` 的
+  // `operatorToken` 就是它们）。漏了这两条时它们被投成 `Identifier`：
+  // 真实语料 `InstanceOfKeyword` 缺 878 处（第 34 轮修）。
+  ["in", "InKeyword"], ["instanceof", "InstanceOfKeyword"], ["asserts", "AssertsKeyword"],
+  // **`super` 也在这里**（第 98 轮）：`super.x` 的产物把 `super` 记成 `<Keyword>`，
+  // 而它在 TS 那边永远是 `SuperKeyword`（不可能是标识符名）。
+  ["super", "SuperKeyword"],
 ])
 ```

@@ -243,7 +243,35 @@ this.Closed = true;
 ```ts
   // **文本读 token 自己的 `Temp`**（第 992 轮）：见 `identifier.xl.md` 那一页的同一条说明。
   const text = this.TempToString();
-  return ctx.Node(ctx.TokenKind(text), { text }, v);
+  return ctx.Node(this.TokenKind(), { text }, v);
+```
+
+## method TokenKind:()=>string
+
+**我这一格在 TS 那边是哪个 kind**（第 1028 轮）：`SymbolToken` 的正文是运算符 / 标点，
+TS 那边它们各有一个 `SyntaxKind`（`=` → `EqualsToken`、`=>` → `EqualsGreaterThanToken`…）。
+
+词汇表是这一页自己的（见下面的 `SYMBOL_TOKEN_KIND`），查法也收在这一页
+（`KindOfText` 管「文本 → kind」这一件事，`?? 文本` 那一条兜底只有一份）。
+过去它是投影层那张按文本查的 `TOKEN_KIND` 加上投影层的一个 `tokenKind(text)` 函数——
+同一份词汇被声明了两遍；现在投影问这一格，不替它记第二遍。
+
+```ts
+  return SymbolToken.KindOfText(this.TempToString());
+```
+
+## static method KindOfText:(text:string)=>string
+
+**给一段符号文本，答它在 TS 那边的 kind**（第 1028 轮）；表里没有的**原样返回文本**
+（`tokenKind` 的老口径：`a **= 2` 那种当年没登记的符号曾以文本当 kind 出现在产物里，
+补表之后仍然保留这条兜底，免得下次漏一个符号就变成 `undefined`）。
+
+**为什么它是 `static`**：投影在**折叠二元表达式**时要给「手上只有一段文本、没有单元」的运算符
+造节点（`print-ast-common.xl.md` 的 `foldBinaryFrom` 一族），所以这一格要能按文本问；
+而词汇表只有一份，`SymbolToken` 这一页是它的家。
+
+```ts
+  return SYMBOL_TOKEN_KIND.get(text) ?? text;
 ```
 
 
@@ -259,4 +287,45 @@ result.Sign(this);
 result.Temp.push(...this.Temp);
 result.TryToClose();
 return result;
+```
+
+# private const SYMBOL_TOKEN_KIND:Map<string, string>
+
+**符号词汇表**：符号文本 → 它在 TS 词汇表里的 `SyntaxKind` 名（第 1028 轮从投影层搬到这里）。
+
+这一格是 `SymbolToken.KindOfText` 要读的那份词汇——它说的就是**这一页自己的事实**
+（符号块的正文住在我这里）。搬过来之前它叫 `TOKEN_KIND`、住在
+`typescript/print-ast-common.xl.md`，与投影层那个 `tokenKind(text)` 一起构成同一件事的
+**两份声明**：改一个符号要跑两个地方，而投影那份的读者只有这一页与两个「手上只有运算符文本」
+的折叠处（`foldBinaryFrom` 一族）。
+
+```ts
+new Map([
+  ["=", "EqualsToken"], ["+=", "PlusEqualsToken"], ["-=", "MinusEqualsToken"],
+  ["*=", "AsteriskEqualsToken"], ["/=", "SlashEqualsToken"], ["%=", "PercentEqualsToken"],
+  ["+", "PlusToken"], ["-", "MinusToken"], ["*", "AsteriskToken"], ["/", "SlashToken"],
+  ["%", "PercentToken"], ["<", "LessThanToken"], [">", "GreaterThanToken"],
+  ["<=", "LessThanEqualsToken"], [">=", "GreaterThanEqualsToken"],
+  ["==", "EqualsEqualsToken"], ["===", "EqualsEqualsEqualsToken"],
+  ["!=", "ExclamationEqualsToken"], ["!==", "ExclamationEqualsEqualsToken"],
+  ["&&", "AmpersandAmpersandToken"], ["||", "BarBarToken"], ["??", "QuestionQuestionToken"],
+  ["!", "ExclamationToken"], ["?", "QuestionToken"], [":", "ColonToken"],
+  [",", "CommaToken"], [";", "SemicolonToken"], ["(", "OpenParenToken"], [")", "CloseParenToken"],
+  ["[", "OpenBracketToken"], ["]", "CloseBracketToken"], ["{", "OpenBraceToken"], ["}", "CloseBraceToken"],
+  ["=>", "EqualsGreaterThanToken"], ["++", "PlusPlusToken"], ["--", "MinusMinusToken"],
+  [".", "DotToken"], ["...", "DotDotDotToken"],
+  // **第 135 轮补齐的一批**：位运算 / 移位 / 幂 / 逻辑赋值这些运算符原来一个都没在表里，
+  // 于是 `tokenKind` 原样返回文本——`a **= 2` 的 `operatorToken.kind` 成了 `"**="` 而不是
+  // `"AsteriskAsteriskEqualsToken"`（实测 `expr-compound-assign-all.ts` 缺 10 / 多出 10、
+  // `ex-logical-assign.ts` 缺 5 / 多出 5，样本全是 `**= <<= >>= >>>= &= |= ^= &&= ||= ??=`）。
+  // 名字一律照 `ts.SyntaxKind` 的拼法（`tests/parse/ts-ast.mjs` 就是从那边查的）。
+  ["**", "AsteriskAsteriskToken"], ["**=", "AsteriskAsteriskEqualsToken"],
+  ["<<", "LessThanLessThanToken"], ["<<=", "LessThanLessThanEqualsToken"],
+  [">>", "GreaterThanGreaterThanToken"], [">>=", "GreaterThanGreaterThanEqualsToken"],
+  [">>>", "GreaterThanGreaterThanGreaterThanToken"], [">>>=", "GreaterThanGreaterThanGreaterThanEqualsToken"],
+  ["&", "AmpersandToken"], ["&=", "AmpersandEqualsToken"],
+  ["|", "BarToken"], ["|=", "BarEqualsToken"],
+  ["^", "CaretToken"], ["^=", "CaretEqualsToken"], ["~", "TildeToken"],
+  ["&&=", "AmpersandAmpersandEqualsToken"], ["||=", "BarBarEqualsToken"], ["??=", "QuestionQuestionEqualsToken"],
+])
 ```

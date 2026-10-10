@@ -5,6 +5,7 @@
 ```xl
 import { Token } from "../core/syntax/token.xl.md"
 import { Translate } from "./tokens/string/translate.xl.md"
+import { SymbolToken } from "./tokens/symbol-token.xl.md"
 ```
 
 # namespace cangjie
@@ -141,65 +142,26 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 （真名是 `Parameter`，它自己那一档就在表里；`LamdaBody` 从来不在表里——它走的是
 `Token.BodyField` 那一格）。所以这两档**永远查不到**，删掉它们不改变任何一格读数。
 
-# const KEYWORD_KIND:Map<string, string>
+**两张按文本查的词汇表第 1028 轮搬回各自那一页**（原先它们就摆在这里，与投影层那个
+`tokenKind(text)` 一起构成同一件事的第二份声明）：
 
-```ts
-new Map([
-  ["string", "StringKeyword"], ["number", "NumberKeyword"], ["boolean", "BooleanKeyword"],
-  ["void", "VoidKeyword"], ["any", "AnyKeyword"], ["unknown", "UnknownKeyword"],
-  ["never", "NeverKeyword"], ["object", "ObjectKeyword"], ["symbol", "SymbolKeyword"],
-  ["bigint", "BigIntKeyword"], ["undefined", "UndefinedKeyword"], ["null", "NullKeyword"],
-  ["true", "TrueKeyword"], ["false", "FalseKeyword"], ["readonly", "ReadonlyKeyword"],
-  ["typeof", "TypeOfKeyword"], ["keyof", "KeyOfKeyword"], ["unique", "UniqueKeyword"],
-  ["infer", "InferKeyword"], ["extends", "ExtendsKeyword"], ["this", "ThisKeyword"],
-  ["abstract", "AbstractKeyword"], ["declare", "DeclareKeyword"], ["export", "ExportKeyword"],
-  ["import", "ImportKeyword"], ["new", "NewKeyword"], ["async", "AsyncKeyword"],
-  ["await", "AwaitKeyword"], ["static", "StaticKeyword"], ["public", "PublicKeyword"],
-  ["private", "PrivateKeyword"], ["protected", "ProtectedKeyword"], ["override", "OverrideKeyword"],
-  ["get", "GetKeyword"], ["set", "SetKeyword"], ["default", "DefaultKeyword"],
-  ["as", "AsKeyword"], ["satisfies", "SatisfiesKeyword"],
-  // **`in` / `instanceof` 是 `Keyword`、也是 TS 的语义子节点**（`BinaryExpression` 的
-  // `operatorToken` 就是它们）。漏了这两条时它们被投成 `Identifier`：
-  // 真实语料 `InstanceOfKeyword` 缺 878 处（第 34 轮修）。
-  ["in", "InKeyword"], ["instanceof", "InstanceOfKeyword"], ["asserts", "AssertsKeyword"],
-  // **`super` 也在这里**（第 98 轮）：`super.x` 的产物把 `super` 记成 `<Keyword>`，
-  // 而它在 TS 那边永远是 `SuperKeyword`（不可能是标识符名）。
-  ["super", "SuperKeyword"],
-])
-```
+- `KEYWORD_KIND`（44 档：关键字文本 → `SyntaxKind` 名）→
+  `typescript/tokens/keyword.xl.md` 的 `# private const KEYWORD_KIND`，读法是那一页自己的
+  `Keyword.KeywordKind()`——投影**唯一**的用法就是 `Keyword.PrintDirectAst` 拿自己的
+  `Value` 去查（现在是 `this.KeywordKind()`）；
+- `TOKEN_KIND`（45 档：符号文本 → `SyntaxKind` 名）→
+  `typescript/tokens/symbol-token.xl.md` 的 `# private const SYMBOL_TOKEN_KIND`，读法是
+  `SymbolToken.KindOfText(text)`（静态：投影折叠二元表达式时手上只有**一段文本**，
+  问的就是这一格）与它转调的 `SymbolToken.TokenKind()`。
 
-# const TOKEN_KIND:Map<string, string>
+两张表的**键都是那一页自己的正文**（`Keyword.Value` / `SymbolToken.TempToString()`），
+所以「这份词汇是什么」与「我这一格是什么」本来就是同一页的事实。搬完之后投影层不再有
+按文本查词的中央表，`ctx` 上那两个纯分类器出口（`KeywordKind` / `TokenKind`）也一并删掉——
+出口删了，`direct:lint` 那条方法体判据守的东西才从「大家记得别用」变成结构上做不到。
 
-```ts
-new Map([
-  ["=", "EqualsToken"], ["+=", "PlusEqualsToken"], ["-=", "MinusEqualsToken"],
-  ["*=", "AsteriskEqualsToken"], ["/=", "SlashEqualsToken"], ["%=", "PercentEqualsToken"],
-  ["+", "PlusToken"], ["-", "MinusToken"], ["*", "AsteriskToken"], ["/", "SlashToken"],
-  ["%", "PercentToken"], ["<", "LessThanToken"], [">", "GreaterThanToken"],
-  ["<=", "LessThanEqualsToken"], [">=", "GreaterThanEqualsToken"],
-  ["==", "EqualsEqualsToken"], ["===", "EqualsEqualsEqualsToken"],
-  ["!=", "ExclamationEqualsToken"], ["!==", "ExclamationEqualsEqualsToken"],
-  ["&&", "AmpersandAmpersandToken"], ["||", "BarBarToken"], ["??", "QuestionQuestionToken"],
-  ["!", "ExclamationToken"], ["?", "QuestionToken"], [":", "ColonToken"],
-  [",", "CommaToken"], [";", "SemicolonToken"], ["(", "OpenParenToken"], [")", "CloseParenToken"],
-  ["[", "OpenBracketToken"], ["]", "CloseBracketToken"], ["{", "OpenBraceToken"], ["}", "CloseBraceToken"],
-  ["=>", "EqualsGreaterThanToken"], ["++", "PlusPlusToken"], ["--", "MinusMinusToken"],
-  [".", "DotToken"], ["...", "DotDotDotToken"],
-  // **第 135 轮补齐的一批**：位运算 / 移位 / 幂 / 逻辑赋值这些运算符原来一个都没在表里，
-  // 于是 `tokenKind` 原样返回文本——`a **= 2` 的 `operatorToken.kind` 成了 `"**="` 而不是
-  // `"AsteriskAsteriskEqualsToken"`（实测 `expr-compound-assign-all.ts` 缺 10 / 多出 10、
-  // `ex-logical-assign.ts` 缺 5 / 多出 5，样本全是 `**= <<= >>= >>>= &= |= ^= &&= ||= ??=`）。
-  // 名字一律照 `ts.SyntaxKind` 的拼法（`tests/parse/ts-ast.mjs` 就是从那边查的）。
-  ["**", "AsteriskAsteriskToken"], ["**=", "AsteriskAsteriskEqualsToken"],
-  ["<<", "LessThanLessThanToken"], ["<<=", "LessThanLessThanEqualsToken"],
-  [">>", "GreaterThanGreaterThanToken"], [">>=", "GreaterThanGreaterThanEqualsToken"],
-  [">>>", "GreaterThanGreaterThanGreaterThanToken"], [">>>=", "GreaterThanGreaterThanGreaterThanEqualsToken"],
-  ["&", "AmpersandToken"], ["&=", "AmpersandEqualsToken"],
-  ["|", "BarToken"], ["|=", "BarEqualsToken"],
-  ["^", "CaretToken"], ["^=", "CaretEqualsToken"], ["~", "TildeToken"],
-  ["&&=", "AmpersandAmpersandEqualsToken"], ["||=", "BarBarEqualsToken"], ["??=", "QuestionQuestionEqualsToken"],
-])
-```
+投影这一侧**只剩三处按文本问符号**的调用（`foldBinaryFrom` 一族给「手上只有一段运算符文本」
+的那种格里造 `operatorToken`），走的是本文件 `# dependencies` 里 import 进来的
+`SymbolToken.KindOfText(text)`——**一份词汇、一个入口**（不是投影自己再存一份表的副本）。
 
 # const FIELD_BY_KIND:Map<string, Map<string, string>>
 
@@ -569,12 +531,6 @@ new Map([
   };
 ```
 
-# private method tokenKind:(text:string)=>string
-
-```ts
-  return TOKEN_KIND.get(text) ?? text;
-```
-
 # private const LITERAL_TYPE_KEYWORDS:Set<string> = new Set(["null", "true", "false"])
 
 **类型位要套 `LiteralType` 的三个词**（见 `projectTypeExpression` 里那一支）。
@@ -587,7 +543,7 @@ new Map([
 **原始类型**名 → `SyntaxKind` 名。
 
 它在 TS 那边**不是** `TypeReference`（见 `tokens/type-define.xl.md` 的 `PrintDirectAst`）。
-这张表与 `KEYWORD_KIND` 有重叠，但**语义不同**：`KEYWORD_KIND` 管的是
+这张表与 `Keyword.KeywordKind()` 那一份词汇有重叠，但**语义不同**：那一份管的是
 「产物把它标成 `<Keyword>` 了」，这张表管的是「**在类型位上**该叫这个名字」——
 而产物在类型位把 `string` 标成的是 `<Identifier>`（实测 `x: string` 里 `string` 是 `Identifier`）。
 
@@ -2186,7 +2142,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
 
 运算符那一格的**叶子节点**（第 550 轮）。
 
-`Keyword` 那一态走现成的通用投影（`KEYWORD_KIND` 把它们映射成 `InKeyword` /
+`Keyword` 那一态走现成的通用投影（`Keyword.KeywordKind()` 把它们映射成 `InKeyword` /
 `InstanceOfKeyword`）；`Identifier` 那一态**必须按文本自己定 kind** ——
 照通用投影会投成 `Identifier("in")`，于是同一个节点在账上**同时**记一笔「缺 `InKeyword`」
 与一笔「多出 `Identifier`」。
@@ -6674,7 +6630,7 @@ return false;
     const operatorToken =
       opText === textOfNode(rest[0], ctx)
         ? projectNode(rest[0], ctx)
-        : { kind: tokenKind(opText), text: opText, pos: startOf(rest[0]), end: endOf(rest[0]) };
+        : { kind: SymbolToken.KindOfText(opText), text: opText, pos: startOf(rest[0]), end: endOf(rest[0]) };
     // **递归剥掉最左边那个 `left`**（第 168 轮）：展开式的左操作数**不只是那个左值**——
     // `a += b + c` 的产物是 `a = (a + b) + c`（token 层展开时把 `a` 埋进了内层），
     // 而 TS 要的是 `a += (b + c)`。原来只认「`right.left` 与 `left` 完全同区间」，
@@ -6746,7 +6702,7 @@ return false;
         const inner = {
           ...strippedTail,
           operatorToken: {
-            kind: tokenKind(innerText),
+            kind: SymbolToken.KindOfText(innerText),
             text: innerText,
             pos: startOf(rest[2]),
             end: endOf(rest[2]),
@@ -6771,7 +6727,7 @@ return false;
       coreOf(right).left !== undefined &&
       // 展开出来的那个运算符单元**沿用同一个区间**（`+=` 的 [2,4)），所以判据看 kind、不看区间。
       coreOf(right).operatorToken !== undefined &&
-      coreOf(right).operatorToken.kind === tokenKind(opText.slice(0, -1))
+      coreOf(right).operatorToken.kind === SymbolToken.KindOfText(opText.slice(0, -1))
     ) {
       const stripped = stripSelfThrough(right);
       if (stripped !== undefined) {
@@ -9571,8 +9527,11 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 那不是 token 层能做的事，所以实现留在 `projectString`、由 token 的 `PrintDirectAst` 转过来。
     Template: (view) => projectString(view, ctx),
     LeafKind: (text) => leafKindOfText(text),
-    KeywordKind: (text) => KEYWORD_KIND.get(text),
-    TokenKind: (text) => tokenKind(text),
+    // **按文本查词的两个出口第 1028 轮删掉了**（`KeywordKind` / `TokenKind`）：那两张词汇表
+    // 搬回了各自那一页（`Keyword.KeywordKind()` / `SymbolToken.KindOfText`，见本文件上面
+    // `LITERAL_TYPE_KEYWORDS` 前那一段记录），投影层不再有第二个按文本查词的地方，
+    // 所以这一层也拿不到它们——与 `Text` / `TextOf` / `StringText` 那三个出口同一手法：
+    // 能力面收窄之后，「大家记得别写」才变成**结构上做不到**。
     // **搬迁用的补充出口**（第 181 轮）：`case "X": return projectX(v, ctx)` 那 100 条要逐块
     // 搬进各 token 自己的 `PrintDirectAst(ctx, v)`，而那一层**不能 import 本文件**
     // （token 层反过来被本文件依赖，会成环）。所以这些横切的小工具只能经 `ctx` 递过去——

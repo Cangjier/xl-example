@@ -96,10 +96,14 @@ function headsOf(text, re) {
 /**
  * 回原文查的那四个出口。
  *
- * **为什么不把 `ctx.LeafKind` / `ctx.KeywordKind` / `ctx.TokenKind` 也算进来** ✗：
- * 它们是**纯分类器**（吃一个字符串、吐一个 kind），字符串从哪来才是问题——
+ * **为什么不把 `ctx.LeafKind` 也算进来** ✗：
+ * 它是**纯分类器**（吃一个字符串、吐一个 kind），字符串从哪来才是问题——
  * 从 `this.Value` / `this.TempToString()` / `ctx.ValueOf(...)` 来就不是回原文查。
  * 把函数名一律禁掉会把「照文本分叶子名」这条本来就该在 token 上的判据一起禁掉。
+ * **第 1028 轮之后这一类出口只剩 `ctx.LeafKind` 一个**：另外两个（`ctx.KeywordKind` /
+ * `ctx.TokenKind`）连同它们那两张按文本查的词汇表一起搬回了 `Keyword` / `SymbolToken`
+ * 各自那一页（`Keyword.KeywordKind()` / `SymbolToken.KindOfText`），出口本身已从 `ctx` 删掉
+ * ——所以这里也从三个名字收成一个。
  *
  * **第 1013 轮删掉的那一条**：原先是 `this.PrintAst(`（「不许把问题转手回去」），
  * 而 `PrintAst` 与它的派发分支已经整条删除——第三个出口只剩这一格，转手无路可走。

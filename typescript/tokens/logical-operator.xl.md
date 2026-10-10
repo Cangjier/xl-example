@@ -262,7 +262,7 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, [result]
     opIndex >= 0
       ? ctx.Project(kids[opIndex])
       : {
-          kind: ctx.TokenKind(typeof declaredOp === "string" ? declaredOp : "?"),
+          kind: SymbolToken.KindOfText(typeof declaredOp === "string" ? declaredOp : "?"),
           pos: v.start,
           end: v.start,
         };
