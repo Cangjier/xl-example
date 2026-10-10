@@ -588,6 +588,152 @@ return groups.filter((group) => group.length > 0);
   return callNode;
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 995 轮）：与上面的 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+
+**搬的是什么、留的是什么**：`PrintAst` 那一格里有**两处第二份近似**回原文里查位置——
+IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（`f()()`）里
+「外层的终点要往被调用者之后再走一格」。直出版不查原文：那一格就是
+`ParenAt`（`Process` 认下这次调用时**当场记的**实参表 `(` 的位置）之后的第一个 `(` 括号单元。
+
+**「第一个子单元与被调用者同名」也照直出版的规矩改**：`PrintAst` 里那句走的是
+`ctx.TextOf`，直出版换 `ctx.ValueOf`（只读那一格自己记的 `value`，不回原文兜底）——
+对「简单名 + 括号」两处是同一个答案。
+
+```ts
+  const kids = ctx.Kids(v);
+  const rawName = v.attrs.get("name");
+  const calleeText = typeof rawName === "string" ? rawName : "";
+  const calleeEnd = v.start + calleeText.length;
+  const ncos = kids.filter((k: any) => k.get("type") === "NullConditionalOperator");
+  const groupsToArguments = (rest: any[]) =>
+    Method.ArgumentGroups(ctx, rest)
+      .map((group: any) => (group.length === 0 ? undefined : ctx.Expression(group)))
+      .filter((a: any) => a !== undefined);
+  if (calleeText === "") {
+    const innerCall = kids.find((k: any) => k.get("type") === "Method");
+    // **外层那对括号不在树里**（IIFE / `f()()` 同一条）：终点往 `ParenAt` 之后再走一格。
+    const parenAt = this.ParenAt;
+    let end = ctx.StmtEndOf(v);
+    if (parenAt >= 0) {
+      const ownArgs = kids.find(
+        (k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "(" && ctx.StartOf(k) >= parenAt,
+      );
+      if (ownArgs !== undefined) end = Math.max(end, ctx.EndOf(ownArgs));
+    }
+    if (ncos.length === 0 && innerCall !== undefined && innerCall === kids[0]) {
+      const rest = kids.filter((k: any) => k !== innerCall && k.get("type") !== "GenericType");
+      return {
+        kind: "CallExpression",
+        expression: ctx.Expression([innerCall]),
+        arguments: groupsToArguments(rest),
+        pos: v.start,
+        end,
+      };
+    }
+    const brace = kids.find(
+      (k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "(",
+    );
+    if (ncos.length === 0 && brace !== undefined && brace === kids[0] && ctx.Kids(brace).length > 0) {
+      const rest = kids.filter((k: any) => k !== brace && k.get("type") !== "GenericType");
+      return {
+        kind: "CallExpression",
+        expression: ctx.ParenthesizedOf(brace),
+        arguments: groupsToArguments(rest),
+        pos: v.start,
+        end,
+      };
+    }
+  }
+  const anonymousCallee =
+    calleeText === "" ? kids.find((k: any) => k.get("type") === "NotNull") : undefined;
+  let flatKids = kids;
+  if (anonymousCallee !== undefined) {
+    const ownCall = kids.find(
+      (k: any) =>
+        k !== anonymousCallee &&
+        k.get("type") === "Bracket" &&
+        k.get("startBracket") === "(" &&
+        ctx.StartOf(k) >= ctx.EndOf(anonymousCallee),
+    );
+    if (ownCall !== undefined) {
+      const at = kids.indexOf(ownCall);
+      flatKids = kids.slice(0, at).concat(ctx.Kids(ownCall)).concat(kids.slice(at + 1));
+    }
+  }
+  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  const parenAfterCallee = this.ParenAt;
+  const typeArgumentGeneric =
+    generic !== undefined && parenAfterCallee >= 0 && ctx.StartOf(generic) < parenAfterCallee
+      ? generic
+      : undefined;
+  const args = flatKids.filter(
+    (k: any) =>
+      k !== anonymousCallee &&
+      k !== typeArgumentGeneric &&
+      (k.get("type") !== "Bracket" ||
+        (ctx.StartOf(k) >= calleeEnd && (ctx.Kids(k).length > 0 || (flatKids[0] !== k && anonymousCallee === undefined)))),
+  );
+  const calleeKid = kids.length > 0 ? kids[0] : undefined;
+  const calleeComesFirst =
+    calleeText === "" ||
+    (calleeKid !== undefined && ctx.ValueOf(calleeKid) === calleeText);
+  if (ncos.length > 0 && calleeComesFirst) {
+    const firstNco = kids.findIndex((k: any) => k.get("type") === "NullConditionalOperator");
+    const beforeNco = firstNco > 0 ? kids.slice(0, firstNco) : [];
+    let node =
+      beforeNco.length === 0
+        ? {
+            kind: ctx.LeafKind(calleeText),
+            text: calleeText,
+            pos: v.start,
+            end: v.start + calleeText.length,
+          }
+        : ctx.Expression(beforeNco);
+    for (const nco of ncos) node = ctx.ChainWithOptional(node, nco);
+    if (node !== undefined) return node;
+  }
+  const props: any = {
+    expression:
+      calleeText === "import"
+        ? { kind: "ImportKeyword", text: "import", pos: v.start, end: v.start + "import".length }
+        : anonymousCallee !== undefined
+          ? ctx.Project(anonymousCallee)
+          : { kind: ctx.LeafKind(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
+    arguments: groupsToArguments(args),
+    pos: v.start,
+    end: ctx.StmtEndOf(v),
+  };
+  if (typeArgumentGeneric !== undefined) {
+    const typeArguments = [];
+    for (const group of ctx.Split(ctx.Kids(typeArgumentGeneric), ",")) {
+      const one = ctx.TypeExpression(group);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  const trailingCall = kids.find(
+    (k: any) =>
+      k.get("type") === "Bracket" &&
+      k.get("startBracket") === "(" &&
+      ctx.StartOf(k) >= calleeEnd &&
+      ctx.Kids(k).length === 0,
+  );
+  const callNode = { kind: "CallExpression", ...props };
+  if (trailingCall !== undefined && callNode.end < ctx.EndOf(trailingCall)) {
+    return {
+      kind: "CallExpression",
+      expression: callNode,
+      arguments: [],
+      pos: callNode.pos,
+      end: ctx.EndOf(trailingCall),
+    };
+  }
+  return callNode;
+```
+
 ## field name:string = ""
 
 方法名。

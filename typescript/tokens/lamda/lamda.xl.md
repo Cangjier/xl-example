@@ -1007,6 +1007,78 @@ return new Map([["ArrowFunction", new Map([["GenericType", "typeParameters"], ["
   return ctx.NodeHead("ArrowFunction", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 995 轮）：与上面的 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+
+**唯一让开的一处**：`ArrowAt` 那一格是 `-1` 时（理论上不该有：它由重组那一刻当场记下），
+`PrintAst` 会**回原文里找** `=>`。那正是直出版不许有的第二份近似 ⇒ 直出版答 `undefined`，
+交回 `PrintAst` 走那一条（与基类「我没有直出版」同一个约定，只是让开的范围小到一格）。
+**其余全部直读字段**：箭头的两个字符宽度由「它占两个字符」这一事实给（不是回原文比一次），
+体的那对括号两端读 `BodyBrace` / `BodyBraceRange`。
+
+```ts
+  const props: any = ctx.Structural(v, "ArrowFunction");
+  const rawArrowAt = ctx.Attr(v, "arrowAt");
+  const arrowAt = typeof rawArrowAt === "number" ? rawArrowAt : -1;
+  // **位置不在这一格上**（字段缺）⇒ 交回 `PrintAst`（它回原文里找一次）。
+  if (!(arrowAt >= 0 && arrowAt < v.end)) {
+    return undefined;
+  }
+  props.equalsGreaterThanToken = {
+    kind: "EqualsGreaterThanToken",
+    text: "=>",
+    pos: arrowAt,
+    end: arrowAt + 2,
+  };
+  let braced = false;
+  let braceAt = -1;
+  let braceEnd = -1;
+  const rawBodyBrace = ctx.Attr(v, "bodyBraceAt");
+  if (typeof rawBodyBrace === "number" && rawBodyBrace >= 0) {
+    braced = true;
+    braceAt = rawBodyBrace;
+  }
+  const rawBodyBraceRange = ctx.Attr(v, "bodyBraceRange");
+  if (typeof rawBodyBraceRange === "string" && rawBodyBraceRange.includes(",")) {
+    const bodyBraceSpan = rawBodyBraceRange.split(",");
+    const spanEnd = Number(bodyBraceSpan[1]);
+    if (Number.isInteger(spanEnd)) {
+      braceEnd = spanEnd + 1;
+    }
+  }
+  const bodyUnits = ctx.KidsOf(v, "body");
+  const raw: any[] = [];
+  for (const unit of bodyUnits) {
+    if (unit.get("type") === "LamdaBody") {
+      for (const x of ctx.UnwrapNodes(unit)) raw.push(x);
+      continue;
+    }
+    raw.push(unit);
+  }
+  if (braced) {
+    props.body = {
+      kind: "Block",
+      statements: ctx.ProjectEach(raw, "Block"),
+      pos: braceAt,
+      end: braceEnd >= 0 ? braceEnd : ctx.EndOf(v),
+    };
+  } else {
+    const flat: any[] = [];
+    for (const k of raw) {
+      if (k.get("type") === "Statement") {
+        for (const x of ctx.UnwrapNodes(k)) flat.push(x);
+        continue;
+      }
+      flat.push(k);
+    }
+    const projected = ctx.Expression(flat);
+    if (projected !== undefined) props.body = projected;
+  }
+  return ctx.NodeHead("ArrowFunction", props, v);
+```
+
 ## field IsAsync:bool = false
 
 这个 lambda 前面是不是有 `async`。纯数据字段，没有访问器。
