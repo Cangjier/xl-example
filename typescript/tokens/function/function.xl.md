@@ -364,7 +364,8 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} range="${this.RangeOf()}" name="${this.name}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
+ const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
+return `<${name} range="${this.RangeOf()}" name="${this.name}" modifiers="${this.modifiers}"${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

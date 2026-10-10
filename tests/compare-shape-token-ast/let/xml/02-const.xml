@@ -1,1 +1,1 @@
-<Root range="[0,10]"><Statement range="[0,10]"><Let range="[0,6]" fieldName="x" modifiers="const" /><SymbolToken range="[8,8]">=</SymbolToken><Identifier range="[10,10]">1</Identifier></Statement></Root>
+<Root range="[0,10]"><Statement range="[0,10]"><Let range="[0,6]" fieldName="x" modifiers="const" nameStart="6" nameEnd="6" modifierSpans="0:4" /><SymbolToken range="[8,8]">=</SymbolToken><Identifier range="[10,10]">1</Identifier></Statement></Root>

@@ -292,9 +292,13 @@ throw new Error("找不到匹配的子单元");
 
 ## method ToXmlString:()=>string
 
-产出 XML：`<Enum name="名字" modifiers="修饰词">子单元的 XML 串接</Enum>`。
+产出 XML：`<Enum name="名字" modifiers="修饰词" nameStart=… nameEnd=…>子单元的 XML 串接</Enum>`。
 
 子单元的顺序是「装饰器（若有）→ 名字 → `EnumBody`」。
+
+**`nameStart` / `nameEnd` 也印**（第 987 轮五）：与 `Class` 同款 —— 名字与它的区间装在一个
+`TokenField` 里（见 `name` 那一格），XML 从前只印了值那一半。投影合名字节点时直读这两个下标，
+不再回原文 `indexOf` 猜。匿名（不可能有）时 `Range` 为 null ⇒ 两个属性都不写。
 
 ```ts
 const name = this.constructor.name;
@@ -302,7 +306,13 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" modifiers="${this.modifiers.Text()}">${temp.join("")}</${name}>`;
+const nameRange = this.name.Range;
+let nameSpan = "";
+if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
+  nameSpan = ` nameStart="${nameRange.Start.Index}" nameEnd="${nameRange.End.Index}"`;
+}
+ const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
+return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" modifiers="${this.modifiers.Text()}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

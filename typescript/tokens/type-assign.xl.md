@@ -313,9 +313,14 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 
 ## method ToXmlString:()=>string
 
-产出 XML：开标签上带 `alias` 与 `modifiers` 两个属性，内容是类型参数、`=` 与右端的 XML。
+产出 XML：开标签上带 `alias` / `modifiers` / 别名的两个下标 / 修饰词的位置，内容是类型参数、`=` 与右端的 XML。
 
 与 `Field` / `Interface` 同一口径：名字进属性、不进子单元，属性值过一遍 `CommonUtil.XmlDecode`。
+
+**第 987 轮五补齐三处**（`nameStart` / `nameEnd` / `modifierSpans`）：这三个键 `ToDictionary`
+一直在写、投影也一直在读（注释就写着「投影直读，不再回原文 `indexOf` 猜」），而 XML 从前没印。
+条件与 JSON 那侧**逐字相同**：两个下标无条件写，`modifierSpans` 只在非空时写
+——两级出口对同一件事给出同一套键，`cases:astjson` 那一门才核得动。
 
 ```ts
 const name = this.constructor.name;
@@ -323,7 +328,8 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} range="${this.RangeOf()}" alias="${CommonUtil.XmlDecode(this.alias)}" modifiers="${CommonUtil.XmlDecode(this.modifiers)}">${temp.join("")}</${name}>`;
+const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${CommonUtil.XmlDecode(this.ModifierSpans)}"`;
+return `<${name} range="${this.RangeOf()}" alias="${CommonUtil.XmlDecode(this.alias)}" modifiers="${CommonUtil.XmlDecode(this.modifiers)}" nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

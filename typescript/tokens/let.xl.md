@@ -132,7 +132,7 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 ## method ToXmlString:()=>string
 
-产出 XML：自闭合标签，属性名由 `LetType` 决定，另带 `modifiers`。
+产出 XML：自闭合标签，属性名由 `LetType` 决定，另带 `modifiers`、名字的两个下标与修饰词的位置。
 
 三种形态各拼一个自闭合标签：属性名分别是 `fieldName` / `arrayPattern` / `objectPattern`，标签名都是运行时类型名；三种形态都带上 `modifiers`（`export declare const` 这样的修饰词串）。
 
@@ -140,10 +140,19 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 三个 `if` 加末尾抛错，属性值用 `Array.join(",")` 拼出来。
 
+**第 987 轮五补齐 `nameStart` / `nameEnd` / `modifierSpans`**：这三个键 `ToDictionary` 一直在写、
+投影也一直在读（`let.xl.md` 第 102 行那条注释就写着「投影合名字节点时只知道 `fieldName` 这个字符串，
+位置要回原文 `indexOf(fieldName)` 猜」——它就是为此才加上 `NameStart` / `NameEnd` 的），
+而 XML 从前没印。条件**逐字照抄** JSON 那侧：两个下标三种形态都写（解构形态给 `-1`），
+`modifierSpans` 只在非空时写。
+
 ```ts
 const name = this.constructor.name;
+// 名字的两个下标三种形态都印（解构形态给 -1）——与 ToDictionary 那两行逐字同源。
+const nameSpan = ` nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"`;
+const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
 if (this.LetType === LetType.Field) {
-  return `<${name} range="${this.RangeOf()}" fieldName="${this.fieldName}" modifiers="${this.modifiers}" />`;
+  return `<${name} range="${this.RangeOf()}" fieldName="${this.fieldName}" modifiers="${this.modifiers}"${nameSpan}${spans} />`;
 }
 // **解构模式带子单元**（第 66 轮第八批）：模式括号与里面的单元现在留在树上
 // （`binding-element.xl.md` 会把每个元素收成 `<BindingElement>`），所以这两种形态
@@ -151,10 +160,10 @@ if (this.LetType === LetType.Field) {
 // （给人读的递归收集结果），节点里的结构才是权威。
 const children = this.Data.map((item) => item.ToXmlString()).join("");
 if (this.LetType === LetType.Array) {
-  return `<${name} range="${this.RangeOf()}" arrayPattern="${this.arrayPattern.join(",")}" modifiers="${this.modifiers}">${children}</${name}>`;
+  return `<${name} range="${this.RangeOf()}" arrayPattern="${this.arrayPattern.join(",")}" modifiers="${this.modifiers}"${nameSpan}${spans}>${children}</${name}>`;
 }
 if (this.LetType === LetType.Object) {
-  return `<${name} range="${this.RangeOf()}" objectPattern="${this.objectPattern.join(",")}" modifiers="${this.modifiers}">${children}</${name}>`;
+  return `<${name} range="${this.RangeOf()}" objectPattern="${this.objectPattern.join(",")}" modifiers="${this.modifiers}"${nameSpan}${spans}>${children}</${name}>`;
 }
 throw new Error("形态不成立");
 ```

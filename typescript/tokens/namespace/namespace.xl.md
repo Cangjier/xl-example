@@ -495,10 +495,15 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 ## method ToXmlString:()=>string
 
-产出 XML：开标签上带 `namespace` / `modifiers`，内容是子单元（主要是 `NamespaceBody`）的 XML。
+产出 XML：开标签上带 `namespace` / `modifiers` 与名字的三格位置、修饰词的位置，内容是子单元（主要是 `NamespaceBody`）的 XML。
 
 属性值必须过 `CommonUtil.XmlDecode`——名字是源码里的原文，可能带 `<` 之类的字符；基类版本只拼子单元，
 不覆写的话 `namespace` 根本进不了产物。
+
+**第 987 轮五补齐四处**（`nameAt` / `nameEnd` / `nameRange` / `modifierSpans`）：
+这几个键 `ToDictionary` 一直在写、投影也一直在读（`synthName` 按 `nameRange` 推文本区间），
+而 XML 从前没印。条件**逐字照抄** JSON 那侧（`NameAt >= 0 && NameEnd >= NameAt`；
+`modifierSpans` 只在非空时写）——同一件事在两处各写一个条件就是两份口径。
 
 ```ts
 const name = this.constructor.name;
@@ -506,7 +511,12 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} range="${this.RangeOf()}" namespace="${CommonUtil.XmlDecode(this.namespace)}" modifiers="${CommonUtil.XmlDecode(this.modifiers)}">${temp.join("")}</${name}>`;
+let nameSpan = "";
+if (this.NameAt >= 0 && this.NameEnd >= this.NameAt) {
+  nameSpan = ` nameAt="${this.NameAt}" nameEnd="${this.NameEnd}" nameRange="${this.NameAt},${this.NameEnd}"`;
+}
+const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${CommonUtil.XmlDecode(this.ModifierSpans)}"`;
+return `<${name} range="${this.RangeOf()}" namespace="${CommonUtil.XmlDecode(this.namespace)}" modifiers="${CommonUtil.XmlDecode(this.modifiers)}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

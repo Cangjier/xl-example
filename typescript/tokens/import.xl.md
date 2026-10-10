@@ -657,7 +657,8 @@ for (const item of this.Data) {
 }
 const from = this.From === null ? "" : CommonUtil.XmlDecode(this.From);
 const isTypeOnly = this.typeOnly ? "true" : "false";
-return `<${name} range="${this.RangeOf()}" From="${from}" typeOnly="${isTypeOnly}" defaultImport="${this.defaultImport}" namespace="${this.namespace}" imported="${this.imported.join(",")}">${body}</${name}>`;
+ const typeWord = this.TypeWordAt < 0 ? "" : ` typeWordAt="${this.TypeWordAt}"`;
+return `<${name} range="${this.RangeOf()}" From="${from}" typeOnly="${isTypeOnly}" defaultImport="${this.defaultImport}" namespace="${this.namespace}" imported="${this.imported.join(",")}"${typeWord}>${body}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

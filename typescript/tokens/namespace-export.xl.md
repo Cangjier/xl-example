@@ -130,15 +130,23 @@ return ReplaceCountAt(units, index, nameIndex - index + 1, result);
 
 ## method ToXmlString:()=>string
 
-产出**自闭合**标签：`<NamespaceExport name="Foo" />`。
+产出**自闭合**标签：`<NamespaceExport name="Foo" nameStart=… nameEnd=… />`。
 
 自闭合与 `Label` / `Let` / `LineWrap` 同款：内容全进了属性，没有子单元。
 
 属性值过一遍 `CommonUtil.XmlDecode`（与 `Import` / `Export` 的 `From` 同一口径）。
 
+**`nameStart` / `nameEnd` 也印**（第 987 轮五）：`ToDictionary` 一直在写这两个键、投影也一直在读
+（「投影直读，不再回原文 `indexOf` 猜」），而 XML 从前没印。条件是**逐字照抄** JSON 那侧的那一条
+（`NameStart >= 0 && NameEnd >= NameStart`）——两处各写一个条件就是两份口径。
+
 ```ts
 const name = this.constructor.name;
-return `<${name} range="${this.RangeOf()}" name="${CommonUtil.XmlDecode(this.name)}" />`;
+const nameSpan =
+  this.NameStart >= 0 && this.NameEnd >= this.NameStart
+    ? ` nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"`
+    : "";
+return `<${name} range="${this.RangeOf()}" name="${CommonUtil.XmlDecode(this.name)}"${nameSpan} />`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

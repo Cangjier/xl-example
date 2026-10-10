@@ -404,7 +404,7 @@ throw new Error("找不到匹配的子单元");
 
 ## method ToXmlString:()=>string
 
-产出 XML：开标签上带 `name` / `extends` / `export` 三个属性。
+产出 XML：开标签上带 `name` / `extends` / `export` / `modifiers` 与名字的两个下标。
 
 `Interface` 覆写了 `ToXmlString`，把三个声明字段渲染进产物——
 基类版本只拼子单元，`name` / `extends` / `export`
@@ -414,13 +414,24 @@ throw new Error("找不到匹配的子单元");
 属性的拼法与 `Class` 对仗（`extends` 用 `join(",")`，与 `Let` 的两组解构名同款），
 布尔属性由模板插值直接落成 `true` / `false`。
 
+**第 987 轮五补齐两处**：`modifiers` 与 `nameStart` / `nameEnd`。
+后者与 `Class` 同款（名字与区间装在一个 `TokenField` 里，XML 从前只印了值那一半）；
+前者是 `ToDictionary` 一直在写、XML 却漏了的那个键——**两级出口的键名表必须一样**。
+
 ```ts
 const name = this.constructor.name;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="${this.extends.Text()}" export="${this.export.Text()}">${temp.join("")}</${name}>`;
+const nameRange = this.name.Range;
+let nameSpan = "";
+if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
+  nameSpan = ` nameStart="${nameRange.Start.Index}" nameEnd="${nameRange.End.Index}"`;
+}
+// 修饰词各自的位置（见 `ModifierSpans`）：与 `ToDictionary` 那条同名同条件（非空才写）。
+const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
+return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="${this.extends.Text()}" export="${this.export.Text()}" modifiers="${this.modifiers}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

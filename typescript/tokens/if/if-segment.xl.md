@@ -226,11 +226,16 @@ return this.Add(new IfStatement(this.Template));
 
 ## method ToXmlString:()=>string
 
-产出 XML：`<IfSegment key="关键字">子单元的 XML</IfSegment>`。
+产出 XML：`<IfSegment key="关键字" …>子单元的 XML</IfSegment>`。
 
 标签名取 `this.constructor.name`，子单元逐个 `ToXmlString()` 后拼在一起，关键字作为 `key` 属性**原样**写进标签，不做转义。
 
 **这一处直接决定 XML 产物**：属性名是 `key`（大写 K），属性值两侧是双引号，且子单元之间**没有任何分隔符**——与 `Bracket` 那种 `startBracket="…"` 的写法同款。
+
+**第 987 轮五补齐四处**（`ifWordAt` / `bodyBraceAt` / `emptyBodyAt` / `bodyBraceRange`）：
+`ToDictionary` 一直在写这四个键、投影也一直在读（注释就写着「投影画空 `Block` 时直读，
+不再回原文重扫」），而 XML 从前没印。条件**逐字照抄** JSON 那侧：前三个各自 `>= 0` 才写，
+`bodyBraceRange` 只在非空串时写。
 
 ```ts
 const name = this.constructor.name;
@@ -238,7 +243,13 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} range="${this.RangeOf()}" key="${this.key}">${temp.join("")}</${name}>`;
+// 四个位置键：与 ToDictionary 那四条同名同条件（`-1` 是「没有」，不写进产物）。
+const ifWord = this.IfWordAt >= 0 ? ` ifWordAt="${this.IfWordAt}"` : "";
+const bodyBrace = this.BodyBraceAt >= 0 ? ` bodyBraceAt="${this.BodyBraceAt}"` : "";
+const emptyBody = this.EmptyBodyAt >= 0 ? ` emptyBodyAt="${this.EmptyBodyAt}"` : "";
+const braceText = this.BraceRangeText();
+const braceRange = braceText === "" ? "" : ` bodyBraceRange="${braceText}"`;
+return `<${name} range="${this.RangeOf()}" key="${this.key}"${ifWord}${bodyBrace}${emptyBody}${braceRange}>${temp.join("")}</${name}>`;
 ```
 
 ## field BodyBraceAt:int = -1

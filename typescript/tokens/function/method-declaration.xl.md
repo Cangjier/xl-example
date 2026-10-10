@@ -1056,10 +1056,14 @@ throw new Error("找不到匹配的子单元");
 
 ## method ToXmlString:()=>string
 
-产出 XML：开标签上带 `name` 与 `modifiers` 两个属性。
+产出 XML：开标签上带 `name`、`modifiers` 与名字的两个下标（`nameStart` / `nameEnd`）。
 
 与 `Method` 的 `<Method name="x">` 只在标签名与多出来的 `modifiers` 上不同——
 调用点是 `Method`，声明点是 `MethodDeclaration`，两者靠标签名区分。
+
+**`nameStart` / `nameEnd`**（第 987 轮五）：`ToDictionary` 一直在写这两个键、投影也一直在读它们
+（「有这对字段就不做任何猜测」，见 `print-ast-common.xl.md` 的 `synthName`），
+而 XML 从前没印——**两级出口的键名表必须一样**，这里补齐。
 
 ```ts
 const name = this.constructor.name;
@@ -1067,7 +1071,8 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} range="${this.RangeOf()}" name="${this.name}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
+ const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
+return `<${name} range="${this.RangeOf()}" name="${this.name}" modifiers="${this.modifiers}" nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

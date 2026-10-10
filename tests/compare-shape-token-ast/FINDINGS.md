@@ -236,6 +236,37 @@ token 层只能记「文本上可知的事实」，把 AST 形状搬下去等于
 `class` 这一格的试点已经做完并过门：出口 1 现在印 `nameStart="22" nameEnd="22"`（对 TS 的
 `Identifier [22,23)`），**出口 3 一个字节没变**，九道门全绿。
 
+### 4d-2 第 987 轮（五）：「两个出口的键名表必须一样」——账本清空
+
+按用户口径（「2. `toxmlstring` 也要把属性打印齐全」）做了一次全仓对账（生成器 `tmp/pa-keys.mjs`：
+逐 token 比 **JSON 的键** 与 **XML 开标签的属性**）。改之前 **20 个文件有差**，改完只剩 4 处
+`value`（**误报**：叶子节点的 `value` 就是元素文本本身，XML 用「标签里的文本」表达、TS 用 `text` 键，
+本来就不该是属性）。
+
+本轮补齐的（条件**逐字照抄各自的 `ToDictionary`**，取值用同一个字段——两处各写一个条件就是两份口径）：
+
+| 格子 | 补的属性 |
+| --- | --- |
+| `enum` / `interface` | `nameStart` / `nameEnd`（与 `Class` 同款） |
+| `class` / `enum` / `function` / `interface` / `method-declaration` | `modifierSpans` |
+| `method-declaration` / `type-assign` / `namespace-export` | `nameStart` / `nameEnd` |
+| `type-assign` | `modifierSpans` |
+| `let` | `nameStart` / `nameEnd` / `modifierSpans`（**投影合名字节点的样板，自己却没印**） |
+| `field` | `nameStart` / `nameEnd` / `nameAt` / `nameRange` / `modifierSpans` |
+| `namespace` | `nameAt` / `nameEnd` / `nameRange` / `modifierSpans` |
+| `if-segment` | `ifWordAt` / `bodyBraceAt` / `emptyBodyAt` / `bodyBraceRange` |
+| `switch-segment` | `colonPos` |
+| `import` | `typeWordAt` |
+
+`cases:astjson` 那一门顺带给出读数：**「JSON 比 XML 多出来的键」从 37 种降到 34 种**，
+六项全 0。**没有一条投影代码要改**——它读的本来就是那对属性（`v.attrs.get("nameStart")`），
+此前只是 XML 那一半没印。
+
+**踩到的一处**：`Interface.modifiers` 是**纯字符串字段**（`## field modifiers:string`），
+不是 `TokenField`——照 `Class` 抄成 `this.modifiers.Text()` 会当场抛
+（`cases:astjson` 报 153 处 `this.modifiers.Text is not a function`）。
+**同一个名字（`name` / `modifiers`）在不同 token 上可以是两种类型**，抄之前要看那格的字段声明。
+
 ## 5. 订正：我先前记错的两处
 
 1. **「`ArrayLiteral` 多一个 `Bracket` 节点」——错。** 对齐视图与闭/半开区间一比就露了：

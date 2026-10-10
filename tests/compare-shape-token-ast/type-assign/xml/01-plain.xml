@@ -1,1 +1,1 @@
-<Root range="[0,9]"><Statement range="[0,9]"><TypeAssign range="[0,9]" alias="T" modifiers=""><SymbolToken range="[7,7]">=</SymbolToken><Identifier range="[9,9]">A</Identifier></TypeAssign></Statement></Root>
+<Root range="[0,9]"><Statement range="[0,9]"><TypeAssign range="[0,9]" alias="T" modifiers="" nameStart="5" nameEnd="5"><SymbolToken range="[7,7]">=</SymbolToken><Identifier range="[9,9]">A</Identifier></TypeAssign></Statement></Root>

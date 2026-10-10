@@ -883,7 +883,13 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 ## method ToXmlString:()=>string
 
-产出 XML：开标签上带 `fieldName` 与 `modifiers` 两个属性，内容是「类型标注 + 初始值」的 XML。
+产出 XML：开标签上带 `name` / `modifiers`，以及名字的三种位置表示与修饰词的位置，内容是「类型标注 + 初始值」的 XML。
+
+**第 987 轮五补齐五处**（`nameStart` / `nameEnd` / `nameAt` / `nameRange` / `modifierSpans`）：
+这几个键 `ToDictionary` 一直在写、投影也一直在读（「投影直读，不再回原文 `indexOf` 猜」），
+而 XML 从前没印。条件**逐字照抄** JSON 那侧：两个下标无条件写、
+`nameAt` / `nameRange` 在 `NameAt.IsSet` 里写、`modifierSpans` 只在非空时写
+——**同一件事在两处各写一个条件就是两份口径**，所以这里连局部量的取法都照着那份走。
 
 ```ts
 const name = this.constructor.name;
@@ -891,7 +897,17 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} range="${this.RangeOf()}" name="${this.fieldName}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
+// 名字那一格的整段区间（见 `NameAt`）：与 `ToDictionary` 的 nameAt / nameRange 同一套条件。
+let atSpan = "";
+if (this.NameAt.IsSet) {
+  atSpan = ` nameAt="${this.NameAt.File()}"`;
+  const nameRange = this.NameAt.Range;
+  if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
+    atSpan = atSpan + ` nameRange="${nameRange.Start.Index},${nameRange.End.Index}"`;
+  }
+}
+const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
+return `<${name} range="${this.RangeOf()}" name="${this.fieldName}" modifiers="${this.modifiers}" nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"${atSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

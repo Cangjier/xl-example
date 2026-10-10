@@ -82,10 +82,14 @@ return null;
 
 ## method ToXmlString:()=>string
 
-产出 XML：`<SwitchSegment key="case">子单元的 XML</SwitchSegment>`。
+产出 XML：`<SwitchSegment key="case" colonPos="…">子单元的 XML</SwitchSegment>`。
 
 与 `IfSegment.ToXmlString` 同款（只差类名）：标签名取 `this.constructor.name`，
 属性名是 `key`，属性值不转义，子单元之间没有任何分隔符。
+
+**`colonPos` 也印**（第 987 轮五）：`ToDictionary` 一直在写它、投影也一直在读
+（注释写着「投影直读，不再回原文 `lastIndexOf` 猜」），而 XML 从前没印——
+**两级出口的键名表必须一样**。
 
 ```ts
 const name = this.constructor.name;
@@ -93,7 +97,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} range="${this.RangeOf()}" key="${this.key}">${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}" key="${this.key}" colonPos="${this.ColonPos}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>

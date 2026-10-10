@@ -646,7 +646,8 @@ let nameSpan = "";
 if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
   nameSpan = ` nameStart="${nameRange.Start.Index}" nameEnd="${nameRange.End.Index}"`;
 }
-return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="${this.extends.Text()}" implements="${this.implements.Text()}" modifiers="${this.modifiers.Text()}"${nameSpan}>${temp.join("")}</${name}>`;
+ const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
+return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="${this.extends.Text()}" implements="${this.implements.Text()}" modifiers="${this.modifiers.Text()}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>
