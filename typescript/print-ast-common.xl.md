@@ -4864,14 +4864,21 @@ return false;
 `kids[0]` 单独投出去、后面那半段丢。所以链那一支要认的不只是「第二格是个点号/下标」，
 还要认「第二格**以一次调用开头**」。
 
-**判据只往里看一层、且只认 `PropertyAccess` / `NotNull` 外壳**：
+**判据只往里看一层、且只认 `PropertyAccess` / `NotNull` / `Method` 外壳**：
 裸的 `(` 括号兄弟（`f()()` 那一种）**不在这里**——它的归属由 `projectExpression`
 末尾那条「调用链的末尾那一格是 `(` 括号」（3b）管，放开会换掉既有形状。
+
+**`Method` 也算一格**（第 962 轮）：`o!()()` 的产物是
+`[NotNull(o!), Method name=""[Bracket( () )]]`——第二格**本身就是那次调用**
+（名字为空 ⇒ 它要说的正是「把左边那个值再调一次」）。这一档原来进不了链那一支
+（入口判据答 `false` ⇒ 链那个循环在 `break` 上停住、**整格消失**，实测只剩一个
+`NonNullExpression`、两个 `CallExpression` 都不成形）。**裸的 `(` 兄弟仍然不在名单里**，
+理由与上面那一句一字不差。
 
 ```ts
 if (unit === undefined || unit === null) return false;
 const kind = unit.get("type");
-if (kind === "PropertyAccess" || kind === "NotNull") {
+if (kind === "PropertyAccess" || kind === "NotNull" || kind === "Method") {
   const inner = projectableKids(view(unit));
   if (inner.length >= 1) {
     const head = inner[0];
@@ -5145,14 +5152,39 @@ return false;
   // 把整个 `[…]` 括号投成一个节点（未映射的 `<Bracket>`），于是 TS 那边
   // `ElementAccessExpression` 有了、却凭空多出一个 `Bracket`。
   if (first !== undefined && first.get("type") === "Bracket" && first.get("startBracket") === "[") {
+    // **这一格后面还跟着兄弟时，下标只是链上的一格**（第 962 轮）：`o?.['m']()` 的 NCO 里
+    // **两个括号装在同一格**（`NCO[Bracket([), Bracket(())]`）——原来这里无条件把整格 NCO
+    // 当成一个下标（`end: endOf(unit)` 一路盖到 `()` 后面）就返回，
+    // 于是那次调用整格丢掉、`ElementAccessExpression` 的区间也漂（实测缺一个
+    // `CallExpression`、`ElementAccessExpression` 漂 2）。
+    // 修法与 `chainOnto` 的续格循环同款：**把剩下的兄弟交给它**——那里面
+    // 「紧跟一对圆括号 ⇒ 对左边那个结果再调用一次」正是这一档要的。
+    const more = kids.length > 1;
     const element = {
       kind: "ElementAccessExpression",
       expression: left,
       argumentExpression: projectExpression(projectableKids(view(first)), ctx),
       pos: left.pos,
-      end: endOf(unit),
+      end: more ? endOf(first) : endOf(unit),
     };
     if (questionDot !== undefined) element.questionDotToken = questionDot;
+    if (more) {
+      // **剩下的兄弟里那些「以一次调用开头」的单元要先摊开**（第 962 轮）：
+      // `o?.['m']().v` 的第二格是 `PropertyAccess([Bracket(()), ., v])`——
+      // 调用与它后面的后缀一起装在一个外壳里（第 692 轮那条口径）。
+      // 不摊开的话 `chainOnto` 的循环在它上面既不是点号也不是括号 ⇒ `break` ⇒ **整段丢**
+      //（实测缺 `CallExpression` / `PropertyAccessExpression` / `Identifier` 三个）。
+      // 摊开之后与 `projectExpression` 链那一支里那一份**是同一件事**。
+      const rest: Array<any> = [];
+      for (const unit of kids.slice(1)) {
+        if (isCallFirstUnit(unit, ctx)) {
+          for (const inner of projectableKids(view(unit))) rest.push(inner);
+          continue;
+        }
+        rest.push(unit);
+      }
+      return chainOnto(element, rest, ctx);
+    }
     return element;
   }
   // **`a?.b!`：`!` 落在 NCO **里面**、语义上却套在整条链**外面**（第 166 轮）：

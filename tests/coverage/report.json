@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.61,
+  "progressPercent": 95.67,
   "categories": [
     {
       "category": "token",
@@ -91,21 +91,21 @@
       "category": "exec",
       "weight": 0.25,
       "total": 792,
-      "pass": 755,
+      "pass": 756,
       "blocked": 7,
-      "differ": 30,
+      "differ": 29,
       "nodefail": 0,
-      "coverage": 95.33
+      "coverage": 95.45
     },
     {
       "category": "runtime",
       "weight": 0.25,
       "total": 776,
-      "pass": 735,
+      "pass": 736,
       "blocked": 4,
-      "differ": 37,
+      "differ": 36,
       "nodefail": 0,
-      "coverage": 94.72
+      "coverage": 94.85
     },
     {
       "category": "stdlib",
@@ -458,12 +458,6 @@
       "detail": "stdout 不同：第 2 行：node «c:r» vs tsrun «h inner string»"
     },
     {
-      "id": "exec/round741/002-optional-index-then-call-differ",
-      "category": "exec",
-      "title": "`?.` 后面紧跟下标那一格：整条链落回「按成员名折属性访问」（账）",
-      "detail": "stdout 不同：第 1 行：node «1 1» vs tsrun «[Function: m] 1»"
-    },
-    {
       "id": "exec/statements/085-block-function-hoisting-differ",
       "category": "exec",
       "title": "块里的函数声明在松散模式下的提升（账）",
@@ -516,12 +510,6 @@
       "category": "runtime",
       "title": "手动迭代：`next()` 的 `this` 与取出方法再调用",
       "detail": "stdout 不同：第 2 行：node «2» vs tsrun «1,2»"
-    },
-    {
-      "id": "runtime/round741/002-optional-index-then-call-differ",
-      "category": "runtime",
-      "title": "`?.[]` 之后的调用与再取成员",
-      "detail": "stdout 不同：第 1 行：node «{ v: 2 } 2» vs tsrun «[Function: m] [Function: m]»"
     },
     {
       "id": "runtime/round741/003-optional-call-after-member-chain-differ",
