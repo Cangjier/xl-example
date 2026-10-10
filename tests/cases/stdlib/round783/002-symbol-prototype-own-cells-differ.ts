@@ -2,23 +2,30 @@
 // xl:round 783
 // xl:judge stdout
 // xl:want differ
-// xl:why 第 783 轮量到的：`Object.getOwnPropertyNames(Symbol.prototype)` 本仓给**空表**——
-// xl:why `constructor` / `toString` / `valueOf` 三格都**不是自有的**（是继承来的、
-// xl:why 还是从 `Object.prototype` 那一链上读到的），而 JS 给
-// xl:why `constructor,toString,valueOf,description` 四格。四个出口同一个根：
-// xl:why ① `hasOwnProperty(Symbol.prototype,"toString")` 本仓给假；
-// xl:why ② `Symbol.prototype.toString.call(Symbol("q"))` 打的是
-// xl:why `[object Symbol]`（走的是 `Object.prototype.toString`）而不是 `Symbol(q)`；
-// xl:why ③ `Symbol.prototype[Symbol.toStringTag]` 本仓给 `undefined`、JS 给 `"Symbol"`；
-// xl:why ④ `Symbol.prototype.description` 那一格**不存在**（`"description" in …` 给假）——
-// xl:why 而 `Symbol("s").description` **读得到**（那一格本仓挂在符号值自己身上，
-// xl:why 第 777 轮 `r777b-01` 量的是「下标读」那一半，且只差一格）。
-// xl:why 所以这一条把「**值上读得到**」与「**原型上有没有**」两件事分开量：
-// xl:why 前者已经对了、不许被这一趟带坏；后者才是缺的那一半。
-// xl:why **不许被带偏的那一半**：`Symbol.prototype` 这个对象自己**在**、
-// xl:why `typeof Symbol.prototype` 是 `"object"`、`Object.getPrototypeOf(Symbol.prototype)`
-// xl:why 是 `Object.prototype`、`Symbol("s").description` 与 `Symbol().description`
-// xl:why 两档的**值**要照旧对。
+// xl:why **第 935 轮（二）收掉了四格里的三格**：`constructor` / `toString` / `description`
+// xl:why 与 `Symbol.prototype[Symbol.toStringTag] = "Symbol"` 都挂上了
+// xl:why （写法与 `Object.prototype` / `Error.prototype` 那几族逐字相同）。
+// xl:why 于是本文件 19 档里 **17 档转绿**：自有名表、
+// xl:why 两者 `hasOwnProperty`、`description in` / `isOwn` / 描述符、
+// xl:why `Symbol.prototype.toString.call(sym)` 给 `Symbol(q)`、
+// xl:why `...toString.call(5)` 抛 `TypeError`、`toStringTag`、原型链、`typeof`。
+// xl:why **还差的两格是 `valueOf`**（第 01 / 02 / 04 三行）：
+// xl:why `valueOf` 那一格本轮试过整条线（号 `SymbolValueOf = 255`、并进能力表名单、
+// xl:why 挂上原型），而**实测它走不到建库分派那一层**——能力号造对了
+// xl:why（`RegisterCapability(255, …)` 成功、`BuiltinHostRef(255)` 读回的就是它），
+// xl:why 可 `Symbol.prototype.valueOf.call(1)` 一路只留下
+// xl:why `340`（`FunctionCall`）→ `220`（`StringCtor`）→ `301`（`ConsoleLog`）三个号，
+// xl:why **255 一次都没到 `InvokeGlobal`**（不是漏登记：漏登记会抛
+// xl:why `capability is not registered: 255`，而它一声不响地给 `undefined`）。
+// xl:why **所以那一格先撤掉**，于是它落回**继承来的** `Object.prototype.valueOf`——
+// xl:why 而 `valueOf` 对符号接收者**本来就该原样交回**，所以第 12 行现在是对的
+// xl:why（`Symbol.prototype.valueOf.call(Symbol("q"))` 给 `Symbol(q)`）；
+// xl:why 差的只是「它不是自有的」这一格（第 04 行）与它带出来的 `own count`（第 02 行）。
+// xl:why **下一轮的入口就写在这里**：255 号为什么到不了 `InvokeGlobal`。
+// xl:why **不许被带偏的那一半**（本轮实测全对、留在文件里当守卫）：
+// xl:why `Symbol.prototype` 这个对象自己在、`typeof` 是 `"object"`、
+// xl:why `Object.getPrototypeOf(Symbol.prototype)` 是 `Object.prototype`、
+// xl:why `Symbol("s").description` 与 `Symbol().description` 两档的**值**照旧对。
 // xl:end
 
 const names = Object.getOwnPropertyNames(Symbol.prototype).sort();

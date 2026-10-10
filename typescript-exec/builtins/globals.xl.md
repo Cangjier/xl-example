@@ -2078,6 +2078,7 @@ JS 的口径就是**返回它自己**，所以这一支也只做「把 `self` �
 **判据 `symbol-registry` 量的就是它**（那一句是 `a.toString() === c.toString()`，
 第 273 轮普查收进来的）。
 
+
 # const ClockNow:int = 260
 
 **`Date.now()` 的能力号——它是一个「必须由宿主回答」的号。**
@@ -3280,6 +3281,9 @@ if (id === SymbolToString) {
   // 所以判据还是**句柄是不是 `0`**，不是「串长不长」（与上面那一支一字不差）。
   // **不是符号就抛**：这一格**只**由上面那条特判交出来，真走到别处说明接线错了
   //（静默给一个 `"Symbol()"` 会让 `(1).toString()` 变成一个看不出问题的答案）。
+  // **原型方法那一半实测也要抛**：第 935 轮把这一格挂上 `Symbol.prototype` 之后，
+  // `Symbol.prototype.toString.call(5)` 走的也是这里——Node 同样抛 `TypeError`
+  //（判据 `round783/002` 第 15 档）。
   if (self.Tag !== ValueTag.Symbol) {
     throw new TypeError("Symbol.prototype.toString needs a symbol");
   }
@@ -8641,6 +8645,8 @@ if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === Con
   || id === ConsoleGroup || id === ConsoleGroupCollapsed || id === ConsoleGroupEnd) {
   return 0;
 }
+// **`Symbol.prototype.toString`（第 935 轮）**：`toString.length` 在 Node 里是 `0`（实测）。
+if (id === SymbolToString) return 0;
 // **`Object.prototype` 那四格老辅助**（Annex B）：`__lookupGetter__(键)` 一格。
 if (id === ObjectLookupGetter || id === ObjectLookupSetter) return 1;
 // **`Object` 的静态方法**：一格（`keys` / `values` / `entries` / `getPrototypeOf` /
@@ -10083,6 +10089,46 @@ for (const wellKnown of wellKnownNames) {
     GetProperty(room, NeverCall, protos, table, symbolObject, symbolKey));
 }
 protos.WellKnownSymbols = wellKnownTable.Ref;
+// **`Symbol.prototype` 自己那一张名表**（第 935 轮）：四格自有成员
+// ——`constructor` / `toString` / `description`，外加
+// `Symbol.prototype[Symbol.toStringTag]`。
+// **这一段的落点必须在知名符号表之后**：`toStringTag` 那一格要用**符号本身**当键，
+// 而那个符号是上面那个循环刚造出来、刚挂进 `wellKnownTable` 的
+//（写在那之前就是「表还不存在」——`GetProperty` 会在一个刚建的空对象上找，
+//  静默拿到 `undefined`、于是那一格挂不上去）。
+//
+// **在第 754 轮之前这一整族是空的**（那时 `protos.Symbol` 只服务 `toString` 的标签），
+// 第 783 轮登记的那条 `differ` 量的正是这几格（`stdlib/round783/002`）。
+//
+// **写法与 `Object.prototype` / `Error.prototype` 那几族逐字相同**
+// （`SetHiddenProperty`：自有 + 不可枚举，`Object.keys` 看不见、
+// `Object.getOwnPropertyNames` 看得见 ✓）：
+// - `constructor` 指回 `Symbol` 那个对象自己（**不是** `SymbolCtor` 宿主引用——
+//   `Symbol.prototype.constructor === Symbol` 在 Node 里为真）；
+// - `toString` 是**宿主引用**（`ObjectProtoMethod` 给它名字与长度）；
+// - `description` 是**访问器**（JS 里那一格本来就是 getter）；
+//   只能走 `DefineAccessor`——`SetProperty` 造的是数据属性（与 `Map.prototype.size` 同一条教训）。
+const symbolProtoValue = Value.FromObject(protos.Symbol);
+SetHiddenProperty(vm.Room(), table, symbolProtoValue, NameValue(table, "constructor"), symbolObject);
+SetHiddenProperty(vm.Room(), table, symbolProtoValue, NameValue(table, "toString"),
+  ObjectProtoMethod(vm, table, SymbolToString, "toString"));
+
+// **`description` 那一格**：getter 就是 `SymbolDescription` 那个号
+//（`s.description` 走的值特判与原型上这一格**同一个号**——两处答案必须一字不差）。
+// **没有 setter**（JS 里它是只读访问器）。
+DefineAccessor(vm.Room(), vm.Table, symbolProtoValue, NameValue(table, "description"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SymbolDescription, 0)),
+  Value.Undefined(), false);
+// **`Symbol.prototype[Symbol.toStringTag]` = `"Symbol"`**：
+// 第 754 轮给 `protos.Symbol` 挂了原型、于是 `Object.prototype.toString.call(Symbol.prototype)`
+// 走 `ObjectTagOf` 的「箱」那一支给对标签；可那一支读的是**原型链上**这一格
+// ⇒ 本仓原来给 `undefined`（判据 `round783/002` 第 16 档）。
+const symbolTagKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
+  Value.FromString(table.CreateString(Units("toStringTag"))));
+if (symbolTagKey.Tag === ValueTag.Symbol) {
+  SetProperty(room, NeverCall, table, symbolProtoValue, symbolTagKey,
+    Value.FromString(table.CreateString(Units("Symbol"))));
+}
 // **全局对象那一格**（第 337 轮）：引擎在**非严格**那条路上要用它当 `this`
 //（`vm.xl.md` 的 `DoCallValue`）——与上面那张知名符号表**同一条机制**
 //（`props.xl.md` 的 `Protos.Global`：**结构由引擎提供、内容由语言层给**）。

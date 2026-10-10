@@ -307,6 +307,53 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 935 轮（二）：`Symbol.prototype` 自己那一张名表——**四格缺三格**（17 / 19 档转绿，两格留下）
+
+**一句话**：接着上一段的普查面往下走，取第 783 轮登记的 `differ`
+`stdlib/round783/002`——**`Object.getOwnPropertyNames(Symbol.prototype)` 本仓给空表**，
+而 JS 给 `constructor,description,toString,valueOf` 四格。一个根、四个出口。
+
+- **根因一句话**：`protos.Symbol` 是第 754 轮为了**一个标签**造出来的
+  （`Object.prototype.toString.call(Symbol.prototype)` 要给 `"[object Symbol]"`），
+  造完**一个成员都没挂**——于是四个出口一起错：
+  ① 自有名表空、② `hasOwnProperty` 四问全假、③ `Symbol.prototype[Symbol.toStringTag]`
+  是 `undefined`、④ `description in Symbol.prototype` 是假。
+- **修法**（一处，与 `Object.prototype` / `Error.prototype` 那几族逐字相同的写法）：
+  在知名符号表建好之后补上 `constructor`（指回 `Symbol` 那个对象自己）、
+  `toString`（宿主引用，走 `ObjectProtoMethod`）、
+  `description`（**访问器**，getter 就是 `SymbolDescription` 那个号——
+  与 `s.description` 的值特判**同一个号**，两处答案必须一字不差）、
+  以及 `Symbol.prototype[Symbol.toStringTag] = "Symbol"`。
+  **`valueOf` 一格删除**（理由见下）。
+- **转绿的四格**：自有名表（`constructor` / `toString` / `description`）、
+  `toString` 是自有、三者 `hasOwnProperty`、
+  `Symbol.prototype[Symbol.toStringTag] === "Symbol"`、
+  `Symbol.prototype.toString.call(sym)` 给 `Symbol(q)`、
+  **`Symbol.prototype.toString.call(5)` 抛 `TypeError`**（同一条判据同时管住值特判与原型方法）。
+- **一处「试了但不成立」写在这里**（免得下一轮重走）：`valueOf` 那一格本轮**试过整条线**——
+  加了号 `SymbolValueOf = 255`、并进能力表名单、挂上原型。
+  **实测它走不到分派那一层**：宿主引用的**能力号确实造对了**
+  （`RegisterCapability(255, …)` 成功、`BuiltinHostRef(255)` 读回的就是它），
+  可 `Symbol.prototype.valueOf.call(1)` 一路只留下 `340`（`FunctionCall`）→ `220`（`StringCtor`）
+  → `301`（`ConsoleLog`）三个号，**255 一次都没到 `InvokeGlobal`**——
+  也就是说这条调用**在到达建库分派之前就被人接走了**（不是漏登记，漏登记会抛
+  `capability is not registered: 255`，而它一声不响地给 `undefined`）。
+  **结论**：先把 `valueOf` 从原型上撤掉（那一格于是落回**继承来的**
+  `Object.prototype.valueOf`，而 `valueOf` 对符号接收者**本来就该原样交回**——
+  实测 `Symbol.prototype.valueOf.call(Symbol("q"))` 因此**自己就对了**），
+  把「255 号为什么到不了分派」登记成**下一轮的入口**。
+  这一档的量法已经收在用例第 11 / 12 两行里（`toString` 与 `valueOf` 各一行）。
+- **留下的两格**（用例照旧带 `xl:want differ`）：`valueOf` 不是自有、
+  `own count` 因此是 3 而不是 4——**第 04 / 01 / 02 三行**。
+- **实测**：九道门全绿（墙钟 31.2s）——`runtime:check` 243 / 243、`runtime:cli` 79 / 79、
+  `cases:tsast` 缺口 0 条、`cases:astjson` 六项全 0；
+  `coverage 4174 / 4342` **一处没动**（那一条仍然是 `differ`——**收了一半的 `differ` 不算过**，
+  这也是本项目那条规矩：**用例的账要一整条转绿才撤**）。
+- **可复用的判据**：**「装上了但调不了」比缺一个成员更难查**。
+  本轮那一格的读法（`Object.getOwnPropertyNames` / `typeof` / `.name` / `.length`）
+  **四个出口全对**，只有真去调它才现形——所以遇到「读起来全对、一调就怪」的形状，
+  先问「这个值**从哪条路**被调到」，而不是继续查它的属性。
+
 ### 第 935 轮：`new` 一个不可构造的值——**值模型补上「可构造」那一位**（第 783 轮登记的缺口收掉，八档全中）
 
 **一句话**：这一轮的普查面是**执行侧那 130 条 `differ` / 38 条 `blocked`**（AST 那一面

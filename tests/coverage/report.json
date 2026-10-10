@@ -1115,7 +1115,7 @@
       "id": "stdlib/round783/002-symbol-prototype-own-cells-differ",
       "category": "stdlib",
       "title": "`Symbol.prototype` 自己那一张名表：`constructor` / `toString` / `valueOf` / `description`",
-      "detail": "stdout 不同：第 1 行：node «01 own names = constructor,description,toString,valueOf» vs tsrun «01 own names = »"
+      "detail": "stdout 不同：第 1 行：node «01 own names = constructor,description,toString,valueOf» vs tsrun «01 own names = constructor,description,toString»"
     },
     {
       "id": "stdlib/string/144-localecompare-differ",
