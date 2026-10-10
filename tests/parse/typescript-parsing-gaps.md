@@ -402,9 +402,10 @@
 那一格改成 trivia 口径，`new` 那一档顺手从「按类认」改成「按词认」）⇒ **0 条**。
 **第 910–925 轮**把第 907 轮登记后余下的那 6 格逐格收完；**第 926 轮登记 1 格**
 （`token/declarations/gap-return-type-fn-comment-body.ts`）、**第 927 轮收掉它**
-⇒ **缺口清单第四次清空**（标题上那个条数是第 927 轮（二）实测的读数：
-**柯里化的返回类型那一格** —— `token/types/gap-fn-curried-return.ts`，
-根因与修法见下面第 927 轮（二）那一节）。
+⇒ **缺口清单第四次清空**（第 927 轮（二）登记的那一格**柯里化的返回类型**由第 927 轮（三）
+收掉、用例留着当守卫；同一轮把探针量到的**下一格**——「箭头的返回类型是**带括号**的函数类型」——
+按规矩登记进来，所以标题上仍是 **1 条**：`token/expressions/gap-arrow-return-parenthesized-function-type.ts`，
+根因与修法见下面第 927 轮（三）那一节）。
 
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
@@ -1070,7 +1071,8 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
   三格，而 `projectTypeExpression` 不认这形状（投出那个裸 `Bracket`、`void` 整格不见）。
   **修法在投影那一层**（给元 `typeOf` 里「平铺的 `( … ) => T` 段」补一支），
   这一轮**没做**，按规矩登记成 `xl:known-gap`：
-  `token/types/gap-fn-curried-return.ts`（`cases:tsast` 报「1 条还开着」）。
+  `token/types/gap-fn-curried-return.ts`（`cases:tsast` 报「1 条还开着」）——
+  **第 927 轮（三）收掉**（那一支补上了，见下一节）。
 - **账**：`npm run gates` 九道全过；coverage **4142 / 4311 → 4144 / 4314**
   （blocked **39 → 40**：新登记的那一条进分母；differ 130、bad 0 没动）；
   `cases:check` **1548** 条 0 不合格、`cases:tags` **5145** 条断言 0 不一致、
@@ -1079,6 +1081,36 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
   剩下的根只可能长在**折叠时序**或**投影**上，而这两层各有各的探针（`--snippets` 看四方向、
   `cjcli` 看 XML）。这一轮三格（`IsFunctionTypeArrow` / `IsTypeAliasAssignment` /
   `crossingArrow`）全都是「往回走的那一格少跳了一种 trivia 或少数了一层」。
+
+**第 927 轮（三）：柯里化那一格收掉——平铺的 `( … ) => T` 段要投成里层那个 `FunctionType`**
+
+- **症状与「层」**：`type T = () => () => void;` 缺里层的 `FunctionType` + `VoidKeyword`、
+  多一个裸 `Bracket`。**token 树是对的**（按设计：`(a: A) => (b: B) => C` 整段收进**同一个**
+  `FunctionType` —— 那正是上面「`=>` 只在左边是形参表时继续」那一句），错在**投影**：
+  `FunctionType.PrintAst` 把「返回类型」那一格交给 `ctx.TypeOf`，而那里收到的是
+  **平铺**的 `Bracket` / `SymbolToken(=>)` / 类型 三格，`projectTypeExpression` 不认这形状
+  ⇒ 那个 `(` 当裸 `Bracket` 投出去、`void` 整格不见。
+- **修法**：`projectTypeExpression` 里补一支「平铺的 `( … ) => T` 段」——把
+  `FunctionType.PrintAst` 那一份 `{ kind, props }` 抽成共享层的 `functionTypeProps`
+  （`print-ast-common.xl.md`，经 `ctx.FunctionTypeProps` 取用），两处共用一份实现
+  （第 875 轮那条纪律：同一个判断只能有一份实现）。
+- **落点必须排在联合 / 交叉那一支**前面**：`() => A | B` 在 TS 那边是
+  `FunctionType(type = UnionType[A, B])`（`=>` 比 `|` 松），先按 `|` 切就会拆成
+  `UnionType[FunctionType(() => A), B]`——**两层的方向反了**。探针里 `d-comment-inner`
+  （`type T = () => ()/*c*/ => void;`）与 `e-tuple-arrow`（`type T = () => (a: number) => void;`）
+  钉的就是这一族。
+- **量到的收益**：探针 `tmp/r927/probe3.mjs`（柯里化 5 条）**修前 5 红、修后 0 红**；
+  `tmp/r927/probe5.mjs` 从 1 红变 **14 绿**（只剩下面新登记的那一格）。
+- **按规矩撤账 + 新登记**：`token/types/gap-fn-curried-return.ts` 转绿 ⇒ 删掉那行
+  `xl:known-gap`、用例留着当守卫（补 `xl:expect`）；同时把探针里量到的**下一格**登记成缺口
+  `token/expressions/gap-arrow-return-parenthesized-function-type.ts`
+  （`const k = (): (() => void) => { return; };`：括号里那段函数类型的 `(`
+  被 `FunctionTypeCloseRule` 当成外层箭头的形参表——`ParenthesizedTypeCloseRule.IsFunctionParameterList`
+  第 1 条只看「括号后面紧跟 `=>`」⇒ 整条箭头连体一起被吞；缺 6 / 多 6）。
+- **账**：`npm run gates` 九道全过；coverage **4144 / 4314 → 4145 / 4315**
+  （blocked 40 没涨：收掉一条、登记一条）、differ 130、bad 0；
+  `cases:check` **1549** 条 0 不合格、`cases:tags` **5150** 条断言 0 不一致、
+  `cases:astjson` 36744 个节点六项全 0。
 
 
 

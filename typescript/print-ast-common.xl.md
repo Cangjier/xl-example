@@ -5955,6 +5955,55 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
   return { kind: "Identifier", text: Translate.DecodeIdentifierEscapes(text), pos: at, end: at + text.length };
 ```
 
+# private method functionTypeProps:(kids:Array<any>, ctx:any)=>any
+
+**函数类型 / 构造类型那一格的 `{ kind, props }`**——`FunctionType.PrintAst`（`function-type.xl.md`）
+与 `projectTypeExpression`（下面那一格的「平铺 `( … ) => T` 段」）**共用同一份**。
+
+**为什么要把这一格搬到这里**（第 927 轮（三））：柯里化的函数类型在 token 层被整段收进
+**同一个** `FunctionType` 节点（`function-type.xl.md` 的收集循环「`=>` 只在左边是形参表时继续」），
+于是**返回类型**那一格交回类型投影时是**平铺**的 `Bracket` / `SymbolToken(=>)` / 类型 三格——
+它得再投出**里层那个 `FunctionType`**。两处要的是同一件事，所以只留一份实现：
+`PrintAst` 拿 `{ kind, props }` 去配 `NodeHead`（坐标来自它自己那个单元视图），
+`projectTypeExpression` 拿同一份去配**这一段的起止**（第一格的起点到最后一格的终点）。
+
+**返回的是 `{ kind, props }` 而不是节点**：坐标由调用方给（两边的坐标来源不同——
+一个是视图、一个是平铺单元的起止），而 `kind` 与 `props` 逐字相同。
+
+```ts
+  const arrowIndex = kids.findIndex(
+    (k: any) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=>",
+  );
+  const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
+  const generic = before.find((k: any) => k.get("type") === "GenericType");
+  const newUnit = before.find((k: any) => k.get("type") === "Keyword" && textOfNode(k, ctx) === "new");
+  const props: any = {};
+  const params = [];
+  for (const k of before) {
+    if (k === generic || k === newUnit) continue;
+    if (k.get("type") === "Keyword" && textOfNode(k, ctx) === "abstract") {
+      props.modifiers = [...(props.modifiers ?? []), projectNode(k, ctx)];
+      continue;
+    }
+    if (k.get("type") === "Bracket") {
+      for (const part of splitTopLevel(unwrapNodes(k), ctx, ",")) {
+        for (const inner of part) params.push(inner);
+      }
+      continue;
+    }
+    params.push(k);
+  }
+  if (generic !== undefined) {
+    const typeParams = unwrapNodes(generic).filter((k: any) => k.get("type") === "TypeParameter");
+    if (typeParams.length > 0) props.typeParameters = projectEach(typeParams, ctx);
+  }
+  props.parameters = projectEach(params, ctx);
+  if (arrowIndex >= 0 && arrowIndex + 1 < kids.length) {
+    props.type = typeOf(kids.slice(arrowIndex + 1), ctx);
+  }
+  return { kind: newUnit === undefined ? "FunctionType" : "ConstructorType", props };
+```
+
 # private method projectTypeExpression:(nodes:Array<any>, ctx:any)=>any
 
 **类型表达式**：一段单元 → 一个类型节点。类型是可以嵌套的，所以这里必须递归。
@@ -5985,6 +6034,27 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     (k) => k instanceof Map && !INVISIBLE.has(k.get("type")) && !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ","),
   );
   if (list.length === 0) return undefined;
+  // **平铺的 `( … ) => T` 段**（第 927 轮（三））：这一段是**里层的函数类型**——
+  // 柯里化（`() => () => void`）与「返回类型自己是一段函数类型」的形状在 token 层被整段收进
+  // **同一个** `FunctionType` 节点（见 `function-type.xl.md` 的收集循环），于是交到这里的
+  // 是平铺的 `Bracket` / `SymbolToken(=>)` / 类型 三格。少了这一支，那个 `(` 会当成裸 `Bracket`
+  // 投出去、`void` 整格不见（实测：缺里层 `FunctionType` + `VoidKeyword`、多一个 `Bracket`）。
+  //
+  // **必须排在联合 / 交叉那一支**前面**：`() => A | B` 在 TS 那边是
+  // `FunctionType(type = UnionType[A, B])`（`=>` 比 `|` 松），先按 `|` 切就会拆成
+  // `UnionType[FunctionType(() => A), B]`——两层的方向反了。
+  const flatArrowAt = list.findIndex(
+    (k, i) => i > 0 && k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=>",
+  );
+  if (flatArrowAt > 0 && list[0].get("type") === "Bracket") {
+    const built = functionTypeProps(list, ctx);
+    return {
+      kind: built.kind,
+      pos: startOf(list[0]),
+      end: endOf(list[list.length - 1]),
+      ...built.props,
+    };
+  }
   // **平铺的联合 / 交叉**（第 133 轮）：见上。按**最外层**的分隔符切段、每段自己递归。
   const isTypeOp = (k: any, text: string) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === text;
   for (const [op, kind] of [
@@ -8032,6 +8102,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     Segment: (view, key) => projectSegment(view, key, ctx),
     UnwrapNodes: (unit) => unwrapNodes(unit),
     TypeOf: (list) => typeOf(list, ctx),
+    FunctionTypeProps: (kids) => functionTypeProps(kids, ctx),
     BlockOfBody: (list, from, braceRange) => blockOfBody(list, ctx, from, braceRange),
     SwitchClause: (seg) => projectSwitchClause(seg, ctx),
     AllKids: (node) => allKids(node instanceof Map ? view(node) : node),

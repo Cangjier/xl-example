@@ -275,41 +275,18 @@ return ReplaceCountAt(units, firstIndex, endIndex - firstIndex + 1, result);
 **形参之间的逗号不进 `parameters`**：括号的内容是 `[Parameter, SymbolToken(,), Parameter]`，
 摊平后要按顶层逗号切。
 
+****第 927 轮（三）：这一格的 `{ kind, props }` 搬去共享层**（`print-ast-common.xl.md` 的
+`functionTypeProps`，经 `ctx.FunctionTypeProps` 取用）。理由是**柯里化**：token 层按设计把
+`(a: A) => (b: B) => C` 整段收在**同一个**节点里，于是「返回类型」那一格交回类型投影时是
+**平铺**的 `Bracket` / `=>` / 类型 三格——那边要投出**里层那个 `FunctionType`**，
+要的正是这一份 `props`。两处各写一份就会漂（本仓第 875 轮那条纪律），所以只留一份：
+这里拿 `{ kind, props }` 配 `NodeHead`（坐标来自本单元自己的视图）。
+
 ```ts
-  const kids = ctx.Kids(v);
-  const arrowIndex = kids.findIndex(
-    (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=>",
-  );
-  const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
-  const generic = before.find((k: any) => k.get("type") === "GenericType");
-  const newUnit = before.find((k: any) => k.get("type") === "Keyword" && ctx.TextOf(k) === "new");
-  const props: any = {};
-  const params = [];
-  for (const k of before) {
-    if (k === generic || k === newUnit) continue;
-    if (k.get("type") === "Keyword" && ctx.TextOf(k) === "abstract") {
-      props.modifiers = [...(props.modifiers ?? []), ctx.Project(k)];
-      continue;
-    }
-    if (k.get("type") === "Bracket") {
-      for (const part of ctx.Split(ctx.UnwrapNodes(k), ",")) {
-        for (const inner of part) params.push(inner);
-      }
-      continue;
-    }
-    params.push(k);
-  }
-  if (generic !== undefined) {
-    const typeParams = ctx.UnwrapNodes(generic).filter((k: any) => k.get("type") === "TypeParameter");
-    if (typeParams.length > 0) props.typeParameters = ctx.ProjectEach(typeParams);
-  }
-  props.parameters = ctx.ProjectEach(params);
-  if (arrowIndex >= 0 && arrowIndex + 1 < kids.length) {
-    props.type = ctx.TypeOf(kids.slice(arrowIndex + 1));
-  }
+  const built = ctx.FunctionTypeProps(ctx.Kids(v));
   // **坐标在前**（第 199 轮）：搬家前是 `return { kind: "FunctionType", pos: v.start, end: v.end, ...props }`；
   // `ConstructorType` 走的是同一行（另一个分支的 `new (…) => T` 在共享层里也是坐标在前）。
-  return ctx.NodeHead(newUnit === undefined ? "FunctionType" : "ConstructorType", props, v);
+  return ctx.NodeHead(built.kind, built.props, v);
 ```
 
 ## constructor:(template:Template)=>void
