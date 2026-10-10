@@ -374,6 +374,39 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 990 轮：把「**包装提层**」也搬上 token（`Token.WrapperField`，7 页）——`WRAPPER_FIELDS` 整张表删掉；`GenericType` 的「两态」判据跟着它走
+
+**一句话**：接着第 988~989 轮那条线，这一轮动的是投影层**第二张按标签查的中央表**。
+产物里那几层**包装**（`ClassBody` / `ReturnType` / `Bracket`…）在目标语言那边没有对应节点，
+内容要**提上去**变成父节点的一个字段——「提哪一层、叫什么」原先住在 `WRAPPER_FIELDS`
+（6 档）。它同样是**每个 token 自己的事实**，所以搬上 token。
+
+- **新增一格 `Token.WrapperField`**：`undefined` = 我不是包装；一个**字段名** = 内容提到
+  这一格；`null` = 内容并进父节点的 `children`（分组括号）。**`null` 与 `undefined` 必须分开**：
+  合成一个值会让分组括号变成节点，或者让块被摊平——后者是**静默错值**
+  （块里的语句会并到父节点语句表末尾，顺序与源码相反）。
+- **落地 7 页**：`ClassBody` / `InterfaceBody` / `TypeLiteralBody` / `EnumBody` → `"members"`、
+  `ReturnType` → `"type"`、`Bracket` → **三种括号答两种**（`(` / `[` 答 `null`，语句位的
+  `{ … }` 答 `undefined`）、`GenericType` → **按自己的子单元答**
+  （装 `TypeParameter` 才是包装，装类型实参时是真的节点）。
+- **投影侧**：`wrapperTarget` 从「查表 + 两条特判」变成「**问那个子单元**
+  `owner.WrapperField()`」；`WRAPPER_FIELDS` **整张删除**，`tests/parse/ts-shape.mjs`
+  那一行转发也一起去掉（没有人读它）。
+- **`GenericType` 的「两态」判据一起搬走**：原先在投影层现算（`allKids(view(node)).some(…)`），
+  现在在它自己那一页读 `this.Data`——**同一份事实只算一处**。
+
+**实测**：`cases:check` 1655 / 1655、`cases:tags` 5372 条断言 0 条不一致、
+`cases:astjson` 六项全 0、`samples` 三份逐字节一致、
+`cases:tsast` **投影节点 100.0% 同 kind 同区间、字段名也 100.0% 一致**；
+`xl check` 156 文件 0 错 0 警、`tsc` 0 错。
+`print-ast-common.xl.md`：**9838 → 9813 行**（三张表里两张已经消失）。
+
+**可复用的判据**：**「三种答案」的接口比「两种」难写错**——`undefined` / 字段名 / `null`
+三态逼着调用点把「不是包装」与「是包装但摊平」分开写（这里两者只差一个「块里的语句顺序」，
+是那种只有跑起来才看得见的错）。另一条与第 988 轮同源：**判据跟着数据走**——
+`GenericType` 那两态的判据原先住在投影层（那里要重建视图才能看子单元），
+搬到它自己那一页之后，读的是**成形时就在手上的 `Data`**。
+
 ### 第 989 轮：把 `FIELD_BY_KIND` 从 **41 档删到 4 档**——投影层不再按 kind 背「我的段该叫什么」；同时修一处 `view` 不带 token 的断链
 
 **一句话**：第 988 轮把段名搬上了 token（`SegmentNames`），但那张中央表还在——

@@ -32,6 +32,16 @@ import { EnumMember } from "./enum-member.xl.md"
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<EnumBody>` 里是各条语句的 XML。
 
+## method WrapperField:()=>string | null | undefined
+
+**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+
+枚举体的成员表（`EnumDeclaration.members`）。
+
+```ts
+return "members";
+```
+
 ## constructor:(template:Template)=>void
 
 只挂**枚举体专属的那条跳转队列**（`ParsePipeline.CreateEnumMemberQueue`）：

@@ -800,6 +800,43 @@ return undefined;
 return new Map();
 ```
 
+## method WrapperField:()=>string | null | undefined
+
+**投成目标语言形状时，我这一层是不是「包装」**（第 990 轮）——是的话答「内容提到哪个字段」，
+不是的话答 `undefined`；`null` 与 `undefined` 是两件事（见下）。
+
+产物里这几层是分开的：类 / 接口 / 类型字面量都有各自的**体节点**（`ClassBody` /
+`InterfaceBody` / `TypeLiteralBody`…），而目标语言的形状里，体**直接挂在声明上**
+（`ClassDeclaration.members`）——那一层包装要**提上去**，包装自己不出节点。
+要提的那一层**只有这个 token 自己知道**（`ClassBody` 对谁是体、该叫什么，是它的事实），
+所以这一格跟着 token 走，而不是住在投影层的一张按标签查的中央表里。
+
+**答什么**：
+
+- `undefined` = **我不是包装**（照常出自己那一格）——基类就是这个答案；
+- 一个**字段名** = 我是包装，内容提到这个字段（`ClassBody` → `"members"`、
+  `ReturnType` → `"type"`）；
+- `null` = 我是包装，但**内容并进父节点的 `children`**（`(` / `[` 这两对括号只是分组，
+  目标语言那边没有对应节点）。
+
+**为什么 `null` 与 `undefined` 必须分开**：两者都「不出自己那一格」，但一个是
+「内容提上去（摊平）」、另一个是「照常出节点」。合成一个值就会让**分组括号变成节点**，
+或者让**块被摊平**——后者是**静默错值**：块里的语句会被并到父节点语句表的末尾，
+顺序与源码相反（`{ console.log("in") } console.log("out")` 会印成 `out / in`）。
+
+**为什么 `Bracket` 三种括号答两种**：`(` / `[` 是分组（答 `null`）；
+而**语句位那个 `{ … }` 不是包装**——目标语言那边它是一个块节点（答 `undefined`）。
+判据取它自己的 `startBracket`（与产出 `ToDictionary` 时同一个来源）。
+
+**为什么 `GenericType` 是动态的一条**：`<T, U>` 的括号段（装 `TypeParameter`）是包装，
+要提到 `typeParameters`；而 `Array<T>` 里的类型实参段是**真的节点**（投成 `TypeReference`）
+——不作这个区分就会把类型实参整个提掉（那种错误在尺子上表现为「凭空少一片节点」）。
+所以它按**自己的子单元**答（见 `typescript/tokens/generic-type.xl.md`）。
+
+```ts
+return undefined;
+```
+
 ## static method ToPlain:(value:any)=>any
 
 把一个值转成能喂给 `JSON.stringify` 的形态：`Map` → 普通对象，数组 → 逐元素转，其余原样。

@@ -32,6 +32,16 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<InterfaceBody>` 里是各成员的 XML。
 
+## method WrapperField:()=>string | null | undefined
+
+**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+
+接口的成员表与类同形：目标语言那边是 `InterfaceDeclaration.members`。
+
+```ts
+return "members";
+```
+
 ## constructor:(template:Template)=>void
 
 创建后立刻做两件事：挂**成员列表**的跳转队列、挂**语句**规则队列。

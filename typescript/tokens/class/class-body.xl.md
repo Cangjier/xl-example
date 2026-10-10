@@ -33,6 +33,18 @@ import { Identifier } from "../identifier.xl.md"
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<ClassBody>` 里是各条成员语句的 XML。
 
+## method WrapperField:()=>string | null | undefined
+
+**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+
+类的成员表在目标语言那边**直接挂在类声明上**（`ClassDeclaration.members`），
+而产物里它是单独一层（`Class` 的 `Data` 里那个 `ClassBody`）——所以它是包装：
+**内容提上去、自己不出节点**。
+
+```ts
+return "members";
+```
+
 ## constructor:(template:Template)=>void
 
 创建后立刻做两件事：挂**成员列表**的跳转队列、挂**语句**规则队列。

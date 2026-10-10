@@ -27,6 +27,17 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<ReturnType>` 里是返回类型的 XML。
 
+## method WrapperField:()=>string | null | undefined
+
+**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+
+返回类型段在目标语言那边是**声明上的一个字段**（`FunctionDeclaration.type` /
+`ArrowFunction.type`），而产物里它是单独一层 `ReturnType`——所以它也是包装。
+
+```ts
+return "type";
+```
+
 ## constructor:(template:Template)=>void
 
 以模板创建，并把模板里按本单元类型准备的规则队列挂上。

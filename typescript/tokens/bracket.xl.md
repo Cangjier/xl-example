@@ -90,6 +90,20 @@ unit.AddToMounted(bracket).Use(source.Value).SignIn(source);
 
 有一处刻意保留的不对称：`Use("{")` **不设** `CloseRuleQueue`，而 `Use("(")` / `Use("[")` 会设——也就是说 `{}` 里的子单元不跑重组，`()` / `[]` 里的才跑。看起来像漏写，但这是既定行为。
 
+## method WrapperField:()=>string | null | undefined
+
+**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+
+**三种括号答两种**：`(` / `[` 只是分组（目标语言那边没有对应节点）⇒ 内容并进
+父节点的 `children`（答 `null`）；而**语句位那个 `{ … }` 不是包装**——那边它是一个
+块节点，答 `undefined`（照常出自己那一格）。
+**这一条踩过**：把它当包装提上去，块里的语句会被并到父节点语句表的末尾，
+顺序与源码相反——`{ console.log("in") } console.log("out")` 印出 `out / in`（静默错值）。
+
+```ts
+return String(this.startBracket) === "{" ? undefined : null;
+```
+
 ## static readonly field JumpIn:BracketBranch = new BracketBranch()
 
 把 `BracketBranch` 注册进 `Root` 的通用跳转队列用的实例。

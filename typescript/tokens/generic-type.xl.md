@@ -1435,6 +1435,19 @@ switch (item) {
 
 它覆写了 `ToXmlString`，形状对齐 `Bracket`：尖括号本身做属性（`startBracket` / `endBracket`），子单元照常串在标签里。属性值必须过一遍 `CommonUtil.XmlDecode`——`<` 直接写进属性会破坏 XML，而 `Bracket` 的 `(` / `)` 没有这个问题，所以那边没有这一步。
 
+## method WrapperField:()=>string | null | undefined
+
+**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+
+**只有装 `TypeParameter` 时它才是包装**（`<T, U>` 的括号段，要提到 `typeParameters`）；
+装类型实参时（`Array<T>`）它是**真的节点**，得投成 `TypeReference`。
+不作这个区分就会把类型实参整个提掉——那种错误在尺子上表现为「凭空少一片节点」。
+判据取**自己的子单元**（这一层切出来的时候它就在手上），不回原文扫也不问上下文。
+
+```ts
+return this.Data.some((x) => x.constructor.name === "TypeParameter") ? "typeParameters" : undefined;
+```
+
 ## static readonly field JumpIn:GenericTypeBranch = new GenericTypeBranch()
 
 把 `GenericTypeBranch` 注册进通用跳转队列用的实例（`../parse-pipeline.xl.md` 里插在 `Bracket.JumpIn` 之后、`SymbolToken.AppendIn` 之前）。

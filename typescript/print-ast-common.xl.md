@@ -27,7 +27,8 @@ import { Translate } from "./tokens/string/translate.xl.md"
 **中央那张按 `v.type` 分派的 `switch` 已经整段删除**：它原来有 60 个 `case`，
 搬到最后一个（`Statement`）时就没有分支了。所以本文件现在的角色是：
 
-- **通用支**（`KIND_BY_TAG` / `WRAPPER_FIELDS` / `FIELD_BY_KIND` 三张表 + `structuralProps`）；
+- **通用支**（`KIND_BY_TAG` 与 `FIELD_BY_KIND` 两张表 + `structuralProps`；「包装提层」与
+  「段名」那两格第 988~990 轮已经搬上各 token，见 `Token.WrapperField` / `Token.SegmentNames`）；
 - **`ctx`**——递给 `PrintAst` 的那一组出口（`Kids` / `Expression` / `TypeExpression` /
   `Node` / `StartOf` / `EndOf` / `Project` / `TextOf` / …，共 40 多个）：
   搬迁层不许 import 本文件（token → 本文件 → token 会成环），横切工具只能经它过去；
@@ -81,7 +82,8 @@ import { projectRoot } from "./ts-shape.mjs"
      `BinaryOperator` → `BinaryExpression`、`<Identifier>0</Identifier>` → `NumericLiteral`…）；
   2. **补壳 / 提层**：TS 那边多出来的包装（`VariableStatement` / `VariableDeclarationList` /
      `ExpressionStatement`）在这里补；TS 那边**没有**的包装（`ClassBody` / `ReturnType` /
-     `Bracket`…）在这里把内容**提上去**变成父节点的一个字段（见 `WRAPPER_FIELDS`）；
+     `Bracket`…）在这里把内容**提上去**变成父节点的一个字段（提哪一层由 token 自己答，
+     见 `Token.WrapperField`）；
   3. **字段名**：按 kind 给 TS 的字段名（`members` / `statements` / `properties` / `types`…）。
 
 **坐标一律来自产物树的 `range`**（闭区间 `[start, end]` → TS 的 `[pos, end)`），
@@ -273,35 +275,13 @@ new Map([
 ])
 ```
 
-# const WRAPPER_FIELDS:Map<string, string | null>
-
-**包装节点**：TS 那边没有这一层，它的内容要**提上去**变成父节点的一个字段。
-
-这一条是「字段名对拍」剩下的主要根因。产物里这几层是分开的——
-类 / 接口 / 函数都有各自的体节点（`ClassBody` / `InterfaceBody` / `FunctionBody`…），
-而 TS 那边 `members` / `body` / `type` **直接挂在声明上**。
-不提上去的话，父声明的字段只有 `children`（甚至没有），而包装节点自己还多出一个节点——
-「字段名对拍」与「kind 对拍」会**同时**报错。
-
-表的值是「提到父节点的哪个字段」；`null` 表示摊平并把内容并进父节点的 `children`。
-
-```ts
-new Map([
-  ["ClassBody", "members"],
-  ["InterfaceBody", "members"],
-  ["TypeLiteralBody", "members"],
-  ["EnumBody", "members"],
-  ["ReturnType", "type"],
-  // 括号只是分组，TS 那边没有对应节点：内容并进父节点的 `children`。
-  ["Bracket", null],
-])
-```
-
 # private const BODY_FIELDS:Map<string, string>
 
 **体节点**：它们要**换成另一个名字的字段**，而且**自己仍是一个节点**（不是把内容提上去）。
 
-这一条是与 `WRAPPER_FIELDS` 的关键区别，也是「`Block` 那 335 处」的落点：
+**这一条与「包装」的关键区别**（包装那一格第 990 轮已经搬上 token，见 `Token.WrapperField`）：
+包装是「自己不出节点、内容提上去」，而体节点**自己是节点**，只是字段改个名。
+这也是「`Block` 那 335 处」的落点：
 产物里 `FunctionBody` / `MethodBody` / `NamespaceBody` 是各自独立的段，
 而 TS 那边它们就是 `Block` / `Block` / `ModuleBlock` —— **留着它们当节点**，
 父声明那边只改字段名（`body`）。早先把它们当包装提层提掉了，于是 TS 的 `Block`
@@ -761,31 +741,25 @@ new Map([
   return table?.get(key) ?? key;
 ```
 
-# private method wrapperTarget:(node:any)=>string | null
+# private method wrapperTarget:(node:any)=>string | null | undefined
 
 这个子节点是不是**包装**（该把内容提上去），是的话返回到哪个字段。
 
-比纯查表多一条判断：`GenericType` **只有在装 `TypeParameter` 时**才是类型参数段
-（`<T, U>` 的括号段），此时它是包装；装类型实参时（`Array<T>`）它是**真的节点**，
-得投成 `TypeReference`。不作这个区分就会把类型实参整个提掉——
-那种错误在尺子上表现为「凭空少一片节点」。
+**第 990 轮起这一格由 token 自己答**（`WrapperField`，见 `core/syntax/token.xl.md`）：
+要提哪一层、叫什么名字，是这个 token 自己的事实（`ClassBody` 对谁是体只有它知道），
+所以这里只是**读**它——投影层不再背一张按标签查的中央表（`WRAPPER_FIELDS` 已删）。
+
+**三种答案**：字段名（提到那一格）、`null`（并进父节点的 `children`）、
+`undefined`（**不是包装**，照常出自己那一格）。`null` 与 `undefined` 必须分开：
+合成一个值会让分组括号变成节点，或者让块被摊平（后者是静默错值——块里的语句会被并到
+父节点语句表的末尾，顺序与源码相反）。
 
 ```ts
-  const type = node.get("type");
-  // **裸块的花括号是节点，不是包装**：`(` / `[` 只是分组，内容提上去正好；
-  // 而语句位那个 `{ … }` 在 TS 里是一个 `Block`（`projectNode` 里为它写了一支）。
-  // 当包装提上去会把块里的语句**并到父节点语句表的末尾** —— 顺序于是与源码相反，
-  // 而块里的语句是**按顺序执行**的（**静默错值**：实测
-  // `function f() { { console.log("in") } console.log("out") }` 印出 `out / in`）。
-  // 值位的花括号到不了这里：对象字面量是 `ObjectLiteral`、类型字面量是 `TypeLiteral`。
-  if (type === "Bracket" && String(node.get("startBracket") ?? "") === "{") {
-    return undefined;
+  const owner = node.__token;
+  if (owner !== undefined && owner !== null) {
+    return owner.WrapperField();
   }
-  if (type === "GenericType") {
-    const hasParameter = allKids(view(node)).some((k) => k.get("type") === "TypeParameter");
-    return hasParameter ? "typeParameters" : undefined;
-  }
-  return WRAPPER_FIELDS.get(type);
+  return undefined;
 ```
 
 # private const startOf:(node:any)=>int = (node) => (node.get("range") ? node.get("range")[0] : 0)
@@ -9337,8 +9311,9 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 
 结构类节点的字段（按 kind 给 TS 的字段名）。
 
-**包装节点要提上去**（见 `WRAPPER_FIELDS`）：`ClassBody` 的内容成为 `ClassDeclaration.members`、
-`ReturnType` 的内容成为 `FunctionDeclaration.type`、`Bracket` 的内容并进 `children`。
+**包装节点要提上去**（见 `Token.WrapperField`）：`ClassBody` 的内容成为 `ClassDeclaration.members`、
+`ReturnType` 的内容成为 `FunctionDeclaration.type`、`Bracket` 的内容并进 `children`——
+**提哪一层、叫什么，由那个子单元自己答**（`wrapperTarget` 只是转问它）。
 
 ```ts
   const props = {};

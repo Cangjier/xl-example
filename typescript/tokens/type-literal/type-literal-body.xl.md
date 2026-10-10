@@ -30,6 +30,16 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<TypeLiteralBody>` 里是各成员的 XML。
 
+## method WrapperField:()=>string | null | undefined
+
+**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+
+类型字面量的成员表（`TypeLiteral.members`）。
+
+```ts
+return "members";
+```
+
 ## constructor:(template:Template)=>void
 
 创建后立刻把语句收尾规则挂上自己的规则队列——类型字面量体里是一串成员。
