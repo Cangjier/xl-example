@@ -7,7 +7,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol, IsAnnotationUnit, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, IsAnnotationUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -206,24 +206,11 @@ while (i < units.length) {
 // **跨过去的软换行不算类型段的尾巴**（第 931 轮）：`new C<T>` 换行 `(x)` 里那个换行
 // 正好落在类型实参段与实参表之间，`bracketIndex - 1` 停在它上面 ⇒ 类型段的终点会算到
 // 换行末尾（`newType.SignOut` 取的就是 `Get(units, typeEnd)` 的终点）。
-// 只往回跳软换行，注释照旧留在类型段里（第 631 轮那条口径不动）。
-//
-// **落点是一个 `[` 括号时要连注释一起往回跳**（第 937 轮）：`new ns // x` 换行 `[a]()`
-// 里 `bracketIndex - 1` 先是那个 `LineWrap`、再往回一格是 `LineAnnotation` ——
-// 只跳软换行的话 `typeEnd` 停在注释上，类型段的终点算到注释末尾（实测缺
-// `ElementAccessExpression` 1、漂 1、多 3）。`(` 那一侧不能跟着放宽：那里的注释
-// **要留在 `NewType` 里**（第 631 轮，见上面 `new /* c */ A()` 那一支），
-// 所以放宽的条件得钉在「落点是 `[`」上。
+// 只往回跳软换行，注释照旧留在类型段里（第 631 轮那条口径不动）——
+// `[` 那一侧同样只看软换行：它与 `(` 的区别只在「括号归谁」，类型段的终点是同一件事。
 let typeEnd = bracketIndex === -1 ? i - 1 : bracketIndex - 1;
-const endsAtIndexSignature = bracketIndex !== -1 && (Get(units, bracketIndex) as Bracket).startBracket === "[";
-if (endsAtIndexSignature) {
-  while (typeEnd > index && IsTriviaUnit(Get(units, typeEnd))) {
-    typeEnd = typeEnd - 1;
-  }
-} else {
-  while (typeEnd > index && Get(units, typeEnd) instanceof LineWrap) {
-    typeEnd = typeEnd - 1;
-  }
+while (typeEnd > index && Get(units, typeEnd) instanceof LineWrap) {
+  typeEnd = typeEnd - 1;
 }
 if (typeEnd < index + 1) {
   throw SyntaxException.FromMessage(current.SourceRange, "new 后面没有找到类型名");
@@ -270,7 +257,13 @@ newType.TryToClose();
 newArguments.TryToClose();
 result.TryToClose();
 // **收掉这一段的终点也跟着分岔**（与上一段同一件事）：`[` 那一格不在 `New` 里面，
-// 它要留给 `PropertyAccessCloseRule`。
+// 它要留给 `PropertyAccessCloseRule` 折成元素访问。
+//
+// **但 `New` 与 `[` 之间那几格 trivia 也不进这一段**（第 937 轮试过一版把它们收进来，
+// 没成）：收进来之后 `[` 确实能挂上链（`PropertyAccess[New, [a]]` 出来了），
+// 可末尾那对 `()` 仍然停在 `Statement` 里没被折成 `Method`
+// —— 剩下的那一步在 `MethodCloseRule` 与 `PropertyAccess` 的先后上，
+// 不在这一段的区间里。按规矩把现状登记成 `gap-r937-new-index-callee-newline`。
 let lastIndex = bracketIndex === -1 ? typeEnd : bracketIndex;
 if (bracketIndex !== -1 && (Get(units, bracketIndex) as Bracket).startBracket === "[") {
   lastIndex = typeEnd;
