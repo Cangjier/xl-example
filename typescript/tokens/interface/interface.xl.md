@@ -559,3 +559,17 @@ return "InterfaceDeclaration";
 ```ts
 return true;
 ```
+
+## method IsMemberList:()=>bool
+
+**我这一格的内容是「成员表」**（第 1039 轮）：接口体里装的是接口成员
+（`PropertySignature` / `MethodSignature` / `IndexSignatureDeclaration`），**不是语句**，
+所以投影到我这一层时那层多余的 `<Statement>` 要摊开（口径见
+`core/syntax/token.xl.md` 的 `IsMemberList`）。
+
+`InterfaceDeclaration` 就是这一页自己的节点名，所以这一格答 `true`——过去它写在投影层那张
+`MEMBER_LIST_KINDS` 名单里。
+
+```ts
+return true;
+```

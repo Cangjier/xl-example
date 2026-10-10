@@ -334,6 +334,31 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1038 轮：把 `MEMBER_LIST_KINDS` 那张按 kind 查的集合从投影层搬回四个 token 自己的页面（`Token.IsMemberList`）——**八道门全绿、读数一处没动**
+
+**一句话**：用户口径「token → AST 要直出，不许弯弯绕绕；`print-ast-common` 要简化，凡是某一页
+自己知道的事实一律由那一页答」。这一轮照第 1025~1037 轮那套手法搬**又一张按 kind 查的中央表**：
+`typescript/print-ast-common.xl.md` 的 `# private const MEMBER_LIST_KINDS:Set<string>` 整格删掉。
+
+- **那张表说的是什么**：成员表的宿主（`InterfaceDeclaration` / `TypeLiteral` / `ClassDeclaration` /
+  `EnumDeclaration`）——产物在**成员位**多包了一层 `<Statement>`（成员表挂上语句队列之后多出来的那层），
+  不摊开的话那一层会被补成 `ExpressionStatement`（第 79 轮：`IndexSignatureDeclaration` 缺 102 处、
+  还凭空多出一批 `ExpressionStatement`；第 86 轮补上枚举体——枚举成员之间带 `,`，不摊开就被那个 `,`
+  折成一个 `BinaryOperator`）。
+- **为什么它是那四页自己的事实**：表里那四个 kind 名**就是那四个类自己的名字**（`Tag()` 答类名、
+  `AstKind()` 也由它们自己答），所以「我的体里装的是成员、不是语句」这句话只有那四页知道。
+- **搬法**（与前几轮同一形态）：`core/syntax/token.xl.md` 加一格基类 `IsMemberList()`（答 `false`），
+  `Interface` / `Class` / `Enum` / `TypeLiteral` 四页各覆写答 `true`；投影那一侧改问**那一格 token 自己**
+  （`projectEachIn` 的 `parent.IsMemberList()`）——`parent` 本来就是「投影意义上的父单元」，
+  与 `TypeMemberPlan()`（第 1035 轮）问的是同一个接收者，所以这一格连 kind 名都不用翻译。
+- **实测**：`xl check` 6 文件 0 错 0 警；`dist` 写出 6 个产物、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 30.2s），读数逐项与基线相同——`cases:tsast` 已知缺口 3 条还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`coverage 4260 / 4422`（`blocked 28` /
+  `differ 134` / 加权 95.7%）、`direct:lint` 0 条违反。
+- **留下的判据**：`direct:lint` 那条 `REMOVED_LAYER`（禁止 `ToDictionary` / `ToList` / `WithRange` /
+  `WithRangeOf` / `ToPlain` / `ToJsonString` 出现在规范页的代码块里）就是「中间那一层不许回来」的守卫；
+  这一轮把 `MEMBER_LIST_KINDS` 也推进了「同一份事实只有一处声明」那一栏。
+
 ### 第 1016 轮：删掉旧的那条 JSON 出口（`cjcli --ast-json`）——命令行只剩 XML 与 TS 形状两条路，**十道门全绿**
 
 **一句话**：用户口径「清理 `--ast-json`，移除相关 cases」。这一轮删的是**命令行那一条出口**，

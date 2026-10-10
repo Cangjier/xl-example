@@ -1036,6 +1036,30 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 return undefined;
 ```
 
+## method IsMemberList:()=>bool
+
+**我这一格的内容是不是「成员表」**（第 1039 轮）——是的话答 `true`：我的子单元是**成员**
+（`PropertySignature` / `MethodSignature` / `IndexSignatureDeclaration`…），**不是语句**，
+所以投影到我这一层时那层多余的 `<Statement>` 要摊开、不能补 `ExpressionStatement`。
+
+判据的那份名单（`InterfaceDeclaration` / `TypeLiteral` / `ClassDeclaration` /
+`EnumDeclaration`）过去写成投影层的一个 `# private const MEMBER_LIST_KINDS:Set<string>`
+（`typescript/print-ast-common.xl.md`），而**那些 kind 名就是这四个类自己的名字**——
+所以那是每一页自己的事实，被写在投影那一页里。今天那四页各自覆写，投影只问这一格
+（`parent.IsMemberList()`）。
+
+**为什么问的是「父单元」自己、而不是一个 kind 名**：成员表是**我这一格**的性质
+（我的体里装的是成员），而投影那一侧手上正好有那一格 token（`projectEachIn` 的 `parent`），
+所以这一格不需要把 kind 名来来回回地翻译一遍——**留一张按 kind 查的表就还是
+「同一份事实两处声明」**。
+
+**基类答 `false`**：绝大多数 token 的子单元不是成员表；需要它的 token 在自己那一页覆写
+（`## method`，与 `IsMemberTag` / `TypeMemberPlan` / `AstKind` 同一形态）。
+
+```ts
+return false;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

@@ -1003,26 +1003,6 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   return groups.filter((group) => group.length > 0);
 ```
 
-# private const MEMBER_LIST_KINDS:Set<string>
-
-**成员表的宿主**：它们的内容是**成员**（`PropertySignature` / `MethodSignature` /
-`IndexSignatureDeclaration`…），**不是语句**。
-
-第 79 轮的根因：产物在**成员位**多包了一层 `<Statement>`（成员表挂上语句队列之后多出来的那层）——
-`type T = { [k: string]: number }`、`declare class C { [k: string]: any }`、
-带 `readonly` 的接口成员都是这一形状。照通用投影走，那一层会被补成
-**`ExpressionStatement`**，于是索引签名变成 `ExpressionStatement > IndexSignatureDeclaration`
-（实测缺 `IndexSignatureDeclaration` 102 处，还凭空多出一批 `ExpressionStatement`）。
-
-```ts
-new Set(["InterfaceDeclaration", "TypeLiteral", "ClassDeclaration", "EnumDeclaration"])
-```
-
-**`EnumDeclaration` 是第 86 轮补的**：枚举体里也是成员（`EnumMember`），而且**成员之间带 `,`**
-（`[EnumMember, ,, EnumMember, ,]`）——不摊开的话那个 `,` 会把成员们折成一个 `BinaryOperator`，
-投出来是 `ExpressionStatement > BinaryExpression`（实测「多出来」榜的第一名 `BinaryExpression`
-1806 与第二名 `CommaToken` 1158 同源，样本全是 `export enum … { JsxClosingTag = "…", … }`）。
-
 # private method projectEachIn:(list:Array<any>, ctx:any, parentKind:string, parent:any)=>Array<any>
 
 投影一批子单元，并在**签名上下文**里切换标记。
@@ -1033,9 +1013,19 @@ new Set(["InterfaceDeclaration", "TypeLiteral", "ClassDeclaration", "EnumDeclara
 
 ```ts
   // **成员位没有语句**（第 79 轮）：成员表里遇到 `<Statement>` 就**摊开**——
-  // 它下面那些单元本身就是成员（见 `MEMBER_LIST_KINDS` 的说明）。
+  // 它下面那些单元本身就是成员。
+  //
+  // **「我这一格是不是成员表」第 1039 轮改由那一格自己答**（`parent.IsMemberList()`，
+  // 见 `core/syntax/token.xl.md`）：名单里那四个 kind 名（`InterfaceDeclaration` /
+  // `TypeLiteral` / `ClassDeclaration` / `EnumDeclaration`）**就是那四个类自己的名字**，
+  // 所以它住在各自那一页，投影这一侧不再存第二份（原来这里是
+  // `# private const MEMBER_LIST_KINDS:Set<string>` 那张按 kind 查的集合，第 79 轮
+  // 为接口 / 类型字面量建立、第 86 轮补上枚举体那一条——枚举成员之间带 `,`，
+  // 不摊开的话那个 `,` 会把成员们折成一个 `BinaryOperator`，投出来是
+  // `ExpressionStatement > BinaryExpression`）。
+  //
   // 摊开放在最前面：它比类型容器那一条更靠外（成员表 vs 类型位）。
-  if (MEMBER_LIST_KINDS.has(parentKind)) {
+  if (parent.IsMemberList()) {
     const flat = [];
     for (const item of list) {
       if (item instanceof Token && item.Tag() === "Statement") {
