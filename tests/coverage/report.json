@@ -81,11 +81,11 @@
       "category": "token",
       "weight": 0.15,
       "total": 1604,
-      "pass": 1602,
-      "blocked": 2,
+      "pass": 1603,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.88
+      "coverage": 99.94
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1604,
-    "knownGap": 2,
-    "knownGapStillOpen": 2,
-    "exactFiles": 1602,
-    "scoredWithoutGap": 1602,
-    "passedWithoutGap": 1602
+    "knownGap": 1,
+    "knownGapStillOpen": 1,
+    "exactFiles": 1603,
+    "scoredWithoutGap": 1603,
+    "passedWithoutGap": 1603
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r971-nonnull-call-thrice-member",
-      "category": "token",
-      "title": "",
-      "detail": "缺 5　第 971 轮普查量到：`isCallFirstUnit` 的 `Method` 那一支只认「第一格是实参括号 / 断言盖着实参括号」，而这一格的第一格**又是 `Method`** ⇒ 链那一支整个进不来。"
-    },
     {
       "id": "token/expressions/gap-r971-opt-assert-index-member",
       "category": "token",

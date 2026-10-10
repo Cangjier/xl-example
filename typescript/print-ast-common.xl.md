@@ -4322,10 +4322,37 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
           // 外层再用 `projectNode(ck[i])` 套一层。
           if (bareName === "" && callHead !== undefined && callHead.get("type") === "Method"
             && String(callHead.get("name") ?? "") === "") {
-            const innerCall = Object.assign({}, projectNode(callHead, ctx), {
+            // **最里面那一格自己也盖着两层调用**（第 972 轮，**普查当场红的**）：
+            // `a!()()().c` 的 `callHead` 是 `Method(name=""[Bracket(())])`——头是实参括号、
+            // 而这一格的区间**还盖着外面一对**（第 966 轮那句话：一格说两次调用）。
+            // `projectNode(callHead)` 对它就只投得出**一次**调用 ⇒ 三次调用只折出两次、
+            // 最里面那个 `CallExpression` 的区间一路漂到 `[0,8)`（实测
+            // `gap-r971-nonnull-call-thrice-member`：缺 5 → **缺 0 漂 1**）。
+            // 判据与下面那一支**一字不差**（`endOf(头) < endOf(这一格)`），折法也一样：
+            // 先把「括号那一次」建成最里面那一格，再让 `projectNode(callHead)` 那个壳套上去。
+            let innerCall = Object.assign({}, projectNode(callHead, ctx), {
               expression: left,
               pos: left.pos,
             });
+            const deepKids = projectableKids(view(callHead)).filter(
+              (k: any) => k.get("type") !== "GenericType",
+            );
+            const deepHead = deepKids.length > 0 ? deepKids[0] : undefined;
+            if (deepHead !== undefined && deepHead.get("type") === "Bracket"
+              && deepHead.get("startBracket") === "(" && endOf(deepHead) < endOf(callHead)) {
+              innerCall = Object.assign({}, innerCall, {
+                expression: {
+                  kind: "CallExpression",
+                  expression: left,
+                  arguments: splitTopLevel(projectableKids(view(deepHead)), ctx, ",")
+                    .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+                    .filter((a) => a !== undefined),
+                  pos: left.pos,
+                  end: endOf(deepHead),
+                },
+                pos: left.pos,
+              });
+            }
             left = Object.assign({}, projectNode(ck[i], ctx), {
               expression: innerCall,
               pos: innerCall.pos,
@@ -5045,6 +5072,15 @@ if (kind === "Method") {
     const inner = asserted.length > 0 ? asserted[0] : undefined;
     return inner !== undefined && inner.get("type") === "Bracket" && inner.get("startBracket") === "(";
   }
+  // **头一格自己又是一格 `Method`**（第 972 轮，**普查当场红的**）：`a!()()().c` 的第二格是
+  // `PropertyAccess(Method(name=""[Method(name=""[Bracket(())])]), ., c)`——两格 `Method`
+  // 说的是**三次**调用（每一格空名字的 `Method` 都盖着一次调用，见第 971 轮那一族）。
+  // 头一格是 `Method` 时它自己就是「里面那次调用」⇒ 这一格同样是「以一次调用开头」，
+  // 判据与上面那一档同源，递归问它即可（`Method` 是**完整单元**，与平级的裸 `(` 兄弟不是一件事）。
+  // 少了这一句：第 971 轮补的 `head.get("type") === "Method" && isCallFirstUnit(head, ctx)`
+  // 在这里答否 ⇒ 链那一支整个进不来、`kids[0]` 单独投出去（实测 `gap-r971-nonnull-call-thrice-member`：
+  // 只剩一个盖到 `a!` 的 `NonNullExpression`，缺 5 格）。
+  if (mHead.get("type") === "Method") return isCallFirstUnit(mHead, ctx);
   return false;
 }
 if (kind === "PropertyAccess" || kind === "NotNull") {
