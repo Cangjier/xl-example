@@ -393,6 +393,20 @@ const text = ctx.Text(v);
 return ctx.Node(ctx.LeafKind(text), { text: Translate.DecodeIdentifierEscapes(text) }, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **文本读 token 自己的 `Temp`**（第 992 轮）：`ctx.Text(v)` 在值为空时会回原文切一刀，
+  // 那是这条路上不许有的第二份近似；`Identifier` 的正文就是它自己攒下来的那串字符。
+  const text = this.TempToString();
+  return ctx.Node(ctx.LeafKind(text), { text: Translate.DecodeIdentifierEscapes(text) }, v);
+```
+
+
 ## method Clone:()=>Token
 
 克隆自身。

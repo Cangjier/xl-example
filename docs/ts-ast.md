@@ -76,6 +76,8 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 | 判据 | 命令 | 口径 |
 | --- | --- | --- |
 | 与 TS 原生 AST 对拍 | `npm run cases:tsast` | 逐节点比 **kind、区间、字段名**；缺（没投出来）与漂移（位置差一点）分开报。退出码按**八条**算：四方向 + 未映射（透传进产物的标签）+ 缺 range + 区间越界 + **抛异常 0**（第 674 轮加的） |
+| **直出版同答** | `npm run cases:direct` | 语料跑两遍（直出通道开 / 关）**逐字节**比 `ToJsonText` + `unmapped` / `count` 记账同——「`PrintDirectAst` 与 `PrintAst` 同答」（第 992 轮加，见第 4 节） |
+| **直出版只用 token 自己的东西** | `npm run direct:lint` | 逐页扫 `PrintDirectAst` 的方法体（注释不算）：不许 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，不许转手 `this.PrintAst`（第 992 轮加） |
 | **发布路径**端到端 | `node tests/parse/ts-ast.mjs --cli` | 真的开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 与 `ts.createSourceFile` 对拍（每个文件一个进程，按需跑） |
 | 逐字节确定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比对，**不做归一化**（紧凑单行、键序与 `pos` / `end` 都是确定性的） |
 | 「命令行 = 库 API」 | `npm run samples` | 同一份源码，`cjcli` 进程与库 API 的输出必须逐字节相同 |
@@ -112,12 +114,20 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
    碰到这三格先问那一页，别在投影层找表。
    剩下那两张表的**重复键**会静默覆盖（`new Map([...])` 同键后写胜），改表时自己过一眼——
    钉它的那把 `cases:shapelint` 已随测试集收窄删除（脚本在 git 历史里）。
-2. **改完跑**：`xl check` → `npm run build` → `npm run samples` → `npm run cases:tsast`
+2. **改一格的投影：先看它有没有直出版**（第 992 轮）：`Token.PrintDirectAst(ctx, v)`
+   （[`core/syntax/token.xl.md`](../core/syntax/token.xl.md)）是同一个出口的**直出版**——
+   答案与 `PrintAst` 逐字节相同，但只许用这个 token 自己的属性、子单元与 `Parent`，
+   **不许回原文查**（`ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许转手回 `this.PrintAst`）。
+   要「某个子单元记的值」走 `ctx.ValueOf`（只读那一格自己的值，不回原文兜底；值不在那儿就给空串，
+   该做的事是**把值记到 token 上**——`NameRange` / `BodyBrace` 那条线）。
+   搬一页两件事一起做：覆写那一页的 `PrintDirectAst`，然后把页面跑进
+   `npm run cases:direct`（同答）与 `npm run direct:lint`（只用 token 自己的东西）。
+3. **改完跑**：`xl check` → `npm run build` → `npm run samples` → `npm run cases:tsast`
    （数字要动，且只按预期动；现在它是**闸门**，八条里红一条就是回归）→ 其余尺子。
-3. **`PrintAst` 收到的 `v` 是「视图」不是原始 Map**（`projectNode` 开头那句 `const v = view(node)`），
+4. **`PrintAst` 收到的 `v` 是「视图」不是原始 Map**（`projectNode` 开头那句 `const v = view(node)`），
    凡是从 `ctx` 出去、要吃一棵（子）树的出口，先 `node instanceof Map ? view(node) : node` 再转调；
    搬迁手册（踩过的七个坑，按类型归并）在 [print-ast-migration.md](history/print-ast-migration.md)。
-4. **键序是夹具的一部分**：`samples/*.expected.tsast.json` 逐字节比，JSON 的键序也算。
+5. **键序是夹具的一部分**：`samples/*.expected.tsast.json` 逐字节比，JSON 的键序也算。
    搬家前那批内联写法的节点（`{ kind, pos, end, …props }`）要用 **`ctx.NodeHead`**，
    新写的节点用 `ctx.Node`（`{ kind, …props, pos, end }`）——第 199 轮把 30 处构造点
    按第 96 轮那份实现逐一对回去（`cases:tsast` 看不见键序，只有 `samples` 看得见）。

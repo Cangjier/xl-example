@@ -349,6 +349,29 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   return ctx.NodeHead("SwitchStatement", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  const cond = ctx.KidsOf(v, "compare");
+  const segments = ctx.KidsOf(v, "segments");
+  const rawBodyAt = ctx.Attr(v, "bodyAt");
+  const bodyAt = typeof rawBodyAt === "number" ? rawBodyAt : -1;
+  const props: any = {};
+  if (cond.length > 0) props.expression = ctx.Expression(cond);
+  props.caseBlock = {
+    kind: "CaseBlock",
+    clauses: segments.map((seg: any) => ctx.SwitchClause(seg)),
+    pos: bodyAt >= 0 ? bodyAt : v.start,
+    end: ctx.StmtEndOf(v),
+  };
+  return ctx.NodeHead("SwitchStatement", props, v);
+```
+
+
 ## method CreateCompare:()=>SwitchCompare
 
 新建判别段并挂到自己名下，返回新单元。

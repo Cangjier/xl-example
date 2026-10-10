@@ -301,6 +301,20 @@ return new Map([["FunctionType", new Map([["children", "parameters"]])]]);
   return ctx.NodeHead(built.kind, built.props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  const built = ctx.FunctionTypeProps(ctx.Kids(v));
+  // **坐标在前**（第 199 轮）：搬家前是 `return { kind: "FunctionType", pos: v.start, end: v.end, ...props }`；
+  // `ConstructorType` 走的是同一行（另一个分支的 `new (…) => T` 在共享层里也是坐标在前）。
+  return ctx.NodeHead(built.kind, built.props, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把类型队列装上**。

@@ -75,6 +75,21 @@ import { LineWrap } from "./line-wrap.xl.md"
   return node === undefined ? ctx.Nothing : node;
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  const node = ctx.StatementOf(v);
+  // **`undefined` 在这里是有意义的答案**（例如「这个 `;` 已经是上一条语句的终结符」），
+  // 而 token 出口把 `undefined` 读作「没覆写、请走通用支」——所以要用哨兵
+  // `ctx.Nothing` 把「故意不出节点」这件事说出来（第 198 轮）。
+  return node === undefined ? ctx.Nothing : node;
+```
+
+
 ## constructor:(template:Template)=>void
 
 构造器里取本类型的规则队列；运行时类型用 `this.constructor`。

@@ -982,6 +982,19 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
   // 没覆写（基类返回 `undefined`）就落到下面这份通用支：换名表 + 提层 + 字段名。
   const owner = node.__token;
   if (owner !== undefined) {
+    // **先问直出版**（第 992 轮）：覆写了 `PrintDirectAst` 的 token 由它自己出这一格，
+    // 而它只许用 token 自己的东西（属性 / 子单元 / `Parent`，不回原文查）——
+    // 见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。`ctx.directEnabled` 关掉时这一问整段跳过，
+    // 走的就是第 992 轮之前那条路（`cases:direct` 拿两遍输出逐字节对拍，那正是「同答」的判据）。
+    if (ctx.directEnabled) {
+      const direct = owner.PrintDirectAst(ctx, v);
+      // 与下面那一格同款：`ctx.Nothing` 是「故意不出节点」，`undefined` 是「没有直出版」。
+      if (direct === ctx.Nothing) return undefined;
+      if (direct !== undefined) {
+        ctx.direct++;
+        return direct;
+      }
+    }
     const own = owner.PrintAst(ctx, v);
     // **`ctx.Nothing` 表示「这一格故意不出节点」**（见 `NOTHING` 的说明）：
     // 与 `undefined`（＝没覆写、请走通用支）是两回事。
@@ -9559,7 +9572,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   }
 ```
 
-# method projectRoot:(exported:Array<any>, source:string)=>any
+# method projectRoot:(exported:Array<any>, source:string, useDirect?:bool)=>any
 
 投影整棵树 → `ts.createSourceFile` 同形的单根节点。
 
@@ -9576,6 +9589,11 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 返回 `{ ast, unmapped, count }`：`unmapped` 是这次没覆盖到、**并且真的原样透传进了产物**的
 产物标签；`count` 是投影出的节点数。
 
+**第 992 轮起还返回 `direct`**（直出通道真的出了多少个节点），并且多一个**可选**的第三参数
+`useDirect`（默认 `true`）：传 `false` 就走第 992 轮之前那条路（`PrintAst` + 通用支），
+`cases:direct` 拿这两遍的输出**逐字节对拍**——那是「`PrintDirectAst` 与 `PrintAst` 同答」的判据
+（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+
 **为什么末尾要拿 `kindsInAst` 对一次账**（第 199 轮）：`ctx.unmapped.add(v.type)` 记在
 `projectNode` 的通用支里，而**有些调用点只是「问一下」这个子单元能投出什么**——
 结果被调用方丢掉、根本不落进 AST（实测全语料 9137 处这样的访问，散布在 48 个文件里；
@@ -9586,10 +9604,19 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 （`cases:tsast` 的退出码已经把它算进去了）。
 
 ```ts
+  // **直出通道**（第 992 轮）：默认开（`PrintDirectAst` 与 `PrintAst` 同答，由 `cases:direct` 看着）。
+  // 传 `false` 就是第 992 轮之前那条路——`cases:direct` 用它跑第二遍，两份产物逐字节对拍。
+  const directOn = useDirect ?? true;
   const ctx = {
     source,
     unmapped: new Set(),
     count: 0,
+    // **直出通道的两个读数**（第 992 轮）：`directEnabled` 是这一趟要不要优先问
+    // `PrintDirectAst`（`projectRoot` 的第三个参数，默认开），`direct` 是这一趟
+    // **真的由直出版出的节点数**——它是「这一格搬完了没有」的那把尺子
+    // （`cases:direct` 印它；`count` 是全部节点数，两者之比就是直出覆盖率）。
+    directEnabled: directOn,
+    direct: 0,
     // **类型位标记**（第 99 轮）：`projectTypeExpression` 在投「只有一个单元」的类型时置上它，
     // 让 `projectString` 知道该出 `TemplateLiteralType` 还是 `TemplateExpression`
     // （两者产物同形，只有这一点上下文能区分）。
@@ -9616,6 +9643,16 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     Project: (node, parentKind) => projectNode(node, ctx, parentKind),
     Text: (view) => textOf(view, ctx),
     TextOf: (node) => textOfNode(node, ctx),
+    // **直出版要的那两个读数**（第 992 轮）：只读这一格**自己记的**值，**不回原文兜底**。
+    // `Text` / `TextOf` 在值为空时会去 `source.slice(...)` —— 那正是直出版不许有的第二份近似。
+    // 值不在这一格上时给**空串**（不猜），于是 `cases:direct` 的「同答」判据会当场点名，
+    // 而该做的事是**把这个值记到 token 上**（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+    Value: (view) => (typeof view.value === "string" ? view.value : ""),
+    ValueOf: (node) => {
+      const one = node instanceof Map ? node : view(node);
+      const value = one.get("value");
+      return typeof value === "string" ? value : "";
+    },
     StringText: (node) => stringText(node instanceof Map ? view(node) : node, ctx),
     // **字符串 / 模板串这一格**（第 99 轮）：模板串要递归投内插里的表达式或类型，
     // 那不是 token 层能做的事，所以实现留在 `projectString`、由 token 的 `PrintAst` 转过来。
@@ -9733,6 +9770,9 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     ast,
     unmapped: [...ctx.unmapped].filter((tag) => landed.has(tag)).sort(),
     count: ctx.count,
+    // **直出覆盖率**（第 992 轮）：这一趟有多少个节点是 `PrintDirectAst` 自己出的。
+    // 它是「这一格搬完了没有」的读数，不是判据——判据是 `cases:direct` 的逐字节对拍。
+    direct: ctx.direct,
   };
 ```
 

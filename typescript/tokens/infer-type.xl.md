@@ -309,6 +309,20 @@ return WordText(before) === "extends";
   return ctx.NodeHead("InferType", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  const param = ctx.Kids(v).find((k: any) => k.get("type") === "TypeParameter");
+  const props: any = {};
+  if (param !== undefined) props.typeParameter = ctx.Project(param);
+  return ctx.NodeHead("InferType", props, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器。

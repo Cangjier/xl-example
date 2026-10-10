@@ -337,6 +337,17 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 return ctx.Node("ArrayType", { elementType: ctx.Each(v, "ArrayType") }, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+return ctx.Node("ArrayType", { elementType: ctx.Each(v, "ArrayType") }, v);
+```
+
+
 ## method Clone:()=>Token
 
 克隆自身（`Sign(this)` → 子单元逐个克隆后整批加入 → `TryToClose()`）。
@@ -384,6 +395,17 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 return ctx.Node("TupleType", { elements: ctx.Each(v, "TupleType") }, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+return ctx.Node("TupleType", { elements: ctx.Each(v, "TupleType") }, v);
+```
+
+
 ## method Clone:()=>Token
 
 克隆自身。
@@ -428,6 +450,30 @@ return result;
   if (indexType !== undefined) props.indexType = indexType;
   return ctx.NodeHead("IndexedAccessType", props, v);
 ```
+
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  const kids = ctx.Kids(v);
+  const open = ctx.IndexBracketOf(v);
+  if (open < 0) {
+    const whole = ctx.TypeExpression(kids);
+    return ctx.NodeHead("IndexedAccessType", { objectType: whole }, v);
+  }
+  const objectUnits = kids.filter((k: any) => ctx.StartOf(k) < open);
+  const indexUnits = kids.filter((k: any) => ctx.StartOf(k) >= open);
+  const props: any = {};
+  const objectType = ctx.TypeExpression(objectUnits);
+  const indexType = ctx.TypeExpression(indexUnits);
+  if (objectType !== undefined) props.objectType = objectType;
+  if (indexType !== undefined) props.indexType = indexType;
+  return ctx.NodeHead("IndexedAccessType", props, v);
+```
+
 
 ## constructor:(template:Template)=>void
 

@@ -436,6 +436,38 @@ return result;
   return ctx.Node("LabeledStatement", props, { ...v, end: statement.end });
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  const text = String(v.attrs.get("label") ?? "");
+  const props: any = {
+    label: { kind: "Identifier", text, pos: v.start, end: v.start + text.length },
+  };
+  const kids = ctx.Kids(v);
+  if (kids.length === 0) {
+    return ctx.Node("LabeledStatement", props, v);
+  }
+  const statement = ctx.StatementOfList(kids);
+  if (statement === undefined) {
+    return ctx.Node("LabeledStatement", props, v);
+  }
+  props.statement = statement;
+  // **终点由被标的那条语句给**（第 929 轮，实测）：标签自己那一格区间到「搬进来的最后一格」
+  // 为止，而**尾分号不在任何单元里**——`a: b: c: d/* c */ ();` 的 `;` 属于那条表达式语句
+  // （TS 的 `ExpressionStatement` 含它），于是三个 `LabeledStatement` 的终点各差 1（漂 3 多 3）。
+  // 投影终点那一套口径（`stmtEndOf` + 尾分号归属）已经在 `projectStatement` 里，
+  // 这里**直读它的答案**，不再自己算第二份。
+  if (typeof statement.end !== "number") {
+    return ctx.Node("LabeledStatement", props, v);
+  }
+  return ctx.Node("LabeledStatement", props, { ...v, end: statement.end });
+```
+
+
 ## method Clone:()=>Token
 
 克隆自身（子单元一起克隆——第 929 轮起它可能包着被标的语句）。

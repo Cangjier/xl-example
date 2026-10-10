@@ -402,6 +402,19 @@ return new Map([["ConditionalType", new Map([["children", "checkType"], ["childr
   return { ...node, end: ctx.StmtEndOf(v) };
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  const kids = ctx.Kids(v);
+  const node = ctx.ConditionalNode(kids, 0, kids.length);
+  return { ...node, end: ctx.StmtEndOf(v) };
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把类型队列装上**。

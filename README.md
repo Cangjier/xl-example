@@ -284,6 +284,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:astjson` | **出口 2（AST JSON）的尺子**（第 884 轮加）：逐节点比「标签名 === `type`」「XML 的每个属性在 JSON 里**同名同值**」「每个节点都有合法 `range`」「JSON 多出来的键在 [docs/ast-json.md](docs/ast-json.md) 第 2–4 节**登记过**」，外加「命令行 === 库 API」与「不抛异常」——**六项全 0 才退出码 0** |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
+| `cases:direct` | **直出版同答**（第 992 轮加）：整个语料跑两遍（直出通道开 / 关）**逐字节**比 `ToJsonText`，外加 `unmapped` / `count` 记账同——三项全 0 才退 0；直出覆盖率只印（见 `Token.PrintDirectAst`） |
+| `direct:lint` | **直出版只用 token 自己的东西**（第 992 轮加）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许转手 `this.PrintAst` |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `cases:tags` | **用例自带的期望**：`xl:expect`（存在，或 `Tag:N` 计数）与 `xl:absent` 逐条对产物核实，外加标签表体检 |
@@ -373,6 +375,73 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   第 972 / 973 / 974 三轮各补过「最里面那一格」，而它其实在**五处**；
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
+
+### 第 992 轮：`Token.PrintDirectAst` 落地——第三个出口多一条**直出版**通道；一次搬 27 段，直出覆盖 **45.7%**
+
+**一句话**：`PrintAst` 那一层里混着**回原文查**的路（`ctx.Text` / `ctx.TextOf` / `ctx.StringText` /
+`ctx.source`，以及跟在后面的 `indexOf` / `slice`——光 `print-ast-common.xl.md` 里就有 84 处，
+另外 29 页 token 自己的方法体里还有一批）。回原文查是**第二份近似**：同一个事实解析期已经知道过一次
+（名字在哪里、括号配对到哪、这个 `;` 属不属于上一条语句），投影再猜一次，两份答案就会在
+「注释里有个同名的词」「字符串里有个假括号」这种输入上悄悄分叉。
+这一轮把「这一格出哪个节点」**重新按 token 自己已有的东西说一遍**：新立一格 `PrintDirectAst`，
+投影**优先问它**，并给它配了**两条判据**（同答 / 只用 token 自己的东西）。缺属性的那一档，
+规矩是**给 token 补上那个属性**（`NameRange` / `BodyBrace` 那条线），不是绕过去。
+
+- **新增 `Token.PrintDirectAst(ctx, v)`**（[core/syntax/token.xl.md](core/syntax/token.xl.md)）：
+  基类答 `undefined`（＝「我没有直出版，照旧走 `PrintAst` / 通用支」），与 `PrintAst` 同一个约定，
+  所以可以**逐页**搬。两条判据写在那一节里，也就写在 `npm run gates` 里。
+- **投影分派**（[print-ast-common.xl.md](typescript/print-ast-common.xl.md) 的 `projectNode`）：
+  「先问直出版 → 再问 `PrintAst` → 再落通用支」，`ctx.Nothing`（故意不出节点）与 `undefined`
+  （没有直出版）仍然分开。`projectRoot` 多一个**可选**第三参数 `useDirect`（默认 `true`）
+  与一个**返回值 `direct`**（这一趟有多少个节点是直出版自己出的）——`cases:direct` 就是拿这两遍对拍。
+- **两个读数助手进 `ctx`**：`Value(view)` / `ValueOf(node)`——只读这一格**自己记的**值，
+  **不回原文兜底**（`Text` / `TextOf` 在值为空时会去 `source.slice`，那正是这条路上不许有的第二份近似）。
+  值不在这一格上时给空串、**不猜**：判据会当场点名，该做的事是把值记到 token 上。
+- **一次搬 27 段 / 24 页**（另加基类那一格）：24 页是**纯搬家**（方法体里本来就没有回原文查的那几处，
+  照抄成直出版），另 3 页是**换正文**的叶子——`Identifier` 读 `this.TempToString()`、
+  `SymbolToken` 读 `this.TempToString()`、`Keyword` 读 `this.Value`，替掉原来的 `ctx.Text(v)`。
+  叶子这三个换得最值：全语料里它们是节点数的大头（直出覆盖率 45.7% 基本是它们贡献的）。
+- **两个新门**：
+  - **`cases:direct`**（[tests/parse/direct-ast.mjs](tests/parse/direct-ast.mjs)）：语料跑两遍
+    （直出通道开 / 关）**逐字节**比 `ToJsonText`，外加 `unmapped` / `count` 记账同——三项全 0 才退 0；
+    直出覆盖率只印、不进退出码（那是进度，不是缺陷）；
+  - **`direct:lint`**（[tests/parse/direct-lint.mjs](tests/parse/direct-lint.mjs)）：逐页扫直出版的
+    **方法体**（注释不算），四个回原文查的出口 + `this.PrintAst(` 转手都不许出现；
+    并要求「有直出版的页面**同页必须还有 `PrintAst`**」——搬完之前不许先把基线删掉。
+    两条分开是因为它们坏的方式不同：静态那条坏了是「又回原文查了」（只在坏输入上显形），
+    动态那条坏了是「答案不一样了」（当场显形）。
+
+**实测**：`xl check` 182 文件 0 错 0 警、`tsc` 0 错；
+`cases:direct` **1639 份语料 / 21818 个节点，直出版自己出的 9964 个（45.7%），同答 0 处不一致、抛异常 0**；
+`direct:lint` 180 页里**直出版 28 段、0 条违反**，还没直出的 **33 页**（清单在 `--verbose` 里）；
+`samples` 三份逐字节一致；`cases:astjson` 六项全 0（1642 份 / 42596 个节点）；
+`cases:tsast:cases` **1639 / 1639 份完全一致**（四方向 0、字段名 0、100.0%）；
+`cases:check` **1656 条用例 0 条不合格**。
+
+**如实记下的一件事：`cases:tsast` 全语料这一轮仍是「15 片通过、1 片失败」，而那一片红不是这一轮引入的。**
+红的是 `dist/ts/typescript/print-ast-common.ts` 这一份**自举语料**，读数 **缺 51 / 多 2**，
+缺的那 51 个节点全在 `segmentNameOf` 的 `for (const name of kind === undefined ? [tag] : [kind, tag])` 上
+（整条语句退化成一个 `ExpressionStatement` + `Identifier "for"`）。**判它是「本轮之前就在」用的是产物档案**：
+同一份内容在本轮之前的版本 `dist/ts/.xl/cache/typescript/print-ast-common.ts.171` 上量出**同样的**
+缺 51 / 多 2（单文件跑 `compareSource` 逐项一致），而直出版开关两遍的产物**逐字节相同**——
+也就是说这一格与 `PrintDirectAst` 无关。最小复现是
+`for (const x of a ? [b] : [c]) { … }`（`for…of` 的枚举对象是**条件表达式**），
+`for (const x of [a, b])` 这一条形态是好的。它按规矩**登记进语料**：
+[tests/cases/token/statements/gap-r992-forof-ternary-iterable.ts](tests/cases/token/statements/gap-r992-forof-ternary-iterable.ts)
+（`xl:known-gap`，缺口清单 3 → 4 条）。入手处记在那一行指令里：`foreach.xl.md` 的 `ForeachCloseRule`
+——`Previous` 认下了 `for (… of …)`，收尾那一趟却没把它收成 `Foreach`，**真正断在哪一步还没量**。
+
+**可复用的判据**（这一轮量出来的两条）：① **「同一份产物在两个版本上量出同样的数」是判「是不是我弄坏的」
+最省事的办法**——`dist/ts/.xl/cache/**` 里躺着上一版的产物，直接拿它跑同一把尺子即可，
+不必 stash + 重建（本轮那次判断就是这么做的）；② **静态门要剥注释**——直出版的方法体里
+「原来这里是回原文切的，现在读 `this.Temp`」这句话**必须留着**，把注释一起判掉就会逼着人删掉那条理由。
+
+**下一轮的入手处**：`direct:lint --verbose` 那份「待搬」清单（33 页）。按「方法体里出现哪个出口」分两档——
+(a) 只是 `ctx.TextOf(某个子单元)` 的（`not-null` / `spread` / `decorator` / `type-operator` /
+`enum-member` / `index-signature` / `tuple-member` / `heritage-clause` / `type-assign` / `type-predicate` …）：
+它们要的是**子单元自己记的值**，换成 `ctx.ValueOf` 即可，缺值就补属性；
+(b) 真的要回原文量的（`method` 240 行、`import` 162 行、`type-parameter` 156 行、
+`mapped-type` 129 行、`if-set` 132 行、`lamda-parameter` 88 行…）：一页一轮地量、一页一轮地补属性。
 
 ### 第 991 轮：把「**体字段**」搬上 token（`Token.BodyField`，6 页）——`BODY_FIELDS` 整张表删掉；四类「体」改成 **`PrintAst` 直出**
 

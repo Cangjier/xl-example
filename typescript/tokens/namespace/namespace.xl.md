@@ -458,6 +458,30 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
   return node;
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  const node = ctx.Node("ModuleDeclaration", ctx.Structural(v, "ModuleDeclaration"), v);
+  // **没体的环境模块把那个 `;` 吃进来**（第 840 轮）：`declare module "mm";` 在 TS 那边
+  // `ModuleDeclaration` 的区间**含** `;`（`AmbientModuleDeclaration` 收尾调 `parseSemicolon`），
+  // 而收尾规则问「简写」的那一刻列表**只到名字**（那个 `;` 还没进来，见 `ShorthandEnd`）
+  // ⇒ 声明自己的区间到名字为止。这里按「没体的声明自己吃尾分号」补一格——
+  // 与第 838 轮那条口径**同一份实现**（`ctx.SemicolonEndOf` 会把那个下标记进
+  // `consumedSemicolons`，紧跟的那一格于是不再投成 `EmptyStatement`）。
+  // **带体的一档不吃**：`module M { };` 里那个 `;` 是**另一条** `EmptyStatement`
+  // （`ModuleDeclaration` 在 `NO_TRAILING_SEMICOLON` 表里）。
+  const hasBody = ctx.AllKids(v).some((k: any) => k.get("type") === "NamespaceBody");
+  if (hasBody === false) {
+    node.end = ctx.SemicolonEndOf(node.end);
+  }
+  return node;
+```
+
+
 ## method BodyField:(parentKind:string)=>string | undefined
 
 **我在父节点上叫哪个字段**（见 `core/syntax/token.xl.md` 的 `Token.BodyField`）：

@@ -61,6 +61,17 @@ return "body";
 return ctx.Node("Block", { statements: ctx.Each(v, "Block") }, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+return ctx.Node("Block", { statements: ctx.Each(v, "Block") }, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 创建后立刻把语句收尾规则挂上自己的规则队列——方法体里是一串语句。

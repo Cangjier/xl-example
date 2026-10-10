@@ -304,6 +304,23 @@ const kind = contextual ? undefined : ctx.KeywordKind(text);
 return ctx.Node(kind === undefined ? "Identifier" : kind, { text }, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **文本读 token 自己的 `Value`**（第 992 轮）：关键字兜底身份的正文就记在那一格上
+  // （`ToDictionary` 的 `value` 与它同源），不必回原文切。
+  const text = this.Value;
+  // 上下文关键字 `get` / `set` 一律按 `Identifier` 投（理由见上面的 `PrintAst`）。
+  const contextual = text === "get" || text === "set";
+  const kind = contextual ? undefined : ctx.KeywordKind(text);
+  return ctx.Node(kind === undefined ? "Identifier" : kind, { text }, v);
+```
+
+
 ## method Clone:()=>Token
 
 克隆自身。

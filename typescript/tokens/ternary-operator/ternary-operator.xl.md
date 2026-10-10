@@ -566,6 +566,30 @@ TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
   return ctx.NodeHead("ConditionalExpression", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  const props: any = {
+    condition: ctx.Segment(v, "condition"),
+    whenTrue: ctx.Segment(v, "trueStatement"),
+    whenFalse: ctx.Segment(v, "falseStatement"),
+  };
+  const questionPos = v.attrs.get("questionPos");
+  const colonPos = v.attrs.get("colonPos");
+  if (typeof questionPos === "number" && questionPos >= 0) {
+    props.questionToken = { kind: "QuestionToken", text: "?", pos: questionPos, end: questionPos + 1 };
+  }
+  if (typeof colonPos === "number" && colonPos >= 0) {
+    props.colonToken = { kind: "ColonToken", text: ":", pos: colonPos, end: colonPos + 1 };
+  }
+  return ctx.NodeHead("ConditionalExpression", props, v);
+```
+
+
 ## field QuestionPos:int = -1
 
 条件那个 `?` 在源码里的下标；还没记下来时是 `-1`。

@@ -146,6 +146,23 @@ unit.AddToMounted(block);
   return ctx.NodeHead("ClassStaticBlockDeclaration", body === undefined ? {} : { body }, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  const statements = ctx.ProjectEach(ctx.Kids(v), "Block");
+  const rawBrace = ctx.Attr(v, "braceAt");
+  const brace = typeof rawBrace === "number" ? rawBrace : -1;
+  const close = ctx.EndOf(v);
+  const body =
+    brace >= 0 && close > brace ? { kind: "Block", statements, pos: brace, end: close } : undefined;
+  return ctx.NodeHead("ClassStaticBlockDeclaration", body === undefined ? {} : { body }, v);
+```
+
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，取跳转队列，再把**语句队列**装进自己的规则队列——静态块里是一串语句。

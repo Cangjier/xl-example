@@ -245,6 +245,19 @@ const text = ctx.Text(v);
 return ctx.Node(ctx.TokenKind(text), { text }, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+  // **文本读 token 自己的 `Temp`**（第 992 轮）：见 `identifier.xl.md` 那一页的同一条说明。
+  const text = this.TempToString();
+  return ctx.Node(ctx.TokenKind(text), { text }, v);
+```
+
+
 ## method Clone:()=>Token
 
 克隆自身。

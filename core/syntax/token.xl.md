@@ -764,6 +764,34 @@ return JSON.stringify(Token.ToPlain(this.ToList()));
 return undefined;
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 992 轮）：与 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+属性、子单元（`Data` / 视图里的 `segments`）、以及 `Parent`。
+
+**它与 `PrintAst` 的分工**：`PrintAst` 是「这一格出哪个节点」的**现状**，而那一层里混着
+**回原文查**的路（`ctx.Text` / `ctx.TextOf` / `ctx.StringText` / `ctx.source`，以及跟在后面的
+`indexOf` / `slice` 这类二次搜刮）。回原文查是**第二份近似**：同一个事实解析期已经知道过一次
+（名字在哪里、括号配对到哪里、这个 `;` 属不属于上一条语句），投影再猜一次，
+两份答案就会在「注释里有个同名的词」「字符串里有个假括号」这种输入上悄悄分叉。
+直出版把这一格**重新按解析期已有的东西说一遍**；缺什么就**给 token 补上那个属性**
+（与 `NameAt` / `NameRange` / `BodyBrace` 那几格同一条口径），而不是回原文猜。
+
+**两条判据（都已经进 `npm run gates`）**：
+
+1. **同答**：覆写了这一格的 token，投影**优先问它**；整个语料跑两遍（直出通道开 / 关）
+   产物必须**逐字节相同**——那是 `cases:direct`。不一样就是这一格写错了，不是「另一种口径」；
+2. **只用 token 自己的东西**：这一格的方法体里**不许**出现 `ctx.source` / `ctx.Text` /
+   `ctx.TextOf` / `ctx.StringText`，也不许把问题**转手**回 `this.PrintAst`——`direct:lint` 逐页扫。
+   要问「某个子单元的值」时走 `ctx.ValueOf`（只读那一格自己记的值，**不回原文兜底**）。
+
+**基类答 `undefined`**＝「我没有直出版，照旧走 `PrintAst` / 通用支」：与 `PrintAst` 同一个约定，
+所以这一格可以**逐页**搬——搬一页多一页直出，`projectRoot` 返回的 `direct` 记账量的就是这个数。
+
+```ts
+return undefined;
+```
+
 ## method SegmentNames:()=>Map<string, Map<string, string>>
 
 **投成目标语言形状时，本单元的段叫什么**：`目标语言的节点名` → （`产物那边的分段名` → `目标语言的字段名`）。
