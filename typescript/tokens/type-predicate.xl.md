@@ -9,6 +9,7 @@ import { WordText, IsTypeContainerUnit, IsTriviaUnit, SkipNextTrivia, SkipPrevio
 import { Identifier } from "./identifier.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { MethodCloseRule } from "./method.xl.md"
+import { ParenthesizedTypeCloseRule } from "./parenthesized-type.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
 
@@ -60,13 +61,43 @@ TypeScript 那边它是一个**独立的类型节点**（`TypePredicate`：`para
 ```ts
 super();
 MethodCloseRule.PredicateShape = (units: Array<Token>, bracketIndex: number): boolean => {
-  const wordAt = SkipPreviousTrivia(units, bracketIndex);
-  let nameAt = wordAt;
-  if (this.IsPredicateWord(Get(units, wordAt), "is")) {
-    nameAt = SkipPreviousTrivia(units, wordAt);
-  }
-  return this.IsPredicateAt(units, nameAt);
+  return this.Claim(units, bracketIndex);
 };
+```
+
+## method Claim:(units:Array<Token>, bracketIndex:int)=>bool
+
+`bracketIndex` 那一对括号**是不是类型谓词里的括号**；是就**当场把它收成
+`ParenthesizedType`**（在 `units` 里原地换掉）并答真。
+
+**为什么要「当场收」而不是只答一句「是谓词」**：谓词的类型那一格要长成
+`ParenthesizedType`（TS 那边就是 `TypePredicate > ParenthesizedType`），
+而**再没有第二趟**会回来收这个括号了（见 `parenthesized-type.xl.md` 里那一节：
+`ParenthesizedTypeCloseRule` 的判据问的是「父亲是不是类型容器」，
+而谓词成形时括号的父单元是 `TypePredicate`——那正是第 958 轮在
+`IsTypeContainerUnit` 白名单上补的那一格，可名额**只对「括号关闭之后重跑」那一趟**有用，
+这里要的是**在抢走它之前**就把它收好）。换父这一个动作必须在**认下这一格的那一刻**做掉；
+收完之后括号自己的队列由 `ParenthesizedTypeCloseRule.Process` 重跑（它本来就是干这个的）。
+
+**两个调用点、一份实现**：`MethodCloseRule`（值位 / 类型的通用趟）与
+`MethodDeclarationCloseRule`（类成员那一趟，它排在更前面、且先看到「名字 + `(` + 体」的
+形状）都只是转发到这一个方法——**判据只有一份**。
+
+```ts
+const wordAt = SkipPreviousTrivia(units, bracketIndex);
+let nameAt = wordAt;
+if (this.IsPredicateWord(Get(units, wordAt), "is")) {
+  nameAt = SkipPreviousTrivia(units, wordAt);
+}
+if (this.IsPredicateAt(units, nameAt) === false) {
+  return false;
+}
+const bracket = Get(units, bracketIndex);
+if (bracket === null) {
+  return false;
+}
+ParenthesizedTypeCloseRule.Instance.Process(bracket.Template, units, bracketIndex);
+return true;
 ```
 
 ## private method IsPredicateWord:(item:Token | null, text:string)=>bool
