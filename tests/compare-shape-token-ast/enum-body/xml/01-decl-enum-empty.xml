@@ -1,0 +1,1 @@
+<Root range="[0,51]"><Statement range="[0,14]"><LineAnnotation range="[0,14]"> xl:note 空枚举体</LineAnnotation></Statement><Statement range="[16,41]"><LineAnnotation range="[16,41]"> xl:expect Enum,EnumBody</LineAnnotation></Statement><Enum range="[43,51]" name="E" modifiers="" nameStart="48" nameEnd="48"><EnumBody range="[50,51]"></EnumBody></Enum></Root>

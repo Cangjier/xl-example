@@ -3,16 +3,32 @@
 **一句话**：每一格 token 一个目录，在那里放几条源码，把**成形时的那棵产物树**与
 `ts.createSourceFile` 的 AST 摆在一起，量**形状差在哪一节**。
 
+**覆盖面**：产物标签的权威名单是 `tests/parse/validate.mjs` 的 `TAGS`（`cases:tags` 会核
+「表里每个名字都要有用例真的产出它」）——**117 种，本门 117 个目录，一个不缺**。
+对账用 `tools/coverage.mjs`（缺一种就会列出来）。
+
+**事实来源是出口 1（XML），不是 `ToList()` 的字典**（第 987 轮六订正）：
+`ToDictionary` 会把 `ForBody` / `TryBody` / `NewType` / `MethodBody` 这一批**提层**掉
+（`print-ast-common.xl.md` 的 `WRAPPER_FIELDS` 那张表就是干这个的）——它们在成形期的树上是实打实的
+标签，在字典里一个都不出现。第一版走字典，于是 `for (;;) {}` 的 `ForBody` 被判成「产物里没有」，
+补全到 117 格时当场报了 52 条假 CRASH。XML 那份**带 `range`**（每个开标签都印），
+所以按区间配 AST、按子元素算读数都做得到。
+
 ```
 tests/compare-shape-token-ast/
   run.mjs             普查器（跑、比、落盘）
-  README.md           本文件（怎么跑、口径、怎么加一格）
-  <token>/            一格 token 一个目录，名字就是产物标签的小写连字符写法
-    01-xxx.ts         用例：首行可写 `// token: <标签>`（写错会判红），其余是源码
+  FINDINGS.md         逐格比较与定案（该动哪一格）
+  README.md           本文件
+  tools/              四把工具（对账 / 落种子 / 键账本 / 对齐视图）
+  <token>/            一格 token 一个目录，名字就是产物标签的小写连字符写法（117 个）
+    01-xxx.ts         用例：首行写 `// token: <标签>`（写错会判红），其余是源码
     README.md         这一格的读数表（`--snapshot` 时自动刷新）
-    xml/01-xxx.xml         **出口 1**：`Token.ToXmlString()` 的原样（紧凑单行 XML）
-    ast/01-xxx.json        **出口 3**：`cjcli <文件> --ts-ast` 的 stdout 原样（紧凑单行 JSON）
+    xml/01-xxx.xml    **出口 1**：`Token.ToXmlString()` 的原样（紧凑单行 XML，带 range）
+    ast/01-xxx.json   **出口 3**：`cjcli <文件> --ts-ast` 的 stdout 原样（紧凑单行 JSON）
 ```
+
+用例不是手写的：`tools/seed-cases.mjs` **从语料里给每个标签挑最小的产出文件当种子**
+（`tests/cases/**` 优先，仓库自己的回归网），写进对应目录并加上那行 `// token:` 头。
 
 ## 怎么跑
 
@@ -62,10 +78,13 @@ node tests/compare-shape-token-ast/run.mjs --json tmp/rep.json  # 逐条读数�
 `run.mjs` 量的是「差多少」，**定不了「该动哪里」**。要定哪一格，用对齐视图：
 
 ```bash
-node tmp/pa-flow.mjs method         # 一个 token 目录；tmp/ 下的工具不进版本库
+node tests/compare-shape-token-ast/tools/flow.mjs method      # 一个 token 目录
+node tests/compare-shape-token-ast/tools/coverage.mjs         # 对账：117 个标签缺不缺
+node tests/compare-shape-token-ast/tools/keys.mjs             # 账本：JSON 有键、XML 没印
+node tests/compare-shape-token-ast/tools/seed-cases.mjs       # 给没种子的标签从语料里挑用例
 ```
 
-它把出口 1 与出口 3 **按区间配在一起**（XML 的 `range="[起,止]"` 是闭区间、AST 的 `pos/end`
+`flow.mjs` 把出口 1 与出口 3 **按区间配在一起**（XML 的 `range="[起,止]"` 是闭区间、AST 的 `pos/end`
 是半开，所以按 `起` 与 `止+1` 配），逐行打印「这个产物节点变成了哪个 AST 节点 /
 还是压根没成节点」，再把「AST 有、产物那棵树上没有对上的」单独列一遍。
 

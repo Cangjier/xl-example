@@ -1,0 +1,1 @@
+{"kind":"SourceFile","statements":[{"kind":"ExpressionStatement","expression":{"kind":"CallExpression","expression":{"kind":"Identifier","text":"a","pos":88,"end":89},"arguments":[],"pos":88,"end":93,"questionDotToken":{"kind":"QuestionDotToken","text":"?.","pos":89,"end":91}},"pos":88,"end":94}],"endOfFileToken":{"kind":"EndOfFileToken","pos":94,"end":94},"pos":88,"end":94}

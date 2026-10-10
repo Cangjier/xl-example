@@ -1,0 +1,1 @@
+<Root range="[0,85]"><Statement range="[0,60]"><LineAnnotation range="[0,60]"> xl:note 第 869 轮：同一支：名字写在下一行（`namespace` 后面还要一个名字，换行不是语句边界）</LineAnnotation></Statement><Statement range="[62,85]"><NamespaceExport range="[62,85]" name="Foo" nameStart="82" nameEnd="84" /></Statement></Root>

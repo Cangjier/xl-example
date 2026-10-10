@@ -1,0 +1,1 @@
+<Root range="[0,58]"><Statement range="[0,27]"><LineAnnotation range="[0,27]"> xl:note 字符类里含 / 的正则 /[/]/</LineAnnotation></Statement><Statement range="[53,58]"><LineAnnotation range="[29,51]"> xl:expect RegexToken</LineAnnotation><RegexToken range="[53,57]"></RegexToken></Statement></Root>

@@ -1,0 +1,1 @@
+{"kind":"SourceFile","statements":[{"kind":"TypeAliasDeclaration","pos":44,"end":55,"name":{"kind":"Identifier","text":"X","pos":49,"end":50},"type":{"kind":"LiteralType","literal":[{"kind":"BigIntLiteral","text":"1n","pos":53,"end":55}],"pos":53,"end":55}}],"endOfFileToken":{"kind":"EndOfFileToken","pos":55,"end":55},"pos":44,"end":55}

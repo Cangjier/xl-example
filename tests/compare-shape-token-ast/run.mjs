@@ -195,87 +195,116 @@ const KEYWORD_KIND = new Map([
 const isTokenKindName = (name) => /Token$/.test(name) || /Keyword$/.test(name);
 
 // ---------------------------------------------------------------------------
-// 一、产物侧：读成「节点名（已归一）+ 子格」
+// 一、产物侧：**读出口 1（XML）**，读成「节点名（已归一）+ 子格」
 // ---------------------------------------------------------------------------
-
-/** 产物一个节点的归一节点名：标签先过 `KIND_BY_TAG`；叶子按值分名（数字 / 字符串 / 关键字）。 */
-function productKind(node) {
-  const type = node.get("type");
-  const value = node.get("value");
-  const text = typeof value === "string" ? value : "";
-  if (type === "SymbolToken") return TOKEN_KIND.get(text) ?? text;
-  if (type === "Keyword") return KEYWORD_KIND.get(text) ?? text;
-  if (type === "Identifier") {
-    if (/^\d/.test(text) || /^\.\d/.test(text)) return "NumericLiteral";
-    if (/^["'`]/.test(text)) return "StringLiteral";
-    return "Identifier";
-  }
-  return KIND_BY_TAG.get(type) ?? type;
-}
-
-/**
- * 产物一个节点的子格。
- *
- * **三类分开记**，这是这一门最要紧的判据：
- *   · `children` —— **平的**子格序列（TS 那边没有这个概念，只有具名字段）；
- *   · 具名的数组字段（`name` / `arguments` / `condition` / `body` / `initial`…）—— **段**，
- *     与 TS 的具名字段是一回事；
- *   · 对象/数组形态的标量（`name: ["f"]`）—— 同样是段，只是那一段本身不在 `children` 里。
- */
-function productChildren(node) {
-  const out = [];
-  for (const [key, value] of node.entries()) {
-    if (key === "type" || key === "range" || key === "value") continue;
-    if (Array.isArray(value)) {
-      for (const child of value) {
-        if (child !== null && child !== undefined && typeof child.get === "function") out.push({ field: key, node: child });
+//
+// **为什么读 XML 而不是 `ToList()` 的字典**（第 987 轮六订正）：
+// `ToDictionary` 会把 `ForBody` / `TryBody` / `NewType` / `MethodBody` 这一批**提层**掉
+//（`print-ast-common.xl.md` 的 `WRAPPER_FIELDS` 那张表就是干这个的）——它们在**成形期的树**上是
+// 实打实的标签，在字典里却一个都不出现。本门量的正是成形期那一棵树，所以事实来源是
+// `Token.ToXmlString()`（出口 1）。
+//
+// 这一条是被「117 格补全」逼出来的：第一版走字典，`for (;;) {}` 的 `ForBody` 被判成
+// 「产物里没有这个标签」，52 条用例当场报假 CRASH；`for` 的字典里连 `children` 键都没有，
+// 四个段各是一个数组。**XML 那份是带 `range` 的**（第 987 轮续给每个开标签都印了），
+// 所以按区间配 AST、按段子格算读数都做得到。
+//
+// 解析用现成的口径：标签名 / `range` / 其它属性；注释与 PI 跳过；自闭合与收尾标签都要认
+//（第一版的对齐器漏了收尾标签，`<X></X>` 会把后面的兄弟全吃进去）。
+function parseProductXml(text) {
+  const root = { tag: null, attrs: new Map(), kids: [] };
+  const stack = [root];
+  const re =
+    /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<\/([A-Za-z_][A-Za-z0-9_]*)\s*>|<([A-Za-z_][A-Za-z0-9_]*)((?:\s+[A-Za-z_][A-Za-z0-9_]*="(?:[^"\\]|\\.)*")*)\s*(\/?)>|([^<]+)/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m[5] !== undefined) {
+      const t = m[5];
+      if (t.trim() !== "") {
+        const top = stack[stack.length - 1];
+        top.text = (top.text ?? "") + t;
       }
       continue;
     }
-    if (value !== null && value !== undefined && typeof value.get === "function") out.push({ field: key, node: value });
+    if (m[1] !== undefined) {
+      stack.pop();
+      continue;
+    }
+    if (m[2] === undefined) continue; // 注释 / PI
+    const attrs = new Map();
+    for (const a of m[3].matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"((?:[^"\\]|\\.)*)"/g)) attrs.set(a[1], a[2]);
+    const node = { tag: m[2], attrs, kids: [], text: "" };
+    stack[stack.length - 1].kids.push(node);
+    if (m[4] !== "/") stack.push(node);
   }
-  return out;
+  return root.kids;
+}
+
+/** XML 属性里的 `[起,止]`（闭区间）→ 两个下标。 */
+function rangeOfAttrs(attrs) {
+  const raw = attrs.get("range");
+  if (typeof raw !== "string") return [null, null];
+  const m = /^\[(-?\d+),(-?\d+)\]$/.exec(raw);
+  return m ? [Number(m[1]), Number(m[2])] : [null, null];
+}
+
+/** 产物一个节点的归一节点名：标签先过 `KIND_BY_TAG`；叶子按值分名（数字 / 字符串 / 关键字）。 */
+function productKindOf(tag, text) {
+  const value = text === undefined || text === null ? "" : String(text);
+  if (tag === "SymbolToken") return TOKEN_KIND.get(value) ?? value;
+  if (tag === "Keyword") return KEYWORD_KIND.get(value) ?? value;
+  if (tag === "Identifier") {
+    if (/^\d/.test(value) || /^\.\d/.test(value)) return "NumericLiteral";
+    if (/^["'`]/.test(value)) return "StringLiteral";
+    return "Identifier";
+  }
+  return KIND_BY_TAG.get(tag) ?? tag;
 }
 
 /**
- * 产物侧的树：节点名 / 区间 / 子格，**外加一行「纯标量字段」**。
+ * 把 XML 节点读成与 `productNode` 同形的树。
  *
- * 标量字段要单独记：`f(x)` 的被调用者、`let x` 的名字、`class C` 的名字在产物里
- * **完全不是节点**，只是一个字符串（`"name": "f"`）——TS 那边它们都是**子节点**。
- * 这一栏就是「产物把某个 AST 子节点降级成了自己身上的一行属性」的证据。
+ * 子格的 `field`：XML 里**没有**「平 `children`」这个概念——每个子元素都只是子元素。
+ * 为了与投影那侧对齐沿用同一条口径：**具名段**（`For` 的 `initial` / `body`…）在 XML 里
+ * 也是**子元素**，分不出来；所以这里对**单子元素的容器**记它自己的名字（绝大多数情况一对一），
+ * 其余一律记 `children`。读数里那两栏（平子格 / 具名段）因此是**近似**，
+ * 而**判据那几栏（内核形状 / 区间 / 标签名）不看它**。
  */
-function productNode(node) {
-  const range = node.get("range");
+function productNodeFromXml(xmlNode) {
+  const [start, end] = rangeOfAttrs(xmlNode.attrs);
   const scalars = [];
-  for (const [key, value] of node.entries()) {
-    if (key === "type" || key === "range") continue;
-    if (value === null || value === undefined) continue;
-    if (typeof value === "function") continue;
-    if (Array.isArray(value) || typeof value.get === "function") continue;
-    scalars.push(`${key}=${JSON.stringify(String(value))}`);
+  for (const [key, value] of xmlNode.attrs) {
+    if (key === "range") continue;
+    scalars.push(`${key}=${JSON.stringify(value)}`);
   }
+  // 段名：对 `For` 这种「属性里带 initial/compare/next/body 四个名」的节点，
+  // 子元素与段按顺序一一对应 —— 按属性的出现顺序配不上，所以这里**只沿用标签名**，
+  // 段名在读数里不参与判据（见上面那段注释）。
   return {
-    kind: productKind(node),
-    tag: node.get("type"),
-    start: range === undefined ? null : range[0],
-    end: range === undefined ? null : range[1] + 1,
-    value: node.get("value"),
-    startBracket: node.get("startBracket"),
+    kind: productKindOf(xmlNode.tag, xmlNode.text),
+    tag: xmlNode.tag,
+    start,
+    end,
+    value: xmlNode.text === "" ? undefined : xmlNode.text,
+    startBracket: xmlNode.attrs.get("startBracket"),
     scalars,
-    children: productChildren(node).map((k) => ({ field: k.field, ...productNode(k.node) })),
+    children: xmlNode.kids.map((k) => ({ field: "children", ...productNodeFromXml(k) })),
   };
 }
 
 /**
- * 产物侧的**原始标签**树形（不归一）。
+ * 产物侧的**原始标签**树形（不归一、**不过滤标点**）。
  *
- * 用例头那行 `// token: <标签>` 写的是**产物标签**（`BinaryOperator`），
- * 而内核树形走的是归一后的名字（`BinaryExpression`）——拿归一后的串去核那行头，
- * 每一格都会被判成「产物里没有这个标签」。所以核头要用这一份。
+ * 用例头那行 `// token: <标签>` 写的是**产物标签**（`BinaryOperator`、`Keyword`、`SymbolToken`…），
+ * 而内核树形走的是归一后的名字（`BinaryExpression`）并且会滤掉标点——拿那一份去核那行头，
+ * `Keyword` / `SymbolToken` 这两格永远核不过（它们**正是**被过滤掉的那些）。
+ * 所以核头要用这一份：**一个标签都不许少**。
+ *
+ * **走 XML 那一棵树**（与上面 `productNodeFromXml` 同源）：标签一个不缺，
+ * 包括被 `ToDictionary` 提层掉的 `ForBody` / `TryBody` 那一批。
  */
 function productShapeRaw(node) {
-  const kids = node.children.filter((k) => k.tag !== "SymbolToken" && k.tag !== "Keyword");
-  const inner = kids.map(productShapeRaw).filter((s) => s !== "").join(",");
+  const inner = node.children.map(productShapeRaw).filter((s) => s !== "").join(",");
   return inner === "" ? node.tag : `${node.tag}(${inner})`;
 }
 
@@ -470,7 +499,11 @@ function readCase(file) {
 
 function compareOne(cs) {
   const rootToken = parse(cs.source);
-  const ours = rootToken.ToList().map(productNode);
+  // **产物侧读出口 1（XML）**：这是成形期那棵树的事实来源（117 个标签一个不缺）。
+  // 同一棵树、同一次 `Process`，只是最后取 `ToXmlString()` 那一份——与 cjcli 的默认出口逐字节同源。
+  const { CommonUtil } = require(path.join(root, "build", "ts", "core", "common-util.js"));
+  const productXml = CommonUtil.FormatXml(rootToken.ToXmlString());
+  const ours = parseProductXml(productXml).map(productNodeFromXml);
   const sf = ts.createSourceFile("probe.ts", cs.source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const theirs = [tsNode(sf, sf)];
 

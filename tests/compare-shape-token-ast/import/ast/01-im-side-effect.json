@@ -1,0 +1,1 @@
+{"kind":"SourceFile","statements":[{"kind":"ImportDeclaration","pos":46,"end":56,"moduleSpecifier":{"kind":"StringLiteral","text":"x","pos":53,"end":56}}],"endOfFileToken":{"kind":"EndOfFileToken","pos":56,"end":56},"pos":46,"end":56}
