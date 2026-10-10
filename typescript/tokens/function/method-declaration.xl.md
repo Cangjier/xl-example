@@ -1068,6 +1068,52 @@ for (const item of this.Data) {
 throw new Error("找不到匹配的子单元");
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 1002 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+**这一页是「同一个产物标签、按上下文换 kind」最多的一页**：
+接口 / 类型字面量里是 `MethodSignature`（`ctx.signature`）、
+类体里那个叫 `constructor` 的是 `Constructor`（读 `ctx.parentKind`）、
+`modifiers` 里带 `get` / `set` 的是 `GetAccessor` / `SetAccessor`，
+其余才是 `MethodDeclaration`。四档判据**全部落在这一格自己的属性与上下文标记上**
+（`name` / `modifiers` / `ctx.signature` / `ctx.parentKind`）——没有一处回原文查。
+
+**回落到形状那一格是必须的**（不是「偷懒转手」）：算 kind 与造形状是同一件事的两半
+（`projectDeclaration` 里换 kind 之后立刻就是 `structuralProps` 与三处收尾），
+而「带坐标与尾部 trivia 剪裁」的造节点口径只能有一份（`astNode`）。
+所以直出版把它算出来的 kind 与**这一格自己的造节点闭包**（第三格，来自 `ctx.Node`）交回去，
+由那一份实现把形状造完——`projectNode` 认这一格时会**跳过「再问一次直出版」**，
+否则就是自己问自己（见 `projectNode` 里 `ctx.awaitingDeclaration` 那一支）。
+
+```ts
+  // **这一个节点该出哪个 kind**：四条换 kind 规则按 context 逐条判。
+  // 与 `projectDeclaration` 是**同一个顺序**（表达式位 → 构造 → 取值器 / 设值器 → 签名）：
+  // 顺序反了，`class { get x() {} }` 那种「既是 get 又可能是签名」的写法就会两边不同。
+  // **判据取属性、不转字符串**：`attrs` 上的值本来就是这个 token 自己记的字符串
+  // （不到就取空串），调用全局 `String(...)` 反而会撞上同名的 token 类 `String`。
+  const declaredName = v.attrs.get("name") ?? "";
+  const declaredModifiers = v.attrs.get("modifiers") ?? "";
+  let kind = "MethodDeclaration";
+  if (ctx.expressionPosition === true) kind = "MethodDeclaration";
+  else if (
+    (ctx.parentKind === "ClassDeclaration" || ctx.parentKind === "ClassExpression") &&
+    declaredName === "constructor"
+  ) {
+    // **判据是 `name` 属性、不是文本**（与 `projectDeclaration` 同一句理由）：
+    // 方法单元自己没有 `value`，回原文取到的是整段方法体、不是名字。
+    kind = "Constructor";
+  } else if (declaredModifiers.split(",").includes("get")) {
+    kind = "GetAccessor";
+  } else if (declaredModifiers.split(",").includes("set")) {
+    kind = "SetAccessor";
+  }
+  if (ctx.signature && kind === "MethodDeclaration") kind = "MethodSignature";
+  // **形状交回共享实现**（第三格是这一格自己的造节点闭包、第四格是刚算出来的 kind）。
+  return ctx.Declaration(v, undefined, ctx.Make(v), kind);
+```
 ## method ToXmlString:()=>string
 
 产出 XML：开标签上带 `name`、`modifiers` 与名字的两个下标（`nameStart` / `nameEnd`）。

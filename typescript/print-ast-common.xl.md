@@ -771,6 +771,19 @@ new Map([
 返回 `undefined`）。所以那些出口改为返回 `ctx.Nothing`，`projectNode` 见到它就**直接返回
 `undefined`**，不再往下走通用支。
 
+# private const DECLARATION_TAGS:Set<string> = new Set(["MethodDeclaration", "Function", "Class", "Interface", "TypeLiteral", "Enum"])
+
+**声明族**（第 1002 轮）：这六个标签**自己覆写了 `PrintAst` 与 `PrintDirectAst`**，
+两条路都落到同一个 `projectDeclaration` 上——所以「同答」不是对拍出来的巧合，
+而是**同一份实现**说过两遍（一遍经 `ctx.Declaration`、一遍经 `ctx.Project`）。
+
+**为什么这张表不是「又一张中央表」**：它不决定形状，只决定**谁被问**。
+形状仍然由 `projectDeclaration` 里的换 kind 规则与 `structuralProps` 说；
+这六页各自出一格形状，其余标签照旧走通用支。
+
+**`Bracket` 不在里面**（第 1001 轮记下的那条分水岭）：它**不在 `KIND_BY_TAG` 里**、
+走的是「查不到映射 ⇒ 原样透传 + 记 `unmapped`」那一支，搬它等于改一个未映射标签的口径。
+
 # private const FUNCTION_LIKE_TAGS:Set<string> = new Set(["Function", "MethodDeclaration", "Lamda"])
 
 **值位的函数体**（三个标签）：`function f() {}` / `class C { m() {} }` / `(x) => x`。
@@ -910,6 +923,18 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
   return Object.assign({ kind }, props === undefined ? {} : props, { pos, end });
 ```
 
+# private method astNodeFor:(ctx:any, v:any)=>any
+
+`projectNode` 里那个 `mk` 的**同一份闭包**，给 `ctx.Declaration` 用（第 1002 轮）。
+
+`mk` 之所以是**每个节点一份闭包**，是因为它把这一格的坐标（`v`）与上下文（`ctx`）闭在里面；
+`projectDeclaration` 要 `mk` 才能造节点，而声明族的 `PrintAst` 走的是 `ctx.Declaration`——
+所以这里把「同一个 mk」按同一份实现再包一次（实现仍然只有 `astNode` 一处）。
+
+```ts
+  return (kind: string, props: any) => astNode(kind, props, v, ctx);
+```
+
 # private method astNodeHead:(kind:string, props:any, v:any, ctx:any)=>any
 
 同 `astNode`，但键序是 **`{ kind, pos, end, …props }`**（坐标在前）。
@@ -995,6 +1020,23 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
         return direct;
       }
     }
+    // **直出版「回落到形状」那一格**（第 1002 轮）：声明族的直出版算完 kind 之后
+    // 要**自己**把形状造出来，而那件事与通用支是同一份实现（`projectDeclaration`）——
+    // 于是它经 `ctx.Declaration` 转回来。这里必须**跳过 `PrintDirectAst` 那一问**，
+    // 否则「自己问自己」：直出版 → 回落 → 又问直出版 → … 无限递归。
+    //
+    // **为什么是「换成局部闭包」而不是一个布尔标记**：这个回落只对**这一格**成立——
+    // 直出版回落之后要走的那条路会去投它的**子节点**，而那些子节点各有自己的直出版、
+    // 必须照常被问。闭包只认自己那一格（**参数只有节点**，`ctx` 已经闭在里面），
+    // 于是「只跳这一问、不跳后面的」是结构上的事；换成标记就得额外管一层栈。
+    const awaiting = ctx.awaitingDeclaration;
+    let made;
+    try {
+      made = awaiting === undefined ? undefined : awaiting(v);
+    } finally {
+      ctx.awaitingDeclaration = undefined;
+    }
+    if (made !== undefined) return made;
     const own = owner.PrintAst(ctx, v);
     // **`ctx.Nothing` 表示「这一格故意不出节点」**（见 `NOTHING` 的说明）：
     // 与 `undefined`（＝没覆写、请走通用支）是两回事。
@@ -1029,18 +1071,57 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
       end: stmtEndOf(v, ctx),
     };
   }
-  // **父 kind**：少数几处「同一个产物标签按上下文换 kind」要问它
-  // （类里的 `constructor` 是 `ConstructorDeclaration`）。它由 `structuralProps`
-  // 在摊平包装体时显式往下传——不是从产物树的父亲读的。
-  let kind = KIND_BY_TAG.get(v.type);
+  // **声明族**（第 1002 轮整段搬进 `projectDeclaration`）：`MethodDeclaration` / `Function` /
+  // `Class` / `Interface` / `TypeLiteral` / `Enum` 六页现在**自己覆写了 `PrintAst` 与
+  // `PrintDirectAst`**（两半一起写，见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  // 这一支是那六页的**共享实现**——`ctx.Declaration` 与它们自己的 `PrintDirectAst` 都落在它上面，
+  // 所以两条路出的形状是**同一份实现**，不是各写一遍再对拍。
+  //
+  // **`parentKind` 一路递到这儿**（`projectEachIn` / `structuralProps` 都记着它）：
+  // 类体里的 `constructor` 要按这个上下文投成 `Constructor`，而直出版是从 `ctx.parentKind`
+  // 读同一格事实、不从产物树的父亲猜（那是第二份近似）。
+  return projectDeclaration(v, ctx, parentKind, mk);
+```
+
+
+# private method projectDeclaration:(v:any, ctx:any, parentKind?:string, mk?:any, kind?:string)=>any
+
+**声明族那一格的形状**（第 1002 轮从 `projectNode` 整段搬来）：
+换 kind（`FunctionExpression` / `ClassExpression` / `Constructor` / `GetAccessor` / `SetAccessor`）
++ `structuralProps` 给字段名 + 三处收尾（摘 `get` / `set`、摘生成器的 `*`、对象字面量成员不吃尾随逗号）。
+
+**第五个参数 `kind` 是可选的**：不给就按 `KIND_BY_TAG` 查（这是通用支与 `ctx.Declaration`
+走的那条路——产物标签自己说明了它是什么）；给了就是**调用方已经算好了这一格该出的 kind**
+（声明族的直出版走这条：它按上下文标记自己判一次，而「按上下文换 kind」的规则写在下面这几行里，
+所以这里**仍然会把规则跑一遍**——两边因此不可能对同一种上下文给出两个答案）。
+
+**为什么单独成一份**：这六页现在**两半一起写**（`PrintAst` + `PrintDirectAst`），
+而直出版只许用 token 自己的东西 ⇒ 它**不能再顺着 `projectNode` 走一遍**
+（那条路会先问 `PrintDirectAst`，于是自己问自己）。所以把这一格抽出来，
+两条路**都调它**——同答就成了结构上的事实，而不是两处各写一遍再靠对拍发现漂移。
+
+**`parentKind` 是投影意义上的父 kind**（不是产物树里的父亲），它由 `projectEachIn` 记在
+`ctx.parentKind` 上、也在参数里递着：类体里的 `constructor` 要按这个上下文投成 `Constructor`，
+`ctx.Declaration` / 直出版读的都是**同一格事实**（直出版读 `ctx.parentKind`、不回产物树的父亲猜）。
+
+**`mk` 由调用方递进来**：它就是 `projectNode` 里那个「带着这一格坐标与尾部 trivia 剪裁」
+的造节点闭包（`astNode`），换一份写就是两份坐标口径。
+
+```ts
   if (kind === undefined) {
-    ctx.unmapped.add(v.type);
-    return mk(v.type, { children: projectEach(allKids(v), ctx) });
+    kind = KIND_BY_TAG.get(v.type);
+    if (kind === undefined) {
+      ctx.unmapped.add(v.type);
+      return mk(v.type, { children: projectEach(allKids(v), ctx) });
+    }
   }
   // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）；
-  // **类里那个叫 `constructor` 的是 `ConstructorDeclaration`**（另一个 kind、没有名字字段）——
+  // **类里那个叫 `constructor` 的是 `Constructor`**（另一个 kind、没有名字字段）——
   // 两处都是「同一个产物标签、按上下文换 kind」（真实语料 `Constructor` 缺 269，全挂在 `ClassDeclaration` 下）。
-  if (ctx.signature && v.type === "MethodDeclaration") kind = "MethodSignature";
+  // **签名那一支认的是 `v.type`、不是已经算出来的 `kind`**：声明族的 `PrintAst` 会把
+  // `kind` 一起递进来（`ctx.Declaration(v, kind)`），那时 `kind` 可能已经是 `Constructor`——
+  // 而这一条说的是「这个产物标签在签名位叫什么」，判据本来就在标签上。
+  if (ctx.signature && v.type === "MethodDeclaration" && kind === "MethodDeclaration") kind = "MethodSignature";
   // **表达式位的函数 / 类**（第 141 轮）：`(function () {…})()` / `const c = class {}` 在
   // TS 那边是 `FunctionExpression` / `ClassExpression`（带名字的也一样——`(function f(){})()`
   // 还是 `FunctionExpression`），而 `KIND_BY_TAG` 给的是**声明**名。
@@ -1341,13 +1422,25 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     return out;
   }
   const signature = parentKind === "InterfaceDeclaration" || parentKind === "TypeLiteral";
-  if (!signature) return projectEach(list, ctx, parentKind);
+  // **记下「这一批成员的父 kind 是什么」**（第 1002 轮）：声明族的直出版要问它
+  // （类体里的 `constructor` 投成 `Constructor`），而直出版手上只有 token 自己——
+  // 所以这一格事实由投影层递过去，与 `signature` 同一种上下文标记。
+  const savedParentKind = ctx.parentKind;
+  ctx.parentKind = parentKind;
+  if (!signature) {
+    try {
+      return projectEach(list, ctx, parentKind);
+    } finally {
+      ctx.parentKind = savedParentKind;
+    }
+  }
   const saved = ctx.signature;
   ctx.signature = true;
   try {
     return projectEach(list, ctx, parentKind);
   } finally {
     ctx.signature = saved;
+    ctx.parentKind = savedParentKind;
   }
 ```
 
@@ -9617,6 +9710,19 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     // （`cases:direct` 印它；`count` 是全部节点数，两者之比就是直出覆盖率）。
     directEnabled: directOn,
     direct: 0,
+    // **当前正在投的这一格，它的父 kind 是什么**（第 1002 轮）：`projectEachIn` 记它、
+    // 声明族的直出版读它。与 `signature` / `expressionPosition` 同一种上下文标记，
+    // 只是它**在成员表那一层设一次**就够——因为问它的只有「类体里的 `constructor`」
+    // 那一支（`projectDeclaration` 的换 kind 规则）。
+    // **为什么直出版非要读这一格**：换 kind 的判据是「谁在投它」，而直出版手上只有
+    // 这个 token 自己——`Parent` 是产物树的父亲（`ClassBody`），不是投影意义上的父 kind
+    //（`ClassDeclaration`）。后者只有投影层知道，所以由 `ctx` 递过来，而不是回原文猜。
+    parentKind: "",
+    // **声明族直出版的「回落」那一格**（第 1002 轮）：`undefined` = 当前没有回落。
+    // 它是**一个只认自己那一格的闭包**（见 `projectNode` 里那一支）：直出版把
+    // 「造这一格形状」的事交回来时，`projectNode` 拿它造完就**不再问一次直出版**——
+    // 于是「自己问自己」不会无限递归，而子节点照常各自被问。
+    awaitingDeclaration: undefined,
     // **类型位标记**（第 99 轮）：`projectTypeExpression` 在投「只有一个单元」的类型时置上它，
     // 让 `projectString` 知道该出 `TemplateLiteralType` 还是 `TemplateExpression`
     // （两者产物同形，只有这一点上下文能区分）。
@@ -9629,6 +9735,13 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     // 覆写里不必 import 任何东西——造节点、投一批子单元、按成员切、取文本、分叶子名，
     // 全在这一组里。它们**逐个转调**上面那些共享实现，所以两条路的产物逐字节相同。
     Node: (kind, props, view) => astNode(kind, props, view, ctx),
+    // **「就这一格的造节点闭包」**（第 1002 轮）：`ctx.Node` 是三参的（自己造一个**指定坐标**的
+    // 节点，`view` 由调用方给），而声明族的直出版要的是**「这一格」**那一份——
+    // 所以这里按同一份实现（`astNode`）把它闭好再递过去。
+    // **为什么不让直出版直接传 `ctx.Node`**：那样第三个参数是 `undefined`，
+    // 坐标口径当场散架（`stmtEndOf(undefined)` 抛异常）——「闭的是哪一格」不能交给
+    // 「调用方记得传第三个参数」。
+    Make: (view) => astNodeFor(ctx, view),
     // **坐标在前的键序**（第 199 轮）：搬家前那批内联写法的节点用它，见 `astNodeHead`。
     NodeHead: (kind, props, view) => astNodeHead(kind, props, view, ctx),
     // **空段不写这一格**：通用支里 `structuralProps` 的段循环是「`kept.length > 0` 才写」，
@@ -9740,6 +9853,20 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     BindingPattern: (unit) => projectBindingPattern(unit, ctx),
     ComputedNameExpression: (unit) => computedNameExpression(unit, ctx),
     Structural: (view, kind) => structuralProps(view, kind, ctx),
+    // **声明族那一格的形状**（第 1002 轮）：`MethodDeclaration` / `Function` / `Class` /
+    // `Interface` / `TypeLiteral` / `Enum` 六页的 `PrintAst` 就是这一句。
+    // 它与 `projectNode` 落在**同一份实现**（`projectDeclaration`）上——
+    // 所以「覆写了仍然与通用支逐字节相同」是结构上的事，不是巧合。
+    //
+    // **第三格是那个「就这一格」的造节点闭包**（`astNodeFor`，与 `projectNode` 里的
+    // `mk` 同一份实现）：直出版算完 kind 之后要**自己**把节点造出来，
+    // 而「带坐标与尾部 trivia 剪裁」的口径只能有一份——所以递过去，不抄第二遍。
+    // **第四个参数是「调用方已经算好的 kind」**（可选）：声明族的直出版自己判过一次
+    // （见 `method-declaration.xl.md` 的 `PrintDirectAst`），而换 kind 的规则只在
+    // `projectDeclaration` 里有一份——所以递进来之后那几条规则**照跑**，
+    // 两边对同一种上下文因此不可能给出两个答案。
+    Declaration: (view, parentKind, make, kind) =>
+      projectDeclaration(view, ctx, parentKind ?? ctx.parentKind, make ?? ctx.Make(view), kind),
     IsTypeParameterModifier: (node) => isTypeParameterModifier(node, ctx),
     MemberInObject: MEMBER_IN_OBJECT,
     NumericLiteral: NUMERIC_LITERAL,
