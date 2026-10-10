@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol, IsMappedKeyBracket } from "../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, IsMappedKeyBracket, IsTriviaUnit } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Satisfies } from "./satisfies.xl.md"
 import { Statement } from "./statement.xl.md"
@@ -216,7 +216,18 @@ const result = isSatisfies ? new Satisfies(template) : new As(template);
 result.Parent = current.Parent;
 result.AddRange(items);
 result.SignIn(current.SourceRange.Start!);
-result.SignOut(items[items.length - 1].SourceRange.End!);
+// **范围终点取最后一个实义单元**（第 922 轮）：`const v = { a: 1 } satisfies T/*c*/;` 里
+// 那条块注释**也在 `items` 里**（它既不是符号、也不是软换行、更不是那两个词），
+// 于是范围多吃一格（实测 `SatisfiesExpression` `[10,56)` vs TS `[10,51)`——
+// 与第 920 轮 `SignatureTailEnd` 那一格同一个根：**TS 的节点区间从不含注释**）。
+// 注释仍然留在 `Data` 里（`ReplaceCountAt` 会把整段换掉，不搬就整格消失：
+// 它与第 920 轮 `method-declaration.xl.md` 的收尾那一段同一条理由），只是不算进范围。
+let contentEnd = items.length - 1;
+while (contentEnd >= 0 && IsTriviaUnit(items[contentEnd])) {
+  contentEnd = contentEnd - 1;
+}
+const tailItem = items[contentEnd >= 0 ? contentEnd : items.length - 1];
+result.SignOut(tailItem.SourceRange.End!);
 result.TryToClose();
 return ReplaceCountAt(units, index, endIndex - index + 1, result);
 ```

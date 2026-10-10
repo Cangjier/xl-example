@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4304,
+  "total": 4307,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.41,
+  "progressPercent": 95.39,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1525,
-      "pass": 1525,
-      "blocked": 0,
+      "total": 1528,
+      "pass": 1526,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.87
     },
     {
       "category": "exec",
@@ -129,14 +129,26 @@
     }
   ],
   "token": {
-    "total": 1525,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
-    "exactFiles": 1525,
-    "scoredWithoutGap": 1525,
-    "passedWithoutGap": 1525
+    "total": 1528,
+    "knownGap": 2,
+    "knownGapStillOpen": 2,
+    "exactFiles": 1526,
+    "scoredWithoutGap": 1526,
+    "passedWithoutGap": 1526
   },
   "blocked": [
+    {
+      "id": "token/types/gap-r922-mapped-modifier-space-before-colon",
+      "category": "token",
+      "title": "映射类型的 `-?` 修饰词与冒号之间空一格（或夹一条注释）时，`-` 丢了、`?` 变成平级符号",
+      "detail": "缺 1　多 1　`type M<T> = { [K in keyof T]-? : T[K] };`：`-?` 与 `:` **紧挨着写**（`-?:`）"
+    },
+    {
+      "id": "token/types/gap-r922-tuple-rest-empty-bracket-comment",
+      "category": "token",
+      "title": "元组里的变长元素、空方括号里只有一条注释：`...number[/*c*/]`",
+      "detail": "缺 3　多 3　空方括号里只有注释时**内容判空是对的**（`IsEmptyContentUnit` 第 680 轮就跨 trivia 了），"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -503,7 +515,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2132.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2135.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -809,7 +821,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3120.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3123.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -833,7 +845,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3168.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3171.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -989,7 +1001,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3811.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3814.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
