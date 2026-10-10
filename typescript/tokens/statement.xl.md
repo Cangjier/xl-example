@@ -2250,8 +2250,28 @@ for (let i = headAt + 1; i < data.length; i++) {
   if (item instanceof SymbolToken && item.Is("=")) {
     // **落到这一格为止，那一段末了是不是只剩一个 `=`**（第 876 轮）：
     // 是 ⇒ 右操作数还没到手 ⇒ 这一段当然还没写完（`require("m")` / `B.C` 都还没读进来）
-    // ⇒ **待定**；不是（`=` 后面已经有东西）⇒ 照旧算写完。
-    return Statement.LineEndsWithEquals(data);
+    // ⇒ **待定**；不是（`=` 后面已经有东西）⇒ 再看下一条。
+    if (Statement.LineEndsWithEquals(data)) {
+      return true;
+    }
+    // **`=` 右边那条限定名链跨行时也还没写完**（第 940 轮）：
+    // `import A = B` 换行 `.C;` 与 `import A = B.` 换行 `C;` 在 TS 那边都是**一条**
+    // `ImportEqualsDeclaration`（`=` 右边是 `QualifiedName`，点号两侧都可以换行）。
+    // **判据本体只有一份**：末了是点号那一半问 `ImportCloseRule.IsRhsChainOpen`。
+    // 点号在**下一行开头**那一半落在**原始字符**上（`NextLineFirstCharAt`）——
+    // **这一格不额外收 `source` 参数**：软换行此刻还没进 `data`（这一问的 `index`
+    // 就是 `data.length`），而 `NextLineFirstCharAt` 要的是「换行**之后**那一行」的
+    // 第一个实义字符 ⇒ 从**末了那个实义单元的 `End`** 起扫正是同一件事
+    //（那个 `End` 是换行前的最后一个字符，第 940 轮四条实测都走这一个口径）。
+    // **两处必须一致**：语句壳这边不跨、收尾规则那边跨，症状就是「`Import` 只到 `B`」
+    // ＋「`.C;` 另起一条 `ExpressionStatement`」
+    //（实测 `importeq2n6` / `importeq2n7` / `importeq2l6` / `importeq2l7` 四条）。
+    if (ImportCloseRule.Instance.IsRhsChainOpen(data)) {
+      return true;
+    }
+    const tail = Get(data, SkipPreviousTrivia(data, data.length));
+    const tailEnd = tail === null ? null : tail.SourceRange.End;
+    return tailEnd !== null && NextLineFirstCharAt(tailEnd) === ".";
   }
 }
 return true;

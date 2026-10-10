@@ -7,7 +7,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceAt } from "../../core/extensions/list-extension.xl.md"
 import { RemoveItem } from "../list-extensions.xl.md"
-import { GetSkipPreviousWrapSymbol, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
+import { GetSkipPreviousWrapSymbol, IsTriviaUnit, NextLineFirstCharAt, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -100,6 +100,36 @@ for (const item of items) {
 return null;
 ```
 
+## method IsRhsChainOpen:(items:Array<Token>)=>bool
+
+`import x = …` 的**右值那一段**是不是停在一条**还没写完的限定名链**上——
+末了那个实义单元是点号（`B.`，正等着一个名字）。
+
+**为什么要问这一句**（第 940 轮）：`import A = B` 换行 `.C;` 与 `import A = B.` 换行 `C;`
+在 TypeScript 里都是**一条** `ImportEqualsDeclaration`（那个 `=` 右边是 `QualifiedName`，
+点号与名字之间、名字与点号之间都可以换行）。而本仓的「这段写完了没有」只问
+「有没有路径」或「吃到了 `=` 吗」——`import A = B.` 两者都成立 ⇒ 在换行处收尾
+⇒ 收出一个只到 `B.` 的 `Import`，`C;` 另起一条 `ExpressionStatement`
+（实测 `importeq2n7` / `importeq2l7` 两条）。
+
+**只判「末了是点号」这一半**：另一半点号在**下一行开头**（`import A = B` 换行 `.C`），
+判据要**原始字符**——两个调用方各自都拿得到那一刻的 `Source`
+（收尾规则手里是那个 `LineWrap` 单元，语句壳那一侧是当前字符），
+所以两边各自调 `NextLineFirstCharAt` 问同一句，这里不另存一份。
+**两处必须一致**：一边跨、一边不跨的症状就是「`Import` 只到 `B`」＋「`.C;` 另起一条」。
+
+```ts
+let last = items.length - 1;
+while (last >= 0 && IsTriviaUnit(Get(items, last))) {
+  last = last - 1;
+}
+if (last < 0) {
+  return false;
+}
+const tail = Get(items, last);
+return tail instanceof SymbolToken && (tail.Is(".") || tail.Is("?."));
+```
+
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 从 `import` 开始往后收集单元，直到遇到 `;` 或软换行，收成一个 `Import`，**返回新的下标**。
@@ -166,7 +196,22 @@ for (let i = index + 1; i < units.length; i++) {
   const lastKeptItem = items.length > 0 ? items[SkipPreviousTrivia(items, items.length)] : null;
   const endsWithEquals = lastKeptItem instanceof SymbolToken && lastKeptItem.Is("=");
   const done = this.FindStringUnit(items) !== null || (endsWithEquals === false && items.some((unit) => unit instanceof SymbolToken && unit.Is("=")));
-  if (IsTriviaUnit(item) && done === false) {
+  // **`=` 右边那条限定名链跨行时也不算写完**（第 940 轮）：`import A = B` 换行 `.C;`
+  // 与 `import A = B.` 换行 `C;` 在 TS 那边都是**一条** `ImportEqualsDeclaration`——
+  // 判据、实测账见 `IsRhsChainOpen`。**只在换行那一格问它**（`;` 是硬终结符）。
+  // **两处必须一致**：一边跨、一边不跨的症状就是「`Import` 只到 `B`」＋「`.C;` 另起一条」，
+  // 所以语句壳那一侧问的也是这一格（`Statement.IsPendingImportHead`）。
+  //
+  // **`done === false` 那一半不能撤**（第 940 轮第一版撤过，当场红了一大片）：
+  // `done` 挡的是「`import A = B` 换行 `const x = 1;`」那种**右边已经写完**的排版
+  // ——`rhsOpen` 在那里是假、`done` 是真 ⇒ 照旧在换行处收尾；撤掉它之后这个循环
+  // 会把下一行整条语句吞进 `Import`（实测 `importeq2n1` / `n2` / `l1` / `l2` 一族
+  // 由绿转红：多 5、缺 2）。
+  const rhsOpen = item instanceof LineWrap && (this.IsRhsChainOpen(items) || NextLineFirstCharAt(item.SourceRange.Start!) === ".");
+  if (rhsOpen || (IsTriviaUnit(item) && done === false)) {
+    if (item instanceof LineWrap) {
+      items.push(item);
+    }
     continue;
   }
   if ((item instanceof SymbolToken && item.Is(";")) || item instanceof LineWrap) {
