@@ -473,7 +473,14 @@ if (IsWordUnit(current, "in") && current.Parent instanceof Bracket) {
     const at = list.indexOf(current.Parent);
     const hasSemicolon = units.some((item) => item instanceof SymbolToken && item.Is(";"));
     if (at > 0 && hasSemicolon === false) {
-      const before = Get(list, SkipPreviousWrapSymbol(list, at));
+      // **往回找 `for` 要跳过 trivia —— 注释与软换行都算**（第 937 轮）：
+      // `for /* c */ (const k in o)` 与 `for // c` 换行 `(const k in o)` 在 TypeScript 里
+      // 都是 `ForInStatement`（注释与换行都是 trivia），而 `SkipPreviousWrapSymbol`
+      // 只跳软换行 ⇒ 撞上注释就找不到 `for` ⇒ 这一趟照旧把 `in` 折成 `BinaryOperator`
+      // ⇒ 轮到 `Foreach` 时括号里已经没有那个词，整条句子退化成 `ExpressionStatement`
+      //（实测 `foreach-head-trivia.ts`：缺 12、多 4；两档是同一格）。
+      // 判据与 `Previous` 那一侧（`GetSkipNextTrivia`）**同一处口径**，两侧必须跳一样多。
+      const before = Get(list, SkipPreviousTrivia(list, at));
       if (IsWordUnit(before, "for") || IsWordUnit(before, "foreach")) {
         return false;
       }

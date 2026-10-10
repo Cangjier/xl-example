@@ -7,7 +7,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol, IsAnnotationUnit, SkipNextTrivia, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, IsAnnotationUnit, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -85,8 +85,9 @@ return next instanceof Identifier;
 几处行为：
 
 - **实参括号是可选的**：TypeScript 里 `new A` / `new A<T>` / `new a.b.C` 都合法（没有实参表）。
-  所以扫描不是「找第一个括号」，而是「往前走到边界」：遇到圆括号就收实参，遇到软换行 / `;` / `,` /
-  `.` 以外的符号就停——不然 `new A` 会把下一条语句的括号当成自己的实参表（
+  所以扫描不是「找第一个括号」，而是「往前走到边界」：遇到圆括号就收实参，
+  **遇到方括号就停但不收**（第 937 轮：`new ns` 换行 `[a]()` 的 `[` 是跨行下标访问，不是实参表），
+  遇到软换行 / `;` / `,` / `.` 以外的符号就停——不然 `new A` 会把下一条语句的括号当成自己的实参表（
   `const b = new A` 换行 `const c = new B()` 就是一个真实的反例）。
 - 有括号时括号本身也在这段范围内，`result` 的 `SignOut` 取的是**括号的终点**；
   没有括号时取类型名的终点，`NewArguments` 是一个空段（标签仍在，形状与 `new A()` 对齐）。
@@ -110,9 +111,14 @@ if (callee instanceof Bracket && callee.startBracket === "(") {
 while (i < units.length) {
   const item = Get(units, i);
   if (item instanceof Bracket) {
-    if (item.startBracket === "(") {
-      bracketIndex = i;
-    }
+    // **`[` 那一格也要记下来**（第 937 轮）：扫描在 `(` **与 `[`** 两处都停，
+    // 但只有 `(` 是实参表；`[` 是**跨行的下标访问**（`new ns` 换行 `[a]()` 在 TS 那边是
+    // `NewExpression > ElementAccessExpression`）。不记它，`bracketIndex` 就停在 `-1`、
+    // 类型段的终点算到 `ns` 为止 ⇒ 下标括号留在外面被挂成对 `(new ns)` 的又一次下标 + 调用
+    //（实测 `new-member-callee-newline.ts` 末两档：缺 `ElementAccessExpression` 1、漂 1、多 3）。
+    // 记下来之后，下面那一段按 `startBracket` 分岔：`(` 照旧搬进 `NewArguments`，
+    // `[` 只借它的**前一格**当类型段的终点（括号自己留给 `PropertyAccessCloseRule`）。
+    bracketIndex = i;
     break;
   }
   if (item instanceof LineWrap) {
@@ -146,6 +152,46 @@ while (i < units.length) {
       i = i + 1;
       continue;
     }
+    // **换行后面紧跟成员访问的延续时也不是边界**（第 937 轮）：`new ns` 换行 `.C()`
+    // 与 `new ns` 换行 `[a]()` 在 TS 那边都是**一条** `NewExpression`——被构造者是一段
+    // **跨行的成员链**（TS 的 `parseMemberExpressionRest` 只在**同一行**上因换行让路；
+    // `.` 与 `[` 落在换行之后照样接着走）。断在换行处只把 `new ns` 折成一条
+    // `NewExpression`，`.` / `[` 随后被 `PropertyAccessCloseRule` 挂到它**外面**、
+    // 末尾那对括号又成了对刚收好的 `NewExpression` 的又一次调用
+    //（实测 `new-member-callee-newline.ts`：`new ns` 换行 `.C()` 缺 1 漂 1 多 3，
+    //  `new ns` 换行 `[a]()` 缺 `ElementAccessExpression` 1、漂 1、多 3）。
+    //
+    // **判据是「跳过 trivia 之后那一格是 `.` 或 `[`」**，与上面两支同一处口径。
+    // **与 `new A` 换行 `const c = …` 那个反例不冲突**：那里跳过 trivia 之后是 `const`
+    // （一个 `Identifier`），三支都不成立，照旧 `break`。
+    if (
+      afterWrap !== null &&
+      ((afterWrap instanceof SymbolToken && afterWrap.Is(".")) ||
+        (afterWrap instanceof Bracket && afterWrap.startBracket === "["))
+    ) {
+      i = i + 1;
+      continue;
+    }
+    // **`.` 之后的那些 trivia 也不是边界**（第 937 轮）：`new ns.` 换行 `C()`、
+    // `new ns. // x` 换行 `C()` 里换行落在**点号与名字之间**——点号在上一格已经收下了，
+    // 而 `new ns.` 不是一条能独立成立的表达式（TS 的成员访问里 `.` 与后面的名字之间
+    // 可以有换行与注释），所以这里没有「语句到此为止」这一说。少了这一支，扫描停在
+    // 换行上 ⇒ 类型段的终点算到点号为止（实测 `new ns.` 换行 `C()` 缺
+    // `PropertyAccessExpression` 1 + `Identifier` 1、多 1；行注释那一档 `new ns.` 换行
+    // `// x` 换行 `C()` 是同一格）。
+    //
+    // **「上一个实义单元」要跨过注释**：`new ns. // x` 里点号与换行之间还夹着一条
+    // `LineAnnotation`，只看紧挨着的前一格会停在它上面 ⇒ 判据落空。这里问的是
+    // 「这一格左边的**实义**单元是不是点号」，与 `SkipNextTrivia` /
+    // `SkipPreviousTrivia` 一族同一处口径。
+    //
+    // **与 `new A` 换行 `const …` 那个反例不冲突**：那里跨完 trivia 撞上的是名字、
+    // 不是点号。
+    const beforeWrap = Get(units, SkipPreviousTrivia(units, i));
+    if (beforeWrap !== null && beforeWrap instanceof SymbolToken && beforeWrap.Is(".")) {
+      i = i + 1;
+      continue;
+    }
     break;
   }
   if (IsAnnotationUnit(item)) {
@@ -161,9 +207,23 @@ while (i < units.length) {
 // 正好落在类型实参段与实参表之间，`bracketIndex - 1` 停在它上面 ⇒ 类型段的终点会算到
 // 换行末尾（`newType.SignOut` 取的就是 `Get(units, typeEnd)` 的终点）。
 // 只往回跳软换行，注释照旧留在类型段里（第 631 轮那条口径不动）。
+//
+// **落点是一个 `[` 括号时要连注释一起往回跳**（第 937 轮）：`new ns // x` 换行 `[a]()`
+// 里 `bracketIndex - 1` 先是那个 `LineWrap`、再往回一格是 `LineAnnotation` ——
+// 只跳软换行的话 `typeEnd` 停在注释上，类型段的终点算到注释末尾（实测缺
+// `ElementAccessExpression` 1、漂 1、多 3）。`(` 那一侧不能跟着放宽：那里的注释
+// **要留在 `NewType` 里**（第 631 轮，见上面 `new /* c */ A()` 那一支），
+// 所以放宽的条件得钉在「落点是 `[`」上。
 let typeEnd = bracketIndex === -1 ? i - 1 : bracketIndex - 1;
-while (typeEnd > index && Get(units, typeEnd) instanceof LineWrap) {
-  typeEnd = typeEnd - 1;
+const endsAtIndexSignature = bracketIndex !== -1 && (Get(units, bracketIndex) as Bracket).startBracket === "[";
+if (endsAtIndexSignature) {
+  while (typeEnd > index && IsTriviaUnit(Get(units, typeEnd))) {
+    typeEnd = typeEnd - 1;
+  }
+} else {
+  while (typeEnd > index && Get(units, typeEnd) instanceof LineWrap) {
+    typeEnd = typeEnd - 1;
+  }
 }
 if (typeEnd < index + 1) {
   throw SyntaxException.FromMessage(current.SourceRange, "new 后面没有找到类型名");
@@ -190,15 +250,31 @@ if (bracketIndex === -1) {
   result.SignOut(Get(units, typeEnd)!.SourceRange.End!);
 } else {
   const bracket = Get(units, bracketIndex) as Bracket;
-  newArguments.SignIn(bracket.SourceRange.Start!);
-  newArguments.SignOut(bracket.SourceRange.End!);
-  bracket.MoveDataTo(newArguments);
-  result.SignOut(bracket.SourceRange.End!);
+  // **`[` 那一格从来不是实参表**（第 937 轮）：扫描在 `(` **与 `[`** 两处都 `break`，
+  // 而这一支过去一律把落点当实参表——`new ns` 换行 `[a]()` 于是把下标括号整个
+  // 搬进了 `NewArguments`（实测缺 `ElementAccessExpression` 1、漂 1、多 3）。
+  // 下标括号应当与 `.` 走同一条路：**留在单元列表上**，随后由 `PropertyAccessCloseRule`
+  // 折成元素访问，再被末尾那对实参括号调用。
+  if (bracket.startBracket === "[") {
+    newArguments.SignIn(Get(units, typeEnd)!.SourceRange.End!);
+    newArguments.SignOut(Get(units, typeEnd)!.SourceRange.End!);
+    result.SignOut(Get(units, typeEnd)!.SourceRange.End!);
+  } else {
+    newArguments.SignIn(bracket.SourceRange.Start!);
+    newArguments.SignOut(bracket.SourceRange.End!);
+    bracket.MoveDataTo(newArguments);
+    result.SignOut(bracket.SourceRange.End!);
+  }
 }
 newType.TryToClose();
 newArguments.TryToClose();
 result.TryToClose();
-const lastIndex = bracketIndex === -1 ? typeEnd : bracketIndex;
+// **收掉这一段的终点也跟着分岔**（与上一段同一件事）：`[` 那一格不在 `New` 里面，
+// 它要留给 `PropertyAccessCloseRule`。
+let lastIndex = bracketIndex === -1 ? typeEnd : bracketIndex;
+if (bracketIndex !== -1 && (Get(units, bracketIndex) as Bracket).startBracket === "[") {
+  lastIndex = typeEnd;
+}
 return ReplaceCountAt(units, index, lastIndex - index + 1, result);
 ```
 
