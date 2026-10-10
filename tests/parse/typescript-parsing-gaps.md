@@ -588,7 +588,28 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**0 条**）
+## 已知仍开着的缺口（**3 条**）
+
+**现状（第 943 轮实测）**：`cases:tsast` 那一行是「已知缺口：**3** 条还开着、0 条已经收掉」。
+这三格是第 937 / 941 / 942 三轮各自**登记**下来的（登记时都写了根因与下一轮的入手处）：
+
+| 守卫用例 | 落点 | 下一轮的入手处（登记时写下的） |
+| --- | --- | --- |
+| `token/expressions/gap-r937-new-index-callee-newline.ts` | `new ns` 换行 `[a]()` 的末尾那对 `()` 折不成 `Method` | `MethodCloseRule.Previous` 对 `PropertyAccess` 那一步为什么没接手 |
+| `token/modules/gap-r941-import-attributes-newline.ts` | `import a from "m"` 换行 `with { … }` 不成 `AssertClause` | `ImportCloseRule` 的触发时机（换行那一刻还不在列表里） |
+| `token/statements/gap-r942-loop-body-terminator.ts` | `while (a) break` 换行 `;` 里那个 `;` 归谁 | 「`;` 是**内层语句**的终结符还是宿主壳的终结符」 |
+
+**第 943 轮收掉的那一格**：`gap-r937-angle-assertion-newline`（`const a = <T>` 换行 `x;`
+在 TS 那边是**一整条** `TypeAssertionExpression`，本仓原来把换行当语句边界）。
+根因是**左半截那一问只问词形**：末尾那一格是 `GenericType`，而 `ExpectsOperand` 问的是
+「**这个单元**期待操作数吗」——`GenericType` 自己不期待，于是「左边写完了」⇒ 换行处收壳。
+修法是一格新的静态判据 `Statement.IsPendingAngleAssertion`（末尾是 `GenericType`，
+且**它前面那一格**还在等一个操作数 ⇒ 这一行没写完），挂在 `IsLineBreakIncompleteOnLeft` 上
+⇒ **解析期（`LineCannotEnd`）与收尾期（`IsLineBreakBoundary`）同源**，两个成形器不会漂。
+同族四格一并转绿（`typeof` / `void` / `!` / `+` 之后换行）；`const a = f<T>` 换行 `g();`
+与 `type X = Array<T>` 换行两档**照旧不合并**（它们前面是名字，与 TS 逐节点一致——
+这正是「不能只问末尾是不是 `GenericType`」的实测依据）。
+⇒ 缺口 4 → **3**（`cases:tsast` 报「3 条还开着」）。
 
 **第 934 轮把第 933 轮登记的那 4 格全部收掉 ⇒ 缺口清单第八次清空**
 （四份用例撤掉 `xl:known-gap`、留着当守卫；四格的根因各一句话写在「解析层几条硬规矩」里，

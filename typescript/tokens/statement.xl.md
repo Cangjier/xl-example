@@ -2447,6 +2447,56 @@ if (item instanceof SymbolToken) {
 return true;
 ```
 
+## static method IsPendingAngleAssertion:(units:Array<Token>, index:int)=>bool
+
+`index` 处（将要）是一个软换行时，**左边那一行停在一个还没等到操作数的尖括号断言的类型段上**吗
+（第 943 轮）——`const a = <T>` 换行 `x;` 与 `<T>` 换行 `x;` 都是**一条**语句：
+TS 那边是 `TypeAssertionExpression(<T>, x)`，而断言**只吃一个操作数**，`<T>` 后面那一格还没到。
+
+判据两条（只看**已经读到**的单元，所以换行那一刻问得出来）：
+
+1. 末尾那个实义单元是 `GenericType`（`<…>` 已经成形）；
+2. **它前面那一格还在等一个操作数**（`Statement.ExpectsOperand`）——`=` / `=>` / `+` / `(` /
+   `typeof` / `void` / `!` 都在这一档，而 `f<T>`（前面是名字 `f`）与 `Array<T>`（前面是名字 `Array`）
+   不在；段首（前面只有 trivia、或前面那一格本身就是语句边界）也算这一档。
+
+**为什么问「前面那一格等不等操作数」而不是「末尾是不是 `GenericType`」**：`type X = Array<T>`
+换行 `const y = 1;` 与 `const a = f<T>` 换行 `g();` 的末尾**都是**一个 `GenericType`，
+而它们**都不该合并**（前者是写完了的类型别名，后者 TS 也读成两条语句——两条实测都与 TS 逐节点一致）。
+`<…>` 在值位只有在**没有左操作数**时才是断言头，而「前面那一格等不等操作数」正是这句话的局部写法
+（名字闸 / 位置闸在 `GenericTypeBranch.IsGenericStart` 里问的是同一件事，见
+`generic-type.xl.md` 的 `IsOperandStartUnit`）。
+
+**为什么它落在左半截上**：这一问只用已经读到的单元 ⇒ 解析期（`LineCannotEnd`）与收尾期
+（`IsLineBreakBoundary`）问的是**同一份**，两个成形器不会漂——与 `IsPendingTypeModifier`、
+`IsVariableTypeAnnotationColon` 同一条纪律。
+
+**点号后面的名字不算「等操作数」**：`x.default<T>` 里那个 `default` 是**成员名**，
+判据与 `IsLineBreakIncompleteOnLeft` 那一处共用同一个 `beforePrevious` 写法。
+
+```ts
+const previousRealIndex = SkipPreviousTrivia(units, index);
+const previous = Get(units, previousRealIndex);
+if (previous === null || previous.constructor.name !== "GenericType") {
+  return false;
+}
+const beforeIndex = SkipPreviousTrivia(units, previousRealIndex);
+if (beforeIndex < 0) {
+  return true;
+}
+if (Statement.IsStatementBoundary(units, beforeIndex)) {
+  return true;
+}
+const before = Get(units, beforeIndex);
+const beforePrevious = Get(units, SkipPreviousTrivia(units, beforeIndex));
+const beforeIsMember =
+  beforePrevious instanceof SymbolToken && (beforePrevious.Is(".") || beforePrevious.Is("?."));
+if (beforeIsMember === false && Statement.ExpectsOperand(before, beforePrevious)) {
+  return true;
+}
+return false;
+```
+
 ## static method IsLineBreakIncompleteOnLeft:(units:Array<Token>, index:int)=>bool
 
 `index` 处（将要）是一个软换行时，**左边那一行还没写完**吗——写不完就**一定不是**语句边界。
@@ -2484,6 +2534,13 @@ if (previous === null) {
 }
 if (Statement.IsRestrictedKeyword(previous)) {
   return false;
+}
+// **尖括号断言的类型段还没等到操作数**（第 943 轮）：`const a = <T>` 换行 `x;` / `<T>` 换行 `x;`
+// 都是**一条**语句的排版——判据、为什么只看「前面那一格等不等操作数」、两处成形器怎么共用，
+// 见 `IsPendingAngleAssertion`。少了它：换行处收壳 ⇒ 类型段留在上一壳、操作数落进下一条
+//（实测 `gap-r937-angle-assertion-newline`：缺 `TypeAssertionExpression` 2、漂 8、多 10）。
+if (Statement.IsPendingAngleAssertion(units, index)) {
+  return true;
 }
 if (previous instanceof SymbolToken && (previous.Is("++") || previous.Is("--") || previous.Is("!"))) {
   const before = Get(units, SkipPreviousTrivia(units, previousRealIndex));
