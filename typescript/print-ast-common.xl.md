@@ -4269,6 +4269,38 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
           i += 1;
           continue;
         }
+        // **这一格自己就是一个调用单元**（第 962 轮）：`o!()()` 的产物是
+        // `[NotNull(o!), Method name=""[Bracket( () )]]`——那一次调用**不是**跟着点号来的，
+        // 于是它在上面那条 `isSymbol(".")` 的门槛前就掉出去了（`break` ⇒ 整格消失，
+        // 实测只剩一个 `NonNullExpression`，两个 `CallExpression` 都不成形）。
+        // 折法与下面「点号后面那一格是 `Method`」那一段是**同一件事**
+        //（第 366 轮的两步走 + 第 962 轮那两格），区别只是**点号没有出现**——
+        // 所以这里只补「点号不来」这一档：被调用者是 `left`、而这一格盖着两层调用
+        //（判据就是**区间**：`Method` 比它那个实参括号更靠右，与另外三处一字不差）。
+        if (ck[i].get("type") === "Method") {
+          const callKids = projectableKids(view(ck[i])).filter((k: any) => k.get("type") !== "GenericType");
+          const callHead = callKids.length > 0 ? callKids[0] : undefined;
+          if (String(ck[i].get("name") ?? "") === "" && callHead !== undefined
+            && callHead.get("type") === "Bracket" && callHead.get("startBracket") === "("
+            && endOf(callHead) < endOf(ck[i])) {
+            const innerCall = {
+              kind: "CallExpression",
+              expression: left,
+              arguments: splitTopLevel(projectableKids(view(callHead)), ctx, ",")
+                .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+                .filter((a) => a !== undefined),
+              pos: left.pos,
+              end: endOf(callHead),
+            };
+            left = Object.assign({}, projectNode(ck[i], ctx), {
+              expression: innerCall,
+              pos: innerCall.pos,
+              end: endOf(ck[i]),
+            });
+            i += 1;
+            continue;
+          }
+        }
         break;
       }
       const next = ck[i + 1];
@@ -4398,6 +4430,45 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
             };
             const innerCall = projectNode(innerMethod, ctx);
             left = Object.assign({}, innerCall, { expression: innerMember, pos: innerMember.pos });
+          }
+          // **第一个子单元是「名字 + `!`」**（第 962 轮）：`o!.m!()` 的产物是
+          // `PropertyAccess([NotNull(o!), ., Method name=""[NotNull(m!), Bracket]])`——
+          // 与 `chainWithOptional`（第 166 轮）/ `chainOnto`（第 852 轮）那两处**同形**，
+          // 那一份判据立了 `assertedMember`，**这一份副本漏了**。
+          // 少了它，下面那句 `expression: left` 会把**被调用者当成 `left`**，
+          // 于是成员名 `m` 与它那个 `!` **整段丢**（实测：缺 `PropertyAccessExpression`
+          // 与 `Identifier` 各一、`NonNullExpression` 的区间只到 `o!` 那两格）。
+          if (innerKids.length > 0 && innerKids[0].get("type") === "NotNull") {
+            const asserted = assertedMember(left, innerKids[0], ctx, undefined);
+            if (asserted !== undefined) {
+              const outerCall = projectNode(next, ctx);
+              left = Object.assign({}, outerCall, { expression: asserted, pos: asserted.pos });
+              i += 2;
+              continue;
+            }
+          }
+          // **第一个子单元是实参括号，而这一格盖着两层调用**（第 962 轮）：`o!()()` 的产物是
+          // `[NotNull(o!), Method name=""[Bracket( () )]]`——那一格 Bracket 是**内层**那次
+          // 调用的实参表，外层那次调用只体现在 `Method` 自己的区间上（`[2,6)` 盖住 `()()`）。
+          // 只折一层会**丢掉内层那一次调用**（实测 `o!()()`：两个 `CallExpression` 都不成形）。
+          // 「外面还有没有一层」这一问就是**区间**——是**问得出来**的，所以不必靠形状猜：
+          // `(f)()`（`[Bracket]` 就是被调用者、只有一层）那一档的 `Method` 与它的 Bracket **同尾**，
+          // 这里因此不会误收（`(f)()` / `q = (f)()` / `return (a)(b)` 三档都在门里钉着）。
+          if (innerKids.length > 0 && innerKids[0].get("type") === "Bracket"
+            && innerKids[0].get("startBracket") === "(" && endOf(innerKids[0]) < endOf(next)) {
+            const innerArgs = {
+              kind: "CallExpression",
+              expression: left,
+              arguments: splitTopLevel(projectableKids(view(innerKids[0])), ctx, ",")
+                .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+                .filter((a: any) => a !== undefined),
+              pos: left.pos,
+              end: endOf(innerKids[0]),
+            };
+            const outerCall = projectNode(next, ctx);
+            left = Object.assign({}, outerCall, { expression: innerArgs, pos: innerArgs.pos, end: endOf(next) });
+            i += 2;
+            continue;
           }
           const outerCall = projectNode(next, ctx);
           left = Object.assign({}, outerCall, { expression: left, pos: left.pos });
@@ -4937,6 +5008,49 @@ return false;
           });
         }
       }
+      // **被调用者是内层那一格 `Method`**（第 962 轮）：`o?.m()()` 的产物是
+      // `NCO[Method(name="")[Method(name="m")]]`——与普通链那条路（第 366 轮）**同形同修**：
+      // 先把**内层**按成员调用折一遍，再把「调用这个结果」套上去。
+      // 少了这一支，那一格会落到下面「按成员名折」⇒ 投出一个**名字为空**的属性访问
+      //（实测 `o?.m()()`：`CallExpression` / `PropertyAccessExpression` / `Identifier` 三处漂）。
+      if (calleeKid !== undefined && calleeKid.get("type") === "Method") {
+        const innerName = String(calleeKid.get("name") ?? "");
+        const innerAt = startOf(calleeKid);
+        const innerMember: any = {
+          kind: "PropertyAccessExpression",
+          expression: left,
+          name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length },
+          pos: left.pos,
+          end: innerAt + innerName.length,
+        };
+        if (questionDot !== undefined) innerMember.questionDotToken = questionDot;
+        const innerCall = Object.assign({}, projectNode(calleeKid, ctx), {
+          expression: innerMember,
+          pos: innerMember.pos,
+        });
+        const outerCall = projectNode(first, ctx);
+        return Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos, end: endOf(unit) });
+      }
+      // **被调用者是 `left`、而这一格盖着两层调用**（第 962 轮）：`o?.m?.()(1)` 的 `NCO` 里是
+      // `Method(name="")[Bracket, 1]`——那个 Bracket 是**内层**那次调用（`?.()`）的实参表，
+      // 外层那次调用的实参是它后面的兄弟（`1`），而外层调用只体现在 `Method` 自己的区间上。
+      // 只折一层会**丢掉内层那一次调用**。「外面还有没有一层」这一问就是**区间**
+      //（与普通链那条路的同一句判据：`Method` 比它那个 Bracket 更靠右）。
+      if (calleeKid !== undefined && calleeKid.get("type") === "Bracket"
+        && calleeKid.get("startBracket") === "(" && endOf(calleeKid) < endOf(first)) {
+        const innerCall: any = {
+          kind: "CallExpression",
+          expression: left,
+          arguments: splitTopLevel(projectableKids(view(calleeKid)), ctx, ",")
+            .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+            .filter((a: any) => a !== undefined),
+          pos: left.pos,
+          end: endOf(calleeKid),
+        };
+        if (questionDot !== undefined) innerCall.questionDotToken = questionDot;
+        const outerCall = projectNode(first, ctx);
+        return Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos, end: endOf(unit) });
+      }
     }
     const nameAt = startOf(first);
     const member = {
@@ -5120,6 +5234,21 @@ return false;
         if (pending !== undefined) holder.questionDotToken = pending;
         const call = projectNode(member, ctx);
         node = Object.assign({}, call, { expression: holder, pos: holder.pos });
+      } else if (member.get("type") === "Bracket" && member.get("startBracket") === "[") {
+        // **下标括号也是链上的一格**（第 962 轮）：`o?.m()[0]` 的 NCO 里那一格是
+        // `PropertyAccess([Method(m), Bracket([0])])`——`[0]` 与成员名**平级**。
+        // 落到下面那条通用支会被 `nameOf` 当成**一个名字**（实测投出名叫 `"[0]"` 的
+        // `Identifier` ⇒ 缺 `ElementAccessExpression` 与 `NumericLiteral`、多一格属性访问）。
+        // 收法与 `chainOnto` 里那一支**一字不差**：同一形状、同一个判据，不写第二份。
+        const element: any = {
+          kind: "ElementAccessExpression",
+          expression: node,
+          argumentExpression: projectExpression(projectableKids(view(member)), ctx),
+          pos: node.pos,
+          end: endOf(member),
+        };
+        if (pending !== undefined) element.questionDotToken = pending;
+        node = element;
       } else {
         const step = {
           kind: "PropertyAccessExpression",
@@ -5266,6 +5395,47 @@ return false;
             i += 2;
             continue;
           }
+        }
+        // **被调用者是内层那一格 `Method`**（第 962 轮）：与上面 `chainWithOptional`
+        // 那一处**同形同修**（第 366 轮立的两步走）——`a?.b.c()()` 里 `.c()()` 那一格是
+        // `Method(name="")[Method(name="c")]`，先把内层折成成员调用、再把外层那次调用套上去；
+        // 少了它，那一格会落到下面「按成员名折」⇒ 投出一个**名字为空**的属性访问。
+        if (calleeKid !== undefined && calleeKid.get("type") === "Method") {
+          const innerName = String(calleeKid.get("name") ?? "");
+          const innerAt = startOf(calleeKid);
+          const innerMember: any = {
+            kind: "PropertyAccessExpression",
+            expression: left,
+            name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length },
+            pos: left.pos,
+            end: innerAt + innerName.length,
+          };
+          const innerCall = Object.assign({}, projectNode(calleeKid, ctx), {
+            expression: innerMember,
+            pos: innerMember.pos,
+          });
+          const outerCall = projectNode(next, ctx);
+          left = Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos });
+          i += 2;
+          continue;
+        }
+        // **被调用者是 `left`、而这一格盖着两层调用**（第 962 轮）：判据与另外两处
+        // 一字不差——`Method` 比它那个实参括号**更靠右**，说明外面还有一层调用。
+        if (calleeKid !== undefined && calleeKid.get("type") === "Bracket"
+          && calleeKid.get("startBracket") === "(" && endOf(calleeKid) < endOf(next)) {
+          const innerCall: any = {
+            kind: "CallExpression",
+            expression: left,
+            arguments: splitTopLevel(projectableKids(view(calleeKid)), ctx, ",")
+              .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+              .filter((a: any) => a !== undefined),
+            pos: left.pos,
+            end: endOf(calleeKid),
+          };
+          const outerCall = projectNode(next, ctx);
+          left = Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos });
+          i += 2;
+          continue;
         }
       }
       const at = startOf(next);
