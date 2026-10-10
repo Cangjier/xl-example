@@ -8,7 +8,7 @@
 // **入手处**：类型谓词那条投影路径（`tokens/type-predicate.xl.md` 的 `PrintAst`）——
 // 它认的是「谓词后面那一格直接是类型」，括号那一层要么先问现成的类型位入口、
 // 要么让谓词的类型那一格走**与成员类型同一条**投影（**别在谓词里另写一份括号判据**）。
-// xl:known-gap 类型谓词里套一层圆括号时整条谓词不成形（缺 TypePredicate / ParenthesizedType、多若干格）
+// xl:known-gap 类型谓词成形了（第 957 轮把 ( 从调用那一趟要了回来），但类型那一格还停在一对裸 Bracket 上（缺 ParenthesizedType / StringKeyword，多 4）：ParenthesizedTypeCloseRule 的闸门是「父亲是类型容器」，而括号关闭那一刻父亲还不是它
 // xl:end
 function f(x: unknown): x is (string) { return true; }
 function g(x: unknown): asserts x is (string) {}

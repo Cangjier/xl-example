@@ -1940,3 +1940,32 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
    真正翻面的是**另外三个入口**（`typeof` 后面的 `[`、绑定模式里的 `[`、映射类型的键括号），
    它们都在 `DecideBracketContext` / `IsTypePosition` 的**别处**。第 868 轮从那条路收掉了
    （这一段上面的第 5 条与「第 868 轮收掉的 1 条」都记着）。
+
+**第 957 轮：谓词那条 `(` 被调用那一趟抢走——判据转发给谓词规则（缺口那一条从 18 缺收到 8 缺，仍是缺口）**
+
+第 956 轮登记的那一条（[`gap-r956-predicate-paren-type`](../../tests/cases/token/types/gap-r956-predicate-paren-type.ts)）这一轮量到了根上，
+**那一族 23 条片段全绿**（`x is (string)` / `asserts x is (A)` / `this is (A)` / 类方法 / 接口 / 类型字面量 / 箭头 / 泛型约束 /
+嵌套括号 / 元组 / 函数类型 / `keyof` / 字面量 / 前后夹注释与软换行）。
+
+- **根因是「谁先看见那一格」**：谓词那两条规则的闸门是 `IsTypeContainerUnit(父亲)`，
+  而谓词的类型套一层圆括号时，**括号关闭那一刻**这一格的父亲还是 `ReturnType` 之外的那个容器
+  （判据那一趟来晚了）；可 `MethodCloseRule` **恰恰在那一刻**看到平级的 `[名字, is, (…)]`，
+  于是把 `(` 当成**实参表**收成一次调用 ⇒ 整条谓词塌成 `<Method name="is">`。
+- **闸门下在它前面**：`type-predicate.xl.md` 的 `TypePredicateCloseRule` 在构造时把
+  `MethodCloseRule.PredicateShape` 装上（那是**静态**字段，构造期就在 `parse-pipeline` 的
+  `GeneralCloseRule` 求值里跑到），`MethodCloseRule.Previous` 认下就**让路**。
+- **判据只有一份**（第 875 轮那条规矩）：`IsPredicateAt` 是唯一实现，两处都只是转发；
+  本规则那一侧只把**括号自己的下标**递过去，往回数名字那一跳写在谓词那一侧。
+- **第一次量错的一格**（记下来）：把 `MethodCloseRule.NameIndex` 给的 `nameIndex` 递过去时，
+  它落在 **`is`** 上（`SkipPreviousTrivia` 只跨 trivia，跨不过那个词），`IsPredicateAt` 第一句
+  就把「名字是 `is`」挡掉 ⇒ 判据永远答假、修了个空。**判据的参数是「名字在哪」，不是「谁离我最近」。**
+
+- **仍开着的那一格**：类型那一格还停在一对**裸 `Bracket`** 上（缺 `ParenthesizedType` / `StringKeyword`，
+  多 4，记在这条 `xl:known-gap` 里）。`ParenthesizedTypeCloseRule` 的闸门同样是「父亲是类型容器」，
+  而那一刻父亲还不是它；换父之后**没有第二趟**会回来收这个括号（谓词成形时括号已经是它自己的子单元，
+  那条规则看到的是 `ParenthesizedType` 位置上的 `Bracket` 而不是 `Bracket` 位置上的 `Bracket`）。
+  **入手处**：让谓词成形之后**重跑一次括号自己的那一趟**（与 `ParenthesizedTypeCloseRule.Process`
+  换父之后重跑是同一件事）。
+- **实测**：九道门全绿（墙钟 34.4s）——`cases:tsast` 16/16 片、已知缺口仍是 2 条；
+  `coverage` 4199 / 4366（blocked 29、differ 138、bad 0）**一个字没动**（这一族不在语料里）；
+  `cases:check` 1600 条 0 不合格、`cases:tags` 5326 条断言 0 不一致、`cases:astjson` 六项全 0。

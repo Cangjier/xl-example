@@ -147,7 +147,7 @@
       "id": "token/types/gap-r956-predicate-paren-type",
       "category": "token",
       "title": "类型谓词里那个类型**套一层圆括号**时，整条谓词不成形（第 956 轮片段普查量出）：",
-      "detail": "缺 18　多 5　类型谓词里套一层圆括号时整条谓词不成形（缺 TypePredicate / ParenthesizedType、多若干格）"
+      "detail": "缺 8　漂 1　多 4　字段 1　未映射 1　类型谓词里套一层圆括号时整条谓词不成形（缺 TypePredicate / ParenthesizedType、多若干格）"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",

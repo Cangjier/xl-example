@@ -32,6 +32,46 @@ import { SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.
 
 唯一的实例。
 
+## static field PredicateShape:(units:Array<Token>, bracketIndex:int)=>bool = null as any
+
+**类型谓词里那个括号的判据**，由 `tokens/type-predicate.xl.md` 的
+`TypePredicateCloseRule` 在构造时装进来（`MethodCloseRule.PredicateShape = …`）。
+
+第 957 轮量出来的那一族（`x is (string)` / `asserts x is (A)` / `this is (A)` … 共 23 条片段）：
+整个类型谓词的类型**套一层圆括号**时，**括号关闭那一刻谓词那两条规则的闸门全都不成立**——
+它们的判据是 `IsTypeContainerUnit(父亲)`，而那一刻这一格的父亲还是
+`ReturnType` 之外的那个容器（那一趟来晚了）；可**本规则这一趟来得正好**，
+看到的是平级的 `[名字, is, (…)]`，于是把 `(string)` 当成**实参表**收成一次调用
+⇒ `x is (string)` 整条谓词塌成 `<Method name="is">`（缺 `TypePredicate` / `ParenthesizedType` /
+类型自己的节点，多出若干格）。
+
+**这里只转发**（第 875 轮那条规矩：同一个问题只能有一份实现）：
+形状由 `TypePredicateCloseRule.IsPredicateAt` 答，**别在这一格另写一份括号判据**
+（那一份一定会漂）。让开之后那一格的括号留在谓词里，由谓词自己的队列继续成形。
+
+**参数是括号自己的下标**：谓词那一侧从这一格往回数名字（它才认得出 `is` 那一跳），
+`MethodCloseRule` 不必为此再算一遍「名字在哪」。
+
+`null` 表示「还没装上」——那一格照旧按调用处理（与装上之前的行为逐字节相同）。
+
+## private method IsTypePredicateBracket:(units:Array<Token>, index:int)=>bool
+
+`index` 处这一对括号**是不是类型谓词里的括号**。
+
+判据整个委托给 `PredicateShape`（就是 `TypePredicateCloseRule.IsPredicateAt` 那条路）：
+形状是「名字 + `is` + 类型」或「`asserts` + 名字（+ `is` + 类型）」时答真，
+于是这一格的括号是**谓词里那个类型**的括号，不是实参表。
+
+**值位一格都不误伤**：`const a = b(c)` 里 `b` 前面没有 `is` / `asserts` 这两条形状，
+`is(1)` 自己也不长成谓词（`is` 是名字、后面没有 `is` 那个词），判据都是假。
+
+```ts
+if (MethodCloseRule.PredicateShape === null) {
+  return false;
+}
+return MethodCloseRule.PredicateShape(units, index);
+```
+
 ## private method NameIndex:(units:Array<Token>, index:int)=>int
 
 找 `index` 处那个括号对应的方法名下标：先跳过 trivia（软换行**与注释**），若落在一个 `GenericType`（泛型实参段）上就再跳一次。
@@ -69,6 +109,14 @@ if (current instanceof Bracket === false || current.startBracket !== "(") {
   return false;
 }
 if (current.Parent instanceof GenericType) {
+  return false;
+}
+// **类型谓词里那个括号不是实参表**（第 957 轮）：`x is (string)` / `asserts x is (A)` /
+// `this is (A)` 里，谓词那两条规则因为「父亲还不是类型容器」而迟到，
+// 而本规则这一趟看到的正是 `[名字, is, (…)]` ⇒ 把它当成一次调用收走
+// ⇒ 整条谓词塌成 `<Method name="is">`（23 条片段实测）。
+// 判据**整个转发**给谓词那条规则的同一份实现（见 `IsTypePredicateBracket`），不在这里另写一份。
+if (this.IsTypePredicateBracket(units, index)) {
   return false;
 }
 // **方法声明里残留的「名字 + 括号」不许再收一次**（第 66 轮补）：

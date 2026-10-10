@@ -8,6 +8,7 @@ import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { WordText, IsTypeContainerUnit, IsTriviaUnit, SkipNextTrivia, SkipPreviousTrivia } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
+import { MethodCloseRule } from "./method.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
 
@@ -36,6 +37,37 @@ TypeScript 那边它是一个**独立的类型节点**（`TypePredicate`：`para
 ## static readonly field Instance:TypePredicateCloseRule = new TypePredicateCloseRule()
 
 唯一的实例。
+
+## constructor:()=>void
+
+**把「这一格是不是谓词的括号」交给 `MethodCloseRule`**（第 957 轮）。
+
+理由是一条时序：谓词那两条规则的闸门是「父亲是不是**类型容器**」
+（`IsTypeContainerUnit`），而谓词的类型**套一层圆括号**时，**括号关闭那一刻**
+这一格的父亲还不是类型容器（判据那一趟来晚了）；可 `MethodCloseRule` **恰恰在那一刻**
+看到平级的 `[名字, is, (…)]`，于是把 `(` 当成实参表抢成一次调用
+⇒ `x is (string)` / `asserts x is (A)` / `this is (A)` 那一族（23 条片段）整条谓词塌掉。
+**那一趟没有办法把括号要回来**（`Process` 只能搬走还平级的那一段，而括号已经被装进
+`Method` 里了），所以闸门必须下在**它前面**：把本规则挂到 `MethodCloseRule.PredicateShape` 上。
+
+**判据只有一份**（第 875 轮那条规矩）：`IsPredicateAt` 是唯一实现，两处都只是转发。
+
+**参数是「括号下标」**（本规则才认得出谓词的形状）：`MethodCloseRule` 手上那一格是
+`(` **后面**跟着的括号，名字在它左边。往回两跳就是谓词开头那一格——
+先跨 trivia 撞上 `is`，再跨一次 trivia 撞上名字；`asserts x` 那一档（没有 `is`）
+由后面第二跳的 `.Is("is")` 挡掉，原样落在名字上。
+
+```ts
+super();
+MethodCloseRule.PredicateShape = (units: Array<Token>, bracketIndex: number): boolean => {
+  const wordAt = SkipPreviousTrivia(units, bracketIndex);
+  let nameAt = wordAt;
+  if (this.IsPredicateWord(Get(units, wordAt), "is")) {
+    nameAt = SkipPreviousTrivia(units, wordAt);
+  }
+  return this.IsPredicateAt(units, nameAt);
+};
+```
 
 ## private method IsPredicateWord:(item:Token | null, text:string)=>bool
 
