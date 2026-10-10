@@ -106,8 +106,11 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 1. **加/改一个标签的投影**：先找这个标签**自己的 token 文件**里的 `PrintAst(ctx, v)`
    （第 181~198 轮逐块搬过去的那 49 块）；只有**通用支**的东西才动
    [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md)——
-   那里的 `KIND_BY_TAG` / `FIELD_BY_KIND` / `WRAPPER_FIELDS` / `BODY_FIELDS` 与共享助手。
-   表的**重复键**会静默覆盖（`new Map([...])` 同键后写胜），改表时自己过一眼——
+   那里的 `KIND_BY_TAG` / `FIELD_BY_KIND` 与共享助手。
+   **「包装提层」（`WrapperField`）/「段名」（`SegmentNames`）/「体字段」（`BodyField`）三张中央表
+   已经搬回各 token**（第 988~991 轮，`WRAPPER_FIELDS` / `BODY_FIELDS` 两张已删）——
+   碰到这三格先问那一页，别在投影层找表。
+   剩下那两张表的**重复键**会静默覆盖（`new Map([...])` 同键后写胜），改表时自己过一眼——
    钉它的那把 `cases:shapelint` 已随测试集收窄删除（脚本在 git 历史里）。
 2. **改完跑**：`xl check` → `npm run build` → `npm run samples` → `npm run cases:tsast`
    （数字要动，且只按预期动；现在它是**闸门**，八条里红一条就是回归）→ 其余尺子。

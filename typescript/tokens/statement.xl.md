@@ -850,8 +850,10 @@ return item instanceof IfSet
   || item.constructor.name === "StaticBlock"
   || item.constructor.name === "NamespaceExport"
   // **`Namespace` 在表里**：`namespace O { … } console.log(O.a);`（同一行再跟一句）
-  // 靠这一条才分得开；而它**与 `print-ast-common.xl.md` 的 `BODY_FIELDS` 是一对**——
-  // 那边写着「`Namespace` 的 `body` 只在**父亲也是 `Namespace`** 时成立」，
+  // 靠这一条才分得开；而它**与投影侧问的那一格 `Token.BodyField` 是一对**
+  //（第 991 轮之前住在 `print-ast-common.xl.md` 的 `BODY_FIELDS` 里）——
+  // 那边写着「`Namespace` 的 `body` 只在**父亲也投成 `ModuleDeclaration`** 时成立」
+  //（见 `namespace.xl.md` 的 `BodyField`），
   // 少了那一半，嵌套那一档会**静默**变错（内层命名空间根本没建，
   // 脚本报的是 `cannot read properties of undefined` —— 离现场很远）。
   || item.constructor.name === "Namespace"

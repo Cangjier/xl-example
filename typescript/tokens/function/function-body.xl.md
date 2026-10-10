@@ -36,6 +36,31 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 return new Map([["Block", new Map([["children", "statements"]])]]);
 ```
 
+## method BodyField:(parentKind:string)=>string | undefined
+
+**我在父节点上叫哪个字段**（见 `core/syntax/token.xl.md` 的 `Token.BodyField`）：
+函数体在目标语言那边就是 `FunctionDeclaration.body`——**自己仍是一个节点**（`Block`），
+只是字段换了名字。
+
+函数的体只有这一种落法（无论 `function` / `declare function` / 生成器），所以不看 `parentKind`。
+
+```ts
+return "body";
+```
+
+## method PrintAst:(ctx:any, v:any)=>any
+
+**直出**：函数体在目标语言那边就是一个 `Block`，`children` 那一格叫 `statements`
+（同一件事上面那一格 `SegmentNames` 已经说过）——所以这一页自己出这个节点，
+不再绕回投影层的通用支（换名 + 段循环 + 字段名三道工序这里一步都用不上）。
+
+`ctx.Each` 与通用支那一支**是同一份实现**（`projectEachIn`，父 kind 也照传 `Block`），
+空体返回 `undefined`——于是「空函数体」与通用支的产物逐字节相同（空段不写这一格）。
+
+```ts
+return ctx.Node("Block", { statements: ctx.Each(v, "Block") }, v);
+```
+
 ## constructor:(template:Template)=>void
 
 创建后立刻把语句收尾规则挂上自己的规则队列——函数体里是一串语句。

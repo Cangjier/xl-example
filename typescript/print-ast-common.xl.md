@@ -27,8 +27,9 @@ import { Translate } from "./tokens/string/translate.xl.md"
 **中央那张按 `v.type` 分派的 `switch` 已经整段删除**：它原来有 60 个 `case`，
 搬到最后一个（`Statement`）时就没有分支了。所以本文件现在的角色是：
 
-- **通用支**（`KIND_BY_TAG` 与 `FIELD_BY_KIND` 两张表 + `structuralProps`；「包装提层」与
-  「段名」那两格第 988~990 轮已经搬上各 token，见 `Token.WrapperField` / `Token.SegmentNames`）；
+- **通用支**（`KIND_BY_TAG` 与 `FIELD_BY_KIND` 两张表 + `structuralProps`；「包装提层」「段名」
+  与「体字段」那三格第 988~991 轮已经搬上各 token，见 `Token.WrapperField` /
+  `Token.SegmentNames` / `Token.BodyField`）；
 - **`ctx`**——递给 `PrintAst` 的那一组出口（`Kids` / `Expression` / `TypeExpression` /
   `Node` / `StartOf` / `EndOf` / `Project` / `TextOf` / …，共 40 多个）：
   搬迁层不许 import 本文件（token → 本文件 → token 会成环），横切工具只能经它过去；
@@ -272,34 +273,6 @@ new Map([
   ["|", "BarToken"], ["|=", "BarEqualsToken"],
   ["^", "CaretToken"], ["^=", "CaretEqualsToken"], ["~", "TildeToken"],
   ["&&=", "AmpersandAmpersandEqualsToken"], ["||=", "BarBarEqualsToken"], ["??=", "QuestionQuestionEqualsToken"],
-])
-```
-
-# private const BODY_FIELDS:Map<string, string>
-
-**体节点**：它们要**换成另一个名字的字段**，而且**自己仍是一个节点**（不是把内容提上去）。
-
-**这一条与「包装」的关键区别**（包装那一格第 990 轮已经搬上 token，见 `Token.WrapperField`）：
-包装是「自己不出节点、内容提上去」，而体节点**自己是节点**，只是字段改个名。
-这也是「`Block` 那 335 处」的落点：
-产物里 `FunctionBody` / `MethodBody` / `NamespaceBody` 是各自独立的段，
-而 TS 那边它们就是 `Block` / `Block` / `ModuleBlock` —— **留着它们当节点**，
-父声明那边只改字段名（`body`）。早先把它们当包装提层提掉了，于是 TS 的 `Block`
-在产物侧整类不存在（实测 335 处 `Block` + 若干 `ModuleBlock`）。
-
-```ts
-new Map([
-  ["FunctionBody", "body"],
-  ["MethodBody", "body"],
-  ["NamespaceBody", "body"],
-  ["LambdaBody", "body"],
-  // **点号命名空间的内层声明也是 `body`**（第 156 轮）：`namespace A.B.C { … }` 的产物是
-  // **三层嵌套的 `Namespace` 单元**（`A` 里面套 `B`、`B` 里面套 `C`），而 TS 那边
-  // `ModuleDeclaration.body` 就是**里面那层 `ModuleDeclaration`**（只有最内层挂 `ModuleBlock`）。
-  // 不收的话内层两层既进不了 `body`、名字也拿不到宿主
-  // （实测 `decl-namespace-dotted.ts`：缺两层 `ModuleDeclaration` + `Identifier` 漂移）。
-  // 没有副作用：命名空间体里的声明挂在 `NamespaceBody` 下面，不会以 `Namespace` 的身份直接做孩子。
-  ["Namespace", "body"],
 ])
 ```
 
@@ -760,6 +733,30 @@ new Map([
     return owner.WrapperField();
   }
   return undefined;
+```
+
+# private method bodyFieldOf:(node:any, parentKind:string)=>string | undefined
+
+这个子节点是不是**体**（该把父节点上的字段改个名字），是的话返回那个字段名。
+
+**第 991 轮起这一格也由 token 自己答**（`BodyField`，见 `core/syntax/token.xl.md`）：
+「我是体、我在父节点上叫 `body`」是这个 token 自己的事实，所以这里只是**读**它——
+投影层不再背一张按标签查的中央表（`BODY_FIELDS` 已删）。
+
+**与 `wrapperTarget` 的分工**：这一格问的是「**我自己是节点**、字段改名」，
+`wrapperTarget` 问的是「**我不出节点**、内容提上去」。两者的调用点挨着（段循环里），
+但答案不能合成一条：合成会让体被摊平（静默错值）或让包装变成节点。
+
+**`parentKind` 要一路递过去**：`Namespace` 的两态（点号命名空间的内层 vs 命名空间体里的一条语句）
+只有「父亲投成了什么」分得开——那一条判据住在 `namespace.xl.md`，这里只负责把问题转过去。
+
+`owner` 取法与 `wrapperTarget` 同一处来源（`WithRangeOf` 记在字典格上的 `__token`）：
+问不到那个单元时答 `undefined`，于是它照常按「不是体」走——与搬家前的行为一字不差。
+
+```ts
+  const owner = node.__token;
+  if (owner === undefined || owner === null) return undefined;
+  return owner.BodyField(parentKind);
 ```
 
 # private const startOf:(node:any)=>int = (node) => (node.get("range") ? node.get("range")[0] : 0)
@@ -9405,23 +9402,15 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
         decorators.push(x);
         continue;
       }
-      // **体节点**：改字段名，但自己仍是一个节点（见 `BODY_FIELDS`）。
-      const body = BODY_FIELDS.get(x.get("type"));
+      // **体节点**：改字段名，但自己仍是一个节点（见 `Token.BodyField`）。
+      // **问那个子单元自己**：「我是体、我在父节点上叫哪个字段」是它的事实，
+      // 所以投影只读它——与下面那格「包装提层」是同一手法（都从字典格上的 `__token` 问过去）。
+      // **父亲投成了什么要一起递进去**：`Namespace` 的两态（点号命名空间的内层 vs
+      // 命名空间体里的一条语句）只有它分得开，判据住在那一页（`namespace.xl.md`）。
+      const body = bodyFieldOf(x, kind);
       if (body !== undefined) {
-        // **`Namespace` 那一档只在「点号命名空间的嵌套」里成立**（第 367 轮，
-        // **第 292 轮那股改动的另一半**）：
-        // `namespace A.B.C { … }` 的产物是**三层 `Namespace` 套着** ⇒ 内层字段名是
-        // `body`（TS 的 `ModuleDeclaration.body` 就是里面那层）；
-        // 而 `namespace O { export namespace I { … } }` 里那个内层 `Namespace` 是
-        // 外层 **`ModuleBlock` 的孩子** ⇒ TS 那边它躺在 `statements` 里。
-        // 一律收成 `body` 的后果（第 292 轮实测）：降级层 `ListOf(block, "statements")`
-        // **一个语句都取不到** ⇒ 内层命名空间根本没建 ⇒ 脚本报
-        // `cannot read properties of undefined`（**离现场很远**）。
-        const nestedNamespaceInBody = x.get("type") === "Namespace" && kind !== "ModuleDeclaration";
-        if (nestedNamespaceInBody === false) {
-          props[body] = projectNode(x, ctx);
-          continue;
-        }
+        props[body] = projectNode(x, ctx);
+        continue;
       }
       const target = wrapperTarget(x);
       if (target === undefined) {

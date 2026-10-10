@@ -30,6 +30,16 @@ Lambda 的体。
 return new Map([["Block", new Map([["children", "statements"]])]]);
 ```
 
+## method BodyField:(parentKind:string)=>string | undefined
+
+**我在父节点上叫哪个字段**（见 `core/syntax/token.xl.md` 的 `Token.BodyField`）：
+lambda 的体在目标语言那边就是 `ArrowFunction.body`——**自己仍是一个节点**
+（块形态是 `Block`；语句形态由 `Lamda` 那一页按表达式位投），只是字段换了名字。
+
+```ts
+return "body";
+```
+
 ## constructor:(Template:Template)=>void
 
 转调基类构造器，然后把「语句体」那一组默认收尾规则装进自己的规则队列。

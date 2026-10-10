@@ -30,6 +30,22 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 return new Map([["Block", new Map([["children", "statements"]])]]);
 ```
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+**直出**：`catch` 的语句体在目标语言那边就是一个 `Block`，`children` 那一格叫 `statements`
+（见上面 `SegmentNames`）——所以这一页自己出这个节点，不再绕回投影层的通用支。
+
+**它没有 `BodyField`**：`catch` 那一段的字段名由 `Try` 自己排（一条 `CatchClause` 里
+`block` 那一格的位置只有 `Try` 知道，见 `try.xl.md` 的 `PrintAst`），
+所以这一页只答「我投成什么」，不答「我在父亲里叫什么」。
+
+`ctx.Each` 与通用支那一支**是同一份实现**（`projectEachIn`，父 kind 照传 `Block`），
+空体返回 `undefined`——于是「空 `catch` 体」与通用支的产物逐字节相同（空段不写这一格）。
+
+```ts
+return ctx.Node("Block", { statements: ctx.Each(v, "Block") }, v);
+```
+
 ## constructor:(template:Template)=>void
 
 创建时先把收尾规则队列挂上。

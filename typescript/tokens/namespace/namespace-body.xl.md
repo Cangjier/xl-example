@@ -43,6 +43,31 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 return new Map([["ModuleBlock", new Map([["children", "statements"]])], ["NamespaceBody", new Map([["children", "body"]])]]);
 ```
 
+## method BodyField:(parentKind:string)=>string | undefined
+
+**我在父节点上叫哪个字段**（见 `core/syntax/token.xl.md` 的 `Token.BodyField`）：
+命名空间体在目标语言那边就是 `ModuleDeclaration.body`——**自己仍是一个节点**（`ModuleBlock`），
+只是字段换了名字。
+
+命名空间体只有这一种落法（它自己不可能是「体里的一条语句」——那说的是 `Namespace`，
+见 `namespace.xl.md`），所以不看 `parentKind`。
+
+```ts
+return "body";
+```
+
+## method PrintAst:(ctx:any, v:any)=>any
+
+**直出**：命名空间体在目标语言那边就是一个 `ModuleBlock`，`children` 那一格叫 `statements`
+（见上面 `SegmentNames` 的第一档）——所以这一页自己出这个节点，不再绕回投影层的通用支。
+
+`ctx.Each` 与通用支那一支**是同一份实现**（`projectEachIn`，父 kind 照传 `ModuleBlock`），
+空体返回 `undefined`——于是「空命名空间体」与通用支的产物逐字节相同（空段不写这一格）。
+
+```ts
+return ctx.Node("ModuleBlock", { statements: ctx.Each(v, "ModuleBlock") }, v);
+```
+
 ## constructor:(template:Template)=>void
 
 创建后立刻把语句收尾规则挂上自己的规则队列——命名空间体里是一串声明。

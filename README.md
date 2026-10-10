@@ -374,6 +374,62 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 991 轮：把「**体字段**」搬上 token（`Token.BodyField`，6 页）——`BODY_FIELDS` 整张表删掉；四类「体」改成 **`PrintAst` 直出**
+
+**一句话**：接着第 988~990 轮那条线，这一轮动投影层**第三张按标签查的中央表**，同时把「体」这一族
+从通用支里**摘出来直出**。产物里函数体 / 方法体 / 命名空间体 / lambda 体各自是一层，
+而目标语言那边它们就是父声明的一个字段（`body`）——「我在父亲里叫什么」原先住在 `BODY_FIELDS`
+（5 档），同样是**每个 token 自己的事实**。
+
+- **新增一格 `Token.BodyField(parentKind)`**：一个字段名（我是体）或 `undefined`（我不是）。
+  **唯一带参数的一处是 `Namespace`**：点号命名空间的内层（`namespace A.B.C { }`）是外层
+  `ModuleDeclaration` 的 `body`，而命名空间体里的内层命名空间（`namespace O { namespace I { } }`）
+  是 `ModuleBlock` 的 `statements` 里的一条声明——两种形状在产物里长得一样，
+  只有「父亲投成了什么」分得开（判据是第 367 轮定的，这一轮从投影层搬上那一页）。
+  一律收成 `body` 的后果是**离现场很远**的那种错：降级层取不到语句 ⇒ 内层命名空间根本没建
+  ⇒ 脚本报 `cannot read properties of undefined`。
+- **四类「体」改成直出**（`FunctionBody` / `MethodBody` / `NamespaceBody` / `CatchBody`）：
+  它们在目标语言那边就是一个 `Block`（命名空间体是 `ModuleBlock`）、`children` 那一格叫
+  `statements`——这一页自己出这个节点，不再绕回通用支（换名 + 段循环 + 字段名三道工序一步都不用）。
+  `ctx.Each` 与通用支那一支**是同一份实现**（`projectEachIn`，父 kind 照传），空体给 `undefined`
+  ⇒ 与通用支的产物逐字节相同（`samples` 钉着这一点）。
+  **`CatchBody` 没有 `BodyField`**：`catch` 那一段的字段名由 `Try` 自己排（`CatchClause.block`
+  的位置只有 `Try` 知道）。
+- **投影侧**：`BODY_FIELDS` 整张删除，段循环里那一格改成「**问那个子单元**
+  `owner.BodyField(kind)`」——与旁边那格「包装提层」同一手法（都从字典格上的 `__token` 问过去）。
+
+**实测**：`cases:check` 1655 / 1655、`cases:tags` 5372 条断言 0 条不一致、
+`cases:astjson` 六项全 0（1642 份 / 42596 个节点）、`samples` 三份逐字节一致、
+`cases:tsast` **投影节点 100.0% 同 kind 同区间、字段名也 100.0% 一致**；
+`xl check` 182 文件 0 错 0 警、`tsc` 0 错。
+`print-ast-common.xl.md`：**9812 → 9802 行**（表没了，净减的少是因为 `bodyFieldOf` 带了一段说明）。
+
+**一次性尺子量出来的两件事**（`tmp/r991-body-hook.cjs`：`NODE_OPTIONS=--require` 注入每个子进程，
+把那一族 token 的 `BodyField` / `PrintAst` 各包一层计数，跑完即删）：
+
+- **「体」这一族真的都被问到了**：语料 2050 份文件里 `FunctionBody` **821 / 821**、
+  `MethodBody` **1953 / 1953**、`NamespaceBody` **407 / 407**、`CatchBody` **41**（只有 `PrintAst`）、
+  `Namespace.BodyField` **11**。也就是说「父亲问字段名」与「自己出节点」两条路都在跑，
+  不是搬过去没人用。
+- **`LamdaBody` 是 0 / 0**：`Lamda` 那一页自己把体拼出来（它读的是体的**子单元**，不投体这一层），
+  所以那一格今天**一次都没被问过**。事实留着（换个输入仍然答 `body`），读数如实记在这里——
+  「搬过去的每一格都被调用过」这句话这一轮**不成立**，成立的是「量过之后知道哪一格没用上」。
+
+**另一把尺子**（`tmp/r991-kind-hook.cjs`，第 991 轮开场那次普查）：把 `KIND_BY_TAG.get` 包一层、
+**按调用点行号分档**，一次跑全语料就量出「通用支真正用到的只有 **14 档**」
+（`LiteralType` 13843 / `MethodDeclaration` 12961 / `Interface` 4691 / `Function` 2861 /
+`MethodBody` 1943 / `TypeLiteral` 1771 / `Bracket` 1146 / `FunctionBody` 820 / `ParenthesizedType` 783 /
+`Class` 703 / `NamespaceBody` 407 / `Enum` 115 / `CatchBody` 41 / `NamespaceExport` 5）。
+改完再量同一个点：**14 档 → 10 档，那四档的查找全部归零**（总数 42090 → 38890）。
+剩下这 10 档就是下一轮要动的名单。
+
+**可复用的判据**：**「谁还在走那条老路」可以直接量，不必读代码猜**——把中央表的那一次 `.get`
+包一层、按调用点行号分档，`NODE_OPTIONS=--require` 注入子进程即可（源码一行不动，
+16 片并行也照量）。搬哪几档、搬完掉多少，都是读数。
+另一条与第 990 轮同源、这一轮更清楚：**「谁出这一格」的接口要带上分不开的那一格**——
+`BodyField` 比 `WrapperField` 多一个 `parentKind`，正是因为 `Namespace` 的两态只有父亲分得开；
+参数不递下去，判据就只能留在投影层。
+
 ### 第 990 轮：把「**包装提层**」也搬上 token（`Token.WrapperField`，7 页）——`WRAPPER_FIELDS` 整张表删掉；`GenericType` 的「两态」判据跟着它走
 
 **一句话**：接着第 988~989 轮那条线，这一轮动的是投影层**第二张按标签查的中央表**。

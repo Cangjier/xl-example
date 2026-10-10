@@ -458,6 +458,29 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
   return node;
 ```
 
+## method BodyField:(parentKind:string)=>string | undefined
+
+**我在父节点上叫哪个字段**（见 `core/syntax/token.xl.md` 的 `Token.BodyField`）：
+**同一个 token 两种落法**，只有「父亲投成了什么」分得开——所以这是体字段里**唯一看参数**的一处。
+
+| 父亲投成 | 我是什么 | 我叫什么 |
+| --- | --- | --- |
+| `ModuleDeclaration` | 点号命名空间的内层（`namespace A.B.C { }` 的第二、第三层） | `body`（目标语言的 `ModuleDeclaration.body` 就是里面那层） |
+| `ModuleBlock` | 命名空间体里的一条声明（`namespace O { export namespace I { } }` 里那个内层） | 不是体 → 答 `undefined`，于是它落在 `statements` 里 |
+
+**判据为什么住在这里**（第 991 轮从投影层的 `BODY_FIELDS` 搬来，口径是第 367 轮定的）：
+两种情形在产物里长得一样（都是 `Namespace` 套 `Namespace`），区别只在父亲投成了什么。
+一律收成 `body` 的后果（第 292 轮实测）：降级层 `ListOf(block, "statements")`
+**一个语句都取不到** ⇒ 内层命名空间根本没建 ⇒ 脚本报
+`cannot read properties of undefined`（**离现场很远**）。
+
+```ts
+if (parentKind === "ModuleDeclaration") {
+  return "body";
+}
+return undefined;
+```
+
 ## constructor:(template:Template)=>void
 
 以模板创建，并把本类型的收尾规则挂上来（模板里没有专门给 `Namespace` 注册就用通用队列）。

@@ -837,6 +837,37 @@ return new Map();
 return undefined;
 ```
 
+## method BodyField:(parentKind:string)=>string | undefined
+
+**投成目标语言形状时，我这一层是不是「体」**（第 991 轮）——是的话答「我在父节点上叫哪个字段」，
+不是的话答 `undefined`。
+
+产物里函数体 / 方法体 / 命名空间体 / lambda 体都是**独立的一层**（`FunctionBody` / `MethodBody` /
+`NamespaceBody` / `LamdaBody`），而目标语言那边它们就是父声明的一个字段
+（`FunctionDeclaration.body` / `MethodDeclaration.body` / `ModuleDeclaration.body` /
+`ArrowFunction.body`）。
+
+**它与 `WrapperField` 是两件事**（两者都在父节点的段循环里被问到，所以摆在一起说）：
+
+- 包装（`ClassBody` / `ReturnType`…）**自己不出节点**，内容提上去；
+- 体**自己是节点**（一个 `Block` / `ModuleBlock`），只是**字段换个名字**。
+
+合成一条路会让其中之一静默错值：提掉了就凭空少一节（块里的语句并到父节点语句表末尾），
+不收就又看不出「体」这一层该叫什么。
+
+**为什么要带 `parentKind`**：`Namespace` 有两态——点号命名空间的内层（`namespace A.B.C { }`）
+在目标语言那边是外层 `ModuleDeclaration` 的 `body`，而命名空间体里的内层命名空间
+（`namespace O { namespace I { } }`）是 `ModuleBlock` 的 `statements` 里的一条语句。
+同一个 token 两种落法，「我父亲投成了什么」是唯一分得开它的东西，所以那一格由调用方递进来
+（其余体节点用不到这个参数）。
+
+**基类答 `undefined`**（`core` 与语言无关，不知道任何目标语言的字段名）：需要它的 token 在自己那一页
+覆写这一格（`## method`，与 `SegmentNames` / `WrapperField` 同一形态）。
+
+```ts
+return undefined;
+```
+
 ## static method ToPlain:(value:any)=>any
 
 把一个值转成能喂给 `JSON.stringify` 的形态：`Map` → 普通对象，数组 → 逐元素转，其余原样。
