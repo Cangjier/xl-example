@@ -1,11 +1,13 @@
-// xl:note 类型谓词里**名字与 `is` 之间换行**（第 931 轮片段普查量出）：
+// xl:note 类型谓词里**名字与 `is` 之间换行**（第 931 轮片段普查量出、**同轮收掉**）：
 // `declare function f(x: unknown): asserts x` 换行 `is string;` 在 TS 那边是一条
 // `TypePredicate`（区间从 `asserts` 跨到 `string`），而产物在换行处收壳 ⇒ 谓词只到 `x`、
 // `is string` 另起一条语句（缺 `StringKeyword`、多 `Identifier` + `ExpressionStatement`；
 // 带体那一支还缺整个 `Block`）。
+// **修法**：解析期那张续接表多一档「下一行以 `is` 开头**且**这一段尾巴正好是 `asserts` + 名字」
+//（`Statement.IsPendingTypePredicate`）——`is` 是上下文关键字，不能只看那一个词。
 // **注意与第 907 轮那一条的分界**：`asserts` 与**名字**之间换行是 TS 自己就不收的写法
 //（那一轮量过，是口径边界）；这里换行的是**名字与 `is` 之间**，TS 收得下。
-// xl:known-gap 类型谓词的 `is` 前面那一格没有跨换行（解析期的续接表不认识它）
+// xl:expect TypePredicate:2
 declare function f(x: unknown): asserts x
 is string;
 function g(x: unknown): asserts x

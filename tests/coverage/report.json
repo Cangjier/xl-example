@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.38,
+  "progressPercent": 95.41,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1552,
-      "pass": 1549,
-      "blocked": 3,
+      "pass": 1552,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.81
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,31 +130,13 @@
   ],
   "token": {
     "total": 1552,
-    "knownGap": 3,
-    "knownGapStillOpen": 3,
-    "exactFiles": 1549,
-    "scoredWithoutGap": 1549,
-    "passedWithoutGap": 1549
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1552,
+    "scoredWithoutGap": 1552,
+    "passedWithoutGap": 1552
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r931-new-arguments-newline",
-      "category": "token",
-      "title": "`new` 的实参表在下一行（第 931 轮片段普查量出）：`new Error` 换行 `(\"x\")` 与",
-      "detail": "漂 2　多 4　`new` 收实参表那一格只看紧邻，没有跨换行"
-    },
-    {
-      "id": "token/expressions/gap-r931-typeof-regex-range",
-      "category": "token",
-      "title": "正则字面量当一元运算符的操作数时，父节点的区间比 TS 长一格（第 931 轮片段普查量出）：",
-      "detail": "漂 1　多 1　正则字面量单元比 TS 节点多一个字符的区间传给了父节点，根因尚未量清"
-    },
-    {
-      "id": "token/types/gap-r931-asserts-is-newline",
-      "category": "token",
-      "title": "类型谓词里**名字与 `is` 之间换行**（第 931 轮片段普查量出）：",
-      "detail": "缺 3　漂 4　多 8　类型谓词的 `is` 前面那一格没有跨换行（解析期的续接表不认识它）"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",

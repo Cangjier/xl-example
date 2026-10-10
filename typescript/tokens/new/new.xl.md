@@ -132,6 +132,20 @@ while (i < units.length) {
       i = i + 1;
       continue;
     }
+    // **换行后面紧跟实参表时也不是边界**（第 931 轮）：`new Error` 换行 `("x")` 与
+    // `new C<T>` 换行 `(x)` 在 TS 那边都是**一条** `NewExpression`——实参表可以另起一行
+    //（TS 的 parser 只问「紧跟在这一格后面的是不是 `(`」，从不看中间有没有换行；
+    // 实测 `gap-r931-new-arguments-newline`：漂 1 多 2，那对括号被折成了
+    // 对刚收好的 `NewExpression` 的又一次调用）。
+    //
+    // **与上面那个反例同样不冲突**：`const b = new A` 换行 `const c = new B()` 的下一格是
+    // `const`（一个 `Identifier`，不是括号），照旧 `break`；
+    // 而 `new A` 换行 `(x)` 在 TS 里**就是** `new A(x)`。
+    const afterWrap = Get(units, SkipNextTrivia(units, i));
+    if (afterWrap instanceof Bracket && afterWrap.startBracket === "(") {
+      i = i + 1;
+      continue;
+    }
     break;
   }
   if (IsAnnotationUnit(item)) {
@@ -143,7 +157,14 @@ while (i < units.length) {
   }
   i = i + 1;
 }
-const typeEnd = bracketIndex === -1 ? i - 1 : bracketIndex - 1;
+// **跨过去的软换行不算类型段的尾巴**（第 931 轮）：`new C<T>` 换行 `(x)` 里那个换行
+// 正好落在类型实参段与实参表之间，`bracketIndex - 1` 停在它上面 ⇒ 类型段的终点会算到
+// 换行末尾（`newType.SignOut` 取的就是 `Get(units, typeEnd)` 的终点）。
+// 只往回跳软换行，注释照旧留在类型段里（第 631 轮那条口径不动）。
+let typeEnd = bracketIndex === -1 ? i - 1 : bracketIndex - 1;
+while (typeEnd > index && Get(units, typeEnd) instanceof LineWrap) {
+  typeEnd = typeEnd - 1;
+}
 if (typeEnd < index + 1) {
   throw SyntaxException.FromMessage(current.SourceRange, "new 后面没有找到类型名");
 }

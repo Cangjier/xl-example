@@ -1617,6 +1617,22 @@ if (wordEnd > at) {
   if (word === "in" || word === "instanceof") {
     return true;
   }
+  // **下一行以 `is` 开头，而上一行正好是「类型谓词只写了一半」**（第 931 轮）：
+  //
+  //     declare function f(x: unknown): asserts x ⏎ is string;
+  //     function g(x: unknown): asserts x ⏎ is string {}
+  //
+  // 在 TS 那边这两条都是**一条**声明（`TypePredicate` 从 `asserts` 跨到 `string`），
+  // 而 `is` 是**上下文关键字**（本身是一个合法的标识符表达式）⇒ 上面那条「`of` / `as` /
+  // `is` / `satisfies` 不进名单」的理由在这里照样成立，**不能只看那一个词**。
+  // 所以这一档多问一句**形状**：这一段的尾巴正好是 `asserts` + 一个名字
+  //（`Statement.IsPendingTypePredicate`）——`asserts` 只在类型位合法，
+  // 值位那个是普通标识符，于是「一半谓词 + 下一行以 `is` 开头」只可能是同一条谓词。
+  // **少了它会怎样**：换行处收壳 ⇒ 谓词只到名字、`is string` 另起一条语句
+  //（实测 `gap-r931-asserts-is-newline`：缺 `StringKeyword`、多 `Identifier` + `ExpressionStatement`）。
+  if (word === "is" && Statement.IsPendingTypePredicate(data)) {
+    return true;
+  }
 }
 // **下一行以 `{` 开头，而上一行是「等着体的语句头」**（第 668 轮）：
 // `while (a)` 换行 `{ … }`、`for (;;)` 换行 `/* c */` 换行 `{ … }`、`switch (a)` 换行 `{ … }`
@@ -1973,6 +1989,37 @@ if (!(before instanceof SymbolToken) || before.Is("=") === false) {
 // **空形参表那一格只有 `async` 撑着**：没有 `async` 时「空括号」在类型位与值位同形，
 // 所以照旧要求括号里有实义内容（第 901 轮那条判据一个字不动）。
 return crossedAsync || Statement.FirstMeaningful(parameters.Data) !== null;
+```
+
+## static method IsPendingTypePredicate:(data:Array<Token>)=>bool
+
+这一段的尾巴是不是「类型谓词只写了一半」——`[asserts] <名字>`：下一行以 `is` 开头时，
+那一格该不该续接（第 931 轮）：
+
+    declare function f(x: unknown): asserts x ⏎ is string;
+    function g(x: unknown): asserts x ⏎ is string {}
+
+**为什么不能只看下一行那个词**：`is` 是**上下文关键字**，本身是一个合法的标识符表达式
+（`is;` 是一条语句），所以「一行以 `is` 开头」分不出「续写」与「下一条语句」——
+这与 `of` / `as` / `satisfies` 三个词不进 `NextLineContinuesExpression` 那张名单是同一条理由。
+这一格改成问**左边那一格**：`asserts` 只在类型位合法（值位那个是普通标识符），
+所以「尾巴正好是 `asserts` + 一个名字」时，下一行那个 `is` 只可能是这条谓词的。
+
+**少了它会怎样**：换行处收壳 ⇒ 谓词只到名字、`is string` 另起一条语句
+（实测 `gap-r931-asserts-is-newline`：缺 `StringKeyword`、多 `Identifier` + `ExpressionStatement`）。
+
+```ts
+const nameAt = SkipPreviousTrivia(data, data.length);
+const name = Get(data, nameAt);
+if (name === null) {
+  return false;
+}
+const word = Statement.WordOf(name);
+if (word === "" || word === "asserts" || word === "is") {
+  return false;
+}
+const assertsAt = SkipPreviousTrivia(data, nameAt);
+return Statement.WordOf(Get(data, assertsAt)) === "asserts";
 ```
 
 ## static method IsDeclarationHeadAwaitingParameters:(data:Array<Token>)=>bool

@@ -217,9 +217,12 @@ if (source.Value === "[") {
 
 正则字面量 `/ab+c/gi` → `RegularExpressionLiteral`（**从 `ts-ast.xl.md` 的 `projectRegex` 整体搬来**，第 182 轮）。
 
-**区间按原文重新量**：`RegexToken` 单元的区间比 TS 的 `RegularExpressionLiteral` 多一个字符
-（终结符被算进去了），所以从那个 `/` 起扫到配对的 `/`（跳过 `\` 转义与 `[…]` 字符类），
+**区间按原文重新量**：从那个 `/` 起扫到配对的 `/`（跳过 `\` 转义与 `[…]` 字符类），
 再把后面的 flags 吃掉。终点不是 `stmtEndOf` 能给的，所以这里直接返回节点字面量。
+
+**这一格在第 931 轮之后变成了一道保险**：那次把 `ExitOrPre` 的签出改成落在
+**正则的最后一个字符**上（原来多一个字符，见那一处的说明），所以单元自己的区间已经与
+TS 一致；这里重新量仍然值得留着——它同时负责把 flags 算进去，而且不依赖单元区间的口径。
 
 ```ts
   const source = ctx.source;
@@ -336,7 +339,14 @@ if (!this.IsTranslate) {
     ) {
       this.Flags += source.Value;
     } else {
-      this.SignOut(source);
+      // **签出要落在正则的最后一个字符上**（第 931 轮）：走到这里时 `source` 是**紧跟
+      // 字面量后面**的那一格（标志位之后的第一个字符，或者收尾 `/` 之后那个字符），
+      // `SignOut(source)` 于是让本单元的终点**比字面量多一个字符**——
+      // `typeof /re/;` 里那个 `;` 也算进正则的区间。`PrintAst` 那边用「从 `/` 扫到配对的 `/`」
+      // 重新量过一遍（所以 `RegularExpressionLiteral` 自己是对的），可**父节点**是按
+      // `v.end` 算的：`typeof /re/;` 的 `TypeOfExpression` 因此是 `[10,22)` 而不是 `[10,21)`
+      //（实测 `gap-r931-typeof-regex-range`：漂 1 多 1）。往回退一格就对了。
+      this.SignOut(source.Pre()!);
       this.TryToClose();
       this.Quit();
       context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
