@@ -30,7 +30,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 **中央那张按 `v.type` 分派的 `switch` 已经整段删除**：它原来有 60 个 `case`，
 搬到最后一个（`Statement`）时就没有分支了。所以本文件现在的角色是：
 
-- **通用支**（`FIELD_BY_KIND` 那一张只剩四档的表 + `structuralProps` 兜底；「包装提层」「段名」
+- **通用支**（`structuralProps` 兜底；「包装提层」「段名」
   「体字段」与「节点名」那四格第 988~991 / 1025 轮已经搬上各 token，见 `Token.WrapperField` /
   `Token.SegmentNames` / `Token.BodyField` / `Token.AstKind`——**凡是某一页自己知道的事实，
   一律由那一页答，本文件不替它记第二遍**）；
@@ -165,31 +165,6 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 投影这一侧**只剩三处按文本问符号**的调用（`foldBinaryFrom` 一族给「手上只有一段运算符文本」
 的那种格里造 `operatorToken`），走的是本文件 `# dependencies` 里 import 进来的
 `SymbolToken.KindOfText(text)`——**一份词汇、一个入口**（不是投影自己再存一份表的副本）。
-
-# const FIELD_BY_KIND:Map<string, Map<string, string>>
-
-`children` / 分段名 → TS 那边的字段名。**按 kind 查**，查不到就用原名。
-
-**第 988~989 轮起它只剩「没有自己标签的那几档」**：段名本来由各 token 的
-`SegmentNames` 声明（`While` 的 `compare` / `For` 的 `initial` / `Class` 的 `children`…，
-见 `core/syntax/token.xl.md` 那一节），投影**先问那一格、空表才落到这里**。
-搬过来之后这张表从 **41 档缩到 4 档**，剩下的四档都是**投影自己换出来的 kind**
-（产物里没有同名标签）：绑定位的两种模式与「表达式位 / 别名位」那两格。
-
-```ts
-new Map([
-  // 解构的两种绑定模式：TS 那边 `elements` 是一串 `BindingElement`。
-  // 这两个 kind 是**投影自己换出来的**（绑定位的 `ArrayLiteral` / `ObjectLiteral`，
-  // 见 `projectBindingPattern`），产物里没有同名标签 ⇒ 没有哪一页能声明它。
-  ["ArrayBindingPattern", new Map([["children", "elements"]])],
-  ["ObjectBindingPattern", new Map([["children", "elements"]])],
-  // 类型别名：`type A<T> = …` 的类型参数段要**提层**成 `typeParameters`。
-  ["TypeAliasDeclaration", new Map([["GenericType", "typeParameters"]])],
-  // **函数表达式同形**：`(function () {})` 的产物标签还是 `Function`，只有**表达式位**
-  // 才投成 `FunctionExpression`（`projectNode` 按谁在投它分辨），字段与 `FunctionDeclaration` 一样。
-  ["FunctionExpression", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
-])
-```
 
 # private method synthName:(name:string, v:any, ctx:any)=>string
 
@@ -567,22 +542,31 @@ new Map([
 
 # private method fieldNameFor:(kind:string, key:string, node?:any)=>string
 
-`children` / 分段名 → TS 那边的字段名。**先问这一格的主人，再按 kind 查表，都没有就用原名**。
+`children` / 分段名 → TS 那边的字段名。**问这一格的主人，问不到就用原名**。
 
 **首选问单元自己**（第 988 轮）：`SegmentNames` 就住在那个 token 上（见 `segmentNameOf`）——
-段名是它自己的事实，所以投影只读。**第 989 轮把能搬的都搬完了**：这张表从 41 档缩到 4 档，
-剩下的四档都是**投影自己换出来的 kind**（产物里没有同名标签，也就没有哪一页能声明它）：
-`ArrayBindingPattern` / `ObjectBindingPattern`（绑定位）与
-`TypeAliasDeclaration` / `FunctionExpression`（别名位 / 表达式位）。
+段名是它自己的事实，所以投影只读。**第 989 轮把能搬的都搬完了**：那张按 kind 查的中央表
+（`FIELD_BY_KIND`）从 41 档缩到 4 档。
 
-**`node` 是可选参数**：有些调用点手上没有那一格（`kind` 是替调用方算出来的），
-那就只查表——与搬家前的行为一字不差。
+**最后那四档第 1032 轮整张删掉了**，四档的归宿各不一样（都是一次一句的读法，不是改口径）：
+
+- `FunctionExpression → children → parameters` **真的有人查**（匿名 IIFE 走 `structuralProps`
+  时 `kind` 就是它），所以搬回 `typescript/tokens/function/function.xl.md`——
+  段是那个 token 切的、kind 也是它自己在表达式位投出来的，同一页答两档是本来的样子。
+- `TypeAliasDeclaration → GenericType → typeParameters` **永远查不到**：`fieldNameFor` 的
+  `key` 只可能来自 `segmentKeysOf`（**小写字母开头**的属性名）或 `WrapperField()` 的答案，
+  而 `GenericType` 是大写开头、`WrapperField()` 给的又**已经是字段名本身**——所以这一档
+  在今天的形状里一次都不会命中（`?? key` 给的是同一个字符串）。
+- `ArrayBindingPattern` / `ObjectBindingPattern → children → elements` **也永远查不到**：
+  这两个 kind 由 `projectBindingPattern` **手工造节点**（`return { kind, elements, … }`），
+  它**不经过** `structuralProps`；而全仓 `structuralProps` 只有一个调用点
+  （`projectDeclaration`），没有任何一页会拿这两个 kind 去调它。
+
+所以这一格今天只剩「问单元自己」一次：**谁切的段、谁答段名**，投影不再存第二份。
 
 ```ts
   const own = node === undefined ? undefined : segmentNameOf(node, kind, key);
-  if (own !== undefined) return own;
-  const table = FIELD_BY_KIND.get(kind);
-  return table?.get(key) ?? key;
+  return own ?? key;
 ```
 
 # private method wrapperTarget:(node:any)=>string | null | undefined

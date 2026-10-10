@@ -287,8 +287,19 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 **形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
 
+**表达式位也要在这一页答**（第 1032 轮）：`(function () {})()` 的产物标签还是 `Function`，
+只有**表达式位**才投成 `FunctionExpression`（`projectNode` 按谁在投它分辨）——
+两个 kind 的**段一模一样**（形参表都是 `children` → `parameters`），所以这里两档并列。
+原来那一档写在投影层的按 kind 查的中央表里（`FIELD_BY_KIND`，第 1032 轮整张删掉），
+那是同一份事实的第二处声明。**`GenericType` 那一行不必再写一遍**：它的 `WrapperField()`
+答的就是**目标语言的字段名**（`typeParameters`），投影拿到手直接当字段名用、
+不再回头查表——所以旧表里那一行本来就是恒等的一行。
+
 ```ts
-return new Map([["FunctionDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])]]);
+return new Map([
+  ["FunctionDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  ["FunctionExpression", new Map([["children", "parameters"]])],
+]);
 ```
 
 ## constructor:(template:Template)=>void
