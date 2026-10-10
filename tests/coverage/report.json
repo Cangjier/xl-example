@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.46,
+  "progressPercent": 95.47,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1571,
-      "pass": 1569,
-      "blocked": 2,
+      "pass": 1570,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.87
+      "coverage": 99.94
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1571,
-    "knownGap": 2,
-    "knownGapStillOpen": 2,
-    "exactFiles": 1569,
-    "scoredWithoutGap": 1569,
-    "passedWithoutGap": 1569
+    "knownGap": 1,
+    "knownGapStillOpen": 1,
+    "exactFiles": 1570,
+    "scoredWithoutGap": 1570,
+    "passedWithoutGap": 1570
   },
   "blocked": [
     {
@@ -142,12 +142,6 @@
       "category": "token",
       "title": "",
       "detail": "缺 2　漂 2　多 6　`new` 的被调者是**跨行的下标访问**时（`new ns` 换行 `[a]()`），末尾那对 `()`"
-    },
-    {
-      "id": "token/modules/gap-r941-import-attributes-newline",
-      "category": "token",
-      "title": "",
-      "detail": "缺 9　漂 3　多 12　导入声明的**属性子句另起一行**时它不成形：`import a from \"m\"` 换行"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",

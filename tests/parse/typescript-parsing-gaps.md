@@ -588,15 +588,23 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**2 条**）
+## 已知仍开着的缺口（**1 条**）
 
-**现状（第 944 轮实测）**：`cases:tsast` 那一行是「已知缺口：**2** 条还开着、0 条已经收掉」。
-这两格是第 937 / 941 两轮各自**登记**下来的（登记时都写了根因与下一轮的入手处）：
+**现状（第 945 轮实测）**：`cases:tsast` 那一行是「已知缺口：**1** 条还开着、0 条已经收掉」。
 
 | 守卫用例 | 落点 | 下一轮的入手处（登记时写下的） |
 | --- | --- | --- |
 | `token/expressions/gap-r937-new-index-callee-newline.ts` | `new ns` 换行 `[a]()` 的末尾那对 `()` 折不成 `Method` | `MethodCloseRule.Previous` 对 `PropertyAccess` 那一步为什么没接手 |
-| `token/modules/gap-r941-import-attributes-newline.ts` | `import a from "m"` 换行 `with { … }` 不成 `AssertClause` | `ImportCloseRule` 的触发时机（换行那一刻还不在列表里） |
+
+**第 945 轮收掉的那一格**：`gap-r941-import-attributes-newline`（`import a from "m"` 换行
+`with { type: "json" };` 在 TS 那边是**一条** `ImportDeclaration`）。第 941 轮把判据写进了
+`ImportCloseRule.Process`，可它**够不着**——根因在**收壳那一刻**：`Statement.IsPendingImportHead`
+一看到 `String`（路径）就答「写完了」，换行处收壳，`with { … }` 于是落进另一条 `Statement`。
+这一轮在「路径已经到手」那一支里补一句 `NextLineOpensAttributes`（判据本体仍是第 941 轮
+那一份，从**末了那个实义单元的 `End`** 起扫），**收尾期一处未动**（实测：壳没关之后
+`IsStatementEnd` 的「换行后面是 `;`」那条本来就不把这一格算成语句末）。
+⇒ 缺口 2 → **1**；顺带 `xl:expect` 里的 `Keyword` 按新读数撤掉（`with` 只留成 `Import` 里的
+`Identifier`，子句由 `ReadClause` 读）。
 
 **第 944 轮收掉的那一格**：`gap-r942-loop-body-terminator`（`while (a) break` 换行 `;`
 在 TS 那边是 `WhileStatement[0,17)`、体是 `BreakStatement[9,17)`——**它自己一路到那个 `;` 之后**）。

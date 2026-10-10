@@ -2245,6 +2245,19 @@ for (let i = headAt + 1; i < data.length; i++) {
   // 三段并进**同一个** `Statement`（`export,default` 于是被折成 `Class` 的修饰词，
   // `export default` 那一条 `ExportAssignment` 整条不见）。
   if (item instanceof String) {
+    // **路径到手了、而属性子句另起一行 ⇒ 这一条声明还没写完**（第 945 轮）：
+    // `import a from "m"` 换行 `with { type: "json" };` 在 TS 那边是**一条**
+    // `ImportDeclaration`（`with` / `assert` 那个子句是 `assertClause`）——判据本体只有一份
+    //（`NextLineOpensAttributes`，第 941 轮）；软换行此刻还没进 `data`，
+    // 所以与下面 `=` 那一支同一个口径：从**末了那个实义单元的 `End`** 起扫。
+    // **少了它会怎样**：换行处收壳 ⇒ `Import` 只到路径、`with { … }` 另起一条 `WithStatement`
+    //（实测 `gap-r941-import-attributes-newline`：缺 `AssertClause` / `AssertEntry` /
+    //  `StringLiteral` 共 3、漂 1、多 4）。
+    const tail = Get(data, SkipPreviousTrivia(data, data.length));
+    const tailEnd = tail === null ? null : tail.SourceRange.End;
+    if (tailEnd !== null && NextLineOpensAttributes(tailEnd)) {
+      return true;
+    }
     return false;
   }
   if (item instanceof SymbolToken && item.Is("=")) {
