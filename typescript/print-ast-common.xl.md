@@ -408,6 +408,13 @@ new Map([
 
 叶子的 `value` 也当标量看（与 XML 的元素文本同义）。
 
+**这一格还携带「这一格是什么」那一问**（第 1005 轮，见 `annotate`）：视图与字典格都答 `Tag()`。
+直出版的判据是「只用 token 自己的东西」（`core/syntax/token.xl.md` 的 `PrintDirectAst`），
+而它手上拿到的孩子有时是**字典格**（`ctx.Kids` 回来的那些），
+「这一格是不是 `SymbolToken`」过去写成 `k.get("type") === "SymbolToken"` ——
+**字符串键进字典里取值**，正是那条判据要消掉的东西（全语料 173 处）。
+`annotate` 在这一格上记下同一份事实，于是直出版改问 `k.Tag()`：**同一个问句只剩一个入口**。
+
 ```ts
   const type = node.get("type");
   const range = node.get("range");
@@ -418,7 +425,7 @@ new Map([
     if (Array.isArray(raw)) segments.set(key, raw);
     else attrs.set(key, raw);
   }
-  return {
+  const out: any = {
     type,
     start: range ? range[0] : 0,
     end: range ? range[1] + 1 : 0,
@@ -431,24 +438,148 @@ new Map([
     attrs,
     segments,
   };
+  // **视图自己也要答 `Tag()`**（第 1005 轮）：直出版的接收者**三种都有**——
+  // 字典格（Map，`annotate` 给它挂 `Tag` 与属性）、视图（这里）、以及 token 自己
+  // （`Token.Tag`）。三边答的是同一格事实，所以同一个问句不会按接收者给出两个答案。
+  Object.defineProperty(out, "Tag", {
+    value: function (this: any) {
+      return this.type;
+    },
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
+  // **标量属性也挂到视图自己身上**（第 1005 轮实测踩到的第二处）：`ctx.Project` 那一族
+  // 先把字典格 `view()` 成视图再交给直出版，而**视图不是 Map**、`annotate` 认不出它 ⇒
+  // 直出版写 `v.questionPos` 拿到 `undefined`（实测 381 份语料红：
+  // `ternary-operator.xl.md` 的 `typeof v.questionPos === "number"` 当场失配，
+  // `questionToken` / `colonToken` 整格丢）。属性本来就都在手上（`attrs`），所以在这里抄一次。
+  for (const [key, raw] of attrs) {
+    if (key === "value" || key === "name") continue;
+    if (Object.prototype.hasOwnProperty.call(out, key)) continue;
+    Object.defineProperty(out, key, {
+      value: numericAttr(raw),
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+  }
+  return out;
 ```
 
+# private method annotate:(node:any)=>void
+
+**把「这一格是什么」与「这一格自己的属性」接到字典格上**（第 1005 轮）。
+
+两件事，因为它们是同一个问句的两半：
+
+1. **`Tag()`**：答字典里的 `type`。`Token.Tag` 是同一格事实在 token 那一侧的答法
+   （`this.constructor.name`），两边必须同名同值——字典里的 `type` 本来就是按类名写进去的
+   （见 `ToDictionary`），所以这里只是把它接到一个方法上；
+2. **标量属性挂成同名属性**：字典里的 `op` / `startBracket` / `stringChar` / `emptyBodyAt` …
+   过去读法是 `k.get("op")` ——**字符串键进字典**，正是 `PrintDirectAst` 那条判据要消掉的东西。
+   挂成同名属性之后直出版写 `k.op`：**同一个问句只剩一个入口**。
+
+**为什么是挂在 `Map.prototype` 上**（第一次实测踩到的）：`ctx.Kids` 回来的格子来自**任意一层**
+——`WithRangeOf` 造的字典格、`view` 归一过的那些、各个投影函数自己 `new Map` 出来的临时格子——
+逐个挂会漏（第 1005 轮第一版只把 `Tag` 挂在 `view()` 里，实测 **1244 份语料**报
+`k.Tag is not a function`：很多孩子从来没经过 `view()`）。原型上一次就够。
+
+**为什么第二件事不能也挂在原型上**：属性名是**每一格自己的键**（`op` 只对 `BinaryOperator` 有意义），
+挂到 `Map.prototype` 上就等于给所有 Map 装了几十个取值器，而且
+`name` / `value` 这类键**不是一个键的一件事**（见下）。所以属性逐个挂在**这个 Map 实例**上，
+而 `Tag` 是「所有字典格都有」的那一格，挂在原型上。
+
+**为什么是 `defineProperty` + 非枚举**：`enumerable: false` 让它对
+`entries()` / `JSON.stringify` / `Token.ToPlain` 一律不可见——XML 出口与 AST JSON 出口
+一个字节都不受影响（`__token` 那格用的是同一条口径）。
+**为什么先查 `hasOwnProperty`**：`view()` 与 `viewOf` 会被反复问到同一格，
+重挂一遍是白花钱（`defineProperty` 不便宜，而这一格在整棵树上被问几万次）。
+
+**它不管 `value` / `name`**——那两个**不是一个键的一件事**，所以不在这一格挂：
+叶子的文本要么在 `value` 属性上、要么由区间回原文取（`textOfNode` 的第二条路）；
+声明的名字落在**子单元或别的属性**上（`name` / `fieldName` / `namespace` 三选一，
+见 `memberNameOf`）。第 1005 轮试过把 `name` 也这样挂，**全语料 823 份红**
+（`TypeAliasDeclaration.name` 整格丢：那两处的 `name` 键压根不在字典里，取到的是 `undefined`）——
+那说明它缺的是**一格 token 事实**，不是换一个读法。直出版里剩下的 `get("name")` 因此记在
+`direct:lint` 的例外表里，是**下一轮的改动**。
+
+```ts
+  if (!Object.prototype.hasOwnProperty.call(Map.prototype, "Tag")) {
+    Object.defineProperty(Map.prototype, "Tag", {
+      value: function (this: any) {
+        return this.get("type");
+      },
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+  }
+  if (!(node instanceof Map)) return;
+  for (const [key, raw] of node.entries()) {
+    if (key === "type" || key === "range" || key === "value" || key === "name") continue;
+    if (Array.isArray(raw)) continue;
+    if (Object.prototype.hasOwnProperty.call(node, key)) continue;
+    Object.defineProperty(node, key, {
+      value: numericAttr(raw),
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+  }
+```
+
+# private method numericAttr:(raw:any)=>any
+
+**字典里的标量属性还原成它本来的类型**（第 1005 轮实测踩到的）：
+
+字典是 `Map<string, any>`，而这些键**进字典时已经是字符串**——`ternary-operator.xl.md`
+的直出版写 `typeof v.questionPos === "number"`，拿到 `"141"` 就当场失配，
+`questionToken` / `colonToken` 整格丢（实测 381 份语料红）。
+
+判据按**值的形状**给，不列白名单：整串是数字就还原成数字。
+这一层的位置键（`emptyBodyAt` / `headerCloseAt` / `questionPos` / `colonPos`）本来就是数字，
+而 `label` / `op` / `startBracket` / `stringChar` 这些不会是纯数字串——
+所以这条判据在这一层是**完整的**，不是近似。
+
+```ts
+  return typeof raw === "string" && /^-?\d+$/.test(raw) ? Number(raw) : raw;
+```
+
+
+
 # private method kidsOf:(v:any, key:string)=>Array<any>
+
+**回来之前先把每一格标好**（第 1005 轮）：`annotate(one)` 给它挂上 `Tag()` 与自己的标量属性。
+`ctx.Kids` / `ctx.KidsOf` 的产物是直出版最常拿到的那些格子，而它们**不经过 `view()`**
+（`kidsOf` 是从视图的 `segments` 里直接取的字典格）——只标 `view()` 到过的那一批会漏掉一半
+（第 1005 轮实测：1244 份语料报 `k.Tag is not a function`）。`annotate` 自己是幂等的，重复问不花钱。
 
 ```ts
   const raw = v.segments.get(key);
   if (!Array.isArray(raw)) return [];
-  return raw.filter((x) => x instanceof Map);
+  const out = raw.filter((x) => x instanceof Map);
+  for (const one of out) annotate(one);
+  return out;
 ```
 
 # private method allKids:(v:any)=>Array<any>
+
+**第一趟自己标**（第 1005 轮）：它绕开了 `kidsOf` 直接读 `segments`，
+所以那些格子要在这里 `annotate(one)`；第二趟走 `kidsOf`，已经在那边标过。
+两个入口都标上是这一格的纪律：**谁把字典格交出去，谁负责把它标好**。
 
 ```ts
   const out = [];
   for (const [key, raw] of v.segments) {
     if (key === "children") continue;
     if (!Array.isArray(raw)) continue;
-    for (const x of raw) if (x instanceof Map) out.push(x);
+    for (const x of raw) {
+      if (x instanceof Map) {
+        annotate(x);
+        out.push(x);
+      }
+    }
   }
   for (const x of kidsOf(v, "children")) out.push(x);
   return out;
@@ -9700,6 +9831,11 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   // **直出通道**（第 992 轮）：默认开（`PrintDirectAst` 与 `PrintAst` 同答，由 `cases:direct` 看着）。
   // 传 `false` 就是第 992 轮之前那条路——`cases:direct` 用它跑第二遍，两份产物逐字节对拍。
   const directOn = useDirect ?? true;
+  // **字典格答 `Tag()`**（第 1005 轮，见 `annotate`）：直出版里「这一格是不是 `SymbolToken`」
+  // 这一类问句的接收者**两种都有**（token 与字典格），所以进来先把字典格那一侧装好。
+  // **放在这里、不放 `view()` 里**：`ctx.Kids` 回来的格子来自任意一层，
+  // 很多从来没经过 `view()` —— 装在 `view()` 里实测 1244 份语料报 `k.Tag is not a function`。
+  annotate(undefined);
   const ctx = {
     source,
     unmapped: new Set(),

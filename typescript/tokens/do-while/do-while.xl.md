@@ -522,7 +522,7 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
 
 ```ts
   const props: any = {};
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   // **体那一对花括号直读字段**（第 619 轮那一格，第 641 轮带上整段，与 `While` 同一条）：
   // 两端都是**挂体那一刻**的事实 ⇒ 空块与带块的体都由 `BodyBlockOf` 直接给出
   //（`do {} while (c);` 的右端取**配对的花括号**，不是本单元的终点——那后面还有
@@ -530,7 +530,7 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   // **空语句体那一格也直读字段**（第 635 轮，与 `While.PrintAst` 同一条）：
   // `do ; while (c);` 的体是 `EmptyStatement`。
   const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
-    ? v.attrs.get("emptyBodyAt")
+    ? v.emptyBodyAt
     : undefined;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
   if (emptyAt >= 0) {
@@ -539,7 +539,7 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
     const statement = ctx.BodyBlockOf(v.start + "do".length, body, ctx.Attr(v, "bodyBraceRange"));
     if (statement !== undefined) props.statement = statement;
   }
-  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   if (compare.length > 0) props.expression = ctx.Expression(compare);
   return ctx.NodeHead("DoStatement", props, v);
 ```

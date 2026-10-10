@@ -373,7 +373,7 @@ return new Map([["ArrayLiteralExpression", new Map([["children", "elements"]])]]
     }
   };
   for (const item of list) {
-    if (item.get("type") === "SymbolToken" && ctx.ValueOf(item) === ",") {
+    if (item.Tag() === "SymbolToken" && ctx.ValueOf(item) === ",") {
       flush(item);
       continue;
     }

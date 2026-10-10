@@ -352,7 +352,7 @@ return ctx.Node("StringLiteral", { text: ctx.StringText(v) }, v);
 两个出口在**同一份判据**上写下同一个答案，正是这一格的诚实写法。
 
 ```ts
-  const content = ctx.KidsOf(v, "children").find((k: any) => k.get("type") === "ConstString");
+  const content = ctx.KidsOf(v, "children").find((k: any) => k.Tag() === "ConstString");
   return ctx.Node("StringLiteral", { text: content === undefined ? "" : ctx.ValueOf(content) }, v);
 ```
 

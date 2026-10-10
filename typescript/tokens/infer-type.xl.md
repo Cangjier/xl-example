@@ -316,7 +316,7 @@ return WordText(before) === "extends";
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  const param = ctx.Kids(v).find((k: any) => k.get("type") === "TypeParameter");
+  const param = ctx.Kids(v).find((k: any) => k.Tag() === "TypeParameter");
   const props: any = {};
   if (param !== undefined) props.typeParameter = ctx.Project(param);
   return ctx.NodeHead("InferType", props, v);

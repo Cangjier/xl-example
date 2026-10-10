@@ -358,7 +358,7 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
 也没有一处需要让开。
 
 ```ts
-  const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !ctx.Invisible.has(k.Tag()));
   const props: any = {};
   const blockOf = (field: any, statements: any) => {
     const range = field.Range;
@@ -368,18 +368,18 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
   const tryBlock = blockOf(this.TryBrace, ctx.ProjectEach(seg("body"), "Block"));
   if (tryBlock !== undefined) props.tryBlock = tryBlock;
   const catches = seg("catches");
-  const catchDefine = catches.find((k: any) => k.get("type") === "CatchDefine");
-  const catchBody = catches.find((k: any) => k.get("type") === "CatchBody");
+  const catchDefine = catches.find((k: any) => k.Tag() === "CatchDefine");
+  const catchBody = catches.find((k: any) => k.Tag() === "CatchBody");
   if (catchDefine !== undefined || catchBody !== undefined) {
     const inner: any = {};
     if (catchDefine !== undefined) {
-      const binding = ctx.AllKids(catchDefine).find((k: any) => !ctx.Invisible.has(k.get("type")));
+      const binding = ctx.AllKids(catchDefine).find((k: any) => !ctx.Invisible.has(k.Tag()));
       const isPattern =
         binding !== undefined &&
-        (binding.get("type") === "ObjectLiteral" ||
-          binding.get("type") === "ArrayLiteral" ||
-          (binding.get("type") === "Bracket" &&
-            (binding.get("startBracket") === "{" || binding.get("startBracket") === "[")));
+        (binding.Tag() === "ObjectLiteral" ||
+          binding.Tag() === "ArrayLiteral" ||
+          (binding.Tag() === "Bracket" &&
+            (binding.startBracket === "{" || binding.startBracket === "[")));
       const name =
         binding === undefined
           ? undefined
@@ -389,10 +389,10 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
       if (name !== undefined) {
         let declEnd = name.end;
         let declType: any = undefined;
-        const typeKid = ctx.AllKids(catchDefine).find((k: any) => k.get("type") === "TypeDefine");
+        const typeKid = ctx.AllKids(catchDefine).find((k: any) => k.Tag() === "TypeDefine");
         if (typeKid !== undefined) {
           declEnd = ctx.EndOf(typeKid);
-          const typeUnit = ctx.AllKids(typeKid).find((k: any) => !ctx.Invisible.has(k.get("type")));
+          const typeUnit = ctx.AllKids(typeKid).find((k: any) => !ctx.Invisible.has(k.Tag()));
           if (typeUnit !== undefined) {
             declType = ctx.TypeExpression(ctx.Kids(typeKid));
           }

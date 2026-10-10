@@ -263,7 +263,7 @@ TS 那边那个词（`keyof` / `readonly` / `unique`）是节点的**属性**（
   const kids = ctx.Kids(v).filter(
     (k: any) =>
       !(
-        k.get("type") === "Keyword" &&
+        k.Tag() === "Keyword" &&
         (ctx.ValueOf(k) === "keyof" || ctx.ValueOf(k) === "readonly" || ctx.ValueOf(k) === "unique")
       ),
   );
@@ -369,8 +369,8 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   const kids = ctx.Kids(v);
   const names = kids.filter((k: any) => ctx.IsNameNode(k) && ctx.ValueOf(k) !== "typeof");
   const props: any = {};
-  const access = kids.find((k: any) => k.get("type") === "PropertyAccess");
-  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  const access = kids.find((k: any) => k.Tag() === "PropertyAccess");
+  const generic = kids.find((k: any) => k.Tag() === "GenericType");
   if (generic !== undefined) {
     const typeArguments = [];
     for (const group of ctx.Split(ctx.Kids(generic), ",")) {

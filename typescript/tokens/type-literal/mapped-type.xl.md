@@ -207,11 +207,11 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
 ```ts
   const flat: any[] = [];
   for (const k of ctx.Kids(v)) {
-    if (k.get("type") === "Statement") {
+    if (k.Tag() === "Statement") {
       for (const inner of ctx.UnwrapNodes(k)) flat.push(inner);
       continue;
     }
-    if (k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ";") {
+    if (k.Tag() === "SymbolToken" && ctx.ValueOf(k) === ";") {
       continue;
     }
     flat.push(k);
@@ -226,7 +226,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   let sawValueType = false;
   for (let i = 0; i < flat.length; i++) {
     const k = flat[i];
-    const kind = k.get("type");
+    const kind = k.Tag();
     const word =
       kind === "Keyword" || kind === "Identifier" || kind === "SymbolToken" ? ctx.ValueOf(k) : "";
     if (word === "readonly") {
@@ -250,14 +250,14 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
     if (word === "in") continue;
     if (kind === "ArrayLiteral" || kind === "Bracket") {
       const parts = ctx.Kids(k);
-      const cond = parts.find((x: any) => x.get("type") === "ConditionalType");
+      const cond = parts.find((x: any) => x.Tag() === "ConditionalType");
       const condParts = cond === undefined ? [] : ctx.Kids(cond);
       const asAt = condParts.findIndex(
         (x: any) =>
-          (x.get("type") === "Keyword" || x.get("type") === "Identifier") && ctx.ValueOf(x) === "as",
+          (x.Tag() === "Keyword" || x.Tag() === "Identifier") && ctx.ValueOf(x) === "as",
       );
       if (asAt > 0) {
-        const tp = condParts.find((x: any) => x.get("type") === "TypeParameter");
+        const tp = condParts.find((x: any) => x.Tag() === "TypeParameter");
         if (tp !== undefined) typeParameter = ctx.Project(tp);
         const nameKids = condParts.slice(asAt + 1);
         if (nameKids.length > 0) nameType = ctx.ConditionalNode(nameKids, 0, nameKids.length);
@@ -265,16 +265,16 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
       }
       const flatAs = parts.findIndex(
         (x: any) =>
-          (x.get("type") === "Keyword" || x.get("type") === "Identifier") && ctx.ValueOf(x) === "as",
+          (x.Tag() === "Keyword" || x.Tag() === "Identifier") && ctx.ValueOf(x) === "as",
       );
       if (flatAs > 0) {
-        const tp = parts.find((x: any) => x.get("type") === "TypeParameter");
+        const tp = parts.find((x: any) => x.Tag() === "TypeParameter");
         if (tp !== undefined) typeParameter = ctx.Project(tp);
         const nameKids = parts.slice(flatAs + 1);
         if (nameKids.length > 0) nameType = ctx.TypeExpression(nameKids);
         continue;
       }
-      const inner = parts.find((x: any) => x.get("type") === "TypeParameter");
+      const inner = parts.find((x: any) => x.Tag() === "TypeParameter");
       if (inner !== undefined) {
         typeParameter = ctx.Project(inner);
         continue;

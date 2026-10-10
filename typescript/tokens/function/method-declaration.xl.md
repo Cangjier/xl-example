@@ -1109,7 +1109,7 @@ throw new Error("找不到匹配的子单元");
   // **判据取属性、不转字符串**：`attrs` 上的值本来就是这个 token 自己记的字符串
   // （不到就取空串），调用全局 `String(...)` 反而会撞上同名的 token 类 `String`。
   const declaredName = v.attrs.get("name") ?? "";
-  const declaredModifiers = v.attrs.get("modifiers") ?? "";
+  const declaredModifiers = v.modifiers ?? "";
   let kind = "MethodDeclaration";
   if (ctx.expressionPosition === true) kind = "MethodDeclaration";
   else if (

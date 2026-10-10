@@ -839,9 +839,9 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 ```ts
   const kids = ctx.Kids(v);
   const eqIndex = kids.findIndex(
-    (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=",
+    (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=",
   );
-  const typeNode = kids.find((k: any) => k.get("type") === "TypeDefine");
+  const typeNode = kids.find((k: any) => k.Tag() === "TypeDefine");
   const named = ctx.MemberNameOf(v);
   const props: any = {};
   if (named.name !== undefined) {
@@ -856,25 +856,25 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     } else {
       // **可选标记与冒号之间夹着注释时，`?` 是 `TypeDefine` 的兄弟**（第 855 轮）。
       const question = kids.find(
-        (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "?",
+        (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "?",
       );
       if (question !== undefined) props.questionToken = ctx.Project(question);
     }
     props.type = ctx.Project(typeNode);
   } else {
     const question = kids.find(
-      (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "?",
+      (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "?",
     );
     if (question !== undefined) props.questionToken = ctx.Project(question);
   }
   const initKids = kids
     .slice(eqIndex + 1)
-    .filter((k: any) => !(k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ";"));
+    .filter((k: any) => !(k.Tag() === "SymbolToken" && ctx.ValueOf(k) === ";"));
   if (eqIndex >= 0 && initKids.length > 0) props.initializer = ctx.Expression(initKids);
-  const bang = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "!");
+  const bang = kids.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "!");
   if (bang !== undefined) props.exclamationToken = ctx.Project(bang);
   ctx.AddModifiers(v, props);
-  const fieldDecorators = kids.filter((k: any) => k.get("type") === "Decorator");
+  const fieldDecorators = kids.filter((k: any) => k.Tag() === "Decorator");
   if (fieldDecorators.length > 0) {
     const projected = fieldDecorators
       .map((d: any) => ctx.Project(d))

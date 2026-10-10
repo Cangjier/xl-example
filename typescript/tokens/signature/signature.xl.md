@@ -843,7 +843,7 @@ TS 的解析器于是把它读成「名叫 `new` 的方法签名」——
   自己已经以 `;` 收尾时 `SemicolonEndOf` **原样返回**，与原来那句「看下一个字符」等价。
 
 ```ts
-  let kind = v.attrs.get("kind") === "construct" ? "ConstructSignature" : "CallSignature";
+  let kind = v.kind === "construct" ? "ConstructSignature" : "CallSignature";
   const props: any = ctx.Structural(v, kind);
   const kids = ctx.Kids(v);
   const abstractUnit = kids.find((k: any) => ctx.ValueOf(k) === "abstract");
@@ -864,17 +864,17 @@ TS 的解析器于是把它读成「名叫 `new` 的方法签名」——
       (p: any) => !(p !== null && p !== undefined && p.kind === "NewKeyword"),
     );
   }
-  const newUnit = kids.find((k: any) => k.get("type") === "New");
+  const newUnit = kids.find((k: any) => k.Tag() === "New");
   if (newUnit !== undefined) {
     const inner = ctx.Kids(newUnit);
-    const bracket = inner.find((k: any) => k.get("type") === "Bracket");
+    const bracket = inner.find((k: any) => k.Tag() === "Bracket");
     if (bracket !== undefined) {
-      const params = ctx.UnwrapNodes(bracket).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+      const params = ctx.UnwrapNodes(bracket).filter((k: any) => !ctx.Invisible.has(k.Tag()));
       props.parameters = ctx.ProjectEach(params, kind);
     }
-    const returnType = inner.find((k: any) => k.get("type") === "ReturnType");
+    const returnType = inner.find((k: any) => k.Tag() === "ReturnType");
     if (returnType !== undefined) {
-      const inner2 = ctx.UnwrapNodes(returnType).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+      const inner2 = ctx.UnwrapNodes(returnType).filter((k: any) => !ctx.Invisible.has(k.Tag()));
       const t = ctx.TypeOf(inner2);
       if (t !== undefined) props.type = t;
     }

@@ -159,9 +159,9 @@ return new Map([["EnumMember", new Map([["children", "initializer"]])]]);
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
   const eqIndex = kids.findIndex(
-    (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=",
+    (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=",
   );
-  const nameNode = kids.find((k: any) => k.get("type") !== "SymbolToken") ?? null;
+  const nameNode = kids.find((k: any) => k.Tag() !== "SymbolToken") ?? null;
   const props: any = {};
   if (nameNode !== null) props.name = ctx.Project(nameNode);
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) {
@@ -171,7 +171,7 @@ return new Map([["EnumMember", new Map([["children", "initializer"]])]]);
     //（**整份文件进不来**）。值位括号的映射走 `ctx.ParenthesizedOf`。
     const init = kids[eqIndex + 1];
     props.initializer =
-      init.get("type") === "Bracket" && init.get("startBracket") === "("
+      init.Tag() === "Bracket" && init.startBracket === "("
         ? ctx.ParenthesizedOf(init)
         : ctx.Project(init);
   }

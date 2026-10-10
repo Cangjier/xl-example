@@ -97,12 +97,12 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
-  const params = kids.filter((k: any) => k.get("type") === "Parameter");
-  const typeNode = kids.find((k: any) => k.get("type") === "TypeDefine");
+  const params = kids.filter((k: any) => k.Tag() === "Parameter");
+  const typeNode = kids.find((k: any) => k.Tag() === "TypeDefine");
   // **修饰词那一摞**（第 893 轮）：`readonly` 与 `static` 都是子单元，按源码次序收。
   const modifierUnits = kids.filter(
     (k: any) =>
-      (k.get("type") === "Keyword" || k.get("type") === "Identifier") &&
+      (k.Tag() === "Keyword" || k.Tag() === "Identifier") &&
       (ctx.ValueOf(k) === "readonly" || ctx.ValueOf(k) === "static"),
   );
   const props: any = {};

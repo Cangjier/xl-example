@@ -767,7 +767,7 @@ return index + 1;
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
-  const declaredOp = typeof v.attrs.get("op") === "string" ? v.attrs.get("op") : "";
+  const declaredOp = typeof v.op === "string" ? v.op : "";
   // **先按 `op` 属性找那一格**（第 623 轮）：`op` 是这一元运算的**真身**，
   // 而 `IsOperatorUnit` 只问「是不是 `SymbolToken`」 —— `typeof import.meta` 的操作数里
   // 那个 `.` 也是 `SymbolToken` ⇒ 它先被认成运算符（实测：`TypeOfExpression.expression`

@@ -517,8 +517,8 @@ return new Map([["NewExpression", new Map([["name", "expression"]])]]);
 （那一格自己记着用哪个引号开头），不是原文里那个字符。
 
 ```ts
-  const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  const genericAt = nameUnits.findIndex((k: any) => k.get("type") === "GenericType");
+  const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const genericAt = nameUnits.findIndex((k: any) => k.Tag() === "GenericType");
   const templateAfterGeneric =
     genericAt >= 0 &&
     genericAt + 1 < nameUnits.length &&
@@ -528,8 +528,8 @@ return new Map([["NewExpression", new Map([["name", "expression"]])]]);
   const props: any = {};
   if (
     calleeUnits.length === 1 &&
-    calleeUnits[0].get("type") === "Bracket" &&
-    calleeUnits[0].get("startBracket") === "("
+    calleeUnits[0].Tag() === "Bracket" &&
+    calleeUnits[0].startBracket === "("
   ) {
     props.expression = ctx.ParenthesizedOf(calleeUnits[0]);
   } else if (calleeUnits.length > 0) {
@@ -543,7 +543,7 @@ return new Map([["NewExpression", new Map([["name", "expression"]])]]);
     }
     if (typeArguments.length > 0) props.typeArguments = typeArguments;
   }
-  const args = ctx.KidsOf(v, "arguments").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const args = ctx.KidsOf(v, "arguments").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   const argGroups = ctx.Split(args, ",");
   const argumentList = [];
   for (const group of argGroups) {

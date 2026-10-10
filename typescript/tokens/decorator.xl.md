@@ -209,7 +209,7 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "@"),
+    (k: any) => !(k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "@"),
   );
   const props: any = {};
   if (kids.length > 0) {

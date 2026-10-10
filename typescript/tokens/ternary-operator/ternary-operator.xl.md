@@ -578,8 +578,8 @@ TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
     whenTrue: ctx.Segment(v, "trueStatement"),
     whenFalse: ctx.Segment(v, "falseStatement"),
   };
-  const questionPos = v.attrs.get("questionPos");
-  const colonPos = v.attrs.get("colonPos");
+  const questionPos = v.questionPos;
+  const colonPos = v.colonPos;
   if (typeof questionPos === "number" && questionPos >= 0) {
     props.questionToken = { kind: "QuestionToken", text: "?", pos: questionPos, end: questionPos + 1 };
   }

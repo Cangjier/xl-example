@@ -336,7 +336,7 @@ return ReplaceCountAt(units, index, units.length - index, result);
   const kids = ctx.Kids(v);
   const props: any = {};
   let i = 0;
-  if (i < kids.length && kids[i].get("type") === "Keyword" && ctx.ValueOf(kids[i]) === "asserts") {
+  if (i < kids.length && kids[i].Tag() === "Keyword" && ctx.ValueOf(kids[i]) === "asserts") {
     props.assertsModifier = ctx.Project(kids[i]);
     i++;
   }

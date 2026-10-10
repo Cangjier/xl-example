@@ -151,7 +151,7 @@ TS 那边是一个文本就是那个词的 `Identifier`（真实语料 `Paramete
   const kids = ctx.Kids(v);
   const leadingModifiers: any[] = [];
   for (const k of kids) {
-    if (k.get("type") === "Keyword" && ctx.ParameterModifiers.has(ctx.ValueOf(k))) {
+    if (k.Tag() === "Keyword" && ctx.ParameterModifiers.has(ctx.ValueOf(k))) {
       leadingModifiers.push(k);
       continue;
     }
@@ -160,29 +160,29 @@ TS 那边是一个文本就是那个词的 `Identifier`（真实语料 `Paramete
   const body = leadingModifiers.length > 0 ? kids.slice(leadingModifiers.length) : kids;
   const nameNode = body.find(
     (k: any) =>
-      k.get("type") === "Identifier" ||
-      k.get("type") === "Keyword" ||
-      k.get("type") === "ArrayLiteral" ||
-      k.get("type") === "ObjectLiteral",
+      k.Tag() === "Identifier" ||
+      k.Tag() === "Keyword" ||
+      k.Tag() === "ArrayLiteral" ||
+      k.Tag() === "ObjectLiteral",
   );
-  const typeNode = body.find((k: any) => k.get("type") === "TypeDefine");
+  const typeNode = body.find((k: any) => k.Tag() === "TypeDefine");
   const question = body.find(
-    (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "?",
+    (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "?",
   );
-  const dots = body.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "...");
-  const rest = body.find((k: any) => k.get("type") === "Spread");
+  const dots = body.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "...");
+  const rest = body.find((k: any) => k.Tag() === "Spread");
   const props: any = {
     name:
       nameNode === undefined
         ? undefined
-        : nameNode.get("type") === "ArrayLiteral" || nameNode.get("type") === "ObjectLiteral"
+        : nameNode.Tag() === "ArrayLiteral" || nameNode.Tag() === "ObjectLiteral"
           ? ctx.BindingPattern(nameNode)
-          : nameNode.get("type") === "Keyword" || nameNode.get("type") === "Identifier"
+          : nameNode.Tag() === "Keyword" || nameNode.Tag() === "Identifier"
             ? ctx.NameOf(nameNode)
             : ctx.Project(nameNode),
     type: typeNode === undefined ? undefined : ctx.Project(typeNode),
   };
-  const paramDecorators = body.filter((k: any) => k.get("type") === "Decorator");
+  const paramDecorators = body.filter((k: any) => k.Tag() === "Decorator");
   if (leadingModifiers.length > 0 || paramDecorators.length > 0) {
     props.modifiers = [...ctx.ProjectEach(paramDecorators), ...ctx.ProjectEach(leadingModifiers)];
   }
@@ -196,11 +196,11 @@ TS 那边是一个文本就是那个词的 `Identifier`（真实语料 `Paramete
       props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
     }
   }
-  const eq = body.findIndex((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=");
+  const eq = body.findIndex((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=");
   if (eq >= 0 && eq + 1 < body.length) {
     const init = body[eq + 1];
     props.initializer =
-      init.get("type") === "Bracket" && init.get("startBracket") === "("
+      init.Tag() === "Bracket" && init.startBracket === "("
         ? ctx.ParenthesizedOf(init)
         : ctx.Expression(body.slice(eq + 1));
   }

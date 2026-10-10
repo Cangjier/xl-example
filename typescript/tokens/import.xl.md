@@ -504,20 +504,20 @@ import { A as B, C } from "m"
 ```ts
   const kids = ctx.Kids(v);
   // —— 先只读、不投：所有「让开」都在这一趟里判掉（第 998 轮的记账教训）——
-  const typeOnly = v.attrs.get("typeOnly");
+  const typeOnly = v.typeOnly;
   const isTypeOnly = typeOnly === true || typeOnly === "true";
   const rawTypeWordAt = ctx.Attr(v, "typeWordAt");
   const typeWordAt = typeof rawTypeWordAt === "number" && rawTypeWordAt >= 0 ? rawTypeWordAt : -1;
   if (isTypeOnly && typeWordAt < 0) return undefined;
-  const fromNode = kids.find((k: any) => k.get("type") === "Identifier" && ctx.ValueOf(k) === "from");
-  const equals = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=");
+  const fromNode = kids.find((k: any) => k.Tag() === "Identifier" && ctx.ValueOf(k) === "from");
+  const equals = kids.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=");
   const rawBraceAt = ctx.Attr(v, "namedBraceAt");
   const braceOpen = typeof rawBraceAt === "number" && rawBraceAt >= 0 ? rawBraceAt : -1;
   const namedBrace = braceOpen < 0 || equals !== undefined
     ? undefined
     : kids.find(
         (k: any) =>
-          (k.get("type") === "Bracket" || k.get("type") === "ObjectLiteral")
+          (k.Tag() === "Bracket" || k.Tag() === "ObjectLiteral")
           && ctx.StartOf(k) === braceOpen,
       );
   if (braceOpen >= 0 && equals === undefined && namedBrace === undefined) return undefined;
@@ -525,33 +525,33 @@ import { A as B, C } from "m"
   const end = ctx.SemicolonEndOf(ctx.StmtEndOf(v));
   // —— 从这里起才投节点 ——
   const props: any = {};
-  const moduleNode = kids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+  const moduleNode = kids.find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString");
   if (moduleNode !== undefined) props.moduleSpecifier = ctx.Project(moduleNode);
   const assertUnits: any[] = [];
   const moduleAt = kids.indexOf(moduleNode);
   if (moduleNode !== undefined && moduleAt >= 0) {
-    const after = kids.slice(moduleAt + 1).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+    const after = kids.slice(moduleAt + 1).filter((k: any) => !ctx.Invisible.has(k.Tag()));
     const braceAt = after.findIndex(
-      (k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "{",
+      (k: any) => k.Tag() === "Bracket" && k.startBracket === "{",
     );
     const word = braceAt > 0 ? after[braceAt - 1] : undefined;
     if (
       word !== undefined &&
-      word.get("type") === "Identifier" &&
+      word.Tag() === "Identifier" &&
       ["with", "assert"].includes(ctx.ValueOf(word))
     ) {
       const brace = after[braceAt];
       const elements = [];
       for (const part of ctx.Split(ctx.Kids(brace), ",")) {
         const colonAt = part.findIndex(
-          (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ":",
+          (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === ":",
         );
         if (colonAt < 0) continue;
         const nameUnit = part.slice(0, colonAt).find((k: any) => ctx.IsNameNode(k));
         if (nameUnit === undefined) continue;
         const valueUnit = part
           .slice(colonAt + 1)
-          .find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+          .find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString");
         elements.push({
           kind: "AssertEntry",
           name: ctx.NameOf(nameUnit),
@@ -570,13 +570,13 @@ import { A as B, C } from "m"
     }
   }
   if (equals !== undefined) {
-    const nameNode = kids.find((k: any) => k.get("type") === "Identifier" && k !== fromNode);
-    const callNode = kids.find((k: any) => k.get("type") === "Method");
+    const nameNode = kids.find((k: any) => k.Tag() === "Identifier" && k !== fromNode);
+    const callNode = kids.find((k: any) => k.Tag() === "Method");
     const innerString =
       moduleNode ??
       (callNode === undefined
         ? undefined
-        : ctx.Kids(callNode).find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString"));
+        : ctx.Kids(callNode).find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString"));
     const equalsProps: any = {};
     if (nameNode !== undefined) equalsProps.name = ctx.Project(nameNode);
     if (callNode !== undefined) {
@@ -588,7 +588,7 @@ import { A as B, C } from "m"
       };
     } else {
       const names = kids.filter(
-        (k: any) => k.get("type") === "Identifier" && k !== nameNode && k !== fromNode,
+        (k: any) => k.Tag() === "Identifier" && k !== nameNode && k !== fromNode,
       );
       if (names.length > 0) equalsProps.moduleReference = ctx.QualifiedNameFrom(names);
     }
@@ -596,7 +596,7 @@ import { A as B, C } from "m"
   }
   const clause = kids.filter(
     (k: any) =>
-      k !== moduleNode && k !== fromNode && !assertUnits.includes(k) && !ctx.Invisible.has(k.get("type")),
+      k !== moduleNode && k !== fromNode && !assertUnits.includes(k) && !ctx.Invisible.has(k.Tag()),
   );
   if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
   // **`ImportClause` 的起点**：type-only 读 `TypeWordAt`（上面已经确认它记过），
@@ -604,8 +604,8 @@ import { A as B, C } from "m"
   const clauseStart = isTypeOnly ? typeWordAt : ctx.StartOf(clause[0]);
   const clauseEnd = ctx.EndOf(clause[clause.length - 1]);
   const clauseProps: any = {};
-  const star = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "*");
-  const names = clause.filter((k: any) => k.get("type") === "Identifier" && ctx.ValueOf(k) !== "as");
+  const star = kids.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "*");
+  const names = clause.filter((k: any) => k.Tag() === "Identifier" && ctx.ValueOf(k) !== "as");
   if (star !== undefined) {
     const nsName = names[names.length - 1];
     clauseProps.namedBindings = {

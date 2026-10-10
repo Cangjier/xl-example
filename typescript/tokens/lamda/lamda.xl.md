@@ -1051,7 +1051,7 @@ return new Map([["ArrowFunction", new Map([["GenericType", "typeParameters"], ["
   const bodyUnits = ctx.KidsOf(v, "body");
   const raw: any[] = [];
   for (const unit of bodyUnits) {
-    if (unit.get("type") === "LamdaBody") {
+    if (unit.Tag() === "LamdaBody") {
       for (const x of ctx.UnwrapNodes(unit)) raw.push(x);
       continue;
     }
@@ -1067,7 +1067,7 @@ return new Map([["ArrowFunction", new Map([["GenericType", "typeParameters"], ["
   } else {
     const flat: any[] = [];
     for (const k of raw) {
-      if (k.get("type") === "Statement") {
+      if (k.Tag() === "Statement") {
         for (const x of ctx.UnwrapNodes(k)) flat.push(x);
         continue;
       }

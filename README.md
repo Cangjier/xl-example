@@ -285,7 +285,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:astjson` | **出口 2（AST JSON）的尺子**（第 884 轮加）：逐节点比「标签名 === `type`」「XML 的每个属性在 JSON 里**同名同值**」「每个节点都有合法 `range`」「JSON 多出来的键在 [docs/ast-json.md](docs/ast-json.md) 第 2–4 节**登记过**」，外加「命令行 === 库 API」与「不抛异常」——**六项全 0 才退出码 0** |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `cases:direct` | **直出版同答**（第 992 轮加）：整个语料跑两遍（直出通道开 / 关）**逐字节**比 `ToJsonText`，外加 `unmapped` / `count` 记账同——三项全 0 才退 0；直出覆盖率只印（见 `Token.PrintDirectAst`） |
-| `direct:lint` | **直出版只用 token 自己的东西**（第 992 轮加）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许转手 `this.PrintAst` |
+| `direct:lint` | **直出版只用 token 自己的东西**（第 992 轮加；第 1005 轮加第三条）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，不许转手 `this.PrintAst`，也**不许按字符串键查字典**（`.get("…")` / `.set("…")` / `.has("…")`，逐键计数、例外表只留 `name` 那 2 处） |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `cases:tags` | **用例自带的期望**：`xl:expect`（存在，或 `Tag:N` 计数）与 `xl:absent` 逐条对产物核实，外加标签表体检 |
@@ -308,6 +308,50 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1005 轮：直出版的「字符串键查字典」**218 / 220 收掉**——`Token.Tag` 与字典格的同名属性两个出口，`direct:lint` 加第三条（按字符串键查，逐键计数）；`cases:direct` 全语料 2050 份逐字节同答、其余十道门读数一处没动
+
+**一句话**：`PrintDirectAst` 的判据是「只用 token 自己的属性 / 子单元 / `Parent`」，
+而它里面**全是** `k.get("type") === "SymbolToken"` 这类**按字符串键查字典**的问句
+（全语料 220 处）——这一轮把那条路收掉，并把「谁也别再写回来」变成一道门。
+
+- **量出来的形状**（本轮的一次性探针）：220 处 `.get("…")` 按**键**分——
+  `type` **188**、`startBracket` 11、`name` 2、`stringChar` 1，其余 12 个键各一到四处。
+  **键只有 16 种、接收者只有两种**（字典格 `Map` 与视图），所以这不是 220 件小事，是**两件事**。
+- **收法一：`Token.Tag()`**（`core/syntax/token.xl.md`）：答自己的类名（`this.constructor.name`）。
+  三个出口的 `type` 本来就是按它写的（XML 取类名、字典取它当 `type`、TS 形状那一层按它换 kind），
+  所以「这一格是什么」不必经字典——188 处 `k.get("type")` 全换成 `k.Tag()`。
+  字典那一侧由 `print-ast-common.xl.md` 的 `annotate` 在 `Map.prototype` 上答同一格事实。
+- **收法二：标量属性挂成同名属性**（`annotate`）：`op` / `startBracket` / `stringChar` /
+  `emptyBodyAt` / `headerCloseAt` / `questionPos` / `colonPos` … 过去读法是 `v.attrs.get("op")`，
+  现在是 `v.op`——**属性逐个挂在字典格与视图实例上、非枚举**，
+  所以 `entries()` / `JSON.stringify` / `Token.ToPlain` 一个字节都看不见它
+  （与 `__token` 那格同一条口径）。
+- **三处实测的坑**（都在本轮量出来，都写进页面了）：
+  1. **`annotate` 放 `view()` 里不够**：很多孩子从来没经过 `view()` ⇒ 实测 **1244 份语料**
+     报 `k.Tag is not a function`。改成「谁把字典格交出去谁负责标好」——
+     `view()`、`kidsOf()`、`allKids()` 三个出口都标，`Tag` 挂在原型上、只装一次；
+  2. **视图不是 Map**：`ctx.Project` 那一族先把字典格 `view()` 成视图再交出去，
+     而属性只挂在 Map 上 ⇒ 直出版写 `v.questionPos` 拿到 `undefined`，
+     `ternary-operator.xl.md` 的 `typeof` 那一问当场失配、**381 份语料红**。视图自己也抄一份；
+  3. **值进字典时已经字符串化**：`questionPos` 在字典里是 `"141"`，`typeof === "number"` 失配
+     ⇒ 按**值的形状**还原（整串是数字就还原成数字，`numericAttr`）。
+     这一条是「同一个事实进字典就被磨成字符串」的正面例子——**类型也是事实，也不能在路上丢**。
+- **剩下 2 处进例外表**：`name` 那两处（`method-declaration` / `method`）。
+  试过按属性硬接：**全语料 823 份红**，`TypeAliasDeclaration.name` 整格丢——
+  那两处的 `name` 键压根不在字典里（名字落在**子单元**或 `fieldName` / `namespace` 上）。
+  所以它缺的是**一格 token 事实**，是下一轮的改动，不是换一个读法。
+  例外表**逐键计数**：多一处红，**少一处也红**（收掉了就来删那一行）。
+- **数字**：`cases:direct` **1639 份 / 21818 节点、直出 16503（75.6%）、同答 0、抛异常 0**；
+  `cases:direct --all` **2050 份 / 540257 节点、直出 95.9%**、0 处不一致；
+  `direct:lint` **按字符串键查 220 → 2 处**（例外 `name` 2）、0 条违反；
+  其余十道门读数**一处没动**（`coverage 4259 / 4422`、`blocked 29`、`differ 134`、加权 95.7%；
+  `runtime:check` 243 / `runtime:cli` 79 全过）；唯一那道红仍是**第 992 轮就登记**的
+  `cases:tsast` 那 4 条已知缺口。
+- **可复用的判据**：**「按字符串键查」要进静态门，动态那一门看不见它**——
+  220 处逐字节同答，所以 `cases:direct` 全绿；而它们正是「同一个问句在两个出口各答一遍」
+  的来源，只在坏输入上显形。另一条：**收一张表之前先量「键有几种、接收者有几种」**——
+  220 处看着吓人，量完是「两种接收者 × 两个出口」，于是它变成两件事，不是一个下午。
 
 ### 第 975 轮：第 974 轮登记的那 13 格**全部收掉**——再把「最里面那一格」收成一份实现；换 48 条更深的底样普查，量出的 6 格**同轮也全部收掉**（清单第十六、十七次清空）
 

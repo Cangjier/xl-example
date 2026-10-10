@@ -304,9 +304,9 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, [result]
       opIndex = i;
     }
   }
-  const declaredOp = v.attrs.get("op");
+  const declaredOp = v.op;
   const left = opIndex > 0 ? ctx.Expression(kids.slice(0, opIndex)) : undefined;
-  if (opIndex > 0 && kids[opIndex].get("type") === "SymbolToken") {
+  if (opIndex > 0 && kids[opIndex].Tag() === "SymbolToken") {
     return ctx.FoldBinaryFrom(left, kids.slice(opIndex));
   }
   const right =

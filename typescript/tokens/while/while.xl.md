@@ -274,12 +274,12 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
 
 ```ts
   const props: any = {};
-  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   if (compare.length > 0) props.expression = ctx.Expression(compare);
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   // **空体那一格先读 token 上的字段**（第 590 轮）：有它就不必配对括号 + 扫原文。
   const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
-    ? v.attrs.get("emptyBodyAt")
+    ? v.emptyBodyAt
     : undefined;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
   if (emptyAt >= 0) {
@@ -290,7 +290,7 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
   const rawBraceRange = ctx.Attr(v, "bodyBraceRange");
   // **头部那个 `)` 也只有字段这一格事实**（第 634 轮）。字段缺了 ⇒ 不猜，交回 `PrintAst`。
   const rawHeaderClose = v.attrs !== undefined && typeof v.attrs.get === "function"
-    ? v.attrs.get("headerCloseAt")
+    ? v.headerCloseAt
     : undefined;
   const headerCloseAt = typeof rawHeaderClose === "number" ? rawHeaderClose : -1;
   if (headerCloseAt < 0) {

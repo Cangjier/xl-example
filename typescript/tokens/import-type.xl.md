@@ -347,7 +347,7 @@ TS 那边只有**两个**子字段：
   const rawKids = ctx.Kids(v);
   const flat: Array<any> = [];
   const flatten = (unit: any): void => {
-    const name = unit.get("type");
+    const name = unit.Tag();
     if (name === "PropertyAccess" || name === "UnaryOperator") {
       for (const kid of ctx.Kids(unit)) {
         flatten(kid);
@@ -360,17 +360,17 @@ TS 那边只有**两个**子字段：
     flatten(kid);
   }
   const kids = flat;
-  let stringUnit = kids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
-  const call = kids.find((k: any) => k.get("type") === "Method" || k.get("type") === "Bracket");
+  let stringUnit = kids.find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString");
+  const call = kids.find((k: any) => k.Tag() === "Method" || k.Tag() === "Bracket");
   const callKids = call === undefined ? [] : ctx.Kids(call);
   if (stringUnit === undefined) {
-    stringUnit = callKids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+    stringUnit = callKids.find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString");
   }
   const props: any = {};
   if (stringUnit !== undefined) {
     // **文本读那一格自己的 `ConstString` 子单元**（`StringText` 的实现里就是这一步，
     // 只是它还给不出值时回原文 `slice`——直出版不回原文，给空串）。
-    const content = ctx.KidsOf(stringUnit, "children").find((k: any) => k.get("type") === "ConstString");
+    const content = ctx.KidsOf(stringUnit, "children").find((k: any) => k.Tag() === "ConstString");
     const literal = {
       kind: "StringLiteral",
       text: content === undefined ? "" : ctx.ValueOf(content),
@@ -380,28 +380,28 @@ TS 那边只有**两个**子字段：
     props.argument = { kind: "LiteralType", literal, pos: literal.pos, end: literal.end };
   }
   const wrapper = [...kids, ...callKids].find((k: any) => {
-    if (k.get("type") !== "ObjectLiteral") return false;
+    if (k.Tag() !== "ObjectLiteral") return false;
     const word = ctx
       .Kids(k)
-      .find((c: any) => c.get("type") === "Identifier" || c.get("type") === "Keyword");
+      .find((c: any) => c.Tag() === "Identifier" || c.Tag() === "Keyword");
     if (word === undefined) return false;
     const text = ctx.ValueOf(word);
     return text === "with" || text === "assert";
   });
   if (wrapper !== undefined) {
-    const brace = ctx.Kids(wrapper).find((c: any) => c.get("type") === "ObjectLiteral");
+    const brace = ctx.Kids(wrapper).find((c: any) => c.Tag() === "ObjectLiteral");
     if (brace !== undefined) {
       const elements = [];
       for (const part of ctx.Split(ctx.Kids(brace), ",")) {
         const colonAt = part.findIndex(
-          (c: any) => c.get("type") === "SymbolToken" && ctx.ValueOf(c) === ":",
+          (c: any) => c.Tag() === "SymbolToken" && ctx.ValueOf(c) === ":",
         );
         if (colonAt < 0) continue;
         const nameUnit = part.slice(0, colonAt).find((c: any) => ctx.IsNameNode(c));
         if (nameUnit === undefined) continue;
         const valueUnit = part
           .slice(colonAt + 1)
-          .find((c: any) => c.get("type") === "String" || c.get("type") === "ConstString");
+          .find((c: any) => c.Tag() === "String" || c.Tag() === "ConstString");
         elements.push({
           kind: "AssertEntry",
           name: ctx.NameOf(nameUnit),
@@ -420,12 +420,12 @@ TS 那边只有**两个**子字段：
   }
   const names = kids.filter((k: any) => {
     if (!ctx.IsNameNode(k)) return false;
-    if (k.get("type") !== "Keyword") return true;
+    if (k.Tag() !== "Keyword") return true;
     const word = ctx.ValueOf(k);
     return word !== "typeof" && word !== "import";
   });
   if (names.length > 0) props.qualifier = ctx.QualifiedNameFrom(names);
-  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  const generic = kids.find((k: any) => k.Tag() === "GenericType");
   if (generic !== undefined) {
     const typeArguments = [];
     for (const group of ctx.Split(ctx.Kids(generic), ",")) {

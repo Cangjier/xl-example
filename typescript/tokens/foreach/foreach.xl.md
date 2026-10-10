@@ -380,9 +380,9 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
 
 ```ts
   const props: any = {};
-  const define = ctx.KidsOf(v, "define").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const define = ctx.KidsOf(v, "define").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   if (define.length > 0) {
-    if (define[0].get("type") === "Let") {
+    if (define[0].Tag() === "Let") {
       props.initializer = ctx.LetFrom(define, v).list;
     }
     // **判据是段里有没有那个声明词**（第 982 轮）：直出版读那一格自己记的值。
@@ -400,17 +400,17 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
       }
     }
   }
-  const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   if (enumable.length > 0) props.expression = ctx.Expression(enumable);
-  const kind = v.attrs.get("isForIn") === true ? "ForInStatement" : "ForOfStatement";
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  const rawEmpty = typeof v.attrs.get === "function" ? v.attrs.get("emptyBodyAt") : undefined;
+  const kind = v.isForIn === true ? "ForInStatement" : "ForOfStatement";
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
+  const rawEmpty = typeof v.attrs.get === "function" ? v.emptyBodyAt : undefined;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
   let statement;
   if (emptyAt >= 0) {
     statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
   } else {
-    const rawHeader = typeof v.attrs.get === "function" ? v.attrs.get("headerCloseAt") : undefined;
+    const rawHeader = typeof v.attrs.get === "function" ? v.headerCloseAt : undefined;
     const headerAt = typeof rawHeader === "number" ? rawHeader : -1;
     // **头部那个 `)` 的位置不在这一格上** ⇒ 交回 `PrintAst`（它回原文里配一次括号）。
     if (headerAt < 0) {
@@ -420,7 +420,7 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
   }
   if (statement !== undefined) props.statement = statement;
   const awaitUnit = ctx.Kids(v).find(
-    (k: any) => k.get("type") === "Keyword" && ctx.ValueOf(k) === "await",
+    (k: any) => k.Tag() === "Keyword" && ctx.ValueOf(k) === "await",
   );
   if (kind === "ForOfStatement" && awaitUnit !== undefined) {
     props.awaitModifier = ctx.Project(awaitUnit);

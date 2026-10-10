@@ -640,7 +640,7 @@ rebuilt.push(parameter);
   //（实测 `type-param-conditional-constraint`：`TypeParameter` 的 `name` / `constraint` 全丢、缺 10）。
   const wrappedIndex = kids0.findIndex(
     (k: any) =>
-      k.get("type") === "UnionType" || k.get("type") === "IntersectionType" || k.get("type") === "ConditionalType",
+      k.Tag() === "UnionType" || k.Tag() === "IntersectionType" || k.Tag() === "ConditionalType",
   );
   const wrapped = wrappedIndex >= 0 ? kids0[wrappedIndex] : undefined;
   const prefix = wrapped === undefined ? [] : kids0.slice(0, wrappedIndex);
@@ -650,7 +650,7 @@ rebuilt.push(parameter);
     const head = list[0];
     if (
       head !== undefined &&
-      (head.get("type") === "UnionType" || head.get("type") === "IntersectionType")
+      (head.Tag() === "UnionType" || head.Tag() === "IntersectionType")
     ) {
       return [...ctx.Kids(head), ...list.slice(1)];
     }
@@ -659,19 +659,19 @@ rebuilt.push(parameter);
   const kids = wrapped === undefined ? kids0 : flattenInner([...prefix, ...unionKids, ...tail]);
   const extIndex = kids.findIndex(
     (k: any) =>
-      (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.ValueOf(k) === "extends",
+      (k.Tag() === "Keyword" || k.Tag() === "Identifier") && ctx.ValueOf(k) === "extends",
   );
   const eqIndex = kids.findIndex(
-    (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=",
+    (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=",
   );
   const inIndex = kids.findIndex(
-    (k: any) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.ValueOf(k) === "in",
+    (k: any) => (k.Tag() === "Keyword" || k.Tag() === "Identifier") && ctx.ValueOf(k) === "in",
   );
   // 名字 = 第一个 Identifier，但要排掉 `extends`（词法身份不固定）与修饰词
   //（`out` 在产物里就是 `Identifier`，不排掉的话 `<out T>` 会把 `out` 当成名字）。
   const nameIndex = kids.findIndex(
     (k: any) =>
-      k.get("type") === "Identifier" &&
+      k.Tag() === "Identifier" &&
       ctx.ValueOf(k) !== "extends" &&
       !ctx.IsTypeParameterModifier(k),
   );
@@ -691,11 +691,11 @@ rebuilt.push(parameter);
       // 后面三个名字整片丢掉（实测 `type-param-conditional-constraint`：缺 `ConditionalType`
       // + `B` / `C` / `D` 三对 `TypeReference`/`Identifier`）。
       // 判据与 `conditionalNode` 自己那一套同源：这一段里有顶层 `?` 与 `:`，且 `extends` 前面有 checkType。
-      const isSym = (k: any, text: string) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === text;
+      const isSym = (k: any, text: string) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === text;
       const hasQuestion = body.some((k: any) => isSym(k, "?"));
       const hasColon = body.some((k: any) => isSym(k, ":"));
       const bodyExt = body.findIndex(
-        (k: any) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.ValueOf(k) === "extends",
+        (k: any) => (k.Tag() === "Keyword" || k.Tag() === "Identifier") && ctx.ValueOf(k) === "extends",
       );
       props.constraint =
         hasQuestion && hasColon && bodyExt > 0
@@ -713,11 +713,11 @@ rebuilt.push(parameter);
         ? kids0[wrappedIndex - 1]
         : undefined;
     const isDefaultUnion =
-      eqUnit !== undefined && eqUnit.get("type") === "SymbolToken" && ctx.ValueOf(eqUnit) === "=";
+      eqUnit !== undefined && eqUnit.Tag() === "SymbolToken" && ctx.ValueOf(eqUnit) === "=";
     props.default = isDefaultUnion ? ctx.Project(wrapped) : ctx.TypeOf(kids.slice(eqIndex + 1));
   } else {
     const tailEq = tail.findIndex(
-      (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=",
+      (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=",
     );
     if (tailEq >= 0) props.default = ctx.TypeOf(tail.slice(tailEq + 1));
   }
@@ -749,15 +749,15 @@ rebuilt.push(parameter);
   if (
     wrapped !== undefined &&
     extIndex >= 0 &&
-    (wrapped.get("type") === "UnionType" || wrapped.get("type") === "IntersectionType")
+    (wrapped.Tag() === "UnionType" || wrapped.Tag() === "IntersectionType")
   ) {
-    const separator = wrapped.get("type") === "UnionType" ? "|" : "&";
+    const separator = wrapped.Tag() === "UnionType" ? "|" : "&";
     // 切的是**联合单元自己的内容**，不是上面那个「前缀 + 联合 + 尾巴」的拼合序列。
     const members = ctx.Split(flattenInner(unionKids), separator);
     const firstMember = members.length > 0 ? members[0] : [];
     const extAt = firstMember.findIndex(
       (k: any) =>
-        (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.ValueOf(k) === "extends",
+        (k.Tag() === "Keyword" || k.Tag() === "Identifier") && ctx.ValueOf(k) === "extends",
     );
     const head = extAt >= 0 ? firstMember.slice(extAt + 1) : firstMember;
     const types: any[] = [];
@@ -771,7 +771,7 @@ rebuilt.push(parameter);
       props.constraint = types[0];
     } else if (types.length > 1) {
       props.constraint = {
-        kind: wrapped.get("type"),
+        kind: wrapped.Tag(),
         types,
         // **坐标取那个 `UnionType` 单元自己的**（第 586 轮）：重切出来的 `types` 里
         // **没有分隔符**，按 `types[0].pos` 起会从第一个**成员**起 —— 而前导 `|` 那种写法

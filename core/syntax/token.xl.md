@@ -717,6 +717,28 @@ for (const item of this.Data) {
 return result;
 ```
 
+## method Tag:()=>string
+
+**这一格是什么**（第 1005 轮）：答**自己的类名**。
+
+它是「产物标签」这一格事实的**唯一出口**——前三个出口说的都是「这一格叫什么」：
+XML 的标签名、字典（与 AST JSON）的 `type`、TS 形状那一层的 kind 判据
+（`PrintDirectAst` 里那些 `=== "Identifier"` 这一类的比较）。
+
+**为什么要有这一格**：直出版的判据是「只用 token 自己的东西，不回原文查、不按字符串查字典」，
+而「这一格是不是 `SymbolToken`」过去写成 `k.get("type") === "SymbolToken"` ——
+**字符串键进字典里取一个值**，正是那条判据要消掉的东西（全语料 173 处）。
+类名本来就是 `this.constructor.name`，**不必经字典**：所有出口的 type 都是按它写的
+（XML 取 `this.constructor.name`、字典取它当 `type`），所以三种读法说的是同一份事实。
+
+**字典那一侧**（`print-ast-common.xl.md` 的 `annotate`）也答同一格、答同一个串，
+因为 `.get("type")` 的接收者有时是**字典格**（`ctx.Kids` 回来的那些）而不是 token 本身——
+两边必须同名同值，否则同一个问句会按接收者给出两个答案。
+
+```ts
+return this.constructor.name;
+```
+
 ## method ToJsonString:()=>string
 
 把 `ToList()` 串成一个 JSON 字符串（紧凑单行）——`cjcli --ast-json` 打的就是它。

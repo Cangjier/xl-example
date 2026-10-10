@@ -306,9 +306,9 @@ TS 那边的 `properties` 是**成员数组**：
   const properties: any[] = [];
   for (const group of ctx.Split(ctx.Kids(v), ",")) {
     const first = group[0];
-    if (first.get("type") === "Spread") {
+    if (first.Tag() === "Spread") {
       const inner = ctx.Kids(first).filter(
-        (k: any) => !(k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "..."),
+        (k: any) => !(k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "..."),
       );
       properties.push({
         kind: "SpreadAssignment",
@@ -319,7 +319,7 @@ TS 那边的 `properties` 是**成员数组**：
       continue;
     }
     const colonAt = group.findIndex(
-      (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ":",
+      (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === ":",
     );
     if (colonAt < 0) {
       if (group.length === 1) {
@@ -354,7 +354,7 @@ TS 那边的 `properties` 是**成员数组**：
     const valueUnits = group.slice(colonAt + 1);
     const computed =
       nameUnits.length === 1 &&
-      (ctx.IsIndexBracket(nameUnits[0]) || nameUnits[0].get("type") === "ArrayLiteral")
+      (ctx.IsIndexBracket(nameUnits[0]) || nameUnits[0].Tag() === "ArrayLiteral")
         ? nameUnits[0]
         : undefined;
     const name =

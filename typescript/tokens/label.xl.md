@@ -443,7 +443,7 @@ return result;
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  const text = String(v.attrs.get("label") ?? "");
+  const text = String(v.label ?? "");
   const props: any = {
     label: { kind: "Identifier", text, pos: v.start, end: v.start + text.length },
   };

@@ -336,7 +336,7 @@ ifSet.MountCondition(source);
 （`ctx.Attr` / `ctx.Kids` / `ctx.KidsOf` / `ctx.Invisible` 都不记账），它答否就整条链让开。
 
 ```ts
-  const segments = ctx.Kids(v).filter((k: any) => k.get("type") === "IfSegment");
+  const segments = ctx.Kids(v).filter((k: any) => k.Tag() === "IfSegment");
   if (segments.length === 0) {
     return ctx.NodeHead("IfStatement", {}, v);
   }
@@ -348,8 +348,8 @@ ifSet.MountCondition(source);
     const cond = new Set(ctx.KidsOf(seg, "condition"));
     const kept: any[] = [];
     for (const k of ctx.AllKids(seg)) {
-      if (ctx.Invisible.has(k.get("type")) || cond.has(k)) continue;
-      if (k.get("type") === "IfBody") {
+      if (ctx.Invisible.has(k.Tag()) || cond.has(k)) continue;
+      if (k.Tag() === "IfBody") {
         for (const inner of ctx.Kids(k)) kept.push(inner);
         continue;
       }

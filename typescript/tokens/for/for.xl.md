@@ -348,16 +348,16 @@ return new Map([["ForStatement", new Map([["initial", "initializer"], ["compare"
 
 ```ts
   const props: any = {};
-  const initial = ctx.KidsOf(v, "initial").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const initial = ctx.KidsOf(v, "initial").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   if (initial.length > 0) {
     props.initializer =
-      initial[0].get("type") === "Let" ? ctx.LetFrom(initial, v).list : ctx.Expression(initial);
+      initial[0].Tag() === "Let" ? ctx.LetFrom(initial, v).list : ctx.Expression(initial);
   }
-  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   if (compare.length > 0) props.condition = ctx.Expression(compare);
-  const next = ctx.KidsOf(v, "next").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const next = ctx.KidsOf(v, "next").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   if (next.length > 0) props.incrementor = ctx.Expression(next);
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
   const built = ctx.BlockOfBody(body, -1, ctx.Attr(v, "bodyBraceRange"));
   if (built !== undefined) {
@@ -366,7 +366,7 @@ return new Map([["ForStatement", new Map([["initial", "initializer"], ["compare"
   if (props.statement === undefined) {
     // **空体语句的 `;` 位置由 token 直接给出**（第 590 轮）：收尾规则造这个单元时就知道体是空的。
     const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
-      ? v.attrs.get("emptyBodyAt")
+      ? v.emptyBodyAt
       : undefined;
     const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
     if (emptyAt >= 0) {

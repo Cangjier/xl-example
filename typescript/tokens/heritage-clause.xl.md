@@ -318,7 +318,7 @@ TS 那边 `HeritageClause` 的 `forEachChild` **只访问 `types`**：`extends` 
   for (let i = 0; i < kids.length; i++) {
     const k = kids[i];
     if (
-      (k.get("type") === "Keyword" || k.get("type") === "Identifier") &&
+      (k.Tag() === "Keyword" || k.Tag() === "Identifier") &&
       (ctx.ValueOf(k) === "extends" || ctx.ValueOf(k) === "implements")
     ) {
       // **一条子句里只可能有一个子句词**，取到就走（后面那几个是实体名）。
@@ -446,13 +446,13 @@ return new Map([["ExpressionWithTypeArguments", new Map([["children", "expressio
 
 ```ts
   const kids = ctx.Kids(v);
-  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  const generic = kids.find((k: any) => k.Tag() === "GenericType");
   const names = kids.filter((k: any) => ctx.IsNameNode(k));
   const props: any = {};
   // **名字后面紧跟模板串 ⇒ `TaggedTemplateExpression`**（第 986 轮）：判据是那个 `String`
   // 的**引号是反引号**——读的是它自己记的 `stringChar`（第 1001 轮），不是原文里那个字符。
   const template = kids.find(
-    (k: any) => k.get("type") === "String" && k.get("stringChar") === "\`",
+    (k: any) => k.Tag() === "String" && k.stringChar === "\`",
   );
   if (template !== undefined && names.length > 0) {
     const tag = ctx.DottedExpression(names);
@@ -467,7 +467,7 @@ return new Map([["ExpressionWithTypeArguments", new Map([["children", "expressio
   } else if (names.length > 0) {
     props.expression = ctx.DottedExpression(names);
   } else {
-    const paren = kids.find((k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "(");
+    const paren = kids.find((k: any) => k.Tag() === "Bracket" && k.startBracket === "(");
     if (paren !== undefined) {
       props.expression = ctx.ParenthesizedOf(paren);
     } else {

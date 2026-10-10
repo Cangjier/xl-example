@@ -279,23 +279,23 @@ TS 那边 `TypeAliasDeclaration` 没有 `typeParameters` 这一格。
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx
     .Kids(v)
-    .filter((k: any) => !(k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ";"));
+    .filter((k: any) => !(k.Tag() === "SymbolToken" && ctx.ValueOf(k) === ";"));
   const eqIndex = kids.findIndex(
-    (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=",
+    (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=",
   );
-  const rawAlias = v.attrs.get("alias");
+  const rawAlias = v.alias;
   const aliasText = typeof rawAlias === "string" ? rawAlias : "";
   const lhs = eqIndex >= 0 ? kids.slice(0, eqIndex) : kids;
   const rhs = eqIndex >= 0 ? kids.slice(eqIndex + 1) : [];
-  const nameNode = lhs.find((k: any) => k.get("type") === "Identifier");
+  const nameNode = lhs.find((k: any) => k.Tag() === "Identifier");
   const nameText = nameNode === undefined ? aliasText : ctx.ValueOf(nameNode);
-  const generic = lhs.find((k: any) => k.get("type") === "GenericType");
+  const generic = lhs.find((k: any) => k.Tag() === "GenericType");
   const props: any = {
     name: nameNode === undefined ? ctx.SynthName(nameText, v) : ctx.Project(nameNode),
     type: ctx.TypeOf(rhs),
   };
   if (generic !== undefined) {
-    const params = ctx.UnwrapNodes(generic).filter((k: any) => k.get("type") === "TypeParameter");
+    const params = ctx.UnwrapNodes(generic).filter((k: any) => k.Tag() === "TypeParameter");
     if (params.length > 0) props.typeParameters = ctx.ProjectEach(params);
   }
   const baseStart = ctx.baseStart;

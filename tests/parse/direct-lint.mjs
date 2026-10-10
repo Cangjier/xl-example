@@ -75,6 +75,54 @@ const FORBIDDEN = [
   ["this.PrintAst(", /this\.PrintAst\s*\(/],
 ];
 
+/**
+ * **按字符串键查**（第 1005 轮）——判据②的静态那一半。
+ *
+ * 判据②说的是「只用 token 自己的属性 / 子单元 / `Parent`」，而**字符串键进字典里取值**
+ * 正是它要消掉的那条路：`k.get("type") === "SymbolToken"` 这样的问句，
+ * 判据的是「字典里那个键存了什么」，而不是「这一格是什么」——
+ * 于是同一个问句会在**两个出口各答一遍**，而两处一旦漂移，只有坏输入才显形。
+ *
+ * **为什么它必须进这一门** ✗：全语料这一类读法**实测 220 处**（第 1005 轮量出来的：
+ * `type` 188、`startBracket` 11、`name` 2、`stringChar` 1，其余 12 个键各一到四处）——
+ * 它们逐字节同答，所以动态那一门（`cases:direct`）看不见任何问题；
+ * 而「谁也别再写回来」只能靠这条静态判据守着。第 1005 轮把 `type` 那一族（188 处）
+ * 换成了 `Tag()`（token 自己的类名，见 `core/syntax/token.xl.md` 的 `Tag` 与
+ * `typescript/print-ast-common.xl.md` 的 `annotate`），把**标量属性**换成了同名属性读
+ * （`.attrs.get("op")` → `.op`、`get("startBracket")` → `.startBracket`、`get("stringChar")` → `.stringChar`）
+ * ⇒ **218 / 220 换掉了，只剩 `name` 那 2 处**。
+ *
+ * **为什么剩下那 2 处进例外表而不是硬改**：它们问的不是「字典里那个键存了什么」，
+ * 而是「这一格的名字是哪一格」——声明的名字落在**子单元或别的属性**上
+ * （`name` / `fieldName` / `namespace` 三选一，见 `memberNameOf`；叶子的文本同理，
+ * 要么在 `value` 上、要么由区间回原文取，见 `textOfNode` 的第二条路）。
+ * 那不是同一个问句换一个入口，是**缺一格 token 事实**（第 1005 轮试过按属性硬接：
+ * 全语料 823 份红，`TypeAliasDeclaration.name` 整格丢）⇒ 它是下一轮的改动。
+ * 例外表**逐键计数**：多一处就红，所以它是「只剩下这些」的账，不是「这一类都放过」。
+ */
+const STRING_KEY = [
+  ["按字符串键取值", /\.get\(\s*["']/],
+  ["按字符串键置值", /\.set\(\s*["']/],
+  ["按字符串键试键", /\.has\(\s*["']/],
+];
+FORBIDDEN.push(...STRING_KEY);
+
+/**
+ * 例外：**这一格自己的名字**（同上）——`键 -> 允许多少处`。
+ * 数字是量出来的（第 1005 轮），不是估的；**少一处也要红**（收掉了就来删这一行）。
+ *
+ * 只剩 `name` 这一族：第 1005 轮试过把它也挂成属性（`annotate`），
+ * **全语料 823 份红**——`TypeAliasDeclaration` 那两处的 `name` 键压根不在字典里，
+ * 取到的是 `undefined`，整个 `name` 字段静默丢掉。所以它缺的是**一格 token 事实**
+ * （名字落在子单元或 `fieldName` / `namespace` 上），不是换一个读法。
+ */
+const STRING_KEY_ALLOWED = new Map([
+  ["value", 0],
+  ["name", 2],
+  ["stringChar", 0],
+]);
+
+
 /** 一段 `## method X` 的方法体：从它后面第一个 ts 代码块到收尾围栏。 */
 function bodyOf(text, at) {
   const fence = text.indexOf("```ts", at);
@@ -105,6 +153,9 @@ const directPages = [];
 const unconverted = [];
 let directSections = 0;
 let astSections = 0;
+/** 直出版里**按字符串键查**的逐键计数（例外表按这个数判）。 */
+const stringKeyHits = new Map();
+const stringKeyAt = new Map();
 
 for (const file of files.sort()) {
   const text = fs.readFileSync(file, "utf8");
@@ -126,7 +177,20 @@ for (const file of files.sort()) {
       const line = text.slice(0, at).split("\n").length;
       const code = codeOnly(body);
       for (const [label, re] of FORBIDDEN) {
-        if (re.test(code)) violations.push({ file: `${rel}:${line}`, why: `直出版的方法体里出现 ${label}` });
+        if (!re.test(code)) continue;
+        if (STRING_KEY.some(([, one]) => one === re)) {
+          // 按字符串键查：**逐键计数**，例外表里额度用完了才红（见 STRING_KEY_ALLOWED）。
+          for (const m of code.matchAll(/\.(?:get|set|has)\(\s*["']([^"']+)["']/g)) {
+            const key = m[1];
+            stringKeyHits.set(key, (stringKeyHits.get(key) || 0) + 1);
+            const where = `${rel}:${line}`;
+            const seen = stringKeyAt.get(key) ?? [];
+            if (seen.length < 3) seen.push(where);
+            stringKeyAt.set(key, seen);
+          }
+          continue;
+        }
+        violations.push({ file: `${rel}:${line}`, why: `直出版的方法体里出现 ${label}` });
       }
       directPages.push({ file: rel, line });
     }
@@ -138,8 +202,37 @@ for (const file of files.sort()) {
   if (text.includes(HEAD_AST) && !text.includes(HEAD_DIRECT)) unconverted.push(rel);
 }
 
+// **按字符串键查的账**（第 1005 轮）：逐键比额度——多了红（有人写回来了），
+// 少了也红（收掉了就来把例外表那一行删掉）。
+const stringKeys = [...new Set([...STRING_KEY_ALLOWED.keys(), ...stringKeyHits.keys()])].sort();
+let stringKeyTotal = 0;
+let stringKeyLeft = 0;
+for (const key of stringKeys) {
+  const got = stringKeyHits.get(key) ?? 0;
+  const allowed = STRING_KEY_ALLOWED.get(key) ?? 0;
+  stringKeyTotal += got;
+  stringKeyLeft += Math.min(got, allowed);
+  if (got > allowed) {
+    const where = (stringKeyAt.get(key) ?? []).join(" / ");
+    violations.push({
+      file: where || "(直出版)",
+      why: `按字符串键查 \`${key}\`：${got} 处，例外表只允许 ${allowed} 处（token 缺哪一格事实就补哪一格）`,
+    });
+  } else if (got < allowed) {
+    violations.push({
+      file: "(例外表)",
+      why: `例外表里 \`${key}\` 写着允许 ${allowed} 处，实测只剩 ${got} 处 —— 收掉了就来删这一行`,
+    });
+  }
+}
+
 console.log(`direct:lint —— ${files.length} 页规范，直出版 ${directSections} 段、PrintAst ${astSections} 段`);
 console.log(`直出版覆盖 ${directPages.length} 页；还没直出的页面 ${unconverted.length} 页`);
+console.log(
+  `按字符串键查：${stringKeyTotal} 处（例外 ${stringKeyLeft} 处：${[...STRING_KEY_ALLOWED.entries()]
+    .map(([k, v]) => `${k} ${v}`)
+    .join("、")}）`,
+);
 if (verbose) {
   for (const one of directPages) console.log(`  direct  ${one.file}:${one.line}`);
   for (const one of unconverted) console.log(`  待搬    ${one}`);

@@ -340,7 +340,7 @@ return result;
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
-  const colon = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ":");
+  const colon = kids.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === ":");
   const afterColon = colon === undefined ? kids : kids.slice(kids.indexOf(colon) + 1);
   const projected = ctx.TypeExpression(afterColon);
   if (projected === undefined) {
