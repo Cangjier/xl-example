@@ -1186,6 +1186,32 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
 - **账**：这一趟量到的 6 条片段（3 格 × 粘 / 空格两种排版）全绿；上一趟那 8 条与这一趟
   534 条合法片段**一条不红**；`npm run gates` 九道全过。
 
+**第 928 轮第三趟：换一批构造（括号类型 / 构造类型 / 泛型函数类型 / async 箭头）再插一遍 trivia——量出四格，四根全收**
+
+第三趟换掉那 12 个构造（`tmp/r928/gen3.mjs`：16 个构造 × 每个相邻位置 × `/*c*/` / 换行 =
+**872 条，783 条合法**），量出 **4 格对不上**（各两种排版，共 8 条片段）：
+
+| 写法 | 症状 | 根因与修法 |
+| --- | --- | --- |
+| `type T =/*c*/<T>(a: T) => T;` | 整段函数类型不成形（缺 `FunctionType` / `Parameter` / 三个 `Identifier`，多一个当类型引用的 `<T>`） | `IsLambdaParameters` 的**泛型支**往左那一跳只跳软换行 ⇒ 撞上注释 ⇒ `before` 取到注释 ⇒ 落到末尾「是形参表」；改 `SkipPreviousTrivia`（与 `IsTypeAliasAssignment` / `FunctionTypeCloseRule.Previous` 同口径） |
+| `type T = <T>` ⏎ `(a: T) => T;` | 类型别名只剩 `<T>`，余下另起一条语句（缺 `FunctionType` / `TypeParameter`，多 `ExpressionStatement` + `ArrowFunction`） | `IsDeclarationHeadAwaitingParameters` 认不出「`type` + 名字 + `=` + `GenericType`」这个「等着形参表」的形状（原来只认「声明词 + 名字 + `GenericType`」）；补这一支（**只管类型别名**，`const f = <T>` 的值位那一档行为不变） |
+| `const f = async ():` ⏎ `Promise<void> => {};` | 整条 async 箭头分家（缺 `ArrowFunction` / `AsyncKeyword` / `TypeReference`，多 `ExpressionStatement` + `BinaryExpression`） | `IsValueArrowReturnColon` 要求形参表左边那一格是 `=`，而这里夹着 `async`；跨过 `async` 之后两条判据照旧，「空形参表」那一格由 `async` 自己撑着（没有 `async` 时仍要求括号里有实义内容） |
+| `const g = async /*c*/ x => x;` 与 `const f = async/*c*/(): Promise<void> => {};` | 整条箭头不见（缺 `ArrowFunction` / `AsyncKeyword` / `Parameter`…，多一个裸 `Identifier(async)`） | `LamdaCloseRule.Process` 找 `async` 的那一跳只跳软换行 ⇒ `IsAsync` 是假、`async` 留在外面当平级兄弟 `[Identifier(async), AreaAnnotation, Lamda]`；投影那一档（`print-ast-common` 的 0a'）原来只认三格 `[async, GenericType, Lamda]` ⇒ **两格 / 三格走同一段补法**（逗号分隔的 `[async, () => 1]` 是**三格**、`SymbolToken(,)` 挡着，所以两格不会误伤） |
+
+- **守卫**（三条用例，收完登记进语料 —— 第 900 轮那条「一次收一族」的规矩）：
+  `token/expressions/expr-async-arrow-adjacent-comment.ts`、
+  `token/expressions/expr-async-arrow-return-newline.ts`、
+  `token/types/type-alias-generic-fn-trivia.ts`。
+- **账**：三趟探针（8 + 534 + 783 条合法片段）**一条不红**；`npm run gates` 九道全过
+  （墙钟 **34.1s**）——`cases:tsast` 缺口清单仍是空的；coverage **4148 / 4317 → 4151 / 4320**
+  （blocked 39、differ 130、bad 0）；`cases:check` **1551 → 1554** 条 0 不合格、
+  `cases:tags` **5168 → 5198** 条断言 0 不一致、`cases:astjson` **36927 → 37042** 个节点六项全 0。
+- **可复用的判据**：**换一批构造再插一遍 trivia，是同一套探针最便宜的第二次使用**——
+  这一趟的四格没有一格是新构造，全是「同一个判据在另一种排版上少跳了一格 / 少认了一种形状」；
+  四格里三格都在**往回走的那一步**上（`SkipPreviousWrapSymbol` → `SkipPreviousTrivia`），
+  一格是**等着某一格的头**（`IsDeclarationHeadAwaitingParameters`）少了一族形状。
+  量到「往回走」那一类时，先按「有循环 + 判相邻」把同一族的落点搜一遍，再动手。
+
 
 
 ## 被否决的改法（不要再试）

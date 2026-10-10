@@ -1792,11 +1792,26 @@ const parameters = Get(data, parametersIndex);
 if (!(parameters instanceof Bracket) || parameters.startBracket !== "(") {
   return false;
 }
-const before = Get(data, SkipPreviousTrivia(data, parametersIndex));
+// **`async` 可以夹在赋值号与形参表之间**（第 928 轮第二趟）：`const f = async ():` 换行
+// `Promise<void> => {}` 里 `)` 左边那一格是 `async`（再左边才是 `=`），照原样判否
+// ⇒ 换行处收壳 ⇒ 整条 async 箭头分家（实测缺 `ArrowFunction` / `AsyncKeyword` /
+// `TypeReference`，多一条 `ExpressionStatement` 与一个 `BinaryExpression`）。
+// 跨过 `async` 之后下面那两条判据一个都不用改——`async (` 在值位上只有一种读法
+//（异步函数 / 异步箭头），而 `async` 自己是名字时后面不会紧跟一对括号再跟 `:`。
+let beforeIndex = SkipPreviousTrivia(data, parametersIndex);
+let before = Get(data, beforeIndex);
+let crossedAsync = false;
+if (before instanceof Identifier && before.Is("async")) {
+  crossedAsync = true;
+  beforeIndex = SkipPreviousTrivia(data, beforeIndex);
+  before = Get(data, beforeIndex);
+}
 if (!(before instanceof SymbolToken) || before.Is("=") === false) {
   return false;
 }
-return Statement.FirstMeaningful(parameters.Data) !== null;
+// **空形参表那一格只有 `async` 撑着**：没有 `async` 时「空括号」在类型位与值位同形，
+// 所以照旧要求括号里有实义内容（第 901 轮那条判据一个字不动）。
+return crossedAsync || Statement.FirstMeaningful(parameters.Data) !== null;
 ```
 
 ## static method IsDeclarationHeadAwaitingParameters:(data:Array<Token>)=>bool
@@ -1823,6 +1838,20 @@ return Statement.FirstMeaningful(parameters.Data) !== null;
 let at = SkipPreviousTrivia(data, data.length);
 let name = Get(data, at);
 if (name !== null && name.constructor.name === "GenericType") {
+  // **类型别名的右值是泛型函数类型**（第 928 轮第二趟）：`type T = <T>` 换行 `(a: T) => T;`
+  // 里末尾那一格是类型参数段，再往左是 `=`、别名与 `type`——同一个「等着形参表」的形状
+  // （上面那一格认的是「声明词 + 名字 + `GenericType`」，这里认的是
+  // 「`type` + 名字 + `=` + `GenericType`」）。少了它：换行处收壳 ⇒ 类型别名只剩 `<T>`、
+  // 余下那段另起一条语句（实测缺 `FunctionType` / `TypeParameter`，多一条
+  // `ExpressionStatement` 与一个 `ArrowFunction`）。
+  // **只管类型别名**：`const f = <T>`（值位的泛型箭头）不在这一档，行为与今天一致。
+  const equalsIndex = SkipPreviousTrivia(data, at);
+  const equals = Get(data, equalsIndex);
+  if (equals instanceof SymbolToken && equals.Is("=")) {
+    const aliasIndex = SkipPreviousTrivia(data, equalsIndex);
+    const alias = Get(data, aliasIndex);
+    return alias instanceof Identifier && Statement.WordOf(Get(data, SkipPreviousTrivia(data, aliasIndex))) === "type";
+  }
   at = SkipPreviousTrivia(data, at);
   name = Get(data, at);
 }

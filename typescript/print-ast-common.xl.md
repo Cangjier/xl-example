@@ -2274,11 +2274,26 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // 本条一次都不会响）；隔空格那一档 `IsAsync` 仍是假、泛型段仍是**平级兄弟**，
   // 所以这里要自己把 `async` 与 `typeParameters` 两样补上，并把 `pos` 挪到 `async` 那一格
   //（`Lamda` 自己的起点是形参表）。
-  if (kids.length === 3 && kids[0].get("type") === "Identifier" && kids[1].get("type") === "GenericType" && kids[2].get("type") === "Lamda" && textOfNode(kids[0], ctx) === "async") {
-    const arrow: any = projectNode(kids[2], ctx);
+  // **`async` 与 `Lamda` 之间夹注释时是两格**（第 928 轮第二趟）：
+  // `const g = async /*c*/ x => x;` 与 `const f = async/*c*/(): Promise<void> => {};` 里，
+  // `LamdaCloseRule.Process` 找 `async` 的那一跳只跳软换行 ⇒ `IsAsync` 是假、`async`
+  // 留在外面当**平级兄弟**（与「隔空格的泛型箭头」同一形状，只是中间那格是**注释**
+  // ——它在投影前已被 `INVISIBLE` 滤掉，所以到这里是**两格**）。
+  // 判据与上面那一档同源：头一格是 `Identifier(async)`、末一格是 `Lamda`，
+  // 中间那格（如果有）必须是 `GenericType`。**两格 / 三格两种排版走同一段补法**。
+  //
+  // **为什么两格不会误伤**（`[async, () => 1]` / `f(async, () => 1)`）：那些地方的逗号
+  // 是**平级的一格 `SymbolToken`**（逗号表达式成形的除外），kids 长度不是 2；
+  // 两条语句（`async;` 换行 `() => 1`）也不会落进同一串单元。
+  const asyncHead = kids[0].get("type") === "Identifier" && textOfNode(kids[0], ctx) === "async";
+  const asyncPlain = asyncHead && kids.length === 2 && kids[1].get("type") === "Lamda";
+  if ((kids.length === 3 && kids[0].get("type") === "Identifier" && kids[1].get("type") === "GenericType" && kids[2].get("type") === "Lamda" && textOfNode(kids[0], ctx) === "async") || asyncPlain) {
+    const arrow: any = projectNode(kids[kids.length - 1], ctx);
     if (arrow !== undefined) {
-      const typeParams = unwrapNodes(kids[1]).filter((k) => k.get("type") === "TypeParameter");
-      if (typeParams.length > 0) arrow.typeParameters = projectEach(typeParams, ctx);
+      if (kids.length === 3) {
+        const typeParams = unwrapNodes(kids[1]).filter((k) => k.get("type") === "TypeParameter");
+        if (typeParams.length > 0) arrow.typeParameters = projectEach(typeParams, ctx);
+      }
       // **`AsyncKeyword` 得自己补进 `modifiers`**：那一格平时由 `Lamda.IsAsync` 那条路合成，
       // 而这条路的 `IsAsync` 是假（隔空格那一档规矩如此）⇒ 只在投影这一层补一个节点，
       // 位置就取 `async` 那一格自己的两端（与 `async x => x` 合成出来的形状逐格相同）。

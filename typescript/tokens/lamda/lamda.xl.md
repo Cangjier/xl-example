@@ -186,7 +186,14 @@ if (previous instanceof Identifier && previous.Is("extends")) {
 if (previous instanceof GenericType) {
   // `<T>(a: A) => B`：泛型函数类型（类型参数段属于它自己），`type X = <T>(a) => B`
   // 与 `declare function f(): <T>(a: A) => B` 都是这一形状。左边是类型位就算类型。
-  const beforeIndex = SkipPreviousWrapSymbol(units, previousIndex);
+  //
+  // **这一跳走 trivia 口径**（第 928 轮第二趟）：`type T =/*c*/<T>(a: T) => T;` 里注释夹在
+  // `=` 与泛型段之间，原来只跳软换行 ⇒ `before` 取到的是那条 `AreaAnnotation`
+  // ⇒ 三档都不命中 ⇒ 落到末尾那句 `return true`（「是形参表」）⇒ 整段函数类型一个节点都不成形
+  //（实测缺 `FunctionType` / `Parameter` / 三个 `Identifier`，多一个当类型引用的 `<T>`；
+  // 把注释换成换行一直是绿的）。判据与 `IsTypeAliasAssignment`、`FunctionTypeCloseRule.Previous`
+  // 问的是同一件事（「泛型段左边那一格是什么」），那两处早就是 trivia 口径。
+  const beforeIndex = SkipPreviousTrivia(units, previousIndex);
   const before = Get(units, beforeIndex);
   if (beforeIndex < 0) {
     return this.IsWrappedByTypeContext(previous) === false;
