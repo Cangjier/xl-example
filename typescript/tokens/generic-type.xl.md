@@ -1334,9 +1334,17 @@ if (!isTypePosition) {
   // **`=` 不放行**（虽然 TS 认 `a<b> = c`）：`=` 紧跟配对 `>` 时那两格是 **`>=`**
   //（`a < b >= c` 是合法的比较），而这里判据是**跳出空白之后的那一个字符**，
   // 拿不到「紧不紧邻」这条信息 ⇒ 放行它会当场把 `>=` 读错。要收它得先改判据的形状。
+  // **反引号是第 977 轮普查补的**（`const a = f<T>`t`;` 那一族）：「标签模板」与
+  // 「泛型调用」在 TS 的 `canFollowTypeArgumentsInExpression` 里是**同一条**——
+  // 那一格后面紧跟反引号时，`<…>` 只可能是实例化表达式（比较式的右边接不上模板标记那一段）。
+  // 拿真 TS 复量过（`tmp/r977-ts.mjs`）：`f < T > `t`` / `f<T>`t`` / `f < T > (1)`
+  // 三种排版 TS 都读成一条 `TaggedTemplateExpression` / `CallExpression` 带 `TypeReference`
+  //（而 `x < y > z` 才是二元）。少了这一格，`inst-tagged` 那一个底样的**每个位置 ×
+  // 三种 trivia 共 39 条**片段全部对不上（症状：`f<T>` 被折成 `BinaryExpression`）。
   const nextChar = index + 1 < document.GetCount() ? document.GetValue(index + 1) : "";
   if (
     item === "(" ||
+    item === "`" ||
     item === ";" ||
     item === ")" ||
     item === "," ||

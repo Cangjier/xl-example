@@ -3422,10 +3422,22 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // （实测 `tmp/r947/gate-sweep2.mjs`：`new A.B` 换行 `` `t` `` `.c` 那一族 27 条对不上）。
   // 这一问要挡的是**运算符**（下面那句里点名的 `BinaryOperator` / `LogicalOperator`），
   // 点号与名字不在其中。
+  // **`GenericType` / `ExpressionWithTypeArguments` 也是链的一格**（第 977 轮普查量到的）：
+  // `f<T>`t`` 的标签是**一格**实例化表达式，而它**看起来像**运算符那一段——
+  // 不给它这一档，`const a = f<T>`t`;` 这**一条**就整族让开：实测 39 条片段
+  // （`inst-tagged` 那一个底样的每个位置 × 三种 trivia）全部对不上，症状是 `f<T>` 被折成
+  // `BinaryExpression(LessThan, T, GreaterThan)` 而模板独立成格。
+  // **两种节点名都要认**：token 层的 `GenericType` 在**表达式位**投出来的是
+  // `ExpressionWithTypeArguments`（TS 4.7 的 instantiation expression），在**类型位**才是
+  // `TypeReference`——而这里拿到的是**已经投好**的节点（第 977 轮第一次只加了 `GenericType`，
+  // 量下来那 39 条一条没动，正是这个缘故）。
+  // **拿真 TS 复量过那一格**（`tmp/r977-ts.mjs`）：`f < T > `t`` 与 `f<T>`t``、
+  // `f < T > (1)` —— 三种排版 TS 都读成**一条** `TaggedTemplateExpression` / `CallExpression`
+  // 带 `TypeReference`（而 `x < y > z` 才是二元），所以这一档不是放宽、是**同一句判据少了一格**。
   const tagIsPostfixChain = (units: Array<any>): bool => {
     for (const one of units) {
       const kind = one.get("type");
-      if (kind === "Identifier" || kind === "PropertyAccess" || kind === "Method" || kind === "Bracket" || kind === "String") {
+      if (kind === "Identifier" || kind === "PropertyAccess" || kind === "Method" || kind === "Bracket" || kind === "String" || kind === "GenericType" || kind === "ExpressionWithTypeArguments") {
         continue;
       }
       if (isDot(one, ctx)) {
