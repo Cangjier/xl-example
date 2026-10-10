@@ -69,6 +69,26 @@ if (at < 0) {
 return source.Document.GetValue(at);
 ```
 
+# method NextLineOpensAttributes:(source:Source)=>bool
+
+`source` 处那个软换行**后面**那一行是不是以 `with` 或 `assert` 开头
+（跳过空白与注释）——也就是「导入 / 导出声明的**属性子句**另起了一行」。
+
+**为什么要单列一格**（第 941 轮）：第 940 轮给 `import A = B` 那一族加的两处判据
+（`ImportCloseRule.Process` 与 `Statement.IsPendingImportHead`）问的都是**原始字符**
+（`NextLineFirstCharAt` 只给一个字符），而这一格要问的是**一个词**——
+`with { type: "json" }` 里的 `with` 与 `assert` 都是**声明的一部分**
+（TS 那边是 `ImportDeclaration.assertClause` / `ExportDeclaration.assertClause`），
+导入 / 导出声明没有 ASI ⇒ `;` 之前的一切归同一条声明。
+
+**两处只有一份答案**：判据落在**原始字符**上（`NextLineStartsWithWord`），
+两个调用方各自都拿得到那一刻的 `Source`——收尾规则手里是那个 `LineWrap` 单元，
+语句壳那一侧是末了那个实义单元的 `End`（换行前最后一个字符）。
+
+```ts
+return NextLineStartsWithWord(source, "with") || NextLineStartsWithWord(source, "assert");
+```
+
 # method HasLineBreakBetween:(from:Source, to:Source)=>bool
 
 `from` 与 `to` 两个位置**之间**（不含两端）有没有换行——**按原始字符判**（第 934 轮）。

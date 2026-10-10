@@ -8,7 +8,7 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasLineBreakBetween, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, IsTypeAliasAssignment, NextLineFirstCharAt, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasLineBreakBetween, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, IsTypeAliasAssignment, NextLineFirstCharAt, NextLineOpensAttributes, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class, ClassBranch } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -2271,7 +2271,16 @@ for (let i = headAt + 1; i < data.length; i++) {
     }
     const tail = Get(data, SkipPreviousTrivia(data, data.length));
     const tailEnd = tail === null ? null : tail.SourceRange.End;
-    return tailEnd !== null && NextLineFirstCharAt(tailEnd) === ".";
+    if (tailEnd === null) {
+      return false;
+    }
+    // **属性子句另起一行时也还没写完**（第 941 轮）：`import a from "m"` 换行
+    // `with { type: "json" };` 是**一条** `ImportDeclaration`（`with` / `assert`
+    // 那个子句是 `assertClause`），判据本体只有一份（`NextLineOpensAttributes`）。
+    // 与上一句同一个口径：软换行还没进 `data`，所以从**末了那个实义单元的 `End`** 起扫。
+    // 两处必须一致——语句壳这边收壳、收尾规则那边跨行，症状就是「`Import` 只到路径」
+    // ＋「`with { … }` 另起一条 `WithStatement`」。
+    return NextLineFirstCharAt(tailEnd) === "." || NextLineOpensAttributes(tailEnd);
   }
 }
 return true;

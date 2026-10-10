@@ -7,7 +7,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceAt } from "../../core/extensions/list-extension.xl.md"
 import { RemoveItem } from "../list-extensions.xl.md"
-import { GetSkipPreviousWrapSymbol, IsTriviaUnit, NextLineFirstCharAt, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
+import { GetSkipPreviousWrapSymbol, IsTriviaUnit, NextLineFirstCharAt, NextLineOpensAttributes, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -208,7 +208,21 @@ for (let i = index + 1; i < units.length; i++) {
   // 会把下一行整条语句吞进 `Import`（实测 `importeq2n1` / `n2` / `l1` / `l2` 一族
   // 由绿转红：多 5、缺 2）。
   const rhsOpen = item instanceof LineWrap && (this.IsRhsChainOpen(items) || NextLineFirstCharAt(item.SourceRange.Start!) === ".");
-  if (rhsOpen || (IsTriviaUnit(item) && done === false)) {
+  // **属性子句另起一行时也不算写完**（第 941 轮）：`import a from "m"` 换行
+  // `with { type: "json" };` 在 TS 那边是**一条** `ImportDeclaration`
+  //（`with` 那个子句是 `assertClause`）——判据、实测账见 `NextLineOpensAttributes`。
+  // 少了它：这里在换行处收尾 ⇒ `Import` 只到路径（`[0,17)`），`with { … }` 另起一条
+  // `WithStatement`（实测 `importattrn6` / `n7` / `l6` / `l7` 一族：缺 `AssertClause` /
+  // `AssertEntry` / `StringLiteral` 共 3、漂 1、多 4）。
+  //
+  // **这一问要走「末了那个实义单元的 `End`」**（第 941 轮第一版写错过）：
+  // `item instanceof LineWrap` 只覆盖「换行已经进了 `units`」那种场合，而这条规则的
+  // 触发点是 `;`（换行一直是 appender 在管）——判据挂在那个分支上**一次都不响**。
+  // `NextLine*` 那一族要的是「换行**之后**那一行」，所以从**最后一个实义单元的末尾**
+  // 起扫正是同一件事（软换行不参与 `items` 的语义）。
+  const lastEnd = items.length > 0 ? items[items.length - 1].SourceRange.End : current.SourceRange.End;
+  const attributesNext = item instanceof LineWrap && lastEnd !== null && NextLineOpensAttributes(lastEnd);
+  if (rhsOpen || attributesNext || (IsTriviaUnit(item) && done === false)) {
     if (item instanceof LineWrap) {
       items.push(item);
     }
