@@ -2017,6 +2017,14 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   }
   // `head` 是不是名字上的**类型别名**（`TypeAssign`，`export type T = …` 的外壳还是 `Statement`）。
   if (kids.length === 1) {
+    // **语句壳套语句壳是透明的**（第 929 轮）：上游会把「注释 + 被标的语句」先收成一条壳
+    // （`blk :/*c*/{ … }` 里注释落在标签与块之间 ⇒ `Statement > [AreaAnnotation, Bracket]`），
+    // 而那一格自己会投（`Statement.PrintAst` → `StatementOf`）⇒ 这里**直接交回它**。
+    // 少了这一条，它会落到下面的表达式支 ⇒ 多一层 `ExpressionStatement`
+    // （实测 `blk :/*c*/{ … }` / `lbl :/*c*/class C { … }` / `lbl :/*c*/function f() { … }` 一族 8 条）。
+    if (headType === "Statement") {
+      return projectNode(head, ctx);
+    }
     const kind = KIND_BY_TAG.get(headType);
     if (kind !== undefined) {
       // **`export type T = …` 的 `pos` 在外层 `Statement` 上、修饰词在 `TypeAssign` 上**：

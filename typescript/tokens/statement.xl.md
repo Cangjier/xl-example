@@ -689,6 +689,13 @@ while (at < data.length) {
   // **搬 `[at, end)` 这一段**，再按里面的标签把它套起来：
   // 最里面那个标签收下它右边的一切（trivia + 被标的语句），
   // 每个外层标签收下「它自己与下一个标签之间」的 trivia，然后收下里面那一层。
+  //
+  // **下标要在 `labelAt` 上走、不能在 `moved` 上走**（第 929 轮，片段普查当场炸出来的）：
+  // 标签**不一定挨着**——`a: /*c*/ b: for (…)` 的 `moved` 是
+  // `[Label(a), 注释, Label(b), For]` ⇒ `labelAt = [0, 2]`。
+  // 第一版写成 `for (k = last - 1; …)`（`last` 是 2）⇒ 第一趟就把 `moved[2]`（＝ `inner` 自己）
+  // 当成「外层标签」挂到 `inner` 上 ⇒ 自环 ⇒ `ToXmlString` 栈溢出
+  // （`a :/*c*/b : for (;;) { break a; }` 一族 4 条；挨着写的那种排版看不出来）。
   const moved = data.splice(at, end - at);
   const labelAt: number[] = [];
   for (let i = 0; i < moved.length; i++) {
@@ -696,16 +703,16 @@ while (at < data.length) {
       labelAt.push(i);
     }
   }
-  const last = labelAt[labelAt.length - 1];
-  let inner = moved[last];
-  for (let i = last + 1; i < moved.length; i++) {
+  const innermostAt = labelAt[labelAt.length - 1];
+  let inner = moved[innermostAt];
+  for (let i = innermostAt + 1; i < moved.length; i++) {
     inner.Add(moved[i]);
   }
   const movedEnd = moved[moved.length - 1].SourceRange.End;
   if (movedEnd !== null) {
     inner.SourceRange.End = movedEnd;
   }
-  for (let k = last - 1; k >= 0; k--) {
+  for (let k = labelAt.length - 2; k >= 0; k--) {
     const outer = moved[labelAt[k]];
     for (let i = labelAt[k] + 1; i < labelAt[k + 1]; i++) {
       outer.Add(moved[i]);

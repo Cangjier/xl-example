@@ -814,6 +814,13 @@ for (let pass = 0; pass < maxPasses; pass++) {
     break;
   }
 }
+// **标签包住它标的那条语句**（第 929 轮，见 `Statement.AbsorbLabels`）——
+// **排在收敛环之后**：`LabelCloseRule` 造标签时被标的语句还没成形，而「包」这一步要等
+// **这一层不再变**才安全。排在环里的症状是**把还没成形完的东西抢走**：
+// `lbl: do { … } while(c);` 的平铺段 `[do, 块, while]` 在第一趟就被搬进标签 ⇒
+// `DoWhileCloseRule` 再也看不到那一对（实测：`DoWhile` 整条缺、`do` 投成
+// `ExpressionStatement > Identifier`）。环走完时该合的已经合了，搬进去的都是**成形的**东西。
+Statement.AbsorbLabels(unit);
 } finally {
   TokenFormerImpl.Depth = TokenFormerImpl.Depth - 1;
 }
@@ -901,8 +908,6 @@ Statement.FormTail(unit);
 // ⇒ 一行里写完的「声明 + 后面那条语句」会挤在**同一个**壳里 ⇒ 后者被投影当成表达式丢掉。
 // 排在这里（一趟规则之后）：那一格已经成形了，拆出来的尾巴再走自己的那一趟。
 Statement.SplitShell(unit);
-// **标签包住它标的那条语句**（第 929 轮，见 `Statement.AbsorbLabels`）：
-// `LabelCloseRule` 造标签时被标的语句还没成形，所以「包」这一步只能排在**容器的规则跑完之后**
-// ——排在这里与 `SplitShell` 同一个位置（并且**在它之后**：拆尾巴要的是平级兄弟那个形状）。
-Statement.AbsorbLabels(unit);
+// **「包」那一步不在这一趟里**（第 929 轮）：`Statement.AbsorbLabels` 排在
+// `ApplyCloseRules` 的**收敛环之后** —— 理由写在那边（平铺段要在「这一层不再变」之后才搬得）。
 ```

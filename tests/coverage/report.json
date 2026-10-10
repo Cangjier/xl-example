@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4321,
+  "total": 4326,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.41,
+  "progressPercent": 95.36,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1542,
+      "total": 1547,
       "pass": 1542,
-      "blocked": 0,
+      "blocked": 5,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.68
     },
     {
       "category": "exec",
@@ -129,14 +129,44 @@
     }
   ],
   "token": {
-    "total": 1542,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
+    "total": 1547,
+    "knownGap": 5,
+    "knownGapStillOpen": 5,
     "exactFiles": 1542,
     "scoredWithoutGap": 1542,
     "passedWithoutGap": 1542
   },
   "blocked": [
+    {
+      "id": "token/statements/gap-r929-label-body-brace-newline",
+      "category": "token",
+      "title": "第 929 轮片段普查量到的一族：被标语句的**头部与它自己体之间**换行。",
+      "detail": "缺 7　漂 2　多 11　标签那一层的续接判据没认这三格（`while` 与条件括号之间、`interface` /"
+    },
+    {
+      "id": "token/statements/gap-r929-label-body-call-newline",
+      "category": "token",
+      "title": "第 929 轮片段普查量到的一格：被标语句是**调用**时，名字与 `(` 之间换行。",
+      "detail": "缺 1　漂 2　多 4　解析期的续接表在「标签的体」这一侧没认「下一行以 `(` 开头」⇒ 换行处收壳"
+    },
+    {
+      "id": "token/statements/gap-r929-label-chain-newline",
+      "category": "token",
+      "title": "第 929 轮片段普查量到的一格：**标签链中间换行**。",
+      "detail": "缺 1　漂 1　多 2　`IsPendingLabelHead` 要求末尾那个名字是**语句开头**（`IsStatementStart`），"
+    },
+    {
+      "id": "token/statements/gap-r929-label-comment-before-colon-tail",
+      "category": "token",
+      "title": "第 929 轮片段普查量到的一族：**名字与冒号之间夹注释**，而且后面还跟着一条语句。",
+      "detail": "缺 7　多 2　`LabelCloseRule.Process` 把那一带的注释搬到 `Label` **左边**（它的说明里写着"
+    },
+    {
+      "id": "token/statements/gap-r929-label-comment-head-of-shell",
+      "category": "token",
+      "title": "第 929 轮片段普查量到的同族另一格：注释落在**语句壳的第一格**上。",
+      "detail": "缺 2　多 1　与 `gap-r929-label-comment-before-colon-tail` 同一个根（壳的头不是标签就"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -503,7 +533,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2149.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2154.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -809,7 +839,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3137.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3142.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -833,7 +863,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3185.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3190.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -989,7 +1019,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3828.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3833.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
