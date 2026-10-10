@@ -57,6 +57,22 @@ node tests/compare-shape-token-ast/run.mjs --json tmp/rep.json  # 逐条读数�
 那行注释会变成一个 `LineAnnotation` 节点、还带自己的区间，两条路必然不等
 （第一版就是这么比的：46 条全报「库 340 B vs 发布 352 B」）。
 
+## 逐格定「动哪一格」：见 [FINDINGS.md](FINDINGS.md)
+
+`run.mjs` 量的是「差多少」，**定不了「该动哪里」**。要定哪一格，用对齐视图：
+
+```bash
+node tmp/pa-flow.mjs method         # 一个 token 目录；tmp/ 下的工具不进版本库
+```
+
+它把出口 1 与出口 3 **按区间配在一起**（XML 的 `range="[起,止]"` 是闭区间、AST 的 `pos/end`
+是半开，所以按 `起` 与 `止+1` 配），逐行打印「这个产物节点变成了哪个 AST 节点 /
+还是压根没成节点」，再把「AST 有、产物那棵树上没有对上的」单独列一遍。
+
+[FINDINGS.md](FINDINGS.md) 是拿这把视图逐格跑过一遍、再回着读那格 `PrintAst` 之后的定案:
+一条系统差（闭/半开区间）、一族四格同一个毛病（**位置已经记下却只印成标量**）、
+以及哪些 flat 是刻意的、不许搬。
+
 ## 与 `cases:tsast` 的分工
 
 | | 问的问题 | 判据 |
