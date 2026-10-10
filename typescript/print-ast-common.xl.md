@@ -5256,6 +5256,73 @@ return false;
       if (member.get("type") === "Method") {
         const nameText = String(member.get("name") ?? "");
         const nameAt = startOf(member);
+        // **这一格是「名字为空」的调用单元**（第 964 轮补上这份副本）：
+        // `o?.m()().v` 的 NCO 里那一格是
+        // `PropertyAccess([Method name=""[Method name="m"]], ., v)`——**空名字 `Method` 的第一格
+        // 是内层那次调用**。折法与 `chainWithOptional` 的空名字那一支**是同一件事**
+        //（第 366 轮的两步走 + 第 962 轮那三支），少了它这一格会投出一个**名字为空**的属性访问
+        //（实测 `o?.m()().v`：`CallExpression` / `PropertyAccessExpression` / `Identifier` 三处漂）。
+        // **这一份是那条判据的第五处副本**：另外四处已由第 962 / 963 轮补齐，
+        // 补上这一处之后五处同形；「五处收成一份实现」登记为下一步（见 README 第 964 轮那一节）。
+        if (nameText === "") {
+          const callKids = projectableKids(view(member)).filter((k: any) => k.get("type") !== "GenericType");
+          const callHead = callKids.length > 0 ? callKids[0] : undefined;
+          if (callHead !== undefined && callHead.get("type") === "NotNull") {
+            const asserted = assertedMember(node, callHead, ctx, pending);
+            if (asserted !== undefined) {
+              node = Object.assign({}, projectNode(member, ctx), {
+                expression: asserted,
+                pos: asserted.pos,
+              });
+              pending = undefined;
+              j += 1;
+              continue;
+            }
+          }
+          if (callHead !== undefined && callHead.get("type") === "Method") {
+            const innerName = String(callHead.get("name") ?? "");
+            const innerAt = startOf(callHead);
+            const innerMember: any = {
+              kind: "PropertyAccessExpression",
+              expression: node,
+              name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length },
+              pos: node.pos,
+              end: innerAt + innerName.length,
+            };
+            if (pending !== undefined) innerMember.questionDotToken = pending;
+            const innerCall = Object.assign({}, projectNode(callHead, ctx), {
+              expression: innerMember,
+              pos: innerMember.pos,
+            });
+            node = Object.assign({}, projectNode(member, ctx), {
+              expression: innerCall,
+              pos: innerCall.pos,
+            });
+            pending = undefined;
+            j += 1;
+            continue;
+          }
+          if (callHead !== undefined && callHead.get("type") === "Bracket"
+            && callHead.get("startBracket") === "(" && endOf(callHead) < endOf(member)) {
+            const innerCall: any = {
+              kind: "CallExpression",
+              expression: node,
+              arguments: splitTopLevel(projectableKids(view(callHead)), ctx, ",")
+                .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+                .filter((a: any) => a !== undefined),
+              pos: node.pos,
+              end: endOf(callHead),
+            };
+            if (pending !== undefined) innerCall.questionDotToken = pending;
+            node = Object.assign({}, projectNode(member, ctx), {
+              expression: innerCall,
+              pos: innerCall.pos,
+            });
+            pending = undefined;
+            j += 1;
+            continue;
+          }
+        }
         const holder = {
           kind: "PropertyAccessExpression",
           expression: node,

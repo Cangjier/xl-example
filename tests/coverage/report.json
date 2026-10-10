@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4369,
+  "total": 4380,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.67,
+  "progressPercent": 95.58,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1590,
-      "pass": 1590,
-      "blocked": 0,
+      "total": 1601,
+      "pass": 1591,
+      "blocked": 10,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.38
     },
     {
       "category": "exec",
@@ -129,14 +129,74 @@
     }
   ],
   "token": {
-    "total": 1590,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
-    "exactFiles": 1590,
-    "scoredWithoutGap": 1590,
-    "passedWithoutGap": 1590
+    "total": 1601,
+    "knownGap": 10,
+    "knownGapStillOpen": 10,
+    "exactFiles": 1591,
+    "scoredWithoutGap": 1591,
+    "passedWithoutGap": 1591
   },
   "blocked": [
+    {
+      "id": "token/expressions/gap-r964-nonnull-call-assert-call",
+      "category": "token",
+      "title": "",
+      "detail": "缺 2　漂 1　第 964 轮普查量到的形状：缺 `CallExpression`，`NonNullExpression` 的区间只到 `a!`。根因还没量到——如实登记，不猜。"
+    },
+    {
+      "id": "token/expressions/gap-r964-nonnull-call-twice-member",
+      "category": "token",
+      "title": "",
+      "detail": "缺 4　第 964 轮普查量到的形状：缺 `PropertyAccessExpression` / 两个 `CallExpression` / `Identifier` 各一：双层调用后面那个成员整段丢。根因还没量到——如实登记，不猜。"
+    },
+    {
+      "id": "token/expressions/gap-r964-opt-assert-member-assert-call-twice",
+      "category": "token",
+      "title": "",
+      "detail": "缺 2　第 964 轮普查量到的形状：缺两个 `CallExpression`：断言成员后面那次双层调用整段丢。根因还没量到——如实登记，不猜。"
+    },
+    {
+      "id": "token/expressions/gap-r964-opt-assert-member-member",
+      "category": "token",
+      "title": "",
+      "detail": "漂 2　第 964 轮普查量到的形状：`PropertyAccessExpression` 与 `Identifier` 各漂：断言之后那条链只接了一格。根因还没量到——如实登记，不猜。"
+    },
+    {
+      "id": "token/expressions/gap-r964-opt-call-triple",
+      "category": "token",
+      "title": "",
+      "detail": "漂 3　多 2　第 964 轮普查量到的形状：`CallExpression` / `PropertyAccessExpression` / `Identifier` 三处漂，另多一格**名字为空**的属性访问——三层调用只折了两层。根因还没量到——如实登记，不猜。"
+    },
+    {
+      "id": "token/expressions/gap-r964-opt-index-assert-call",
+      "category": "token",
+      "title": "",
+      "detail": "缺 2　多 2　第 964 轮普查量到的形状：同上一格：下标 + 断言之后那次调用整格丢。根因还没量到——如实登记，不猜。"
+    },
+    {
+      "id": "token/expressions/gap-r964-opt-index-assert-member",
+      "category": "token",
+      "title": "",
+      "detail": "缺 2　多 2　第 964 轮普查量到的形状：缺 `ElementAccessExpression` / `StringLiteral`，多一格名字是 `['b']` 的属性访问。根因还没量到——如实登记，不猜。"
+    },
+    {
+      "id": "token/expressions/gap-r964-opt-index-call-twice",
+      "category": "token",
+      "title": "",
+      "detail": "漂 1　第 964 轮普查量到的形状：`CallExpression` 漂 2：第二次调用（`()` 又跟一次）没有接上。根因还没量到——如实登记，不猜。"
+    },
+    {
+      "id": "token/expressions/gap-r964-opt-index-index-call",
+      "category": "token",
+      "title": "",
+      "detail": "缺 1　第 964 轮普查量到的形状：缺一个 `CallExpression`：第二次下标之后那次调用整格丢。根因还没量到——如实登记，不猜。"
+    },
+    {
+      "id": "token/expressions/gap-r964-opt-member-tagged-call",
+      "category": "token",
+      "title": "",
+      "detail": "缺 1　第 964 轮普查量到的形状：缺 `CallExpression`：模板串被当标签之后那次调用没有接上。根因还没量到——如实登记，不猜。"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -419,7 +479,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2197.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2208.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -701,7 +761,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3185.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3196.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -725,7 +785,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3233.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3244.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/051-builtin-regexp-constructor",
@@ -893,7 +953,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3876.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3887.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
