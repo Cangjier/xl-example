@@ -21,6 +21,8 @@
 //      `ctx.Attr(视图, "键")`（逐键计数，例外表已归零，见 `STRING_KEY_ALLOWED`）；
 //   ② 扫描本身不抛异常（页面读不出来就是红，不是跳过）。
 //   另有一条只扫共享投影那一页的代码块（名字那一格，第 1008 轮，见 `NAME_KEY`）。
+//   第 1014 轮又加一条**只扫散文**的：`PrintAst` 这个老名字只许出现在「明说它已经不存在」的行上
+//   （词边界匹配，`PrintDirectAst` 不算；见 `STALE_NAME`）——它不改行为，所以前面几条都看不见它。
 //
 // **第 1013 轮删掉的判据**：原来还有一条「覆写了直出版的页面，同页必须还有 `PrintAst`」——
 // 它是「同答」那条动态判据的**基线**（搬完之前不许先把老路删掉）。现在老路删了、
@@ -249,6 +251,50 @@ let nameKeyHits = 0;
   }
 }
 
+/**
+ * **`PrintAst` 这个老名字：只在「说它已经不存在」的地方许出现**（第 1014 轮）。
+ *
+ * 第 1013 轮删掉 `PrintAst` 时，全仓 200 处引用是**按名字整批改名**的，
+ * 于是 `typescript/print-ast-common.xl.md` 里那句「先问 `PrintDirectAst`、再问 `PrintAst`」
+ * 被改成了「先问 `PrintDirectAst`、再问 `PrintDirectAst`」——**同一页里两个名字一样**，
+ * 读起来像同一问写了两遍，而它说的其实是那条**已经删掉的老路**。
+ * 这一格正是**第三个出口的规格页**，错在这里的代价是「照着规格读代码，读出来的是幻觉」。
+ *
+ * **为什么必须是门而不是顺手改一次** ✗：这种错**不改行为**——`direct:lint` 的前几条扫的是
+ * 代码块、`cases:direct` 量的是重投一致，两者都看不见散文里的名字。而它偏偏最容易复发：
+ * 下一轮写「搬这一格之前老路是这么写的」时，手一滑就又把老名字当现状写进去了。
+ * 所以口径是**词边界 + 允许名单**：`PrintDirectAst` 里的 `PrintAst` 前一个字符是 `t`
+ * （词内），`\b` 不成立 ⇒ 不命中；真要提老名字，只有「同一行里同时出现
+ * `PrintDirectAst`（说现在）与 `PrintAst`（说过去）、并且带一个「删 / 老 / 原先 / 原先 / 已经」
+ * 这类过去时标记」才放行——也就是**它必须被明确写成过去的事**。
+ */
+const STALE_NAME_ALLOWED = [
+  // 行号会漂，所以按**内容特征**放行：同一行里既有现在、又有过去时标记。
+];
+const STALE_NAME = /\bPrintAst\b/;
+const PAST_MARK = /(老|旧|删|原先|原来|曾经|不再|已经)/;
+let staleNameHits = 0;
+{
+  for (const file of files) {
+    const rel = path.relative(root, file).replace(/\\/g, "/");
+    const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+    for (let index = 0; index < lines.length; index++) {
+      const line = lines[index];
+      if (!STALE_NAME.test(line)) continue;
+      if (PAST_MARK.test(line)) continue;
+      staleNameHits += 1;
+      if (staleNameHits <= 5) {
+        violations.push({
+          file: `${rel}:${index + 1}`,
+          why:
+            "这里写着 `PrintAst` 却看不出它已经是过去的事——第 1013 轮起这一格只有 " +
+            "`PrintDirectAst`（要提老名字就把「老 / 删 / 原先」一起写在同一行）",
+        });
+      }
+    }
+  }
+}
+
 // **按字符串键查的账**（第 1005 轮）：逐键比额度——多了红（有人写回来了），
 // 少了也红（收掉了就来把例外表那一行删掉）。
 const stringKeys = [...new Set([...STRING_KEY_ALLOWED.keys(), ...stringKeyHits.keys()])].sort();
@@ -282,6 +328,12 @@ console.log(
 );
 console.log(
   `名字那一格（${SHARED_FILE} 的代码块）：按字符串键读 ${nameKeyHits} 处（0 处才是对的，读法只走 tokenNameOf）`,
+);
+// **老名字的账**（第 1014 轮）：`PrintAst` 只在「明说它已经不存在」的行上出现，
+// 而那三行全在同一个文件里 ⇒ 这条读数有两个用途：一是「改名的残留」当场可见，
+// 二是「下一个人想提老名字」时知道要把它写成过去的事（见 STALE_NAME 的说明）。
+console.log(
+  `老名字 \`PrintAst\`（词边界，不含 PrintDirectAst）：${staleNameHits} 处没写成过去的事（0 处才是对的）`,
 );
 if (verbose) {
   for (const one of directPages) console.log(`  direct  ${one.file}:${one.line}`);

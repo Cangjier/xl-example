@@ -79,7 +79,8 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 | --- | --- | --- |
 | 与 TS 原生 AST 对拍 | `npm run cases:tsast` | 逐节点比 **kind、区间、字段名**；缺（没投出来）与漂移（位置差一点）分开报。退出码按**八条**算：四方向 + 未映射（透传进产物的标签）+ 缺 range + 区间越界 + **抛异常 0**（第 674 轮加的） |
 | **重投一致** | `npm run cases:direct` | 同一份输入**投两遍**：`ToJsonText` 逐字节相同 + `unmapped` / `count` 记账相同。第三个出口第 1013 轮起只有 `PrintDirectAst` 一条路，所以量的是「同一份输入不许投出两个答案」（第 992 轮加时量的是「与 `PrintAst` 同答」，第 1013 轮老路删掉之后改口径，见第 4 节） |
-| **只用 token 自己的东西** | `npm run direct:lint` | 逐页扫 `PrintDirectAst` 的方法体（注释不算）：不许 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（第 992 轮加；第 1013 轮撤掉「同页必须还有 `PrintAst`」那条基线判据） |
+| **只用 token 自己的东西** | `npm run direct:lint` | 逐页扫 `PrintDirectAst` 的方法体（注释不算）：不许 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（第 992 轮加；第 1013 轮撤掉「同页必须还有 `PrintAst`」那条基线判据；第 1014 轮加一条**只扫散文**的：「`PrintAst` 这个老名字只许写在明说它已经不存在的那一行」，词边界匹配、`PrintDirectAst` 不算） |
+| **成对方法合并的等价性**（一次性） | —— | 第 1014 轮把「每个 token 页上 `PrintAst` 与 `PrintDirectAst` 两节相邻成对、留后者删前者」这句话**逐段核对**了一遍：75 对里 **21 对逐字节同一份**（老那两节本来就同答）、**47 对**新方法与**老直出版**逐字节同一份（＝留后者）、**7 对**有实质差异而这 7 对**全是第 992~1013 轮的既定改写**（5 对是 `k.get("type")` → `k.Tag()`；`import` 与 `lamda` 各一对是「回原文扫一遍」改成读 token 上的字段）⇒ 「除了那批有判据的改写，合并没有动过任何一格投影」 |
 | **发布路径**端到端 | `node tests/parse/ts-ast.mjs --cli` | 真的开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 与 `ts.createSourceFile` 对拍（每个文件一个进程，按需跑） |
 | 逐字节确定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比对，**不做归一化**（紧凑单行、键序与 `pos` / `end` 都是确定性的） |
 | 「命令行 = 库 API」 | `npm run samples` | 同一份源码，`cjcli` 进程与库 API 的输出必须逐字节相同 |

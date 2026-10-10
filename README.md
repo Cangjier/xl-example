@@ -285,7 +285,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:astjson` | **出口 2（AST JSON）的尺子**（第 884 轮加）：逐节点比「标签名 === `type`」「XML 的每个属性在 JSON 里**同名同值**」「每个节点都有合法 `range`」「JSON 多出来的键在 [docs/ast-json.md](docs/ast-json.md) 第 2–4 节**登记过**」，外加「命令行 === 库 API」与「不抛异常」——**六项全 0 才退出码 0** |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `cases:direct` | **重投一致**（第 992 轮加，第 1013 轮改口径）：第三个出口（`Token.PrintDirectAst`）现在是**唯一**的写法，所以量的是「同一份输入投两遍」——`ToJsonText` **逐字节**相同 + `unmapped` / `count` 记账同，两项全 0 才退 0；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`） |
-| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；末一条扫的是**共享投影那一页的代码块**：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层 |
+| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据、第 1014 轮再加一条）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；扫**共享投影那一页的代码块**那一末条：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层；**第 1014 轮**再加一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算） |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `cases:tags` | **用例自带的期望**：`xl:expect`（存在，或 `Tag:N` 计数）与 `xl:absent` 逐条对产物核实，外加标签表体检 |
@@ -308,6 +308,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1014 轮：把「成对方法合并」这句话**逐段核对**了一遍（75 对里 68 对与老那一节逐字节同一份），并把「老名字」这条残留学进 `direct:lint`
+
+**一句话**：第 1013 轮删 `PrintAst` 时，全仓 200 处引用是**按名字整批改名**的——于是同一页里
+出现了一处自指错句（「先问 `PrintDirectAst`、再问 `PrintDirectAst`」）。这一轮先**核对**那批合并
+到底有没有改变投影，再把「老名字只许写成过去的事」变成门。
+
+- **核对（`tmp-r1014/pair-audit.mjs`，一次性探针）**：取改动前那一版（`fc6c828c^`）的每一段
+  `## method PrintAst` / `## method PrintDirectAst`，与工作树里对应的那段逐行比——
+  **75 对**里 **21 对**老的两节本来就逐字节同一份、**47 对**新方法与**老直出版**逐字节同一份
+  （＝确实「留后者、删前者」）、**7 对**有实质差异，而这 7 对**全是第 992~1013 轮的既定改写**：
+  5 对是 `k.get("type")` → `k.Tag()`（第 1005 轮那一格事实），`import` 与 `lamda` 各一对是
+  「回原文扫一遍」改成读 token 上的字段（`typeOnly` / `arrowAt`）。⇒ **除了那批有判据的改写，
+  合并没有动过任何一格投影**；老段落里那些「引用、新段落里不见」的成员（54 处）也逐条对得上，
+  它们全是被判据逼掉的回原文查（`ctx.source` / `ctx.TextOf` / `ctx.Attr` / `ctx.MatchingParen` …）。
+- **改的那一句**：`projectNode` 里那处自指错句改写成现状陈述（「这一格只有这一个入口：
+  `PrintDirectAst` 答 `undefined` 直接落通用支」），并写清「老名字为什么不再出现在这一页的理由里」。
+- **新判据（`direct:lint` 第 1014 轮）**：`PrintAst` 这个老名字只许出现在**明说它已经不存在**的行上
+  ——词边界匹配（`PrintDirectAst` 不算），同一行里要有「老 / 旧 / 删 / 原先 / 原来 / 曾经 / 不再 /
+  已经」这类过去时标记。**为什么它必须是门**：这种错**不改行为**，前几条判据扫的是代码块、
+  `cases:direct` 量的是重投一致，两处都看不见散文里的名字；而它偏偏最容易复发（下一轮写
+  「搬这一格之前老路是这么写的」时手一滑就写回去了）。当前读数：**3 处放行、0 处违规**，
+  三处全在 `print-ast-common.xl.md`（历史注释两处 + 一句「老名字不再出现在这一页的理由里」）。
+  **这条判据自己验过一遍**（`tmp-r1014/probe-stale-name.mjs`）：把三处放行行**各去掉过去时标记**，
+  门每次都报 1 行、`exit=1`；写回后 `exit=0`。
+- **产物与门**：`print-ast-common.xl.md → dist/ts/… → build/ts/…` 重过一遍（`xl_build` 指定这一份 +
+  `npm run compile`）；`npm run gates` **11 道门 9 通过 2 失败**，那 2 道（`cases:tsast` 的 3 条
+  `xl:known-gap`、`coverage` 的 4247 / 4422）读数与改动前逐项相同。
 
 ### 第 1013 轮：第三个出口**只剩一格**——`PrintAst` 与它的派发分支整条删除，`PrintDirectAst` 成为唯一实现（68 页 / 75 段成对方法合并、全仓 200 处引用改名、两道门跟着改口径）
 
