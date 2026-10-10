@@ -307,6 +307,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 955 轮：清单空着时的第五次普查——**近路普查**量出两族：接口继承的圆括号收掉、`yield` / `await` 的第三态登记（缺口 0 → 1）
+
+**一句话**：照第 954 轮那条结论（**近路会绕开现成判据**）专门铺了一批「单子单元落点」的片段：
+**195 条宽面构造一条没量出来，50 条近路片段量出两格**。当轮把 `interface I extends (J)` 那一族收掉，
+把「`yield` / `await` 在没有生成器 / async 上下文时是普通标识符」登记成缺口。九道门全绿。
+
+- **收掉的那一族**：`interface I extends (J) {}` 里那对圆括号**是实体名的一部分**
+  （TS：`HeritageClause > ExpressionWithTypeArguments > ParenthesizedExpression > Identifier`），
+  而产物里**整条声明退回 `ExpressionStatement`**（缺 6 多 2）。**与类那一侧同形**——
+  `class C extends (Base) {}` 一直是好的（`HeritageClause.ClauseEnd` 早写着「`(` 不是边界，
+  括号属于那个实体名」）。根因在 `InterfaceBranch.ScanHead`：`extends` 名单里实体名那一格
+  **只认 `Identifier`**（走 `TakeDottedName`）⇒ 撞上 `(` 就答否 ⇒ 接口头不成立。
+- **修法**：那一格是 `(` 括号时**跨过它**，**名字文本不收**（与类那条路逐字一致：
+  `class C extends (a.b) {}` 的 `extends=""`）——括号里是什么由
+  `ExpressionWithTypeArguments.PrintAst` 自己投（它早就有括号那一支）。
+- **读数**（`tmp/r955/snips{2,3,4}.json`）：这一族**收前 8 条对不上、收后 0 条**，
+  另一个探针 15 条（夹注释 / 换行 / `export` / `declare` / 命名空间里 / 模块里 / 嵌两层括号 /
+  点号名 / 泛型实参 / 与普通名混排）也 0 条。守卫用例
+  [`decl-interface-extends-parenthesized`](tests/cases/token/declarations/decl-interface-extends-parenthesized.ts)。
+- **登记的那一条**（`xl:known-gap`，缺口 0 → 1）：
+  [`gap-r955-yield-await-outside-context`](tests/cases/token/expressions/gap-r955-yield-await-outside-context.ts)
+  ——`yield` / `await` 在**生成器 / async 之外**是普通标识符（`const v = yield;` 在脚本语境里 TS 给
+  `Identifier`），产物一律投成 `YieldExpression` / `AwaitKeyword`（缺 1 多 1）。**与括号无关**、
+  **名字位是好的**（`const await = 1;` / `{ yield: 1 }` 逐节点一致）——坏的全在表达式位。
+  缺的是**第三态**：第 130 / 739 轮的判据问「这一格是不是那个词」，要问的是「**我在不在那个上下文里**」。
+  **入手处**：给投影与 token 层一个「当前函数是不是生成器 / async」的上下文，**别写第二个近似判据**。
+- **实测**：九道门全绿（墙钟 32.7s）——`cases:tsast` 16/16 且**已知缺口 1 条**（第 955 轮登记的那一条）、
+  `cases:astjson` 六项全 0（1587 份 / 40014 个节点）、`cases:check` 1598 / 1598、
+  `cases:tags` 5323 条断言 0 条不一致、`cases:shapes` 未覆盖 0；
+  `coverage 4197 / 4362 → 4198 / 4364`（收掉的那条转绿、登记的那条进 `blocked`：27 → 28；
+  `differ 138` 没动）。
+- **可复用的判据**：**「近路普查」比「宽面普查」便宜**——再铺一遍构造面（195 条）不如照着
+  已知的近路形状（`kids.length === 1`、「实体名那一格只认 Identifier」、「括号在别处早就是实体名
+  的一部分」）**逐个落点问一遍**。第 954 轮量到的是「单子单元直接投」，这一轮量到的是
+  「单子单元**只认一种身份**」——同一条结论的两种长相。
+
 ### 第 954 轮：第 953 轮登记的那一格收掉——**计算属性名里那对圆括号**（缺口 1 → 0，清单第十三次清空）
 
 **一句话**：第 953 轮登记的那一格按它自己写下的入手处收掉——根因**不在括号判据里**，在

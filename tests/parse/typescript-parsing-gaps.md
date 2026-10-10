@@ -588,7 +588,40 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**0 条**）
+## 已知仍开着的缺口（**1 条**）
+
+**第 955 轮：清单空着时的第五次普查——259 条片段量出两族：接口继承的圆括号当轮收掉、`yield` / `await` 的「第三态」登记**
+
+- **手法**：清单空着就换一批构造再量（第 907 / 946 / 947 / 948 / 953 / 954 轮那条路）。
+  这一轮三批：①**宽面普查** 195 条（计算名 / 罕见表达式 / 语句与 ASI / 声明 / 类型位 / trivia
+  插在每一个 token 边界）——**0 条对不上**；②**近路普查** 50 条（照第 954 轮那条
+  「近路会绕开现成判据」的结论，专挑**单子单元**的落点：语句壳、括号化继承、`typeof (x)`、
+  `new (a)(b)`、`(yield)` …）——量出**两格**；③把这两格各自**摊成一族** 30 条。
+- **收掉的那一族**：`interface I extends (J) {}` ——括号化的实体名。
+  TS 那边是 `HeritageClause > ExpressionWithTypeArguments > ParenthesizedExpression > Identifier`
+  （`ExpressionWithTypeArguments` 的区间**含括号**），而产物里**整条声明退回 `ExpressionStatement`**
+  （缺 6 多 2）。**与类那一侧同形**：`class C extends (Base) {}` 一直是好的，因为
+  `HeritageClause.ClauseEnd` 早写着「`(` 不是边界，括号属于那个实体名」。
+  根因在 `InterfaceBranch.ScanHead`：`extends` 名单里实体名那一格**只认 `Identifier`**
+  （走 `TakeDottedName`）⇒ 撞上 `(` 就答否 ⇒ 接口头不成立。
+  **修法**：那一格是 `(` 括号时跨过它，**名字文本不收**（与类那条路逐字一致：
+  `class C extends (a.b) {}` 的 `extends=""`），括号里是什么交给
+  `ExpressionWithTypeArguments.PrintAst`（它早就有括号那一支）。
+  守卫用例 [`decl-interface-extends-parenthesized`](../../tests/cases/token/declarations/decl-interface-extends-parenthesized.ts)。
+- **登记的那一条**（`xl:known-gap`）：[`gap-r955-yield-await-outside-context`](../../tests/cases/token/expressions/gap-r955-yield-await-outside-context.ts)
+  ——`yield` / `await` 在**生成器 / async 之外**是普通标识符（`const v = yield;` 在脚本语境里
+  TS 给的是 `Identifier`；非 async 函数里的 `await` 同理），产物一律投成
+  `YieldExpression` / `AwaitKeyword`（缺 `Identifier` 1、多 1）。**与括号无关**
+  （`const v = yield;` 与 `const v = (yield);` 同形）；**名字位是好的**
+  （`const await = 1;` / `{ yield: 1 }` 逐节点一致）——坏的全在表达式位。
+  **缺的是「第三态」**：第 130 / 739 轮为「同一个词两态都要认」写的判据问的是
+  「这一格是不是 `yield` / `await`」，而要问的是「**我在不在那个上下文里**」。
+  **入手处**：给投影（以及 token 层那一趟）一个「当前函数是不是生成器 / async」的上下文；
+  **别在这一格写第二个近似判据**。
+- **可复用的判据**：**「近路普查」比「宽面普查」便宜**——195 条常规构造一条没量出来，
+  50 条专挑单子单元落点的反而量出两格。近路的形状只有几种（`kids.length === 1` /
+  「实体名那一格只认 Identifier」/ 「括号在别处早就是实体名的一部分」），
+  照它们**逐个落点问一遍**，比再铺一遍构造面有效。
 
 **第 954 轮：第 953 轮登记的那一格收掉——计算属性名里的圆括号（清单第十三次清空）**
 

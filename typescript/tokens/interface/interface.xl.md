@@ -190,12 +190,27 @@ if (extendsWord instanceof Identifier && extendsWord.Is("extends")) {
   this.ScannedNames = [];
   nextIndex = SkipNextTrivia(units, nextIndex);
   while (true) {
-    nextIndex = this.TakeDottedName(units, nextIndex, instance !== null);
-    if (nextIndex < 0) {
-      return false;
-    }
-    if (Get(units, nextIndex) instanceof GenericType) {
+    // **括号化的实体名**（第 955 轮）：`interface I extends (J) {}` 里那个实体名是一对圆括号
+    //（TS 那边是 `ExpressionWithTypeArguments > ParenthesizedExpression > Identifier`），
+    // 与类那一侧**同形**——`HeritageClause.ClauseEnd` 早写着「`(` 不是边界，
+    // 括号属于那个实体名」，`class C extends (Base) {}` 一直是好的。
+    // 这一格原来只认 `Identifier` ⇒ 整个接口头不成立 ⇒ **整条声明退回
+    // `ExpressionStatement`**（实测 `interface I extends (J) {}` 缺 `InterfaceDeclaration` /
+    // `Identifier` / `HeritageClause` / `ExpressionWithTypeArguments` / `ParenthesizedExpression`
+    // 共 6 项、多出 `ExpressionStatement` + `Identifier(interface)`）。
+    // **名字文本不收**（与类那条路逐字一致：`class C extends (a.b) {}` 的 `extends=""`）——
+    // 括号里是什么由 `ExpressionWithTypeArguments.PrintAst` 自己投（它早就有括号那一支）。
+    const head = Get(units, nextIndex);
+    if (head instanceof Bracket && head.startBracket === "(") {
       nextIndex = SkipNextTrivia(units, nextIndex);
+    } else {
+      nextIndex = this.TakeDottedName(units, nextIndex, instance !== null);
+      if (nextIndex < 0) {
+        return false;
+      }
+      if (Get(units, nextIndex) instanceof GenericType) {
+        nextIndex = SkipNextTrivia(units, nextIndex);
+      }
     }
     const comma = Get(units, nextIndex);
     if (comma instanceof SymbolToken && comma.Is(",")) {
