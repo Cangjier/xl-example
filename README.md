@@ -6213,7 +6213,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1563 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4173 / 4342**，加权 **95.4%**。差的那些是**真缺口**（`blocked` 39 / `differ` 130），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**（第 934 轮把第 933 轮新登记的四格收掉 ⇒ `blocked` 43 → 39，同时先前那两格误伤的守卫用例一并转绿；同一轮第四 / 第五两批普查（912 + 880 条合法片段）又收掉四族：映射类型 `-readonly … -?` 那一格、「类型段尾巴上的行注释」那一族、整条语句之后的**前缀**`++`/`--`/`!`、以及 `b?` 换行 `(): E`） |
+| `coverage` | **五类 4176 / 4342**，加权 **95.5%**。差的那些是**真缺口**（`blocked` 27 / `differ` 139），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**（第 936 轮把 `RegExp` 那一族做进来：正则字面量、`new RegExp`、`exec` / `test`、`lastIndex`、命名组、`Object.prototype.toString` 的 `[object RegExp]` 一起落地 —— `blocked` 39 → **27**、`differ` 130 → 139（**原来进不了门、现在跑得出来但还不对的那些**：`String.replace` / `split` 收正则那一半与 `m.index` 那一格还没做完）；同一轮另修了 `lastIndex` 的标志位、正则号与 `Number` / `console` 那两族的**八处撞号**） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~31s**） |
 
 

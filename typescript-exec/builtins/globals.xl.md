@@ -2093,6 +2093,127 @@ JS 的口径就是**返回它自己**，所以这一支也只做「把 `self` �
 **没接这一号的宿主会收到 `unimplemented: builtin id 260`**——响亮地失败，
 而不是给一个假时间（那会破坏确定性，而且要到很久以后才显形）。
 
+# const RegexpCtor:int = 263
+
+**正则那一族的八个号**（第 936 轮）：`RegExp` 这个名字、`RegExp.prototype.exec`、
+`.test`、`.toString`，三格访问器（`source` / `flags` / 八个单标志），外加**匹配那一趟**。
+
+**号开在 `293..300`**（构造那一个是 `263`，见下一段）——**这一格是这一族唯一的号表**。
+
+**为什么不挨着 `Date` 那一段（`265..292`）往后排**：那一段到 `292` 为止，
+可是**空位不连续**（`264` / `293` 之后才是空的）。号段里的空位**按顺序用**，
+跳着用就是给下一个人留坑——第 936 轮第一版就是那么写的（把七个号排在 `267..283`），
+**当场量出八处撞号**（`267` 是 `DateGetUTCFullYear`、`280..283` 是四个错误族构造函数），
+而撞号是**静默的**：`re.exec(s)` 会去调日期那一支、`re.unicode` 会去调 `Error`。
+
+**为什么分成八个号而不是一个「按名字分派」的**：`InvokeGlobal` 的每一支都
+**只认号**（引擎不认识 `"exec"` 这几个字母，与 `Map` / `Set` 同一条分界）——
+名字与号的对应关系写在 `InstallRegexpMethods` 那一张表里，**一处**。
+
+# const RegexpExec:int = 264
+
+`RegExp.prototype.exec(文本)`（第 936 轮）：一个匹配数组，或者 `null`。
+
+**它同时管 `lastIndex`**（JS 里 `exec` 是唯一一个会推进 `lastIndex` 的成员——
+`test` 走的是**同一个**实现，见 `RegexpTest` 那一段）。
+`g` / `y` 两档**必须**推进，否则 `while ((m = re.exec(s)))` 是**死循环**。
+
+# const RegexpTest:int = 378
+
+`RegExp.prototype.test(文本)`（第 936 轮）：就是 `exec(...) !== null`。
+
+**同一个实现的第二个调用点**（不写第二份匹配）：JS 里 `test` 与 `exec`
+在 `lastIndex` 上的行为**逐字相同**（都要推进、失败都要清零）——
+写成两份的话，总有一天一份会漂，而症状是「`test` 与 `exec` 轮流用的时候位置不对」。
+
+# const RegexpToString:int = 377
+
+`RegExp.prototype.toString()`（第 936 轮）：`"/" + 正文 + "/" + 标志`。
+
+**不逃逸斜杠**（第 936 轮的口径）：JS 的 `String(/a\/b/)` 给 `"/a\/b/"`——
+正文本来就是**原样的源码文本**（`__p` 存的就是切出来的那一截，含反斜杠），
+所以拼起来正好；再逃逸一次会变成 `"\/"`（**多一个反斜杠**）。
+
+# const RegexpSourceGet:int = 379
+
+`RegExp.prototype.source` 那个 getter（第 936 轮）——读取那一格 `__p`。
+
+# const RegexpFlagsGet:int = 380
+
+`RegExp.prototype.flags` 那个 getter（第 936 轮）——读取那一格 `__f`（**规范化之后**的串）。
+
+**与 `source` 分开两个号**：`Opaque` 到不了宿主那一侧（见 `RegexpGlobalGet` 那一段），
+而这里两个号比「一个号 + 一条传参通道」便宜——两个号各自一行。
+
+# const RegexpGlobalGet:int = 293
+
+**八个单标志 getter**（`global` / `ignoreCase` / `multiline` / `dotAll` / `sticky` /
+`unicode` / `unicodeSets` / `hasIndices`）——**一个 getter 一个号，连成 `293..300`**。
+
+**为什么刻意要它们连续**：`InvokeGlobal` 那一支要判「是不是这八格之一」，
+连续就能写成一次比较（`id >= 293 && id <= 300`）。**不连续的话那一条判据就是个坑**：
+第 936 轮第一版把它们排在 `275..283`（不连续），而 `280..283` 撞上四个错误族构造函数
+——撞号是**静默的**（`re.unicode` 会去调 `Error`、`re.exec(s)` 会去调日期那一支）。
+
+**「要哪一个字母」不走 `Opaque`**：那一条通道**到不了宿主侧**
+（`vm.xl.md` 的宿主调用只递 `(callee, this, args, room, constructThis)` 五格——
+`HostRef.Opaque` 留在堆里，`answer` 那一侧看不见）。
+八格共号还得再找一条「哪个字母」的通道，而那条通道比这八个号贵得多
+（**号是按段的，属性表不是**）。
+
+**`id - RegexpGlobalGet` 就是 `flagLetters` 的下标**（下面那一支里那张表）。
+
+# const RegexpIgnoreCaseGet:int = 294
+
+`RegExp.prototype.ignoreCase`（第 936 轮）——有 `i`。
+
+# const RegexpMultilineGet:int = 295
+
+`RegExp.prototype.multiline`（第 936 轮）——有 `m`。
+
+# const RegexpDotAllGet:int = 296
+
+`RegExp.prototype.dotAll`（第 936 轮）——有 `s`。
+
+# const RegexpStickyGet:int = 297
+
+`RegExp.prototype.sticky`（第 936 轮）——有 `y`。
+
+# const RegexpUnicodeGet:int = 298
+
+`RegExp.prototype.unicode`（第 936 轮）——有 `u`。
+
+# const RegexpUnicodeSetsGet:int = 299
+
+`RegExp.prototype.unicodeSets`（第 936 轮）——有 `v`。
+
+# const RegexpHasIndicesGet:int = 300
+
+`RegExp.prototype.hasIndices`（第 936 轮）——有 `d`。
+
+# const RegexpMatch:int = 381
+
+**匹配本身那一个能力号——由宿主回答**（第 936 轮）。
+
+**为什么它必须由宿主回答**（而不是在这一层里自己实现一个匹配器）：
+正则的语法是 ECMAScript 规范里**最大的一块**（回溯、贪婪与懒惰、字符类、
+命名组、`u` / `v` 两档的码点语义……）——在语言层再写一遍就是**第二份实现**，
+而两份实现的分歧**不会报错**，只会给出「看起来对的错答案」。
+宿主那边现成有一个（`RunAnswer` 里那一支），与 `Date` 那一族**同一条分界**
+（建库层认识「时刻」这个概念，但不认识日历的算法）。
+
+**实参四个**：`(源文, 标志, 起点, 文本)`。**返回**一个数组：
+
+    [整体, 捕获1, …, 捕获N, 下标, 名字数组, 值数组]
+
+**匹配不上** ⇒ 空数组。**没有命名组** ⇒ 最后两格是**空数组**（不是缺两格）。
+
+**没接这一号的宿主**（返回的不是数组）**当成「匹配不上」**——
+与 `Date.now()` 那一条**不同**：那里没接就抛（时间错了要立刻知道），
+这里没接是「这一格还没做」，而抛出去会让整份文件进不来
+——「不做」仍然不等于「换个行为」，但这一格的默认行为是**空结果**，
+写在 `RegexpMatchText` 那一段。
+
 # const DateCtor:int = 265
 
 **`new Date(毫秒)`** 的能力号（第 114 轮补）。
@@ -2733,7 +2854,11 @@ return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol"
   // **第 717 轮补的一个名字**（`Reflect`）——**名单与 `BuildGlobals` 两边一起加**
   // （少一边的症状写在上面第 2309 行：名单里有、`BuildGlobals` 没挂 ⇒「声明了却没提供」）。
   // 号开在 `685..697`（13 格），理由见 `ReflectApply` 那一段。
-  "Reflect"];
+  // **第 936 轮补的一个名字**（`RegExp`）——**同一条约定**（名单与 `BuildGlobals`
+  // 两边一起加）。它拖着十七条判据（`006-regexp-literal-basic` 那一族：
+  // 名单里没有它，`new RegExp("ab+c")` 在**降级期**就报
+  // `name is not a local or a capture: RegExp`——那句话听起来像脚本写错了变量名）。
+  "Reflect", "RegExp"];
 ```
 
 **`Function` 是第 228 轮加进来的**（与 `Boolean` / `Promise` 那两条同一个理由）：
@@ -6450,7 +6575,454 @@ if (id === DateUTC) {
   return Value.FromDouble(DateMakeMs(utcYearFixed, utcMonth, utcDay, utcHours, utcMinutes,
     utcSeconds, utcMillis));
 }
+if (id === RegexpCtor) {
+  return MakeRegexp(room, call, table, protos, args);
+}
+if (id === RegexpExec || id === RegexpTest) {
+
+  return RunRegexp(room, call, table, protos, args, self, id === RegexpTest);
+}
+if (id === RegexpToString) {
+  // **`RegExp.prototype.toString()`**（第 936 轮）：`"/" + 正文 + "/" + 标志`。
+  // **接收者不是正则 ⇒ 抛 `TypeError`**（JS 的口径：那一格要 `[[RegExpMatcher]]`）。
+  // 判据是**内部那一格在不在**（`HasRegexpMark`）——不是「`Symbol.match` 可调」：
+  // 后者是**协议**（脚本可以自己造一个），而这一格要的是**真的正则**。
+  if (!HasRegexpMark(room, table, self)) {
+    throw new TypeError("RegExp.prototype.toString called on a non-RegExp");
+  }
+  const toStringText = "/" + RegexpPatternOf(room, table, self) + "/" + RegexpFlagsOf(room, table, self);
+  return Value.FromString(table.CreateString(Units(toStringText)));
+}
+if (id === RegexpSourceGet || id === RegexpFlagsGet) {
+  // **`source` 与 `flags` 两格共一个号**（`Opaque` 在这里就是「要哪一格」：
+  // `RegexpSourceGet` 取正文、`RegexpFlagsGet` 取标志串，见号那一段）。
+  // **不是正则 ⇒ `undefined`**（JS 里读 `RegExp.prototype.flags` 是一个访问器、
+  // 接收者不对就抛；本仓给 `undefined`——**不做 ≠ 换个行为**，
+  // 而那一格的判据今天一条都不读这个边角）。
+  if (!HasRegexpMark(room, table, self)) return Value.Undefined();
+  if (id === RegexpSourceGet) return Value.FromString(table.CreateString(Units(RegexpPatternOf(room, table, self))));
+  return Value.FromString(table.CreateString(Units(RegexpFlagsOf(room, table, self))));
+}
+if (id >= RegexpGlobalGet && id <= RegexpHasIndicesGet) {
+  // **八个单标志 getter**（`293..300`，连续的一小段）：把号翻成一个字母，再问那一格。
+  // **一条表、一处**：名字与号的对应关系已经写在 `InstallRegexpMethods` 那里，
+  // 这里只补「号 → 字母」这一半（两份表按同一个次序排，与 `Math` 那两张表同一条纪律）。
+  //
+  // **这一条判据用的是「连续」这一点**（`>= 起点 && <= 终点`）——
+  // 所以那八个号**必须**挨着：中间插进别人的号，那一支就会把那几格也吃进来
+  //（撞号的症状是静默的，第 936 轮第一版量到过八处）。
+  if (!HasRegexpMark(room, table, self)) return Value.Undefined();
+  const flagLetters = ["g", "i", "m", "s", "y", "u", "v", "d"];
+  const flagLetter = flagLetters[id - RegexpGlobalGet];
+  const flagText = RegexpFlagsOf(room, table, self);
+  return Value.FromBool(flagText.indexOf(flagLetter) >= 0);
+}
 throw new Error("unimplemented: global builtin " + id);
+```
+
+# method MakeRegexp:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, args:Array<Value>)=>Value
+
+**造一个正则实例**（第 936 轮）：`new RegExp(源文, 标志)` 与**正则字面量**两条路都落在这里。
+
+**状态全在实例自己的两个隐藏格里**，所以这一族**一个号都不必开**：
+
+| 格 | 内容 | 谁读 |
+| --- | --- | --- |
+| `__p` | 正文（**不含两端斜杠**） | 匹配那一趟（`RegexpMatch` 号） |
+| `__f` | **规范化之后**的标志串（`dgimsuvy` 里出现过的、按这个次序） | 六个标志 getter 与匹配那一趟 |
+| `__l` | `lastIndex`（一个数，**可写**） | `exec` / `test` / 脚本自己赋值 |
+
+**为什么标志要规范化**：`new RegExp("a", "ig")` 与 `new RegExp("a", "gi")` 在 JS 里
+`.flags` **都是** `"gi"`（规范把标志按固定次序重排）。**不重排就是静默错值**
+（`.flags` 给 `"ig"`，而 `"ig"` 与 `"gi"` 哪一个真的出现过，脚本看不出来）。
+
+**匹配本身不在这一层**：那一趟交给宿主（`RegexpMatch` 号，见号那一段）——
+与 `Date` 那一族同一条分界（**这一层不认识正则的语法，只认识「源文 + 标志」两个字符串**）。
+
+```ts
+if (call === null) {
+  // **没有宿主通道** ⇒ 响亮地抛（与 `Date.now()` 那一条同一条口径：
+  // 「不做」不等于「换个行为」）。静默给一个匹配不出来的对象会更难查：
+  // 症状会变成「正则永远匹配不上」，而那句话离现场很远。
+  throw new Error("unimplemented: RegExp needs a host that can run regular expressions");
+}
+const created = NewPlainObject(room, table, protos);
+// **原型那一格从 `Protos` 上取**（`protos.RegExp`，第 936 轮新开的一格）：
+// 与 `Map` / `Set` / `Date` 那几族**同一条机制**，也是 `instanceof RegExp`
+// 唯一说得清的落点（引擎按 `Proto` 链走，`ConstructorProtos` 那张登记表就靠它）。
+table.Get(created.Ref).Proto = protos.RegExp;
+let patternText = "";
+let flagText = "";
+if (args.length > 0 && args[0].Tag === ValueTag.String) {
+  patternText = HostUnitsText(table.Get(args[0].Ref).AsString().Units);
+}
+if (args.length > 1 && args[1].Tag !== ValueTag.Undefined && args[1].Tag !== ValueTag.Null) {
+  if (args[1].Tag !== ValueTag.String) {
+    throw new TypeError("RegExp flags must be a string");
+  }
+  flagText = HostUnitsText(table.Get(args[1].Ref).AsString().Units);
+}
+let normalized = "";
+const flagOrder = "dgimsuvy";
+for (let f = 0; f < flagOrder.length; f++) {
+  const flag = flagOrder[f];
+  let seen = false;
+  for (let c = 0; c < flagText.length; c++) {
+    if (flagText[c] === flag) seen = true;
+  }
+  if (!seen) continue;
+  // **同一个标志写两次是 `SyntaxError`**（JS 的口径）——不当成「一次」糊过去。
+  let count = 0;
+  for (let c = 0; c < flagText.length; c++) {
+    if (flagText[c] === flag) count = count + 1;
+  }
+  if (count > 1) {
+    throw new TypeError("duplicate regular expression flag");
+  }
+  normalized = normalized + flag;
+}
+// **不认的字母也是 `SyntaxError`**：规范化那一趟只留下认识的八个，
+// 所以「留下的长度」与「输入的字符数」不同就是混进了别的字母。
+if (normalized.length !== flagText.length) {
+  throw new TypeError("unknown regular expression flag");
+}
+SetHiddenProperty(room, table, created,
+  Value.FromString(table.CreateString(Units("__p"))), Value.FromString(table.CreateString(Units(patternText))));
+SetHiddenProperty(room, table, created,
+  Value.FromString(table.CreateString(Units("__f"))), Value.FromString(table.CreateString(Units(normalized))));
+SetHiddenProperty(room, table, created,
+  Value.FromString(table.CreateString(Units("__l"))), Value.FromInt(0));
+return created;
+```
+
+# method RegexpPatternOf:(room:RoomChecker, table:HeapTable, value:Value)=>string
+
+**这个值身上那格 `__p`**；不是正则（或者没接通道）就给空串。
+
+**判据是「自有那一格在不在」**（`FindProperty` 之后再问 `Owner`）——
+照原型认会把 `Object.create(RegExp.prototype)` 也当成正则，
+而 JS 里它**不是**（那一格提示串都印不出来）。与 `UnwrapBox` 那条同一套做法。
+
+**为什么读属性不走 `GetProperty`**：`__p` 是**内部格**（`PropertyFlagInternal`），
+它不该被脚本的 `o.__p` 读到——这一条与 `Date` 的 `__t` 同一个位置。
+
+```ts
+const found = FindProperty(room, table, value.Ref, Value.FromString(table.CreateString(Units("__p"))));
+if (found === null) return "";
+if (found.Owner !== value.Ref) return "";
+// **那一格必须是字符串**（脚本能往自有属性上写任何东西）：不是就给空串，
+// 让调用点按「不是正则」办——`.Ref` 硬取的话，一个被写坏的实例会在**别处**炸。
+const storedPattern = table.Get(found.Owner).Props[found.Index].Value;
+if (storedPattern.Tag !== ValueTag.String) return "";
+return HostUnitsText(table.Get(storedPattern.Ref).AsString().Units);
+```
+
+# method RegexpFlagsOf:(room:RoomChecker, table:HeapTable, value:Value)=>string
+
+**这个值身上那格 `__f`**（规范化之后的标志串）；不是正则就给空串。
+
+与 `RegexpPatternOf` **逐字同形**（两格分开是因为读的地方不同：
+匹配那一趟两格一起要，而六个标志 getter 只要这一格）。
+
+```ts
+const found = FindProperty(room, table, value.Ref, Value.FromString(table.CreateString(Units("__f"))));
+if (found === null) return "";
+if (found.Owner !== value.Ref) return "";
+const storedFlags = table.Get(found.Owner).Props[found.Index].Value;
+if (storedFlags.Tag !== ValueTag.String) return "";
+return HostUnitsText(table.Get(storedFlags.Ref).AsString().Units);
+```
+
+# method RegexpMatchText:(call:NativeCall | null, table:HeapTable, pattern:string, flags:string, text:string, start:int)=>Array<Value>
+
+**问一次宿主：这段文本里下一处匹配是什么**（`RegexpMatch` 号）。
+
+**实参四个、按位置给**：`(源文, 标志, 起点, 文本)`——**起点**就是当前的 `lastIndex`
+（JS 的 `g` / `y` 两档都是从 `lastIndex` 起算的，本仓不自己走一遍）。
+
+**返回的线形态**（宿主那一侧的实现写在 `RunAnswer` 的 `RegexpMatch` 那一段）：
+
+    [整体, 捕获1, …, 捕获N, 下标, 名字数组, 值数组]
+
+- **匹配不上** ⇒ 空数组；
+- **没有命名组** ⇒ 最后两格是**空数组**（不是「缺两格」——两种形状混在一起时，
+  调用点要靠 `length` 去猜，那是会漂的写法）。
+
+**返回空数组有两种意思**：真匹配不上，**或者**宿主没接这一号。调用点分不出这两者——
+**这是有意的**：宿主答不了时本仓给的是「匹配不上」，而不是一个假的匹配。
+
+```ts
+if (call === null) return [];
+const host = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(RegexpMatch, 0));
+const flat = call(host, Value.Undefined(), [
+  Value.FromString(table.CreateString(Units(pattern))),
+  Value.FromString(table.CreateString(Units(flags))),
+  Value.FromInt(start),
+  Value.FromString(table.CreateString(Units(text))),
+]);
+if (flat.Tag !== ValueTag.Array) return [];
+const items = table.Get(flat.Ref).AsArray();
+const out: Value[] = [];
+for (let i = 0; i < items.GetLength(); i++) out.push(items.GetAt(i));
+return out;
+```
+
+# method RegexpGroupsFrom:(room:RoomChecker, table:HeapTable, protos:Protos, parts:Array<Value>)=>Value
+
+**宿主那一趟带回来的命名组** ⇒ 一个普通对象（`m.groups`）。
+
+**线形态的尾部次序**（第 936 轮**实测量出来的**，与 `RegexpMatchArray` 那一段同一条）：
+`[整体, 捕获…, 下标, 结束位置, 名字, 值]`——所以**名字是倒数第二格、值是最后一格**
+（**不是**「倒数第二/第三格」：第一版写成 长度-2 / 长度-1 时，
+那一趟把「结束位置」当成了名字数组，于是 `m.groups` 永远是 `undefined`）。
+
+**为什么名字走 `SetHiddenProperty`**：命名组名是**脚本可控的文本**
+（`(?<__proto__>x)` 在 JS 里是一个**普通自有属性**），而赋值那条路会让
+`__proto__` 改名原型——建库层造的是普通对象，走「自有 + 不可枚举」那条路最省事。
+
+```ts
+if (parts.length < 2) return Value.Undefined();
+const names = parts[parts.length - 2];
+const values = parts[parts.length - 1];
+if (names.Tag !== ValueTag.Array || values.Tag !== ValueTag.Array) return Value.Undefined();
+const nameList = table.Get(names.Ref).AsArray();
+const valueList = table.Get(values.Ref).AsArray();
+const nameCount = nameList.GetLength();
+if (nameCount !== valueList.GetLength() || nameCount === 0) return Value.Undefined();
+const out = NewPlainObject(room, table, protos);
+for (let i = 0; i < nameCount; i++) {
+  const nameValue = nameList.GetAt(i);
+  if (nameValue.Tag !== ValueTag.String) continue;
+  SetHiddenProperty(room, table, out, nameValue, valueList.GetAt(i));
+}
+return out;
+```
+
+# method RegexpMatchArray:(room:RoomChecker, table:HeapTable, protos:Protos, parts:Array<Value>, input:string)=>Value
+
+**宿主那一趟的读数 ⇒ JS 的那个匹配数组**（`exec` 的全部答案）。
+
+**形状照 JS 来**：`[整体, 捕获1, …]`（一个**数组**）外加三格自有属性
+——`index`（数）、`input`（整段文本）、`groups`（命名组那个对象或者 `undefined`）。
+少了 `index` / `input` 两格的话 `"a1".match(/\d/)` 那一支读不到下标，
+而 `String.prototype.match` 那一族**正是读那两格**的（第 937 轮接）。
+
+**`lastIndex` 的推进不在这里**：那是 `exec` / `test` 两个调用点的事
+（**只有它们**知道这次是不是 `g` / `y`、成功之后要不要挪）——
+放在这里会让「谁改的 `lastIndex`」多一个来处。
+
+**按下标搬、不按 `Tag` 分派**（第 936 轮**实测逼出来的**）：线形态那一串
+**位置本身就是它的形状**（`[整体, 捕获…, 下标, 名字, 值]`），
+所以「捕获那一段」= `parts[0 .. 长度-4]`（含整体）、`下标` = 倒数第三个。
+**为什么不去问 `parts[1].Tag` 是不是数组**：那一条在解释器里**读回来不对**
+（同一个下标，循环里读是数组、随后单独读同一个下标却是字符串——
+实测 `tags=[5|5|5|5|7|7]` 而 `parts[1].Tag` 单独读给 `5`；
+**按位置搬之后 `m[0] / m[1] / m[2]` 三格一次全对**）。
+这一条是**绕开**而不是修好：那个错读不在这一轮的范围里，
+**记在台账上**（`tmp/r936/` 那几份探针就是现场），下一轮单独查「三元表达式/循环里
+对同一个表达式下标两次读回不同的 `Tag`」那一族。
+
+```ts
+const result = NewPlainArray(room, table, protos);
+const cells = table.Get(result.Ref).AsArray();
+// **捕获那一段含整体**：`[整体, 捕获1, …]` 到「倒数第三格」为止
+// （后面三格是下标 / 名字 / 值）。
+for (let at = 0; at + 3 < parts.length; at++) {
+  cells.Push(parts[at]);
+}
+// **下标是「线形态的倒数第四格」**（第 936 轮**实测量出来的**）：
+// 线形态是 `[整体, 捕获…, 下标, 结束位置, 名字, 值]`——中间那一段（捕获）**个数随正则变**，
+// 所以只有从**尾部**数才定得住。**从前面数是错的**：`parts[parts.length - 3]`
+// 拿到的是「结束位置」，于是 `m.index` 永远给 `0`（判据 `r779j-01` 第 2 行量的正是它）。
+// **尾部的次序**：值（-1）、名字（-2）、结束位置（-3）、下标（-4）。
+const rawIndex = parts.length > 4 ? parts[parts.length - 4] : Value.Undefined();
+// **三格属性走 `SetProperty`、不走 `SetHiddenProperty`**（第 936 轮**实测撞到的**）：
+// `SetHiddenProperty` 挂的是**内部记账格**（`PropertyFlagInternal`），
+// 而读用户口径的属性时**看不见记账格**（`includeInternal` 缺省为假）
+// ⇒ 那几格读回来是 `undefined`。这三格是 JS **真的会读**的普通属性。
+//
+// **`index` 这一格今天有一个已知缺陷**（第 936 轮**量到、没修完**，记在台账里）：
+// 写进去的是 `rawIndex`（`IsNumber()` 为真、`AsInt()` 给的是**正确的下标**），
+// 可**读回来永远是 `0`**。对照实验把范围收得很窄——
+// **同一段代码里 `index2` / `aa1` / `aa2` 三个键都读得回来**，
+// 只有名字叫 `index` 的那一格读回 `0`（`Object.getOwnPropertyDescriptor(m, "index").value`
+// 也是 `0`，而 `m.index = 99` 之后读回来是 `99`）——
+// 也就是说「数组上普通属性的读写」在**别的键**上都是好的，
+// 根不在这一层：要么 `NameValue`/`SetProperty` 那条路上对 `"index"` 这个名字有特判，
+// 要么**读**那一侧（`GetProperty`）把它当成了别的东西。
+// **不猜、不绕**：`m.index` 与 `g` 档的 `lastIndex` 推进都靠这一格，
+// 所以那两条判据今天**还是红**（`r779j-01` 第 2 行量的是 `m.index`）。
+SetProperty(room, NeverCall, table, result, NameValue(table, "index"),
+  rawIndex.IsNumber() ? rawIndex : Value.FromInt(0));
+SetProperty(room, NeverCall, table, result, NameValue(table, "input"),
+  Value.FromString(table.CreateString(Units(input))));
+SetProperty(room, NeverCall, table, result, NameValue(table, "groups"),
+  RegexpGroupsFrom(room, table, protos, parts));
+return result;
+```
+
+# method InstallRegexpMethods:(vm:Vm, room:RoomChecker, table:HeapTable, target:Value)=>void
+
+**把 `RegExp.prototype` 上那几个成员挂上去**（第 936 轮）——形状与 `InstallDateMethods`
+一字不差（**方法挂原型、状态在实例**）。
+
+**这一族今天只有「执行那一半」**：`exec` / `test` / `toString` / `compile` 不做，
+`source` / `flags` / `lastIndex` / 六个标志各一格。
+
+```ts
+const regexpMethodIds = [RegexpExec, RegexpTest, RegexpToString];
+const regexpMethodNames = ["exec", "test", "toString"];
+for (let i = 0; i < regexpMethodIds.length; i++) {
+  const methodValue = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(regexpMethodIds[i], 0));
+  DefineBuiltinName(room, table, methodValue, regexpMethodNames[i], BuiltinArity(regexpMethodIds[i]));
+  SetHiddenProperty(room, table, target,
+    Value.FromString(table.CreateString(Units(regexpMethodNames[i]))), methodValue);
+}
+// **`lastIndex` 是一个普通的数据属性**（可写、可配置）——
+// 它**不是**访问器：`r.lastIndex = 1` 就是写一个数（`exec` 读它、成功之后改它）。
+//
+// **标志位必须是「可写」**（第 936 轮**实测撞到的**，而且是**静默**的）：
+// 第一版这里传的是 `0`（`SetHiddenProperty` 给具体标志位时的口径就是它——
+// 不可写 + 不可配置），于是 `r.lastIndex = 5` **一声不响什么都没做**
+//（非严格模式对不可写属性的赋值就是这条规矩：不抛、不写）。
+// 症状是 `r.lastIndex` 永远读回 `0` ⇒ `while ((m = re.exec(s)))` **死循环**。
+// **缺省 `-1` 才是「可写 + 可配置」**（第 194 轮起的老口径，见 `SetHiddenProperty`）。
+SetHiddenProperty(room, table, target,
+  Value.FromString(table.CreateString(Units("lastIndex"))), Value.FromInt(0));
+// **`source` 是只读访问器**（JS 里 `RegExp.prototype.source` 描述符上没有 `set`）——
+// getter 的 `Opaque` 是「要读哪一格」：`0` = 正文、`1` = 标志串。
+DefineAccessor(room, table, target, NameValue(table, "source"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(RegexpSourceGet, 0)), Value.Undefined(), false);
+DefineAccessor(room, table, target, NameValue(table, "flags"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(RegexpFlagsGet, 0)), Value.Undefined(), false);
+// **六个标志 getter**：**一个 getter 一个号**（`275..282`）。
+// **不用 `Opaque` 传「要哪一个字母」**：那一条通道到不了宿主侧
+// （`vm.xl.md` 的宿主调用只递五格，`HostRef.Opaque` 留在堆里），
+// 而这里**根本不必问宿主**——标志串就在接收者身上，**逐个字母比一次**就够了。
+const oneFlagNames = ["global", "ignoreCase", "multiline", "dotAll", "sticky",
+  "unicode", "unicodeSets", "hasIndices"];
+const oneFlagIds = [RegexpGlobalGet, RegexpIgnoreCaseGet, RegexpMultilineGet, RegexpDotAllGet,
+  RegexpStickyGet, RegexpUnicodeGet, RegexpUnicodeSetsGet, RegexpHasIndicesGet];
+for (let i = 0; i < oneFlagNames.length; i++) {
+  DefineAccessor(room, table, target, NameValue(table, oneFlagNames[i]),
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(oneFlagIds[i], 0)), Value.Undefined(), false);
+}
+```
+
+# method HasRegexpMark:(room:RoomChecker, table:HeapTable, value:Value)=>bool
+
+**这个值是不是一个正则实例**（第 936 轮）——判据是**它自己身上有没有 `__f` 那一格**
+（`FindProperty` 之后再问 `Owner === 自己`）。
+
+**为什么不是「`Symbol.match` 可调」**：那是**协议**（`IsRegexpValue` 问的就是它，
+`replace` / `split` 该那么问）；而这一格要的是**引擎自己的那一档**——
+`RegExp.prototype` **自己**没有 `__f`（它是原型，不是实例），
+所以 `RegExp.prototype.toString()` 照 JS 抛 `TypeError`（不是给出 `"//"`）。
+
+**与 `RegexpPatternOf` 同一条做法**：`Object.create(RegExp.prototype)` **不算**正则
+（它没有那一格），JS 里也一样。
+
+```ts
+if (!value.IsObject()) return false;
+const found = FindProperty(room, table, value.Ref, Value.FromString(table.CreateString(Units("__f"))));
+if (found === null) return false;
+return found.Owner === value.Ref;
+```
+
+# method RunRegexp:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, args:Array<Value>, self:Value, asTest:bool)=>Value
+
+**`exec` 与 `test` 的**同一个实现**（第 936 轮）：差别只有最后给什么值。
+
+**五步，次序是语义**：
+
+1. **接收者必须是一个正则**（`HasRegexpMark`）——不是就抛 `TypeError`
+   （JS 里 `RegExp.prototype.exec.call({})` 正是这个）；
+2. **实参过 `ToString`**（JS 的口径：`re.exec(123)` 匹配的是 `"123"`）；
+3. **起点 = `lastIndex`**（`g` / `y` 两档用它；其余两档从 0 起——
+   那个判断在宿主那一侧，因为「`lastIndex` 对这个标志有没有意义」是正则的规矩）；
+4. **问一次宿主**；
+5. **推进 `lastIndex`**：`g` / `y` 成功之后挪到**匹配结束**那一位
+   （空匹配也要挪一格，否则 `while` 是死循环），失败**清零**；
+   其余标志**一个字节都不动**。
+
+**第 5 步不写就是死循环**：`while ((m = re.exec(s)))` 是真实代码里遍地都是的写法，
+而它在 `g` 那一档上**靠的正是这一格**——症状是「挂住」，不是「答案不对」。
+
+```ts
+if (!HasRegexpMark(room, table, self)) {
+  throw new TypeError("RegExp.prototype.exec called on a non-RegExp");
+}
+
+const subject = args.length > 0 ? JsTextUnits(table, args[0]) : JsTextUnits(table, Value.Undefined());
+const subjectText = HostUnitsText(subject);
+const flags = RegexpFlagsOf(room, table, self);
+const hasGlobal = flags.indexOf("g") >= 0;
+const hasSticky = flags.indexOf("y") >= 0;
+// **`lastIndex` 读的是属性**（脚本可以自己写过它）：`re.lastIndex = 3` 是日常写法
+// （`test` / `exec` 循环里那一种）。**读不到就是 0**（JS 里那一格的初值就是 0）。
+const lastIndexKey = Value.FromString(table.CreateString(Units("lastIndex")));
+// **`call` 可能为 `null`**（宿主那一侧没驱动起来）：`GetProperty` / `SetProperty` 的签名
+// 收的是**非空**的 `NativeCall`，所以走 `NeverCall` 那一档——
+// 与 `array.xl.md` 里那一串 `call === null ? NeverCall : call` **同一个写法、同一条理由**
+// （那时读不到 setter，而 `lastIndex` 是一个**数据属性**，一个访问器都不会碰）。
+const lastIndexValue = GetProperty(room, call === null ? NeverCall : call, protos, table, self, lastIndexKey);
+let start = lastIndexValue.IsNumber() ? lastIndexValue.AsInt() : 0;
+if (start < 0) start = 0;
+const parts = RegexpMatchText(call, table, RegexpPatternOf(room, table, self), flags, subjectText, start);
+if (parts.length === 0) {
+  // **失败：`g` / `y` 两档把 `lastIndex` 清零**（JS 的口径）——其余两档不动。
+  if (hasGlobal || hasSticky) SetProperty(room, NeverCall, table, self, lastIndexKey, Value.FromInt(0));
+  return asTest ? Value.FromBool(false) : Value.Null();
+}
+// **推进 `lastIndex` 只写一处**（第 936 轮）：`test` 与 `exec` 在这一点上
+// **逐字相同**（JS 的口径）——写在两支里就是两份会漂的实现，
+// 而漂的症状是「`test` 与 `exec` 轮流用的时候位置不对」（**静默错值**）。
+if (hasGlobal || hasSticky) {
+  RegexpAdvanceLastIndex(room, table, self, lastIndexKey, parts, start);
+}
+if (asTest) return Value.FromBool(true);
+return RegexpMatchArray(room, table, protos, parts, subjectText);
+```
+
+# method RegexpAdvanceLastIndex:(room:RoomChecker, table:HeapTable, self:Value, lastIndexKey:Value, parts:Array<Value>, start:int)=>void
+
+**一次成功的匹配之后把 `lastIndex` 挪到该去的地方**（第 936 轮）——`exec` 与 `test` 共用。
+
+**挪到哪由宿主那一趟说了算**（`parts` 的**倒数第三格**——那是「结束位置」）：
+它报的是「引擎走完之后 `engine.lastIndex` 是多少」——**那就是 JS 的答案**，
+而本仓不该在旁边再算一遍（`u` / `y` 两档、空匹配那一档各有一条规矩，
+重算就是第二份会漂的实现）。
+
+**尾部的次序**（与 `RegexpMatchArray` 那一段同一条，**实测出来的**）：
+值（-1）、名字（-2）、结束位置（-3）、下标（-4）。
+
+**没报那一格怎么办**（旧线形态 / 宿主没接这一号）：退回
+「下标 + 整体长度」，空匹配时**再挪一格**。这一支是**兜底**，不是主路——
+少了「空匹配再挪一格」那半句，`/(?:)/g` 那种正则会**挂死**
+（`while ((m = re.exec(s)))` 永远停在同一个位置，而它不报错）。
+
+```ts
+const askEnd = parts.length > 3 ? parts[parts.length - 3] : Value.Undefined();
+if (askEnd.IsNumber()) {
+  SetProperty(room, NeverCall, table, self, lastIndexKey, askEnd);
+  return;
+}
+const askedIndex = parts.length > 4 ? parts[parts.length - 4] : Value.Undefined();
+const index = askedIndex.IsNumber() ? askedIndex.AsInt() : start;
+const matched = parts[0].Tag === ValueTag.String
+  ? HostUnitsText(table.Get(parts[0].Ref).AsString().Units)
+  : "";
+SetProperty(room, NeverCall, table, self, lastIndexKey,
+  Value.FromInt(matched.length === 0 ? index + 1 : index + matched.length));
+```
+
+# method InstallRegexpPrototype:(vm:Vm, protos:Protos)=>void
+
+**把 RegExp 那一族的方法装到 `Protos.RegExp` 上**（第 936 轮）——与 `InstallDatePrototype`
+同一个位置、同一个形状。
+
+```ts
+InstallRegexpMethods(vm, vm.Room(), vm.Table, Value.FromObject(protos.RegExp));
 ```
 
 # method InstallDateMethods:(vm:Vm, room:RoomChecker, table:HeapTable, target:Value)=>void
@@ -10187,11 +10759,17 @@ const tagTargets = [protos.Map, protos.Set, protos.Date, protos.Promise,
   protos.WeakMap, protos.WeakSet,
   protos.Generator, protos.AsyncGenerator,
   protos.GeneratorFunction, protos.AsyncFunction, protos.AsyncGeneratorFunction,
+  // **第 936 轮补的一格**（`RegExp.prototype`）：`Object.prototype.toString.call(/x/)`
+  // 在 Node 里是 `"[object RegExp]"`，而那一格正是 `RegExp.prototype[Symbol.toStringTag]`
+  // 供的——与 `Map` / `Set` / `Date` 那三格**同一个机制**（这一处是**唯一**的来处：
+  // `ObjectTagOf` 没有正则那一支，也没有标记格可认）。
+  protos.RegExp,
   protos.Global, math.Ref, jsonObject.Ref, reflect.Ref];
 const tagNames = ["Map", "Set", "Date", "Promise",
   "WeakMap", "WeakSet",
   "Generator", "AsyncGenerator",
   "GeneratorFunction", "AsyncFunction", "AsyncGeneratorFunction",
+  "RegExp",
   "global", "Math", "JSON", "Reflect"];
 for (let i = 0; i < tagTargets.length; i++) {
   // **全局对象那一格是特殊的**（第 754 轮**实测撞到的**）：规范给
@@ -10215,8 +10793,7 @@ for (let i = 0; i < tagTargets.length; i++) {
       Value.FromString(table.CreateString(Units(tagNames[i]))));
   }
 }
-// **`Array[Symbol.species]`**（第 601 轮）：JS 里它是一个只读访问器，
-// getter 返回**接收者**——所以 `class MyArray extends Array {}` 之后
+// **`Array[Symbol.species]`**（第 601 轮）：JS 里它是一个只读访问器，// getter 返回**接收者**——所以 `class MyArray extends Array {}` 之后
 // `MyArray[Symbol.species] === MyArray`（静态成员本来就走构造函数那条原型链，静态 getter 实测也能继承）。
 // getter 是语言层的一个宿主引用（`SpeciesGetterId`：把接收者原样给回去）；
 // `Array` 是个普通对象，所以直接往它身上挂。不可枚举（与 `prototype` 同一条口径）。
@@ -10335,6 +10912,49 @@ const dateParseTarget = ObjectProtoMethod(vm, table, DateParse, "parse");
 SetHiddenProperty(vm.Room(), table, dateObject, dateParseKey, dateParseTarget);
 const dateKey = Value.FromString(table.CreateString(Units("Date")));
 SetHiddenProperty(vm.Room(), table, globals, dateKey, dateObject);
+// **`RegExp`**（第 936 轮）：与 `Date` **同一个形状**——一个普通对象、
+// 身上带一格可调用载荷（`new RegExp(...)` 走 `DoNew` 那条宿主分支，
+// **不靠降级层特例**：所以 `const R = RegExp; new R("a")` 也对）。
+//
+// **三件事在这一段里做完**（次序是语义）：
+//   ① 原型那一格（`protos.RegExp`）已经在 `InitProtos` 里造好了（引擎的地基）；
+//   ② **方法挂上去**（`InstallRegexpMethods`）——`exec` / `test` / `toString`
+//      与三格访问器，与 `Map` / `Set` / `Date` 三族同一条分界；
+//   ③ `constructor` 与 `prototype` **互相指**——`new RegExp("a").constructor === RegExp`
+//      与 `RegExp.prototype.exec` 都靠这一对（与 `Promise` 那两格同款）。
+//
+// **`SourceSliceOf` 那一侧不在这里**：正则字面量由降级层切出正文与标志、
+// 再落成**同一条** `host_call(RegexpCtor, …)`（两份实现就是两份会漂的答案）。
+const regexpObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(regexpObject.Ref, RegexpCtor, 0);
+InstallRegexpMethods(vm, vm.Room(), table, Value.FromObject(protos.RegExp));
+SetHiddenProperty(vm.Room(), table, regexpObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.RegExp));
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.RegExp), NameValue(table, "constructor"),
+  regexpObject);
+// **`RegExp` 自己的 `name` / `length`**（与 `Promise` 那两格同一条口径）：
+// `RegExp.name` 是 `"RegExp"`、`RegExp.length` 是 `2`（`(pattern, flags)` 两格）。
+SetHiddenProperty(vm.Room(), table, regexpObject, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("RegExp"))));
+SetHiddenProperty(vm.Room(), table, regexpObject, NameValue(table, "length"), Value.FromInt(2));
+// **`RegExp.prototype[Symbol.match]`**（第 936 轮）：`IsRegexpValue` 判的就是这一格
+// （`string.xl.md` 的 `IsRegexpValue`：`Symbol.match` **可调**就是正则）——
+// 少了它，`"a1b2".replace(/\d/g, "#")` 会走**字符串那一支**（把 `/a/` 当字面量），
+// 而那是**一个看起来对的错答案**（第 296 轮那条注释量过同一件事）。
+// **指向 `exec` 那个号**：JS 里 `RegExp.prototype[Symbol.match]` 是一个**独立的方法**
+// （`@@match` 那一段自己走 `exec`），本仓暂时**指到 `exec`** ——调用形状一样
+//（`正则[Symbol.match](字符串)` 给的就是那一个匹配数组），
+// 而 `String.prototype.match` 那一族还没接（第 937 轮），所以今天**没有人这样调它**。
+// **为什么不干脆等到第 937 轮**：`IsRegexpValue` 今天就靠这一格分「正则 / 字符串」，
+// 而 `replace` / `split` 两条路**今天就在跑**（判据 `stdlib/string/145` 那一族）。
+const regexpMatchSymbolKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
+  Value.FromString(table.CreateString(Units("match"))));
+if (regexpMatchSymbolKey.Tag === ValueTag.Symbol) {
+  SetProperty(room, NeverCall, table, Value.FromObject(protos.RegExp), regexpMatchSymbolKey,
+    ObjectProtoMethod(vm, table, RegexpExec, "[Symbol.match]"));
+}
+const regexpKey = Value.FromString(table.CreateString(Units("RegExp")));
+SetHiddenProperty(vm.Room(), table, globals, regexpKey, regexpObject);
 // **`Promise`**（第 185 轮）：值由 `promise.xl.md` 造（那里有四个静态方法），
 // 这里只负责**挂进全局对象**——与 `Date` 那一格同一个形状
 // （既是对象、也能被 `new`）。

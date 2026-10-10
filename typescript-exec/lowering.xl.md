@@ -8,7 +8,7 @@ import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames, HasNamedExpression, ReferencesArguments } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
 import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, SetHiddenId, DefineDataId, SetFunctionNameId } from "./builtins/install.xl.md"
-import { StringConcat, TemplateConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
+import { StringConcat, TemplateConcat, ObjectAssign, PowId, RegexpCtor } from "./builtins/globals.xl.md"
 ```
 
 # namespace cangjie
@@ -8286,7 +8286,49 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
 if (kind === "NonNullExpression") {
   return this.LowerExpression(Child(node, "expression"));
 }
+// **正则字面量 `/ab+c/gi`**（第 936 轮）：投影出来的节点**只有 `kind` / `pos` / `end`**
+// （`regex-token.xl.md` 的 `PrintAst` 那一段就是那么返回的——**没有 `text` 字段**），
+// 所以这一支**必须从源码原文里切**（`SourceSliceOf`），不能走 `TextOf`。
+if (kind === "RegularExpressionLiteral") {
+  return this.LowerRegexpLiteral(node);
+}
 throw new Error("unimplemented: expression " + kind);
+```
+
+## method LowerRegexpLiteral:(node:AstNode)=>int
+
+**正则字面量 ⇒ 一个正则实例**（第 936 轮）。
+
+**三条路与投影那一侧的 `PrintAst` 一致**：自己从源码里量区间（结尾斜杠 + 标志字符），
+因为节点那一格给不了正文——`regex-token.xl.md` 的 `PrintAst` 返回的是
+`{ kind, pos, end }`，**`text` 那一格根本不存在**（这也是 `TextOf` 在这一支上会抛的原因）。
+
+**正文与标志在这一层就分开**：`__p` 是**不含两端斜杠**的正文、`__f` 是标志串——
+与 `MakeRegexp`（`globals.xl.md`）收的两个实参**同一个形状**，
+所以「字面量」与 `new RegExp(...)` 走的是**同一条落点**（第二份实现就是第二份会漂的答案）。
+
+**标志不做合法性检查**：那件事在 `MakeRegexp` 里（一个字面量里写错标志，
+与 `new RegExp("a", "q")` 是同一个错，**不该有两句话**）。
+
+```ts
+const raw = this.SourceSliceOf(node);
+if (raw === "") {
+  // **切不到原文就响亮地抛**（`new Lowering()` 那条没有源文的路）：
+  // 静默给一个空正文的话，`/a/` 会变成一个永远匹配空串的正则——那是**静默错值**。
+  throw new Error("internal: a regular expression literal needs the source text");
+}
+let contentEnd = raw.length - 1;
+while (contentEnd > 0 && raw[contentEnd] !== "/") contentEnd = contentEnd - 1;
+const body = raw.slice(1, contentEnd);
+const flagText = raw.slice(contentEnd + 1);
+const window = this.Reserve(4);
+this.Emit(Op.Const, window, this.IntConst(RegexpCtor), -1, -1);
+this.Emit(Op.Const, window + 1,
+  this.Program().AddConst(Constant.OfString(UnitsOf(body))), -1, -1);
+this.Emit(Op.Const, window + 2,
+  this.Program().AddConst(Constant.OfString(UnitsOf(flagText))), -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 4);
+return window;
 ```
 
 ## method NameIsUnreachable:(name:string)=>bool

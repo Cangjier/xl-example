@@ -265,6 +265,16 @@ this.Index = index;
 
 **`Date` 的原型**（第 138 轮）——与上面两格同款。
 
+## field RegExp:int = 0
+
+**`RegExp` 的原型**（第 936 轮）——与 `Date` 那一格同款。
+
+**为什么它必须有一格**（而不是「每次造实例时现造一个原型对象」）：
+`Object.prototype.toString.call(/x/)` 要给 `[object RegExp]`，而那一格是
+**按身份**答的（`globals.xl.md` 的 `ObjectTagOf`：`RegExp.prototype` 自己与它的实例
+都落在这一格上）——现造的话每次都是新句柄，身份比不相等。
+`instanceof RegExp` 也靠它（引擎沿 `Proto` 链走）。
+
 ## field AsyncGenerator:int = 0
 
 **异步生成器的原型**（第 320 轮）——与 `Generator` 那格**同一个用途**、
@@ -407,6 +417,11 @@ if (this.EvalError > 0) roots.AddHandle(this.EvalError);
 if (this.Map > 0) roots.AddHandle(this.Map);
 if (this.Set > 0) roots.AddHandle(this.Set);
 if (this.Date > 0) roots.AddHandle(this.Date);
+// **`RegExp` 那一格也是根**（第 936 轮）：与 `Date` 那几行**一字不差**的理由——
+// 它被脚本的每一个正则实例**指成 `Proto`**、也被建库层挂着 `constructor` /
+// `Symbol.toStringTag` / `Symbol.match`，收掉一格的症状同样是
+// 「某一次回收之后 `Object.prototype.toString.call(/x/)` 突然变成别的东西」。
+if (this.RegExp > 0) roots.AddHandle(this.RegExp);
 if (this.Promise > 0) roots.AddHandle(this.Promise);
 // **生成器的原型也是根**（第 229 轮）：与上面那几族同一条理由——
 // 被收掉的话 `it.next()` 会在某一次回收之后突然变成 `undefined`
@@ -446,12 +461,14 @@ if (this.Global > 0) roots.AddHandle(this.Global);
 改成员数时**两处都要改**
 （少改一处就是「房间问少了」：`CreateObject` 自己**不做房间检查**）。
 **第 754 轮变成 `* 24`**（`Symbol.prototype` 那一格）。
+**第 936 轮变成 `* 25`**（`RegExp.prototype` 那一格——与上面每一轮同一条：
+成员数变了，**这个手写的数也要跟着变**）。
 **`Map` / `Set` / `Date` 三格接在 `Object.prototype` 上**（第 138 轮）。
 **`Number` / `Boolean` 两格也是**（第 150 轮）——它们与 `String` 那一格同一个用途：
 **原始值接收者的方法从这里找**（`(1.5).toFixed(2)`、`true.toString()`）。
 
 ```ts
-if (!room(ObjectCharge * 24)) {
+if (!room(ObjectCharge * 25)) {
   throw new Error("out of room");
 }
 // **`Array.prototype` 自己就是一个数组**（第 592 轮）：JS 里 `Array.isArray(Array.prototype)`
@@ -524,6 +541,15 @@ protos.WeakSet = table.CreateObject();
 table.Get(protos.WeakSet).Proto = protos.Object;
 protos.Date = table.CreateObject();
 table.Get(protos.Date).Proto = protos.Object;
+// **`RegExp` 那一格**（第 936 轮）：与上面那几格**一字不差**
+// （接在 `Object.prototype` 下面；JS 里 `Object.getPrototypeOf(/x/) === RegExp.prototype`、
+//  `Object.getPrototypeOf(RegExp.prototype) === Object.prototype`）。
+// **谁用它**：`globals.xl.md` 的 `MakeRegexp`（造实例时把 `Proto` 指到这一格）与
+// `ObjectTagOf`（那一格**自己**报 `[object RegExp]`，与四个包装原型同一条做法）。
+// **方法不在这一层挂**：`InstallRegexpMethods` 在做完那一格之后挂上去
+// ——与 `Map` / `Set` / `Date` 三族同一条分界（引擎只提供「一格句柄」）。
+protos.RegExp = table.CreateObject();
+table.Get(protos.RegExp).Proto = protos.Object;
 // **生成器那一格**（第 229 轮）：接在 `Object.prototype` 上
 // （与 `Map` / `Set` / `Date` 同款）。**方法不在这里挂**——
 // 这一层只管造一个空对象，「`next` 指向哪一段代码」是**语言层**的事

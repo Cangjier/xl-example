@@ -6,7 +6,7 @@ import { TextContext } from "./typescript/text-context.xl.md"
 import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 import { Lowering, LoweredModule, CapabilityLookup } from "./typescript-exec/lowering.xl.md"
 import { Bindings, LookupOf } from "./typescript-exec/bindings.xl.md"
-import { GlobalNames, BuildGlobals, ClockNow, TextFrom, LogSink, NewError, NewErrorLike, SymbolToString } from "./typescript-exec/builtins/globals.xl.md"
+import { GlobalNames, BuildGlobals, ClockNow, TextFrom, LogSink, NewError, NewErrorLike, SymbolToString, RegexpMatch } from "./typescript-exec/builtins/globals.xl.md"
 import { ValueText } from "./typescript-exec/builtins/text.xl.md"
 import { InstallBuiltins, InvokeWithSink, BuiltinSlots, RaiseFromHost, HostErrorText } from "./typescript-exec/builtins/install.xl.md"
 import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
@@ -55,11 +55,16 @@ import { DefineAccessorId } from "./typescript-exec/builtins/install.xl.md"
 （那个枚举是跨目标的契约，`host-abi.xl.md`）。**命令行接住它们**（`RunMain`），
 判据也一样：`try` 里调运行器。
 
-# type RunHost = (room:RoomChecker, id:number, self:Value, args:Array<Value>)=>Value | null
+# type RunHost = (room:RoomChecker, id:number, self:Value, args:Array<Value>, table:HeapTable)=>Value | null
 
 **宿主对能力调用的回答**：认这个号就给一个值，不认就给 `null`（落到标准库去）。
 
-`room` 先给出来是**规矩**：宿主函数要分配就得先问预算（`host-abi.xl.md` 的调用通道）。
+**`room` 先给出来是规矩**：宿主函数要分配就得先问预算（`host-abi.xl.md` 的调用通道）。
+
+**`table` 是第 936 轮加在**最后**的**：正则那一趟（`RegexpMatch`）的回答是**一个数组**，
+而数组住在堆里。**加在最后而不是最前面**是同一条纪律——已有的宿主回调
+（`tests/runtime/check.mjs` 里那一排 `(room, id, self, args) => …`）**一个字节都不用改**：
+多出来的那一格它们不接，而**只有要用它的那一支**（`RunAnswer` 里 `RegexpMatch`）才读它。
 
 # type PrepareArgs = (table:HeapTable, machine:Vm)=>Array<Value>
 
@@ -318,7 +323,7 @@ host.InstallHost((target, self, args, room, constructThis) => {
   // 少了这一层，`try { Object.keys(null) } catch {}` 里的 `catch` **永远走不到**：
   // 宿主异常直接冒出 `Run()`，整份程序以「语言层错误」收场（判据现场就是这么红的）。
   try {
-    const answered = answer(room, id, self, args);
+    const answered = answer(room, id, self, args, table);
     if (answered !== null) return answered;
     // **第 199 轮加了两样服务**（与 `schedule` / `settle` 同一个形状）：
     // `IteratorDrainer()` 是「把可迭代物走完、收成数组」（生成器那一条）、
@@ -621,23 +626,104 @@ if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure
 return ValueText(table, value);
 ```
 
-# method RunAnswer:(room:RoomChecker, id:number, self:Value, args:Array<Value>)=>Value | null
+# method RunAnswer:(room:RoomChecker, id:number, self:Value, args:Array<Value>, table:HeapTable)=>Value | null
 
-**命令行宿主的回答**：只接 `ClockNow`（`Date.now()`）这一号，别的能力一律给 `null`
-（＝「本宿主没有这一号」⇒ 建库层响亮地报 `unimplemented: global builtin <id>`）。
+**命令行宿主的回答**：接 `ClockNow`（`Date.now()`）与 `RegexpMatch`（正则那一趟）两个号，
+别的能力一律给 `null`（＝「本宿主没有这一号」⇒ 建库层响亮地报
+`unimplemented: global builtin <id>`）。
 
-**为什么只接它**：这个命令行**不接客户能力**（`.d.ts` 那些名字在源码里没有声明，
-降级期自己就会报「未知名字」，见 `RunMain` 那一段）——而**时钟不是客户能力**：
-`Date.now()` 是标准库的一格，按设计**只能由宿主回答**（`globals.xl.md` 的 `ClockNow`：
-建库层刻意不实现它，否则「时间从哪来」就不由宿主说了算）。
+**为什么只接它们**：这个命令行**不接客户能力**（`.d.ts` 那些名字在源码里没有声明，
+降级期自己就会报「未知名字」，见 `RunMain` 那一段）——而**时钟与正则不是客户能力**：
+两者都是标准库的格子，按设计**只能由宿主回答**（`globals.xl.md` 的 `ClockNow`
+与 `RegexpMatch`：建库层刻意不实现它们，否则「时间从哪来」「正则的语义听谁的」
+就不由宿主说了算）。
 
 **这里取真钟**：`Date.now()` 的语义就是「现在」。判据那边给固定值是为了可复现，
 命令行要的是正常用法——覆盖度矩阵里用到它的那一条只打 `Date.now() > 0`（不打印读数），
 所以真钟不会让读数不可复现。
 
+**正则那一格走的是 Node 那台引擎**（`new RegExp(...)` 现造一个、`exec` 一次）：
+匹配的语义是 ECMAScript 规范里最大的一块，**在语言层再写一遍就是第二份实现**，
+而两份实现的分歧不会报错、只会给出「看起来对的错答案」——
+与 `Date` 那一族**同一条分界**（建库层认识「时刻」这个概念，但不认识日历的算法）。
+
+**两个防死循环的护栏都在这里**（`RegexpMatch` 那一段的说明）：
+
+1. **起点夹进 `[0, 文本长度]`**：脚本可以把 `lastIndex` 写成一个荒唐的数，
+   而 `re.lastIndex = 1e9; re.exec(s)` 在 JS 里是**从头再来**
+   （越界的 `lastIndex` 当 `0` 用）；
+2. **空匹配之后强制往前挪一格**：`/(?:)/g` 那种正则每一处都匹配空串，
+   不挪的话调用方那个 `while` 永远停在原地——**那是一个挂死，不是错答案**。
+
 ```ts
 if (id === ClockNow) {
   return Value.FromDouble(Date.now());
+}
+if (id === RegexpMatch) {
+  // **实参四个、按位置给**（`globals.xl.md` 的 `RegexpMatchText` 那一段是发的一方）：
+  // `(源文, 标志, 起点, 文本)`。缺一格就按空串办——**不猜**，
+  // 因为这一条通道的两端都是我们自己的代码。
+  const pattern = args.length > 0 ? TextFrom(table, args[0]) : "";
+  const flags = args.length > 1 ? TextFrom(table, args[1]) : "";
+  const askedStart = args.length > 2 && args[2].IsNumber() ? args[2].AsInt() : 0;
+  const subject = args.length > 3 ? TextFrom(table, args[3]) : "";
+  let start = askedStart;
+  if (start < 0 || start > subject.length) start = 0;
+  const engine = new RegExp(pattern, flags);
+  engine.lastIndex = start;
+  const found = engine.exec(subject);
+  // **匹配不上 ⇒ 空数组**（调用点那一侧把它读成 `null` / `false`）。
+  if (found === null) {
+    return Value.FromArray(table.CreateArray());
+  }
+  // **线形态**（每个元素是**字符串或数**，按位置读）：
+  // `[整体, 捕获1, …, 下标, 结束位置, 名字数组, 值数组]`。
+  //
+  // **`下标` 与 `结束位置` 是数**（第 936 轮**实测逼出来的**）：它们是 JS 里真的算术量
+  // （`m.index` 用来切片、`lastIndex` 用来续跑），所以**在这一层就落成 `Value.FromInt`**——
+  // 第一版把它们串成了字符串，于是调用点那一侧 `IsNumber()` 为假、
+  // 一律退回缺省 `0`（症状是 `m.index` **永远是 0**、`lastIndex` 永远不往前
+  // ——后者是**死循环**）。**字符串那一档只留「文本」**：整体与捕获。
+  //
+  // **捕获组为 `undefined` 时给字符串 `"undefined"`**：JS 里 `String(m[1])` 正是
+  // 那几个字（数组里那个 `undefined` 在 `ToString` 之后就是 `"undefined"`），
+  // 而文本那一档只走字符串——少一种档就少一处判空。
+  //
+  // **`结束位置` 是「引擎走完之后 `lastIndex` 到哪」**：调用点要靠它推进
+  // （`g` / `y` 两档），而它**买不到别处**——每个 `exec` 都是这里 `new RegExp(...)`
+  // 现造的（宿主那一侧不留状态），所以「这一趟走到哪」只在**这一次调用**里看得见。
+  const wire: string[] = [];
+  wire.push(found[0]);
+  for (let i = 1; i < found.length; i++) {
+    wire.push(found[i] === undefined ? "undefined" : String(found[i]));
+  }
+  const names: string[] = [];
+  const values: string[] = [];
+  const named = found.groups;
+  if (named !== undefined && named !== null) {
+    const keys = Object.keys(named);
+    for (let i = 0; i < keys.length; i++) {
+      names.push(keys[i]);
+      const one = named[keys[i]];
+      values.push(one === undefined ? "undefined" : String(one));
+    }
+  }
+  const flat = table.CreateArray();
+  const array = table.Get(flat).AsArray();
+  for (let i = 0; i < wire.length; i++) {
+    array.Push(Value.FromString(table.CreateString(Units(wire[i]))));
+  }
+  array.Push(Value.FromInt(found.index));
+  array.Push(Value.FromDouble(engine.lastIndex));
+  const nameCells = table.CreateArray();
+  const nameArray = table.Get(nameCells).AsArray();
+  for (let i = 0; i < names.length; i++) nameArray.Push(Value.FromString(table.CreateString(Units(names[i]))));
+  const valueCells = table.CreateArray();
+  const valueArray = table.Get(valueCells).AsArray();
+  for (let i = 0; i < values.length; i++) valueArray.Push(Value.FromString(table.CreateString(Units(values[i]))));
+  array.Push(Value.FromArray(nameCells));
+  array.Push(Value.FromArray(valueCells));
+  return Value.FromArray(flat);
 }
 return null;
 ```

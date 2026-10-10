@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.44,
+  "progressPercent": 95.48,
   "categories": [
     {
       "category": "token",
@@ -111,19 +111,19 @@
       "category": "stdlib",
       "weight": 0.2,
       "total": 966,
-      "pass": 884,
-      "blocked": 21,
-      "differ": 61,
+      "pass": 886,
+      "blocked": 11,
+      "differ": 69,
       "nodefail": 0,
-      "coverage": 91.51
+      "coverage": 91.72
     },
     {
       "category": "e2e",
       "weight": 0.15,
       "total": 245,
       "pass": 241,
-      "blocked": 4,
-      "differ": 0,
+      "blocked": 3,
+      "differ": 1,
       "nodefail": 0,
       "coverage": 98.37
     }
@@ -222,18 +222,6 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "stdlib/globals/006-regexp-literal-basic",
-      "category": "stdlib",
-      "title": "正则字面量与 exec / test",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "stdlib/globals/051-builtin-regexp-constructor",
-      "category": "stdlib",
-      "title": "RegExp 构造器：new RegExp / 字面量与字面量不是一回事",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: RegExp"
-    },
-    {
       "id": "stdlib/globals/052-builtin-bigint-conversion-forms",
       "category": "stdlib",
       "title": "BigInt：BigInt() 转换、1n 字面量、与 Number 互转",
@@ -243,7 +231,7 @@
       "id": "stdlib/globals/053-l677p-regex-literal",
       "category": "stdlib",
       "title": "缺口：正则字面量在降级层直接断（整份文件进不来）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+      "detail": "tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function replacement (regex patterns ar"
     },
     {
       "id": "stdlib/globals/055-l677p-eval-forms",
@@ -256,12 +244,6 @@
       "category": "stdlib",
       "title": "口径外：动态 import() 的返回形状（多文件加载不是 v1 目标）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ImportKeyword"
-    },
-    {
-      "id": "stdlib/globals/060-regexp-lite",
-      "category": "stdlib",
-      "title": "`RegExp` 那一族现在的样子（口径内该做）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
       "id": "stdlib/globals/061-bigint-lite",
@@ -282,88 +264,40 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: setTimeout"
     },
     {
-      "id": "stdlib/object/202-object-tostring-tag-regexp-blocked",
-      "category": "stdlib",
-      "title": "Object.prototype.toString.call(/x/) 要给 [object RegExp]（正则字面量还没进降级层）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
       "id": "stdlib/round778b/002-computed-key-object-blocked",
       "category": "stdlib",
       "title": "计算键里放一个对象：`ToPropertyKey` 是「先 `ToPrimitive`」",
       "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
     },
     {
-      "id": "stdlib/round779/001-regexp-constructor-blocked",
-      "category": "stdlib",
-      "title": "`RegExp` 构造器那一半：全局名没登记",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: RegExp"
-    },
-    {
-      "id": "stdlib/round779/002-string-methods-with-regexp-blocked",
-      "category": "stdlib",
-      "title": "字符串方法接 `RegExp` 对象那一半",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: RegExp"
-    },
-    {
       "id": "stdlib/string/042-string-match-and-split-regex",
       "category": "stdlib",
       "title": "字符串方法收正则：match / split(/\\s+/)",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "stdlib/string/122-string-regex-in-strings",
       "category": "stdlib",
       "title": "正则字面量用在字符串方法上：replace / search / split（正则那一族）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "stdlib/string/123-string-split-limit-and-capture",
-      "category": "stdlib",
-      "title": "String.split：正则里的捕获组会进结果、limit 与空分隔符",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "stdlib/string/135-string-matchall-iterable",
-      "category": "stdlib",
-      "title": "String.prototype.matchAll：成员本身在不在（用正则字面量取结果）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "stdlib/string/145-regex-literal-blocked",
-      "category": "stdlib",
-      "title": "正则字面量还没进语法层（账）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "stdlib/string/167-string-replace-function",
-      "category": "stdlib",
-      "title": "`replace` 的函数形式拿到的实参表",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "e2e/scenarios/181-string-matchall-and-index",
       "category": "e2e",
       "title": "端到端：matchAll + lastIndex + 命名捕获组",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "e2e/scenarios/210-number-to-chinese",
-      "category": "e2e",
-      "title": "端到端：整数转中文读法（分组 + 单位 + 零的合并规则）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "e2e/scenarios/211-word-frequency",
       "category": "e2e",
       "title": "端到端：词频统计 + 排序输出（Map / 数组 / 字符串归一）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+      "detail": "tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function replacement (regex patterns ar"
     },
     {
       "id": "e2e/scenarios/212-template-engine",
       "category": "e2e",
       "title": "端到端：迷你模板引擎（占位符 / 条件段 / 转义 / 未定义变量）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+      "detail": "tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function replacement (regex patterns ar"
     }
   ],
   "differ": [
@@ -830,6 +764,12 @@
       "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3206.ts:2:13)» vs tsrun «»"
     },
     {
+      "id": "stdlib/globals/051-builtin-regexp-constructor",
+      "category": "stdlib",
+      "title": "RegExp 构造器：new RegExp / 字面量与字面量不是一回事",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function "
+    },
+    {
       "id": "stdlib/globals/057-names-globalthis",
       "category": "stdlib",
       "title": "名字逐个取一次：globalThis 自己的名字（缺 97 个）",
@@ -840,6 +780,12 @@
       "category": "stdlib",
       "title": "三格还没装的成员：`Number.prototype.toLocaleString`、`String.match` / `search`",
       "detail": "stdout 不同：第 2 行：node «str-match function function» vs tsrun «str-match undefined undefined»"
+    },
+    {
+      "id": "stdlib/globals/060-regexp-lite",
+      "category": "stdlib",
+      "title": "`RegExp` 那一族现在的样子（口径内该做）",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function "
     },
     {
       "id": "stdlib/json/056-names-json",
@@ -1082,6 +1028,18 @@
       "detail": "stdout 不同：第 2 行：node «02 setHours 返回新时刻 1579030245500» vs tsrun «02 setHours 返回新时刻 1579059045500»"
     },
     {
+      "id": "stdlib/round779/001-regexp-constructor-blocked",
+      "category": "stdlib",
+      "title": "`RegExp` 构造器那一半：全局名没登记",
+      "detail": "stdout 不同：第 5 行：node «05 global exhausted resets = \"null:0\"» vs tsrun «05 global exhausted resets = \"a,0:1\"»"
+    },
+    {
+      "id": "stdlib/round779/002-string-methods-with-regexp-blocked",
+      "category": "stdlib",
+      "title": "字符串方法接 `RegExp` 对象那一半",
+      "detail": "stdout 不同：第 1 行：node «01 replace = \"aXc\"» vs tsrun «01 replace ! Error»"
+    },
+    {
       "id": "stdlib/round780/002-string-number-symbol-name-length-differ",
       "category": "stdlib",
       "title": "`String` / `Number` / `Symbol` 那一族的 `name` / `length` 全量",
@@ -1118,10 +1076,28 @@
       "detail": "stdout 不同：第 1 行：node «01 own names = constructor,description,toString,valueOf» vs tsrun «01 own names = constructor,description,toString»"
     },
     {
+      "id": "stdlib/string/123-string-split-limit-and-capture",
+      "category": "stdlib",
+      "title": "String.split：正则里的捕获组会进结果、limit 与空分隔符",
+      "detail": "stdout 不同：第 1 行：node «a|1|b|2|c» vs tsrun «a1b2c»"
+    },
+    {
+      "id": "stdlib/string/135-string-matchall-iterable",
+      "category": "stdlib",
+      "title": "String.prototype.matchAll：成员本身在不在（用正则字面量取结果）",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
       "id": "stdlib/string/144-localecompare-differ",
       "category": "stdlib",
       "title": "localeCompare 是区域设置那一族（账）",
       "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
+    },
+    {
+      "id": "stdlib/string/145-regex-literal-blocked",
+      "category": "stdlib",
+      "title": "正则字面量还没进语法层（账）",
+      "detail": "stdout 不同：第 1 行：node «string:abbc» vs tsrun «throw:Error»"
     },
     {
       "id": "stdlib/string/146-string-proto-regex-methods-differ",
@@ -1136,6 +1112,12 @@
       "detail": "stdout 不同：第 11 行：node «object match function» vs tsrun «object match undefined»"
     },
     {
+      "id": "stdlib/string/167-string-replace-function",
+      "category": "stdlib",
+      "title": "`replace` 的函数形式拿到的实参表",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function "
+    },
+    {
       "id": "stdlib/string/211-string-proto-member-table-regex-members-missing",
       "category": "stdlib",
       "title": "`String.prototype` 的成员表：正则那一族三格没装（账）",
@@ -1146,6 +1128,12 @@
       "category": "stdlib",
       "title": "`\"abc\".search(\"b\")`：实参是字符串时该先转 RegExp（账）",
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
+    },
+    {
+      "id": "e2e/scenarios/210-number-to-chinese",
+      "category": "e2e",
+      "title": "端到端：整数转中文读法（分组 + 单位 + 零的合并规则）",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function "
     }
   ],
   "bad": [],
@@ -1155,6 +1143,60 @@
       "category": "exec",
       "why": "**对象字面量里的类**当构造器（`const ns = { C: class { … } }; new ns.C()`）本仓报 `unimplemented: calling an object as a constructor (this object is not callable)`（**整份文件进不来**）——`new` 的被调者形状只认「标识符 / 括号」，认不出「成员访问交回来的类」。`new a.b.C()` 那一族整个待做。要做。",
       "detail": "stdout 不同：第 1 行：node «number:3» vs tsrun «throw:TypeError»"
+    },
+    {
+      "id": "stdlib/globals/051-builtin-regexp-constructor",
+      "category": "stdlib",
+      "why": "`RegExp` 这个全局名没登记。**必做**",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function "
+    },
+    {
+      "id": "stdlib/globals/060-regexp-lite",
+      "category": "stdlib",
+      "why": "`RegExp` 字面量还没实现（`unimplemented: expression RegularExpressionLiteral`）。要做。",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function "
+    },
+    {
+      "id": "stdlib/round779/001-regexp-constructor-blocked",
+      "category": "stdlib",
+      "why": "`RegExp` 这个全局名**根本没登记**——`new RegExp(\"ab+c\")` 报 `name is not a local or a capture: RegExp`（**整份文件进不来**）。它与正则字面量（`unimplemented: expression RegularExpressionLiteral`）是**同一个缺失的两半**：`RegExp` 整族待做（旧账在 `stdlib/globals/060-regexp-lite` / `006-regexp-literal-basic` 那一族）。这一条把**构造器那一半**单独钉住，顺带把 `exec` / `lastIndex` / `flags` / `sticky` / 命名组十二档写成进来之后的判据。",
+      "detail": "stdout 不同：第 5 行：node «05 global exhausted resets = \"null:0\"» vs tsrun «05 global exhausted resets = \"a,0:1\"»"
+    },
+    {
+      "id": "stdlib/round779/002-string-methods-with-regexp-blocked",
+      "category": "stdlib",
+      "why": "与 `r779j-01` 死在**同一句**（`new RegExp` ⇒ `RegExp` 全局名没登记），所以 `replace` / `replaceAll` / `split` / `match` / `matchAll` / `search` 接一个 **RegExp 对象**（不是字符串）时对不对，今天量不出来。这一条是给 `RegExp` 进来之后准备的判据：十二档里含替换串的 `$&` / `$1` / `$$`、回调的 `(match, …groups, offset, string)` 形状、`replaceAll` 对非全局正则**该抛 `TypeError`**、`split` 的捕获组切分。",
+      "detail": "stdout 不同：第 1 行：node «01 replace = \"aXc\"» vs tsrun «01 replace ! Error»"
+    },
+    {
+      "id": "stdlib/string/123-string-split-limit-and-capture",
+      "category": "stdlib",
+      "why": "按正则切分要 `RegExp`。**必做**",
+      "detail": "stdout 不同：第 1 行：node «a|1|b|2|c» vs tsrun «a1b2c»"
+    },
+    {
+      "id": "stdlib/string/135-string-matchall-iterable",
+      "category": "stdlib",
+      "why": "`String.prototype.matchAll` 没装：成员表里没有那一格，调用报 cannot call a non-closure value",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "stdlib/string/145-regex-literal-blocked",
+      "category": "stdlib",
+      "why": "probe696-s02：正则字面量那一档还没实现（`unimplemented: expression RegularExpressionLiteral`）——`replace` 的**回调**那一半另有判据（`probe696-s02` 的兄弟 s04 走的是文本切分），缺的是**裁判这一侧的语法**。；probe696-s05：同上：`split(/,/)` 里的正则字面量还没进语法层。；probe703-s-e33：正则字面量还没实现（`unimplemented: expression RegularExpressionLiteral`）——`RegExp` 整族待做，见 `stdlib/string/211-string-proto-member-table-regex-members-missing` 与 `probe693-y30` 那一族。；probe704-s-e12：正则字面量还没实现（`unimplemented: expression RegularExpressionLiteral`）——`RegExp` 整族待做，与第 703 轮登记的 `p703s-e33` **同一条根**。要做。",
+      "detail": "stdout 不同：第 1 行：node «string:abbc» vs tsrun «throw:Error»"
+    },
+    {
+      "id": "stdlib/string/167-string-replace-function",
+      "category": "stdlib",
+      "why": "`replace` 的**函数形式**这一条用的是**正则字面量**（`/\\d/g`），而 `RegExp` 字面量",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function "
+    },
+    {
+      "id": "e2e/scenarios/210-number-to-chinese",
+      "category": "e2e",
+      "why": "只用正则做切分的一版；换掉正则的那一版已经另收（见同批 pass 的候选），这一条留着量 `RegExp`。**必做**",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function "
     }
   ],
   "newlyPassing": [],

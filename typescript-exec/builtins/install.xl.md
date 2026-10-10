@@ -12,7 +12,7 @@ import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject
 import { JsTextUnits, ValueText, PropertyKeyValue, PropertyKeyName } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext, ArrayIteratorTake, ArrayIteratorDrop, ArrayIteratorToArray, ThisArgOf } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, SpeciesGetterId, InstallDatePrototype, BoundCall, ReflectApply, ReflectConstruct, ReflectDefineProperty, ReflectDeleteProperty, ReflectGet, ReflectGetOwnPropertyDescriptor, ReflectGetPrototypeOf, ReflectHas, ReflectIsExtensible, ReflectOwnKeys, ReflectPreventExtensions, ReflectSet, ReflectSetPrototypeOf, DefineOwnFromDescriptor, PrototypeOfValue, MarkUnextensible, IsUnextensible, ObjectGetOwnPropertyNames, ObjectGetOwnPropertySymbols, ObjectGetOwnPropertyDescriptor } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, SpeciesGetterId, InstallDatePrototype, InstallRegexpPrototype, RegexpCtor, RegexpExec, RegexpTest, RegexpToString, RegexpSourceGet, RegexpFlagsGet, RegexpHasIndicesGet, RegexpGlobalGet, RegexpIgnoreCaseGet, RegexpMultilineGet, RegexpDotAllGet, RegexpUnicodeGet, RegexpUnicodeSetsGet, RegexpStickyGet, RegexpMatch, BoundCall, ReflectApply, ReflectConstruct, ReflectDefineProperty, ReflectDeleteProperty, ReflectGet, ReflectGetOwnPropertyDescriptor, ReflectGetPrototypeOf, ReflectHas, ReflectIsExtensible, ReflectOwnKeys, ReflectPreventExtensions, ReflectSet, ReflectSetPrototypeOf, DefineOwnFromDescriptor, PrototypeOfValue, MarkUnextensible, IsUnextensible, ObjectGetOwnPropertyNames, ObjectGetOwnPropertySymbols, ObjectGetOwnPropertyDescriptor } from "./globals.xl.md"
 import { InvokeMap, MapCtor, MapGroupBy, MapSizeGet, NameValue, ReadOwn, InstallMapPrototype, WeakMapCtor } from "./map.xl.md"
 import { InvokeSet, SetCtor, SetSizeGet, InstallSetPrototype, WeakSetCtor } from "./set.xl.md"
 ```
@@ -1549,6 +1549,13 @@ InstallString(host.Machine, protos);
 InstallMapPrototype(host.Machine, protos);
 InstallSetPrototype(host.Machine, protos);
 InstallDatePrototype(host.Machine, protos);
+// **第 936 轮：`RegExp.prototype` 那一族**（`exec` / `test` / `toString` / 三格访问器）
+// ——与上面那三句**同一个位置、同一个形状**。
+// **`Symbol.match` 那一格不在这里挂**（与 `Map.prototype[Symbol.iterator]` 同一条理由）：
+// 知名符号表是 `BuildGlobals` 求值那一趟才填的，这一句在它**之前**——
+// 在这里取键只会拿到 `undefined`、静默什么都不挂。那两格（`Symbol.match` 与
+// `Symbol.toStringTag`）都挂在 `BuildGlobals` 里。
+InstallRegexpPrototype(host.Machine, protos);
 // **`Map.prototype[Symbol.iterator]` / `Set.prototype[Symbol.iterator]` 不在这里挂**
 // （第 712 轮）：知名符号表 `protos.WellKnownSymbols` 是 `BuildGlobals` **求值那一趟**
 // 才填的（`tsrun.xl.md` 的顺序是「`InstallBuiltins` 先、`BuildGlobals` 后」——
@@ -1604,7 +1611,15 @@ const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, Iter
   TemplateConcat,
   ObjectAssign, PowId, SetHiddenId, DefineDataId, PropertyKeyId, SetFunctionNameId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
   PromiseResolveCallbackId, PromiseRejectCallbackId, AsyncGeneratorSelf, GeneratorSelf, ArrayIteratorNext, SpeciesGetterId,
-  ArrayIteratorTake, ArrayIteratorDrop, ArrayIteratorToArray];
+  ArrayIteratorTake, ArrayIteratorDrop, ArrayIteratorToArray,
+  // **第 936 轮补的七个号**（正则那一族，见 `globals.xl.md` 的号那一段）：
+  // 构造、`exec` / `test` / `toString`、两个访问器 getter，外加**匹配那一趟**。
+  // **少了它们的症状**：不是「报一个没装的号」（那一支还在），而是**整份文件进不来**
+  // ——降级期那一条 `host_call` 在装载时就被拒（`capability is not registered: 263`），
+  // 而那句话听起来像「谁忘了登记」。
+  RegexpCtor, RegexpExec, RegexpTest, RegexpToString, RegexpSourceGet, RegexpFlagsGet,
+  RegexpHasIndicesGet, RegexpGlobalGet, RegexpIgnoreCaseGet, RegexpMultilineGet,
+  RegexpDotAllGet, RegexpUnicodeGet, RegexpUnicodeSetsGet, RegexpStickyGet, RegexpMatch];
 for (let i = 0; i < helpers.length; i++) {
   // **登记失败要响亮**——**试过，又改回来了**（第 340 轮，账写在下面）。
   // 这一句原来不看返回值（规范原话是「不是静默忽略」）。这一轮把它改成
