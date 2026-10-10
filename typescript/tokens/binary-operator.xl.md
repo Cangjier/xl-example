@@ -950,6 +950,16 @@ for (let i = 0; i < index; i++) {
 return false;
 ```
 
+## static readonly field ValuePositionContainers:Array<string> = ["Statement", "Root", "StaticBlock", "SwitchStatement", "IfBody", "MethodBody", "FunctionBody", "WhileBody", "ForBody", "ForeachBody", "TryBody", "CatchBody", "FinallyBody", "LamdaBody", "NamespaceBody", "ClassBody"]
+
+**能直接装语句的那几种单元**（第 925 轮量出来的）：`Statement`（正常收好的那一条）、
+`Root`（文档末尾还没收进 `Statement` 的那几格）、以及各种**体**。
+它们都只装语句 ⇒ 直接挂在上面的裸 `<` / `>` / `|` / `&` / `^` 只可能是值位。
+**类型位的体刻意不列**（`InterfaceBody` / `TypeLiteralBody` / `EnumBody`）：
+那里面的 `|` / `&` 是联合 / 交叉类型，是**安全栏**而不是实测必需的一格
+——第 925 轮把那三个名字也塞进表里试过，探针一条没动（类型位那一支确实不会被问到，
+与上面「为什么这一条够用」那段说的同一件事）。
+
 ## private method IsValuePositionOperator:(unit:Token)=>bool
 
 `unit` 是那些**两种位置都有含义**的符号时，判断它此刻处在值位——也就是「本实例该不该接手」。
@@ -970,6 +980,15 @@ return false;
 试读出来的**节点**（不是 `CloseRule`），所以同层里剩下的裸 `<` / `>` 只可能是比较。
 所以「父单元是值位容器」正好把值位那份挑出来。
 （实测插桩：值位那一支的符号父单元是 `Statement`，类型位那一支根本不会被问到。）
+
+**第 925 轮把「父单元」这一格量全了**：值位那一支的父单元**不止 `Statement`**——
+文档最后一条语句在**没有结尾换行**时还没被包进 `Statement`，那几格单元直接挂在 `Root` 上；
+块里最后一条语句同理，挂在 `IfBody` / `MethodBody` / `LamdaBody` / `ForBody` / `WhileBody` /
+`TryBody` / `NamespaceBody` / `FunctionBody` … 上。原来的判据只认 `Statement` ⇒ 末尾那一行判否
+⇒ 关系层让开、`==` 先折 ⇒ `const b = x == y < z` 成 `<` 套 `==`（缺 `y < z`、多 `x == y`）。
+**补一个结尾换行、补 `;`、或后面再跟一条语句，三种写法本来都是绿的**——
+所以这一格在语料里（每份文件都以换行收尾）一直没露头，是第 923 轮普查把片段丢了结尾换行才量到的。
+容器表见上面的 `VALUE_POSITION_CONTAINERS`。
 
 **不能只看运算符文本**：`ReplaceCountAt` 会把 `a = a | b` 这类复合赋值展开出的符号留在同一层，
 而它们与真正的值位位运算同形——所以判据必须落在位置上，不能落在文本上。
@@ -1004,7 +1023,9 @@ if (parent === null) {
 if (parent.constructor.name === "EnumMember") {
   return true;
 }
-return parent.constructor.name === "Statement";
+// **值位容器不止 `Statement`**（第 925 轮）：文档 / 块的**最后一条语句**在还没有结尾换行时
+// 还没被包进 `Statement`，那几格的父单元是 `Root` 或体本身——见 `ValuePositionContainers`。
+return BinaryOperatorCloseRule.ValuePositionContainers.indexOf(parent.constructor.name) !== -1;
 ```
 
 ## private method YieldsToInstanceof:(units:Array<Token>, index:int, current:Token)=>bool

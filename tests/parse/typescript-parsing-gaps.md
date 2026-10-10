@@ -880,6 +880,9 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
   `x == y < z` 一个字不动，反倒把本来是绿的 `const c = x < y in z` 打红（`in` 那一格
   要的是「关系层先折」）。所以病在投影那一层，`operatorRank` 的分档（`==` 是 6、
   `<` / `in` / `instanceof` 是 7）**是对的**，不要动它。
+  **第 925 轮更正**：上面这几句量的是**带结尾换行**的现场。把触发条件量窄之后，不带结尾换行时
+  **token 树本身就是错的**（XML 里是 `<` 套 `==`），错在 `IsValuePositionOperator` 那一格——
+  见下面第 925 轮那一节；投影那一层（`operatorRank` / `PrintAst`）照旧一个字不用动。
 - **余量二：返回类型里「括号 + 注释 + 箭头」**。`class E { on(): ()/*c*/ => void { return; } }`
   缺 `FunctionType` / `VoidKeyword` / `ReturnStatement`，多出 `ParenthesizedType` 与一个孤立的
   `return`。问出来的次序是：`TypeDefineCloseRule` 先把 `()` 收进 `TypeDefine`（同一个单元里），
@@ -924,6 +927,30 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
 - **余量二不挑结尾**：`class E { on(): ()/*c*/ => void { return; } }` 有没有结尾换行、
   后不后面跟语句，**三档都复现**（缺 `FunctionType` / `VoidKeyword` / `ReturnStatement`，
   多一个 `ParenthesizedType` 与一个孤立的 `return`），它才是那个更硬的入口。
+
+**第 925 轮：余量一收掉——「值位容器」不止 `Statement`**（第 924 轮把触发条件量窄之后才找到的根）
+
+- **触发条件比原来记的窄**：`x == y < z` 这样的混合比较链**落在文档 / 块的最后一条语句、
+  且文档没有结尾换行**时才错。语料里每份文件都以换行收尾，所以第 889 轮那条
+  `expr-comparison-chain-mixed.ts` 一直是绿的；第 923 轮普查把片段的结尾换行丢了才把它量出来。
+- **根不在投影，在 `IsValuePositionOperator`**：这几格单元这时候**还没被包进 `Statement`**，
+  直接挂在 `Root`（块里最后一条则挂在 `IfBody` / `MethodBody` / `LamdaBody` / `ForBody` /
+  `WhileBody` / `TryBody` / `NamespaceBody` / `FunctionBody` …）上。旧判据只认
+  `Statement` / `EnumMember` ⇒ `<` 判否 ⇒ `RelationalInstance` 让开 ⇒ `EqualityInstance` 先折
+  ⇒ 整条链成 `<` 套 `==`（缺 `y < z`、多 `x == y`）。**XML 里就已经错了**，投影只是照着投。
+- **修法**：那一句换成 `BinaryOperatorCloseRule.ValuePositionContainers` 表——`Statement` / `Root` /
+  各种体（`StaticBlock` / `SwitchStatement` 也在内）；**类型位的三个体刻意不列**
+  （`InterfaceBody` / `TypeLiteralBody` / `EnumBody`）。那三个名字第 925 轮也塞进去试过，
+  探针一条没动（类型位那一支确实不会被问到）——所以它们是**安全栏**，不是实测必需的一格。
+- **守卫用例**：`token/expressions/expr-comparison-chain-mixed-eof-no-newline.ts`
+  （**文件末行没有换行符**，与 `stmt-eof-no-trailing-newline-*` 同一个做法）。
+  去掉修法它红（缺 1 多 1）；探针 `tmp/r925/eof-chains.mjs` **12 条全绿**、
+  `tmp/r925/containers.mjs` **14 条全绿**（各种体 + 类型位对照）。
+- **一处已量到的副作用**：`expr-arrow-body-nested-ternary.ts` 里那一格裸 `<`
+  （箭头表达式体里三元条件的左边）现在由 token 层折成 `BinaryOperator`（原来留平、由投影折）
+  ⇒ XML 多一个节点，**投影结果不变**（cases:tsast / astjson 都绿）。
+- **账**：`npm run gates` 九道全过；coverage **4139 / 4308 → 4140 / 4309**、blocked 39、differ 130、bad 0；
+  cases:astjson 36614 个节点（新增那条用例 + 上面那处副作用）。
 
 ## 被否决的改法（不要再试）
 
