@@ -100,6 +100,13 @@ export const TAGS = new Set([
  *   `TemplateTail` / `AssertClause` / `AssertEntry` 是投影**造**出来的节点
  *   （`print-ast-common.xl.md` / `import.xl.md`），没有对应的产物类。
  *
+ * **第三类在第 924 轮补齐成完整一片**：上一轮那条用例把 `PropertyAssignment`（投影层的 kind）
+ * 写进了 `xl:expect`，而它不在表里 ⇒ `cases:check` 报的是「标签不在标签表里」（像写错了名字），
+ * 不是「这个名字永远不进产物」（真因）。于是把整片量出来：`build/ts/typescript/` 下每个 `.js` 里的
+ * `kind: "X"` 一共 **71** 个，与 `dist/ts` 声明的 **282** 个类名（类名就是 XML 标签名，
+ * 见 `token.xl.md` 的 `ToXmlString`）取差集 ⇒ **59** 个；上面两类已经盖掉其中 4 个，
+ * 余下 **55** 个全列在下面。**写 `xl:expect` 时拿 TS 那边的 kind 名来指产物，当场就会被逮住。**
+ *
  * 两个方向都由 `tests/parse/tags.mjs` 盯着：`TAGS` 里每个名字都要被至少一条用例产出 ✓，
  * `GHOST_TAGS` 里每个名字都要在**全语料**里一次都不出现 ✓。
  */
@@ -107,6 +114,20 @@ export const GHOST_TAGS = new Set([
   "ClassMember",
   "VerbatimQuoteGuide", "InterpolationGuide", "InterpolationExitGuide", "RawQuoteExitGuide", "StringGuide",
   "MetaProperty", "TemplateHead", "TemplateMiddle", "TemplateTail", "AssertClause", "AssertEntry",
+  // 投影层发出的 kind 里，凡不是任何一个产物类名的（量法见上面那段注释）
+  "AbstractKeyword", "ArrayBindingPattern", "AsyncKeyword", "AwaitExpression",
+  "BinaryExpression", "Block", "CallExpression", "CaseBlock", "CatchClause", "ColonToken",
+  "ComputedPropertyName", "ConstructorType", "DotDotDotToken", "ElementAccessExpression",
+  "EmptyStatement", "EndOfFileToken", "EqualsGreaterThanToken", "ExportAssignment",
+  "ExportDeclaration", "ExpressionStatement", "ExternalModuleReference", "ImportClause",
+  "ImportDeclaration", "ImportEqualsDeclaration", "ImportKeyword", "LabeledStatement",
+  "NamedExports", "NamedImports", "NamespaceImport", "NonNullExpression", "NumericLiteral",
+  "OmittedExpression", "ParenthesizedExpression", "PrefixUnaryExpression", "PrivateIdentifier",
+  "PropertyAccessExpression", "PropertyAssignment", "QualifiedName", "QuestionDotToken",
+  "QuestionToken", "RegularExpressionLiteral", "ShorthandPropertyAssignment", "SourceFile",
+  "SpreadAssignment", "SpreadElement", "StringLiteral", "TaggedTemplateExpression",
+  "TypeAliasDeclaration", "TypeAssertionExpression", "TypeReference", "VariableDeclaration",
+  "VariableDeclarationList", "VariableStatement", "WithStatement", "YieldExpression",
 ]);
 
 export const CASES_DIR = path.join(root, "tests", "cases", "token");

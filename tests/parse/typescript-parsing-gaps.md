@@ -891,6 +891,40 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
   改成 `SkipPreviousTrivia`——9787 条变异体的失败数一格没动（119 → 119），已撤回。
   入口在 `TypeDefineCloseRule` 与 `FunctionTypeCloseRule` 的**次序**上，不在这一格。
 
+**第 924 轮：标签表体检把上一轮那条用例逮住——投影层的 kind 名不许写进 `xl:expect`**
+（`cases:check` / `cases:tags` 从第 923 轮（二）起就是红的，这一轮收掉）
+
+- **逮住的是什么**：`token/expressions/expr-object-value-trailing-comment-range.ts` 那一行
+  `xl:expect PropertyAssignment,Lamda,ObjectLiteral` 里的 `PropertyAssignment` 是**投影层的 kind**
+  （`object-literal.xl.md` 的 `PrintAst` 给 `properties` 那一格的名字），产物 XML 里根本没有它
+  ——产物里属性就是平级的 `Identifier` + `:` + 值这三格，没有包装类。于是 `cases:check` 报的是
+  「标签不在标签表里」（像把名字写错）、`cases:tags` 报「expect PropertyAssignment，产物里 0 个」：
+  **两条红都不是解析器的缺口**。
+- **为什么没被拦住**：`GHOST_TAGS` 那片「只属于 TS 形状投影的 kind」当时只有 6 个名字
+  （`MetaProperty` / `TemplateHead` / `TemplateMiddle` / `TemplateTail` / `AssertClause` / `AssertEntry`），
+  `PropertyAssignment` 不在里面 ⇒ 诊断落在含糊的那一句上。这一轮把它**补齐成整片**：
+  `build/ts/typescript/` 下每个 `.js` 里的 `kind: "X"` 共 **71** 个，与 `dist/ts` 里 **282** 个类名
+  （`ToXmlString` 取的就是类名，见 `token.xl.md`）取差集 ⇒ **59** 个，其中 4 个本来就在表里，
+  补进余下 **55** 个 ⇒ 幽灵标签 **12 → 67** 种，一个都没漏进产物。以后 `xl:expect` 里写 TS 那边的
+  kind 名，报的是「永远不进产物、只能写进 `xl:absent`」这一句真因。
+- **那一条用例改成什么**：`ObjectLiteral:2,Lamda:1,LamdaBody:1,LamdaParameters:1,Bracket:1,AreaAnnotation:1`
+  ——钉的是「那条注释落在箭头体里、值位那层括号还在」这条形状；**区间那一半照旧由 `cases:tsast`
+  拿 TS 的 AST 对拍**（token 语料 1529 条全绿），`xl:expect` 从来量不了区间。
+- **账**：`cases:check` 1542 条 0 不合格；`cases:tags` 1475 条带期望（5122 条断言）0 不一致；
+  `npm run gates` **九道全过**；coverage 4139 / 4308、blocked 39、differ 130、bad 0（一格没动）。
+
+**同一轮顺带量清的两件事**（都是片段探针量出来的；`--snippets` 的片段要写 `{ id, src }`，
+写成 `{ name, source }` 会拿空串去比、整批误报绿——这一轮先在这种假绿上绕了一圈）：
+
+- **余量一（混合比较链）的触发条件比记的窄**：它**只在「这条链是文档最后一条语句、且文档没有
+  结尾换行」时出现**——`const b = x == y < z`（无结尾换行）缺 `y < z`、多 `x == y`；
+  同一个片段末尾补一个换行、或补 `;`、或后面再跟一条语句，**三种写法都能对上 TS**。
+  所以语料里那条 `expr-comparison-chain-mixed.ts`（文件以换行收尾）一直是绿的，
+  第 923 轮那次普查量到的正是「片段丢了结尾换行」的那一面。
+- **余量二不挑结尾**：`class E { on(): ()/*c*/ => void { return; } }` 有没有结尾换行、
+  后不后面跟语句，**三档都复现**（缺 `FunctionType` / `VoidKeyword` / `ReturnStatement`，
+  多一个 `ParenthesizedType` 与一个孤立的 `return`），它才是那个更硬的入口。
+
 ## 被否决的改法（不要再试）
 
 1. **`Token.Reorganize` 改成「每条规则重复扫到无改动」**：能让三层以上嵌套三元收敛，
