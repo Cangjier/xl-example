@@ -55,7 +55,8 @@ import { Translate } from "./tokens/string/translate.xl.md"
 不是绕着它写规范。
 
 **比原来多的只有一个成员**：`ToJsonText`（以及它要用的 `Token` import）。
-原来那份实现是「库」，序列化（`JSON.stringify(Token.ToPlain(…))`）散在两个调用方手里；
+原来那份实现是「库」，序列化（当时是两个调用方各自 `JSON.stringify(Token.ToPlain(…))`——
+`ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
 这是一份**纯函数库**：74 个函数都不依赖 `this`、彼此只靠参数耦合，所以按模块级
@@ -404,7 +405,8 @@ new Map([
 **这一格叫什么**：问这一格**自己**——`Token.NameField()`（名字住在哪一页的哪个字段上，那一页回答）。
 
 问不到再退回 `name` 属性：名字是**子单元**的那些页（`MethodDeclaration` 的名字是一格 `Identifier`）
-不覆写 `NameField`，字典那一层也没有了，所以退回的只是「这一格恰好把名字存在 `name` 上」那一档。
+不覆写 `NameField`，所以退回的只是「这一页恰好自己声明了 `name` 属性」那一档——
+读的还是**这一页自己的属性**（第 1018 轮起没有中间那一层可退）。
 
 **为什么不在投影层列一张字段名单**：名字是 token 自己的事实，由那一页答（见 `core/syntax/token.xl.md`）。
 
@@ -418,7 +420,7 @@ new Map([
 # private method kidsOf:(v:any, key:string)=>Array<any>
 
 **这一格的那一段子单元**：段名就是这一页声明出来的那个属性名（`compare` / `body` / `parameters` …），
-所以这里是**读一个属性**——不是按字符串键查字典。
+所以这里是**读这一页自己的一个属性**——属性名是编译期就知道的那个词，不经任何字符串键。
 
 ```ts
   const raw = v[key];
@@ -458,7 +460,7 @@ new Map([
 **这一格自己声明了哪些段**：声明成属性、值是**单元数组**的那些（`children` / `compare` / `body` /
 `parameters` …）。
 
-这是「段由 token 自己承担」这一条的读法：投影没有中央名单，也不按字符串键查字典——
+这是「段由 token 自己承担」这一条的读法：投影没有中央名单，也不按字符串键找段——
 它读的就是那一页声明出来的东西。
 
 ```ts
@@ -475,7 +477,7 @@ new Map([
 # private method allKids:(v:any)=>Array<any>
 
 **这一格下面所有的子单元**：自己声明的那些段（`children` 除外）先收，`children` 最后收——
-与搬掉字典之前那一趟同一个次序。
+与还按中央名单收子单元那一趟同一个次序。
 
 ```ts
   const out = [];
@@ -1003,7 +1005,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
 
 ```ts
   if (node === null || node === undefined) return undefined;
-  // **节点就是 token 自己**（第 1018 轮）：不再有「字典格 / 视图 / token」三种接收者。
+  // **节点就是 token 自己**（第 1018 轮）：接收者只有一种——这一格的 token 本身。
   const v = node;
   ctx.count++;
   // **问这个节点自己**（第 77 轮起）：`node` 就是产出这一格的那个 token
@@ -1150,8 +1152,8 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     tokenNameOf(v) === "constructor"
   ) {
     // **判据是「这一格叫什么」那一格事实、不是 `textOf`**（第 1008 轮改成走 `tokenNameOf`）：
-    // 它问的是 token 自己的 `NameField`（第 1006 轮）、问不到才退回字典那个 `name` 键；
-    // 直接写 `v.name` 是**按字符串键查字典**——这条口径对 **helper** 一样成立
+    // 它问的是 token 自己的 `NameField`（第 1006 轮）、问不到才退回它自己那个 `name` 属性；
+    // 直接写 `v.name` 会**绕开 `NameField` 这一格事实**——这条口径对 **helper** 一样成立
     // （直出版那一趟投一个类要经过 `projectDeclaration`，它就在这条 helper 里）。
     // 方法单元自己没有 `value`，
     // `textOf` 会退回 `source.slice(v.start, v.end)`（那是整段方法体，不是名字）。
@@ -2806,7 +2808,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     if (headKind === "Keyword" && (word === "yield" || word === "await") && kids.length === 1) {
       // **这一格自己就是 token**（第 1022 轮）：`v = view(node)` 那一层早就删了
       // （见 `projectNode` 开头那条「节点就是 token 自己」），所以这里直接问它。
-      // 原来写的是 `kids[0].__token`——那一格现在恒为 `undefined`
+      // 原来写的是 `kids[0].__token`——这个字段**在 token 自己身上是 `undefined`**
       // ⇒ `functionContextOf` 一次都没被问到 ⇒ 上下文外的 `yield` / `await` 判不出来
       //（实测 `expr-yield-await-context`：缺 1 多 1）。
       const context = functionContextOf(ctx, kids[0]);
@@ -7188,19 +7190,17 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // 而 TS 的 `ArrowFunction` 是 `[10,21)`）⇒ 声明列表与声明各长出一截
   // （`gap-sweep-comment-arrow-01`：漂 2 多 2）。判据走 `stmtEndOf`——它就是投影层
   // 「节点终点不含尾部 trivia」的那一份实现（第 132 轮，投影出的每个节点都走它），
-  // 这里不另写一份「往回吃注释」的循环。**`stmtEndOf` 收的是视图**（与 `endOf` 那个
-  // 读 `range` 的助手不同）：这一层的 `kids` 是节点字典，所以要 `(...)` 一次。
+  // 这里不另写一份「往回吃注释」的循环。**收的就是这一格的 token 本身**。
   const listEnd =
-    kids.length > 0 ? Math.min(stmtEnd, stmtEndOf((kids[kids.length - 1]), ctx)) : stmtEnd;
-  // **容器可能是视图、也可能是字典格**（第 79 轮）：`projectLet`（语句位）传的是视图，
-  // `structuralProps`（`for (let i = 0; …)` 的头部）传的是 `(...)`。原来这里一律
-  // `(container)`，于是前者会 `(view)` 抛 `TypeError`——那条路平时走不到
-  // （`projectStatement` 自己处理 Let 开头的语句），一摊开成员位的 `Statement` 就被踩到了。
+    kids.length > 0 ? Math.min(stmtEnd, stmtEndOf(kids[kids.length - 1], ctx)) : stmtEnd;
+  // **容器就是调用方手上那一格 token**（第 1018 轮）：`projectLet`（语句位）递的是那条语句的
+  // 单元，`structuralProps`（`for (let i = 0; …)` 的头部）递的是那一段里的容器单元——
+  // 两种调用点递进来的都是**同一个东西**（一个 token），所以这里不再分接收者。
   const containerView = container;
   const letView = letNode === null ? containerView : (letNode);
   const listStart = modifierStart(letView, ctx);
   // **声明名那一格走 `tokenNameOf`**（第 1008 轮）：`fieldName` 是 `Let` 自己 `NameField`
-  // 回答的那一格事实，读法只有一个入口（这里是**视图**，见 `tokenNameOf` 的两种接收者）。
+  // 回答的那一格事实，读法只有一个入口（见 `tokenNameOf`：收的就是那一格 token）。
   const declared = String(tokenNameOf(letView) ?? "");
   // **解构声明的名字用产物自己的那个 `ArrayLiteral` / `ObjectLiteral`**（踩过）：
   // 它们就是绑定模式（`ArrayLiteral[6,21]` 与 TS 的 `ArrayBindingPattern[6,22)` 逐格一致），
@@ -7309,7 +7309,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 不走 `KIND_BY_TAG`（那张表是值位的）。
 
 ```ts
-  const v = (unit);
+  const v = unit;
   // **括号形态也要认**（第 137 轮）：绑定位里 `{ a }` / `[a]` 有时还没被
   // `JsonObjectCloseRule` / `JsonArrayCloseRule` 收成 `ObjectLiteral` /
   // `ArrayLiteral`（`[k2]: { a }` 里右边那一格就是一对裸花括号）——只认那两种标签时
@@ -7367,7 +7367,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 第 93 轮修：早先按「属性」处理，实测 `BindingElement` 字段名差 8 处） |
 
 ```ts
-  const v = (unit);
+  const v = unit;
   const kids = projectableKids(v);
   const colonIndex = kids.findIndex((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ":");
   const eqIndex = kids.findIndex((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "=");
@@ -7420,7 +7420,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
       // ⇒ `const { "x": a } = { x: 9 }` **静默给 `undefined`**（JS 给 `9`）。
       // 取法与 `specifierNameOf` 那条**一字不差**：引号名给 `StringLiteral`
       //（`text` 是引号里那段），其余走 `nameOf`——键的取法本来就只有这一种。
-      // 位置落在**原始 Map** 上，`stringText` / `astNode` 吃的是**视图**，所以这里要过一趟 `view`。
+      // 位置与文本都直接问这一格单元自己（`startOf` / `endOf` / `stringText` 收的就是 token）。
       const quotedBefore = kids.find(
         (k) =>
           (k.Tag() === "String" || k.Tag() === "ConstString") &&
@@ -7839,7 +7839,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     // （它自己会调 `nameOf`）——所以这里手工往右套（踩过一次：把投好的节点喂给
     // `qualifiedNameFrom` 会 `node.get is not a function`）。
     // `query.exprName` 已经是**投好的节点**（不是单元）——判它看 `kind`，
-    // 不能拿 `isNameNode` 去问（那个判据吃的是字典格；踩过一次：会 `node.get is not a function`）。
+    // 不能拿 `isNameNode` 去问（那个判据吃的是别的接收者；踩过一次：会 `node.get is not a function`）。
     const head = query.exprName;
     let name =
       head !== undefined && (head.kind === "Identifier" || head.kind === "QualifiedName")
@@ -8296,7 +8296,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
 
 ```ts
   const source = ctx.source;
-  // `v` 在这一层是**视图**（`projectNode` 开头 `(node)` 过的），所以起止取 `v.start` / `v.end`。
+  // `v` 就是那一格 token 自己（`projectNode` 收进来的一格），所以起止取 `v.start` / `v.end`。
   let end = v.end - 1;
   while (end > v.start && source[end] !== "]") end--;
   if (source[end] !== "]") return -1;
@@ -8344,9 +8344,9 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 
 ```ts
   // **名字那一格走 `tokenNameOf`**（第 1008 轮）：它先问 token 自己的 `NameField`
-  // （第 1006 轮：`name` / `fieldName` / `namespace` 由各页自己回答），问不到才退回字典。
+  // （第 1006 轮：`name` / `fieldName` / `namespace` 由各页自己回答），问不到才看它自己的 `name` 属性。
   // 原来这里是一张三词名单（`tokenNameOf(attrs) ?? …("fieldName") ?? …("namespace")`）——
-  // 那是**按字符串键查字典**，而且与 `()` 那一格是同一句话的第二个入口（两处会漂）。
+  // 那是**把同一格事实抄成三处**，而且与 `()` 那一格是同一句话的第二个入口（两处会漂）。
   const rawName = tokenNameOf(v);
   // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
   // `Let.fieldName` 这个**属性**上（不是子单元），`x.\u0061` 的键同理。
@@ -8414,7 +8414,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 
 # private method modifierSpansOf:(v:any)=>Array<any>
 
-token 记下的**每个修饰词各自的区间**（产物字典里的 `modifierSpans`，`"起:止"` 用 `,` 连接、闭区间）。
+token 记下的**每个修饰词各自的区间**（各页自己声明的那一格 `modifierSpans`，`"起:止"` 用 `,` 连接、闭区间）。
 
 解析期认下声明那一刻位置就在手上，所以这一格是**事实**；没有这一格的 token（还没记的那几档）
 返回空数组，调用方退回「回原文 `indexOf` 猜」那条路。
@@ -8694,8 +8694,8 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 ```ts
   const type = unit.Tag();
   if (type === "String" || type === "ConstString") {
-    // `stringText` / `astNode` 吃的是**视图**，`nameOf` 吃的是原始 Map——两者的入口不同。
-    return astNode("StringLiteral", { text: stringText((unit), ctx) }, (unit), ctx);
+    // `stringText` / `astNode` / `nameOf` 收的都是这一格 token 自己，入口只有一种。
+    return astNode("StringLiteral", { text: stringText(unit, ctx) }, unit, ctx);
   }
   return nameOf(unit, ctx);
 ```
@@ -8778,7 +8778,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 而 TS 那边是 `SwitchStatement > caseBlock: CaseBlock > clauses: (CaseClause|DefaultClause)`。
 
 ```ts
-  const sv = seg;
+  const sv = seg;  // 这一格就是 `seg` 自己（不再包一层接收者）
   const kindWord = String(sv.key ?? "");
   const kids = projectableKids(sv);
   const caseUnit = kids.find((k) => k.Tag() === "SwitchCase");
@@ -8833,8 +8833,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 解析期 `Export.Process` 一遇到 `;` 就停，把那一个字符留给了语句（见 `tokens/export.xl.md`）。
 
 ```ts
-  const view_ = v;
-  const kids = projectableKids(view_);
+  const kids = projectableKids(v);
   // **`export default interface I {}` / `export class C {}` 是声明自己带修饰词**
   // （第 153 轮）：TS 那边是 `InterfaceDeclaration.modifiers = [ExportKeyword, DefaultKeyword]`，
   // 而产物是 `[Export([Keyword(export), Keyword(default)]), Interface(…)]` 两格平级。
@@ -8847,7 +8846,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   if (declared !== undefined) {
     const node = projectNode(declared, ctx);
     if (node !== undefined) {
-      const words = projectableKids(view_).filter(
+      const words = projectableKids(v).filter(
         (k) =>
           (k.Tag() === "Keyword" || k.Tag() === "Identifier") &&
           ["export", "default"].includes(textOfNode(k, ctx)),
@@ -8939,7 +8938,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
       return {
         kind: "ExportAssignment",
         expression: value,
-        pos: view_.start,
+        pos: v.start,
         end: ctx.source[semiAt] === ";" ? semiAt + 1 : end,
       };
     }
@@ -8954,14 +8953,13 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   // 全是同一个形状：产物 `[71,83)` 对 TS `[71,84)`）。
   return {
     kind: "ExportDeclaration",
-    pos: view_.start,
-    // **区间必须从视图上取**（第 93 轮修）：`projectStatement` 递进来的是**原始 Map**，
-    // 而 `stmtEndOf` 读的是 `v.start` / `v.end` —— 原始 Map 上这两个属性都是 `undefined`
-    // （它们在 `range` 里），于是终点变成 `undefined`、投影出来的 `ExportDeclaration`
-    // 成了零宽区间：实测 108 处漂移 + 108 处「多出来」（同一个节点两边各记一次）。
-    // **起点仍从视图取**（`stmtEnd` 已经是算好的整数，不再经过原始 Map）。
+    pos: v.start,
+    // **区间从这一格 token 自己身上取**（第 93 轮修）：`stmtEndOf` 读的是 `v.start` / `v.end`，
+    // 起点与终点都落在这一格上。少了这一条实测怎样：终点变成 `undefined`、投影出来的
+    // `ExportDeclaration` 成了零宽区间：实测 108 处漂移 + 108 处「多出来」
+    //（同一个节点两边各记一次）。而 `stmtEnd` 是外头那一格 `Statement` 已经算好的整数。
     end: stmtEnd,
-    ...namedExportClause(view_, ctx),
+    ...namedExportClause(v, ctx),
   };
 ```
 
@@ -9067,7 +9065,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
       props.moduleSpecifier = projected;
     } else {
       // **括号那一档**（第 877 轮）：`from("m")` 里那个字符串装在
-      // `Method(name="from")` 里面（`Method` 的字典把实参表**摊平**成 `children`，
+  // `Method(name="from")` 里面（`Method` 自己把实参表**摊平**进 `children`，
       // 所以 `holder` 就是那个 `Method`）——TS 那边这条语句仍是一条 `ExportDeclaration`，
       // 而那一格是 `ParenthesizedExpression`（`moduleSpecifier` 是括号**里**那个
       // `StringLiteral`：语义上会报「模块名不是字符串字面量」，语法树上那对括号还在）。
@@ -9091,7 +9089,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 
 # private method braceSpanOf:(raw:any)=>any
 
-把 token 记下的**整对花括号**（产物字典里的 `bodyBraceRange`，`"起,止"` 闭区间）
+把 token 记下的**整对花括号**（各页自己声明的那一格 `bodyBraceRange`，`"起,止"` 闭区间）
 读成 `[起, 止]`；没记过 / 记坏了给 `null`。
 
 **为什么要这一格**（用户口径：token 出字段、投影直读）：`IfSegment.BodyBrace`（第 637 轮）
@@ -9113,7 +9111,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 
 **循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
 
-**第一判据是 token 记下的整对花括号**（第 641 轮，`braceRange` = 产物字典里的
+**第一判据是 token 记下的整对花括号**（第 641 轮，`braceRange` = 各页自己声明的那一格
 `bodyBraceRange`）：`While.BodyBrace` 在挂体那一刻就把那对括号记下了，
 有它 ⇒ TS 那边就是一个 `Block`（**空块也在内**），下面那一套「找 `{` + `MatchingBrace`」
 一步都不跑。
@@ -9171,7 +9169,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 
 一个段的体 → `Block`（或没有花括号时的单条语句）。
 
-**第一判据是 token 记下的整对花括号**（第 641 轮，`braceRange` = 产物字典里的
+**第一判据是 token 记下的整对花括号**（第 641 轮，`braceRange` = 各页自己声明的那一格
 `bodyBraceRange`）：`IfSegment.BodyBrace` 在挂体那一刻就把那对括号记下了，
 有它就**直接**是那个 `Block`——下面那套「找 `{` + `MatchingBrace` + 比对语句表」
 一步都不跑（那套是回原文猜的第二份答案）。
@@ -9462,7 +9460,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   // （`heritageClauses` 字段凭空多出，因为那张表把 `children` 映射成了 `heritageClauses`）。
   const decorators = [];
   // **`name` 按这一格自己的那一格事实给**（第 1008 轮），不维护 kind 白名单——白名单漏一个 kind，
-  // 「字段名对拍」就多一处看不出根因的假差异；也不按字符串键查字典（见 `tokenNameOf`）。
+  // 「字段名对拍」就多一处看不出根因的假差异；也不把同一格事实抄成几处（见 `tokenNameOf`）。
   // 命名空间那个例外也随之消失：`namespace` 是各页 `NameField` 自己答的那一格之一。
   const rawName = tokenNameOf(v);
   // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
@@ -9546,7 +9544,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
       }
       // **体节点**：改字段名，但自己仍是一个节点（见 `Token.BodyField`）。
       // **问那个子单元自己**：「我是体、我在父节点上叫哪个字段」是它的事实，
-      // 所以投影只读它——与下面那格「包装提层」是同一手法（都从字典格上的 `__token` 问过去）。
+      // 所以投影只读它——与下面那格「包装提层」是同一手法（都问子单元自己那一格事实）。
       // **父亲投成了什么要一起递进去**：`Namespace` 的两态（点号命名空间的内层 vs
       // 命名空间体里的一条语句）只有它分得开，判据住在那一页（`namespace.xl.md`）。
       const body = bodyFieldOf(x, kind);
@@ -9809,11 +9807,11 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     // 搬进各 token 自己的 `PrintDirectAst(ctx, v)`，而那一层**不能 import 本文件**
     // （token 层反过来被本文件依赖，会成环）。所以这些横切的小工具只能经 `ctx` 递过去——
     // 与上面那一组同款：逐个转调共享实现，行为不变。
-    // **`PrintDirectAst` 收到的 `v` 是「视图」不是原始 Map**（见 `projectNode` 开头那句
-    // `const v = (node)`），所以取坐标这两种都要认：视图读 `start` / `end` 两个字段，
-    // 原始 Map 走 `range`。搬迁过去的代码里 `v.start` / `v.end` 就是这么用的。
-    StartOf: (node) => (startOf(node)),
-    EndOf: (node) => (endOf(node)),
+    // **`PrintDirectAst` 收到的 `v` 就是那一格 token 自己**（见 `projectNode` 开头那句
+    // `const v = node`），坐标读的就是它自己的 `start` / `end` 两个属性——
+    // 搬迁过去的代码里 `v.start` / `v.end` 就是这么用的。
+    StartOf: (node) => startOf(node),
+    EndOf: (node) => endOf(node),
     StmtEndOf: (view) => stmtEndOf(view, ctx),
     // **尾分号那一格的出口**（第 840 轮）：`declare module "mm";` 那个 `;` 到达时
     // 声明早已成形（收尾规则问「简写」的那一刻列表只到名字），所以它由**投影侧**
@@ -9825,16 +9823,16 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     IsOperatorUnit: (node) => isOperatorUnit(node, ctx),
     ChainWithOptional: (node, nco) => chainWithOptional(node, nco, ctx),
     NameOf: (node) => nameOf(node, ctx),
-    // **`Kids` 两种都认**（第 185 轮）：`PrintDirectAst` 里传进来的常常是**视图**（`v`），
-    // 但取子单元时手上也可能是**原始 Map**（`nameUnits.find(...)` 那种）——
-    // `projectableKids` 只吃视图，所以这里自己归一。
+    // **`Kids` 收哪一格都行**（第 185 轮）：`PrintDirectAst` 里传进来的就是那一格 token，
+    // 但取子单元时手上也可能是一段**单元数组**——`projectableKids` 只吃单个 token，
+    // 所以这里自己归一。
     Kids: (node) => projectableKids(node),
     Expression: (list) => projectExpression(list, ctx),
     TypeExpression: (list) => projectTypeExpression(list, ctx),
     ProjectEach: (list, parentKind) => projectEach(list, ctx, parentKind),
     // **把一串单元当作「成员表」投**（第 934 轮）：`MappedType` 的值类型之后还能再跟成员
     // （TS 的 `parseMappedType` 在值类型之后照样 `parseTypeMembers()`），而那一格住不进
-    // 映射类型那一层的成员段（映射类型的字典是「修饰词 / 键 / 值类型」那一套）⇒
+    // 映射类型那一层的成员段（映射类型自己装的是「修饰词 / 键 / 值类型」那几格）⇒
     // 由它的 `PrintDirectAst` 把那一小段按成员位投一次。
     // 实现与通用支那一支**共用同一份**（`projectEachIn`，`parentKind` 传 `"TypeLiteral"`：
     // 那一格同时决定「成员之间不切」与 `ctx.signature`——`Field` 因此投成
