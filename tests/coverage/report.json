@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4346,
+  "total": 4348,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.46,
+  "progressPercent": 95.44,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1567,
+      "total": 1569,
       "pass": 1565,
-      "blocked": 2,
+      "blocked": 4,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.87
+      "coverage": 99.75
     },
     {
       "category": "exec",
@@ -129,9 +129,9 @@
     }
   ],
   "token": {
-    "total": 1567,
-    "knownGap": 2,
-    "knownGapStillOpen": 2,
+    "total": 1569,
+    "knownGap": 4,
+    "knownGapStillOpen": 4,
     "exactFiles": 1565,
     "scoredWithoutGap": 1565,
     "passedWithoutGap": 1565
@@ -147,7 +147,19 @@
       "id": "token/expressions/gap-r937-new-index-callee-newline",
       "category": "token",
       "title": "",
-      "detail": "缺 2　漂 2　多 6　`new` 的被调者是**下标访问**且换行落在 `[` 之前时（`new ns` 换行 `[a]()`），"
+      "detail": "缺 2　漂 2　多 6　`new` 的被调者是**跨行的下标访问**时（`new ns` 换行 `[a]()`），末尾那对 `()`"
+    },
+    {
+      "id": "token/expressions/gap-r938-new-anonymous-class",
+      "category": "token",
+      "title": "",
+      "detail": "缺 15　多 6　`new` 后面紧跟一个**匿名类表达式**时它不成形：`const a = new class { m() {} }();`"
+    },
+    {
+      "id": "token/statements/gap-r938-loop-body-next-line",
+      "category": "token",
+      "title": "",
+      "detail": "漂 4　多 8　循环的**单语句体写在下一行**时体是空的：`while (a)` 换行 `foo();` 在 TS 那边"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
@@ -449,7 +461,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2174.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2176.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -749,7 +761,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3162.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3164.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -773,7 +785,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3210.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3212.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/051-builtin-regexp-constructor",
@@ -941,7 +953,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3853.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3855.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

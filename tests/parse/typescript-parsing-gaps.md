@@ -553,6 +553,33 @@
   尖括号断言跨换行（`const a = <T>` 换行 `x;`）同样登记为
   `gap-r937-angle-assertion-newline`。
 
+- **「体写在下一行」的守卫要问「这一格还在不在手上」**（第 938 轮，量到、未收）：
+  `while (a)` 换行 `foo();` / `while (a)` 换行 `break;` / `for (const x of y)` 换行 `continue;`
+  / `for (;;)` 换行 `foo();` 四档，TS 都是一条循环语句（体是下一行那一条），
+  本仓把体判成**空**、体那一条另起一个 `Statement`。
+  `while` 那一趟的插桩读数：`Process` 收到 `index=0`、单元列表就是
+  `[Identifier(while), Bracket((a))]`（体那几个单元**还没进列表**）、`len=2`，
+  `endIndex = SkipNextTrivia(...) = 2 = len` ⇒ 直接落进 `emptyBody` 那一支，
+  `endIndex` 退回 `currentIndex - 1`（那个条件括号）⇒ `While` 区间只到头部。
+  **`if (a)` 换行 `foo();` 没有这个毛病**（`IfSegment` 走的是另一条路）——
+  所以坏的是 `WhileCloseRule.Process` / `ForCloseRule.Process` 体那一段：
+  `Statement.SearchStatementEnd` 在「体还没进单元列表」时给 `-1`，
+  而那一支的兜底是 `Statement.LastMeaningfulIndex`（同样给 -1）⇒ 只好当空体。
+  **现有的 `stmt-header-body-next-line.ts` 只钉了花括号体那一半**
+  （`while (a)` 换行 `{ break }`），体是单语句时一个守卫都没有 ——
+  这一轮补 `gap-r938-loop-body-next-line.ts`。
+  **下一轮的第一站**：`ForCloseRule` / `WhileCloseRule` 的体那一支在
+  `SearchStatementEnd === -1` 时该不该改成「等下一趟」（让路），而不是「当空体」。
+  **别动 `SearchStatementEnd` 本身**：它给 -1 是对的，错的是拿 -1 当「体是空的」。
+
+- **`new` 后面的**关键字**被构造者（第 938 轮，量到、未收）**：`new class { m() {} }()`
+  是 `NewExpression > ClassExpression`，而 `NewCloseRule.Previous` 只认
+  「后面紧跟 `Identifier` 或 `(` 括号」⇒ `class` 两者都不是 ⇒ `new` 留成裸 `Keyword`。
+  同一批里 42 条（`/*c*/` / 换行 / 行注释各 14 格）整族红。
+  守卫 `gap-r938-new-anonymous-class.ts`。
+  它与「括号里的被构造者」（`new (class {})()`，那一支已经能走）是**同一件事的两半**：
+  `Previous` 那一条「紧跟类型名」的判据要连**值位的关键字**一起认。
+
 ## 收缺口的两条规矩
 
 - **一次收一族**：把量出来的那一族整个收掉；量出来的时候**先补用例**（带 `xl:known-gap` 进语料），
