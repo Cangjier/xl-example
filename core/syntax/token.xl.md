@@ -452,14 +452,18 @@ this.Parent.Data.splice(index, 1);
 
 标签名取 `this.constructor.name`，所以类名就是它产出的 XML 标签名。
 
-**开标签上的 `range="[起,止]"`**：口径与第三种出口的 `range` 键同一处
+**开标签上的 `range="[起,止]"`**：口径与字典那一层的 `range` 键同一处
 （`RangeOf` 那一段写着为什么必须同一个来源）。XML 从前没有坐标——坐标只活在
-`ToList()` 那一层；现在两个出口都印，`cases:astjson` 那条「XML 的每个属性在 JSON 里同名同值」
-于是多了一条真的在核的断言。
+`ToList()` 那一层；第 987 轮起两个出口都印，为的是让 `cases:astjson` 那条
+「XML 的每个属性在 JSON 里同名同值」有一条真在核的断言。
+
+**第 1016 轮之后这一格没有任何门看着**：出口 2（`--ast-json`）与那门（`cases:astjson`）
+一起删了，这一格**按用户口径留着**（XML 的读者要坐标），但它今天靠的是这条口径本身、
+不是一条会红的判据——见 [docs/ast-json.md](../docs/ast-json.md) 第 5 节。
 
 **覆写了本方法的 token 都要自己补上这一格**：属性是逐个 token 拼出来的，
 没有一处能替它们统一加（`Bracket` / `Let` / `String` / `Import` … 二十多处各拼各的）。
-按「类名 + `range` + 各自那几个属性」的顺序写，这一门与 `cases:astjson` 都按名取值，顺序不影响判据。
+按「类名 + `range` + 各自那几个属性」的顺序写，顺序不影响任何判据（按名取值）。
 
 ```ts
 const name = this.constructor.name;
@@ -570,7 +574,9 @@ return end;
 - **第一出口（XML）开标签上的 `range="…"`**：就是本方法。
 
 **为什么必须同一处**：两个出口各算一遍，`IfSegment` 那种只有起点的单元就会给出**不同的数**，
-而 `cases:astjson` 那一门正是逐属性核「XML 的每个属性在 JSON 里同名同值」。
+而 `cases:astjson` 那一门（第 884 ~ 1015 轮）正是逐属性核「XML 的每个属性在 JSON 里同名同值」。
+**那一门今天不在了**（第 1016 轮随出口 2 一起删，见 `ToXmlString` 那一节）：
+两个出口仍然共用这一处，但**不再有一条会红的判据替你看着它**。
 
 ```ts
 return "[" + this.RangeStart() + "," + this.RangeEnd() + "]";
@@ -721,9 +727,11 @@ return result;
 
 **这一格是什么**（第 1005 轮）：答**自己的类名**。
 
-它是「产物标签」这一格事实的**唯一出口**——前三个出口说的都是「这一格叫什么」：
-XML 的标签名、字典（与 AST JSON）的 `type`、TS 形状那一层的 kind 判据
-（`PrintDirectAst` 里那些 `=== "Identifier"` 这一类的比较）。
+它是「产物标签」这一格事实的**唯一出口**——三种读法说的都是「这一格叫什么」：
+XML 的标签名、字典（[docs/ast-json.md](../docs/ast-json.md) 那份规格说它叫 AST JSON 出口）的 `type`、
+TS 形状那一层的 kind 判据（`PrintDirectAst` 里那些 `=== "Identifier"` 这一类的比较）。
+**第 1016 轮只删了命令行那一条路**（`--ast-json` 与它的尺子 `cases:astjson`）：
+字典这一侧的三种读法仍然都在，规格文件也还在。
 
 **为什么要有这一格**：直出版的判据是「只用 token 自己的东西，不回原文查、不按字符串查字典」，
 而「这一格是不是 `SymbolToken`」过去写成 `k.get("type") === "SymbolToken"` ——
@@ -761,7 +769,14 @@ return undefined;
 
 ## method ToJsonString:()=>string
 
-把 `ToList()` 串成一个 JSON 字符串（紧凑单行）——`cjcli --ast-json` 打的就是它。
+把 `ToList()` 串成一个 JSON 字符串（紧凑单行）。
+
+**第 1016 轮起本仓没有出口用它**：读它的那一条命令行出口（`cjcli --ast-json`）连同它的尺子
+（`cases:astjson`）一起删掉了——形状与字段表的规格留在
+[docs/ast-json.md](../docs/ast-json.md)，但那条路今天只能从代码里走。
+这一格留着的理由：它**是 `Token` 的公开 API**（与 `ToDictionary` / `ToList` 同一族），
+而 `ToList()` 本身仍然被第三个出口（TS 形状投影）养着——「怎么把树印成 JSON」
+因此还有唯一一个说得清的入口。
 
 **为什么要先过 `ToPlain`**：`ToDictionary` 给的是 `Map`，而 `JSON.stringify` 对 `Map` 一律给 `{}`
 （`Map` 的条目不在自有可枚举属性里）。这不是可以绕过的细节，是**会静默打出空对象**的坑，

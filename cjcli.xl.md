@@ -16,23 +16,26 @@ import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 
 链路只有四步：读源文件 → `TextDocument` 包成文档 → `TextContext.Process` 驱动解析 → 把 `Root` 的 XML 缩进后打到标准输出。
 
-**三个出口**：XML 是默认出口（给人读，也是测试夹具的形态）；`--ast-json` 换成 JSON 出口
-（给下游程序读，形状是上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`）；
+**两个出口**：XML 是默认出口（给人读，也是测试夹具的形态）；
 `--ts-ast` 换成 **TS 形状出口**（`ts.createSourceFile` 的形状：kind 用名字、每个节点带
 `pos` / `end` 与 TS 那边的字段名，给 `cases:tsast` 的对拍与人工 diff 用）。
-JSON 出口**不再缩进 XML、也不做任何重排**，`JSON.stringify` 的紧凑单行就是它的形态——
-缩进只属于 XML 那一条打印路径（`FormatXml` 也不认得 JSON）。
 
-**三个出口同源**：都挂在同一次 `Process` 造出来的那棵树上（`CjcliParse`），
-区别只在最后取哪一份——`Root.ToXmlString()` / `Root.ToJsonString()` /
-`Root.ToList()` 交给 `projectRoot` 投影。**没有第二条解析路径**。
+**第 1016 轮删掉的那条出口**：`--ast-json`（AST JSON，形状是上游 Cangjie 的
+`Token.ToDictionary` / `ToList`）连同它的尺子 `cases:astjson` 与规格 `docs/ast-json.md` 一起撤了。
+`Token.ToJsonString()` / `ToList()` / `ToDictionary()` 那些**库**一格都没动——`ToList()` 还被
+TS 形状出口的投影养着，只是命令行不再有那条路。
+撤它的理由：那条出口的**唯一**用途是给下游程序读树，而下游要的是 TS 形状
+（`--ts-ast` 与它同源、且真的在跟 `ts.createSourceFile` 对拍）；留两条 JSON 出口等于
+让「哪一条才算数」没有答案。XML 的开标签上仍然印 `range`（第 987 轮那一条口径不动）。
+
+**两个出口同源**：都挂在同一次 `Process` 造出来的那棵树上（`CjcliParse`），
+区别只在最后取哪一份——`Root.ToXmlString()` / `Root.ToList()` 交给 `projectRoot` 投影。
+**没有第二条解析路径**。
 
 | 命令 | 行为 |
 | --- | --- |
 | `cjcli <文件>` | 解析文件，**缩进** XML 打到标准输出 |
 | `cjcli <文件> -o <文件>` | 解析后写入指定文件（同一份缩进文本） |
-| `cjcli <文件> --ast-json` | 解析后把 **AST JSON**（单行）打到标准输出 |
-| `cjcli <文件> --ast-json -o <文件>` | 解析后把 AST JSON 写入指定文件 |
 | `cjcli <文件> --ts-ast` | 解析后把 **TS 形状 JSON**（单行，`ts.createSourceFile` 的形状）打到标准输出 |
 | `cjcli <文件> --ts-ast -o <文件>` | 解析后把 TS 形状 JSON 写入指定文件 |
 | `cjcli -h` / `cjcli --help` | 打印用法 |
@@ -68,7 +71,7 @@ cjcli.xl.md  --xl build-->  dist/cjcli.ts  --tsc-->  build/cjcli.js  --node-->  
 
 `# type` 不支持泛型参数，也不需要。
 
-# type CliOptions = { Input: string; Output: string; AstJson: boolean; TsAst: boolean; Help: boolean; Version: boolean; Error?: string }
+# type CliOptions = { Input: string; Output: string; TsAst: boolean; Help: boolean; Version: boolean; Error?: string }
 
 命令行参数解析结果。
 
@@ -76,9 +79,9 @@ cjcli.xl.md  --xl build-->  dist/cjcli.ts  --tsc-->  build/cjcli.js  --node-->  
 少了它，「`-o` 少给一个路径」这种情况会退化成「没有输入文件」，
 于是 `Main` 转去读 stdin —— 在终端上直接挂住等人输入。
 
-`AstJson` / `TsAst` 是出口开关：两个都 `false` 走 XML（默认），`AstJson` 走 token 树的
-JSON，`TsAst` 走 TS 形状。三个出口打的是同一棵树，
-所以它们是**两个布尔量**，而不是三条各自解析一次的路径。
+`TsAst` 是出口开关：`false` 走 XML（默认），`true` 走 TS 形状。两个出口打的是同一棵树，
+所以它是**一个布尔量**，而不是两条各自解析一次的路径。
+（`AstJson` 那一格第 1016 轮随 `--ast-json` 一起删掉，见文件开头那一段。）
 
 `# type` 的等号右侧是**原文**，会被原样搬进产物。
 
@@ -103,7 +106,6 @@ return [
   "用法：",
   "  cjcli <文件>              解析源文件，缩进 XML 打到标准输出",
   "  cjcli <文件> -o <文件>    解析后写入指定文件（同一份缩进文本）",
-  "  cjcli <文件> --ast-json   解析后把 AST JSON 打到标准输出",
   "  cjcli <文件> --ts-ast     解析后把 TS 形状 JSON 打到标准输出",
   "  cjcli                    从标准输入读源码",
   "  cjcli -h, --help         打印本说明",
@@ -125,15 +127,15 @@ return [
 打印走 `CommonUtil.FormatXml`：**每个元素一行、两格缩进**，叶子（只有文本的元素）留在同一行。
 缩进只动空白、不动任何标签或属性值——`Root.ToString()` 的紧凑形态仍然是测试与差分用的那一份。
 
-`-o` 与标准输出**打的是同一份缩进文本**，两种出口不再有形态差异。
+`-o` 与标准输出**打的是同一份缩进文本**，两种出口不再有形态差异（第 1016 轮之后只剩 XML 与
+`--ts-ast` 两条路，见文件开头那一段）。
 
-`--ast-json` / `--ts-ast` 换的是**出口**，不是解析：同一棵树、同一次 `Process`，只是最后取
-`CjcliAstJson` / `CjcliParseTsAst` 而不是 `Root.ToString()`。JSON 是紧凑单行（`JSON.stringify(value)` 不带缩进参数），
+`--ts-ast` 换的是**出口**，不是解析：同一棵树、同一次 `Process`，只是最后取
+`CjcliParseTsAst` 而不是 `Root.ToXmlString()`。JSON 是紧凑单行（`JSON.stringify(value)` 不带缩进参数），
 不经过 `FormatXml`——那个函数只认得 XML，喂它一段 JSON 会原样返回。
 
-**`--ast-json` / `--ts-ast` 与 `-o` 可以同时出现**：写进文件的仍是同一条 JSON 文本，
-只是「已写入 …」那行提示照旧打到标准输出。两个开关同时给时 `--ts-ast` 优先
-（`TsAst` 那一支在前）——它们是同一个位置的两种形状，不是可以叠加的东西。
+**`--ts-ast` 与 `-o` 可以同时出现**：写进文件的仍是同一条 JSON 文本，
+只是「已写入 …」那行提示照旧打到标准输出。
 
 ```ts
 const options = CjcliParseArguments(args);
@@ -172,8 +174,6 @@ if (content === null) {
 let text: string | null = null;
 if (options.TsAst) {
   text = CjcliParseTsAst(content, filePath);
-} else if (options.AstJson) {
-  text = CjcliParseAstJson(content, filePath);
 } else {
   const xml = CjcliParseXml(content, filePath);
   if (xml !== null) {
@@ -198,14 +198,13 @@ process.stdout.write("已写入 " + outputPath + "\n");
 解析命令行参数。
 
 规则刻意取得很窄：只有一个位置参数（输入文件），`-o` / `--output` 需要一个值，
-`--ast-json` 是布尔开关（不带值），其余 `-` 开头的词一律算用法错误。
+`--ts-ast` 是布尔开关（不带值），其余 `-` 开头的词一律算用法错误。
 用法错误只记进 `Error` 并立刻返回，由 `Main` 统一收尾——**打印与退出码只有一处**。
 
 ```ts
 const options: CliOptions = {
   Input: "",
   Output: "",
-  AstJson: false,
   TsAst: false,
   Help: false,
   Version: false,
@@ -220,11 +219,6 @@ while (index < args.length) {
   }
   if (item === "-v" || item === "--version") {
     options.Version = true;
-    index++;
-    continue;
-  }
-  if (item === "--ast-json") {
-    options.AstJson = true;
     index++;
     continue;
   }
@@ -260,11 +254,10 @@ return options;
 
 把一段源码解析成 token 树；出错时把诊断打到标准错误并返回 `null`。
 
-**三个出口共用这一段**：XML 出口要的是 `Root`，JSON 出口要的是 `Root.ToList()`，
-TS 形状出口要的是 `projectRoot(Root.ToList(), content)`，
+**两个出口共用这一段**：XML 出口要的是 `Root`，TS 形状出口要的是 `projectRoot(Root.ToList(), content)`，
 但「造模板 → 包文档 → 驱动解析 → 异常收敛」这条链是同一段，所以它返回**根单元本身**，
-由三个很薄的取值函数（`CjcliParseXml` / `CjcliParseAstJson` / `CjcliParseTsAst`）各自取自己那一份。
-这样「三个出口看的是同一棵树」不是一句约定，而是**结构上没有第二条解析路径**。
+由两个很薄的取值函数（`CjcliParseXml` / `CjcliParseTsAst`）各自取自己那一份。
+这样「两个出口看的是同一棵树」不是一句约定，而是**结构上没有第二条解析路径**。
 
 `TextDocument` / `TextContext` 与整棵树不再登记到任何持有者身上（见 README「资源生命周期：交给 GC」），
 解析完也不需要显式释放，所以这里只剩 `try/catch` 一层，用来做异常收敛。
@@ -302,29 +295,6 @@ if (root === null) {
   return null;
 }
 return root.ToXmlString();
-```
-
-# method CjcliParseAstJson:(content:string, filePath:string)=>string | null
-
-解析并取 **AST JSON**（紧凑单行）。
-
-JSON 的形状就是 `Root.ToList()` 的返回值：一个数组，每个元素是一个节点对象
-（`type` + 本节点自己的键 + 可选的 `children` / 具名分段），根这一层的每个节点另带 `range`。
-这一份与上游 Cangjie 的 `code.analyse` 同源（`Root.ToList()` → JSON），
-**不是**从 XML 反推出来的第二套结构。
-
-`JSON.stringify` 不带第三参数：紧凑单行是刻意选的形态——它是要被程序读的，
-缩进只会让下游多一步解析前的剥离；人要看缩进形态用 XML 出口。
-
-序列化本身在 `Token.ToJsonString` 里（那里处理 `Map` → 普通对象那一层），
-这里只负责把异常收敛到 `null`，与 XML 出口同一个形状。
-
-```ts
-const root = CjcliParse(content, filePath);
-if (root === null) {
-  return null;
-}
-return root.ToJsonString();
 ```
 
 # method CjcliParseTsAst:(content:string, filePath:string)=>string | null

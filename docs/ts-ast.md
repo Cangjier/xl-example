@@ -8,7 +8,8 @@
 > 第 1013 轮 `PrintAst` 与它的派发分支整条删除、这一格成了第三个出口**唯一**的写法；
 > 原来的 `typescript/ts-ast.xl.md` 已删（`git mv` 成 [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md)），搬迁手册见 [print-ast-migration.md](history/print-ast-migration.md)）；
 > 命令行侧在 [`cjcli.xl.md`](../cjcli.xl.md) 的 `CjcliParseTsAst`。
-> 第二个出口（AST JSON）见 [ast-json.md](ast-json.md)。
+> 第二个出口（AST JSON）见 [ast-json.md](ast-json.md)——**第 1016 轮起命令行不再放出那一条**
+> （`--ast-json` 与 `cases:astjson` 删了），那份规格与库里的 `ToDictionary` / `ToList` 都还在。
 
 ---
 
@@ -20,7 +21,7 @@
 | 约定 | 规则 |
 | --- | --- |
 | `kind` 用**名字** | `"VariableStatement"` / `"BinaryExpression"` / `"EndOfFileToken"`…**不是数字** |
-| 坐标是 `pos` / `end` | 半开区间；来源是产物树每个节点上的 `range`（闭区间 `[起, 止]`，**第 987 轮起 XML 出口的开标签上也印它**），投影自己不发明位置 |
+| 坐标是 `pos` / `end` | 半开区间；来源是产物树每个节点上的 `range`（闭区间 `[起, 止]`，**第 987 轮起 XML 出口的开标签上也印它**——那一格当初是为 AST JSON 的尺子加的，第 1016 轮那把尺子撤了、它还在），投影自己不发明位置 |
 | 字段名按 TS | `statements` / `members` / `parameters` / `declarationList`…；产物里分段本来就叫 `initial` / `compare` / `body` 的那套名字照用 |
 | **顺序不在约定里** | 三条约定只管 kind 名字、`pos`/`end`、字段**名**，**不管字段顺序**。TS 的 `forEachChild` 按**文法顺序**走（`modifiers` 在 `name` 前），产物按**XML 属性顺序**给字段（`name` 在 `modifiers` 前）——实测两者不同，而**集合逐节点相同**（`cases:tsast` 的四方向全 0 正是这个意思）。所以没有、也不该有「按顺序对齐」这一栏：拿它当尺子只会造出「判据说全对、粗指标说对不上」的假矛盾 |
 

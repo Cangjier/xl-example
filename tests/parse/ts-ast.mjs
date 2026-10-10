@@ -259,8 +259,11 @@ function flattenProduct(exported, stats, source) {
 }
 
 /**
- * 段名集合：与 `tests/parse/ast-json.mjs` 的 `SEGMENTS` 同源（那边是「XML 元素名 → 段名」，
- * 这里要的是段名本身）。两处必须一起改——**段名是投影规则的一部分**，不是实现细节。
+ * 段名集合：字典里那些**批次**键的名字（`compare` / `body` / `initial`…）。
+ *
+ * 第 1016 轮之前它与 `tests/parse/ast-json.mjs` 的 `SEGMENTS` 同源（那边是「XML 元素名 → 段名」），
+ * 那一页随命令行的 AST JSON 出口一起删掉了，**这一份从此是段名表的唯一一处**——
+ * **段名是投影规则的一部分**，不是实现细节，改它要连同 `print-ast-common.xl.md` 一起想。
  */
 const SEGMENT_KEY_NAMES = new Set([
   "compare",
@@ -419,7 +422,7 @@ function walk(dir, out) {
   return out;
 }
 
-// **语料只有这一份定义** ✓（第 884 轮 ✓）：`cases:astjson`（出口 2 的尺子）也吃它 ✓——
+// **语料只有这一份定义** ✓（第 884 轮 ✓）：`cases:direct`（第三个出口的尺子）也吃它 ✓——
 // 「哪些文件算语料」「哪几类用例要跳过」写两遍就一定会漂 ✓（`listCases` 的过滤条件是会变的 ✓）。
 // 它导出的是一个**函数** ✗（不是一份快照 ✓）：分片那一趟按 `ARGS` 现算 ✓，两个调用方各拿各的 ✓。
 export function corpus(mode) {

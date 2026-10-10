@@ -1,13 +1,21 @@
 # AST JSON 出口
 
+> **第 1016 轮：命令行的那一条出口删掉了。** `cjcli --ast-json`、它的专属尺子 `cases:astjson`
+> 与本文第 5 节那张验收表一起撤掉；**库这一侧一格没动**（`Token.ToDictionary()` / `ToList()` /
+> `ToJsonString()` / `WithRange()` 都在，本文也因此整篇留着当形状与字段表的规格）。
+> 今天还有两个命令行出口：XML（默认）与 TS 形状（`cjcli --ts-ast`，规格见 [ts-ast.md](ts-ast.md)）——
+> 下面凡提到 `cjcli … --ast-json` 的地方，读作「**改这个出口时要动的地方**」，
+> 而不是一条今天能敲的命令。
+>
 > 本文是 **token 树的第二个出口**（AST JSON）的规格：形状、字段表、与 XML 出口的同源关系，
 > 以及与上游 Cangjie 的逐条差异。
 > 解析层本身见 [README](../README.md) 与 [`typescript/parse-pipeline.xl.md`](../typescript/parse-pipeline.xl.md)。
 >
-> **树现在有三个出口**：XML（默认）、AST JSON（本文）、**TS 形状**
+> **树有三个出口**：XML（默认）、AST JSON（本文）、**TS 形状**
 > （`cjcli --ts-ast`，规格见 [ts-ast.md](ts-ast.md)）。第三个出口挂在
 > [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md) 的 `projectRoot` 上——
 > 它读的是同一棵树的 `ToList()`，不是本文这份 JSON 的再加工。
+> **命令行只放出了 XML 与 TS 形状两条**（第 1016 轮起）：AST JSON 这一份今天只从代码里取。
 
 ---
 
@@ -20,19 +28,20 @@ TS 形状挂在 `typescript/print-ast-common.xl.md` 的 `projectRoot` 上（core
 | 出口 | 入口 | 形态 | 给谁 |
 | --- | --- | --- | --- |
 | XML（默认） | `Token.ToXmlString()` / `Root.ToString()` | 元素树；`cjcli` 打印时按嵌套缩进 | 给人读 |
-| AST JSON | `Token.ToDictionary()` / `ToList()` / `ToJsonString()` | 紧凑单行 JSON | 给下游程序读 |
+| AST JSON | `Token.ToDictionary()` / `ToList()` / `ToJsonString()` | 紧凑单行 JSON | 给下游程序读（**第 1016 轮起不再由命令行放出**） |
 | TS 形状 | `projectRoot()` / `ToJsonText()` | `ts.createSourceFile` 同形（`kind` 用名字 + `pos` / `end`） | 与 TS 原生 AST 对拍 / diff |
 
-命令行侧由 `cjcli` 的 `--ast-json` 切换：
+命令行侧**曾经**由 `cjcli` 的 `--ast-json` 切换（第 1016 轮删）：
 
 ```bash
-node build/ts/cjcli.js samples/hello.ts --ast-json            # 打到标准输出
-node build/ts/cjcli.js samples/hello.ts --ast-json -o out.json  # 写文件
+node build/ts/cjcli.js samples/hello.ts --ast-json            # 打到标准输出（今天会报未知选项）
+node build/ts/cjcli.js samples/hello.ts --ast-json -o out.json  # 写文件（同上）
 ```
 
-**换的是出口，不是解析**：`CjcliParse` 造出根单元之后就分叉，两个出口看的是同一棵树
-（见 [cjcli.xl.md](../cjcli.xl.md) 的 `CjcliParseXml` / `CjcliParseAstJson`）。
-JSON 不经过 `CommonUtil.FormatXml`：那个函数只认 XML。
+那条开关换的是**出口**，不是解析：`CjcliParse` 造出根单元之后就分叉，两个出口看的是同一棵树
+（见 [cjcli.xl.md](../cjcli.xl.md) 的 `CjcliParseXml` / `CjcliParseTsAst`）。
+JSON 不经过 `CommonUtil.FormatXml`：那个函数只认 XML。**这一段口径今天仍然成立**——
+只是分叉点少了一条路。
 
 **从代码里取**（不走命令行）：
 
@@ -195,11 +204,13 @@ JSON 跟着上游的键名只会让**同一棵树的两个出口在本工程内�
 
 ---
 
-## 5. 验收
+## 5. 验收（**第 1016 轮起没有门**）
 
-**第 884 轮起这个出口有专属的尺子**：`npm run cases:astjson`
-（[tests/parse/ast-json.mjs](../tests/parse/ast-json.mjs)，`npm run gates` 里的第 9 道门）。
-它把本文的形状约定逐节点核成六项，**全 0 才退出码 0**：
+**这一节记的是那把尺子量过什么、为什么量，以及它撤掉之后空出来的是哪一格。**
+
+**第 884 ~ 1015 轮这个出口有专属的尺子**：`npm run cases:astjson`
+（`tests/parse/ast-json.mjs`，`npm run gates` 里的一道门）。它把本文的形状约定逐节点核成六项，
+**全 0 才退出码 0**：
 
 | 判据 | 量的是什么 |
 | --- | --- |
@@ -210,18 +221,29 @@ JSON 跟着上游的键名只会让**同一棵树的两个出口在本工程内�
 | ⑤ 命令行 === 库 API | `cjcli <文件> --ast-json` 的 stdout 逐字节等于 `Root.ToJsonString()` |
 | ⑥ 不抛异常 | 解析 / 两个出口本身都不许抛 |
 
-**④ 是这一门真正防的那件事**。这个出口的唯一事实来源是**同一个文件里的两处拼串**
+**第 1016 轮这六项一起去掉**：⑤ 量的是命令行那条路（路没了），① ② 量的是「两个出口说的是不是
+同一棵树」——而那棵树的另一侧（XML）还在、这一侧的**库**也还在，只是**没有哪条命令同时碰得到两边**，
+于是这两项失去了它的接收者。③ ④ 都还可以核（`ToList()` 仍然每个节点带 `range`、
+键名表仍然是本文），但**没有门再核**。
+
+**④ 是这一门真正防过的那件事**。这个出口的唯一事实来源是**同一个文件里的两处拼串**
 （`ToXmlString` 与 `ToDictionary`），而「多出来的键」从前只靠本文那张例外表记着——
 补这一门之前它已经漂了 **5 格**（`Import.typeWordAt`、`Switch.bodyAt`、`SwitchSegment.colonPos`、
 `TernaryOperator.questionPos` / `colonPos`、`StaticBlock.braceAt`：`ToDictionary` 里写了、
-本文一个字没提），这一轮把这 5 格补进第 3 / 4 节、判据同时上锁。
+本文一个字没提），第 884 轮把这 5 格补进第 3 / 4 节、判据同时上锁。
+**上锁的那把锁今天摘了，这条规矩还在**：加一格坐标就补一次第 3 / 4 节，
+否则下一个人只能从代码里读形状。
 
-**语料是「用例 + `samples`」**，不吃 `node_modules` / `dist/ts`：`cases:shapes` 已经证明
-用例侧是外部语料那 260 种形状签名的**超集**（444 种），而这一门量的「同一个节点两个出口对不对」
+**那把尺子当年量的语料是「用例 + `samples`」**，不吃 `node_modules` / `dist/ts`：`cases:shapes`
+已经证明用例侧是外部语料那 260 种形状签名的**超集**（444 种），而这一门量的「同一个节点两个出口对不对」
 与形状种类一一对应；整份外部语料单进程要 ~37s、用例那一份只要 ~2s——没有理由为同一句话多花 35s 墙钟。
 
-**新增的坐标字段走的是这条出口**（例如第 634 轮的 `headerCloseAt`）：`ToDictionary` 里写了、
-投影才读得到（见第 3 节的字段表）——**同时也要写进那张表**，否则 ④ 会红。
+**新增的坐标字段走的仍然是这条出口**（例如第 634 轮的 `headerCloseAt`）：`ToDictionary` 里写了、
+投影才读得到（见第 3 节的字段表）——**同时也要写进那张表**，否则形状就只有代码知道。
+
+**撤掉之后空出来的是这一格**：XML 开标签上的 `range="[起,止]"`（第 987 轮为 ② 而加，
+今天仍然印着）**从此没有任何门看着**——它还在，是因为「XML 的读者也要坐标」这条口径本身成立，
+而不是因为有一门在核它。这一句写在这里，免得下一个人以为它是被验证过的。
 
 ---
 
@@ -230,8 +252,11 @@ JSON 跟着上游的键名只会让**同一棵树的两个出口在本工程内�
 1. 给某个 token 加/改 XML 属性 → **同一个文件里**的 `ToDictionary` 必须一起改（两处同名同值）。
 2. 加一个全新的 token 类 → 如果它有 XML 属性，就补 `ToDictionary`；**没有 XML 属性但有坐标格**
    （`StaticBlock` 的 `braceAt` 那种「只给投影读」的事实）**也要覆写**，而且**同样要写进第 3 节的字段表**
-   ——这一档两个出口都看不出来，只有 ④ 会替你发现；两样都没有才不必覆写（基类形状已经对）。
+   ——这一档两个出口都看不出来，当年只有 ④ 会替你发现（今天没有门了，全靠这条规矩）；
+   两样都没有才不必覆写（基类形状已经对）。
 3. 加一个分段结构 → 在 `ToDictionary` 里按段名写 `ToList()`，不要摊成 `children`。
-4. 改完跑 **`npm run cases:astjson`**（见第 5 节）：`cjcli <文件>` 与 `cjcli <文件> --ast-json` 说的必须是
-   同一棵树——**这一门替你核**（① 标签 / ② 属性 / ③ 坐标 / ⑤ 命令行 / ⑥ 抛异常），
-   而**新加的坐标键还要写进第 3 节的字段表**，否则 ④ 红；`npm run samples` 只覆盖 TS 形状出口。
+4. 改完**没有一条命令能替你核**（第 5 节：那把尺子第 1016 轮撤了）。今天能做的三件事：
+   `npm run cases:tsast`（投影那一侧——它读的正是 `ToList()`，这一条**真的在跑**）、
+   `npm run samples`（TS 形状出口的输出与库 API 逐字节一致）、
+   以及**自己拿 `Root.ToXmlString()` 与 `Root.ToDictionary()` 对一眼**——
+   当年那六项里 ① ② ③ 的意思就是这一眼；而**新加的坐标键还要写进第 3 节的字段表**。

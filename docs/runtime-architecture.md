@@ -14,7 +14,7 @@
 | --- | --- |
 | [README.md](../README.md) | 解析侧的总图与验收口径 |
 | [ts-ast.md](ts-ast.md) | token 树的第三个出口（TS 形状）——**降级层的输入契约** |
-| [ast-json.md](ast-json.md) | 第二个出口（AST JSON） |
+| [ast-json.md](ast-json.md) | 第二个出口（AST JSON）——**第 1016 轮起只活在库里**（命令行的 `--ast-json` 与它的尺子都删了） |
 | [xl-to-cpp.md](xl-to-cpp.md) | C++ 目标的生成规范（解析侧） |
 | **本文** | **执行侧：值模型 / 对象表 / GC / 帧 / IR / 标准库 / 宿主 ABI** |
 

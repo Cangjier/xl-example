@@ -114,7 +114,9 @@ super(template);
 那对标签在 XML 上是合法的，但这一格的形状就是「光秃秃一个成员」，自闭合更贴近它。
 
 **`range` 不能省**（第 987 轮）：它是个**叶子成员**，坐标只在它自己的开标签上出现；
-省掉这一格，`cases:astjson` 会当场报「JSON 有 `range`、XML 开标签上没有」（实测 3 处）。
+省掉这一格，当时那一门（`cases:astjson`）会当场报「JSON 有 `range`、XML 开标签上没有」（实测 3 处）。
+**那一门第 1016 轮随命令行的 `--ast-json` 一起删了**，这一格本身按用户口径留着
+（见 `core/syntax/token.xl.md` 的 `ToXmlString` 那一节）——今天它是靠口径、不是靠判据。
 
 ```ts
 return "<" + this.constructor.name + " range=\"" + this.RangeOf() + "\" />";

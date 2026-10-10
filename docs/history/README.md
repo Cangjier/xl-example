@@ -9,6 +9,6 @@
 | [parse-guide-design.md](parse-guide-design.md) | 解析期 guide + 单元吃字符那套设计（第 398 轮）的判据与两条铁律 |
 
 **当前该怎么写**看这几份：[README](../../README.md)（总览与判据）、
-[ts-ast.md](../ts-ast.md)（第三个出口的规格）、[ast-json.md](../ast-json.md)（第二个出口的规格）、
+[ts-ast.md](../ts-ast.md)（第三个出口的规格）、[ast-json.md](../ast-json.md)（第二个出口的规格——**第 1016 轮起只活在库里**，命令行那条路删了）、
 [runtime-architecture.md](../runtime-architecture.md)（执行层）。
 逐轮的现场在 **git 历史**里。

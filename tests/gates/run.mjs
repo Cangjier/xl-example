@@ -37,14 +37,15 @@ const GATES = [
   // 按 `os.cpus().length` 切组、每组一个子进程（组数不 hard code）。
   // 这里再写一个固定片数就是**第二份答案**，而且会把外层各道门 × 16 片叠成过载。
   { name: "cases:tsast", script: "tests/parse/ts-ast.mjs" },
-  // **`cases:astjson`（第 884 轮加）**：**出口 2**（`cjcli --ast-json`）的专属尺子。
-  // 在那之前它是三个出口里**唯一没有判据**的一个——`docs/ast-json.md` 第 5 节自己写着
-  // 「这个出口今天没有专属的尺子」，改它要靠「自己拿两个出口对一眼」。
-  // 这一门把那条断言判据化：逐节点核「标签名 === type」「XML 的每个属性在 JSON 里同名同值」
-  // 「每个节点都有合法 range」「JSON 多出来的键必须在规格第 2–4 节登记过」「命令行 === 库 API」。
-  // 语料是**用例 + samples**（比 `cases:tsast` 那 37s 的全语料轻得多，~3s），
-  // 因为 `cases:shapes` 已经证明用例侧是外部语料形状签名的超集。
-  { name: "cases:astjson", script: "tests/parse/ast-json.mjs" },
+  // **`cases:astjson`（第 884 轮加、第 1016 轮删）**：出口 2（`cjcli --ast-json`）的专属尺子。
+  // 它在的时候核的是「逐节点：标签名 === type」「XML 的每个属性在 JSON 里同名同值」
+  // 「每个节点都有合法 range」「JSON 多出来的键在 docs/ast-json.md 第 2–4 节登记过」
+  // 「命令行 === 库 API」「不抛异常」六项。
+  // 第 1016 轮**命令行那一条出口整条删掉**（`--ast-json` 与它一起），于是这一门没有量得到的对象：
+  // 它量的一半是「两个出口说的是不是同一棵树」，而那棵树现在只剩 XML 与 TS 形状两条路
+  // （TS 形状那一条由 `cases:tsast` / `samples` 看着）。
+  // **库那一层一格没动**：`ToDictionary` / `ToList` / `ToJsonString` 与
+  // [docs/ast-json.md](../docs/ast-json.md) 那份规格都还在，只是不再有门核它们。
   // **`cases:direct` + `direct:lint`（第 992 轮加，第 1013 轮改口径）**：第三个出口
   // （`Token.PrintDirectAst`，现在是它**唯一**的写法）的两条判据，一动态一静态——
   // `cases:direct` 把同一份输入**重投两遍**逐字节比（连 `unmapped` / `count` 记账一起），
