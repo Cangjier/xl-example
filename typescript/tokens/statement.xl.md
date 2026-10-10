@@ -2332,12 +2332,24 @@ return true;
 判据只有一条：**不是**运算符。所以 `Identifier` / 字面量 / 字符串 / 各式单元都算；
 `SymbolToken` 里只有 `)` / `]` / `}` / `!` / `++` / `--` 这几个是「操作数末尾」。
 
-它只被 `IsLineBreakBoundary` 用来分辨 `++` / `--` 是**前缀**还是**后缀**：
-`x` 换行 `++b` 里 `++` 前面没有操作数，是前缀（起新语句）；
+**整整一条语句不算操作数**（第 934 轮片段普查量出的 `incdec-n5`）：`++` / `--` / `!`
+这三个两可符号问的是「**它左边**有没有一个操作数末尾」——而解析期把 `;` 收成壳之后，
+左边那一格可能已经是**一条成形的 `Statement`**：
+`let a = 1; a++; --` 换行 `a;` 里那个 `--` 前面是 `a++;` 那条壳，而 TS 读的是
+**前缀**`--`（`PrefixUnaryExpression` 跨过那个换行，实测缺 `PrefixUnaryExpression` +
+漂 1 + 多 3）。**「不是运算符」这一条对整条语句不成立**：
+语句级单元不是表达式的操作数，所以它右边那个 `++` / `--` 只可能是前缀。
+判据用 `IsStatementUnit`（与「语句从这里断开」那四个调用点共用一份名单）。
+
+它只被 `IsLineBreakBoundary` / `IsLineBreakIncompleteOnLeft` 用来分辨 `++` / `--` 是**前缀**
+还是**后缀**：`x` 换行 `++b` 里 `++` 前面没有操作数，是前缀（起新语句）；
 `x++` 换行 `continue` 里 `++` 前面是 `x`，是后缀（表达式已经写完，换行是语句边界）。
 
 ```ts
 if (item === null) {
+  return false;
+}
+if (Statement.IsStatementUnit(item)) {
   return false;
 }
 if (item instanceof SymbolToken) {

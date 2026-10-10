@@ -323,15 +323,18 @@ return unit instanceof Bracket && unit.startBracket === "[";
 第一轮按最小改动只补了量出来的那一个；**同一轮第二轮把整张表换成 `IsDeclarationModifier`**
 （同一个问题两处各写一份就是两处会漂，见 `statement.xl.md` 第 556 / 555 轮的账）。
 
-**名字后面允许已经有一个类型参数段**（第 934 轮）：`class A { m<T>` 换行 `(a:T):void; }` 里
-换行前面那一格是 `<T>`（`GenericType`）、名字在**再往前一格** —— 与 `m` 换行 `(a: T): void`
-是同一件事，`<T>` 只是名字与形参表之间那一段。少了这一档时本方法答否 ⇒ `(` 那一支的
-`before` 是那条软换行、`NameOnPreviousLine` 又答否 ⇒ 本规则（队列位次在
-`MethodDeclarationCloseRule` **之前**）把 `(a:T):void;` 抢成无名 `CallSignature`
-⇒ 重载方法那一格整条丢掉（实测 `gap-r933-overload-generic-newline`：缺
-`MethodDeclaration` + `TypeParameter`、多 `CallSignature` + `TypeReference`）。
+**名字后面允许已经有一个类型参数段 / 一个可选标记**（第 934 轮）：`class A { m<T>` 换行
+`(a:T):void; }` 里换行前面那一格是 `<T>`（`GenericType`）、**再往前**才是名字；
+`interface I { b?` 换行 `(): E }` 里换行前面那一格是 `?` —— 两档与 `m` 换行 `(a: T): void`
+是同一件事（`<T>` / `?` 只是名字与形参表之间那一段）。少了这一档时本方法答否 ⇒
+`(` 那一支的 `before` 是那条软换行、`NameOnPreviousLine` 又答否 ⇒ 本规则（队列位次在
+`MethodDeclarationCloseRule` **之前**）把括号抢成无名 `CallSignature`（`<T>` 那一档），
+或者 `FieldCloseRule` 把 `b?` 收成一条只有名字的字段、`():E` 整段并进它的区间
+（`?` 那一档，实测 `membertypes-n29`：缺 `MethodSignature` / `TypeReference` / `Identifier`、
+多一个盖住 `b?\n():E` 的 `PropertySignature`）。
 **必须收在这一份判据里**：`(` 与 `<T>` 两支问的是同一句话（同一行只写了一个名字吗），
-两处各写一个近似就是两处会漂（第 904 轮抽这一份的理由）。
+两处各写一个近似就是两处会漂（第 904 轮抽这一份的理由）。TS 的两种标记次序是 `m?<T>`，
+所以这两跳各允许出现一次、次序不敏感（`m?<T>` / `m<T>?` 都不是合法写法，多跳一步无害）。
 
 ```ts
 const at = Get(units, index);
@@ -339,9 +342,19 @@ if (!(at instanceof LineWrap)) {
   return false;
 }
 let nameIndex = SkipPreviousTrivia(units, index);
-// **换行前面那一格是类型参数段时，名字在再往前一格**（第 934 轮）：`m<T>` 换行 `(a:T)`。
-if (Get(units, nameIndex) instanceof GenericType) {
-  nameIndex = SkipPreviousTrivia(units, nameIndex);
+// **换行前面那一格是类型参数段 / 可选标记时，名字在再往前一格**（第 934 轮）：
+// `m<T>` 换行 `(a:T)` 与 `b?` 换行 `(): E`。
+for (let step = 0; step < 2; step++) {
+  const mark = Get(units, nameIndex);
+  if (mark instanceof GenericType) {
+    nameIndex = SkipPreviousTrivia(units, nameIndex);
+    continue;
+  }
+  if (mark instanceof SymbolToken && mark.Is("?")) {
+    nameIndex = SkipPreviousTrivia(units, nameIndex);
+    continue;
+  }
+  break;
 }
 const name = Get(units, nameIndex);
 if (!(name instanceof Identifier) && !(name instanceof String)) {
