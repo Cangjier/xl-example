@@ -219,7 +219,7 @@ return new Map([["ObjectLiteralExpression", new Map([["children", "properties"]]
         } finally {
           ctx.inObjectLiteral = savedInObject;
         }
-        if (one !== undefined && ctx.MemberInObject.has(one.kind)) {
+        if (one !== undefined && MEMBER_IN_OBJECT.has(one.kind)) {
           properties.push(one);
         } else {
           properties.push({
@@ -316,4 +316,20 @@ return result;
 
 ```ts
 return "ObjectLiteralExpression";
+```
+
+# private const MEMBER_IN_OBJECT:Set<string>
+
+**对象字面量里「已经是成员」的那些 kind**（第 1037 轮从投影层搬到这里）：
+`{ m() {} }` 那一组只有一格、投出来就是 `MethodDeclaration`——它**直接进 `properties`**，
+不要再套一层 `ShorthandPropertyAssignment`（TS 那边对象字面量的方法是 `MethodDeclaration` /
+`GetAccessor` / `SetAccessor`，与类里同名）。
+
+这一份名单过去写在 `typescript/print-ast-common.xl.md`（`# private const MEMBER_IN_OBJECT`）、
+并挂在 `ctx.MemberInObject` 上递过来，可它**全仓只有一个读者**——就是本页的
+`PrintDirectAst`：判的就是「我刚投出来的那一格是不是成员」，那是**本页的上下文**，
+搬回来说的是同一件事，而 `ctx` 上那一格出口也随之删掉（出口表 64 → 62）。
+
+```ts
+new Set(["MethodDeclaration", "GetAccessor", "SetAccessor", "PropertyAssignment", "ShorthandPropertyAssignment", "SpreadAssignment"])
 ```

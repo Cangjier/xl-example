@@ -327,6 +327,23 @@ return this.Value;
   return KEYWORD_KIND.get(this.Value);
 ```
 
+## method StatementField:()=>string | undefined
+
+**我这一格当语句头时，载荷进哪个字段**（第 1037 轮）：`return` / `throw` 那句话的载荷在
+TS 那边叫 `expression`，`break` / `continue` / `debugger` 叫 `label`——两份都由**本页的
+关键字词汇表**（`KEYWORD_STATEMENT_KINDS`）定，所以这一格只读那一张表，不另立名单。
+不是语句头（`StatementKind()` 答 `undefined`）时也答 `undefined`。
+
+过去它是投影层的一张按**语句 kind** 查的集合（`KEYWORD_STATEMENT_EXPRESSION`），
+可那些 kind 名就是这张词汇表的**值**、词又住在我这里——同一份事实两处声明，
+改一个词要跑两个地方（与 `StatementKind()` / `KeywordKind()` 第 1027 / 1028 轮搬家同一条理由）。
+
+```ts
+  const kind = KEYWORD_STATEMENT_KINDS.get(this.Value);
+  if (kind === undefined) return undefined;
+  return kind === "ReturnStatement" || kind === "ThrowStatement" ? "expression" : "label";
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

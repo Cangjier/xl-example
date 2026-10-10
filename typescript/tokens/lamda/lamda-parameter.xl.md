@@ -39,7 +39,7 @@ Lambda 的一个形参。
   const kids = ctx.Kids(v);
   const leadingModifiers: any[] = [];
   for (const k of kids) {
-    if (k.Tag() === "Keyword" && ctx.ParameterModifiers.has(ctx.ValueOf(k))) {
+    if (k.Tag() === "Keyword" && PARAMETER_MODIFIERS.has(ctx.ValueOf(k))) {
       leadingModifiers.push(k);
       continue;
     }
@@ -162,4 +162,19 @@ return result;
 
 ```ts
 return "Parameter";
+```
+
+# private const PARAMETER_MODIFIERS:Set<string>
+
+**形参前面哪几个词是修饰词**（第 1037 轮从投影层搬到这里）。
+
+`a: T` 与 `private readonly a: T` 在产物那边同形：都把那几个词当**子单元**摆在前面，
+只有这一页知道它们不是参数名的一部分。这一份词表过去写在
+`typescript/print-ast-common.xl.md`（`# private const PARAMETER_MODIFIERS`）、
+并挂在 `ctx.ParameterModifiers` 上递过来，可它**全仓只有一个读者**——就是本页的
+`PrintDirectAst`：一份只服务一处的词表住在投影层，搬回来说的是同一件事，而 `ctx` 上
+那一格出口也随之删掉（出口表 64 → 62）。
+
+```ts
+new Set(["public", "private", "protected", "readonly", "override"])
 ```

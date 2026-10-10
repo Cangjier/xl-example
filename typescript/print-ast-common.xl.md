@@ -1463,8 +1463,6 @@ new Set(["InterfaceDeclaration", "TypeLiteral", "ClassDeclaration", "EnumDeclara
   return undefined;
 ```
 
-# private const KEYWORD_STATEMENT_EXPRESSION:Set<string> = new Set(["ReturnStatement", "ThrowStatement"])
-
 # private const NO_TRAILING_SEMICOLON:Set<string>
 
 **这些 kind 在 TS 那边收在块 / `}` 上、不调 `parseSemicolon`** ⇒ 紧跟它们的一个 `;`
@@ -1759,7 +1757,13 @@ new Set([
       const bareEnd = stmtEndOf(v, ctx);
       if (rest.length > 0) {
         const value = projectExpression(rest, ctx);
-        if (value !== undefined) props[KEYWORD_STATEMENT_EXPRESSION.has(kind) ? "expression" : "label"] = value;
+        // **载荷进哪个字段由那一格自己答**（第 1037 轮）：`return` / `throw` 是 `expression`、
+        // `break` / `continue` 是 `label`（`head.StatementField()`）。这一支只在
+        // `head.StatementKind()` 有答案时进来，而那一格**只有 `Keyword` 那一页覆写**——
+        // 所以 `field` 在这里一定有值，与原来那张 `KEYWORD_STATEMENT_EXPRESSION` 同答；
+        // 那份名单搬回了它该在的地方（那些 kind 名就是那一页词汇表的值）。
+        const field = head.StatementField();
+        if (value !== undefined && field !== undefined) props[field] = value;
       } else if (kind === "ThrowStatement") {
         props["expression"] = [{ kind: "Identifier", pos: bareEnd, end: bareEnd }];
       }
@@ -8182,8 +8186,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   props.modifiers = out;
 ```
 
-# private const PARAMETER_MODIFIERS:Set<string> = new Set(["public", "private", "protected", "readonly", "override"])
-
 # private method projectSegment:(v:any, key:string, ctx:any)=>any
 
 ```ts
@@ -8927,11 +8929,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   return -1;
 ```
 
-# private const MEMBER_IN_OBJECT:Set<string> = new Set(["MethodDeclaration", "GetAccessor", "SetAccessor", "PropertyAssignment", "ShorthandPropertyAssignment", "SpreadAssignment"])
-**对象字面量里「已经是成员」的那些 kind**：`{ m() {} }` 那一组只有一格、投出来就是
-`MethodDeclaration`——它**直接进 `properties`**，不要再套一层 `ShorthandPropertyAssignment`
-（TS 那边对象字面量的方法是 `MethodDeclaration` / `GetAccessor` / `SetAccessor`，与类里同名）。
-
 # private method splitTopLevel:(kids:Array<any>, ctx:any, separator:string)=>Array<Array<any>>
 
 把一串单元按**顶层分隔符**切成若干组（分隔符自己不进任何一组）。
@@ -9423,7 +9420,9 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     Decorators: (view, props) => addDecorators(view, props, ctx),
     OperatorRank: (text) => operatorRank(text),
     FoldBinaryFrom: (left, list) => foldBinaryFrom(left, list, ctx),
-    ParameterModifiers: PARAMETER_MODIFIERS,
+    // **`ParameterModifiers` 那个出口第 1037 轮删掉了**：那份词表（`public` / `private` /
+    // `protected` / `readonly` / `override`）只有一个读者（`tokens/lamda/lamda-parameter.xl.md`
+    // 的 `PrintDirectAst`），所以它搬回了那一页——投影层不再替它记一份，`ctx` 也不再递它。
     SynthName: (text, view) => synthName(text, view, ctx),
     StatementOf: (view) => projectStatement(view, ctx),
     // **一串平铺的单元当作一条语句投**（第 929 轮）：`Label.PrintDirectAst` 要的就是它
@@ -9466,7 +9465,10 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     Declaration: (view, parentKind, make, kind) =>
       projectDeclaration(view, ctx, parentKind ?? ctx.parentKind, make ?? ctx.Make(view), kind),
     IsTypeParameterModifier: (node) => isTypeParameterModifier(node, ctx),
-    MemberInObject: MEMBER_IN_OBJECT,
+    // **`MemberInObject` 那个出口第 1037 轮删掉了**：那份名单（`MethodDeclaration` /
+    // `GetAccessor` / `SetAccessor` / `PropertyAssignment` / `ShorthandPropertyAssignment` /
+    // `SpreadAssignment`）只有一个读者（`tokens/json/object-literal.xl.md`），所以它搬回了
+    // 那一页——投影层不再替它记一份，`ctx` 也不再递它。
     // **`NumericLiteral` 那张正则第 1029 轮搬走了**：数字字面量的写法是 `Identifier` 那一页的事实，
     // 要问它的两处（`memberNameOf` 与 `object-literal.xl.md`）走 `Identifier.IsNumericLiteral(text)`——
     // 递一个问句，不把整张表复制到 `ctx` 上。

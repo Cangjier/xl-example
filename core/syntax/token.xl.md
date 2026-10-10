@@ -911,6 +911,26 @@ return undefined;
 return undefined;
 ```
 
+## method StatementField:()=>string | undefined
+
+**我这一格当语句头时，后面那段载荷进目标语言的哪个字段**（第 1037 轮）：
+是的话答那个字段名（`expression` / `label`），不是的话答 `undefined`。
+
+它与 `StatementKind()` 是**同一件事的两半**：那一格说「我这一格投成哪条语句」，
+这一格说「那条语句的载荷字段叫什么」——`return` / `throw` 那句话的载荷在目标语言那边
+叫 `expression`，`break` / `continue` 叫 `label`（词就住在我这里，见
+`typescript/tokens/keyword.xl.md`）。判据的那份名单（`ReturnStatement` / `ThrowStatement`）
+过去写成投影层的一个 `# private const KEYWORD_STATEMENT_EXPRESSION:Set<string>`，
+可那些 kind 名**就是**那一页关键字词汇表（`KEYWORD_STATEMENT_KINDS`）的**值**——
+同一份事实被声明了两遍，所以它搬回了那一页。
+
+**基类答 `undefined`**（`core` 与语言无关，不知道任何目标语言的字段名）：需要它的 token
+在自己那一页覆写（`## method`，与 `AstKind` / `StatementKind` / `IsMemberTag` 同一形态）。
+
+```ts
+return undefined;
+```
+
 ## method IsInvisible:()=>bool
 
 **我在投影出来的那棵树里出不出现**（第 1030 轮）——答 `true` 就是说「我不是一个节点」、
