@@ -1341,15 +1341,21 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     const out = [];
     let group = [];
     let lastEnd = list.length > 0 ? startOf(list[0]) : 0;
+    // **上一个逗号的下标**（第 933 轮）：与 `tokens/json/array-literal.xl.md` 那一处同一份口径
+    // ——洞的起点是「上一个**逗号**之后那一格」，而 `lastEnd + 1`（上一个元素的终点 + 1）
+    // 在元素与逗号之间夹着注释 / 换行时差一格。
+    let previousSeparator = -1;
     const flush = (separator) => {
       if (group.length === 0) {
-        out.push({ kind: "OmittedExpression", pos: lastEnd + 1, end: lastEnd + 1 });
+        const at = previousSeparator === -1 ? lastEnd : previousSeparator + 1;
+        out.push({ kind: "OmittedExpression", pos: at, end: at });
       } else {
         const one = projectExpression(group, ctx);
         if (one !== undefined) out.push(one);
         lastEnd = endOf(group[group.length - 1]);
       }
       group = [];
+      if (separator !== undefined) previousSeparator = startOf(separator);
     };
     for (const item of list) {
       if (item.get("type") === "SymbolToken" && textOfNode(item, ctx) === ",") {

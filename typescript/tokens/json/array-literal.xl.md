@@ -272,7 +272,8 @@ Json 数组。
 
 - **一律走 `ctx.Expression`**（第 125 轮）：`group.length === 1` 时走 `Project` 会把元素位的
   **括号**投成一个未映射的 `<Bracket>`——`[(x), y]` 缺 `ParenthesizedExpression` + 多出 `Bracket`；
-- **数组里的洞是零宽 `OmittedExpression`**（第 176 轮）：位置是**第一个逗号之后那一格**；
+- **数组里的洞是零宽 `OmittedExpression`**（第 176 轮）：位置是**上一个逗号之后那一格**
+  （第 933 轮改准：原来写的是「上一个**元素**的终点 + 1」，元素与逗号之间夹着注释 / 换行时差一格）；
 - **尾随逗号不是洞**（`[1, 2,]` 只有两个元素）：末组为空时什么都不补。
 
 ```ts
@@ -280,9 +281,20 @@ Json 数组。
   let group: Array<any> = [];
   const list = ctx.Kids(v);
   let lastEnd = ctx.StartOf(v) + 1;
+  // **上一个逗号的下标**（第 933 轮）：洞的起点是「**前一个逗号**之后那一格」——
+  // `[1, , 2]` 的两个洞在 TS 那边是 `[13,13)` 与 `[15,15)`，而每个洞都是零宽的。
+  let previousSeparator = -1;
   const flush = (separator: any) => {
     if (group.length === 0) {
-      elements.push({ kind: "OmittedExpression", pos: lastEnd + 1, end: lastEnd + 1 });
+      // **洞的位置**（第 933 轮）：TS 放的是「上一个逗号之后那一格」。
+      // 原来写的是 `lastEnd + 1`（上一个**元素**的终点 + 1）——元素与逗号之间夹着
+      // 一条注释 / 一个换行时两者不是同一格：`[1/*c*/, , 2]` 的洞在 TS 那边是
+      // `[18,18)`（第一条逗号在 17 ⇒ 18），而 `lastEnd` 停在那条注释之前（= 12）⇒ 差一格
+      //（实测漂 1 + 多 1，夹换行那一档同形）。
+      // **第一个洞**（`[, 1]` 那种）没有上一个逗号：TS 放的是**紧跟 `[` 之后那一格**
+      //（`const a = [, 1];` 的洞是 `[11,11)`，即 `lastEnd` 自己——实测）。
+      const at = previousSeparator === -1 ? lastEnd : previousSeparator + 1;
+      elements.push({ kind: "OmittedExpression", pos: at, end: at });
     } else {
       const one = ctx.Expression(group);
       if (one !== undefined) {
@@ -291,6 +303,9 @@ Json 数组。
       lastEnd = ctx.EndOf(group[group.length - 1]);
     }
     group = [];
+    if (separator !== undefined) {
+      previousSeparator = ctx.StartOf(separator);
+    }
   };
   for (const item of list) {
     if (item.get("type") === "SymbolToken" && ctx.TextOf(item) === ",") {
