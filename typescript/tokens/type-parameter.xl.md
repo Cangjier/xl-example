@@ -5,12 +5,13 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText, IsMappedKeyBracket, IsTriviaUnit } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText, IsTriviaUnit } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { GenericType } from "./generic-type.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
+import { TypeLiteralCloseRule } from "./type-literal/type-literal.xl.md"
 ```
 
 # namespace cangjie
@@ -288,7 +289,7 @@ if (current.Parent === null) {
 if (current.Parent instanceof GenericType) {
   return this.IsParameterList(current.Parent) ? current.Parent : null;
 }
-if (IsMappedKeyBracket(current.Parent)) {
+if (TypeLiteralCloseRule.Instance.IsMappedKey(current.Parent)) {
   return current.Parent;
 }
 return null;
@@ -349,7 +350,7 @@ const owner = this.OwnerOf(units, index);
 if (owner === null) {
   throw new Error("TypeParameterCloseRule.Process: owner is null");
 }
-const mapped = IsMappedKeyBracket(owner);
+const mapped = TypeLiteralCloseRule.Instance.IsMappedKey(owner);
 const original: Token[] = [];
 for (const item of owner.Data) {
   original.push(item);

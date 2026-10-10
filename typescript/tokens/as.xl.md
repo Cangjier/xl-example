@@ -5,12 +5,13 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol, IsMappedKeyBracket, IsTriviaUnit } from "../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, IsTriviaUnit } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Satisfies } from "./satisfies.xl.md"
 import { Statement } from "./statement.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
+import { TypeLiteralCloseRule } from "./type-literal/type-literal.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 ```
 
@@ -49,9 +50,10 @@ if (!(current instanceof Identifier) || (current.TempToString() !== "as" && curr
 }
 // **映射类型的 `as` 子句不是 `AsExpression`**（第 66 轮）：`{ [K in T as X]: Y }` 里那个
 // `as X` 在 TS 那边是 `MappedType` 自己的 `nameType`（一个**类型**），不是断言表达式。
-// 键括号的内容里已经有 `in` 标记（`IsMappedKeyBracket`），判据与映射类型共用同一个答案。
+// 判据与映射类型共用同一个答案（`TypeLiteralCloseRule.Instance.IsMappedKey`：形状 + **位置**，
+// 第 951 轮把那片位置闸补上——值位的 `{ [K in T as X]: Y }` 里那个 `as` 是真断言）。
 // 少了这一条，`as X` 会把左边的 `TypeParameter` 一起吞进 `As`（实测 4 处）。
-if (current.Parent !== null && IsMappedKeyBracket(current.Parent)) {
+if (current.Parent !== null && TypeLiteralCloseRule.Instance.IsMappedKey(current.Parent)) {
   return false;
 }
 return true;

@@ -12,7 +12,15 @@
 // `"value"`（第 163 轮那条注释早就记过它不可靠），所以那一版按规矩撤回。
 // 下一轮要的是**与 `TypeLiteralCloseRule.IsTypePosition` 同一份**位置判据（或把它挪到
 // `text-common-util` 一层共用），不是再写第三份近似。
-// xl:known-gap 值位计算属性名里的 `in` 被当成映射键（本文件两条共缺 11 多 4：不带 `as` 的那条缺 2 多 2、带 `as` 键重映射的那条缺 9 多 2）
+// 第 951 轮收掉（已知缺口）：位置那一问**没有**挪到 `text-common-util`（那会绕出环——
+// `IsTypePosition` 自己要用 `Statement.IsLineBreakBoundary`），而是**留在 `type-literal.xl.md`**、
+// 由 `TypeLiteralCloseRule.Instance.IsMappedKey` 把「形状 + 位置」两问合起来答；
+// `type-parameter.xl.md` 的 `OwnerOf` / `Process` 与 `as.xl.md` 的 `Previous` 都改问它。
+// **这一刻问得出来**：折叠发生在键括号**关掉那一刻**，那时外层 `{` 还没关闭、且正躺在宿主自己的
+// 平列表里（`AddToMounted` 挂的）⇒ `type M<T> = {`（`=` 前隔着 `GenericType`）与
+// `Promise<{ … }>`（泛型实参）那两种 `Bracket.Context` 答 `"value"` 的排版这一次都问得到「类型位」。
+// `xl:expect ObjectLiteral:2,ArrayLiteral:2,BinaryOperator:1,As:1`
+// `xl:absent TypeParameter`
 // xl:end
 const v = { [K in T]: X };
 const w = { [K in T as `get${K}`]: X };

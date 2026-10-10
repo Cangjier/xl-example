@@ -588,7 +588,32 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**1 条**）
+## 已知仍开着的缺口（**0 条**）
+
+**第 951 轮：把「位置判据」接到折叠那一刻（缺口 1 → 0，清单再次清空）**
+
+- **收法**：`tokens/type-literal/type-literal.xl.md` 新增 `TypeLiteralCloseRule.IsMappedKey(unit)`——
+  **形状**仍问 `text-common-util.xl.md` 的 `IsMappedKeyBracket`（那一条一个字节没动），
+  **位置**则由「容器还是**没关闭**的那个 `{` 括号」去问同一份 `IsTypePosition`
+  （`IsTypePosition(container.Parent.Data, container.Parent.Data.indexOf(container))`）；
+  三处改问它：`type-parameter.xl.md` 的 `OwnerOf` / `Process`、`as.xl.md` 的 `Previous`。
+- **为什么不挪进 `text-common-util`**（第 949 轮写的两个选项之一）：`IsTypePosition` 自己要用
+  `Statement.IsLineBreakBoundary`，挪下去会绕出环 ⇒ 把**合起来的那一问**留在判据的家里
+  （`type-literal.xl.md`），token 层 import 它。
+- **为什么 `Bracket.Context` 顶不上**（第 949 轮试过、退回）：它回答的是**另一个时刻**
+  （开括号那一刻，前文还是平列表，`type M<T> = {` 的 `<T>` 还没升格成 `GenericType`，
+  `Promise<{ … }>` 那个 `{` 的宿主也还不是 `GenericType`）⇒ 两种排版答 `"value"`。
+  **第 951 轮插桩**（`tmp/r951/probe2.mjs`）：折叠那一刻外层 `{` 还没关闭，但**已经在宿主自己的
+  平列表里**（`BracketBranch.Success` 的 `AddToMounted` 挂的），所以同一刻问 `IsTypePosition`
+  这两种排版（以及第 949 轮坏掉的那六条）**全部答「类型位」**。
+- **读数**（`tmp/r951/snips.json`，11 条形状）：登记那条 `缺 11 漂 0 多 4 → 四方向全 0`；
+  10 / 11 条通过。
+- **一条留在门外、没登记的**（**改之前就存在**、与本轮这一格无关，如实记）：
+  `const o = { a: { [K in T]: X } }`（值位对象字面量里**再嵌一层**）仍把里层那个 `in` 当映射键——
+  那一刻里层 `{` 的 `IsTypePosition` 撞上的是**属性那个 `:`**，答「类型位」；
+  片段探针里它是唯一一条红的（缺 2 多 2，与本轮修的那条**同一形状、只差嵌套**）。
+- **可复用的判据**：**判据要问在「两边的答案都已经存在」的那一刻**。同一个问题被两处各答一遍时，
+  先问「哪一处答得准、**它答的是哪一刻**」——这一轮两处判据都不缺，缺的是折叠那一刻没人问位置。
 
 **第 950 轮：第 949 轮登记的第二条按「窄判据」收掉（缺口 2 → 1）**
 

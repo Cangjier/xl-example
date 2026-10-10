@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.5,
+  "progressPercent": 95.51,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1580,
-      "pass": 1579,
-      "blocked": 1,
+      "pass": 1580,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.94
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1580,
-    "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1579,
-    "scoredWithoutGap": 1579,
-    "passedWithoutGap": 1579
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1580,
+    "scoredWithoutGap": 1580,
+    "passedWithoutGap": 1580
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r949-object-computed-in-name",
-      "category": "token",
-      "title": "值位对象字面量的**计算属性名**里有 `in`（第 949 轮登记）。",
-      "detail": "缺 11　多 4　值位计算属性名里的 `in` 被当成映射键（本文件两条共缺 11 多 4：不带 `as` 的那条缺 2 多 2、带 `as` 键重映射的那条缺 9 多 2）"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",

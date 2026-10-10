@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsArrowReturnTypeBracket, IsSwitchLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, IsBindingPatternBrace, IsImportExportTypeClauseBrace } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsArrowReturnTypeBracket, IsSwitchLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, IsBindingPatternBrace, IsImportExportTypeClauseBrace, IsMappedKeyBracket } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -568,6 +568,53 @@ for (let i = index - 1; i >= 0; i--) {
   return false;
 }
 return false;
+```
+
+## method IsMappedKey:(unit:Token | null)=>bool
+
+`unit`（映射键那个方括号，或它被 `JsonArrayCloseRule` 收走之后的 `ArrayLiteral`）是不是**映射类型的键**。
+
+**与 `IsMappedKeyBracket` 的分工**：那一条只问**形状**（括号里有没有 `in` 标记、容器是不是那个
+`{` 括号或已经升格的 `TypeLiteral`）——它住在 `text-common-util.xl.md`（底层），而「**那个 `{` 处在
+类型位还是值位**」的判据（`IsTypePosition`）在本文件，底层不能反过来 import 它。所以**位置那一问写在这里**，
+调用方问这一条。
+
+**为什么必须补这一问**（第 949 轮登记、第 951 轮收）：`const v = { [K in T]: X }` 与
+`type M = { [K in T]: X }` **词法同形**（第一个实义单元都是 `[K in T]`），分开它们的只有**位置**——
+少了这一问，值位那条的 `K in T` 被收成 `TypeParameter`（TS 那边是 `ComputedPropertyName` 里的
+`BinaryExpression{ InKeyword }`）。
+
+**为什么不能用 `Bracket.Context`**（第 949 轮试过、按规矩退回）：它在 `type M<T> = { … }`
+（`=` 前面隔着 `GenericType`）与 `Promise<{ … }>`（泛型实参）这两种排版上答的是 `"value"`，
+于是六条真映射类型反过来坏了。**那一刻位置本身是问得出来的**，只是要问**收尾期那一份**判据
+（与括号自己的命运同一个答案——它就是 `TypeLiteralCloseRule.Previous` 要用的那一句）。
+
+**这一刻的现场**（第 951 轮插桩实测）：折叠发生在键括号**关掉那一刻**，那时外层 `{` 还是
+**没关闭**的括号，而它在**宿主自己的平列表**里（`BracketBranch.Success` 的 `AddToMounted` 挂的），
+`host.Data.indexOf(container)` 就是它那一格——`type M<T> = {` 问得到 `type`、`const v = {` 问得到 `const`、
+`Promise<{ … }>` 靠 `current.Parent instanceof GenericType` 那一支答「类型位」。
+
+**只闸没关闭的那个括号**：容器已经是 `TypeLiteral`（升格之后）时照旧按形状答，那一档与位置无关。
+
+```ts
+if (unit === null) {
+  return false;
+}
+const container:Token | null = unit.Parent;
+if (container !== null && container instanceof Bracket && container.startBracket === "{" && container.Closed === false) {
+  const host:Token | null = container.Parent;
+  if (host === null) {
+    return false;
+  }
+  const at = host.Data.indexOf(container);
+  if (at < 0) {
+    return false;
+  }
+  if (this.IsTypePosition(host.Data, at) === false) {
+    return false;
+  }
+}
+return IsMappedKeyBracket(unit);
 ```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
