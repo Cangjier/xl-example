@@ -22,6 +22,7 @@ import { NullConditionalOperator } from "./null-conditional-operator.xl.md"
 import { NotNull } from "./not-null.xl.md"
 import { PropertyAccess } from "./property-access.xl.md"
 import { String } from "./string/string.xl.md"
+import { RegexToken } from "./regex-token.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { UnaryOperator } from "./unary-operator.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
@@ -305,6 +306,11 @@ if (unit instanceof Identifier) {
 }
 if (
   unit instanceof String ||
+  // **正则字面量也是操作数**（第 931 轮）：`/re/ / 2 / 3` 里左边那一格就是它。
+  // 不认的话第一条 `/` 找不到左操作数、**留在原地成了裸符号**，而后半截 `2 / 3`
+  // 自己折成一个二元节点 ⇒ 投影出来是 `(/re/) / (2 / 3)` 那种形状
+  //（实测：漂移一条 `BinaryExpression` + 多一条，`/re/ / 2` 只有两个操作数时反而对）。
+  unit instanceof RegexToken ||
   unit instanceof Method ||
   unit instanceof NotNull ||
   unit instanceof UnaryOperator ||

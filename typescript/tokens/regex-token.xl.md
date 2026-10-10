@@ -11,6 +11,8 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 import { UnitToken } from "../../core/syntax/unit-token.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
+import { Get } from "../../core/extensions/list-extension.xl.md"
+import { SkipPreviousTrivia } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -26,6 +28,39 @@ import { Identifier } from "./identifier.xl.md"
 # class RegexTokenBranch extends Branch
 
 它永远不进 `Data`、不进 XML。
+
+## static method IsOperandUnit:(item:Token)=>bool
+
+**这一格能不能给一个表达式收尾**——能的话，紧跟在它后面的那个 `/` 就是**除号**（第 931 轮）。
+
+原来「不是 `Identifier` 也不是 `Bracket`」的单元一律落到 `Condition` 最后那个 `else`
+（答「正则」），于是字符串、模板串、正则字面量、后缀 `++` 这些**本来就是操作数**的单元
+全被读成正则的开头：`"s" / 2 / 3` 的产物里连一条 `BinaryExpression` 都没有
+（那条 `RegexToken` 把 ` 2 ` 当正文吞了）——实测四族各缺两条。
+
+名单按**类名**判，与 `text-common-util.xl.md` 的 `IsTriviaUnit` 同一条理由：
+直接 import 那几类会绕出环（本文件只 import 得进 `Bracket` / `Identifier`）。
+
+| 单元 | 为什么是操作数 |
+| --- | --- |
+| `String` | 引号串与模板串都是操作数（`"s" / 2` / `` `t` / 2 ``） |
+| `RegexToken` | 正则字面量自己也是操作数（`/re/ / 2`） |
+| `SymbolToken` 的 `++` / `--` | **后缀**式（`i++ / 2`）；前缀式后面直接跟 `/` 不成话 |
+
+`Identifier` / `Bracket` 两档不在这张表里：它们各有各的例外（前者要排语句关键字、
+后者整类都是操作数），由 `Condition` 自己那两支处理。
+
+```ts
+const name = item.constructor.name;
+if (name === "String" || name === "RegexToken") {
+  return true;
+}
+if (name === "SymbolToken") {
+  const text = (item as any).TempToString() as string;
+  return text === "++" || text === "--";
+}
+return false;
+```
 
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
@@ -97,16 +132,39 @@ if (closed === false) {
   result.Success = false;
   return result;
 }
-if (unit.Data.length <= 1) {
-  const result = new BranchConditionResult();
+// **往回找的是「上一个实义单元」**（第 931 轮）：注释与软换行一律跨过去。
+// `unit.Last(1)` 只看**倒数第二格**，而 `x/*c*/ / 2 / 3` 里那一格正是那条注释
+// ⇒ 落到下面最后那个 `else`（「其余类型一律答正则」）⇒ 除号被读成正则的开头，
+// 整条 `x / 2` 连同第二个 `/` 一起被吞进 `<RegexToken>`
+//（实测：缺两条 `BinaryExpression` + 两个 `SlashToken` + 两个 `NumericLiteral`，
+// 而 `<RegexToken>` 里躺着 ` 2 `）。
+// 「相邻的那一格一律走 trivia 口径」是本仓的老规矩（第 817 轮），这一处是它的又一个落点。
+const previous = Get(unit.Data, SkipPreviousTrivia(unit.Data, unit.Data.length - 1));
+const result = new BranchConditionResult();
+if (previous === null) {
+  // 这一格之前没有任何实义单元（只有那个 `/`，或者只有注释）：新起的一条语句以 `/` 开头
+  // ⇒ 正则（`/re/.test(x)` 那种）。与原来 `unit.Data.length <= 1` 那一档同义。
   result.Success = true;
   return result;
 }
-const last = unit.Last(1);
-const result = new BranchConditionResult();
-if (last instanceof Identifier) {
-  result.Success = last.Template.KeywordTemplate.IsKeyword(last.TempToString());
-} else if (last instanceof Bracket) {
+if (previous instanceof Identifier) {
+  const text = previous.TempToString();
+  // **`this` / `super` 是操作数，不是「等着操作数的词」**（第 931 轮）：`this / 2` 在 TS 里
+  // 是除法，而它们在**词法阶段是关键字**（`KeywordCloseRule` 排在最后），
+  // 照关键字那一支读就成了正则。这一句与 `tokens/binary-operator.xl.md` 的 `IsOperand`
+  // 里那句（`unit.Value === "this" || unit.Value === "super"`）说的是同一件事。
+  if (text === "this" || text === "super") {
+    result.Success = false;
+    return result;
+  }
+  result.Success = previous.Template.KeywordTemplate.IsKeyword(text);
+} else if (previous instanceof Bracket) {
+  result.Success = false;
+} else if (RegexTokenBranch.IsOperandUnit(previous)) {
+  // **其余能当被除数的单元**（第 931 轮）：字符串（含模板串）、正则、后缀 `++` / `--`
+  // ——它们在 TS 里都能**结束一个表达式**，所以后面那个 `/` 是除号。
+  // 原来它们一并落到最后那个 `else` ⇒ `"s" / 2 / 3` / `` `t` / 2 / 3 `` / `/re/ / 2` /
+  // `i++ / 2` 四族全被读成正则（实测各缺两条 `BinaryExpression`）。
   result.Success = false;
 } else {
   result.Success = true;

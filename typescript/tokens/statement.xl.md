@@ -1515,6 +1515,22 @@ if (head === "<") {
 if (head === "`") {
   return true;
 }
+// **除号开头**（第 931 轮）：`const a = 1` 换行 `/ 2 / 3;` 在 TS 那边是**一条**
+// `BinaryExpression`（除号接着上一行那个操作数写），而这张表里没有 `/`
+// ⇒ 换行处收壳 ⇒ 后半截另起一条壳，`/ 2 /` 还被读成一条 `RegularExpressionLiteral`
+//（实测第 931 轮片段普查 `num-newline`：漂移 3 + 多 5，那条正则吞掉了一个操作数）。
+//
+// **为什么可以无条件收**（与上面 `<` / 模板串那两条同一个理由）：`/` 接在一条
+// **写完的表达式**后面**永远是除号**——正则只出现在**表达式开头**，而这个 `/` 前面刚
+// 写完一条表达式；真的另起一条正则语句时（`foo();` 换行 `/re/.test(x);`），
+// 上面那句 `IsStatementBoundary` 早就因为上一格是 `;` / `}` 而早退了，走不到这里。
+//
+// **注释不用在这里让路**：`NextLineFirstCharAt` 走的是 `SkipSourceTriviaFrom`
+// （注释与空白一起跳过），所以走到这里的一定是**注释之后的**实义字符——
+// `1 /*c*/` 换行 `/ 2` 里那一格同样是除号（实测 `num-comment-nl`）。
+if (head === "/") {
+  return true;
+}
 // **双目运算符开头**（第 589 轮）：`return a * 86400000` 换行 `+ b * 3600000` 是**一条**表达式
 // （ASI 不在它前面断句——`+` 能接着上一条表达式写），实测 `dist/ts/typescript-exec/builtins/globals.ts`
 // 与 `inspect.ts` 两份：上一行被收成一个 `ReturnStatement` / `ExpressionStatement`，
