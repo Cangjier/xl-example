@@ -771,25 +771,6 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" op="${CommonUtil.XmlDecode(this.op)}">${body}</${name}>`;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 AST JSON 节点：类型名 + 运算符 + 被操作者。
-
-`op` 键与 XML 属性**同名同源**——都是 `this.op`；XML 那边过 `CommonUtil.XmlDecode` 是为了防 `<` 破坏文档，
-JSON 字符串没有这个约束，所以直接写字段。
-运算符与被操作者作为子单元进 `children`；为空时不写这个键。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("op", this.op);
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。

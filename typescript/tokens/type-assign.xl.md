@@ -355,34 +355,6 @@ return this.NameEnd;
 return this.ModifierSpans;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `alias` / `modifiers` 两个字段，外加子单元。
-
-键名与 `ToXmlString` 开标签上的两个属性同名、值同源。
-XML 那两次 `CommonUtil.XmlDecode` 是属性转义，JSON 的字符串不需要，所以直接写字段。
-`type` 词与别名本身不进 `children`——理由与 XML 一致：它们已经由这两个键表达。
-子单元非空时才写 `children`（空节点只留 `type`）。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("alias", this.alias);
-result.set("modifiers", this.modifiers);
-// **别名的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
-result.set("nameStart", this.nameStart);
-result.set("nameEnd", this.nameEnd);
-// **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
-if (this.ModifierSpans !== "") {
-  result.set("modifierSpans", this.modifierSpans);
-}
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。

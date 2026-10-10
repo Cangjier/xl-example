@@ -454,7 +454,7 @@ return result;
   }
   if (typeNode !== undefined) {
     // **`?` 被吞进 `TypeDefine` 的那一档**：读它自己记的 `questionAt`（第 996 轮）。
-    const questionAt = ctx.Attr(typeNode, "questionAt");
+    const questionAt = typeNode.questionAt;
     if (typeof questionAt === "number" && questionAt >= 0) {
       props.questionToken = { kind: "QuestionToken", text: "?", pos: questionAt, end: questionAt + 1 };
     } else {

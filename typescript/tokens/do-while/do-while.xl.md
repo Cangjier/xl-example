@@ -497,9 +497,7 @@ return new Map([["DoStatement", new Map([["compare", "condition"], ["body", "sta
   //  `while (c);`，见 `DoWhileCloseRule.Process` 签在体段上的区间）。
   // **空语句体那一格也直读字段**（第 635 轮，与 `While.PrintDirectAst` 同一条）：
   // `do ; while (c);` 的体是 `EmptyStatement`。
-  const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
-    ? v.emptyBodyAt
-    : undefined;
+  const rawEmpty = v.emptyBodyAt;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
   if (emptyAt >= 0) {
     props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
@@ -527,6 +525,17 @@ super(template);
 
 ```ts
 return this.Add(new WhileBody(this.Template));
+```
+
+## property children:Array<any>
+
+**这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
+段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
+
+### get
+
+```ts
+return [];
 ```
 
 ## property Body:WhileBody
@@ -564,7 +573,7 @@ return this.Data.find((x) => x instanceof WhileCompare) as WhileCompare;
 ### get
 
 ```ts
-return this.Body.ToList();
+return this.ChildrenOf(this.Body);
 ```
 
 ## property compare:Array<any>
@@ -574,7 +583,7 @@ return this.Body.ToList();
 ### get
 
 ```ts
-return this.Compare.ToList();
+return this.ChildrenOf(this.Compare);
 ```
 
 ## property bodyBraceAt:any
@@ -595,36 +604,6 @@ return this.BodyBrace.File();
 
 ```ts
 return this.EmptyBodyAt;
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `body` / `compare` 两个**具名分段**。
-
-`DoWhile` 在 XML 里不写属性（`<DoWhile>` 只有子单元的串接），两段的先后与源顺序一致：
-`body` 是 `do` 后面那条语句，`compare` 是 `while` 后面那个条件括号整段——与 `While` 的段序相反，
-写键的顺序也照着源顺序来，读的人不必再回头去数。
-
-两段的值取 `ToList()`：段是**一批子单元**的容器（`ToList()` 才是给「一批」准备的口子），
-摊成扁平的 `children` 会把体与条件的边界抹掉。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("body", this.body);
-result.set("compare", this.compare);
-// **体那个 `{` 的位置也写出去**（第 619 轮，与 `While.ToDictionary` 同一条）：
-// 投影空 `Block` 时直读，不再回原文重扫。
-if (this.BodyBrace.IsSet) {
-  result.set("bodyBraceAt", this.bodyBraceAt);
-  const braceRange = this.BodyBrace.Range;
-  if (braceRange !== null && braceRange.Start !== null && braceRange.End !== null) {
-    result.set("bodyBraceRange", String(braceRange.Start.Index) + "," + String(braceRange.End.Index));
-  }
-}
-// **空语句体那一格也写出去**（第 635 轮，与 `While.ToDictionary` 同一条）。
-result.set("emptyBodyAt", this.emptyBodyAt);
-return result;
 ```
 
 ## method Clone:()=>Token

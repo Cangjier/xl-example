@@ -588,39 +588,6 @@ return this.NameEnd;
 return this.NameAt + "," + this.NameEnd;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `namespace` / `modifiers` 两个字段，外加子单元。
-
-键名与 `ToXmlString` 开标签上的两个属性同名，值取同一批字段。
-XML 那边过一次 `CommonUtil.XmlDecode` 只是为了属性转义（名字里可能有 `<`），JSON 的字符串不需要这一层，
-所以这里直接写字段本身。子单元非空时才写 `children`（空节点只留 `type`）。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("namespace", this.namespace);
-result.set("modifiers", this.modifiers);
-// **修饰词的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
-if (this.ModifierSpans !== "") {
-  result.set("modifierSpans", this.modifierSpans);
-}
-// **名字那一格的整段区间**：含引号的字符串名、`global` 那个词、标识符名（点号名的第一段）。
-if (this.NameAt >= 0 && this.NameEnd >= this.NameAt) {
-  result.set("nameAt", this.nameAt);
-  result.set("nameEnd", this.nameEnd);
-  // **整段区间也照 `bodyBraceRange` 那一格报一份**（第 645 轮）：投影里「声明名」那条共用路
-  //（`synthName`）按**这一格**自己推断文本区间（引号名去掉首尾各一格），
-  // 于是「模块名是什么形状」这件事**只剩一条路**说。
-  result.set("nameRange", this.nameRange);
-}
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method CreateBody:()=>NamespaceBody
 
 新建命名空间体并挂到自己名下，返回新单元。

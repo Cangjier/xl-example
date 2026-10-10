@@ -1552,27 +1552,6 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" startBracket="${CommonUtil.XmlDecode(this.startBracket)}" endBracket="${CommonUtil.XmlDecode(this.endBracket)}">${temp.join("")}</${name}>`;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `startBracket` / `endBracket` 两个括号字符，外加子单元。
-
-键名与 `ToXmlString` 开标签上的两个属性同名、值同源（都是那两个字段）。
-与 `Bracket` 同形：尖括号字符本身做键，实参单元留在 `children` 里。
-XML 那两处 `CommonUtil.XmlDecode` 是属性转义（`<` 直接写进属性会破坏 XML），JSON 的字符串不需要这一层。
-子单元非空时才写 `children`（空节点只留 `type`）。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("startBracket", this.startBracket);
-result.set("endBracket", this.endBracket);
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。

@@ -192,7 +192,7 @@ const document = new TextDocument(content);
 document.FilePath = filePath;
 const context = new TextContext(template);
 context.Process(document);
-const projected = projectRoot(context.Root.ToList(), content);
+const projected = projectRoot(context.Root.Data, content);
 return JSON.parse(ToJsonText(projected));
 ```
 

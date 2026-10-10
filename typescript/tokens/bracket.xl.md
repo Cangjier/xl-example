@@ -241,26 +241,6 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" startBracket="${this.startBracket}" endBracket="${this.endBracket}">${temp.join("")}</${name}>`;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + 两个括号字符 + 子单元。
-
-键名与 XML 属性**同名**（`startBracket` / `endBracket`），值也同源：都是那两个字段。
-`Context` 不进 JSON——它也不进 XML，理由相同：那是**解析期的判定结果**，
-不是这个节点在树里的形状；把它写进产物会让同一段源码在两次解析里可能出现不同的下游读数。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("startBracket", this.startBracket);
-result.set("endBracket", this.endBracket);
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 1004 轮）：与通用支出**同一个答案**，但只许用这个 token 自己的

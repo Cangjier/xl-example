@@ -112,7 +112,7 @@ for (const file of run) {
     // **一趟**（第 1017 轮起）：第三个出口只剩 `PrintDirectAst` 一条路，
     // 这里量的是这一趟**能不能投出来**——出多少节点、由 token 自己出了多少个；
     // 形状对不对由下面那条**固定样本**点名（重投一致那一项第 1017 轮撤了，理由见文件头）。
-    const projected = projectRoot(context.Root.ToList(), source);
+    const projected = projectRoot(context.Root.Data, source);
     nodes += projected.count;
     direct += projected.direct;
   } catch (error) {
@@ -150,7 +150,7 @@ const shapeProblems = [];
   try {
     const context = new TextContext(new Template());
     context.Process(new TextDocument(SPECIMEN));
-    const projected = projectRoot(context.Root.ToList(), SPECIMEN);
+    const projected = projectRoot(context.Root.Data, SPECIMEN);
     // **坐标键也要点名**：`pos` / `end` 是三个出口共用的那一对（第三个出口**不用** `range`，
     // 那是产物树自己的闭区间键）——缺一个就说明造节点那一层被绕过去了
     // （`ctx.Node` / `ctx.NodeHead` 都写全了它们）。

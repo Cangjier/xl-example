@@ -376,25 +376,6 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" label="${this.label}">${temp.join("")}</${name}>`;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `label`（+ 有子单元时的 `children`）。
-
-键名与 `ToXmlString` 的属性同名、值同源（都是那个标签名）。
-子单元（被标的那条语句）与 XML 那一侧一一对应：**为空时不写这个键**，
-与基类那一份「空节点只留 `type`」同一条口径。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("label", this.label);
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

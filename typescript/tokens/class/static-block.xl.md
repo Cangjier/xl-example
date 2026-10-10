@@ -201,27 +201,6 @@ return BranchStates.Undo;
 return this.BraceAt;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `braceAt` + 子单元。
-
-形状与基类那一份**只差 `braceAt` 一格**（键序保持 `type` 在前）：`PrintDirectAst` 的 `ctx.Attr`
-取的就是这里写进去的键，所以字段与投影之间只隔这一处。不是静态块（`-1`）时**不写这一格**，
-与 `LineWrap` 那种自闭合节点同一口径。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-if (this.BraceAt >= 0) {
-  result.set("braceAt", this.braceAt);
-}
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。

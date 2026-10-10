@@ -198,50 +198,6 @@ return this.NameEnd;
 return this.ModifierSpans;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + 由 `LetType` 决定的那个属性键 + `modifiers`，解构形态另带子单元。
-
-**分支与 XML 那处是同一套判据**：同一个 `if` 链、同样的三个属性名、`Array<string>` 同样用
-`","` 拼；末尾的 `throw new Error("形态不成立")` 也照抄一份。两份拼串各自独立，
-所以「哪些形态成立」这件事必须在两处都说同一句话——漏掉一条分支不会报错，
-只会让 JSON 那边少一个键（当时那把 AST JSON 尺子就是钉这一条的尺子）。
-
-`children` 按基类同一条规则：`Data` 非空才写。`Field` 形态**没有**子单元，
-所以它出来的 JSON 只有 `type` / `fieldName` / `modifiers` 三个键——与自闭合标签同一件事。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-// **名字的位置**（见 `NameStart` / `NameEnd`）：投影合名字节点时直读，
-// 不再回原文 `indexOf(fieldName)` 猜。三种形态都写——解构形态给的是 `-1`。
-result.set("nameStart", this.nameStart);
-result.set("nameEnd", this.nameEnd);
-// **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。三种形态都写。
-if (this.ModifierSpans !== "") {
-  result.set("modifierSpans", this.modifierSpans);
-}
-if (this.LetType === LetType.Field) {
-  result.set("fieldName", this.fieldName);
-  result.set("modifiers", this.modifiers);
-  return result;
-}
-if (this.LetType === LetType.Array) {
-  result.set("arrayPattern", this.arrayPattern.join(","));
-  result.set("modifiers", this.modifiers);
-} else if (this.LetType === LetType.Object) {
-  result.set("objectPattern", this.objectPattern.join(","));
-  result.set("modifiers", this.modifiers);
-} else {
-  throw new Error("形态不成立");
-}
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。

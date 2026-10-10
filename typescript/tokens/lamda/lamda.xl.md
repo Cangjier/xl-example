@@ -1020,6 +1020,17 @@ super(Template);
 return this.Add(new LamdaParameters(this.Template));
 ```
 
+## property children:Array<any>
+
+**这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
+段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
+
+### get
+
+```ts
+return [];
+```
+
 ## property Parameters:LamdaParameters
 
 参数列表：子单元里第一个 `LamdaParameters`。
@@ -1124,7 +1135,7 @@ return this.ArrowAt;
 ### get
 
 ```ts
-return this.Parameters.ToList();
+return this.ChildrenOf(this.Parameters);
 ```
 
 ## property body:Array<any>
@@ -1134,7 +1145,7 @@ return this.Parameters.ToList();
 ### get
 
 ```ts
-return this.Body.ToList();
+return this.ChildrenOf(this.Body);
 ```
 
 ## property returnType:Array<any>
@@ -1147,47 +1158,7 @@ return this.Body.ToList();
 读到这一格时它一定在；没有返回类型标注由**不写这个键**表达。
 
 ```ts
-return this.ReturnType!.ToList();
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `async` / `parameters` / `body` 三个键，外加可选的 `returnType`。
-
-XML 里这些都写不成属性（`<Lamda>` 只有子单元的串接），而 JSON 侧要能把几样东西分开：
-
-- `async` 取字段 `IsAsync`，写**原生布尔**——它是 `bool` 字段，不是 XML 文本里的 `"true"`。
-  这一个键是**刻意的「JSON 比 XML 多」**：`<Lamda>` 从来不写 `async` 属性，
-  不收它 `async x => x` 与 `x => x` 的 JSON 会一模一样；
-- `parameters` / `body` / `returnType` 都是**段**，一律取 `ToList()`——与 `While` / `For` /
-  `IfSegment` 那些分段节点同一个写法。`<LamdaBody>` 与 `<LamdaParameters>` 是包装元素，
-  段数组装的是它们的**内容**，包装自己不出现（这条口径与 当时那把 AST JSON 尺子的分段表一致）；
-- `returnType` **只在 `ReturnType !== null` 时写**：没有返回类型标注的箭头函数不写这个键，
-  与 XML 里「没有 `<ReturnType>` 子单元」同一件事。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("async", this.async);
-if (this.BodyBrace.IsSet) {
-  result.set("bodyBraceAt", this.bodyBraceAt);
-  const bodyBraceRange = this.BodyBrace.Range;
-  if (bodyBraceRange !== null && bodyBraceRange.Start !== null && bodyBraceRange.End !== null) {
-    result.set("bodyBraceRange",
-      String(bodyBraceRange.Start.Index) + "," + String(bodyBraceRange.End.Index));
-  }
-}
-// **`=>` 的位置也写出去**（第 621 轮，与 `bodyBraceAt` 同一条口径）：
-// 投影合成 `equalsGreaterThanToken` 时直读，不再回原文重扫。
-if (this.ArrowAt >= 0) {
-  result.set("arrowAt", this.arrowAt);
-}
-result.set("parameters", this.parameters);
-result.set("body", this.body);
-if (this.ReturnType !== null) {
-  result.set("returnType", this.returnType);
-}
-return result;
+return this.ChildrenOf(this.ReturnType);
 ```
 
 ## method Clone:()=>Token

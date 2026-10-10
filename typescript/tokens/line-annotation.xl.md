@@ -104,21 +104,6 @@ return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Tmp)}</${
 return this.Tmp;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 AST JSON 节点：类型名 + 注释正文。
-
-它是叶子：正文全在 `Tmp` 字段上，`Data` 里没有子单元，所以只有 `value`、没有 `children`。
-`value` 与 XML 那边的文本节点**同源**——取的是同一个 `Tmp`；差别只在转义：XML 必须过
-`CommonUtil.XmlDecode`，而 JSON 字符串原生承载 `<` / `&`，不必也不该再转一遍。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("value", this.value);
-return result;
-```
-
 ## method Undo:(source:Source)=>void
 
 回退一个字符。

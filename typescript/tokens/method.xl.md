@@ -262,9 +262,9 @@ return index;
 （那一段的文本就是 `"1, 2"`），拿原文比 `","` 永远为假。
 
 ```ts
-if (kid.get("type") !== "BinaryOperator") return false;
+if (kid.Tag() !== "BinaryOperator") return false;
 for (const inner of ctx.Kids(kid)) {
-  if (inner.get("type") === "SymbolToken" && ctx.ValueOf(inner) === ",") return true;
+  if (inner.Tag() === "SymbolToken" && ctx.ValueOf(inner) === ",") return true;
 }
 return false;
 ```
@@ -317,7 +317,7 @@ while (true) {
 const groups: any[] = [];
 let current: any[] = [];
 for (const kid of pending) {
-  if (kid.get("type") === "SymbolToken" && ctx.ValueOf(kid) === ",") {
+  if (kid.Tag() === "SymbolToken" && ctx.ValueOf(kid) === ",") {
     groups.push(current);
     current = [];
     continue;
@@ -545,25 +545,6 @@ for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
 return `<${name} range="${this.RangeOf()}" name="${this.name}">${temp.join("")}</${name}>`;
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + 方法名 + 实参。
-
-`name` 与 XML 的 `name` 属性同源。名字为空（无名的调用）时**照样写 `name`**——
-这里与 XML 一致：`<Method name="">` 与 `"name": ""` 都表示「这个名字是空的」，
-而「没有这个键」在 JSON 里是另一种意思。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("name", this.name);
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
 ```
 
 ## method Clone:()=>Token

@@ -279,33 +279,6 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 return this.QuestionAt;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-类型名 + 子单元，**外加 `questionAt` 这一格**（第 998 轮；`>= 0` 时才写）。
-
-为什么它进字典而**不进 XML**：XML 那一侧的名字与形态**一个字都不动**
-（`<TypeDefine range="…">…</TypeDefine>`，见基类那一份），而这一格要**跨节点**被读——
-消费它的是 `Field` / `Parameter` / `MappedType` 的直出版，它们手上只有**子单元的视图**
-（`ctx.Kids` 给的那一份），不是 `TypeDefine` 的实例，所以「值记在字段上」这一条
-必须经字典（和 `While` 的 `emptyBodyAt` / `headerCloseAt` 那几格同一个入口：
-`v.attrs.get(…)` / `ctx.Attr(…)`）。
-
-基类那一份（`type` + `children`）逐句照抄，只多末尾那一格——「空子单元不写 `children`」
-这条口径因此原样保留。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-if (this.QuestionAt >= 0) {
-  result.set("questionAt", this.questionAt);
-}
-return result;
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

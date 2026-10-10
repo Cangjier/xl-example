@@ -2257,7 +2257,7 @@ function parseTsShape(source) {
   document.FilePath = "judge.ts";
   const context = new TextContext(new Template());
   context.Process(document);
-  return JSON.parse(ToJsonText(projectRoot(context.Root.ToList(), source)));
+  return JSON.parse(ToJsonText(projectRoot(context.Root.Data, source)));
 }
 
 /** 把 VM 里的字符串值搬回宿主的字符串（判据要拿它跟 Node 比）。 */

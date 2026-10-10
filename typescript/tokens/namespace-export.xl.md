@@ -174,6 +174,17 @@ const nameSpan =
 return `<${name} range="${this.RangeOf()}" name="${CommonUtil.XmlDecode(this.name)}"${nameSpan} />`;
 ```
 
+## property children:Array<any>
+
+**这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
+段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
+
+### get
+
+```ts
+return [];
+```
+
 ## property nameStart:any
 
 `ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
@@ -192,27 +203,6 @@ return this.NameStart;
 
 ```ts
 return this.NameEnd;
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `name`。
-
-键名与 `ToXmlString` 的属性同名、值同源。
-`NamespaceExport` **没有子单元**（XML 是自闭合的 `<NamespaceExport name="Foo" />`，四个词全进了属性），
-所以这里也**不写 `children`**：空节点在 JSON 里只留 `type`。
-XML 那次 `CommonUtil.XmlDecode` 是属性转义，JSON 的字符串不需要，所以直接写字段。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("name", this.name);
-// **名字的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
-if (this.NameStart >= 0 && this.NameEnd >= this.NameStart) {
-  result.set("nameStart", this.nameStart);
-  result.set("nameEnd", this.nameEnd);
-}
-return result;
 ```
 
 ## method Clone:()=>Token

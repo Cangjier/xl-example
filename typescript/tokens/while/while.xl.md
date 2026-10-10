@@ -238,9 +238,7 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
   if (compare.length > 0) props.expression = ctx.Expression(compare);
   const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   // **空体那一格先读 token 上的字段**（第 590 轮）：有它就不必配对括号 + 扫原文。
-  const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
-    ? v.emptyBodyAt
-    : undefined;
+  const rawEmpty = v.emptyBodyAt;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
   if (emptyAt >= 0) {
     props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
@@ -249,9 +247,7 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
   // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
   const rawBraceRange = v.bodyBraceRange;
   // **头部那个 `)` 也只有字段这一格事实**（第 634 轮）。字段缺了 ⇒ 不猜，交回 `PrintDirectAst`。
-  const rawHeaderClose = v.attrs !== undefined && typeof v.attrs.get === "function"
-    ? v.headerCloseAt
-    : undefined;
+  const rawHeaderClose = v.headerCloseAt;
   const headerCloseAt = typeof rawHeaderClose === "number" ? rawHeaderClose : -1;
   if (headerCloseAt < 0) {
     return undefined;
@@ -275,6 +271,17 @@ super(template);
 
 ```ts
 return this.Add(new WhileCompare(this.Template));
+```
+
+## property children:Array<any>
+
+**这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
+段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
+
+### get
+
+```ts
+return [];
 ```
 
 ## property Compare:WhileCompare
@@ -312,7 +319,7 @@ return this.Data.find((x) => x instanceof WhileBody) as WhileBody;
 ### get
 
 ```ts
-return this.Compare.ToList();
+return this.ChildrenOf(this.Compare);
 ```
 
 ## property body:Array<any>
@@ -322,7 +329,7 @@ return this.Compare.ToList();
 ### get
 
 ```ts
-return this.Body.ToList();
+return this.ChildrenOf(this.Body);
 ```
 
 ## property emptyBodyAt:any
@@ -353,39 +360,6 @@ return this.HeaderCloseAt;
 
 ```ts
 return this.BodyBrace.File();
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `compare` / `body` 两个**具名分段**。
-
-`While` 在 XML 里不写任何属性（`<While>` 只有子单元的串接），但它的子单元不是一堆同质的「内容」，
-而是两条各有名字的段：`compare` 是条件括号整段，`body` 是循环体。JSON 侧把这两个名字显式写出来，
-下游按段名取用，不必再靠「第几个子单元」去猜哪段是哪段。
-
-两段的值取 `ToList()` 而不是 `ToDictionary()`：段本身是**一批子单元**的容器，
-`ToList()` 才是给「一批」准备的口子（`ToDictionary()` 是给**单个**节点用的），
-它按基类约定逐项产出这一批子单元的 JSON。这里若摊成扁平的 `children`，
-段的边界就没了——`compare` 与 `body` 会挤进同一条列表，读的人再也分不出条件在哪结束。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("compare", this.compare);
-result.set("body", this.body);
-result.set("emptyBodyAt", this.emptyBodyAt);
-// **头部右括号那一格也写出去**（第 634 轮）：投影直读，不回原文重扫。
-result.set("headerCloseAt", this.headerCloseAt);
-// **体那一对花括号也写出去**（第 618 轮那一格，第 641 轮带上整段，与 `For` 同一处口径）：
-// 投影直读，不再回原文重扫。
-if (this.BodyBrace.IsSet) {
-  result.set("bodyBraceAt", this.bodyBraceAt);
-  const braceRange = this.BodyBrace.Range;
-  if (braceRange !== null && braceRange.Start !== null && braceRange.End !== null) {
-    result.set("bodyBraceRange", String(braceRange.Start.Index) + "," + String(braceRange.End.Index));
-  }
-}
-return result;
 ```
 
 ## method Clone:()=>Token

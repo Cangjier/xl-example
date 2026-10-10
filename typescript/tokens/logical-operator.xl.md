@@ -127,7 +127,7 @@ return [startIndex, endIndex];
 少这一格的症状是**整份文件跑不进来**：`yield 1 && 2` 的 `yield` 被当成链子的左操作数
 ⇒ 产物是 `LogicalOperator[yield, 1, &&, 2]` ⇒ 投影取 `kids[0]`（那个词）当 `left`、
 `1` **一个字都没留下**，而那个词在链子里是 `Identifier`（不是 `Keyword`）
-⇒ 投影层给 `yield` / `await` 准备的那两支（`kids[0].get("type") === "Keyword"`）
+⇒ 投影层给 `yield` / `await` 准备的那两支（`kids[0].Tag() === "Keyword"`）
 够不着它 ⇒ 降级期报 `name is not a local or a capture: yield`。
 
 **与 `return` 同一句判定、同一处**：段从**那个词的后面一格**开始，
@@ -309,25 +309,6 @@ for (const item of this.Data) {
 }
 const operatorName = this.op === "||" ? "Or" : "And";
 return `<${name} range="${this.RangeOf()}" op="${operatorName}">${temp.join("")}</${name}>`;
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 AST JSON 节点：类型名 + 逻辑运算符 + 操作数。
-
-`op` 键与 XML 属性同名，值**照抄同一句翻译** `this.op === "||" ? "Or" : "And"`——
-两个出口对同一个字段必须说同一句话，所以这里不另写一套判定，也不把原始的 `||` / `&&` 泄进 JSON。
-`Data` 里的操作数进 `children`；为空时不写这个键。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("op", this.op === "||" ? "Or" : "And");
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
 ```
 
 ## method Clone:()=>Token

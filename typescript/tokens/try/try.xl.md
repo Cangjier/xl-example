@@ -397,7 +397,7 @@ return result ?? null;
 ### get
 
 ```ts
-return this.TryBody.ToList();
+return this.ChildrenOf(this.TryBody);
 ```
 
 ## property catches:Array<any>
@@ -409,7 +409,7 @@ return this.TryBody.ToList();
 ```ts
 const result: Array<any> = [];
 for (const item of this.Catches) {
-  result.push(item.ToDictionary());
+  result.push(item);
 }
 return result;
 ```
@@ -424,35 +424,7 @@ return result;
 读到这一格时它一定在；没有 `finally` 段由**不写这个键**表达。
 
 ```ts
-return this.FinallyBody!.ToList();
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `body` 段，外加两处可选键。
-
-`Try` 与前面几个分段节点不同：它的子单元在 `Data` 里是**混着**的（`TryBody`、若干 `CatchDefine` /
-`CatchBody`、可选的 `FinallyBody`），所以不能像 `While` 那样按固定的两个段名各写一个 `ToList()`。
-
-- `body` 装 `TryBody` 那一段，结构与其它语句体一致，取 `ToList()`（一批子单元的容器）；
-- `catches` **只在 `this.Catches.length > 0` 时写**：这个属性是按类型从 `Data` 里筛出来的
-  一组引用、不是一个容器节点，所以没有现成的 `ToList()` 可调，只能逐个 `item.ToDictionary()`；
-  没有 `catch` 的 `try` 不写这个键——与 XML 里「没有那些 `<CatchDefine>` / `<CatchBody>` 子单元」同一件事；
-- `finally` **只在 `this.FinallyBody !== null` 时写**：没有 `finally` 段的 `try` 不写这个键。
-  它是**一个**节点，但语句体本身是一批子单元，所以取它的 `ToList()`。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("body", this.body);
-if (this.Catches.length !== 0) {
-
-  result.set("catches", this.catches);
-}
-if (this.FinallyBody !== null) {
-  result.set("finally", this.finally);
-}
-return result;
+return this.ChildrenOf(this.FinallyBody);
 ```
 
 ## method Clone:()=>Token

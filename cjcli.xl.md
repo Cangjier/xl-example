@@ -322,7 +322,7 @@ const root = CjcliParse(content, filePath);
 if (root === null) {
   return null;
 }
-const projected = projectRoot(root.ToList(), content);
+const projected = projectRoot(root.Data, content);
 if (projected.unmapped.length > 0) {
   process.stderr.write("cjcli: 投影未覆盖的标签 " + projected.unmapped.length + " 种：" + projected.unmapped.join(" ") + "\n");
 }

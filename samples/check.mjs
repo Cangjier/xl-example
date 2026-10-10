@@ -43,7 +43,7 @@ function tsAstFromLibrary(source, file) {
   document.FilePath = file;
   const context = new TextContext(new Template());
   context.Process(document);
-  return ToJsonText(projectRoot(context.Root.ToList(), source));
+  return ToJsonText(projectRoot(context.Root.Data, source));
 }
 
 /** 一份夹具的比对：缺文件 / 不一致都算失败，并把首个差异位置打出来。 */

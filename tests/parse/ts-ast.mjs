@@ -208,20 +208,21 @@ function flattenProduct(exported, stats, source) {
     }
     visited.add(node);
     const index = out.length;
-    const range = node.get("range");
-    const start = range === undefined ? null : range[0];
-    const end = range === undefined ? null : range[1] + 1;
-    const type = node.get("type");
-    const value = node.get("value");
+    // **坐标问这一格自己**（第 1018 轮）：产物那一层没有 `range` 字典键了，
+    // 每个单元自己答 `RangeStart()` / `RangeEnd()`——`end` 按 TS 的口径取开区间。
+    const start = node.RangeStart();
+    const end = node.RangeEnd() + 1;
+    const range = [start, end - 1];
+    const type = node.Tag();
+    const value = node.value;
     stats.total++;
-    if (range === undefined) {
+    if (range[0] === undefined) {
       stats.missingRange++;
       const key = `缺坐标: ${type}`;
       stats.missingByType.set(key, (stats.missingByType.get(key) || 0) + 1);
     } else if (parentRange !== null && (start < parentRange[0] || end > parentRange[1])) {
       // **trivia 不参与这一条**（第 199 轮）：注释与软换行是**被扫进来的**，各 token 明确写着
-      // 「留在段的 `Data` 里、不参与签入签出」（`ternary-operator.xl.md` 第 125 / 127 轮）——
-      // 所以它们落在父区间之外是**约定的形态**，不是坐标错。
+      // 「留在段的 `Data` 里、不参与签入签出」——所以它们落在父区间之外是**约定的形态**，不是坐标错。
       // 剔掉它这一栏才有牙：真正会进投影的节点一旦越界，仍然是红的。
       if (MODIFIERS.has(type)) {
         stats.triviaOutOfRange++;
@@ -237,20 +238,20 @@ function flattenProduct(exported, stats, source) {
       text = source.slice(start, end);
     }
     out.push({ index, parent: parentIndex, depth, type, kind: productKindOf(type, text), start, end });
-    const nextRange = range === undefined ? parentRange : [start, end];
-    for (const [key, val] of node.entries()) {
-      if (key === "type" || key === "range" || key === "value") continue;
-      // 段：值是一批节点，段元素本身不是节点
-      if (SEGMENT_KEY_NAMES.has(key) && Array.isArray(val)) {
+    const nextRange = [start, end];
+    // **段就是这一页声明的那些属性**（第 1018 轮）：名字以段名表为准，值是单元数组。
+    for (const key of SEGMENT_KEY_NAMES) {
+      const val = node[key];
+      if (Array.isArray(val)) {
         for (const child of val) {
-          if (child !== null && typeof child === "object" && child instanceof Map) visit(child, index, depth + 1, nextRange);
+          if (child !== null && typeof child === "object" && typeof child.Tag === "function") visit(child, index, depth + 1, nextRange);
         }
       }
     }
-    const children = node.get("children");
+    const children = node.children;
     if (Array.isArray(children)) {
       for (const child of children) {
-        if (child !== null && typeof child === "object" && child instanceof Map) visit(child, index, depth + 1, nextRange);
+        if (child !== null && typeof child === "object" && typeof child.Tag === "function") visit(child, index, depth + 1, nextRange);
       }
     }
   };
@@ -545,10 +546,10 @@ export function compareSource(source, file, options) {
     outOfRangeByType: new Map(),
   };
   const rootNode = parseWith(source, file);
-  const ours = flattenProduct(rootNode.ToList(), stats, source);
+  const ours = flattenProduct(rootNode.Data, stats, source);
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const theirs = flattenTs(sf);
-  const projected = projectRoot(rootNode.ToList(), source);
+  const projected = projectRoot(rootNode.Data, source);
   const proj = flattenProjected(projected.ast);
 
   const snippet = (start, end) =>
@@ -1076,7 +1077,7 @@ async function main() {
     phase.parse += clock() - at;
     parsed++;
     at = clock();
-    const ours = flattenProduct(rootNode.ToList(), stats, source);
+    const ours = flattenProduct(rootNode.Data, stats, source);
     phase.product += clock() - at;
     at = clock();
     const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
@@ -1159,7 +1160,7 @@ async function main() {
 
     // ---- 投影后的对拍：把产物树投成 TS 形状，再与 `ts.createSourceFile` 比 ----
     at = clock();
-    const projected = projectRoot(rootNode.ToList(), source);
+    const projected = projectRoot(rootNode.Data, source);
     for (const tag of projected.unmapped) unmappedTags.set(tag, (unmappedTags.get(tag) || 0) + 1);
     const proj = flattenProjected(projected.ast);
     phase.project += clock() - at;

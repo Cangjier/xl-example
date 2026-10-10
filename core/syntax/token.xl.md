@@ -490,68 +490,60 @@ return this.ToXmlString();
 
 ## property children:Array<any>
 
-**这一格要的子单元节点数据**（第 1018 轮）：`ToDictionary` 的 `children` 键。
+**这一格的子单元**（第 1018 轮）：`Data` 里那一批，原样给出。
 
 它是**属性**（`### get`）而不是方法：调用方读的是「这一格有什么」，不是「让它去做一件事」。
-形态与覆写页必须一致（都是 `## property` + `### get`）——`Foreach` 那种「子单元里要跳过定义 /
-可枚举 / 体三段」的页在自己那一页覆写这一格时照抄同一形态。
+形态与覆写页必须一致（都是 `## property` + `### get`）——`Foreach` 那种「子单元里要跳过
+定义 / 可枚举 / 体三段」的页在自己那一页覆写这一格时照抄同一形态。
 
-**值走 `ToDictionary` 而不是 `WithRange`**：字典格（形状）与带坐标的那一份是两层，
-这一格产出的是**形状**那一层——坐标由 `WithRange` 在它的产物上补（见下一条）。
+**给出的就是单元自己**（不是它的什么中间形态）：投影直接吃 token，见
+`typescript/print-ast-common.xl.md`。所以这一格没有第二层，也没有坐标要补——
+坐标住在每个单元自己的 `start` / `end` 上。
 
 ### get
 
 ```ts
-const result: Array<any> = [];
-for (const item of this.Data) {
-  result.push(item.ToDictionary());
-}
-return result;
+return this.Data;
 ```
 
-## method ToDictionary:()=>Map<string, any>
+## method ChildrenOf:(segment:Token | null | undefined)=>Array<Token>
 
-产出这个节点的 JSON 对象形态：类型名 + 子单元。
+**某一段的子单元**（第 1018 轮）：那一段还没挂上（`null` / `undefined`）时给**空列表**。
 
-基类的形状是 `{ type, children }`——`type` 取运行时类型名（与 XML 标签同一个来源），
-`children` 是子单元的 `ToDictionary` 数组。子单元为空时**不写 `children`**（空节点的 JSON 只有 `type`，
-与 XML 里 `<LineWrap />` 那种自闭合标签同一件事）。
-
-**第 1018 轮起这一格只做组装**：`type` 问 `Tag()`、`children` 问本页的 `children` 属性，
-键名与值的对应关系全部写在**具体子类自己声明的属性**上（每个覆写页把它的每个键各立一格
-`## property <键名>` / `## method <键名>`，见各 token 页）。所以这一条链上不再有
-「方法体里现算一个值塞进字典」的中间层：`ToDictionary` 读什么，那一页就声明了什么。
+各页的段属性（`compare` / `body` / `parameters` …）都经这一格取值：读的是「这一格有什么」，
+没有那一段就是**没有**，不是一个要点出来的错——投影那些读点本来就按空列表处理
+（`kidsOf` 给的是空数组，与搬掉字典之前「字典里没有这个键」逐字节同答）。
 
 ```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-if (this.Data.length !== 0) {
-  result.set("children", this.children);
+if (segment === null || segment === undefined) {
+  return [];
 }
-return result;
+return segment.Data;
 ```
 
-## method WithRange:()=>Map<string, any>
+## property start:int
 
-产出 `ToDictionary()` 的结果，并给**这个节点与它下面所有节点**补上 `range`。
+**这一格在原文里的起点**（AST 那一层的 `pos`）：就是 `RangeStart()`。
 
-`range` 是闭区间的 `[起始下标, 结束下标]`（就是 `SourceRange` 的两头，`Source` 的 `Index`），
-两头还没签入签出时写 `0`。
+坐标只有一个来源（`SourceRange` 的两头），这一格只是把它接到投影读得懂的名字上——
+「AST 缺什么，就让 token 承担责任」：投影不再自己去拼坐标。
 
-**为什么要有这一层**：`ToDictionary` 故意不带坐标（它是「形状」，与 XML 的标签/属性一一对应），
-坐标只在 `ToList` 那一层补。可**要投影成 TypeScript 的 AST 就必须每个节点都有坐标**——
-TS 的每个节点都带 `pos` / `end`，没有坐标就只能靠原文搜索猜位置，
-而那种对齐一遇到壳节点（`VariableStatement`、`IfStatement` 这种）就断（实测过）。
-
-**为什么不从 `Data` 重新拼一份**（试过、退回了）：`ToDictionary` 的每个 token 覆写里有一批
-**不在 `Data` 里的键**——叶子的 `value`（`Identifier` / `SymbolToken` / `Keyword` / 注释…）、
-`Import` 的 `imported` / `From`、`String` 的五个开关…从 `Data` 重拼等于把这些键全丢掉，
-当时那把 AST JSON 尺子当场报出 1000 个文件「XML 有文本、JSON 是空串」。
-所以这份实现**以 `ToDictionary()` 的结果为底**，只做两件事：补 `range`、把
-`List<Map>` 形态的**子节点**递归地换成带坐标的那一份。
+### get
 
 ```ts
-return this.WithRangeOf(this.ToDictionary(), this.Data);
+return this.RangeStart();
+```
+
+## property end:int
+
+**这一格的终点，开区间**（AST 那一层的 `end`）：`RangeEnd() + 1`。
+
+与 `start` 同一处来源、同一条口径；两头的兜底（还没签入 / 签反了）都写在 `RangeStart` / `RangeEnd` 里。
+
+### get
+
+```ts
+return this.RangeEnd() + 1;
 ```
 
 ## method RangeStart:()=>int
@@ -599,147 +591,6 @@ return end;
 
 ```ts
 return "[" + this.RangeStart() + "," + this.RangeEnd() + "]";
-```
-
-## method WithRangeOf:(node:Map<string, any>, list:Array<Token>)=>Map<string, any>
-
-给一个**已经造好的字典**补坐标：本节点、以及它的子节点（递归）。
-
-调用方给出的是「字典 + 与它对应的子单元列表」（`WithRange` 传 `this.Data`，
-递归时传匹配到的那个子单元的 `Data`）。
-
-**字典项与子单元按类型名配对，不按下标**——这是这里唯一容易写错的地方，记两笔：
-
-- 「字典里的节点数」与「`Data` 的长度」**常常不等**。段数组有两种形态：
-  摊平的（`While.body` 装的是 `<WhileBody>` 的**内容**，字典项比 `Data` 里的段元素多）与
-  不摊平的（`Switch.segments` 装的就是 `<SwitchSegment>` 本身，数目相等）。
-  按下标配对会在摊平那一侧**整段失配**（`items.length !== list.length` ⇒ 整段子节点一个坐标都拿不到，
-  第 70 轮实测 255 个节点缺坐标，全是这一类）。
-- 同一个字典项集合里可能有**同名的多个节点**（`Statement` 里两条 `Identifier`），
-  所以配对要**边配边销**（`used` 数组）——不然同一个子单元会被配到两次、把坐标抄错。
-- **光看类型名还不够**（第 546 轮）：段数组里的节点可能**与 `Data` 不在同一层**，
-  这时 `Data` 里排在前面的那个同名单元会**顶替**段里的那一格。实测
-  `for await (const v of xs)`：`Foreach.children` 里是 `await`（`Data[0]`），
-  而 `ForeachDefine` 里是 `const`（**不是** `Foreach.Data` 的直接成员）——
-  两者类型名都是 `Keyword` ⇒ `await` 那格抢在 `const` 前面配上了
-  ⇒ `segments.define[0]` 拿到的坐标是 82–86 而**值是 const**（`TextOf` 于是答 `"await"`）。
-  所以配对时**先要求区间也相同**，配不上再退回「只按类型名」 ——
-  既有的那些段（`Data` 与段同一层）本来就区间相同，行为一个字节都不变。
-
-配不上的字典项**原样留着**（它拿不到坐标，但不至于把别的节点也连累），
-这是「宁可少补一个，也不要补错一个」的取舍：补错的坐标会让 `cases:tsast` 报出**假**分歧。
-
-**终点缺失时从子节点兜底**：`else if` 的 `IfSegment` 只有起点、终点从来没签过
-（第 70 轮实测 18 处「子节点区间越界」全是它），于是 `End` 兜底成 `0`、父区间是 `[55,0]`——
-比所有子节点都小。这里用**子节点区间的最大值**补上终点：区间是给投影用的，
-一个「起点在 55、终点在 -1」的父节点只会让每一棵子树都被判越界，
-而它的真实末端就写在子节点里。这一条只在 `End` 为空**或反序**（`end < start`）时生效，
-正常的区间一个字节都不动。
-
-```ts
-const span: string[] = this.RangeOf().slice(1, -1).split(",");
-node.set("range", [Number(span[0]), Number(span[1])]);
-const children = this.Data;
-// **记下「这一格是哪个 token 出的」**：第三个出口（`PrintDirectAst`）按 token 分派——
-// 投影器拿到一个字典格时先问它的 token「你自己出不出形状」（覆写了就用它自己出的那一格）。
-// 这一处配对本来就做完了（上面的 `taken[i] = token`），所以只是把它记下来，不多算一步。
-//
-// **记成普通属性、不是 Map 的条目**：`entries()` / `JSON.stringify` / `Token.ToPlain`
-// 都看不见它，所以 XML 出口与 AST JSON 出口一个字节都不受影响。
-(node as any).__token = this;
-// 一个子单元在字典里的区间（`[起, 止]`），配「区间也相同」那一趟用。
-// **走 `RangeStart` / `RangeEnd`**：与 XML 那一格同一个来源（见 `RangeOf`）。
-const spanOf = (one: Token): Array<number> => {
-  return [one.RangeStart(), one.RangeEnd()];
-};
-for (const [key, value] of node.entries()) {
-  if (!Array.isArray(value)) {
-    continue;
-  }
-  const items: Array<any> = value;
-  if (items.length === 0) {
-    continue;
-  }
-  const taken: Array<any> = [];
-  const used: Array<any> = [];
-  for (let i = 0; i < items.length; i++) {
-    taken.push(null);
-    used.push(false);
-  }
-  // **两趟配对**（第 546 轮）：第一趟要求「类型名 + 区间」都对上，
-  // 第二趟只放宽「字典格还没有区间」的那一种（还没签入签出的格子只能这样配）。
-  // **第二趟不要再放宽到「区间不同也能配」**：段数组里的节点与 `Data` 不在同一层时
-  // （`ForeachDefine` 里的 `const` 对 `Foreach` 自己的 `await`），两个都是 `Keyword`、
-  // 区间却不同 —— 只按类型名配就会**张冠李戴**，段里的那一格于是顶着 `await` 的坐标
-  // （`st-for-await` / `stmt-for-await` / `fn-async-generator` 三份实测都是这样）。
-  for (const token of children) {
-    const tokenSpan = spanOf(token);
-    for (let round = 0; round < 2; round++) {
-      let hit = -1;
-      for (let i = 0; i < items.length; i++) {
-        if (used[i]) {
-          continue;
-        }
-        const item = items[i];
-        if (!(item instanceof Map) || item.get("type") !== token.constructor.name) {
-          continue;
-        }
-        const span = item.get("range");
-        const hasSpan = Array.isArray(span) && span.length >= 2;
-        if (hasSpan && (span[0] !== tokenSpan[0] || span[1] !== tokenSpan[1])) {
-          continue;
-        }
-        if (round === 0 && !hasSpan) {
-          continue;
-        }
-        hit = i;
-        break;
-      }
-      if (hit >= 0) {
-        used[hit] = true;
-        taken[hit] = token;
-        break;
-      }
-    }
-  }
-  let matchedAny = false;
-  const replaced: Array<any> = [];
-  for (let i = 0; i < items.length; i++) {
-    const token = taken[i];
-    if (token === null) {
-      replaced.push(items[i]);
-    } else {
-      replaced.push(token.WithRange());
-      matchedAny = true;
-    }
-  }
-  if (!matchedAny) {
-    continue;
-  }
-  // 就地换掉那一串数组：`set` 一个**已有的键**不会改变键的插入顺序，
-  // 所以 JSON 的键序照旧，只是值换成了带坐标的那一份。
-  node.set(key, replaced);
-}
-return node;
-```
-
-## method ToList:()=>Array<any>
-
-产出**子单元**的 JSON 数组，每个子单元补一个 `range`。
-
-`range` 是 `[起始下标, 结束下标]`，取的是 `SourceRange` 的首尾字符下标；两头还没签入签出时写 `0`
-（与上游同样的兜底）。
-
-**递归**：子单元用 `WithRange` 取，而 `WithRange` 又递归处理它自己的子节点——所以
-**每一个节点都带 `range`**（根那一层、各 token 用 `ToList()` 装的段数组、以及它们下面的所有子节点）。
-这是「与 TypeScript 的 AST 直接对拍」的前提。
-
-```ts
-const result: Array<any> = [];
-for (const item of this.Data) {
-  result.push(item.WithRange());
-}
-return result;
 ```
 
 ## method Tag:()=>string
@@ -1022,31 +873,6 @@ return undefined;
 
 ```ts
 return undefined;
-```
-
-## static method ToPlain:(value:any)=>any
-
-把一个值转成能喂给 `JSON.stringify` 的形态：`Map` → 普通对象，数组 → 逐元素转，其余原样。
-
-深拷贝而不是原地改：`ToDictionary` 的产物原则上可以再被调用方读（例如测试同时要比对 Map 与 JSON），
-就地转成对象会把这些调用方手里的类型改掉。
-
-```ts
-if (Array.isArray(value)) {
-  const items: Array<any> = [];
-  for (const item of value) {
-    items.push(Token.ToPlain(item));
-  }
-  return items;
-}
-if (value instanceof Map) {
-  const result: Map<string, any> = new Map();
-  for (const entry of value.entries()) {
-    result.set(String(entry[0]), Token.ToPlain(entry[1]));
-  }
-  return Object.fromEntries(result);
-}
-return value;
 ```
 
 ## method Clone:()=>Token

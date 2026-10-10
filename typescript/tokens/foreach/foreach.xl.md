@@ -314,13 +314,13 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
   if (enumable.length > 0) props.expression = ctx.Expression(enumable);
   const kind = v.isForIn === true ? "ForInStatement" : "ForOfStatement";
   const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
-  const rawEmpty = typeof v.attrs.get === "function" ? v.emptyBodyAt : undefined;
+  const rawEmpty = v.emptyBodyAt;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
   let statement;
   if (emptyAt >= 0) {
     statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
   } else {
-    const rawHeader = typeof v.attrs.get === "function" ? v.headerCloseAt : undefined;
+    const rawHeader = v.headerCloseAt;
     const headerAt = typeof rawHeader === "number" ? rawHeader : -1;
     // **头部那个 `)` 的位置不在这一格上** ⇒ 交回 `PrintDirectAst`（它回原文里配一次括号）。
     if (headerAt < 0) {
@@ -416,7 +416,7 @@ return this.Data.find((x) => x instanceof ForeachBody) as ForeachBody;
 ### get
 
 ```ts
-return this.Define.ToList();
+return this.ChildrenOf(this.Define);
 ```
 
 ## property enumable:Array<any>
@@ -426,7 +426,7 @@ return this.Define.ToList();
 ### get
 
 ```ts
-return this.Enumable.ToList();
+return this.ChildrenOf(this.Enumable);
 ```
 
 ## property body:Array<any>
@@ -436,7 +436,7 @@ return this.Enumable.ToList();
 ### get
 
 ```ts
-return this.Body.ToList();
+return this.ChildrenOf(this.Body);
 ```
 
 ## property emptyBodyAt:any
@@ -491,50 +491,7 @@ for (const item of this.Data) {
   if (item instanceof ForeachDefine || item instanceof ForeachEnumable || item instanceof ForeachBody) {
     continue;
   }
-  result.push(item.ToDictionary());
-}
-return result;
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `define` / `enumable` / `body` 三个**具名分段** + 余下的子单元。
-
-`Foreach` 在 XML 里不写属性（`<Foreach>` 只有子单元的串接），但它的子单元是三条各有名字的段：
-`define` 是 `in` / `of` 左边那截、`enumable` 是右边那截、`body` 是循环体。JSON 侧显式写出段名。
-
-三段的值都取 `ToList()` 而不是 `ToDictionary()`：段是**一批子单元**的容器，
-而 `ToDictionary()` 是给**单个**节点用的。摊成扁平的 `children` 会让左值与可枚举对象之间的
-边界消失——那正好就是 `define` 与 `enumable` 的分别。
-
-**`children` 装的是三条段之外的子单元**，`await` 就是其中之一：`for await (x of xs)` 里那个
-`await` 是直接挂在 `Foreach` 上的（见 `Process` 里 `result.AddAndCloseLast(awaitUnit)`），
-不属于任何一条段。**不收它 JSON 就会比 XML 少一个节点**——这类「段没覆盖到的子单元」
-是分段写法唯一的漏点，所以这里按「不属于三条段的那些」兜底收一遍。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("define", this.define);
-result.set("enumable", this.enumable);
-result.set("body", this.body);
-result.set("emptyBodyAt", this.emptyBodyAt);
-// **体那个 `{` 的位置也写出去**（第 619 轮，与 `While` / `DoWhile` 同一条）。
-if (this.BodyBrace.IsSet) {
-  result.set("bodyBraceAt", this.bodyBraceAt);
-  const braceRange = this.BodyBrace.Range;
-  if (braceRange !== null && braceRange.Start !== null && braceRange.End !== null) {
-    result.set("bodyBraceRange", String(braceRange.Start.Index) + "," + String(braceRange.End.Index));
-  }
-}
-// **`in` / `of` 那一格也写出去**（第 631 轮）：投影靠它分 `ForInStatement` / `ForOfStatement`——
-// 与 `emptyBodyAt` / `bodyBraceRange` 同一条纪律：判据在收尾规则那一处算得起，这里只出字段。
-result.set("isForIn", this.isForIn);
-// **头部那个 `)` 也写出去**（第 634 轮，与 `For` / `While` 同一条）。
-result.set("headerCloseAt", this.headerCloseAt);
-
-if (this.children.length !== 0) {
-  result.set("children", this.children);
+  result.push(item);
 }
 return result;
 ```

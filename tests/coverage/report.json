@@ -75,27 +75,27 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.68,
+  "progressPercent": 94.82,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1643,
-      "pass": 1640,
-      "blocked": 3,
+      "pass": 1560,
+      "blocked": 83,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.82
+      "coverage": 94.95
     },
     {
       "category": "exec",
       "weight": 0.25,
       "total": 792,
-      "pass": 757,
-      "blocked": 7,
-      "differ": 28,
+      "pass": 753,
+      "blocked": 9,
+      "differ": 30,
       "nodefail": 0,
-      "coverage": 95.58
+      "coverage": 95.08
     },
     {
       "category": "runtime",
@@ -132,11 +132,209 @@
     "total": 1643,
     "knownGap": 3,
     "knownGapStillOpen": 3,
-    "exactFiles": 1640,
+    "exactFiles": 1560,
     "scoredWithoutGap": 1640,
-    "passedWithoutGap": 1640
+    "passedWithoutGap": 1560
   },
   "blocked": [
+    {
+      "id": "token/ambiguous/am-class-modifier-order",
+      "category": "token",
+      "title": "修饰词顺序（export declare abstract class、private static readonly 字段、public abstract 方法）：",
+      "detail": "缺 3　字段 1"
+    },
+    {
+      "id": "token/declarations/cls-abstract-members",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/cls-declare-class",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/cls-decorator-calls",
+      "category": "token",
+      "title": "装饰器里的调用：`@Component({…})` 是 Decorator > Method（TS 的 Decorator > CallExpression；第 66 轮）",
+      "detail": "缺 1"
+    },
+    {
+      "id": "token/declarations/cls-member-shape-matrix",
+      "category": "token",
+      "title": "声明形状矩阵：类成员的七种 MethodDeclaration 形态 + 存取器 + 字段 + 四种构造器",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/cls-modifiers",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 3　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-class-abstract",
+      "category": "token",
+      "title": "abstract 类与 abstract 成员",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-class-accessor",
+      "category": "token",
+      "title": "自动访问器修饰符 `accessor`（TypeScript 4.9）：产物必须是 **Field 直接落在",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-class-declare",
+      "category": "token",
+      "title": "declare class，成员只有类型没有实现",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-class-decorator-comment-export",
+      "category": "token",
+      "title": "装饰器与 `export` 之间夹一条注释：声明头一样要从装饰器起算",
+      "detail": "缺 1"
+    },
+    {
+      "id": "token/declarations/decl-class-export-default",
+      "category": "token",
+      "title": "export default class：默认导出的具名类仍要收成 Class + ClassBody",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-class-member-modifier-order",
+      "category": "token",
+      "title": "成员修饰符的换序写法（abstract 前置/后置、static 与 readonly、declare 与 static）",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-declaration-shape-matrix",
+      "category": "token",
+      "title": "声明形状矩阵：类 / 接口 / 函数 / 类型别名的字段组合（有体 / 无体、有型参 / 无型参、有继承 / 无继承）",
+      "detail": "缺 6　字段 3"
+    },
+    {
+      "id": "token/declarations/decl-enum-const-declare-export",
+      "category": "token",
+      "title": "const enum / declare enum / export enum 三种修饰",
+      "detail": "缺 3　字段 3"
+    },
+    {
+      "id": "token/declarations/decl-label-block-comment-after-colon",
+      "category": "token",
+      "title": "标签块：冒号与 `{` 之间夹注释",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-block-comment",
+      "category": "token",
+      "title": "标签块：名字与冒号之间夹注释，体里仍是语句",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-block",
+      "category": "token",
+      "title": "块语句上的标签 `outer: { … }`：`Label` 与被标的**块**平级，块里是语句。",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-break-continue",
+      "category": "token",
+      "title": "break label / continue label",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-comment-after-colon",
+      "category": "token",
+      "title": "冒号与被标的语句之间夹注释",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-comment-after-name",
+      "category": "token",
+      "title": "标签名与冒号之间夹注释",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-for",
+      "category": "token",
+      "title": "for 循环上的标签",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-if",
+      "category": "token",
+      "title": "if 语句上的标签",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-nested-two",
+      "category": "token",
+      "title": "嵌套标签 a: b: for(...)（两个标签指向同一条语句）",
+      "detail": "缺 3　多 3"
+    },
+    {
+      "id": "token/declarations/decl-label-switch",
+      "category": "token",
+      "title": "switch 语句上的标签",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-while",
+      "category": "token",
+      "title": "while 循环上的标签",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-modifier-after-decorator",
+      "category": "token",
+      "title": "修饰词的位置由 token 直出：装饰器名里带着同一个词时（`@exported export class C {}`、",
+      "detail": "缺 1"
+    },
+    {
+      "id": "token/declarations/decl-namespace-body-class",
+      "category": "token",
+      "title": "namespace 体里只放 class",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-namespace-body-enum",
+      "category": "token",
+      "title": "namespace 体里只放 enum",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/enum-const-declare",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 2　字段 2"
+    },
+    {
+      "id": "token/declarations/enum-export",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/gap-r676-method-comment-before-paren-abstract",
+      "category": "token",
+      "title": "抽象方法（无体签名）的成员名与形参括号之间夹一条注释",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/gap-r902-abstract-method-newline",
+      "category": "token",
+      "title": "抽象方法的名字与类型参数表之间换行（第 900 轮片段普查记在「待登记」那一栏的第 E 格、第 902 轮登记）：`abstract m` 换行 `<T>(): void;` 里方法声明整条认不出来（`abstract m` 落成 `PropertyDeclaration`、`<T>(): void;` 落成一个无名 `CallSignature`）",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/gap-r907-abstract-method-params-newline",
+      "category": "token",
+      "title": "抽象方法的形参表与名字之间换行（第 907 轮片段普查量出）：TS 那边是 `MethodDeclaration`，产物把 `abstract override m` 落成 `PropertyDeclaration`、`():void;` 落成一条无名 `CallSignature`",
+      "detail": "缺 1　字段 1"
+    },
     {
       "id": "token/declarations/gap-r985-heritage-optional-chain",
       "category": "token",
@@ -150,10 +348,292 @@
       "detail": "缺 9　多 2　第 985 轮第十批底样（嵌套宿主）量出：**继承子句里的模板串**——`class D extends `a${X}b` {}` 整条类**没有成形**（产物是 `<Statement><Keyword>class</Keyword>…<Bracket>{}</Bracket>`：缺 `ClassDe"
     },
     {
+      "id": "token/declarations/method-generic-params-newline",
+      "category": "token",
+      "title": "方法的**类型参数表与形参表之间**换行（第 934 轮收掉的",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/expressions/ex-await-yield",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 1　多 1"
+    },
+    {
+      "id": "token/expressions/expr-comma-sequence",
+      "category": "token",
+      "title": "逗号（序列）表达式：只有 `( … )` 里的顶层 `,` 是运算符",
+      "detail": "缺 4　字段 1"
+    },
+    {
+      "id": "token/expressions/expr-object-computed-in-label-block",
+      "category": "token",
+      "title": "标签块里的值位对象字面量（第 953 轮普查量出、当轮收掉）：`lbl: { const o = { [K in T]: X }; }`。",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/expressions/expr-yield-await-context",
+      "category": "token",
+      "title": "第 960 轮的**反向守卫**：`yield` / `await` **在上下文里、或者带操作数**时",
+      "detail": "缺 1　多 1"
+    },
+    {
+      "id": "token/expressions/gap-r979-new-inst-tagged",
+      "category": "token",
+      "title": "第 980 轮收掉：根因**不在** `IsAllowedFollower` 的表达式位（第 977 轮已经收下反引号），",
+      "detail": "字段 6"
+    },
+    {
+      "id": "token/modules/ex-default-after-import-01",
+      "category": "token",
+      "title": "导入声明后面的换行就是语句边界：下一条 `export default` 是独立的 `ExportAssignment`，不许被折成再下一条声明的修饰词",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/modules/ex-default-class",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/modules/ex-named",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/modules/mod-adversarial-shapes",
+      "category": "token",
+      "title": "模块层与字符串/模板层的对抗形状集（第 66 轮第十四批）",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/modules/mod-export-abstract-class",
+      "category": "token",
+      "title": "exported abstract class with an abstract method",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/modules/mod-export-class",
+      "category": "token",
+      "title": "exported class declaration",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/modules/mod-export-default-class-anon",
+      "category": "token",
+      "title": "anonymous default-exported class",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/modules/mod-export-enum",
+      "category": "token",
+      "title": "exported enum declaration",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/statements/gap-a-comment-01",
+      "category": "token",
+      "title": "A-comment 落点（657 审计语料）",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/gap-r929-label-body-brace-newline",
+      "category": "token",
+      "title": "第 929 轮片段普查量到的一族：被标语句的**头部与它自己体之间**换行。",
+      "detail": "缺 4　多 4"
+    },
+    {
+      "id": "token/statements/gap-r929-label-body-call-newline",
+      "category": "token",
+      "title": "第 929 轮片段普查量到的一格：被标语句是**调用**时，名字与 `(` 之间换行。",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/gap-r929-label-chain-newline",
+      "category": "token",
+      "title": "标签链中间换行（第 929 轮）：`a:` 换行 `b:` 换行 `for (…)` 在 TS 里是**一条嵌套的**",
+      "detail": "缺 9　多 9"
+    },
+    {
+      "id": "token/statements/gap-r929-label-comment-before-colon-tail",
+      "category": "token",
+      "title": "第 929 轮片段普查量到的一族：**名字与冒号之间夹注释**，而且后面还跟着一条语句。",
+      "detail": "缺 3　多 3"
+    },
+    {
+      "id": "token/statements/gap-r929-label-comment-head-of-shell",
+      "category": "token",
+      "title": "第 929 轮片段普查量到的同族另一格：注释落在**语句壳的第一格**上。",
+      "detail": "缺 1　多 1"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-label-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/label 落点（657 审计语料）",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-label-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/label 落点（657 审计语料）",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-label-01",
+      "category": "token",
+      "title": "SWEEP-newline/label 落点（657 审计语料）",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-label-02",
+      "category": "token",
+      "title": "SWEEP-newline/label 落点（657 审计语料）",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/st-for-empty",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/statements/st-for-multi",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 6　字段 2"
+    },
+    {
+      "id": "token/statements/st-labeled",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-adversarial-shapes",
+      "category": "token",
+      "title": "语句层/类/表达式的对抗形状集（第 66 轮第十二批）",
+      "detail": "缺 6　多 1　字段 2"
+    },
+    {
+      "id": "token/statements/stmt-asi-return-newline-object",
+      "category": "token",
+      "title": "ASI：return 换行后跟对象字面量 —— 仍不并入 return，对象字面量按语句位置解析",
+      "detail": "缺 1　多 1"
+    },
+    {
+      "id": "token/statements/stmt-break-label",
+      "category": "token",
+      "title": "break 带标签：标签是标记节点，与被标的循环平级",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-continue-label",
+      "category": "token",
+      "title": "continue 带标签",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-for-arrow-compare",
+      "category": "token",
+      "title": "条件段是箭头函数：`for` 头按 `;` 分段时不许把分号吃掉",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/statements/stmt-for-arrow-initial",
+      "category": "token",
+      "title": "初始段是箭头函数：`for` 头里的实参列表分支也不许吃掉后面的分号",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/statements/stmt-for-decl-kinds",
+      "category": "token",
+      "title": "for 声明符关键字 let / const / var 各写一条",
+      "detail": "缺 6　字段 3"
+    },
+    {
+      "id": "token/statements/stmt-forof-block-body-comment",
+      "category": "token",
+      "title": "花括号体：`for (const x of []) /* c */ {}`",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/statements/stmt-label-absorbs-statement",
+      "category": "token",
+      "title": "标签**包住**它标的那条语句（第 929 轮）：产物形如",
+      "detail": "缺 6　多 6"
+    },
+    {
+      "id": "token/statements/stmt-label-block-trailing-semicolon",
+      "category": "token",
+      "title": "`lab: {}` 换行 `;`：那个 `;` 归块那一档（标签自己不吞尾分号）",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-label-block",
+      "category": "token",
+      "title": "块语句上的标签 `outer: { break outer }`：标签 + 块，块里是 `break` 语句",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-label-class-declaration",
+      "category": "token",
+      "title": "类声明上的标签（第 900 轮）：与函数那一格同一根——收尾期那一串「已经成形的语句单元」类名里只有控制流那七个，`Class` 不在其中；`lbl:` 后面接一个成形的 `Class` 时标签同样收不出来",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-label-comment-before-call",
+      "category": "token",
+      "title": "多层标签后面、调用前面夹一条注释",
+      "detail": "缺 4　多 4"
+    },
+    {
+      "id": "token/statements/stmt-label-double",
+      "category": "token",
+      "title": "双标签叠加在同一个 for 上：两个 Label 都成形，循环那一格是 For/ForBody",
+      "detail": "缺 3　多 3"
+    },
+    {
+      "id": "token/statements/stmt-label-function-declaration",
+      "category": "token",
+      "title": "函数声明上的标签（第 900 轮）：`lbl: function f() {}` 在 TS 里是一条 `LabeledStatement`，而标签的「冒号后面能不能起一条语句」名单里只有控制流那七个词 ⇒ 标签收不出来、`TypeDefineCloseRule` 把 `:` 与整个声明收成一个类型标注",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-label-statement",
+      "category": "token",
+      "title": "标签语句：标签与被标语句是两个平级单元",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-nested-loops-label",
+      "category": "token",
+      "title": "嵌套循环带标签：标签只标注外层，break/continue 指向不同层",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-object-vs-block",
+      "category": "token",
+      "title": "语句位置的 `{ a: 1 }`：块语句里一个带标签语句，不是对象字面量",
+      "detail": "缺 1　多 1"
+    },
+    {
+      "id": "token/statements/stmt-while-block-body-comment",
+      "category": "token",
+      "title": "花括号体：`while (a) /* c */ {}` 的体那对括号记在 BodyBrace 上",
+      "detail": "缺 1　字段 1"
+    },
+    {
       "id": "token/types/gap-r985-jsdoc-nonnull-in-type-position",
       "category": "token",
       "title": "类型位里的 `!`：TS 读成 `JSDocNonNullableType`（JSDoc 时代的那一档）",
       "detail": "缺 6　多 1　第 985 轮第十批底样（嵌套宿主）量出：**类型位里的 `!`** 在 TypeScript 那边是 `JSDocNonNullableType`（`a!` 两格全包：`type T = a!` 缺 1 漂 0 多 0；`type T = (a!)` 缺 2 漂 0 多 1，那一格我们收成了 `Non"
+    },
+    {
+      "id": "token/types/type-member-index-signature",
+      "category": "token",
+      "title": "成员位的索引签名（第 79 轮）：接口 / 类型字面量 / 类体三种宿主里它都可能被包在一层 `<Statement>` 里（成员表挂了语句队列之后多出来的那层），而 TS 的成员位放不下语句——投影层要把那一层摊开，并把 `[k: string]` 收成 `parameters`、值类型收成 `type`、`readonly` 收成修饰词。",
+      "detail": "缺 1　字段 1"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
@@ -172,6 +652,18 @@
       "category": "exec",
       "title": "方法里的箭头函数用 `super`：`[[HomeObject]]` 取不到",
       "detail": "tsrun: 还没实现的构造或语言层错误：get_proto needs an object receiver"
+    },
+    {
+      "id": "exec/enums-namespaces/031-namespace-enum-and-const-value",
+      "category": "exec",
+      "title": "命名空间里同时有 `enum` 与引用它的 `const`",
+      "detail": "tsrun: 脚本抛出：cannot read properties of undefined"
+    },
+    {
+      "id": "exec/expressions/072-void-comma-and-sequence",
+      "category": "exec",
+      "title": "void / 逗号运算符 / 序列表达式",
+      "detail": "tsrun: 还没实现的构造或语言层错误：ast node without a kind"
     },
     {
       "id": "exec/round706/003-defineproperty-is-object-walks-topropertykey",
@@ -332,6 +824,12 @@
       "detail": "stdout 不同：第 1 行：node «function» vs tsrun «undefined»"
     },
     {
+      "id": "exec/enums-namespaces/042-declare-and-ambient-erased",
+      "category": "exec",
+      "title": "declare 声明一律不产生运行期代码",
+      "detail": "stdout 不同：第 1 行：node «1 undefined undefined undefined undefined» vs tsrun «1 undefined undefined function undefined»"
+    },
+    {
       "id": "exec/expressions/110-ex-using-declaration-dispose",
       "category": "exec",
       "title": "using 声明：块结束时该调 Symbol.dispose",
@@ -420,6 +918,12 @@
       "category": "exec",
       "title": "运行期造函数：new Function(\"a\", \"return a\")(1)（账）",
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:Error»"
+    },
+    {
+      "id": "exec/generics/034-generic-new-arguments",
+      "category": "exec",
+      "title": "带类型实参的 `new`：实参表按顶层逗号切段（不是逗号表达式）",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：this value is not a constructor (it has no [[Construct]])"
     },
     {
       "id": "exec/round708/032-console-circular-reference-differ",
@@ -1170,5 +1674,426 @@
     }
   ],
   "newlyPassing": [],
-  "regressions": []
+  "regressions": [
+    {
+      "id": "token/ambiguous/am-class-modifier-order",
+      "category": "token",
+      "detail": "缺 3　字段 1"
+    },
+    {
+      "id": "token/declarations/cls-abstract-members",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/cls-declare-class",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/cls-decorator-calls",
+      "category": "token",
+      "detail": "缺 1"
+    },
+    {
+      "id": "token/declarations/cls-member-shape-matrix",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/cls-modifiers",
+      "category": "token",
+      "detail": "缺 3　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-class-abstract",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-class-accessor",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-class-declare",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-class-decorator-comment-export",
+      "category": "token",
+      "detail": "缺 1"
+    },
+    {
+      "id": "token/declarations/decl-class-export-default",
+      "category": "token",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-class-member-modifier-order",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-declaration-shape-matrix",
+      "category": "token",
+      "detail": "缺 6　字段 3"
+    },
+    {
+      "id": "token/declarations/decl-enum-const-declare-export",
+      "category": "token",
+      "detail": "缺 3　字段 3"
+    },
+    {
+      "id": "token/declarations/decl-label-block-comment-after-colon",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-block-comment",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-block",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-break-continue",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-comment-after-colon",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-comment-after-name",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-for",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-if",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-nested-two",
+      "category": "token",
+      "detail": "缺 3　多 3"
+    },
+    {
+      "id": "token/declarations/decl-label-switch",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-label-while",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/declarations/decl-modifier-after-decorator",
+      "category": "token",
+      "detail": "缺 1"
+    },
+    {
+      "id": "token/declarations/decl-namespace-body-class",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/decl-namespace-body-enum",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/enum-const-declare",
+      "category": "token",
+      "detail": "缺 2　字段 2"
+    },
+    {
+      "id": "token/declarations/enum-export",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/gap-r676-method-comment-before-paren-abstract",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/gap-r902-abstract-method-newline",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/gap-r907-abstract-method-params-newline",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/declarations/method-generic-params-newline",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/expressions/ex-await-yield",
+      "category": "token",
+      "detail": "缺 1　多 1"
+    },
+    {
+      "id": "token/expressions/expr-comma-sequence",
+      "category": "token",
+      "detail": "缺 4　字段 1"
+    },
+    {
+      "id": "token/expressions/expr-object-computed-in-label-block",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/expressions/expr-yield-await-context",
+      "category": "token",
+      "detail": "缺 1　多 1"
+    },
+    {
+      "id": "token/expressions/gap-r979-new-inst-tagged",
+      "category": "token",
+      "detail": "字段 6"
+    },
+    {
+      "id": "token/modules/ex-default-after-import-01",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/modules/ex-default-class",
+      "category": "token",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/modules/ex-named",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/modules/mod-adversarial-shapes",
+      "category": "token",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/modules/mod-export-abstract-class",
+      "category": "token",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/modules/mod-export-class",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/modules/mod-export-default-class-anon",
+      "category": "token",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/modules/mod-export-enum",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/statements/gap-a-comment-01",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/gap-r929-label-body-brace-newline",
+      "category": "token",
+      "detail": "缺 4　多 4"
+    },
+    {
+      "id": "token/statements/gap-r929-label-body-call-newline",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/gap-r929-label-chain-newline",
+      "category": "token",
+      "detail": "缺 9　多 9"
+    },
+    {
+      "id": "token/statements/gap-r929-label-comment-before-colon-tail",
+      "category": "token",
+      "detail": "缺 3　多 3"
+    },
+    {
+      "id": "token/statements/gap-r929-label-comment-head-of-shell",
+      "category": "token",
+      "detail": "缺 1　多 1"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-label-01",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-label-02",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-label-01",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-label-02",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/st-for-empty",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/statements/st-for-multi",
+      "category": "token",
+      "detail": "缺 6　字段 2"
+    },
+    {
+      "id": "token/statements/st-labeled",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-adversarial-shapes",
+      "category": "token",
+      "detail": "缺 6　多 1　字段 2"
+    },
+    {
+      "id": "token/statements/stmt-asi-return-newline-object",
+      "category": "token",
+      "detail": "缺 1　多 1"
+    },
+    {
+      "id": "token/statements/stmt-break-label",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-continue-label",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-for-arrow-compare",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/statements/stmt-for-arrow-initial",
+      "category": "token",
+      "detail": "缺 2　字段 1"
+    },
+    {
+      "id": "token/statements/stmt-for-decl-kinds",
+      "category": "token",
+      "detail": "缺 6　字段 3"
+    },
+    {
+      "id": "token/statements/stmt-forof-block-body-comment",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/statements/stmt-label-absorbs-statement",
+      "category": "token",
+      "detail": "缺 6　多 6"
+    },
+    {
+      "id": "token/statements/stmt-label-block-trailing-semicolon",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-label-block",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-label-class-declaration",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-label-comment-before-call",
+      "category": "token",
+      "detail": "缺 4　多 4"
+    },
+    {
+      "id": "token/statements/stmt-label-double",
+      "category": "token",
+      "detail": "缺 3　多 3"
+    },
+    {
+      "id": "token/statements/stmt-label-function-declaration",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-label-statement",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-nested-loops-label",
+      "category": "token",
+      "detail": "缺 2　多 2"
+    },
+    {
+      "id": "token/statements/stmt-object-vs-block",
+      "category": "token",
+      "detail": "缺 1　多 1"
+    },
+    {
+      "id": "token/statements/stmt-while-block-body-comment",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "token/types/type-member-index-signature",
+      "category": "token",
+      "detail": "缺 1　字段 1"
+    },
+    {
+      "id": "exec/enums-namespaces/031-namespace-enum-and-const-value",
+      "category": "exec",
+      "detail": "tsrun: 脚本抛出：cannot read properties of undefined"
+    },
+    {
+      "id": "exec/enums-namespaces/042-declare-and-ambient-erased",
+      "category": "exec",
+      "detail": "stdout 不同：第 1 行：node «1 undefined undefined undefined undefined» vs tsrun «1 undefined undefined function undefined»"
+    },
+    {
+      "id": "exec/expressions/072-void-comma-and-sequence",
+      "category": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：ast node without a kind"
+    },
+    {
+      "id": "exec/generics/034-generic-new-arguments",
+      "category": "exec",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：this value is not a constructor (it has no [[Construct]])"
+    }
+  ]
 }

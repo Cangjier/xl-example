@@ -355,6 +355,17 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 return this.Add(new SwitchCompare(this.Template));
 ```
 
+## property children:Array<any>
+
+**这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
+段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
+
+### get
+
+```ts
+return [];
+```
+
 ## property Compare:SwitchCompare
 
 判别段：子单元列表里**第一个** `SwitchCompare`。
@@ -413,7 +424,7 @@ return this.BodyAt;
 ### get
 
 ```ts
-return this.Compare.ToList();
+return this.ChildrenOf(this.Compare);
 ```
 
 ## property segments:Array<any>
@@ -425,34 +436,8 @@ return this.Compare.ToList();
 ```ts
 const result: Array<any> = [];
 for (const item of this.Segments) {
-  result.push(item.ToDictionary());
+  result.push(item);
 }
-return result;
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `bodyAt` + `compare` 段与 `segments` 段列表。
-
-`compare` 是判别段（`switch (…)` 括号里那截），取 `ToList()`——它是一批子单元的容器。
-
-`bodyAt` 是体的开括号（`PrintDirectAst` 的 `ctx.Attr` 读的就是这一格；不是 `switch` 时不写）。
-
-`segments` 是各 `SwitchSegment`：它们与 `Try.Catches` 一样是**按类型从 `Data` 里筛出来的一组引用**，
-不是某**一个**容器节点，所以没有现成的 `ToList()` 可调，只能逐个 `item.ToDictionary()`。
-次序就是 `Data` 里的原顺序（`case` / `default` 的源顺序），JSON 侧不重排——
-段的先后正是 `switch` 语义的一部分。两个键一律写出，与 XML 里 `<Switch>` 下
-必然是「判别段 + 若干段」的形状对齐。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-if (this.BodyAt >= 0) {
-  result.set("bodyAt", this.bodyAt);
-}
-result.set("compare", this.compare);
-
-result.set("segments", this.segments);
 return result;
 ```
 

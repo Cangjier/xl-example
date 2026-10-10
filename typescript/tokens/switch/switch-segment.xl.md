@@ -110,26 +110,6 @@ return `<${name} range="${this.RangeOf()}" key="${this.key}" colonPos="${this.Co
 return this.ColonPos;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `key` + 子单元。
-
-`key` 与 XML 的 `key` 属性同源（`case` / `default`），子单元按基类那条规则走 `children`。
-它与 `IfSegment` 是同一款分段节点，两个出口的形状也对称。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("key", this.key);
-// **`:` 的位置**（见 `ColonPos`）：投影直读，不再回原文 `lastIndexOf` 猜。
-result.set("colonPos", this.colonPos);
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。

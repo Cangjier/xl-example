@@ -382,7 +382,9 @@ return this.ModifierSpans;
 读到这一格时它们一定在；缺一头由**不写这个键**表达。
 
 ```ts
-return this.name.Range!.Start!.Index;
+const nameRange = this.name.Range;
+if (nameRange === null || nameRange.Start === null) return undefined;
+return nameRange.Start.Index;
 ```
 
 ## property nameEnd:any
@@ -394,38 +396,9 @@ return this.name.Range!.Start!.Index;
 与 `nameStart` 同一条约定（见上）。
 
 ```ts
-return this.name.Range!.End!.Index;
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `name` / `modifiers` 两个声明字段，外加子单元。
-
-键名与 `ToXmlString` 开标签上的两个属性同名、值同源（都取那两个字段）。
-枚举的修饰词是文本（`export` / `declare` / `default` / `const` 都可能），所以这里照字符串写，没有布尔要转。
-子单元非空时才写 `children`（空节点只留 `type`）。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("name", this.name.Value);
-result.set("modifiers", this.modifiers.Value);
-// **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
-if (this.ModifierSpans !== "") {
-  result.set("modifierSpans", this.modifierSpans);
-}
-// **枚举名的位置**：区间本来就装在 `name` 那个字段里，这里搬成投影读得懂的两个下标（闭区间）——
-// 投影合名字节点时就**不再回原文 `indexOf(name)` 猜**（见 `print-ast-common.xl.md` 的 `synthName`）。
 const nameRange = this.name.Range;
-if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
-  result.set("nameStart", this.nameStart);
-  result.set("nameEnd", this.nameEnd);
-}
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
+if (nameRange === null || nameRange.End === null) return undefined;
+return nameRange.End.Index;
 ```
 
 ## method Clone:()=>Token

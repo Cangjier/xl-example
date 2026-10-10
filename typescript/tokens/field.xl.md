@@ -960,42 +960,6 @@ return this.NameAt.File();
 return this.ModifierSpans;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 AST JSON 节点：类型名 + 字段名 + 修饰词 + 「类型标注 / 初始值」。
-
-两个键与 XML 属性**同名同源**：`name` 取 `this.fieldName`、`modifiers` 取 `this.modifiers`
-（键叫 `name` 而不是字段名 `fieldName`——它跟的是 XML 属性的叫法，两个出口读起来才一致）。
-`Data` 里搬进来的子单元进 `children`；为空时不写这个键。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("name", this.name);
-result.set("modifiers", this.modifiers);
-// **名字的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
-result.set("nameStart", this.nameStart);
-result.set("nameEnd", this.nameEnd);
-// **名字那一格的整段区间**（见 `NameAt`）：字符串名的引号也在里面——
-// 投影要问「这个名字是怎么写出来的」时直读它（与 `bodyBraceRange` 同一形状：闭区间、`"起,止"`）。
-if (this.NameAt.IsSet) {
-  result.set("nameAt", this.nameAt);
-  const nameRange = this.NameAt.Range;
-  if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
-    result.set("nameRange", nameRange.Start.Index + "," + nameRange.End.Index);
-  }
-}
-// **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
-if (this.ModifierSpans !== "") {
-  result.set("modifierSpans", this.modifierSpans);
-}
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。

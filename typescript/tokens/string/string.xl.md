@@ -334,38 +334,6 @@ return `<${name} range="${this.RangeOf()}" interpolation="${interpolation}" verb
 return this.StringChar;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + 五个开关/计数 + 只给投影用的 `stringChar` + 子单元。
-
-键名与 XML 的五个属性**同名同源**（`interpolation` / `verbatim` / `raw` / `interpolationCount` /
-`rawQuoteCount`），但值的类型按 JSON 自己的规矩：三个开关写**真布尔**（XML 那边印的是小写
-`true` / `false`，两者说的是同一件事），两个计数写**真数字**（XML 那边是带引号的十进制文本）。
-
-**`stringChar` 是第 1001 轮补的那一格，也是这张表里唯一的例外**：
-`StringChar`（这个串用哪个引号开头）**不进 XML**——XML 读者要的还是那五个——
-但**投影要从字典读它**：`ExpressionWithTypeArguments` 的直出版要判「这一格是不是反引号串」
-（`class D extends tag`t` {}` 里那个 `String`），而它手上只有**子单元的字典**、
-拿不到那个 `String` 实例（`IsTemplateString` 吃的是实例，见 `text-common-util.xl.md`）。
-原来那句是 `ctx.source[ctx.StartOf(k)] === "\`"`——**回原文读引号**，正是直出版不许有的第二份近似。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("interpolation", this.interpolation);
-result.set("verbatim", this.verbatim);
-result.set("raw", this.raw);
-result.set("interpolationCount", this.interpolationCount);
-result.set("rawQuoteCount", this.rawQuoteCount);
-// **引号那一格**（第 1001 轮）：只给投影用，不进 XML（`ToXmlString` 那五个属性照旧）。
-result.set("stringChar", this.stringChar);
-if (this.Data.length !== 0) {
-
-  result.set("children", this.children);
-}
-return result;
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

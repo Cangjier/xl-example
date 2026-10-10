@@ -41,6 +41,17 @@ import { IfStatement } from "./if-statement.xl.md"
 段的 `SourceRange.Start` 是 **`else` 的位置**（`NextSegment("if", start)` 签的是 `else` 的起点，
 `else if` 里 `if` 的位置只有这一格说得出来）。
 
+## property children:Array<any>
+
+**这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
+段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
+
+### get
+
+```ts
+return [];
+```
+
 ## property Condition:IfCondition | null
 
 条件子单元：子单元列表里**第一个** `IfCondition`。
@@ -390,7 +401,7 @@ return this.BraceRangeText();
 （`else` 段没有条件），读到这一格时它一定在；「没有条件」由**不写这个键**表达。
 
 ```ts
-return this.Condition!.ToList();
+return this.ChildrenOf(this.Condition);
 ```
 
 ## property statement:Array<any>
@@ -402,55 +413,7 @@ return this.Condition!.ToList();
 与 `condition` 同一条约定（见上）：`else` 之后没有体时不写这个键。
 
 ```ts
-return this.Body!.ToList();
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `key`，外加两个可选段。
-
-`key` 与 XML 的 `key` 属性同源，取的都是这个字段（`if` / `else`；`else if` 记的是 `if`）。
-
-`condition` 与 `statement` 都**只在对应的 getter 不是 `null` 时才写**：`else` 段没有条件、
-`else` 之后没有体时这两个属性给 `null`，此时不写这个键——与 XML 里「没有那个子单元」同一件事。
-
-两段的值取 `ToList()`：条件与体各是**一批**子单元，而 `Condition` / `Statement` 正是按类型从 `Data`
-里挑出来的那一个段节点；摊成扁平的 `children` 会把「哪一段是条件、哪一段是体」抹掉，
-而这两段本来就是靠类型（而不是位置）认出来的。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("key", this.key);
-// **`else if` 那个 `if` 的位置**：只有这一档才写这一格（其余段是 `-1`，写进去只是噪声）。
-if (this.IfWordAt >= 0) {
-  result.set("ifWordAt", this.ifWordAt);
-}
-// **体那个 `{` 的位置也写出去**（与 `While` / `For` 的 `bodyBraceAt` 同一条口径）：
-// 投影画空 `Block` 时直读，不再回原文重扫。
-if (this.BodyBraceAt >= 0) {
-  result.set("bodyBraceAt", this.bodyBraceAt);
-}
-// **空语句体那个 `;` 的位置**（与 `bodyBraceAt` 同一条口径）：投影画 `EmptyStatement`
-// 时直读它，不再按原文找分号，也不会把 `else ;` 画成一个空的 `Block`。
-if (this.EmptyBodyAt >= 0) {
-  result.set("emptyBodyAt", this.emptyBodyAt);
-}
-// **整对括号也写出去**（第 637 轮）：投影画 `else {}` 的空 `Block` 时右端直读它
-//（原来要靠 `MatchingBrace` 回原文重扫那一趟）。标量字符串，见 `BraceRangeText`。
-const braceRange = this.BraceRangeText();
-if (braceRange !== "") {
-  result.set("bodyBraceRange", this.bodyBraceRange);
-}
-if (this.Condition !== null) {
-  result.set("condition", this.condition);
-}
-// **体那一格问 `Body`**（`IfBody` / `IfStatement` 都认），不能只问 `IfStatement`——
-// 只问它的话花括号体整段不进字典，投影侧那个 `Block` 就是空的。
-if (this.Body !== null) {
-  result.set("statement", this.statement);
-}
-return result;
+return this.ChildrenOf(this.Body);
 ```
 
 ## method Clone:()=>Token

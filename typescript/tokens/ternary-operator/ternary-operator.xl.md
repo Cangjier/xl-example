@@ -701,6 +701,17 @@ return new Map([["ConditionalExpression", new Map([["trueStatement", "whenTrue"]
 super(template);
 ```
 
+## property children:Array<any>
+
+**这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
+段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
+
+### get
+
+```ts
+return [];
+```
+
 ## property Condtion:TernaryOperatorCondition
 
 条件子单元。
@@ -766,7 +777,7 @@ return this.Add(new TernaryOperatorFalseStatement(this.Template));
 ### get
 
 ```ts
-return this.Condtion.ToList();
+return this.ChildrenOf(this.Condtion);
 ```
 
 ## property trueStatement:Array<any>
@@ -776,7 +787,7 @@ return this.Condtion.ToList();
 ### get
 
 ```ts
-return this.TrueStatement.ToList();
+return this.ChildrenOf(this.TrueStatement);
 ```
 
 ## property falseStatement:Array<any>
@@ -786,7 +797,7 @@ return this.TrueStatement.ToList();
 ### get
 
 ```ts
-return this.FalseStatement.ToList();
+return this.ChildrenOf(this.FalseStatement);
 ```
 
 ## property questionPos:any
@@ -807,29 +818,6 @@ return this.QuestionPos;
 
 ```ts
 return this.ColonPos;
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `condition` / `trueStatement` / `falseStatement` 三个**具名分段**。
-
-三个键对应三元表达式在树里的三个子单元：条件、`?` 之后的真值、`:` 之后的假值。
-条件那一段的取法写的是 `this.Condtion`——成员名本身就是这么拼的（少一个 `i`），
-这里照抄字段名，不另起别名，免得同一个段在源码与产物里出现两个名字。
-
-三段的值都取 `ToList()`：每段都是**一批子单元**的容器，段名必须显式写出来——
-摊成扁平的 `children` 之后，「哪一段是真值、哪一段是假值」就再也分不出来了。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("condition", this.condition);
-result.set("trueStatement", this.trueStatement);
-result.set("falseStatement", this.falseStatement);
-// **两个标点的位置**（见 `QuestionPos` / `ColonPos`）：投影直读，不再回原文扫那个标点。
-result.set("questionPos", this.questionPos);
-result.set("colonPos", this.colonPos);
-return result;
 ```
 
 ## method Clone:()=>Token

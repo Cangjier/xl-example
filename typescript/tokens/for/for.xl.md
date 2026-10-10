@@ -302,9 +302,7 @@ return new Map([["ForStatement", new Map([["initial", "initializer"], ["compare"
   }
   if (props.statement === undefined) {
     // **空体语句的 `;` 位置由 token 直接给出**（第 590 轮）：收尾规则造这个单元时就知道体是空的。
-    const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
-      ? v.emptyBodyAt
-      : undefined;
+    const rawEmpty = v.emptyBodyAt;
     const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
     if (emptyAt >= 0) {
       props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
@@ -330,6 +328,17 @@ super(template);
 
 ```ts
 return this.Add(new ForInitial(this.Template));
+```
+
+## property children:Array<any>
+
+**这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
+段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
+
+### get
+
+```ts
+return [];
 ```
 
 ## property Initial:ForInitial
@@ -403,7 +412,7 @@ return this.Data.find((x) => x instanceof ForNext) as ForNext;
 ### get
 
 ```ts
-return this.Initial.ToList();
+return this.ChildrenOf(this.Initial);
 ```
 
 ## property compare:Array<any>
@@ -413,7 +422,7 @@ return this.Initial.ToList();
 ### get
 
 ```ts
-return this.Compare.ToList();
+return this.ChildrenOf(this.Compare);
 ```
 
 ## property next:Array<any>
@@ -423,7 +432,7 @@ return this.Compare.ToList();
 ### get
 
 ```ts
-return this.Next.ToList();
+return this.ChildrenOf(this.Next);
 ```
 
 ## property body:Array<any>
@@ -433,7 +442,7 @@ return this.Next.ToList();
 ### get
 
 ```ts
-return this.Body.ToList();
+return this.ChildrenOf(this.Body);
 ```
 
 ## property emptyBodyAt:any
@@ -464,39 +473,6 @@ return this.BodyBrace.File();
 
 ```ts
 return this.HeaderCloseAt;
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-产出 JSON 对象：类型名 + `initial` / `compare` / `next` / `body` 四个**具名分段**。
-
-`For` 在 XML 里不写属性（`<For>` 只有子单元的串接），但它的子单元是四条各有名字的段：
-`initial` 是第一个 `;` 之前那截、`compare` 是两个 `;` 之间那截、`next` 是第二个 `;` 之后到右括号、
-`body` 是循环体。JSON 侧把这四个名字显式写出来，下游按段名取用，不必再靠「第几个子单元」去猜。
-
-四段的值都取 `ToList()` 而不是 `ToDictionary()`：每段都是**一批子单元**的容器，
-`ToList()` 是给「一批」准备的口子（`ToDictionary()` 是给**单个**节点用的）。
-摊成扁平的 `children` 会让四段的边界一起消失——`initial` / `compare` / `next` 本来就
-只靠分号分隔，JSON 里丢掉段名之后就再也切不回来了。
-`next` 段在括号以 `;` 收尾时是空的，但它仍然作为一段出现（空数组），与 XML 里 `<ForNext>` 仍在树上一致。
-
-```ts
-const result: Map<string, any> = new Map();
-result.set("type", this.Tag());
-result.set("initial", this.initial);
-result.set("compare", this.compare);
-result.set("next", this.next);
-result.set("body", this.body);
-result.set("emptyBodyAt", this.emptyBodyAt);
-if (this.BodyBrace.IsSet) {
-  result.set("bodyBraceAt", this.bodyBraceAt);
-  const braceRange = this.BodyBrace.Range;
-  if (braceRange !== null && braceRange.Start !== null && braceRange.End !== null) {
-    result.set("bodyBraceRange", String(braceRange.Start.Index) + "," + String(braceRange.End.Index));
-  }
-}
-result.set("headerCloseAt", this.headerCloseAt);
-return result;
 ```
 
 ## method Clone:()=>Token
