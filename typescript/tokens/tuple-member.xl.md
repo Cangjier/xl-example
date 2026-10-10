@@ -518,6 +518,74 @@ TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；�
   return ctx.NodeHead("NamedTupleMember", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+上面那一份里的位置答案一共有三条，逐条换成 token 上已经记过的那一格：
+
+| `PrintAst` 里的那一句 | 直出版读哪一格 |
+| --- | --- |
+| `ctx.TextOf(k)`（`...` / `this` / `?`） | `ctx.ValueOf(k)`——只读那一格记的 `value` |
+| `ctx.source[typeStart] === "?"`（问号被吞进 `TypeDefine`） | `TypeDefine.QuestionAt`（第 996 轮补的那一格，`>= 0` 就是「这一格以 `?` 开头」） |
+| `ctx.source[EndOf(optional) - 1] === "?"`（问号夹在名字与冒号之间） | 那个 `OptionalType` **自己的** `SymbolToken("?")` 子单元——位置就是它的起点 |
+
+**为什么第三条能这么换**：`OptionalType.PrintDirectAst` 把 `?` 从内容里**排掉**（它只是语法记号），
+所以那个 `SymbolToken` 只在这一格上找得到——原来那一句是「拿区间的**尾字符**回原文比一下」，
+现在改成「问那一格自己有没有那个子单元」，**同一个问句只剩一份答案**。
+
+```ts
+  const kids = ctx.Kids(v);
+  const dots = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "...");
+  const spread = kids.find((k: any) => k.get("type") === "Spread");
+  const nameNode = kids.find((k: any) => k.get("type") === "Identifier" || k.get("type") === "Keyword");
+  const typeNode = kids.find((k: any) => k.get("type") === "TypeDefine");
+  const props: any = {};
+  if (nameNode !== undefined) {
+    props.name =
+      nameNode.get("type") === "Keyword" && ctx.ValueOf(nameNode) === "this"
+        ? { kind: "Identifier", text: "this", pos: ctx.StartOf(nameNode), end: ctx.EndOf(nameNode) }
+        : ctx.Project(nameNode);
+  }
+  if (dots !== undefined) {
+    props.dotDotDotToken = {
+      kind: "DotDotDotToken",
+      text: "...",
+      pos: ctx.StartOf(dots),
+      end: ctx.StartOf(dots) + 3,
+    };
+  } else if (spread !== undefined) {
+    props.dotDotDotToken = ctx.Project(spread);
+  }
+  if (typeNode !== undefined) {
+    // **`?` 被吞进 `TypeDefine` 的那一档**：读它自己记的 `questionAt`（第 996 轮）。
+    const questionAt = ctx.Attr(typeNode, "questionAt");
+    if (typeof questionAt === "number" && questionAt >= 0) {
+      props.questionToken = { kind: "QuestionToken", text: "?", pos: questionAt, end: questionAt + 1 };
+    } else {
+      // **`?` 落在成员中间时它是 `OptionalType` 的尾巴**（第 900 轮）：那一格自己带着
+      // 那个 `SymbolToken("?")`（它把 `?` 从内容里排掉，所以只在这一格上找得到）。
+      const optional = kids.find((k: any) => k.get("type") === "OptionalType");
+      const flat = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "?");
+      if (optional !== undefined) {
+        const mark = ctx
+          .KidsOf(optional, "children")
+          .find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "?");
+        if (mark !== undefined) {
+          const at = ctx.StartOf(mark);
+          props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
+        }
+      } else if (flat !== undefined) {
+        props.questionToken = ctx.Project(flat);
+      }
+    }
+    props.type = ctx.Project(typeNode);
+  }
+  return ctx.NodeHead("NamedTupleMember", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**——`name?: A | B` 里的联合、`name: T[]` 里的数组类型

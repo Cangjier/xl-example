@@ -376,6 +376,54 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 1001 轮：**没有 `PrintAst` 的那一族开始搬**（两半一起写）——`LiteralType` / `ParenthesizedType` / `ExpressionWithTypeArguments` / `NamedTupleMember` / `NamespaceExport` 五页拿到直出版；用例语料直出 **69.4% → 70.6%**、全语料 **88.4% → 91.6%**
+
+**一句话**：跨过第 997 轮记下的那条分水岭——搬「**连 `PrintAst` 都没有**」的那一族。
+它们的形状一直由投影的**通用支**给（`KIND_BY_TAG` 换名 + `structuralProps` 给字段名 + 段名表），
+所以两半一起写：`PrintAst` 把那一趟**写下来**（形状从此有了一份逐字节对拍的基线），
+`PrintDirectAst` 再逐句去掉回原文查。
+
+- **五页走的其实是两条不同的路**：
+  - **`LiteralType`（83）/ `ParenthesizedType`（71）/ `NamespaceExport`（5）**：三页本来就
+    **一处回原文查都没有**（内容全在子单元上，名字与它的位置在属性上），
+    于是 `PrintAst` 与 `PrintDirectAst` **逐行同一份**：`ctx.Node("X", ctx.Structural(v, "X"), v)`。
+    `ctx.Structural` 与通用支**同一份实现**（`structuralProps`），所以产物逐字节相同——
+    这一页换来的只是「**谁来说这一格**」（段名本来就是这一页自己的事实，见 `SegmentNames`）。
+  - **`ExpressionWithTypeArguments`（85）与 `NamedTupleMember`（21）**：两页原来**有** `PrintAst`，
+    差的是几处回原文；它们把「补一格 token 事实」这条口径又用了一遍。
+- **`ExpressionWithTypeArguments`**：唯一的回原文查是那个模板串的判据
+  （`ctx.source[StartOf(k)] === "\`"`）。直出版改读**那一格自己记的引号**——
+  `String.ToDictionary` 这一轮补写 `stringChar`（`IsTemplateString` 吃的是**实例**，
+  而这一页手上只有子单元的**视图** ⇒ 那一格必须经字典递过来，与 `questionAt` / `namedBraceAt` 同款）。
+  `docs/ast-json.md` 里那句「`String` 的 JSON 比 XML 多 5 个字段 …… **不多写**」也跟着改成
+  「**只多写 `stringChar` 这一格**，`rawIndent` / `isRawIndentFormated` 仍不写」——
+  多一格就要有「投影读不到它就只能回原文」的理由。
+- **`NamedTupleMember`**：三条位置答案逐条换成 token 上的一格——
+  `ctx.TextOf` → `ctx.ValueOf`；`ctx.source[typeStart] === "?"` → `TypeDefine.QuestionAt`
+  （第 996 轮补的那一格）；`ctx.source[EndOf(optional) - 1] === "?"` → 那个 `OptionalType`
+  **自己的** `SymbolToken("?")` 子单元（它把 `?` 从内容里排掉，所以只在这一格上找得到）。
+  最后一条是这一轮最干净的一次替换：原来是「拿区间的**尾字符**回原文比一下」，
+  现在是「问那一格自己有没有那个子单元」——**同一个问句只剩一份答案**。
+- **记账**：`cases:direct` **1639 份 / 21818 节点，直出 15135 → 15400（69.4% → 70.6%）**，同答 0、抛异常 0；
+  `cases:direct --all` **2050 份 / 539974 节点，直出 476531 → 494668（88.4% → 91.6%）**、0 处不一致；
+  `direct:lint` **直出版 68 段 / 68 页、0 条违反**，待搬仍是 **0 页**（这一族本来就不在待搬清单里——
+  它是**按类**缺的，不是按页缺的）。
+- **门 suite**：**11 道 10 通过、1 失败**——那一道仍是 `cases:tsast` 的同一片已知红
+  （`for…of` 的枚举对象是条件表达式：缺 51 / 多 2，与第 992 / 998 / 999 / 1000 轮同数）；
+  其余全绿：`cases:astjson` 六项全 0（1642 份 / 42594 个节点）、`samples` 逐字节一致、
+  `cases:check` 1656 / 0、`cases:tags` 5372 条断言 0 不一致、`cases:shapes` 未覆盖 0、
+  `coverage 4259 / 4422`（blocked 29、differ 134、加权 95.7%）——墙钟 32.6s。
+- **落回清单（下一轮的入口）**：用例语料 **1381 → 1116 次 / 12 → 7 个类**；
+  全语料 **41736 → 24364 次 / 仍 7 个类**——`MethodDeclaration` 13044 / `Interface` 4691 /
+  `Function` 2862 / `TypeLiteral` 1771 / `Bracket` 1180 / `Class` 701 / `Enum` 115。
+  这一轮把**单项最大**的一格收掉了（`LiteralType` 13843，全语料降了 42%）。
+  **注意 `Bracket` 与其余六个不是一回事**：它**不在 `KIND_BY_TAG` 里**、走的是
+  「`kind === undefined` ⇒ 原样透传 + 记 `unmapped`」那一支，所以搬它等于**改一个未映射标签的口径**，
+  要先量清 `unmapped` 那一栏的账，不能照这一轮的模板抄。
+  真正剩下的一族是**声明族**（`MethodDeclaration` / `Function` / `Class` / `Interface` / `TypeLiteral` / `Enum`）：
+  它们都要**两半一起写**，而且通用支对它们还多做几件事（`get` / `set` 换 kind、`constructor` 换 kind、
+  生成器的 `*` 摘成 `asteriskToken`、体那一层提上去）——那些**不是**一句 `ctx.Structural` 能盖住的。
+
 ### 第 1000 轮：最后三页直出版拿到手，**「待搬」清单第一次清零**（3 → 0 页）——`RegexToken` 那一页顺带量出**标志位少了 `d` / `v` 两个字母**（词法那一趟的缺口，不是投影的）；用例语料直出 **69.1% → 69.4%**
 
 **一句话**：`print-ast` 这一族的「已有 `PrintAst`、差几处回原文」**做完了**——

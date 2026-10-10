@@ -164,6 +164,29 @@ return ReplaceCountAt(units, index, 1, result);
 return new Map([["ParenthesizedType", new Map([["children", "type"]])]]);
 ```
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+**这一格是它自己出的**（第 1001 轮）：`<ParenthesizedType>` 在投影里一直走**通用支**
+（`KIND_BY_TAG` 换名 + `structuralProps` 给字段名 + 子单元照投），这一页把那一趟**写下来**——
+段名本来就是这一页自己的事实（见上一格），写下来之后这一格才有了一份可以逐字节对拍的**基线**
+（`direct:lint` 的判据②：覆写了直出版的页面必须留着 `PrintAst`）。
+
+字段仍由 `ctx.Structural` 给：与通用支**同一份实现**（`structuralProps`），产物逐字节相同。
+
+```ts
+return ctx.Node("ParenthesizedType", ctx.Structural(v, "ParenthesizedType"), v);
+```
+
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintAst` 出**同一个答案**——
+这一页**一处回原文查都没有**（内容全在子单元上，由 `ctx.Structural` 按类型位投），
+所以两半逐行同一份。口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+```ts
+return ctx.Node("ParenthesizedType", ctx.Structural(v, "ParenthesizedType"), v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**类型队列**——括号里可能还有需要成形的类型文本

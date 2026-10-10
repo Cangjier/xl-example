@@ -431,6 +431,54 @@ return new Map([["ExpressionWithTypeArguments", new Map([["children", "expressio
   return ctx.NodeHead("ExpressionWithTypeArguments", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+上面那一份里只有**一处回原文查**：那个模板串的判据
+（`ctx.source[ctx.StartOf(k)] === "\`"`——**回原文读那个引号**）。直出版改读
+**那一格自己记的引号**：`String.ToDictionary` 这一轮把 `stringChar` 写进字典了
+（见 `string.xl.md` 的说明：`IsTemplateString` 吃的是**实例**，而这里手上只有子单元的**视图**，
+所以那一格必须经字典递过来——与 `questionAt` / `namedBraceAt` 同一条口径）。
+其余逐行与 `PrintAst` 同一份（判据都落在子单元与属性上）。
+
+```ts
+  const kids = ctx.Kids(v);
+  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  const names = kids.filter((k: any) => ctx.IsNameNode(k));
+  const props: any = {};
+  // **名字后面紧跟模板串 ⇒ `TaggedTemplateExpression`**（第 986 轮）：判据是那个 `String`
+  // 的**引号是反引号**——读的是它自己记的 `stringChar`（第 1001 轮），不是原文里那个字符。
+  const template = kids.find(
+    (k: any) => k.get("type") === "String" && k.get("stringChar") === "\`",
+  );
+  if (template !== undefined && names.length > 0) {
+    const tag = ctx.DottedExpression(names);
+    const body = ctx.Project(template);
+    props.expression = {
+      kind: "TaggedTemplateExpression",
+      tag,
+      template: body,
+      pos: tag.pos,
+      end: body.end,
+    };
+  } else if (names.length > 0) {
+    props.expression = ctx.DottedExpression(names);
+  } else {
+    const paren = kids.find((k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "(");
+    if (paren !== undefined) {
+      props.expression = ctx.ParenthesizedOf(paren);
+    } else {
+      const expr = kids.filter((k: any) => k !== generic);
+      if (expr.length > 0) props.expression = ctx.Expression(expr);
+    }
+  }
+  if (generic !== undefined) props.typeArguments = ctx.TypeArguments(generic);
+  return ctx.NodeHead("ExpressionWithTypeArguments", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**——这一格**仍然依赖重组**，是类头里**最后一处**：
