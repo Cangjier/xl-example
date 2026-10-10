@@ -868,6 +868,31 @@ return undefined;
 return undefined;
 ```
 
+## method AstKind:()=>string | undefined
+
+**投成目标语言形状时我这一格叫什么节点**（第 1025 轮）——答案是我自己的事实，所以由我自己答。
+
+产物标签就是我的类名（`Tag()`），而「这个标签在目标语言那边叫哪个节点」过去住在投影层
+（`typescript/print-ast-common.xl.md`）那张按标签查的 `KIND_BY_TAG` 中央表里：
+**同一份事实被声明了两遍**（我这里一次、表里一次），而表在另一棵树里，
+改一个 token 的名字要跑两个地方才不至于错位。
+
+**答什么**：
+
+- 一个节点名 = 我这一格投成那个节点（`Let` → `"VariableDeclaration"`、
+  `Class` → `"ClassDeclaration"`）；
+- `undefined` = **这个标签没有对应节点**——基类就是这个答案，投影照旧
+  「原样透传 + 记 `unmapped`」。所以**没有对应节点的标签一个字都不用写**，
+  这正是它与「答一个空串」的区别（空串会被当成一个真的节点名）。
+
+**为什么它和 `SegmentNames` / `WrapperField` / `BodyField` 是同一族**：那三格问的都是
+「我这一层在目标语言那边长什么样」，答案同样只有这一页知道；中央表是搬家途中的临时落点，
+搬到哪一页、哪一页就不再需要第二个答案。
+
+```ts
+return undefined;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

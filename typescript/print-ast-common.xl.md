@@ -28,9 +28,10 @@ import { Translate } from "./tokens/string/translate.xl.md"
 **中央那张按 `v.type` 分派的 `switch` 已经整段删除**：它原来有 60 个 `case`，
 搬到最后一个（`Statement`）时就没有分支了。所以本文件现在的角色是：
 
-- **通用支**（`KIND_BY_TAG` 与 `FIELD_BY_KIND` 两张表 + `structuralProps`；「包装提层」「段名」
-  与「体字段」那三格第 988~991 轮已经搬上各 token，见 `Token.WrapperField` /
-  `Token.SegmentNames` / `Token.BodyField`）；
+- **通用支**（`FIELD_BY_KIND` 那一张只剩四档的表 + `structuralProps` 兜底；「包装提层」「段名」
+  「体字段」与「节点名」那四格第 988~991 / 1025 轮已经搬上各 token，见 `Token.WrapperField` /
+  `Token.SegmentNames` / `Token.BodyField` / `Token.AstKind`——**凡是某一页自己知道的事实，
+  一律由那一页答，本文件不替它记第二遍**）；
 - **`ctx`**——递给 `PrintDirectAst` 的那一组出口（`Kids` / `Expression` / `TypeExpression` /
   `Node` / `StartOf` / `EndOf` / `Project` / `TextOf` / …，共 40 多个）：
   搬迁层不许 import 本文件（token → 本文件 → token 会成环），横切工具只能经它过去；
@@ -124,99 +125,16 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   同样掉成 `Identifier`（TS：`NumericLiteral("1.")`）。小数点的两种写法合成
   `(\d[\d_]*(\.[\d_]*)?|\.[\d_]+)`：整数可带空小数、`.5` 这种前导点单独一支。
 
-# const KIND_BY_TAG:Map<string, string>
+**这张表第 1025 轮整张删掉了**：79 档里 **77 档说的是「标签 → 节点名」**，
+而标签就是 token 自己的类名（`Token.Tag()`）——每一档说的都是**某一页自己的事实**，
+却被写在投影层这一页里。现在改由各 token 自己答 `Token.AstKind()`
+（`core/syntax/token.xl.md`，与 `SegmentNames` / `WrapperField` / `BodyField` 同一形态），
+投影只问这一格：**同一份事实只有一处声明**，改一个 token 的名字不必再跑两个地方。
 
-```ts
-new Map([
-  ["Root", "SourceFile"],
-  ["Let", "VariableDeclaration"],
-  ["BinaryOperator", "BinaryExpression"],
-  ["LogicalOperator", "BinaryExpression"],
-  ["UnaryOperator", "PrefixUnaryExpression"],
-  ["NotNull", "NonNullExpression"],
-  ["TernaryOperator", "ConditionalExpression"],
-  ["Method", "CallExpression"],
-  ["New", "NewExpression"],
-  ["Lamda", "ArrowFunction"],
-  ["LamdaParameter", "Parameter"],
-  ["Parameter", "Parameter"],
-  ["BindingElement", "BindingElement"],
-  ["Spread", "SpreadElement"],
-  ["ObjectLiteral", "ObjectLiteralExpression"],
-  ["ArrayLiteral", "ArrayLiteralExpression"],
-  ["As", "AsExpression"],
-  ["Satisfies", "SatisfiesExpression"],
-  ["TypeAssign", "TypeAliasDeclaration"],
-  ["TypeDefine", "TypeReference"],
-  ["TypeLiteral", "TypeLiteral"],
-  ["GenericType", "TypeReference"],
-  ["TypeParameter", "TypeParameter"],
-  ["UnionType", "UnionType"],
-  ["IntersectionType", "IntersectionType"],
-  ["ArrayType", "ArrayType"],
-  ["TupleType", "TupleType"],
-  ["IndexedAccessType", "IndexedAccessType"],
-  ["LiteralType", "LiteralType"],
-  ["ConditionalType", "ConditionalType"],
-  ["MappedType", "MappedType"],
-  ["InferType", "InferType"],
-  ["TypePredicate", "TypePredicate"],
-  ["TypeOperator", "TypeOperator"],
-  ["TypeQuery", "TypeQuery"],
-  ["ImportType", "ImportType"],
-  ["FunctionType", "FunctionType"],
-  ["ParenthesizedType", "ParenthesizedType"],
-  ["OptionalType", "OptionalType"],
-  ["RestType", "RestType"],
-  ["NamedTupleMember", "NamedTupleMember"],
-  ["EnumMember", "EnumMember"],
-  ["Field", "PropertyDeclaration"],
-  ["MethodDeclaration", "MethodDeclaration"],
-  // **`IndexSignature` 就是 TS 现在的名字**（第 89 轮）：`IndexSignatureDeclaration` 是它
-  // 的旧别名，而 `ts.SyntaxKind` 的反向查表印出来的是 `IndexSignature`——照旧名投，
-  // 尺子上会同时记「缺 `IndexSignature` 102 + 多 `IndexSignatureDeclaration` 102」。
-  ["IndexSignature", "IndexSignature"],
-  ["NamespaceBody", "ModuleBlock"],
-  ["FunctionBody", "Block"],
-  ["MethodBody", "Block"],
-  ["LambdaBody", "Block"],
-  // **循环体也是 `Block`**（第 71 轮）：`for` / `for…of` / `while` / `do…while` 的花括号体
-  // 在产物里本来就有自己的单元（`ForBody` / `ForeachBody` / `WhileBody`，区间含那对花括号、
-  // 内容就是里面的语句），只是这张表里没有它们——于是投影把它们当**没覆盖的标签**原样透传，
-  // `Block` 整类在 TS 侧找不到（真实语料 352 处都压在 `For` / `ForOf` / `While` 三种父节点下）。
-  ["ForBody", "Block"],
-  ["ForeachBody", "Block"],
-  ["WhileBody", "Block"],
-  // 异常三段的花括号体同理（`try { … } catch { … } finally { … }`）。
-  ["TryBody", "Block"],
-  ["CatchBody", "Block"],
-  ["FinallyBody", "Block"],
-  ["Decorator", "Decorator"],
-  ["HeritageClause", "HeritageClause"],
-  ["ExpressionWithTypeArguments", "ExpressionWithTypeArguments"],
-  ["Signature", "CallSignature"],
-  ["ConstString", "StringLiteral"],
-  ["String", "StringLiteral"],
-  ["RegexToken", "RegularExpressionLiteral"],
-  ["Label", "LabeledStatement"],
-  ["StaticBlock", "ClassStaticBlockDeclaration"],
-  ["NamespaceExport", "NamespaceExportDeclaration"],
-  ["Import", "ImportDeclaration"],
-  ["Export", "ExportDeclaration"],
-  ["Interface", "InterfaceDeclaration"],
-  ["Enum", "EnumDeclaration"],
-  ["Function", "FunctionDeclaration"],
-  ["Class", "ClassDeclaration"],
-  ["Namespace", "ModuleDeclaration"],
-  ["Try", "TryStatement"],
-  ["Switch", "SwitchStatement"],
-  ["While", "WhileStatement"],
-  ["DoWhile", "DoStatement"],
-  ["For", "ForStatement"],
-  ["Foreach", "ForOfStatement"],
-  ["IfSet", "IfStatement"],
-])
-```
+**余下那两档是死档、随表一起没了**：`LamdaParameter` 与 `LambdaBody` **没有对应的类**——
+`Tag()` 答的是 `this.constructor.name`，而全仓没有一个类叫这两个名字
+（真名是 `Parameter`，它自己那一档就在表里；`LamdaBody` 从来不在表里——它走的是
+`Token.BodyField` 那一格）。所以这两档**永远查不到**，删掉它们不改变任何一格读数。
 
 # const KEYWORD_KIND:Map<string, string>
 
@@ -787,8 +705,9 @@ new Map([
 形状仍然由 `projectDeclaration` 里的换 kind 规则与 `structuralProps` 说；
 这六页各自出一格形状，其余标签照旧走通用支。
 
-**`Bracket` 不在里面**（第 1001 轮记下的那条分水岭）：它**不在 `KIND_BY_TAG` 里**、
-走的是「查不到映射 ⇒ 原样透传 + 记 `unmapped`」那一支，搬它等于改一个未映射标签的口径。
+**`Bracket` 不在里面**（第 1001 轮记下的那条分水岭）：它自己的 `AstKind()` 答 `undefined`
+（第 1025 轮起「没对应节点」这一格由 token 自己声明），走的是
+「查不到映射 ⇒ 原样透传 + 记 `unmapped`」那一支，搬它等于改一个未映射标签的口径。
 
 # private const FUNCTION_LIKE_TAGS:Set<string> = new Set(["Function", "MethodDeclaration", "Lamda"])
 
@@ -1094,8 +1013,8 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
 换 kind（`FunctionExpression` / `ClassExpression` / `Constructor` / `GetAccessor` / `SetAccessor`）
 + `structuralProps` 给字段名 + 三处收尾（摘 `get` / `set`、摘生成器的 `*`、对象字面量成员不吃尾随逗号）。
 
-**第五个参数 `kind` 是可选的**：不给就按 `KIND_BY_TAG` 查（这是通用支与 `ctx.Declaration`
-走的那条路——产物标签自己说明了它是什么）；给了就是**调用方已经算好了这一格该出的 kind**
+**第五个参数 `kind` 是可选的**：不给就问**这一格自己的 `AstKind()`**（这是通用支与 `ctx.Declaration`
+走的那条路——产物标签自己说明了它是什么，第 1025 轮起这件事由 token 自己声明）；给了就是**调用方已经算好了这一格该出的 kind**
 （声明族的直出版走这条：它按上下文标记自己判一次，而「按上下文换 kind」的规则写在下面这几行里，
 所以这里**仍然会把规则跑一遍**——两边因此不可能对同一种上下文给出两个答案）。
 
@@ -1113,7 +1032,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
 
 ```ts
   if (kind === undefined) {
-    kind = KIND_BY_TAG.get(v.Tag());
+    kind = v.AstKind();
     if (kind === undefined) {
       ctx.unmapped.add(v.Tag());
       return mk(v.Tag(), { children: projectEach(allKids(v), ctx) });
@@ -1128,7 +1047,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   if (ctx.signature && v.Tag() === "MethodDeclaration" && kind === "MethodDeclaration") kind = "MethodSignature";
   // **表达式位的函数 / 类**（第 141 轮）：`(function () {…})()` / `const c = class {}` 在
   // TS 那边是 `FunctionExpression` / `ClassExpression`（带名字的也一样——`(function f(){})()`
-  // 还是 `FunctionExpression`），而 `KIND_BY_TAG` 给的是**声明**名。
+  // 还是 `FunctionExpression`），而 `AstKind()` 给的是**声明**名。
   // 判据是「谁在投它」：走 `projectExpression` 的就是表达式位
   // （与模板字面量靠 `ctx.typePosition` 分辨 `TemplateLiteralType` 是同一手法）。
   // 少了这一条，`fn-iife` / `stmt-paren-start` / `cls-expression` / `samples/generic.ts`
@@ -1530,7 +1449,7 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
         j++;
       }
       if (j > i && j < items.length) {
-        const lastKind = KIND_BY_TAG.get(items[j].Tag());
+        const lastKind = items[j].AstKind();
         if (lastKind !== undefined && STATEMENT_KINDS.has(lastKind)) {
           const declaration = projectNode(items[j], ctx, parentKind);
           if (declaration !== undefined) {
@@ -2057,7 +1976,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // namespace` 家族、`@types/node` 的 `declare module` 家族都在里面）。
     const prefixWords = kids.slice(0, kids.length - 1);
     const last = kids[kids.length - 1];
-    const lastKind = KIND_BY_TAG.get(last.Tag());
+    const lastKind = last.AstKind();
     const allPrefixes = prefixWords.every(
       (k) => k.Tag() === "Keyword" && ["export", "declare", "default"].includes(textOfNode(k, ctx)),
     );
@@ -2122,7 +2041,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     if (headType === "Statement") {
       return projectNode(head, ctx);
     }
-    const kind = KIND_BY_TAG.get(headType);
+    const kind = head.AstKind();
     if (kind !== undefined) {
       // **`export type T = …` 的 `pos` 在外层 `Statement` 上、修饰词在 `TypeAssign` 上**：
       // 起点取外层的 `v.start`，所以把外层起点**经 `ctx.baseStart` 递进去**
@@ -2181,7 +2100,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       };
     }
     // **裸块语句**（第 123 轮）：`{ … }` 在 TS 那边**本身就是一条语句**，
-    // 不能再套 `ExpressionStatement`——`KIND_BY_TAG` 里没有 `Bracket`，
+    // 不能再套 `ExpressionStatement`——`Bracket` 的 `AstKind()` 答 `undefined`，
     // 所以上面那一支漏掉它，整块会被套上一层壳。
     if (headType === "Bracket" && String(head.startBracket ?? "") === "{") {
       return projectNode(head, ctx);
@@ -7306,7 +7225,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 
 同一个产物标签在**值位**是 `ArrayLiteralExpression`（`[1, 2]`）、在**绑定位**是
 `ArrayBindingPattern`（`const [a, b] = …`）——所以这里按上下文显式换 kind，
-不走 `KIND_BY_TAG`（那张表是值位的）。
+不走 `AstKind()`（那一格是值位的）。
 
 ```ts
   const v = unit;
@@ -7920,7 +7839,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `<R>(a: A) => B` 整段都是 `FunctionType`）。
   //
   // 早先这里按「头是 `GenericType`」走到通用支，只投出那个 `GenericType`
-  // （`KIND_BY_TAG` 给它的是 `TypeReference`）——类型参数成了它的孩子、**整个函数类型被丢掉**：
+  // （`AstKind()` 给它的是 `TypeReference`）——类型参数成了它的孩子、**整个函数类型被丢掉**：
   // 真实语料 `Identifier` 缺 1616 里的一大片、`TypeReference` 缺 417，
   // 全是 `@types/node/async_hooks.d.ts` 那种「泛型函数类型」（`snapshot(): <R, TArgs…>(…) => R`）。
   if (list.length === 2 && list[0].Tag() === "GenericType" && list[1].Tag() === "FunctionType") {
@@ -8529,14 +8448,14 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   // 实测缺 `PropertyAccessExpression` 502 / `CallExpression` 246 / `BinaryExpression` 273
   // 里成片都是它（三元的两个分支 + 条件）。
   //
-  // 判据是「这个 tag 在 `KIND_BY_TAG` 里查不到**且**名字以 `Condition` / `Statement` / `Segment`
+  // 判据是「这一格自己的 `AstKind()` 答 `undefined`**且**名字以 `Condition` / `Statement` / `Segment`
   // 结尾」——那才是分段壳（`TernaryOperatorCondition` 这种）。
-  // **不能只看「查不到映射」**：`PropertyAccess` 也不在 `KIND_BY_TAG` 里（它自己覆写了
-  // `PrintDirectAst`），只看映射会把 `y.z` 摊成两个裸名字。
+  // **不能只看「答 `undefined`」**：`PropertyAccess` 的 `AstKind()` 也答 `undefined`（它自己覆写了
+  // `PrintDirectAst`），只看那一格会把 `y.z` 摊成两个裸名字。
   const leaf = first.Tag() === "Identifier" || first.Tag() === "Keyword" || first.Tag() === "SymbolToken";
   const wrapper =
     !leaf &&
-    KIND_BY_TAG.get(first.Tag()) === undefined &&
+    first.AstKind() === undefined &&
     /(Condition|Statement|Segment)$/.test(first.Tag());
   if (wrapper) {
     const inner = unwrapNodes(first).filter((k) => k.Tag() !== "SymbolToken");
