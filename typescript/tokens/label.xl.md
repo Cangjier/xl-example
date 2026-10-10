@@ -216,6 +216,46 @@ return IsSwitchLabelColon(data, colonIndex) === false;
 return LabelCloseRule.StatementStartsHere(units, index);
 ```
 
+## static method SkipLabelHeads:(units:Array<Token>, from:int)=>int
+
+`from` 起**一连串标签头**（`名字` + `:`）之后那一格的下标：`from` 处不是标签头就原样返回。
+
+**为什么要有它**（第 930 轮）：`iface: interface I` 换行 `{ … }` 是**一条** `LabeledStatement`
+（被标的是那条接口声明），而解析期认「声明头里的换行不是语句边界」的那一支
+（`statement.xl.md` 的 `StatementBranch.Condition`）是**从段首**看第一个词的 ——
+段首是 `iface` 这个名字 ⇒ 词表问不到 `interface` ⇒ 换行处收壳 ⇒
+声明头与它的体分家（实测 `gap-r929-label-body-brace-newline`：缺 7 漂 2 多 11）。
+标签头是**前缀**、不是这一段内容的开头，所以那一支要先跳过它。
+
+判据与 `Previous` 同源（名字在语句开头 / 跳过 trivia / 段头冒号不算 / 冒号后面能起一条语句），
+只是这里**不解**、只把游标挪过去；一处写「认一个标签」、另一处写「跳过一串标签」就是第二份会漂的答案。
+
+```ts
+let at = from;
+for (;;) {
+  const name = Get(units, at);
+  if (!(name instanceof Identifier) || IsDeclarationModifier(name)) {
+    return at;
+  }
+  if (IsStatementStart(units, at) === false) {
+    return at;
+  }
+  const colonAt = SkipNextTrivia(units, at);
+  const colon = Get(units, colonAt);
+  if (!(colon instanceof SymbolToken) || colon.Is(":") === false) {
+    return at;
+  }
+  if (IsSwitchLabelColon(units, colonAt)) {
+    return at;
+  }
+  const next = SkipNextTrivia(units, colonAt);
+  if (LabelCloseRule.StatementStartsHere(units, next) === false) {
+    return at;
+  }
+  at = next;
+}
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个标签：一个 `Identifier` 名字，紧跟（跨过 trivia）一个 `:` 符号，

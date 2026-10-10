@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.38,
+  "progressPercent": 95.39,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1547,
-      "pass": 1544,
-      "blocked": 3,
+      "pass": 1545,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.81
+      "coverage": 99.87
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1547,
-    "knownGap": 3,
-    "knownGapStillOpen": 3,
-    "exactFiles": 1544,
-    "scoredWithoutGap": 1544,
-    "passedWithoutGap": 1544
+    "knownGap": 2,
+    "knownGapStillOpen": 2,
+    "exactFiles": 1545,
+    "scoredWithoutGap": 1545,
+    "passedWithoutGap": 1545
   },
   "blocked": [
-    {
-      "id": "token/statements/gap-r929-label-body-brace-newline",
-      "category": "token",
-      "title": "第 929 轮片段普查量到的一族：被标语句的**头部与它自己体之间**换行。",
-      "detail": "缺 7　漂 2　多 11　标签那一层的续接判据没认这三格（`while` 与条件括号之间、`interface` /"
-    },
     {
       "id": "token/statements/gap-r929-label-comment-before-colon-tail",
       "category": "token",

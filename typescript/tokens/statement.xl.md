@@ -2918,6 +2918,12 @@ const declarationWords = ["class", "interface", "enum", "namespace", "module"];
 // **不跳过那一格就等于「只有文件第一条声明认得出来」**：`interface B2` 换行 `extends …`
 // 单独写在文件开头时是对的，跟在任何一条语句后面就错。
 let wordIndex = SkipNextTrivia(data, frontIndex);
+// **先跳过标签头**（第 930 轮）：`iface: interface I` 换行 `{ … }` 是**一条** `LabeledStatement`
+//（被标的是那条接口声明），而这一段的内容从 `iface` 后面才开始 —— 不跳过的话词表问到的
+// 是那个标签名 ⇒ 认不出声明头 ⇒ 换行处收壳 ⇒ 声明头与它的体分家
+//（实测 `gap-r929-label-body-brace-newline`：`interface` / `enum` 那两格各缺声明本身 + 名字 +
+// 成员，多一个裸 `Block`）。判据在 `LabelCloseRule.SkipLabelHeads`（与 `Previous` 同源）。
+wordIndex = LabelCloseRule.SkipLabelHeads(data, wordIndex);
 let word = Statement.WordOf(Get(data, wordIndex));
 while (word !== "" && modifiers.indexOf(word) >= 0) {
   wordIndex = wordIndex + 1;
