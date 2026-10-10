@@ -299,7 +299,7 @@ let staleNameHits = 0;
 }
 
 /**
- * **`ctx` 上不许再挂着「回原文兜底」的出口**（第 1015 轮）。
+ * **`ctx` 上不许再挂着「回原文兜底」的出口**（第 1015 轮；**第 1026 轮又补了三个**）。
  *
  * 上面那几条扫的是**方法体**（谁在这一格写了什么），而这一条扫的是**这一格拿到的东西**：
  * `typescript/print-ast-common.xl.md` 的 `const ctx = { … }` 里，出口的名字就是它的能力面。
@@ -307,6 +307,12 @@ let staleNameHits = 0;
  * （`Text` / `TextOf` / `StringText`：值为空时会去 `source.slice(...)`）、
  * 以及老路删掉之后再没人用过的六个（`Value` / `Members` / `IsSymbol` / `IsDot` /
  * `SkipSourceTrivia` / `MatchingBrace`）。
+ *
+ * **第 1026 轮再加三个**：那一轮量「`ctx` 上还剩几个出口一个消费者都没有」，
+ * 读数 72 个里 **3 个**——`FirstCodeAfter` / `MatchBrace` / `MatchingParen`，
+ * 三个都是**拿一段原文串去扫**的（跳过 trivia、按深度配花括号 / 圆括号）。
+ * 出口删掉之后，它们下面的 `firstCodeAfter` / `matchBrace` / `matchingParenOf`
+ * 实现也成了死代码，一并删掉（`matchingBrace` 留着：`braceSpanOf` 还在用）。
  *
  * **为什么删掉之后还要立一条判据** ✗：出口删了，上面那条「不许用 `ctx.Text(`」就**永远绿**了
  * ——它守的是一句已经无路可走的话。真正要守住的是**「这一层拿不到原文」这件事本身**：
@@ -324,6 +330,9 @@ const CTX_BANNED = [
   "IsDot",
   "SkipSourceTrivia",
   "MatchingBrace",
+  "FirstCodeAfter",
+  "MatchBrace",
+  "MatchingParen",
 ];
 let ctxExits = 0;
 let ctxBannedHits = 0;

@@ -46,8 +46,13 @@ import { Translate } from "./tokens/string/translate.xl.md"
 （当时那份逐字节对拍脚本）在全语料上逐字节对拍两份实现的输出：
 **1399 个文件、0 处不一致**，结论记在 README 的台账里；那把尺子对拍完就删了，
 长期判据是 `cases:tsast`（对 `ts.createSourceFile` 的逐节点对拍）。
-所以搬家这一步不夹带任何改写：`stmtLike` 这类死代码、`matchBrace` / `matchingBrace`
-这一对重复实现，都照原样留着（要动它们，另开一轮，用尺子量）。
+所以搬家这一步不夹带任何改写。**第 1026 轮把这里剩下的死代码清干净了**：`stmtLike` / `astMembers` /
+`DECLARATION_TAGS` / `skipSourceTrivia` / `firstCodeAfter` / `matchBrace` / `matchingParenOf`
+七格**全仓一个消费者都没有**，连同 `ctx` 上那三个同样没人用的出口（`FirstCodeAfter` /
+`MatchBrace` / `MatchingParen`）一起删掉——它们是搬家时照原样留的（口径是「先证明等价，再谈改写」，
+留着只是因为还没轮到动它们）；`matchingBrace` **留着**（`braceSpanOf` 还在用它）。
+量法是**点号访问与裸调用都算、定义那一行不算**：本文件的每一格 `# const` / `# method`
+与它的生成物逐名对账，别处 0 次引用才算死。
 `projectLogical`（够不着的那个 `case`）已在第 196 轮随搬迁删掉。
 
 **零改写是字面意思**：连空白都一样——`projectNode` 里那个跨 5 行的嵌套三元照原样搬过来，
@@ -695,20 +700,6 @@ new Map([
 返回 `undefined`）。所以那些出口改为返回 `ctx.Nothing`，`projectNode` 见到它就**直接返回
 `undefined`**，不再往下走通用支。
 
-# private const DECLARATION_TAGS:Set<string> = new Set(["MethodDeclaration", "Function", "Class", "Interface", "TypeLiteral", "Enum"])
-
-**声明族**（第 1002 轮）：这六个标签**自己覆写了 `PrintDirectAst` 与 `PrintDirectAst`**，
-两条路都落到同一个 `projectDeclaration` 上——所以「同答」不是对拍出来的巧合，
-而是**同一份实现**说过两遍（一遍经 `ctx.Declaration`、一遍经 `ctx.Project`）。
-
-**为什么这张表不是「又一张中央表」**：它不决定形状，只决定**谁被问**。
-形状仍然由 `projectDeclaration` 里的换 kind 规则与 `structuralProps` 说；
-这六页各自出一格形状，其余标签照旧走通用支。
-
-**`Bracket` 不在里面**（第 1001 轮记下的那条分水岭）：它自己的 `AstKind()` 答 `undefined`
-（第 1025 轮起「没对应节点」这一格由 token 自己声明），走的是
-「查不到映射 ⇒ 原样透传 + 记 `unmapped`」那一支，搬它等于改一个未映射标签的口径。
-
 # private const FUNCTION_LIKE_TAGS:Set<string> = new Set(["Function", "MethodDeclaration", "Lamda"])
 
 **值位的函数体**（三个标签）：`function f() {}` / `class C { m() {} }` / `(x) => x`。
@@ -888,23 +879,6 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     ordered[key] = node[key];
   }
   return ordered;
-```
-
-# private method astMembers:(v:any, parentKind:string, ctx:any)=>Array<any>
-
-**类型容器的成员表**：把这一格的子单元按 `parentKind` 的分隔符切好后，**逐段整段投**
-（切分规则见 `TYPE_MEMBER_SEPARATORS` / `typeMemberGroups`）。
-
-它与通用支里 `projectEachIn` 的类型容器那一支**是同一套实现**——所以「token 自己出这一格」
-与「交回通用支」的产物逐字节相同（第 77 轮的验收判据就是全语料逐字节对拍）。
-
-```ts
-  const out = [];
-  for (const group of typeMemberGroups(kidsOf(v, "children"), parentKind, ctx)) {
-    const projected = projectTypeExpression(group, ctx);
-    if (projected !== undefined) out.push(projected);
-  }
-  return out;
 ```
 
 # method projectNode:(node:any, ctx:any, parentKind:string)=>any
@@ -1661,17 +1635,6 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     if (inner !== undefined) return inner;
   }
   return undefined;
-```
-
-# private method stmtLike:(kind:string)=>bool
-
-这个 kind 是不是**语句族**（要剪尾部 trivia 的那些）。
-
-语句族的共同点：它们在 TS 那边都由「一行/一段语句」构成、**从不含尾部 trivia**。
-`Block` / `ModuleBlock` 是块（右花括号之后不会有 trivia 归它），也一并剪。
-
-```ts
-  return kind.endsWith("Statement") || kind === "Block" || kind === "ModuleBlock";
 ```
 
 # private const KEYWORD_STATEMENT_KINDS:Map<string, string>
@@ -8472,60 +8435,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   return projectExpression(inner, ctx);
 ```
 
-# private method firstCodeAfter:(source:string, from:int)=>int
-
-```ts
-  let i = from;
-  while (i < source.length && /\s/.test(source[i])) i++;
-  return i;
-```
-
-# private method skipSourceTrivia:(source:string, from:int)=>int
-
-从 `from` 起跳过**空白与注释**（`//…` 到行尾、`/*…*/`），返回第一个实义字符的下标。
-
-`firstCodeAfter` 只跳空白；而 TS 的节点区间虽然**不含尾部 trivia**，却**含中间的 trivia**——
-`import { a } from "m"/*c*/;` 的 `ImportDeclaration` 终点是那个 `;` 之后（注释夹在中间），
-所以「`StmtEndOf` 之后那个字符是不是 `;`」这一问必须先跳过注释才有答案。
-
-```ts
-  let i = from;
-  while (i < source.length) {
-    const ch = source[i];
-    if (/\s/.test(ch)) {
-      i++;
-      continue;
-    }
-    if (ch === "/" && source[i + 1] === "/") {
-      i += 2;
-      while (i < source.length && source[i] !== "\n") i++;
-      continue;
-    }
-    if (ch === "/" && source[i + 1] === "*") {
-      i += 2;
-      while (i < source.length && !(source[i] === "*" && source[i + 1] === "/")) i++;
-      i += 2;
-      continue;
-    }
-    break;
-  }
-  return i;
-```
-
-# private method matchBrace:(source:string, open:int)=>int
-
-```ts
-  let depth = 0;
-  for (let i = open; i < source.length; i++) {
-    if (source[i] === "{") depth++;
-    else if (source[i] === "}") {
-      depth--;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
-```
-
 # private method namedSpecifiersOf:(brace:any, kind:string, ctx:any)=>Array<any>
 
 具名导入 / 导出的每一项 → `ImportSpecifier` / `ExportSpecifier`（两种语句只有 `kind` 不同，所以共一份实现）。
@@ -9231,47 +9140,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   return -1;
 ```
 
-# private method matchingParenOf:(source:string, from:int)=>int
-
-从 `from` 起往后找**第一对配对圆括号**的右括号下标；找不到给 `-1`。
-
-与 `matchingBrace` 同一套扫描（跳过字符串与注释），只把计数的括号换成 `(` / `)`。
-给「头部之后是不是空体语句」那一支用：`for (i = f(x); …) ;` 里 `f(x)` 的右括号
-不能当成头部的右括号，所以必须**按深度配对**、不能取第一个 `)`。
-
-```ts
-  let depth = 0;
-  let started = false;
-  for (let i = from; i < source.length; i++) {
-    const c = source[i];
-    if (c === '"' || c === "'" || c === "`") {
-      for (i++; i < source.length && source[i] !== c; i++) {
-        if (source[i] === "\\") i++;
-      }
-      continue;
-    }
-    if (c === "/" && source[i + 1] === "/") {
-      while (i < source.length && source[i] !== "\n") i++;
-      continue;
-    }
-    if (c === "/" && source[i + 1] === "*") {
-      for (i += 2; i < source.length && !(source[i] === "*" && source[i + 1] === "/"); i++);
-      i++;
-      continue;
-    }
-    if (c === "(") {
-      depth++;
-      started = true;
-      continue;
-    }
-    if (c === ")") {
-      depth--;
-      if (depth === 0 && started) return i;
-    }
-  }
-  return -1;
-```
-
 # private const MEMBER_IN_OBJECT:Set<string> = new Set(["MethodDeclaration", "GetAccessor", "SetAccessor", "PropertyAssignment", "ShorthandPropertyAssignment", "SpreadAssignment"])
 **对象字面量里「已经是成员」的那些 kind**：`{ m() {} }` 那一组只有一格、投出来就是
 `MethodDeclaration`——它**直接进 `properties`**，不要再套一层 `ShorthandPropertyAssignment`
@@ -9758,8 +9626,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // `PropertySignature` 而不是 `PropertyDeclaration`）。
     MemberList: (list, parentKind) => projectEachIn(list, ctx, parentKind),
     KidsOf: (node, key) => kidsOf(node, key),
-    FirstCodeAfter: (text, at) => firstCodeAfter(text, at),
-    MatchBrace: (text, at) => matchBrace(text, at),
     NamedSpecifiers: (brace, kind) => namedSpecifiersOf(brace, kind, ctx),
     MemberNameOf: (view) => memberNameOf(view, ctx),
     AddModifiers: (view, props, baseStart) => addModifiers(view, props, ctx, baseStart),
@@ -9775,7 +9641,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     StatementOfList: (list) => statementOfList(list, ctx),
     Nothing: NOTHING,
     BodyBlockOf: (from, list, braceRange) => bodyBlockOf(from, list, ctx, braceRange),
-    MatchingParen: (source, at) => matchingParenOf(source, at),
     IndexBracketOf: (view) => indexBracketOf(view, ctx),
     ParenthesizedOf: (unit) => parenthesizedOf(unit, ctx),
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
