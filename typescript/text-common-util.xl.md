@@ -2581,6 +2581,41 @@ return (
 );
 ```
 
+# method IsTypePositionBracket:(unit:Token | null)=>bool
+
+`unit` 是不是**一对处在类型位的方括号**（`[` 开头、自己的 `Context` 是 `"type"`）。
+
+**为什么要有这一条**（第 921 轮）：`IsTypeContainerUnit` 问的是「**我的父亲是哪一类节点**」，
+它答得了「已经是 `TupleType` / `TypeDefine` 的容器」，答不了「**还没升格**的那个外层 `[`」——
+`type X = [A, B?, ...C[]]` 里内层 `C[]` 被询问时，父单元那一刻还是裸 `Bracket`
+（外层 `[` 要等这一段重组完才升格成 `TupleType`），于是链规则先把它折成了下标访问。
+括号**自己那一格**的 `Context` 是开括号那一刻算好的（`bracket.xl.md`）、与重组时序无关，
+所以「外层括号处在类型位」这件事**当场就问得出来**。
+
+**只用来「让路」，不用来「认定」**（第 921 轮实测）：这个判据问的是括号**自己那一格**的信号，
+而值位声明里的解构模式也会命中它——`DecideBracketContext` 里 `const` / `let` / `var` 那一格
+问的是「跨过赋值号了吗」，而解构模式正好写在赋值号**左边**（`const { a: [b] } = x` 里
+内层 `[b]` 的容器 `{` 与外层 `[` 都判成 `"type"`）。所以它只能出现在**「本来就要让路」的
+那条规则**里（`property-access.xl.md` 的链规则）——`type-bracket.xl.md` 的容器判据
+（`IsTypeContainerUnit`）因此一个字节都没动，那里一旦认了它，解构模式里的 `[a, b]`
+就会被收成 `TupleType`（实测 coverage 4132/4304 → 4121/4304、blocked 42 → 53：
+11 份 e2e / runtime 用例报 `ast node BindingElement has no child name`）。
+
+```ts
+if (unit === null) {
+  return false;
+}
+if (unit instanceof Bracket) {
+  // **`Bracket.Context` 是开括号那一刻算的**（`bracket.xl.md`），与重组时序无关。
+  return unit.startBracket === "[" && unit.Context === "type";
+}
+// **按类名认 `ArrayLiteral`**：它是 `[` 被 `JsonArrayCloseRule` 收走之后的形状
+//（`type X =` 换行 `[C[]]` 那一趟里，内层括号的父亲在升格之前正是它）。
+// 本文件是底层，import 那个类会绕出环（与 `IsTypeContainerUnit` 用类名同一个理由）；
+// `Context` 不在 `Token` 上，按类名认的那一支要显式取值。
+return unit.constructor.name === "ArrayLiteral" && (unit as any).Context === "type";
+```
+
 # method IsTypeMemberStart:(unit:Token)=>bool
 
 `unit` 是不是**成员列表里一个成员的开头**（而不是某个类型的中间）。

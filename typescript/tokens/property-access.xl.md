@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { IsAssertableOperand, IsTypeBracketPosition, IsTypeContainerUnit, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { IsAssertableOperand, IsTypeBracketPosition, IsTypeContainerUnit, IsTypePositionBracket, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -367,8 +367,11 @@ return false;
 
 - 它是 `[` 开头的裸 `Bracket`（已经不是 `ArrayLiteral` / `ArrayType`：那两种是别的规则
   已经收走的形状，轮到链规则时链该照折——`type E3 = [...A[]]` 就是那个形状）；
-- 它的 `Context` 是 `"type"`（`bracket.xl.md`：开括号那一刻按前文算好，与重组时序无关），
-  并且**内容为空**（`type X = C[]` 那一对）。
+- **它处在类型位**，并且**内容为空**（`type X = C[]` 那一对）——两条路任一条成立即可：
+  · 它自己的 `Context` 是 `"type"`（`bracket.xl.md`：开括号那一刻按前文算好，与重组时序无关）；
+  · 或它的**容器是一对类型位的方括号**（`IsTypePositionBracket`，第 921 轮补）——
+    `type X = [A, B?, ...C[]]` 里内层 `[]` 的回扫先撞上 `,` / `...`，自己那一格被判成
+    `"value"`，可它装在类型位的元组里，只可能是数组类型的后缀。
 
 **为什么不是「父单元是类型容器」**：那一刻问不出来——`type X =` 换行 `[C[]];` 里内层括号的
 父亲还是外层那个括号，而外层括号那时候还没被认成元组（第 917 轮实测，见 `Previous` 里那段注释）。
@@ -391,7 +394,11 @@ if (unit instanceof Bracket) {
   if (unit.Closed === false) {
     return false;
   }
-  if (unit.Context !== "type") {
+  // **自己那一格的 `Context` 未必判得出来**（第 921 轮）：`type X = [A, B?, ...C[]]` 里
+  // 内层 `[]` 的回扫会先撞上 `,` / `...`（`DecideBracketContext` 在那两格上判「值位」），
+  // 于是它自己的 `Context` 是 `"value"`——可它的**容器**是一对类型位的方括号，
+  // 那种位置上的空 `[]` 只可能是数组类型。两条任一条成立就够（见 `IsTypePositionBracket`）。
+  if (unit.Context !== "type" && IsTypePositionBracket(unit.Parent) === false) {
     return false;
   }
   return unit.Data.length === 0;
