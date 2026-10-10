@@ -358,6 +358,14 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 - **留下的判据**：`direct:lint` 那条 `REMOVED_LAYER`（禁止 `ToDictionary` / `ToList` / `WithRange` /
   `WithRangeOf` / `ToPlain` / `ToJsonString` 出现在规范页的代码块里）就是「中间那一层不许回来」的守卫；
   这一轮把 `MEMBER_LIST_KINDS` 也推进了「同一份事实只有一处声明」那一栏。
+- **同一件事在第 1039 / 1040 轮继续**（结论写在这里，不另开两条）：`STATEMENT_KINDS`（26 档）
+  → `Token.IsStatementNode()`（23 页覆写 + `Keyword` 按本页词汇表答，投影改为问**手上那一格 token**）；
+  `NO_TRAILING_SEMICOLON`（13 档）与 `SIGNATURE_KINDS`（5 档）→ `Token.EndsOnBrace()` /
+  `Token.IsSignatureNode()`（各自那一页覆写）。两张表搬完之后投影这一侧只剩
+  `ENDS_ON_BRACE` 一份**名字 → 答案**的落点（值就是各页自己答的那一格，键就是各页 `AstKind()`）。
+  **第 1040 轮踩到并记下的一处**：`ownsTrailingSemicolon` 想直接问「上一格 token」是不行的——
+  `projectStatement` 会把声明包进语句壳，手上那一格与 `out` 末尾那个节点**不是同一个单元**，
+  照 token 问当场让 `stmt-semicolon-after-declaration` 一族 5 条用例倒退；问 kind 才是等价的那一份读数。
 
 ### 第 1016 轮：删掉旧的那条 JSON 出口（`cjcli --ast-json`）——命令行只剩 XML 与 TS 形状两条路，**十道门全绿**
 
