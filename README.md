@@ -376,6 +376,36 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 1003 轮：`Bracket` 这一页试了两次、**两次都按实测撤回**——两种写法各坏一扇门（`cases:direct` 22 份 / `coverage` blocked 29 → 133），结论是「它不能照这一轮的模板搬」；顺手把 `|` 的那个坑记进规范
+
+**一句话**：上一轮把落回清单收到**只剩 `Bracket` 43 次**，所以这一轮只剩它可以试；
+试完的结论是**这一格比看上去深**——它不是「差几处回原文」那一类，也不是「换名 + 字段名」那一类。
+
+- **这一格是什么**（量出来的形状，`tmp/bracket-probe.mjs`）：43 次落回按 `startBracket` + 父单元分——
+  `(` 11 次（`NewType` 的构造签名）、`{` **30 次**（`Root` 9 / `Label` 9 / `SwitchStatement` 8 /
+  `Statement` 3 / `FunctionBody` 1）、`[` 2 次（`NotNull` 的下标）。
+  也就是说**三种括号都走 `PrintDirectAst`**，而它们的「这一格出什么」**三种都不一样**：
+  `{` 出 `Block`、`(` / `[` 是分组（`WrapperField` 答 `null`、内容并进父节点）。
+- **试法一：自己判**（`startBracket === "{"` ⇒ `Block`，否则 `ctx.Nothing`）——
+  **`cases:direct` 红 22 份**（`case 1: { break }` 那一族：关直出的产物是**未映射的 `<Bracket>` 原样透传**，
+  开直出变成 `Block`），外加 `count` 记账差 2（`ctx.Nothing` 是「这一格连问都不再问」，
+  而通用支**是会数到这一格的**）。⇒ **`{` 什么时候是块，比 `startBracket` 这一格多**
+  （还牵着 `label.xl.md` 给语句位括号补语句队列那一支）。
+- **试法二：转手共享实现**（`PrintDirectAst` 与 `PrintAst` 逐行同一份：`ctx.Declaration(v)`）——
+  `cases:direct` / `direct:lint` / `cases:direct --all` **全绿**，落回清单**清零**、直出 75.7% / 96.1%，
+  但 **`coverage` 从 4259 / 4422（blocked 29）掉到 4162 / 4422（blocked 133）**——
+  **「不比昨天差」那一把尺子当场说话**，所以**撤回**（本轮的判据是：任何一扇门变红都不算搬完）。
+- **这一轮真正留下来的判据**：**搬一个类之前先问「它是几件事」**——
+  `Bracket` 一个类装着三种括号、两种身份（节点 / 分组），而覆盖率的 `blocked` 那一栏数的是
+  「这个场景还能不能跑通」；把它一次算成「块」会让 104 个场景从「跑通」掉到「跑不通」。
+  下一轮要做的是**先量清 `unmapped` 那一栏的账**（第 1001 轮就记下的那条分水岭），
+  而不是再试第三次同样的写法。
+- **顺带记一个语法坑**（`core/syntax/token.xl.md` 那一族的口径）：`# method` 签名里
+  **不要写 `kind:string = undefined`**——xl 的解析器会把 `= undefined` 读成「默认语言块的语言名」，
+  报 `E1302: default body must use the default language 'ts', got ''`，并且**从那一行起整份文件错位**
+  （后面每个成员都报 `E1301: a member may declare at most one default-language block`）。
+  要写「可选参数」就用 `kind?:string`（这也是本仓库既有那几处的写法）。
+
 ### 第 1002 轮：**声明族六页两半一起写完**（`MethodDeclaration` / `Function` / `Class` / `Interface` / `TypeLiteral` / `Enum`）——形状收成**一份共享实现** `projectDeclaration`，直出版按 `ctx.parentKind` 判 `Constructor`；用例语料直出 **70.6% → 75.5%**、全语料 **91.6% → 95.9%**，**落回清单第一次清零**
 
 **一句话**：接着第 1001 轮那条分水岭往下搬，把**最大的一族**（`MethodDeclaration` 13044 /
