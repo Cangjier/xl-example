@@ -307,6 +307,18 @@ return index;
 内容直接装在自己身上：被数组化的那个类型（`<ArrayType><Identifier>T</Identifier></ArrayType>`）。
 构造器挂**类型队列**，`readonly (A | B)[]` 这类形状里的联合 / 括号类型因此照常成形。
 
+## method SegmentNames:()=>Map<string, Map<string, string>>
+
+**本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。
+
+段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `children` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
+
+**形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
+
+```ts
+return new Map([["ArrayType", new Map([["children", "elementType"]])]]);
+```
+
 ## constructor:(template:Template)=>void
 
 搬进来的那一段要再跑一趟**类型队列**（元素类型里的联合 / 嵌套数组在那里成形）。
@@ -340,6 +352,18 @@ return result;
 # class TupleType extends IndependentToken
 
 元组类型（`[A, B]` / `readonly [A, B]`）。类名必须与产物的标签名一致。
+
+## method SegmentNames:()=>Map<string, Map<string, string>>
+
+**本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。
+
+段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `children` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
+
+**形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
+
+```ts
+return new Map([["TupleType", new Map([["children", "elements"]])]]);
+```
 
 ## constructor:(template:Template)=>void
 

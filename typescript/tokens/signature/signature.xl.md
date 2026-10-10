@@ -752,6 +752,20 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 **类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
 
+## method SegmentNames:()=>Map<string, Map<string, string>>
+
+**本单元的段，投成目标语言形状时叫什么**：每个节点名各一张表，产物那边的分段名 → 目标语言的字段名。
+
+**为什么要分两份**：这个 token 依上下文投成不同的节点（`CallSignature`（同一个 token 的另一种形状） 与 `ConstructSignature`（同一个 token 的另一种形状）），而字段名未必相同——所以按节点名分档。
+
+段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `children` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
+
+**形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
+
+```ts
+return new Map([["CallSignature", new Map([["children", "parameters"]])], ["ConstructSignature", new Map([["children", "parameters"]])]]);
+```
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 可调用 / 可构造签名 `(x: A): B` / `new (x: A): B` → `CallSignature` / `ConstructSignature`

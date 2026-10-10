@@ -764,6 +764,42 @@ return JSON.stringify(Token.ToPlain(this.ToList()));
 return undefined;
 ```
 
+## method SegmentNames:()=>Map<string, Map<string, string>>
+
+**投成目标语言形状时，本单元的段叫什么**：`目标语言的节点名` → （`产物那边的分段名` → `目标语言的字段名`）。
+
+前两个出口（`ToXmlString` / `ToDictionary`）说的是「这棵树长什么样」，这一格说的是
+「**把这棵树投成另一个形状时，我这些段该叫什么**」——所以它与 `PrintAst` 是同一件事的两半：
+`PrintAst` 说「这一格出哪个节点」，`SegmentNames` 说「这个节点的字段叫什么」。
+
+**为什么住在 token 上而不是投影层的一张中央表里**：段名是**这个 token 自己的事实**。
+`compare` 对 `While` 是 `expression`、对 `For` 是 `condition`——同一张表要按 kind 分几十档去记，
+而每一档其实只对声明那个类的这一页有意义；住在 token 上之后，投影只**读**这一格
+（`structuralProps` 拿它给字段名），不必再替每个 token 背一份「我的段该叫什么」。
+
+**为什么是 `Map<节点名, Map<段名, 字段名>>` 而不是一张平表**：同一个 token 可能投成两个节点
+（`Foreach` 是 `ForOfStatement` 或 `ForInStatement`、`MethodDeclaration` 可能是 `Constructor` /
+`GetAccessor`…），而它们的字段名未必相同；按节点名分档既说得清，
+也让「一个类两种形状」这种情形留在同一个文件里。
+
+**查不到的名字原样照用**：产物那边本来就叫 `name` / `parameters` 的那些段与目标语言同形，
+所以一张 `Map` 里只写**叫法不同**的那些（与 `TokenField` 同一条口径：只记事实，不记同义反复）。
+
+**基类答空表**（`core` 与语言无关，不知道任何目标语言的字段名）：需要它的 token 在自己那一页
+覆写这一格（`## property` + `### get`，例如 `typescript/tokens/while/while.xl.md` 的 `While`），
+投影于是按「问这一格 → 空表就落到那张还没搬完的表」处理。
+
+**这三条形态各试过一次，只有这一条能过 `tsc` 的 `strict`**（记下来免得再试）：
+`## field` 会在派生类里报
+`TS2611: defined as a property … but is overridden here as an accessor`；
+`## property` + `### get` 在基类上生成「私有字段 + 访问器」那一对，而私有字段没有初值
+（`TS2564: has no initializer`）；**`## method` + `### get` 才是可覆写的那一条**
+（`get X()` 在结构上与 `X(): T` 相容）。
+
+```ts
+return new Map();
+```
+
 ## static method ToPlain:(value:any)=>any
 
 把一个值转成能喂给 `JSON.stringify` 的形态：`Map` → 普通对象，数组 → 逐元素转，其余原样。

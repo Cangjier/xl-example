@@ -841,9 +841,56 @@ new Map([
 ])
 ```
 
-# private method fieldNameFor:(kind:string, key:string)=>string
+# private method segmentNameOf:(node:any, kind:string | undefined, key:string)=>string | undefined
+
+**问一个单元：这一格在你投出来的那个节点里叫什么**（第 988 轮）。
+
+`SegmentNames` 是 token 自己声明的那一格（见 `core/syntax/token.xl.md`）：它的形状是
+`Map<节点名, Map<段名, 字段名>>`。这一处只做两件事——把字典格换回它的 token（`__token`，
+`WithRangeOf` 补坐标时记下的），再按节点名查一次。
+
+**两个节点名都要试**（先 `kind`、再单元自己的标签名）：通用支拿到的 `kind` 是**父节点**的
+节点名（`children` 那一格属于父声明），而**包装节点**（`FunctionBody` / `ReturnType` /
+`GenericType`…）是**自己**投成节点的、字段名也归自己。所以：
+`FunctionDeclaration` 的 `children` → `parameters` 走前一支，
+`FunctionBody` 的 `children` → `statements` 走后一支——而两者恰好都由各自的 token 声明。
+**顺序是「先父后己」**，与搬家前那张按 kind 查的中央表逐条等价（见 `fieldNameFor` 的账）。
+
+`kind` 为 `undefined` 时只试单元自己的标签名。
+
+**这一格是「问基类」的**（`core/syntax/token.xl.md` 的 `SegmentNames` 那一节）：基类答空表，
+覆写过它的 token 答自己的那一份——所以这里不需要判「有没有这个成员」，
+也不需要对 `any` 说好话（`owner` 就是 `Token`）。
 
 ```ts
+  if (!(node instanceof Map)) return undefined;
+  const owner = node.__token;
+  if (owner === undefined || owner === null) return undefined;
+  const table = owner.SegmentNames();
+  if (!(table instanceof Map) || table.size === 0) return undefined;
+  const tag = node.get("type");
+  for (const name of kind === undefined ? [tag] : [kind, tag]) {
+    const inner = table.get(name);
+    if (!(inner instanceof Map)) continue;
+    const field = inner.get(key);
+    if (typeof field === "string") return field;
+  }
+  return undefined;
+```
+
+# private method fieldNameFor:(kind:string, key:string, node?:any)=>string
+
+`children` / 分段名 → TS 那边的字段名。**按 kind 查**，查不到就用原名。
+
+**首选问单元自己**（第 988 轮）：`SegmentNames` 就住在那个 token 上（见 `segmentNameOf`）——
+段名是它自己的事实，所以投影只读，不再替每个 kind 背一份。查不到才落到下面这张表：
+表里剩下的那些 kind 是**还没有搬过去的**（以及由上下文换名而来、自己没有标签的那几个：
+`MethodSignature` / `GetAccessor` / `Constructor` / `ClassExpression` 都挂在
+`MethodDeclaration` / `Class` 那两页上，它们的段名由宿主 token 一并声明）。
+
+```ts
+  const own = segmentNameOf(node, kind, key);
+  if (own !== undefined) return own;
   const table = FIELD_BY_KIND.get(kind);
   return table?.get(key) ?? key;
 ```
@@ -9546,7 +9593,9 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
       promoted.set(bucketKey, bucket);
     }
     if (kept.length > 0) {
-      const field = fieldNameFor(kind, key);
+      // **段名先问这一格的主人**（第 988 轮）：`kept[0]` 只是这一段的第一个单元，
+      // 而段是 `v` 这一格切出来的——所以问 `v`，字段名归它。
+      const field = fieldNameFor(kind, key, v);
       // 同一字段**只写一次**（后写的会覆盖前写的）：一个 kind 的同一字段可能来自两处
       // （例如 `Bracket` 摊平出来的形参与自己的 `children`），合并而不是覆盖。
       const already = props[field];
@@ -9561,7 +9610,19 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     }
     for (const [target, nodes] of promoted) {
       if (nodes.length === 0) continue;
-      const field = target === "children" ? fieldNameFor(kind, key) : fieldNameFor(kind, target);
+      // **段名先问这一格的主人**（第 988 轮）：`target` 已经是投影的字段名
+      // （`WrapperTarget` 给的：`ClassBody` → `members`、`GenericType` → `typeParameters`…），
+      // 所以这里问的是「**同一张表**里另写的那些叫法」——问的是 `v`（这一格自己、也就是
+      // 切出这个段的那张 token），**不是**包装单元或它的内容：
+      // 段是这一格切出来的，字段名归它。
+      //
+      // **这里踩过一次**（第 988 轮，`samples` 当场抓出）：「问内容」在 `GenericType`
+      // 这种**每个 token 都可能有**的包装上会落空——`Class` 的 `children` 里第一格是
+      // `GenericType`，它的 `SegmentNames` 里没有 `ClassDeclaration` 这一档
+      // ⇒ 查不到 ⇒ `ClassDeclaration.heritageClauses` 整格变成 `types`，而
+      // `cases:tsast` 只看 kind / 区间 / 字段名**集合**，这一格恰好两边都在（只是名字换了）
+      // 所以它是绿的。`samples` 是逐字节比，它当场报出来。
+      const field = target === "children" ? fieldNameFor(kind, key, v) : fieldNameFor(kind, target, v);
       const already = props[field];
       // **包装体的成员拿到的是「外层声明」的 kind**：`ClassBody` 的 `members` 属于
       // `ClassDeclaration`（类里的 `constructor` 要按这个上下文投成 `ConstructorDeclaration`），

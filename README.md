@@ -374,6 +374,56 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 988 轮：把**段名**从投影层搬回各 token——`Token.SegmentNames` 落地（39 页 / 43 格），投影的「字段名」一项从「按 kind 查中央表」改成「问这一格的主人」
+
+**一句话**：用户口径是「token 的属性与 `Data` 要更全、让 `Token.PrintAst` 尽量直出，
+别让 `print-ast-common.xl.md` 背那么多投影」。这一轮动的是**段名**这一项：
+产物里那些分段叫 `compare` / `body` / `children`，投成 TS 形状时要改叫 `expression` /
+`statement` / `parameters`——这套对应关系原先**只**住在投影层的 `FIELD_BY_KIND` 那张
+按 kind 分 37 档的中央表里（167 行）。它其实是**每个 token 自己的事实**
+（`compare` 对 `While` 是 `expression`、对 `For` 是 `condition`），所以搬到声明那些类的**那一页**。
+
+- **新增一格 `Token.SegmentNames`**：`Map<目标语言的节点名, Map<产物分段名, 目标语言字段名>>`。
+  形状是「节点名 → 一张表」而不是一张平表，因为**同一个 token 可能投成两个节点**
+  （`Foreach` 是 `ForOfStatement` / `ForInStatement`、`MethodDeclaration` 可能是
+  `Constructor` / `GetAccessor` / `MethodSignature`…），而它们的字段名未必相同。
+- **投影侧只读**：新增 `segmentNameOf`（取字典格上的 `__token`、按节点名查），
+  `fieldNameFor` 改成「**先问这一格的主人** → 空表才落到 `FIELD_BY_KIND`」。
+  查不到的名字照旧原样照用，所以**搬一格不会动到别人的读数**——39 页可以一页一页搬。
+- **落地 39 页 / 43 格**：`While` / `For` / `DoWhile` / `Foreach`(2) / `Class`(2) /
+  `Interface` / `Function` / `MethodDeclaration`(5) / `Lamda` / `TernaryOperator` /
+  `ConditionalType` / `BindingElement` / `Enum` / `EnumMember` / `TypeLiteral` /
+  `LiteralType` / `UnionType`(2) / `IntersectionType` / `TypeOperator`(2) / `TypeQuery` /
+  `ArrayType` / `TupleType` / `ParenthesizedType` / `FunctionType` / `New` / `NotNull` /
+  `Spread` / `HeritageClause` / `ExpressionWithTypeArguments` / `ObjectLiteral` /
+  `ArrayLiteral` / `Signature`(2) / `Root` / `NamespaceBody`(2) 与九个体节点
+  （`FunctionBody` / `MethodBody` / `LamdaBody` / `ForBody` / `ForeachBody` / `WhileBody` /
+  `TryBody` / `CatchBody` / `FinallyBody`）。
+
+**形态试了三次才定下来**（三条各踩一次，写进 `Token.SegmentNames` 那一节免得再试）：
+`## field` ⇒ 派生类的 `### get` 覆写属性报 `TS2611`；`## property` + `### get` ⇒ 基类生成
+「私有字段 + 访问器」，私有字段没有初值报 `TS2564`；**`## method` + 空表**才既可被覆写、
+又能过 `tsc` 的 `strict`——所以基类是 `## method SegmentNames:()=>Map<…>` 答空表，
+各 token 用 `## method` 覆写（不是 `## property`：方法与属性两种形状在 TS 里不能互相覆写）。
+
+**一处踩坑，`samples` 当场抓出**（`cases:tsast` 看不见）：包装提层那一支原先问的是
+「内容里的第一个单元」（`nodes[0]`），而 `GenericType` 这种**每个 token 都可能有**的包装上，
+它的 `SegmentNames` 里没有 `ClassDeclaration` 那一档 ⇒ 落空 ⇒
+`ClassDeclaration.heritageClauses` 整格变成 `types`；而 `cases:tsast` 比的是
+kind / 区间 / 字段名的**集合**，这一格两边都在（只是名字换了）所以它是绿的，
+**逐字节比的 `samples` 才是那把尺子**。改成「问这一格的主人」（`v`）之后三个样本全绿。
+
+**实测**（`cases:check` **1655 / 1655**、`cases:tags` 1529 条带期望 / 5372 条断言 **0 条不一致**、
+`cases:astjson` 六项全 0（1642 份 / 42596 个节点）、`samples` 三份逐字节一致、
+`cases:tsast` **投影节点 100.0% 同 kind 同区间、字段名也 100.0% 一致**）；
+`xl check` 156 文件 0 错 0 警、`tsc` 0 错。
+
+**可复用的判据**：**「这个答案成形时算过没有」这一问，先问「它是谁的属性」**——
+段名看起来像「投影的约定」（毕竟是给目标语言起的名字），其实每一档只对声明那个类的
+那一页成立；判据是「**换一个 token 它就不成立**」⇒ 它该跟 token 走。
+另一条：**逐字节比的尺子（`samples`）与集合比的尺子（`cases:tsast`）抓的是两类错**——
+字段名被换掉时集合可能两边都齐，只有逐字节那一把会响。
+
 ### 第 986 轮：把第 985 轮登记的两族**当轮收掉**（对象字面量属性值里的 `({ … })`、继承子句里的标签模板）——缺口清单 **5 → 3**，两族都换成守卫用例
 
 **一句话**：第 985 轮按规矩登记的五族里，这一轮收掉**两族**（那两条 `xl:known-gap` 撤掉、

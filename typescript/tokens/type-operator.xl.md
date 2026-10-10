@@ -210,6 +210,18 @@ return ReplaceCountAt(units, index, nextIndex - index + 1, result);
 内容是「词 + 操作数」，形如 `<TypeOperator><Keyword>keyof</Keyword><Identifier>T</Identifier></TypeOperator>`。
 **不给它加 `op` 属性**：与 `UnionType` 的 `|` 符号同一口径，运算符作为子单元留在树里。
 
+## method SegmentNames:()=>Map<string, Map<string, string>>
+
+**本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。
+
+段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `children` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
+
+**形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
+
+```ts
+return new Map([["TypeOperator", new Map([["children", "type"]])]]);
+```
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `keyof T` / `readonly T[]` / `unique symbol` → `TypeOperator`（**只有 `type` 一个子字段**；
@@ -266,6 +278,18 @@ return result;
 
 **与值位的 `typeof` 是两回事**：值位的 `let v = typeof x` 是 `UnaryOperator op="typeof"`，
 类型位的 `type T = typeof x` 是 `TypeQuery`；区别同样只在容器。
+
+## method SegmentNames:()=>Map<string, Map<string, string>>
+
+**本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。
+
+段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `children` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
+
+**形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
+
+```ts
+return new Map([["TypeQuery", new Map([["children", "exprName"]])]]);
+```
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
