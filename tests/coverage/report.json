@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4405,
+  "total": 4407,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.68,
+  "progressPercent": 95.7,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1626,
-      "pass": 1623,
-      "blocked": 3,
+      "total": 1628,
+      "pass": 1627,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.82
+      "coverage": 99.94
     },
     {
       "category": "exec",
@@ -129,31 +129,19 @@
     }
   ],
   "token": {
-    "total": 1626,
-    "knownGap": 3,
-    "knownGapStillOpen": 3,
-    "exactFiles": 1623,
-    "scoredWithoutGap": 1623,
-    "passedWithoutGap": 1623
+    "total": 1628,
+    "knownGap": 1,
+    "knownGapStillOpen": 1,
+    "exactFiles": 1627,
+    "scoredWithoutGap": 1627,
+    "passedWithoutGap": 1627
   },
   "blocked": [
     {
-      "id": "token/expressions/gap-r977-inst-tagged-template-expr",
+      "id": "token/expressions/gap-r979-new-inst-tagged",
       "category": "token",
-      "title": "`f<T>`${1}``：同一条根的第三面——模板**带插值**时丢的不只是模板那一格，",
-      "detail": "缺 6　多 1　带插值的模板串与实例化表达式没合成 `TaggedTemplateExpression`（整棵 TemplateExpression 都丢）"
-    },
-    {
-      "id": "token/expressions/gap-r977-inst-tagged-two-args",
-      "category": "token",
-      "title": "`f<A, B>`t``：与 `gap-r977-inst-tagged` 同一条根（投影没把实例化表达式与模板串合成",
-      "detail": "缺 2　多 1　两个类型实参的实例化表达式与模板串没合成 `TaggedTemplateExpression`（内层 TypeReference 也丢）"
-    },
-    {
-      "id": "token/expressions/gap-r977-inst-tagged",
-      "category": "token",
-      "title": "`f<T>`t``：token 层已经认下 `f<T>` 是实例化表达式（`ExpressionWithTypeArguments`），",
-      "detail": "缺 2　多 1　投影没有把实例化表达式与模板串合成 `TaggedTemplateExpression`（两格平级）"
+      "title": "`new f<T>`t``：投影那一层已经能把「`callee<…>` + 模板串」合成标签模板了（第 979 轮），",
+      "detail": "缺 2　漂 1　多 5　`new f<T>`t`` 里 `f<T>` 没成形（`new` 那一趟不认后继是反引号），标签模板整片塌"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
@@ -431,7 +419,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2233.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2235.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -713,7 +701,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3221.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3223.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -737,7 +725,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3269.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3271.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/051-builtin-regexp-constructor",
@@ -905,7 +893,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3912.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3914.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

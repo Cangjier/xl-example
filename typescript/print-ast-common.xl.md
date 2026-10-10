@@ -2439,6 +2439,117 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       instHead === "Bracket" ? projectExpression([kids[0]], ctx) : projectNode(kids[0], ctx, "");
     if (expression !== undefined) {
       const args = projectTypeArguments(kids[1], ctx);
+      // ---- 0a-1。**`callee<…>` 后面紧跟模板串 ⇒ 一条 `TaggedTemplateExpression`**（第 979 轮）----
+      //
+      // `f<T>`t`` 在 TS 那边**不是**「实例化表达式 + 模板」两格，而是**一条**
+      // `TaggedTemplateExpression{ tag: Identifier(f), typeArguments: [TypeReference(T)],
+      // template: NoSubstitutionTemplateLiteral }`——`<…>` 是**这条标签模板自己的**类型实参
+      // （与 `f<T>(1)` 那条 `CallExpression{ expression, typeArguments, arguments }` 同一个口径）。
+      // 拿真 TS 复量过（`tmp-r979/ts-shapes.cjs`）：`f<T>`t`` / `f<A, B>`t`` / `f<T>`${1}``
+      // 三条的形状都是这一份，`x < y > `t`` 也一样（TS 把它读成 tag=`x`、typeArguments=`<y>`）。
+      //
+      // 原来这一支**先响**：`callee<…>` 投成 `ExpressionWithTypeArguments`，剩下的模板串交给
+      // `foldBinaryFrom` ⇒ 模板那一格**整片丢**（登记的三条缺口：`gap-r977-inst-tagged*`，
+      // 缺 `TaggedTemplateExpression` + `NoSubstitutionTemplateLiteral`、多一格 `ExpressionWithTypeArguments`）。
+      //
+      // 判据与 0b / 0c **同源**，只是标签那一串以 `GenericType` 收尾：
+      //   · 模板**直接**是第三格（`f<T>`t``，与 0b 那一档同一个问题）；
+      //   · 或者**装在第三格的 `PropertyAccess` 里**（`` f<T>`t`.c `` 的产物是
+      //     `[Identifier(f), GenericType, PropertyAccess(String, ., c)]`——与 0c 一字不差）。
+      // 两档的分工照抄 0b / 0c：直接那一档把剩下的一串交给 `chainOnto`，装在 `PropertyAccess`
+      // 里那一档先 `chainOnto` 那一格自己的续格、再把外面的兄弟交给 `foldBinaryFrom`。
+      //
+      // 模板那一格凭什么敢认：与 0b 同一条——**原文的引号**（反引号才是模板，`"` / `'` 是普通字符串，
+      // 产物里两者属性一模一样）；而 `<…>` 能成形本身就说明 token 层的 `IsAllowedFollower`
+      // 认了「`>` 后面接不上普通表达式」（见 `generic-type.xl.md` 的名字闸）。
+      const instTemplateDirect =
+        kids.length >= 3 && kids[2].get("type") === "String" && ctx.source[startOf(kids[2])] === "`"
+          ? kids[2]
+          : undefined;
+      const instTemplateChain =
+        instTemplateDirect === undefined && kids.length >= 3 && kids[2].get("type") === "PropertyAccess"
+          ? projectableKids(view(kids[2]))
+          : [];
+      const instChainHasTemplate =
+        instTemplateChain.length >= 2 &&
+        instTemplateChain[0].get("type") === "String" &&
+        ctx.source[startOf(instTemplateChain[0])] === "`";
+      // **第三档：模板被包在运算符单元的**左脊柱**里**（`` f<T>`t` + 1 ``）：产物是
+      // `[Identifier(f), GenericType, BinaryOperator(String(反引号), +, 1)]`——
+      // 走法与 0d 那一支**一字不差**（沿途把每一层的 `(运算符, 右操作数)` 从里往外收起来），
+      // 区别只在标签那一串以 `GenericType` 收尾（0d 那一支的标签是 `kids.slice(0, 1)`）。
+      // 脊柱上任何一层不满足就整个让开——宁可维持原来的错，也不把别的形状认成标签模板。
+      let instSpineTemplate: any = undefined;
+      let instSpineMembers: Array<any> = [];
+      const instSpineLayers: Array<Array<any>> = [];
+      if (
+        instTemplateDirect === undefined &&
+        !instChainHasTemplate &&
+        kids.length >= 3 &&
+        (kids[2].get("type") === "BinaryOperator" || kids[2].get("type") === "LogicalOperator")
+      ) {
+        let spine: any = kids[2];
+        while (spine !== undefined) {
+          const inner = projectableKids(view(spine));
+          if (inner.length < 3) break;
+          const spineHead = inner[0];
+          const spineHeadKids = spineHead.get("type") === "PropertyAccess" ? projectableKids(view(spineHead)) : [spineHead];
+          if (spineHeadKids[0]?.get("type") === "String" && ctx.source[startOf(spineHeadKids[0])] === "`") {
+            instSpineTemplate = spineHeadKids[0];
+            instSpineMembers = spineHeadKids.slice(1);
+            instSpineLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
+            break;
+          }
+          if (spineHead.get("type") !== "BinaryOperator" && spineHead.get("type") !== "LogicalOperator") break;
+          instSpineLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
+          spine = spineHead;
+        }
+      }
+      if (instTemplateDirect !== undefined || instChainHasTemplate || instSpineTemplate !== undefined) {
+        const templateUnit =
+          instTemplateDirect !== undefined
+            ? instTemplateDirect
+            : instChainHasTemplate
+              ? instTemplateChain[0]
+              : instSpineTemplate;
+        const template = projectNode(templateUnit, ctx);
+        if (template !== undefined) {
+          const head: any = {
+            kind: "TaggedTemplateExpression",
+            tag: expression,
+            template,
+            pos: startOf(kids[0]),
+            end: endOf(templateUnit),
+          };
+          if (args.length > 0) head.typeArguments = args;
+          if (instTemplateDirect !== undefined) {
+            const tail = kids.slice(3);
+            return tail.length === 0 ? head : chainOnto(head, tail, ctx);
+          }
+          if (instChainHasTemplate) {
+            const chained = chainOnto(head, instTemplateChain.slice(1), ctx);
+            const tail = kids.slice(3);
+            if (tail.length === 0) return chained;
+            // **尾巴第一格又是模板 ⇒ 接着接链，不当二元**（第 979 轮）：
+            // `` f<T>`a`.b`c` `` 的产物是 `[Identifier, GenericType, PropertyAccess(`a`, ., b), String(`c`)]`
+            // ——第二格模板是对**整条属性访问**再标一次（TS 是外面再套一层
+            // `TaggedTemplateExpression`），交给 `chainOnto` 那一档；交给 `foldBinaryFrom`
+            // 会把它当成一个操作数（实测那一格整片丢）。
+            if (tail[0].get("type") === "String" && ctx.source[startOf(tail[0])] === "`") {
+              return chainOnto(chained, tail, ctx);
+            }
+            return foldBinaryFrom(chained, tail, ctx);
+          }
+          // 脊柱那一档：先把标签与模板合成一条，再把沿途每一层从里往外折回去。
+          const spineLeft = chainOnto(head, instSpineMembers, ctx);
+          const spineRest: Array<any> = [];
+          for (let q = instSpineLayers.length - 1; q >= 0; q--) {
+            spineRest.push(instSpineLayers[q][0], instSpineLayers[q][1]);
+          }
+          for (const k of kids.slice(3)) spineRest.push(k);
+          return foldBinaryFrom(spineLeft, spineRest, ctx);
+        }
+      }
       const self: any = {
         kind: "ExpressionWithTypeArguments",
         expression,
@@ -6045,6 +6156,19 @@ return false;
   let i = 0;
   while (i < units.length && left !== undefined) {
     const unit = units[i];
+    // **紧跟一格反引号模板 ⇒ 又是一条标签模板**（第 979 轮）：`` tag`a``b` `` 与
+    // `` f<T>`t``u` `` 在 TS 那边是**嵌套的两条** `TaggedTemplateExpression`（里外各带自己的
+    // `template`）——左边那一条当外层的 `tag`。原来这一格没有分支，落到循环末尾被跳过 ⇒
+    // **外面那一层整格丢**（实测 `` f<T>`t``u` ``：外层的 `TaggedTemplateExpression` 区间
+    // 只到第一个模板、第二格模板不见）。判据与 0b 同源：**只有反引号才算模板**
+    //（普通字符串与模板在产物里的属性一模一样，靠原文的引号分）。
+    if (unit.get("type") === "String" && ctx.source[startOf(unit)] === "`") {
+      const template = projectNode(unit, ctx);
+      if (template === undefined) break;
+      left = { kind: "TaggedTemplateExpression", tag: left, template, pos: left.pos, end: endOf(unit) };
+      i += 1;
+      continue;
+    }
     if (unit.get("type") === "NullConditionalOperator") {
       left = chainWithOptional(left, unit, ctx);
       i += 1;
