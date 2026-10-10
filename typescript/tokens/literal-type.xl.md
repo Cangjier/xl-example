@@ -162,7 +162,11 @@ if (item instanceof Identifier) {
   if (item.TempToString().length === 0) {
     return false;
   }
-  return this.IsNumericLiteral(item) || item.IsBool() || item.TempToString() === "null";
+  // **词表只有一份**（第 1032 轮）：`true` / `false` / `null` 这三个词问的是
+  // `Identifier.IsLiteralTypeWord`——投影那一支（`projectTypeExpression` 补类型参数约束 /
+  // 类型实参段里那些裸 `Identifier`）问的是**同一格**。原来这里写
+  // `item.IsBool() || item.TempToString() === "null"`，那是同一份名单的第二处声明。
+  return this.IsNumericLiteral(item) || Identifier.IsLiteralTypeWord(item.TempToString());
 }
 if (item.constructor.name === "UnaryOperator") {
   const op = (item as any).op;

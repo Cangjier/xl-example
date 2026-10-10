@@ -476,45 +476,6 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   };
 ```
 
-# private const LITERAL_TYPE_KEYWORDS:Set<string> = new Set(["null", "true", "false"])
-
-**类型位要套 `LiteralType` 的三个词**（见 `projectTypeExpression` 里那一支）。
-
-`undefined` 刻意不在里面：TS 的 `undefined | null` 是 `UndefinedKeyword` + `LiteralType > NullKeyword`
-——两个词长得一样，形状却不同（这是 TS 自己的口径，不是本工程的取舍）。
-
-# private const PRIMITIVE_TYPE_KIND:Map<string, string>
-
-**原始类型**名 → `SyntaxKind` 名。
-
-它在 TS 那边**不是** `TypeReference`（见 `tokens/type-define.xl.md` 的 `PrintDirectAst`）。
-这张表与 `Keyword.KeywordKind()` 那一份词汇有重叠，但**语义不同**：那一份管的是
-「产物把它标成 `<Keyword>` 了」，这张表管的是「**在类型位上**该叫这个名字」——
-而产物在类型位把 `string` 标成的是 `<Identifier>`（实测 `x: string` 里 `string` 是 `Identifier`）。
-
-```ts
-new Map([
-  ["any", "AnyKeyword"],
-  ["unknown", "UnknownKeyword"],
-  ["number", "NumberKeyword"],
-  ["bigint", "BigIntKeyword"],
-  ["object", "ObjectKeyword"],
-  ["boolean", "BooleanKeyword"],
-  ["string", "StringKeyword"],
-  ["symbol", "SymbolKeyword"],
-  ["void", "VoidKeyword"],
-  ["undefined", "UndefinedKeyword"],
-  ["never", "NeverKeyword"],
-  ["null", "NullKeyword"],
-  ["this", "ThisKeyword"],
-  // **`intrinsic` 在 TS 那边是一个独立的 kind**（第 123 轮）：`type U = intrinsic;`
-  // 的 TS 节点是 `IntrinsicKeyword`——**不是** `TypeReference > Identifier`。
-  // 它只在类型位有意义（`lib.es5.d.ts` 的 `Uppercase` / `Lowercase` / `Capitalize` /
-  // `Uncapitalize` 四个内建别名就是这一族，一个文件里 5 处）。
-  ["intrinsic", "IntrinsicKeyword"],
-])
-```
-
 # private method segmentNameOf:(node:any, kind:string | undefined, key:string)=>string | undefined
 
 **问一个单元：这一格在你投出来的那个节点里叫什么**（第 988 轮）。
@@ -7420,7 +7381,8 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
 `GenericType` 在那里的身份是**实参表**、不是节点。所以：
 
 - 头是 `Identifier` / `Keyword`，后面跟一个 `GenericType` ⇒ `TypeReference` + `typeArguments`；
-- 头是原始类型名 ⇒ **直接是关键字节点**（不套 `TypeReference`，见 `PRIMITIVE_TYPE_KIND`）；
+- 头是原始类型名 ⇒ **直接是关键字节点**（不套 `TypeReference`，见 `Identifier.PrimitiveTypeKindOf`，
+  第 1032 轮起那份词汇住在叶子那一页）；
 - 后面还跟一个 `ArrayType` ⇒ 再套一层 `ArrayType`（TS 的 `ArrayType` **从基名起**，
   而产物的 `ArrayType` 只盖住后缀那一段——所以要把它折上去）。
 
@@ -7781,12 +7743,17 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       // 而产物只在**一部分**上下文里造了这一层（`literal-type.xl.md` 覆盖的是它认得的那些位置），
       // 类型参数约束、类型实参段这些地方的 `null` 还是裸的 `Identifier`
       // （实测缺 `LiteralType` 214 处，样本几乎全是 `X extends null | Y`）。
+      // **判据与词汇都问那一页自己**（第 1032 轮）：`Identifier.IsLiteralTypeWord(text)` 与
+      // `Identifier.PrimitiveTypeKindOf(text)`——「哪三个词要套 `LiteralType`」与
+      // 「哪个词在类型位叫哪个 kind」都是**叶子自己正文**那一格的事实，
+      // 搬过来之后 `LiteralTypeCloseRule.IsLiteralUnit` 与这里问的是**同一格**
+      // （原来那两处各写了一份三词名单）。
       // `undefined` **不套**（TS 那边就是裸的 `UndefinedKeyword`）——这是这一条唯一的例外。
-      if (LITERAL_TYPE_KEYWORDS.has(text)) {
-        const literal = { kind: PRIMITIVE_TYPE_KIND.get(text), text, pos: span.pos, end: span.end };
+      if (Identifier.IsLiteralTypeWord(text)) {
+        const literal = { kind: Identifier.PrimitiveTypeKindOf(text), text, pos: span.pos, end: span.end };
         return { kind: "LiteralType", literal, pos: span.pos, end: span.end };
       }
-      const primitive = PRIMITIVE_TYPE_KIND.get(text);
+      const primitive = Identifier.PrimitiveTypeKindOf(text);
       if (primitive !== undefined) {
         return arraySuffix === undefined
           ? { kind: primitive, text, pos: span.pos, end: span.end }

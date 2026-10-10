@@ -436,7 +436,7 @@ return items.includes(this.TempToString());
   // 在 TS 那边是一个 `Identifier`（`undefined` 不是保留字），只有**类型位**的 `: undefined`
   // 才是 `UndefinedKeyword`。这一格管的是**叶子**（值位标识符），把它算成 `UndefinedKeyword`
   // 会同时记「多出 `UndefinedKeyword` 147 + 缺 `Identifier` 一大片」。
-  // 类型位那一边由投影页的 `PRIMITIVE_TYPE_KIND` 负责（那里面有 `undefined`）。
+  // 类型位那一边由**这一页**的 `PrimitiveTypeKindOf` 负责（那里面有 `undefined`；第 1032 轮搬过来）。
   return "Identifier";
 ```
 
@@ -454,6 +454,44 @@ return items.includes(this.TempToString());
   return NUMERIC_LITERAL.test(text);
 ```
 
+
+## static method PrimitiveTypeKindOf:(text:string)=>string | undefined
+
+**给一段叶子文本，答它在 TS 那边算不算「原始类型名」、算的话是哪个 kind**（第 1032 轮从投影层
+`print-ast-common.xl.md` 的 `# private const PRIMITIVE_TYPE_KIND` 搬到这一页）。
+
+**为什么家在这一页**：键还是**叶子自己的正文**（与 `LeafKindOfText` / `IsNumericLiteral` 同一格
+事实、同一个入口形态），只是**语义不同**——那一份管的是「产物把它标成 `<Identifier>` 了」，
+这一份管的是「**在类型位上**该叫这个名字」。而产物在类型位把 `string` 标成的正是
+`<Identifier>`（实测 `x: string` 里 `string` 是 `Identifier`），所以这一页本来就是它的家。
+搬过来之前它住在投影页里，投影经 `.get(text)` 直接读那张表；今天读法只有一个：
+`Identifier.PrimitiveTypeKindOf(text)`（`projectTypeExpression` 那一支）。
+
+答 `undefined` ＝「不是原始类型名」（投影于是走到 `TypeReference` 那一支）。
+
+```ts
+  return PRIMITIVE_TYPE_KIND.get(text);
+```
+
+## static method IsLiteralTypeWord:(text:string)=>bool
+
+**这三个词在类型位要套一层 `LiteralType`**（第 1032 轮从投影层的
+`# private const LITERAL_TYPE_KEYWORDS` 搬来，并把第二处声明收成一处）。
+
+**同一份名单原来有两处**：`literal-type.xl.md` 的 `LiteralTypeCloseRule.IsLiteralUnit`
+自己写了一遍（`item.IsBool() || item.TempToString() === "null"`），投影层那一支又写了一遍
+（那张三词的集合）——但两者管的是同一句话，只是**覆盖的位置不同**：
+收尾规则认得的位置（类型容器里）它已经包好了，而类型参数约束 / 类型实参段里那些
+`null` / `true` / `false` 还是**裸的 `Identifier`**，要投影这一支来补
+（实测缺 `LiteralType` 214 处，样本几乎全是 `X extends null | Y`）。
+今天两处都问这一格，**词表只有一份**。
+
+`undefined` 刻意**不在**里面：TS 的 `undefined | null` 是 `UndefinedKeyword` +
+`LiteralType > NullKeyword`——两个词长得一样、形状却不同（TS 自己的口径，不是本工程的取舍）。
+
+```ts
+  return LITERAL_TYPE_WORDS.has(text);
+```
 
 ## method Clone:()=>Token
 
@@ -485,3 +523,41 @@ return result;
 
 **它标 `RegExp`**：TS 目标上这一格是准的；换到 C++ 目标时这一类要另想办法（登记在 README
 的目标差异里），**不为了一个还不存在的目标改动已经量过的实现**。
+
+# private const LITERAL_TYPE_WORDS:Set<string> = new Set(["null", "true", "false"])
+
+**类型位要套 `LiteralType` 的三个词**（第 1032 轮从投影层搬到这里，读法是
+`Identifier.IsLiteralTypeWord`）。`undefined` 为什么不在这里，见那一格的说明。
+
+# private const PRIMITIVE_TYPE_KIND:Map<string, string>
+
+**原始类型**名 → `SyntaxKind` 名（第 1032 轮从投影层搬到这里，读法是
+`Identifier.PrimitiveTypeKindOf`）。
+
+它在 TS 那边**不是** `TypeReference`（见 `tokens/type-define.xl.md` 的 `PrintDirectAst`）。
+这张表与 `Keyword.KeywordKind()` 那一份词汇有重叠，但**语义不同**：那一份管的是
+「产物把它标成 `<Keyword>` 了」，这张表管的是「**在类型位上**该叫这个名字」——
+而产物在类型位把 `string` 标成的是 `<Identifier>`（实测 `x: string` 里 `string` 是 `Identifier`）。
+
+```ts
+new Map([
+  ["any", "AnyKeyword"],
+  ["unknown", "UnknownKeyword"],
+  ["number", "NumberKeyword"],
+  ["bigint", "BigIntKeyword"],
+  ["object", "ObjectKeyword"],
+  ["boolean", "BooleanKeyword"],
+  ["string", "StringKeyword"],
+  ["symbol", "SymbolKeyword"],
+  ["void", "VoidKeyword"],
+  ["undefined", "UndefinedKeyword"],
+  ["never", "NeverKeyword"],
+  ["null", "NullKeyword"],
+  ["this", "ThisKeyword"],
+  // **`intrinsic` 在 TS 那边是一个独立的 kind**（第 123 轮）：`type U = intrinsic;`
+  // 的 TS 节点是 `IntrinsicKeyword`——**不是** `TypeReference > Identifier`。
+  // 它只在类型位有意义（`lib.es5.d.ts` 的 `Uppercase` / `Lowercase` / `Capitalize` /
+  // `Uncapitalize` 四个内建别名就是这一族，一个文件里 5 处）。
+  ["intrinsic", "IntrinsicKeyword"],
+])
+```
