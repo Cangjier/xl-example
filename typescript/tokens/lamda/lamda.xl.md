@@ -384,7 +384,14 @@ if (at <= 0) {
   // 得到否（顶层那一问的 `wrapper` 不再是括号）。
   return this.IsWrappedByTypeContext(wrapper);
 }
-let index = SkipPreviousWrapSymbol(outer.Data, at);
+// **这一趟回扫一律走 trivia 口径**（第 928 轮）：`const k = ():/*c*/(() => void) => { return; };`
+// 里那句注释夹在返回类型的冒号与括号之间，`A extends/*c*/(() => infer R) ? R : never` 里
+// 夹在 `extends` 与括号之间——两处的括号都是**类型位**，而只跳软换行时回扫第一步就撞上注释
+// ⇒ 落到末尾那句 `return false`（值位）⇒ 里面那段函数类型被 `LamdaCloseRule` 收成箭头函数
+//（实测：缺 `FunctionType` / `InferType`，多 `ArrowFunction` + `EqualsGreaterThanToken`；
+// 把注释换成换行则一直是绿的——**注释与软换行是同一件事**，第 873 轮那条线）。
+// 初始那一步与循环里那两步（`=` 与普通标识符之后）一起换：判据跨过什么，搬运就得跨过什么。
+let index = SkipPreviousTrivia(outer.Data, at);
 let crossedAssignment = false;
 while (index >= 0) {
   const item = Get(outer.Data, index);
@@ -395,7 +402,7 @@ while (index >= 0) {
     }
     if (text === "=" && crossedAssignment === false) {
       crossedAssignment = true;
-      index = index - 1;
+      index = SkipPreviousTrivia(outer.Data, index);
       continue;
     }
     return false;
@@ -412,7 +419,7 @@ while (index >= 0) {
     if (crossedAssignment && text === "type") {
       return true;
     }
-    index = index - 1;
+    index = SkipPreviousTrivia(outer.Data, index);
     continue;
   }
   return false;

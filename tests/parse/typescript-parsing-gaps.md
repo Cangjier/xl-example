@@ -1163,6 +1163,29 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
   量缺口时如果发现「同一条症状修一处不动」，先搜「还有谁在问同一个问题」，
   再决定**哪一处才是判据的家**（这里住在共用层 `text-common-util.xl.md`，三处都只转发）。
 
+**第 928 轮第二趟：把这一族的每个相邻位置各插一条注释 / 换行再普查——量出三格，一根收掉**
+
+第 928 轮修完**再量一遍**（第 900 轮那套「每个相邻位置插 trivia」的缩小版，
+`tmp/r928/gen2.mjs`：12 个构造 × 每个相邻位置 × `/*c*/` / 换行 = **780 条，534 条合法**），
+剩 **3 格对不上**（`w-20-c` / `w-101-c` / `w-613-c`，前两条是「粘着写」与「加空格」两种排版）：
+
+- `const k = ():/*c*/(() => void) => { return; };`
+- `const k = (a: number):/*c*/((b: string) => void) => { return; };`
+- `type X = A extends/*c*/(() => infer R) ? R : never;`
+
+三格的症状一模一样：括号里那段**函数类型**被收成了**箭头函数**
+（缺 `FunctionType` / `InferType` / `TypeParameter`，多 `ArrowFunction` + `EqualsGreaterThanToken`）。
+
+- **根因**：`LamdaCloseRule.IsWrappedByTypeContext`（括号套括号时问「外层括号在不在类型位」）
+  的那趟回扫只跳**软换行**——注释夹在 `:` 与 `(` 之间（或 `extends` 与 `(` 之间）时，
+  回扫第一步就撞上它 ⇒ 落到末尾那句 `return false`（值位）⇒ `IsLambdaParameters` 答
+  「这是形参表」⇒ 那段函数类型让给了箭头函数。**把注释换成换行一直是绿的**
+  ——正是「注释与软换行在相邻判定里是同一件事」那条线（第 873 轮）的第 N 个落点。
+- **修法**：回扫三步一律换 `SkipPreviousTrivia`（初始一步，以及 `=` 与普通标识符之后那两步）。
+  守卫 `token/expressions/expr-arrow-return-parenthesized-comment.ts`。
+- **账**：这一趟量到的 6 条片段（3 格 × 粘 / 空格两种排版）全绿；上一趟那 8 条与这一趟
+  534 条合法片段**一条不红**；`npm run gates` 九道全过。
+
 
 
 ## 被否决的改法（不要再试）
