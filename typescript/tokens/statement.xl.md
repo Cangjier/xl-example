@@ -188,6 +188,13 @@ if (terminator instanceof SymbolToken) {
   }
 }
 const frontIndex = SearchFrontIndexed(data, index, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
+// **循环头后面那个 `;` 不是语句的终结符**（第 939 轮）：`while (a)` 换行 `;` 里那个分号是
+// **循环体**（空语句），与 `while (a);` 写在一行时同一个形状 —— 那时体那几格还没进 `Data`
+// ⇒ 按 `;` 收壳会让 `WhileCloseRule` 看到「头 + 空体」、`;` 另起一条空语句。
+// 判据与换行那一支共用一份（`Statement.IsPendingLoopHead`）。
+if (Statement.IsPendingLoopHead(data, frontIndex + 1)) {
+  return;
+}
 // **`switch` 体里，第二个及以后的段头要自己起一条壳**（第 576 轮）：
 // `switch (x) { case 1: case 2: y(); }` 写在一行时，`case 1:` 里那个 `:` **不是终结符**
 // ⇒ 这一问一次都不响 ⇒ 壳从 `case 1:` 一路收到 `y();` 的那个 `;`
@@ -2250,6 +2257,58 @@ for (let i = headAt + 1; i < data.length; i++) {
 return true;
 ```
 
+## static method IsPendingLoopHead:(data:Array<Token>, start:int)=>bool
+
+`start` 起到列表末尾这一段**是一个已经写完的循环头、而它的体还在下一行**吗
+（`while (a)` / `for (;;)` / `for (const x of y)` / `for (k in o)`）。
+
+**为什么要问这一句**（第 939 轮）：循环头后面**必须**跟一个体 —— TypeScript 的 ASI 在这里
+**不插分号**，`while (a)` 换行 `foo();` 是**一条** `WhileStatement`（体是 `foo();`）。
+而本仓的壳在**换行那一刻**就收（`StatementBranch.Condition`），那一刻体那几格**还没读进来**
+⇒ 壳里只剩一个头 ⇒ `WhileCloseRule` / `ForCloseRule` / `ForeachCloseRule` 在这一趟上
+看到的是「头 + 空体」（它们从 `SearchStatementEnd` 拿不到体 ⇒ 落进 `emptyBody` 那一支）
+⇒ `While` 只到头部、`foo();` 另起一条 `Statement`（实测缺 `WhileStatement` 的体那一整棵、
+多一条平级语句）。**同一条规则在头与体之间隔着注释时也响**（`/* c */` 不算换行，
+`LineCannotEnd` 本来就挡住了那一档）。
+
+**判据只看形状，不认收尾规则**（在这一层 import 那两个 `*CloseRule` 会绕成环）：
+段的**第一个实义单元**是 `while` / `for` / `foreach` 三个词之一、且段的**最后一个实义单元是一个
+以 `(` 开头、以 `)` 收尾的括号**（`for (k in o)` / `for (const x of y)` 也以 `)` 收尾）。
+两条缺一不可 —— 少了后一条，`while` 换行 `(a);` 那种排版会被误判成「头没写完」
+（那两行在 TS 里是两条语句：一条表达式语句 `while`，一条括号表达式）。
+
+判据只问**这一段已经读到的东西**，所以解析期在换行那一刻、以及 `;` 落地那一刻都问得出来。
+
+```ts
+let headAt = start;
+while (headAt < data.length && IsTriviaUnit(Get(data, headAt))) {
+  headAt = headAt + 1;
+}
+const word = Statement.WordOf(Get(data, headAt));
+if (word !== "while" && word !== "for" && word !== "foreach") {
+  return false;
+}
+const lastIndex = SkipPreviousTrivia(data, data.length);
+if (lastIndex < 0) {
+  return false;
+}
+const last = Get(data, lastIndex);
+if (last instanceof Bracket === false) {
+  return false;
+}
+if (last.startBracket !== "(") {
+  return false;
+}
+const open = last.SourceRange.Start;
+const close = last.SourceRange.End;
+if (open === null || close === null) {
+  return false;
+}
+// **右端那一格必须是 `)`**：花括号块与方括号也可能是「最后一个实义单元」，
+// 而只有 `( … )` 才是循环头（`for` 的三段式、`foreach` 的 `of` / `in` 都在里面）。
+return close.Value === ")";
+```
+
 ## static method IsPendingExportHead:(data:Array<Token>, start:int, source:Source)=>bool
 
 `start` 起到列表末尾这一段**是一条还没写完的导出声明**吗。
@@ -3083,6 +3142,15 @@ if (Statement.IsPendingImportHead(data, frontIndex + 1)) {
 //（判据、实测账见 `Statement.IsPendingExportHead`）。少这一句时 `export * as ns` 换行 `from "m"`
 // 会断成两截：前截是一个只有星号段的 `Export`，`from "m";` 另起一条。
 if (Statement.IsPendingExportHead(data, frontIndex + 1, source)) {
+  return result;
+}
+// **循环头还没等到体时，换行也不是语句边界**（第 939 轮）：`while (a)` 换行 `foo();` 在
+// TypeScript 里是**一条** `WhileStatement`（循环体必需，ASI 在这里不插分号）——
+// 判据、实测账见 `Statement.IsPendingLoopHead`。少了它：换行处收壳 ⇒
+// `WhileCloseRule` / `ForCloseRule` / `ForeachCloseRule` 看到的是「头 + 空体」
+// ⇒ 体被判成空、下一行那条语句另起一条平级 `Statement`。
+// `for (;;)` 换行 `foo();` / `for (const x of y)` 换行 `continue;` 是同一格。
+if (Statement.IsPendingLoopHead(data, frontIndex + 1)) {
   return result;
 }
 // **上一行还没写完时，换行不收壳**（第 558 轮）：把 ASI 判据的**左半截**搬进解析期

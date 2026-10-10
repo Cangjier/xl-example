@@ -9,6 +9,8 @@ import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { GetSkipNextWrapSymbol, IsAnnotationUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
+import { Class } from "../class/class.xl.md"
+import { Function } from "../function/function.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
@@ -60,6 +62,17 @@ if (next instanceof Bracket) {
   if (afterBracket instanceof SymbolToken && afterBracket.Is("=>")) {
     return false;
   }
+  return true;
+}
+// **`new` 后面紧跟一个匿名 `class` / `function` 单元也算**（第 939 轮）：
+// `new class { m() {} }()` / `new function () {}()` 在 TS 那边是
+// `NewExpression > ClassExpression`（`FunctionExpression`）——被构造者是一个**表达式**，
+// 不是类型名。它此刻已经成形（解析期把 `class` … `}` 收成了一个 `Class` 单元），
+// 所以这里看得到的是**单元**而不是裸词 —— 与「括号里的被构造者」是同一件事的两种排版。
+// 少了这一支：`new` 留在树里当 `Keyword`、类另起一格、末尾那对括号成了对它的又一次调用
+// （实测 `gap-r938-new-anonymous-class.ts`：缺 `NewExpression` / `ClassExpression` /
+// `MethodDeclaration` / `Identifier(m)` / `Block` 共 5、多 2）。
+if (next !== null && (next instanceof Class || next instanceof Function)) {
   return true;
 }
 return next instanceof Identifier;
@@ -195,6 +208,16 @@ while (i < units.length) {
     break;
   }
   if (IsAnnotationUnit(item)) {
+    i = i + 1;
+    continue;
+  }
+  // **匿名 `class` / `function` 就是被构造者本身**（第 939 轮）：`new class { m() {} }()`
+  // 在 TS 那边是 `NewExpression > ClassExpression`（`function` 那一档同理）——
+  // 被构造者是一个**表达式**，它的类型段就是它自己，末尾那对括号才是实参表。
+  // 这里只是把这一格标明「它算类型段的内容」（与 `Identifier` 走同一条路：往下 `i++`），
+  // 括号在下一轮被收进 `bracketIndex`。少了它，`new class { … }` 整段会被
+  // `Previous` 挡在门外 ⇒ `new` 留成裸 `Keyword`、类另起一格（实测 `gap-r938-new-anonymous-class.ts`）。
+  if (item instanceof Class || item instanceof Function) {
     i = i + 1;
     continue;
   }

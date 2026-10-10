@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.44,
+  "progressPercent": 95.46,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1569,
-      "pass": 1565,
-      "blocked": 4,
+      "pass": 1567,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.75
+      "coverage": 99.87
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1569,
-    "knownGap": 4,
-    "knownGapStillOpen": 4,
-    "exactFiles": 1565,
-    "scoredWithoutGap": 1565,
-    "passedWithoutGap": 1565
+    "knownGap": 2,
+    "knownGapStillOpen": 2,
+    "exactFiles": 1567,
+    "scoredWithoutGap": 1567,
+    "passedWithoutGap": 1567
   },
   "blocked": [
     {
@@ -148,18 +148,6 @@
       "category": "token",
       "title": "",
       "detail": "缺 2　漂 2　多 6　`new` 的被调者是**跨行的下标访问**时（`new ns` 换行 `[a]()`），末尾那对 `()`"
-    },
-    {
-      "id": "token/expressions/gap-r938-new-anonymous-class",
-      "category": "token",
-      "title": "",
-      "detail": "缺 15　多 6　`new` 后面紧跟一个**匿名类表达式**时它不成形：`const a = new class { m() {} }();`"
-    },
-    {
-      "id": "token/statements/gap-r938-loop-body-next-line",
-      "category": "token",
-      "title": "",
-      "detail": "漂 4　多 8　循环的**单语句体写在下一行**时体是空的：`while (a)` 换行 `foo();` 在 TS 那边"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
