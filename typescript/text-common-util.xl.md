@@ -1450,6 +1450,61 @@ if (holder !== null && holder instanceof Bracket && (holder.startBracket === "{"
 return false;
 ```
 
+# method IsArrowReturnTypeBracket:(units:Array<Token>, index:int)=>bool
+
+`index` 处的圆括号是不是**函数头的返回类型标注**那一格——也就是
+`( 形参 ) : ( 返回类型 )` 里冒号右边那一对括号。
+
+三句，缺一不可：
+
+1. 往前（跳 trivia）是 `:` / `?:`；
+2. 那个冒号往前（跳 trivia）是一个 `(` 括号（**真正的形参表**）；
+3. 括号里装的**不是形参表的形状**（空 / 只有 trivia / 顶层有 `TypeDefine` ⇒ 形参表）。
+
+**第 3 句是分开这两个同形写法的唯一一格**（第 928 轮实测）：
+
+    const k = (): (() => void) => { return; };   // 返回类型 ⇒ 括号里是 FunctionType
+    const f = (): () => void => { return; };      // 返回类型本身是函数类型 ⇒ 那个 `()` 是它的形参表
+
+两处括号的**左边一模一样**（`:` 的左边紧接着形参表），只看左边分不开；括号里装的是类型
+还是形参才是真的不同——空括号与「顶层冒号」（`(a: A)` 那一刻已经收成 `TypeDefine`）
+只可能是形参表。
+
+**为什么要有这一条**：`(): (() => void) => { … }` 里 `=>` 左边紧邻的是**返回类型**，
+它长得与形参表一模一样（都是已关闭的 `(`），于是四处判据各自把它当成了形参表 ——
+`LamdaCloseRule.FindParameters` 于是给 `-1`（`FunctionTypeCloseRule` 拿到「左边不是形参表」
+就把整段收成函数类型、连箭头与体一起吞掉）、`IsFunctionTypeArrow` 于是答「这是函数类型的箭头」
+（体那个 `{` 被收成 `TypeLiteral`）。
+**同一个判断只留一份**（第 875 轮那条纪律）：这三处（`FindParameters` / `IsFunctionTypeArrow` /
+`TypeLiteral.IsTypePosition`）都问它。判据全在**已经读到的单元**上（括号自己的 `Data`
+与它左边那两格），不问未来。
+
+```ts
+const current = Get(units, index);
+if (!(current instanceof Bracket) || current.startBracket !== "(") {
+  return false;
+}
+const colonIndex = SkipPreviousTrivia(units, index);
+const colon = Get(units, colonIndex);
+if (!(colon instanceof SymbolToken) || (colon.Is(":") === false && colon.Is("?:") === false)) {
+  return false;
+}
+const before = Get(units, SkipPreviousTrivia(units, colonIndex));
+if (!(before instanceof Bracket) || before.startBracket !== "(") {
+  return false;
+}
+let sawContent = false;
+for (const item of current.Data) {
+  if (item.constructor.name === "TypeDefine") {
+    return false;
+  }
+  if (IsTriviaUnit(item) === false) {
+    sawContent = true;
+  }
+}
+return sawContent;
+```
+
 # method IsFunctionTypeArrow:(units:Array<Token>, arrowIndex:number)=>bool
 
 `arrowIndex` 处那个 `=>` 是**函数类型**的箭头（类型位），还是**箭头函数**的箭头（值位）。
@@ -1503,6 +1558,15 @@ return false;
 const paramIndex = SkipPreviousTrivia(units, arrowIndex);
 const param = Get(units, paramIndex);
 if (!(param instanceof Bracket) || param.startBracket !== "(") {
+  return false;
+}
+// **返回类型那一格不是形参表**（第 928 轮）：`const k = (): (() => void) => { return; };` 里
+// 外层 `=>` 左边紧邻的是返回类型 `(() => void)`——它与形参表同形，照第 2 条问下去
+// 「形参表左边是 `:`」当场成立 ⇒ 答「这是函数类型的箭头」⇒ 体那个 `{` 被判成**类型字面量**
+// （实测缺 `Block` / `ReturnStatement`、多 `TypeLiteral` / `PropertySignature`）。
+// 分开两者的判据只有一格（括号里装的是类型还是形参），住在 `IsArrowReturnTypeBracket`——
+// 与 `FindParameters` 共用一份（第 875 轮：「同一个判断只能有一份实现」）。
+if (IsArrowReturnTypeBracket(units, paramIndex)) {
   return false;
 }
 let index = SkipPreviousTrivia(units, paramIndex);

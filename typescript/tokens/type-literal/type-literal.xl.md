@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsSwitchLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, IsBindingPatternBrace, IsImportExportTypeClauseBrace } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsArrowReturnTypeBracket, IsSwitchLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, IsBindingPatternBrace, IsImportExportTypeClauseBrace } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -442,7 +442,14 @@ for (let i = index - 1; i >= 0; i--) {
       // **叠着箭头时只减一层**（第 927 轮）：这一对括号属于**返回类型里那个函数类型**时
       // （它自己也有 `=>`，见上面那个计数），它不该结束「跨箭头」——要继续往左找
       // **最外面那条箭头**的形参表。
-      if (item.startBracket === "(") {
+      //
+      // **返回类型那一格不是形参表**（第 928 轮）：`const k = (): (() => void) => { return; };`
+      // 从体那个 `{` 回扫——先撞上外层 `=>`（计数 1）、再撞上**返回类型**那个括号；
+      // 它也是 `(`，照原来那句就把「跨箭头」收掉了 ⇒ 接着撞上返回类型的冒号 ⇒ 判成类型位
+      // ⇒ 体被收成 `TypeLiteral`（实测缺 `Block` / `ReturnStatement`）。
+      // 两处的分法与 `FindParameters` / `IsFunctionTypeArrow` **共用一份**：
+      // `IsArrowReturnTypeBracket`（括号里装的是类型、且冒号左边是形参表）。
+      if (item.startBracket === "(" && IsArrowReturnTypeBracket(units, i) === false) {
         if (arrowsCrossed > 1) {
           arrowsCrossed = arrowsCrossed - 1;
         } else {

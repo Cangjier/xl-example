@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack } from "../../../core/extensions/list-extension.xl.md"
-import { CommentsIn, GetSkipPreviousWrapSymbol, IsTriviaUnit, IsTypeContainerUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText } from "../../text-common-util.xl.md"
+import { CommentsIn, GetSkipPreviousWrapSymbol, IsArrowReturnTypeBracket, IsTriviaUnit, IsTypeContainerUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, WordText } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BinaryOperator } from "../binary-operator.xl.md"
 import { GenericType } from "../generic-type.xl.md"
@@ -375,7 +375,14 @@ if (outer instanceof GenericType) {
 }
 const at = outer.Data.indexOf(wrapper);
 if (at <= 0) {
-  return false;
+  // **括号套括号、而外层括号自己在类型位**（第 928 轮）：这一格原来一律答否，于是
+  // `const k6 = (): ((() => void)) => { … }` 里**最里层**那对括号（`() => void` 的形参表）
+  // 判不出「包着我的是类型位」⇒ `IsLambdaParameters` 答「是形参表」⇒ 那一段函数类型
+  // 被收成 `Lamda`（实测多一个 `ArrowFunction`、缺 `FunctionType`）。
+  // 往上追问一层就够了：外层括号在它自己那一层的位置由下面这段扫描回答
+  //（`:` ⇒ 类型位、`=` ⇒ 看声明词……），而 `((a) => b)` 这种值位嵌套会一路问到顶、
+  // 得到否（顶层那一问的 `wrapper` 不再是括号）。
+  return this.IsWrappedByTypeContext(wrapper);
 }
 let index = SkipPreviousWrapSymbol(outer.Data, at);
 let crossedAssignment = false;
@@ -458,7 +465,14 @@ const first = Get(units, firstIndex);
 if (first === null) {
   return -1;
 }
-if (first instanceof Bracket && first.startBracket === "(") {
+// **返回类型那一格也是括号时，它不是形参表**（第 928 轮）：`(): (() => void) => { … }` 里
+// `=>` 左边紧邻的是**返回类型**那个括号，它长得与形参表一模一样（都是已关闭的 `(`）。
+// 照第一支问 `IsLambdaParameters` 只能看「括号自己前面那一格」——这里前面是 `:`
+// （类型标注）⇒ 判否 ⇒ 本方法给 `-1` ⇒ `FunctionTypeCloseRule` 拿到「左边不是形参表」
+// 就把整段收成函数类型（连箭头与体一起吞掉）。
+// **真正的形参括号在冒号左边**，所以这一格要**落到下面那段回扫**去找它：回扫本来就认
+// 「`:` 左边是 `(`」这一形状（箭头函数的返回类型标注那一条）。
+if (first instanceof Bracket && first.startBracket === "(" && this.IsReturnTypeBracket(units, firstIndex) === false) {
   return this.IsLambdaParameters(units, firstIndex) ? firstIndex : -1;
 }
 let scan = previousNonTrivia(firstIndex);
@@ -484,6 +498,17 @@ if (first instanceof Identifier) {
   return firstIndex;
 }
 return -1;
+```
+
+## private method IsReturnTypeBracket:(units:Array<Token>, index:int)=>bool
+
+**第 928 轮：这一格已经搬到共用层**（`text-common-util.xl.md` 的
+`IsArrowReturnTypeBracket`）——`IsFunctionTypeArrow` / `TypeLiteral.IsTypePosition`
+问的是同一件事，三处各写一份近似就会漂（第 875 轮那条纪律）。
+这里只留一句转发，免得 `FindParameters` 里那两处调用点各自散着。
+
+```ts
+return IsArrowReturnTypeBracket(units, index);
 ```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool

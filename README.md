@@ -6106,17 +6106,17 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **1 条还开着**（第 869 轮普查量出的 30 条由第 870–881 轮收完、第 900 轮片段普查量出的 4 条由第 901–902 轮收完、第 900 轮「待登记」栏里的 3 条由第 904–906 轮收完；第 907 轮换地形再普查一次，量出 17 格、当轮收掉 5 格，第 908 轮收 3 格、第 909 轮收 3 格；第 926 轮登记的 1 格由第 927 轮收掉 ⇒ **缺口清单第四次清空**；第 927 轮（二）登记「柯里化的函数类型里层不成形」、第 927 轮（三）收掉它，同轮把探针量到的「箭头的返回类型是带括号的函数类型」登记进来 ⇒ 仍是 1 条） |
-| `cases:astjson` | 出口 2 与出口 1 说的同一棵树：**1538 份 / 36744 个节点**，标签 / 属性 / 坐标 / 键名登记 / 命令行 / 抛异常**六项全 0** |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **一条不剩**（第 869 轮普查量出的 30 条由第 870–881 轮收完、第 900 轮片段普查量出的 4 条由第 901–902 轮收完、第 900 轮「待登记」栏里的 3 条由第 904–906 轮收完；第 907 轮换地形再普查一次，量出 17 格、当轮收掉 5 格，第 908 轮收 3 格、第 909 轮收 3 格；第 926 轮登记的 1 格由第 927 轮收掉 ⇒ **第四次清空**；第 927 轮（二）登记「柯里化的函数类型里层不成形」、第 927 轮（三）收掉它并登记「箭头的返回类型是带括号的函数类型」、**第 928 轮连它那一族一起收掉 ⇒ 缺口清单第五次清空**） |
+| `cases:astjson` | 出口 2 与出口 1 说的同一棵树：**1540 份 / 36868 个节点**，标签 / 属性 / 坐标 / 键名登记 / 命令行 / 抛异常**六项全 0** |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1549** 条 token 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1549 条**（1481 条带期望，共 **5150** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **67** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **229 份**（用例 1536 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
+| `cases:check` | **1550** 条 token 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
+| `cases:tags` | **1550 条**（1483 条带期望，共 **5164** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **67** 种一个都没漏进产物 |
+| `cases:shapes` | 外部语料 **229 份**（用例 1537 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4145 / 4315**，加权 **95.4%**。差的那些是**真缺口**（`blocked` 40 / `differ` 130），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
+| `coverage` | **五类 4147 / 4316**，加权 **95.4%**。差的那些是**真缺口**（`blocked` 39 / `differ` 130），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~34s**） |
 
 
 
@@ -6149,7 +6149,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
-- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **1** 条 ——
+- 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **0** 条 ——
   **第 901–902 轮把第 900 轮量出的 4 条收完了，第 903 轮又把第 900 轮「待登记」栏里的
   E / F / H 三格登记进来，第 904–906 轮把这三格也收完，`cases:tsast` 的缺口清单第三次清空**；
   **第 907 轮换了一批构造再普查一次**（364 条新片段），量出 **17 格**并逐条登记，
@@ -6164,8 +6164,12 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   第 927 轮（三）从**投影**那一层收掉柯里化那格（平铺的 `( … ) => T` 段要投成里层
   `FunctionType`，`functionTypeProps` 与 `FunctionType.PrintAst` 共用一份），
   同轮把探针量到的**下一格**登记进来：箭头的返回类型是**带括号**的函数类型
-  （`gap-arrow-return-parenthesized-function-type`）；逐条根因见
-  [tests/parse/typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md) 第 927 轮三节）。
+  （`gap-arrow-return-parenthesized-function-type`）；**第 928 轮把它连那一族一起收掉**
+  （根因是**三处判据各自近似地回答同一个问题**——`FindParameters` / `IsFunctionTypeArrow` /
+  `TypeLiteral.IsTypePosition`——收成共用层一份 `IsArrowReturnTypeBracket` 之后全族转绿，
+  同族的守卫立成 `expr-arrow-return-parenthesized-family`）⇒ **缺口清单第五次清空**；
+  逐条根因见
+  [tests/parse/typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md) 第 927 / 928 轮各节）。
   **它们与「已知缺口 0 条」不矛盾，量的是两把尺子**（第 881 轮清空的是后者）：
   `cases:tsast` 量的是**投影成 TS 形状**之后的对拍，而这一批缺口在 **XML 产物（token 树）**上——
   投影那一层按 TS 的划分出节点，所以 `cases:tsast` 是绿的、`xl:known-gap` 却照旧挂着
