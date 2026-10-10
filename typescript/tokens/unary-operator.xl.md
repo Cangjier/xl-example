@@ -617,6 +617,19 @@ if (!postfixHere && (this.IsOperand(after) || assertedOperand)) {
       operandEnd = nextIndex;
       continue;
     }
+    // **紧跟其后的类型实参段也是这一元运算的操作数**（第 981 轮）：`typeof f<T>` 的产物是
+    // `[UnaryOperator(typeof f), GenericType(<T>)]`——那个 `<T>` 是**实例化表达式**的实参段，
+    // 与 `f` 同属一个操作数（TS：`TypeOfExpression > ExpressionWithTypeArguments`）。
+    // 不收它：`typeof` 只拿到 `f`、`<T>` 留在外面（实测 `const a = typeof f<T>;`：
+    // `TypeOfExpression` 漂到 `[10,18)`、缺 `ExpressionWithTypeArguments` + `TypeReference`、
+    // 多一格 `TypeOfExpression`）。
+    //
+    // **写在循环里面而不是像模板那样写在循环后面**：`typeof f<T>()` 的 `(` 排在
+    // 实参段**后面**，写在循环外就轮不到那一格（收集顺序是「从左往右一路吃」）。
+    if (nextUnit instanceof GenericType) {
+      operandEnd = nextIndex;
+      continue;
+    }
     break;
   }
   // **被操作者后面紧跟「模板开头」的单元 ⇒ 那也是这一元运算的操作数**（第 322 轮）——

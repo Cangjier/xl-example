@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextTrivia, SkipNextWrapSymbol, IsEmptyContentUnit } from "../text-common-util.xl.md"
+import { SkipNextTrivia, SkipNextWrapSymbol, IsEmptyContentUnit, StartsWithTemplate } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { BinaryOperator } from "./binary-operator.xl.md"
@@ -278,18 +278,57 @@ const after = Get(units, afterIndex);
 if (after === null) {
   throw new Error("SpreadCloseRule.Process: 展开运算符后面缺表达式");
 }
+// **紧跟其后的模板串 / 类型实参段也是这一格的目标**（第 981 轮）：`` ...tag`t` `` 与 `...f<T>`
+// 里模板与实参段跟目标**同属一个操作数**（TS：`SpreadElement > TaggedTemplateExpression` /
+// `SpreadElement > ExpressionWithTypeArguments`）。原来只吃**一格** ⇒ `Spread` 只盖到 `tag` / `f`、
+// 模板与 `<T>` 留在外面（实测 `f(...tag`t`);` 缺 2 漂 1 多 1、`g(...f<T>);` 缺 2 漂 2 多 1）。
+//
+// **与一元那一条是同一句话**（`unary-operator.xl.md` 的 `typeof` 那一支）：判据一处是
+// `StartsWithTemplate`（模板开头，`text-common-util.xl.md`）、一处是 `GenericType`（实例化表达式）。
+// 写法照它：**写在循环里**，因为 `...f<T>()` 的调用括号排在实参段后面。
+let operandEnd = afterIndex;
+while (true) {
+  const nextIndex = SkipNextWrapSymbol(units, operandEnd);
+  const nextUnit = Get(units, nextIndex);
+  if (nextUnit !== null && nextUnit.constructor.name === "GenericType") {
+    operandEnd = nextIndex;
+    continue;
+  }
+  if (StartsWithTemplate(nextUnit)) {
+    operandEnd = nextIndex;
+    continue;
+  }
+  // **紧跟其后的调用括号也是这一格的目标**（第 981 轮）：`` ...tag`t`() `` 的产物是
+  // `[Spread(...tag`t`), Bracket(())]`——那次调用**建在模板串上**（`Method` 认不出
+  // 以模板串为被调者的调用，所以那一对括号还平级留着）。不吸收它：`CallExpression`
+  // 会套在 `SpreadElement` **外面**（实测 `f(...tag`t`());`：缺 1 漂 1 多 2）。
+  if (nextUnit instanceof Bracket && nextUnit.startBracket === "(") {
+    operandEnd = nextIndex;
+    continue;
+  }
+  // **紧跟其后的可选链单元也是这一格的目标**（第 981 轮）：`f(...a?.b);` 的产物是
+  // `[Spread(...a), NullConditionalOperator(?.b)]`——TS 那边 `?.b` 属于**被展开的那个操作数**
+  //（`SpreadElement > PropertyAccessExpression(a?.b)`）。不吸收它：`?.b` 会接到
+  // `SpreadElement` **自己**上（实测缺 1 漂 1 多 2，而且**语义反了**：
+  // 「展开 `a?.b`」变成了「`(...a)?.b`」）。
+  if (nextUnit !== null && nextUnit.constructor.name === "NullConditionalOperator") {
+    operandEnd = nextIndex;
+    continue;
+  }
+  break;
+}
 const result = new Spread(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
-result.SignOut(after.SourceRange.End!);
-for (let i = index; i <= afterIndex; i++) {
+result.SignOut(Get(units, operandEnd)!.SourceRange.End!);
+for (let i = index; i <= operandEnd; i++) {
   const item = Get(units, i);
   if (item !== null && !(item instanceof LineWrap)) {
     result.AddAndCloseLast(item);
   }
 }
 result.TryToClose();
-return ReplaceCountAt(units, index, afterIndex - index + 1, result);
+return ReplaceCountAt(units, index, operandEnd - index + 1, result);
 ```
 
 # class Spread extends IndependentToken
