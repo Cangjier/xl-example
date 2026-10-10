@@ -679,7 +679,7 @@ const isTypeOnly = this.typeOnly ? "true" : "false";
 return `<${name} range="${this.RangeOf()}" From="${from}" typeOnly="${isTypeOnly}" defaultImport="${this.defaultImport}" namespace="${this.namespace}" imported="${this.imported.join(",")}"${typeWord}>${body}</${name}>`;
 ```
 
-## property typeWordAt:any
+## property typeWordAt:int
 
 `ToDictionary` 的 `typeWordAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -689,7 +689,7 @@ return `<${name} range="${this.RangeOf()}" From="${from}" typeOnly="${isTypeOnly
 return this.TypeWordAt;
 ```
 
-## property namedBraceAt:any
+## property namedBraceAt:int
 
 `ToDictionary` 的 `namedBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

@@ -701,7 +701,7 @@ return new Map([["ConditionalExpression", new Map([["trueStatement", "whenTrue"]
 super(template);
 ```
 
-## property children:Array<any>
+## property children:Array<Token>
 
 **这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
 段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
@@ -770,7 +770,7 @@ return this.Data.find((item) => item instanceof TernaryOperatorFalseStatement)!;
 return this.Add(new TernaryOperatorFalseStatement(this.Template));
 ```
 
-## property condition:Array<any>
+## property condition:Array<Token>
 
 `ToDictionary` 的 `condition` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -780,7 +780,7 @@ return this.Add(new TernaryOperatorFalseStatement(this.Template));
 return this.ChildrenOf(this.Condtion);
 ```
 
-## property trueStatement:Array<any>
+## property trueStatement:Array<Token>
 
 `ToDictionary` 的 `trueStatement` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -790,7 +790,7 @@ return this.ChildrenOf(this.Condtion);
 return this.ChildrenOf(this.TrueStatement);
 ```
 
-## property falseStatement:Array<any>
+## property falseStatement:Array<Token>
 
 `ToDictionary` 的 `falseStatement` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -800,7 +800,7 @@ return this.ChildrenOf(this.TrueStatement);
 return this.ChildrenOf(this.FalseStatement);
 ```
 
-## property questionPos:any
+## property questionPos:int
 
 `ToDictionary` 的 `questionPos` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -810,7 +810,7 @@ return this.ChildrenOf(this.FalseStatement);
 return this.QuestionPos;
 ```
 
-## property colonPos:any
+## property colonPos:int
 
 `ToDictionary` 的 `colonPos` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

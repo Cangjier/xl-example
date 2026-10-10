@@ -41,7 +41,7 @@ import { IfStatement } from "./if-statement.xl.md"
 段的 `SourceRange.Start` 是 **`else` 的位置**（`NextSegment("if", start)` 签的是 `else` 的起点，
 `else if` 里 `if` 的位置只有这一格说得出来）。
 
-## property children:Array<any>
+## property children:Array<Token>
 
 **这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
 段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
@@ -351,7 +351,7 @@ const to = String(this.BodyBrace.Range.End!.Index);
 return from + "," + to;
 ```
 
-## property ifWordAt:any
+## property ifWordAt:int
 
 `ToDictionary` 的 `ifWordAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -361,7 +361,7 @@ return from + "," + to;
 return this.IfWordAt;
 ```
 
-## property bodyBraceAt:any
+## property bodyBraceAt:int
 
 `ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -371,7 +371,7 @@ return this.IfWordAt;
 return this.BodyBraceAt;
 ```
 
-## property emptyBodyAt:any
+## property emptyBodyAt:int
 
 `ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -381,7 +381,7 @@ return this.BodyBraceAt;
 return this.EmptyBodyAt;
 ```
 
-## property bodyBraceRange:any
+## property bodyBraceRange:string
 
 `ToDictionary` 的 `bodyBraceRange` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -391,26 +391,25 @@ return this.EmptyBodyAt;
 return this.BraceRangeText();
 ```
 
-## property condition:Array<any>
+## property condition:Array<Token>
 
 `ToDictionary` 的 `condition` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
 ### get
 
-**`!` 是这一格的调用约定**：本页 `ToDictionary` 只在 `Condition !== null` 时才写这个键
-（`else` 段没有条件），读到这一格时它一定在；「没有条件」由**不写这个键**表达。
+**段没挂上时给空列表**（见 `Token.ChildrenOf`）：`else` 段没有条件，「没有」就是没有，不是要点出来的错。
 
 ```ts
 return this.ChildrenOf(this.Condition);
 ```
 
-## property statement:Array<any>
+## property statement:Array<Token>
 
 `ToDictionary` 的 `statement` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
 ### get
 
-与 `condition` 同一条约定（见上）：`else` 之后没有体时不写这个键。
+与 `condition` 同一条约定（见上）：`else` 之后没有体时也是空列表。
 
 ```ts
 return this.ChildrenOf(this.Body);

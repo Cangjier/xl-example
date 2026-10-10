@@ -910,7 +910,7 @@ const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierS
 return `<${name} range="${this.RangeOf()}" name="${this.fieldName}" modifiers="${this.modifiers}" nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"${atSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
-## property nameRange:any
+## property nameRange:string
 
 **名字那一格的整段区间**（闭区间，`"起,止"`）：字符串名的引号也在里面——
 投影要问「这个名字是怎么写出来的」时直读它。没有名字格时给空串（投影按空串处理）。
@@ -928,7 +928,7 @@ if (nameRange === null || nameRange.Start === null || nameRange.End === null) {
 return nameRange.Start.Index + "," + nameRange.End.Index;
 ```
 
-## property name:any
+## property name:string
 
 `ToDictionary` 的 `name` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -938,7 +938,7 @@ return nameRange.Start.Index + "," + nameRange.End.Index;
 return this.fieldName;
 ```
 
-## property nameStart:any
+## property nameStart:int
 
 `ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -948,7 +948,7 @@ return this.fieldName;
 return this.NameStart;
 ```
 
-## property nameEnd:any
+## property nameEnd:int
 
 `ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -958,7 +958,7 @@ return this.NameStart;
 return this.NameEnd;
 ```
 
-## property nameAt:any
+## property nameAt:int
 
 `ToDictionary` 的 `nameAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -968,7 +968,7 @@ return this.NameEnd;
 return this.NameAt.File();
 ```
 
-## property modifierSpans:any
+## property modifierSpans:string
 
 `ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

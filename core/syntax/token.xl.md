@@ -488,7 +488,7 @@ return `<${name} range="${this.RangeOf()}">${temp.join("")}</${name}>`;
 return this.ToXmlString();
 ```
 
-## property children:Array<any>
+## property children:Array<Token>
 
 **这一格的子单元**（第 1018 轮）：`Data` 里那一批，原样给出。
 

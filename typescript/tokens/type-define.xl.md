@@ -269,7 +269,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 消费它的有 `field.xl.md` / `lamda/lamda-parameter.xl.md` 的 `PrintDirectAst`：
 它们从自己的 `Data` 里取出那个 `TypeDefine`，读这一格（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
 
-## property questionAt:any
+## property questionAt:int
 
 `ToDictionary` 的 `questionAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

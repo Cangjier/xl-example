@@ -1149,7 +1149,7 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" name="${this.name}" modifiers="${this.modifiers}" nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"${spans}>${temp.join("")}</${name}>`;
 ```
 
-## property modifierSpans:any
+## property modifierSpans:string
 
 `ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -1159,7 +1159,7 @@ return `<${name} range="${this.RangeOf()}" name="${this.name}" modifiers="${this
 return this.ModifierSpans;
 ```
 
-## property nameStart:any
+## property nameStart:int
 
 `ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -1169,7 +1169,7 @@ return this.ModifierSpans;
 return this.NameStart;
 ```
 
-## property nameEnd:any
+## property nameEnd:int
 
 `ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

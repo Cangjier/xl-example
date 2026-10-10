@@ -390,7 +390,7 @@ const result = this.Data.find((item) => item instanceof FinallyBody);
 return result ?? null;
 ```
 
-## property body:Array<any>
+## property body:Array<Token>
 
 `ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -400,21 +400,21 @@ return result ?? null;
 return this.ChildrenOf(this.TryBody);
 ```
 
-## property catches:Array<any>
+## property catches:Array<Token>
 
 `ToDictionary` 的 `catches` 键**由这一页自己承担**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
 
 ### get
 
 ```ts
-const result: Array<any> = [];
+const result: Array<Token> = [];
 for (const item of this.Catches) {
   result.push(item);
 }
 return result;
 ```
 
-## property finally:Array<any>
+## property finally:Array<Token>
 
 `ToDictionary` 的 `finally` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 

@@ -100,7 +100,7 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" key="${this.key}" colonPos="${this.ColonPos}">${temp.join("")}</${name}>`;
 ```
 
-## property colonPos:any
+## property colonPos:int
 
 `ToDictionary` 的 `colonPos` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

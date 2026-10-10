@@ -1020,7 +1020,7 @@ super(Template);
 return this.Add(new LamdaParameters(this.Template));
 ```
 
-## property bodyBraceRange:any
+## property bodyBraceRange:string
 
 **体那一对花括号的整段区间**（闭区间，`"起,止"`）：投影画空 `Block` 时直读它，不再回原文重扫。
 段还没挂上或两头不齐时给空串——与搬掉字典之前「那一格不写这个键」同义（投影按空串处理）。
@@ -1035,7 +1035,7 @@ if (braceRange === null || braceRange.Start === null || braceRange.End === null)
 return braceRange.Start.Index + "," + braceRange.End.Index;
 ```
 
-## property children:Array<any>
+## property children:Array<Token>
 
 **这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
 段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
@@ -1113,7 +1113,7 @@ return this.Add(new LamdaBody(this.Template));
 return this.Data.find((x) => x instanceof LamdaBody) as LamdaBody;
 ```
 
-## property async:any
+## property async:bool
 
 `ToDictionary` 的 `async` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -1123,7 +1123,7 @@ return this.Data.find((x) => x instanceof LamdaBody) as LamdaBody;
 return this.IsAsync;
 ```
 
-## property bodyBraceAt:any
+## property bodyBraceAt:int
 
 `ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -1133,7 +1133,7 @@ return this.IsAsync;
 return this.BodyBrace.File();
 ```
 
-## property arrowAt:any
+## property arrowAt:int
 
 `ToDictionary` 的 `arrowAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -1143,7 +1143,7 @@ return this.BodyBrace.File();
 return this.ArrowAt;
 ```
 
-## property parameters:Array<any>
+## property parameters:Array<Token>
 
 `ToDictionary` 的 `parameters` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -1153,7 +1153,7 @@ return this.ArrowAt;
 return this.ChildrenOf(this.Parameters);
 ```
 
-## property body:Array<any>
+## property body:Array<Token>
 
 `ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -1163,7 +1163,7 @@ return this.ChildrenOf(this.Parameters);
 return this.ChildrenOf(this.Body);
 ```
 
-## property returnType:Array<any>
+## property returnType:Array<Token>
 
 `ToDictionary` 的 `returnType` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 

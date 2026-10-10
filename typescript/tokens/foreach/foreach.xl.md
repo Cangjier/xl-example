@@ -363,7 +363,7 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 return this.Add(new ForeachDefine(this.Template));
 ```
 
-## property bodyBraceRange:any
+## property bodyBraceRange:string
 
 **体那一对花括号的整段区间**（闭区间，`"起,止"`）：投影画空 `Block` 时直读它，不再回原文重扫。
 段还没挂上或两头不齐时给空串——与搬掉字典之前「那一格不写这个键」同义（投影按空串处理）。
@@ -424,7 +424,7 @@ Body 段（循环体）。
 return this.Data.find((x) => x instanceof ForeachBody) as ForeachBody;
 ```
 
-## property define:Array<any>
+## property define:Array<Token>
 
 `ToDictionary` 的 `define` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -434,7 +434,7 @@ return this.Data.find((x) => x instanceof ForeachBody) as ForeachBody;
 return this.ChildrenOf(this.Define);
 ```
 
-## property enumable:Array<any>
+## property enumable:Array<Token>
 
 `ToDictionary` 的 `enumable` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -444,7 +444,7 @@ return this.ChildrenOf(this.Define);
 return this.ChildrenOf(this.Enumable);
 ```
 
-## property body:Array<any>
+## property body:Array<Token>
 
 `ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -454,7 +454,7 @@ return this.ChildrenOf(this.Enumable);
 return this.ChildrenOf(this.Body);
 ```
 
-## property emptyBodyAt:any
+## property emptyBodyAt:int
 
 `ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -464,7 +464,7 @@ return this.ChildrenOf(this.Body);
 return this.EmptyBodyAt;
 ```
 
-## property bodyBraceAt:any
+## property bodyBraceAt:int
 
 `ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -474,7 +474,7 @@ return this.EmptyBodyAt;
 return this.BodyBrace.File();
 ```
 
-## property isForIn:any
+## property isForIn:bool
 
 `ToDictionary` 的 `isForIn` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -484,7 +484,7 @@ return this.BodyBrace.File();
 return this.IsForIn;
 ```
 
-## property headerCloseAt:any
+## property headerCloseAt:int
 
 `ToDictionary` 的 `headerCloseAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -494,14 +494,14 @@ return this.IsForIn;
 return this.HeaderCloseAt;
 ```
 
-## property children:Array<any>
+## property children:Array<Token>
 
 `ToDictionary` 的 `children` 键**由这一页自己承担**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
 
 ### get
 
 ```ts
-const result: Array<any> = [];
+const result: Array<Token> = [];
 for (const item of this.Data) {
   if (item instanceof ForeachDefine || item instanceof ForeachEnumable || item instanceof ForeachBody) {
     continue;

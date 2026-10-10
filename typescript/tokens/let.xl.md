@@ -168,7 +168,7 @@ if (this.LetType === LetType.Object) {
 throw new Error("形态不成立");
 ```
 
-## property nameStart:any
+## property nameStart:int
 
 `ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -178,7 +178,7 @@ throw new Error("形态不成立");
 return this.NameStart;
 ```
 
-## property nameEnd:any
+## property nameEnd:int
 
 `ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -188,7 +188,7 @@ return this.NameStart;
 return this.NameEnd;
 ```
 
-## property modifierSpans:any
+## property modifierSpans:string
 
 `ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

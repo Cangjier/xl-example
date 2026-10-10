@@ -548,7 +548,7 @@ const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${CommonUtil.Xml
 return `<${name} range="${this.RangeOf()}" namespace="${CommonUtil.XmlDecode(this.namespace)}" modifiers="${CommonUtil.XmlDecode(this.modifiers)}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
-## property modifierSpans:any
+## property modifierSpans:string
 
 `ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -558,7 +558,7 @@ return `<${name} range="${this.RangeOf()}" namespace="${CommonUtil.XmlDecode(thi
 return this.ModifierSpans;
 ```
 
-## property nameAt:any
+## property nameAt:int
 
 `ToDictionary` 的 `nameAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -568,7 +568,7 @@ return this.ModifierSpans;
 return this.NameAt;
 ```
 
-## property nameEnd:any
+## property nameEnd:int
 
 `ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -578,7 +578,7 @@ return this.NameAt;
 return this.NameEnd;
 ```
 
-## property nameRange:any
+## property nameRange:string
 
 `ToDictionary` 的 `nameRange` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

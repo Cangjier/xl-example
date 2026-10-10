@@ -324,7 +324,7 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" interpolation="${interpolation}" verbatim="${verbatim}" raw="${raw}" interpolationCount="${this.interpolationCount}" rawQuoteCount="${this.rawQuoteCount}">${temp.join("")}</${name}>`;
 ```
 
-## property stringChar:any
+## property stringChar:string
 
 `ToDictionary` 的 `stringChar` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

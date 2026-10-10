@@ -191,7 +191,7 @@ return BranchStates.Undo;
 
 兜底处理：**空实现**（字符全交给跳转队列与挂载的子单元）。
 
-## property braceAt:any
+## property braceAt:int
 
 `ToDictionary` 的 `braceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

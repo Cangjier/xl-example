@@ -269,7 +269,7 @@ super(template);
 return `<Keyword range="${this.RangeOf()}">${this.Value}</Keyword>`;
 ```
 
-## property value:any
+## property value:string
 
 `ToDictionary` 的 `value` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

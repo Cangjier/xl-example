@@ -362,7 +362,7 @@ if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
 return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" modifiers="${this.modifiers.Text()}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
-## property modifierSpans:any
+## property modifierSpans:string
 
 `ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -372,7 +372,7 @@ return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" modifiers=
 return this.ModifierSpans;
 ```
 
-## property nameStart:any
+## property nameStart:int | undefined
 
 `ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -387,7 +387,7 @@ if (nameRange === null || nameRange.Start === null) return undefined;
 return nameRange.Start.Index;
 ```
 
-## property nameEnd:any
+## property nameEnd:int | undefined
 
 `ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 

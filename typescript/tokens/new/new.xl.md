@@ -489,7 +489,7 @@ super(template);
 return this.Add(new NewType(this.Template));
 ```
 
-## property children:Array<any>
+## property children:Array<Token>
 
 **这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
 段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
@@ -530,7 +530,7 @@ Arguments 段（括号里的实参）。
 return this.Data.find((x) => x instanceof NewArguments) as NewArguments;
 ```
 
-## property name:Array<any>
+## property name:Array<Token>
 
 `ToDictionary` 的 `name` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -540,7 +540,7 @@ return this.Data.find((x) => x instanceof NewArguments) as NewArguments;
 return this.ChildrenOf(this.Type);
 ```
 
-## property arguments:Array<any>
+## property arguments:Array<Token>
 
 `ToDictionary` 的 `arguments` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 

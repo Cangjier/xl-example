@@ -355,7 +355,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 return this.Add(new SwitchCompare(this.Template));
 ```
 
-## property children:Array<any>
+## property children:Array<Token>
 
 **这一页没有扁平的 `children`**：子单元是**具名分段**（`compare` / `body` / `segments` …），
 段边界就是结构本身，摊成一条列表会把它抹掉——与搬掉字典之前「这一页不写 `children` 键」同义。
@@ -407,7 +407,7 @@ for (const item of this.Data) {
 return result;
 ```
 
-## property bodyAt:any
+## property bodyAt:int
 
 `ToDictionary` 的 `bodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
 
@@ -417,7 +417,7 @@ return result;
 return this.BodyAt;
 ```
 
-## property compare:Array<any>
+## property compare:Array<Token>
 
 `ToDictionary` 的 `compare` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
 
@@ -427,14 +427,14 @@ return this.BodyAt;
 return this.ChildrenOf(this.Compare);
 ```
 
-## property segments:Array<any>
+## property segments:Array<Token>
 
 `ToDictionary` 的 `segments` 键**由这一页自己承担**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
 
 ### get
 
 ```ts
-const result: Array<any> = [];
+const result: Array<Token> = [];
 for (const item of this.Segments) {
   result.push(item);
 }
