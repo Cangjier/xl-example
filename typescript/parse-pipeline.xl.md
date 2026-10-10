@@ -901,4 +901,8 @@ Statement.FormTail(unit);
 // ⇒ 一行里写完的「声明 + 后面那条语句」会挤在**同一个**壳里 ⇒ 后者被投影当成表达式丢掉。
 // 排在这里（一趟规则之后）：那一格已经成形了，拆出来的尾巴再走自己的那一趟。
 Statement.SplitShell(unit);
+// **标签包住它标的那条语句**（第 929 轮，见 `Statement.AbsorbLabels`）：
+// `LabelCloseRule` 造标签时被标的语句还没成形，所以「包」这一步只能排在**容器的规则跑完之后**
+// ——排在这里与 `SplitShell` 同一个位置（并且**在它之后**：拆尾巴要的是平级兄弟那个形状）。
+Statement.AbsorbLabels(unit);
 ```

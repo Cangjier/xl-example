@@ -1398,7 +1398,11 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     // 一个包住另一个。早先按 `Label` 单独投出一个 `LabeledStatement`，于是它的区间只盖住标签本身
     // （实测 `Δ-125` / `-64` / `-48` / `-33` … 一整族）。
     // 连续多个标签（`a: b: for`）从右往左套：最外层是第一个标签。
-    if (items[i].get("type") === "Label") {
+    // **只认「还没包住语句」的标签**（第 929 轮）：`Label` 现在**包住**它标的那条语句
+    // （`Statement.AbsorbLabels` 折的），那一格由标签自己的 `PrintAst` 出形状；
+    // 这一支留下来管**老形状**（标签与被标语句是平级兄弟，`labelIsFlat` 为真）。
+    // 少了这个条件，包好的标签会去跟**后面那条平级语句**合并（整棵被标的子树丢掉）。
+    if (items[i].get("type") === "Label" && labelIsFlat(items[i])) {
       const labels = [];
       let j = i;
       while (j < items.length && items[j].get("type") === "Label") {
@@ -1871,7 +1875,10 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // 整条落进通用支 ⇒ 投出 `ExpressionStatement > LabeledStatement(只盖标签)`
   // ⇒ 被标的那条语句（`ForStatement` / `WhileStatement` …）连它整棵子树一起丢
   //（一鱼多吃：`BreakStatement` 22 份 + `Block` 20 份 + `CallExpression` 23 份都在这一族里）。
-  if (headType === "Label" && kids.length >= 2) {
+  // **只认「还没包住语句」的标签**（第 929 轮，与 `projectEach` 那一支同一句）：
+  // 包好的标签是**一个**单元（`kids.length === 1`），由它自己的 `PrintAst` 出形状；
+  // 这一支管的是老形状（标签 + 被标语句平级，`kids.length >= 2`）。
+  if (headType === "Label" && kids.length >= 2 && labelIsFlat(head)) {
     const labels = [];
     let at = 0;
     while (at < kids.length && kids[at].get("type") === "Label") {
@@ -1889,21 +1896,14 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     // 一个单元本来就是一条语句（`outer: for (…)` / `blk: { … }` 一直是对的）。
     //
     // **判据是「剩下的那一串按一条语句投」**，与 `lab: { … }` 那一格同源：
-    // 这里造一个只装剩下那些单元的同区间视图，交回**同一个** `projectStatement`
-    //（`ctx.StatementOf`）——那里已经有「语句壳 / 表达式壳 / `;` 归属」的全套口径，
-    // 另写一份就是第二处会漂的答案。**不会复发**：剩下那一串的**第一个单元不再是 `Label`**
+    // 这里把剩下那些单元交回**同一个** `projectStatement`（`statementOfList` 造的合成视图，
+    // 原来这几行内联在这里；第 929 轮 `Label.PrintAst` 也要同一件事 ⇒ 收成一份）
+    // ——那里已经有「语句壳 / 表达式壳 / `;` 归属」的全套口径，另写一份就是第二处会漂的答案。
+    // **不会复发**：剩下那一串的**第一个单元不再是 `Label`**
     //（上面那个 `while` 已经吃掉了连续的标签）。
     const restKids = kids.slice(at);
     if (restKids.length > 0) {
-      const rest = {
-        type: "Statement",
-        start: startOf(restKids[0]),
-        end: endOf(restKids[restKids.length - 1]),
-        value: undefined,
-        attrs: new Map(),
-        segments: new Map([["children", restKids]]),
-      };
-      const body = ctx.StatementOf(rest);
+      const body = statementOfList(restKids, ctx);
       if (body !== undefined) {
         let wrapped = body;
         for (let k = labels.length - 1; k >= 0; k--) {
@@ -7947,6 +7947,44 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   return allKids(v).filter((k) => !INVISIBLE.has(k.get("type")));
 ```
 
+# private method labelIsFlat:(node:any)=>bool
+
+这一格标签**还没有包住**被它标的语句（老形状：标签与被标语句是平级兄弟）。
+
+第 929 轮起 `Statement.AbsorbLabels` 会把被标的语句**搬进标签**里
+（`<Label label="outer"><While>…</While></Label>`，与 TS 的 `LabeledStatement` 同形），
+于是「标签 + 右边那一格」那两处合并补丁（`projectEach` / `projectStatement`）**只在
+老形状上**才该生效——包好的标签是一个单元、由 `Label.PrintAst` 自己出形状。
+
+判据就是「它有没有子单元」（与 `Token.ToDictionary` 那一份同源：空了才自闭合）。
+
+```ts
+  return kidsOf(view(node), "children").length === 0;
+```
+
+# private method statementOfList:(list:Array<any>, ctx:any)=>any
+
+把一串**平铺的单元**当成**一条语句**投：造一个同区间的合成语句视图，交回 `projectStatement`。
+
+**两个调用方问的是同一句**：`projectStatement` 的标签那一支（老形状下「标签右边剩下的那一串」）
+与 `Label.PrintAst`（包好的标签里那一段）。`projectStatement` 那儿已经有「语句壳 / 表达式壳 /
+`;` 归属」的全套口径，另写一份就是第二处会漂的答案。
+
+```ts
+  if (list.length === 0) {
+    return undefined;
+  }
+  const rest = {
+    type: "Statement",
+    start: startOf(list[0]),
+    end: endOf(list[list.length - 1]),
+    value: undefined,
+    attrs: new Map(),
+    segments: new Map([["children", list]]),
+  };
+  return projectStatement(rest, ctx);
+```
+
 # private method stringText:(v:any, ctx:any)=>any
 
 ```ts
@@ -8101,6 +8139,10 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     ParameterModifiers: PARAMETER_MODIFIERS,
     SynthName: (text, view) => synthName(text, view, ctx),
     StatementOf: (view) => projectStatement(view, ctx),
+    // **一串平铺的单元当作一条语句投**（第 929 轮）：`Label.PrintAst` 要的就是它
+    // （包好的标签里装的是被标语句的那一段，而它可能不是一个成形单元）。
+    // 与 `projectStatement` 里那一支**共用一份实现**（见 `statementOfList`）。
+    StatementOfList: (list) => statementOfList(list, ctx),
     Nothing: NOTHING,
     BodyBlockOf: (from, list, braceRange) => bodyBlockOf(from, list, ctx, braceRange),
     MatchingBrace: (source, at) => matchingBrace(source, at),

@@ -20,6 +20,10 @@
 // 3. **标签表里每个名字都要有一条用例真的产出它**（见下面「标签表体检」）——
 //    否则表里就躺着不可能出现的名字，写成 `xl:expect` 会造出一个永远修不好的假缺口。
 //
+// 4. **结构不变式：`Label` 必须包住它标的那条语句**（第 929 轮）——
+//    `xl:expect` 只数标签、说不出「谁在谁里面」，所以这一条在这里单独钉：产物里**不许**
+//    出现自闭合的 `<Label … />`（那说明 `Statement.AbsorbLabels` 那一步没生效）。
+//
 // 退出码：任一条不一致、或标签表体检不过，就是 1。
 
 import path from "node:path";
@@ -92,6 +96,13 @@ function main() {
     }
     const counts = tagCounts(xml);
     for (const [tag, n] of counts) seen.set(tag, (seen.get(tag) ?? 0) + n);
+    // **结构不变式：`Label` 必须包住它标的那条语句**（第 929 轮）。
+    // `xl:expect` 只数标签、说不出「谁在谁里面」，所以这一条**只能在这里钉**：
+    // 产物里出现自闭合的 `<Label … />` 就说明那一步（`Statement.AbsorbLabels`）没生效——
+    // 标签又退回成前缀标记，而 `cases:tsast` 看不见（投影那两条老形状的补丁照旧能拼回来）。
+    if (/<Label [^>]*\/>/.test(xml)) {
+      bad.push(`${one.id}  结构：出现了自闭合的 <Label … />——标签没有包住它标的语句`);
+    }
     if (expect.length === 0 && absent.length === 0) continue;
     checked++;
     for (const raw of expect) {

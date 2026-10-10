@@ -517,24 +517,14 @@ if (at < 0) {
 const shellEnd = unit.SourceRange.End;
 // **标签开头那一档：头是「一串标签 + 被标的那一格」**（第 692 轮）——
 // 见上面那一整段说明。头之后的尾巴照旧另收一条壳，只是**头上的格子从一格变成两格以上**。
-if (head.constructor.name === "Label") {
-  // **连续标签要一起走**：`a: b: for (…)` 在产物里是三格（`Label(a)` / `Label(b)` / `For`）。
-  let bodyAt = 1;
-  while (bodyAt < data.length) {
-    const one = Get(data, bodyAt);
-    if (one === null || one.constructor.name !== "Label") {
-      break;
-    }
-    bodyAt = bodyAt + 1;
-  }
+if (head.constructor.name === "Label" && head.Data.length === 0) {
+  // **连续标签要一起走**：`a: b: for (…)` 在产物里是两格标签（`Label(a)` / `Label(b)`）。
+  // **标签与被标的语句之间的注释 / 软换行也要跨**（第 929 轮）：判据跳了、搬运就必须跟着跳
+  // ——`outer:/* c */ while (…)` 里 `bodyAt` 原来落在那条注释上 ⇒ 判不出「被标的是语句」
+  // ⇒ 尾巴不拆（整段留在同一个壳里）。一份判据在 `LabelRunEnd` 里。
+  const bodyAt = Statement.LabelRunEnd(data, 0);
   const body = Get(data, bodyAt);
-  if (body === null) {
-    return;
-  }
-  // **被标的那一格是「语句」**：语句级单元，或者裸块 `{ … }`（`lbl: { … }`）。
-  const labeledBody = Statement.IsStatementUnit(body)
-    || (body.constructor.name === "Bracket" && (body as Bracket).startBracket === "{");
-  if (labeledBody === false) {
+  if (body === null || Statement.IsLabeledStatementBody(body) === false) {
     return;
   }
   const headCount = bodyAt + 1;
@@ -608,6 +598,128 @@ data.splice(0, 1);
 parent.Data.splice(at, 1, head, rest);
 head.Parent = parent;
 rest.TryToClose();
+```
+
+## static method LabelRunEnd:(data:Array<Token>, start:int)=>int
+
+`data[start]` 是一个标签（`Label`）时，**这一串「标签 + 夹在中间的 trivia」到哪一格为止**：
+返回第一个既不是 `Label`、也不是 trivia 的单元的下标（越界就是 `data.length`）。
+
+**两处问它同一句**：`SplitShell` 的标签那一支（拆尾巴）与 `AbsorbLabels`（把语句包进标签）。
+各写一份 `while` 就是第二处会漂的答案——第 929 轮之前只有前者，而它**不跨 trivia**，
+于是 `outer:/* c */ while (…)` 里那一格落在那条注释上、判不出「被标的是语句」。
+
+```ts
+let at = start + 1;
+while (at < data.length) {
+  const one = Get(data, at);
+  if (one === null) {
+    break;
+  }
+  if (one.constructor.name === "Label" || IsTriviaUnit(one)) {
+    at = at + 1;
+    continue;
+  }
+  break;
+}
+return at;
+```
+
+## static method IsLabeledStatementBody:(item:Token)=>bool
+
+`item` 能不能当标签的**被标语句**：**语句级单元**（`For` / `While` / `IfSet` / `Try` / `Function` …），
+或者**裸块** `{ … }`（`IsStatementUnit` 不含裸块，而 `lbl: { … }` 是合法 JS）。
+
+`SplitShell` 的标签那一支与 `AbsorbLabels` 问的是**同一句**——一处写「语句级单元」、
+另一处写「语句级单元或裸块」就会漂（前者漏掉 `lbl: { … }` 的尾巴拆分）。
+
+```ts
+return Statement.IsStatementUnit(item)
+  || (item.constructor.name === "Bracket" && (item as Bracket).startBracket === "{");
+```
+
+## static method AbsorbLabels:(unit:Token)=>void
+
+**把「标签 + 被它标的语句」折成一格**（第 929 轮）：`Label` 从前只是**前缀标记**，
+被标的语句是它的**平级兄弟**（`<Label label="outer" /><While>…</While>`）——
+与 TypeScript 的 `LabeledStatement`（**包住**那条语句）不是一个形状。
+现在在**容器的规则跑完之后**扫一遍：标签后面那一格如果是语句，就搬进标签里
+（`a: b: for` ⇒ `Label(a) > Label(b) > For`，标签之间的注释留在外面那一层）。
+
+**为什么在容器这一层扫**：`Label` 是收尾期由 `LabelCloseRule` 造出来的，那一刻被标的语句
+**还没成形**（见 `label.xl.md` 那条时序）；而容器（`Root` / 函数体 / 各段的 `Bracket`）
+的规则跑在**子单元都关闭之后**，那时语句已经是一格成形单元。
+`Statement.SplitShell` 也排在 `RunCloseRules` 的末尾，这一条紧跟着它——
+**先拆尾巴、再包**（拆尾巴要的是「平级兄弟」那个形状）。
+
+**只搬「一格」语句**：`outer: for (…) { … } console.log(…)` 在容器列表里是**多格平级**，
+搬走整段会把后面那条语句一起吞掉。**唯一的例外是语句壳**：壳里装的本来就是**一条**语句
+（`done: f()` 那种平铺的表达式语句没有可搬的单格），所以壳里标签之后那一整段都属于它。
+
+**判据跨 trivia、搬运也跨**：标签与被标语句之间的注释 / 软换行跟着一起搬进去
+（与 `LabelRunEnd` 是同一份口径）。
+
+**幂等**：已经包住东西的标签跳过——`RunCloseRules` 的收敛环会把这一趟再跑一遍。
+
+```ts
+const data = unit.Data;
+if (Array.isArray(data) === false || data.length === 0) {
+  return;
+}
+const isShell = unit.constructor.name === "Statement";
+let at = 0;
+while (at < data.length) {
+  const head = Get(data, at);
+  if (head === null || head.constructor.name !== "Label" || head.Data.length !== 0) {
+    at = at + 1;
+    continue;
+  }
+  const bodyAt = Statement.LabelRunEnd(data, at);
+  const body = Get(data, bodyAt);
+  let end = bodyAt;
+  if (body !== null && Statement.IsLabeledStatementBody(body)) {
+    end = bodyAt + 1;
+  } else if (body !== null && isShell) {
+    end = data.length;
+  }
+  if (end === bodyAt) {
+    at = bodyAt + 1;
+    continue;
+  }
+  // **搬 `[at, end)` 这一段**，再按里面的标签把它套起来：
+  // 最里面那个标签收下它右边的一切（trivia + 被标的语句），
+  // 每个外层标签收下「它自己与下一个标签之间」的 trivia，然后收下里面那一层。
+  const moved = data.splice(at, end - at);
+  const labelAt: number[] = [];
+  for (let i = 0; i < moved.length; i++) {
+    if (moved[i].constructor.name === "Label") {
+      labelAt.push(i);
+    }
+  }
+  const last = labelAt[labelAt.length - 1];
+  let inner = moved[last];
+  for (let i = last + 1; i < moved.length; i++) {
+    inner.Add(moved[i]);
+  }
+  const movedEnd = moved[moved.length - 1].SourceRange.End;
+  if (movedEnd !== null) {
+    inner.SourceRange.End = movedEnd;
+  }
+  for (let k = last - 1; k >= 0; k--) {
+    const outer = moved[labelAt[k]];
+    for (let i = labelAt[k] + 1; i < labelAt[k + 1]; i++) {
+      outer.Add(moved[i]);
+    }
+    outer.Add(inner);
+    const innerEnd = inner.SourceRange.End;
+    if (innerEnd !== null) {
+      outer.SourceRange.End = innerEnd;
+    }
+    inner = outer;
+  }
+  data.splice(at, 0, inner);
+  at = at + 1;
+}
 ```
 
 ## static method BlockClosedStatement:(item:Token)=>bool

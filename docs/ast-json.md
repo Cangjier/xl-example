@@ -110,7 +110,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `Export` | `type` `From` `typeOnly` `namespace` `exported` + `children` | `From` 的兜底与 XML 同一处：`null` ⇒ `""` |
 | `Import` | `type` `From` `typeOnly` `defaultImport` `namespace` `imported` + 可选 `typeWordAt` + `children` | `From` 的兜底与 XML 同一处：`null` ⇒ `""`；`typeWordAt` 是 `import /*c*/ type { A }` 里那个 `type` 词的下标（第 875 轮）——投影拿它当 `ImportClause` 的起点，少了它就退回「回原文跳空白」、从注释起。**不进 XML** |
 | `Let` | `type` + 三选一（`fieldName` / `arrayPattern` / `objectPattern`）+ `modifiers` `nameStart` `nameEnd` + 可选 `modifierSpans` + `children` | 分支判据与 XML 同一处 `LetType` 链；两个出口共用同一套形态，最后那个 `throw new Error("形态不成立")` 也各有一份 |
-| `Label` | `type` `label` | 自闭合标签，无子单元 |
+| `Label` | `type` `label` + `children` | 被标的语句**包在里面**（第 929 轮：`<Label label="outer"><While>…</While></Label>`，与 TS 的 `LabeledStatement` 同形）；还没包住时是自闭合标签，`children` 不写 |
 | `NamespaceExport` | `type` `name` + 可选 `nameStart` `nameEnd` | 同上；名字那一格由 token 记下（第 646 轮），投影不再回原文 `indexOf` |
 | `While` / `DoWhile` | `type` `compare` `body` | 两个键都是 `ToList()` 的数组；`DoWhile` 的键序是 `body` → `compare` |
 | `For` | `type` `initial` `compare` `next` `body` `emptyBodyAt` `bodyBraceAt` `headerCloseAt` | `emptyBodyAt` 是**体为那条空语句（`for (…);`）时那个 `;` 的下标**，否则 `-1`；`bodyBraceAt` 是**体那个 `{` 的下标**（体不是花括号块时 `-1`）；`headerCloseAt` 是**头部那个 `)` 的下标**（第 634 轮加，`While` / `Foreach` 同名同义）——三格都让投影**直接读**，不再按原文重扫 |

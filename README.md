@@ -6107,15 +6107,15 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | 判据 | 结果 |
 | --- | --- |
 | `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **一条不剩**（第 869 轮普查量出的 30 条由第 870–881 轮收完、第 900 轮片段普查量出的 4 条由第 901–902 轮收完、第 900 轮「待登记」栏里的 3 条由第 904–906 轮收完；第 907 轮换地形再普查一次，量出 17 格、当轮收掉 5 格，第 908 轮收 3 格、第 909 轮收 3 格；第 926 轮登记的 1 格由第 927 轮收掉 ⇒ **第四次清空**；第 927 轮（二）登记「柯里化的函数类型里层不成形」、第 927 轮（三）收掉它并登记「箭头的返回类型是带括号的函数类型」、**第 928 轮连它那一族一起收掉 ⇒ 缺口清单第五次清空**） |
-| `cases:astjson` | 出口 2 与出口 1 说的同一棵树：**1544 份 / 37042 个节点**，标签 / 属性 / 坐标 / 键名登记 / 命令行 / 抛异常**六项全 0** |
+| `cases:astjson` | 出口 2 与出口 1 说的同一棵树：**1545 份 / 37084 个节点**，标签 / 属性 / 坐标 / 键名登记 / 命令行 / 抛异常**六项全 0** |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1554** 条 token 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
-| `cases:tags` | **1554 条**（1487 条带期望，共 **5198** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **67** 种一个都没漏进产物 |
-| `cases:shapes` | 外部语料 **229 份**（用例 1541 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
+| `cases:check` | **1555** 条 token 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
+| `cases:tags` | **1555 条**（1488 条带期望，共 **5204** 条断言），0 条不一致；产物抛异常 **0** 条；标签表 **117** 种全被产出过，幽灵标签 **67** 种一个都没漏进产物；**结构不变式**（`Label` 必须包住它标的语句）0 条违反 |
+| `cases:shapes` | 外部语料 **229 份**（用例 1542 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4151 / 4320**，加权 **95.4%**。差的那些是**真缺口**（`blocked` 39 / `differ` 130），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 4152 / 4321**，加权 **95.4%**。差的那些是**真缺口**（`blocked` 39 / `differ` 130），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~34s**） |
 
 
@@ -6133,15 +6133,11 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 
 **开着的缺口**（只剩这些）：
 
-- **`Label` 只是标记节点**，不包含它标的那条语句（产物形如 `<Label label="outer" /><While>…</While>`）：
-  标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
 - **ASI 是按形状预判的**：判据在 [typescript/tokens/statement.xl.md](typescript/tokens/statement.xl.md) 的
   `Statement.IsLineBreakBoundary`（前一个单元不再要操作数、后一个单元也不能续接 ⇒ 断句，
   加上 `return` / `throw` / `break` / `continue` / `yield` 与后缀 `++` / `--` 的受限产生式）。
   规范里 ASI 还有一条「**语法不允许时**才插分号」，本工程不看完整文法、只看形状，
   所以个别极端排版仍可能与 TS 不同——这类情况由 `cases:tsast` 巡检。
-- **嵌套解构的绑定名进的是同一张逗号分隔表**（`arrayPattern`），丢的是**结构**而不是名字：
-  `const [[a, b], [, c = 0]] = m` 记成 `a,b,c,0`。
 - **语言配置带来的两处差异**（不是解析器缺陷，是这套语言这么定义）：
   `\a` 解成响铃字符而不是字母 `a`；`@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器。
 - **块与表达式之间没有分隔符时**（`{ A }a += 1`：块紧跟着表达式，中间既没有 `;` 也没有换行），
@@ -6149,6 +6145,15 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的。**被否决的改法**：把块当语句边界——切断了复合赋值的展开，
   **整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
+- **第 929 轮复核过、已经不是缺口的**两条：**`Label` 不再是「前缀标记」**——它现在**包住**
+  它标的那条语句（`<Label label="outer"><While>…</While></Label>`，与 TS 的 `LabeledStatement` 同形）。
+  原来那条时序限制没有被推翻（`LabelCloseRule` 必须排在 `TypeDefine` 之前，那一刻被标的语句还没成形）
+  ——包那一步排在**容器的规则跑完之后**（`Statement.AbsorbLabels`，紧挨着 `Statement.SplitShell`）；
+  守卫是 `tests/cases/token/statements/stmt-label-absorbs-statement.ts` 与 `cases:tags` 里那条
+  结构不变式（产物里不许再有自闭合的 `<Label … />`）。另一条是**嵌套解构**：
+  `const [[a, b], [, c = 0]] = m` / `const { a: { b }, c } = m` / `const [x, { y: [z] }] = m`
+  的产物都是嵌套的 `BindingElement`、投影都是嵌套的 `ArrayBindingPattern` / `ObjectBindingPattern`，
+  名字一格不丢（那句「进的是同一张逗号分隔表」的说法已经过期）。
 - 其余仍开着的解析缺口**都在语料里**（各带一条 `// xl:known-gap <根因>`，当前 **0** 条 ——
   **第 901–902 轮把第 900 轮量出的 4 条收完了，第 903 轮又把第 900 轮「待登记」栏里的
   E / F / H 三格登记进来，第 904–906 轮把这三格也收完，`cases:tsast` 的缺口清单第三次清空**；

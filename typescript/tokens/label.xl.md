@@ -25,7 +25,20 @@ import { SymbolToken } from "./symbol-token.xl.md"
 （`while` + 条件括号 + 循环体）还散着，认不出边界。等 `WhileCloseRule` 把语句收好时，
 这一轮重组已经过去了。
 
-于是这里的产物是「标签 + 语句」两个平级单元：`<Label label="outer" /><While>…</While>`。
+**产物是「标签包住它标的那条语句」一格**（第 929 轮改）：
+
+    <Label label="outer"><While>…</While></Label>
+
+也就是 TypeScript 的 `LabeledStatement`（`label` + `statement`）那个形状。
+从前这里是**两个平级单元**（`<Label label="outer" /><While>…</While>`），
+与 TS 不是一个形状；`label` 那一层于是只是**前缀标记**，投影得靠两处「把标签与它右边那一格合并」
+的补丁（`print-ast-common.xl.md` 的 `projectEach` / `projectStatement` 各一处）才拼得回来。
+
+**为什么不是在这里包。** `LabelCloseRule` 跑在这一刻，被标的语句**还没成形**
+（`while` 那一格还是散单元）——上面那条时序限制照样成立。所以本规则只收前缀（`名字 + 冒号`），
+**包那一步排在容器的规则跑完之后**：`Statement.AbsorbLabels`（见 `statement.xl.md`），
+它扫的是**容器自己的子单元列表**，那时标签后面那一格已经是一条成形语句。
+
 `Statement.IsStatementUnit` 把 `Label` 也算作语句级结构，所以两者不会被折进同一个 `Statement`。
 
 形状限制：只认**循环/分支类**的标签（冒号后面是 `for` / `foreach` / `while` / `do` / `switch` / `try` / `if`）。
@@ -287,38 +300,95 @@ return nextIndex + kept.length;
 
 ## method ToXmlString:()=>string
 
-产出**自闭合**标签：`<Label label="outer" />`。
+产出标签：`<Label label="outer">…</Label>`；**还没包住语句时**是自闭合的 `<Label label="outer" />`。
 
-自闭合与 `Let` / `LineWrap` 同款：内容全进了属性，没有子单元。
+自闭合与 `Let` / `LineWrap` 同款：内容进了属性。第 929 轮起它**还能有子单元**
+（被标的那条语句，由 `Statement.AbsorbLabels` 挂进来）——所以两种形态都要能出：
+`Data` 为空是自闭合、非空是成对标签。子单元那一侧照旧逐个 `ToXmlString` 拼起来。
 
 ```ts
 const name = this.constructor.name;
-return `<${name} label="${this.label}" />`;
+if (this.Data.length === 0) {
+  return `<${name} label="${this.label}" />`;
+}
+const temp: string[] = [];
+for (const item of this.Data) {
+  temp.push(item.ToXmlString());
+}
+return `<${name} label="${this.label}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>
 
-产出 JSON 对象：类型名 + `label`。
+产出 JSON 对象：类型名 + `label`（+ 有子单元时的 `children`）。
 
 键名与 `ToXmlString` 的属性同名、值同源（都是那个标签名）。
-`Label` **没有子单元**——XML 是自闭合的 `<Label label="outer" />`，内容全进了属性，
-所以这里也**不写 `children`**：空节点在 JSON 里只留 `type`，正是自闭合标签的对应物。
+子单元（被标的那条语句）与 XML 那一侧一一对应：**为空时不写这个键**，
+与基类那一份「空节点只留 `type`」同一条口径。
 
 ```ts
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("label", this.label);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
 return result;
+```
+
+## method PrintAst:(ctx:any, v:any)=>any
+
+标签 + 被它标的语句 → `LabeledStatement`（`label` 是那个 `Identifier`，`statement` 是整条语句）。
+
+**被标的那一段当作「一条语句」投**（与 `print-ast-common.xl.md` 里那一份**共用**：
+经 `ctx.StatementOfList` 交回 `projectStatement`）——不能只投第一个单元：
+`lbl: s += "1"` 里 `Data` 是 `[Identifier(s), SymbolToken(=), BinaryOperator]` 三个平铺单元，
+只投第一个会把整条语句换成那个孤零零的 `Identifier`
+（老形状下这一条正是实测撞出来的，见 `projectStatement` 里那段说明）。
+
+**标签名那个 `Identifier` 的区间不含冒号**：`Label` 自己的区间从名字起（`[0,5)`），
+而 TS 的 `Identifier(outer)` 也是 `[0,5)`——所以按**名字宽度**切，不从单元区间直接抄。
+
+```ts
+  const text = String(v.attrs.get("label") ?? "");
+  const props: any = {
+    label: { kind: "Identifier", text, pos: v.start, end: v.start + text.length },
+  };
+  const kids = ctx.Kids(v);
+  if (kids.length === 0) {
+    return ctx.Node("LabeledStatement", props, v);
+  }
+  const statement = ctx.StatementOfList(kids);
+  if (statement === undefined) {
+    return ctx.Node("LabeledStatement", props, v);
+  }
+  props.statement = statement;
+  // **终点由被标的那条语句给**（第 929 轮，实测）：标签自己那一格区间到「搬进来的最后一格」
+  // 为止，而**尾分号不在任何单元里**——`a: b: c: d/* c */ ();` 的 `;` 属于那条表达式语句
+  // （TS 的 `ExpressionStatement` 含它），于是三个 `LabeledStatement` 的终点各差 1（漂 3 多 3）。
+  // 投影终点那一套口径（`stmtEndOf` + 尾分号归属）已经在 `projectStatement` 里，
+  // 这里**直读它的答案**，不再自己算第二份。
+  if (typeof statement.end !== "number") {
+    return ctx.Node("LabeledStatement", props, v);
+  }
+  return ctx.Node("LabeledStatement", props, { ...v, end: statement.end });
 ```
 
 ## method Clone:()=>Token
 
-克隆自身。
+克隆自身（子单元一起克隆——第 929 轮起它可能包着被标的语句）。
 
 ```ts
 const result = new Label(this.Template);
 result.Sign(this);
 result.label = this.label;
+for (const item of this.Data) {
+  result.Add(item.Clone());
+}
 result.TryToClose();
 return result;
 ```
