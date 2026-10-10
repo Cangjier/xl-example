@@ -1943,6 +1943,23 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   }
   const head = kids[0];
   const headType = head.Tag();
+  // **已经包住语句的标签：在这一层把它展开**（第 1022 轮）。`Statement.AbsorbLabels`
+  // 会把被标的语句折进标签里（`<Label label="a"><For>…</For></Label>`，第 929 轮），
+  // 于是这一格是一个单元、而它的形状**不是**声明族那一档 —— 让它落到通用支会投成
+  // `ExpressionStatement > LabeledStatement`（被标语句整棵子树丢掉：实测 label 一族
+  // 5 条各漂 1~6 多 1~6）。
+  //
+  // **为什么在这里展开、而不是 `return projectNode(head)`**：后者会绕回
+  // `projectNode(head)` → 「通用支 ⇒ `projectDeclaration`」→ 又回到 `projectNode`
+  // ⇒ 当场无限递归（实测 `Maximum call stack size exceeded`）。
+  // 这一格要的是**语句**那一套口径，而 `projectStatement` 正是它 —— 把标签自己的子单元
+  // 当成平铺的一串交回 `statementOfList`（与下面平级那一支**同一份实现**），再套上标签。
+  if (headType === "Label" && labelIsFlat(head) === false) {
+    const body = statementOfList(kidsOf(head, "children"), ctx);
+    if (body !== undefined) {
+      return labeled(head, body, ctx);
+    }
+  }
   // **带标签的语句：壳里是 `[Label, 被标的语句]`**（第 536 轮）——
   // 与 `projectEach` 里那条「连续标签从右往左套」**同一件事**，只是那一条只在
   // **顶层列表 / 段**上跑（`Root.ToList()` 那一层），而这里的 `Statement` 壳

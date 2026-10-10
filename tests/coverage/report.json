@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.63,
+  "progressPercent": 95.67,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1643,
-      "pass": 1635,
-      "blocked": 8,
+      "pass": 1639,
+      "blocked": 4,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.51
+      "coverage": 99.76
     },
     {
       "category": "exec",
@@ -132,9 +132,9 @@
     "total": 1643,
     "knownGap": 3,
     "knownGapStillOpen": 3,
-    "exactFiles": 1635,
+    "exactFiles": 1639,
     "scoredWithoutGap": 1640,
-    "passedWithoutGap": 1635
+    "passedWithoutGap": 1639
   },
   "blocked": [
     {
@@ -154,30 +154,6 @@
       "category": "token",
       "title": "第 980 轮收掉：根因**不在** `IsAllowedFollower` 的表达式位（第 977 轮已经收下反引号），",
       "detail": "字段 6"
-    },
-    {
-      "id": "token/statements/gap-r929-label-body-call-newline",
-      "category": "token",
-      "title": "第 929 轮片段普查量到的一格：被标语句是**调用**时，名字与 `(` 之间换行。",
-      "detail": "漂 1　多 1"
-    },
-    {
-      "id": "token/statements/gap-r929-label-chain-newline",
-      "category": "token",
-      "title": "标签链中间换行（第 929 轮）：`a:` 换行 `b:` 换行 `for (…)` 在 TS 里是**一条嵌套的**",
-      "detail": "漂 6　多 6"
-    },
-    {
-      "id": "token/statements/stmt-label-absorbs-statement",
-      "category": "token",
-      "title": "标签**包住**它标的那条语句（第 929 轮）：产物形如",
-      "detail": "漂 1　多 1"
-    },
-    {
-      "id": "token/statements/stmt-label-comment-before-call",
-      "category": "token",
-      "title": "多层标签后面、调用前面夹一条注释",
-      "detail": "漂 3　多 3"
     },
     {
       "id": "token/types/gap-r985-jsdoc-nonnull-in-type-position",
@@ -1205,26 +1181,6 @@
       "id": "token/expressions/gap-r979-new-inst-tagged",
       "category": "token",
       "detail": "字段 6"
-    },
-    {
-      "id": "token/statements/gap-r929-label-body-call-newline",
-      "category": "token",
-      "detail": "漂 1　多 1"
-    },
-    {
-      "id": "token/statements/gap-r929-label-chain-newline",
-      "category": "token",
-      "detail": "漂 6　多 6"
-    },
-    {
-      "id": "token/statements/stmt-label-absorbs-statement",
-      "category": "token",
-      "detail": "漂 1　多 1"
-    },
-    {
-      "id": "token/statements/stmt-label-comment-before-call",
-      "category": "token",
-      "detail": "漂 3　多 3"
     }
   ]
 }
