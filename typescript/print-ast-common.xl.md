@@ -3220,6 +3220,18 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       at++;
     }
     if (at >= kids.length) return optional;
+    // **NCO 后面那一串不一定是运算符**（第 967 轮）：`a?.b!.c.d` 的产物是
+    // `[Identifier(a), NCO(NotNull(PropertyAccess([b, ., c]))), ., Identifier(d)]`——
+    // NCO 那一趟折完（`chainWithOptional` 的子链分支把 `!.c` 接上了），**下一格是点号**：
+    // 那不是运算符、而是**链的续格**。这一段原来无条件交给 `foldBinaryFrom`，
+    // 而它找不到运算符时**原样返回左操作数** ⇒ `.d` 整段丢
+    //（实测 `gap-r964-opt-assert-member-member`：`PropertyAccessExpression` 与
+    //  `Identifier` 各漂，`a?.b!.c.d` 被投成 `a?.b!.c`）。
+    // 判据与链那一支同款：**下一格是点号 / 下标 / 以调用开头** ⇒ 交给 `chainOnto`
+    //（它与「点号后面那一格」那几支是同一份实现），其余原样走二元那一支。
+    if (isDot(kids[at], ctx) || isIndexBracket(kids[at]) || isCallFirstUnit(kids[at], ctx)) {
+      return chainOnto(optional, kids.slice(at), ctx);
+    }
     return foldBinaryFrom(optional, kids.slice(at), ctx);
   }
   // **链的续格长在二元单元里面**（第 743 轮）：`o["f"]().v + 1` 的产物是
