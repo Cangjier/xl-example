@@ -1,1 +1,0 @@
-<Root range="[0,16]"><Statement range="[0,16]"><TypeAssign range="[0,16]" alias="T" modifiers="export" nameStart="12" nameEnd="12" modifierSpans="0:5"><SymbolToken range="[14,14]">=</SymbolToken><Identifier range="[16,16]">A</Identifier></TypeAssign></Statement></Root>

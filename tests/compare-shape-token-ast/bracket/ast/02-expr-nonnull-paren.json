@@ -1,1 +1,0 @@
-{"kind":"SourceFile","statements":[{"kind":"ExpressionStatement","expression":{"kind":"NonNullExpression","pos":49,"end":53,"expression":{"kind":"ParenthesizedExpression","expression":{"kind":"Identifier","text":"b","pos":50,"end":51},"pos":49,"end":52}},"pos":49,"end":54}],"endOfFileToken":{"kind":"EndOfFileToken","pos":54,"end":54},"pos":49,"end":54}

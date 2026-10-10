@@ -1,1 +1,0 @@
-<Root range="[0,68]"><Statement range="[0,29]"><LineAnnotation range="[0,29]"> xl:note 标签语句：标签与被标语句是两个平级单元</LineAnnotation></Statement><Statement range="[31,58]"><LineAnnotation range="[31,58]"> xl:expect Label,Statement</LineAnnotation></Statement><Label range="[60,68]" label="done"><Statement range="[66,68]"><Method range="[66,68]" name="f"></Method></Statement></Label></Root>

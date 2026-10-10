@@ -1,1 +1,0 @@
-<Root range="[0,13]"><Statement range="[0,13]"><Lamda range="[0,13]"><LamdaParameters range="[0,8]"><Parameter range="[7,7]"><Identifier range="[7,7]">x</Identifier></Parameter></LamdaParameters><LamdaBody range="[13,13]"><Statement range="[13,13]"><Identifier range="[13,13]">x</Identifier></Statement></LamdaBody></Lamda></Statement></Root>

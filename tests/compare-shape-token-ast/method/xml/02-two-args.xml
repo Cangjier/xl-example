@@ -1,1 +1,0 @@
-<Root range="[0,6]"><Statement range="[0,6]"><Method range="[0,6]" name="f"><Identifier range="[2,2]">x</Identifier><SymbolToken range="[3,3]">,</SymbolToken><Identifier range="[5,5]">y</Identifier></Method></Statement></Root>

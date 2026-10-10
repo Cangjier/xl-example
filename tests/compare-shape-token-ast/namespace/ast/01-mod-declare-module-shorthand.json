@@ -1,1 +1,0 @@
-{"kind":"SourceFile","statements":[{"kind":"ModuleDeclaration","name":{"kind":"StringLiteral","text":"mm","pos":84,"end":88},"modifiers":[{"kind":"DeclareKeyword","text":"declare","pos":69,"end":76}],"pos":69,"end":89}],"endOfFileToken":{"kind":"EndOfFileToken","pos":89,"end":89},"pos":69,"end":89}

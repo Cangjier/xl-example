@@ -1,1 +1,0 @@
-<Root range="[0,12]"><Statement range="[0,12]"><Let range="[0,6]" fieldName="a" modifiers="const" nameStart="6" nameEnd="6" modifierSpans="0:4" /><SymbolToken range="[8,8]">=</SymbolToken><ArrayLiteral range="[10,12]"><Identifier range="[11,11]">1</Identifier></ArrayLiteral></Statement></Root>

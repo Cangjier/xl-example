@@ -1,2 +1,0 @@
-// token: String
-`abc`

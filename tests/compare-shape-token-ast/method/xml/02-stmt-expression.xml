@@ -1,1 +1,0 @@
-<Root range="[0,48]"><Statement range="[0,21]"><LineAnnotation range="[0,21]"> xl:note 普通表达式语句 f()</LineAnnotation></Statement><Statement range="[23,44]"><LineAnnotation range="[23,44]"> xl:expect Statement</LineAnnotation></Statement><Statement range="[46,48]"><Method range="[46,48]" name="f"></Method></Statement></Root>

@@ -1,1 +1,0 @@
-<Root range="[0,3]"><Statement range="[0,3]"><Identifier range="[0,0]">a</Identifier><NullConditionalOperator range="[1,3]"><Identifier range="[3,3]">b</Identifier></NullConditionalOperator></Statement></Root>

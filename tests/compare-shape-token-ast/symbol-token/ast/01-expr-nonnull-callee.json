@@ -1,1 +1,0 @@
-{"kind":"SourceFile","statements":[{"kind":"ExpressionStatement","expression":{"kind":"CallExpression","expression":{"kind":"NonNullExpression","pos":47,"end":49,"expression":{"kind":"Identifier","text":"b","pos":47,"end":48}},"arguments":[],"pos":47,"end":51},"pos":47,"end":52}],"endOfFileToken":{"kind":"EndOfFileToken","pos":52,"end":52},"pos":47,"end":52}

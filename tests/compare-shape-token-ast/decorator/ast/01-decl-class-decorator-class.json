@@ -1,1 +1,0 @@
-{"kind":"SourceFile","statements":[{"kind":"ClassDeclaration","name":{"kind":"Identifier","text":"C","pos":79,"end":80},"modifiers":[{"kind":"Decorator","pos":65,"end":72,"expression":{"kind":"Identifier","text":"sealed","pos":66,"end":72}}],"pos":65,"end":83}],"endOfFileToken":{"kind":"EndOfFileToken","pos":83,"end":83},"pos":65,"end":83}

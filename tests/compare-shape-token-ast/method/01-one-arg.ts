@@ -1,2 +1,0 @@
-// token: Method
-f(x)

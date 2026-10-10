@@ -1,1 +1,0 @@
-{"kind":"SourceFile","statements":[{"kind":"WhileStatement","pos":81,"end":91,"expression":{"kind":"Identifier","text":"a","pos":88,"end":89},"statement":{"kind":"EmptyStatement","pos":90,"end":91}}],"endOfFileToken":{"kind":"EndOfFileToken","pos":91,"end":91},"pos":81,"end":91}

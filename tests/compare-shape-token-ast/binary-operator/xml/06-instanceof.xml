@@ -1,1 +1,0 @@
-<Root range="[0,13]"><Statement range="[0,13]"><BinaryOperator range="[0,13]" op="instanceof"><Identifier range="[0,0]">x</Identifier><Keyword range="[2,11]">instanceof</Keyword><Identifier range="[13,13]">C</Identifier></BinaryOperator></Statement></Root>

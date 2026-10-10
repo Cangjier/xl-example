@@ -1,1 +1,0 @@
-<Root range="[0,4]"><Statement range="[0,4]"><BinaryOperator range="[0,4]" op="+"><Identifier range="[0,0]">a</Identifier><SymbolToken range="[2,2]">+</SymbolToken><Identifier range="[4,4]">b</Identifier></BinaryOperator></Statement></Root>

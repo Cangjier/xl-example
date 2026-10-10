@@ -1,1 +1,0 @@
-<Root range="[0,7]"><Statement range="[0,7]"><String range="[0,7]" interpolation="false" verbatim="false" raw="false" interpolationCount="1" rawQuoteCount="1"><ConstString range="[1,2]">a</ConstString><InterpolationString range="[3,5]"><Identifier range="[4,4]">b</Identifier></InterpolationString><ConstString range="[6,6]">c</ConstString></String></Statement></Root>

@@ -1,1 +1,0 @@
-{"kind":"SourceFile","statements":[{"kind":"NamespaceExportDeclaration","name":{"kind":"Identifier","text":"Foo","pos":82,"end":85},"pos":62,"end":86}],"endOfFileToken":{"kind":"EndOfFileToken","pos":86,"end":86},"pos":62,"end":86}

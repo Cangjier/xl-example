@@ -1,1 +1,0 @@
-{"kind":"SourceFile","statements":[{"kind":"FunctionDeclaration","name":{"kind":"Identifier","text":"f","pos":15,"end":16},"body":{"kind":"Block","pos":19,"end":21},"modifiers":[{"kind":"AsyncKeyword","text":"async","pos":0,"end":5}],"pos":0,"end":21}],"endOfFileToken":{"kind":"EndOfFileToken","pos":21,"end":21},"pos":0,"end":21}

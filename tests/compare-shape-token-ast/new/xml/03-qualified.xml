@@ -1,1 +1,0 @@
-<Root range="[0,10]"><Statement range="[0,10]"><New range="[0,10]"><NewType range="[0,8]"><Identifier range="[4,4]">a</Identifier><SymbolToken range="[5,5]">.</SymbolToken><Identifier range="[6,6]">b</Identifier><SymbolToken range="[7,7]">.</SymbolToken><Identifier range="[8,8]">C</Identifier></NewType><NewArguments range="[9,10]"></NewArguments></New></Statement></Root>

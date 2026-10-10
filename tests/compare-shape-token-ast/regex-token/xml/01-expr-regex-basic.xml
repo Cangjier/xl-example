@@ -1,1 +1,0 @@
-<Root range="[0,58]"><Statement range="[0,24]"><LineAnnotation range="[0,24]"> xl:note 正则字面量 /ab+c/gi</LineAnnotation></Statement><Statement range="[50,58]"><LineAnnotation range="[26,48]"> xl:expect RegexToken</LineAnnotation><RegexToken range="[50,57]"></RegexToken></Statement></Root>

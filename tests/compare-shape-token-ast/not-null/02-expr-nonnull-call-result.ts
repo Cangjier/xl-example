@@ -1,4 +1,0 @@
-// token: NotNull
-// xl:note 对调用结果做非空断言 f()!
-// xl:expect NotNull
-f()!;

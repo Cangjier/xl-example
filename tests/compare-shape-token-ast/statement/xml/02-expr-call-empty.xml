@@ -1,1 +1,0 @@
-<Root range="[0,44]"><Statement range="[0,19]"><LineAnnotation range="[0,19]"> xl:note 无实参调用 f()</LineAnnotation></Statement><Statement range="[21,39]"><LineAnnotation range="[21,39]"> xl:expect Method</LineAnnotation></Statement><Statement range="[41,44]"><Method range="[41,43]" name="f"></Method></Statement></Root>

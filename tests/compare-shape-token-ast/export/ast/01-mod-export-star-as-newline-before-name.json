@@ -1,1 +1,0 @@
-{"kind":"SourceFile","statements":[{"kind":"ExportDeclaration","pos":38,"end":62,"exportClause":{"kind":"NamespaceExport","name":{"kind":"Identifier","text":"ns","pos":50,"end":52},"pos":45,"end":52},"moduleSpecifier":{"kind":"StringLiteral","text":"m","pos":58,"end":61}}],"endOfFileToken":{"kind":"EndOfFileToken","pos":62,"end":62},"pos":38,"end":62}

@@ -1,1 +1,0 @@
-<Root range="[0,5]"><Statement range="[0,5]"><PropertyAccess range="[0,5]"><Identifier range="[0,0]">a</Identifier><Bracket range="[1,3]" startBracket="[" endBracket="]"><Identifier range="[2,2]">i</Identifier></Bracket><SymbolToken range="[4,4]">.</SymbolToken><Identifier range="[5,5]">b</Identifier></PropertyAccess></Statement></Root>

@@ -1,1 +1,0 @@
-<Root range="[0,7]"><Statement range="[0,7]"><PropertyAccess range="[0,7]"><Identifier range="[0,0]">a</Identifier><SymbolToken range="[1,1]">.</SymbolToken><Method range="[2,5]" name="b"><Identifier range="[4,4]">c</Identifier></Method><SymbolToken range="[6,6]">.</SymbolToken><Identifier range="[7,7]">d</Identifier></PropertyAccess></Statement></Root>
