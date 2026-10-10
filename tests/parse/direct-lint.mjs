@@ -26,6 +26,10 @@
 //   第 1015 轮再加一条**扫能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现
 //   回原文兜底 / 已无人用的九个出口（见 `CTX_BANNED`）——①那是「谁写了什么」，这一条是
 //   「这一格手上有什麼」；出口删了之后，①守的那句话才从「大家记得别写」变成**结构上做不到**。
+//   第 1026 轮把 `FirstCodeAfter` / `MatchBrace` / `MatchingParen` 补进那张禁表（出口先删掉）。
+//   第 1027 轮再加一条**扫名字**的：投影与 token 之间那一层的入口名
+//   （`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）
+//   不许再出现在规范页里（见 `REMOVED_LAYER`）——那句话（token → AST 直出）本来一条判据都没有。
 //
 // **第 1013 轮删掉的判据**：原来还有一条「覆写了直出版的页面，同页必须还有 `PrintAst`」——
 // 它是「同答」那条动态判据的**基线**（搬完之前不许先把老路删掉）。现在老路删了、
@@ -363,6 +367,43 @@ let ctxBannedHits = 0;
   }
 }
 
+/**
+ * **中间那一层不许再回来**（第 1027 轮）。
+ *
+ * 第 1018~1024 轮把投影与 token 之间那一层（「字典 / 视图 + 逐 token 字段表」）整个删掉了：
+ * 投影今天**直吃 token**——`projectNode(node)` 收到的那一格就是 token 自己，
+ * 形状由 token 自己的 `PrintDirectAst` / `AstKind()` / `SegmentNames` / `BodyField` 说。
+ * 那一层的入口名字（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` /
+ * `ToJsonString`）今天在**规范页里 0 处**——但删掉的东西**能被重新写回来**：
+ * 谁想给投影加一条方便的通道，写一个 `ToDictionary` 就绕开了这一门所有的判据
+ * （① 扫方法体、② 扫字符串键、③ 扫 `ctx` 能力面，三条都看不见一个**新函数名**）。
+ *
+ * **为什么它必须是门**：这是一个**口径**，不是一个 bug——
+ * 「token → AST 直出，不许有中间形态」这句话没有别的判据在看（`cases:tsast` 只看最终形状，
+ * 中间多一层照样能出对的形状，只是同一份事实又被声明了第二遍）。
+ *
+ * **只管规范页**的**代码块**（`core/` / `typescript/` / `runtime/` / `typescript-exec/`
+ * 下的 `*.xl.md` 里 ```ts 围起来的那几段）：散文里提这些名字是**记录**
+ * （「`ToPlain` 那一层第 1019 轮已随中间层一起删掉」这种句子必须写得出来），
+ * 而代码块里出现就是**这一层又有一条路可走**——那才是要拦的东西。
+ */
+const REMOVED_LAYER = ["ToDictionary", "ToList", "WithRange", "WithRangeOf", "ToPlain", "ToJsonString"];
+let removedLayerHits = 0;
+for (const file of files) {
+  const text = fs.readFileSync(file, "utf8");
+  const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => m[1]).join("\n");
+  if (code === "") continue;
+  for (const name of REMOVED_LAYER) {
+    const hits = (code.match(new RegExp(`\\b${name}\\b`, "g")) ?? []).length;
+    if (hits === 0) continue;
+    removedLayerHits += hits;
+    violations.push({
+      file: path.relative(root, file),
+      why: `\`${name}\` 又出现了（${hits} 处）——投影只吃 token，中间那一层第 1018~1024 轮已经删干净；要写它的历史请写到 docs/ 或 README 里`,
+    });
+  }
+}
+
 // **按字符串键查的账**（第 1005 轮）：逐键比额度——多了红（有人写回来了），
 // 少了也红（收掉了就来把例外表那一行删掉）。
 const stringKeys = [...new Set([...STRING_KEY_ALLOWED.keys(), ...stringKeyHits.keys()])].sort();
@@ -407,6 +448,11 @@ console.log(
 // 才是**结构上做不到**，而不是「大家记得别写」。
 console.log(
   `ctx 出口 ${ctxExits} 个，其中回原文兜底 / 已无人用的 ${ctxBannedHits} 处（0 处才是对的：${CTX_BANNED.join(" / ")}）`,
+);
+// **中间那一层的账**（第 1027 轮）：投影直吃 token，那一层的入口名一个都不许留在规范页里
+// ——「token → AST 直出」这句话只有这样才有一条判据看着。
+console.log(
+  `中间那一层的入口名（${REMOVED_LAYER.join(" / ")}）：${removedLayerHits} 处（0 处才是对的，历史写在 docs/ 与 README 里）`,
 );
 if (verbose) {
   for (const one of directPages) console.log(`  direct  ${one.file}:${one.line}`);

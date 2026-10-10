@@ -1637,26 +1637,6 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
   return undefined;
 ```
 
-# private const KEYWORD_STATEMENT_KINDS:Map<string, string>
-
-头部那个 `Keyword` 决定整条语句是什么（TS 那边的 kind，以及值挂在哪个字段上）。
-
-这一族在产物里是**一个 `Keyword` 加一段平级兄弟**（`return a + b` ⇒ `Keyword(return)` + `BinaryOperator`），
-而 TS 是**一个语句节点包住表达式**。早先它们一律掉进 `ExpressionStatement` 分支、
-只投影第一个单元，于是「头一个 `Keyword` 变成 Identifier、后面整段子树消失」——
-真实语料 `ReturnStatement` 缺 1722 处，连带里面的 `BinaryExpression` / `CallExpression` /
-`Identifier` 一起缺（第 34 轮修的）。
-
-```ts
-new Map([
-  ["return", "ReturnStatement"],
-  ["throw", "ThrowStatement"],
-  ["break", "BreakStatement"],
-  ["continue", "ContinueStatement"],
-  ["debugger", "DebuggerStatement"],
-])
-```
-
 # private const KEYWORD_STATEMENT_EXPRESSION:Set<string> = new Set(["ReturnStatement", "ThrowStatement"])
 
 # private const NO_TRAILING_SEMICOLON:Set<string>
@@ -1954,7 +1934,10 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         return declaration;
       }
     }
-    const kind = KEYWORD_STATEMENT_KINDS.get(textOfNode(head, ctx));
+    // **头部那个词决定整条语句是什么**（第 34 轮；第 1027 轮改成问 token 自己）：
+    // 「哪几个词能当语句头、各自叫什么节点」是 `Keyword` 那一页自己的事实
+    // （`Keyword.StatementKind()`，键就是它的 `Value`），投影不按文本查第二张表。
+    const kind = head.StatementKind();
     if (kind !== undefined) {
       const rest = kids.slice(1);
       const props = {};

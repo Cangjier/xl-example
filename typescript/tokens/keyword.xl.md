@@ -296,6 +296,20 @@ return this.Value;
 ```
 
 
+## method StatementKind:()=>string | undefined
+
+**我这一格是不是「语句头」**（第 1027 轮）——是的话答那条语句在 TS 那边的 kind，不是的话答 `undefined`。
+
+`return a + b` 这一族在产物里是**一个 `Keyword` 加一段平级兄弟**，而 TS 那边是**一个语句节点包住表达式**。
+「哪几个词能当语句头、各自叫什么节点」说的就是**这一页自己的事实**（词住在我这里，
+`Value` 就是那个词），所以由我答；过去它住在投影层那一张按文本查的
+`KEYWORD_STATEMENT_KINDS` 里——同一份事实被声明了两遍，且改一个词要跑两个地方。
+基类答 `undefined`（不决定语句 kind），覆写只此一页。
+
+```ts
+  return KEYWORD_STATEMENT_KINDS.get(this.Value);
+```
+
 ## method Clone:()=>Token
 
 克隆自身。
@@ -308,4 +322,28 @@ result.Sign(this);
 result.Value = this.Value;
 result.TryToClose();
 return result;
+```
+
+# private const KEYWORD_STATEMENT_KINDS:Map<string, string>
+
+**哪几个关键字把整条语句定下来**（第 34 轮那一族，第 1027 轮从投影层搬到这里）。
+
+这一族在产物里是**一个 `Keyword` 加一段平级兄弟**（`return a + b` ⇒ `Keyword(return)` + `BinaryOperator`），
+而 TS 是**一个语句节点包住表达式**。早先它们一律掉进 `ExpressionStatement` 分支、
+只投影第一个单元，于是「头一个 `Keyword` 变成 Identifier、后面整段子树消失」——
+真实语料 `ReturnStatement` 缺 1722 处，连带里面的 `BinaryExpression` / `CallExpression` /
+`Identifier` 一起缺。
+
+**为什么住在这一页**：键是**我这一页的 `Value`**、值是「我这一格投出来的语句叫什么」——
+两样都是这一页自己的事实（与 `Value` / `StatementKind` 同源）。投影只问 `StatementKind()` 这一格，
+不替它记第二遍。
+
+```ts
+new Map([
+  ["return", "ReturnStatement"],
+  ["throw", "ThrowStatement"],
+  ["break", "BreakStatement"],
+  ["continue", "ContinueStatement"],
+  ["debugger", "DebuggerStatement"],
+])
 ```

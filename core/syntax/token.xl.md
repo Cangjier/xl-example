@@ -893,6 +893,24 @@ return undefined;
 return undefined;
 ```
 
+## method StatementKind:()=>string | undefined
+
+**我这一格是不是「语句头」**（第 1027 轮）——是的话答那条语句在目标语言那边的 kind，
+不是的话答 `undefined`。基类就是这个答案（`core` 与语言无关，不知道任何目标语言的语句名）。
+
+**它与 `AstKind()` 是两件事**：`AstKind()` 说的是「**我这一格**投成哪个节点」，
+而这一格说的是「**我这一格的兄弟也算我的**」——`return a + b` 在产物里是
+`Keyword(return)` 加一段平级兄弟（`BinaryOperator`），目标语言那边却是**一个语句节点包住表达式**。
+判据因此落在**这个词能不能当语句头**上，而词住在 `Keyword` 那一页的 `Value` 里
+（`typescript/tokens/keyword.xl.md` 覆写这一格），所以由它答，投影不按文本查第二张表。
+
+**基类答 `undefined`**：需要它的 token 在自己那一页覆写（`## method`，与 `AstKind` /
+`SegmentNames` / `WrapperField` / `BodyField` 同一形态）。
+
+```ts
+return undefined;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。
