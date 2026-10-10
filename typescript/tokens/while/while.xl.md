@@ -260,6 +260,47 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
   return ctx.NodeHead("WhileStatement", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 997 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+**这一页差的只有格**：`emptyBodyAt` / `bodyBraceRange` / `headerCloseAt` 三格**早就在 token 上**
+（第 590 / 641 / 634 轮），`PrintAst` 里唯一回原文的那一处是**头部 `)` 的兜底**
+（`ctx.MatchingParen(ctx.source, v.start)`）——直出版把这条兜底去掉：
+三格缺任意一格就**答 `undefined` 交回 `PrintAst`**（与 `Lamda` / `Foreach` 那两处同一个约定，
+让开的范围小到一格，而且**次数是量得出来的**）。
+
+```ts
+  const props: any = {};
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (compare.length > 0) props.expression = ctx.Expression(compare);
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  // **空体那一格先读 token 上的字段**（第 590 轮）：有它就不必配对括号 + 扫原文。
+  const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
+    ? v.attrs.get("emptyBodyAt")
+    : undefined;
+  const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
+  if (emptyAt >= 0) {
+    props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
+    return ctx.NodeHead("WhileStatement", props, v);
+  }
+  // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
+  const rawBraceRange = ctx.Attr(v, "bodyBraceRange");
+  // **头部那个 `)` 也只有字段这一格事实**（第 634 轮）。字段缺了 ⇒ 不猜，交回 `PrintAst`。
+  const rawHeaderClose = v.attrs !== undefined && typeof v.attrs.get === "function"
+    ? v.attrs.get("headerCloseAt")
+    : undefined;
+  const headerCloseAt = typeof rawHeaderClose === "number" ? rawHeaderClose : -1;
+  if (headerCloseAt < 0) {
+    return undefined;
+  }
+  const statement = ctx.BodyBlockOf(headerCloseAt + 1, body, rawBraceRange);
+  if (statement !== undefined) props.statement = statement;
+  return ctx.NodeHead("WhileStatement", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，没有自己的字段要初始化。

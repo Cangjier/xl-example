@@ -334,6 +334,51 @@ return new Map([["ForStatement", new Map([["initial", "initializer"], ["compare"
   return ctx.NodeHead("ForStatement", props, v);
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 997 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+**这一页差的只有一格**：`bodyBraceRange` / `emptyBodyAt` **早就在 token 上**（第 641 / 590 轮），
+`PrintAst` 里回原文的那一段是**空体语句 `for (…);` 的最后一招**——
+拿头部 `)` 之后再扫一遍空白找那个 `;`（`ctx.source` + `ctx.MatchingParen`）。
+直出版把这一招去掉：体段既非块、`emptyBodyAt` 又没记过时**答 `undefined` 交回 `PrintAst`**
+（与 `Lamda` / `Foreach` 那两处同一个约定）。
+
+```ts
+  const props: any = {};
+  const initial = ctx.KidsOf(v, "initial").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (initial.length > 0) {
+    props.initializer =
+      initial[0].get("type") === "Let" ? ctx.LetFrom(initial, v).list : ctx.Expression(initial);
+  }
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (compare.length > 0) props.condition = ctx.Expression(compare);
+  const next = ctx.KidsOf(v, "next").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (next.length > 0) props.incrementor = ctx.Expression(next);
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
+  const built = ctx.BlockOfBody(body, -1, ctx.Attr(v, "bodyBraceRange"));
+  if (built !== undefined) {
+    props.statement = built.node;
+  }
+  if (props.statement === undefined) {
+    // **空体语句的 `;` 位置由 token 直接给出**（第 590 轮）：收尾规则造这个单元时就知道体是空的。
+    const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
+      ? v.attrs.get("emptyBodyAt")
+      : undefined;
+    const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
+    if (emptyAt >= 0) {
+      props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
+    } else {
+      // 字段没记过 ⇒ **不猜**（原来的最后一招是回原文扫那个 `;`），交回 `PrintAst`。
+      return undefined;
+    }
+  }
+  return ctx.NodeHead("ForStatement", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，没有自己的字段要初始化。

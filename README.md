@@ -376,6 +376,35 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 997 轮：两页「只差格」的循环语句拿到直出版（`while` 28 / `for` 45 → 0）——直出 **67.7% → 68.1%**，全语料 **86.1%**
+
+**一句话**：接着第 996 轮留下的排序往下搬，但先挑**最省的那两页**：`while` 与 `for` 的
+`emptyBodyAt` / `bodyBraceRange` / `headerCloseAt` 三格**早就在 token 上**（第 590 / 641 / 634 轮），
+`PrintAst` 里回原文的只剩**兜底那一招**——直出版要做的正是**把兜底去掉**。
+
+- **两页各差什么**：
+  - `while`：唯一回原文的是头部 `)` 的兜底 `ctx.MatchingParen(ctx.source, v.start)`
+    （`headerCloseAt` 缺了才走）；直出版在 `headerCloseAt < 0` 时**答 `undefined` 交回 `PrintAst`**；
+  - `for`：唯一回原文的是**空体语句 `for (…);` 的最后一招**——拿头部 `)` 之后再扫一遍空白找那个 `;`
+    （`ctx.source` + `MatchingParen`）；直出版在体段既非块、`emptyBodyAt` 又没记过时同样让开。
+- **让开那一条路**：**这两页在全语料里一次都没让开**（`while` 28 → 0、`for` 45 → 0，
+  两页都不再出现在落回清单里）——与 `Lamda` / `Foreach` 各一处让开是同一种写法，
+  区别只是这里量出来是**零次**。
+- **记账**：`cases:direct` **1639 份 / 21818 节点，直出 14778 → 14851（67.7% → 68.1%）**，同答 0、抛异常 0；
+  `cases:direct --all` **2050 份 / 534527 节点，直出 459979（86.1%）**、0 处不一致；
+  `direct:lint` **直出版 56 段 / 56 页、0 条违反**，待搬 **9 → 7 页**
+  （`while` / `for` 出列；余下 `if-set` / `import` / `import-type` / `regex-token` / `signature` /
+  `const-string` / `mapped-type`）。
+- **门 suite**：**11 道 10 通过、1 失败**——那一道仍是 `cases:tsast` 的同一片已知红
+  （`for…of` 的枚举对象是条件表达式，第 992 轮登记 / 第 994 轮复核）；其余全绿，
+  `coverage 4259 / 4422`（blocked 29、differ 134、加权 95.7%）——墙钟 35.4s。
+- **下一格量出来的形状（留给下一轮，不要按页数排）**：落回榜首那一族
+  `MethodDeclaration`（309）/ `Function`（259）/ `Class`（230）/ `Interface`（152）/ `TypeLiteral`（94）
+  **这些页连 `PrintAst` 都没有**（`## method PrintAst` 0 段）——它们在投影里走的是**通用支**
+  （`structuralProps` + 中央 `switch`），所以搬它们**不是「再写一遍那一格」，而是两半一起写**：
+  `direct:lint` 的判据②要求同页留着 `PrintAst` 当同答的基线。**这一条是页数与工作量的分水岭**——
+  剩下 7 页「待搬」都是「已有 `PrintAst`、差几处回原文」，而落回榜首那几页是「还没有 `PrintAst`」。
+
 ### 第 996 轮：把「`?` 被吞进 `TypeDefine`」这一格事实搬上 token——`Parameter`（498）与 `Field`（278）两页拿到直出版，用例语料直出 **64.2% → 67.7%**
 
 **一句话**：上一轮收尾时留下的那一格（`Parameter`，被问 281 次却过不了 `cases:direct` 的**第三项记账**）
