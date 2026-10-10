@@ -222,38 +222,9 @@ return ReplaceCountAt(units, index, nextIndex - index + 1, result);
 return new Map([["TypeOperator", new Map([["children", "type"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`keyof T` / `readonly T[]` / `unique symbol` → `TypeOperator`（**只有 `type` 一个子字段**；
-**从 `ts-ast.xl.md` 的 `projectTypeOperator` 搬来**，第 184 轮）。
-
-TS 那边那个词（`keyof` / `readonly` / `unique`）是节点的**属性**（`operator`），
-`forEachChild` 只看 `type`。产物那边它与操作数是平级的两个单元，照通用投影会把它当成
-`type` 的一段——实测「多出来的节点」里两类都从这里来：
-
-- `readonly Uint8Array[]`：`type` 成了一个两格的数组（`ReadonlyKeyword` + `ArrayType`），
-  而 TS 的 `type` **就是那个 `ArrayType`**（`TypeOperator[17,38) > ArrayType[26,38)`）；
-- `unique symbol`：操作数被投成 `TypeReference > Identifier(symbol)`，
-  而 TS 那边是 `SymbolKeyword`（`TypeOperator[9,22) > SymbolKeyword[16,22)`）——
-  所以操作数必须走**类型位投影**（`ctx.TypeExpression`），不是通用投影。
-
-```ts
-  const kids = ctx.Kids(v).filter(
-    (k: any) =>
-      !(
-        k.get("type") === "Keyword" &&
-        (ctx.TextOf(k) === "keyof" || ctx.TextOf(k) === "readonly" || ctx.TextOf(k) === "unique")
-      ),
-  );
-  const props: any = {};
-  const operand = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
-  if (operand !== undefined) props.type = operand;
-  return ctx.NodeHead("TypeOperator", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -314,52 +285,9 @@ return result;
 return new Map([["TypeQuery", new Map([["children", "exprName"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`typeof X` / `typeof A.B` → `TypeQuery`（只有 `exprName` 一个子字段；
-**从 `ts-ast.xl.md` 的 `projectTypeQuery` 搬来**，第 186 轮）。
-
-TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就是那个名字
-（单个名字是 `Identifier`、点号名是 `QualifiedName`）——产物那边它是
-`[Keyword(typeof), Identifier(X)]` 两个平级单元，照通用投影会把 `TypeOfKeyword`
-也塞进 `exprName`。点号后面的名字常常在**节点外面**（见 `projectTypeExpression` 里那一支）。
-
-**`typeof` 不是名字**（踩过）：它是 `Keyword`，而 `isNameNode` 认得 `Keyword`
-（成员名那一族要用它），所以这里要显式排掉——否则 `exprName` 会是
-`QualifiedName(typeof, globalThis)` 这种把运算符当名字的东西。
-
-**点号名在产物里可能已经是一个 `PropertyAccess` 单元**（第 103 轮）：
-`any[][typeof Symbol.iterator]` 的产物是 `TypeQuery > [Keyword(typeof), PropertyAccess(Symbol.iterator)]`，
-而 `PropertyAccess` 不是名字节点——照两条名字支会得到**空 `exprName`**，
-于是 `QualifiedName` / `Symbol` / `iterator` 三个节点全丢。
-
-```ts
-  const kids = ctx.Kids(v);
-  const names = kids.filter((k: any) => ctx.IsNameNode(k) && ctx.TextOf(k) !== "typeof");
-  const props: any = {};
-  const access = kids.find((k: any) => k.get("type") === "PropertyAccess");
-  const generic = kids.find((k: any) => k.get("type") === "GenericType");
-  if (generic !== undefined) {
-    const typeArguments = [];
-    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
-      const one = ctx.TypeExpression(group);
-      if (one !== undefined) typeArguments.push(one);
-    }
-    if (typeArguments.length > 0) props.typeArguments = typeArguments;
-  }
-  if (access === undefined && names.length === 1) {
-    props.exprName = ctx.NameOf(names[0]);
-  } else if (access !== undefined || names.length > 1) {
-    const parts =
-      access === undefined ? names : ctx.Kids(access).filter((k: any) => ctx.IsNameNode(k));
-    props.exprName = ctx.QualifiedNameFrom(parts);
-  }
-  return ctx.NodeHead("TypeQuery", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

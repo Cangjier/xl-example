@@ -264,38 +264,14 @@ if (this.Data.length !== 0) {
 return result;
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**第三个出口**（第 1004 轮）：这一页把「`Bracket` 出什么」**写下来**。
-
-**为什么以前没有它**：它一直由投影的通用支给（`KIND_BY_TAG` 里查不到 `Bracket`），
-所以「这一页的形状」在产物那边没有一处写下来——`direct:lint` 的判据②要求
-「有直出版的页面同页必须还有 `PrintAst` 当同答的基线」，说的正是这件事。
-
-**答案与通用支逐字节相同**（`cases:direct` 拿两遍产物对拍）：
-
-- `{` ⇒ 那个 `Block`（见下面 `PrintDirectAst` 那一节的两种身份）；
-- `(` / `[` ⇒ `undefined`，让回通用支（它们是分组，通用支那一趟不造节点，
-  而**这一格是会走到通用支里的**——见下面 `ctx.Nothing` 那一条）。
-
-```ts
-  // **两种身份各答各的**：只有 `{` 是块节点，`(` / `[` 让回通用支（与直出版逐句同一份）。
-  if (String(this.startBracket) !== "{") return undefined;
-  return ctx.Node(
-    "Block",
-    { statements: ctx.ProjectEach(ctx.KidsOf(v, "children"), "Block") },
-    v,
-  );
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 1004 轮）：与通用支出**同一个答案**，但只许用这个 token 自己的
 属性、子单元与 `Parent`（不回原文查）——口径与两条判据见 `core/syntax/token.xl.md` 的
 `PrintDirectAst`。
 
-**这一页是「连 `PrintAst` 都没有」那一族**（第 997 轮那条分水岭）：`Bracket` 的形状一直由
-投影的**通用支**给，所以这一轮两半一起写——上面那一格 `PrintAst` 把「这一页出什么」写下来
+**这一页是「连 `PrintDirectAst` 都没有」那一族**（第 997 轮那条分水岭）：`Bracket` 的形状一直由
+投影的**通用支**给，所以这一轮两半一起写——上面那一格 `PrintDirectAst` 把「这一页出什么」写下来
 （同答从此有一条逐字节的基线），这一格再把那一趟里回原文查的部分去掉。
 **两半逐句同一份**：`{` 走同一条裸块分支，`(` / `[` 两条路都答 `undefined` 让回通用支。
 

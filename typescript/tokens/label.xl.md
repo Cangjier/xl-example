@@ -398,47 +398,9 @@ if (this.Data.length !== 0) {
 return result;
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-标签 + 被它标的语句 → `LabeledStatement`（`label` 是那个 `Identifier`，`statement` 是整条语句）。
-
-**被标的那一段当作「一条语句」投**（与 `print-ast-common.xl.md` 里那一份**共用**：
-经 `ctx.StatementOfList` 交回 `projectStatement`）——不能只投第一个单元：
-`lbl: s += "1"` 里 `Data` 是 `[Identifier(s), SymbolToken(=), BinaryOperator]` 三个平铺单元，
-只投第一个会把整条语句换成那个孤零零的 `Identifier`
-（老形状下这一条正是实测撞出来的，见 `projectStatement` 里那段说明）。
-
-**标签名那个 `Identifier` 的区间不含冒号**：`Label` 自己的区间从名字起（`[0,5)`），
-而 TS 的 `Identifier(outer)` 也是 `[0,5)`——所以按**名字宽度**切，不从单元区间直接抄。
-
-```ts
-  const text = String(v.attrs.get("label") ?? "");
-  const props: any = {
-    label: { kind: "Identifier", text, pos: v.start, end: v.start + text.length },
-  };
-  const kids = ctx.Kids(v);
-  if (kids.length === 0) {
-    return ctx.Node("LabeledStatement", props, v);
-  }
-  const statement = ctx.StatementOfList(kids);
-  if (statement === undefined) {
-    return ctx.Node("LabeledStatement", props, v);
-  }
-  props.statement = statement;
-  // **终点由被标的那条语句给**（第 929 轮，实测）：标签自己那一格区间到「搬进来的最后一格」
-  // 为止，而**尾分号不在任何单元里**——`a: b: c: d/* c */ ();` 的 `;` 属于那条表达式语句
-  // （TS 的 `ExpressionStatement` 含它），于是三个 `LabeledStatement` 的终点各差 1（漂 3 多 3）。
-  // 投影终点那一套口径（`stmtEndOf` + 尾分号归属）已经在 `projectStatement` 里，
-  // 这里**直读它的答案**，不再自己算第二份。
-  if (typeof statement.end !== "number") {
-    return ctx.Node("LabeledStatement", props, v);
-  }
-  return ctx.Node("LabeledStatement", props, { ...v, end: statement.end });
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

@@ -324,34 +324,9 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 而 `SwitchCloseRule.Process` 那一刻括号就在手上 ⇒ 当场记下来。投影若回原文里找
 （`ctx.source.indexOf("{", v.start)`），`switch (a) /* { */ { }` 会命中**注释里**那个假括号。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`switch (v) { … }` → `SwitchStatement`（`expression` + `caseBlock`；
-**从 `ts-ast.xl.md` 的 `projectSwitch` 搬来**，第 189 轮）。
-
-TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），产物那边没有这一层
-（`Switch` 只有 `compare` 与 `segments` 两个段）——所以这里**合成**它：
-区间从体的开括号起（读 `BodyAt`）、到 `switch` 自己的终点（那个 `}` 正好是最后一个字符）。
-
-```ts
-  const cond = ctx.KidsOf(v, "compare");
-  const segments = ctx.KidsOf(v, "segments");
-  const rawBodyAt = ctx.Attr(v, "bodyAt");
-  const bodyAt = typeof rawBodyAt === "number" ? rawBodyAt : -1;
-  const props: any = {};
-  if (cond.length > 0) props.expression = ctx.Expression(cond);
-  props.caseBlock = {
-    kind: "CaseBlock",
-    clauses: segments.map((seg: any) => ctx.SwitchClause(seg)),
-    pos: bodyAt >= 0 ? bodyAt : v.start,
-    end: ctx.StmtEndOf(v),
-  };
-  return ctx.NodeHead("SwitchStatement", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -427,7 +402,7 @@ return result;
 
 `compare` 是判别段（`switch (…)` 括号里那截），取 `ToList()`——它是一批子单元的容器。
 
-`bodyAt` 是体的开括号（`PrintAst` 的 `ctx.Attr` 读的就是这一格；不是 `switch` 时不写）。
+`bodyAt` 是体的开括号（`PrintDirectAst` 的 `ctx.Attr` 读的就是这一格；不是 `switch` 时不写）。
 
 `segments` 是各 `SwitchSegment`：它们与 `Try.Catches` 一样是**按类型从 `Data` 里筛出来的一组引用**，
 不是某**一个**容器节点，所以没有现成的 `ToList()` 可调，只能逐个 `item.ToDictionary()`。

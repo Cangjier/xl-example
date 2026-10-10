@@ -56,21 +56,9 @@ return new Map([["ModuleBlock", new Map([["children", "statements"]])], ["Namesp
 return "body";
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**直出**：命名空间体在目标语言那边就是一个 `ModuleBlock`，`children` 那一格叫 `statements`
-（见上面 `SegmentNames` 的第一档）——所以这一页自己出这个节点，不再绕回投影层的通用支。
-
-`ctx.Each` 与通用支那一支**是同一份实现**（`projectEachIn`，父 kind 照传 `ModuleBlock`），
-空体返回 `undefined`——于是「空命名空间体」与通用支的产物逐字节相同（空段不写这一格）。
-
-```ts
-return ctx.Node("ModuleBlock", { statements: ctx.Each(v, "ModuleBlock") }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

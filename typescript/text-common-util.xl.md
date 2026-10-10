@@ -1002,7 +1002,7 @@ return out;
 
 判断单元**不是**按 `LineWrap` 一个类：注释在产物树里是独立的 `LineAnnotation` /
 `AreaAnnotation`（见 `parse-pipeline.xl.md` 的「注释不在这里被摘掉」），而预处理指令
-是 `PreprocessorDirectives`。`Token.PrintAst` 那一侧也有同一份名单（`INVISIBLE`），
+是 `PreprocessorDirectives`。`Token.PrintDirectAst` 那一侧也有同一份名单（`INVISIBLE`），
 两处必须一起改——它们说的是同一件事：「这个单元在语法结构里不该挡住相邻判断」。
 
 按**类名**判而不是 `instanceof`：`text-common-util` 这一层向上 import 那三个类会绕出环。

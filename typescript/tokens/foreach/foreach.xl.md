@@ -248,7 +248,7 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
 **体是那条空语句（`foreach/for (…);`）时，那个 `;` 的下标**；不是这一档就是 `-1`。
 
 与 `For.EmptyBodyAt` / `While.EmptyBodyAt` 同一个来由：判据只在收尾规则那一处算得起，
-投影只读一次（见 `PrintAst`），不再拿 `MatchingParen` + `BodyBlockOf` 重扫原文。
+投影只读一次（见 `PrintDirectAst`），不再拿 `MatchingParen` + `BodyBlockOf` 重扫原文。
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
@@ -274,108 +274,18 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
 
 `Process` 切 Define / Enumable 时手里就有那个词（`conditionBracket.Data[defineEnd]`），
 当场记下来；投影据此分 `ForInStatement` / `ForOfStatement`，不再回原文做正则
-（见 `PrintAst` 那段说明）。
-
-## method PrintAst:(ctx:any, v:any)=>any
-
-`for (const x of xs) { … }` / `for (const k in o) { … }` → `ForOfStatement` / `ForInStatement`
-（**从 `ts-ast.xl.md` 的 `projectForeach` 搬来**，第 185 轮）。
-
-**`of` 与 `in` 产物里没有记号**（`Foreach` 只有 `define` / `enumable` / `body` 三个段），
-所以按**原文**分辨：声明与枚举对象之间那一截里有 `in` 就是 `ForInStatement`。
-
-**`for await (… of …)` 的 `awaitModifier`**（第 174 轮）：TS 的 `ForOfStatement` 在
-`for` 与 `(` 之间有一个 `AwaitKeyword` 子节点（`awaitModifier`），而产物把它记成一个
-平级的 `Keyword(await)`（见上面构造器那段说明）。判据用**子单元**而不是原文：
-`header` 拿到的是配对的 `)`，从它切不出 `for` 与 `(` 之间那一段。
-
-```ts
-  const props: any = {};
-  const define = ctx.KidsOf(v, "define").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  if (define.length > 0) {
-    // **没有 `Let` 的那一档**（第 545 轮）：`for (const v of xs)` 的声明段在产物里是
-    // `[Keyword(const), Identifier(v)]` 两格平铺 —— 解析期的 `LetBranch` 只在
-    // `=` / `:` / `;` / `,` / 换行那几格进门，`of` / `in` 不在其中。
-    // TS 那边 `initializer` 同样是 `VariableDeclarationList`（不套 `VariableStatement`），
-    // 所以现造一个（见 `print-ast-common.xl.md` 的 `projectHeadDeclare`）。
-    if (define[0].get("type") === "Let") {
-      props.initializer = ctx.LetFrom(define, v).list;
-    }
-    // **左值不是声明、而是一个表达式**（第 982 轮）：`for (x of xs)` / `for (a.b of xs)` /
-    // `for (a!.b of xs)` 在 TS 那边 `initializer` 分别是 `Identifier` / `PropertyAccessExpression` /
-    // `NonNullExpression`——**不是** `VariableDeclarationList`。`projectHeadDeclare` 是
-    // **只为「有声明词」那一档写的**，可它**答不出「我不适用」**：光看它答没答不行——
-    // 实测 `for (x of xs)` 的段是 `[Identifier(x)]`，它照样从后往前找到那个名字、
-    // 照收成一条 `VariableDeclarationList`（多 `VariableDeclarationList` + `VariableDeclaration`
-    // 两格）；而 `for (a.b of xs)` 那一段它给 `undefined`、整个 `initializer` 消失（缺 4）。
-    // **所以判据是段里有没有那个声明词**：有（`const` / `let` / `var` / `using`，
-    // `for await` 那个 `await` 不算——它是个 `Identifier`，不在这一档词表里）就走声明段，
-    // 没有就按**表达式**投——与下面 `enumable` 那一格同一个投法。
-    const isDeclareWordKid = (k: any) => {
-      const text = ctx.TextOf(k);
-      return text === "const" || text === "let" || text === "var" || text === "using";
-    };
-    if (props.initializer === undefined) {
-      if (define.some(isDeclareWordKid)) {
-        const head = ctx.HeadDeclare(define, v);
-        if (head !== undefined) props.initializer = head;
-      } else {
-        const asExpression = ctx.Expression(define);
-        if (asExpression !== undefined) props.initializer = asExpression;
-      }
-    }
-  }
-  const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  if (enumable.length > 0) props.expression = ctx.Expression(enumable);
-  // **`in` / `of` 读字段**（第 631 轮）：收尾规则在切 Define / Enumable 的那一刻就见过那个词
-  // （`conditionBracket.Data[defineEnd]`），当场记成 `IsForIn`。从前这里拿定义段末尾到枚举对象
-  // 开头之间的**原文**做 `/\bin\b/` ——那是第二份答案：`for (const a /* in */ of [1])` 里
-  // 注释中的 `in` 会被命中，整条投成 `ForInStatement`（判据 `cm-foreach-in`）。
-  const kind = v.attrs.get("isForIn") === true ? "ForInStatement" : "ForOfStatement";
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  // **空体那一格先读 token 上的字段**（第 590 轮，与 `for` / `while` 同一条）：
-  // 有它就不必配对括号 + 扫原文。
-  const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
-    ? v.attrs.get("emptyBodyAt")
-    : undefined;
-  const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
-  let statement;
-  if (emptyAt >= 0) {
-    statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
-  } else {
-    // **体那一对花括号直读字段**（第 619 轮那一格，第 641 轮带上整段，与 `While` 同一条）：
-    // 两端都是**挂体那一刻**的事实 ⇒ `BodyBlockOf` 拿到它就**直接**给出那个 `Block`
-    //（空块 `for (const x of y) {}` 也在内），回原文找 `{` 再配对那一趟**一步都不走**。
-    // **头部那个 `)` 也先读字段**（第 634 轮）：收尾规则把它当场记下了。
-    const rawHeader = v.attrs !== undefined && typeof v.attrs.get === "function"
-      ? v.attrs.get("headerCloseAt")
-      : undefined;
-    const headerAt = typeof rawHeader === "number" ? rawHeader : -1;
-    const header = headerAt >= 0 ? headerAt : ctx.MatchingParen(ctx.source, v.start);
-    statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body, ctx.Attr(v, "bodyBraceRange"));
-  }
-  if (statement !== undefined) props.statement = statement;
-  const awaitUnit = ctx.Kids(v).find(
-    (k: any) => k.get("type") === "Keyword" && ctx.TextOf(k) === "await",
-  );
-  if (kind === "ForOfStatement" && awaitUnit !== undefined) {
-    props.awaitModifier = ctx.Project(awaitUnit);
-  }
-  // **坐标在前**（第 199 轮）：搬家前这里是 `{ kind, pos: v.start, end: v.end, ...props }`
-  // （两种 kind 一个写法），键序是 `samples` 逐字节比的那一项。
-  return ctx.NodeHead(kind, props, v);
-```
+（见 `PrintDirectAst` 那段说明）。
 
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 995 轮）：与上面的 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+**第三个出口的直出版**（第 995 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
 
 **换了什么**：三处 `ctx.TextOf` 换 `ctx.ValueOf`（声明词那四格与 `await` 都只读
 那一格自己记的 `value`）。
 
 **唯一让开的一处**：头部那个 `)` 的位置（`HeaderCloseAt`，收尾规则当场记的）**不在这一格上**时，
-`PrintAst` 会 `ctx.MatchingParen(ctx.source, v.start)` **回原文里配一次括号**——那正是直出版
+`PrintDirectAst` 会 `ctx.MatchingParen(ctx.source, v.start)` **回原文里配一次括号**——那正是直出版
 不许有的第二份近似 ⇒ 答 `undefined`，交回它走那一条。
 
 ```ts
@@ -412,7 +322,7 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
   } else {
     const rawHeader = typeof v.attrs.get === "function" ? v.headerCloseAt : undefined;
     const headerAt = typeof rawHeader === "number" ? rawHeader : -1;
-    // **头部那个 `)` 的位置不在这一格上** ⇒ 交回 `PrintAst`（它回原文里配一次括号）。
+    // **头部那个 `)` 的位置不在这一格上** ⇒ 交回 `PrintDirectAst`（它回原文里配一次括号）。
     if (headerAt < 0) {
       return undefined;
     }

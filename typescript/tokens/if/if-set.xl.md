@@ -155,182 +155,18 @@ ifSet.MountCondition(source);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<IfSet>` 里依次是各个 `IfSegment` 的 XML。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`if (a) { … } else if (b) { … } else { … }` → **嵌套的 `IfStatement`**
-（**从 `ts-ast.xl.md` 的 `projectIfSet` 整块搬来**，第 194 轮）。
-
-产物那边的形状是 `IfSet > IfSegment*`，而 TS 是
-`IfStatement(expression, thenStatement[, elseStatement])`——`IfSegment` 在 TS 侧**没有对应节点**
-（它是产物自己的分段壳）。所以不能走通用的 `structuralProps`：那会把 `IfSegment`
-原样透传（真实语料 103 处挂在「未覆盖标签」上），而每个段的体又会散成裸的语句单元
-（`Block` 整类缺 2185 处，其中 **1814 处的父节点正是 `IfStatement`**）。
-
-四处口径都是实测出来的（`tolist` 会把 `IfSegment` 的 `statement` 段**摊平**：
-
-1. **`IfSegment` 收起、`IfStatement` 摊平**：`statement` 段直接是体的语句列表，
-   `condition` 段直接是条件表达式——两者都不必再剥一层壳；
-2. **花括号要回原文找**：`if (a) { g(); }` 的 `IfStatement` 区间是 `[7,18]`（两个端点**包含**），
-   而 `if (a) g();` 的区间恰好等于那条语句本身。判据是「体的**每一段**都由花括号包着」——
-   只有首个语句的起点在 `{` 与配对 `}` 之间时才是块，否则那个 `{` 是**后一条语句**
-   （`if (a) b(); { }`）；用「第一个 `{` 就认块」会造出假节点；
-3. **`else` 那个词不进子字段**（第 76 轮实测）：TS 的 `IfStatement` 只有
-   `expression` / `thenStatement` / `elseStatement` 三格，`else` 是词法记号、
-   `ts.forEachChild` **不会**访问它——留着一个 `elseKeyword` 会让这一整类（163 处）
-   的字段名多出一格。所以下面那个位置仍然算出来（`at`），但**不挂进 `props`**；
-4. **`else if` 是嵌套、`else {}` 是块**：前者把一个完整的段交给递归；后者
-   `elseStatement` **就是那个体本身**（第 90 轮修）——多造一层会让 `IfStatement` 多出 225 个，
-   而 TS 那边 `elseStatement` 是 `Block`。
-
-**终点从体量出来**，不能取段的 `range[1]`：那两端在花括号体上是**包含**的、
-在单条语句体上是**排他**的。所以 `build` 把终点**显式交出来**（`else if` 时外层终点
-必须等于内层那个终点，直接读节点字段会读到未定的值）。
-
-```ts
-  const segments = ctx.Kids(v).filter((k: any) => k.get("type") === "IfSegment");
-  if (segments.length === 0) {
-    return ctx.NodeHead("IfStatement", {}, v);
-  }
-  const conditionOf = (seg: any) => {
-    const cond = ctx.KidsOf(seg, "condition");
-    return cond.length === 0 ? undefined : ctx.Expression(cond);
-  };
-  const bodyOf = (seg: any) => {
-    const cond = new Set(ctx.KidsOf(seg, "condition"));
-    const kept: any[] = [];
-    for (const k of ctx.AllKids(seg)) {
-      if (ctx.Invisible.has(k.get("type")) || cond.has(k)) continue;
-      // **花括号体那一层壳要摊平**：TS 那边 `thenStatement` 直接就是那个 `Block`，
-      // 中间没有 `IfBody` 这一层。不摊平的话 `BlockOfBody` 收到的「语句表」是**一个 `IfBody`**
-      // ⇒ 它一个语句都投不出来 ⇒ `Block.statements` 是**空的**，整棵子树从产物里消失
-      // （实测 `if (a) { return x; }` 缺 `ReturnStatement` + 它的子树，全语料 7.6 万个节点）。
-      if (k.get("type") === "IfBody") {
-        for (const inner of ctx.Kids(k)) kept.push(inner);
-        continue;
-      }
-      kept.push(k);
-    }
-    return kept;
-  };
-  const bodyFrom = (seg: any) => {
-    const cond = ctx.KidsOf(seg, "condition");
-    return cond.length === 0 ? -1 : ctx.EndOf(cond[cond.length - 1]);
-  };
-  const build = (index: number): any => {
-    const props: any = {};
-    const seg = { start: ctx.StartOf(segments[index]), end: ctx.EndOf(segments[index]) };
-    const expr = conditionOf(segments[index]);
-    if (expr !== undefined) props.expression = expr;
-    // **体那一对花括号读字段**（第 641 轮）：`IfSegment.BodyBrace` 在挂体那一刻就把两端记下了
-    // （第 637 轮），所以这里连「找 `{` + `MatchingBrace` 比语句表」那一趟都不走。
-    const thenBody = ctx.BlockOfBody(bodyOf(segments[index]), bodyFrom(segments[index]),
-      ctx.Attr(segments[index], "bodyBraceRange"));
-    // **空语句体的右端**：`seg.end` 含尾部换行，而 TS 的 `IfStatement` 到那个 `;` 为止。
-    let emptyBodyEnd = -1;
-    if (thenBody !== undefined) props.thenStatement = thenBody.node;
-    else {
-      // **空语句体 `if (a);`**（第 589 轮）：体那一格是一个**没有内容**的 `Statement`，
-      // 而 `projectStatement` 对它的口径是「`;` 必须写在**行首**」（那一处按排版分辨
-      // 「防御性分号」与「成员声明后面那个 `;`」）⇒ 跟在 `if (a)` 后面的那个 `;` 被判掉
-      // ⇒ `thenStatement` 整格缺（实测 `if (a);` 缺 1 + 字段名 1）。
-      // **位置读字段**（第 657 轮）：`IfSegment.EmptyBodyAt` 是 `MountStatement` 喂那个字符时
-      // 当场记下来的（`if (a) /* ; */ ;` 里按原文扫会命中注释里那个假分号）。
-      // 字段缺了才退回原来那条按原文扫的兜底。
-      const rawEmptyAt = ctx.Attr(segments[index], "emptyBodyAt");
-      if (typeof rawEmptyAt === "number" && rawEmptyAt >= 0) {
-        props.thenStatement = { kind: "EmptyStatement", pos: rawEmptyAt, end: rawEmptyAt + 1 };
-        emptyBodyEnd = rawEmptyAt + 1;
-      } else {
-        const close = ctx.MatchingParen(ctx.source, seg.start);
-        let at = close >= 0 ? close + 1 : -1;
-        while (at >= 0 && at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
-        if (at >= 0 && ctx.source[at] === ";") {
-          props.thenStatement = { kind: "EmptyStatement", pos: at, end: at + 1 };
-          emptyBodyEnd = at + 1;
-        }
-      }
-    }
-    let pos = seg.start;
-    let end = thenBody === undefined ? (emptyBodyEnd >= 0 ? emptyBodyEnd : seg.end) : thenBody.end;
-    if (index + 1 < segments.length) {
-      // **`else` 就在下一段的起点上**（`NextSegment("else"/"if", 那个 else 的起点)` 签的就是它）——
-      // 原来这里用 `ctx.source.lastIndexOf("else", …)` **回原文里找**，是同一件事的第二份答案。
-      const at = ctx.StartOf(segments[index + 1]);
-      const key = ctx.Attr(segments[index + 1], "key");
-      if (key === "if") {
-        const inner = build(index + 1);
-        props.elseStatement = inner.node;
-        // `else if` 时**内层那一层的起点**是那个 `if`（本段的 `pos` 不动）。
-        // **位置读字段**：`IfWordAt` 是造段时当场记下来的（`ctx.source.indexOf("if", at + 4)`
-        // 会命中 `else /* if */ if (…)` 里注释的那个 `if`）。
-        const rawIfAt = ctx.Attr(segments[index + 1], "ifWordAt");
-        inner.node.pos = typeof rawIfAt === "number" && rawIfAt >= 0 ? rawIfAt : ctx.source.indexOf("if", at + 4);
-        end = inner.end;
-      } else {
-        const elseBody = ctx.BlockOfBody(bodyOf(segments[index + 1]), bodyFrom(segments[index + 1]),
-          ctx.Attr(segments[index + 1], "bodyBraceRange"));
-        if (elseBody !== undefined) {
-          props.elseStatement = elseBody.node;
-          end = elseBody.end;
-        } else {
-          // **空语句体 `else ;`**（第 657 轮）：位置读字段（见 `IfSegment.EmptyBodyAt`）。
-          // 少了这一支，`else ;` 会掉进下面「空体（`else {}`）」那条路——被画成一个**空的 `Block`**。
-          const rawElseEmpty = ctx.Attr(segments[index + 1], "emptyBodyAt");
-          if (typeof rawElseEmpty === "number" && rawElseEmpty >= 0) {
-            props.elseStatement = { kind: "EmptyStatement", pos: rawElseEmpty, end: rawElseEmpty + 1 };
-            end = rawElseEmpty + 1;
-          } else {
-          // 空体（`else {}`）：TS 那边仍是一个空 `Block`。
-          // **位置读字段**（第 621 轮）：`BodyBraceAt` 是挂体那一刻当场记下来的
-          // （`MountBodyOrStatement` 里那个括号就在手上），而 `indexOf("{", at + 4)`
-          // 会命中注释里的假括号——那是**第二份位置答案**。字段缺了才退回按原文找。
-          //
-          // **右端也读字段**（第 637 轮）：`IfSegment.BodyBrace` 把**整对括号**一起带出来
-          //（段的 `Data` 成形那一刻收的，与 `Try.TryBrace` 同一条口径），
-          // 所以这里连 `MatchingBrace` 那一趟**回原文重扫**都不必再走一遍。
-          const rawElseBrace = ctx.Attr(segments[index + 1], "bodyBraceAt");
-          const rawElseRange = ctx.Attr(segments[index + 1], "bodyBraceRange");
-          const elseSpan =
-            typeof rawElseRange === "string" && rawElseRange.includes(",") ? rawElseRange.split(",") : null;
-          if (elseSpan !== null) {
-            props.elseStatement = {
-              kind: "Block",
-              statements: [],
-              pos: Number(elseSpan[0]),
-              end: Number(elseSpan[1]) + 1,
-            };
-            end = Number(elseSpan[1]) + 1;
-          } else {
-            const brace = typeof rawElseBrace === "number" && rawElseBrace >= 0
-              ? rawElseBrace
-              : ctx.source.indexOf("{", at + 4);
-            const close = brace >= 0 ? ctx.MatchingBrace(ctx.source, brace) : -1;
-            if (brace >= 0 && close >= brace) {
-              props.elseStatement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
-              end = close + 1;
-            }
-          }
-          }
-        }
-      }
-    }
-    return { node: { kind: "IfStatement", pos, end, ...props }, end };
-  };
-  return build(0).node;
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 998 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 998 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
-**这一页的三处兜底都换成了「让开」**：`PrintAst` 里三条回原文的路
+**这一页的三处兜底都换成了「让开」**：`PrintDirectAst` 里三条回原文的路
 （头部 `)` 附近找 `;`、`else` 那一段里 `indexOf("if")`、空块找 `{` + 配对 `}`）
 各自都有**对应的那一格字段**（`emptyBodyAt` / `ifWordAt` / `bodyBraceRange`，第 657 / 634 / 637 轮）。
 
 **让开必须发生在「一个节点都还没投」之前**（第 998 轮实测到的坑）：`ctx.Expression` /
-`ctx.BlockOfBody` 一调用就**记一次账**（`projectNode` 的 `count`），而让开之后 `PrintAst`
+`ctx.BlockOfBody` 一调用就**记一次账**（`projectNode` 的 `count`），而让开之后 `PrintDirectAst`
 会把同一格再投一遍 ⇒ 两趟的 `count` 差出来（实测 `stmt-empty-blocks` +1、`stmt-if-empty-else-block` +2，
 产物字节一模一样、只有记账不等）。所以这里先跑一趟**只看字段、不投任何东西**的 `canBuild`
 （`ctx.Attr` / `ctx.Kids` / `ctx.KidsOf` / `ctx.Invisible` 都不记账），它答否就整条链让开。

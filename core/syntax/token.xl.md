@@ -615,7 +615,7 @@ return "[" + this.RangeStart() + "," + this.RangeEnd() + "]";
 const span: string[] = this.RangeOf().slice(1, -1).split(",");
 node.set("range", [Number(span[0]), Number(span[1])]);
 const children = this.Data;
-// **记下「这一格是哪个 token 出的」**：第三个出口（`PrintAst`）按 token 分派——
+// **记下「这一格是哪个 token 出的」**：第三个出口（`PrintDirectAst`）按 token 分派——
 // 投影器拿到一个字典格时先问它的 token「你自己出不出形状」（覆写了就用它自己出的那一格）。
 // 这一处配对本来就做完了（上面的 `taken[i] = token`），所以只是把它记下来，不多算一步。
 //
@@ -774,44 +774,12 @@ return undefined;
 return JSON.stringify(Token.ToPlain(this.ToList()));
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**第三个出口**：这个节点按**目标语言的形状**输出自己（本工程的目标是 `ts.createSourceFile`
-同形的 AST，见 `typescript/print-ast-common.xl.md`）。
-
-前两个出口（`ToXmlString` / `ToDictionary`）说的是「这棵树长什么样」；这一个说的是
-「把这棵树投成**另一个形状**时，**我**该长成什么」。
-
-**基类不出形状**（`core/` 与语言无关，只有 `Token` 这一层模型）：默认返回 `undefined`，
-意思就是「我不自己出，交给语言层的通用支」——通用支做的事是**换名 + 提层 + 字段名**
-（三张表，见 `typescript/print-ast-common.xl.md` 的 `KIND_BY_TAG` / `WRAPPER_FIELDS` / `FIELD_BY_KIND`）。
-
-**覆写它就是「这个 token 自己出这一格」**：与 `ToXmlString` / `ToDictionary` 完全同一种组织方式
-（基类给默认行为、各 token 覆写自己那一格），区别只在于这一个出口的目标形状是**语言层**定的。
-
-两个参数：
-
-- `ctx`：语言层创建的投影上下文。它带着原文与记账（`source` / `unmapped` / `count`），
-  也带着**出口助手**（`Node` / `Each` / `Members` / `Project` / `Text` / `TextOf` /
-  `LeafKind` / `KeywordKind` / `TokenKind` / `StringText`）——所以覆写里**不需要 import 任何东西**；
-- `v`：**这个节点自己的视图**——标量属性进 `attrs`、数组进 `segments`、坐标在 `start` / `end`。
-  它与另外两个出口**同源**：底层就是 `ToDictionary()` + `WithRange()` 的那一份
-  （`WithRangeOf` 在补坐标时把「这一格是哪个 token」记在字典格上，投影器据此分派）。
-
-**出的是「这一格」（对象），不是文本**：整棵树的文本由出口那一步统一串一次
-（`typescript/print-ast-common.xl.md` 的 `ToJsonText`）——与 `ToXmlString` 的差别只是「拼对象」对「拼串」，
-而 XML 那边拼串是因为它的目标形状本来就是文本。
-
-```ts
-return undefined;
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+**第三个出口的直出版**（第 992 轮）：与 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
 属性、子单元（`Data` / 视图里的 `segments`）、以及 `Parent`。
 
-**它与 `PrintAst` 的分工**：`PrintAst` 是「这一格出哪个节点」的**现状**，而那一层里混着
+**它与 `PrintDirectAst` 的分工**：`PrintDirectAst` 是「这一格出哪个节点」的**现状**，而那一层里混着
 **回原文查**的路（`ctx.Text` / `ctx.TextOf` / `ctx.StringText` / `ctx.source`，以及跟在后面的
 `indexOf` / `slice` 这类二次搜刮）。回原文查是**第二份近似**：同一个事实解析期已经知道过一次
 （名字在哪里、括号配对到哪里、这个 `;` 属不属于上一条语句），投影再猜一次，
@@ -824,7 +792,7 @@ return undefined;
 1. **同答**：覆写了这一格的 token，投影**优先问它**；整个语料跑两遍（直出通道开 / 关）
    产物必须**逐字节相同**——那是 `cases:direct`。不一样就是这一格写错了，不是「另一种口径」；
 2. **只用 token 自己的东西**：这一格的方法体里**不许**出现 `ctx.source` / `ctx.Text` /
-   `ctx.TextOf` / `ctx.StringText`，也不许把问题**转手**回 `this.PrintAst`——`direct:lint` 逐页扫。
+   `ctx.TextOf` / `ctx.StringText`，也不许把问题**转手**回 `this.PrintDirectAst`——`direct:lint` 逐页扫。
    要问「某个子单元的值」时走 `ctx.ValueOf`（只读那一格自己记的值，**不回原文兜底**）。
    **也不许按字符串键查**：`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`
    （第 1012 轮补上最后这一族，实测 23 处 / 10 页，全部换成属性读）。
@@ -833,7 +801,7 @@ return undefined;
    所以 `ctx.Attr(v, "questionAt")` 与 `v.questionAt` 逐字节同答，后者才是「读这一格自己的属性」。
    只认**字面量**那一档：`ctx.Attr(x, 某个变量)` 不是按字符串键查。
 
-**基类答 `undefined`**＝「我没有直出版，照旧走 `PrintAst` / 通用支」：与 `PrintAst` 同一个约定，
+**基类答 `undefined`**＝「我没有直出版，照旧走 `PrintDirectAst` / 通用支」：与 `PrintDirectAst` 同一个约定，
 所以这一格可以**逐页**搬——搬一页多一页直出，`projectRoot` 返回的 `direct` 记账量的就是这个数。
 
 **搬一页时要先问「这一页是几件事」**（第 1003 轮从 `Bracket` 那一页量出来的）：
@@ -863,10 +831,10 @@ return undefined;
 两次都是**按实测撤回**（一次红 `cases:direct` 22 份、一次把 `coverage` 的
 `blocked` 从 29 顶到 133）——两次都错在「按读代码的印象把它当成一件事」。
 
-**同页要留着 `PrintAst`**（见下一条判据）：`Bracket` 原来**连 `PrintAst` 都没有**
-（形状一直由通用支给），所以搬它时要**两半一起写**——`PrintAst` 把「这一页出什么」写下来
+**同页要留着 `PrintDirectAst`**（见下一条判据）：`Bracket` 原来**连 `PrintDirectAst` 都没有**
+（形状一直由通用支给），所以搬它时要**两半一起写**——`PrintDirectAst` 把「这一页出什么」写下来
 （同答从此有一条逐字节的基线），`PrintDirectAst` 再照着它去掉回原文查。
-判据②要求的是**同页存在** `PrintAst`，**不是**「它必须与直出版不同」：两条路逐句同一份
+判据②要求的是**同页存在** `PrintDirectAst`，**不是**「它必须与直出版不同」：两条路逐句同一份
 正是这一格想要的结果。
 
 ```ts
@@ -919,7 +887,7 @@ return undefined;
 
 **这一趟的通用支一次都没有真的出过节点**（同一轮实测）：直出版这一趟的 `unmapped`
 （＝通用支里「查不到 kind ⇒ 原样透传」那一支的产物）在 1640 份用例语料与 2051 份全语料上
-**都是 0**——覆盖不到的格走的是 `PrintAst` 覆写或「问完就丢」。所以
+**都是 0**——覆盖不到的格走的是 `PrintDirectAst` 覆写或「问完就丢」。所以
 「这一格搬完了没有」这句话在直出版这一趟的准确说法是
 **「被问到的那 74 个类里没有一个答不出」**。
 
@@ -928,8 +896,8 @@ return undefined;
 **投成目标语言形状时，本单元的段叫什么**：`目标语言的节点名` → （`产物那边的分段名` → `目标语言的字段名`）。
 
 前两个出口（`ToXmlString` / `ToDictionary`）说的是「这棵树长什么样」，这一格说的是
-「**把这棵树投成另一个形状时，我这些段该叫什么**」——所以它与 `PrintAst` 是同一件事的两半：
-`PrintAst` 说「这一格出哪个节点」，`SegmentNames` 说「这个节点的字段叫什么」。
+「**把这棵树投成另一个形状时，我这些段该叫什么**」——所以它与 `PrintDirectAst` 是同一件事的两半：
+`PrintDirectAst` 说「这一格出哪个节点」，`SegmentNames` 说「这个节点的字段叫什么」。
 
 **为什么住在 token 上而不是投影层的一张中央表里**：段名是**这个 token 自己的事实**。
 `compare` 对 `While` 是 `expression`、对 `For` 是 `condition`——同一张表要按 kind 分几十档去记，

@@ -328,18 +328,9 @@ super(template);
 ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格是它自己出的**（第 77 轮）：TS 那边是 `ArrayType`，元素那一段叫 `elementType`
-（产物这一格的子单元就是元素类型本身，没有「元素段」这一层名字，所以名字在这里给死）。
-
-```ts
-return ctx.Node("ArrayType", { elementType: ctx.Each(v, "ArrayType") }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -385,19 +376,9 @@ super(template);
 ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格是它自己出的**（第 77 轮）：TS 那边是 `TupleType`，元素那一段叫 `elements`；
-元组成员之间用 `,` 切（`TYPE_MEMBER_SEPARATORS` 的第三档），切完每段整段投——
-`[A, B, ...C[], name?: D]` 里的可选 / 变长 / 具名成员因此各是一个节点。
-
-```ts
-return ctx.Node("TupleType", { elements: ctx.Each(v, "TupleType") }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -424,36 +405,9 @@ return result;
 
 **与值位下标访问的区别只在容器**：`a[i]` 的父单元是语句 / 表达式，`T[K]` 的父单元是类型容器。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-下标访问类型 `A[K]` → `IndexedAccessType`（`objectType` + `indexType`；
-**从 `ts-ast.xl.md` 的 `projectIndexedAccessType` 搬来**，第 184 轮）。
-
-产物那边是**一串平级单元**（方括号本身不进产物，与 `ArrayType` 同一口径），
-所以按「单元起点在下标括号之前还是之后」切两段——两段都以类型位方式投
-（`NodeJS.TypedArray[K]` 的对象类型因此才是一个限定名，而不是散单元）。
-段名对不上是实测最大的一处字段差异（657 处：产物只有 `children`）。
-
-```ts
-  const kids = ctx.Kids(v);
-  const open = ctx.IndexBracketOf(v);
-  if (open < 0) {
-    const whole = ctx.TypeExpression(kids);
-    return ctx.NodeHead("IndexedAccessType", { objectType: whole }, v);
-  }
-  const objectUnits = kids.filter((k: any) => ctx.StartOf(k) < open);
-  const indexUnits = kids.filter((k: any) => ctx.StartOf(k) >= open);
-  const props: any = {};
-  const objectType = ctx.TypeExpression(objectUnits);
-  const indexType = ctx.TypeExpression(indexUnits);
-  if (objectType !== undefined) props.objectType = objectType;
-  if (indexType !== undefined) props.indexType = indexType;
-  return ctx.NodeHead("IndexedAccessType", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

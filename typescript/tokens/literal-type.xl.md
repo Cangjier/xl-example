@@ -318,26 +318,9 @@ return index;
 return new Map([["LiteralType", new Map([["children", "literal"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格是它自己出的**（第 1001 轮）：`<LiteralType>` 在投影里一直走**通用支**
-（`KIND_BY_TAG` 换名 + `structuralProps` 给字段名 + 子单元照投），这一页把那一趟**写下来**。
-
-**为什么值得写下来**：通用支是「三张中央表的合力」（换名表 / 字段名表 / 段名表），
-而段名本来就是**这一页自己的事实**（见上一格 `SegmentNames`）——
-写下来之后，这一格的形状有了一份可以逐字节对拍的**基线**，直出版也因此有了对象
-（`direct:lint` 的判据②：覆写了直出版的页面必须留着 `PrintAst`）。
-
-字段仍由 `ctx.Structural` 给：它与通用支**同一份实现**（`structuralProps`），
-所以产物逐字节相同——这一页换来的只是「谁来说这一格」。
-
-```ts
-return ctx.Node("LiteralType", ctx.Structural(v, "LiteralType"), v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintAst` 出**同一个答案**。
+**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintDirectAst` 出**同一个答案**。
 
 这一页**一处回原文查都没有**：名字（如果有）走属性、段内内容由 `ctx.Structural`
 按子单元投（那是投影层的事），所以两半逐行同一份——

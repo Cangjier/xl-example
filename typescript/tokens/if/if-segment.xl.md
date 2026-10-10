@@ -268,7 +268,7 @@ return `<${name} range="${this.RangeOf()}" key="${this.key}"${ifWord}${bodyBrace
 
 **为什么让 token 记着**（用户口径：token 出字段、投影直读）：`MountStatement` 就是把体那一个字符
 喂给新段的那一处 ⇒ **那个 `;` 正在手上** ⇒ 当场记下来。投影那边原来只能按原文从条件的 `)`
-往后扫一个 `;`（`if-set.xl.md` 的 `PrintAst`），而 `if (a) /* ; */ ;` 会命中注释里的假分号；
+往后扫一个 `;`（`if-set.xl.md` 的 `PrintDirectAst`），而 `if (a) /* ; */ ;` 会命中注释里的假分号；
 `else` 那一支更糟：它原先假定「不是块就是 `{}`」，于是 `else ;` 被画成一个**空的 `Block`**。
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
@@ -280,7 +280,7 @@ return `<${name} range="${this.RangeOf()}" key="${this.key}"${ifWord}${bodyBrace
 
 **为什么补这一格**：投影画 `else {}` 那个空 `Block` 时，右端原来要
 `MatchingBrace(ctx.source, brace)` **回原文重扫一遍** ⇒ 缩到那一格还得再扫
-（见 `if-set.xl.md` 的 `PrintAst` 里「位置读字段」那一段）。可这一段**打包那一刻括号就在段里**
+（见 `if-set.xl.md` 的 `PrintDirectAst` 里「位置读字段」那一段）。可这一段**打包那一刻括号就在段里**
 （`IfBody` 就是那个 `Bracket`，它自己的区间两头都签好了）⇒ 当场收下来，投影两格都直读。
 
 `Range` 为空（体不是花括号块）时值也是 `-1`——用 `IsSet` 判。

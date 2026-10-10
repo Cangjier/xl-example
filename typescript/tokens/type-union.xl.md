@@ -512,19 +512,9 @@ super(template);
 ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格是它自己出的**（第 77 轮）：`A | B` 在 TS 那边就是 `UnionType`，成员是 `types`；
-切分规则由 `parentKind` 选（`|` 那一档，见 `typescript/print-ast-common.xl.md` 的 `TYPE_MEMBER_SEPARATORS`）——
-所以「`|` 是成员分隔符」这件事跟着这条规则待在同一个文件里。
-
-```ts
-return ctx.Node("UnionType", { types: ctx.Each(v, "UnionType") }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -570,18 +560,9 @@ super(template);
 ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格是它自己出的**（第 77 轮）：`A & B` 在 TS 那边是 `IntersectionType`，成员是 `types`；
-`&` 比 `|` 紧，所以切分按 `&` 那一档（`TYPE_MEMBER_SEPARATORS`）。
-
-```ts
-return ctx.Node("IntersectionType", { types: ctx.Each(v, "IntersectionType") }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

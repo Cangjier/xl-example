@@ -359,25 +359,9 @@ if (this.Data.length !== 0) {
 return result;
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格是它自己出的**（第 77 轮）：字符串在 TS 那边是 `StringLiteral`，**区间含那对引号**
-（`"x"` 是 `[17,20)`），文本则**不含**引号——区间取视图自己的坐标，文本由 `StringText` 取
-（与 XML 出口的 `<ConstString>` 同源）。
-
-**模板串是另一套结构**（第 99 轮）：`` `a${x}b` `` 在 TS 那边是
-`TemplateExpression > [TemplateHead, TemplateSpan(expression, literal=TemplateTail)]`
-（类型位的 `` `${string}` `` 是 `TemplateLiteralType` + `TemplateLiteralTypeSpan`）。
-那一套要递归投内插里的表达式 / 类型，所以**实现留在投影层**（`ts-ast.xl.md` 的
-`projectString`），这里只把这一格转过去：
-
-```ts
-return ctx.Template(v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

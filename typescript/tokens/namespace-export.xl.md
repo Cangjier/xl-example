@@ -128,24 +128,9 @@ return ReplaceCountAt(units, index, nameIndex - index + 1, result);
 
 与 `NameStart` 同进退的终点（闭区间下标）。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`export as namespace Foo;` → `NamespaceExportDeclaration`（第 1001 轮）。
-
-**这一页原来连 `PrintAst` 都没有**：投影一直走**通用支**（`KIND_BY_TAG` 把 `NamespaceExport`
-换成 `NamespaceExportDeclaration` + `structuralProps` 按 `name` 属性合成那个 `Identifier`）。
-这里把那一趟写下来——名字那一格的合成仍是 `memberNameOf` 的活儿
-（`NameStart` / `NameEnd` 就是它要的两格，见上面那两个字段），本页只是**换名**。
-
-字段由 `ctx.Structural` 给：与通用支**同一份实现**，所以产物逐字节相同。
-
-```ts
-return ctx.Node("NamespaceExportDeclaration", ctx.Structural(v, "NamespaceExportDeclaration"), v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintAst` 出**同一个答案**。
+**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintDirectAst` 出**同一个答案**。
 
 这一页**一处回原文查都没有**（本单元没有子单元，名字与它的位置都在属性上——
 `name` / `nameStart` / `nameEnd` 三格就是「不回原文 `indexOf` 猜名字」那条口径的落点），

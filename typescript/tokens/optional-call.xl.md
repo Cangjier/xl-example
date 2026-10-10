@@ -260,7 +260,7 @@ let startIndex = index;
 //（不是「判据太窄」，是**根本没走到这里**；最可能是那一步时实参括号还没关闭，
 //  而 `IsCallArguments` 要求 `Closed` → `-1`）。
 // 改动**已经全部改回来**；`o.m?.().k` 那一档继续记在台账里，下一轮从「谁在投影它」查起
-//（`Method.PrintAst` 的可选链那一支也在嫌疑里——第 147 轮刚在那儿改过）。
+//（`Method.PrintDirectAst` 的可选链那一支也在嫌疑里——第 147 轮刚在那儿改过）。
 if (current.constructor.name === "NullConditionalOperator") {
   startIndex = this.CalleeStart(units, SkipPreviousWrapSymbol(units, index));
 } else {

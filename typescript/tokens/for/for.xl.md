@@ -158,7 +158,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   // **体那一对花括号当场记进 `BodyBrace`**（第 598 轮那一格，第 641 轮带上整段）：
   // 空块（`for (;;) {}`）的体段一个可见子单元都没有，投影那边要造一个空 `Block` 就只能回原文里
   // `indexOf(")")` + `indexOf("{")` + `MatchingBrace` 重扫一遍（那是同一条判据的第二份近似）。
-  // 记成**整对区间**之后投影直读（见 `PrintAst`），连配对那一趟都不走。
+  // 记成**整对区间**之后投影直读（见 `PrintDirectAst`），连配对那一趟都不走。
   result.BodyBrace.Set(statementBracket.SourceRange.Start!.Index, statementBracket.SourceRange);
   statementBracket.MoveDataTo(forBody);
   forBody.SignIn(statementBracket.SourceRange.Start!);
@@ -183,7 +183,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
     // ⇒ `SearchStatementEnd` 与 `LastMeaningfulIndex` 都给 `-1`。
     // 从前这里抛错（`dist/ts/typescript/print-ast-common.ts` 那份 `for (…);` 就是它挡下的）。
     // 体为空、`endIndex` 退到 `)` 那一格：区间借宿主的右端（下面那一支），
-    // 而 `;` 由投影侧读 `EmptyBodyAt` 补成 `EmptyStatement`（见 `For.PrintAst`）。
+    // 而 `;` 由投影侧读 `EmptyBodyAt` 补成 `EmptyStatement`（见 `For.PrintDirectAst`）。
     if (endIndex === -1) {
       endIndex = currentIndex - 1;
       emptyBody = true;
@@ -249,7 +249,7 @@ return new Map([["ForStatement", new Map([["initial", "initializer"], ["compare"
 `ForCloseRule.Process` 那一处拿得到全部信息——那个 `;` 触发规则时**还没进单元列表**，
 所以那边算的是「借宿主 `Statement` 的右端」。投影若再判一次，就得拿
 `MatchingParen` + 跳空白**重扫一遍原文**，那是同一条判据的第二份近似。
-记成字段之后，投影只做一次字段读取（见 `PrintAst`）。
+记成字段之后，投影只做一次字段读取（见 `PrintDirectAst`）。
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
@@ -271,79 +271,16 @@ return new Map([["ForStatement", new Map([["initial", "initializer"], ["compare"
 **只在「体段既没有可见子单元、也没有 `emptyBodyAt`」那条兜底支里用它**：
 正常那几支分别由 `BlockOfBody`（非空块）与 `emptyBodyAt`（空语句）说了算。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`for (let i = 0, j = 1; i < j; i++, j--) {}` → `ForStatement`
-（**从 `ts-ast.xl.md` 的 `projectFor` 搬来**，第 189 轮）。
-
-产物那边四个段是命名段（`initial` / `compare` / `next` / `body`），TS 那边是
-`initializer` / `condition` / `incrementor` / `statement`：
-
-- **头部三段是表达式位**：照通用投影会逐个单元投（`i < j` 会散成 `Identifier` +
-  `LessThanToken` + `Identifier`）；`let` 开头的那一段走列表版
-  （`VariableDeclarationList`，**不套 `VariableStatement`**）；
-- **体段为空时 `body` 是 `[]`**（`for (;;) {}` 的空块在 `ToList` 时就摊掉了），
-  而 TS 那边仍有一个空 `Block`——所以空体要**自己从原文造**（按头部 `)` 之后的 `{` 量区间）；
-- **空体语句 `for (…);`**（第 127 轮）：体段是空的、原文里 `)` 之后紧跟一个 `;`——
-  TS 那边那是一个 `EmptyStatement`（`ForStatement.statement` 不会缺）；
-- **尾部 trivia 要剪掉**（第 125 轮）：循环的体段在产物里常含行尾的软换行，
-  而 TS 的语句**从不含尾部 trivia**。
-
-```ts
-  const props: any = {};
-  const initial = ctx.KidsOf(v, "initial").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  if (initial.length > 0) {
-    props.initializer =
-      initial[0].get("type") === "Let" ? ctx.LetFrom(initial, v).list : ctx.Expression(initial);
-  }
-  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  if (compare.length > 0) props.condition = ctx.Expression(compare);
-  const next = ctx.KidsOf(v, "next").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  if (next.length > 0) props.incrementor = ctx.Expression(next);
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  // **体那一对花括号直读字段**（第 598 轮那一格，第 641 轮带上整段）：两端都是**挂体那一刻**的
-  // 事实 ⇒ `BlockOfBody` 拿到它就**直接**给出那个 `Block`（空块 `for (;;) {}` 也在内），
-  // 回原文找 `{` 再配对那一趟一步都不走。`from` 这一格在这条路上用不到（给 -1）。
-  const built = ctx.BlockOfBody(body, -1, ctx.Attr(v, "bodyBraceRange"));
-  if (built !== undefined) {
-    props.statement = built.node;
-  }
-  if (props.statement === undefined) {
-    // **空体语句的 `;` 位置由 token 直接给出**（第 590 轮）：`ForCloseRule` 造这个单元时
-    // 就知道体是空的（`;` 触发规则那一刻它还没进列表，所以那边退到「借宿主右端」）——
-    // 把这个事实记成 `emptyBodyAt`，投影**不必再拿 `MatchingParen` 重扫一遍原文**
-    //（「token 出字段、投影直读」：判据只算一次，投影那一侧不做第二次近似）。
-    // **字段从 `attrs` 上读**（与 `UnaryOperator.PrintAst` 的 `op` 同一个入口）：
-    // 投影收到的 `v` 是节点包装，`ToDictionary` 的键挂在 `v.attrs` 上（`v.get` 不存在）。
-    const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
-      ? v.attrs.get("emptyBodyAt")
-      : undefined;
-    const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
-    if (emptyAt >= 0) {
-      props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
-    } else {
-      const close = ctx.Attr(v, "headerCloseAt");
-      const closeAt = typeof close === "number" && close >= 0 ? close : ctx.MatchingParen(ctx.source, v.start);
-      let at = closeAt >= 0 ? closeAt + 1 : v.start;
-      while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
-      if (ctx.source[at] === ";") {
-        props.statement = { kind: "EmptyStatement", pos: at, end: at + 1 };
-      }
-    }
-  }
-  return ctx.NodeHead("ForStatement", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 997 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 997 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 **这一页差的只有一格**：`bodyBraceRange` / `emptyBodyAt` **早就在 token 上**（第 641 / 590 轮），
-`PrintAst` 里回原文的那一段是**空体语句 `for (…);` 的最后一招**——
+`PrintDirectAst` 里回原文的那一段是**空体语句 `for (…);` 的最后一招**——
 拿头部 `)` 之后再扫一遍空白找那个 `;`（`ctx.source` + `ctx.MatchingParen`）。
-直出版把这一招去掉：体段既非块、`emptyBodyAt` 又没记过时**答 `undefined` 交回 `PrintAst`**
+直出版把这一招去掉：体段既非块、`emptyBodyAt` 又没记过时**答 `undefined` 交回 `PrintDirectAst`**
 （与 `Lamda` / `Foreach` 那两处同一个约定）。
 
 ```ts
@@ -372,7 +309,7 @@ return new Map([["ForStatement", new Map([["initial", "initializer"], ["compare"
     if (emptyAt >= 0) {
       props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
     } else {
-      // 字段没记过 ⇒ **不猜**（原来的最后一招是回原文扫那个 `;`），交回 `PrintAst`。
+      // 字段没记过 ⇒ **不猜**（原来的最后一招是回原文扫那个 `;`），交回 `PrintDirectAst`。
       return undefined;
     }
   }

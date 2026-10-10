@@ -215,7 +215,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 `try` 体那一对花括号：**值是开括号的偏移**，`Range` 是**整对括号**（含两边）。
 
 **为什么要有这一格**：投影原来**回原文里找**——`ctx.source.indexOf("{", tryAt)` 再 `ctx.MatchingBrace`
-（见下面 `PrintAst` 第 586 轮之前那一版）。那是**第二份位置答案**：块里的字符串与注释同样有
+（见下面 `PrintDirectAst` 第 586 轮之前那一版）。那是**第二份位置答案**：块里的字符串与注释同样有
 花括号，而打包那一刻（`TryCloseRule.Process`）**括号就在手上** ⇒ 当场记下来，
 投影只读这一格。`TokenField` 的「值 + 区间」正好装下「开括号在哪、整对到哪」。
 
@@ -235,122 +235,9 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 `finally` 体那一对花括号；没有 `finally` 段时是 `-1` / `null`。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`try { … } catch (e) { … } finally { … }` → `TryStatement`
-（**从 `ts-ast.xl.md` 的 `projectTry` 搬来**，第 189 轮）。
-
-产物那边三段是**命名段**（`body` / `catches` / `finally`，见 `ToList`），
-TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
-
-- `body` / `finally` 段里直接是**语句**（`TryBody` / `FinallyBody` 那层壳在 `ToList` 时
-  就被摊平了），所以两个 `Block` 要**自己造**：按关键字之后的那个 `{` 与配对的 `}` 量区间；
-- `catches` 段里是 `CatchDefine`（`(e)`，区间含括号）与 `CatchBody`（本来就是 `Block`）——
-  `CatchDefine` 在 TS 里**不是节点**，它的内容进 `CatchClause.variableDeclaration`。
-
-**解构捕获 `catch ({ message })`**（第 160 轮）：那个 `{ message }` 在产物里已经被
-`JsonObjectCloseRule` 收成 `ObjectLiteral`，而 TS 那边 `name` 是 `ObjectBindingPattern`
-——所以要走 `ctx.BindingPattern`（数组解构同理）。
-
-**空的 `finally { }` 也要造块**（第 177 轮）：按语句数判会把它整个跳过，而 TS 那边照样有一个空
-`Block`。判据落在原文上：在**体（或 catch 体）之后**找 `finally` 这个词——
-从 `v.start` 找会命中块里的字符串或注释。
-
-```ts
-  const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  const props: any = {};
-  // **三段花括号的坐标全部读字段**（第 586 轮）：`TryCloseRule.Process` 打包那一刻
-  // 括号就在手上 ⇒ 当场记进 `TryBrace` / `CatchBrace` / `FinallyBrace`。
-  // **不再回原文里找**：原来那两句是 `ctx.source.indexOf("{", …)` + `ctx.MatchingBrace`，
-  // 而块里的字符串与注释同样有花括号 —— 那是**第二份位置答案**（而且它与 token 的区间
-  // 可能不一致，尺子上就是「漂移 + 多出」成对出现）。
-  const blockOf = (field: any, statements: any) => {
-    const range = field.Range;
-    if (range === null || range.Start === null || range.End === null) return undefined;
-    return { kind: "Block", statements, pos: range.Start.Index, end: range.End.Index + 1 };
-  };
-  const tryBlock = blockOf(this.TryBrace, ctx.ProjectEach(seg("body"), "Block"));
-  if (tryBlock !== undefined) props.tryBlock = tryBlock;
-  const catches = seg("catches");
-  const catchDefine = catches.find((k: any) => k.get("type") === "CatchDefine");
-  const catchBody = catches.find((k: any) => k.get("type") === "CatchBody");
-  if (catchDefine !== undefined || catchBody !== undefined) {
-    const inner: any = {};
-    if (catchDefine !== undefined) {
-      const binding = ctx.AllKids(catchDefine).find((k: any) => !ctx.Invisible.has(k.get("type")));
-      const isPattern =
-        binding !== undefined &&
-        (binding.get("type") === "ObjectLiteral" ||
-          binding.get("type") === "ArrayLiteral" ||
-          (binding.get("type") === "Bracket" &&
-            (binding.get("startBracket") === "{" || binding.get("startBracket") === "[")));
-      const name =
-        binding === undefined
-          ? undefined
-          : isPattern
-            ? ctx.BindingPattern(binding)
-            : ctx.Project(binding);
-      if (name !== undefined) {
-        // **区间要连类型标注一起**（第 893 轮，**片段普查当场红的**）：
-        // TS 那边的 `VariableDeclaration` 是 `e: unknown` **整段**
-        //（`catch (e: unknown) { }` 实测 [15,25)），而这里原来只按名字的两端给
-        // ⇒ 漂一格（`VariableDeclaration` [15,16)）加**多一格**（那多出来的是
-        // 「名字自己也是一个节点」那一路，区间短的那个把它顶掉了）。
-        // **类型那一格在产物里是 `TypeDefine`**（`catchDefine` 的第二个可见子单元，
-        // 见上面的 XML：`<Identifier>e</Identifier><TypeDefine>…</TypeDefine>`）——
-        // 它的区间**含那个 `:`**（实测 [16,24)，正与 TS 的 [15,25) 差一个右界）。
-        // **没有类型标注时一个字都不变**（`catch (e)`：`e` 的两端就是整段）。
-        //
-        // **第二处：类型那一格要投 `TypeDefine` 的**内容**，不是那层壳**（第 893 轮）。
-        // TS 那边 `variableDeclaration.type` 是**那个类型节点本身**：
-        // `catch (e: unknown)` 给 `UnknownKeyword[17,25)`（`text` 是 `": unknown"`——
-        // 连那个 `:` 一起，那是 TS 的 `getStart()` 口径），而壳上**没有 `UnknownKeyword`
-        // 这一档**（窄化表只认「类型表达式」那个位置里的原始类型名）。
-        // 照壳投出来的是一格 `TypeReference` ⇒ 四个方向里「缺 `UnknownKeyword`」
-        // 与「字段名缺 `type`」同时响。
-        // **`TypeDefine` 的可见子单元就是那个类型表达式**（与形参那一支
-        // `param.type = ctx.Project(typeUnit)` **同一个做法**），所以这里照抄它。
-        let declEnd = name.end;
-        let declType: any = undefined;
-        const typeKid = ctx.AllKids(catchDefine).find((k: any) => k.get("type") === "TypeDefine");
-        // **区间与类型两处都从它来**：壳的两端就是 `·: unknown·`（右边不带到 `)`，实测 [16,24]）。
-        if (typeKid !== undefined) {
-          declEnd = ctx.EndOf(typeKid);
-          // **类型那一格要走 `TypeExpression`**（不是 `Project`）：与形参那一支
-          //（`param.type = ctx.Project(typeUnit)` 之上还有一层 `projectTypeExpression`）
-          // 同一个目的——「原始类型名在类型位是关键字节点」这条**只在类型位的投影里**。
-          const typeUnit = ctx.AllKids(typeKid).find((k: any) => !ctx.Invisible.has(k.get("type")));
-          if (typeUnit !== undefined) {
-            declType = ctx.TypeExpression(ctx.Kids(typeKid));
-          }
-        }
-        inner.variableDeclaration = declType === undefined
-          ? { kind: "VariableDeclaration", name, pos: name.pos, end: declEnd }
-          : { kind: "VariableDeclaration", name, type: declType, pos: name.pos, end: declEnd };
-      }
-    }
-    if (catchBody !== undefined) inner.block = ctx.Project(catchBody);
-    // **`catch` 那个词的位置也读字段**：`CatchWord` 是打包时记下的关键字偏移
-    //（原来用 `ctx.source.lastIndexOf("catch", anchor)` —— 同一个位置，但那是回原文找）。
-    const at = this.CatchWord.Value >= 0 ? this.CatchWord.Value : ctx.StartOf(catchDefine !== undefined ? catchDefine : catchBody);
-    props.catchClause = {
-      kind: "CatchClause",
-      pos: at,
-      end: catchBody !== undefined ? ctx.EndOf(catchBody) : ctx.EndOf(catchDefine),
-      ...inner,
-    };
-  }
-  // **空的 `finally { }` 也要造块**（第 177 轮）：按语句数判会把它整个跳过，
-  // 而 TS 那边照样有一个空 `Block` —— 这一格现在由 `FinallyBrace` 直接给出，
-  // 与体里有没有语句无关（原来要在**原文里找** `finally` 那个词、还要与 `StmtEndOf` 比）。
-  const finallyBlock = blockOf(this.FinallyBrace, ctx.ProjectEach(seg("finally"), "Block"));
-  if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
-  return ctx.NodeHead("TryStatement", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 995 轮）：与上面的 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+**第三个出口的直出版**（第 995 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
 
 **这一页早就把三处「回原文找」搬成字段了**（第 586 / 893 轮：`TryBrace` / `CatchBrace` /

@@ -737,91 +737,9 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 类名必须与产物里的标签名一致：`this.constructor.name` 就是 `<Field>` 的标签。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-成员字段 → `PropertySignature` / `PropertyDeclaration`
-（**从 `ts-ast.xl.md` 的 `projectField` 整块搬来**，第 195 轮）。
-
-**接口 / 类型字面量里的成员是 `PropertySignature`**，类里才是 `PropertyDeclaration`——
-同一个产物标签 `Field`，两种上下文两种 kind（声明文件里前者是绝大多数），判据是 `ctx.signature`。
-
-**名字走共用判据**（`ctx.MemberNameOf`，与 `structuralProps` 同一份）：引号名是 `StringLiteral`、
-数字名是 `NumericLiteral`、计算名是 `ComputedPropertyName`。
-
-三处实测口径：
-
-- **可选标记 `?`**：有类型标注时它被**吞进了 `TypeDefine` 的区间**（`TypeDefine[17,25]` = `?: string`），
-  所以按「类型段第一个字符是不是 `?`」切；没有类型标注时（`a?;`）它是**平级的 `SymbolToken`**；
-- **初始化式是 `=` 右边整段**、不是一格（第 158 轮）：`class C { [KEY] = 1` 换行 `["s" + "t"] = 2 }`
-  里 TS 把初值折成 `BinaryExpression`；收尾的 `;` 不属于初值；
-- **明确赋值断言 `x!: number`**（第 156 轮）：`!` 是 `exclamationToken`，产物把它记成平级的
-  `SymbolToken("!")`。
-
-**字段上的装饰器也是修饰词**（`@Input() name: string`，第 95 轮）：本方法不走
-`structuralProps`，所以这一处要单独收并按位置与其它修饰词一起排序。
-
-```ts
-  const kids = ctx.Kids(v);
-  const eqIndex = kids.findIndex(
-    (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=",
-  );
-  const typeNode = kids.find((k: any) => k.get("type") === "TypeDefine");
-  const named = ctx.MemberNameOf(v);
-  const props: any = {};
-  if (named.name !== undefined) {
-    props.name = named.name;
-  }
-  if (typeNode !== undefined) {
-    const typeStart = ctx.StartOf(typeNode);
-    if (ctx.source[typeStart] === "?") {
-      props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
-    } else {
-      // **可选标记与冒号之间夹着注释时，`?` 是 `TypeDefine` 的兄弟**（第 855 轮）：
-      // `refs?/* c */: readonly (A | B)[]` 的词法形状是 `refs` `?` 注释 `:`
-      // ——两格各自是符号（注释挡住了词法把它们并成一个 `?:`），于是 `TypeDefine`
-      // 从**注释**那一格起（它的 `SourceRange` 盖住了注释，`[224,…)`），
-      // 上面那条「类型段第一个字符是不是 `?`」当场落空 ⇒ 整个 `questionToken` 丢失
-      // （实测 `PropertySignature` 字段名对不上：产物 `[name,type]` vs TS `[name,questionToken,type]`）。
-      //
-      // 判据与上面那一支**同一个来源**（都是「那个 `?` 在哪」），只是这里要去兄弟里找它：
-      // 找的是**平级的 `SymbolToken("?")`**，取它自己的区间——不再拿 `TypeDefine` 的起点硬算。
-      const question = kids.find(
-        (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "?",
-      );
-      if (question !== undefined) props.questionToken = ctx.Project(question);
-    }
-    props.type = ctx.Project(typeNode);
-  } else {
-    const question = kids.find(
-      (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "?",
-    );
-    if (question !== undefined) props.questionToken = ctx.Project(question);
-  }
-  const initKids = kids
-    .slice(eqIndex + 1)
-    .filter((k: any) => !(k.get("type") === "SymbolToken" && ctx.TextOf(k) === ";"));
-  if (eqIndex >= 0 && initKids.length > 0) props.initializer = ctx.Expression(initKids);
-  const bang = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "!");
-  if (bang !== undefined) props.exclamationToken = ctx.Project(bang);
-  ctx.AddModifiers(v, props);
-  const fieldDecorators = kids.filter((k: any) => k.get("type") === "Decorator");
-  if (fieldDecorators.length > 0) {
-    const projected = fieldDecorators
-      .map((d: any) => ctx.Project(d))
-      .filter((d: any) => d !== undefined);
-    const merged = [...projected, ...(Array.isArray(props.modifiers) ? props.modifiers : [])];
-    merged.sort((a: any, b: any) => (a.pos ?? 0) - (b.pos ?? 0));
-    props.modifiers = merged;
-  }
-  const kind = ctx.signature ? "PropertySignature" : "PropertyDeclaration";
-  // **坐标在前**（第 199 轮）：搬家前这里是 `{ kind, pos: v.start, end: … , ...props }`，
-  // 两种 kind 在 samples 夹具里都是这个键序，`samples` 逐字节比得出来。
-  return ctx.NodeHead(kind, props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 996 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 996 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

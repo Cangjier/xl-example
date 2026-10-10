@@ -656,44 +656,9 @@ return ReplaceCountAt(units, startIndex + 1, endIndex - startIndex - 1, ternaryO
 return new Map([["ConditionalExpression", new Map([["trueStatement", "whenTrue"], ["falseStatement", "whenFalse"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-三元表达式 `a ? b : c` → `ConditionalExpression`（`condition` / `whenTrue` / `whenFalse`
-+ `questionToken` / `colonToken`；**从 `ts-ast.xl.md` 的 `projectConditionalExpression` 搬来**，第 188 轮）。
-
-**`?` 与 `:` 在这里是字段**（TS 的 `cond.questionToken` / `cond.colonToken` 都在
-`forEachChild` 那一层），与 `ConditionalType` **正好相反**——那个是类型位，
-TS 那边两个标点都不进子节点。两者形状极像、口径相反，是这一带最容易写错的地方。
-
-分段名（`trueStatement` / `falseStatement`）是上游 Cangjie 的叫法，
-TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
-
-标点的位置**由 token 自己记**（`QuestionPos` / `ColonPos`，第 614 轮）：
-`Process` 收三段那一刻两个 `SymbolToken` 就在手上、区间已经签好，
-所以这里直读字段。**从前是回原文量的**——在两段区间之间扫那个标点（还要跳过注释），
-那是**第二份近似**：同一件事（标点在哪）源码里只有一处，投影却要再推一遍。
-两个字段都由 `ToDictionary` 带到视图上。
-
-```ts
-  const props: any = {
-    condition: ctx.Segment(v, "condition"),
-    whenTrue: ctx.Segment(v, "trueStatement"),
-    whenFalse: ctx.Segment(v, "falseStatement"),
-  };
-  const questionPos = v.attrs.get("questionPos");
-  const colonPos = v.attrs.get("colonPos");
-  if (typeof questionPos === "number" && questionPos >= 0) {
-    props.questionToken = { kind: "QuestionToken", text: "?", pos: questionPos, end: questionPos + 1 };
-  }
-  if (typeof colonPos === "number" && colonPos >= 0) {
-    props.colonToken = { kind: "ColonToken", text: ":", pos: colonPos, end: colonPos + 1 };
-  }
-  return ctx.NodeHead("ConditionalExpression", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

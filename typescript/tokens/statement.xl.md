@@ -55,29 +55,9 @@ import { LineWrap } from "./line-wrap.xl.md"
 `Statement` 自己这一类没有专门注册 ⇒ 拿到的是通用队列。
 容器那一侧走 `ParsePipeline.InitialCloseRuleQueue`，第 564 轮起它做的也是同一句。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-一条语句 → 它的 TS 形状（**从 `ts-ast.xl.md` 里那个 `case "Statement"` 搬来**，第 198 轮）。
-
-这是**语句分派层**：`Statement` 单元里可能是任何东西（裸块、`let`、`if`、`import`、
-类型别名、表达式……），所以它必须把整段交给共享层的 `projectStatement`——
-那一份实现同时被「语句位」与「成员位」两条路复用，而且**只在共享层能写**
-（它要调 `projectExpression` 那一族）。
-
-这是**最后一个 `case`**：搬完之后 `projectNode` 里那个按 `v.type` 分派的 `switch`
-整段消失，只剩「问 token 的 `PrintAst`」与通用投影两条路。
-
-```ts
-  const node = ctx.StatementOf(v);
-  // **`undefined` 在这里是有意义的答案**（例如「这个 `;` 已经是上一条语句的终结符」），
-  // 而 token 出口把 `undefined` 读作「没覆写、请走通用支」——所以要用哨兵
-  // `ctx.Nothing` 把「故意不出节点」这件事说出来（第 198 轮）。
-  return node === undefined ? ctx.Nothing : node;
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -166,7 +146,7 @@ if (owner === "InterpolationString") {
 // **成员**，不是语句 —— 判据与 `JsonObjectCloseRule` 问的是**同一句**
 //（`IsObjectLiteralBrace`，见 `../text-common-util.xl.md`）。
 // 少了它会怎样：多行对象字面量里每个成员被包成一个 `Statement` ⇒
-// `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`**
+// `ObjectLiteral.PrintDirectAst` 按顶层逗号切出来的每一组都是**一格 `Statement`**
 // ⇒ 整片投成 `ExpressionStatement`（实测 `ex-object-literal.ts` 缺 37）；
 // 而且壳里那个 `b:` 还会被 `Label` 收走（壳的父亲是 `Statement` ⇒ `IsStatementStart` 答「是」）。
 //
@@ -3301,7 +3281,7 @@ if (owner === "IfCondition") {
 // **成员**，不是语句 —— 判据与 `JsonObjectCloseRule` 问的是**同一句**
 //（`IsObjectLiteralBrace`，见 `../text-common-util.xl.md`）。
 // 少了它会怎样：多行对象字面量里每个成员被包成一个 `Statement` ⇒
-// `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`**
+// `ObjectLiteral.PrintDirectAst` 按顶层逗号切出来的每一组都是**一格 `Statement`**
 // ⇒ 整片投成 `ExpressionStatement`（实测 `ex-object-literal.ts` 缺 37）；
 // 而且壳里那个 `b:` 还会被 `Label` 收走（壳的父亲是 `Statement` ⇒ `IsStatementStart` 答「是」）。
 // **绑定模式的花括号同一条口径**（第 825 轮，`IsBindingPatternBrace`）：`const { a` 换行

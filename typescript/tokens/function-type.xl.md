@@ -265,45 +265,9 @@ return ReplaceCountAt(units, firstIndex, endIndex - firstIndex + 1, result);
 return new Map([["FunctionType", new Map([["children", "parameters"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-函数类型 `(x: number) => string` → `FunctionType`（`parameters` + `type`，可选 `typeParameters`；
-**从 `ts-ast.xl.md` 的 `projectFunctionType` 搬来**，第 188 轮）。
-
-产物那边是平级单元：`[GenericType(类型参数表)?, Bracket(形参表), SymbolToken(=>), 返回类型]`。
-形参要**摊平括号**（TS 那边 `parameters` 直接是 `Parameter`，没有括号那一层节点），
-`=>` 之后是 `type`。
-
-**类型参数表要单独提出来**（第 82 轮）：`<R, TArgs extends any[]>(fn: (…args: TArgs) => R) => R`
-里那个 `GenericType` 装的是 `TypeParameter`——它在 TS 那边是 `FunctionType.typeParameters`，
-**不是形参**。早先它跟形参表一起投出去（`GenericType` 自己的 `KIND_BY_TAG` 是 `TypeReference`），
-于是那些类型参数与其上的约束整个丢掉（`@types/node/async_hooks.d.ts` 那种「泛型函数类型」成片）。
-
-**`new` / `abstract new` 是构造类型**（第 98 轮）：TS 的 kind 是 `ConstructorType`
-（`new () => T` 与 `abstract new () => T` 都是），而 `new` 这个词**不是子节点**
-（`abstract` 才是 `modifiers` 里的节点）。照函数类型投会「缺 `ConstructorType` +
-多出 `FunctionType` + 多出 `NewKeyword`」（实测 94 处）。
-
-**形参之间的逗号不进 `parameters`**：括号的内容是 `[Parameter, SymbolToken(,), Parameter]`，
-摊平后要按顶层逗号切。
-
-****第 927 轮（三）：这一格的 `{ kind, props }` 搬去共享层**（`print-ast-common.xl.md` 的
-`functionTypeProps`，经 `ctx.FunctionTypeProps` 取用）。理由是**柯里化**：token 层按设计把
-`(a: A) => (b: B) => C` 整段收在**同一个**节点里，于是「返回类型」那一格交回类型投影时是
-**平铺**的 `Bracket` / `=>` / 类型 三格——那边要投出**里层那个 `FunctionType`**，
-要的正是这一份 `props`。两处各写一份就会漂（本仓第 875 轮那条纪律），所以只留一份：
-这里拿 `{ kind, props }` 配 `NodeHead`（坐标来自本单元自己的视图）。
-
-```ts
-  const built = ctx.FunctionTypeProps(ctx.Kids(v));
-  // **坐标在前**（第 199 轮）：搬家前是 `return { kind: "FunctionType", pos: v.start, end: v.end, ...props }`；
-  // `ConstructorType` 走的是同一行（另一个分支的 `new (…) => T` 在共享层里也是坐标在前）。
-  return ctx.NodeHead(built.kind, built.props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

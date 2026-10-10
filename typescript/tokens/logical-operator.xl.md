@@ -228,65 +228,9 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, [result]
 
 它覆写了 `ToXmlString`：标签名是运行时类名，另外把 `"||"` / `"&&"` 翻译成 `Or` / `And` 放进 `op` 属性（**不是**原样的 `||` / `&&`）。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`a && b || c` 的链 → **左结合的嵌套 `BinaryExpression`**（**从 `ts-ast.xl.md` 的
-`projectBinary` 整块搬来**，第 196 轮——本类与 `BinaryOperator` **共用同一份实现**，
-所以这里那一份与 `tokens/binary-operator.xl.md` 的同名方法逐字相同）。
-
-**切在优先级最低的运算符上**（第 88 轮）：原来取**第一个**运算符、右边整段递归，
-四段逻辑链会被折成**右结合**，而 TS 是左结合（四个节点都从第一个操作数起、终点逐个增长）。
-
-**运算符在树里**时从 `left` 起按 TS 的结合性折（`ctx.FoldBinaryFrom`）。
-
-**两侧都没有时不要发空壳**：产物里有一类残缺的 `LogicalOperator`（只有 `op` 属性、
-运算符符号根本没进树，而且左右两块还散成了平级兄弟）——那是 token 层的结构问题，
-投影这里治不了根，但至少不能凭空造一个既没有 `left` 也没有 `right` 的 `BinaryExpression`
-（实测 1118 处）。退回把子单元投出来，让里面的节点还能对上。
-
-```ts
-  const kids = ctx.Kids(v);
-  let opIndex = -1;
-  let bestRank = 999;
-  for (let i = 1; i < kids.length; i++) {
-    if (!ctx.IsOperatorUnit(kids[i])) continue;
-    const rank = ctx.OperatorRank(ctx.TextOf(kids[i]));
-    if (rank < bestRank) {
-      bestRank = rank;
-      opIndex = i;
-    }
-  }
-  const declaredOp = v.attrs.get("op");
-  const left = opIndex > 0 ? ctx.Expression(kids.slice(0, opIndex)) : undefined;
-  if (opIndex > 0 && kids[opIndex].get("type") === "SymbolToken") {
-    return ctx.FoldBinaryFrom(left, kids.slice(opIndex));
-  }
-  const right =
-    opIndex >= 0 && opIndex + 1 < kids.length ? ctx.Expression(kids.slice(opIndex + 1)) : undefined;
-  if (left === undefined && right === undefined) {
-    return kids.length > 0 ? ctx.Expression(kids) : undefined;
-  }
-  const opNode =
-    opIndex >= 0
-      ? ctx.Project(kids[opIndex])
-      : {
-          kind: ctx.TokenKind(typeof declaredOp === "string" ? declaredOp : "?"),
-          pos: v.start,
-          end: v.start,
-        };
-  return {
-    kind: "BinaryExpression",
-    left,
-    operatorToken: opNode,
-    right,
-    pos: left ? left.pos : v.start,
-    end: right ? right.end : v.end,
-  };
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

@@ -362,7 +362,7 @@ if (this.IsPrefixSymbol(current)) {
   // 上又跑这一趟通用队列 —— 此刻那一格词的 `Parent` **正是 `TypeQuery`**
   //（实测三份文件都是 `UP1DBG typeof parent=TypeQuery idx=0 n=2`）。
   // 这里若照折，产物就成了 `TypeQuery > UnaryOperator > [Keyword(typeof), Identifier(x)]`
-  // ⇒ `TypeQuery.PrintAst` 的 `ctx.Kids` **只看得到 `UnaryOperator`** ⇒ 名字节点一个都找不到
+  // ⇒ `TypeQuery.PrintDirectAst` 的 `ctx.Kids` **只看得到 `UnaryOperator`** ⇒ 名字节点一个都找不到
   // ⇒ `exprName` 空、`Identifier` 也不投（实测 8 份文件：`type-op-typeof.ts` /
   // `type-op-keyof-typeof.ts` / `type-op-unique-symbol-property.ts` / `type-paren-content-nodes.ts` /
   // `type-query-in-generic.ts` / `type-query-in-index-access.ts` / `type-query-in-paren-type.ts` /
@@ -697,69 +697,9 @@ return index + 1;
 
 它覆写了 `ToXmlString`：在基类的串接之外带上 `op` 属性。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-一元运算 → `PrefixUnaryExpression` 或 `PostfixUnaryExpression`
-（**从 `ts-ast.xl.md` 的 `projectUnary` 整块搬来**，第 193 轮）。
-
-**前后缀是两种 kind**（TS：`-x` 是 `PrefixUnaryExpression`、`y++` 是 `PostfixUnaryExpression`）。
-产物那边两者都是 `UnaryOperator op="…"`，判据是**运算符单元在操作数之前还是之后**：
-`y++` 的 `++` 排在 `y` 后面 ⇒ 后缀。
-
-**只给 `operand` 一个字段**：TS 那边运算符（`operator`）是节点的**属性**、不是子节点字段，
-所以 `ts.forEachChild` 看不到它。产物那边的 `SymbolToken` 也照此**不投影**。
-
-**`typeof` / `void` / `delete` 是 `Keyword`**，不在 `isOperatorUnit` 的白名单里
-（那一支只认 `SymbolToken` 与 `in` / `instanceof`），所以它们要靠 `op` **属性**定位——
-否则那个运算符词会被当成操作数投出去（实测多出 `TypeOfKeyword` + 缺 `Identifier`）。
-
-而且那三个是**三种独立的表达式 kind**（第 96 轮）：TS 里它们是
-`TypeOfExpression` / `VoidExpression` / `DeleteExpression`（只有 `expression` 一个字段、
-运算符词**不进子节点**），而 `!` / `-` / `+` / `~` / `++` / `--` 才是
-`PrefixUnaryExpression` / `PostfixUnaryExpression`。
-
-```ts
-  const kids = ctx.Kids(v);
-  const declaredOp = typeof v.attrs.get("op") === "string" ? v.attrs.get("op") : "";
-  // **先按 `op` 属性找那一格**（第 623 轮）：`op` 是这一元运算的**真身**，
-  // 而 `IsOperatorUnit` 只问「是不是 `SymbolToken`」 —— `typeof import.meta` 的操作数里
-  // 那个 `.` 也是 `SymbolToken` ⇒ 它先被认成运算符（实测：`TypeOfExpression.expression`
-  // 投成 `TypeOfKeyword`、缺 `MetaProperty` + `Identifier`）。
-  // 按**文本**找不会认错：`op` 那一格是唯一的（`typeof` / `void` / `delete` 是词，
-  // 其余是符号），而操作数那些单元（链 / 括号 / 调用 / 嵌套一元）的文本都比它长。
-  let opIndex = declaredOp !== "" ? kids.findIndex((k: any) => ctx.TextOf(k) === declaredOp) : -1;
-  if (opIndex < 0) {
-    opIndex = kids.findIndex((k: any) => ctx.IsOperatorUnit(k));
-  }
-  const operandKids = opIndex >= 0 ? kids.filter((_: any, i: number) => i !== opIndex) : kids;
-  const operand = ctx.Expression(operandKids);
-  const isPostfix = opIndex >= 0 && opIndex === kids.length - 1;
-  if (!isPostfix) {
-    const wordKinds: any = {
-      typeof: "TypeOfExpression",
-      void: "VoidExpression",
-      delete: "DeleteExpression",
-    };
-    const wordKind = wordKinds[declaredOp];
-    if (wordKind !== undefined) return ctx.Node(wordKind, { expression: operand }, v);
-  }
-  // **`operator` 要带上**（第 66 轮）：TS 的 `PrefixUnaryExpression.operator` 是个
-  // `SyntaxKind` **数字**，投影原来「只留节点型字段」就把它丢了——于是 `-1` 与 `!x`
-  // 在产物里**一模一样**，**负数字面量根本用不了**（降级层分不出正负，只能抛）。
-  //
-  // 这里放**运算符文本**（优先取那个运算符单元自己的文本，取不到再用 `declaredOp`）。
-  // 对拍尺子只比**字段名**（TS 那边也有 `operator` 这个名字），所以不会多报。
-  //
-  // **值位的一元节点是在这一层造的**，不在 `print-ast-common` 那条通用路里——
-  // 我在那边先后加过两处挂钩，从来没执行过（第 64 / 65 / 66 轮实测才定位到这里）。
-  const operatorText = opIndex >= 0 ? ctx.TextOf(kids[opIndex]) : declaredOp;
-  return ctx.Node(isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression",
-    { operand, operator: operatorText }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

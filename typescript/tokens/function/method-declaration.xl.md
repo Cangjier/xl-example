@@ -1068,23 +1068,9 @@ for (const item of this.Data) {
 throw new Error("找不到匹配的子单元");
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格出哪个节点**（第 1002 轮）：`MethodDeclaration` 是**声明族**的一员，形状由
-`ctx.Declaration` 给——它与通用支落在**同一份实现**（`projectDeclaration`）上，
-所以「覆写了仍然与通用支逐字节相同」是结构上的事，不是巧合。
-
-**为什么不在这里自己算 kind**：这一族**两半一起写**（`PrintAst` + `PrintDirectAst`，
-见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）——非直出版那条路照旧走投影层的
-换 kind 规则与段名表，一个字都不改；只有直出版需要自己算（它不能被问第二次）。
-
-```ts
-  return ctx.Declaration(v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1002 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 1002 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

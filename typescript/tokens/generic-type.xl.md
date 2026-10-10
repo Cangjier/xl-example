@@ -119,7 +119,7 @@ if (unit.Data.length === 0) {
 // **表达示位那一份还没接**（第 834 轮量清了它到底缺在哪）：`const s = "a" < b > (c);`
 // 在 TS 那边是一次泛型调用 `"a"<b>(c)`，这里放开位置闸之后 `GenericType` 确实成形了，
 // 可**没有规则把 `String` + `GenericType` + `(` 收成一个 `Method`**
-//（`method.xl.md` 的名字判据只认 `Identifier`，而 `PrintAst` 那边还要按
+//（`method.xl.md` 的名字判据只认 `Identifier`，而 `PrintDirectAst` 那边还要按
 // `v.start + calleeText.length` 算被调者的终点 —— 字符串名会把这段算错）。
 // 也就是说：**这一格的真缺口在 `Method` 那一侧**，与本文件的名字闸无关；
 // 位置闸在这里放开只会把「两条二元表达式」换成「缺 typeArguments 的调用」，

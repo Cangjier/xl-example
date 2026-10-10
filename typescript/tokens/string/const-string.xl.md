@@ -325,19 +325,9 @@ while (true) {
 }
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格是它自己出的**（第 77 轮）：常量串在 TS 那边是 `StringLiteral`，区间含引号、文本不含
-（见 `string.xl.md` 的同名方法）。**它只在字符流里出现**（`String` 兜不住时的那一段），
-所以这条覆写与 `String` 那条写的是同一个形状。
-
-```ts
-return ctx.Node("StringLiteral", { text: ctx.StringText(v) }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1000 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 1000 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -347,7 +337,7 @@ return ctx.Node("StringLiteral", { text: ctx.StringText(v) }, v);
 
 **为什么这里恒为空串**（量出来的，不是猜的）：`ConstString` 是块单元，**文本在 `Temp` 上**
 （`BlockToken.ToDictionary` 把它写成 `value`）、**自己没有子单元** ⇒ 第一步永远找不到那一格
-⇒ `StringText` 对它恒为 `""`。而 `String` 那一层的文本是外层 `String.PrintAst` 经
+⇒ `StringText` 对它恒为 `""`。而 `String` 那一层的文本是外层 `String.PrintDirectAst` 经
 `ctx.Template` 取走的（`string.xl.md`），所以**全语料 2050 份里这一格一次都没被问到**。
 两个出口在**同一份判据**上写下同一个答案，正是这一格的诚实写法。
 

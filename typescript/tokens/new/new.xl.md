@@ -423,94 +423,12 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
 return new Map([["NewExpression", new Map([["name", "expression"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`new Map<string, number>()` → `NewExpression`（`expression` + 可选 `typeArguments` / `arguments`；
-**从 `ts-ast.xl.md` 的 `projectNew` 搬来**，第 185 轮）。
-
-产物的 `New` 把 `name` 段记成**一串单元**（被构造者 + 类型实参段）、`arguments` 段是实参：
-
-- 类型实参段要按**类型位**投进 `typeArguments`（`Map<string, number>` 的两格是
-  `StringKeyword` / `NumberKeyword`，不是 `TypeReference`）；
-- 空实参段在 `ToList` 里**干脆不出现**（`new Map<A, B>()`），而 TS 那边空 `arguments`
-  也不进字段（`forEachChild` 不访问空数组）——所以只在非空时挂。
-
-**被构造者可能是一串**（第 154 轮）：`new a.b.C()` 的 `name` 段是
-`[a, ., b, ., C]` 五格，只取第一格会只剩一个 `Identifier(a)`（实测 `ex-new-variants.ts`：
-缺两层 `PropertyAccessExpression` + `Identifier` 2）。
-
-**括号形态**（`new (getCtor())()`）要走 `ctx.ParenthesizedOf`——否则那个括号会原样透传成
-未映射的 `<Bracket>`（实测 `ex-new-variants.ts` 与 `stmt-adversarial-shapes.ts` 各一处）。
-
-```ts
-  const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  // **`<…>` 归谁**（第 980 轮）：`` new f<T>`t` `` 的 `name` 段是
-  // `[Identifier(f), GenericType(<T>), String(反引号)]`——那个 `<T>` 是**标签模板自己的**
-  // 类型实参（TS：`NewExpression > TaggedTemplateExpression{ tag, typeArguments, template }`），
-  // **不是** `NewExpression` 的 `typeArguments`。拿真 TS 复量过（`tmp-r979/ts-newfields.cjs`）：
-  // `` new f<T>`t` `` / `` new f<T>`t`.b `` / `` new f<T>`t`(1) `` 三条的外层 `NewExpression`
-  // **都只有 `expression`**，`typeArguments` 挂的是里面那一层。
-  //
-  // **判据**：紧跟 `GenericType` 的那一格是**反引号模板**时，这一段连同它后面的一起归
-  // **被构造者**（`ctx.Expression` 那一趟会把它合成 `TaggedTemplateExpression`）；
-  // 只有 `GenericType` 是 `name` 段**最后一个实义单元**时才是 `New` 自己的实参段
-  //（`new Map<string, number>()` / `new C<T>` 换行 `(x)` 那一族）。
-  // 引号那一问与 0b / 0c / 0d 同源：`IsTemplateString` 看的是**原文那个引号**
-  //（产物里普通字符串与模板串属性一模一样）。
-  const genericAt = nameUnits.findIndex((k: any) => k.get("type") === "GenericType");
-  const templateAfterGeneric =
-    genericAt >= 0 &&
-    genericAt + 1 < nameUnits.length &&
-    IsTemplateString(nameUnits[genericAt + 1].__token ?? null);
-  const generic = genericAt >= 0 && !templateAfterGeneric ? nameUnits[genericAt] : undefined;
-  const calleeUnits = nameUnits.filter((k: any) => k !== generic);
-  const props: any = {};
-  if (
-    calleeUnits.length === 1 &&
-    calleeUnits[0].get("type") === "Bracket" &&
-    calleeUnits[0].get("startBracket") === "("
-  ) {
-    props.expression = ctx.ParenthesizedOf(calleeUnits[0]);
-  } else if (calleeUnits.length > 0) {
-    props.expression = ctx.Expression(calleeUnits);
-  }
-  if (generic !== undefined) {
-    const typeArguments = [];
-    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
-      const one = ctx.TypeExpression(group);
-      if (one !== undefined) typeArguments.push(one);
-    }
-    if (typeArguments.length > 0) props.typeArguments = typeArguments;
-  }
-  const args = ctx.KidsOf(v, "arguments").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  // **实参按顶层逗号切段、每段走 `ctx.Expression`**（第 232 轮）——**不能走 `ctx.ProjectEach`**：
-  // 那个助手是**逐格**投的，而实参位有好几种「一个实参 = 好几格」的形状——
-  // 最普通的是 **`as` / `satisfies`**（产物把 `x as T` 记成 `Identifier(x)` 与 `As(T)`
-  // **两个平级单元**，左边那个操作数是它的**前一个兄弟**）。
-  // 逐格投会把 `As` 单独投成一个 `AsExpression`、而它的 `expression` 是**空的**——
-  // 实测现场：`new Object(null as any)` 报
-  // `ast node AsExpression has no child expression`（一句话指向**投影**，
-  // 而现场是 `arguments` 那一段的**投法**）。
-  // **与 `projectCall` 的实参那一段同一个写法**（那里第 143 轮已经踩过同一类坑：
-  // `h?.(o?.a)` 的括号里也是「基名与 `?.` 平级」）——**一处规矩写两遍会漂**，
-  // 所以这里连注释一起照它对齐。
-  const argGroups = ctx.Split(args, ",");
-  const argumentList = [];
-  for (const group of argGroups) {
-    if (group.length === 0) continue;
-    const one = ctx.Expression(group);
-    if (one !== undefined) argumentList.push(one);
-  }
-  if (argumentList.length > 0) props.arguments = argumentList;
-  return ctx.NodeHead("NewExpression", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 995 轮）：与上面的 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+**第三个出口的直出版**（第 995 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
 
-**这一页本来就是「全字段」的**（`PrintAst` 里的每一问都读 `name` / `arguments` 两个段与子单元自己的东西），
+**这一页本来就是「全字段」的**（`PrintDirectAst` 里的每一问都读 `name` / `arguments` 两个段与子单元自己的东西），
 所以直出版是**逐行同一份**：`ctx.KidsOf` / `ctx.Invisible` / `ctx.ParenthesizedOf` / `ctx.Expression` /
 `ctx.Split` / `ctx.TypeExpression` / `ctx.NodeHead` 都是出口助手，没有一处回原文查。
 唯一一处「判据落在 token 自己的字段上」的是 `IsTemplateString`——它读的是 `String.StringChar`

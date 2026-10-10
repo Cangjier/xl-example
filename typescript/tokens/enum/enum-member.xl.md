@@ -122,35 +122,9 @@ member.Process(context, source);
 return new Map([["EnumMember", new Map([["children", "initializer"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`A` / `A = 1` → `EnumMember`（**从 `ts-ast.xl.md` 的 `projectEnumMember` 搬来**，第 182 轮）。
-
-```ts
-  const kids = ctx.Kids(v);
-  const eqIndex = kids.findIndex(
-    (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=",
-  );
-  const nameNode = kids.find((k: any) => k.get("type") !== "SymbolToken") ?? null;
-  const props: any = {};
-  if (nameNode !== null) props.name = ctx.Project(nameNode);
-  if (eqIndex >= 0 && eqIndex + 1 < kids.length) {
-    // **初始化式可能就是一对其中的括号**（第 681 轮，与形参默认值**同一个根**、
-    // **同一次实测**）：`A = (1)` 那一格是 `Bracket`，`ctx.Project` 只认有映射的标签
-    // ⇒ 未映射的 `Bracket` ⇒ 降级层报 `unimplemented: expression Bracket`
-    //（**整份文件进不来**）。值位括号的映射走 `ctx.ParenthesizedOf`。
-    const init = kids[eqIndex + 1];
-    props.initializer =
-      init.get("type") === "Bracket" && init.get("startBracket") === "("
-        ? ctx.ParenthesizedOf(init)
-        : ctx.Project(init);
-  }
-  return ctx.NodeHead("EnumMember", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

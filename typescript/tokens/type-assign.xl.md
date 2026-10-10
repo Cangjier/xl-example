@@ -214,63 +214,9 @@ return ReplaceCountAt(units, startIndex, dataEnd - startIndex + 1, result);
 
 单元值类型是单字符的 `string`。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-类型别名 `type A = B` → `TypeAliasDeclaration`（`name` + `type`；
-**从 `ts-ast.xl.md` 的 `projectTypeAlias` 整块搬来**，第 197 轮）。
-
-产物那边名字在 `alias` 属性上、右值在子节点里（`=` 之后），中间是平级的散单元——
-所以在 `=` 处切开：左边第一格是 `name`，右边整段是 `type`。
-
-**修饰词在自己身上，但 `pos` 要从外层量**：`export type T = string` 的产物是
-`Statement > [TypeAssign(modifiers="export"), =, 右值]`——`TypeAssign` 的起点是 `type` 那个词、
-而 TS 的 `TypeAliasDeclaration` 从 `export` 起。所以外层（`projectStatement`）把外层起点
-**经 `ctx.baseStart` 递进来**（不是参数了：`PrintAst` 的签名是固定的两参）。
-
-**泛型参数段只在 `=` 左边找**（第 95 轮修）：右值里也有 `GenericType`——
-`type Z = <T>(x: T) => T` 的 `<T>` 是**函数类型自己的**类型参数，
-TS 那边 `TypeAliasDeclaration` 没有 `typeParameters` 这一格。
-
-```ts
-  const kids = ctx
-    .Kids(v)
-    .filter((k: any) => !(k.get("type") === "SymbolToken" && ctx.TextOf(k) === ";"));
-  const eqIndex = kids.findIndex(
-    (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=",
-  );
-  const rawAlias = v.attrs.get("alias");
-  const aliasText = typeof rawAlias === "string" ? rawAlias : "";
-  const lhs = eqIndex >= 0 ? kids.slice(0, eqIndex) : kids;
-  const rhs = eqIndex >= 0 ? kids.slice(eqIndex + 1) : [];
-  const nameNode = lhs.find((k: any) => k.get("type") === "Identifier");
-  const nameText = nameNode === undefined ? aliasText : ctx.TextOf(nameNode);
-  const generic = lhs.find((k: any) => k.get("type") === "GenericType");
-  const props: any = {
-    name: nameNode === undefined ? ctx.SynthName(nameText, v) : ctx.Project(nameNode),
-    type: ctx.TypeOf(rhs),
-  };
-  if (generic !== undefined) {
-    const params = ctx.UnwrapNodes(generic).filter((k: any) => k.get("type") === "TypeParameter");
-    if (params.length > 0) props.typeParameters = ctx.ProjectEach(params);
-  }
-  const baseStart = ctx.baseStart;
-  ctx.AddModifiers(v, props, baseStart);
-  // **装饰器也进 `modifiers`**（第 610 轮）：它与关键字修饰词同住 TS 的 `modifiers` 一列，
-  // 而 `Decorator` 是带子树的**子单元**——`AddModifiers` 只看文本字段，看不见它。
-  // 与通用支共用同一份实现（`print-ast-common.xl.md` 的 `addDecorators`）。
-  ctx.Decorators(v, props);
-  // **这一条不能走 `ctx.Node`**：`pos` 要用外层递进来的 `baseStart`（`ctx.Node` 只会用 `v.start`）。
-  return {
-    kind: "TypeAliasDeclaration",
-    pos: baseStart === undefined ? v.start : baseStart,
-    end: ctx.StmtEndOf(v),
-    ...props,
-  };
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

@@ -213,40 +213,9 @@ if (source.Value === "[") {
 
 它没有覆写 `ToXmlString`，所以 XML 由 `Token.ToXmlString` 产出（子单元串接）。正则单元没有子单元，落地就是个空标签——夹具 `24-regex.xml` 里 `let a = /ab+c/g` 的第三个单元正是 `<RegexToken></RegexToken>`（**不要**给它加 `ToXmlString` 覆写）。`Temp` / `Flags` 只暴露给执行层。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-正则字面量 `/ab+c/gi` → `RegularExpressionLiteral`（**从 `ts-ast.xl.md` 的 `projectRegex` 整体搬来**，第 182 轮）。
-
-**区间按原文重新量**：从那个 `/` 起扫到配对的 `/`（跳过 `\` 转义与 `[…]` 字符类），
-再把后面的 flags 吃掉。终点不是 `stmtEndOf` 能给的，所以这里直接返回节点字面量。
-
-**这一格在第 931 轮之后变成了一道保险**：那次把 `ExitOrPre` 的签出改成落在
-**正则的最后一个字符**上（原来多一个字符，见那一处的说明），所以单元自己的区间已经与
-TS 一致；这里重新量仍然值得留着——它同时负责把 flags 算进去，而且不依赖单元区间的口径。
-
-```ts
-  const source = ctx.source;
-  let end = v.start + 1;
-  let inClass = false;
-  for (; end < source.length; end++) {
-    const c = source[end];
-    if (c === "\\") {
-      end++;
-      continue;
-    }
-    if (c === "[") inClass = true;
-    else if (c === "]") inClass = false;
-    else if (c === "/" && !inClass) break;
-    else if (c === "\n") break;
-  }
-  if (end < source.length && source[end] === "/") end++;
-  while (end < source.length && /[a-z]/.test(source[end])) end++;
-  return { kind: "RegularExpressionLiteral", pos: v.start, end };
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1000 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 1000 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -373,7 +342,7 @@ if (!this.IsTranslate) {
       // **签出要落在正则的最后一个字符上**（第 931 轮）：走到这里时 `source` 是**紧跟
       // 字面量后面**的那一格（标志位之后的第一个字符，或者收尾 `/` 之后那个字符），
       // `SignOut(source)` 于是让本单元的终点**比字面量多一个字符**——
-      // `typeof /re/;` 里那个 `;` 也算进正则的区间。`PrintAst` 那边用「从 `/` 扫到配对的 `/`」
+      // `typeof /re/;` 里那个 `;` 也算进正则的区间。`PrintDirectAst` 那边用「从 `/` 扫到配对的 `/`」
       // 重新量过一遍（所以 `RegularExpressionLiteral` 自己是对的），可**父节点**是按
       // `v.end` 算的：`typeof /re/;` 的 `TypeOfExpression` 因此是 `[10,22)` 而不是 `[10,21)`
       //（实测 `gap-r931-typeof-regex-range`：漂 1 多 1）。往回退一格就对了。

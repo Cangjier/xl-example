@@ -284,29 +284,9 @@ result.set("value", this.Value);
 return result;
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格是它自己出的**（第 77 轮）：关键字兜底身份在 TS 那边大多是 `XxxKeyword`
-（`string` / `readonly` / `in`…），**表里没有的**才是 `Identifier`——同一个词在值位与类型位
-可以是两种 kind，判据就是这个类自己的名字表（`KEYWORD_KIND`）。
-
-```ts
-const text = ctx.Text(v);
-// **上下文关键字 `get` / `set` 一律按 `Identifier` 投**（第 67 轮）：TS 里它们**只有访问器位**
-// 才是关键字，别处（`const set = 1;` / `f(set)` / `return get + 1;`）都是普通标识符。
-// 原来的口径是「表里有就投关键字」，于是**引用位**的 `set` / `get` 被投成
-// `SetKeyword` / `GetKeyword`——对拍尺子会当场点名（第 60 轮就是在 `set.xl.md` 里撞到的：
-// 局部变量叫 `set`，产物里那一格成了 `SetKeyword`）。
-// 访问器那两位由 `print-ast-common.xl.md` 的「按 `modifiers` 换 kind + 摘掉那个词」负责，
-// 摘除**按文本**做（见那里的 `stripModifier`），所以这里投 `Identifier` 不影响它们。
-const contextual = text === "get" || text === "set";
-const kind = contextual ? undefined : ctx.KeywordKind(text);
-return ctx.Node(kind === undefined ? "Identifier" : kind, { text }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -314,7 +294,7 @@ return ctx.Node(kind === undefined ? "Identifier" : kind, { text }, v);
   // **文本读 token 自己的 `Value`**（第 992 轮）：关键字兜底身份的正文就记在那一格上
   // （`ToDictionary` 的 `value` 与它同源），不必回原文切。
   const text = this.Value;
-  // 上下文关键字 `get` / `set` 一律按 `Identifier` 投（理由见上面的 `PrintAst`）。
+  // 上下文关键字 `get` / `set` 一律按 `Identifier` 投（理由见上面的 `PrintDirectAst`）。
   const contextual = text === "get" || text === "set";
   const kind = contextual ? undefined : ctx.KeywordKind(text);
   return ctx.Node(kind === undefined ? "Identifier" : kind, { text }, v);

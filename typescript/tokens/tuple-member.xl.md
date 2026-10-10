@@ -320,26 +320,9 @@ return node;
 
 元组里的可选元素（`A?`）。类名必须与产物的标签名一致。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`B?` → 只有 `type` 一个字段（**从 `ts-ast.xl.md` 的 `projectWrappedType` 搬来**，第 182 轮）。
-
-问号在 TS 那边**不是子节点**（它只是语法记号；`OptionalType` 这个 kind 本身就说明了），
-所以要把那个 `SymbolToken("?")` 从内容里排掉，否则会多出一个 `QuestionToken`。
-
-```ts
-  const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.get("type") === "SymbolToken" && ["...", "?"].includes(ctx.TextOf(k))),
-  );
-  const props: any = {};
-  const inner = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
-  if (inner !== undefined) props.type = inner;
-  return ctx.Node("OptionalType", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -382,26 +365,9 @@ return result;
 
 元组里的变长元素（`...B`）。类名必须与产物的标签名一致。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`...A` → 只有 `type` 一个字段（**从 `ts-ast.xl.md` 的 `projectWrappedType` 搬来**，第 182 轮）。
-
-两点号在 TS 那边**不是子节点**，所以要把那个 `SymbolToken("...")` 从内容里排掉，
-否则会多出一个 `DotDotDotToken`。
-
-```ts
-  const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.get("type") === "SymbolToken" && ["...", "?"].includes(ctx.TextOf(k))),
-  );
-  const props: any = {};
-  const inner = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
-  if (inner !== undefined) props.type = inner;
-  return ctx.Node("RestType", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -445,88 +411,15 @@ return result;
 
 名字与 `:` 都留在自己身上（TS 那边名字是成员的子节点）。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-具名元组成员 `[a: string]` / `[b?: number]` / `[...rest: boolean[]]` → `NamedTupleMember`
-（**从 `ts-ast.xl.md` 的 `projectNamedTupleMember` 搬来**，第 187 轮）。
-
-TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；产物那边是
-`NamedTupleMember > [Identifier(名字), TypeDefine(类型)]`（`...` 是平级的 `SymbolToken`）。
-
-**不能走通用投影**：`NamedTupleMember` 在 `TYPE_MEMBER_KINDS` 里，通用支会把名字那个
-`Identifier` 也当类型投成 `TypeReference`（实测「多出来」3 + 缺 `QuestionToken` 1 +
-字段名差 3，全部是这一处）。
-
-`this` 作元组成员名时必须是 `Identifier`（与形参那一处同源，见 `projectParameter`）。
-`?` 被吞进了 `TypeDefine` 的区间，所以按「类型段第一个字符是不是 `?`」切出来。
-
-**`?` 与冒号之间夹着注释时，`?` 不在 `TypeDefine` 里，也不在成员那一层**
-（第 900 轮）：`[a? /*c*/ : string]` 的产物是
-`NamedTupleMember > [Identifier(a), OptionalType(a?), TypeDefine(string)]`——
-`LiftOptional` 走的是「`TypeDefine` 的**尾巴**是不是 `?`」与「成员最后一格是不是裸 `?`」两支，
-两支持都落空（`?` 在成员**中间**），于是成员那一层留下一个 `OptionalType`。
-上面那条「类型段第一个字符」的量法当场落空 ⇒ 整个 `questionToken` 丢失
-（实测 `NamedTupleMember` 字段名对不上：产物 `[name,type]` vs TS `[name,questionToken,type]`，
-缺 `QuestionToken` 一格）。
-判据与上面那一支**同一个来源**（都是「那个 `?` 在哪」），只是这里要去兄弟里把它找回来：
-先认成员那一层的 `OptionalType`（`?` 是它的尾字符），再认平级的 `SymbolToken("?")`。
-两支都取 `?` 自己的那一格——不再拿 `TypeDefine` 的起点硬算。
-
-```ts
-  const kids = ctx.Kids(v);
-  const dots = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "...");
-  const spread = kids.find((k: any) => k.get("type") === "Spread");
-  const nameNode = kids.find((k: any) => k.get("type") === "Identifier" || k.get("type") === "Keyword");
-  const typeNode = kids.find((k: any) => k.get("type") === "TypeDefine");
-  const props: any = {};
-  if (nameNode !== undefined) {
-    props.name =
-      nameNode.get("type") === "Keyword" && ctx.TextOf(nameNode) === "this"
-        ? { kind: "Identifier", text: "this", pos: ctx.StartOf(nameNode), end: ctx.EndOf(nameNode) }
-        : ctx.Project(nameNode);
-  }
-  if (dots !== undefined) {
-    props.dotDotDotToken = {
-      kind: "DotDotDotToken",
-      text: "...",
-      pos: ctx.StartOf(dots),
-      end: ctx.StartOf(dots) + 3,
-    };
-  } else if (spread !== undefined) {
-    props.dotDotDotToken = ctx.Project(spread);
-  }
-  if (typeNode !== undefined) {
-    const typeStart = ctx.StartOf(typeNode);
-    if (ctx.source[typeStart] === "?") {
-      props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
-    } else {
-      // **`?` 落在成员中间时它是 `OptionalType` 的尾巴**（第 900 轮，见上）：
-      // 那个可选项只装「名字 + `?`」，所以问号就是它区间的最后一个字符。
-      const optional = kids.find((k: any) => k.get("type") === "OptionalType");
-      const flat = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "?");
-      if (optional !== undefined) {
-        const at = ctx.EndOf(optional) - 1;
-        if (at >= 0 && ctx.source[at] === "?") {
-          props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
-        }
-      } else if (flat !== undefined) {
-        props.questionToken = ctx.Project(flat);
-      }
-    }
-    props.type = ctx.Project(typeNode);
-  }
-  return ctx.NodeHead("NamedTupleMember", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 上面那一份里的位置答案一共有三条，逐条换成 token 上已经记过的那一格：
 
-| `PrintAst` 里的那一句 | 直出版读哪一格 |
+| `PrintDirectAst` 里的那一句 | 直出版读哪一格 |
 | --- | --- |
 | `ctx.TextOf(k)`（`...` / `this` / `?`） | `ctx.ValueOf(k)`——只读那一格记的 `value` |
 | `ctx.source[typeStart] === "?"`（问号被吞进 `TypeDefine`） | `TypeDefine.QuestionAt`（第 996 轮补的那一格，`>= 0` 就是「这一格以 `?` 开头」） |

@@ -381,30 +381,9 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 return new Map([["ConditionalType", new Map([["children", "checkType"], ["children1", "extendsType"], ["children2", "trueType"], ["children3", "falseType"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-条件类型 `T extends U ? A : B` → `ConditionalType`（四个具名字段；
-**从 `ts-ast.xl.md` 的 `projectConditionalType` 搬来**，第 188 轮）。
-
-产物那边是一串**平级单元**：`[T, extends, U, ?, A, :, B]`，所以在 `?` 与 `:` 处切开。
-`?` / `:` 本身不进任何字段（TS 那边没有 `questionToken` 字段）。
-
-切分逻辑在共享层的 `conditionalNode`（**假分支又是条件类型**时要递归）。
-
-**起点取第一格单元的坐标，不取单元自己的 `start`**（第 118 轮）：折行的条件类型
-（实参表里那种 `Q<\n  A,\n  O["type"] extends … ? … : …,\n  B\n>`）里，单元是先被换行
-签入的，`v.start` 会带上**行首的缩进**——投影出来比 TS 的节点早 9 个字符，
-于是那个节点既算「缺」又算「多出来」（实测缺 `ConditionalType` + 多出 `ConditionalType`）。
-
-```ts
-  const kids = ctx.Kids(v);
-  const node = ctx.ConditionalNode(kids, 0, kids.length);
-  return { ...node, end: ctx.StmtEndOf(v) };
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

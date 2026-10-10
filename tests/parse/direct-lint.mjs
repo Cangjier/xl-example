@@ -1,35 +1,37 @@
-// 第三个出口的**直出版**（`Token.PrintDirectAst`）的静态门（第 992 轮）。
+// 第三个出口（`Token.PrintDirectAst`）的静态门（第 992 轮起，第 1013 轮只剩这一条判据）。
 //
 //   node tests/parse/direct-lint.mjs
 //
 // ## 为什么要有这一门
 //
-// `core/syntax/token.xl.md` 的 `PrintDirectAst` 写着两条约定，其中一条**读代码就能判**：
+// `core/syntax/token.xl.md` 的 `PrintDirectAst` 写着一条**读代码就能判**的约定：
 // 这一格的方法体里**不许回原文查**——`ctx.source` / `ctx.Text(` / `ctx.TextOf(` /
-// `ctx.StringText(`，也不许把问题**转手**回 `this.PrintAst`（那等于没写直出版）。
-// 另一条（「与 `PrintAst` 同答」）是动态的，由 `cases:direct` 逐字节对拍，不在这里。
+// `ctx.StringText(`，也不许把问题**转手**回去（原先禁的是 `this.PrintAst`；
+// 第 1013 轮 `PrintAst` 整条删掉之后，第三个出口只剩这一格，转手在规范里已经无路可走）。
 //
 // **为什么这一条必须是门而不是自觉** ✗：回原文查**不会当场坏**——它只在
 // 「注释里有个同名的词」「字符串里有个假括号」这种输入上给出**第二份近似**，
 // 而那种输入正是这一整条线要消掉的东西（`synthName` 那 1324 处就是这么来的）。
 // 一个只在坏输入上显形的约定，靠自觉守不住。
 //
-// ## 判据（四条）
+// ## 判据（两条）
 //
-//   ① 直出版的方法体里不出现那四个回原文查的出口，也不出现 `PrintAst` 转手；
+//   ① 这一格的方法体里不出现那四个回原文查的出口；
 //   ①' 也不出现**按字符串键查**：`.get("…")` / `.set("…")` / `.has("…")` 与
 //      `ctx.Attr(视图, "键")`（逐键计数，例外表已归零，见 `STRING_KEY_ALLOWED`）；
-//   ② 覆写了直出版的页面，**同页必须还有 `PrintAst`**——它是直出版还在被对拍的那条基线
-//      （搬完之前不许先把老路删掉：删了就没人能证明「同答」）；
-//   ③ 扫描本身不抛异常（页面读不出来就是红，不是跳过）。
+//   ② 扫描本身不抛异常（页面读不出来就是红，不是跳过）。
 //   另有一条只扫共享投影那一页的代码块（名字那一格，第 1008 轮，见 `NAME_KEY`）。
 //
-// **章节头按整行认**（第 1012 轮修掉的一处自查错误）：`indexOf("## method PrintDirectAst…")`
-// 会匹配到**代码块里**引用这句话的那一行，于是被扫的正文根本不是这一页的直出版。
-// 现在是 `^…$` 整行匹配（`HEAD_AST_RE` / `HEAD_DIRECT_RE`）。
+// **第 1013 轮删掉的判据**：原来还有一条「覆写了直出版的页面，同页必须还有 `PrintAst`」——
+// 它是「同答」那条动态判据的**基线**（搬完之前不许先把老路删掉）。现在老路删了、
+// 同答由 `cases:direct` 的「重投一致」接手，所以这一条连同它的读数一起撤掉。
 //
-// **退出码**：上面任一条不为 0 就是 1。**未搬的页面不进退出码**：那是进度，不是缺陷
-//（读数照样印出来，「还剩多少页」是这一轮最该看见的数）。
+// **章节头按整行认**（第 1012 轮修掉的一处自查错误）：`indexOf("## method PrintDirectAst…")`
+// 会匹配到**代码块里**引用这句话的那一行，于是被扫的正文根本不是这一页的投影。
+// 现在是 `^…$` 整行匹配（`HEAD_DIRECT_RE`）。
+//
+// **退出码**：上面任一条不为 0 就是 1。**「还没自己出的页面」不进退出码**：那是进度，
+// 不是缺陷（读数照样印出来）。
 
 import fs from "node:fs";
 import path from "node:path";
@@ -63,8 +65,6 @@ for (const name of ROOTS) {
   if (fs.existsSync(dir)) walk(dir, files);
 }
 
-const HEAD_AST = "## method PrintAst:(ctx:any, v:any)=>any";
-const HEAD_DIRECT = "## method PrintDirectAst:(ctx:any, v:any)=>any";
 /**
  * **章节头必须整行匹配**（第 1012 轮修掉的一个自查错误）。
  *
@@ -72,11 +72,10 @@ const HEAD_DIRECT = "## method PrintDirectAst:(ctx:any, v:any)=>any";
  * `tuple-member.xl.md` 的一页 `PrintDirectAst` 正文里**引用**了 `## method PrintDirectAst:…`
  * 这句话（说明「这一格的返回约定」），于是 `indexOf` 从那一行起往后找第一块 ```ts，
  * 找到的是**下一个类的方法体**，而那一块里的 `ctx.Attr(typeNode, "questionAt")`
- * 就被记在**上一页的直出版**名下（实测：真位置在**直出版之外**，扫描器报的行号 547 也在别处）。
- * 后果不是「多报一处」而是**判据对象错了**：被扫的那一段根本不是这一页的直出版。
+ * 就被记在**上一页的投影**名下（实测：真位置在**这一格之外**，扫描器报的行号 547 也在别处）。
+ * 后果不是「多报一处」而是**判据对象错了**：被扫的那一段根本不是这一页的投影。
  * 所以章节头一律按**整行**认（`^` + `$`，`m` 标志），正文也从那一行之后找。
  */
-const HEAD_AST_RE = /^## method PrintAst:\(ctx:any, v:any\)=>any$/gm;
 const HEAD_DIRECT_RE = /^## method PrintDirectAst:\(ctx:any, v:any\)=>any$/gm;
 /** 一页里所有章节头的起止（整行匹配，见上）。 */
 function headsOf(text, re) {
@@ -86,25 +85,27 @@ function headsOf(text, re) {
 }
 
 /**
- * 回原文查的那四个出口 + 一次转手。
+ * 回原文查的那四个出口。
  *
  * **为什么不把 `ctx.LeafKind` / `ctx.KeywordKind` / `ctx.TokenKind` 也算进来** ✗：
  * 它们是**纯分类器**（吃一个字符串、吐一个 kind），字符串从哪来才是问题——
  * 从 `this.Value` / `this.TempToString()` / `ctx.ValueOf(...)` 来就不是回原文查。
  * 把函数名一律禁掉会把「照文本分叶子名」这条本来就该在 token 上的判据一起禁掉。
+ *
+ * **第 1013 轮删掉的那一条**：原先是 `this.PrintAst(`（「不许把问题转手回去」），
+ * 而 `PrintAst` 与它的派发分支已经整条删除——第三个出口只剩这一格，转手无路可走。
  */
 const FORBIDDEN = [
   ["ctx.source", /ctx\.source\b/],
   ["ctx.Text(", /ctx\.Text\(/],
   ["ctx.TextOf(", /ctx\.TextOf\(/],
   ["ctx.StringText(", /ctx\.StringText\(/],
-  ["this.PrintAst(", /this\.PrintAst\s*\(/],
 ];
 
 /**
- * **按字符串键查**（第 1005 轮）——判据②的静态那一半。
+ * **按字符串键查**（第 1005 轮）——判据的静态那一半。
  *
- * 判据②说的是「只用 token 自己的属性 / 子单元 / `Parent`」，而**字符串键进字典里取值**
+ * 它说的是「只用 token 自己的属性 / 子单元 / `Parent`」，而**字符串键进字典里取值**
  * 正是它要消掉的那条路：`k.get("type") === "SymbolToken"` 这样的问句，
  * 判据的是「字典里那个键存了什么」，而不是「这一格是什么」——
  * 于是同一个问句会在**两个出口各答一遍**，而两处一旦漂移，只有坏输入才显形。
@@ -140,20 +141,12 @@ FORBIDDEN.push(...STRING_KEY);
 /**
  * 例外：**一个都没有了**（第 1005 轮收完）——表留着，因为它是「按字符串键查」这本账的形状：
  * 键 -> 允许多少处。数字是量出来的，不是估的；**多一处红、少一处也红**。
- *
- * 最后走掉的两处是 `name`（`method-declaration` / `method`）：它们读的是「这一格叫什么」，
- * 而那个名字**常常根本不在字典里**（`MethodDeclaration` 的名字是子单元），
- * 所以收法是**补一格 token 事实**而不是换读法——`view()` 现在挂一个 `name`，
- * 值由 `tokenNameOf` 按 token 自己那几个字段答（`name` / `fieldName` / `namespace`，
- * 含 `TokenField<string>` 那一档的 `.Value`）。
- * 反例也记着：直接挂字典那个 `name` 键实测 **823 份语料红**（`TypeAliasDeclaration.name` 整格丢）。
  */
 const STRING_KEY_ALLOWED = new Map([
   ["value", 0],
   ["name", 0],
   ["stringChar", 0],
 ]);
-
 
 /** 一段 `## method X` 的方法体：从它后面第一个 ts 代码块到收尾围栏。 */
 function bodyOf(text, at) {
@@ -182,55 +175,42 @@ function codeOnly(body) {
 
 const violations = [];
 const directPages = [];
-const unconverted = [];
 let directSections = 0;
-let astSections = 0;
-/** 直出版里**按字符串键查**的逐键计数（例外表按这个数判）。 */
+/** 这一格的方法体里**按字符串键查**的逐键计数（例外表按这个数判）。 */
 const stringKeyHits = new Map();
 const stringKeyAt = new Map();
 
 for (const file of files.sort()) {
   const text = fs.readFileSync(file, "utf8");
   const rel = path.relative(root, file).replace(/\\/g, "/");
-  for (const [re, isDirect] of [[HEAD_AST_RE, false], [HEAD_DIRECT_RE, true]]) {
-    for (const one of headsOf(text, re)) {
-      const at = one.at;
-      const body = bodyOf(text, at);
-      if (isDirect) directSections++;
-      else astSections++;
-      if (body === null) {
-        if (isDirect) violations.push({ file: rel, why: "直出版没有可读的方法体（代码块缺失）" });
+  for (const one of headsOf(text, HEAD_DIRECT_RE)) {
+    const at = one.at;
+    const body = bodyOf(text, at);
+    directSections++;
+    if (body === null) {
+      violations.push({ file: rel, why: "第三出口没有可读的方法体（代码块缺失）" });
+      continue;
+    }
+    const line = text.slice(0, at).split("\n").length;
+    const code = codeOnly(body);
+    for (const [label, re] of FORBIDDEN) {
+      if (!re.test(code)) continue;
+      if (STRING_KEY.some(([, one]) => one === re)) {
+        // 按字符串键查：**逐键计数**，例外表里额度用完了才红（见 STRING_KEY_ALLOWED）。
+        for (const m of code.matchAll(/\.(?:get|set|has)\(\s*["']([^"']+)["']/g)) {
+          const key = m[1];
+          stringKeyHits.set(key, (stringKeyHits.get(key) || 0) + 1);
+          const where = `${rel}:${line}`;
+          const seen = stringKeyAt.get(key) ?? [];
+          if (seen.length < 3) seen.push(where);
+          stringKeyAt.set(key, seen);
+        }
         continue;
       }
-      if (!isDirect) continue;
-      const line = text.slice(0, at).split("\n").length;
-      const code = codeOnly(body);
-      for (const [label, re] of FORBIDDEN) {
-        if (!re.test(code)) continue;
-        if (STRING_KEY.some(([, one]) => one === re)) {
-          // 按字符串键查：**逐键计数**，例外表里额度用完了才红（见 STRING_KEY_ALLOWED）。
-          for (const m of code.matchAll(/\.(?:get|set|has)\(\s*["']([^"']+)["']/g)) {
-            const key = m[1];
-            stringKeyHits.set(key, (stringKeyHits.get(key) || 0) + 1);
-            const where = `${rel}:${line}`;
-            const seen = stringKeyAt.get(key) ?? [];
-            if (seen.length < 3) seen.push(where);
-            stringKeyAt.set(key, seen);
-          }
-          continue;
-        }
-        violations.push({ file: `${rel}:${line}`, why: `直出版的方法体里出现 ${label}` });
-      }
-      directPages.push({ file: rel, line });
+      violations.push({ file: `${rel}:${line}`, why: `第三出口的方法体里出现 ${label}` });
     }
+    directPages.push({ file: rel, line });
   }
-  // ② 直出版必须留着 `PrintAst` 那条基线（同样按**整行**认，见 `HEAD_DIRECT_RE`）。
-  // **不要拿带 `g` 的正则去 `.test()`**：`lastIndex` 会跨行残留，判据时真时假——
-  // 这里要的是「这一页有没有那一条整行」，`includes` 就够（`HEAD_AST` 是整行文本）。
-  if (text.includes(HEAD_DIRECT) && !text.includes(HEAD_AST)) {
-    violations.push({ file: rel, why: "只有直出版、没有 PrintAst —— 同答判据失去了基线" });
-  }
-  if (text.includes(HEAD_AST) && !text.includes(HEAD_DIRECT)) unconverted.push(rel);
 }
 
 /**
@@ -241,8 +221,8 @@ for (const file of files.sort()) {
  * 这三格是**各页 `NameField` 自己回答的同一格事实**（第 1006 轮，
  * `core/syntax/token.xl.md`），读法只有一个入口：`tokenNameOf`。
  *
- * **为什么这一条要单独扫、不并进上面那三条** ✗：上面那些判据只扫 `PrintDirectAst` 的
- * **方法体**，而第 1008 轮实测到——直出版投一个类要经过 helper
+ * **为什么这一条要单独扫、不并进上面那两条** ✗：上面那些判据只扫 `PrintDirectAst` 的
+ * **方法体**，而第 1008 轮实测到——投影投一个类要经过 helper
  * （`projectDeclaration` / `memberNameOf` / `structuralProps`），
  * **按字符串键查字典正是在 helper 里活下来的**：静态门扫不到，动态那一门更看不见
  * （那两处三词名单逐字节同答；`view()` 那一格早就是 token 事实，helper 这一格还是字典键）。
@@ -282,7 +262,7 @@ for (const key of stringKeys) {
   if (got > allowed) {
     const where = (stringKeyAt.get(key) ?? []).join(" / ");
     violations.push({
-      file: where || "(直出版)",
+      file: where || "(第三出口)",
       why: `按字符串键查 \`${key}\`：${got} 处，例外表只允许 ${allowed} 处（token 缺哪一格事实就补哪一格）`,
     });
   } else if (got < allowed) {
@@ -293,8 +273,8 @@ for (const key of stringKeys) {
   }
 }
 
-console.log(`direct:lint —— ${files.length} 页规范，直出版 ${directSections} 段、PrintAst ${astSections} 段`);
-console.log(`直出版覆盖 ${directPages.length} 页；还没直出的页面 ${unconverted.length} 页`);
+console.log(`direct:lint —— ${files.length} 页规范，第三出口（PrintDirectAst）${directSections} 段`);
+console.log(`自己出这一格的页面 ${directPages.length} 页（同一个类里可能不止一段：一个类几种身份各答各的）`);
 console.log(
   `按字符串键查：${stringKeyTotal} 处（例外 ${stringKeyLeft} 处：${[...STRING_KEY_ALLOWED.entries()]
     .map(([k, v]) => `${k} ${v}`)
@@ -305,15 +285,14 @@ console.log(
 );
 if (verbose) {
   for (const one of directPages) console.log(`  direct  ${one.file}:${one.line}`);
-  for (const one of unconverted) console.log(`  待搬    ${one}`);
 }
 
 if (violations.length > 0) {
   console.log("");
   for (const one of violations.slice(0, 40)) console.log(`FAIL  ${one.file}  ${one.why}`);
   if (violations.length > 40) console.log(`（另有 ${violations.length - 40} 条）`);
-  console.log(`\n直出版的约定：只用 token 自己的属性 / 子单元 / Parent，不回原文查（见 core/syntax/token.xl.md）`);
+  console.log(`\n第三出口的约定：只用 token 自己的属性 / 子单元 / Parent，不回原文查（见 core/syntax/token.xl.md）`);
   process.exit(1);
 }
-console.log(`直出版的约定 0 条违反（不用 ctx.source / ctx.Text / ctx.TextOf / ctx.StringText，不转手 PrintAst）`);
+console.log(`第三出口的约定 0 条违反（不用 ctx.source / ctx.Text / ctx.TextOf / ctx.StringText）`);
 process.exit(0);

@@ -1,4 +1,4 @@
-// 第三个出口的**直出版**（`Token.PrintDirectAst`）的专属尺子（第 992 轮）。
+// 第三个出口（`Token.PrintDirectAst`）的专属尺子（第 992 轮起，第 1013 轮改成单跑）。
 //
 //   node tests/parse/direct-ast.mjs            # 全语料（用例 + samples）
 //   node tests/parse/direct-ast.mjs --all      # 再加上 node_modules / dist/ts（搬页时跑一遍）
@@ -6,42 +6,47 @@
 //
 // ## 为什么要有这一把
 //
-// `core/syntax/token.xl.md` 给直出版定了两条判据，其中**动态的那一条**是「与 `PrintAst` 同答」：
-// 同一个 token 树跑两遍——直出通道**开**（默认，投影优先问 `PrintDirectAst`）与**关**
-// （`projectRoot(..., false)`，走第 992 轮之前那条路）——两份产物必须**逐字节相同**。
+// `core/syntax/token.xl.md` 给第三个出口只留了一条路（第 1013 轮）：
+// **`PrintDirectAst` 就是这一格的唯一写法**，`PrintAst` 与它那条派发分支已经删掉。
+// 于是这一门量的是这一趟本身**稳不稳**：同一份输入投两遍必须**逐字节相同**，
+// 记账（`unmapped` / `count`）也必须相同。
 //
-// **为什么判据是「逐字节」而不是「意思差不多」** ✗：直出版是把同一格**重新按解析期已有的东西
-// 说一遍**（`ctx.Text(v)` → `this.TempToString()`、回原文 `indexOf` → token 上记的 `nameStart`）。
-// 这种替换的错法**恰好**是在边界上差一点：值不在这一格上时旧路退回 `source.slice`
-// （于是多切/少切一个字符）、区间算成反的、kind 落到兜底那一档。
-// 只比「有没有这个节点」看不见这些；`samples` 那份逐字节夹具又只覆盖三个文件。
+// **为什么判据是「逐字节」而不是「意思差不多」** ✗：这一格是把「这一格出什么」
+// **重新按解析期已有的东西说一遍**（`ctx.Text(v)` → `this.TempToString()`、
+// 回原文 `indexOf` → token 上记的 `nameStart`）。这种写法的错法**恰好**是在边界上差一点：
+// 值不在这一格上时旧路退回 `source.slice`（于是多切/少切一个字符）、区间算成反的、
+// kind 落到兜底那一档。只比「有没有这个节点」看不见这些；
+// `samples` 那份逐字节夹具又只覆盖三个文件。
 //
-// ## 判据（三项）
+// **第 1013 轮之前**这一门比的是「直出版与 `PrintAst` 同答」（直出通道开 / 关两遍对拍）。
+// 那一对拍在两份写法**逐字节同答**这件事上跑了三千多份语料、一次没红过——
+// 正因为同答是既成事实，用户口径才要求**删掉冗余的那一份**：
+// 留下的这一份自己跟自己比，管的是「同一份输入不许投出两个答案」。
 //
-//   ① **同答**：`ToJsonText(开) === ToJsonText(关)`，逐份文件；
-//   ② **记账同**：两次的 `unmapped` / `count` 也必须相同（`unmapped` 是产物的一部分语义）；
-//   ③ **不抛异常**：解析或投影抛了就是红（`corpus("cases")` 已经滤掉 `tsInvalid` / `known-gap`）。
+// ## 判据（两项）
 //
-// **退出码**：三项全 0 才是 0。**直出覆盖率不进退出码**——它是「这一格搬完了没有」的读数
-// （`direct / count`），不是缺陷；读数照样印出来，README 的台账抄它。
+//   ① **重投一致**：同一份输入投两遍，`ToJsonText` 逐字节相同，`unmapped` / `count` 也相同；
+//   ② **不抛异常**：解析或投影抛了就是红（`corpus("cases")` 已经滤掉 `tsInvalid` / `known-gap`）。
+//
+// **退出码**：两项全 0 才是 0。**「token 自己出的比例」不进退出码**——它是
+// 「这一格自己出不出」的读数（`direct / count`），不是缺陷；读数照样印出来，README 的台账抄它。
 //
 // ## 第 1009 / 1010 轮量出来的两件事（分母与「通用支」）
 //
-// **① 覆盖率的分母是「问到的次数」，不是「产物里的节点数」**：`projectNode` 里那一问有三种去向——
+// **① 比例的分母是「问到的次数」，不是「产物里的节点数」**：`projectNode` 里那一问有三种去向——
 // 答一个节点（`ctx.direct++`）、答 `ctx.Nothing`（**故意不出节点**）、答 `undefined`（走通用支）。
 // 用例语料 1640 份实测 **16557 / 5291 / 26，合计 21874**（就是印出来的 `count`）。
 // 那 5291 次是 `projectExpression` 这类调用点「先问一遍再自己摊平」问出来的，**不是缺口**；
 // 真正的缺口是 26 次（**0.12%**）：`IfSet` 13（字段没记过时**写下来的让开**）、
-// `Bracket` 13（`(` / `[` 是分组，要先把父 kind / 段名递给直出版才谈得上搬）。
-// ⇒ **拿这个百分比当判据会逼人去写没有出口的直出版**（第 1009 轮）。
+// `Bracket` 13（`(` / `[` 是分组，要先把父 kind / 段名递进来才谈得上自己出）。
+// ⇒ **拿这个百分比当判据会逼人去写没有出口的写法**（第 1009 轮）。
 //
-// **② 通用支**在直出版这一趟**一次都没有真的出过节点**：第三项那个 `unmapped` 相等
-// 在实测里是 **0 === 0**（关直出 0 份、开直出 0 份；`--all` 2051 份也是 0）——
-// 直出版覆盖不到的那些格，走的都是 `PrintAst` 覆写或「问完就丢」，没有一格透传。
+// **② 通用支**在这一趟**一次都没有真的出过节点**：这一项在实测里是 **0**（`--all` 2051 份也是 0）——
+// 覆盖不到的那些格，走的都是这一格自己的覆写或「问完就丢」，没有一格透传。
 // 同一轮数出来：运行期见到的 **117 个 token 类里 74 个覆写了 `PrintDirectAst`**，
 // 另外 **43 个一次都没被问到过**（`IfSegment` / `NewType` / `ClassBody` / `SwitchCase` …）——
-// 它们的节点由父单元直接摊平或丢弃，所以**不需要直出版**。
-// ⇒ 下一轮判断「还差什么」，看的是**被问到的那 74 个类里谁答不出**，不是数源码上有几页。
+// 它们的节点由父单元直接摊平或丢弃，所以**不需要**自己出。
+// ⇒ 判断「还差什么」，看的是**被问到的那 74 个类里谁答不出**，不是数源码上有几页。
 //
 // ## 语料口径
 //
@@ -113,24 +118,28 @@ for (const file of run) {
     const context = new TextContext(new Template());
     context.Process(new TextDocument(source));
     parsed++;
-    // **两份树各取一次**：`ToList()` 每次都新建字典（`WithRange` 会往字典格上记 `__token`），
-    // 所以两趟互不干扰——这一点是「同答」判据可信的前提。
-    const legacy = projectRoot(context.Root.ToList(), source, false);
-    const withDirect = projectRoot(context.Root.ToList(), source, true);
-    const a = ToJsonText(legacy);
-    const b = ToJsonText(withDirect);
-    nodes += withDirect.count;
-    direct += withDirect.direct;
+    // **一趟**（第 1013 轮）：第三个出口只剩 `PrintDirectAst` 一条路，
+    // 所以这里量的不再是「两遍同不同答」，而是这一趟本身——
+    // 出多少节点、由 token 自己出了多少个、以及**同一份输入重投一次是不是逐字节相同**。
+    const first = projectRoot(context.Root.ToList(), source);
+    const second = projectRoot(context.Root.ToList(), source);
+    const a = ToJsonText(first);
+    const b = ToJsonText(second);
+    nodes += first.count;
+    direct += first.direct;
     if (a !== b) {
       mismatches.push({ file: rel, diff: firstDiff(a, b) });
       continue;
     }
-    if (JSON.stringify(legacy.unmapped) !== JSON.stringify(withDirect.unmapped)) {
-      mismatches.push({ file: rel, diff: { at: -1, left: JSON.stringify(legacy.unmapped), right: JSON.stringify(withDirect.unmapped) } });
+    if (first.count !== second.count) {
+      mismatches.push({ file: rel, diff: { at: -1, left: `count ${first.count}`, right: `count ${second.count}` } });
       continue;
     }
-    if (legacy.count !== withDirect.count) {
-      mismatches.push({ file: rel, diff: { at: -1, left: `count ${legacy.count}`, right: `count ${withDirect.count}` } });
+    if (JSON.stringify(first.unmapped) !== JSON.stringify(second.unmapped)) {
+      mismatches.push({
+        file: rel,
+        diff: { at: -1, left: JSON.stringify(first.unmapped), right: JSON.stringify(second.unmapped) },
+      });
     }
   } catch (error) {
     errors.push({ file: rel, why: String(error && error.message ? error.message : error) });
@@ -140,23 +149,23 @@ for (const file of run) {
 const share = nodes === 0 ? 0 : (direct / nodes) * 100;
 console.log(
   `cases:direct —— 语料 ${run.length} 份（解析 ${parsed}）、投影 ${nodes} 个节点，` +
-    `其中直出版自己出的 ${direct} 个（${share.toFixed(1)}%）`,
+    `其中 token 自己出的 ${direct} 个（${share.toFixed(1)}%）`,
 );
 console.log(
-  `同答 ${mismatches.length} 处不一致、抛异常 ${errors.length} 处` +
-    `（直出通道开 / 关，逐字节比 + unmapped / count 记账）`,
+  `重投一致 ${mismatches.length} 处不一致、抛异常 ${errors.length} 处` +
+    `（同一份输入投两遍，逐字节比 + unmapped / count 记账）`,
 );
 console.log(
-  `直出覆盖率的分母是「问到的次数」，里面混着答 \`ctx.Nothing\`（故意不出节点）的那些——` +
-    `所以它**不进退出码**；进退出码的是上面那三项（实测 unmapped 那一项两边都是 0）。`,
+  `自己出的比例的分母是「问到的次数」，里面混着答 \`ctx.Nothing\`（故意不出节点）的那些——` +
+    `所以它**不进退出码**；进退出码的是上面那两项。`,
 );
 
 if (flag("--verbose") || mismatches.length > 0 || errors.length > 0) {
   for (const one of mismatches.slice(0, TOP)) {
     console.log("");
-    console.log(`FAIL  ${one.file}  第一处不同在下标 ${one.diff.at}（关 ${one.diff.leftLength} 字节 / 开 ${one.diff.rightLength} 字节）`);
-    console.log(`      关直出：${one.diff.left}`);
-    console.log(`      开直出：${one.diff.right}`);
+    console.log(`FAIL  ${one.file}  第一处不同在下标 ${one.diff.at}（一遍 ${one.diff.leftLength} 字节 / 二遍 ${one.diff.rightLength} 字节）`);
+    console.log(`      第一遍：${one.diff.left}`);
+    console.log(`      第二遍：${one.diff.right}`);
   }
   if (mismatches.length > TOP) console.log(`（另有 ${mismatches.length - TOP} 份不一致，用 --top 调）`);
   for (const one of errors.slice(0, TOP)) console.log(`FAIL  ${one.file}  ${one.why}`);
@@ -164,5 +173,5 @@ if (flag("--verbose") || mismatches.length > 0 || errors.length > 0) {
 }
 
 if (mismatches.length > 0 || errors.length > 0) process.exit(1);
-console.log(`直出版与 PrintAst 同答（${run.length} 份语料逐字节一致）`);
+console.log(`第三个出口只有一条路，重投逐字节一致（${run.length} 份语料）`);
 process.exit(0);

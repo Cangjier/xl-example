@@ -901,120 +901,14 @@ Lambda 表达式。
 return new Map([["ArrowFunction", new Map([["GenericType", "typeParameters"], ["children", "parameters"], ["returnType", "type"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-箭头函数 → `ArrowFunction`（`parameters` / `body` / `equalsGreaterThanToken` / `type`；
-**从 `ts-ast.xl.md` 的 `projectLamda` 整块搬来**，第 195 轮）。
-
-**`=>` 在产物树里没有单元**（`Lamda` 只收 `parameters` 与 `body` 两段），
-而 TS 那边 `equalsGreaterThanToken` 是子节点——所以这里**合成**一个。
-位置**直读字段** `ArrowAt`（第 621 轮，「token 出字段、投影直读」）：
-它由重组那一刻当场记下来（触发本规则的那一格就是它）——
-原来拿 `indexOf("=>", 最后一个形参的终点)` **回原文里找**（那是**第二份位置答案**：
-`(a: number) /* => */ => a` 会命中注释里那个箭头）；而它**占两个字符，不是零宽**。
-**字段是 `-1`** 时（理论上不该有）照旧退回那条按原文找的路。
-
-**空形参表 `() => x`**（第 141 轮）：这时 `unwrapNodes(参数段).pop()` 是 `undefined`，
-那条兜底路要从**参数段自己**的末尾往后搜，否则 `equalsGreaterThanToken` 整个缺。
-
-**表达式体不是 `Block`**（第 102 轮）：`(item) => item instanceof LineWrap` 的 TS `body`
-**就是那个表达式**。判据是「`=>` 之后第一个非空白字符」——**不是**体段自己的起点：
-带花括号的体在产物树里**不含那对花括号**（`LamdaBody > Statement`），照体段起点判会把
-`(x) => { return x }` 也当成表达式体、整个 `Block` 连同里面的语句一起丢。
-
-**一律走 `ctx.Expression`**（第 125 轮）：`flat.length === 1` 时走 `ctx.Project`
-会把值位括号投成一个未映射的 `<Bracket>`（`(a) => (a.pos ?? 0)` 的体正是一对括号）。
-
-```ts
-  const props: any = ctx.Structural(v, "ArrowFunction");
-  const params = ctx.KidsOf(v, "parameters");
-  const lastParam = params.length > 0 ? ctx.UnwrapNodes(params[0]).pop() : null;
-  const rawArrowAt = ctx.Attr(v, "arrowAt");
-  let arrowAt = typeof rawArrowAt === "number" ? rawArrowAt : -1;
-  const arrowFrom =
-    lastParam !== undefined && lastParam !== null
-      ? ctx.EndOf(lastParam)
-      : params.length > 0
-        ? ctx.EndOf(params[0])
-        : v.start;
-  if (arrowAt < 0) arrowAt = ctx.source.indexOf("=>", arrowFrom);
-  {
-    const pos = arrowAt >= 0 && arrowAt < v.end ? arrowAt : arrowFrom;
-    const width = ctx.source.startsWith("=>", pos) ? 2 : 0;
-    props.equalsGreaterThanToken = {
-      kind: "EqualsGreaterThanToken",
-      text: "=>",
-      pos,
-      end: pos + width,
-    };
-  }
-  let braced = false;
-  let braceAt = -1;
-  let braceEnd = -1;
-  // **体是不是花括号块，问 token 的字段**（第 595 轮）：`BodyBrace` 是打包那一刻
-  // 当场记下来的（那个括号就在手上）。原来这里回原文里找（`arrowAt + 2` 起跳空白、
-  // 看第一个字符是不是 `{`）——那是**第二份位置答案**：`() => /* c */ { }` 里
-  // `arrowAt + 2` 撞上的是注释的 `/` ⇒ 判成表达式体 ⇒ 整个 `Block` 连同体里的语句一起丢
-  // （实测 `Block` 缺 1 + 字段名 1）。
-  const rawBodyBrace = ctx.Attr(v, "bodyBraceAt");
-  if (typeof rawBodyBrace === "number" && rawBodyBrace >= 0) {
-    braced = true;
-    braceAt = rawBodyBrace;
-  }
-  // **右端也读字段**（第 647 轮）：`BodyBrace` 把**整对括号**一起带出来
-  //（与 `While` / `For` / `IfSegment` / `Try` 同一条口径）——
-  // 原来那一支写的是 `ctx.EndOf(v)`，那背后是「**本单元的终点恰好是那个 `}`**」
-  // 这个**没被记下来的约定**（它今天成立，可换个记法就会静默错位）。
-  const rawBodyBraceRange = ctx.Attr(v, "bodyBraceRange");
-  if (typeof rawBodyBraceRange === "string" && rawBodyBraceRange.includes(",")) {
-    const bodyBraceSpan = rawBodyBraceRange.split(",");
-    const spanEnd = Number(bodyBraceSpan[1]);
-    if (Number.isInteger(spanEnd)) {
-      braceEnd = spanEnd + 1;
-    }
-  }
-  const bodyUnits = ctx.KidsOf(v, "body");
-  const raw: any[] = [];
-  for (const unit of bodyUnits) {
-    if (unit.get("type") === "LamdaBody") {
-      for (const x of ctx.UnwrapNodes(unit)) raw.push(x);
-      continue;
-    }
-    raw.push(unit);
-  }
-  if (braced) {
-    // **两端都读字段**（第 647 轮）：`BodyBrace` 记的就是那对括号的整段，
-    // 所以这里既不必回原文里配一次括号、也不必假设本单元的终点落在那个 `}` 上
-    //（字段缺了——克隆体之外不该出现——才退回本单元的终点）。
-    props.body = {
-      kind: "Block",
-      statements: ctx.ProjectEach(raw, "Block"),
-      pos: braceAt,
-      end: braceEnd >= 0 ? braceEnd : ctx.EndOf(v),
-    };
-  } else {
-    const flat: any[] = [];
-    for (const k of raw) {
-      if (k.get("type") === "Statement") {
-        for (const x of ctx.UnwrapNodes(k)) flat.push(x);
-        continue;
-      }
-      flat.push(k);
-    }
-    const projected = ctx.Expression(flat);
-    if (projected !== undefined) props.body = projected;
-  }
-  return ctx.NodeHead("ArrowFunction", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 995 轮）：与上面的 `PrintAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+**第三个出口的直出版**（第 995 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
 
 **唯一让开的一处**：`ArrowAt` 那一格是 `-1` 时（理论上不该有：它由重组那一刻当场记下），
-`PrintAst` 会**回原文里找** `=>`。那正是直出版不许有的第二份近似 ⇒ 直出版答 `undefined`，
-交回 `PrintAst` 走那一条（与基类「我没有直出版」同一个约定，只是让开的范围小到一格）。
+`PrintDirectAst` 会**回原文里找** `=>`。那正是直出版不许有的第二份近似 ⇒ 直出版答 `undefined`，
+交回 `PrintDirectAst` 走那一条（与基类「我没有直出版」同一个约定，只是让开的范围小到一格）。
 **其余全部直读字段**：箭头的两个字符宽度由「它占两个字符」这一事实给（不是回原文比一次），
 体的那对括号两端读 `BodyBrace` / `BodyBraceRange`。
 
@@ -1022,7 +916,7 @@ return new Map([["ArrowFunction", new Map([["GenericType", "typeParameters"], ["
   const props: any = ctx.Structural(v, "ArrowFunction");
   const rawArrowAt = v.arrowAt;
   const arrowAt = typeof rawArrowAt === "number" ? rawArrowAt : -1;
-  // **位置不在这一格上**（字段缺）⇒ 交回 `PrintAst`（它回原文里找一次）。
+  // **位置不在这一格上**（字段缺）⇒ 交回 `PrintDirectAst`（它回原文里找一次）。
   if (!(arrowAt >= 0 && arrowAt < v.end)) {
     return undefined;
   }

@@ -127,28 +127,9 @@ unit.AddToMounted(block);
 `static /* { */ { }` 这种写法会命中**注释里**那个假括号。而 `StaticBlockBranch.Success`
 那一刻 `{` 就在手上（`source.Index`）⇒ 当场记下来，投影只读这一格。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-类静态块 `class A { static { … } }` → `ClassStaticBlockDeclaration`（`body: Block`；
-**从 `ts-ast.xl.md` 的 `projectStaticBlock` 搬来**，第 184 轮）。
-
-产物那边体括号不在树里（`StaticBlock > Statement*`），所以 `Block` 要**自己造**：
-开括号读 `BraceAt`，闭括号就是**本单元的终点**（`ExitOrPre` 在 `}` 上签出），
-不再回原文里找那一对括号（与 `projectTry` 里两个块同一套做法）。
-
-```ts
-  const statements = ctx.ProjectEach(ctx.Kids(v), "Block");
-  const rawBrace = ctx.Attr(v, "braceAt");
-  const brace = typeof rawBrace === "number" ? rawBrace : -1;
-  const close = ctx.EndOf(v);
-  const body =
-    brace >= 0 && close > brace ? { kind: "Block", statements, pos: brace, end: close } : undefined;
-  return ctx.NodeHead("ClassStaticBlockDeclaration", body === undefined ? {} : { body }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -214,7 +195,7 @@ return BranchStates.Undo;
 
 产出 JSON 对象：类型名 + `braceAt` + 子单元。
 
-形状与基类那一份**只差 `braceAt` 一格**（键序保持 `type` 在前）：`PrintAst` 的 `ctx.Attr`
+形状与基类那一份**只差 `braceAt` 一格**（键序保持 `type` 在前）：`PrintDirectAst` 的 `ctx.Attr`
 取的就是这里写进去的键，所以字段与投影之间只隔这一处。不是静态块（`-1`）时**不写这一格**，
 与 `LineWrap` 那种自闭合节点同一口径。
 

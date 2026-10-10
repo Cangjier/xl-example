@@ -345,35 +345,9 @@ return ReplaceCountAt(units, index, operandEnd - index + 1, result);
 return new Map([["SpreadElement", new Map([["children", "expression"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-展开元素 `...xs` → `SpreadElement`（**只有 `expression` 一个字段**；
-**从 `ts-ast.xl.md` 的 `projectSpread` 搬来**，第 182 轮）。
-
-产物那边是 `Spread > [SymbolToken(...), 目标]`——两点号是一个平级的 `SymbolToken`。
-照通用支（`FIELD_BY_KIND` 把 `children` 映射成 `expression`）会把那个 `SymbolToken`
-也投成 `DotDotDotToken` 一起塞进 `expression` 里（实测多出 66，样本全是
-`f(...newValues)` / `push(...items)` 这种调用实参）。
-
-**目标走 `ctx.Expression` 而不是 `ctx.Project`**（第 125 轮）：`...(...)` 的目标是一对括号时，
-`Project` 会把整个括号投成一个**未映射的 `<Bracket>`**，而 `Expression` 认得出值位括号
-（`ParenthesizedExpression`）。实测 `[...l, ...(x ?? [])]` 缺 `ParenthesizedExpression` + 多出 `Bracket`。
-
-```ts
-  const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.get("type") === "SymbolToken" && ctx.TextOf(k) === "..."),
-  );
-  const expression = kids.length === 0 ? undefined : ctx.Expression(kids);
-  return ctx.Node(
-    "SpreadElement",
-    expression === undefined ? {} : { expression },
-    v,
-  );
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

@@ -373,29 +373,9 @@ return true;
 return items.includes(this.TempToString());
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格是它自己出的**（第 77 轮）：标识符 / 数字 / 布尔字面量的文本块在 TS 那边**按文本再分名**
-（`bar` 是 `Identifier`、`0` 是 `NumericLiteral`、`true` 是 `TrueKeyword`、`"x"` 是 `StringLiteral`）。
-这条「按值分名」的规则原来在中央投影表里（`typescript/ts-ast.xl.md`，已 `git mv` 成
-`typescript/print-ast-common.xl.md`），现在跟这个类待在一起。
-
-**转义要**解**开**（第 381 轮）：`const \u0061bc = 1; console.log(abc)` 在 JS / TS 里
-声明的名字就是 `abc`（TS 的 AST `text` 也是 `abc`）。而投影这一格原来直接把
-**源码切片**当名字 ⇒ 声明的是 `\u0061bc`、用的是 `abc` ⇒ 降级层报
-`name is not a local or a capture: abc`；同一个毛病在**属性键**上是**静默错值**
-（`x.\u0061` 给 `undefined`，Node 给 `x.a`）。
-**只在这一格解**（`ctx.Text` 是共用的，`TempToString` 还要认数字与关键字）——
-标识符里合法转义只有 `\uXXXX` 与 `\u{…}` 两种，别的形态原样留着。
-
-```ts
-const text = ctx.Text(v);
-return ctx.Node(ctx.LeafKind(text), { text: Translate.DecodeIdentifierEscapes(text) }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

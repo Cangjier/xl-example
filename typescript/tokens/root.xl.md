@@ -56,20 +56,9 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 return new Map([["SourceFile", new Map([["children", "statements"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-整份文件 → `SourceFile`（**从 `ts-ast.xl.md` 中央 `switch` 的 `case "Root"` 搬来**，第 192 轮）。
-
-根的子单元就是语句表（`Root > Statement*`），照 `children` 段逐条投成
-`SourceFile.statements`（`pos` / `end` 由 `ctx.Node` 按这个单元自己的区间给）。
-
-```ts
-  return ctx.Node("SourceFile", { statements: ctx.ProjectEach(ctx.KidsOf(v, "children")) }, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

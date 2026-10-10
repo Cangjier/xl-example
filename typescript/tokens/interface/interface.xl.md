@@ -199,7 +199,7 @@ if (extendsWord instanceof Identifier && extendsWord.Is("extends")) {
     // `Identifier` / `HeritageClause` / `ExpressionWithTypeArguments` / `ParenthesizedExpression`
     // 共 6 项、多出 `ExpressionStatement` + `Identifier(interface)`）。
     // **名字文本不收**（与类那条路逐字一致：`class C extends (a.b) {}` 的 `extends=""`）——
-    // 括号里是什么由 `ExpressionWithTypeArguments.PrintAst` 自己投（它早就有括号那一支）。
+    // 括号里是什么由 `ExpressionWithTypeArguments.PrintDirectAst` 自己投（它早就有括号那一支）。
     const head = Get(units, nextIndex);
     if (head instanceof Bracket && head.startBracket === "(") {
       nextIndex = SkipNextTrivia(units, nextIndex);
@@ -414,29 +414,15 @@ for (const item of this.Data) {
 throw new Error("找不到匹配的子单元");
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-**这一格出哪个节点**（第 1002 轮）：Interface 是**声明族**的一员，形状由
-`ctx.Declaration` 给——它与通用支落在**同一份实现**（`projectDeclaration`）上，
-所以「覆写了仍然与通用支逐字节相同」是结构上的事，不是巧合。
-
-**为什么不在这里自己算 kind**：这一族**两半一起写**（`PrintAst` + `PrintDirectAst`，
-见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）——非直出版那条路照旧走投影层的
-换 kind 规则与段名表，一个字都不改；只有直出版需要自己算（它不能被问第二次）。
-
-```ts
-  return ctx.Declaration(v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1002 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 1002 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
-**这一页的直出版换掉的是「谁替这一格算形状」这件事**：原来这一族**连 `PrintAst` 都没有**，
+**这一页的直出版换掉的是「谁替这一格算形状」这件事**：原来这一族**连 `PrintDirectAst` 都没有**，
 形状一直由投影层的通用支给（`KIND_BY_TAG` 换名 + `structuralProps` 给字段名）——
-所以两半一起写：`PrintAst` 先把那一趟**写下来**（形状从此有了一份逐字节对拍的基线），
+所以两半一起写：`PrintDirectAst` 先把那一趟**写下来**（形状从此有了一份逐字节对拍的基线），
 直出版再把它按 `ctx.Declaration` 说一遍。
 
 **回落到形状那一格是必须的**（不是「偷懒转手」）：算 kind 与造形状是同一件事的两半

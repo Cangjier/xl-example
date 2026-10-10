@@ -196,7 +196,7 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
 **体是那条空语句（`while (…);`）时，那个 `;` 的下标**；不是这一档就是 `-1`。
 
 与 `For.EmptyBodyAt` 同一个来由：判据只在收尾规则那一处算得起（那个 `;` 触发规则时还没进列表），
-记成字段之后投影只读一次（见 `PrintAst`），不再拿 `MatchingParen` 重扫原文。
+记成字段之后投影只读一次（见 `PrintDirectAst`），不再拿 `MatchingParen` 重扫原文。
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
@@ -220,56 +220,16 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
 （`while (g(")")) ;` 这种形状里第一份判据是对的、第二份要错）。
 **只在「体带了这一格」的那条路之外用它**：体是花括号块时由 `BodyBrace` 说了算（连终点都齐了）。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`while (c) { … }` → `WhileStatement`（`expression` + `statement`；
-**从 `ts-ast.xl.md` 的 `projectWhile` 搬来**，第 183 轮）。
-
-**头部右括号要按深度配对**（第 127 轮）：`while (g(x)) ;` 里第一个 `)` 是 `g(x)` 的，
-拿它当头部末尾会让「空体语句」那一支看不见那个 `;`（实测 `EmptyStatement` 缺）。
-
-```ts
-  const props: any = {};
-  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  if (compare.length > 0) props.expression = ctx.Expression(compare);
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  // **空体那一格先读 token 上的字段**（第 590 轮）：有它就不必配对括号 + 扫原文。
-  const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
-    ? v.attrs.get("emptyBodyAt")
-    : undefined;
-  const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
-  if (emptyAt >= 0) {
-    props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
-    return ctx.NodeHead("WhileStatement", props, v);
-  }
-  // **体那一对花括号直读字段**（第 618 轮那一格，第 641 轮带上整段，与 `IfSegment` 同一条口径）：
-  // 两端都是**挂体那一刻**的事实 ⇒ `BodyBlockOf` 拿到它就**直接**给出那个 `Block`
-  //（空块 `while (c) {}` 也在内），回原文找 `{` 再配对那一趟**一步都不走**。
-  // **这一支要排在回原文猜之前**：那一位在没有可见子单元时只能扫原文，
-  // 而字段是**打包那一刻的事实**（「token 出字段、投影直读」）。
-  const rawBraceRange = ctx.Attr(v, "bodyBraceRange");
-  // **头部那个 `)` 也先读字段**（第 634 轮）：收尾规则把它当场记下了，
-  // 回原文重扫是同一件事的第二份近似（见 `HeaderCloseAt` 那一格）。
-  const rawHeaderClose = v.attrs !== undefined && typeof v.attrs.get === "function"
-    ? v.attrs.get("headerCloseAt")
-    : undefined;
-  const headerCloseAt = typeof rawHeaderClose === "number" ? rawHeaderClose : -1;
-  const header = headerCloseAt >= 0 ? headerCloseAt : ctx.MatchingParen(ctx.source, v.start);
-  const statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body, rawBraceRange);
-  if (statement !== undefined) props.statement = statement;
-  return ctx.NodeHead("WhileStatement", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 997 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 997 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 **这一页差的只有格**：`emptyBodyAt` / `bodyBraceRange` / `headerCloseAt` 三格**早就在 token 上**
-（第 590 / 641 / 634 轮），`PrintAst` 里唯一回原文的那一处是**头部 `)` 的兜底**
+（第 590 / 641 / 634 轮），`PrintDirectAst` 里唯一回原文的那一处是**头部 `)` 的兜底**
 （`ctx.MatchingParen(ctx.source, v.start)`）——直出版把这条兜底去掉：
-三格缺任意一格就**答 `undefined` 交回 `PrintAst`**（与 `Lamda` / `Foreach` 那两处同一个约定，
+三格缺任意一格就**答 `undefined` 交回 `PrintDirectAst`**（与 `Lamda` / `Foreach` 那两处同一个约定，
 让开的范围小到一格，而且**次数是量得出来的**）。
 
 ```ts
@@ -288,7 +248,7 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
   }
   // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
   const rawBraceRange = v.bodyBraceRange;
-  // **头部那个 `)` 也只有字段这一格事实**（第 634 轮）。字段缺了 ⇒ 不猜，交回 `PrintAst`。
+  // **头部那个 `)` 也只有字段这一格事实**（第 634 轮）。字段缺了 ⇒ 不猜，交回 `PrintDirectAst`。
   const rawHeaderClose = v.attrs !== undefined && typeof v.attrs.get === "function"
     ? v.headerCloseAt
     : undefined;

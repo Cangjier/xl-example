@@ -284,49 +284,9 @@ return ReplaceCountAt(units, index, units.length - index, result);
 
 内容直接装在自己身上：可选的 `asserts`、参数名、`is`、以及类型（若写了）。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-类型谓词 `value is T` / `asserts value is T` / `asserts value` → `TypePredicate`
-（**从 `ts-ast.xl.md` 的 `projectTypePredicate` 搬来**，第 186 轮）。
-
-产物那边三种身份（`asserts` 是 `AssertsKeyword`、参数名是 `Identifier`、`is` 是 `Keyword`）
-全挤在**平级的子单元**里，而 TS 那边它们是两个具名字段（`parameterName` / `type`，
-`asserts` 时多一个 `assertsModifier`）——不分开时整族都只投出「一串 `Identifier`」
-（真实语料 `TypePredicate` 的 `is` / 类型实参全对不上，`TypeReference` 有 360 处缺在它下面）。
-
-`is` 在产物里的词法身份不固定（`Keyword` 或 `Identifier`），两种都认；
-谓词里的类型**走类型位投影**（`T` ⇒ `TypeReference > Identifier`）。
-
-**`is` 不进子字段**（第 76 轮实测）：TS 的 `TypePredicate` 只有
-`parameterName` / `type`（+ `asserts` 时的 `assertsModifier`）三格，
-`is` 是词法记号、`ts.forEachChild` **不会**访问它——留着一个 `isKeyword`
-会让这一整类（382 处）的字段名多出一格。位置仍然算出来（那个 `i++`）。
-
-```ts
-  const kids = ctx.Kids(v);
-  const props: any = {};
-  let i = 0;
-  if (i < kids.length && kids[i].get("type") === "Keyword" && ctx.TextOf(kids[i]) === "asserts") {
-    props.assertsModifier = ctx.Project(kids[i]);
-    i++;
-  }
-  if (i < kids.length && ctx.IsNameNode(kids[i])) {
-    props.parameterName = ctx.Project(kids[i]);
-    i++;
-  }
-  if (i < kids.length && ctx.TextOf(kids[i]) === "is") {
-    i++;
-  }
-  if (i < kids.length) {
-    const type = ctx.TypeExpression(kids.slice(i));
-    if (type !== undefined) props.type = type;
-  }
-  return ctx.NodeHead("TypePredicate", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

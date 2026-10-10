@@ -16,11 +16,11 @@ import { Translate } from "./tokens/string/translate.xl.md"
 
 出口的分工（第 181~198 轮搬迁的结论）：
 
-投影的**逐标签逻辑已经全部落在各 token 的 `PrintAst` 上**（49 块，一处一块搬完）。
+投影的**逐标签逻辑已经全部落在各 token 的 `PrintDirectAst` 上**（49 块，一处一块搬完）。
 `projectNode` 现在是三步：
 
 1. `v = view(node)`；
-2. **问这个节点自己**：`node.__token.PrintAst(ctx, v)`——覆写了就由它出这一格
+2. **问这个节点自己**：`node.__token.PrintDirectAst(ctx, v)`——覆写了就由它出这一格
    （`ctx.Nothing` 表示「这一格故意不出节点」）；
 3. 没覆写（或返回 `undefined`）才落到本文件的**通用支**：换名表 + 提层 + 字段名。
 
@@ -30,7 +30,7 @@ import { Translate } from "./tokens/string/translate.xl.md"
 - **通用支**（`KIND_BY_TAG` 与 `FIELD_BY_KIND` 两张表 + `structuralProps`；「包装提层」「段名」
   与「体字段」那三格第 988~991 轮已经搬上各 token，见 `Token.WrapperField` /
   `Token.SegmentNames` / `Token.BodyField`）；
-- **`ctx`**——递给 `PrintAst` 的那一组出口（`Kids` / `Expression` / `TypeExpression` /
+- **`ctx`**——递给 `PrintDirectAst` 的那一组出口（`Kids` / `Expression` / `TypeExpression` /
   `Node` / `StartOf` / `EndOf` / `Project` / `TextOf` / …，共 40 多个）：
   搬迁层不许 import 本文件（token → 本文件 → token 会成环），横切工具只能经它过去；
 - **共享实现**：那些**被共享层自己调用、且调用方拿不到「单元」这个入口**的函数
@@ -820,7 +820,7 @@ new Map([
 
 **原始类型**名 → `SyntaxKind` 名。
 
-它在 TS 那边**不是** `TypeReference`（见 `tokens/type-define.xl.md` 的 `PrintAst`）。
+它在 TS 那边**不是** `TypeReference`（见 `tokens/type-define.xl.md` 的 `PrintDirectAst`）。
 这张表与 `KEYWORD_KIND` 有重叠，但**语义不同**：`KEYWORD_KIND` 管的是
 「产物把它标成 `<Keyword>` 了」，这张表管的是「**在类型位上**该叫这个名字」——
 而产物在类型位把 `string` 标成的是 `<Identifier>`（实测 `x: string` 里 `string` 是 `Identifier`）。
@@ -958,7 +958,7 @@ new Map([
 
 # private const NOTHING:any = { __nothing: true }
 
-**「这一格没有节点」的哨兵**（第 198 轮）：token 的 `PrintAst` 返回 `undefined` 时，
+**「这一格没有节点」的哨兵**（第 198 轮）：token 的 `PrintDirectAst` 返回 `undefined` 时，
 `projectNode` 认为「它没覆写这一格」、于是落到通用投影——但有几处出口是**故意**
 一个节点都不出的（例如 `projectStatement` 对那些「已经是上一条语句终结符」的空语句
 返回 `undefined`）。所以那些出口改为返回 `ctx.Nothing`，`projectNode` 见到它就**直接返回
@@ -966,7 +966,7 @@ new Map([
 
 # private const DECLARATION_TAGS:Set<string> = new Set(["MethodDeclaration", "Function", "Class", "Interface", "TypeLiteral", "Enum"])
 
-**声明族**（第 1002 轮）：这六个标签**自己覆写了 `PrintAst` 与 `PrintDirectAst`**，
+**声明族**（第 1002 轮）：这六个标签**自己覆写了 `PrintDirectAst` 与 `PrintDirectAst`**，
 两条路都落到同一个 `projectDeclaration` 上——所以「同答」不是对拍出来的巧合，
 而是**同一份实现**说过两遍（一遍经 `ctx.Declaration`、一遍经 `ctx.Project`）。
 
@@ -1066,7 +1066,7 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
 没有函数体的可调用签名再带上尾随分号。
 
 这是 `projectNode` 里那个 `mk` 的**唯一实现**（`mk` 现在只是转调它）：逐节点出口
-（token 自己的 `PrintAst`）与通用支**必须是同一份坐标口径**，否则两条路的坐标会悄悄漂开——
+（token 自己的 `PrintDirectAst`）与通用支**必须是同一份坐标口径**，否则两条路的坐标会悄悄漂开——
 而这只会在 `cases:tsast` 的百分比上表现出来，看不出根因。
 
 `props` 为 `undefined` 时只出 `{ kind, pos, end }`（自闭合那一类节点，例如 `EndOfFileToken`）。
@@ -1121,7 +1121,7 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
 `projectNode` 里那个 `mk` 的**同一份闭包**，给 `ctx.Declaration` 用（第 1002 轮）。
 
 `mk` 之所以是**每个节点一份闭包**，是因为它把这一格的坐标（`v`）与上下文（`ctx`）闭在里面；
-`projectDeclaration` 要 `mk` 才能造节点，而声明族的 `PrintAst` 走的是 `ctx.Declaration`——
+`projectDeclaration` 要 `mk` 才能造节点，而声明族的 `PrintDirectAst` 走的是 `ctx.Declaration`——
 所以这里把「同一个 mk」按同一份实现再包一次（实现仍然只有 `astNode` 一处）。
 
 ```ts
@@ -1136,7 +1136,7 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
 
     return { kind: "ForStatement", pos: v.start, end: v.end, ...props };
 
-第 181~198 轮把它们逐块搬进各 token 的 `PrintAst`、改走 `ctx.Node` 之后，键序变成了
+第 181~198 轮把它们逐块搬进各 token 的 `PrintDirectAst`、改走 `ctx.Node` 之后，键序变成了
 「props 在前、坐标在后」：**值一个没变，字节变了**。`samples` 的 `*.expected.tsast.json`
 是**逐字节**比的，它当场抓出 13 类；按第 96 轮那份实现（夹具就是它生成的）逐个 kind 对下来，
 共 **30 处构造点**（`ForStatement` / `TypeParameter` / `HeritageClause` / `SwitchStatement`、
@@ -1194,24 +1194,23 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
   if (!(node instanceof Map)) return undefined;
   const v = view(node);
   ctx.count++;
-  // **先问这个节点自己**（第 77 轮）：`__token` 是 `WithRangeOf` 补坐标时记下的、
-  // 产出这一格的那个 token（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  // 它覆写了 `PrintAst` 就由它自己出这一格——出口因此是**逐节点**的，而不是一张中央表说了算；
+  // **问这个节点自己**（第 77 轮起）：`__token` 是 `WithRangeOf` 补坐标时记下的、
+  // 产出这一格的那个 token（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  // 它覆写了这一格就由它自己出这一格——出口因此是**逐节点**的，而不是一张中央表说了算；
   // 没覆写（基类返回 `undefined`）就落到下面这份通用支：换名表 + 提层 + 字段名。
+  //
+  // **第 1013 轮起这里只问一格**：原先先问 `PrintDirectAst`、再问 `PrintAst` 的两问
+  // （以及 `ctx.directEnabled` 那道开关）整段删掉——两份写法逐字节同答由 `cases:direct`
+  // 盯着，留下来的就是有判据的那一份。
   const owner = node.__token;
   if (owner !== undefined) {
-    // **先问直出版**（第 992 轮）：覆写了 `PrintDirectAst` 的 token 由它自己出这一格，
-    // 而它只许用 token 自己的东西（属性 / 子单元 / `Parent`，不回原文查）——
-    // 见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。`ctx.directEnabled` 关掉时这一问整段跳过，
-    // 走的就是第 992 轮之前那条路（`cases:direct` 拿两遍输出逐字节对拍，那正是「同答」的判据）。
-    if (ctx.directEnabled) {
-      const direct = owner.PrintDirectAst(ctx, v);
-      // 与下面那一格同款：`ctx.Nothing` 是「故意不出节点」，`undefined` 是「没有直出版」。
-      if (direct === ctx.Nothing) return undefined;
-      if (direct !== undefined) {
-        ctx.direct++;
-        return direct;
-      }
+    const own = owner.PrintDirectAst(ctx, v);
+    // **`ctx.Nothing` 表示「这一格故意不出节点」**（见 `NOTHING` 的说明）：
+    // 与 `undefined`（＝没覆写、请走通用支）是两回事。
+    if (own === ctx.Nothing) return undefined;
+    if (own !== undefined) {
+      ctx.direct++;
+      return own;
     }
     // **直出版「回落到形状」那一格**（第 1002 轮）：声明族的直出版算完 kind 之后
     // 要**自己**把形状造出来，而那件事与通用支是同一份实现（`projectDeclaration`）——
@@ -1230,11 +1229,6 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
       ctx.awaitingDeclaration = undefined;
     }
     if (made !== undefined) return made;
-    const own = owner.PrintAst(ctx, v);
-    // **`ctx.Nothing` 表示「这一格故意不出节点」**（见 `NOTHING` 的说明）：
-    // 与 `undefined`（＝没覆写、请走通用支）是两回事。
-    if (own === ctx.Nothing) return undefined;
-    if (own !== undefined) return own;
   }
   // **尾部 trivia 一律剪掉**：TS 的节点 `end` **从不含尾部 trivia**，而本工程的区间常常含
   // （语句行尾的软换行、正则字面量后面的换行…）。第 23 轮只修了语句族，实测还漏着
@@ -1265,7 +1259,7 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
     };
   }
   // **声明族**（第 1002 轮整段搬进 `projectDeclaration`）：`MethodDeclaration` / `Function` /
-  // `Class` / `Interface` / `TypeLiteral` / `Enum` 六页现在**自己覆写了 `PrintAst` 与
+  // `Class` / `Interface` / `TypeLiteral` / `Enum` 六页现在**自己覆写了 `PrintDirectAst` 与
   // `PrintDirectAst`**（两半一起写，见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   // 这一支是那六页的**共享实现**——`ctx.Declaration` 与它们自己的 `PrintDirectAst` 都落在它上面，
   // 所以两条路出的形状是**同一份实现**，不是各写一遍再对拍。
@@ -1288,7 +1282,7 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
 （声明族的直出版走这条：它按上下文标记自己判一次，而「按上下文换 kind」的规则写在下面这几行里，
 所以这里**仍然会把规则跑一遍**——两边因此不可能对同一种上下文给出两个答案）。
 
-**为什么单独成一份**：这六页现在**两半一起写**（`PrintAst` + `PrintDirectAst`），
+**为什么单独成一份**：这六页现在**两半一起写**（`PrintDirectAst` + `PrintDirectAst`），
 而直出版只许用 token 自己的东西 ⇒ 它**不能再顺着 `projectNode` 走一遍**
 （那条路会先问 `PrintDirectAst`，于是自己问自己）。所以把这一格抽出来，
 两条路**都调它**——同答就成了结构上的事实，而不是两处各写一遍再靠对拍发现漂移。
@@ -1311,7 +1305,7 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
   // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）；
   // **类里那个叫 `constructor` 的是 `Constructor`**（另一个 kind、没有名字字段）——
   // 两处都是「同一个产物标签、按上下文换 kind」（真实语料 `Constructor` 缺 269，全挂在 `ClassDeclaration` 下）。
-  // **签名那一支认的是 `v.type`、不是已经算出来的 `kind`**：声明族的 `PrintAst` 会把
+  // **签名那一支认的是 `v.type`、不是已经算出来的 `kind`**：声明族的 `PrintDirectAst` 会把
   // `kind` 一起递进来（`ctx.Declaration(v, kind)`），那时 `kind` 可能已经是 `Constructor`——
   // 而这一条说的是「这个产物标签在签名位叫什么」，判据本来就在标签上。
   if (ctx.signature && v.type === "MethodDeclaration" && kind === "MethodDeclaration") kind = "MethodSignature";
@@ -1668,7 +1662,7 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     // （实测 `Δ-125` / `-64` / `-48` / `-33` … 一整族）。
     // 连续多个标签（`a: b: for`）从右往左套：最外层是第一个标签。
     // **只认「还没包住语句」的标签**（第 929 轮）：`Label` 现在**包住**它标的那条语句
-    // （`Statement.AbsorbLabels` 折的），那一格由标签自己的 `PrintAst` 出形状；
+    // （`Statement.AbsorbLabels` 折的），那一格由标签自己的 `PrintDirectAst` 出形状；
     // 这一支留下来管**老形状**（标签与被标语句是平级兄弟，`labelIsFlat` 为真）。
     // 少了这个条件，包好的标签会去跟**后面那条平级语句**合并（整棵被标的子树丢掉）。
     if (items[i].get("type") === "Label" && labelIsFlat(items[i])) {
@@ -2145,7 +2139,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // ⇒ 被标的那条语句（`ForStatement` / `WhileStatement` …）连它整棵子树一起丢
   //（一鱼多吃：`BreakStatement` 22 份 + `Block` 20 份 + `CallExpression` 23 份都在这一族里）。
   // **只认「还没包住语句」的标签**（第 929 轮，与 `projectEach` 那一支同一句）：
-  // 包好的标签是**一个**单元（`kids.length === 1`），由它自己的 `PrintAst` 出形状；
+  // 包好的标签是**一个**单元（`kids.length === 1`），由它自己的 `PrintDirectAst` 出形状；
   // 这一支管的是老形状（标签 + 被标语句平级，`kids.length >= 2`）。
   if (headType === "Label" && kids.length >= 2 && labelIsFlat(head)) {
     const labels = [];
@@ -2166,7 +2160,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     //
     // **判据是「剩下的那一串按一条语句投」**，与 `lab: { … }` 那一格同源：
     // 这里把剩下那些单元交回**同一个** `projectStatement`（`statementOfList` 造的合成视图，
-    // 原来这几行内联在这里；第 929 轮 `Label.PrintAst` 也要同一件事 ⇒ 收成一份）
+    // 原来这几行内联在这里；第 929 轮 `Label.PrintDirectAst` 也要同一件事 ⇒ 收成一份）
     // ——那里已经有「语句壳 / 表达式壳 / `;` 归属」的全套口径，另写一份就是第二处会漂的答案。
     // **不会复发**：剩下那一串的**第一个单元不再是 `Label`**
     //（上面那个 `while` 已经吃掉了连续的标签）。
@@ -2197,7 +2191,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   if (headType === "Let") {
     // `Let` 不只是一个节点：`=` 与初始化式是它的**平级兄弟**，所以整串交给列表版
     // `projectLetFrom`（**注意这里传的是「语句」的整串子单元**，不是 `Let` 那一个单元——
-    // 那个单元自己的 `PrintAst` 只拿得到 `const f` 那一段，见 `tokens/let.xl.md`）。
+    // 那个单元自己的 `PrintDirectAst` 只拿得到 `const f` 那一段，见 `tokens/let.xl.md`）。
     return projectLetFrom(projectableKids(v), ctx, v).statement;
   }
   // **`with (obj) { … }`**（第 137 轮）：产物是 `Statement > [Keyword(with), Bracket((obj)), Bracket({…})]`，
@@ -2288,7 +2282,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   if (kids.length === 1) {
     // **语句壳套语句壳是透明的**（第 929 轮）：上游会把「注释 + 被标的语句」先收成一条壳
     // （`blk :/*c*/{ … }` 里注释落在标签与块之间 ⇒ `Statement > [AreaAnnotation, Bracket]`），
-    // 而那一格自己会投（`Statement.PrintAst` → `StatementOf`）⇒ 这里**直接交回它**。
+    // 而那一格自己会投（`Statement.PrintDirectAst` → `StatementOf`）⇒ 这里**直接交回它**。
     // 少了这一条，它会落到下面的表达式支 ⇒ 多一层 `ExpressionStatement`
     // （实测 `blk :/*c*/{ … }` / `lbl :/*c*/class C { … }` / `lbl :/*c*/function f() { … }` 一族 8 条）。
     if (headType === "Statement") {
@@ -7246,7 +7240,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 `VariableDeclarationList`**（不套 `VariableStatement`）。可产物在这一档里**没有 `Let`**：
 解析期的 `LetBranch` 只在 `=` / `:` / `;` / `,` / 换行那几格进门，`of` / `in` 不在其中，
 所以声明段一直是 `[Keyword(const), Identifier(v)]` **两格平铺**——投影那一支
-（`foreach.xl.md` 的 `PrintAst`）只认「第一个子单元是 `Let`」⇒ 整段被当表达式投
+（`foreach.xl.md` 的 `PrintDirectAst`）只认「第一个子单元是 `Let`」⇒ 整段被当表达式投
 ⇒ `initializer` 成了 `Identifier("const")`（实测 6 份：`st-for-of` / `stmt-for-of-call` /
 `stmt-for-of-no-block` / `st-for-await` / `stmt-for-await` / `fn-async-generator`）。
 
@@ -7779,7 +7773,7 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
 
 **位置用原文、`text` 用解开的**（第 382 轮）：`{ \u0061: 1 }` 那个键在源码里占
 **6 个字符**（`end` 要按它算），而它的**名字**是 `a`（TS 的 AST `text` 也是 `a`）。
-**这一格第 381 轮漏了**——那时候改的是 `Identifier.PrintAst`（**子单元**那条路）
+**这一格第 381 轮漏了**——那时候改的是 `Identifier.PrintDirectAst`（**子单元**那条路）
 与投影读**属性**那三处，而对象字面量这一支是**自己拿文本合一个节点**的
 （`ctx.NameOf(nameUnits[0])`），压根不经过前两条 ⇒
 `Object.keys({ \u0061: 1 })` 给 `["\u0061"]`、`x.a` 给 `undefined`（**静默错值**）。
@@ -7792,14 +7786,14 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
 
 # private method functionTypeProps:(kids:Array<any>, ctx:any)=>any
 
-**函数类型 / 构造类型那一格的 `{ kind, props }`**——`FunctionType.PrintAst`（`function-type.xl.md`）
+**函数类型 / 构造类型那一格的 `{ kind, props }`**——`FunctionType.PrintDirectAst`（`function-type.xl.md`）
 与 `projectTypeExpression`（下面那一格的「平铺 `( … ) => T` 段」）**共用同一份**。
 
 **为什么要把这一格搬到这里**（第 927 轮（三））：柯里化的函数类型在 token 层被整段收进
 **同一个** `FunctionType` 节点（`function-type.xl.md` 的收集循环「`=>` 只在左边是形参表时继续」），
 于是**返回类型**那一格交回类型投影时是**平铺**的 `Bracket` / `SymbolToken(=>)` / 类型 三格——
 它得再投出**里层那个 `FunctionType`**。两处要的是同一件事，所以只留一份实现：
-`PrintAst` 拿 `{ kind, props }` 去配 `NodeHead`（坐标来自它自己那个单元视图），
+`PrintDirectAst` 拿 `{ kind, props }` 去配 `NodeHead`（坐标来自它自己那个单元视图），
 `projectTypeExpression` 拿同一份去配**这一段的起止**（第一格的起点到最后一格的终点）。
 
 **返回的是 `{ kind, props }` 而不是节点**：坐标由调用方给（两边的坐标来源不同——
@@ -8098,7 +8092,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   if (list.length === 2 && list[0].get("type") === "GenericType" && list[1].get("type") === "FunctionType") {
     const typeParams = unwrapNodes(list[0]).filter((k) => k.get("type") === "TypeParameter");
     // **走通用分派而不是直调那个函数**（第 188 轮）：`FunctionType` 的投影已经搬进
-    // `tokens/function-type.xl.md` 的 `PrintAst`，而 `projectNode` 会先问它——
+    // `tokens/function-type.xl.md` 的 `PrintDirectAst`，而 `projectNode` 会先问它——
     // 输入与原来那次直调完全相同，产出的节点逐字节一样。
     const fn = projectNode(list[1], ctx);
     if (typeParams.length > 0) {
@@ -8421,7 +8415,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     return node;
   }
   if (node.kind === "ArrayType") {
-    // **`elementType` 在这一层是「一格数组」**（`ArrayType` 的 `PrintAst` 走 `ctx.Each`，
+    // **`elementType` 在这一层是「一格数组」**（`ArrayType` 的 `PrintDirectAst` 走 `ctx.Each`，
     // 实测 `type A = X[]` 的产物 JSON 是 `elementType:[{…}]`）——与上面 `TypeReference` /
     // `QualifiedName` 那几条「单个节点」不同，照单节点收会落到最后那句 `return undefined`
     //（`typeof a.b[K][]` 就是它：尾段是 `ArrayType(IndexedAccessType(b, K))`）。
@@ -8522,7 +8516,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   const rawName = tokenNameOf(v);
   // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
   // `Let.fieldName` 这个**属性**上（不是子单元），`x.\u0061` 的键同理。
-  // **与 `Identifier.PrintAst` 共用一份解码**（`text-common-util.xl.md` 的
+  // **与 `Identifier.PrintDirectAst` 共用一份解码**（`text-common-util.xl.md` 的
   // `DecodeIdentifierEscapes`）——两处各写一份就是两处会漂的答案（这一轮第一版
   // 只改了标识符那一格，于是 `function f\u0066()` 绿了、`const \u0061bc` 还是红的）。
   const name = typeof rawName === "string" ? rawName : "";
@@ -8614,7 +8608,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 
 与 `addModifiers` 的分工：那一支管**能被字段完整表达的**关键字词（`export` / `declare` / `readonly`…，
 产物那边是一串文本），这一支管**带子树的** `Decorator` 节点（产物那边是一个子单元）。
-两处都走这一份实现：通用支（`structuralProps`）与各 token 自己的 `PrintAst`（`Class` 走前者，
+两处都走这一份实现：通用支（`structuralProps`）与各 token 自己的 `PrintDirectAst`（`Class` 走前者，
 `TypeAssign` / `Interface` / `Namespace` 走后者）——各写一份就会在「谁先谁后」上漂。
 
 判据只看子单元里有没有 `Decorator`：没有就一个字段都不动（连 `modifiers` 都不建）。
@@ -8703,7 +8697,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   // 判据是「这个 tag 在 `KIND_BY_TAG` 里查不到**且**名字以 `Condition` / `Statement` / `Segment`
   // 结尾」——那才是分段壳（`TernaryOperatorCondition` 这种）。
   // **不能只看「查不到映射」**：`PropertyAccess` 也不在 `KIND_BY_TAG` 里（它自己覆写了
-  // `PrintAst`），只看映射会把 `y.z` 摊成两个裸名字。
+  // `PrintDirectAst`），只看映射会把 `y.z` 摊成两个裸名字。
   const leaf = first.get("type") === "Identifier" || first.get("type") === "Keyword" || first.get("type") === "SymbolToken";
   const wrapper =
     !leaf &&
@@ -9155,7 +9149,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   const kids = projectableKids(v);
   const props = {};
   // **导出属性 `with { … }` / `assert { … }`**（第 666 轮）：与导入那一侧同一条口径
-  // （第 136 轮，写在 `import.xl.md` 的 `PrintAst` 里）。产物把
+  // （第 136 轮，写在 `import.xl.md` 的 `PrintDirectAst` 里）。产物把
   // `[Keyword(with), Bracket({…})]` 平铺在模块说明符之后，而 TS 那边是
   // `ExportDeclaration.assertClause`；不摘出来的话它会被下面那一句当成具名导出的括号
   //（`export * from "m" with { … }` 里唯一的 `{` 就是它）。
@@ -9638,7 +9632,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   const rawName = tokenNameOf(v);
   // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
   // `Let.fieldName` 这个**属性**上（不是子单元），`x.\u0061` 的键同理。
-  // **与 `Identifier.PrintAst` 共用一份解码**（`text-common-util.xl.md` 的
+  // **与 `Identifier.PrintDirectAst` 共用一份解码**（`text-common-util.xl.md` 的
   // `DecodeIdentifierEscapes`）——两处各写一份就是两处会漂的答案（这一轮第一版
   // 只改了标识符那一格，于是 `function f\u0066()` 绿了、`const \u0061bc` 还是红的）。
   const name = typeof rawName === "string" ? rawName : "";
@@ -9795,7 +9789,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 第 929 轮起 `Statement.AbsorbLabels` 会把被标的语句**搬进标签**里
 （`<Label label="outer"><While>…</While></Label>`，与 TS 的 `LabeledStatement` 同形），
 于是「标签 + 右边那一格」那两处合并补丁（`projectEach` / `projectStatement`）**只在
-老形状上**才该生效——包好的标签是一个单元、由 `Label.PrintAst` 自己出形状。
+老形状上**才该生效——包好的标签是一个单元、由 `Label.PrintDirectAst` 自己出形状。
 
 判据就是「它有没有子单元」（与 `Token.ToDictionary` 那一份同源：空了才自闭合）。
 
@@ -9808,7 +9802,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 把一串**平铺的单元**当成**一条语句**投：造一个同区间的合成语句视图，交回 `projectStatement`。
 
 **两个调用方问的是同一句**：`projectStatement` 的标签那一支（老形状下「标签右边剩下的那一串」）
-与 `Label.PrintAst`（包好的标签里那一段）。`projectStatement` 那儿已经有「语句壳 / 表达式壳 /
+与 `Label.PrintDirectAst`（包好的标签里那一段）。`projectStatement` 那儿已经有「语句壳 / 表达式壳 /
 `;` 归属」的全套口径，另写一份就是第二处会漂的答案。
 
 ```ts
@@ -9871,7 +9865,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   }
 ```
 
-# method projectRoot:(exported:Array<any>, source:string, useDirect?:bool)=>any
+# method projectRoot:(exported:Array<any>, source:string)=>any
 
 投影整棵树 → `ts.createSourceFile` 同形的单根节点。
 
@@ -9888,10 +9882,12 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 返回 `{ ast, unmapped, count }`：`unmapped` 是这次没覆盖到、**并且真的原样透传进了产物**的
 产物标签；`count` 是投影出的节点数。
 
-**第 992 轮起还返回 `direct`**（直出通道真的出了多少个节点），并且多一个**可选**的第三参数
-`useDirect`（默认 `true`）：传 `false` 就走第 992 轮之前那条路（`PrintAst` + 通用支），
-`cases:direct` 拿这两遍的输出**逐字节对拍**——那是「`PrintDirectAst` 与 `PrintAst` 同答」的判据
-（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+**还返回 `direct`**（第 992 轮）：这一趟**由 token 自己的 `PrintDirectAst` 出的节点数**。
+它**不进任何退出码**——它是「这一格自己出不出」的读数（`cases:direct` 印 `direct / count`），
+不是缺陷。
+
+**第 1013 轮删掉了第三个参数 `useDirect`**：它原来是「要不要优先问 `PrintDirectAst`」的开关，
+而 `PrintAst` 那条老路与它的派发分支已经整条删除——这一趟只有一条路，开关没有第二种取值。
 
 **为什么末尾要拿 `kindsInAst` 对一次账**（第 199 轮）：`ctx.unmapped.add(v.type)` 记在
 `projectNode` 的通用支里，而**有些调用点只是「问一下」这个子单元能投出什么**——
@@ -9903,9 +9899,6 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 （`cases:tsast` 的退出码已经把它算进去了）。
 
 ```ts
-  // **直出通道**（第 992 轮）：默认开（`PrintDirectAst` 与 `PrintAst` 同答，由 `cases:direct` 看着）。
-  // 传 `false` 就是第 992 轮之前那条路——`cases:direct` 用它跑第二遍，两份产物逐字节对拍。
-  const directOn = useDirect ?? true;
   // **字典格答 `Tag()`**（第 1005 轮，见 `annotate`）：直出版里「这一格是不是 `SymbolToken`」
   // 这一类问句的接收者**两种都有**（token 与字典格），所以进来先把字典格那一侧装好。
   // **放在这里、不放 `view()` 里**：`ctx.Kids` 回来的格子来自任意一层，
@@ -9915,11 +9908,9 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     source,
     unmapped: new Set(),
     count: 0,
-    // **直出通道的两个读数**（第 992 轮）：`directEnabled` 是这一趟要不要优先问
-    // `PrintDirectAst`（`projectRoot` 的第三个参数，默认开），`direct` 是这一趟
-    // **真的由直出版出的节点数**——它是「这一格搬完了没有」的那把尺子
-    // （`cases:direct` 印它；`count` 是全部节点数，两者之比就是直出覆盖率）。
-    directEnabled: directOn,
+    // **这一趟由 token 自己出的节点数**（第 992 轮；第 1013 轮起这一问是唯一的一条路）：
+    // 它是「这一格自己出不出」的那把尺子（`cases:direct` 印它；`count` 是问到的次数，
+    // 两者之比就是自己出的比例）。
     direct: 0,
     // **当前正在投的这一格，它的父 kind 是什么**（第 1002 轮）：`projectEachIn` 记它、
     // 声明族的直出版读它。与 `signature` / `expressionPosition` 同一种上下文标记，
@@ -9942,7 +9933,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     // 紧跟的那个 `;` 算成自己的终结符（`tryParseSemicolon` 不看换行），所以那种 `;`
     // **不再**是一条 `EmptyStatement`。语句是按顺序投的，所以先吃后判、用这个集合对账。
     consumedSemicolons: new Set(),
-    // **给 token 的 `PrintAst(ctx, v)` 用的出口助手**（见 `core/syntax/token.xl.md` 的 `PrintAst`）：
+    // **给 token 的 `PrintDirectAst(ctx, v)` 用的出口助手**（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）：
     // 覆写里不必 import 任何东西——造节点、投一批子单元、按成员切、取文本、分叶子名，
     // 全在这一组里。它们**逐个转调**上面那些共享实现，所以两条路的产物逐字节相同。
     Node: (kind, props, view) => astNode(kind, props, view, ctx),
@@ -9979,16 +9970,16 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     },
     StringText: (node) => stringText(node instanceof Map ? view(node) : node, ctx),
     // **字符串 / 模板串这一格**（第 99 轮）：模板串要递归投内插里的表达式或类型，
-    // 那不是 token 层能做的事，所以实现留在 `projectString`、由 token 的 `PrintAst` 转过来。
+    // 那不是 token 层能做的事，所以实现留在 `projectString`、由 token 的 `PrintDirectAst` 转过来。
     Template: (view) => projectString(view, ctx),
     LeafKind: (text) => leafKindOfText(text),
     KeywordKind: (text) => KEYWORD_KIND.get(text),
     TokenKind: (text) => tokenKind(text),
     // **搬迁用的补充出口**（第 181 轮）：`case "X": return projectX(v, ctx)` 那 100 条要逐块
-    // 搬进各 token 自己的 `PrintAst(ctx, v)`，而那一层**不能 import 本文件**
+    // 搬进各 token 自己的 `PrintDirectAst(ctx, v)`，而那一层**不能 import 本文件**
     // （token 层反过来被本文件依赖，会成环）。所以这些横切的小工具只能经 `ctx` 递过去——
     // 与上面那一组同款：逐个转调共享实现，行为不变。
-    // **`PrintAst` 收到的 `v` 是「视图」不是原始 Map**（见 `projectNode` 开头那句
+    // **`PrintDirectAst` 收到的 `v` 是「视图」不是原始 Map**（见 `projectNode` 开头那句
     // `const v = view(node)`），所以取坐标这两种都要认：视图读 `start` / `end` 两个字段，
     // 原始 Map 走 `range`。搬迁过去的代码里 `v.start` / `v.end` 就是这么用的。
     StartOf: (node) => (node instanceof Map ? startOf(node) : node.start),
@@ -10006,7 +9997,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     IsOperatorUnit: (node) => isOperatorUnit(node, ctx),
     ChainWithOptional: (node, nco) => chainWithOptional(node, nco, ctx),
     NameOf: (node) => nameOf(node, ctx),
-    // **`Kids` 两种都认**（第 185 轮）：`PrintAst` 里传进来的常常是**视图**（`v`），
+    // **`Kids` 两种都认**（第 185 轮）：`PrintDirectAst` 里传进来的常常是**视图**（`v`），
     // 但取子单元时手上也可能是**原始 Map**（`nameUnits.find(...)` 那种）——
     // `projectableKids` 只吃视图，所以这里自己归一。
     Kids: (node) => projectableKids(node instanceof Map ? view(node) : node),
@@ -10016,7 +10007,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     // **把一串单元当作「成员表」投**（第 934 轮）：`MappedType` 的值类型之后还能再跟成员
     // （TS 的 `parseMappedType` 在值类型之后照样 `parseTypeMembers()`），而那一格住不进
     // `ToDictionary` 的成员段（映射类型的字典是「修饰词 / 键 / 值类型」那一套）⇒
-    // 由它的 `PrintAst` 把那一小段按成员位投一次。
+    // 由它的 `PrintDirectAst` 把那一小段按成员位投一次。
     // 实现与通用支那一支**共用同一份**（`projectEachIn`，`parentKind` 传 `"TypeLiteral"`：
     // 那一格同时决定「成员之间不切」与 `ctx.signature`——`Field` 因此投成
     // `PropertySignature` 而不是 `PropertyDeclaration`）。
@@ -10037,7 +10028,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     ParameterModifiers: PARAMETER_MODIFIERS,
     SynthName: (text, view) => synthName(text, view, ctx),
     StatementOf: (view) => projectStatement(view, ctx),
-    // **一串平铺的单元当作一条语句投**（第 929 轮）：`Label.PrintAst` 要的就是它
+    // **一串平铺的单元当作一条语句投**（第 929 轮）：`Label.PrintDirectAst` 要的就是它
     // （包好的标签里装的是被标语句的那一段，而它可能不是一个成形单元）。
     // 与 `projectStatement` 里那一支**共用一份实现**（见 `statementOfList`）。
     StatementOfList: (list) => statementOfList(list, ctx),
@@ -10065,7 +10056,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     ComputedNameExpression: (unit) => computedNameExpression(unit, ctx),
     Structural: (view, kind) => structuralProps(view, kind, ctx),
     // **声明族那一格的形状**（第 1002 轮）：`MethodDeclaration` / `Function` / `Class` /
-    // `Interface` / `TypeLiteral` / `Enum` 六页的 `PrintAst` 就是这一句。
+    // `Interface` / `TypeLiteral` / `Enum` 六页的 `PrintDirectAst` 就是这一句。
     // 它与 `projectNode` 落在**同一份实现**（`projectDeclaration`）上——
     // 所以「覆写了仍然与通用支逐字节相同」是结构上的事，不是巧合。
     //
@@ -10083,7 +10074,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     NumericLiteral: NUMERIC_LITERAL,
     // **运算符那一格的叶子节点**（第 550 轮）：`in` / `instanceof` 在深度界那一层
     // 还是 `Identifier`，照 `Project` 投会投成 `Identifier("in")` ——
-    // `BinaryOperator.PrintAst` 那一支正需要它（见 `operatorTokenOf`）。
+    // `BinaryOperator.PrintDirectAst` 那一支正需要它（见 `operatorTokenOf`）。
     OperatorNode: (unit) => operatorTokenOf(unit, ctx),
   };
   const statements = projectEach(exported, ctx);

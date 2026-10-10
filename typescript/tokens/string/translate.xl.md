@@ -74,7 +74,7 @@ TypeScript 允许标识符写成转义形式（`const \u0061bc = 1` 里声明的
 （`"\u00"` 那种写法会**静默**产出一个 NUL）。
 
 **名字有两条出口**（这就是为什么它得是**共用**的一份）：① 标识符自己那一格
-（`Identifier.PrintAst`）；② **token 的属性**（`Let.fieldName` / `Field.fieldName` / `name`，
+（`Identifier.PrintDirectAst`）；② **token 的属性**（`Let.fieldName` / `Field.fieldName` / `name`，
 投影在 `print-ast-common.xl.md` 里读它们）。这一轮第一版只改了①，
 于是 `function f\u0066()` 当场绿了、而 `const \u0061bc` 还是红的——**症状分叉**正是这么来的。
 

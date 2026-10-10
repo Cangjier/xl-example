@@ -237,58 +237,9 @@ while (index < data.length) {
 }
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`extends A, B` / `implements C, D` → `HeritageClause`（只有 `types` 一个子字段；
-**从 `ts-ast.xl.md` 的 `projectHeritageClause` 搬来**，第 184 轮）。
-
-TS 那边 `HeritageClause` 的 `forEachChild` **只访问 `types`**：`extends` / `implements`
-那个词是节点的**属性**（`token`），不参与遍历。产物那边它与类型是一串**平级单元**
-（`[Keyword(extends), TypeReference, SymbolToken(,), TypeReference]`），照通用投影会把
-`ExtendsKeyword` 当成一个子节点——实测「投影后多出来的节点」里 `ExtendsKeyword` 有 **2192 个**。
-
-```ts
-  const kids = ctx.Kids(v);
-  // **子句词是节点的属性、不参与遍历**（TS 那边就是这样）——
-  // 所以它**不能留在 `types` 里**（下面那一句就是干这件事的：
-  // 实测「投影后多出来的节点」里 `ExtendsKeyword` 有 2192 个）。
-  //
-  // **但它也是唯一能分清 `extends` 与 `implements` 的地方**（第 281 轮）：
-  // 两条子句投影之后**形状一模一样**（都只有 `types`），
-  // 于是「`class C implements I {}` 的父类是谁」这个问题在**降级层无从回答**
-  //（实测：它把 `I` 当成了父类，报 `name is not a local or a capture: I`——
-  // **响亮**，可现场离真相很远）。
-  //
-  // **所以这一轮把它作为 `token` 属性收进来**：名字照 TS 那一格（TS 的
-  // `HeritageClause` 正是 `{ token, types }`），值是**关键词文本**——
-  // 与这一层「kind 一律用名字」同一条口径（`"Identifier"` / `"ClassDeclaration"`
-  // 都是名字，不是 TS 的数字）。
-  // **它不进 `types`**，所以**节点集合一个都没变**——
-  // `cases:tsast` 那一把尺子的「字段名」只统计**值里含节点**的键，
-  // 而这是一个字符串，四方向因此都不受影响。
-  let clauseWord = "";
-  const kept: any[] = [];
-  for (let i = 0; i < kids.length; i++) {
-    const k = kids[i];
-    if (
-      (k.get("type") === "Keyword" || k.get("type") === "Identifier") &&
-      (ctx.TextOf(k) === "extends" || ctx.TextOf(k) === "implements")
-    ) {
-      // **一条子句里只可能有一个子句词**，取到就走（后面那几个是实体名）。
-      if (clauseWord === "") clauseWord = ctx.TextOf(k);
-      continue;
-    }
-    kept.push(k);
-  }
-  const projected = ctx.ProjectEach(kept, "HeritageClause");
-  const props: any = clauseWord === "" ? {} : { token: clauseWord };
-  if (projected.length > 0) props.types = projected;
-  return ctx.NodeHead("HeritageClause", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -378,62 +329,9 @@ return result;
 return new Map([["ExpressionWithTypeArguments", new Map([["children", "expression"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`extends` / `implements` 里的 `B<T>` → `ExpressionWithTypeArguments`
-（`expression` = 被继承的那个名字，`typeArguments` = `<T>` 里的实参；
-**从 `ts-ast.xl.md` 的 `projectExpressionWithTypeArguments` 搬来**，第 187 轮）。
-
-产物那边是平级的两块（`[Identifier(B), GenericType(<T>)]`），
-而字段表原来只把 `children` 整体映射成 `expression`——于是实参挂在 `expression` 下、
-`typeArguments` 整个字段不见（实测 15 处）。`GenericType` 在这里的身份是**实参表**，不是节点。
-
-**`extends (Base)`：被继承的那一格是一个表达式**（第 141 轮）。TS 的
-`ExpressionWithTypeArguments.expression` 是 `LeftHandSideExpression`——带括号的基类在那边是
-`ParenthesizedExpression`。只找名字的话整格 `expression` 会是空的
-（实测 `decl-class-extends-parenthesized.ts`：缺 `ParenthesizedExpression` + 缺 `Identifier` + 字段名 1）。
-
-```ts
-  const kids = ctx.Kids(v);
-  const generic = kids.find((k: any) => k.get("type") === "GenericType");
-  const names = kids.filter((k: any) => ctx.IsNameNode(k));
-  const props: any = {};
-  // **名字后面紧跟模板串 ⇒ `TaggedTemplateExpression`**（第 986 轮）：`class D extends tag`t` {}` 里
-  // 标签与模板在 token 层是**两格平级**（与值位 `tag`t`` 完全同一个形状，合成是投影那一层的事），
-  // 而这一格原来只把名字投进 `expression` ⇒ 模板整格丢（缺 `TaggedTemplateExpression` +
-  // `NoSubstitutionTemplateLiteral` 共 2、漂 0 多 0）。判据与值位那一支同源：那个 `String`
-  // 的**首字符是反引号**（普通字符串字面量不是模板，`extends "m"` 那种写坏的排法不该走到这里）。
-  const template = kids.find(
-    (k: any) => k.get("type") === "String" && ctx.source[ctx.StartOf(k)] === "`",
-  );
-  if (template !== undefined && names.length > 0) {
-    const tag = ctx.DottedExpression(names);
-    const body = ctx.Project(template);
-    props.expression = {
-      kind: "TaggedTemplateExpression",
-      tag,
-      template: body,
-      pos: tag.pos,
-      end: body.end,
-    };
-  } else if (names.length > 0) {
-    props.expression = ctx.DottedExpression(names);
-  } else {
-    const paren = kids.find((k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "(");
-    if (paren !== undefined) {
-      props.expression = ctx.ParenthesizedOf(paren);
-    } else {
-      const expr = kids.filter((k: any) => k !== generic);
-      if (expr.length > 0) props.expression = ctx.Expression(expr);
-    }
-  }
-  if (generic !== undefined) props.typeArguments = ctx.TypeArguments(generic);
-  return ctx.NodeHead("ExpressionWithTypeArguments", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -442,7 +340,7 @@ return new Map([["ExpressionWithTypeArguments", new Map([["children", "expressio
 **那一格自己记的引号**：`String.ToDictionary` 这一轮把 `stringChar` 写进字典了
 （见 `string.xl.md` 的说明：`IsTemplateString` 吃的是**实例**，而这里手上只有子单元的**视图**，
 所以那一格必须经字典递过来——与 `questionAt` / `namedBraceAt` 同一条口径）。
-其余逐行与 `PrintAst` 同一份（判据都落在子单元与属性上）。
+其余逐行与 `PrintDirectAst` 同一份（判据都落在子单元与属性上）。
 
 ```ts
   const kids = ctx.Kids(v);

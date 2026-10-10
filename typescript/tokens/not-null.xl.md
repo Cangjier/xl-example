@@ -199,28 +199,9 @@ return ReplaceCountAt(units, previousIndex, index - previousIndex + 1, notNull);
 return new Map([["NonNullExpression", new Map([["children", "expression"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-非空断言 `x!` → `NonNullExpression`（**只有 `expression` 一个子字段**；
-**从 `ts-ast.xl.md` 的 `projectNonNullExpression` 搬来**，第 183 轮）。
-
-TS 那边 `!` 是节点的属性（`exclamationToken`），`forEachChild` **不访问**它；
-产物那边它是 `[Identifier, SymbolToken(!)]` 两个平级单元——照通用投影会把 `!` 也算进
-`expression`（实测「多出来的节点」里 `ExclamationToken` 350 个全是它）。
-
-```ts
-  const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.get("type") === "SymbolToken" && ctx.TextOf(k) === "!"),
-  );
-  const props: any = {};
-  const expression = kids.length > 0 ? ctx.Expression(kids) : undefined;
-  if (expression !== undefined) props.expression = expression;
-  return ctx.NodeHead("NonNullExpression", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

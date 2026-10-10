@@ -172,36 +172,9 @@ return ReplaceCountAt(units, index, endIndex - index + 1, decorator);
 
 它覆写了 `ToXmlString`：标签名是运行时类名，开标签上带 `name` 属性。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`@Component({ … })` / `@plain` → `Decorator`（**只有 `expression`**；
-**从 `ts-ast.xl.md` 的 `projectDecorator` 搬来**，第 182 轮）。
-
-TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被调用者是那个 `Identifier`），
-`@plain` 的 `expression` 就是那个 `Identifier`；`@` 这个符号**不是节点**。
-产物那边给的是 `name` + `children`（`@` 也在里面）——照通用投影会多出一个 `@` 节点。
-
-**装饰器名可能是一条链**（第 170 轮）：`@ns.dec` 的产物是
-`[Identifier(ns), SymbolToken(.), Identifier(dec)]` 三格平级，而 TS 的
-`Decorator.expression` 是一个 `PropertyAccessExpression`。只投第一格会只剩 `Identifier(ns)`
-（实测 `cls-decorator-qualified-name.ts`：缺 `PropertyAccessExpression` + `Identifier`）。
-整段交给 `ctx.Expression` 折。
-
-```ts
-  const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.get("type") === "SymbolToken" && ctx.TextOf(k) === "@"),
-  );
-  const props: any = {};
-  if (kids.length > 0) {
-    const inner = ctx.Expression(kids);
-    if (inner !== undefined) props.expression = inner;
-  }
-  return ctx.NodeHead("Decorator", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

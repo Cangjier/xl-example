@@ -294,24 +294,9 @@ return WordText(before) === "extends";
 
 内容装两件：`infer` 那个词、以及一个 `TypeParameter`（名字与约束）。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`infer X` / `infer X extends Y` → `InferType`（唯一子字段是 `typeParameter`；
-**从 `ts-ast.xl.md` 的 `projectInferType` 搬来**，第 183 轮）。
-
-`infer` 那个词**不是子节点**：TS 的 `InferType` 只有 `typeParameter` 一格
-（实测这一类的字段名差异 72 处全是「产物有 `children`、TS 只有 `typeParameter`」）。
-
-```ts
-  const param = ctx.Kids(v).find((k: any) => k.get("type") === "TypeParameter");
-  const props: any = {};
-  if (param !== undefined) props.typeParameter = ctx.Project(param);
-  return ctx.NodeHead("InferType", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

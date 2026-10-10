@@ -270,72 +270,9 @@ Json 数组。
 return new Map([["ArrayLiteralExpression", new Map([["children", "elements"]])]]);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-值位数组字面量 `[a, b, ...c]` → `ArrayLiteralExpression`（元素走**表达式位**投影）。
-
-**从 `ts-ast.xl.md` 的 `projectArrayLiteral` 整体搬来**（第 181 轮的第一步搬迁）：
-判据、注释、形状一字未改，只把跨模块的东西换成 `ctx` 上那几个出口
-（`Kids` / `Expression` / `StartOf` / `EndOf` / `Node`）——那一层不能 import `ts-ast`，
-否则 token → ts-ast → token 成环。搬完 `ts-ast.xl.md` 里对应的 `case` 与 `projectArrayLiteral`
-一起删掉，产物逐字节不变（`cases:tsast` 全量对拍仍然是逐文件完全一致）。
-
-要点（原文照录）：
-
-- **一律走 `ctx.Expression`**（第 125 轮）：`group.length === 1` 时走 `Project` 会把元素位的
-  **括号**投成一个未映射的 `<Bracket>`——`[(x), y]` 缺 `ParenthesizedExpression` + 多出 `Bracket`；
-- **数组里的洞是零宽 `OmittedExpression`**（第 176 轮）：位置是**上一个逗号之后那一格**
-  （第 933 轮改准：原来写的是「上一个**元素**的终点 + 1」，元素与逗号之间夹着注释 / 换行时差一格）；
-- **尾随逗号不是洞**（`[1, 2,]` 只有两个元素）：末组为空时什么都不补。
-
-```ts
-  const elements: Array<any> = [];
-  let group: Array<any> = [];
-  const list = ctx.Kids(v);
-  let lastEnd = ctx.StartOf(v) + 1;
-  // **上一个逗号的下标**（第 933 轮）：洞的起点是「**前一个逗号**之后那一格」——
-  // `[1, , 2]` 的两个洞在 TS 那边是 `[13,13)` 与 `[15,15)`，而每个洞都是零宽的。
-  let previousSeparator = -1;
-  const flush = (separator: any) => {
-    if (group.length === 0) {
-      // **洞的位置**（第 933 轮）：TS 放的是「上一个逗号之后那一格」。
-      // 原来写的是 `lastEnd + 1`（上一个**元素**的终点 + 1）——元素与逗号之间夹着
-      // 一条注释 / 一个换行时两者不是同一格：`[1/*c*/, , 2]` 的洞在 TS 那边是
-      // `[18,18)`（第一条逗号在 17 ⇒ 18），而 `lastEnd` 停在那条注释之前（= 12）⇒ 差一格
-      //（实测漂 1 + 多 1，夹换行那一档同形）。
-      // **第一个洞**（`[, 1]` 那种）没有上一个逗号：TS 放的是**紧跟 `[` 之后那一格**
-      //（`const a = [, 1];` 的洞是 `[11,11)`，即 `lastEnd` 自己——实测）。
-      const at = previousSeparator === -1 ? lastEnd : previousSeparator + 1;
-      elements.push({ kind: "OmittedExpression", pos: at, end: at });
-    } else {
-      const one = ctx.Expression(group);
-      if (one !== undefined) {
-        elements.push(one);
-      }
-      lastEnd = ctx.EndOf(group[group.length - 1]);
-    }
-    group = [];
-    if (separator !== undefined) {
-      previousSeparator = ctx.StartOf(separator);
-    }
-  };
-  for (const item of list) {
-    if (item.get("type") === "SymbolToken" && ctx.TextOf(item) === ",") {
-      flush(item);
-      continue;
-    }
-    group.push(item);
-  }
-  if (group.length > 0) {
-    flush(undefined);
-  }
-  const props = elements.length === 0 ? {} : { elements };
-  return ctx.NodeHead("ArrayLiteralExpression", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

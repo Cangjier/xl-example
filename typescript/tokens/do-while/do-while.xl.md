@@ -482,41 +482,9 @@ return new Map([["DoStatement", new Map([["compare", "condition"], ["body", "sta
 切进了**壳的区间**、不进 `Data` ⇒ 这一格只有在收尾规则里才拿得到
 （就是壳的右端，见 `Process` 那一支）。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-`do { … } while (c);` → **`DoStatement`**（`statement` + `expression`；
-**从 `ts-ast.xl.md` 的 `projectDoWhile` 搬来**，第 183 轮）。
-
-kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` 里就是这个拼法，
-按后者投会整类算成「缺 `DoStatement`」+「多出 `DoWhileStatement`」。
-
-```ts
-  const props: any = {};
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  // **体那一对花括号直读字段**（第 619 轮那一格，第 641 轮带上整段，与 `While` 同一条）：
-  // 两端都是**挂体那一刻**的事实 ⇒ 空块与带块的体都由 `BodyBlockOf` 直接给出
-  //（`do {} while (c);` 的右端取**配对的花括号**，不是本单元的终点——那后面还有
-  //  `while (c);`，见 `DoWhileCloseRule.Process` 签在体段上的区间）。
-  // **空语句体那一格也直读字段**（第 635 轮，与 `While.PrintAst` 同一条）：
-  // `do ; while (c);` 的体是 `EmptyStatement`。
-  const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
-    ? v.attrs.get("emptyBodyAt")
-    : undefined;
-  const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
-  if (emptyAt >= 0) {
-    props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
-  } else {
-    const statement = ctx.BodyBlockOf(v.start + "do".length, body, ctx.Attr(v, "bodyBraceRange"));
-    if (statement !== undefined) props.statement = statement;
-  }
-  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  if (compare.length > 0) props.expression = ctx.Expression(compare);
-  return ctx.NodeHead("DoStatement", props, v);
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
@@ -527,7 +495,7 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   // 两端都是**挂体那一刻**的事实 ⇒ 空块与带块的体都由 `BodyBlockOf` 直接给出
   //（`do {} while (c);` 的右端取**配对的花括号**，不是本单元的终点——那后面还有
   //  `while (c);`，见 `DoWhileCloseRule.Process` 签在体段上的区间）。
-  // **空语句体那一格也直读字段**（第 635 轮，与 `While.PrintAst` 同一条）：
+  // **空语句体那一格也直读字段**（第 635 轮，与 `While.PrintDirectAst` 同一条）：
   // `do ; while (c);` 的体是 `EmptyStatement`。
   const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
     ? v.emptyBodyAt

@@ -234,7 +234,7 @@ return true;
 本规则看到的左边就是这个节点。不认它的话 `+` 会因为找不到左操作数而丢节点。
 
 **优先级的账**：段内的运算符由投影那一层按「最低优先级的那个运算符先切」折
-（`LogicalOperator.PrintAst` 的 `OperatorRank`），所以 `0 && 1 + 2` 折成 `0 && (1 + 2)`
+（`LogicalOperator.PrintDirectAst` 的 `OperatorRank`），所以 `0 && 1 + 2` 折成 `0 && (1 + 2)`
 （实测给 `0`，JS 同）。**一处仍然不准确**：段边界只认赋值符号与
 `FromCompoundAssignment` 那一份副本（第 603 轮），所以段里如果还躺着**别的东西**
 （`a = b + c || d` 那种，左边那个 `+` 不在本段的运算数里）就得靠各条规则自己的
@@ -1337,68 +1337,9 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
 
 它覆写了 `ToXmlString`：在基类的串接之外带上 `op` 属性。
 
-## method PrintAst:(ctx:any, v:any)=>any
-
-二元运算 → `BinaryExpression`（**从 `ts-ast.xl.md` 的 `projectBinary` 整块搬来**，第 196 轮）。
-`LogicalOperator`（`a && b` 那一段）走的是**同一份实现**，见那个文件的同名方法。
-
-**切在优先级最低的运算符上**（第 88 轮）：与表达式折链那一支同一判据。原来这里取**第一个**
-运算符、再把右边整段递归——`error !== null && error !== undefined && …` 那种四段逻辑链
-会被折成**右结合**，四个节点的起点落在四个操作数上；而 TS 是左结合，四个节点**都从第一个
-操作数起**、终点逐个增长。
-
-**运算符在树里**（这一族是绝大多数）：从 `left` 起按 TS 的结合性折（左结合 / 赋值右结合）。
-
-**两侧都没有时不要发一个空壳**：产物里有一类残缺的 `LogicalOperator`（只有 `op` 属性、
-运算符符号根本没进树）——那是 token 层的结构问题，投影这里治不了根，但至少不能凭空造一个
-既没有 `left` 也没有 `right` 的 `BinaryExpression`（实测 1118 处）。退回把子单元投出来。
-
-```ts
-  const kids = ctx.Kids(v);
-  let opIndex = -1;
-  let bestRank = 999;
-  for (let i = 1; i < kids.length; i++) {
-    if (!ctx.IsOperatorUnit(kids[i])) continue;
-    const rank = ctx.OperatorRank(ctx.TextOf(kids[i]));
-    if (rank < bestRank) {
-      bestRank = rank;
-      opIndex = i;
-    }
-  }
-  const declaredOp = v.attrs.get("op");
-  const left = opIndex > 0 ? ctx.Expression(kids.slice(0, opIndex)) : undefined;
-  if (opIndex > 0 && kids[opIndex].get("type") === "SymbolToken") {
-    return ctx.FoldBinaryFrom(left, kids.slice(opIndex));
-  }
-  const right =
-    opIndex >= 0 && opIndex + 1 < kids.length ? ctx.Expression(kids.slice(opIndex + 1)) : undefined;
-  if (left === undefined && right === undefined) {
-    return kids.length > 0 ? ctx.Expression(kids) : undefined;
-  }
-  const opNode =
-    opIndex >= 0
-      // **运算符那一格按文本定 kind**（第 550 轮）：`in` / `instanceof` 在深度界那一层
-      // 还是 `Identifier`，`ctx.Project` 会把它投成 `Identifier("in")`
-      //（同一个节点同时记「缺 `InKeyword`」与「多出 `Identifier`」，见 `operatorTokenOf`）。
-      ? ctx.OperatorNode(kids[opIndex])
-      : {
-          kind: ctx.TokenKind(typeof declaredOp === "string" ? declaredOp : "?"),
-          pos: v.start,
-          end: v.start,
-        };
-  return {
-    kind: "BinaryExpression",
-    left,
-    operatorToken: opNode,
-    right,
-    pos: left ? left.pos : v.start,
-    end: right ? right.end : v.end,
-  };
-```
-
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintAst` 出**同一个答案**，
+**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 

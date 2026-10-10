@@ -15,7 +15,7 @@ import { StringConcat, TemplateConcat, ObjectAssign, PowId, RegexpCtor } from ".
 
 **降级层**：把 TS 形状的树（`typescript/` 的第三出口）变成不可变 IR（`runtime/ir.xl.md`）。
 
-**输入的形状**是 `Token.PrintAst` 的 JSON 投影——与 `ts.createSourceFile` **逐节点一致**
+**输入的形状**是 `Token.PrintDirectAst` 的 JSON 投影——与 `ts.createSourceFile` **逐节点一致**
 （语料 1413 份全绿）。它按 TS 的划分出节点、纯数据、有文档：
 
 ```
@@ -1186,7 +1186,7 @@ for (let i = 0; i < clauses.length; i++) {
   // 紧接着 `ResolveAccess("Named")` 报 `name is not a local or a capture: Named`
   //（**响亮**，可那句话听起来像脚本写错了变量名，离真相很远）。
   // **判据是 `token` 那一格**（`ts-ast` 侧第 281 轮把它收进了投影，
-  // 理由写在 `heritage-clause.xl.md` 的 `PrintAst` 里）。
+  // 理由写在 `heritage-clause.xl.md` 的 `PrintDirectAst` 里）。
   // **没有 `token` 就跳过**（老产物 / 别处造的树）：跳过的后果是「找不到父类」，
   // 而**当成 `extends`** 的后果是「把接口当父类」——**两个都不是好事，
   // 但前者是静默地少一件事、后者是响亮地错一件事**，所以取前者。
@@ -8287,7 +8287,7 @@ if (kind === "NonNullExpression") {
   return this.LowerExpression(Child(node, "expression"));
 }
 // **正则字面量 `/ab+c/gi`**（第 936 轮）：投影出来的节点**只有 `kind` / `pos` / `end`**
-// （`regex-token.xl.md` 的 `PrintAst` 那一段就是那么返回的——**没有 `text` 字段**），
+// （`regex-token.xl.md` 的 `PrintDirectAst` 那一段就是那么返回的——**没有 `text` 字段**），
 // 所以这一支**必须从源码原文里切**（`SourceSliceOf`），不能走 `TextOf`。
 if (kind === "RegularExpressionLiteral") {
   return this.LowerRegexpLiteral(node);
@@ -8299,8 +8299,8 @@ throw new Error("unimplemented: expression " + kind);
 
 **正则字面量 ⇒ 一个正则实例**（第 936 轮）。
 
-**三条路与投影那一侧的 `PrintAst` 一致**：自己从源码里量区间（结尾斜杠 + 标志字符），
-因为节点那一格给不了正文——`regex-token.xl.md` 的 `PrintAst` 返回的是
+**三条路与投影那一侧的 `PrintDirectAst` 一致**：自己从源码里量区间（结尾斜杠 + 标志字符），
+因为节点那一格给不了正文——`regex-token.xl.md` 的 `PrintDirectAst` 返回的是
 `{ kind, pos, end }`，**`text` 那一格根本不存在**（这也是 `TextOf` 在这一支上会抛的原因）。
 
 **正文与标志在这一层就分开**：`__p` 是**不含两端斜杠**的正文、`__f` 是标志串——
