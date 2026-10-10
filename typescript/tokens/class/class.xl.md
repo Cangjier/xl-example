@@ -661,7 +661,7 @@ return own === "" ? undefined : own;
 产出 XML：开标签上带 `name` / `extends` / `implements` / `modifiers` 四个属性。
 
 **类名的位置**：名字与它的区间装在一个字段里（见 `name` 那一格），所以**开标签上也印它的两个下标**
-（`nameStart` / `nameEnd`，闭区间）——与 `ToDictionary` 那两处**同名同值**，也与 `Let` 的
+（`nameStart` / `nameEnd`，闭区间）——与 AST 那两个字段**同名同值**，也与 `Let` 的
 `fieldName` + `nameStart` / `nameEnd` 同一套写法。
 
 匿名类没有名字 ⇒ `Range` 是 `null` ⇒ **两个属性都不写**（不给一个假的 `-1`：
@@ -674,7 +674,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-// **类名的区间**（见 `name` 那一格）：与 `ToDictionary` 的 `nameStart` / `nameEnd` 同源。
+// **类名的区间**（见 `name` 那一格）：与 AST 的 `nameStart` / `nameEnd` 同源。
 const nameRange = this.name.Range;
 let nameSpan = "";
 if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
@@ -686,7 +686,7 @@ return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="$
 
 ## property modifierSpans:string
 
-`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`modifierSpans` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -696,10 +696,10 @@ return this.ModifierSpans;
 
 ## property nameStart:int | undefined
 
-`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameStart` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
-**`!` 是这一格的调用约定**：`ToDictionary` 只在名字区间两头都齐（`nameRange` / `Start` / `End` 都非空）
-时才写这个键（见本页 `ToDictionary` 里那个 `if`），所以读到这一格时那两头一定在。
+**`!` 是这一格的调用约定**：这一格只在名字区间两头都齐（`nameRange` / `Start` / `End` 都非空）
+时才写这个键（见这一页那个 `if`），所以读到这一格时那两头一定在。
 区间缺一头的情形由**不写这个键**表达，不由这一格表达。
 
 ### get
@@ -712,7 +712,7 @@ return nameRange.Start.Index;
 
 ## property nameEnd:int | undefined
 
-`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameEnd` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 与 `nameStart` 同一条约定（见上）。
 

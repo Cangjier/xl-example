@@ -130,7 +130,7 @@ std::string TypeName() const override { return "Keyword"; }           // 每个�
 
 ## 附：这三条决定带出来的两处实现选择
 
-1. **`runtime/any-value.hpp` 是手写的。** `ToDictionary()` / `ToList()` 返回
+1. **`runtime/any-value.hpp` 是手写的。** 那份序列化（`ToPlain`，已删）返回
    `Map<string, any>` / `Array<any>`，`RuntimeObject.Type` / `.Value` 也是 `any`；ts 里一个
    `any` 能同时装字符串、数字、布尔、嵌套 map 和数组，C++ 需要一个具体的可递归载荷类型。
    这是唯一一处规范无法直译的形状，所以单独放在 `runtime/`，不进 `dist/cpp/`。

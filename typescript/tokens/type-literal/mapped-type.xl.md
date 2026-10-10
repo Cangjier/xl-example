@@ -46,7 +46,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 - `ctx.source[ctx.StartOf(值类型段)] === "?"` → **那个 `TypeDefine` 的 `questionAt`**
   （第 996 / 998 轮）：`{ [K in T]?: X }` 里 `?` 与 `:` 同样是**一格** `SymbolToken("?:")`、
   不进任何 `Data`，所以它由 `TypeDefine` 自己记着并**写进字典**
-  （`TypeDefine.ToDictionary` 的 `questionAt`；XML 一个字不动）——
+  （`TypeDefine` 的 `questionAt`；XML 一个字不动）——
   这里从子单元视图上读它（`ctx.Attr`），不再拿源码字符去猜。
 
 ```ts

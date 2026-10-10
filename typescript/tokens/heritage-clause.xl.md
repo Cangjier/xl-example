@@ -337,7 +337,7 @@ return new Map([["ExpressionWithTypeArguments", new Map([["children", "expressio
 
 上面那一份里只有**一处回原文查**：那个模板串的判据
 （`ctx.source[ctx.StartOf(k)] === "\`"`——**回原文读那个引号**）。直出版改读
-**那一格自己记的引号**：`String.ToDictionary` 这一轮把 `stringChar` 写进字典了
+**那一格自己记的引号**：`String` 这一轮把 `stringChar` 记成自己那一格了
 （见 `string.xl.md` 的说明：`IsTemplateString` 吃的是**实例**，而这里手上只有子单元的**视图**，
 所以那一格必须经字典递过来——与 `questionAt` / `namedBraceAt` 同一条口径）。
 其余逐行与 `PrintDirectAst` 同一份（判据都落在子单元与属性上）。

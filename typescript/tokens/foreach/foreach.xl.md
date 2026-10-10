@@ -166,7 +166,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   const statementBracket = statementCandidate;
   // **体那一对花括号当场记进 `BodyBrace`**（第 619 轮那一格，第 641 轮带上整段，
   // 与 `For` / `While` 同一条口径）：
-  // `for (const x of xs) {}` 的空块在 `ToList` 里**整个摊掉**了，
+  // `for (const x of xs) {}` 的空块在段数组里**整个摊掉**了，
   // 而 TS 那边 `ForOfStatement.statement` 仍有一个**空 `Block`**——
   // 投影原来靠「配对头部 `)` + `indexOf("{")` + `MatchingBrace`」**回原文重扫**。
   result.BodyBrace.Set(statementBracket.SourceRange.Start!.Index, statementBracket.SourceRange);
@@ -255,7 +255,7 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
 **体那一对花括号的整段区间**（值取 `{` 的下标）；体不是花括号块时**没记过**（`IsSet` 为假）。
 
 与 `For.BodyBrace` / `While.BodyBrace` **同一个来由、同一份形状**：
-`for (const x of xs) {}` 的空块在 `ToList` 时**整个摊掉**了，
+`for (const x of xs) {}` 的空块进段数组时**整个摊掉**了，
 而 TS 那边 `ForOfStatement.statement` 仍有一个空 `Block`。
 **两端都在手上**（第 641 轮换成了 `TokenField`）⇒ 投影不必回原文配对。
 
@@ -426,7 +426,7 @@ return this.Data.find((x) => x instanceof ForeachBody) as ForeachBody;
 
 ## property define:Array<Token>
 
-`ToDictionary` 的 `define` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`define` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -436,7 +436,7 @@ return this.ChildrenOf(this.Define);
 
 ## property enumable:Array<Token>
 
-`ToDictionary` 的 `enumable` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`enumable` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -446,7 +446,7 @@ return this.ChildrenOf(this.Enumable);
 
 ## property body:Array<Token>
 
-`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`body` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -456,7 +456,7 @@ return this.ChildrenOf(this.Body);
 
 ## property emptyBodyAt:int
 
-`ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`emptyBodyAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -466,7 +466,7 @@ return this.EmptyBodyAt;
 
 ## property bodyBraceAt:int
 
-`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`bodyBraceAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -476,7 +476,7 @@ return this.BodyBrace.File();
 
 ## property isForIn:bool
 
-`ToDictionary` 的 `isForIn` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`isForIn` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -486,7 +486,7 @@ return this.IsForIn;
 
 ## property headerCloseAt:int
 
-`ToDictionary` 的 `headerCloseAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`headerCloseAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -496,7 +496,7 @@ return this.HeaderCloseAt;
 
 ## property children:Array<Token>
 
-`ToDictionary` 的 `children` 键**由这一页自己承担**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
+`children` 这一格**由这一页自己声明**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
 
 ### get
 

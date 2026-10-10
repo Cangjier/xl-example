@@ -392,7 +392,7 @@ return result ?? null;
 
 ## property body:Array<Token>
 
-`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`body` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -402,7 +402,7 @@ return this.ChildrenOf(this.TryBody);
 
 ## property catches:Array<Token>
 
-`ToDictionary` 的 `catches` 键**由这一页自己承担**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
+`catches` 这一格**由这一页自己声明**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
 
 ### get
 
@@ -416,11 +416,11 @@ return result;
 
 ## property finally:Array<Token>
 
-`ToDictionary` 的 `finally` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`finally` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
-**`!` 是这一格的调用约定**：本页 `ToDictionary` 只在 `FinallyBody !== null` 时才写这个键，
+**`!` 是这一格的调用约定**：本页的声明只在 `FinallyBody !== null` 时才写这个键，
 读到这一格时它一定在；没有 `finally` 段由**不写这个键**表达。
 
 ```ts

@@ -530,7 +530,7 @@ return this.namespace === "" ? undefined : this.namespace;
 不覆写的话 `namespace` 根本进不了产物。
 
 **第 987 轮五补齐四处**（`nameAt` / `nameEnd` / `nameRange` / `modifierSpans`）：
-这几个键 `ToDictionary` 一直在写、投影也一直在读（`synthName` 按 `nameRange` 推文本区间），
+这几个键 投影一直在读（`synthName` 按 `nameRange` 推文本区间），
 而 XML 从前没印。条件**逐字照抄** JSON 那侧（`NameAt >= 0 && NameEnd >= NameAt`；
 `modifierSpans` 只在非空时写）——同一件事在两处各写一个条件就是两份口径。
 
@@ -550,7 +550,7 @@ return `<${name} range="${this.RangeOf()}" namespace="${CommonUtil.XmlDecode(thi
 
 ## property modifierSpans:string
 
-`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`modifierSpans` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -560,7 +560,7 @@ return this.ModifierSpans;
 
 ## property nameAt:int
 
-`ToDictionary` 的 `nameAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -570,7 +570,7 @@ return this.NameAt;
 
 ## property nameEnd:int
 
-`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameEnd` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -580,7 +580,7 @@ return this.NameEnd;
 
 ## property nameRange:string
 
-`ToDictionary` 的 `nameRange` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameRange` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

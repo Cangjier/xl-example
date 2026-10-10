@@ -292,7 +292,7 @@ super(template);
 
 本单元背后的运算符（同一段里只会有一种，混用的那一段由两个实例分两趟收，见 `Process`）。
 
-它只影响 `ToXmlString` / `ToDictionary` 里的 `Or` / `And` 翻译——**运算符符号本身是 `Data` 的最后一个子单元**，
+它只影响 `ToXmlString` 里的 `Or` / `And` 翻译——**运算符符号本身是 `Data` 的最后一个子单元**，
 所以投影层不必从 `op` 反推运算符在原文里的位置（反推不出来：区间要的是那个符号自己的位置）。
 
 ## method ToXmlString:()=>string

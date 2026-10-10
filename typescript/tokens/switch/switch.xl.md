@@ -409,7 +409,7 @@ return result;
 
 ## property bodyAt:int
 
-`ToDictionary` 的 `bodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`bodyAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -419,7 +419,7 @@ return this.BodyAt;
 
 ## property compare:Array<Token>
 
-`ToDictionary` 的 `compare` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`compare` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -429,7 +429,7 @@ return this.ChildrenOf(this.Compare);
 
 ## property segments:Array<Token>
 
-`ToDictionary` 的 `segments` 键**由这一页自己承担**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
+`segments` 这一格**由这一页自己声明**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
 
 ### get
 

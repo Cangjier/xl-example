@@ -140,7 +140,7 @@ return this.fieldName === "" ? undefined : this.fieldName;
 
 三个 `if` 加末尾抛错，属性值用 `Array.join(",")` 拼出来。
 
-**第 987 轮五补齐 `nameStart` / `nameEnd` / `modifierSpans`**：这三个键 `ToDictionary` 一直在写、
+**第 987 轮五补齐 `nameStart` / `nameEnd` / `modifierSpans`**：这三个键投影一直在读、
 投影也一直在读（`let.xl.md` 第 102 行那条注释就写着「投影合名字节点时只知道 `fieldName` 这个字符串，
 位置要回原文 `indexOf(fieldName)` 猜」——它就是为此才加上 `NameStart` / `NameEnd` 的），
 而 XML 从前没印。条件**逐字照抄** JSON 那侧：两个下标三种形态都写（解构形态给 `-1`），
@@ -148,7 +148,7 @@ return this.fieldName === "" ? undefined : this.fieldName;
 
 ```ts
 const name = this.constructor.name;
-// 名字的两个下标三种形态都印（解构形态给 -1）——与 ToDictionary 那两行逐字同源。
+// 名字的两个下标三种形态都印（解构形态给 -1）——与投影那两个字段逐字同源。
 const nameSpan = ` nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"`;
 const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
 if (this.LetType === LetType.Field) {
@@ -170,7 +170,7 @@ throw new Error("形态不成立");
 
 ## property nameStart:int
 
-`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameStart` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -180,7 +180,7 @@ return this.NameStart;
 
 ## property nameEnd:int
 
-`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameEnd` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -190,7 +190,7 @@ return this.NameEnd;
 
 ## property modifierSpans:string
 
-`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`modifierSpans` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

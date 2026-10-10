@@ -495,7 +495,7 @@ super(template);
 **记的是「`from` 之前那一格 `{`」**（第 999 轮）：量位置的判据收在 `BraceInClause` 一处，
 `ReadClause` 进三种子句分支**之前**先记一次——原来只有「头一格就是 `Bracket`」那一支记，
 于是 `import d, { A } from "m"`（默认导入 + 具名子句）这一格**一直是 `-1`**，
-投影的兜底于是永远在回原文找。**这一格现在也进字典**（`ToDictionary`，`questionAt` 同款：
+投影的兜底于是永远在回原文找。**这一格现在也由本页自己声明**（与 `questionAt` 同款：
 `>= 0` 时才写），`PrintDirectAst` 读的就是它。
 
 **为什么这些属性值得加**：原来 `Import` 只带 `From`，两条形状完全不同的导入只能靠子单元去分辨；
@@ -681,7 +681,7 @@ return `<${name} range="${this.RangeOf()}" From="${from}" typeOnly="${isTypeOnly
 
 ## property typeWordAt:int
 
-`ToDictionary` 的 `typeWordAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`typeWordAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -691,7 +691,7 @@ return this.TypeWordAt;
 
 ## property namedBraceAt:int
 
-`ToDictionary` 的 `namedBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`namedBraceAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

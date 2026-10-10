@@ -271,7 +271,7 @@ return `<Keyword range="${this.RangeOf()}">${this.Value}</Keyword>`;
 
 ## property value:string
 
-`ToDictionary` 的 `value` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`value` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -287,7 +287,7 @@ return this.Value;
 
 ```ts
   // **文本读 token 自己的 `Value`**（第 992 轮）：关键字兜底身份的正文就记在那一格上
-  // （`ToDictionary` 的 `value` 与它同源），不必回原文切。
+  // （投影读的 `value` 与它同源），不必回原文切。
   const text = this.Value;
   // 上下文关键字 `get` / `set` 一律按 `Identifier` 投（理由见上面的 `PrintDirectAst`）。
   const contextual = text === "get" || text === "set";

@@ -1115,7 +1115,7 @@ return this.Data.find((x) => x instanceof LamdaBody) as LamdaBody;
 
 ## property async:bool
 
-`ToDictionary` 的 `async` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`async` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -1125,7 +1125,7 @@ return this.IsAsync;
 
 ## property bodyBraceAt:int
 
-`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`bodyBraceAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -1135,7 +1135,7 @@ return this.BodyBrace.File();
 
 ## property arrowAt:int
 
-`ToDictionary` 的 `arrowAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`arrowAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -1145,7 +1145,7 @@ return this.ArrowAt;
 
 ## property parameters:Array<Token>
 
-`ToDictionary` 的 `parameters` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`parameters` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -1155,7 +1155,7 @@ return this.ChildrenOf(this.Parameters);
 
 ## property body:Array<Token>
 
-`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`body` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -1165,11 +1165,11 @@ return this.ChildrenOf(this.Body);
 
 ## property returnType:Array<Token>
 
-`ToDictionary` 的 `returnType` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`returnType` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
-**`!` 是这一格的调用约定**：本页 `ToDictionary` 只在 `ReturnType !== null` 时才写这个键，
+**`!` 是这一格的调用约定**：本页的声明只在 `ReturnType !== null` 时才写这个键，
 读到这一格时它一定在；没有返回类型标注由**不写这个键**表达。
 
 ```ts

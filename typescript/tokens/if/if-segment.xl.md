@@ -212,7 +212,7 @@ if (value !== null) {
 
 `IfBody` 是本轮加的（花括号体由它自己吃 `{ … }`）——所以在它出现之后，
 「这一段的体是哪一个」不能只问 `IfStatement`：`if (a) { … }` 的体是一个 `IfBody`，
-只问 `IfStatement` 会给 `null` ⇒ 那一段的体**根本不进 `ToDictionary`**
+只问 `IfStatement` 会给 `null` ⇒ 那一段的体**根本不出节点**
 ⇒ 投影侧收到的是一个**没有** `statement` 段的段 ⇒ `Block.statements` 是空的
 （实测：整个 `ReturnStatement` 子树凭空消失，全语料 7.6 万个节点挂在这一条上）。
 
@@ -244,7 +244,7 @@ return this.Add(new IfStatement(this.Template));
 **这一处直接决定 XML 产物**：属性名是 `key`（大写 K），属性值两侧是双引号，且子单元之间**没有任何分隔符**——与 `Bracket` 那种 `startBracket="…"` 的写法同款。
 
 **第 987 轮五补齐四处**（`ifWordAt` / `bodyBraceAt` / `emptyBodyAt` / `bodyBraceRange`）：
-`ToDictionary` 一直在写这四个键、投影也一直在读（注释就写着「投影画空 `Block` 时直读，
+投影一直在读这四个键（注释就写着「投影画空 `Block` 时直读，
 不再回原文重扫」），而 XML 从前没印。条件**逐字照抄** JSON 那侧：前三个各自 `>= 0` 才写，
 `bodyBraceRange` 只在非空串时写。
 
@@ -254,7 +254,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-// 四个位置键：与 ToDictionary 那四条同名同条件（`-1` 是「没有」，不写进产物）。
+// 四个位置键：与 AST 那四个字段同名同条件（`-1` 是「没有」，不写进产物）。
 const ifWord = this.IfWordAt >= 0 ? ` ifWordAt="${this.IfWordAt}"` : "";
 const bodyBrace = this.BodyBraceAt >= 0 ? ` bodyBraceAt="${this.BodyBraceAt}"` : "";
 const emptyBody = this.EmptyBodyAt >= 0 ? ` emptyBodyAt="${this.EmptyBodyAt}"` : "";
@@ -333,8 +333,8 @@ for (const item of this.Data) {
 
 体那一对括号的**两格下标**，写成 `"起,止"`；没记过时给空串。
 
-**为什么是字符串而不是两个数字**：`ToDictionary` 的数组一律被当成**子单元列表**
-（`WithRangeOf` 会拿它们与 token 逐格配对）⇒ 一对坐标混进去会被当成一个子节点。
+**为什么是字符串而不是两个数字**：属性里的数组一律被当成**子单元列表**
+（投影与 `children` 一视同仁，逐项当子节点投）⇒ 一对坐标混进去会被当成一个子节点。
 一个标量字符串没有这个问题，而投影拆一次就还原成两格。
 
 ```ts
@@ -353,7 +353,7 @@ return from + "," + to;
 
 ## property ifWordAt:int
 
-`ToDictionary` 的 `ifWordAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`ifWordAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -363,7 +363,7 @@ return this.IfWordAt;
 
 ## property bodyBraceAt:int
 
-`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`bodyBraceAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -373,7 +373,7 @@ return this.BodyBraceAt;
 
 ## property emptyBodyAt:int
 
-`ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`emptyBodyAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -383,7 +383,7 @@ return this.EmptyBodyAt;
 
 ## property bodyBraceRange:string
 
-`ToDictionary` 的 `bodyBraceRange` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`bodyBraceRange` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -393,7 +393,7 @@ return this.BraceRangeText();
 
 ## property condition:Array<Token>
 
-`ToDictionary` 的 `condition` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`condition` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -405,7 +405,7 @@ return this.ChildrenOf(this.Condition);
 
 ## property statement:Array<Token>
 
-`ToDictionary` 的 `statement` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`statement` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 

@@ -416,7 +416,7 @@ return `<${name} range="${this.RangeOf()}" name="${this.name}" modifiers="${this
 
 ## property modifierSpans:string
 
-`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`modifierSpans` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

@@ -886,7 +886,7 @@ return this.fieldName === "" ? undefined : this.fieldName;
 产出 XML：开标签上带 `name` / `modifiers`，以及名字的三种位置表示与修饰词的位置，内容是「类型标注 + 初始值」的 XML。
 
 **第 987 轮五补齐五处**（`nameStart` / `nameEnd` / `nameAt` / `nameRange` / `modifierSpans`）：
-这几个键 `ToDictionary` 一直在写、投影也一直在读（「投影直读，不再回原文 `indexOf` 猜」），
+这几个键 投影一直在读（「投影直读，不再回原文 `indexOf` 猜」），
 而 XML 从前没印。条件**逐字照抄** JSON 那侧：两个下标无条件写、
 `nameAt` / `nameRange` 在 `NameAt.IsSet` 里写、`modifierSpans` 只在非空时写
 ——**同一件事在两处各写一个条件就是两份口径**，所以这里连局部量的取法都照着那份走。
@@ -897,7 +897,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-// 名字那一格的整段区间（见 `NameAt`）：与 `ToDictionary` 的 nameAt / nameRange 同一套条件。
+// 名字那一格的整段区间（见 `NameAt`）：与 AST 的 nameAt / nameRange 同一套条件。
 let atSpan = "";
 if (this.NameAt.IsSet) {
   atSpan = ` nameAt="${this.NameAt.File()}"`;
@@ -930,7 +930,7 @@ return nameRange.Start.Index + "," + nameRange.End.Index;
 
 ## property name:string
 
-`ToDictionary` 的 `name` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`name` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -940,7 +940,7 @@ return this.fieldName;
 
 ## property nameStart:int
 
-`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameStart` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -950,7 +950,7 @@ return this.NameStart;
 
 ## property nameEnd:int
 
-`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameEnd` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -960,7 +960,7 @@ return this.NameEnd;
 
 ## property nameAt:int
 
-`ToDictionary` 的 `nameAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -970,7 +970,7 @@ return this.NameAt.File();
 
 ## property modifierSpans:string
 
-`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`modifierSpans` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

@@ -44,8 +44,9 @@ const GATES = [
   // 第 1016 轮**命令行那一条出口整条删掉**（`--ast-json` 与它一起），于是这一门没有量得到的对象：
   // 它量的一半是「两个出口说的是不是同一棵树」，而那棵树现在只剩 XML 与 TS 形状两条路
   // （TS 形状那一条由 `cases:tsast` / `samples` 看着）。
-  // **库那一层一格没动**：`ToDictionary` / `ToList` / `ToPlain` / `WithRange` 与
-  // [docs/ast-json.md](../docs/ast-json.md) 那份规格都还在，只是不再有门核它们。
+  // **第 1019 轮连中间那一层也删了**（`ToPlain` 与它同一批）：
+  // 它写的每一格都是 token 自己声明过的属性，今天的消费者只有直出那一趟投影，
+  // [docs/ast-json.md](../docs/ast-json.md) 那份规格留着当记录（现状写在它开头）。
   //（`ToJsonString()` 第 1017 轮删了——它在全仓一个调用者都没有；
   // 序列化那一步今天只有 TS 形状出口的 `ToJsonText()` 在做。）
   // **`cases:direct` + `direct:lint`（第 992 轮加，第 1013 / 1017 轮改口径）**：第三个出口

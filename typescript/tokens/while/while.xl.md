@@ -109,7 +109,7 @@ const statementCandidate = Get(units, endIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
   const statementBracket = statementCandidate;
   // **体那一对花括号当场记进 `BodyBrace`**（第 618 轮那一格，第 641 轮换成 `TokenField`）：
-  // `while (c) {}` 的空块在 `ToList` 里**整个摊掉**了（体段一个可见子单元都没有），
+  // `while (c) {}` 的空块在段数组里**整个摊掉**了（体段一个可见子单元都没有），
   // 而 TS 那边 `WhileStatement.statement` 仍有一个 `Block`。**两端都在手上**（这个 `Bracket`）
   // ⇒ 记**整对**（与 `IfSegment.BodyBrace` / `Try.TryBrace` 同一条口径）——
   // 投影于是连「配对的 `}` 在哪」都不必回原文重扫
@@ -202,7 +202,7 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
 
 **体那一对花括号的整段区间**（值取 `{` 的下标）；体不是花括号块时**没记过**（`IsSet` 为假）。
 
-与 `For` / `Foreach` / `DoWhile` 的 `BodyBrace` **同一个来由、同一份形状**：`while (c) {}` 的空块在 `ToList` 时
+与 `For` / `Foreach` / `DoWhile` 的 `BodyBrace` **同一个来由、同一份形状**：`while (c) {}` 的空块进段数组时
 **整个摊掉**了（体段一个可见子单元都没有），而 TS 那边 `WhileStatement.statement`
 仍有一个 `Block`——投影原来靠 `MatchingParen` + `indexOf("{")` + `MatchingBrace`
 **回原文里找**，那是同一条判据的第二份近似。
@@ -329,7 +329,7 @@ return this.Data.find((x) => x instanceof WhileBody) as WhileBody;
 
 ## property compare:Array<Token>
 
-`ToDictionary` 的 `compare` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`compare` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -339,7 +339,7 @@ return this.ChildrenOf(this.Compare);
 
 ## property body:Array<Token>
 
-`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`body` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -349,7 +349,7 @@ return this.ChildrenOf(this.Body);
 
 ## property emptyBodyAt:int
 
-`ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`emptyBodyAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -359,7 +359,7 @@ return this.EmptyBodyAt;
 
 ## property headerCloseAt:int
 
-`ToDictionary` 的 `headerCloseAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`headerCloseAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -369,7 +369,7 @@ return this.HeaderCloseAt;
 
 ## property bodyBraceAt:int
 
-`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`bodyBraceAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

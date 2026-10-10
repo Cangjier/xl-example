@@ -134,7 +134,7 @@ IfGuide.Stage:
 `Token.ToXmlString` 只印 `<类名>子单元</类名>`，
 带属性的那几个类（`Bracket` / `Class` / `Let` …）都是**自己覆写** `ToXmlString` 才有。
 所以 `IfCondition` 带自己的终止字符字段，产物**仍是** `<IfCondition>…</IfCondition>`
-——只要它不覆写 `ToXmlString`（它现在没有）。`IfCondition.ToDictionary` 同理照旧。
+——只要它不覆写 `ToXmlString`（它现在没有）。`IfCondition` 的序列化同理照旧。
 
 ### 嵌套由挂载链解决，不由 `IsEnd` 解决
 

@@ -255,7 +255,7 @@ return new Map([["ForStatement", new Map([["initial", "initializer"], ["compare"
 
 **体那一对花括号的整段区间**；体不是花括号块时**没记过**（`IsSet` 为假）。
 
-与 `EmptyBodyAt` 同一个来由、同一条纪律：`for (;;) {}` 的空块在 `ToList` 时**整个摊掉**了
+与 `EmptyBodyAt` 同一个来由、同一条纪律：`for (;;) {}` 的空块进段数组时**整个摊掉**了
 （体段一个可见子单元都没有），而 TS 那边 `ForStatement.statement` 仍有一个空 `Block`——
 投影原来靠 `indexOf(")")` + `indexOf("{")` + `MatchingBrace` **回原文里找**，
 那是同一条判据的第二份近似（块里的字符串与注释里同样有括号）。
@@ -422,7 +422,7 @@ return this.Data.find((x) => x instanceof ForNext) as ForNext;
 
 ## property initial:Array<Token>
 
-`ToDictionary` 的 `initial` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`initial` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -432,7 +432,7 @@ return this.ChildrenOf(this.Initial);
 
 ## property compare:Array<Token>
 
-`ToDictionary` 的 `compare` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`compare` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -442,7 +442,7 @@ return this.ChildrenOf(this.Compare);
 
 ## property next:Array<Token>
 
-`ToDictionary` 的 `next` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`next` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -452,7 +452,7 @@ return this.ChildrenOf(this.Next);
 
 ## property body:Array<Token>
 
-`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`body` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -462,7 +462,7 @@ return this.ChildrenOf(this.Body);
 
 ## property emptyBodyAt:int
 
-`ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`emptyBodyAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -472,7 +472,7 @@ return this.EmptyBodyAt;
 
 ## property bodyBraceAt:int
 
-`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`bodyBraceAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -482,7 +482,7 @@ return this.BodyBrace.File();
 
 ## property headerCloseAt:int
 
-`ToDictionary` 的 `headerCloseAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`headerCloseAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

@@ -371,7 +371,7 @@ return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" modifiers=
 
 ## property modifierSpans:string
 
-`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`modifierSpans` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -381,11 +381,11 @@ return this.ModifierSpans;
 
 ## property nameStart:int | undefined
 
-`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameStart` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
-**`!` 是这一格的调用约定**：本页 `ToDictionary` 只在名字区间两头都齐时才写这个键，
+**`!` 是这一格的调用约定**：本页的声明只在名字区间两头都齐时才写这个键，
 读到这一格时它们一定在；缺一头由**不写这个键**表达。
 
 ```ts
@@ -396,7 +396,7 @@ return nameRange.Start.Index;
 
 ## property nameEnd:int | undefined
 
-`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameEnd` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

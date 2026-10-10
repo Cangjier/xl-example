@@ -20,10 +20,11 @@ import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 `--ts-ast` 换成 **TS 形状出口**（`ts.createSourceFile` 的形状：kind 用名字、每个节点带
 `pos` / `end` 与 TS 那边的字段名，给 `cases:tsast` 的对拍与人工 diff 用）。
 
-**第 1016 轮删掉的那条出口**：`--ast-json`（AST JSON，形状是上游 Cangjie 的
-`Token.ToDictionary` / `ToList`）连同它的尺子 `cases:astjson` 一起撤了（规格 `docs/ast-json.md` 留着）。
-`ToList()` / `ToDictionary()` 那些**库**一格都没动——`ToList()` 还被
-TS 形状出口的投影养着，只是命令行不再有那条路。
+**第 1016 轮删掉的那条出口**：`--ast-json`（把 token 树写成一棵 `{ type, … }` 的 JSON）
+连同它的尺子 `cases:astjson` 一起撤了（`docs/ast-json.md` 作为那一段的记录留着，并把现状写在开头）。
+**第 1019 轮连中间那一层也删了**——它写的每一格（`type` / `children` / 各段 / `range`）
+都是 token 自己已经声明过的属性，「先摊成字典、投影再读字典」是同一份事实的第二遍声明；
+今天投影直接吃 token（见 [typescript/print-ast-common.xl.md](typescript/print-ast-common.xl.md)）。
 撤它的理由：那条出口的**唯一**用途是给下游程序读树，而下游要的是 TS 形状
 （`--ts-ast` 与它同源、且真的在跟 `ts.createSourceFile` 对拍）；留两条 JSON 出口等于
 让「哪一条才算数」没有答案。XML 的开标签上仍然印 `range`（第 987 轮那一条口径不动）。
@@ -31,7 +32,7 @@ TS 形状出口的投影养着，只是命令行不再有那条路。
 序列化那一步的唯一消费者是 TS 形状出口的 `ToJsonText()`。）
 
 **两个出口同源**：都挂在同一次 `Process` 造出来的那棵树上（`CjcliParse`），
-区别只在最后取哪一份——`Root.ToXmlString()` / `Root.ToList()` 交给 `projectRoot` 投影。
+区别只在最后取哪一份——`Root.ToXmlString()` 交给 XML 出口，`Root` 自己交给 `projectRoot` 投影。
 **没有第二条解析路径**。
 
 | 命令 | 行为 |
@@ -256,7 +257,7 @@ return options;
 
 把一段源码解析成 token 树；出错时把诊断打到标准错误并返回 `null`。
 
-**两个出口共用这一段**：XML 出口要的是 `Root`，TS 形状出口要的是 `projectRoot(Root.ToList(), content)`，
+**两个出口共用这一段**：XML 出口要的是 `Root`，TS 形状出口要的是 `projectRoot(Root, content)`，
 但「造模板 → 包文档 → 驱动解析 → 异常收敛」这条链是同一段，所以它返回**根单元本身**，
 由两个很薄的取值函数（`CjcliParseXml` / `CjcliParseTsAst`）各自取自己那一份。
 这样「两个出口看的是同一棵树」不是一句约定，而是**结构上没有第二条解析路径**。
@@ -305,7 +306,7 @@ return root.ToXmlString();
 
 形状就是 `ts.createSourceFile` 那一套：`{ kind, pos, end, …字段 }`，`kind` 用**名字**
 （`"VariableStatement"` / `"Block"`…），字段名按 TS 的叫法（`statements` / `members` / `parameters`…）。
-投影本身在 [`typescript/print-ast-common.xl.md`](typescript/print-ast-common.xl.md)：`projectRoot(Root.ToList(), 原文)`，
+投影本身在 [`typescript/print-ast-common.xl.md`](typescript/print-ast-common.xl.md)：`projectRoot(Root, 原文)`，
 **它不重新解析**，产物树是唯一事实来源。
 
 **标准输出只有形状本身**：`projectRoot` 的返回值里还有一个 `unmapped`（投影没覆盖、

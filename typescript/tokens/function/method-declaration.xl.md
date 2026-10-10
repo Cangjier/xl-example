@@ -1135,7 +1135,7 @@ return this.name === "" ? undefined : this.name;
 与 `Method` 的 `<Method name="x">` 只在标签名与多出来的 `modifiers` 上不同——
 调用点是 `Method`，声明点是 `MethodDeclaration`，两者靠标签名区分。
 
-**`nameStart` / `nameEnd`**（第 987 轮五）：`ToDictionary` 一直在写这两个键、投影也一直在读它们
+**`nameStart` / `nameEnd`**（第 987 轮五）：投影一直在读这两个键
 （「有这对字段就不做任何猜测」，见 `print-ast-common.xl.md` 的 `synthName`），
 而 XML 从前没印——**两级出口的键名表必须一样**，这里补齐。
 
@@ -1151,7 +1151,7 @@ return `<${name} range="${this.RangeOf()}" name="${this.name}" modifiers="${this
 
 ## property modifierSpans:string
 
-`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`modifierSpans` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -1161,7 +1161,7 @@ return this.ModifierSpans;
 
 ## property nameStart:int
 
-`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameStart` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -1171,7 +1171,7 @@ return this.NameStart;
 
 ## property nameEnd:int
 
-`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameEnd` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

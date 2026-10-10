@@ -309,8 +309,7 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 
 与 `Field` / `Interface` 同一口径：名字进属性、不进子单元，属性值过一遍 `CommonUtil.XmlDecode`。
 
-**第 987 轮五补齐三处**（`nameStart` / `nameEnd` / `modifierSpans`）：这三个键 `ToDictionary`
-一直在写、投影也一直在读（注释就写着「投影直读，不再回原文 `indexOf` 猜」），而 XML 从前没印。
+**第 987 轮五补齐三处**（`nameStart` / `nameEnd` / `modifierSpans`）：投影一直在读这三个键，（注释就写着「投影直读，不再回原文 `indexOf` 猜」），而 XML 从前没印。
 条件与 JSON 那侧**逐字相同**：两个下标无条件写，`modifierSpans` 只在非空时写
 ——两级出口对同一件事给出同一套键，`cases:astjson` 那一门才核得动
 （**那一门第 1016 轮随命令行的 `--ast-json` 一起删了**：这条「逐字相同」今天靠的是口径，不再有判据）。
@@ -327,7 +326,7 @@ return `<${name} range="${this.RangeOf()}" alias="${CommonUtil.XmlDecode(this.al
 
 ## property nameStart:int
 
-`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameStart` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -337,7 +336,7 @@ return this.NameStart;
 
 ## property nameEnd:int
 
-`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameEnd` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -347,7 +346,7 @@ return this.NameEnd;
 
 ## property modifierSpans:string
 
-`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`modifierSpans` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

@@ -2,7 +2,7 @@
 // → `build/ts/typescript/print-ast-common.js`），这里只剩一层转发。
 //
 //   import { projectRoot } from "./ts-shape.mjs"
-//   const { ast, unmapped } = projectRoot(root.ToList(), source);
+//   const { ast, unmapped } = projectRoot(root, source);
 //
 // **为什么只留一份实现**：投影原来是这个文件里的 2464 行 JS，运行时没有它——
 // 于是「投影的账」与「运行时的账」可以各算各的。搬进规范之后，`cases:tsast` 量的就是

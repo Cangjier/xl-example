@@ -9,7 +9,7 @@
 > 原来的 `typescript/ts-ast.xl.md` 已删（`git mv` 成 [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md)），搬迁手册见 [print-ast-migration.md](history/print-ast-migration.md)）；
 > 命令行侧在 [`cjcli.xl.md`](../cjcli.xl.md) 的 `CjcliParseTsAst`。
 > 第二个出口（AST JSON）见 [ast-json.md](ast-json.md)——**第 1016 轮起命令行不再放出那一条**
-> （`--ast-json` 与 `cases:astjson` 删了），那份规格与库里的 `ToDictionary` / `ToList` 都还在。
+> （`--ast-json` 与 `cases:astjson` 删了），那份规格留着当记录（现状写在它开头）。
 
 ---
 
@@ -64,7 +64,7 @@ node build/ts/cjcli.js samples/hello.ts --ts-ast | ...      # 直接喂给对拍
 ```ts
 const context = new TextContext(new Template());
 context.Process(new TextDocument(source));
-const projected = projectRoot(context.Root.ToList(), source);  // { ast, unmapped, count }
+const projected = projectRoot(context.Root, source);  // { ast, unmapped, count }
 const text = ToJsonText(projected);                            // 紧凑单行 JSON
 ```
 
@@ -79,7 +79,7 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 | 判据 | 命令 | 口径 |
 | --- | --- | --- |
 | 与 TS 原生 AST 对拍 | `npm run cases:tsast` | 逐节点比 **kind、区间、字段名**；缺（没投出来）与漂移（位置差一点）分开报。退出码按**八条**算：四方向 + 未映射（透传进产物的标签）+ 缺 range + 区间越界 + **抛异常 0**（第 674 轮加的） |
-| **第三个出口投不投得出来** | `npm run cases:direct` | 两条**绝对**判据：① 全语料投一遍**不抛异常**；② **固定样本的形状逐格点名**（第 1014 轮加：`const a = b(c);` 必须投出六格、且每个节点都带 `pos` / `end`）。第三个出口第 1013 轮起只有 `PrintDirectAst` 一条路。**第 1017 轮撤掉的第①项**是「同一份输入重投两遍逐字节相同」（第 1013 轮起）与更早的「与 `PrintAst` 同答」（第 992 轮起，开 / 关两遍对拍）——**它不可能失败**：两遍都在同一个进程里、问的都是同一份 `Root.ToList()`，确定性代码必然逐字节相同（见第 4 节） |
+| **第三个出口投不投得出来** | `npm run cases:direct` | 两条**绝对**判据：① 全语料投一遍**不抛异常**；② **固定样本的形状逐格点名**（第 1014 轮加：`const a = b(c);` 必须投出六格、且每个节点都带 `pos` / `end`）。第三个出口第 1013 轮起只有 `PrintDirectAst` 一条路。**第 1017 轮撤掉的第①项**是「同一份输入重投两遍逐字节相同」（第 1013 轮起）与更早的「与 `PrintAst` 同答」（第 992 轮起，开 / 关两遍对拍）——**它不可能失败**：两遍都在同一个进程里、问的都是同一棵 `Root`，确定性代码必然逐字节相同（见第 4 节） |
 | **只用 token 自己的东西** | `npm run direct:lint` | 逐页扫 `PrintDirectAst` 的方法体（注释不算）：不许 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（第 992 轮加；第 1013 轮撤掉「同页必须还有 `PrintAst`」那条基线判据；第 1014 轮加一条**只扫散文**的：「`PrintAst` 这个老名字只许写在明说它已经不存在的那一行」，词边界匹配、`PrintDirectAst` 不算；**第 1015 轮**再加一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的九个出口——三个回原文兜底的 `Text` / `TextOf` / `StringText`（值为空时会去 `source.slice(...)`）与六个已无人用的 `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace`。**为什么删了还要立一条**：出口没了，上面那条方法体判据就永远绿——它守的是一句已经无路可走的话；真正要守住的是「这一层拿不到原文」这件事本身，而 helper 那一层的方法体判据天生覆盖不到（第 1008 轮实测过）） |
 | **成对方法合并的等价性**（一次性） | —— | 第 1014 轮把「每个 token 页上 `PrintAst` 与 `PrintDirectAst` 两节相邻成对、留后者删前者」这句话**逐段核对**了一遍：75 对里 **21 对逐字节同一份**（老那两节本来就同答）、**47 对**新方法与**老直出版**逐字节同一份（＝留后者）、**7 对**有实质差异而这 7 对**全是第 992~1013 轮的既定改写**（5 对是 `k.get("type")` → `k.Tag()`；`import` 与 `lamda` 各一对是「回原文扫一遍」改成读 token 上的字段）⇒ 「除了那批有判据的改写，合并没有动过任何一格投影」 |
 | **发布路径**端到端 | `node tests/parse/ts-ast.mjs --cli` | 真的开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 与 `ts.createSourceFile` 对拍（每个文件一个进程，按需跑） |

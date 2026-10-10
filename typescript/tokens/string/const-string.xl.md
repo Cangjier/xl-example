@@ -336,7 +336,7 @@ while (true) {
 （`ctx.KidsOf` + `ctx.ValueOf`）——与 `import-type.xl.md` 的直出版同一份写法。
 
 **为什么这里恒为空串**（量出来的，不是猜的）：`ConstString` 是块单元，**文本在 `Temp` 上**
-（`BlockToken.ToDictionary` 把它写成 `value`）、**自己没有子单元** ⇒ 第一步永远找不到那一格
+（`BlockToken` 把它记成 `value`）、**自己没有子单元** ⇒ 第一步永远找不到那一格
 ⇒ `StringText` 对它恒为 `""`。而 `String` 那一层的文本是外层 `String.PrintDirectAst` 经
 `ctx.Template` 取走的（`string.xl.md`），所以**全语料 2050 份里这一格一次都没被问到**。
 两个出口在**同一份判据**上写下同一个答案，正是这一格的诚实写法。

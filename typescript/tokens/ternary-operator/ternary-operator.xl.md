@@ -772,7 +772,7 @@ return this.Add(new TernaryOperatorFalseStatement(this.Template));
 
 ## property condition:Array<Token>
 
-`ToDictionary` 的 `condition` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`condition` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -782,7 +782,7 @@ return this.ChildrenOf(this.Condtion);
 
 ## property trueStatement:Array<Token>
 
-`ToDictionary` 的 `trueStatement` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`trueStatement` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -792,7 +792,7 @@ return this.ChildrenOf(this.TrueStatement);
 
 ## property falseStatement:Array<Token>
 
-`ToDictionary` 的 `falseStatement` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`falseStatement` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -802,7 +802,7 @@ return this.ChildrenOf(this.FalseStatement);
 
 ## property questionPos:int
 
-`ToDictionary` 的 `questionPos` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`questionPos` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -812,7 +812,7 @@ return this.QuestionPos;
 
 ## property colonPos:int
 
-`ToDictionary` 的 `colonPos` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`colonPos` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

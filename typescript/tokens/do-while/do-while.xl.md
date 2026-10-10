@@ -315,7 +315,7 @@ const bodyCandidate = Get(units, bodyStart);
 if (bodyCandidate instanceof Bracket && bodyCandidate.startBracket === "{") {
   // **体那一对花括号当场记进 `BodyBrace`**（第 619 轮那一格，第 641 轮带上整段，
   // 与 `While` / `For` 同一条口径）：
-  // `do {} while (c)` 的空块在 `ToList` 里**整个摊掉**了，
+  // `do {} while (c)` 的空块在段数组里**整个摊掉**了，
   // 而 TS 那边 `DoStatement.statement` 仍有一个**空 `Block`**——
   // 投影原来靠 `indexOf("{")` + `MatchingBrace` **回原文重扫**（同一条判据的第二份近似）。
   result.BodyBrace.Set(bodyCandidate.SourceRange.Start!.Index, bodyCandidate.SourceRange);
@@ -470,7 +470,7 @@ return new Map([["DoStatement", new Map([["compare", "condition"], ["body", "sta
 **体那一对花括号的整段区间**（值取 `{` 的下标）；体不是花括号块时**没记过**（`IsSet` 为假）。
 
 与 `While.BodyBrace` / `For.BodyBrace` **同一个来由、同一份形状**：
-`do {} while (c)` 的空块在 `ToList` 时**整个摊掉**了，
+`do {} while (c)` 的空块进段数组时**整个摊掉**了，
 而 TS 那边 `DoStatement.statement` 仍有一个空 `Block`。
 **两端都在手上**（第 641 轮换成了 `TokenField`）⇒ 投影不必回原文配对。
 
@@ -583,7 +583,7 @@ return this.Data.find((x) => x instanceof WhileCompare) as WhileCompare;
 
 ## property body:Array<Token>
 
-`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`body` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -593,7 +593,7 @@ return this.ChildrenOf(this.Body);
 
 ## property compare:Array<Token>
 
-`ToDictionary` 的 `compare` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`compare` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -603,7 +603,7 @@ return this.ChildrenOf(this.Compare);
 
 ## property bodyBraceAt:int
 
-`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`bodyBraceAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -613,7 +613,7 @@ return this.BodyBrace.File();
 
 ## property emptyBodyAt:int
 
-`ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`emptyBodyAt` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

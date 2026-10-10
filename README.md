@@ -111,11 +111,11 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 `unmapped`（投影没覆盖、原样透传的产物标签）走 **stderr**，所以 stdout 里只有形状本身。
 
 **第 1016 轮删掉了旧的「出口 2」（AST JSON，`cjcli <文件> --ast-json`）**：形状照上游 Cangjie 的
-`Token.ToDictionary` / `ToList`——顶层是数组、每个节点 `{ type, … , children? }`。
-删的是**命令行那一条路**（连同它的尺子 `cases:astjson`）：库这一侧一格没动
-（`ToDictionary` / `ToList` / `WithRange` 都还在；`ToJsonString` 当时也在，**第 1017 轮随
-「全仓没有任何调用者」删掉了**），形状与逐 token 字段表的规格
-也整篇留着，见 [docs/ast-json.md](docs/ast-json.md)。撤它的理由：那条出口的唯一用途是给下游程序读树，
+上游 Cangjie 的那一套——把 token 树写成一棵 `{ type, … , children? }` 的 JSON（顶层是数组）。
+**第 1019 轮连中间那一层也删了**：它写的每一格（`type` / `children` / 各段 / `range`）
+都是 token 自己已经声明过的属性，也就是说同一份事实被声明了两遍；投影今天直接吃 token。
+删的是**命令行那一条路**（连同它的尺子 `cases:astjson`）：形状与逐 token 字段表的规格
+整篇留着当记录（现状写在它开头），见 [docs/ast-json.md](docs/ast-json.md)。撤它的理由：那条出口的唯一用途是给下游程序读树，
 而下游要的是 TS 形状（`--ts-ast` 与它同源、且真的在跟 `ts.createSourceFile` 对拍）；
 留两条 JSON 出口只会让「哪一条才算数」没有答案。
 
@@ -146,9 +146,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 - [docs/xl-to-cpp.md](docs/xl-to-cpp.md)：C++ 目标的生成规范（映射规则、部件划分、必读的编译陷阱）。
 - [docs/cpp-design-notes.md](docs/cpp-design-notes.md)：C++ 目标上那些「只能这么写」的结构性取舍。
 - [docs/ast-json.md](docs/ast-json.md)：AST JSON 出口的规格（形状 / 逐 token 字段表 / 与上游 Cangjie 的差异）。
-  **第 1016 轮起这一条出口只活在库里**：命令行的 `--ast-json` 与它的尺子 `cases:astjson` 都删了，
-  这份规格整篇留着（`ToDictionary()` / `ToList()` / `WithRange()` 一格没动；
-  `ToJsonString()` 第 1017 轮删——它已经没有调用者）。
+  **这条出口第 1016 轮起命令行不再放出，第 1019 轮连中间那一层也删了**：
+  这份规格整篇留着当记录，现状写在它开头。
 - [docs/ts-ast.md](docs/ts-ast.md)：TS 形状出口的规格（kind 与字段名的对照表）。
 
 ## 类型约定
@@ -167,7 +166,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 - **多出来的那个出口（AST JSON）的代价就在这里**：它跑在 `Map<string, any>` / `Array<any>` / `any` 上，
   对多语言目标是负担（C++ / C# 侧要么用 `std::any` / `object`，要么就是「另一个目标的活儿」）。
   换来的是**同源**：形状只是「同一棵树的另一种拼法」，而**这一层今天是 TS 形状出口的地基**
-  （`ToList()` / `ToDictionary()` 都在，第 1016 轮删掉的只是命令行那一条路，见「构建链路」那一节）。
+  （第 1016 轮删掉的只是命令行那一条路，**第 1019 轮连这一层也删了**——投影改成直吃 token，
+  见「构建链路」那一节）。
   形状与规格各自的文档在「多目标」那张表里。
 - **「值 + 它在哪」一律装进 `TokenField<T>`**（`core/syntax/token-field.xl.md`）：
   `Value` 说是什么、`Range` 说在哪，`Set` 一次写两样 ⇒ **区间在 ⟺ 记过**（`IsSet`）。
@@ -289,7 +289,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 | --- | --- |
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
-| `cases:direct` | **第三个出口投不投得出来**（第 992 轮加，第 1013 / 1017 轮改口径）：`Token.PrintDirectAst` 是**唯一**的写法，所以量的是两条**绝对**的判据——① 全语料投一遍**不许抛异常**；② 固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。**第 1013 轮之前**它与 `PrintAst` 开 / 关两遍对拍，第 1013 ~ 1016 轮改量「同一份输入重投两遍逐字节相同」——**那一项第 1017 轮撤了**：两遍都在同一个进程里、问的都是同一份 `Root.ToList()`，确定性代码必然逐字节相同，**它不可能失败** |
+| `cases:direct` | **第三个出口投不投得出来**（第 992 轮加，第 1013 / 1017 轮改口径）：`Token.PrintDirectAst` 是**唯一**的写法，所以量的是两条**绝对**的判据——① 全语料投一遍**不许抛异常**；② 固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。**第 1013 轮之前**它与 `PrintAst` 开 / 关两遍对拍，第 1013 ~ 1016 轮改量「同一份输入重投两遍逐字节相同」——**那一项第 1017 轮撤了**：两遍都在同一个进程里、问的都是同一份 `Root` 自己的子单元列表，确定性代码必然逐字节相同，**它不可能失败** |
 | `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据、第 1014 轮再加一条、**第 1015 轮再加一条**）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；扫**共享投影那一页的代码块**那一末条：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层；第 1014 轮再加一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算）；**第 1015 轮**再加一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的九个出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace`）——出口删掉之后，方法体那条判据才从「大家记得别写」变成**结构上做不到** |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
@@ -337,9 +337,10 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 ### 第 1016 轮：删掉旧的那条 JSON 出口（`cjcli --ast-json`）——命令行只剩 XML 与 TS 形状两条路，**十道门全绿**
 
 **一句话**：用户口径「清理 `--ast-json`，移除相关 cases」。这一轮删的是**命令行那一条出口**，
-不是那条出口的形状：`Token.ToDictionary()` / `ToList()` / `ToJsonString()` / `WithRange()`
-一格没动（`ToList()` 还被第三个出口的投影养着），[docs/ast-json.md](docs/ast-json.md) 那份形状与
+不是那条出口的形状：那份序列化（把每格事实写进一棵 `{ type, … }` 的那一层）
+一格没动，[docs/ast-json.md](docs/ast-json.md) 那份形状与
 字段表的规格也整篇留着——撤掉的只是「从命令行把树印成那一种 JSON」那条路。
+（**第 1019 轮把那一层也删了**：投影改成直吃 token。）
 
 - **为什么撤**：三个出口里，XML 给人读、TS 形状与 `ts.createSourceFile` 逐节点对拍（有一整套判据），
   而 AST JSON 的**唯一**用途是给下游程序读树——下游要的形状就是 TS 那一份。
@@ -353,9 +354,10 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
   3. `package.json` 的 `cases:astjson` 脚本 + `tests/gates/run.mjs` 里那一行注册（**11 道门 → 10 道**）。
   4. `cases:astjson` 在 `tests/parse/ts-ast.mjs` / `direct-ast.mjs` 注释里的两处转手引用
      （`SEGMENTS` 那一份从此是段名表的唯一一处）。
-- **没删什么**：库那一层（`ToDictionary` / `ToList` / `ToJsonString` / `ToPlain` / `WithRange`）、
+- **没删什么**（这一轮）：库那一层（`ToDictionary` / `ToList` / `ToPlain` / `WithRange`）、
   [docs/ast-json.md](docs/ast-json.md) 全篇、以及 **XML 开标签上的 `range="[起,止]"`**（第 987 轮加）。
   最后这一条是按用户口径保留的：它是**出口 1 自己的那一格坐标**，XML 的读者要它。
+  （库那一层**第 1019 轮删掉了**：投影改成直吃 token，中间那一层不再有人消费。）
 - **它留下的一格洞记在规格里**（这一轮最要紧的一句）：`docs/ast-json.md` 第 5 节那张验收表
   当时核的六项（标签名 === `type` / XML 每个属性在 JSON 里同名同值 / 每节点合法 `range` /
   多出来的键登记过 / 命令行 === 库 API / 不抛异常）**第 1016 轮随出口一起去掉**——
@@ -393,7 +395,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
      从加进来那天起就是绿的，此后**每一次读数都是「未覆盖 0」**。一次没红过的门不构成判据。
 - **撤掉的一条判据**：`cases:direct` 的「同一份输入重投两遍逐字节相同」（第 1013 轮起；
   在那之前是「与 `PrintAst` 同答」的开 / 关两遍对拍）。**它不可能失败**：两遍都在同一个进程里、
-  问的都是同一份 `Root.ToList()`，中间没有任何随机源——确定性代码必然逐字节相同，
+  问的都是同一份 `Root` 自己的子单元列表，中间没有任何随机源——确定性代码必然逐字节相同，
   而这一门自己的注释就写着「一头恒返回 `undefined` 的投影也满足它」。
   留下的是两条**绝对**判据：全语料**不抛异常** + 固定样本 `const a = b(c);` 六格逐格点名
   （每格还要有 `pos` / `end`）。顺带把那一项用的 `ToJsonText` import 与 `firstDiff()` 一起删了
@@ -408,7 +410,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
   4. **陈旧产物树**：`build/ts/ts/**`（182 份 .js，与 `build/ts/**` 的文件名一一对应、**没有一份更新**）。
      它是某次 `tsc --outDir build/ts` 留下的：今天 `tsconfig.json` 是 `rootDir: dist` / `outDir: build`，
      根本产不出这一层（`dist/ts/ts` 不存在），而它里面**还压着第 1016 轮已经删掉的 `AstJson` 代码**
-     ——每一次全仓 grep 都会被它污染（这一轮的探针就被它骗过一次：`ToJsonString` 看起来「有人在调」）。
+     ——每一次全仓 grep 都会被它污染（这一轮的探针就被它骗过一次：它看起来「有人在调」）。
 - **读数（第 1017 轮实测）**：**八道门 8 通过 0 失败**（墙钟 36.5s）——
   `runtime:check` 243 / 243、`runtime:cli` 79 / 79、`cases:tsast` 16 片全过（`xl:known-gap` 仍 3 条）、
   `cases:direct` 1640 份语料 **0 处抛异常** + 固定样本逐格通过、`direct:lint` 0 条违反、
@@ -422,7 +424,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
   （`symbol-template` 的十个 `*Symbol`、`source-range` 的 `Get*Line*` 家族、`vm` 的
   `EnqueueTask` / `GeneratorNext`…）。
   **这 72 格这一轮没删**：它们是**规范里声明的 API 面**（上游 Cangjie 有对应物），
-  删不删是另一个口径；这一轮只删了**调用者刚刚消失**的那一格（`ToJsonString`）。
+  删不删是另一个口径；这一轮只删了**调用者刚刚消失**的那一格。
   这条读数与探针留着给下一轮当入口。
 
 ### 第 1015 轮（二）：`IfSegment` 缺的那两格事实补上——`IfSet` 的让开 **13 → 0**、`coverage` **4247 → 4260 / 4422**、`cases:tsast` 从红转绿，十一道门**全绿**
@@ -466,7 +468,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
   `IsDot` / `SkipSourceTrivia` / `MatchingBrace`（老 `PrintAst` 覆写用过、现在 0 处）。
   全仓唯一的真实调用是 `method.xl.md` 的 `ctx.TextOf(kid) === ","`（`CommaOperator` /
   `ArgumentGroups` 各一处），改成 `ctx.ValueOf(...)`——叶子的 `value` 本来就在字典里
-  （`core/syntax/token.xl.md` 的 `ToDictionary` 那一节：`SymbolToken` 的文本就是这一格），
+  （`core/syntax/token.xl.md` 的 `Value` 那一节：`SymbolToken` 的文本就是这一格），
   与另外六页早先做过的那次改写同一份口径。⇒ `ctx` 出口 **82 → 73 个**。
 - **为什么这是「清理」而不是「美化」**：`direct:lint` 过去靠**逐页扫方法体**拦这三个出口，
   而扫描天生覆盖不到 helper 那一层（第 1008 轮记过：`ctx.source` / `TextOf` 正是在 helper 里活下来的）；
@@ -1027,7 +1029,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
     差的是几处回原文；它们把「补一格 token 事实」这条口径又用了一遍。
 - **`ExpressionWithTypeArguments`**：唯一的回原文查是那个模板串的判据
   （`ctx.source[StartOf(k)] === "\`"`）。直出版改读**那一格自己记的引号**——
-  `String.ToDictionary` 这一轮补写 `stringChar`（`IsTemplateString` 吃的是**实例**，
+  `String` 这一轮补写 `stringChar`（`IsTemplateString` 吃的是**实例**，
   而这一页手上只有子单元的**视图** ⇒ 那一格必须经字典递过来，与 `questionAt` / `namedBraceAt` 同款）。
   `docs/ast-json.md` 里那句「`String` 的 JSON 比 XML 多 5 个字段 …… **不多写**」也跟着改成
   「**只多写 `stringChar` 这一格**，`rawIndent` / `isRawIndentFormated` 仍不写」——
@@ -1113,12 +1115,12 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
   尾分号那一趟换成 `ctx.SemicolonEndOf`（与 `PrintAst` 里「跳空白再看一个字符」同一份实现，
   `Namespace` 的直出版也是这么写的）。
 - **这一页真正的缺口是「字段没进字典」**：`NamedBraceAt` 早在第 875 轮就上了 token，
-  但 `ToDictionary` 只写了 `typeWordAt` ⇒ 投影那一句 `ctx.Attr(v, "namedBraceAt")` **永远读到 `undefined`**、
+  但只声明了 `typeWordAt` ⇒ 投影那一句 `ctx.Attr(v, "namedBraceAt")` **永远读到 `undefined`**、
   兜底永远走 `indexOf`。**同一个字段还有第二处没填**：`ReadClause` 只在「头一格就是 `Bracket`」那一支记它，
   `import d, { A } from "m"`（默认导入 + 具名子句）走的是**默认导入那一支**、当场 `return` ⇒ 这一格是 `-1`。
   两处一起补：位置量一次的判据收成 `BraceInClause`（**`from` 之前那一格 `{`**，
   `Bracket` 与 `ObjectLiteral` 两种标签都认），`ReadClause` 进三种子句分支**之前**记一次；
-  `ToDictionary` 照 `questionAt` 的口径补写这一格（`>= 0` 时才写）。
+  本页照 `questionAt` 的口径补上这一格（`>= 0` 时才写）。
 - **`ImportType`（60 → 0）**：`ctx.StringText(stringUnit)` 的实现是「找那一格的 `ConstString` 子单元、
   读它记的 `value`、空则回原文 `slice`」——直出版自己做前两步（`ctx.KidsOf(unit, "children")` + `ctx.ValueOf`），
   不回原文兜底；另一处是词形那一批 `ctx.TextOf` → `ctx.ValueOf`（`with` / `assert` / `:`）。
@@ -1145,7 +1147,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 
 - **`MappedType`（50 → 0）**：词形那一批 `ctx.TextOf` → `ctx.ValueOf`（`;` / `readonly` / `+` / `-` / `?` /
   `in` / `as`），可选映射那个 `?` 改成读**值类型段自己记的 `questionAt`**。
-  为此 `TypeDefine.ToDictionary` 多写一格 `questionAt`（`>= 0` 时才写；**XML 一个字不动**）——
+  为此 `TypeDefine` 多声明一格 `questionAt`（`>= 0` 时才写；**XML 一个字不动**）——
   `MappedType` 手上只有 `rest[0]` 的**视图**，不是 `TypeDefine` 实例，「值在字段上」这条因此必须经字典。
 - **`IfSet`（52 次里 39 次直出、13 次让开）**：`PrintAst` 的三条回原文路各自有一格对应字段
   （`emptyBodyAt` / `ifWordAt` / `bodyBraceRange`），直出版**只在字段没记过时让开**——
@@ -1527,7 +1529,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
   `TypeAliasDeclaration`（别名位）、`FunctionExpression`（表达式位）。
 - **`print-ast-common.xl.md` 行数：9972 → 9838**（净减 134 行；这一轮还**加了**说明）。
 - **一处断链**（删完才露出来）：`segmentNameOf` 拿的是 `view` 的产物，而 `view` 只抄
-  `entries()`——`__token` 是 `WithRangeOf` 记在字典格上的**普通属性**，视图上没有它
+  `entries()`——节点就是 token 自己，`Parent` 是它继承来的字段，视图上没有它
   ⇒ 问不到 token ⇒ 落回那张表 ⇒ `ClassDeclaration.heritageClauses` 变成 `children`。
   修法是**在建视图那一步把 `token` 抄进来**（`view` 的返回值多一格 `token`），
   `segmentNameOf` 两种形态都收（视图取 `.token`、原始 `Map` 取 `.__token`）。
@@ -2412,7 +2414,7 @@ TS 那边是 `NewExpression > TaggedTemplateExpression`）。根因量到了一�
     每一格 `this` 都被投成 `Identifier`（整份文件 `ThisKeyword` 全没、降级期报
     `name is not a local or a capture: this`）⇒ `coverage 4201 → 3814`、`blocked 28 → 314`。
 - **上下文的问法是祖先链，不是 `ctx` 标志**：`projectExpression` 收到的每一格都带
-  `__token`（`WithRangeOf` 记的），`Parent` 链就是产物树——语句 → 体 → 函数，一两跳就到。
+  每一格就是 token 自己，`Parent` 链就是产物树——语句 → 体 → 函数，一两跳就到。
   带 `ctx` 标志要改的是每一处进函数体的投影路径（`Function` / `MethodDeclaration` /
   `Lamda` / 对象字面量成员…），漏一处就退化成「在生成器里也不认」，而祖先链上没有可漏的地方。
 - **区间收在词自己身上**：不折时这一格是**一个标识符**，TS 的 `Identifier[9,15)` 就是那个词；
@@ -3591,7 +3593,7 @@ runtime 775 → 776；`blocked 39` / `differ 138` / `bad 0` 一格没动，加�
 **门数 8 → 9**；它一上手就逮出**真实存在的 5 格漂移**，一并补齐。
 
 **要判的那句话本来只有一句**：出口 1（XML）与出口 2（JSON）说的必须是同一棵树。
-而这两个出口的唯一事实来源是**同一个文件里的两处拼串**（`ToXmlString` 与 `ToDictionary`），
+而这两个出口的唯一事实来源是**同一个文件里的两处拼串**（`ToXmlString` 与那一份序列化），
 规格自己就写着「改了那处拼串，这里必须一起改」——**一处漂了，从前没有任何东西会响**。
 
 **六项判据**（全 0 才退出码 0）：① 标签名 === `type`；② XML 的每个属性都在 JSON 里**同名同值**
@@ -3600,7 +3602,7 @@ runtime 775 → 776；`blocked 39` / `differ 138` / `bad 0` 一格没动，加�
 ④ **JSON 多出来的键必须在规格第 2–4 节登记过**；⑤ 命令行 === 库 API（`cjcli <文件> --ast-json`
 的 stdout 逐字节等于 `Root.ToJsonString()`）；⑥ 不抛异常。
 
-**④ 立刻逮到的那 5 格**，全是「`ToDictionary` 里写了、规格一个字没提」：
+**④ 立刻逮到的那 5 格**，全是「token 那一页声明了、规格一个字没提」：
 `Import.typeWordAt`、`Switch.bodyAt`、`SwitchSegment.colonPos`、`TernaryOperator.questionPos` / `colonPos`、
 `StaticBlock.braceAt`。其中 `StaticBlock` **连一行字段表都没有**——它**没有 XML 属性**，那一格只活在
 JSON 侧，而第 6 节原第 2 条恰恰写着「没有属性就不必覆写」：**那条规则本身是错的**，这一轮连同字段表一起改掉。
@@ -3941,7 +3943,7 @@ ASI 有**两半**，各自一份实现——解析期那一半（`NextLineContin
 注释 ⇒ 起点落在 `/*c*/` 上。现在**认下那一格的那一刻就把位置记下来**：
 `Import` 多一个 `TypeWordAt` 字段（`ReadClause` 认出 `type` 时写，与 `NamedBraceAt` 同款），
 投影从字段读、字段缺失才退回原文找。它**不进 XML**（`ToXmlString` 那五个属性照旧），
-只进 `ToDictionary`——投影读的是字典，不带这一格等于没写。
+只进那一页自己声明的属性——投影读的就是它，不带这一格等于没写。
 
 **实测**：`tmp/r875/import-type.mjs` 5 条探针**全绿**（三处缺口 + `import type { A }` /
 `typeof import("m")` 两条对照）；全语料 `cases:tsast` **16 / 16 片**、缺 0 漂 0 多 0、
@@ -9417,12 +9419,12 @@ node build/ts/cjcli.js samples/hello.ts --ts-ast | node -e "..."   # 直接喂�
 
 `--ts-ast` 换的是**出口**不是解析：`CjcliParse` 造出根单元之后才分叉，
 两个出口看的是同一棵树（`CjcliParseXml` 取 `ToXmlString()`、
-`CjcliParseTsAst` 取 `ToJsonText(projectRoot(Root.ToList(), 原文))`）。
+`CjcliParseTsAst` 取 `ToJsonText(projectRoot(Root, 原文))`）。
 JSON 出口不经过 `CommonUtil.FormatXml`——那个函数只认 XML。
 
 **第 1016 轮删掉的是旧的那条 JSON 出口**：`cjcli <文件> --ast-json`
 （`CjcliParseAstJson` 取 `Root.ToJsonString()`）连同它的尺子 `cases:astjson` 一起撤了——
-形状规格还在 [docs/ast-json.md](docs/ast-json.md)，库那一层（`ToJsonString` / `ToList` / `ToDictionary`）
+形状规格还在 [docs/ast-json.md](docs/ast-json.md)，中间那一层
 一格没动。今天命令行只放出了 XML 与 TS 形状两条路。
 
 ## 样本验收

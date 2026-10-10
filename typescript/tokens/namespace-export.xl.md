@@ -161,7 +161,7 @@ return this.name === "" ? undefined : this.name;
 
 属性值过一遍 `CommonUtil.XmlDecode`（与 `Import` / `Export` 的 `From` 同一口径）。
 
-**`nameStart` / `nameEnd` 也印**（第 987 轮五）：`ToDictionary` 一直在写这两个键、投影也一直在读
+**`nameStart` / `nameEnd` 也印**（第 987 轮五）：投影一直在读这两个键
 （「投影直读，不再回原文 `indexOf` 猜」），而 XML 从前没印。条件是**逐字照抄** JSON 那侧的那一条
 （`NameStart >= 0 && NameEnd >= NameStart`）——两处各写一个条件就是两份口径。
 
@@ -187,7 +187,7 @@ return [];
 
 ## property nameStart:int
 
-`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameStart` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -197,7 +197,7 @@ return this.NameStart;
 
 ## property nameEnd:int
 
-`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameEnd` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

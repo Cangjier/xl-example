@@ -277,7 +277,7 @@ if (this.IsSignedNumberStart(units, index)) {
   signedResult.SignOut(operand.SourceRange.End!);
   // **中间夹着的 trivia 要跟着搬进来**（第 948 轮）：`-/*c*/1` 里那条注释落在 TS 那个
   // `LiteralType` 的区间**里面**，而 `ReplaceCountAt` 是整段替换 —— 只把 `-` 与数字加进来，
-  // 注释就被从树上抹掉了（它在 XML / AST JSON 两个出口里是**真实存在的文本**）。
+  // 注释就被从树上抹掉了（它在 XML / XML 与直出两个出口里是**真实存在的文本**）。
   // 加进子单元的顺序就是**源码顺序**：`-`、中间那些注释、数字；软换行照旧不进
   //（它是透明单元，与原来一字不差）。
   signedResult.AddAndCloseLast(current);

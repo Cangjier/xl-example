@@ -1,8 +1,14 @@
 # AST JSON 出口
 
+> **本文描述的那一层第 1019 轮整个删掉了**（`ToDictionary` / `ToList` / `WithRange` / `ToPlain`）。
+> 它写的每一格（`type` / `children` / 各段 / `range`）都是 token 自己已经声明过的属性，
+> 也就是说同一份事实被声明了两遍；**投影今天直接吃 token**，不再经任何中间形态
+> （见 [typescript/print-ast-common.xl.md](../typescript/print-ast-common.xl.md) 的 `projectNode`）。
+> 本文因此只作**记录**留着：它记的是那一层当年的形状、字段表与上游 Cangjie 的差异，
+> 下面所有 `Token.…` 都是**当时**的入口，今天一个都不存在。
+>
 > **第 1016 轮：命令行的那一条出口删掉了。** `cjcli --ast-json`、它的专属尺子 `cases:astjson`
-> 与本文第 5 节那张验收表一起撤掉；**库这一侧当时一格没动**（`Token.ToDictionary()` / `ToList()` /
-> `WithRange()` 都在，本文也因此整篇留着当形状与字段表的规格）。
+> 与本文第 5 节那张验收表一起撤掉。
 > **第 1017 轮又删掉一格**：`Token.ToJsonString()`——它是「把 `ToList()` 串成 JSON」的那一步，
 > 而命令行那条路删掉之后它在全仓**一个调用者都没有**。序列化本身没消失：
 > TS 形状出口的 `ToJsonText()` 走的是同一条 `Token.ToPlain` 深转（见下面第 2 节末）。
@@ -17,7 +23,7 @@
 > **树有三个出口**：XML（默认）、AST JSON（本文）、**TS 形状**
 > （`cjcli --ts-ast`，规格见 [ts-ast.md](ts-ast.md)）。第三个出口挂在
 > [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md) 的 `projectRoot` 上——
-> 它读的是同一棵树的 `ToList()`，不是本文这份 JSON 的再加工。
+> 它读的是**同一棵树本身**（第 1018 轮起节点就是 token），不是本文这份 JSON 的再加工。
 > **命令行只放出了 XML 与 TS 形状两条**（第 1016 轮起）：AST JSON 这一份今天只从代码里取。
 
 ---
@@ -31,7 +37,7 @@ TS 形状挂在 `typescript/print-ast-common.xl.md` 的 `projectRoot` 上（core
 | 出口 | 入口 | 形态 | 给谁 |
 | --- | --- | --- | --- |
 | XML（默认） | `Token.ToXmlString()` / `Root.ToString()` | 元素树；`cjcli` 打印时按嵌套缩进 | 给人读 |
-| AST JSON | `Token.ToDictionary()` / `ToList()` | 紧凑单行 JSON | 给下游程序读（**第 1016 轮起不再由命令行放出**） |
+| ~~AST JSON~~ | ~~`Token.ToDictionary()` / `ToList()`~~ | 紧凑单行 JSON | **已删**（第 1016 轮命令行不再放出、第 1019 轮连这一层也删了） |
 | TS 形状 | `projectRoot()` / `ToJsonText()` | `ts.createSourceFile` 同形（`kind` 用名字 + `pos` / `end`） | 与 TS 原生 AST 对拍 / diff |
 
 命令行侧**曾经**由 `cjcli` 的 `--ast-json` 切换（第 1016 轮删）：
@@ -51,7 +57,7 @@ JSON 不经过 `CommonUtil.FormatXml`：那个函数只认 XML。**这一段口�
 ```ts
 const context = new TextContext(new Template());
 context.Process(new TextDocument(source));
-const array = context.Root.ToList();                    // 这一层就是本文的形状（`range` 已补满）
+const array = context.Root.ToList();                    // 这一层就是本文的形状（当时；第 1019 轮删）
 const json = JSON.stringify(Token.ToPlain(array));      // 要字符串时自己过一遍 `ToPlain`
 ```
 
@@ -70,14 +76,14 @@ const json = JSON.stringify(Token.ToPlain(array));      // 要字符串时自己
 
 | 约定 | 规则 |
 | --- | --- |
-| 顶层 | `Root.ToList()` 的返回值：**数组**（每个子单元一个节点），不是单个对象 |
+| 顶层 | `Root` 自己的子单元列表 的返回值：**数组**（每个子单元一个节点），不是单个对象 |
 | `type` | 运行时类型名，与 XML 标签名同源（两处都是 `this.constructor.name`） |
 | 属性 | 键名与**该 token 在 XML 里的属性名同名**，值取同一个字段 |
 | 值的类型 | JSON 用原生类型：`bool` 是真布尔，`int` 是真数字，`Array<string>` 用 `","` 拼成字符串（与 XML 属性逐字一致） |
 | `children` | `Data` 非空时写，元素是子单元的 `ToDictionary()`；**为空时不写这个键** |
 | `value` | 叶子节点（只有文本的元素）写它，**不写** `children` |
 | 具名分段 | 有分段结构的节点不写扁平 `children`，而是每段一个键（值是该段的 `ToList()`），例如 `For` 的 `initial` / `compare` / `next` / `body` |
-| `range` | 闭区间的 `[起始下标, 结束下标]`，**每个节点都有**：`ToList()` 用 `Token.WithRange()` 取子单元，而 `WithRange` 又递归处理它自己的子节点（见 [core/syntax/token.xl.md](../core/syntax/token.xl.md) 的 `WithRangeOf`）。`ToDictionary` 本身不带坐标——它是「形状」，与 XML 的标签/属性一一对应；坐标是给**投影成 TypeScript AST** 用的（TS 的每个节点都带 `pos` / `end`） |
+| `range` | 闭区间的 `[起始下标, 结束下标]`，**每个节点都有**：`ToList()` 用 `Token.WithRange()` 取子单元，而 `WithRange` 又递归处理它自己的子节点。`ToDictionary` 本身不带坐标——它是「形状」，与 XML 的标签/属性一一对应；坐标是给**投影成 TypeScript AST** 用的（TS 的每个节点都带 `pos` / `end`） |
 | `range` 在 XML 侧 | **第 987 轮起，XML 出口的每个开标签上也印 `range="[起,止]"`**（`Token.RangeOf()`，与这一份同源）。两边**同一个名字、两种形状**：XML 属性只能是字符串，这一份是数组——所以 `cases:astjson` 那一项按**两个整数**比，不是按字符串比，而「数值必须同一个」照样是硬判据。`ToXmlString` 的开标签因此多一个属性，覆写了它的 token 各自补上这一格 |
 
 几个直接例子（同一段源码的两个出口）：
@@ -200,7 +206,7 @@ XML 的开标签上写 `export="true"`（读 XML 的人按布尔读），投影�
 | 项 | 上游 | 本工程 | 为什么 |
 | --- | --- | --- | --- |
 | 方法名 | `ToDictionary()` / `ToList()` | 同名同签名 | 同一个契约 |
-| 根 | `code.analyse` 取 `Root.ToList()` | 同（`Root.ToJsonString()` 内当年取的就是它；那一格第 1017 轮删了，`ToList()` 没动） | |
+| 根 | `code.analyse` 取 `Root` 自己的子单元列表 | 同（`Root.ToJsonString()` 内当年取的就是它；那一格第 1017 轮删了，`ToList()` 当时没动） | |
 | 坐标 | `ToList` 给每个节点补 `range` | 同（只是本工程**递归铺满**：每个节点都有坐标，而不仅仅是 `ToList` 直接收的那一层——TS 的每个节点都带 `pos` / `end`，投影要用） | |
 | 属性键名 | 一部分与 XML 漂开了（`MethodName` → `methodName`、`StartBracketChar` → `startBracketChar`、`IsSupportInterpolation` → `isSupportInterpolation`） | **一律与 XML 属性同名** | 本工程的口径是「两个出口说同一棵树」，同名才可校验 |
 | 覆盖范围 | 只有 17 个类覆写 `ToDictionary`，其余走基类的 `{type, children}` | 同样只覆写「XML 里有属性」的类 | 与上游同一取舍 |
@@ -234,7 +240,7 @@ JSON 跟着上游的键名只会让**同一棵树的两个出口在本工程内�
 
 **第 1016 轮这六项一起去掉**：⑤ 量的是命令行那条路（路没了），① ② 量的是「两个出口说的是不是
 同一棵树」——而那棵树的另一侧（XML）还在、这一侧的**库**也还在，只是**没有哪条命令同时碰得到两边**，
-于是这两项失去了它的接收者。③ ④ 都还可以核（`ToList()` 仍然每个节点带 `range`、
+于是这两项失去了它的接收者。③ ④ 都还可以核（`ToList()` 当时仍然每个节点带 `range`、
 键名表仍然是本文），但**没有门再核**。
 
 **④ 是这一门真正防过的那件事**。这个出口的唯一事实来源是**同一个文件里的两处拼串**
@@ -270,7 +276,7 @@ JSON 跟着上游的键名只会让**同一棵树的两个出口在本工程内�
    两样都没有才不必覆写（基类形状已经对）。
 3. 加一个分段结构 → 在 `ToDictionary` 里按段名写 `ToList()`，不要摊成 `children`。
 4. 改完**没有一条命令能替你核**（第 5 节：那把尺子第 1016 轮撤了）。今天能做的三件事：
-   `npm run cases:tsast`（投影那一侧——它读的正是 `ToList()`，这一条**真的在跑**）、
+   `npm run cases:tsast`（投影那一侧——它读的正是 token 自己的属性，这一条**真的在跑**：第 1018 轮起它就是唯一那条路）、
    `npm run samples`（TS 形状出口的输出与库 API 逐字节一致）、
-   以及**自己拿 `Root.ToXmlString()` 与 `Root.ToDictionary()` 对一眼**——
+   以及**自己拿 `Root.ToXmlString()` 与它自己声明的那几格 对一眼**——
    当年那六项里 ① ② ③ 的意思就是这一眼；而**新加的坐标键还要写进第 3 节的字段表**。

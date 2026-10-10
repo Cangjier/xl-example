@@ -537,7 +537,7 @@ return this.Data.find((x) => x instanceof NewArguments) as NewArguments;
 
 ## property name:Array<Token>
 
-`ToDictionary` 的 `name` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`name` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 
@@ -547,7 +547,7 @@ return this.ChildrenOf(this.Type);
 
 ## property arguments:Array<Token>
 
-`ToDictionary` 的 `arguments` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+`arguments` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己装的那一批子单元。
 
 ### get
 

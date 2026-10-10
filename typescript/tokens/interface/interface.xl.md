@@ -463,7 +463,7 @@ return own === "" ? undefined : own;
 
 **第 987 轮五补齐两处**：`modifiers` 与 `nameStart` / `nameEnd`。
 后者与 `Class` 同款（名字与区间装在一个 `TokenField` 里，XML 从前只印了值那一半）；
-前者是 `ToDictionary` 一直在写、XML 却漏了的那个键——**两级出口的键名表必须一样**。
+前者是投影一直在读、XML 却漏了的那个键——**两级出口的键名表必须一样**。
 
 ```ts
 const name = this.constructor.name;
@@ -476,14 +476,14 @@ let nameSpan = "";
 if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
   nameSpan = ` nameStart="${nameRange.Start.Index}" nameEnd="${nameRange.End.Index}"`;
 }
-// 修饰词各自的位置（见 `ModifierSpans`）：与 `ToDictionary` 那条同名同条件（非空才写）。
+// 修饰词各自的位置（见 `ModifierSpans`）：与 AST 那个字段同名同条件（非空才写）。
 const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
 return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="${this.extends.Text()}" export="${this.export.Text()}" modifiers="${this.modifiers}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## property modifierSpans:string
 
-`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`modifierSpans` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
@@ -493,11 +493,11 @@ return this.ModifierSpans;
 
 ## property nameStart:int | undefined
 
-`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameStart` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 
-**`!` 是这一格的调用约定**：本页 `ToDictionary` 只在名字区间两头都齐时才写这个键，
+**`!` 是这一格的调用约定**：本页的声明只在名字区间两头都齐时才写这个键，
 读到这一格时它们一定在；缺一头由**不写这个键**表达。
 
 ```ts
@@ -508,7 +508,7 @@ return nameRange.Start.Index;
 
 ## property nameEnd:int | undefined
 
-`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`nameEnd` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

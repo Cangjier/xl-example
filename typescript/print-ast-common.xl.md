@@ -63,9 +63,9 @@ import { Translate } from "./tokens/string/translate.xl.md"
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
 
-类型口径：树上的动态值（节点字典、投影上下文）标 `any`——它们的形状由
-[`core/syntax/token.xl.md`](../core/syntax/token.xl.md) 的 `ToList` / `ToDictionary` 给出，
-是 `Map<string, any>` 那一层；标量（`source` / `text` / 字段名 / 下标）按中立类型标。
+类型口径：树上的动态值（token、投影上下文）标 `any`——它们的形状由
+[`core/syntax/token.xl.md`](../core/syntax/token.xl.md) 里各页自己声明的那几格给出
+（`Token` 的那一批属性 + 每一页自己的段属性）；标量（`source` / `text` / 字段名 / 下标）按中立类型标。
 `ctx` 不另立 class：它的四个字段（`source` / `unmapped` / `count` / `signature`）在树里
 以 `ctx.source` 这种写法出现 30 多处，立 class 就要连名带点一起改——**那属于改写，不属于搬家**。
 
@@ -75,7 +75,7 @@ import { Translate } from "./tokens/string/translate.xl.md"
 ---
 
 import { projectRoot } from "./ts-shape.mjs"
-  const { ast, unmapped } = projectRoot(root.ToList(), source);   // → { kind, pos, end, …字段 }
+  const { ast, unmapped } = projectRoot(root, source);   // → { kind, pos, end, …字段 }
 
 这是「完全 follow TypeScript 形状」的落点，也是 `cases:tsast` 量成绩的地方。
 它**不重新解析**：产物树是唯一事实来源，这里只做三件事——
@@ -1006,8 +1006,8 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   // **节点就是 token 自己**（第 1018 轮）：不再有「字典格 / 视图 / token」三种接收者。
   const v = node;
   ctx.count++;
-  // **问这个节点自己**（第 77 轮起）：`__token` 是 `WithRangeOf` 补坐标时记下的、
-  // 产出这一格的那个 token（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  // **问这个节点自己**（第 77 轮起）：`node` 就是产出这一格的那个 token
+  // （见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   // 它覆写了这一格就由它自己出这一格——出口因此是**逐节点**的，而不是一张中央表说了算；
   // 没覆写（基类返回 `undefined`）就落到下面这份通用支：换名表 + 提层 + 字段名。
   //
@@ -1509,7 +1509,7 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     // **`export` / `declare` / `default` 前缀 + 一条声明**（第 124 轮）。
     //
     // `projectStatement` 里早就有这一支，但它只在「整条语句被包在一个 `Statement` 单元里」
-    // 时才有机会跑。而顶层（`Root.ToList()` 那一层）**有些声明单元根本不在 `Statement` 里**：
+    // 时才有机会跑。而顶层（根那一层）**有些声明单元根本不在 `Statement` 里**：
     // `export import X = ts.Y;` 实测就是
     // `[Keyword(export), Import(X = ts.Y)]` 两个**平级**的顶层单元，
     // 于是 `export` 被投成一个孤零零的 `ExportKeyword`、`ImportEqualsDeclaration`
@@ -1963,7 +1963,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   }
   // **带标签的语句：壳里是 `[Label, 被标的语句]`**（第 536 轮）——
   // 与 `projectEach` 里那条「连续标签从右往左套」**同一件事**，只是那一条只在
-  // **顶层列表 / 段**上跑（`Root.ToList()` 那一层），而这里的 `Statement` 壳
+  // **顶层列表 / 段**上跑（根那一层），而这里的 `Statement` 壳
   // **整条被当成一个单元**递进来 ⇒ 那一条永远看不到它。
   //
   // **少了它会怎样**（实测 `decl-label-break-continue.ts` 一族 **19 份**文件）：
@@ -8522,7 +8522,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   if (kids.length === 0) return undefined;
   const first = kids[0];
   // **整段一起投，只在遇到「分段壳」时才摊平一层**（第 97 轮）：
-  // `TernaryOperator` 的三个段在 `ToList` 里**已经摊平**（`trueStatement` 直接就是
+  // `TernaryOperator` 的三个段在段数组里**已经摊平**（`trueStatement` 直接就是
   // `Method(f(1))` 那一格、`falseStatement` 直接就是 `PropertyAccess(y.z)`）——
   // 照「先摊平一层」的老写法会把那个单元**自己的子单元**当成整段，
   // 于是 `f(1)` 只剩 `1`、`y.z` 只剩 `y`、`p === q` 只剩 `p`：
@@ -9119,7 +9119,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 一步都不跑。
 
 与 `blockOfBody` 的分工：那一支的 `kids` 里已经有成形的语句、靠「第一个语句之前有没有 `{`」
-判断；而 `for` / `while` / `do…while` / `for…of` 的体段在 `ToList` 里**只有语句**
+判断；而 `for` / `while` / `do…while` / `for…of` 的体段进段数组时**只有语句**
 （花括号那层壳不在树里），所以**没有字段时**括号只能**从原文找**——`from` 传头部结束的位置。
 
 **这一格今天四个循环体全都记了**（`While` / `For` / `Foreach` / `DoWhile` 各自的 `BodyBrace`，
@@ -9627,7 +9627,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 于是「标签 + 右边那一格」那两处合并补丁（`projectEach` / `projectStatement`）**只在
 老形状上**才该生效——包好的标签是一个单元、由 `Label.PrintDirectAst` 自己出形状。
 
-判据就是「它有没有子单元」（与 `Token.ToDictionary` 那一份同源：空了才自闭合）。
+判据就是「它有没有子单元」（与「叶子才自闭合」那一份同源）。
 
 ```ts
   return kidsOf((node), "children").length === 0;
@@ -9834,7 +9834,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     ProjectEach: (list, parentKind) => projectEach(list, ctx, parentKind),
     // **把一串单元当作「成员表」投**（第 934 轮）：`MappedType` 的值类型之后还能再跟成员
     // （TS 的 `parseMappedType` 在值类型之后照样 `parseTypeMembers()`），而那一格住不进
-    // `ToDictionary` 的成员段（映射类型的字典是「修饰词 / 键 / 值类型」那一套）⇒
+    // 映射类型那一层的成员段（映射类型的字典是「修饰词 / 键 / 值类型」那一套）⇒
     // 由它的 `PrintDirectAst` 把那一小段按成员位投一次。
     // 实现与通用支那一支**共用同一份**（`projectEachIn`，`parentKind` 传 `"TypeLiteral"`：
     // 那一格同时决定「成员之间不切」与 `ctx.signature`——`Field` 因此投成

@@ -23,22 +23,19 @@ Token，语法树的地基。
 
 `Default` / `Close` / `Process` / `Clone` 四个抽象成员写成抛错桩。
 
-树有两个出口：**XML**（`ToXmlString`，给人读、给测试当夹具）与 **JSON**（`ToDictionary` / `ToList`，
-给下游程序读）。两者同源——`ToDictionary` 就是「这个节点在 XML 里的标签名与属性，加上子单元」，
-所以**属性名的唯一事实来源仍是 `ToXmlString`**：改了那处拼串，这里必须一起改，
-否则同一棵树会在两个出口上说两套话。
+树有一个出口：**XML**（`ToXmlString`，给人读、给测试当夹具）。另一条路是**直出**
+（[`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md) 的 `projectNode`）：
+投影不读任何中间形态，它就是**在这些 token 本身上**读标签、子单元与坐标，直接投成目标语言的 AST 形状。
 
-JSON 的形状照抄上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`：
+**直出要的那几格全由 token 自己声明**：标签是 `Tag()`、子单元是 `children` 与各页自己那一批段属性
+（`compare` / `body` / `parameters` …）、坐标是 `start` / `end`、名字是 `NameField()`。
+**没有一处是投影层替 token 记的**（没有中央键表、没有中间字典）：所以投影只读得出这一页
+**自己声明过**的那些格，「这一格缺什么」就等于「这一页少写了一个属性」——补在那一页上，
+不是补在投影层的一张表里。
 
-| 形状 | 什么时候 | 例 |
-| --- | --- | --- |
-| `{ type, children }` | 容器节点（子单元是「内容」） | `Root` / `Class` / `Bracket` |
-| `{ type, <段名>: Array<..> }` | 有具名分段的节点（分段各是一个数组） | `For` 的 `initial` / `compare` / `next` / `body` |
-| `{ type, value }` | 叶子节点（文本块） | `Identifier` / `SymbolToken` / `Keyword` |
-
-**坐标补在 `ToList` 那一层**：`ToList` 给每个子节点补一个 `[起始下标, 结束下标]`，
-所以带 `range` 的节点正好是「被某个 `ToList()` 收进来的那些」——根那一层，
-以及各 token 用 `ToList()` 装的段数组里的节点；`ToDictionary` 自己不带坐标。与上游一致。
+**坐标也住在每个单元自己身上**：`start` / `end` 由两个 `### get` 从 `SourceRange` 两头算出来，
+不存在「某一层统一给子节点补坐标」这一趟——只有起点没签过终点的单元（`IfSegment` 那种）
+由 `RangeEnd` 自己兜底，所以每一格给的坐标都是它自己那一份。
 
 ## field Template:Template
 
@@ -452,13 +449,10 @@ this.Parent.Data.splice(index, 1);
 
 标签名取 `this.constructor.name`，所以类名就是它产出的 XML 标签名。
 
-**开标签上的 `range="[起,止]"`**：口径与字典那一层的 `range` 键同一处
-（`RangeOf` 那一段写着为什么必须同一个来源）。XML 从前没有坐标——坐标只活在
-`ToList()` 那一层；第 987 轮起两个出口都印，为的是让 `cases:astjson` 那条
-「XML 的每个属性在 JSON 里同名同值」有一条真在核的断言。
-
-**第 1016 轮之后这一格没有任何门看着**：出口 2（`--ast-json`）与那门（`cases:astjson`）
-一起删了，这一格**按用户口径留着**（XML 的读者要坐标），但它今天靠的是这条口径本身、
+**开标签上的 `range="[起,止]"`**：与直出那一层的 `start` / `end` 同一处来源
+（`RangeOf` 那一段写着为什么必须同一个来源）。第 987 轮起 XML 也印坐标，
+为的是让「XML 的每个属性在产物里同名同值」有一条真在核的断言——
+**那一门（第 1016 轮随命令行出口 2 一起删）今天不在了**，所以这一格靠的是这条口径本身、
 不是一条会红的判据——见 [docs/ast-json.md](../docs/ast-json.md) 第 5 节。
 
 **覆写了本方法的 token 都要自己补上这一格**：属性是逐个 token 拼出来的，
@@ -548,7 +542,7 @@ return this.RangeEnd() + 1;
 
 ## method RangeStart:()=>int
 
-本单元的起点：`SourceRange.Start` 的 `Index`；**还没签入**时写 `0`（`WithRange` 那一节的口径）。
+本单元的起点：`SourceRange.Start` 的 `Index`；**还没签入**时写 `0`（`start` / `end` 两格的来源）。
 
 ```ts
 return this.SourceRange.Start === null ? 0 : this.SourceRange.Start.Index;
@@ -557,8 +551,8 @@ return this.SourceRange.Start === null ? 0 : this.SourceRange.Start.Index;
 ## method RangeEnd:()=>int
 
 本单元的终点：`SourceRange.End` 的 `Index`；**还没签出、或签反了**（`end < start`）时，
-取**子单元终点的最大值**兜底 —— 理由见 `WithRangeOf` 那一节（`if (… else …)` 的 `IfSegment`
-只有起点、终点从来没签过，直接用两头会给出 `[55,0]` 这种反序区间）。
+取**子单元终点的最大值**兜底 —— `if (… else …)` 的 `IfSegment` 只有起点、
+终点从来没签过，直接用两头会给出 `[55,0]` 这种反序区间。
 
 ```ts
 const start = this.RangeStart();
@@ -579,15 +573,15 @@ return end;
 本单元的区间，**印成属性值的样子**：`[起始, 结束]`（闭区间、方括号、逗号之间不留空）。
 
 **坐标只有一个来源**：`SourceRange` 的两头 —— 起点走 `RangeStart`、终点走 `RangeEnd`
-（终点缺失/反序时取子单元最大值兜底）。两个出口都用它：
+（终点缺失/反序时取子单元最大值兜底）。两处读它：
 
-- 第三出口的 `range` 键：`WithRangeOf` 的 `node.set("range", [this.RangeStart(), this.RangeEnd()])`；
-- **第一出口（XML）开标签上的 `range="…"`**：就是本方法。
+- `start` / `end` 两格（直出那一层的 `pos` / `end`）：就是 `RangeStart()` / `RangeEnd() + 1`；
+- **XML 开标签上的 `range="…"`**：就是本方法。
 
-**为什么必须同一处**：两个出口各算一遍，`IfSegment` 那种只有起点的单元就会给出**不同的数**，
-而 `cases:astjson` 那一门（第 884 ~ 1015 轮）正是逐属性核「XML 的每个属性在 JSON 里同名同值」。
-**那一门今天不在了**（第 1016 轮随出口 2 一起删，见 `ToXmlString` 那一节）：
-两个出口仍然共用这一处，但**不再有一条会红的判据替你看着它**。
+**为什么必须同一处**：各处各算一遍，`IfSegment` 那种只有起点的单元就会给出**不同的数**。
+从前这里有一条会红的判据逐属性核「XML 的每个属性在产物里同名同值」（第 884 ~ 1015 轮），
+**那一门今天不在了**（第 1016 轮随命令行出口 2 一起删，见 `ToXmlString` 那一节）：
+几处仍然共用这一处，但**不再有一条会红的判据替你看着它**。
 
 ```ts
 return "[" + this.RangeStart() + "," + this.RangeEnd() + "]";
@@ -597,20 +591,19 @@ return "[" + this.RangeStart() + "," + this.RangeEnd() + "]";
 
 **这一格是什么**（第 1005 轮）：答**自己的类名**。
 
-它是「产物标签」这一格事实的**唯一出口**——三种读法说的都是「这一格叫什么」：
-XML 的标签名、字典（[docs/ast-json.md](../docs/ast-json.md) 那份规格说它叫 AST JSON 出口）的 `type`、
-TS 形状那一层的 kind 判据（`PrintDirectAst` 里那些 `=== "Identifier"` 这一类的比较）。
+它是「产物标签」这一格事实的**唯一出口**——两种读法说的都是「这一格叫什么」：
+XML 的标签名、直出那一层的 kind 判据（`PrintDirectAst` 里那些 `=== "Identifier"` 这一类的比较）。
 **第 1016 轮只删了命令行那一条路**（`--ast-json` 与它的尺子 `cases:astjson`）：
-字典这一侧的三种读法仍然都在，规格文件也还在。
+直出这一侧的两种读法仍然都在，[docs/ast-json.md](../docs/ast-json.md) 那份形状规格也还在。
 
 **为什么要有这一格**：直出版的判据是「只用 token 自己的东西，不回原文查、不按字符串查字典」，
 而「这一格是不是 `SymbolToken`」过去写成 `k.get("type") === "SymbolToken"` ——
-**字符串键进字典里取一个值**，正是那条判据要消掉的东西（全语料 173 处）。
-类名本来就是 `this.constructor.name`，**不必经字典**：所有出口的 type 都是按它写的
-（XML 取 `this.constructor.name`、字典取它当 `type`），所以三种读法说的是同一份事实。
+**字符串键进一个中间映射里取值**，正是那条判据要消掉的东西（全语料 173 处）。
+类名本来就是 `this.constructor.name`，**不必经任何中间形态**：各处产出的 type 都是按它写的
+（XML 取 `this.constructor.name`、直出按同一个串判 kind），所以两种读法说的是同一份事实。
 
-**字典那一侧**（`print-ast-common.xl.md` 的 `annotate`）也答同一格、答同一个串，
-因为 `.get("type")` 的接收者有时是**字典格**（`ctx.Kids` 回来的那些）而不是 token 本身——
+**直出那一侧**（`print-ast-common.xl.md` 的 `projectNode`）也问同一格、得到同一个串，
+因为 `Tag()` 的接收者有时是**别的 token 自己的子单元**而不是当前这一格——
 两边必须同名同值，否则同一个问句会按接收者给出两个答案。
 
 ```ts
@@ -775,7 +768,7 @@ return undefined;
 
 **投成目标语言形状时，本单元的段叫什么**：`目标语言的节点名` → （`产物那边的分段名` → `目标语言的字段名`）。
 
-前两个出口（`ToXmlString` / `ToDictionary`）说的是「这棵树长什么样」，这一格说的是
+`ToXmlString` 说的是「这棵树在 XML 里长什么样」，这一格说的是
 「**把这棵树投成另一个形状时，我这些段该叫什么**」——所以它与 `PrintDirectAst` 是同一件事的两半：
 `PrintDirectAst` 说「这一格出哪个节点」，`SegmentNames` 说「这个节点的字段叫什么」。
 
@@ -833,7 +826,7 @@ return new Map();
 
 **为什么 `Bracket` 三种括号答两种**：`(` / `[` 是分组（答 `null`）；
 而**语句位那个 `{ … }` 不是包装**——目标语言那边它是一个块节点（答 `undefined`）。
-判据取它自己的 `startBracket`（与产出 `ToDictionary` 时同一个来源）。
+判据取它自己的 `startBracket`（与投影那一层同一个来源）。
 
 **为什么 `GenericType` 是动态的一条**：`<T, U>` 的括号段（装 `TypeParameter`）是包装，
 要提到 `typeParameters`；而 `Array<T>` 里的类型实参段是**真的节点**（投成 `TypeReference`）

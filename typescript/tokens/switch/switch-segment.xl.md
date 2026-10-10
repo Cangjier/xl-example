@@ -87,7 +87,7 @@ return null;
 与 `IfSegment.ToXmlString` 同款（只差类名）：标签名取 `this.constructor.name`，
 属性名是 `key`，属性值不转义，子单元之间没有任何分隔符。
 
-**`colonPos` 也印**（第 987 轮五）：`ToDictionary` 一直在写它、投影也一直在读
+**`colonPos` 也印**（第 987 轮五）：投影一直在读它
 （注释写着「投影直读，不再回原文 `lastIndexOf` 猜」），而 XML 从前没印——
 **两级出口的键名表必须一样**。
 
@@ -102,7 +102,7 @@ return `<${name} range="${this.RangeOf()}" key="${this.key}" colonPos="${this.Co
 
 ## property colonPos:int
 
-`ToDictionary` 的 `colonPos` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+`colonPos` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
 ### get
 

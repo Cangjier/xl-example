@@ -23,8 +23,8 @@
 // 每一格 `this` 投成 `Identifier`（实测整份文件 `ThisKeyword` 全没、降级期报
 // `name is not a local or a capture: this`）。
 //
-// **上下文的问法是祖先链**（不是 `ctx` 标志）：`projectExpression` 收到的每一格都带
-// `__token`（`WithRangeOf` 记的），`Parent` 链就是产物树——语句 → 体 → 函数，一两跳就到。
+// **上下文的问法是祖先链**（不是 `ctx` 标志）：`projectExpression` 收到的每一格**就是 token 自己**，
+// `Parent` 链就是产物树——语句 → 体 → 函数，一两跳就到。
 //
 // 四档守卫：裸 `yield`（脚本顶层与普通函数里）、裸 `await`（同上）。
 // 反向的五档（生成器 / async / 带操作数 / 顶层 await）由 `expr-yield-await-context.ts` 钉住。
