@@ -437,10 +437,15 @@ return new Map([["NewExpression", new Map([["name", "expression"]])]]);
 ```ts
   const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   const genericAt = nameUnits.findIndex((k: any) => k.Tag() === "GenericType");
+  // **问那一格它自己**（第 1022 轮）：`view` 那一层删掉之后节点就是 token，
+  // `.__token` 恒为 `undefined` ⇒ `IsTemplateString(null)` 恒为否
+  // ⇒ `new f<T>`t`` 这一支从来没生效过（`<` 后面的模板串被当成类型实参）
+  // ——实测 `gap-r979-new-inst-tagged`：`NewExpression` 多 `typeArguments`、
+  // `TaggedTemplateExpression` 少 `typeArguments`，字段名 6 处对不上。
   const templateAfterGeneric =
     genericAt >= 0 &&
     genericAt + 1 < nameUnits.length &&
-    IsTemplateString(nameUnits[genericAt + 1].__token ?? null);
+    IsTemplateString(nameUnits[genericAt + 1]);
   const generic = genericAt >= 0 && !templateAfterGeneric ? nameUnits[genericAt] : undefined;
   const calleeUnits = nameUnits.filter((k: any) => k !== generic);
   const props: any = {};

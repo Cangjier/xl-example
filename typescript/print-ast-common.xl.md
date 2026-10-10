@@ -17,12 +17,13 @@ import { Translate } from "./tokens/string/translate.xl.md"
 出口的分工（第 181~198 轮搬迁的结论）：
 
 投影的**逐标签逻辑已经全部落在各 token 的 `PrintDirectAst` 上**（49 块，一处一块搬完）。
-`projectNode` 现在是三步：
+`projectNode` 现在是两步：
 
-1. `v = view(node)`；
-2. **问这个节点自己**：`node.__token.PrintDirectAst(ctx, v)`——覆写了就由它出这一格
-   （`ctx.Nothing` 表示「这一格故意不出节点」）；
-3. 没覆写（或返回 `undefined`）才落到本文件的**通用支**：换名表 + 提层 + 字段名。
+1. **节点就是 token 自己**（第 1018 轮起 `view` 那一层删掉了）：`projectNode(node)` 收的
+   就是那一格 token，`v = node`，**没有任何中间形态**；
+2. **问这个节点自己**：`node.PrintDirectAst(ctx, node)`——覆写了就由它出这一格
+   （`ctx.Nothing` 表示「这一格故意不出节点」）；没覆写（或返回 `undefined`）才落到
+   本文件的**通用支**：换名表 + 提层 + 字段名。
 
 **中央那张按 `v.type` 分派的 `switch` 已经整段删除**：它原来有 60 个 `case`，
 搬到最后一个（`Statement`）时就没有分支了。所以本文件现在的角色是：
@@ -807,11 +808,11 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
 （第 130 / 739 轮为「同一个词的两态」写的判据）⇒ 一律投成 `YieldExpression` / `AwaitKeyword`。
 缺的是**第三态：不在上下文里**，而上下文只能从祖先链上问。
 
-**判据落在 token 树上**（不是 `ctx` 标志）：`projectExpression` 收到的每一格都带着
-`__token`（`WithRangeOf` 记的），它的 `Parent` 链就是产物树——所以从 `yield` 那一格
-往上一路走到函数体是**一两跳**的事（语句 → 体 → 函数）。带 `ctx` 标志要改的是
-每一处进函数体的投影路径（`Function` / `MethodDeclaration` / `Lamda` / 对象字面量成员…），
-漏一处就退化成「在生成器里也不认」，而祖先链上没有可漏的地方。
+**判据落在 token 树上**（不是 `ctx` 标志）：`projectExpression` 收到的每一格**就是**那一格
+token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 链就是产物树——
+所以从 `yield` 那一格往上一路走到函数体是**一两跳**的事（语句 → 体 → 函数）。
+带 `ctx` 标志要改的是每一处进函数体的投影路径（`Function` / `MethodDeclaration` / `Lamda` /
+对象字面量成员…），漏一处就退化成「在生成器里也不认」，而祖先链上没有可漏的地方。
 
 **`ctx` 只用来取原文**（`ctx.source`）：`SymbolToken` 上**没有 `TempToString`**
 （那一格是 `Bracket` / `Keyword` 才有的），所以记号一律按源码切片取。
