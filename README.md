@@ -376,6 +376,46 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 996 轮：把「`?` 被吞进 `TypeDefine`」这一格事实搬上 token——`Parameter`（498）与 `Field`（278）两页拿到直出版，用例语料直出 **64.2% → 67.7%**
+
+**一句话**：上一轮收尾时留下的那一格（`Parameter`，被问 281 次却过不了 `cases:direct` 的**第三项记账**）
+这一轮量清了：它要的不是「再写一遍那一格」，而是**那一格依赖的一个事实根本还没上 token**——
+`a?: T` 里那个 `?`。
+
+- **那一格事实在哪**：`?` 与 `:` 被词法并成**一格** `SymbolToken("?:")`，它在 `TypeDefineCloseRule.Process`
+  里是 `current`（`index` 处那一格），而收集进 `Data` 的是 `index + 1` **之后**的单元
+  ⇒ 这个 `?` **既不在 `Data` 里、也不是任何叶子**（`<TypeDefine range="[15,23]">` 的 `[15,…)`
+  里那个字符就是它），只活在 `SignIn(current…)` 给出的**区间起点**上。
+  `Field` / `Parameter` 的 `PrintAst` 原来只能回原文读那个字符：
+  `ctx.source[ctx.StartOf(typeNode)] === "?"`——正是直出版不许有的第二份近似。
+- **补法**：`TypeDefine` 多一格 `## field QuestionAt:int = -1`（`Process` 里那句
+  `current instanceof SymbolToken && current.Is("?:")` 就是判据，`Clone` 里跟着抄）。
+  消费它的两页从**自己的 `Data`** 里取出那个 `TypeDefine`、读这一格——
+  「谁看得见那一格」与「谁需要那一格」不是同一个 token，事实因此留在**看得见它的那一层**。
+- **`Parameter`（498 → 0）**：四处 `ctx.TextOf` → `ctx.ValueOf`（修饰词 / `?` / `...` / `=`），
+  其余逐行与 `PrintAst` 同一份。**第 995 轮记的「`count` 差 4」没有再出现**：
+  那一版把类型那一格多投了一次，这一版与 `PrintAst` 一样只投一次
+  （`cases:direct` 的三项全 0，含 `count` / `unmapped` 记账）。
+- **`Field`（278 → 0）**：三处 `ctx.TextOf` → `ctx.ValueOf`（`=` / `?` / `!` / `;`），
+  加上上面那一格；`ctx.MemberNameOf` / `ctx.AddModifiers` 本来就只读这一格与它的子单元，原样留着。
+  两次都**保留**了「`?` 是平级 `SymbolToken`」那条兜底支（`refs?/* c */: T`，第 855 轮）——
+  那一格的 `?` **确实**是自己的子单元，不属于上面这条。
+- **记账**：`cases:direct` **1639 份 / 21818 节点，直出 14002 → 14778（64.2% → 67.7%）**，同答 0、抛异常 0；
+  `cases:direct --all` **2050 份 / 534068 节点，直出 458333（85.8%）**、0 处不一致；
+  `direct:lint` **直出版 54 段 / 54 页、0 条违反**，待搬 **11 → 9 页**
+  （`field` / `lamda-parameter` 出列；余下 `for` / `if-set` / `import` / `import-type` / `regex-token` /
+  `signature` / `const-string` / `mapped-type` / `while`）。
+- **门 suite**：**11 道 10 通过、1 失败**——那一道仍是 `cases:tsast` 的那一片已知红
+  （第 992 轮登记、第 994 轮复核过「不是本轮引入」的 `for…of` 枚举对象是条件表达式），
+  其余每一片 100% 一致；`runtime:check` 243 / 0、`runtime:cli` 79 / 0、`cases:astjson` 六项全 0、
+  `samples` 逐字节一致、`cases:check` 1656 / 0、`cases:tags` 5372 条断言 0 不一致、
+  `cases:shapes` 未覆盖 0、`coverage` **4259 / 4422**（blocked 29、differ 134、加权 95.7%）——墙钟 34.4s。
+- **这一轮留下的判据**：直出版缺一格时，该做的**不是**把它写得更聪明，而是**把那一格事实搬到
+  「看得见它的那个 token」上**——`?` 属于 `TypeDefine`（它是那一格的区间起点），
+  不属于 `Field` / `Parameter`（它们根本看不到那一格）。
+  按这条读第 995 轮的排序：下一个该搬的是 `MethodDeclaration`（309）/ `Function`（259）/
+  `Class`（230）/ `Interface`（152）那几页——它们要的也多半是**同一个形状的事实补登**。
+
 ### 第 995 轮：直出版再搬五页（`Method` / `Lamda` / `New` / `Try` / `Foreach`）——落回 **3010 → 637**、用例语料直出 **62.8% → 64.2%**、82 份底样 **76.8% → 89.3%**
 
 **一句话**：按第 994 轮量出来的排序（**按被问次数**）搬最大那几格。这一轮开局先量一遍

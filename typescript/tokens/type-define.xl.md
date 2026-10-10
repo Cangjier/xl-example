@@ -222,6 +222,14 @@ if (items.length === 0) {
 }
 const result = new TypeDefine(template);
 result.Parent = current.Parent;
+// **「冒号那一格是 `?:`」这件事只有这里记得住**（第 996 轮）：`?` 与 `:` 被词法并成
+// **一格** `SymbolToken("?:")`，它是 `Process` 的 `current`（`index` 处那一格），
+// 而收集进 `Data` 的是 `index + 1` 之后的单元 —— 于是那个 `?` 既不在 `Data` 里、
+// 也不是任何叶子，只活在 `SignIn(current…)` 给出的**区间起点**上。
+// 消费它的那一层（`Field` / `Parameter` 的可选标记）要的就是「这个 `?` 在哪」这一格：
+// 记下来之后，直出版不必再回原文读那个字符。
+result.QuestionAt =
+  current instanceof SymbolToken && current.Is("?:") ? current.SourceRange.Start!.Index : -1;
 result.AddRange(items);
 // **终点跳过尾部 trivia**（第 902 轮，第 934 轮补齐软换行那一档）：`IsTriviaUnit` 是
 // 「注释 + 软换行」那一格。第 902 轮只跳了 `IsAnnotationUnit`（**不含软换行**，理由写的是
@@ -248,6 +256,18 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 单元值类型是单字符的 `string`。
 
 它**没有**覆写 `ToXmlString`，所以 XML 由基类产出：`<TypeDefine>段内子单元的 XML 串接</TypeDefine>`（标签名即运行时类名）。
+
+## field QuestionAt:int = -1
+
+这个类型标注前面那个 `?` 的**位置**；不是可选标注时是 `-1`。
+
+`a?: T` 的 `?` 与 `:` 被词法并成**一格** `SymbolToken("?:")`，它在 `TypeDefineCloseRule.Process`
+里就是 `current`、**不进 `Data`**（收集的是它**之后**的单元），所以这个 `?` 在 token 树上
+没有任何叶子承载它——只活在 `TypeDefine` 自己的区间起点上（`SignIn(current…)`）。
+要判「有没有那个 `?`」而**不回原文读那个字符**，就得把位置记在这一格上。
+
+消费它的有 `field.xl.md` / `lamda/lamda-parameter.xl.md` 的 `PrintDirectAst`：
+它们从自己的 `Data` 里取出那个 `TypeDefine`，读这一格（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
@@ -330,6 +350,9 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```ts
 const result = new TypeDefine(this.Template);
 result.Sign(this);
+// **`QuestionAt` 也要抄**（第 996 轮）：它不在 `Data` 里、`Sign(this)` 抄不到它，
+// 漏了这一格克隆体就丢掉「这个标注是不是可选的」（与 `While` / `Try` 那几个位置字段同一条）。
+result.QuestionAt = this.QuestionAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

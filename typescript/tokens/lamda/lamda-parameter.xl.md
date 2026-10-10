@@ -4,6 +4,7 @@ import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
+import { TypeDefine } from "../type-define.xl.md"
 ```
 
 # namespace cangjie
@@ -107,6 +108,97 @@ TS 那边是一个文本就是那个词的 `Identifier`（真实语料 `Paramete
     // `projectExpression(rest, ctx)`，这里与它对齐成**同一条口径**——两处只有一份答案。
     // 顺带把「默认值加个括号」那一格（第 681 轮）也交给同一条路：`projectExpression`
     // 自己认「单个 `(` 括号 ⇒ `ParenthesizedOf`」（见那一处），不再需要这里单列一支。
+    props.initializer =
+      init.get("type") === "Bracket" && init.get("startBracket") === "("
+        ? ctx.ParenthesizedOf(init)
+        : ctx.Expression(body.slice(eq + 1));
+  }
+  if (dots !== undefined) {
+    props.dotDotDotToken = {
+      kind: "DotDotDotToken",
+      text: "...",
+      pos: ctx.StartOf(dots),
+      end: ctx.StartOf(dots) + 3,
+    };
+  } else if (rest !== undefined) {
+    props.dotDotDotToken = ctx.Project(rest);
+  }
+  return {
+    kind: "Parameter",
+    pos: kids.length > 0 ? ctx.StartOf(kids[0]) : v.start,
+    end: ctx.StmtEndOf(v),
+    ...props,
+  };
+```
+
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 996 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+**两处回原文查各换掉了什么**：
+
+- `ctx.TextOf(某一格)` → `ctx.ValueOf(某一格)`：符号（`?` / `...` / `=`）与修饰词
+  （`private` / `readonly`）的字面值本来就是那一格**自己记的**，不回原文兜底；
+- `ctx.source[ctx.StartOf(类型段)] === "?"` → **那个 `TypeDefine` 自己记的 `QuestionAt`**
+  （第 996 轮）：`a?: T` 的 `?` 与 `:` 被词法并成一格、**不进任何 `Data`**，
+  所以这个 `?` 在 token 树上没有叶子——它是 `TypeDefine` 的区间起点那一格事实，
+  由 `TypeDefineCloseRule.Process` 记在 `TypeDefine.QuestionAt` 上。
+  直出版从自己的 `Data` 里取出那个子单元读它，不再拿源码字符去猜。
+
+```ts
+  const kids = ctx.Kids(v);
+  const leadingModifiers: any[] = [];
+  for (const k of kids) {
+    if (k.get("type") === "Keyword" && ctx.ParameterModifiers.has(ctx.ValueOf(k))) {
+      leadingModifiers.push(k);
+      continue;
+    }
+    break;
+  }
+  const body = leadingModifiers.length > 0 ? kids.slice(leadingModifiers.length) : kids;
+  const nameNode = body.find(
+    (k: any) =>
+      k.get("type") === "Identifier" ||
+      k.get("type") === "Keyword" ||
+      k.get("type") === "ArrayLiteral" ||
+      k.get("type") === "ObjectLiteral",
+  );
+  const typeNode = body.find((k: any) => k.get("type") === "TypeDefine");
+  const question = body.find(
+    (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "?",
+  );
+  const dots = body.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "...");
+  const rest = body.find((k: any) => k.get("type") === "Spread");
+  const props: any = {
+    name:
+      nameNode === undefined
+        ? undefined
+        : nameNode.get("type") === "ArrayLiteral" || nameNode.get("type") === "ObjectLiteral"
+          ? ctx.BindingPattern(nameNode)
+          : nameNode.get("type") === "Keyword" || nameNode.get("type") === "Identifier"
+            ? ctx.NameOf(nameNode)
+            : ctx.Project(nameNode),
+    type: typeNode === undefined ? undefined : ctx.Project(typeNode),
+  };
+  const paramDecorators = body.filter((k: any) => k.get("type") === "Decorator");
+  if (leadingModifiers.length > 0 || paramDecorators.length > 0) {
+    props.modifiers = [...ctx.ProjectEach(paramDecorators), ...ctx.ProjectEach(leadingModifiers)];
+  }
+  if (question !== undefined) {
+    props.questionToken = ctx.Project(question);
+  } else if (typeNode !== undefined) {
+    // **可选标记被吞进类型标注那一格时**（`a?: T`）：问号的位置由那个子单元自己记着。
+    const typeToken = this.Data.find((x) => x instanceof TypeDefine);
+    const at = typeToken === undefined ? -1 : typeToken.QuestionAt;
+    if (at >= 0) {
+      props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
+    }
+  }
+  const eq = body.findIndex((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=");
+  if (eq >= 0 && eq + 1 < body.length) {
+    const init = body[eq + 1];
     props.initializer =
       init.get("type") === "Bracket" && init.get("startBracket") === "("
         ? ctx.ParenthesizedOf(init)

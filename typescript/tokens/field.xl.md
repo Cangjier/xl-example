@@ -20,6 +20,7 @@ import { ConstString } from "./string/const-string.xl.md"
 import { Keyword } from "./keyword.xl.md"
 import { String } from "./string/string.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
+import { TypeDefine } from "./type-define.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 ```
 
@@ -815,6 +816,74 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   const kind = ctx.signature ? "PropertySignature" : "PropertyDeclaration";
   // **坐标在前**（第 199 轮）：搬家前这里是 `{ kind, pos: v.start, end: … , ...props }`，
   // 两种 kind 在 samples 夹具里都是这个键序，`samples` 逐字节比得出来。
+  return ctx.NodeHead(kind, props, v);
+```
+
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 996 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+**三处回原文查各换掉了什么**：
+
+- `ctx.TextOf(某一格)` → `ctx.ValueOf(某一格)`：`=` / `?` / `!` / `;` 这四个符号的字面值
+  本来就是那一格**自己记的**；
+- `ctx.source[ctx.StartOf(类型段)] === "?"` → **那个 `TypeDefine` 自己记的 `QuestionAt`**
+  （第 996 轮）：`a?: T` 的 `?` 与 `:` 被词法并成一格、**不进任何 `Data`**，
+  所以这个 `?` 在 token 树上没有叶子——它是 `TypeDefine` 的区间起点那一格事实，
+  由 `TypeDefineCloseRule.Process` 记在 `TypeDefine.QuestionAt` 上。
+  直出版从自己的 `Data` 里取出那个子单元读它，不再拿源码字符去猜；
+- 剩下那两处（`ctx.MemberNameOf` / `ctx.AddModifiers`）本来就只读这一格与它的子单元。
+
+```ts
+  const kids = ctx.Kids(v);
+  const eqIndex = kids.findIndex(
+    (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=",
+  );
+  const typeNode = kids.find((k: any) => k.get("type") === "TypeDefine");
+  const named = ctx.MemberNameOf(v);
+  const props: any = {};
+  if (named.name !== undefined) {
+    props.name = named.name;
+  }
+  if (typeNode !== undefined) {
+    // **可选标记被吞进类型标注那一格时**（`a?: T`）：问号的位置由那个子单元自己记着。
+    const typeToken = this.Data.find((x) => x instanceof TypeDefine);
+    const at = typeToken === undefined ? -1 : typeToken.QuestionAt;
+    if (at >= 0) {
+      props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
+    } else {
+      // **可选标记与冒号之间夹着注释时，`?` 是 `TypeDefine` 的兄弟**（第 855 轮）。
+      const question = kids.find(
+        (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "?",
+      );
+      if (question !== undefined) props.questionToken = ctx.Project(question);
+    }
+    props.type = ctx.Project(typeNode);
+  } else {
+    const question = kids.find(
+      (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "?",
+    );
+    if (question !== undefined) props.questionToken = ctx.Project(question);
+  }
+  const initKids = kids
+    .slice(eqIndex + 1)
+    .filter((k: any) => !(k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ";"));
+  if (eqIndex >= 0 && initKids.length > 0) props.initializer = ctx.Expression(initKids);
+  const bang = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "!");
+  if (bang !== undefined) props.exclamationToken = ctx.Project(bang);
+  ctx.AddModifiers(v, props);
+  const fieldDecorators = kids.filter((k: any) => k.get("type") === "Decorator");
+  if (fieldDecorators.length > 0) {
+    const projected = fieldDecorators
+      .map((d: any) => ctx.Project(d))
+      .filter((d: any) => d !== undefined);
+    const merged = [...projected, ...(Array.isArray(props.modifiers) ? props.modifiers : [])];
+    merged.sort((a: any, b: any) => (a.pos ?? 0) - (b.pos ?? 0));
+    props.modifiers = merged;
+  }
+  const kind = ctx.signature ? "PropertySignature" : "PropertyDeclaration";
   return ctx.NodeHead(kind, props, v);
 ```
 
