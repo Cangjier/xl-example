@@ -1199,9 +1199,12 @@ TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**�
   // 它覆写了这一格就由它自己出这一格——出口因此是**逐节点**的，而不是一张中央表说了算；
   // 没覆写（基类返回 `undefined`）就落到下面这份通用支：换名表 + 提层 + 字段名。
   //
-  // **第 1013 轮起这里只问一格**：原先先问 `PrintDirectAst`、再问 `PrintAst` 的两问
-  // （以及 `ctx.directEnabled` 那道开关）整段删掉——两份写法逐字节同答由 `cases:direct`
-  // 盯着，留下来的就是有判据的那一份。
+  // **第 1013 轮起这里只问一格**：原先这里是「先问 `PrintDirectAst`、再问 `PrintAst`」
+  // 的两问（以及 `ctx.directEnabled` 那道开关），那两问整段删掉——
+  // 两份写法逐字节同答是既成事实，留下来的就是有判据的那一份。
+  // 现在这一格只有这一个入口：`PrintDirectAst` 答 `undefined` 直接落通用支。
+  // **老名字不再出现在这一页的理由里**：`PrintAst` 已经不存在了，
+  // 再写它只会让读者去索引一个查不到的方法。
   const owner = node.__token;
   if (owner !== undefined) {
     const own = owner.PrintDirectAst(ctx, v);
