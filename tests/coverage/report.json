@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.56,
+  "progressPercent": 95.68,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1643,
-      "pass": 1627,
-      "blocked": 16,
+      "pass": 1640,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.03
+      "coverage": 99.82
     },
     {
       "category": "exec",
@@ -132,17 +132,11 @@
     "total": 1643,
     "knownGap": 3,
     "knownGapStillOpen": 3,
-    "exactFiles": 1627,
+    "exactFiles": 1640,
     "scoredWithoutGap": 1640,
-    "passedWithoutGap": 1627
+    "passedWithoutGap": 1640
   },
   "blocked": [
-    {
-      "id": "token/declarations/cls-super-newtarget",
-      "category": "token",
-      "title": "基线用例（来自缺口审计语料）",
-      "detail": "缺 3　多 4　字段 1　未映射 1"
-    },
     {
       "id": "token/declarations/gap-r985-heritage-optional-chain",
       "category": "token",
@@ -154,78 +148,6 @@
       "category": "token",
       "title": "继承子句里的模板串：整条类都不见了",
       "detail": "缺 9　多 2　第 985 轮第十批底样（嵌套宿主）量出：**继承子句里的模板串**——`class D extends `a${X}b` {}` 整条类**没有成形**（产物是 `<Statement><Keyword>class</Keyword>…<Bracket>{}</Bracket>`：缺 `ClassDe"
-    },
-    {
-      "id": "token/expressions/ex-regex",
-      "category": "token",
-      "title": "基线用例（来自缺口审计语料）",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/expressions/expr-comma-sequence",
-      "category": "token",
-      "title": "逗号（序列）表达式：只有 `( … )` 里的顶层 `,` 是运算符",
-      "detail": "缺 3　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/expressions/expr-regex-in-condition",
-      "category": "token",
-      "title": "if 条件里的正则字面量",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/gap-r907-else-if-comment-before-paren",
-      "category": "token",
-      "title": "`else if` 的 `if` 与 `(` 之间夹一条注释（第 907 轮片段普查量出）：TS 那边整条是一条 `IfStatement`（`elseStatement` 是里层那条），产物的 `IfStatement` 停在第一个块上、`else` 成了 `Identifier`",
-      "detail": "缺 3　多 2　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-asi-if-then-array",
-      "category": "token",
-      "title": "ASI：`if (a) {}` 之后换行以 `[` 开头是**下一条语句**（块是语句、接不了下标）。",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-asi-if-then-regex",
-      "category": "token",
-      "title": "ASI：`if (a) {}` 之后换行以正则字面量开头是**下一条语句**。",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-asi-if-then-template",
-      "category": "token",
-      "title": "ASI：`if (a) {}` 之后换行以模板串开头是**下一条语句**。",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-empty-blocks",
-      "category": "token",
-      "title": "空块：`if` / `else` / `while` / `do..while` / `for..of` 的体括号由 token 出的 `BodyBraceAt` 定位",
-      "detail": "缺 2　多 2　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-if-block-else-empty",
-      "category": "token",
-      "title": "块体 + 空语句体：`if (a) {} else ;` 的 else 是 EmptyStatement，不是空的 Block",
-      "detail": "缺 1　多 2　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-if-body-regex-not-comment",
-      "category": "token",
-      "title": "体以 `/` 开头：`//` / `/*` 是 trivia（让路），正则仍是体的第一个单元",
-      "detail": "缺 1　多 3　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-if-empty-else-block",
-      "category": "token",
-      "title": "空语句体 + 块体：`if (a) ; else {}` 的 then 是 EmptyStatement",
-      "detail": "缺 2　漂 1　多 3　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-semicolon-after-block-body",
-      "category": "token",
-      "title": "体是花括号的语句后面那个 `;` 自成一条空语句（第 663 轮；`if` 那一档原先是整份文件解析失败）",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
     },
     {
       "id": "token/types/gap-r985-jsdoc-nonnull-in-type-position",
@@ -1248,71 +1170,5 @@
     }
   ],
   "newlyPassing": [],
-  "regressions": [
-    {
-      "id": "token/declarations/cls-super-newtarget",
-      "category": "token",
-      "detail": "缺 3　多 4　字段 1　未映射 1"
-    },
-    {
-      "id": "token/expressions/ex-regex",
-      "category": "token",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/expressions/expr-comma-sequence",
-      "category": "token",
-      "detail": "缺 3　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/expressions/expr-regex-in-condition",
-      "category": "token",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/gap-r907-else-if-comment-before-paren",
-      "category": "token",
-      "detail": "缺 3　多 2　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-asi-if-then-array",
-      "category": "token",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-asi-if-then-regex",
-      "category": "token",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-asi-if-then-template",
-      "category": "token",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-empty-blocks",
-      "category": "token",
-      "detail": "缺 2　多 2　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-if-block-else-empty",
-      "category": "token",
-      "detail": "缺 1　多 2　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-if-body-regex-not-comment",
-      "category": "token",
-      "detail": "缺 1　多 3　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-if-empty-else-block",
-      "category": "token",
-      "detail": "缺 2　漂 1　多 3　字段 1　未映射 1"
-    },
-    {
-      "id": "token/statements/stmt-semicolon-after-block-body",
-      "category": "token",
-      "detail": "缺 1　多 1　字段 1　未映射 1"
-    }
-  ]
+  "regressions": []
 }
