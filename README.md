@@ -284,8 +284,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:astjson` | **出口 2（AST JSON）的尺子**（第 884 轮加）：逐节点比「标签名 === `type`」「XML 的每个属性在 JSON 里**同名同值**」「每个节点都有合法 `range`」「JSON 多出来的键在 [docs/ast-json.md](docs/ast-json.md) 第 2–4 节**登记过**」，外加「命令行 === 库 API」与「不抛异常」——**六项全 0 才退出码 0** |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
-| `cases:direct` | **直出版同答**（第 992 轮加）：整个语料跑两遍（直出通道开 / 关）**逐字节**比 `ToJsonText`，外加 `unmapped` / `count` 记账同——三项全 0 才退 0；直出覆盖率只印（见 `Token.PrintDirectAst`） |
-| `direct:lint` | **直出版只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 轮各加一条）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，不许转手 `this.PrintAst`，也**不许按字符串键查字典**（`.get("…")` / `.set("…")` / `.has("…")`，逐键计数、例外表已归零）；第四条扫的是**共享投影那一页的代码块**：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——直出版是坐 helper 出去的，只扫方法体的那三条看不见这一层 |
+| `cases:direct` | **重投一致**（第 992 轮加，第 1013 轮改口径）：第三个出口（`Token.PrintDirectAst`）现在是**唯一**的写法，所以量的是「同一份输入投两遍」——`ToJsonText` **逐字节**相同 + `unmapped` / `count` 记账同，两项全 0 才退 0；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`） |
+| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；末一条扫的是**共享投影那一页的代码块**：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层 |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `cases:tags` | **用例自带的期望**：`xl:expect`（存在，或 `Tag:N` 计数）与 `xl:absent` 逐条对产物核实，外加标签表体检 |
@@ -308,6 +308,33 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1013 轮：第三个出口**只剩一格**——`PrintAst` 与它的派发分支整条删除，`PrintDirectAst` 成为唯一实现（68 页 / 75 段成对方法合并、全仓 200 处引用改名、两道门跟着改口径）
+
+**一句话**：用户口径是「`PrintDirectAst` 的输出与 `PrintAst` **完全一致**，而 `PrintAst`
+**连同它的所有相关代码一起移除**」。同答本来就是既成事实——`cases:direct` 在三千多份语料上
+逐字节对拍从没红过——所以这一轮就是把冗余的那一份删掉：**68 页、75 段**成对方法合并成一格
+（留 `PrintDirectAst`、删 `PrintAst`，章节头落回原来的位置），`projectNode` 里那两问合成一问，
+`projectRoot` 的第三个参数 `useDirect` 与上下文的 `directEnabled` 一起消失。
+
+- **合并规则**：每个 token 页上两节**相邻**且 `PrintAst` 在前，所以留后者、删前者。
+  一个文件里几个类的也逐对配（`heritage-clause` 2 对、`tuple-member` / `type-bracket` 各 3 对、
+  `type-operator` / `type-union` 各 2 对）。规范里现在**一处 `PrintAst` 都不剩**。
+- **`projectNode` 只剩一问**：原先「先问 `PrintDirectAst`（带 `ctx.directEnabled` 开关）→
+  再问 `PrintAst` → 再落通用支」；现在只问 `PrintDirectAst`，`ctx.direct++` 记在同一个分支里。
+  **回落那一格的顺序原样保留**（先问这一格、再走 `awaitingDeclaration`）——这一条是实测出来的：
+  反过来会把声明族「算完 kind 再回落到共享实现」压掉（`cases:tsast` 16 片里立刻多坏几片）。
+- **两道门跟着改口径**：`cases:direct` 从「开关两遍对拍」改成「同一份输入**重投两遍**逐字节一致
+  + `unmapped` / `count` 记账相同」；`direct:lint` 撤掉两条（`this.PrintAst(` 那条禁用项、
+  以及「有直出版的页面同页必须还有 `PrintAst`」那条**基线**判据——老路删了，基线也就没有了）。
+- **数字**：用例语料 **1640 份重投逐字节一致**；第三个出口自己出 **16561 / 21896（75.6%）**——
+  比第 1012 轮那一版多 4 个（原先有 4 格被 `PrintAst` 顶掉，现在是这一格自己出）。
+- **两台门红的读数与「改动前产物」逐项相同**（实测：把改动前的 `dist/ts` 编到另一个 outDir、
+  整个换回去跑同一道门）：`cases:tsast` 16 片里 **8 片失败**、`coverage` **4247 / 4422、
+  blocked 41、加权 95.6%**。⇒ **这两道不是这一轮引入的**，它们要的是「产物必须由
+  `xl build` 重新生成」——而这台机器上**没有 `xl` 可执行文件**（`dist/` 与 `build/` 都是
+  `.gitignore` 的生成物；规范的改动是真的，生成物那一层是在本机手工镜像对齐的）。
+  于是这一轮的门读数是 **11 道 9 通过、2 失败**，而那 2 道的红与改动前**逐项相同**。
 
 ### 第 1012 轮：直出版**按字符串键查属性**那一格收干净（`ctx.Attr(视图, "键")` 23 处 / 10 页 → 0），判据加第四条；顺手修掉**扫描器自己**的一处错——章节头必须整行认
 

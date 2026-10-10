@@ -45,12 +45,13 @@ const GATES = [
   // 语料是**用例 + samples**（比 `cases:tsast` 那 37s 的全语料轻得多，~3s），
   // 因为 `cases:shapes` 已经证明用例侧是外部语料形状签名的超集。
   { name: "cases:astjson", script: "tests/parse/ast-json.mjs" },
-  // **`cases:direct` + `direct:lint`（第 992 轮加）**：第三个出口的**直出版**
-  // （`Token.PrintDirectAst`）的两条判据，一动态一静态——
-  // `cases:direct` 把语料跑两遍（直出通道开 / 关）**逐字节对拍**（「与 `PrintAst` 同答」），
+  // **`cases:direct` + `direct:lint`（第 992 轮加，第 1013 轮改口径）**：第三个出口
+  // （`Token.PrintDirectAst`，现在是它**唯一**的写法）的两条判据，一动态一静态——
+  // `cases:direct` 把同一份输入**重投两遍**逐字节比（连 `unmapped` / `count` 记账一起），
   // `direct:lint` 逐页扫方法体（不许 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，
-  // 也不许转手回 `PrintAst`）。两条分开是因为它们坏的方式不同：
-  // 静态那条坏了是「又回原文查了」（只在坏输入上显形），动态那条坏了是「答案不一样了」（当场显形）。
+  // 也不许按字符串键查）。两条分开是因为它们坏的方式不同：
+  // 静态那条坏了是「又回原文查了」（只在坏输入上显形），动态那条坏了是「同一份输入两个答案」（当场显形）。
+  // **第 1013 轮之前**动态那条比的是「与 `PrintAst` 同答」（开关两遍对拍）——老路删掉之后就改成重投。
   { name: "cases:direct", script: "tests/parse/direct-ast.mjs" },
   { name: "direct:lint", script: "tests/parse/direct-lint.mjs" },
   { name: "samples", script: "samples/check.mjs" },
