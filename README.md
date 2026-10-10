@@ -376,6 +376,55 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 1002 轮：**声明族六页两半一起写完**（`MethodDeclaration` / `Function` / `Class` / `Interface` / `TypeLiteral` / `Enum`）——形状收成**一份共享实现** `projectDeclaration`，直出版按 `ctx.parentKind` 判 `Constructor`；用例语料直出 **70.6% → 75.5%**、全语料 **91.6% → 95.9%**，**落回清单第一次清零**
+
+**一句话**：接着第 1001 轮那条分水岭往下搬，把**最大的一族**（`MethodDeclaration` 13044 /
+`Function` 2862 / `Class` 701 / `Interface` 4691 / `TypeLiteral` 1771 / `Enum` 115，全语料 95.9% 里的绝大部分）
+一次搬完；搬的过程中发现「算 kind + 造形状」这一格**不能各写一遍**，于是把它抽成一份共享实现——
+两条路都调它，**同答成了结构上的事实**，而不是两处各写一遍再靠对拍发现漂移。
+
+- **这一族为什么不能照抄第 992~1001 轮的模板**：那几轮搬的是「**已有 `PrintAst`、差几处回原文**」的页；
+  这六页**连 `PrintAst` 都没有**（形状一直由通用支给），所以两半一起写。而通用支对这一族
+  还**多做几件事**（`get` / `set` 换 kind、`constructor` 换 kind、生成器的 `*` 摘成 `asteriskToken`、
+  对象字面量成员不吃尾随逗号）——那些不是一句 `ctx.Structural` 能盖住的。
+- **抽出来的那一份叫 `projectDeclaration`**（从 `projectNode` 整段搬来）：换 kind + `structuralProps`
+  + 三处收尾。`projectNode` 只剩一句 `return projectDeclaration(v, ctx, parentKind, mk)`，
+  六页的 `PrintAst` 是 `ctx.Declaration(v)`，六页的 `PrintDirectAst` 是
+  `ctx.Declaration(v, undefined, ctx.Make(v), kind)`——**四处调用、一份实现**。
+- **直出版不能顺着 `projectNode` 走**（那会**自己问自己**：`projectNode` 先问 `PrintDirectAst`）。
+  所以给这一格开了一条**只认自己那一格的回落**：`ctx.awaitingDeclaration` 是一个**局部闭包**
+  （参数只有节点、`ctx` 已经闭在里面），`projectNode` 拿它造完形状就**不再问一次直出版**。
+  **为什么不是布尔标记**：直出版回落之后要走的那条路会去投它的**子节点**，而那些子节点
+  各有自己的直出版、必须照常被问——闭包只跳「这一问」，标记就得额外管一层栈。
+- **`ctx.parentKind` 是这一轮新加的上下文标记**（与 `signature` / `expressionPosition` 同款）：
+  直出版算 kind 时要知道「谁在投我」，而它手上只有 token 自己——`Parent` 是产物树的父亲
+  （`ClassBody`），**不是投影意义上的父 kind**（`ClassDeclaration`）。后者只有投影层知道，
+  所以由 `projectEachIn` 记在 `ctx.parentKind` 上递过去，**不回产物树的父亲猜**。
+  少了它，「类体里的 `constructor`」在直出版那一趟会投成 `MethodDeclaration`。
+- **`ctx.Make(v)`**：`ctx.Node` 是三参的（自己造一个指定坐标的节点），而直出版要的是
+  **「这一格」**那一份——第一版直接把 `ctx.Node` 递过去，第三个参数成了 `undefined`,
+  坐标口径当场散架（`stmtEndOf(undefined)` 抛异常，575 份语料红）。「闭的是哪一格」
+  不能交给「调用方记得传第三个参数」。
+- **记账**：`cases:direct` **1639 份 / 21818 节点，直出 15400 → 16473（70.6% → 75.5%）**，
+  同答 0、抛异常 0；`cases:direct --all` **2050 份 / 540398 节点，直出 494668 → 518266（91.6% → 95.9%）**、
+  0 处不一致；`direct:lint` **直出版 74 段 / 74 页、0 条违反**，待搬仍是 **0 页**。
+- **落回清单（下一轮的入口，`tmp-probe/gap.mjs` 量出来的）**：用例语料 **1116 → 43 次 / 7 → 1 个类**——
+  只剩 **`Bracket` 43**。**这一格量清了，但这一轮没搬**（下面那一条是下一轮的入口）。
+- **`Bracket` 为什么不能照这一轮的模板搬**（**同轮实测，撤回了**）：
+  它**不在 `KIND_BY_TAG` 里**、走的是「查不到映射 ⇒ 原样透传 + 记 `unmapped`」那一支；
+  更关键的是**它有两种身份**——`{` 是块（该出 `Block`），`(` / `[` 是分组
+  （`WrapperField` 答 `null`、内容并进父节点）。第一版只按「`startBracket === "{"` ⇒ `Block`，
+  否则 `ctx.Nothing`」写，`cases:direct` 第二项当场红 22 份：`case 1: { break }` 那一格
+  在通用支里得到的是**未映射的 `<Bracket>` 原样透传**，不是 `Block`——
+  「这一格什么时候是块」的判据比 `startBracket` 多（还牵着 `label.xl.md` 给语句位括号补队列那一支）。
+  所以下一轮要做的是**先量清 `unmapped` 那一栏的账**，而不是照抄这一轮。
+- **`direct:lint` 判据②又逮到一次**：`MethodDeclaration` 那一页的 `PrintAst` 在清理时被误删，
+  这一门立刻报「只有直出版、没有 PrintAst —— 同答判据失去了基线」（74 段直出版 / 73 段 `PrintAst`）。
+  **这正是那条判据存在的理由**：搬完之前不许先把老路删掉，删了就没人能证明「同答」。
+- **可复用的判据**：**「两条路要出同一个形状」时，先问「它们能不能调同一份实现」**——
+  这一轮把「各写一遍 + 对拍」换成了「一份实现 + 两个入口」，于是同答不再是巧合；
+  另一条：**回落必须闭在「这一格」上**（闭包而不是标记），否则子节点会被连坐跳过直出版。
+
 ### 第 1001 轮：**没有 `PrintAst` 的那一族开始搬**（两半一起写）——`LiteralType` / `ParenthesizedType` / `ExpressionWithTypeArguments` / `NamedTupleMember` / `NamespaceExport` 五页拿到直出版；用例语料直出 **69.4% → 70.6%**、全语料 **88.4% → 91.6%**
 
 **一句话**：跨过第 997 轮记下的那条分水岭——搬「**连 `PrintAst` 都没有**」的那一族。
