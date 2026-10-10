@@ -1676,7 +1676,7 @@ if (wordEnd > at) {
 // **判据不在这里重写**：`ClassBranch.IsPendingHead` 直接问类自己那一份进门判据
 // （`ScanHead`）——头怎么算完、名字 / 类型参数 / `extends` / `implements` 各占哪几格，
 // 只有一份实现。`a.class` 换行 `{}` 由它自己的位置闸挡掉。
-if (head === "{" && (Statement.IsHeaderBodyBrace(data) || ClassBranch.IsPendingHead(data))) {
+if (head === "{" && (Statement.IsHeaderBodyBrace(data) || Statement.IsFunctionHeadAwaitingBody(data) || ClassBranch.IsPendingHead(data))) {
   return true;
 }
 // **下一行以 `<` 开头，而上一行是一个「等着类型参数段」的声明头**（第 825 轮）：
@@ -1693,6 +1693,51 @@ if (head === "<" && Statement.IsDeclarationHeadAwaitingParameters(data)) {
   return true;
 }
 return head === "|" || head === "&" || head === ".";
+```
+
+## static method IsFunctionHeadAwaitingBody:(data:Array<Token>)=>bool
+
+`data` 末尾这一段是**一条函数声明头**（`function` [+ 修饰词] [+ 标签头] + 形参表 + 可选的返回类型）吗
+——也就是「体写在下一行」的那一格。
+
+**为什么要单独问它**（第 985 轮）：`IsHeaderBodyBrace` 是「从末尾往回走、数名字找头那个词」，
+而**返回类型可以是任意多的实义单元**——`function f(): keyof T` 换行 `{` 里
+`T` 与 `keyof` **各占一格名字预算**，走到 `f` 就超了 ⇒ 答否 ⇒ 换行处收壳 ⇒ 体落成裸 `Block`
+（实测 13 个客人的返回类型 × 换行 / 行注释 = 26 条片段：
+`keyof T` / `typeof x` / `readonly T[]` / `[A, ...B]` / `import("m").A` / `{ [k: string]: T }` /
+`abstract new () => A` / `A extends infer U extends string ? U : never` / `A extends B ? C : D` /
+`{ [K in keyof U]?: U[K] }` / `(a: A) => B` / `` `a${X}b` `` / `[...a]`）。
+拿名字预算去量一个**可以有任意长度**的槽位，量到的是「这个类型有几个词」，不是「这是不是头」。
+
+**判据只问形状、不问返回类型自己的形状**：段首（跳过修饰词与标签头）是 `function`，
+且它后面**有一对形参括号**。返回类型是头的一部分，里面出现什么单元都不影响这一格——
+`function f(): void` 换行 `{` 与 `function f(): keyof T` 换行 `{` 在 TypeScript 里是**同一条**
+`FunctionDeclaration`（`declare function f(): void` 换行 `{}` 也一样，实测 b1 / b4）。
+
+**为什么不用「末尾是不是 `)`」认**：`function f(): T` 的末尾是类型名，不是 `)`，
+而那正是这一格要收的形状；形参括号用**出现过**这一条就够。
+
+```ts
+const frontIndex = SearchFrontIndexed(data, data.length - 1, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
+const modifiers = ["export", "declare", "default", "async", "abstract"];
+let wordIndex = SkipNextTrivia(data, frontIndex);
+// **标签头是前缀**（`lab: function f(): T` 换行 `{`）：与声明头那一支同一个口径。
+wordIndex = LabelCloseRule.SkipLabelHeads(data, wordIndex);
+let word = Statement.WordOf(Get(data, wordIndex));
+while (word !== "" && modifiers.indexOf(word) >= 0) {
+  wordIndex = wordIndex + 1;
+  word = Statement.WordOf(Get(data, wordIndex));
+}
+if (word !== "function") {
+  return false;
+}
+for (let i = wordIndex + 1; i < data.length; i++) {
+  const item = Get(data, i);
+  if (item instanceof Bracket && item.startBracket === "(") {
+    return true;
+  }
+}
+return false;
 ```
 
 ## static method IsHeaderBodyBrace:(data:Array<Token>)=>bool
