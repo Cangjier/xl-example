@@ -342,7 +342,21 @@ for (let i = index - 1; i >= 0; i--) {
     // 判据复用 ASI 那一条（`Statement.IsLineBreakBoundary`），不另写近似：
     // 换行前是 `=` / `:` / `|` / `&` / `=>` 这些「还要操作数」的形状时它给「不是边界」，
     // 多行类型的排版（`type T =` 换行 `{ … }`、联合成员换行）照旧成立。
+    //
+    // **声明头还没写完时它也不是边界**（第 947 轮（三））：`type Y` 换行 `<T> = { a: T }`
+    // 在 TS 那边是**一条** `TypeAliasDeclaration`（类型参数表可以另起一行）。
+    // **解析期那一半本来就问过这一句**：`StatementBranch.Condition` 把
+    // `IsDeclarationHeadAwaitingParameters` 排在 ASI 判据**之前**，所以壳一直开着
+    //（这也是为什么这一格只坏在类型位判定上、语句本身没被切开）；这一趟是**收尾期**、
+    // 手里有列表 —— 问**同一句**，不另判一遍：`IsLineBreakBoundary` 只看形状
+    //（`Y` 不要操作数、`<T>` 也不在它的续接表里）⇒ 答「是边界」⇒
+    // `=` 右边那个 `{` 被收成对象字面量（实测缺 `TypeLiteral` / `PropertySignature` /
+    // `TypeReference` 各一、多 `ObjectLiteralExpression` / `PropertyAssignment` 各一）。
+    // **参数是「已经读到的那些单元」**（`units.slice(0, i)`）——那个方法看的是列表的**尾巴**。
     if (Statement.IsLineBreakBoundary(units, i)) {
+      if (Statement.IsDeclarationHeadAwaitingParameters(units.slice(0, i))) {
+        continue;
+      }
       return false;
     }
     continue;

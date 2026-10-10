@@ -1997,10 +1997,30 @@ if (!(parameters instanceof Bracket) || parameters.startBracket !== "(") {
 let beforeIndex = SkipPreviousTrivia(data, parametersIndex);
 let before = Get(data, beforeIndex);
 let crossedAsync = false;
-if (before instanceof Identifier && before.Is("async")) {
-  crossedAsync = true;
-  beforeIndex = SkipPreviousTrivia(data, beforeIndex);
-  before = Get(data, beforeIndex);
+// **`async` 与类型参数段两格都能夹在赋值号与形参表之间**（`async` 第 928 轮第二趟、
+// 泛型段第 947 轮（三）），而它们的**先后可以互换**（`= async <T,>(x: T):` 与
+// `= <T,> async (x: T):` 都是泛型 async 箭头）⇒ 一格一格往回跳，跳到两个都认不出来为止。
+//
+// **泛型箭头那一格**（第 947 轮（三））：`const g = <T,>(x: T):` 换行 `T => x;` 里
+// `)` 左边那一格是**类型参数段**（`GenericType`），`=` 还在它更左边——照原来只跳 `async`
+// 的写法当场判否 ⇒ 换行处收壳 ⇒ 整条泛型箭头分家（实测缺 5 漂 3 多 8：
+// 第一条壳停在 `:` 上、余下那段被读成一条 `Lamda`（`T => x`））。
+// **这一格只有一种读法**：`<T,>` 在**值位**上紧跟形参表就是泛型箭头
+//（类型位那几档在 `IsLambdaParameters` 里按 `:` / `?:` / `new` / `GenericType` 各自早退，
+//  走的不是这一支），所以两条判据（下面那个 `=`）一个都不用改。
+while (true) {
+  if (before instanceof Identifier && before.Is("async")) {
+    crossedAsync = true;
+    beforeIndex = SkipPreviousTrivia(data, beforeIndex);
+    before = Get(data, beforeIndex);
+    continue;
+  }
+  if (before !== null && before.constructor.name === "GenericType") {
+    beforeIndex = SkipPreviousTrivia(data, beforeIndex);
+    before = Get(data, beforeIndex);
+    continue;
+  }
+  break;
 }
 if (!(before instanceof SymbolToken) || before.Is("=") === false) {
   return false;
