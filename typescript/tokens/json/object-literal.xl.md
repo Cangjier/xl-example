@@ -261,12 +261,21 @@ TS 那边的 `properties` 是**成员数组**：
             pos: ctx.StartOf(computed),
             end: ctx.EndOf(computed),
           };
+    // **终点是值那一格的终点，不是「最后一格的终点」**（第 923 轮）：值单元自己可能
+    // **含尾随 trivia**——`{ f: () => ({ v: 1 })/*c*/ }` 里那条注释落在箭头的体里
+    // （`LamdaBody > Statement`），于是 `EndOf(最后一格)` 盖到了注释末尾
+    // ⇒ 属性多出一整截（实测 TS `PropertyAssignment[17,36)` vs 产物 `[17,41)`：漂 1 多 1）。
+    // `StmtEndOf` 就是投影层「节点终点不含尾部 trivia」的那一份实现（第 132 / 853 轮
+    // 在语句族与 `Let` 上用过同一条），这里直接借它，不另写一份「往回吃注释」的循环。
+    const initializer = valueUnits.length > 0 ? ctx.Expression(valueUnits) : undefined;
+    const propertyEnd =
+      initializer === undefined ? ctx.EndOf(group[group.length - 1]) : initializer.end;
     properties.push({
       kind: "PropertyAssignment",
       name,
-      initializer: valueUnits.length > 0 ? ctx.Expression(valueUnits) : undefined,
+      initializer,
       pos: ctx.StartOf(group[0]),
-      end: ctx.EndOf(group[group.length - 1]),
+      end: propertyEnd,
     });
   }
   const props = properties.length === 0 ? {} : { properties };
