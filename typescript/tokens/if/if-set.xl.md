@@ -889,7 +889,17 @@ this.Segment!.MountedUnit = condition;
 **`{` 由本类消费**（它是体的**开口**）——与 `BracketBranch.Success` 对 `Bracket` 的做法一模一样。
 喂进去的话产物里会多一个 `{`。
 
+**`BodyBraceAt` 就在这一格里记**（第 1015 轮从 `MountBodyOrStatement` 搬过来）：
+「体那个 `{` 的下标」这件事的判据只有一个——**这个字符就是 `{`**，而这里正是唯一一处
+消费它的地方（三个调用点：`if` 段的 `MountBodyOrStatement`、`else {` 的两支）。
+搬过来之前，`else {}` 那两支是直接调 `MountBody` 的 ⇒ 那一格的 `bodyBraceAt` 一直是 `-1`
+（实测 `stmt-empty-blocks.ts` / `stmt-if-empty-else-block.ts` 各一处）。
+字段的写入口从两个收成一个，`if` 那一支的读数一处没动。
+
 ```ts
+// **体那个 `{` 当场记进段**（第 621 轮）：括号就在这一格里，投影直读它，
+// 不再回原文找（`indexOf("{", …)` 会命中注释里的假括号）。
+this.Segment!.BodyBraceAt = source.Index;
 const body = new IfBody(this.Template);
 this.Segment!.Add(body);
 body.SignIn(source);
@@ -953,9 +963,8 @@ if (scope !== null && (this.IsCommentStart(source) || this.IsPendingCommentTail(
   return;
 }
 if (source.Value === "{") {
-  // **体那个 `{` 当场记进段的 `BodyBraceAt`**（第 621 轮）：括号就在这一格里，
-  // 投影画**空 `else {}`** 时直读它，不再回原文找（`indexOf("{", …)` 会命中注释里的假括号）。
-  this.Segment!.BodyBraceAt = source.Index;
+  // **体那个 `{` 的位置由 `MountBody` 自己记**（第 1015 轮：原先也在这里写一遍，
+  // 而 `else {` 那两支直接调 `MountBody`、于是漏记 ⇒ 写入口收成一个）。
   this.MountBody(source);
   return;
 }

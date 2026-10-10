@@ -292,6 +292,14 @@ return `<${name} range="${this.RangeOf()}" key="${this.key}"${ifWord}${bodyBrace
 只在 `Data` 已经成形之后调（`IfSegment.Process` 里「本段干完了」那一刻）：
 那时 `IfBody` 那个括号的 `Start` / `End` 都签好了。
 
+**空块那一档要看 `IfBody` 自己**（第 1015 轮实测补上）：`{}` 里一个子单元都没有，
+那个 `Bracket` **根本不在 `Data` 里**（实测全语料 13 份让开的文件里，体那一格全是空块，
+`IfBody.Data` 是空数组）⇒ 只按 `Bracket` 找必然落空，`BodyBrace` 一直是「没记过」。
+而 `IfBody` 自己就是从 `{` 签到 `}` 的那一格（`MountBody` 就是在 `{` 上 `SignIn` 的），
+两头这时都签好了 ⇒ 拿它自己的区间当那一对。**两份逐格相同**（实测 `if (a) {}`：
+`BodyBraceAt` 与 `IfBody.SourceRange.Start.Index` 都是 121、区间都是 `[121,127]`），
+所以这不是「第二份近似」，是把同一格事实换一个地方读。
+
 ```ts
 for (const item of this.Data) {
   if (!(item instanceof IfBody)) {
@@ -300,6 +308,11 @@ for (const item of this.Data) {
   const brace = item.Data.find((x) => x instanceof Bracket && x.startBracket === "{");
   if (brace !== undefined && brace.SourceRange.Start !== null && brace.SourceRange.End !== null) {
     this.BodyBrace.Set(brace.SourceRange.Start!.Index, brace.SourceRange);
+    return;
+  }
+  // **空块那一档**：`Data` 里没有那个 `Bracket`（见上），改读 `IfBody` 自己的区间。
+  if (item.SourceRange.Start !== null && item.SourceRange.End !== null) {
+    this.BodyBrace.Set(item.SourceRange.Start!.Index, item.SourceRange);
   }
   return;
 }
