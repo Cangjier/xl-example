@@ -61,136 +61,10 @@ function isShell(node) {
   if (node.tag === "Bracket") return node.startBracket === undefined || node.startBracket === null;
   return SHELLS.has(node.kind);
 }
+// **归一表只有一份**：`shape-kinds.mjs`（本文件与 `tools/*` 都 import 它）。
+// 这一层从前在这里与临时脚本里各有一份、漂过——同一个口径两处维护就一定会漂。
+import { KIND_BY_TAG, TOKEN_KIND, KEYWORD_KIND, productKindOf } from "./shape-kinds.mjs";
 
-/**
- * 产物标签 → TS kind 名。
- *
- * **这张表是 `typescript/print-ast-common.xl.md` 的 `KIND_BY_TAG` 的逐条副本**（79 条，
- * 一条不多一条不少）。为什么不 import 那一份：本文件的产物是 `build/ts/**` 下的 JS 产物，
- * 而那一份是投影的实现——**本门要量的正是「投影之前」的形状，借它的实现就是借被量者本身**。
- * 代价是它会漂：那边加一条标签，这里要跟着加（漂了的症状是「凭空多出一类 onlyOurs / onlyTs」，
- * 而这门本来就是量差额的，所以漂了**看得出来**）。
- *
- * 本仓第一次试就踩到了：漏 `BinaryOperator → BinaryExpression` 那一条时，8 条用例全报
- * 「产物 <BinaryOperator> vs TS BinaryExpression」——**那不是形状不同，是本表漏了一行**。
- */
-const KIND_BY_TAG = new Map([
-  ["Root", "SourceFile"],
-  ["Let", "VariableDeclaration"],
-  ["BinaryOperator", "BinaryExpression"],
-  ["LogicalOperator", "BinaryExpression"],
-  ["UnaryOperator", "PrefixUnaryExpression"],
-  ["NotNull", "NonNullExpression"],
-  ["TernaryOperator", "ConditionalExpression"],
-  ["Method", "CallExpression"],
-  ["New", "NewExpression"],
-  ["Lamda", "ArrowFunction"],
-  ["LamdaParameter", "Parameter"],
-  ["Parameter", "Parameter"],
-  ["BindingElement", "BindingElement"],
-  ["Spread", "SpreadElement"],
-  ["ObjectLiteral", "ObjectLiteralExpression"],
-  ["ArrayLiteral", "ArrayLiteralExpression"],
-  ["As", "AsExpression"],
-  ["Satisfies", "SatisfiesExpression"],
-  ["TypeAssign", "TypeAliasDeclaration"],
-  ["TypeDefine", "TypeReference"],
-  ["TypeLiteral", "TypeLiteral"],
-  ["GenericType", "TypeReference"],
-  ["TypeParameter", "TypeParameter"],
-  ["UnionType", "UnionType"],
-  ["IntersectionType", "IntersectionType"],
-  ["ArrayType", "ArrayType"],
-  ["TupleType", "TupleType"],
-  ["IndexedAccessType", "IndexedAccessType"],
-  ["LiteralType", "LiteralType"],
-  ["ConditionalType", "ConditionalType"],
-  ["MappedType", "MappedType"],
-  ["InferType", "InferType"],
-  ["TypePredicate", "TypePredicate"],
-  ["TypeOperator", "TypeOperator"],
-  ["TypeQuery", "TypeQuery"],
-  ["ImportType", "ImportType"],
-  ["FunctionType", "FunctionType"],
-  ["ParenthesizedType", "ParenthesizedType"],
-  ["OptionalType", "OptionalType"],
-  ["RestType", "RestType"],
-  ["NamedTupleMember", "NamedTupleMember"],
-  ["EnumMember", "EnumMember"],
-  ["Field", "PropertyDeclaration"],
-  ["MethodDeclaration", "MethodDeclaration"],
-  ["IndexSignature", "IndexSignature"],
-  ["NamespaceBody", "ModuleBlock"],
-  ["FunctionBody", "Block"],
-  ["MethodBody", "Block"],
-  ["LambdaBody", "Block"],
-  ["ForBody", "Block"],
-  ["ForeachBody", "Block"],
-  ["WhileBody", "Block"],
-  ["TryBody", "Block"],
-  ["CatchBody", "Block"],
-  ["FinallyBody", "Block"],
-  ["Decorator", "Decorator"],
-  ["HeritageClause", "HeritageClause"],
-  ["ExpressionWithTypeArguments", "ExpressionWithTypeArguments"],
-  ["Signature", "CallSignature"],
-  ["ConstString", "StringLiteral"],
-  ["String", "StringLiteral"],
-  ["RegexToken", "RegularExpressionLiteral"],
-  ["Label", "LabeledStatement"],
-  ["StaticBlock", "ClassStaticBlockDeclaration"],
-  ["NamespaceExport", "NamespaceExportDeclaration"],
-  ["Import", "ImportDeclaration"],
-  ["Export", "ExportDeclaration"],
-  ["Interface", "InterfaceDeclaration"],
-  ["Enum", "EnumDeclaration"],
-  ["Function", "FunctionDeclaration"],
-  ["Class", "ClassDeclaration"],
-  ["Namespace", "ModuleDeclaration"],
-  ["Try", "TryStatement"],
-  ["Switch", "SwitchStatement"],
-  ["While", "WhileStatement"],
-  ["DoWhile", "DoStatement"],
-  ["For", "ForStatement"],
-  ["Foreach", "ForOfStatement"],
-  ["IfSet", "IfStatement"],
-]);
-
-/** 运算符文本 → TS 的 token kind 名（`TOKEN_KIND` 的那一段）。 */
-const TOKEN_KIND = new Map([
-  ["=", "EqualsToken"], ["+=", "PlusEqualsToken"], ["-=", "MinusEqualsToken"],
-  ["*=", "AsteriskEqualsToken"], ["/=", "SlashEqualsToken"], ["%=", "PercentEqualsToken"],
-  ["+", "PlusToken"], ["-", "MinusToken"], ["*", "AsteriskToken"], ["/", "SlashToken"],
-  ["%", "PercentToken"], ["<", "LessThanToken"], [">", "GreaterThanToken"],
-  ["<=", "LessThanEqualsToken"], [">=", "GreaterThanEqualsToken"],
-  ["==", "EqualsEqualsToken"], ["===", "EqualsEqualsEqualsToken"],
-  ["!=", "ExclamationEqualsToken"], ["!==", "ExclamationEqualsEqualsToken"],
-  ["&&", "AmpersandAmpersandToken"], ["||", "BarBarToken"], ["??", "QuestionQuestionToken"],
-  ["!", "ExclamationToken"], ["?", "QuestionToken"], [":", "ColonToken"],
-  [",", "CommaToken"], [";", "SemicolonToken"], ["(", "OpenParenToken"], [")", "CloseParenToken"],
-  ["[", "OpenBracketToken"], ["]", "CloseBracketToken"], ["{", "OpenBraceToken"], ["}", "CloseBraceToken"],
-  ["=>", "EqualsGreaterThanToken"], ["++", "PlusPlusToken"], ["--", "MinusMinusToken"],
-  [".", "DotToken"], ["...", "DotDotDotToken"],
-  ["**", "AsteriskAsteriskToken"], ["**=", "AsteriskAsteriskEqualsToken"],
-  ["<<", "LessThanLessThanToken"], ["<<=", "LessThanLessThanEqualsToken"],
-  [">>", "GreaterThanGreaterThanToken"], [">>=", "GreaterThanGreaterThanEqualsToken"],
-  [">>>", "GreaterThanGreaterThanGreaterThanToken"], [">>>=", "GreaterThanGreaterThanGreaterThanEqualsToken"],
-  ["&", "AmpersandToken"], ["|", "BarToken"], ["^", "CaretToken"],
-  ["&=", "AmpersandEqualsToken"], ["|=", "BarEqualsToken"], ["^=", "CaretEqualsToken"],
-  ["&&=", "AmpersandAmpersandEqualsToken"], ["||=", "BarBarEqualsToken"], ["??=", "QuestionQuestionEqualsToken"],
-]);
-
-/** 关键字文本 → TS kind 名（`KEYWORD_KIND` 里会作为语义子节点出现的那一批）。 */
-const KEYWORD_KIND = new Map([
-  ["in", "InKeyword"], ["instanceof", "InstanceOfKeyword"], ["asserts", "AssertsKeyword"],
-  ["typeof", "TypeOfKeyword"], ["keyof", "KeyOfKeyword"], ["readonly", "ReadonlyKeyword"],
-  ["new", "NewKeyword"], ["this", "ThisKeyword"], ["super", "SuperKeyword"],
-  ["null", "NullKeyword"], ["true", "TrueKeyword"], ["false", "FalseKeyword"],
-  ["undefined", "UndefinedKeyword"], ["any", "AnyKeyword"], ["unknown", "UnknownKeyword"],
-  ["never", "NeverKeyword"], ["object", "ObjectKeyword"], ["symbol", "SymbolKeyword"],
-  ["bigint", "BigIntKeyword"], ["string", "StringKeyword"], ["number", "NumberKeyword"],
-  ["boolean", "BooleanKeyword"], ["void", "VoidKeyword"], ["intrinsic", "IntrinsicKeyword"],
-]);
 
 const isTokenKindName = (name) => /Token$/.test(name) || /Keyword$/.test(name);
 
@@ -248,18 +122,6 @@ function rangeOfAttrs(attrs) {
   return m ? [Number(m[1]), Number(m[2])] : [null, null];
 }
 
-/** 产物一个节点的归一节点名：标签先过 `KIND_BY_TAG`；叶子按值分名（数字 / 字符串 / 关键字）。 */
-function productKindOf(tag, text) {
-  const value = text === undefined || text === null ? "" : String(text);
-  if (tag === "SymbolToken") return TOKEN_KIND.get(value) ?? value;
-  if (tag === "Keyword") return KEYWORD_KIND.get(value) ?? value;
-  if (tag === "Identifier") {
-    if (/^\d/.test(value) || /^\.\d/.test(value)) return "NumericLiteral";
-    if (/^["'`]/.test(value)) return "StringLiteral";
-    return "Identifier";
-  }
-  return KIND_BY_TAG.get(tag) ?? tag;
-}
 
 /**
  * 把 XML 节点读成与 `productNode` 同形的树。

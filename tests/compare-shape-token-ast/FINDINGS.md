@@ -298,3 +298,44 @@ token 层只能记「文本上可知的事实」，把 AST 形状搬下去等于
    不是「多出来的节点」——两件事不要再混着读。
 2. **「`Method` 的被调用者整格消失」——准，但要说全**：只有 `Identifier` 那一支丢，
    `Bracket` / `Method` 两支是留着的（见 1.2 的代码）。所以修法是**补齐一支**，不是新造机制。
+
+---
+
+# 附：第 987 轮（七）全量 gap review
+
+**口径**：`tools/gap.mjs` 把 117 格 / 279 条用例一次跑完，把「TS 有、产物那棵树上没有」的节点
+按 kind 分类成**换名 / 包装 / 标点 / 真缺**四桶（前三桶是投影的职责，不是 token 的缺口）。
+读数是 **真缺 167 处，落在 80 格**；内核同形 9/279（内核同形低是**正常**的：产物比 TS 多一整层
+段与包装节点，见 §0 的闭/半开与提层说明）。
+
+复跑：`node tests/compare-shape-token-ast/tools/gap.mjs --json tmp/gap.json`
+
+## 1. 真缺的 19 个 kind，按族归并
+
+| 族 | kind（处数） | 一句话来因 | 该动哪 |
+| --- | --- | --- | --- |
+| **声明与模式的名字** | `Identifier`(65)、`MethodSignature`(3)、`PropertySignature`(4)、`PrivateIdentifier`(2)、`ObjectBindingPattern`(8)、`ArrayBindingPattern`(1)、`ShorthandPropertyAssignment`(1) | 产物把「名字」记成**标量字符串**（`name="f"`）；TS 那边它是个**节点**。而 `{a}` 这种简写与解构模式，产物给的是 `ObjectLiteral` / `ArrayLiteral`——TS 要 `ObjectBindingPattern` / `ShorthandPropertyAssignment` | **token**：① 名字走 `Let` 那套（值 + 两个下标，或干脆把那格留成子单元）；② 简写/模式那一格要能在成形期认出「这是模式不是字面量」（`ArrayLiteral.Context` 已经记了一半） |
+| **模板与标签模板** | `TemplateExpression`(3)、`TemplateHead`(3)、`TemplateTail`(3)、`NoSubstitutionTemplateLiteral`(2)、`TaggedTemplateExpression`(2) | 产物的 `String` 是**平的三格**（`ConstString InterpolationString ConstString`），TS 是 `head` + `spans[]`；无替换的 `` `abc` `` 在 TS 是 `NoSubstitutionTemplateLiteral`，产物是 `ConstString`；`tag\`…\`` 整条在 TS 有自己那一层 | **投影**（形状重建，不是丢信息）——`String.PrintAst` 那一支；`tag` 前缀要在 `property-access` 那一支接 |
+| **语句与表达式各一格** | `EmptyStatement`(10)、`BreakStatement`(4)、`ThrowStatement`(1)、`DebuggerStatement`(1)、`ReturnStatement`(1)、`YieldExpression`(1)、`VoidExpression`(2)、`PostfixUnaryExpression`(8)、`ForInStatement`(4)、`FunctionExpression`(2)、`ParenthesizedExpression`(2)、`ElementAccessExpression`(3)、`BigIntLiteral`(2) | 逐条不同：`;` 空语句与 `for(;;)` 的空体在产物里**不成节点**；`break` / `throw` / `debugger` 那些词是 `<Keyword>`，没升成语句节点；`x++` 的 `++` 是 `SymbolToken`；`for…in` 与 `for…of` 在产物里**都是 `Foreach`**，投影只按 `ForOfStatement` 投；`(expr)` 的括号被当分组；`a[i]` 的 `[` 那格；`1n` 是 `Identifier` 而不是 `BigIntLiteral` | **混**：`BigIntLiteral` 是投影的叶子分名表（`leafKindOfText`）要补一条；其余逐个看，多数是**投影少接了一档**，`EmptyStatement` / `ForInStatement` 是**成形期就没了信息**（要 token 记） |
+| **TS 独有** | `NamespaceExport`(2)、`ConstructorType`(1)、`ConstructSignature`(1) | 产物没有对应标签：`export as namespace X` 的 `NamespaceExport` 由 `Export` 那一支造；构造签名/构造类型在 `Signature` 的 `kind` 属性里区分 | **投影**（它自己造/改名） |
+
+## 2. 三处口径要记住（否则会把读数当 gap）
+
+1. **闭区间 vs 半开区间**（产物 `[起,止]` 含止、TS `[起,止)`），影响的是「区间差」那一栏（不是真缺）；
+2. **提层**：`ForBody` / `TryBody` / `MethodBody` / `NewType` 这一批在**成形期的树上**是标签，
+   在 `ToDictionary` 里被提层掉——本门读 XML 才看得见它们（§0）；
+3. **「换名 / 包装 / 标点」不是 gap**：`FirstStatement`→`Statement`、`PropertyAccess`→`PropertyAccessExpression`、
+   `PlusToken` 之类都在投影的职责里，`tools/gap.mjs` 已经把它们分到另外三桶。
+
+## 3. 下一步的优先序（按「一处改动能收掉多少处」）
+
+| 优先 | 动作 | 预计收掉 |
+| --- | --- | --- |
+| 1 | `BigIntLiteral` 进叶子分名表（`leafKindOfText` 加一条 `n` 结尾的数字字面量） | 2 处，一处改动 |
+| 2 | `ForInStatement`：`Foreach` 按「`in` 还是 `of`」投两种 kind（token 侧记一个布尔或复用那个 `Keyword`） | 4 处 |
+| 3 | `EmptyStatement`：`;` 与空体在成形期补一个节点（现在连节点都没有） | 10 处 |
+| 4 | 名字那一族：按 `Let` 的样板把 `Method` / `Class` / `MethodDeclaration` / `Field` / `Namespace` 的**节点**补齐 | 65+ 处 |
+| 5 | 模板那两格：`String.PrintAst` 重建 `head` + `spans` | ~13 处 |
+
+**第 4 条是最大的一处**，而它在前几轮已经定了法（`Let` 的值 + 两下标样板 / `Method` 的 `AddAndCloseLast`），
+所以它是「照着做」而不是「再设计」。

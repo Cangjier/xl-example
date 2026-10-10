@@ -78,11 +78,17 @@ node tests/compare-shape-token-ast/run.mjs --json tmp/rep.json  # 逐条读数�
 `run.mjs` 量的是「差多少」，**定不了「该动哪里」**。要定哪一格，用对齐视图：
 
 ```bash
-node tests/compare-shape-token-ast/tools/flow.mjs method      # 一个 token 目录
+node tests/compare-shape-token-ast/tools/gap.mjs             # 全量 gap：117 格按「真缺」排序
+node tests/compare-shape-token-ast/tools/flow.mjs method      # 一格：XML ↔ AST 按区间对齐
 node tests/compare-shape-token-ast/tools/coverage.mjs         # 对账：117 个标签缺不缺
 node tests/compare-shape-token-ast/tools/keys.mjs             # 账本：JSON 有键、XML 没印
 node tests/compare-shape-token-ast/tools/seed-cases.mjs       # 给没种子的标签从语料里挑用例
 ```
+
+**归一只有一份**：[`shape-kinds.mjs`](shape-kinds.mjs)（`run.mjs` 与 `tools/*` 都 import 它）。
+这一层从前在 `run.mjs` 与临时脚本里各有一份、**漂过**——临时报告缺
+`PropertyAccess → PropertyAccessExpression` 那几条，把 5 处「换名」误报成「真缺」。
+同一个口径两处维护就一定会漂，这是本仓反复记过的那条。
 
 `flow.mjs` 把出口 1 与出口 3 **按区间配在一起**（XML 的 `range="[起,止]"` 是闭区间、AST 的 `pos/end`
 是半开，所以按 `起` 与 `止+1` 配），逐行打印「这个产物节点变成了哪个 AST 节点 /
