@@ -264,6 +264,71 @@ if (this.Data.length !== 0) {
 return result;
 ```
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+**第三个出口**（第 1004 轮）：这一页把「`Bracket` 出什么」**写下来**。
+
+**为什么以前没有它**：它一直由投影的通用支给（`KIND_BY_TAG` 里查不到 `Bracket`），
+所以「这一页的形状」在产物那边没有一处写下来——`direct:lint` 的判据②要求
+「有直出版的页面同页必须还有 `PrintAst` 当同答的基线」，说的正是这件事。
+
+**答案与通用支逐字节相同**（`cases:direct` 拿两遍产物对拍）：
+
+- `{` ⇒ 那个 `Block`（见下面 `PrintDirectAst` 那一节的两种身份）；
+- `(` / `[` ⇒ `undefined`，让回通用支（它们是分组，通用支那一趟不造节点，
+  而**这一格是会走到通用支里的**——见下面 `ctx.Nothing` 那一条）。
+
+```ts
+  // **两种身份各答各的**：只有 `{` 是块节点，`(` / `[` 让回通用支（与直出版逐句同一份）。
+  if (String(this.startBracket) !== "{") return undefined;
+  return ctx.Node(
+    "Block",
+    { statements: ctx.ProjectEach(ctx.KidsOf(v, "children"), "Block") },
+    v,
+  );
+```
+
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 1004 轮）：与通用支出**同一个答案**，但只许用这个 token 自己的
+属性、子单元与 `Parent`（不回原文查）——口径与两条判据见 `core/syntax/token.xl.md` 的
+`PrintDirectAst`。
+
+**这一页是「连 `PrintAst` 都没有」那一族**（第 997 轮那条分水岭）：`Bracket` 的形状一直由
+投影的**通用支**给，所以这一轮两半一起写——上面那一格 `PrintAst` 把「这一页出什么」写下来
+（同答从此有一条逐字节的基线），这一格再把那一趟里回原文查的部分去掉。
+**两半逐句同一份**：`{` 走同一条裸块分支，`(` / `[` 两条路都答 `undefined` 让回通用支。
+
+**三种括号在这一页上有两种身份**（第 1003 轮量出来的）：
+
+- **`{`**：语句位那个花括号在目标语言那边**是一个块节点**（`Block`）——
+  通用支里那一条裸块分支（`print-ast-common.xl.md` 的 `projectNode`：「`v.type === "Bracket"`
+  且 `startBracket === "{"` ⇒ `Block`」）说的就是它。这里逐句照搬那一支：
+  `statements` 是 `children` 那一格的子单元按 `Block` 投出来的，坐标走 `ctx.Node`
+  （`astNode` → `stmtEndOf`：起点这一格、终点剪掉尾部 trivia）。
+- **`(` / `[`**：它们是**分组**（`WrapperField` 答 `null`，内容并进父节点），通用支那一趟
+  **不造节点**，所以这里答 `undefined` 让回通用支。**为什么不答 `ctx.Nothing`**：
+  `Nothing` 是「连问都不再问」，会让这一格从 `ctx.count` 账上消失——而通用支那一趟
+  **是会走到这一格的**（第 1003 轮回 `Bracket` 时实测 `count` 差 2，就是这一条）。
+  让回通用支，摊平与记账都还是原来那一份。
+
+**`(` / `[` 这一半为什么还不能直出**：通用支给它们造的形状要问**父节点的 kind**
+（`structuralProps` 先问这一格的段名、再让子单元按父 kind 投），而 `PrintDirectAst`
+手上只有这一棵子树与 `Parent`（产物树的父亲，**不是**投影意义上的父 kind）。
+所以这一半留着，是「这一页量清了、但没有照模板搬」的那一半。
+
+```ts
+  // **两种身份各答各的**（见上面那一节）：只有 `{` 是块节点，`(` / `[` 让回通用支。
+  if (String(this.startBracket) !== "{") return undefined;
+  // **与通用支那一条裸块分支逐句同一份**：`statements` 是本格 `children` 那一格按 `Block` 投的，
+  // `pos` / `end` 走 `ctx.Node` 那份实现（`astNode` → `stmtEndOf`）——坐标口径只有一份。
+  return ctx.Node(
+    "Block",
+    { statements: ctx.ProjectEach(ctx.KidsOf(v, "children"), "Block") },
+    v,
+  );
+```
+
 ## method Clone:()=>Token
 
 克隆自身。
