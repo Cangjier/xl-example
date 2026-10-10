@@ -588,7 +588,30 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**0 条**）
+## 已知仍开着的缺口（**2 条**）
+
+**第 949 轮：第 948 轮登记的那一族量到了根上——两版修法都撤回，两条形状登进语料（缺口 0 → 2）**
+
+第 948 轮留下的那族「**表达式位的对象字面量成员**」这一轮拆成两格，两格的根因都量清了；
+**两版修法都写出来过、都被门挡回来、都按规矩撤回**（如实记读数）：
+
+| 形状 | 根因 | 试过的那一版 | 读数 | 为什么撤回 |
+| --- | --- | --- | --- | --- |
+| `const v = { [K in T]: X };` | `IsMappedKeyBracket` 那条「父单元是一个 `{` 括号、且本单元是它第一个实义单元」把**值位**也放行 ⇒ 值位那个 `in` 被当成映射键的标记、`K in T` 整段收成 `TypeParameter`（TS：`ComputedPropertyName > BinaryExpression{InKeyword}`） | 拿 `Bracket.Context`（开括号那一刻算好的位置）当判据，只在它是 `"value"` 时判否 | 片段探针 **4 条 → 0 条**（那几条真修好了）；可 `coverage` **4192 → 4184**、`blocked 27 → 36`，六条**真**映射类型反过来坏（`ty-mapped` / `ty-mapped-as-remap` / `gap-r869-mapped-modifiers-comment-1` / `gap-r922-mapped-modifier-space-before-colon` / `type-mapped-modifier-in-generic` / `type-combination-adversarial`） | 多行 / 带修饰词 / 泛型实参里那几种排版，`Context` 答的是 `"value"`（第 163 轮那条注释早就记过按它筛吃过亏）——**判据不成立，不是接线没接好** |
+| `const v = { new (a: number): I };` | `MethodDeclarationCloseRule` 的无体成员白名单里**没有** `ObjectLiteral`（只有 `ClassBody` / `InterfaceBody` / `TypeLiteralBody`）⇒ 这一格落到 `NewCloseRule` 手里：`new (a: number)` 收成新表达式、尾巴的 `:` 与 `I` 收成属性赋值 | 把 `ObjectLiteral` 加进那份白名单 | 片段探针 **2 条 → 0 条**；可那是**整档放开** ⇒ `coverage 4192 → 4155`、`blocked 27 → 56`、`differ 138 → 147`，e2e 六条挂（`unimplemented: expression MethodDeclaration`） | 放开的范围比要修的那一格大得多（对象字面量里任何 `name(...)` 形状都成了成员签名）——**要的是窄判据** |
+
+**登记两条**（`xl:known-gap`，缺口 0 → 2）：
+[`gap-r949-object-computed-in-name`](../cases/token/expressions/gap-r949-object-computed-in-name.ts)（缺 11 多 4）
+与 [`gap-r949-object-member-new-signature`](../cases/token/expressions/gap-r949-object-member-new-signature.ts)（缺 3 多 3）。
+
+**下一轮的入手处**（两条各一句，都是这一轮量出来的）：第一条要的是**与
+`TypeLiteralCloseRule.IsTypePosition` 同一份**位置判据（或者把那一份挪进 `text-common-util`
+让两边共用）——**不是第三份近似**；第二条要的是**窄判据**（只认「名字是 `new`、而且它在成员位
+（前一个是 `{` / `,` / `;`）」那一格），不是把整档成员体放开。
+
+**这一轮另一条能用的读数**：`NewCloseRule.Previous` 里「父单元是 `ObjectLiteral`」是**看得到的**
+（插桩实测：`{ new (a: number): I }` 里那个 `new` 的父亲那时已经是 `ObjectLiteral`）——
+所以第二条本来就有现成的位置信号，撤回的那一版挂错了地方（挂在成员体白名单上）。
 
 **第 948 轮：缺口清单空着时的第三次普查——类型位那一侧 1202 条，量出三族、当轮收掉**
 （`tmp/r948/sweep.mjs`：40 个**类型位**底样 × 每个**词的边界** × 三种 trivia

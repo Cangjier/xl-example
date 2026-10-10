@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4357,
+  "total": 4359,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.51,
+  "progressPercent": 95.49,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1578,
+      "total": 1580,
       "pass": 1578,
-      "blocked": 0,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.87
     },
     {
       "category": "exec",
@@ -129,14 +129,26 @@
     }
   ],
   "token": {
-    "total": 1578,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
+    "total": 1580,
+    "knownGap": 2,
+    "knownGapStillOpen": 2,
     "exactFiles": 1578,
     "scoredWithoutGap": 1578,
     "passedWithoutGap": 1578
   },
   "blocked": [
+    {
+      "id": "token/expressions/gap-r949-object-computed-in-name",
+      "category": "token",
+      "title": "值位对象字面量的**计算属性名**里有 `in`（第 949 轮登记）。",
+      "detail": "缺 11　多 4　值位计算属性名里的 `in` 被当成映射键（本文件两条共缺 11 多 4：不带 `as` 的那条缺 2 多 2、带 `as` 键重映射的那条缺 9 多 2）"
+    },
+    {
+      "id": "token/expressions/gap-r949-object-member-new-signature",
+      "category": "token",
+      "title": "值位对象字面量里名叫 `new` 的**不带体**成员（第 949 轮登记）。",
+      "detail": "缺 3　多 3　值位对象字面量里 `new (a: number): I` 该是一条成员签名（缺 3 多 3）"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -431,7 +443,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2185.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2187.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -731,7 +743,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3173.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3175.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -755,7 +767,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3221.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3223.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/051-builtin-regexp-constructor",
@@ -923,7 +935,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3864.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3866.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

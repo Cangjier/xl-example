@@ -307,6 +307,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 949 轮：第 948 轮登记的那一族量到根上——**两版修法都被门挡回来、按规矩撤回**，两条形状登进语料（缺口 0 → 2）
+
+**一句话**：接着上一轮那句「下一轮从表达式位的对象字面量成员下手」，这一轮把那一族拆成两格、
+两格的根因都量清了，**两版修法都写出来过、片段探针都当场 0 条对不上，也都被 `coverage` 挡回来**——
+于是按本仓的规矩撤回、把形状登进语料（`xl:known-gap`），缺口 0 → 2。
+
+| 形状 | 根因 | 试过的那一版 | 读数 | 为什么撤回 |
+| --- | --- | --- | --- | --- |
+| `const v = { [K in T]: X };` | `IsMappedKeyBracket` 那条「父单元是一个 `{` 括号、且本单元是它第一个实义单元」把**值位**也放行 ⇒ 值位那个 `in` 被当成映射键的标记、`K in T` 整段收成 `TypeParameter`（TS：`ComputedPropertyName > BinaryExpression{InKeyword}`） | 拿 `Bracket.Context`（**开括号那一刻**算好的位置）当判据，只在它是 `"value"` 时判否 | 片段探针 **4 条 → 0 条**；`coverage` **4192 → 4184**、`blocked 27 → 36`——六条**真**映射类型反过来坏（`ty-mapped` / `ty-mapped-as-remap` / `gap-r869-mapped-modifiers-comment-1` / `gap-r922-mapped-modifier-space-before-colon` / `type-mapped-modifier-in-generic` / `type-combination-adversarial`） | 多行 / 带修饰词 / 泛型实参里那几种排版，`Context` 答的是 `"value"`（第 163 轮那条注释早就记过按它筛吃过亏）——**判据不成立** |
+| `const v = { new (a: number): I };` | `MethodDeclarationCloseRule` 的无体成员白名单里没有 `ObjectLiteral`（只有 `ClassBody` / `InterfaceBody` / `TypeLiteralBody`）⇒ 这一格落到 `NewCloseRule` 手里（`new (a: number)` 新表达式 + 尾巴收成属性赋值） | 把 `ObjectLiteral` 加进那份白名单 | 片段探针 **2 条 → 0 条**；`coverage 4192 → 4155`、`blocked 27 → 56`、`differ 138 → 147`、e2e 六条挂（`unimplemented: expression MethodDeclaration`） | 放开的范围比要修的那一格大得多（对象字面量里任何 `name(...)` 形状都成了成员签名）——**要的是窄判据** |
+
+- **登记两条常驻用例**（`xl:known-gap`）：
+  [`gap-r949-object-computed-in-name`](tests/cases/token/expressions/gap-r949-object-computed-in-name.ts)（缺 11 多 4）、
+  [`gap-r949-object-member-new-signature`](tests/cases/token/expressions/gap-r949-object-member-new-signature.ts)（缺 3 多 3）。
+- **下一轮的入手处**：第一条要的是**与 `TypeLiteralCloseRule.IsTypePosition` 同一份**位置判据
+  （或者把那一份挪进 `text-common-util` 让两边共用）——**不是第三份近似**；
+  第二条要的是**窄判据**（只认「名字是 `new`、而且它在成员位（前一个是 `{` / `,` / `;`）」那一格）。
+  插桩还量出一条现成的读数：`NewCloseRule.Previous` 里「父单元是 `ObjectLiteral`」那时**已经看得到**
+  ——撤回的那一版挂错了地方（挂在成员体白名单上，而不是挂在那个位置信号上）。
+- **实测**：九道门全绿（墙钟 32.7s）——`cases:tsast` 16/16 且**已知缺口 2 条**、
+  `cases:astjson` 六项全 0（1581 份 / 39642 个节点）、`cases:check` 1593 / 1593、
+  `cases:tags` 0 条不一致、`cases:shapes` 未覆盖 0；
+  `coverage 4192 / 4357 → 4192 / 4359`（两条进 `blocked`：`27 → 29`；`differ 138` 一处没动）。
+- **可复用的判据**：**「片段探针 0 条」不等于「这一版成立」**。这一轮两版都在片段探针上满分，
+  而两版都在真语料上被挡回来——探针量的是**那几条片段**，门量的是**全语料**；
+  所以「改完先跑门」在这里不是流程礼节，它是**唯一**能把这一版判死的证据。
+  按本仓规矩，判据不成立的那一版**不留**：留下的只有读数与登记。
+
 ### 第 948 轮：缺口清单空着时的第三次普查——**类型位**那一侧 1202 条，量出三族、当轮收掉
 
 **一句话**：手法照第 907 / 946 / 947 轮（缺口清单空着就换一批构造再量一遍），这一批换到
