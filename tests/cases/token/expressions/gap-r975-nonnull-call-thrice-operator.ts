@@ -1,4 +1,4 @@
-// xl:known-gap 第 975 轮普查量到：`a!()()() + 1`：漂 1（最外面那一格 `CallExpression` 的区间只到 `[0,6)`，TS 是 `[0,8)`）——**续格长在二元单元里面**那一档（`chainTailInOperator`）：摊平之后那格 `Method(name=""[Method(name=""[Bracket])])` 只折出两层调用，外面那一层没有节点。
+// xl:note 第 975 轮收掉：`a!()()() + 1`：原来漂 1（最外面那一格 `CallExpression` 的区间只到 `[0,6)`）——**续格长在二元单元里面**那一档（`chainTailInOperator`）把那一格 `Method` **摊成了它的孩子**，而那一格自己说的是三次调用 ⇒ 少一层；现在整格 `Method` 不摊开（留给链循环按「最里面那一格」折），`PropertyAccess` 那一档照旧摊开。
 // xl:round 975
 // 第 975 轮清空清单之后换了一批更深的底样（48 条），这一条是其中之一。
 // 量法：`node tests/parse/ts-ast.mjs --snippets tmp/r975/survey.mjs`。

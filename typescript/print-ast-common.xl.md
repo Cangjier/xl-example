@@ -3852,7 +3852,19 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   const flattenChainTailInOperator = (unit: any, out: Array<any>) => {
     const inner = projectableKids(view(unit));
     if (inner.length >= 2 && isCallFirstUnit(inner[0], ctx)) {
-      for (const one of projectableKids(view(inner[0]))) out.push(one);
+      // **整格 `Method` 不摊开**（第 975 轮）：`a!()()() + 1` 的那个二元单元里，
+      // 第一格是 `Method(name=""[Method(name=""[Bracket])])`——它自己说的是**三次调用**
+      // （第 966 轮那句话：一格可以盖着好几层），摊成它的**孩子**就少了一层，
+      // 实测最外面那格 `CallExpression` 的区间只到 `[0,6)`（TS 是 `[0,8)`）。
+      // 整格留给链循环：那里的 `Method` 分支正是按「最里面那一格」折的
+      //（`innermostCallee` + `graftCallee`）。
+      // **`PropertyAccess` 那一档照旧摊开**：`o["f"]().v` 那一格才是「调用 + 后缀」
+      // 两件事装在一个外壳里，摊平之后循环里那两支各办一件。
+      if (inner[0].get("type") === "PropertyAccess") {
+        for (const one of projectableKids(view(inner[0]))) out.push(one);
+      } else {
+        out.push(inner[0]);
+      }
       for (let j = 1; j < inner.length; j++) out.push(inner[j]);
       return;
     }
@@ -4484,6 +4496,45 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
               i += 1;
               continue;
             }
+            // **断言里的核是一对下标括号**（第 975 轮）：`a!()[0]!()` 的第二格是
+            // `Method(name=""[NotNull([Bracket([0]), !]), Bracket(())])`——**被调用者是
+            // 「断言盖着一次下标」**（`(a!()[0])!`），而这一格自己那次调用的实参表是
+            // 后面那一对平级的括号。上面那两支只认「核是调用」⇒ 整格丢
+            //（实测 `gap-r975-nonnull-index-assert-call`：缺 2 漂 2）。
+            // 次序与下标那一支一字不差：先接受体、再把 `!` 套在外面；这一格自己那次调用
+            // 由 `projectNode(ck[i])` 那个壳给出（它的被调用者位置正好填这一格）。
+            if (assertHead !== undefined && assertHead.get("type") === "Bracket"
+              && assertHead.get("startBracket") === "[") {
+              const element: any = {
+                kind: "ElementAccessExpression",
+                expression: left,
+                argumentExpression: projectExpression(projectableKids(view(assertHead)), ctx),
+                pos: left.pos,
+                end: endOf(assertHead),
+              };
+              const assertedInner: any = {
+                kind: "NonNullExpression",
+                expression: element,
+                pos: element.pos,
+                end: endOf(callHead),
+              };
+              left = Object.assign({}, projectNode(ck[i], ctx), {
+                expression: assertedInner,
+                pos: assertedInner.pos,
+                end: endOf(ck[i]),
+              });
+              i += 1;
+              continue;
+            }
+            // **核既不是调用、也不是下标 ⇒ 这个 `NotNull` 是**被调用者**（第 975 轮）：
+            // `a!()[0]!()` 的第一格是 `Method(name=""[NotNull(a), Bracket(())])`——
+            // `!` 挂在**被调用者**身上，实参括号是**平级的兄弟**。这一档照 `projectNode(这一格)`
+            // 投出来就是对的（`Method` 自己的 `anonymousCallee` 那一支早就会把
+            // 「有 `!` 的被调用者 + 实参表」办成 `CallExpression > NonNullExpression`），
+            // 原来这里没有兜底 ⇒ 循环 `break`、`CallExpression[0,4)` 与后面整段一起丢。
+            left = projectNode(ck[i], ctx);
+            i += 1;
+            continue;
           }
           if (bareName === "" && callHead !== undefined
             && callHead.get("type") === "Bracket" && callHead.get("startBracket") === "("
@@ -5135,6 +5186,12 @@ if (kind === "Method") {
     const inner = asserted.length > 0 ? asserted[0] : undefined;
     if (inner === undefined) return false;
     if (inner.get("type") === "Bracket" && inner.get("startBracket") === "(") return true;
+    // **断言里的核是一个下标括号**（第 975 轮）：`a!()[0]!()` 的第二格是
+    // `Method(name=""[NotNull(Bracket([0]), !), Bracket(())])`——被调用者是「先下标、再断言」，
+    // 而这一格自己那次调用的实参括号是**平级的兄弟**（那一格盖着整段 `[0]!()`）⇒
+    // 它同样是「以一次调用开头」。少了这一句链那一支整个进不来
+    //（实测 `gap-r975-nonnull-index-assert-call`：缺 2 漂 2）。
+    if (inner.get("type") === "Bracket") return isIndexFirstUnit(inner, ctx);
     // **断言里的核自己也是一次调用**（第 975 轮）：`a!()()!()` 的第一格是
     // `NotNull(Method(name=""[Bracket(())]), !)`——`!` 盖在一格 `Method` 上，而那一格
     // 本身就是「以一次调用开头」。上面那一句只认「核是实参括号」⇒ 判据答否 ⇒

@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.66,
+  "progressPercent": 95.67,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1623,
-      "pass": 1621,
-      "blocked": 2,
+      "pass": 1623,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.88
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,25 +130,13 @@
   ],
   "token": {
     "total": 1623,
-    "knownGap": 2,
-    "knownGapStillOpen": 2,
-    "exactFiles": 1621,
-    "scoredWithoutGap": 1621,
-    "passedWithoutGap": 1621
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1623,
+    "scoredWithoutGap": 1623,
+    "passedWithoutGap": 1623
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r975-nonnull-call-thrice-operator",
-      "category": "token",
-      "title": "",
-      "detail": "漂 1　第 975 轮普查量到：`a!()()() + 1`：漂 1（最外面那一格 `CallExpression` 的区间只到 `[0,6)`，TS 是 `[0,8)`）——**续格长在二元单元里面**那一档（`chainTailInOperator`）：摊平之后那格 `Method(name=\"\"[Method(n"
-    },
-    {
-      "id": "token/expressions/gap-r975-nonnull-index-assert-call",
-      "category": "token",
-      "title": "",
-      "detail": "缺 2　漂 2　第 975 轮普查量到：`a!()[0]!()`：缺 2 漂 2——第一格 `Method(name=\"\")[NotNull(a!.), Bracket(())]` 里那个 `NotNull` 是**被调用者**（它的实参括号是平级的兄弟），而链循环里「`callHead` 是 `NotNull`」那一"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",

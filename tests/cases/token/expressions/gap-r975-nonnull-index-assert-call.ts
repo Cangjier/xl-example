@@ -1,4 +1,4 @@
-// xl:known-gap 第 975 轮普查量到：`a!()[0]!()`：缺 2 漂 2——第一格 `Method(name="")[NotNull(a!.), Bracket(())]` 里那个 `NotNull` 是**被调用者**（它的实参括号是平级的兄弟），而链循环里「`callHead` 是 `NotNull`」那一支只认**断言盖着调用**的那两档（核是括号 / 核是 `Method`）⇒ 循环在它前面 `break`，`CallExpression[0,4)` 与后面的下标、断言、第二次调用一起丢。
+// xl:note 第 975 轮收掉：`a!()[0]!()`：原来缺 2 漂 2——第一格里那个 `NotNull` 是**被调用者**（实参括号是平级的兄弟），而链循环「`callHead` 是 `NotNull`」那一支只认「断言盖着调用」那两档 ⇒ 循环 `break`、整段丢；现在补上「核是下标括号」那一档，另加一条兜底（核既不是调用也不是下标 ⇒ 这一格照 `projectNode` 整投，「被调用者带 `!` + 实参表」`Method` 自己那一支早就会办）。
 // xl:round 975
 // 第 975 轮清空清单之后换了一批更深的底样（48 条），这一条是其中之一。
 // 量法：`node tests/parse/ts-ast.mjs --snippets tmp/r975/survey.mjs`。
