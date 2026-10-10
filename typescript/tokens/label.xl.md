@@ -404,8 +404,19 @@ return `<${name} range="${this.RangeOf()}" label="${this.label}">${temp.join("")
   if (typeof statement.end !== "number") {
     return ctx.Node("LabeledStatement", props, v);
   }
-  return ctx.Node("LabeledStatement", props, { ...v, end: statement.end });
+  const node = ctx.Node("LabeledStatement", props, v);
+  node.end = ctx.StmtEndOf(v);
+  return node;
 ```
+
+**`node.end = ctx.StmtEndOf(v)` 为什么不是 `{ ...v, end }`**（第 1022 轮，实测抓到）：
+`v` 是 **token 实例**，而 `start` / `end` / `kind` 都是**基类上的访问器**
+（`core/syntax/token.xl.md` 的 `## property start` / `## property end` / `## method Tag`），
+**不在实例自己的属性表里** ⇒ 展开 `{ ...v }` 只抄到 `Template` / `Parent` / `Data` 那几格，
+`pos` / `end` 抄成 `undefined`、`kind` 连键都没有。产物于是少一个 `pos`
+（`samples/declarations.ts` 的 `LabeledStatement`：产物 `{kind,label,statement,end}`、
+TS 那一份是 `{kind,label,statement,pos,end}`）。
+**要改的是这一格自己的坐标**，所以就在造好的节点上改这一格——不动 token 的展开。
 
 
 ## method Clone:()=>Token

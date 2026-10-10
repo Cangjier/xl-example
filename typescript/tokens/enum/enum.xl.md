@@ -192,7 +192,7 @@ if (this.ScanHead(units, enumIndex, enumUnit) === false) {
 }
 const local = enumIndex - start;
 const nameLocal = this.NameIndex >= start ? this.NameIndex - start : -1;
-enumUnit.modifiers.Set(DeclarationModifiers(units, start, enumIndex).join(","), null);
+enumUnit.modifiers = DeclarationModifiers(units, start, enumIndex).join(",");
 // **修饰词各自的位置**（见 `ModifierSpans`）：它们不进 `Data`，位置要在这一趟记下来。
 enumUnit.ModifierSpans = DeclarationModifierSpans(units, start, enumIndex).join(",");
 const head = units.slice(start);
@@ -275,9 +275,16 @@ throw new Error("Enum.Navigate: 不该被调用——枚举头在 { 那一刻就
 枚举名。**它是唯一的事实来源**：名字那一格**不进 `Data`**（同名口径见 `Class.name`），
 `Value` 说文本、`Range` 说位置，两样一起装在字段里。
 
-## field modifiers:TokenField<string> = new TokenField<string>("")
+## field modifiers:string = ""
 
 声明前面的修饰词，按源码顺序用 `,` 连接；没有修饰词时是空串。
+
+**它是一个 `string`，不是一个 `TokenField`**（第 1022 轮）：投影读这一格时直接拿文本
+（`addModifiers` 里就一句 `modifiers.split(",")`），装成 `TokenField` 之后那边读到的是一个
+**对象**、`typeof modifiers === "string"` 当场不成立 ⇒ 修饰词整串丢掉
+（`samples/declarations.ts`：`ExportKeyword` / `AbstractKeyword` 少了一截）。
+「AST 缺什么，就让 token 承担责任」的落点是**消费方读的那个类型**，不是「能装下就装」；
+所以这一格按消费方要的形态声明。区间不丢：它另有 `ModifierSpans` 那一格。
 
 `Interface` 用的是一个 `export` 布尔字段，这里换成文本，
 是因为枚举的修饰词不止一种（`export` / `declare` / `default` / `const`），一个布尔装不下。
@@ -359,7 +366,7 @@ if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
   nameSpan = ` nameStart="${nameRange.Start.Index}" nameEnd="${nameRange.End.Index}"`;
 }
  const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
-return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" modifiers="${this.modifiers.Text()}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" modifiers="${this.modifiers}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## property modifierSpans:string

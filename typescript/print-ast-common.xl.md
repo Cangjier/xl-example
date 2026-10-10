@@ -2786,8 +2786,12 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     // 就是那个词；而下面 `yield` 那一支的 `end` 会拉到操作数末尾，照抄过来就会多出一段。
     // 所以这一支**自己造 `Identifier`**、不落下去。
     if (headKind === "Keyword" && (word === "yield" || word === "await") && kids.length === 1) {
-      const owner = kids[0].__token;
-      const context = owner === undefined ? null : functionContextOf(ctx, owner);
+      // **这一格自己就是 token**（第 1022 轮）：`v = view(node)` 那一层早就删了
+      // （见 `projectNode` 开头那条「节点就是 token 自己」），所以这里直接问它。
+      // 原来写的是 `kids[0].__token`——那一格现在恒为 `undefined`
+      // ⇒ `functionContextOf` 一次都没被问到 ⇒ 上下文外的 `yield` / `await` 判不出来
+      //（实测 `expr-yield-await-context`：缺 1 多 1）。
+      const context = functionContextOf(ctx, kids[0]);
       const inContext = context !== null && (word === "yield" ? context.generator === true : context.async === true);
       if (inContext === false) {
         return {

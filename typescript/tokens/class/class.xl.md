@@ -516,37 +516,16 @@ super(template);
 （`AddAndCloseLast`）；现在那个 `{` 不建括号了，所以要在这里补一次。
 
 ```ts
-// **先读、再截**：`DeclarationModifiers` 与下面那个区间循环都要看宿主那张表，
+// **先读、再截**：`DeclarationModifiers` 与 `DeclarationModifierSpans` 都要看宿主那张表，
 // 而 `units.length = start` 会把它们截掉。
 const modifierText = DeclarationModifiers(units, start, keywordIndex).join(",");
 // **修饰词的位置**：它们**不进 `Data`**，所以「哪个词在哪儿」要在这一趟抄成字段——
 // 投影那边拿 `modifiers` 的文本回原文 `indexOf` 猜是第二份近似，装饰器名里有同一个词时会猜歪
 // （`@exported export class C {}`，见 `ModifierSpans`）。
 const modifierSpans = DeclarationModifierSpans(units, start, keywordIndex).join(",");
-// **修饰词的区间**：它们在声明头最前面那一段（装饰器不算），而它们**不进 `Data`**，
-// 所以区间要在这里抄进 `modifiers` 字段——同一个道理：能被字段表达的那几样，
-// 单元丢了就得把区间留下。
-let modStart: SourceRange | null = null;
-let modEnd: SourceRange | null = null;
-for (let i = start; i < keywordIndex; i++) {
-  const one = Get(units, i);
-  if (one === null || one instanceof Decorator) {
-    continue;
-  }
-  if (modStart === null) {
-    modStart = one.SourceRange;
-  }
-  modEnd = one.SourceRange;
-}
 const head = units.slice(start);
 units.length = start;
-let modRange: SourceRange | null = null;
-if (modStart !== null && modEnd !== null) {
-  modRange = new SourceRange();
-  modRange.Start = modStart.Start;
-  modRange.End = modEnd.End;
-}
-this.modifiers.Set(modifierText, modRange);
+this.modifiers = modifierText;
 this.ModifierSpans = modifierSpans;
 const local = keywordIndex - start;
 const nameLocal = nameIndex >= start ? nameIndex - start : -1;
@@ -610,10 +589,16 @@ throw new Error("Class.Navigate: 不该被调用——类头在 { 那一刻就�
 `implements` 后面逐个列出的接口名；没有 `implements` 时是空数组。
 XML 属性渲染时用 `Text()`——`Array` 的默认串接就是逗号串。
 
-## field modifiers:TokenField<string> = new TokenField<string>("")
+## field modifiers:string = ""
 
 `ClassBranch` 认下的声明修饰词，按源码顺序用 `,` 连接；没有修饰词时是空串。
-区间取声明头的起止（修饰词是声明头最前面那一段，与装饰器同为「头」的一部分）。
+
+**它是一个 `string`，不是一个 `TokenField`**（第 1022 轮）：投影读这一格时直接拿文本
+（`addModifiers` 里就一句 `modifiers.split(",")`），装成 `TokenField` 之后那边读到的是一个
+**对象**、`typeof modifiers === "string"` 当场不成立 ⇒ 修饰词整串丢掉
+（`samples/declarations.ts`：`ExportKeyword` / `AbstractKeyword` 少了一截）。
+「AST 缺什么，就让 token 承担责任」的落点是**消费方读的那个类型**；
+区间不丢：修饰词各自的区间另有 `ModifierSpans` 那一格。
 
 ## field ModifierSpans:string = ""
 
@@ -696,7 +681,7 @@ if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
   nameSpan = ` nameStart="${nameRange.Start.Index}" nameEnd="${nameRange.End.Index}"`;
 }
  const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
-return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="${this.extends.Text()}" implements="${this.implements.Text()}" modifiers="${this.modifiers.Text()}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
+return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="${this.extends.Text()}" implements="${this.implements.Text()}" modifiers="${this.modifiers}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
 ## property modifierSpans:string
