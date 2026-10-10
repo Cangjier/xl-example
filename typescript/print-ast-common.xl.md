@@ -3289,26 +3289,77 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // `Method` / `Bracket` / `String` 这些「能接在操作数后面」的单元，
   // 出现运算符（`BinaryOperator` / `LogicalOperator` …）就不成立。这一问与 0c / 0d 是同一句话，
   // 只是那两段各自判自己的形状。
+  // **点号也是后缀链的一格**（第 947 轮（二））：`o.tag`t`` / `new A.B`t`` 的标签是**平铺的一条链**
+  // （`[Identifier(o), ., Identifier(tag)]`）——不给点号，这一族的标签就整条判否
+  // （实测 `tmp/r947/gate-sweep2.mjs`：`new A.B` 换行 `` `t` `` `.c` 那一族 27 条对不上）。
+  // 这一问要挡的是**运算符**（下面那句里点名的 `BinaryOperator` / `LogicalOperator`），
+  // 点号与名字不在其中。
   const tagIsPostfixChain = (units: Array<any>): bool => {
     for (const one of units) {
       const kind = one.get("type");
       if (kind === "Identifier" || kind === "PropertyAccess" || kind === "Method" || kind === "Bracket" || kind === "String") {
         continue;
       }
+      if (isDot(one, ctx)) {
+        continue;
+      }
       return false;
     }
     return units.length > 0;
   };
-  if (
-    kids.length >= 2 &&
-    kids[kids.length - 1].get("type") === "String" &&
-    ctx.source[startOf(kids[kids.length - 1])] === "`" &&
-    tagIsPostfixChain(kids.slice(0, kids.length - 1))
-  ) {
-    const tag = projectExpression(kids.slice(0, kids.length - 1), ctx);
-    const template = projectNode(kids[kids.length - 1], ctx);
+  // **模板后面那一串也要是链的续格**（第 947 轮）：判据从「**末尾**那一格是模板」
+  // 放宽成「**链里有一格是模板**」，模板后面那一串交给 `chainOnto`（与 0c 同一段代码）。
+  //
+  // **为什么末尾那一格不一定是模板**：`new A` 换行 `` `t` `` `.b` 的产物是
+  // `[Identifier(A), String(反引号), ., Identifier(b)]` **四格平铺**——`New` 那一趟把整段
+  // 收进了被构造者，而 `New` 排在链规则**前面**，所以链还没折；0c 要的正是「模板与后缀
+  // **已经折成**一个 `PropertyAccess`」，在这里不成立 ⇒ 剩下的 `[., b]` 被当成二元运算符的
+  // 尾巴折成 `BinaryExpression`（实测 `new A` 换行 `` `t` `` `.b` 缺 1 多 2、
+  // `new A[0]` 换行 `` `t${x}` `` `.b` 缺 8）。
+  //
+  // **尾巴必须整段都是链的续格**：混着运算符（`BinaryOperator` / `LogicalOperator` …）就整个让开，
+  // 交回下面通用那一支——宁可维持原来的错，也不把「模板不在这一格的末尾」当成标签模板。
+  const IsChainTail = (units: Array<any>): bool => {
+    for (const one of units) {
+      const kind = one.get("type");
+      if (
+        kind === "Identifier" ||
+        kind === "PropertyAccess" ||
+        kind === "Method" ||
+        kind === "Bracket" ||
+        kind === "ArrayLiteral" ||
+        kind === "NullConditionalOperator" ||
+        kind === "NotNull"
+      ) {
+        continue;
+      }
+      if (isDot(one, ctx)) {
+        continue;
+      }
+      return false;
+    }
+    return true;
+  };
+  // 从右往左找那一格模板：**最后**一格能当标签模板起点的就是它。
+  // `at` 从 1 起（模板前面至少要有一格标签），标签与尾巴两问都过才认。
+  let templateAt = -1;
+  for (let at = kids.length - 1; at >= 1; at--) {
+    const one = kids[at];
+    if (one.get("type") !== "String" || ctx.source[startOf(one)] !== "`") {
+      continue;
+    }
+    if (tagIsPostfixChain(kids.slice(0, at)) && IsChainTail(kids.slice(at + 1))) {
+      templateAt = at;
+      break;
+    }
+  }
+  if (templateAt !== -1) {
+    const tag = projectExpression(kids.slice(0, templateAt), ctx);
+    const template = projectNode(kids[templateAt], ctx);
     if (tag !== undefined && template !== undefined) {
-      return { kind: "TaggedTemplateExpression", tag, template, pos: tag.pos, end: template.end };
+      const head = { kind: "TaggedTemplateExpression", tag, template, pos: tag.pos, end: template.end };
+      const tail = kids.slice(templateAt + 1);
+      return tail.length === 0 ? head : chainOnto(head, tail, ctx);
     }
   }
   // ---- 0c. 标签模板**后面还跟着后缀**（第 176 轮）----
@@ -3342,23 +3393,41 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   const tagIsComplete =
     IsChainBaseNode(tagUnit) ||
     (tagUnit.get("type") === "Bracket" && tagUnit.get("startBracket") === "(");
-  if (tagIsComplete && kids.length >= 2 && kids[1].get("type") === "PropertyAccess") {
-    const inner = projectableKids(view(kids[1]));
-    if (inner.length >= 2 && inner[0].get("type") === "String" && ctx.source[startOf(inner[0])] === "`") {
-      const tag = projectExpression(kids.slice(0, 1), ctx);
-      const template = projectNode(inner[0], ctx);
-      if (tag !== undefined && template !== undefined) {
-        const head = {
-          kind: "TaggedTemplateExpression",
-          tag,
-          template,
-          pos: tag.pos,
-          end: template.end,
-        };
-        const chained = chainOnto(head, inner.slice(1), ctx);
-        const tail = kids.slice(2);
-        return tail.length === 0 ? chained : foldBinaryFrom(chained, tail, ctx);
-      }
+  // **标签本身可能是一整段平铺的链**（第 947 轮（二））：`o/*c*/.tag`t`.b` 的产物是
+  // `[Identifier(o), ., Identifier(tag), PropertyAccess(String, ., b)]`——那条注释把
+  // `o.tag` 那一段**拆平了**（链规则没把它们折成一格），于是 `kids[1]` 是**点号**、
+  // 不是那个 `PropertyAccess`，判据卡在 `kids[1]` 上 ⇒ 模板与后缀整片丢（实测缺 3 漂 1）。
+  // 所以先**找出那一格装着模板的 `PropertyAccess`**（在它前面那一串仍是后缀链时），
+  // 标签取它**前面全部**——上面那条 `kids.length === 2` 的口径在这里自然被覆盖。
+  let templateChainAt = -1;
+  for (let at = 1; at < kids.length; at++) {
+    if (kids[at].get("type") !== "PropertyAccess") {
+      continue;
+    }
+    if (tagIsPostfixChain(kids.slice(0, at)) === false) {
+      continue;
+    }
+    const probe = projectableKids(view(kids[at]));
+    if (probe.length >= 2 && probe[0].get("type") === "String" && ctx.source[startOf(probe[0])] === "`") {
+      templateChainAt = at;
+      break;
+    }
+  }
+  if (tagIsComplete && templateChainAt !== -1) {
+    const inner = projectableKids(view(kids[templateChainAt]));
+    const tag = projectExpression(kids.slice(0, templateChainAt), ctx);
+    const template = projectNode(inner[0], ctx);
+    if (tag !== undefined && template !== undefined) {
+      const head = {
+        kind: "TaggedTemplateExpression",
+        tag,
+        template,
+        pos: tag.pos,
+        end: template.end,
+      };
+      const chained = chainOnto(head, inner.slice(1), ctx);
+      const tail = kids.slice(templateChainAt + 1);
+      return tail.length === 0 ? chained : foldBinaryFrom(chained, tail, ctx);
     }
   }
   // ---- 0d. 标签模板处在**运算符的左脊柱**上（第 176 轮）----

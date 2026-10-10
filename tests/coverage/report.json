@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.5,
+  "progressPercent": 95.51,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1573,
-      "pass": 1572,
-      "blocked": 1,
+      "pass": 1573,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.94
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1573,
-    "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1572,
-    "scoredWithoutGap": 1572,
-    "passedWithoutGap": 1572
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1573,
+    "scoredWithoutGap": 1573,
+    "passedWithoutGap": 1573
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r947-new-template-then-postfix",
-      "category": "token",
-      "title": "",
-      "detail": "缺 9　多 2　`new` 的被构造者是**标签模板**、而模板后面**还接着后缀**时（`new A` 换行 `` `t` `` `.b`），"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
