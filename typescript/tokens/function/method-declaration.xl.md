@@ -1108,7 +1108,7 @@ throw new Error("找不到匹配的子单元");
   // 顺序反了，`class { get x() {} }` 那种「既是 get 又可能是签名」的写法就会两边不同。
   // **判据取属性、不转字符串**：`attrs` 上的值本来就是这个 token 自己记的字符串
   // （不到就取空串），调用全局 `String(...)` 反而会撞上同名的 token 类 `String`。
-  const declaredName = v.attrs.get("name") ?? "";
+  const declaredName = v.name ?? "";
   const declaredModifiers = v.modifiers ?? "";
   let kind = "MethodDeclaration";
   if (ctx.expressionPosition === true) kind = "MethodDeclaration";

@@ -349,7 +349,7 @@ return groups.filter((group) => group.length > 0);
 
 ```ts
   const kids = ctx.Kids(v);
-  const rawName = v.attrs.get("name");
+  const rawName = v.name;
   const calleeText = typeof rawName === "string" ? rawName : "";
   const calleeEnd = v.start + calleeText.length;
   // **可选链子单元要在最前面数出来**：下面「名字为空」那两条支路（IIFE / 链）
@@ -604,7 +604,7 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
 
 ```ts
   const kids = ctx.Kids(v);
-  const rawName = v.attrs.get("name");
+  const rawName = v.name;
   const calleeText = typeof rawName === "string" ? rawName : "";
   const calleeEnd = v.start + calleeText.length;
   const ncos = kids.filter((k: any) => k.Tag() === "NullConditionalOperator");

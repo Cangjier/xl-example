@@ -464,7 +464,53 @@ new Map([
       writable: true,
     });
   }
+  // **`name` 与 `value` 这两个键单独处理**（第 1005 轮）：它们都不是「字典里那个键」一件事——
+  // `value` 是叶子的文本（视图上面已经有这一格，缺了由 `textOfNode` 按区间回原文取）；
+  // 而 `name` 要的是**这一格叫什么**：`MethodDeclaration` 的名字是**子单元** `Identifier`，
+  // 字典里那个 `name` 键两处都取不到（直出版因此一直写 `v.attrs.get("name")`）。
+  // 这一格按 token 自己记的字段答——`Token.NameField` 读的是各页那几个字段
+  // （`Name` / `FieldName` / `Namespace`），**这才是「补一格 token 事实」**
+  // （硬把字典那个键挂成属性实测 823 份语料红：`TypeAliasDeclaration.name` 整格丢）。
+  Object.defineProperty(out, "name", {
+    value: tokenNameOf(node),
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
   return out;
+```
+
+# private method tokenNameOf:(node:any)=>any
+
+**这一格的名字**（第 1005 轮）：先问**产出这一格的那个 token**（`__token`）记的字段，
+问不到再退回字典里那个 `name` 键。
+
+三条路，按「离事实多近」排：
+
+1. **token 自己的字段**——名字在那里是**一格 token 事实**，而且**各页的叫法就三种**
+   （量出来的：`name` 六页、`namespace` 两页、`fieldName` 两页）；
+2. **字典里那个 `name` 键**——有些页把名字当**段**装进去（`Method` 的 `name`），
+   这时它就是一个真键；
+3. **`undefined`**——没有名字的节点（匿名函数、块），直出版那一侧当空串处理。
+
+**两种存法都要认**：`name` 有的页是 `string`、有的页是 `TokenField<string>`
+（`Class` / `Enum` / `Interface` 三页走的是「值 + 它在哪」那一格，第 987 轮那批），
+所以拿到一个不是字符串的东西时要问它 `.Value`——那是 `TokenField` 自己的出口。
+
+**为什么不在 `annotate` 里挂**：`annotate` 挂的是「字典里那个键」，而 `name` **常常根本不在字典里**
+——`MethodDeclaration` 的名字是子单元。第 1005 轮试过照 `annotate` 的写法硬挂 `name`：
+全语料 **823 份红**（`TypeAliasDeclaration.name` 整格丢）。
+
+```ts
+  const owner: any = node instanceof Map ? (node as any).__token : undefined;
+  if (owner !== undefined) {
+    for (const key of ["name", "fieldName", "namespace"]) {
+      const raw = owner[key];
+      if (typeof raw === "string" && raw !== "") return raw;
+      if (raw !== undefined && raw !== null && typeof raw.Value === "string" && raw.Value !== "") return raw.Value;
+    }
+  }
+  return node instanceof Map ? node.get("name") : undefined;
 ```
 
 # private method annotate:(node:any)=>void
@@ -496,13 +542,11 @@ new Map([
 **为什么先查 `hasOwnProperty`**：`view()` 与 `viewOf` 会被反复问到同一格，
 重挂一遍是白花钱（`defineProperty` 不便宜，而这一格在整棵树上被问几万次）。
 
-**它不管 `value` / `name`**——那两个**不是一个键的一件事**，所以不在这一格挂：
+**它不管 `value` / `name`**——那两个**不是一个键的一件事**，所以 `annotate` 不挂它们：
 叶子的文本要么在 `value` 属性上、要么由区间回原文取（`textOfNode` 的第二条路）；
-声明的名字落在**子单元或别的属性**上（`name` / `fieldName` / `namespace` 三选一，
-见 `memberNameOf`）。第 1005 轮试过把 `name` 也这样挂，**全语料 823 份红**
-（`TypeAliasDeclaration.name` 整格丢：那两处的 `name` 键压根不在字典里，取到的是 `undefined`）——
-那说明它缺的是**一格 token 事实**，不是换一个读法。直出版里剩下的 `get("name")` 因此记在
-`direct:lint` 的例外表里，是**下一轮的改动**。
+而 `name` 是**这一格叫什么**，第 1005 轮试过照这里的写法硬挂字典那个 `name` 键，
+**全语料 823 份红**（`TypeAliasDeclaration.name` 整格丢：那两处的 `name` 键压根不在字典里）。
+它由 `view()` 上单独挂的那一格答，值走 `tokenNameOf`——**那才是「补一格 token 事实」**。
 
 ```ts
   if (!Object.prototype.hasOwnProperty.call(Map.prototype, "Tag")) {

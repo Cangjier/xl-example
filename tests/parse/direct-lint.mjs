@@ -89,16 +89,12 @@ const FORBIDDEN = [
  * 而「谁也别再写回来」只能靠这条静态判据守着。第 1005 轮把 `type` 那一族（188 处）
  * 换成了 `Tag()`（token 自己的类名，见 `core/syntax/token.xl.md` 的 `Tag` 与
  * `typescript/print-ast-common.xl.md` 的 `annotate`），把**标量属性**换成了同名属性读
- * （`.attrs.get("op")` → `.op`、`get("startBracket")` → `.startBracket`、`get("stringChar")` → `.stringChar`）
- * ⇒ **218 / 220 换掉了，只剩 `name` 那 2 处**。
+ * （`.attrs.get("op")` → `.op`、`get("startBracket")` → `.startBracket`、`get("stringChar")` → `.stringChar`），
+ * 最后两处 `name` 换成 `view()` 上那一格由 `tokenNameOf` 答的 `name`
+ * ⇒ **220 / 220 全部收掉，例外表归零**。
  *
- * **为什么剩下那 2 处进例外表而不是硬改**：它们问的不是「字典里那个键存了什么」，
- * 而是「这一格的名字是哪一格」——声明的名字落在**子单元或别的属性**上
- * （`name` / `fieldName` / `namespace` 三选一，见 `memberNameOf`；叶子的文本同理，
- * 要么在 `value` 上、要么由区间回原文取，见 `textOfNode` 的第二条路）。
- * 那不是同一个问句换一个入口，是**缺一格 token 事实**（第 1005 轮试过按属性硬接：
- * 全语料 823 份红，`TypeAliasDeclaration.name` 整格丢）⇒ 它是下一轮的改动。
- * 例外表**逐键计数**：多一处就红，所以它是「只剩下这些」的账，不是「这一类都放过」。
+ * **为什么这门要逐键计数**：220 处里绝大多数**逐字节同答**，所以删掉一两处看不出来；
+ * 而「少一处也要红」正是把「收掉了就去删那一行」变成机械动作，而不是靠人记得。
  */
 const STRING_KEY = [
   ["按字符串键取值", /\.get\(\s*["']/],
@@ -108,17 +104,19 @@ const STRING_KEY = [
 FORBIDDEN.push(...STRING_KEY);
 
 /**
- * 例外：**这一格自己的名字**（同上）——`键 -> 允许多少处`。
- * 数字是量出来的（第 1005 轮），不是估的；**少一处也要红**（收掉了就来删这一行）。
+ * 例外：**一个都没有了**（第 1005 轮收完）——表留着，因为它是「按字符串键查」这本账的形状：
+ * 键 -> 允许多少处。数字是量出来的，不是估的；**多一处红、少一处也红**。
  *
- * 只剩 `name` 这一族：第 1005 轮试过把它也挂成属性（`annotate`），
- * **全语料 823 份红**——`TypeAliasDeclaration` 那两处的 `name` 键压根不在字典里，
- * 取到的是 `undefined`，整个 `name` 字段静默丢掉。所以它缺的是**一格 token 事实**
- * （名字落在子单元或 `fieldName` / `namespace` 上），不是换一个读法。
+ * 最后走掉的两处是 `name`（`method-declaration` / `method`）：它们读的是「这一格叫什么」，
+ * 而那个名字**常常根本不在字典里**（`MethodDeclaration` 的名字是子单元），
+ * 所以收法是**补一格 token 事实**而不是换读法——`view()` 现在挂一个 `name`，
+ * 值由 `tokenNameOf` 按 token 自己那几个字段答（`name` / `fieldName` / `namespace`，
+ * 含 `TokenField<string>` 那一档的 `.Value`）。
+ * 反例也记着：直接挂字典那个 `name` 键实测 **823 份语料红**（`TypeAliasDeclaration.name` 整格丢）。
  */
 const STRING_KEY_ALLOWED = new Map([
   ["value", 0],
-  ["name", 2],
+  ["name", 0],
   ["stringChar", 0],
 ]);
 
