@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.55,
+  "progressPercent": 95.6,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1617,
-      "pass": 1604,
-      "blocked": 13,
+      "pass": 1609,
+      "blocked": 8,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.2
+      "coverage": 99.51
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1617,
-    "knownGap": 13,
-    "knownGapStillOpen": 13,
-    "exactFiles": 1604,
-    "scoredWithoutGap": 1604,
-    "passedWithoutGap": 1604
+    "knownGap": 8,
+    "knownGapStillOpen": 8,
+    "exactFiles": 1609,
+    "scoredWithoutGap": 1609,
+    "passedWithoutGap": 1609
   },
   "blocked": [
     {
@@ -150,40 +150,16 @@
       "detail": "漂 1　第 973 轮普查量到：`a!()!()!()`：漂 1（最里面那一格 `CallExpression` 盖到 `[0,10)`）——断言与调用交替出现时，层数只按「一格一次」算，没有按区间重量。"
     },
     {
-      "id": "token/expressions/gap-r973-nonnull-call-quad-member",
-      "category": "token",
-      "title": "",
-      "detail": "漂 2　第 973 轮普查量到：`a!()()()().c`：两格 `CallExpression` 漂到 `[0,10)`（缺的是第 4 / 第 3 层调用）——第 972 轮补的那一句只管「最里面那一格的头是实参括号」，层数再深一层时同一个问句要**递归**着问下去。"
-    },
-    {
-      "id": "token/expressions/gap-r973-nonnull-call-quad",
-      "category": "token",
-      "title": "",
-      "detail": "漂 2　第 973 轮普查量到：`a!()()()()`：与 `a!()()()().c` 同形（没有后缀成员），两格 `CallExpression` 漂到 `[0,10)`——同一处：空名字 `Method` 套三层时每一层都要各投一格。"
-    },
-    {
       "id": "token/expressions/gap-r973-nonnull-call-twice-assert",
       "category": "token",
       "title": "",
       "detail": "缺 3　漂 1　第 973 轮普查量到：`a!()()!()`：缺 3 漂 1——断言的核是**实参括号**、而外面还有两层调用（第 966 轮那一档的下一层）。"
     },
     {
-      "id": "token/expressions/gap-r973-nonnull-member-call-quad",
-      "category": "token",
-      "title": "",
-      "detail": "漂 2　第 973 轮普查量到：`a.b!()()()()`：漂 2（两格 `CallExpression` 盖到 `[0,12)`）——带成员名的 `Method` 里套三层空名字调用，层数照旧少两层。"
-    },
-    {
       "id": "token/expressions/gap-r973-opt-assert-call-thrice-member",
       "category": "token",
       "title": "",
       "detail": "缺 3　第 973 轮普查量到：`a?.b!()()().c`：缺三层 `CallExpression`（`[0,7)` / `[0,9)` / `[0,11)`）——第 972 轮补的是 `projectExpression` 链循环里那一档，而这一格走的是 `chainWithOptional` 子链分支里**同形"
-    },
-    {
-      "id": "token/expressions/gap-r973-opt-assert-call-thrice",
-      "category": "token",
-      "title": "",
-      "detail": "漂 1　第 973 轮普查量到：`a?.b!()()()`：漂 1（最里面那一格 `CallExpression` 的区间一路盖到 `[0,11)`）——同上：子链分支那一份缺「最里面那一格自己也盖着两层」这一问。"
     },
     {
       "id": "token/expressions/gap-r973-opt-assert-index-call-member",
@@ -208,12 +184,6 @@
       "category": "token",
       "title": "",
       "detail": "缺 1　漂 2　多 2　第 973 轮普查量到：`a?.b()![0]`：缺 1 漂 2 多 2——`()` 之后那一格是 `![0]`（断言盖着下标），而它被读成了**成员名**（多出一格名字叫 `b()` 的属性访问）。"
-    },
-    {
-      "id": "token/expressions/gap-r973-opt-index-call-thrice",
-      "category": "token",
-      "title": "",
-      "detail": "漂 1　第 973 轮普查量到：`a?.[b]()()()`：漂 1（`CallExpression` 的区间一路盖到 `[0,12)`）——三层调用只折出两层，与 `a?.b()()()` 那一档同源，差的是链头是**下标**那一格。"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",

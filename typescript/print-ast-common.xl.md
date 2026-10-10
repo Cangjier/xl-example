@@ -4322,37 +4322,23 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
           // 外层再用 `projectNode(ck[i])` 套一层。
           if (bareName === "" && callHead !== undefined && callHead.get("type") === "Method"
             && String(callHead.get("name") ?? "") === "") {
-            // **最里面那一格自己也盖着两层调用**（第 972 轮，**普查当场红的**）：
-            // `a!()()().c` 的 `callHead` 是 `Method(name=""[Bracket(())])`——头是实参括号、
-            // 而这一格的区间**还盖着外面一对**（第 966 轮那句话：一格说两次调用）。
-            // `projectNode(callHead)` 对它就只投得出**一次**调用 ⇒ 三次调用只折出两次、
-            // 最里面那个 `CallExpression` 的区间一路漂到 `[0,8)`（实测
-            // `gap-r971-nonnull-call-thrice-member`：缺 5 → **缺 0 漂 1**）。
-            // 判据与下面那一支**一字不差**（`endOf(头) < endOf(这一格)`），折法也一样：
-            // 先把「括号那一次」建成最里面那一格，再让 `projectNode(callHead)` 那个壳套上去。
-            let innerCall = Object.assign({}, projectNode(callHead, ctx), {
-              expression: left,
-              pos: left.pos,
-            });
-            const deepKids = projectableKids(view(callHead)).filter(
-              (k: any) => k.get("type") !== "GenericType",
+            // **「最里面那一格」要一路问到底**（第 975 轮，**普查当场红的**）：
+            // `a!()()()()`（四次调用）的 `callHead` 是
+            // `Method(name=""[Method(name=""[Bracket(())])])`——里面**还套着一格**，
+            // 而这里原来只对「头一格是实参括号」那一档补一层
+            // （`deepHead.get("type") === "Bracket"`）⇒ 四层调用只折出两层
+            //（实测 `gap-r973-nonnull-call-quad`：两个 `CallExpression` 的区间一路漂到
+            //  `[0,10)`；三层那一档 `a!()()()` 也是同一句话少问一层）。
+            // **折法与 `chainWithOptional` / `chainOnto` 的 Method 分支共用同一对**
+            //（第 971 轮立的 `innermostMethod` + `graftCallee`；「最里面那一格的被调用者
+            //  怎么建」第 975 轮收进 `innermostCallee`）：先走到**最里面**那一格
+            // `Method`，再让 `projectNode(callHead)` 那一串壳**整体**套上去——
+            // `graftCallee` 一路下到最里面那一层调用，不会像原来那样把中间几层丢掉。
+            const innerCall = graftCallee(
+              projectNode(callHead, ctx),
+              innermostCallee(left, innermostMethod(callHead), ctx),
+              undefined,
             );
-            const deepHead = deepKids.length > 0 ? deepKids[0] : undefined;
-            if (deepHead !== undefined && deepHead.get("type") === "Bracket"
-              && deepHead.get("startBracket") === "(" && endOf(deepHead) < endOf(callHead)) {
-              innerCall = Object.assign({}, innerCall, {
-                expression: {
-                  kind: "CallExpression",
-                  expression: left,
-                  arguments: splitTopLevel(projectableKids(view(deepHead)), ctx, ",")
-                    .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-                    .filter((a) => a !== undefined),
-                  pos: left.pos,
-                  end: endOf(deepHead),
-                },
-                pos: left.pos,
-              });
-            }
             left = Object.assign({}, projectNode(ck[i], ctx), {
               expression: innerCall,
               pos: innerCall.pos,
@@ -5252,6 +5238,63 @@ return false;
   return graft(call);
 ```
 
+# private method innermostCallee:(left:any, deepest:any, ctx:any)=>any
+
+**把「最里面那一格 `Method`」的被调用者建出来**（第 975 轮）——`innermostMethod` 的搭档，
+`graftCallee` 的输入。
+
+一个空名字的 `Method` 单元里可以套着好几层调用（见 `innermostMethod`），而**最里面那一格**
+说的正是「对 `left` 的那一次调用」。它的核有三种，折法各不相同：
+
+| 核 | 写法 | 要建的那一格 |
+| --- | --- | --- |
+| **一个名字** | `Method("")[Method("b")]` | 先接一格 `PropertyAccessExpression` |
+| **一对实参括号** | `Method("")[Bracket(…)]` | 「括号那一次」要**单独**建成一格 `CallExpression` |
+| 都不是 | `Method("")` | 就是 `left` 自己（原样返回） |
+
+**第二档为什么必须单独建**：这一格的区间**比它的实参括号更靠右**（第 966 轮那句话：
+一格说两次调用）——`projectNode(那一格 Method)` 只投得出**外面**那次调用，
+里面那次（括号那一次）没有节点。判据与另外五处**一字不差**：
+`endOf(括号) < endOf(这一格)`。
+
+**这一份原来是五处各写一遍**（第 975 轮收拢）：`projectExpression` 的链循环、
+`chainWithOptional` 的「第一格是 `Method`」与子链成员循环、`chainOnto` 的 Method 分支
+与子链成员循环——**前两处只认名字那一档**，于是「括号 + 再调」那一路一到三层就少一层
+（实测 `gap-r973-opt-assert-call-thrice` / `gap-r973-opt-index-call-thrice` 一族：
+`a?.b!()()()` 缺 3、`a?.[b]()()()` 漂 1）。
+
+`?.` **不在这里挂**：四种调用点各有各的放法（`chainWithOptional` 挂在**新接出来那一格**上，
+`chainOnto` 那一支没有 `?.`）——调用方自己决定。
+
+```ts
+  const name = String(deepest.get("name") ?? "");
+  if (name !== "") {
+    const at = startOf(deepest);
+    return {
+      kind: "PropertyAccessExpression",
+      expression: left,
+      name: { kind: "Identifier", text: name, pos: at, end: at + name.length },
+      pos: left.pos,
+      end: at + name.length,
+    };
+  }
+  const kids = projectableKids(view(deepest)).filter((k: any) => k.get("type") !== "GenericType");
+  const head = kids.length > 0 ? kids[0] : undefined;
+  if (head !== undefined && head.get("type") === "Bracket" && head.get("startBracket") === "("
+    && endOf(head) < endOf(deepest)) {
+    return {
+      kind: "CallExpression",
+      expression: left,
+      arguments: splitTopLevel(projectableKids(view(head)), ctx, ",")
+        .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+        .filter((a: any) => a !== undefined),
+      pos: left.pos,
+      end: endOf(head),
+    };
+  }
+  return left;
+```
+
 # private method chainWithOptional:(left:any, unit:any, ctx:any)=>any
 
 `a.b?.c` / `a?.[i]` → 在链上再加一格（带 `questionDotToken`）。
@@ -5314,31 +5357,28 @@ return false;
       // 「换被调用者要下到最里面那一格调用」是 `graftCallee`——`chainOnto` 的 Method 分支
       // 用的是同一对。
       if (calleeKid !== undefined && calleeKid.get("type") === "Method") {
-        const deepest = innermostMethod(calleeKid);
-        const innerName = String(deepest.get("name") ?? "");
-        // **名字为空**（`a?.()()` 那一档）：被调用者就是 `left`，而 `?.` 挂在**最里面**
-        // 那一次调用上（那正是 `a?.()` 这一次）。
-        if (innerName === "") {
-          const innerCall = graftCallee(projectNode(calleeKid, ctx), left, questionDot);
-          const outerCall = projectNode(first, ctx);
-          return Object.assign({}, outerCall, {
-            expression: innerCall,
-            pos: innerCall.pos,
-            end: endOf(unit),
-          });
-        }
-        const innerAt = startOf(deepest);
-        const innerMember: any = {
-          kind: "PropertyAccessExpression",
-          expression: left,
-          name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length },
-          pos: left.pos,
-          end: innerAt + innerName.length,
-        };
-        if (questionDot !== undefined) innerMember.questionDotToken = questionDot;
-        const innerCall = graftCallee(projectNode(calleeKid, ctx), innerMember, undefined);
+        // **最里面那一格的被调用者怎么建，收在 `innermostCallee` 里**（第 975 轮）：
+        // 它按核分三档（名字 / 实参括号 / `left` 自己），其中「括号那一次」要单独建成一格——
+        // 少了那一档，`a?.b()()()` 一族**每一次都少一层**
+        //（实测 `gap-r973-opt-assert-call-thrice`：`CallExpression` 各漂 / 缺）。
+        const callee = innermostCallee(left, innermostMethod(calleeKid), ctx);
+        // **`?.` 挂在这一格新接出来的那一层上**（TS 的放法）：接了名字 / 建了「括号那一次」
+        // 就挂在那上面（`a?.b!()` 那一族断言已经把它挂进 `assertedMember` 里了）；
+        // 什么都没接（被调用者就是 `left`）时交给 `graftCallee` 挂到最里面那次调用上
+        //（`a?.()()` 那一档：`?.` 属于 `a?.()` 那一次，不是外面那次）。
+        const built = callee !== left;
+        if (built && questionDot !== undefined) callee.questionDotToken = questionDot;
+        const innerCall = graftCallee(
+          projectNode(calleeKid, ctx),
+          callee,
+          built ? undefined : questionDot,
+        );
         const outerCall = projectNode(first, ctx);
-        return Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos, end: endOf(unit) });
+        return Object.assign({}, outerCall, {
+          expression: innerCall,
+          pos: innerCall.pos,
+          end: endOf(unit),
+        });
       }
       // **被调用者是 `left`、而这一格盖着两层调用**（第 962 轮）：`o?.m?.()(1)` 的 `NCO` 里是
       // `Method(name="")[Bracket, 1]`——那个 Bracket 是**内层**那次调用（`?.()`）的实参表，
@@ -5698,26 +5738,13 @@ return false;
             // 只读 `callHead` **第一格**的名字（第 966 轮那一版）会把三层当成两层：
             // 实测 `a?.b()()().c` 漂 2、字段 1、`Identifier(b)` 整格丢。
             // 折法与 `chainWithOptional` 的「被调用者是 `Method`」那一支**一字不差**：
-            // 走到最里面那一格用 `innermostMethod`，换被调用者用 `graftCallee`
-            //（它一路下到最里面那一层调用，不会把中间几层丢掉）。
-            const deepest = innermostMethod(callHead);
-            const deepName = String(deepest.get("name") ?? "");
-            let callee: any = node;
-            let deepDot: any = pending;
-            if (deepName !== "") {
-              const deepAt = startOf(deepest);
-              const innerMember: any = {
-                kind: "PropertyAccessExpression",
-                expression: node,
-                name: { kind: "Identifier", text: deepName, pos: deepAt, end: deepAt + deepName.length },
-                pos: node.pos,
-                end: deepAt + deepName.length,
-              };
-              if (pending !== undefined) innerMember.questionDotToken = pending;
-              callee = innerMember;
-              deepDot = undefined;
-            }
-            const innerCall = graftCallee(projectNode(callHead, ctx), callee, deepDot);
+            // 走到最里面那一格用 `innermostMethod`，**被调用者怎么建**用 `innermostCallee`
+            //（第 975 轮收拢：名字 / 实参括号 / `left` 三档一处一份），
+            // 换法用 `graftCallee`（它一路下到最里面那一层调用，不会把中间几层丢掉）。
+            const callee = innermostCallee(node, innermostMethod(callHead), ctx);
+            const built = callee !== node;
+            if (built && pending !== undefined) callee.questionDotToken = pending;
+            const innerCall = graftCallee(projectNode(callHead, ctx), callee, built ? undefined : pending);
             node = Object.assign({}, projectNode(member, ctx), {
               expression: innerCall,
               pos: innerCall.pos,
@@ -5906,25 +5933,17 @@ return false;
       // 交给 `left` 是不够的：那样**外面那一次调用没有节点**（实测
       // `gap-r964-opt-call-triple`：`CallExpression` / `PropertyAccessExpression` /
       // `Identifier` 三处漂、另多一格名字为空的属性访问）。
-      // **做法**：被调用者接在**最里面**那一格调用上——名字从 `innermostMethod` 给的最里面
-      // 那一格取（第 971 轮：`callHead` 自己的名字也可能是空的），换法交给 `graftCallee`
+      // **做法**：被调用者接在**最里面**那一格调用上——走进最里面那一格用 `innermostMethod`、
+      // **被调用者怎么建**用 `innermostCallee`（第 975 轮收拢：名字 / 实参括号 / `left`
+      // 三档各一处一份），换法交给 `graftCallee`
       //（它一路下到最里面那一层，不会把中间几层丢掉）。与 `chainWithOptional` 的
       // 「被调用者是 `Method`」那一支**共用同一对**。
       if (bareName === "" && callHead !== undefined && callHead.get("type") === "Method") {
-        const deepest = innermostMethod(callHead);
-        const innerName = String(deepest.get("name") ?? "");
-        let callee: any = left;
-        if (innerName !== "") {
-          const nameAt = startOf(deepest);
-          callee = {
-            kind: "PropertyAccessExpression",
-            expression: left,
-            name: { kind: "Identifier", text: innerName, pos: nameAt, end: nameAt + innerName.length },
-            pos: left.pos,
-            end: nameAt + innerName.length,
-          };
-        }
-        const innerCall = graftCallee(projectNode(callHead, ctx), callee, undefined);
+        const innerCall = graftCallee(
+          projectNode(callHead, ctx),
+          innermostCallee(left, innermostMethod(callHead), ctx),
+          undefined,
+        );
         left = Object.assign({}, projectNode(unit, ctx), {
           expression: innerCall,
           pos: innerCall.pos,
@@ -6117,19 +6136,14 @@ return false;
         // `Method(name="")[Method(name="c")]`，先把内层折成成员调用、再把外层那次调用套上去；
         // 少了它，那一格会落到下面「按成员名折」⇒ 投出一个**名字为空**的属性访问。
         if (calleeKid !== undefined && calleeKid.get("type") === "Method") {
-          const innerName = String(calleeKid.get("name") ?? "");
-          const innerAt = startOf(calleeKid);
-          const innerMember: any = {
-            kind: "PropertyAccessExpression",
-            expression: left,
-            name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length },
-            pos: left.pos,
-            end: innerAt + innerName.length,
-          };
-          const innerCall = Object.assign({}, projectNode(calleeKid, ctx), {
-            expression: innerMember,
-            pos: innerMember.pos,
-          });
+          // **折法与 `chainWithOptional` 那一处、以及本函数 Method 分支一字不差**
+          //（第 975 轮收拢）：最里面那一格用 `innermostMethod`、被调用者用
+          // `innermostCallee`、换法用 `graftCallee`。
+          const innerCall = graftCallee(
+            projectNode(calleeKid, ctx),
+            innermostCallee(left, innermostMethod(calleeKid), ctx),
+            undefined,
+          );
           const outerCall = projectNode(next, ctx);
           left = Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos });
           i += 2;
