@@ -3268,16 +3268,45 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       return foldBinaryFrom(extended, [...inner.slice(1), ...kids.slice(at + 1)], ctx);
     }
   }
-  // ---- 0b. 标签模板 `tag`…``（第 137 轮）----
+  // ---- 0b. 标签模板 `tag`…``（第 137 轮；第 946 轮（二）从「恰好两个单元」放宽到「末尾那一格是模板」）----
   //
   // 产物是 `[<标签单元>, String]` **两格平级**（`tag`a${b}c`` 的标签与模板各一格），
   // 而 TS 那边是 `TaggedTemplateExpression{ tag, template }`。照通用支投会把它当成
   // 两个平级节点（模板表达式整个丢掉，实测 `ex-tagged-template` 缺 10）。
   // 判据落在**原文的引号**上：那个 `String` 的起点字符是反引号（普通字符串是 `"` / `'`，
   // 产物里两者的属性一模一样，分不出来）。
-  if (kids.length === 2 && kids[1].get("type") === "String" && ctx.source[startOf(kids[1])] === "`") {
-    const tag = projectExpression(kids.slice(0, 1), ctx);
-    const template = projectNode(kids[1], ctx);
+  //
+  // **标签本身可能是一整段链**（第 946 轮（二）实测）：`new ns[a]`` ` `` 的产物是
+  // `[Identifier(ns), Bracket([a]), String]` **三格**（`New` 那一趟把下标与模板一起收进了
+  // 被构造者那一段），原来的 `kids.length === 2` 在这一档上判否 ⇒ 模板整格丢、
+  // 投出来的 `NewExpression` 只剩 `expression`。
+  //
+  // **放宽成「末尾那一格是反引号 `String`」还差一条守卫**（同轮实测撞到的回归）：
+  // `tag`a${x}b` === tag`a${x}b`` 的产物是 `[Identifier(tag), BinaryOperator(String, ===, tag), String]`
+  // ——末尾那格也是模板，可**标签不是前面全部**（TS 是 `tag`a${x}b`` 与 `tag`a${x}b`` 两个标签模板
+  // 做 `===`），照放宽后的那一支投会把整条比较式收成一个标签模板（0d 那段本来管的就是这一族）。
+  // 所以再加一问：**模板前面那一串必须是一条「后缀链」**——`Identifier` / `PropertyAccess` /
+  // `Method` / `Bracket` / `String` 这些「能接在操作数后面」的单元，
+  // 出现运算符（`BinaryOperator` / `LogicalOperator` …）就不成立。这一问与 0c / 0d 是同一句话，
+  // 只是那两段各自判自己的形状。
+  const tagIsPostfixChain = (units: Array<any>): bool => {
+    for (const one of units) {
+      const kind = one.get("type");
+      if (kind === "Identifier" || kind === "PropertyAccess" || kind === "Method" || kind === "Bracket" || kind === "String") {
+        continue;
+      }
+      return false;
+    }
+    return units.length > 0;
+  };
+  if (
+    kids.length >= 2 &&
+    kids[kids.length - 1].get("type") === "String" &&
+    ctx.source[startOf(kids[kids.length - 1])] === "`" &&
+    tagIsPostfixChain(kids.slice(0, kids.length - 1))
+  ) {
+    const tag = projectExpression(kids.slice(0, kids.length - 1), ctx);
+    const template = projectNode(kids[kids.length - 1], ctx);
     if (tag !== undefined && template !== undefined) {
       return { kind: "TaggedTemplateExpression", tag, template, pos: tag.pos, end: template.end };
     }

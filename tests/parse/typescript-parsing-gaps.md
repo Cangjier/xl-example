@@ -609,20 +609,30 @@
 实测错——内层括号成形时**已经把它吃掉了**，列表里根本没有那个符号）。
 ⇒ 缺口 1 → **0**，用例改名成 `token/expressions/expr-new-index-callee-newline.ts` 留着当守卫。
 
-**同一批探针量出来、这一轮没收的三格**（如实登记，都在同一片 `new` 家族里，
-各自是一个**独立的形状判断**，不是本轮的根）：
+**第 946 轮（二）把同一批探针量出来的另外两格也收掉**：这一轮把那一问从
+「后面那一格是不是 `(`」放宽成「**这一段下标后面那一格还能不能接下去**」——
+`.成员` / `(` 实参表 / `[` 下标 / 模板串都是 TS 的 `parseMemberExpressionRest` 会贪心吞下去的后缀：
 
-| 片段 | TS | 本仓（第 946 轮实测） |
+| 片段 | 收掉之前 | 现在与 TS 逐节点一致 |
 | --- | --- | --- |
-| `new ns[a]` | `NewExpression > ElementAccessExpression(ns, a)` | `ElementAccessExpression(New(ns), a)` |
-| `new ns[a].b` | `NewExpression > PropertyAccessExpression > ElementAccessExpression` | `PropertyAccessExpression(ElementAccessExpression(New, a), b)` |
-| `new ns[a]`` ` `` | `NewExpression > TaggedTemplateExpression > ElementAccessExpression` | `TaggedTemplateExpression(ElementAccessExpression(New, a))` |
+| `new ns[a].b` | `PropertyAccessExpression(ElementAccessExpression(New, a), b)` | `NewExpression > PropertyAccessExpression > ElementAccessExpression` |
+| `new ns[a]`` ` `` | `TaggedTemplateExpression(ElementAccessExpression(New, a))` | `NewExpression > TaggedTemplateExpression > ElementAccessExpression` |
 
-三格的共同点：**`New` 与紧跟其后那一格之间没有一次调用**时，TS 仍然把那个后缀算在构造者里。
-本轮只做「后面接得上 `(`」那一半（那是登记在案的缺口、也是 `parseMemberExpressionOrHigher`
-里唯一有**独立判据**的一档）；上面三格没有登记过、也没有守卫用例，
-**按规矩「先补用例、再收」**——下一轮要做就从 `tests/cases/token/expressions/` 里补三份
-`xl:known-gap` 起步，别直接改判据。
+模板那一格还带出**投影层的一处放宽**：`print-ast-common.xl.md` 的 0b 支
+（标签模板）原来要求「恰好两个单元」，而 `new ns[a]`` ` `` 的标签是**三格**
+（`[Identifier(ns), Bracket([a]), String]`，`New` 把下标与模板一起收进了被构造者那一段）
+⇒ 模板整格丢、投出来的 `NewExpression` 只剩 `expression`。
+放宽成「末尾那一格是反引号 `String`」之后**当场撞到一条回归**
+（`expr-template-tagged-in-operator`：`tag`a${x}b` === tag`a${x}b`` 的
+`[Identifier(tag), BinaryOperator(String, ===, tag), String]` 也满足那句话，
+于是整条比较式被收成一个标签模板）——所以那一支**必须再带一条守卫**：
+模板前面那一串得是**后缀链**（`Identifier` / `PropertyAccess` / `Method` / `Bracket` / `String`），
+出现运算符就不成立。带上之后两处都对。
+
+**这一轮仍然没收的一格**（如实登记）：`new ns<T>[a]()` —— **TS 自己就把它读散了**
+（`BinaryExpression(BinaryExpression(new ns, <, T), >, CallExpression([a]()))`，实测），
+本仓读成 `NewExpression(ns, TypeReference(T))`：这一格量的是「两边都非法时谁更接近」，
+**没有可对齐的目标形状**，按「口径边界」那一节的规矩留在门外（不是缺口）。
 
 **第 945 轮收掉的那一格**：`gap-r941-import-attributes-newline`（`import a from "m"` 换行
 `with { type: "json" };` 在 TS 那边是**一条** `ImportDeclaration`）。第 941 轮把判据写进了

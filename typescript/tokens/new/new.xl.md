@@ -7,7 +7,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol, IsAnnotationUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, IsAnnotationUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, StartsWithTemplate } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Class } from "../class/class.xl.md"
 import { Function } from "../function/function.xl.md"
@@ -199,10 +199,32 @@ while (i < units.length) {
     // 少了这一支，下标被 `PropertyAccessCloseRule` 挂到 `New` **外面**、
     // 末尾那对括号又成了对它的又一次调用 ⇒ 产物是
     // `CallExpression[ElementAccessExpression[New, a]]` 而 TS 是 `NewExpression` 包着两者。
+    //
+    // **判据是「这一段下标后面那一格还能不能接下去」**（第 946 轮（二）把它一次认清）：
+    // `.成员` / `(` 实参表 / 模板串都是 TS 的 `parseMemberExpressionRest` 会**贪心吞下去**的
+    // 后缀，而 `[` 又是一段下标——这四格出现时，整段下标都属于**被构造者**：
+    //
+    //     new ns[a]()     → 见上
+    //     new ns[a].b     → NewExpression > PropertyAccessExpression > ElementAccessExpression
+    //     new ns[a][b]()  → NewExpression > ElementAccessExpression > ElementAccessExpression
+    //     new ns[a]`t`    → NewExpression > TaggedTemplateExpression > ElementAccessExpression
+    //
+    // **`new ns[a]` 单独一格要留在门外**：它后面什么都没有，
+    // TS 那边是 `ElementAccessExpression(New(ns), a)`（`New` 只盖住 `ns`）——
+    // 也就是「`[` 后面接不接得上东西」就是这两档的分水岭。
+    // 模板那一档走 `StartsWithTemplate`（`text-common-util.xl.md` 里那一格，
+    // 判「这一个单元是不是以模板开头」——字符串字面量不可能紧跟在操作数后面，
+    // 所以「操作数 + 字符串」只可能是带标签的模板）。
     if (item.startBracket === "[") {
       const indexRunEnd = this.PostfixIndexRunEnd(units, i);
       const afterIndex = Get(units, SkipNextTrivia(units, indexRunEnd - 1));
-      if (afterIndex instanceof Bracket && afterIndex.startBracket === "(") {
+      const indexContinues =
+        afterIndex instanceof Bracket && afterIndex.startBracket === "[";
+      const indexIsCallee =
+        (afterIndex instanceof Bracket && afterIndex.startBracket === "(") ||
+        (afterIndex instanceof SymbolToken && afterIndex.Is(".")) ||
+        StartsWithTemplate(afterIndex);
+      if (indexContinues || indexIsCallee) {
         i = indexRunEnd;
         continue;
       }

@@ -6216,14 +6216,22 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
   列表里根本没有那个符号，深度永远减不到 0。改成「下一格是不是又是一个**收好的** `[ … ]`」之后
   一次就对：**括号由 `BracketBranch` 自己成组，这一点决定了下标段的边界只能用 `Closed` 问**。
 - **收掉 1 条**：`token/expressions/gap-r937-new-index-callee-newline.ts` 的 `xl:known-gap`
-  按规矩撤掉、改名成 [`expr-new-index-callee-newline.ts`](tests/cases/token/expressions/expr-new-index-callee-newline.ts)
-  留着当守卫（两格排版：换行落在 `[` 前、行注释落在 `[` 前）。
-- **同一批探针量出来、这一轮没收的三格**（`new ns[a]` / `new ns[a].b` / `new ns[a]` + 模板）：
-  它们与这一格是**同一片家族里各自独立的形状判断**，没有登记过、也没有守卫用例——
-  按「先补用例、再收」的规矩**写进 [typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md)**，
-  下一轮从补三份 `xl:known-gap` 起步。
-- **实测**：九道门全绿（墙钟 33.5s）——`cases:tsast` **缺口清单空的（第九次清空）**、
-  `cases:astjson` 六项全 0（1574 份 / 39090 个节点）、`cases:check` 1584 / 1584、
+  按规矩撤掉、改名成 [`expr-new-callee-postfix-chain.ts`](tests/cases/token/expressions/expr-new-callee-postfix-chain.ts)
+  留着当守卫（八格排版：换行落在 `[` 前、行注释落在 `[` 前、`.b` / `.b()` / `[b]()` /
+  模板串 / 表达式下标 / 两段下标各一次）。
+- **（二）同一批探针量出来的另外两格也一并收掉**：那一问从「后面那一格是不是 `(`」
+  放宽成「**这一段下标后面那一格还能不能接下去**」——`.成员` / `(` 实参表 / `[` 下标 / 模板串
+  都是 TS 的 `parseMemberExpressionRest` 会贪心吞下去的后缀，于是
+  `new ns[a].b` 与 `new ns[a]`` ` `` 也各归位（前者 `NewExpression > PropertyAccessExpression > …`，
+  后者 `NewExpression > TaggedTemplateExpression > …`）。
+  模板那一格还带出投影层 0b 支的一处放宽（标签从「恰好两个单元」放宽成「末尾是反引号 `String`」），
+  **放宽当场撞到一条回归**（`expr-template-tagged-in-operator`：`tag`a${x}b` === tag`a${x}b``
+  也满足那句话，整条比较式被收成一个标签模板）——补上「模板前面那一串必须是**后缀链**」
+  这条守卫之后两处都对。**「放宽一条判据」与「给它配一条守卫」是同一件事的两个动作。**
+- **仍然没收的一格**：`new ns<T>[a]()` —— TS 自己就把它读散了（`BinaryExpression` + `CallExpression`），
+  **没有可对齐的目标形状**，按口径边界留在门外（不是缺口）。
+- **实测**：九道门全绿（墙钟 33.6s）——`cases:tsast` **缺口清单空的（第九次清空）**、
+  `cases:astjson` 六项全 0（1574 份 / 39153 个节点）、`cases:check` 1584 / 1584、
   `cases:tags` 5273 条断言 0 条不一致、`cases:shapes` 未覆盖 0、
   `coverage **4185 / 4350**`（加权 95.5%，`blocked 27` / `differ 138` / `bad 0`）。
 - **可复用的判据**：**「括号已经成组」是这一层的地基**。
@@ -6241,7 +6249,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | 判据 | 结果 |
 | --- | --- |
 | `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；`xl:known-gap` **0 条还开着**（**第 946 轮**收掉第 937 轮登记的那一格 ⇒ **缺口清单第九次清空**：`new ns` 换行 `[a]()` 的下标段「后面接得上 `(`」时归被构造者，判据是 `NewCloseRule` 的 `IsClosedBracket` + `PostfixIndexRunEnd`；第 941–945 轮逐格收掉了第 941 轮登记的那条导入属性子句。**第 934 轮**把第 933 轮登记的四格**全部收掉 ⇒ 缺口清单第八次清空**，四份用例撤掉 `xl:known-gap`、留着当守卫；另补 4 份守卫用例，语料 1570 → 1574。第 933 轮那次：换第三批构造再普查一次，770 条片段里 755 条合法，量出 **4 格**、另有**一族当轮收掉**——数组的洞 `OmittedExpression` 的位置；那 4 格按规矩登记进语料，见下面「开着的缺口」那一段。此前的账：第 931 轮量出 6 格、三族当轮收掉三格登记，**第 932 轮把那三格也收掉 ⇒ 第七次清空**）。更早那一串账：第 869 轮普查量出的 30 条由第 870–881 轮收完、第 900 轮片段普查量出的 4 条由第 901–902 轮收完、第 900 轮「待登记」栏里的 3 条由第 904–906 轮收完；第 907 轮换地形再普查一次，量出 17 格、当轮收掉 5 格，第 908 轮收 3 格、第 909 轮收 3 格；第 926 轮登记的 1 格由第 927 轮收掉 ⇒ **第四次清空**；第 927 轮（二）登记「柯里化的函数类型里层不成形」、第 927 轮（三）收掉它并登记「箭头的返回类型是带括号的函数类型」、**第 928 轮连它那一族一起收掉 ⇒ 缺口清单第五次清空**；第 929 轮把标签那一族又普查一遍、登记 5 格，其中「标签链中间换行」当轮收掉 ⇒ 4 格，**第 930 轮三趟把余下 4 格全收掉，其中最后两格当轮转绿 ⇒ 缺口清单第六次清空**；**第 931 轮又登记 3 格、第 932 轮全部收掉 ⇒ 第七次清空**；**第 933 轮换第三批构造再量一次，量出 4 格、登记 4 条；第 934 轮把那四格全收掉 ⇒ 第八次清空**） |
-| `cases:astjson` | 出口 2 与出口 1 说的同一棵树：**1574 份 / 39090 个节点**，标签 / 属性 / 坐标 / 键名登记 / 命令行 / 抛异常**六项全 0** |
+| `cases:astjson` | 出口 2 与出口 1 说的同一棵树：**1574 份 / 39153 个节点**，标签 / 属性 / 坐标 / 键名登记 / 命令行 / 抛异常**六项全 0** |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1584** 条 token 用例，0 条不合格（这一道只走 `tests/cases/token`；执行那一侧的四类由 `coverage` 全覆盖） |
