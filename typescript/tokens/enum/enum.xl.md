@@ -459,3 +459,16 @@ return true;
 ```ts
 return true;
 ```
+
+## method IsStatementNode:()=>bool
+
+**我这一格投出来的是一条「语句节点」**（第 1039 轮）：`EnumDeclaration` 在目标语言那边
+**本身就是一条语句**，所以单个子单元是我时**不再套** `ExpressionStatement`
+（口径见 `core/syntax/token.xl.md` 的 `IsStatementNode`）。
+
+`EnumDeclaration` 就是这一页自己的节点名——过去它写在投影层那张按 kind 查的
+`STATEMENT_KINDS` 集合里。
+
+```ts
+return true;
+```

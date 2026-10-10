@@ -519,3 +519,17 @@ return result;
 ```ts
 return "ForStatement";
 ```
+
+## method IsStatementNode:()=>bool
+
+**我这一格投出来的是不是一条「语句节点」**（第 1039 轮）——是的话答 `true`。
+
+判据原本写成投影层的一个 `# private const STATEMENT_KINDS:Set<string>`
+（`typescript/print-ast-common.xl.md`）：单子单元的语句壳**不再套** `ExpressionStatement`，
+而 `ForStatement` 就是**这一页自己的节点名**（`AstKind()` 的一格）——所以那是每一页自己的事实，
+被写在投影那一页里。今天需要它的页面各自覆写，投影只问这一格
+（口径见 `core/syntax/token.xl.md` 的 `IsStatementNode`）。
+
+```ts
+return true;
+```

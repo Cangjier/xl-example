@@ -344,6 +344,21 @@ TS 那边叫 `expression`，`break` / `continue` / `debugger` 叫 `label`——�
   return kind === "ReturnStatement" || kind === "ThrowStatement" ? "expression" : "label";
 ```
 
+## method IsStatementNode:()=>bool
+
+**我这一格投出来的是不是一条「语句节点」**（第 1039 轮）：`return` / `throw` / `break` /
+`continue` / `debugger` 这五个词把整条语句定下来（`StatementKind()` 的同一张词汇表），
+所以它们是语句节点；别的关键字（`export` / `declare` / `if`…）不是。
+
+判据原本写成投影层的一个 `# private const STATEMENT_KINDS:Set<string>`
+（`typescript/print-ast-common.xl.md`）——单子单元的语句壳**不再套** `ExpressionStatement`，
+而「哪些词自己就是一条语句」是**本页词汇表**回答的事（与 `StatementKind()` /
+`StatementField()` 同一来源），所以由本页答，投影那一侧不再存第二份。
+
+```ts
+return KEYWORD_STATEMENT_KINDS.has(this.Value);
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

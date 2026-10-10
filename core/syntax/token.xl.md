@@ -1060,6 +1060,28 @@ return undefined;
 return false;
 ```
 
+## method IsStatementNode:()=>bool
+
+**我这一格投出来的节点是不是「语句节点」**（第 1039 轮）——是的话答 `true`：单个子单元是
+我时，投影**不再套** `ExpressionStatement`（套上去会凭空多一层壳）。
+
+判据的那份名单过去写成投影层的一个 `# private const STATEMENT_KINDS:Set<string>`
+（`typescript/print-ast-common.xl.md`，26 档），而**那些 kind 名就是那些类自己的节点名**
+（每一页都自己答过 `AstKind()`）——所以那是每一页自己的事实，被写在投影那一页里。
+今天基类答 `false`、需要它的页面各自覆写；投影那一侧问的是**手上那一格 token**
+（`head.IsStatementNode()`），不问 kind 名。
+
+**它与 `StatementKind()` 是两件事，别混**：`StatementKind()` 说的是「**我这一格的兄弟也算我的**」
+（`Keyword` 那一页据自己的词汇表答），这一格说的是「**我自己就是一整条语句**」——
+`Keyword` 覆写它正是为了那几个词（`return` / `throw` / `break` / `continue` / `debugger`）。
+
+**基类答 `false`**：绝大多数 token 投出来的是表达式或类型；需要它的 token 在自己那一页覆写
+（`## method`，与 `IsMemberList` / `IsMemberTag` / `AstKind` 同一形态）。
+
+```ts
+return false;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

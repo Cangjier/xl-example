@@ -1208,7 +1208,8 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     // 缺 `ImportEqualsDeclaration` 21 + 多出 21）。
     //
     // 判据与 `projectStatement` 那一支**同一套**：前缀词只能是 export / declare / default，
-    // 后面那一格按换名表必须是一条**语句**（`import` → `ImportDeclaration` 在 `STATEMENT_KINDS` 里）。
+    // 后面那一格投出来必须是一条**语句**——**问那一格 token 自己**
+    // （`IsStatementNode()`，第 1039 轮；原来是投影层那张按 kind 查的 `STATEMENT_KINDS`）。
     if (items[i].Tag() === "Keyword") {
       let j = i;
       while (
@@ -1219,8 +1220,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
         j++;
       }
       if (j > i && j < items.length) {
-        const lastKind = items[j].AstKind();
-        if (lastKind !== undefined && STATEMENT_KINDS.has(lastKind)) {
+        if (items[j].IsStatementNode()) {
           const declaration = projectNode(items[j], ctx, parentKind);
           if (declaration !== undefined) {
             const leading = [];
@@ -1350,8 +1350,9 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
 ⇒ 少一整层壳（实测三份用例各缺一个 `ExpressionStatement`：
 `stmt-label-statement`、`am-object-vs-block`、`stmt-object-vs-block`）。
 
-**判据是 kind 的后缀** 而不是那张表：`STATEMENT_KINDS` 是「**单个子单元**是它时不再套壳」的
-名单，它漏了 `ExpressionStatement` 自己、`ForInStatement`、`WithStatement` 这些
+**判据是 kind 的后缀** 而不是「那一格自己答的那一句」：`IsStatementNode()`（第 1039 轮）
+是「**单个子单元**是它时不再套壳」的名单，它漏了 `ExpressionStatement` 自己、
+`ForInStatement`、`WithStatement` 这些
 （`projectStatement` 那一支只在「`kids.length === 1`」时才用它，这里的体是**投影结果**，
 范围大得多）。TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declaration`、
 以及 `Block` / `ModuleBlock` —— 表达式 kind 一个都不沾这三类，所以后缀判据不会误判。
@@ -1480,44 +1481,6 @@ new Set([
   "ModuleDeclaration",
   "SwitchStatement",
   "TryStatement",
-  "WhileStatement",
-])
-```
-
-# private const STATEMENT_KINDS:Set<string>
-
-这些 kind 在 TS 那边**本身就是语句**——单个子单元是它们时不能再套 `ExpressionStatement`。
-
-反过来，单个子单元是**表达式**（`f(1)` / `a + b` / `new X`）时，TS 是
-`ExpressionStatement > 表达式`；早先直接返回那个表达式，于是每个这样的语句都少一层壳。
-
-```ts
-new Set([
-  "Block",
-  "BreakStatement",
-  "ClassDeclaration",
-  "ClassStaticBlockDeclaration",
-  "ContinueStatement",
-  "DebuggerStatement",
-  "DoStatement",
-  "EnumDeclaration",
-  "ExportDeclaration",
-  "ForOfStatement",
-  "ForStatement",
-  "FunctionDeclaration",
-  "IfStatement",
-  "ImportDeclaration",
-  "InterfaceDeclaration",
-  "LabeledStatement",
-  "ModuleBlock",
-  "ModuleDeclaration",
-  "NamespaceExportDeclaration",
-  "ReturnStatement",
-  "SwitchStatement",
-  "ThrowStatement",
-  "TryStatement",
-  "TypeAliasDeclaration",
-  "VariableStatement",
   "WhileStatement",
 ])
 ```
@@ -1705,11 +1668,12 @@ new Set([
   // namespace` 家族、`@types/node` 的 `declare module` 家族都在里面）。
     const prefixWords = kids.slice(0, kids.length - 1);
     const last = kids[kids.length - 1];
-    const lastKind = last.AstKind();
     const allPrefixes = prefixWords.every(
       (k) => k.Tag() === "Keyword" && ["export", "declare", "default"].includes(textOfNode(k, ctx)),
     );
-    if (prefixWords.length > 0 && allPrefixes && lastKind !== undefined && STATEMENT_KINDS.has(lastKind)) {
+    // **「后面那一格是不是一条语句」问它自己**（`IsStatementNode()`，第 1039 轮）：
+    // 原来是投影层那张按 kind 查的 `STATEMENT_KINDS`，而 kind 名就是各页自己的节点名。
+    if (prefixWords.length > 0 && allPrefixes && last.IsStatementNode()) {
       const declaration = projectNode(last, ctx);
       if (declaration !== undefined) {
         const leading = prefixWords.map((k) => projectNode(k, ctx)).filter((k) => k !== undefined);
@@ -1806,7 +1770,9 @@ new Set([
       //  修完全语料 850 → **871**）。别的语句族（`if` / `class` / `import` / `function`…）
       // **不能**这么吃 —— 它们的尾分号 TS 那边不算在自己身上（`class A {};` 的
       // `ClassDeclaration` 到 `}` 为止），所以只对 `TypeAliasDeclaration` 开这一档。
-      if (STATEMENT_KINDS.has(kind)) {
+      // **「单个子单元本身就是语句」问那一格自己**（`IsStatementNode()`，第 1039 轮）：
+      // 原来是投影层那张按 kind 查的 `STATEMENT_KINDS`，而 kind 名就是各页自己的节点名。
+      if (head.IsStatementNode()) {
         if (kind === "TypeAliasDeclaration") {
           projected.end = semicolonEndOf(
             Math.max(stmtEndOf(v, ctx), projected === undefined ? 0 : (projected.end ?? 0)),

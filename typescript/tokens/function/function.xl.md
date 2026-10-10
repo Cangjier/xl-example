@@ -474,6 +474,20 @@ return "FunctionDeclaration";
 return true;
 ```
 
+## method IsStatementNode:()=>bool
+
+**我这一格投出来的是一条「语句节点」**（第 1039 轮）：带**函数体**的 `Function` 投成
+`FunctionDeclaration`，在目标语言那边**本身就是一条语句**，所以单个子单元是我时
+**不再套** `ExpressionStatement`（口径见 `core/syntax/token.xl.md` 的 `IsStatementNode`）。
+
+`FunctionDeclaration` 就是这一页自己的节点名——过去它写在投影层那张按 kind 查的
+`STATEMENT_KINDS` 集合里。（**没有体的那一档**是另一件事：那个尾分号归它自己，
+判在 `EndsOnBrace` 那一格上，与「是不是语句节点」无关。）
+
+```ts
+return true;
+```
+
 ## method FunctionFlags:()=>any
 
 **我这一格是不是函数体**（第 1031 轮）：`Function` 就是函数体，答 `{ generator, async }`——
