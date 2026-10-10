@@ -363,6 +363,21 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 return this.Add(new ForeachDefine(this.Template));
 ```
 
+## property bodyBraceRange:any
+
+**体那一对花括号的整段区间**（闭区间，`"起,止"`）：投影画空 `Block` 时直读它，不再回原文重扫。
+段还没挂上或两头不齐时给空串——与搬掉字典之前「那一格不写这个键」同义（投影按空串处理）。
+
+### get
+
+```ts
+const braceRange = this.BodyBrace.Range;
+if (braceRange === null || braceRange.Start === null || braceRange.End === null) {
+  return "";
+}
+return braceRange.Start.Index + "," + braceRange.End.Index;
+```
+
 ## property Define:ForeachDefine
 
 Define 段（`in` / `of` 左边那截）。

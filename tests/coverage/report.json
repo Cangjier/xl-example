@@ -75,27 +75,27 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 94.82,
+  "progressPercent": 94.93,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1643,
-      "pass": 1560,
-      "blocked": 83,
+      "pass": 1568,
+      "blocked": 75,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 94.95
+      "coverage": 95.44
     },
     {
       "category": "exec",
       "weight": 0.25,
       "total": 792,
-      "pass": 753,
-      "blocked": 9,
+      "pass": 754,
+      "blocked": 8,
       "differ": 30,
       "nodefail": 0,
-      "coverage": 95.08
+      "coverage": 95.2
     },
     {
       "category": "runtime",
@@ -132,9 +132,9 @@
     "total": 1643,
     "knownGap": 3,
     "knownGapStillOpen": 3,
-    "exactFiles": 1560,
+    "exactFiles": 1568,
     "scoredWithoutGap": 1640,
-    "passedWithoutGap": 1560
+    "passedWithoutGap": 1568
   },
   "blocked": [
     {
@@ -360,12 +360,6 @@
       "detail": "缺 1　多 1"
     },
     {
-      "id": "token/expressions/expr-comma-sequence",
-      "category": "token",
-      "title": "逗号（序列）表达式：只有 `( … )` 里的顶层 `,` 是运算符",
-      "detail": "缺 4　字段 1"
-    },
-    {
       "id": "token/expressions/expr-object-computed-in-label-block",
       "category": "token",
       "title": "标签块里的值位对象字面量（第 953 轮普查量出、当轮收掉）：`lbl: { const o = { [K in T]: X }; }`。",
@@ -492,18 +486,6 @@
       "detail": "缺 2　多 2"
     },
     {
-      "id": "token/statements/st-for-empty",
-      "category": "token",
-      "title": "基线用例（来自缺口审计语料）",
-      "detail": "缺 1　字段 1"
-    },
-    {
-      "id": "token/statements/st-for-multi",
-      "category": "token",
-      "title": "基线用例（来自缺口审计语料）",
-      "detail": "缺 6　字段 2"
-    },
-    {
       "id": "token/statements/st-labeled",
       "category": "token",
       "title": "基线用例（来自缺口审计语料）",
@@ -513,7 +495,7 @@
       "id": "token/statements/stmt-adversarial-shapes",
       "category": "token",
       "title": "语句层/类/表达式的对抗形状集（第 66 轮第十二批）",
-      "detail": "缺 6　多 1　字段 2"
+      "detail": "缺 2　多 1　字段 1"
     },
     {
       "id": "token/statements/stmt-asi-return-newline-object",
@@ -532,30 +514,6 @@
       "category": "token",
       "title": "continue 带标签",
       "detail": "缺 2　多 2"
-    },
-    {
-      "id": "token/statements/stmt-for-arrow-compare",
-      "category": "token",
-      "title": "条件段是箭头函数：`for` 头按 `;` 分段时不许把分号吃掉",
-      "detail": "缺 1　字段 1"
-    },
-    {
-      "id": "token/statements/stmt-for-arrow-initial",
-      "category": "token",
-      "title": "初始段是箭头函数：`for` 头里的实参列表分支也不许吃掉后面的分号",
-      "detail": "缺 2　字段 1"
-    },
-    {
-      "id": "token/statements/stmt-for-decl-kinds",
-      "category": "token",
-      "title": "for 声明符关键字 let / const / var 各写一条",
-      "detail": "缺 6　字段 3"
-    },
-    {
-      "id": "token/statements/stmt-forof-block-body-comment",
-      "category": "token",
-      "title": "花括号体：`for (const x of []) /* c */ {}`",
-      "detail": "缺 1　字段 1"
     },
     {
       "id": "token/statements/stmt-label-absorbs-statement",
@@ -618,12 +576,6 @@
       "detail": "缺 1　多 1"
     },
     {
-      "id": "token/statements/stmt-while-block-body-comment",
-      "category": "token",
-      "title": "花括号体：`while (a) /* c */ {}` 的体那对括号记在 BodyBrace 上",
-      "detail": "缺 1　字段 1"
-    },
-    {
       "id": "token/types/gap-r985-jsdoc-nonnull-in-type-position",
       "category": "token",
       "title": "类型位里的 `!`：TS 读成 `JSDocNonNullableType`（JSDoc 时代的那一档）",
@@ -658,12 +610,6 @@
       "category": "exec",
       "title": "命名空间里同时有 `enum` 与引用它的 `const`",
       "detail": "tsrun: 脚本抛出：cannot read properties of undefined"
-    },
-    {
-      "id": "exec/expressions/072-void-comma-and-sequence",
-      "category": "exec",
-      "title": "void / 逗号运算符 / 序列表达式",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node without a kind"
     },
     {
       "id": "exec/round706/003-defineproperty-is-object-walks-topropertykey",
@@ -1851,11 +1797,6 @@
       "detail": "缺 1　多 1"
     },
     {
-      "id": "token/expressions/expr-comma-sequence",
-      "category": "token",
-      "detail": "缺 4　字段 1"
-    },
-    {
       "id": "token/expressions/expr-object-computed-in-label-block",
       "category": "token",
       "detail": "缺 2　多 2"
@@ -1961,16 +1902,6 @@
       "detail": "缺 2　多 2"
     },
     {
-      "id": "token/statements/st-for-empty",
-      "category": "token",
-      "detail": "缺 1　字段 1"
-    },
-    {
-      "id": "token/statements/st-for-multi",
-      "category": "token",
-      "detail": "缺 6　字段 2"
-    },
-    {
       "id": "token/statements/st-labeled",
       "category": "token",
       "detail": "缺 2　多 2"
@@ -1978,7 +1909,7 @@
     {
       "id": "token/statements/stmt-adversarial-shapes",
       "category": "token",
-      "detail": "缺 6　多 1　字段 2"
+      "detail": "缺 2　多 1　字段 1"
     },
     {
       "id": "token/statements/stmt-asi-return-newline-object",
@@ -1994,26 +1925,6 @@
       "id": "token/statements/stmt-continue-label",
       "category": "token",
       "detail": "缺 2　多 2"
-    },
-    {
-      "id": "token/statements/stmt-for-arrow-compare",
-      "category": "token",
-      "detail": "缺 1　字段 1"
-    },
-    {
-      "id": "token/statements/stmt-for-arrow-initial",
-      "category": "token",
-      "detail": "缺 2　字段 1"
-    },
-    {
-      "id": "token/statements/stmt-for-decl-kinds",
-      "category": "token",
-      "detail": "缺 6　字段 3"
-    },
-    {
-      "id": "token/statements/stmt-forof-block-body-comment",
-      "category": "token",
-      "detail": "缺 1　字段 1"
     },
     {
       "id": "token/statements/stmt-label-absorbs-statement",
@@ -2066,11 +1977,6 @@
       "detail": "缺 1　多 1"
     },
     {
-      "id": "token/statements/stmt-while-block-body-comment",
-      "category": "token",
-      "detail": "缺 1　字段 1"
-    },
-    {
       "id": "token/types/type-member-index-signature",
       "category": "token",
       "detail": "缺 1　字段 1"
@@ -2084,11 +1990,6 @@
       "id": "exec/enums-namespaces/042-declare-and-ambient-erased",
       "category": "exec",
       "detail": "stdout 不同：第 1 行：node «1 undefined undefined undefined undefined» vs tsrun «1 undefined undefined function undefined»"
-    },
-    {
-      "id": "exec/expressions/072-void-comma-and-sequence",
-      "category": "exec",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node without a kind"
     },
     {
       "id": "exec/generics/034-generic-new-arguments",
