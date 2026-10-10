@@ -588,16 +588,29 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**3 条**）
+## 已知仍开着的缺口（**2 条**）
 
-**现状（第 943 轮实测）**：`cases:tsast` 那一行是「已知缺口：**3** 条还开着、0 条已经收掉」。
-这三格是第 937 / 941 / 942 三轮各自**登记**下来的（登记时都写了根因与下一轮的入手处）：
+**现状（第 944 轮实测）**：`cases:tsast` 那一行是「已知缺口：**2** 条还开着、0 条已经收掉」。
+这两格是第 937 / 941 两轮各自**登记**下来的（登记时都写了根因与下一轮的入手处）：
 
 | 守卫用例 | 落点 | 下一轮的入手处（登记时写下的） |
 | --- | --- | --- |
 | `token/expressions/gap-r937-new-index-callee-newline.ts` | `new ns` 换行 `[a]()` 的末尾那对 `()` 折不成 `Method` | `MethodCloseRule.Previous` 对 `PropertyAccess` 那一步为什么没接手 |
 | `token/modules/gap-r941-import-attributes-newline.ts` | `import a from "m"` 换行 `with { … }` 不成 `AssertClause` | `ImportCloseRule` 的触发时机（换行那一刻还不在列表里） |
-| `token/statements/gap-r942-loop-body-terminator.ts` | `while (a) break` 换行 `;` 里那个 `;` 归谁 | 「`;` 是**内层语句**的终结符还是宿主壳的终结符」 |
+
+**第 944 轮收掉的那一格**：`gap-r942-loop-body-terminator`（`while (a) break` 换行 `;`
+在 TS 那边是 `WhileStatement[0,17)`、体是 `BreakStatement[9,17)`——**它自己一路到那个 `;` 之后**）。
+第 942 轮把根因钉在「那个 `;` 归谁」上，这一轮把它收掉：
+**下一行以 `;` 开头时，换行不是语句边界**（TS 的 `parseSemicolon` 里 `canParseSemicolon()`
+对分号一律为真 ⇒ 分号是**上一条语句自己的终结符**）。判据落在一格新的静态判据
+`Statement.TrailingSemicolonJoins` 上，两处成形器共用（收尾期 `IsLineBreakBoundary` 手里有
+那个 `;` 单元；解析期 `StatementBranch.Condition` 只有原始字符，走 `NextLineFirstCharAt`）。
+**唯一的排除项是「花括号组结尾」**（`lab: {}` 换行 `;` 在 TS 那边要多一条 `EmptyStatement`，
+实测 `stmt-label-block-trailing-semicolon`）——值位花括号那两档（`const o = { … }` /
+`export { a }`）今天与 TS 逐节点一致，本轮按「不动已经对的那两档」处理、写在判据的说明里。
+⇒ 缺口 3 → **2**；顺带两处 `Statement:N` 的期望按新读数改小
+（`im-import-trailing-semicolon-next-line` / `gap-sweep-linecomment-optchain-07`：
+原来那一层空壳正是「`;` 另起一条」的产物）。
 
 **第 943 轮收掉的那一格**：`gap-r937-angle-assertion-newline`（`const a = <T>` 换行 `x;`
 在 TS 那边是**一整条** `TypeAssertionExpression`，本仓原来把换行当语句边界）。

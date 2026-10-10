@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.45,
+  "progressPercent": 95.46,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1571,
-      "pass": 1568,
-      "blocked": 3,
+      "pass": 1569,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.81
+      "coverage": 99.87
     },
     {
       "category": "exec",
@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1571,
-    "knownGap": 3,
-    "knownGapStillOpen": 3,
-    "exactFiles": 1568,
-    "scoredWithoutGap": 1568,
-    "passedWithoutGap": 1568
+    "knownGap": 2,
+    "knownGapStillOpen": 2,
+    "exactFiles": 1569,
+    "scoredWithoutGap": 1569,
+    "passedWithoutGap": 1569
   },
   "blocked": [
     {
@@ -148,12 +148,6 @@
       "category": "token",
       "title": "",
       "detail": "缺 9　漂 3　多 12　导入声明的**属性子句另起一行**时它不成形：`import a from \"m\"` 换行"
-    },
-    {
-      "id": "token/statements/gap-r942-loop-body-terminator",
-      "category": "token",
-      "title": "",
-      "detail": "漂 2　多 2　循环体的**右端那一格**在「体是一条带 `;` 的语句、而分号写在下一行」时不齐："
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",

@@ -2497,6 +2497,40 @@ if (beforeIsMember === false && Statement.ExpectsOperand(before, beforePrevious)
 return false;
 ```
 
+## static method TrailingSemicolonJoins:(units:Array<Token>, index:int)=>bool
+
+`index` 处（将要）是一个软换行、而**下一行以 `;` 开头**时，那个分号是**这一行的终结符**吗
+（第 944 轮，对应 TypeScript 的 `parseSemicolon` / `canParseSemicolon`：分号一律算数，
+哪怕它写在自己那一行的开头）。
+
+两处成形器共用这一份：收尾期手里有列表（`IsLineBreakBoundary`），解析期只有原始字符
+（`StatementBranch.Condition` 的 `NextLineFirstCharAt`）——但两处都拿得到**已经读到的那些单元**，
+判据就落在这里。
+
+**唯一的排除项是「花括号组结尾」**（末尾那个实义单元是 `startBracket === "{"` 的 `Bracket`）：
+`lab: {}` 换行 `;` 在 TS 那边是 `LabeledStatement` + **一条空语句**
+（实测 `stmt-label-block-trailing-semicolon`：少了这一条排除会缺 `EmptyStatement` 1）——
+块 / 类体 / 导出子句这些花括号组都不吃尾分号。
+
+**值位花括号结尾也在这一排除项里，如实记在明处**：`const o = { a: 1 }` 换行 `;`
+（`gap-sweep-newline-obj-03`）与 `export { a }` 换行 `;`（`gap-sweep-newline-export-01`）
+两档今天与 TS **逐节点一致**（多出来的那层空壳投影看不见），而它们在换行那一刻
+与 `lab: {}` 长得**一模一样**（末尾都是一个裸 `Bracket`，值 / 块的分岔要等
+`IsObjectLiteralBrace` 那一问、而它在解析期还不够用）⇒ 本轮按「不动已经对的那两档」处理，
+它属于同一格的第三种排版，与 `while (a) break` 换行 `;` 是两件事。
+
+```ts
+const previousIndex = SkipPreviousTrivia(units, index);
+const previous = Get(units, previousIndex);
+if (previous === null) {
+  return false;
+}
+if (previous instanceof Bracket && previous.startBracket === "{") {
+  return false;
+}
+return true;
+```
+
 ## static method IsLineBreakIncompleteOnLeft:(units:Array<Token>, index:int)=>bool
 
 `index` 处（将要）是一个软换行时，**左边那一行还没写完**吗——写不完就**一定不是**语句边界。
@@ -2788,6 +2822,30 @@ const previous = Get(units, previousRealIndex);
 // （实测 `expr-unary-prefix.ts`：缺整条 `ExpressionStatement`）。
 if (previous === null) {
   return true;
+}
+// **下一行以 `;` 开头 ⇒ 这个换行不是语句边界**（第 944 轮）：TypeScript 的
+// `parseSemicolon` 里 `canParseSemicolon()` 对分号**一律**为真 —— 分号写在自己那一行的
+// 开头时，它仍然是**上一条语句自己的终结符**，不是新起的一条空语句。
+//
+// **为什么必须放在「受限产生式」那一句之前**：`break` / `continue` / `return` 后面正好是
+// 这一档（它们的 `;` 也照样归自己）——第 942 轮登记的那一格 `while (a) break` 换行 `;`
+// 就是它：收壳之后那个 `;` 落进**另一条空壳**，外层壳的右端于是不覆盖它，
+// `While` 借宿主右端时借不到那一格 ⇒ `WhileStatement` 漂 1 + 多 1。
+// 同一形状的 `while (a) foo()` 换行 `;`（壳一直开着、`;` 被切进壳里）本来是对的
+// —— 两档的差就在**这里**。
+//
+// **两处成形器各问一半**：这里是收尾期（列表里已经有那个 `;`），而解析期那一刻
+// `;` 还没读进来、手里只有原始字符 ⇒ 那一半在 `StatementBranch.Condition`
+// （`NextLineFirstCharAt(source) === ";"`），与 `ContinuesExpression` /
+// `NextLineContinuesExpression` 同一分工。
+const semicolonAt = SkipNextTrivia(units, index);
+const semicolonUnit = Get(units, semicolonAt);
+if (
+  semicolonUnit instanceof SymbolToken &&
+  semicolonUnit.Is(";") &&
+  Statement.TrailingSemicolonJoins(units, index)
+) {
+  return false;
 }
 if (Statement.IsRestrictedKeyword(previous)) {
   return true;
@@ -3256,6 +3314,18 @@ if (Statement.IsPendingLoopHead(data, frontIndex + 1)) {
 //（`expr-as-leading-pipe-union.ts` / `type-union-in-as-expression.ts` / `type-union-leading-bar.ts`）
 // 仍然在第二行那个换行上收壳 —— 那是**另一个入口**（见台账），不在这一条里。
 //
+// **下一行以 `;` 开头时，换行也不是语句边界**（第 944 轮）：分号是**上一条语句自己的
+// 终结符**（TS 的 `canParseSemicolon` 对分号一律为真），不是新起的一条空语句 ——
+// 收壳会让那个 `;` 落进另一条空壳、外层壳的右端不覆盖它（实测第 942 轮登记的那一格
+// `while (a) break` 换行 `;`：`WhileStatement` 漂 1 + 多 1）。
+// **必须排在 `LineCannotEnd` 之前**：那一问对 `break` / `continue` / `return` 这些
+// 受限产生式一律答「可以收尾」，正好会把这一档挡在门外。
+// 收尾期那一半（列表里已经有那个 `;`）在 `IsLineBreakBoundary` 里，两处同一条口径；
+// 「那个分号归不归这一行」那一问两处共用 `TrailingSemicolonJoins`
+//（花括号组结尾不吃尾分号：`lab: {}` 换行 `;` 在 TS 那边要多一条空语句）。
+if (NextLineFirstCharAt(source) === ";" && Statement.TrailingSemicolonJoins(data, data.length)) {
+  return result;
+}
 // **`index` 传 `data.length`**：那个软换行**此刻还没进 `Data`**（这一支排在
 // `LineWrap.AppendIn` 之前）——判据只往前看，虚拟下标正好。
 if (Statement.LineCannotEnd(data, data.length)) {
