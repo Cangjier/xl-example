@@ -3560,3 +3560,13 @@ ReplaceCountAt(data, startIndex + 1, index - startIndex, statement);
 // ⇒ 投影投出 `ExpressionStatement > BinaryExpression`（缺 `ReturnStatement` 一栏 63 份）。
 statement.TryToClose();
 ```
+
+## method EndsOnBrace:()=>bool
+
+**我这一格收在块尾上吗**（第 1040 轮）：答 `false`——**空语句**后面的 `;` 是**另一条**空语句
+（`;;` 是两条，各自一格），所以它自己**不吞**下一个分号。这是三档特例之一，与
+`ownsTrailingSemicolon` 那一格同源（口径见 `core/syntax/token.xl.md` 的 `EndsOnBrace`）。
+
+```ts
+return false;
+```

@@ -634,6 +634,19 @@ return "ModuleDeclaration";
 return true;
 ```
 
+## method EndsOnBrace:()=>bool
+
+**我这一格在目标语言那边收在 `}`（块尾）上**（第 1040 轮）：ModuleDeclaration 收在自己的 `}` 上、
+**不调** `parseSemicolon`，所以紧跟我的那个 `;` 是**新的一条空语句**、不是我的终结符
+（口径见 `core/syntax/token.xl.md` 的 `EndsOnBrace`）。
+
+判据原来是投影层那张按 kind 查的 `NO_TRAILING_SEMICOLON` 集合，而 `ModuleDeclaration` 就是这一页
+自己的节点名——所以由本页答。
+
+```ts
+return true;
+```
+
 ## method IsDeclarationUnit:()=>bool
 
 **我在 `export` 后面是一个「声明单元」**（第 1036 轮）：`export default namespace N { }`

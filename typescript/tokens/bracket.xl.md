@@ -297,3 +297,18 @@ result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
 ```
+
+## method EndsOnBrace:()=>bool
+
+**我这一格收在块尾上吗**（第 1040 轮）：只有**裸块**（`startBracket` 是 `{`）答 `true`——
+它在目标语言那边是一个 `Block`，收在自己的 `}` 上、**不调** `parseSemicolon`，所以紧跟它的
+那个 `;` 是**新的一条空语句**；`(` / `[` 两态是分组括号 / 元素访问，与尾分号无关，答 `false`
+（口径见 `core/syntax/token.xl.md` 的 `EndsOnBrace`）。
+
+判据原来是投影层那张按 kind 查的 `NO_TRAILING_SEMICOLON` 集合里的 `Block` 那一档，而
+**「我这一格是哪种括号」就在这一页自己的字段上**（`projectNode` 也是照 `startBracket === "{"`
+认块的）——所以由本页答，必要时才问 `StartOf`。
+
+```ts
+return this.startBracket === "{";
+```

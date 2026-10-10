@@ -488,6 +488,20 @@ return true;
 return true;
 ```
 
+## method IsSignatureNode:()=>bool
+
+**我这一格是可调用签名**（第 1040 轮）：**没有体**的签名，目标语言那边的区间要**带上尾随的
+`;` 或 `,`**（`declare function f(): void;` 的 `FunctionDeclaration` 含那个 `;`；接口 / 类型字面量里的
+成员可以用逗号分隔、那条签名的 `end` 也含逗号）——口径见 `core/syntax/token.xl.md` 的
+`IsSignatureNode`，「有没有体」由调用点拿 `body` 判。
+
+判据原来是投影层那张按 kind 查的 `SIGNATURE_KINDS` 集合，而 `FunctionDeclaration` 就是这一页自己的
+节点名——所以由本页答。
+
+```ts
+return true;
+```
+
 ## method FunctionFlags:()=>any
 
 **我这一格是不是函数体**（第 1031 轮）：`Function` 就是函数体，答 `{ generator, async }`——

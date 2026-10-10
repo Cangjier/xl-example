@@ -1219,6 +1219,33 @@ return true;
 return "MethodDeclaration";
 ```
 
+## method EndsOnBrace:()=>bool
+
+**我这一格在目标语言那边收在 `}`（块尾）上**（第 1040 轮）：MethodDeclaration 收在自己那个 `}` 上、
+**不调** `parseSemicolon`，所以紧跟我的那个 `;` 是**新的一条空语句**、不是我的终结符
+（口径见 `core/syntax/token.xl.md` 的 `EndsOnBrace`）。
+
+判据原来是投影层那张按 kind 查的 `NO_TRAILING_SEMICOLON` 集合，而 `MethodDeclaration` 就是这一页
+自己的节点名——所以由本页答。
+
+```ts
+return true;
+```
+
+## method IsSignatureNode:()=>bool
+
+**我这一格是可调用签名**（第 1040 轮）：**没有体**的签名，目标语言那边的区间要**带上尾随的
+`;` 或 `,`**（`declare function f(): void;` 含那个 `;`；接口 / 类型字面量里的成员可以用逗号
+分隔、那条签名的 `end` 也含逗号）——口径见 `core/syntax/token.xl.md` 的 `IsSignatureNode`，
+「有没有体」由调用点拿 `body` 判。
+
+判据原来是投影层那张按 kind 查的 `SIGNATURE_KINDS` 集合，而这一页在**签名位**投出来正是
+`MethodDeclaration`——所以由本页答。
+
+```ts
+return true;
+```
+
 ## method FunctionFlags:()=>any
 
 **我这一格是不是函数体**（第 1031 轮）：方法声明就是函数体，答 `{ generator, async }`——

@@ -903,3 +903,17 @@ return true;
 ```ts
 return "CallSignature";
 ```
+
+## method IsSignatureNode:()=>bool
+
+**我这一格是可调用签名**（第 1040 轮）：**没有体**的签名，目标语言那边的区间要**带上尾随的
+`;` 或 `,`**（`declare function f(): void;` 含那个 `;`；接口 / 类型字面量里的成员可以用逗号
+分隔、那条签名的 `end` 也含逗号）——口径见 `core/syntax/token.xl.md` 的 `IsSignatureNode`，
+「有没有体」由调用点拿 `body` 判。
+
+判据原来是投影层那张按 kind 查的 `SIGNATURE_KINDS` 集合，而这一页在**签名位**投出来正是
+`CallSignature`——所以由本页答。
+
+```ts
+return true;
+```

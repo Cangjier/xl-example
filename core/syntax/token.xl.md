@@ -1082,6 +1082,54 @@ return false;
 return false;
 ```
 
+## method EndsOnBrace:()=>bool
+
+**我这一格在目标语言那边是不是收在 `}`（或块尾）上**（第 1040 轮）——是的话答 `true`：
+目标语言的 parser **不**在我后面调 `parseSemicolon`，所以紧跟我的那个 `;` 是**新的一条
+空语句**，不是我的终结符；答 `false` 的（`let` / `import` / `type` / 表达式…）自己吃掉尾分号。
+
+判据的那份名单过去写成投影层的一个 `# private const NO_TRAILING_SEMICOLON:Set<string>`
+（`typescript/print-ast-common.xl.md`，第 663 轮），而**那些 kind 名就是这些类自己的节点名**、
+「我收在哪个字符上」也只有我自己知道——所以那是每一页自己的事实，被写在投影那一页里。
+今天基类答 `false`、需要它的页面各自覆写；投影那一侧问的是**手上那一格 token**
+（`previousToken.EndsOnBrace()`）。
+
+**三档特例住在各自的页上、不在这里**：空语句（`Statement` 那一页答 `false`）、
+带标签的语句（`Label` 答**被标的那一条**的答案）、以及 `Function` **按有没有体分档**
+（有体收在 `}` 上、没体的是环境签名 / 重载，那个 `;` 归它自己）——都是「我这一格的形态」
+决定的事，所以由它们自己答。
+
+**基类答 `false`**：绝大多数 token 自己吃尾分号；需要它的 token 在自己那一页覆写
+（`## method`，与 `IsStatementNode` / `IsMemberList` / `AstKind` 同一形态）。
+
+```ts
+return false;
+```
+
+## method IsSignatureNode:()=>bool
+
+**我这一格是不是「可调用签名」**（第 1040 轮）——是的话答 `true`。
+
+它决定两件事，都是目标语言那边的口径：**没有体**的签名，区间要**带上尾随的 `;` 或 `,`**
+（`declare function f(): void;` 在 TS 那边是 `FunctionDeclaration[23,51)`，含那个 `;`；
+接口 / 类型字面量里的成员可以用逗号分隔，那条 `MethodSignature` 的 `end` 也含逗号）。
+
+判据的那份名单过去写成投影层的一个
+`# private const SIGNATURE_KINDS:Set<string> = new Set(["FunctionDeclaration", "MethodDeclaration",
+"MethodSignature", "CallSignature", "ConstructSignature"])`
+（`typescript/print-ast-common.xl.md`）——而那五个 kind 名**就是这几页自己的节点名每一态**
+（`MethodDeclaration` 那一页在签名位就答 `MethodSignature`），所以它住在各自那一页。
+
+**「有没有体」不在这里判**：调用点手上已经有 `props.body`（它要判断的正是「没体的那一档」），
+所以这一格只答「我这种节点算不算签名」。
+
+**基类答 `false`**：需要它的 token 在自己那一页覆写（`## method`，与 `EndsOnBrace` /
+`AstKind` 同一形态）。
+
+```ts
+return false;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

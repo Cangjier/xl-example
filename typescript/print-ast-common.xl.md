@@ -608,14 +608,6 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   }
   return null;
 ```
-# private const SIGNATURE_KINDS:Set<string> = new Set(["FunctionDeclaration", "MethodDeclaration", "MethodSignature", "CallSignature", "ConstructSignature"])
-
-没有函数体的**可调用签名**：它们的 `end` 要**带上尾随分号**（TS 的口径）。
-
-`declare function f(): void;` 的 TS 是 `FunctionDeclaration[23,51)`（含 `;`），
-而产物那个 `Function` 只到 `void` 为止——分号是它的平级兄弟。
-只对这几个 kind 做：带**函数体**的声明不会走到这里（体已经把它结束在 `}` 上了）。
-
 # private method astNode:(kind:string, props:any, v:any, ctx:any)=>any
 
 **造一个投影节点**：`pos` 取视图的起点，`end` 由 `stmtEndOf` 剪掉尾部 trivia，
@@ -639,8 +631,12 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   // 在 TS 那边是一条新的 `EmptyStatement`（`function f() {};` ⇒ `FunctionDeclaration[0,15)`
   // + `EmptyStatement[15,16)`）。原来只看 `SIGNATURE_KINDS` ⇒ 带体的一律多算一格，
   // 于是「空语句」既缺、声明又漂（实测 `stmt-generator-trailing-semicolon` 一族）。
+  //
+  // **「我这种节点算不算签名」第 1040 轮改由那一格 token 自己答**（`IsSignatureNode()`，
+  // 见 `core/syntax/token.xl.md`）：那五个 kind 名就是几页自己的节点名每一态
+  // （`MethodDeclaration` 那一页在签名位答 `MethodSignature`），所以名单搬回了各自那一页。
   if (
-    SIGNATURE_KINDS.has(kind) &&
+    v.IsSignatureNode() &&
     (props === undefined || props.body === undefined) &&
     (ctx.source[end] === ";" || ctx.source[end] === ",")
   ) {
@@ -1295,7 +1291,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     // `const o = { a: 1 }` 换行 `;` 里那个 `;` 归 `VariableStatement`（它的区间含 `;`），
     // 而 `function f() {}` 换行 `;` 里那个是**新的空语句**（带体的声明收在 `}` 上）。
     // 两种形状的前一格都是 `}`，所以这一问必须由**知道上一条是什么**的这一层来问，
-    // 判据只有一份：`ownsTrailingSemicolon`（`NO_TRAILING_SEMICOLON` 那张表 + 三档特例）。
+    // 判据只有一份：`ownsTrailingSemicolon`（`ENDS_ON_BRACE` 那一份名单 + 三档特例）。
     //
     // **只在「这一格自己不成节点」或「它投出来的就是那个空语句」时接管**：
     // 别的一律照旧走 `projectStatement` 的读数（`;;` 那一格、`;` 顶一条语句那一格都在里面）。
@@ -1452,37 +1448,6 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     if (inner !== undefined) return inner;
   }
   return undefined;
-```
-
-# private const NO_TRAILING_SEMICOLON:Set<string>
-
-**这些 kind 在 TS 那边收在块 / `}` 上、不调 `parseSemicolon`** ⇒ 紧跟它们的一个 `;`
-是一条新的 `EmptyStatement`，而不是它们的终结符（第 663 轮）。
-
-名单照 TS 的 parser 列：`if` / `while` / `for` / `for…in` / `for…of` / `switch` / `try` /
-裸块收在 `}` 上；类 / 枚举 / 接口 / 命名空间 / 环境模块同样收在自己的 `}` 上。
-**`DoStatement` 不在名单里**——`do … while (c)` 后面那个 `;` 归它自己；
-**导入 / 导出 / 变量 / 表达式 / 类型别名也不在**——那几族自己就吃尾分号。
-
-**`FunctionDeclaration` 按「有没有体」分两档**（见调用点）：带体的是声明、收在 `}` 上；
-**没有体的是环境签名 / 重载**（`declare function f(): void;`），那个 `;` 归它自己。
-
-```ts
-new Set([
-  "Block",
-  "ClassDeclaration",
-  "EnumDeclaration",
-  "ForInStatement",
-  "ForOfStatement",
-  "ForStatement",
-  "FunctionDeclaration",
-  "IfStatement",
-  "InterfaceDeclaration",
-  "ModuleDeclaration",
-  "SwitchStatement",
-  "TryStatement",
-  "WhileStatement",
-])
 ```
 
 # private method projectStatement:(v:any, ctx:any)=>any
@@ -1896,12 +1861,10 @@ new Set([
 - **空语句不吞下一个**（`;;` 是两条 `EmptyStatement`，各自一格）；
 - **自己已经以 `;` 收尾的不吞**（`f();` 换行 `;`：`parseSemicolon` 只吃紧跟的那一个，
   第二行那个 `;` 是新的空语句）；
-- **带标签的语句问的是被标的那条**：`lab: {}` 换行 `;` 里那个 `;` 不归标签（`Block` 收在
-  `}` 上），而 `lab: x = 1` 换行 `;` 归它（被标的是表达式语句）⇒ 递归问下去，
-  两档由被标的那一条自己答；
-- **`NO_TRAILING_SEMICOLON` 那张表**（第 663 轮）：表里的收在 `}` 上、不调 `parseSemicolon`
-  ⇒ 紧跟的 `;` 是 `EmptyStatement`；表外的一律自己吃。
-  **表里的 `FunctionDeclaration` 要按有没有体分两档**（同第 663 轮的口径）：
+- **带标签的语句问的是被标的那条**：`lab: {}` 换行 `;` 里那个 `;` 不归标签（块收在 `}` 上），
+  而 `lab: x = 1` 换行 `;` 归它（被标的是表达式语句）⇒ 递归问下去，两档由被标的那一条自己答；
+- **收在 `}` 上的那一族自己不吃**（第 663 轮那张 `NO_TRAILING_SEMICOLON` 表，第 1040 轮改名
+  `ENDS_ON_BRACE`）。**表里的 `FunctionDeclaration` 要按有没有体分两档**（同第 663 轮的口径）：
   没体的是环境签名 / 重载，那个 `;` 归它自己。
 
 ```ts
@@ -1912,7 +1875,60 @@ new Set([
     return ownsTrailingSemicolon(node.statement, ctx);
   }
   if (kind === "FunctionDeclaration" && node.body === undefined) return true;
-  return !NO_TRAILING_SEMICOLON.has(kind);
+  return !kindEndsOnBrace(kind);
+```
+
+# private method kindEndsOnBrace:(kind:string)=>bool
+
+**这个目标语言节点名收在 `}`（块尾）上吗**（第 1040 轮）——它就是原来那张按 kind 查的
+`NO_TRAILING_SEMICOLON` 集合，改了一个说得出话的名字（下面那一格是它的数据）。
+
+**它不是第二份声明**：每一档对应的 token 页面都自己答 `Token.EndsOnBrace()`
+（`core/syntax/token.xl.md`；空语句那一页答 `false`、带体的函数答 `true`、裸块由 `Bracket`
+按 `startBracket` 答），这里的每一档都是那一页的 **`AstKind()` 名字**。
+
+**这一格为什么还是按 kind 问**（第 1040 轮实测）：调用点手上那一格 token 与 `out` 末尾那个
+节点**不再是同一个单元**——`projectStatement` 会把一条声明包进语句壳（`function f() {}` 的
+上一格是 `Statement`，而它的 `EndsOnBrace()` 是「不收在 `}` 上」），照 token 问会让
+`stmt-semicolon-after-declaration` 那一族 5 条用例当场倒退。名字与答案仍分处两页、
+**名字就是那一页答的**，所以这里只读一次名字，不在这里判「我这一格长什么样」。
+
+```ts
+  return ENDS_ON_BRACE.has(kind);
+```
+
+# private const ENDS_ON_BRACE:Set<string>
+
+**哪些节点名收在 `}`（块尾）上**（第 1040 轮）：这份名单就是原来那张
+`NO_TRAILING_SEMICOLON`（第 663 轮照 TS parser 列的那一份），
+**它今天只是 `kindEndsOnBrace` 那一格的数据**——首选的路子问的是**那一格 token 自己**
+（`Token.EndsOnBrace()`），这一份是「手上只有名字」时的落点。
+
+**每一档对应的页面都会答**（句首那些类各自覆写 `EndsOnBrace()` 答 `true`）：
+`Block`（八个体类 / 裸块的 `Bracket`）、`ClassDeclaration` / `EnumDeclaration` /
+`InterfaceDeclaration` / `ModuleDeclaration` / `SwitchStatement` / `TryStatement` /
+`WhileStatement` / `ForStatement` / `ForOfStatement` / `ForInStatement` / `IfStatement` /
+`FunctionDeclaration`（这两态里**带体**的那一态；没体的是签名，那个 `;` 归它自己）。
+
+**`DoStatement` 不在名单里**：`do … while (c)` 后面那个 `;` 归它自己。
+**导入 / 导出 / 变量 / 表达式 / 类型别名也不在**：那几族自己就吃尾分号。
+
+```ts
+new Set([
+  "Block",
+  "ClassDeclaration",
+  "EnumDeclaration",
+  "ForInStatement",
+  "ForOfStatement",
+  "ForStatement",
+  "FunctionDeclaration",
+  "IfStatement",
+  "InterfaceDeclaration",
+  "ModuleDeclaration",
+  "SwitchStatement",
+  "TryStatement",
+  "WhileStatement",
+])
 ```
 
 # private method isOperatorUnit:(node:any, ctx:any)=>bool
