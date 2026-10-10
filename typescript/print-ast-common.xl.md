@@ -1056,19 +1056,6 @@ new Set(["InterfaceDeclaration", "TypeLiteral", "ClassDeclaration", "EnumDeclara
 投出来是 `ExpressionStatement > BinaryExpression`（实测「多出来」榜的第一名 `BinaryExpression`
 1806 与第二名 `CommaToken` 1158 同源，样本全是 `export enum … { JsxClosingTag = "…", … }`）。
 
-# private const MEMBER_TAGS:Set<string>
-
-**哪些标签算「成员」**：成员位那层 `<Statement>` 只有**全部**由这些标签组成时才摊开。
-
-这一条是实测补的守卫：`samples/generic.ts` 里有一句 `class Foo<T> { let value: T }`
-（本工程的样本，不是合法 TS）——成员位的 `<Statement>` 里装的是个 `Let`，
-无脑摊开会把它当成成员投出去，而 `projectLet` 那条路本来只服务语句位、容器类型不设防，
-当场 `TypeError: node.get is not a function`。**摊开的判据要窄**：
-
-```ts
-new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMember"])
-```
-
 # private method projectEachIn:(list:Array<any>, ctx:any, parentKind:string)=>Array<any>
 
 投影一批子单元，并在**签名上下文**里切换标记。
@@ -1086,8 +1073,18 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     for (const item of list) {
       if (item instanceof Token && item.Tag() === "Statement") {
         const inner = allKids((item)).filter((k) => !k.IsInvisible());
-        // **只有整层都是成员才摊开**（见 `MEMBER_TAGS`）：`interface` / `type` / `class`
+        // **只有整层都是成员才摊开**：`interface` / `type` / `class`
         // 的成员位在 TS 里放不下语句，可本工程自己的样本里出现过 `{ let value: T }` 这种写法。
+        //
+        // **「哪些标签算成员」这件事第 1033 轮改由单元自己答**（`Token.IsMemberTag`）：
+        // 名单里的键（`IndexSignature` / `Field` / `MethodDeclaration` / `Signature` /
+        // `EnumMember`）**就是那些类自己的名字**，所以它住在各自那一页，
+        // 投影这一侧不再存第二份（原来这里是 `MEMBER_TAGS` 那个集合）。
+        // **摊开的判据要窄**是实测补的守卫：`samples/generic.ts` 里有一句
+        // `class Foo<T> { let value: T }`（本工程的样本，不是合法 TS）——成员位的
+        // `<Statement>` 里装的是个 `Let`，无脑摊开会把它当成成员投出去，而 `projectLet`
+        // 那条路本来只服务语句位、容器类型不设防，当场 `TypeError: node.get is not a function`。
+        //
         // **成员之间的 `,` 不算内容**（第 86 轮）：枚举体的那一层 `Statement` 里是
         // `[EnumMember, SymbolToken(,), EnumMember, …]`——`every` 不认逗号的话枚举永远摊不开，
         // 于是一个 `,` 把成员们折成 `BinaryOperator`、投成 `ExpressionStatement > BinaryExpression`。
@@ -1095,7 +1092,7 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
           inner.length > 0 &&
           inner.every(
             (k) =>
-              MEMBER_TAGS.has(k.Tag()) ||
+              k.IsMemberTag() ||
               (k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ","),
           )
         ) {

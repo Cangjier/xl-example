@@ -931,6 +931,27 @@ return undefined;
 return false;
 ```
 
+## method IsMemberTag:()=>bool
+
+**我在成员位上算不算一个「成员」**（第 1033 轮）。
+
+成员表（`interface` / `type` 字面量 / `class` / `enum` 的体）在产物那边多包了一层
+`<Statement>`——那一层只有**整层都是成员**时才摊开，否则会把它自己投成一个
+`ExpressionStatement`。判据的那份名单（`IndexSignature` / `Field` / `MethodDeclaration` /
+`Signature` / `EnumMember`）过去写成投影层的一个**按标签名查的集合**
+（`typescript/print-ast-common.xl.md` 的 `MEMBER_TAGS`），而**标签名就是那些类自己的名字**——
+所以那是每一页自己的事实，被写在投影那一页里。
+
+今天基类答 `false`、那五页各自覆写，投影只问这一格（`k.IsMemberTag()`）。
+**它不能按 `Tag()` 抄一份名单**：留一张表就还是「同一份事实两处声明」。
+
+**基类答 `false`**：绝大多数 token 在成员位上都不是成员；需要它的 token 在自己那一页覆写
+（`## method`，与 `IsInvisible` / `AstKind` / `StatementKind` 同一形态）。
+
+```ts
+return false;
+```
+
 ## method FunctionFlags:()=>any
 
 **我这一格是不是函数体**（第 1031 轮）：是的话答 `{ generator, async }`，不是的话答 `undefined`。

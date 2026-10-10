@@ -226,6 +226,16 @@ result.TryToClose();
 return result;
 ```
 
+## method IsMemberTag:()=>bool
+
+**我在成员位上是一个成员**（第 1033 轮）：枚举成员只出现在枚举体里，所以这一格答 `true`
+——枚举体的成员表里还夹着 `,`，成员之间那个逗号也靠这一条才**不**被算进来
+（口径见 `core/syntax/token.xl.md` 的 `IsMemberTag`）。
+
+```ts
+return true;
+```
+
 ## method AstKind:()=>string | undefined
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
