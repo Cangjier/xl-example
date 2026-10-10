@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4366,
+  "total": 4367,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -80,8 +80,8 @@
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1587,
-      "pass": 1585,
+      "total": 1588,
+      "pass": 1586,
       "blocked": 2,
       "differ": 0,
       "nodefail": 0,
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1587,
+    "total": 1588,
     "knownGap": 2,
     "knownGapStillOpen": 2,
-    "exactFiles": 1585,
-    "scoredWithoutGap": 1585,
-    "passedWithoutGap": 1585
+    "exactFiles": 1586,
+    "scoredWithoutGap": 1586,
+    "passedWithoutGap": 1586
   },
   "blocked": [
     {
@@ -144,10 +144,10 @@
       "detail": "缺 4　多 4　yield / await 在生成器 / async 之外是普通标识符，本仓一律投成 YieldExpression / AwaitKeyword（缺 Identifier 1、多 1）"
     },
     {
-      "id": "token/types/gap-r956-predicate-paren-type",
+      "id": "token/types/gap-r958-class-method-predicate-paren",
       "category": "token",
-      "title": "类型谓词里那个类型**套一层圆括号**时，整条谓词不成形（第 956 轮片段普查量出）：",
-      "detail": "缺 8　漂 1　多 4　字段 1　未映射 1　类型谓词成形了（第 957 轮把 ( 从调用那一趟要了回来），但类型那一格还停在一对裸 Bracket 上（缺 ParenthesizedType / StringKeyword，多 4）：ParenthesizedTypeCloseRule 的闸门是「父亲是类型容器」，而"
+      "title": "谓词里那个括号落在**类成员的返回类型位**、而那条成员**又带方法体**时，",
+      "detail": "缺 19　多 5　谓词落在带方法体的类成员返回类型位上时整条 MethodDeclaration 不成形（缺 6 / 多 2）"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
@@ -443,7 +443,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2194.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2195.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -743,7 +743,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3182.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3183.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -767,7 +767,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3230.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3231.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/051-builtin-regexp-constructor",
@@ -935,7 +935,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3873.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3874.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
