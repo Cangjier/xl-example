@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4396,
+  "total": 4402,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.67,
+  "progressPercent": 95.62,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1617,
+      "total": 1623,
       "pass": 1617,
-      "blocked": 0,
+      "blocked": 6,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.63
     },
     {
       "category": "exec",
@@ -129,14 +129,50 @@
     }
   ],
   "token": {
-    "total": 1617,
-    "knownGap": 0,
-    "knownGapStillOpen": 0,
+    "total": 1623,
+    "knownGap": 6,
+    "knownGapStillOpen": 6,
     "exactFiles": 1617,
     "scoredWithoutGap": 1617,
     "passedWithoutGap": 1617
   },
   "blocked": [
+    {
+      "id": "token/expressions/gap-r975-nonnull-call-assert-call-twice",
+      "category": "token",
+      "title": "",
+      "detail": "漂 2　第 975 轮普查量到：`a!()()!()`：漂 2——链循环里「这一格是非空断言」那一支只认**核是实参括号**（「先调用、再断言」）那一档；这一格的核是**一格 `Method`**（`NotNull(Method(name=\"\"[Bracket]), !)`），于是最里面那次调用（`a!()`）整格丢、"
+    },
+    {
+      "id": "token/expressions/gap-r975-nonnull-call-assert-index",
+      "category": "token",
+      "title": "",
+      "detail": "缺 3　漂 1　第 975 轮普查量到：`a!()![0]`：缺 3 漂 1——产物只有一格 `NonNullExpression[0,2)`：`isCallFirstUnit` 不认「外壳是 `PropertyAccess`、头一格是 `NotNull` 盖着实参括号」这一档（`PropertyAccess[NotN"
+    },
+    {
+      "id": "token/expressions/gap-r975-nonnull-call-thrice-assert-member",
+      "category": "token",
+      "title": "",
+      "detail": "缺 5　漂 1　第 975 轮普查量到：`a!()()()!.c`：缺 5 漂 1——产物只有一格 `NonNullExpression[0,2)`：这一格的外壳是 `PropertyAccess`，头一格是 `NotNull(Method(name=\"\"[Method(name=\"\"[Bracket])]), !)`"
+    },
+    {
+      "id": "token/expressions/gap-r975-nonnull-call-thrice-operator",
+      "category": "token",
+      "title": "",
+      "detail": "漂 1　第 975 轮普查量到：`a!()()() + 1`：漂 1（最外面那一格 `CallExpression` 的区间只到 `[0,6)`，TS 是 `[0,8)`）——**续格长在二元单元里面**那一档（`chainTailInOperator`）：摊平之后那格 `Method(name=\"\"[Method(n"
+    },
+    {
+      "id": "token/expressions/gap-r975-nonnull-index-assert-call",
+      "category": "token",
+      "title": "",
+      "detail": "缺 2　漂 2　第 975 轮普查量到：`a!()[0]!()`：缺 2 漂 2——第一格 `Method(name=\"\")[NotNull(a!.), Bracket(())]` 里那个 `NotNull` 是**被调用者**（它的实参括号是平级的兄弟），而链循环里「`callHead` 是 `NotNull`」那一"
+    },
+    {
+      "id": "token/expressions/gap-r975-opt-call-assert-call-twice",
+      "category": "token",
+      "title": "",
+      "detail": "漂 1　多 2　第 975 轮普查量到：`a?.()!()`：漂 1 多 2——`assertedMember` 的名称位拿到的是**一对待调用的实参括号**（`NotNull([Bracket(()), !])`），而它只认「名字」「下标括号」「子链」三档 ⇒ 落到通用支、投出一格名字叫 `()` 的属性访问（多 2"
+    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -419,7 +455,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2224.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2230.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -701,7 +737,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3212.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3218.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -725,7 +761,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3260.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3266.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/051-builtin-regexp-constructor",
@@ -893,7 +929,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3903.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3909.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",
