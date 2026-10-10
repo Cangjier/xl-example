@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.64,
+  "progressPercent": 95.66,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1623,
-      "pass": 1619,
-      "blocked": 4,
+      "pass": 1621,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.75
+      "coverage": 99.88
     },
     {
       "category": "exec",
@@ -130,25 +130,13 @@
   ],
   "token": {
     "total": 1623,
-    "knownGap": 4,
-    "knownGapStillOpen": 4,
-    "exactFiles": 1619,
-    "scoredWithoutGap": 1619,
-    "passedWithoutGap": 1619
+    "knownGap": 2,
+    "knownGapStillOpen": 2,
+    "exactFiles": 1621,
+    "scoredWithoutGap": 1621,
+    "passedWithoutGap": 1621
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r975-nonnull-call-assert-index",
-      "category": "token",
-      "title": "",
-      "detail": "缺 3　漂 1　第 975 轮普查量到：`a!()![0]`：缺 3 漂 1——产物只有一格 `NonNullExpression[0,2)`：`isCallFirstUnit` 不认「外壳是 `PropertyAccess`、头一格是 `NotNull` 盖着实参括号」这一档（`PropertyAccess[NotN"
-    },
-    {
-      "id": "token/expressions/gap-r975-nonnull-call-thrice-assert-member",
-      "category": "token",
-      "title": "",
-      "detail": "缺 5　漂 1　第 975 轮普查量到：`a!()()()!.c`：缺 5 漂 1——产物只有一格 `NonNullExpression[0,2)`：这一格的外壳是 `PropertyAccess`，头一格是 `NotNull(Method(name=\"\"[Method(name=\"\"[Bracket])]), !)`"
-    },
     {
       "id": "token/expressions/gap-r975-nonnull-call-thrice-operator",
       "category": "token",

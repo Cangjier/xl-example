@@ -4069,10 +4069,22 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       const flattened: Array<any> = [];
       for (let at = 0; at < ck.length; at++) {
         const one = ck[at];
+        // **外壳是属性访问、头一格是「断言盖着一次调用」时也要摊开**（第 975 轮）：
+        // `a!()![0]` 的第二格是 `PropertyAccess([NotNull(Bracket(()), !), Bracket([0])])`——
+        // 里层是两件事（先按括号调一次、再取下标），摊开之后循环里那两支各办一件；
+        // 不摊开的话它在循环里既不是下标、也不是点号 ⇒ `break`（实测
+        // `gap-r975-nonnull-call-assert-index` / `gap-r975-nonnull-call-thrice-assert-member`）。
+        // **与上面那条 `isIndexFirstUnit` 的分工**：那一支管「先下标、再断言」，
+        // 这一支管「先调用、再断言」（判据就是 `isCallFirstUnit(头一格)`）。
+        const oneHead = one.get("type") === "PropertyAccess"
+          ? projectableKids(view(one))[0]
+          : undefined;
+        const assertCallCell = oneHead !== undefined && oneHead.get("type") === "NotNull"
+          && isCallFirstUnit(oneHead, ctx);
         if (
           at > 0 &&
           one.get("type") === "PropertyAccess" &&
-          isIndexFirstUnit(one, ctx)
+          (isIndexFirstUnit(one, ctx) || assertCallCell)
         ) {
           for (const inner of projectableKids(view(one))) flattened.push(inner);
           continue;
@@ -5155,6 +5167,11 @@ if (kind === "PropertyAccess" || kind === "NotNull") {
     // `Identifier(c)` 一起丢（`gap-r964-nonnull-call-twice-member`，缺 4 格）。
     // 判据只多问一句 `isCallFirstUnit(头一格)`，认的仍然只有 `Method` 那一档
     // ——**平级的裸 `(` 兄弟照旧不在名单里**（理由与上面那一句一字不差）。
+    // **头一格是 `NotNull` 时也要递归问**（第 975 轮）：`a!()![0]` 的第二格是
+    // `PropertyAccess([NotNull(Bracket(()), !), Bracket([0])])`——那一格的头是
+    // 「断言盖着一次调用」，同样是「以一次调用开头」；原来只认 `Method` ⇒ 链那一支
+    // 整个进不来（实测 `gap-r975-nonnull-call-assert-index`：缺 3 漂 1）。
+    if (head.get("type") === "NotNull") return isCallFirstUnit(head, ctx);
     return head.get("type") === "Method" && isCallFirstUnit(head, ctx);
   }
 }
