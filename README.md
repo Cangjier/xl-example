@@ -359,6 +359,47 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   而中间层在投影里**根本没有节点**（它只体现为深一层那个 `CallExpression` 的嵌套），
   所以「换掉最左边那个空壳」这一手够不着它。
 
+### 第 966 轮：**「一个 `Method` 单元里只有一对括号、区间却盖着两个 `)`」**——断言那一档的链收掉三格（缺口 6 → 3）
+
+**一句话**：第 964 轮登记的六格里，有三格是**同一句话**：`Method` 比它那个实参括号**更靠右**，
+说明这一格里还裹着**外面那一层调用**——而三处折法都只折了内层。
+这句话本仓早就有了（第 962 / 963 / 965 轮在别处用过三次），缺的是**断言那一档**：
+`assertedMember` 只认名字，而这几格的核是**实参括号 / 下标括号**。
+
+- **收掉的三格**：
+
+  | 用例 | 写法 | 症状 |
+  | --- | --- | --- |
+  | `gap-r964-nonnull-call-assert-call` | `a!()!()` | 缺两个 `CallExpression`、`NonNullExpression` 只到 `a!`：`callHead` 是 `NotNull(Bracket(()), !)`，`assertedMember` 认不出名字 ⇒ 整格丢 |
+  | `gap-r964-opt-index-assert-call` | `a?.['b']!()` | 同形，核是**下标括号**：缺两个 `CallExpression`、`ElementAccessExpression` 只到 `]` |
+  | `gap-r964-opt-index-assert-member` | `a?.['b']!.c` | 缺 `ElementAccessExpression` + `StringLiteral`，多一格名字叫 `['b']` 的属性访问（`assertedMember` 把整对下标括号当成了名字） |
+
+- **修法两处**（都只是「把已有的那句判据补到断言那一档」）：
+  1. `assertedMember` 里多认一档**核是下标括号**（`Bracket(startBracket="[")`）⇒ 先建
+     `ElementAccessExpression`、再把 `!` 套在外面（次序与 TS 一致：`NonNull(ElementAccess(a, 'b'))`）；
+  2. 两处折法的 `callHead === "NotNull"` 那一支后面补一句**区间判据**
+     （`Method` 比它的实参括号更靠右 ⇒ 外面还有一层）：先把「括号 + `!`」折成 `NonNull`，
+     再把外面那次调用套上去。
+- **同域还剩三格（本轮如实留着、根因已量到）**：
+  - `a!()().c`（`gap-r964-nonnull-call-twice-member`）：第二格是
+    `PropertyAccess(Method(name=""[Bracket(())]), ., c)`——**摊开**（第 692 / 962 轮那条规矩）
+    把它拆成 `[Method, ., c]`，而那一格 `Method` 的**区间**（盖着两个 `)`）在摊开时就丢了；
+    `projectNode(Method)` 只投得出内层那一次调用 ⇒ 外层调用与 `.c` 一起消失。
+    下一处入手处：**摊开那一趟要先把「区间盖着两层」的 `Method` 整格交给 `chainOnto`**，
+    而不是摊成平级三格。
+  - `a?.b!.c.d`（`gap-r964-opt-assert-member-member`）：NCO 内容是
+    `[NotNull(b), ., PropertyAccess([c, ., d])]`——**断言挂在子链的受体上**，
+    而子链那一支接第一格用的是 `left`（没有断言的那条链）。
+  - `a?.b()()()`（`gap-r964-opt-call-triple`）：第 965 轮那条诊断仍然成立——
+    中间那一层在投影里**根本没有节点**。
+- **实测**：`cases:tsast` 已知缺口 **6 → 3 条还开着、0 条已经收掉**（三条用例的
+  `xl:known-gap` 按规矩撤掉、改成 `xl:note`）；`cases:tsast` 语料 16 片全过（墙钟 13.2s）、
+  投影后 100.0% 同 kind 同区间同字段名、缺 range 0、区间越界 0。
+- **可复用的判据**：**「外面还有一层」这句话要在每一处「投出一个 `Method`」的地方问一遍**——
+  第 962 / 963 / 965 轮各补过几处，而漏掉的总是**核不是名字**的那几档
+  （`NotNull` 的核是括号、`Bracket` 的核是实参、下标那档的核是 `[`）。
+  量法也固定：`endOf(那一格) < endOf(它的括号)`。
+
 ### 第 964 轮：那一族的**第五处副本**补齐 + 换一批底样普查——量出 11 格、**10 格登记进语料**
 
 **一句话**：第 963 轮末尾留的那一格（`o?.m()().v`）是那条折法的**第五处副本**，

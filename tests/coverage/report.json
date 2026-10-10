@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.62,
+  "progressPercent": 95.65,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1601,
-      "pass": 1595,
-      "blocked": 6,
+      "pass": 1598,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.63
+      "coverage": 99.81
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1601,
-    "knownGap": 6,
-    "knownGapStillOpen": 6,
-    "exactFiles": 1595,
-    "scoredWithoutGap": 1595,
-    "passedWithoutGap": 1595
+    "knownGap": 3,
+    "knownGapStillOpen": 3,
+    "exactFiles": 1598,
+    "scoredWithoutGap": 1598,
+    "passedWithoutGap": 1598
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r964-nonnull-call-assert-call",
-      "category": "token",
-      "title": "",
-      "detail": "缺 2　漂 1　第 964 轮普查量到的形状：缺 `CallExpression`，`NonNullExpression` 的区间只到 `a!`。根因还没量到——如实登记，不猜。"
-    },
     {
       "id": "token/expressions/gap-r964-nonnull-call-twice-member",
       "category": "token",
@@ -159,19 +153,7 @@
       "id": "token/expressions/gap-r964-opt-call-triple",
       "category": "token",
       "title": "",
-      "detail": "漂 3　多 2　第 964 轮普查量到的形状：`CallExpression` / `PropertyAccessExpression` / `Identifier` 三处漂，另多一格**名字为空**的属性访问——三层调用只折了两层。根因还没量到——如实登记，不猜。"
-    },
-    {
-      "id": "token/expressions/gap-r964-opt-index-assert-call",
-      "category": "token",
-      "title": "",
-      "detail": "缺 2　多 2　第 964 轮普查量到的形状：同上一格：下标 + 断言之后那次调用整格丢。根因还没量到——如实登记，不猜。"
-    },
-    {
-      "id": "token/expressions/gap-r964-opt-index-assert-member",
-      "category": "token",
-      "title": "",
-      "detail": "缺 2　多 2　第 964 轮普查量到的形状：缺 `ElementAccessExpression` / `StringLiteral`，多一格名字是 `['b']` 的属性访问。根因还没量到——如实登记，不猜。"
+      "detail": "缺 2　漂 1　字段 1　第 964 轮普查量到的形状：`CallExpression` / `PropertyAccessExpression` / `Identifier` 三处漂，另多一格**名字为空**的属性访问——三层调用只折了两层。根因还没量到——如实登记，不猜。"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
