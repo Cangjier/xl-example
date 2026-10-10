@@ -2067,6 +2067,17 @@ for (let i = from; i >= 0; i--) {
       return false;
     }
     if (name === "type") {
+      // **`import type A = …` 里那个 `type` 不是类型别名的头**（第 984 轮）：它是导入子句的
+      // type-only 修饰词，右边那个 `=` 是 import-equals 的等号（`import type A = require("m")` /
+      // `import type A = B.C`）。少了这一条，`import type A = require` 换行 `("m")` 会被读成
+      // 「上一行是类型标注」⇒ `(` 那一格的两道护栏（`statement.xl.md` 的解析期与收尾期各一处）
+      // 一起放行 ⇒ 换行处收壳 ⇒ **一条** `ImportEqualsDeclaration` 断成两条
+      //（实测 `import type A = require⏎("m");`：漂 1、缺 `ExternalModuleReference`、多 4）。
+      // 判据落在**前一个实义单元**上（跨注释与软换行：`import /*c*/ type A = …` 同族）。
+      const importBefore = Get(units, SkipPreviousTrivia(units, i));
+      if (importBefore instanceof Identifier && importBefore.Is("import")) {
+        return false;
+      }
       return true;
     }
     if (name === "let" || name === "var" || name === "const") {

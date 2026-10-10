@@ -256,10 +256,18 @@ if (fromIndex !== -1) {
     result.From = constString.TempToString();
   }
 }
-result.ReadClause(items);
-const headItem = items.length > 0 ? items[0] : null;
+// **头一格要先跨过 trivia**（第 984 轮）：`import` 与 `type` 之间换行时，那个软换行是
+// **这个循环自己塞进 `items` 的**（上面那条 `IsTriviaUnit(item) && done === false` 里
+// `if (item instanceof LineWrap) { items.push(item); }`）⇒ `items[0]` 是 `LineWrap` 而不是
+// `type` ⇒ `headIsType` 判否 ⇒ 那个 `type` 词既没被吃掉、也没记成 `typeOnly`
+// ⇒ 投影把它当成**导入名**（实测 `import⏎type A = require("m")`：缺 `Identifier A`、
+// 多 `Identifier type`，区间还差一格）。判据只有一份：**第一个非 trivia 单元**，
+// 它同时交给 `ReadClause`（那一格也按「头一个是 `type`」判 `typeOnly`）。
+const headIndex = SkipNextTrivia(items, -1);
+result.ReadClause(items, headIndex);
+const headItem = Get(items, headIndex);
 const headIsType = headItem instanceof Identifier && headItem.Is("type");
-const children = headIsType ? items.slice(1) : items;
+const children = headIsType ? items.slice(headIndex + 1) : items;
 result.AddRange(children);
 result.SignIn(current.SourceRange.Start!);
 // **`items` 空着也要收得住**（第 668 轮）：`import` 后面什么都没有（`import;` 那种写坏的行）
@@ -535,11 +543,16 @@ super(template);
 不回原文找第二份位置答案——`import /*c*/ type { A }` 里回原文找会先命中注释
 （第 875 轮实测：多出一个 `[7,23)` 的 `ImportClause`，TS 是 `[13,23)`）。
 
-## method ReadClause:(items:Array<Token>)=>void
+## method ReadClause:(items:Array<Token>, headIndex:int)=>void
 
 从子句里读出 `typeOnly` / `defaultImport` / `namespace` / `imported`。
 
 `Process` 在把 `items` 装进 `Data` **之前**调用它（那时这些单元还没被关闭，读起来最方便）。
+
+**`headIndex` 是「第一个实义单元」的下标**（第 984 轮）：`items` 的头几格可能是
+`Process` 的收集循环自己塞进来的 trivia（`import` 与子句之间那个换行）——
+按 `items[0]` 判会把 `import` 换行 `type A = …` 里的 `type` 读漏
+（`typeOnly` 判否 + 那个 `type` 词又当成导入名，实测）。
 
 三种子句的形态互斥、按顺序判：
 
@@ -559,15 +572,16 @@ super(template);
 `import /*c*/ type { A }` 就先命中注释 ⇒ 区间从 `/*c*/` 起（多出一个 `[7,23)` 的
 `ImportClause`，与 TS 的 `[13,23)` 对不上）。判据与 `NamedBraceAt` 同一条：
 **认下这一格的那一刻就把它记下来，不再回原文找第二份位置答案**。
-`type` 是 `items` 里第一个实义单元（`Process` 的收集循环跨过 trivia），所以它的下标就是
-`SourceRange.Start`。
+`type` 是 `items` 里第一个实义单元（`Process` 的收集循环跨过 trivia，头一格的下标由
+`headIndex` 递进来），所以它的下标就是 `SourceRange.Start`。
 
 ```ts
-let start = 0;
-if (items.length > 0 && items[0] instanceof Identifier && (items[0] as Identifier).Is("type")) {
+let start = headIndex;
+const typeWord = Get(items, start);
+if (typeWord instanceof Identifier && typeWord.Is("type")) {
   this.typeOnly = true;
-  this.TypeWordAt = items[0].SourceRange.Start === null ? -1 : items[0].SourceRange.Start.Index;
-  start = 1;
+  this.TypeWordAt = typeWord.SourceRange.Start === null ? -1 : typeWord.SourceRange.Start.Index;
+  start = start + 1;
 }
 if (
   start + 1 < items.length &&

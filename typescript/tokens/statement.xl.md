@@ -1452,6 +1452,13 @@ if (head === "(" || head === "[") {
   // 于是「撞上已成形语句」那一支在这一问上不再响 —— 正是想要的。
   const segmentFrom =
     SearchFrontIndexed(data, data.length, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex)) + 1;
+  // **`import … = …` 那一下不是调用**（第 984 轮）：`import A = foo` 换行 `("m");` 在 TS 那边
+  // 是**两条**语句（那里的右值只能是 `require(…)` 或一条限定名，`parseModuleReference` 里
+  // 没有「调用」这一支）⇒ 判据本体只有一份（`IsImportEqualsWithoutRequire`）。
+  // **`require` 那一格照旧续接**（`import A = require` 换行 `("m")` 是一条声明）。
+  if (head === "(" && Statement.IsImportEqualsWithoutRequire(data, segmentFrom)) {
+    return false;
+  }
   // **`case` / `default` 的标签冒号不算类型标注**：`switch` 体里段首常常就是 `case 1:`
   // —— 那个冒号只是标签，认成类型标注的话 `(` 那一格会被判成「新起一条语句」
   // （同一个开关，见 `HasTypeColonBefore` 那一处）。
@@ -2317,6 +2324,65 @@ for (let i = headAt + 1; i < data.length; i++) {
   }
 }
 return true;
+```
+
+## static method IsImportEqualsWithoutRequire:(data:Array<Token>, start:int)=>bool
+
+`start` 起到列表末尾这一段是**一条 `import … = …`**、而那个 `=` 右边**不是 `require`**吗。
+
+**为什么要问这一句**（第 984 轮）：`import A = …` 的右值在 TypeScript 的文法里只有两种读法
+——`require ( "m" )`（`ExternalModuleReference`）或者一条**限定名**（`A` / `A.B.C`，
+`parseModuleReference` 里那个「名字是 `require` 且后面紧跟 `(`」的分叉）。
+**它不是一次调用**：`import A = foo` 换行 `("m");` 在 TS 那边是**两条**语句
+（`ImportEqualsDeclaration[0,14)` + `ExpressionStatement("(…)")`），
+而本仓解析期那张续接表把 `(` 一律答成「接着写」（第 582 轮那两道护栏）⇒ 换行处不收壳
+⇒ 半截 `foo("m")` 被折成一次调用、整条并成**一条** `ImportEqualsDeclaration`
+（实测 `import A = foo⏎("m");` 与 `import type A = foo⏎("m");`：漂 1 缺 3 多 2）。
+
+`require` 那一格是**唯一要放行的**：`import A = require` 换行 `("m")` 在 TS 那边是**一条**
+`ImportEqualsDeclaration`（`ExternalModuleReference` 跨行），所以判据落在**末了那个实义单元**
+是不是 `require` 上。
+
+**为什么不去问 `ImportCloseRule`**：这一问要用在**解析期**（`NextLineContinuesExpression`
+的 `(` 那一支），那一刻导入声明的收尾规则还没跑（壳都没收），所以判据只看这一段自己的单元。
+
+```ts
+let headAt = start;
+while (headAt < data.length && IsTriviaUnit(Get(data, headAt))) {
+  headAt = headAt + 1;
+}
+// **`export import A = …`**：`export` 是导入声明自己的修饰词，后面那格才是 `import`。
+const first = Get(data, headAt);
+if (first instanceof Identifier && first.Is("export")) {
+  headAt = SkipNextTrivia(data, headAt);
+}
+const head = Get(data, headAt);
+if (head === null || !(head instanceof Identifier) || head.Is("import") === false) {
+  return false;
+}
+let sawEquals = false;
+for (let i = headAt + 1; i < data.length; i++) {
+  const item = Get(data, i);
+  if (item === null) {
+    continue;
+  }
+  // **路径到手了就不是 import-equals**：`import A from "m"` 里那个 `=` 不存在，
+  // 这里也多一道保险（真的写了 `import A = B from "m"` 也是写坏的行）。
+  if (item instanceof String) {
+    return false;
+  }
+  if (item instanceof SymbolToken && item.Is("=")) {
+    sawEquals = true;
+    break;
+  }
+}
+if (sawEquals === false) {
+  return false;
+}
+// **末了那个实义单元**：`require` 要放行（`require(…)` 可以跨行），
+// 其余（`foo` / `B.C` 那个 `C`）都答「这一行到头了」。
+const tail = Get(data, SkipPreviousTrivia(data, data.length));
+return tail instanceof Identifier && tail.Is("require") === false;
 ```
 
 ## static method IsPendingLoopHead:(data:Array<Token>, start:int)=>bool
