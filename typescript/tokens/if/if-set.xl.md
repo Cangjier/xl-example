@@ -284,7 +284,8 @@ ifSet.MountCondition(source);
             end = rawElseEmpty + 1;
           } else {
             // **空体（`else {}`）**：整对括号读 `BodyBraceRange`（第 637 轮，两端都在）。
-            // 只有起点那一格（`BodyBraceAt`）时要回原文配对 `}` ⇒ `canBuild` 已经挡下了。
+            // **第 1015 轮起空块也记得到**（`CaptureBodyBrace` 在找不到 `Bracket` 时改读
+            // `IfBody` 自己的区间）⇒ 这一支只是兜底；真走到这里说明那一格事实又缺了。
             const rawElseRange = segments[index + 1].bodyBraceRange;
             const elseSpan =
               typeof rawElseRange === "string" && rawElseRange.includes(",") ? rawElseRange.split(",") : null;

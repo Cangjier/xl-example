@@ -23,6 +23,9 @@
 //   另有一条只扫共享投影那一页的代码块（名字那一格，第 1008 轮，见 `NAME_KEY`）。
 //   第 1014 轮又加一条**只扫散文**的：`PrintAst` 这个老名字只许出现在「明说它已经不存在」的行上
 //   （词边界匹配，`PrintDirectAst` 不算；见 `STALE_NAME`）——它不改行为，所以前面几条都看不见它。
+//   第 1015 轮再加一条**扫能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现
+//   回原文兜底 / 已无人用的九个出口（见 `CTX_BANNED`）——①那是「谁写了什么」，这一条是
+//   「这一格手上有什麼」；出口删了之后，①守的那句话才从「大家记得别写」变成**结构上做不到**。
 //
 // **第 1013 轮删掉的判据**：原来还有一条「覆写了直出版的页面，同页必须还有 `PrintAst`」——
 // 它是「同答」那条动态判据的**基线**（搬完之前不许先把老路删掉）。现在老路删了、
@@ -295,6 +298,62 @@ let staleNameHits = 0;
   }
 }
 
+/**
+ * **`ctx` 上不许再挂着「回原文兜底」的出口**（第 1015 轮）。
+ *
+ * 上面那几条扫的是**方法体**（谁在这一格写了什么），而这一条扫的是**这一格拿到的东西**：
+ * `typescript/print-ast-common.xl.md` 的 `const ctx = { … }` 里，出口的名字就是它的能力面。
+ * 第 1015 轮把这九个出口从 `ctx` 上删掉了——三个回原文兜底的
+ * （`Text` / `TextOf` / `StringText`：值为空时会去 `source.slice(...)`）、
+ * 以及老路删掉之后再没人用过的六个（`Value` / `Members` / `IsSymbol` / `IsDot` /
+ * `SkipSourceTrivia` / `MatchingBrace`）。
+ *
+ * **为什么删掉之后还要立一条判据** ✗：出口删了，上面那条「不许用 `ctx.Text(`」就**永远绿**了
+ * ——它守的是一句已经无路可走的话。真正要守住的是**「这一层拿不到原文」这件事本身**：
+ * 下一轮谁想加一个方便的出口，只要往 `ctx` 里补一行就能绕开所有方法体判据
+ * （第 1008 轮实测过：helper 那一层的方法体判据天生覆盖不到）。
+ * 所以这一条钉的是**能力面**：`ctx` 的键表里不许出现这些名字。
+ */
+const CTX_BANNED = [
+  "Text",
+  "TextOf",
+  "StringText",
+  "Value",
+  "Members",
+  "IsSymbol",
+  "IsDot",
+  "SkipSourceTrivia",
+  "MatchingBrace",
+];
+let ctxExits = 0;
+let ctxBannedHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => m[1]).join("\n");
+    const start = code.search(/^\s*const ctx = \{/m);
+    const end = start < 0 ? -1 : code.indexOf("\n  };", start);
+    const body = start < 0 || end < 0 ? "" : code.slice(start, end);
+    for (const line of body.split("\n")) {
+      const key = /^\s{4}([A-Za-z_][A-Za-z0-9_]*):/.exec(line);
+      if (key !== null) {
+        ctxExits += 1;
+        if (CTX_BANNED.includes(key[1])) {
+          ctxBannedHits += 1;
+          violations.push({
+            file: `${SHARED_FILE}（ctx 出口）`,
+            why: `\`ctx.${key[1]}\` 又挂回来了——这一层的出口里不许有回原文兜底的那几个（第 1015 轮删过：${CTX_BANNED.join(" / ")}）`,
+          });
+        }
+      }
+    }
+    if (ctxExits === 0) {
+      violations.push({ file: SHARED_FILE, why: "找不到 `const ctx = { … }` 这一格（判据的对象没了）" });
+    }
+  }
+}
+
 // **按字符串键查的账**（第 1005 轮）：逐键比额度——多了红（有人写回来了），
 // 少了也红（收掉了就来把例外表那一行删掉）。
 const stringKeys = [...new Set([...STRING_KEY_ALLOWED.keys(), ...stringKeyHits.keys()])].sort();
@@ -335,6 +394,11 @@ console.log(
 console.log(
   `老名字 \`PrintAst\`（词边界，不含 PrintDirectAst）：${staleNameHits} 处没写成过去的事（0 处才是对的）`,
 );
+// **能力面的账**（第 1015 轮）：这一格的出口表就是它能做的事——出口少了，方法体判据守的东西
+// 才是**结构上做不到**，而不是「大家记得别写」。
+console.log(
+  `ctx 出口 ${ctxExits} 个，其中回原文兜底 / 已无人用的 ${ctxBannedHits} 处（0 处才是对的：${CTX_BANNED.join(" / ")}）`,
+);
 if (verbose) {
   for (const one of directPages) console.log(`  direct  ${one.file}:${one.line}`);
 }
@@ -346,5 +410,7 @@ if (violations.length > 0) {
   console.log(`\n第三出口的约定：只用 token 自己的属性 / 子单元 / Parent，不回原文查（见 core/syntax/token.xl.md）`);
   process.exit(1);
 }
-console.log(`第三出口的约定 0 条违反（不用 ctx.source / ctx.Text / ctx.TextOf / ctx.StringText）`);
+console.log(
+  `第三出口的约定 0 条违反（方法体里不用 ctx.source / ctx.Text / ctx.TextOf / ctx.StringText；ctx 出口表里也没有它们）`,
+);
 process.exit(0);

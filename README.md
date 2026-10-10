@@ -285,7 +285,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:astjson` | **出口 2（AST JSON）的尺子**（第 884 轮加）：逐节点比「标签名 === `type`」「XML 的每个属性在 JSON 里**同名同值**」「每个节点都有合法 `range`」「JSON 多出来的键在 [docs/ast-json.md](docs/ast-json.md) 第 2–4 节**登记过**」，外加「命令行 === 库 API」与「不抛异常」——**六项全 0 才退出码 0** |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `cases:direct` | **重投一致 + 固定样本的形状**（第 992 轮加，第 1013 轮改口径，第 1014 轮加第三条）：第三个出口（`Token.PrintDirectAst`）现在是**唯一**的写法，所以量的是「同一份输入投两遍」——`ToJsonText` **逐字节**相同 + `unmapped` / `count` 记账同；再加一条**绝对**的地板：固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`（前两条都是相对的，一头恒返回 `undefined` 的投影也满足）；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`） |
-| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据、第 1014 轮再加一条）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；扫**共享投影那一页的代码块**那一末条：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层；**第 1014 轮**再加一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算） |
+| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据、第 1014 轮再加一条、**第 1015 轮再加一条**）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；扫**共享投影那一页的代码块**那一末条：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层；第 1014 轮再加一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算）；**第 1015 轮**再加一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的九个出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace`）——出口删掉之后，方法体那条判据才从「大家记得别写」变成**结构上做不到** |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `cases:tags` | **用例自带的期望**：`xl:expect`（存在，或 `Tag:N` 计数）与 `xl:absent` 逐条对产物核实，外加标签表体检 |
@@ -308,6 +308,58 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1015 轮（二）：`IfSegment` 缺的那两格事实补上——`IfSet` 的让开 **13 → 0**、`coverage` **4247 → 4260 / 4422**、`cases:tsast` 从红转绿，十一道门**全绿**
+
+**一句话**：用户口径「**如果 Token 缺少属性，就完善 Token**」。上一轮把 `ctx` 收干净了，
+这一轮先把「直出版**答不出**的那些格」逐格量出来，再一条一条补上 token 那一格事实。
+
+- **量法**（`tmp-r1015/ifset-giveway.mjs`）：把 `IfSet.prototype.PrintDirectAst` 包一层，
+  答 `undefined` 就记一次，并把**那一段 token 自己的字段**（`BodyBraceAt` / `EmptyBodyAt` /
+  `BodyBrace.IsSet` / `BraceRangeText()` / `Data` 里各单元的类名）一起打出来。
+  读数：1640 份语料让开 **13 次 / 13 份文件**，**全部落在同一件事上——体是空块 `{}`**。
+- **根因两条**：
+  1. `IfSegment.CaptureBodyBrace` 只在 `IfBody.Data` 里找 `startBracket === "{"` 的 `Bracket`，
+     而**空块的 `Data` 里根本没有那个 `Bracket`**（实测 `IfBody.Data` 是空数组）⇒
+     `BodyBrace` 从来没被记过 ⇒ 投影只剩起点那一格（`bodyBraceAt`），要配对 `}` 就得回原文扫
+     （`if-set.xl.md` 那句「只有起点那一格时要回原文配对 `}` ⇒ `canBuild` 已经挡下了」正是它）。
+  2. `else {}` 的两支（`else` 后直接跟 `{`）**直接调 `MountBody`**，而 `BodyBraceAt` 是在
+     `MountBodyOrStatement` 里记的 ⇒ 那一格的 `bodyBraceAt` 一直是 `-1`。
+- **改法（补属性，不是补近似）**：`CaptureBodyBrace` 找不到那个 `Bracket` 时改读
+  **`IfBody` 自己的区间**（`MountBody` 就是在 `{` 上 `SignIn` 的，两头这时都签好了；
+  实测 `if (flag) {}` 的 `bodyBraceAt` 与 `IfBody.SourceRange.Start.Index` 都是 211、
+  区间都是 `[211,213)` ⇒ **两份逐格相同**，是同一格事实换一个地方读）；
+  `BodyBraceAt` 的写入口从两处收进 `MountBody` 一处（三个调用点全覆盖）。
+- **读数**：让开 **13 → 0**；`cases:direct` 节点 21896 → **21874**、自己出 16561 → **16570**
+  （75.6% → 75.8%）；`coverage` **4247 / 4422、blocked 41 → 4260 / 4422、blocked 28**
+  （加权 95.6% → **95.7%**）；`cases:tsast` **16 片里 8 片失败 → 16/16 通过**
+  （那 3 条 `xl:known-gap` 照旧登记着）；`stmt-empty-blocks.ts` 的 `IfStatement[201,221)`
+  现在 `then=Block[211,213)` / `else=Block[219,221)`，两侧都是真块——
+  原来整条 `IfSet` 让开、由通用支（`KIND_BY_TAG` 的 `IfSet → IfStatement`）兜底画出来的形状，
+  与 TS 原生 AST 对不上，这正是 `coverage` 那 13 条 `blocked` 与 `cases:tsast` 那 8 片红。
+- **⇒ 十一道门 11 通过 0 失败**（第 992 轮以来第二次全绿，且这次不是靠改口径换来的）。
+
+### 第 1015 轮（一）：把 `PrintDirectAst` 的 `ctx` 收干净——老路删掉之后空出来的 9 个出口整条删掉，`ctx.TextOf` 最后两处真实调用改成 `ctx.ValueOf`
+
+**一句话**：上一个 commit 把 `PrintAst` 与它的派发分支删了，这一轮量的是
+「`ctx` 上还剩多少出口**一个消费者都没有**」——逐出口全仓数一遍
+（`tmp-r1015/ctx-usage.mjs`）：**82 个出口里 9 个已经没人用**。
+
+- **删掉的 9 个**：`Text` / `TextOf` / `StringText`（**回原文兜底的三个**——值为空时去
+  `source.slice(...)`，正是直出版不许有的第二份近似）、`Members` / `Value` / `IsSymbol` /
+  `IsDot` / `SkipSourceTrivia` / `MatchingBrace`（老 `PrintAst` 覆写用过、现在 0 处）。
+  全仓唯一的真实调用是 `method.xl.md` 的 `ctx.TextOf(kid) === ","`（`CommaOperator` /
+  `ArgumentGroups` 各一处），改成 `ctx.ValueOf(...)`——叶子的 `value` 本来就在字典里
+  （`core/syntax/token.xl.md` 的 `ToDictionary` 那一节：`SymbolToken` 的文本就是这一格），
+  与另外六页早先做过的那次改写同一份口径。⇒ `ctx` 出口 **82 → 73 个**。
+- **为什么这是「清理」而不是「美化」**：`direct:lint` 过去靠**逐页扫方法体**拦这三个出口，
+  而扫描天生覆盖不到 helper 那一层（第 1008 轮记过：`ctx.source` / `TextOf` 正是在 helper 里活下来的）；
+  出口删掉之后，「这一层拿不到原文」变成**结构上的事**。
+  所以这一轮同时给 `direct:lint` 加了**第五类判据**（扫 `ctx` 的键表，见上面那张表），
+  并**自己先证明它会红**：把 `Text` 挂回去 ⇒ `ctx 出口 74 个 / 1 处`、`exit=1`；还原 ⇒ 0 处、`exit=0`。
+- **读数一处没动**（这一条只删死代码）：`cases:direct` 21896 / 16561 逐字相同、
+  `runtime:check` 243 条通过（IIFE 那一族正是吃那两个 `,` 的地方）、十一道门 9 通过 2 失败
+  ——那 2 道正是（二）修掉的那两道。
 
 ### 第 1014 轮（三）：`cases:direct` 补一条**绝对**判据（固定样本形状逐格点名）——前两条都是相对的，一头恒返回 `undefined` 的投影也满足它们
 
