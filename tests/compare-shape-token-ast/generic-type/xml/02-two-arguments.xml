@@ -1,0 +1,1 @@
+<Root><Statement><Let fieldName="x" modifiers="const" /><TypeDefine><Identifier>Map</Identifier><GenericType startBracket="&lt;" endBracket="&gt;"><Identifier>String</Identifier><SymbolToken>,</SymbolToken><Identifier>Int64</Identifier></GenericType></TypeDefine><SymbolToken>=</SymbolToken><Identifier>y</Identifier></Statement></Root>

@@ -1,0 +1,1 @@
+{"kind":"SourceFile","statements":[{"kind":"ExpressionStatement","expression":{"kind":"ArrayLiteralExpression","pos":0,"end":6,"elements":[{"kind":"NumericLiteral","text":"1","pos":1,"end":2},{"kind":"NumericLiteral","text":"2","pos":4,"end":5}]},"pos":0,"end":6}],"endOfFileToken":{"kind":"EndOfFileToken","pos":6,"end":6},"pos":0,"end":6}

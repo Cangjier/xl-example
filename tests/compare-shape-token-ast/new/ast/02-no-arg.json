@@ -1,0 +1,1 @@
+{"kind":"SourceFile","statements":[{"kind":"ExpressionStatement","expression":{"kind":"NewExpression","pos":0,"end":7,"expression":{"kind":"Identifier","text":"C","pos":4,"end":5}},"pos":0,"end":7}],"endOfFileToken":{"kind":"EndOfFileToken","pos":7,"end":7},"pos":0,"end":7}

@@ -1,0 +1,1 @@
+<Root><Statement><BinaryOperator op="==="><Identifier>a</Identifier><SymbolToken>===</SymbolToken><Identifier>b</Identifier></BinaryOperator></Statement></Root>

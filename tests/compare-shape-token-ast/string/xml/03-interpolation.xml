@@ -1,0 +1,1 @@
+<Root><Statement><String interpolation="false" verbatim="false" raw="false" interpolationCount="1" rawQuoteCount="1"><ConstString>a</ConstString><InterpolationString><Identifier>b</Identifier></InterpolationString><ConstString>c</ConstString></String></Statement></Root>

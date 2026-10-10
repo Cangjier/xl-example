@@ -1,0 +1,2 @@
+// token: Lamda
+(x) => x

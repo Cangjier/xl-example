@@ -1,0 +1,1 @@
+<Root><Statement><PropertyAccess><Identifier>a</Identifier><SymbolToken>.</SymbolToken><Method name="b"><Identifier>c</Identifier></Method><SymbolToken>.</SymbolToken><Identifier>d</Identifier></PropertyAccess></Statement></Root>

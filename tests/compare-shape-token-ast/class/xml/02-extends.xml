@@ -1,0 +1,1 @@
+<Root><Class name="C" extends="B" implements="" modifiers=""><HeritageClause><Keyword>extends</Keyword><ExpressionWithTypeArguments><Identifier>B</Identifier></ExpressionWithTypeArguments></HeritageClause><ClassBody></ClassBody></Class></Root>

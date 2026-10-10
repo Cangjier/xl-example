@@ -1,0 +1,2 @@
+// token: Function
+function f() {}

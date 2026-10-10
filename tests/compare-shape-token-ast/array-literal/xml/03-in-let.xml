@@ -1,0 +1,1 @@
+<Root><Statement><Let fieldName="a" modifiers="const" /><SymbolToken>=</SymbolToken><ArrayLiteral><Identifier>1</Identifier></ArrayLiteral></Statement></Root>

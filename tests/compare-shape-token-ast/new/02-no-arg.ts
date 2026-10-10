@@ -1,0 +1,2 @@
+// token: New
+new C()

@@ -1,0 +1,1 @@
+<Root><Function name="f" modifiers=""><Identifier>f</Identifier><Bracket startBracket="(" endBracket=")"><Parameter><Identifier>a</Identifier></Parameter><SymbolToken>,</SymbolToken><Parameter><Identifier>b</Identifier></Parameter></Bracket><FunctionBody><Statement><Keyword>return</Keyword><Identifier>a</Identifier></Statement></FunctionBody></Function></Root>

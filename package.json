@@ -23,6 +23,8 @@
     "runtime:cli": "node ./tests/runtime/run-cli.mjs",
     "cases:tsast": "node ./tests/parse/ts-ast.mjs",
     "cases:astjson": "node ./tests/parse/ast-json.mjs",
+    "shape:token": "node ./tests/compare-shape-token-ast/run.mjs",
+    "shape:token:snapshot": "node ./tests/compare-shape-token-ast/run.mjs --snapshot",
     "cases:tsast:cases": "node ./tests/parse/ts-ast.mjs cases",
     "cases:tsast:cli": "node ./tests/parse/ts-ast.mjs --cli",
     "coverage": "node ./tests/coverage/run.mjs",

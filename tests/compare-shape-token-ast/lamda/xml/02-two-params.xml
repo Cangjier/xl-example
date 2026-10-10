@@ -1,0 +1,1 @@
+<Root><Statement><Lamda><LamdaParameters><Parameter><Identifier>x</Identifier></Parameter><Parameter><Identifier>y</Identifier></Parameter></LamdaParameters><LamdaBody><Statement><Identifier>x</Identifier></Statement></LamdaBody></Lamda></Statement></Root>

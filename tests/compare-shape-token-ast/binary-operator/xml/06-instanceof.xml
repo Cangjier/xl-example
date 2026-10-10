@@ -1,0 +1,1 @@
+<Root><Statement><BinaryOperator op="instanceof"><Identifier>x</Identifier><Keyword>instanceof</Keyword><Identifier>C</Identifier></BinaryOperator></Statement></Root>

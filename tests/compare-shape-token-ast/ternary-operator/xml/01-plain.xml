@@ -1,0 +1,1 @@
+<Root><Statement><TernaryOperator><TernaryOperatorCondition><Identifier>a</Identifier></TernaryOperatorCondition><TernaryOperatorTrueStatement><Identifier>b</Identifier></TernaryOperatorTrueStatement><TernaryOperatorFalseStatement><Identifier>c</Identifier></TernaryOperatorFalseStatement></TernaryOperator></Statement></Root>

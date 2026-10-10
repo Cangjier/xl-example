@@ -1,0 +1,1 @@
+<Root><Statement><TypeAssign alias="T" modifiers=""><SymbolToken>=</SymbolToken><UnionType><Identifier>A</Identifier><SymbolToken>|</SymbolToken><Identifier>B</Identifier></UnionType></TypeAssign></Statement></Root>

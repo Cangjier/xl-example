@@ -1,0 +1,1 @@
+<Root><Statement><BinaryOperator op="**"><Identifier>a</Identifier><SymbolToken>**</SymbolToken><BinaryOperator op="**"><Identifier>b</Identifier><SymbolToken>**</SymbolToken><Identifier>c</Identifier></BinaryOperator></BinaryOperator></Statement></Root>

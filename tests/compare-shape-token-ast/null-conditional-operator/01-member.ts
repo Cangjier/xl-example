@@ -1,0 +1,2 @@
+// token: NullConditionalOperator
+a?.b

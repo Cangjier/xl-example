@@ -1,0 +1,1 @@
+<Root><Statement><PropertyAccess><Identifier>a</Identifier><Bracket startBracket="[" endBracket="]"><Identifier>i</Identifier></Bracket><SymbolToken>.</SymbolToken><Identifier>b</Identifier></PropertyAccess></Statement></Root>
