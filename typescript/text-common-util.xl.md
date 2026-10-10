@@ -2763,7 +2763,8 @@ return (
   name === "IndexedAccessType" ||
   name === "TypeOperator" ||
   name === "TypeParameter" ||
-  name === "TypeQuery"
+  name === "TypeQuery" ||
+  name === "TypePredicate"
 );
 ```
 
