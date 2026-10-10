@@ -1087,6 +1087,69 @@ return this.Add(new LamdaBody(this.Template));
 return this.Data.find((x) => x instanceof LamdaBody) as LamdaBody;
 ```
 
+## property async:any
+
+`ToDictionary` 的 `async` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.IsAsync;
+```
+
+## property bodyBraceAt:any
+
+`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.BodyBrace.File();
+```
+
+## property arrowAt:any
+
+`ToDictionary` 的 `arrowAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.ArrowAt;
+```
+
+## property parameters:Array<any>
+
+`ToDictionary` 的 `parameters` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Parameters.ToList();
+```
+
+## property body:Array<any>
+
+`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Body.ToList();
+```
+
+## property returnType:Array<any>
+
+`ToDictionary` 的 `returnType` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+**`!` 是这一格的调用约定**：本页 `ToDictionary` 只在 `ReturnType !== null` 时才写这个键，
+读到这一格时它一定在；没有返回类型标注由**不写这个键**表达。
+
+```ts
+return this.ReturnType!.ToList();
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `async` / `parameters` / `body` 三个键，外加可选的 `returnType`。
@@ -1104,10 +1167,10 @@ XML 里这些都写不成属性（`<Lamda>` 只有子单元的串接），而 JS
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
-result.set("async", this.IsAsync);
+result.set("type", this.Tag());
+result.set("async", this.async);
 if (this.BodyBrace.IsSet) {
-  result.set("bodyBraceAt", this.BodyBrace.File());
+  result.set("bodyBraceAt", this.bodyBraceAt);
   const bodyBraceRange = this.BodyBrace.Range;
   if (bodyBraceRange !== null && bodyBraceRange.Start !== null && bodyBraceRange.End !== null) {
     result.set("bodyBraceRange",
@@ -1117,12 +1180,12 @@ if (this.BodyBrace.IsSet) {
 // **`=>` 的位置也写出去**（第 621 轮，与 `bodyBraceAt` 同一条口径）：
 // 投影合成 `equalsGreaterThanToken` 时直读，不再回原文重扫。
 if (this.ArrowAt >= 0) {
-  result.set("arrowAt", this.ArrowAt);
+  result.set("arrowAt", this.arrowAt);
 }
-result.set("parameters", this.Parameters.ToList());
-result.set("body", this.Body.ToList());
+result.set("parameters", this.parameters);
+result.set("body", this.body);
 if (this.ReturnType !== null) {
-  result.set("returnType", this.ReturnType.ToList());
+  result.set("returnType", this.returnType);
 }
 return result;
 ```

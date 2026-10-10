@@ -548,6 +548,46 @@ const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${CommonUtil.Xml
 return `<${name} range="${this.RangeOf()}" namespace="${CommonUtil.XmlDecode(this.namespace)}" modifiers="${CommonUtil.XmlDecode(this.modifiers)}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
+## property modifierSpans:any
+
+`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.ModifierSpans;
+```
+
+## property nameAt:any
+
+`ToDictionary` 的 `nameAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameAt;
+```
+
+## property nameEnd:any
+
+`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameEnd;
+```
+
+## property nameRange:any
+
+`ToDictionary` 的 `nameRange` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameAt + "," + this.NameEnd;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `namespace` / `modifiers` 两个字段，外加子单元。
@@ -558,28 +598,25 @@ XML 那边过一次 `CommonUtil.XmlDecode` 只是为了属性转义（名字里�
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 result.set("namespace", this.namespace);
 result.set("modifiers", this.modifiers);
 // **修饰词的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
 if (this.ModifierSpans !== "") {
-  result.set("modifierSpans", this.ModifierSpans);
+  result.set("modifierSpans", this.modifierSpans);
 }
 // **名字那一格的整段区间**：含引号的字符串名、`global` 那个词、标识符名（点号名的第一段）。
 if (this.NameAt >= 0 && this.NameEnd >= this.NameAt) {
-  result.set("nameAt", this.NameAt);
-  result.set("nameEnd", this.NameEnd);
+  result.set("nameAt", this.nameAt);
+  result.set("nameEnd", this.nameEnd);
   // **整段区间也照 `bodyBraceRange` 那一格报一份**（第 645 轮）：投影里「声明名」那条共用路
   //（`synthName`）按**这一格**自己推断文本区间（引号名去掉首尾各一格），
   // 于是「模块名是什么形状」这件事**只剩一条路**说。
-  result.set("nameRange", this.NameAt + "," + this.NameEnd);
+  result.set("nameRange", this.nameRange);
 }
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 return result;
 ```

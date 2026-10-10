@@ -174,6 +174,26 @@ const nameSpan =
 return `<${name} range="${this.RangeOf()}" name="${CommonUtil.XmlDecode(this.name)}"${nameSpan} />`;
 ```
 
+## property nameStart:any
+
+`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameStart;
+```
+
+## property nameEnd:any
+
+`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameEnd;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `name`。
@@ -185,12 +205,12 @@ XML 那次 `CommonUtil.XmlDecode` 是属性转义，JSON 的字符串不需要�
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 result.set("name", this.name);
 // **名字的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
 if (this.NameStart >= 0 && this.NameEnd >= this.NameStart) {
-  result.set("nameStart", this.NameStart);
-  result.set("nameEnd", this.NameEnd);
+  result.set("nameStart", this.nameStart);
+  result.set("nameEnd", this.nameEnd);
 }
 return result;
 ```

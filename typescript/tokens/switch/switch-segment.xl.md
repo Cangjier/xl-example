@@ -100,6 +100,16 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" key="${this.key}" colonPos="${this.ColonPos}">${temp.join("")}</${name}>`;
 ```
 
+## property colonPos:any
+
+`ToDictionary` 的 `colonPos` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.ColonPos;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `key` + 子单元。
@@ -109,16 +119,13 @@ return `<${name} range="${this.RangeOf()}" key="${this.key}" colonPos="${this.Co
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 result.set("key", this.key);
 // **`:` 的位置**（见 `ColonPos`）：投影直读，不再回原文 `lastIndexOf` 猜。
-result.set("colonPos", this.ColonPos);
+result.set("colonPos", this.colonPos);
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 return result;
 ```

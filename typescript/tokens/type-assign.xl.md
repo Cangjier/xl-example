@@ -325,6 +325,36 @@ const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${CommonUtil.Xml
 return `<${name} range="${this.RangeOf()}" alias="${CommonUtil.XmlDecode(this.alias)}" modifiers="${CommonUtil.XmlDecode(this.modifiers)}" nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"${spans}>${temp.join("")}</${name}>`;
 ```
 
+## property nameStart:any
+
+`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameStart;
+```
+
+## property nameEnd:any
+
+`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameEnd;
+```
+
+## property modifierSpans:any
+
+`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.ModifierSpans;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `alias` / `modifiers` 两个字段，外加子单元。
@@ -336,22 +366,19 @@ XML 那两次 `CommonUtil.XmlDecode` 是属性转义，JSON 的字符串不需�
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 result.set("alias", this.alias);
 result.set("modifiers", this.modifiers);
 // **别名的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
-result.set("nameStart", this.NameStart);
-result.set("nameEnd", this.NameEnd);
+result.set("nameStart", this.nameStart);
+result.set("nameEnd", this.nameEnd);
 // **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
 if (this.ModifierSpans !== "") {
-  result.set("modifierSpans", this.ModifierSpans);
+  result.set("modifierSpans", this.modifierSpans);
 }
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 return result;
 ```

@@ -699,6 +699,42 @@ if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
 return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="${this.extends.Text()}" implements="${this.implements.Text()}" modifiers="${this.modifiers.Text()}"${nameSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
+## property modifierSpans:any
+
+`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.ModifierSpans;
+```
+
+## property nameStart:any
+
+`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+**`!` 是这一格的调用约定**：`ToDictionary` 只在名字区间两头都齐（`nameRange` / `Start` / `End` 都非空）
+时才写这个键（见本页 `ToDictionary` 里那个 `if`），所以读到这一格时那两头一定在。
+区间缺一头的情形由**不写这个键**表达，不由这一格表达。
+
+### get
+
+```ts
+return this.name.Range!.Start!.Index;
+```
+
+## property nameEnd:any
+
+`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+与 `nameStart` 同一条约定（见上）。
+
+### get
+
+```ts
+return this.name.Range!.End!.Index;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `name` / `extends` / `implements` / `modifiers` 四个声明字段，外加子单元。
@@ -710,29 +746,26 @@ return `<${name} range="${this.RangeOf()}" name="${this.name.Text()}" extends="$
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 result.set("name", this.name.Value);
 result.set("extends", this.extends.Value);
 result.set("implements", this.implements.Text());
 result.set("modifiers", this.modifiers.Value);
 // **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
 if (this.ModifierSpans !== "") {
-  result.set("modifierSpans", this.ModifierSpans);
+  result.set("modifierSpans", this.modifierSpans);
 }
 // **类名的位置**：名字与它的区间装在一个字段里（见 `name` 那一格），这里只是把区间搬成投影读得懂的
 // 两个下标（闭区间）——投影合名字节点时就**不再回原文 `indexOf(name)` 猜**（见 `print-ast-common.xl.md`
 // 的 `synthName`）。匿名类没有名字，两个键就不写。
 const nameRange = this.name.Range;
 if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
-  result.set("nameStart", nameRange.Start.Index);
-  result.set("nameEnd", nameRange.End.Index);
+  result.set("nameStart", this.nameStart);
+  result.set("nameEnd", this.nameEnd);
 }
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 return result;
 ```

@@ -409,6 +409,93 @@ Body 段（循环体）。
 return this.Data.find((x) => x instanceof ForeachBody) as ForeachBody;
 ```
 
+## property define:Array<any>
+
+`ToDictionary` 的 `define` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Define.ToList();
+```
+
+## property enumable:Array<any>
+
+`ToDictionary` 的 `enumable` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Enumable.ToList();
+```
+
+## property body:Array<any>
+
+`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Body.ToList();
+```
+
+## property emptyBodyAt:any
+
+`ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.EmptyBodyAt;
+```
+
+## property bodyBraceAt:any
+
+`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.BodyBrace.File();
+```
+
+## property isForIn:any
+
+`ToDictionary` 的 `isForIn` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.IsForIn;
+```
+
+## property headerCloseAt:any
+
+`ToDictionary` 的 `headerCloseAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.HeaderCloseAt;
+```
+
+## property children:Array<any>
+
+`ToDictionary` 的 `children` 键**由这一页自己承担**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
+
+### get
+
+```ts
+const result: Array<any> = [];
+for (const item of this.Data) {
+  if (item instanceof ForeachDefine || item instanceof ForeachEnumable || item instanceof ForeachBody) {
+    continue;
+  }
+  result.push(item.ToDictionary());
+}
+return result;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `define` / `enumable` / `body` 三个**具名分段** + 余下的子单元。
@@ -427,14 +514,14 @@ return this.Data.find((x) => x instanceof ForeachBody) as ForeachBody;
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
-result.set("define", this.Define.ToList());
-result.set("enumable", this.Enumable.ToList());
-result.set("body", this.Body.ToList());
-result.set("emptyBodyAt", this.EmptyBodyAt);
+result.set("type", this.Tag());
+result.set("define", this.define);
+result.set("enumable", this.enumable);
+result.set("body", this.body);
+result.set("emptyBodyAt", this.emptyBodyAt);
 // **体那个 `{` 的位置也写出去**（第 619 轮，与 `While` / `DoWhile` 同一条）。
 if (this.BodyBrace.IsSet) {
-  result.set("bodyBraceAt", this.BodyBrace.File());
+  result.set("bodyBraceAt", this.bodyBraceAt);
   const braceRange = this.BodyBrace.Range;
   if (braceRange !== null && braceRange.Start !== null && braceRange.End !== null) {
     result.set("bodyBraceRange", String(braceRange.Start.Index) + "," + String(braceRange.End.Index));
@@ -442,18 +529,12 @@ if (this.BodyBrace.IsSet) {
 }
 // **`in` / `of` 那一格也写出去**（第 631 轮）：投影靠它分 `ForInStatement` / `ForOfStatement`——
 // 与 `emptyBodyAt` / `bodyBraceRange` 同一条纪律：判据在收尾规则那一处算得起，这里只出字段。
-result.set("isForIn", this.IsForIn);
+result.set("isForIn", this.isForIn);
 // **头部那个 `)` 也写出去**（第 634 轮，与 `For` / `While` 同一条）。
-result.set("headerCloseAt", this.HeaderCloseAt);
-const children: Array<any> = [];
-for (const item of this.Data) {
-  if (item instanceof ForeachDefine || item instanceof ForeachEnumable || item instanceof ForeachBody) {
-    continue;
-  }
-  children.push(item.ToDictionary());
-}
-if (children.length !== 0) {
-  result.set("children", children);
+result.set("headerCloseAt", this.headerCloseAt);
+
+if (this.children.length !== 0) {
+  result.set("children", this.children);
 }
 return result;
 ```

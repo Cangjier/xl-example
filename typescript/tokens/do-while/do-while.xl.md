@@ -557,6 +557,46 @@ Compare 段（`while` 后面那个条件括号整段）。
 return this.Data.find((x) => x instanceof WhileCompare) as WhileCompare;
 ```
 
+## property body:Array<any>
+
+`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Body.ToList();
+```
+
+## property compare:Array<any>
+
+`ToDictionary` 的 `compare` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Compare.ToList();
+```
+
+## property bodyBraceAt:any
+
+`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.BodyBrace.File();
+```
+
+## property emptyBodyAt:any
+
+`ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.EmptyBodyAt;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `body` / `compare` 两个**具名分段**。
@@ -570,20 +610,20 @@ return this.Data.find((x) => x instanceof WhileCompare) as WhileCompare;
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
-result.set("body", this.Body.ToList());
-result.set("compare", this.Compare.ToList());
+result.set("type", this.Tag());
+result.set("body", this.body);
+result.set("compare", this.compare);
 // **体那个 `{` 的位置也写出去**（第 619 轮，与 `While.ToDictionary` 同一条）：
 // 投影空 `Block` 时直读，不再回原文重扫。
 if (this.BodyBrace.IsSet) {
-  result.set("bodyBraceAt", this.BodyBrace.File());
+  result.set("bodyBraceAt", this.bodyBraceAt);
   const braceRange = this.BodyBrace.Range;
   if (braceRange !== null && braceRange.Start !== null && braceRange.End !== null) {
     result.set("bodyBraceRange", String(braceRange.Start.Index) + "," + String(braceRange.End.Index));
   }
 }
 // **空语句体那一格也写出去**（第 635 轮，与 `While.ToDictionary` 同一条）。
-result.set("emptyBodyAt", this.EmptyBodyAt);
+result.set("emptyBodyAt", this.emptyBodyAt);
 return result;
 ```
 

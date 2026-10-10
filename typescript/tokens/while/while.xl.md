@@ -305,6 +305,56 @@ Body 段（循环体）。
 return this.Data.find((x) => x instanceof WhileBody) as WhileBody;
 ```
 
+## property compare:Array<any>
+
+`ToDictionary` 的 `compare` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Compare.ToList();
+```
+
+## property body:Array<any>
+
+`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Body.ToList();
+```
+
+## property emptyBodyAt:any
+
+`ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.EmptyBodyAt;
+```
+
+## property headerCloseAt:any
+
+`ToDictionary` 的 `headerCloseAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.HeaderCloseAt;
+```
+
+## property bodyBraceAt:any
+
+`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.BodyBrace.File();
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `compare` / `body` 两个**具名分段**。
@@ -320,16 +370,16 @@ return this.Data.find((x) => x instanceof WhileBody) as WhileBody;
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
-result.set("compare", this.Compare.ToList());
-result.set("body", this.Body.ToList());
-result.set("emptyBodyAt", this.EmptyBodyAt);
+result.set("type", this.Tag());
+result.set("compare", this.compare);
+result.set("body", this.body);
+result.set("emptyBodyAt", this.emptyBodyAt);
 // **头部右括号那一格也写出去**（第 634 轮）：投影直读，不回原文重扫。
-result.set("headerCloseAt", this.HeaderCloseAt);
+result.set("headerCloseAt", this.headerCloseAt);
 // **体那一对花括号也写出去**（第 618 轮那一格，第 641 轮带上整段，与 `For` 同一处口径）：
 // 投影直读，不再回原文重扫。
 if (this.BodyBrace.IsSet) {
-  result.set("bodyBraceAt", this.BodyBrace.File());
+  result.set("bodyBraceAt", this.bodyBraceAt);
   const braceRange = this.BodyBrace.Range;
   if (braceRange !== null && braceRange.Start !== null && braceRange.End !== null) {
     result.set("bodyBraceRange", String(braceRange.Start.Index) + "," + String(braceRange.End.Index));

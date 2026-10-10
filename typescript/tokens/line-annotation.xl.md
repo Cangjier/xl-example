@@ -94,6 +94,16 @@ const name = this.constructor.name;
 return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Tmp)}</${name}>`;
 ```
 
+## property value:any
+
+`ToDictionary` 的 `value` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.Tmp;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 AST JSON 节点：类型名 + 注释正文。
@@ -104,8 +114,8 @@ return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Tmp)}</${
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
-result.set("value", this.Tmp);
+result.set("type", this.Tag());
+result.set("value", this.value);
 return result;
 ```
 

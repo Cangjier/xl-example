@@ -1149,6 +1149,36 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" name="${this.name}" modifiers="${this.modifiers}" nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"${spans}>${temp.join("")}</${name}>`;
 ```
 
+## property modifierSpans:any
+
+`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.ModifierSpans;
+```
+
+## property nameStart:any
+
+`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameStart;
+```
+
+## property nameEnd:any
+
+`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameEnd;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `name` / `modifiers` 两个声明字段，外加子单元。
@@ -1159,22 +1189,19 @@ return `<${name} range="${this.RangeOf()}" name="${this.name}" modifiers="${this
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 result.set("name", this.name);
 result.set("modifiers", this.modifiers);
 // **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
 if (this.ModifierSpans !== "") {
-  result.set("modifierSpans", this.ModifierSpans);
+  result.set("modifierSpans", this.modifierSpans);
 }
 // **名字的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
-result.set("nameStart", this.NameStart);
-result.set("nameEnd", this.NameEnd);
+result.set("nameStart", this.nameStart);
+result.set("nameEnd", this.nameEnd);
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 return result;
 ```

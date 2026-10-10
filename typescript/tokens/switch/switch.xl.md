@@ -396,6 +396,40 @@ for (const item of this.Data) {
 return result;
 ```
 
+## property bodyAt:any
+
+`ToDictionary` 的 `bodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.BodyAt;
+```
+
+## property compare:Array<any>
+
+`ToDictionary` 的 `compare` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Compare.ToList();
+```
+
+## property segments:Array<any>
+
+`ToDictionary` 的 `segments` 键**由这一页自己承担**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
+
+### get
+
+```ts
+const result: Array<any> = [];
+for (const item of this.Segments) {
+  result.push(item.ToDictionary());
+}
+return result;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `bodyAt` + `compare` 段与 `segments` 段列表。
@@ -412,16 +446,13 @@ return result;
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 if (this.BodyAt >= 0) {
-  result.set("bodyAt", this.BodyAt);
+  result.set("bodyAt", this.bodyAt);
 }
-result.set("compare", this.Compare.ToList());
-const segments: Array<any> = [];
-for (const item of this.Segments) {
-  segments.push(item.ToDictionary());
-}
-result.set("segments", segments);
+result.set("compare", this.compare);
+
+result.set("segments", this.segments);
 return result;
 ```
 

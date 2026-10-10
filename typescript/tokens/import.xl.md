@@ -679,6 +679,26 @@ const isTypeOnly = this.typeOnly ? "true" : "false";
 return `<${name} range="${this.RangeOf()}" From="${from}" typeOnly="${isTypeOnly}" defaultImport="${this.defaultImport}" namespace="${this.namespace}" imported="${this.imported.join(",")}"${typeWord}>${body}</${name}>`;
 ```
 
+## property typeWordAt:any
+
+`ToDictionary` 的 `typeWordAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.TypeWordAt;
+```
+
+## property namedBraceAt:any
+
+`ToDictionary` 的 `namedBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NamedBraceAt;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `From` / `typeOnly` / `defaultImport` / `namespace` / `imported` 五个字段，
@@ -693,7 +713,7 @@ return `<${name} range="${this.RangeOf()}" From="${from}" typeOnly="${isTypeOnly
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 const from = this.From === null ? "" : this.From;
 result.set("From", from);
 result.set("typeOnly", this.typeOnly);
@@ -704,20 +724,17 @@ result.set("imported", this.imported.join(","));
 // 见 `TypeWordAt` 那一节）：它不进 XML（`ToXmlString` 那五个属性照旧），
 // 但投影是从**字典**读属性的，所以这里必须写上——少了它 `ImportClause`
 // 的起点又退回「回原文跳空白」，`import /*c*/ type { A }` 会从注释起（第 875 轮）。
-result.set("typeWordAt", this.TypeWordAt);
+result.set("typeWordAt", this.typeWordAt);
 // **`namedBraceAt` 同理**（第 999 轮）：`NamedBraceAt` 一直是 token 上的一个字段，
 // 但**从来没进过字典** ⇒ 投影那一句 `ctx.Attr(v, "namedBraceAt")` 永远读到 `undefined`，
 // 兜底永远走「回原文 `indexOf("{")`」。直出版要读的就是这一格，所以在这里补上。
 // 没有具名子句时**不写这一格**（`-1` 与「没有」是同一件事，与 `questionAt` 同一条口径）。
 if (this.NamedBraceAt >= 0) {
-  result.set("namedBraceAt", this.NamedBraceAt);
+  result.set("namedBraceAt", this.namedBraceAt);
 }
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 return result;
 ```

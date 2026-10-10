@@ -759,6 +759,56 @@ return this.Data.find((item) => item instanceof TernaryOperatorFalseStatement)!;
 return this.Add(new TernaryOperatorFalseStatement(this.Template));
 ```
 
+## property condition:Array<any>
+
+`ToDictionary` 的 `condition` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Condtion.ToList();
+```
+
+## property trueStatement:Array<any>
+
+`ToDictionary` 的 `trueStatement` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.TrueStatement.ToList();
+```
+
+## property falseStatement:Array<any>
+
+`ToDictionary` 的 `falseStatement` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.FalseStatement.ToList();
+```
+
+## property questionPos:any
+
+`ToDictionary` 的 `questionPos` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.QuestionPos;
+```
+
+## property colonPos:any
+
+`ToDictionary` 的 `colonPos` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.ColonPos;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `condition` / `trueStatement` / `falseStatement` 三个**具名分段**。
@@ -772,13 +822,13 @@ return this.Add(new TernaryOperatorFalseStatement(this.Template));
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
-result.set("condition", this.Condtion.ToList());
-result.set("trueStatement", this.TrueStatement.ToList());
-result.set("falseStatement", this.FalseStatement.ToList());
+result.set("type", this.Tag());
+result.set("condition", this.condition);
+result.set("trueStatement", this.trueStatement);
+result.set("falseStatement", this.falseStatement);
 // **两个标点的位置**（见 `QuestionPos` / `ColonPos`）：投影直读，不再回原文扫那个标点。
-result.set("questionPos", this.QuestionPos);
-result.set("colonPos", this.ColonPos);
+result.set("questionPos", this.questionPos);
+result.set("colonPos", this.colonPos);
 return result;
 ```
 

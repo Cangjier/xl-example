@@ -191,6 +191,16 @@ return BranchStates.Undo;
 
 兜底处理：**空实现**（字符全交给跳转队列与挂载的子单元）。
 
+## property braceAt:any
+
+`ToDictionary` 的 `braceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.BraceAt;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `braceAt` + 子单元。
@@ -201,16 +211,13 @@ return BranchStates.Undo;
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 if (this.BraceAt >= 0) {
-  result.set("braceAt", this.BraceAt);
+  result.set("braceAt", this.braceAt);
 }
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 return result;
 ```

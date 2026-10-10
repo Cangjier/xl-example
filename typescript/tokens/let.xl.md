@@ -168,6 +168,36 @@ if (this.LetType === LetType.Object) {
 throw new Error("形态不成立");
 ```
 
+## property nameStart:any
+
+`ToDictionary` 的 `nameStart` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameStart;
+```
+
+## property nameEnd:any
+
+`ToDictionary` 的 `nameEnd` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.NameEnd;
+```
+
+## property modifierSpans:any
+
+`ToDictionary` 的 `modifierSpans` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.ModifierSpans;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + 由 `LetType` 决定的那个属性键 + `modifiers`，解构形态另带子单元。
@@ -182,14 +212,14 @@ throw new Error("形态不成立");
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 // **名字的位置**（见 `NameStart` / `NameEnd`）：投影合名字节点时直读，
 // 不再回原文 `indexOf(fieldName)` 猜。三种形态都写——解构形态给的是 `-1`。
-result.set("nameStart", this.NameStart);
-result.set("nameEnd", this.NameEnd);
+result.set("nameStart", this.nameStart);
+result.set("nameEnd", this.nameEnd);
 // **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。三种形态都写。
 if (this.ModifierSpans !== "") {
-  result.set("modifierSpans", this.ModifierSpans);
+  result.set("modifierSpans", this.modifierSpans);
 }
 if (this.LetType === LetType.Field) {
   result.set("fieldName", this.fieldName);
@@ -206,11 +236,8 @@ if (this.LetType === LetType.Array) {
   throw new Error("形态不成立");
 }
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 return result;
 ```

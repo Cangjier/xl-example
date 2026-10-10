@@ -488,6 +488,27 @@ return `<${name} range="${this.RangeOf()}">${temp.join("")}</${name}>`;
 return this.ToXmlString();
 ```
 
+## property children:Array<any>
+
+**这一格要的子单元节点数据**（第 1018 轮）：`ToDictionary` 的 `children` 键。
+
+它是**属性**（`### get`）而不是方法：调用方读的是「这一格有什么」，不是「让它去做一件事」。
+形态与覆写页必须一致（都是 `## property` + `### get`）——`Foreach` 那种「子单元里要跳过定义 /
+可枚举 / 体三段」的页在自己那一页覆写这一格时照抄同一形态。
+
+**值走 `ToDictionary` 而不是 `WithRange`**：字典格（形状）与带坐标的那一份是两层，
+这一格产出的是**形状**那一层——坐标由 `WithRange` 在它的产物上补（见下一条）。
+
+### get
+
+```ts
+const result: Array<any> = [];
+for (const item of this.Data) {
+  result.push(item.ToDictionary());
+}
+return result;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出这个节点的 JSON 对象形态：类型名 + 子单元。
@@ -496,18 +517,16 @@ return this.ToXmlString();
 `children` 是子单元的 `ToDictionary` 数组。子单元为空时**不写 `children`**（空节点的 JSON 只有 `type`，
 与 XML 里 `<LineWrap />` 那种自闭合标签同一件事）。
 
-各 token 覆写这个方法，把自己在 `ToXmlString` 里拼的那些属性搬成同名的键；
-有具名分段（`For` 的四个段、`IfSegment` 的条件与体…）的节点覆写成按段名的数组，而不是 `children`。
+**第 1018 轮起这一格只做组装**：`type` 问 `Tag()`、`children` 问本页的 `children` 属性，
+键名与值的对应关系全部写在**具体子类自己声明的属性**上（每个覆写页把它的每个键各立一格
+`## property <键名>` / `## method <键名>`，见各 token 页）。所以这一条链上不再有
+「方法体里现算一个值塞进字典」的中间层：`ToDictionary` 读什么，那一页就声明了什么。
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+  result.set("children", this.children);
 }
 return result;
 ```

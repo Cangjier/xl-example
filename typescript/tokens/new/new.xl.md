@@ -519,6 +519,26 @@ Arguments 段（括号里的实参）。
 return this.Data.find((x) => x instanceof NewArguments) as NewArguments;
 ```
 
+## property name:Array<any>
+
+`ToDictionary` 的 `name` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Type.ToList();
+```
+
+## property arguments:Array<any>
+
+`ToDictionary` 的 `arguments` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Arguments.ToList();
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `name` / `arguments` 两个**具名分段**。
@@ -532,9 +552,9 @@ return this.Data.find((x) => x instanceof NewArguments) as NewArguments;
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
-result.set("name", this.Type.ToList());
-result.set("arguments", this.Arguments.ToList());
+result.set("type", this.Tag());
+result.set("name", this.name);
+result.set("arguments", this.arguments);
 return result;
 ```
 

@@ -396,6 +396,76 @@ Next 段（第二个 `;` 之后那截）。
 return this.Data.find((x) => x instanceof ForNext) as ForNext;
 ```
 
+## property initial:Array<any>
+
+`ToDictionary` 的 `initial` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Initial.ToList();
+```
+
+## property compare:Array<any>
+
+`ToDictionary` 的 `compare` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Compare.ToList();
+```
+
+## property next:Array<any>
+
+`ToDictionary` 的 `next` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Next.ToList();
+```
+
+## property body:Array<any>
+
+`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.Body.ToList();
+```
+
+## property emptyBodyAt:any
+
+`ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.EmptyBodyAt;
+```
+
+## property bodyBraceAt:any
+
+`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.BodyBrace.File();
+```
+
+## property headerCloseAt:any
+
+`ToDictionary` 的 `headerCloseAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.HeaderCloseAt;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `initial` / `compare` / `next` / `body` 四个**具名分段**。
@@ -412,20 +482,20 @@ return this.Data.find((x) => x instanceof ForNext) as ForNext;
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
-result.set("initial", this.Initial.ToList());
-result.set("compare", this.Compare.ToList());
-result.set("next", this.Next.ToList());
-result.set("body", this.Body.ToList());
-result.set("emptyBodyAt", this.EmptyBodyAt);
+result.set("type", this.Tag());
+result.set("initial", this.initial);
+result.set("compare", this.compare);
+result.set("next", this.next);
+result.set("body", this.body);
+result.set("emptyBodyAt", this.emptyBodyAt);
 if (this.BodyBrace.IsSet) {
-  result.set("bodyBraceAt", this.BodyBrace.File());
+  result.set("bodyBraceAt", this.bodyBraceAt);
   const braceRange = this.BodyBrace.Range;
   if (braceRange !== null && braceRange.Start !== null && braceRange.End !== null) {
     result.set("bodyBraceRange", String(braceRange.Start.Index) + "," + String(braceRange.End.Index));
   }
 }
-result.set("headerCloseAt", this.HeaderCloseAt);
+result.set("headerCloseAt", this.headerCloseAt);
 return result;
 ```
 

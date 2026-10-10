@@ -1563,15 +1563,12 @@ XML 那两处 `CommonUtil.XmlDecode` 是属性转义（`<` 直接写进属性会
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 result.set("startBracket", this.startBracket);
 result.set("endBracket", this.endBracket);
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 return result;
 ```

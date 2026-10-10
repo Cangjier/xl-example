@@ -390,6 +390,43 @@ const result = this.Data.find((item) => item instanceof FinallyBody);
 return result ?? null;
 ```
 
+## property body:Array<any>
+
+`ToDictionary` 的 `body` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+```ts
+return this.TryBody.ToList();
+```
+
+## property catches:Array<any>
+
+`ToDictionary` 的 `catches` 键**由这一页自己承担**（第 1018 轮）：这一格是**按类型从子单元里筛出来的一批**，所以在这里逐项取节点数据。
+
+### get
+
+```ts
+const result: Array<any> = [];
+for (const item of this.Catches) {
+  result.push(item.ToDictionary());
+}
+return result;
+```
+
+## property finally:Array<any>
+
+`ToDictionary` 的 `finally` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+**`!` 是这一格的调用约定**：本页 `ToDictionary` 只在 `FinallyBody !== null` 时才写这个键，
+读到这一格时它一定在；没有 `finally` 段由**不写这个键**表达。
+
+```ts
+return this.FinallyBody!.ToList();
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `body` 段，外加两处可选键。
@@ -406,17 +443,14 @@ return result ?? null;
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
-result.set("body", this.TryBody.ToList());
+result.set("type", this.Tag());
+result.set("body", this.body);
 if (this.Catches.length !== 0) {
-  const catches: Array<any> = [];
-  for (const item of this.Catches) {
-    catches.push(item.ToDictionary());
-  }
-  result.set("catches", catches);
+
+  result.set("catches", this.catches);
 }
 if (this.FinallyBody !== null) {
-  result.set("finally", this.FinallyBody.ToList());
+  result.set("finally", this.finally);
 }
 return result;
 ```

@@ -324,6 +324,16 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" interpolation="${interpolation}" verbatim="${verbatim}" raw="${raw}" interpolationCount="${this.interpolationCount}" rawQuoteCount="${this.rawQuoteCount}">${temp.join("")}</${name}>`;
 ```
 
+## property stringChar:any
+
+`ToDictionary` 的 `stringChar` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.StringChar;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + 五个开关/计数 + 只给投影用的 `stringChar` + 子单元。
@@ -341,20 +351,17 @@ return `<${name} range="${this.RangeOf()}" interpolation="${interpolation}" verb
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 result.set("interpolation", this.interpolation);
 result.set("verbatim", this.verbatim);
 result.set("raw", this.raw);
 result.set("interpolationCount", this.interpolationCount);
 result.set("rawQuoteCount", this.rawQuoteCount);
 // **引号那一格**（第 1001 轮）：只给投影用，不进 XML（`ToXmlString` 那五个属性照旧）。
-result.set("stringChar", this.StringChar);
+result.set("stringChar", this.stringChar);
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 return result;
 ```

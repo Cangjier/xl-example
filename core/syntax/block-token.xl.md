@@ -149,6 +149,16 @@ const name = this.constructor.name;
 return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Temp.join(""))}</${name}>`;
 ```
 
+## property value:any
+
+`ToDictionary` 的 `value` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.Temp.join("");
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + 本块的文本。
@@ -159,7 +169,7 @@ return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Temp.join
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
-result.set("value", this.Temp.join(""));
+result.set("type", this.Tag());
+result.set("value", this.value);
 return result;
 ```

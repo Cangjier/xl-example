@@ -340,6 +340,71 @@ const to = String(this.BodyBrace.Range.End!.Index);
 return from + "," + to;
 ```
 
+## property ifWordAt:any
+
+`ToDictionary` 的 `ifWordAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.IfWordAt;
+```
+
+## property bodyBraceAt:any
+
+`ToDictionary` 的 `bodyBraceAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.BodyBraceAt;
+```
+
+## property emptyBodyAt:any
+
+`ToDictionary` 的 `emptyBodyAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.EmptyBodyAt;
+```
+
+## property bodyBraceRange:any
+
+`ToDictionary` 的 `bodyBraceRange` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.BraceRangeText();
+```
+
+## property condition:Array<any>
+
+`ToDictionary` 的 `condition` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+**`!` 是这一格的调用约定**：本页 `ToDictionary` 只在 `Condition !== null` 时才写这个键
+（`else` 段没有条件），读到这一格时它一定在；「没有条件」由**不写这个键**表达。
+
+```ts
+return this.Condition!.ToList();
+```
+
+## property statement:Array<any>
+
+`ToDictionary` 的 `statement` 键**由这一页自己承担**（第 1018 轮）：值取那一批子单元的节点数据。
+
+### get
+
+与 `condition` 同一条约定（见上）：`else` 之后没有体时不写这个键。
+
+```ts
+return this.Body!.ToList();
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 产出 JSON 对象：类型名 + `key`，外加两个可选段。
@@ -355,35 +420,35 @@ return from + "," + to;
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 result.set("key", this.key);
 // **`else if` 那个 `if` 的位置**：只有这一档才写这一格（其余段是 `-1`，写进去只是噪声）。
 if (this.IfWordAt >= 0) {
-  result.set("ifWordAt", this.IfWordAt);
+  result.set("ifWordAt", this.ifWordAt);
 }
 // **体那个 `{` 的位置也写出去**（与 `While` / `For` 的 `bodyBraceAt` 同一条口径）：
 // 投影画空 `Block` 时直读，不再回原文重扫。
 if (this.BodyBraceAt >= 0) {
-  result.set("bodyBraceAt", this.BodyBraceAt);
+  result.set("bodyBraceAt", this.bodyBraceAt);
 }
 // **空语句体那个 `;` 的位置**（与 `bodyBraceAt` 同一条口径）：投影画 `EmptyStatement`
 // 时直读它，不再按原文找分号，也不会把 `else ;` 画成一个空的 `Block`。
 if (this.EmptyBodyAt >= 0) {
-  result.set("emptyBodyAt", this.EmptyBodyAt);
+  result.set("emptyBodyAt", this.emptyBodyAt);
 }
 // **整对括号也写出去**（第 637 轮）：投影画 `else {}` 的空 `Block` 时右端直读它
 //（原来要靠 `MatchingBrace` 回原文重扫那一趟）。标量字符串，见 `BraceRangeText`。
 const braceRange = this.BraceRangeText();
 if (braceRange !== "") {
-  result.set("bodyBraceRange", braceRange);
+  result.set("bodyBraceRange", this.bodyBraceRange);
 }
 if (this.Condition !== null) {
-  result.set("condition", this.Condition.ToList());
+  result.set("condition", this.condition);
 }
 // **体那一格问 `Body`**（`IfBody` / `IfStatement` 都认），不能只问 `IfStatement`——
 // 只问它的话花括号体整段不进字典，投影侧那个 `Block` 就是空的。
 if (this.Body !== null) {
-  result.set("statement", this.Body.ToList());
+  result.set("statement", this.statement);
 }
 return result;
 ```

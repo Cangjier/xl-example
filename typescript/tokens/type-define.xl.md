@@ -269,6 +269,16 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 消费它的有 `field.xl.md` / `lamda/lamda-parameter.xl.md` 的 `PrintDirectAst`：
 它们从自己的 `Data` 里取出那个 `TypeDefine`，读这一格（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
 
+## property questionAt:any
+
+`ToDictionary` 的 `questionAt` 键**由这一页自己承担**（第 1018 轮）：值取这一页自己那一格事实。
+
+### get
+
+```ts
+return this.QuestionAt;
+```
+
 ## method ToDictionary:()=>Map<string, any>
 
 类型名 + 子单元，**外加 `questionAt` 这一格**（第 998 轮；`>= 0` 时才写）。
@@ -285,16 +295,13 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ```ts
 const result: Map<string, any> = new Map();
-result.set("type", this.constructor.name);
+result.set("type", this.Tag());
 if (this.Data.length !== 0) {
-  const children: Array<any> = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
+
+  result.set("children", this.children);
 }
 if (this.QuestionAt >= 0) {
-  result.set("questionAt", this.QuestionAt);
+  result.set("questionAt", this.questionAt);
 }
 return result;
 ```
