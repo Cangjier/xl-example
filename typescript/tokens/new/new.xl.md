@@ -317,7 +317,19 @@ while (i < units.length) {
     i = i + 1;
     continue;
   }
-  if (item instanceof SymbolToken && item.Is(".") === false) {
+  // **非空断言 `!` 也属于被构造者**（第 982 轮）：`new a!.b()` / `new a!()` / `new a!`
+  // 在 TS 那边被构造者是 `NonNullExpression(a!)`（外层仍是 `NewExpression`，区间包住整个 `!`）——
+  // `!` 是与 `.` / `[` 同一族的**后缀**，跟着左边的操作数走，不另起一个操作数。
+  // 少了这一格，扫描停在 `!` 上 ⇒ `New` 只盖到 `a`，而 `!` 留在外面把**整条 `new a`**
+  // 包成 `NotNull`，投出来是 `PropertyAccess(NonNull(NewExpression(a)), b)`——
+  // 差在被构造者是谁（实测 `const r = new a!.b();`：缺 `PropertyAccessExpression` +
+  // `NonNullExpression` 各 1、漂 1、多 4）。
+  //
+  // **与 `new a ++` 同一条口径**：TS 那边 `new a ++` 是 `Pending` 的
+  // `PostfixUnaryExpression(NewExpression(a))`、`new a++ .b` 报「',' expected」——
+  // `++` / `--` 不跟着左边的操作数收进来（`new` 被构造者那一趟到 `a` 就收手），
+  // 所以这里**只补 `!`**，别的符号照旧 `break`。
+  if (item instanceof SymbolToken && item.Is(".") === false && item.Is("!") === false) {
     break;
   }
   i = i + 1;

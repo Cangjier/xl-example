@@ -286,9 +286,29 @@ return index;
     // 所以现造一个（见 `print-ast-common.xl.md` 的 `projectHeadDeclare`）。
     if (define[0].get("type") === "Let") {
       props.initializer = ctx.LetFrom(define, v).list;
-    } else {
-      const head = ctx.HeadDeclare(define, v);
-      if (head !== undefined) props.initializer = head;
+    }
+    // **左值不是声明、而是一个表达式**（第 982 轮）：`for (x of xs)` / `for (a.b of xs)` /
+    // `for (a!.b of xs)` 在 TS 那边 `initializer` 分别是 `Identifier` / `PropertyAccessExpression` /
+    // `NonNullExpression`——**不是** `VariableDeclarationList`。`projectHeadDeclare` 是
+    // **只为「有声明词」那一档写的**，可它**答不出「我不适用」**：光看它答没答不行——
+    // 实测 `for (x of xs)` 的段是 `[Identifier(x)]`，它照样从后往前找到那个名字、
+    // 照收成一条 `VariableDeclarationList`（多 `VariableDeclarationList` + `VariableDeclaration`
+    // 两格）；而 `for (a.b of xs)` 那一段它给 `undefined`、整个 `initializer` 消失（缺 4）。
+    // **所以判据是段里有没有那个声明词**：有（`const` / `let` / `var` / `using`，
+    // `for await` 那个 `await` 不算——它是个 `Identifier`，不在这一档词表里）就走声明段，
+    // 没有就按**表达式**投——与下面 `enumable` 那一格同一个投法。
+    const isDeclareWordKid = (k: any) => {
+      const text = ctx.TextOf(k);
+      return text === "const" || text === "let" || text === "var" || text === "using";
+    };
+    if (props.initializer === undefined) {
+      if (define.some(isDeclareWordKid)) {
+        const head = ctx.HeadDeclare(define, v);
+        if (head !== undefined) props.initializer = head;
+      } else {
+        const asExpression = ctx.Expression(define);
+        if (asExpression !== undefined) props.initializer = asExpression;
+      }
     }
   }
   const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !ctx.Invisible.has(k.get("type")));
