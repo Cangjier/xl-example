@@ -5163,6 +5163,59 @@ return false;
   };
 ```
 
+# private method innermostMethod:(unit:any)=>any
+
+**一路走到「里面没有 `Method` 了」那一格**（第 971 轮）：`unit` 本身算第一格。
+
+一个 `Method` 单元里可以盖着**好几层调用**——`a?.b()()()` 的 NCO 里是
+`Method(name="")[Method(name="")[Method(name="b")]]`：名字为空的每一格都是「对结果再调一次」，
+而**真正带成员名的是最里面那一格**。所以问成员名、问区间都要先走到最里面那一格——
+只问第一格的名字会把它读成空名字（第 966 轮那一版就是这么走的，见
+`gap-r964-opt-call-triple`：三层只折出两层）。两处调用点（`chainWithOptional` 的
+「被调用者是 `Method`」那一支、`chainOnto` 的 Method 分支）**共用这一份**。
+
+```ts
+  let deepest = unit;
+  let depth = 0;
+  while (depth < 32) {
+    const down = projectableKids(view(deepest)).filter((k: any) => k.get("type") !== "GenericType");
+    const next = down.length > 0 ? down[0] : undefined;
+    if (next === undefined || next.get("type") !== "Method") break;
+    deepest = next;
+    depth = depth + 1;
+  }
+  return deepest;
+```
+
+# private method graftCallee:(call:any, callee:any, questionDot:any)=>any
+
+**把一条调用链最里面那一格的被调用者换成 `callee`**（第 971 轮）。
+
+`projectNode(那一格 Method)` 投出来的是**这一格里所有的调用层**（`CallExpression` 套
+`CallExpression`），而 `?.` 与成员名属于**最里面**那一层（TS 的放法：`a?.b()()()` 里 `?.`
+挂在 `a?.b` 那个属性访问上）。所以换的时候要**下到最里面那一格调用**再换——只换最外层那份
+`expression` 会把中间几层的被调用者一起丢掉（实测 `gap-r964-opt-call-triple`：产物是
+`CallExpression[0,10) > CallExpression[0,8) > Identifier(a)`，`.b` 与最里面那次调用都不见了）。
+
+`questionDot` 非空时挂在**最里面那一格调用**上（`a?.()()` 那一族：`?.` 挂在 `a?.()` 那次调用
+上、不是外层那次）；`callee` 自己带着 `?.`（`a?.b()()()` 那一族）时调用方传 `undefined`。
+每一层的 `pos` 都取 `callee.pos`——一条调用链的每一层都从链的起点起算。
+
+```ts
+  const graft = (call: any): any => {
+    if (call === undefined || call === null || typeof call !== "object") return callee;
+    const inner = call.expression;
+    const deeper = inner !== undefined && inner !== null && inner.kind === "CallExpression";
+    const node: any = Object.assign({}, call, {
+      expression: deeper ? graft(inner) : callee,
+      pos: callee.pos,
+    });
+    if (deeper === false && questionDot !== undefined) node.questionDotToken = questionDot;
+    return node;
+  };
+  return graft(call);
+```
+
 # private method chainWithOptional:(left:any, unit:any, ctx:any)=>any
 
 `a.b?.c` / `a?.[i]` → 在链上再加一格（带 `questionDotToken`）。
@@ -5215,21 +5268,22 @@ return false;
       // 先把**内层**按成员调用折一遍，再把「调用这个结果」套上去。
       // 少了这一支，那一格会落到下面「按成员名折」⇒ 投出一个**名字为空**的属性访问
       //（实测 `o?.m()()`：`CallExpression` / `PropertyAccessExpression` / `Identifier` 三处漂）。
+      //
+      // **名字要一路往下找到最里面那一格**（第 971 轮）：`a?.b()()()` 的 NCO 里是
+      // `Method(name="")[Method(name="")[Method(name="b")]]`——名字为空的每一格都是
+      // 「对结果再调一次」，而 `?.` 与成员名属于**最里面**那一层。第 966 轮那一版只问
+      // **第一格**的名字（答空串）⇒ 走的是下面「名字为空」那一支、把中间几层与 `.b` 一起丢了
+      //（实测 `gap-r964-opt-call-triple`：`CallExpression[0,10) > CallExpression[0,8) >
+      // Identifier(a)`）。两件事各收在各处：走到最里面那一格是 `innermostMethod`，
+      // 「换被调用者要下到最里面那一格调用」是 `graftCallee`——`chainOnto` 的 Method 分支
+      // 用的是同一对。
       if (calleeKid !== undefined && calleeKid.get("type") === "Method") {
-        const innerName = String(calleeKid.get("name") ?? "");
-        // **内层那一格的名字也是空的**（第 966 轮）：`a?.b()()` 的 NCO 里那一格是
-        // `Method(name=""[Method(name="")[…]])`——两层各是一次调用，而取名字那一支会把
-        // `""` 当成成员名（投出一格名字为空的属性访问）。折法就是「各投各的」：
-        // 内层 `projectNode(calleeKid)` 给出的**已经是**对 `left` 的一次调用，
-        // 只需把受体换成 `left`；外层再用 `projectNode(first)` 套一层。
+        const deepest = innermostMethod(calleeKid);
+        const innerName = String(deepest.get("name") ?? "");
+        // **名字为空**（`a?.()()` 那一档）：被调用者就是 `left`，而 `?.` 挂在**最里面**
+        // 那一次调用上（那正是 `a?.()` 这一次）。
         if (innerName === "") {
-          // **`?.` 挂在内层那一次调用上**（TS 的放法：`a?.b()()` 里 `?.` 属于
-          // `a?.b()` 那一格，不是外层那次调用）。
-          const innerCall: any = Object.assign({}, projectNode(calleeKid, ctx), {
-            expression: left,
-            pos: left.pos,
-          });
-          if (questionDot !== undefined) innerCall.questionDotToken = questionDot;
+          const innerCall = graftCallee(projectNode(calleeKid, ctx), left, questionDot);
           const outerCall = projectNode(first, ctx);
           return Object.assign({}, outerCall, {
             expression: innerCall,
@@ -5237,7 +5291,7 @@ return false;
             end: endOf(unit),
           });
         }
-        const innerAt = startOf(calleeKid);
+        const innerAt = startOf(deepest);
         const innerMember: any = {
           kind: "PropertyAccessExpression",
           expression: left,
@@ -5246,10 +5300,7 @@ return false;
           end: innerAt + innerName.length,
         };
         if (questionDot !== undefined) innerMember.questionDotToken = questionDot;
-        const innerCall = Object.assign({}, projectNode(calleeKid, ctx), {
-          expression: innerMember,
-          pos: innerMember.pos,
-        });
+        const innerCall = graftCallee(projectNode(calleeKid, ctx), innerMember, undefined);
         const outerCall = projectNode(first, ctx);
         return Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos, end: endOf(unit) });
       }
@@ -5817,20 +5868,33 @@ return false;
       const callKids = projectableKids(view(unit)).filter((k: any) => k.get("type") !== "GenericType");
       const callHead = callKids.length > 0 ? callKids[0] : undefined;
       const bareName = String(unit.get("name") ?? "");
-      // **这一格盖着两层调用**（第 966 轮）：`a?.b()()()` 的 NCO 里最外面那一格是
+      // **这一格盖着两层（或更多层）调用**（第 966 轮立、第 971 轮按「最里面那一格」补齐）：
+      // `a?.b()()()` 的 NCO 里最外面那一格是
       // `Method(name="")[Method(name="")[Method(name="b")]]`——`projectNode(unit)` 对
       // **名字为空**的 `Method` 投出来的是一次 `CallExpression`，而它里面那层是**第二格**
       // （`Method(name="")[Method(name="b")]`，同样是空的）。所以直接把这一格整个投出来
       // 交给 `left` 是不够的：那样**外面那一次调用没有节点**（实测
       // `gap-r964-opt-call-triple`：`CallExpression` / `PropertyAccessExpression` /
       // `Identifier` 三处漂、另多一格名字为空的属性访问）。
-      // **做法**：先把**内层**那一格折成「对 `left` 的一次调用」，再把外面那一层套上去——
-      // 区间一律用各自那一格自己的（`projectNode` 给的区间）与 `left.pos` 对齐。
+      // **做法**：被调用者接在**最里面**那一格调用上——名字从 `innermostMethod` 给的最里面
+      // 那一格取（第 971 轮：`callHead` 自己的名字也可能是空的），换法交给 `graftCallee`
+      //（它一路下到最里面那一层，不会把中间几层丢掉）。与 `chainWithOptional` 的
+      // 「被调用者是 `Method`」那一支**共用同一对**。
       if (bareName === "" && callHead !== undefined && callHead.get("type") === "Method") {
-        const innerCall = Object.assign({}, projectNode(callHead, ctx), {
-          expression: left,
-          pos: left.pos,
-        });
+        const deepest = innermostMethod(callHead);
+        const innerName = String(deepest.get("name") ?? "");
+        let callee: any = left;
+        if (innerName !== "") {
+          const nameAt = startOf(deepest);
+          callee = {
+            kind: "PropertyAccessExpression",
+            expression: left,
+            name: { kind: "Identifier", text: innerName, pos: nameAt, end: nameAt + innerName.length },
+            pos: left.pos,
+            end: nameAt + innerName.length,
+          };
+        }
+        const innerCall = graftCallee(projectNode(callHead, ctx), callee, undefined);
         left = Object.assign({}, projectNode(unit, ctx), {
           expression: innerCall,
           pos: innerCall.pos,
@@ -6068,7 +6132,7 @@ return false;
       // `a?.b!.c.d` 里 `!.` 之后那条子链接的是断言之后那一条链（TS：`((a?.b)!).c.d`），
       // 所以「先把 `!` 套成 `NonNullExpression`、再接子链的第一格」——套上去的位置就是
       // 那一格 `NotNull` 的末端。`a?.b!.c` 那条子链只有一格名字时由循环末尾那句补上。
-      const pendingBang: number | undefined = bangUnit !== undefined ? bangEnd : undefined;
+      let pendingBang: number | undefined = bangUnit !== undefined ? bangEnd : undefined;
       let j = 0;
       while (j < members.length) {
         const member = members[j];
@@ -6102,6 +6166,34 @@ return false;
             end: endOf(members[j + 1]),
           };
           j += 2;
+          continue;
+        }
+        // **子链自己从一个名字开头**（第 971 轮，**普查当场红的**）：`a?.b!.c.d` 的 NCO
+        // 第二格是 `PropertyAccess([c, ., d])`——**第一格就是成员名 `c`**，这条子链不是
+        // 从点号开头的。上面那一支只认「点号 + 名字」那种成对形状，落单的第一格走到循环
+        // 末尾那句空转的 `j += 1` ⇒ **`c` 整格丢、`.d` 直接接在断言后面**：投出来的是
+        // `a?.b!.d`（实测 `gap-r964-opt-assert-member-member`：`PropertyAccessExpression`
+        // 与 `Identifier` 各漂 2，`Identifier` 是那个 `d` 顶着 `c` 的位置）。
+        // 折法与 `chainWithOptional` 子链分支末尾那句**一字不差**（名字接一格），
+        // 顺序也一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
+        if (member.get("type") === "Identifier" || member.get("type") === "Keyword") {
+          if (pendingBang !== undefined) {
+            left = {
+              kind: "NonNullExpression",
+              expression: left,
+              pos: left.pos,
+              end: pendingBang,
+            };
+            pendingBang = undefined;
+          }
+          left = {
+            kind: "PropertyAccessExpression",
+            expression: left,
+            name: nameOf(member, ctx),
+            pos: left.pos,
+            end: endOf(member),
+          };
+          j += 1;
           continue;
         }
         j += 1;
