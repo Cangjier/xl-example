@@ -1950,6 +1950,21 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
 
 ## 被否决的改法（不要再试）
 
+0. **把 `typeof !0` 那一格归到「token 层重组深度那道硬界」上**（第 762 轮登记的诊断，
+   **第 961 轮推翻**）：当时的结论是「`typeof` 没升成 `Keyword` 是因为 `Depth >= 8`
+   加上 `KeywordCloseRule` 排在最后，与第 550 轮 `in` / `instanceof` 同一个根，
+   改它要连带重跑 1414 份 token 语料」。**实测不是**：`typeof` 那一格在
+   `NotNullCloseRule` 跑的时候本来就是 `Identifier`（那时 `KeywordCloseRule` 还没跑），
+   而**同一个词的「能不能当操作数」这条纪律早就写好了**——
+   `tokens/unary-operator.xl.md` 的 `IsOperand`（第 167 轮）与 `binary-operator.xl.md`
+   那一份**都排掉了** `typeof` / `void` / `delete`，只有**非空断言那条同源判据**
+   （`text-common-util.xl.md` 的 `IsAssertableOperand`）漏抄了这三个词。
+   于是同一个词在两条判据上给出**相反**的答案，而先跑的 `NotNullCloseRule` 说了算。
+   **改一句话就转绿**（`coverage 4204 → 4205`、`blocked 27 → 26`），**一份语料都不用重跑**。
+   **教训**：「同一个问题只有一份实现」要连**那一份的每一处副本**一起核——
+   症状不是「那处坏」而是「两处矛盾」。下一处这类落点先去找同源判据的其它副本，
+   别先怀疑重组深度。
+
 1. **`Token.Reorganize` 改成「每条规则重复扫到无改动」**：能让三层以上嵌套三元收敛，
    但它对**所有规则**生效 —— 整批用例一起跑直接 `FATAL ERROR: heap out of memory`。
 2. **把 11 个复合赋值符号补进 `IsCombinedSymbol`**：`a ??= 1` 一族内存失控

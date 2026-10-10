@@ -2146,6 +2146,19 @@ return false;
 本规则跑在 `KeywordCloseRule` 之前，`return !(q instanceof R)` 里的 `return` 那时还是
 `Identifier`，不排掉会把它与被断言者一起收成一个 `NotNull`。
 
+**前缀运算符那几个词也不算被断言者**（第 961 轮）：问这个判据的时候 `KeywordCloseRule`
+还没跑，所以 `typeof` / `void` / `delete` 此刻还是 `Identifier`——不排掉的话
+`typeof !0` 里那个 `!` 会被读成**非空断言**，于是 `typeof` 与被断言者一起收成一个
+`NotNull`（`<NotNull><Identifier>typeof</Identifier><SymbolToken>!</SymbolToken></NotNull>`），
+`0` 掉到外面当独立操作数 ⇒ 降级层报 `name is not a local or a capture: typeof`、
+**整份文件跑不进来**（判据 `runtime/round762/005-typeof-then-prefix-blocked`）。
+这一条与 `tokens/unary-operator.xl.md` 的 `IsOperand`、`tokens/binary-operator.xl.md`
+那一份**同一条口径**（第 167 轮就写了「`typeof` / `void` / `delete` 只做前缀、不能当被操作者」）——
+那两处排掉了，这一处漏了，于是同一个形状在两条判据上给出相反的答案。
+
+**`new` / `await` 照旧不排**（与那两处的理由一字不差）：`new A()!` 是合法的
+（`new` 表达式是一个操作数，`!` 照样能断言它），把它们排掉会真的少收一格。
+
 ```ts
 if (item === null) {
   return false;
@@ -2160,7 +2173,10 @@ if (item instanceof Identifier) {
     text !== "else" &&
     text !== "do" &&
     text !== "break" &&
-    text !== "continue"
+    text !== "continue" &&
+    text !== "typeof" &&
+    text !== "void" &&
+    text !== "delete"
   );
 }
 if (item instanceof Bracket) {

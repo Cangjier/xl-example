@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.51,
+  "progressPercent": 95.55,
   "categories": [
     {
       "category": "token",
@@ -101,11 +101,11 @@
       "category": "runtime",
       "weight": 0.25,
       "total": 776,
-      "pass": 732,
-      "blocked": 6,
+      "pass": 733,
+      "blocked": 5,
       "differ": 38,
       "nodefail": 0,
-      "coverage": 94.33
+      "coverage": 94.46
     },
     {
       "category": "stdlib",
@@ -190,12 +190,6 @@
       "category": "runtime",
       "title": "`BigInt` 这个全局名的现状",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BigIntLiteral"
-    },
-    {
-      "id": "runtime/round762/005-typeof-then-prefix-blocked",
-      "category": "runtime",
-      "title": "`typeof` 后面紧跟 `void` / `!`：那个 `typeof` 被投成了 `Identifier` ⇒ 整份文件进不来",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: typeof"
     },
     {
       "id": "runtime/round778b/003-switch-lexical-scope-blocked",

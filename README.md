@@ -307,6 +307,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 961 轮：`typeof !0` 里那个 `!` 被读成了**非空断言**——`IsAssertableOperand` 漏了那条「前缀词不算操作数」的纪律
+
+**一句话**：`typeof void 0` / `typeof !0` **整份文件进不来**（降级期报
+`name is not a local or a capture: typeof`）。第 762 轮把根登记成「token 层的重组深度」
+（那道 `Depth >= 8` 的硬界），**这一轮量下来推翻了它**：那条纪律早就写在
+`IsOperand` 里，只是**非空断言那条同源判据漏抄了同一句**。九道门全绿。
+
+- **缺口形状**（[`runtime/round762/005-typeof-then-prefix`](tests/cases/runtime/round762/005-typeof-then-prefix.ts)，
+  第 762 轮的 `-blocked` 后缀这一轮按规矩去掉）：
+  `console.log("2", typeof !0);` 里那个 `!` 被读成**非空断言**，
+  于是 `typeof` 与被断言者一起收成一个 `NotNull`
+  （`<NotNull><Identifier>typeof</Identifier><SymbolToken>!</SymbolToken></NotNull>`）、
+  `0` 掉到外面当**独立操作数** ⇒ `projectUnary` 按 `op` 属性找运算符那一格找不到 `typeof`、
+  把它当成操作数投出去 ⇒ 降级层那一句、整份文件一个字节都不跑。
+  **`typeof -1` 一直是好的**——分界正是「第二个词是**前缀词**（`!` / `void`）还是**符号**（`-` / `+`）」。
+- **根因**：`text-common-util.xl.md` 的 `IsAssertableOperand` 里 `Identifier` 那一支
+  **只排了语句关键字**（`return` / `throw` / `case` / …），而它**自己的说明里就写着**
+  「这条判据有三处要用，三处必须同源：说得不一样就会出现『一处认、另一处不认』的半成品形状」——
+  `tokens/unary-operator.xl.md` 的 `IsOperand`（第 167 轮）与 `binary-operator.xl.md`
+  那一份**都排掉了** `typeof` / `void` / `delete`，只有这一处漏了。
+  于是**同一个词在两条判据上给出相反的答案**：一元那一趟说「`typeof` 不是操作数」、
+  非空断言那一趟说「`typeof` 可以被断言」——而后者跑得更早（`NotNullCloseRule` 排在
+  `UnaryOperatorCloseRule` **之前**），先把 `!` 抢走了。
+- **修法**：给 `IsAssertableOperand` 的 `Identifier` 那一支补上 `typeof` / `void` / `delete`
+  三个词。**`new` / `await` 照旧不排**——`new A()!` 是合法的断言（`New` 本来就在
+  可断言者那张表里，第 651 轮补的），把它排掉会真的少收一格；理由与那两处一字不差。
+- **为什么不是「重组深度」**：这一次一次语料都不用重跑——判据那一层改一句话，
+  `cases:tsast` 的 token 语料逐节点仍然一致（`16/16`、缺口清单仍是空的）。
+- **实测**：九道门全绿（墙钟 34.1s）——`cases:tsast` 16/16 且**缺口清单仍是空的**、
+  `cases:astjson` 六项全 0（1593 份 / 40579 个节点）、`cases:check` 1603 / 1603、
+  `cases:tags` 5326 条断言 0 条不一致、`cases:shapes` 未覆盖 0；
+  `coverage 4204 / 4369 → 4205 / 4369`（那一格转绿：`blocked 27 → 26`、`differ 138` 没动）。
+- **可复用的判据**：**「同一个问题只有一份实现」这句话要连「那一份的**每一处副本**」一起核**——
+  同一个判据写在三处、其中一处漏抄一句词表，症状不是「那处坏」而是**两处给出相反答案**，
+  而先跑的那一处说了算。下一处这类落点先去找**同源判据的其它副本**，别先怀疑重组深度。
+
 ### 第 960 轮：`yield` / `await` 的「第三态」按**有没有操作数**量到底（缺口 1 → 0，**清单第十四次清空**）
 
 **一句话**：第 955 轮登记的最后那一格收掉——`yield` / `await` **两处上下文都不在**时
@@ -6809,7 +6845,7 @@ Array / String / Object / Number / Math / JSON / Map / Set / Promise / Reflect
 | `cases:shapes` | 外部语料 **229 份**（用例 1590 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 4204 / 4369**，加权 **95.5%**。差的那些是**真缺口**（`blocked` 27 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**（第 953 轮：收掉的那条转绿、登记的那条进 `blocked`，4195 / 4360 → **4196 / 4362**、`blocked` 27 → 28、`differ 138` 没动。第 952 轮把「值位对象字面量里嵌一层」那一族收掉并补一条守卫：4194 / 4359 → **4195 / 4360**，`blocked 27` / `differ 138` 一处没动。第 951 轮把值位计算属性名那一格收掉：4193 / 4359 → **4194 / 4359**、`blocked` 28 → 27、`differ` 138 一处没动。第 947 轮收掉 `new` 那一族的两格（4185 / 4351 → **4186 / 4352**，加权不动）、同一轮新登记的那条守卫又加一格 ⇒ `blocked` 27 → 28，**（二）**把那一条也收掉 ⇒ 4186 / 4352 → **4187 / 4352**、`blocked` 28 → 27；**（三）**那两族各带一条守卫（4187 / 4352 → **4189 / 4354**，加权不动）。第 936 轮把 `RegExp` 那一族做进来：正则字面量、`new RegExp`、`exec` / `test`、`lastIndex`、命名组、`Object.prototype.toString` 的 `[object RegExp]` 一起落地 —— `blocked` 39 → **27**、`differ` 130 → 139（**原来进不了门、现在跑得出来但还不对的那些**：`String.replace` / `split` 收正则那一半与 `m.index` 那一格还没做完）；同一轮另修了 `lastIndex` 的标志位、正则号与 `Number` / `console` 那两族的**八处撞号**） |
+| `coverage` | **五类 4205 / 4369**，加权 **95.5%**。差的那些是**真缺口**（`blocked` 26 / `differ` 138），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**（第 953 轮：收掉的那条转绿、登记的那条进 `blocked`，4195 / 4360 → **4196 / 4362**、`blocked` 27 → 28、`differ 138` 没动。第 952 轮把「值位对象字面量里嵌一层」那一族收掉并补一条守卫：4194 / 4359 → **4195 / 4360**，`blocked 27` / `differ 138` 一处没动。第 951 轮把值位计算属性名那一格收掉：4193 / 4359 → **4194 / 4359**、`blocked` 28 → 27、`differ` 138 一处没动。第 947 轮收掉 `new` 那一族的两格（4185 / 4351 → **4186 / 4352**，加权不动）、同一轮新登记的那条守卫又加一格 ⇒ `blocked` 27 → 28，**（二）**把那一条也收掉 ⇒ 4186 / 4352 → **4187 / 4352**、`blocked` 28 → 27；**（三）**那两族各带一条守卫（4187 / 4352 → **4189 / 4354**，加权不动）。第 936 轮把 `RegExp` 那一族做进来：正则字面量、`new RegExp`、`exec` / `test`、`lastIndex`、命名组、`Object.prototype.toString` 的 `[object RegExp]` 一起落地 —— `blocked` 39 → **27**、`differ` 130 → 139（**原来进不了门、现在跑得出来但还不对的那些**：`String.replace` / `split` 收正则那一半与 `m.index` 那一格还没做完）；同一轮另修了 `lastIndex` 的标志位、正则号与 `Number` / `console` 那两族的**八处撞号**） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~33s**） |
 
 
