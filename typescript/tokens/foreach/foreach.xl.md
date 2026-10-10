@@ -416,7 +416,7 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
     if (headerAt < 0) {
       return undefined;
     }
-    statement = ctx.BodyBlockOf(headerAt + 1, body, ctx.Attr(v, "bodyBraceRange"));
+    statement = ctx.BodyBlockOf(headerAt + 1, body, v.bodyBraceRange);
   }
   if (statement !== undefined) props.statement = statement;
   const awaitUnit = ctx.Kids(v).find(

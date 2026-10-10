@@ -826,6 +826,12 @@ return undefined;
 2. **只用 token 自己的东西**：这一格的方法体里**不许**出现 `ctx.source` / `ctx.Text` /
    `ctx.TextOf` / `ctx.StringText`，也不许把问题**转手**回 `this.PrintAst`——`direct:lint` 逐页扫。
    要问「某个子单元的值」时走 `ctx.ValueOf`（只读那一格自己记的值，**不回原文兜底**）。
+   **也不许按字符串键查**：`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`
+   （第 1012 轮补上最后这一族，实测 23 处 / 10 页，全部换成属性读）。
+   **为什么 `ctx.Attr` 也算**：它内部就是 `view(node).attrs.get(key)`——问的还是「字典里那个键存了什么」，
+   而**属性名是编译期就知道的那个词**：视图上本来就挂着同名属性（`view()` 把 `attrs` 抄到视图自己身上），
+   所以 `ctx.Attr(v, "questionAt")` 与 `v.questionAt` 逐字节同答，后者才是「读这一格自己的属性」。
+   只认**字面量**那一档：`ctx.Attr(x, 某个变量)` 不是按字符串键查。
 
 **基类答 `undefined`**＝「我没有直出版，照旧走 `PrintAst` / 通用支」：与 `PrintAst` 同一个约定，
 所以这一格可以**逐页**搬——搬一页多一页直出，`projectRoot` 返回的 `direct` 记账量的就是这个数。

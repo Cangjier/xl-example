@@ -506,12 +506,12 @@ import { A as B, C } from "m"
   // —— 先只读、不投：所有「让开」都在这一趟里判掉（第 998 轮的记账教训）——
   const typeOnly = v.typeOnly;
   const isTypeOnly = typeOnly === true || typeOnly === "true";
-  const rawTypeWordAt = ctx.Attr(v, "typeWordAt");
+  const rawTypeWordAt = v.typeWordAt;
   const typeWordAt = typeof rawTypeWordAt === "number" && rawTypeWordAt >= 0 ? rawTypeWordAt : -1;
   if (isTypeOnly && typeWordAt < 0) return undefined;
   const fromNode = kids.find((k: any) => k.Tag() === "Identifier" && ctx.ValueOf(k) === "from");
   const equals = kids.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=");
-  const rawBraceAt = ctx.Attr(v, "namedBraceAt");
+  const rawBraceAt = v.namedBraceAt;
   const braceOpen = typeof rawBraceAt === "number" && rawBraceAt >= 0 ? rawBraceAt : -1;
   const namedBrace = braceOpen < 0 || equals !== undefined
     ? undefined

@@ -14,14 +14,21 @@
 // 而那种输入正是这一整条线要消掉的东西（`synthName` 那 1324 处就是这么来的）。
 // 一个只在坏输入上显形的约定，靠自觉守不住。
 //
-// ## 判据（三条）
+// ## 判据（四条）
 //
 //   ① 直出版的方法体里不出现那四个回原文查的出口，也不出现 `PrintAst` 转手；
+//   ①' 也不出现**按字符串键查**：`.get("…")` / `.set("…")` / `.has("…")` 与
+//      `ctx.Attr(视图, "键")`（逐键计数，例外表已归零，见 `STRING_KEY_ALLOWED`）；
 //   ② 覆写了直出版的页面，**同页必须还有 `PrintAst`**——它是直出版还在被对拍的那条基线
 //      （搬完之前不许先把老路删掉：删了就没人能证明「同答」）；
 //   ③ 扫描本身不抛异常（页面读不出来就是红，不是跳过）。
+//   另有一条只扫共享投影那一页的代码块（名字那一格，第 1008 轮，见 `NAME_KEY`）。
 //
-// **退出码**：三条里任一条不为 0 就是 1。**未搬的页面不进退出码**：那是进度，不是缺陷
+// **章节头按整行认**（第 1012 轮修掉的一处自查错误）：`indexOf("## method PrintDirectAst…")`
+// 会匹配到**代码块里**引用这句话的那一行，于是被扫的正文根本不是这一页的直出版。
+// 现在是 `^…$` 整行匹配（`HEAD_AST_RE` / `HEAD_DIRECT_RE`）。
+//
+// **退出码**：上面任一条不为 0 就是 1。**未搬的页面不进退出码**：那是进度，不是缺陷
 //（读数照样印出来，「还剩多少页」是这一轮最该看见的数）。
 
 import fs from "node:fs";
@@ -58,6 +65,25 @@ for (const name of ROOTS) {
 
 const HEAD_AST = "## method PrintAst:(ctx:any, v:any)=>any";
 const HEAD_DIRECT = "## method PrintDirectAst:(ctx:any, v:any)=>any";
+/**
+ * **章节头必须整行匹配**（第 1012 轮修掉的一个自查错误）。
+ *
+ * 原来这里（以及 `bodyOf` 的定位）用的是 `text.indexOf(HEAD)`——它会**匹配到代码块里**那一行：
+ * `tuple-member.xl.md` 的一页 `PrintDirectAst` 正文里**引用**了 `## method PrintDirectAst:…`
+ * 这句话（说明「这一格的返回约定」），于是 `indexOf` 从那一行起往后找第一块 ```ts，
+ * 找到的是**下一个类的方法体**，而那一块里的 `ctx.Attr(typeNode, "questionAt")`
+ * 就被记在**上一页的直出版**名下（实测：真位置在**直出版之外**，扫描器报的行号 547 也在别处）。
+ * 后果不是「多报一处」而是**判据对象错了**：被扫的那一段根本不是这一页的直出版。
+ * 所以章节头一律按**整行**认（`^` + `$`，`m` 标志），正文也从那一行之后找。
+ */
+const HEAD_AST_RE = /^## method PrintAst:\(ctx:any, v:any\)=>any$/gm;
+const HEAD_DIRECT_RE = /^## method PrintDirectAst:\(ctx:any, v:any\)=>any$/gm;
+/** 一页里所有章节头的起止（整行匹配，见上）。 */
+function headsOf(text, re) {
+  const out = [];
+  for (const m of text.matchAll(re)) out.push({ at: m.index, length: m[0].length });
+  return out;
+}
 
 /**
  * 回原文查的那四个出口 + 一次转手。
@@ -100,6 +126,14 @@ const STRING_KEY = [
   ["按字符串键取值", /\.get\(\s*["']/],
   ["按字符串键置值", /\.set\(\s*["']/],
   ["按字符串键试键", /\.has\(\s*["']/],
+  // **`ctx.Attr(视图, "键")` 也是按字符串键查**（第 1012 轮）：它内部就是 `view(node).attrs.get(key)`
+  // ——判据要的是「只用 token 自己的属性」，而**属性名是编译期就知道的那个词**：
+  // 视图上本来就挂着同名属性（`view()` 把 `attrs` 抄到视图自己身上，第 1005 轮），
+  // 所以 `ctx.Attr(v, "questionAt")` 与 `v.questionAt` 逐字节同答，后者才是「读这一格自己的属性」。
+  // 第一版在第 993 轮搬直出版时就留着这一格（那时判据只扫字典读法），实测还剩 23 处、
+  // 分布在 10 页；这一轮全部换成属性读，并把这一条写进判据。
+  // **只认字面量那一档**：`ctx.Attr(x, 某个变量)` 不是「按字符串键查」，不在这里判。
+  ["按字符串键读属性（ctx.Attr）", /ctx\.Attr\(\s*[^,()]+,\s*["']/],
 ];
 FORBIDDEN.push(...STRING_KEY);
 
@@ -158,12 +192,9 @@ const stringKeyAt = new Map();
 for (const file of files.sort()) {
   const text = fs.readFileSync(file, "utf8");
   const rel = path.relative(root, file).replace(/\\/g, "/");
-  for (const [head, isDirect] of [[HEAD_AST, false], [HEAD_DIRECT, true]]) {
-    let from = 0;
-    for (;;) {
-      const at = text.indexOf(head, from);
-      if (at < 0) break;
-      from = at + head.length;
+  for (const [re, isDirect] of [[HEAD_AST_RE, false], [HEAD_DIRECT_RE, true]]) {
+    for (const one of headsOf(text, re)) {
+      const at = one.at;
       const body = bodyOf(text, at);
       if (isDirect) directSections++;
       else astSections++;
@@ -193,7 +224,9 @@ for (const file of files.sort()) {
       directPages.push({ file: rel, line });
     }
   }
-  // ② 直出版必须留着 `PrintAst` 那条基线。
+  // ② 直出版必须留着 `PrintAst` 那条基线（同样按**整行**认，见 `HEAD_DIRECT_RE`）。
+  // **不要拿带 `g` 的正则去 `.test()`**：`lastIndex` 会跨行残留，判据时真时假——
+  // 这里要的是「这一页有没有那一条整行」，`includes` 就够（`HEAD_AST` 是整行文本）。
   if (text.includes(HEAD_DIRECT) && !text.includes(HEAD_AST)) {
     violations.push({ file: rel, why: "只有直出版、没有 PrintAst —— 同答判据失去了基线" });
   }

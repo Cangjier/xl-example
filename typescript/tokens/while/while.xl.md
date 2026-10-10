@@ -287,7 +287,7 @@ return new Map([["WhileStatement", new Map([["compare", "expression"], ["body", 
     return ctx.NodeHead("WhileStatement", props, v);
   }
   // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
-  const rawBraceRange = ctx.Attr(v, "bodyBraceRange");
+  const rawBraceRange = v.bodyBraceRange;
   // **头部那个 `)` 也只有字段这一格事实**（第 634 轮）。字段缺了 ⇒ 不猜，交回 `PrintAst`。
   const rawHeaderClose = v.attrs !== undefined && typeof v.attrs.get === "function"
     ? v.headerCloseAt

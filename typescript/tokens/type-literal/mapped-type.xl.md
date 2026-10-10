@@ -300,7 +300,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   if (nameType !== undefined) props.nameType = nameType;
   // **可选映射的 `?`**（第 93 轮那一格）：它由值类型段那个子单元**自己记着**（`questionAt`），
   // 读不到就是没有——**不回原文看那个字符**。`-?` 那一支不走这里（`-` 已经是 `questionToken`）。
-  const rawQuestionAt = rest.length > 0 ? ctx.Attr(rest[0], "questionAt") : undefined;
+  const rawQuestionAt = rest.length > 0 ? rest[0].questionAt : undefined;
   if (questionToken === undefined && typeof rawQuestionAt === "number" && rawQuestionAt >= 0) {
     const at = rawQuestionAt;
     questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };

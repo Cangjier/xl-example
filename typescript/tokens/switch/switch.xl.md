@@ -358,7 +358,7 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
 ```ts
   const cond = ctx.KidsOf(v, "compare");
   const segments = ctx.KidsOf(v, "segments");
-  const rawBodyAt = ctx.Attr(v, "bodyAt");
+  const rawBodyAt = v.bodyAt;
   const bodyAt = typeof rawBodyAt === "number" ? rawBodyAt : -1;
   const props: any = {};
   if (cond.length > 0) props.expression = ctx.Expression(cond);

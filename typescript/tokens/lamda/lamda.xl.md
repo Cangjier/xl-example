@@ -1020,7 +1020,7 @@ return new Map([["ArrowFunction", new Map([["GenericType", "typeParameters"], ["
 
 ```ts
   const props: any = ctx.Structural(v, "ArrowFunction");
-  const rawArrowAt = ctx.Attr(v, "arrowAt");
+  const rawArrowAt = v.arrowAt;
   const arrowAt = typeof rawArrowAt === "number" ? rawArrowAt : -1;
   // **位置不在这一格上**（字段缺）⇒ 交回 `PrintAst`（它回原文里找一次）。
   if (!(arrowAt >= 0 && arrowAt < v.end)) {
@@ -1035,12 +1035,12 @@ return new Map([["ArrowFunction", new Map([["GenericType", "typeParameters"], ["
   let braced = false;
   let braceAt = -1;
   let braceEnd = -1;
-  const rawBodyBrace = ctx.Attr(v, "bodyBraceAt");
+  const rawBodyBrace = v.bodyBraceAt;
   if (typeof rawBodyBrace === "number" && rawBodyBrace >= 0) {
     braced = true;
     braceAt = rawBodyBrace;
   }
-  const rawBodyBraceRange = ctx.Attr(v, "bodyBraceRange");
+  const rawBodyBraceRange = v.bodyBraceRange;
   if (typeof rawBodyBraceRange === "string" && rawBodyBraceRange.includes(",")) {
     const bodyBraceSpan = rawBodyBraceRange.split(",");
     const spanEnd = Number(bodyBraceSpan[1]);

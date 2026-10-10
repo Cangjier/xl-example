@@ -536,7 +536,7 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   if (emptyAt >= 0) {
     props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
   } else {
-    const statement = ctx.BodyBlockOf(v.start + "do".length, body, ctx.Attr(v, "bodyBraceRange"));
+    const statement = ctx.BodyBlockOf(v.start + "do".length, body, v.bodyBraceRange);
     if (statement !== undefined) props.statement = statement;
   }
   const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.Tag()));

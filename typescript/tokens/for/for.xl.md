@@ -359,7 +359,7 @@ return new Map([["ForStatement", new Map([["initial", "initializer"], ["compare"
   if (next.length > 0) props.incrementor = ctx.Expression(next);
   const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.Tag()));
   // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
-  const built = ctx.BlockOfBody(body, -1, ctx.Attr(v, "bodyBraceRange"));
+  const built = ctx.BlockOfBody(body, -1, v.bodyBraceRange);
   if (built !== undefined) {
     props.statement = built.node;
   }

@@ -154,7 +154,7 @@ unit.AddToMounted(block);
 
 ```ts
   const statements = ctx.ProjectEach(ctx.Kids(v), "Block");
-  const rawBrace = ctx.Attr(v, "braceAt");
+  const rawBrace = v.braceAt;
   const brace = typeof rawBrace === "number" ? rawBrace : -1;
   const close = ctx.EndOf(v);
   const body =
