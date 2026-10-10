@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, IsTypeContainerUnit } from "../text-common-util.xl.md"
+import { SkipNextTrivia, IsTypeContainerUnit } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -29,7 +29,7 @@ TypeScript 那边括号类型是**独立节点**（`ParenthesizedType > 括号�
 
 **三条「这不是括号类型」的守卫**（都是实测出来的同形写法）：
 
-1. **后面紧跟 `=>`** ⇒ 那是**函数类型的形参表**（`(a: A) => B`），不是括号类型；
+1. **后面紧跟 `=>`**（跳 trivia）⇒ 那是**函数类型的形参表**（`(a: A) => B`），不是括号类型；
 2. **父单元是函数类型 / 声明类节点** ⇒ 同上（形参表已经挂在那儿了）；
 3. **括号里顶层出现 `TypeDefine`** ⇒ 里面是「名字 + `:` + 类型」的形参表
    （括号类型的内容永远是**类型**本身，不会有顶层冒号）。
@@ -52,16 +52,25 @@ TypeScript 那边括号类型是**独立节点**（`ParenthesizedType > 括号�
 
 三条任一成立即算（都是同形写法）：
 
-- 括号后面（跳软换行）紧跟 `=>`；
+- 括号后面（**跳 trivia**）紧跟 `=>`；
 - 父单元是 `FunctionType` / `Signature` / `MethodDeclaration` / `Lamda` / `Function`；
 - 括号里顶层有 `TypeDefine`（形参表里每个参数都有「名字 + 冒号 + 类型」）。
+
+**第 926 轮：第 1 条改走 `SkipNextTrivia`**。它原来用 `SkipNextWrapSymbol`（只跳软换行），
+于是 `on(): ()/*c*/ => void` 里那条**块注释**把它挡在门外 ⇒ 判否 ⇒ `()` 先被收成
+`ParenthesizedType` ⇒ `FunctionTypeCloseRule` 再往左看时看到的是 `ParenthesizedType` 而不是
+`Bracket`（它的第 2 条判据查的就是 `Bracket`）⇒ **整条函数类型不成形**
+（缺 `FunctionType` / `VoidKeyword`，多一个 `ParenthesizedType`）。
+这与第 817 轮在 `FunctionTypeCloseRule.Previous` 上补的是**同一件事的两半**
+（那边补的是 `=>` 往左看、这边是括号往右看），口径也同一条：
+「夹一条注释与夹一个软换行是同一件事」（第 873 轮），**判据跨过什么，别处就得跨过什么**。
 
 ```ts
 const current = Get(units, index);
 if (current === null || current.Parent === null) {
   return false;
 }
-const after = Get(units, SkipNextWrapSymbol(units, index));
+const after = Get(units, SkipNextTrivia(units, index));
 if (after instanceof SymbolToken && after.Is("=>")) {
   return true;
 }

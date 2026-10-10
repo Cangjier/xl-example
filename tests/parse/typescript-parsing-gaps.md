@@ -893,6 +893,9 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
   `method-declaration.xl.md` 的 `IsTypeContinuationBefore` 由 `SkipPreviousWrapSymbol`
   改成 `SkipPreviousTrivia`——9787 条变异体的失败数一格没动（119 → 119），已撤回。
   入口在 `TypeDefineCloseRule` 与 `FunctionTypeCloseRule` 的**次序**上，不在这一格。
+  **第 926 轮更正**：入口不在那两条规则的次序上（它们本来就对，`FunctionType` 在前），
+  而在 **`ParenthesizedTypeCloseRule.IsFunctionParameterList` 第 1 条判据的口径**上；
+  主半那一轮收掉，**体**那一半还开着并已登记成用例——见下面第 926 轮那一节。
 
 **第 924 轮：标签表体检把上一轮那条用例逮住——投影层的 kind 名不许写进 `xl:expect`**
 （`cases:check` / `cases:tags` 从第 923 轮（二）起就是红的，这一轮收掉）
@@ -951,6 +954,39 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
   ⇒ XML 多一个节点，**投影结果不变**（cases:tsast / astjson 都绿）。
 - **账**：`npm run gates` 九道全过；coverage **4139 / 4308 → 4140 / 4309**、blocked 39、differ 130、bad 0；
   cases:astjson 36614 个节点（新增那条用例 + 上面那处副作用）。
+
+**第 926 轮：余量二的主半收掉——括号那一侧也要走 trivia 口径**（**体**那一半还开着，已登记成用例）
+
+- **根**：`on(): ()/*c*/ => void` 里那条块注释把 `ParenthesizedTypeCloseRule.IsFunctionParameterList`
+  的第 1 条判据（「括号后面紧跟 `=>`」）挡在门外——那一条用的是 `SkipNextWrapSymbol`（只跳软换行）。
+  于是 `()` 先被收成 `ParenthesizedType`，`FunctionTypeCloseRule` 再往左看时看到的不再是 `Bracket`
+  （它的第 2 条判据查的就是 `Bracket`）⇒ 整条函数类型不成形（缺 `FunctionType` / `VoidKeyword`，
+  多一个 `ParenthesizedType`）。注意折 `()` 的是 `ParenthesizedTypeCloseRule`，不是
+  `TypeDefineCloseRule`——第 923 轮怀疑的「两条规则的次序」实测本来就对。
+- **修法**：那一条改走 `SkipNextTrivia`。这与第 817 轮在 `FunctionTypeCloseRule.Previous`
+  （`=>` 往左看）上补的是**同一件事的两半**，口径也同一条（第 873 轮：
+  「夹一条注释与夹一个软换行是同一件事」「判据跨过什么，别处就得跨过什么」）。
+- **量到的收益**（探针 `tmp/r926/flip-probes.mjs` 14 条：修前 **7 条红**、修后 **2 条红**）：
+  红转绿的是**无体**的五个宿主——`interface I { on(): ()/*c*/ => void; }`、
+  `declare function g(): ()/*c*/ => void;`、`abstract class A { abstract on(): ()/*c*/ => void; }`、
+  `type O = { on(): ()/*c*/ => void };`、`class E { on(): ()/*c*/ => void; }`；
+  另外 `type T = ()/*c*/ => void;` / `const f: ()/*c*/ => void = …` /
+  `class E { f = (a: number)/*c*/ => a; }` / 参数位 / `new ()/*c*/ => void` 本来就绿。
+- **还开着的余量（两条，都登记了）**：
+  1. **体那一半**：宿主是**空形参 + 带体**的方法 / 函数时，体里的语句不再被包进 `Statement`——
+     `return;` 投成裸 `Identifier` + `SemicolonToken`（缺 `ReturnStatement`）、
+     `const a = 1;` 缺 `VariableStatement`、`f();` 缺 `ExpressionStatement`（空体 `{ }` 当然没事）。
+     修前 缺 3 多 3、修后 **缺 1 多 2**（少的那两格正是这一轮收掉的 `FunctionType` / `VoidKeyword`）。
+     **为什么只有空形参犯**：非空形参那一支早就被第 3 条判据（括号里顶层有 `TypeDefine`）拦住了，
+     只有空 `()` 会走到第 1 条。守卫用例 `token/declarations/gap-return-type-fn-comment-body.ts`。
+  2. **柯里化那一格**：`type T = ()/*c*/ => () => void;` 与接口里的同形（探针 `k-curry` / `l-iface-curry`）
+     仍缺里层的 `FunctionType` / `VoidKeyword`（修前 缺 2 / 缺 3，修后都是 **缺 2**）。
+     这两条一起让缺口清单**不再为空**：`cases:tsast` 报「1 条还开着」（只登记了第 1 条；
+     第 2 条只在探针里量到，还没铺成用例）。
+- **账**：`npm run gates` 九道全过；coverage 4140 / 4309 → **4141 / 4311**
+  （blocked 39 → **40**，多的那一条正是登记的余量）、differ 130、bad 0；
+  cases:check 1545 条 0 不合格、cases:tags 5134 条断言 0 不一致。
+  守卫用例 `token/types/type-fn-return-comment.ts`：**去掉修法它红**（缺 2 多 1），修后逐节点与 TS 一致。
 
 ## 被否决的改法（不要再试）
 
