@@ -588,13 +588,41 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**1 条**）
+## 已知仍开着的缺口（**0 条**）
 
-**现状（第 945 轮实测）**：`cases:tsast` 那一行是「已知缺口：**1** 条还开着、0 条已经收掉」。
+**现状（第 946 轮实测）**：`cases:tsast` 那一行是「语料里一条都没有——**缺口清单是空的**」。
 
 | 守卫用例 | 落点 | 下一轮的入手处（登记时写下的） |
 | --- | --- | --- |
-| `token/expressions/gap-r937-new-index-callee-newline.ts` | `new ns` 换行 `[a]()` 的末尾那对 `()` 折不成 `Method` | `MethodCloseRule.Previous` 对 `PropertyAccess` 那一步为什么没接手 |
+| （无） | — | — |
+
+**第 946 轮收掉的那一格**：`gap-r937-new-index-callee-newline`（`new ns` 换行 `[a]()`
+在 TS 那边是**一条** `NewExpression`——`expression` 是 `ns[a]`、`arguments` 是 `()`）。
+第 937 轮把 `[` 从 `NewArguments` 里放了出来（下标留给 `PropertyAccessCloseRule`），
+那一半是对的；**缺的是另一半**：`[` 后面接得上一次调用时，下标**就是被构造者的一部分**
+（TS 的 `parseMemberExpressionOrHigher` 先把 `.成员` 与 `下标` 整段取成构造者，再看末尾是不是 `(`）
+⇒ 产物过去是 `CallExpression[ElementAccessExpression[New, a]]`。
+判据落在 `NewCloseRule` 的两格新方法上（`IsClosedBracket` + `PostfixIndexRunEnd`）：
+扫描遇到 `[` 时先问「这一整段下标后面那一格是不是 `(`」，是就把整段下标收进 `NewType`
+（括号照旧由下一圈扫进 `NewArguments`）。**同一个问题只写一份**：
+「这一段下标到哪结束」只有 `PostfixIndexRunEnd` 一处答案（第一版写成「沿列表找配对 `]`」，
+实测错——内层括号成形时**已经把它吃掉了**，列表里根本没有那个符号）。
+⇒ 缺口 1 → **0**，用例改名成 `token/expressions/expr-new-index-callee-newline.ts` 留着当守卫。
+
+**同一批探针量出来、这一轮没收的三格**（如实登记，都在同一片 `new` 家族里，
+各自是一个**独立的形状判断**，不是本轮的根）：
+
+| 片段 | TS | 本仓（第 946 轮实测） |
+| --- | --- | --- |
+| `new ns[a]` | `NewExpression > ElementAccessExpression(ns, a)` | `ElementAccessExpression(New(ns), a)` |
+| `new ns[a].b` | `NewExpression > PropertyAccessExpression > ElementAccessExpression` | `PropertyAccessExpression(ElementAccessExpression(New, a), b)` |
+| `new ns[a]`` ` `` | `NewExpression > TaggedTemplateExpression > ElementAccessExpression` | `TaggedTemplateExpression(ElementAccessExpression(New, a))` |
+
+三格的共同点：**`New` 与紧跟其后那一格之间没有一次调用**时，TS 仍然把那个后缀算在构造者里。
+本轮只做「后面接得上 `(`」那一半（那是登记在案的缺口、也是 `parseMemberExpressionOrHigher`
+里唯一有**独立判据**的一档）；上面三格没有登记过、也没有守卫用例，
+**按规矩「先补用例、再收」**——下一轮要做就从 `tests/cases/token/expressions/` 里补三份
+`xl:known-gap` 起步，别直接改判据。
 
 **第 945 轮收掉的那一格**：`gap-r941-import-attributes-newline`（`import a from "m"` 换行
 `with { type: "json" };` 在 TS 那边是**一条** `ImportDeclaration`）。第 941 轮把判据写进了

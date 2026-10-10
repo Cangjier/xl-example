@@ -35,6 +35,57 @@ import { NewType } from "./new-type.xl.md"
 
 唯一的实例。
 
+## method IsClosedBracket:(unit:Token | null)=>bool
+
+`unit` 是不是一个**已经收好的方括号**（`[ … ]` 整段是一个单元）。
+
+**这一格是「下标段到哪结束」的全部依据**（第 946 轮）：括号由 `BracketBranch` **自己成组**，
+所以 `[` 开头的单元有两种完全不同的处境——
+
+- **已经收好**（`Closed` 为真，`endBracket` 是 `]`）：它自己就是完整的一段下标，
+  段尾就在它后面那一格；
+- **还没收**（`Start` 有值、`End` 是 `null`）：我们**在这个下标里面**（外层那一对还没关闭），
+  往后走只会撞见它的内容与那个裸 `]` —— 那不是下一段下标。
+
+**为什么不能靠「沿列表找 `]`」**（第一版那么写，实测错）：内层括号在自己成形时
+**已经把 `]` 吃掉了**，列表里根本没有那个符号；于是深度永远减不到 0、函数一路走到列表末尾
+（实测 `new ns[a]()` 的 `runEnd` 给出 6 而不是 5 —— `[a]` 只有一格，后面那一格是实参表）。
+
+```ts
+if (unit === null) {
+  return false;
+}
+if (unit instanceof Bracket) {
+  return unit.startBracket === "[" && unit.Closed === true;
+}
+return false;
+```
+
+## method PostfixIndexRunEnd:(units:Array<Token>, index:int)=>int
+
+从 `index`（一个 `[` 括号）起，跨过**一整段后置下标**，返回接在它**后面**那一格的下标。
+
+每一步都是「下一格是不是又是一个**收好的** `[ … ]`」：是就跨过去（`ns[a][b]` 的两段），
+不是就停下。撞见一个**还没收的** `[` 也停下——那种时刻我们正在它里面，
+再往右走的是它的内容，不是同级的下一段。
+
+**它只回答「这一段到哪结束」**，不回答「这一段归谁」——归谁由 `Process` 里那条
+「后面接不接得上一次调用」决定。
+
+```ts
+let at = index;
+let guard = 0;
+while (guard < 64) {
+  guard = guard + 1;
+  const current = Get(units, at);
+  if (this.IsClosedBracket(current) === false) {
+    return at;
+  }
+  at = at + 1;
+}
+return at;
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点：一个内容为 `new` 的 `Identifier`，**并且后面紧跟一个类型名**（`Identifier`）。
@@ -131,6 +182,31 @@ while (i < units.length) {
     //（实测 `new-member-callee-newline.ts` 末两档：缺 `ElementAccessExpression` 1、漂 1、多 3）。
     // 记下来之后，下面那一段按 `startBracket` 分岔：`(` 照旧搬进 `NewArguments`，
     // `[` 只借它的**前一格**当类型段的终点（括号自己留给 `PropertyAccessCloseRule`）。
+    //
+    // **但下标段后面接上一次调用时，它就是被构造者的一部分**（第 946 轮收掉的那一格）：
+    // `new ns[a]()` 在 TS 那边是 **`NewExpression`**（`expression` 是 `ns[a]`、`arguments` 是 `()`），
+    // 与 `new ns(a)` / `new ns[a]` **三种排版各不相同**：
+    //
+    //     new ns[a]()    → NewExpression(expression: ElementAccessExpression(ns, a), arguments: [])
+    //     new ns(a)      → NewExpression(expression: ns, arguments: [a])
+    //     new ns[a]      → NewExpression(expression: ns) 再被挂一次下标
+    //
+    // 分开它们的是 **`[` 后面接不接得上一次调用**：TS 的 `parseMemberExpressionOrHigher`
+    // 先整段取「构造者」（`.成员` 与 `下标` 一起走），再看末尾是不是 `(`；
+    // 不是 `(` 时那个下标**不属于构造者**（TS 用 `[` 前面有没有换行把这一档排除掉——
+    // `const a = new A` 换行 `[1]()` 在 TS 那边是**两个** `NewExpression` / `CallExpression`，
+    // 实测；而本仓既有的三支「跨行续接」本来就走 `.` / `[`，两边的口径在这一格上一致）。
+    // 少了这一支，下标被 `PropertyAccessCloseRule` 挂到 `New` **外面**、
+    // 末尾那对括号又成了对它的又一次调用 ⇒ 产物是
+    // `CallExpression[ElementAccessExpression[New, a]]` 而 TS 是 `NewExpression` 包着两者。
+    if (item.startBracket === "[") {
+      const indexRunEnd = this.PostfixIndexRunEnd(units, i);
+      const afterIndex = Get(units, SkipNextTrivia(units, indexRunEnd - 1));
+      if (afterIndex instanceof Bracket && afterIndex.startBracket === "(") {
+        i = indexRunEnd;
+        continue;
+      }
+    }
     bracketIndex = i;
     break;
   }
