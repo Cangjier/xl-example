@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.62,
+  "progressPercent": 95.64,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1623,
-      "pass": 1617,
-      "blocked": 6,
+      "pass": 1619,
+      "blocked": 4,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.63
+      "coverage": 99.75
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1623,
-    "knownGap": 6,
-    "knownGapStillOpen": 6,
-    "exactFiles": 1617,
-    "scoredWithoutGap": 1617,
-    "passedWithoutGap": 1617
+    "knownGap": 4,
+    "knownGapStillOpen": 4,
+    "exactFiles": 1619,
+    "scoredWithoutGap": 1619,
+    "passedWithoutGap": 1619
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-r975-nonnull-call-assert-call-twice",
-      "category": "token",
-      "title": "",
-      "detail": "漂 2　第 975 轮普查量到：`a!()()!()`：漂 2——链循环里「这一格是非空断言」那一支只认**核是实参括号**（「先调用、再断言」）那一档；这一格的核是**一格 `Method`**（`NotNull(Method(name=\"\"[Bracket]), !)`），于是最里面那次调用（`a!()`）整格丢、"
-    },
     {
       "id": "token/expressions/gap-r975-nonnull-call-assert-index",
       "category": "token",
@@ -166,12 +160,6 @@
       "category": "token",
       "title": "",
       "detail": "缺 2　漂 2　第 975 轮普查量到：`a!()[0]!()`：缺 2 漂 2——第一格 `Method(name=\"\")[NotNull(a!.), Bracket(())]` 里那个 `NotNull` 是**被调用者**（它的实参括号是平级的兄弟），而链循环里「`callHead` 是 `NotNull`」那一"
-    },
-    {
-      "id": "token/expressions/gap-r975-opt-call-assert-call-twice",
-      "category": "token",
-      "title": "",
-      "detail": "漂 1　多 2　第 975 轮普查量到：`a?.()!()`：漂 1 多 2——`assertedMember` 的名称位拿到的是**一对待调用的实参括号**（`NotNull([Bracket(()), !])`），而它只认「名字」「下标括号」「子链」三档 ⇒ 落到通用支、投出一格名字叫 `()` 的属性访问（多 2"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",

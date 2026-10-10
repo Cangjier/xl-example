@@ -4303,6 +4303,19 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
               pos: left.pos,
               end: endOf(bangHead),
             };
+          } else if (bangHead !== undefined && bangHead.get("type") === "Method") {
+            // **断言的核是一格调用单元**（第 975 轮）：`a!()()!()` 的第二格是
+            // `NotNull([Method(name=""[Bracket(())]) , !])`——那一格自己盖着**两层**调用
+            // （第 966 轮那句话：一格说两次调用），而上面那两支只认「核是实参括号」
+            //（第 975 轮补的「先调用、再断言」）与「核是下标」⇒ 这一格整格丢。
+            // 折法与 `chainOnto` 的 NotNull 单元那一支、以及 `assertedMember` 的
+            // Method 那一档**共用同一对**：`innermostCallee` 接出最里面那一格、
+            // `graftCallee` 把整串壳套上去，`!` 最后套在整条链外面。
+            left = graftCallee(
+              projectNode(bangHead, ctx),
+              innermostCallee(left, innermostMethod(bangHead), ctx),
+              undefined,
+            );
           } else if (bangHead !== undefined && isIndexFirstUnit(bangHead, ctx)) {
             const bracket = bangHead;
             const argument = projectExpression(projectableKids(view(bracket)), ctx);
@@ -5191,6 +5204,23 @@ return false;
       kind: "ElementAccessExpression",
       expression: left,
       argumentExpression: projectExpression(projectableKids(view(nameUnit)), ctx),
+      pos: left.pos,
+      end: endOf(nameUnit),
+    };
+    if (questionDot !== undefined) node.questionDotToken = questionDot;
+  } else if (nameUnit.get("type") === "Bracket" && nameUnit.get("startBracket") === "(") {
+    // **断言里的核是一对实参括号**（第 975 轮）：`a?.()!()` 的 NCO 内容是
+    // `NotNull([Bracket(()), !])`——那个括号是**一次调用**（`a?.()`），`!` 套在它的结果上
+    //（TS：`NonNull(CallExpression(a with ?.) )`，`?.` 挂在那次调用上）。
+    // 上面那条只认**下标**括号，于是这一格落到下面那条通用支 ⇒ 投出一格名字叫 `()` 的
+    // 属性访问（实测 `gap-r975-opt-call-assert-call-twice`：漂 1 多 2）。
+    // 折法与上面那条下标支**一字不差**（先建那一格、再把 `!` 套在外面）。
+    node = {
+      kind: "CallExpression",
+      expression: left,
+      arguments: splitTopLevel(projectableKids(view(nameUnit)), ctx, ",")
+        .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+        .filter((a: any) => a !== undefined),
       pos: left.pos,
       end: endOf(nameUnit),
     };
