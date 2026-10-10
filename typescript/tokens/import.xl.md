@@ -9,6 +9,7 @@ import { Get, ReplaceAt } from "../../core/extensions/list-extension.xl.md"
 import { RemoveItem } from "../list-extensions.xl.md"
 import { GetSkipPreviousWrapSymbol, IsTriviaUnit, NextLineFirstCharAt, NextLineOpensAttributes, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
+import { ObjectLiteral } from "./json/object-literal.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { ConstString } from "./string/const-string.xl.md"
@@ -479,6 +480,160 @@ import { A as B, C } from "m"
   return { kind: "ImportDeclaration", pos: v.start, end, ...props };
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 999 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+上面那一份里有**四处回原文查**，直出版逐处换成 token 上已经记过的那一格：
+
+| `PrintAst` 里的那一句 | 直出版读哪一格 |
+| --- | --- |
+| `ctx.TextOf(word)` / `ctx.TextOf(k)`（`with` / `assert` / `:` / `from` / `=` / `as` / `*`） | `ctx.ValueOf(...)`——只读那一格自己记的 `value` |
+| `ctx.FirstCodeAfter(source, v.start + "import".length)` | `TypeWordAt`（`ReadClause` 认出 `type` 那一刻记的） |
+| `source.indexOf("{", clauseStart)` | `NamedBraceAt`（同一处记的具名子句左花括号下标） |
+| `ctx.MatchBrace(source, braceOpen)` | 那个括号**单元自己的终点**（`EndOf(namedBrace) - 1`） |
+
+尾分号那一趟换成 `ctx.SemicolonEndOf`——它与 `PrintAst` 里「跳空白与注释再看一个字符」
+**同一份实现**（第 838 / 840 轮那条口径，`Namespace` 的直出版也是这么写的）。
+
+**让开的三档**（都发生在**投出第一个节点之前**，否则 `cases:direct` 的 `count` 记账会多记）：
+`type-only` 却没记过 `TypeWordAt`、位置在却没认出那个括号单元。答 `undefined` 交回 `PrintAst`。
+
+```ts
+  const kids = ctx.Kids(v);
+  // —— 先只读、不投：所有「让开」都在这一趟里判掉（第 998 轮的记账教训）——
+  const typeOnly = v.attrs.get("typeOnly");
+  const isTypeOnly = typeOnly === true || typeOnly === "true";
+  const rawTypeWordAt = ctx.Attr(v, "typeWordAt");
+  const typeWordAt = typeof rawTypeWordAt === "number" && rawTypeWordAt >= 0 ? rawTypeWordAt : -1;
+  if (isTypeOnly && typeWordAt < 0) return undefined;
+  const fromNode = kids.find((k: any) => k.get("type") === "Identifier" && ctx.ValueOf(k) === "from");
+  const equals = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "=");
+  const rawBraceAt = ctx.Attr(v, "namedBraceAt");
+  const braceOpen = typeof rawBraceAt === "number" && rawBraceAt >= 0 ? rawBraceAt : -1;
+  const namedBrace = braceOpen < 0 || equals !== undefined
+    ? undefined
+    : kids.find(
+        (k: any) =>
+          (k.get("type") === "Bracket" || k.get("type") === "ObjectLiteral")
+          && ctx.StartOf(k) === braceOpen,
+      );
+  if (braceOpen >= 0 && equals === undefined && namedBrace === undefined) return undefined;
+  const braceClose = namedBrace === undefined ? -1 : ctx.EndOf(namedBrace) - 1;
+  const end = ctx.SemicolonEndOf(ctx.StmtEndOf(v));
+  // —— 从这里起才投节点 ——
+  const props: any = {};
+  const moduleNode = kids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+  if (moduleNode !== undefined) props.moduleSpecifier = ctx.Project(moduleNode);
+  const assertUnits: any[] = [];
+  const moduleAt = kids.indexOf(moduleNode);
+  if (moduleNode !== undefined && moduleAt >= 0) {
+    const after = kids.slice(moduleAt + 1).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+    const braceAt = after.findIndex(
+      (k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "{",
+    );
+    const word = braceAt > 0 ? after[braceAt - 1] : undefined;
+    if (
+      word !== undefined &&
+      word.get("type") === "Identifier" &&
+      ["with", "assert"].includes(ctx.ValueOf(word))
+    ) {
+      const brace = after[braceAt];
+      const elements = [];
+      for (const part of ctx.Split(ctx.Kids(brace), ",")) {
+        const colonAt = part.findIndex(
+          (k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === ":",
+        );
+        if (colonAt < 0) continue;
+        const nameUnit = part.slice(0, colonAt).find((k: any) => ctx.IsNameNode(k));
+        if (nameUnit === undefined) continue;
+        const valueUnit = part
+          .slice(colonAt + 1)
+          .find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+        elements.push({
+          kind: "AssertEntry",
+          name: ctx.NameOf(nameUnit),
+          value: valueUnit === undefined ? undefined : ctx.Project(valueUnit),
+          pos: ctx.StartOf(nameUnit),
+          end: valueUnit === undefined ? ctx.EndOf(nameUnit) : ctx.EndOf(valueUnit),
+        });
+      }
+      props.assertClause = {
+        kind: "AssertClause",
+        elements,
+        pos: ctx.StartOf(word),
+        end: ctx.EndOf(brace),
+      };
+      assertUnits.push(word, brace);
+    }
+  }
+  if (equals !== undefined) {
+    const nameNode = kids.find((k: any) => k.get("type") === "Identifier" && k !== fromNode);
+    const callNode = kids.find((k: any) => k.get("type") === "Method");
+    const innerString =
+      moduleNode ??
+      (callNode === undefined
+        ? undefined
+        : ctx.Kids(callNode).find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString"));
+    const equalsProps: any = {};
+    if (nameNode !== undefined) equalsProps.name = ctx.Project(nameNode);
+    if (callNode !== undefined) {
+      equalsProps.moduleReference = {
+        kind: "ExternalModuleReference",
+        expression: innerString === undefined ? undefined : ctx.Project(innerString),
+        pos: ctx.StartOf(callNode),
+        end: ctx.EndOf(callNode),
+      };
+    } else {
+      const names = kids.filter(
+        (k: any) => k.get("type") === "Identifier" && k !== nameNode && k !== fromNode,
+      );
+      if (names.length > 0) equalsProps.moduleReference = ctx.QualifiedNameFrom(names);
+    }
+    return { kind: "ImportEqualsDeclaration", pos: v.start, end, ...equalsProps };
+  }
+  const clause = kids.filter(
+    (k: any) =>
+      k !== moduleNode && k !== fromNode && !assertUnits.includes(k) && !ctx.Invisible.has(k.get("type")),
+  );
+  if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
+  // **`ImportClause` 的起点**：type-only 读 `TypeWordAt`（上面已经确认它记过），
+  // 其余读子句第一格的起点——与 `PrintAst` 同一份判据，只是不再回原文跳空白。
+  const clauseStart = isTypeOnly ? typeWordAt : ctx.StartOf(clause[0]);
+  const clauseEnd = ctx.EndOf(clause[clause.length - 1]);
+  const clauseProps: any = {};
+  const star = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.ValueOf(k) === "*");
+  const names = clause.filter((k: any) => k.get("type") === "Identifier" && ctx.ValueOf(k) !== "as");
+  if (star !== undefined) {
+    const nsName = names[names.length - 1];
+    clauseProps.namedBindings = {
+      kind: "NamespaceImport",
+      name: nsName === undefined ? undefined : ctx.Project(nsName),
+      pos: ctx.StartOf(star),
+      end: clauseEnd,
+    };
+    const defaultName = names.find(
+      (k: any) => ctx.StartOf(k) < ctx.StartOf(star) && ctx.ValueOf(k) !== "defer",
+    );
+    if (defaultName !== undefined) clauseProps.name = ctx.Project(defaultName);
+  } else if (braceClose >= 0) {
+    const defaultName = names.find((k: any) => ctx.StartOf(k) < braceOpen);
+    if (defaultName !== undefined) clauseProps.name = ctx.Project(defaultName);
+    clauseProps.namedBindings = {
+      kind: "NamedImports",
+      elements: ctx.NamedSpecifiers(namedBrace, "ImportSpecifier"),
+      pos: braceOpen,
+      end: braceClose + 1,
+    };
+  } else if (names.length > 0) {
+    clauseProps.name = ctx.Project(names[0]);
+  }
+  props.importClause = { kind: "ImportClause", pos: clauseStart, end: clauseEnd, ...clauseProps };
+  return { kind: "ImportDeclaration", pos: v.start, end, ...props };
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器。
@@ -530,6 +685,12 @@ super(template);
 那个假括号。而 `ReadClause` 认下具名子句那一刻括号单元（`Bracket` 或带别名时的
 `ObjectLiteral`）就在手上，当场记下来即可。
 
+**记的是「`from` 之前那一格 `{`」**（第 999 轮）：量位置的判据收在 `BraceInClause` 一处，
+`ReadClause` 进三种子句分支**之前**先记一次——原来只有「头一格就是 `Bracket`」那一支记，
+于是 `import d, { A } from "m"`（默认导入 + 具名子句）这一格**一直是 `-1`**，
+投影的兜底于是永远在回原文找。**这一格现在也进字典**（`ToDictionary`，`questionAt` 同款：
+`>= 0` 时才写），`PrintDirectAst` 读的就是它。
+
 **为什么这些属性值得加**：原来 `Import` 只带 `From`，两条形状完全不同的导入只能靠子单元去分辨；
 而且 `From` **根本没有进 XML**（`Import` 没有覆写 `ToXmlString`）——下游拿不到路径。
 现在这些信息都成了属性，`ToXmlString` 一并渲染。
@@ -577,6 +738,12 @@ super(template);
 
 ```ts
 let start = headIndex;
+// **具名子句那个左花括号的位置先量一次**（第 999 轮）：`ReadClause` 的三种子句分支里
+// 原来只有「头一格就是 `Bracket`」那一支记了 `NamedBraceAt`，于是
+// `import d, { A } from "m"`（默认导入 + 具名子句）**这一格一直是 `-1`**，
+// 而投影那一侧的兜底是 `source.indexOf("{", clauseStart)`——正是这一格要消掉的第二份位置答案。
+// 判据只有一份、位置只量一次：**`from` 之前那一格 `{`**。
+this.NamedBraceAt = this.BraceInClause(items);
 const typeWord = Get(items, start);
 if (typeWord instanceof Identifier && typeWord.Is("type")) {
   this.typeOnly = true;
@@ -619,7 +786,6 @@ if (head instanceof Identifier && head.Is("from") === false) {
   return;
 }
 if (head instanceof Bracket && head.startBracket === "{") {
-  this.NamedBraceAt = head.SourceRange.Start === null ? -1 : head.SourceRange.Start.Index;
   const names: string[] = [];
   let lastCommon: Identifier | null = null;
   for (const item of head.Data) {
@@ -639,6 +805,38 @@ if (head instanceof Bracket && head.startBracket === "{") {
   }
   this.imported = names;
 }
+```
+
+## method BraceInClause:(items:Array<Token>)=>int
+
+`items` 里那个**具名子句的左花括号**的下标；没有具名子句时是 `-1`。
+
+**判据只有一份：`from` 之前那一格 `{`**。为什么必须卡在 `from` 前面——
+`import a from "m" with { type: "json" }` 里**也有一个** `{`（那一格是 `assertClause`，
+不是具名子句），照「整段里第一个 `{`」找会把它认成具名子句的括号。
+
+**为什么 `ObjectLiteral` 也算**（第 999 轮）：`import d, { A } from "m"` 里那一对花括号
+不在 `ReadClause` 的 `Bracket` 分支上（头一格是默认名，那一支当场 `return`），
+而它被值位的对象字面量规则收成了 `ObjectLiteral`（没有 `startBracket` 属性）——
+按标签分会漏掉这一种，所以两种都认（与 `PrintAst` 找 `namedBrace` 那一句同一份判据）。
+
+**位置从哪来**：括号单元自己的 `SourceRange.Start`——它就在手上，不必回原文 `indexOf`。
+
+```ts
+const fromAt = items.findIndex((item) => item instanceof Identifier && (item as Identifier).Is("from"));
+const limit = fromAt === -1 ? items.length : fromAt;
+for (let i = 0; i < limit; i++) {
+  const item = Get(items, i);
+  if (item === null) {
+    continue;
+  }
+  const isBrace = item instanceof ObjectLiteral
+    || (item instanceof Bracket && (item as Bracket).startBracket === "{");
+  if (isBrace) {
+    return item.SourceRange.Start === null ? -1 : item.SourceRange.Start.Index;
+  }
+}
+return -1;
 ```
 
 ## method ToXmlString:()=>string
@@ -663,7 +861,8 @@ return `<${name} range="${this.RangeOf()}" From="${from}" typeOnly="${isTypeOnly
 
 ## method ToDictionary:()=>Map<string, any>
 
-产出 JSON 对象：类型名 + `From` / `typeOnly` / `defaultImport` / `namespace` / `imported` 五个字段，外加子单元。
+产出 JSON 对象：类型名 + `From` / `typeOnly` / `defaultImport` / `namespace` / `imported` 五个字段，
+外加只给投影用的 `typeWordAt` / `namedBraceAt`（都**不进 XML**）与子单元。
 
 键名与 `ToXmlString` 开标签上的五个属性同名（连顺序也一致）、值同源：
 `From` 的兜底照抄 XML 那处——`this.From === null` 时写空字符串，否则写字段本身
@@ -686,6 +885,13 @@ result.set("imported", this.imported.join(","));
 // 但投影是从**字典**读属性的，所以这里必须写上——少了它 `ImportClause`
 // 的起点又退回「回原文跳空白」，`import /*c*/ type { A }` 会从注释起（第 875 轮）。
 result.set("typeWordAt", this.TypeWordAt);
+// **`namedBraceAt` 同理**（第 999 轮）：`NamedBraceAt` 一直是 token 上的一个字段，
+// 但**从来没进过字典** ⇒ 投影那一句 `ctx.Attr(v, "namedBraceAt")` 永远读到 `undefined`，
+// 兜底永远走「回原文 `indexOf("{")`」。直出版要读的就是这一格，所以在这里补上。
+// 没有具名子句时**不写这一格**（`-1` 与「没有」是同一件事，与 `questionAt` 同一条口径）。
+if (this.NamedBraceAt >= 0) {
+  result.set("namedBraceAt", this.NamedBraceAt);
+}
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {

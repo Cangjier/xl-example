@@ -376,6 +376,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这一轮把五处收成一份之后，下一层的形状（四层调用）**一次全绿**。
   另一条：**先登记、不猜**——普查量出来的 6 格只有读数与入手处，根因没量到就不写。
 
+### 第 999 轮：`Import` 与 `ImportType` 两页拿到直出版——一页要**给 token 补一格并把它写进字典**（`NamedBraceAt` 从来没进过字典）；用例语料直出 **68.5% → 69.1%**、全语料 **88.1%**
+
+**一句话**：再搬两页「已有 `PrintAst`、差几处回原文」的页，而这两页各欠**一格事实**而不是「再写一遍那一格」：
+`Import` 欠的是**具名子句那个 `{` 的位置**（token 上一直有这个字段，却从来没进过字典），
+`ImportType` 欠的是**字符串字面量的文本怎么从子单元读**（`StringText` 的两步里只有第一步是 token 自己的事）。
+
+- **`Import`（80 → 0）**：四处回原文查各自换成一格已记过的事实——
+  `ctx.TextOf(word)` → `ctx.ValueOf(word)`（`with` / `assert` / `:` / `from` / `=` / `*` / `as`）；
+  `ctx.FirstCodeAfter(source, …)` → `TypeWordAt`；`source.indexOf("{", clauseStart)` → `NamedBraceAt`；
+  `ctx.MatchBrace(source, braceOpen)` → **括号单元自己的终点**（`EndOf(namedBrace) - 1`）。
+  尾分号那一趟换成 `ctx.SemicolonEndOf`（与 `PrintAst` 里「跳空白再看一个字符」同一份实现，
+  `Namespace` 的直出版也是这么写的）。
+- **这一页真正的缺口是「字段没进字典」**：`NamedBraceAt` 早在第 875 轮就上了 token，
+  但 `ToDictionary` 只写了 `typeWordAt` ⇒ 投影那一句 `ctx.Attr(v, "namedBraceAt")` **永远读到 `undefined`**、
+  兜底永远走 `indexOf`。**同一个字段还有第二处没填**：`ReadClause` 只在「头一格就是 `Bracket`」那一支记它，
+  `import d, { A } from "m"`（默认导入 + 具名子句）走的是**默认导入那一支**、当场 `return` ⇒ 这一格是 `-1`。
+  两处一起补：位置量一次的判据收成 `BraceInClause`（**`from` 之前那一格 `{`**，
+  `Bracket` 与 `ObjectLiteral` 两种标签都认），`ReadClause` 进三种子句分支**之前**记一次；
+  `ToDictionary` 照 `questionAt` 的口径补写这一格（`>= 0` 时才写）。
+- **`ImportType`（60 → 0）**：`ctx.StringText(stringUnit)` 的实现是「找那一格的 `ConstString` 子单元、
+  读它记的 `value`、空则回原文 `slice`」——直出版自己做前两步（`ctx.KidsOf(unit, "children")` + `ctx.ValueOf`），
+  不回原文兜底；另一处是词形那一批 `ctx.TextOf` → `ctx.ValueOf`（`with` / `assert` / `:`）。
+  与 `String.PrintDirectAst` 转给 `ctx.Template` 是同一条口径：**文本在那一格自己的子单元上**。
+- **记账**：`cases:direct` **1639 份 / 21818 节点，直出 14940 → 15080（68.5% → 69.1%）**，同答 0、抛异常 0；
+  `cases:direct --all` **2050 份 / 538780 节点，直出 474675（88.1%）**、0 处不一致；
+  `direct:lint` **直出版 60 段 / 60 页、0 条违反**，待搬 **5 → 3 页**（`import` / `import-type` 出列；
+  余下 `signature` / `regex-token` / `const-string`）。
+- **`cases:astjson` 逮到的那一格**：新进的 `namedBraceAt` 先让这一门红成「未登记的键：1 种 / 39 处」——
+  按规矩补进 `docs/ast-json.md` 第 2 节的 `Import` 行与第 4 节那张例外清单后转绿（登记名 **163 → 165**）。
+- **门 suite**：**11 道 10 通过、1 失败**——那一道仍是 `cases:tsast` 的同一片已知红
+  （`for…of` 的枚举对象是条件表达式，分片 5：缺 51 / 多 2，与第 992 轮登记 / 第 998 轮复核同数）；
+  其余全绿：`cases:astjson` 六项全 0（1642 份 / 42596 个节点）、`cases:tags` 5372 条断言 0 不一致、
+  `cases:shapes` 未覆盖 0、`coverage 4259 / 4422`（blocked 29、differ 134、加权 95.7%）——墙钟 35.0s。
+- **这一轮留下的判据**：**直出版读不到某一格时，先问「这一格进字典了吗」**——
+  `NamedBraceAt` 是「token 上有、投影读不到」的活标本（第 998 轮的 `questionAt` 是反向的：
+  那是「事实还没上 token」）。两条合起来是一句话：**token 上的字段、字典里的键、投影手里的视图，是三样东西**，
+  缺哪一样，直出版都只能让开。
+
 ### 第 998 轮：`MappedType` 与 `IfSet` 两页拿到直出版——**「让开」必须发生在投出第一个节点之前**（`count` 记账当场逮到两次）；直出 **68.1% → 68.5%**，全语料 **87.6%**
 
 **一句话**：再搬两页「已有 `PrintAst`、差几处回原文」的页；`MappedType` 用的是第 996 轮那格事实的**第二个消费者**，

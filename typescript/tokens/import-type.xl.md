@@ -328,6 +328,120 @@ TS 那边只有**两个**子字段：
   };
 ```
 
+## method PrintDirectAst:(ctx:any, v:any)=>any
+
+**第三个出口的直出版**（第 999 轮）：与上面的 `PrintAst` 出**同一个答案**，
+但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+
+上面那一份里只有两处回原文查，直出版逐处换掉：
+
+- **字符串字面量那一格**（`ctx.StringText(stringUnit)`）：`StringText` 找的是那一格的
+  **`ConstString` 子单元**、值为空时还会回原文 `slice`。直出版自己走那一步——
+  取 `children` 里的 `ConstString`、读**它自己记的 `value`**（`ctx.ValueOf`，不回原文兜底）。
+  与 `String.PrintDirectAst` 转给 `ctx.Template` 是同一件事：**文本在那一格自己的子单元上**；
+- **词形那一批**（`with` / `assert` / `:` / `typeof` / `import`）：`ctx.TextOf` → `ctx.ValueOf`
+  （只读那一格记的 `value`）。
+
+```ts
+  const rawKids = ctx.Kids(v);
+  const flat: Array<any> = [];
+  const flatten = (unit: any): void => {
+    const name = unit.get("type");
+    if (name === "PropertyAccess" || name === "UnaryOperator") {
+      for (const kid of ctx.Kids(unit)) {
+        flatten(kid);
+      }
+      return;
+    }
+    flat.push(unit);
+  };
+  for (const kid of rawKids) {
+    flatten(kid);
+  }
+  const kids = flat;
+  let stringUnit = kids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+  const call = kids.find((k: any) => k.get("type") === "Method" || k.get("type") === "Bracket");
+  const callKids = call === undefined ? [] : ctx.Kids(call);
+  if (stringUnit === undefined) {
+    stringUnit = callKids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+  }
+  const props: any = {};
+  if (stringUnit !== undefined) {
+    // **文本读那一格自己的 `ConstString` 子单元**（`StringText` 的实现里就是这一步，
+    // 只是它还给不出值时回原文 `slice`——直出版不回原文，给空串）。
+    const content = ctx.KidsOf(stringUnit, "children").find((k: any) => k.get("type") === "ConstString");
+    const literal = {
+      kind: "StringLiteral",
+      text: content === undefined ? "" : ctx.ValueOf(content),
+      pos: ctx.StartOf(stringUnit),
+      end: ctx.EndOf(stringUnit),
+    };
+    props.argument = { kind: "LiteralType", literal, pos: literal.pos, end: literal.end };
+  }
+  const wrapper = [...kids, ...callKids].find((k: any) => {
+    if (k.get("type") !== "ObjectLiteral") return false;
+    const word = ctx
+      .Kids(k)
+      .find((c: any) => c.get("type") === "Identifier" || c.get("type") === "Keyword");
+    if (word === undefined) return false;
+    const text = ctx.ValueOf(word);
+    return text === "with" || text === "assert";
+  });
+  if (wrapper !== undefined) {
+    const brace = ctx.Kids(wrapper).find((c: any) => c.get("type") === "ObjectLiteral");
+    if (brace !== undefined) {
+      const elements = [];
+      for (const part of ctx.Split(ctx.Kids(brace), ",")) {
+        const colonAt = part.findIndex(
+          (c: any) => c.get("type") === "SymbolToken" && ctx.ValueOf(c) === ":",
+        );
+        if (colonAt < 0) continue;
+        const nameUnit = part.slice(0, colonAt).find((c: any) => ctx.IsNameNode(c));
+        if (nameUnit === undefined) continue;
+        const valueUnit = part
+          .slice(colonAt + 1)
+          .find((c: any) => c.get("type") === "String" || c.get("type") === "ConstString");
+        elements.push({
+          kind: "AssertEntry",
+          name: ctx.NameOf(nameUnit),
+          value: valueUnit === undefined ? undefined : ctx.Project(valueUnit),
+          pos: ctx.StartOf(nameUnit),
+          end: valueUnit === undefined ? ctx.EndOf(nameUnit) : ctx.EndOf(valueUnit),
+        });
+      }
+      props.attributes = {
+        kind: "AssertClause",
+        elements,
+        pos: ctx.StartOf(brace),
+        end: ctx.EndOf(brace),
+      };
+    }
+  }
+  const names = kids.filter((k: any) => {
+    if (!ctx.IsNameNode(k)) return false;
+    if (k.get("type") !== "Keyword") return true;
+    const word = ctx.ValueOf(k);
+    return word !== "typeof" && word !== "import";
+  });
+  if (names.length > 0) props.qualifier = ctx.QualifiedNameFrom(names);
+  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+      const one = ctx.TypeExpression(group);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  return {
+    kind: "ImportType",
+    pos: v.start,
+    end: generic === undefined ? v.end : ctx.EndOf(generic),
+    ...props,
+  };
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂上**类型队列**——为了让里面那个 `typeof` 升级成 `Keyword`
