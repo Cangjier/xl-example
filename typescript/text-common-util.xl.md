@@ -1485,13 +1485,27 @@ return false;
 `unimplemented: object literal member BinaryExpression`（`tests/runtime/check.mjs` 第 199 轮那一条，
 `runtime:check` 239 → **238**）。
 
+**第 927 轮：往回那几格一律走 `SkipPreviousTrivia`**。这一条与
+`ParenthesizedTypeCloseRule.IsFunctionParameterList` 的第 1 条（括号往右看 `=>`）、
+`FunctionTypeCloseRule.Previous` 的第 2 条（`=>` 往左看括号）问的是**同一件事**
+——「这个 `(` 是不是函数类型的形参表」，而三处的跳过口径原来各不相同：那两处第 926 / 817 轮
+已经改成 trivia，**只有这一处还留在 `SkipPreviousWrapSymbol`**（只跳软换行）。
+症状不落在 AST 的那两栏上，而是**体里收不出语句壳**：`class E { on(): ()/*c*/ => void { return; } }`
+里 `=>` 往左第一格是那条注释 ⇒ 第 1 条判否 ⇒ 答「这不是函数类型的箭头」⇒
+`IsValuePositionPrefix` 顺着它答「`void` 在值位」⇒ 那个体的 `{` 被判成**对象字面量**
+⇒ `Statement.FormFrom` 在「值位花括号」那一格早退 ⇒ `return;` 只剩裸词与裸分号
+（实测缺 `ReturnStatement` 1、多 `Identifier` + `SemicolonToken` 2；用例
+`token/declarations/gap-return-type-fn-comment-body.ts`）。
+第 2 条（形参表往左看 `:` / `=`）与循环里那一格（`=` 之后往回找声明词）**同一条口径一起换**：
+三处差的就是「注释算不算挡路」，而答案是「不算」（第 873 轮 / 第 817 轮那条线）。
+
 ```ts
-const paramIndex = SkipPreviousWrapSymbol(units, arrowIndex);
+const paramIndex = SkipPreviousTrivia(units, arrowIndex);
 const param = Get(units, paramIndex);
 if (!(param instanceof Bracket) || param.startBracket !== "(") {
   return false;
 }
-let index = SkipPreviousWrapSymbol(units, paramIndex);
+let index = SkipPreviousTrivia(units, paramIndex);
 let item = Get(units, index);
 if (item instanceof SymbolToken && item.Is(":")) {
   const self = Get(units, arrowIndex);
@@ -1508,7 +1522,7 @@ if (item instanceof SymbolToken && item.Is(":")) {
 }
 if (item instanceof SymbolToken && item.Is("=")) {
   for (let guard = 0; guard < 64; guard++) {
-    index = SkipPreviousWrapSymbol(units, index);
+    index = SkipPreviousTrivia(units, index);
     item = Get(units, index);
     if (item === null) {
       return false;

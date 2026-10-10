@@ -400,6 +400,9 @@
 `abstract new /*c*/ () => X`（根因不在升级时序，而在 `LamdaCloseRule.IsLambdaParameters`
 往左第一格只跳软换行、不跳注释 ⇒ `(` 前面那条注释让每一档都不命中、落到末尾那句「是形参表」；
 那一格改成 trivia 口径，`new` 那一档顺手从「按类认」改成「按词认」）⇒ **0 条**。
+**第 910–925 轮**把第 907 轮登记后余下的那 6 格逐格收完；**第 926 轮登记 1 格**
+（`token/declarations/gap-return-type-fn-comment-body.ts`）、**第 927 轮收掉它**
+⇒ **缺口清单第四次清空**（标题上那个「0 条」是第 927 轮实测的读数）。
 
 
 **缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
@@ -972,21 +975,63 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
   `type O = { on(): ()/*c*/ => void };`、`class E { on(): ()/*c*/ => void; }`；
   另外 `type T = ()/*c*/ => void;` / `const f: ()/*c*/ => void = …` /
   `class E { f = (a: number)/*c*/ => a; }` / 参数位 / `new ()/*c*/ => void` 本来就绿。
-- **还开着的余量（两条，都登记了）**：
+- **还开着的余量（第 927 轮收掉第 1 条，第 2 条仍在）**：
   1. **体那一半**：宿主是**空形参 + 带体**的方法 / 函数时，体里的语句不再被包进 `Statement`——
      `return;` 投成裸 `Identifier` + `SemicolonToken`（缺 `ReturnStatement`）、
      `const a = 1;` 缺 `VariableStatement`、`f();` 缺 `ExpressionStatement`（空体 `{ }` 当然没事）。
      修前 缺 3 多 3、修后 **缺 1 多 2**（少的那两格正是这一轮收掉的 `FunctionType` / `VoidKeyword`）。
      **为什么只有空形参犯**：非空形参那一支早就被第 3 条判据（括号里顶层有 `TypeDefine`）拦住了，
      只有空 `()` 会走到第 1 条。守卫用例 `token/declarations/gap-return-type-fn-comment-body.ts`。
+     **第 927 轮收掉**（根因在上面第 927 轮那一节：`IsFunctionTypeArrow` 往回那三格的口径）。
   2. **柯里化那一格**：`type T = ()/*c*/ => () => void;` 与接口里的同形（探针 `k-curry` / `l-iface-curry`）
      仍缺里层的 `FunctionType` / `VoidKeyword`（修前 缺 2 / 缺 3，修后都是 **缺 2**）。
-     这两条一起让缺口清单**不再为空**：`cases:tsast` 报「1 条还开着」（只登记了第 1 条；
-     第 2 条只在探针里量到，还没铺成用例）。
+     **第 927 轮量清了它与注释无关**：`type T = () => () => void;`（一句注释都没有）同样
+     缺 2 多 1（缺里层的 `FunctionType` + `VoidKeyword`、多一个裸 `Bracket`），
+     换行夹在 `()` 与 `=>` 之间也一样 ⇒ 病在**投影**：`function-type.xl.md` 的
+     `PrintAst` 把「形参表 + `=>` + 返回类型」**整段收在同一个 `FunctionType` 节点里**
+     （那一节写着「柯里化的函数类型整段收进同一个节点即可」），于是返回类型那一格是
+     `ctx.TypeOf([Bracket, SymbolToken(=>), Keyword(void)])` —— 平铺的三格，
+     `projectTypeExpression` 不认这形状（投出那个裸 `Bracket`、`void` 整格不见）。
+     修法在**投影那一层**（元 `typeOf` 里给「平铺的 `( … ) => T` 段」补一支），
+     与 token 层的折叠次序无关；**还没做**，也还没铺成 `xl:known-gap` 用例。
 - **账**：`npm run gates` 九道全过；coverage 4140 / 4309 → **4141 / 4311**
   （blocked 39 → **40**，多的那一条正是登记的余量）、differ 130、bad 0；
   cases:check 1545 条 0 不合格、cases:tags 5134 条断言 0 不一致。
   守卫用例 `token/types/type-fn-return-comment.ts`：**去掉修法它红**（缺 2 多 1），修后逐节点与 TS 一致。
+
+**第 927 轮：体那一半收掉——`IsFunctionTypeArrow` 往回那三格也要走 trivia 口径**（缺口清单第四次清空）
+
+- **症状与上一轮记的不同**：登记的是一条「体里的语句不包 `Statement`」，可它**不在折叠那一趟**——
+  按上一轮那句「被折叠挤掉了」去找，量到的是 `IsFunctionTypeArrow`（`text-common-util.xl.md`）
+  的 **1、2 两条判据与那个循环**都只跳软换行：`=>` 往左第一格是那条注释 ⇒ 第 1 条
+  （「左边是 `( … )` 括号」）判否 ⇒ 它答「这不是函数类型的箭头」。
+- **这一次量到的是「谁在问它」**：`IsObjectLiteralBrace` 里 `void` 那一格要问
+  `IsValuePositionPrefix`（第 727 轮补的：`void` 同时是类型位的词，不能无条件进豁免名单），
+  而 `IsValuePositionPrefix` 往回扫撞上 `=>` 时**把结论交给 `IsFunctionTypeArrow`**
+  ⇒ 链子一路传到「那个 `{` 是不是对象字面量」。于是一条注释的代价是：体的 `{` 被认成
+  **值位花括号** ⇒ `Statement.FormFrom` / `StatementBranch` 两处在「值位花括号」那一格早退
+  ⇒ `return;` 只剩裸 `Keyword` + 裸 `SemicolonToken`（缺 `ReturnStatement` 1、多 2）。
+  **插桩量法**（`build/ts` 里那两份编译产物上打日志、`XL_DBG=1`）：`FormFrom` 打到
+  `owner=Bracket … -> return: value brace`、`DecideBracketContext` 两边的单元列表**逐格相同**
+  —— 差别不在平列表上，而在**问出来的那几格答案**里。这一条比上一轮的「次序」更值得记：
+  **同一条链上的第二问、第三问没人过一遍时，第一问修好了症状也不动。**
+- **修法**：`IsFunctionTypeArrow` 三处 `SkipPreviousWrapSymbol` → `SkipPreviousTrivia`
+  （`=>` 往左看形参表、形参表往左看 `:` / `=`、`=` 之后往回找声明词）。
+  与第 926 轮在括号那一侧补的是**同一件事**，也与第 817 轮在 `FunctionTypeCloseRule.Previous`
+  上补的那一格同源 —— 三处问的都是「这个 `(` 是不是函数类型的形参表」，
+  口径必须是同一条（第 873 轮：「夹一条注释与夹一个软换行是同一件事」；
+  第 875 轮：「同一个『左边那一格』的判据…**只能有一份实现**」）。
+- **量到的收益**（探针 `tmp/r927/probe.mjs` 12 条：修前 6 条红、修后 **1 条红**）：
+  红转绿的是**带体**的五档——类方法、`function`、`{ return 1; }`、`{ a(); b(); }`、
+  `{ const a = 1; f(); }`（体里的语句重新包上 `Statement`）；无体那几档与
+  `void { … }` 值位那两档照旧全绿（`t-param-then-comment-before-paren` 也绿：
+  注释夹在返回类型冒号与形参表之间同样收得住）。
+- **还开着的**：柯里化那一格（上一节第 2 条），**与注释无关**，病在投影 —— 换地形量出来的，
+  见上面那条。
+- **账**：`npm run gates` 九道全过；`cases:tsast` 缺口 **1 → 0 条还开着**
+  （登记的用例转绿、`xl:known-gap` 按规矩撤掉、用例留着当守卫，并补 `xl:expect Statement:1`）；
+  coverage **4141 / 4311 → 4142 / 4311**（blocked **40 → 39**：那条缺口转绿）、differ 130、bad 0。
+
 
 ## 被否决的改法（不要再试）
 

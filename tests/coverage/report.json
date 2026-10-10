@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.4,
+  "progressPercent": 95.41,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1532,
-      "pass": 1531,
-      "blocked": 1,
+      "pass": 1532,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.93
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,19 +130,13 @@
   ],
   "token": {
     "total": 1532,
-    "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1531,
-    "scoredWithoutGap": 1531,
-    "passedWithoutGap": 1531
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1532,
+    "scoredWithoutGap": 1532,
+    "passedWithoutGap": 1532
   },
   "blocked": [
-    {
-      "id": "token/declarations/gap-return-type-fn-comment-body",
-      "category": "token",
-      "title": "第 926 轮量出的余量：返回类型是「带注释的函数类型」时，方法 / 函数体里的语句不再包 `Statement`",
-      "detail": "缺 1　多 2　体里那几格的语句包装被「带注释的返回类型」折叠那一趟挤掉了（第 926 轮量到，未收）"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
