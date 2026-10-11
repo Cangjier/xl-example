@@ -621,6 +621,15 @@ for (const file of files) {
  * **第 1064 轮再补两格**：`DeclarationListFlags`（别名 `flagsOf`）与 `HasChildren`
  * （别名 `labelIsFlat`）——两问都是从**这一格自己的属性**读出来的（前者读 `Let.modifiers`、
  * 后者读基类 `children`），所以它们同样只许属性读。
+ *
+ * **第 1065 轮再补两格，而且是这一族里唯一的一份「名单」**：`Segments`（别名 `segmentKeysOf`）
+ * 与 `ModifierWords`（别名 `declaredKeysOf`）——前几轮收的是**某一句判据**，
+ * 这两格收的是**一份没人写下来过的名单**：「哪几段进投影」过去由 `declaredKeysOf` +
+ * `segmentKeysOf` 那套**运行期反射**碰巧决定（小写开头 + 有 getter + 值是单元数组），
+ * 「哪几个布尔属性是修饰词」则由「值为 `true`」碰巧决定。今天两者都是**被问的那一页显式声明
+ * 并赋好的一格数据**（基类各有一处默认：`Segments` 按本页的 `SegmentNames` 排、
+ * `ModifierWords` 是空数组），投影只读属性名——所以老写法（那两个 helper 名）一旦写回来，
+ * 这一门当场红。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -630,6 +639,8 @@ const CLASSIFY_ALIASES = {
   OperatorRank: ["operatorRank"],
   DeclarationListFlags: ["flagsOf"],
   HasChildren: ["labelIsFlat"],
+  Segments: ["segmentKeysOf"],
+  ModifierWords: ["declaredKeysOf"],
 };
 /** 把一组问句名铺成一条或起来的分支（主名 + 缩写）。 */
 const classifyAlternation = (predicates) =>
@@ -644,6 +655,8 @@ const SELF_CLASSIFY_NAMES = [
   "OperatorRank",
   "DeclarationListFlags",
   "HasChildren",
+  "Segments",
+  "ModifierWords",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,

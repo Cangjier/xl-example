@@ -508,6 +508,87 @@ return this.ToXmlString();
 return this.Data;
 ```
 
+## field ModifierWords:Array<string> = []
+
+**我这一格的修饰词里，哪些是「记成布尔属性」的那几个**（第 1065 轮）：没有就是空数组。
+
+绝大多数页面的修饰词是**文本**（`modifiers:TokenField<string>` 里那串 `"export,const"`，
+见 `print-ast-common.xl.md` 的 `addModifiers`），可有的页面把它记成**本页自己的布尔属性**
+（`Lamda` 的 `async`）——那一页**显式声明这一格并给出词名**（`## field ModifierWords:Array<string> = ["async"]`）。
+
+**为什么要有这一格**：投影那一侧过去是反射出来的——`addModifiers` 走一遍
+`declaredKeysOf(v)`，把**所有**小写开头、值为 `true` / `"true"` 的属性都当修饰词收。
+那是一份没人声明的名单：**本页新加一个布尔属性就会凭空多出一个修饰词节点**，
+而且它同样靠运行期反射（与 `Segments` 同一轮、同一条口径）。
+收成这一格之后，「哪几个布尔属性是修饰词」只有本页一处声明，投影只读属性名。
+
+## property Segments:Array<string>
+
+**我这一格有哪几段子单元**（第 1065 轮）：段名就是本页自己声明的那几个属性名
+（`compare` / `body` / `parameters` …），`children` 永远在最后。
+
+**为什么要有这一格**：投影那一侧过去是**反射**出来的——`print-ast-common.xl.md` 里
+`declaredKeysOf` 走一遍 `Object.keys` 与原型链、挑小写开头且带 getter 的名字，`segmentKeysOf`
+再把「值是单元数组」的那些留下。那条路有三个问题：**它是一份没有人声明的名单**
+（哪几段进投影由「属性长什么样」碰巧决定）、**它靠运行期反射**（换到静态目标就没了，
+而这一族的口径正是「token 出字段、投影直读」）、以及**它把「我这一段要不要进投影」
+变成了一件看不出声明的地方的事**。
+
+所以第 1065 轮按用户口径把它收成本页的一格：**需要它的页面在自己那一页显式声明
+同一个属性、构造时就赋好**，投影只读属性名（`v.Segments`）——与 `AstKind` / `IsMemberList` /
+`EndsOnBrace` 同一形态。
+
+**基类这一格替绝大多数页面答完**：`SegmentNames` 的每个内层键就是**一段的名字**
+（那一格就是「这一段投成目标语言时叫什么」），所以「有哪几段」在那里**已经写全了**——
+基类照它排一遍、`children` 补在最后，**只声明了 `SegmentNames` 的页面因此一个字都不用写**
+（再抄一遍段名就是同一份事实的第二处声明）。值的形态是 `## property` + `### get`
+而不是 `## field`，理由与 `NameField` / `HasChildren` 同一条：它是**读取口**
+（读的是本页自己的 `SegmentNames`），不是另存一份数据。
+
+**四个页面必须显式覆盖这一格**，而它们恰好说明这条口径为什么以 `SegmentNames` 为准：
+
+- `IfSegment` / `Switch`（以及 `Try`）：**根本没有 `SegmentNames`**
+  （那几层由别的页出形状），所以基类那一句替它们数不出任何一段；
+- `Lamda` / `New` / `TernaryOperator`：**段的顺序与 `SegmentNames` 的声明序不同**
+  （`New` 的 `name` 写在 `arguments` 前面、`Lamda` 的 `body` 夹在 `parameters` 与
+  `returnType` 之间、`TernaryOperator` 的 `condition` 在 `SegmentNames` 里按「只记叫法不同的那些」
+  的口径没写进去）——顺序是**投影读段的顺序**，所以由那一页自己说了算。
+
+### get
+
+```ts
+const own = this.SegmentKeys;
+if (Array.isArray(own) && own.length > 0) {
+  return own;
+}
+const names: string[] = [];
+for (const inner of this.SegmentNames.values()) {
+  for (const key of inner.keys()) {
+    if (!names.includes(key)) {
+      names.push(key);
+    }
+  }
+}
+// **`children` 补在最后，而且只补一次**：`SegmentNames` 里本来就有 `children` 那一档的页面
+// （`Lamda` / `Class` / `Root` …）照抄一遍会让这一格给出两格同名——`allKids` 于是把
+// `children` 收两遍（第 1065 轮当场撞上：`["children","children"]`）。
+if (!names.includes("children")) {
+  names.push("children");
+}
+return names;
+```
+
+## field SegmentKeys:Array<string> = []
+
+**我这一格自己写下来的段名与段序**（第 1065 轮）：基类默认空数组＝「照 `SegmentNames` 排」，
+只有基类那一句排不出来的页面才显式声明它（`IfSegment` / `Switch` / `Try` / `Lamda` / `New` /
+`TernaryOperator`，理由逐页写在 `Segments` 那一节）。
+
+**为什么要单独一格**：`Switch` 那一页**已经有一个名为 `Segments` 的数据属性**
+（它装的是 `SwitchSegment` 那一批单元，见 `tokens/switch/switch.xl.md`），
+所以「段名表」这一格不能也叫那个名字——`Segments` 是**读取口**（投影读它），
+`SegmentKeys` 是**那一页写下来的数据**（覆盖时用），两格分工写在这里免得下一位混。
+
 ## method ChildrenOf:(segment:Token | null | undefined)=>Array<Token>
 
 **某一段的子单元**（第 1018 轮）：那一段还没挂上（`null` / `undefined`）时给**空列表**。

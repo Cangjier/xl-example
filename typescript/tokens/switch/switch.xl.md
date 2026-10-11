@@ -316,6 +316,17 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<Switch>` 里依次是 `SwitchCompare` 与各段的 XML。
 
+## field SegmentKeys:Array<string> = ["compare", "segments"]
+
+**我这一格有哪几段子单元、按什么顺序**（第 1065 轮，口径见 `core/syntax/token.xl.md` 的
+`Segments` / `SegmentKeys`）：本页**显式声明**这一格、构造时就赋好，投影读的是基类那一格
+`Segments`（它见到这一格非空就用它）。
+
+**为什么本页不能照基类那句「按 `SegmentNames` 排」**：本页**根本没有 `SegmentNames`**
+（`CaseBlock` 那一层由本页自己的 `PrintDirectAst` 出形状、段名与目标语言同形），
+所以这一格是本页唯一一处「哪几段进投影」的声明——与 `IfSegment` 同一处境。
+**这一格与上面那个 `CaseSegments` 属性不是一回事**：那是这一段**装的单元**，这一格是**段名表**。
+
 ## field BodyAt:int = -1
 
 体那个 `{` 的下标；还没认出来时是 `-1`。
@@ -389,11 +400,17 @@ throw new Error("找不到匹配的子单元");
 return this.Add(new SwitchSegment(this.Template));
 ```
 
-## property Segments:Array<SwitchSegment>
+## property CaseSegments:Array<SwitchSegment>
 
 全部段，保持它们在 `Data` 里的原始顺序。
 
 与 `Try.Catches` 同一种取法（按类型收窄，子单元是引用而不是克隆）。
+
+**为什么叫 `CaseSegments` 而不是 `Segments`**（第 1065 轮改名）：`Segments` 这一格
+**基类已经占了**——它是「我这一格有哪几段子单元」的**段名表**（`Array<string>`，
+见 `core/syntax/token.xl.md` 的 `Segments`，投影靠它枚举段）；而这一格装的是**段的单元**
+（`SwitchSegment[]`）。两者同名会在 `tsc` 上当场撞类型（`SwitchSegment[]` 不是 `string[]`），
+而且读起来也分不清「段的名单」与「段的单元」——所以装单元的那一格让位，改叫 `CaseSegments`。
 
 ### get
 
@@ -435,7 +452,7 @@ return this.ChildrenOf(this.Compare);
 
 ```ts
 const result: Array<Token> = [];
-for (const item of this.Segments) {
+for (const item of this.CaseSegments) {
   result.push(item);
 }
 return result;

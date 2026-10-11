@@ -347,6 +347,52 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1065 轮：段是**反射**出来的那两格收进被问的那一页——`declaredKeysOf` / `segmentKeysOf` 整段删掉，改成各页显式声明的 `Segments`（段名与段序）与 `ModifierWords`（哪几个布尔属性是修饰词）；`Switch.Segments` 让位改名 `CaseSegments`、`statementOfList` 的合成视图补上同一格；**八道门全绿、读数一处没动**
+
+**一句话**：前几轮收的是「**某一句判据**住在投影层」，这一轮收的是「**一份名单**住在投影层」
+——而且那份名单**从来没有被写下来过**。
+
+| 删掉的那一格 | 原来靠什么 | 今天谁答、什么时候定 |
+| --- | --- | --- |
+| `declaredKeysOf(v)`（走 `Object.keys` + 原型链，挑小写开头且带 getter 的名字） | **运行期反射** | 不再存在；两个读者各读一格显式声明的属性（下两行） |
+| `segmentKeysOf(v)`（再把「值是单元数组」的留下） | 上一条 + 值长什么样 | `v.Segments`：`Token` 的 `## property` + `### get`（按本页的 `SegmentNames` 排、`children` 补在最后），排不出来的页面**显式覆盖** |
+| `addModifiers` 里那段「值为 `true` 的属性都是修饰词」 | 上一条 + 值长什么样 | `v.ModifierWords`：`Token` 的 `## field = []`，只有 `Lamda` 答 `["async"]` |
+
+- **为什么这一族非收不可**：后果是**本页新加一个布尔属性就会凭空多出一个修饰词节点**、
+  新加一个段属性就会悄悄改变投影形状——而改动现场一个字都不用动投影层。
+  而且它靠**运行期反射**，与这一族的口径（token 出字段、投影直读）正相反。
+- **新的一格落在哪一层**：`Segments` 是**读取口**（`## property` + `### get`，读的是本页自己的
+  `SegmentNames`——那一格已经写全了段名与段序，再抄一遍才是第二处声明）；只有
+  `IfSegment` / `Switch` / `Try`（没有 `SegmentNames`）与 `Lamda` / `New` / `TernaryOperator`
+  （段序或段名与 `SegmentNames` 对不上）六页**显式声明 `SegmentKeys` 覆盖**。
+  四个循环体（`For` / `While` / `DoWhile` / `Foreach`）的 `SegmentNames` 声明序**恰好就是段序**，
+  所以它们一个字都不用写。
+- **`Switch` 那一页撞了名字**：它**已经有一个 `Segments`**（装的是 `SwitchSegment[]`，按类型从
+  子单元里筛出来的那一批），与基类新加的段名表同名 ⇒ `tsc` 当场报类型不兼容
+  （`SwitchSegment[]` 不是 `string[]`）。装单元的那一格让位改叫 `CaseSegments`
+  （XML 与投影读的都是 `Data`，所以改的只是一个属性名），段名表那一格叫 `SegmentKeys`。
+- **两处「不是 token 的东西」也要补齐**：`statementOfList` 造的**合成语句视图**也要给出
+  `Segments: ["children"]`（`allKids` 只认那一格声明的段，不再反射）；
+  基类那一句给 `children` 补尾时**只补一次**（`SegmentNames` 里本来就有 `children` 的页面
+  会与补的那一次撞成两格同名，`allKids` 于是把 `children` 收两遍——第 1065 轮当场撞上）。
+- **量过再删**（`tmp-r1065-probe.mjs` / `tmp-r1065b.mjs` / `tmp-r1065c.cjs`，只读探针、不进仓库）：
+  1640 份用例语料上逐类对账「派生值 vs 今天 `segmentKeysOf` 给的键」——**117 个类、0 处不一致**。
+- **判据跟着长**：`direct:lint` 第八条那一族多认两个名字（`Segments` 配别名 `segmentKeysOf`、
+  `ModifierWords` 配别名 `declaredKeysOf`）。**自验**（`tmp-r1065-probe6.cjs`，不进仓库）：
+  两个老名字以调用形态各写回一处，这一门 **0 → 2 处**、退出码 1；源文件逐字节还原。
+- **顺手改掉一处挂了几十轮的旧话**：各页 `SegmentNames` 那一段原写着「基类那一格是
+  `## method` + 空表，写成属性会在派生类里报类型不兼容」——第 1041 轮它已经是
+  `## field` + `new Map()` 了，**42 处**（38 个页面）第 1065 轮一并改成今天的形态。
+- **实测**：`xl check typescript core` 0 条；`xl build typescript core` **39 个产物** / 0 error
+  （改动 45 份规范：`core/syntax/token` / `print-ast-common` / `switch` / `if-segment` /
+  `lamda` / `new` / `try` / `ternary-operator` 与那 38 份「旧话」页面）、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 32.1s），读数与基线逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**83 → 81 格**（`declaredKeysOf` / `segmentKeysOf` 各一格；
+  `allKids` / `structuralProps` / `addModifiers` 三处调用点改成属性读）。
+
 ### 第 1064 轮：同一句话的第三种写法——两格「**从这一格自己的属性读出来**」的小判据收进被问的那一页（`Let.DeclarationListFlags` 读自己的 `modifiers`、基类 `Token.HasChildren` 读自己的 `children`），`flagsOf` / `labelIsFlat` 两格删掉、三处调用点改成属性读；**八道门全绿、读数一处没动**
 
 **一句话**：第 1062 轮收的是「我是什么类」、第 1063 轮收的是「我这一格的正文是什么」，

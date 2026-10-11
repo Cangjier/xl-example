@@ -69,7 +69,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：83 格声明（`# const` / `# method`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：81 格声明（`# const` / `# method`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
@@ -369,6 +369,35 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**85 → 83 格**（`flagsOf` / `labelIsFlat` 各一格）。
 
+**第 1065 轮把这一族里最后一份「没人声明的名单」删掉了——段是**反射**出来的那两格**：
+
+| 删掉的那一格 | 原来靠什么 | 今天谁答、什么时候赋 |
+| --- | --- | --- |
+| `declaredKeysOf(v)`（走 `Object.keys` 与原型链、挑小写开头且带 getter 的名字） | **运行期反射** | 不再存在：它的两个读者各读一格显式声明的属性（见下两行） |
+| `segmentKeysOf(v)`（再把「值是单元数组」的留下） | 上一条 + 值长什么样 | `v.Segments`：**每一页自己显式声明、构造时赋好**（只在有段的页面上写，其余照基类那一句从 `SegmentNames` 排） |
+| `addModifiers` 里那段「值为 `true` 的属性都是修饰词」 | 上一条 + 值长什么样 | `v.ModifierWords`：那一页自己报出词名（只有 `Lamda` 给 `["async"]`） |
+
+- **为什么这一族非收不可**（它与其他几族不是同一句话）：前面几轮收的是「**某一句判据**住在投影层」，
+  这一轮收的是「**一份名单**住在投影层」——而且那份名单**根本没有被写下来过**：
+  「哪几段进投影」过去由「这个属性长什么样」碰巧决定（小写开头 + 有 getter + 值是单元数组）。
+  后果是**本页新加一个布尔属性就会凭空多出一个修饰词节点**、新加一个段属性就会悄悄改变投影形状，
+  而改动现场一个字都不用动投影层。
+- **新的一格落在哪一层**：`Segments` 是 `## property` + `### get`（基类那一句按本页的
+  `SegmentNames` 排，`children` 补在最后）——**不是 `## field`**，理由与第 1063 / 1064 轮同一条：
+  段的**顺序**在六个页面上与 `SegmentNames` 的声明序不同（`Try` / `Lamda` / `New` /
+  `Switch` / `TernaryOperator` / `IfSegment`），那六页**各自显式声明 `## field Segments:…`**
+  并给出自己的顺序；其余页面由基类那一句算出来——**同一份事实仍然只有一处声明**
+  （`SegmentNames` 里已经写全了段名与顺序，再抄一遍才是第二处）。
+  `ModifierWords` 是 `## field`（常量，构造时赋好）：`["async"]` 是 `Lamda` 那一页的常量事实。
+- **量过再删**：`tmp/r1065-probe.mjs` / `tmp-r1065b.mjs`（只读探针，不进仓库）在 1640 份用例语料上
+  逐类对账「派生值 vs 今天 `segmentKeysOf` 给的键」——**117 个类、0 处不一致**；
+  十个真有段的类里，只有上面那六页需要显式声明顺序（其余四页 `For` / `While` / `DoWhile` /
+  `Foreach` 的 `SegmentNames` 声明序恰好就是段序）。
+- **判据跟着长**：`direct:lint` 第八条那一族多认两个名字（`Segments` 配别名 `segmentKeysOf`、
+  `ModifierWords` 配别名 `declaredKeysOf`）——下一轮谁把反射写回来，这一门当场红。
+- **本页的声明数**：**83 → 81 格**（`declaredKeysOf` / `segmentKeysOf` 各一格；
+  `allKids` / `structuralProps` / `addModifiers` 三处调用点改成属性读）。
+
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
 名单的键就是**那些类自己的名字**，所以它本来就是那四页的事实；投影这一侧过去用
@@ -523,61 +552,15 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   return Array.isArray(raw) ? raw.filter((x) => x instanceof Token) : [];
 ```
 
-# private method declaredKeysOf:(v:any)=>Array<string>
-
-**这一格自己声明了哪些属性**：名字以**小写字母**开头、声明成属性（构造时赋的字段，或
-`## property` + `### get`）的那些。
-
-`Data` / `Parent` / `Catches` 这些以大写开头的是基建与普通成员，不算。
-段（`segmentKeysOf`）与「有的页把修饰词记成布尔属性」那一条（`addModifiers`）都读这一格。
-
-```ts
-  const out: Array<string> = [];
-  const seen = new Set();
-  const take = (key: string): void => {
-    if (seen.has(key) || !/^[a-z]/.test(key)) return;
-    seen.add(key);
-    out.push(key);
-  };
-  for (const key of Object.keys(v)) take(key);
-  let proto = Object.getPrototypeOf(v);
-  while (proto !== null && proto !== Object.prototype) {
-    for (const key of Object.getOwnPropertyNames(proto)) {
-      const desc = Object.getOwnPropertyDescriptor(proto, key);
-      if (desc !== undefined && typeof desc.get === "function") take(key);
-    }
-    proto = Object.getPrototypeOf(proto);
-  }
-  return out;
-```
-
-# private method segmentKeysOf:(v:any)=>Array<string>
-
-**这一格自己声明了哪些段**：声明成属性、值是**单元数组**的那些（`children` / `compare` / `body` /
-`parameters` …）。
-
-这是「段由 token 自己承担」这一条的读法：投影没有中央名单，也不按字符串键找段——
-它读的就是那一页声明出来的东西。
-
-```ts
-  const out: Array<string> = [];
-  for (const key of declaredKeysOf(v)) {
-    const raw = v[key];
-    if (!Array.isArray(raw)) continue;
-    if (!raw.some((x) => x instanceof Token)) continue;
-    out.push(key);
-  }
-  return out;
-```
-
 # private method allKids:(v:any)=>Array<any>
 
 **这一格下面所有的子单元**：自己声明的那些段（`children` 除外）先收，`children` 最后收——
-与还按中央名单收子单元那一趟同一个次序。
+段名与顺序都来自**这一页自己声明的那一格**（`v.Segments`，第 1065 轮：
+口径见 `core/syntax/token.xl.md` 的 `Segments`），不是投影反射出来的。
 
 ```ts
   const out = [];
-  for (const key of segmentKeysOf(v)) {
+  for (const key of v.Segments) {
     if (key === "children") continue;
     for (const x of kidsOf(v, key)) out.push(x);
   }
@@ -8137,9 +8120,19 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // （TS 那边 `async x => x` 的 `ArrowFunction.modifiers` 就是 `[AsyncKeyword]`）。
     // 这一支不是给声明层留的兜底——声明层（`Class` / `Interface` / `Namespace` / `TypeAssign` …）
     // 一律有 `modifiers` 文本走上面那一条。
-    for (const key of declaredKeysOf(v)) {
-      const value = v[key];
-      if (value === true || value === "true") words.push(key);
+    //
+    // **哪几个词是这一档，由那一页自己声明**（第 1065 轮）：这一支过去走
+    // `declaredKeysOf(v)`——把**所有**小写开头、值为 `true` / `"true"` 的属性都当修饰词收。
+    // 那是一份没人声明的名单：本页新加一个布尔属性就会**凭空多出一个修饰词节点**。
+    // 今天读的是那一页显式声明并赋好的 `ModifierWords`（口径见
+    // `core/syntax/token.xl.md` 的 `ModifierWords`）：`Lamda` 给 `["async"]`、
+    // 其余页面基类默认空数组 ⇒ 这一支对它们一个字都不收。
+    const declared = v.ModifierWords;
+    if (Array.isArray(declared)) {
+      for (const key of declared) {
+        const value = v[key];
+        if (value === true || value === "true") words.push(key);
+      }
     }
   }
   if (words.length === 0) return;
@@ -8908,7 +8901,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       used.add("namespace");
     }
   }
-  for (const key of segmentKeysOf(v)) {
+  for (const key of v.Segments) {
     const raw = v[key];
     if (used.has(key) || !Array.isArray(raw)) continue;
     // **只收节点数组**：`modifiers` / `imports` / `decorators` 是**属性**（字符串数组），
@@ -9057,6 +9050,9 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     end: endOf(list[list.length - 1]),
     value: undefined,
     children: list,
+    // **这一格也要给出段名表**（第 1065 轮）：它**不是** token（`allKids` 只认那一格声明的
+    // `Segments`，不再反射），而这个合成本来就只有 `children` 一段——所以照基类那一句给同一格。
+    Segments: ["children"],
   };
   return projectStatement(rest, ctx);
 ```

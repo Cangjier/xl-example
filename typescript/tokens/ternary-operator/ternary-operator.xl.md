@@ -650,7 +650,17 @@ return ReplaceCountAt(units, startIndex + 1, endIndex - startIndex - 1, ternaryO
 
 段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `trueStatement` / `falseStatement` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
 
-**形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
+**形态与基类一致**（两边都是 `## field` + `new Map()`）：基类那一格是**空表**（第 1041 轮从 `## method` 改成属性），这一页给出自己的表——第 1065 轮基类的 `Segments` 就是照这张表的键排出来的（段的**名单与顺序**都从这里来）。
+
+## field SegmentKeys:Array<string> = ["condition", "trueStatement", "falseStatement"]
+
+**我这一格有哪几段子单元、按什么顺序**（第 1065 轮，口径见 `core/syntax/token.xl.md` 的
+`Segments` / `SegmentKeys`）：本页**显式声明**这一格、构造时就赋好，投影读的是基类那一格
+`Segments`（它见到这一格非空就用它）。
+
+**为什么本页不能照基类那句「按 `SegmentNames` 排」**：`SegmentNames` 里只有 `trueStatement` /
+`falseStatement` 两档（`condition` 与目标语言同形，按「只记叫法不同的那些」的口径没写进去），
+而**进投影的是三段**——条件那一段也在这里，漏了它就是整个三元运算符的条件凭空消失。
 
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 

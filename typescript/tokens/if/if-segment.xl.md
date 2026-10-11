@@ -25,6 +25,16 @@ import { IfStatement } from "./if-statement.xl.md"
 
 它覆写了 `ToXmlString`——这一步直接决定 XML 产物，是本文件的核心。
 
+## field SegmentKeys:Array<string> = ["condition", "statement"]
+
+**我这一格有哪几段子单元、按什么顺序**（第 1065 轮，口径见 `core/syntax/token.xl.md` 的
+`Segments` / `SegmentKeys`）：本页**显式声明**这一格、构造时就赋好，投影读的是基类那一格
+`Segments`（它见到这一格非空就用它）。
+
+**为什么本页不能照基类那句「按 `SegmentNames` 排」**：本页**根本没有 `SegmentNames`**
+（`IfStatement` 那一层由 `IfSet` 出形状），所以这一格是本页唯一一处
+「哪几段进投影」的声明——`condition`（条件）与 `statement`（体）两段都在这里。
+
 ## field key:string = ""
 
 这一段的原始关键字：`if` / `else`（`else if` 记的是 `if`）。

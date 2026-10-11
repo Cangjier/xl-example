@@ -210,6 +210,17 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它**没有覆写 `ToXmlString`**，所以 XML 由基类 `Token` 产出：标签名是运行时类名 `Try`，内容是全部子单元的 XML 串接。子单元的顺序是 `TryBody`、若干 `CatchDefine` / `CatchBody`、可选的 `FinallyBody`——这个顺序由 `TryCloseRule.Process` 的扫描顺序决定。
 
+## field SegmentKeys:Array<string> = ["body", "catches", "finally", "children"]
+
+**我这一格有哪几段子单元、按什么顺序**（第 1065 轮，口径见 `core/syntax/token.xl.md` 的
+`Segments` / `SegmentKeys`）：本页**显式声明**这一格、构造时就赋好，投影读的是基类那一格
+`Segments`（它见到这一格非空就用它）。
+
+**为什么本页不能照基类那句「按 `SegmentNames` 排」**：本页**没有 `SegmentNames`**，
+而且**段的顺序就是 `try` / `catch` / `finally` 在源码里的顺序**
+（`TryCloseRule.Process` 的扫描顺序决定：`body` → 若干 `catches` → `finally`）——
+目标语言那边 `TryStatement` 的字段序也是这个顺序，所以这一格照源码序写。
+
 ## field TryBrace:TokenField<number> = new TokenField<number>(-1)
 
 `try` 体那一对花括号：**值是开括号的偏移**，`Range` 是**整对括号**（含两边）。
