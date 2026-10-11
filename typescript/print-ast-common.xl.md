@@ -82,6 +82,28 @@ import { Identifier } from "./tokens/identifier.xl.md"
 **量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 （`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
 （第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
+**第 1108 轮把同一族剩下的三个符号一次收干净**（用户口径 1.1 ~ 1.4，
+尺子与第 1107 轮那一轮逐字相同）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `k.IsSymbolToken && k.TextValue === ":"`（**2 处**：`projectBindingElement` 找冒号那一格、`namedExportClause` 切 `with` / `assert` 子句的键值对） | `k.IsColonSymbol` | `SymbolToken` 那一页**显式声明** `## property`（`### get`：`return this.TextValue === ":";`，基类答 `false`） |
+| `k.IsSymbolToken && k.TextValue === "..."`（**2 处**：展开实参 `f(...xs)`、`projectBindingElement` 找 `dots`） | `k.IsDotDotDotSymbol` | 同上（`"..."`）——名字按 TS 那边那个节点取（`DotDotDotToken`） |
+| `k.IsSymbolToken && k.TextValue === "*"`（**2 处**：`yield*` 的 `asteriskToken`、`export * as ns` 的 `exportClause`） | `k.IsAsteriskSymbol` | 同上（`"*"`） |
+
+- **取值口径与搬走之前逐字相同**：三格读的都是基类那格 `TextValue`（不是 `Is("…")`）——
+  与第 1107 轮那两格同一条理由（不是每个符号都会走到 `Close()`）。六处逐处等价：
+  只有符号那一页答 `true`、答的就是原来那半句 `k.TextValue === …`，
+  所以原先与它连写的 `k.IsSymbolToken` 半句一并收掉。
+- **`IsDotDotDotSymbol` 与 `Spread` 那一页的 `IsSpreadUnit` 不是同一问**：那一格答
+  「我是哪一类单元」（产物把 `...` 收成 `Spread` 单元时），这一格答「**我这一格的正文**
+  是不是那三个点」（`f(...xs)` 那一格在产物里就是**裸符号**）——两问分处两页，如实写在两页上。
+- **判据跟着长三格**：`direct:lint` 第八条那一族多认三个名字，守老问句与出口形态。
+  **自验**（本机探针，不进仓库）：把 `isColonSymbol(` / `isDotDotDotSymbol(` /
+  `ctx.IsAsteriskSymbol` 各写回一处 ⇒ 报告 **0 → 3 处**、`FAIL`、`exit=1`；
+  源文件逐字节还原 ⇒ **3 → 0 处**、`exit=0`。
+- **本页的声明数**：**52 → 52 格**（改的全是读数与说明；新立的三格在基类与符号那一页）。
+
 **第 1107 轮把「这一格是不是那个等号 `=` / 那个箭头 `=>`」的现场连写收进符号那一页**
 （用户口径 1.1 ~ 1.4：投影要的信息在具体类里**显式声明**、读时备齐）：
 
@@ -3622,7 +3644,7 @@ new Set([
     if (word === "yield") {
       const props: any = {};
       let rest = kids.slice(1);
-      if (rest.length > 0 && rest[0].IsSymbolToken && rest[0].TextValue === "*") {
+      if (rest.length > 0 && rest[0].IsAsteriskSymbol) {
         props.asteriskToken = projectNode(rest[0], ctx);
         rest = rest.slice(1);
       }
@@ -4741,7 +4763,7 @@ new Set([
   // `f(...xs)` 的产物把 `...` 与目标分成**两格**，而 `...` 是 `SymbolToken`
   // （`IsOperatorUnit` 对任何符号都为真），照二元那一支会把它投成一个孤立的
   // `DotDotDotToken`（实测多出 66，样本全是 `...(newValues)` / `...(items)` 这种调用实参）。
-  if (kids.length >= 2 && kids[0].IsSymbolToken && kids[0].TextValue === "...") {
+  if (kids.length >= 2 && kids[0].IsDotDotDotSymbol) {
     const spread = projectExpression(kids.slice(1), ctx);
     if (spread !== undefined) {
       return {
@@ -7800,9 +7822,9 @@ new Set([
 ```ts
   const v = unit;
   const kids = v.ProjectableKids;
-  const colonIndex = kids.findIndex((k) => k.IsSymbolToken && k.TextValue === ":");
+  const colonIndex = kids.findIndex((k) => k.IsColonSymbol);
   const eqIndex = kids.findIndex((k) => k.IsEqualsSymbol);
-  const dots = kids.find((k) => k.IsSymbolToken && k.TextValue === "...");
+  const dots = kids.find((k) => k.IsDotDotDotSymbol);
   const names = kids.filter((k) => k.IsNameNode && !k.IsTypeSeparator);
   // **绑定位里还能再嵌一层模式**（第 135 轮）：`[[a, b], …]` 的元素是**另一个**
   // `ArrayLiteral` / `ObjectLiteral`（`{ b: [c, d = 2] }` 里 `:` 右边也是）。
@@ -9246,7 +9268,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       const elements: Array<any> = [];
       for (const part of splitTopLevel(one.ProjectableKids, ",")) {
         const colonAt = part.findIndex(
-          (k: any) => k.IsSymbolToken && k.TextValue === ":",
+          (k: any) => k.IsColonSymbol,
         );
         if (colonAt < 0) continue;
         const nameUnit = part.slice(0, colonAt).find((k: any) => k.IsNameNode);
@@ -9287,7 +9309,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // 产物那一段是 `[*, Keyword(as), Identifier(ns)]` 平级三格——不收的话
   // `ExportDeclaration` 少一整个 `exportClause` 字段、缺 `NamespaceExport` + `Identifier`
   // （实测 `ex-reexport.ts` / `mod-export-star-as-namespace.ts` / `mod-adversarial-shapes.ts`）。
-  const star = kids.find((k) => k.IsSymbolToken && k.TextValue === "*");
+  const star = kids.find((k) => k.IsAsteriskSymbol);
   if (brace === undefined && star !== undefined) {
     const asIndex = kids.findIndex((k) => k.TextValue === "as");
     const nameNode = asIndex < 0 ? undefined : kids[asIndex + 1];

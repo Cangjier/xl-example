@@ -2162,6 +2162,54 @@ return false;
 return false;
 ```
 
+## property IsColonSymbol:bool
+
+**我这一格是不是那个冒号 `:`**（第 1108 轮）——**不是**的一律给 `false`。
+
+投影层要按它切开**成员 / 绑定元素 / `with`（`assert`）子句的键值对**
+（`print-ast-common.xl.md` 里 2 处：`projectBindingElement` 找冒号那一格、
+`namedExportClause` 切 `with { type: "json" }` 那一支），判据过去是现场拼出来的
+`k.IsSymbolToken && k.TextValue === ":"`——与 `IsEqualsSymbol` / `IsArrowSymbol` 同一条口径：
+**基类给默认档、符号那一页覆写**（`SymbolToken.IsColonSymbol`，读时现算、读 `TextValue`）。
+
+### get
+
+```ts
+return false;
+```
+
+## property IsDotDotDotSymbol:bool
+
+**我这一格是不是那三个点 `...`**（第 1108 轮）——**不是**的一律给 `false`。
+
+投影层要认出**展开实参** `f(...xs)` 与**剩余绑定** `...rest`
+（`print-ast-common.xl.md` 里 2 处：展开实参那一支、`projectBindingElement` 找 `dots` 那一格），
+判据过去是现场拼出来的 `k.IsSymbolToken && k.TextValue === "..."`——同上。
+
+**名字按 TS 那边那个节点取**（`DotDotDotToken`），与 `Spread` 那一页的 `IsSpreadUnit`
+**不是同一问**：那一格答「我是哪一类单元」（产物里 `...` 是 `Spread` 单元时），
+这一格答「**我这一格的正文**是不是那三个点」（它也可能只是一格裸符号）。
+
+### get
+
+```ts
+return false;
+```
+
+## property IsAsteriskSymbol:bool
+
+**我这一格是不是那个星号 `*`**（第 1108 轮）——**不是**的一律给 `false`。
+
+投影层要认出 `yield*` 那个 `asteriskToken` 与 `export * as ns` 那个 `exportClause`
+（`print-ast-common.xl.md` 里 2 处），判据过去是现场拼出来的
+`k.IsSymbolToken && k.TextValue === "*"`——同上。
+
+### get
+
+```ts
+return false;
+```
+
 ## property IsBareCall:bool
 
 **我这一格是不是「裸的一次调用」**（第 1077 轮）——**不是**的一律给 `false`。

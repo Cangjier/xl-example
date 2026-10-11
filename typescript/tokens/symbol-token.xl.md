@@ -252,6 +252,46 @@ if (last instanceof SymbolToken) {
   return this.TextValue === "=>";
 ```
 
+## property IsColonSymbol:bool
+
+**我这一格是不是那个冒号 `:`**（第 1108 轮）：投影层要按它切开成员 / 绑定元素 /
+`with`（`assert`）子句的键值对（`print-ast-common.xl.md` 里 2 处），判据过去是现场拼出来的
+`k.IsSymbolToken && k.TextValue === ":"`——与上面 `IsEqualsSymbol` / `IsArrowSymbol`
+同一条口径、同一形态（读的还是基类那格 `TextValue`，不是 `Is(":")`）。
+
+### get
+
+```ts
+  return this.TextValue === ":";
+```
+
+## property IsDotDotDotSymbol:bool
+
+**我这一格是不是那三个点 `...`**（第 1108 轮）：投影层要认出展开实参 `f(...xs)` 与
+剩余绑定 `...rest`（`print-ast-common.xl.md` 里 2 处），判据过去是现场拼出来的
+`k.IsSymbolToken && k.TextValue === "..."`——同上。
+
+**它与 `Spread` 那一页的 `IsSpreadUnit` 不是同一问**：那一格答「我是哪一类单元」，
+这一格答「**我这一格的正文**是不是那三个点」（它也可能只是一格裸符号）。
+
+### get
+
+```ts
+  return this.TextValue === "...";
+```
+
+## property IsAsteriskSymbol:bool
+
+**我这一格是不是那个星号 `*`**（第 1108 轮）：投影层要认出 `yield*` 的 `asteriskToken`
+与 `export * as ns` 的 `exportClause`（`print-ast-common.xl.md` 里 2 处），判据过去是
+现场拼出来的 `k.IsSymbolToken && k.TextValue === "*"`——同上。
+
+### get
+
+```ts
+  return this.TextValue === "*";
+```
+
 ## field IsTypeSeparator:bool = false
 
 **我这一格是不是类型成员之间的那个分隔符**（第 1057 轮）：`Token.IsTypeSeparator` 在投影层

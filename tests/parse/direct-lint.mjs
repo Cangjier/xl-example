@@ -729,6 +729,13 @@ for (const file of files) {
  * **显式声明同一个属性**（`## property` + `### get`，读时现算——读的是基类那格 `TextValue`，
  * 所以与搬走之前逐格同答：不是每个符号都会走到 `Close()`）。这一条守的是
  * **老问句写回投影层**（`isEqualsSymbol(` / `isArrowSymbol(`）与出口形态（`ctx.IsEqualsSymbol`）。
+ *
+ * **第 1108 轮再补三格**：`IsColonSymbol` / `IsDotDotDotSymbol` / `IsAsteriskSymbol`——
+ * 「这一格是不是那个冒号 `:` / 那三个点 `...` / 那个星号 `*`」过去是投影层 6 处**现场连写**
+ * （各 2 处：`projectBindingElement` 找冒号与 `dots`、`namedExportClause` 切 `with { … }`、
+ * `yield*` 的 `asteriskToken`、`export * as ns`、展开实参 `f(...xs)`）。今天基类三格默认
+ * `false`、`SymbolToken` 那一页**显式声明同一个属性**（`## property` + `### get`，读 `TextValue`）。
+ * 这一条守的仍是老问句与出口形态（`isColonSymbol(` / `ctx.IsDotDotDotSymbol` …）。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -771,6 +778,9 @@ const SELF_CLASSIFY_NAMES = [
   "IsNotNullSymbol",
   "IsEqualsSymbol",
   "IsArrowSymbol",
+  "IsColonSymbol",
+  "IsDotDotDotSymbol",
+  "IsAsteriskSymbol",
   "IsPropertyAccess",
   "IsNotNull",
   "IsMethodNode",
