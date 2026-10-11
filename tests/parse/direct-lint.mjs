@@ -674,6 +674,14 @@ for (const file of files) {
  * **第 1077 轮再补一格**：`IsBareCall`（别名 `isBareCallMethod`）——「这一格是不是一次裸调用」
  * 的三半（我是什么类、我的名字空不空、我第一个实义子单元是什么）全在 `Method` 那一页上，
  * 今天基类给默认 `false`、`Method` 现算（`## property` + `### get`，读 `ProjectableKids`）。
+ *
+ * **第 1084 轮再补一格**：`IsCommentUnit`——`trailingTriviaStart` 问的「这一格是不是一条注释」
+ * 过去写成两连比类名（`k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`），
+ * 而**类名就是那两页自己的名字**；今天基类默认 `false`、那两页各自显式声明
+ * `## field IsCommentUnit:bool = true`（构造时赋好的常量），投影只读属性。
+ * 它与 `IsInvisible` **不是同一问**：后者答 `true` 的有四页（多出 `LineWrap` 与
+ * `PreprocessorDirectives`），所以这里守的是新名字，而不是把 `IsInvisible` 也一并钉住
+ * （那一格在投影层是**允许**读的：`Kids` / `ProjectableKids` 那一族就靠它）。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -707,6 +715,7 @@ const SELF_CLASSIFY_NAMES = [
   "ProjectableKids",
   "IsChainBaseNode",
   "IsBareCall",
+  "IsCommentUnit",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -726,7 +735,7 @@ let selfClassifyHits = 0;
           why:
             `「这一格是不是某一类」又写回投影层了：\`${match[0]}\`——那一格的事实住在被问的那一页` +
             "（`Token.IsDotSymbol` / `Token.IsTypeSeparator` / `Token.IsNameNode` / `Token.IsOperatorUnit` / " +
-            "`Token.IsPrefixOperatorUnit` / `Token.IsTypeParameterModifier`），投影只读属性",
+            "`Token.IsPrefixOperatorUnit` / `Token.IsTypeParameterModifier` / `Token.IsCommentUnit`），投影只读属性",
         });
       }
     }

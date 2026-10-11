@@ -1322,6 +1322,23 @@ return undefined;
 **显式声明同一个属性**并给出自己的值（`## field`，与 `AstKind` / `IsMemberTag` / `IsMemberList`
 同一形态）。
 
+## field IsCommentUnit:bool = false
+
+**我是不是一条注释**（第 1084 轮）。
+
+`typescript/print-ast-common.xl.md` 的 `trailingTriviaStart`（收尾 trivia —— 注释 —— 在这条区间链上的
+起点）问的正是这一句，判据过去写成投影层的两连比类名：
+`k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`。**那两格就是那两页自己的类名**
+（`Tag` 答的就是类名），所以它住在各自那一页，投影只读这一格。
+
+**它为什么不是 `IsInvisible`**：那一格答的是「我在投影里出不出现」，答 `true` 的有**四页**
+（`LineWrap` 软换行、`PreprocessorDirectives` 预处理指令、两种注释）——而收尾 trivia 只认
+**两种注释**（软换行与预处理指令都不是注释），所以两问是两句话、各自一格；
+谁把这一格并进 `IsInvisible`，`A.x = 1` 换行那一族会当场把软换行当成收尾注释。
+
+**基类这一格默认 `false`**：需要它的 token 在自己那一页**显式声明同一个属性**并给 `true`
+（`## field`，与 `IsInvisible` / `IsMemberTag` / `IsMemberList` 同一形态，构造时就赋好）。
+
 ## field IsMemberTag:bool = false
 
 **我在成员位上算不算一个「成员」**（第 1033 轮）。

@@ -641,6 +641,34 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**69 → 69 格**（改的是一个形参、一支兜底与两个出口/调用点的实参）。
 
+**第 1085 轮把 `trailingTriviaStart` 里那句「这一格是不是一条注释」收进被问的那一页**
+（用户口径 1.1 / 1.3：投影要的东西在具体类里**显式声明**、构造时就赋好）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `k.Tag === "LineAnnotation" \|\| k.Tag === "AreaAnnotation"` | `k.IsCommentUnit` | 基类 `Token` 给默认 `false`；`LineAnnotation` / `AreaAnnotation` **各自显式声明** `## field IsCommentUnit:bool = true`（构造时赋好的常量） |
+
+- **为什么这不是 `IsInvisible`**：那一格答的是「我在投影里出不出现」，四页答 `true`
+  （还有 `LineWrap` 软换行与 `PreprocessorDirectives` 预处理指令），而收尾 trivia 只认
+  **两种注释**——两问是两句话。**把它们并成一格会当场红**：`A.x = 1` 换行那一族会把软换行
+  当成收尾注释，`stmtEndOf` 于是把语句终点退到换行上（`samples` 是逐字节比的，躲不过）。
+  所以这一族是**新立一格**，而不是把 `IsInvisible` 钉进判据（那一格在投影层是允许读的：
+  `Kids` / `ProjectableKids` 那一族就靠它）。
+- **`direct:lint` 第八条判据跟着多认一个名字**（`IsCommentUnit`）：名字一旦被写回成
+  **问句**（`isCommentUnit(k)` 或 `ctx.IsCommentUnit`），这一门当场红。自验过
+  （`tmp/r1084/lint-selfcheck.cjs`）：那一行改成 `isCommentUnit(k)` ⇒ 报告 **1 处**、
+  `FAIL … 又在投影层写成问句`、`exit=1`；改回属性读 ⇒ **0 处**、`exit=0`。
+  **这一条看不见「匿名比类名」**（`k.Tag === "LineAnnotation"` 那种写法是第 9 条那一族的对象），
+  如实记下：被守的是「名字」这一形态，与前面十几个名字同款。
+- **改了哪四个文件**：本页（那一行读数）、`core/syntax/token.xl.md`（新立基类那一格）、
+  `tokens/line-annotation` / `tokens/area-annotation`（各自显式声明并答 `true`）。
+- **实测**：`xl check` 4 个文件 0 条；`xl build --force`（`core` / `typescript` / `runtime` /
+  `typescript-exec`）**180 个产物** / 0 error、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 30.4s），
+  读数与基线逐项相同：`coverage` **4261 / 4422**（`blocked 28` / `differ 133` / `bad 0`、
+  加权 95.7%）、`cases:tsast` 3 条已知缺口、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**69 → 69 格**（新立的那一格在 `core/syntax/token.xl.md` 与它那两页）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -1932,12 +1960,18 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 只在「区间终点正好是这个 `end`」的子孙里找，所以每一层至多一个候选——这既是正确性
 （别的注释不属于本节点的尾巴），也是代价的上界。
 
+**「这一格是不是一条注释」第 1084 轮收进了被问的那一页**（用户口径 1.1 / 1.3）：
+判据原来是这里的两连比类名 `k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`，
+而**类名就是那两页自己的名字**——今天基类默认 `false`、`LineAnnotation` / `AreaAnnotation`
+各自显式声明 `## field IsCommentUnit:bool = true`（构造时就赋好的常量），投影只读这一格。
+**它不是 `IsInvisible`**：那一格答 `true` 的有四页（还有 `LineWrap` 软换行与
+`PreprocessorDirectives` 预处理指令），而收尾 trivia 只认两种注释——两问是两句话。
+
 ```ts
   for (const k of allKids(v)) {
     // **这一格自己的两头**（第 1018 轮）：不再有 `range` 那一层，问单元自己的 `start` / `end`。
     if (k.end !== end) continue;
-    const type = k.Tag;
-    if (type === "LineAnnotation" || type === "AreaAnnotation") return k.start;
+    if (k.IsCommentUnit) return k.start;
     const inner = trailingTriviaStart((k), end);
     if (inner !== undefined) return inner;
   }

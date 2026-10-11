@@ -171,6 +171,16 @@ return this.Tmp;
 这份名单过去写在投影层的 `INVISIBLE` 里（另有一份在 `text-common-util` 的 `IsTriviaUnit`），
 两处都改成问这一格。
 
+## field IsCommentUnit:bool = true
+
+**区域注释是一条注释**（第 1084 轮）：投影那一侧「收尾 trivia 的起点」问的就是这一句
+（`print-ast-common` 的 `trailingTriviaStart`），判据过去写成两连比类名
+（`Tag === "LineAnnotation" || Tag === "AreaAnnotation"`）——**类名就是本页的类名**，
+所以这一格住在本页，投影只读它（口径见 `core/syntax/token.xl.md` 的 `IsCommentUnit`）。
+
+**与上面那一格不是同一问**：`IsInvisible` 答「我在投影里出不出现」（四页答 `true`），
+这一格只答「我是不是注释」（两页答 `true`）。
+
 ## method Clone:()=>Token
 
 克隆自身。
