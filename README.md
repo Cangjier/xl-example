@@ -347,6 +347,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1128 轮：类型位那两问也改成问手上那一格自己——`IsLiteralTypeWord` / `PrimitiveTypeKind` 在 `Identifier` 与 `Keyword` 两页各自显式声明；**八道门 7 通过、读数一处没动**
+
+**一句话**：第 1127 轮把绑定位那一处改成读 `only.LeafKind` 之后，同一族在
+`projectTypeExpression` 里还剩三处「按文本问那一页」：`Identifier.IsLiteralTypeWord(text)`（1 处）
+与 `Identifier.PrimitiveTypeKindOf(text)`（2 处）——而那段代码**手上就是这一格单元**
+（`head.IsNameNode` 那一支里的 `head`）。
+
+| 原来的现场算式 | 今天读的那一格属性 |
+| --- | --- |
+| `Identifier.IsLiteralTypeWord(head.TextValue)`（1 处） | `head.IsLiteralTypeWord` |
+| `Identifier.PrimitiveTypeKindOf(head.TextValue)`（2 处） | `head.PrimitiveTypeKind` |
+
+- **两页各显式声明两格**（`## property` + `### get`，取值一行没改）：`Identifier` 的两格读自己的
+  `TextValue` 问同一份词汇表；`Keyword` 那一页同样两格——类型位那三个词里 `null` / `true` / `false`
+  可能停在关键字那一页，而能当一个名字的只有这两页（`IsNameNode`，第 1057 轮）。
+- **等价怎么证的**：两页的取值就是原来那两次静态调用本身（**同一个函数、同一段 `TextValue`**）
+  ⇒ 逐格同答；八道门读数一处没动就是这条的证据（`cases:tsast` 比 kind，判错会当场红）。
+- **为什么是属性不是字段**：与第 1127 轮同一条——正文到 `Close()` 那一刻才攒完，
+  而类型位的叶子未必走过 `Close()`（第 1063 轮实测过写成字段的代价：`coverage` 4260 → 4058）。
+- **静态入口照旧留着**：给「手上只有一段文本」的调用点（`literal-type.xl.md` 那一处仍用它）。
+- **实测**：`xl check typescript core` 156 文件 / 0 条；`xl build core typescript`
+  3 个产物 / 0 error（`print-ast-common` / `identifier` / `keyword`）、`npx tsc` 干净；
+  八道门 **7 通过 / 1 失败**（墙钟 29.5s），读数与第 1106 ~ 1127 轮逐项相同
+  （`coverage` 4260 / 4422、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%，
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+  本页声明数 43 格一格没增没减（改的是 3 处调用点与说明），本页今天 **10781 行**
+  （代码块 7810 行、其中不带注释的 4668 行）；`identifier` 751 行、`keyword` 690 行（各多两格属性）。
+
 ### 第 1127 轮：`print-ast-common` 里那两处「按文本问那一页」改成**问这一格自己**——`Identifier.LeafKind` / `SymbolToken.TokenKind` 由方法收成属性，投影持单元的那一处读 `only.LeafKind`；**八道门 7 通过、读数一处没动**
 
 **一句话**：用户口径「简化 `print-ast-common`，清理它用不到的方法；投影需要的信息要在 token

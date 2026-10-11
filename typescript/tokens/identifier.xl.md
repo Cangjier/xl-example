@@ -555,6 +555,34 @@ return items.includes(this.TempToString());
   return Identifier.LeafKindOfText(this.TextValue);
 ```
 
+## property IsLiteralTypeWord:bool
+
+**我这一格的正文是不是「类型位要套一层 `LiteralType`」的那三个词之一**（`null` / `true` / `false`；
+**第 1128 轮由下面那一格静态入口收成属性**）。投影在 `projectTypeExpression` 里手上**就是这一格单元**
+（`head.IsNameNode`），所以这一问由这一格自己答：读自己的 `TextValue` 问同一份名单，
+与原来 `Identifier.IsLiteralTypeWord(head.TextValue)` **逐字符同答**。
+名单与判据只有一处（下面那个静态入口），`Keyword` 那一页也答同一格
+（能当一个名字的只有那两页，第 1057 轮）。
+
+### get
+
+```ts
+  return Identifier.IsLiteralTypeWord(this.TextValue);
+```
+
+## property PrimitiveTypeKind:string | undefined
+
+**我这一格的正文在类型位叫哪个 kind**（**第 1128 轮由 `PrimitiveTypeKindOf` 收成属性**；
+答 `undefined` ＝「不是原始类型名」，投影于是走到 `TypeReference` 那一支）。
+与 `LeafKind` 同一形态、同一条理由（正文到 `Close()` 那一刻才攒完，所以是 `### get` 不是 `## field`）；
+静态那一格留给「手上只有一段文本」的调用点。
+
+### get
+
+```ts
+  return Identifier.PrimitiveTypeKindOf(this.TextValue);
+```
+
 ## static method LeafKindOfText:(text:string)=>string
 
 **给一段叶子文本，答它在 TS 那边的 kind**（第 1029 轮从投影层搬到这里）。

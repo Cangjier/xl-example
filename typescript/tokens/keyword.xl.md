@@ -516,6 +516,31 @@ return this.Value;
   return Identifier.LeafKindOfText(this.TextValue);
 ```
 
+## property IsLiteralTypeWord:bool
+
+**这一问与 `Identifier` 那一页同一格**（第 1128 轮）：类型位那三个词（`null` / `true` / `false`）
+里 `null` / `true` / `false` 在产物里可能停在**这一页**（关键字兜底身份），而能当一个名字的只有
+`Identifier` 与这一页（`IsNameNode`，第 1057 轮）——投影在 `projectTypeExpression` 里手上就是这一格单元，
+所以两页各按自己的 `TextValue` 答同一格，与原来 `Identifier.IsLiteralTypeWord(head.TextValue)`
+**逐字符同答**（同一个静态入口、同一段文本）。
+
+### get
+
+```ts
+  return Identifier.IsLiteralTypeWord(this.TextValue);
+```
+
+## property PrimitiveTypeKind:string | undefined
+
+**我这一格在类型位叫哪个 kind**（第 1128 轮）：与 `Identifier` 那一页同一格、同一份词汇表
+（`Identifier.PrimitiveTypeKindOf`），答 `undefined` ＝「不是原始类型名」。
+
+### get
+
+```ts
+  return Identifier.PrimitiveTypeKindOf(this.TextValue);
+```
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

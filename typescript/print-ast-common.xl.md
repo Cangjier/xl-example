@@ -8994,12 +8994,16 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       // 「哪个词在类型位叫哪个 kind」都是**叶子自己正文**那一格的事实，
       // 搬过来之后 `LiteralTypeCloseRule.IsLiteralUnit` 与这里问的是**同一格**
       // （原来那两处各写了一份三词名单）。
+      // **第 1128 轮起这两问也由手上这一格自己答**（`head.IsLiteralTypeWord` /
+      // `head.PrimitiveTypeKind`：`Identifier` 与 `Keyword` 两页各自显式声明同一格，
+      // 读自己的 `TextValue` 问同一份词汇表）——与第 1127 轮绑定位那一处同一条口径：
+      // 手上有单元，就不按文本问那一页。
       // `undefined` **不套**（TS 那边就是裸的 `UndefinedKeyword`）——这是这一条唯一的例外。
-      if (Identifier.IsLiteralTypeWord(text)) {
-        const literal = { kind: Identifier.PrimitiveTypeKindOf(text), text, pos: span.pos, end: span.end };
+      if (head.IsLiteralTypeWord) {
+        const literal = { kind: head.PrimitiveTypeKind, text, pos: span.pos, end: span.end };
         return { kind: "LiteralType", literal, pos: span.pos, end: span.end };
       }
-      const primitive = Identifier.PrimitiveTypeKindOf(text);
+      const primitive = head.PrimitiveTypeKind;
       if (primitive !== undefined) {
         return arraySuffix === undefined
           ? { kind: primitive, text, pos: span.pos, end: span.end }
