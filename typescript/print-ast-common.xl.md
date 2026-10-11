@@ -876,8 +876,10 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
 （`Token` 的那一批属性 + 每一页自己的段属性）；标量（`source` / `text` / 字段名 / 下标）按中立类型标。
 `ctx` 不另立 class：它的几个字段（`source` / `unmapped` / `count` / `direct` / …）在树里
 以 `ctx.source` 这种写法出现 30 多处，立 class 就要连名带点一起改——**那属于改写，不属于搬家**。
-今天 `ctx` 上一共 **51 个键**（其中 `unmapped` / `count` / `direct` / `typePosition` /
-`consumedSemicolons` / `awaitingDeclaration` 六格是**本文件自己的状态**，其余 45 格是出口）。
+今天 `ctx` 上一共 **50 个键**（其中 `unmapped` / `count` / `direct` / `typePosition` /
+`consumedSemicolons` 五格是**本文件自己的状态**，其余 45 格是出口）。
+**第 1201 轮把 `awaitingDeclaration` 从这张表上撤掉**：通用支那一支（唯一读者）删掉之后，
+它是本文件自己的一个**没人读的字段**；出口数 45 一个没动——撤掉的是状态，不是能力。
 
 叶子那张词汇表（数字字面量的写法 `NUMERIC_LITERAL`、`LeafKindOfText`）第 1029 轮搬到了
 `tokens/identifier.xl.md`：它标 `RegExp`，TS 目标上这一格是准的；换到 C++ 目标时这一类要另想办法
@@ -2721,6 +2723,23 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 
 一个产物节点 → 一个 TS 形状节点。
 
+**这一格第 1201 轮起只剩一句问话**（用户口径 1.1 / 1.5 / 1.6）：**问这一格自己**——
+「你出哪个节点」由那一格 token 的 `PrintAst` 答**一个节点**或**`ctx.Nothing`**（故意不出），
+本页不再有任何「它答不出来时我替它算」的支路。从前的通用支（换 kind + 提层 + 段名 + 字段名）
+**第 1201 轮整段删除**，读数是这么量的（探针挂在**编译产物**的 `projectNode` 上、
+全语料 **4432** 份）：落到通用支的只有 **15** 次、**全是 `Bracket` 的实例**、
+`IsBraceBracket` **一次都不是真**、`AstKind` **一次都没有**；那 15 次算出来的节点
+**一次都没落进产物**（调用方只是「问一下」，问完就丢）。
+把那 15 次改成 `ctx.Nothing`（`Bracket` 那一页：分组括号不是节点）之后，
+全语料**一次都不再落通用支**——于是这一条路是**死代码**，连同它服务的四种算式一起删掉：
+裸块分支（早就有 `Bracket.PrintAst` 那条同答的路）、声明族回落（`ctx.Declaration` 那条路照旧）、
+`ctx.awaitingDeclaration` 那一层回落闭包、以及未映射透传那一支
+（`projectRoot(...).unmapped` 在 1640 份与 2051 份语料上**都是 0 个 tag**）。
+**答 `undefined` 现在是当场报错**：`PrintAst` 是每一页都有的一格（第 1043 轮），
+覆写它就是「把这一格出成什么」说清楚——漏说一页是**静默少一个节点**，
+而 `cases:tsast` 只会报一个总数；所以本页把它说穿（报出 `Tag`），
+结构上不留「悄悄落到一条通用路上」的余地。
+
 **「父 kind」第 1056 轮起不再作为参数递进来**：过去它是 `projectNode` / `projectEach` /
 `projectEachIn` 一路转手的第三个参数，而**今天它只剩一个消费者**——
 `projectEachIn` 里 `ArrayLiteralExpression` 那一支（数组里的洞要补零宽的 `OmittedExpression`）。
@@ -2735,104 +2754,31 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   ctx.count++;
   // **问这个节点自己**（第 77 轮起）：`node` 就是产出这一格的那个 token
   // （见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  // 它覆写了这一格就由它自己出这一格——出口因此是**逐节点**的，而不是一张中央表说了算；
-  // 没覆写（基类返回 `undefined`）就落到下面这份通用支：换名表 + 提层 + 字段名。
   //
-  // **第 1013 轮起这里只问一格**：原先这里是「先问 `PrintAst`、再问 `PrintAst`」
-  // 的两问（以及 `ctx.directEnabled` 那道开关），那两问整段删掉——
-  // 两份写法逐字节同答是既成事实，留下来的就是有判据的那一份。
-  // 现在这一格只有这一个入口：`PrintAst` 答 `undefined` 直接落通用支。
-  // **老名字不再出现在这一页的理由里**：`PrintAst` 已经不存在了，
-  // 再写它只会让读者去索引一个查不到的方法。
+  // **这一问只有两种答案**（第 1201 轮把第三种删掉了）：一个节点，或者 `ctx.Nothing`
+  //（「这一格**故意**不出节点」）。从前的第三档是 `undefined`＝「还没搬，请走通用支」，
+  // 那一趟**第 1201 轮整段删除**——全语料实测它只剩 15 次、且那 15 次算出来的节点
+  // **一次都没落进产物**（读数见下），所以留着的是一条谁也拿不到东西的路。
   //
-  // **第 1043 轮：那一问也不需要了**——`node` 就是一个 token（第 1018 轮起接收者只有这一种），
-  // 而 `PrintAst` 是基类上的一格方法、每一页都有，所以「它有没有这一格」不是一个问题；
-  // 少一层 `if` 就少一处「两份读法」的余地。
+  // **为什么答 `undefined` 现在是错的**：`PrintAst` 是基类上的一格方法、每一页都有
+  //（第 1043 轮），各页覆写它就是要「把这一格出成什么」说清楚——漏说一页就是**静默少一个节点**，
+  // 而 `cases:tsast` 只会报一个总数。所以这里把它当场说穿（指名道姓报出 `Tag`），
+  // 结构上不留「悄悄落到一条通用路上」的余地。
+  //
+  // **第 1043 轮起 `node` 不可能不是 token**（第 1018 轮起接收者只有这一种），
+  // 所以「它有没有这一格」不是一个问题，少一层 `if` 就少一处「两份读法」的余地。
   const owner: any = node;
   const own = owner.PrintAst(ctx, v);
-  // **`ctx.Nothing` 表示「这一格故意不出节点」**（见 `NOTHING` 的说明）：
-  // 与 `undefined`（＝没覆写、请走通用支）是两回事。
+  // **`ctx.Nothing` 表示「这一格故意不出节点」**（见 `NOTHING` 的说明）。
   if (own === ctx.Nothing) return undefined;
-  if (own !== undefined) {
-    ctx.direct++;
-    return own;
+  if (own === undefined) {
+    throw new Error(
+      `这一格没有说出自己出哪个节点（Tag=${v.Tag}）：答 undefined 不再表示「走通用支」——` +
+        `通用支第 1201 轮删掉了，各页要答一个节点或 ctx.Nothing。`,
+    );
   }
-  // **直出版「回落到形状」那一格**（第 1002 轮）：声明族的直出版算完 kind 之后
-  // 要**自己**把形状造出来，而那件事与通用支是同一份实现（`projectDeclaration`）——
-  // 于是它经 `ctx.Declaration` 转回来。这里必须**跳过 `PrintAst` 那一问**，
-  // 否则「自己问自己」：直出版 → 回落 → 又问直出版 → … 无限递归。
-  //
-  // **为什么是「换成局部闭包」而不是一个布尔标记**：这个回落只对**这一格**成立——
-  // 直出版回落之后要走的那条路会去投它的**子节点**，而那些子节点各有自己的直出版、
-  // 必须照常被问。闭包只认自己那一格（**参数只有节点**，`ctx` 已经闭在里面），
-  // 于是「只跳这一问、不跳后面的」是结构上的事；换成标记就得额外管一层栈。
-  const awaiting = ctx.awaitingDeclaration;
-  let made;
-  try {
-    made = awaiting === undefined ? undefined : awaiting(v);
-  } finally {
-    ctx.awaitingDeclaration = undefined;
-  }
-  if (made !== undefined) return made;
-  // **尾部 trivia 一律剪掉**：TS 的节点 `end` **从不含尾部 trivia**，而本工程的区间常常含
-  // （语句行尾的软换行、正则字面量后面的换行…）。第 23 轮只修了语句族，实测还漏着
-  // 正则（`Δ1`）等零散几类——所以这里**不再按 kind 白名单**，改成统一剪：
-  // 往回吃掉空白即可，节点里不会有一类「合法地以空白结尾」的情况。
-  //
-  // 反过来，**没有函数体的可调用签名要带上尾随分号**：`declare function f(): void;` 的 TS 是
-  // `FunctionDeclaration[23,51)`（含 `;`），而产物那个 `Function` 到 `void` 就结束了——
-  // 分号是它的平级兄弟。真实语料里 `FunctionDeclaration` 缺的近两千处基本是这一条。
-  // **那一格「就这一格的造节点闭包」第 1163 轮整格删掉了**（用户口径 1.2 / 1.6 / 1.7）：
-  // 它原来是 `const mk = (kind, props) => astNode(kind, props, v, ctx);`，**每投一格现造一个闭包**
-  // （实测官方用例语料 1640 份：`projectNode` 走 **21874** 次），而它唯一的去处是
-  // `projectDeclaration(v, ctx, mk)` —— 那一格**本来就收着 `v` 与 `ctx`**，直接调
-  // `astNode(kind, props, v, ctx)` 就是同一份实现、同一份坐标口径，不必经一层闭包转手。
-  // **裸块语句 `{ … }` 就是一个 `Block`**（第 123 轮）：产物那边它是一对花括号
-  // （`BlockCloseRule` 在语句位给它补了语句队列，里面的东西已经是 `Statement`），
-  // 而 TS 那边它是一个 `Block` 节点、有自己的 `statements`。照通用支投会**原样透传**
-  // 一个未映射的 `<Bracket>`，外层还多套一个 `ExpressionStatement`
-  // （实测 `{ let y = 2; f(y); }` / `case "a": { … }` / `switch` 分支体三族全中）。
-  //
-  // **只认 `{`**：`(` / `[` 是分组括号，它们由 `projectExpression` / 类型那几条路径摊平，
-  // 走到这里的一律是块。判据取 `startBracket` 属性（与 `projectExpression` 里
-  // 那个值位括号分支同一个来源）。
-  // **第 1089 轮起读 `v.IsBraceBracket`**：这一格由 `Bracket` 那一页在 `Use` 记下
-  // `startBracket` 的那一刻赋好（原来这里写的是 `v.Tag === "Bracket" && String(v.startBracket
-  // ?? "") === "{"`——`Tag` 那一半是多余的前缀，`?? ""` 那半是给「合成视图没有这一格」兜底的，
-  // 而属性读在那种接收者上同样答假）。
-  // **这一支与它下面那一支到底还活不活**（第 1200 轮实测量过一遍，读数写在这里，
-  // 免得下一个人再花一轮去找「通用支里还有多少能删的」）：全语料 1640 份里
-  // `PrintAst` 被问 **21793** 次（＝ `ctx.count`），其中答 `undefined`（＝落到这里）
-  // 的只有 **13** 次，且**全是 `Bracket` 类的实例**、**13 次里 `IsBraceBracket` 一次都不是真**、
-  // **一次都没有 `AstKind`**——按 `Bracket` 那一页自己的写法（`{` 由它自己出 `Block`、
-  // `(` / `[` 答 `undefined`），这 13 次就是值位那两个括号**摊平之前**被问到的那一趟。
-  // 所以这一支今天**只服务 `(` / `[` 的透传**，`{` 那一半由 `Bracket.PrintAst` 接管
-  // （第 1004 轮），13 次里一次都没走到。
-  // `unmapped` 那一本账也复核过：1640 份语料里 `projectRoot(...).unmapped` **一共 0 个 tag**
-  // ——`ctx.unmapped.add(v.Tag)` 那一句没有留下任何一条记录（它是「报了也要看落没落地」，
-  // 见 `projectRoot` 末尾那一趟 `collectKinds`）。
-  // **结论**：通用支不是「还没搬完的大头」，剩下的只是这一条透传；
-  // 真正产出形状的是 `ctx.Structural` 那条路（六个 token 页自己经出口调用，
-  // 见 `# private method structuralProps`）。
-  if (v.IsBraceBracket) {
-    return {
-      kind: "Block",
-      statements: projectEach(kidsOf(v, "children"), ctx),
-      pos: v.start,
-      end: v.ProjectionEnd,
-    };
-  }
-  // **声明族**（第 1002 轮整段搬进 `projectDeclaration`）：`MethodDeclaration` / `Function` /
-  // `Class` / `Interface` / `TypeLiteral` / `Enum` 六页现在**自己覆写了 `PrintAst` 与
-  // `PrintAst`**（两半一起写，见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  // 这一支是那六页的**共享实现**——`ctx.Declaration` 与它们自己的 `PrintAst` 都落在它上面，
-  // 所以两条路出的形状是**同一份实现**，不是各写一遍再对拍。
-  //
-  // **两档「谁在投它」第 1054 / 1055 轮起都由单元自己答**（父单元那一格：
-  // `ClassBody.IsClassBody` / `IsSignatureList`），所以这里不再往 `projectDeclaration`
-  // 递一个父 kind——**第 1056 轮连那个参数一起删掉了**（它当时只剩 `ArrayLiteralExpression`
-  // 一个消费者，而那一格在父单元自己的 `AstKind` 上）。
-  return projectDeclaration(v, ctx);
+  ctx.direct++;
+  return own;
 ```
 
 
@@ -10002,11 +9948,11 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     // 它是「这一格自己出不出」的那把尺子（`cases:direct` 印它；`count` 是问到的次数，
     // 两者之比就是自己出的比例）。
     direct: 0,
-    // **声明族直出版的「回落」那一格**（第 1002 轮）：`undefined` = 当前没有回落。
-    // 它是**一个只认自己那一格的闭包**（见 `projectNode` 里那一支）：直出版把
-    // 「造这一格形状」的事交回来时，`projectNode` 拿它造完就**不再问一次直出版**——
-    // 于是「自己问自己」不会无限递归，而子节点照常各自被问。
-    awaitingDeclaration: undefined,
+    // **声明族直出版的「回落」那一格第 1201 轮整格删掉了**（用户口径 1.5 / 1.6）：
+    // 它是 `projectNode` 通用支的一部分（直出版把「造这一格形状」的事交回来时，
+    // 那一支拿它造完就**不再问一次直出版**，于是「自己问自己」不会无限递归）。
+    // 通用支删掉之后**一个读者都没有**——回落这件事今天由各页自己的 `ctx.Declaration(v, kind)`
+    // 做完（`projectDeclaration` 就是那一份实现，见它的说明），不需要一层额外的闭包。
     // **类型位标记**（第 99 轮）：`projectTypeExpression` 在投「只有一个单元」的类型时置上它，
     // 让**字符串那一页**知道该出 `TemplateLiteralType` 还是 `TemplateExpression`
     // （两者产物同形，只有这一点上下文能区分）。第 1073 轮起读它的那一页是
