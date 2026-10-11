@@ -3831,6 +3831,37 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     .filter((a) => a !== undefined);
 ```
 
+# private method shellOn:(projected:any, callee:any)=>any
+
+**「壳还留着、只把被填的那一格换掉」**（第 1152 轮）：`projected` 已经是某一格投出来的节点，
+把它的 `expression` 换成 `callee`、起点跟着 `callee` 走，**终点仍用 `projected` 自己那个**。
+
+**为什么立这一格**：`Object.assign({}, 某一格, { expression: …, pos: ….pos })` 这个形状在本页
+出现过 **16 次**（`chainWithOptional` 里「这一格盖着一层调用」那一族、`chainOnto` 的
+`o?.m()()[0]` 那一族、`projectExpression` 的私有成员名那一族），逐字重复的只有壳与被填者两个名字。
+
+```ts
+  return Object.assign({}, projected, { expression: callee, pos: callee.pos });
+```
+
+# private method shellOver:(projected:any, callee:any, end:int)=>any
+
+**同上，但终点也由调用方给**（第 1152 轮）：`chainWithOptional` 里那一族要的是**外层那一格
+`unit` 的终点**（壳是 `first`、终点是 `unit`，两格不是同一个），所以终点是第三个实参。
+
+```ts
+  return Object.assign({}, projected, { expression: callee, pos: callee.pos, end: end });
+```
+
+# private method shellOnto:(shell:any, callee:any, ctx:any)=>any
+
+**外壳那一格自己投一遍、终点取它自己的**（第 1152 轮）：上述两格的合并写法，
+壳是**没投过的 token** 时用这一格。
+
+```ts
+  return shellOver(projectNode(shell, ctx), callee, endOf(shell));
+```
+
 # private method projectExpression:(kids:Array<any>, ctx:any)=>any
 
 一串单元 → 一个表达式。
@@ -6089,11 +6120,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               innermostCallee(left, innermostMethod(callHead), ctx),
               undefined,
             );
-            left = Object.assign({}, projectNode(ck[i], ctx), {
-              expression: innerCall,
-              pos: innerCall.pos,
-              end: endOf(ck[i]),
-            });
+            left = shellOnto(ck[i], innerCall, ctx);
             i += 1;
             continue;
           }
@@ -6115,11 +6142,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               pos: left.pos,
               end: endOf(callHead),
             };
-            left = Object.assign({}, projectNode(ck[i], ctx), {
-              expression: innerCall,
-              pos: innerCall.pos,
-              end: endOf(ck[i]),
-            });
+            left = shellOnto(ck[i], innerCall, ctx);
             i += 1;
             continue;
           }
@@ -6154,11 +6177,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
                 pos: innerCall.pos,
                 end: endOf(callHead),
               };
-              left = Object.assign({}, projectNode(ck[i], ctx), {
-                expression: assertedCall,
-                pos: assertedCall.pos,
-                end: endOf(ck[i]),
-              });
+                left = shellOnto(ck[i], assertedCall, ctx);
               i += 1;
               continue;
             }
@@ -6176,11 +6195,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
                 pos: innerCall.pos,
                 end: endOf(callHead),
               };
-              left = Object.assign({}, projectNode(ck[i], ctx), {
-                expression: assertedCall,
-                pos: assertedCall.pos,
-                end: endOf(ck[i]),
-              });
+                left = shellOnto(ck[i], assertedCall, ctx);
               i += 1;
               continue;
             }
@@ -6205,11 +6220,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
                 pos: element.pos,
                 end: endOf(callHead),
               };
-              left = Object.assign({}, projectNode(ck[i], ctx), {
-                expression: assertedInner,
-                pos: assertedInner.pos,
-                end: endOf(ck[i]),
-              });
+              left = shellOnto(ck[i], assertedInner, ctx);
               i += 1;
               continue;
             }
@@ -6233,11 +6244,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               pos: left.pos,
               end: endOf(callHead),
             };
-            left = Object.assign({}, projectNode(ck[i], ctx), {
-              expression: innerCall,
-              pos: innerCall.pos,
-              end: endOf(ck[i]),
-            });
+            left = shellOnto(ck[i], innerCall, ctx);
             i += 1;
             continue;
           }
@@ -6266,7 +6273,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             end: nameEnd,
           };
           const call = projectNode(after, ctx);
-          left = Object.assign({}, call, { expression: member, pos: member.pos, end: endOf(after) });
+          left = shellOver(call, member, endOf(after));
           i += 3;
           continue;
         }
@@ -6305,11 +6312,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             pos: left.pos,
             end: nameEnd,
           };
-          const call = Object.assign({}, projectNode(head, ctx), {
-            expression: member,
-            pos: member.pos,
-            end: endOf(head),
-          });
+          const call = shellOnto(head, member, ctx);
           left = { kind: "NonNullExpression", expression: call, pos: call.pos, end: endOf(next) };
           i += 2;
           continue;
@@ -6387,7 +6390,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             const asserted = assertedMember(left, innerKids[0], ctx, undefined);
             if (asserted !== undefined) {
               const outerCall = projectNode(next, ctx);
-              left = Object.assign({}, outerCall, { expression: asserted, pos: asserted.pos });
+              left = shellOn(outerCall, asserted);
               i += 2;
               continue;
             }
@@ -6410,12 +6413,12 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               end: endOf(innerKids[0]),
             };
             const outerCall = projectNode(next, ctx);
-            left = Object.assign({}, outerCall, { expression: innerArgs, pos: innerArgs.pos, end: endOf(next) });
+            left = shellOver(outerCall, innerArgs, endOf(next));
             i += 2;
             continue;
           }
           const outerCall = projectNode(next, ctx);
-          left = Object.assign({}, outerCall, { expression: left, pos: left.pos });
+          left = shellOn(outerCall, left);
           i += 2;
           continue;
         }
@@ -6434,7 +6437,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // 之后再取成员仍属同一条链——原来这里 `break`，于是链被截成两段、
         // 外层那次调用整个丢掉（实测 `CallExpression` 缺 1263 里的最大一块）。
         const call = projectNode(next, ctx);
-        left = Object.assign({}, call, { expression: member, pos: member.pos });
+        left = shellOn(call, member);
         i += 2;
         continue;
       }
@@ -6963,12 +6966,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       if (calleeKid !== undefined && calleeKid.IsNotNull) {
         const asserted = assertedMember(left, calleeKid, ctx, questionDot);
         if (asserted !== undefined) {
-          const call = projectNode(first, ctx);
-          return Object.assign({}, call, {
-            expression: asserted,
-            pos: asserted.pos,
-            end: endOf(unit),
-          });
+          return shellOver(projectNode(first, ctx), asserted, endOf(unit));
         }
       }
       // **被调用者是内层那一格 `Method`**（第 962 轮）：`o?.m()()` 的产物是
@@ -7002,12 +7000,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           callee,
           built ? undefined : questionDot,
         );
-        const outerCall = projectNode(first, ctx);
-        return Object.assign({}, outerCall, {
-          expression: innerCall,
-          pos: innerCall.pos,
-          end: endOf(unit),
-        });
+        return shellOver(projectNode(first, ctx), innerCall, endOf(unit));
       }
       // **被调用者是 `left`、而这一格盖着两层调用**（第 962 轮）：`o?.m?.()(1)` 的 `NCO` 里是
       // `Method(name="")[Bracket, 1]`——那个 Bracket 是**内层**那次调用（`?.()`）的实参表，
@@ -7023,26 +7016,11 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           end: endOf(calleeKid),
         };
         if (questionDot !== undefined) innerCall.questionDotToken = questionDot;
-        const outerCall = projectNode(first, ctx);
-        return Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos, end: endOf(unit) });
+        return shellOver(projectNode(first, ctx), innerCall, endOf(unit));
       }
-      // **这一格盖着两层调用、而里层那一次只留下一个实参括号**（第 966 轮）：
-      // `a!()()` 的 NCO 里那一格是 `Method(name=""[Bracket(())])`——**一格 `Method` 里只有
-      // 一对括号**，可它说的是两次调用（两次共用这一格的区间）。判据与上面那一支一字不差：
-      // `Method` 比它那个括号更靠右 ⇒ 里面还裹着一层。少了它只投出一次调用
-      //（实测 `gap-r964-nonnull-call-twice-member` 的 NCO 那一半：缺 4 格）。
-      if (calleeKid !== undefined && calleeKid.IsParenBracket && endOf(calleeKid) < endOf(first)) {
-        const innerCall: any = {
-          kind: "CallExpression",
-          expression: left,
-          arguments: callArgumentsOf(calleeKid, ctx),
-          pos: left.pos,
-          end: endOf(calleeKid),
-        };
-        if (questionDot !== undefined) innerCall.questionDotToken = questionDot;
-        const outerCall = projectNode(first, ctx);
-        return Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos, end: endOf(unit) });
-      }
+      // **这里原来还抄着第二份**（第 1152 轮删）：那一段与上面那一支**逐字同形**
+      //（同一条判据、同一个函数体、最后一句都是 `return`），所以它**一次都走不到**——
+      // 留着只会让人觉得「`a!()()` 那一档另有一处」。实测语料里删前删后读数一处没动。
     }
     const nameAt = startOf(first);
     const member = {
@@ -7053,8 +7031,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       end: nameAt + nameText.length,
     };
     if (questionDot !== undefined) member.questionDotToken = questionDot;
-    const call = projectNode(first, ctx);
-    return Object.assign({}, call, { expression: member, pos: member.pos, end: endOf(unit) });
+    return shellOver(projectNode(first, ctx), member, endOf(unit));
   }
   // **`o.m?.().k`**（第 154 轮）：NCO 里的第一格是**属性访问**，而它的第一格是实参括号——
   // 那是 token 层的属性访问重组把 `( ) . k` 折成了一个 `PropertyAccess`
@@ -7308,10 +7285,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           if (callHead !== undefined && callHead.IsNotNull) {
             const asserted = assertedMember(node, callHead, ctx, pending);
             if (asserted !== undefined) {
-              node = Object.assign({}, projectNode(member, ctx), {
-                expression: asserted,
-                pos: asserted.pos,
-              });
+              node = shellOn(projectNode(member, ctx), asserted);
               pending = undefined;
               j += 1;
               continue;
@@ -7342,10 +7316,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
                 pos: element.pos,
                 end: endOf(callHead),
               };
-              node = Object.assign({}, projectNode(member, ctx), {
-                expression: assertedCall,
-                pos: assertedCall.pos,
-              });
+              node = shellOn(projectNode(member, ctx), assertedCall);
               pending = undefined;
               j += 1;
               continue;
@@ -7366,10 +7337,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             const built = callee !== node;
             if (built && pending !== undefined) callee.questionDotToken = pending;
             const innerCall = graftCallee(projectNode(callHead, ctx), callee, built ? undefined : pending);
-            node = Object.assign({}, projectNode(member, ctx), {
-              expression: innerCall,
-              pos: innerCall.pos,
-            });
+            node = shellOn(projectNode(member, ctx), innerCall);
             pending = undefined;
             j += 1;
             continue;
@@ -7383,10 +7351,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               end: endOf(callHead),
             };
             if (pending !== undefined) innerCall.questionDotToken = pending;
-            node = Object.assign({}, projectNode(member, ctx), {
-              expression: innerCall,
-              pos: innerCall.pos,
-            });
+            node = shellOn(projectNode(member, ctx), innerCall);
             pending = undefined;
             j += 1;
             continue;
@@ -7401,7 +7366,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         };
         if (pending !== undefined) holder.questionDotToken = pending;
         const call = projectNode(member, ctx);
-        node = Object.assign({}, call, { expression: holder, pos: holder.pos });
+        node = shellOn(call, holder);
       } else if (member.IsIndexBracket) {
         // **下标括号也是链上的一格**（第 962 轮）：`o?.m()[0]` 的 NCO 里那一格是
         // `PropertyAccess([Method(m), Bracket([0])])`——`[0]` 与成员名**平级**。
@@ -7614,11 +7579,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           innermostCallee(left, innermostMethod(callHead), ctx),
           undefined,
         );
-        left = Object.assign({}, projectNode(unit, ctx), {
-          expression: innerCall,
-          pos: innerCall.pos,
-          end: endOf(unit),
-        });
+        left = shellOnto(unit, innerCall, ctx);
         i += 1;
         continue;
       }
@@ -7626,7 +7587,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const asserted = assertedMember(left, callHead, ctx, undefined);
         if (asserted !== undefined) {
           const call = projectNode(unit, ctx);
-          left = Object.assign({}, call, { expression: asserted, pos: asserted.pos });
+          left = shellOn(call, asserted);
           i += 1;
           continue;
         }
@@ -7655,8 +7616,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             pos: innerCall.pos,
             end: endOf(callHead),
           };
-          const outerCall = projectNode(unit, ctx);
-          left = Object.assign({}, outerCall, { expression: assertedCall, pos: assertedCall.pos });
+          left = shellOn(projectNode(unit, ctx), assertedCall);
           i += 1;
           continue;
         }
@@ -7671,15 +7631,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // 折法就是「各投各的」：内层 `projectNode(callHead)` 给出的**已经是**对 `left` 的
         // 一次调用，只需要把它的受体换成 `left`（它自己那格是空的、没人填），
         // 位置取 `left.pos`；外层再用 `projectNode(unit)` 套一层。
-        const innerCall = Object.assign({}, projectNode(callHead, ctx), {
-          expression: left,
-          pos: left.pos,
-        });
-        left = Object.assign({}, projectNode(unit, ctx), {
-          expression: innerCall,
-          pos: innerCall.pos,
-          end: endOf(unit),
-        });
+        const innerCall = shellOn(projectNode(callHead, ctx), left);
+        left = shellOnto(unit, innerCall, ctx);
         i += 1;
         continue;
       }
@@ -7694,15 +7647,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           pos: left.pos,
           end: innerAt + innerName.length,
         };
-        const innerCall = Object.assign({}, projectNode(callHead, ctx), {
-          expression: innerMember,
-          pos: innerMember.pos,
-        });
-        left = Object.assign({}, projectNode(unit, ctx), {
-          expression: innerCall,
-          pos: innerCall.pos,
-          end: endOf(unit),
-        });
+        const innerCall = shellOn(projectNode(callHead, ctx), innerMember);
+        left = shellOnto(unit, innerCall, ctx);
         i += 1;
         continue;
       }
@@ -7714,11 +7660,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           pos: left.pos,
           end: endOf(callHead),
         };
-        left = Object.assign({}, projectNode(unit, ctx), {
-          expression: innerCall,
-          pos: innerCall.pos,
-          end: endOf(unit),
-        });
+        left = shellOnto(unit, innerCall, ctx);
         i += 1;
         continue;
       }
@@ -7731,11 +7673,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           pos: left.pos,
           end: at + bareName.length,
         };
-        left = Object.assign({}, projectNode(unit, ctx), {
-          expression: member,
-          pos: member.pos,
-          end: endOf(unit),
-        });
+        left = shellOnto(unit, member, ctx);
         i += 1;
         continue;
       }
@@ -7790,7 +7728,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           const asserted = assertedMember(left, calleeKid, ctx, undefined);
           if (asserted !== undefined) {
             const call = projectNode(next, ctx);
-            left = Object.assign({}, call, { expression: asserted, pos: asserted.pos });
+            left = shellOn(call, asserted);
             i += 2;
             continue;
           }
@@ -7809,7 +7747,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             undefined,
           );
           const outerCall = projectNode(next, ctx);
-          left = Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos });
+          left = shellOn(outerCall, innerCall);
           i += 2;
           continue;
         }
@@ -7824,7 +7762,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             end: endOf(calleeKid),
           };
           const outerCall = projectNode(next, ctx);
-          left = Object.assign({}, outerCall, { expression: innerCall, pos: innerCall.pos });
+          left = shellOn(outerCall, innerCall);
           i += 2;
           continue;
         }
@@ -7837,8 +7775,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         pos: left.pos,
         end: at + name.length,
       };
-      const call = projectNode(next, ctx);
-      left = Object.assign({}, call, { expression: member, pos: member.pos });
+      left = shellOn(projectNode(next, ctx), member);
     } else if (next.IsPropertyAccess) {
       // 成员格自己又是一条链单元（`[Start, NCO(Document)]`）：逐格接上去。
       const members = next.ProjectableKids;

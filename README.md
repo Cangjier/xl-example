@@ -347,6 +347,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1152 轮：用户口径 1.7（连带 1.2 / 1.6）—— 全投影里「**壳还在、只把被填那一格换掉**」那个 `Object.assign` 形状收成三格（`shellOn` / `shellOver` / `shellOnto`），**34 处各留一次调用**；顺手删掉一条与上一支**逐字同形、永远走不到**的分支，`print-ast-common` 代码块不带注释 **4574 → 4485 行**
+
+**一句话**：上一轮收的是「一次调用的实参」（18 处），这一轮按同一把尺子收**第二族**——
+`Object.assign({}, <壳>, { expression: <被填的那一格>, pos: <被填的那一格>.pos[, end: …] })`。
+
+- **量法**（`tmp/` 里的窗口比对脚本，不进仓）：`print-ast-common` 围栏内**去掉空行与注释行**之后
+  每一段 **5 行窗口**归一化空白逐个比对 ⇒ **125 组**重复。其中最大的一族就是这个 `Object.assign` 壳：
+  它在 `projectExpression` / `chainWithOptional` / `chainOnto` 三处共 **34 次**，
+  逐字重复的只有**壳**与**被填的那一格**两个名字。
+- **改法**：新立三格声明（都写在 `callArgumentsOf` 后面，与它同一个「同一形状一处声明」小节）：
+  - `shellOn(projected, callee)`——只换 `expression` / `pos`，**终点仍用壳自己那个**；**16 处**
+    （`chainWithOptional` 的「这一格盖着一层调用」那一族、`chainOnto` 的 `o?.m()()[0]` 那一族、
+    `projectExpression` 的私有成员名那一族有 1 处）；
+  - `shellOver(projected, callee, end)`——**终点也由调用方给**；**6 处**。
+    为什么终点不能一律取壳的：`chainWithOptional` 里那一族的壳是 `first`、而终点要的是**外层那一格
+    `unit` 的终点**（`o?.m?.()(1)` 那一档两次调用共用 `Method` 的区间）——两格不是同一个；
+  - `shellOnto(shell, callee, ctx)`——壳**还没投过**（是 token）时用这一格，就是上面两格的合并写法；**12 处**。
+- **等价怎么证的**：34 处每一处都是**同一段算式的改名**（`Object.assign({}, X, { … })` 里的 `X`
+  换成实参、字段一个不动），没有一处需要判断；八道门读数一处没动是第二份证据
+  （`coverage` **4260 / 4422**、`samples` 逐字节、`cases:direct` 1640 份）。
+- **顺手删掉一条死分支**（`chainWithOptional` 里）：那一对
+  `if (calleeKid !== undefined && calleeKid.IsParenBracket && endOf(calleeKid) < endOf(first))`
+  **判据逐字相同、函数体逐字相同**，而前一支最后一句就是 `return` ⇒ 后一支**一次都走不到**
+  （连注释一共 **17 行**）。它上面那段注释说的却是另一档（`a!()()`），留着只会让人以为
+  「`!` 盖着两层调用」另有一处实现。删前删后八道门读数一处没动；
+  `gap-r964-nonnull-call-twice-member` 的 NCO 那一半仍由留下的那一支兜着。
+  这一条**记在页里**（原位留了一句话说明删的是什么），不是悄悄删。
+- **实测量法的一处口径**（顺手钉住，免得下一轮再算错）：本页「代码块」= **围栏内所有行**
+  （不只 ```` ```ts ````，`# dependencies` 那段 ```` ```xl ```` 的 3 行也在内）；
+  「不带注释」= 上面那个数**减去以 `//` 开头的行**（**3 行空行仍算在内**）。
+  按这个口径复核第 1151 轮那一栏：HEAD 上 **7844 行 / 不带注释 4574 行**，与它自己写的一字不差。
+- **实测**：`xl check typescript/print-ast-common.xl.md` **0 条**、
+  `xl build core typescript runtime typescript-exec cjcli.xl.md tsrun.xl.md` **182 个产物 / 0 error**
+  （1 written / 181 up to date）、`npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 33.3s），
+  读数与第 1106 ~ 1151 轮**逐项相同**：`coverage` **4260 / 4422**（`blocked 28` / `differ 134` /
+  `bad 0`、加权 95.7%）、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002` ⇒ **等价**。
+- **本页的数**：**11049 → 10986 行**（围栏内 7844 → **7753 行** / 不带注释 4574 → **4485 行**
+  ——跑起来的那几行净少 **89** 行）；**声明 51 → 54 格**（**43** 个 `# method` + **11** 个 `# const`）；
+  同一把 5 行窗口的尺子再量一遍：**125 → 100 组**。基类那一页与各 token 页这一轮一行没动。
+
 ### 第 1151 轮：用户口径 1.7（连带 1.2 / 1.6）—— `projectExpression` 里**逐字重复 18 次**的那段「一次调用的实参」收成一格 `callArgumentsOf`，`print-ast-common` 代码块不带注释 **4607 → 4574 行**（一趟少 33 行、18 处各留一次调用）
 
 **一句话**：口径 1.7 是「`print-ast-common` 在这条路上行数尽可能低」。这一轮先量**本页代码块里
