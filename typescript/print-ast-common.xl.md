@@ -3831,6 +3831,25 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     .filter((a) => a !== undefined);
 ```
 
+# private method bangWrapped:(left:any, pendingBang:any)=>any
+
+**手上那个还没套上去的 `!`：套成 `NonNullExpression`，区间到那一格 `NotNull` 的末端为止**
+（第 1154 轮）。`pendingBang === undefined`（手上没有断言）时**原样返回 `left`**——所以
+调用方不必再写一层 `if`。
+
+**为什么立这一格**：这一段算式在本页出现过 **6 次**（都在 `chainOnto` 的子链循环里：
+点号那一支、名字那一支、`IsCallUnit` 那一支、平级圆括号那一支、下标那一支，
+加上循环末尾「子链吃完还没用掉的那个断言」那一句）——5 次是 9 行的 `if`，1 次是 3 行。
+**判据一个字没改**：套上去的节点、`pos` 取 `left.pos`、`end` 取 `pendingBang`，逐字相同；
+那四处 `pendingBang = undefined;` 仍然写在调用点后面一行（原来它在 `if` 里面，
+而把一个已经是 `undefined` 的量再赋一次 `undefined` 是同一件事）。
+
+```ts
+  return pendingBang === undefined
+    ? left
+    : { kind: "NonNullExpression", expression: left, pos: left.pos, end: pendingBang };
+```
+
 # private method shellOn:(projected:any, callee:any)=>any
 
 **「壳还留着、只把被填的那一格换掉」**（第 1152 轮）：`projected` 已经是某一格投出来的节点，
@@ -7801,14 +7820,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           // `PropertyAccessExpression` 与 `Identifier` 各漂）。折法与
           // `chainWithOptional` 的成员循环**一字不差**：接第一格之前先把 `!` 套成
           // `NonNullExpression`，`?.` 仍然挂在**内层**那一格上。
-          if (pendingBang !== undefined) {
-            left = {
-              kind: "NonNullExpression",
-              expression: left,
-              pos: left.pos,
-              end: pendingBang,
-            };
-          }
+          left = bangWrapped(left, pendingBang);
           left = {
             kind: "PropertyAccessExpression",
             expression: left,
@@ -7828,15 +7840,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // 折法与 `chainWithOptional` 子链分支末尾那句**一字不差**（名字接一格），
         // 顺序也一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
         if (member.IsNameNode) {
-          if (pendingBang !== undefined) {
-            left = {
-              kind: "NonNullExpression",
-              expression: left,
-              pos: left.pos,
-              end: pendingBang,
-            };
-            pendingBang = undefined;
-          }
+          left = bangWrapped(left, pendingBang);
+          pendingBang = undefined;
           left = {
             kind: "PropertyAccessExpression",
             expression: left,
@@ -7862,15 +7867,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // （基类默认 `false`，见 `typescript/tokens/method.xl.md`）。
         // 原来那句 `member.IsMethodNode &&` 随之消失：非 `Method` 的 token 拿到的是默认档。
         if (member.IsCallUnit) {
-          if (pendingBang !== undefined) {
-            left = {
-              kind: "NonNullExpression",
-              expression: left,
-              pos: left.pos,
-              end: pendingBang,
-            };
-            pendingBang = undefined;
-          }
+          left = bangWrapped(left, pendingBang);
+          pendingBang = undefined;
           left = graftCallee(
             projectNode(member, ctx),
             innermostCallee(left, innermostMethod(member), ctx),
@@ -7886,15 +7884,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         //（实测 `gap-r973-opt-assert-index-call-member`：缺 1）。
         // 顺序与上面两支一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
         if (member.IsParenBracket) {
-          if (pendingBang !== undefined) {
-            left = {
-              kind: "NonNullExpression",
-              expression: left,
-              pos: left.pos,
-              end: pendingBang,
-            };
-            pendingBang = undefined;
-          }
+          left = bangWrapped(left, pendingBang);
+          pendingBang = undefined;
           left = {
             kind: "CallExpression",
             expression: left,
@@ -7912,15 +7903,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // 折法与 `chainWithOptional` 子链分支里那一支**一字不差**（同一形状、同一个判据），
         // 顺序也一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
         if (member.IsIndexBracket) {
-          if (pendingBang !== undefined) {
-            left = {
-              kind: "NonNullExpression",
-              expression: left,
-              pos: left.pos,
-              end: pendingBang,
-            };
-            pendingBang = undefined;
-          }
+          left = bangWrapped(left, pendingBang);
+          pendingBang = undefined;
           left = {
             kind: "ElementAccessExpression",
             expression: left,
@@ -7936,9 +7920,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // **子链吃完还没用掉的那个断言，仍然要套在整条链上**（第 966 轮）：
       // `a?.b!.c` 那条子链只有一格名字（不是 `c.d`）时，`IsDotSymbol` 那一支不会响，
       // 断言就留在这里——不补这一句它整格丢。
-      if (pendingBang !== undefined) {
-        left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: pendingBang };
-      }
+      left = bangWrapped(left, pendingBang);
     } else {
       left = {
         kind: "PropertyAccessExpression",

@@ -347,6 +347,35 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1154 轮：用户口径 1.7（连带 1.6）—— `chainOnto` 子链循环里**出现 6 次**的那段「把手上的 `!` 套成 `NonNullExpression`」收成一格 `bangWrapped`，`print-ast-common` 代码块不带注释 **4476 → 4442 行**（一趟少 34 行、6 处各留一次调用）
+
+**一句话**：接着第 1152 轮那把尺子量下去，**最大的一组**是 `pendingBang` 那段：
+`if (pendingBang !== undefined) { left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: pendingBang }; … }`
+——**5 处 9 行 + 1 处 3 行 = 48 行**，逐字重复的只有缩进与那四处 `pendingBang = undefined;`。
+
+- **量法**（`tmp/` 里的窗口比对脚本，不进仓）：围栏内去掉空行与注释行之后逐段 5 行窗口比对，
+  **100 组**重复里最大的就是这一组（同一段算式在**连续的五个分支**里各写一遍：
+  点号那一支、名字那一支、`IsCallUnit` 那一支、平级圆括号那一支、下标那一支）。
+- **改法**：新立 `# private method bangWrapped:(left:any, pendingBang:any)=>any`——
+  没有断言时**原样返回 `left`**（所以调用方不必再写一层 `if`），有断言时套成
+  `{ kind: "NonNullExpression", expression: left, pos: left.pos, end: pendingBang }`。
+  6 处各改成 `left = bangWrapped(left, pendingBang);`，那四处 `pendingBang = undefined;`
+  留在调用点后面一行——**这是同一件事**：原来它在 `if` 里，而把一个已经是 `undefined` 的量
+  再赋一次 `undefined` 不改变任何一格读数。
+- **等价怎么证的**：每一处替换都是**同一段算式的改名**（节点、`pos`、`end` 逐字相同），
+  八道门读数一处没动是第二份证据（`coverage` **4260 / 4422**、`samples` 逐字节、
+  `cases:direct` 1640 份）；同一把 5 行窗口的尺子再量一遍：**100 → 94 组**。
+- **实测**：`xl check typescript/print-ast-common.xl.md` **0 条**、
+  `xl build typescript/print-ast-common.xl.md` **1 个产物 / 0 error**、`npx tsc` 干净；
+  **八道门 7 通过、1 失败**（墙钟 33.6s），读数与第 1106 ~ 1153 轮**逐项相同**：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002` ⇒ **等价**。
+- **本页的数**：**10983 → 10965 行**（围栏内 7750 → **7716 行** / 不带注释 4476 → **4442 行**
+  ——跑起来的那几行净少 **34** 行）；**声明 54 → 55 格**（**44** 个 `# method` + 11 个 `# const`）。
+  基类那一页与各 token 页这一轮一行没动。
+
 ### 第 1153 轮：用户口径 1.2 / 1.3 / 1.6 / 1.5 —— 投影层**最后一格本地闭包**收进被问的那一页（`Token.IsCallUnit` + `Method` 覆写），并去掉 **15 处** `String(x.DeclaredName)` 恒等拷贝（`DeclaredName` 声明就是 `string`）；两条新判据当场自验
 
 **一句话**：这一轮按口径 1.2 / 1.3 找的是**投影自己还在算的那两件事**——一件是
