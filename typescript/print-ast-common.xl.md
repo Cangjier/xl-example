@@ -5427,10 +5427,34 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       one.IsNotNullSymbol === true);
   // 从右往左找那一格模板：**最后**一格能当标签模板起点的就是它。
   // `at` 从 1 起（模板前面至少要有一格标签），标签与尾巴两问都过才认。
+  //
+  // **紧跟其后的那一格自己就是一条模板链时，这一格不是标签的边界**（第 1216 轮，用户口径 1.1）：
+  // `` a`x``x`.b `` 的产物是
+  //
+  //     [Identifier(a), String(反引号 x), PropertyAccess([String(反引号 x), ., Identifier(b)])]
+  //
+  // ——第二个模板**不在这一格**（它是下一个兄弟 `PropertyAccess` 的**第一个**子单元）。从右往左
+  // 第一格能当标签边界的本来是它（0c 那一支：`templateChainAt` 找的正是「装着模板的那一格」），
+  // 可 0b 的 `IsChainTail` 认「后面那一格是 `PropertyAccess`」⇒ 先把**第一个**模板认成模板、
+  // 把 `PropertyAccess` 当成后缀交给 `chainOnto` ⇒ 第二个模板整格丢（实测漂移
+  // `TaggedTemplateExpression` `TS[10,17)` vs 产物 `[10,14)`、缺 `NoSubstitutionTemplateLiteral[14,17)`）。
+  // 判据与 `leftSpineOf` 的 `"template"` 那一档**同源**（同一句「这一格的第一个子单元是不是模板串」），
+  // 只是这里问的是**下一个兄弟**：答是就让开这一格，让 0c 去接。
+  // 一份语料上六条：`a` / `f()` / `a["b"]` / `a.b` / `(a)` / `this` 六种前缀 × `` `x``x`.b ``。
+  const beginsWithTemplate = (one: any): bool => {
+    if (one === undefined) {
+      return false;
+    }
+    const head = one.IsPropertyAccess ? one.ProjectableKids : [one];
+    return head.length > 0 && head[0].IsTemplateString === true;
+  };
   let templateAt = -1;
   for (let at = kids.length - 1; at >= 1; at--) {
     const one = kids[at];
     if (!one.IsTemplateString) {
+      continue;
+    }
+    if (beginsWithTemplate(kids[at + 1])) {
       continue;
     }
     if (tagIsPostfixChain(kids.slice(0, at)) && IsChainTail(kids.slice(at + 1))) {
