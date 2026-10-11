@@ -347,6 +347,45 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1151 轮：用户口径 1.7（连带 1.2 / 1.6）—— `projectExpression` 里**逐字重复 18 次**的那段「一次调用的实参」收成一格 `callArgumentsOf`，`print-ast-common` 代码块不带注释 **4607 → 4574 行**（一趟少 33 行、18 处各留一次调用）
+
+**一句话**：口径 1.7 是「`print-ast-common` 在这条路上行数尽可能低」。这一轮先量**本页代码块里
+有哪些逐字重复的片段**（把围栏内、去掉注释行与空行之后的每一段 5 行窗口逐个比对，4416 个窗口里
+**132 组**重复），再决定收哪一组。
+
+- **量法**（`tmp/` 里的窗口比对脚本，不进仓）：把 `print-ast-common` 代码块里去掉注释行与空行
+  的每一段 **5 行窗口**归一化空白后逐个比对 ⇒ **132 组**重复。其中最大的一组是
+  **`arguments: splitTopLevel(<某一格>.ProjectableKids, ",") .map(…) .filter(…)`**——
+  它在 `projectExpression` 的「紧跟一对圆括号就是一次调用」那几条支里出现 **18 次**，
+  **逐字重复的只有括号那一格的名字**（`bangHead` / `callHead` / `assertHead` / `calleeKid` /
+  `head` / `first` / `unit` / `member` / `bracket` / `nameUnit`）。
+- **改法**：新立 `# private method callArgumentsOf:(bracket:any, ctx:any)=>Array<any>`——
+  切顶层逗号 → 每组投成表达式 → 挡掉空组；18 处各改成 `arguments: callArgumentsOf(<那一格>, ctx),`
+  （3 行 → 1 行）。**判据一个字没改**：`splitTopLevel` 仍按 `","` 切、空组仍给 `undefined`、
+  `undefined` 仍然滤掉（原来那 18 处里 `(a: any)` 与 `(a)` 两种写法都在，收成一格之后只剩一种，
+  而 TS 推出来的类型逐格相同）。
+- **为什么是「一格声明」而不是「一处内联」**：18 处分布在 `projectExpression` 的多个嵌套分支里，
+  连 `pos` 都不一定在附近；写成方法（挂在原型上）而不是 `projectExpression` 里的局部箭头函数，
+  也是口径 1.6 那一条——局部箭头函数会让每一趟 `projectExpression`（本语料 **5687** 次）
+  多造一个闭包。
+- **等价怎么证的**：每一处替换都是**同一段算式的改名**（把 `<某一格>.ProjectableKids` 换成实参
+  `<某一格>`，其余逐字不变），八道门读数一处没动是第二份证据
+  （`cases:tsast` / `samples` 逐字节 / `coverage` 全同）。
+- **同一批读数里量出来、这一轮没动的**：剩下那 131 组重复里最长的一批是「`CallExpression` 那几行
+  壳」与「`endOf(calleeKid) < endOf(first)` 那几支」的再一次重复，但它们**每一处的上下文都不同**
+  （有的在 `chainOnto`、有的在 `projectExpression`，读的是不同的局部量），收成一格就得把
+  上下文一起参数化——**留给下一轮**，这一轮只收那一组 18 处逐字同形的。
+- **实测**：`xl check typescript/print-ast-common.xl.md` **0 条**、
+  `xl build core typescript runtime typescript-exec cjcli.xl.md tsrun.xl.md` **182 个产物 / 0 error**、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 35.0s），读数与第 1106 ~ 1150 轮**逐项相同**：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002` ⇒ **等价**。
+- **本页的数**：**11070 → 11049 行**（代码块 7877 → **7844 行** / 不带注释 4607 → **4574 行**
+  ——跑起来的那几行净少 **33** 行，多出来的 12 行是这一格的说明）；
+  **声明 50 → 51 格**（40 个 `# method` + 11 个 `# const`）。基类那一页这一轮一行没动。
+
 ### 第 1150 轮：用户口径 1.3 / 1.6 —— 把全投影里**重复计算最多**的那一格收了：`Token.Segments` 每趟读 **64821** 次、其中 **37068** 次是同一个 token 上的重算（它那两个来源都是构造时的常量），于是算过的答案记进新字段 `CachedSegments`——**每投一趟少算 35840 遍**（数组构造 + 双层 `Map` 遍历 + `includes` 去重）
 
 **一句话**：口径 1.3 说「token 在构造时 / 构建时 / Close 时把 printAst 需要的信息明确记在自己

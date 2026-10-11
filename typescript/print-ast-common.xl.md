@@ -3816,6 +3816,21 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   return ctx.source[at] === ";" ? (ctx.consumedSemicolons.add(at), at + 1) : end;
 ```
 
+# private method callArgumentsOf:(bracket:any, ctx:any)=>Array<any>
+
+**一次调用右边那个括号里的实参**（第 1151 轮）：切顶层逗号 → 每组投成表达式 → 挡掉空组。
+
+**为什么立这一格**：这一段算式在本页出现过 **18 次**（`projectExpression` 里「紧跟一对圆括号
+就是一次调用」的每一条支），逐字重复的只有括号那一格的名字；按本文件一贯的口径
+（同一份事实一处声明），把它收成一格——18 处各留一次调用。
+判据一个字没改：`splitTopLevel` 仍按 `","` 切、空组仍给 `undefined`、`undefined` 仍然滤掉。
+
+```ts
+  return splitTopLevel(bracket.ProjectableKids, ",")
+    .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+    .filter((a) => a !== undefined);
+```
+
 # private method projectExpression:(kids:Array<any>, ctx:any)=>any
 
 一串单元 → 一个表达式。
@@ -6002,9 +6017,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             left = {
               kind: "CallExpression",
               expression: left,
-              arguments: splitTopLevel(bangHead.ProjectableKids, ",")
-                .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-                .filter((a: any) => a !== undefined),
+              arguments: callArgumentsOf(bangHead, ctx),
               pos: left.pos,
               end: endOf(bangHead),
             };
@@ -6098,9 +6111,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             const innerCall: any = {
               kind: "CallExpression",
               expression: left,
-              arguments: splitTopLevel(callHead.ProjectableKids, ",")
-                .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-                .filter((a) => a !== undefined),
+              arguments: callArgumentsOf(callHead, ctx),
               pos: left.pos,
               end: endOf(callHead),
             };
@@ -6155,9 +6166,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               const innerCall: any = {
                 kind: "CallExpression",
                 expression: left,
-                arguments: splitTopLevel(assertHead.ProjectableKids, ",")
-                  .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-                  .filter((a) => a !== undefined),
+                arguments: callArgumentsOf(assertHead, ctx),
                 pos: left.pos,
                 end: endOf(assertHead),
               };
@@ -6220,9 +6229,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             const innerCall = {
               kind: "CallExpression",
               expression: left,
-              arguments: splitTopLevel(callHead.ProjectableKids, ",")
-                .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-                .filter((a) => a !== undefined),
+              arguments: callArgumentsOf(callHead, ctx),
               pos: left.pos,
               end: endOf(callHead),
             };
@@ -6676,9 +6683,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     return {
       kind: "CallExpression",
       expression: base,
-      arguments: splitTopLevel(bracket.ProjectableKids, ",")
-        .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-        .filter((a) => a !== undefined),
+      arguments: callArgumentsOf(bracket, ctx),
       pos: base.pos,
       end: endOf(bracket),
     };
@@ -6743,9 +6748,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     node = {
       kind: "CallExpression",
       expression: left,
-      arguments: splitTopLevel(nameUnit.ProjectableKids, ",")
-        .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-        .filter((a: any) => a !== undefined),
+      arguments: callArgumentsOf(nameUnit, ctx),
       pos: left.pos,
       end: endOf(nameUnit),
     };
@@ -6913,9 +6916,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     return {
       kind: "CallExpression",
       expression: left,
-      arguments: splitTopLevel(head.ProjectableKids, ",")
-        .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-        .filter((a: any) => a !== undefined),
+      arguments: callArgumentsOf(head, ctx),
       pos: left.pos,
       end: endOf(head),
     };
@@ -7017,9 +7018,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const innerCall: any = {
           kind: "CallExpression",
           expression: left,
-          arguments: splitTopLevel(calleeKid.ProjectableKids, ",")
-            .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-            .filter((a: any) => a !== undefined),
+          arguments: callArgumentsOf(calleeKid, ctx),
           pos: left.pos,
           end: endOf(calleeKid),
         };
@@ -7036,9 +7035,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const innerCall: any = {
           kind: "CallExpression",
           expression: left,
-          arguments: splitTopLevel(calleeKid.ProjectableKids, ",")
-            .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-            .filter((a: any) => a !== undefined),
+          arguments: callArgumentsOf(calleeKid, ctx),
           pos: left.pos,
           end: endOf(calleeKid),
         };
@@ -7077,9 +7074,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       const call: any = {
         kind: "CallExpression",
         expression: left,
-        arguments: splitTopLevel(head.ProjectableKids, ",")
-          .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-          .filter((a) => a !== undefined),
+        arguments: callArgumentsOf(head, ctx),
         pos: left.pos,
         end: endOf(head),
       };
@@ -7127,9 +7122,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // `NullConditionalOperator`**、基名与它各占一个实参（实测：缺 `PropertyAccessExpression`
       // 与 `QuestionDotToken` 各一 + 多出一个 `NullConditionalOperator`）。
       // 与 `chainOnto` 里「紧跟一对圆括号 ⇒ 再调一次」那一支是同一个写法。
-      arguments: splitTopLevel(first.ProjectableKids, ",")
-        .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-        .filter((a) => a !== undefined),
+      arguments: callArgumentsOf(first, ctx),
       pos: left.pos,
       end: endOf(unit),
     };
@@ -7385,9 +7378,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             const innerCall: any = {
               kind: "CallExpression",
               expression: node,
-              arguments: splitTopLevel(callHead.ProjectableKids, ",")
-                .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-                .filter((a: any) => a !== undefined),
+              arguments: callArgumentsOf(callHead, ctx),
               pos: node.pos,
               end: endOf(callHead),
             };
@@ -7545,9 +7536,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       left = {
         kind: "CallExpression",
         expression: left,
-        arguments: splitTopLevel(unit.ProjectableKids, ",")
-          .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-          .filter((a) => a !== undefined),
+        arguments: callArgumentsOf(unit, ctx),
         pos: left.pos,
         end: endOf(unit),
       };
@@ -7579,9 +7568,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         asserted = {
           kind: "CallExpression",
           expression: left,
-          arguments: splitTopLevel(bangHead.ProjectableKids, ",")
-            .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-            .filter((a: any) => a !== undefined),
+          arguments: callArgumentsOf(bangHead, ctx),
           pos: left.pos,
           end: endOf(bangHead),
         };
@@ -7658,9 +7645,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           const innerCall: any = {
             kind: "CallExpression",
             expression: left,
-            arguments: splitTopLevel(assertHead.ProjectableKids, ",")
-              .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-              .filter((a) => a !== undefined),
+            arguments: callArgumentsOf(assertHead, ctx),
             pos: left.pos,
             end: endOf(assertHead),
           };
@@ -7725,9 +7710,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const innerCall: any = {
           kind: "CallExpression",
           expression: left,
-          arguments: splitTopLevel(callHead.ProjectableKids, ",")
-            .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-            .filter((a: any) => a !== undefined),
+          arguments: callArgumentsOf(callHead, ctx),
           pos: left.pos,
           end: endOf(callHead),
         };
@@ -7836,9 +7819,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           const innerCall: any = {
             kind: "CallExpression",
             expression: left,
-            arguments: splitTopLevel(calleeKid.ProjectableKids, ",")
-              .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-              .filter((a: any) => a !== undefined),
+            arguments: callArgumentsOf(calleeKid, ctx),
             pos: left.pos,
             end: endOf(calleeKid),
           };
@@ -7983,9 +7964,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           left = {
             kind: "CallExpression",
             expression: left,
-            arguments: splitTopLevel(member.ProjectableKids, ",")
-              .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-              .filter((a: any) => a !== undefined),
+            arguments: callArgumentsOf(member, ctx),
             pos: left.pos,
             end: endOf(member),
           };
