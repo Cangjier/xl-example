@@ -669,6 +669,10 @@ for (const file of files) {
  * 今天基类默认 `false`、八页常量答 `true`、`Identifier` / `Keyword` 在收完正文那一刻按正文赋。
  * 它与 `property-access.xl.md` 的 `IsChainBase`（解析期那一格）**不是同一份名单**，
  * 所以名字差一个 `Node`、两处各自守着自己那一问。
+ *
+ * **第 1077 轮再补一格**：`IsBareCall`（别名 `isBareCallMethod`）——「这一格是不是一次裸调用」
+ * 的三半（我是什么类、我的名字空不空、我第一个实义子单元是什么）全在 `Method` 那一页上，
+ * 今天基类给默认 `false`、`Method` 现算（`## property` + `### get`，读 `ProjectableKids`）。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -682,6 +686,7 @@ const CLASSIFY_ALIASES = {
   Segments: ["segmentKeysOf"],
   ModifierWords: ["declaredKeysOf"],
   ProjectableKids: ["projectableKids", "unwrapNodes"],
+  isBareCall: ["isBareCallMethod"],
 };
 /** 把一组问句名铺成一条或起来的分支（主名 + 缩写）。 */
 const classifyAlternation = (predicates) =>
@@ -700,6 +705,7 @@ const SELF_CLASSIFY_NAMES = [
   "ModifierWords",
   "ProjectableKids",
   "IsChainBaseNode",
+  "IsBareCall",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,

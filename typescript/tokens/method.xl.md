@@ -260,6 +260,41 @@ return index;
 的基名就是一格完整的 `Method`，所以这一页常量答 `true`——口径与两条理由见
 `../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
 
+## property IsBareCall:bool
+
+**我这一格是不是「裸的一次调用」**（第 965 轮立判据、第 1077 轮搬回本页）——名字为空、
+并且第一个实义子单元是**内层 `Method` / 实参括号 / `NotNull`**。
+
+**为什么要单独有一条**：`a?.[b]()()` 的 NCO 里第二格是 `Method(name="")[Bracket(())]`——
+那**是一次调用**，而**外面这一次调用只体现在它自己的区间上**（与第 962 轮「外面还有没有一层」
+是同一句话）。这种单元在交给 `chainOnto` 之前**不能摊开**：摊成裸括号之后那次调用就没有节点了、
+外层 `CallExpression` 的区间也短一格（实测 `gap-r964-opt-index-call-twice`：漂 2）。
+所以投影那一侧「摊开」那一步先读这一格，认了就把**整格**交给 `chainOnto`。
+
+`NotNull` 那一档同样要挡住摊开：`a?.b!()()` 里那一格是
+`Method(name="")[NotNull(b, !), …]`，摊开之后断言与名字都会掉出去。
+
+**为什么它住在这一页**（第 1077 轮）：原判据的第一句是 `unit.Tag !== "Method"`（**这一页的类名**），
+后两句读的是 `DeclaredName` 与本页自己的子单元——三件事全在这一格自己身上，
+而投影层替它记了一遍。搬过来之后基类那一格默认 `false`，**「我是不是 `Method`」那一问
+自然就没了**（不是 `Method` 的 token 拿到的是基类的默认档）。
+
+**为什么是 `## property` + `### get`（不是构造时赋的 `## field`）**：这一格读的是
+`ProjectableKids` / `DeclaredName`——子单元是**解析期陆续挂上来**的，所以「我这一格现在长什么样」
+只能在**读的那一刻**看一次（与基类 `HasChildren` / `ProjectableKids` 同一形态）。
+
+### get
+
+```ts
+  if (String(this.DeclaredName) !== "") return false;
+  const kids: any[] = this.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
+  if (kids.length === 0) return false;
+  const head = kids[0];
+  return head.Tag === "Method"
+    || (head.Tag === "Bracket" && head.startBracket === "(")
+    || head.Tag === "NotNull";
+```
+
 ## static method CommaOperator:(ctx:any, kid:any)=>bool
 
 **这一格是不是「顶层逗号」**（第 302 轮）：类型是 `BinaryOperator`、且它里面有一枚 `,` 符号。

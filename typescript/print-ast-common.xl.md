@@ -803,6 +803,33 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**74 格**（一格没增、一格没减；改的是 12 处调用点与这一节）。
 
+**第 1077 轮把「这一格是不是一次裸调用」整格搬回 `Method` 那一页**——本页的
+`isBareCallMethod(unit)` 整格删掉，唯一的调用点改读 **`unit.IsBareCall`**。
+
+| 改掉的那一格 | 原来 | 今天 |
+| --- | --- | --- |
+| 「名字为空、第一个实义子单元是内层 `Method` / 实参括号 / `NotNull`」 | 本页 `isBareCallMethod`（第一句先问 `unit.Tag !== "Method"`） | `Method.IsBareCall`（`## property` + `### get`，基类默认 `false`） |
+
+- **为什么它属于那一页**（判据与第 1041 / 1057 / 1062 / 1075 那几条同一条）：那一格的**每一半
+  事实都是 `Method` 自己的**——「我是不是 `Method`」就是这一页的类名、「我的名字空不空」读
+  `DeclaredName`、「我下面第一个实义子单元是什么」读自己的 `ProjectableKids`。本页留着它，
+  等于**替那一页记第二遍**。
+- **`unit.Tag !== "Method"` 那一句搬过去就没了**（不是漏写）：它是**基类那一格默认 `false`**
+  现在的职责——不是 `Method` 的 token 拿到的是默认档，而这里读的是属性、不必先问一句
+  「你是什么类」（与第 1074 轮 `IsCommaSymbol` 把 `Tag === "SymbolToken"` 那半句收进基类默认档
+  是同一手法）。
+- **为什么是 `## property` + `### get` 而不是构造时赋的 `## field`**：这一格读的是
+  `ProjectableKids` / `DeclaredName`——子单元与名字都是**解析期陆续挂上来**的，所以
+  「我这一格现在长什么样」只能在**读的那一刻**看一次（与基类 `HasChildren` /
+  `ProjectableKids` 同一形态，第 1064 / 1066 轮立的规矩）。
+- **判据跟着长**：`direct:lint` 第八条那一族多认一格（`IsBareCall` 配别名 `isBareCallMethod`）
+  ——下一轮谁把这一问写回投影层，这一门当场红。
+- **量法**：改完八道门读数**一处没动**——`coverage` **4261 / 4422**（`blocked 28` /
+  `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**74 → 73 格**（`isBareCallMethod` 一格；唯一的调用点改成属性读）。
+
 # private method synthName:(name:string, v:any, ctx:any)=>string
 
 ---------------------------------------------------------------------------
@@ -5209,32 +5236,6 @@ if (kind === "NotNull" || kind === "PropertyAccess") {
 return false;
 ```
 
-# private method isBareCallMethod:(unit:any)=>bool
-
-**这一格是不是「裸的一次调用」**（第 965 轮）——名字为空、并且第一个实义子单元是
-**内层 `Method` / 实参括号 / `NotNull`** 的 `Method`。
-
-**为什么要单独立一条**：`a?.[b]()()` 的 NCO 里第二格是
-`Method(name="")[Bracket(())]`——那**是一次调用**，而**外面这一次调用只体现在它自己的区间上**
-（与第 962 轮「外面还有没有一层」是同一句话）。这种单元在交给 `chainOnto` 之前
-**不能摊开**：摊成裸括号之后那次调用就没有节点了、外层 `CallExpression` 的区间也短一格
-（实测 `gap-r964-opt-index-call-twice`：漂 2）。所以「摊开」那一步要先问这一句，
-认了就把**整格**交给 `chainOnto`（它第 965 轮认了这一档）。
-
-`NotNull` 那一档同样要挡住摊开：`a?.b!()()` 里那一格是
-`Method(name="")[NotNull(b, !), …]`，摊开之后断言与名字都会掉出去。
-
-```ts
-  if (unit === undefined || unit === null || unit.Tag !== "Method") return false;
-  if (String(unit.DeclaredName) !== "") return false;
-  const kids = unit.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
-  if (kids.length === 0) return false;
-  const head = kids[0];
-  return head.Tag === "Method"
-    || (head.Tag === "Bracket" && head.startBracket === "(")
-    || head.Tag === "NotNull";
-```
-
 # method isCallFirstUnit:(unit:any, ctx:any)=>bool
 
 **这一格是不是「以一次调用开头」**（第 692 轮）——`isIndexFirstUnit` 的姊妹。
@@ -5826,7 +5827,10 @@ return false;
         // 摊开成裸括号之后 `chainOnto` 见到的只是内层那对实参括号 ⇒ 外层那次调用
         // **没有节点**、区间也短一格（实测 `gap-r964-opt-index-call-twice`：外层漂 2）。
         // 整格交给 `chainOnto`（它认了这一档）。
-        if (isBareCallMethod(unit)) {
+        // **第 1077 轮起读的是那一格自己的属性**（`Method.IsBareCall`，与 `Token.IsCommaSymbol`
+        // 同一形态：基类默认 `false`、`Method` 那一页现算）——「我是不是 `Method`」那一问
+        // 随之消失，投影不再替那一页记一遍。
+        if (unit.IsBareCall) {
           rest.push(unit);
           continue;
         }

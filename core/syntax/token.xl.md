@@ -1532,6 +1532,25 @@ return 7;
 return false;
 ```
 
+## property IsBareCall:bool
+
+**我这一格是不是「裸的一次调用」**（第 1077 轮）——**不是**的一律给 `false`。
+
+判据过去是投影层的一格 helper（`print-ast-common.xl.md` 的 `isBareCallMethod`：问 `Tag`、
+读 `DeclaredName`、再看第一个实义子单元是什么）——**三件事全在这一格自己身上**，
+所以与 `IsCommaSymbol` / `HasChildren` 同一条口径：**基类给默认档、需要它的那一页覆写同一个属性**
+（`Method.IsBareCall`，读时现算）。
+
+**为什么是 `## property` + `### get`（不是构造时赋的 `## field`）**：那一格读的是
+`ProjectableKids` / `DeclaredName`——子单元是**解析期陆续挂上来**的，所以「我这一格现在长什么样」
+只能在**读的那一刻**看一次（与 `HasChildren` / `ProjectableKids` 同一形态）。
+
+### get
+
+```ts
+return false;
+```
+
 ## field IsSignatureNode:bool = false
 
 **我这一格是不是「可调用签名」**（第 1040 轮）——是的话这一格是 `true`。
