@@ -3359,6 +3359,40 @@ return false;
 return false;
 ```
 
+## property CoreKids:Array<Token>
+
+**把这一格收尾那个 `!` 滤掉之后的子单元**（第 1178 轮）——不是断言单元的一律给**空数组**。
+
+判据过去在 `print-ast-common.xl.md` 里写过 **8 遍**
+（`.ProjectableKids.filter((k) => !k.IsNotNullSymbol)`，折链 / 折调用 / 断言位那几族各一遍）——
+而**两半事实都在这一格自己身上**（子单元是自己的 `ProjectableKids`、「哪一格是那个 `!`」
+由 `SymbolToken.IsNotNullSymbol` 答），所以与 `IsBareCall` / `IsIndexFirstUnit` / `IsCallUnit`
+同一条口径：**基类给默认档、需要它的那一页覆写同一个属性**（`NotNull.CoreKids`，读时现算）。
+
+**它与 `SymbolToken.IsNotNullSymbol` 不是同一问**：那一格答「我这一格**符号的正文**是不是 `!`」
+（收件人是那个符号），这一格答「**一个 `NotNull` 单元**里除开 `!` 还剩哪些格」（收件人是断言单元）——
+所以基类这一格给空数组＝「我这一格不是断言单元、没有核」。
+
+### get
+
+```ts
+return [];
+```
+
+## property CoreHead:Token | undefined
+
+**「断言里的那个核」那一格**（第 1178 轮）——不是断言单元的一律给 `undefined`。
+
+`print-ast-common.xl.md` 里 **6 处**要的是这一格（`const assertHead = callHead.CoreHead` /
+`const bangHead = unit.CoreHead` / …），它们原来各自写一遍「先滤、再取第一格、空就给 `undefined`」。
+口径与 `CoreKids` 同一条：基类给默认档、`NotNull` 那一页覆写。
+
+### get
+
+```ts
+return undefined;
+```
+
 ## property IsIndexFirstUnit:bool
 
 **我这一格是不是「以一次下标开头」**（第 1103 轮）——**不是**的一律给 `false`。

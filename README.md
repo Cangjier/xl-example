@@ -347,6 +347,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1178 轮：用户口径 1.3 / 1.6 / 1.7 —— 「把收尾那个 `!` 滤掉之后的那一格」在共享页里写过 **8 遍**，收成 `NotNull` 那一页的两格属性（`CoreKids` / `CoreHead`）；代码块 **3876 → 3855** 行、声明 54 格不变、ctx 出口 39 个不变
+
+**一句话**：一次非空断言在产物里是一个 `NotNull` 单元（里面装着**被断言者**与那个 `!`），
+而「断言里的那个核」在 `print-ast-common.xl.md` 里被**现场算了 8 遍**——折链、折调用、
+断言位那几族各写一遍逐字相同的
+`.ProjectableKids.filter((k) => !k.IsNotNullSymbol)`（其中 **6 遍**后面还各跟一句
+「取第一格、空就给 `undefined`」）。**两半事实都在这一格自己身上**
+（子单元是自己的 `ProjectableKids`、「哪一格是那个 `!`」由 `SymbolToken.IsNotNullSymbol` 答），
+所以按这一族一贯的口径（第 1041 / 1042 / 1057 / 1067 / 1068 / 1069 / 1078 / 1106 / 1149 那几条）
+收成**两格属性**：投影只读一次属性名，本页少 8 处算式 + 6 处取头。
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `X.ProjectableKids.filter((k) => !k.IsNotNullSymbol)`（**8 处**） | `X.CoreKids` | `typescript/tokens/not-null.xl.md` 的 `## property CoreKids:Array<Token>`（`### get`，读自己的 `ProjectableKids` 与各格的 `IsNotNullSymbol`） |
+| `const h = kids.length > 0 ? kids[0] : undefined;`（**6 处**：`assertHead` / `bangHead` / `innerName` …） | `X.CoreHead` | 同页的 `## property CoreHead:Token \| undefined`（`### get`：`CoreKids` 的第一格） |
+
+- **基类给默认档、需要它的那一页覆写**（与 `IsCommaSymbol` / `IsIndexFirstUnit` / `IsCallUnit` 同一条口径）：
+  `core/syntax/token.xl.md` 立两格基类属性（`CoreKids` 答**空数组**、`CoreHead` 答 `undefined`
+  ＝「我这一格不是断言单元、没有核」），`NotNull` 那一页覆写同一个属性名。
+- **顺手把那一页自己的两处也收了**：`IsIndexFirstUnit` / `IsCallFirstUnit` 原来各自写一遍
+  「先滤、再取第一格」——这一轮起都读 `this.CoreHead`（同一页上同一个读法只留一处）。
+- **`IsNotNullSymbol` 还剩 2 处，是另一问**：那两处是
+  `X.find((k) => k.IsNotNullSymbol)`——**把那个 `!` 自己找出来**（不是「核是哪一格」），
+  所以它们不进这一格（本页实测：`IsNotNullSymbol` 的活代码读点 **10 → 2**）。
+- **读数的分母没动**：`cases:direct` 1640 份**不抛异常**、投影 **21793** / token 自己出 **16489**（75.7%）
+  ——与第 1176 / 1177 轮逐项相同；这一轮换的是**算式在哪一页**，不是产物。
+
+**实测**：`xl check` **0 条**（core + typescript）；`xl build`（插件工具，`--force`）**156 written / 0 error**；
+`npx tsc`（strict）**0 error**；`direct:lint` **0 条违反**（75 段全扫到、ctx 出口 **39 个**、
+声明里 `any` 0 处、投影读的 146 个 PascalCase 属性全部有声明）；`runtime:check` 243 / 0；
+`runtime:cli` 79 / 0；`samples` ok；`cases:check` **1656 条 0 不合格**；
+`cases:tsast` 16 片 **15 通过 / 1 失败**（仍是 HEAD 上既有的 `runtime/round741/002`）；
+`coverage` **4260 / 4422**（blocked 28、differ 134、bad 0、加权 95.7%）。
+本页记账：`typescript/print-ast-common.xl.md` 代码块（不带注释）**3876 → 3855 行**、
+`^# (private )?(method|const|property) ` **54 格不变**（这一轮删的是算式、不是声明）。
+
 ### 第 1177 轮：用户口径 1.3 / 1.6 —— 共享投影页里那三处「回原文读一个字符」收掉（`projectLetFrom` 的尾分号 → 新立 `Token.ProjectionEndBeforeSemicolon`、`projectDeclaration` 的两格字符 → 读那一格自己的 `Text`）；`ctx.source` 在共享页的读点 **13 → 10**、代码块 3876 行不变、声明 54 格不变
 
 **一句话**：这一轮接着第 1049 / 1053 / 1172 轮那条线——「某一格自己的那一段正文，由它自己答；

@@ -254,6 +254,43 @@ return result;
 这一格单元」——一次断言在产物里是**一个** `NotNull` 单元（装着被断言者 + 那个 `!`），
 所以两问的收件人根本不同（一个在 `SymbolToken` 那一页、一个在这里）。
 
+## property CoreKids:Array<Token>
+
+**把这一格收尾那个 `!` 滤掉之后的子单元**（第 1178 轮）：一次断言在产物里是一个
+`NotNull` 单元（里面装着**被断言者**与 `!`），所以「断言里的那个核」就是这一批。
+
+**为什么立这一格**（用户口径 1.3 / 1.6）：这一句判据
+（`.ProjectableKids.filter((k) => !k.IsNotNullSymbol)`）在 `print-ast-common.xl.md` 里
+写过 **8 遍**（折链、折调用、断言位那几族各写一遍），而**每一件输入都在这一页自己身上**——
+子单元是自己的 `ProjectableKids`、「哪一格是那个 `!`」由 `SymbolToken.IsNotNullSymbol` 答。
+按这一族一贯的口径（第 1041 / 1042 / 1057 / 1067 / 1068 / 1069 / 1078 / 1106 / 1149 那几条）
+收成这一格属性：投影那一侧只读一次属性名，本页少 8 处现场算式。
+
+**形态与 `IsIndexFirstUnit` / `IsCallFirstUnit` 同款**（`## property` + `### get`，读时现算）：
+不是断言单元的那些页面由**基类那一格**答空数组（见 `../../core/syntax/token.xl.md`）。
+
+### get
+
+```ts
+return this.ProjectableKids.filter((k: any) => !k.IsNotNullSymbol);
+```
+
+## property CoreHead:Token | undefined
+
+**「断言里的那个核」那一格**（第 1178 轮）：`CoreKids` 的第一格，没有就给 `undefined`。
+
+**它与 `CoreKids` 不是同一问**：`CoreKids` 是「核那一批子单元」（有几个读者的确要用整批），
+这一格只答「核是**哪一格**」——`print-ast-common` 里 **6 处**要的都是这一格
+（`const assertHead = callHead.CoreHead` / `const bangHead = unit.CoreHead` / …），
+它们原来各自写一遍「先滤、再取第一格、空就给 `undefined`」。
+
+### get
+
+```ts
+const inner = this.CoreKids;
+return inner.length >= 1 ? inner[0] : undefined;
+```
+
 ## property IsIndexFirstUnit:bool
 
 **我这一格是不是「以一次下标开头」**（第 1103 轮）——`o.b![1]![0]` 里第二格是
@@ -264,11 +301,12 @@ return result;
 还是再套着一层断言，各由各自那一页答，这一页不替它们判（`ArrayLiteral` / `Bracket` 那两页
 自己答 `true`）。口径与理由见 `../../core/syntax/token.xl.md` 的 `IsIndexFirstUnit`。
 
+**第 1178 轮起「核」那一格读 `this.CoreHead`**（同一页上同一个读法只留一处）。
+
 ### get
 
 ```ts
-const inner = this.ProjectableKids.filter((k: any) => !k.IsNotNullSymbol);
-const head = inner.length >= 1 ? inner[0] : undefined;
+const head = this.CoreHead;
 return head !== undefined && head.IsIndexFirstUnit;
 ```
 
@@ -282,11 +320,12 @@ return head !== undefined && head.IsIndexFirstUnit;
 还是一格 `Method`，各由各自那一页答。口径与理由见
 `../../core/syntax/token.xl.md` 的 `IsCallFirstUnit`。
 
+**第 1178 轮起「核」那一格读 `this.CoreHead`**（与上一格同一个读法）。
+
 ### get
 
 ```ts
-const inner = this.ProjectableKids.filter((k: any) => !k.IsNotNullSymbol);
-const head = inner.length >= 1 ? inner[0] : undefined;
+const head = this.CoreHead;
 return head !== undefined && head.IsCallFirstUnit;
 ```
 

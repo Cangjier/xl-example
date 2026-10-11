@@ -6164,10 +6164,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
           // 建出来（`assertedMember` 只认名字）。**判据与另外几处一字不差**：
           // `Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
           if (bareName === "" && callHead !== undefined && callHead.IsNotNull) {
-            const assertKids = callHead.ProjectableKids.filter(
-              (k: any) => !k.IsNotNullSymbol,
-            );
-            const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
+            const assertHead = callHead.CoreHead;
             // **断言里的核是一格 `Method`**（第 975 轮）：`a!()()!()` 的这一格是
             // `Method(name=""[NotNull(Method(name=""[Bracket(())]), !), Bracket(())])`——
             // 断言盖的**不是一对括号**、而是**一格调用单元**（那一格自己还盖着两层调用，
@@ -6267,9 +6264,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // 照名字那一支投会得到一个盖住整段 `Pre()` 的 `Identifier`
       // （实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
       if (next.IsNotNull) {
-        const asserted = next.ProjectableKids.filter(
-          (k) => !k.IsNotNullSymbol,
-        );
+        const asserted = next.CoreKids;
         const head = asserted[0];
         if (head !== undefined && head.IsMethodNode) {
           const raw = head.DeclaredName;
@@ -6396,10 +6391,8 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // `Identifier` / `PropertyAccessExpression` / `NonNullExpression` 三处同时错位
       // （实测漂移 76 + 30 + 33、多出 71 + 75）。
       if (next.IsNotNull) {
-        const inner = next.ProjectableKids.filter(
-          (k) => !k.IsNotNullSymbol,
-        );
-        const target = inner.length > 0 ? inner[0] : undefined;
+        const inner = next.CoreKids;
+        const target = next.CoreHead;
         if (target !== undefined && target.IsPropertyAccess) {
           const members = target.ProjectableKids;
           if (members.length > 0) {
@@ -7091,10 +7084,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // 折法与 `chainOnto` 的子链分支**一字不差**：先接成员（`?.` 挂在**内层**那一格），
       // 再把 `!` 套在**整条链**上、位置取那一格自己的末端。
       if (member.IsNotNull) {
-        const bangKids = member.ProjectableKids.filter(
-          (k: any) => !k.IsNotNullSymbol,
-        );
-        const innerName = bangKids.length > 0 ? bangKids[0] : undefined;
+        const innerName = member.CoreHead;
         if (innerName !== undefined) {
           const holder: any =chainOn("PropertyAccessExpression", node, { expression: node, name: innerName.NameNode }, innerName.end);
           if (pending !== undefined) {
@@ -7135,10 +7125,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
             // 缺两个 `CallExpression`、`ElementAccessExpression` 的区间只到 `]`）。
             // **做法与 `chainOnto` 那一处一字不差**：先把「下标 + `!`」折成 `NonNull`，
             // 再把外面那次调用套上去（`?.` 挂在里面那次下标上——TS 就是这么放的）。
-            const assertKids = callHead.ProjectableKids.filter(
-              (k: any) => !k.IsNotNullSymbol,
-            );
-            const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
+            const assertHead = callHead.CoreHead;
             if (assertHead !== undefined && assertHead.IsIndexBracket) {
               const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, assertHead.end);
               if (pending !== undefined) element.questionDotToken = pending;
@@ -7301,10 +7288,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     // `gap-r973-opt-assert-index-index-member`：缺 5 漂 2）。
     // **次序是语义**：TS 是 `((a?.b![0])![1])`——先把下标接上、再把 `!` 套在那个结果上。
     if (unit.IsNotNull) {
-      const bangKids = unit.ProjectableKids.filter(
-        (k: any) => !k.IsNotNullSymbol,
-      );
-      const bangHead = bangKids.length > 0 ? bangKids[0] : undefined;
+      const bangHead = unit.CoreHead;
       let asserted: any = left;
       if (bangHead !== undefined && bangHead.IsIndexBracket) {
         asserted =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(bangHead.ProjectableKids, ctx) }, bangHead.end);
@@ -7363,10 +7347,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         //（实测 `gap-r964-nonnull-call-assert-call`：缺两个 `CallExpression`、
         //  `NonNullExpression` 的区间只到 `a!`）。
         // **判据与别的几处一字不差**：`Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
-        const assertKids = callHead.ProjectableKids.filter(
-          (k: any) => !k.IsNotNullSymbol,
-        );
-        const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
+        const assertHead = callHead.CoreHead;
         if (assertHead !== undefined && assertHead.IsParenBracket) {
           const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(assertHead, ctx) }, assertHead.end);
           const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
@@ -7444,11 +7425,9 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     if (next.IsNotNull) {
       bangUnit = next;
       bangEnd = bangUnit.end;
-      const inner = next.ProjectableKids.filter(
-        (k: any) => !k.IsNotNullSymbol,
-      );
-      if (inner.length === 0) break;
-      next = inner[0];
+      const inner = next.CoreHead;
+      if (inner === undefined) break;
+      next = inner;
     }
     if (next.IsMethodNode) {
       const name = next.DeclaredName;
