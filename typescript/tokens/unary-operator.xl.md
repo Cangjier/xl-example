@@ -704,7 +704,7 @@ return index + 1;
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
   const declaredOp = typeof v.op === "string" ? v.op : "";
@@ -714,7 +714,7 @@ return index + 1;
   // 投成 `TypeOfKeyword`、缺 `MetaProperty` + `Identifier`）。
   // 按**文本**找不会认错：`op` 那一格是唯一的（`typeof` / `void` / `delete` 是词，
   // 其余是符号），而操作数那些单元（链 / 括号 / 调用 / 嵌套一元）的文本都比它长。
-  let opIndex = declaredOp !== "" ? kids.findIndex((k: any) => ctx.ValueOf(k) === declaredOp) : -1;
+  let opIndex = declaredOp !== "" ? kids.findIndex((k: any) => k.TextValue === declaredOp) : -1;
   if (opIndex < 0) {
     opIndex = kids.findIndex((k: any) => k.IsOperatorUnit);
   }
@@ -739,7 +739,7 @@ return index + 1;
   //
   // **值位的一元节点是在这一层造的**，不在 `print-ast-common` 那条通用路里——
   // 我在那边先后加过两处挂钩，从来没执行过（第 64 / 65 / 66 轮实测才定位到这里）。
-  const operatorText = opIndex >= 0 ? ctx.ValueOf(kids[opIndex]) : declaredOp;
+  const operatorText = opIndex >= 0 ? kids[opIndex].TextValue : declaredOp;
   return ctx.Node(isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression",
     { operand, operator: operatorText }, v);
 ```

@@ -457,7 +457,7 @@ rebuilt.push(parameter);
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids0 = ctx.Kids(v);
   // **约束被整个包进一个节点时要摊开**（第 846 轮）：`<X extends A extends B ? C : D>` 里
@@ -487,20 +487,20 @@ rebuilt.push(parameter);
   const kids = wrapped === undefined ? kids0 : flattenInner([...prefix, ...unionKids, ...tail]);
   const extIndex = kids.findIndex(
     (k: any) =>
-      (k.Tag === "Keyword" || k.Tag === "Identifier") && ctx.ValueOf(k) === "extends",
+      (k.Tag === "Keyword" || k.Tag === "Identifier") && k.TextValue === "extends",
   );
   const eqIndex = kids.findIndex(
-    (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=",
+    (k: any) => k.Tag === "SymbolToken" && k.TextValue === "=",
   );
   const inIndex = kids.findIndex(
-    (k: any) => (k.Tag === "Keyword" || k.Tag === "Identifier") && ctx.ValueOf(k) === "in",
+    (k: any) => (k.Tag === "Keyword" || k.Tag === "Identifier") && k.TextValue === "in",
   );
   // 名字 = 第一个 Identifier，但要排掉 `extends`（词法身份不固定）与修饰词
   //（`out` 在产物里就是 `Identifier`，不排掉的话 `<out T>` 会把 `out` 当成名字）。
   const nameIndex = kids.findIndex(
     (k: any) =>
       k.Tag === "Identifier" &&
-      ctx.ValueOf(k) !== "extends" &&
+      k.TextValue !== "extends" &&
       !k.IsTypeParameterModifier,
   );
   const nameNode = nameIndex >= 0 ? kids[nameIndex] : undefined;
@@ -519,11 +519,11 @@ rebuilt.push(parameter);
       // 后面三个名字整片丢掉（实测 `type-param-conditional-constraint`：缺 `ConditionalType`
       // + `B` / `C` / `D` 三对 `TypeReference`/`Identifier`）。
       // 判据与 `conditionalNode` 自己那一套同源：这一段里有顶层 `?` 与 `:`，且 `extends` 前面有 checkType。
-      const isSym = (k: any, text: string) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === text;
+      const isSym = (k: any, text: string) => k.Tag === "SymbolToken" && k.TextValue === text;
       const hasQuestion = body.some((k: any) => isSym(k, "?"));
       const hasColon = body.some((k: any) => isSym(k, ":"));
       const bodyExt = body.findIndex(
-        (k: any) => (k.Tag === "Keyword" || k.Tag === "Identifier") && ctx.ValueOf(k) === "extends",
+        (k: any) => (k.Tag === "Keyword" || k.Tag === "Identifier") && k.TextValue === "extends",
       );
       props.constraint =
         hasQuestion && hasColon && bodyExt > 0
@@ -541,11 +541,11 @@ rebuilt.push(parameter);
         ? kids0[wrappedIndex - 1]
         : undefined;
     const isDefaultUnion =
-      eqUnit !== undefined && eqUnit.Tag === "SymbolToken" && ctx.ValueOf(eqUnit) === "=";
+      eqUnit !== undefined && eqUnit.Tag === "SymbolToken" && eqUnit.TextValue === "=";
     props.default = isDefaultUnion ? ctx.Project(wrapped) : ctx.TypeOf(kids.slice(eqIndex + 1));
   } else {
     const tailEq = tail.findIndex(
-      (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=",
+      (k: any) => k.Tag === "SymbolToken" && k.TextValue === "=",
     );
     if (tailEq >= 0) props.default = ctx.TypeOf(tail.slice(tailEq + 1));
   }
@@ -559,7 +559,7 @@ rebuilt.push(parameter);
       ["const", "ConstKeyword"],
     ]);
     props.modifiers = modifiers.map((k: any) => {
-      const word = ctx.ValueOf(k);
+      const word = k.TextValue;
       const kind = modifierKinds.get(word);
       if (kind === undefined) {
         return ctx.Project(k);
@@ -585,7 +585,7 @@ rebuilt.push(parameter);
     const firstMember = members.length > 0 ? members[0] : [];
     const extAt = firstMember.findIndex(
       (k: any) =>
-        (k.Tag === "Keyword" || k.Tag === "Identifier") && ctx.ValueOf(k) === "extends",
+        (k.Tag === "Keyword" || k.Tag === "Identifier") && k.TextValue === "extends",
     );
     const head = extAt >= 0 ? firstMember.slice(extAt + 1) : firstMember;
     const types: any[] = [];

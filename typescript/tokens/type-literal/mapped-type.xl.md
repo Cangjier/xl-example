@@ -56,7 +56,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
       for (const inner of ctx.UnwrapNodes(k)) flat.push(inner);
       continue;
     }
-    if (k.Tag === "SymbolToken" && ctx.ValueOf(k) === ";") {
+    if (k.Tag === "SymbolToken" && k.TextValue === ";") {
       continue;
     }
     flat.push(k);
@@ -73,13 +73,13 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
     const k = flat[i];
     const kind = k.Tag;
     const word =
-      kind === "Keyword" || kind === "Identifier" || kind === "SymbolToken" ? ctx.ValueOf(k) : "";
+      kind === "Keyword" || kind === "Identifier" || kind === "SymbolToken" ? k.TextValue : "";
     if (word === "readonly") {
       readonlyToken = ctx.Project(k);
       continue;
     }
     if (word === "-" || word === "+") {
-      const next = i + 1 < flat.length ? ctx.ValueOf(flat[i + 1]) : "";
+      const next = i + 1 < flat.length ? flat[i + 1].TextValue : "";
       if (next === "readonly") {
         readonlyToken = ctx.Project(k);
         i++;
@@ -99,7 +99,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
       const condParts = cond === undefined ? [] : ctx.Kids(cond);
       const asAt = condParts.findIndex(
         (x: any) =>
-          (x.Tag === "Keyword" || x.Tag === "Identifier") && ctx.ValueOf(x) === "as",
+          (x.Tag === "Keyword" || x.Tag === "Identifier") && x.TextValue === "as",
       );
       if (asAt > 0) {
         const tp = condParts.find((x: any) => x.Tag === "TypeParameter");
@@ -110,7 +110,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
       }
       const flatAs = parts.findIndex(
         (x: any) =>
-          (x.Tag === "Keyword" || x.Tag === "Identifier") && ctx.ValueOf(x) === "as",
+          (x.Tag === "Keyword" || x.Tag === "Identifier") && x.TextValue === "as",
       );
       if (flatAs > 0) {
         const tp = parts.find((x: any) => x.Tag === "TypeParameter");

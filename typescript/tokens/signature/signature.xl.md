@@ -770,7 +770,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 上面那一份里只有两处回原文查：
 
-- **`abstract` 那个词**：`ctx.TextOf(k)` → `ctx.ValueOf(k)`（只读那一格记的 `value`）；
+- **`abstract` 那个词**：`ctx.TextOf(k)` → `k.TextValue`（只读那一格记的 `value`）；
 - **结尾那个 `;`**：`ctx.source[StmtEndOf(v)]` 换成 `ctx.SemicolonEndOf`——它与原来那一眼
   **同一份实现**（跳空白与注释、再看一个字符是不是 `;`，第 838 / 840 轮那条口径；
   `Namespace` / `Import` 的直出版也是这么写的）。
@@ -780,7 +780,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   let kind = v.kind === "construct" ? "ConstructSignature" : "CallSignature";
   const props: any = ctx.Structural(v, kind);
   const kids = ctx.Kids(v);
-  const abstractUnit = kids.find((k: any) => ctx.ValueOf(k) === "abstract");
+  const abstractUnit = kids.find((k: any) => k.TextValue === "abstract");
   if (kind === "ConstructSignature" && abstractUnit !== undefined) {
     kind = "MethodSignature";
     const at = ctx.StartOf(abstractUnit);

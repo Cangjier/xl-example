@@ -346,6 +346,11 @@ let staleNameHits = 0;
  * （它找的正是注释）——那个出口随之删掉，三处调用点（`try` 两处、`if-set` 一处）改成
  * `ctx.Kids`（同一格读数的另一个名字，语义逐字相同）。出口删了就补进这张表，
  * 免得下一轮有人往 `ctx` 里补一行再把「我看得见 trivia」请回来。
+ *
+ * **第 1069 轮再补一个出口名 `ValueOf`**：它读的是「这一格自己记的 `value`」
+ * （`typeof one.value === "string" ? one.value : ""`），而 `value` 是**各页自己的一个字段**
+ * ——收成 `core/syntax/token.xl.md` 的 `Token.TextValue`（基类 `## property` + `### get`）之后，
+ * 16 页 58 处调用点全改成属性读，出口随之删掉。同上：出口删了就补进这张表。
  */
 const CTX_BANNED = [
   "Text",
@@ -364,6 +369,7 @@ const CTX_BANNED = [
   "IsTypeParameterModifier",
   "OperatorRank",
   "AllKids",
+  "ValueOf",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。

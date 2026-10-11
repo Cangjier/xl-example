@@ -264,7 +264,7 @@ return index;
 ```ts
 if (kid.Tag !== "BinaryOperator") return false;
 for (const inner of ctx.Kids(kid)) {
-  if (inner.Tag === "SymbolToken" && ctx.ValueOf(inner) === ",") return true;
+  if (inner.Tag === "SymbolToken" && inner.TextValue === ",") return true;
 }
 return false;
 ```
@@ -317,7 +317,7 @@ while (true) {
 const groups: any[] = [];
 let current: any[] = [];
 for (const kid of pending) {
-  if (kid.Tag === "SymbolToken" && ctx.ValueOf(kid) === ",") {
+  if (kid.Tag === "SymbolToken" && kid.TextValue === ",") {
     groups.push(current);
     current = [];
     continue;
@@ -338,8 +338,8 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
 `ParenAt`（`Process` 认下这次调用时**当场记的**实参表 `(` 的位置）之后的第一个 `(` 括号单元。
 
 **「第一个子单元与被调用者同名」也照直出版的规矩改**：`PrintDirectAst` 里那句走的是
-`ctx.TextOf`，直出版换 `ctx.ValueOf`（只读那一格自己记的 `value`，不回原文兜底）——
-对「简单名 + 括号」两处是同一个答案。
+`ctx.TextOf`，直出版读 **`calleeKid.TextValue`**（那一格自己记的 `value`，第 1069 轮起是
+token 自己的一格属性；不回原文兜底）——对「简单名 + 括号」两处是同一个答案。
 
 ```ts
   const kids = ctx.Kids(v);
@@ -418,7 +418,7 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
   const calleeKid = kids.length > 0 ? kids[0] : undefined;
   const calleeComesFirst =
     calleeText === "" ||
-    (calleeKid !== undefined && ctx.ValueOf(calleeKid) === calleeText);
+    (calleeKid !== undefined && calleeKid.TextValue === calleeText);
   if (ncos.length > 0 && calleeComesFirst) {
     const firstNco = kids.findIndex((k: any) => k.Tag === "NullConditionalOperator");
     const beforeNco = firstNco > 0 ? kids.slice(0, firstNco) : [];

@@ -327,10 +327,10 @@ return node;
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.Tag === "SymbolToken" && ["...", "?"].includes(ctx.ValueOf(k))),
+    (k: any) => !(k.Tag === "SymbolToken" && ["...", "?"].includes(k.TextValue)),
   );
   const props: any = {};
   const inner = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
@@ -385,10 +385,10 @@ return result;
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.Tag === "SymbolToken" && ["...", "?"].includes(ctx.ValueOf(k))),
+    (k: any) => !(k.Tag === "SymbolToken" && ["...", "?"].includes(k.TextValue)),
   );
   const props: any = {};
   const inner = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
@@ -447,7 +447,7 @@ return result;
 
 | `PrintDirectAst` 里的那一句 | 直出版读哪一格 |
 | --- | --- |
-| `ctx.TextOf(k)`（`...` / `this` / `?`） | `ctx.ValueOf(k)`——只读那一格记的 `value` |
+| `ctx.TextOf(k)`（`...` / `this` / `?`） | `k.TextValue`——只读那一格记的 `value` |
 | `ctx.source[typeStart] === "?"`（问号被吞进 `TypeDefine`） | `TypeDefine.QuestionAt`（第 996 轮补的那一格，`>= 0` 就是「这一格以 `?` 开头」） |
 | `ctx.source[EndOf(optional) - 1] === "?"`（问号夹在名字与冒号之间） | 那个 `OptionalType` **自己的** `SymbolToken("?")` 子单元——位置就是它的起点 |
 
@@ -457,14 +457,14 @@ return result;
 
 ```ts
   const kids = ctx.Kids(v);
-  const dots = kids.find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "...");
+  const dots = kids.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "...");
   const spread = kids.find((k: any) => k.Tag === "Spread");
   const nameNode = kids.find((k: any) => k.Tag === "Identifier" || k.Tag === "Keyword");
   const typeNode = kids.find((k: any) => k.Tag === "TypeDefine");
   const props: any = {};
   if (nameNode !== undefined) {
     props.name =
-      nameNode.Tag === "Keyword" && ctx.ValueOf(nameNode) === "this"
+      nameNode.Tag === "Keyword" && nameNode.TextValue === "this"
         ? { kind: "Identifier", text: "this", pos: ctx.StartOf(nameNode), end: ctx.EndOf(nameNode) }
         : ctx.Project(nameNode);
   }
@@ -487,11 +487,11 @@ return result;
       // **`?` 落在成员中间时它是 `OptionalType` 的尾巴**（第 900 轮）：那一格自己带着
       // 那个 `SymbolToken("?")`（它把 `?` 从内容里排掉，所以只在这一格上找得到）。
       const optional = kids.find((k: any) => k.Tag === "OptionalType");
-      const flat = kids.find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "?");
+      const flat = kids.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "?");
       if (optional !== undefined) {
         const mark = ctx
           .KidsOf(optional, "children")
-          .find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "?");
+          .find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "?");
         if (mark !== undefined) {
           const at = ctx.StartOf(mark);
           props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };

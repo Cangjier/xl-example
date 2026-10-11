@@ -291,12 +291,12 @@ return ReplaceCountAt(units, index, units.length - index, result);
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
   const props: any = {};
   let i = 0;
-  if (i < kids.length && kids[i].Tag === "Keyword" && ctx.ValueOf(kids[i]) === "asserts") {
+  if (i < kids.length && kids[i].Tag === "Keyword" && kids[i].TextValue === "asserts") {
     props.assertsModifier = ctx.Project(kids[i]);
     i++;
   }
@@ -304,7 +304,7 @@ return ReplaceCountAt(units, index, units.length - index, result);
     props.parameterName = ctx.Project(kids[i]);
     i++;
   }
-  if (i < kids.length && ctx.ValueOf(kids[i]) === "is") {
+  if (i < kids.length && kids[i].TextValue === "is") {
     i++;
   }
   if (i < kids.length) {

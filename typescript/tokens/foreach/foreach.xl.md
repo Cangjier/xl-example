@@ -293,7 +293,7 @@ return index;
     }
     // **判据是段里有没有那个声明词**（第 982 轮）：直出版读那一格自己记的值。
     const isDeclareWordKid = (k: any) => {
-      const text = ctx.ValueOf(k);
+      const text = k.TextValue;
       return text === "const" || text === "let" || text === "var" || text === "using";
     };
     if (props.initializer === undefined) {
@@ -326,7 +326,7 @@ return index;
   }
   if (statement !== undefined) props.statement = statement;
   const awaitUnit = ctx.Kids(v).find(
-    (k: any) => k.Tag === "Keyword" && ctx.ValueOf(k) === "await",
+    (k: any) => k.Tag === "Keyword" && k.TextValue === "await",
   );
   if (kind === "ForOfStatement" && awaitUnit !== undefined) {
     props.awaitModifier = ctx.Project(awaitUnit);

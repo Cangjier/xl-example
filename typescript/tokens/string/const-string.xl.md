@@ -343,7 +343,7 @@ while (true) {
 
 ```ts
   const content = ctx.KidsOf(v, "children").find((k: any) => k.Tag === "ConstString");
-  return ctx.Node("StringLiteral", { text: content === undefined ? "" : ctx.ValueOf(content) }, v);
+  return ctx.Node("StringLiteral", { text: content === undefined ? "" : content.TextValue }, v);
 ```
 
 ## property StringText:string

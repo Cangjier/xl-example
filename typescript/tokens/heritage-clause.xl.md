@@ -240,7 +240,7 @@ while (index < data.length) {
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
   // **子句词是节点的属性、不参与遍历**（TS 那边就是这样）——
@@ -266,10 +266,10 @@ while (index < data.length) {
     const k = kids[i];
     if (
       (k.Tag === "Keyword" || k.Tag === "Identifier") &&
-      (ctx.ValueOf(k) === "extends" || ctx.ValueOf(k) === "implements")
+      (k.TextValue === "extends" || k.TextValue === "implements")
     ) {
       // **一条子句里只可能有一个子句词**，取到就走（后面那几个是实体名）。
-      if (clauseWord === "") clauseWord = ctx.ValueOf(k);
+      if (clauseWord === "") clauseWord = k.TextValue;
       continue;
     }
     kept.push(k);

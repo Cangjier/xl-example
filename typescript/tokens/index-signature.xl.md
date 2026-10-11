@@ -40,7 +40,7 @@ TS 那边 `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型�
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
   const params = kids.filter((k: any) => k.Tag === "Parameter");
@@ -49,7 +49,7 @@ TS 那边 `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型�
   const modifierUnits = kids.filter(
     (k: any) =>
       (k.Tag === "Keyword" || k.Tag === "Identifier") &&
-      (ctx.ValueOf(k) === "readonly" || ctx.ValueOf(k) === "static"),
+      (k.TextValue === "readonly" || k.TextValue === "static"),
   );
   const props: any = {};
   if (params.length > 0) {

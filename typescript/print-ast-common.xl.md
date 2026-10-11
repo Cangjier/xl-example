@@ -334,7 +334,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 - **键就是那一页自己的正文**：与 `KEYWORD_KIND`（第 1028 轮）、`SYMBOL_TOKEN_KIND`（同页）
   同一条口径——所以这是「投影层不再有按文本查词的中央表」那句话的最后一格。
 - **读法只有一处**：本页那六处 `operatorRank(textOfNode(x))` 全部改成 `x.OperatorRank`
-  （属性读），`binary-operator` / `logical-operator` 那两页的 `ctx.OperatorRank(ctx.ValueOf(kids[i]))`
+  （属性读），`binary-operator` / `logical-operator` 那两页的 `ctx.OperatorRank(kids[i].TextValue)`
   同理——**出口删了，同一格事实就不会有第二个入口**。
 - **那一格是 `## property` + `### get`（不是 `## field`），而且这是量出来的**：先按
   `Close()` 里赋值的 `## field` 写过一版，`coverage` 当场从 **4260 / 4422** 掉到
@@ -9270,20 +9270,21 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       return out.length === 0 ? undefined : out;
     },
     Project: (node) => projectNode(node, ctx),
-    // **直出版要的那个读数**（第 992 轮）：只读这一格**自己记的** `value`，**不回原文兜底**。
-    // 值不在这一格上时给**空串**（不猜），于是「同一份输入投两遍」的判据会当场点名，
-    // 而该做的事是**把这个值记到 token 上**（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+    // **`ValueOf` 这个出口第 1069 轮删掉了**（它原来就挂在这里）：它读的是「这一格自己记的
+    // `value`」——`typeof one.value === "string" ? one.value : ""`——而 `value` 是**各页自己的
+    // 一个字段**（`SymbolToken` / `Keyword` / 注释那一族 / `BlockToken`…）。按这一族的判据
+    // （第 1041 / 1042 / 1057 那几条）：答案在**这一格自己**身上、而且**收完正文那一刻**就定下来了
+    // ⇒ 第 1069 轮把它收成 `core/syntax/token.xl.md` 的 `Token.TextValue`（基类 `## property` +
+    // `### get`，取值口径与这一格逐字符相同），16 页 58 处调用点全改成属性读。
+    // 出口删了，同一格事实就不会有第二个入口；名字补进 `direct:lint` 的 `CTX_BANNED`
+    // （写回来这一门当场红）。下面那一句记的是第 1015 轮删掉那三个「回原文」出口时的账：
     //
     // **第 1015 轮：ctx 上那三个「回原文」的出口整条删掉**——`Text` / `TextOf` / `StringText`
     // 的实现在值为空时会去 `source.slice(...)`（正是直出版不许有的第二份近似）。老路
     // （`PrintAst`）删掉之后，这三个出口就只剩注解里的名字：全仓唯一一处真实调用是
-    // `method.xl.md` 的 `ctx.TextOf(inner) === ","`（第 1015 轮改成 `ctx.ValueOf`）。
+    // `method.xl.md` 的 `ctx.TextOf(inner) === ","`（第 1015 轮改成 `ctx.ValueOf`，
+    // 第 1069 轮再改成读 `inner.TextValue`）。
     // ⇒ 现在「这一层拿不到原文」是**结构上的事**，不是靠逐页扫描拦下来的。
-    ValueOf: (node) => {
-      const one = node;
-      const value = one.value;
-      return typeof value === "string" ? value : "";
-    },
     // **字符串 / 模板串这一格**（第 99 轮）：模板串要递归投内插里的表达式或类型，
     // 那不是 token 层能做的事，所以实现留在 `projectString`、由 token 的 `PrintDirectAst` 转过来。
     Template: (view) => projectString(view, ctx),

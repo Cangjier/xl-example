@@ -297,7 +297,7 @@ return index;
 
 | `PrintDirectAst` 里的那一句 | 直出版读哪一格 |
 | --- | --- |
-| `ctx.TextOf(word)` / `ctx.TextOf(k)`（`with` / `assert` / `:` / `from` / `=` / `as` / `*`） | `ctx.ValueOf(...)`——只读那一格自己记的 `value` |
+| `ctx.TextOf(word)` / `ctx.TextOf(k)`（`with` / `assert` / `:` / `from` / `=` / `as` / `*`） | **`k.TextValue`**——那一格自己记的 `value`（第 1069 轮起是 token 自己的一格属性，投影层的 `ctx.ValueOf` 出口随之删掉） |
 | `ctx.FirstCodeAfter(source, v.start + "import".length)` | `TypeWordAt`（`ReadClause` 认出 `type` 那一刻记的） |
 | `source.indexOf("{", clauseStart)` | `NamedBraceAt`（同一处记的具名子句左花括号下标） |
 | `ctx.MatchBrace(source, braceOpen)` | 那个括号**单元自己的终点**（`EndOf(namedBrace) - 1`） |
@@ -316,8 +316,8 @@ return index;
   const rawTypeWordAt = v.typeWordAt;
   const typeWordAt = typeof rawTypeWordAt === "number" && rawTypeWordAt >= 0 ? rawTypeWordAt : -1;
   if (isTypeOnly && typeWordAt < 0) return undefined;
-  const fromNode = kids.find((k: any) => k.Tag === "Identifier" && ctx.ValueOf(k) === "from");
-  const equals = kids.find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=");
+  const fromNode = kids.find((k: any) => k.Tag === "Identifier" && k.TextValue === "from");
+  const equals = kids.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "=");
   const rawBraceAt = v.namedBraceAt;
   const braceOpen = typeof rawBraceAt === "number" && rawBraceAt >= 0 ? rawBraceAt : -1;
   const namedBrace = braceOpen < 0 || equals !== undefined
@@ -345,13 +345,13 @@ return index;
     if (
       word !== undefined &&
       word.Tag === "Identifier" &&
-      ["with", "assert"].includes(ctx.ValueOf(word))
+      ["with", "assert"].includes(word.TextValue)
     ) {
       const brace = after[braceAt];
       const elements = [];
       for (const part of ctx.Split(ctx.Kids(brace), ",")) {
         const colonAt = part.findIndex(
-          (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === ":",
+          (k: any) => k.Tag === "SymbolToken" && k.TextValue === ":",
         );
         if (colonAt < 0) continue;
         const nameUnit = part.slice(0, colonAt).find((k: any) => k.IsNameNode);
@@ -411,8 +411,8 @@ return index;
   const clauseStart = isTypeOnly ? typeWordAt : ctx.StartOf(clause[0]);
   const clauseEnd = ctx.EndOf(clause[clause.length - 1]);
   const clauseProps: any = {};
-  const star = kids.find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "*");
-  const names = clause.filter((k: any) => k.Tag === "Identifier" && ctx.ValueOf(k) !== "as");
+  const star = kids.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "*");
+  const names = clause.filter((k: any) => k.Tag === "Identifier" && k.TextValue !== "as");
   if (star !== undefined) {
     const nsName = names[names.length - 1];
     clauseProps.namedBindings = {
@@ -422,7 +422,7 @@ return index;
       end: clauseEnd,
     };
     const defaultName = names.find(
-      (k: any) => ctx.StartOf(k) < ctx.StartOf(star) && ctx.ValueOf(k) !== "defer",
+      (k: any) => ctx.StartOf(k) < ctx.StartOf(star) && k.TextValue !== "defer",
     );
     if (defaultName !== undefined) clauseProps.name = ctx.Project(defaultName);
   } else if (braceClose >= 0) {

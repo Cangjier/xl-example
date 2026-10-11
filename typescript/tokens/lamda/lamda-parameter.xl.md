@@ -39,7 +39,7 @@ Lambda 的一个形参。
   const kids = ctx.Kids(v);
   const leadingModifiers: any[] = [];
   for (const k of kids) {
-    if (k.Tag === "Keyword" && PARAMETER_MODIFIERS.has(ctx.ValueOf(k))) {
+    if (k.Tag === "Keyword" && PARAMETER_MODIFIERS.has(k.TextValue)) {
       leadingModifiers.push(k);
       continue;
     }
@@ -55,9 +55,9 @@ Lambda 的一个形参。
   );
   const typeNode = body.find((k: any) => k.Tag === "TypeDefine");
   const question = body.find(
-    (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "?",
+    (k: any) => k.Tag === "SymbolToken" && k.TextValue === "?",
   );
-  const dots = body.find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "...");
+  const dots = body.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "...");
   const rest = body.find((k: any) => k.Tag === "Spread");
   const props: any = {
     name:
@@ -84,7 +84,7 @@ Lambda 的一个形参。
       props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
     }
   }
-  const eq = body.findIndex((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=");
+  const eq = body.findIndex((k: any) => k.Tag === "SymbolToken" && k.TextValue === "=");
   if (eq >= 0 && eq + 1 < body.length) {
     const init = body[eq + 1];
     props.initializer =

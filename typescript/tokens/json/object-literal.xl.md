@@ -182,14 +182,14 @@ Json 对象。
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const properties: any[] = [];
   for (const group of ctx.Split(ctx.Kids(v), ",")) {
     const first = group[0];
     if (first.Tag === "Spread") {
       const inner = ctx.Kids(first).filter(
-        (k: any) => !(k.Tag === "SymbolToken" && ctx.ValueOf(k) === "..."),
+        (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "..."),
       );
       properties.push({
         kind: "SpreadAssignment",
@@ -200,7 +200,7 @@ Json 对象。
       continue;
     }
     const colonAt = group.findIndex(
-      (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === ":",
+      (k: any) => k.Tag === "SymbolToken" && k.TextValue === ":",
     );
     if (colonAt < 0) {
       if (group.length === 1) {
@@ -241,10 +241,10 @@ Json 对象。
     const name =
       computed === undefined
         ? nameUnits.length === 1 && nameUnits[0].IsNameNode
-          ? Identifier.IsNumericLiteral(ctx.ValueOf(nameUnits[0]))
+          ? Identifier.IsNumericLiteral(nameUnits[0].TextValue)
             ? {
                 kind: "NumericLiteral",
-                text: ctx.ValueOf(nameUnits[0]),
+                text: nameUnits[0].TextValue,
                 pos: ctx.StartOf(nameUnits[0]),
                 end: ctx.EndOf(nameUnits[0]),
               }

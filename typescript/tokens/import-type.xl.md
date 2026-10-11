@@ -199,10 +199,10 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 - **字符串字面量那一格**（`ctx.StringText(stringUnit)`）：`StringText` 找的是那一格的
   **`ConstString` 子单元**、值为空时还会回原文 `slice`。直出版自己走那一步——
-  取 `children` 里的 `ConstString`、读**它自己记的 `value`**（`ctx.ValueOf`，不回原文兜底）。
+  取 `children` 里的 `ConstString`、读**它自己记的 `value`**（`content.TextValue`，不回原文兜底）。
   与 `String.PrintDirectAst` 转给 `ctx.Template` 是同一件事：**文本在那一格自己的子单元上**；
-- **词形那一批**（`with` / `assert` / `:` / `typeof` / `import`）：`ctx.TextOf` → `ctx.ValueOf`
-  （只读那一格记的 `value`）。
+- **词形那一批**（`with` / `assert` / `:` / `typeof` / `import`）：`ctx.TextOf` → **`k.TextValue`**
+  （第 1069 轮起是那一格自己的属性，只读它记的 `value`）。
 
 ```ts
   const rawKids = ctx.Kids(v);
@@ -234,7 +234,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     const content = ctx.KidsOf(stringUnit, "children").find((k: any) => k.Tag === "ConstString");
     const literal = {
       kind: "StringLiteral",
-      text: content === undefined ? "" : ctx.ValueOf(content),
+      text: content === undefined ? "" : content.TextValue,
       pos: ctx.StartOf(stringUnit),
       end: ctx.EndOf(stringUnit),
     };
@@ -246,7 +246,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
       .Kids(k)
       .find((c: any) => c.Tag === "Identifier" || c.Tag === "Keyword");
     if (word === undefined) return false;
-    const text = ctx.ValueOf(word);
+    const text = word.TextValue;
     return text === "with" || text === "assert";
   });
   if (wrapper !== undefined) {
@@ -255,7 +255,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
       const elements = [];
       for (const part of ctx.Split(ctx.Kids(brace), ",")) {
         const colonAt = part.findIndex(
-          (c: any) => c.Tag === "SymbolToken" && ctx.ValueOf(c) === ":",
+          (c: any) => c.Tag === "SymbolToken" && c.TextValue === ":",
         );
         if (colonAt < 0) continue;
         const nameUnit = part.slice(0, colonAt).find((c: any) => c.IsNameNode);
@@ -282,7 +282,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   const names = kids.filter((k: any) => {
     if (!k.IsNameNode) return false;
     if (k.Tag !== "Keyword") return true;
-    const word = ctx.ValueOf(k);
+    const word = k.TextValue;
     return word !== "typeof" && word !== "import";
   });
   if (names.length > 0) props.qualifier = ctx.QualifiedNameFrom(names);

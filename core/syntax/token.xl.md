@@ -754,6 +754,34 @@ if (head === null) return "";
 return head.Document.GetRaw(from, to);
 ```
 
+## property TextValue:string
+
+**这一格自己记下来的那一格文本**（第 1069 轮）：叶子（符号 / 关键字 / 注释 / 预处理指令…）
+在**收完自己那一刻**把正文记成 `value`，这一格就是它——**记不到时给空串**。
+
+**为什么要有这一格**：投影那一侧的同款出口（`ctx.ValueOf`）本来是一句
+`typeof one.value === "string" ? one.value : ""`，而 `value` 是**各页自己的一个字段**
+（`SymbolToken` / `Keyword` / `LineAnnotation` / `AreaAnnotation` / `PreprocessorDirectives` …），
+于是「这一格记的正文是什么」这个问句挂在投影层的出口表上，16 页 58 处都在借它。
+按这一族的判据（见 `PrintDirectAst`）：答案在**这一格自己**身上（就是它自己的字段）、
+而且**收完正文那一刻**就定下来了 ⇒ 收成这一格属性，投影那一侧只读 `x.TextValue`。
+
+**取值口径与原来那句逐字符相同**：`typeof this.value === "string"` 才给，
+否则给空串（**不猜**、也不回原文兜底）——见 `print-ast-common.xl.md` 里
+「值不在这一格上时给空串」那条注释。
+
+**形态与 `Text` / `Tag` / `start` / `end` 相同**（`## property` + `### get`）：值不随页面而异
+（没有 `value` 字段的页面就是空串，正是原来的答案），所以声明一处、每个单元自动就位，
+各页**一个字都不用写**。**它不是 `## field`**：`value` 是解析期在收尾那一趟写上去的
+（与 `children` / `modifiers` 同一情形），只能在读的那一刻看一次。
+
+### get
+
+```ts
+const own: any = this;
+return typeof own.value === "string" ? own.value : "";
+```
+
 ## method RangeStart:()=>int
 
 本单元的起点：`SourceRange.Start` 的 `Index`；**还没签入**时写 `0`（`start` / `end` 两格的来源）。

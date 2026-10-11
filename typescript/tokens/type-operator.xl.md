@@ -225,13 +225,13 @@ return ReplaceCountAt(units, index, nextIndex - index + 1, result);
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v).filter(
     (k: any) =>
       !(
         k.Tag === "Keyword" &&
-        (ctx.ValueOf(k) === "keyof" || ctx.ValueOf(k) === "readonly" || ctx.ValueOf(k) === "unique")
+        (k.TextValue === "keyof" || k.TextValue === "readonly" || k.TextValue === "unique")
       ),
   );
   const props: any = {};
@@ -297,10 +297,10 @@ return result;
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
-  const names = kids.filter((k: any) => k.IsNameNode && ctx.ValueOf(k) !== "typeof");
+  const names = kids.filter((k: any) => k.IsNameNode && k.TextValue !== "typeof");
   const props: any = {};
   const access = kids.find((k: any) => k.Tag === "PropertyAccess");
   const generic = kids.find((k: any) => k.Tag === "GenericType");

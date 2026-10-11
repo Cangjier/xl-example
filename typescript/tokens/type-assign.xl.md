@@ -221,20 +221,20 @@ return ReplaceCountAt(units, startIndex, dataEnd - startIndex + 1, result);
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
+  // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx
     .Kids(v)
-    .filter((k: any) => !(k.Tag === "SymbolToken" && ctx.ValueOf(k) === ";"));
+    .filter((k: any) => !(k.Tag === "SymbolToken" && k.TextValue === ";"));
   const eqIndex = kids.findIndex(
-    (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=",
+    (k: any) => k.Tag === "SymbolToken" && k.TextValue === "=",
   );
   const rawAlias = v.alias;
   const aliasText = typeof rawAlias === "string" ? rawAlias : "";
   const lhs = eqIndex >= 0 ? kids.slice(0, eqIndex) : kids;
   const rhs = eqIndex >= 0 ? kids.slice(eqIndex + 1) : [];
   const nameNode = lhs.find((k: any) => k.Tag === "Identifier");
-  const nameText = nameNode === undefined ? aliasText : ctx.ValueOf(nameNode);
+  const nameText = nameNode === undefined ? aliasText : nameNode.TextValue;
   const generic = lhs.find((k: any) => k.Tag === "GenericType");
   const props: any = {
     name: nameNode === undefined ? ctx.SynthName(nameText, v) : ctx.Project(nameNode),
