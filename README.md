@@ -347,6 +347,29 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1224 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`new C().b?.(1)` 那一族（`?.` 链的头一格不是名字）接收者被留在 `Method` 外面**（组合扫描 15 → 5、零新坏）；1.2 是**如实记下的负结果**（`projectEachIn` 成员表那一趟惰性拷贝，三读 **−8.13 / +1.87 / −1.02ms**，**已回退**）
+
+**一句话**：1.1 把「谁能当一条链的基名」这一问接回**基类那一格** `IsChainBaseNode`（不再补类名表），一次收掉十种形状；1.2 试的是「成员表没有要摊开的壳时别再拷一遍」——剖面里那一格占 5.6%，可三读不显著 ⇒ 回退、留注。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `OptionalCallCloseRule.IsChainLink` 接上 `IsChainBaseNode`（`New` / `String` / `ConstString` / `RegexToken` / `ArrayLiteral` / `ObjectLiteral` / `Keyword` …各页自己声明） | 组合扫描：对不上 **15 → 5**、对上 855 → **865**、新坏 0、抛异常 0；守卫用例 169 / 169 |
+| **1.2** | 试：`projectEachIn` 的成员表拷改成惰性拷贝（第一次要摊开时才 `slice`） | 20 对 mean **−8.13ms**（14:6）、30 对 **+1.87ms**（16:13）、60 对 **−1.02ms**（31:28）⇒ **回退** |
+
+**1.1 的现场**：`new C().b?.(1)` 的产物原来是 `[New, Method(name="", [., b, NullConditionalOperator(…)])]`——**接收者 `New` 留在 `Method` 外面**（TS 是 `CallExpression > [PropertyAccessExpression > [NewExpression, b], QuestionDotToken, 1]`）。根在 `CalleeStart` 往左走那个循环：`IsChainLink` 认的是点号 / 名字 / `Method` / `PropertyAccess` / `?.` / 断言 / 已关闭的括号——**在 `New` 上停住**。同族还有 `` a!`t`.b?.(1) ``（停在模板串那一格）、`[1].map?.(f)`、`"s".b?.(1)`、`/re/.b?.(1)`、`this.x?.()` 这些**头一格不是名字**的链。
+**补法**：这一问在 `core/syntax/token.xl.md` 本来就有（`IsChainBaseNode`，各页自己声明），原来那张类名表就是它的子集——接上它，缺的那一半就都在里面了；`IsCalleeEnd` 一个字没改。
+
+**1.1 的读数**：组合扫描**对不上 15 → 5**、对上 **865**、新坏 0；新立守卫用例 [`tests/cases/token/expressions/expr-r1224-optional-call-chain-head.ts`](tests/cases/token/expressions/expr-r1224-optional-call-chain-head.ts)（16 条形状：`new` / 模板 / 数组 / 字符串 / 正则 / 对象 / `this` 七种头 × `.名字?.(…)` 与续写）单跑 **TS 节点 169、投影节点 169，缺 0 漂 0 多 0 字段 0**。**这一族在全语料 2082 份里一个都不出现**（XML 与投影 JSON 逐字节同答）——所以判据只能由那条守卫用例担着，这正是「缺口清单长在语料里」那条规矩的用处。
+
+**1.2 的现场与读数（负结果）**：`projectEachIn` 头一段在 `parent.IsMemberList` 为真时先造一张空表、把成员逐格拷进去、再 `list = flat`——**没有 `<Statement>` 壳时也照拷**；剖面里 `projectEachIn` **5.6%**（仅次于 `projectTypeExpression` 5.9%）。改成惰性拷贝后判据一个字没改、两边 JSON 逐字节相同、八道门全绿，**但三读只有一读是负的**（`tmp/abgen.mjs`，批量量法）：20 对 mean −8.13ms（14:6）、30 对 +1.87ms（16:13）、60 对 −1.02ms（31:28，se 2.11）⇒ 合起来 61 : 47，符号检验不显著 ⇒ **整笔回退**。**这一轮不是尺子坏了**：同一把尺子第 1223 轮量同一类改动两读同向同量级；这一格的拷贝太便宜（每张成员表本来就只被投一次），如实记在那一格的注里。
+
+**量法上的结论（留给下一轮）**：`tmp/r1223-ab2.mjs` → `tmp/abgen.mjs` 那把**批量**尺子（`AB_OLD=<旧产物目录>`）是这台机器上唯一量得动 2~8ms 的口径——原来每趟只量一轮时，Windows 上进程 CPU 时间的分辨力是一个调度节拍（配对差全是 ~15.6ms 的整数倍），小改动一律沉在噪声里；**空 A/B**（两边同一份产物）必须跟着跑，第 1223 轮的空 A/B 是 −0.51ms。
+**组合扫描里还开着的 5 条**（下一轮的现场）：`a!`t`[0]as T` / `a!`t`[0]satisfies T` / `a!`t`!as T` / `a!`t`!satisfies T`（模板链折完了，尾巴那格 `As` / `Satisfies` 落到 `foldBinaryFrom` 手上被丢）与 `a<b>[0]`t``（实例化表达式后面跟下标再跟模板）。
+
+**净账**：`cases:tsast` 语料里一条 `xl:known-gap` 都没有（0 条还开着 / 0 条收掉）；`cases:direct` 全语料不抛异常（1672 份）；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1685** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4293 / 4451**（blocked 25、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；`npx tsc`（strict）0 error；八道门墙钟 **28.4s**。
+
+**两条 commit**：`1c52505e`（1.1 链基名那一格）、`01644d67`（1.2 的负结果与回退）。
+
 ### 第 1223 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`a<b>?.[0]?.b` 那一族（实例化表达式后面跟着一整串 `?.` 链）整串丢**（组合扫描 21 → 15、六条续写一格全收）；1.2 **「回原文只看一格字符」**（`ProjectionStart` 先比一格 `/`、`TrailingSemicolonAt` 不再拼整段正文，两读 mean **−8.6 / −6.2ms**，空 A/B −0.5ms）
 
 **一句话**：1.1 是上一轮的**下一句**——上一轮把尾巴**第一格**递对了地方，这一轮把「递一格」变成「递一串」（链在 token 层有两种形状：平铺的一串兄弟、或收在一格空名字 `Method` 里，还可能一层套一层）。1.2 是**剖面先说出来的**一笔：两处「为看一格字符把整段正文拼出来 / 白扫一遍子单元」。
