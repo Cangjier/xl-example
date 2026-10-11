@@ -53,6 +53,24 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 其余一律 `false`。**判据与次序一个字没改**：`Failed` 该怎么写、什么时候该调，仍然全留在原来那一页上；
 这一格只回答「值不值得为这一格进一次函数」。
 
+## field TriggerChars:string = ""
+
+**这一格只在「当前字符是这几个字之一」时才可能成立**（第 1217 轮，用户口径 1.2「提升 parse 效率」）。
+空串 = 任何字符都要问（默认，绝大多数分支不需要声明）。
+
+**为什么立这一格**：`UnitToken.ProcessChar` 是**每个字符**都要走一遍整个跳转队列的那一格，而
+`Transit` 实测一份 `typescript.d.ts` 上走 **6935798** 次、**95.0% 答否**（第 1205 轮那一节的读数）。
+答否的那些里有一大批是**一句话就能挡掉**的：`ClassBranch` / `EnumBranch` / `InterfaceBranch` /
+`StaticBlockBranch` 的第一句都是 `source.Value !== "{"`、`LineAnnotationBranch` 是 `!== "/"`、
+`StatementBranch` / `WrapSymbolBranch` 是 `!== "\n"`……**队列入口先用这一格挡一次**，
+那一次 `Transit`（多态调用 + `Condition` + 往 `Result` 上写一格）就不必进了。
+
+**判据一个字没改**：被挡掉的那一批，原来就是「进 `Condition`、第一句答否、立刻 `return`」的那一批；
+`TriggerChars` 说的必须是**那一句里的同一格字符**——它是那一句的**前提**，不是第二份答案
+（谁声明了这一格，就等于把「第一句比的是哪个字」写在类头上，`Condition` 里那一句照旧留着）。
+**声明错了要出事**（那一格会被整批跳过），所以每一格都按「`Condition` 的第一句」逐个对过，
+并由 `cases:tsast` / `runtime:cli` / `samples` 那几道门兜底。
+
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 判断本次跳转是否成立，并给出 `Message` 号。

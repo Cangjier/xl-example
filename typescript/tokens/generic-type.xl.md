@@ -54,6 +54,13 @@ import { IsTemplateTypeContent, IsTriviaUnit, IsTypeBracketPosition, SkipPreviou
 
 它比 `SymbolToken` 早一步被问到（见 `../parse-pipeline.xl.md` 的通用跳转队列），所以「这个 `<` 到底是不是泛型开头」这件事只能在它这里回答。判定成立就挂载一个 `GenericType` 子单元——挂载是必须的：`UnitToken.Process` 先问挂载单元再问跳转队列，只有挂起来的单元才能让配对的 `>` 抢在 `SymbolToken` 前面被吃掉（否则 `>` 会先和后面的 `=` 组成 `>=`）。
 
+## field TriggerChars:string = "<"
+
+**这一格只在「当前字符是 `<`」时才可能成立**（第 1217 轮，用户口径 1.2「提升 parse 效率」）：
+`Condition` 的第一句就是这一问（第 1209 轮提到最前面的那些），而 `UnitToken.ProcessChar`
+**在队列入口先拿这一格把不相干的字符挡掉**——那一次 `Transit` + `Condition` 就不必进了。
+判据与次序一个字没改：挡掉的那一批原来就是「第一句答否、立刻 `return`」的那一批。
+
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 只有当前字符是 `<`、且四道闸门都过才成立。`Message` 保持 `0`（新建单元）。

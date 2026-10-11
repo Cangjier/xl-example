@@ -47,6 +47,13 @@ import { SymbolToken } from "../symbol-token.xl.md"
 
 # class InterfaceBranch extends Branch
 
+## field TriggerChars:string = "{"
+
+**这一格只在「当前字符是 `{`」时才可能成立**（第 1217 轮，用户口径 1.2「提升 parse 效率」）：
+`Condition` 的第一句就是这一问（第 1209 轮提到最前面的那些），而 `UnitToken.ProcessChar`
+**在队列入口先拿这一格把不相干的字符挡掉**——那一次 `Transit` + `Condition` 就不必进了。
+判据与次序一个字没改：挡掉的那一批原来就是「第一句答否、立刻 `return`」的那一批。
+
 ## static readonly field JumpIn:InterfaceBranch = new InterfaceBranch()
 
 唯一的实例，注册进通用跳转队列时用。

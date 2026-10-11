@@ -85,6 +85,13 @@ interface I { class: string } // 接口成员的属性名
 
 **位置闸**：`a.class` 里那个 `class` 是**成员访问的名字**，它前面隔着一个 `.` / `?.` ⇒ 要挡掉。
 
+## field TriggerChars:string = "{"
+
+**这一格只在「当前字符是 `{`」时才可能成立**（第 1217 轮，用户口径 1.2「提升 parse 效率」）：
+`Condition` 的第一句就是这一问（第 1209 轮提到最前面的那些），而 `UnitToken.ProcessChar`
+**在队列入口先拿这一格把不相干的字符挡掉**——那一次 `Transit` + `Condition` 就不必进了。
+判据与次序一个字没改：挡掉的那一批原来就是「第一句答否、立刻 `return`」的那一批。
+
 ## private field NameIndex:int = -1
 
 `ScanHead` 顺手记下的**名字那一格**在宿主平列表上的下标（匿名类是 `-1`）。
