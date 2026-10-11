@@ -3204,6 +3204,72 @@ return result;
 `core/syntax/token.xl.md` 的 `IsStatementShell`——投影那一处要在成员表里认出**裹着一条语句的
 那层壳**，好把成员们摊平）。
 
+## property IsEmptyStatementUnit:bool
+
+**我这一格那个孤零零的 `;` 是不是一条空语句**（第 1164 轮）：判据落在**原文排版**上——
+真正的空语句（防御性分号）永远写在**行首**（`;` 顶一条语句、`if (a) ;` 的体、函数体里的空语句
+都是这一形状），而 `.d.ts` 里「成员声明后面那个 `;`」写在**行尾**（`a: string;`），
+TS 那边它不是节点。语句规则分不出这两者（都只是「孤零零一个 `;`」），所以按行首 / 行尾筛：
+**一刀切收下来会让整个语料多出 3439 个 `EmptyStatement`**（第 141 / 179 轮实测）。
+
+**为什么住在 token 上**（用户口径 1.2 / 1.3 / 1.6）：这一问的每一件事实都在这一格自己身上——
+「我的正文是不是 `;`」读自己的 `Text`，「我在这一行里前头有没有别的东西」「上一个非空白字符是什么」
+「上面那一行是代码还是注释」读**自己那份 `Document`**（`SourceRange` 两头各自带着它，
+第 1048 轮起 `Text` 就是这么读的）。算式原来在 `print-ast-common.xl.md` 的 `projectStatement`
+里现场写了一遍（`ctx.source[...]` 一个字符一个字符往回读），第 1164 轮整段搬到这里，
+投影那一侧只读一次属性。
+
+**它不是 `## field`**：判据随原文排版而定，而这一格只在「语句壳里一个可投的子单元都没有」
+时才被问一次（与 `ProjectionStart` / `IsQuotedName` 那一族同一形态：读的那一刻算一次，
+不为每个语句壳预付一次）。
+
+**「上一条语句已经把这个 `;` 吃掉了」不在这一格里**：那一件事是**投影自己的状态**
+（`ctx.consumedSemicolons`，由 `semicolonEndOf` 记的一笔），不是这一格的原文事实——
+所以它照旧留在投影那一侧。
+
+**实测这一格的接收者只有一种**（第 1164 轮，探针挂在构建产物上、跑 `cases:direct --all`
+的 2051 份语料）：进到这一问的 **31 次全是 `Statement`**（`v.constructor.name` 逐次点名），
+所以它声明在这一页、不在基类上。
+
+### get
+
+```ts
+// **正文不是 `;` 就不是这条问话**（判据与投影原来那一句逐字符相同）。
+if (!this.Text.startsWith(";")) return false;
+// **原文只有一个来源：这一格自己那份 `Document`**（与 `Text` 同一处取）。
+const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
+if (head === null) return false;
+const doc = head.Document;
+const at = this.start;
+// **行首的判据放宽成「这一行到这里为止只有空白与 `;`」**（第 179 轮）：`;;` 的第二个 `;`
+// 前面那格是第一个 `;`，而 TS 那边两个各是一个 `EmptyStatement`（实测
+// `stmt-empty-semicolon.ts` 只投出第一个）。
+let lineStart = at;
+while (lineStart > 0 && doc.GetValue(lineStart - 1) !== "\n") lineStart--;
+const beforeOnLine = doc.GetRaw(lineStart, at - 1);
+if (beforeOnLine.trim() !== "" && !/^[;\s]*$/.test(beforeOnLine)) return false;
+// **行首的 `;` 也可能是上一条语句的终结符**（第 167 轮）：TS 的 `tryParseSemicolon` 不看换行——
+// `let a = 1` 换行 `;[1, 2].forEach(f)` 里那个 `;` 属于 **VariableStatement**，
+// 紧跟的 `[1, 2]…` 才是新语句。判据是**上一个有内容的行**：那行是代码（`const x = f`）时
+// 这个 `;` 就是它的终结符；是注释行或空行时（`// 注释` 换行 `;(function(){})()`、文件开头的 `;;`）
+// 才是真空语句（实测 `st-asi-array.ts` / `st-asi-paren.ts` 与反例 `fn-iife.ts` /
+// `stmt-empty-semicolon.ts`）。
+let previousChar = at - 1;
+while (previousChar >= 0 && /\s/.test(doc.GetValue(previousChar))) previousChar--;
+if (previousChar < 0) return true;
+// **块 / 语句之后的分号照收**（第 178 轮）：`function f() {` 换行 `;` 里那个 `;` 是 TS 的
+// `EmptyStatement`（`st-misc-keywords.ts` 缺的就是它），`;;` 的第二个同理。
+// 只有前面是**一个表达式的结尾**（名字 / 数字 / 引号 / `)`…）时，这个 `;` 才是上一条语句的终结符。
+if (";}{".includes(doc.GetValue(previousChar))) return true;
+let previousLineStart = previousChar;
+while (previousLineStart > 0 && doc.GetValue(previousLineStart - 1) !== "\n") previousLineStart--;
+const previousLine = doc.GetRaw(previousLineStart, previousChar).trim();
+return previousLine === "" ||
+  previousLine.startsWith("//") ||
+  previousLine.startsWith("/*") ||
+  previousLine.endsWith("*/");
+```
+
 # class StatementBranch extends Branch
 
 **解析期造语句壳——只剩软换行那一档**（第 477 轮建、第 486 轮收窄）。

@@ -2523,13 +2523,19 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 （±300ms 的测量波动 vs 十几毫秒的账）；这一轮不再重复量同一件事，
 记的是**构造次数**这一本账。
 
+**第 1164 轮删掉一张、只剩三张**：`SEMICOLONS_AND_SPACES`（`/^[;\s]*$/`）唯一那处读者是
+`projectStatement` 里「这一行到这里为止只有空白与 `;`」那一句，而那一趟第 1164 轮整段
+搬进了 `typescript/tokens/statement.xl.md` 的 `Statement.IsEmptyStatementUnit`（正文写在
+那一页的 `### get` 里）——所以这一格连同它的声明一起删掉，**一张不留**。
+`WHITESPACE` 仍在（第 1164 轮之后还有三处读者：`projectDeclaration` 剪尾逗号那一处、
+`stmtEndOf` 的兜底支、`semicolonEndOf` 跳空白那一处），`DEFAULT_TAIL` /
+`ONLY_CONDITION_STATEMENT_SEGMENT` 一处没动。
+
 # private const WHITESPACE:RegExp = /\s/
 
 # private const DEFAULT_TAIL:RegExp = /\bdefault$/
 
 # private const ONLY_CONDITION_STATEMENT_SEGMENT:RegExp = /(Condition|Statement|Segment)$/
-
-# private const SEMICOLONS_AND_SPACES:RegExp = /^[;\s]*$/
 
 # private const NOTHING:any = { __nothing: true }
 
@@ -3457,58 +3463,22 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // `EmptyStatement`（区间正好是那个 `;`）。三处形态都在语料里：`;` 顶一条语句、
   // `if (a) ;` 的体、函数体里的空语句。
   if (kids.length === 0) {
-    if (v.Text.startsWith(";")) {
-      // **已经被上一条语句吃掉的 `;` 不再是空语句**：TS 的 `parseExpressionStatement`
-      // 收尾会把紧跟的那个 `;` 算作自己的终结符（`tryParseSemicolon` 不看换行），
-      // 所以 `;(function(){})()` 换行 `;…` 里第二行的 `;` 属于**上一条**语句。
-      // `semicolonEndOf` 吃掉它时在这里记了一笔（见那一处说明）。
-      if (ctx.consumedSemicolons !== undefined && ctx.consumedSemicolons.has(v.start)) {
-        return undefined;
-      }
-      // **判据落在原文排版上**：真正的空语句（防御性分号）永远写在**行首**——
-      // `;` 顶一条语句、`if (a) ;` 的体、函数体里的空语句都是这一形状。
-      // 而 `.d.ts` 里「成员声明后面那个 `;`」写在**行尾**（`a: string;`），TS 那边它不是节点。
-      // 语句规则分不出这两者（都只是「孤零零一个 `;`」），所以在这里按行首 / 行尾筛：
-      // 一刀切收下来会让整个语料多出 3439 个 `EmptyStatement`（实测，第一次就是这么翻车的）。
-      // **中间那些 `;` 归上一条还是自成一条，由列表那一趟按 kind 定**（见 `projectEach` 的
-      // 「被吃掉的 `;`」那一支）—— 这里只把「行首的」放行，其余交出去。
-      let lineStart = v.start;
-      while (lineStart > 0 && ctx.source[lineStart - 1] !== "\n") lineStart--;
-      // **前面只有别空语句时也算行首**（第 179 轮）：`;;` 的第二个 `;` 前面那格是第一个 `;`，
-      // 而 TS 那边两个各是一个 `EmptyStatement`（实测 `stmt-empty-semicolon.ts`：
-      // 只投出第一个）。所以「行首」的判据放宽成「这一行到这里为止只有空白与 `;`」。
-      const beforeOnLine = ctx.source.slice(lineStart, v.start);
-      if (beforeOnLine.trim() !== "" && !SEMICOLONS_AND_SPACES.test(beforeOnLine)) {
-        return undefined;
-      }
-      // **行首的 `;` 也可能是上一条语句的终结符**（第 167 轮）：TS 的 `tryParseSemicolon`
-      // 不看换行——`let a = 1` 换行 `;[1, 2].forEach(f)` 里那个 `;` 属于 **VariableStatement**
-      // （TS 的区间 [26,37) 把它算进去了），紧跟的 `[1, 2]…` 才是新语句。
-      // 判据是**上一个有内容的行**：那行是代码（`const x = f`）时这个 `;` 就是它的终结符；
-      // 是注释行或空行时（`// 注释` 换行 `;(function(){})()`、文件开头的 `;;`）才是真空语句
-      // （实测 `st-asi-array.ts` / `st-asi-paren.ts` 与反例 `fn-iife.ts` / `stmt-empty-semicolon.ts`）。
-      let previousChar = v.start - 1;
-      while (previousChar >= 0 && WHITESPACE.test(ctx.source[previousChar])) previousChar--;
-      if (previousChar >= 0) {
-        // **块 / 语句之后的分号照收**（第 178 轮）：`function f() {` 换行 `;` 里那个 `;` 是
-        // TS 的 `EmptyStatement`（`st-misc-keywords.ts` 缺的就是它），`;;` 的第二个同理。
-        // 只有前面是**一个表达式的结尾**（名字 / 数字 / 引号 / `)`…）时，这个 `;` 才是
-        // 上一条语句的终结符。
-        if (";}{".includes(ctx.source[previousChar])) {
-          return { kind: "EmptyStatement", pos: v.start, end: v.start + 1 };
-        }
-        let previousLineStart = previousChar;
-        while (previousLineStart > 0 && ctx.source[previousLineStart - 1] !== "\n") previousLineStart--;
-        const previousLine = ctx.source.slice(previousLineStart, previousChar + 1).trim();
-        const commentOnly =
-          previousLine === "" ||
-          previousLine.startsWith("//") ||
-          previousLine.startsWith("/*") ||
-          previousLine.endsWith("*/");
-        if (!commentOnly) {
-          return undefined;
-        }
-      }
+    // **已经被上一条语句吃掉的 `;` 不再是空语句**：TS 的 `parseExpressionStatement`
+    // 收尾会把紧跟的那个 `;` 算作自己的终结符（`tryParseSemicolon` 不看换行），
+    // 所以 `;(function(){})()` 换行 `;…` 里第二行的 `;` 属于**上一条**语句。
+    // `semicolonEndOf` 吃掉它时在这里记了一笔（见那一处说明）。**这一笔是投影自己的状态**
+    // （不是这一格的原文事实），所以它照旧住在这里——第 1164 轮搬走的是排版那一趟。
+    if (ctx.consumedSemicolons !== undefined && ctx.consumedSemicolons.has(v.start)) {
+      return undefined;
+    }
+    // **「行首还是行尾」那一趟排版判断由这一格自己答**（第 1164 轮，用户口径 1.2 / 1.3 / 1.6）：
+    // 读的是 `Statement.IsEmptyStatementUnit`（见 `tokens/statement.xl.md`）——那一趟的每件事实
+    // 都在这一格自己身上（自己的 `Text` + 自己那份 `Document`），所以算式整段搬到了那一页，
+    // 投影这一侧只剩一次属性读。判据一个字没改（行首 / `;;` 的第二个 / 上面那一行是代码还是注释），
+    // 逐字符同答的证据是八道门读数一处没动。
+    // **中间那些 `;` 归上一条还是自成一条，由列表那一趟按 kind 定**（见 `projectEach` 的
+    // 「被吃掉的 `;`」那一支）—— 这里只把「行首的」放行，其余交出去。
+    if (v.IsEmptyStatementUnit === true) {
       return { kind: "EmptyStatement", pos: v.start, end: v.start + 1 };
     }
     return undefined;

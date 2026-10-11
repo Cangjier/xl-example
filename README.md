@@ -347,6 +347,53 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1164 轮：用户口径 1.2 / 1.3 / 1.6 —— 「行首还是行尾那个 `;`」那一趟排版判断整段搬进被问的那一格（`Statement.IsEmptyStatementUnit`），`SEMICOLONS_AND_SPACES` 那张正则随它一起删掉
+
+**一句话**：`projectStatement` 里「这个孤零零的 `;` 到底是不是一条空语句」原来是一整趟
+**回原文排版**的现场算式（往回找到本行开头、比「这一行只有空白与 `;`」、再往回找上一个非空白字符、
+再往回找上一行开头、判那一行是不是注释行），而**这几件事实全在这一格自己身上**：
+「我的正文是不是 `;`」是自己的 `Text`，其余每一格字符都在**自己那份 `Document`** 上
+（`SourceRange` 两头各自带着它——第 1048 轮 `Text` 就是这么读的）。第 1164 轮整段搬进
+`typescript/tokens/statement.xl.md`：
+
+| 原来的现场算式（`projectStatement` 里） | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `ctx.source[lineStart - 1] !== "\n"` 往回找行首 + `ctx.source.slice(lineStart, v.start)` + `SEMICOLONS_AND_SPACES.test(...)`（`/^[;\s]*$/`）+ `ctx.source[previousChar]` 跳空白 + `";}{".includes(...)` + 往回找上一行 + `previousLine` 判注释行 | `v.IsEmptyStatementUnit` | `tokens/statement.xl.md` 的 `Statement` **显式声明** `## property IsEmptyStatementUnit:bool`（`### get`，读自己的 `Text` / `start` 与 `SourceRange` 那份 `Document` 的 `GetValue` / `GetRaw`） |
+
+- **换算式的每一句判据一个字没改**：行首 / 行尾那一刀（真正的空语句只在**行首**，
+  `.d.ts` 里成员声明后面那个 `;` 在**行尾**）、「这一行到这里为止只有空白与 `;`」这条放宽
+  （`;;` 的第二个）、以及「上一个非空白字符是 `;}{` 就算空语句、否则看**上面那一行**是不是
+ 注释行或空行」——三段判词**连着注释一起**搬到了那一页的 `### get` 里。
+- **「上一条语句已经把它吃掉了」不跟着搬**：那一件事是**投影自己的状态**
+  （`ctx.consumedSemicolons`，由 `semicolonEndOf` 记的一笔），不是这一格的原文事实——
+  所以它照旧留在投影那一侧（判据注释就写在它旁边）。
+- **收件人是量出来的，不是猜的**（第 1135 / 1136 轮那条尺子）：探针挂在构建产物的那一行上、
+  跑 `node tests/parse/direct-ast.mjs --all`（2051 份）记 `v.constructor.name` ⇒
+  **`{"n":31,"names":{"Statement":31}}`**——一个不多。所以它声明在 `Statement` 那一页，
+  **不在基类上**（基类给默认档会让「谁答这一问」变成看不见的事）。
+- **为什么是 `## property` + `### get`、不是构造时赋的 `## field`**：这一格只在「语句壳里
+  一个可投的子单元都没有」时才被问一次（实测全语料 31 次），而这个类的收尾队列是**通用队列**
+  （`template.CloseRuleTemplate.Get(this.constructor)` 拿到的那一条）——为了 31 次去在每个语句壳上
+  预付一趟，与用户口径 1.6 的「高效构建」是反的。形态与 `ProjectionStart` / `ProjectionEnd` /
+  `IsQuotedName` 那一族相同：**读的那一刻算一次**。
+- **判据跟着长一格**：`SEMICOLONS_AND_SPACES`（那张 `/^[;\s]*$/`）的**唯一**读者就是这一趟，
+  算式搬走之后它一个读者都没有了 ⇒ 声明连同说明一起删掉（第 1026 轮那条口径的同一把尺子：
+  一格声明没了读者就不留）。本页的正则常量 **4 → 3 张**。
+- **量**（同一把逐行尺子：`print-ast-common` 代码块里非空、非 `//` 开头的行）：
+  **4042 → 4018 行**（净少 **24** 行）；声明数 **57 → 56 格**（删掉的是那张正则常量，
+  新立的那一格属性在 `Statement` 那一页）。搬走的那一趟在新家是 **21 行代码**
+  （`statement.xl.md` 的非注释代码行 **1441 → 1462**）。
+- **实测八道门**：**7 通过、1 失败**（墙钟 31.5s），读数与第 1106 ~ 1163 轮**逐项相同**：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` **0 条违反**、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79；唯一那条红仍是 HEAD 上既有的 `runtime/round741/002`。
+  **另跑一遍 `cases:direct --all`**（搬页那一轮的口径）：2051 份、抛异常 **0 处**。
+- **踩到一次同样的产物新鲜度坑（如实记下）**：开工时 `coverage` 就报
+  `typescript\print-ast-common.xl.md 比产物新`（那一页**一个字没改**，只是上一轮编辑之后
+  产物 mtime 落在了源码之后）——把 `dist` / `build` 两份产物的 mtime 与内容对回同步之后恢复，
+  与第 1163 轮记的是同一件事。
+
 ### 第 1163 轮：用户口径 1.2 / 1.6 / 1.7 —— 「就这一格的造节点闭包」两处一起删掉（`projectNode` 里的 `mk` 与 `ctx.Make`）：`projectDeclaration` 自己收着 `v` 与 `ctx`，直接调 `astNode`；`ctx` 的键 49 → 48
 
 **一句话**：`astNode(kind, props, v, ctx)` 是**唯一的**造节点实现，而它原来在**两个地方各被
