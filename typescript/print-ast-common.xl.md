@@ -9113,6 +9113,11 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
 `splitTopLevel` 末尾那个 `filter` 与这里的 `parts` 逐组对应）。所以这一格今天只剩
 「**把切好的每一组交给类型投影**」这一步，本页少一份会漂的第二处切法。
 
+**第 1132 轮起出口没了、这一格留着**：`ctx.TypeArguments` 那一格**全仓只有
+`heritage-clause.xl.md` 一个读者**，算式就地展开在那一页（切法交给 `ctx.Split`、
+每一组交给 `ctx.TypeExpression`，与本页同一份实现）；而本页自己还有四处直接调它
+（3720 / 3895 / 8741 / 9025 那一族，模块内调用、不经出口），所以这一格一个字没动。
+
 ```ts
   const out = [];
   for (const part of splitTopLevel(generic.ProjectableKids, ",")) {
@@ -10443,7 +10448,16 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     },
     QualifiedNameFrom: (list) => dottedExpression(list, "QualifiedName"),
     DottedExpression: (list) => dottedExpression(list),
-    TypeArguments: (generic) => projectTypeArguments(generic, ctx),
+    // **`TypeArguments` 这个出口第 1132 轮删掉了**（它原来就挂在这里）：那一格
+    // **全仓只有 `heritage-clause.xl.md` 一个读者**，而算式只有三件东西
+    // （`generic.ProjectableKids` 是本页第 1066 轮起就有的读数、本页 `splitTopLevel`
+    // 那一份按逗号切、把每一组交给 `projectTypeExpression`）——按第 1112 轮
+    // `parenthesizedOf` 那一把尺子（只剩「被本页某处读者调用」与「被出口转手」的一格声明
+    // 就是多一层间接），算式就地展开在那一页、出口一并删掉。名字补进 `direct:lint` 的
+    // `CTX_BANNED`（写回来这一门当场红）。**这一格 private method 仍留着**：
+    // 本页自己还有四处（3720 / 3895 / 8741 / 9025 那一族，都是模块内调用、不经出口）
+    // ——就地展开的那一处把切法交给 `ctx.Split`、把每一组交给 `ctx.TypeExpression`，
+    // 与本页那四处同答（同一份 `splitTopLevel`、同一份 `projectTypeExpression`）。
     // **`conditionalNode` 这一格第 1113 轮整格删掉了**——它在本页代码块里**只有这一条出口**
     // 一个读者（`projectTypeExpression` 那两处读者都在**本函数自己的body**里：递归那一句与
     // 那一格自己的调用），而出口的实参表（`list` / `from` / `to`）与三个调用点

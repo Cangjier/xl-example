@@ -373,7 +373,20 @@ return result;
       if (expr.length > 0) props.expression = ctx.Expression(expr);
     }
   }
-  if (generic !== undefined) props.typeArguments = ctx.TypeArguments(generic);
+  // **泛型括号段 → 若干类型实参**（第 1132 轮就地展开，原投影页 `projectTypeArguments`
+  // 与 `ctx.TypeArguments` 出口）：那一格**全仓只有这一个读者**，而算式只有三件东西——
+  // `generic.ProjectableKids`（第 1066 轮起是这一格自己的读数）、本页 `splitTopLevel`
+  // 那一份「按逗号切、末尾补一组」的切法、以及把每一组交给类型投影（`ctx.TypeExpression`）。
+  // 按第 1112 轮 `parenthesizedOf` 那一把尺子：只剩「被本页某处读者调用」与「被出口转手」
+  // 的一格声明就是多一层间接，所以算式就地写在这一页、出口一并删掉。
+  if (generic !== undefined) {
+    const args = [];
+    for (const part of ctx.Split(generic.ProjectableKids, ",")) {
+      const projected = ctx.TypeExpression(part);
+      if (projected !== undefined) args.push(projected);
+    }
+    props.typeArguments = args;
+  }
   return ctx.NodeHead("ExpressionWithTypeArguments", props, v);
 ```
 

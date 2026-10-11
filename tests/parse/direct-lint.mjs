@@ -392,6 +392,7 @@ const CTX_BANNED = [
   "SpecifierNameOf",
   "IsIndexBracket",
   "NameOf",
+  "TypeArguments",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。

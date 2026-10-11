@@ -347,6 +347,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1132 轮：`ctx.TypeArguments` 出口删掉——那一格**全仓只有 `heritage-clause` 一个读者**，算式就地展开在那一页（第 1112 轮 `parenthesizedOf` 那一把尺子）；并记下一次**当场被门抓住的量错**；**八道门 7 通过、读数一处没动**
+
+**一句话**：用户口径「简化 `print-ast-common`，清理它用不到的方法」。第 1130 / 1131 两轮把
+「一个名字单元 → `Identifier` 节点」那一问（出口 + helper）收干净；这一轮按同一把尺子收
+`ctx.TypeArguments`：**出口表上的那一格**在本页之外只有 `heritage-clause.xl.md` 一个读者，
+而算式只有三件东西——`generic.ProjectableKids`（第 1066 轮的读数）、本页 `splitTopLevel`
+那一份「按逗号切、末尾补一组」、把每一组交给类型投影。算式就地展开在那一页
+（切法交给 `ctx.Split`、每一组交给 `ctx.TypeExpression`），出口删掉、名字补进 `CTX_BANNED`。
+
+- **这一步是「删出口」不是「删声明」**：`projectTypeArguments` 这个 private method
+  **仍留着**——本页自己还有四处直接调它（3720 / 3895 / 8741 / 9025 那一族，模块内调用、
+  不经出口）。就地展开的那一处与本页那四处同答（同一份 `splitTopLevel`、同一份
+  `projectTypeExpression`）。
+- **当场被门抓住的量错（记在这里）**：第一版把那个 private method 也一起删了，
+  `coverage` 当场从 4260 / 4422 掉到 **4013 / 4422**（`blocked 277`），
+  报的是 `projectTypeArguments is not defined`；把那一节原样补回来、重编、再跑，
+  读数逐项回到 4260 / 4422、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%。
+  **判据**：`direct:lint` 那一类的门看的是「出口表里有没有兜底出口」，
+  它**看不见**「这个声明还有没有本页读者」——所以「删一格声明」之前必须先按**全仓代码**
+  （不是全仓文本）数一遍读者，`ctx` 出口表的读者数与声明的读者数**是两笔账**。
+- **实测**：`xl check typescript core` 156 文件 / **0 条**；`xl build` 2 个产物 / 0 error
+  （`print-ast-common` / `heritage-clause`）、`npx tsc` 干净；八道门 **7 通过 / 1 失败**
+  （墙钟 27.3s），读数与第 1106 ~ 1131 轮逐项相同（唯一那条「倒退」仍是 HEAD 上既有的
+  `runtime/round741/002`）。
+  `print-ast-common` 本页 **10785 行**（代码块 7825 行 / 不带注释 4666 行；`^#` 声明
+  **42 格不变**——删的是出口表那一行、补的是那一格为什么留着的记账）；
+  `heritage-clause` 427 → **440 行**（就地展开那 10 行 + 记账）。
+
 ### 第 1131 轮：把 `nameOf` 这个 helper **整格删掉**——投影页那 30 处内部调用点改读 `unit.NameNode`，「一个名字单元 → `Identifier` 节点」从此只有被问的那两页那一个入口；**八道门 7 通过、读数一处没动**
 
 **一句话**：第 1130 轮把 `ctx.NameOf` 出口删掉之后，「把一个名字单元投成 `Identifier` 节点」
