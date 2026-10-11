@@ -895,7 +895,13 @@ const queue = unit.CloseRuleQueue;
 if (queue === null) {
   return;
 }
-const isExportUnit = unit.constructor.name === "Export";
+// **两问的顺序换了一次、判据一个字没改**（第 1226 轮，用户口径 1.2「提升 parse 效率」）：
+// `isValueBrace` 与 `isExportUnit` 原来**每趟都先算**，可它们分别是
+// `{` 括号那一格（要看 `IsObjectLiteralBrace`）与 `Export` 那一格才用得上的东西——
+// 别的单元上算了也没人读。改成**按需现算**（`isValueBrace` 只在 `{}` 括号、`isExportUnit`
+// 只在 `Export` 那一格），`unit.constructor.name`（一次字符串比较）也因此只走一趟，
+// 而不是每个单元关一次。
+//
 // **只有「值位的花括号」才不跑 `Label`**（第 577 轮）：第 507 轮下这道闸时问的是
 // 「是不是 `{` 括号」 ⇒ **语句位的块**（`{ a: 1 }`）也被一并挡住 ⇒
 // 块里的 `a:` 落在更晚的 `TypeDefineCloseRule` 手里 ⇒ 被收成「名字 + 类型标注」
@@ -916,7 +922,14 @@ if (isBraceBracket) {
     isValueBrace = at >= 0 && IsObjectLiteralBrace(holder.Data, at);
   }
 }
-for (const rule of queue.Data) {
+const isExportUnit = unit.constructor.name === "Export";
+// **整理那一趟用下标走**（第 1226 轮，同 `Token.MoveDataTo` 那一条）：本方法在
+// `typescript.d.ts` 一份上被调 **1471601** 次（收敛环每一趟都调一次），`for…of`
+// 每一趟都要从队列的数组上取一个迭代器对象。次序、跳过的那两档、`Statement.FormTail`
+// 与 `Statement.SplitShell` 的位置**一个字没改**。
+const rules = queue.Data;
+for (let i = 0; i < rules.length; i++) {
+  const rule = rules[i];
   if (isValueBrace && rule instanceof LabelCloseRule) {
     continue;
   }
