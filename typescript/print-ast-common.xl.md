@@ -5495,21 +5495,41 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   // 所以先**找出那一格装着模板的 `PropertyAccess`**（在它前面那一串仍是后缀链时），
   // 标签取它**前面全部**——上面那条 `kids.length === 2` 的口径在这里自然被覆盖。
   let templateChainAt = -1;
+  // **模板那一格外面还套着一层 `!`**（第 1215 轮，用户口径 1.1）：`a`x`.b!` / `a`x`[c]!` 的产物是
+  //
+  //     [Identifier(a), NotNull([PropertyAccess([String(反引号), ., Identifier(b)]), SymbolToken(!)])]
+  //
+  // ——装着模板的那个 `PropertyAccess` 在**`NotNull` 的核**里，于是上面那条
+  //「这一格是不是 `PropertyAccess`」的判据在它身上答否 ⇒ `templateChainAt` 留在 `-1`、
+  // 0c 整支不进 ⇒ **连标签模板本身一起丢**（实测缺 `NonNullExpression` /
+  // `PropertyAccessExpression` / `TaggedTemplateExpression` / 模板字面量 / 成员名，四个方向里
+  // 只有「缺」这一栏响）。这一族一份语料上 12 条（`a` / `f()` / `a[0]` / `a.b` / `(a)` / `this`
+  // 六种前缀 × 点号 / 下标两种后缀）。
+  // 判据与前面那一档同源，只是**往里看一层**：`NotNull` 的核（`CoreHead`）是 `PropertyAccess`、
+  // 而它的第一格是模板串时，这一格就是那一格。`tagIsPostfixChain` 那一问照旧问**外面这一格之前**
+  // 的前缀（`kids.slice(0, at)` 一个字没改）。
+  let templateAssert = false;
   for (let at = 1; at < kids.length; at++) {
-    if (kids[at].IsPropertyAccess === false) {
+    const assertWrap = kids[at].IsNotNull === true
+      && kids[at].CoreHead !== undefined
+      && kids[at].CoreHead.IsPropertyAccess === true;
+    const holder = assertWrap ? kids[at].CoreHead : kids[at];
+    if (holder.IsPropertyAccess === false) {
       continue;
     }
     if (tagIsPostfixChain(kids.slice(0, at)) === false) {
       continue;
     }
-    const probe = kids[at].ProjectableKids;
+    const probe = holder.ProjectableKids;
     if (probe.length >= 2 && probe[0].IsTemplateString) {
       templateChainAt = at;
+      templateAssert = assertWrap;
       break;
     }
   }
   if (tagIsComplete && templateChainAt !== -1) {
-    const inner = kids[templateChainAt].ProjectableKids;
+    const holder = templateAssert ? kids[templateChainAt].CoreHead : kids[templateChainAt];
+    const inner = holder.ProjectableKids;
     const tag = projectExpression(kids.slice(0, templateChainAt), ctx);
     const template = projectNode(inner[0], ctx);
     if (tag !== undefined && template !== undefined) {
@@ -5520,7 +5540,11 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         pos: tag.pos,
         end: template.end,
       };
-      const chained = chainOnto(head, inner.slice(1), ctx);
+      let chained = chainOnto(head, inner.slice(1), ctx);
+      // **那一层 `!` 套在整条链外面**（TS：`NonNullExpression > PropertyAccessExpression >
+      // TaggedTemplateExpression`）：内核那一格接完之后由 `bangWrapped` 套回去，
+      // 区间取那一格自己的末端（`!` 就是它的最后一格）。
+      if (templateAssert) chained = bangWrapped(chained, kids[templateChainAt].end);
       const tail = kids.slice(templateChainAt + 1);
       if (tail.length === 0) return chained;
       // **尾巴那一格可能是一次调用的实参括号**（第 1212 轮，用户口径 1.1）：`a`x`[c](d)` 的产物是
