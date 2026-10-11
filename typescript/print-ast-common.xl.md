@@ -431,6 +431,19 @@ import { Identifier } from "./tokens/identifier.xl.md"
 - **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build` 该页 **1 个产物 / 0 error**、
   `npx tsc` 干净；**八道门 7 通过、1 失败**，读数与第 1106 ~ 1121 轮逐项相同。
 
+**第 1123 轮把 `ctx.ConditionalNode` 里剩下那一格局部转手也收掉**——`isExtends`
+（`(k) => k.IsExtendsKeyword === true`，两处读者：条件类型下标的 `extIndex` 与尾段那个
+`tailExt`）**不是判据、是转手**：第 1119 轮已经把这件事收成被问那一页的一格属性
+（`IsExtendsKeyword`，那一段上的另两处 `IsQuestionSymbol` / `IsColonSymbol` 当时就是这样读的），
+只剩它一个还隔着一层包装。两处改读 `k.IsExtendsKeyword === true`，这一格局部转手整格删掉。
+
+- **判据一个字没改**：`findIndex` 收的仍是同一个谓词，两处逐格同答。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：删掉的是函数体内的一格局部转手，
+  不在 `# method` / `# const` 的账上）。本页今天 **10651 行**（代码块 7784 行，
+  其中不带注释的 4672 行）。
+- **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build` 该页 **1 个产物 / 0 error**、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**，读数与第 1106 ~ 1122 轮逐项相同。
+
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
 这一条出口**一个读者——那一格自己的递归调用不算读者，`projectTypeExpression` 里**没有**它的
@@ -10349,9 +10362,11 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         // `IsExtendsKeyword` 在 `Keyword` / `Identifier` 两页，都在记下正文那一刻赋好）——
         // 原来的局部 `isSymbol(k, text)` 转手连同两次现拼一起收掉。
         const slice = kids;
-        const isExtends = (k) =>
-          k.IsExtendsKeyword === true;
-        const extIndex = slice.findIndex(isExtends);
+        // **第 1123 轮**：那一格局部转手 `isExtends`（`(k) => k.IsExtendsKeyword === true`）
+        // 也一并收掉——它只有两处读者（下面 `extIndex` 与尾段那个 `tailExt`），
+        // 而它答的就是被问那一页那一格属性（与上面 `IsQuestionSymbol` / `IsColonSymbol`
+        // 同一形态，一处声明一处读）。
+        const extIndex = slice.findIndex((k) => k.IsExtendsKeyword === true);
         const questionIndex = slice.findIndex((k) => k.IsQuestionSymbol === true);
         const colonIndex = slice.findIndex((k) => k.IsColonSymbol === true);
         const node = {
@@ -10370,7 +10385,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         }
         if (colonIndex >= 0) {
           const tail = slice.slice(colonIndex + 1);
-          const tailExt = tail.findIndex(isExtends);
+          const tailExt = tail.findIndex((k) => k.IsExtendsKeyword === true);
           const tailQuestion = tail.findIndex((k) => k.IsQuestionSymbol === true);
           const tailColon = tail.findIndex((k) => k.IsColonSymbol === true);
           node.falseType =

@@ -347,6 +347,20 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1123 轮：`ctx.ConditionalNode` 里剩下那一格局部转手 `isExtends` 也收掉——两处改读 `k.IsExtendsKeyword`（被问那一页第 1119 轮就答好的那一格）；**八道门 7 通过、读数一处没动**
+
+**一句话**：`(k) => k.IsExtendsKeyword === true` 这一格闭包**不是判据、是转手**——
+它答的就是被问那一页那一格属性，而同一段上的另两处（`IsQuestionSymbol` / `IsColonSymbol`）
+第 1119 轮起就是直接读属性的，只剩它一个隔着包装。
+
+| 原来的现场算式 | 今天读的那一格 |
+| --- | --- |
+| `const isExtends = (k) => k.IsExtendsKeyword === true;`（两处读者：`extIndex` 与尾段的 `tailExt`） | 两处各自 `…findIndex((k) => k.IsExtendsKeyword === true)`——`findIndex` 收的仍是同一个谓词，逐格同答 |
+
+- **实测**：`xl check typescript core` 156 文件 / 0 条；`xl build` 该页 1 产物 / 0 error、
+  `npx tsc` 干净；八道门 **7 通过 / 1 失败**，读数与第 1106 ~ 1122 轮逐项相同
+  （`coverage` 4260 / 4422、加权 95.7%，唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+
 ### 第 1122 轮：`projectTypeArguments` 里那份「第二处切法」删掉——切逗号那 13 行交给同一页的 `splitTopLevel`（同一份算式只许有一处）；**八道门 7 通过、读数一处没动**
 
 **一句话**：泛型实参那一格自己写了一遍「按逗号攒组、分隔符不进任何一组、末尾补一组、
