@@ -467,6 +467,54 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 - **本页的声明数**：**81 格**（这一轮一格没增、一格没减：删掉的是一个 `ctx` 出口，
   宿主 `allKids` 那一格还在，只是读者从「三处」收成「一处」）。
 
+**第 1070 轮收的是 `ctx` 上「别的页一处不用」的那五个出口——判据是「数得出来的 0 处」**：
+
+| 删掉的出口 | 原来唯一还看得见它的地方 | 今天谁答 |
+| --- | --- | --- |
+| `ModuleSpecifierIn` / `ModuleHolderOf`（在一串单元里找模块路径那个 `String`） | 本页 `namedExportClause` | 全仓只有那两处调用，出口删掉、实现留在本页 |
+| `ComputedNameUnit`（计算名那个 `ArrayLiteral`） | 本页 `memberNameOf` | **就地展开**进 `memberNameOf`（见那一节），本页少一格声明 |
+| `TrailingSemicolonOf`（末尾那个 `;` 落在谁里面） | 本页 `projectEach` | 出口删掉，实现留在本页 |
+| `SpecifierNameOf`（一个名字单元 → `StringLiteral` / `Identifier`） | 本页 `namedSpecifiersOf` 两处 | 出口删掉，实现留在本页 |
+| `KindsInAst`（把投影出来的 `kind` 收进一个集合） | 本页 `projectRoot` | 出口删掉，实现留在本页 |
+
+- **为什么这五个该删**：`ctx` 是**跨页**的那条路（`PrintDirectAst` 拿不到本文件的 import，
+  只能经它转调），而每一页自己在用的名字**个个都有本页之外的读者**——只有这五个是
+  `ctx` 上有、别的页一次都不用的。删掉它们不牵动任何调用点，只是把「只有本页能用」
+  的能力从公共面上收回来：**出口删了，同一格事实就不会有第二个入口**（与第 1044 ~ 1069
+  轮删各页出口同一条口径）。
+- **量法**（递归扫，不是扫一层）：把全仓（`core` / `typescript` / `typescript-exec` / `runtime`
+  的**全部** `*.xl.md`，除本文件外，共 181 份）里 `ctx.<名字>` 的出现次数数一遍，
+  **0 处**才算没人用。**这一轮第一次量错了**：只扫了一层目录（`-Path core,typescript` 没带
+  `-Recurse`），于是把 `heritage-clause` / `type-parameter` / `new` / `method` / `switch` /
+  `enum-member` / `signature` / `type-operator` / `type-assign` / `mapped-type` /
+  `conditional-type` / `label` / `field` / `lamda-parameter` / `import` / `import-type` 十六页
+  真在用的 `ctx.DottedExpression`（2）/ `ctx.TypeOf`（6）/ `ctx.QualifiedNameFrom`（3）/
+  `ctx.ParenthesizedOf`（7）/ `ctx.SwitchClause`（1）/ `ctx.ConditionalNode`（3）/
+  `ctx.Segment`（3）/ `ctx.StatementOfList`（1）/ `ctx.ComputedNameExpression`（1）
+  也当成「没人用」删掉了——`cases:direct` 当场 **415 处异常**（`ctx.DottedExpression is not a
+  function` 一族），按读数逐格还原。所以这一步的判据是**递归扫全部 `*.xl.md`**，
+  少扫一层就会把「别人在用」读成「没人用」。
+- **`ComputedNameUnit` 就地展开**：它**全仓一个调用点**（`memberNameOf`）而函数体只有三句
+  （取这一格的子单元、第一格不是 `ArrayLiteral` 就给零、原文那个位置不是 `[` 也给零）——
+  与第 1043 / 1044 / 1056 轮并掉那些转发同一把尺子。展开时名字不能撞：`memberNameOf` 里
+  已经有一个 `const direct`，所以新变量取 `nameKids` / `nameFirst`，第三句就着空列表写成
+  `nameKids.length > 0 ? nameKids[0] : undefined`（`undefined` 与原来的 `null` 一样过
+  `!== null`，判据一个字没动）。
+- **两处「一格声明、一个读者」这次没动**（留着并记下理由，免得下一轮再量一遍）：
+  `specifierNameOf` 是两个调用点、而且它承载的是「引号名 → `StringLiteral`、其余 → `nameOf`」
+  这一条与 `projectBindingElement` **一字不差**的取法（那一页的注释就这么记着）；
+  `typeMemberGroups`（一个读者 `projectEachIn`）的 13 行代码外面裹着 12 行注释，
+  展开会把「为什么只有三种容器要切」那段记录并进调用点——两处都不是「多一跳的转发」。
+- **`StatementOfList` 与 `SwitchClause` 留着**：它们各自有本页之外的读者
+  （`label.xl.md` / `switch.xl.md`），按上面那条判据**不算**「没人用」。
+- **实测**：`xl check typescript core` 0 条；`xl build --force` **156 个产物** / 0 error、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 32.6s），读数与基线逐项相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**81 → 80 格**（`computedNameUnit` 一格搬进调用点；
+  另外五格删的是 `ctx` 出口，宿主声明都还在）。
+
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
 名单的键就是**那些类自己的名字**，所以它本来就是那四页的事实；投影这一侧过去用
@@ -8065,7 +8113,16 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // `DecodeIdentifierEscapes`）——两处各写一份就是两处会漂的答案（这一轮第一版
   // 只改了标识符那一格，于是 `function f\u0066()` 绿了、`const \u0061bc` 还是红的）。
   const name = typeof rawName === "string" ? rawName : "";
-  const computed = computedNameUnit(v);
+  // **计算属性名那个单元**（第 1070 轮就地写在读者这里）：`[Symbol.toPrimitive]` 在产物里
+  // 是 `ArrayLiteral`、**含方括号**；只认「**第一个**子单元，而且原文那个位置就是 `[`」
+  // 的那种——类字段的初始化式（`x = [1, 2]`）也是 `ArrayLiteral`，但它前面还有 `=`。
+  // （它原是一格 `computedNameUnit`：全仓一个调用点、就是这里，拆成一格只是多一跳。）
+  const nameKids = v.ProjectableKids;
+  const nameFirst = nameKids.length > 0 ? nameKids[0] : undefined;
+  const computed =
+    nameFirst !== undefined && nameFirst.Tag === "ArrayLiteral" && nameFirst.Text.startsWith("[")
+      ? nameFirst
+      : null;
   if (computed !== null) {
     return {
       name: {
@@ -8894,21 +8951,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   return projectTypeExpression(list, ctx);
 ```
 
-# private method computedNameUnit:(v:any)=>any
-
-计算属性名那个单元（`[Symbol.toPrimitive]` 在产物里是 `ArrayLiteral`，**含方括号**）。
-
-只认「**第一个**子单元，而且原文那个位置就是 `[`」的那种——类字段的初始化式
-（`x = [1, 2]`）也是 `ArrayLiteral`，但它前面还有 `=`。
-
-```ts
-  const kids = v.ProjectableKids;
-  if (kids.length === 0) return null;
-  const first = kids[0];
-  if (first.Tag !== "ArrayLiteral") return null;
-  return first.Text.startsWith("[") ? first : null;
-```
-
 # private method computedNameExpression:(unit:any, ctx:any)=>any
 
 ```ts
@@ -9348,9 +9390,21 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 的 `PrintDirectAst`），所以它搬回了那一页——投影层不再替它记一份，`ctx` 也不再递它。
     SynthName: (text, view) => synthName(text, view, ctx),
     StatementOf: (view) => projectStatement(view, ctx),
-    // **一串平铺的单元当作一条语句投**（第 929 轮）：`Label.PrintDirectAst` 要的就是它
-    // （包好的标签里装的是被标语句的那一段，而它可能不是一个成形单元）。
-    // 与 `projectStatement` 里那一支**共用一份实现**（见 `statementOfList`）。
+    // **第 1070 轮删掉的是「别的页一处不用」的那几格**：判据只有一条——把
+    // `ctx.<名字>` 在全仓（`core` / `typescript` / `typescript-exec` / `runtime` 的
+    // 全部 `*.xl.md`，除本文件外）扫一遍，**0 处**的那些才是投影层多出来的入口。
+    // 每一格都只剩一条调用链（出口 → 本页唯一的读者），所以删出口不牵动任何调用点，
+    // 只是把「除了本页没人能用」的能力面收回本页。本轮删掉五格：
+    // `ModuleSpecifierIn` / `ModuleHolderOf`（唯一读者 `namedExportClause`）、
+    // `ComputedNameUnit`（唯一读者 `memberNameOf`，已就地展开）、`TrailingSemicolonOf`
+    // （唯一读者 `projectEach`）、`SpecifierNameOf`（唯一读者 `namedSpecifiersOf` 两处）、
+    // `KindsInAst`（唯一读者 `projectRoot`）。**第一次扫表扫错了**（只扫了一层目录，
+    // 于是把 `heritage-clause` / `type-parameter` 等页真在用的 `DottedExpression` /
+    // `TypeOf` 也当成「没人用」删掉），`cases:direct` 当场 415 处异常 ——
+    // 所以这里的判据是「**递归扫**全部 `*.xl.md`」，不是「扫一层」。
+    // `ctx` 上留下的名字个个都有本页之外的读者，`direct:lint` 的 `CTX_BANNED` 名单因此不变。
+    // **`StatementOfList` 与 `SwitchClause` 留着**：前者 `label.xl.md` 用、后者 `switch.xl.md` 用
+    // ——「本页只在别处用它」这件事按上面的判据不算删的理由。
     StatementOfList: (list) => statementOfList(list, ctx),
     Nothing: NOTHING,
     BodyBlockOf: (from, list, braceRange) => bodyBlockOf(from, list, ctx, braceRange),
@@ -9360,7 +9414,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     ParenthesizedOf: (unit) => parenthesizedOf(unit, ctx),
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
     HeadDeclare: (list) => projectHeadDeclare(list, ctx),
-        QualifiedNameFrom: (list) => qualifiedNameFrom(list),
+    QualifiedNameFrom: (list) => qualifiedNameFrom(list),
     DottedExpression: (list) => dottedExpression(list),
     TypeArguments: (generic) => projectTypeArguments(generic, ctx),
     ConditionalNode: (list, from, to) => conditionalNode(list, from, to, ctx),
