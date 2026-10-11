@@ -32,15 +32,21 @@ import { SourceRange } from "./source-range.xl.md"
 return this.Document.Parent;
 ```
 
-## property Value:string
+## field Value:string = ""
 
-该位置上的值。
+**该位置上的值**（第 1211 轮，用户口径 1.2「提升 parse 效率」）：这一格原来是 `## property` +
+`### get`（每读一次就 `this.Document.GetValue(this.Index)` 回文档问一次），而**同一个位置会被问很多遍**
+——处理一个字符时，那个字符的 `Source` 会依次交给通用队列里每一条分支，每条分支的 `Condition`
+第一件事就是读 `source.Value`。实测一份 `typescript.d.ts` 上：
+`Document.GetValue` 被调 **9643035** 次，而新建的 `Source` 只有 **1176959** 个
+（`tmp/r1211-count3.mjs`；`tmp/r1211-gvstack2.mjs` 按栈采样，前十六名全是各页 `Condition` 里那一句）——
+**同一个字符平均被回文档读了 8 遍**。
 
-### get
-
-```ts
-return this.Document.GetValue(this.Index);
-```
+**为什么可以在这里算一次**：`Source` 是「文档里的一个位置」，而位置由 `Document` 与 `Index` 定死
+（两个字段都只在构造时赋值），文档本身也是不可变的（`Document.GetValue` 是纯取值、没有副作用）
+——所以「这一格的值」在构造那一刻就已经是最终答案。**读法与语义一个字没改**：构造签名还是
+`(document, index)`，读法还是 `source.Value`；`Document.At()` 仍旧**每次新建一个 `Source`**
+（调用点仍旧不要依赖对象身份），`Pre()` / `Clone()` 也照旧。
 
 ## constructor:(document:Document, index:int)=>void
 
@@ -49,6 +55,7 @@ return this.Document.GetValue(this.Index);
 ```ts
 this.Document = document;
 this.Index = index;
+this.Value = document.GetValue(index);
 ```
 
 ## method Pre:(skipChars?:Array<string>)=>Source | null
