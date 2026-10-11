@@ -103,6 +103,12 @@ if (result.Message === 0) {
 }
 ```
 
+## field HasFailedHook:bool = true
+
+**这一格覆写了 `Failed`**（第 1210 轮，用户口径 1.2）：基类那一格是空方法，而本页这一格**有活干**
+（把上一个断开的 `Identifier` 关掉）——所以 `Branch.Transit` 那一句守卫在**这一格**上答「值得进函数」。
+问法与读数写在 `core/syntax/branch.xl.md` 的 `HasFailedHook` 那一节。
+
 ## method Failed:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 失败时把上一个 `Identifier` 关掉——它已经断开了。

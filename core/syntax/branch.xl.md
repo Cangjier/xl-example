@@ -41,6 +41,18 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 其中成立 **346351** 次、不成立 **6589447** 次（**95.0%**）——这一格省掉的是每份
 **659 万个临时对象**。
 
+## field HasFailedHook:bool = false
+
+**我这一格有没有覆写 `Failed`**（第 1210 轮，用户口径 1.2「提升 parse 效率」）：`Transit` 原来
+**无条件**调一次 `this.Failed(...)`，而基类那一格是**空方法**——实测一份 `typescript.d.ts` 上
+`Transit` 走 **6935798** 次、失败 **6589447** 次，其中 **6113961 次（92.8%）** 落在这个空方法上
+（`tmp/r1210-count2.mjs`）：**611 万次**「多态调用 + 返回」一分钱都不产出。
+
+**由覆写了它的那一页自己答**（与本仓一贯的口径一致：这一格是不是某一类由被问的那一页答）：
+`CommonBranch`（`identifier.xl.md`）与 `SymbolBranch`（`symbol-token.xl.md`）各显式声明 `= true`，
+其余一律 `false`。**判据与次序一个字没改**：`Failed` 该怎么写、什么时候该调，仍然全留在原来那一页上；
+这一格只回答「值不值得为这一格进一次函数」。
+
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 判断本次跳转是否成立，并给出 `Message` 号。
@@ -71,12 +83,18 @@ throw new Error("abstract member: Success");
 
 条件结果先取出来再分流：`Success` 与 `Failed` 都要拿到同一个 `Result`。
 
+**`Failed` 那一句先问 `HasFailedHook`**（第 1210 轮，用户口径 1.2）：那一格答「我覆写过 `Failed` 吗」，
+答否就**不进函数**——省掉 611 万次落空的调用（读数与理由写在 `HasFailedHook` 那一节）。
+进来的那一档走的还是**同一个 `Failed`**、同一个 `Result`，一个字没改。
+
 ```ts
 const Result = this.Condition(Context, Host, Src);
 if (Result.Success) {
   this.Success(Context, Host, Src, Result);
   return BranchStates.Done;
 }
-this.Failed(Context, Host, Src, Result);
+if (this.HasFailedHook) {
+  this.Failed(Context, Host, Src, Result);
+}
 return BranchStates.Undo;
 ```
