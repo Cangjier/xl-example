@@ -1157,6 +1157,70 @@ for (const k of this.children) {
 return at;
 ```
 
+## property FollowingSemicolonAt:int | undefined
+
+**从我这一格的终点往后、跨过 trivia 之后那个 `;` 在哪**（第 1165 轮）：跨过的是
+**空白与两种注释**（换行也算），跨不到 `;` 就给 `undefined`。
+
+**为什么住在 token 上**（用户口径 1.2 / 1.3 / 1.6）：这一问的每一件事实都在这一格自己这一侧——
+起点是自己的 `end`，往后那些字符全在**自己那份 `Document`** 上（`SourceRange` 两头各自带着它，
+与 `Text` / `ProjectionStart` / `ProjectionEnd` 同一处取）。算式原来在
+`print-ast-common.xl.md` 的 `projectExport` 里现场写了一遍（`ctx.source[semiAt]` 一个字符一个字符
+往后读、`ctx.source.indexOf("*/")` 与 `indexOf("\n")` 跳两种注释），第 1165 轮整段搬到这里，
+投影那一侧只读一次属性。
+
+**它与 `TrailingSemicolonAt` 不是同一问**：那一格问「**我区间里面**末字符那个 `;`」
+（`export { a };` 那一族在它自己身上），这一格问「**我区间外面**紧跟的那个 `;`」——
+`export default 1/*c*/;` 里 `1` 那一格的终点落在注释**前面**，那个 `;` 只能从外面找。
+所以两格各自守着自己那一问，名字也只差一个词。
+
+**「注释没闭合 / 后面没有 `;`」一律给 `undefined`**：那是坏输入或「本来就没有尾分号」，
+与原来那一趟的答案逐格相同（原来 `break` 之后读到的还是注释开头那一格字符 ⇒ 不是 `;` ⇒ 原样返回 `end`）。
+
+**读数**（第 1165 轮，探针挂在构建产物上、跑 `cases:direct --all` 的 2051 份语料）：
+这一问被求值 **71** 次——其中 **37** 次答出一个位置（就是那个 `;`），**34** 次给 `undefined`；
+接收者逐次点名是 `Identifier` **67** / `PropertyAccess` **2** / `Keyword` **1** / `Lamda` **1**
+——**四个类都递得到**，所以它声明在基类上（不是某一页自己的那一格）。
+
+### get
+
+```ts
+const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
+if (head === null) return undefined;
+const doc = head.Document;
+const count = doc.GetCount();
+let at = this.end;
+while (at < count) {
+  const one = doc.GetValue(at);
+  // **换行也一起跳**：`export default 1` 换行 `;` 在 TS 那边同样是含 `;` 的那一段。
+  if (one === " " || one === "\t" || one === "\r" || one === "\n") {
+    at = at + 1;
+    continue;
+  }
+  // **块注释**：`/* … */` 整段跳过去（`Document` 上只有取值与取长度，
+  // 所以这里是「找 `*` 与 `/` 挨着的那一格」，与原来 `indexOf("*/", at + 2)` 逐格同答）。
+  if (one === "/" && doc.GetValue(at + 1) === "*") {
+    let close = at + 2;
+    while (close + 1 < count && !(doc.GetValue(close) === "*" && doc.GetValue(close + 1) === "/")) {
+      close = close + 1;
+    }
+    if (close + 1 >= count) return undefined;
+    at = close + 2;
+    continue;
+  }
+  // **行注释**：跳到那一行的 `\n`（那一格是空白，下一趟自己会往前走一格）。
+  if (one === "/" && doc.GetValue(at + 1) === "/") {
+    let line = at + 2;
+    while (line < count && doc.GetValue(line) !== "\n") line = line + 1;
+    if (line >= count) return undefined;
+    at = line;
+    continue;
+  }
+  break;
+}
+return doc.GetValue(at) === ";" ? at : undefined;
+```
+
 ## method ChildrenOf:(segment:Token | null | undefined)=>Array<Token>
 
 **某一段的子单元**（第 1018 轮）：那一段还没挂上（`null` / `undefined`）时给**空列表**。

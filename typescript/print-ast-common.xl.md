@@ -9411,40 +9411,18 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // `gap-r907-export-default-assignment-trailing-comment`）：`export default 1/*c*/;` 里
       // `end` 落在 `1` 之后，紧挨着的那个字符是**注释的开头** ⇒ 原来那句
       // `ctx.source[end] === ";"` 给否 ⇒ 区间停在 `1` 之后（实测产物 `[0,16)`、TS 是 `[0,22)`）。
-      // 所以先把空白与注释跳过去再问一次「是不是 `;`」——注释是 trivia，
-      // 与第 817 轮那条线一致（`export default 1/*c*/ ;` 的 TS 也是 `[0,23)`，含那个 `;`）。
+      // 注释是 trivia，所以要跳过去再问一次「是不是 `;`」——**这一趟第 1165 轮整段搬进了
+      // 被问的那一格**（用户口径 1.2 / 1.3 / 1.6）：读 `Token.FollowingSemicolonAt`
+      // （见 `core/syntax/token.xl.md`），往后那些字符全在那一格自己那份 `Document` 上。
+      // 与第 817 轮那条线一致（`export default 1/*c*/ ;` 的 TS 也是 `[0,23)`，含那个 `;`）；
       // **换行也一起跳**：`export default 1` 换行 `;` 在 TS 那边同样是 `[0,18)`（含 `;`）。
       const end = expr[expr.length - 1].end;
-      let semiAt = end;
-      while (semiAt < ctx.source.length) {
-        const one = ctx.source[semiAt];
-        if (one === " " || one === "\t" || one === "\r" || one === "\n") {
-          semiAt = semiAt + 1;
-          continue;
-        }
-        if (one === "/" && ctx.source[semiAt + 1] === "*") {
-          const close = ctx.source.indexOf("*/", semiAt + 2);
-          if (close < 0) {
-            break;
-          }
-          semiAt = close + 2;
-          continue;
-        }
-        if (one === "/" && ctx.source[semiAt + 1] === "/") {
-          const line = ctx.source.indexOf("\n", semiAt + 2);
-          if (line < 0) {
-            break;
-          }
-          semiAt = line;
-          continue;
-        }
-        break;
-      }
+      const semiAt = expr[expr.length - 1].FollowingSemicolonAt;
       return {
         kind: "ExportAssignment",
         expression: value,
         pos: v.start,
-        end: ctx.source[semiAt] === ";" ? semiAt + 1 : end,
+        end: semiAt !== undefined ? semiAt + 1 : end,
       };
     }
   }

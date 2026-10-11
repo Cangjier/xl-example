@@ -347,6 +347,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1165 轮：用户口径 1.2 / 1.3 / 1.6 —— 「终点之后跨过 trivia 那个 `;`」那一趟整段搬进被问的那一格（`Token.FollowingSemicolonAt`），`projectExport` 里那一圈扫描只剩一次属性读
+
+**一句话**：`export = X` / `export default X` 的尾分号**不在表达式那一格的区间里**，
+而它前面可能夹着空白与注释（`export default 1/*c*/;`）——`projectExport` 原来为此现场写了一圈
+**回原文往后读**的扫描（空白一格一格跳、`ctx.source.indexOf("*/")` 跳块注释、
+`indexOf("\n")` 跳行注释），而这一问的每一件事实都在**被问的那一格自己这一侧**：
+起点是自己的 `end`，往后那些字符全在**自己那份 `Document`** 上。第 1165 轮整段搬进
+`core/syntax/token.xl.md`：
+
+| 原来的现场算式（`projectExport` 里） | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `let semiAt = end; while (semiAt < ctx.source.length) { … }`（跳空白 + `indexOf("*/", …)` 跳块注释 + `indexOf("\n", …)` 跳行注释）+ `ctx.source[semiAt] === ";" ? semiAt + 1 : end` | `expr[expr.length - 1].FollowingSemicolonAt` | `core/syntax/token.xl.md` 的基类**显式声明** `## property FollowingSemicolonAt:int \| undefined`（`### get`，读自己的 `end` 与 `SourceRange` 那份 `Document` 的 `GetValue` / `GetCount`） |
+
+- **换算式的每一句判据一个字没改**：换行也算空白（`export default 1` 换行 `;` 在 TS 那边
+  同样含 `;`）、块注释找 `*` 与 `/` 挨着的那一格（与 `indexOf("*/", at + 2)` 逐格同答）、
+  行注释跳到那一行的 `\n`、**注释没闭合就给 `undefined`**（原来 `break` 之后读到的还是注释开头
+  那一格字符 ⇒ 不是 `;` ⇒ 原样返回 `end`——两边同答）。
+- **它与 `TrailingSemicolonAt` 不是同一问**（所以是两格、不是一格）：那一格问
+  「**我区间里面**末字符那个 `;`」，这一格问「**我区间外面**紧跟的那个 `;`」——
+  `export default 1/*c*/;` 里 `1` 那一格的终点落在注释**前面**，那个 `;` 只能从外面找。
+- **收件人是量出来的**（第 1135 / 1136 轮那条尺子）：探针挂在构建产物的那一行上、跑
+  `node tests/parse/direct-ast.mjs --all`（2051 份）记 `expr[expr.length - 1].constructor.name`
+  ⇒ **`{"n":71,"names":{"Identifier":67,"PropertyAccess":2,"Keyword":1,"Lamda":1}}`**
+  ——四个类都递得到，所以它**声明在基类上**（不是某一页自己的那一格）；同一批探针另记一个
+  命中数：**71** 次里 **37** 次答出一个位置、**34** 次给 `undefined`。
+- **为什么是 `## property` + `### get`**：形态与 `TrailingSemicolonAt` / `ProjectionStart` /
+  `ProjectionEnd` 那一族相同——**读的那一刻算一次**。这一问只在「赋值式导出并且算出了
+  表达式」时才被读一次（实测 71 次），为它给每个 token 预付一格是反的。
+- **判据这一轮没长**（如实记下）：`direct:lint` 那几条守的是「投影不许回原文查**某一格自己的**
+  那一格字符 / 按坐标切正文 / 对 token 调方法 / 按字符串键查」，而**往后跨 trivia 的扫描**
+  （`ctx.source[at]` 这种**游标**读法）第 1049 / 1053 轮就明确留着——`print-ast-common` 的代码块里
+  今天还剩三处同形态（`stmtEndOf` 的兜底支、`semicolonEndOf` 的两处），所以没有可判的形态可立。
+- **量**（同一把逐行尺子）：`print-ast-common` 代码块 **4018 → 3994 行**（净少 **24** 行）、
+  声明数仍是 **56 格**（搬走的是算式，不是声明）；新立的那一格在 `core/syntax/token.xl.md`
+  （那一页的非注释代码行 **359 → 389**）。
+- **实测八道门**：**7 通过、1 失败**（墙钟 33.6s），读数与第 1106 ~ 1164 轮**逐项相同**：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` **0 条违反**、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79；唯一那条红仍是 HEAD 上既有的 `runtime/round741/002`。
+  **另跑一遍 `cases:direct --all`**：2051 份、抛异常 **0 处**。
+
 ### 第 1164 轮：用户口径 1.2 / 1.3 / 1.6 —— 「行首还是行尾那个 `;`」那一趟排版判断整段搬进被问的那一格（`Statement.IsEmptyStatementUnit`），`SEMICOLONS_AND_SPACES` 那张正则随它一起删掉
 
 **一句话**：`projectStatement` 里「这个孤零零的 `;` 到底是不是一条空语句」原来是一整趟
