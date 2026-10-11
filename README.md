@@ -347,6 +347,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1226 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **实例化表达式后面跟点号成员那一族整族丢**（口径 1.1，两种根、一次收掉十五种形状）；1.2 是**如实记下的「读数不可分辨」**（三格热路少造一个迭代器 / 少一次方法调用，两读反向、空 A/B 同量级）
+
+**一句话**：1.1 收掉的是 `a<b>.b` 那一族——**token 层那张后继白名单里少一个点号、投影层那条收尾把点号交给了二元那一支**，两处各补一句、不新写折法；1.2 试的是 `for…of` 的迭代器对象与一次多余的 `Last()` 调用——**今天的尺子分辨不出来**，留下它的理由是计数不是墙钟。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | ① `GenericTypeBranch.IsAllowedFollower` 表达式位收下 `.`（**后一位是数字时不放行**：`a < b > .5` 是合法的比较式）；② 投影 0a 那一支：尾巴是「点号 + 成员」时交给 `chainOnto`、尾巴那一串 `?.` 交给 `chainWithOptional`、尾巴第一格是模板串时交给 `chainOnto` 的循环那一档 | 守卫用例 **16 片全通过**（缺 range 0 / 越界 0 / 重复访问 0）；组合扫描 对不上 **1**、对上 869；全语料 2084 份逐字节同答 |
+| **1.2** | 试：`MoveDataTo` / `AddRange` 的 `for…of` 换下标循环、`AddAndCloseLast` 把 `Last()` 就地展开 | 20 对 mean **−38.22ms**、30 对 **+17.99ms**、**空 A/B −9.87ms** ⇒ 不可分辨 |
+
+**1.1 的现场**：`a<b>.b` 在产物里**一格都投不出来**，两个根分居两层。
+**token 层**：`GenericTypeBranch.IsAllowedFollower` 的表达式位白名单（第 850 / 888 / 977 / 1220 轮一格一格长出来的那张表：`( ; ) , ] ? : || &&` + 反引号 + `as` / `satisfies` / `in` / `instanceof`）里**没有点号**——配对 `>` 后面紧跟 `.` 时那次试读被判否 ⇒ `<b>` 退回裸符号、`a < b > .b` 折成比较式。
+**投影层**：`projectExpression` 0a 那一支（实例化表达式）的收尾一律交给 `foldBinaryFrom`，而它开头一句要求 `rest` **以运算符打头**——点号**是**运算符单元 ⇒ 折出 `BinaryExpression(op=".")`（`DotToken` 出现在 `operatorToken` 上、`PropertyAccessExpression` 整格缺）。
+
+**1.1 的补法**：token 层照那一节的老规矩——**先看后一位**（`a < b > .5` 在 TS 里是**合法**的比较式，那个 `.` 与它后一位数字**合起来才是**数字字面量，只看 `.` 会当场把 `.5` 读成成员名）；投影层照口径 1.6「同一件事一处实现」——尾巴是「点号 + 成员」交给链那一支的同一份实现（`chainOnto`）、尾巴那一串 `?.` 交给 `chainWithOptional`（与 0a0 那一支的收尾同一个形状）、尾巴第一格是模板串时交给 `chainOnto` 的**循环**那一档（第 979 轮）。**三处都不新写折法。**
+拿真 TS 复量过（`tmp/r1226-ts2.mjs`）三条形状：`a<b>.b` 是 `PropertyAccessExpression > [ExpressionWithTypeArguments, Identifier]`、`a<b>.b`t`` 是一条 `TaggedTemplateExpression`、`a<b>.b(1)` 是一条 `CallExpression`——三形状都带 TS 自己的一条**语义**错（`An instantiation expression cannot be followed by a property access.`），可**树是照投的**；本仓的判据只算语法（kind / 区间 / 字段名），语义错不进账。
+
+**1.1 的读数**：新立守卫用例 [`tests/cases/token/expressions/expr-r1226-inst-dot.ts`](tests/cases/token/expressions/expr-r1226-inst-dot.ts)（15 条形状：`.名字` / 模板 / 调用 / 两层成员 / `?.` / `!` / `as` / `satisfies` / 下标 / 调用后成员，外加 `f<T>.b` / `(a)<b>.b` / `a.b<c>.d` / 声明位 / `return` 位）单跑 **16 片全通过**、节点 998 个、缺 range 0 / 区间越界 0 / 重复访问 0。**这一族在全语料 2084 份里一个都不出现**（XML 与投影 JSON 逐字节同答）——所以判据只能由那条守卫用例担着，这正是「缺口清单长在语料里」那条规矩的用处。
+**组合扫描（1100 条）对不上 1、对上 869**，与修前逐项相同：这一族本来一个都不在扫描的底样里。剩下那一条 `a<b>[0]`t`` 记在下面。
+
+**1.1 如实记下的两条限制**（都写在 `print-ast-common.xl.md` 那一节的注里）：
+① `a<b>[0]`t`` —— TS 在那里读的是 tag 为**数组字面量**的标签模板（`a < b > ([0]`t`)`），**不是**实例化表达式；要收它得让 token 层为「`.` / `(` 之外的一格看穿一整串方括号去问后面那格是不是反引号」，本轮不动；
+② `a<b>.b + 1` —— 点号后面那一格不是名字、而是**已经把 `b + 1` 折好的二元单元**（`[Identifier, GenericType, SymbolToken(.), BinaryOperator]`），本支的 `every` 因此答否、落回 `foldBinaryFrom`，而它在「点号当运算符 + 右操作数那一格自己就是二元」这形状上折出 `(a<b>) . (b + 1)`。**这一形状在 TS 里本来就带语义错**，同样不动。
+
+**1.2 的现场与读数（不可分辨）**：`typescript.d.ts` 一份上的确定性计数（`tmp/r1226-count2.mjs`，给基类原型挂计数器）：`MoveDataTo` **890** 次（共搬 **3676** 格）、`AddRange` **8526** 次（共 **19764** 格）、`Add` **104302** 次、`AddAndCloseLast` **96584** 次（它触发的 `Last()` 占全场 **1280443** 次里的大部分）。
+三处改法：`MoveDataTo` / `AddRange` 的 `for…of` 换**下标循环**（每趟少造一个迭代器对象）、`AddAndCloseLast` 把 **`Last()` 那一趟就地展开**（逐字与基类那一份相同，省掉一次方法调用；**按基类那一份就地写、不假设任何覆写**）。
+**墙钟**（`tmp/abparse.mjs`：第 1226 轮新立的 **parse 版批量尺子**，与 `tmp/abgen.mjs` 同一套量法、量的是「一轮 parse」——因为 1.2 的基准是 print ast 的耗时，而 parse 那一侧的小改动在投影那把尺子上本来就在分辨力之下）：
+
+    20 对 × 每批 3 轮   mean −38.22ms/轮（sd 77.55、se 17.34）  15:5
+    30 对 × 每批 3 轮   mean +17.99ms/轮（sd 81.61、se 14.90）  11:19
+    空 A/B（同一份产物） mean  −9.87ms/轮（sd 73.75、se 16.49）  12:8
+
+⇒ 两读反向、空 A/B 与它同量级：**不可分辨**。`tmp/r1203-bench.mjs`（best of 5）printAst 102.8 → **107.8 ms**、parse 1011.2 → 1058.4 ms——同一把尺子的逐次跳动本来就覆盖这个幅度。
+**剖析这一次的函数级那一列不可用**（如实记）：同一份 `--cpu-prof` 上 `MoveDataTo` 被报成 **7.34%**，而计数器说它一份只跑 890 次、共搬 3676 格 ⇒ 那是 V8 把行号归到了邻近的函数上。所以本轮的取舍依据是**计数器**，不是那张榜。按**模块**聚合（`tmp/r1226-profmod.mjs`）：`syntax/token.js` **20.13%**、`syntax/unit-token.js` **11.58%**、`typescript/parse-pipeline.js` **9.22%**、`syntax/close-rule.js` **6.30%**。
+
+**净账**：`cases:tsast` 语料里一条 `xl:known-gap` 都没有（0 条还开着 / 0 条收掉）；`cases:direct` 全语料不抛异常（1673 份）；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1687** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4294 / 4452**（blocked 25、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；`npx tsc`（strict）0 error；八道门墙钟 **28.6s**。`tmp/r1203-bench.mjs`（best of 5）：printAst **107.8 ms**、parse 1058.4、xml 45.7。
+
+**两条 commit**：`341c6d34`（1.1 点号成员那一族）、`ea8f8451`（1.2 的三格热路与「不可分辨」的读数）。
+
 ### 第 1225 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **模板那条链后面跟 `as` / `satisfies` 时那一格整格丢**（组合扫描 5 → 1、二十二条排版一格全收）；1.2 是**如实记下的负结果**（`Parameter.PrintAst` 七趟并成一趟，两读 **−2.41 / +3.68ms**，**已回退**）
 
 **一句话**：1.1 是第 664 / 1220 轮那条口径的**第三次落点**——尾巴上出现关系级运算符时那一支让开，折法仍然只有主流程那一份；1.2 试的是「同一串单元上的七问并成一趟」——**2.5% 的一格本来就在尺子的分辨力之下**，两读反向 ⇒ 回退、留注。
