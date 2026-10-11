@@ -403,7 +403,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
   局部名字上，`direct:lint` 那几条门只认 `Tag`。
 - **本页的声明数**：**43 格**（**一格没增、一格没减**：删掉的是两格**函数体内的**局部闭包，
   不在 `# method` / `# const` 的账上；新立的两格属性在基类与 `Keyword` / `Identifier` /
-  `Bracket` / `ArrayLiteral` / `ObjectLiteral` 五页）。本页 10601 行
+  `Bracket` / `ArrayLiteral` / `ObjectLiteral` 五页）。本页当时 10601 行
   （代码块 7794 行，其中不带注释的 4685 行）。
 - **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build typescript core`
   **156 个产物 / 0 error**、`npx tsc` 干净；**八道门 7 通过、1 失败**，读数与第 1106 ~ 1120 轮
@@ -413,6 +413,23 @@ import { Identifier } from "./tokens/identifier.xl.md"
   `runtime:cli` 79 / 79（唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
   这一轮动的文件共 7 个（本页 + `core/syntax/token.xl.md` + `Keyword` / `Identifier` /
   `Bracket` / `ArrayLiteral` / `ObjectLiteral` 五页）。
+
+**第 1122 轮把 `projectTypeArguments` 里那份「第二处切法」删掉**（同一把尺子：
+**同一份算式只许有一处**——第 1105 轮合掉 `dottedExpression` / `qualifiedNameFrom` 是同一句话）。
+那一格原来自己写了一遍「按逗号攒组、分隔符不进任何一组、末尾补一组、滤掉空组」，
+而那正是本页 `splitTopLevel` 那一份算式（它还服务值位那几处：对象成员、数组元素、
+类型容器的成员）：
+
+| 原来的现场算式 | 今天谁答 |
+| --- | --- |
+| `projectTypeArguments(generic, ctx)` 里那个 `for (const kid of generic.ProjectableKids)` 切逗号的循环（13 行） | 交给 `splitTopLevel(generic.ProjectableKids, ",")`——**逐格同答**：`separator` 给 `","` 时两份判据都是「正文等于分隔符」加上「逗号那一态读它自己的属性」（`kid.TextValue === separator && (separator !== "," \|\| kid.IsCommaSymbol)`），而 `splitTopLevel` 末尾那个 `filter` 与这里的 `parts` 逐组对应（空组都挡掉）；这一格因此只剩「把切好的每一组交给类型投影」这一步 |
+
+- **不是改判据、是去重复**：两份切法今天逐字节同答，可**下一处要改「分隔符算不算组的一部分」时
+  只有一个地方要改**——这正是「同一份事实一处声明」那一条口径要的东西。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：这一格自己还在，少的是它体内那份重复算式）。
+  本页今天 **10632 行**（代码块 7782 行，其中不带注释的 4674 行）。
+- **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build` 该页 **1 个产物 / 0 error**、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**，读数与第 1106 ~ 1121 轮逐项相同。
 
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
@@ -8975,21 +8992,18 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
 
 # private method projectTypeArguments:(generic:any, ctx:any)=>Array<any>
 
+**一格泛型括号段 → 若干个类型实参**（`Map<string, number>` 那个 `<…>` 里切成两格）。
+
+**切法第 1122 轮改成复用 `splitTopLevel`**：这一格原来自己写了一遍「按逗号攒组、
+分隔符不进任何一组、末尾补一组」的循环，而那正是本页 `splitTopLevel` 那一份算式
+（它同时服务值位那几处：对象成员、数组元素、类型容器的成员）——两份逐格同答
+（`separator` 给 `","` 时，判据都是「正文等于分隔符」加上「逗号那一态读它自己的属性」，
+`splitTopLevel` 末尾那个 `filter` 与这里的 `parts` 逐组对应）。所以这一格今天只剩
+「**把切好的每一组交给类型投影**」这一步，本页少一份会漂的第二处切法。
+
 ```ts
-  const parts = [];
-  let current = [];
-  for (const kid of generic.ProjectableKids) {
-    // **逗号那一格自己答**（第 1074 轮）：见 `SymbolToken.IsCommaSymbol`。
-    if (kid.IsCommaSymbol === true) {
-      parts.push(current);
-      current = [];
-      continue;
-    }
-    current.push(kid);
-  }
-  parts.push(current);
   const out = [];
-  for (const part of parts) {
+  for (const part of splitTopLevel(generic.ProjectableKids, ",")) {
     const projected = projectTypeExpression(part, ctx);
     if (projected !== undefined) out.push(projected);
   }

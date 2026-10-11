@@ -347,6 +347,22 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1122 轮：`projectTypeArguments` 里那份「第二处切法」删掉——切逗号那 13 行交给同一页的 `splitTopLevel`（同一份算式只许有一处）；**八道门 7 通过、读数一处没动**
+
+**一句话**：泛型实参那一格自己写了一遍「按逗号攒组、分隔符不进任何一组、末尾补一组、
+滤掉空组」，而那正是同页 `splitTopLevel` 那一份算式（它还服务值位的对象成员 / 数组元素 /
+类型容器成员）——两份今天**逐字节同答**，所以留一份。
+
+| 原来的现场算式 | 今天谁答 |
+| --- | --- |
+| `projectTypeArguments(generic, ctx)` 里那个切逗号的 13 行循环 | `splitTopLevel(generic.ProjectableKids, ",")`——`separator` 给 `","` 时两份判据都是「正文等于分隔符」加上「逗号那一态读它自己的属性」，末尾的 `filter` 与原来的 `parts` 逐组对应 |
+
+- **不是改判据、是去重复**：两份切法同答，可「分隔符算不算组的一部分」这件事下一处要改时
+  只有一个地方要改。
+- **实测**：`xl check typescript core` 156 文件 / 0 条；`xl build` 该页 1 产物 / 0 error、
+  `npx tsc` 干净；八道门 **7 通过 / 1 失败**，读数与第 1106 ~ 1121 轮逐项相同
+  （`coverage` 4260 / 4422、加权 95.7%，唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+
 ### 第 1121 轮：`ctx.HeadDeclare` 里最后两个现场闭包也收进被问的那几页——`isDeclareWord` → `Token.IsDeclareWord`（`Keyword` 在 `SetValue`、`Identifier` 在 `Close` 各写自己认得的词）、`isPatternKid` → `Token.IsPatternKid`（`Bracket` 按 `startBracket`、两个模式类常量答 `true`）；**八道门 7 通过、读数一处没动**
 
 **一句话**：`for (const v of xs)` 那一格（`ctx.HeadDeclare`）里有两行局部判据一直把
