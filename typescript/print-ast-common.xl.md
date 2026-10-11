@@ -4388,7 +4388,6 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   // 是同一个手法：**同一个词两态都要认**（在模块 / 异步函数里 `await` 不可能是一个变量名）。
   const headWord = kids[0].TextValue;
   if (kids[0].IsKeywordUnit || (kids[0].IsIdentifierUnit && (headWord === "await" || headWord === "yield"))) {
-    const word = headWord;
     // **第三态：裸的那个词**（第 960 轮，缺口 `gap-r955-yield-await-outside-context`）。
     //
     // 这个分支到第 959 轮为止只认「这一格是不是 `yield` / `await` 这个词」，而 TS 那边
@@ -4408,15 +4407,19 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     // 只看 ② 会把 `await 0;` 这种**模块顶层 await** 一起判掉（那一条 TS 是 `AwaitExpression`），
     // 只看 ① 会把生成器里的裸 `yield` 判掉（那一条 TS 是 `YieldExpression`）。
     //
-    // **`word` 这一道不能省**：这一格拿到的 `Keyword` **不止这两个词**——
-    // `this` 在产物里也是一格 `Keyword`（`Identifier.LeafKindOfText` 把它投成 `ThisKeyword`），
-    // 只按 `kids[0].IsKeywordUnit` 放行就会把每一格 `this` 都投成普通的 `Identifier`
+    // **「是这两个词里的哪一个」由那一格自己答**（第 1182 轮）：这一格拿到的 `Keyword`
+    // **不止这两个词**——`this` 在产物里也是一格 `Keyword`（`Identifier.LeafKindOfText`
+    // 把它投成 `ThisKeyword`），只按 `kids[0].IsKeywordUnit` 放行就会把每一格 `this`
+    // 都投成普通的 `Identifier`
     //（实测：整份文件的 `ThisKeyword` 全没了、降级期报 `name is not a local or a capture: this`）。
+    // 分辨这两个词的那两格是 `Keyword.SetValue` / `Identifier.Close` 在**记下正文那一刻**
+    // 赋好的 `IsYieldKeyword` / `IsAwaitKeyword`（与 `IsNewKeyword` / `IsAsKeyword` 同一条口径），
+    // 所以这里从比正文改成读属性（第 1182 轮；证据是下面那一趟等价实测）。
     //
     // **区间必须收在词自己身上**：不折时这一格是**一个标识符**，TS 的 `Identifier[9,15)`
     // 就是那个词；而下面 `yield` 那一支的 `end` 会拉到操作数末尾，照抄过来就会多出一段。
     // 所以这一支**自己造 `Identifier`**、不落下去。
-    if (kids[0].IsKeywordUnit && (word === "yield" || word === "await") && kids.length === 1) {
+    if (kids[0].IsKeywordUnit && (kids[0].IsYieldKeyword === true || kids[0].IsAwaitKeyword === true) && kids.length === 1) {
       // **这一格自己就是 token**（第 1022 轮）：`v = view(node)` 那一层早就删了
       // （见 `projectNode` 开头那条「节点就是 token 自己」），所以这里直接问它。
       // 原来写的是 `kids[0].__token`——这个字段**在 token 自己身上是 `undefined`**
@@ -4438,11 +4441,11 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         }
         cursor = cursor.Parent;
       }
-      const inContext = context !== null && (word === "yield" ? context.generator === true : context.async === true);
+      const inContext = context !== null && (kids[0].IsYieldKeyword === true ? context.generator === true : context.async === true);
       if (inContext === false) {
         return {
           kind: "Identifier",
-          text: word,
+          text: headWord,
           pos: kids[0].start,
           end: kids[0].end,
         };
@@ -4452,7 +4455,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     // `YieldExpression[146,151)`（就是那个词），`yield* other()` 的 `*` 进
     // `asteriskToken`、`other()` 进 `expression`。少了这两支，裸 `yield` 会被投成
     // `Identifier`、带 `*` 的那条只在 `yield*` 处收尾（`CallExpression` 整片丢）。
-    if (word === "yield") {
+    if (kids[0].IsYieldKeyword === true) {
       const props: any = {};
       let rest = kids.slice(1);
       if (rest.length > 0 && rest[0].IsAsteriskSymbol) {
@@ -4483,7 +4486,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     // **尾巴里那格 `As` 不归 `foldBinaryFrom` 管**：`await x as T` 是平级两格 `[x, As]`
     //（摊平之后一个运算符都没有），`await x + 1 as any` 的尾巴里也有 `As`——
     // 这两种一律回落到下面那条老路（`as` 的结合性本仓另有口径，抢过来会把那一格丢掉）。
-    if (word === "await" && kids.length >= 2) {
+    if (kids[0].IsAwaitKeyword === true && kids.length >= 2) {
       // **这一问第 1088 轮改成读 token 自己那一格**：原来是本页**两连比类名**
       //（`unit.Tag === "BinaryOperator" || unit.Tag === "LogicalOperator"`），
       // 而那两个名字就是那两页自己的类名（两页各自答 `IsBinaryOperatorNode`）——
@@ -9425,8 +9428,10 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     if (one.IsBraceBracket) {
       braces.push(one);
       const word = i > 0 ? kids[i - 1] : undefined;
-      const wordText = word === undefined ? "" : word.TextValue;
-      if (wordText !== "with" && wordText !== "assert") continue;
+      // **那个标志词是哪个，由那一格自己答**（第 1182 轮）：`with` / `assert` 两格是
+      // `Keyword.SetValue` / `Identifier.Close` 在记下正文那一刻赋好的（同一个词两态都要认），
+      // 所以这里读属性、不再拿 `word.TextValue` 比字面量。
+      if (word === undefined || (word.IsWithKeyword !== true && word.IsAssertKeyword !== true)) continue;
       const elements: Array<any> = [];
       for (const part of splitTopLevel(one.ProjectableKids, ",")) {
         const colonAt = part.findIndex(

@@ -212,6 +212,22 @@ if (last instanceof Identifier) {
 口径与理由见 `../core/syntax/token.xl.md` 的 `IsAssertKeyword`——投影层
 `namedExportClause` 里 `wordText !== "with" && wordText !== "assert"` 那一行现在读属性。
 
+## field IsYieldKeyword:bool = false
+
+**我这一格的正文是不是 `yield` 那个词**（第 1182 轮）：同上一格，同一趟赋好。
+口径与理由见 `../core/syntax/token.xl.md` 的 `IsYieldKeyword`——投影层
+`projectExpression` 里 `yield` 那两支现在读属性，而**那一支的进门口本来就允许
+「还停在标识符上」的那一态递进来**（`kids[0].IsIdentifierUnit && headWord === "yield"`），
+所以这一页答不出就会当场把那一态判错。
+
+## field IsWithKeyword:bool = false
+
+**我这一格的正文是不是 `with` 那个词**（第 1182 轮）：同上一格，同一趟赋好。
+口径与理由见 `../core/syntax/token.xl.md` 的 `IsWithKeyword`——投影层
+`namedExportClause` 里 `export * from "m" with { … }` 那个标志词现在读属性。
+**实测这一页真的收得到它**（全语料 **2051** 份的树里，正文是 `with` 而停在
+`Identifier` 上的一格有 **5** 处；`tmp/` 探针，不进仓）。
+
 ## field IsExtendsKeyword:bool = false
 
 **我这一格的正文是不是 `extends` 那个词**（第 1119 轮）：同上一格，同一趟赋好
@@ -328,6 +344,14 @@ this.IsExtendsKeyword = this.Is("extends");
 // 但**投影里那两处读者都没走到标识符那一态**（`projectExpression` 那一支进入时
 // `IsIdentifierUnit` 为真的次数是 **0**）——所以这两格是**照「同一个词两态都要认」这条口径**
 // 写满的，不是照那两处读数补的。
+// **第 1182 轮**：`yield` / `with` 两格按同一条口径补齐（理由同上）。
+// **第 1180 轮那两格的赋值漏了、这一轮一并补上**：两页各自的 `## field` 声明与说明都在，
+// 但 `Close()` 里只有声明没有赋值——投影一旦真的走到标识符那一态读到的就是基类默认的
+// `false`（第 1182 轮审计时发现；全语料上还没被读到，所以八道门一处没红）。
+this.IsAwaitKeyword = this.Is("await");
+this.IsAssertKeyword = this.Is("assert");
+this.IsYieldKeyword = this.Is("yield");
+this.IsWithKeyword = this.Is("with");
 // **第 1120 轮**：`type` / `is` 两格同一趟赋好（导出子句那个标志词与类型谓词那个词）。
 this.IsTypeKeyword = this.Is("type");
 this.IsIsKeyword = this.Is("is");
