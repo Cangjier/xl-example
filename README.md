@@ -347,6 +347,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1136 轮：第 1135 轮「量过、没敢收」的那一处**换对收件人再收一次、收成了**——那一格立在 `Field` / `MethodDeclaration` 两页上，投影改读 `v.IsNumericLiteralName`；本页对 `Identifier` 的最后一个代码读者随之消失（`import` 也删了）；**读数一处没动**
+
+**一句话**：用户口径 1.1 ~ 1.4。第 1135 轮留下的判据是「要收这一问，收的应该是
+`MethodDeclaration` / `Field` 那一档，不是基类一格——那需要逐页量过谁的名字可能落在这一档上」。
+这一轮**先量、再立**：在构建产物的那一句
+（`if (direct === undefined && identifier_1.Identifier.IsNumericLiteral(name))`）上挂一个探针、
+跑 `node tests/parse/direct-ast.mjs --all`（2051 份语料），记下 `v.constructor.name` ⇒
+
+```text
+["Field","MethodDeclaration"]
+```
+
+两个类，一个不多。于是那一格立在**这两页**上（不是基类、不是 `Identifier`），调用点改读属性：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `direct === undefined && Identifier.IsNumericLiteral(name)`（`memberNameOf` 里**最后 1 处**，`name` = `v.DeclaredName`） | `direct === undefined && v.IsNumericLiteralName === true` | `Field` / `MethodDeclaration` **各自显式声明** `## field IsNumericLiteralName:bool = false`，在**认下名字的那一趟**赋好（`FieldCloseRule.Process` 里 `fieldName` 赋值之后 / `MethodDeclarationCloseRule.Process` 里 `name` 那三支之后），`Clone` 各抄一格 |
+
+- **等价怎么证的**：取值就是原来那一句的后半——**同一个静态入口** `Identifier.IsNumericLiteral`、
+  **同一段文本**（`DeclaredName` 正是这两页的 `NameField`，即 `fieldName` / `name`），
+  上下文那一半 `direct === undefined` 与 `v` 都一个字没动。八道门读数一处没动就是这条的证据。
+- **第 1135 轮的失败模式这一次被躲开**：那条判据写在 `memberNameOf` 那一处——
+  这一格上的 `v` **不是名字单元自己**，而是**声明了这一格名字的那一格**；上一轮把这一格
+  立在基类上，`MethodDeclaration` / `Field` 于是拿到默认档 `false`（四条用例一起 blocked）。
+  这一步的名字是**量出来的**，不是照着「同一把尺子」推的。
+- **同一轮删掉一行 `import`**：这一句是**本页对 `Identifier` 那一页的最后一个代码读者**
+  （实测构建产物里 `identifier_1` 只出现在这一行），所以
+  `import { Identifier } from "./tokens/identifier.xl.md"` 同一轮删掉——本页不再 import 那一页。
+- **同一轮改掉一处抄错的旧值**：本页正文那句「**43 格声明**（40 个 `# method` + 3 个 `# const`）」
+  是第 1131 轮删 `nameOf` 之前的值，实测今天是 **42 格 / 39 个 `# method`**，按本页
+  「只写实测值」那条规矩改掉。本页第 1136 轮**一格声明都没增没减**。
+- **本页的数**：**42 格**（39 个 `# method` + 3 个 `# const`，实测）；本页 10822 → **10869 行**
+  （与历轮同一把尺子：`[\r\n]` 切出行数再扣掉末尾那一格空行；多出来的 47 行是这一轮的台账、
+  两页上那两格属性的说明，以及改掉的旧值）。
+- **实测**：`xl check` 该 4 页 **0 条**；`xl build` 该 4 页 **2 written / 2 skipped、0 error**
+  （`print-ast-common` / `identifier`；`field` / `method-declaration` 上一趟已写、指纹未变）、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 32.5s），读数与第 1106 ~ 1135 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 ### 第 1135 轮：试过把「我声明的这个名字是不是数字字面量」收成 token 属性——**当场被 `coverage` 抓住、如实还原**（4260 → 4256 / 4422 → 回到 4260）；这一轮留的是**判据**，不是改动
 
 **一句话**：用户口径 1.1 ~ 1.4 试第三处。`memberNameOf` 里还剩一处看着像「把这一页自己的名字文本

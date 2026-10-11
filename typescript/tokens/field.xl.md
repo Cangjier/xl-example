@@ -662,6 +662,14 @@ if (result instanceof Field) {
       result.NameAt.Set(name.SourceRange.Start!.Index, name.SourceRange);
     }
   }
+  // **「我声明的这个名字是不是数字字面量」在认下名字的同一趟记好**（第 1136 轮，用户口径
+  // 1.1 ~ 1.4）：投影 `memberNameOf` 那一处过去拿**这一格自己声明的名字文本**去问另一页的
+  // 静态入口（`Identifier.IsNumericLiteral(v.DeclaredName)`）——而名字与「它是不是数字」
+  // 都是**声明了这一格名字的那一格自己**的事实（全语料实测：能落进那一档的类只有
+  // `Field` 与 `MethodDeclaration`，见 `print-ast-common.xl.md` 的 `memberNameOf`）。
+  // 取值口径与那一句**逐字符相同**（同一个静态入口、同一段文本 `fieldName`，
+  // 也就是 `DeclaredName` 在这一页上的那一份），所以投影那一侧从此只读一格属性。
+  result.IsNumericLiteralName = Identifier.IsNumericLiteral(result.fieldName);
 }
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
@@ -862,6 +870,25 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 没有哪一格单独说得清 `fieldName` 里那串 `#x`；那种形态的区间由 `NameStart` / `NameEnd` 说
 （`NameStart` 从 `#` 算起）。
 
+## field IsNumericLiteralName:bool = false
+
+**我声明的这个名字是不是数字字面量**（第 1136 轮，用户口径 1.1 ~ 1.4：投影要的信息由
+**具体 token 子类**在自己那一页**显式声明**、在**构建过程**里赋好，读的时候备齐）。
+
+判据就是本页自己的 `fieldName`（这个名字在 `Process` 里认下的那一刻赋好），
+取值走 `Identifier.IsNumericLiteral`——与投影原来那句
+`direct === undefined && Identifier.IsNumericLiteral(name)` 的**后半**同一份判据。
+`Class` / `Interface` 里的 `1 = 1`、`"a"() {}` 那一族成员名都落在这一格上：
+
+| 名字 | 这一格 |
+| --- | --- |
+| `1 = 1`（数字名成员） | `true` ⇒ 投影出 `NumericLiteral` |
+| `x = 1` / `"a-b" = 1` / `#x = 1` / `[k] = 1` | `false`（`#x` 与计算名不进数字表） |
+
+**为什么是 `## field` 而不是读时现算的 `## property`**：名字文本 `fieldName` 在 `Process`
+里就定下来了（此后只有 `Clone` 抄一次），所以这一格与它同趟赋好即可；
+「信息在 token 子类构建完就齐全」正是这一格要落地的那句话。
+
 ## field modifiers:string = ""
 
 声明前面的修饰词（`public` / `private` / `protected` / `static` / `readonly` / `abstract` / `override` /
@@ -1006,7 +1033,9 @@ return this.NameAt.File();
 
 克隆自身。
 
-四个声明字段都要抄。
+四个声明字段都要抄；**`IsNumericLiteralName` 也要抄**（第 1136 轮）：它是
+`Process` 那一趟按名字算好的一格，克隆体不走 `Process`，不抄的话数字名成员一克隆就退回
+`false`（投影会把它当 `Identifier` 而不是 `NumericLiteral`）。
 
 ```ts
 const result = new Field(this.Template);
@@ -1015,6 +1044,7 @@ result.fieldName = this.fieldName;
 result.NameStart = this.NameStart;
 result.NameEnd = this.NameEnd;
 result.NameAt = this.NameAt;
+result.IsNumericLiteralName = this.IsNumericLiteralName;
 result.modifiers = this.modifiers;
 result.ModifierSpans = this.ModifierSpans;
 result.AddRange(this.Data.map((item) => item.Clone()));

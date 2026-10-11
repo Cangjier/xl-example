@@ -6,7 +6,6 @@
 import { Token } from "../core/syntax/token.xl.md"
 import { Translate } from "./tokens/string/translate.xl.md"
 import { SymbolToken } from "./tokens/symbol-token.xl.md"
-import { Identifier } from "./tokens/identifier.xl.md"
 ```
 
 # namespace cangjie
@@ -74,14 +73,51 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**43 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-40 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**42 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+39 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 3 个名字**（`projectNode` /
 `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），其余一律 `# private`。
 **量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 （`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
 （第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
+**第 1136 轮复核时发现这一句自己就是一处抄错的旧值**：它写的是「43 格 / 40 个 `# method`」，
+而第 1131 轮删掉 `nameOf` 那一格之后实测就是 42 格 / 39 个 `# method`——按上面那条规矩改成实测值
+（**第 1136 轮没有动声明数**：42 → 42，改的是投影那一侧读的一格属性）。
+
+**第 1136 轮把第 1135 轮「量过、没敢收」的那一处收成了**（用户口径 1.1 ~ 1.4：投影要的信息
+由**具体 token 子类**在自己那一页**显式声明**、在**构建过程**里赋好，读的时候备齐）。
+收的对象是 `memberNameOf` 里「我声明的这个名字是不是数字字面量」那一句：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `direct === undefined && Identifier.IsNumericLiteral(name)`（`memberNameOf` 里**最后 1 处**，`name` = `v.DeclaredName`） | `direct === undefined && v.IsNumericLiteralName === true` | `Field` / `MethodDeclaration` **各自显式声明** `## field IsNumericLiteralName:bool = false`，并在**认下名字的那一趟**赋好（`FieldCloseRule.Process` 里 `fieldName` 赋值之后 / `MethodDeclarationCloseRule.Process` 里 `name` 那三支之后），`Clone` 各抄一格；取值走同一个静态入口 `Identifier.IsNumericLiteral`、同一段文本 |
+
+- **收件人先量后立**（第 1135 轮的教训写在 `memberNameOf` 那一处）：那一格上的 `v`
+  **不是名字单元自己**，而是**声明了这一格名字的那一格**——第 1135 轮把这一格立在基类上，
+  于是 `MethodDeclaration` / `Field` 拿到默认档 `false`，`coverage` 当场四条一起 blocked
+  （4260 → 4256 / 4422、`blocked` 28 → 32，diff 是 `MISS NumericLiteral` + `EXTRA Identifier`）。
+  这一轮先在**构建产物**的那一句上挂一个探针、跑
+  `node tests/parse/direct-ast.mjs --all`（2051 份）记下 `v.constructor.name`：
+  **`["Field","MethodDeclaration"]`**——就是这两个类，一个不多。名单是量出来的，不是猜的。
+- **两页各自显式声明、两处各自赋值**：`field.xl.md` 读自己的 `fieldName`、
+  `function/method-declaration.xl.md` 读自己的 `name`——与投影原来那个实参
+  `name = v.DeclaredName` 是**同一份文本**（`DeclaredName` 正是这两页的 `NameField`），
+  所以两处与原来那一句**逐格同答**；`Clone` 各抄一格（克隆体不走 `Process`，与
+  `FunctionFlags` 同一条理由）。
+- **同一轮删掉一行 `import`**：这一句是**本页对 `Identifier` 那一页的最后一个代码读者**
+  （全仓实测：构建产物里 `identifier_1` 只出现在这一行），所以
+  `import { Identifier } from "./tokens/identifier.xl.md"` 同一轮删掉——本页不再 import 那一页。
+- **本页的声明数**：**42 格**（**一格没增、一格没减**；新立的那两格在 `Field` /
+  `MethodDeclaration` 两页上）。同一轮把这一句自己的旧值「43 格 / 40 个 `# method`」改成实测的
+  42 格 / 39 个 `# method`（第 1131 轮删 `nameOf` 之后就该改了，见上面那一句）。
+- **实测**：`xl check` 该 3 页 **0 条**、`xl build` 该 3 页 **3 个产物 / 0 error**、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 33.9s），读数与第 1106 ~ 1135 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79；唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 **第 1109 轮把三格「一格声明、只有本页某两处读者」并进各自那个调用点**（用户口径 1.1~1.4 的
 同一把尺子：一格声明若只剩转手与读表、而且读者就在同一个函数里，那它就是多一层间接）：
 
@@ -2033,12 +2069,15 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 **叶子那张词汇表第 1029 轮也搬走了**（`NUMERIC_LITERAL` 与 `leafKindOfText` →
 `typescript/tokens/identifier.xl.md` 的 `NUMERIC_LITERAL` / `LeafKindOfText` / `IsNumericLiteral`）：
 键是**叶子自己的正文**、值是「这一格在 TS 那边叫什么」，本来就是那一页的事实。
-投影这一侧只剩三处按**文本**问它（`projectBindingElement` 的默认值、`memberNameOf` 的数字名、
-`synthName` 的私有名），走的是本文件 import 进来的静态入口——**一份词汇、一个入口**。
+投影这一侧只剩两处按**文本**问它（`projectBindingElement` 的默认值、
+`synthName` 的私有名），走的是那一页自己的静态入口——**一份词汇、一个入口**。
 **第 1135 轮试过把第三处（`memberNameOf` 的数字名）也收进那一格自己**
 （基类 `IsNumericLiteralName` + `Identifier` / `Keyword` 两页覆写）：**当场被 `coverage` 抓住、
-如实还原**——理由写在 `memberNameOf` 那一处（这一格上的 `v` 是**声明名字的那一格**，
-不是名字单元自己，它拿到的是基类默认档 `false`）。这一处因此**如实留着**。
+如实还原**。**第 1136 轮换了收件人再收一次、收成了**：那一处的 `v` 是**声明名字的那一格**
+（不是名字单元自己），所以按量到的名单把这一格立在 `Field` / `MethodDeclaration` 两页上
+（各 `## field`，在认下名字的那一趟赋好），投影改读 `v.IsNumericLiteralName`——
+本文件对 `Identifier` 那一页的**最后一个代码读者**随之消失（`import` 同一轮删掉）。
+判据与读数写在 `memberNameOf` 那一处与本页上半部分的台账里。
 
 **这张表第 1025 轮整张删掉了**：79 档里 **77 档说的是「标签 → 节点名」**，
 而标签就是 token 自己的类名（`Token.Tag`）——每一档说的都是**某一页自己的事实**，
@@ -9261,23 +9300,29 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       unit: direct === undefined ? null : direct,
     };
   }
-  // **「我声明的这个名字是不是数字字面量」第 1135 轮量过、没有收**（用户口径 1.1 ~ 1.4 试了一版）：
-  // 这一句原来是 `direct === undefined && Identifier.IsNumericLiteral(name)`——看着像是「把这一页
-  // 自己的名字文本递给另一页的静态入口去判」，所以按同一把尺子试过一版属性读（基类给默认 `false`、
-  // `Identifier` / `Keyword` 两页覆写 `IsNumericLiteralName`，读自己的 `DeclaredName` 问同一个
-  // 静态入口）。**当场被 `coverage` 抓住、如实还原**：`cls-string-method-names` /
+  // **「我声明的这个名字是不是数字字面量」第 1135 轮量过没敢收、第 1136 轮按量到的名单收进来了**
+  // （用户口径 1.1 ~ 1.4）。这一句原来是 `direct === undefined && Identifier.IsNumericLiteral(name)`——
+  // 看着像是「把这一页自己的名字文本递给另一页的静态入口去判」，所以第 1135 轮试过一版
+  // **基类一格**属性读（`Identifier` / `Keyword` 两页覆写 `IsNumericLiteralName`）。
+  // **当场被 `coverage` 抓住、如实还原**：`cls-string-method-names` /
   // `decl-class-numeric-method-name` / `lex-member-number-name` / `type-member-names` 四条一起
   // 从 pass 变 blocked（读数 4260 → 4256 / 4422、`blocked` 28 → 32），
   // 逐节点 diff 是 `MISS NumericLiteral [96,97) "1"` + `EXTRA Identifier [96,97) "1"` 那一对。
-  // **量错在哪（这一轮留下的判据）**：这一格上的 `v` **不是**名字单元自己，而是**声明了这一格名字的
+  // **第 1135 轮量错在哪**：这一格上的 `v` **不是**名字单元自己，而是**声明了这一格名字的
   // 那一格**（`MethodDeclaration` / `Field`）——它的 `IsNumericLiteralName` 拿到的是基类默认档
   // `false`，因为会答 `true` 的那两页是 `Identifier` / `Keyword`（`IsNameNode`，第 1057 轮），
-  // 而名字在产物里是**这一格的字段**（`fieldName`）、不是一格名字单元。
-  // 所以「问一段文本」与「问一格自己」在**收件人不是名字单元**的位置上**不同答**：
-  // 前者问的是「这段文本算不算数字」，后者问的是「我这个类算不算」。
-  // 要收这一问，收的应该是**`MethodDeclaration` / `Field` 那一档**（各自显式声明「我的名字是数字名」），
-  // 不是基类一格——那需要逐页量过「谁的名字可能落在这一档上」，本页没有那个名单，所以**留着**。
-  if (direct === undefined && Identifier.IsNumericLiteral(name)) {
+  // 而名字在产物里是**这一格的字段**（`fieldName` / `name`）、不是一格名字单元。
+  // **第 1136 轮先量名单、再按名单立格**（`tmp/r1136`：在 `build/` 那一句上挂一个探针、
+  // 跑 `node tests/parse/direct-ast.mjs --all`，记下 `v.constructor.name`）——
+  // 实测落进这一档的**只有两个类**：`["Field","MethodDeclaration"]`。
+  // 于是那两页**各自显式声明** `## field IsNumericLiteralName:bool = false`、
+  // 并在**认下名字的那一趟**（`FieldCloseRule.Process` / `MethodDeclarationCloseRule.Process`）
+  // 用同一份判据赋好（`Identifier.IsNumericLiteral(fieldName)` / `(name)`，与原来那个实参
+  // `name = v.DeclaredName` 逐字符同一份文本），`Clone` 各抄一格。
+  // 投影这一侧于是**一个类名都不认、一段文本都不问**：只读被问那一格自己的属性。
+  // 顺带：本页对 `Identifier` 的**最后一个**代码读者就是这一句（全仓实测 `Identifier.` 的
+  // 活代码只此一处），所以那一行 `import` 同一轮删掉——本页不再 import 那一页。
+  if (direct === undefined && v.IsNumericLiteralName === true) {
     return { name: { kind: "NumericLiteral", text: name, pos: at.pos, end: at.end }, computed: null, unit: null };
   }
   return { name: at, computed: null, unit: direct === undefined ? null : direct };
@@ -10721,8 +10766,10 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // **`NumericLiteral` 那张正则第 1029 轮搬走了**：数字字面量的写法是 `Identifier` 那一页的事实，
     // 要问它的两处（`memberNameOf` 与 `object-literal.xl.md`）走 `Identifier.IsNumericLiteral(text)`——
     // 递一个问句，不把整张表复制到 `ctx` 上。**第 1135 轮试过把 `memberNameOf` 那一处改读属性、
-    // 当场被 `coverage` 抓住并还原**（理由写在 `memberNameOf` 那一处：那里的收件人是
-    // **声明名字的那一格**，不是名字单元自己）。
+    // 当场被 `coverage` 抓住并还原**（那里的收件人是**声明名字的那一格**，不是名字单元自己）；
+    // **第 1136 轮把收件人换对了再收**：那一格立在 `Field` / `MethodDeclaration` 两页上
+    // （各 `## field IsNumericLiteralName`，认下名字那一趟赋好），投影改读 `v.IsNumericLiteralName`
+    // ——本页对 `Identifier` 的最后一个代码读者就是那一句，于是这一页的 `import` 也没了。
     // **运算符那一格的叶子节点**（第 550 轮）：`in` / `instanceof` 在深度界那一层
     // 还是 `Identifier`，照 `Project` 投会投成 `Identifier("in")` ——
     // `BinaryOperator.PrintDirectAst` 那一支正需要它。

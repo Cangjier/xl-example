@@ -591,12 +591,15 @@ return items.includes(this.TempToString());
 `NUMERIC_LITERAL`，与原来 `Identifier.IsNumericLiteral(nameUnits[0].TextValue)`
 **逐字符同答**（同一个静态入口、同一段文本）。`Keyword` 那一页也答同一格
 （能当一个名字的就是那两页，第 1057 轮；对非数字正文两张答案同为 `false`）。
-静态那一格留给「手上只有一段文本」的调用点（投影 `memberNameOf` 里那个**合成名**）。
-**第 1135 轮试过把那一处也收进本页一格属性（`IsNumericLiteralName`）、当场被 `coverage`
-抓住并如实还原**：那一处的收件人**不是名字单元自己**，而是**声明了这一格名字的那一格**
-（`MethodDeclaration` / `Field`）——它拿到的是基类默认档 `false`，逐节点 diff 是
-`MISS NumericLiteral` + `EXTRA Identifier` 那一对（四条用例一起 blocked）。要收那一问，
-收的应该是 `MethodDeclaration` / `Field` 那一档，不是本页。
+静态那一格留给「手上只有一段文本」的调用点（`object-literal.xl.md` 那一处仍走它）。
+**第 1135 轮试过把投影 `memberNameOf` 那一处也收进本页一格属性（`IsNumericLiteralName`）、
+当场被 `coverage` 抓住并如实还原**：那一处的收件人**不是名字单元自己**，而是**声明了
+这一格名字的那一格**（`MethodDeclaration` / `Field`）——它拿到的是基类默认档 `false`，
+逐节点 diff 是 `MISS NumericLiteral` + `EXTRA Identifier` 那一对（四条用例一起 blocked）。
+**第 1136 轮按那一条判据把它收成了**：量到落进那一档的类**只有那两个**，
+所以那一格立在 `typescript/tokens/field.xl.md` 与 `function/method-declaration.xl.md`
+（各 `## field IsNumericLiteralName`，在认下名字那一趟用**本页这个静态入口**赋好），
+不是立在本页、也不是立在基类；本页这一格与静态那一格一个字没动。
 
 ### get
 

@@ -832,6 +832,15 @@ if (computedName) {
 } else {
   result.name = "#" + this.MethodNameOf(nameUnit);
 }
+// **「我声明的这个名字是不是数字字面量」在认下名字的同一趟记好**（第 1136 轮，用户口径
+// 1.1 ~ 1.4）：投影 `memberNameOf` 那一处过去拿**这一格自己声明的名字文本**去问另一页的
+// 静态入口（`Identifier.IsNumericLiteral(v.DeclaredName)`）——而名字与「它是不是数字」
+// 都是**声明了这一格名字的那一格自己**的事实（全语料实测：能落进那一档的类只有
+// `Field` 与 `MethodDeclaration`，见 `print-ast-common.xl.md` 的 `memberNameOf`）。
+// 取值口径与那一句**逐字符相同**（同一个静态入口、同一段文本 `name`，也就是
+// `DeclaredName` 在这一页上的那一份）；计算名（`[1]() {}`）进的是 `BracketNameText`
+// 那串文本，与投影读到的那个 `DeclaredName` 同一份，所以不另立判据。
+result.IsNumericLiteralName = Identifier.IsNumericLiteral(result.name);
 // **名字的位置当场记进字段**（见 `NameStart`）：普通标识符、关键字名与**字符串名**都记——
 // 只有计算名留给投影（它要的是方括号那一对，另有分派）。
 // 字符串名记的是**引号里那一段**（与 `Field.NameStart` 同一口径）：投影按 `name` 的文本位置
@@ -1007,6 +1016,20 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ## field name:string = ""
 
 方法名。
+
+## field IsNumericLiteralName:bool = false
+
+**我声明的这个名字是不是数字字面量**（第 1136 轮，用户口径 1.1 ~ 1.4：投影要的信息由
+**具体 token 子类**在自己那一页**显式声明**、在**构建过程**里赋好，读的时候备齐）。
+
+判据就是本页自己的 `name`（在 `Process` 里认下的那一刻赋好），取值走
+`Identifier.IsNumericLiteral`——与投影原来那句
+`direct === undefined && Identifier.IsNumericLiteral(name)` 的**后半**同一份判据。
+实测那一档用例：`class C { 1() {} }` / `interface I { 1(): void }` 的成员名。
+
+**为什么是 `## field` 而不是读时现算的 `## property`**：名字文本 `name` 在 `Process`
+里就定下来了（此后只有 `Clone` 抄一次），所以这一格与它同趟赋好即可；
+「信息在 token 子类构建完就齐全」正是这一格要落地的那句话。
 
 ## field NameStart:int = -1
 
@@ -1220,11 +1243,14 @@ return this.NameEnd;
 
 四个声明字段都要抄，**`FunctionFlags` 也要抄**（第 1045 轮）：克隆体不走
 `MethodDeclarationCloseRule`，不抄的话它就不认自己是函数体了（`yield` / `await` 在它里面会被当成普通标识符）。
+**`IsNumericLiteralName` 同样要抄**（第 1136 轮）：它是 `Process` 那一趟按名字算好的一格，
+克隆体不走 `Process`（与 `FunctionFlags` 同一条理由）。
 
 ```ts
 const result = new MethodDeclaration(this.Template);
 result.Sign(this);
 result.name = this.name;
+result.IsNumericLiteralName = this.IsNumericLiteralName;
 result.NameStart = this.NameStart;
 result.NameEnd = this.NameEnd;
 result.modifiers = this.modifiers;
