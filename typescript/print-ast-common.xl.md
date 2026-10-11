@@ -3853,6 +3853,25 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     .filter((a) => a !== undefined);
 ```
 
+# private method prepareKids:(list:Array<any>)=>Array<any>
+
+**一段单元数组里「进投影」的那些**（第 1157 轮）：滤掉非 `Token` 的格与 `IsInvisible` 的 trivia。
+
+**为什么立这一格**：这一句判据在本页出现过 **5 次**（`projectExpression` 的入口、`typeOf`、
+`BodyBlockOf` / `BlockOfBody` 那两格「体是一对花括号」的入口、`HeadDeclare`），
+逐字重复的只有**手上那段数组的名字**——按本文件一贯的口径收成一格。
+**它与 `Token.ProjectableKids` 是同一件事的两个入口**（第 1066 轮那一格住在 token 上，
+这一格是「手上已经是一段数组」时的那一份算式）。
+**判据一个字没改**：`instanceof Token` 那一层是给 `statementOfList` 的**合成语句视图**挡的
+（`HeadDeclare` 那一处本来只滤 `IsInvisible`，而它拿到的就是 `ProjectableKids`——
+那一格已经滤过 `instanceof`，所以两处逐格同答）。**实测**官方用例语料 1640 份：
+`ProjectableKids` 被读 **26936** 次，命中的表里**一次**都没有非 `Token` 的格、
+**一次**都没有 `IsInvisible` 的格（`{dropped: 0, nonToken: 0}`）。
+
+```ts
+  return list.filter((k) => k instanceof Token && !k.IsInvisible);
+```
+
 # private method bangWrapped:(left:any, pendingBang:any)=>any
 
 **手上那个还没套上去的 `!`：套成 `NonNullExpression`，区间到那一格 `NotNull` 的末端为止**
@@ -3944,7 +3963,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 那正是 `Token.ProjectableKids` 那一格的算式（逐格过滤），只是这里手上是**一段单元数组、
   // 不是某一格 token**，所以照它那一格写一遍（第 1066 轮起 `ProjectableKids` 是 token 上的属性，
   // 数组没有这一格）。
-  kids = kids.filter((k) => k instanceof Token && !k.IsInvisible);
+  kids = prepareKids(kids);
   if (kids.length === 0) return undefined;
   // ---- 0a'。**隔空格的 async 泛型箭头** `async <T>(x: T) => x`（第 860 轮）----
   //
@@ -10068,7 +10087,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 `AnyKeyword` 缺 1408 里的一大块都是这一条：`Array<any>` / `T extends any[]` 的实参没成形）。
 
 ```ts
-  const list = nodes.filter((k) => k instanceof Token && !k.IsInvisible);
+  const list = prepareKids(nodes);
   if (list.length === 0) return undefined;
   return projectTypeExpression(list, ctx);
 ```
@@ -10553,7 +10572,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // `BodyBrace`，构造时赋好）；**第 1084 轮把「跳空白找 `;`」那处兜底与它的 `from` 形参
     // 一起删掉了**（空体由 token 的 `EmptyBodyAt` 答，三个调用点各自在调它之前就读完了）。
     BodyBlockOf: (list, brace) => {
-      const kids = list.filter((k) => k instanceof Token && !k.IsInvisible);
+      const kids = prepareKids(list);
       const projections = projectEach(kids, ctx);
       // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
       //（`While.BodyBrace` 的 `CaptureBodyBrace` 那一处就是这个条件），
@@ -10608,7 +10627,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 列表的标志位从头顶那个词读。名字那一格的判据与 `IsNameNode` 同一条（第 598 轮），
     // 名字那一格**一律投 `Identifier`**：绑定名按定义就是一个标识符。
     HeadDeclare: (list) => {
-      const inner = list.filter((k) => !k.IsInvisible);
+      const inner = prepareKids(list);
       if (inner.length === 0) return undefined;
       // **名字那一格从后往前找**：`const` / `let` / `var` / `using` 与 `await` 都可能还是
       // `Identifier`（关键字升级在本单元的那一趟里跑，投影这一趟是**之后**的事）——
@@ -10788,7 +10807,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 返回的是 `{ node, end }`（调用方要那个 `end` 来收整个 `IfStatement` 的尾巴）。
     // **判据只有一条：token 记下的整对花括号**（`IfSegment.BodyBrace`，构造时赋好）。
     BlockOfBody: (list, brace) => {
-      const kids = list.filter((k) => k instanceof Token && !k.IsInvisible);
+      const kids = prepareKids(list);
       const projections = projectEach(kids, ctx);
       const known = brace !== null && brace !== undefined && brace.IsSet === true
         ? brace.Range
