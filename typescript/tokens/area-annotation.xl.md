@@ -140,9 +140,21 @@ this.Tmp += source.Value;
 
 `Pre()` 返回的是 `Source | null`，所以判定写成普通的 `pre !== null && pre.Value === "*"`。
 
+**「当前字符那一问」提到最前面**（第 1213 轮，用户口径 1.2「提升 parse 效率」）：下面那一句是一句
+**合取**（前一个字符是 `*` **且**当前字符是 `/`），而 `source.Value` 是**手上就有**的那一格
+（`Source` 构造时就算好了它，第 1211 轮）——当前字符不是 `/` 时那一趟 `Pre()` 整趟白走：
+它要造一个新的 `Source`、回文档读前一个字符。注释正文是**每一格**都要走这里的一格
+（`ExitOrPre` 在 `ProcessChar` 里排在最前），而注释正文里 `/` 只出现在收尾那一格，
+实测一份 `typescript.d.ts` 上这一句替掉的 `Pre()` 是 **143900** 次
+（`tmp/r1213-precnt.mjs`：`Source.Pre` **587447 → 443547**、`Document.GetValue` 同一笔）。
+判据、次序、返回的那两态一个字没改：先问合取的哪一半都一样，不是 `/` 就还是 `Undo`。
+
 ```ts
+if (source.Value !== "/") {
+  return BranchStates.Undo;
+}
 const pre = source.Pre();
-if (pre !== null && pre.Value === "*" && source.Value === "/") {
+if (pre !== null && pre.Value === "*") {
   this.SignOut(source);
   this.Undo(pre);
   this.TryToClose();

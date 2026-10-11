@@ -81,9 +81,22 @@ return false;
 
 `Token.Last(index)` 的语义是「倒数第 `index` 个子单元」，所以写成 `unit.Last(1)`。返回值不是 `bool` 而是 `BranchConditionResult`，所以展开成「建结果、赋 `Success`」两步。
 
+**「当前字符那一问」提到最前面**（第 1213 轮，用户口径 1.2「提升 parse 效率」）：最后那一项
+`source.Value === "/"`（当前字符就是 `/` ⇒ 这一格不可能是正则正文的第一个字符）是**判否**的一项，
+而 `source.Value` 是**手上就有**的那一格；原来它排在 `source.Pre()` **后面** ⇒ 当前字符是 `/` 时
+那一趟 `Pre()` 白走（造一个新的 `Source`、回文档读前一个字符）。这一支**每一格**都要问一次
+（它住在通用队列里，实测 `typescript.d.ts` 一份上 **435039** 次），而当前字符真的是 `/` 的有 **962** 次
+（`tmp/r1213-precnt.mjs`：只这一处时 `Source.Pre` **587447 → 586485**）。判据一个字没改：
+那一句本来就是三个「或」加一个判否，先问哪一项都一样。
+
 ```ts
+if (source.Value === "/") {
+  const result = this.Result;
+  result.Success = false;
+  return result;
+}
 const preUnit = source.Pre();
-if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value === "/") {
+if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit)) {
   const result = this.Result;
   result.Success = false;
   return result;
