@@ -4386,6 +4386,21 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       if (args.length > 0) self.typeArguments = args;
       const rest = kids.slice(2);
       if (rest.length === 0) return self;
+      // **尾巴第一格就是一条 `?.` 链**（第 1222 轮）：`a<b>?.[0]` / `a<b>?.(1)` 的产物是
+      // `[Identifier(a), GenericType(<b>), NullConditionalOperator(…)]` 三格——本节只看前两格，
+      // 尾巴那一格落到 `foldBinaryFrom` 手上，而它开头一句就要求 `rest` **以运算符打头**
+      //（`rest[0].IsOperatorUnit` 答否就原样返回 `left`）⇒ 那一格整格丢：实测投出来只有
+      // `ExpressionWithTypeArguments`，而 TS 是
+      // `ElementAccessExpression > [ExpressionWithTypeArguments, QuestionDotToken, …]`。
+      // `?.` 那一格自己就是「链的续接」，所以交给链那一支的**同一份实现**（`chainWithOptional`），
+      // 剩下的兄弟再交给 `foldBinaryFrom`——与 0a0 / NCO 那几支的收尾同一个形状
+      //（所以这里不新写折法，只是把这一格递对了地方）。
+      if (rest[0].IsNullConditionalOperator) {
+        const chained = chainWithOptional(self, rest[0], ctx);
+        if (chained !== undefined) {
+          return rest.length === 1 ? chained : foldBinaryFrom(chained, rest.slice(1), ctx);
+        }
+      }
       return foldBinaryFrom(self, rest, ctx);
     }
   }
