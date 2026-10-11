@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.68,
+  "progressPercent": 95.71,
   "categories": [
     {
       "category": "token",
@@ -101,11 +101,11 @@
       "category": "runtime",
       "weight": 0.25,
       "total": 776,
-      "pass": 736,
+      "pass": 737,
       "blocked": 4,
-      "differ": 36,
+      "differ": 35,
       "nodefail": 0,
-      "coverage": 94.85
+      "coverage": 94.97
     },
     {
       "category": "stdlib",
@@ -522,12 +522,6 @@
       "category": "runtime",
       "title": "手动迭代：`next()` 的 `this` 与取出方法再调用",
       "detail": "stdout 不同：第 2 行：node «2» vs tsrun «1,2»"
-    },
-    {
-      "id": "runtime/round741/003-optional-call-after-member-chain-differ",
-      "category": "runtime",
-      "title": "可选调用接在**普通成员链**后面",
-      "detail": "stdout 不同：第 2 行：node «undefined 3» vs tsrun «undefined undefined»"
     },
     {
       "id": "runtime/round741/006-optional-call-with-await-differ",
@@ -1169,6 +1163,11 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs a string pattern and a string or function "
     }
   ],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "runtime/round741/003-optional-call-after-member-chain-differ",
+      "category": "runtime"
+    }
+  ],
   "regressions": []
 }
