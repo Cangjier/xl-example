@@ -347,6 +347,29 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1220 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`a<b> as T` 那一族整份文件投不出来**（组合扫描 8 条 CRASH → 0、新坏 0）；1.2 把 `projectRoot` 末尾那把对账的尺子在 `ctx.unmapped` 空着时整个不走（print ast 配对差 mean **−10.4ms / −11.7ms**，两读同向同量级）
+
+**一句话**：1.1 收掉的是「实例化表达式 `a<b>` 后面跟 `as` / `satisfies` / `in` / `instanceof`」那一族——两个根（token 层的后继闸少四个词、投影层 0a 那一支把尾巴那格 `As` 丢给 `foldBinaryFrom`）；1.2 是**profile 先说出来的**一笔：`collectKinds` 在一份语料上自身占 **3.7%**，而它那趟遍历在绝大多数调用上**白走**。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | ① `GenericTypeBranch.IsAllowedFollower` 表达式位补「后面紧跟的是 `as` / `satisfies` / `in` / `instanceof` 之一」；② 投影 0a 那一支在有 `As` / `Satisfies` 时让开（与第 664 轮 `asAfterNco` 同一口径） | 组合扫描（1100 条）：**8 条 CRASH → 0**、对上 811 → **821**、新坏 0；同族 20 条全绿 |
+| **1.2** | `projectRoot` 末尾 `collectKinds(ast)` 加一道 `ctx.unmapped.size > 0` 的闸 | 20 趟 mean **−10.4ms**（12:7）、40 趟 mean **−11.7ms**（23:13）；`tmp/r1203-bench.mjs` printAst 121.4 → **100.3ms** |
+
+**1.1 的现场**：`a<b> as T` 在 TS 那边是 `AsExpression > ExpressionWithTypeArguments`（`a<b>` 是 TS 4.7 的实例化表达式、`as T` 断在它外面），而本仓原来折成 `BinaryOperator(>, BinaryOperator(<, a, b), As(T))`——那个 `As` **只装 `as` 右边那一段**、基名留在外面，投影走到它时当场抛 `这一格没有覆写 PrintAst（Tag=As）` ⇒ **整份文件投不出来**（`cjcli <文件> --ts-ast` 直接退 1）。
+
+- **token 层那一半**（`generic-type.xl.md`）：`IsAllowedFollower` 表达式位那张白名单是**逐字符**的（`(` / 反引号 / `;` / `)` / `,` / `]` / `?` / `:` / `||` / `&&`），而 TS 那句 `canFollowTypeArgumentsInExpression` 的兜底是 `isBinaryOperator()`——它认的词里除了已被显式挡掉的 `+` `-` `<` `>`，就是 **`as` / `satisfies` / `in` / `instanceof`** 四个。补法照那一句写：**往后读整词再比一次**（要词边界：`assertEquals` 以 `as` 开头，可它是一个名字）。先比一次首字符（`a` / `s` / `i`）是省下来的那一档。
+- **投影那一半**（`print-ast-common.xl.md`）：0a 那一支的判据只看**前两格**（`instCallee` + `IsGenericType`），收尾是「折出实例化表达式、剩下的交给 `foldBinaryFrom`」——而它开头一句就是 `rest.length < 2 || !rest[0].IsOperatorUnit` 就原样返回 `left`，`As` **不是二元单元** ⇒ 那一格整格丢（实测投出来是**一条** `ExpressionWithTypeArguments`、区间还盖住了 `as T`）。让开的写法**照抄第 664 轮 `asAfterNco`**（`a?.b as T` 那一族当年也是这条口径）：主流程第 2 节才是 `As` / `Satisfies` 唯一的折法。
+
+**1.1 的读数**：新立守卫用例 [`tests/cases/token/expressions/expr-r1220-instantiation-as.ts`](tests/cases/token/expressions/expr-r1220-instantiation-as.ts)（7 条形状：`as` / `satisfies` / `instanceof` / `in` / 标签模板 / 数组字面量里 / 实参位），`--file` 单跑 **TS 节点 82、投影节点 82，缺 0 漂 0 多 0 字段 0**。同族 20 条（含 `a.b<c> as T` / `(a.b)<c> as T` / `a<b> as T as U` / `a<b> as T[]`）**全绿**。
+
+**1.2 的现场与读数**：`landed` 唯一的读者就是收尾那句 `[...ctx.unmapped].filter((tag) => landed.has(tag))`——`ctx.unmapped` 是空集时过滤结果必然是空数组，走与不走答的是同一个 `[]`。而第 199 轮那条记录早就写着：`projectRoot(...).unmapped` 在 1640 份与 2051 份语料上**都是 0 个 tag**。也就是说「把整棵刚造出来的树遍历一遍、每格 `Object.keys` 一次」这趟白活是**绝大多数调用**都要付的。剖面（`tmp/r1220-prof-ast`：parse 一次、只投影 30 趟，按自身时间聚合）：`collectKinds` **3.7%**，外加它每格造的那个键数组与那个 `Set`（GC 另占 3.2%）。
+**墙钟（`tmp/r1220-ab.mjs`，同一进程交替、尺子＝CPU 时间、量的是 print ast＝`projectRoot` + `ToJsonText`；原版＝`tmp/r1220-ab-old/ts`，两边产物先断言逐字节相同）**：20 趟配对差 mean **−10.4ms**、median −15.0ms、**12 趟更快 / 7 趟更慢**（sd 33.5、se 7.5）；40 趟 mean **−11.7ms**、median −14.0ms、**23 : 13**（sd 40.1、se 6.3）——两读同向、同量级（约 −12%）。`tmp/r1203-bench.mjs`（best of 5）：printAst **121.4 → 100.3 ms**、parse 1041.2、xml 45.0。
+
+**净账**：`cases:tsast` 语料里一条 `xl:known-gap` 都没有（**0 条还开着 / 0 条收掉**）；`cases:direct` 全语料不抛异常（**1668** 份）；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1681** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4289 / 4447**（blocked 25、differ 133、bad 0、加权 95.7%）；`xl check`（`core typescript`）0 条；`npx tsc`（strict）0 error。八道门墙钟 **29.0s**。**全语料 2078 份**（原版第 1219 轮那份产物 vs 现版）XML 与投影 JSON **逐字节同答**（diff=0），唯一不同的是本轮新加的那份用例——**原版在它上面仍然抛异常**，正是 1.1 修的那一格。
+
+**两条 commit**：`94d53a0d`（1.1 `a<b> as T` 那一族）、`9af2e276`（1.2 `collectKinds` 那道闸）。
+
 ### 第 1219 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`T![]` 那一族（非空断言后缀 + 类型方括号）整族丢**，缺口清单**清空**；1.2 是一次**如实记下的负结果**（`TriggerCode` 收成整型，40 趟 15:21 / mean **+20.9ms**，**已回退**）
 
 **一句话**：1.1 把最后一条开着的 `xl:known-gap`（`as T![]` 那一条）收掉——根在**同一条事实的两半**上（TS 的 `parsePostfixTypeOrHigher` 把 `!` 当**后缀类型运算**，`T![]` 是 `ArrayType > JSDocNonNullableType > T`）；1.2 试了「把队列入口那一比从字符串收成整型」，两读都指向**更慢**，按「一次没量出来的改动不留」的口径**整笔回退**，读数留档。
