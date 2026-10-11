@@ -5100,24 +5100,38 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   //（0a2 把尾巴交给 `foldBinaryFrom`，它的右操作数再递回链支——那一支认的是没摊开的形状）。
   // **递归那一档**：`o[k]().v * 2 + 1` 是**两层**二元单元套着，一路走到最里面那一层
   //（第一格以一次调用开头）才停，再把沿途每一层的运算符与右操作数按**从里到外**接上。
-  const unwindChainTailInOperator = (unit: any, out: Array<any>) => {
+  // **三支摊法合成一格**（第 1198 轮，用户口径 1.2 / 1.6）：`unwindChainTailInOperator` /
+  // `flattenChainTailInOperator` / `flattenIndexTailInOperator` 三格的**结构逐字相同**
+  // （同一趟 `ProjectableKids`、同一对 `if`、同一句 `out.push(unit)` 兜底），
+  // 差别只有三处：**头那一格的判据**（`IsCallFirstUnit` / `IsIndexFirstUnit`）、
+  // **头那一格怎么摊**（整格推 / `PropertyAccess` 摊开 / 整格推）、
+  // **尾那一格的判据**（`chainTailInOperator` / `indexTailInOperator`）。
+  // 合成一格、由调用方把这三处递进来，三段算式因此只有一份（改一处不会再漏另两处）。
+  const flattenTailInOperator = (
+    unit: any,
+    out: Array<any>,
+    mode: string,
+    isTail: (one: any) => bool,
+  ) => {
     const inner = unit.ProjectableKids;
-    if (inner.length >= 2 && inner[0]?.IsCallFirstUnit) {
-      out.push(inner[0]);
+    if (inner.length >= 2 && (mode === "index" ? inner[0]?.IsIndexFirstUnit : inner[0]?.IsCallFirstUnit)) {
+      if (mode === "chain" && inner[0].IsPropertyAccess) {
+        for (const one of inner[0].ProjectableKids) out.push(one);
+      } else {
+        out.push(inner[0]);
+      }
       for (let j = 1; j < inner.length; j++) out.push(inner[j]);
       return;
     }
-    if (
-      inner.length >= 2 &&
-      (inner[0].IsBinaryOperatorNode) &&
-      chainTailInOperator(inner[0])
-    ) {
-      unwindChainTailInOperator(inner[0], out);
+    if (inner.length >= 2 && inner[0].IsBinaryOperatorNode && isTail(inner[0])) {
+      flattenTailInOperator(inner[0], out, mode, isTail);
       for (let j = 1; j < inner.length; j++) out.push(inner[j]);
       return;
     }
     out.push(unit);
   };
+  const unwindChainTailInOperator = (unit: any, out: Array<any>) =>
+    flattenTailInOperator(unit, out, "unwind", chainTailInOperator);
   // ---- 0a2. `?.` 那一串被包进了**二元的操作数位**（第 124 轮）----
   //
   // **二元单元排在列表最前面、右操作数延续到它外面的兄弟**（第 145 轮）：
@@ -5707,36 +5721,15 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   // 运算符与右操作数**原样留在后面**（尾巴那一支就是按「以运算符开头的一串」折的）。
   // **递归那一档**：第一格还是二元单元时先把它摊开，再把自己的运算符与右操作数接上
   //（`o[k]().v * 2 + 1` ⇒ `[o[k], (, ., v, «*», 2, «+», 1]`）。
-  const flattenChainTailInOperator = (unit: any, out: Array<any>) => {
-    const inner = unit.ProjectableKids;
-    if (inner.length >= 2 && inner[0]?.IsCallFirstUnit) {
-      // **整格 `Method` 不摊开**（第 975 轮）：`a!()()() + 1` 的那个二元单元里，
-      // 第一格是 `Method(name=""[Method(name=""[Bracket])])`——它自己说的是**三次调用**
-      // （第 966 轮那句话：一格可以盖着好几层），摊成它的**孩子**就少了一层，
-      // 实测最外面那格 `CallExpression` 的区间只到 `[0,6)`（TS 是 `[0,8)`）。
-      // 整格留给链循环：那里的 `Method` 分支正是按「最里面那一格」折的
-      //（`innermostCallee` + `graftCallee`）。
-      // **`PropertyAccess` 那一档照旧摊开**：`o["f"]().v` 那一格才是「调用 + 后缀」
-      // 两件事装在一个外壳里，摊平之后循环里那两支各办一件。
-      if (inner[0].IsPropertyAccess) {
-        for (const one of inner[0].ProjectableKids) out.push(one);
-      } else {
-        out.push(inner[0]);
-      }
-      for (let j = 1; j < inner.length; j++) out.push(inner[j]);
-      return;
-    }
-    if (
-      inner.length >= 2 &&
-      (inner[0].IsBinaryOperatorNode) &&
-      chainTailInOperator(inner[0])
-    ) {
-      flattenChainTailInOperator(inner[0], out);
-      for (let j = 1; j < inner.length; j++) out.push(inner[j]);
-      return;
-    }
-    out.push(unit);
-  };
+  // **`chain` 那一档的 `PropertyAccess` 要摊开**（第 975 轮）：`a!()()() + 1` 的那个二元单元里，
+  // 第一格是 `Method(name=""[Method(name=""[Bracket])])`——它自己说的是**三次调用**
+  // （第 966 轮那句话：一格可以盖着好几层），摊成它的**孩子**就少了一层，
+  // 实测最外面那格 `CallExpression` 的区间只到 `[0,6)`（TS 是 `[0,8)`）。
+  // 整格留给链循环：那里的 `Method` 分支正是按「最里面那一格」折的
+  //（`innermostCallee` + `graftCallee`）。**`PropertyAccess` 那一档照旧摊开**：
+  // `o["f"]().v` 那一格才是「调用 + 后缀」两件事装在一个外壳里，摊平之后循环里那两支各办一件。
+  const flattenChainTailInOperator = (unit: any, out: Array<any>) =>
+    flattenTailInOperator(unit, out, "chain", chainTailInOperator);
   // **链头是函数 / 类时，续格（下标）可能与运算符一起装在二元单元里**（第 775 轮）：
   // `() => class { static s = 1; }["s"] * 16` 在箭头体里的产物是
   // `[Class, Statement(BinaryOperator(ArrayLiteral(s), «*», 16))]`——那个 `["s"]` 先按
@@ -5755,24 +5748,8 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   };
   // 摊法与 `flattenChainTailInOperator` 一字不差（递归那一档同一理由）：
   // 续格那一格（下标）摊成平级，运算符与右操作数**原样留在后面**，由尾巴那一支折二元。
-  const flattenIndexTailInOperator = (unit: any, out: Array<any>) => {
-    const inner = unit.ProjectableKids;
-    if (inner.length >= 2 && inner[0]?.IsIndexFirstUnit) {
-      out.push(inner[0]);
-      for (let j = 1; j < inner.length; j++) out.push(inner[j]);
-      return;
-    }
-    if (
-      inner.length >= 2 &&
-      (inner[0].IsBinaryOperatorNode) &&
-      indexTailInOperator(inner[0])
-    ) {
-      flattenIndexTailInOperator(inner[0], out);
-      for (let j = 1; j < inner.length; j++) out.push(inner[j]);
-      return;
-    }
-    out.push(unit);
-  };
+  const flattenIndexTailInOperator = (unit: any, out: Array<any>) =>
+    flattenTailInOperator(unit, out, "index", indexTailInOperator);
   // **把那个二元单元拆成两段**（第 744 轮）：续格那一格（归**操作数**）与
   // 「运算符 + 右操作数」（归**外层折二元**）。`typeof o["f"]().v + ""` 要的就是这个分法——
   // 一元比二元**紧**，`+ ""` 不在一元的操作数里。
