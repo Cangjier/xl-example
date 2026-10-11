@@ -1040,6 +1040,19 @@ this._TreeFrozen = value === true;
 （重复读 **6581** 次），投影期没有一次是在解析还没挂完时读的。
 **没冻结时照旧每次现算**，所以两条路给的仍是同一份表。
 
+**它在整段投影里到底值多少（第 1191 轮，`--cpu-prof` 量的墙钟分布）**：1640 份语料、
+21793 个节点，一次 `node --cpu-prof tests/parse/direct-ast.mjs` 的采样总量 **3348 ms**
+（含进程启动与模块装载），其中 self time 前六名是
+`readFileUtf8` **287.7 ms**、`Token` 构造 **262.0 ms**、`wrapSafe` **218.7 ms**、
+`CloseRule.ApplyTo` **202.0 ms**、`BinaryOperator.Previous` **155.0 ms**、
+`RunCloseRules` **85.0 ms**——**这一格自己 25.4 ms（0.8%）**、
+`ProjectionEnd` 那一格 51.4 ms（1.5%）、`TrailingTriviaStart` 12.6 ms，
+而整页投影（`projectNode` 13.4 + `projectExpression` 15.2 + `projectTypeExpression` 16.0
++ `projectEach` 11.4 + `structuralProps` 15.1）加起来不到 **90 ms**。
+**这条读数的意思**：继续在这一页上抠属性，最多只能碰到那 **0.8%**；
+剩下 99% 在**解析期**（token 构造、闭规则、算子回看）——要再降就得动那一边，
+不能靠投影层再搬格子。
+
 **为什么这一格要住在 token 上**：投影那一侧原来是两个 helper——`allKids(v)`（收段）与
 `projectableKids(v)` / `unwrapNodes(node)`（把不可见的那几个滤掉），**三格合起来才是这一格的意思**。
 可「我有哪些子单元、哪些进投影」本来就住在这一格身上：
