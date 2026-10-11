@@ -8906,62 +8906,34 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   return out;
 ```
 
-# private method memberNameOf:(v:any, ctx:any)=>any
+# private method memberNameOf:(v:any, ctx:any)=>MemberName
 
 **成员的名字节点**（`Field` / 方法声明 / 方法签名 / 命名空间…都要问它）。
 
-TS 那边成员名有四种形态，判据在这里**收口**——`projectField` 与 `structuralProps` 共用一份。
-原来 `projectField` 自己 `synthName` 合一个 `Identifier`，于是**接口 / 类型字面量里的成员**
-（那一支正是 `projectField`）的引号名、数字名、计算名**全都长成 `Identifier`**。实测缺口：
-`StringLiteral` 1083、`NumericLiteral` 216、`ComputedPropertyName` 231，以及计算名里面的
-`PropertyAccessExpression` 593（全是 `[Symbol.toStringTag]: string` 那一种）。
+**第 1192 轮这一格只剩「补两格」**（用户口径 1.1 / 1.2 / 1.6 / 1.7）：判据整段搬进了被问的那一格
+（`core/syntax/token.xl.md` 的 `## property MemberNamePlan`）——四态分派、计算名那一格、
+坐标的三条来源、引号名的区间全在那一页。本页只做那一页**做不到**的两件事：
 
-| 源码 | 名字节点 |
-| --- | --- |
-| `a` | `Identifier`（树里有那个子单元就用它，没有才 `synthName` 合成） |
-| `"a-b"` / `'a-b'` | `StringLiteral`，**区间含那对引号** |
-| `0` / `1.5` | `NumericLiteral` |
-| `[Symbol.toStringTag]` / `[kOptions]` | `ComputedPropertyName`，区间**含那对方括号**，里面照值位投 |
+1. **正文**（`text`）：名字住在**子单元**上时读那一格自己的 `NameNode.text`（`Identifier` /
+   `Keyword` 两页都答这一格，它的 `text` 已经按 `Translate.DecodeIdentifierEscapes` 解好转义），
+   名字住在**属性**上时用 `v.DeclaredName`；
+2. **计算名的表达式节点**：`ComputedPropertyName` 里装着一个**表达式**，投它要走 `ctx`
+   （那一层不许 import 本页⇒表达式只能在这一层投）。
 
-返回 `{ name, computed, unit }`：`computed` 是那个计算名单元、`unit` 是名字那个**子单元**
-（两者调用方都要从段循环里**排掉**，否则它会以 `ArrayLiteral` / `Identifier` 的身份在成员里
-再出现一次——`unit` 是实测补的：接口名那个 `Identifier` 没被排掉时会顶着
-`heritageClauses` 出去，实测 2640 处字段名不符）。
-
-两处判据是实测逼出来的：
-
-- **计算名先问**，而且**不看 `name` 属性空不空**：`[Symbol.toStringTag]` 的名字属性是**空串**
-  （`name=""`），原来那个 `name !== ""` 的闸门直接把它挡在外面，整个名字节点都没有；
-- **引号判据是「名字起点前面那一格就是引号」**，不是「窗口里找得到 `"name"`」：成员的类型里
-  可能正好有同名字符串（`x: "x"`），按窗口找会把类型当成名字。`synthName` 已经把名字的位置
-  算好了（推过修饰词、优先用 `NameSpan`），**但名字那一格不是每个单元都记着**
-  （`MethodDeclaration` 的字符串名就没有 `NameSpan`），所以这一处读的是投影出来那一格的
-  两头（`at.pos` / `at.end`）——第 1109 轮试过改读 `NameTextSpan`，那一族当场红，如实保留。
+**为什么正文不留在那一页**：`\u0066` 这种名字上，»名字那一格投出来的 `text`«（`f`）与
+»`DeclaredName`«（`\u0066`）**不是同一个串**，而两处各写一份解码就是两处会漂的答案
+（第 381 / 388 轮踩过两次）。所以正文只有**一个来源**：这一格原来那一份算术——
+**搬走的是判据，不是正文**。
 
 ```ts
-  // **名字那一格直读 `v.DeclaredName`**（第 1068 轮）：`NameField`（名字住在哪一页的哪个字段上）
-  // 与「问不到才看的 `name` 段」两跳都收进了 token 那一页，
-  // 投影这一侧只读一个字符串属性。
-  // 从前这里是一张三词名单（`tokenNameOf(v) ?? …("fieldName") ?? …("namespace")`）——
-  // 那是**把同一格事实抄成三处**（两处会漂）。
-  const rawName = v.DeclaredName;
-  // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
-  // `Let.fieldName` 这个**属性**上（不是子单元），`x.\u0061` 的键同理。
-  // **与 `Identifier.PrintAst` 共用一份解码**（`text-common-util.xl.md` 的
-  // `DecodeIdentifierEscapes`）——两处各写一份就是两处会漂的答案（这一轮第一版
-  // 只改了标识符那一格，于是 `function f\u0066()` 绿了、`const \u0061bc` 还是红的）。
-  const name = typeof rawName === "string" ? rawName : "";
-  // **计算属性名那个单元**（第 1070 轮就地写在读者这里）：`[Symbol.toPrimitive]` 在产物里
-  // 是 `ArrayLiteral`、**含方括号**；只认「**第一个**子单元，而且原文那个位置就是 `[`」
-  // 的那种——类字段的初始化式（`x = [1, 2]`）也是 `ArrayLiteral`，但它前面还有 `=`。
-  // （它原是一格 `computedNameUnit`：全仓一个调用点、就是这里，拆成一格只是多一跳。）
-  const nameKids = v.ProjectableKids;
-  const nameFirst = nameKids.length > 0 ? nameKids[0] : undefined;
-  const computed =
-    nameFirst !== undefined && nameFirst.IsArrayLiteralUnit && nameFirst.Text.startsWith("[")
-      ? nameFirst
-      : null;
-  if (computed !== null) {
+  // **判据在那一格自己身上**（第 1192 轮）：它答名字节点的 kind / pos / end、
+  // 「要不要交给名字那一格子单元」、计算名那一格单元、以及名字那一格子单元
+  // （段循环靠它跳过那一格）。
+  const named: MemberName = v.MemberNamePlan;
+  const computed = named.computed;
+  if (computed !== null && computed !== undefined) {
+    // **计算名那一支**（`[Symbol.toPrimitive]`）：这一格**不看 `name` 空不空**，
+    // 而且名字节点由这一层造（里面那个表达式要走 `ctx`）。
     return {
       name: {
         kind: "ComputedPropertyName",
@@ -8973,110 +8945,47 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       unit: null,
     };
   }
-  if (name === "") {
-    return { name: undefined, computed: null, unit: null };
+  const unit = named.unit;
+  // **名字那一格子单元投出来的那一格**（原来那一份的 `direct` 就是它）：`fromUnit` 那一支与
+  // 名字住在子单元上的一般情形用的是**同一个调用**——`projectNode(unit, ctx)`，一字未改。
+  const at = unit === null || unit === undefined ? undefined : projectNode(unit, ctx);
+  // **这一格没记名字的坐标 ⇒ 节点就是那一格子单元自己投出来的那一格**（第 1192 轮）：
+  // 函数 / 类 / 接口 / 枚举 / 命名空间 / 变量声明那一族的名字就是一格 `Identifier` 子单元，
+  // 它的 kind / 坐标 / 正文由**那一格自己**答。**为什么不用 `Identifier.NameNode` 那一格
+  // 顶掉这一次投影**：它是同一格事实（`text` 逐字符相同），但第 1192 轮实测那样改会让两条
+  // 用例当场红（私有名那一族与「名字不落在子单元上」那一族）——真实语料上那两格并不总同答，
+  // 所以这一轮**照原样**留着，不拿一次等价性没证完的替换换掉一点计算。
+  if (named.fromUnit === true) {
+    if (at === undefined) return { name: undefined, computed: null, unit };
+    return { name: { kind: at.kind, text: at.text, pos: at.pos, end: at.end }, computed: null, unit };
   }
-  // **点号模块名只取第一段**（`namespace A.B.C` 外层的名字是 `A`——TS 那边是
-  // `ModuleDeclaration(A) > ModuleDeclaration(B) > …`）：那一段的区间由 `Namespace`
-  // 重组时记进 `NameAt` / `NameEnd`（第 1081 轮起投影读的就是它的那一格 `NameSpan`），这里直读。
-  // 只有 `namespace` 这一个属性会带点号
-  // （引号名 `"a.b"` 走的是别的属性），所以按它分流不会误伤。
-  // **这一点名字也只读那一格**（第 1068 轮）：`namespace` 是 `Namespace` / `Import` / `Export`
-  // 三页 `NameField` 回答的那一格事实，而 `DeclaredName` 已经把它与上面那个 `rawName`
-  // 收成**同一个入口**（两处会漂——`name` 与 `namespace` 一度就是两个入口）。
-  const rawNamespace = v.DeclaredName;
-  const dotAt = typeof rawNamespace === "string" ? rawNamespace.indexOf(".") : -1;
-  const lookup = dotAt > 0 ? rawNamespace.substring(0, dotAt) : name;
-  // **「名字住在哪一格子单元上」第 1133 轮收进被问的那一格**（用户口径 1.1 ~ 1.4）：
-  // 这一句原来是现场拼出来的 `v.ProjectableKids.find((k) => k.IsIdentifierUnit &&
-  // k.TextValue === lookup)`，而**两半事实都在 `v` 自己身上**——要找哪个名字读 `v.DeclaredName`
-  // （上面那一句 `lookup` 就是它取了第一段），名字那一格自己的正文由它自己的 `TextValue` 答。
-  // 今天只读一格：`v.NameUnit`（`core/syntax/token.xl.md` 的基类那一格，`## property` + `### get`，
-  // 点号取第一段的算式与这里原来那一句逐字相同）。`lookup` 仍留着——它是 `synthName` 的实参
-  // （名字不住在子单元上时**合成**一个 `Identifier`），与「哪一格带我的名字」不是同一问。
-  const direct = v.NameUnit;
-  const at = direct === undefined ? synthName(lookup, v) : projectNode(direct, ctx);
-  if (at === undefined) {
-    return { name: undefined, computed: null, unit: direct === undefined ? null : direct };
+  if (named.name === undefined) {
+    // 没有名字、或这一格**根本没带名字的位置**（那一趟的答案由那一页给）。
+    return { name: undefined, computed: null, unit };
   }
-  // **「我声明的这个名字是不是引号名」由那一格自己答**（第 1138 轮，用户口径 1.1 ~ 1.4）。
-  // 这一处原来是**回原文**看名字两头那两个字符（`ctx.source[at.pos - 1]` 与
-  // `ctx.source[at.end]` 是不是同一个引号），第 1109 轮**如实保留**过它，理由写的是
-  // 「名字那一格不是每个单元都记着 NameSpan（`MethodDeclaration` / 方法签名的字符串名没有
-  // 那一格，实测那一版 `decl-string-name-member` 一族 5 条当场缺 1 多 1），那时只有原文答得出来」。
-  // **第 1138 轮把那个前提消掉了**：`MethodDeclaration` 补上 `## field NameAt` 与
-  // `## property NameSpan`（与 `Field` 同名同形同条件，认下名字那一趟赋好、`Clone` 抄一格），
-  // 于是「引号名」这一问**每一页都答得出来**——收成基类那一格 `Token.IsQuotedName`
-  // （`## property` + `### get`，与 `NameTextSpan` 里那个 `quoted` 同一份算术）。
-  // 这一处只读属性；本页代码块里「按某一格自己的坐标去读 `ctx.source`」**因此一处不剩**
-  // （第 1049 / 1109 轮那条判据的最后一只漏网）。
-  // **等价怎么证的**：`NameSpan` 就是名字那一格自己的整段区间（字符串名含那对引号），
-  // 而这一处原来比的那两个字符正是那一段的两头——`at.pos - 1` 是那一段的开头、
-  // `at.end` 是那一段的末尾（`synthName` 两条路给出的对数逐字相同）。
-  if (v.IsQuotedName === true) {
-    // **`text` 是引号里的那段，不含引号**（第 183 轮修）：TS 那边字符串字面量名字的
-    // `text` 是**解码后的值**（`{ "x-y"() {} }` 的名字文本就是 `x-y`），
-    // 而这里原来切的是 `[pos-1, end+1)`——**把两个引号也带上了**。
-    // 后果不在解析侧（尺子只比 kind / 区间 / 字段名，不比字段**值**），
-    // 而在**降级层**：`{ "x-y"() {} }` 于是存在**键 `"x-y"`（带引号）**上，
-    // 按 `o["x-y"]` 永远取不到（实测：`Object.keys` 印出来是 `"x-y"`）。
-    // **转义还没解**（`{ "a\nb"() {} }` 的文本是 `a\nb` 四个字符，TS 给一个真换行）——
-    // 属性名里罕见，记在台账里。
-    return {
-      name: {
-        kind: "StringLiteral",
-        // **正文用已经投影出来那一格自己的 `text`**（第 1109 轮）：它就是名字文本
-        // （`ctx.source.slice(at.pos, at.end)` 的逐字符同答）——这一页于是不再回原文切一次。
-        text: at.text,
-        pos: at.pos - 1,
-        end: at.end + 1,
-      },
-      computed: null,
-      unit: direct === undefined ? null : direct,
-    };
+  // **正文只有这一个来源**（与原来那一份逐字节相同）：名字住在**子单元**上时用那一格
+  // 自己投出来的 `text`（解转义后的正文），否则用这一格自己声明的 `DeclaredName`。
+  const text = at === undefined ? v.DeclaredName : at.text;
+  if (typeof text !== "string") {
+    return { name: undefined, computed: null, unit };
   }
-  // **「我声明的这个名字是不是数字字面量」第 1135 轮量过没敢收、第 1136 轮按量到的名单收进来了**
-  // （用户口径 1.1 ~ 1.4）。这一句原来是 `direct === undefined && Identifier.IsNumericLiteral(name)`——
-  // 看着像是「把这一页自己的名字文本递给另一页的静态入口去判」，所以第 1135 轮试过一版
-  // **基类一格**属性读（`Identifier` / `Keyword` 两页覆写 `IsNumericLiteralName`）。
-  // **当场被 `coverage` 抓住、如实还原**：`cls-string-method-names` /
-  // `decl-class-numeric-method-name` / `lex-member-number-name` / `type-member-names` 四条一起
-  // 从 pass 变 blocked（读数 4260 → 4256 / 4422、`blocked` 28 → 32），
-  // 逐节点 diff 是 `MISS NumericLiteral [96,97) "1"` + `EXTRA Identifier [96,97) "1"` 那一对。
-  // **第 1135 轮量错在哪**：这一格上的 `v` **不是**名字单元自己，而是**声明了这一格名字的
-  // 那一格**（`MethodDeclaration` / `Field`）——它的 `IsNumericLiteralName` 拿到的是基类默认档
-  // `false`，因为会答 `true` 的那两页是 `Identifier` / `Keyword`（`IsNameNode`，第 1057 轮），
-  // 而名字在产物里是**这一格的字段**（`fieldName` / `name`）、不是一格名字单元。
-  // **第 1136 轮先量名单、再按名单立格**（`tmp/r1136`：在 `build/` 那一句上挂一个探针、
-  // 跑 `node tests/parse/direct-ast.mjs --all`，记下 `v.constructor.name`）——
-  // 实测落进这一档的**只有两个类**：`["Field","MethodDeclaration"]`。
-  // 于是那两页**各自显式声明** `## field IsNumericLiteralName:bool = false`、
-  // 并在**认下名字的那一趟**（`FieldCloseRule.Process` / `MethodDeclarationCloseRule.Process`）
-  // 用同一份判据赋好（`Identifier.IsNumericLiteral(fieldName)` / `(name)`，与原来那个实参
-  // `name = v.DeclaredName` 逐字符同一份文本），`Clone` 各抄一格。
-  // 投影这一侧于是**一个类名都不认、一段文本都不问**：只读被问那一格自己的属性。
-  // 顺带：本页对 `Identifier` 的**最后一个**代码读者就是这一句（全仓实测 `Identifier.` 的
-  // 活代码只此一处），所以那一行 `import` 同一轮删掉——本页不再 import 那一页。
-  if (direct === undefined && v.IsNumericLiteralName === true) {
-    return { name: { kind: "NumericLiteral", text: name, pos: at.pos, end: at.end }, computed: null, unit: null };
-  }
-  return { name: at, computed: null, unit: direct === undefined ? null : direct };
+  // **名字节点就是那一页给的坐标 + 这里补的正文**（引号名那一档的区间已经在那一页
+  // 按 `NameSpan` 算好——含那对引号，与原来 `at.pos - 1` / `at.end + 1` 逐字符相同）。
+  return { name: { kind: named.name.kind, text, pos: named.name.pos, end: named.name.end }, computed: null, unit };
 ```
 
-**`modifierSpansOf` 那一格第 1079 轮删掉了**（它原来就挂在这里，占第 8277~8299 行）：它把各页
-自己声明的 `modifierSpans` 字段（`"起:止"` 用 `,` 连接）拆成一串 `{ pos, end }`。
-**要拆的那个字符串就是被问的那一格自己的字段**，所以按这一族一贯的口径
-（第 1041 / 1042 / 1057 / 1068 / 1069 / 1078 那几条）它搬回了 `core/syntax/token.xl.md`：
-基类新增 `## property ModifierSpanList:Array<any>`（`## property` + `### get`；没有这一格的页面
-答空数组，解析不出来也答空数组——与原来的实现逐字相同），
-本页唯一的那处调用（当时是 `addModifiers` 里取 `spans`；**那一格第 1167 轮搬进了
-`Token.ModifierNodes`**）改成属性读。
-**那一格的输入第 1082 轮收进了基类**：`## field ModifierSpans:string = ""` 由基类声明
-（各页本来就各自显式声明同一格、并在认下声明那一刻赋好），那一格读的就是它——
-从前读的是各页那个**小写**的 `modifierSpans`（一个没在基类里声明的名字，要经 `(this as any)`），
-**那 10 处小写属性第 1082 轮整格删掉**（`let` / `field` / `type-assign` / `class` / `enum` /
-`function` / `method-declaration` / `interface` / `lamda` / `namespace`），
-**同一份事实因此只有一个入口、一处声明**（第 1078 轮收掉的是它的兄弟 `modifierStart`）。
+**搬运怎么证的**：原来那一份的每一个出口都在这一份里逐句可对——`computed` 那一支的
+`computedNameExpression` 一字未改；`name === ""` 那一支就是那一页的 `named.name === undefined`
+（`MemberNamePlan` 在名字是空串时答 `name: undefined`）；引号名那一支的 `at.text` 就是这里的
+`text`、`at.pos - 1` / `at.end + 1` 就是那一页按 `NameSpan` 算好的 `pos` / `end`；
+数字名那一支的 `name`（`DeclaredName`）就是这里的 `text`、`at.pos` / `at.end` 就是那一页的
+`nameStart` / `nameEnd + 1`；**`direct` 那一支**（名字住在子单元上、原子句是
+`projectNode(direct, ctx)`）就是这里的 `fromUnit` 那一支——**同一个调用，一字未改**。
+**判据一条没新写**。
+
+**返回值类型写作 `MemberName` 而不是 `any`**（用户口径 1.4 / 1.5）：`MemberName` 是那一页声明的
+三格，两个调用点读的正是那三格——`structuralProps` 读 `name` / `computed` / `unit`，
+`field.xl.md` 读 `name`。
 
 # private method addDecorators:(v:any, props:any, ctx:any)=>void
 
@@ -9738,7 +9647,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // **名字走共用判据**（见 `memberNameOf`）：`Identifier` / `StringLiteral`（引号名）/
     // `NumericLiteral`（数字名）/ `ComputedPropertyName`（计算名）四态在这里分派，
     // `projectField` 用的是同一份。
-    const named = memberNameOf(v, ctx);
+    const named = ctx.MemberNameOf(v);
     computedUnit = named.computed;
     nameNode = named.unit;
     if (named.name !== undefined) {

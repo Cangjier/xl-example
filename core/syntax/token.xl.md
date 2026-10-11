@@ -51,7 +51,53 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 **读得出来的那一格必须显式声明过**。共同三格之外的字段是**产物**（`ToJsonText` 那一侧读的
 是 `projected.kind` 这类已知名字），不是第三个出口要问 token 的东西。
 
-# type PrintAstCtx = { unmapped: Set<string>, count: number, direct: number, awaitingDeclaration: any, typePosition: boolean, expressionPosition: boolean, inObjectLiteral: boolean, baseStart: any, consumedSemicolons: Set<number>, Node: (kind?: any, props?: any, view?: any, extra?: any) => any, NodeHead: (kind?: any, props?: any, view?: any, extra?: any) => AstNode, Each: (view?: any, extra?: any) => any, Project: (node?: any, extra?: any) => any, SemicolonEndOf: (end?: any, extra?: any) => number, Split: (list?: any, separator?: any, extra?: any, more?: any) => Array<Array<any>>, ChainWithOptional: (node?: any, nco?: any, extra?: any) => any, Expression: (list?: any, extra?: any) => any, TypeExpression: (list?: any, extra?: any) => any, ProjectEach: (list?: any, kind?: any, extra?: any) => Array<any>, MemberList: (list?: any, view?: any, extra?: any) => Array<any>, KidsOf: (node?: any, key?: any, extra?: any) => Array<any>, NamedSpecifiers: (brace?: any, kind?: any, extra?: any) => Array<any>, MemberNameOf: (view?: any, extra?: any) => any, FoldBinaryFrom: (left?: any, list?: any, extra?: any) => any, SynthName: (text?: any, view?: any, extra?: any) => string, StatementOf: (view?: any, extra?: any) => any, StatementOfList: (list?: any, extra?: any) => any, Nothing: any, BodyBlockOf: (list?: any, brace?: any, extra?: any) => any, ParenthesizedOf: (unit?: any, extra?: any) => any, LetFrom: (list?: any, view?: any, extra?: any) => any, QualifiedNameFrom: (list?: any, extra?: any) => any, DottedExpression: (list?: any, extra?: any) => any, ConditionalNode: (list?: any, from?: any, to?: any, extra?: any) => any, Segment: (view?: any, key?: any, extra?: any) => any, TypeOf: (list?: any, extra?: any) => any, FunctionTypeProps: (kids?: any, extra?: any) => any, BlockOfBody: (list?: any, brace?: any, extra?: any) => any, BindingPattern: (unit?: any, extra?: any) => any, ComputedNameExpression: (unit?: any, extra?: any) => any, Structural: (view?: any, kind?: any, extra?: any) => any, Declaration: (view?: any, kind?: any, extra?: any) => any }
+# type AstComputedName = { kind: string, expression: AstNode, pos: number, end: number }
+
+**计算属性名那一格节点**（第 1192 轮按用户口径 1.4 / 1.5 立起来）：`[Symbol.toPrimitive]` 那种
+`ComputedPropertyName`——**名字不是一段正文，而是一个表达式**，所以它比 `AstNameNode`
+少一个 `text`、多一个 `expression`（那一格自己就是投出来的表达式节点，由
+`ctx.ComputedNameExpression` 给：单个子单元走 `projectExpression`，点号限定名走
+`dottedExpression`）。
+
+**为什么它与 `AstNameNode` 各立一格、而不是合成一格带可选字段的**：两格的**必填项不同**
+（一个必须带 `text`、一个必须带 `expression`），合成一格就写成「两个都可选」——
+那正是用户口径 1.4 要消掉的那种「说不清这一格装什么」。
+
+# type MemberName = { name: AstNameNode | undefined, fromUnit: boolean, computed: Token | null | undefined, unit: Token | null | undefined }
+
+**「这一格自己声明的那个名字，投成哪一格」的答案**（第 1192 轮按用户口径 1.2 / 1.4 / 1.5 立起来）：
+它的四个格子就是这一问的全部出口，从前**只在运行期存在**（`print-ast-common` 里那一格函数的
+返回值写作 `any`，于是「这一问有几个出口、每个是什么」在声明里一个字都没有）。
+
+- `name`：名字投出来的那一格节点。它答的是**这一格自己记下的坐标**（`NameSpan` 那一对，或
+  `nameStart` / `nameEnd` 那一对）与 kind；**坐标记不到时是 `undefined`**（`fromUnit` 那一格
+  接手，见下）。引号名那一档的区间**含那对引号**（`NameSpan` 原样）；
+- `fromUnit`：**名字节点的 kind 与坐标由名字那一格子单元自己答**（`unit.NameNode`）——
+  两种情形会置真：① 名字住在一个 `Identifier` / `Keyword` 子单元上、而这一格自己**没记**名字的
+  下标（函数 / 类 / 接口 / 枚举 / 命名空间 / 变量声明那一族）；② 名字是**计算名**时也是真
+  （那时 `computed` 非空，节点由投影层按它自己的区间造）。
+  **它与 `name` 互斥**：`fromUnit` 为真时 `name` 一律 `undefined`；
+- `computed`：**计算名那个单元自己**（`[Symbol.toPrimitive]` 那一格 `ArrayLiteral`，含方括号）；
+  没走那一支是 `null`；
+- `unit`：**名字那一格子单元**（就是 `NameUnit` 答的那一格，所以「没有」这一档跟着那一格走：
+  `undefined`）；名字住在**属性**上时也是 `undefined`——它只用来在段循环里跳过那一格，
+  并给 `fromUnit` 那一档当节点来源。
+
+**为什么 `computed` 的「没有」写作 `null`、`unit` 的写作 `undefined`**：`unit` 那一格就是
+`NameUnit` 的原样转交（那一页答 `undefined`，这一页不替它改口）；`computed` 是这一页**自己判的**
+一支（`[` 开头那个 `ArrayLiteral` 在不在），判据写作 `named.computed !== null`。两处都不是
+「随便挑一个空值」：`null` 是这一页自己算出来的「没有」，`undefined` 是别人答的「没有」。
+
+**为什么 `name` 那一格写 `AstNode` 而不是 `AstNameNode`**（第 1192 轮实测改的这一格）：
+四态里**三态**（标识符 / 引号 / 数字）确实是 `AstNameNode` 那四格，但**计算名那一态不是**
+（`ComputedPropertyName` 带的是 `expression`、没有 `text`），所以 `AstNameNode` 装不下它；
+而「四态都能装」的那个类型就是 `AstNode`（`kind` / `pos` / `end` 共同三格）——
+`text` / `expression` 是**四态里各自的那一格产物**，由造它的那一页写进去，
+这一层不替它们声明（与 `AstNode` 那一节同一条口径：共同三格之外的字段是产物，不是这一层要问的）。
+**这一格是实测出来的**：先按「名字节点恒带 `text`」写成 `AstNameNode`，
+`tsc` 当场报 `TS2353`（计算名那一支的 `expression` 不存在于 `AstNameNode`）。
+
+# type PrintAstCtx = { unmapped: Set<string>, count: number, direct: number, awaitingDeclaration: any, typePosition: boolean, expressionPosition: boolean, inObjectLiteral: boolean, baseStart: any, consumedSemicolons: Set<number>, Node: (kind?: any, props?: any, view?: any, extra?: any) => any, NodeHead: (kind?: any, props?: any, view?: any, extra?: any) => AstNode, Each: (view?: any, extra?: any) => any, Project: (node?: any, extra?: any) => any, SemicolonEndOf: (end?: any, extra?: any) => number, Split: (list?: any, separator?: any, extra?: any, more?: any) => Array<Array<any>>, ChainWithOptional: (node?: any, nco?: any, extra?: any) => any, Expression: (list?: any, extra?: any) => any, TypeExpression: (list?: any, extra?: any) => any, ProjectEach: (list?: any, kind?: any, extra?: any) => Array<any>, MemberList: (list?: any, view?: any, extra?: any) => Array<any>, KidsOf: (node?: any, key?: any, extra?: any) => Array<any>, NamedSpecifiers: (brace?: any, kind?: any, extra?: any) => Array<any>, MemberNameOf: (view?: any) => MemberName, FoldBinaryFrom: (left?: any, list?: any, extra?: any) => any, SynthName: (text?: any, view?: any, extra?: any) => string, StatementOf: (view?: any, extra?: any) => any, StatementOfList: (list?: any, extra?: any) => any, Nothing: any, BodyBlockOf: (list?: any, brace?: any, extra?: any) => any, ParenthesizedOf: (unit?: any, extra?: any) => any, LetFrom: (list?: any, view?: any, extra?: any) => any, QualifiedNameFrom: (list?: any, extra?: any) => any, DottedExpression: (list?: any, extra?: any) => any, ConditionalNode: (list?: any, from?: any, to?: any, extra?: any) => any, Segment: (view?: any, key?: any, extra?: any) => any, TypeOf: (list?: any, extra?: any) => any, FunctionTypeProps: (kids?: any, extra?: any) => any, BlockOfBody: (list?: any, brace?: any, extra?: any) => any, BindingPattern: (unit?: any, extra?: any) => any, ComputedNameExpression: (unit?: any, extra?: any) => any, Structural: (view?: any, kind?: any, extra?: any) => any, Declaration: (view?: any, kind?: any, extra?: any) => any }
 
 **第三个出口那一层递过去的上下文**（第 1175 轮按用户口径 1.5 立起来）：`PrintAst` 的
 **第一个形参**就是它——从前写作 `any`，于是「这一层手上有什麼」在声明里整个消失（用户口径 1.3：
@@ -190,6 +236,129 @@ if (typeof field === "string" && field !== "") return field;
 const own = (this as any).name;
 return typeof own === "string" ? own : "";
 ```
+
+## property MemberNamePlan:MemberName
+
+**这一格自己声明的那个名字，投成哪一格**（第 1192 轮按用户口径 1.1 / 1.2 / 1.3 立起来）：
+返回值就是 `MemberName` 那三格——名字节点的**三格坐标**、计算名那一格单元、名字那一格子单元。
+
+**为什么名字里带 `Plan`、不叫 `MemberName`**（第 1192 轮实测踩到的）：`MemberName` 同时是
+**本页声明的那个类型名**，而打印器把 `## property MemberName:MemberName` 生成成
+`public get MemberName(): MemberName`——**返回类型注解里的那个名字解析到的就是这一格属性自己**
+（类成员遮蔽同名类型），于是 `tsc` 当场报 `TS2564`（那一格没有初始化式）。这不是判据要管的事，
+是「类型名与成员名不能撞」这条语言事实；所以类型留 `MemberName`（它是这一问的**形状**，
+与 `TypeMemberPlanShape` / `FunctionFlagsShape` 同一族命名），属性叫 `MemberNamePlan`
+（它是**这一格给出的那一份计划**）——两处名字都说得清自己是什么。
+
+**它是从 `print-ast-common.xl.md` 整段搬进来的**（那一格从前叫 `memberNameOf`，本页这一格先叫
+`MemberNameOf`、这一轮按判据改成属性）：搬的理由就是用户口径 1.1 / 1.2——这一问的
+**每一半事实都在被问的这一格自己身上**（「我声明的名字是什么」是 `DeclaredName`、
+「我的名字住在我下面哪一格」是 `NameUnit`、「名字那一格带不带引号」是 `IsQuotedName`、
+「我声明的是不是数字名」是 `IsNumericLiteralName`，而 `NameSpan` / `NameTextSpan` /
+`nameStart` / `nameEnd` 也全是它自己的），所以答案该由这一页给。
+
+**为什么最后是属性、不是方法**（第 1192 轮实测逼出来的）：`print-ast-common` 那一条判据
+（投影对 token **只读属性、不调方法**，第 1046 轮立、`direct:lint` 守着）当场把
+`v.MemberNameOf(ctx)` 判红——而在这一层「取一个本页自己算出来的值」本来就是**读属性**那一形态
+（与 `NameUnit` / `NameSpan` / `ModifierNodes` 同一条）。于是这一格改成 `## property` + `### get`，
+**投影层一次方法都不调**：它只读本页两格（`MemberName` 与 `IsQuotedName`）。
+
+**为什么读的那一刻算**（不是构造时赋的 `## field`）：名字那一格子单元是解析期陆续挂上来的
+（与 `NameUnit` / `SoleNameUnit` 同一形态，第 1064 / 1066 / 1133 轮立的规矩），
+所以「名字投成哪一格」只能在**读的那一刻**看一次。
+
+**为什么 `text` 不在这里定**（这是它与第 1196 轮那句「构造完信息就齐」的边界）：这一格答的是
+**坐标怎么来**（「名字那一格自己记的那一段」，三条来源：`NameSpan` 那一对、
+`nameStart` / `nameEnd` 那一对、或计算名那一格自己的区间），而**正文有它自己已经定好的来源**：
+名字是**子单元**时，正文是那一格投出来的 `text`（`Identifier.PrintAst` 按
+`Translate.DecodeIdentifierEscapes` 解好转义的那一份）——带转义的名字（`\u0066`）上它与
+`DeclaredName` **不是同一个串**，两处各写一份就是两处会漂的答案（第 381 / 388 轮踩过两次）。
+所以 `name.text` 这一格由**投影层**填（名字单元在时读它的 `text`、不在时读 `DeclaredName`，
+与原来那一份逐字节相同），本页一格都不解码——本页也不 import 那一页（会成环）。
+
+**计算名那一支为什么不在这里造节点**：`ComputedPropertyName` 里面装着**一个表达式节点**，
+而投表达式要走 `ctx`（见 `PrintAstCtx` 那一节）——所以这一格只答**计算名那个单元自己**
+（`computed`，调用点靠它跳过那一格），节点由 `print-ast-common.xl.md` 的 `memberNameOf` 造
+（口径与原来那一份相同：单个子单元走 `ctx.Expression`、点号限定名走 `dottedExpression`）。
+
+### get
+
+```ts
+  const rawName = this.DeclaredName;
+  const name = typeof rawName === "string" ? rawName : "";
+  // **计算属性名那个单元**：`[Symbol.toPrimitive]` 在产物里是 `ArrayLiteral`、**含方括号**；
+  // 只认「**第一个**子单元，而且那一格自己的正文以 `[` 开头」的那种——类字段的初始化式
+  // （`x = [1, 2]`）也是 `ArrayLiteral`，但它前面还有 `=`。
+  // **这一支不看 `name` 空不空**（第 1070 轮量出来的）：`[Symbol.toStringTag]` 的名字属性是**空串**，
+  // 按 `name !== ""` 闸门会把它整个挡在外面。
+  const kids = this.ProjectableKids;
+  const head = kids.length > 0 ? kids[0] : undefined;
+  const computed =
+    head !== undefined && head.IsArrayLiteralUnit && head.Text.startsWith("[") ? head : null;
+  if (computed !== null) return { name: undefined, fromUnit: true, computed, unit: null };
+  if (name === "") return { name: undefined, fromUnit: false, computed: null, unit: null };
+  // **名字那一格自己记下的整段区间先判**（`NameSpan`，第 645 / 1081 / 1138 轮）：它是
+  // `Field` / `Namespace` / `MethodDeclaration` 三页**各自显式声明**的那一格，读的是构造时
+  // 记下的 `NameAt` / `NameEnd`。**它先于 `nameStart` / `nameEnd`**（第 1192 轮实测纠的一处）：
+  // `Namespace` 那一页**只记 `NameEnd`、不记 `nameStart`**（名字是点号名的第一段、起点另有一格），
+  // 按 `nameStart` 先判会把 `namespace AmbientNs` 的名字整个丢掉（运行期那一门当场报
+  // `unimplemented: namespace declaration without a name`）。
+  // **引号名那一档就是 `NameSpan` 原样**（含那对引号，第 183 / 1109 轮）；
+  // **其余形态的节点是 `[起, 止 + 1)`**（`NameSpan` 是闭区间）——两句话与原来投影那一侧
+  // `at.pos - 1` / `at.end + 1` 以及 `synthName` 的两个出口逐字符相同。
+  const span: any = (this as any).NameSpan;
+  if (Array.isArray(span) && span.length === 2 && typeof span[0] === "number" && typeof span[1] === "number") {
+    const pos = span[0];
+    const end = span[1] + 1;
+    if (end >= pos) {
+      const kind = this.IsQuotedName === true ? "StringLiteral" : this.NameKind;
+      return { name: { kind, text: "", pos, end }, fromUnit: false, computed: null, unit: null };
+    }
+  }
+  const start = (this as any).nameStart;
+  const stop = (this as any).nameEnd;
+  if (typeof start === "number" && typeof stop === "number" && start >= 0 && stop >= start) {
+    // **数字名那一档**（`class { 1() {} }` / `{ 2: v }`）：「我声明的这个名字是不是数字字面量」
+    // 由这一页在**认下名字那一趟**赋好（`IsNumericLiteralName`，第 1136 轮按实测名单立的格：
+    // 只有 `Field` / `MethodDeclaration` 两页会答真）——名字住在**属性**上才是数字名。
+    if (this.IsNumericLiteralName === true) {
+      return { name: { kind: "NumericLiteral", text: "", pos: start, end: stop + 1 }, fromUnit: false, computed: null, unit: null };
+    }
+    return { name: { kind: this.NameKind, text: "", pos: start, end: stop + 1 }, fromUnit: false, computed: null, unit: null };
+  }
+  // **这一格自己没记名字的坐标 ⇒ 问名字那一格子单元**（`fromUnit`，第 1192 轮）：
+  // 函数 / 类 / 接口 / 枚举 / 变量声明那一族的名字就是**一格 `Identifier` 子单元**，
+  // 它的 kind 与坐标由那一格**自己投出来的那一格**答——正是原来投影那一侧
+  // `projectNode(direct, ctx)` 的同一份答案。
+  // **这一格只在走到这里时才读**（用户口径 1.6：读得越晚越少）：`NameUnit` 要扫一遍
+  // `ProjectableKids`，而前面两支（记了 `NameSpan` / 记了下标的那几页）一次都用不到它。
+  // **它不能提到函数开头**（第 1192 轮实测踩的坑，与「早读一格属性」那条同族）：提前读
+  // 会让**私有方法**（`#m()`）那种格子的名字节点从 `named.unit` 那条路走掉，
+  // 于是 `structuralProps` 段循环里那个「私有名的组成单元要跳过」的判据认不出名字单元、
+  // `#` 与 `m` 两格落进 `parameters` ⇒ 运行期当场 `unimplemented: parameter without a name`。
+  const unit = this.NameUnit;
+  if (unit !== undefined) return { name: undefined, fromUnit: true, computed: null, unit };
+  // **记不到位置、也没有名字子单元**（第 1051 轮）：这一格**根本没带名字的位置**，
+  // 不必替它近似一个——原来投影那一侧这一档的答案就是「没有名字节点」。
+  return { name: undefined, fromUnit: false, computed: null, unit: null };
+```
+
+**这一格与投影层的分工**（三段，都是「坐标在这一格、正文与表达式在那一层」）：
+
+| 这一格答 | 投影层（`memberNameOf`）补 |
+| --- | --- |
+| 名字节点的 `kind` / `pos` / `end`（引号名那一档、数字名那一档、或**自己记了下标**的标识符名） | 那一格的 `text`：名字是**子单元**时读那一格的 `NameNode.text`，名字住在**属性**上时用 `DeclaredName` |
+| `fromUnit: true`（这一格没记下标） | 名字节点的 kind 与两个坐标都读**名字那一格子单元**的 `NameNode` |
+| 计算名那一格**单元**（`computed`） | `ComputedPropertyName` 节点本身（它要 `ctx` 投里面那个表达式） |
+| 名字子单元那一格（`unit`） | 什么都不用补——段循环靠它跳过那一格，`fromUnit` 那一档还拿它当节点来源 |
+
+**为什么引号名那一档的区间在这一格算**：`pos` / `end` 的两个来源（`NameSpan` 与 `NameTextSpan`）
+都是这一格自己的属性，而「含引号那一版」就是 `NameSpan` 原样；投影那一侧以前写的是
+`at.pos - 1` / `at.end + 1`（从**已投出来的节点**倒推），这一轮改成直接读 `NameSpan`——
+两对数的算术逐字符相同（`NameTextSpan` 就是 `NameSpan` 去引号的那一段，见 `NameTextSpan` 那一节）。
+
+**`text: ""` 是占位**：这两态（引号名 / 数字名 / 标识符名）的正文**只有一个来源**（投影层那一栏），
+所以这里不写第二份；投影层拿到节点后一次赋值就把它改成真的正文。
 
 ## property NameUnit:Token | undefined
 
@@ -1716,6 +1885,28 @@ const raw = head.Document.GetRaw(at, at);
 return raw === '"' || raw === "'";
 ```
 
+## field IsNumericLiteralName:bool = false
+
+**「我这一格声明的那个名字是不是数字字面量」**（第 1192 轮按用户口径 1.2 / 1.3 收到基类默认档）。
+
+**为什么基类要答一次**：这一问的唯一读者是 `MemberNamePlan` 那一格（第 1192 轮从
+`print-ast-common.xl.md` 搬进来），而它问的是**任意一格 token**——`Field` /
+`MethodDeclaration` 两页第 1136 轮各自声明过这一格（`## field … = false` +
+在认下名字那一趟按 `Identifier.IsNumericLiteral` 赋好 + `Clone` 抄一格），
+但**其余每一页都读不到这一格**：基类没有声明时，那一格里的 `this.IsNumericLiteralName`
+在严格模式下是一处**不存在的属性**（这一轮 `tsc` 当场报 `TS2339`）。
+
+**为什么是「基类默认档 + 两页覆写」而不是「把两页的声明删掉只在基类算」**：这一格的值
+**不是基类算得出来的**——名字住在哪一页的哪个字段上是那一页自己的事实，基类连名字文本
+都读不到。所以基类这一格是**默认 `false`**，真正会答 `true` 的两页照旧在**认下名字那一趟**
+赋好；口径与 `NameKind`（基类默认 `"Identifier"`、会出私有名的页各自覆写）逐字相同。
+
+**为什么它属于 token 而不是留在投影层**：判据是「**这一格自己声明的名字**」——
+第 1135 轮那一版把它写在基类、按 `IsNameNode` 那两页（`Identifier` / `Keyword`）覆写，
+当场被 `coverage` 抓住（读数 4260 → 4256 / 4422、`blocked` 28 → 32），
+原因是**收件人搞错了**：要问的那一格不是名字单元、而是**声明了这一格名字的那一格**。
+第 1136 轮按实测名单（只有 `Field` / `MethodDeclaration` 两个类落进那一档）把格子立在
+那两页上；第 1192 轮只补了基类这一档默认值——**判据、赋值时机、名单一个字没动**。
 ## method RangeStart:()=>int
 
 本单元的起点：`SourceRange.Start` 的 `Index`；**还没签入**时写 `0`（`start` / `end` 两格的来源）。
