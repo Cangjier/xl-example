@@ -1655,12 +1655,22 @@ return at;
 
 ## property SignatureEndStep:int
 
-**这一格在投影里要不要把尾部那个 `;` / `,` 一起收进来**（第 1172 轮，用户口径 1.2 / 1.3 / 1.6）：
-这一格是**可调用签名**、而且末字符是 `;` 或 `,` 时答 `1`，其余一律答 `0`。
+**这一格在投影里要不要把尾部那个 `;` / `,` 一起收进来——要的话收进来多少格**（第 1172 轮立、
+**第 1205 轮从 0 / 1 改成一格「距离」**，用户口径 1.1 / 1.2 / 1.3 / 1.6）：
+这一格是**可调用签名**时，从 `ProjectionEnd` 往后跨过 trivia 找那个分隔符
+（`;` 或 `,`，与 TS 的 `parseTypeMemberSemicolon` 吃的两个字符同一份名单）——
+找到就答「**它之后那一格 − `ProjectionEnd`**」，找不到答 `0`。
+
+**为什么从 0 / 1 改成距离**（第 1205 轮实测）：分隔符与正文之间**可以夹着空白**，
+而 TS 那边那一段**算在成员自己区间里**——`interface I { m(): void , n(): void }` 的
+`MethodSignature` 是 `[13,25)`（含 `" ,"`），产物只到 23（差 **2**）。
+0 / 1 那一档答不出这个 2，而 `astNode` / `astNodeShape` 两侧本来就是 `end += 这一格`，
+所以改成距离**不必动任何调用点**。
 
 **为什么住在 token 上**：这一问的两件事实**全在这一格自己身上**——「我这种节点算不算签名」
-是 `IsSignatureNode`（第 1040 轮起就住在各自那一页）、「我的末字符是不是 `;` / `,`」读自己的
-`Text`。算式原来四行写在 `print-ast-common.xl.md` 的 `astNode` 里：
+是 `IsSignatureNode`（第 1040 轮起就住在各自那一页）、「我后面那个分隔符在哪」在自己那份
+`Document` 上（`SeparatorAfter`，与 `Text` / `SemicolonAfter` 同一处取）。
+算式原来四行写在 `print-ast-common.xl.md` 的 `astNode` 里：
 
 ```ts
   if (
@@ -1673,31 +1683,29 @@ return at;
 ```
 
 其中第三件事实（`props.body`）是**调用点**手上的：造节点那一趟收着一个 `props`，它判的正是
-「没体的那一档」。所以这一格答「我这种节点算不算签名、末尾那一格字符算不算分隔符」，
-`astNode` 只在 `props.body` 也空时才把这 1 加上去（**判据一个字没变**，变的是「谁的属性」）。
-
-**为什么收成 0 / 1 而不是布尔**：`astNode` 那一侧于是只剩一次加法，没有分支、没有第二处
-「`;` 还是 `,`」的比较（用户口径 1.6：这一格自己的事实由它自己算完，投影只做加法）。
+「没体的那一档」。所以这一格答「我这种节点算不算签名、我后面那个分隔符隔多远」，
+`astNode` 只在 `props.body` 也空时才把它加上去。
 
 **第 1049 / 1053 轮那两条判据在这里是同一条**：这一格读的是**自己的正文**
 （不是 `ctx.source[startOf(this)]`），而那份正文与自己那份 `Document` 同源、逐字符相同。
 **要读的是「剪掉尾部 trivia 之后紧跟着的那一个字符」**——投影那一侧原来读的就是它
-（`ctx.source[剪过 trivia 的终点]`）。`ProjectionEnd` 是全文坐标，所以下标是 `ProjectionEnd - start`
-（**不是 `-1`**：这一格问的是终点**之后**那一格，半开区间 `[start, end)` 让那一格落在正文之外）。
+（`ctx.source[剪过 trivia 的终点]`）。`ProjectionEnd` 是全文坐标，所以正文里那一格的下标是
+`ProjectionEnd - start`（**不是 `-1`**：这一格问的是终点**之后**那一格，
+半开区间 `[start, end)` 让那一格落在正文之外）。
 
 **第 1204 轮改正：那一格经常在正文之外，所以不能只读自己的 `Text`**。第 1172 轮把它写成
-`this.Text.charAt(end - this.start)`，而那一次**两次都答 0**——语料普查（宽语料 2051 份、
-602 个 `IsSignatureNode` 的 token）里 `ProjectionEnd` **恒等于自己的 `end`**，
+`this.Text.charAt(end - this.start)`，而那一次**两次都答 0**——语料普查（官方用例语料 1643 份里
+`IsSignatureNode` 的 token 共 602 个）里 `ProjectionEnd` **恒等于自己的 `end`**，
 于是 `charAt(正文长度)` 永远越界、答案恒为空串：
 
 | 写法 | 读的是哪一格 | 实测 |
 | --- | --- | --- |
 | `Text[len - 1]`（第 1172 轮之前试过） | 正文**末**字符 | `token/types/*` 30 条漂 1 / 多 1（那些签名末尾是 `; `，末字符是空白） |
 | `Text.charAt(end - start)`（第 1172 轮） | 正文**后**那一格，可是下标正好是正文长度 ⇒ 恒越界 | `undici-types/cache.d.ts` 那一族 `MethodSignature` **10 条掉尾巴**（终点正指着那个 `,`，而它不在自己的正文里） |
-| **自己那份 `Document` 上的 `ProjectionEnd` 那一格**（第 1204 轮） | 与第 1172 轮**同一个位置**，只是取对了地方 | 与第 1172 轮之前那四行算式（`ctx.source[剪过 trivia 的终点]`）逐格同答 |
+| **自己那份 `Document` 上的那一格**（第 1204 轮）＋ **跨 trivia 找分隔符的距离**（第 1205 轮） | 与第 1172 轮**同一个位置**，只是取对了地方、并接着跨过空白 | 与第 1172 轮之前那四行算式逐格同答，外加把 `m(): void ,` 那一档也收对 |
 
 **为什么这一格仍然住在 token 上**：那一格字符在**每个 `Source` 自带的 `Document`** 上
-（`Text` / `SemicolonAfter` 同一处取），token 自己就答得出来，不必回投影手上那个字符串。
+（`Text` / `SeparatorAfter` 同一处取），token 自己就答得出来，不必回投影手上那个字符串。
 
 ### get
 
@@ -1722,24 +1730,27 @@ if (at < text.length) {
 }
 // **正文之外那一格**（第 1204 轮改正，实测这是常走的那一档：语料里 `ProjectionEnd` 恒等于
 // 自己的 `end`）：它仍然在**自己那一份 `Document`** 上——与 `Text`（`head.Document.GetRaw`）
-// 和 `SemicolonAfter`（`head.Document.GetValue`）同一处取，所以这一格仍旧只答自己的事实。
+// 和 `SeparatorAfter` 同一处取，所以这一格仍旧只答自己的事实。
 // 过去写成 `text.charAt(at)`，下标正好是正文长度 ⇒ 恒越界 ⇒ 恒答 0
 // （`undici-types/cache.d.ts` 那一族 `MethodSignature` 10 条掉尾巴就是这么来的）。
-const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
-if (head === null) return 0;
-const outside = head.Document.GetValue(end);
-return outside === ";" || outside === "," ? 1 : 0;
+//
+// **第 1205 轮起答的是「距离」不是「0 / 1」**：分隔符与正文之间可以夹着空白 / 注释，
+// 而 TS 那边那一段算在成员自己区间里（`interface I { m(): void , n(): void }` 的
+// `MethodSignature` 是 `[13,25)`，含 `" ,"`）——所以跨过 trivia 找到分隔符之后，
+// 答的是「**它之后那一格 − `ProjectionEnd`**」（`SeparatorAfter` 那一格给的位置）。
+const sep = this.SeparatorAfter(end);
+if (sep === undefined) return 0;
+return sep + 1 - end;
 ```
 
-## private method SemicolonAfter:(from:int)=>int | undefined
+## private method TriviaSkip:(from:int)=>int | undefined
 
-**从 `from` 往后跨过 trivia，若第一格是 `;` 就答它的位置**（第 1182 轮）：跨过的是空白与两种
-注释（换行也算），不是 `;`（或到了文件末尾 / 块注释没闭合）就给 `undefined`。
+**从 `from` 往后跨过 trivia，第一格实义字符在哪**（第 1205 轮）：跨过的是空白与两种注释
+（换行也算），到文件末尾 / 块注释没闭合就给 `undefined`。
 
-**它是两格的共同腿**：`FollowingSemicolonAt` 与 `ProjectionEndSemicolon` 问的是同一句
-「后面那个 `;` 在哪」，只差**起点**（一个是自己的 `end`、一个是自己的 `ProjectionEnd`）。
-第 1165 轮这段算式第一次搬进 `FollowingSemicolonAt` 的 `### get`，第 1182 轮**整段提出来**
-——同一份事实一处声明（用户口径 1.7：共享页与 token 页都只留一次）。
+**为什么要有这一格**：`SemicolonAfter`（第 1182 轮立的「两格的共同腿」）与这一轮新立的
+`SeparatorAfter` 问的是**同一趟扫描**，只差「扫到的那一格字符算不算」——
+同一份事实一处声明（用户口径 1.7），所以扫描留在这里、那一句比较留给各自的出口。
 
 ```ts
 const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
@@ -1775,7 +1786,44 @@ while (at < count) {
   }
   break;
 }
-return doc.GetValue(at) === ";" ? at : undefined;
+return at < count ? at : undefined;
+```
+
+## private method SemicolonAfter:(from:int)=>int | undefined
+
+**从 `from` 往后跨过 trivia，若第一格是 `;` 就答它的位置**（第 1182 轮）：跨过的是空白与两种
+注释（换行也算），不是 `;`（或到了文件末尾 / 块注释没闭合）就给 `undefined`。
+
+**它是两格的共同腿**：`FollowingSemicolonAt` 与 `ProjectionEndSemicolon` 问的是同一句
+「后面那个 `;` 在哪」，只差**起点**（一个是自己的 `end`、一个是自己的 `ProjectionEnd`）。
+第 1165 轮这段算式第一次搬进 `FollowingSemicolonAt` 的 `### get`，第 1182 轮**整段提出来**
+——同一份事实一处声明（用户口径 1.7：共享页与 token 页都只留一次）；
+第 1205 轮那一趟扫描**再往上提一层**成 `TriviaSkip`（见那一格）。
+
+```ts
+const at = this.TriviaSkip(from);
+if (at === undefined) return undefined;
+const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
+if (head === null) return undefined;
+return head.Document.GetValue(at) === ";" ? at : undefined;
+```
+
+## private method SeparatorAfter:(from:int)=>int | undefined
+
+**从 `from` 往后跨过 trivia，若第一格是 `;` 或 `,` 就答它的位置**（第 1205 轮）：
+与 `SemicolonAfter` 同一趟扫描（`TriviaSkip`），只多认一个 `,`。
+
+**为什么要多认那一个逗号**：接口 / 类型字面量里的成员可以用**逗号**分隔，而 TS 的
+`parseTypeMemberSemicolon` 吃的就是 `;` 与 `,` 两个——本仓的 `SignatureEndStep`
+（同页）从这一格问「后面那个分隔符算不算我的」。
+
+```ts
+const at = this.TriviaSkip(from);
+if (at === undefined) return undefined;
+const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
+if (head === null) return undefined;
+const one = head.Document.GetValue(at);
+return one === ";" || one === "," ? at : undefined;
 ```
 
 ## property FollowingSemicolonAt:int | undefined

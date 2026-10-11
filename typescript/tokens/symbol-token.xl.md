@@ -52,36 +52,36 @@ import { IsLeadingDotNumber, IsUnicodeEscapeStart } from "../text-common-util.xl
 ```ts
 const value = source.Value;
 if (!unit.Template.SymbolTemplate.IsSymbol(value)) {
-  const result = new BranchConditionResult();
+  const result = this.Result;
   result.Success = false;
   return result;
 }
 if (value === "\\" && IsUnicodeEscapeStart(source.Document, source.Index)) {
-  const result = new BranchConditionResult();
+  const result = this.Result;
   result.Success = false;
   return result;
 }
 const last = unit.Last();
 if (last instanceof Identifier && last.IsBracedEscapePart(source)) {
-  const result = new BranchConditionResult();
+  const result = this.Result;
   result.Success = false;
   return result;
 }
 if (value === "." && IsLeadingDotNumber(source.Document, source.Index)) {
   const continuesSymbol = last instanceof SymbolToken && last.Closed === false && last.IsAppend(source);
   if (continuesSymbol === false) {
-    const result = new BranchConditionResult();
+    const result = this.Result;
     result.Success = false;
     return result;
   }
 }
 if (last instanceof SymbolToken) {
-  if (last.Closed) {    const result = new BranchConditionResult();
+  if (last.Closed) {    const result = this.Result;
     result.Success = true;
     result.Message = 0;
     return result;
   }
-  const result = new BranchConditionResult();
+  const result = this.Result;
   result.Success = true;
   result.Message = last.IsAppend(source) ? 1 : 0;
   return result;
@@ -96,16 +96,16 @@ if (
   // （产物成了 `Identifier(1)` + `Method(toString)`，`1 .toString()` 那次调用也丢了）。
   last.Closed === false
 ) {
-  const result = new BranchConditionResult();
+  const result = this.Result;
   result.Success = false;
   return result;
 }
 if (last instanceof Identifier && last.IsExponentSign(source.Document, source.Index)) {
-  const result = new BranchConditionResult();
+  const result = this.Result;
   result.Success = false;
   return result;
 }
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = unit.Template.SymbolTemplate.IsSymbol(source.Value);
 result.Message = 0;
 return result;

@@ -84,7 +84,7 @@ return false;
 ```ts
 const preUnit = source.Pre();
 if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value === "/") {
-  const result = new BranchConditionResult();
+  const result = this.Result;
   result.Success = false;
   return result;
 }
@@ -128,7 +128,7 @@ while (scan < document.GetCount()) {
   scan = scan + 1;
 }
 if (closed === false) {
-  const result = new BranchConditionResult();
+  const result = this.Result;
   result.Success = false;
   return result;
 }
@@ -140,7 +140,7 @@ if (closed === false) {
 // 而 `<RegexToken>` 里躺着 ` 2 `）。
 // 「相邻的那一格一律走 trivia 口径」是本仓的老规矩（第 817 轮），这一处是它的又一个落点。
 const previous = Get(unit.Data, SkipPreviousTrivia(unit.Data, unit.Data.length - 1));
-const result = new BranchConditionResult();
+const result = this.Result;
 if (previous === null) {
   // 这一格之前没有任何实义单元（只有那个 `/`，或者只有注释）：新起的一条语句以 `/` 开头
   // ⇒ 正则（`/re/.test(x)` 那种）。与原来 `unit.Data.length <= 1` 那一档同义。

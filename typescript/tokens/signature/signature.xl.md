@@ -247,7 +247,16 @@ const afterTail = Get(units, afterAt);
 if (afterTail === null) {
   return true;
 }
-return afterTail instanceof SymbolToken && afterTail.Is(";");
+// **`;` 与 `,` 都是收尾**（第 1205 轮，用户口径 1.1）：接口 / 类型字面量里的成员可以用**逗号**
+// 分隔（TS 的 `parseTypeMemberSemicolon` 吃的就是这两个），而本规则原来只认 `;` ——
+// 于是**逗号后面还有一条成员**时第一条无名签名整条不成形：
+// `interface I { (a: number): string, (b: string): number }` 的产物是
+// `Bracket` + `TypeDefine` + `SymbolToken(,)` + `Signature`（缺 `CallSignature` / `Parameter` /
+// `Identifier` / `NumberKeyword` 4 条），`new (a: number): I, new (b: string): I` 的第一条
+// 更会被 `MethodDeclarationCloseRule` 抢成一条 `MethodSignature`（多 `Identifier(new)`）。
+// **判据与 `MethodDeclaration` 那一页逐字对齐**（`method-declaration.xl.md` 的
+// `IsMemberSignature` 那一句从第 920 轮起就是 `;` 或 `,`）——同一条口径只该有一份写法。
+return afterTail instanceof SymbolToken && (afterTail.Is(";") || afterTail.Is(","));
 ```
 
 ## private method IsMemberPosition:(unit:Token | null)=>bool
@@ -814,7 +823,17 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     delete props.children;
   }
   // **尾部坐标读这一格自己的属性**（第 1172 轮）：`ctx.StmtEndOf` 那个出口整格删掉了。
-  const end = ctx.SemicolonEndOf(v);
+  //
+  // **第 1205 轮补上「我后面那个分隔符算不算我的」那一格**：`SemicolonEndOf` 只认 `;`
+  //（它问的是「后面那个分号在哪」），而接口 / 类型字面量里的成员可以用**逗号**分隔 ——
+  // `interface I { (a: number): string, (b: string): number }` 的第一条签名于是掉一格
+  //（TS `[14,34)`、产物 `[14,33)`，实测 7 条片段全在这一档上）。
+  // 两格取**大**：`SignatureEndStep` 答的是「跨过 trivia 那个分隔符离我多远」
+  //（`;` 与 `,` 都算，见 `core/syntax/token.xl.md`），
+  // 而 `SemicolonEndOf` 除了同一个答案之外还**记着那一笔吃掉的 `;`**
+  //（`ctx.consumedSemicolons`，`projectStatement` 靠它挡掉随后那条空语句）——所以它照旧要调。
+  const tail = (v.ProjectionEnd as number) + (v.SignatureEndStep as number);
+  const end = Math.max(ctx.SemicolonEndOf(v), tail);
   return { kind, pos: v.start, end, ...props };
 ```
 

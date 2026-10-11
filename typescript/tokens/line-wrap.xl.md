@@ -28,7 +28,7 @@ import { Get } from "../../core/extensions/list-extension.xl.md"
 判定只看「当前字符是不是换行」，`Message` 保持 `0`。
 
 ```ts
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = source.Value === "\n";
 return result;
 ```

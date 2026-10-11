@@ -336,7 +336,7 @@ return index;
 而且往回走得到「修饰词 + `let`/`const`/`var` + 名字」这个形状（见上面那一段）。
 
 ```ts
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = false;
 const value = source.Value;
 const isTail = value === "=" || value === ":" || value === ";" || value === "," || value === "\n";

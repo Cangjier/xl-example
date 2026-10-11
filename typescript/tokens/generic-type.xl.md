@@ -59,7 +59,7 @@ import { IsTemplateTypeContent, IsTriviaUnit, IsTypeBracketPosition, SkipPreviou
 只有当前字符是 `<`、且四道闸门都过才成立。`Message` 保持 `0`（新建单元）。
 
 ```ts
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = source.Value === "<" && this.IsGenericStart(unit, source);
 return result;
 ```

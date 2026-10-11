@@ -49,7 +49,7 @@ const escapeStart = value === "\\" && IsUnicodeEscapeStart(source.Document, sour
 const leadingDot = IsLeadingDotNumber(source.Document, source.Index);
 if (last instanceof Identifier) {
   if (value === "." && unit.Template.SymbolTemplate.IsSymbol(value)) {
-    const result = new BranchConditionResult();
+    const result = this.Result;
     // **数字与点号之间隔着空白时那个点是成员访问**（第 180 轮）：`1 .toString()` 里
     // `1` 已经被那个空白**关掉**（`last.Closed`），点号不该再并进数字。
     // `1.5` 不受影响：那儿点号紧挨着数字，`Closed` 还是假。
@@ -62,23 +62,23 @@ if (last instanceof Identifier) {
     return result;
   }
   if (last.Closed) {
-    const result = new BranchConditionResult();
+    const result = this.Result;
     result.Success = escapeStart || leadingDot || !(unit.Template.SymbolTemplate.IsSymbol(source.Value) || unit.Template.SymbolTemplate.IsWhiteSpace(source.Value));
     result.Message = 0;
     return result;
   }
   if (leadingDot) {
-    const result = new BranchConditionResult();
+    const result = this.Result;
     result.Success = true;
     result.Message = 0;
     return result;
   }
-  const result = new BranchConditionResult();
+  const result = this.Result;
   result.Success = escapeStart || last.IsExponentSign(source.Document, source.Index) || last.IsAppend(source) || last.IsBracedEscapePart(source);
   result.Message = 1;
   return result;
 }
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = escapeStart || leadingDot || !(unit.Template.SymbolTemplate.IsSymbol(source.Value) || unit.Template.SymbolTemplate.IsWhiteSpace(source.Value));
 result.Message = 0;
 return result;

@@ -63,7 +63,7 @@ import { Identifier } from "../identifier.xl.md"
 **判据从「谁先跑」挪到「谁紧挨着」**，于是它与规则队列的位次彻底脱钩。
 
 ```ts
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = false;
 if (source.Value !== "{") {
   return result;

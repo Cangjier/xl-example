@@ -41,10 +41,13 @@ if (!this.StringChars.includes(item)) {
 
 当前字符是不是字符串起点。
 
-用 `FromBool` 工厂把判定结果包成 `BranchConditionResult`，`Message` 保持 `0`。
+判定结果写进**这一格自己的草稿纸**（`Branch.Result`，第 1205 轮起一条 `Branch` 实例一份，
+不再每问一次 `new` 一个），`Message` 保持 `0`（与 `BranchConditionResult.FromBool` 工厂等价）。
 
 ```ts
-return BranchConditionResult.FromBool(this.StringChars.includes(source.Value));
+const result = this.Result;
+result.Success = this.StringChars.includes(source.Value);
+return result;
 ```
 
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void

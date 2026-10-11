@@ -38,7 +38,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 ```ts
 const value = source.Value;
-const result = new BranchConditionResult();
+const result = this.Result;
 const last = unit.Last();
 if (value === "{" && last instanceof BlockToken && last.Closed === false && IsUnclosedBracedEscape(last.TempToString())) {
   result.Success = false;

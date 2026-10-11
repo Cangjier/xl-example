@@ -82,7 +82,7 @@ return text;
 
 ```ts
 const pre = source.Pre([" ", "\t"]);
-const result = new BranchConditionResult();
+const result = this.Result;
 if (!((pre === null || pre.Value === "\n") && source.Value === "#")) {
   result.Success = false;
   return result;

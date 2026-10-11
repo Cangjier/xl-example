@@ -32,7 +32,7 @@ import { UnitToken } from "../../core/syntax/unit-token.xl.md"
 
 ```ts
 const preUnit = source.Pre();
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = preUnit !== null && preUnit.Value === "/" && unit.IsUndo(preUnit) && source.Value === "/";
 return result;
 ```

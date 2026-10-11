@@ -68,7 +68,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
    改动前后枚举体下都没有软换行）。
 
 ```ts
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = false;
 if (unit.constructor.name !== "EnumBody") {
   return result;

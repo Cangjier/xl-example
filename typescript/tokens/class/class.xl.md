@@ -320,7 +320,7 @@ return null;
 只看两样：当前字符 `{`、以及**已经读到的**那一串类头。
 
 ```ts
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = false;
 if (source.Value !== "{") {
   return result;

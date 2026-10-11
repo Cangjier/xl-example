@@ -3296,7 +3296,7 @@ return previousLine === "" ||
 ——判据全部复用 `Statement.IsStatementBoundary` 那一族静态方法。
 
 ```ts
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = false;
 if (unit === null || unit === undefined) {
   return result;

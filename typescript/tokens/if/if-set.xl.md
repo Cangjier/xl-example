@@ -90,7 +90,7 @@ IfSetBranch.Success    建 IfSet、挂到宿主、建第一段、**立马挂 IfC
 函数体 / 裸块 / `switch` 体的 `{` 都不在值位上（判据见 `text-common-util.xl.md`）。
 
 ```ts
-const result = new BranchConditionResult();
+const result = this.Result;
 result.Success = false;
 if (source.Value !== "(") {
   return result;
