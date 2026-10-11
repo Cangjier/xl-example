@@ -592,12 +592,16 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   `v.ProjectableKids.filter((k) => k.Tag === "Decorator")`，而读者是上面那三处（含
   `astNode`）。**这一节是按代码块重数出来的**（散文里的调用字样不算），
   量法与第 1071 轮同一条：逐行判行首三反引号进出围栏，只在围栏内数。
-- **还发现一处「说明与代码不一致」，本轮只记不改**（它不影响任何读数）：第 1067 轮那张表
-  第 454 行写着 `moduleSpecifierIn` / `moduleHolderOf` 已经 `for (const inner of allKids(one))`
-  → `one.ProjectableKids`，而今天这两格（第 9511 / 9543 行）**仍写着 `allKids(one)`**。
-  这两支找的是 `Method` 内部的 `String` 子单元；`Method` 那一页**没有声明 `Segments`**，
-  所以 `ProjectableKids` 在它身上是不是同一个集合**没有量过**——按这一族的规矩
-  （「先证明等价，再谈改写」）不猜着改，留给下一位。
+- **还发现一处「说明与代码不一致」，第 1072 轮只记不改，第 1073 轮量完改掉了**（它不影响任何读数）：
+  第 1067 轮那张表第 454 行写着 `moduleSpecifierIn` / `moduleHolderOf` 已经
+  `for (const inner of allKids(one))` → `one.ProjectableKids`，而那时这两格**仍写着
+  `allKids(one)`**。这两支找的是 `Method` 内部的 `String` 子单元；`Method` 那一页
+  **没有声明 `Segments`**，所以 `ProjectableKids` 在它身上是不是同一个集合**没量过**——
+  按这一族的规矩（「先证明等价，再谈改写」）第 1072 轮没有猜着改。
+  **第 1073 轮把这一问量掉了**：在构建产物上把这两处换成 `one.ProjectableKids`，
+  跑 `cases:tsast`（16 片全绿、3 条已知缺口不变）、`samples`（逐字节一致）、
+  `cases:direct`（1640 份 0 抛异常）——**读数一处没动** ⇒ 两个集合在这一格上同答，
+  源码照改，探针还原。**这一处对账因此从「没量过」变成「量过等价」。**
 - **实测**：`xl check typescript core` 0 条；`xl build --force` **156 个产物** / 0 error、`tsc` 干净；
   **八道门 8 通过、0 失败**（墙钟 32.2s），读数与第 1071 轮逐项相同：`coverage` **4261 / 4422**
   （`blocked 28` / `differ 133` / `bad 0`）、`cases:tsast` 3 条已知缺口还开着、
@@ -666,6 +670,32 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 - **本文件的角色因此更窄了一格**：`ctx` 上那两个「取一串子单元」的名字（`AllKids` 第 1067 轮、
   `UnwrapNodes` 这一轮）都不在了，今天取子单元只有**一格事实的一处读法**：
   `token.ProjectableKids`（与 `IsInvisible` / `Segments` 同在 `core/syntax/token.xl.md`）。
+
+**第 1073 轮（同一轮第三处）把第 1072 轮留给下一位的那一问量掉了**——`moduleSpecifierIn` /
+`moduleHolderOf` 里那两处 `allKids(one)`（找 `Method` 里面的 `String`）：
+
+- **问题是什么**：第 1067 轮那张表写着这两处已经改成 `one.ProjectableKids`，而代码里**仍是
+  `allKids(one)`**；`Method` 那一页**没有声明 `Segments`**，所以「基类那句 `ProjectableKids`
+  在 `Method` 身上是不是同一个集合」**没有量过**。按这一族的规矩（「先证明等价，再谈改写」），
+  第 1072 轮如实记下、没有猜着改。
+- **怎么量的**（一次性探针，不进仓库）：在**构建产物** `build/ts/typescript/print-ast-common.js`
+  上把那两处 `for (const inner of allKids(one))` 换成 `for (const inner of one.ProjectableKids)`，
+  坐标不动、源码不动，然后跑三门对拍：
+  `cases:tsast` **16 片全绿、3 条已知缺口不变**、`samples` **逐字节一致**、`cases:direct`
+  **1640 份 0 抛异常**——**读数一处没动**。探针随即还原（先备份、再 `Move-Item` 覆盖回去，
+  已复核产物里不再有裸 `allKids(one)`）。
+- **结论**：两个集合在这一格上同答（`Method` 的子单元里没有 `IsInvisible` 的那一类），
+  **等价是量出来的、不是推出来的**；源码照改，两处都成了属性读。
+- **`allKids` 的读者因此只剩 2 处**（代码块内 6 → 4 处）：`trailingTriviaStart`（2）与
+  `trailingSemicolonOf` 那一处、`astNode` 开头那段「跳过前导注释」——**要的正是含 trivia 的
+  完整表**的地方，这一格因此照旧留着（第 1066 / 1067 / 1072 / 1073 四轮已经把「不是要找 trivia」
+  的那批全改完了）。
+- **实测**：`xl check typescript core` 0 条；`xl build --force` **156 个产物** / 0 error、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 32.4s），读数与第 1072 轮逐项相同：`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**77 格**（这一处一格没增、一格没减；改的是两处调用点与三节说明）。
 
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
@@ -9577,7 +9607,14 @@ TS 那边这条语句照样是一条 `ExportDeclaration`（`moduleSpecifier` 是
   for (const kid of kids) {
     if (!(kid instanceof Token) || kid.Tag !== "Method") continue;
     const one = kid;
-    for (const inner of allKids(one)) {
+    // **第 1073 轮量过等价、改成读属性**：这里原来读 `allKids(one)`（含 trivia 的完整子单元表），
+    // 而 `Method` 那一页**没有声明 `Segments`**，所以基类那句 `ProjectableKids` 在它身上
+    // 是不是同一个集合第 1067 / 1072 轮一直没量过（台账里如实留着）。这一轮用一把一次性探针量了：
+    // 在构建产物上把这两处 `allKids(one)` 换成 `one.ProjectableKids`，跑 `cases:tsast`
+    // （16 片全绿、3 条已知缺口不变）、`samples`（逐字节一致）、`cases:direct`（1640 份 0 抛异常）
+    // ——**读数一处没动**，所以两个集合在这一格上同答（`Method` 的子单元里没有 `IsInvisible` 的）。
+    // 探针用完即还原，源码改这一处。
+    for (const inner of one.ProjectableKids) {
       if (inner instanceof Token && inner.Tag === "String") return inner;
     }
   }
@@ -9595,7 +9632,8 @@ TS 那边这条语句照样是一条 `ExportDeclaration`（`moduleSpecifier` 是
   for (const kid of kids) {
     if (!(kid instanceof Token) || kid.Tag !== "Method") continue;
     const one = kid;
-    for (const inner of allKids(one)) {
+    // 同 `moduleSpecifierIn`：第 1073 轮量过等价之后改成属性读（理由见那一格）。
+    for (const inner of one.ProjectableKids) {
       if (inner === target) return kid;
     }
   }
