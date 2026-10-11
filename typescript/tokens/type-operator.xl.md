@@ -327,7 +327,7 @@ return result;
     if (typeArguments.length > 0) props.typeArguments = typeArguments;
   }
   if (access === undefined && names.length === 1) {
-    props.exprName = ctx.NameOf(names[0]);
+    props.exprName = names[0].NameNode;
   } else if (access !== undefined || names.length > 1) {
     const parts =
       access === undefined ? names : ctx.Kids(access).filter((k: any) => k.IsNameNode);

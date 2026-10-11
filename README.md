@@ -347,6 +347,49 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1130 轮：「一个名字单元 → `Identifier` 节点」那一问收进被问的那两页——`Identifier` / `Keyword` 各显式声明 `NameNode` 属性，`ctx.NameOf` 出口随之删掉（补进 `CTX_BANNED`）；**八道门 7 通过、读数一处没动**
+
+**一句话**：用户口径「简化 `print-ast-common`，清理它用不到的方法；投影需要的信息要在 token
+子类**构建完就齐全**」。第 1127 ~ 1129 三轮收的是「按文本问那一页」那一族；这一轮收的是
+**同一族在出口表上的最后一格**：`ctx.NameOf(unit)`（实现是本页 `nameOf`，第 4463 行立的）。
+这一问的两半事实——**正文是 `TextValue`、坐标是自己的 `start` 与正文长度**——都在**这一格单元
+自己**身上，而能当一个名字的就是 `Identifier` 与 `Keyword` 两页（`IsNameNode`，第 1057 轮），
+所以它按第 1.1 ~ 1.4 条由**这一格自己**答。
+
+| 原来的现场调用 | 今天读的那一格属性 |
+| --- | --- |
+| `ctx.NameOf(nameUnit)`（5 处：`import-type` / `import` / `object-literal` / `lamda-parameter` / `type-operator`） | `nameUnit.NameNode` |
+
+- **两页各显式声明同一格**（`## property` + `### get`）：取值一行没改，就是把原来那两行
+  （`const text = node.TextValue; const at = startOf(node);` + 那条 `return`）换成读自己的
+  `this.TextValue` / `this.start`——同一个 `Translate.DecodeIdentifierEscapes`、同一段正文、
+  同一个长度（`end: at + text.length` 里那个 `text` 仍是**原文那一格**的长度）。
+- **为什么是 `## property` 不是 `## field`**：与第 1127 / 1128 / 1129 轮同一条——正文到
+  `Close()` 那一刻才攒完，而名字位（对象字面量的键、限定名的右半、类型引用的名字）未必都
+  走过 `Close()`（第 1063 轮实测过写成字段的代价：`coverage` 4260 → 4058）。
+- **为什么 `Keyword` 那一页也答同一格**：对象字面量的键那一处过的是 `IsNameNode`，而能当一个
+  名字的就是这两页；关键字兜底身份的正文是 `Value`，读 `TextValue` 与 `Identifier` 同源。
+  `keyword.xl.md` 因此新 import `Translate`（那一页本来没有依赖问题，`translate` 页自己零依赖）。
+- **出口删了、名字补进 `CTX_BANNED`**（`tests/parse/direct-lint.mjs`）：这一层不该再有第二个
+  入口——写回来 `direct:lint` 当场红。本页自己的两处仍直接调模块内的 `nameOf`（不经出口）。
+- **等价怎么证的**：两页那一格的取值就是原来那个函数体本身（同一段 `TextValue`、同一个
+  `start`、同一个长度）⇒ 逐格同答；`cases:tsast` 比 `text` 与区间，判错会当场红，
+  而八道门读数一处没动就是这条的证据。
+- **实测**：`xl check typescript core` 156 文件 / **0 条**；`xl build core typescript`
+  8 个产物 / 0 error（`print-ast-common` / `identifier` / `keyword` / `import-type` / `import` /
+  `object-literal` / `lamda-parameter` / `type-operator`）、`npx tsc` 干净；
+  八道门 **7 通过 / 1 失败**（墙钟 29.4s），读数与第 1106 ~ 1129 轮逐项相同
+  （`coverage` 4260 / 4422、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%，
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+  `print-ast-common` 本页 10794 行（代码块 7819 行 / 不带注释 4670 行，出口表少一行、
+  多一段记账）；`identifier` 793 行、`keyword` 718 行（各多一格属性）。
+- **这一轮顺带量到的账**（写在这里，免得下一轮再量一遍）：`print-ast-common` 的 43 格声明
+  **一格死代码都没有**（逐格扫过全仓 `core` / `typescript` / `typescript-exec` / `runtime` /
+  `tests` 的 `*.xl.md` 与 `*.mjs`），`ctx` 出口表上的 51 格也**每一格都有本页之外的读者**；
+  本页代码块里剩下的四处 `TextValue ===` （2760 / 9224 / 9569 / 9859）**都不是固定字面量**
+  ——它们比的是调用方递进来的 `separator` / `lookup`（那是「与一个变参相等」，属性收不了），
+  所以那一族已经收完。
+
 ### 第 1129 轮：对象字面量键那一问也改成问那一格自己——`IsNumericLiteral` 在 `Identifier` / `Keyword` 两页显式声明，`object-literal` 那一处从此不 import `Identifier`；**八道门 7 通过、读数一处没动**
 
 **一句话**：用户口径「简化 `print-ast-common`，清理它用不到的方法；投影需要的信息要在 token

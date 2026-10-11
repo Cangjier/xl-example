@@ -265,7 +265,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
           .find((c: any) => c.Tag === "String" || c.Tag === "ConstString");
         elements.push({
           kind: "AssertEntry",
-          name: ctx.NameOf(nameUnit),
+          name: nameUnit.NameNode,
           value: valueUnit === undefined ? undefined : ctx.Project(valueUnit),
           pos: ctx.StartOf(nameUnit),
           end: valueUnit === undefined ? ctx.EndOf(nameUnit) : ctx.EndOf(valueUnit),

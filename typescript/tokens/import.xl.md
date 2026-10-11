@@ -361,7 +361,7 @@ return index;
           .find((k: any) => k.Tag === "String" || k.Tag === "ConstString");
         elements.push({
           kind: "AssertEntry",
-          name: ctx.NameOf(nameUnit),
+          name: nameUnit.NameNode,
           value: valueUnit === undefined ? undefined : ctx.Project(valueUnit),
           pos: ctx.StartOf(nameUnit),
           end: valueUnit === undefined ? ctx.EndOf(nameUnit) : ctx.EndOf(valueUnit),

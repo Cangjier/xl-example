@@ -8447,6 +8447,11 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 **一个名字单元 → `Identifier` 节点**（第 4463 行这一格是 `ctx.NameOf` 的实现，
 对象字面量的键、限定名的右半、类型引用的名字都走它）。
 
+**第 1130 轮起这一格只服务本页那两个内部调用点**：出口 `ctx.NameOf` 删掉了，
+`Identifier` 与 `Keyword` 两页各自显式声明了同一格 `## property NameNode`
+（读自己的 `TextValue` 与 `start`，口径与下面这一格逐字符相同），
+本页之外那五个读者改成读 `unit.NameNode`。
+
 **位置用原文、`text` 用解开的**（第 382 轮）：`{ \u0061: 1 }` 那个键在源码里占
 **6 个字符**（`end` 要按它算），而它的**名字**是 `a`（TS 的 AST `text` 也是 `a`）。
 **这一格第 381 轮漏了**——那时候改的是 `Identifier.PrintDirectAst`（**子单元**那条路）
@@ -10279,7 +10284,16 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 构造时赋好），改成属性读之后这个出口**零真实读者**（全仓实测：活代码 0 处）。
     // 名字补进 `direct:lint` 的 `CTX_BANNED`，写回来这一门当场红。
     ChainWithOptional: (node, nco) => chainWithOptional(node, nco, ctx),
-    NameOf: (node) => nameOf(node),
+    // **`NameOf` 这个出口第 1130 轮删掉了**（它原来就挂在这里）：它问的是「把一个名字单元
+    // 投成 `Identifier` 节点」，而这一问的两半事实（正文 = `TextValue`、坐标 = `start`
+    // 与正文长度）**都在这一格单元自己身上**——按用户口径 1.1~1.4 由**这一格自己**答，
+    // 所以 `Identifier` 与 `Keyword` 两页各自显式声明了同一格 `## property NameNode`
+    // （能当一个名字的就是那两页，`IsNameNode`，第 1057 轮）：
+    // 本页那五处外部读者（`import-type` / `import` / `object-literal` /
+    // `lamda-parameter` / `type-operator`）改成读 `unit.NameNode`。
+    // 本页自己的两处仍直接调 `nameOf`（模块内函数调用，不经出口）。
+    // 出口删了，同一格事实就不会有第二个入口；名字补进 `direct:lint` 的 `CTX_BANNED`
+    // （写回来这一门当场红）。
     // **`TextOf` 这个出口第 1071 轮删掉了**（它原来就挂在这里）：本页那一格
     // `textOfNode` 早就只剩「叶子读自己的 `value`、其余读 `Token.Text`」两层事实，
     // 而第 1069 轮把前一层收成了 `Token.TextValue`（基类 `## property`）——

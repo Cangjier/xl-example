@@ -9,6 +9,7 @@ import { Identifier } from "./identifier.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { SkipNextWrapSymbol, SkipNextTrivia } from "../text-common-util.xl.md"
+import { Translate } from "./string/translate.xl.md"
 ```
 
 # namespace cangjie
@@ -552,6 +553,21 @@ return this.Value;
 
 ```ts
   return Identifier.IsNumericLiteral(this.TextValue);
+```
+
+## property NameNode:any
+
+**这一问与 `Identifier` 那一页同一格**（第 1130 轮）：能当一个名字的就是这两页
+（`IsNameNode`，第 1057 轮），所以关键字兜底身份的那一格也按自己的 `TextValue` 答同一格
+——与原来 `ctx.NameOf(unit)`（`print-ast-common.xl.md` 的 `nameOf`）**逐字符同答**：
+同一个 `Translate.DecodeIdentifierEscapes`、同一段 `TextValue`、同一个 `start` 与同一个长度。
+
+### get
+
+```ts
+  const text = this.TextValue;
+  const at = this.start;
+  return { kind: "Identifier", text: Translate.DecodeIdentifierEscapes(text), pos: at, end: at + text.length };
 ```
 
 ## method PrintDirectAst:(ctx:any, v:any)=>any

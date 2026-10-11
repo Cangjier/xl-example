@@ -599,6 +599,33 @@ return items.includes(this.TempToString());
   return Identifier.IsNumericLiteral(this.TextValue);
 ```
 
+## property NameNode:any
+
+**我这一格当名字时投出来的那个 `Identifier` 节点**（第 1130 轮）：投影过去拿一个名字单元去问
+`ctx.NameOf(unit)`（`print-ast-common.xl.md` 的 `nameOf`，第 4463 行立的），而这一问的两半事实
+（正文是 `TextValue`、坐标是自己的 `start` 与正文长度）**都在这一格单元自己身上**——按用户口径
+1.1~1.4，它由**这一格自己**答，投影那一侧只读 `unit.NameNode`（出口随之删掉，
+名字补进 `direct:lint` 的 `CTX_BANNED`）。
+
+**取值口径与原来那个函数逐字符相同**：`text` 是 `Translate.DecodeIdentifierEscapes(this.TextValue)`
+（`{ \u0061: 1 }` 的键在源码里占 6 个字符、而它的名字是 `a`，第 381 / 382 轮），
+`pos` 是 `this.start`、`end` 是 `pos + TextValue.length`（**原文那一格的**长度，
+不是解开之后的长度——与 `nameOf` 里的 `at + text.length` 同一个 `text`）。
+
+**为什么是 `## property` + `### get` 不是 `## field`**：与同页 `LeafKind` 同一条口径——
+正文到 `Close()` 那一刻才攒完，而名字位（对象字面量的键、限定名的右半、类型引用的名字）
+未必都走过 `Close()`（第 1063 轮实测过把同族写成字段的代价：coverage 4260 → 4058）。
+
+**为什么 `Keyword` 那一页也答同一格**：能当一个名字的就是那两页（`IsNameNode`，第 1057 轮）。
+
+### get
+
+```ts
+  const text = this.TextValue;
+  const at = this.start;
+  return { kind: "Identifier", text: Translate.DecodeIdentifierEscapes(text), pos: at, end: at + text.length };
+```
+
 ## static method LeafKindOfText:(text:string)=>string
 
 **给一段叶子文本，答它在 TS 那边的 kind**（第 1029 轮从投影层搬到这里）。

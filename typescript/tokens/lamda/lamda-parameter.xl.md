@@ -66,7 +66,7 @@ Lambda 的一个形参。
         : nameNode.Tag === "ArrayLiteral" || nameNode.Tag === "ObjectLiteral"
           ? ctx.BindingPattern(nameNode)
           : nameNode.Tag === "Keyword" || nameNode.Tag === "Identifier"
-            ? ctx.NameOf(nameNode)
+            ? nameNode.NameNode
             : ctx.Project(nameNode),
     type: typeNode === undefined ? undefined : ctx.Project(typeNode),
   };

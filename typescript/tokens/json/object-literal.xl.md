@@ -258,7 +258,7 @@ Json 对象。
                 pos: ctx.StartOf(nameUnits[0]),
                 end: ctx.EndOf(nameUnits[0]),
               }
-            : ctx.NameOf(nameUnits[0])
+            : nameUnits[0].NameNode
           : ctx.Expression(nameUnits)
         : {
             kind: "ComputedPropertyName",
