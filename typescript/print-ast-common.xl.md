@@ -10861,7 +10861,17 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       }
     }
   };
-  collectKinds(ast);
+  // **`ctx.unmapped` 空着的时候这一趟整个不必走**（第 1220 轮，用户口径 1.2「提升 parse 效率」，
+  // 基准＝print ast 的耗时）：`landed` 唯一的读者就是下面那句 `filter`，而 `unmapped` 是空集时
+  // 「过滤出来的」必然是空数组——走与不走，`unmapped` 那一格答的是同一个 `[]`。
+  // 这不是推测出来的边角：上面那条记录（第 199 轮）写着 `projectRoot(...).unmapped`
+  // 在 1640 份与 2051 份语料上**都是 0 个 tag**，也就是说「把整棵刚造出来的树遍历一遍、
+  // 每格 `Object.keys` 一次」这一趟白活是**绝大多数调用**都要付的。
+  // 实测（`tmp/r1220-prof-ast`，只看投影那一趟、每格按自身时间聚合）：`collectKinds` **3.7%**，
+  // 外加它每格造的那个键数组与那个 `Set`。
+  if (ctx.unmapped.size > 0) {
+    collectKinds(ast);
+  }
   return {
     ast,
     unmapped: [...ctx.unmapped].filter((tag) => landed.has(tag)).sort(),
