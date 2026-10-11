@@ -117,6 +117,16 @@ return false;
 
 `PropertyAccess` 与 `IsCalleeEnd` 同一个理由：一条折好的链整体**就是**被调者链的一格。
 
+**「够不够当一条链的基名」由那一格自己答**（第 1224 轮，用户口径 1.1）：`new C().b?.(1)` 的产物
+原来是 `[New, Method(name="", [., b, NullConditionalOperator(…)])]`——**接收者留在 `Method` 外面**，
+因为这一支往左走时在 `New` 上停住了（它既不是点号、也不是名字 / 括号 / 断言）。同族还有
+`` a!`t`.b?.(1) ``（停在模板串那一格）、`[1].map?.(f)`、`"s".b?.(1)`、`/re/.b?.(1)` 这些
+**头一格不是名字**的链。判据不是再补一张类名表：这一问（「我能不能当一条链的基名」）在
+`core/syntax/token.xl.md` 已经有一格 `IsChainBaseNode`，由各页自己声明
+（`New` / `String` / `ConstString` / `RegexToken` / `ArrayLiteral` / `ObjectLiteral` / `Keyword` /
+`Identifier` / `Method` / `PropertyAccess` / `NullConditionalOperator` …）——上面那几档本来就是
+它的子集，这里只把缺的那一半接上。
+
 ```ts
 if (item === null) {
   return false;
@@ -131,6 +141,9 @@ if (item instanceof PropertyAccess) {
   return true;
 }
 if (item.constructor.name === "NullConditionalOperator" || item.constructor.name === "NotNull") {
+  return true;
+}
+if (item.IsChainBaseNode === true) {
   return true;
 }
 if (item instanceof Bracket) {
