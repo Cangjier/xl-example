@@ -178,8 +178,13 @@ if (value === "(") {
 // 两处各判一次就是两处会漂的答案。
 // **第 1058 轮 `IsIndexBracket` 并进同一趟**：它还是同一格事实（`[` 那一态），
 // 过去由投影层比 `startBracket` 现场问，今天由本页在记下它的一刻答。
+// **第 1089 轮 `IsParenBracket` / `IsBraceBracket` 也并进这一趟**：同样的话再说一遍
+// ——三种括号态（`(` / `{` / `[`）各有一格，三格都是这一格事实的三个面，
+// 所以三个 `===` 挨着写、与 `startBracket` 同页同趟，投影那一侧只读属性。
 this.EndsOnBrace = this.startBracket === "{";
 this.IsIndexBracket = this.startBracket === "[";
+this.IsParenBracket = this.startBracket === "(";
+this.IsBraceBracket = this.startBracket === "{";
 this.WrapperField = this.startBracket === "{" ? undefined : null;
 return this;
 ```
@@ -299,9 +304,9 @@ return `<${name} range="${this.RangeOf()}" startBracket="${this.startBracket}" e
 顺序是：`Sign(this)` → 抄两个括号字符 → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`。注意 `Sign` 之后才抄字符，且抄的是**字段**而不是 `Use`，所以克隆体不会重跑 `Use` 里的 `CloseRuleQueue` 赋值；批量加入用 `AddRange`。
 
 **派生属性也要抄**（第 1042 轮 `EndsOnBrace`、第 1045 轮 `WrapperField`、第 1058 轮
-`IsIndexBracket`）：克隆体不走 `Use`，
-所以「我是不是裸块」「我是不是包装」「我是不是下标那对方括号」那三格按 `this` 的值原样抄过去
-——`startBracket` 与它们同源，四格一起抄就不会漂。
+`IsIndexBracket`、第 1089 轮 `IsParenBracket` / `IsBraceBracket`）：克隆体不走 `Use`，
+所以「我是不是裸块」「我是不是包装」「我是哪一态括号」那几格按 `this` 的值原样抄过去
+——`startBracket` 与它们同源，六格一起抄就不会漂。
 
 ```ts
 const result = new Bracket(this.Template);
@@ -310,6 +315,8 @@ result.startBracket = this.startBracket;
 result.endBracket = this.endBracket;
 result.EndsOnBrace = this.EndsOnBrace;
 result.IsIndexBracket = this.IsIndexBracket;
+result.IsParenBracket = this.IsParenBracket;
+result.IsBraceBracket = this.IsBraceBracket;
 result.WrapperField = this.WrapperField;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
@@ -330,6 +337,27 @@ return result;
 **第 1058 轮起它是属性**：值在 `Use` 记下 `startBracket` 的那一刻一起赋好（克隆体在 `Clone`
 里抄同一格），投影与 `ctx.IsIndexBracket` 都只读属性——它是**构造那一趟就定下来的数据**，
 不是一处现场判据。
+
+## field IsParenBracket:bool = false
+
+**我这一格是不是那对圆括号**（第 1089 轮）：只有 `(` 那一态是 `true`。
+
+判据过去在投影层，写作**现场连写**（`X.Tag === "Bracket" && X.startBracket === "("`）——
+与 `IsIndexBracket` 那一格是同一句话的三个面之一；今天由本页在 `Use` 记下 `startBracket`
+的那一刻一起赋好（克隆体在 `Clone` 里抄同一格），投影只读属性（`x.IsParenBracket`）。
+
+**为什么它不能读 `EndsOnBrace` / 别的格子代替**：`(` / `[` 两态本来就没有任何一格答它们；
+而「是不是花括号」也不能用 `EndsOnBrace`——那一格是**基类**的一格，别的页（各循环体、
+各语句节点）也答 `true`，问句里少掉 `Tag === "Bracket"` 那一半就会把别的东西认成括号。
+
+## field IsBraceBracket:bool = false
+
+**我这一格是不是那对花括号**（第 1089 轮）：只有 `{` 那一态是 `true`。
+
+它与 `IsParenBracket` 同一趟赋好、同一形态；与同页的 `EndsOnBrace` **不是同一问**：
+那一格答「我这一格的内容是不是收在一对花括号里」（基类字段、本页按 `startBracket` 覆盖），
+这一格答「我这一格是不是那对花括号本身」——**问句的收件人不同**，所以不能互相顶替
+（判据同上一条：`EndsOnBrace` 在别的页上也是 `true`）。
 
 ## field EndsOnBrace:bool = false
 

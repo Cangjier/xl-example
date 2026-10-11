@@ -363,6 +363,11 @@ let staleNameHits = 0;
  * **第 1073 轮（同一轮第二处）再补一个出口名 `UnwrapNodes`**：它读的就是那一格自己的
  * `ProjectableKids`（第 1066 轮起实现只有 token 上那一处），全仓 5 处调用点全改成属性读；
  * 本页那个**一个真实读者都没有**的 `projectableKids` 也一并删掉。同上：出口删了就补进这张表。
+ *
+ * **第 1089 轮再补一个出口名 `IsIndexBracket`**：它第 1058 轮起实现就只有一行
+ * （`(node) => node.IsIndexBracket`），当时留着是因为 `json/object-literal` 那一页在用它；
+ * 第 1089 轮把那一处（唯一一个真实读者）改成读同名的属性读，于是这个出口**零真实读者**
+ * ——出口删了就补进这张表，免得下一轮有人往 `ctx` 里补一行再把问句请回来。
  */
 const CTX_BANNED = [
   "Text",
@@ -385,6 +390,7 @@ const CTX_BANNED = [
   "Template",
   "UnwrapNodes",
   "SpecifierNameOf",
+  "IsIndexBracket",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。
@@ -689,6 +695,10 @@ for (const file of files) {
  * 都是 `BinaryExpression`）。今天基类默认 `false`、那两页各自显式声明 `## field … = true`，
  * 投影只读属性。**同一形状的「匿名比类名」还有一条**（`BINARY_CLASS_DISJUNCTION`，
  * 见下），这一条守的是「名字写回成问句」那一形态。
+ *
+ * **第 1089 轮再补两格**：`IsParenBracket` / `IsBraceBracket`——「这一格是不是那对圆 / 花括号」
+ * 与第 1058 轮收掉的 `IsIndexBracket` 是同一句话的三个面，三格都在 `Bracket` 那一页的 `Use`
+ * 里赋好。同一轮的**匿名连写**由 `BRACKET_STATE_CLASSIFY` 那一条守着（见下）。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -724,6 +734,8 @@ const SELF_CLASSIFY_NAMES = [
   "IsBareCall",
   "IsCommentUnit",
   "IsBinaryOperatorNode",
+  "IsParenBracket",
+  "IsBraceBracket",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -877,6 +889,50 @@ let binaryClassDisjunctionHits = 0;
             why:
               `「这一格是不是一个二元 / 逻辑运算单元」又在比类名了：\`${match[0]}\`——那一格的事实` +
               "住在被问的那一页（`Token.IsBinaryOperatorNode`，两页各自在构造时答好），投影只读属性",
+          });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * **「这一格是哪一态括号」也不许在投影层现场连写**（第 1089 轮）。
+ *
+ * 第 1058 轮把 `isIndexBracket(node)` 收成了 `Bracket.IsIndexBracket`（构造时赋好的那一格），
+ * 可**同一句话的另一种写法**一直留在投影层的代码块里：`X.Tag === "Bracket" &&
+ * X.startBracket === "("`（以及 `{`）。第 1089 轮按同一把尺子把三态里的单态连写全部收掉
+ * ——`IsParenBracket` / `IsBraceBracket` 新立（与 `IsIndexBracket` 同一页、同一趟 `Use`），
+ * 24 处改读属性。这里守的是**连写形态**：`Tag === "Bracket"` 与 `startBracket === "(" / "{" / "["`
+ * 连在一起（同一次序、同一接收者，`String(… ?? "")` 那种兜底写法也算）在代码块里必须恰好 0 处。
+ *
+ * **为什么不并进上一条** ✗：上一条（`SELF_CLASSIFY`）守的是**名字**——把问句重新写成一个
+ * 函数名或一个 `ctx` 出口；这一条守的是**匿名连写**（一个名字都没有的现场算式）。
+ * 两条管的形态不同，所以各有一条判据（与第 1076 轮那条 `NAME_CLASS_DISJUNCTION` 同一格局）。
+ *
+ * **两态写法不算**：`(k.Tag === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"))`
+ * 那三处问的是另一句话（值位那两种括号凑成的形状），本轮逐字保留。
+ */
+const BRACKET_STATE_CLASSIFY = [
+  /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*===\s*"Bracket"\s*&&\s*\1\.startBracket\s*===\s*"[([{]"/g,
+  /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*===\s*"Bracket"\s*&&\s*String\(\s*\1\.startBracket\s*\?\?\s*""\s*\)\s*===\s*"[([{]"/g,
+];
+/** 投影层现场连写「这一格是哪一态括号」的处数（0 处才是对的）。 */
+let bracketStateHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const re of BRACKET_STATE_CLASSIFY) {
+      for (const match of code.matchAll(re)) {
+        bracketStateHits += 1;
+        if (bracketStateHits <= 3) {
+          violations.push({
+            file: SHARED_FILE,
+            why:
+              `「这一格是哪一态括号」又现场连写了：\`${match[0]}\`——那一格的事实住在被问的那一页` +
+              "（`Bracket.IsParenBracket` / `IsBraceBracket` / `IsIndexBracket`，`Use` 里赋好），投影只读属性",
           });
         }
       }
@@ -1063,6 +1119,12 @@ console.log(
 console.log(
   `「这一格是不是一个二元 / 逻辑运算单元」又在投影层比类名（${SHARED_FILE} 的代码块）：${binaryClassDisjunctionHits} 处（0 处才是对的，读 Token.IsBinaryOperatorNode）`,
 );
+// **同一句话的匿名连写**（第 1089 轮）：`Tag === "Bracket" && X.startBracket === "("` 是
+// 「这一格是哪一态括号」现场写出来的样子——收成三格属性（`IsParenBracket` / `IsBraceBracket` /
+// `IsIndexBracket`）之后这里恰好 0 处（两态写法那三处不算）。
+console.log(
+  `「这一格是哪一态括号」又在投影层现场连写（${SHARED_FILE} 的代码块）：${bracketStateHits} 处（0 处才是对的，读 Bracket.IsParenBracket / IsBraceBracket / IsIndexBracket）`,
+);
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的
 // 第二处答案，0 处才对（见 SOURCE_BRACE_SCAN）。
@@ -1091,6 +1153,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
 );
 process.exit(0);

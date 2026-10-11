@@ -86,7 +86,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `typeMemberGroups` 与 `specifierNameOf` 之后是 **69 格**、第 1081 轮（只改形参与方法体、
 一格声明没增没减）**仍是 69 格**，第 1082 ~ 1086 轮（改的都是别的页与基类）**仍是 69 格**，
 **第 1087 轮并掉三处壳之后是 66 格**，**第 1088 轮（改的全是读数与说明、新立的那一格在基类与
-`binary-operator` / `logical-operator`）仍是 66 格**
+`binary-operator` / `logical-operator`）仍是 66 格**，**第 1089 轮（39 处读数 + 删掉一个 `ctx`
+出口，新立的两格在 `bracket` 那一页）仍是 66 格**
 ——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 所以从第 1073 轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
@@ -802,6 +803,52 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   `tsc` 干净；**八道门 8 通过、0 失败**（墙钟 30.4s）。
 - **本页的声明数**：**66 → 66 格**（改的全是读数与说明；新立的那一格在基类与那两页）。
 
+**第 1089 轮把「这一格是哪一态括号」的现场连写收进 `Bracket` 那一页，并顺手删掉那个
+不再有人用的 `ctx.IsIndexBracket` 出口**（用户口径 1.1~1.4：投影要的东西在具体类里显式声明、
+构造时就赋好；第 1058 轮已经为 `[` 那一态立过 `IsIndexBracket`，这一轮把另外两态补齐、
+把三种形态的**匿名连写**一起收干净）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `X.Tag === "Bracket" && X.startBracket === "("`（本页 **27 处**：同行 15 + 跨行 12） | `X.IsParenBracket` | `Bracket` 那一页**显式声明** `## field IsParenBracket:bool = false`，在 `Use` 记下 `startBracket` 的那一刻赋好、`Clone` 照抄（与 `IsIndexBracket` 同页同趟） |
+| `X.Tag === "Bracket" && X.startBracket === "{"`（同行 2 + `String(… ?? "")` 兜底 1） | `X.IsBraceBracket` | 同上（`## field IsBraceBracket:bool = false`，同一趟赋好） |
+| `X.Tag === "Bracket" && X.startBracket === "["`（同行 6 + 跨行 3） | `X.IsIndexBracket` | 第 1058 轮那一格（本页这一轮只是把**同一格事实的匿名连写**也改成属性读） |
+
+- **为什么那两半是多余的/该由 Bracket 答**：`Tag === "Bracket"` 那一半是前缀——别的页答不出
+  `IsParen…` / `IsBrace…` / `IsIndexBracket`（`undefined` ⇒ 假），所以「我是什么类」不必先问一遍；
+  而 `startBracket` 只有 `Bracket` 有（合成视图上没有它 ⇒ `undefined`，两种写法同答 false）。
+  第 1464 行那处 `String(v.startBracket ?? "")` 的兜底就是为「没有这一格」写的，属性读天然同答。
+- **`IsBraceBracket` 与 `EndsOnBrace` 不是同一问**（如实写进两页）：后者是**基类**的一格、
+  别的页（各循环体、各语句节点）也答 `true`，问句里少掉 `Tag === "Bracket"` 那一半就会把别的东西
+  认成花括号；它是「我是不是那对花括号**本身**」，不是「我的内容是不是收在花括号里」。
+- **那三处两态写法逐字保留**（实测点名）：`(k.Tag === "Bracket" && (k.startBracket === "[" ||
+  k.startBracket === "{"))` 问的是另一句话（值位那两种括号凑成的形状），判据不同、不该并进来。
+- **顺手删掉 `ctx.IsIndexBracket` 出口**（它就是「清理用不到的方法」那一半）：第 1058 轮起它的
+  实现只有一行转手 `(node) => node.IsIndexBracket`，当时留着是因为 `json/object-literal` 在用它；
+  这一轮把那一处（唯一一个真实读者）改成属性读 ⇒ 出口**零真实读者**（全仓实测活代码 0 处），
+  于是删掉，名字补进 `direct:lint` 的 `CTX_BANNED`（ctx 出口 52 → 51）。
+- **判据跟着长两条**：`direct:lint` 第八条那一族多认两个名字（`IsParenBracket` / `IsBraceBracket`，
+  问句形态写回来当场红），另立第十五条 `BRACKET_STATE_CLASSIFY`——**匿名连写**那一形态
+  （同行与跨行都算，`String(… ?? "")` 那种兜底写法也算）在代码块里必须恰好 0 处。
+  **自验**（`tmp/r1089/` 的探针，不进仓库）：把一处属性读写回成现场连写 + 把 `ctx.IsIndexBracket`
+  写回表里 ⇒ 两条读数各 **0 → 1 处**、两行 `FAIL`、`exit=1`；逐字节还原 ⇒ 双双归零、`exit=0`。
+- **改了哪四个文件**：本页（39 处读数 + 一处出口 + 几段说明）、`tokens/bracket.xl.md`
+  （两格新属性 + `Use` / `Clone` 两处赋值）、`tokens/json/object-literal.xl.md`（那一处改属性读）、
+  `tests/parse/direct-lint.mjs`（第八条名单 + 第十五条判据 + `CTX_BANNED` + 一行读数）。
+- **量法**：改完八道门读数**一处没动**（基线是第 1088 轮那一份）——`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` **3 条已知缺口还开着**、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+  39 处逐处等价：三种括号态各只有一格答 `true`，与「比类名 + 比 `startBracket`」的合取逐格同答。
+- **一处量法要如实记下**（第一次跑这一门时逮到）：题面只按**行**扫，于是漏了 12 处**跨行**连写
+  （`X.Tag === "Bracket"` 换行到 `&& X.startBracket === "("`）——是这一门自己报出来的 15 处
+  （含 3 处 `[`）把它们补齐的；改写脚本因此改成**在 ```ts 围栏内整段**匹配（散文里那句历史
+  `node.Tag === "Bracket" && node.startBracket === "["` 一个字没动）。
+- **实测**：`xl check typescript core` **156 个文件 0 条**；`xl build typescript core`
+  **3 个产物** / 0 error（`print-ast-common` / `bracket` / `object-literal`）、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 31.0s）。
+- **本页的声明数**：**66 → 66 格**（改的全是读数与说明；新立的两格在 `tokens/bracket.xl.md`）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -1461,7 +1508,11 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // **只认 `{`**：`(` / `[` 是分组括号，它们由 `projectExpression` / 类型那几条路径摊平，
   // 走到这里的一律是块。判据取 `startBracket` 属性（与 `projectExpression` 里
   // 那个值位括号分支同一个来源）。
-  if (v.Tag === "Bracket" && String(v.startBracket ?? "") === "{") {
+  // **第 1089 轮起读 `v.IsBraceBracket`**：这一格由 `Bracket` 那一页在 `Use` 记下
+  // `startBracket` 的那一刻赋好（原来这里写的是 `v.Tag === "Bracket" && String(v.startBracket
+  // ?? "") === "{"`——`Tag` 那一半是多余的前缀，`?? ""` 那半是给「合成视图没有这一格」兜底的，
+  // 而属性读在那种接收者上同样答假）。
+  if (v.IsBraceBracket) {
     return {
       kind: "Block",
       statements: projectEach(kidsOf(v, "children"), ctx),
@@ -2289,8 +2340,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // `ExpressionStatement`（实测 `st-with` / `stmt-with` 两族共 20 处）。
   // 体那个 `{` 里的语句由 `IsStatementStart` 新加的那一条（`with` 后面的括号）负责成形成 `Statement`。
   if (headType === "Keyword" && head.TextValue === "with") {
-    const header = kids.find((k) => k.Tag === "Bracket" && k.startBracket === "(");
-    const body = kids.find((k) => k.Tag === "Bracket" && k.startBracket === "{");
+    const header = kids.find((k) => k.IsParenBracket);
+    const body = kids.find((k) => k.IsBraceBracket);
     const withProps = {};
     if (header !== undefined) withProps.expression = projectExpression(header.ProjectableKids, ctx);
     if (body !== undefined) {
@@ -3046,7 +3097,7 @@ new Set([
   // 判据能这么简单（只认「一个 `(` 括号」），是因为**实参表 / 形参表 / 类型括号不会走到这里**：
   // 那些括号的父单元是 `Method` / `Function` / `Lamda` / `Signature` / 类型容器，
   // 由各自的投影路径摊平；`projectExpression` 收到的单元一律是**操作数**。
-  if (kids.length === 1 && kids[0].Tag === "Bracket" && kids[0].startBracket === "(") {
+  if (kids.length === 1 && kids[0].IsParenBracket) {
     return parenthesizedOf(kids[0], ctx);
   }
   // ---- 0b0. `await x` / `yield x`（第 130 轮）----
@@ -3977,7 +4028,7 @@ new Set([
   const tagUnit = kids[0];
   const tagIsComplete =
     tagUnit.IsChainBaseNode ||
-    (tagUnit.Tag === "Bracket" && tagUnit.startBracket === "(");
+    (tagUnit.IsParenBracket);
   // **标签本身可能是一整段平铺的链**（第 947 轮（二））：`o/*c*/.tag`t`.b` 的产物是
   // `[Identifier(o), ., Identifier(tag), PropertyAccess(String, ., b)]`——那条注释把
   // `o.tag` 那一段**拆平了**（链规则没把它们折成一格），于是 `kids[1]` 是**点号**、
@@ -4102,8 +4153,7 @@ new Set([
       if (inner.length < 3) break;
       const head = inner[0];
       if (
-        head.Tag === "Bracket" &&
-        head.startBracket === "(" &&
+        head.IsParenBracket &&
         head.ProjectableKids.length === 0
       ) {
         emptyCallBracket = head;
@@ -4686,7 +4736,7 @@ new Set([
       }
     };
     let left =
-      ck[0].Tag === "Bracket" && ck[0].startBracket === "("
+      ck[0].IsParenBracket
         ? parenthesizedOf(ck[0], ctx)
         : projectChainHead(ck[0]);
     // **这一条链上出现过非空断言**（第 303 轮）：出现过之后，
@@ -4773,8 +4823,7 @@ new Set([
           // ⇒ **那次调用的节点整格丢**（实测 `gap-r973-nonnull-call-assert-call-assert`：
           // 最里面那个 `CallExpression` 缺、`NonNullExpression` 漂 1）。
           // 判据与下标那一支**一字不差**（`endOf(括号) < endOf(这一格)`）：先建调用、再套断言。
-          if (bangHead !== undefined && bangHead.Tag === "Bracket"
-            && bangHead.startBracket === "(" && endOf(bangHead) < endOf(ck[i])) {
+          if (bangHead !== undefined && bangHead.IsParenBracket && endOf(bangHead) < endOf(ck[i])) {
             left = {
               kind: "CallExpression",
               expression: left,
@@ -4870,8 +4919,7 @@ new Set([
           // `PropertyAccessExpression` 整片缺、`.c` 也跟着丢）。
           // 折法与上面那支同款：先建里层那次调用（受体是 `left`、区间到括号为止），
           // 再把这一格自己那次套在外面。
-          if (bareName === "" && callHead !== undefined && callHead.Tag === "Bracket"
-            && callHead.startBracket === "(" && endOf(callHead) < endOf(ck[i])) {
+          if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && endOf(callHead) < endOf(ck[i])) {
             const innerCall: any = {
               kind: "CallExpression",
               expression: left,
@@ -4928,8 +4976,7 @@ new Set([
               i += 1;
               continue;
             }
-            if (assertHead !== undefined && assertHead.Tag === "Bracket"
-              && assertHead.startBracket === "(") {
+            if (assertHead !== undefined && assertHead.IsParenBracket) {
               const innerCall: any = {
                 kind: "CallExpression",
                 expression: left,
@@ -4960,8 +5007,7 @@ new Set([
             //（实测 `gap-r975-nonnull-index-assert-call`：缺 2 漂 2）。
             // 次序与下标那一支一字不差：先接受体、再把 `!` 套在外面；这一格自己那次调用
             // 由 `projectNode(ck[i])` 那个壳给出（它的被调用者位置正好填这一格）。
-            if (assertHead !== undefined && assertHead.Tag === "Bracket"
-              && assertHead.startBracket === "[") {
+            if (assertHead !== undefined && assertHead.IsIndexBracket) {
               const element: any = {
                 kind: "ElementAccessExpression",
                 expression: left,
@@ -4994,7 +5040,7 @@ new Set([
             continue;
           }
           if (bareName === "" && callHead !== undefined
-            && callHead.Tag === "Bracket" && callHead.startBracket === "("
+            && callHead.IsParenBracket
             && endOf(callHead) < endOf(ck[i])) {
             const innerCall = {
               kind: "CallExpression",
@@ -5171,8 +5217,7 @@ new Set([
           // 「外面还有没有一层」这一问就是**区间**——是**问得出来**的，所以不必靠形状猜：
           // `(f)()`（`[Bracket]` 就是被调用者、只有一层）那一档的 `Method` 与它的 Bracket **同尾**，
           // 这里因此不会误收（`(f)()` / `q = (f)()` / `return (a)(b)` 三档都在门里钉着）。
-          if (innerKids.length > 0 && innerKids[0].Tag === "Bracket"
-            && innerKids[0].startBracket === "(" && endOf(innerKids[0]) < endOf(next)) {
+          if (innerKids.length > 0 && innerKids[0].IsParenBracket && endOf(innerKids[0]) < endOf(next)) {
             const innerArgs = {
               kind: "CallExpression",
               expression: left,
@@ -5552,14 +5597,14 @@ if (kind === "Method") {
   const mKids = unit.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
   const mHead = mKids.length > 0 ? mKids[0] : undefined;
   if (mHead === undefined) return false;
-  if (mHead.Tag === "Bracket" && mHead.startBracket === "(") return true;
+  if (mHead.IsParenBracket) return true;
   if (mHead.Tag === "NotNull") {
     const asserted = mHead.ProjectableKids.filter(
       (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
     );
     const inner = asserted.length > 0 ? asserted[0] : undefined;
     if (inner === undefined) return false;
-    if (inner.Tag === "Bracket" && inner.startBracket === "(") return true;
+    if (inner.IsParenBracket) return true;
     // **断言里的核是一个下标括号**（第 975 轮）：`a!()[0]!()` 的第二格是
     // `Method(name=""[NotNull(Bracket([0]), !), Bracket(())])`——被调用者是「先下标、再断言」，
     // 而这一格自己那次调用的实参括号是**平级的兄弟**（那一格盖着整段 `[0]!()`）⇒
@@ -5588,7 +5633,7 @@ if (kind === "PropertyAccess" || kind === "NotNull") {
   const inner = unit.ProjectableKids;
   if (inner.length >= 1) {
     const head = inner[0];
-    if (head.Tag === "Bracket" && head.startBracket === "(") return true;
+    if (head.IsParenBracket) return true;
     // **头一格是「外面那次调用」在 `Method` 里**（第 971 轮，**普查当场红的**）：
     // `a!()().c` 的第二格是
     // `PropertyAccess(Method(name=""[Bracket(())]), ., c)`——实参括号在 `Method`
@@ -5647,7 +5692,7 @@ return false;
   //  多一格名叫 `['b']` 的属性访问）。**那一格是下标**：与 `chainOnto` 里
   // `Bracket(startBracket="[")` 那一支**是同一件事**——先建 `ElementAccessExpression`，
   // 再把 `!` 套在它外面（次序与 TS 一致：`NonNull(ElementAccess(a, 'b'))`）。
-  if (nameUnit.Tag === "Bracket" && nameUnit.startBracket === "[") {
+  if (nameUnit.IsIndexBracket) {
     node = {
       kind: "ElementAccessExpression",
       expression: left,
@@ -5656,7 +5701,7 @@ return false;
       end: endOf(nameUnit),
     };
     if (questionDot !== undefined) node.questionDotToken = questionDot;
-  } else if (nameUnit.Tag === "Bracket" && nameUnit.startBracket === "(") {
+  } else if (nameUnit.IsParenBracket) {
     // **断言里的核是一对实参括号**（第 975 轮）：`a?.()!()` 的 NCO 内容是
     // `NotNull([Bracket(()), !])`——那个括号是**一次调用**（`a?.()`），`!` 套在它的结果上
     //（TS：`NonNull(CallExpression(a with ?.) )`，`?.` 挂在那次调用上）。
@@ -5831,7 +5876,7 @@ return false;
   }
   const kids = deepest.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
   const head = kids.length > 0 ? kids[0] : undefined;
-  if (head !== undefined && head.Tag === "Bracket" && head.startBracket === "("
+  if (head !== undefined && head.IsParenBracket
     && endOf(head) < endOf(deepest)) {
     return {
       kind: "CallExpression",
@@ -5936,8 +5981,7 @@ return false;
       // 外层那次调用的实参是它后面的兄弟（`1`），而外层调用只体现在 `Method` 自己的区间上。
       // 只折一层会**丢掉内层那一次调用**。「外面还有没有一层」这一问就是**区间**
       //（与普通链那条路的同一句判据：`Method` 比它那个 Bracket 更靠右）。
-      if (calleeKid !== undefined && calleeKid.Tag === "Bracket"
-        && calleeKid.startBracket === "(" && endOf(calleeKid) < endOf(first)) {
+      if (calleeKid !== undefined && calleeKid.IsParenBracket && endOf(calleeKid) < endOf(first)) {
         const innerCall: any = {
           kind: "CallExpression",
           expression: left,
@@ -5956,8 +6000,7 @@ return false;
       // 一对括号**，可它说的是两次调用（两次共用这一格的区间）。判据与上面那一支一字不差：
       // `Method` 比它那个括号更靠右 ⇒ 里面还裹着一层。少了它只投出一次调用
       //（实测 `gap-r964-nonnull-call-twice-member` 的 NCO 那一半：缺 4 格）。
-      if (calleeKid !== undefined && calleeKid.Tag === "Bracket"
-        && calleeKid.startBracket === "(" && endOf(calleeKid) < endOf(first)) {
+      if (calleeKid !== undefined && calleeKid.IsParenBracket && endOf(calleeKid) < endOf(first)) {
         const innerCall: any = {
           kind: "CallExpression",
           expression: left,
@@ -5998,7 +6041,7 @@ return false;
   if (first !== undefined && first.Tag === "PropertyAccess") {
     const inner = first.ProjectableKids;
     const head = inner.length > 0 ? inner[0] : undefined;
-    if (head !== undefined && head.Tag === "Bracket" && head.startBracket === "(") {
+    if (head !== undefined && head.IsParenBracket) {
       const call: any = {
         kind: "CallExpression",
         expression: left,
@@ -6016,7 +6059,7 @@ return false;
       for (let i = 1; i < inner.length; i++) {
         const member = inner[i];
         const memberAt = startOf(member);
-        if (member.Tag === "Bracket" && member.startBracket === "[") {
+        if (member.IsIndexBracket) {
           const element: any = {
             kind: "ElementAccessExpression",
             expression: node,
@@ -6042,7 +6085,7 @@ return false;
     }
   }
   // **`?.(args)`**（第 107 轮）：那一格是实参括号，TS 是带 `questionDotToken` 的 `CallExpression`。
-  if (first !== undefined && first.Tag === "Bracket" && first.startBracket === "(") {
+  if (first !== undefined && first.IsParenBracket) {
     const call = {
       kind: "CallExpression",
       expression: left,
@@ -6064,7 +6107,7 @@ return false;
   // **`?.[i]`**（第 124 轮）：实参是括号**里面**那一段——早先这里直接 `projectNode(first)`，
   // 把整个 `[…]` 括号投成一个节点（未映射的 `<Bracket>`），于是 TS 那边
   // `ElementAccessExpression` 有了、却凭空多出一个 `Bracket`。
-  if (first !== undefined && first.Tag === "Bracket" && first.startBracket === "[") {
+  if (first !== undefined && first.IsIndexBracket) {
     // **这一格后面还跟着兄弟时，下标只是链上的一格**（第 962 轮）：`o?.['m']()` 的 NCO 里
     // **两个括号装在同一格**（`NCO[Bracket([), Bracket(())]`）——原来这里无条件把整格 NCO
     // 当成一个下标（`end: endOf(unit)` 一路盖到 `()` 后面）就返回，
@@ -6259,8 +6302,7 @@ return false;
               (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
             );
             const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
-            if (assertHead !== undefined && assertHead.Tag === "Bracket"
-              && assertHead.startBracket === "[") {
+            if (assertHead !== undefined && assertHead.IsIndexBracket) {
               const element: any = {
                 kind: "ElementAccessExpression",
                 expression: node,
@@ -6307,8 +6349,7 @@ return false;
             j += 1;
             continue;
           }
-          if (callHead !== undefined && callHead.Tag === "Bracket"
-            && callHead.startBracket === "(" && endOf(callHead) < endOf(member)) {
+          if (callHead !== undefined && callHead.IsParenBracket && endOf(callHead) < endOf(member)) {
             const innerCall: any = {
               kind: "CallExpression",
               expression: node,
@@ -6338,7 +6379,7 @@ return false;
         if (pending !== undefined) holder.questionDotToken = pending;
         const call = projectNode(member, ctx);
         node = Object.assign({}, call, { expression: holder, pos: holder.pos });
-      } else if (member.Tag === "Bracket" && member.startBracket === "[") {
+      } else if (member.IsIndexBracket) {
         // **下标括号也是链上的一格**（第 962 轮）：`o?.m()[0]` 的 NCO 里那一格是
         // `PropertyAccess([Method(m), Bracket([0])])`——`[0]` 与成员名**平级**。
         // 落到下面那条通用支会被 `nameOf` 当成**一个名字**（实测投出名叫 `"[0]"` 的
@@ -6468,7 +6509,7 @@ return false;
     // （不在 `Method` 里），TS 那边是外面再套一层 `CallExpression`（区间到那个 `)`）。
     // 普通的调用早被收成 `Method` 单元了，所以这里见到的圆括号只会是这一形状
     // （实测 `stmt-asi-paren-call.ts`：`BinaryExpression` 与 `CallExpression` 各漂 2）。
-    if (unit.Tag === "Bracket" && unit.startBracket === "(") {
+    if (unit.IsParenBracket) {
       left = {
         kind: "CallExpression",
         expression: left,
@@ -6494,8 +6535,7 @@ return false;
       );
       const bangHead = bangKids.length > 0 ? bangKids[0] : undefined;
       let asserted: any = left;
-      if (bangHead !== undefined && bangHead.Tag === "Bracket"
-        && bangHead.startBracket === "[") {
+      if (bangHead !== undefined && bangHead.IsIndexBracket) {
         asserted = {
           kind: "ElementAccessExpression",
           expression: left,
@@ -6503,8 +6543,7 @@ return false;
           pos: left.pos,
           end: endOf(bangHead),
         };
-      } else if (bangHead !== undefined && bangHead.Tag === "Bracket"
-        && bangHead.startBracket === "(" && endOf(bangHead) < endOf(unit)) {
+      } else if (bangHead !== undefined && bangHead.IsParenBracket && endOf(bangHead) < endOf(unit)) {
         asserted = {
           kind: "CallExpression",
           expression: left,
@@ -6583,8 +6622,7 @@ return false;
           (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
         );
         const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
-        if (assertHead !== undefined && assertHead.Tag === "Bracket"
-          && assertHead.startBracket === "(") {
+        if (assertHead !== undefined && assertHead.IsParenBracket) {
           const innerCall: any = {
             kind: "CallExpression",
             expression: left,
@@ -6651,8 +6689,7 @@ return false;
         i += 1;
         continue;
       }
-      if (bareName === "" && callHead !== undefined && callHead.Tag === "Bracket"
-        && callHead.startBracket === "(" && endOf(callHead) < endOf(unit)) {
+      if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && endOf(callHead) < endOf(unit)) {
         const innerCall: any = {
           kind: "CallExpression",
           expression: left,
@@ -6763,8 +6800,7 @@ return false;
         }
         // **被调用者是 `left`、而这一格盖着两层调用**（第 962 轮）：判据与另外两处
         // 一字不差——`Method` 比它那个实参括号**更靠右**，说明外面还有一层调用。
-        if (calleeKid !== undefined && calleeKid.Tag === "Bracket"
-          && calleeKid.startBracket === "(" && endOf(calleeKid) < endOf(next)) {
+        if (calleeKid !== undefined && calleeKid.IsParenBracket && endOf(calleeKid) < endOf(next)) {
           const innerCall: any = {
             kind: "CallExpression",
             expression: left,
@@ -6876,7 +6912,7 @@ return false;
           const head = inner.length > 0 ? inner[0] : undefined;
           if (head === undefined) return false;
           return head.Tag === "Method"
-            || (head.Tag === "Bracket" && head.startBracket === "(");
+            || (head.IsParenBracket);
         };
         if (member.Tag === "Method" && memberIsCall(member)) {
           if (pendingBang !== undefined) {
@@ -6902,7 +6938,7 @@ return false;
         // ⇒ 圆括号落到循环末尾那句空转的 `j += 1` ⇒ **那次调用整格丢**
         //（实测 `gap-r973-opt-assert-index-call-member`：缺 1）。
         // 顺序与上面两支一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
-        if (member.Tag === "Bracket" && member.startBracket === "(") {
+        if (member.IsParenBracket) {
           if (pendingBang !== undefined) {
             left = {
               kind: "NonNullExpression",
@@ -6930,7 +6966,7 @@ return false;
         // `gap-r971-opt-assert-index-member`：缺 `ElementAccessExpression` / `NumericLiteral`）。
         // 折法与 `chainWithOptional` 子链分支里那一支**一字不差**（同一形状、同一个判据），
         // 顺序也一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
-        if (member.Tag === "Bracket" && member.startBracket === "[") {
+        if (member.IsIndexBracket) {
           if (pendingBang !== undefined) {
             left = {
               kind: "NonNullExpression",
@@ -7499,7 +7535,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // `ArrayLiteral`（`[k2]: { a }` 里右边那一格就是一对裸花括号）——只认那两种标签时
   // 整层 `ObjectBindingPattern` 连里面的 `BindingElement` 一起丢。
   const braceKind =
-    v.Tag === "ArrayLiteral" || (v.Tag === "Bracket" && v.startBracket === "[")
+    v.Tag === "ArrayLiteral" || (v.IsIndexBracket)
       ? "ArrayBindingPattern"
       : "ObjectBindingPattern";
   const kind = braceKind;
@@ -9085,7 +9121,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   const braces: Array<any> = [];
   for (let i = 0; i < kids.length; i++) {
     const one = kids[i];
-    if (one.Tag === "Bracket" && one.startBracket === "{") {
+    if (one.IsBraceBracket) {
       braces.push(one);
       const word = i > 0 ? kids[i - 1] : undefined;
       const wordText = word === undefined ? "" : word.TextValue;
@@ -9816,10 +9852,11 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     Split: (list, separator) => splitTopLevel(list, separator),
     // **`Invisible` 那个出口第 1030 轮删掉了**：要跳过哪些单元由单元自己答
     // （`k.IsInvisible`，见 `core/syntax/token.xl.md`），所以这一层不再需要「名单」这件东西。
-    // **「这一格是不是下标那对方括号」第 1058 轮改成读属性**：判据在被问的那一页上
-    // （`Bracket` 的 `IsIndexBracket`，构造时赋好）。这个出口留着是因为 `json/object-literal`
-    // 那一页只有 `ctx` 可用——但它现在是**一格事实的一处读法**，不再是第二处判据。
-    IsIndexBracket: (node) => node.IsIndexBracket,
+    // **`IsIndexBracket` 这个出口第 1089 轮也删掉了**：它第 1058 轮起就只剩「一行转手」
+    // （实现是 `(node) => node.IsIndexBracket`），当时留着是因为 `json/object-literal`
+    // 那一页在用它——而那一页读的本来就是同名的属性（`nameUnits[0].IsIndexBracket`，
+    // 构造时赋好），改成属性读之后这个出口**零真实读者**（全仓实测：活代码 0 处）。
+    // 名字补进 `direct:lint` 的 `CTX_BANNED`，写回来这一门当场红。
     ChainWithOptional: (node, nco) => chainWithOptional(node, nco, ctx),
     NameOf: (node) => nameOf(node),
     // **`TextOf` 这个出口第 1071 轮删掉了**（它原来就挂在这里）：本页那一格

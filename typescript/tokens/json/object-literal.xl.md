@@ -241,7 +241,7 @@ Json 对象。
     const valueUnits = group.slice(colonAt + 1);
     const computed =
       nameUnits.length === 1 &&
-      (ctx.IsIndexBracket(nameUnits[0]) || nameUnits[0].Tag === "ArrayLiteral")
+      (nameUnits[0].IsIndexBracket || nameUnits[0].Tag === "ArrayLiteral")
         ? nameUnits[0]
         : undefined;
     const name =
