@@ -709,14 +709,14 @@ return index + 1;
   const kids = ctx.Kids(v);
   const declaredOp = typeof v.op === "string" ? v.op : "";
   // **先按 `op` 属性找那一格**（第 623 轮）：`op` 是这一元运算的**真身**，
-  // 而 `IsOperatorUnit` 只问「是不是 `SymbolToken`」 —— `typeof import.meta` 的操作数里
+  // 而 `IsOperatorUnit` 只问「是不是符号 / `in` 那类词」 —— `typeof import.meta` 的操作数里
   // 那个 `.` 也是 `SymbolToken` ⇒ 它先被认成运算符（实测：`TypeOfExpression.expression`
   // 投成 `TypeOfKeyword`、缺 `MetaProperty` + `Identifier`）。
   // 按**文本**找不会认错：`op` 那一格是唯一的（`typeof` / `void` / `delete` 是词，
   // 其余是符号），而操作数那些单元（链 / 括号 / 调用 / 嵌套一元）的文本都比它长。
   let opIndex = declaredOp !== "" ? kids.findIndex((k: any) => ctx.ValueOf(k) === declaredOp) : -1;
   if (opIndex < 0) {
-    opIndex = kids.findIndex((k: any) => ctx.IsOperatorUnit(k));
+    opIndex = kids.findIndex((k: any) => k.IsOperatorUnit);
   }
   const operandKids = opIndex >= 0 ? kids.filter((_: any, i: number) => i !== opIndex) : kids;
   const operand = ctx.Expression(operandKids);
@@ -757,6 +757,13 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ## field op:string = ""
 
 运算符文本（`!` / `-` / `typeof` / `++` …）。
+
+## field IsPrefixOperatorUnit:bool = true
+
+**我这一格是不是一个前缀运算符**（第 1062 轮）：这一页的每一个单元都是（`!x` / `typeof x` /
+`void x` / `delete x` / `await x` 与 `++i` / `--i` 在产物里都落在这一页上），所以它是**常量**
+——与 `SymbolToken` 按正文答那几个裸符号、`Keyword` / `Identifier` 按正文答那几个词
+是同一条口径的三页（`Token.IsPrefixOperatorUnit` 那一格的三个来源）。
 
 ## method ToXmlString:()=>string
 

@@ -1204,6 +1204,47 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 再加上回原文读那一格字符），而那句话**两半都是这一页自己的事实**——判定「我是不是点号」
 不必先问别人我是哪一类、也不需要投影手上的那串原文。今天读法只有一处（`one.IsDotSymbol`）。
 
+## field IsOperatorUnit:bool = false
+
+**我这一格能不能当「一个运算符」**（第 1062 轮）——能的话答 `true`。
+
+判据是关于**产物标签 + 我这一格自己的正文**的：符号一律是（`SymbolToken` 那一页答 `true`），
+而 **`in` / `instanceof` 这两个词是 `Keyword` / `Identifier`**（同一个词两态都要认，
+理由见下面 `IsTypeParameterModifier` 与第 550 轮那条「按文本认词」）——
+所以那两页按**自己的正文**答。过去它是投影层的一个现场判据
+（`print-ast-common.xl.md` 的 `isOperatorUnit`：先比 `Tag`、再回原文读那一格文本），
+而**两半都是这一页自己的事实**。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field`，构造 / 记下正文那一刻赋好），投影只读这一格（`unit.IsOperatorUnit`）——
+同一份事实只有一处声明，也不必先问一句「你是哪一类」。
+
+## field IsPrefixOperatorUnit:bool = false
+
+**我这一格是不是一个前缀运算符**（第 1062 轮）——是的话答 `true`。
+
+它只服务一格判据：`<T>expr` 是**前缀**那一档，所以断言的操作数是「一个**一元表达式**」
+（`<number>-x` 里断言管的是 `-x`），判「到哪里停」要认得出前缀运算符那一串。
+
+判据同样是**我这一格自己的正文**：`UnaryOperator` 那一个单元型自己答 `true`
+（`!x` / `typeof x` / `void x` / `delete x` / `await x` 与 `++i` / `--i` 在产物里都是它），
+符号那一页答它那几个裸符号（`!` `~` `+` `-` `++` `--`），
+`Keyword` / `Identifier` 那两页答 `typeof` / `void` / `delete` / `await` 这几个词。
+**二元运算符不在这里**——它们住在 `BinaryOperator` / `LogicalOperator` 单元里、不是一个裸符号，
+所以 `a + b` 的那个 `+` 撞不到这一格。
+
+## field IsTypeParameterModifier:bool = false
+
+**我这一格是不是类型参数的修饰词**（第 1062 轮）——是的话答 `true`：
+变型标注 `in` / `out` 与 `const` 类型参数。
+
+**两者的词法身份不同**（README 的「已知口径」里记过）：TS 的扫描器只把 `in` 当关键词，
+`out` 是上下文修饰、词法上仍是**标识符**；`const` 同理（产物那边是 `Keyword`）。
+所以两种都认，否则 `out` 会被当成约束内容。
+
+判据是**我这一格自己的正文**，所以由 `Keyword` / `Identifier` 两页各自答；过去它是投影层的
+一个现场判据（`isTypeParameterModifier`：比 `Tag` 再回原文读文本）。
+
 ## field IsSignatureNode:bool = false
 
 **我这一格是不是「可调用签名」**（第 1040 轮）——是的话这一格是 `true`。

@@ -134,6 +134,24 @@ if (last instanceof Identifier) {
 而那两个名字**就是这一页与 `Keyword` 那一页自己的类名**——所以它本来就该由这两页各自答；
 投影那一侧只读属性（`node.IsNameNode`），不再比类名。
 
+## field IsOperatorUnit:bool = false
+
+**我这一格能不能当「一个运算符」**（第 1062 轮）：标识符里只有 `in` / `instanceof`
+这两个词算（判据就是**这一格自己的正文**），所以在 `Close()` 里赋好（见下）。
+
+**为什么标识符也要答**：关掉 reorg 之后，`in` / `instanceof` 是由 `KeywordCloseRule`
+在关前那一趟升上去的，而那一趟**排在最后**——二元折叠造出来的那个单元是自己又往下钻了一层
+（`ApplyCloseRules` 里那道临时硬界），界那一层**不再跑规则**，所以最里面那一层的运算符
+**永远停在 `Identifier`**（第 550 轮实测：`expr-in-array-literal.ts` 一份缺 38）。
+按 `Keyword` 判就一格也认不出来，所以**同一个词两态都要认**——而这件事判的正是
+「我这一格的正文是不是那个词」。
+
+## field IsTypeParameterModifier:bool = false
+
+**我这一格是不是类型参数的修饰词**（第 1062 轮）：标识符里是 `in` / `out` / `const`
+这三个词（`out` 是上下文修饰、词法上仍是标识符；`in` / `const` 的另一态是 `Keyword`），
+同样按**这一格自己的正文**判、同样在 `Close()` 里赋好。
+
 ## static readonly field AppendIn:CommonBranch = new CommonBranch()
 
 把 `CommonBranch` 注册进通用跳转队列用的实例。
@@ -183,10 +201,16 @@ return IsUnclosedBracedEscape(this.TempToString());
 
 ## protected method Close:()=>void
 
-关闭：只把自己标记为已关闭。
+关闭：把自己标记为已关闭，**并把由这一格正文派生的两格一起赋好**（第 1062 轮）。
+
+**为什么赋值点在这里**：标识符是**逐字符攒起来**的，而 `Close()` 正是「攒完了」那一刻
+（`SymbolToken` 那一页把同款的三格放在同一处，理由同一条：读得到的一定是收完的正文）。
 
 ```ts
 this.Closed = true;
+// 两格都是「我这一格的正文是什么」的函数，所以在同一个时刻、同一趟里赋好。
+this.IsOperatorUnit = this.IsAny(["in", "instanceof"]);
+this.IsTypeParameterModifier = this.IsAny(["in", "out", "const"]);
 ```
 
 ## method IsExponentSign:(document:Document, index:number)=>bool

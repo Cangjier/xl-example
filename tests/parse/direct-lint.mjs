@@ -331,6 +331,11 @@ let staleNameHits = 0;
  * 下一轮谁想加一个方便的出口，只要往 `ctx` 里补一行就能绕开所有方法体判据
  * （第 1008 轮实测过：helper 那一层的方法体判据天生覆盖不到）。
  * 所以这一条钉的是**能力面**：`ctx` 的键表里不许出现这些名字。
+ *
+ * **第 1062 轮再补两个**：`IsOperatorUnit` / `IsTypeParameterModifier`——那两问第 1062 轮
+ * 收进了被问的那一页（`SymbolToken` / `Keyword` / `Identifier` 各自声明并赋好），
+ * 投影那侧连同 `ctx` 上的出口一起删掉；出口删了就补进这张表，
+ * 免得下一轮有人往 `ctx` 里补一行再把问句请回来。
  */
 const CTX_BANNED = [
   "Text",
@@ -345,6 +350,8 @@ const CTX_BANNED = [
   "FirstCodeAfter",
   "MatchBrace",
   "MatchingParen",
+  "IsOperatorUnit",
+  "IsTypeParameterModifier",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。
@@ -589,6 +596,13 @@ for (const file of files) {
  * 一次都不命中，这一条判据当时是**永远绿**的。今天问句名由 `classifyPredicate` 拼、
  * 判据挂在 `\s*\(`（调用形态）与 `ctx.` 出口名上，并把第 1057 轮注释里写下的缩写
  * （`isDot`）一起收进别名表。
+ *
+ * **第 1062 轮这条判据扩成「小判据」一族**（与第 1060 轮把配对那一门扩成一族同一手法）：
+ * 同一句话的下三个现场判据 `isOperatorUnit` / `isPrefixOperatorUnit` /
+ * `isTypeParameterModifier` 也收进了被问的那一页——三问的答案都只有**两半**：
+ * 「我这一格是什么类」与「我这一格的正文是什么」，而**两半都住在那一页上**
+ * （`SymbolToken` 按 `Temp`、`Keyword` 按 `Value`、`Identifier` 按 `Temp`），
+ * 所以在 `Close()` / `SetValue` 那一刻赋成属性，投影只读。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -597,7 +611,14 @@ const CLASSIFY_ALIASES = { isDotSymbol: ["isDot"] };
 /** 把一组问句名铺成一条或起来的分支（主名 + 缩写）。 */
 const classifyAlternation = (predicates) =>
   predicates.flatMap((name) => [name, ...(CLASSIFY_ALIASES[name] ?? [])]).join("|");
-const SELF_CLASSIFY_NAMES = ["IsDotSymbol", "IsTypeSeparator", "IsNameNode"];
+const SELF_CLASSIFY_NAMES = [
+  "IsDotSymbol",
+  "IsTypeSeparator",
+  "IsNameNode",
+  "IsOperatorUnit",
+  "IsPrefixOperatorUnit",
+  "IsTypeParameterModifier",
+];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
 );
@@ -615,7 +636,8 @@ let selfClassifyHits = 0;
           file: SHARED_FILE,
           why:
             `「这一格是不是某一类」又写回投影层了：\`${match[0]}\`——那一格的事实住在被问的那一页` +
-            "（`Token.IsDotSymbol` / `Token.IsTypeSeparator` / `Token.IsNameNode`），投影只读属性",
+            "（`Token.IsDotSymbol` / `Token.IsTypeSeparator` / `Token.IsNameNode` / `Token.IsOperatorUnit` / " +
+            "`Token.IsPrefixOperatorUnit` / `Token.IsTypeParameterModifier`），投影只读属性",
         });
       }
     }

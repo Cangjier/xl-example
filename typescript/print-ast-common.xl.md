@@ -69,7 +69,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：97 格声明（`# const` / `# method`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：86 格声明（`# const` / `# method`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
@@ -283,6 +283,45 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 ⇒ 本页的 `# const` / `# method` 声明 **91 → 90 格**（`stringText`）。
 `direct:lint` 第十条因此立起来：字符串的正文不许再由投影回子单元里翻
 （`stringText(` / `ctx.StringText(`）。
+
+**第 1062 轮把「这一格是不是某一类」那一族的最后三个现场判据一次收干净**
+（`isOperatorUnit` / `isPrefixOperatorUnit` / `isTypeParameterModifier`）——
+三问的答案都只有**两半**：「我这一格是什么类」与「我这一格的正文是什么」，
+而**两半都住在被问的那一页上**（这正是第 1057 / 1058 轮收 `IsDotSymbol` /
+`IsTypeSeparator` / `IsNameNode` / `IsIndexBracket` 时那句判据），所以三问一起收成属性：
+
+| 原来的现场判据 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `isOperatorUnit(node)`（`Tag === "SymbolToken"` 就真；`Keyword` / `Identifier` 再按文本认 `in` / `instanceof`） | `node.IsOperatorUnit` | `SymbolToken`（`## field … = true`，常量）/ `Keyword`（`SetValue`）与 `Identifier`（`Close()`）按**自己的正文**赋 |
+| `isPrefixOperatorUnit(node)`（`UnaryOperator` 就真；符号认 `!` `~` `+` `-` `++` `--`，`Keyword` / `Identifier` 认 `typeof` / `void` / `delete` / `await`） | `node.IsPrefixOperatorUnit` | `UnaryOperator`（常量）/ `SymbolToken`（`Close()`）/ `Keyword`（`SetValue`）/ `Identifier`（`Close()`） |
+| `isTypeParameterModifier(node)`（`Keyword` / `Identifier` 的正文是 `in` / `out` / `const`） | `node.IsTypeParameterModifier` | `Keyword`（`SetValue`，认 `in` / `const`）与 `Identifier`（`Close()`，认 `in` / `out` / `const`） |
+
+判据与第 1041 / 1042 / 1057 那几条**一模一样**：答案在**这一格自己**身上
+（「我这一格的正文是什么」只有这一页知道），而且**收完正文那一刻**就定下来了
+⇒ 收成属性；基类那三格默认 `false`，需要它的页面**各自显式声明**（`## field`）。
+
+- **赋值点与派生它的那个事实同页、同趟**：`SymbolToken.Close()` 与 `Identifier.Close()`
+  是「逐字符攒完了」那一刻（与第 1057 轮那两格同一趟），`Keyword.SetValue` 是「记下正文」
+  那一刻（与 `KeywordKind` / `IsStatementNode` 那几格同一趟）——所以克隆体照旧自动就位
+  （三页的 `Clone` 分别走 `TryToClose()` / `SetValue`，一行都没动）。
+- **删掉的出口**：`ctx.IsOperatorUnit` 与 `ctx.IsTypeParameterModifier` 一并删掉
+  （读者是 `binary-operator` 1 处、`logical-operator` 1 处、`unary-operator` 1 处、
+  `type-parameter` 4 处，全部改成属性读）——**出口删了，同一格事实就不会有第二个入口**。
+- **`direct:lint` 第八条因此扩成六个名字**（`IsDotSymbol` / `IsTypeSeparator` / `IsNameNode` /
+  `IsOperatorUnit` / `IsPrefixOperatorUnit` / `IsTypeParameterModifier`，第 1062 轮并名单），
+  那两个出口补进 `CTX_BANNED`。**自验**（`tmp/r1062-probe.mjs`，不进仓库）：
+  四种写法（`isOperatorUnit(` / `isPrefixOperatorUnit(` / `isTypeParameterModifier(` /
+  `ctx.IsOperatorUnit`）各写回一处，这一门**每种 0 → 1**、退出码 1；源文件逐字节还原。
+- **实测**：`xl check typescript core` 0 条；`xl build typescript core` **9 个产物** / 0 error
+  （改动的 9 页：`token` / `symbol-token` / `identifier` / `keyword` / `unary-operator` /
+  `binary-operator` / `logical-operator` / `type-parameter` / `print-ast-common`），`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 34.1s），读数与基线逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、
+  `direct:lint` 0 条违反、`samples` 逐字节一致、`cases:check` 1656 / 1656、
+  `runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**89 → 86 格**（按 `^# …(const|method|property)` 逐行数；
+  上面那条账「91 → 90」是第 1061 轮当时的记录，本轮顺手把本页顶上那句旧账改成了实测值）。
 
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
@@ -1984,31 +2023,6 @@ new Set([
 ])
 ```
 
-# private method isOperatorUnit:(node:any)=>bool
-
-这个单元能不能当**运算符**。
-
-绝大多数运算符是 `SymbolToken`，但 **`in` / `instanceof` 是 `Keyword`**——
-只认 `SymbolToken` 时会整类丢两侧操作数（实测 `x in o` 只剩一个 `operatorToken`，
-真实语料 1118 处「产物只有 operatorToken、TS 有 left/right」都是这一条）。
-
-**`Identifier` 那一态也要认**（第 550 轮）：关掉 reorg 之后，
-`in` / `instanceof` 是**由 `KeywordCloseRule` 在关前那一趟升上去的** ——
-可那一趟**排在最后**，而二元折叠造出来的那个单元是**自己又往下钻了一层**
-（`ApplyCloseRules` 里 `Depth >= 8` 那道临时硬界，第 496 轮）——
-界那一层**不再跑规则** ⇒ 最里面那一层的运算符**永远停在 `Identifier`**。
-于是投影侧按 `Keyword` 判就**一格也认不出来**：整个 `x in o` 只剩下第一个操作数
-（实测 `expr-in-array-literal.ts` 一份缺 38——`BinaryExpression` + `InKeyword` +
-两侧操作数整族；`a instanceof b` 同样只投出 `a`）。
-**按文本认词** 与 `WordText` 那条口径同一条（同一个词两态都要认）。
-
-```ts
-  const type = node.Tag;
-  if (type === "SymbolToken") return true;
-  if (type !== "Keyword" && type !== "Identifier") return false;
-  return ["in", "instanceof"].includes(textOfNode(node));
-```
-
 # private method operatorTokenOf:(op:any, ctx:any)=>any
 
 运算符那一格的**叶子节点**（第 550 轮）。
@@ -2310,7 +2324,7 @@ new Set([
   }
   if (
     instanceKids.length >= 4 &&
-    isOperatorUnit(instanceKids[1]) &&
+    instanceKids[1].IsOperatorUnit &&
     textOfNode(instanceKids[1]) === "instanceof" &&
     instanceKids[2].Tag === "Identifier" &&
     instanceKids[3].Tag === "GenericType"
@@ -2387,7 +2401,7 @@ new Set([
     // 后缀链（`.b` / `(…)` / `[…]`）在产物里**已经折成一格**了
     //（`PropertyAccess` / `Method` / `Bracket`），所以不必在这里再拼后缀。
     let operandEnd = 1;
-    while (operandEnd < kids.length && isPrefixOperatorUnit(kids[operandEnd])) {
+    while (operandEnd < kids.length && kids[operandEnd].IsPrefixOperatorUnit) {
       operandEnd += 1;
     }
     if (operandEnd < kids.length) {
@@ -2466,7 +2480,7 @@ new Set([
   // 在产物里是 `Identifier`（逻辑段是从**外层那个前缀词**后面起算的，内层那一个
   // 还没被 `KeywordCloseRule` 升上去）——只认 `Keyword` 时这一格投成**一个光秃秃的标识符**、
   // 它的操作数 `y` 一个字都不留下，降级期报 `name is not a local or a capture: await`
-  //（**整份文件跑不进来**）。与 `isOperatorUnit` 按文本认 `in` / `instanceof`
+  //（**整份文件跑不进来**）。与 `IsOperatorUnit` 那一格按文本认 `in` / `instanceof`
   // 是同一个手法：**同一个词两态都要认**（在模块 / 异步函数里 `await` 不可能是一个变量名）。
   const headKind = kids[0].Tag;
   const headWord = textOfNode(kids[0]);
@@ -2595,7 +2609,7 @@ new Set([
           opAt = at;
           break;
         }
-        if (!isOperatorUnit(unit)) continue;
+        if (!unit.IsOperatorUnit) continue;
         // **`.` 不是切点**（第 740 轮，**实测踩过一次**）：`typeof (await Promise.resolve("s"))`
         // 里那对括号的子单元是**平铺的一串**（`[await, Promise, ., resolve(…)]`，链没折成
         // `PropertyAccess` 单元）——把那个 `.` 当成运算符切开会折出
@@ -2671,7 +2685,7 @@ new Set([
   // **表达式里的私有名 `#x`**（第 131 轮）：`#x in o` 的产物是
   // `[SymbolToken(#), Identifier(x), Keyword(in), Identifier(o)]`——`#` 与名字是两格。
   // 合成一个 `PrivateIdentifier` 之后，后面的运算符与操作数照常折（`in` 走
-  // `isOperatorUnit` 那一支：它是 `Keyword` 不是 `SymbolToken`）。
+  // `IsOperatorUnit` 那一格：它是 `Keyword` 不是 `SymbolToken`）。
   if (kids.length >= 2 && kids[0].Tag === "SymbolToken" && textOfNode(kids[0]) === "#") {
     const named = kids[1];
     const simple = named.Tag === "Identifier" || named.Tag === "Keyword";
@@ -3179,7 +3193,7 @@ new Set([
     if (headInner.length >= 2) {
       const operatorUnit = headInner[headInner.length - 2];
       const base = projectExpression(headInner.slice(0, headInner.length - 2), ctx);
-      if (base !== undefined && isOperatorUnit(operatorUnit)) {
+      if (base !== undefined && operatorUnit.IsOperatorUnit) {
         // **尾巴里那个二元单元要摊开**（第 863 轮）：摊法是 `unwindChainTailInOperator`
         //（续格那一格**整格**留下——链支认的是没摊开的形状，第 744 轮踩过一次），
         //它自己的运算符与右操作数原样跟在后面、由 `foldBinaryFrom` 折。
@@ -3646,7 +3660,7 @@ new Set([
   // ---- 0b. 展开实参（第 114 轮）----
   //
   // `f(...xs)` 的产物把 `...` 与目标分成**两格**，而 `...` 是 `SymbolToken`
-  // （`isOperatorUnit` 对任何符号都为真），照二元那一支会把它投成一个孤立的
+  // （`IsOperatorUnit` 对任何符号都为真），照二元那一支会把它投成一个孤立的
   // `DotDotDotToken`（实测多出 66，样本全是 `...(newValues)` / `...(items)` 这种调用实参）。
   if (kids.length >= 2 && kids[0].Tag === "SymbolToken" && textOfNode(kids[0]) === "...") {
     const spread = projectExpression(kids.slice(1), ctx);
@@ -4717,7 +4731,7 @@ new Set([
     let cutIndex = -1;
     let cutRank = 999;
     for (let i = 1; i < asIndex; i++) {
-      if (!isOperatorUnit(kids[i])) continue;
+      if (!kids[i].IsOperatorUnit) continue;
       const rank = operatorRank(textOfNode(kids[i]));
       if (rank < cutRank) {
         cutRank = rank;
@@ -4783,7 +4797,7 @@ new Set([
   let opIndex = -1;
   let bestRank = 999;
   for (let i = 1; i < kids.length - 1; i++) {
-    if (!isOperatorUnit(kids[i])) continue;
+    if (!kids[i].IsOperatorUnit) continue;
     const rank = operatorRank(textOfNode(kids[i]));
     if (rank < bestRank) {
       bestRank = rank;
@@ -6450,31 +6464,6 @@ return false;
   return left;
 ```
 
-# private method isPrefixOperatorUnit:(node:any)=>bool
-
-**这一格是不是一个前缀运算符**（第 379 轮）——只给「尖括号断言要吃多长」那一处用。
-
-**为什么需要它**：`<T>expr` 是**前缀**那一档，所以它的操作数是「一个**一元表达式**」：
-`<number>-x` 里断言管的是 `-x`（不是 `-` 自己），`<number>a + b` 里断言管到 `a` 就停。
-判「到哪里停」要认得出前缀运算符那一串。
-
-**只认**：单元型 `UnaryOperator`（`!x` / `typeof x` / `void x` / `delete x` / `await x` 与
-`++i` / `--i` 在产物里都是它），以及**裸符号** `!` `~` `+` `-` `++` `--`
-（`+` / `-` 在操作数位置上不会落成 `BinaryOperator`）。
-**二元运算符不在这里**——它们住在 `BinaryOperator` / `LogicalOperator` 单元里，
-不是一个裸符号，所以 `a + b` 的那个 `+` 撞不到这一支。
-
-```ts
-  const type = node.Tag;
-  if (type === "UnaryOperator") return true;
-  if (type !== "SymbolToken") {
-    const text = textOfNode(node);
-    return text === "typeof" || text === "void" || text === "delete" || text === "await";
-  }
-  const text = textOfNode(node);
-  return text === "!" || text === "~" || text === "+" || text === "-" || text === "++" || text === "--";
-```
-
 # private method foldBinaryFrom:(left:any, rest:Array<any>, ctx:any)=>any
 
 从 `left` 起、把 `rest`（以运算符开头、`[op, 操作数, op, 操作数, …]`）折成 `BinaryExpression`。
@@ -6490,8 +6479,8 @@ return false;
 
 ```ts
   // **运算符不一定是 `SymbolToken`**（第 131 轮）：`in` / `instanceof` 是 `Keyword`
-  // （`#x in o` 的 `in` 就是），与 `projectExpression` 里那条 `isOperatorUnit` 同一口径。
-  if (rest.length < 2 || !isOperatorUnit(rest[0])) return left;
+  // （`#x in o` 的 `in` 就是），与 `projectExpression` 里那条 `IsOperatorUnit` 同一口径。
+  if (rest.length < 2 || !rest[0].IsOperatorUnit) return left;
   const firstRank = operatorRank(textOfNode(rest[0]));
   if (firstRank === 0) {
     // 赋值：右结合，交给递归。
@@ -6504,7 +6493,7 @@ return false;
     // 而**形状这一层**错得更早——`cases:tsast` 一量就红）。
     let commaAt = rest.length;
     for (let k = 1; k < rest.length; k++) {
-      if (isOperatorUnit(rest[k]) && textOfNode(rest[k]) === ",") {
+      if (rest[k].IsOperatorUnit && textOfNode(rest[k]) === ",") {
         commaAt = k;
         break;
       }
@@ -6644,7 +6633,7 @@ return false;
     const op = rest[i];
     // **运算符也可能是 `Keyword`**（第 131 轮）：`in` / `instanceof` 都是
     // （`#x in o` 的 `in`），只认 `SymbolToken` 会当场 `break`，运算符与右操作数一起丢。
-    if (!isOperatorUnit(op)) break;
+    if (!op.IsOperatorUnit) break;
     const rank = operatorRank(textOfNode(op));
     // 下一个「同级或更低优先级」的运算符就是这一段的终点。
     let stop = rest.length;
@@ -6660,11 +6649,11 @@ return false;
       // **只在操作数位置上认**：`k` 前面那一格是运算符（或它就是这一段的第一格）
       // ⇒ 这个 `<` 前面**没有左操作数** ⇒ 只可能是断言。
       // 比较式 `a < b < c` 的第二个 `<` 前面是 `b`（一个名字）⇒ 这里不跳，照旧切段。
-      if ((k === 0 || isOperatorUnit(rest[k - 1])) && angleAssertionLength(rest, k) > 0) {
+      if ((k === 0 || rest[k - 1].IsOperatorUnit) && angleAssertionLength(rest, k) > 0) {
         k += angleAssertionLength(rest, k) - 1;
         continue;
       }
-      if (isOperatorUnit(rest[k]) && operatorRank(textOfNode(rest[k])) <= rank) {
+      if (rest[k].IsOperatorUnit && operatorRank(textOfNode(rest[k])) <= rank) {
         stop = k;
         break;
       }
@@ -6729,7 +6718,7 @@ return false;
     return 0;
   }
   let operandEnd = close + 1;
-  while (operandEnd < kids.length && isPrefixOperatorUnit(kids[operandEnd])) {
+  while (operandEnd < kids.length && kids[operandEnd].IsPrefixOperatorUnit) {
     operandEnd += 1;
   }
   if (operandEnd >= kids.length) {
@@ -8833,20 +8822,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   return groups.filter((group) => group.length > 0);
 ```
 
-# private method isTypeParameterModifier:(node:any)=>bool
-
-类型参数的修饰词：变型标注 `in` / `out` 与 `const` 类型参数。
-
-**两者的词法身份不同**（README 的「已知口径」里记过）：TS 的扫描器只把 `in` 当关键词，
-`out` 是上下文修饰、词法上仍是**标识符**；`const` 同理（产物那边是 `Keyword`）。
-所以两种都认，否则 `out` 会被当成约束内容。
-
-```ts
-  const type = node.Tag;
-  if (type !== "Keyword" && type !== "Identifier") return false;
-  return ["in", "out", "const"].includes(textOfNode(node));
-```
-
 # private method typeOf:(nodes:Array<any>, ctx:any)=>any
 
 右值那一段单元 → 一个类型节点（`TypeDefine` 摊平；空段给 `undefined`）。
@@ -9286,7 +9261,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // （`Bracket` 的 `IsIndexBracket`，构造时赋好）。这个出口留着是因为 `json/object-literal`
     // 那一页只有 `ctx` 可用——但它现在是**一格事实的一处读法**，不再是第二处判据。
     IsIndexBracket: (node) => node.IsIndexBracket,
-    IsOperatorUnit: (node) => isOperatorUnit(node),
     ChainWithOptional: (node, nco) => chainWithOptional(node, nco, ctx),
     NameOf: (node) => nameOf(node),
     // **`Kids` 收哪一格都行**（第 185 轮）：`PrintDirectAst` 里传进来的就是那一格 token，
@@ -9363,7 +9337,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // ——而那一格在父单元自己的 `AstKind` 上，所以连参数一起撤。
     Declaration: (view, make, kind) =>
       projectDeclaration(view, ctx, make ?? ctx.Make(view), kind),
-    IsTypeParameterModifier: (node) => isTypeParameterModifier(node),
     // **`MemberInObject` 那个出口第 1037 轮删掉了**：那份名单（`MethodDeclaration` /
     // `GetAccessor` / `SetAccessor` / `PropertyAssignment` / `ShorthandPropertyAssignment` /
     // `SpreadAssignment`）只有一个读者（`tokens/json/object-literal.xl.md`），所以它搬回了

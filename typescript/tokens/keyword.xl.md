@@ -68,6 +68,25 @@ return Keyword.UpgradeAt(units, index);
 而那两个名字**就是这一页与 `Identifier` 那一页自己的类名**——所以它本来就该由这两页各自答；
 投影那一侧只读属性（`node.IsNameNode`），不再比类名。
 
+## field IsOperatorUnit:bool = false
+
+**我这一格能不能当「一个运算符」**（第 1062 轮）：关键字里只有 `in` / `instanceof`
+这两个词算——所以这一格由**这一页**按自己的正文答（在 `SetValue` 里赋好）。
+过去它是投影层的一个现场判据（`print-ast-common.xl.md` 的 `isOperatorUnit`），
+而「我这一格的正文是什么」只有这一页知道。
+
+## field IsPrefixOperatorUnit:bool = false
+
+**我这一格是不是一个前缀运算符**（第 1062 轮）：关键字里是 `typeof` / `void` /
+`delete` / `await` 这四个词（`!x` / `-x` 那些在产物里是 `UnaryOperator` 单元或裸符号，
+由那两页各自答），同样在 `SetValue` 里按正文赋好。
+
+## field IsTypeParameterModifier:bool = false
+
+**我这一格是不是类型参数的修饰词**（第 1062 轮）：关键字里是 `in` / `const` 这两个词
+（`out` **不在这一页的名单里**：它词法上是标识符，所以那一格由 `Identifier` 那一页答——
+两张名单各写自己认得的词，不是同一份名单抄两遍）。
+
 ## static method IsUpgradable:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `Identifier` 的内容是不是关键字。
@@ -271,12 +290,13 @@ super(template);
 
 ## method SetValue:(text:string)=>void
 
-**记下正文，并把由它派生的那几格一起赋好**（第 1042 轮）。
+**记下正文，并把由它派生的那几格一起赋好**（第 1042 / 1062 轮）。
 
 `Value` 是这一页**唯一的输入**，而 `KeywordKind` / `StatementKind` / `StatementField` /
-`IsStatementNode` 都是它的函数（查的都是本页那两张词汇表）——所以赋值只有**这一个入口**：
+`IsStatementNode` / `IsOperatorUnit` / `IsPrefixOperatorUnit` / `IsTypeParameterModifier`
+都是它的函数（前四格查本页那两张词汇表，后三格比正文里的那几个词）——所以赋值只有**这一个入口**：
 `UpgradeAt` 与 `Clone` 都走它。**为什么要有这一格**：第 1042 轮把那四格从方法改成属性之后，
-「谁保证它们与 `Value` 同步」就成了这一页自己的责任；两处赋值点各写四行就会漂，
+「谁保证它们与 `Value` 同步」就成了这一页自己的责任；两处赋值点各写几行就会漂，
 收成一个入口才与「同一份事实一处声明」同一条口径。
 
 ```ts
@@ -287,6 +307,11 @@ this.StatementKind = kind;
 this.StatementField =
   kind === undefined ? undefined : (kind === "ReturnStatement" || kind === "ThrowStatement" ? "expression" : "label");
 this.IsStatementNode = KEYWORD_STATEMENT_KINDS.has(text);
+// **三格小判据都是「我这一格的正文是什么」的函数**（第 1062 轮）：与上面那几格同一趟赋好。
+this.IsOperatorUnit = text === "in" || text === "instanceof";
+this.IsPrefixOperatorUnit =
+  text === "typeof" || text === "void" || text === "delete" || text === "await";
+this.IsTypeParameterModifier = text === "in" || text === "const";
 ```
 
 ## method ToXmlString:()=>string

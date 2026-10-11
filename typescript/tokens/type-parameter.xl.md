@@ -501,7 +501,7 @@ rebuilt.push(parameter);
     (k: any) =>
       k.Tag === "Identifier" &&
       ctx.ValueOf(k) !== "extends" &&
-      !ctx.IsTypeParameterModifier(k),
+      !k.IsTypeParameterModifier,
   );
   const nameNode = nameIndex >= 0 ? kids[nameIndex] : undefined;
   const props: any = { name: nameNode === undefined ? undefined : ctx.Project(nameNode) };
@@ -511,7 +511,7 @@ rebuilt.push(parameter);
   // vs TS `[default,name]`）。判据与下面「收尾」那一句同源：`extends` 在 `=` **之前**才算约束。
   if (extIndex >= 0 && (eqIndex < 0 || extIndex < eqIndex)) {
     const end = eqIndex > extIndex ? eqIndex : kids.length;
-    const body = kids.slice(extIndex + 1, end).filter((k: any) => !ctx.IsTypeParameterModifier(k));
+    const body = kids.slice(extIndex + 1, end).filter((k: any) => !k.IsTypeParameterModifier);
     if (body.length > 0) {
       // **约束本身是条件类型时要按条件类型折**（第 846 轮）：`<X extends A extends B ? C : D>` 里
       // 约束那一段是**平铺**的 `[A, extends, B, ?, C, :, D]`，而 `TypeOf`
@@ -532,7 +532,7 @@ rebuilt.push(parameter);
     }
   }
   if (extIndex < 0 && nameIndex >= 0 && inIndex > nameIndex) {
-    const body = kids.slice(inIndex + 1).filter((k: any) => !ctx.IsTypeParameterModifier(k));
+    const body = kids.slice(inIndex + 1).filter((k: any) => !k.IsTypeParameterModifier);
     if (body.length > 0) props.constraint = ctx.TypeOf(body);
   }
   if (eqIndex >= 0) {
@@ -550,7 +550,7 @@ rebuilt.push(parameter);
     if (tailEq >= 0) props.default = ctx.TypeOf(tail.slice(tailEq + 1));
   }
   const modifiers = kids.filter(
-    (k: any, i: number) => (nameIndex < 0 || i < nameIndex) && ctx.IsTypeParameterModifier(k),
+    (k: any, i: number) => (nameIndex < 0 || i < nameIndex) && k.IsTypeParameterModifier,
   );
   if (modifiers.length > 0) {
     const modifierKinds = new Map([

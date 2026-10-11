@@ -158,24 +158,41 @@ if (last instanceof SymbolToken) {
 过去也是一个现场判据（`print-ast-common.xl.md` 的 `isTypeSeparator`：`Tag === "SymbolToken"`
 再加上回原文读那一格字符），而那两问同样都是这一页自己的事实。
 
+## field IsOperatorUnit:bool = true
+
+**我这一格能不能当「一个运算符」**（第 1062 轮）：符号这一页答 `true`——
+`Token.IsOperatorUnit` 在投影层过去是一个现场判据（`print-ast-common.xl.md` 的 `isOperatorUnit`：
+`Tag === "SymbolToken"` 就先答真），而**类名就是这一页自己的名字**，所以它本来就该由这一页答。
+与 `IsDotSymbol` / `IsTypeSeparator` 同一个位置、同一条理由。
+
+**为什么它是常量**：这一层不再细分「哪些符号是运算符」（`.` / `;` / `(` 那些也算，
+口径与搬走之前一字不差）——那件事由**用它的人**按自己手上的形状判。
+
+## field IsPrefixOperatorUnit:bool = false
+
+**我这一格是不是一个前缀运算符**（第 1062 轮）：符号里只有 `!` `~` `+` `-` `++` `--`
+这几个是（判据就是**这一格自己的正文**），所以在 `Close()` 里与 `IsDotSymbol` /
+`IsTypeSeparator` **同一趟**赋好（见下）。
+
 ## protected method Close:()=>void
 
-关闭：把自己标记为已关闭，**并把由那一格正文派生的两格一起赋好**（第 1057 轮）。
+关闭：把自己标记为已关闭，**并把由那一格正文派生的三格一起赋好**（第 1057 / 1062 轮）。
 
 **为什么赋值点在这里**：符号是**逐字符攒起来**的（`Temp` 那一段就是它的正文），
 而 `Close()` 正是「攒完了」那一刻——基类的 `TryToClose` 先调这一格、再跑收尾规则队列，
 所以读得到的一定是**收完的正文**（与 `Keyword.SetValue` 在记下正文那一刻赋「由正文派生的那几格」
 是同一口径、同一个时机；`Bracket` 那一页把同样的两格放在 `Use` 里，因为它的正文是**一次给全**的）。
 
-**两格都从 `this.Temp` 现算一次**（`Is` 那一格读的也是 `Temp`）：本页没有第二处存储，
-所以「这一格是不是点号 / 类型分隔符」只由**这一格自己的正文**决定。
+**三格都从 `this.Temp` 现算一次**（`Is` / `IsAny` 读的也是 `Temp`）：本页没有第二处存储，
+所以「这一格是不是点号 / 类型分隔符 / 前缀运算符」只由**这一格自己的正文**决定。
 
 ```ts
 this.Closed = true;
-// **`IsDotSymbol` 与 `IsTypeSeparator` 都是「我这一格的正文是什么」的函数**（第 1057 轮），
-// 所以两者在同一个时刻、同一趟里赋好——两格不会各说各话。
+// **`IsDotSymbol` / `IsTypeSeparator` / `IsPrefixOperatorUnit` 都是「我这一格的正文是什么」的函数**
+//（第 1057 / 1062 轮），所以三者在同一个时刻、同一趟里赋好——几格不会各说各话。
 this.IsDotSymbol = this.Is(".");
 this.IsTypeSeparator = this.Is(",") || this.Is("|") || this.Is("&");
+this.IsPrefixOperatorUnit = this.IsAny(["!", "~", "+", "-", "++", "--"]);
 ```
 
 ## field FromCompoundAssignment:bool = false
