@@ -347,6 +347,47 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1180 轮：用户口径 1.3 / 1.4 / 1.5 —— `await` / `assert` 两个词在 token 侧补齐（基类两格 `## field` + `Keyword.SetValue` / `Identifier.Close` 两处赋值）；**投影那一侧这一轮一格没动**（改投影的那一版量出来不守恒，如实记下并撤回）；`core/syntax/token.xl.md` **3535 → 3584 行**、`identifier.xl.md` 830 行、`keyword.xl.md` 726 行
+
+**一句话**：投影层今天还有两处在**拿某一格自己的正文去和字面量比**——`projectExpression` 里
+`word === "await"` / `"yield"`（**5 处**）与 `namedExportClause` 里 `wordText !== "with" && !== "assert"`
+（**2 处**）。按第 1118 / 1119 / 1126 轮那条线（「我这一格的正文是什么」由那一页自己在**认下正文那一刻**
+赋好，投影只读属性），这一轮把**那两页还缺的三格**补齐：
+
+| 谁声明 | 什么时候赋 | 认哪个词 |
+| --- | --- | --- |
+| `core/syntax/token.xl.md` 的 `## field IsAwaitKeyword:bool = false` | `Keyword.SetValue` / `Identifier.Close` | `await` |
+| `core/syntax/token.xl.md` 的 `## field IsAssertKeyword:bool = false` | `Keyword.SetValue` / `Identifier.Close` | `assert` |
+
+- **为什么各立一格、不合用已有的那几格**：`IsPrefixOperatorUnit` 答的是「我是不是
+  `typeof` / `void` / `delete` / `await` **四个词里的一个**」——拿它当「我是不是 `await`」
+  会把另外三个词一起收进来（**改语义**）；`IsWithKeyword` 的收件人另一处是语句头
+  （`with (obj) { … }`），`assert` 只有导入导出那一支。按本仓一贯的口径
+  「**一个问题一个名字**」各立一格。
+- **两页各写自己认得的词**（与 `IsNewKeyword` / `IsTypeParameterModifier` 同一条）：
+  `await` 在产物里通常是 `Keyword`，可「还停在标识符上的那一格」也递得到投影。
+  **实测**（`--all` **2051** 份，探针挂在 `Identifier.prototype.Close` 上）：
+  这一页真的会收在这两个词上——`await` **35** 次、`assert` **15** 次。
+- **投影那一侧这一轮一格没动，理由如实记下**：同时改投影的那一版**量出来不守恒**
+  （同一份 `--all` 语料、投影页只把那 7 处换成属性读：节点数 **515803 → 515856**，
+  `direct` **493598 → 493648**），而官方用例语料（**1640** 份）**逐字节一致**。
+  按本仓那条口径（**先证明等价，再谈改写**；第 1143 / 1155 轮都用了同一把尺子），
+  这一轮**只交 token 侧那一半**：三格字段把「投影要的信息备齐」这件事做实，
+  投影页**一个字不改**——于是八道门读数与 HEAD 逐项相同（见下）。
+  **下一轮再读那 7 处属性**时，那一轮要做的第一件事就是把上面那个差额量清楚。
+- **本页（项目根）的记账**：这一轮**没有动 `typescript/print-ast-common.xl.md`**
+  （代码块 **3851 行**不变、`^# (private )?(method|const) ` **54 格不变**、ctx 出口 **39 个不变**）；
+  改的是三页 token 侧：`core/syntax/token.xl.md` **3535 → 3584 行**（两格字段声明 + 两页说明）、
+  `identifier.xl.md` **830 行**、`keyword.xl.md` **726 行**。
+
+**实测**：`xl check` **0 条**（4 页）；`xl build`（插件工具，`--force`）**4 written / 0 error**；
+`npx tsc`（strict）**0 error**；`direct:lint` **0 条违反**（75 段全扫到、ctx 出口 **39 个**、
+声明里 `any` 0 处、投影读的 **149** 个 PascalCase 属性全部有声明）；`cases:direct` 语料 1640 份
+**不抛异常**、投影 **21793** 个节点 / token 自己出 **16489** 个（**75.7%**）；`samples` ok；
+`cases:check` **1656 条 0 不合格**；`cases:tsast` 16 片 **15 通过 / 1 失败**（仍是 HEAD 上既有的
+`runtime/round741/002`；未映射 0 / 缺 range 0 / 区间越界 0）；`runtime:check` 243 / 0；
+`runtime:cli` 79 / 0；`coverage` **4260 / 4422**（blocked 28、differ 134、bad 0、加权 95.7%）。
+
 ### 第 1179 轮：用户口径 1.3 / 1.6 —— 两格最热的投影属性能不能立记忆位，**用探针量出来的重复读决定**：`ProjectionEnd` 立（重复 **18.9%**、一次读是一棵子树的递归）、`ProjectionStart` 不立（重复 **2.5%**，第 1148 轮那条结论照旧成立）；顺带把 `ProjectableKids` 每次调用的 `TreeFrozen` 读从 2 次收到 1 次；`core/syntax/token.xl.md` **3494 → 3535 行**、print-ast-common 代码块 3851 行、声明 54 格不变
 
 **一句话**：第 1148 轮量过 `ProjectionStart`「该不该立记忆位」并得出**不该**（重复读 2.5%），

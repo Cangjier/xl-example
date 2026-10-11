@@ -449,6 +449,12 @@ this.IsDefaultKeyword = text === "default";
 this.IsDeclareKeyword = text === "declare";
 // **第 1126 轮**：`yield` 那一格同一趟赋好（投影层「前缀叠在同一个一元单元里」那一支）。
 this.IsYieldKeyword = text === "yield";
+// **第 1180 轮**：`await` / `assert` 两格同一趟赋好——判据与上面那几格同一条
+// （**这一页自己的正文**）。`await` 是上面那个 `yield` 的兄弟（`projectExpression` 里
+// 「前缀叠在同一个一元单元里」那一支的另一半）；`assert` 是 `with` 的兄弟
+// （`namedExportClause` 里 `export { a } assert { … }` 那个标志词）。
+this.IsAwaitKeyword = text === "await";
+this.IsAssertKeyword = text === "assert";
 this.IsExtendsKeyword = text === "extends";
 // **第 1120 轮**：`type` / `is` 两格同一趟赋好（导出子句那个标志词与类型谓词那个词）。
 this.IsTypeKeyword = text === "type";

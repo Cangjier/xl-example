@@ -2622,6 +2622,48 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 只有这一页知道。**它不是本工程的关键字**（`is` 在 TS 里不是保留字），产物里多数时候
 停在 `Identifier` 上，所以两页各写自己认得的词——与 `as` / `extends` 同一形态。
 
+## field IsAwaitKeyword:bool = false
+
+**我这一格的正文是不是 `await` 那个词**（第 1180 轮，用户口径 1.3 / 1.6）——是的话答 `true`。
+
+投影层 `projectExpression` 里过去**5 处**现场拿这一格的正文去比那两个词
+（`const headWord = kids[0].TextValue;` 之后 `headWord === "await" || headWord === "yield"`
+那一句、裸词那一支的 `word === "yield" || word === "await"`、上下文判据里那个三元
+`word === "yield" ? … : …`、`yield` 那一支的 `if (word === "yield")`、`await` 那一支的
+`if (word === "await" && …)`），而「我这一格的正文是什么」只有这一页知道。
+
+**它与已有的 `IsYieldKeyword` 是一对、不是一格**（第 1126 轮立的是 `yield` 那一格）：
+两个词在投影里走的是**同一支的不同两半**（`yield` 收在 `YieldExpression`、`await` 收在
+`AwaitExpression`），所以各立一格、各答一个词——与 `IsExportKeyword` / `IsDefaultKeyword`
+那一族同一条口径：**一个问题一个名字**，免得下一个词进来时去改一格本来答别的问题的属性。
+
+**为什么不能拿 `IsPrefixOperatorUnit` 充当这一格** ✗：那一格答的是「我是不是
+`typeof` / `void` / `delete` / `await` **这四个词里的一个**」（`Keyword.SetValue` 里
+`text === "typeof" || … || text === "await"`），是一份名单的答案；拿它当「我是不是 `await`」
+会把另外三个词一起收进来 = **改语义**。
+
+**词法身份两页各答**（与 `IsNewKeyword` / `IsTypeParameterModifier` 同一条口径）：
+`await` 在产物里通常是 `Keyword`（本工程把它列进了关键字），可「还停在标识符上的那一格」
+也递得到投影——所以 `Keyword` 与 `Identifier` **两页各写自己认得的词**。**如实记下**：
+`Identifier.Close` 里那一格照判据写了，但**本语料上没有量到它能响的一处**
+（第 1180 轮：`--all` 2051 份里 `projectExpression` 那一支进入时 `IsIdentifierUnit` 为真的
+`await` / `yield` 一格都没有；它按口径留着，与 `IsAbstractKeyword` 那几个「大多是 `Keyword`
+的词」同一处境）——所以这一格是**照口径写满**，不是照读数补的。
+
+## field IsAssertKeyword:bool = false
+
+**我这一格的正文是不是 `assert` 那个词**（第 1180 轮，用户口径 1.3 / 1.6）——是的话答 `true`。
+
+投影层 `namedExportClause` 里过去现场写 `if (wordText !== "with" && wordText !== "assert") continue;`
+——`with` 那一半第 1119 轮已经收进了 `IsWithKeyword`，`assert` 这一半**留在投影层**
+（`export { a } assert { … }` 那一档的标志词）。判据与 `with` 完全一样：
+**这一格自己的正文是什么**，所以两页在**记下正文那一刻**赋好、基类默认 `false`。
+
+**为什么与 `IsWithKeyword` 分开**：`with` 在投影里还有另一处读者
+（`projectStatement` 的 `with (obj) { … }` 那一支，第 1119 轮收的），
+`assert` 只有导入导出那一支——两问的 **收件人不同**（一个是语句头、一个是子句标志词），
+按「一个问题一个名字」各立一格。
+
 ## field IsNewKeyword:bool = false
 
 **我这一格的正文是不是 `new` 那个词**（第 1118 轮）——是的话答 `true`。

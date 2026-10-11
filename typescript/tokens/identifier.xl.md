@@ -200,6 +200,18 @@ if (last instanceof Identifier) {
 **我这一格的正文是不是 `as` 那个词**（第 1119 轮）：同上一格，同一趟赋好
 （`as` 是上下文关键字，`import { a as b }` 里那个词在产物里也可能还停在 `Identifier` 上）。
 
+## field IsAwaitKeyword:bool = false
+
+**我这一格的正文是不是 `await` 那个词**（第 1180 轮）：同上一格，同一趟赋好。
+口径与理由见 `../core/syntax/token.xl.md` 的 `IsAwaitKeyword`——投影层
+`projectExpression` 里那五处 `word === "await"` / `"yield"` 现在读属性。
+
+## field IsAssertKeyword:bool = false
+
+**我这一格的正文是不是 `assert` 那个词**（第 1180 轮）：同上一格，同一趟赋好。
+口径与理由见 `../core/syntax/token.xl.md` 的 `IsAssertKeyword`——投影层
+`namedExportClause` 里 `wordText !== "with" && wordText !== "assert"` 那一行现在读属性。
+
 ## field IsExtendsKeyword:bool = false
 
 **我这一格的正文是不是 `extends` 那个词**（第 1119 轮）：同上一格，同一趟赋好
@@ -309,6 +321,13 @@ this.IsImportKeyword = this.Is("import");
 // **第 1119 轮**：`as` 也是上下文关键字（同一份正文的函数），同一趟赋好。
 this.IsAsKeyword = this.Is("as");
 this.IsExtendsKeyword = this.Is("extends");
+// **第 1180 轮**：`await` / `assert` 两格同一趟赋好（与上面 `new` / `import` 那几格同一条口径：
+// **同一个词两态都要认**——产物把「已经升级成关键字的那一格」与「还停在标识符上的那一格」
+// 都递得到投影）。**如实记下**：`close` 在这一页上确实收得到这两个词
+// （第 1180 轮实测 `--all` **2051** 份：`Close` 收在 `await` 上 **35** 次、`assert` 上 **15** 次），
+// 但**投影里那两处读者都没走到标识符那一态**（`projectExpression` 那一支进入时
+// `IsIdentifierUnit` 为真的次数是 **0**）——所以这两格是**照「同一个词两态都要认」这条口径**
+// 写满的，不是照那两处读数补的。
 // **第 1120 轮**：`type` / `is` 两格同一趟赋好（导出子句那个标志词与类型谓词那个词）。
 this.IsTypeKeyword = this.Is("type");
 this.IsIsKeyword = this.Is("is");
