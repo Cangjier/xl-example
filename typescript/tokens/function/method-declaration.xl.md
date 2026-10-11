@@ -1133,7 +1133,7 @@ throw new Error("找不到匹配的子单元");
   }
   if (v.Parent?.IsSignatureList === true && kind === "MethodDeclaration") kind = "MethodSignature";
   // **形状交回共享实现**（第三格是这一格自己的造节点闭包、第四格是刚算出来的 kind）。
-  return ctx.Declaration(v, undefined, ctx.Make(v), kind);
+  return ctx.Declaration(v, ctx.Make(v), kind);
 ```
 ## property NameField:string | undefined
 

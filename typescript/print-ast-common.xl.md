@@ -689,7 +689,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   return Object.assign({ kind }, props === undefined ? {} : props, { pos, end });
 ```
 
-# method projectNode:(node:any, ctx:any, parentKind:string)=>any
+# method projectNode:(node:any, ctx:any)=>any
 
 ---------------------------------------------------------------------------
 
@@ -699,11 +699,12 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 一个产物节点 → 一个 TS 形状节点。
 
-`parentKind` 是**投影意义上的父 kind**（不是产物树里的父亲）——它现在只喂
-「同一套产物标签在两个上下文里叫两种名字」的**签名那一档**（`MethodSignature` /
-`PropertySignature`）。**类体里那个 `constructor` 第 1054 轮起不再问它**：
-那一格判据是「这一格的父单元是不是类体」，由 `ClassBody.IsClassBody` 自己答。
-取值由 `structuralProps` 在摊平包装体时往下传（`ClassBody` 的成员拿到的是 `ClassDeclaration`）。
+**「父 kind」第 1056 轮起不再作为参数递进来**：过去它是 `projectNode` / `projectEach` /
+`projectEachIn` 一路转手的第三个参数，而**今天它只剩一个消费者**——
+`projectEachIn` 里 `ArrayLiteralExpression` 那一支（数组里的洞要补零宽的 `OmittedExpression`）。
+那一格的事实**就在手上那个父单元的 `AstKind` 上**（`JsonArray` 那一页自己答
+`"ArrayLiteralExpression"`，见 `tokens/json/array-literal.xl.md`），所以参数整条撤掉：
+`projectEachIn(list, ctx, parent)` 收的是**父单元那一格 token**，要问什么就问它自己。
 
 ```ts
   if (node === null || node === undefined) return undefined;
@@ -785,23 +786,23 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // 这一支是那六页的**共享实现**——`ctx.Declaration` 与它们自己的 `PrintDirectAst` 都落在它上面，
   // 所以两条路出的形状是**同一份实现**，不是各写一遍再对拍。
   //
-  // **`parentKind` 一路递到这儿**（`projectEachIn` / `structuralProps` 都记着它）：
-  // 它是签名那一档的上下文（`MethodSignature` / `PropertySignature`）。
-  // **类体里的 `constructor` 第 1054 轮起不再由它决定**——那一支读 `v.Parent.IsClassBody`
-  // （由 `class-body.xl.md` 自己声明的那一格常量），所以投影不再为它维护 `ctx.parentKind`。
-  return projectDeclaration(v, ctx, parentKind, mk);
+  // **两档「谁在投它」第 1054 / 1055 轮起都由单元自己答**（父单元那一格：
+  // `ClassBody.IsClassBody` / `IsSignatureList`），所以这里不再往 `projectDeclaration`
+  // 递一个父 kind——**第 1056 轮连那个参数一起删掉了**（它当时只剩 `ArrayLiteralExpression`
+  // 一个消费者，而那一格在父单元自己的 `AstKind` 上）。
+  return projectDeclaration(v, ctx, mk);
 ```
 
 
-# private method projectDeclaration:(v:any, ctx:any, parentKind?:string, mk?:any, kind?:string)=>any
+# private method projectDeclaration:(v:any, ctx:any, mk?:any, kind?:string)=>any
 
 **声明族那一格的形状**（第 1002 轮从 `projectNode` 整段搬来）：
 换 kind（`FunctionExpression` / `ClassExpression` / `Constructor` / `GetAccessor` / `SetAccessor`）
 + `structuralProps` 给字段名 + 三处收尾（摘 `get` / `set`、摘生成器的 `*`、对象字面量成员不吃尾随逗号）。
 
-**第五个参数 `kind` 是可选的**：不给就问**这一格自己的 `AstKind()`**（这是通用支与 `ctx.Declaration`
+**第四个参数 `kind` 是可选的**：不给就问**这一格自己的 `AstKind`**（这是通用支与 `ctx.Declaration`
 走的那条路——产物标签自己说明了它是什么，第 1025 轮起这件事由 token 自己声明）；给了就是**调用方已经算好了这一格该出的 kind**
-（声明族的直出版走这条：它按上下文标记自己判一次，而「按上下文换 kind」的规则写在下面这几行里，
+（声明族的直出版走这条：它按自己的属性与父单元判一次，而「按上下文换 kind」的规则写在下面这几行里，
 所以这里**仍然会把规则跑一遍**——两边因此不可能对同一种上下文给出两个答案）。
 
 **为什么单独成一份**：这六页现在**两半一起写**（`PrintDirectAst` + `PrintDirectAst`），
@@ -809,13 +810,12 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 （那条路会先问 `PrintDirectAst`，于是自己问自己）。所以把这一格抽出来，
 两条路**都调它**——同答就成了结构上的事实，而不是两处各写一遍再靠对拍发现漂移。
 
-**`parentKind` 是投影意义上的父 kind**（不是产物树里的父亲），它由 `projectEachIn` 在参数里递着，
-**今天只喂一处**：`projectEachIn` 里 `ArrayLiteralExpression` 那一支（数组里的洞要补零宽的
-`OmittedExpression`）。**两档上下文第 1054 / 1055 轮都改由单元自己答**：
+**「谁在投它」那两档第 1054 / 1055 轮起都由单元自己答**（读的是**父单元那一格**）：
 类体里的 `constructor` 读 `v.Parent.IsClassBody`（见 `class-body.xl.md`）；
 接口 / 类型字面量里的成员读 `v.Parent.IsSignatureList`（见 `core/syntax/token.xl.md`）——
 所以 `ctx` 上那两格状态（`parentKind` / `signature`）**一格都不剩**，
-「谁在投它」这件事不再需要投影替单元记第二份。
+**第 1056 轮连那个参数也删掉了**（它当时只剩 `ArrayLiteralExpression` 一个消费者，
+而那一格在父单元自己的 `AstKind` 上）。
 
 **`mk` 由调用方递进来**：它就是 `projectNode` 里那个「带着这一格坐标与尾部 trivia 剪裁」
 的造节点闭包（`astNode`），换一份写就是两份坐标口径。
@@ -996,13 +996,16 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   return groups.filter((group) => group.length > 0);
 ```
 
-# private method projectEachIn:(list:Array<any>, ctx:any, parentKind:string, parent:any)=>Array<any>
+# private method projectEachIn:(list:Array<any>, ctx:any, parent:any)=>Array<any>
 
-投影一批子单元，并在**签名上下文**里切换标记。
+投影一批子单元，并在**成员位**上按父单元自己的两格属性切换形状。
 
 接口 / 类型字面量的成员在 TS 那边叫 `PropertySignature` / `MethodSignature`，
 而类里的同名成员叫 `PropertyDeclaration` / `MethodDeclaration`——同一个产物标签、
-两种上下文两种 kind（声明文件里签名那套是绝大多数）。这个标记就是那个上下文。
+两种上下文两种 kind（声明文件里签名那套是绝大多数）。**那两格判据第 1054 / 1055 轮起
+由父单元自己答**（`parent.IsClassBody` / `parent.IsSignatureList`），所以这一格收的是
+**父单元那一格 token**、不再收一个 kind 名；`ArrayLiteralExpression` 那一支也从
+`parent.AstKind` 读同一格事实（第 1056 轮）。
 
 ```ts
   // **成员位没有语句**（第 79 轮）：成员表里遇到 `<Statement>` 就**摊开**——
@@ -1061,10 +1064,10 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // 分隔符也是它们自己的符号，所以它住在各自那一页，投影这一侧不再存第二份
   // （原来这里是 `TYPE_MEMBER_KINDS` / `TYPE_MEMBER_SEPARATORS` 两张按 kind 查的表）。
   //
-  // **为什么这一格要收「父单元」而不是那个 kind 名**：判据的主人是那一格 token 自己。
+  // **为什么这一格要收「父单元」而不是一个 kind 名**：判据的主人是那一格 token 自己。
   // 三处调用点给的都**就是**投影意义上的父单元：段循环给的是正在投的那一格 `v`、
   // 包装提层给的是**外层声明**（`ClassBody` 的成员属于 `ClassDeclaration`）、
-  // 直出版给的是 `ctx.Each(view, …)` 里那个 `view`——与 `parentKind` 说的是同一格事实。
+  // 直出版给的是 `ctx.Each(view)` 里那个 `view`（第 1056 轮起它只收这一格）。
   const typePlan = parent.TypeMemberPlan;
   if (typePlan !== undefined) {
     const out = [];
@@ -1081,7 +1084,11 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // 实测 `ex-array-holes.ts` / `expr-array-holes.ts` 各缺 1 个 `OmittedExpression`
   // ——值位数组字面量走的是 `projectArrayLiteral`（不是 `projectEachIn`），所以这一条
   // 写在两处；这里管绑定位与嵌套走 `List` 的那条路。
-  if (parentKind === "ArrayLiteralExpression") {
+  //
+  // **判据读父单元自己的 `AstKind`**（第 1056 轮）：`JsonArray` 那一页答
+  // `"ArrayLiteralExpression"`（见 `tokens/json/array-literal.xl.md`），所以「我这一格的
+  // 父单元是不是数组字面量」不必由调用方递一个 kind 名进来——那是同一格事实的第二处存储。
+  if (parent.AstKind === "ArrayLiteralExpression") {
     const out = [];
     let group = [];
     let lastEnd = list.length > 0 ? startOf(list[0]) : 0;
@@ -1116,10 +1123,10 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // `PropertySignature`、`MethodDeclaration` 的 `MethodSignature`，外加这一格自己的
   // `TypeLiteral` 那一句）现在都读**父单元自己的 `IsSignatureList`**——
   // 所以这一格不必再记住并还原一份状态。
-  return projectEach(list, ctx, parentKind);
+  return projectEach(list, ctx);
 ```
 
-# private method projectEach:(list:Array<any>, ctx:any, parentKind:string)=>Array<any>
+# private method projectEach:(list:Array<any>, ctx:any)=>Array<any>
 
 ```ts
   // **顶层逗号是分隔符，不是 TS 的语义子节点**（第 84 轮）：TS 的 `parameters` / `arguments` /
@@ -1156,7 +1163,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
         labels.push(items[j]);
         j++;
       }
-      const statement = j < items.length ? projectNode(items[j], ctx, parentKind) : undefined;
+      const statement = j < items.length ? projectNode(items[j], ctx) : undefined;
       if (statement !== undefined) {
         // **体必须是「语句」**（第 566 轮，与 `projectStatement` 那一支同一句）：
         // 这一路是根列表 / 段，手里没有语句壳 ⇒ 终点就取体自己的。
@@ -1199,7 +1206,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
       }
       if (j > i && j < items.length) {
         if (items[j].IsStatementNode) {
-          const declaration = projectNode(items[j], ctx, parentKind);
+          const declaration = projectNode(items[j], ctx);
           if (declaration !== undefined) {
             const leading = [];
             for (let k = i; k < j; k++) {
@@ -1277,7 +1284,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     //
     // **只在「这一格自己不成节点」或「它投出来的就是那个空语句」时接管**：
     // 别的一律照旧走 `projectStatement` 的读数（`;;` 那一格、`;` 顶一条语句那一格都在里面）。
-    const projected = projectNode(items[i], ctx, parentKind);
+    const projected = projectNode(items[i], ctx);
     const semi = trailingSemicolonOf(items[i], ctx);
     if (
       semi !== undefined &&
@@ -1598,7 +1605,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     if (body !== undefined) {
       withProps.statement = {
         kind: "Block",
-        statements: projectEach(kidsOf((body), "children"), ctx, "Block"),
+        statements: projectEach(kidsOf((body), "children"), ctx),
         pos: startOf(body),
         end: endOf(body),
       };
@@ -2063,7 +2070,7 @@ new Set([
     // 见它那句「值位括号 `(expr)`」）⇒ 直接把括号单元原样投出来 ⇒ 实测「缺
     // `ParenthesizedExpression` 1 / 多一个未映射的 `Bracket` 1」。
     const expression =
-      instHead === "Bracket" ? projectExpression([kids[0]], ctx) : projectNode(kids[0], ctx, "");
+      instHead === "Bracket" ? projectExpression([kids[0]], ctx) : projectNode(kids[0], ctx);
     if (expression !== undefined) {
       const args = projectTypeArguments(kids[1], ctx);
       // ---- 0a-1。**`callee<…>` 后面紧跟模板串 ⇒ 一条 `TaggedTemplateExpression`**（第 979 轮）----
@@ -2237,7 +2244,7 @@ new Set([
     instanceKids[2].Tag === "Identifier" &&
     instanceKids[3].Tag === "GenericType"
   ) {
-    const callee = projectNode(instanceKids[2], ctx, "");
+    const callee = projectNode(instanceKids[2], ctx);
     if (callee !== undefined) {
       const args = projectTypeArguments(instanceKids[3], ctx);
       const self: any = {
@@ -2257,7 +2264,7 @@ new Set([
       // 运算符节点仍走 `operatorTokenOf`——`instanceof` 在这一层常常还是 `Identifier`。
       const binary: any = {
         kind: "BinaryExpression",
-        left: projectNode(instanceKids[0], ctx, ""),
+        left: projectNode(instanceKids[0], ctx),
         operatorToken: operatorTokenOf(instanceKids[1], ctx),
         right: self,
         pos: startOf(instanceKids[0]),
@@ -9118,7 +9125,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       const projected =
         kept[0].Tag === "Let"
           ? [projectLetFrom(kept, ctx, (kept[kept.length - 1])).list]
-          : projectEachIn(kept, ctx, kind, v);
+          : projectEachIn(kept, ctx, v);
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;
     }
     for (const [target, nodes] of promoted) {
@@ -9137,11 +9144,11 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       // 所以它是绿的。`samples` 是逐字节比，它当场报出来。
       const field = target === "children" ? fieldNameFor(kind, key, v) : fieldNameFor(kind, target, v);
       const already = props[field];
-      // **包装体的成员拿到的是「外层声明」的 kind**：`ClassBody` 的 `members` 属于
-      // `ClassDeclaration`（类里的 `constructor` 要按这个上下文投成 `ConstructorDeclaration`），
-      // 不是 `ClassBody` 自己。
-      const membersParent = kind === "ClassBody" ? "ClassDeclaration" : kind;
-      const projected = projectEachIn(nodes, ctx, membersParent, v);
+      // **包装体的成员拿到的是「外层声明」那一格 `v`**：`ClassBody` 的成员属于
+      // `ClassDeclaration`（类里的 `constructor` 要按这个上下文投成 `Constructor`），
+      // 而**那一格事实现在由 `v` 自己答**（`IsClassBody` / `IsSignatureList`，第 1054 / 1055 轮）
+      // ——第 1056 轮把在这里算出来的那个 kind 名（`membersParent`）删掉了，不必再转手一次。
+      const projected = projectEachIn(nodes, ctx, v);
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;
     }
   }
@@ -9338,11 +9345,14 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 所以 `<TupleType></TupleType>`（空元组）在 TS 那边是 `{kind,pos,end}`、**没有** `elements`。
     // `undefined` 在 `JSON.stringify` 里不出现（`projectParameter` 的 `name` / `type` 也是这个写法），
     // 于是覆写与通用支的产物逐字节相同——这一条是第 77 轮对拍时抓出来的（10 个空元组 / 具名元组文件）。
-    Each: (view, parentKind) => {
-      const out = projectEachIn(kidsOf(view, "children"), ctx, parentKind, view);
+    // **第二格（父 kind 名）第 1056 轮删掉了**：父单元**就是**第一个参数那一格 token，
+    // 而「它是什么」由它自己的 `AstKind` / `IsClassBody` / `IsSignatureList` 答——
+    // 所以这里不再由调用方转手一个 kind 名（那是同一格事实的第二处存储）。
+    Each: (view) => {
+      const out = projectEachIn(kidsOf(view, "children"), ctx, view);
       return out.length === 0 ? undefined : out;
     },
-    Project: (node, parentKind) => projectNode(node, ctx, parentKind),
+    Project: (node) => projectNode(node, ctx),
     // **直出版要的那个读数**（第 992 轮）：只读这一格**自己记的** `value`，**不回原文兜底**。
     // 值不在这一格上时给**空串**（不猜），于是「同一份输入投两遍」的判据会当场点名，
     // 而该做的事是**把这个值记到 token 上**（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
@@ -9393,15 +9403,16 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     Kids: (node) => projectableKids(node),
     Expression: (list) => projectExpression(list, ctx),
     TypeExpression: (list) => projectTypeExpression(list, ctx),
-    ProjectEach: (list, parentKind) => projectEach(list, ctx, parentKind),
+    ProjectEach: (list) => projectEach(list, ctx),
     // **把一串单元当作「成员表」投**（第 934 轮）：`MappedType` 的值类型之后还能再跟成员
     // （TS 的 `parseMappedType` 在值类型之后照样 `parseTypeMembers()`），而那一格住不进
     // 映射类型那一层的成员段（映射类型自己装的是「修饰词 / 键 / 值类型」那几格）⇒
     // 由它的 `PrintDirectAst` 把那一小段按成员位投一次。
-    // 实现与通用支那一支**共用同一份**（`projectEachIn`）。**第三格是「父单元」**：
+    // 实现与通用支那一支**共用同一份**（`projectEachIn`）。**第二个参数是「父单元」**：
     // 成员读的 `IsSignatureList` 就在那一格上（`MappedType` 自己声明了它，第 1055 轮），
-    // 所以**父单元必须是真的那一格 token**，不是 `"TypeLiteral"` 这样一个 kind 名。
-    MemberList: (list, parentKind, view) => projectEachIn(list, ctx, parentKind, view),
+    // 所以**父单元必须是真的那一格 token**——第 1056 轮把过去夹在中间那个 `"TypeLiteral"`
+    // kind 名删掉了（同一格事实的第二处存储）。
+    MemberList: (list, view) => projectEachIn(list, ctx, view),
     KidsOf: (node, key) => kidsOf(node, key),
     NamedSpecifiers: (brace, kind) => namedSpecifiersOf(brace, kind, ctx),
     MemberNameOf: (view) => memberNameOf(view, ctx),
@@ -9446,19 +9457,19 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 它与 `projectNode` 落在**同一份实现**（`projectDeclaration`）上——
     // 所以「覆写了仍然与通用支逐字节相同」是结构上的事，不是巧合。
     //
-    // **第三格是那个「就这一格」的造节点闭包**（`ctx.Make`，与 `projectNode` 里的
+    // **第二格是那个「就这一格」的造节点闭包**（`ctx.Make`，与 `projectNode` 里的
     // `mk` 是同一份实现 `astNode`）：直出版算完 kind 之后要**自己**把节点造出来，
     // 而「带坐标与尾部 trivia 剪裁」的口径只能有一份——所以递过去，不抄第二遍。
-    // **第四个参数是「调用方已经算好的 kind」**（可选）：声明族的直出版自己判过一次
+    // **第三格是「调用方已经算好的 kind」**（可选）：声明族的直出版自己判过一次
     // （见 `method-declaration.xl.md` 的 `PrintDirectAst`），而换 kind 的规则只在
     // `projectDeclaration` 里有一份——所以递进来之后那几条规则**照跑**，
     // 两边对同一种上下文因此不可能给出两个答案。
-    // **第二个参数保留了**（`parentKind`）：它还喂着 `ArrayLiteralExpression` 那一格上下文；
-    // `?? ctx.parentKind` 那一格退路 **第 1054 轮随「构造那一格改由 `ClassBody` 自己答」
-    // 一起删掉了**——类体里那条 `constructor` 现在读 `v.Parent.IsClassBody`，
-    // 签名那一档第 1055 轮又改读 `v.Parent.IsSignatureList`，投影不再维护那两份状态。
-    Declaration: (view, parentKind, make, kind) =>
-      projectDeclaration(view, ctx, parentKind, make ?? ctx.Make(view), kind),
+    // **父 kind 那个参数第 1056 轮整格删掉了**：它先在第 1054 轮失去「构造」那一档
+    //（改读 `v.Parent.IsClassBody`）、第 1055 轮失去「签名」那一档
+    //（改读 `v.Parent.IsSignatureList`），最后只剩 `ArrayLiteralExpression` 一个消费者
+    // ——而那一格在父单元自己的 `AstKind` 上，所以连参数一起撤。
+    Declaration: (view, make, kind) =>
+      projectDeclaration(view, ctx, make ?? ctx.Make(view), kind),
     IsTypeParameterModifier: (node) => isTypeParameterModifier(node),
     // **`MemberInObject` 那个出口第 1037 轮删掉了**：那份名单（`MethodDeclaration` /
     // `GetAccessor` / `SetAccessor` / `PropertyAssignment` / `ShorthandPropertyAssignment` /

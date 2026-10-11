@@ -515,7 +515,7 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-return ctx.Node("UnionType", { types: ctx.Each(v, "UnionType") }, v);
+return ctx.Node("UnionType", { types: ctx.Each(v) }, v);
 ```
 
 
@@ -572,7 +572,7 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-return ctx.Node("IntersectionType", { types: ctx.Each(v, "IntersectionType") }, v);
+return ctx.Node("IntersectionType", { types: ctx.Each(v) }, v);
 ```
 
 

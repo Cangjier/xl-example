@@ -56,7 +56,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-return ctx.Node("ModuleBlock", { statements: ctx.Each(v, "ModuleBlock") }, v);
+return ctx.Node("ModuleBlock", { statements: ctx.Each(v) }, v);
 ```
 
 

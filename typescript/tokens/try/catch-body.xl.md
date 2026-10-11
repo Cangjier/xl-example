@@ -33,7 +33,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-return ctx.Node("Block", { statements: ctx.Each(v, "Block") }, v);
+return ctx.Node("Block", { statements: ctx.Each(v) }, v);
 ```
 
 

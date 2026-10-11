@@ -347,6 +347,42 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1056 轮：`parentKind` 那条**参数链整条撤掉**了——它当时只剩一个消费者，而那一格在父单元自己的 `AstKind` 上（`projectNode` / `projectDeclaration` / `projectEachIn` / `projectEach` 四格少一个形参，`ctx` 上五个出口跟着收窄）；**八道门全绿、读数一处没动**
+
+**一句话**：第 1054 / 1055 两轮把 `ctx` 上那两格上下文状态（`parentKind` / `signature`）
+都改成了「由单元自己答」，于是 `parentKind` 那个**一直在参数里转手**的 kind 名
+**只剩一个消费者**：`projectEachIn` 里 `ArrayLiteralExpression` 那一支（数组里的洞要补零宽的
+`OmittedExpression`）。而那一格的事实**就在手上那个父单元的 `AstKind` 上**——
+`JsonArray` 那一页自己答 `"ArrayLiteralExpression"`。所以这一轮把那条链整条撤掉：
+**要问父单元什么，就问那一格 token 自己**。
+
+- **删掉的形参**（一格一格地少下去，调用点跟着收）：
+  - `projectNode(node, ctx, parentKind)` → `projectNode(node, ctx)`（第三个形参）；
+  - `projectDeclaration(v, ctx, parentKind?, mk?, kind?)` → `(v, ctx, mk?, kind?)`；
+  - `projectEachIn(list, ctx, parentKind, parent)` → `(list, ctx, parent)`——**它收的就是父单元**；
+  - `projectEach(list, ctx, parentKind)` → `(list, ctx)`。
+- **判据改读父单元自己**：`projectEachIn` 里那一支从 `parentKind === "ArrayLiteralExpression"`
+  改成 **`parent.AstKind === "ArrayLiteralExpression"`**；`structuralProps` 里那个为「类体成员
+  属于外层声明」临时算出来的 `membersParent`（`kind === "ClassBody" ? "ClassDeclaration" : kind`）
+  **整句删掉**——`ClassBody` 自己就答 `IsClassBody`（第 1054 轮），不必再转手一次。
+- **`ctx` 出口跟着收窄**（多传的实参一律作废，定义处把形参删掉）：
+  `Each(view)` / `Project(node)` / `ProjectEach(list)` / `MemberList(list, view)` /
+  `Declaration(view, make, kind)`；`MappedType` 那一处 `ctx.MemberList(members, "TypeLiteral", v)`
+  里的 `"TypeLiteral"` 也删了（同一格事实的第二处存储）。**六页的 `ctx.Declaration(v, undefined, ctx.Make(v))`
+  改成 `ctx.Declaration(v, ctx.Make(v))`**（`undefined` 那一格本来就是「父 kind 没算过」的占位）。
+- **八处 `ctx.Each(v, "某个 kind")` 的第二格一并删掉**（`ArrayType` / `TupleType` / `UnionType` /
+  `IntersectionType` / 三处 `Block` / `ModuleBlock`）：那些 kind 名**就是那一页自己的 `AstKind`**，
+  递进来只会被丢掉。
+- **为什么这不是「行为变更」**：改的是**同一格事实的读法**——过去由调用方把自己知道的 kind 名
+  递下去，现在由接收方读父单元自己的那一格。逐字节比对的 `samples` 当场证明两边同答
+  （`samples` 是逐字节比键序 / 坐标的，漂一格就红）。八道门逐项与基线相同。
+- **实测**：`xl check typescript core` 0 条；`xl build typescript core` 156 个产物 / 0 error；
+  `tsc` 干净；**八道门 8 通过、0 失败**（墙钟 33.2s），读数逐项与基线相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常且固定样本逐格点名通过、
+  `direct:lint` 0 条违反、`samples` 逐字节一致、`cases:check` 1656 / 1656、
+  `runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+
 ### 第 1055 轮：`ctx` 上最后一份上下文状态也收干净了——「接口 / 类型字面量里的成员」改由**容器自己答**（新增基类属性 `Token.IsSignatureList`，三页各自显式声明、构造时赋好）；**八道门全绿、读数一处没动**
 
 **一句话**：第 1054 轮把 `ctx.parentKind` 那一格删掉之后，`ctx` 上只剩**一份**「投影替单元记的
