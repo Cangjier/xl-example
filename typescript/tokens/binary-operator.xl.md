@@ -407,6 +407,25 @@ const current = Get(units, index);
 if (current === null) {
   return false;
 }
+// **逗号那一问提到最前面**（第 1203 轮，用户口径 1.2「提升 parse 效率」）。
+//
+// **为什么可以提前**：`IsCommaExpressionComma` 对**不是逗号**的单元一律答 `true`
+// （判据的第一句就是「不是 `,` ⇒ 放行」），所以它在 `false` 这一支上答的
+// 与「当前这一格是不是一个落错地方的 `,`」**是同一句话**——
+// 把它挪到最前面、只留 `false` 那一半，判据本身一字未改，先后也不影响别的分支
+//（后面那些分支问的都是当前单元自己的属性，与这一问没有依赖）。
+//
+// **为什么值钱**：本规则有 **14 个实例**（优先级那一串）都跑同一个 `Previous`，
+// 实测 `typescript.d.ts` 一份上它被问 **1638504** 次 / 命中 **0** 次
+//（第 1203 轮 `tmp/r1203-nullwork.mjs`）——也就是说这 163 万次里有**全部**
+// 只是走到了后面那一句再退回来，而中间夹着
+// `IsValuePositionOperator`（一次 `TempToString()` 加五次字符串比较）、
+// `YieldsToInstanceof`、`IsAngleAssertionCloser`、`IsOperator`
+// 这几族只为 `<` `>` `|` `&` `^` 那几种符号准备的判据。
+// 提前之后，非逗号符号在**第二句**就退出去（只花一次 `instanceof`）。
+if (this.IsCommaExpressionComma(units, index) === false) {
+  return false;
+}
 if (current.Parent instanceof GenericType) {
   return false;
 }
@@ -513,10 +532,20 @@ if (this.IsAngleAssertionCloser(units, index, current)) {
 //
 // 不接手之后那几格留成**平的**，`print-ast-common.xl.md` 第 379 轮那条
 // 「断言只吃一个操作数、剩下的交给 `foldBinaryFrom`」正好把整条链折对。
+//
+// **它必须排在 `IsOperator` 前面**（第 1203 轮试过换位，当场退回）：这一问问的不是
+// 「尖括号本身能不能折」，而是「**这一层有没有被断言吃掉的操作数**」——
+// `<T>a + b` 里那个 `+` 是**本实例承认的运算符**（`IsOperator` 答 `true`），
+// 可这一层整串都不该被本规则接手。把 `IsOperator` 提到前面，`+` 就在这一问之前
+// 折下去了：实测 `expr-angle-assertion-then-operator` 的产物与投影当场变了
+//（1640 份语料的 A/B，见 `tmp/r1203-dump*.json`）。
+//
+// **同一轮还试过「只对 `<` / `>` 问」这一闸，也退回了**：`IsAngleAssertionHead` 认的是
+// 「这一层的**第一个**单元是 `GenericType`」，而那个 `GenericType` 与 `+` **同层**——
+// 所以 `+` 这一格同样要被它挡住。只对尖括号问的话，`<number>a + b` 里的 `+` 会照折
+//（实测同一份用例仍然不同）。**这一问的闸只有它自己那两句判据**，外面再加一层就是
+// 第二份答案（这一轮的账如实记在这里）。
 if (this.IsAngleAssertionHead(units)) {
-  return false;
-}
-if (this.IsCommaExpressionComma(units, index) === false) {
   return false;
 }
 if (this.IsOperator(current) === false) {

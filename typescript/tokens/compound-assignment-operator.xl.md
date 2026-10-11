@@ -166,7 +166,12 @@ operatorSymbol.FromCompoundAssignment = true;
 // （实测产物是两层 `BinaryOperator op="<="`），`??=` 切成 `?=` 与 `?=`。
 const lastIndex = operatorSymbol.Temp.length - 1;
 operatorSymbol.Temp.splice(lastIndex, 1);
+// **改完 `Temp` 要作废记住的那份文本**（第 1203 轮）：`TempToString` 现在会记答案，
+// 而这一处是**页外**直接写 `Temp` 的两处之一（另一处在 `const-string.xl.md`）——
+// 漏叫的话 `+=` 切开之后读到的仍是 `"+="`（见 `block-token.xl.md` 的 `TempCache`）。
+operatorSymbol.TempChanged();
 current.Temp.splice(0, lastIndex);
+current.TempChanged();
 const startIndex = SearchFront(units, index, CompoundAssignmentOperatorCloseRule.IsCompoundAssignmentOperatorStart);
 const front = units.slice(startIndex + 1, index);
 const frontClones = front.map((item) => item.Clone());

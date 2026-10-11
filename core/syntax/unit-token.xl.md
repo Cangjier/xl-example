@@ -73,27 +73,42 @@ throw new Error("abstract member: ExitOrPre");
 
 ```ts
 try {
-  if (this.MountedUnit !== null) {
-    this.MountedUnit.Process(context, source);
-    return;
-  }
-  if (this.ExitOrPre(context, source) === BranchStates.Done) {
-    this.LastSource = source;
-    return;
-  }
-  if (this.ProcessQueue !== null) {
-    for (const item of this.ProcessQueue.Data) {
-      if (item.Transit(context, this, source) === BranchStates.Done) {
-        this.LastSource = source;
-        return;
-      }
-    }
-  }
-  this.Default(context, source);
-  this.LastSource = source;
+  this.ProcessChar(context, source);
 } catch (e) {
   const previous = source.Pre();
   const range = new SourceRange(previous, source);
   throw SyntaxException.FromInner(range, e);
 }
+```
+
+## private method ProcessChar:(context:SyntaxContext, source:Source)=>void
+
+**处理一个字符的本体**（第 1203 轮，用户口径 1.2「提升 parse 效率」）。
+
+**为什么把它从 `Process` 里分出来**：`Process` 是**每个字符**都要走一次的那一格
+（`node --cpu-prof` 量 `node_modules/typescript/lib/typescript.d.ts`：self time **11.6%**，
+解析期第一名，见 `tmp/r1203-prof3`），而它整个身子原来**包在 `try/catch` 里**——
+于是那趟 `ProcessQueue` 的循环、`ExitOrPre`、`Default` 的**每一次调用**都落在异常处理区间内。
+分出来之后 `try/catch` 只剩「调本方法 + 建异常」这一层壳，
+**判据、次序、`LastSource` 的写法一个字没改**（逐字搬过来）。
+
+```ts
+if (this.MountedUnit !== null) {
+  this.MountedUnit.Process(context, source);
+  return;
+}
+if (this.ExitOrPre(context, source) === BranchStates.Done) {
+  this.LastSource = source;
+  return;
+}
+if (this.ProcessQueue !== null) {
+  for (const item of this.ProcessQueue.Data) {
+    if (item.Transit(context, this, source) === BranchStates.Done) {
+      this.LastSource = source;
+      return;
+    }
+  }
+}
+this.Default(context, source);
+this.LastSource = source;
 ```

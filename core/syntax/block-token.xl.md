@@ -21,6 +21,29 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 本块累积的字符。
 
+## field TempCache:string | undefined = undefined
+
+**`TempToString()` 上一次的答案**（第 1203 轮，用户口径 1.2「提升 parse 效率」）：
+`undefined` ＝「这一格已经变了、下次要重拼」，字符串（**含空串**）＝「这份字符拼出来就是它」。
+
+**为什么立这一格**：`node --cpu-prof` 量 `node_modules/typescript/lib/typescript.d.ts`
+（588 KB）一份，`TempToString` 的 self time 是**解析期第一名**（10.6%，723 / 6823 个采样，
+`tmp/r1203-prof2`）——而它每次调用都是一趟 `Temp.join("")`。
+本块的 `Temp` **只在解析期长**（`AppendAndSignOut` / `AppendValueAndSignOut` 各追加一格字符），
+可它被读的次数远多于写的次数：闭规则那一趟里每条规则、每一格都要问一次文本
+（`OperatorText` / `Is` / `IsAny` / `IsOperator` / `IsValuePositionOperator` …），
+而**关闭之后的块是不变的**——那一段里每一次 `join` 拼出来的都是同一份字符。
+
+**「含空串」这一条是判据的一半**：空块的答案就是 `""`，若拿 `undefined` 兼作「空」，
+空块每次都要重拼（实测注释与空块不少）；所以「是不是空」由**这一格自己**答（`!== undefined`），
+`=== ""` 与 `!== undefined` 各管各的。
+
+**失效只有一个入口**：`TempCache = undefined` 由 `TempChanged()` 这一格负责，
+凡是写 `Temp` 的地方**都要先叫它**——本页的 `AppendAndSignOut` / `AppendValueAndSignOut` / `Undo`
+三处，以及页外的两处（`const-string.xl.md` 的缩进裁剪、`compound-assignment-operator.xl.md`
+的复合赋值切开）。**这是这一格唯一的风险面**：漏叫一处，读到的就是上一次的旧文本。
+实测覆盖的办法是**语料对拍**（1640 份用例的产物 XML 与投影 JSON 逐字节比，见第 1203 轮的 A/B）。
+
 ## constructor:(template:Template)=>void
 
 以模板创建。块 token 自己只多一个 `Temp`，构造器里没有额外动作。
@@ -29,23 +52,43 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 super(template);
 ```
 
+## method TempChanged:()=>void
+
+**本块的字符变了**：把记住的那份答案作废。
+
+写 `Temp` 的每一处都要叫它——理由与风险面写在 `TempCache` 那一格上。
+
+```ts
+this.TempCache = undefined;
+```
+
 ## method TempToString:()=>string
 
 把累积的字符拼成字符串。
 
-拼接直接用数组自带的 `join`。
+**拼一次就记住**（第 1203 轮）：`TempCache` 已经有一份答案就直接还它，
+否则拼一遍写回去再还。`TempCache` 一旦是字符串就是**确定的答案**
+（含空串这一档，见那一格），所以这一格读起来与原来逐字符相同。
 
 ```ts
-return this.Temp.join("");
+if (this.TempCache !== undefined) {
+  return this.TempCache;
+}
+const text = this.Temp.join("");
+this.TempCache = text;
+return text;
 ```
 
 ## method AppendAndSignOut:(source:Source)=>BlockToken
 
 先签出到 `source`，再把该字符追加进 `Temp`，返回自身。
 
+**追加之前先作废记住的答案**（`TempChanged`）——这一格是 `Temp` 长得最多的地方。
+
 ```ts
 this.SignOut(source);
 this.Temp.push(source.Value);
+this.TempChanged();
 return this;
 ```
 
@@ -58,6 +101,7 @@ return this;
 ```ts
 this.SignOut(source);
 this.Temp.push(value);
+this.TempChanged();
 return this;
 ```
 
@@ -99,6 +143,7 @@ if (undoUnit !== null) {
   return;
 }
 this.Temp.splice(this.Temp.length - 1, 1);
+this.TempChanged();
 const previous = source.Pre();
 if (previous === null) {
   this.Parent!.Data.splice(this.Parent!.Data.indexOf(this), 1);
@@ -146,16 +191,20 @@ this.SourceRange.End = source;
 
 ```ts
 const name = this.Tag;
-return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Temp.join(""))}</${name}>`;
+return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.TempToString())}</${name}>`;
 ```
 
 ## property value:string
 
 `value` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
 
+**同一趟拼写走 `TempToString()`**（第 1203 轮）：这一格与 `ToXmlString` 原来各写一遍
+`this.Temp.join("")`，而「本块的文本是什么」只有 `TempToString` 那一处答案
+（它现在还带记忆）——三处各拼一遍就是三份拼法。
+
 ### get
 
 ```ts
-return this.Temp.join("");
+return this.TempToString();
 ```
 

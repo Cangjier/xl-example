@@ -71,6 +71,9 @@ return true;
 ```ts
 if (this.Temp[this.Temp.length - 1] === source.Value) {
   this.Temp.splice(this.Temp.length - 1, 1);
+  // **页外直接写 `Temp` 的第二处**（第 1203 轮）：`TempToString` 会记答案，
+  // 改了字符就要作废（见 `block-token.xl.md` 的 `TempCache`）。
+  this.TempChanged();
 } else {
   throw new Error("ConstString Undo异常");
 }
@@ -242,6 +245,10 @@ for (let i = this.Temp.length - 1; i >= 0; i--) {
     }
   }
 }
+// **页外直接写 `Temp` 的地方要作废记住的文本**（第 1203 轮，见 `block-token.xl.md` 的
+// `TempCache`）：下面三处缩进裁剪**各叫一次**——不是每删一个字符叫一次，
+// 因为这三处都在返回之前一次走完、中途不读文本（少叫几次才有意义）。
+this.TempChanged();
 ```
 
 ## method RemoveFirstLine:()=>void
@@ -277,6 +284,7 @@ for (let i = 0; i < this.Temp.length; i++) {
     }
   }
 }
+this.TempChanged();
 ```
 
 ## private method RemoveIndentAt:(Index:int, Count:int)=>void
@@ -296,12 +304,17 @@ for (let i = Index; i < this.Temp.length; i++) {
     i--;
     SpaceCount++;
     if (SpaceCount === Count) {
+      // **提前返回这一支也要作废**（第 1203 轮）：这一格是页外写 `Temp` 的一处，
+      // 改过就作废，见 `block-token.xl.md` 的 `TempCache`。
+      this.TempChanged();
       return;
     }
   } else {
     throw new Error("原始字符串缩进时异常");
   }
 }
+// **抛错之前也作废**：它已经删掉了一些字符，异常被接住之后这一格仍可能被读。
+this.TempChanged();
 throw new Error("原始字符串缩进时未正常退出");
 ```
 
