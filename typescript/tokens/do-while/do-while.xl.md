@@ -500,7 +500,9 @@ return index;
   } else {
     // **体那一对花括号直读字段**（第 1081 轮起递的是那一格本身 `BodyBrace`，
     // 不再是它印出来的 `"起,止"` 字符串——同一格事实只有一个来源）。
-    const statement = ctx.BodyBlockOf(v.start + "do".length, body, v.BodyBrace);
+    // **第 1084 轮不再递 `v.start + "do".length`**：空体语句那一档上面已经出完了
+    //（`emptyBodyAt`），`BodyBlockOf` 不需要 `from`（见 `print-ast-common` 那一页的说明）。
+    const statement = ctx.BodyBlockOf(body, v.BodyBrace);
     if (statement !== undefined) props.statement = statement;
   }
   const compare = ctx.KidsOf(v, "compare").filter((k: any) => !k.IsInvisible);

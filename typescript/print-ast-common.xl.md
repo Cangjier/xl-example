@@ -611,6 +611,36 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**69 → 69 格**（这一轮改的是两处算式与注释）。
 
+**第 1084 轮把 `bodyBlockOf` 里最后那一处「回原文」的兜底删掉了**（用户口径
+1.1 / 1.4：投影需要的信息，token 子类**构造完**就该齐——齐了就不必再回原文找）：
+
+| 删掉的 | 凭什么能删 |
+| --- | --- |
+| `bodyBlockOf` 的 `from:int` 形参 | 它**只**喂下面那一支，那一支没了它就没有读者（`direct:lint` 第五条判据：形参表就是这一格需要什么） |
+| 「`projections.length === 0` ⇒ 从 `from` 起跳空白、撞上 `;` 就出 `EmptyStatement`」整支 | 空体语句那一格**早在 token 上**（`EmptyBodyAt`，第 590 / 619 / 635 轮），而三个调用点（`While` / `Foreach` / `DoWhile` 的 `PrintDirectAst`）**都在调本方法之前就读完了它并直接出了 `EmptyStatement`** ⇒ 走到本方法时它必然 `-1` |
+| `ctx.BodyBlockOf` 的第一格实参 | 出口跟着少一格（`(list, brace)`）；`while` / `foreach` / `do-while` 三页的实参跟着少一格 |
+
+- **这一条是量出来的**（`tmp/r1084/probe.cjs`，本仓一贯的「先量死再删」）：给编译产物
+  `build/ts/typescript/print-ast-common.js` 里那一支插一句计数，跑
+  `node tests/parse/direct-ast.mjs --all`（**2051 份语料 / 517596 个节点**）——
+  进入那一支 **0 次**、命中 `;` **0 次**。所以删掉的是一格**没有任何输入能走到**的兜底，
+  不是「很少走」的兜底。
+- **为什么它本来就到不了**：这一支要求「体段投不出任何单元」且「头部之后第一个非空白字符是 `;`」。
+  后半句正是 `EmptyBodyAt` 的**定义**（`while` 那一页写着「体为空、`endIndex` 退到 `)` 那一格；
+  `;` 由投影侧读 `EmptyBodyAt` 补成 `EmptyStatement`」），而三个调用点都把那一格读在**前面**。
+  前半句剩下的那一档（体起点落在注释上、`EmptyBodyAt` 记不下）也不命中：这一支只跳**空白**、
+  不跳注释，撞上的是 `/` 而不是 `;` ⇒ 删前删后都落到同一个 `undefined`。
+- **收尾那一格照旧**：`headerCloseAt` 那一问（`While` / `Foreach` 的「字段缺了就不猜、交回
+  `PrintDirectAst`」）**留着没动**——它是「这一页记全了没有」的判据，不是 `from` 的搬运。
+- **改了哪四个文件**：本页（形参、兜底、出口实参）、`tokens/while`、`tokens/foreach`、
+  `tokens/do-while` 三页的 `PrintDirectAst` 各少一格实参（`ctx.BodyBlockOf(body, brace)`）。
+- **实测**：`xl check` 4 个文件 0 条；`xl build --force`（`core` / `typescript` / `runtime` /
+  `typescript-exec`）**180 个产物** / 0 error、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 29.5s），
+  读数与基线逐项相同：`coverage` **4261 / 4422**（`blocked 28` / `differ 133` / `bad 0`、
+  加权 95.7%）、`cases:tsast` 3 条已知缺口、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**69 → 69 格**（改的是一个形参、一支兜底与两个出口/调用点的实参）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -8979,7 +9009,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return [range.Start.Index, range.End.Index];
 ```
 
-# private method bodyBlockOf:(from:int, kids:Array<any>, ctx:any, brace:any = null)=>any
+# private method bodyBlockOf:(kids:Array<any>, ctx:any, brace:any = null)=>any
 
 **循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
 
@@ -8993,7 +9023,20 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 **第 1059 轮把「没有字段就回原文找 `{` 再配对扫一遍」那一支整段删掉了**：四个循环体早就各自
 记了这一格（`While` / `For` / `Foreach` / `DoWhile`），而**克隆体也照抄**（第 598 / 618 / 619 /
 641 轮记字段、本轮核对克隆体）——于是「没记字段」只可能是「体不是花括号」，
-回原文再扫一遍就是**同一格事实的第二处答案**。`from` 只用来认「空体语句 `while (c);`」。
+回原文再扫一遍就是**同一格事实的第二处答案**。
+
+**第 1084 轮把最后那一处「跳空白找 `;`」的兜底与它的 `from` 形参一起删掉了**
+（用户口径 1.1~1.4：投影需要的东西在 token 子类构造时就齐）：空体语句
+（`while (c);` / `for (…);` / `do ; while (c);`）那一格**早就在 token 上**
+（`EmptyBodyAt`，第 590 / 619 / 635 轮，`## field` + 给投影读的 `## property emptyBodyAt`），
+而三个调用点（`While` / `Foreach` / `DoWhile` 的 `PrintDirectAst`）**都在调本方法之前
+就把它读完并直接出了 `EmptyStatement`** ⇒ 走到本方法时 `emptyBodyAt` 必然 `-1`，
+也就是「体不是空语句」⇒ 原文里那个 `;` 永远不在这一支的判据里。
+
+**这一条是量出来的，不是推出来的**（`tmp/r1084/probe.cjs`：给编译产物 `bodyBlockOf` 那一支
+插一句计数、跑 `node tests/parse/direct-ast.mjs --all`，**2051 份语料**）：
+`projections.length === 0` 那一支 **进入 0 次、命中 `;` 0 次**——所以删掉它不改变任何一格读数
+（`cases:direct` 2051 份不抛异常、固定样本逐格点名通过；八道门逐项与基线相同）。
 
 ```ts
   const list = kids.filter((k) => k instanceof Token && !k.IsInvisible);
@@ -9005,16 +9048,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   if (knownBrace !== null) {
     return { kind: "Block", statements: projections, pos: knownBrace[0], end: knownBrace[1] + 1 };
   }
-  // **空体语句 `while (c);` / `for (const x of y);`**（第 127 轮）：体段为空、
-  // 原文里头部之后紧跟一个 `;` ⇒ TS 那边是一个 `EmptyStatement`。
-  // 这一支只在**没有整对花括号**时才走（有花括号的空体是上面那一支的 `Block`）。
-  if (projections.length === 0) {
-    let at = from;
-    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
-    if (ctx.source[at] === ";") {
-      return { kind: "EmptyStatement", pos: at, end: at + 1 };
-    }
-  }
+  // **空体语句那一支的兜底第 1084 轮删掉了**（见上面那一节）：它在全语料里进入 0 次，
+  // 而这一格事实由 token 的 `EmptyBodyAt` 答、三个调用点各自在调本方法之前就读完了它。
   if (projections.length === 1) return projections[0];
   if (projections.length === 0) return undefined;
   return { kind: "Block", statements: projections, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
@@ -9577,7 +9612,9 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // ——「本页只在别处用它」这件事按上面的判据不算删的理由。
     StatementOfList: (list) => statementOfList(list, ctx),
     Nothing: NOTHING,
-    BodyBlockOf: (from, list, brace) => bodyBlockOf(from, list, ctx, brace),
+    // **`from` 那个形参第 1084 轮删掉了**：它只喂空体那一支「跳空白找 `;`」的兜底，
+    // 而那一支在全语料进入 0 次（空体由 token 的 `EmptyBodyAt` 答，三个调用点各自先读完它）。
+    BodyBlockOf: (list, brace) => bodyBlockOf(list, ctx, brace),
     // **`IndexBracketOf` 那个出口第 1060 轮删掉了**：下标那个 `[` 是 `IndexedAccessType`
     // 自己造出来那一刻的事实（`IndexBracketAt`），所以那一页直接读自己的属性——
     // 投影层不再有「回原文按深度配对方括号」的第二处答案。

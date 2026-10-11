@@ -251,7 +251,9 @@ return index;
   if (headerCloseAt < 0) {
     return undefined;
   }
-  const statement = ctx.BodyBlockOf(headerCloseAt + 1, body, rawBrace);
+  // **第 1084 轮不再递头部那个下标**：`BodyBlockOf` 收的是「体」与「那一对花括号」，
+  // 空体语句那一档本页上面已经出完了（`emptyBodyAt`），所以它不需要 `from`（见那一页的说明）。
+  const statement = ctx.BodyBlockOf(body, rawBrace);
   if (statement !== undefined) props.statement = statement;
   return ctx.NodeHead("WhileStatement", props, v);
 ```
