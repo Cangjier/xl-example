@@ -347,6 +347,50 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1207 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`as` / `satisfies` 后面那个类型的尾部 `!` 整族收掉**（第 289 轮那张「值位运算符」名单里带着 `!`，于是 `As` 只收到 `T`、`!` 被声明那一层收成了 `exclamationToken`）；1.2 把 `BinaryOperatorCloseRule.Previous` 的「这一格是不是本实例的运算符」**提到最前面**（**同进程交替 A/B：best −14.45%、median −13.96%**）
+
+**一句话**：1.1 的入手处是**接着上一轮那把组合扫描**（`tmp/r1206-sweep2.mjs`，2124 条合法片段）往下看剩下的对不上——第一处不同那一榜的头一名是 `FIELD:VariableDeclaration`（**130 条**），逐格读产物才看清：那个 `!` **不属于声明、属于类型**；1.2 不动任何判据，只把**同一个答案**提前算出来，省掉的是它前面那十句「本规则不接手」的判据（其中两句要扫整层单元表）。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `AsCloseRule.IsValueOperatorAfterType` 那张名单里**摘掉单字符 `!`**（`!=` / `!==` 是另一个 `SymbolToken`，不受影响）：TS 的 `parseType()` 把 `as T!` 结尾那个 `!` **收进类型**（`JSDocNonNullableType`），而这一格原来把它当成「类型已经写完」的收工点 | 组合扫描 **333 → 261** 条对不上；`FIELD:VariableDeclaration` 那一族 **130 → 52**；`as T!` / `as T!!` / `as T! \| U` / `as T \| U!` / `as Box<T!>` 五档全中 |
+| **1.2** | `BinaryOperatorCloseRule.Previous`：`IsOperator(current)` 从**末尾**（第 551 行）提到**最前面**，末尾那一句改成「上面已经问过了」（**一格都没挪**，只是把同一个答案提前算出来） | 那一问实测被问 **1638504** 次/份（14 个实例共用），问到的东西绝大多数连符号都不是；`--cpu-prof` 里 `Previous` self **14.54% → 11.51%**、`IsAngleAssertionHead` **1.08% → 0.00%**、`IsCommaExpressionComma` 1.83% → 0.05% |
+
+**1.1 的现场（读到的那一行原文）**：产物是 `As range="[14,17]"` ＋ 平级的 `SymbolToken(!)`，而 TS 是
+`JSDocNonNullableType[16,19) > TypeReference(T)`（`const q = f() as T!`，`AsExpression` 的 `end` 也到 19）。
+那个 `!` 于是落到 `projectLet` 那一层被 `one.find((k) => k.IsNotNullSymbol)` 挑中——
+**它不是明确赋值断言**（`let a!: number` 那一格才是），是 `as` 类型的尾部断言。
+**`!` 一停，后面三种续写整段跟着错**：`as T! | U`（联合丢、`| U` 被折成值位二元）、`as T | U!`（`!` 把整个联合包住而不是只包右边那一段）、`as Box<T!>`（`Box<T` 整段被包进 `JSDocNonNullableType`）。
+收进 `As` 之后这四档各自走 `projectTypeExpression` **第 1203 轮**补的那两条既有分支（末尾那个 `!`、以及联合 / 泛型实参各自递归）——**没有在别处补第二份判据**。
+
+**1.1 剩下的那一格按规矩登记、不猜**：`as T![]` 的产物是 `As > [Identifier(T), SymbolToken(!), TupleType([])]`，
+而 `as T[]` 那一档是 `As > [ArrayType > Identifier(T)]`——**空下标对前面夹着一个 `!` 时括号上下文判成了元组**，
+投影的类型那一趟认不出它（缺 `ArrayType` + `JSDocNonNullableType`）。修法没量到，登记成
+`tests/cases/token/expressions/gap-as-bang-array-type.ts`（`xl:known-gap`，`cases:tsast` 每次真跑一遍）。
+
+**1.2 的墙钟（同进程交替，`tmp/r1207-ab.mjs`）**：原版＝`build/ts/typescript/tokens/binary-operator-old.js`
+（改之前生成的产物逐字留着），现版＝构建产物里那一份；A/B/A/B 各 6 趟：
+
+| 趟 | 原版 best / median | 现版 best / median | 差 |
+| --- | --- | --- | --- |
+| 6 轮 | 1563.6 / 1698.6 ms | 1337.6 / 1461.5 ms | best **−14.45%**、median **−13.96%** |
+
+同一把 `--cpu-prof`（6 遍 parse）的总采样 **6566 → 5706（−13.1%）**，与 A/B 的 −14% 对得上。
+`tmp/r1203-bench.mjs`（best of 4）：**parse 1644.0 → 1385.1 ms**；xml 42.6 → 42.3、printAst 115.9 → 119.2
+——**后两项在这把尺子的噪声里**，如实记（这一轮省的是解析期那一趟，投影那一趟一行未动）。
+
+**1.2 的等价怎么证的**：**同一个进程**里把两份 `Previous` 来回换上，对**同一批 1648 份语料**各投一遍，
+逐份比 token 树 XML 与投影 JSON 的 sha256（`tmp/r1207-equiv.mjs`）：**逐字节同答 1648 / 不同 0 / 抛异常 0**。
+为什么提前是安全的：它前面那十句判据（逗号 / 泛型父单元 / 类型位方括号 / 映射键 / `?.(` / `for…in` /
+值位 / `instanceof` 让位 / 尖括号断言两问）**每一个出口都是 `false`**，所以「这一格根本不是我的运算符」
+时当场答否与走完再答否是同一句话。**与第 1203 轮那次「换位」不是一件事**：那次把 `IsOperator` 与
+`IsAngleAssertionHead` **对调**过（`<T>a + b` 里那个 `+` 抢在断言那一问之前折下去），当场退回——
+这一轮**一格都没挪**。
+
+**净账**：`cases:tsast` **1648** 份（已知缺口 **1** 条还开着、0 条已经收掉）；`cases:direct` 全语料不抛异常（1648 份）、固定样本通过；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1662** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4269 / 4428**（两条新用例分母 +2、守卫那条分子 +1、登记那条 blocked 25 → **26**；differ 133、bad 0、加权 95.7%）；`xl check` **0 条**；`npx tsc`（strict）**0 error**。
+
+**两条 commit**：`533ce200`（1.1 `as` 类型的尾部 `!`）、`116d86b8`（1.2 那一问提到最前面）。
+
 ### 第 1206 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`?.` 后面那一截续格的两处漏接收掉**：`a?.[b]()` 的那次调用整格丢（**`runtime/round741/002-optional-index-then-call` 那条「倒退」的根**）、`a?.(b)` 后面接模板串 / 点号 / 下标 / 再调一次时那一截整段丢；**八道门第一次全绿**（`coverage` 4265 → **4268 / 4426**、differ 134 → **133**、**倒退清零**）；1.2 把两个队列的 `splice` 换成 `shift` / `unshift`（median 两趟都略好、best 在噪声里，如实记）
 
 **一句话**：1.1 的入手处是**一轮组合扫描**（`tmp/r1206-gen2.mjs` 生成的 2430 条链式片段 × TS 对拍）：
