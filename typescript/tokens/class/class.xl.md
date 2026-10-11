@@ -635,7 +635,7 @@ throw new Error("找不到匹配的子单元");
 否则就是自己问自己（见 `projectNode` 里 `ctx.awaitingDeclaration` 那一支）。
 
 ```ts
-  return ctx.Declaration(v, ctx.Make(v));
+  return ctx.Declaration(v);
 ```
 ## property NameField:string | undefined
 

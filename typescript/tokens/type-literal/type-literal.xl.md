@@ -903,7 +903,7 @@ return this.Add(new TypeLiteralBody(this.Template));
 否则就是自己问自己（见 `projectNode` 里 `ctx.awaitingDeclaration` 那一支）。
 
 ```ts
-  return ctx.Declaration(v, ctx.Make(v));
+  return ctx.Declaration(v);
 ```
 ## method Clone:()=>Token
 

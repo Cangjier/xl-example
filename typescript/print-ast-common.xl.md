@@ -2688,9 +2688,11 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // 反过来，**没有函数体的可调用签名要带上尾随分号**：`declare function f(): void;` 的 TS 是
   // `FunctionDeclaration[23,51)`（含 `;`），而产物那个 `Function` 到 `void` 就结束了——
   // 分号是它的平级兄弟。真实语料里 `FunctionDeclaration` 缺的近两千处基本是这一条。
-  const mk = (kind, props) => {
-    return astNode(kind, props, v, ctx);
-  };
+  // **那一格「就这一格的造节点闭包」第 1163 轮整格删掉了**（用户口径 1.2 / 1.6 / 1.7）：
+  // 它原来是 `const mk = (kind, props) => astNode(kind, props, v, ctx);`，**每投一格现造一个闭包**
+  // （实测官方用例语料 1640 份：`projectNode` 走 **21874** 次），而它唯一的去处是
+  // `projectDeclaration(v, ctx, mk)` —— 那一格**本来就收着 `v` 与 `ctx`**，直接调
+  // `astNode(kind, props, v, ctx)` 就是同一份实现、同一份坐标口径，不必经一层闭包转手。
   // **裸块语句 `{ … }` 就是一个 `Block`**（第 123 轮）：产物那边它是一对花括号
   // （`BlockCloseRule` 在语句位给它补了语句队列，里面的东西已经是 `Statement`），
   // 而 TS 那边它是一个 `Block` 节点、有自己的 `statements`。照通用支投会**原样透传**
@@ -2722,17 +2724,17 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // `ClassBody.IsClassBody` / `IsSignatureList`），所以这里不再往 `projectDeclaration`
   // 递一个父 kind——**第 1056 轮连那个参数一起删掉了**（它当时只剩 `ArrayLiteralExpression`
   // 一个消费者，而那一格在父单元自己的 `AstKind` 上）。
-  return projectDeclaration(v, ctx, mk);
+  return projectDeclaration(v, ctx);
 ```
 
 
-# private method projectDeclaration:(v:any, ctx:any, mk?:any, kind?:string)=>any
+# private method projectDeclaration:(v:any, ctx:any, kind?:string)=>any
 
 **声明族那一格的形状**（第 1002 轮从 `projectNode` 整段搬来）：
 换 kind（`FunctionExpression` / `ClassExpression` / `Constructor` / `GetAccessor` / `SetAccessor`）
 + `structuralProps` 给字段名 + 三处收尾（摘 `get` / `set`、摘生成器的 `*`、对象字面量成员不吃尾随逗号）。
 
-**第四个参数 `kind` 是可选的**：不给就问**这一格自己的 `AstKind`**（这是通用支与 `ctx.Declaration`
+**第三个参数 `kind` 是可选的**：不给就问**这一格自己的 `AstKind`**（这是通用支与 `ctx.Declaration`
 走的那条路——产物标签自己说明了它是什么，第 1025 轮起这件事由 token 自己声明）；给了就是**调用方已经算好了这一格该出的 kind**
 （声明族的直出版走这条：它按自己的属性与父单元判一次，而「按上下文换 kind」的规则写在下面这几行里，
 所以这里**仍然会把规则跑一遍**——两边因此不可能对同一种上下文给出两个答案）。
@@ -2749,8 +2751,9 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 **第 1056 轮连那个参数也删掉了**（它当时只剩 `ArrayLiteralExpression` 一个消费者，
 而那一格在父单元自己的 `AstKind` 上）。
 
-**`mk` 由调用方递进来**：它就是 `projectNode` 里那个「带着这一格坐标与尾部 trivia 剪裁」
-的造节点闭包（`astNode`），换一份写就是两份坐标口径。
+**造节点这件事只有 `astNode` 一处**（第 1163 轮）：这一格收着 `v` 与 `ctx`，所以它自己调
+`astNode(kind, props, v, ctx)`——原来那个「由调用方递进来的 `mk` 闭包」（`projectNode` 每投一格
+现造一个）整格删掉了，坐标口径因此仍然只有一份。
 
 ```ts
   if (kind === undefined) {
@@ -2762,7 +2765,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
       // 而 `projectEach` 头一件事就是滤掉 `IsInvisible` 与顶层逗号（见那一节），
       // 于是「先拿完整子单元表、再滤一遍」与「直接拿滤过的那一串」逐字节同答。
       // 这一支是**唯一剩下**的一处，改完 `allKids` 的读者只剩「要找 trivia 的那几处」。
-      return mk(v.Tag, { children: projectEach(v.ProjectableKids, ctx) });
+      return astNode(v.Tag, { children: projectEach(v.ProjectableKids, ctx) }, v, ctx);
     }
   }
   // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）；
@@ -2885,7 +2888,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     }
   }
   // **对象字面量成员不吃尾随逗号**（第 142 轮）：见 `projectObjectLiteral` 那一处的说明。
-  const built = mk(kind, props);
+  const built = astNode(kind, props, v, ctx);
   if (
     ctx.inObjectLiteral === true &&
     built !== undefined &&
@@ -10044,15 +10047,14 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 覆写里不必 import 任何东西——造节点、投一批子单元、按成员切、取文本、分叶子名，
     // 全在这一组里。它们**逐个转调**上面那些共享实现，所以两条路的产物逐字节相同。
     Node: (kind, props, view) => astNode(kind, props, view, ctx),
-    // **「就这一格的造节点闭包」**（第 1002 轮）：`ctx.Node` 是三参的（自己造一个**指定坐标**的
-    // 节点，`view` 由调用方给），而声明族的直出版要的是**「这一格」**那一份——
-    // 所以这里按同一份实现（`astNode`）把它闭好再递过去。
-    // **为什么不让直出版直接传 `ctx.Node`**：那样第三个参数是 `undefined`，
-    // 坐标口径当场散架（`stmtEndOf(undefined)` 抛异常）——「闭的是哪一格」不能交给
-    // 「调用方记得传第三个参数」。
-    // **第 1044 轮把 `astNodeFor` 那一层并了进来**：那一格本来就是「把同一个 `astNode` 按这一格
-    // 的坐标闭好」的转发，只有这一个调用点；实现仍然只有 `astNode` 一处。
-    Make: (view) => (kind: string, props: any) => astNode(kind, props, view, ctx),
+    // **`ctx.Make` 那个出口第 1163 轮删掉了**（用户口径 1.2 / 1.6 / 1.7）：它原来是
+    // `(view) => (kind, props) => astNode(kind, props, view, ctx)`——「就这一格的造节点闭包」，
+    // 而全仓 **6 个读者全是** `ctx.Declaration(v, ctx.Make(v), …)` 的第二个实参（那六页的
+    // `PrintAst`），**没有一个是单独用它造节点的**。于是它整格撤掉：`ctx.Declaration(v, kind)`
+    // 自己就收着 `v`，造节点由 `projectDeclaration` 直接调 `astNode`（同一份实现、同一份坐标口径）。
+    // 名字一并补进 `direct:lint` 的 `CTX_BANNED`（写回来当场红）。
+    // 省下的是**每投一格一个闭包**（`projectNode` 那一侧的 `mk` 与这一格是同一件事的两处），
+    // 实测官方用例语料 1640 份：`projectNode` 走 **21874** 次。
     // **坐标在前的键序**（第 199 轮）：搬家前那批内联写法的节点用它——键序正是
     //
     //     return { kind: "ForStatement", pos: v.start, end: v.end, ...props };
@@ -10543,19 +10545,18 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 它与 `projectNode` 落在**同一份实现**（`projectDeclaration`）上——
     // 所以「覆写了仍然与通用支逐字节相同」是结构上的事，不是巧合。
     //
-    // **第二格是那个「就这一格」的造节点闭包**（`ctx.Make`，与 `projectNode` 里的
-    // `mk` 是同一份实现 `astNode`）：直出版算完 kind 之后要**自己**把节点造出来，
-    // 而「带坐标与尾部 trivia 剪裁」的口径只能有一份——所以递过去，不抄第二遍。
-    // **第三格是「调用方已经算好的 kind」**（可选）：声明族的直出版自己判过一次
+    // **第一格是「调用方已经算好的 kind」**（可选）：声明族的直出版自己判过一次
     // （见 `method-declaration.xl.md` 的 `PrintAst`），而换 kind 的规则只在
     // `projectDeclaration` 里有一份——所以递进来之后那几条规则**照跑**，
     // 两边对同一种上下文因此不可能给出两个答案。
+    // **第 1163 轮把「造节点闭包」那一格撤掉了**（它原来是第二个实参）：`projectDeclaration`
+    // 自己收着 `view` 与 `ctx`，直接调 `astNode` 就是同一份实现——那六页的调用点因此
+    // 从 `ctx.Declaration(v, ctx.Make(v), kind)` 变成 `ctx.Declaration(v, kind)`。
     // **父 kind 那个参数第 1056 轮整格删掉了**：它先在第 1054 轮失去「构造」那一档
     //（改读 `v.Parent.IsClassBody`）、第 1055 轮失去「签名」那一档
     //（改读 `v.Parent.IsSignatureList`），最后只剩 `ArrayLiteralExpression` 一个消费者
     // ——而那一格在父单元自己的 `AstKind` 上，所以连参数一起撤。
-    Declaration: (view, make, kind) =>
-      projectDeclaration(view, ctx, make ?? ctx.Make(view), kind),
+    Declaration: (view, kind) => projectDeclaration(view, ctx, kind),
     // **`MemberInObject` 那个出口第 1037 轮删掉了**：那份名单（`MethodDeclaration` /
     // `GetAccessor` / `SetAccessor` / `PropertyAssignment` / `ShorthandPropertyAssignment` /
     // `SpreadAssignment`）只有一个读者（`tokens/json/object-literal.xl.md`），所以它搬回了

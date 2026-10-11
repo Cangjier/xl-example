@@ -347,6 +347,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1163 轮：用户口径 1.2 / 1.6 / 1.7 —— 「就这一格的造节点闭包」两处一起删掉（`projectNode` 里的 `mk` 与 `ctx.Make`）：`projectDeclaration` 自己收着 `v` 与 `ctx`，直接调 `astNode`；`ctx` 的键 49 → 48
+
+**一句话**：`astNode(kind, props, v, ctx)` 是**唯一的**造节点实现，而它原来在**两个地方各被
+包了一层闭包**——`projectNode` 里那个 `const mk = (kind, props) => astNode(kind, props, v, ctx)`
+（**每投一格现造一个**）与 `ctx.Make(view)`（给六页声明族的 `PrintAst` 用）。两处都只有一个去处：
+
+| 原来的写法 | 今天 |
+| --- | --- |
+| `projectNode`：`const mk = …` + `projectDeclaration(v, ctx, mk)` | 闭包删掉，`projectDeclaration(v, ctx)` |
+| `projectDeclaration(v, ctx, mk?, kind?)` 里 `mk(kind, props)`（两处） | `astNode(kind, props, v, ctx)`（同一份实现、同一份坐标口径） |
+| `ctx.Make(view)`（`(kind, props) => astNode(kind, props, view, ctx)`） | **出口整格删掉**，名字补进 `CTX_BANNED` |
+| 六页：`ctx.Declaration(v, ctx.Make(v)[, kind])` | `ctx.Declaration(v[, kind])`（`Declaration: (view, kind) => projectDeclaration(view, ctx, kind)`） |
+
+- **为什么原来那两层是多余的**：`projectDeclaration` **本来就收着 `v` 与 `ctx`**
+  （`mk` 闭的正是这两个），所以「闭好再递」只是把同两个实参绕一圈；而 `ctx.Make` 的
+  **6 个读者全是** `ctx.Declaration(…)` 的第二个实参，**没有一处单独用它造节点**——
+  于是它连「一处实现」都不算，只是那一层的转发。
+- **实测**（`cases:direct` 的读数，官方用例语料 1640 份）：`projectNode` 走 **21793** 次
+  ⇒ 那一层闭包原来要造 **21793** 个；`ctx.Make(v)` 在六个声明族调用点上再各造一个。
+  改完两处都**一次不造**：造节点只剩 `astNode` 一处直调。
+- **判据跟着长一格**：`Make` 补进 `direct:lint` 的 `CTX_BANNED`（那一族的判据是「`ctx` 出口表里
+  没有兜底出口」）。**自验**（本机探针，不进仓库）：把 `Make: (view) => …` 写回 `ctx` 那一格
+  ⇒ 这一门报 **1 处**（`ctx.Make 又挂回来了`）、退出码 1；逐字节还原 ⇒ 回到 **0 处**。
+  **如实记下**：这一条判据拦的是「出口挂回来」，而**闭包那一层**（`projectNode` 里的 `mk`）
+  今天没有静态判据看着——它坏的方式是「多一层转手」，`cases:tsast` / `samples` 都看不见。
+- **量**（同一把逐行尺子）：`print-ast-common` 的代码块 **4050 → 4045 行**（净少 **5** 行）、
+  声明数仍是 **57 格**（删的是 `projectDeclaration` 的一个形参与 `ctx` 的一个键，不是声明）；
+  `ctx` 的键 **49 → 48**（用第 1161 轮那把脚本数的，与 `CTX_BANNED` 那一门同源）。
+- **六页的调用点改动是机械的**：`ctx.Declaration(v, ctx.Make(v))` → `ctx.Declaration(v)`（5 页）、
+  `ctx.Declaration(v, ctx.Make(v), kind)` → `ctx.Declaration(v, kind)`
+  （`method-declaration.xl.md`，它自己判过一次 kind）。
+- **实测八道门**：**7 通过、1 失败**（墙钟 33.1s），读数与第 1106 ~ 1162 轮**逐项相同**：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常（`count` **21793**、
+  token 自己出 **16489**）、`direct:lint` **0 条违反**、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条红仍是 HEAD 上既有的 `runtime/round741/002`。
+- **踩到一次工具口径的坑（如实记下）**：改完只 build 了动过的那几页之后跑门，
+  `coverage` 报的是「`core/syntax/token.xl.md` 比产物新 → 跑 `xl_build --force`」——
+  那一页**这一轮一个字没改**，只是它的产物 mtime 落在了源码之后；
+  照它说的强制重出一遍那一页即恢复（**这不是判据红，是产物新鲜度**）。
+
 ### 第 1162 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 「收尾 trivia 剪到哪」整趟搬进被问的那一格（`Token.ProjectionEnd` + `Token.TrailingTriviaStart` + `Token.TrailingCommentStart`），投影那一侧的 `stmtEndOf` 只剩一次属性读 + 给合成视图留的兜底支；`allKids` helper 整格删掉
 
 **一句话**：`stmtEndOf(v, ctx)` 原来是投影页里的一整趟算式——剪尾部空白 + 沿「区间终点正好
