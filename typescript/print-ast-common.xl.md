@@ -5667,7 +5667,18 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       break;
     }
   }
-  if (tagIsComplete && templateChainAt !== -1) {
+  // **尾巴上挂着 `as` / `satisfies` 时这一支要让开**（第 1225 轮，用户口径 1.1，与第 664 轮
+  // `asAfterNco`、第 1220 轮 `asAfterInst` **同一条口径**、理由也一字不差）：
+  // `` a!`t`[0]as T `` 的产物是 `[NotNull(a!), PropertyAccess([String(反引号), Bracket([0])]), As(T)]`
+  // ——模板那条链折完之后尾巴那格 `As` 落到 `foldBinaryFrom` 手上，而它开头一句就要求
+  // `rest` 以运算符打头（`rest[0].IsOperatorUnit` 答否就原样返回 `left`）⇒ **那一格整格丢**
+  // （实测缺 `AsExpression` + `TypeReference`）。让开之后落到主流程第 2 节（`asIndex` 那一支）：
+  // 它把前缀 `kids.slice(0, asIndex)` 递归投一遍——那一趟里没有 `As`，走的正是本支，
+  // 于是标签模板照旧成形、`as` 再折在它外面。**`As` / `Satisfies` 的折法仍然只有那一份。**
+  const asAfterTemplate = templateChainAt === -1
+    ? false
+    : kids.slice(templateChainAt + 1).some((k) => k.IsAsUnit || k.IsSatisfiesUnit);
+  if (tagIsComplete && templateChainAt !== -1 && asAfterTemplate === false) {
     const holder = templateAssert ? kids[templateChainAt].CoreHead : kids[templateChainAt];
     const inner = holder.ProjectableKids;
     const tag = projectExpression(kids.slice(0, templateChainAt), ctx);
@@ -5735,6 +5746,19 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     const parts = bang.ProjectableKids;
     if (parts.length !== 2 || parts[0].IsNotNullSymbol !== true) {
       continue;
+    }
+    // **那个 `!` 盖着的是 `as` / `satisfies` 时，把那一格拆平再交回本函数**（第 1225 轮，
+    // 与上面 0c 那一支同一条口径；**不是**把这一支整个让开——实测让开会连标签模板一起丢：
+    // 形状是 `[NotNull(a!), String(反引号), UnaryOperator(op="!", [SymbolToken(!), As(T)])]`，
+    // `!` 是模板那条链的**后缀断言**，而 `As` 是**关系级运算符**（不是链的续格）。
+    // 这一支原来把 `parts[1]` 无条件交给 `chainOnto`（它认的是下标 / 实参括号 / 调用 /
+    // 里层那条链），`As` 于是**整格丢**；可整支让开之后三格平铺的那个形状谁都不认
+    //（0b 的 `IsChainTail` 不收 `As`）⇒ 连 `TaggedTemplateExpression` 与那层断言一起丢。
+    // 所以照「同一件事一处实现」：把 `UnaryOperator` 那一格**拆成它里面那两格**、
+    // 整条列表交回本函数——主流程第 2 节先把标签模板与后缀断言折好、再把 `as` 折在外面，
+    // `As` / `Satisfies` 的折法仍然只有那一份（递归那一趟更短，不会自环）。
+    if (parts[1].IsAsUnit || parts[1].IsSatisfiesUnit) {
+      return projectExpression([...kids.slice(0, at + 1), ...parts, ...kids.slice(at + 2)], ctx);
     }
     if (tagIsPostfixChain(kids.slice(0, at)) === false || IsChainTail(kids.slice(at + 2)) === false) {
       continue;
