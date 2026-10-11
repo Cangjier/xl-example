@@ -1090,12 +1090,13 @@ throw new Error("找不到匹配的子单元");
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 **这一页是「同一个产物标签、按上下文换 kind」最多的一页**：
-接口 / 类型字面量里是 `MethodSignature`（`ctx.signature`）、
+接口 / 类型字面量里是 `MethodSignature`（**问父单元自己**：`v.Parent.IsSignatureList`，
+第 1055 轮——那三页各自声明了这一格常量）、
 类体里那个叫 `constructor` 的是 `Constructor`（**问父单元自己**：`v.Parent.IsClassBody`，
 第 1054 轮——`ClassBody` 那一页声明了这一格常量）、
 `modifiers` 里带 `get` / `set` 的是 `GetAccessor` / `SetAccessor`，
-其余才是 `MethodDeclaration`。四档判据**全部落在这一格自己的属性、父单元与上下文标记上**
-（`name` / `modifiers` / `v.Parent` / `ctx.signature`）——没有一处回原文查。
+其余才是 `MethodDeclaration`。四档判据**全部落在这一格自己的属性与父单元上**
+（`name` / `modifiers` / `v.Parent`）——没有一处回原文查，也没有一处靠投影递进来的上下文标记。
 
 **回落到形状那一格是必须的**（不是「偷懒转手」）：算 kind 与造形状是同一件事的两半
 （`projectDeclaration` 里换 kind 之后立刻就是 `structuralProps` 与三处收尾），
@@ -1130,7 +1131,7 @@ throw new Error("找不到匹配的子单元");
   } else if (declaredModifiers.split(",").includes("set")) {
     kind = "SetAccessor";
   }
-  if (ctx.signature && kind === "MethodDeclaration") kind = "MethodSignature";
+  if (v.Parent?.IsSignatureList === true && kind === "MethodDeclaration") kind = "MethodSignature";
   // **形状交回共享实现**（第三格是这一格自己的造节点闭包、第四格是刚算出来的 kind）。
   return ctx.Declaration(v, undefined, ctx.Make(v), kind);
 ```

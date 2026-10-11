@@ -347,6 +347,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1055 轮：`ctx` 上最后一份上下文状态也收干净了——「接口 / 类型字面量里的成员」改由**容器自己答**（新增基类属性 `Token.IsSignatureList`，三页各自显式声明、构造时赋好）；**八道门全绿、读数一处没动**
+
+**一句话**：第 1054 轮把 `ctx.parentKind` 那一格删掉之后，`ctx` 上只剩**一份**「投影替单元记的
+状态」：`ctx.signature`。它设值的依据是**父单元的 kind 名**（`InterfaceDeclaration` / `TypeLiteral`），
+消费它的是三处——`Field` 投 `PropertySignature`、`MethodDeclaration` 投 `MethodSignature`、
+`projectDeclaration` 的签名那一支。也就是说：**判据本来就是「这一格的父单元是哪种成员表」**，
+只是被记成了投影自己的一份状态，而那一份状态还要靠 `try / finally` 的 save / restore
+才不会被嵌套的成员表覆盖（`projectEachIn` 里那一段）。
+
+- **量法**（`tmp/r1054/probe-signature.mjs`，1640 份用例语料）：把 `projectEachIn` 里
+  `signature` 的置位点、`projectDeclaration` 的读取点、`ArrayLiteralExpression` 那一支
+  各插一句计数，跑全语料投影。读数：
+  - `signature` 置位点共 **20 类 `parentKind`**（`FunctionDeclaration` 320 / `ArrowFunction` 216 /
+    `ClassDeclaration` 213 / …），其中**真正置 true 的只有两类**：
+    `InterfaceDeclaration`（170）与 `TypeLiteral`（84 + 7，后者 `parent.Tag` 是 `MappedType`）；
+  - `projectDeclaration` **真的读到** `ctx.signature` 时，`v.Tag` 只有两种：
+    `MethodDeclaration` 83、`TypeLiteral` 6 → 也就是**签名只影响这几格**；
+  - `parentKind === "ArrayLiteralExpression"` 那一支：**一次都没走**（数组字面量走的是
+    `projectArrayLiteral`，这一条是绑定位那条路的守卫）。
+- **收法**（用户口径：需要的信息在具体子类构造时就明确、新属性必须在具体类里显式声明）：
+  `core/syntax/token.xl.md` 新增基类属性 `## field IsSignatureList:bool = false`，
+  **三页各自显式声明并答 `true`**：`InterfaceBody` / `TypeLiteralBody`（那两页就是成员表本身）、
+  `MappedType`（它的值类型之后还能再跟成员，而那一批成员**挂在它自己下面**——
+  `ctx.MemberList(members, "TypeLiteral", v)` 的第三格递的就是它，第 1035 轮）。
+- **消费面改读父单元**：`field.xl.md` 的 `Field.PrintDirectAst`
+  （`v.Parent?.IsSignatureList === true ? "PropertySignature" : "PropertyDeclaration"`）、
+  `method-declaration.xl.md` 的 `PrintDirectAst`（同一个判据读 `MethodSignature`）、
+  `print-ast-common` 的 `projectDeclaration`（同一个判据）——三处读的都是**父单元那一格**。
+- **删掉的东西**：`ctx` 上那一格 `signature`、`projectEachIn` 里那段
+  `const signature = parentKind === …` 与它的一对 save / restore（整段），
+  以及三处 `ctx.signature` 读法。`Field` 那一页**不为自己存第二份**：它在类体与类型字面量体
+  **两处都会出现**，而「我在哪一种容器里」是**父单元的身份**——所以判据挂在父单元上，它只读一次。
+- **为什么这不是「行为变更」**：两条判据是同一句话——「父单元是签名表」。
+  探针把**所有**置位点都列了出来，置 true 的恰好是 `InterfaceDeclaration` / `TypeLiteral`
+  两类，而它们对应的容器就是 `InterfaceBody` / `TypeLiteralBody`（+ 把成员挂在自己身上的
+  `MappedType`）。八道门逐项与基线相同，包括逐字节比对的 `samples`。
+- **实测**：`xl build typescript core` 156 个产物 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 31.7s），读数逐项与基线相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+
 ### 第 1054 轮：`parentKind` 那一格上下文标记的**第二份存储删掉了**——「类体里的 `constructor`」改由父单元自己答（`ClassBody` 新增一格常量 `IsClassBody`，具体类显式声明、构造时赋好）；**八道门全绿、读数一处没动**
 
 **一句话**：第 1041~1053 轮一直在做同一件事——**某一页自己知道的事实，由那一页答**。

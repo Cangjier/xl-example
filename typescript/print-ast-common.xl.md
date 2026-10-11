@@ -75,7 +75,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 类型口径：树上的动态值（token、投影上下文）标 `any`——它们的形状由
 [`core/syntax/token.xl.md`](../core/syntax/token.xl.md) 里各页自己声明的那几格给出
 （`Token` 的那一批属性 + 每一页自己的段属性）；标量（`source` / `text` / 字段名 / 下标）按中立类型标。
-`ctx` 不另立 class：它的四个字段（`source` / `unmapped` / `count` / `signature`）在树里
+`ctx` 不另立 class：它的几个字段（`source` / `unmapped` / `count` / `direct` / …）在树里
 以 `ctx.source` 这种写法出现 30 多处，立 class 就要连名带点一起改——**那属于改写，不属于搬家**。
 
 叶子那张词汇表（数字字面量的写法 `NUMERIC_LITERAL`、`LeafKindOfText`）第 1029 轮搬到了
@@ -809,11 +809,13 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 （那条路会先问 `PrintDirectAst`，于是自己问自己）。所以把这一格抽出来，
 两条路**都调它**——同答就成了结构上的事实，而不是两处各写一遍再靠对拍发现漂移。
 
-**`parentKind` 是投影意义上的父 kind**（不是产物树里的父亲），它由 `projectEachIn` 在参数里递着：
-它现在决定的是**签名那一档**（`MethodSignature` / `PropertySignature`）。
-**类体里那个 `constructor` 第 1054 轮起改由父单元自己答**（`v.Parent.IsClassBody`，
-见 `class-body.xl.md`）——同一格事实过去在 `ctx.parentKind` 那个上下文标记里存了第二份，
-而那个标记还会被嵌套的成员表覆盖（save / restore 一对）；现在它整格删掉了。
+**`parentKind` 是投影意义上的父 kind**（不是产物树里的父亲），它由 `projectEachIn` 在参数里递着，
+**今天只喂一处**：`projectEachIn` 里 `ArrayLiteralExpression` 那一支（数组里的洞要补零宽的
+`OmittedExpression`）。**两档上下文第 1054 / 1055 轮都改由单元自己答**：
+类体里的 `constructor` 读 `v.Parent.IsClassBody`（见 `class-body.xl.md`）；
+接口 / 类型字面量里的成员读 `v.Parent.IsSignatureList`（见 `core/syntax/token.xl.md`）——
+所以 `ctx` 上那两格状态（`parentKind` / `signature`）**一格都不剩**，
+「谁在投它」这件事不再需要投影替单元记第二份。
 
 **`mk` 由调用方递进来**：它就是 `projectNode` 里那个「带着这一格坐标与尾部 trivia 剪裁」
 的造节点闭包（`astNode`），换一份写就是两份坐标口径。
@@ -832,7 +834,11 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // **签名那一支认的是 `v.type`、不是已经算出来的 `kind`**：声明族的 `PrintDirectAst` 会把
   // `kind` 一起递进来（`ctx.Declaration(v, kind)`），那时 `kind` 可能已经是 `Constructor`——
   // 而这一条说的是「这个产物标签在签名位叫什么」，判据本来就在标签上。
-  if (ctx.signature && v.Tag === "MethodDeclaration" && kind === "MethodDeclaration") kind = "MethodSignature";
+  // **「父单元是不是签名表」第 1055 轮改由父单元自己答**（`v.Parent.IsSignatureList`，
+  // 见 `core/syntax/token.xl.md`）：那三页（`InterfaceBody` / `TypeLiteralBody` / `MappedType`）
+  // 各自声明了这一格常量，投影不再维护 `ctx.signature` 那个上下文标记
+  //（它还要靠 save / restore 才不会被嵌套的成员表覆盖）。
+  if (v.Parent?.IsSignatureList === true && v.Tag === "MethodDeclaration" && kind === "MethodDeclaration") kind = "MethodSignature";
   // **表达式位的函数 / 类**（第 141 轮）：`(function () {…})()` / `const c = class {}` 在
   // TS 那边是 `FunctionExpression` / `ClassExpression`（带名字的也一样——`(function f(){})()`
   // 还是 `FunctionExpression`），而 `AstKind()` 给的是**声明**名。
@@ -1105,17 +1111,12 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     if (group.length > 0) flush(undefined);
     return out;
   }
-  const signature = parentKind === "InterfaceDeclaration" || parentKind === "TypeLiteral";
-  if (!signature) {
-    return projectEach(list, ctx, parentKind);
-  }
-  const saved = ctx.signature;
-  ctx.signature = true;
-  try {
-    return projectEach(list, ctx, parentKind);
-  } finally {
-    ctx.signature = saved;
-  }
+  // **类型容器的子单元按类型位投**（见下）之前，先摊平成员表那一步已经做完了。
+  // **`signature` 那一格上下文标记第 1055 轮删掉了**：要它的两处（`Field` 的
+  // `PropertySignature`、`MethodDeclaration` 的 `MethodSignature`，外加这一格自己的
+  // `TypeLiteral` 那一句）现在都读**父单元自己的 `IsSignatureList`**——
+  // 所以这一格不必再记住并还原一份状态。
+  return projectEach(list, ctx, parentKind);
 ```
 
 # private method projectEach:(list:Array<any>, ctx:any, parentKind:string)=>Array<any>
@@ -9397,9 +9398,9 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // （TS 的 `parseMappedType` 在值类型之后照样 `parseTypeMembers()`），而那一格住不进
     // 映射类型那一层的成员段（映射类型自己装的是「修饰词 / 键 / 值类型」那几格）⇒
     // 由它的 `PrintDirectAst` 把那一小段按成员位投一次。
-    // 实现与通用支那一支**共用同一份**（`projectEachIn`，`parentKind` 传 `"TypeLiteral"`：
-    // 那一格同时决定「成员之间不切」与 `ctx.signature`——`Field` 因此投成
-    // `PropertySignature` 而不是 `PropertyDeclaration`）。
+    // 实现与通用支那一支**共用同一份**（`projectEachIn`）。**第三格是「父单元」**：
+    // 成员读的 `IsSignatureList` 就在那一格上（`MappedType` 自己声明了它，第 1055 轮），
+    // 所以**父单元必须是真的那一格 token**，不是 `"TypeLiteral"` 这样一个 kind 名。
     MemberList: (list, parentKind, view) => projectEachIn(list, ctx, parentKind, view),
     KidsOf: (node, key) => kidsOf(node, key),
     NamedSpecifiers: (brace, kind) => namedSpecifiersOf(brace, kind, ctx),
@@ -9452,10 +9453,10 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // （见 `method-declaration.xl.md` 的 `PrintDirectAst`），而换 kind 的规则只在
     // `projectDeclaration` 里有一份——所以递进来之后那几条规则**照跑**，
     // 两边对同一种上下文因此不可能给出两个答案。
-    // **第二个参数保留了**（`parentKind`）：它还喂着 `signature` 与
-    // `ArrayLiteralExpression` 那两格上下文；`?? ctx.parentKind` 那一格退路
-    // **第 1054 轮随「构造那一格改由 `ClassBody` 自己答」一起删掉了**——
-    // 类体里那条 `constructor` 现在读 `v.Parent.IsClassBody`，投影不再维护那一份状态。
+    // **第二个参数保留了**（`parentKind`）：它还喂着 `ArrayLiteralExpression` 那一格上下文；
+    // `?? ctx.parentKind` 那一格退路 **第 1054 轮随「构造那一格改由 `ClassBody` 自己答」
+    // 一起删掉了**——类体里那条 `constructor` 现在读 `v.Parent.IsClassBody`，
+    // 签名那一档第 1055 轮又改读 `v.Parent.IsSignatureList`，投影不再维护那两份状态。
     Declaration: (view, parentKind, make, kind) =>
       projectDeclaration(view, ctx, parentKind, make ?? ctx.Make(view), kind),
     IsTypeParameterModifier: (node) => isTypeParameterModifier(node),

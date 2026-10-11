@@ -159,6 +159,19 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
   return ctx.NodeHead("MappedType", props, v);
 ```
 
+## field IsSignatureList:bool = true
+
+**我这一层装的是「成员签名表」**（第 1055 轮）：映射类型的值类型**之后**还能再跟成员
+（TS 的 `parseMappedType` 在值类型之后照样 `parseTypeMembers()`），而那一批成员在目标语言那边
+就是 `PropertySignature` / `MethodSignature`——与类体里的同名成员是两种 kind。
+
+本页的 `PrintDirectAst` 把那一批成员按成员位投一次，**第三格递的就是本页自己**
+（`ctx.MemberList(members, "TypeLiteral", v)`：那一格是「父单元」，第 1035 轮），
+所以成员读 `v.Parent.IsSignatureList` 时读到的就是这一格——它是**这一层的身份**，
+由本页答而不是由投影递一个 kind 名进来。
+
+只有这一种落法，所以这是一格**常量**：构造时就赋好，与 `WrapperField` 同一形态、同一理由。
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，然后把**语句队列**装进自己的规则队列——映射类型的内容是散单元

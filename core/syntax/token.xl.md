@@ -1200,6 +1200,30 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 ——所以基类这一格默认 `false`，需要它的 token **在自己那一页显式声明同一个属性**并给出自己的值
 （`## field`，构造时赋值）。投影只按属性名读一次，不问「有没有这一格」。
 
+## field IsSignatureList:bool = false
+
+**我这一层装的是不是「成员签名表」**（第 1055 轮）——是的话答 `true`。
+
+它只服务一格判据：同一套产物标签在**两类容器**里叫两种名字——接口 / 类型字面量里的成员是
+`PropertySignature` / `MethodSignature`，而类体里的同名成员是 `PropertyDeclaration` /
+`MethodDeclaration`。过去这件事由投影层的一个上下文标记（`ctx.signature`）记着，
+而它设值的依据是**父单元的 kind 名**（`InterfaceDeclaration` / `TypeLiteral`）——
+也就是说：**判据本来就是「这一格的父单元是哪种成员表」**，只是被记成了一份投影自己的状态，
+而且那一份状态还要靠 save / restore 才不会被嵌套的成员表覆盖。
+
+第 1055 轮起由**容器自己答**：`InterfaceBody` / `TypeLiteralBody` 这两页
+（以及把成员挂在自身上面的 `MappedType`）**显式声明这一格并答 `true`**，
+类体 / 枚举体不声明（基类默认 `false`）；成员那一侧读的是**自己的父单元**
+（`v.Parent.IsSignatureList`，见 `field.xl.md` 与 `method-declaration.xl.md`）。
+
+**为什么读父单元而不是自己记**：`Field` 这一页**两处都会出现**（类体与类型字面量体），
+而「我在哪一种容器里」是**父单元的身份**，不是它自己的——所以判据放在父单元那一格上，
+`Field` 只读一次，不为自己存第二份。
+
+**这一格是属性、不是方法**（与 `IsSignatureNode` / `IsMemberList` 同一形态）：它是
+**构造时就定下来的一格数据**——所以基类默认 `false`，需要它的 token 在自己那一页
+**显式声明同一个属性**并给出自己的值（`## field`，构造时赋值）。
+
 ## method Clone:()=>Token
 
 克隆自身。

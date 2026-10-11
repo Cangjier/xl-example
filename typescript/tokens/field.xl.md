@@ -801,7 +801,12 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     merged.sort((a: any, b: any) => (a.pos ?? 0) - (b.pos ?? 0));
     props.modifiers = merged;
   }
-  const kind = ctx.signature ? "PropertySignature" : "PropertyDeclaration";
+  // **`PropertySignature` 还是 `PropertyDeclaration` 问父单元自己**（第 1055 轮）：
+  // 判据是「我这一层的父单元是不是签名表」——`InterfaceBody` / `TypeLiteralBody` /
+  // `MappedType` 三页各自声明了 `IsSignatureList`（构造时就赋好的一格常量），
+  // 所以这里读的是**父单元那一格**，不再读投影递过来的 `ctx.signature`
+  //（同一格事实的第二处存储，而且那一份还要靠 save / restore 才不被嵌套成员表覆盖）。
+  const kind = v.Parent?.IsSignatureList === true ? "PropertySignature" : "PropertyDeclaration";
   return ctx.NodeHead(kind, props, v);
 ```
 

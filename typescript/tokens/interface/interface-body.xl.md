@@ -41,6 +41,20 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 只有这一种落法，所以这是一格**常量**：第 1045 轮从 `## method WrapperField()` 改成 `## field`，
 构造时就赋好，投影只读属性。
 
+## field IsSignatureList:bool = true
+
+**我这一层装的是「成员签名表」**（第 1055 轮）：接口成员在目标语言那边叫
+`PropertySignature` / `MethodSignature` / `IndexSignatureDeclaration`，与类体里的同名成员
+（`PropertyDeclaration` / `MethodDeclaration`）是**两种 kind**。
+
+过去这件事由投影层的一个上下文标记（`ctx.signature`）记着，而它设值的依据是**父单元的 kind 名**
+——也就是说：「这一格的父单元是不是签名表」本来就是我这一层自己的身份。所以改由本页答，
+成员那一侧读自己的父单元（`v.Parent.IsSignatureList`，见 `field.xl.md` 与
+`method-declaration.xl.md`），投影不再为它维护一份会漂的状态。
+
+只有这一种落法，所以这是一格**常量**：构造时就赋好，与 `WrapperField` / `IsMemberList`
+同一形态、同一理由。
+
 ## constructor:(template:Template)=>void
 
 创建后立刻做两件事：挂**成员列表**的跳转队列、挂**语句**规则队列。
