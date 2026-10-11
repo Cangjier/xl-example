@@ -388,7 +388,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 | 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
 | --- | --- | --- |
 | `isDeclareWord(k)`（**1 格局部闭包、2 处读者**：`ctx.HeadDeclare` 找「名字那一格」与「列表的起点」那两趟都拿它滤一遍）——`const text = k.TextValue; return text === "const" \|\| text === "let" \|\| text === "var" \|\| text === "using";` | `k.IsDeclareWord` | 基类 `Token` 给 `## field … = false`；`Keyword` 在 `SetValue` 里认 keyword 那一态的三个词（`const` / `let` / `var`）、`Identifier` 在 `Close` 里认 `using`（**不是本工程的关键字，多半就停在 `Identifier` 上**）——与 `IsAsKeyword` / `IsTypeKeyword` / `IsExportKeyword` 同一形态、同一条口径 |
-| `isPatternKid(k)`（**1 格局部闭包、2 处读者**：同一格函数里选名字那一趟与分派 `nameOf` / `projectBindingPattern` 那一趟）——`k.IsBindingPattern \|\| k.IsIndexBracket \|\| k.IsBraceBracket` | `k.IsPatternKid` | 基类 `Token` 给 `## field … = false`；`ArrayLiteral` / `ObjectLiteral` **显式声明** `## field … = true`（类名就是这一格事实，与同页 `IsBindingPattern` 同款）；`Bracket` 在 `Use` 记下 `startBracket` 那一刻赋好（`this.IsIndexBracket \|\| this.IsBraceBracket`，克隆体在 `Clone` 里抄同一格） |
+| `isPatternKid(k)`（**1 格局部闭包、2 处读者**：同一格函数里选名字那一趟与分派 `NameNode` / `projectBindingPattern` 那一趟）——`k.IsBindingPattern \|\| k.IsIndexBracket \|\| k.IsBraceBracket` | `k.IsPatternKid` | 基类 `Token` 给 `## field … = false`；`ArrayLiteral` / `ObjectLiteral` **显式声明** `## field … = true`（类名就是这一格事实，与同页 `IsBindingPattern` 同款）；`Bracket` 在 `Use` 记下 `startBracket` 那一刻赋好（`this.IsIndexBracket \|\| this.IsBraceBracket`，克隆体在 `Clone` 里抄同一格） |
 
 - **为什么第二问不能读 `IsBindingPattern`**：那一格（第 1074 轮）问的是「我**这一类**
   是不是绑定模式」，可 `for (const [a] of xs)` 里那个 `[` 还**没有**被收成 `ArrayLiteral`
@@ -670,7 +670,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `operatorTokenOf(unit, ctx)` 各写回代码块一处，这一门 **0 → 2 处**、退出码 1；
 源文件逐字节还原后回到 0 处。
 **第 1105 轮合掉的是一对「同形不同 kind」的格**：`qualifiedNameFrom`（16 行）与
-`dottedExpression`（17 行）的算式逐行相同（`nameOf(names[0])` + 一个从 `i = 1` 起的循环 +
+`dottedExpression`（17 行）的算式逐行相同（`names[0].NameNode` + 一个从 `i = 1` 起的循环 +
 `pos: node.pos` / `end: right.end`），差别只有节点 `kind` 与两个字段名（`left`/`right`
 对 `expression`/`name`）——所以留一格、多一个 `kindOf` 形参，`ctx.QualifiedNameFrom` 那一条
 出口与两个调用点一个字不动，本页少一格声明。
@@ -1153,7 +1153,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   `!== null`，判据一个字没动）。
 - **两处「一格声明、一个读者」第 1070 轮当时没动**，第 1080 轮按同一把尺子收掉了：
   `specifierNameOf`（两个调用点都在 `namedSpecifiersOf` 的 `flush` 里，而且它承载的是
-  「引号名 → `StringLiteral`、其余 → `nameOf`」这一条）与
+  「引号名 → `StringLiteral`、其余 → `NameNode`」这一条）与
   `typeMemberGroups`（一个读者 `projectEachIn`）**都已就地展开**——展开的是算式，
   判据仍由被问的那一页答（`Token.TypeMemberPlan`），原记录留在各自那一节的记账里。
 - **`StatementOfList` 与 `SwitchClause` 留着**：它们各自有本页之外的读者
@@ -3622,7 +3622,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // **注释是 trivia，不进表达式**（第 143 轮）：段里常夹着一整行注释——
   //
   //     ? // **数字键是 `NumericLiteral`**
-  //       NUMERIC_LITERAL.test(…) ? { … } : nameOf(…)
+  //       NUMERIC_LITERAL.test(…) ? { … } : nameUnits[0].NameNode
   //
   // 不过滤的话这一串会以注释打头，通用支把它投成一个 `LineAnnotation` 节点、
   // 后面真正的表达式整段丢掉（实测 `dist/ts/typescript/ts-ast.ts` 缺 15 / 多出 3）。
@@ -4403,7 +4403,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     const inner = headIsBinary && firstName !== undefined ? [firstName] : namedKids;
     let meta: any = {
       kind: "MetaProperty",
-      name: nameOf(inner[0]),
+      name: inner[0].NameNode,
       pos: startOf(kids[0]),
       end: endOf(inner[0]),
     };
@@ -4414,7 +4414,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       meta = {
         kind: "PropertyAccessExpression",
         expression: meta,
-        name: nameOf(member),
+        name: member.NameNode,
         pos: meta.pos,
         end: endOf(member),
       };
@@ -4432,7 +4432,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       meta = {
         kind: "PropertyAccessExpression",
         expression: meta,
-        name: nameOf(member),
+        name: member.NameNode,
         pos: meta.pos,
         end: endOf(member),
       };
@@ -5507,7 +5507,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // **点号后面那一格是一个二元单元**（第 125 轮）：`(a.pos ?? 0)` 的产物把
       // `a.pos ?? 0` 平铺成 `[a, ., BinaryOperator(pos, ??, 0)]`——那个 `BinaryOperator`
       // 的**第一个孩子才是成员名**，其余才是运算符与右操作数。不摊开的话下面
-      // `nameOf(next)` 会把整段 `pos ?? 0` 当成名字（投出一个盖住整段的 `Identifier`），
+      // `next.NameNode` 会把整段 `pos ?? 0` 当成名字（投出一个盖住整段的 `Identifier`），
       // `PropertyAccessExpression` / `QuestionQuestionToken` / `NumericLiteral` 全丢
       // （实测 `dist/ts/typescript/ts-ast.ts` 与 `lib.es5.d.ts` 成片）。
       if (
@@ -6112,7 +6112,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             left = {
               kind: "PropertyAccessExpression",
               expression: left,
-              name: nameOf(piece),
+              name: piece.NameNode,
               pos: left.pos,
               end: endOf(piece),
             };
@@ -6227,7 +6227,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // `[…, NotNull(Get…!), ., NotNull(PropertyAccess(SourceRange.Start))]`——第二个 `!`
       // 的单元里**装着一段点号链**，而那个 `!` 在 TS 那边套住的是**整条链**
       // （`NonNullExpression > PropertyAccessExpression > PropertyAccessExpression > …`）。
-      // 照下面那一支会把它当成一个成员名（`nameOf` 取到整段原文），于是
+      // 照下面那一支会把它当成一个成员名（读 `NameNode` 会取到整段原文），于是
       // `Identifier` / `PropertyAccessExpression` / `NonNullExpression` 三处同时错位
       // （实测漂移 76 + 30 + 33、多出 71 + 75）。
       if (next.IsNotNull) {
@@ -6241,7 +6241,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             left = {
               kind: "PropertyAccessExpression",
               expression: left,
-              name: nameOf(members[0]),
+              name: members[0].NameNode,
               pos: left.pos,
               end: endOf(members[0]),
             };
@@ -6250,7 +6250,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               left = {
                 kind: "PropertyAccessExpression",
                 expression: left,
-                name: nameOf(members[j + 1]),
+                name: members[j + 1].NameNode,
                 pos: left.pos,
                 end: endOf(members[j + 1]),
               };
@@ -6260,7 +6260,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           left = {
             kind: "PropertyAccessExpression",
             expression: left,
-            name: nameOf(target),
+            name: target.NameNode,
             pos: left.pos,
             end: endOf(target),
           };
@@ -6275,7 +6275,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       left = {
         kind: "PropertyAccessExpression",
         expression: left,
-        name: nameOf(next),
+        name: next.NameNode,
         pos: left.pos,
         end: endOf(next),
       };
@@ -6501,7 +6501,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   let node: any;
   // **断言里那一格是一个下标括号**（第 966 轮）：`a?.['b']!` 的 NCO 内容是
   // `NotNull([Bracket(['b']), !])`——名称位拿到的是**一对方括号**，而不是一个名字。
-  // 照下面那条通用支走会 `nameOf(那对括号)` ⇒ 投出一个文本是 `['b']` 的 `Identifier`
+  // 照下面那条通用支走会拿那对括号去读 `NameNode` ⇒ 投出一个文本是 `['b']` 的 `Identifier`
   //（实测 `gap-r964-opt-index-assert-member`：缺 `ElementAccessExpression` / `StringLiteral`、
   //  多一格名叫 `['b']` 的属性访问）。**那一格是下标**：与 `chainOnto` 里
   // `Bracket(startBracket="[")` 那一支**是同一件事**——先建 `ElementAccessExpression`，
@@ -6552,7 +6552,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       const one: any = {
         kind: "PropertyAccessExpression",
         expression: cur,
-        name: nameOf(member),
+        name: member.NameNode,
         pos: cur.pos,
         end: endOf(member),
       };
@@ -6581,7 +6581,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     node = {
       kind: "PropertyAccessExpression",
       expression: left,
-      name: nameOf(nameUnit),
+      name: nameUnit.NameNode,
       pos: left.pos,
       end: endOf(nameUnit),
     };
@@ -6996,7 +6996,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       const member: any = {
         kind: "PropertyAccessExpression",
         expression: left,
-        name: nameOf(tagName),
+        name: tagName.NameNode,
         pos: left.pos,
         end: endOf(tagName),
       };
@@ -7048,7 +7048,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // **子链里夹着一格「名字 + `!`」**（第 966 轮）：`a?.b!.c` 的 NCO 内容是
       // `[NotNull(b), ., PropertyAccess([c])]`——`!` 与 `b` 在**同一格**里，而它要盖的是
       // **接上 `b` 之后**那一条链（TS：`PropertyAccess(NonNull(PropertyAccess(a?.b)), c)`）。
-      // 不走这一支的话，下面三条都不认 `NotNull` ⇒ 落到通用支 ⇒ `nameOf` 把「名字 + `!`」
+      // 不走这一支的话，下面三条都不认 `NotNull` ⇒ 落到通用支 ⇒ 读 `NameNode` 会把「名字 + `!`」
       // 当成一个名字（`Identifier` 的值成了 `"b!"`）⇒ 缺 `NonNullExpression`、
       // 多一格属性访问（实测 `gap-r964-opt-assert-member-member` 的漂移正是它）。
       // 折法与 `chainOnto` 的子链分支**一字不差**：先接成员（`?.` 挂在**内层**那一格），
@@ -7062,7 +7062,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           const holder: any = {
             kind: "PropertyAccessExpression",
             expression: node,
-            name: nameOf(innerName),
+            name: innerName.NameNode,
             pos: node.pos,
             end: endOf(innerName),
           };
@@ -7196,7 +7196,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       } else if (member.IsIndexBracket) {
         // **下标括号也是链上的一格**（第 962 轮）：`o?.m()[0]` 的 NCO 里那一格是
         // `PropertyAccess([Method(m), Bracket([0])])`——`[0]` 与成员名**平级**。
-        // 落到下面那条通用支会被 `nameOf` 当成**一个名字**（实测投出名叫 `"[0]"` 的
+        // 落到下面那条通用支会把那一格当成**一个名字**（实测投出名叫 `"[0]"` 的
         // `Identifier` ⇒ 缺 `ElementAccessExpression` 与 `NumericLiteral`、多一格属性访问）。
         // 收法与 `chainOnto` 里那一支**一字不差**：同一形状、同一个判据，不写第二份。
         const element: any = {
@@ -7212,7 +7212,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const step = {
           kind: "PropertyAccessExpression",
           expression: node,
-          name: nameOf(member),
+          name: member.NameNode,
           pos: node.pos,
           end: endOf(member),
         };
@@ -7235,12 +7235,12 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // **成员名一律是 `Identifier`**（第 175 轮）：`a?.import` 里那个 `import` 在产物中是
   // `Keyword`，照通用支投会得到 `ImportKeyword`，而 TS 那边点号后面一律是**属性名**
   // （实测 `expr-member-named-import-optional.ts`：缺 `Identifier` + 多出 `ImportKeyword`）。
-  // 与第 125 轮「成员名不期待操作数」同源，`nameOf` 本来就是这条口径。
+  // 与第 125 轮「成员名不期待操作数」同源，读 `NameNode` 本来就是这条口径。
   const name =
     first === undefined
       ? undefined
       : first.IsNameNode
-        ? nameOf(first)
+        ? first.NameNode
         : projectNode(first, ctx);
   const access = {
     kind: "PropertyAccessExpression",
@@ -7553,7 +7553,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // `[NotNull(a), ., NotNull(b)]`——那个 `!` 与成员名**在同一格里**
     //（token 层把「名字 + 非空断言」折成了一个 `NotNull`）。
     // **不拆开的话**：下面那三支都不认 `NotNull` ⇒ 落到最后那个 `else` ⇒
-    // `nameOf(NotNull)` 把整段「名字 + `!`」当成**一个名字**
+    // 读 `NotNull.NameNode` 会把整段「名字 + `!`」当成**一个名字**
     //（实测：多出一个 `Identifier` 值叫 `"b!"`、`NonNullExpression` 与
     // `PropertyAccessExpression` 各漂 2），运行期于是给 `undefined`
     //（`+ 1` 变成 `NaN`——**静默错值**，判据 `c305-ex-optional-chain-nonnull-mix`）。
@@ -7676,7 +7676,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           left = {
             kind: "PropertyAccessExpression",
             expression: left,
-            name: nameOf(members[j + 1]),
+            name: members[j + 1].NameNode,
             pos: left.pos,
             end: endOf(members[j + 1]),
           };
@@ -7704,7 +7704,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           left = {
             kind: "PropertyAccessExpression",
             expression: left,
-            name: nameOf(member),
+            name: member.NameNode,
             pos: left.pos,
             end: endOf(member),
           };
@@ -7812,7 +7812,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       left = {
         kind: "PropertyAccessExpression",
         expression: left,
-        name: nameOf(next),
+        name: next.NameNode,
         pos: left.pos,
         end: endOf(next),
       };
@@ -8342,7 +8342,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // 降级层随后把**绑定的名字**当成键（`{ "x": a }` 读成了 `{ a }`）
         // ⇒ `const { "x": a } = { x: 9 }` **静默给 `undefined`**（JS 给 `9`）。
         // 取法与 `specifierNameOf` 那条**一字不差**：引号名给 `StringLiteral`
-        //（`text` 是引号里那段），其余走 `nameOf`——键的取法本来就只有这一种。
+        //（`text` 是引号里那段），其余读 `NameNode`——键的取法本来就只有这一种。
         // 位置与文本都直接问这一格单元自己（`startOf` / `endOf` / `StringText` 收的就是 token）。
         const quotedBefore = kids.find(
           (k) =>
@@ -8357,7 +8357,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             ctx,
           );
         } else if (before !== undefined) {
-          props.propertyName = nameOf(before);
+          props.propertyName = before.NameNode;
         }
       }
       // **冒号右边那一格**才是绑定名 / 嵌套模式；`[k2]: { a }` 里冒号**左边**那个
@@ -8371,12 +8371,12 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         props.name = projectBindingPattern(afterPattern, ctx);
       } else {
         const after = names.find((k) => startOf(k) > startOf(kids[colonIndex]));
-        if (after !== undefined) props.name = nameOf(after);
+        if (after !== undefined) props.name = after.NameNode;
       }
     } else if (patternKid !== undefined) {
       props.name = projectBindingPattern(patternKid, ctx);
     } else if (names.length > 0) {
-      props.name = nameOf(names[0]);
+      props.name = names[0].NameNode;
     }
     if (eqIndex >= 0 && eqIndex + 1 < kids.length) {
       // **默认值不只是一格**（第 135 轮）：`[c, d = 2] = []` 里那个默认值是**一对括号**
@@ -8440,29 +8440,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     if (i < commaAts.length) cursor = commaAts[i] + 1;
   }
   return { kind, elements, pos: v.start, end: stmtEndOf(v, ctx) };
-```
-
-# private method nameOf:(node:any)=>string
-
-**一个名字单元 → `Identifier` 节点**（第 4463 行这一格是 `ctx.NameOf` 的实现，
-对象字面量的键、限定名的右半、类型引用的名字都走它）。
-
-**第 1130 轮起这一格只服务本页那两个内部调用点**：出口 `ctx.NameOf` 删掉了，
-`Identifier` 与 `Keyword` 两页各自显式声明了同一格 `## property NameNode`
-（读自己的 `TextValue` 与 `start`，口径与下面这一格逐字符相同），
-本页之外那五个读者改成读 `unit.NameNode`。
-
-**位置用原文、`text` 用解开的**（第 382 轮）：`{ \u0061: 1 }` 那个键在源码里占
-**6 个字符**（`end` 要按它算），而它的**名字**是 `a`（TS 的 AST `text` 也是 `a`）。
-**这一格第 381 轮漏了**——那时候改的是 `Identifier.PrintDirectAst`（**子单元**那条路）
-与投影读**属性**那三处，而对象字面量这一支是**自己拿文本合一个节点**的
-（`ctx.NameOf(nameUnits[0])`），压根不经过前两条 ⇒
-`Object.keys({ \u0061: 1 })` 给 `["\u0061"]`、`x.a` 给 `undefined`（**静默错值**）。
-
-```ts
-  const text = node.TextValue;
-  const at = startOf(node);
-  return { kind: "Identifier", text: Translate.DecodeIdentifierEscapes(text), pos: at, end: at + text.length };
 ```
 
 # private method functionTypeProps:(kids:Array<any>, ctx:any)=>any
@@ -8787,7 +8764,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     const query = projectNode(list[0], ctx);
     const tail = list.filter((k, i) => i >= 2 && k.IsNameNode);
     // **`head` 已经是投好的节点**（`query.exprName`），而 `dottedExpression(…, "QualifiedName")`
-    // 吃的是**单元**（它自己会调 `nameOf`）——所以这里手工往右套（踩过一次：把投好的节点喂给
+    // 吃的是**单元**（它自己答 `NameNode`）——所以这里手工往右套（踩过一次：把投好的节点喂给
     // 那一格会 `node.get is not a function`）。
     // `query.exprName` 已经是**投好的节点**（不是单元）——判它看 `kind`，
     // 不能拿 `IsNameNode` 去问（那个判据吃的是别的接收者；踩过一次：会 `node.get is not a function`）。
@@ -8797,7 +8774,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
         ? head
         : undefined;
     for (const k of tail) {
-      const right = nameOf(k);
+      const right = k.NameNode;
       name =
         name === undefined
           ? right
@@ -8918,7 +8895,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     if (rightUnit !== undefined) {
       const text = head.TextValue;
       const leftName = { kind: "Identifier", text, pos: startOf(head), end: endOf(head) };
-      const right = nameOf(rightUnit);
+      const right = rightUnit.NameNode;
       const typeName = { kind: "QualifiedName", left: leftName, right, pos: leftName.pos, end: right.end };
       const node = {
         kind: "IndexedAccessType",
@@ -9034,7 +9011,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
         next.IsArrayType ? next.ProjectableKids.filter((k) => k.IsNameNode) : null;
       const nameUnit = innerNames !== null && innerNames.length === 1 ? innerNames[0] : next;
       if (!nameUnit.IsNameNode) break;
-      const right = nameOf(nameUnit);
+      const right = nameUnit.NameNode;
       typeName = { kind: "QualifiedName", left: typeName, right, pos: typeName.pos, end: right.end };
       end = right.end;
       i += 2;
@@ -9412,13 +9389,13 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     );
     // **段尾那一格的名字节点**（第 1080 轮就地展开，原 `specifierNameOf`，它只有这两个调用点）：
     // 引号名（`import { "a-b" as c }`）给 `StringLiteral`（`text` 是引号里那段，位置含引号），
-    // 其余走 `nameOf`（`Identifier`）。**这一格的正文由它自己答**（第 1061 轮）：
+    // 其余读 `NameNode`（`Identifier`）。**这一格的正文由它自己答**（第 1061 轮）：
     // `unit.StringText` 是那一页自己的属性。
     const lastName = body[body.length - 1];
     const name =
       lastName.IsStringLiteralUnit
         ? astNode("StringLiteral", { text: lastName.StringText }, lastName, ctx)
-        : nameOf(lastName);
+        : lastName.NameNode;
     if (asAt > 0) {
       const firstName = body[asAt - 1];
       out.push({
@@ -9426,7 +9403,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         propertyName:
           firstName.IsStringLiteralUnit
             ? astNode("StringLiteral", { text: firstName.StringText }, firstName, ctx)
-            : nameOf(firstName),
+            : firstName.NameNode,
         name,
         pos,
         end,
@@ -9480,7 +9457,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 `dottedExpression` / `qualifiedNameFrom` 是同一份实现抄了两遍；第 1105 轮把后者并进前者，
 按 `kindOf` 分派出 `PropertyAccessExpression` / `QualifiedName` 两种节点）。
 
-**为什么要合**：两格的算式逐行相同（`let node = nameOf(names[0])` + 一个从 `i = 1` 起的循环 +
+**为什么要合**：两格的算式逐行相同（`let node = names[0].NameNode` + 一个从 `i = 1` 起的循环 +
 `pos: node.pos` / `end: right.end`），差别只有 `kind` 与两个字段名——
 而它们**本来就是一问的两面**：「这一串名字该折成哪一种点号链」。所以留一格、按 `kind` 分派。
 
@@ -9494,9 +9471,9 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 
 ```ts
   const kind = kindOf ?? "PropertyAccessExpression";
-  let node = nameOf(names[0]);
+  let node = names[0].NameNode;
   for (let i = 1; i < names.length; i++) {
-    const right = nameOf(names[i]);
+    const right = names[i].NameNode;
     node = kind === "QualifiedName"
       ? { kind, left: node, right, pos: node.pos, end: right.end }
       : { kind, expression: node, name: right, pos: node.pos, end: right.end };
@@ -9697,7 +9674,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
           .find((k: any) => k.IsStringLiteralUnit);
         elements.push({
           kind: "AssertEntry",
-          name: nameOf(nameUnit),
+          name: nameUnit.NameNode,
           value: valueUnit === undefined ? undefined : projectNode(valueUnit, ctx),
           pos: startOf(nameUnit),
           end: valueUnit === undefined ? endOf(nameUnit) : endOf(valueUnit),
@@ -10291,7 +10268,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // （能当一个名字的就是那两页，`IsNameNode`，第 1057 轮）：
     // 本页那五处外部读者（`import-type` / `import` / `object-literal` /
     // `lamda-parameter` / `type-operator`）改成读 `unit.NameNode`。
-    // 本页自己的两处仍直接调 `nameOf`（模块内函数调用，不经出口）。
+    // 第 1131 轮把本页那两处也改成了属性读、并把这个 helper 整格删掉——同一格事实今天只有一个入口（`Identifier` / `Keyword` 两页的 `NameNode`）。
     // 出口删了，同一格事实就不会有第二个入口；名字补进 `direct:lint` 的 `CTX_BANNED`
     // （写回来这一门当场红）。
     // **`TextOf` 这个出口第 1071 轮删掉了**（它原来就挂在这里）：本页那一格
@@ -10410,7 +10387,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // `for (let i = 0; …)` 一样**直接就是 `VariableDeclarationList`**（不套 `VariableStatement`），
     // 而产物在这一档里**没有 `Let`**（`of` / `in` 不进 `LetBranch`），声明段一直是
     // `[Keyword(const), Identifier(v)]` **两格平铺**。名字那一格是**唯一**一个名字单元 /
-    // 模式括号（`for (const [a, b] of xs)`），按形态分派给 `nameOf` / `projectBindingPattern`；
+    // 模式括号（`for (const [a, b] of xs)`），按形态分派给 `NameNode` / `projectBindingPattern`；
     // 列表的标志位从头顶那个词读。名字那一格的判据与 `IsNameNode` 同一条（第 598 轮），
     // 名字那一格**一律投 `Identifier`**：绑定名按定义就是一个标识符。
     HeadDeclare: (list) => {
@@ -10437,7 +10414,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         }
       }
       if (nameKid === undefined) return undefined;
-      const declared = nameKid.IsPatternKid ? projectBindingPattern(nameKid, ctx) : nameOf(nameKid);
+      const declared = nameKid.IsPatternKid ? projectBindingPattern(nameKid, ctx) : nameKid.NameNode;
       // **列表的起点是那个声明词**、不是段里的第一格：`for await (const v of xs)` 的段里
       // `await` 排在 `const` 前面（TS 那边它是 `ForOfStatement.awaitModifier`、
       // 不是列表的一部分）——**所以这个声明词要从后往前找**（第 546 轮）。
