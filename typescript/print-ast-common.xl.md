@@ -3013,7 +3013,7 @@ new Set([
     //  `Identifier` 各漂，`a?.b!.c.d` 被投成 `a?.b!.c`）。
     // 判据与链那一支同款：**下一格是点号 / 下标 / 以调用开头** ⇒ 交给 `chainOnto`
     //（它与「点号后面那一格」那几支是同一份实现），其余原样走二元那一支。
-    if (kids[at].IsDotSymbol || isIndexBracket(kids[at]) || isCallFirstUnit(kids[at], ctx)) {
+    if (kids[at].IsDotSymbol || kids[at].IsIndexBracket || isCallFirstUnit(kids[at], ctx)) {
       return chainOnto(optional, kids.slice(at), ctx);
     }
     return foldBinaryFrom(optional, kids.slice(at), ctx);
@@ -3740,7 +3740,7 @@ new Set([
   };
   if (
     kids.length >= 2 &&
-    (isSymbol(kids[1], ".") || isIndexBracket(kids[1]) ||
+    (isSymbol(kids[1], ".") || kids[1].IsIndexBracket ||
       (kids[0].Tag === "NotNull" && kids[1].Tag === "ArrayLiteral") ||
       // **`!` 后面那一格以一次下标开头**（第 333 轮）：`[1]!` 与 `[0].id`
       // 两种外壳（`NotNull` / `PropertyAccess`）都要认——判据与理由见
@@ -4049,7 +4049,7 @@ new Set([
       // 那一段）：`o.b![1]` 里那个 `[1]` 是按**数组字面量**成形的，
       // 而它在**链上**（前一格是 `NotNull`）就只能是下标——
       // 数组字面量不会紧跟在表达式后面出现（`o.b [1]` 在 JS 里就是 `o.b[1]`）。
-      const indexLike = isIndexBracket(ck[i]) ||
+      const indexLike = ck[i].IsIndexBracket ||
         (ck[i].Tag === "ArrayLiteral" && sawNullAssert);
       if (indexLike) {
         const argument = projectExpression(projectableKids((ck[i])), ctx);
@@ -4755,7 +4755,7 @@ new Set([
   // （没有操作数的由 `json/array-literal.xl.md` 收成 `ArrayLiteral`，到不了这里；
   // 类型位的 `T[K]` 是 `IndexedAccessType` 单元，也到不了这里）。
   // 递归写法顺带覆盖 `a[i][j]` 与 `f(a)[0]`：先折前面那段，再套一层。
-  if (kids.length >= 2 && isIndexBracket(kids[kids.length - 1])) {
+  if (kids.length >= 2 && kids[kids.length - 1].IsIndexBracket) {
     const bracket = kids[kids.length - 1];
     const base = projectExpression(kids.slice(0, kids.length - 1), ctx);
     const argument = projectExpression(projectableKids((bracket)), ctx);
@@ -4893,7 +4893,7 @@ return (
 
 ```ts
 const kind = unit.Tag;
-if (kind === "ArrayLiteral" || isIndexBracket(unit)) return true;
+if (kind === "ArrayLiteral" || unit.IsIndexBracket) return true;
 if (kind === "NotNull" || kind === "PropertyAccess") {
   const inner = projectableKids((unit));
   if (inner.length >= 1) return isIndexFirstUnit(inner[0], ctx);
@@ -5848,7 +5848,7 @@ return false;
       i += 1;
       continue;
     }
-    if (isIndexBracket(unit)) {
+    if (unit.IsIndexBracket) {
       const argument = projectExpression(projectableKids((unit)), ctx);
       left = {
         kind: "ElementAccessExpression",
@@ -6803,17 +6803,13 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   };
 ```
 
-# private method isIndexBracket:(node:any)=>bool
-
-**值位下标访问的那对方括号**：`a[i]` 的 `[` 括号单元。
-
-判据只有「是不是 `[` 括号」——值位里前面有操作数的 `[` 就是下标（见 `projectExpression`
+**「值位下标访问的那对方括号」这一问第 1058 轮回了它自己的那一页**：判据过去是本文件的
+一个 helper（`node.Tag === "Bracket" && node.startBracket === "["`），今天读 `node.IsIndexBracket`
+——那一格在 `typescript/tokens/bracket.xl.md` 里**显式声明**、在 `Use` 记下 `startBracket`
+的那一趟一起赋好（克隆体在 `Clone` 里抄同一格），与 `EndsOnBrace` / `WrapperField` 同一形态。
+**判据只有「是不是 `[` 括号」**：值位里前面有操作数的 `[` 就是下标（见 `projectExpression`
 那一支的说明），没有操作数的那些早被 `ArrayLiteral` 收走，类型位的那些是 `IndexedAccessType`。
-（与 `IsDotSymbol` / `IsNameNode` 那几个小判据同一个位置。）
-
-```ts
-  return node.Tag === "Bracket" && node.startBracket === "[";
-```
+（与 `IsDotSymbol` / `IsNameNode` 那几个小判据同一个位置——这一族今天一个都不到投影层来。）
 
 # private method projectLetFrom:(kids:Array<any>, ctx:any, container:any)=>Array<any>
 
@@ -7064,7 +7060,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     // `ComputedPropertyName` 2 + `Identifier` 2 + 字段名 2）。
     const computedUnit = kids.find(
       (k) =>
-        (isIndexBracket(k) || k.Tag === "ArrayLiteral") && startOf(k) < startOf(kids[colonIndex]),
+        (k.IsIndexBracket || k.Tag === "ArrayLiteral") && startOf(k) < startOf(kids[colonIndex]),
     );
     if (computedUnit !== undefined) {
       props.propertyName = {
@@ -9391,7 +9387,10 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     Split: (list, separator) => splitTopLevel(list, separator),
     // **`Invisible` 那个出口第 1030 轮删掉了**：要跳过哪些单元由单元自己答
     // （`k.IsInvisible`，见 `core/syntax/token.xl.md`），所以这一层不再需要「名单」这件东西。
-    IsIndexBracket: (node) => isIndexBracket(node),
+    // **「这一格是不是下标那对方括号」第 1058 轮改成读属性**：判据在被问的那一页上
+    // （`Bracket` 的 `IsIndexBracket`，构造时赋好）。这个出口留着是因为 `json/object-literal`
+    // 那一页只有 `ctx` 可用——但它现在是**一格事实的一处读法**，不再是第二处判据。
+    IsIndexBracket: (node) => node.IsIndexBracket,
     IsOperatorUnit: (node) => isOperatorUnit(node),
     ChainWithOptional: (node, nco) => chainWithOptional(node, nco, ctx),
     NameOf: (node) => nameOf(node),

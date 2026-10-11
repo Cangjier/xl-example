@@ -347,6 +347,46 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1058 轮：同一族的**最后一格现场判据**也收进了被问的那一页——`isIndexBracket(node)` 变成 `Bracket.IsIndexBracket`（构造时赋好、克隆体照抄），投影 7 处与 `ctx.IsIndexBracket` 出口一并改成属性读；顺手修掉第 1057 轮那条判据**拼错问句名**（它当时永远绿），并钉成 `direct:lint` 第八条判据；**八道门全绿、读数一处没动**
+
+**一句话**：第 1041~1057 轮一直在做同一件事——**某一页自己知道的事实，由那一页答**。
+第 1057 轮把三个「这一格是不是某一类」的现场判据收回去时，同一族还剩最后一个：
+`isIndexBracket(node)`，判据是 `node.Tag === "Bracket" && node.startBracket === "["`
+——**先问「你是什么类」，再回被问的那一页读它自己的字段**，两半都住在 `Bracket` 那一页。
+
+- **这一格今天读属性**：`node.IsIndexBracket`。声明在
+  `typescript/tokens/bracket.xl.md`（`## field IsIndexBracket:bool = false`，具体类显式声明），
+  值在 `Use` **记下 `startBracket` 的那一趟**一起赋好（`this.IsIndexBracket = this.startBracket === "["`），
+  克隆体在 `Clone` 里照抄同一格——与同页的 `EndsOnBrace`（第 1042 轮）/ `WrapperField`（第 1045 轮）
+  同一形态：**都是同一格事实（「我是哪种括号」）的三种问法，同一趟赋、一起抄**。
+- **投影层那 7 处调用点**（`3016` / `3743` / `4052` / `4758` / `4896` / `5851` / `7063`）全改成
+  `x.IsIndexBracket`，本地那个 helper 连同它的方法体删掉，原地只留一句「这一问回了它自己那一页」。
+- **`ctx.IsIndexBracket` 出口留着**（`json/object-literal` 那一页只有 `ctx` 可用），
+  但它现在是 `(node) => node.IsIndexBracket`——**一格事实的一处读法**，不再是第二处判据。
+  这与第 1057 轮删掉 `ctx.IsNameNode` 不矛盾：那里的调用点全在本文件、出口可以直接删；
+  这里的调用方在另一页，出路只有一条。
+- **`direct:lint` 加第八条判据**（`INDEX_BRACKET_CLASSIFY`）：`print-ast-common` 的**代码块**里
+  不许再把这一问写成问句（`isIndexBracket(` / `ctx.IsIndexBracket(`）。它单独立一条而不是并进
+  第七条：第七条钉的是第 1057 轮那三个名字，收掉一格就删一条，两边的额度与说明不互相牵动。
+- **顺手修掉第七条判据自己的病**（本轮实测出来的）：它拼问句名用的是
+  `n[0].toLowerCase() + n.slice(1)`（**整名首字母小写**），拼出 `isDotSymbol` 这类名字，再与
+  `\b(?:is|Is)` 一撞就错位——`\b` 落在 `is` 之后，剩下的 `DotSymbol` 不等于 `isDotSymbol`。
+  于是 `isDot(node)` / `isNameNode(k)` **一次都命中不了**：这条判据从第 1057 轮起就是**永远绿**的。
+  今天问句名由 `classifyPredicate`（`"is" + 属性名.slice(2)`）拼、判据挂在调用形态 `\s*\(`
+  与 `ctx.` 出口名上，并把第 1057 轮注释里写下的缩写 `isDot` 收进别名表。
+  自验（`tmp/` 里的探针，不进仓库）：把三种问句各写回一处，这一门**三处全红**；还原后 `0 条违反`。
+- **为什么这不是「行为变更」**：改的是**同一格事实的读法**（过去由投影层比类名 / 回被问的那一页
+  读字段，现在由那一页自己答），`samples` 逐字节比对当场证明两边同答；`xl build` 的
+  `Use` / `Clone` 那两行是**唯一新增的赋值**，写的就是那一格属性。
+- **实测**：`xl check`（2 页）0 条；`xl build typescript core` 10 个产物 / 0 error、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 34.1s），读数与基线逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` **0 处抛异常**且固定样本逐格点名通过、
+  `direct:lint` 0 条违反、`samples` 逐字节一致、`cases:check` 1656 / 1656、
+  `runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+  （一处**过程账**：产物比源新这一门会红——本轮先被它拦下一次：`tmp/` 里的自验探针
+  重写过源文件，时间戳比产物新，于是 `xl_build --force` 才把它生成掉。）
+
 ### 第 1057 轮：`print-ast-common` 里**最后三个「这一格是不是某一类」的现场判据**收进被问的那一页（新增基类属性 `Token.IsDotSymbol` / `Token.IsTypeSeparator` / `Token.IsNameNode`，具体类显式声明并赋好），`ctx` 上那个 `IsNameNode` 出口与五页的调用点一并换成属性读，并把这条口径钉成 `direct:lint` 第七条判据；**八道门全绿、读数一处没动**
 
 **一句话**：第 1041~1056 轮一直在做同一件事——**某一页自己知道的事实，由那一页答**。

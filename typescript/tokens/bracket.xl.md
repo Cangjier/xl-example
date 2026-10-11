@@ -176,7 +176,10 @@ if (value === "(") {
 // 所以这几格不会各说各话。
 // **第 1045 轮把 `WrapperField` 也并进这一趟**：它问的是同一格事实（「我是哪种括号」），
 // 两处各判一次就是两处会漂的答案。
+// **第 1058 轮 `IsIndexBracket` 并进同一趟**：它还是同一格事实（`[` 那一态），
+// 过去由投影层比 `startBracket` 现场问，今天由本页在记下它的一刻答。
 this.EndsOnBrace = this.startBracket === "{";
+this.IsIndexBracket = this.startBracket === "[";
 this.WrapperField = this.startBracket === "{" ? undefined : null;
 return this;
 ```
@@ -295,9 +298,10 @@ return `<${name} range="${this.RangeOf()}" startBracket="${this.startBracket}" e
 
 顺序是：`Sign(this)` → 抄两个括号字符 → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`。注意 `Sign` 之后才抄字符，且抄的是**字段**而不是 `Use`，所以克隆体不会重跑 `Use` 里的 `CloseRuleQueue` 赋值；批量加入用 `AddRange`。
 
-**派生属性也要抄**（第 1042 轮 `EndsOnBrace`、第 1045 轮 `WrapperField`）：克隆体不走 `Use`，
-所以「我是不是裸块」「我是不是包装」那两格按 `this` 的值原样抄过去——`startBracket` 与它们同源，
-三格一起抄就不会漂。
+**派生属性也要抄**（第 1042 轮 `EndsOnBrace`、第 1045 轮 `WrapperField`、第 1058 轮
+`IsIndexBracket`）：克隆体不走 `Use`，
+所以「我是不是裸块」「我是不是包装」「我是不是下标那对方括号」那三格按 `this` 的值原样抄过去
+——`startBracket` 与它们同源，四格一起抄就不会漂。
 
 ```ts
 const result = new Bracket(this.Template);
@@ -305,11 +309,27 @@ result.Sign(this);
 result.startBracket = this.startBracket;
 result.endBracket = this.endBracket;
 result.EndsOnBrace = this.EndsOnBrace;
+result.IsIndexBracket = this.IsIndexBracket;
 result.WrapperField = this.WrapperField;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
 ```
+
+## field IsIndexBracket:bool = false
+
+**我这一格是不是「值位下标访问」的那对方括号吗**（第 1058 轮）：只有 `[` 那一态是 `true`
+——值位里前面有操作数的 `[` 就是下标，没有操作数的那些早被 `ArrayLiteral` 收走，
+类型位的那些是 `IndexedAccessType`（口径与判据见 `print-ast-common.xl.md` 的
+`projectExpression` 那一支）。
+
+判据过去在投影层（`isIndexBracket`：`Tag === "Bracket"` 加回本页读 `startBracket`），
+**「我这一格是哪一态括号」本来就在这一页自己的字段上**，与同页的 `EndsOnBrace` 是同一格事实的
+两种问法——所以由本页记。
+
+**第 1058 轮起它是属性**：值在 `Use` 记下 `startBracket` 的那一刻一起赋好（克隆体在 `Clone`
+里抄同一格），投影与 `ctx.IsIndexBracket` 都只读属性——它是**构造那一趟就定下来的数据**，
+不是一处现场判据。
 
 ## field EndsOnBrace:bool = false
 

@@ -566,7 +566,8 @@ for (const file of files) {
 }
 
 /**
- * **「这一格是不是某一类」这一问不许回到投影层**（第 1057 轮）。
+ * **「这一格是不是某一类」这一问不许回到投影层**（第 1057 轮；第 1058 轮补了下面 `IsIndexBracket`
+ * 那一条，并把两处的拼法收成一组共用常量）。
  *
  * 第 1057 轮把最后三个现场判据收进了被问的那一页：`IsDotSymbol` / `IsTypeSeparator`
  * （`SymbolToken` 在 `Close()` 里按自己的正文赋）与 `IsNameNode`（`Identifier` / `Keyword`
@@ -580,11 +581,25 @@ for (const file of files) {
  * 那一格的答案属于**被问的那一页**，投影层重写一遍就又是两处会漂的地方。
  *
  * 口径：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`），恰好 0 处才对。
- * **名字是拼出来的**（`is` + 属性名）：这一门自己的源码里不出现那三个老名字的连写。
+ * **名字是拼出来的**：这一门自己的源码里不出现那三个老名字的连写。
+ *
+ * **第 1058 轮修的是这一门的正则本身**：老写法把**整个属性名首字母小写**当问句名
+ * （`IsDotSymbol` → `isDotSymbol`），可问句名是「去掉 `Is`、首字母小写」（`isDotSymbol` 正是
+ * 这个），于是 `\b(?:is|Is)` 那个前缀与它一撞就错位 —— 实测 `isDot(node)` / `isNameNode(k)`
+ * 一次都不命中，这一条判据当时是**永远绿**的。今天问句名由 `classifyPredicate` 拼、
+ * 判据挂在 `\s*\(`（调用形态）与 `ctx.` 出口名上，并把第 1057 轮注释里写下的缩写
+ * （`isDot`）一起收进别名表。
  */
+/** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
+const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
+/** 第 1057 轮当时用过的**缩写形态**：与全名一样是「回投影层问一遍」，漏掉这一门就白开。 */
+const CLASSIFY_ALIASES = { isDotSymbol: ["isDot"] };
+/** 把一组问句名铺成一条或起来的分支（主名 + 缩写）。 */
+const classifyAlternation = (predicates) =>
+  predicates.flatMap((name) => [name, ...(CLASSIFY_ALIASES[name] ?? [])]).join("|");
 const SELF_CLASSIFY_NAMES = ["IsDotSymbol", "IsTypeSeparator", "IsNameNode"];
 const SELF_CLASSIFY = new RegExp(
-  `(?:\\b(?:is|Is)|\\bctx\\.)(?:${SELF_CLASSIFY_NAMES.map((n) => n[0].toLowerCase() + n.slice(1)).join("|")})\\b`,
+  `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
 );
 /** 投影层把这一格又写回成问句的处数（0 处才是对的）。 */
 let selfClassifyHits = 0;
@@ -601,6 +616,47 @@ let selfClassifyHits = 0;
           why:
             `「这一格是不是某一类」又写回投影层了：\`${match[0]}\`——那一格的事实住在被问的那一页` +
             "（`Token.IsDotSymbol` / `Token.IsTypeSeparator` / `Token.IsNameNode`），投影只读属性",
+        });
+      }
+    }
+  }
+}
+
+/**
+ * **「这一格是不是下标那对方括号」也不许回到投影层**（第 1058 轮）。
+ *
+ * 第 1057 轮那条判据只钉了三个名字（`IsDotSymbol` / `IsTypeSeparator` / `IsNameNode`），
+ * 而同一族的**现场判据**还剩最后一个：`isIndexBracket(node)`——判据是
+ * `node.Tag === "Bracket" && node.startBracket === "["`，也就是**先问「你是什么类」、
+ * 再回被问的那一页读它自己的字段**。两半都住在 `Bracket` 那一页，所以第 1058 轮把它收成
+ * `Bracket` 的 `IsIndexBracket`（构造时赋好），投影与 `ctx.IsIndexBracket` 都只读属性。
+ *
+ * **为什么不并进上一条** ✗：上一条的名单是**第 1057 轮那三个**，它的注释也钉在那三个名字上；
+ * 而这一条要守的是**同一族的下一个**——名单分开写，下一轮收掉一格就删这一条，
+ * 不会牵动上一条的额度与说明。两条共用 `classifyPredicate`（上面的拼法）。
+ *
+ * 口径：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`），恰好 0 处才对。
+ * **名字是拼出来的**：这一门自己的源码里不出现那个老名字的连写（问句形态）。
+ */
+const INDEX_BRACKET_NAMES = ["IsIndexBracket"];
+const INDEX_BRACKET_CLASSIFY = new RegExp(
+  `(?<![\\w$.])(?:${classifyAlternation(INDEX_BRACKET_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${INDEX_BRACKET_NAMES.join("|")})\\b`,
+);
+/** 投影层把这一格又写回成问句的处数（0 处才是对的）。 */
+let indexBracketClassifyHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const match of code.matchAll(new RegExp(INDEX_BRACKET_CLASSIFY, "g"))) {
+      indexBracketClassifyHits += 1;
+      if (indexBracketClassifyHits <= 3) {
+        violations.push({
+          file: SHARED_FILE,
+          why:
+            `「这一格是不是下标那对方括号」又写回投影层了：\`${match[0]}\`——那一格的事实住在被问的那一页` +
+            "（`Bracket.IsIndexBracket`，构造时赋好），投影只读属性",
         });
       }
     }
@@ -677,6 +733,10 @@ console.log(
 console.log(
   `「这一格是不是某一类」又在投影层写成问句（${SHARED_FILE} 的代码块）：${selfClassifyHits} 处（0 处才是对的，${SELF_CLASSIFY_NAMES.join(" / ")} 只许属性读）`,
 );
+// **同一族的最后一格**（第 1058 轮）：`IsIndexBracket` 也收成了被问那一页的属性，0 处才对。
+console.log(
+  `「这一格是不是下标那对方括号」又在投影层写成问句（${SHARED_FILE} 的代码块）：${indexBracketClassifyHits} 处（0 处才是对的，${INDEX_BRACKET_NAMES.join(" / ")} 只许属性读）`,
+);
 // **中间那一层的账**（第 1027 轮）：投影直吃 token，那一层的入口名一个都不许留在规范页里
 // ——「token → AST 直出」这句话只有这样才有一条判据看着。
 console.log(
@@ -694,6 +754,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答）`,
 );
 process.exit(0);
