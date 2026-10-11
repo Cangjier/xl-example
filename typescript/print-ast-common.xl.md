@@ -6889,6 +6889,44 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   return left;
 ```
 
+# private method tailUnitsOf:(units:Array<any>)=>Array<any>
+
+**`?.` 后面剩下的那一截续格：先把「以一次调用开头」的外壳摊成平级**（第 1206 轮，
+用户口径 1.1 / 1.7）：`chainWithOptional` 的 `?.[i]` 与 `?.(args)` 两支都要把剩下的兄弟交给
+`chainOnto`，而它们要摊的东西**逐字相同**——所以收成这一格（第 962 / 965 两轮各在那两支里
+各写了一遍）。
+
+三档：
+
+- **裸的一次调用**（`Method(name="")`，`IsBareCall`）**整格留着**——外面那次调用只体现在
+  它自己的区间上，摊开成裸括号会让外层那次调用没有节点（第 965 轮）；
+- **裸的实参括号整格留着**（第 1206 轮补）：`()` / `(d)` **自己就是实参表**，
+  摊开它的子单元等于把那次调用整个丢掉——空实参表更是一格都不剩
+  （`a?.[b]()` 就是这么掉尾巴的：实参表没有子单元 ⇒ 摊出来是空的 ⇒
+  `chainOnto` 一圈都不跑 ⇒ 那次调用没有节点、`ElementAccessExpression` 的区间也停在 `]` 上）；
+- **其余「以一次调用开头」的外壳**（`PropertyAccess([Bracket(()), ., v])` 那一族）摊成平级——
+  调用括号与后面的后缀装在同一格，不摊开 `chainOnto` 在它上面既不是点号也不是括号（第 962 轮）。
+
+```ts
+const out: Array<any> = [];
+for (const unit of units) {
+  if (unit.IsBareCall) {
+    out.push(unit);
+    continue;
+  }
+  if (unit.IsParenBracket) {
+    out.push(unit);
+    continue;
+  }
+  if (unit.IsCallFirstUnit) {
+    for (const inner of unit.ProjectableKids) out.push(inner);
+    continue;
+  }
+  out.push(unit);
+}
+return out;
+```
+
 # private method chainWithOptional:(left:any, unit:any, ctx:any)=>any
 
 `a.b?.c` / `a?.[i]` → 在链上再加一格（带 `questionDotToken`）。
@@ -7033,9 +7071,16 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // 与 `chainOnto` 里「紧跟一对圆括号 ⇒ 再调一次」那一支是同一个写法。
       arguments: callArgumentsOf(first, ctx),
       pos: left.pos,
-      end: unit.end,
+      // **区间只到自己那对实参括号**（第 1206 轮）：后面还有续格时，原来这里写的是
+      // `unit.end`（NCO 的末尾）⇒ 这一格一路盖住续格（实测 `a?.(d)` 加模板串：
+      // `CallExpression` 漂 3、`TaggedTemplateExpression` 整格丢）。与 `?.[i]` 那一支同款。
+      end: kids.length > 1 ? first.end : unit.end,
     };
     markOptional(call, questionDot);
+    // **剩下的兄弟接着往下接**（第 1206 轮）：与 `?.[i]` 那一支同一件事——
+    // `a?.(d)` 后面接模板串 / 下标 / 点号 / 又一次调用时，原来这里直接 `return call`，
+    // 那一截**整段丢**（实测 `a?.(d)` 加模板串：缺 `TaggedTemplateExpression` 与模板字面量）。
+    if (kids.length > 1) return chainOnto(call, tailUnitsOf(kids.slice(1)), ctx);
     return call;
   }
   // **`?.[i]`**（第 124 轮）：实参是括号**里面**那一段——早先这里直接 `projectNode(first)`，
@@ -7058,29 +7103,10 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // 调用与它后面的后缀一起装在一个外壳里（第 692 轮那条口径）。
       // 不摊开的话 `chainOnto` 的循环在它上面既不是点号也不是括号 ⇒ `break` ⇒ **整段丢**
       //（实测缺 `CallExpression` / `PropertyAccessExpression` / `Identifier` 三个）。
-      // 摊开之后与 `projectExpression` 链那一支里那一份**是同一件事**。
-      const rest: Array<any> = [];
-      for (const unit of kids.slice(1)) {
-        // **裸的一次调用不要摊开**（第 965 轮）：`a?.[b]()()` 的第二格是
-        // `Method(name="")[Bracket(())]`——它是**一次调用**、而外面那次调用只体现在
-        // 这个 `Method` 自己的区间上（与第 962 轮那条「外面还有没有一层」同源）。
-        // 摊开成裸括号之后 `chainOnto` 见到的只是内层那对实参括号 ⇒ 外层那次调用
-        // **没有节点**、区间也短一格（实测 `gap-r964-opt-index-call-twice`：外层漂 2）。
-        // 整格交给 `chainOnto`（它认了这一档）。
-        // **第 1077 轮起读的是那一格自己的属性**（`Method.IsBareCall`，与 `Token.IsCommaSymbol`
-        // 同一形态：基类默认 `false`、`Method` 那一页现算）——「我是不是 `Method`」那一问
-        // 随之消失，投影不再替那一页记一遍。
-        if (unit.IsBareCall) {
-          rest.push(unit);
-          continue;
-        }
-        if (unit.IsCallFirstUnit) {
-          for (const inner of unit.ProjectableKids) rest.push(inner);
-          continue;
-        }
-        rest.push(unit);
-      }
-      return chainOnto(element, rest, ctx);
+      // **摊法从第 1206 轮起收在 `tailUnitsOf` 那一格里**（这一支与 `?.(args)` 那一支共用），
+      // 而它比原来这一段多认一档：**裸的实参括号整格留着**——`o?.['m']()` 的实参表是空的，
+      // 摊开等于一格都不剩（实测：`a?.[b]()` 缺 `CallExpression`）。
+      return chainOnto(element, tailUnitsOf(kids.slice(1)), ctx);
     }
     return element;
   }
