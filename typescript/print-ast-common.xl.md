@@ -74,8 +74,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**60 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-56 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**58 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+54 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 5 个名字**（`projectNode` / `isIndexFirstUnit` /
 `isCallFirstUnit` / `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），
@@ -83,15 +83,18 @@ import { Identifier } from "./tokens/identifier.xl.md"
 **量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 （`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
 （第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
-**第 1100 / 1101 两轮收掉的是五格「一格声明、一个真实调用点、而且只是转手」的转发**
+**第 1100 ~ 1102 三轮收掉的是七格「一格声明、一个真实调用点」的转发**
 （尺子与第 1043 / 1044 / 1067 / 1070 / 1080 / 1087 轮并掉那些转发同一把）：
 `projectSegment`（唯一读者 `ternary-operator.xl.md` 经 `ctx.Segment`）、
 `projectSwitchClause`（唯一读者 `switch.xl.md` 经 `ctx.SwitchClause`）、
 `projectHeadDeclare`（唯一读者 `foreach.xl.md` 经 `ctx.HeadDeclare`）、
+`bodyBlockOf` / `blockOfBody`（各只有一个出口读者：`while` / `foreach` / `do-while` 三页与
+`if-segment` 那一页；两格的实现整段搬进 `ctx.BodyBlockOf` / `ctx.BlockOfBody`）、
 `trailingSemicolonOf`（唯一读者 `projectEach` 里那一处，实现**就地**展开成一段立即执行的箭头，
 判据逐字搬过去——那里不能引用 `ctx` 上的出口，因为它在 `ctx` 造出来之前就跑）；
-`projectBindingElement`（**第 1100 轮量过、按原样留着**：它的唯一读者
-`projectBindingPattern` 就在本文件里，而函数体是 121 行真算式，不是转手）
+**留下没并的一格是 `projectBindingElement`**（第 1100 轮量过：它的唯一读者
+`projectBindingPattern` 就在本文件里，而函数体是 121 行真算式，**不是转手**；
+下一轮要并它就得连着说明一起搬，不能只搬算式）。
 ——**判据**：`ctx` 上那一行出口返回的东西就是那一格的返回值，所以实现搬进出口、声明删掉，
 `ctx` 的名字与语义一个字不动（**出口的名字是别的页的调用点**，不是本页可以顺手改的）。
 **第 1099 轮之前本页的旧账**（89 → 86 → … → 64 格那一串逐轮记录，以及第 1073 / 1081 /
@@ -9486,131 +9489,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 ⇒ 两端都是**事实**。投影原来只能回原文找 `{` 再 `MatchingBrace` 扫一遍，那一趟会被块里的
 字符串或注释里的假括号骗到（`if (a) { s = "{" }` 就是它）。
 
-# private method bodyBlockOf:(kids:Array<any>, ctx:any, brace:any = null)=>any
-
-**循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
-
-**判据只有一条：token 记下的整对花括号**（第 641 轮，`brace` = 各页自己显式声明的那一格
-`BodyBrace`，构造时赋好）：`While.BodyBrace` 在挂体那一刻就把那对括号记下了，
-有它 ⇒ TS 那边就是一个 `Block`（**空块也在内**）。
-
-**第 1081 轮起这个形参收的是那一格 `BodyBrace` 本身**（`TokenField<number>`），
-不再是它印出来的 `"起,止"` 字符串——同一格事实只有一个来源（`braceSpanOf` 那一节第 1087 轮
-已并进本方法与 `blockOfBody` 的调用点，见本方法代码块里那一句）。
-
-**第 1059 轮把「没有字段就回原文找 `{` 再配对扫一遍」那一支整段删掉了**：四个循环体早就各自
-记了这一格（`While` / `For` / `Foreach` / `DoWhile`），而**克隆体也照抄**（第 598 / 618 / 619 /
-641 轮记字段、本轮核对克隆体）——于是「没记字段」只可能是「体不是花括号」，
-回原文再扫一遍就是**同一格事实的第二处答案**。
-
-**第 1084 轮把最后那一处「跳空白找 `;`」的兜底与它的 `from` 形参一起删掉了**
-（用户口径 1.1~1.4：投影需要的东西在 token 子类构造时就齐）：空体语句
-（`while (c);` / `for (…);` / `do ; while (c);`）那一格**早就在 token 上**
-（`EmptyBodyAt`，第 590 / 619 / 635 轮，`## field` + 给投影读的 `## property emptyBodyAt`），
-而三个调用点（`While` / `Foreach` / `DoWhile` 的 `PrintDirectAst`）**都在调本方法之前
-就把它读完并直接出了 `EmptyStatement`** ⇒ 走到本方法时 `emptyBodyAt` 必然 `-1`，
-也就是「体不是空语句」⇒ 原文里那个 `;` 永远不在这一支的判据里。
-
-**这一条是量出来的，不是推出来的**（`tmp/r1084/probe.cjs`：给编译产物 `bodyBlockOf` 那一支
-插一句计数、跑 `node tests/parse/direct-ast.mjs --all`，**2051 份语料**）：
-`projections.length === 0` 那一支 **进入 0 次、命中 `;` 0 次**——所以删掉它不改变任何一格读数
-（`cases:direct` 2051 份不抛异常、固定样本逐格点名通过；八道门逐项与基线相同）。
-
-```ts
-  const list = kids.filter((k) => k instanceof Token && !k.IsInvisible);
-  const projections = projectEach(list, ctx);
-  // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
-  //（`While.BodyBrace` 的 `CaptureBodyBrace` 那一处就是这个条件），
-  // 所以有它 ⇒ TS 那边就是一个 `Block`——空块那一档（`while (c) {}`）也一并落在这里。
-  //
-  // **第 1087 轮把 `braceSpanOf` 这一格并进了调用点**（判据与第 1043 / 1044 / 1070 / 1080 轮
-  // 并掉那些「一格声明、一个调用点」的转发同一把尺子）：它全仓只有本方法与 `blockOfBody`
-  // 两个读者，而函数体就是「这一格记了没有 + 两头取出来」四句。并进来之后
-  // **同一格事实仍然是 `BodyBrace` 那一处**（`brace.Range.Start.Index` / `.End.Index`
-  // 是构造时赋好的），本页少一格声明、少一层间接。
-  const knownBrace = brace !== null && brace !== undefined && brace.IsSet === true
-    ? brace.Range
-    : null;
-  if (knownBrace !== null && knownBrace !== undefined
-    && knownBrace.Start !== null && knownBrace.End !== null) {
-    return {
-      kind: "Block",
-      statements: projections,
-      pos: knownBrace.Start.Index,
-      end: knownBrace.End.Index + 1,
-    };
-  }
-  // **空体语句那一支的兜底第 1084 轮删掉了**（见上面那一节）：它在全语料里进入 0 次，
-  // 而这一格事实由 token 的 `EmptyBodyAt` 答、三个调用点各自在调本方法之前就读完了它。
-  if (projections.length === 1) return projections[0];
-  if (projections.length === 0) return undefined;
-  return { kind: "Block", statements: projections, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
-```
-
-# private method blockOfBody:(kids:Array<any>, ctx:any, brace:any = null)=>any
-
-一个段的体 → `Block`（或没有花括号时的单条语句）。
-
-**判据只有一条：token 记下的整对花括号**（第 641 轮，`brace` = 各页自己显式声明的那一格
-`BodyBrace`，构造时赋好）：`IfSegment.BodyBrace` 在挂体那一刻就把那对括号记下了，
-有它就**直接**是那个 `Block`（空块 `if (a) {}` 也在内，第 1015 轮起连 `Bracket` 找不到的那种
-也记得到）。**第 1081 轮起这个形参收的就是那一格本身**（不再是它印出来的 `"起,止"` 字符串）。
-
-**第 1059 轮把「没有字段就回原文猜」那三支整段删掉了**：它们分别猜「体里只有注释的块」、
-「空块」、「第一个语句往回找 `{`」——三支都靠 `matchingBrace` 扫原文，而今天
-`For` / `While` / `DoWhile` / `Foreach` 的体段与 `IfSegment` 全都记了这一格
-（克隆体也一样：`IfSegment.Clone` 本轮补齐），所以「没记字段」只可能是「体不是花括号」
-⇒ 那三支是**同一格事实的第二处答案**，而且会被块里的字符串或注释里的假括号骗到。
-**`from` 那个形参也随之删掉**（它只服务那三支里的第二支，调用方也不再递）。
-`matchingBrace` 那个 helper 因此全仓一个读者都没有，一并删除。
-
-```ts
-  const list = kids.filter((k) => k instanceof Token && !k.IsInvisible);
-  const projections = projectEach(list, ctx);
-  // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
-  //（`CaptureBodyBrace` / `Try` 那两处都是这个条件），所以有它 ⇒ TS 那边就是一个 `Block`，
-  // 连空体那一档（`if (a) {}`）也一并落在这里。
-  // **第 1087 轮把 `braceSpanOf` 这一格并进了调用点**（同 `bodyBlockOf` 那一处，理由见它）：
-  // 两处各自就地读 `BodyBrace` 那一格的两头——同一格事实仍只有一处来源。
-  const known = brace !== null && brace !== undefined && brace.IsSet === true
-    ? brace.Range
-    : null;
-  if (known !== null && known !== undefined && known.Start !== null && known.End !== null) {
-    return {
-      node: {
-        kind: "Block",
-        statements: projections,
-        pos: known.Start.Index,
-        end: known.End.Index + 1,
-      },
-      end: known.End.Index + 1,
-    };
-  }
-  if (projections.length === 0) {
-    // **体里只有注释**（第 140 轮）：`} else if (item === "_") { // 注释 }` 的产物里那条
-    // `Statement` 只剩一个注释单元（trivia），`projectEach` 投出 `undefined`。
-    // 那种体**带着整对花括号**，所以上面那一支已经把它接住了（第 1015 轮起 `CaptureBodyBrace`
-    // 连「找不到 `Bracket`」的空块也记得下）——落到这一行只可能是**真的没有体**。
-    return undefined;
-  }
-  const first = startOf(list[0]);
-  const last = endOf(list[list.length - 1]);
-  // 没有花括号：TS 那边就是那条语句本身（`if (a) f();` ⇒ `ExpressionStatement`）。
-  // **终点取投影出来的那个节点自己的 `end`**（第 157 轮）：`last` 是**产物单元**的终点，
-  // 它会带上尾随那个软换行（`if (skip()) continue loop` 换行 ⇒ 单元到 169、TS 到 168）。
-  // 投影节点的 `end` 已经过 `stmtEndOf` 剪过 trivia，正好是 TS 的口径
-  // （实测 `decl-label-break-continue.ts`：`IfStatement` 漂移 2 + 多出 2）。
-  const lastProjected = projections.length > 0 ? projections[projections.length - 1] : undefined;
-  const bodyEnd = lastProjected !== undefined && typeof lastProjected.end === "number" ? lastProjected.end : last;
-  return {
-    node:
-      projections.length === 1
-        ? projections[0]
-        : { kind: "Block", statements: projections, pos: first, end: last },
-    end: bodyEnd,
-  };
-```
-
 # private method splitTopLevel:(kids:Array<any>, separator:string)=>Array<Array<any>>
 
 把一串单元按**顶层分隔符**切成若干组（分隔符自己不进任何一组）。
@@ -10117,7 +9995,36 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     Nothing: NOTHING,
     // **`from` 那个形参第 1084 轮删掉了**：它只喂空体那一支「跳空白找 `;`」的兜底，
     // 而那一支在全语料进入 0 次（空体由 token 的 `EmptyBodyAt` 答，三个调用点各自先读完它）。
-    BodyBlockOf: (list, brace) => bodyBlockOf(list, ctx, brace),
+    // **`bodyBlockOf` 这一格第 1102 轮并进了这个出口**（同一把尺子：全仓只有
+    // `while` / `foreach` / `do-while` 三页经这个出口读它，而函数体不是转手、是**循环体**的算式）。
+    // 它说的是：**循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
+    // **判据只有一条：token 记下的整对花括号**（第 641 轮，`brace` = 各页自己显式声明的那一格
+    // `BodyBrace`，构造时赋好）；**第 1084 轮把「跳空白找 `;`」那处兜底与它的 `from` 形参
+    // 一起删掉了**（空体由 token 的 `EmptyBodyAt` 答，三个调用点各自在调它之前就读完了）。
+    BodyBlockOf: (list, brace) => {
+      const kids = list.filter((k) => k instanceof Token && !k.IsInvisible);
+      const projections = projectEach(kids, ctx);
+      // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
+      //（`While.BodyBrace` 的 `CaptureBodyBrace` 那一处就是这个条件），
+      // 所以有它 ⇒ TS 那边就是一个 `Block`——空块那一档（`while (c) {}`）也一并落在这里。
+      const knownBrace = brace !== null && brace !== undefined && brace.IsSet === true
+        ? brace.Range
+        : null;
+      if (knownBrace !== null && knownBrace !== undefined
+        && knownBrace.Start !== null && knownBrace.End !== null) {
+        return {
+          kind: "Block",
+          statements: projections,
+          pos: knownBrace.Start.Index,
+          end: knownBrace.End.Index + 1,
+        };
+      }
+      // **空体语句那一支的兜底第 1084 轮删掉了**：它在全语料里进入 0 次，
+      // 而这一格事实由 token 的 `EmptyBodyAt` 答、三个调用点各自在调本方法之前就读完了它。
+      if (projections.length === 1) return projections[0];
+      if (projections.length === 0) return undefined;
+      return { kind: "Block", statements: projections, pos: startOf(kids[0]), end: endOf(kids[kids.length - 1]) };
+    },
     // **`IndexBracketOf` 那个出口第 1060 轮删掉了**：下标那个 `[` 是 `IndexedAccessType`
     // 自己造出来那一刻的事实（`IndexBracketAt`），所以那一页直接读自己的属性——
     // 投影层不再有「回原文按深度配对方括号」的第二处答案。
@@ -10238,7 +10145,47 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 名字补进了 `direct:lint` 的 `CTX_BANNED`，写回来这一门当场红。
     TypeOf: (list) => typeOf(list, ctx),
     FunctionTypeProps: (kids) => functionTypeProps(kids, ctx),
-    BlockOfBody: (list, brace) => blockOfBody(list, ctx, brace),
+    // **`blockOfBody` 这一格第 1102 轮并进了这个出口**（同一把尺子：全仓只有
+    // `if-segment` 经这个出口读它）。一个段的体 → `Block`（或没有花括号时的单条语句），
+    // 返回的是 `{ node, end }`（调用方要那个 `end` 来收整个 `IfStatement` 的尾巴）。
+    // **判据只有一条：token 记下的整对花括号**（`IfSegment.BodyBrace`，构造时赋好）。
+    BlockOfBody: (list, brace) => {
+      const kids = list.filter((k) => k instanceof Token && !k.IsInvisible);
+      const projections = projectEach(kids, ctx);
+      const known = brace !== null && brace !== undefined && brace.IsSet === true
+        ? brace.Range
+        : null;
+      if (known !== null && known !== undefined && known.Start !== null && known.End !== null) {
+        return {
+          node: {
+            kind: "Block",
+            statements: projections,
+            pos: known.Start.Index,
+            end: known.End.Index + 1,
+          },
+          end: known.End.Index + 1,
+        };
+      }
+      if (projections.length === 0) {
+        // **体里只有注释**（第 140 轮）：那种体**带着整对花括号**，所以上面那一支已经把它接住了
+        //——落到这一行只可能是**真的没有体**。
+        return undefined;
+      }
+      const first = startOf(kids[0]);
+      const last = endOf(kids[kids.length - 1]);
+      // 没有花括号：TS 那边就是那条语句本身（`if (a) f();` ⇒ `ExpressionStatement`）。
+      // **终点取投影出来的那个节点自己的 `end`**（第 157 轮）：`last` 是**产物单元**的终点，
+      // 它会带上尾随那个软换行，而投影节点的 `end` 已经过 `stmtEndOf` 剪过 trivia。
+      const lastProjected = projections.length > 0 ? projections[projections.length - 1] : undefined;
+      const bodyEnd = lastProjected !== undefined && typeof lastProjected.end === "number" ? lastProjected.end : last;
+      return {
+        node:
+          projections.length === 1
+            ? projections[0]
+            : { kind: "Block", statements: projections, pos: first, end: last },
+        end: bodyEnd,
+      };
+    },
     // **`projectSwitchClause` 这一格第 1100 轮并进了这个出口**（判据与第 1043 / 1044 /
     // 1067 / 1070 / 1080 / 1087 轮并掉那些「一格声明、一个调用点」的转发同一把尺子）：
     // 它全仓只有 `switch.xl.md` 一个读者、而且那个读者拿到的就是这一行出口返回的东西
