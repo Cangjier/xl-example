@@ -4395,10 +4395,77 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // `?.` 那一格自己就是「链的续接」，所以交给链那一支的**同一份实现**（`chainWithOptional`），
       // 剩下的兄弟再交给 `foldBinaryFrom`——与 0a0 / NCO 那几支的收尾同一个形状
       //（所以这里不新写折法，只是把这一格递对了地方）。
-      if (rest[0].IsNullConditionalOperator) {
-        const chained = chainWithOptional(self, rest[0], ctx);
-        if (chained !== undefined) {
-          return rest.length === 1 ? chained : foldBinaryFrom(chained, rest.slice(1), ctx);
+      // **尾巴上挂着的是**一串** `?.` 链**（第 1223 轮，用户口径 1.1）：第 1222 轮只把
+      // **第一格**递对了地方，`a<b>?.[0]?.b` / `a<b>?.[0]?.[0]` / `a<b>?.[0]?.(1)` /
+      // `a<b>?.(1)?.b` / `a<b>?.(1)?.[0]` / `a<b>?.(1)?.(1)` 六种续写仍然对不上。
+      // 一条 `?.` 链在 token 层**没有统一形状**，两种都要认：
+      //
+      //   · **平铺的一串兄弟**（`a<b>?.[0]?.b` 是 `[Identifier(a), GenericType(<b>), NCO(…), NCO(…)]`）
+      //     ——第 1222 轮那句只认 `rest[0]`，折完第一格就把**剩下的兄弟**交给 `foldBinaryFrom`，
+      //     而它开头一句要求 `rest` 以运算符打头 ⇒ 第二个 `?.` 整格丢；
+      //   · **收在一格空名字的 `Method` 里**（`a<b>?.[0]?.(1)` 是
+      //     `[Identifier(a), GenericType(<b>), Method(name="", [NCO(…), NCO(…)] )]`）——
+      //     第二个 `?.` 是**调用**（`?.(…)`）时 token 层的可选调用规则先响
+      //     （`OptionalCallCloseRule.Previous` 只要求「紧挨着的那一格是被调者尾巴」，
+      //     而前一个 `?.` 单元正好答是），可它的被调者链往回走到 `GenericType` 就停
+      //     （`IsChainLink` 不收实例化表达式那一格）⇒ **接收者留在 `Method` 外面**；
+      //     三层以上还会**一层套一层**（`a<b>?.(1)?.(1)?.(1)` 是
+      //     `Method(name="", [Method(name="", [NCO, NCO]), NCO])`）。
+      //
+      // 形状不同、事实是同一个：那些单元每一格都只是「链的续接」。所以先**摊平成一串**
+      // （`chainSeqOf`：平铺的 `?.` 就是它自己；空名字 `Method` 里的递归摊平，任何一格不认就整格不认），
+      // 再照「同一件事一处实现」（口径 1.6）**逐格**交给链那一支的同一份实现
+      // （`chainWithOptional`）——与 0a0 / NCO 那几支的收尾同一个形状，只是那一句从
+      // 「递一格」变成「递一串」；一格都不是 `?.` 时（`tailAt === 0`）走下面那句原样的
+      // `foldBinaryFrom`，本支对旧形状一个字没改。
+      const chainSeqOf = (unit: any): Array<any> | null => {
+        if (unit.IsNullConditionalOperator) {
+          return [unit];
+        }
+        if (unit.IsMethodNode !== true || unit.DeclaredName !== "") {
+          return null;
+        }
+        const inner = unit.ProjectableKids;
+        if (inner.length === 0) {
+          return null;
+        }
+        const parts: Array<any> = [];
+        for (const one of inner) {
+          const sub = chainSeqOf(one);
+          if (sub === null) {
+            return null;
+          }
+          for (const each of sub) {
+            parts.push(each);
+          }
+        }
+        return parts;
+      };
+      const chainTail: Array<any> = [];
+      let tailAt = 0;
+      while (tailAt < rest.length) {
+        const seq = chainSeqOf(rest[tailAt]);
+        if (seq === null) {
+          break;
+        }
+        for (const one of seq) {
+          chainTail.push(one);
+        }
+        tailAt++;
+      }
+      if (tailAt > 0) {
+        let at = 0;
+        let chained: any = self;
+        while (at < chainTail.length) {
+          const next = chainWithOptional(chained, chainTail[at], ctx);
+          if (next === undefined) {
+            break;
+          }
+          chained = next;
+          at++;
+        }
+        if (at > 0) {
+          return tailAt === rest.length ? chained : foldBinaryFrom(chained, rest.slice(tailAt), ctx);
         }
       }
       return foldBinaryFrom(self, rest, ctx);
