@@ -220,7 +220,7 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
 | 并掉的声明 | 并进哪里 | 为什么它不该单独立一格 |
 | --- | --- | --- |
 | `fieldNameFor(kind, key, node)`（45 行） | `structuralProps` 里的 `fieldOf`（两处读者都在这一格函数） | 它问的是「这一段是哪个 token 切的、那一格答什么」（`node.SegmentNames`），读者只有本函数那两处 |
-| `bindingSpan(from, limit, ctx)`（18 行） | `projectLetFrom` 里的 `bindingSpanOf`（两处读者都在这一格函数） | 解构声明那两个分支各自拿到的就是这个区间，没有第二个调用方 |
+| `bindingSpan(from, limit, ctx)`（18 行） | `projectLetFrom` 里的 `bindingSpanOf`（两处读者都在这一格函数） | 解构声明那两个分支各自拿到的就是这个区间，没有第二个调用方。**那一格第 1166 轮整格删掉了**（它是一趟回原文扫的兜底，实测两处调用点一次都没进；今天只剩 `namePlaceholderAt` 那个不猜路的零宽占位） |
 | `ownsTrailingSemicolon(node, ctx)` + 数据表 `ENDS_ON_BRACE` | `projectEach` 里的 `ownsTrailingSemicolonOf` / `endsOnBrace`（唯一读者就是那一格函数里的一处） | 数据表的唯一读者就是这一格；两者一起搬，本页少两格声明 |
 
 三格**判据一个字没改**，只是不再单独立声明（与第 1103 / 1104 / 1101 / 1100 轮同一手法）。
@@ -7888,29 +7888,15 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 早先按单个 `Let` 投，看不到初值——`List` / `Declaration` 各短 4 个字符（实测 Δ-4）。
 
 ```ts
-  // **就地取**（第 1109 轮）：它原来是本页一格 `bindingSpan(from, limit, ctx)`（读者只有
-  // 本函数里那两处解构分支），按第 1103 / 1104 轮那把尺子整段搬进这个调用点，
-  // 本页少一格声明。取不到时给一个零宽占位（宁可窄，不要凭空盖住整条声明）。
-  const bindingSpanOf = (from: int, limit: int, ctx: any): any => {
-    const source = ctx.source;
-    for (let i = from; i < limit; i++) {
-      const ch = source[i];
-      if (ch !== "[" && ch !== "{") continue;
-      const close = ch === "[" ? "]" : "}";
-      let depth = 0;
-      for (let j = i; j < limit; j++) {
-        if (source[j] === ch) depth++;
-        else if (source[j] === close) {
-          depth--;
-          if (depth === 0) {
-            return { kind: ch === "[" ? "ArrayBindingPattern" : "ObjectBindingPattern", pos: i, end: j + 1 };
-          }
-        }
-      }
-      break;
-    }
-    return { kind: "ArrayBindingPattern", pos: from, end: from };
-  };
+  // **「名字那一格给不出节点」时的零宽占位**（第 1166 轮）：它原来由本页一格 `bindingSpanOf`
+  // 给出——那是一趟**回原文扫**的兜底（在一段坐标之间找第一个 `[` / `{`、再按深度配对到闭括号，
+  // 扫到就按扫到的区间出 `ArrayBindingPattern` / `ObjectBindingPattern`，扫不到才出这个零宽占位）。
+  // **实测那趟一次都没走过**（探针挂在它那两处调用点上、跑 `cases:direct --all` 的 2051 份语料：
+  // 两个调用点一个都没进，读数就是「这一格从来没被创建过」）——判据与第 1051 轮删掉 `synthName`
+  // 那三级兜底逐字相同：**留着一个不走的兜底，等于给「回原文猜」留一条路**，而那条路只会在坏输入上
+  // 给出**第二份答案**（产物自己已经把这件事答完了：绑定模式是那一格 `ArrayLiteral` /
+  // `ObjectLiteral` 单元、名字是 `Let.DeclaredName`，两处都由被问的那一页答）。
+  const namePlaceholderAt = (at: int): any => ({ kind: "ArrayBindingPattern", pos: at, end: at });
   // 外层容器只用来取「语句整体」的区间（`Statement` 含分号、`For` 的段不含）。
   const stmtWhole = stmtEndOf(container, ctx);
   const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
@@ -7980,7 +7966,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     patternUnit !== null
       ? projectBindingPattern(patternUnit, ctx)
       : declared === ""
-        ? bindingSpanOf(listStart, listEnd, ctx)
+        ? namePlaceholderAt(listStart)
         : synthName(declared, letView);
   // **每个声明符一个 `VariableDeclaration`**：第一组用 `Let` 自己的 `fieldName`（名字在那上面），
   // 后面的组名字就是组里第一格（`j = 1` 的 `j`）；类型标注取**本组**的 `TypeDefine`。
@@ -7998,7 +7984,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       index === 0
         ? name
         : head === undefined || (!head.IsNameNode)
-          ? bindingSpanOf(head === undefined ? listStart : head.start, listEnd, ctx)
+          ? namePlaceholderAt(head === undefined ? listStart : head.start)
           : projectNode(head, ctx);
     const declaration = {
       kind: "VariableDeclaration",

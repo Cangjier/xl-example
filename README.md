@@ -347,6 +347,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1166 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 「在一段坐标之间回原文找第一个 `[` / `{` 再配对」那一格 `bindingSpanOf`（20 行）**整格删掉**：实测两处调用点一次都没进，只剩一个不猜路的零宽占位
+
+**一句话**：`projectLetFrom` 里那一格 `bindingSpanOf(from, limit, ctx)` 是**回原文扫**的兜底
+——在一段坐标之间找第一个 `[` / `{`、再按深度配对到闭括号，扫到就按扫到的区间出
+`ArrayBindingPattern` / `ObjectBindingPattern`，扫不到才出一个零宽占位。而它要的那件事
+**产物自己已经答完了**：绑定模式就是那一格 `ArrayLiteral` / `ObjectLiteral` 单元
+（`patternUnit`，先在本段 `=` 左边找、再在 `letView.ProjectableKids` 里找），
+名字就是 `Let.DeclaredName`（第 1068 轮起直读）——第 1166 轮把那一格删掉，
+只留**不猜路**的那一半：
+
+| 原来的写法 | 今天 |
+| --- | --- |
+| 本页局部闭包 `bindingSpanOf(from, limit, ctx)`（20 行：`ctx.source` 逐格扫 + 深度配对） | **整格删掉** |
+| `declared === ""` 那一支：`bindingSpanOf(listStart, listEnd, ctx)`（扫到就按扫到的区间、否则零宽） | `namePlaceholderAt(listStart)`（一行：`{ kind: "ArrayBindingPattern", pos: at, end: at }`） |
+| `oneName` 非名字头那一支：`bindingSpanOf(head === undefined ? listStart : head.start, listEnd, ctx)` | `namePlaceholderAt(head === undefined ? listStart : head.start)`（同一格零宽占位） |
+
+- **「它一次都没走过」是量出来的**（第 1051 轮那条尺子的同一手法）：探针挂在**那两处调用点**
+  上（不是挂在闭包里）、跑 `node tests/parse/direct-ast.mjs --all`（2051 份语料）⇒
+  退出时读数是 **`{"none": true}`**——`__pb` **从来没被创建过**，也就是两个调用点一个都没进。
+  两处都在 `patternUnit !== null ? … : (declared === "" ? … : synthName(…))` 这条链上：
+  `patternUnit` 有值走第一支、名字记得住走第三支，两支一起落空才轮到它。
+- **删它的判据与第 1051 轮删 `synthName` 那三级兜底逐字相同**：留着一个不走的兜底，
+  等于给「回原文猜」留一条路，而那条路只会在坏输入上给出**第二份答案**——
+  「记不到就是零宽占位，不替它近似一个」。
+- **`ctx.source` 的读者又少一处**：这一格是本页代码块里**按坐标扫原文**的最后一处
+  「自己找一段括起来的正文」（`stmtEndOf` 的兜底支、`semicolonEndOf`、`astNode` 的尾分号那一格
+  照旧——那三处读的是**游标**与**相邻那一格字符**，第 1049 / 1053 轮就明确留着）。
+- **判据这一轮没长**（如实记下）：这一格坏的方式是「多一条猜的路」，
+  `direct:lint` 那几条（回原文查**某一格自己的**那一格字符 / 按坐标**切某一格的正文** /
+  对 token 调方法 / 按字符串键查）都看不见「在一段坐标之间找括号并配对」这种**游标**读法——
+  与第 1165 轮同一处境，所以只把判据写进两处台账。
+- **量**（同一把逐行尺子）：`print-ast-common` 代码块 **3994 → 3975 行**（净少 **19** 行）、
+  声明数仍是 **56 格**（删掉的是方法体里的一个局部闭包、加上的也是一个局部闭包，
+  两边都不在 `# method` / `# const` 的账上）。本仓第 1164 ~ 1166 三轮合计
+  **4042 → 3975 行**（净少 **67** 行）。
+- **实测八道门**：**7 通过、1 失败**（墙钟 31.5s），读数与第 1106 ~ 1165 轮**逐项相同**：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` **0 条违反**、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79；唯一那条红仍是 HEAD 上既有的 `runtime/round741/002`。
+  **另跑一遍 `cases:direct --all`**：2051 份、抛异常 **0 处**。
+
 ### 第 1165 轮：用户口径 1.2 / 1.3 / 1.6 —— 「终点之后跨过 trivia 那个 `;`」那一趟整段搬进被问的那一格（`Token.FollowingSemicolonAt`），`projectExport` 里那一圈扫描只剩一次属性读
 
 **一句话**：`export = X` / `export default X` 的尾分号**不在表达式那一格的区间里**，
