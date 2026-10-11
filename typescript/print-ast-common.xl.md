@@ -74,15 +74,26 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**58 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-54 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**56 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+52 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
-那会把「等价迁移」变成「重写」。**导出面只有 5 个名字**（`projectNode` / `isIndexFirstUnit` /
-`isCallFirstUnit` / `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），
-其余一律 `# private`。
+那会把「等价迁移」变成「重写」。**导出面只有 3 个名字**（`projectNode` /
+`projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），其余一律 `# private`。
 **量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 （`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
 （第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
+**第 1103 轮收掉的是两格「现场判据」**：`IsIndexFirstUnit`（31 行）与 `IsCallFirstUnit`（104 行）
+——两格都**只问「这一格自己长什么样」**（读 `Tag` / `IsIndexBracket` / `ProjectableKids` 再递归问
+头一格），所以按第 1090 ~ 1099 轮那把尺子（「这一格是不是某一类」由被问的那一页答）搬回各页：
+`core/syntax/token.xl.md` 立基类两格 `IsIndexFirstUnit` / `IsCallFirstUnit`（默认 `false`），
+`ArrayLiteral` / `Bracket` / `NotNull` / `PropertyAccess` / `Method` **五页各自显式声明同一个属性**
+（`## property` + `### get`，与 `IsBareCall` / `IsNotNullSymbol` 同形——子单元是解析期陆续挂上来的，
+所以「以什么开头」只能在读的那一刻看一次）；本页 17 处调用点改成属性读。
+两格 helper 的第一句守卫（`if (unit === undefined || unit === null) return false;`）随之落在
+**调用点**：可能收到 `undefined` 的那几处一律写成 `x?.IsXxxFirstUnit`（`undefined` ⇒ `undefined` ⇒ 假，
+与旧 helper 同答），手上已有 token 的那几处保持普通读。
+——**判据**：一格 helper 若只读「被问那一格自己的属性与子单元」，它就该住在那一页；
+搬迁与改写分开记：这一轮动的是**判据的住处**，不是判据本身。
 **第 1100 ~ 1102 三轮收掉的是七格「一格声明、一个真实调用点」的转发**
 （尺子与第 1043 / 1044 / 1067 / 1070 / 1080 / 1087 轮并掉那些转发同一把）：
 `projectSegment`（唯一读者 `ternary-operator.xl.md` 经 `ctx.Segment`）、
@@ -4102,7 +4113,7 @@ new Set([
     //  `Identifier` 各漂，`a?.b!.c.d` 被投成 `a?.b!.c`）。
     // 判据与链那一支同款：**下一格是点号 / 下标 / 以调用开头** ⇒ 交给 `chainOnto`
     //（它与「点号后面那一格」那几支是同一份实现），其余原样走二元那一支。
-    if (kids[at].IsDotSymbol || kids[at].IsIndexBracket || isCallFirstUnit(kids[at], ctx)) {
+    if (kids[at].IsDotSymbol || kids[at].IsIndexBracket || kids[at]?.IsCallFirstUnit) {
       return chainOnto(optional, kids.slice(at), ctx);
     }
     return foldBinaryFrom(optional, kids.slice(at), ctx);
@@ -4111,9 +4122,9 @@ new Set([
   //
   //     [PropertyAccess(o, [f]), BinaryOperator( PropertyAccess(Bracket(()), ., v), «+», 1 )]
   //
-  // ——`o["f"]().v` 那一截（**调用括号 + 后缀**，见 `isCallFirstUnit`）是那个二元单元的
+  // ——`o["f"]().v` 那一截（**调用括号 + 后缀**，见 `IsCallFirstUnit`）是那个二元单元的
   // **第一个孩子**，而链的头一格是它的**前一个兄弟**。
-  // **判据只认「第一格以一次调用开头」**（与 `isCallFirstUnit` 同一句）：点号开头的
+  // **判据只认「第一格以一次调用开头」**（与 `IsCallFirstUnit` 同一句）：点号开头的
   // 那一份不在这里——`o.f().v + 1` 的 token 层把整条链折成了一个 `Method` 单元，
   // 本来就走得通（实测），放开 `.` 那一档会换掉既有形状。
   //
@@ -4129,7 +4140,7 @@ new Set([
     if (kind !== "BinaryOperator" && kind !== "LogicalOperator") return false;
     const inner = unit.ProjectableKids;
     if (inner.length < 2) return false;
-    if (isCallFirstUnit(inner[0], ctx)) return true;
+    if (inner[0]?.IsCallFirstUnit) return true;
     return chainTailInOperator(inner[0]);
   };
   // **把那个二元单元摊到「续格 + 运算符」一层**（第 863 轮）：0a2 那一支要的是这个分法
@@ -4141,7 +4152,7 @@ new Set([
   //（第一格以一次调用开头）才停，再把沿途每一层的运算符与右操作数按**从里到外**接上。
   const unwindChainTailInOperator = (unit: any, out: Array<any>) => {
     const inner = unit.ProjectableKids;
-    if (inner.length >= 2 && isCallFirstUnit(inner[0], ctx)) {
+    if (inner.length >= 2 && inner[0]?.IsCallFirstUnit) {
       out.push(inner[0]);
       for (let j = 1; j < inner.length; j++) out.push(inner[j]);
       return;
@@ -4185,7 +4196,7 @@ new Set([
   // 而真正的 `o["f"]().v` 整片缺失（判据 `exec/round711/p711b-b02`）。
   const tailIsChain = kids
     .slice(1)
-    .some((k) => k.IsNullConditionalOperator || isSymbol(k, ".") || isCallFirstUnit(k, ctx));
+    .some((k) => k.IsNullConditionalOperator || isSymbol(k, ".") || k?.IsCallFirstUnit);
   // **续格与更松的运算符一起装在下一个二元单元里**（第 863 轮）：`1 + o["f"]().v + 2` 的产物是
   //
   //     [BinaryOperator( 1, «+», PropertyAccess(o, [f]) ),
@@ -4731,13 +4742,13 @@ new Set([
     return tailKind === "SymbolToken" && unit.TextValue === ".";
   };
   // **把那个二元单元摊进 `ck`**（判据与理由见上面 `chainTailInOperator`）：
-  // 续格那一截按原样摊成平级（与 `isCallFirstUnit` 那一支同一个手法），
+  // 续格那一截按原样摊成平级（与 `IsCallFirstUnit` 那一支同一个手法），
   // 运算符与右操作数**原样留在后面**（尾巴那一支就是按「以运算符开头的一串」折的）。
   // **递归那一档**：第一格还是二元单元时先把它摊开，再把自己的运算符与右操作数接上
   //（`o[k]().v * 2 + 1` ⇒ `[o[k], (, ., v, «*», 2, «+», 1]`）。
   const flattenChainTailInOperator = (unit: any, out: Array<any>) => {
     const inner = unit.ProjectableKids;
-    if (inner.length >= 2 && isCallFirstUnit(inner[0], ctx)) {
+    if (inner.length >= 2 && inner[0]?.IsCallFirstUnit) {
       // **整格 `Method` 不摊开**（第 975 轮）：`a!()()() + 1` 的那个二元单元里，
       // 第一格是 `Method(name=""[Method(name=""[Bracket])])`——它自己说的是**三次调用**
       // （第 966 轮那句话：一格可以盖着好几层），摊成它的**孩子**就少了一层，
@@ -4779,14 +4790,14 @@ new Set([
     if (kind !== "BinaryOperator" && kind !== "LogicalOperator") return false;
     const inner = unit.ProjectableKids;
     if (inner.length < 2) return false;
-    if (isIndexFirstUnit(inner[0], ctx)) return true;
+    if (inner[0]?.IsIndexFirstUnit) return true;
     return indexTailInOperator(inner[0]);
   };
   // 摊法与 `flattenChainTailInOperator` 一字不差（递归那一档同一理由）：
   // 续格那一格（下标）摊成平级，运算符与右操作数**原样留在后面**，由尾巴那一支折二元。
   const flattenIndexTailInOperator = (unit: any, out: Array<any>) => {
     const inner = unit.ProjectableKids;
-    if (inner.length >= 2 && isIndexFirstUnit(inner[0], ctx)) {
+    if (inner.length >= 2 && inner[0]?.IsIndexFirstUnit) {
       out.push(inner[0]);
       for (let j = 1; j < inner.length; j++) out.push(inner[j]);
       return;
@@ -4813,7 +4824,7 @@ new Set([
     let tail: any = undefined;
     const walk = (one: any) => {
       const inner = one.ProjectableKids;
-      if (inner.length >= 2 && isCallFirstUnit(inner[0], ctx)) {
+      if (inner.length >= 2 && inner[0]?.IsCallFirstUnit) {
         tail = inner[0];
         for (let j = 1; j < inner.length; j++) rest.push(inner[j]);
         return;
@@ -4834,9 +4845,9 @@ new Set([
       (kids[0].IsNotNull && kids[1].IsArrayLiteralUnit) ||
       // **`!` 后面那一格以一次下标开头**（第 333 轮）：`[1]!` 与 `[0].id`
       // 两种外壳（`NotNull` / `PropertyAccess`）都要认——判据与理由见
-      // `isIndexFirstUnit` 那一段。少了它，`o.b![1]![0]` 与 `data.list![0].id`
+      // `IsIndexFirstUnit` 那一段。少了它，`o.b![1]![0]` 与 `data.list![0].id`
       // **整条链都进不来**（后两个方括号连着丢）。
-      (kids[0].IsNotNull && isIndexFirstUnit(kids[1], ctx)) ||
+      (kids[0].IsNotNull && kids[1]?.IsIndexFirstUnit) ||
       // **函数 / 类表达式后面紧跟的方括号是下标**（第 775 轮）：`function () { }["length"]` /
       // `class { }["name"]` 里那个方括号与前一条（`o.b![1]`）**是同一处境**——
       // 前面那一格不是「标识符 / 已折好的链」，于是它按**数组字面量**成形；
@@ -4846,14 +4857,14 @@ new Set([
       // **续格后面还跟着运算符时**形状又换一格（`["s"] * 16` 折进了同一个二元单元）——
       // 那一档由 `indexTailInOperator` 认（判据见上面那一段）。
       (kids[0].IsValueOnlyUnit &&
-        (isIndexFirstUnit(kids[1], ctx) || indexTailInOperator(kids[1]))) ||
+        (kids[1]?.IsIndexFirstUnit || indexTailInOperator(kids[1]))) ||
       // **第二格以一次调用开头**（第 692 轮）：`o["f"]().v` 的产物是
       // `[PropertyAccess(o, [f]), PropertyAccess(Bracket(()), ., v)]`——
       // 调用那一对括号**与它后面的 `.v` 一起**折进了第二个 `PropertyAccess`
       //（`o["f"]()` 单独出现时是三格平级 `[o, Bracket([f]), Bracket(())]`，
       //  多了后缀之后 token 层给出的形状**就换了一个**）。
-      // 判据与理由见 `isCallFirstUnit` 那一段。
-      isCallFirstUnit(kids[1], ctx) ||
+      // 判据与理由见 `IsCallFirstUnit` 那一段。
+      kids[1]?.IsCallFirstUnit ||
       // **第二格是二元单元、续格在它里面**（第 743 轮，判据见上面 `chainTailInOperator`）。
       chainTailInOperator(kids[1]) ||
       // **一元前缀 + 操作数在外的链**（第 739 轮，判据见上面 `chainTail` 那一段）。
@@ -4887,7 +4898,7 @@ new Set([
       //（实测 `gap-r964-nonnull-call-twice-member`：缺 4 格）。
       // **做法**：摊开这件事交给 `chainOnto` 的 Method 分支——它按**区间**判「外面还有一层」，
       // 正是这一档需要的（那一支第 966 轮补齐了）。
-      if (k.IsPropertyAccess && at > 0 && isIndexFirstUnit(k, ctx)) {
+      if (k.IsPropertyAccess && at > 0 && k.IsIndexFirstUnit) {
         const bareKids = k.ProjectableKids;
         const bareHead = bareKids.length > 0 ? bareKids[0] : undefined;
         if (bareHead !== undefined && bareHead.IsMethodNode
@@ -4897,7 +4908,7 @@ new Set([
           continue;
         }
       }
-      if (k.IsPropertyAccess && at > 0 && isCallFirstUnit(k, ctx)) {
+      if (k.IsPropertyAccess && at > 0 && k.IsCallFirstUnit) {
         for (const inner of k.ProjectableKids) ck.push(inner);
         continue;
       }
@@ -4972,17 +4983,17 @@ new Set([
         // 里层是两件事（先按括号调一次、再取下标），摊开之后循环里那两支各办一件；
         // 不摊开的话它在循环里既不是下标、也不是点号 ⇒ `break`（实测
         // `gap-r975-nonnull-call-assert-index` / `gap-r975-nonnull-call-thrice-assert-member`）。
-        // **与上面那条 `isIndexFirstUnit` 的分工**：那一支管「先下标、再断言」，
-        // 这一支管「先调用、再断言」（判据就是 `isCallFirstUnit(头一格)`）。
+        // **与上面那条 `IsIndexFirstUnit` 的分工**：那一支管「先下标、再断言」，
+        // 这一支管「先调用、再断言」（判据就是 `IsCallFirstUnit`）。
         const oneHead = one.IsPropertyAccess
           ? one.ProjectableKids[0]
           : undefined;
         const assertCallCell = oneHead !== undefined && oneHead.IsNotNull
-          && isCallFirstUnit(oneHead, ctx);
+          && oneHead?.IsCallFirstUnit;
         if (
           at > 0 &&
           one.IsPropertyAccess &&
-          (isIndexFirstUnit(one, ctx) || assertCallCell)
+          (one.IsIndexFirstUnit || assertCallCell)
         ) {
           for (const inner of one.ProjectableKids) flattened.push(inner);
           continue;
@@ -5085,7 +5096,7 @@ new Set([
         // **链上其余格用「摊开之前」的那一份**（`kids`，不是 `ck`）：`ck` 里第二格
         // （`PropertyAccess(Bracket(()), ., v)`）已经被摊成三格平级
         //（`(` / `.` / `v`）——而 `projectExpression` 的链那一支认的是**没摊开**的形状
-        //（见上面 `isCallFirstUnit` 那一段）。递摊开那一份会让它落进二元那一支：
+        //（见上面 `IsCallFirstUnit` 那一段）。递摊开那一份会让它落进二元那一支：
         // 折出一个**操作符是 `DotToken` 的 `BinaryExpression`**，
         // 降级期报 `name is not a local or a capture: v`（实测踩过一次）。
         const operand = projectExpression([...unaryKids.slice(operandAt), ...kids.slice(1)], ctx);
@@ -5186,7 +5197,7 @@ new Set([
         // 包成 `NonNullExpression`，链再照常往下接。不认它的话循环在这里 break，
         // 后面那整段链会掉成平级节点（实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
         if (ck[i].IsNotNull) {
-          // **`[1]!` 这种「先下标、再断言」的一格**（第 333 轮）：见 `isIndexFirstUnit`
+          // **`[1]!` 这种「先下标、再断言」的一格**（第 333 轮）：见 `IsIndexFirstUnit`
           // 那一段的表——中间那一格的外壳是 `NotNull`，里层却是一个方括号。
           // **次序是语义**：TS 是 `((o.b!)[1])!`——先下标、再把 `!` 套在那个结果上。
           // 原来无条件写成「把 `left` 整个包进 `NonNullExpression`」 ⇒ 断言套在了**下标之前**
@@ -5199,7 +5210,7 @@ new Set([
           // **`f()!` 这种「先调用、再断言」的一格**（第 975 轮）：`a!()!()!()` 的第二格是
           // `NotNull([Bracket(()) , !])`——那个括号是**一次调用**（对 `left` 的），`!` 套在
           // **调用结果**上（TS：`NonNull(CallExpression(a!))`）。下面那条只认
-          // `isIndexFirstUnit`（下标那一档），于是这一格直接把 `left` 包进 `NonNullExpression`
+          // `IsIndexFirstUnit`（下标那一档），于是这一格直接把 `left` 包进 `NonNullExpression`
           // ⇒ **那次调用的节点整格丢**（实测 `gap-r973-nonnull-call-assert-call-assert`：
           // 最里面那个 `CallExpression` 缺、`NonNullExpression` 漂 1）。
           // 判据与下标那一支**一字不差**（`endOf(括号) < endOf(这一格)`）：先建调用、再套断言。
@@ -5226,7 +5237,7 @@ new Set([
               innermostCallee(left, innermostMethod(bangHead), ctx),
               undefined,
             );
-          } else if (bangHead !== undefined && isIndexFirstUnit(bangHead, ctx)) {
+          } else if (bangHead !== undefined && bangHead.IsIndexFirstUnit) {
             const bracket = bangHead;
             const argument = projectExpression(bracket.ProjectableKids, ctx);
             left = {
@@ -5899,141 +5910,6 @@ new Set([
   };
 ```
 
-# method isIndexFirstUnit:(unit:any, ctx:any)=>bool
-
-**这一格是不是「以一次下标开头」**（第 333 轮）——`isIndexFirstUnit` 是给
-**非空断言后面那一串**用的判据。
-
-**为什么需要它**：`!` 是一个**单元**，它只把**左边**包起来，而**右边**那一格
-谁也不认（它不是下标位、也不是数组字面量位）——于是 token 层会按**它能认的那个形状**
-成形。三种都实测到了：
-
-| 写法 | token 层给的形状 |
-| --- | --- |
-| `o.b![1]` | `[NotNull(o.b), ArrayLiteral(1)]`（数组字面量当兄弟） |
-| `o.b![1]![0]` | `[NotNull(o.b), NotNull(ArrayLiteral(1)), ArrayLiteral(0)]`（`[1]!` 又是一格） |
-| `data.list![0].id` | `[NotNull(data.list), PropertyAccess(ArrayLiteral(0), ., id)]`（`.id` 折到了那个方括号上） |
-
-三者的**头一格都是下标**——所以链那一支要认的不只是「兄弟是个方括号」，
-而是「这一格**以**一次下标开头」（里面可能再套一层 `!`、也可能后面还接着 `.id`）。
-
-**`PropertyAccess` 也要往里看**：`[0].id` 那一格的外壳是属性访问，
-而它的**第一格**才是那个方括号——判据递归一层就够。
-
-```ts
-const kind = unit.Tag;
-if (kind === "ArrayLiteral" || unit.IsIndexBracket) return true;
-if (kind === "NotNull" || kind === "PropertyAccess") {
-  const inner = unit.ProjectableKids;
-  if (inner.length >= 1) return isIndexFirstUnit(inner[0], ctx);
-}
-return false;
-```
-
-# method isCallFirstUnit:(unit:any, ctx:any)=>bool
-
-**这一格是不是「以一次调用开头」**（第 692 轮）——`isIndexFirstUnit` 的姊妹。
-
-**为什么需要它**：`o["m"]()` 单独出现时 token 层给的是**三格平级**
-（`[o, Bracket([m]), Bracket(())]`，见 `tokens/property-access.xl.md` 里那一段：
-`MethodCloseRule` 只认 `Identifier` 当被调用者），可在它后面再接一个后缀之后，
-形状**换成了两格**：
-
-| 写法 | token 层给的形状 |
-| --- | --- |
-| `o["m"]()` | `[Identifier(o), Bracket([m]), Bracket(())]`（三格平级） |
-| `o["m"]().v` | `[PropertyAccess(o, [m]), PropertyAccess(Bracket(()), ., v)]` |
-
-第二格那份把**调用括号**与**它后面的后缀**装进了同一个 `PropertyAccess` 外壳里——
-`projectExpression` 的链那一支（判据是「`kids[1]` 是 `.` 或下标」）于是整个进不来，
-`kids[0]` 单独投出去、后面那半段丢。所以链那一支要认的不只是「第二格是个点号/下标」，
-还要认「第二格**以一次调用开头**」。
-
-**判据只往里看一层、且只认 `PropertyAccess` / `NotNull` / `Method` 外壳**：
-裸的 `(` 括号兄弟（`f()()` 那一种）**不在这里**——它的归属由 `projectExpression`
-末尾那条「调用链的末尾那一格是 `(` 括号」（3b）管，放开会换掉既有形状。
-
-**`Method` 也算一格**（第 962 轮）：`o!()()` 的产物是
-`[NotNull(o!), Method name=""[Bracket( () )]]`——第二格**本身就是那次调用**
-（名字为空 ⇒ 它要说的正是「把左边那个值再调一次」）。这一档原来进不了链那一支
-（入口判据答 `false` ⇒ 链那个循环在 `break` 上停住、**整格消失**，实测只剩一个
-`NonNullExpression`、两个 `CallExpression` 都不成形）。**裸的 `(` 兄弟仍然不在名单里**，
-理由与上面那一句一字不差。
-
-```ts
-if (unit === undefined || unit === null) return false;
-const kind = unit.Tag;
-// **这一格自己就是一次调用**（第 966 轮）：`a!()!()` 的产物是
-// `[NotNull(a, !), Method(name=""[NotNull(Bracket(()), !), Bracket(())])]`——
-// 第二格是**一次调用**（名字为空），而链那一支的入口判据原来只认
-// `PropertyAccess` / `NotNull` 外壳**里**第一格是实参括号这一形状 ⇒ 答否 ⇒
-// 链整个进不来、`kids[0]` 单独投出去（实测 `gap-r964-nonnull-call-assert-call`：
-// 只剩一个盖到 `a!` 的 `NonNullExpression`，两个 `CallExpression` 都不成形）。
-// **为什么这一档是安全的**：`Method` 是一个**完整的单元**（那次调用有自己的区间），
-// 与「平级的裸 `(` 兄弟」**不是一件事**——后者仍然由 `projectExpression` 末尾 3b 那一支管。
-// 它的「以一次调用开头」有两种壳：实参括号自己（`a!()()`）、或断言盖着实参括号
-//（`a!()!()` 里那一格是 `NotNull(Bracket(()), !)`）。
-if (kind === "Method") {
-  const mKids = unit.ProjectableKids.filter((k: any) => k.IsGenericType === false);
-  const mHead = mKids.length > 0 ? mKids[0] : undefined;
-  if (mHead === undefined) return false;
-  if (mHead.IsParenBracket) return true;
-  if (mHead.IsNotNull) {
-    const asserted = mHead.ProjectableKids.filter(
-      (k: any) => !k.IsNotNullSymbol,
-    );
-    const inner = asserted.length > 0 ? asserted[0] : undefined;
-    if (inner === undefined) return false;
-    if (inner.IsParenBracket) return true;
-    // **断言里的核是一个下标括号**（第 975 轮）：`a!()[0]!()` 的第二格是
-    // `Method(name=""[NotNull(Bracket([0]), !), Bracket(())])`——被调用者是「先下标、再断言」，
-    // 而这一格自己那次调用的实参括号是**平级的兄弟**（那一格盖着整段 `[0]!()`）⇒
-    // 它同样是「以一次调用开头」。少了这一句链那一支整个进不来
-    //（实测 `gap-r975-nonnull-index-assert-call`：缺 2 漂 2）。
-    if (inner.IsBracketUnit) return isIndexFirstUnit(inner, ctx);
-    // **断言里的核自己也是一次调用**（第 975 轮）：`a!()()!()` 的第一格是
-    // `NotNull(Method(name=""[Bracket(())]), !)`——`!` 盖在一格 `Method` 上，而那一格
-    // 本身就是「以一次调用开头」。上面那一句只认「核是实参括号」⇒ 判据答否 ⇒
-    // 链那一支整个进不来（实测 `gap-r973-nonnull-call-twice-assert`：缺 3 漂 1）。
-    // 递归问它即可——判据与 `Method` 那一支同源（都问「这一格是不是以一次调用开头」）。
-    return isCallFirstUnit(inner, ctx);
-  }
-  // **头一格自己又是一格 `Method`**（第 972 轮，**普查当场红的**）：`a!()()().c` 的第二格是
-  // `PropertyAccess(Method(name=""[Method(name=""[Bracket(())])]), ., c)`——两格 `Method`
-  // 说的是**三次**调用（每一格空名字的 `Method` 都盖着一次调用，见第 971 轮那一族）。
-  // 头一格是 `Method` 时它自己就是「里面那次调用」⇒ 这一格同样是「以一次调用开头」，
-  // 判据与上面那一档同源，递归问它即可（`Method` 是**完整单元**，与平级的裸 `(` 兄弟不是一件事）。
-  // 少了这一句：第 971 轮补的 `head.IsMethodNode && isCallFirstUnit(head, ctx)`
-  // 在这里答否 ⇒ 链那一支整个进不来、`kids[0]` 单独投出去（实测 `gap-r971-nonnull-call-thrice-member`：
-  // 只剩一个盖到 `a!` 的 `NonNullExpression`，缺 5 格）。
-  if (mHead.IsMethodNode) return isCallFirstUnit(mHead, ctx);
-  return false;
-}
-if (kind === "PropertyAccess" || kind === "NotNull") {
-  const inner = unit.ProjectableKids;
-  if (inner.length >= 1) {
-    const head = inner[0];
-    if (head.IsParenBracket) return true;
-    // **头一格是「外面那次调用」在 `Method` 里**（第 971 轮，**普查当场红的**）：
-    // `a!()().c` 的第二格是
-    // `PropertyAccess(Method(name=""[Bracket(())]), ., c)`——实参括号在 `Method`
-    // **里面**，于是这一格同样是「以一次调用开头」。原来这里只认**平级的** `Bracket`，
-    // 于是链那一支整个进不来、`kids[0]` 单独投出去：实测只剩一个盖到 `a!` 的
-    // `NonNullExpression`，两个 `CallExpression`、`PropertyAccessExpression` 与
-    // `Identifier(c)` 一起丢（`gap-r964-nonnull-call-twice-member`，缺 4 格）。
-    // 判据只多问一句 `isCallFirstUnit(头一格)`，认的仍然只有 `Method` 那一档
-    // ——**平级的裸 `(` 兄弟照旧不在名单里**（理由与上面那一句一字不差）。
-    // **头一格是 `NotNull` 时也要递归问**（第 975 轮）：`a!()![0]` 的第二格是
-    // `PropertyAccess([NotNull(Bracket(()), !), Bracket([0])])`——那一格的头是
-    // 「断言盖着一次调用」，同样是「以一次调用开头」；原来只认 `Method` ⇒ 链那一支
-    // 整个进不来（实测 `gap-r975-nonnull-call-assert-index`：缺 3 漂 1）。
-    if (head.IsNotNull) return isCallFirstUnit(head, ctx);
-    return head.IsMethodNode && isCallFirstUnit(head, ctx);
-  }
-}
-return false;
-```
-
 # private method assertedMember:(left:any, unit:any, ctx:any, questionDot:any)=>any
 
 把一格**「成员名 + `!`」**（`NotNull`）折成 TS 的 `NonNullExpression`（第 852 轮立）。
@@ -6526,7 +6402,7 @@ return false;
           rest.push(unit);
           continue;
         }
-        if (isCallFirstUnit(unit, ctx)) {
+        if (unit.IsCallFirstUnit) {
           for (const inner of unit.ProjectableKids) rest.push(inner);
           continue;
         }
@@ -6904,7 +6780,7 @@ return false;
     }
     // **这一格自己是一个非空断言**（第 975 轮）：`a?.b![0]![1].c` 的 NCO 里第二格是
     // `NotNull([Bracket([0]), !])`——「**先下标、再断言**」的一格（与链循环里
-    // `isIndexFirstUnit` 那一支、以及第 975 轮补的「先调用、再断言」同形）。
+    // `IsIndexFirstUnit` 那一支、以及第 975 轮补的「先调用、再断言」同形）。
     // 这一支原来根本没有 ⇒ 它既不是点号、也不是下标 / 圆括号 / `Method`，
     // 循环在它前面就 `break` ⇒ **断言与那个下标一起丢**（实测
     // `gap-r973-opt-assert-index-index-member`：缺 5 漂 2）。

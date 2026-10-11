@@ -2127,6 +2127,53 @@ return false;
 return false;
 ```
 
+## property IsIndexFirstUnit:bool
+
+**我这一格是不是「以一次下标开头」**（第 1103 轮）——**不是**的一律给 `false`。
+
+非空断言 `!` 是一个**单元**：它只把左边包起来，右边那一格谁也不认，于是 token 层按自己认得的
+那个形状成形——`o.b![1]` 给 `[NotNull(o.b), ArrayLiteral(1)]`、`o.b![1]![0]` 给
+`[NotNull(o.b), NotNull(ArrayLiteral(1)), ArrayLiteral(0)]`、`data.list![0].id` 给
+`[NotNull(data.list), PropertyAccess(ArrayLiteral(0), ., id)]`。三者的**头一格都是下标**，
+所以折链那一支要认的不是「兄弟是个方括号」，而是「这一格**以**一次下标开头」。
+
+判据过去是投影层的一格 helper（`print-ast-common.xl.md` 的 `isIndexFirstUnit`:问 `Tag`、
+读 `IsIndexBracket` / `ProjectableKids`、再递归问头一格）——**那三件事全在这一格自己身上**，
+所以与 `IsBareCall` / `IsNotNullSymbol` 同一条口径：**基类给默认档、需要它的那几页各自覆写
+同一个属性**（`ArrayLiteral` / `Bracket` / `NotNull` / `PropertyAccess` / `Method`，读时现算）。
+
+**为什么是 `## property` + `### get`（不是构造时赋的 `## field`）**：子单元是**解析期陆续挂上来**的，
+「我这一格现在以什么开头」只能在**读的那一刻**看一次（与 `HasChildren` / `IsBareCall` 同一形态）。
+
+### get
+
+```ts
+return false;
+```
+
+## property IsCallFirstUnit:bool
+
+**我这一格是不是「以一次调用开头」**（第 1103 轮）——**不是**的一律给 `false`。
+
+`o["m"]()` 单独出现时 token 层给的是**三格平级**，而它后面再接一个后缀形状就换成两格
+（`o["m"]().v` 给 `[PropertyAccess(o, [m]), PropertyAccess(Bracket(()), ., v)]`）——
+调用括号与后缀被装进同一个 `PropertyAccess` 外壳里，折链那一支的入口判据于是整个进不来。
+所以那一支要认的不只是「第二格是点号 / 下标」，还有「第二格**以一次调用开头**」。
+
+**判据只往里看一层**，且只认 `PropertyAccess` / `NotNull` / `Method` 外壳；**裸的 `(` 括号兄弟
+（`f()()` 那一种）不在这里**——它的归属由 `projectExpression` 末尾那条「调用链的末尾那一格是
+`(` 括号」管，放开会换掉既有形状。
+
+判据过去是投影层的一格 helper（`print-ast-common.xl.md` 的 `isCallFirstUnit`）——与
+`IsIndexFirstUnit` 同一条口径、同一形态：**基类给默认档、那五页各自覆写同一个属性**。
+它与 `IsIndexFirstUnit` 互相递归（断言里的核可能是下标、也可能是又一次调用），两格都在读的那一刻现算。
+
+### get
+
+```ts
+return false;
+```
+
 ## field IsSignatureNode:bool = false
 
 **我这一格是不是「可调用签名」**（第 1040 轮）——是的话这一格是 `true`。

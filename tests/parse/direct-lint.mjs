@@ -704,6 +704,14 @@ for (const file of files) {
  * 11 处现场连写（`Tag === "SymbolToken" && TextValue === "!"`），今天由符号那一页读时现算
  * （`## property` + `### get`：基类答 `false`——与 `IsCommaSymbol` 同一形态、同一理由：
  * 不是每个符号都会走到 `Close()`）。同一轮的**匿名连写**由 `NOT_NULL_SYMBOL_CLASSIFY` 守着。
+ *
+ * **第 1103 轮再补两格**：`IsIndexFirstUnit` / `IsCallFirstUnit`——「这一格是不是**以**一次下标 /
+ * 一次调用开头」过去是投影层的两格 helper（`print-ast-common.xl.md` 的 `isIndexFirstUnit` /
+ * `isCallFirstUnit`，两格合起来 135 行），而它们问的**全是这一格自己的事**（读 `Tag` /
+ * `IsIndexBracket` / `ProjectableKids`，再递归问头一格）。今天基类两格默认 `false`、
+ * `ArrayLiteral` / `Bracket` / `NotNull` / `PropertyAccess` / `Method` 五页各自显式声明
+ * 同一个属性（`## property` + `### get`），投影只读属性（`x?.IsIndexFirstUnit`）。
+ * 这一条守的就是**名字写回成问句**那一形态：`isIndexFirstUnit(` / `isCallFirstUnit(` / `ctx.Is…`。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -785,6 +793,8 @@ const SELF_CLASSIFY_NAMES = [
   "IsSwitchCaseUnit",
   "IsSwitchStatementUnit",
   "IsStatementShell",
+  "IsIndexFirstUnit",
+  "IsCallFirstUnit",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,

@@ -622,6 +622,41 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 `IsChainBaseNode` **不是同一问**：那一格答「能不能当一整条链的基名」（八页答 `true`，
 **不含** `Bracket` / `NotNull` / `RegexToken`），这一格答「我是不是 `PropertyAccess` 这一格」。
 
+## property IsIndexFirstUnit:bool
+
+**我这一格是不是「以一次下标开头」**（第 1103 轮）——`[0].id` 那一格的外壳是属性访问，
+而它的**第一格**才是那个方括号，所以这一页把问题**递归一层**递给第一格。
+
+判据过去在投影层（`print-ast-common.xl.md` 的 `isIndexFirstUnit`），口径与理由见
+`../../core/syntax/token.xl.md` 的 `IsIndexFirstUnit`：**基类给默认档、需要它的那几页各自覆写
+同一个属性**。链的续格也有这一档——`o.b![1]![0]` 的第二格就是 `PropertyAccess(Bracket, …)`。
+
+### get
+
+```ts
+const inner = this.ProjectableKids;
+const head = inner.length >= 1 ? inner[0] : undefined;
+return head !== undefined && head.IsIndexFirstUnit;
+```
+
+## property IsCallFirstUnit:bool
+
+**我这一格是不是「以一次调用开头」**（第 1103 轮）——`o["m"]().v` 那一格是
+`PropertyAccess(PropertyAccess(o, [m]), ., v)` 里**第二格**那一个：调用括号与后缀装在同一个
+外壳里，所以投影层折链那一支要问的正是这一格。
+
+判据只有一句：**头一格答什么就是什么**（`head.IsCallFirstUnit`）——实参括号可能**平级**在头一格
+（`[Bracket(())]`），也可能包在 `Method` / `NotNull` 里面，三种壳各由各自那一页答，
+这一页不替它们判。口径与理由见 `../../core/syntax/token.xl.md` 的 `IsCallFirstUnit`。
+
+### get
+
+```ts
+const inner = this.ProjectableKids;
+const head = inner.length >= 1 ? inner[0] : undefined;
+return head !== undefined && head.IsCallFirstUnit;
+```
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

@@ -255,6 +255,42 @@ return result;
 这一格单元」——一次断言在产物里是**一个** `NotNull` 单元（装着被断言者 + 那个 `!`），
 所以两问的收件人根本不同（一个在 `SymbolToken` 那一页、一个在这里）。
 
+## property IsIndexFirstUnit:bool
+
+**我这一格是不是「以一次下标开头」**（第 1103 轮）——`o.b![1]![0]` 里第二格是
+`NotNull(ArrayLiteral(1))`：**断言里面的那个核**才决定这一格以什么开头，
+所以这一页把 `!` 滤掉、把问题递给核。
+
+判据只有一句：**核答什么就是什么**（`核.IsIndexFirstUnit`）——核是下标括号、是数组字面量、
+还是再套着一层断言，各由各自那一页答，这一页不替它们判（`ArrayLiteral` / `Bracket` 那两页
+自己答 `true`）。口径与理由见 `../../core/syntax/token.xl.md` 的 `IsIndexFirstUnit`。
+
+### get
+
+```ts
+const inner = this.ProjectableKids.filter((k: any) => !k.IsNotNullSymbol);
+const head = inner.length >= 1 ? inner[0] : undefined;
+return head !== undefined && head.IsIndexFirstUnit;
+```
+
+## property IsCallFirstUnit:bool
+
+**我这一格是不是「以一次调用开头」**（第 1103 轮）——`a!()()` 里那一格是
+`NotNull(Bracket(()), !)`（断言盖着实参括号）、`a!()()!()` 里是
+`NotNull(Method(name=""[Bracket(())]), !)`（断言盖着又一格调用）——两档都是「以一次调用开头」。
+
+判据同样只有一句：**核答什么就是什么**（`核.IsCallFirstUnit`）——核是实参括号、是下标括号、
+还是一格 `Method`，各由各自那一页答。口径与理由见
+`../../core/syntax/token.xl.md` 的 `IsCallFirstUnit`。
+
+### get
+
+```ts
+const inner = this.ProjectableKids.filter((k: any) => !k.IsNotNullSymbol);
+const head = inner.length >= 1 ? inner[0] : undefined;
+return head !== undefined && head.IsCallFirstUnit;
+```
+
 ## field AstKind:string | undefined = "NonNullExpression"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），

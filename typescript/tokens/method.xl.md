@@ -308,6 +308,52 @@ return index;
     || head.Tag === "NotNull";
 ```
 
+## property IsIndexFirstUnit:bool
+
+**我这一格是不是「以一次下标开头」**（第 1103 轮）——名字为空的那一格调用，若被调用者以一次
+下标开头，就答 `true`（`a!()()[0]` 那一族：`Method(name=""[Bracket([0]), …])`）。
+
+判据过去在投影层（`print-ast-common.xl.md` 的 `isIndexFirstUnit`），口径与理由见
+`../../core/syntax/token.xl.md` 的 `IsIndexFirstUnit`：**基类给默认档、需要它的那几页各自覆写
+同一个属性**。这一页只多一句：**名字为空的那一格 `Method` 本身就是一次调用**，
+所以它的第一格可以接着往 `Bracket.IsIndexFirstUnit` 递。
+
+### get
+
+```ts
+const kids: any[] = this.ProjectableKids.filter((k: any) => k.IsGenericType === false);
+const head = kids.length > 0 ? kids[0] : undefined;
+return head !== undefined && head.IsIndexFirstUnit;
+```
+
+## property IsCallFirstUnit:bool
+
+**我这一格是不是「以一次调用开头」**（第 1103 轮）——名字为空的那一格 `Method` **本身就是
+一次调用**，所以它答 `true`；`a!()()` 那一族里第二格是 `Method(name=""[Bracket(())])`，
+`a!()!()` 里是 `Method(name=""[NotNull(Bracket(()), !)])`——两档都要认。
+
+**它为什么不能只读第一格**：实参括号在 `Method` **里面**，而断言里的核可能是实参括号、
+可能是一个下标括号、也可能又是一格 `Method`——三种壳各问一次，判据与投影层那一格一字不差
+（口径与理由见 `../../core/syntax/token.xl.md` 的 `IsCallFirstUnit`）。
+
+### get
+
+```ts
+const kids: any[] = this.ProjectableKids.filter((k: any) => k.IsGenericType === false);
+const head = kids.length > 0 ? kids[0] : undefined;
+if (head === undefined) return false;
+if (head.IsParenBracket) return true;
+if (head.IsNotNull) {
+  const asserted = head.ProjectableKids.filter((k: any) => !k.IsNotNullSymbol);
+  const inner = asserted.length > 0 ? asserted[0] : undefined;
+  if (inner === undefined) return false;
+  if (inner.IsParenBracket) return true;
+  if (inner.IsIndexFirstUnit) return true;
+  return inner.IsCallFirstUnit;
+}
+return head.IsCallFirstUnit;
+```
+
 ## static method CommaOperator:(ctx:any, kid:any)=>bool
 
 **这一格是不是「顶层逗号」**（第 302 轮）：类型是 `BinaryOperator`、且它里面有一枚 `,` 符号。

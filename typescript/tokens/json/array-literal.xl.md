@@ -269,6 +269,22 @@ Json 数组。
 **我这一格是不是一个数组字面量单元**（第 1095 轮）：数组字面量就是这一页，所以常量答 `true`
 ——口径与理由见 `../../../core/syntax/token.xl.md` 的 `IsArrayLiteralUnit`。
 
+## property IsIndexFirstUnit:bool
+
+**我这一格是不是「以一次下标开头」**（第 1103 轮）：数组字面量就是这一页，所以常量答 `true`
+——`o.b![1]` 里那个 `[1]` 是 `NotNull` 的**兄弟**却停在 `ArrayLiteral` 上（见
+`../../../core/syntax/token.xl.md` 的 `IsIndexFirstUnit` 那张表），折链那一支要认的正是这一格。
+
+判据过去在投影层（`print-ast-common.xl.md` 的 `isIndexFirstUnit`：`kind === "ArrayLiteral"`），
+而**类名就是这一页自己的名字**——所以它本来就该由这一页答。口径与「为什么基类那一句默认」
+见 `../../../core/syntax/token.xl.md` 的 `IsIndexFirstUnit`。
+
+### get
+
+```ts
+return true;
+```
+
 ## field SegmentNames:Map<string, Map<string, string>> = new Map([["ArrayLiteralExpression", new Map([["children", "elements"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。

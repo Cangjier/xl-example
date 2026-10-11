@@ -379,3 +379,32 @@ return result;
 
 **第 1042 轮起它是属性**：值在 `Use` 记下 `startBracket` 的那一刻一起赋好（克隆体在 `Clone` 里
 抄同一格），投影直读——「我是不是裸块」是**构造那一趟就定下来的数据**，不是一处现场判据。
+
+## property IsIndexFirstUnit:bool
+
+**我这一格是不是「以一次下标开头」**（第 1103 轮）——**下标那一态就是**，`(` / `{` 两态不是。
+
+判据过去在投影层（`print-ast-common.xl.md` 的 `isIndexFirstUnit`：`Tag === "Bracket"` 再把正文
+拿回去比 `[`），口径与理由见 `../../core/syntax/token.xl.md` 的 `IsIndexFirstUnit`：
+**基类给默认档、需要它的那几页各自覆写同一个属性**；这一页只答自己那一态。
+
+### get
+
+```ts
+return this.IsIndexBracket;
+```
+
+## property IsCallFirstUnit:bool
+
+**我这一格是不是「以一次调用开头」**（第 1103 轮）——**实参括号那一态就是**（`(` 开头的
+`Bracket` 就是一次调用的实参表）；下标那一态不是。
+
+判据过去在投影层（`print-ast-common.xl.md` 的 `isCallFirstUnit`），口径与理由见
+`../../core/syntax/token.xl.md` 的 `IsCallFirstUnit`：「裸的 `(` 兄弟」正是这一格
+（`f()()` 那一族），认它的是**整格**——链那一支与末尾那条 3b 判据问的都是这一问。
+
+### get
+
+```ts
+return this.IsParenBracket;
+```
