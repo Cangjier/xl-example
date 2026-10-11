@@ -101,6 +101,18 @@ return (
 （`as Array<Array<number>>` 的 `>>`）——它们当值位运算符出现在 `as` 后面的写法极罕见，
 而误判一次就是**一整份文件解析崩**，所以宁可漏。
 
+**`!` 也不在名单里**（第 1207 轮，用户口径 1.1）：`a as T!` 在 TypeScript 那边是
+`AsExpression{ type: JSDocNonNullableType(T!) }`——**结尾那个 `!` 是类型的一部分**
+（`parseType()` 收它，`ts.createSourceFile` 实测 `const q = f() as T!`：
+`JSDocNonNullableType[16,19)` 把 `T!` 两格全包、`AsExpression[9,19)` 的 `end` 也跟着到 19；
+`as T!!` 再套一层）。第 289 轮那张名单里带着 `!`，于是这一格把 `!` 当成「类型已经写完」：
+`As` 只收到 `T`，`!` 留在外面**被声明那一层收成 `VariableDeclaration.exclamationToken`**
+（实测多出 `ExclamationToken`、`AsExpression` 的 `end` 少一格、缺 `JSDocNonNullableType`），
+而三种续写——`as T! | U`（联合整段丢、`| U` 被折成值位二元）、`as T![]`（数组整格丢）、
+`as Box<T!>`（泛型实参里的 `!` 把整个 `Box<T` 包进了 `JSDocNonNullableType`）——也跟着一起错。
+`!=` / `!==` 是**另一个** `SymbolToken`（`TempToString()` 是两个字 / 三个字），
+所以摘掉单字符这一格不会动到它们。
+
 ```ts
 if (!(item instanceof SymbolToken)) {
   return false;
@@ -120,8 +132,7 @@ return (
   text === "!=" ||
   text === "===" ||
   text === "!==" ||
-  text === "^" ||
-  text === "!"
+  text === "^"
 );
 ```
 
