@@ -3862,14 +3862,29 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 **为什么立这一格**：这一段算式在本页出现过 **6 次**（都在 `chainOnto` 的子链循环里：
 点号那一支、名字那一支、`IsCallUnit` 那一支、平级圆括号那一支、下标那一支，
 加上循环末尾「子链吃完还没用掉的那个断言」那一句）——5 次是 9 行的 `if`，1 次是 3 行。
-**判据一个字没改**：套上去的节点、`pos` 取 `left.pos`、`end` 取 `pendingBang`，逐字相同；
-那四处 `pendingBang = undefined;` 仍然写在调用点后面一行（原来它在 `if` 里面，
-而把一个已经是 `undefined` 的量再赋一次 `undefined` 是同一件事）。
+**第 1156 轮又收了同样的 6 处**（`projectExpression` / `assertedMember` 里那六句
+`X = { kind: "NonNullExpression", expression: …, pos: ….pos, end: … };` 的整对象写法）：
+判据与那 6 处逐字相同（`pos` 仍取左边那一格的 `pos`，`end` 仍取断言那一格的终点），
+所以整对象写法一并换成这一格——**12 处各留一次调用**。
 
 ```ts
   return pendingBang === undefined
     ? left
     : { kind: "NonNullExpression", expression: left, pos: left.pos, end: pendingBang };
+```
+
+# private method markOptional:(node:any, questionDot:any)=>void
+
+**这一格说的那个 `?.`**（第 1156 轮）：有就挂 `questionDotToken`、没有就不挂。
+
+**为什么立这一格**：这一句在本页出现过 **13 次**（`chainOnto` / `assertedMember` /
+`graftCallee` 那几族里「刚造出来的那一格是可选访问」的收尾），逐字重复的只有**接收者那一格的名字**。
+**判据一个字没改**：只有 `questionDot !== undefined` 时才写这一格；另外三处的第一个条件是
+**另一件事**（「这一格造出来没有」「这一层是不是最深」），照旧留在调用点上：
+`if (…) markOptional(x, questionDot);`。
+
+```ts
+  if (questionDot !== undefined) node.questionDotToken = questionDot;
 ```
 
 # private method shellOn:(projected:any, callee:any)=>any
@@ -6117,7 +6132,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               end: endOf(bracket),
             };
           }
-          left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(ck[i]) };
+          left = bangWrapped(left, endOf(ck[i]));
           sawNullAssert = true;
           i += 1;
           continue;
@@ -6354,7 +6369,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             end: nameEnd,
           };
           const call = shellOnto(head, member, ctx);
-          left = { kind: "NonNullExpression", expression: call, pos: call.pos, end: endOf(next) };
+          left = bangWrapped(call, endOf(next));
           i += 2;
           continue;
         }
@@ -6376,7 +6391,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               end: endOf(piece),
             };
           }
-          left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(next) };
+          left = bangWrapped(left, endOf(next));
           i += 2;
           continue;
         }
@@ -6524,7 +6539,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             end: endOf(target),
           };
         }
-        left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(next) };
+        left = bangWrapped(left, endOf(next));
         i += 2;
         continue;
       }
@@ -6781,7 +6796,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       pos: left.pos,
       end: endOf(nameUnit),
     };
-    if (questionDot !== undefined) node.questionDotToken = questionDot;
+    markOptional(node, questionDot);
   } else if (nameUnit.IsParenBracket) {
     // **断言里的核是一对实参括号**（第 975 轮）：`a?.()!()` 的 NCO 内容是
     // `NotNull([Bracket(()), !])`——那个括号是**一次调用**（`a?.()`），`!` 套在它的结果上
@@ -6796,7 +6811,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       pos: left.pos,
       end: endOf(nameUnit),
     };
-    if (questionDot !== undefined) node.questionDotToken = questionDot;
+    markOptional(node, questionDot);
   } else if (nameUnit.IsPropertyAccess) {
     // **里面那条链也要逐格接**（第 166 轮）：`a?.b.c!` 的 NCO 内容是
     // `NotNull(PropertyAccess([b, ., c]))`，TS 那边是两层
@@ -6840,7 +6855,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // 没那么一格时交给 `graftCallee` 挂到最里面那次调用上。
     const callee = innermostCallee(left, innermostMethod(nameUnit), ctx);
     const built = callee !== left;
-    if (built && questionDot !== undefined) callee.questionDotToken = questionDot;
+    if (built) markOptional(callee, questionDot);
     node = graftCallee(projectNode(nameUnit, ctx), callee, built ? undefined : questionDot);
   } else {
     node = {
@@ -6850,7 +6865,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       pos: left.pos,
       end: endOf(nameUnit),
     };
-    if (questionDot !== undefined) node.questionDotToken = questionDot;
+    markOptional(node, questionDot);
   }
   return {
     kind: "NonNullExpression",
@@ -6907,7 +6922,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       expression: deeper ? graft(inner) : callee,
       pos: callee.pos,
     });
-    if (deeper === false && questionDot !== undefined) node.questionDotToken = questionDot;
+    if (deeper === false) markOptional(node, questionDot);
     return node;
   };
   return graft(call);
@@ -7035,7 +7050,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // 什么都没接（被调用者就是 `left`）时交给 `graftCallee` 挂到最里面那次调用上
         //（`a?.()()` 那一档：`?.` 属于 `a?.()` 那一次，不是外面那次）。
         const built = callee !== left;
-        if (built && questionDot !== undefined) callee.questionDotToken = questionDot;
+        if (built) markOptional(callee, questionDot);
         const innerCall = graftCallee(
           projectNode(calleeKid, ctx),
           callee,
@@ -7056,7 +7071,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           pos: left.pos,
           end: endOf(calleeKid),
         };
-        if (questionDot !== undefined) innerCall.questionDotToken = questionDot;
+        markOptional(innerCall, questionDot);
         return shellOver(projectNode(first, ctx), innerCall, endOf(unit));
       }
       // **这里原来还抄着第二份**（第 1152 轮删）：那一段与上面那一支**逐字同形**
@@ -7071,7 +7086,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       pos: left.pos,
       end: nameAt + nameText.length,
     };
-    if (questionDot !== undefined) member.questionDotToken = questionDot;
+    markOptional(member, questionDot);
     return shellOver(projectNode(first, ctx), member, endOf(unit));
   }
   // **`o.m?.().k`**（第 154 轮）：NCO 里的第一格是**属性访问**，而它的第一格是实参括号——
@@ -7096,7 +7111,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         pos: left.pos,
         end: endOf(head),
       };
-      if (questionDot !== undefined) call.questionDotToken = questionDot;
+      markOptional(call, questionDot);
       // **括号之后剩下的成员**（`.k` / `[i]` / `.k` 连着的几格）：逐个往链上挂。
       // 名字取那一格的 `Identifier`（token 层已经把成员名收成一个单元）；
       // 下标那一格是 `[` 括号——两种都按下面「按成员名折」那一段的同一口径写。
@@ -7144,7 +7159,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       pos: left.pos,
       end: endOf(unit),
     };
-    if (questionDot !== undefined) call.questionDotToken = questionDot;
+    markOptional(call, questionDot);
     return call;
   }
   // **`?.[i]`**（第 124 轮）：实参是括号**里面**那一段——早先这里直接 `projectNode(first)`，
@@ -7166,7 +7181,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       pos: left.pos,
       end: more ? endOf(first) : endOf(unit),
     };
-    if (questionDot !== undefined) element.questionDotToken = questionDot;
+    markOptional(element, questionDot);
     if (more) {
       // **剩下的兄弟里那些「以一次调用开头」的单元要先摊开**（第 962 轮）：
       // `o?.['m']().v` 的第二格是 `PropertyAccess([Bracket(()), ., v])`——
@@ -7229,7 +7244,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         pos: left.pos,
         end: endOf(tagName),
       };
-      if (questionDot !== undefined) member.questionDotToken = questionDot;
+      markOptional(member, questionDot);
       // **模板串后面还跟着兄弟时，链要接着往下接**（第 965 轮）：`` a?.b`t`() `` 的产物是
       // `[Identifier(a), NCO(Identifier(b), String)]`，而那次调用是 **NCO 的下一个兄弟**
       // （与上面 `a?.[b][c]()` 那一档同形：链的最后一格在 NCO 里、续格在 NCO 外面）。
@@ -7464,7 +7479,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     pos: left.pos,
     end: endOf(unit),
   };
-  if (questionDot !== undefined) access.questionDotToken = questionDot;
+  markOptional(access, questionDot);
   return access;
 ```
 
@@ -7585,7 +7600,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           undefined,
         );
       }
-      left = { kind: "NonNullExpression", expression: asserted, pos: left.pos, end: endOf(unit) };
+      left = bangWrapped(asserted, endOf(unit));
       i += 1;
       continue;
     }
@@ -7954,7 +7969,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     }
     // **那一格自带 `!` 的话，断言套在整条链上**（见上面那一段）。
     if (bangUnit !== undefined) {
-      left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(bangUnit) };
+      left = bangWrapped(left, endOf(bangUnit));
     }
     // **跨过几格**：点号那一档是「点号 + 成员」两格；抬出来的那一档（`unit` 自己是子链）
     // 只有 **1** 格（第 973 轮）。

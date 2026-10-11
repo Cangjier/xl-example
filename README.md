@@ -347,6 +347,40 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1156 轮：用户口径 1.7（连带 1.2 / 1.6）—— 全投影里「刚造出来的那一格是可选访问」那句收尾**出现 13 次**，收成一格 `markOptional`（10 处直接换、3 处的第一个条件留在调用点）；`NonNullExpression` 的**整对象写法**再收 6 处（第 1154 轮那一格从 6 处扩到 12 处）
+
+**一句话**：接着第 1151 / 1152 / 1154 那三把尺子量下去，**重复最多的一组**是这一句收尾——
+
+```
+if (questionDot !== undefined) node.questionDotToken = questionDot;
+```
+
+——它在 `chainOnto` / `assertedMember` / `graftCallee` 那几族里**逐字出现 10 次**，
+逐字不同的只有**接收者那一格的名字**（`node` / `callee` / `innerCall` / `member` / `call` /
+`element` / `access`）。
+
+- **量法**（`tmp/` 里的窗口比对脚本，不进仓）：围栏内去掉空行与注释行之后逐段 4 行窗口比对，
+  **148 组**重复；把每一组的重复次数 × 字符数排序，最大的那几组就是这一族节点构造
+  （`PropertyAccessExpression` / `ElementAccessExpression` / `NonNullExpression` / `CallExpression`
+  的整对象写法各写好几遍）。
+- **改法**：新立 `# private method markOptional:(node:any, questionDot:any)=>void`——有 `?.` 就挂
+  `questionDotToken`、没有就不挂。10 处逐字换成 `markOptional(x, questionDot);`；
+  **另外 3 处不在这条里**（`if (built && …)` / `if (deeper === false && …)`）：那三处的第一个条件是
+  **另一件事**（「这一格造出来没有」「这一层是不是最深」），照旧留在调用点上。
+- **同一把尺子的第二处**：`X = { kind: "NonNullExpression", expression: …, pos: ….pos, end: … };`
+  的**整对象写法**还剩 6 处（`projectExpression` 的两支 / `assertedMember` / 下标那一族），
+  逐字换成第 1154 轮立的 `bangWrapped(expr, end)`——`pos` 本来取的就是左边那一格的 `pos`、
+  `end` 取的就是断言那一格的终点，所以**判据一个字没改**；那一格因此从 6 处扩到 **12 处**。
+- **等价怎么证的**：八道门读数**一处没动**——`cases:tsast` 16 片全通过、`cases:direct` 1640 份
+  不抛异常（自己出的比例 16489 / 21793 逐格相同）、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、
+  加权 95.7%，唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+- **本页的数**：围栏内 7727 → **7728 行** / 不带注释 4444 → **4445 行**，声明 **56 → 57 格**
+  （46 个 `# method` + 11 个 `# const`）。**这一轮的账如实记**：跑起来的算式净少 2 行
+  （10 处 + 6 处改成 16 次调用），买进来的是一格 37 行的新声明（含说明）——
+  **这一格不是靠删行换来的**，它换掉的是 16 处逐字重复的现场算式。
+  `core/syntax/token.xl.md` 这一轮一行没动。
+
 ### 第 1155 轮：用户口径 1.3 / 1.5 / 1.6 —— 新建两格**显式声明**的字段 `Token.TreeFrozen`（`## property` + `### get` / `### set` + 存储格 `_TreeFrozen`）与 `Token.KidsCache`：投影开投前把**根**置成冻结，于是 `ProjectableKids` 第一次问出来的表在整段投影里记下来——**每投一趟少造 6581 份「各段 + children」现拼表**（占这一格读数的 24.4%，实测 1640 份语料）
 
 **一句话**：`ProjectableKids` 是全投影**读得最多**的一格（基类那一格属性，静态读点 138 处），
