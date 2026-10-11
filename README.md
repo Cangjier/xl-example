@@ -334,6 +334,39 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1050 轮：`print-ast-common` 里**用不到的 `ctx` 形参一次收干净**（不动点上 16 个 helper / 213 处调用点，其中 12 个是连锁的），并把这条口径钉成 `direct:lint` 第五条判据；**八道门全绿、读数一处没动**
+
+**一句话**：第 1048 / 1049 轮把「某一格自己的正文 / 首字符」收成 token 自己那一格之后，
+`ctx` 在几个 helper 的方法体里**一处都不再出现**——而形参表是这一格**需要什么**的声明。
+留一个用不到的上下文，就是给**下一处回原文查**留了一个现成的入口（上面那几条判据
+——方法体扫 `ctx.source`、能力面、只读属性——一条都看不见「这个形参没人用」）。
+所以这一轮把这一类连形参带调用点上的实参一起删掉。
+
+- **做法**：按「`# private method …` 声明了 `ctx` 形参、方法体里一次 `ctx` 都不用」扫一遍，
+  删一个再扫一遍——**判据必须反复扫到不动点**：删掉 `textOfNode` 的 `ctx` 之后，
+  `typeMemberGroups` / `isOperatorUnit` / `isPrefixOperatorUnit` / `isTypeSeparator` / `isDot` /
+  `nameOf` / `splitTopLevel` / `isTypeParameterModifier` / `stringText` 的最后一个用处也跟着没了，
+  再下一环是 `angleAssertionLength` / `qualifiedNameFrom` / `dottedExpression`。扫一遍只逮得到
+  最外面那一层（第一遍 4 个、第二遍 9 个、第三遍 3 个）。调用点的实参按**括号配对 + 顶层逗号**
+  切开再删那一个（认引号），所以 `splitTopLevel(kids, ctx, separator)` 这种**夹在中间**的也删得对，
+  散文与注释里提到的 `nameOf(…)`（实测 4 处）原样穿过。
+- **读数**：**16 个 helper / 213 处调用点**——`textOfNode`（111）、`nameOf`（31）、
+  `splitTopLevel`（28）、`isDot`（12）、`isOperatorUnit`（11）、`stringText`（4）、`labeled`（3），
+  其余 9 个各 1~2 处。**全仓没有别的调用点**（另外几棵树的 `*.xl.md` 里一个都没有，逐文件量过）；
+  `ctx` 出口那些转调箭头**签名一格没动**（它们是外面的 API），只是不再往 helper 里递 `ctx`。
+- **`direct:lint` 第五条判据**（`tests/parse/direct-lint.mjs` 的 `SHARED_HEAD` 那一段）：
+  `print-ast-common` 的 `# private method …` 小节里，声明了 `ctx` 形参却在方法体里一处不用的
+  = **0 处**。口径与前面几条同款：只看 `SHARED_FILE`、注释不算（`codeOnly`）。
+- **这一条自己验过**：把 `textOfNode:(node:any)=>string` 改回 `(node:any, ctx:any)`（方法体仍不用）
+  ⇒ 读数 **1 处**、`FAIL … 声明了 ctx 形参、方法体里一处都不用`、`exit=1`；还原 ⇒ **0 处**、`exit=0`。
+- **说明同步三处**：`core/syntax/token.xl.md` 的 `PrintDirectAst`（「四条判据」改成「五条判据」）、
+  `docs/ts-ast.md` 的判据表（同一个格子）、本页 `textOfNode` 那一节（形参表就是它需要什么）。
+- **实测**：`xl check` 2 份 0 错 0 警；`xl build` 1 写出 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 32.3s），读数逐项与基线相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+
 ### 第 1049 轮：「这一格是不是模板」不再回原文读第一个字符——九处 `ctx.source[startOf(x)] === "`"` 改成读 `String.stringChar`（**构造器里赋一次**的那一格），并把这条口径钉成 `direct:lint` 第四条判据；**八道门全绿、读数一处没动**
 
 **一句话**：第 1048 轮把「这一格的正文」收成了 `Token.Text`，这一轮接着收**「这一格的

@@ -697,7 +697,7 @@ return undefined;
 直出版把这一格**重新按解析期已有的东西说一遍**；缺什么就**给 token 补上那个属性**
 （与 `NameAt` / `NameRange` / `BodyBrace` 那几格同一条口径），而不是回原文猜。
 
-**四条判据（都已经进 `npm run gates`）**：
+**五条判据（都已经进 `npm run gates`）**：
 
 1. **同答**：覆写了这一格的 token，投影**优先问它**；整个语料跑两遍（直出通道开 / 关）
    产物必须**逐字节相同**——那是 `cases:direct`。不一样就是这一格写错了，不是「另一种口径」；
@@ -728,6 +728,13 @@ return undefined;
    原文里本来就有一批必须看**相邻**字符的读法（ASI、尾分号、注释、配对括号）。
    **为什么它必须是门**：`ctx.source[startOf(x)]` 与 `x.Text[0]` / `x.stringChar` 逐字节同答，
    上面三条判据一条都看不见它——而它正是「同一份事实的第二处来源」。
+5. **helper 的形参表就是它需要什么**（第 1050 轮）：`typescript/print-ast-common.xl.md` 的
+   `# private method …` 小节里，声明了 `ctx` 形参却在方法体里**一处都不用**的 = 0 处。
+   第 1048 / 1049 轮把「某一格自己的正文 / 首字符」收成 token 自己那一格之后，
+   `textOfNode` / `labeled` / `isBareCallMethod` / `computedNameUnit` 四个 helper 的 `ctx`
+   在方法体里一处都不再出现——于是连形参带调用点上的实参一起删掉（`textOfNode` 111 处）。
+   **为什么它必须是门**：留一个用不到的上下文，就是给**下一处回原文查**留了个现成的入口，
+   而上面四条判据一条都看不见「这个形参没人用」。
 
 **基类答 `undefined`**＝「我没有直出版，照旧走 `PrintDirectAst` / 通用支」：与 `PrintDirectAst` 同一个约定，
 所以这一格可以**逐页**搬——搬一页多一页直出，`projectRoot` 返回的 `direct` 记账量的就是这个数。

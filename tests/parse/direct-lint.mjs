@@ -33,6 +33,9 @@
 //   第 1049 轮再加一条**扫「这一格自己的那一格字符」**的：`ctx.source[` 的下标不许是某一格
 //   自己的 `start`（见 `TOKEN_SOURCE_SELF`）——那一格的正文由它自己答（`Token.Text`，或
 //   `String.stringChar` 这类构造时就记好的字段）；扫描游标与别人的终点照旧。
+//   第 1050 轮再加一条**扫形参表**的：`print-ast-common` 的 `# private method …` 小节里，
+//   声明了 `ctx` 形参却在方法体里一处不用的 = 0 处（见 `SHARED_HEAD` 那一段）——
+//   形参表就是这一格需要什么，不需要投影的上下文就不该挂着一个。
 //
 // **第 1013 轮删掉的判据**：原来还有一条「覆写了直出版的页面，同页必须还有 `PrintAst`」——
 // 它是「同答」那条动态判据的**基线**（搬完之前不许先把老路删掉）。现在老路删了、
@@ -444,6 +447,54 @@ let ctxBannedHits = 0;
 }
 
 /**
+ * **helper 的形参表就是它需要什么**（第 1050 轮）。
+ *
+ * 第 1048 / 1049 轮把 `print-ast-common` 里「某一格自己的正文 / 首字符」都收成了 token 自己的
+ * 那一格，于是四个 helper 的 `ctx` 形参**在方法体里一处都不再出现**（`textOfNode` /
+ * `labeled` / `isBareCallMethod` / `computedNameUnit`）——这一轮连形参带全部调用点的实参
+ * 一起删掉（`textOfNode` 111 处、其余各 1~3 处）。
+ *
+ * **为什么这一条必须是门而不是自觉** ✗：留一个用不到的 `ctx`，就是给**下一处回原文查**
+ * 留了一个现成的入口——而上面那些判据（方法体扫 `ctx.source`、能力面、只读属性）一条都看不见
+ * 「这个形参没人用」。形参表是这一格**需要什么**的声明：不需要投影的上下文，就不该挂着一个。
+ *
+ * 口径与前面几条同款：只看 `SHARED_FILE` 的 `# private method …` 小节，注释不算（`codeOnly`）。
+ */
+const SHARED_HEAD = /^# (?:private )?(const|method|property) ([A-Za-z_][A-Za-z0-9_]*)(?::(.*))?$/;
+let deadCtxHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const lines = fs.readFileSync(shared, "utf8").split(/\r?\n/);
+    const heads = [];
+    lines.forEach((line, index) => {
+      const m = SHARED_HEAD.exec(line);
+      if (m !== null) heads.push({ kind: m[1], name: m[2], sig: m[3] ?? "", line: index });
+    });
+    for (let at = 0; at < heads.length; at++) {
+      const one = heads[at];
+      if (!/ctx\s*:/.test(one.sig)) continue;
+      const end = at + 1 < heads.length ? heads[at + 1].line : lines.length;
+      const body = lines.slice(one.line, end);
+      const fence = body.findIndex((line) => line.startsWith("```ts"));
+      if (fence < 0) continue;
+      const close = body.findIndex((line, index) => index > fence && line.startsWith("```"));
+      const code = codeOnly(body.slice(fence + 1, close < 0 ? body.length : close).join("\n"));
+      if (/\bctx\b/.test(code)) continue;
+      deadCtxHits += 1;
+      if (deadCtxHits <= 3) {
+        violations.push({
+          file: `${SHARED_FILE}:${one.line + 1}`,
+          why:
+            `\`${one.name}\` 声明了 \`ctx\` 形参、方法体里一处都不用` +
+            "——形参表就是这一格需要什么（不需要投影的上下文就别挂着它）",
+        });
+      }
+    }
+  }
+}
+
+/**
  * **中间那一层不许再回来**（第 1027 轮）。
  *
  * 第 1018~1024 轮把投影与 token 之间那一层（「字典 / 视图 + 逐 token 字段表」）整个删掉了：
@@ -535,6 +586,11 @@ console.log(
 console.log(
   `按某一格自己的起点读 ctx.source（${SHARED_FILE} 的代码块）：${sourceSelfHits} 处（0 处才是对的，这一格的正文自己答：Token.Text / String.stringChar）`,
 );
+// **用不到的形参表**（第 1050 轮）：helper 声明了 `ctx` 却在方法体里一处不用 = 0 处
+// ——形参表就是这一格需要什么，不需要投影的上下文就不该挂着一个。
+console.log(
+  `helper 声明了 ctx 形参却一处不用（${SHARED_FILE}）：${deadCtxHits} 处（0 处才是对的，形参表就是它需要什么）`,
+);
 // **中间那一层的账**（第 1027 轮）：投影直吃 token，那一层的入口名一个都不许留在规范页里
 // ——「token → AST 直出」这句话只有这样才有一条判据看着。
 console.log(
@@ -552,6 +608,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、helper 的形参表就是它需要什么）`,
 );
 process.exit(0);
