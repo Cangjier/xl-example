@@ -300,7 +300,7 @@ return ReplaceCountAt(units, index, units.length - index, result);
     props.assertsModifier = ctx.Project(kids[i]);
     i++;
   }
-  if (i < kids.length && ctx.IsNameNode(kids[i])) {
+  if (i < kids.length && kids[i].IsNameNode) {
     props.parameterName = ctx.Project(kids[i]);
     i++;
   }

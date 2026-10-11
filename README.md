@@ -347,6 +347,39 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1057 轮：`print-ast-common` 里**最后三个「这一格是不是某一类」的现场判据**收进被问的那一页（新增基类属性 `Token.IsDotSymbol` / `Token.IsTypeSeparator` / `Token.IsNameNode`，具体类显式声明并赋好），`ctx` 上那个 `IsNameNode` 出口与五页的调用点一并换成属性读，并把这条口径钉成 `direct:lint` 第七条判据；**八道门全绿、读数一处没动**
+
+**一句话**：第 1041~1056 轮一直在做同一件事——**某一页自己知道的事实，由那一页答**。
+这一轮收的是同一族里最后剩下的一批**现场判据**：它们都由「我这一格是不是某一类」+
+「我这一格自己的正文是什么」拼出来，而那**两半都住在被问的那一页上**。
+
+- **三格今天读属性**（原先是投影层的三个 helper，全部删除）：
+  | 原来的现场判据 | 今天读的那一格 | 谁声明、什么时候赋 |
+  | --- | --- | --- |
+  | `isDot(node)`（`Tag === "SymbolToken"` + 回原文读那一格字符） | `node.IsDotSymbol` | `SymbolToken`：`## field` 默认 `false`，`Close()` 里按 `this.Temp` 赋（12 处读点） |
+  | `isTypeSeparator(node)`（同一形状，正文是 `,` / `\|` / `&`） | `node.IsTypeSeparator` | `SymbolToken`：**同一趟**赋——两格都是正文的函数（1 处） |
+  | `isNameNode(node)`（`Tag` 是 `Identifier` 或 `Keyword`） | `node.IsNameNode` | `Identifier` / `Keyword` 各自声明并答 `true`（15 处） |
+- **「我是不是 `SymbolToken`」这一问本身也一起没了**：那一问的收件人只能是符号，
+  所以它本来就该由符号那一页答，而不是由投影先问一句「你是什么类」。
+- **`ctx` 上那个 `IsNameNode` 出口删掉了**，五页里的 7 处 `ctx.IsNameNode(k)` 改成 `k.IsNameNode`
+  （`heritage-clause` / `import` / `import-type` ×2 / `json/object-literal` / `type-operator` ×2 / `type-predicate`）——
+  **出口删了，同一格事实就不会有第二个入口**（与第 1028 / 1029 / 1030 / 1039 轮同一手法）。
+- **为什么这不是「行为变更」**：改的是**同一格事实的读法**（过去由投影层比类名 / 回原文读字符，
+  现在由那一页自己答），`samples` 逐字节比对当场证明两边同答；`xl build` 的
+  `SymbolToken.Close()` 那两行是**唯一新增的赋值**，写的就是那两格属性。
+- **`direct:lint` 加第七条判据**（`SELF_CLASSIFY`）：`print-ast-common` 的**代码块**里
+  不许再出现这三个名字的**问句形态**（`isXxx(` / `ctx.IsXxx(`）——它们只许是属性读。
+  理由与第 1046 轮那条同款：这样写**逐字节同答**，方法体判据、能力面判据、`cases:tsast`
+  一条都看不见它，可它是「同一格事实的第二处声明」又长回来了。
+- **实测**：`xl check`（5 页）0 条；`xl build typescript core` 10 个产物 / 0 error、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 31.8s），读数与基线逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` **0 处抛异常**且固定样本逐格点名通过、
+  `direct:lint` 0 条违反、`samples` 逐字节一致、`cases:check` 1656 / 1656、
+  `runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+  （`cases:direct` 的 `count` 由 21874 变成 21827 = 少问三格 `ctx` 出口 / 少进三次 `projectNode`
+  ——那是**读数**不是判据，`direct / count` 的分子分母同时动了 30 上下。）
+
 ### 第 1056 轮：`parentKind` 那条**参数链整条撤掉**了——它当时只剩一个消费者，而那一格在父单元自己的 `AstKind` 上（`projectNode` / `projectDeclaration` / `projectEachIn` / `projectEach` 四格少一个形参，`ctx` 上五个出口跟着收窄）；**八道门全绿、读数一处没动**
 
 **一句话**：第 1054 / 1055 两轮把 `ctx` 上那两格上下文状态（`parentKind` / `signature`）

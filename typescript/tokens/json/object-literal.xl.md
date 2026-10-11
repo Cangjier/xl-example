@@ -240,7 +240,7 @@ Json 对象。
         : undefined;
     const name =
       computed === undefined
-        ? nameUnits.length === 1 && ctx.IsNameNode(nameUnits[0])
+        ? nameUnits.length === 1 && nameUnits[0].IsNameNode
           ? Identifier.IsNumericLiteral(ctx.ValueOf(nameUnits[0]))
             ? {
                 kind: "NumericLiteral",

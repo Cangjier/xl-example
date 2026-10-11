@@ -258,7 +258,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
           (c: any) => c.Tag === "SymbolToken" && ctx.ValueOf(c) === ":",
         );
         if (colonAt < 0) continue;
-        const nameUnit = part.slice(0, colonAt).find((c: any) => ctx.IsNameNode(c));
+        const nameUnit = part.slice(0, colonAt).find((c: any) => c.IsNameNode);
         if (nameUnit === undefined) continue;
         const valueUnit = part
           .slice(colonAt + 1)
@@ -280,7 +280,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     }
   }
   const names = kids.filter((k: any) => {
-    if (!ctx.IsNameNode(k)) return false;
+    if (!k.IsNameNode) return false;
     if (k.Tag !== "Keyword") return true;
     const word = ctx.ValueOf(k);
     return word !== "typeof" && word !== "import";

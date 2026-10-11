@@ -565,6 +565,48 @@ for (const file of files) {
   }
 }
 
+/**
+ * **「这一格是不是某一类」这一问不许回到投影层**（第 1057 轮）。
+ *
+ * 第 1057 轮把最后三个现场判据收进了被问的那一页：`IsDotSymbol` / `IsTypeSeparator`
+ * （`SymbolToken` 在 `Close()` 里按自己的正文赋）与 `IsNameNode`（`Identifier` / `Keyword`
+ * 各自声明并答 `true`）。这三个名字今天**只许出现在属性读**上（`one.IsDotSymbol`）——
+ * 谁把它们又写成一个函数（`isDot` / `isTypeSeparator` / `isNameNode`，或 `ctx.IsNameNode(…)`
+ * 那种出口），就是「同一格事实的第二处声明」又长回来了。
+ *
+ * **为什么必须是门而不是自觉** ✗：这样写**逐字节同答**（判据只是「读哪一格」），
+ * 上面那些判据一条都看不见它（方法体里不查原文、不按字符串键、能力面里也没有兜底出口），
+ * 而 `cases:tsast` / `cases:direct` 更是照样全绿。可它是这一族口径的反面：
+ * 那一格的答案属于**被问的那一页**，投影层重写一遍就又是两处会漂的地方。
+ *
+ * 口径：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`），恰好 0 处才对。
+ * **名字是拼出来的**（`is` + 属性名）：这一门自己的源码里不出现那三个老名字的连写。
+ */
+const SELF_CLASSIFY_NAMES = ["IsDotSymbol", "IsTypeSeparator", "IsNameNode"];
+const SELF_CLASSIFY = new RegExp(
+  `(?:\\b(?:is|Is)|\\bctx\\.)(?:${SELF_CLASSIFY_NAMES.map((n) => n[0].toLowerCase() + n.slice(1)).join("|")})\\b`,
+);
+/** 投影层把这一格又写回成问句的处数（0 处才是对的）。 */
+let selfClassifyHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const match of code.matchAll(new RegExp(SELF_CLASSIFY, "g"))) {
+      selfClassifyHits += 1;
+      if (selfClassifyHits <= 3) {
+        violations.push({
+          file: SHARED_FILE,
+          why:
+            `「这一格是不是某一类」又写回投影层了：\`${match[0]}\`——那一格的事实住在被问的那一页` +
+            "（`Token.IsDotSymbol` / `Token.IsTypeSeparator` / `Token.IsNameNode`），投影只读属性",
+        });
+      }
+    }
+  }
+}
+
 // **按字符串键查的账**（第 1005 轮）：逐键比额度——多了红（有人写回来了），
 // 少了也红（收掉了就来把例外表那一行删掉）。
 const stringKeys = [...new Set([...STRING_KEY_ALLOWED.keys(), ...stringKeyHits.keys()])].sort();
@@ -629,6 +671,11 @@ console.log(
 // ——形参表就是这一格需要什么，不需要投影的上下文就不该挂着一个。
 console.log(
   `helper 声明了 ctx 形参却一处不用（${SHARED_FILE}）：${deadCtxHits} 处（0 处才是对的，形参表就是它需要什么）`,
+);
+// **「这一格是不是某一类」的账**（第 1057 轮）：那一问的答案住在被问的那一页
+// ——投影层再写一个 `isXxx(…)` / `ctx.IsXxx(…)` 就是同一格事实的第二处声明，0 处才对。
+console.log(
+  `「这一格是不是某一类」又在投影层写成问句（${SHARED_FILE} 的代码块）：${selfClassifyHits} 处（0 处才是对的，${SELF_CLASSIFY_NAMES.join(" / ")} 只许属性读）`,
 );
 // **中间那一层的账**（第 1027 轮）：投影直吃 token，那一层的入口名一个都不许留在规范页里
 // ——「token → AST 直出」这句话只有这样才有一条判据看着。

@@ -146,6 +146,38 @@ if (last instanceof SymbolToken) {
 
 单元值类型是单字符的 `string`。
 
+## field IsDotSymbol:bool = false
+
+**我这一格是不是那个点号 `.`**（第 1057 轮）：`Token.IsDotSymbol` 在投影层过去是一个现场判据
+（`print-ast-common.xl.md` 的 `isDot`：先问「我是不是 `SymbolToken`」、再回原文读那一格字符），
+而这两问**都是这一页自己的事实**——正文就在 `this.Temp` 里。
+
+## field IsTypeSeparator:bool = false
+
+**我这一格是不是类型成员之间的那个分隔符**（第 1057 轮）：`Token.IsTypeSeparator` 在投影层
+过去也是一个现场判据（`print-ast-common.xl.md` 的 `isTypeSeparator`：`Tag === "SymbolToken"`
+再加上回原文读那一格字符），而那两问同样都是这一页自己的事实。
+
+## protected method Close:()=>void
+
+关闭：把自己标记为已关闭，**并把由那一格正文派生的两格一起赋好**（第 1057 轮）。
+
+**为什么赋值点在这里**：符号是**逐字符攒起来**的（`Temp` 那一段就是它的正文），
+而 `Close()` 正是「攒完了」那一刻——基类的 `TryToClose` 先调这一格、再跑收尾规则队列，
+所以读得到的一定是**收完的正文**（与 `Keyword.SetValue` 在记下正文那一刻赋「由正文派生的那几格」
+是同一口径、同一个时机；`Bracket` 那一页把同样的两格放在 `Use` 里，因为它的正文是**一次给全**的）。
+
+**两格都从 `this.Temp` 现算一次**（`Is` 那一格读的也是 `Temp`）：本页没有第二处存储，
+所以「这一格是不是点号 / 类型分隔符」只由**这一格自己的正文**决定。
+
+```ts
+this.Closed = true;
+// **`IsDotSymbol` 与 `IsTypeSeparator` 都是「我这一格的正文是什么」的函数**（第 1057 轮），
+// 所以两者在同一个时刻、同一趟里赋好——两格不会各说各话。
+this.IsDotSymbol = this.Is(".");
+this.IsTypeSeparator = this.Is(",") || this.Is("|") || this.Is("&");
+```
+
 ## field FromCompoundAssignment:bool = false
 
 这个符号是**复合赋值切开后插回来的运算符副本**（`CompoundAssignmentOperatorCloseRule.Process`
@@ -224,14 +256,6 @@ if (text === value) {
   return true;
 }
 return items.includes(text);
-```
-
-## protected method Close:()=>void
-
-关闭：只把自己标记为已关闭。
-
-```ts
-this.Closed = true;
 ```
 
 ## method PrintDirectAst:(ctx:any, v:any)=>any

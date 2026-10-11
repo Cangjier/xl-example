@@ -1179,6 +1179,31 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 **显式声明同一个属性**并给出自己的值（`## field`，与 `IsStatementNode` / `IsMemberList` /
 `AstKind` 同一形态）。
 
+## field IsNameNode:bool = false
+
+**我这一格能不能当「一个名字」**（第 1057 轮）——能的话答 `true`。
+
+判据是关于**产物标签**的：`Identifier` 与 `Keyword` 这两页答 `true`（`in` / `instanceof` 那
+几个词是关键字，却也在名字位上出现），其余一律 `false`。过去它在投影层是一个现场判据
+（`print-ast-common.xl.md` 的 `isNameNode`，读 `node.Tag` 比两个名字），而那两个名字
+**就是那两页自己的类名**——所以那是每一页自己的事实，被写在投影那一页里。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field`，构造时就赋好），投影只读这一格（`node.IsNameNode`）——
+「这一格是什么」与「它能不能当名字」因此只有一个来源，同一句话也不会在两个地方各写一遍。
+
+## field IsDotSymbol:bool = false
+
+**我这一格是不是那个点号 `.`**（第 1057 轮）——是的话答 `true`。
+
+点号是 `SymbolToken` 那一页的事实（它的正文就是 `this.Temp` 里那一段），所以那一页
+**显式声明这一格并在构造时赋好**（`IsDotSymbol:bool = this.Is(".")`，与
+`FromCompoundAssignment` 同一种写法）；基类默认 `false`，其余页面不声明。
+
+过去投影层有一个现场判据（`print-ast-common.xl.md` 的 `isDot`：`Tag === "SymbolToken"`
+再加上回原文读那一格字符），而那句话**两半都是这一页自己的事实**——判定「我是不是点号」
+不必先问别人我是哪一类、也不需要投影手上的那串原文。今天读法只有一处（`one.IsDotSymbol`）。
+
 ## field IsSignatureNode:bool = false
 
 **我这一格是不是「可调用签名」**（第 1040 轮）——是的话这一格是 `true`。

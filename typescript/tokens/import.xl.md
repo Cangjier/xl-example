@@ -354,7 +354,7 @@ return index;
           (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === ":",
         );
         if (colonAt < 0) continue;
-        const nameUnit = part.slice(0, colonAt).find((k: any) => ctx.IsNameNode(k));
+        const nameUnit = part.slice(0, colonAt).find((k: any) => k.IsNameNode);
         if (nameUnit === undefined) continue;
         const valueUnit = part
           .slice(colonAt + 1)

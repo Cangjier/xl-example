@@ -124,6 +124,16 @@ if (last instanceof Identifier) {
 
 它没有覆写 `ToXmlString`，XML 由 `BlockToken` 产出：`<Identifier>转义后的文本</Identifier>`。
 
+## field IsNameNode:bool = true
+
+**我这一格能不能当「一个名字」**（第 1057 轮）：这一页答 `true`——标识符在名字位上出现
+（声明名、成员名、限定名的两半、绑定名），所以 `Token.IsNameNode` 这一格由**这一页**
+显式声明并给出自己的值（构造时就赋好）。
+
+判据过去在投影层（`print-ast-common.xl.md` 的 `isNameNode`：`Tag` 是 `Identifier` 或 `Keyword`），
+而那两个名字**就是这一页与 `Keyword` 那一页自己的类名**——所以它本来就该由这两页各自答；
+投影那一侧只读属性（`node.IsNameNode`），不再比类名。
+
 ## static readonly field AppendIn:CommonBranch = new CommonBranch()
 
 把 `CommonBranch` 注册进通用跳转队列用的实例。

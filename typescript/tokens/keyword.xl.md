@@ -58,6 +58,16 @@ return Keyword.UpgradeAt(units, index);
 **三个静态方法都在这个类上**（第 487 轮抽出）：判据 `IsUpgradable`、替换 `UpgradeAt`、
 解析期那一趟（`Token.TryToClose` → `ApplyCloseRules`）也用这一份。
 
+## field IsNameNode:bool = true
+
+**我这一格能不能当「一个名字」**（第 1057 轮）：关键字答 `true`——`in` / `instanceof`
+那几个词既是运算符，也在名字位上出现（限定名的右半、成员名、绑定名），所以
+`Token.IsNameNode` 这一格由**这一页**显式声明并给出自己的值（构造时就赋好）。
+
+判据过去在投影层（`print-ast-common.xl.md` 的 `isNameNode`：`Tag` 是 `Identifier` 或 `Keyword`），
+而那两个名字**就是这一页与 `Identifier` 那一页自己的类名**——所以它本来就该由这两页各自答；
+投影那一侧只读属性（`node.IsNameNode`），不再比类名。
+
 ## static method IsUpgradable:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `Identifier` 的内容是不是关键字。

@@ -300,7 +300,7 @@ return result;
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
-  const names = kids.filter((k: any) => ctx.IsNameNode(k) && ctx.ValueOf(k) !== "typeof");
+  const names = kids.filter((k: any) => k.IsNameNode && ctx.ValueOf(k) !== "typeof");
   const props: any = {};
   const access = kids.find((k: any) => k.Tag === "PropertyAccess");
   const generic = kids.find((k: any) => k.Tag === "GenericType");
@@ -316,7 +316,7 @@ return result;
     props.exprName = ctx.NameOf(names[0]);
   } else if (access !== undefined || names.length > 1) {
     const parts =
-      access === undefined ? names : ctx.Kids(access).filter((k: any) => ctx.IsNameNode(k));
+      access === undefined ? names : ctx.Kids(access).filter((k: any) => k.IsNameNode);
     props.exprName = ctx.QualifiedNameFrom(parts);
   }
   return ctx.NodeHead("TypeQuery", props, v);
