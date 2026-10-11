@@ -74,8 +74,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**45 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-42 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**44 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+41 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 3 个名字**（`projectNode` /
 `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），其余一律 `# private`。
@@ -92,6 +92,25 @@ import { Identifier } from "./tokens/identifier.xl.md"
 | `ownsTrailingSemicolon(node, ctx)` + 数据表 `ENDS_ON_BRACE` | `projectEach` 里的 `ownsTrailingSemicolonOf` / `endsOnBrace`（唯一读者就是那一格函数里的一处） | 数据表的唯一读者就是这一格；两者一起搬，本页少两格声明 |
 
 三格**判据一个字没改**，只是不再单独立声明（与第 1103 / 1104 / 1101 / 1100 轮同一手法）。
+
+**第 1114 轮把第 1100 轮「留作下一轮」的那一格并掉了**——`projectBindingElement`（126 行）
+的唯一读者就是 `projectBindingPattern` 里元素循环那一处（第 1100 轮量过：全仓没有第二个读者，
+`ctx.BindingPattern` 是**模式**那一格、由 `projectBindingPattern` 答），所以：
+
+| 原来的现场算式 | 今天谁答 |
+| --- | --- |
+| `projectBindingElement(kid, ctx)`（`v.ProjectableKids` 切冒号 / 等号 / `...`，再按位置出 `BindingElement`） | 算式**连着说明一起**搬进 `projectBindingPattern` 体里的 `projectBindingElementOf(kid)`（三种形态那张表跟着走），形参 `unit` 换成调用点的 `kid`，算式本身一字不动 |
+
+- **为什么这一轮才并**：第 1100 轮记下的理由正是「函数体是 121 行真算式、**不是转手**，
+  下一轮要并它就得连着说明一起搬」——所以这一轮搬的是**算式 + 说明**（那一节的三形态表
+  与 `[k2]: { a }` 那几条踩坑注释都留在原地，只是从「小节」变成「调用点旁边」）。
+- **它不是死代码**（第 1100 轮就写下了）：并的是**多一层间接**，不是删一段没人用的东西；
+  判据与第 1103 / 1104 / 1109 / 1110 / 1111 / 1112 / 1113 轮同一把尺子。
+- **同一轮改掉两处过期引文**：`ctx` 那一行出口的注释原来写着「第 1100 轮并进了它唯一的调用点
+  ……见 `bindingElementOf` 它那一节」（**那一节与那个名字都不存在**），改成事实（第 1114 轮、
+  `projectBindingElementOf`、在 `projectBindingPattern` 体里）；上面那一栏「留下没并的一格」
+  也按这一轮改写。
+- **本页的声明数**：**45 → 44 格**（42 → 41 个 `# method` + 3 个 `# const`，实测）。
 
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
@@ -257,9 +276,11 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `if-segment` 那一页；两格的实现整段搬进 `ctx.BodyBlockOf` / `ctx.BlockOfBody`）、
 `trailingSemicolonOf`（唯一读者 `projectEach` 里那一处，实现**就地**展开成一段立即执行的箭头，
 判据逐字搬过去——那里不能引用 `ctx` 上的出口，因为它在 `ctx` 造出来之前就跑）；
-**留下没并的一格是 `projectBindingElement`**（第 1100 轮量过：它的唯一读者
-`projectBindingPattern` 就在本文件里，而函数体是 121 行真算式，**不是转手**；
-下一轮要并它就得连着说明一起搬，不能只搬算式）。
+**第 1100 轮留着没并的那一格，第 1114 轮并掉了**：`projectBindingElement`（它的唯一读者
+`projectBindingPattern` 就在本文件里，而函数体是 126 行真算式、**不是转手**——所以第 1100 轮
+只记下判据与「下一轮要并它就得连着说明一起搬」，没有动手）；第 1114 轮把**算式与说明一起**
+搬进了 `projectBindingPattern` 体里的 `projectBindingElementOf`（三种形态那张表跟着走），
+本页少一格声明。
 ——**判据**：`ctx` 上那一行出口返回的东西就是那一格的返回值，所以实现搬进出口、声明删掉，
 `ctx` 的名字与语义一个字不动（**出口的名字是别的页的调用点**，不是本页可以顺手改的）。
 **第 1099 轮之前本页的旧账**（89 → 86 → … → 64 格那一串逐轮记录，以及第 1073 / 1081 /
@@ -7797,6 +7818,127 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 
 ```ts
   const v = unit;
+  // **`projectBindingElement` 这一格第 1114 轮整格并进这一页**——第 1100 轮那一节自己写下的
+  // 「下一轮按同一把尺子（一格声明、一个调用点且只是转手）再决定是否并进那一处」就是这一轮。
+  // 判据与第 1103 / 1104 / 1109 / 1110 / 1111 / 1112 / 1113 轮同一把尺子：本页代码块里只有
+  // **一个调用点**（下面元素循环里那一处），而且拿到的就是这一格返回的东西——**它不是死代码**
+  //（第 1100 轮量过：`ctx.BindingPattern` 是**模式**那一格、由本函数答），只是多一层间接。
+  // 算式一字不动，只把形参 `unit` 换成这一格的 `kid`。
+  // 三种形态（都在产物里，逐个按标点切）：
+  // | 源码 | TS 的子节点 |
+  // | --- | --- |
+  // | `a`（简写） | `name` |
+  // | `p: q` | `propertyName`(`p`) + `name`(`q`) |
+  // | `a = 1` | `name`(`a`) + `initializer`(`1`) |
+  // | `...rest` | `dotDotDotToken`(`...`) + `name`(`rest`)——**两点号是子节点**（`forEachChild` 会访问它，
+  // 第 93 轮修：早先按「属性」处理，实测 `BindingElement` 字段名差 8 处） |
+  // **绑定元素 → `BindingElement`**（第 1114 轮并进来的那一格）……
+  const projectBindingElementOf = (kid) => {
+    const v = kid;
+    const kids = v.ProjectableKids;
+    const colonIndex = kids.findIndex((k) => k.IsColonSymbol);
+    const eqIndex = kids.findIndex((k) => k.IsEqualsSymbol);
+    const dots = kids.find((k) => k.IsDotDotDotSymbol);
+    const names = kids.filter((k) => k.IsNameNode && !k.IsTypeSeparator);
+    // **绑定位里还能再嵌一层模式**（第 135 轮）：`[[a, b], …]` 的元素是**另一个**
+    // `ArrayLiteral` / `ObjectLiteral`（`{ b: [c, d = 2] }` 里 `:` 右边也是）。
+    // 原来只找名字，`names` 为空时那个 `BindingElement` 连 `name` 都没有——
+    // 嵌套的 `ArrayBindingPattern` / `ObjectBindingPattern` 与它们里面的名字整片丢
+    // （实测三族嵌套解构用例共 27 处）。
+    const isPatternLike = (k: any) =>
+      k.IsArrayLiteralUnit ||
+      k.IsObjectLiteralUnit ||
+      ((k.IsIndexBracket || k.IsBraceBracket));
+    // **默认值那一侧的括号不算绑定名**（第 355 轮，**实测撞到的**）：
+    // `{ tags = [] as string[] }` 里 `=` **右边**那个 `[]` 是**默认值**（值位），
+    // 而照「第一个像模式的单元」找会把它当成**绑定名** ⇒ 投出一个**没有 text** 的
+    // `ArrayBindingPattern` ⇒ 降级期报 `ast node ArrayBindingPattern has no text`
+    //（**那条消息原来不带区间**，第 355 轮才补上——补上之后一眼看出是哪个 `[]`
+    // （`at 46..48`），**这一步省掉了一整轮插桩**）。
+    // 判据与上面 `colonIndex` 那一支同一条纪律：**切分点左边才是名字**。
+    const beforeEq = eqIndex >= 0 ? kids.slice(0, eqIndex) : kids;
+    const patternKid = beforeEq.find(isPatternLike);
+    const props = {};
+    if (dots !== undefined) {
+      props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
+    }
+    if (colonIndex >= 0) {
+      // `p: q` / `p: [a, b]`：冒号左边是属性名、右边是绑定名（或一层模式）。
+      // **左边也可能是一个计算名 `[k]: v`**（第 137 轮）：产物里它是 `ArrayLiteral` / `[` 括号，
+      // TS 那边是 `ComputedPropertyName`（实测 `decl-binding-computed-key.ts` 缺
+      // `ComputedPropertyName` 2 + `Identifier` 2 + 字段名 2）。
+      const computedUnit = kids.find(
+        (k) =>
+          (k.IsIndexBracket || k.IsArrayLiteralUnit) && startOf(k) < startOf(kids[colonIndex]),
+      );
+      if (computedUnit !== undefined) {
+        props.propertyName = {
+          kind: "ComputedPropertyName",
+          expression: computedNameExpression(computedUnit, ctx),
+          pos: startOf(computedUnit),
+          end: endOf(computedUnit),
+        };
+      } else {
+        const before = names.find((k) => endOf(k) <= startOf(kids[colonIndex]));
+        // **键是一个引号名**（第 693 轮，**实测撞到的**）：`const { "x": a } = o` 的键那一格
+        // 是 `<String><ConstString>x</ConstString></String>`，而 `IsNameNode` 只认
+        // `Identifier` / `Keyword` ⇒ 这一格**找不到键** ⇒ `propertyName` 整个丢掉，
+        // 降级层随后把**绑定的名字**当成键（`{ "x": a }` 读成了 `{ a }`）
+        // ⇒ `const { "x": a } = { x: 9 }` **静默给 `undefined`**（JS 给 `9`）。
+        // 取法与 `specifierNameOf` 那条**一字不差**：引号名给 `StringLiteral`
+        //（`text` 是引号里那段），其余走 `nameOf`——键的取法本来就只有这一种。
+        // 位置与文本都直接问这一格单元自己（`startOf` / `endOf` / `StringText` 收的就是 token）。
+        const quotedBefore = kids.find(
+          (k) =>
+            (k.IsStringLiteralUnit) &&
+            endOf(k) <= startOf(kids[colonIndex]),
+        );
+        if (quotedBefore !== undefined) {
+          props.propertyName = astNode(
+            "StringLiteral",
+            { text: quotedBefore.StringText },
+            (quotedBefore),
+            ctx,
+          );
+        } else if (before !== undefined) {
+          props.propertyName = nameOf(before);
+        }
+      }
+      // **冒号右边那一格**才是绑定名 / 嵌套模式；`[k2]: { a }` 里冒号**左边**那个
+      // `ArrayLiteral` 是计算名（第 137 轮）——`patternKid` 取的是「第一个模式单元」，
+      // 在这里会取错，所以要按**位置**重新找一次。
+      const afterColon = kids.find(
+        (k) => isPatternLike(k) && startOf(k) > startOf(kids[colonIndex]),
+      );
+      const afterPattern = afterColon;
+      if (afterPattern !== undefined) {
+        props.name = projectBindingPattern(afterPattern, ctx);
+      } else {
+        const after = names.find((k) => startOf(k) > startOf(kids[colonIndex]));
+        if (after !== undefined) props.name = nameOf(after);
+      }
+    } else if (patternKid !== undefined) {
+      props.name = projectBindingPattern(patternKid, ctx);
+    } else if (names.length > 0) {
+      props.name = nameOf(names[0]);
+    }
+    if (eqIndex >= 0 && eqIndex + 1 < kids.length) {
+      // **默认值不只是一格**（第 135 轮）：`[c, d = 2] = []` 里那个默认值是**一对括号**
+      // （`ArrayLiteral`），照「取一格当叶子」投会把它当成 `Identifier("")`。
+      const rest = kids.slice(eqIndex + 1);
+      const only = rest.length === 1 ? rest[0] : undefined;
+      props.initializer =
+        only !== undefined && only.IsNameNode
+          ? {
+              kind: Identifier.LeafKindOfText(only.TextValue),
+              text: only.TextValue,
+              pos: startOf(only),
+              end: endOf(only),
+            }
+          : projectExpression(rest, ctx);
+    }
+    return { kind: "BindingElement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
+  };
   // **括号形态也要认**（第 137 轮）：绑定位里 `{ a }` / `[a]` 有时还没被
   // `JsonObjectCloseRule` / `JsonArrayCloseRule` 收成 `ObjectLiteral` /
   // `ArrayLiteral`（`[k2]: { a }` 里右边那一格就是一对裸花括号）——只认那两种标签时
@@ -7832,138 +7974,12 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       elements.push({ kind: "OmittedExpression", pos: cursor, end: cursor });
     } else {
       for (const kid of groups[i]) {
-        if (kid.IsBindingElement) elements.push(projectBindingElement(kid, ctx));
+        if (kid.IsBindingElement) elements.push(projectBindingElementOf(kid));
       }
     }
     if (i < commaAts.length) cursor = commaAts[i] + 1;
   }
   return { kind, elements, pos: v.start, end: stmtEndOf(v, ctx) };
-```
-
-# private method projectBindingElement:(unit:any, ctx:any)=>any
-
-绑定元素 → `BindingElement`。
-
-三种形态（都在产物里，逐个按标点切）：
-
-| 源码 | TS 的子节点 |
-| --- | --- |
-| `a`（简写） | `name` |
-| `p: q` | `propertyName`(`p`) + `name`(`q`) |
-| `a = 1` | `name`(`a`) + `initializer`(`1`) |
-| `...rest` | `dotDotDotToken`(`...`) + `name`(`rest`)——**两点号是子节点**（`forEachChild` 会访问它，
-第 93 轮修：早先按「属性」处理，实测 `BindingElement` 字段名差 8 处） |
-
-**第 1100 轮量过它一个外部读者都没有**（`ctx.BindingPattern` 是**模式**那一格，由
-`projectBindingPattern` 答；本方法全仓只有 `projectBindingPattern` 里那一处调用）
-——它**不是死代码**，所以这一轮留着；下一轮按同一把尺子（一格声明、一个调用点且只是转手）
-再决定是否并进那一处。
-
-```ts
-  const v = unit;
-  const kids = v.ProjectableKids;
-  const colonIndex = kids.findIndex((k) => k.IsColonSymbol);
-  const eqIndex = kids.findIndex((k) => k.IsEqualsSymbol);
-  const dots = kids.find((k) => k.IsDotDotDotSymbol);
-  const names = kids.filter((k) => k.IsNameNode && !k.IsTypeSeparator);
-  // **绑定位里还能再嵌一层模式**（第 135 轮）：`[[a, b], …]` 的元素是**另一个**
-  // `ArrayLiteral` / `ObjectLiteral`（`{ b: [c, d = 2] }` 里 `:` 右边也是）。
-  // 原来只找名字，`names` 为空时那个 `BindingElement` 连 `name` 都没有——
-  // 嵌套的 `ArrayBindingPattern` / `ObjectBindingPattern` 与它们里面的名字整片丢
-  // （实测三族嵌套解构用例共 27 处）。
-  const isPatternLike = (k: any) =>
-    k.IsArrayLiteralUnit ||
-    k.IsObjectLiteralUnit ||
-    ((k.IsIndexBracket || k.IsBraceBracket));
-  // **默认值那一侧的括号不算绑定名**（第 355 轮，**实测撞到的**）：
-  // `{ tags = [] as string[] }` 里 `=` **右边**那个 `[]` 是**默认值**（值位），
-  // 而照「第一个像模式的单元」找会把它当成**绑定名** ⇒ 投出一个**没有 text** 的
-  // `ArrayBindingPattern` ⇒ 降级期报 `ast node ArrayBindingPattern has no text`
-  //（**那条消息原来不带区间**，第 355 轮才补上——补上之后一眼看出是哪个 `[]`
-  // （`at 46..48`），**这一步省掉了一整轮插桩**）。
-  // 判据与上面 `colonIndex` 那一支同一条纪律：**切分点左边才是名字**。
-  const beforeEq = eqIndex >= 0 ? kids.slice(0, eqIndex) : kids;
-  const patternKid = beforeEq.find(isPatternLike);
-  const props = {};
-  if (dots !== undefined) {
-    props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
-  }
-  if (colonIndex >= 0) {
-    // `p: q` / `p: [a, b]`：冒号左边是属性名、右边是绑定名（或一层模式）。
-    // **左边也可能是一个计算名 `[k]: v`**（第 137 轮）：产物里它是 `ArrayLiteral` / `[` 括号，
-    // TS 那边是 `ComputedPropertyName`（实测 `decl-binding-computed-key.ts` 缺
-    // `ComputedPropertyName` 2 + `Identifier` 2 + 字段名 2）。
-    const computedUnit = kids.find(
-      (k) =>
-        (k.IsIndexBracket || k.IsArrayLiteralUnit) && startOf(k) < startOf(kids[colonIndex]),
-    );
-    if (computedUnit !== undefined) {
-      props.propertyName = {
-        kind: "ComputedPropertyName",
-        expression: computedNameExpression(computedUnit, ctx),
-        pos: startOf(computedUnit),
-        end: endOf(computedUnit),
-      };
-    } else {
-      const before = names.find((k) => endOf(k) <= startOf(kids[colonIndex]));
-      // **键是一个引号名**（第 693 轮，**实测撞到的**）：`const { "x": a } = o` 的键那一格
-      // 是 `<String><ConstString>x</ConstString></String>`，而 `IsNameNode` 只认
-      // `Identifier` / `Keyword` ⇒ 这一格**找不到键** ⇒ `propertyName` 整个丢掉，
-      // 降级层随后把**绑定的名字**当成键（`{ "x": a }` 读成了 `{ a }`）
-      // ⇒ `const { "x": a } = { x: 9 }` **静默给 `undefined`**（JS 给 `9`）。
-      // 取法与 `specifierNameOf` 那条**一字不差**：引号名给 `StringLiteral`
-      //（`text` 是引号里那段），其余走 `nameOf`——键的取法本来就只有这一种。
-      // 位置与文本都直接问这一格单元自己（`startOf` / `endOf` / `StringText` 收的就是 token）。
-      const quotedBefore = kids.find(
-        (k) =>
-          (k.IsStringLiteralUnit) &&
-          endOf(k) <= startOf(kids[colonIndex]),
-      );
-      if (quotedBefore !== undefined) {
-        props.propertyName = astNode(
-          "StringLiteral",
-          { text: quotedBefore.StringText },
-          (quotedBefore),
-          ctx,
-        );
-      } else if (before !== undefined) {
-        props.propertyName = nameOf(before);
-      }
-    }
-    // **冒号右边那一格**才是绑定名 / 嵌套模式；`[k2]: { a }` 里冒号**左边**那个
-    // `ArrayLiteral` 是计算名（第 137 轮）——`patternKid` 取的是「第一个模式单元」，
-    // 在这里会取错，所以要按**位置**重新找一次。
-    const afterColon = kids.find(
-      (k) => isPatternLike(k) && startOf(k) > startOf(kids[colonIndex]),
-    );
-    const afterPattern = afterColon;
-    if (afterPattern !== undefined) {
-      props.name = projectBindingPattern(afterPattern, ctx);
-    } else {
-      const after = names.find((k) => startOf(k) > startOf(kids[colonIndex]));
-      if (after !== undefined) props.name = nameOf(after);
-    }
-  } else if (patternKid !== undefined) {
-    props.name = projectBindingPattern(patternKid, ctx);
-  } else if (names.length > 0) {
-    props.name = nameOf(names[0]);
-  }
-  if (eqIndex >= 0 && eqIndex + 1 < kids.length) {
-    // **默认值不只是一格**（第 135 轮）：`[c, d = 2] = []` 里那个默认值是**一对括号**
-    // （`ArrayLiteral`），照「取一格当叶子」投会把它当成 `Identifier("")`。
-    const rest = kids.slice(eqIndex + 1);
-    const only = rest.length === 1 ? rest[0] : undefined;
-    props.initializer =
-      only !== undefined && only.IsNameNode
-        ? {
-            kind: Identifier.LeafKindOfText(only.TextValue),
-            text: only.TextValue,
-            pos: startOf(only),
-            end: endOf(only),
-          }
-        : projectExpression(rest, ctx);
-  }
-  return { kind: "BindingElement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method nameOf:(node:any)=>string
@@ -10156,8 +10172,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     },
     // **`ctx.BindingPattern` 是「模式 → `ObjectBindingPattern` / `ArrayBindingPattern`」那一格**
     // （各页调的就是它），所以这里接回原来的 `projectBindingPattern`。
-    // **绑定元素那一格（`projectBindingElement`）第 1100 轮并进了它唯一的调用点**
-    // ——下面本文件里那个 `bindingElementOf`（见它那一节）。
+    // **绑定元素那一格（原来的 `projectBindingElement`）第 1114 轮并进了它唯一的调用点**
+    // ——就是上面 `projectBindingPattern` 体里那个 `projectBindingElementOf`（那一处写明了判据）。
     BindingPattern: (unit) => projectBindingPattern(unit, ctx),
     ComputedNameExpression: (unit) => computedNameExpression(unit, ctx),
     Structural: (view, kind) => structuralProps(view, kind, ctx),
