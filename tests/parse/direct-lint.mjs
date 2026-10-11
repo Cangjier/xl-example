@@ -351,6 +351,14 @@ let staleNameHits = 0;
  * （`typeof one.value === "string" ? one.value : ""`），而 `value` 是**各页自己的一个字段**
  * ——收成 `core/syntax/token.xl.md` 的 `Token.TextValue`（基类 `## property` + `### get`）之后，
  * 16 页 58 处调用点全改成属性读，出口随之删掉。同上：出口删了就补进这张表。
+ *
+ * **第 1073 轮再补一个出口名 `Template`**：它是「字符串 / 模板串投成什么形状」那一段算式
+ * 唯一的出口，而那一格的每一半事实都在**被投的那一页自己身上**（「我是不是模板」=
+ * 构造时赋好的 `String.StringChar`、「我攒下哪些段」= 自己的 `ConstString` /
+ * `InterpolationString` 子单元、「我的正文与坐标」= 自己的 `Text` / `start` / `end`）——
+ * 所以 `projectString` 整格搬进了 `typescript/tokens/string/string.xl.md` 的
+ * `String.PrintDirectAst`（那一页仍然经 `ctx.Expression` / `ctx.TypeExpression` 递归投内插里的
+ * 正文，所以搬走的是**算式所在的那一页**、不是能力），出口随之删掉。同上：出口删了就补进这张表。
  */
 const CTX_BANNED = [
   "Text",
@@ -370,6 +378,7 @@ const CTX_BANNED = [
   "OperatorRank",
   "AllKids",
   "ValueOf",
+  "Template",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。

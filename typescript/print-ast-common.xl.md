@@ -35,8 +35,13 @@ import { Identifier } from "./tokens/identifier.xl.md"
   `Token.SegmentNames` / `Token.BodyField` / `Token.AstKind`——**凡是某一页自己知道的事实，
   一律由那一页答，本文件不替它记第二遍**）；
 - **`ctx`**——递给 `PrintDirectAst` 的那一组出口（`Kids` / `Expression` / `TypeExpression` /
-  `Node` / `StartOf` / `EndOf` / `Project` / `TextOf` / …，共 40 多个）：
-  搬迁层不许 import 本文件（token → 本文件 → token 会成环），横切工具只能经它过去；
+  `Node` / `StartOf` / `EndOf` / `Project` / `Structural` / `Declaration` / …）：
+  搬迁层不许 import 本文件（token → 本文件 → token 会成环），横切工具只能经它过去。
+  **这一组出口只减不增，而且每删一个就补进 `direct:lint` 的 `CTX_BANNED`**
+  （第 1015 / 1026 / 1030 / 1037 / 1044 / 1060 / 1062 / 1063 / 1067 / 1069 / 1070 / 1071 / 1073 轮）
+  ——名字写回来那一门当场红，所以「投影层不该有的能力」是**结构上拿不到**，不是靠自觉；
+  `Text` / `TextOf` / `StringText` / `ValueOf` / `OperatorRank` / `AllKids` / `Template` …
+  这一串今天都不在表里；
 - **共享实现**：那些**被共享层自己调用、且调用方拿不到「单元」这个入口**的函数
   （表达式重写器 `projectExpression` / `projectTypeExpression`、声明列表 `projectLetFrom`、
   成员名判据 `memberNameOf`、修饰词 `addModifiers`……）。
@@ -69,10 +74,18 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：81 格声明（`# const` / `# method`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**76 格声明**（`^# …(method|const)` 逐行数出来的实测值：72 个 `# method` +
+4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
+**这一栏的旧账与本轮实测差 2 格，如实记下**（第 1073 轮）：第 1062 轮起这里写的是
+「89 → 86 格」，而那一族往下逐轮减到「79 格」；本轮按上面那条命令逐行数出来是 **76 格**
+（`projectString` 删掉之前是 77）——差的那几格**不是这几轮改动带来的**（第 1072 / 1073 两轮
+只动了调用点、说明与一格声明），最可能是早几轮的计数把某些行重复算了一次。
+所以从这一轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
+`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
+即可（`.Count` 就是那一格）。
 **其中两格是「读 token 那一格」的转调**（第 1066 轮）：`unwrapNodes` / `projectableKids`
 读的都是 `Token.ProjectableKids`——留着这两个名字是因为**调用点的读法**已经分成了两族
 （「拆包装再取」与「取进投影的那一串」），而算式只有 token 上那一处。
@@ -590,6 +603,36 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**79 格**（这一轮一格没增、一格没减；改的是调用点与说明）。
 
+**第 1073 轮把「模板串投成什么形状」那一格整格搬回它自己那一页**——本页的
+`projectString` 与 `ctx` 上那个 `Template` 出口一并删掉，算式（连同它每一句为什么这么写的注释）
+**一字不改**地搬进 `typescript/tokens/string/string.xl.md` 的 `String.PrintDirectAst`。
+那一页原来只有一句 `return ctx.Template(v);`。
+
+| 改掉的那一格 | 原来 | 今天 |
+| --- | --- | --- |
+| 「字符串 / 模板串 → `StringLiteral` / `NoSubstitutionTemplateLiteral` / `TemplateExpression`…」 | 本页 `projectString`，`String.PrintDirectAst` 经 `ctx.Template` 转过来 | `String.PrintDirectAst` 自己算（`ctx.Template` 与 `projectString` 都不存在了） |
+
+- **为什么它属于那一页**（判据与前几轮同一条：**答案在这一格自己身上、而且构造那一刻就定下来**）：
+  这一格的**每一半事实都是 `String` 自己的**——「我是不是模板」= `String.StringChar`
+  （构造器里赋一次，第 1018 / 1049 轮就是这么读的）、「我攒下哪些段」= 自己的 `ConstString` /
+  `InterpolationString` 子单元、「我的正文与坐标」= 自己的 `Text` / `start` / `end`、
+  内插里要递归投的那两格 = 自己的 `ProjectableKids`。本页留着它，等于**替那一页记第二遍**。
+- **搬走的是算式所在的那一页，不是能力**：那一页仍然经 `ctx.Expression` / `ctx.TypeExpression`
+  递归投内插里的表达式或类型（`token` 层不能 import 投影层，会成环），节点仍经 `ctx.Node` 造、
+  尾部坐标仍经 `ctx.StmtEndOf` 剪——**与共享层是同一份实现**，所以「两条路同答」是结构上的事。
+- **两处替换是机械的**：`startOf(x)` / `endOf(x)` → `x.start` / `x.end`（本页那两个 `# const`
+  本来就只是读这两格属性）；`astNode(kind, props, v, ctx)` → `ctx.Node(kind, props, v)`、
+  `stmtEndOf(v, ctx)` → `ctx.StmtEndOf(v)`。`v.stringChar` / `v.Text` / `v.StringText` /
+  `v.ProjectableKids` 原样保留（本来就是属性读）。
+- **量法**：改完八道门读数**一处没动**——`coverage` **4261 / 4422**（`blocked 28` /
+  `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`samples` 逐字节一致、`cases:check` 1656 / 1656、
+  `runtime:check` 243 / 243、`runtime:cli` 79 / 79。这就是「搬走之后逐格等价」的证据。
+- **判据跟着长**：`direct:lint` 的 `CTX_BANNED` 补进出口名 `Template`（第 1073 轮那一节写了理由）
+  ——下一轮谁往 `ctx` 里补一行 `Template: …` 把这段算式请回共享层，这一门当场红。
+- **本页的声明数**：**79 → 78 格**（`projectString` 一格；`ctx.Template` 只是出口，
+  它本来就是一行转手、不留实现）。
+
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
 名单的键就是**那些类自己的名字**，所以它本来就是那四页的事实；投影这一侧过去用
@@ -756,107 +799,29 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   return out;
 ```
 
-# private method projectString:(v:any, ctx:any)=>any
+**`projectString` 第 1073 轮整格删掉了**（连同 `ctx` 上那个 `Template` 出口）。
+它原来是「字符串 → `StringLiteral` / `NoSubstitutionTemplateLiteral` / 模板字面量」那一格，
+`String.PrintDirectAst` 只有一句 `return ctx.Template(v);` 转过来。
 
-字符串 → `StringLiteral` / `NoSubstitutionTemplateLiteral` / **模板字面量**。
+**为什么该搬走**：这一格的**每一半事实都在被投的那一页自己身上**——「我是不是模板」
+是 `String.StringChar`（构造器里赋好）、「我攒下哪些段」是自己的 `ConstString` /
+`InterpolationString` 子单元、「我的正文与坐标」是自己的 `Text` / `start` / `end`、
+内插里那两格是自己的 `ProjectableKids`。按本文件这一族一贯的判据
+（第 1041 / 1042 / 1057 / 1068 / 1069 那几条：**答案在这一格自己身上、而且构造那一刻
+就定下来的，就收进那一页**），它该由 `typescript/tokens/string/string.xl.md` 的
+`String.PrintDirectAst` 自己算，而不是由共享层**替它记第二遍**。
 
-模板（反引号串）在产物里是 `String > [ConstString, InterpolationString, ConstString, …]`，
-而 TS 那边是**另一种结构**：
+**搬走的是算式，不是能力**：那一页仍然经 `ctx.Expression` / `ctx.TypeExpression` 递归投
+内插里的正文（`token` 层不能 import 投影层，会成环），节点仍经 `ctx.Node` 造、
+尾部坐标仍经 `ctx.StmtEndOf` 剪——**与共享层是同一份实现**，所以「两条路同答」是
+结构上的事。改模板形状从此只需改那一页。
 
-~~~text
-`x${b}y`  ⇒ TemplateExpression[10,18)
-              head: TemplateHead[10,14)        "`x${"
-              templateSpans: [ TemplateSpan[14,18)
-                                 expression: Identifier[14,15)  b
-                                 literal: TemplateTail[15,18)   "}y`" ]
-~~~
+**两处替换是机械的**（与 `projectString` 逐格等价）：`startOf(x)` / `endOf(x)` →
+`x.start` / `x.end`（本文件那两个 `# const` 本就只是读这一格的两个属性），
+`astNode(kind, props, v, ctx)` → `ctx.Node(kind, props, v)`、`stmtEndOf(v, ctx)` →
+`ctx.StmtEndOf(v)`。原来那一格的算式（含它每一句为什么这么写的注释）原样搬到了
+`String.PrintDirectAst`——**一个字符的解释都没丢**，所以这一页不再留第二份。
 
-**类型位的模板**（`` `${string}-${string}` ``）形状相同、名字不同：外层是
-`TemplateLiteralType`、span 是 `TemplateLiteralTypeSpan`、里面装的是 `type`（不是 `expression`）。
-两者的**产物同形**，所以靠 `ctx.typePosition`（由 `projectTypeExpression` 打标）区分。
-
-没有内插的模板是 `NoSubstitutionTemplateLiteral`（**不是** `StringLiteral`）。
-
-```ts
-  // 值位的普通字符串（引号串）走原来的口径。
-  // **「这一格是不是模板」问 token 自己**（第 1049 轮）：反引号是 `String.StringChar`
-  // **在构造器里赋好的**那一格（`stringChar` 是它给投影的读法），投影不再回原文读第一个字符。
-  if (v.stringChar !== "`") return astNode("StringLiteral", { text: v.StringText }, v, ctx);
-  const kids = v.ProjectableKids;
-  const consts = kids.filter((k) => k.Tag === "ConstString");
-  const interps = kids.filter((k) => k.Tag === "InterpolationString");
-  if (interps.length === 0) return astNode("NoSubstitutionTemplateLiteral", { text: v.StringText }, v, ctx);
-  const typePosition = ctx.typePosition === true;
-  // **头部含那个 `{`**：`ConstString` 已经把 `$` 收进去了（`x$`），所以终点是
-  // 第一段内插的起点再加一（`{` 那一格）。**先算成局部量**——在对象字面量里引用
-  // 正在初始化的 `head` 是取不到值的（试过：`Cannot access 'head' before initialization`）。
-  const headEnd = startOf(interps[0]) + 1;
-  const head = {
-    kind: "TemplateHead",
-    pos: v.start,
-    end: headEnd,
-    // **段内文本**（TS 的口径：**不含**分隔符）：头段去掉开头的反引号与结尾的 `${`。
-    // 按区间推出来，不扫源码：`headEnd` 落在 `{` 上，所以 `$` 在 `end - 2`。
-    // **读这一格自己的 `Text`**（第 1053 轮）：同一段正文，只是不再把投影手上那个字符串切一遍
-    // （区间是**全文坐标**，所以两头各自减去这一格的起点）——与 `Token.Text` 同一口径。
-    text: v.Text.slice(1, headEnd - 2 - v.start),
-  };
-  const spans = [];
-  for (let i = 0; i < interps.length; i++) {
-    const isLast = i === interps.length - 1;
-    const inner = interps[i].ProjectableKids;
-    const value = typePosition ? projectTypeExpression(inner, ctx) : projectExpression(inner, ctx);
-    if (value === undefined) continue;
-    // **段内文本**：从 `}` 之后算起；中段到 `$` 之前，尾段到收尾反引号之前。
-    //
-    // **起点按「那个 `}` 的右边一格」定，不按表达式的终点**（第 677 轮）：两者只在
-    // 「表达式与 `}` 紧挨着」时相等 —— `` `${ `b${1}` }c` `` 里表达式终点落在**内层
-    // 反引号之后一格**（那个空格上），照它 `+1` 就把 `}` 自己算进了段文本：
-    // `node` 给 `ab1c`、本仓给 `ab1}c`（实测 `expr-template-nested-spaced`，
-    // 执行侧 `l677-expressions-expr-template-nested-spaced` 量的就是它）。
-    // 位置那一格第 623 轮已经这么算了（`pos` 取 `endOf(interps[i]) - 1`），
-    // **文本这一格漏了同一处**——两格现在同一个起点。
-    //
-    // **分支按 `isLast` 定，不按 `consts[i + 1]`**：实测两者会不一致
-    // （尾段也可能跟着一个常量段），那时按后者会算出一个**反向区间**——
-    // `slice(25, 24)` 给的是空串，判据报的是「少了一个 `]`」，而线索离这里很远。
-    const literalText = isLast
-      ? v.Text.slice(endOf(interps[i]) - v.start, v.end - 1 - v.start)
-      : v.Text.slice(endOf(interps[i]) - v.start, endOf(consts[i + 1]) - 1 - v.start);
-    const literal = {
-      kind: isLast ? "TemplateTail" : "TemplateMiddle",
-      // **字面量段从 `}` 起**（TS 的 `TemplateTail` / `TemplateMiddle` 含那个右花括号），
-      // 终点是下一个常量段的末尾再加一：那个 `ConstString` 已经把 `$` 收进去了，
-      // 后面紧跟的 `{`（或尾段的那个反引号）是它的后面一格。
-      //
-      // **起点取那个 `}` 本身，不取内插表达式的终点**（第 623 轮）：两者只在
-      // 「表达式与 `}` 紧挨着」时相等 —— `` `${ `b${1}` }c` `` 里表达式终点落在
-      // 内层反引号之后一格（那个空格上），照它给起点就**多吞一个空格**
-      //（实测 `op-template-nested`：`TemplateTail` 漂一格）。
-      // `InterpolationString` 的区间**到 `}` 为止**（`$` 起、`}` 收）⇒ 减一就是它。
-      pos: endOf(interps[i]) - 1,
-      // 尾段后面没有常量段时（`` `${a}` ``）终点就是整个字符串的终点（含那个反引号）。
-      end: consts[i + 1] === undefined ? v.end : endOf(consts[i + 1]) + 1,
-      text: literalText,
-    };
-    const span = {
-      kind: typePosition ? "TemplateLiteralTypeSpan" : "TemplateSpan",
-      literal,
-      pos: value.pos,
-      end: literal.end,
-    };
-    if (typePosition) span.type = value;
-    else span.expression = value;
-    spans.push(span);
-  }
-  return {
-    kind: typePosition ? "TemplateLiteralType" : "TemplateExpression",
-    head,
-    templateSpans: spans,
-    pos: v.start,
-    end: stmtEndOf(v, ctx),
-  };
-```
 
 # private method fieldNameFor:(kind:string, key:string, node?:any)=>string
 
@@ -3564,7 +3529,8 @@ new Set([
   // 因为它只钉了不带后缀的 `` tag`abc` ``）。
   //
   // 判据与 0b 同源，只是往里走一层：第二格是 `PropertyAccess`、它**第一个**可投影子单元
-  // 是**反引号开头**的 `String`（普通字符串是 `"` / `'`，`projectString` 靠这个分岔）。
+  // 是**反引号开头**的 `String`（普通字符串是 `"` / `'`，`String.PrintDirectAst` 靠这个分岔；
+  // 第 1073 轮之前那一格叫 `projectString`）。
   // 标签那一侧走 `projectExpression(kids.slice(0, 1))`：`obj.tag` / `f()` / `(…)`
   // 这些接收者本来就是**一个单元**，`projectExpression` 自己会投对
   //（`(cond)` 那一格落在 `parenthesizedOf` 上）。
@@ -9308,8 +9274,9 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 于是「自己问自己」不会无限递归，而子节点照常各自被问。
     awaitingDeclaration: undefined,
     // **类型位标记**（第 99 轮）：`projectTypeExpression` 在投「只有一个单元」的类型时置上它，
-    // 让 `projectString` 知道该出 `TemplateLiteralType` 还是 `TemplateExpression`
-    // （两者产物同形，只有这一点上下文能区分）。
+    // 让**字符串那一页**知道该出 `TemplateLiteralType` 还是 `TemplateExpression`
+    // （两者产物同形，只有这一点上下文能区分）。第 1073 轮起读它的那一页是
+    // `String.PrintDirectAst`（原来读它的是本页的 `projectString`）。
     typePosition: false,
     // **被上一条语句吃掉的 `;`**（第 141 轮）：TS 的 `parseExpressionStatement` 收尾会把
     // 紧跟的那个 `;` 算成自己的终结符（`tryParseSemicolon` 不看换行），所以那种 `;`
@@ -9380,9 +9347,15 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // `method.xl.md` 的 `ctx.TextOf(inner) === ","`（第 1015 轮改成 `ctx.ValueOf`，
     // 第 1069 轮再改成读 `inner.TextValue`）。
     // ⇒ 现在「这一层拿不到原文」是**结构上的事**，不是靠逐页扫描拦下来的。
-    // **字符串 / 模板串这一格**（第 99 轮）：模板串要递归投内插里的表达式或类型，
-    // 那不是 token 层能做的事，所以实现留在 `projectString`、由 token 的 `PrintDirectAst` 转过来。
-    Template: (view) => projectString(view, ctx),
+    // **字符串 / 模板串那一格第 1073 轮删掉了**（它原来就挂在这里）：模板串要递归投内插里的
+    // 表达式或类型，那段算式过去留在这里（`projectString`）、由 `String.PrintDirectAst` 转过来。
+    // 可那一格的每一半事实都在**被投的那一页自己身上**（「我是不是模板」= 构造时赋好的
+    // `String.StringChar`、「我攒下哪些段」= 自己的 `ConstString` / `InterpolationString` 子单元、
+    // 「我的正文与坐标」= 自己的 `Text` / `start` / `end`），所以按这一族一贯的判据
+    // （第 1041 / 1042 / 1057 / 1068 / 1069 那几条）那份算式**整段搬进了 `String.PrintDirectAst`**，
+    // `projectString` 与这个出口一并删掉。那一页仍然经 `ctx.Expression` / `ctx.TypeExpression`
+    // 递归投内插里的正文（`token` 层不能 import 投影层），所以搬走的是**算式所在的那一页**、
+    // 不是能力——`Template` 这个名字补进 `direct:lint` 的 `CTX_BANNED`，写回来这一门当场红。
     // **按文本查词的出口第 1028 / 1029 轮全删掉了**（`KeywordKind` / `TokenKind` / `LeafKind` /
     // `NumericLiteral`）：那三张词汇表搬回了各自那一页（`Keyword.KeywordKind` /
     // `SymbolToken.KindOfText` / `Identifier.LeafKindOfText`，理由见本文件上半部分那两段记录），

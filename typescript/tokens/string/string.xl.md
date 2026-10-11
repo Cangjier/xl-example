@@ -364,9 +364,128 @@ return one.StringText;
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
+**模板串这一格的形状由这一页自己算**（第 1073 轮）：原来本方法只有一句
+`return ctx.Template(v);`——算式住在共享层的 `projectString` 里，经 `ctx` 上那个转调出口
+递过来。可这一格的每一半事实都是**这一页自己的**：我是不是模板（`StringChar`）、
+我攒下的段（`ConstString` / `InterpolationString` 这两类子单元）、我的正文与坐标
+（`Text` / `start` / `end`）、内插里那两格表达式（`ProjectableKids`）。
+所以第 1073 轮把那份算式整段搬回这一页，`projectString` 与 `ctx.Template` 一并删掉
+——「这一格缺什么」于是等于「这一页少写了什么」，共享层不再替它算。
+
+**仍然要经 `ctx` 的两件事**：内插里那段正文是**表达式或类型**，递归投它需要
+`ctx.Expression` / `ctx.TypeExpression`（`token` 层不能 import 投影层，会成环）；
+节点本身经 `ctx.Node` 造、尾部坐标经 `ctx.StmtEndOf` 剪——**口径与共享层同一份实现**。
+
+**值位与类型位靠 `ctx.typePosition` 分**：`` `${string}-${string}` `` 与 `` `x${b}y` ``
+在产物里同形，只有这一点上下文能区分 ⇒ 外层 kind 与 span 名按它分岔。
+
+**模板（反引号串）在产物里是** `String > [ConstString, InterpolationString, ConstString, …]`，
+而 TS 那边是**另一种结构**：
+
+~~~text
+`x${b}y`  ⇒ TemplateExpression[10,18)
+              head: TemplateHead[10,14)        "`x${"
+              templateSpans: [ TemplateSpan[14,18)
+                                 expression: Identifier[14,15)  b
+                                 literal: TemplateTail[15,18)   "}y`" ]
+~~~
+
+**类型位的模板**（`` `${string}-${string}` ``）形状相同、名字不同：外层是
+`TemplateLiteralType`、span 是 `TemplateLiteralTypeSpan`、里面装的是 `type`（不是 `expression`）。
+两者的**产物同形**，所以靠 `ctx.typePosition`（由 `projectTypeExpression` 打标）区分。
+
+没有内插的模板是 `NoSubstitutionTemplateLiteral`（**不是** `StringLiteral`）。
+
 ```ts
-return ctx.Template(v);
+  // 值位的普通字符串（引号串）走原来的口径。
+  // **「这一格是不是模板」问 token 自己**（第 1049 轮）：反引号是 `String.StringChar`
+  // **在构造器里赋好的**那一格（`stringChar` 是它给投影的读法），投影不再回原文读第一个字符。
+  if (this.stringChar !== "`") {
+    return ctx.Node("StringLiteral", { text: this.StringText }, v);
+  }
+  const kids = this.ProjectableKids;
+  const consts = kids.filter((k: any) => k.Tag === "ConstString");
+  const interps = kids.filter((k: any) => k.Tag === "InterpolationString");
+  if (interps.length === 0) {
+    return ctx.Node("NoSubstitutionTemplateLiteral", { text: this.StringText }, v);
+  }
+  const typePosition = ctx.typePosition === true;
+  // **头部含那个 `{`**：`ConstString` 已经把 `$` 收进去了（`x$`），所以终点是
+  // 第一段内插的起点再加一（`{` 那一格）。**先算成局部量**——在对象字面量里引用
+  // 正在初始化的 `head` 是取不到值的（试过：`Cannot access 'head' before initialization`）。
+  const headEnd = interps[0].start + 1;
+  const head = {
+    kind: "TemplateHead",
+    pos: this.start,
+    end: headEnd,
+    // **段内文本**（TS 的口径：**不含**分隔符）：头段去掉开头的反引号与结尾的 `${`。
+    // 按区间推出来，不扫源码：`headEnd` 落在 `{` 上，所以 `$` 在 `end - 2`。
+    // **读这一格自己的 `Text`**（第 1053 轮）：同一段正文，只是不再把投影手上那个字符串切一遍
+    // （区间是**全文坐标**，所以两头各自减去这一格的起点）——与 `Token.Text` 同一口径。
+    text: this.Text.slice(1, headEnd - 2 - this.start),
+  };
+  const spans: any[] = [];
+  for (let i = 0; i < interps.length; i++) {
+    const isLast = i === interps.length - 1;
+    const inner = interps[i].ProjectableKids;
+    const value = typePosition ? ctx.TypeExpression(inner) : ctx.Expression(inner);
+    if (value === undefined) continue;
+    // **段内文本**：从 `}` 之后算起；中段到 `$` 之前，尾段到收尾反引号之前。
+    //
+    // **起点按「那个 `}` 的右边一格」定，不按表达式的终点**（第 677 轮）：两者只在
+    // 「表达式与 `}` 紧挨着」时相等 —— `` `${ `b${1}` }c` `` 里表达式终点落在**内层
+    // 反引号之后一格**（那个空格上），照它 `+1` 就把 `}` 自己算进了段文本：
+    // `node` 给 `ab1c`、本仓给 `ab1}c`（实测 `expr-template-nested-spaced`，
+    // 执行侧 `l677-expressions-expr-template-nested-spaced` 量的就是它）。
+    // 位置那一格第 623 轮已经这么算了（`pos` 取 `interps[i].end - 1`），
+    // **文本这一格漏了同一处**——两格现在同一个起点。
+    //
+    // **分支按 `isLast` 定，不按 `consts[i + 1]`**：实测两者会不一致
+    // （尾段也可能跟着一个常量段），那时按后者会算出一个**反向区间**——
+    // `slice(25, 24)` 给的是空串，判据报的是「少了一个 `]`」，而线索离这里很远。
+    const literalText = isLast
+      ? this.Text.slice(interps[i].end - this.start, this.end - 1 - this.start)
+      : this.Text.slice(interps[i].end - this.start, consts[i + 1].end - 1 - this.start);
+    const literal = {
+      kind: isLast ? "TemplateTail" : "TemplateMiddle",
+      // **字面量段从 `}` 起**（TS 的 `TemplateTail` / `TemplateMiddle` 含那个右花括号），
+      // 终点是下一个常量段的末尾再加一：那个 `ConstString` 已经把 `$` 收进去了，
+      // 后面紧跟的 `{`（或尾段的那个反引号）是它的后面一格。
+      //
+      // **起点取那个 `}` 本身，不取内插表达式的终点**（第 623 轮）：两者只在
+      // 「表达式与 `}` 紧挨着」时相等 —— `` `${ `b${1}` }c` `` 里表达式终点落在
+      // 内层反引号之后一格（那个空格上），照它给起点就**多吞一个空格**
+      //（实测 `op-template-nested`：`TemplateTail` 漂一格）。
+      // `InterpolationString` 的区间**到 `}` 为止**（`$` 起、`}` 收）⇒ 减一就是它。
+      pos: interps[i].end - 1,
+      // 尾段后面没有常量段时（`` `${a}` ``）终点就是整个字符串的终点（含那个反引号）。
+      end: consts[i + 1] === undefined ? this.end : consts[i + 1].end + 1,
+      text: literalText,
+    };
+    const span: any = {
+      kind: typePosition ? "TemplateLiteralTypeSpan" : "TemplateSpan",
+      literal,
+      pos: value.pos,
+      end: literal.end,
+    };
+    if (typePosition) span.type = value;
+    else span.expression = value;
+    spans.push(span);
+  }
+  return {
+    kind: typePosition ? "TemplateLiteralType" : "TemplateExpression",
+    head,
+    templateSpans: spans,
+    pos: this.start,
+    end: ctx.StmtEndOf(v),
+  };
 ```
+
+**这一格与共享层逐格等价，两处替换是机械的**（第 1073 轮）：
+`startOf(x)` / `endOf(x)` → `x.start` / `x.end`（那两个 `# const` 本就只是读这一格的两个属性），
+`astNode(kind, props, v, ctx)` → `ctx.Node(kind, props, v)` / `stmtEndOf(v, ctx)` →
+`ctx.StmtEndOf(v)`——**两条路走的是同一份实现**（`astNode` 就是 `ctx.Node` 转调的那一格），
+所以判据（`cases:tsast` 全语料逐节点、`samples` 逐字节）不必为这一轮放宽。
 
 
 ## method Clone:()=>Token
