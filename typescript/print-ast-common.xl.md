@@ -85,6 +85,22 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
 而第 1131 轮删掉 `nameOf` 那一格之后实测就是 42 格 / 39 个 `# method`——按上面那条规矩改成实测值
 （**第 1136 轮没有动声明数**：42 → 42，改的是投影那一侧读的一格属性）。
 
+**第 1139 轮把「投影拿这一格自己声明的名字文本去和语言里的字面量比一遍」那一处收了**（用户口径
+1.1 ~ 1.4：投影要的信息由**被问的那一页**在认下名字那一刻记好，投影只读属性）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `v.Parent?.IsClassBody === true && v.DeclaredName === "constructor"`（`projectDeclaration` 判「是不是类体里的构造」那一支） | `v.Parent?.IsClassBody === true && v.IsConstructorName === true` | `typescript/tokens/function/method-declaration.xl.md` 的 `## field IsConstructorName:bool = false`，与同页 `IsNumericLiteralName` **同一趟**（`Process` 里认下 `name` 之后）赋好、`Clone` 抄一格 |
+
+- **等价怎么证的**：这一格的取值就是 `this.name === "constructor"`，而 `DeclaredName` 在这一页上
+  给的就是 `this.name`（`NameField` 答的是 `name` 本身；`name` 为空时基类退回 `(this as any).name`，
+  两边都答空串）——所以原来那一句与新属性**逐字符同答**。八道门读数一处没动是第二份证据
+  （`coverage` **4260 / 4422**，`blocked 28` / `differ 134` / `bad 0`，与第 1106 ~ 1138 轮逐项相同）。
+- **这一轮不留新判据**：`direct:lint` 那一族守的是**问句名**（`isDot` / `ctx.IsNameNode` 那种写法）
+  与**类名比较**（`X.Tag === "…"`），而这一处是「拿 token 自己的文本去和字面量比」——
+  今天扫不到更细的形态（与第 1138 轮同一处境），所以只把判据写进两处台账。
+- **本页的声明数**：**42 格**（39 个 `# method` + 3 个 `# const`，实测，**一格没增没减**）。
+
 **第 1138 轮把「按某一格自己的坐标去读 `ctx.source`」这一族**收干净了**（用户口径 1.1 ~ 1.4：
 投影要的信息由**被问的那一页**在构造 / 认下名字那一刻记好，投影只读属性）——
 最后一只漏网是 `memberNameOf` 里那句「名字两头是不是同一个引号」：
@@ -2696,12 +2712,18 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     // `ClassBody` 底下**（`structuralProps` 提层时递下去的父单元也是那一格 `v`），
     // 所以父单元读得到。
     v.Parent?.IsClassBody === true &&
-    v.DeclaredName === "constructor"
+    // **「这个名字是不是那个构造词」由被问的那一页自己答**（第 1139 轮，用户口径 1.1 ~ 1.4）：
+    // 这一句过去是 `v.DeclaredName === "constructor"`——投影拿**这一格自己声明的名字文本**
+    // 去和语言里的那个词比一遍，而「我这一格叫什么」是 `MethodDeclaration` 在认下名字那一趟
+    // 就赋好的一格（`IsConstructorName`，与同页 `IsNumericLiteralName` 同一趟），
+    // 取值与原来那一句**逐字符相同**。投影从此只读属性。
+    v.IsConstructorName === true
   ) {
-    // **判据是「这一格叫什么」那一格事实、不是 `textOf`**（第 1008 轮）：
-    // 它问的是 token 自己的 `DeclaredName`（第 1068 轮：那一格已经把
-    // 「名字住在哪个字段上」与「问不到时退回 `name` 段」两跳都收进 token 里了，
-    // 见 `core/syntax/token.xl.md`）；直接写 `v.name` 会**绕开那一格事实**
+    // **判据是「这一格叫什么」那一格事实、不是 `textOf`**（第 1008 轮；第 1139 轮起
+    // 这一问由 `MethodDeclaration.IsConstructorName` 答）：它问的仍然是 token 自己声明的名字
+    // （第 1068 轮：那一格已经把「名字住在哪个字段上」与「问不到时退回 `name` 段」两跳都
+    // 收进 token 里了，见 `core/syntax/token.xl.md`）——只是这一问的答案现在由那一页在
+    // 认下名字那一趟算好，投影不再自己拿名字文本比一遍；直接写 `v.name` 会**绕开那一格事实**
     // ——这条口径对 **helper** 一样成立
     // （直出版那一趟投一个类要经过 `projectDeclaration`，它就在这条 helper 里）。
     // 方法单元自己没有 `value`，

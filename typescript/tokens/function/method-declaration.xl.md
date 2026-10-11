@@ -842,6 +842,12 @@ if (computedName) {
 // `DeclaredName` 在这一页上的那一份）；计算名（`[1]() {}`）进的是 `BracketNameText`
 // 那串文本，与投影读到的那个 `DeclaredName` 同一份，所以不另立判据。
 result.IsNumericLiteralName = Identifier.IsNumericLiteral(result.name);
+// **「我声明的这个名字是不是 `constructor`」也在同一趟记好**（第 1139 轮，用户口径 1.1 ~ 1.4）：
+// 投影 `projectDeclaration` 判「是不是类体里的构造」那一支过去拿**这一格自己声明的名字文本**
+// 去和语言里的那个词比一遍（`v.DeclaredName === "constructor"`）——而「我这一格叫什么」
+// 只有这一页知道，`DeclaredName` 在本页的那一份就是 `this.name`（`NameField` 给的正是它；
+// 名字为空时两边都答空串），所以取值与原来那一句**逐字符相同**。
+result.IsConstructorName = result.name === "constructor";
 // **名字的位置当场记进字段**（见 `NameStart`）：普通标识符、关键字名与**字符串名**都记——
 // 只有计算名留给投影（它要的是方括号那一对，另有分派）。
 // 字符串名记的是**引号里那一段**（与 `Field.NameStart` 同一口径）：投影按 `name` 的文本位置
@@ -1040,6 +1046,19 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 **为什么是 `## field` 而不是读时现算的 `## property`**：名字文本 `name` 在 `Process`
 里就定下来了（此后只有 `Clone` 抄一次），所以这一格与它同趟赋好即可；
 「信息在 token 子类构建完就齐全」正是这一格要落地的那句话。
+
+## field IsConstructorName:bool = false
+
+**我声明的这个名字是不是 `constructor`**（第 1139 轮，用户口径 1.1 ~ 1.4：投影要的信息由
+**具体 token 子类**在自己那一页**显式声明**、在**构建过程**里赋好，读的时候备齐）。
+
+判据就是本页自己的 `name`（在 `Process` 里认下的那一刻赋好，与 `IsNumericLiteralName` 同一趟），
+取值与投影原来那句 `v.DeclaredName === "constructor"` **逐字符相同**——`DeclaredName` 在这一页上
+给的就是 `this.name`（`NameField` 那一格；名字为空时两边都答空串）。
+投影 `projectDeclaration` 判「是不是类体里的构造」那一支现在只读这一格。
+
+**为什么是 `## field` 而不是读时现算的 `## property`**：与同页 `IsNumericLiteralName` 同一条理由
+——名字文本 `name` 在 `Process` 里就定下来了（此后只有 `Clone` 抄一次），所以同趟赋好即可。
 
 ## field NameStart:int = -1
 
@@ -1288,12 +1307,14 @@ return this.NameEnd;
 `MethodDeclarationCloseRule`，不抄的话它就不认自己是函数体了（`yield` / `await` 在它里面会被当成普通标识符）。
 **`IsNumericLiteralName` 同样要抄**（第 1136 轮）：它是 `Process` 那一趟按名字算好的一格，
 克隆体不走 `Process`（与 `FunctionFlags` 同一条理由）。
+**`IsConstructorName` 同一趟抄**（第 1139 轮）：理由与上一格逐字相同，两格都在 `Process` 里定下。
 
 ```ts
 const result = new MethodDeclaration(this.Template);
 result.Sign(this);
 result.name = this.name;
 result.IsNumericLiteralName = this.IsNumericLiteralName;
+result.IsConstructorName = this.IsConstructorName;
 result.NameStart = this.NameStart;
 result.NameEnd = this.NameEnd;
 result.NameAt = this.NameAt;

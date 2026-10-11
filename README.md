@@ -347,6 +347,33 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1139 轮：「投影拿这一格自己声明的名字文本去和字面量比一遍」那一处收了——`MethodDeclaration` 显式声明 `## field IsConstructorName`，`projectDeclaration` 判「类体里的构造」改读属性；**读数一处没动**
+
+**一句话**：用户口径 1.1 ~ 1.4。第 1136 轮把 `memberNameOf` 里「这一格声明的名字是不是数字字面量」
+收成了 `Field` / `MethodDeclaration` **各自显式声明**的一格字段；同一族还剩一处「投影自己拿 token
+的名字文本去和语言里的词比一遍」——`projectDeclaration` 判「类体里的构造」那一支的
+`v.DeclaredName === "constructor"`：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `v.Parent?.IsClassBody === true && v.DeclaredName === "constructor"`（`projectDeclaration` 里**唯一**一处这样的比较） | `v.Parent?.IsClassBody === true && v.IsConstructorName === true` | `typescript/tokens/function/method-declaration.xl.md` 的 `## field IsConstructorName:bool = false`，与同页 `IsNumericLiteralName` **同一趟**（`Process` 里认下 `name` 之后）赋好、`Clone` 抄一格 |
+
+- **等价怎么证的**：这一格的取值就是 `this.name === "constructor"`，而 `DeclaredName` 在这一页上
+  给的就是 `this.name`（`NameField` 答的是 `name` 本身；`name` 为空时基类退回 `(this as any).name`，
+  两边都答空串）；上下文那一半 `v.IsMethodDeclaration` / `v.Parent?.IsClassBody` 一个字没动
+  （全仓只有 `MethodDeclaration` 那一页答 `IsMethodDeclaration = true`）。八道门读数一处没动是证据。
+- **这一轮不留新判据**：`direct:lint` 那一族守的是**问句名**（`isDot` / `ctx.IsNameNode` 那种写法）
+  与**类名比较**（`X.Tag === "…"`），而这一处是「拿 token 自己的文本去和字面量比」——
+  没有更细的形态可扫（与第 1138 轮同一处境），所以只把判据写进两处台账。
+- **本页的数**：**42 格**（39 个 `# method` + 3 个 `# const`，实测，**一格没增没减**）；
+  本页 10951 → **10973 行**；`typescript/tokens/function/method-declaration.xl.md` 1358 → **1379 行**。
+- **实测**：`xl check typescript` **0 条**；`xl build typescript` **127 个产物 / 0 error**、`npx tsc` 干净；
+  **八道门 7 通过、1 失败**（墙钟 34.5s），读数与第 1106 ~ 1138 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 ### 第 1138 轮：「按某一格自己的坐标去读 `ctx.source`」这一族**收干净了**——`MethodDeclaration` 补上 `NameAt` / `NameSpan`，基类新立 `## property IsQuotedName`，`memberNameOf` 里最后那处回原文读改成属性读；**等价是全语料并排量出来的（42427 次、0 次不一致）**；读数一处没动
 
 **一句话**：用户口径 1.1 ~ 1.4。第 1109 轮把 `synthName` 那处「回原文看名字头一格是不是引号」
