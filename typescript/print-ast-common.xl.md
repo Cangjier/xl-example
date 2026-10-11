@@ -85,6 +85,22 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
 而第 1131 轮删掉 `nameOf` 那一格之后实测就是 42 格 / 39 个 `# method`——按上面那条规矩改成实测值
 （**第 1136 轮没有动声明数**：42 → 42，改的是投影那一侧读的一格属性）。
 
+**第 1141 轮把「投影自己找区间开头那些注释」那一趟收进了被问的那一格**（用户口径 1.1 ~ 1.4：
+投影要的信息由**被问的那一页**备齐，投影只读属性）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `let pos = v.start;` + `allKids(v).find((k) => startOf(k) === pos && k.IsCommentUnit)` + `while (at < v.end && /\s/.test(ctx.source[at])) at++;`（`astNode` 里那一趟，`pos` 不落在前导注释上） | `v.ProjectionStart` | `core/syntax/token.xl.md` 的 `## property ProjectionStart:int`（`### get`，读自己的 `AllKids` / 各格的 `IsCommentUnit` / 自己的 `Text`）+ **同一轮新立的 `## property AllKids:Array<Token>`**（各段 + `children`、**不滤 `IsInvisible`**——就是本页 `allKids` 那一格 helper 的同一个读数） |
+
+- **等价是全语料并排量出来的**：`tmp/r1141` 把新旧两套判据挂在同一句上跑了一遍全语料
+  （`node tests/parse/direct-ast.mjs --all`，2051 份）⇒ `{"n":261082,"mis":0,"samples":[]}`
+  ——这一支进入 **261082** 次、**0 次不一致**。八道门读数一处没动是第二份证据
+  （`coverage` **4260 / 4422**）。
+- **非 token 的合成语句视图照旧同答**：它不是 `Token`，读 `v.ProjectionStart` 得 `undefined`
+  ——那正是原来 `v.start` 在那种视图上的答案（`allKids` 在它身上本来就什么都不收）。
+- **本页的声明数**：**42 格**（39 个 `# method` + 3 个 `# const`，实测——这一轮删掉的是
+  `astNode` 方法体里的一段算式，不是一格声明）。
+
 **第 1140 轮把「投影拿这一格自己的正文去和尖括号比」那三处收了**（与上一轮同一把尺子：投影要的
 信息由**被问的那一页**答，投影只读属性）：
 
@@ -2517,18 +2533,13 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // 缺 7 + 多出 7，样本全是这一族）。判据只看**本节点自己的第一个子单元**是不是注释，
   // 是就跳到它后面第一个非空白字符；连着几条注释也一起跳。
   // 整段都是注释时不动（否则 `pos` 会越过 `end`）。
-  let pos = v.start;
-  for (;;) {
-    const trivia = allKids(v).find(
-      (k) =>
-        startOf(k) === pos && k.IsCommentUnit,
-    );
-    if (trivia === undefined) break;
-    let at = endOf(trivia);
-    while (at < v.end && /\s/.test(ctx.source[at])) at++;
-    if (at >= v.end) break;
-    pos = at;
-  }
+  // **这一趟第 1141 轮收进了被问的那一格**（用户口径 1.1 ~ 1.4）：原来这里是现场写的一趟
+  // （`allKids(v)` 找「起点正好落在我这个 `pos` 上」的注释格、再用 `ctx.source` 读注释后面的空白），
+  // 而三件事实全在这一格自己身上（`AllKids` / `IsCommentUnit` / `Text`）——见
+  // `core/syntax/token.xl.md` 的 `ProjectionStart`，这里只读一个属性。
+  // **非 token 的合成语句视图没有这一格**：读出来是 `undefined`，与原来 `v.start` 在那种视图上
+  // 的答案（也是 `undefined`）逐个相同——那一趟的 `allKids` 在那种视图上本来就什么都不收。
+  const pos = v.ProjectionStart;
   return Object.assign({ kind }, props === undefined ? {} : props, { pos, end });
 ```
 

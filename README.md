@@ -347,6 +347,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1141 轮：「投影自己找区间开头那些注释」那一趟收进了被问的那一格——基类新立 `## property AllKids` 与 `## property ProjectionStart`，`astNode` 里那段现场算式改成一次属性读；**等价是全语料并排量出来的（261082 次、0 次不一致）**
+
+**一句话**：用户口径 1.1 ~ 1.4。`astNode` 里那趟「`pos` 不落在前导注释上」过去是现场写的一段：
+`let pos = v.start;` + `allKids(v).find((k) => startOf(k) === pos && k.IsCommentUnit)` + 用
+`ctx.source` 跳注释后面的空白——而三件事实全在**被问的那一格**身上。
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `let pos = v.start;` + `allKids(v).find(…)` + `while (at < v.end && /\s/.test(ctx.source[at])) at++;`（`astNode`） | `v.ProjectionStart` | `core/syntax/token.xl.md` 的 `## property ProjectionStart:int`（`### get`，读自己的 `AllKids` / 各格 `IsCommentUnit` / 自己的 `Text`）+ 同一轮新立 `## property AllKids:Array<Token>`（各段合起来、**不滤 `IsInvisible`**——本页 `allKids` 那一格 helper 的同一个读数；与 `ProjectableKids` 只差「滤不滤 trivia」） |
+
+- **等价是全语料并排量出来的**：`tmp/r1141`（不进仓库）把新旧两套判据挂在同一句上跑了一遍全语料
+  （`node tests/parse/direct-ast.mjs --all`，2051 份）⇒ `{"n":261082,"mis":0,"samples":[]}`
+  ——这一支进入 **261082** 次、新旧判据 **0 次不一致**。
+- **非 token 的合成语句视图照旧同答**：`statementOfList` 造的视图不是 `Token`，读
+  `v.ProjectionStart` 得 `undefined`——那正是原来 `v.start` 在那种视图上的答案（`allKids` 在它
+  身上本来就什么都不收）。
+- **`allKids` 那一格本页 helper 仍然留着**：它还剩两处读者（`stmtEndOf` 里那段收尾 trivia、
+  `projectEach` 里找 `;` 那一趟），这一轮只把 `astNode` 那一处收进 token——所以本页
+  **42 格声明一格没增没减**（删的是方法体里的一段算式）。
+- **本页的数**：**42 格**（39 个 `# method` + 3 个 `# const`，实测）；本页 10973 → **10989 行**；
+  `core/syntax/token.xl.md` 2770 → **2845 行**（两格新属性 + 说明）。
+- **实测**：`xl check core typescript` **0 条**；`xl build core typescript` **156 个产物 / 0 error**、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 34.0s），读数与第 1106 ~ 1140 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 ### 第 1140 轮：同一把尺子的第二、三处——尖括号扫描里的「正文和 `">"` 比一遍」收成 `Token.IsGreaterThanSymbol`（基类默认档 + `SymbolToken` 覆写），`chainOnto` 里那句 `IsSymbolToken === false` 跳过随之消失；**读数一处没动**
 
 **一句话**：用户口径 1.1 ~ 1.4。第 1139 轮收了「投影拿 token 自己的名字文本去和字面量比」那一处；

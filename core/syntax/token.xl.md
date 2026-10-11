@@ -827,6 +827,65 @@ for (const x of this.children) {
 return out;
 ```
 
+## property AllKids:Array<Token>
+
+**我这一格下面的**全部**子单元**（第 1141 轮）：各段合起来（`Segments` 的顺序、`children` 在最后），
+**不滤 `IsInvisible`**——它就是投影那一侧 `allKids(v)` 那一格 helper 的同一个读数。
+
+**与 `ProjectableKids` 的分工**：那一格是「进投影的那些」（滤掉 trivia），这一格是「要找 trivia 时
+的那些」（注释 / 软换行 / 预处理指令都要看得见）。两格拼的是同一批事实（`Segments` + 各段属性 +
+`children`），差别只有滤不滤那一下。
+
+**为什么要住在 token 上**（用户口径 1.1 ~ 1.4）：投影要问「我这一格区间开头那段注释是哪一格」时，
+只能用「含 trivia 的全部子单元」，而那一串本来就在这一格身上。形态与 `ProjectableKids` /
+`children` 相同（`## property` + `### get`：子单元是解析期陆续挂上来的）。
+
+### get
+
+```ts
+const self: any = this;
+const out: any[] = [];
+for (const key of this.Segments) {
+  if (key === "children") continue;
+  const raw = self[key];
+  if (!Array.isArray(raw)) continue;
+  for (const x of raw) out.push(x);
+}
+for (const x of this.children) out.push(x);
+return out;
+```
+
+## property ProjectionStart:int
+
+**这一格的投影起点**（第 1141 轮）：跳过**区间开头的那些注释**（以及注释后面的空白）之后的位置。
+对拍那一侧取的是 `node.getStart()`，它**跳过**节点前面的注释；而产物常把一整行注释收进
+**后一个单元**的区间里（`Readable | null,` 换行 `// stdin` 换行 `Readable | null,` —— 那个
+`UnionType` 的区间就从前一行那条注释开始）。
+
+**为什么住在 token 上**（用户口径 1.1 ~ 1.4）：这一问的每一件事实都是这一格自己的——
+「我区间开头那一格是不是注释」读 `AllKids` 与 `IsCommentUnit`、「注释后面第一个非空白字符在哪」
+读自己的 `Text`。算式原来在 `print-ast-common.xl.md` 的 `astNode` 里现场写了一遍
+（`allKids(v)` + `ctx.source`），现在由这一页答、投影只读属性。
+
+**整段都是注释时不动**（否则 `pos` 会越过 `end`）：`at >= this.end` 那一句就是它。
+**没有签过的单元 / 非 token 的合成视图**：前者的两格给同一批子单元（与原来逐格同答），
+后者根本没有这一格，读出来是 `undefined`——那正是原来 `v.start` 在那种视图上的答案。
+
+### get
+
+```ts
+let at = this.start;
+for (;;) {
+  const trivia = this.AllKids.find((k) => k.start === at && k.IsCommentUnit);
+  if (trivia === undefined) break;
+  let next = trivia.end;
+  while (next < this.end && /\s/.test(this.Text[next - this.start])) next++;
+  if (next >= this.end) break;
+  at = next;
+}
+return at;
+```
+
 ## method ChildrenOf:(segment:Token | null | undefined)=>Array<Token>
 
 **某一段的子单元**（第 1018 轮）：那一段还没挂上（`null` / `undefined`）时给**空列表**。
