@@ -6766,26 +6766,22 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     // `NotNull(PropertyAccess([b, ., c]))`，TS 那边是两层
     // `PropertyAccessExpression`（第一格带 `?.`）外面套 `NonNullExpression`——
     // 只按名字投一格会把 `b.c` 当成一个名字（实测区间 75→81、两个 `Identifier` 都漂）。
-    const members = nameUnit.ProjectableKids;
-    let cur = left;
-    let pending: any = questionDot;
-    for (const member of members) {
-      if (member.IsNullConditionalOperator) {
-        cur = chainWithOptional(cur, member, ctx);
-        pending = undefined;
-        continue;
-      }
-      if (member.IsDotSymbol || !member.IsNameNode) {
-        continue;
-      }
-      const one: any =chainOn("PropertyAccessExpression", cur, { expression: cur, name: member.NameNode }, member.end);
-      if (pending !== undefined) {
-        one.questionDotToken = pending;
-        pending = undefined;
-      }
-      cur = one;
-    }
-    node = cur;
+    // **第 1210 轮（用户口径 1.1）把这里那份副本换成 `membersOnto`**：原来这一段是
+    // `chainWithOptional` 那条成员循环的**第二次抄写**，而它只认三格（里层 NCO / 点号 / 名字），
+    // **下标括号与实参括号都落进 `continue`**——`a?.[c].b!` 的核是
+    // `PropertyAccess([Bracket([c]), ., b])`，第一格 `[c]` 被跳过 ⇒ 那一格
+    // `ElementAccessExpression` 与它里面的 `Identifier` 整格丢、`?.` 挂到了外层的属性访问上
+    //（实测 `tmp/r1210-sweep.txt`：`a?.[c].b!` 缺 2 字段 1、`a?.b[c]!` 缺 1 漂 1）。
+    // 同一个形状在 `chainWithOptional` 里是有那一格的，所以这里不再抄第二遍。
+    node = membersOnto(left, nameUnit.ProjectableKids, questionDot, ctx);
+  } else if (nameUnit.IsNotNull) {
+    // **核本身又是一格「名字 + `!`」**（第 1210 轮，用户口径 1.1）：`a?.b!!` 的 NCO 内容是
+    // `NotNull([NotNull([b, !]), !])`——两层断言，外层那一格的核是**内层那一整格 `NotNull`**。
+    // 它不在上面任何一条里（不是下标 / 实参括号 / 属性访问 / 调用），于是落到最后那条通用支
+    // 读 `NameNode`，把「名字 + `!`」当成一个名字。递回这一格自己折内层、外面再套一层
+    // `NonNullExpression`（次序与 TS 一致：`NonNull(NonNull(PropertyAccess(a?.b)))`）。
+    // 实测 `a?.b!!` / `a?.[c]!!` / `a?.(d)!!` 那一族：`nn+nn` 一族 24 条（`tmp/r1210-sweep.txt`）。
+    node = assertedMember(left, nameUnit, ctx, questionDot);
   } else if (nameUnit.IsMethodNode) {
     // **断言里的核是一格调用单元**（第 975 轮）：`a?.b()!` 的 NCO 内容是
     // `NotNull([Method(name="b"), !])`——`!` 盖在**那次调用**的结果上
@@ -6948,6 +6944,165 @@ for (const unit of units) {
   out.push(unit);
 }
 return out;
+```
+
+# private method membersOnto:(left:any, members:Array<any>, questionDot:any, ctx:any)=>any
+
+**把一条 `PropertyAccess` 单元里的成员逐格接到 `left` 上**（第 1210 轮，用户口径 1.1）：
+`?.` 之后那一截里，成员名 / 下标括号 / 调用 / 里层那条链**各有各的接法**，`?.` 只挂在**接出来的第一格**上。
+这一格原来在 `chainWithOptional` 里有一份完整实现，`assertedMember` 里又抄了一份**缺三格的**
+（不认下标括号、不认实参括号、不认里层的 `NotNull`）——`a?.[c].b!` / `a?.b[c]!` / `a?.[c][c]!` 那一族
+走的正是那份缺格的副本：`[c]` 落进 `continue` ⇒ 那一格 `ElementAccessExpression` 与它里面的 `Identifier`
+整格丢，`?.` 还挂到了外面那一层属性访问上（实测 `tmp/r1210-sweep.txt`：`i+nn` 一族 25 条、`m+nn` 一族 19 条）。
+
+**两份合成一格**（与本文件一贯的口径一致：同一句判据不写第二遍）：下面这段正文**逐字**就是从
+`chainWithOptional` 那一支里搬出来的——`left` 换成形参、`node` 换成返回值，其余一格未动；
+两处调用点各留一行（`chainWithOptional` 的子链分支与 `assertedMember` 的「核是属性访问」那一支）。
+
+**空名单答 `left`**：全是点号（或名单为空）时链上一格都没接——与搬走之前那条循环逐字同答。
+
+```ts
+    let node = left;
+    // **`?.` 挂在链的下一格上**（TS 的放法）：`a?.b.c` 里它是**内层**那个
+    // `a?.b` 的 `questionDotToken`，不是外层 `…​.c` 的。所以先存着，接第一格时用掉。
+    let pending: any = questionDot;
+    let j = 0;
+    while (j < members.length) {
+      const member = members[j];
+      if (member.IsNullConditionalOperator) {
+        node = chainWithOptional(node, member, ctx);
+        pending = undefined;
+        j += 1;
+        continue;
+      }
+      if (member.IsDotSymbol) {
+        j += 1;
+        continue;
+      }
+      // **子链里夹着一格「名字 + `!`」**（第 966 轮）：`a?.b!.c` 的 NCO 内容是
+      // `[NotNull(b), ., PropertyAccess([c])]`——`!` 与 `b` 在**同一格**里，而它要盖的是
+      // **接上 `b` 之后**那一条链（TS：`PropertyAccess(NonNull(PropertyAccess(a?.b)), c)`）。
+      // 不走这一支的话，下面三条都不认 `NotNull` ⇒ 落到通用支 ⇒ 读 `NameNode` 会把「名字 + `!`」
+      // 当成一个名字（`Identifier` 的值成了 `"b!"`）⇒ 缺 `NonNullExpression`、
+      // 多一格属性访问（实测 `gap-r964-opt-assert-member-member` 的漂移正是它）。
+      // 折法与 `chainOnto` 的子链分支**一字不差**：先接成员（`?.` 挂在**内层**那一格），
+      // 再把 `!` 套在**整条链**上、位置取那一格自己的末端。
+      if (member.IsNotNull) {
+        const innerName = member.CoreHead;
+        if (innerName !== undefined) {
+          const holder: any =chainOn("PropertyAccessExpression", node, { expression: node, name: innerName.NameNode }, innerName.end);
+          if (pending !== undefined) {
+            holder.questionDotToken = pending;
+            pending = undefined;
+          }
+          node =chainOn("NonNullExpression", holder, { expression: holder }, member.end);
+        }
+        j += 1;
+        continue;
+      }
+      if (member.IsMethodNode) {
+        const nameText = member.DeclaredName;
+        const nameAt = member.start;
+        // **这一格是「名字为空」的调用单元**（第 964 轮补上这份副本）：
+        // `o?.m()().v` 的 NCO 里那一格是
+        // `PropertyAccess([Method name=""[Method name="m"]], ., v)`——**空名字 `Method` 的第一格
+        // 是内层那次调用**。折法与 `chainWithOptional` 的空名字那一支**是同一件事**
+        //（第 366 轮的两步走 + 第 962 轮那三支），少了它这一格会投出一个**名字为空**的属性访问
+        //（实测 `o?.m()().v`：`CallExpression` / `PropertyAccessExpression` / `Identifier` 三处漂）。
+        // **这一份是那条判据的第五处副本**：另外四处已由第 962 / 963 轮补齐，
+        // 补上这一处之后五处同形；「五处收成一份实现」登记为下一步（见 README 第 964 轮那一节）。
+        if (nameText === "") {
+          const callKids = member.ProjectableKids.filter((k: any) => k.IsGenericType === false);
+          const callHead = callKids.length > 0 ? callKids[0] : undefined;
+          if (callHead !== undefined && callHead.IsNotNull) {
+            const asserted = assertedMember(node, callHead, ctx, pending);
+            if (asserted !== undefined) {
+              node = shellOn(projectNode(member, ctx), asserted);
+              pending = undefined;
+              j += 1;
+              continue;
+            }
+            // **断言盖的是一次调用、这一格外面还有一层调用**（第 966 轮）：`a?.['b']!()` 的 NCO 里
+            // 那一格是 `Method(name=""[NotNull(Bracket(['b']), !), Bracket(())])`——
+            // 断言里的核是**下标括号**（不是名字），`assertedMember` 只认名字 ⇒ 给 `undefined`。
+            // 折不出来的话整格落到 `break`（实测 `gap-r964-opt-index-assert-call`：
+            // 缺两个 `CallExpression`、`ElementAccessExpression` 的区间只到 `]`）。
+            // **做法与 `chainOnto` 那一处一字不差**：先把「下标 + `!`」折成 `NonNull`，
+            // 再把外面那次调用套上去（`?.` 挂在里面那次下标上——TS 就是这么放的）。
+            const assertHead = callHead.CoreHead;
+            // **「断言盖的是什么」问这一格自己**（第 1197 轮）：`CoreKind` 那一格答的是
+            // 四态里的一格字符串（次序与投影层原来那三句 `if` 逐处相同）。
+            if (callHead.CoreKind === "Index") {
+              const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, assertHead.end);
+              if (pending !== undefined) element.questionDotToken = pending;
+              const assertedCall: any =chainOn("NonNullExpression", element, { expression: element }, callHead.end);
+              node = shellOn(projectNode(member, ctx), assertedCall);
+              pending = undefined;
+              j += 1;
+              continue;
+            }
+          }
+          if (callHead !== undefined && callHead.IsMethodNode) {
+            // **这一格盖着一层或好几层调用**（第 966 轮立、第 971 轮按「最里面那一格」补齐）：
+            // `a?.b()()` / `a?.b()()()` / `a?.b()()().c` 的 NCO 里那一格都是
+            // `Method(name="")[Method(name="")[…]]`——名字为空的每一格都是「对结果再调一次」，
+            // **真正带成员名的是最里面那一格**；外层再用 `projectNode(member)` 套一层。
+            // 只读 `callHead` **第一格**的名字（第 966 轮那一版）会把三层当成两层：
+            // 实测 `a?.b()()().c` 漂 2、字段 1、`Identifier(b)` 整格丢。
+            // 折法与 `chainWithOptional` 的「被调用者是 `Method`」那一支**一字不差**：
+            // 走到最里面那一格用 `Method.InnermostMethod`，**被调用者怎么建**用 `innermostCallee`
+            //（第 975 轮收拢：名字 / 实参括号 / `left` 三档一处一份），
+            // 换法用 `graftCallee`（它一路下到最里面那一层调用，不会把中间几层丢掉）。
+            const callee = innermostCallee(node, callHead.InnermostMethod, ctx);
+            const built = callee !== node;
+            if (built && pending !== undefined) callee.questionDotToken = pending;
+            const innerCall = graftCallee(projectNode(callHead, ctx), callee, built ? undefined : pending);
+            node = shellOn(projectNode(member, ctx), innerCall);
+            pending = undefined;
+            j += 1;
+            continue;
+          }
+          if (callHead !== undefined && callHead.IsParenBracket && callHead.end < member.end) {
+            const innerCall: any =chainOn("CallExpression", node, { expression: node, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
+            if (pending !== undefined) innerCall.questionDotToken = pending;
+            node = shellOn(projectNode(member, ctx), innerCall);
+            pending = undefined;
+            j += 1;
+            continue;
+          }
+        }
+        const holder =chainOn("PropertyAccessExpression", node, { expression: node, name: { kind: "Identifier", text: nameText, pos: nameAt, end: nameAt + nameText.length } }, nameAt + nameText.length);
+        if (pending !== undefined) holder.questionDotToken = pending;
+        const call = projectNode(member, ctx);
+        node = shellOn(call, holder);
+      } else if (member.IsIndexBracket) {
+        // **下标括号也是链上的一格**（第 962 轮）：`o?.m()[0]` 的 NCO 里那一格是
+        // `PropertyAccess([Method(m), Bracket([0])])`——`[0]` 与成员名**平级**。
+        // 落到下面那条通用支会把那一格当成**一个名字**（实测投出名叫 `"[0]"` 的
+        // `Identifier` ⇒ 缺 `ElementAccessExpression` 与 `NumericLiteral`、多一格属性访问）。
+        // 收法与 `chainOnto` 里那一支**一字不差**：同一形状、同一个判据，不写第二份。
+        const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(member.ProjectableKids, ctx) }, member.end);
+        if (pending !== undefined) element.questionDotToken = pending;
+        node = element;
+      } else if (member.IsParenBracket) {
+        // **实参括号也是链上的一格**（第 1210 轮，用户口径 1.1）：`a?.(d).b!` 的核是
+        // `PropertyAccess([Bracket((d)), ., b])`——那次调用在**接上 `left` 之前**先发生，
+        // 而落进下面那条通用支会把 `(d)` 当名字读（实测 `a?.(d).b!` / `a?.(d)[c]!`：
+        // 缺 `CallExpression` 与 `Identifier`、多一格属性访问）。
+        // 收法与 `assertedMember` 的实参括号那一支、以及 `chainOnto` 里同款**一字不差**：
+        // 先建那次调用、`?.` 挂在它身上，括号之后的成员接着往链上接。
+        const call: any =chainOn("CallExpression", node, { expression: node, arguments: callArgumentsOf(member, ctx) }, member.end);
+        if (pending !== undefined) call.questionDotToken = pending;
+        node = call;
+      } else {
+        const step =chainOn("PropertyAccessExpression", node, { expression: node, name: member.NameNode }, member.end);
+        if (pending !== undefined) step.questionDotToken = pending;
+        node = step;
+      }
+      pending = undefined;
+      j += 1;
+    }
+  return node;
 ```
 
 # private method chainWithOptional:(left:any, unit:any, ctx:any)=>any
@@ -7184,137 +7339,7 @@ return out;
   // （实测 `a?.b.c` / `x?.Parent.Parent` 这一族）。逐格接上去，
   // `questionDotToken` 挂在**第一格**上（TS 就是这么放的：`a?.b.c` 的 `?.` 属于内层那个节点）。
   if (first !== undefined && first.IsPropertyAccess) {
-    const members = first.ProjectableKids;
-    let node = left;
-    // **`?.` 挂在链的下一格上**（TS 的放法）：`a?.b.c` 里它是**内层**那个
-    // `a?.b` 的 `questionDotToken`，不是外层 `…​.c` 的。所以先存着，接第一格时用掉。
-    let pending: any = questionDot;
-    let j = 0;
-    while (j < members.length) {
-      const member = members[j];
-      if (member.IsNullConditionalOperator) {
-        node = chainWithOptional(node, member, ctx);
-        pending = undefined;
-        j += 1;
-        continue;
-      }
-      if (member.IsDotSymbol) {
-        j += 1;
-        continue;
-      }
-      // **子链里夹着一格「名字 + `!`」**（第 966 轮）：`a?.b!.c` 的 NCO 内容是
-      // `[NotNull(b), ., PropertyAccess([c])]`——`!` 与 `b` 在**同一格**里，而它要盖的是
-      // **接上 `b` 之后**那一条链（TS：`PropertyAccess(NonNull(PropertyAccess(a?.b)), c)`）。
-      // 不走这一支的话，下面三条都不认 `NotNull` ⇒ 落到通用支 ⇒ 读 `NameNode` 会把「名字 + `!`」
-      // 当成一个名字（`Identifier` 的值成了 `"b!"`）⇒ 缺 `NonNullExpression`、
-      // 多一格属性访问（实测 `gap-r964-opt-assert-member-member` 的漂移正是它）。
-      // 折法与 `chainOnto` 的子链分支**一字不差**：先接成员（`?.` 挂在**内层**那一格），
-      // 再把 `!` 套在**整条链**上、位置取那一格自己的末端。
-      if (member.IsNotNull) {
-        const innerName = member.CoreHead;
-        if (innerName !== undefined) {
-          const holder: any =chainOn("PropertyAccessExpression", node, { expression: node, name: innerName.NameNode }, innerName.end);
-          if (pending !== undefined) {
-            holder.questionDotToken = pending;
-            pending = undefined;
-          }
-          node =chainOn("NonNullExpression", holder, { expression: holder }, member.end);
-        }
-        j += 1;
-        continue;
-      }
-      if (member.IsMethodNode) {
-        const nameText = member.DeclaredName;
-        const nameAt = member.start;
-        // **这一格是「名字为空」的调用单元**（第 964 轮补上这份副本）：
-        // `o?.m()().v` 的 NCO 里那一格是
-        // `PropertyAccess([Method name=""[Method name="m"]], ., v)`——**空名字 `Method` 的第一格
-        // 是内层那次调用**。折法与 `chainWithOptional` 的空名字那一支**是同一件事**
-        //（第 366 轮的两步走 + 第 962 轮那三支），少了它这一格会投出一个**名字为空**的属性访问
-        //（实测 `o?.m()().v`：`CallExpression` / `PropertyAccessExpression` / `Identifier` 三处漂）。
-        // **这一份是那条判据的第五处副本**：另外四处已由第 962 / 963 轮补齐，
-        // 补上这一处之后五处同形；「五处收成一份实现」登记为下一步（见 README 第 964 轮那一节）。
-        if (nameText === "") {
-          const callKids = member.ProjectableKids.filter((k: any) => k.IsGenericType === false);
-          const callHead = callKids.length > 0 ? callKids[0] : undefined;
-          if (callHead !== undefined && callHead.IsNotNull) {
-            const asserted = assertedMember(node, callHead, ctx, pending);
-            if (asserted !== undefined) {
-              node = shellOn(projectNode(member, ctx), asserted);
-              pending = undefined;
-              j += 1;
-              continue;
-            }
-            // **断言盖的是一次调用、这一格外面还有一层调用**（第 966 轮）：`a?.['b']!()` 的 NCO 里
-            // 那一格是 `Method(name=""[NotNull(Bracket(['b']), !), Bracket(())])`——
-            // 断言里的核是**下标括号**（不是名字），`assertedMember` 只认名字 ⇒ 给 `undefined`。
-            // 折不出来的话整格落到 `break`（实测 `gap-r964-opt-index-assert-call`：
-            // 缺两个 `CallExpression`、`ElementAccessExpression` 的区间只到 `]`）。
-            // **做法与 `chainOnto` 那一处一字不差**：先把「下标 + `!`」折成 `NonNull`，
-            // 再把外面那次调用套上去（`?.` 挂在里面那次下标上——TS 就是这么放的）。
-            const assertHead = callHead.CoreHead;
-            // **「断言盖的是什么」问这一格自己**（第 1197 轮）：`CoreKind` 那一格答的是
-            // 四态里的一格字符串（次序与投影层原来那三句 `if` 逐处相同）。
-            if (callHead.CoreKind === "Index") {
-              const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, assertHead.end);
-              if (pending !== undefined) element.questionDotToken = pending;
-              const assertedCall: any =chainOn("NonNullExpression", element, { expression: element }, callHead.end);
-              node = shellOn(projectNode(member, ctx), assertedCall);
-              pending = undefined;
-              j += 1;
-              continue;
-            }
-          }
-          if (callHead !== undefined && callHead.IsMethodNode) {
-            // **这一格盖着一层或好几层调用**（第 966 轮立、第 971 轮按「最里面那一格」补齐）：
-            // `a?.b()()` / `a?.b()()()` / `a?.b()()().c` 的 NCO 里那一格都是
-            // `Method(name="")[Method(name="")[…]]`——名字为空的每一格都是「对结果再调一次」，
-            // **真正带成员名的是最里面那一格**；外层再用 `projectNode(member)` 套一层。
-            // 只读 `callHead` **第一格**的名字（第 966 轮那一版）会把三层当成两层：
-            // 实测 `a?.b()()().c` 漂 2、字段 1、`Identifier(b)` 整格丢。
-            // 折法与 `chainWithOptional` 的「被调用者是 `Method`」那一支**一字不差**：
-            // 走到最里面那一格用 `Method.InnermostMethod`，**被调用者怎么建**用 `innermostCallee`
-            //（第 975 轮收拢：名字 / 实参括号 / `left` 三档一处一份），
-            // 换法用 `graftCallee`（它一路下到最里面那一层调用，不会把中间几层丢掉）。
-            const callee = innermostCallee(node, callHead.InnermostMethod, ctx);
-            const built = callee !== node;
-            if (built && pending !== undefined) callee.questionDotToken = pending;
-            const innerCall = graftCallee(projectNode(callHead, ctx), callee, built ? undefined : pending);
-            node = shellOn(projectNode(member, ctx), innerCall);
-            pending = undefined;
-            j += 1;
-            continue;
-          }
-          if (callHead !== undefined && callHead.IsParenBracket && callHead.end < member.end) {
-            const innerCall: any =chainOn("CallExpression", node, { expression: node, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
-            if (pending !== undefined) innerCall.questionDotToken = pending;
-            node = shellOn(projectNode(member, ctx), innerCall);
-            pending = undefined;
-            j += 1;
-            continue;
-          }
-        }
-        const holder =chainOn("PropertyAccessExpression", node, { expression: node, name: { kind: "Identifier", text: nameText, pos: nameAt, end: nameAt + nameText.length } }, nameAt + nameText.length);
-        if (pending !== undefined) holder.questionDotToken = pending;
-        const call = projectNode(member, ctx);
-        node = shellOn(call, holder);
-      } else if (member.IsIndexBracket) {
-        // **下标括号也是链上的一格**（第 962 轮）：`o?.m()[0]` 的 NCO 里那一格是
-        // `PropertyAccess([Method(m), Bracket([0])])`——`[0]` 与成员名**平级**。
-        // 落到下面那条通用支会把那一格当成**一个名字**（实测投出名叫 `"[0]"` 的
-        // `Identifier` ⇒ 缺 `ElementAccessExpression` 与 `NumericLiteral`、多一格属性访问）。
-        // 收法与 `chainOnto` 里那一支**一字不差**：同一形状、同一个判据，不写第二份。
-        const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(member.ProjectableKids, ctx) }, member.end);
-        if (pending !== undefined) element.questionDotToken = pending;
-        node = element;
-      } else {
-        const step =chainOn("PropertyAccessExpression", node, { expression: node, name: member.NameNode }, member.end);
-        if (pending !== undefined) step.questionDotToken = pending;
-        node = step;
-      }
-      pending = undefined;
-      j += 1;
-    }
+    const node = membersOnto(left, first.ProjectableKids, questionDot, ctx);
     // **这一格后面还跟着兄弟时，链要接着往下接**（第 965 轮）：`a?.[b][c]()` 的产物是
     // `[Identifier(a), NCO(PropertyAccess([Bracket([b]), Bracket([c])]), Bracket(()))]`——
     // **两个下标装在 NCO 里的那一格 `PropertyAccess` 里**，而那次调用是 NCO 的**下一个兄弟**。
