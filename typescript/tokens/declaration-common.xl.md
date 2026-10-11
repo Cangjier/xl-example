@@ -115,6 +115,20 @@ return item.IsAny([
 扫描的起点取「上一句 / 上一张表」之后：再往前不可能是这条声明的头，
 所以这一步只看这一条声明那一段。
 
+**第 1219 轮：进判据之前先比一次字符**（用户口径 1.2「提升 parse 效率」）。
+这一步**每一条声明都跑**，而它调的 `DecoratorCloseRule.Previous` 第一句就是
+「这一格是不是内容为 `@` 的 `SymbolToken`」——`typescript.d.ts` 一份上这一段是
+`--cpu-prof` 里 **58.5ms / 5189ms = 1.59%** 的 self time（`tmp/r1219-prof`），
+而绝大多数声明**一个装饰器都没有** ⇒ 那一次调用从头到尾只是一句否。
+所以这里先做一次「不是 `@` 就跳过」（一次 `Get` + 一次 `instanceof` + 一次文本比较），
+只有真到 `@` 那一格才进判据。**判据与次序一个字没改**：被挡掉的原来就是第一句答否的那一批。
+
+**墙钟如实记（两读，`tmp/r1219-ab.mjs`，原版＝`tmp/r1219-oldbuild/ts`，只差这一格）**：
+30 趟 mean **−10.7ms**、median +31.0ms、13 : 17；30 趟 mean **+0.9ms**、median −15.0ms、17 : 13
+——**两读都在噪声里**（se 32.5 / 26.4）。这一笔按「省下来的东西数得出来、墙钟量不出来」如实记，
+**留着的理由不是它快**（这一格量不出来），**而是它把那一档换成了与自己语义相同、但更便宜的一档**：
+八道门全绿、产物一个字没改（`coverage` 4288 / 4446、`cases:tsast` 缺口 0）。
+
 ```ts
 let bound = 0;
 for (let i = keywordIndex - 1; i >= 0; i--) {
@@ -131,6 +145,17 @@ for (let i = keywordIndex - 1; i >= 0; i--) {
 let adjusted = keywordIndex;
 let scan = bound;
 while (scan < adjusted) {
+  // **先比字符，再进判据**（第 1219 轮，用户口径 1.2「提升 parse 效率」）：
+  // `DecoratorCloseRule.Previous` 的第一句就是「这一格是不是内容为 `@` 的 `SymbolToken`」，
+  // 而这一步**每一条声明都跑**（实测 `typescript.d.ts` 一份上 self time **58.5ms / 5189ms = 1.59%**，
+  // 见 `tmp/r1219-prof` 的剖面）。绝大多数声明**一个装饰器都没有** ⇒ 那一次调用
+  // 从头到尾只是一句否。这里先做一次「不是 `SymbolToken` 就跳过」，
+  // 只有真到 `@` 那一格才进判据——**判据与次序一个字没改**（被挡掉的原来就是第一句答否的那一批）。
+  const at = Get(units, scan);
+  if (at === null || at instanceof SymbolToken === false || at.TempToString() !== "@") {
+    scan = scan + 1;
+    continue;
+  }
   if (DecoratorCloseRule.Instance.Previous(template, units, scan)) {
     const before = units.length;
     scan = DecoratorCloseRule.Instance.Process(template, units, scan);
