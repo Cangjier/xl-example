@@ -74,21 +74,23 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**76 格声明**（`^# …(method|const)` 逐行数出来的实测值：72 个 `# method` +
+这是一份**纯函数库**：**75 格声明**（`^# …(method|const)` 逐行数出来的实测值：71 个 `# method` +
 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
 **这一栏的旧账与本轮实测差 2 格，如实记下**（第 1073 轮）：第 1062 轮起这里写的是
-「89 → 86 格」，而那一族往下逐轮减到「79 格」；本轮按上面那条命令逐行数出来是 **76 格**
-（`projectString` 删掉之前是 77）——差的那几格**不是这几轮改动带来的**（第 1072 / 1073 两轮
-只动了调用点、说明与一格声明），最可能是早几轮的计数把某些行重复算了一次。
+「89 → 86 格」，而那一族往下逐轮减到「79 格」；第 1073 轮按上面那条命令逐行数出来是
+**77 格**（这一轮两处改动各删一格，落到 **75 格**）——差的头两格**不是这两轮改动带来的**
+（第 1072 / 1073 只动调用点、说明与三格声明），最可能是早几轮的计数把某些行重复算了一次。
 所以从这一轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
 `Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 即可（`.Count` 就是那一格）。
-**其中两格是「读 token 那一格」的转调**（第 1066 轮）：`unwrapNodes` / `projectableKids`
-读的都是 `Token.ProjectableKids`——留着这两个名字是因为**调用点的读法**已经分成了两族
-（「拆包装再取」与「取进投影的那一串」），而算式只有 token 上那一处。
+**那两个别名第 1073 轮已经删掉了**：第 1066 轮留下的 `unwrapNodes` / `projectableKids`
+（都只是 `node.ProjectableKids` 的一行转调）连同 `ctx.UnwrapNodes` 出口一起收干净——
+**取子单元今天只有一格事实的一处读法**：`token.ProjectableKids`。
+（历史：第 1066 轮留着那两个名字，是因为当时**调用点的读法**分成了两族
+「拆包装再取」与「取进投影的那一串」；这一轮数出来两族都已经是属性读，所以名字也该走。）
 类型口径：树上的动态值（token、投影上下文）标 `any`——它们的形状由
 [`core/syntax/token.xl.md`](../core/syntax/token.xl.md) 里各页自己声明的那几格给出
 （`Token` 的那一批属性 + 每一页自己的段属性）；标量（`source` / `text` / 字段名 / 下标）按中立类型标。
@@ -632,6 +634,38 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   ——下一轮谁往 `ctx` 里补一行 `Template: …` 把这段算式请回共享层，这一门当场红。
 - **本页的声明数**：**79 → 78 格**（`projectString` 一格；`ctx.Template` 只是出口，
   它本来就是一行转手、不留实现）。
+
+**第 1073 轮（同一轮第二处）把最后两个「取这一串」的别名也收成属性读**——原型是第 1066 轮
+留下的那两个**一行转调**：`unwrapNodes` / `projectableKids` 都只是 `node.ProjectableKids`。
+这一轮把它们的读者全部改成属性读，然后删掉：
+
+| 删掉的那一格 | 原来 | 今天 | 调用点数 |
+| --- | --- | --- | --- |
+| `projectableKids`（本页 helper：一行转调 `v.ProjectableKids`） | 被第 1066 轮的台账记着 | 不再存在 | 本页代码块 **0 处**（只剩注释里的名字） |
+| `ctx.UnwrapNodes`（递给 token 页面的出口） | `(unit) => unit.ProjectableKids` | 不再存在 | 全仓 **5 处**（`lamda` 2 / `signature` 2 / `mapped-type` 1 / `type-assign` 1） |
+
+- **`projectableKids` 为什么是死代码**：第 1066 轮把 139 处调用点改成属性读之后，
+  这一格**一个真实读者都没有**了（第 1066 轮留它是为了「读法分两族」，而这一轮数出来
+  两族都已经是属性读）。按第 1043 / 1044 / 1068 那一族的尺子——**只有转调、没有读者的声明
+  就是多一层间接**——它该删。
+- **`ctx.UnwrapNodes` 为什么也该删**：它与 `ctx.Kids` 读的是**同一格**（`ProjectableKids`），
+  两个名字并存只会让下一页在「拆包装」与「取进投影的那一串」之间二选一（那是同一件事）。
+  5 处调用点逐处机械替换：`ctx.UnwrapNodes(x)` → `x.ProjectableKids`（实参都是单个标识符，
+  没有一处带副作用、也没有一处当左值用）。
+- **`signature` 那两处的 `.filter((k) => !k.IsInvisible)` 原样保留**：`ProjectableKids`
+  已经滤过一遍，这一句是**幂等的**——不动它，改写面就只剩「接收者」一处（少动一处就少一处漂的机会）。
+- **判据跟着长**：`UnwrapNodes` 补进 `direct:lint` 的 `CTX_BANNED`（与 `Template` 同一趟），
+  名字写回来这一门当场红；`direct:lint` 第八条那一族里 `UnwrapNodes` 的老别名也随之失效——
+  它现在只认 `ProjectableKids`（那一格本来就在名单里）。
+- **实测**：`xl check typescript core` 0 条；`xl build --force` **156 个产物** / 0 error、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 32.2s），读数与第 1072 轮逐项相同：`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**78 → 77 格**（`projectableKids` 一格；`ctx.UnwrapNodes` 只是出口）。
+- **本文件的角色因此更窄了一格**：`ctx` 上那两个「取一串子单元」的名字（`AllKids` 第 1067 轮、
+  `UnwrapNodes` 这一轮）都不在了，今天取子单元只有**一格事实的一处读法**：
+  `token.ProjectableKids`（与 `IsInvisible` / `Segments` 同在 `core/syntax/token.xl.md`）。
 
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
@@ -9164,16 +9198,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   return props;
 ```
 
-# private method projectableKids:(v:any)=>Array<any>
-
-**这一格下面那些进投影的子单元**（第 1066 轮）：转调 **`Token.ProjectableKids`**
-（口径与理由见上面 `unwrapNodes` 那一节——两格本来就是同一件事，第 1066 轮起
-「怎么算」只有 token 那一处，这里只是投影侧的读法）。
-
-```ts
-  return v.ProjectableKids;
-```
-
 # private method statementOfList:(list:Array<any>, ctx:any)=>any
 
 把一串**平铺的单元**当成**一条语句**投：造一个同区间的合成语句视图，交回 `projectStatement`。
@@ -9452,10 +9476,12 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     TypeArguments: (generic) => projectTypeArguments(generic, ctx),
     ConditionalNode: (list, from, to) => conditionalNode(list, from, to, ctx),
     Segment: (view, key) => projectSegment(view, key, ctx),
-    // **`UnwrapNodes` 也是那一格自己的 `ProjectableKids`**（第 1066 轮）：它与 `Kids` 本就是
-    // 同一件事的两种叫法（老名字说的是「把包装拆开」），所以两个出口读的是同一格；
-    // 实现仍然只有 token 上那一处。
-    UnwrapNodes: (unit) => unit.ProjectableKids,
+    // **`UnwrapNodes` 这个出口第 1073 轮删掉了**（它原来就挂在这里）：它读的就是那一格自己的
+    // `ProjectableKids`（第 1066 轮起实现只有 token 上那一处），全仓 5 处调用点
+    // （`lamda` 2 / `signature` 2 / `mapped-type` 1 / `type-assign` 1）全改成属性读。
+    // 顺带删掉本页那个**一个真实读者都没有**的 `projectableKids`——它也只是这一行的转调
+    // （「投影对 token 只读属性、不调方法」那一门早就把它排除在外了）。出口删了就补进
+    // `direct:lint` 的 `CTX_BANNED`，名字写回来这一门当场红。
     // **`AllKids` 这个出口第 1067 轮删掉了**（它原来就挂在这里）：给 token 页面看
     // 「含 trivia 的完整子单元表」。三处调用点（`try` 两处、`if-set` 一处）查的都是**可见**的
     // 东西，而同一格读数在这一层已经有一个 `Kids` ⇒ 多一个「我也看得见 trivia」的出口

@@ -53,7 +53,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
   const flat: any[] = [];
   for (const k of ctx.Kids(v)) {
     if (k.Tag === "Statement") {
-      for (const inner of ctx.UnwrapNodes(k)) flat.push(inner);
+      for (const inner of k.ProjectableKids) flat.push(inner);
       continue;
     }
     if (k.Tag === "SymbolToken" && k.TextValue === ";") {

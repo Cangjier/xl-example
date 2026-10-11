@@ -989,7 +989,7 @@ Lambda 表达式。
   const raw: any[] = [];
   for (const unit of bodyUnits) {
     if (unit.Tag === "LamdaBody") {
-      for (const x of ctx.UnwrapNodes(unit)) raw.push(x);
+      for (const x of unit.ProjectableKids) raw.push(x);
       continue;
     }
     raw.push(unit);
@@ -1005,7 +1005,7 @@ Lambda 表达式。
     const flat: any[] = [];
     for (const k of raw) {
       if (k.Tag === "Statement") {
-        for (const x of ctx.UnwrapNodes(k)) flat.push(x);
+        for (const x of k.ProjectableKids) flat.push(x);
         continue;
       }
       flat.push(k);

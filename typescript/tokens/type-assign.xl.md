@@ -241,7 +241,7 @@ return ReplaceCountAt(units, startIndex, dataEnd - startIndex + 1, result);
     type: ctx.TypeOf(rhs),
   };
   if (generic !== undefined) {
-    const params = ctx.UnwrapNodes(generic).filter((k: any) => k.Tag === "TypeParameter");
+    const params = generic.ProjectableKids.filter((k: any) => k.Tag === "TypeParameter");
     if (params.length > 0) props.typeParameters = ctx.ProjectEach(params);
   }
   const baseStart = ctx.baseStart;

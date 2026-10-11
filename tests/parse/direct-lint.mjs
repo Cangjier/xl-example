@@ -359,6 +359,10 @@ let staleNameHits = 0;
  * 所以 `projectString` 整格搬进了 `typescript/tokens/string/string.xl.md` 的
  * `String.PrintDirectAst`（那一页仍然经 `ctx.Expression` / `ctx.TypeExpression` 递归投内插里的
  * 正文，所以搬走的是**算式所在的那一页**、不是能力），出口随之删掉。同上：出口删了就补进这张表。
+ *
+ * **第 1073 轮（同一轮第二处）再补一个出口名 `UnwrapNodes`**：它读的就是那一格自己的
+ * `ProjectableKids`（第 1066 轮起实现只有 token 上那一处），全仓 5 处调用点全改成属性读；
+ * 本页那个**一个真实读者都没有**的 `projectableKids` 也一并删掉。同上：出口删了就补进这张表。
  */
 const CTX_BANNED = [
   "Text",
@@ -379,6 +383,7 @@ const CTX_BANNED = [
   "AllKids",
   "ValueOf",
   "Template",
+  "UnwrapNodes",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。

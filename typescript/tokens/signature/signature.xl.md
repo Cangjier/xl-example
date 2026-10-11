@@ -803,12 +803,12 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     const inner = ctx.Kids(newUnit);
     const bracket = inner.find((k: any) => k.Tag === "Bracket");
     if (bracket !== undefined) {
-      const params = ctx.UnwrapNodes(bracket).filter((k: any) => !k.IsInvisible);
+      const params = bracket.ProjectableKids.filter((k: any) => !k.IsInvisible);
       props.parameters = ctx.ProjectEach(params, kind);
     }
     const returnType = inner.find((k: any) => k.Tag === "ReturnType");
     if (returnType !== undefined) {
-      const inner2 = ctx.UnwrapNodes(returnType).filter((k: any) => !k.IsInvisible);
+      const inner2 = returnType.ProjectableKids.filter((k: any) => !k.IsInvisible);
       const t = ctx.TypeOf(inner2);
       if (t !== undefined) props.type = t;
     }
