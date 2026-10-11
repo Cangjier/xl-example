@@ -330,6 +330,18 @@ if (last instanceof SymbolToken) {
   return this.TextValue === "<";
 ```
 
+## property IsGreaterThanSymbol:bool
+
+**我这一格是不是那个大于号 `>`**（第 1139 轮）：投影层那三处尖括号扫描（`<number>1` 的断言、
+平铺的 `<…>` 实参段）原来是现场拼的 `k.IsSymbolToken && k.TextValue === ">"`——与
+`IsLessThanSymbol` 同一条口径、同一形态。
+
+### get
+
+```ts
+  return this.TextValue === ">";
+```
+
 ## property IsHashSymbol:bool
 
 **我这一格是不是那个 `#`**（第 1118 轮）：投影层要认出表达式位的私有名 `#x` 与

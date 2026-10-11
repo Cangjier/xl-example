@@ -347,6 +347,36 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1140 轮：同一把尺子的第二、三处——尖括号扫描里的「正文和 `">"` 比一遍」收成 `Token.IsGreaterThanSymbol`（基类默认档 + `SymbolToken` 覆写），`chainOnto` 里那句 `IsSymbolToken === false` 跳过随之消失；**读数一处没动**
+
+**一句话**：用户口径 1.1 ~ 1.4。第 1139 轮收了「投影拿 token 自己的名字文本去和字面量比」那一处；
+这一轮是同一条尺子上的**尖括号**：本页三处「量一段平铺 `<…>` 的深度」写的是同一个形状——
+
+```js
+const text = k.IsSymbolToken || k.IsLessThanSymbol ? k.TextValue : "";
+if (text === "<") … else if (text === ">") …
+```
+
+而第 1118 轮已经把「是不是那个 `<`」收成了 `Token.IsLessThanSymbol`（基类默认档 `false`、
+`SymbolToken` 覆写），**另一半一直没立**——于是三处都还回 `TextValue` 自己比 `">"`。
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `k.IsSymbolToken \|\| k.IsLessThanSymbol ? k.TextValue : ""` + `text === ">"`（3 处：`projectExpression` 尖括号断言那一趟、`chainOnto` 量断言长度那一趟、`projectTypeExpression` 平铺实参段那一趟） | `k.IsGreaterThanSymbol` | `core/syntax/token.xl.md` 的 `## property IsGreaterThanSymbol:bool`（基类默认档 `false`，与 `IsLessThanSymbol` 相邻）+ `typescript/tokens/symbol-token.xl.md` 的覆写（`### get`，`return this.TextValue === ">";`） |
+
+- **等价怎么证的**：`IsLessThanSymbol` 只有符号那一页覆写（基类 `false`），所以原来那句
+  `IsSymbolToken || IsLessThanSymbol` 的守卫与 `IsLessThanSymbol` 本身逐格同答；`text === ">"`
+  就是符号那一页的 `TextValue === ">"`。第三处（`projectTypeExpression`）还多一句
+  `if (list[i].IsSymbolToken === false) continue;`——非符号那几页两面都答 `false`，
+  **不跳与跳逐格同答**，那句话随属性读一起删掉。八道门读数一处没动是证据。
+- **本页的数**：**42 格**（39 个 `# method` + 3 个 `# const`，实测，**一格没增没减**）。
+- **实测**：`xl check core typescript` **0 条**；`xl build core typescript` **156 个产物 / 0 error**、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 34.2s），读数与第 1106 ~ 1139 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 ### 第 1139 轮：「投影拿这一格自己声明的名字文本去和字面量比一遍」那一处收了——`MethodDeclaration` 显式声明 `## field IsConstructorName`，`projectDeclaration` 判「类体里的构造」改读属性；**读数一处没动**
 
 **一句话**：用户口径 1.1 ~ 1.4。第 1136 轮把 `memberNameOf` 里「这一格声明的名字是不是数字字面量」

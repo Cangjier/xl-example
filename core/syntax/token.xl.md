@@ -1765,6 +1765,22 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 return false;
 ```
 
+## property IsGreaterThanSymbol:bool
+
+**我这一格是不是那个大于号 `>`**（第 1139 轮）——**不是**的一律给 `false`。
+
+投影层的三处现场写法（`projectExpression` 里「`GenericType` 没成形的那种尖括号断言」那一趟、
+`chainOnto` 里尖括号断言的长度那一趟、`projectTypeExpression` 里平铺的 `<…>` 实参段）都是同一句
+`const text = k.IsSymbolToken || k.IsLessThanSymbol ? k.TextValue : "";` 再和 `">"` 比——
+「我这一格的正文是不是那个 `>`」只有符号那一页知道。判据与 `IsLessThanSymbol` 同一条口径：
+**基类给默认档、符号那一页覆写**（`SymbolToken.IsGreaterThanSymbol`，读时现算、读 `TextValue`）。
+
+### get
+
+```ts
+return false;
+```
+
 ## property IsHashSymbol:bool
 
 **我这一格是不是那个 `#`**（第 1118 轮）——**不是**的一律给 `false`。

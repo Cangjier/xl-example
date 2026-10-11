@@ -85,6 +85,20 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
 而第 1131 轮删掉 `nameOf` 那一格之后实测就是 42 格 / 39 个 `# method`——按上面那条规矩改成实测值
 （**第 1136 轮没有动声明数**：42 → 42，改的是投影那一侧读的一格属性）。
 
+**第 1140 轮把「投影拿这一格自己的正文去和尖括号比」那三处收了**（与上一轮同一把尺子：投影要的
+信息由**被问的那一页**答，投影只读属性）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `const text = k.IsSymbolToken \|\| k.IsLessThanSymbol ? k.TextValue : "";` 再 `text === ">"`（**三处**：`projectExpression` 尖括号断言那一趟、`chainOnto` 量断言长度那一趟、`projectTypeExpression` 平铺实参段那一趟） | `k.IsGreaterThanSymbol` | `core/syntax/token.xl.md` 的 `## property IsGreaterThanSymbol:bool`（基类默认档 `false`）+ `typescript/tokens/symbol-token.xl.md` 的覆写（读自己的 `TextValue`）——**第 1118 轮 `IsLessThanSymbol` 那一形态补齐的另一半** |
+
+- **等价怎么证的**：`IsLessThanSymbol` 只有符号那一页覆写（基类答 `false`），所以原来那句
+  `IsSymbolToken || IsLessThanSymbol` 的守卫与 `IsLessThanSymbol` 本身**逐格同答**；
+  `text === ">"` 就是符号那一页的 `TextValue === ">"`。第三处还多一句
+  `IsSymbolToken === false → continue`——非符号那几页两面都答 `false`，**不跳与跳逐格同答**，
+  那句话随属性读一起删掉。八道门读数一处没动是证据（`coverage` **4260 / 4422**）。
+- **本页的声明数**：**42 格**（39 个 `# method` + 3 个 `# const`，实测，**一格没增没减**）。
+
 **第 1139 轮把「投影拿这一格自己声明的名字文本去和语言里的字面量比一遍」那一处收了**（用户口径
 1.1 ~ 1.4：投影要的信息由**被问的那一页**在认下名字那一刻记好，投影只读属性）：
 
@@ -4126,10 +4140,15 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     let depth = 0;
     let close = -1;
     for (let i = 0; i < kids.length; i++) {
-      const text = kids[i].IsSymbolToken || kids[i].IsLessThanSymbol ? kids[i].TextValue : "";
-      if (text === "<") {
+      // **两头都由那一格自己答**（第 1139 轮，用户口径 1.1 ~ 1.4）：这一趟原来现场拼一句
+      // `kids[i].IsSymbolToken || kids[i].IsLessThanSymbol ? kids[i].TextValue : ""` 再和
+      // `"<"` / `">"` 比一遍——「我这一格的正文是不是那个尖括号」是符号那一页自己的事实
+      // （`IsLessThanSymbol` 第 1118 轮立的、`IsGreaterThanSymbol` 第 1139 轮补齐），
+      // 投影只读属性；非符号那几页两面都答 `false`（基类默认档），逐格等价。
+      const one = kids[i];
+      if (one.IsLessThanSymbol) {
         depth++;
-      } else if (text === ">") {
+      } else if (one.IsGreaterThanSymbol) {
         depth--;
         if (depth === 0) {
           close = i;
@@ -8156,10 +8175,12 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     let depth = 0;
     let close = -1;
     for (let i = at; i < kids.length; i++) {
-      const text = kids[i].IsSymbolToken || kids[i].IsLessThanSymbol ? kids[i].TextValue : "";
-      if (text === "<") {
+      // **同一把尺子的第二处**（第 1139 轮）：这一趟的现场写法与 `projectExpression`
+      // 尖括号断言那一趟逐字相同，两头同样收成属性读（见那一处的说明）。
+      const one = kids[i];
+      if (one.IsLessThanSymbol) {
         depth += 1;
-      } else if (text === ">") {
+      } else if (one.IsGreaterThanSymbol) {
         depth -= 1;
         if (depth === 0) {
           close = i;
@@ -8837,13 +8858,13 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     let depth = 0;
     let closeAt = -1;
     for (let i = openAt; i < list.length; i++) {
-      if (list[i].IsSymbolToken === false) {
-        continue;
-      }
-      const text = list[i].TextValue;
-      if (text === "<") {
+      // **同一把尺子的第三处**（第 1139 轮）：原来先问一句 `IsSymbolToken === false` 跳过
+      // 非符号、再把 `TextValue` 拿去和 `"<"` / `">"` 比；两头收成属性读之后**那一句跳过
+      // 自己就没了**——非符号那几页两面都答 `false`（基类默认档），不跳与跳逐格同答。
+      const one = list[i];
+      if (one.IsLessThanSymbol) {
         depth++;
-      } else if (text === ">") {
+      } else if (one.IsGreaterThanSymbol) {
         depth--;
         if (depth === 0) {
           closeAt = i;
