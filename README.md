@@ -347,6 +347,28 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1213 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **可选链的基名已经成链时尾巴那个 `as` / `satisfies` 整条丢**；1.2 两处把「当前字符那一问」提到 `source.Pre()` 前面（`Source.Pre` **587447 → 442585**、`GetValue` **1211499 → 1066638**；**同进程交替 A/B best 两次都变好、median 一次好一次在噪声里，如实记**）
+
+**一句话**：1.1 还是从组合扫描往下看（2124 条合法片段，**66 → 51**、新坏 0）——头一名的形状是**同一个根**漏在第三处：链那一支没有像 0a0 / 0a 那样为 `asAfterNco` 让路。1.2 换了把尺子：不数「谁读文档」的总数，而是**按栈采样「谁在读 `Source.Pre`」**——读到的头两名都是「每一格都要走一次的那一格，开头的第一件事就是回文档读前一个字符」。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 链那一支（`kids[1]` 是点号那一大支）的入口补一句 `asAfterNco === false`：`a.b?.b as T` / `a["b"]?.b as T` / `a.b?.[c] as T` 一族原来整条 `as T` 丢掉（那一支折完 `?.` 之后把尾巴 `[As]` 递给 `foldBinaryFrom`，找不到运算符就原样返回左操作数） | 组合扫描 **66 → 51**（收 15 条、新坏 0） |
+| **1.2** | `AreaAnnotation.ExitOrPre`：`pre.Value === "*" && source.Value === "/"` 是**合取**，`source.Value` 手上就有 ⇒ 先问它，不是 `/` 就返回 `Undo`（注释正文里 `/` 只在收尾那一格） | 替掉 **143900** 次 `Pre()` |
+| **1.2** | `RegexTokenBranch.Condition`：判否那一项 `source.Value === "/"` 从 `Pre()` **后面**挪到前面（这一支一份 `typescript.d.ts` 上被问 435039 次，其中当前字符是 `/` 的 962 次） | 再替掉 **962** 次 `Pre()` |
+
+**1.1 的现场**：`a.b?.b as T` 的产物是 `[Identifier(a), SymbolToken(.), Identifier(b), NullConditionalOperator(b), As(T)]`——链那一支**进得来**（第二格是点号），折到 `?.` 那一格时走尾巴那一条 `tail0.IsNullConditionalOperator`，它把剩下的 `[As]` 递给 `foldBinaryFrom`，而它找不到运算符就**原样返回左操作数** ⇒ 缺 `AsExpression` / `TypeReference` / `Identifier` 三格（四个方向里只有「缺」这一栏响）。第 664 轮为 `a?.b as T` 立的两处让路（0a0 / 0a 的 `asAfterNco`）都写着「让开之后落到主流程第 2 节，`As` / `Satisfies` 的折法只有那一份」，漏的正是这一支；让开之后主流程把前缀递归投一遍（那一趟没有 `As`，链照常进、`?.` 照常接上）再把 `As` 折在整条链外面。**同一轮顺带量到一族没收**（如实记）：`a.b?.b as T + 1`——那一格是 `[PropertyAccess(a.b), BinaryOperator(NCO(b), As(T), +, 1)]`，`As` **在二元单元里面**、`asAfterNco` 在顶层看不见它，缺 6 格（另一个形状，下一处入手处）。
+
+**1.2 的墙钟（同进程交替，`tmp/r1213-ab.mjs`；原版＝`tmp/r1213-oldbuild/ts`）**：12 趟 best 1188.3 → 1180.3（−0.68%）、median 1259.9 → 1251.1（−0.69%）；14 趟 best 1191.4 → **1149.3**（−3.53%）、median 1235.5 → 1239.6（+0.33%）。**best 两次都变好、median 一次好一次在噪声里**——如实记：这一笔的墙钟量不准，省的东西是数得出来的那 14.5 万次 `Pre()`（每一趟都含一次 `Source` 分配）。`tmp/r1203-bench.mjs`（best of 5）：parse **1184.1 ms**、xml 42.2、printAst 104.8。
+
+**1.2 的等价怎么证的**：`tmp/r1211-sig.mjs` 对 1.1 之后那一份台账（`tmp/r1213-sig.json`）逐份比 token 树 XML 与投影 JSON 的 sha256：**同答 1660 / 不同 0 / 抛异常 0**。
+
+**这一轮的尺子**：不数总数，**按栈采样**——`tmp/r1213-prestack.mjs`（每 200 次 `Source.Pre` 采一次栈）读出「89% 的 `Pre` 来自 `RegexTokenBranch.Condition` 那一句、24% 来自 `AreaAnnotation.ExitOrPre` 那一句」；这个「按调用点采样」的手法比总数那把尺子更能指名道姓，值得留给下一轮（`tmp/r1213-precnt.mjs` 是配套的计数尺子）。
+
+**净账**：片段扫描 2124 条 **51**（一处没动）；`cases:tsast` **1660** 份（已知缺口 1 条还开着、0 条已经收掉）；`cases:direct` 全语料不抛异常（1661 份）、固定样本通过；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1675** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4281 / 4440 → 4282 / 4441**（新增守卫用例 `tests/cases/token/expressions/expr-r1213-optional-chain-member-as.ts`，分母 +1、分子 +1；blocked 26、differ 133、bad 0、加权 95.7%）；`xl check`（`core typescript`）**0 条**；`npx tsc`（strict）**0 error**。
+
+**三条 commit**：`05f67389`（1.1 链那一支让开 `asAfterNco`）、`2d0c3594`（1.2 两处 `Pre()` 提前判否）。
+
 ### 第 1212 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **标签模板「尾巴是一次调用」与「标签是一格 `NotNull`」两处**；1.2 两处「手边已经有那一格、却回文档再问一遍」（`GetValue` 189 万 → 121 万；**同进程交替 A/B 两次都在噪声里，如实记**）
 
 **一句话**：1.1 还是从组合扫描往下看（2124 条合法片段，**78 → 66**、新坏 0）——剩下的头几名仍是标签模板那一族，但**根都不一样**：一处是尾巴、一处是入口名单。1.2 沿着第 1211 轮那把「按栈采样 `GetValue`」的尺子往下看，剩下的读者里前两名都是**同一个形状**。
