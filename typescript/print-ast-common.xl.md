@@ -74,7 +74,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**69 格声明**（`^# …(method|const)` 逐行数出来的实测值：65 个 `# method` +
+这是一份**纯函数库**：**66 格声明**（`^# …(method|const)` 逐行数出来的实测值：62 个 `# method` +
 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
@@ -84,10 +84,11 @@ import { Identifier } from "./tokens/identifier.xl.md"
 第 1073 轮是 **77 格**、第 1077 轮（动声明之前）是 **73 格**、第 1078 轮删掉 `modifierStart`
 之后是 **72 格**、第 1079 轮删掉 `modifierSpansOf` 之后是 **71 格**、第 1080 轮就地展开
 `typeMemberGroups` 与 `specifierNameOf` 之后是 **69 格**、第 1081 轮（只改形参与方法体、
-一格声明没增没减）**仍是 69 格**
+一格声明没增没减）**仍是 69 格**，第 1082 ~ 1086 轮（改的都是别的页与基类）**仍是 69 格**，
+**第 1087 轮并掉三处壳之后是 66 格**
 ——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
-所以从这一轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
+所以从第 1073 轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
 `Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 即可（`.Count` 就是那一格）。
 **那两个别名第 1073 轮已经删掉了**：第 1066 轮留下的 `unwrapNodes` / `projectableKids`
@@ -691,6 +692,43 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   加权 95.7%）、`cases:tsast` 3 条已知缺口、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
   `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**69 → 69 格**（改的是一处读数与两段说明）。
+
+**第 1087 轮按同一把尺子并掉三处「一格声明、一个调用点 / 两个转手读者」的壳**
+（用户口径 1.1~1.4 的另一半：投影要的东西由 token 子类在构造时备齐，投影这一侧就**不该再留
+一层只为读它而存在的壳**；判据与第 1043 / 1044 / 1070 / 1080 轮并掉那些转发**逐字相同**）：
+
+| 删掉的那一格 | 原来有几个读者 | 今天谁答 |
+| --- | --- | --- |
+| `moduleSpecifierIn(kids)` | 1（`namedExportClause`） | 就地并进 `namedExportClause`（先在 `kids` 这一层找 `String`，找不到才往 `Method` 里面看一层） |
+| `moduleHolderOf(kids, target)` | 1（同上，同一处） | 就地并进 `namedExportClause`（同一个字符串装在谁里面 ⇒ 那一格是 `ParenthesizedExpression`） |
+| `braceSpanOf(brace)` | 2（`bodyBlockOf` / `blockOfBody`） | 两处各自就地读 `BodyBrace` 那一格的两头（`brace.Range.Start.Index` / `.End.Index`，构造时赋好） |
+
+- **同一个形状、同一个理由**：三格都**不产生新的事实**——它们只是把 token 已经记好的一格
+  （`String` 子单元的位置 / `Method` 包的层 / `BodyBrace` 的两头）转手给唯一的那一两个读者。
+  按这一族一贯那把尺子（**只有转手、没有独立判据的声明就是多一层间接**），实现搬到读者那里，
+  声明收回本页——**判据仍然由被问的那一格自己答**（`moduleSpecifier` 仍是「哪个 `String`」，
+  `ParenthesizedExpression` 仍是「它装在 `Method` 里」，`Block` 的两端仍是 `BodyBrace`）。
+- **`moduleSpecifierIn` 的两次扫描不能合成一句 `find`**（这一轮实测撞到过一次，如实记下）：
+  口径是**先**在 `kids` 这一层找、**找不到才**往 `Method` 里面看一层。第一版写成
+  `kids.find((k) => k.Tag === "String")` 之后，`from("m")` 那种形态（字符串装在
+  `Method(name="from")` 里、而 `kids` 这一层还有别的 `String` 子单元）**先后一颠倒**：
+  `cases:tsast` 片 8 当场红——`tests/cases/token/modules/gap-r68-9-exp-named-nlw-in-then-from-like.ts`
+  的 `moduleSpecifier` 漂成 `moduleSpecifiers`（字段名不一致 1 处）。按原口径写成两段循环之后
+  那一片转绿（`--shard 8/16` 退出码 0），八道门随之全绿。**「逐字照抄」在这一处不是保守，是必需的**。
+- **删掉的散文**：`braceSpanOf` 那一整节并进 `bodyBlockOf` / `blockOfBody` 的说明与代码块
+  （它原来写的「为什么要这一格」「第 1081 轮换形」两段一字没丢，只是换了主语）；
+  `moduleSpecifierIn` 那一节里「为什么要递归 / 不能一律递归」两句搬进 `namedExportClause`
+  的代码块注释（连那条实测 `mod-export-string-name` 的红账一起）。
+- **量法**：改完八道门读数**一处没动**（基线是第 1086 轮那一份）——`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` **3 条已知缺口还开着**、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+  删掉的三格在**全语料上逐格等价**：`cases:direct` 的固定样本点名与 `cases:tsast` 的
+  16 片逐文件对拍都作证（`namedExportClause` 那一处改动最重，改的正是被对拍的那一格）。
+- **实测**：`xl check typescript core` **0 条**；`xl build --force`（`typescript`）**127 个产物** /
+  0 error、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 30.0s）。
+- **本页的声明数**：**69 → 66 格**（`moduleSpecifierIn` / `moduleHolderOf` / `braceSpanOf` 各一格；
+  三格的读者一个没增——`ctx` 上那三个出口第 1070 轮早就删了，留下的宿主声明只是本页的 helper）。
 
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
@@ -9030,16 +9068,64 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // ⇒ 那个 `Method` 就是 TS 的 `ParenthesizedExpression`（`moduleSpecifier` 仍是括号**里**那个
   // `StringLiteral`，与 TS 一致：语义报错是「模块名不是字符串字面量」，语法树里那对括号还在）。
   // 少了这一句实测缺 `ParenthesizedExpression` 一格。
-  const module_ = moduleSpecifierIn(kids);
+  //
+  // **第 1087 轮把 `moduleSpecifierIn` / `moduleHolderOf` 两格并进了这里**（判据与第 1043 /
+  // 1044 / 1070 / 1080 轮并掉那些「一格声明、一个调用点」的转发同一把尺子）：两格全仓只有
+  // 这一个读者，所以连同它们那两节一起并进这个唯一的调用点，本页少两格声明。
+  // **两次扫描的先后口径是整个照抄的**（不能合成一句 `find`）：**先**在 `kids` 这一层找
+  // `String`，**找不到才**往 `Method` 里面看一层——`export { a } ⏎ from("m")` 里那个
+  // `from` 被 `MethodCloseRule` 收成了 `Method(name="from")`、字符串在它里面，
+  // 而这条语句的 `kids` 里**同时**还有别的 `String` 子单元（具名子句里的字符串名）。
+  // **只往 `Method` 里面看**、**不能一律递归**：`export { "a-b" as c }` 的字符串名在具名
+  // 子句的**花括号里**，那是 `ExportSpecifier` 的名字、不是模块路径
+  //（实测 `mod-export-string-name` 当场红：字段名差 1）；而 `inner === module_` 那一比较
+  // 保证收的仍然是**同一个**字符串（第 1087 轮第一版把它写成一句 `find`，先后口径一颠倒，
+  // `gap-r68-9-exp-named-nlw-in-then-from-like` 当场从 `moduleSpecifier` 漂成 `moduleSpecifiers`）。
+  let module_: any = undefined;
+  for (const kid of kids) {
+    if (!(kid instanceof Token)) continue;
+    if (kid.Tag === "String") {
+      module_ = kid;
+      break;
+    }
+  }
+  if (module_ === undefined) {
+    for (const kid of kids) {
+      if (!(kid instanceof Token) || kid.Tag !== "Method") continue;
+      const one = kid;
+      // **第 1073 轮量过等价、改成读属性**：这里原来读 `allKids(one)`（含 trivia 的完整子单元表），
+      // 而 `Method` 那一页**没有声明 `Segments`**，所以基类那句 `ProjectableKids` 在它身上
+      // 是不是同一个集合第 1067 / 1072 轮一直没量过（台账里如实留着）。第 1073 轮用一把一次性
+      // 探针量了：在构建产物上把那两处 `allKids(one)` 换成 `one.ProjectableKids`，跑 `cases:tsast`
+      // （16 片全绿、3 条已知缺口不变）、`samples`（逐字节一致）、`cases:direct`（1640 份 0 抛异常）
+      // ——**读数一处没动**，所以两个集合在这一格上同答（`Method` 的子单元里没有 `IsInvisible` 的）。
+      // 探针用完即还原，源码照改。
+      for (const inner of one.ProjectableKids) {
+        if (inner instanceof Token && inner.Tag === "String") {
+          module_ = inner;
+          break;
+        }
+      }
+      if (module_ !== undefined) break;
+    }
+  }
   if (module_ !== undefined) {
     const projected = projectNode(module_, ctx);
-    const holder = moduleHolderOf(kids, module_);
-    if (holder === undefined) {
+    // `moduleHolderOf`：那个字符串**装在谁里面**（它自己就在 `kids` 这一层时给 `undefined`）。
+    let moduleHolder: any = undefined;
+    for (const kid of kids) {
+      if (!(kid instanceof Token) || kid.Tag !== "Method") continue;
+      const one = kid;
+      for (const inner of one.ProjectableKids) {
+        if (inner === module_) moduleHolder = kid;
+      }
+    }
+    if (moduleHolder === undefined) {
       props.moduleSpecifier = projected;
     } else {
       // **括号那一档**（第 877 轮）：`from("m")` 里那个字符串装在
-  // `Method(name="from")` 里面（`Method` 自己把实参表**摊平**进 `children`，
-      // 所以 `holder` 就是那个 `Method`）——TS 那边这条语句仍是一条 `ExportDeclaration`，
+      // `Method(name="from")` 里面（`Method` 自己把实参表**摊平**进 `children`，
+      // 所以 `moduleHolder` 就是那个 `Method`）——TS 那边这条语句仍是一条 `ExportDeclaration`，
       // 而那一格是 `ParenthesizedExpression`（`moduleSpecifier` 是括号**里**那个
       // `StringLiteral`：语义上会报「模块名不是字符串字面量」，语法树上那对括号还在）。
       // 少了它实测缺 `ParenthesizedExpression` 一格。
@@ -9060,27 +9146,25 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return props;
 ```
 
-# private method braceSpanOf:(brace:any)=>any
+（**`braceSpanOf` 这一格第 1087 轮删掉了**：它全仓只有 `bodyBlockOf` / `blockOfBody` 两个读者，
+而函数体就是「这一格记了没有 + 两头取出来」四句，所以连同这一节一起并进那两处调用点——
+按第 1043 / 1044 / 1070 / 1080 轮那把尺子：**一个声明只有一两个转手读者，就是多一层间接**。
+它原来收的仍然是各页自己显式声明、**挂体那一刻**就赋好的那一格 `BodyBrace`
+（`## field BodyBrace:TokenField<number>`：`While` / `For` / `Foreach` / `DoWhile` / `IfSegment` /
+`Lamda` 六页同一条口径、同一个类型），**同一格事实只有一处来源**这一点没变；
+变的只是「拆两头」这三句从本页的一格声明挪到了那两个读者里（用户口径 1.1~1.4 的另一半：
+投影要的东西由 token 在构造时备齐，投影这一侧就不该再留一层只为读它而存在的壳）。
 
-把 token 记下的**整对花括号**读成 `[起, 止]`（闭区间）；没记过给 `null`。
-
-**第 1081 轮起收的是各页自己显式声明的那一格 `BodyBrace`**（`## field BodyBrace:TokenField<number>`，
-**挂体那一刻**就赋好了：`While` / `For` / `Foreach` / `DoWhile` / `IfSegment` / `Lamda` 六页
-同一条口径、同一个类型）。原来这里收的是一个 `"起,止"` 字符串（六页各自那一格 `bodyBraceRange`），
+它原来把 token 记下的**整对花括号**读成 `[起, 止]`（闭区间）、没记过给 `null`；
+**第 1081 轮起收的就已经是各页自己显式声明的那一格 `BodyBrace`**（`TokenField<number>`，
+**挂体那一刻**就赋好）。更早收的是一个 `"起,止"` 字符串（六页各自那一格 `bodyBraceRange`），
 而那个字符串**是产品格式**（XML 直接拿 `BodyBrace.Range` 印它，页内也自己从同一格拼出来），
 投影拿它再拆一遍就是**同一格事实的第二处答案**——所以那六格 `bodyBraceRange` 整格删掉，
 投影直读构造时赋好的那一格（用户口径 1.1~1.4：token 子类构造完，信息就齐）。
 
-**为什么要这一格**（用户口径：token 出字段、投影直读）：**挂体那一刻那个 `Bracket` 就在手上**
+**为什么读这一格**（用户口径：token 出字段、投影直读）：**挂体那一刻那个 `Bracket` 就在手上**
 ⇒ 两端都是**事实**。投影原来只能回原文找 `{` 再 `MatchingBrace` 扫一遍，那一趟会被块里的
 字符串或注释里的假括号骗到（`if (a) { s = "{" }` 就是它）。
-
-```ts
-  if (brace === null || brace === undefined || brace.IsSet !== true) return null;
-  const range = brace.Range;
-  if (range === null || range === undefined || range.Start === null || range.End === null) return null;
-  return [range.Start.Index, range.End.Index];
-```
 
 # private method bodyBlockOf:(kids:Array<any>, ctx:any, brace:any = null)=>any
 
@@ -9091,7 +9175,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 有它 ⇒ TS 那边就是一个 `Block`（**空块也在内**）。
 
 **第 1081 轮起这个形参收的是那一格 `BodyBrace` 本身**（`TokenField<number>`），
-不再是它印出来的 `"起,止"` 字符串——同一格事实只有一个来源（见本文件 `braceSpanOf` 那一节）。
+不再是它印出来的 `"起,止"` 字符串——同一格事实只有一个来源（`braceSpanOf` 那一节第 1087 轮
+已并进本方法与 `blockOfBody` 的调用点，见本方法代码块里那一句）。
 
 **第 1059 轮把「没有字段就回原文找 `{` 再配对扫一遍」那一支整段删掉了**：四个循环体早就各自
 记了这一格（`While` / `For` / `Foreach` / `DoWhile`），而**克隆体也照抄**（第 598 / 618 / 619 /
@@ -9117,9 +9202,23 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
   //（`While.BodyBrace` 的 `CaptureBodyBrace` 那一处就是这个条件），
   // 所以有它 ⇒ TS 那边就是一个 `Block`——空块那一档（`while (c) {}`）也一并落在这里。
-  const knownBrace = braceSpanOf(brace);
-  if (knownBrace !== null) {
-    return { kind: "Block", statements: projections, pos: knownBrace[0], end: knownBrace[1] + 1 };
+  //
+  // **第 1087 轮把 `braceSpanOf` 这一格并进了调用点**（判据与第 1043 / 1044 / 1070 / 1080 轮
+  // 并掉那些「一格声明、一个调用点」的转发同一把尺子）：它全仓只有本方法与 `blockOfBody`
+  // 两个读者，而函数体就是「这一格记了没有 + 两头取出来」四句。并进来之后
+  // **同一格事实仍然是 `BodyBrace` 那一处**（`brace.Range.Start.Index` / `.End.Index`
+  // 是构造时赋好的），本页少一格声明、少一层间接。
+  const knownBrace = brace !== null && brace !== undefined && brace.IsSet === true
+    ? brace.Range
+    : null;
+  if (knownBrace !== null && knownBrace !== undefined
+    && knownBrace.Start !== null && knownBrace.End !== null) {
+    return {
+      kind: "Block",
+      statements: projections,
+      pos: knownBrace.Start.Index,
+      end: knownBrace.End.Index + 1,
+    };
   }
   // **空体语句那一支的兜底第 1084 轮删掉了**（见上面那一节）：它在全语料里进入 0 次，
   // 而这一格事实由 token 的 `EmptyBodyAt` 答、三个调用点各自在调本方法之前就读完了它。
@@ -9151,11 +9250,20 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
   //（`CaptureBodyBrace` / `Try` 那两处都是这个条件），所以有它 ⇒ TS 那边就是一个 `Block`，
   // 连空体那一档（`if (a) {}`）也一并落在这里。
-  const known = braceSpanOf(brace);
-  if (known !== null) {
+  // **第 1087 轮把 `braceSpanOf` 这一格并进了调用点**（同 `bodyBlockOf` 那一处，理由见它）：
+  // 两处各自就地读 `BodyBrace` 那一格的两头——同一格事实仍只有一处来源。
+  const known = brace !== null && brace !== undefined && brace.IsSet === true
+    ? brace.Range
+    : null;
+  if (known !== null && known !== undefined && known.Start !== null && known.End !== null) {
     return {
-      node: { kind: "Block", statements: projections, pos: known[0], end: known[1] + 1 },
-      end: known[1] + 1,
+      node: {
+        kind: "Block",
+        statements: projections,
+        pos: known.Start.Index,
+        end: known.End.Index + 1,
+      },
+      end: known.End.Index + 1,
     };
   }
   if (projections.length === 0) {
@@ -9672,8 +9780,9 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // `ctx.<名字>` 在全仓（`core` / `typescript` / `typescript-exec` / `runtime` 的
     // 全部 `*.xl.md`，除本文件外）扫一遍，**0 处**的那些才是投影层多出来的入口。
     // 每一格都只剩一条调用链（出口 → 本页唯一的读者），所以删出口不牵动任何调用点，
-    // 只是把「除了本页没人能用」的能力面收回本页。本轮删掉五格：
-    // `ModuleSpecifierIn` / `ModuleHolderOf`（唯一读者 `namedExportClause`）、
+    // 只是把「除了本页没人能用」的能力面收回本页。那一轮删掉五格：
+    // `ModuleSpecifierIn` / `ModuleHolderOf`（唯一读者 `namedExportClause`；
+    // **宿主那两格声明第 1087 轮也并进了那个唯一读者**）、
     // `ComputedNameUnit`（唯一读者 `memberNameOf`，已就地展开）、`TrailingSemicolonOf`
     // （唯一读者 `projectEach`）、`SpecifierNameOf`（唯一读者 `namedSpecifiersOf` 两处）、
     // `KindsInAst`（唯一读者 `projectRoot`）。**第一次扫表扫错了**（只扫了一层目录，
@@ -9775,63 +9884,19 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   };
 ```
 
-# private method moduleSpecifierIn:(kids:Array<any>)=>any
-
-在这几格（以及它们的子格）里找**模块路径**那个字符串节点；找不到给 `undefined`。
-
-**为什么要递归**（第 877 轮）：`export { a }` 换行 `from("m")` 里那个 `from` 被
-`MethodCloseRule` 收成了一个 `Method(name="from")`，字符串在**它里面**——
-TS 那边这条语句照样是一条 `ExportDeclaration`（`moduleSpecifier` 是括号里的字符串，
-`from` 自己不是节点）。原来那句只在**本层**找 `String` ⇒ 具名导出的 `moduleSpecifier`
-整格丢，而那对括号连带字符串又被通用投影投成一个平级的 `ParenthesizedExpression`
-（实测缺 `StringLiteral` / `ParenthesizedExpression` 各一格、字段名差 1）。
-**判据仍然是「有没有那个字符串」**，只是把「里面」也算进来——与 `import.xl.md` 的
-`FindStringUnit`（`import fs = require("fs")` 那一档）**同一句话**。
-
-```ts
-  for (const kid of kids) {
-    if (!(kid instanceof Token)) continue;
-    if (kid.Tag === "String") return kid;
-  }
-  // **只往 `Method` 里面看**（第 877 轮）：`export { a } ⏎ from("m")` 里那个字符串装在
-  // `Method(name="from")` 里面。**不能一律递归**——`export { "a-b" as c }` 的字符串名就在
-  // 具名子句的**花括号里**，那是 `ExportSpecifier` 的名字、不是模块路径
-  //（实测 `mod-export-string-name` 当场红：字段名差 1）。
-  for (const kid of kids) {
-    if (!(kid instanceof Token) || kid.Tag !== "Method") continue;
-    const one = kid;
-    // **第 1073 轮量过等价、改成读属性**：这里原来读 `allKids(one)`（含 trivia 的完整子单元表），
-    // 而 `Method` 那一页**没有声明 `Segments`**，所以基类那句 `ProjectableKids` 在它身上
-    // 是不是同一个集合第 1067 / 1072 轮一直没量过（台账里如实留着）。这一轮用一把一次性探针量了：
-    // 在构建产物上把这两处 `allKids(one)` 换成 `one.ProjectableKids`，跑 `cases:tsast`
-    // （16 片全绿、3 条已知缺口不变）、`samples`（逐字节一致）、`cases:direct`（1640 份 0 抛异常）
-    // ——**读数一处没动**，所以两个集合在这一格上同答（`Method` 的子单元里没有 `IsInvisible` 的）。
-    // 探针用完即还原，源码改这一处。
-    for (const inner of one.ProjectableKids) {
-      if (inner instanceof Token && inner.Tag === "String") return inner;
-    }
-  }
-  return undefined;
-```
-
-# private method moduleHolderOf:(kids:Array<any>, target:any)=>any
+（**`moduleSpecifierIn` / `moduleHolderOf` 这两格第 1087 轮删掉了**：它们全仓只有
+`namedExportClause` 一个读者，而且函数体都只是「在 `kids` 里找那个 `String` / 找它装在谁里面」
+——所以连同这两节一起并进了那个唯一的调用点，本页少两格声明。
+两件事实本身没有变：**在哪儿找**（只往 `Method` 里面看一层，因为 `export { a } ⏎ from("m")`
+里那个字符串装在 `Method(name="from")` 里；而 `export { "a-b" as c }` 的字符串名在具名子句的
+花括号里、是 `ExportSpecifier` 的名字，**不能一律递归**，实测 `mod-export-string-name` 当场红）
+与**找的是哪一个**（`inner === module_`，只有那一个字符串算装在谁里面）。
+账目按第 1043 / 1044 / 1070 / 1080 轮那把尺子记：**一格声明只剩一个转手读者，就是多一层间接**。）
 
 `target`（那个模块路径字符串）**装在谁里面**；它自己就在 `kids` 这一层时给 `undefined`。
 
 `from("m")` 里那个字符串装在 `Method(name="from")` 里面，而 TS 那边那一格是
 `ParenthesizedExpression` ⇒ 投影要知道「它是不是被括号裹着」（见 `namedExportClause`）。
-
-```ts
-  for (const kid of kids) {
-    if (!(kid instanceof Token) || kid.Tag !== "Method") continue;
-    const one = kid;
-    // 同 `moduleSpecifierIn`：第 1073 轮量过等价之后改成属性读（理由见那一格）。
-    for (const inner of one.ProjectableKids) {
-      if (inner === target) return kid;
-    }
-  }
-  return undefined;
-```
 
 # method ToJsonText:(projected:any)=>string
 
