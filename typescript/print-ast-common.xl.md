@@ -6144,11 +6144,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             // 折法与 `chainOnto` 的 NotNull 单元那一支、以及 `assertedMember` 的
             // Method 那一档**共用同一对**：`innermostCallee` 接出最里面那一格、
             // `graftCallee` 把整串壳套上去，`!` 最后套在整条链外面。
-            left = graftCallee(
-              projectNode(bangHead, ctx),
-              innermostCallee(left, innermostMethod(bangHead), ctx),
-              undefined,
-            );
+            left = graftOnto(left, bangHead, ctx);
           } else if (bangHead !== undefined && bangHead.IsIndexFirstUnit) {
             const bracket = bangHead;
             const argument = projectExpression(bracket.ProjectableKids, ctx);
@@ -6193,11 +6189,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             //  怎么建」第 975 轮收进 `innermostCallee`）：先走到**最里面**那一格
             // `Method`，再让 `projectNode(callHead)` 那一串壳**整体**套上去——
             // `graftCallee` 一路下到最里面那一层调用，不会像原来那样把中间几层丢掉。
-            const innerCall = graftCallee(
-              projectNode(callHead, ctx),
-              innermostCallee(left, innermostMethod(callHead), ctx),
-              undefined,
-            );
+            const innerCall = graftOnto(left, callHead, ctx);
             left = shellOnto(ck[i], innerCall, ctx);
             i += 1;
             continue;
@@ -6238,11 +6230,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             // 走到最里面那一格（`innermostMethod`）、被调用者交给 `innermostCallee`、
             // 换法交给 `graftCallee`——再把 `!` 套在整条调用链外面。
             if (assertHead !== undefined && assertHead.IsMethodNode) {
-              const innerCall = graftCallee(
-                projectNode(assertHead, ctx),
-                innermostCallee(left, innermostMethod(assertHead), ctx),
-                undefined,
-              );
+              const innerCall = graftOnto(left, assertHead, ctx);
               const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
                 left = shellOnto(ck[i], assertedCall, ctx);
               i += 1;
@@ -6392,11 +6380,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**
             //（`innermostMethod` + `innermostCallee` + `graftCallee`）：整串壳照
             // `projectNode(next)` 给出的层数接上，只把**最里面那一格**的被调用者换掉。
-            left = graftCallee(
-              projectNode(next, ctx),
-              innermostCallee(left, innermostMethod(next), ctx),
-              undefined,
-            );
+            left = graftOnto(left, next, ctx);
             i += 2;
             continue;
           }
@@ -6796,6 +6780,22 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     depth = depth + 1;
   }
   return deepest;
+```
+
+# private method graftOnto:(left:any, unit:any, ctx:any)=>any
+
+**把 `unit` 那一串调用壳整体接到 `left` 上**（第 1160 轮，用户口径 1.7）：
+`graftCallee(projectNode(unit, ctx), innermostCallee(left, innermostMethod(unit), ctx), undefined)`
+——三步（投这一格、走到最里面那一格、把壳套上去）在本页出现过 **8 次**，逐字不同的只有
+**受体名与那一格的名字**。按本文件一贯的口径收成一格，8 处各留一次调用；**净少 32 行**。
+
+**第三格恒为 `undefined`**：这一格只服务「断言的核是一格调用单元」那一族
+（`a?.b()!` / `a!()()!()` / `a?.b()()!()`），那里没有 `?.` 要挂（`?.` 由
+`built ? undefined : pending` 那条路自己传，见 `chainWithOptional` / `chainOnto`，
+它们**不走这一格**）。所以这一个实参是**判据的一部分**，不是省略。
+
+```ts
+  return graftCallee(projectNode(unit, ctx), innermostCallee(left, innermostMethod(unit), ctx), undefined);
 ```
 
 # private method graftCallee:(call:any, callee:any, questionDot:any)=>any
@@ -7363,11 +7363,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       } else if (bangHead !== undefined && bangHead.IsParenBracket && bangHead.end < unit.end) {
         asserted =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(bangHead, ctx) }, bangHead.end);
       } else if (bangHead !== undefined && bangHead.IsMethodNode) {
-        asserted = graftCallee(
-          projectNode(bangHead, ctx),
-          innermostCallee(left, innermostMethod(bangHead), ctx),
-          undefined,
-        );
+        asserted = graftOnto(left, bangHead, ctx);
       }
       left = bangWrapped(asserted, unit.end);
       i += 1;
@@ -7399,11 +7395,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       //（它一路下到最里面那一层，不会把中间几层丢掉）。与 `chainWithOptional` 的
       // 「被调用者是 `Method`」那一支**共用同一对**。
       if (bareName === "" && callHead !== undefined && callHead.IsMethodNode) {
-        const innerCall = graftCallee(
-          projectNode(callHead, ctx),
-          innermostCallee(left, innermostMethod(callHead), ctx),
-          undefined,
-        );
+        const innerCall = graftOnto(left, callHead, ctx);
         left = shellOnto(unit, innerCall, ctx);
         i += 1;
         continue;
@@ -7537,11 +7529,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           // **折法与 `chainWithOptional` 那一处、以及本函数 Method 分支一字不差**
           //（第 975 轮收拢）：最里面那一格用 `innermostMethod`、被调用者用
           // `innermostCallee`、换法用 `graftCallee`。
-          const innerCall = graftCallee(
-            projectNode(calleeKid, ctx),
-            innermostCallee(left, innermostMethod(calleeKid), ctx),
-            undefined,
-          );
+          const innerCall = graftOnto(left, calleeKid, ctx);
           const outerCall = projectNode(next, ctx);
           left = shellOn(outerCall, innerCall);
           i += 2;
@@ -7622,11 +7610,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         if (member.IsCallUnit) {
           left = bangWrapped(left, pendingBang);
           pendingBang = undefined;
-          left = graftCallee(
-            projectNode(member, ctx),
-            innermostCallee(left, innermostMethod(member), ctx),
-            undefined,
-          );
+          left = graftOnto(left, member, ctx);
           j += 1;
           continue;
         }

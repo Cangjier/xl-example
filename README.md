@@ -347,6 +347,32 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1160 轮：用户口径 1.7（连带 1.2 / 1.6）—— 「把一格的调用壳整体接到左手那一格上」这个三步形状在投影里**出现 8 次**（`graftCallee(projectNode(U, ctx), innermostCallee(left, innermostMethod(U), ctx), undefined)`），收成一格 `graftOnto`
+
+**一句话**：三个 helper（`projectNode` / `innermostMethod` / `innermostCallee` / `graftCallee`）
+连起来的那一段算式，在 `chainWithOptional` 与 `chainOnto` 的「断言的核是一格调用单元」那一族里
+**逐字重复 8 次**，逐字不同的只有**受体名与那一格的名字**：
+
+```ts
+            left = graftCallee(
+              projectNode(bangHead, ctx),
+              innermostCallee(left, innermostMethod(bangHead), ctx),
+              undefined,
+            );
+```
+
+- **改法**：新立 `# private method graftOnto:(left:any, unit:any, ctx:any)=>any`，8 处各留一次调用
+  （上面那一格收成 `left = graftOnto(left, bangHead, ctx);`）。**净少 32 行**。
+- **第三格恒为 `undefined` 是判据的一部分**：这一格只服务「断言的核是一格调用单元」那一族，
+  那里没有 `?.` 要挂；带 `?.` 的两条路（`built ? undefined : pending`）**不走这一格**，
+  所以这个实参写死在实现里、不另立形参。
+- **等价怎么证的**：八道门读数与 HEAD **逐条相同**（`cases:tsast` 16 片全通过、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`coverage` **4260 / 4422**、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79——唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+- **本页的数**：**10710 → 10694 行**（净少 16；8 处由 40 行收成 8 行，新声明一格含说明 24 行），
+  声明 **57 → 58 格**。`core/syntax/token.xl.md` 一行没动。
+
 ### 第 1159 轮：用户口径 1.6 / 1.2（连带 1.2 的「投影成本趋于 0」）—— `startOf` / `endOf` 这两格是**恒等调用**（`(node) => node.start`），全页 **242 处**调用点（`startOf` 87 / `endOf` 155）全部换成属性读，两格声明一起删掉
 
 **一句话**：`startOf` / `endOf` 的定义就是 `(node) => node.start` / `(node) => node.end`
