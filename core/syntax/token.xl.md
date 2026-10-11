@@ -122,15 +122,21 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 在 token 自己身上说不说得出来；而这一格是**投影层递过来的工具箱**，箱子里每个钩子的实参
 在 `print-ast-common.xl.md` 里各有各的算式（形参表就是它需要什么，第 1050 轮），
 在 token 这一侧只声明「有几件、叫什么、吃几个参数、吐什么」——所以能定死的都定死了
-（`Node` / `NodeHead` / `Each` / `Project` / `Expression` / `Split` / `SemicolonEndOf` …），
+（`Node` / `NodeInto` / `Each` / `Project` / `Expression` / `Split` / `SemicolonEndOf` …），
 剩下那些形参类型在共享页内部才收窄。**这一来 `ctx.Project` 这类出口就有了返回类型**：
 `ctx.Project(v)` 在 75 页 `PrintAst` 里不再是 `any` 而是 `AstNode`（`### get` 装得住 `any` 的
 `ctx.Nothing` 照旧——`Project` 的返回类型写 `any` 就是为此）。
 
 **为什么 `Node` 的返回类型是 `any` 而不是 `AstNode`**：它还要装得下 `NOTHING`
-（`{ __nothing: true }`，`ctx.Nothing` 那一格：**故意不出节点**），而 `NodeHead` 只服务
-「按坐标在前的键序摆键」那一支（第 1170 轮实测 47088 次调用里一次都没撞过键），
-所以 `NodeHead` 的返回类型就是 `AstNode`。
+（`{ __nothing: true }`，`ctx.Nothing` 那一格：**故意不出节点**），所以那一格的返回类型
+只能是 `any`；`Node` 那一格的形参也由**三个 `any` 收成了明确类型**
+（`kind: string` / `props?: any` / `view?: Token`，第 1195 轮）。
+
+**`NodeInto` 是第 1195 轮立的那一格**（`NodeHead` 那一格整格删掉）：它服务的是
+「按坐标在前的键序摆键」那一支，而实现的算式只剩**一处**——`print-ast-common.xl.md` 的
+`astNodeShape`（`{ kind, pos, end, ...props }` 写在一个字面量里）。
+`NodeInto(kind, view, props?)` 转调它，**一个节点一次分配**；返回类型写 `AstNode | undefined`
+（`undefined` 与 `NOTHING` 都是「这一格故意不出节点」的那两态）。
 
 **为什么 `source` 在这一格里**：`print-ast-common.xl.md` 的**通用支与 helper** 还要用它
 （扫描游标与相邻字符，第 1049 / 1053 轮明确留着的那些读法），而 token 各页自己的 `PrintAst`
