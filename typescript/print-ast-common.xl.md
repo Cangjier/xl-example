@@ -4102,6 +4102,59 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   return close;
 ```
 
+# private method chainOptionalsOnto:(left:any, kids:Array<any>, from:int, ctx:any, mode:string)=>any
+
+**把 `from` 起连着的那几格 `?.` 逐格接到 `left` 上，再把剩下的尾巴折掉**（第 1199 轮，
+用户口径 1.2 / 1.6）：`?.` 那一串折完（`chainWithOptional` 一格一次），剩下的两档由 `mode` 说——
+
+- `"binary"`：剩下的整段交给 `foldBinaryFrom`（`?.` 后面跟着运算符的那一族）；
+- `"chain"`：**下一格是链的续格**（点号 / 下标 / 以调用开头）时交给 `chainOnto`、其余走二元
+  （第 967 轮那一条：`a?.b!.c.d` 的 `.d` 不在 `?.` 那一串里，无条件交给 `foldBinaryFrom`
+  会**整段丢掉**）。
+
+`from` 起那一格本来就不是 `?.` 时（`at >= kids.length`）原样答 `left`。
+
+**四处调用点原来是四份逐行相同的循环**（`projectExpression` 的三支 + 第 741 轮 `await` 那一支的
+前半段），第 1199 轮把其中三处收成这一格：`projectExpression` 的三支**连尾巴都逐字相同**，
+所以整段可以一次收掉；`await` 那一支的**尾巴不同**（它要先套一层 `AwaitExpression` 再折），
+所以那一处只借走循环、不借尾巴——这一格因此**不覆盖它**，也不为它多长一档 `mode`。
+
+```ts
+  let node = left;
+  let at = from;
+  while (at < kids.length && kids[at].IsNullConditionalOperator) {
+    node = chainWithOptional(node, kids[at], ctx);
+    at += 1;
+  }
+  if (at >= kids.length) return node;
+  const rest = kids.slice(at);
+  if (
+    mode === "chain" &&
+    (kids[at].IsDotSymbol || kids[at].IsIndexBracket || kids[at]?.IsCallFirstUnit)
+  ) {
+    return chainOnto(node, rest, ctx);
+  }
+  return foldBinaryFrom(node, rest, ctx);
+```
+
+# private method typeArgsOf:(kids:Array<any>, ctx:any, separator:string)=>Array<any>
+
+**把一段单元按分隔符切开、逐段投成类型、把投得出来的收成一串**（第 1199 轮，
+用户口径 1.2 / 1.6）：`separator` 是 `","`（类型实参那几处）或 `"|"` / `"&"`（联合 / 交叉类型那一处）。
+
+**四处调用点原来是四份逐行相同的四行循环**（`projectTypeExpression` 的尖括号实参段、
+`TypeQuery` 的泛型实参、`TypeWithTypeArguments` 的泛型实参、联合 / 交叉那一段），
+逐字不同的只有**切哪一段**与**按什么切**——两件都是形参。
+
+```ts
+  const out: Array<any> = [];
+  for (const group of splitTopLevel(kids, separator)) {
+    const one = projectTypeExpression(group, ctx);
+    if (one !== undefined) out.push(one);
+  }
+  return out;
+```
+
 # private method projectExpression:(kids:Array<any>, ctx:any)=>any
 
 一串单元 → 一个表达式。
@@ -5003,13 +5056,8 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   ) {
     let optional = projectExpression(kids.slice(0, ncoIndex), ctx);
     if (optional !== undefined) {
-      let at = ncoIndex;
-      while (at < kids.length && kids[at].IsNullConditionalOperator) {
-        optional = chainWithOptional(optional, kids[at], ctx);
-        at++;
-      }
-      if (at >= kids.length) return optional;
-      return foldBinaryFrom(optional, kids.slice(at), ctx);
+      // **折 `?.` 续格那一趟与另两处共用一格**（第 1199 轮，用户口径 1.2 / 1.6）。
+      return chainOptionalsOnto(optional, kids, ncoIndex, ctx, "binary");
     }
   }
   // **「二元单元里包着 NCO」那一形状要让给下面 0a2 那一支**（第 145 轮）：
@@ -5058,14 +5106,9 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     if (opAt > 0) {
       const base = projectExpression(prefix.slice(0, opAt), ctx);
       if (base !== undefined) {
-        let optional = foldBinaryFrom(base, [...prefix.slice(opAt), kids[ncoIndex]], ctx);
-        let at = ncoIndex + 1;
-        while (at < kids.length && kids[at].IsNullConditionalOperator) {
-          optional = chainWithOptional(optional, kids[at], ctx);
-          at++;
-        }
-        if (at >= kids.length) return optional;
-        return foldBinaryFrom(optional, kids.slice(at), ctx);
+        const folded = foldBinaryFrom(base, [...prefix.slice(opAt), kids[ncoIndex]], ctx);
+        // **同一格**（第 1199 轮）：这一处的尾巴与上面那一支逐字相同，只是从 `ncoIndex + 1` 起。
+        return chainOptionalsOnto(folded, kids, ncoIndex + 1, ctx, "binary");
       }
     }
     let optional = projectExpression(kids.slice(0, ncoIndex), ctx);
@@ -5107,12 +5150,9 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       if (unaryAt >= kids.length) return rebuilt;
       return foldBinaryFrom(rebuilt, kids.slice(unaryAt), ctx);
     }
-    let at = ncoIndex;
-    while (at < kids.length && kids[at].IsNullConditionalOperator) {
-      optional = chainWithOptional(optional, kids[at], ctx);
-      at++;
-    }
-    if (at >= kids.length) return optional;
+    // **折 `?.` 续格那一趟与另外两处共用一格**（第 1199 轮，用户口径 1.2 / 1.6）：
+    // `mode:"chain"` 这一档把下面那条「NCO 后面那一串不一定是运算符」也带进同一格。
+    //
     // **NCO 后面那一串不一定是运算符**（第 967 轮）：`a?.b!.c.d` 的产物是
     // `[Identifier(a), NCO(NotNull(PropertyAccess([b, ., c]))), ., Identifier(d)]`——
     // NCO 那一趟折完（`chainWithOptional` 的子链分支把 `!.c` 接上了），**下一格是点号**：
@@ -5122,10 +5162,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     //  `Identifier` 各漂，`a?.b!.c.d` 被投成 `a?.b!.c`）。
     // 判据与链那一支同款：**下一格是点号 / 下标 / 以调用开头** ⇒ 交给 `chainOnto`
     //（它与「点号后面那一格」那几支是同一份实现），其余原样走二元那一支。
-    if (kids[at].IsDotSymbol || kids[at].IsIndexBracket || kids[at]?.IsCallFirstUnit) {
-      return chainOnto(optional, kids.slice(at), ctx);
-    }
-    return foldBinaryFrom(optional, kids.slice(at), ctx);
+    return chainOptionalsOnto(optional, kids, ncoIndex, ctx, "chain");
   }
   // **链的续格长在二元单元里面**（第 743 轮）：`o["f"]().v + 1` 的产物是
   //
@@ -8496,11 +8533,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     const closeAt = angleCloseOf(list, openAt);
     if (closeAt > openAt) {
       const base = projectTypeExpression(list.slice(0, openAt), ctx);
-      const args = [];
-      for (const group of splitTopLevel(list.slice(openAt + 1, closeAt), ",")) {
-        const one = projectTypeExpression(group, ctx);
-        if (one !== undefined) args.push(one);
-      }
+      const args = typeArgsOf(list.slice(openAt + 1, closeAt), ctx, ",");
       if (base !== undefined && args.length > 0) {
         return { ...base, typeArguments: args, end: list[closeAt].end };
       }
@@ -8591,11 +8624,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     // 全是 `https.d.ts` 的这一族）。
     const queryGeneric = list.find((k) => k.IsGenericType);
     if (queryGeneric !== undefined) {
-      const typeArguments = [];
-      for (const group of splitTopLevel(queryGeneric.ProjectableKids, ",")) {
-        const one = projectTypeExpression(group, ctx);
-        if (one !== undefined) typeArguments.push(one);
-      }
+      const typeArguments = typeArgsOf(queryGeneric.ProjectableKids, ctx, ",");
       if (typeArguments.length > 0) {
         query.typeArguments = typeArguments;
         query.end = queryGeneric.end;
@@ -8609,11 +8638,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   if (list[0].IsTypeWithTypeArguments) {    const query = projectNode(list[0], ctx);
     const generic = list.find((k) => k.IsGenericType);
     if (generic !== undefined && query !== undefined) {
-      const typeArguments = [];
-      for (const group of splitTopLevel(generic.ProjectableKids, ",")) {
-        const one = projectTypeExpression(group, ctx);
-        if (one !== undefined) typeArguments.push(one);
-      }
+      const typeArguments = typeArgsOf(generic.ProjectableKids, ctx, ",");
       if (typeArguments.length > 0) {
         query.typeArguments = typeArguments;
         query.end = generic.end;
@@ -8858,11 +8883,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       const isIndex = parts.findIndex((k) => k.IsIsKeyword === true);
       const typeKids = isIndex >= 0 ? parts.slice(isIndex + 1) : [];
       const separator = unionUnit.IsUnionType ? "|" : "&";
-      const types = [];
-      for (const group of splitTopLevel(typeKids, separator)) {
-        const one = projectTypeExpression(group, ctx);
-        if (one !== undefined) types.push(one);
-      }
+      const types = typeArgsOf(typeKids, ctx, separator);
       const node = projectNode(predicate, ctx);
       if (node !== undefined && types.length > 0) {
         node.type = {
