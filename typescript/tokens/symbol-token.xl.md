@@ -100,7 +100,7 @@ if (
   result.Success = false;
   return result;
 }
-if (last instanceof Identifier && last.IsExponentSign(source.Document, source.Index)) {
+if (last instanceof Identifier && last.IsExponentSign(source)) {
   const result = this.Result;
   result.Success = false;
   return result;

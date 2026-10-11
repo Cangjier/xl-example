@@ -46,7 +46,14 @@ import { Translate } from "./string/translate.xl.md"
 const value = source.Value;
 const last = unit.Last();
 const escapeStart = value === "\\" && IsUnicodeEscapeStart(source.Document, source.Index);
-const leadingDot = IsLeadingDotNumber(source.Document, source.Index);
+// **「当前字符那一问」提到最前面**（第 1212 轮，用户口径 1.2「提升 parse 效率」）：
+// `IsLeadingDotNumber` 的第一句就是「这一格是不是 `.`」，而 `value` **就是**那一格
+// （`Source.Value` 读的是 `Document.GetValue(source.Index)`，同一个下标）⇒ 不必回文档再问一次。
+// `symbol-token.xl.md` 里同一句判据**本来就是**这么写的（`value === "." && IsLeadingDotNumber(…)`），
+// 这一页漏了那一半。实测一份 `typescript.d.ts` 上 `IsLeadingDotNumber` 被调 **385836** 次
+//（`tmp/r1211-gvstack2.mjs` 按栈采样，`GetValue` 那 1887617 次里它占 ~38 万），
+// 而当前字符真的是 `.` 的是极少数。
+const leadingDot = value === "." && IsLeadingDotNumber(source.Document, source.Index);
 if (last instanceof Identifier) {
   if (value === "." && unit.Template.SymbolTemplate.IsSymbol(value)) {
     const result = this.Result;
@@ -74,7 +81,7 @@ if (last instanceof Identifier) {
     return result;
   }
   const result = this.Result;
-  result.Success = escapeStart || last.IsExponentSign(source.Document, source.Index) || last.IsAppend(source) || last.IsBracedEscapePart(source);
+  result.Success = escapeStart || last.IsExponentSign(source) || last.IsAppend(source) || last.IsBracedEscapePart(source);
   result.Message = 1;
   return result;
 }
@@ -372,10 +379,17 @@ this.IsChainBaseNode = !this.IsAny([
 ]);
 ```
 
-## method IsExponentSign:(document:Document, index:number)=>bool
+## method IsExponentSign:(source:Source)=>bool
 
-`Temp` 是一个**十进制**数字字面量的前缀、末尾是 `e` / `E`，而 `index` 处是紧跟其后的 `+` / `-`，
+`Temp` 是一个**十进制**数字字面量的前缀、末尾是 `e` / `E`，而紧跟其后的那一格是 `+` / `-`，
 再往后一位是数字——这时这个正负号属于指数的一部分（`1e-10` / `1.5e+3`），该由 `Identifier` 吃掉。
+
+**当前字符那一格由调用方递进来**（第 1212 轮，用户口径 1.2「提升 parse 效率」）：两个调用点
+手上都**已经有**那个 `source`，而原来递的是 `source.Document, source.Index`、再回文档
+`GetValue(index)` 问一遍**同一个下标**（实测一份 `typescript.d.ts` 上这一问 **271435** 次，
+`tmp/r1211-gvstack2.mjs` 的栈采样里排第四）。第 1211 轮起 `Source.Value` 是**构造时算好的字段**，
+读它不再回文档 ⇒ 这一格现在只在「符号后面是不是数字」那一问上读一次文档（`index + 1` 那一格，
+那是**另一格**、手上没有）。判据一个字没改。
 
 TypeScript 的数字文法里指数部分允许带符号。少了这一条，`1e-10` 会被切成
 「数字 `1e` + 二元减号 + 数字 `10`」——产物里凭空多出一个 `BinaryOperator`，
@@ -393,7 +407,7 @@ TypeScript 的数字文法里指数部分允许带符号。少了这一条，`1e
 if (this.Closed) {
   return false;
 }
-const sign = document.GetValue(index);
+const sign = source.Value;
 if (sign !== "+" && sign !== "-") {
   return false;
 }
@@ -426,10 +440,10 @@ for (const item of head) {
 if (digits === 0 || dots > 1) {
   return false;
 }
-if (index + 1 >= document.GetCount()) {
+if (source.Index + 1 >= source.Document.GetCount()) {
   return false;
 }
-const next = document.GetValue(index + 1);
+const next = source.Document.GetValue(source.Index + 1);
 return next >= "0" && next <= "9";
 ```
 
