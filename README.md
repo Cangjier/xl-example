@@ -334,6 +334,36 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1048 轮：**这一格的正文改由 token 自己答**（`Token.Text`，与 `start` / `end` 同一形态的基类属性）——`print-ast-common` 的取文本那一格不再回原文切，并清掉 `semicolonEndOf` 里一句重复语句；**八道门全绿、读数一处没动**
+
+**一句话**：第 1041~1047 轮把「投影要问 token 的每一格」都搬成了属性，可**「这一格的正文是什么」
+还是投影自己算的**——`textOfNode` 的最后一行是 `ctx.source.slice(node.start, node.end)`，
+拿**投影手上那个字符串**去查这一格的正文。而那一格的正文本来就是这一页自己的事实：
+它记着的 `SourceRange` 两头各自带着自己的 `Document`（`Source` 构造时就给定，见
+`core/syntax/source.xl.md`），所以这一轮把这一格收成 **`Token.Text`**。
+
+- **新属性在基类显式声明一处**（`core/syntax/token.xl.md`，紧跟 `start` / `end` 之后）：
+  `## property Text:string` + `### get`，取值是 `Document.GetRaw(RangeStart(), RangeEnd())`
+  ——`GetRaw` 是**闭区间**（`text-document.xl.md`），而 `end` 那一格是 `RangeEnd() + 1`，
+  所以这一格与 `ctx.source.slice(node.start, node.end)` **逐字符相同**；签反了（`from > to`）
+  与两头都没签过的那两种退化情形给空串，那正是 `slice` 的答案。
+  **为什么声明在基类而不是各具体类**：这一格的值不随页面而异（任何一页都是「我自己那段正文」），
+  与 `Tag`（`this.constructor.name`）/ `start` / `end` 同一形态——「显式声明」的落点就是基类这一处，
+  各页一个字都不用写，而**每个单元一造出来这一格就是齐的**（第 1046 轮 `Tag` 那一条的先例）。
+- **投影那一侧**（`typescript/print-ast-common.xl.md` 的 `textOfNode`）：`node.value` 先答
+  （关键字 / 注释 / 预处理指令那几页自己声明了 `value`），其余一律读 `node.Text`
+  ——**这一格不再出现 `ctx.source`**。读文本与读坐标于是走同一条路：都由 token 自己答。
+- **清掉一句重复语句**（顺手，同一页的 `semicolonEndOf`）：第 838 轮那条
+  `if (end > 0 && ctx.source[end - 1] === ";") return end;` 连着写了两遍，
+  删掉第二份（全页**唯一**一处相邻重复行，逐行对拍量的）。
+- **实测**：`xl check` 2 份 0 错 0 警；`xl build` 2 写出 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 31.6s），读数逐项与基线相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+  ——「逐字符相同」这句话因此不是估的：`cases:tsast` 的区间与文本、`samples` 的逐字节夹具、
+  `coverage` 的 4260 条，全都落在这一格换过来源之后的同一份产物上。
+
 ### 第 1047 轮：给 `direct:lint` 加第三条判据——**投影对 token 只读属性、不调方法**（`print-ast-common` 代码块里 `receiver.Method(` 恰好 0 处）——**八道门全绿、读数一处没动**
 
 **一句话**：第 1041~1046 轮把「投影要问 token 的每一格」全搬成了属性，第 1045 / 1046 两轮又清掉了

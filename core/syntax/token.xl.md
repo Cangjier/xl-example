@@ -548,6 +548,36 @@ return this.RangeStart();
 return this.RangeEnd() + 1;
 ```
 
+## property Text:string
+
+**这一格自己的原文**（第 1048 轮）：就是 `[start, end)` 上那一段。
+
+坐标只有一个来源（`SourceRange` 的两头），**原文也只有一个来源：这一格自己那一份 `Document`**
+——`Source.Document` 是每个 `Source` 自带的（构造时就给定），所以「我的正文是什么」这件事
+**不经过外面的字符串**，token 自己就答得出来。形态与 `start` / `end` 相同：基类声明一处、
+每个单元自动就位（那一页一个字都不用写，理由见 `Tag` 那一节）。
+
+**为什么要有这一格**：投影要问「这一格是什么文本」时，过去写的是
+`ctx.source.slice(node.start, node.end)`——**回投影手上那个字符串查**。那份字符串是这一层的
+外部输入，而 token 记着的两头各自带着自己的 `Document`：同一份事实的第二处来源就是这么长出来的。
+收成这一格之后，读文本与读坐标走的是**同一条路**（都由 token 自己答），
+`print-ast-common` 的取文本那一格不再需要 `ctx.source`。
+
+**取值口径与 `ctx.source.slice(start, end)` 逐字符相同**：`Document.GetRaw` 是**闭区间**，
+所以终点取 `RangeEnd()`（`end` 那一格是它加一，两格同源）；两头都没签过时给空串
+（那种单元在投影里没有读者），签反了时也给空串——那正是 `slice` 在 `from > to` 时的答案。
+
+### get
+
+```ts
+const from = this.RangeStart();
+const to = this.RangeEnd();
+if (to < from) return "";
+const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
+if (head === null) return "";
+return head.Document.GetRaw(from, to);
+```
+
 ## method RangeStart:()=>int
 
 本单元的起点：`SourceRange.Start` 的 `Index`；**还没签入**时写 `0`（`start` / `end` 两格的来源）。

@@ -437,12 +437,19 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 # private method textOfNode:(node:any, ctx:any)=>string
 
-**这一格的文本**：叶子自己声明的那一格（`value`）先答；没有就按它自己的区间回原文切。
+**这一格的文本**：叶子**自己声明的那一格**先答（`value`——关键字 / 注释 / 预处理指令那几页），
+其余一律读 **`Token.Text`**（第 1048 轮）。
+
+**为什么不再回原文切**：过去这一格是 `ctx.source.slice(node.start, node.end)`——**拿投影手上
+那个字符串**去查这一格的正文。可 token 记着的 `SourceRange` 两头各自带着自己的 `Document`
+（构造时就给定），所以「我的正文是什么」本来就是**这一页自己的事实**：收成 `Token.Text`
+之后，读文本与读坐标走同一条路，`ctx.source` 在这一格上不再需要
+（与 `Tag` / `start` / `end` 同一形态：基类声明一处、每个单元自动就位）。
 
 ```ts
   const value = node.value;
   if (typeof value === "string") return value;
-  return ctx.source.slice(node.start, node.end);
+  return node.Text;
 ```
 
 # private method projectString:(v:any, ctx:any)=>any
@@ -1764,7 +1771,6 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 空语句缺 1）。判据落在**这一条自己的原文**上，与 `ownsTrailingSemicolon` 那一格同源。
 
 ```ts
-  if (end > 0 && ctx.source[end - 1] === ";") return end;
   if (end > 0 && ctx.source[end - 1] === ";") return end;
   let at = end;
   for (;;) {
