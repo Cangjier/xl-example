@@ -69,7 +69,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：86 格声明（`# const` / `# method`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：85 格声明（`# const` / `# method`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
@@ -322,6 +322,31 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   `runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**89 → 86 格**（按 `^# …(const|method|property)` 逐行数；
   上面那条账「91 → 90」是第 1061 轮当时的记录，本轮顺手把本页顶上那句旧账改成了实测值）。
+
+**第 1063 轮把「按文本查词的中央表」剩下的最后一处也收回了它自己那一页**：
+运算符优先级 `operatorRank(text)`（一整条 `if` 链）搬进 `typescript/tokens/symbol-token.xl.md`
+（`SymbolToken.RankOfText` + `SymbolToken.OperatorRank`），本页的 `# private method operatorRank`
+与 `ctx.OperatorRank` 出口一并删掉——**函数体一字没动**（连注释、连 `if` 链的顺序，
+用 `tmp/r1063-diff.mjs` 逐行核对过：33 行对 33 行、逐行相同）。
+
+- **键就是那一页自己的正文**：与 `KEYWORD_KIND`（第 1028 轮）、`SYMBOL_TOKEN_KIND`（同页）
+  同一条口径——所以这是「投影层不再有按文本查词的中央表」那句话的最后一格。
+- **读法只有一处**：本页那六处 `operatorRank(textOfNode(x))` 全部改成 `x.OperatorRank`
+  （属性读），`binary-operator` / `logical-operator` 那两页的 `ctx.OperatorRank(ctx.ValueOf(kids[i]))`
+  同理——**出口删了，同一格事实就不会有第二个入口**。
+- **那一格是 `## property` + `### get`（不是 `## field`），而且这是量出来的**：先按
+  `Close()` 里赋值的 `## field` 写过一版，`coverage` 当场从 **4260 / 4422** 掉到
+  **4058 / 4422**（`differ` 134 → **328**，`for..of` / 生成器整族红）。根因是**不是每个符号都会
+  走到 `Close()`**：`let.xl.md` 那一格尾巴符号（`let a = 1` 里那个 `=`，由 `ReplaceCountAt`
+  原样补回 `Let` 右边）是 `new SymbolToken(…)` + `AppendAndSignOut` + `SignIn`、**没有
+  `TryToClose()`** ⇒ 字段永远停在默认档，`=` 的优先级从 0 变成 7，切分整族跟着错。
+  改成读时现算（`this.Temp`，与 `BlockToken.value` 同一处）之后**与搬走之前逐格等价**：
+  八道门全绿、读数一处没动。
+- **判据跟着长**：`direct:lint` 第八条那一族多认一格（属性名 `OperatorRank` +
+  老问句别名 `operatorRank`），`ctx.OperatorRank` 补进 `CTX_BANNED`。
+  **自验**（`tmp/r1063-probe.mjs`，不进仓库）：两种写法各写回一处，这一门**每种 0 → 1**、
+  退出码 1；源文件逐字节还原。
+- **本页的声明数**：**86 → 85 格**。
 
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
@@ -2625,7 +2650,7 @@ new Set([
       // 那两格的结合性本仓另有口径，抢过来说会把 `as` 那一格丢掉
       //（`await x + 1 as any` 也是同一形状：尾巴里那格 `As` 不归 `foldBinaryFrom` 管）；
       // 尾巴里有**平铺的 `.`**（`[+, b, ., c]`）时 `foldBinaryFrom` 会把那个 `.` 当成
-      // 运算符（`operatorRank` 给不出名字的一律 7）⇒ 右操作数被切在半截上，也回落。
+      // 运算符（`OperatorRank` 给不出名字的一律 7）⇒ 右操作数被切在半截上，也回落。
       const tail = opAt > 0 ? flat.slice(opAt) : [];
       const tailIsOperators =
         opAt > 0 &&
@@ -3001,7 +3026,7 @@ new Set([
       if (k.Tag !== "SymbolToken" || OP_TEXTS.has(text) === false) {
         continue;
       }
-      const rank = operatorRank(text);
+      const rank = k.OperatorRank;
       if (rank < bestRank) {
         bestRank = rank;
         opAt = i;
@@ -4721,7 +4746,7 @@ new Set([
   // （实测缺 `AsExpression` + 缺 `AnyKeyword` + 多出一个只盖住 `as any` 的节点）。
   const asIndex = kids.findIndex((k) => k.Tag === "As" || k.Tag === "Satisfies");
   if (asIndex > 0) {
-    // **`as` / `satisfies` 是关系级运算符**（`operatorRank` 给 7，与 `<` / `in` / `instanceof` 同档）。
+    // **`as` / `satisfies` 是关系级运算符**（`OperatorRank` 给 7，与 `<` / `in` / `instanceof` 同档）。
     // 所以它左边如果坐着**更松**的运算符（`,` = -1、赋值 = 0、`||` / `??` = 1、`&&` = 2、
     // `|` = 3、`^` = 4、`&` = 5、相等 = 6），**外层节点是那个运算符**，`as` 只绑到它右边那一小段。
     // 少了这一条，`c = a as number` 会把整条赋值当成 `as` 的左操作数：
@@ -4732,7 +4757,7 @@ new Set([
     let cutRank = 999;
     for (let i = 1; i < asIndex; i++) {
       if (!kids[i].IsOperatorUnit) continue;
-      const rank = operatorRank(textOfNode(kids[i]));
+      const rank = kids[i].OperatorRank;
       if (rank < cutRank) {
         cutRank = rank;
         cutIndex = i;
@@ -4798,7 +4823,7 @@ new Set([
   let bestRank = 999;
   for (let i = 1; i < kids.length - 1; i++) {
     if (!kids[i].IsOperatorUnit) continue;
-    const rank = operatorRank(textOfNode(kids[i]));
+    const rank = kids[i].OperatorRank;
     if (rank < bestRank) {
       bestRank = rank;
       opIndex = i;
@@ -6481,7 +6506,7 @@ return false;
   // **运算符不一定是 `SymbolToken`**（第 131 轮）：`in` / `instanceof` 是 `Keyword`
   // （`#x in o` 的 `in` 就是），与 `projectExpression` 里那条 `IsOperatorUnit` 同一口径。
   if (rest.length < 2 || !rest[0].IsOperatorUnit) return left;
-  const firstRank = operatorRank(textOfNode(rest[0]));
+  const firstRank = rest[0].OperatorRank;
   if (firstRank === 0) {
     // 赋值：右结合，交给递归。
     //
@@ -6634,7 +6659,7 @@ return false;
     // **运算符也可能是 `Keyword`**（第 131 轮）：`in` / `instanceof` 都是
     // （`#x in o` 的 `in`），只认 `SymbolToken` 会当场 `break`，运算符与右操作数一起丢。
     if (!op.IsOperatorUnit) break;
-    const rank = operatorRank(textOfNode(op));
+    const rank = op.OperatorRank;
     // 下一个「同级或更低优先级」的运算符就是这一段的终点。
     let stop = rest.length;
     for (let k = i + 1; k < rest.length; k++) {
@@ -6653,7 +6678,7 @@ return false;
         k += angleAssertionLength(rest, k) - 1;
         continue;
       }
-      if (rest[k].IsOperatorUnit && operatorRank(textOfNode(rest[k])) <= rank) {
+      if (rest[k].IsOperatorUnit && rest[k].OperatorRank <= rank) {
         stop = k;
         break;
       }
@@ -6725,49 +6750,6 @@ return false;
     return 0;
   }
   return operandEnd + 1 - at;
-```
-
-# private method operatorRank:(text:string)=>int
-
-运算符的优先级（**数字越小越松**），结合性靠 `foldBinaryFrom` 分「赋值 / 其余」两支。
-
-这一份是 `projectExpression` 切分二元表达式的依据：**先切优先级最低的**、
-同级取最左（左结合）。赋值也是 0，但 `foldBinaryFrom` 会把它当右结合处理。
-
-```ts
-  if (text === ",") return -1;
-  if (
-    text === "=" ||
-    text === "+=" ||
-    text === "-=" ||
-    text === "*=" ||
-    text === "/=" ||
-    text === "%=" ||
-    text === "**=" ||
-    text === "<<=" ||
-    text === ">>=" ||
-    text === ">>>=" ||
-    text === "&=" ||
-    text === "|=" ||
-    text === "^=" ||
-    text === "&&=" ||
-    text === "||=" ||
-    text === "??="
-  ) {
-    return 0;
-  }
-  if (text === "||" || text === "??") return 1;
-  if (text === "&&") return 2;
-  if (text === "|") return 3;
-  if (text === "^") return 4;
-  if (text === "&") return 5;
-  if (text === "==" || text === "!=" || text === "===" || text === "!==") return 6;
-  if (text === "<<" || text === ">>" || text === ">>>") return 8;
-  if (text === "+" || text === "-") return 9;
-  if (text === "*" || text === "/" || text === "%") return 10;
-  if (text === "**") return 11;
-  // `<` / `>` / `in` / `instanceof` / `as` / `satisfies` 那一档（也是这一族里最常见的一档）。
-  return 7;
 ```
 
 # private method projectHeadDeclare:(kids:Array<any>, ctx:any, container:any)=>any
@@ -9286,7 +9268,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 所以那个「外层起点」不再需要往里递——`TypeAssign` 里调用的那一处也只传两格。
     AddModifiers: (view, props) => addModifiers(view, props),
     Decorators: (view, props) => addDecorators(view, props, ctx),
-    OperatorRank: (text) => operatorRank(text),
     FoldBinaryFrom: (left, list) => foldBinaryFrom(left, list, ctx),
     // **`ParameterModifiers` 那个出口第 1037 轮删掉了**：那份词表（`public` / `private` /
     // `protected` / `readonly` / `override`）只有一个读者（`tokens/lamda/lamda-parameter.xl.md`

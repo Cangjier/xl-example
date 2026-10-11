@@ -174,6 +174,37 @@ if (last instanceof SymbolToken) {
 这几个是（判据就是**这一格自己的正文**），所以在 `Close()` 里与 `IsDotSymbol` /
 `IsTypeSeparator` **同一趟**赋好（见下）。
 
+## property OperatorRank:int
+
+**我这一格作为运算符的优先级**（第 1063 轮，**数字越小越松**）：按**这一格自己的正文**
+（`Temp` 那一段）查本页那张词汇表（`SymbolToken.RankOfText`）。
+
+它过去是投影层的一个现场判据 `operatorRank(text)`（`print-ast-common.xl.md` 的
+`# private method`，一整条 `if` 链）——那一页的 `projectExpression` / `foldBinaryFrom`
+拿它切分段与定结合性。可那份「运算符 → 优先级」的词汇**键就是这一页自己的正文**
+——与 `Keyword.KeywordKind`（第 1028 轮）、`SymbolToken.KindOfText`（本页）同一条口径：
+改一个优先级不必再跑投影那一页，投影也不会在手上只有一格 token 时回头去查一张中央表。
+
+**为什么这一格是 `## property` + `### get`，而不是 `IsDotSymbol` 那样的 `## field`**（第 1063 轮**实测过**）：
+符号的正文是**逐字符攒**起来的，而**不是每个符号都会走到 `Close()`**——
+`let.xl.md` 的那一格尾巴符号（`let a = 1` 里那个 `=`，由 `ReplaceCountAt` 原样补回 `Let` 右边）
+就是 `new SymbolToken(…)` + `AppendAndSignOut` + `SignIn`，**没有 `TryToClose()`**。
+写成 `## field` 时它读到的永远是默认档，投影那一侧当场错：`coverage` 从 **4260 / 4422**
+掉到 **4058 / 4422**（`differ` 134 → 328，`for..of` / 生成器整族红）。
+**读时现算**（`this.Temp` —— 与 `BlockToken.value` 同一处、本页没有第二份存储）
+则与搬走之前的 `textOfNode(node)` 逐格等价：**不管这一格有没有关过，正文都在**。
+
+**赋值时机相反的那三格仍住在这里**：`IsDotSymbol` / `IsTypeSeparator` /
+`IsPrefixOperatorUnit` 是第 1057 / 1062 轮的 `## field`（在 `Close()` 里赋）——
+它们判的是「正文里有没有那几个字符」，而那几格的事实**不会在 `Close()` 之后被改**，
+所以构造 / 克隆之后就齐全。
+
+### get
+
+```ts
+  return SymbolToken.RankOfText(this.TempToString());
+```
+
 ## protected method Close:()=>void
 
 关闭：把自己标记为已关闭，**并把由那一格正文派生的三格一起赋好**（第 1057 / 1062 轮）。
@@ -185,11 +216,13 @@ if (last instanceof SymbolToken) {
 
 **三格都从 `this.Temp` 现算一次**（`Is` / `IsAny` 读的也是 `Temp`）：本页没有第二处存储，
 所以「这一格是不是点号 / 类型分隔符 / 前缀运算符」只由**这一格自己的正文**决定。
+**第 1063 轮那一格（`OperatorRank`）不在这里赋**：它的正文可能在 `Close()` 之后才到
+（`let.xl.md` 那格尾巴符号根本没关过），所以它是 `## property` + `### get`、读时现算。
 
 ```ts
 this.Closed = true;
 // **`IsDotSymbol` / `IsTypeSeparator` / `IsPrefixOperatorUnit` 都是「我这一格的正文是什么」的函数**
-//（第 1057 / 1062 轮），所以三者在同一个时刻、同一趟里赋好——几格不会各说各话。
+//（第 1057 / 1062 轮），所以三格在同一个时刻、同一趟里赋好——几格不会各说各话。
 this.IsDotSymbol = this.Is(".");
 this.IsTypeSeparator = this.Is(",") || this.Is("|") || this.Is("&");
 this.IsPrefixOperatorUnit = this.IsAny(["!", "~", "+", "-", "++", "--"]);
@@ -313,6 +346,65 @@ TS 那边它们各有一个 `SyntaxKind`（`=` → `EqualsToken`、`=>` → `Equ
 
 ```ts
   return SYMBOL_TOKEN_KIND.get(text) ?? text;
+```
+
+
+## static method RankOfText:(text:string)=>int
+
+**给一段符号文本，答它的运算符优先级**（第 1063 轮从投影层搬到这里）——**数字越小越松**。
+
+词汇表就是这一页自己的（键是符号的正文），所以与 `KindOfText` 同一形态：**问这一页**，
+投影不再存一张「文本 → 优先级」的中央表。读法有两处、都在本页：
+`Close()` 里给 `SymbolToken.OperatorRank` 赋值那一趟（数据形态），
+以及将来任何「手上只有一段文本、没有单元」的地方按文本问一次。
+
+搬过来之前它是 `typescript/print-ast-common.xl.md` 的 `# private method operatorRank`
+——那一页的 `projectExpression` / `foldBinaryFrom` 拿它切分段与定结合性。可**键就是这一页
+自己的正文**（与 `SYMBOL_TOKEN_KIND` / `Keyword.KeywordKind` 同一条口径），
+而「投影层不许再有按文本查词的中央表」正是第 1028 / 1029 轮那句话——这一格是它剩下的最后一处。
+
+**函数体的形状一字没动**（连注释、连 `if` 链的顺序）：搬家这一步不夹带改写。
+**不在表里的给 7**，也就是「比较 / `in` / `instanceof` / `as` / `satisfies`」那一档；
+`in` / `instanceof` 在产物里可能是 `Keyword` / `Identifier`，那两页不声明 `OperatorRank`、
+读基类的默认值 **7**——与搬走之前逐格等价（老 `operatorRank` 对它们答的正是兜底 7）。
+
+**结合性不在这里**：赋值也是 0，但「赋值右结合、其余左结合」由投影那一侧
+（`foldBinaryFrom` 的两支）判——那是**怎么折**，不是「这一格的优先级是几」。
+
+```ts
+  if (text === ",") return -1;
+  if (
+    text === "=" ||
+    text === "+=" ||
+    text === "-=" ||
+    text === "*=" ||
+    text === "/=" ||
+    text === "%=" ||
+    text === "**=" ||
+    text === "<<=" ||
+    text === ">>=" ||
+    text === ">>>=" ||
+    text === "&=" ||
+    text === "|=" ||
+    text === "^=" ||
+    text === "&&=" ||
+    text === "||=" ||
+    text === "??="
+  ) {
+    return 0;
+  }
+  if (text === "||" || text === "??") return 1;
+  if (text === "&&") return 2;
+  if (text === "|") return 3;
+  if (text === "^") return 4;
+  if (text === "&") return 5;
+  if (text === "==" || text === "!=" || text === "===" || text === "!==") return 6;
+  if (text === "<<" || text === ">>" || text === ">>>") return 8;
+  if (text === "+" || text === "-") return 9;
+  if (text === "*" || text === "/" || text === "%") return 10;
+  if (text === "**") return 11;
+  // `<` / `>` / `in` / `instanceof` / `as` / `satisfies` 那一档（也是这一族里最常见的一档）。
+  return 7;
 ```
 
 

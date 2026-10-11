@@ -1351,7 +1351,7 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
   let bestRank = 999;
   for (let i = 1; i < kids.length; i++) {
     if (!kids[i].IsOperatorUnit) continue;
-    const rank = ctx.OperatorRank(ctx.ValueOf(kids[i]));
+    const rank = kids[i].OperatorRank;
     if (rank < bestRank) {
       bestRank = rank;
       opIndex = i;

@@ -336,6 +336,10 @@ let staleNameHits = 0;
  * 收进了被问的那一页（`SymbolToken` / `Keyword` / `Identifier` 各自声明并赋好），
  * 投影那侧连同 `ctx` 上的出口一起删掉；出口删了就补进这张表，
  * 免得下一轮有人往 `ctx` 里补一行再把问句请回来。
+ *
+ * **第 1063 轮再补 `OperatorRank`**：那张「运算符 → 优先级」的中央词汇表搬回了
+ * `symbol-token.xl.md`（`SymbolToken.OperatorRank` / `SymbolToken.RankOfText`），
+ * `ctx.OperatorRank` 出口一并删掉。
  */
 const CTX_BANNED = [
   "Text",
@@ -352,6 +356,7 @@ const CTX_BANNED = [
   "MatchingParen",
   "IsOperatorUnit",
   "IsTypeParameterModifier",
+  "OperatorRank",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。
@@ -603,11 +608,20 @@ for (const file of files) {
  * 「我这一格是什么类」与「我这一格的正文是什么」，而**两半都住在那一页上**
  * （`SymbolToken` 按 `Temp`、`Keyword` 按 `Value`、`Identifier` 按 `Temp`），
  * 所以在 `Close()` / `SetValue` 那一刻赋成属性，投影只读。
+ *
+ * **第 1063 轮再补一格、并且是同一族的第二种形状**：`OperatorRank` 不是「是不是某一类」，
+ * 而是「**这一格的值是什么**」——可它同样是「我这一格自己的正文」的函数
+ * （键就是符号的正文，与 `Keyword.KeywordKind` / `SymbolToken.KindOfText` 同一条口径），
+ * 所以它也只许是属性读：老写法 `operatorRank(text)`（连那张中央词汇表）第 1063 轮
+ * 搬进了 `symbol-token.xl.md`（`SymbolToken.OperatorRank` 在 `Close()` 里赋、
+ * `SymbolToken.RankOfText` 是按文本问的那一处）。**这一门因此也认「按文本查词」的问句形态**：
+ * 主名 `OperatorRank`（属性名，`ctx.OperatorRank` 那种出口写法照认）加别名 `operatorRank`
+ * （老问句的小写形态）。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
-/** 第 1057 轮当时用过的**缩写形态**：与全名一样是「回投影层问一遍」，漏掉这一门就白开。 */
-const CLASSIFY_ALIASES = { isDotSymbol: ["isDot"] };
+/** **别名**（与全名一样是「回投影层问一遍」）：第 1057 轮的缩写，以及第 1063 轮那一格的小写问句。 */
+const CLASSIFY_ALIASES = { isDotSymbol: ["isDot"], OperatorRank: ["operatorRank"] };
 /** 把一组问句名铺成一条或起来的分支（主名 + 缩写）。 */
 const classifyAlternation = (predicates) =>
   predicates.flatMap((name) => [name, ...(CLASSIFY_ALIASES[name] ?? [])]).join("|");
@@ -618,6 +632,7 @@ const SELF_CLASSIFY_NAMES = [
   "IsOperatorUnit",
   "IsPrefixOperatorUnit",
   "IsTypeParameterModifier",
+  "OperatorRank",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,

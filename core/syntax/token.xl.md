@@ -1245,6 +1245,26 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 判据是**我这一格自己的正文**，所以由 `Keyword` / `Identifier` 两页各自答；过去它是投影层的
 一个现场判据（`isTypeParameterModifier`：比 `Tag` 再回原文读文本）。
 
+## property OperatorRank:int
+
+**我这一格作为运算符的优先级**（第 1063 轮）——**数字越小越松**，不是运算符的给 `7`。
+
+它服务投影切分二元表达式的那两处（`projectExpression` 先切优先级最低的、`foldBinaryFrom`
+定结合性）。判据是**这一格自己的正文**：符号那一页**显式声明同一个属性**并在读的那一刻
+按自己的 `Temp` 查本页词汇表（`SymbolToken.RankOfText`）；`in` / `instanceof` 那一档在产物里
+可能是 `Keyword` / `Identifier`，那两页不声明这一格、读基类这一格的 `7`
+——正是老 `operatorRank` 的兜底档。
+
+**基类这一格是 `## property` + `### get`**（与 `NameField` 同一形态）：它不是「构造时定下来的
+一格数据」，而是**随页面而异的一个读取口**——所以基类给常量 `7`、那一页覆写成自己的算式，
+两者都是属性读，投影读法只有一处（`x.OperatorRank`）。
+
+### get
+
+```ts
+return 7;
+```
+
 ## field IsSignatureNode:bool = false
 
 **我这一格是不是「可调用签名」**（第 1040 轮）——是的话这一格是 `true`。
