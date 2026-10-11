@@ -2667,6 +2667,15 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // `NumericLiteral` / `GreaterThanToken` 一族共五类。
   // 两种键序在语料里**同时成立**，所以两个出口各留一处实现，收掉的是
   // 「一个节点造两个对象」那件事（见 `ctx.NodeHead` / `astNodeShape` 那两节）。
+  // **对象展开替 `Object.assign` 那一版试过、整笔回退**（第 1221 轮，用户口径 1.2；
+  // 记在这里是因为下一个人多半也会先看上这一句）：`{ kind, ...props, pos, end }` 比
+  // `Object.assign({ kind }, props, { pos, end })` **少造一两个短命对象**（`{ kind }`、
+  // `props === undefined` 时那个 `{}`、`{ pos, end }`），键序与答案**逐字节相同**
+  //（A/B 脚本第一句就断言两版投影的 JSON 相等，一次都没响）。**墙钟两读都量不出来**：
+  // `tmp/r1221-ab.mjs`（同进程交替、尺子＝CPU 时间、量的是 print ast）25 趟配对差
+  // mean **+7.7ms**（8 趟更快 / 15 趟更慢）、40 趟 mean **−0.1ms**（16 : 20）——
+  // 两读反向、都在噪声里（sd 37.0，se 7.4 / 5.9）。按「一次没量出来的改动不留」的口径撤回：
+  // 三处（本行、语句壳那一处、链那一处）**逐字节回到原样**。
   return Object.assign({ kind }, props === undefined ? {} : props, { pos, end });
 ```
 
