@@ -1014,6 +1014,21 @@ this._TreeFrozen = value === true;
 **冻结之后第一次问 `ProjectableKids` 得到的答案**（第 1155 轮）：`null` ＝还没问过。
 它只在 `TreeFrozen` 为真时被写入与读取（见 `ProjectableKids` 那一节）。
 
+**第 1179 轮起 `ProjectableKids` 那一趟只读一次 `TreeFrozen`**：进门那一读存进局部 `frozen`，
+末尾「要不要记下来」照那一读办事（原来是第二次读同一个 getter）。读 **27214** 次
+（落在 20355 个 token 上）里，每一次都少一次属性读——省下的是**每次调用一次 `TreeFrozen`**
+（实测这一格全投影被读 **70828** 次、只在 23259 个 token 上有意义，重复读 47569 次）。
+
+## field ProjectionEndCache:int | null = null
+
+**冻结之后第一次问 `ProjectionEnd` 得到的答案**（第 1179 轮，用户口径 1.3 / 1.6）：`null` ＝还没问过。
+它只在 `TreeFrozen` 为真时被写入与读取（与 `KidsCache` 同一形态、同一条判据）。
+
+**为什么立这一格**：读数与理由写在 `ProjectionEnd` 的 `### get` 里（那一格读 **17379** 次、
+落在 **14099** 个 token 上 ⇒ 重复 **3280** 次 = **18.9%**，而一次读是一棵子树的递归）。
+**`Clone` 不用抄它**：各页 `Clone` 是 `new 本页(this.Template)`，新实例的字段初始值就是 `null`
+⇒ 克隆体第一次读时自己算一遍（与 `CachedSegments` / `KidsCache` 同一条）。
+
 ## property ProjectableKids:Array<Token>
 
 **我这一格下面那些「会进投影」的子单元**（第 1066 轮）：各段合起来（`Segments` 的顺序，
@@ -1043,7 +1058,14 @@ this._TreeFrozen = value === true;
 ### get
 
 ```ts
-if (this.TreeFrozen && this.KidsCache !== null) return this.KidsCache;
+// **冻结状态只读一次**（第 1179 轮，用户口径 1.6）：原来这一格读两次 `TreeFrozen`
+// （进门那一问、末尾「要不要记下来」那一问），而两处问的是**同一件事**——
+// 读进一格局部就是同一份答案，少一次属性读。
+// **末尾那一问换成「进门那一读是不是真」**：进门读了、末尾再读一遍，
+// 两者在**同一次 getter 调用**里不可能不同（`TreeFrozen` 的取值只由 `Parent` 链上的根决定，
+// 而这一格不是投影那一侧写根的那个调用点）；所以直接照进门那一读办事。
+const frozen = this.TreeFrozen;
+if (frozen && this.KidsCache !== null) return this.KidsCache;
 const self: any = this;
 const out: Token[] = [];
 for (const key of this.Segments) {
@@ -1063,7 +1085,7 @@ for (const x of this.children) {
     out.push(x);
   }
 }
-if (this.TreeFrozen) this.KidsCache = out;
+if (frozen) this.KidsCache = out;
 return out;
 ```
 
@@ -1092,6 +1114,13 @@ return out;
 **整段都是注释时不动**（否则 `pos` 会越过 `end`）：`at >= this.end` 那一句就是它。
 **没有签过的单元 / 非 token 的合成视图**：前者的两格给同一批子单元（与原来逐格同答），
 后者根本没有这一格，读出来是 `undefined`——那正是原来 `v.start` 在那种视图上的答案。
+
+**下面那一段读数里的数组读数说的是第 1161 轮之前的形态**（它当年算的是
+`allKids(v)` 现造的那张表；那一格第 1161 轮整格删掉了，两处读者改成就地扫各段与 `children`）——
+**而它给出的那条结论（重复读 2.5% ⇒ 这一格不该立记忆位）到第 1179 轮仍然成立**：
+第 1179 轮的探针复量了这一格（同样跑 1640 份、同样挂在 `Token.prototype` 上），
+读 **9580** 次、落在 **9339** 个 token 上、重复**还是 241** 次——所以这一格照旧**不立字段**，
+而它旁边那一格（`ProjectionEnd`，重复 **3280 / 17379 = 18.9%**）立了。
 
 ### get
 
@@ -1174,6 +1203,21 @@ return at;
 ### get
 
 ```ts
+// **冻结之后算一次就够，答案记在 `ProjectionEndCache` 上**（第 1179 轮，用户口径 1.3 / 1.6）。
+// **为什么这一格该立记忆位、而 `ProjectionStart` 那一格不该**：两格是同一把尺子量出来的，
+// 读数不同（探针挂在 `Token.prototype` 的两个 getter 上，跑官方用例语料 1640 份 / 21793 个节点）：
+//   - `ProjectionStart` 读 **9580** 次、落在 **9339** 个 token 上（重复 **241** 次 = 2.5%）；
+//   - `ProjectionEnd`  读 **17379** 次、落在 **14099** 个 token 上（重复 **3280** 次 = 18.9%）。
+// 而且这一格的代价不是一次数组构造：它是**一棵子树的递归**——每一层都要扫自己的各段与
+// `children`，命中的那一格还要再递归下去（见 `TrailingTriviaStart`）。重复的那 3280 次
+// 每一次都把同一趟递归重走一遍。
+// **为什么只在冻结之后记**（与 `ProjectableKids` / `KidsCache` 同一处判据、同一条理由）：
+// 解析期子单元是**陆续挂上来的**（`Text` / `end` 与各段都在长），这时记下来的答案会过期；
+// 而投影期那棵树是只读的（`TreeFrozen`，第 1155 轮立的），答案在整段投影里一直成立。
+// **没冻结时一个字都不记**：解析期照旧每次现算，两条路给的仍是同一个数（判据一个字没改）。
+const frozen = this.TreeFrozen;
+const settled = this.ProjectionEndCache;
+if (frozen && settled !== null) return settled;
 let end = this.end;
 while (end > this.start) {
   while (end > this.start && WHITESPACE.test(this.Text[end - 1 - this.start])) end--;
@@ -1181,6 +1225,10 @@ while (end > this.start) {
   if (at === undefined || at < this.start) break;
   end = at;
 }
+// **`undefined` 与「答案就是 `undefined`」是两回事**（与 `TreeFrozen` 那一格的写法同款）：
+// 这一格在 token 上永远是一个数（`end` / `start` 都是 `number`），
+// 所以 `null` 就是「还没算过」这一件事，不需要第二个哨兵。
+if (frozen) this.ProjectionEndCache = end;
 return end;
 ```
 
