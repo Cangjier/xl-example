@@ -254,6 +254,12 @@ return index;
 
 它由重组造出来、自己不消费字符，因此 `Process` 沿用 `IndependentToken` 的空实现。
 
+## field IsChainBaseNode:bool = true
+
+**我这一格能不能当一条链的基名**（投影侧那一问，第 1075 轮）：`f(1).x` 那种「一次调用再取成员」
+的基名就是一格完整的 `Method`，所以这一页常量答 `true`——口径与两条理由见
+`../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
+
 ## static method CommaOperator:(ctx:any, kid:any)=>bool
 
 **这一格是不是「顶层逗号」**（第 302 轮）：类型是 `BinaryOperator`、且它里面有一枚 `,` 符号。

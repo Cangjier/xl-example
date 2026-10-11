@@ -167,6 +167,12 @@ Json 对象。
 
 它**没有**覆写 `ToXmlString`，XML 由基类 `Token.ToXmlString` 产出：`<ObjectLiteral>子单元的 XML 串接</ObjectLiteral>`（标签名即运行时类名）。
 
+## field IsChainBaseNode:bool = true
+
+**我这一格能不能当一条链的基名**（投影侧那一问，第 1075 轮）：`({}).x` 那族（对象字面量结果再取
+成员）的基名就是一格完整的 `ObjectLiteral`，所以这一页常量答 `true`——口径与两条理由见
+`../../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
+
 ## field SegmentNames:Map<string, Map<string, string>> = new Map([["ObjectLiteralExpression", new Map([["children", "properties"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。

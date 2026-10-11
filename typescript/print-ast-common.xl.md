@@ -743,6 +743,38 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 的那种格里造 `operatorToken`），走的是本文件 `# dependencies` 里 import 进来的
 `SymbolToken.KindOfText(text)`——**一份词汇、一个入口**（不是投影自己再存一份表的副本）。
 
+**第 1075 轮把「这一格能不能当一条链的基名」也收进被问的那一页**：本页的 `IsChainBaseNode`
+整格删掉，两处调用点改读 **`Token.IsChainBaseNode`**（基类默认 `false`、
+八页常量答 `true`、`Identifier` / `Keyword` 在 `Close()` / `SetValue` 那一刻按自己的正文赋）。
+
+| 原来的现场判据 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `IsChainBaseNode(node)`（`node instanceof Token` + `Tag` 比类名 + 回读 `node.value` 排掉 17 个词） | `node.IsChainBaseNode` | 基类 `Token`（`## field … = false`）；`Method` / `PropertyAccess` / `NullConditionalOperator` / `New` / `ArrayLiteral` / `ObjectLiteral` / `String` / `ConstString` 八页常量 `= true`；`Identifier`（`Close()`）与 `Keyword`（`SetValue()`）按自己的正文赋 |
+
+- **判据与第 1041 / 1042 / 1057 / 1062 那几条一模一样**：两半都住在被问的那一页上——
+  「我这一格是什么类」就是那一页自己的类名，「我这一格的正文是什么」只有那一页知道
+  （`Identifier` 读 `Temp`、`Keyword` 读 `Value`），而且**都收完正文那一刻就定下来** ⇒ 收成属性。
+- **两处调用点**（`projectExpression` 的 0a0 那一支与标签模板那一支）改成属性读：
+  `IsChainBaseNode(kids[ncoIndex - 1])` → `kids[ncoIndex - 1].IsChainBaseNode`、
+  `IsChainBaseNode(tagUnit)` → `tagUnit.IsChainBaseNode`。**`instanceof Token` 那一句一起没了**：
+  两处的实参本来就是从 `kids` 里取出来的单元。
+- **名字差一个 `Node` 不是笔误**：`tokens/property-access.xl.md` 的 `IsChainBase` 是**解析期**
+  那一问（要不要把这一格收进链里：`Bracket` 按 `endBracket` 分岔、`NotNull` 在 NCO 里让路），
+  与这里的**投影期**名单**本来就不一样**（这里认 `NullConditionalOperator` / `ObjectLiteral`，
+  不认 `Bracket` / `NotNull` / `RegexToken`）——两者不能合并，理由写在 `core/syntax/token.xl.md`
+  那一格上。原文那句「这里判的是产物的一格（`Map`）」当时就已经与代码不符（代码判的是
+  `node instanceof Token` 的 token），本轮按实测改正。
+- **`Identifier` / `Keyword` 那一格的默认值是 `true`（不是 `false`）**：正文还没攒完时投影读到的
+  文本是空串、而空串不在名单里 ⇒ 那时的答案是 `true`；默认值取 `true` 才与「读这一格自己的正文」
+  逐格等价。这一条与 `IsOperatorUnit` 那两格**方向相反**，所以两页的注释里都写明了。
+- **量法**：改完八道门读数**一处没动**——`coverage` **4261 / 4422**（`blocked 28` /
+  `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **判据跟着长**：`direct:lint` 第八条那一族多认一格（`IsChainBaseNode` 配别名
+  `isChainBaseNode`）——下一轮谁把这一问写回投影层，这一门当场红。
+- **本页的声明数**：**75 → 74 格**（`IsChainBaseNode` 一格；两处调用点改成属性读）。
+
 # private method synthName:(name:string, v:any, ctx:any)=>string
 
 ---------------------------------------------------------------------------
@@ -3152,8 +3184,10 @@ new Set([
   //
   // **判据**（三条都要）：
   //   1. `ncoIndex > 0`——NCO 前面确实有个兄弟；
-  //   2. 那个兄弟是**链基名**（`IsChainBaseNode`，与 `property-access.xl.md` 的
-  //      `IsChainBase` 同一份口径的**渲染侧**版本）；
+  //   2. 那个兄弟是**链基名**（第 1075 轮起读的是**那一格自己的属性** `kids[…].IsChainBaseNode`；
+  //      口径见 `core/syntax/token.xl.md` 与 `tokens/property-access.xl.md` 的 `IsChainBase`
+  //      ——**两张名单不是一张**：这里认 `NullConditionalOperator` / `ObjectLiteral`，
+  //      不认 `Bracket` / `NotNull` / `RegexToken`，所以名字差一个 `Node`）；
   //   3. **NCO 的第一个子单元不是 `Method`**——这一条是**让路**用的：`a.Start?.Document`
   //      的形状是 `[a, ., Start, NCO(Document)]`，那里 NCO 的成员名恰好也是 `Identifier`，
   //      照这一支折会把 `.Start` 与 `?.Document` 之间的那层链**搅散**
@@ -3180,7 +3214,7 @@ new Set([
     ncoIndex > 0 &&
     asAfterNco === false &&
     prefixHasOperator === false &&
-    IsChainBaseNode(kids[ncoIndex - 1]) &&
+    kids[ncoIndex - 1].IsChainBaseNode &&
     kids[ncoIndex].ProjectableKids[0]?.Tag !== "Method"
   ) {
     let optional = projectExpression(kids.slice(0, ncoIndex), ctx);
@@ -3611,14 +3645,14 @@ new Set([
   // 点号后面跟 `Method`（调用）、成员格里又是一条链——与「二元右操作数后面那串续格」
   // 走的是同一段代码，不另写一遍。本层后面还跟着兄弟（`` tag`abc`.length + 1 ``）时
   // 再交回二元那一支。
-  // **标签那一格必须是「一个已经完整的表达式」**（`IsChainBaseNode` 那一份判据，
+  // **标签那一格必须是「一个已经完整的表达式」**（读的是 `tagUnit.IsChainBaseNode`，第 1075 轮，
   // 外加值位括号）：`1 + t`abc`` 的产物也是 `[BinaryOperator(1, +, t), PropertyAccess(…)]`
   // 这种「模板单元在第二格」的形状，但那里的标签是**那个二元单元的最后一个操作数**
   //（`t`），不是整个 `1 + t`——认错的话 `1 + t`abc`` 会变成 `(1 + t)`abc``，
   // 静默算成另一个值。那一族（模板单元**跟在运算符单元后面**）记在台账里，本轮不做。
   const tagUnit = kids[0];
   const tagIsComplete =
-    IsChainBaseNode(tagUnit) ||
+    tagUnit.IsChainBaseNode ||
     (tagUnit.Tag === "Bracket" && tagUnit.startBracket === "(");
   // **标签本身可能是一整段平铺的链**（第 947 轮（二））：`o/*c*/.tag`t`.b` 的产物是
   // `[Identifier(o), ., Identifier(tag), PropertyAccess(String, ., b)]`——那条注释把
@@ -5114,63 +5148,6 @@ new Set([
     pos: startOf(unit),
     end: endOf(unit),
   };
-```
-
-# private method IsChainBaseNode:(node:any)=>boolean
-
-`node` 能不能当**一条可选链的基名**（`?.` 左边那一格）——**渲染侧**的版本。
-
-它与 token 层 [tokens/property-access.xl.md](./tokens/property-access.xl.md) 的 `IsChainBase`
-问的是同一个问题，但**判的不是同一个东西**：那边判的是 `Token`（`instanceof Identifier` 那些），
-这里判的是**产物的一格**（`Map`，`type` 是标签名）。两处不能合并——层级不同。
-
-**`Bracket` 按标签名认不出来**，所以从**属性**上判：
-`<Bracket startBracket="(" …>` 在产物里是 `type=Bracket` 加一个 `startBracket` 属性，
-只有它才可能是链基名（`(a + b)?.c` 是 `ParenthesizedExpression`，`a[0]?.b` 的 `a[0]` 早就是
-`PropertyAccess` 了）——所以这里**直接放掉 `Bracket`**：
-`a?.b?.[c]` 那种形状里，末尾那个 `[c]` 也会被算成「收尾括号」，
-认它就会把 `?.b` 与 `?.[c]` 合成一格（token 层那一版实测踩过，见 `null-conditional-operator.xl.md`）。
-
-关键字（`return` / `case` / `typeof` …）在产物里是 `Identifier`，要按**文本**排掉。
-
-```ts
-if (!(node instanceof Token)) {
-  return false;
-}
-const type = node.Tag;
-if (type === "Identifier" || type === "Keyword") {
-  const value = node.value;
-  const text = typeof value === "string" ? value : "";
-  return !(
-    text === "return" ||
-    text === "throw" ||
-    text === "case" ||
-    text === "default" ||
-    text === "else" ||
-    text === "do" ||
-    text === "break" ||
-    text === "continue" ||
-    text === "yield" ||
-    text === "typeof" ||
-    text === "void" ||
-    text === "in" ||
-    text === "instanceof" ||
-    text === "new" ||
-    text === "import" ||
-    text === "await" ||
-    text === "super"
-  );
-}
-return (
-  type === "Method" ||
-  type === "PropertyAccess" ||
-  type === "NullConditionalOperator" ||
-  type === "New" ||
-  type === "ArrayLiteral" ||
-  type === "ObjectLiteral" ||
-  type === "String" ||
-  type === "ConstString"
-);
 ```
 
 # method isIndexFirstUnit:(unit:any, ctx:any)=>bool

@@ -152,6 +152,20 @@ if (last instanceof Identifier) {
 这三个词（`out` 是上下文修饰、词法上仍是标识符；`in` / `const` 的另一态是 `Keyword`），
 同样按**这一格自己的正文**判、同样在 `Close()` 里赋好。
 
+## field IsChainBaseNode:bool = true
+
+**我这一格能不能当一条链的基名**（投影侧那一问；第 1075 轮）：标识符**默认能**，
+把那几个「自己就开始一条语句 / 一种构造」的词排掉（`return` / `throw` / `case` / `default` /
+`else` / `do` / `break` / `continue` / `yield` / `typeof` / `void` / `in` / `instanceof` /
+`new` / `import` / `await` / `super`）——判据就是**这一格自己的正文**，所以在 `Close()` 里赋好（见下）。
+
+**为什么默认 `true`**：这一格与 `IsOperatorUnit` 那两格同一个形状，但**方向相反**——
+正文没攒完（`Temp` 还是空的）时投影读到的文本是空串，而空串不在上面那份名单里 ⇒ 那时候的答案是
+`true`；默认值取 `true` 才与「读这一格自己的正文」逐格等价。
+
+判据过去在投影层（`print-ast-common.xl.md` 的 `IsChainBaseNode`：`Tag` 是 `Identifier` /
+`Keyword` 就回读 `node.value` 排掉那串词）——而「我这一格的正文是什么」只有这一页知道。
+
 ## static readonly field AppendIn:CommonBranch = new CommonBranch()
 
 把 `CommonBranch` 注册进通用跳转队列用的实例。
@@ -201,16 +215,22 @@ return IsUnclosedBracedEscape(this.TempToString());
 
 ## protected method Close:()=>void
 
-关闭：把自己标记为已关闭，**并把由这一格正文派生的两格一起赋好**（第 1062 轮）。
+关闭：把自己标记为已关闭，**并把由这一格正文派生的三格一起赋好**（第 1062 / 1075 轮）。
 
 **为什么赋值点在这里**：标识符是**逐字符攒起来**的，而 `Close()` 正是「攒完了」那一刻
 （`SymbolToken` 那一页把同款的三格放在同一处，理由同一条：读得到的一定是收完的正文）。
 
 ```ts
 this.Closed = true;
-// 两格都是「我这一格的正文是什么」的函数，所以在同一个时刻、同一趟里赋好。
+// 三格都是「我这一格的正文是什么」的函数，所以在同一个时刻、同一趟里赋好。
 this.IsOperatorUnit = this.IsAny(["in", "instanceof"]);
 this.IsTypeParameterModifier = this.IsAny(["in", "out", "const"]);
+// **第 1075 轮**：投影侧那一问（这一格能不能当链的基名）的另一半是「我这一格的正文是
+// 不是那几个不走链的词」——同一趟、同一份正文。
+this.IsChainBaseNode = !this.IsAny([
+  "return", "throw", "case", "default", "else", "do", "break", "continue",
+  "yield", "typeof", "void", "in", "instanceof", "new", "import", "await", "super",
+]);
 ```
 
 ## method IsExponentSign:(document:Document, index:number)=>bool

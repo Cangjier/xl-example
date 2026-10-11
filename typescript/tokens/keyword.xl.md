@@ -87,6 +87,21 @@ return Keyword.UpgradeAt(units, index);
 （`out` **不在这一页的名单里**：它词法上是标识符，所以那一格由 `Identifier` 那一页答——
 两张名单各写自己认得的词，不是同一份名单抄两遍）。
 
+## field IsChainBaseNode:bool = true
+
+**我这一格能不能当一条链的基名**（投影侧那一问；第 1075 轮）：关键字**默认能**，
+只有那几个自己就开始一种构造的词不算（`return` / `throw` / `case` / `default` / `else` /
+`do` / `break` / `continue` / `yield` / `typeof` / `void` / `in` / `instanceof` / `new` /
+`import` / `await` / `super`）——所以这一格由**这一页**按自己的正文答（在 `SetValue` 里赋好）。
+
+**为什么默认 `true`**：与 `Identifier` 那一页同一条口径——`Value` 还是空串时投影读到的文本
+就是空串，而空串不在那份名单里 ⇒ 那时的答案是 `true`。
+
+判据过去在投影层（`print-ast-common.xl.md` 的 `IsChainBaseNode`：`Tag` 是 `Keyword` 就回读
+`node.value` 排掉那串词）——而「我这一格的正文是什么」只有这一页知道。**这是同一句话的
+第三处落点**（`Identifier` 那一页按自己的正文答同一问），两页各写自己认得的词，
+与 `IsTypeParameterModifier` 那一格同一条口径。
+
 ## static method IsUpgradable:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `Identifier` 的内容是不是关键字。
@@ -312,6 +327,26 @@ this.IsOperatorUnit = text === "in" || text === "instanceof";
 this.IsPrefixOperatorUnit =
   text === "typeof" || text === "void" || text === "delete" || text === "await";
 this.IsTypeParameterModifier = text === "in" || text === "const";
+// **第 1075 轮**：投影侧那一问（这一格能不能当链的基名）也是同一份正文的函数——同一趟赋好。
+this.IsChainBaseNode = !(
+  text === "return" ||
+  text === "throw" ||
+  text === "case" ||
+  text === "default" ||
+  text === "else" ||
+  text === "do" ||
+  text === "break" ||
+  text === "continue" ||
+  text === "yield" ||
+  text === "typeof" ||
+  text === "void" ||
+  text === "in" ||
+  text === "instanceof" ||
+  text === "new" ||
+  text === "import" ||
+  text === "await" ||
+  text === "super"
+);
 ```
 
 ## method ToXmlString:()=>string

@@ -663,12 +663,19 @@ for (const file of files) {
  * （收一遍段、再滤一遍 `IsInvisible`），今天由 token 自己答（那一格就是 `Segments` +
  * `children` + `IsInvisible` 三件事实的合成，三件都在 token 上）。这一门因此也认那三个老问句名：
  * 把它们写回投影层的方法体里，这一门当场红。
+ *
+ * **第 1075 轮再补一格**：`IsChainBaseNode`（别名就是老问句写法 `IsChainBaseNode`）——
+ * 「这一格能不能当一条链的基名」的两半（我是什么类、我这一格的正文是什么）都住在被问的那一页上，
+ * 今天基类默认 `false`、八页常量答 `true`、`Identifier` / `Keyword` 在收完正文那一刻按正文赋。
+ * 它与 `property-access.xl.md` 的 `IsChainBase`（解析期那一格）**不是同一份名单**，
+ * 所以名字差一个 `Node`、两处各自守着自己那一问。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
 /** **别名**（与全名一样是「回投影层问一遍」）：第 1057 轮的缩写，以及后几轮那些格的老问句写法。 */
 const CLASSIFY_ALIASES = {
   isDotSymbol: ["isDot"],
+  isChainBaseNode: ["IsChainBaseNode"],
   OperatorRank: ["operatorRank"],
   DeclarationListFlags: ["flagsOf"],
   HasChildren: ["labelIsFlat"],
@@ -692,6 +699,7 @@ const SELF_CLASSIFY_NAMES = [
   "Segments",
   "ModifierWords",
   "ProjectableKids",
+  "IsChainBaseNode",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,

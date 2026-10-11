@@ -26,6 +26,12 @@ import { String } from "./string.xl.md"
 
 注意这里的 `String` 是**本项目**的 `String` 类（`typescript/tokens/string/string.xl.md`），与内置的 `String` 无关。ts 侧这个 import 会遮蔽全局 `String`，这是**故意的**。
 
+## field IsChainBaseNode:bool = true
+
+**我这一格能不能当一条链的基名**（投影侧那一问，第 1075 轮）：常量块与它宿主 `String` 同属
+「一段字符串」，所以这一页常量答 `true`——口径与两条理由见
+`../../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
+
 ## constructor:(Template:Template)=>void
 
 构造器只是转调基类。

@@ -153,6 +153,12 @@ return nextIndex;
 
 空条件运算符单元。
 
+## field IsChainBaseNode:bool = true
+
+**我这一格能不能当一条链的基名**（投影侧那一问，第 1075 轮）：`a?.b.c` 里外层的基名就是这一格
+NCO（`o?.a().b` 那一族也由它起头），所以这一页常量答 `true`——口径与两条理由见
+`../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
+
 ## constructor:(template:Template)=>void
 
 构造器里取本类型的规则队列；运行时类型用 `this.constructor`。

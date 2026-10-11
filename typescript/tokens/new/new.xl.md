@@ -411,6 +411,12 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<New>` 里依次是 Type 与 Arguments 两段的 XML。
 
+## field IsChainBaseNode:bool = true
+
+**我这一格能不能当一条链的基名**（投影侧那一问，第 1075 轮）：`new A().b` 的基名就是一格完整的
+`New`，所以这一页常量答 `true`——口径与两条理由见
+`../../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
+
 ## field SegmentNames:Map<string, Map<string, string>> = new Map([["NewExpression", new Map([["name", "expression"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。

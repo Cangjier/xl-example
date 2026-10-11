@@ -31,6 +31,12 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 字符串单元。
 
+## field IsChainBaseNode:bool = true
+
+**我这一格能不能当一条链的基名**（投影侧那一问，第 1075 轮）：`"ab".length` 的基名就是一格完整的
+`String`，所以这一页常量答 `true`——口径与两条理由见
+`../../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
+
 ## field interpolation:bool = false
 
 是否支持内插字符串（`$"{a}"`）。写在 XML 标签上，一字不能差。

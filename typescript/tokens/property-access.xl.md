@@ -605,6 +605,12 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 投影层顺着走一遍就能折出左结合的 `PropertyAccessExpression` / `ElementAccessExpression`——
 所以下标进链**不需要新标签、也不需要标志位**：那个 `[` 括号单元自己就说明了它是下标链接。
 
+## field IsChainBaseNode:bool = true
+
+**我这一格能不能当一条链的基名**（投影侧那一问，第 1075 轮）：折过一段的链可以继续当外面那条链的
+基名（`a.b(1).c` 的第二次），所以这一页常量答 `true`——口径与两条理由见
+`../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

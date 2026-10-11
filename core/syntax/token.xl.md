@@ -1449,6 +1449,25 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 判据是**我这一格自己的正文**，所以由 `Keyword` / `Identifier` 两页各自答；过去它是投影层的
 一个现场判据（`isTypeParameterModifier`：比 `Tag` 再回原文读文本）。
 
+## field IsChainBaseNode:bool = false
+
+**我这一格能不能当一条成员访问 / 可选链的基名**（投影侧那一问；第 1075 轮）——能就答 `true`。
+
+**为什么不叫 `IsChainBase`**：那一格是 `PropertyAccessCloseRule` 在**解析期**问的
+（`tokens/property-access.xl.md`，判的是「要不要把这一格收进链里」，`Bracket` 按 `endBracket`
+分岔、`NotNull` 在 NCO 里还要让路）；这一格是**投影期**问的，判的是「手上这一格的形状够不够
+当一整条链的基名」——两张名单**本来就不一样**（这里认 `NullConditionalOperator` / `ObjectLiteral`，
+不认 `Bracket` / `NotNull` / `RegexToken`）。名字差一个 `Node` 就是为了不把两件事混成一件。
+
+判据过去是投影层的一格 helper（`print-ast-common.xl.md` 的 `IsChainBaseNode`：比 `Tag` 再读
+`node.value` 排掉一串语句关键字），而**两半都住在被问的那一页上**——「我这一格是什么类」就是
+这一页自己的类名，「我这一格的正文是什么」只有这一页知道。所以按第 1041 / 1042 / 1057 / 1062
+轮那条判据收成属性：常量在构造时赋（`## field IsChainBaseNode:bool = true`），
+按正文判的两页在 `Close()` / `SetValue` 那一刻一起赋好。
+
+**基类这一格默认 `false`**：需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field`，与 `EndsOnBrace` / `IsNameNode` / `IsOperatorUnit` 同一形态）。
+
 ## property HasChildren:bool
 
 **我这一格下面还有没有实义子单元**（第 1064 轮）：有就答 `true`。
