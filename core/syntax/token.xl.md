@@ -835,10 +835,64 @@ return names;
 所以「段名表」这一格不能也叫那个名字——`Segments` 是**读取口**（投影读它），
 `SegmentKeys` 是**那一页写下来的数据**（覆盖时用），两格分工写在这里免得下一位混。
 
+## property TreeFrozen:bool
+
+**这一棵树「子单元已经挂完、再也不会变」**（第 1155 轮，用户口径 1.3 / 1.6）：投影那一侧
+在开投之前把**根**那一格置上（`exported[0].Parent.TreeFrozen = true`），子单元**沿 `Parent` 链看得见**
+——冻结根即冻结整棵树（每一格都有一条到根的 `Parent` 链）。
+
+**为什么要有这一格**：`ProjectableKids` / `AllKids` 两格读的都是「各段 + `children`」现拼出来的表，
+而**投影期这棵树是只读的**（置上之后没有任何一处再动 `Data`）——于是第一次问出来的答案
+在整段投影里一直成立，可以记下来（见 `ProjectableKids` 那一节的实测读法）。
+**为什么用「冻结」而不是「谁改了谁清缓存」**：改子单元的地方有十几处
+（`Data.push` / `Data.splice` / 各页的重建），逐处挂钩是**十几处都要记住**的事；
+而投影开始的那一刻是**一处**——把「之后不会变」这件事在那一处声明一次，
+读的那一侧就只剩一次布尔读。**没冻结时一个字都不缓存**：解析期读到的答案仍然逐次现算，
+所以「子单元是陆续挂上来的」这件事不受影响。
+
+**它是 `## property` + `### get` / `### set`**：存储只有 `_TreeFrozen` 那一格字段
+（只在**根**上被置过，子单元读到的是 `undefined`、于是往上看一格）——所以「谁冻结了这棵树」
+是一件事实、一处存储。**往上看是有界的**：第一次读之后基类那一句会把答案落在本格
+`_TreeFrozen` 上（第 1066 轮那张表的同一个写法：派生答案在「第一次读」那一刻定下来）。
+
+### get
+
+```ts
+if (this._TreeFrozen !== undefined) return this._TreeFrozen;
+const parent = this.Parent;
+if (parent === null || parent === undefined) return false;
+const answer = parent.TreeFrozen;
+this._TreeFrozen = answer;
+return answer;
+```
+
+### set
+
+```ts
+this._TreeFrozen = value === true;
+```
+
+## field _TreeFrozen:bool | undefined = undefined
+
+**`TreeFrozen` 的存储**（第 1155 轮）：`undefined` ＝「还没问过、要往上看」，
+`true` / `false` ＝「问过了、这一格已经定下来」。只有根上那一份是**被置**的，
+其余每一格都是**第一次读时落下来的答案**。
+
+## field KidsCache:Array<Token> | null = null
+
+**冻结之后第一次问 `ProjectableKids` 得到的答案**（第 1155 轮）：`null` ＝还没问过。
+它只在 `TreeFrozen` 为真时被写入与读取（见 `ProjectableKids` 那一节）。
+
 ## property ProjectableKids:Array<Token>
 
 **我这一格下面那些「会进投影」的子单元**（第 1066 轮）：各段合起来（`Segments` 的顺序，
 `children` 在最后）、去掉 `IsInvisible` 的那些。
+
+**冻结之后第一次问出来的答案记在 `KidsCache` 上**（第 1155 轮，用户口径 1.6）：
+投影期这棵树只读（见 `TreeFrozen`），所以那一份表在整段投影里一直成立——
+实测官方用例语料 1640 份：这一格被读 **26936** 次、落在 **20355** 个不同的 token 上
+（重复读 **6581** 次），投影期没有一次是在解析还没挂完时读的。
+**没冻结时照旧每次现算**，所以两条路给的仍是同一份表。
 
 **为什么这一格要住在 token 上**：投影那一侧原来是两个 helper——`allKids(v)`（收段）与
 `projectableKids(v)` / `unwrapNodes(node)`（把不可见的那几个滤掉），**三格合起来才是这一格的意思**。
@@ -858,6 +912,7 @@ return names;
 ### get
 
 ```ts
+if (this.TreeFrozen && this.KidsCache !== null) return this.KidsCache;
 const self: any = this;
 const out: Token[] = [];
 for (const key of this.Segments) {
@@ -877,6 +932,7 @@ for (const x of this.children) {
     out.push(x);
   }
 }
+if (this.TreeFrozen) this.KidsCache = out;
 return out;
 ```
 

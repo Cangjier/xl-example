@@ -2564,6 +2564,28 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 返回 `undefined`）。所以那些出口改为返回 `ctx.Nothing`，`projectNode` 见到它就**直接返回
 `undefined`**，不再往下走通用支。
 
+# private method freezeTree:(unit:any)=>void
+
+**把这一格所在的整棵树置成「冻结」**（第 1155 轮，用户口径 1.3 / 1.6）：沿 `Parent` 链走到根，
+只对**根**那一格写 `TreeFrozen`——冻结根即冻结整棵树（子单元那一格沿 `Parent` 链看得见）。
+
+**为什么不再逐格往下走**：读那一侧问的是**被读的那一格自己**的 `TreeFrozen`
+（见 `core/syntax/token.xl.md` 的 `TreeFrozen` / `ProjectableKids`），而子单元是从根挂下来的
+——所以「逐格翻」与「翻根之后逐格问自己」是同一件事**在两次不同的时机上**；而后者少一趟全树遍历
+（实测官方用例语料 1640 份：这一趟如果逐格走，要覆盖 **20355** 个 token，而每一格第一次被问到时
+自己就把它那一份算出来了）。
+
+**取数据只读属性**：这里写的是根那一格的 `TreeFrozen`（`## property` + `### get` / `### set`），
+本页一次 token 方法都不调。**已经冻结的立刻返回**：`ProjectableKids` 只在「第一次被读」时才需要
+这个标记，之后每一格都看得见。
+
+```ts
+  if (unit === null || unit === undefined || unit.TreeFrozen === true) return;
+  let root = unit;
+  while (root.Parent !== null && root.Parent !== undefined) root = root.Parent;
+  root.TreeFrozen = true;
+```
+
 # private method astNode:(kind:string, props:any, v:any, ctx:any)=>any
 
 **造一个投影节点**：`pos` 取视图的起点，`end` 由 `stmtEndOf` 剪掉尾部 trivia，
@@ -10887,6 +10909,13 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       };
     },
   };
+  // **开投之前先把这棵树冻结一次**（第 1155 轮，用户口径 1.3 / 1.6）：`projectRoot` 收到的
+  // `exported` 是 `Root` 的子单元，从那几格往上走一级就是根 —— 冻结根即冻结整棵树
+  // （每一格子单元都经 `Mount` 挂上来，`Parent` 链是齐的）。
+  // **为什么放在投第一格之前**：`ProjectableKids` 冻结之后会把第一次问出来的答案记下来
+  // （见 `core/syntax/token.xl.md` 的 `TreeFrozen`），而「子单元挂完了」这件事到此为止成立——
+  // 再晚一步，前面那几格已经按没冻结的读法问过一遍了。
+  freezeTree(exported.length > 0 ? exported[0].Parent : undefined);
   const statements = projectEach(exported, ctx);
 
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**
