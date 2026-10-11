@@ -340,16 +340,62 @@ const CTX_BANNED = [
   "MatchBrace",
   "MatchingParen",
 ];
+/**
+ * **投影对 token 只读属性、不调方法**（第 1046 轮）。
+ *
+ * 第 1041~1046 轮把「投影要问 token 的每一格」都搬成了**属性**：
+ * 常量答案在构造时赋（`## field`）、派生答案在「那个事实被记下来的那一刻」赋，
+ * 名字那一格是 `## property` + `### get`（读的仍是本页自己的字段）。
+ * 于是 `typescript/print-ast-common.xl.md` 读 token 的方式只剩**属性名**：
+ * `k.Tag` / `k.IsInvisible` / `x.BodyField` / `x.WrapperField` / `node.NameField` /
+ * `cursor.FunctionFlags` / `parent.TypeMemberPlan` / `head.StatementKind` …
+ *
+ * **为什么这一条必须是门而不是自觉** ✗：上面那几条判据（不给回原文查、不按字符串键查、
+ * 能力面里没有兜底出口）都**看不见**「换回方法」这件事——方法照样只用 token 自己的东西，
+ * 逐字节也同答，所以 `cases:direct` / `cases:tsast` 一律绿。可它是这一族口径的**反面**：
+ * 「答案在不在这一格自己身上、什么时候定下来」的结论就是**收成属性**，
+ * 而一个现场计算的方法能在任何时候被重新写回来。所以口径钉成：**一次 `receiver.Method(` 都不许有**。
+ *
+ * **两处例外，都是「不是取数据」**：
+ *   - 接收者是 `ctx`（那是投影自己的上下文对象，不是 token）；
+ *   - 方法名是 `PrintDirectAst`——第三个出口的**分发**，问的是「这一格出哪个节点」，
+ *     那是行为而不是这一格的数据（`core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+ *
+ * 口径与 `NAME_KEY` 那一条同款：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`），
+ * 恰好 0 处才对。
+ */
+const TOKEN_METHOD_CALL = /(?<![A-Za-z0-9_.$])([a-z][A-Za-z0-9_]*)\.([A-Z][A-Za-z0-9_]*)\s*\(/g;
+/** 接收者是它就不是 token（投影自己的上下文对象）。 */
+const TOKEN_METHOD_RECEIVERS_OK = new Set(["ctx"]);
+/** 方法名是它就不是「取数据」而是行为。 */
+const TOKEN_METHOD_NAMES_OK = new Set(["PrintDirectAst"]);
+/** 投影对 token 调方法的处数（0 处才是对的）。 */
+let tokenMethodHits = 0;
 let ctxExits = 0;
 let ctxBannedHits = 0;
 {
   const shared = path.join(root, SHARED_FILE);
   if (fs.existsSync(shared)) {
     const text = fs.readFileSync(shared, "utf8");
-    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => m[1]).join("\n");
-    const start = code.search(/^\s*const ctx = \{/m);
-    const end = start < 0 ? -1 : code.indexOf("\n  };", start);
-    const body = start < 0 || end < 0 ? "" : code.slice(start, end);
+    const blocks = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => m[1]);
+    const code = blocks.map((one) => codeOnly(one)).join("\n");
+    for (const match of code.matchAll(TOKEN_METHOD_CALL)) {
+      if (TOKEN_METHOD_RECEIVERS_OK.has(match[1])) continue;
+      if (TOKEN_METHOD_NAMES_OK.has(match[2])) continue;
+      tokenMethodHits += 1;
+      if (tokenMethodHits <= 3) {
+        violations.push({
+          file: SHARED_FILE,
+          why:
+            `投影对 token 调了方法：\`${match[1]}.${match[2]}(…)\`——取数据只读属性` +
+            "（见 core/syntax/token.xl.md 的 Tag / NameField / WrapperField / BodyField / FunctionFlags）",
+        });
+      }
+    }
+    const raw = blocks.join("\n");
+    const start = raw.search(/^\s*const ctx = \{/m);
+    const end = start < 0 ? -1 : raw.indexOf("\n  };", start);
+    const body = start < 0 || end < 0 ? "" : raw.slice(start, end);
     for (const line of body.split("\n")) {
       const key = /^\s{4}([A-Za-z_][A-Za-z0-9_]*):/.exec(line);
       if (key !== null) {
@@ -451,6 +497,11 @@ console.log(
 console.log(
   `ctx 出口 ${ctxExits} 个，其中回原文兜底 / 已无人用的 ${ctxBannedHits} 处（0 处才是对的：${CTX_BANNED.join(" / ")}）`,
 );
+// **「只读属性、不调方法」的账**（第 1046 轮）：投影读 token 的每一格都是属性，
+// 这一条读数就是那句话的反面——多一处 `receiver.Method(` 就红。
+console.log(
+  `投影对 token 调方法（${SHARED_FILE} 的代码块）：${tokenMethodHits} 处（0 处才是对的，取数据只读属性；例外只有 ctx.* 与 PrintDirectAst）`,
+);
 // **中间那一层的账**（第 1027 轮）：投影直吃 token，那一层的入口名一个都不许留在规范页里
 // ——「token → AST 直出」这句话只有这样才有一条判据看着。
 console.log(
@@ -468,6 +519,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（方法体里不用 ctx.source / ctx.Text / ctx.TextOf / ctx.StringText；ctx 出口表里也没有它们）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法）`,
 );
 process.exit(0);

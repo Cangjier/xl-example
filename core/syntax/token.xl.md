@@ -667,7 +667,7 @@ return undefined;
 直出版把这一格**重新按解析期已有的东西说一遍**；缺什么就**给 token 补上那个属性**
 （与 `NameAt` / `NameRange` / `BodyBrace` 那几格同一条口径），而不是回原文猜。
 
-**两条判据（都已经进 `npm run gates`）**：
+**三条判据（都已经进 `npm run gates`）**：
 
 1. **同答**：覆写了这一格的 token，投影**优先问它**；整个语料跑两遍（直出通道开 / 关）
    产物必须**逐字节相同**——那是 `cases:direct`。不一样就是这一格写错了，不是「另一种口径」；
@@ -680,6 +680,13 @@ return undefined;
    而**属性名是编译期就知道的那个词**：视图上本来就挂着同名属性（`view()` 把 `attrs` 抄到视图自己身上），
    所以 `ctx.Attr(v, "questionAt")` 与 `v.questionAt` 逐字节同答，后者才是「读这一格自己的属性」。
    只认**字面量**那一档：`ctx.Attr(x, 某个变量)` 不是按字符串键查。
+3. **投影对 token 只读属性、不调方法**（第 1046 轮）：`typescript/print-ast-common.xl.md` 的**代码块**里
+   **一次 `receiver.Method(` 都不许有**（例外只有接收者 `ctx`——那是投影自己的上下文对象；
+   以及方法名 `PrintDirectAst`——那是**分发**，问的是「这一格出哪个节点」，是行为不是数据）。
+   第 1041~1046 轮把「投影要问的这一格」全部收成了属性（常量在构造时赋、派生答案在
+   「那个事实被记下来的那一刻」赋、名字那一格是 `## property` + `### get`），
+   于是投影读 token 的方式只剩属性名（`k.Tag` / `x.BodyField` / `node.NameField` …）——
+   这一条把那个结论**钉住**：方法能在任何时候被写回来，而它逐字节同答、上面两条判据都看不见。
 
 **基类答 `undefined`**＝「我没有直出版，照旧走 `PrintDirectAst` / 通用支」：与 `PrintDirectAst` 同一个约定，
 所以这一格可以**逐页**搬——搬一页多一页直出，`projectRoot` 返回的 `direct` 记账量的就是这个数。

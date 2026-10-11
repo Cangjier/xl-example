@@ -290,7 +290,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `cases:direct` | **第三个出口投不投得出来**（第 992 轮加，第 1013 / 1017 轮改口径）：`Token.PrintDirectAst` 是**唯一**的写法，所以量的是两条**绝对**的判据——① 全语料投一遍**不许抛异常**；② 固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。**第 1013 轮之前**它与 `PrintAst` 开 / 关两遍对拍，第 1013 ~ 1016 轮改量「同一份输入重投两遍逐字节相同」——**那一项第 1017 轮撤了**：两遍都在同一个进程里、问的都是同一份 `Root` 自己的子单元列表，确定性代码必然逐字节相同，**它不可能失败** |
-| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据、第 1014 轮再加一条、**第 1015 轮再加一条**）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；扫**共享投影那一页的代码块**那一末条：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层；第 1014 轮再加一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算）；**第 1015 轮**再加一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的九个出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace`）——出口删掉之后，方法体那条判据才从「大家记得别写」变成**结构上做不到** |
+| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据、第 1014 轮再加一条、**第 1015 轮再加一条**）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；扫**共享投影那一页的代码块**那一末条：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层；第 1014 轮再加一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算）；**第 1015 轮**再加一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的九个出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace`）——出口删掉之后，方法体那条判据才从「大家记得别写」变成**结构上做不到**；**第 1046 轮**再加一条扫**调用形态**的：`print-ast-common` 的代码块里**一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintDirectAst`——那是分发不是数据）——第 1041~1046 轮把「投影要问 token 的每一格」全收成了属性，这一条把那个结论钉住 |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `runtime:check` / `runtime:cli` | 执行侧的机制与端到端（见「构建链路」那一节） |
@@ -333,6 +333,38 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1047 轮：给 `direct:lint` 加第三条判据——**投影对 token 只读属性、不调方法**（`print-ast-common` 代码块里 `receiver.Method(` 恰好 0 处）——**八道门全绿、读数一处没动**
+
+**一句话**：第 1041~1046 轮把「投影要问 token 的每一格」全搬成了属性，第 1045 / 1046 两轮又清掉了
+最后四格与 `Tag`。可这件事**一条判据都没有看着**：把某一格改回方法照样逐字节同答
+（`cases:direct` / `cases:tsast` 一律绿），而它正是这一族口径的反面——所以这一轮把结论**钉成门**。
+
+- **新判据（`tests/parse/direct-lint.mjs`）**：扫 `typescript/print-ast-common.xl.md` 的**代码块**
+  （注释不算），一次 `(?<![\w.$])([a-z]\w*)\.([A-Z]\w*)\s*\(` 都不许有。**两处例外，都不是取数据**：
+  接收者 `ctx`（投影自己的上下文对象）；方法名 `PrintDirectAst`（第三个出口的**分发**，
+  问的是「这一格出哪个节点」，是行为不是这一格的数据）。
+  口径与第 1008 轮那条「名字那一格」同款：只看代码块、恰好 0 处才对，读数照旧印出来。
+- **实测读数**：这条判据落上去时，同一份代码块里只剩三处匹配——`ctx.Project(` ×2、`ctx.Make(` ×1
+  （接收者是 `ctx`）、`owner.PrintDirectAst(` ×1（分发）⇒ **token 方法调用 0 处**。
+  于是「投影读 token 只读属性」这句话有一处会红的读数看着：今天读的是
+  `k.Tag` / `k.IsInvisible` / `k.IsMemberTag` / `k.IsDeclarationUnit` / `x.BodyField` /
+  `x.WrapperField` / `node.NameField` / `cursor.FunctionFlags` / `parent.TypeMemberPlan` /
+  `parent.IsMemberList` / `head.StatementKind` / `head.StatementField` / `v.AstKind` /
+  `v.IsSignatureNode` / `head.IsStatementNode` / `node.SegmentNames` / `cursor.Parent` …
+  （全表由 `grep` 一次量出：`(?<!\w)[a-z]\w*\.[A-Z]\w*` 在代码块里的匹配**只有**上面那三处 `ctx.*` 与那一处分发）。
+- **这一条自己验过**（与第 1015 轮那条「能力面」同一手法）：把 `projection` 里
+  `const target = x.WrapperField;` 临时改回 `x.WrapperField()` ⇒ 读数 **1 处**、
+  `FAIL 投影对 token 调了方法：\`x.WrapperField(…)\``、`exit=1`；还原 ⇒ **0 处**、`exit=0`，
+  且 `git diff` 对那一页**逐字节无变化**。
+- **判据的说明同步落到三处**（免得下一位只从读数里猜）：`core/syntax/token.xl.md` 的
+  `PrintDirectAst` 那一节（「两条判据」改成「三条判据」，第三条写明为什么前两条看不见它）、
+  README 的门的台账那一行（`direct:lint` 那条）、`docs/ts-ast.md` 的判据表。
+- **实测**：`xl check` 182 份 0 错 0 警；`xl build` 刷新 1 写出 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 31.3s），读数逐项与基线相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 
 ### 第 1046 轮：`Token.Tag()` 也变成**构造时赋好的属性**（`Tag`），投影与 XML 两侧 619 处 `.Tag()` → `.Tag`——**八道门全绿、读数一处没动**
 
