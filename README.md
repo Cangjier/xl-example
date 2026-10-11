@@ -347,6 +347,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1181 轮：用户口径 1.1 ~ 1.7 的**逐条核对**（不夹带任何改写）—— 七条各有**可复核的读数**，其中四条由 `direct:lint` 当门守着；三条本轮实测、两个缺口如实登记
+
+**一句话**：这一轮**一行算式都不改**，只把「用户口径 1.1 ~ 1.7 今天各自处在什么状态」
+逐条量出来、写成一张能复核的表——**已经做到的给出读数，还没做到的如实登记**，
+免得下一位再从散文里推。
+
+| 口径 | 今天的状态 | 可复核的读数 / 命令 |
+| --- | --- | --- |
+| **1.1** `PrintDirectAst` → `PrintAst` | **已完成**（第 1143 轮，全仓 78 个文件 / 482 处一次改干净）。现规范树里这个名字只剩 **1 处**，是 `core/syntax/token.xl.md:1764` 那句「它原先叫 …」的**历史记录** | `Get-ChildItem -Recurse -Filter *.xl.md \| Where-Object { $_.FullName -notmatch '\\tmp' } \| Select-String PrintDirectAst` ⇒ **1** 处（且是散文） |
+| **1.2** `PrintAst` 里能直接构造 Ast Node | **已完成**：**75 段** `## method PrintAst` 全部收 `ctx` 与那一格 token，用 `ctx.Node` / `ctx.NodeHead` 直接造节点；`cases:direct` 的「token 自己出」占 **75.7%** | `direct:lint` 印「第三出口（PrintAst）**75 段**」；`cases:direct` ⇒ **21793 / 16489**（75.7%） |
+| **1.3** 构造 / 构建 / Close 时把 printAst 要的信息落在字段 / 属性上 | **持续推进中，本轮再补三格**（`IsAwaitKeyword` / `IsAssertKeyword`，第 1180 轮）。`direct:lint` 的那一大族门守的就是这一条：**投影只许读属性**，读到的每一格都必须**在某一页显式声明过** | `direct:lint` ⇒「投影读到的 PascalCase 属性 **149** 个 … 其中没有声明的 **0** 个」 |
+| **1.4** 字段 / 属性必须在类中显式声明 | **已当门守着**（第 1.3 那一行的同一条判据 + 《`## field` / `## property` 的类型里出现 `any`》那一条） | 同上：没有声明的 **0** 个 |
+| **1.5** 字段 / 属性声明禁止 `any`，必须明确类型 | **已当门守着**。全仓 `## field` / `## property` 里 `any` 出现 **0 处**；**75 段** `PrintAst` 的形参表也全部是具名类型（没有一段写回 `ctx:any`） | `direct:lint` ⇒「`## field` / `## property` 的类型里出现 `any`：**0 处**」；`Select-String '^## method PrintAst:\(ctx:any'` ⇒ **0** |
+| **1.6** 高效构建 + 高效 print（投影成本趋于 0） | **持续推进中**：第 1141 ~ 1180 轮把投影层的算式一处一处搬回被问的那一格。第 1179 轮按**探针量出来的重复读**决定「哪一格立记忆位」（`ProjectionEnd` 立、`ProjectionStart` 不立）；第 1180 轮把 `await` / `assert` 两格在 token 侧补齐 | 第 1179 轮：`ProjectionEnd` 读 17379 次 / 重复 **3280** 次（18.9%）⇒ 立；`ProjectionStart` 重复 **241** 次（2.5%）⇒ 不立；`ProjectionEndCache` 命中 **3280** 次（与重复读数逐格相同） |
+| **1.7** `print-ast-common.xl.md` 代码行数尽可能低 | **持续推进中**：第 1073 轮起**只写实测值**。今天的实测是**代码块（不带注释）3851 行**、总 **10518 行**、声明 **54 格**、ctx 出口 **39 个** | `node` 现算：ts 围栏内去掉注释行 ⇒ **3851**；`^# (private )?(method\|const) ` ⇒ **54** |
+
+- **两个如实登记的缺口（都属于 1.3 / 1.6，都还没做完）**：
+  1. **投影层还有 10 处按坐标回 `ctx.source` 读**（第 1180 轮量出来的三个落点：
+     `ownsTrailingSemicolonOf` 1 处、`semicolonEndOf` 8 处、合成语句视图的 `ProjectionEnd` 1 处）——
+     其中 `semicolonEndOf` 那 8 处最大，它收的是**一个 `int` 而不是一个 token**，
+     所以搬法不是「换一个属性读」而是**把 token 递进去**（token 侧 `FollowingSemicolonAt` /
+     `SignatureEndStep` 已经是那个形状）。
+  2. **投影层还有 7 处拿某一格自己的正文比字面量**（`projectExpression` 里
+     `word === "yield"` / `"await"` 5 处、`namedExportClause` 里 `"with"` / `"assert"` 2 处）——
+     **token 侧这一轮已经补齐**（第 1180 轮），**差的只是投影侧那一次改写**；
+     第 1180 轮试改的那一版**量出来不守恒**（`--all` 节点数 515803 → 515856），
+     所以**撤回**，留给下一轮先把差额量清楚。
+- **一句话的进度口径**：1.1 / 1.4 / 1.5 是**已经关门**的三条（有门、读数为 0 才是对的）；
+  1.2 是**已经做完**的一条；1.3 / 1.6 / 1.7 是**每轮往前推一格**的三条，
+  它们的「还剩多少」就是上面那两个缺口 + 每轮 `direct:lint` 印出来的那个属性数（今天 **149**）。
+
+**实测**（这一轮没改任何算式，八道门与第 1180 轮逐项相同）：`xl check` **0 条**；
+`npx tsc`（strict）**0 error**；`direct:lint` **0 条违反**；
+`cases:direct` **21793 / 16489**（75.7%）不抛异常；`samples` ok；
+`cases:check` **1656 条 0 不合格**；`cases:tsast` 16 片 **15 通过 / 1 失败**
+（仍是 HEAD 上既有的 `runtime/round741/002`）；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；
+`coverage` **4260 / 4422**（blocked 28、differ 134、bad 0、加权 95.7%）。
+
 ### 第 1180 轮：用户口径 1.3 / 1.4 / 1.5 —— `await` / `assert` 两个词在 token 侧补齐（基类两格 `## field` + `Keyword.SetValue` / `Identifier.Close` 两处赋值）；**投影那一侧这一轮一格没动**（改投影的那一版量出来不守恒，如实记下并撤回）；`core/syntax/token.xl.md` **3535 → 3584 行**、`identifier.xl.md` 830 行、`keyword.xl.md` 726 行
 
 **一句话**：投影层今天还有两处在**拿某一格自己的正文去和字面量比**——`projectExpression` 里
