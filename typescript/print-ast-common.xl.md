@@ -2035,6 +2035,10 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 键是**叶子自己的正文**、值是「这一格在 TS 那边叫什么」，本来就是那一页的事实。
 投影这一侧只剩三处按**文本**问它（`projectBindingElement` 的默认值、`memberNameOf` 的数字名、
 `synthName` 的私有名），走的是本文件 import 进来的静态入口——**一份词汇、一个入口**。
+**第 1135 轮试过把第三处（`memberNameOf` 的数字名）也收进那一格自己**
+（基类 `IsNumericLiteralName` + `Identifier` / `Keyword` 两页覆写）：**当场被 `coverage` 抓住、
+如实还原**——理由写在 `memberNameOf` 那一处（这一格上的 `v` 是**声明名字的那一格**，
+不是名字单元自己，它拿到的是基类默认档 `false`）。这一处因此**如实留着**。
 
 **这张表第 1025 轮整张删掉了**：79 档里 **77 档说的是「标签 → 节点名」**，
 而标签就是 token 自己的类名（`Token.Tag`）——每一档说的都是**某一页自己的事实**，
@@ -9257,6 +9261,22 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       unit: direct === undefined ? null : direct,
     };
   }
+  // **「我声明的这个名字是不是数字字面量」第 1135 轮量过、没有收**（用户口径 1.1 ~ 1.4 试了一版）：
+  // 这一句原来是 `direct === undefined && Identifier.IsNumericLiteral(name)`——看着像是「把这一页
+  // 自己的名字文本递给另一页的静态入口去判」，所以按同一把尺子试过一版属性读（基类给默认 `false`、
+  // `Identifier` / `Keyword` 两页覆写 `IsNumericLiteralName`，读自己的 `DeclaredName` 问同一个
+  // 静态入口）。**当场被 `coverage` 抓住、如实还原**：`cls-string-method-names` /
+  // `decl-class-numeric-method-name` / `lex-member-number-name` / `type-member-names` 四条一起
+  // 从 pass 变 blocked（读数 4260 → 4256 / 4422、`blocked` 28 → 32），
+  // 逐节点 diff 是 `MISS NumericLiteral [96,97) "1"` + `EXTRA Identifier [96,97) "1"` 那一对。
+  // **量错在哪（这一轮留下的判据）**：这一格上的 `v` **不是**名字单元自己，而是**声明了这一格名字的
+  // 那一格**（`MethodDeclaration` / `Field`）——它的 `IsNumericLiteralName` 拿到的是基类默认档
+  // `false`，因为会答 `true` 的那两页是 `Identifier` / `Keyword`（`IsNameNode`，第 1057 轮），
+  // 而名字在产物里是**这一格的字段**（`fieldName`）、不是一格名字单元。
+  // 所以「问一段文本」与「问一格自己」在**收件人不是名字单元**的位置上**不同答**：
+  // 前者问的是「这段文本算不算数字」，后者问的是「我这个类算不算」。
+  // 要收这一问，收的应该是**`MethodDeclaration` / `Field` 那一档**（各自显式声明「我的名字是数字名」），
+  // 不是基类一格——那需要逐页量过「谁的名字可能落在这一档上」，本页没有那个名单，所以**留着**。
   if (direct === undefined && Identifier.IsNumericLiteral(name)) {
     return { name: { kind: "NumericLiteral", text: name, pos: at.pos, end: at.end }, computed: null, unit: null };
   }
@@ -10700,7 +10720,9 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 那一页——投影层不再替它记一份，`ctx` 也不再递它。
     // **`NumericLiteral` 那张正则第 1029 轮搬走了**：数字字面量的写法是 `Identifier` 那一页的事实，
     // 要问它的两处（`memberNameOf` 与 `object-literal.xl.md`）走 `Identifier.IsNumericLiteral(text)`——
-    // 递一个问句，不把整张表复制到 `ctx` 上。
+    // 递一个问句，不把整张表复制到 `ctx` 上。**第 1135 轮试过把 `memberNameOf` 那一处改读属性、
+    // 当场被 `coverage` 抓住并还原**（理由写在 `memberNameOf` 那一处：那里的收件人是
+    // **声明名字的那一格**，不是名字单元自己）。
     // **运算符那一格的叶子节点**（第 550 轮）：`in` / `instanceof` 在深度界那一层
     // 还是 `Identifier`，照 `Project` 投会投成 `Identifier("in")` ——
     // `BinaryOperator.PrintDirectAst` 那一支正需要它。

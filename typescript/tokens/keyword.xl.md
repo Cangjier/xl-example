@@ -548,6 +548,9 @@ return this.Value;
 （`nameUnits[0].IsNameNode`，第 1057 轮），能当一个名字的就是这两页——所以两页各按自己的
 `TextValue` 问同一张 `NUMERIC_LITERAL`，与原来
 `Identifier.IsNumericLiteral(nameUnits[0].TextValue)` **逐字符同答**。
+（**第 1135 轮试过在基类另立一格 `IsNumericLiteralName`、把投影 `memberNameOf` 里那个
+合成名也收成属性读——当场被 `coverage` 抓住并还原**：那一处的收件人是
+**声明了这一格名字的那一格**，不是名字单元自己。理由写在 `Identifier` 那一页同一格下。）
 
 ### get
 

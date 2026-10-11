@@ -347,6 +347,49 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1135 轮：试过把「我声明的这个名字是不是数字字面量」收成 token 属性——**当场被 `coverage` 抓住、如实还原**（4260 → 4256 / 4422 → 回到 4260）；这一轮留的是**判据**，不是改动
+
+**一句话**：用户口径 1.1 ~ 1.4 试第三处。`memberNameOf` 里还剩一处看着像「把这一页自己的名字文本
+递给别的页的静态入口去判」的写法（`direct === undefined && Identifier.IsNumericLiteral(name)`），
+于是按同一把尺子做了一版：基类立 `## property IsNumericLiteralName`（默认 `false`）、
+`Identifier` / `Keyword` 两页覆写（读自己的 `DeclaredName` 问同一个静态入口），调用点改读
+`v.IsNumericLiteralName`。
+
+- **量到的结果**：`coverage` 当场从 **4260 / 4422** 掉到 **4256 / 4422**（`blocked` 28 → 32），
+  四条用例一起从 pass 变 blocked：`cls-string-method-names` / `decl-class-numeric-method-name` /
+  `lex-member-number-name` / `type-member-names`。逐节点 diff（`node tests/parse/ts-ast.mjs --file …`）：
+
+  ```text
+  MISS   NumericLiteral  TS[96,97)  "1"
+  EXTRA  Identifier      [96,97)  "1"
+  ```
+
+- **量错在哪（这一轮留下的判据）**：这一格上的 `v` **不是名字单元自己**，而是**声明了这一格名字的
+  那一格**（`MethodDeclaration` / `Field`）——它的 `IsNumericLiteralName` 拿到的是**基类默认档
+  `false`**，因为会答 `true` 的那两页是 `Identifier` / `Keyword`（`IsNameNode`，第 1057 轮），
+  而名字在产物里是**这一格的字段**（`fieldName`）、不是一格名字单元。
+  所以「问一段文本」与「问一格自己」在**收件人不是名字单元**的位置上**不同答**：
+  前者问「这段文本算不算数字」，后者问「我这个类算不算」。
+  **要收这一问，收的应该是 `MethodDeclaration` / `Field` 那一档**（各自显式声明「我这一格的名字
+  是数字名」），不是基类一格——那需要先逐页量出「谁的名字可能落在这一档上」，本页没有那个名单，
+  所以这一处**如实留着**。
+- **只改判据、不留半成品**：那一格属性（基类 + `Identifier` + `Keyword` 三处）**整格删掉**，
+  调用点逐字还原成 `Identifier.IsNumericLiteral(name)`；三页上各留一段**这次量过了、为什么没有收**
+  的记账（免得下一位照着「同一把尺子」再走一遍）。判据一条没长（`direct:lint` 那一族没动）。
+- **同一轮另一处小的**：`v` 那一侧的守卫 `direct === undefined` 一并试过收掉（把 `v.NameUnit`
+  答得出当成「正文等于 `DeclaredName`」用）——**也是错的**，同一批四条用例照样红。
+  两处一起还原。
+- **本页的声明数**：**42 格不变**（39 个 `# method` + 3 个 `# const`，实测）；
+  本页 10800 → **10822 行**（代码块 7840 → 7858 行、不带注释 4662 行，
+  HEAD 是 10800 / 7840 / 4662——多出来的 22 行是那段记账）。
+- **实测（还原之后）**：`xl check core typescript` **156 个文件 / 0 条**；
+  `xl build core typescript` **4 个产物 / 0 error**（`token` / `print-ast-common` / `identifier` / `keyword`）、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 32.3s），读数回到与第 1106 ~ 1134 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 ### 第 1134 轮：「只有名字的那种 `ArrayType`」收进被问的那一格——基类另立 `## property SoleNameUnit`，`projectTypeExpression` 限定名链上那一句现场 `filter` 改读 `next.SoleNameUnit`；**八道门 7 通过、读数一处没动**
 
 **一句话**：用户口径 1.1 ~ 1.4。第 1133 轮把「名字住在哪一格子单元上」（`NameUnit`）收进 token
