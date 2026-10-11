@@ -5085,14 +5085,18 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   //
   // **它排在 0a2 前面**（第 863 轮，只是把定义往上搬）：0a2 那一支也要问同一个问题——
   // 「这一格的第一格以一次调用开头吗」，而它比下面那条链支**先跑**。
-  const chainTailInOperator = (unit: any): bool => {
+  // **两支同形的「递归找头那一格」合成一格**（第 1198 轮，用户口径 1.2 / 1.6）：
+  // 这一格与下面 `indexTailInOperator` 的正文逐字相同，只差「头那一格问哪一格属性」
+  //（`IsCallFirstUnit` / `IsIndexFirstUnit`）——所以合成一格、由调用方把那一问递进来。
+  const tailUnitInOperator = (unit: any, isHead: (one: any) => bool): bool => {
     if (unit === undefined || unit === null) return false;
     if (unit.IsBinaryOperatorNode !== true) return false;
     const inner = unit.ProjectableKids;
     if (inner.length < 2) return false;
-    if (inner[0]?.IsCallFirstUnit) return true;
-    return chainTailInOperator(inner[0]);
+    if (isHead(inner[0]) === true) return true;
+    return tailUnitInOperator(inner[0], isHead);
   };
+  const chainTailInOperator = (unit: any): bool => tailUnitInOperator(unit, (one: any) => one?.IsCallFirstUnit === true);
   // **把那个二元单元摊到「续格 + 运算符」一层**（第 863 轮）：0a2 那一支要的是这个分法
   // ——尾巴里那个单元拆成「续格那一格（**整格**留着自己去投）+ 它自己的运算符与右操作数」。
   // **与 `flattenChainTailInOperator` 只差一处**：那一支要**裸的续格几格**
@@ -5286,24 +5290,17 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   // **拿真 TS 复量过那一格**（`tmp/r977-ts.mjs`）：`f < T > `t`` 与 `f<T>`t``、
   // `f < T > (1)` —— 三种排版 TS 都读成**一条** `TaggedTemplateExpression` / `CallExpression`
   // 带 `TypeReference`（而 `x < y > z` 才是二元），所以这一档不是放宽、是**同一句判据少了一格**。
-  const tagIsPostfixChain = (units: Array<any>): bool => {
-    for (const one of units) {
-      if (
-        one.IsIdentifierUnit ||
-        one.IsPropertyAccess ||
-        one.IsMethodNode ||
-        one.IsBracketUnit ||
-        one.IsStringUnit ||
-        one.IsGenericType ||
-        one.IsExpressionWithTypeArguments ||
-        one.IsDotSymbol
-      ) {
-        continue;
-      }
-      return false;
-    }
-    return units.length > 0;
+  // **两问合成一格**（第 1198 轮，用户口径 1.2 / 1.6）：这一格与下面 `IsChainTail` 的正文
+  // 逐字相同（同一趟遍历、同一句 `return false`），只差「收哪些格」与「空串答什么」——
+  // 所以合成一格、由调用方把名单与「空串算不算过」那一档递进来。
+  const everyUnitIs = (units: Array<any>, accept: (one: any) => bool): bool => {
+    for (const one of units) if (accept(one) !== true) return false;
+    return true;
   };
+  const tagIsPostfixChain = (units: Array<any>): bool =>
+    units.length > 0 && everyUnitIs(units, (one: any) =>
+      one.IsIdentifierUnit || one.IsPropertyAccess || one.IsMethodNode || one.IsBracketUnit ||
+      one.IsStringUnit || one.IsGenericType || one.IsExpressionWithTypeArguments || one.IsDotSymbol);
   // **模板后面那一串也要是链的续格**（第 947 轮）：判据从「**末尾**那一格是模板」
   // 放宽成「**链里有一格是模板**」，模板后面那一串交给 `chainOnto`（与 0c 同一段代码）。
   //
@@ -5316,26 +5313,10 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   //
   // **尾巴必须整段都是链的续格**：混着运算符（`BinaryOperator` / `LogicalOperator` …）就整个让开，
   // 交回下面通用那一支——宁可维持原来的错，也不把「模板不在这一格的末尾」当成标签模板。
-  const IsChainTail = (units: Array<any>): bool => {
-    for (const one of units) {
-      if (
-        one.IsIdentifierUnit ||
-        one.IsPropertyAccess ||
-        one.IsMethodNode ||
-        one.IsBracketUnit ||
-        one.IsArrayLiteralUnit ||
-        one.IsNullConditionalOperator ||
-        one.IsNotNull
-      ) {
-        continue;
-      }
-      if (one.IsDotSymbol) {
-        continue;
-      }
-      return false;
-    }
-    return true;
-  };
+  const IsChainTail = (units: Array<any>): bool =>
+    everyUnitIs(units, (one: any) =>
+      one.IsIdentifierUnit || one.IsPropertyAccess || one.IsMethodNode || one.IsBracketUnit ||
+      one.IsArrayLiteralUnit || one.IsNullConditionalOperator || one.IsNotNull || one.IsDotSymbol);
   // 从右往左找那一格模板：**最后**一格能当标签模板起点的就是它。
   // `at` 从 1 起（模板前面至少要有一格标签），标签与尾巴两问都过才认。
   let templateAt = -1;
@@ -5738,14 +5719,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   // 只是续格是**下标**、不是调用）。
   // **只有「链头只可能做值」的那两格才算数**：别的链头（标识符 / 已折好的链）本来就由
   // token 层认成下标，轮不到这一支——放开会换掉既有形状（实测 `o["i"] * 2` 一直是对的）。
-  const indexTailInOperator = (unit: any): bool => {
-    if (unit === undefined || unit === null) return false;
-    if (unit.IsBinaryOperatorNode !== true) return false;
-    const inner = unit.ProjectableKids;
-    if (inner.length < 2) return false;
-    if (inner[0]?.IsIndexFirstUnit) return true;
-    return indexTailInOperator(inner[0]);
-  };
+  const indexTailInOperator = (unit: any): bool => tailUnitInOperator(unit, (one: any) => one?.IsIndexFirstUnit === true);
   // 摊法与 `flattenChainTailInOperator` 一字不差（递归那一档同一理由）：
   // 续格那一格（下标）摊成平级，运算符与右操作数**原样留在后面**，由尾巴那一支折二元。
   const flattenIndexTailInOperator = (unit: any, out: Array<any>) =>
