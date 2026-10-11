@@ -117,6 +117,21 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 这一支的修饰词是 `LetBranch.Success` 逐个 `unshift` 攒起来的（不是一段连续区间），所以位置也在
 同几处顺手记下——来由与 `Class.ModifierSpans` 同一条：修饰词不进 `Data`，位置只有那一刻知道。
 
+## field ListStart:int = -1
+
+**声明列表从哪里起**（第 1078 轮）：`VariableDeclarationList` 的 `pos`。
+
+判据是**这一页自己的两格**（`modifiers` 与 `ModifierSpans`），所以由这一页在**构造那一刻**答：
+`await using` 的列表从 `await` 起（两者都是列表的标志），其余情形从**最后一个**修饰词起
+（`export const x` 的列表从 `const` 起，而语句从 `export` 起）；没有修饰词时就是本单元自己的起点。
+
+投影那一层过去有一格 `modifierStart(v)` 现场拼这个答案（`print-ast-common.xl.md`），
+它读的正是上面那两格——同一格事实的第二处读法。位置在 `LetBranch.Success` 写下
+`modifiers` / `ModifierSpans` 那几行的紧后面就定下来了，所以这里不再有「要点一下才算出来」的东西。
+
+实测 `decl-await-using-basic.ts` / `vars-await-using.ts`：列表起点差 6 格，
+语句上还多出 `AwaitKeyword` / `UsingKeyword` 两个节点。
+
 ## property DeclarationListFlags:string
 
 **我这一格是哪一种声明列表**（第 1064 轮）：TS 那边 `VariableDeclarationList.flags` 的那个词
@@ -225,7 +240,7 @@ return this.ModifierSpans;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 抄 `fieldName` / `NameStart` / `NameEnd` / `modifiers` / `ModifierSpans` → `TryToClose()`。注意它**不抄 `LetType` 与两组解构名**（`LetType` 回到默认的 `Field`）——这是既定行为，保持一致。
+顺序是 `Sign(this)` → 抄 `fieldName` / `NameStart` / `NameEnd` / `modifiers` / `ModifierSpans` / `ListStart` → `TryToClose()`。注意它**不抄 `LetType` 与两组解构名**（`LetType` 回到默认的 `Field`）——这是既定行为，保持一致。
 
 ```ts
 const result = new Let(this.Template);
@@ -235,6 +250,9 @@ result.NameStart = this.NameStart;
 result.NameEnd = this.NameEnd;
 result.modifiers = this.modifiers;
 result.ModifierSpans = this.ModifierSpans;
+// **派生的那一格照抄**（第 1078 轮，口径同第 1042 轮那一族）：克隆体与原体对同一段源码，
+// `modifiers` / `ModifierSpans` 既然逐字抄过来了，由它们算出的 `ListStart` 也必须是同一个数。
+result.ListStart = this.ListStart;
 result.TryToClose();
 return result;
 ```
@@ -506,6 +524,14 @@ const tailUnit = data[nameIndex];
 if (tailUnit !== undefined && tailUnit.SourceRange.End !== null) {
   letUnit.SignOut(tailUnit.SourceRange.End);
 }
+// **列表起点当场记进字段**（见 `ListStart`）：判据是同一趟 `unshift` 攒出来的那两串
+//（`modifiers` 与 `modifierSpans`，同序同长），所以答案在这里就能定下来——
+// 投影那边过去要现场拼一遍（`modifierStart`），本轮收成这一格的一处读法。
+// **写在 `SignIn` / `SignOut` 之后**：没有修饰词时答案就是本单元自己的起点，那是这一刻才签下的。
+letUnit.ListStart =
+  modifiers.length === 0 || modifierSpans.length === 0
+    ? letUnit.start
+    : Number((modifiers[0] === "await" ? modifierSpans[0] : modifierSpans[modifierSpans.length - 1]).split(":")[0]);
 // **头里那些注释在替换之前先收出来**（第 660 轮）：它们本来落在 `[start, nameIndex]` 这一段里，
 // 而那一段马上整段折成 `Let` ⇒ 不收就整个从树上消失。收法与 `switch` / `try` / `while`
 // 那一族打包规则**同一条**（`CommentsIn`），位置放在 `Let` 的右边（源序）。

@@ -74,14 +74,14 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**75 格声明**（`^# …(method|const)` 逐行数出来的实测值：71 个 `# method` +
+这是一份**纯函数库**：**74 格声明**（`^# …(method|const)` 逐行数出来的实测值：70 个 `# method` +
 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
 **这一栏的旧账与本轮实测差 2 格，如实记下**（第 1073 轮）：第 1062 轮起这里写的是
 「89 → 86 格」，而那一族往下逐轮减到「79 格」；第 1073 轮按上面那条命令逐行数出来是
-**77 格**（这一轮两处改动各删一格，落到 **75 格**）——差的头两格**不是这两轮改动带来的**
+**77 格**，第 1078 轮删掉 `modifierStart` 之后是 **74 格**——差的头两格**不是那两轮改动带来的**
 （第 1072 / 1073 只动调用点、说明与三格声明），最可能是早几轮的计数把某些行重复算了一次。
 所以从这一轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
 `Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
@@ -7109,9 +7109,10 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // 两种调用点递进来的都是**同一个东西**（一个 token），所以这里不再分接收者。
   const containerView = container;
   const letView = letNode === null ? containerView : (letNode);
-  // **`modifierStart` 不再要 `ctx`**（第 1052 轮）：它的位置只有一个来源——token 自己记的
-  // `modifierSpans`（见那一格），所以这一层不必把投影上下文递进去（形参表就是它需要什么）。
-  const listStart = modifierStart(letView);
+  // **列表起点直读 `letView.ListStart`**（第 1078 轮）：那一格是 `Let` 在**构造那一刻**
+  // 按自己的 `modifiers` / `ModifierSpans` 算好并显式声明的字段（见 `tokens/let.xl.md`），
+  // 所以投影这一侧只剩一次属性读。本页那一格 `modifierStart` 连同它唯一的那处调用一起删掉。
+  const listStart = letView.ListStart;
   // **声明名那一格直读 `letView.DeclaredName`**（第 1068 轮）：`fieldName` 是 `Let` 自己
   // `NameField` 回答的那一格事实，而「名字在哪、问不到看哪」两跳都收进了 token 那一页
   // （`core/syntax/token.xl.md` 的 `DeclaredName`）——投影这一侧只读一个字符串属性。
@@ -7423,36 +7424,16 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   return { kind: "ArrayBindingPattern", pos: from, end: from };
 ```
 
-# private method modifierStart:(v:any)=>int
-
-列表层的起点：**最后一个修饰词**的位置（`modifiers="export,const"` → `const` 在哪）。
-
-取不到时退回声明自己的起点（没有修饰词的情形，例如 `Let` 就从名字起）。
-
-**位置只有一个来源：token 记下的那一格**（`modifierSpans`，见 `modifierSpansOf`）。
-**第 1052 轮删掉了「回原文 `indexOf(修饰词)` 猜」那条退路**：`modifiers` 非空而这一格对不上，
-全语料一次都没发生——`modifiers` 与 `modifierSpans` 是**同一趟记下的两格**（`declaration-common.xl.md`
-的 `DeclarationModifiers` / `DeclarationModifierSpans` 走的是同一个判据、同一个顺序），
-所以「有词没位置」不是一种状态。投影里留着 `ctx.source.indexOf` 只会给坏输入留第二份答案
-（`@exported export class C {}` 里那个 `export` 会先命中的是装饰器里的同名文本）。
-
-```ts
-  const modifiers = v.modifiers;
-  if (typeof modifiers !== "string" || modifiers === "") return v.start;
-  const words = modifiers.split(",").filter((w) => w !== "");
-  if (words.length === 0) return v.start;
-  // **`await using x`**（第 151 轮）：`await` 与 `using` 都是**声明列表**的标志
-  // （TS 那边是 `VariableDeclarationList.flags = AwaitUsing`，两个词都**不是**语句修饰词），
-  // 所以列表要从 `await` 起。其余情形列表从**最后一个**修饰词起
-  // （`export const x` 的列表从 `const` 起，而语句从 `export` 起）。
-  // 实测 `decl-await-using-basic.ts` / `vars-await-using.ts`：列表起点差 6 格，
-  // 语句上还多出 `AwaitKeyword` / `UsingKeyword` 两个节点。
-  // **平行取位置**：`modifierSpans` 与 `modifiers` 同序同长，所以「列表起点」就是它第一格
-  // （`await using`）或最后一格（其余）——与上面取词的那两处**同序**，不是第二份判据。
-  const spans = modifierSpansOf(v);
-  if (spans.length === 0) return v.start;
-  return words[0] === "await" ? spans[0].pos : spans[spans.length - 1].pos;
-```
+**`modifierStart` 那一格第 1078 轮删掉了**（它原来就挂在这里，占第 7427~7456 行）：它回答的是
+「声明列表从哪里起」——`await using x` 从 `await` 起、其余从**最后一个**修饰词起，没有修饰词时
+退回本单元自己的起点。判据全是**被问的那一格自己的两格事实**（`modifiers` 与 `ModifierSpans`，
+解析期同一趟攒下、同序同长），所以按这一族一贯的口径（第 1041 / 1042 / 1057 / 1068 / 1069 那几条）
+它搬回了被问的那一页：`tokens/let.xl.md` 新增 `## field ListStart:int`，在 `LetBranch.Success`
+写下那两串的紧后面、`SignIn` / `SignOut` 之后当场赋好，`Clone` 照抄，投影这一侧只读一次属性。
+**它不是死代码**（`projectLetFrom` 有一个真实调用点）——所以删掉的是「投影层替 token 记第二遍
+这一格事实」，判据与第 1052 轮删掉「回原文 `indexOf(修饰词)` 猜」那条退路是同一条。
+`modifierSpansOf` **留着**：`addModifiers` 要的是**每个**修饰词各自的位置（不是首尾两格里的一个），
+而那一格事实（`ModifierSpans`）是各页自己声明的字段——要拆成一串区间仍得有一处解析。
 
 # private method projectSignedLiteralType:(v:any, ctx:any)=>any
 
@@ -8352,7 +8333,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 骗到（`@exported export class C {}` 里量出来的是 `exported` 里那一段，实测缺 `ExportKeyword` 1 + 多出 1）。
 它与 `modifierSpans` 是**同一趟记下的两格**（`declaration-common.xl.md` 的 `DeclarationModifiers`
 与 `DeclarationModifierSpans` 同判据、同顺序），所以「有词没位置」不是一种状态；
-全语料里那条退路一次都没走（见 `modifierStart` 那一节的读数）。
+全语料里那条退路一次都没走（见 `modifierSpansOf` 那一节与第 1078 轮搬走的 `ListStart`）。
 留一个零宽区间的兜底比留一条猜法更糟：它是**静默错值**（实测 `declare` 是 `TS[26,33)` 而零宽给 `[26,26)`，
 一份语料里几百处），而不是当场说不出来。
 
