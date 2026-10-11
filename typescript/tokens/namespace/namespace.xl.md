@@ -352,7 +352,7 @@ if (isStringName === false && nameParts.length > 1) {
     const segmentStart = nameStarts[partIndex];
     inner.SourceRange.Start = segmentStart === undefined ? outerStart : segmentStart;
     inner.SourceRange.End = outerEnd;
-    // **每一段名字自己那一格**（第 646 轮）：投影按 `nameRange` 直读文本区间，
+    // **每一段名字自己那一格**（第 646 轮；第 1081 轮起投影读的是 `NameSpan`）：直读文本区间，
     // 不再回原文 `indexOf(那一段)` 找（里层是从自己那一段起找的，往前找不到）。
     if (segmentStart !== undefined) {
       const segmentEnd = nameEnds[partIndex];
@@ -379,8 +379,8 @@ if (isStringName === false && nameParts.length > 1) {
 // **名字那一格的整段区间当场记下**（用户口径：token 出字段、投影直读）：
 // 那一段的起止就在 `nameStarts` / `nameEnds` 里，投影不再回原文 `indexOf` 找。
 // 平坦名就是唯一那段；点号名的外层记**第一段**（TS 那边 `namespace A.B` 的外层名字只有 `A`，
-// 里层各记自己那一段——见上面的创建循环）。投影的 `synthName` 直读 `nameRange`
-//（`namespace a.b.c` 全名在原文里根本不连续，`indexOf` 只会给错答案）。
+// 里层各记自己那一段——见上面的创建循环）。投影的 `synthName` 直读 `NameSpan`
+//（第 1081 轮起；`namespace a.b.c` 全名在原文里根本不连续，`indexOf` 只会给错答案）。
 if (isStringName === false && nameStarts.length > 0) {
   const firstEnd = nameEnds[0];
   if (firstEnd !== undefined && firstEnd !== null) {
@@ -510,7 +510,7 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 ## field NameEnd:int = -1
 
-与 `NameAt` 同进退的**终点**。投影按 `nameRange` 直读：开头是引号 ⇒ 取引号之间，
+与 `NameAt` 同进退的**终点**。投影按 `NameSpan` 直读：开头是引号 ⇒ 取引号之间，
 否则整格就是名字——不再回原文 `indexOf(名字)` 猜（点号名的全名在原文里根本不连续）。
 
 ## property NameField:string | undefined
@@ -536,7 +536,7 @@ return this.namespace === "" ? undefined : this.namespace;
 不覆写的话 `namespace` 根本进不了产物。
 
 **第 987 轮五补齐四处**（`nameAt` / `nameEnd` / `nameRange` / `modifierSpans`）：
-这几个键 投影一直在读（`synthName` 按 `nameRange` 推文本区间），
+这几个键 投影一直在读（`synthName` 按名字那一格推文本区间，第 1081 轮起那一格是 `NameSpan`），
 而 XML 从前没印。条件**逐字照抄** JSON 那侧（`NameAt >= 0 && NameEnd >= NameAt`；
 `modifierSpans` 只在非空时写）——同一件事在两处各写一个条件就是两份口径。
 
@@ -584,14 +584,19 @@ return this.NameAt;
 return this.NameEnd;
 ```
 
-## property nameRange:string
+## property NameSpan:Array<int>
 
-`nameRange` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
+**名字那一格的整段区间**（闭区间，`[起, 止]`）——字符串模块名含引号、`global` 是那个词自己、
+标识符名是**含点号的全长第一段**。没有名字格时给空数组（投影按「没有」处理）。
+
+**第 1081 轮从 `nameRange`（字符串）换成了这一格**：原来这里是 `"起,止"` 那串**产品格式**
+（XML 自己从 `NameAt` / `NameEnd` 两个 `## field` 印），投影拿到它还得拆一遍。
+现在它就是把**构造时那两格**（`NameAt` / `NameEnd`，认下名字那一刻赋好）读成一对数。
 
 ### get
 
 ```ts
-return this.NameAt + "," + this.NameEnd;
+return this.NameAt >= 0 && this.NameEnd >= this.NameAt ? [this.NameAt, this.NameEnd] : [];
 ```
 
 ## method CreateBody:()=>NamespaceBody

@@ -322,7 +322,9 @@ return index;
     if (headerAt < 0) {
       return undefined;
     }
-    statement = ctx.BodyBlockOf(headerAt + 1, body, v.bodyBraceRange);
+    // **体那一对花括号直读字段**（第 1081 轮起递的是那一格本身 `BodyBrace`，
+    // 不再是它印出来的 `"起,止"` 字符串——同一格事实只有一个来源）。
+    statement = ctx.BodyBlockOf(headerAt + 1, body, v.BodyBrace);
   }
   if (statement !== undefined) props.statement = statement;
   const awaitUnit = ctx.Kids(v).find(
@@ -359,20 +361,10 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 return this.Add(new ForeachDefine(this.Template));
 ```
 
-## property bodyBraceRange:string
-
-**体那一对花括号的整段区间**（闭区间，`"起,止"`）：投影画空 `Block` 时直读它，不再回原文重扫。
-段还没挂上或两头不齐时给空串——与搬掉字典之前「那一格不写这个键」同义（投影按空串处理）。
-
-### get
-
-```ts
-const braceRange = this.BodyBrace.Range;
-if (braceRange === null || braceRange.Start === null || braceRange.End === null) {
-  return "";
-}
-return braceRange.Start.Index + "," + braceRange.End.Index;
-```
+**`bodyBraceRange` 那一格第 1081 轮删掉了**（它原来就占这里）：它就是 `BodyBrace.Range` 印出来的
+`"起,止"`（闭区间），**那是产品格式**，而投影要的是构造时赋好的那一格 `BodyBrace`
+（`TokenField<number>`）。所以投影改成直读 `v.BodyBrace`（`print-ast-common` 的 `braceSpanOf`
+收的就是它），这一格连同它唯一的那处读法一起删掉。
 
 ## property Define:ForeachDefine
 

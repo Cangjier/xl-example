@@ -163,7 +163,8 @@ ifSet.MountCondition(source);
 
 **这一页的三处兜底都换成了「让开」**：`PrintDirectAst` 里三条回原文的路
 （头部 `)` 附近找 `;`、`else` 那一段里 `indexOf("if")`、空块找 `{` + 配对 `}`）
-各自都有**对应的那一格字段**（`emptyBodyAt` / `ifWordAt` / `bodyBraceRange`，第 657 / 634 / 637 轮）。
+各自都有**对应的那一格字段**（`emptyBodyAt` / `ifWordAt` / `BodyBrace`，第 657 / 634 / 637 轮；
+第三格那串 `"起,止"` 的 `bodyBraceRange` 第 1081 轮删掉了——投影直读 `IfSegment.BodyBrace`）。
 
 **让开必须发生在「一个节点都还没投」之前**（第 998 轮实测到的坑）：`ctx.Expression` /
 `ctx.BlockOfBody` 一调用就**记一次账**（`projectNode` 的 `count`），而让开之后 `PrintDirectAst`
@@ -194,10 +195,12 @@ ifSet.MountCondition(source);
     return kept;
   };
   // **只读字段的预判**（不投任何节点 ⇒ 不记账）：体段一个可见子单元都没有时，
-  // 那一格的位置只能来自字段（整对花括号 `bodyBraceRange` 或空语句 `emptyBodyAt`）。
+  // 那一格的位置只能来自字段（整对花括号 `BodyBrace` 或空语句 `emptyBodyAt`）。
+  // **第 1081 轮起读的是构造时那一格本身**（`TokenField<number>`，`IfSegment.CaptureBodyBrace`
+  // 在挂体那一刻记下）——不再是它印出来的 `"起,止"` 字符串（那是产品格式）。
   const hasSpan = (seg: any) => {
-    const range = seg.bodyBraceRange;
-    return typeof range === "string" && range.includes(",");
+    const brace = seg.BodyBrace;
+    return brace !== null && brace !== undefined && brace.IsSet === true;
   };
   const hasEmptyAt = (seg: any) => {
     const at = seg.emptyBodyAt;
@@ -234,7 +237,7 @@ ifSet.MountCondition(source);
     const expr = conditionOf(segments[index]);
     if (expr !== undefined) props.expression = expr;
     const thenBody = ctx.BlockOfBody(bodyOf(segments[index]),
-      segments[index].bodyBraceRange);
+      segments[index].BodyBrace);
     let emptyBodyEnd = -1;
     if (thenBody !== undefined) props.thenStatement = thenBody.node;
     else {
@@ -268,7 +271,7 @@ ifSet.MountCondition(source);
         end = inner.end;
       } else {
         const elseBody = ctx.BlockOfBody(bodyOf(segments[index + 1]),
-          segments[index + 1].bodyBraceRange);
+          segments[index + 1].BodyBrace);
         if (elseBody !== undefined) {
           props.elseStatement = elseBody.node;
           end = elseBody.end;
@@ -279,20 +282,22 @@ ifSet.MountCondition(source);
             props.elseStatement = { kind: "EmptyStatement", pos: rawElseEmpty, end: rawElseEmpty + 1 };
             end = rawElseEmpty + 1;
           } else {
-            // **空体（`else {}`）**：整对括号读 `BodyBraceRange`（第 637 轮，两端都在）。
+            // **空体（`else {}`）**：整对括号读构造时那一格 `BodyBrace`（第 637 轮那一族，两端都在）。
             // **第 1015 轮起空块也记得到**（`CaptureBodyBrace` 在找不到 `Bracket` 时改读
             // `IfBody` 自己的区间）⇒ 这一支只是兜底；真走到这里说明那一格事实又缺了。
-            const rawElseRange = segments[index + 1].bodyBraceRange;
-            const elseSpan =
-              typeof rawElseRange === "string" && rawElseRange.includes(",") ? rawElseRange.split(",") : null;
-            if (elseSpan !== null) {
+            const rawElseBrace = segments[index + 1].BodyBrace;
+            const elseRange =
+              rawElseBrace !== null && rawElseBrace !== undefined && rawElseBrace.IsSet === true
+                ? rawElseBrace.Range
+                : null;
+            if (elseRange !== null && elseRange !== undefined && elseRange.Start !== null && elseRange.End !== null) {
               props.elseStatement = {
                 kind: "Block",
                 statements: [],
-                pos: Number(elseSpan[0]),
-                end: Number(elseSpan[1]) + 1,
+                pos: elseRange.Start.Index,
+                end: elseRange.End.Index + 1,
               };
-              end = Number(elseSpan[1]) + 1;
+              end = elseRange.End.Index + 1;
             } else {
               return { node: null, end: 0 };
             }

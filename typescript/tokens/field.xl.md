@@ -934,22 +934,27 @@ const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierS
 return `<${name} range="${this.RangeOf()}" name="${this.fieldName}" modifiers="${this.modifiers}" nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"${atSpan}${spans}>${temp.join("")}</${name}>`;
 ```
 
-## property nameRange:string
+## property NameSpan:Array<int>
 
-**名字那一格的整段区间**（闭区间，`"起,止"`）：字符串名的引号也在里面——
-投影要问「这个名字是怎么写出来的」时直读它。没有名字格时给空串（投影按空串处理）。
+**名字那一格的整段区间**（闭区间，`[起, 止]`）：字符串名的引号也在里面——
+投影要问「这个名字是怎么写出来的」时直读它。没有名字格时给空数组（投影按「没有」处理）。
+
+**第 1081 轮从 `nameRange`（字符串）换成了这一格**：原来这里是 `"起,止"` 那串**产品格式**
+（XML 自己从 `NameAt.Range` 印），投影拿到它还得拆一遍——同一格事实的第二处答案。
+现在它就是把**构造时那一格**（`## field NameAt:TokenField<number>`，认下名字那一刻赋好）
+读成一对数，投影直读（用户口径 1.1~1.4：token 子类构造完，信息就齐）。
 
 ### get
 
 ```ts
 if (!this.NameAt.IsSet) {
-  return "";
+  return [];
 }
 const nameRange = this.NameAt.Range;
 if (nameRange === null || nameRange.Start === null || nameRange.End === null) {
-  return "";
+  return [];
 }
-return nameRange.Start.Index + "," + nameRange.End.Index;
+return [nameRange.Start.Index, nameRange.End.Index];
 ```
 
 ## property name:string

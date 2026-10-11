@@ -222,8 +222,9 @@ return index;
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
-**这一页差的只有格**：`emptyBodyAt` / `bodyBraceRange` / `headerCloseAt` 三格**早就在 token 上**
-（第 590 / 641 / 634 轮），`PrintDirectAst` 里唯一回原文的那一处是**头部 `)` 的兜底**
+**这一页差的只有格**：`emptyBodyAt` / `BodyBrace` / `headerCloseAt` 三格**早就在 token 上**
+（第 590 / 641 / 634 轮；那一串 `"起,止"` 的 `bodyBraceRange` 第 1081 轮删掉了，投影直读
+`BodyBrace` 那一格），`PrintDirectAst` 里唯一回原文的那一处是**头部 `)` 的兜底**
 （`ctx.MatchingParen(ctx.source, v.start)`）——直出版把这条兜底去掉：
 三格缺任意一格就**答 `undefined` 交回 `PrintDirectAst`**（与 `Lamda` / `Foreach` 那两处同一个约定，
 让开的范围小到一格，而且**次数是量得出来的**）。
@@ -241,14 +242,16 @@ return index;
     return ctx.NodeHead("WhileStatement", props, v);
   }
   // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
-  const rawBraceRange = v.bodyBraceRange;
+  // **第 1081 轮起递过去的就是那一格本身**（`BodyBrace`，不再是它印出来的 `"起,止"` 字符串）：
+  // 同一格事实只有一个来源，投影不必再拆一遍产品格式（见 `print-ast-common` 的 `braceSpanOf`）。
+  const rawBrace = v.BodyBrace;
   // **头部那个 `)` 也只有字段这一格事实**（第 634 轮）。字段缺了 ⇒ 不猜，交回 `PrintDirectAst`。
   const rawHeaderClose = v.headerCloseAt;
   const headerCloseAt = typeof rawHeaderClose === "number" ? rawHeaderClose : -1;
   if (headerCloseAt < 0) {
     return undefined;
   }
-  const statement = ctx.BodyBlockOf(headerCloseAt + 1, body, rawBraceRange);
+  const statement = ctx.BodyBlockOf(headerCloseAt + 1, body, rawBrace);
   if (statement !== undefined) props.statement = statement;
   return ctx.NodeHead("WhileStatement", props, v);
 ```
@@ -269,20 +272,11 @@ super(template);
 return this.Add(new WhileCompare(this.Template));
 ```
 
-## property bodyBraceRange:string
-
-**体那一对花括号的整段区间**（闭区间，`"起,止"`）：投影画空 `Block` 时直读它，不再回原文重扫。
-段还没挂上或两头不齐时给空串——与搬掉字典之前「那一格不写这个键」同义（投影按空串处理）。
-
-### get
-
-```ts
-const braceRange = this.BodyBrace.Range;
-if (braceRange === null || braceRange.Start === null || braceRange.End === null) {
-  return "";
-}
-return braceRange.Start.Index + "," + braceRange.End.Index;
-```
+**`bodyBraceRange` 那一格第 1081 轮删掉了**（它原来就占这里）：它把 `BodyBrace.Range` 印成
+`"起,止"`（闭区间）给投影拆——而**那个字符串是产品格式**（XML 直接用 `BodyBrace.Range` 印），
+投影要的就是构造时赋好的那一格 `BodyBrace`（`TokenField<number>`，挂体那一刻记下）。
+所以投影改成直读 `v.BodyBrace`（`print-ast-common` 的 `braceSpanOf` 收的就是它），
+这一格连同它唯一的那处读法（`PrintDirectAst` 里递给 `ctx.BodyBlockOf` 的实参）一起删掉。
 
 ## property children:Array<Token>
 

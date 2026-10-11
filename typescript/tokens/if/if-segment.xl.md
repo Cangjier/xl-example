@@ -391,15 +391,12 @@ return this.BodyBraceAt;
 return this.EmptyBodyAt;
 ```
 
-## property bodyBraceRange:string
-
-`bodyBraceRange` 这一格**由这一页自己声明**（第 1018 轮）：投影读的就是这一页自己的这一格。
-
-### get
-
-```ts
-return this.BraceRangeText();
-```
+**`bodyBraceRange` 那一格第 1081 轮删掉了**（它原来就占这里，读法只是 `this.BraceRangeText()`）：
+它就是 `BodyBrace.Range` 印出来的 `"起,止"`（闭区间），**那是产品格式**（本页 `ToXmlString`
+读的 `BraceRangeText()` 就是同一份，第 987 轮），而投影要的是构造时赋好的那一格 `BodyBrace`
+（`TokenField<number>`，`CaptureBodyBrace` 在挂体那一刻记下）。所以投影改成直读 `v.BodyBrace`
+（`print-ast-common` 的 `braceSpanOf` 收的就是它），这一格整格删掉——`BraceRangeText()` 留着，
+它是 XML 那一侧的产品格式。
 
 ## property condition:Array<Token>
 

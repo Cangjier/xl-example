@@ -953,7 +953,7 @@ Lambda 表达式。
 `PrintDirectAst` 会**回原文里找** `=>`。那正是直出版不许有的第二份近似 ⇒ 直出版答 `undefined`，
 交回 `PrintDirectAst` 走那一条（与基类「我没有直出版」同一个约定，只是让开的范围小到一格）。
 **其余全部直读字段**：箭头的两个字符宽度由「它占两个字符」这一事实给（不是回原文比一次），
-体的那对括号两端读 `BodyBrace` / `BodyBraceRange`。
+体的那对括号两端读 `BodyBrace`（第 1081 轮起不再读它印出来的 `bodyBraceRange`）。
 
 ```ts
   const props: any = ctx.Structural(v, "ArrowFunction");
@@ -977,12 +977,14 @@ Lambda 表达式。
     braced = true;
     braceAt = rawBodyBrace;
   }
-  const rawBodyBraceRange = v.bodyBraceRange;
-  if (typeof rawBodyBraceRange === "string" && rawBodyBraceRange.includes(",")) {
-    const bodyBraceSpan = rawBodyBraceRange.split(",");
-    const spanEnd = Number(bodyBraceSpan[1]);
-    if (Number.isInteger(spanEnd)) {
-      braceEnd = spanEnd + 1;
+  // **体那一对花括号的两端直读构造时那一格**（第 1081 轮）：`BodyBrace` 是 `TokenField<number>`，
+  // 挂体那一刻就赋好了——原来这里读的是它印出来的 `"起,止"` 字符串（`bodyBraceRange`）再拆一遍，
+  // 那是同一格事实的第二处答案（那串产品格式留给 XML）。
+  const rawBodyBraceField = v.BodyBrace;
+  if (rawBodyBraceField !== null && rawBodyBraceField !== undefined && rawBodyBraceField.IsSet === true) {
+    const braceRange = rawBodyBraceField.Range;
+    if (braceRange !== null && braceRange !== undefined && braceRange.End !== null) {
+      braceEnd = braceRange.End.Index + 1;
     }
   }
   const bodyUnits = ctx.KidsOf(v, "body");
@@ -1086,20 +1088,11 @@ super(Template);
 return this.Add(new LamdaParameters(this.Template));
 ```
 
-## property bodyBraceRange:string
-
-**体那一对花括号的整段区间**（闭区间，`"起,止"`）：投影画空 `Block` 时直读它，不再回原文重扫。
-段还没挂上或两头不齐时给空串——与搬掉字典之前「那一格不写这个键」同义（投影按空串处理）。
-
-### get
-
-```ts
-const braceRange = this.BodyBrace.Range;
-if (braceRange === null || braceRange.Start === null || braceRange.End === null) {
-  return "";
-}
-return braceRange.Start.Index + "," + braceRange.End.Index;
-```
+**`bodyBraceRange` 那一格第 1081 轮删掉了**（它原来就占这里）：它就是 `BodyBrace.Range` 印出来的
+`"起,止"`（闭区间），**那是产品格式**（XML 那一侧照旧从 `BodyBrace.Range` 印），而投影要的是
+构造时赋好的那一格 `BodyBrace`（`TokenField<number>`）。所以这一页读那对括号的仅有两处
+（`PrintDirectAst` 里算 `braceEnd`、`PrintDirectAst` 那一支的 `Block` 两端）都改成直读那一格，
+这一格整格删掉。
 
 ## property children:Array<Token>
 

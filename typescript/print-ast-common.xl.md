@@ -79,11 +79,12 @@ import { Identifier } from "./tokens/identifier.xl.md"
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
-**这一栏的旧账与实测差 2 格，如实记下**（第 1073 轮起、第 1080 轮复核）：第 1062 轮起这里写的是
+**这一栏的旧账与实测差 2 格，如实记下**（第 1073 轮起、第 1081 轮复核）：第 1062 轮起这里写的是
 「89 → 86 格」，而那一族往下逐轮减到「79 格」；照上面那条命令逐行数：
 第 1073 轮是 **77 格**、第 1077 轮（动声明之前）是 **73 格**、第 1078 轮删掉 `modifierStart`
 之后是 **72 格**、第 1079 轮删掉 `modifierSpansOf` 之后是 **71 格**、第 1080 轮就地展开
-`typeMemberGroups` 与 `specifierNameOf` 之后是 **69 格**
+`typeMemberGroups` 与 `specifierNameOf` 之后是 **69 格**、第 1081 轮（只改形参与方法体、
+一格声明没增没减）**仍是 69 格**
 ——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 所以从这一轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
@@ -531,7 +532,39 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
   `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**81 → 80 格**（`computedNameUnit` 一格搬进调用点；
-  另外五格删的是 `ctx` 出口，宿主声明都还在）。
+  另外五格是删掉 `ctx` 出口，宿主声明都还在）。
+
+**第 1081 轮收的是「投影拿 token 印出来的产品格式当输入」这一族**（用户口径 1.1~1.4：
+token 子类**构造完**，信息就得齐；要读的那一格由**具体页显式声明**、且**构造时**赋好）。
+本页原来拆两串 `"起,止"`——`braceSpanOf` 一处拆**名字那一格**、一处拆**体那一对花括号**，
+而**两串都是产品格式**（XML 那一侧直接用构造时那两格印，页内也自己从同一格拼），
+投影拿它再拆一遍就是**同一格事实的第二处答案**：
+
+| 原来拆的那一串 | 今天读的那一格（哪一页声明、什么时候赋） |
+| --- | --- |
+| `v.nameRange`（`"起,止"`） | `v.NameSpan:Array<int>` —— `Field` / `Namespace` **各自显式声明**（`## property`，读的是构造时那两格：`Field.NameAt:TokenField<number>`、`Namespace.NameAt` + `NameEnd`） |
+| `v.bodyBraceRange`（`"起,止"`） | `v.BodyBrace:TokenField<number>` —— `While` / `For` / `Foreach` / `DoWhile` / `IfSegment` / `Lamda` **各自早就显式声明**、挂体那一刻赋好 |
+
+- **一格新声明都没有**：`BodyBrace` 六页本来就有（第 641 轮那一族），`NameSpan` 是那两页原来
+  `nameRange` 那一格的**换形**（字符串 → 一对数，声明数 1 → 1）——只是不再经过产品格式。
+  `braceSpanOf` 因此只剩**一个**读者口径（体那一对花括号），它的形参从字符串改成
+  `BodyBrace` 那一格自己；`bodyBlockOf` / `blockOfBody` 的第四个形参、`ctx.BodyBlockOf` /
+  `ctx.BlockOfBody` 两个出口跟着改收那一格（**出口名字与条数一格没动**）。
+- **删掉的字符串格**：六页的 `## property bodyBraceRange:string` + 两页的
+  `## property nameRange:string`，共 **8 格**（`if-segment` 那一格只是 `BraceRangeText()` 的转手，
+  而那个方法**留着**——它是 XML 那一侧的产品格式）。
+- **中途量到一个真问题并修掉（这一轮最值得记的一句）**：先把 `braceSpanOf` 收成只认
+  `TokenField`、只改了「体」那三处调用，**名字那一处还在递字符串** ⇒ `brace.IsSet` 恒不是 `true`
+  ⇒ 名字区间整格落空 ⇒ `namespace N { … }` 投出来**没有 `name`**、降级层当场报
+  `unimplemented: namespace declaration without a name`（`runtime:check` 1 条红、`coverage`
+  4261 → 4180）。所以**同一条口径必须一次收干净**：名字那一半（`Field` / `Namespace` 的 `NameSpan`）
+  与体那一半在同一轮里一起改，改名之后八道门立刻回到基线读数。
+- **实测**：`xl check` 10 个文件 0 条；`xl build --force`（`core` / `typescript` / `runtime` /
+  `typescript-exec`）**180 个产物** / 0 error、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 30.1s），
+  读数与基线逐项相同：`coverage` **4261 / 4422**（`blocked 28` / `differ 133` / `bad 0`、
+  加权 95.7%）、`cases:tsast` 3 条已知缺口、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**69 → 69 格**（这一轮只改形参与方法体，一格声明没增没减）。
 
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
@@ -864,11 +897,11 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 三级兜底**一级都没进过**（读数里没有它们的标签）。所以「字段那条路」不是在**多数时候**替掉
 这套近似，而是**完全替掉了**：留着一个不走的兜底，等于给「回原文猜」留一条路，
 而那条路只会在坏输入上给出**第二份答案**（名字的首字母落在修饰词里、注释里有同样的词）。
-删掉之后本函数的形状只剩三句：空名 ⇒ `undefined`；`nameRange` 在 ⇒ 按它推；
+删掉之后本函数的形状只剩三句：空名 ⇒ `undefined`；`NameSpan` 在 ⇒ 按它推；
 `nameStart` / `nameEnd` 在 ⇒ 直读——都不在就 `undefined`（这一格没带位置，不替它近似）。
 
-**字符串名那一档**（`"a-b" = 2`）走的是第一条：`nameRange` 是**含引号**的整段区间，
-开头是引号 ⇒ 文本在引号之间。
+**字符串名那一档**（`"a-b" = 2`）走的是第一条（那一格第 645 轮叫 `nameRange`、第 1081 轮换成
+一对数的 `NameSpan`）：它是**含引号**的整段区间，开头是引号 ⇒ 文本在引号之间。
 
 ```ts
   // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
@@ -884,13 +917,17 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   const nameText = Translate.DecodeIdentifierEscapes(name);
   const nameKind = v.NameKind === "PrivateIdentifier" ? "PrivateIdentifier" : "Identifier";
   if (name === "") return undefined;
-  // **名字那一格的整段区间**（`nameRange`，第 645 轮）：闭区间 `"起,止"`、**引号也在里面**——
-  // 与 `bodyBraceRange` 同一形状。有它就能**按那一格自己**推出文本区间：
+  // **名字那一格的整段区间**（`NameSpan`，第 645 / **1081** 轮）：闭区间 `[起, 止]`、
+  // **引号也在里面**。有它就能**按那一格自己**推出文本区间：
   // 开头是引号 ⇒ 引号名，文本在引号之间；否则整格就是文本。
   // **这是「token 出字段、投影直读」那一格**：`Namespace` 的字符串模块名、`Field` 的字符串名
   // 都从这里出——它们原先只能回原文 `indexOf(名字文本)` 猜，而带转义的名字 `indexOf` 根本找不到。
-  const unitSpan = braceSpanOf(v.nameRange);
-  if (unitSpan !== null) {
+  // **第 1081 轮起这一格自己就是一对数**（`Field` / `Namespace` 各自显式声明的那一格
+  // `## property NameSpan:Array<int>`，读的都是**构造时**记下的 `NameAt` / `NameAt`+`NameEnd`）：
+  // 从前它是 `"起,止"` 那串**产品格式**（`nameRange`），投影拿到它还得拆一遍——
+  // 同一格事实的第二处答案（用户口径 1.1~1.4：token 子类构造完，信息就齐）。
+  const unitSpan = v.NameSpan;
+  if (Array.isArray(unitSpan) && unitSpan.length === 2) {
     const head = ctx.source[unitSpan[0]];
     const quoted = head === '"' || head === "'";
     const pos = quoted ? unitSpan[0] + 1 : unitSpan[0];
@@ -903,7 +940,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // 闭区间下标）。它在构造时就赋好了，所以这里**不做任何猜测**。
   // **第 1051 轮把「猜」的那一段整段删掉了**：原来下面还有一套补偿——推过修饰词、推过装饰器、
   // 再回原文 `indexOf(名字)` 搜一遍——量出来**一次都没走**（全语料 2051 份、本函数被调 160491 次，
-  // 三个出口的计数是 `nameRange` 21373 / `nameStart` 32124 / 空名 53497，兜底 0 处）。
+  // 三个出口的计数是 `NameSpan` 21373 / `nameStart` 32124 / 空名 53497，兜底 0 处）。
   // 留在投影里就是给「回原文猜」留一条路，而那条路只会在坏输入上给出**第二份答案**；
   // 记不到位置就是 `undefined`——这一格**根本没带名字的位置**，不必替它近似一个。
   const start = v.nameStart;
@@ -8206,7 +8243,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   }
   // **点号模块名只取第一段**（`namespace A.B.C` 外层的名字是 `A`——TS 那边是
   // `ModuleDeclaration(A) > ModuleDeclaration(B) > …`）：那一段的区间由 `Namespace`
-  // 重组时记进 `nameRange`，这里直读。只有 `namespace` 这一个属性会带点号
+  // 重组时记进 `NameAt` / `NameEnd`（第 1081 轮起投影读的就是它的那一格 `NameSpan`），这里直读。
+  // 只有 `namespace` 这一个属性会带点号
   // （引号名 `"a.b"` 走的是别的属性），所以按它分流不会误伤。
   // **这一点名字也只读那一格**（第 1068 轮）：`namespace` 是 `Namespace` / `Import` / `Export`
   // 三页 `NameField` 回答的那一格事实，而 `DeclaredName` 已经把它与上面那个 `rawName`
@@ -8865,33 +8903,38 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return props;
 ```
 
-# private method braceSpanOf:(raw:any)=>any
+# private method braceSpanOf:(brace:any)=>any
 
-把 token 记下的**整对花括号**（各页自己声明的那一格 `bodyBraceRange`，`"起,止"` 闭区间）
-读成 `[起, 止]`；没记过 / 记坏了给 `null`。
+把 token 记下的**整对花括号**读成 `[起, 止]`（闭区间）；没记过给 `null`。
 
-**为什么要这一格**（用户口径：token 出字段、投影直读）：`IfSegment.BodyBrace`（第 637 轮）
-与 `Try.TryBrace` 的写法一样——**挂体那一刻那个 `Bracket` 就在手上** ⇒ 两端都是**事实**。
-投影原来只能回原文找 `{` 再 `MatchingBrace` 扫一遍，那一趟会被块里的字符串或注释里的
-假括号骗到（`if (a) { s = "{" }` 就是它）。
+**第 1081 轮起收的是各页自己显式声明的那一格 `BodyBrace`**（`## field BodyBrace:TokenField<number>`，
+**挂体那一刻**就赋好了：`While` / `For` / `Foreach` / `DoWhile` / `IfSegment` / `Lamda` 六页
+同一条口径、同一个类型）。原来这里收的是一个 `"起,止"` 字符串（六页各自那一格 `bodyBraceRange`），
+而那个字符串**是产品格式**（XML 直接拿 `BodyBrace.Range` 印它，页内也自己从同一格拼出来），
+投影拿它再拆一遍就是**同一格事实的第二处答案**——所以那六格 `bodyBraceRange` 整格删掉，
+投影直读构造时赋好的那一格（用户口径 1.1~1.4：token 子类构造完，信息就齐）。
+
+**为什么要这一格**（用户口径：token 出字段、投影直读）：**挂体那一刻那个 `Bracket` 就在手上**
+⇒ 两端都是**事实**。投影原来只能回原文找 `{` 再 `MatchingBrace` 扫一遍，那一趟会被块里的
+字符串或注释里的假括号骗到（`if (a) { s = "{" }` 就是它）。
 
 ```ts
-  if (typeof raw !== "string" || raw.includes(",") === false) return null;
-  const parts = raw.split(",");
-  if (parts.length !== 2) return null;
-  const start = Number(parts[0]);
-  const end = Number(parts[1]);
-  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) return null;
-  return [start, end];
+  if (brace === null || brace === undefined || brace.IsSet !== true) return null;
+  const range = brace.Range;
+  if (range === null || range === undefined || range.Start === null || range.End === null) return null;
+  return [range.Start.Index, range.End.Index];
 ```
 
-# private method bodyBlockOf:(from:int, kids:Array<any>, ctx:any, braceRange:string = "")=>any
+# private method bodyBlockOf:(from:int, kids:Array<any>, ctx:any, brace:any = null)=>any
 
 **循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
 
-**判据只有一条：token 记下的整对花括号**（第 641 轮，`braceRange` = 各页自己声明的那一格
-`bodyBraceRange`）：`While.BodyBrace` 在挂体那一刻就把那对括号记下了，
+**判据只有一条：token 记下的整对花括号**（第 641 轮，`brace` = 各页自己显式声明的那一格
+`BodyBrace`，构造时赋好）：`While.BodyBrace` 在挂体那一刻就把那对括号记下了，
 有它 ⇒ TS 那边就是一个 `Block`（**空块也在内**）。
+
+**第 1081 轮起这个形参收的是那一格 `BodyBrace` 本身**（`TokenField<number>`），
+不再是它印出来的 `"起,止"` 字符串——同一格事实只有一个来源（见本文件 `braceSpanOf` 那一节）。
 
 **第 1059 轮把「没有字段就回原文找 `{` 再配对扫一遍」那一支整段删掉了**：四个循环体早就各自
 记了这一格（`While` / `For` / `Foreach` / `DoWhile`），而**克隆体也照抄**（第 598 / 618 / 619 /
@@ -8904,7 +8947,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
   //（`While.BodyBrace` 的 `CaptureBodyBrace` 那一处就是这个条件），
   // 所以有它 ⇒ TS 那边就是一个 `Block`——空块那一档（`while (c) {}`）也一并落在这里。
-  const knownBrace = braceSpanOf(braceRange);
+  const knownBrace = braceSpanOf(brace);
   if (knownBrace !== null) {
     return { kind: "Block", statements: projections, pos: knownBrace[0], end: knownBrace[1] + 1 };
   }
@@ -8923,14 +8966,14 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return { kind: "Block", statements: projections, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
 ```
 
-# private method blockOfBody:(kids:Array<any>, ctx:any, braceRange:string = "")=>any
+# private method blockOfBody:(kids:Array<any>, ctx:any, brace:any = null)=>any
 
 一个段的体 → `Block`（或没有花括号时的单条语句）。
 
-**判据只有一条：token 记下的整对花括号**（第 641 轮，`braceRange` = 各页自己声明的那一格
-`bodyBraceRange`）：`IfSegment.BodyBrace` 在挂体那一刻就把那对括号记下了，
+**判据只有一条：token 记下的整对花括号**（第 641 轮，`brace` = 各页自己显式声明的那一格
+`BodyBrace`，构造时赋好）：`IfSegment.BodyBrace` 在挂体那一刻就把那对括号记下了，
 有它就**直接**是那个 `Block`（空块 `if (a) {}` 也在内，第 1015 轮起连 `Bracket` 找不到的那种
-也记得到）。
+也记得到）。**第 1081 轮起这个形参收的就是那一格本身**（不再是它印出来的 `"起,止"` 字符串）。
 
 **第 1059 轮把「没有字段就回原文猜」那三支整段删掉了**：它们分别猜「体里只有注释的块」、
 「空块」、「第一个语句往回找 `{`」——三支都靠 `matchingBrace` 扫原文，而今天
@@ -8946,7 +8989,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
   //（`CaptureBodyBrace` / `Try` 那两处都是这个条件），所以有它 ⇒ TS 那边就是一个 `Block`，
   // 连空体那一档（`if (a) {}`）也一并落在这里。
-  const known = braceSpanOf(braceRange);
+  const known = braceSpanOf(brace);
   if (known !== null) {
     return {
       node: { kind: "Block", statements: projections, pos: known[0], end: known[1] + 1 },
@@ -9480,7 +9523,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // ——「本页只在别处用它」这件事按上面的判据不算删的理由。
     StatementOfList: (list) => statementOfList(list, ctx),
     Nothing: NOTHING,
-    BodyBlockOf: (from, list, braceRange) => bodyBlockOf(from, list, ctx, braceRange),
+    BodyBlockOf: (from, list, brace) => bodyBlockOf(from, list, ctx, brace),
     // **`IndexBracketOf` 那个出口第 1060 轮删掉了**：下标那个 `[` 是 `IndexedAccessType`
     // 自己造出来那一刻的事实（`IndexBracketAt`），所以那一页直接读自己的属性——
     // 投影层不再有「回原文按深度配对方括号」的第二处答案。
@@ -9505,7 +9548,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 名字补进了 `direct:lint` 的 `CTX_BANNED`，写回来这一门当场红。
     TypeOf: (list) => typeOf(list, ctx),
     FunctionTypeProps: (kids) => functionTypeProps(kids, ctx),
-    BlockOfBody: (list, braceRange) => blockOfBody(list, ctx, braceRange),
+    BlockOfBody: (list, brace) => blockOfBody(list, ctx, brace),
     SwitchClause: (seg) => projectSwitchClause(seg, ctx),
     BindingPattern: (unit) => projectBindingPattern(unit, ctx),
     ComputedNameExpression: (unit) => computedNameExpression(unit, ctx),

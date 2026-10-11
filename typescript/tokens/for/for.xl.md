@@ -273,7 +273,8 @@ C 风格 `for` 语句单元。
 但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
-**这一页差的只有一格**：`bodyBraceRange` / `emptyBodyAt` **早就在 token 上**（第 641 / 590 轮），
+**这一页差的只有一格**：`BodyBrace` / `emptyBodyAt` **早就在 token 上**（第 641 / 590 轮；
+那一串 `"起,止"` 的 `bodyBraceRange` 第 1081 轮删掉了，投影直读 `BodyBrace` 那一格），
 `PrintDirectAst` 里回原文的那一段是**空体语句 `for (…);` 的最后一招**——
 拿头部 `)` 之后再扫一遍空白找那个 `;`（`ctx.source` + `ctx.MatchingParen`）。
 直出版把这一招去掉：体段既非块、`emptyBodyAt` 又没记过时**答 `undefined` 交回 `PrintDirectAst`**
@@ -292,7 +293,8 @@ C 风格 `for` 语句单元。
   if (next.length > 0) props.incrementor = ctx.Expression(next);
   const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible);
   // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
-  const built = ctx.BlockOfBody(body, v.bodyBraceRange);
+  // **第 1081 轮起递过去的就是那一格本身**（`BodyBrace`，不再是它印出来的 `"起,止"` 字符串）。
+  const built = ctx.BlockOfBody(body, v.BodyBrace);
   if (built !== undefined) {
     props.statement = built.node;
   }
@@ -326,20 +328,10 @@ super(template);
 return this.Add(new ForInitial(this.Template));
 ```
 
-## property bodyBraceRange:string
-
-**体那一对花括号的整段区间**（闭区间，`"起,止"`）：投影画空 `Block` 时直读它，不再回原文重扫。
-段还没挂上或两头不齐时给空串——与搬掉字典之前「那一格不写这个键」同义（投影按空串处理）。
-
-### get
-
-```ts
-const braceRange = this.BodyBrace.Range;
-if (braceRange === null || braceRange.Start === null || braceRange.End === null) {
-  return "";
-}
-return braceRange.Start.Index + "," + braceRange.End.Index;
-```
+**`bodyBraceRange` 那一格第 1081 轮删掉了**（它原来就占这里）：它就是 `BodyBrace.Range` 印出来的
+`"起,止"`（闭区间），**那是产品格式**（XML 直接读 `BodyBrace.Range` 印），而投影要的是构造时
+赋好的那一格 `BodyBrace`（`TokenField<number>`）。所以投影改成直读 `v.BodyBrace`
+（`print-ast-common` 的 `braceSpanOf` 收的就是它），这一格连同它唯一的那处读法一起删掉。
 
 ## property children:Array<Token>
 
