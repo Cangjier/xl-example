@@ -69,7 +69,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：85 格声明（`# const` / `# method`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：83 格声明（`# const` / `# method`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
@@ -347,6 +347,27 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   **自验**（`tmp/r1063-probe.mjs`，不进仓库）：两种写法各写回一处，这一门**每种 0 → 1**、
   退出码 1；源文件逐字节还原。
 - **本页的声明数**：**86 → 85 格**。
+
+**第 1064 轮收掉的是两格「从这一格自己的属性读出来」的小判据**（同一句话的第三种写法：
+不是「我是什么类」、也不是「按文本查词」，而是**「我自己记着的那一格」**）：
+
+| 原来的现场判据 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `flagsOf(v)`（读 `v.modifiers` 那串词，映射成 `Const` / `None` / `Let` / `Using` / `AwaitUsing`） | `letView.DeclarationListFlags` | `Let`（`## property` + `### get`，算的就是**本页自己的 `modifiers`**） |
+| `labelIsFlat(node)`（`kidsOf(node,"children").length === 0`） | `node.HasChildren` | 基类 `Token`（`## property` + `### get`，读的是**这一格自己的 `children`**——与投影那个读取口同一处、同一个 `instanceof Token` 过滤） |
+
+- **两格都是 `## property` + `### get`，理由与第 1063 轮同一条**：`modifiers` 与 `children`
+  都是**解析期陆续写上去**的，「现在是几」只能在**读的那一刻**看一次；写成构造时赋的
+  `## field` 就是同一格事实的第二份、而且会停在那一刻的答案上。
+- **判据跟着长**：`direct:lint` 第八条那一族多认两个名字（`DeclarationListFlags` 配别名
+  `flagsOf`、`HasChildren` 配别名 `labelIsFlat`）。**自验**（`tmp/r1064-probe.mjs`，不进仓库）：
+  两种老问句各写回一处，这一门**每种 0 → 1**、退出码 1；源文件逐字节还原。
+- **实测**：`xl check typescript core` 0 条；`xl build typescript core` **3 个产物** / 0 error
+  （`token` / `print-ast-common` / `let`）、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 29.9s），
+  读数与基线逐项相同：`coverage` **4260 / 4422**、`cases:tsast` 3 条已知缺口、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**85 → 83 格**（`flagsOf` / `labelIsFlat` 各一格）。
 
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
@@ -1289,9 +1310,9 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     // 连续多个标签（`a: b: for`）从右往左套：最外层是第一个标签。
     // **只认「还没包住语句」的标签**（第 929 轮）：`Label` 现在**包住**它标的那条语句
     // （`Statement.AbsorbLabels` 折的），那一格由标签自己的 `PrintDirectAst` 出形状；
-    // 这一支留下来管**老形状**（标签与被标语句是平级兄弟，`labelIsFlat` 为真）。
+    // 这一支留下来管**老形状**（标签与被标语句是平级兄弟，`HasChildren` 为假）。
     // 少了这个条件，包好的标签会去跟**后面那条平级语句**合并（整棵被标的子树丢掉）。
-    if (items[i].Tag === "Label" && labelIsFlat(items[i])) {
+    if (items[i].Tag === "Label" && items[i].HasChildren === false) {
       const labels = [];
       let j = i;
       while (j < items.length && items[j].Tag === "Label") {
@@ -1657,7 +1678,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // ⇒ 当场无限递归（实测 `Maximum call stack size exceeded`）。
   // 这一格要的是**语句**那一套口径，而 `projectStatement` 正是它 —— 把标签自己的子单元
   // 当成平铺的一串交回 `statementOfList`（与下面平级那一支**同一份实现**），再套上标签。
-  if (headType === "Label" && labelIsFlat(head) === false) {
+  if (headType === "Label" && head.HasChildren) {
     const body = statementOfList(kidsOf(head, "children"), ctx);
     if (body !== undefined) {
       return labeled(head, body);
@@ -1675,7 +1696,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // **只认「还没包住语句」的标签**（第 929 轮，与 `projectEach` 那一支同一句）：
   // 包好的标签是**一个**单元（`kids.length === 1`），由它自己的 `PrintDirectAst` 出形状；
   // 这一支管的是老形状（标签 + 被标语句平级，`kids.length >= 2`）。
-  if (headType === "Label" && kids.length >= 2 && labelIsFlat(head)) {
+  if (headType === "Label" && kids.length >= 2 && head.HasChildren === false) {
     const labels = [];
     let at = 0;
     while (at < kids.length && kids[at].Tag === "Label") {
@@ -6766,7 +6787,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 
 名字那一格是**唯一**一个名字单元 / 模式括号（`for (const [a, b] of xs)`），
 按形态分派给 `nameOf` / `projectBindingPattern`；列表的标志位从头顶那个词读
-（`flagsOf` 读的是 `modifiers` 属性，这一档没有那个属性）。
+（`DeclarationListFlags` 读的是 `modifiers` 属性，这一档没有那个属性）。
 
 **名字那一格的判据与 `IsNameNode` 同一条**（第 598 轮）：`Keyword` 也算名字 不是风格问题——
 `for (const set of xs)` 里那个 `set` 会被 `KeywordCloseRule` 升成 `<Keyword>set</Keyword>`
@@ -6956,7 +6977,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   const list = {
     kind: "VariableDeclarationList",
     declarations,
-    flags: flagsOf(letView),
+    flags: letView.DeclarationListFlags,
     pos: listStart,
     end: listEnd,
   };
@@ -7213,21 +7234,6 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   const spans = modifierSpansOf(v);
   if (spans.length === 0) return v.start;
   return words[0] === "await" ? spans[0].pos : spans[spans.length - 1].pos;
-```
-
-# private method flagsOf:(v:any)=>int
-
-```ts
-  const modifiers = String(v.modifiers ?? "");
-  const words = modifiers.split(",");
-  // **显式资源管理声明是列表自己的标志位**（第 655 轮）：`using x = f()` 是 `Using`、
-  // `await using x = g()` 是 `AwaitUsing`——它们不是 `Let`。
-  // 这一格过去只有 `Const` / `None` / 其余全是 `Let` 三支，`using` 静默落进 `Let`
-  //（`modifiers` 里那两个词**解析期就已经记下了**，是投影这一支没读）。
-  if (words.includes("using")) return words.includes("await") ? "AwaitUsing" : "Using";
-  if (words.includes("const")) return "Const";
-  if (words.includes("var")) return "None";
-  return "Let";
 ```
 
 # private method projectSignedLiteralType:(v:any, ctx:any)=>any
@@ -9031,21 +9037,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 
 ```ts
   return allKids(v).filter((k) => !k.IsInvisible);
-```
-
-# private method labelIsFlat:(node:any)=>bool
-
-这一格标签**还没有包住**被它标的语句（老形状：标签与被标语句是平级兄弟）。
-
-第 929 轮起 `Statement.AbsorbLabels` 会把被标的语句**搬进标签**里
-（`<Label label="outer"><While>…</While></Label>`，与 TS 的 `LabeledStatement` 同形），
-于是「标签 + 右边那一格」那两处合并补丁（`projectEach` / `projectStatement`）**只在
-老形状上**才该生效——包好的标签是一个单元、由 `Label.PrintDirectAst` 自己出形状。
-
-判据就是「它有没有子单元」（与「叶子才自闭合」那一份同源）。
-
-```ts
-  return kidsOf((node), "children").length === 0;
 ```
 
 # private method statementOfList:(list:Array<any>, ctx:any)=>any

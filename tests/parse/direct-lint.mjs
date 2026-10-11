@@ -617,11 +617,20 @@ for (const file of files) {
  * `SymbolToken.RankOfText` 是按文本问的那一处）。**这一门因此也认「按文本查词」的问句形态**：
  * 主名 `OperatorRank`（属性名，`ctx.OperatorRank` 那种出口写法照认）加别名 `operatorRank`
  * （老问句的小写形态）。
+ *
+ * **第 1064 轮再补两格**：`DeclarationListFlags`（别名 `flagsOf`）与 `HasChildren`
+ * （别名 `labelIsFlat`）——两问都是从**这一格自己的属性**读出来的（前者读 `Let.modifiers`、
+ * 后者读基类 `children`），所以它们同样只许属性读。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
-/** **别名**（与全名一样是「回投影层问一遍」）：第 1057 轮的缩写，以及第 1063 轮那一格的小写问句。 */
-const CLASSIFY_ALIASES = { isDotSymbol: ["isDot"], OperatorRank: ["operatorRank"] };
+/** **别名**（与全名一样是「回投影层问一遍」）：第 1057 轮的缩写，以及后几轮那些格的老问句写法。 */
+const CLASSIFY_ALIASES = {
+  isDotSymbol: ["isDot"],
+  OperatorRank: ["operatorRank"],
+  DeclarationListFlags: ["flagsOf"],
+  HasChildren: ["labelIsFlat"],
+};
 /** 把一组问句名铺成一条或起来的分支（主名 + 缩写）。 */
 const classifyAlternation = (predicates) =>
   predicates.flatMap((name) => [name, ...(CLASSIFY_ALIASES[name] ?? [])]).join("|");
@@ -633,6 +642,8 @@ const SELF_CLASSIFY_NAMES = [
   "IsPrefixOperatorUnit",
   "IsTypeParameterModifier",
   "OperatorRank",
+  "DeclarationListFlags",
+  "HasChildren",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,

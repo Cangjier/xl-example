@@ -117,6 +117,27 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 这一支的修饰词是 `LetBranch.Success` 逐个 `unshift` 攒起来的（不是一段连续区间），所以位置也在
 同几处顺手记下——来由与 `Class.ModifierSpans` 同一条：修饰词不进 `Data`，位置只有那一刻知道。
 
+## property DeclarationListFlags:string
+
+**我这一格是哪一种声明列表**（第 1064 轮）：TS 那边 `VariableDeclarationList.flags` 的那个词
+——`Const` / `None`（`var`）/ `Let` / `Using` / `AwaitUsing`。
+
+判据是**这一页自己的 `modifiers`**（解析期就记下的那一串），所以由这一页答：
+投影那一层过去有一个 `flagsOf(v)` 现场判据（`print-ast-common.xl.md`），它读的正是
+`v.modifiers` —— 同一格事实的第二处读法。
+**`using` / `await using` 也是列表的 flags、不是 `Let`**（第 655 轮）：它们不是声明关键字，
+`modifiers` 里那两个词本来就是解析期记下的，只是投影那一支没读。
+
+### get
+
+```ts
+  const words = String(this.modifiers).split(",");
+  if (words.includes("using")) return words.includes("await") ? "AwaitUsing" : "Using";
+  if (words.includes("const")) return "Const";
+  if (words.includes("var")) return "None";
+  return "Let";
+```
+
 ## property NameField:string | undefined
 
 **这一格自己的名字**（第 1006 轮）：名字就在本页的 `fieldName` 字段上，所以由这一页回答——

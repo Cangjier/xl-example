@@ -1245,6 +1245,28 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 判据是**我这一格自己的正文**，所以由 `Keyword` / `Identifier` 两页各自答；过去它是投影层的
 一个现场判据（`isTypeParameterModifier`：比 `Tag` 再回原文读文本）。
 
+## property HasChildren:bool
+
+**我这一格下面还有没有实义子单元**（第 1064 轮）：有就答 `true`。
+
+判据就是**这一格自己的 `children`**（`Data` 里那些 —— 与投影 `kidsOf(v, "children")`
+同一处、同一个 `instanceof Token` 过滤），所以它由基类一处答、每个单元自动就位，
+不必由投影拿着某一格去数它的子单元。`Label` 那一族用它判「标签有没有包住被它标的语句」
+（第 929 轮 `Statement.AbsorbLabels` 把被标的语句搬进标签里之后就不是平级兄弟了）。
+
+**为什么它是 `## property` + `### get`**：子单元是**解析期陆续挂上来**的，
+所以「我现在有几个」只能在**读的那一刻**看一次 `children`（与 `Token.Text` /
+`SymbolToken.OperatorRank` 同一形态）；写成构造时赋的 `## field` 会停在那一刻的答案上。
+
+### get
+
+```ts
+for (const one of this.children) {
+  if (one instanceof Token) return true;
+}
+return false;
+```
+
 ## property OperatorRank:int
 
 **我这一格作为运算符的优先级**（第 1063 轮）——**数字越小越松**，不是运算符的给 `7`。
