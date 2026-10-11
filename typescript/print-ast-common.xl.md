@@ -1028,6 +1028,51 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 - **本页的声明数**：**64 格**（一格声明没增没减：新立的两格都在别的页与基类；
   本页 54 处改的是读数算式）。
 
+**第 1094 轮收的是字符串那一族**（用户口径 1.1~1.4：token 子类**构造完**信息就得齐；
+要读的那一格由**具体页显式声明**、**构造时**赋好）——本页代码块里 `String` / `ConstString`
+的现场比类名一共 **16 处**，一次收干净：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `X.Tag === "String"`（**2 处**：`namedExportClause` 在子单元里找那个字符串单元） | `X.IsStringUnit` | `String` 那一页**显式声明** `## field IsStringUnit:bool = true`（常量，构造时就位） |
+| `X.Tag === "String" \|\| X.Tag === "ConstString"`（**5 处**：在一串子单元里找字符串单元） | `X.IsStringLiteralUnit` | `String` / `ConstString` **两页各自显式声明** `## field IsStringLiteralUnit:bool = true`（同上——两者在产物里同属一段 `StringLiteral` 的正文） |
+| `X.Tag === "String" && X.stringChar === "`"`（**8 处**同行 7 + 跨行 1，其中 1 处是否定式） | `X.IsTemplateString` | `String` 那一页**显式声明** `## field IsTemplateString:bool = false`，在**构造器里与 `StringChar` 同一趟**赋好（`this.IsTemplateString = stringChar === "`"`）；其余页由基类答 `false` |
+
+- **三问的两半都住在被问的那一页**：`Tag` 就是那一页的类名、`stringChar` 就是它构造时记下的
+  引号（`## property stringChar` 读 `this.StringChar`，第 1049 轮起投影读的就是它）——
+  投影层重写一遍就是**同一格事实的第二处答案**。判据与第 1088 / 1091 / 1092 / 1093 轮同一条。
+- **`IsTemplateString` 是 `## field`、在构造器里赋**（与第 1090 / 1094 那几格的 `## property` 分界）：
+  `String` 的引号是**构造器参数**（`constructor(template, stringChar)`，`Clone` 也走同一个构造器），
+  不像符号的正文那样「逐字符攒、未必关过」——所以它在构造那一刻就定下来，读时不必现算。
+  顺带把 `X.Tag === "String" && X.stringChar === "`"` 里**多余的那一半守卫**收掉：
+  `stringChar` 只在这一页有，基类那一格默认 `false` 已经把别的类答完了。
+- **`IsStringLiteralUnit` 与 `IsStringUnit` 不是同一问**：前者答「我是不是**一段字符串字面量**」
+  （两页答 `true`），后者只认 `String` 那一页（`namedExportClause` 那两处找的正是**模块路径那个
+  `String`**，不能把常量块也算进去）——两格各立、各自显式声明。
+- **判据跟着长两条**：`direct:lint` 第八条那一族多认三个名字（`IsStringUnit` /
+  `IsStringLiteralUnit` / `IsTemplateString`），第十七条 `SELF_TAG_CLASSIFY` 的名单从六个
+  `<Tag>` 扩到 **八个**（再加 `String` / `ConstString`，`!==` 也算）。**自验**（本机探针，
+  不进仓库）：把一处属性读写回成 `k.Tag === "String" || k.Tag === "ConstString"` ⇒ 报告
+  **0 → 2 处**（两连比类名按两处计）、`FAIL`、`exit=1`；逐字节还原 ⇒ 0 处、`exit=0`。
+- **顺手改平了别的页两处同类遗留**（`typescript/tokens/heritage-clause.xl.md`）：
+  那里 `k.Tag === "GenericType"`（第 1092 轮已立 `IsGenericType`）与
+  `k.Tag === "String" && k.stringChar === "`"` 各一处，一并改成属性读——判据同一条，
+  只是那一门只扫本页，所以它们留到了这一轮。
+- **改了哪六个文件**：本页（**16 处**现场算式改成属性读 + 这一节）、`core/syntax/token.xl.md`
+  （三格虚属性：两个 `## field` 默认 `false` + `IsTemplateString` 的默认档）、
+  `typescript/tokens/string/string.xl.md`（三格显式声明 + 构造器多赋一趟）、
+  `typescript/tokens/string/const-string.xl.md`（`IsStringLiteralUnit`）、
+  `typescript/tokens/heritage-clause.xl.md`（两处遗留）、
+  `tests/parse/direct-lint.mjs`（第八条名单 + 第十七条那八个 `<Tag>` + 一行读数）。
+- **实测**：`xl check` 156 个文件 0 条；`xl build`（`core` / `typescript`）**5 个产物** / 0 error
+  （`token` / `print-ast-common` / `string` / `const-string` / `heritage-clause`）、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 30.2s），读数与基线逐项相同：`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**64 格**（一格声明没增没减：新立的三格都在别的页与基类；
+  本页 16 处改的是读数算式）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -2998,7 +3043,7 @@ new Set([
       // 而 `<…>` 能成形本身就说明 token 层的 `IsAllowedFollower`
       // 认了「`>` 后面接不上普通表达式」（见 `generic-type.xl.md` 的名字闸）。
       const instTemplateDirect =
-        kids.length >= 3 && kids[2].Tag === "String" && kids[2].stringChar === "`"
+        kids.length >= 3 && kids[2].IsTemplateString
           ? kids[2]
           : undefined;
       const instTemplateChain =
@@ -3007,8 +3052,7 @@ new Set([
           : [];
       const instChainHasTemplate =
         instTemplateChain.length >= 2 &&
-        instTemplateChain[0].Tag === "String" &&
-        instTemplateChain[0].stringChar === "`";
+        instTemplateChain[0].IsTemplateString;
       // **第三档：模板被包在运算符单元的**左脊柱**里**（`` f<T>`t` + 1 ``）：产物是
       // `[Identifier(f), GenericType, BinaryOperator(String(反引号), +, 1)]`——
       // 走法与 0d 那一支**一字不差**（沿途把每一层的 `(运算符, 右操作数)` 从里往外收起来），
@@ -3029,7 +3073,7 @@ new Set([
           if (inner.length < 3) break;
           const spineHead = inner[0];
           const spineHeadKids = spineHead.IsPropertyAccess ? spineHead.ProjectableKids : [spineHead];
-          if (spineHeadKids[0]?.Tag === "String" && spineHeadKids[0].stringChar === "`") {
+          if (spineHeadKids[0]?.IsTemplateString) {
             instSpineTemplate = spineHeadKids[0];
             instSpineMembers = spineHeadKids.slice(1);
             instSpineLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
@@ -3070,7 +3114,7 @@ new Set([
             // ——第二格模板是对**整条属性访问**再标一次（TS 是外面再套一层
             // `TaggedTemplateExpression`），交给 `chainOnto` 那一档；交给 `foldBinaryFrom`
             // 会把它当成一个操作数（实测那一格整片丢）。
-            if (tail[0].Tag === "String" && tail[0].stringChar === "`") {
+            if (tail[0].IsTemplateString) {
               return chainOnto(chained, tail, ctx);
             }
             return foldBinaryFrom(chained, tail, ctx);
@@ -4159,7 +4203,7 @@ new Set([
   let templateAt = -1;
   for (let at = kids.length - 1; at >= 1; at--) {
     const one = kids[at];
-    if (one.Tag !== "String" || one.stringChar !== "`") {
+    if (!one.IsTemplateString) {
       continue;
     }
     if (tagIsPostfixChain(kids.slice(0, at)) && IsChainTail(kids.slice(at + 1))) {
@@ -4223,7 +4267,7 @@ new Set([
       continue;
     }
     const probe = kids[at].ProjectableKids;
-    if (probe.length >= 2 && probe[0].Tag === "String" && probe[0].stringChar === "`") {
+    if (probe.length >= 2 && probe[0].IsTemplateString) {
       templateChainAt = at;
       break;
     }
@@ -4274,7 +4318,7 @@ new Set([
       if (inner.length < 3) break;
       const head = inner[0];
       const headKids = head.IsPropertyAccess ? head.ProjectableKids : [head];
-      if (headKids[0]?.Tag === "String" && headKids[0].stringChar === "`") {
+      if (headKids[0]?.IsTemplateString) {
         templateUnit = headKids[0];
         members = headKids.slice(1);
         layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
@@ -6354,7 +6398,7 @@ return false;
   // NoSubstitutionTemplateLiteral]`（实测 `ex-optional-call-new.ts`：缺
   // `TaggedTemplateExpression` + `NoSubstitutionTemplateLiteral`，`PropertyAccessExpression`
   // 的区间一路撑到模板串末尾）。
-  const stringUnit = kids.find((k) => k.Tag === "String" || k.Tag === "ConstString");
+  const stringUnit = kids.find((k) => k.IsStringLiteralUnit);
   if (stringUnit !== undefined && kids.length >= 2) {
     const tagName = kids.find((k) => k !== stringUnit && k.IsNameNode);
     if (tagName !== undefined) {
@@ -6637,7 +6681,7 @@ return false;
     // 只到第一个模板、第二格模板不见）。判据与 0b 同源：**只有反引号才算模板**
     //（普通字符串与模板在产物里的属性一模一样，靠**那一格自己记着的引号**分：
     // `String.stringChar`——第 1049 轮起不再回原文读第一个字符）。
-    if (unit.Tag === "String" && unit.stringChar === "`") {
+    if (unit.IsTemplateString) {
       const template = projectNode(unit, ctx);
       if (template === undefined) break;
       left = { kind: "TaggedTemplateExpression", tag: left, template, pos: left.pos, end: endOf(unit) };
@@ -7823,7 +7867,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
       // 位置与文本都直接问这一格单元自己（`startOf` / `endOf` / `StringText` 收的就是 token）。
       const quotedBefore = kids.find(
         (k) =>
-          (k.Tag === "String" || k.Tag === "ConstString") &&
+          (k.IsStringLiteralUnit) &&
           endOf(k) <= startOf(kids[colonIndex]),
       );
       if (quotedBefore !== undefined) {
@@ -8951,7 +8995,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // `unit.StringText` 是那一页自己的属性。
     const lastName = body[body.length - 1];
     const name =
-      lastName.Tag === "String" || lastName.Tag === "ConstString"
+      lastName.IsStringLiteralUnit
         ? astNode("StringLiteral", { text: lastName.StringText }, lastName, ctx)
         : nameOf(lastName);
     if (asAt > 0) {
@@ -8959,7 +9003,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       out.push({
         kind,
         propertyName:
-          firstName.Tag === "String" || firstName.Tag === "ConstString"
+          firstName.IsStringLiteralUnit
             ? astNode("StringLiteral", { text: firstName.StringText }, firstName, ctx)
             : nameOf(firstName),
         name,
@@ -9315,7 +9359,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         if (nameUnit === undefined) continue;
         const valueUnit = part
           .slice(colonAt + 1)
-          .find((k: any) => k.Tag === "String" || k.Tag === "ConstString");
+          .find((k: any) => k.IsStringLiteralUnit);
         elements.push({
           kind: "AssertEntry",
           name: nameOf(nameUnit),
@@ -9383,7 +9427,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   let module_: any = undefined;
   for (const kid of kids) {
     if (!(kid instanceof Token)) continue;
-    if (kid.Tag === "String") {
+    if (kid.IsStringUnit) {
       module_ = kid;
       break;
     }
@@ -9400,7 +9444,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // ——**读数一处没动**，所以两个集合在这一格上同答（`Method` 的子单元里没有 `IsInvisible` 的）。
       // 探针用完即还原，源码照改。
       for (const inner of one.ProjectableKids) {
-        if (inner instanceof Token && inner.Tag === "String") {
+        if (inner instanceof Token && inner.IsStringUnit) {
           module_ = inner;
           break;
         }

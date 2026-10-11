@@ -37,6 +37,22 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 `String`，所以这一页常量答 `true`——口径与两条理由见
 `../../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
 
+## field IsStringUnit:bool = true
+
+**我这一格是不是一个字符串单元**（第 1094 轮）：字符串单元就是这一页，所以常量答 `true`——
+口径与理由见 `../../../core/syntax/token.xl.md` 的 `IsStringUnit`。
+
+## field IsStringLiteralUnit:bool = true
+
+**我这一格是不是一段字符串字面量**（第 1094 轮）：本页与 `ConstString` 两页都答 `true`——
+口径与理由见 `../../../core/syntax/token.xl.md` 的 `IsStringLiteralUnit`。
+
+## field IsTemplateString:bool = false
+
+**我这一格是不是一个模板串**（第 1094 轮）：在构造器里与 `StringChar` 同一趟赋好
+（`stringChar === "\`"`）——「我用的引号是不是反引号」只有这一页知道，所以这一问由这一页答，
+投影只读这一格。口径与两条理由见 `../../../core/syntax/token.xl.md` 的 `IsTemplateString`。
+
 ## field interpolation:bool = false
 
 是否支持内插字符串（`$"{a}"`）。写在 XML 标签上，一字不能差。
@@ -86,6 +102,7 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 ```ts
 super(template);
 this.StringChar = stringChar;
+this.IsTemplateString = stringChar === "`";
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```

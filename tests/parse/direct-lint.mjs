@@ -748,6 +748,9 @@ const SELF_CLASSIFY_NAMES = [
   "IsGenericType",
   "IsSymbolToken",
   "IsNullConditionalOperator",
+  "IsStringUnit",
+  "IsStringLiteralUnit",
+  "IsTemplateString",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -1013,6 +1016,14 @@ let notNullSymbolHits = 0;
  * `typescript/tokens/method.xl.md` / `typescript/tokens/generic-type.xl.md` 各立一格
  * （`IsMethodNode` / `IsGenericType`，构造时赋 `true`），48 处改属性读。
  * 这一条因此守四个 `<Tag>`：谁把它们写回成现场算式，这一门当场红。
+ *
+ * **第 1094 轮把字符串那一族也收进这一条**（用户口径 1.1~1.4：token 子类**构造完**信息就得齐；
+ * 要读的那一格由**具体页显式声明**、构造时/`Close` 时赋好）：投影层 **16 处**现场写
+ * `X.Tag === "String"` / `X.Tag === "ConstString"`（含 `X.stringChar === "`"` 的模板串连写与
+ * `String || ConstString` 的两连比类名），而那两个名字**就是那两页自己的类名**——今天在
+ * `tokens/string/string.xl.md` / `const-string.xl.md` 各立一格并**构造时赋好**
+ * （`IsStringUnit` / `IsStringLiteralUnit` / `IsTemplateString`），16 处改属性读。
+ * 这一条因此守六个 `<Tag>`。
  */
 const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"PropertyAccess"/g,
@@ -1021,6 +1032,8 @@ const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"GenericType"/g,
   /\.Tag\s*[!=]==?\s*"SymbolToken"/g,
   /\.Tag\s*[!=]==?\s*"NullConditionalOperator"/g,
+  /\.Tag\s*[!=]==?\s*"String"/g,
+  /\.Tag\s*[!=]==?\s*"ConstString"/g,
 ];
 /** 投影层拿类名当「是不是 `PropertyAccess` / `NotNull` 那一格」判的处数（0 处才是对的）。 */
 let selfTagClassifyHits = 0;
@@ -1036,8 +1049,8 @@ let selfTagClassifyHits = 0;
           violations.push({
             file: SHARED_FILE,
             why:
-              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` / \`Method\` / \`GenericType\` / \`SymbolToken\` / \`NullConditionalOperator\` 那一类」又比类名了：\`${match[0]}\`——` +
-              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull` / `Token.IsMethodNode` / `Token.IsGenericType` / `Token.IsSymbolToken` / `Token.IsNullConditionalOperator`，构造时赋好），投影只读属性",
+              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` / \`Method\` / \`GenericType\` / \`SymbolToken\` / \`NullConditionalOperator\` / \`String\` / \`ConstString\` 那一类」又比类名了：\`${match[0]}\`——` +
+              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull` / `Token.IsMethodNode` / `Token.IsGenericType` / `Token.IsSymbolToken` / `Token.IsNullConditionalOperator` / `Token.IsStringUnit` / `Token.IsStringLiteralUnit`，构造时赋好），投影只读属性",
           });
         }
       }
@@ -1237,7 +1250,7 @@ console.log(
   `「这一格是不是非空断言那个 \`!\`」又在投影层现场连写（${SHARED_FILE} 的代码块）：${notNullSymbolHits} 处（0 处才是对的，读 SymbolToken.IsNotNullSymbol）`,
 );
 console.log(
-  `「这一格是不是一条成员访问链 / 一次非空断言 / 一次方法调用 / 一段泛型括号段 / 一个符号块 / 一个空条件运算符单元」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull / Token.IsMethodNode / Token.IsGenericType / Token.IsSymbolToken / Token.IsNullConditionalOperator）`,
+  `「这一格是不是一条成员访问链 / 一次非空断言 / 一次方法调用 / 一段泛型括号段 / 一个符号块 / 一个空条件运算符单元 / 一个字符串单元 / 一段字符串字面量」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull / Token.IsMethodNode / Token.IsGenericType / Token.IsSymbolToken / Token.IsNullConditionalOperator / Token.IsStringUnit / Token.IsStringLiteralUnit）`,
 );
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的

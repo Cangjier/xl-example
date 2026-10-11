@@ -1633,6 +1633,51 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsNullConditionalOperator:bool = true`，构造时就赋好）。
 
+## field IsStringUnit:bool = false
+
+**我这一格是不是一个字符串单元**（第 1094 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`String` 那一页答 `true`
+（`typescript/tokens/string/string.xl.md`），其余一律 `false`。过去它在投影层是**两处连写比类名**
+（`X.Tag === "String"`——`namedExportClause` 那两处在子单元里找那个字符串单元），而那个名字
+**就是那一页自己的类名**——所以那是它自己的事实。
+
+**它与 `IsStringLiteralUnit` 不是同一问**：那一格答「我这一格是不是**一段字符串字面量**」
+（`String` 与 `ConstString` 两页都答 `true`），这一格只认 `String` 那一页。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsStringUnit:bool = true`，构造时就赋好），投影只读这一格（`unit.IsStringUnit`）。
+
+## field IsStringLiteralUnit:bool = false
+
+**我这一格是不是一段字符串字面量**（第 1094 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`String` 与 `ConstString` 这两页答 `true`
+（`typescript/tokens/string/string.xl.md` / `const-string.xl.md`——两者在产物里都是同一族
+`StringLiteral` 的正文单元），其余一律 `false`。过去它在投影层是**五处两连比类名**
+（`X.Tag === "String" || X.Tag === "ConstString"`——在一串子单元里找那个字符串单元），
+而那两个名字**就是那两页自己的类名**。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsStringLiteralUnit:bool = true`，构造时就赋好），投影只读这一格
+（`unit.IsStringLiteralUnit`）。
+
+## field IsTemplateString:bool = false
+
+**我这一格是不是一个模板串**（第 1094 轮）——是的话答 `true`。
+
+判据是**这一格构造时记下的那格引号**：`String` 那一页在构造器里按 `stringChar` 同一趟赋好
+（`this.IsTemplateString = stringChar === "`"`，声明是 `## field`）——第 1049 轮把「这一格是不是
+模板」从「回原文读第一个字符」改成读这一格自己记的引号，这一轮把那一问也收成一个命名属性；
+其余一律 `false`。
+
+**它与 `stringChar` 不是同一问**：那一格答「我用的引号字符是哪一个」（产品与投影都读它），
+这一格答「我是不是模板串」——**一个事实、一处赋值点**，投影那八处不再各写一遍
+`X.Tag === "String" && X.stringChar === "`"`。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（构造时就赋好），投影只读这一格（`unit.IsTemplateString`）。
+
 ## field IsMethodNode:bool = false
 
 **我这一格是不是一次方法调用单元**（第 1092 轮）——是的话答 `true`。

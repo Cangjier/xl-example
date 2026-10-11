@@ -32,6 +32,12 @@ import { String } from "./string.xl.md"
 「一段字符串」，所以这一页常量答 `true`——口径与两条理由见
 `../../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
 
+## field IsStringLiteralUnit:bool = true
+
+**我这一格是不是一段字符串字面量**（第 1094 轮）：常量文本块与它宿主 `String` 同属「一段字符串」，
+所以这一页常量答 `true`——口径与两条理由见 `../../../core/syntax/token.xl.md` 的
+`IsStringLiteralUnit`。
+
 ## constructor:(Template:Template)=>void
 
 构造器只是转调基类。

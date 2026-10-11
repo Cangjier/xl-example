@@ -343,13 +343,14 @@ return result;
 
 ```ts
   const kids = ctx.Kids(v);
-  const generic = kids.find((k: any) => k.Tag === "GenericType");
+  const generic = kids.find((k: any) => k.IsGenericType);
   const names = kids.filter((k: any) => k.IsNameNode);
   const props: any = {};
   // **名字后面紧跟模板串 ⇒ `TaggedTemplateExpression`**（第 986 轮）：判据是那个 `String`
-  // 的**引号是反引号**——读的是它自己记的 `stringChar`（第 1001 轮），不是原文里那个字符。
+  // 的**引号是反引号**——读的是它自己记下的那一格（`IsTemplateString`，第 1094 轮起是命名属性；
+  // 第 1001 / 1049 轮读的是 `stringChar`），不是原文里那个字符。
   const template = kids.find(
-    (k: any) => k.Tag === "String" && k.stringChar === "\`",
+    (k: any) => k.IsTemplateString,
   );
   if (template !== undefined && names.length > 0) {
     const tag = ctx.DottedExpression(names);
