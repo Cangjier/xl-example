@@ -237,6 +237,28 @@ if (last instanceof SymbolToken) {
   return this.TextValue === "=";
 ```
 
+## property IsOperatorSymbol:bool
+
+**我这一格的正文是不是那 26 个运算符词之一**（第 1198 轮从投影层搬来）。
+
+名单是这一页自己的（`OPERATOR_TEXTS`，与 `SYMBOL_TOKEN_KIND` 同一份正文当键），
+读法与 `IsEqualsSymbol` / `IsNotNullSymbol` 一族**逐字相同**：读基类那一格 **`TextValue`**，
+不是 `Is(…)` / `TempToString()`——投影原来问的正是 `k.TextValue`（`text = k.TextValue`
+那一行随本轮一起删掉），而没关过的符号上两者未必同答（第 1063 轮实测过）。
+
+**为什么名单不留在投影层**：那两张 `# private const` 的读者只有 `projectExpression` 里
+`?.` 那一支的两处，而键就是这一页自己的正文——第 1063 轮 `OperatorRank` / 第 1127 轮
+`KindOfText` 已经把同一条口径走过两遍。
+
+**为什么另立一格、不与 `IsAssignmentSymbol` 并**：那一格答的是「赋值那一族」
+（`=` 与 `+=` / `??=` …），这一格答的是「参与优先级比较的那 26 个词」——两问的名单不同。
+
+### get
+
+```ts
+  return OPERATOR_TEXTS.has(this.TextValue);
+```
+
 ## property IsArrowSymbol:bool
 
 **我这一格是不是那个箭头 `=>`**（第 1107 轮）：投影层要按它把**平铺的箭头**切开
@@ -718,4 +740,17 @@ new Map([
   ["^", "CaretToken"], ["^=", "CaretEqualsToken"], ["~", "TildeToken"],
   ["&&=", "AmpersandAmpersandEqualsToken"], ["||=", "BarBarEqualsToken"], ["??=", "QuestionQuestionEqualsToken"],
 ])
+```
+
+# private const OPERATOR_TEXTS:Set<string>
+
+**符号词汇表里的「运算符词」**（第 1198 轮从投影层搬到这里）：`IsOperatorSymbol` 要读的那一格。
+
+它就是 `typescript/print-ast-common.xl.md` 里原来那两张 `# private const`
+（`OP_TEXTS` 与它多一个 `=` 的 `NCO_BASE_OPERATORS`）的 **26 个词**，
+键是符号那一页自己的正文，所以与 `SYMBOL_TOKEN_KIND` / `OperatorRank` 同一条口径：
+**词汇表与它服务的那个问题住同一页**。`=` 不在表里——投影读它的那一处另读 `IsEqualsSymbol`。
+
+```ts
+new Set(["+", "-", "*", "/", "%", "**", "<", ">", "<=", ">=", "==", "!=", "===", "!==", "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof"])
 ```

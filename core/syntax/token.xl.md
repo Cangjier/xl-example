@@ -3693,6 +3693,30 @@ return false;
 return false;
 ```
 
+## property IsOperatorSymbol:bool
+
+**我这一格的正文是不是一个运算符词**（第 1198 轮）——**不是**的一律给 `false`。
+
+投影层里那张「符号正文 → 是不是运算符」的名单原来声明在
+`typescript/print-ast-common.xl.md`（`NCO_BASE_OPERATORS` / `OP_TEXTS` 两张 `# private const`），
+读者是 `projectExpression` 里 `?.` 那一支的**两处**「前缀里有没有一个光秃秃的运算符」。
+可**键就是符号那一页自己的正文**，所以与 `KindOfText`（第 1128 轮）/ `OperatorRank`（第 1063 轮）/
+`IsEqualsSymbol`（第 1107 轮）同一条口径：**基类给默认档、符号那一页覆写**（读时现算）。
+
+**它与 `IsAssignmentSymbol` 不是同一问**：那一格还认 `+=` 那一批**复合赋值**，
+这一格答的是那 26 个参与优先级比较的运算符词（`+` `-` `*` `/` `%` `**` `<` `>` `<=` `>=`
+`==` `!=` `===` `!==` `<<` `>>` `>>>` `&` `|` `^` `&&` `||` `??` `in` `instanceof`），
+`=` **不在**里面——投影读它的那一处本来就把 `=` 那一半另写在一格上（`IsEqualsSymbol`）。
+
+**它与 `OperatorRank` 不是同一问**：`RankOfText` 对表外的文本答兜底 **7**（比较那一档），
+所以「是不是运算符」不能靠优先级反推。
+
+### get
+
+```ts
+return false;
+```
+
 ## property IsArrowSymbol:bool
 
 **我这一格是不是那个箭头 `=>`**（第 1107 轮）——**不是**的一律给 `false`。

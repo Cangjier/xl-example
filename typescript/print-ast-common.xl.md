@@ -2507,10 +2507,17 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 而它正是 `cases:direct` / `samples` **看不见**、`coverage` 当场红（91 条）的那一格
 （`tsrun` 报 `Converting circular structure to JSON`——错值一路走到 IR 才炸）。
 
-# private const NCO_BASE_OPERATORS:Set<string> = new Set(["+", "-", "*", "/", "%", "**", "<", ">", "<=", ">=", "==", "!=", "===", "!==", "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof", "="])
+**第 1198 轮把「运算符词」那两张名单搬回了符号那一页**（用户口径 1.2 / 1.4 / 1.5 / 1.6）：
+`NCO_BASE_OPERATORS`（那 26 个运算符词 + `=`）与 `OP_TEXTS`（那 26 个）的**键就是符号那一页
+自己的正文**——与第 1063 轮 `OperatorRank`、第 1127 轮 `KindOfText`、第 1107 轮 `IsEqualsSymbol`
+同一条口径：词汇表与它服务的那个问题住同一页。今天投影读两格属性：
+`SymbolToken.IsOperatorSymbol`（那一页覆写，读自己的 `TextValue`）与基类就在的 `IsEqualsSymbol`；
+`k.IsSymbolToken &&` 那半边守卫也一并删掉（基类默认档已把别的类答完，守卫是多余的）。
+**本页少 13 行代码**（代码块 3818 → 3805）、少两格声明；那两张在第 1146 轮曾经是模块级常量
+（「四张名单」那笔账见 git 历史），这里只记「它们今天不住这一页」。
 
-**四张常量名单**（第 1146 轮从各自的调用点搬回模块级）：它们是**常量数据**
-（基础运算符词、运算符词、一元表达式 kind、收在 `}` 上的节点 kind），而过去每一趟
+**第 1146 轮那四张里留下的两张**（另两张第 1198 轮搬去符号那一页，见上一段）：
+它们是**常量数据**，而过去每一趟
 `projectExpression` / `projectEach` 都要把其中一张 `new Set([...])` 重建一遍。
 **实测**（官方用例语料 1640 份 / 21793 个节点）：`projectExpression` 被调 **5687 次**
 （里面三张）、`projectEach` 被调 **4380 次**（一张）⇒ 每投一趟白造 **17061 个 `Set`**。
@@ -2519,8 +2526,6 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 （差 −21.8ms，两次测量之间的波动 ±300ms）；省掉的是**构造次数**，不是可测量的时间。
 各张名单**为什么是这些档**写在它们各自的调用点旁边（`projectExpression` 的 NCO 那一支、
 `projectEach` 的尾分号那一支），这里只记「它们今天是模块级的常量」。
-
-# private const OP_TEXTS:Set<string> = new Set(["+", "-", "*", "/", "%", "**", "<", ">", "<=", ">=", "==", "!=", "===", "!==", "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof"])
 
 # private const UNARY_KINDS:Set<string> = new Set(["DeleteExpression", "TypeOfExpression", "VoidExpression", "PrefixUnaryExpression"])
 
@@ -4928,7 +4933,8 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   const prefixHasOperator = kids.slice(0, ncoIndex).some(
     (k) =>
       k.IsBinaryOperatorNode ||
-      (k.IsSymbolToken && NCO_BASE_OPERATORS.has(k.TextValue)),
+      k.IsOperatorSymbol ||
+      k.IsEqualsSymbol,
   );
   if (
     ncoIndex > 0 &&
@@ -4982,8 +4988,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         opAt = i;
         break;
       }
-      const text = k.TextValue;
-      if (k.IsSymbolToken === false || OP_TEXTS.has(text) === false) {
+      if (k.IsOperatorSymbol === false) {
         continue;
       }
       const rank = k.OperatorRank;
