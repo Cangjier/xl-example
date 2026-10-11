@@ -334,6 +334,43 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1044 轮：`print-ast-common` 按**可达性**再量一遍「还剩什么用不到」——一格死代码都没有，只并掉三处「只有一格的转发」（**100 → 97 格声明**），八道门全绿、读数一处没动
+
+**一句话**：用户口径仍是「简化 `print-ast-common`」。这一轮先把第 1043 轮那把尺子重新架起来
+（入口 = `projectRoot` / `ToJsonText` + 全仓真实引用，把本页 100 格声明连同它们互相的引用做成图），
+结论是**本页一格死代码都没有**；于是这一轮做的是**并间接**：一个声明只有一个调用点、
+而它自己只是把参数转手，就把实现搬到那个调用点上。
+
+- **可达性读数：100 格全部可达**（第 1043 轮删掉 `textOf` 之后就没有剩下的了）。
+  量法上记下两次**误判**，免得下一位把它当死代码删掉：
+  - `Nothing: NOTHING` 是**值传递**（没有括号），只数「带名字的调用」会漏掉它——
+    它的真读者是 `typescript/tokens/statement.xl.md`（`return node === undefined ? ctx.Nothing : node`，
+    一行 `ctx.Nothing` 都没有，但它就是那个哨兵的生产者）；
+  - `...namedExportClause(v, ctx)` 是**展开进对象字面量**，同样没有「`名字(`」这个形状——
+    它的调用点在 `projectExport` 里。
+  ⇒ 所以「按字面引用数」与「按带括号的调用」两把尺子**都会漏**，可达性要在**引用**这一层做。
+- **并掉的三层间接**（各自的调用点都只有一个，且实现就是转发）：
+  - `kindEndsOnBrace(kind)` → 并进 `ownsTrailingSemicolon`（它本来就是 `ENDS_ON_BRACE.has(kind)`；
+    「为什么还是按 kind 问、不照 token 问」那一段理由随实现搬到了调用点与 `ENDS_ON_BRACE` 的说明里）；
+  - `astNodeFor(ctx, v)` → 并进 `ctx.Make`（本来就是「把同一个 `astNode` 按这一格的坐标闭好」，
+    现在这个出口自己返回那个闭包；实现仍只有 `astNode` 一处）；
+  - `astNodeHead(kind, props, v, ctx)` → 并进 `ctx.NodeHead`（第 199 轮那段「键序为什么必须
+    坐标在前」的理由整段搬进注释，值的排法一字未改）。
+- **为什么这三处能并、别处不能**：判据是「**实现有没有第二处消费者**」——
+  `ownsTrailingSemicolon` / `ctx.Make` / `ctx.NodeHead` 各自是那三格的**唯一**调用点，
+  并进来只是少一层名字；而 `matchingBrace`（`braceSpanOf` 用）、`flagsOf`（`projectLetFrom` 用）、
+  `typeMemberGroups`（`projectEachIn` 用）那几格虽然也只服务一处，但它们各自有**成段的判据**
+  （配对括号的扫描、`modifiers` 的读法、按分隔符切组），并进去只会让调用点变长——**留在原地**。
+- **结果**：本页 `# const` / `# method` 声明 **100 → 97 格**，从入口全部可达；
+  四个出口的名字（`ctx.Node` / `ctx.Make` / `ctx.NodeHead` / `ctx.Declaration`）与**行为一格没动**，
+  各 token 页面**一个字都不必改**（改动全部落在本页内部）。
+- **实测**：`xl check` 1 份 0 错 0 警（改的是同一份，全量 182 份照旧）；`xl build` 1 写出 / 0 error；
+  `tsc` 干净（`--noEmit` 与出产物各一遍）；**八道门 8 通过、0 失败**（墙钟 31.5s），
+  读数逐项与基线相同：`coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常且固定样本逐格点名通过、
+  `direct:lint` 0 条违反、`samples` 逐字节一致、`cases:check` 1656 / 1656、
+  `runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+
 ### 第 1043 轮：清掉 `print-ast-common` 里最后一格死代码与三层间接（104 格声明 → 100）——**八道门全绿、读数一处没动**
 
 **一句话**：第 1041 / 1042 两轮把答案搬到 token 上之后，这一轮回头把 `print-ast-common` 自己

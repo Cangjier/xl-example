@@ -67,8 +67,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：74 个函数都不依赖 `this`、彼此只靠参数耦合，所以按模块级
-`# const` / `# method` 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
+这是一份**纯函数库**：97 格声明（`# const` / `# method`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
 
@@ -151,6 +151,28 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 ⇒ 判据不是「它长得多像一个问题」，而是**答案在不在这一格自己身上、以及什么时候定下来**：
 在构造（或记下那个事实）那一刻就在的，收成属性；要读子单元、要父亲、要解析期文本的，留成方法。
+
+**第 1044 轮按可达性又量了一遍「本页还剩什么用不到」，结论是「一格死代码都没有」**：
+以 `projectRoot` / `ToJsonText` 为入口、把 100 格声明连同它们互相的引用做成图，
+**100 格全部可达**（第 1043 轮删掉 `textOf` 之后就没有剩下的了）。
+两次把 `Nothing` / `ENDS_ON_BRACE` 误判成死代码的原因也记在这里，免得下一位再踩：
+**只数「带括号的调用」会漏掉两种真实引用**——`Nothing: NOTHING` 是「值传递」（没有括号），
+而 `...namedExportClause(v, ctx)` 是展开进对象字面量；**这两格都有人用**
+（`ctx.Nothing` 的读者是 `tokens/statement.xl.md`，`namedExportClause` 的读者是 `projectExport`）。
+所以这一轮**没有删死代码**，只并掉三处「只有一格的转发」。
+
+**这一轮并掉的三层间接**（判据与第 1043 轮同一把尺子：一个声明**只有一个调用点**、
+而它自己只是把参数转手——那就把实现搬到那个调用点上）：
+
+- `kindEndsOnBrace(kind)`（全仓一个调用点）**并进 `ownsTrailingSemicolon`**：它本来就是
+  `return ENDS_ON_BRACE.has(kind)`，那一格名字的说明搬进 `ENDS_ON_BRACE` 与调用点；
+- `astNodeFor(ctx, v)`（一个调用点：`ctx.Make`）**并进那个出口**：它本来就是
+  「把同一个 `astNode` 按这一格的坐标闭好」，现在 `Make` 自己返回那个闭包；
+- `astNodeHead(kind, props, v, ctx)`（一个调用点：`ctx.NodeHead`）**并进那个出口**：
+  实现仍是 `astNode` + 按 `kind` / `pos` / `end` 重排键（第 199 轮的键序理由整段搬进注释）。
+
+⇒ 本页 `# const` / `# method` 声明 **100 → 97 格**，可达性仍是「从入口全部可达」，
+四个出口的名字（`ctx.Make` / `ctx.NodeHead` / `ctx.Node`）与行为一格没动。
 
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
@@ -658,48 +680,6 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     pos = at;
   }
   return Object.assign({ kind }, props === undefined ? {} : props, { pos, end });
-```
-
-# private method astNodeFor:(ctx:any, v:any)=>any
-
-`projectNode` 里那个 `mk` 的**同一份闭包**，给 `ctx.Declaration` 用（第 1002 轮）。
-
-`mk` 之所以是**每个节点一份闭包**，是因为它把这一格的坐标（`v`）与上下文（`ctx`）闭在里面；
-`projectDeclaration` 要 `mk` 才能造节点，而声明族的 `PrintDirectAst` 走的是 `ctx.Declaration`——
-所以这里把「同一个 mk」按同一份实现再包一次（实现仍然只有 `astNode` 一处）。
-
-```ts
-  return (kind: string, props: any) => astNode(kind, props, v, ctx);
-```
-
-# private method astNodeHead:(kind:string, props:any, v:any, ctx:any)=>any
-
-同 `astNode`，但键序是 **`{ kind, pos, end, …props }`**（坐标在前）。
-
-**为什么留这一支**（第 199 轮）：搬家前有一批节点是**内联**写的——
-
-    return { kind: "ForStatement", pos: v.start, end: v.end, ...props };
-
-第 181~198 轮把它们逐块搬进各 token 的 `PrintDirectAst`、改走 `ctx.Node` 之后，键序变成了
-「props 在前、坐标在后」：**值一个没变，字节变了**。`samples` 的 `*.expected.tsast.json`
-是**逐字节**比的，它当场抓出 13 类；按第 96 轮那份实现（夹具就是它生成的）逐个 kind 对下来，
-共 **30 处构造点**（`ForStatement` / `TypeParameter` / `HeritageClause` / `SwitchStatement`、
-`Field` 的两种 kind、`Foreach` 的两种 kind、`FunctionType` / `ConstructorType` …）。
-`cases:tsast` 看不见这一条：它比 kind / 区间 / 字段名，比不了 JSON 的键序。
-
-所以这一支只为「搬家前的键序」存在：**实现复用 `astNode`**（同一个坐标口径不抄第二遍），
-拿到结果后按 `kind` / `pos` / `end` 重新排一遍键——**值原封不动**。新写的节点用 `ctx.Node` 即可。
-
-```ts
-  const node = astNode(kind, props, v, ctx);
-  const ordered: any = { kind: node.kind, pos: node.pos, end: node.end };
-  for (const key of Object.keys(node)) {
-    if (key === "kind" || key === "pos" || key === "end") {
-      continue;
-    }
-    ordered[key] = node[key];
-  }
-  return ordered;
 ```
 
 # method projectNode:(node:any, ctx:any, parentKind:string)=>any
@@ -1869,34 +1849,28 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     return ownsTrailingSemicolon(node.statement, ctx);
   }
   if (kind === "FunctionDeclaration" && node.body === undefined) return true;
-  return !kindEndsOnBrace(kind);
-```
-
-# private method kindEndsOnBrace:(kind:string)=>bool
-
-**这个目标语言节点名收在 `}`（块尾）上吗**（第 1040 轮）——它就是原来那张按 kind 查的
-`NO_TRAILING_SEMICOLON` 集合，改了一个说得出话的名字（下面那一格是它的数据）。
-
-**它不是第二份声明**：每一档对应的 token 页面都自己答 `Token.EndsOnBrace`
-（`core/syntax/token.xl.md`；空语句那一页答 `false`、带体的函数答 `true`、裸块由 `Bracket`
-按 `startBracket` 答），这里的每一档都是那一页的 **`AstKind()` 名字**。
-
-**这一格为什么还是按 kind 问**（第 1040 轮实测）：调用点手上那一格 token 与 `out` 末尾那个
-节点**不再是同一个单元**——`projectStatement` 会把一条声明包进语句壳（`function f() {}` 的
-上一格是 `Statement`，而它的 `EndsOnBrace()` 是「不收在 `}` 上」），照 token 问会让
-`stmt-semicolon-after-declaration` 那一族 5 条用例当场倒退。名字与答案仍分处两页、
-**名字就是那一页答的**，所以这里只读一次名字，不在这里判「我这一格长什么样」。
-
-```ts
-  return ENDS_ON_BRACE.has(kind);
+  // **这个目标语言节点名收在 `}`（块尾）上吗**（第 1040 轮）：就是原来那张按 kind 查的
+  // `NO_TRAILING_SEMICOLON` 集合（下面那一格是它的数据）。**第 1044 轮把它并了进来**：
+  // 全仓只有这一个调用点，拆成 `kindEndsOnBrace` 只是多一层间接——「同一件事一处读法」。
+  //
+  // **它不是第二份声明**：每一档对应的 token 页面都自己答 `Token.EndsOnBrace`
+  // （`core/syntax/token.xl.md`；空语句那一页答 `false`、带体的函数答 `true`、裸块由 `Bracket`
+  // 按 `startBracket` 答），这里的每一档都是那一页的 **`AstKind()` 名字**。
+  //
+  // **这一格为什么还是按 kind 问**（第 1040 轮实测）：调用点手上那一格 token 与 `out` 末尾那个
+  // 节点**不再是同一个单元**——`projectStatement` 会把一条声明包进语句壳（`function f() {}` 的
+  // 上一格是 `Statement`，而它的 `EndsOnBrace()` 是「不收在 `}` 上」），照 token 问会让
+  // `stmt-semicolon-after-declaration` 那一族 5 条用例当场倒退。名字与答案仍分处两页、
+  // **名字就是那一页答的**，所以这里只读一次名字，不在这里判「我这一格长什么样」。
+  return !ENDS_ON_BRACE.has(kind);
 ```
 
 # private const ENDS_ON_BRACE:Set<string>
 
 **哪些节点名收在 `}`（块尾）上**（第 1040 轮）：这份名单就是原来那张
-`NO_TRAILING_SEMICOLON`（第 663 轮照 TS parser 列的那一份），
-**它今天只是 `kindEndsOnBrace` 那一格的数据**——首选的路子问的是**那一格 token 自己**
-（`Token.EndsOnBrace`），这一份是「手上只有名字」时的落点。
+`NO_TRAILING_SEMICOLON`（第 663 轮照 TS parser 列的那一份）——
+首选的路子问的是**那一格 token 自己**（`Token.EndsOnBrace`），
+这一份是「手上只有名字」时的落点（第 1044 轮起唯一的读者是 `ownsTrailingSemicolon` 里那一行）。
 
 **每一档对应的页面都会答**（句首那些类各自覆写 `EndsOnBrace()` 答 `true`）：
 `Block`（八个体类 / 裸块的 `Bracket`）、`ClassDeclaration` / `EnumDeclaration` /
@@ -9316,9 +9290,34 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // **为什么不让直出版直接传 `ctx.Node`**：那样第三个参数是 `undefined`，
     // 坐标口径当场散架（`stmtEndOf(undefined)` 抛异常）——「闭的是哪一格」不能交给
     // 「调用方记得传第三个参数」。
-    Make: (view) => astNodeFor(ctx, view),
-    // **坐标在前的键序**（第 199 轮）：搬家前那批内联写法的节点用它，见 `astNodeHead`。
-    NodeHead: (kind, props, view) => astNodeHead(kind, props, view, ctx),
+    // **第 1044 轮把 `astNodeFor` 那一层并了进来**：那一格本来就是「把同一个 `astNode` 按这一格
+    // 的坐标闭好」的转发，只有这一个调用点；实现仍然只有 `astNode` 一处。
+    Make: (view) => (kind: string, props: any) => astNode(kind, props, view, ctx),
+    // **坐标在前的键序**（第 199 轮）：搬家前那批内联写法的节点用它——键序正是
+    //
+    //     return { kind: "ForStatement", pos: v.start, end: v.end, ...props };
+    //
+    // 第 181~198 轮把它们逐块搬进各 token 的 `PrintDirectAst`、改走 `ctx.Node` 之后，键序变成了
+    // 「props 在前、坐标在后」：**值一个没变，字节变了**。`samples` 的 `*.expected.tsast.json`
+    // 是**逐字节**比的，它当场抓出 13 类；按第 96 轮那份实现（夹具就是它生成的）逐个 kind 对下来，
+    // 共 **30 处构造点**（`ForStatement` / `TypeParameter` / `HeritageClause` / `SwitchStatement`、
+    // `Field` 的两种 kind、`Foreach` 的两种 kind、`FunctionType` / `ConstructorType` …）。
+    // `cases:tsast` 看不见这一条：它比 kind / 区间 / 字段名，比不了 JSON 的键序。
+    //
+    // 所以这一支只为「搬家前的键序」存在：**实现复用 `astNode`**（同一个坐标口径不抄第二遍），
+    // 拿到结果后按 `kind` / `pos` / `end` 重新排一遍键——**值原封不动**。新写的节点用 `ctx.Node` 即可。
+    // **第 1044 轮把 `astNodeHead` 那一格并了进来**：它本来就只有这一个调用点。
+    NodeHead: (kind, props, view) => {
+      const node = astNode(kind, props, view, ctx);
+      const ordered: any = { kind: node.kind, pos: node.pos, end: node.end };
+      for (const key of Object.keys(node)) {
+        if (key === "kind" || key === "pos" || key === "end") {
+          continue;
+        }
+        ordered[key] = node[key];
+      }
+      return ordered;
+    },
     // **空段不写这一格**：通用支里 `structuralProps` 的段循环是「`kept.length > 0` 才写」，
     // 所以 `<TupleType></TupleType>`（空元组）在 TS 那边是 `{kind,pos,end}`、**没有** `elements`。
     // `undefined` 在 `JSON.stringify` 里不出现（`projectParameter` 的 `name` / `type` 也是这个写法），
@@ -9429,8 +9428,8 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 它与 `projectNode` 落在**同一份实现**（`projectDeclaration`）上——
     // 所以「覆写了仍然与通用支逐字节相同」是结构上的事，不是巧合。
     //
-    // **第三格是那个「就这一格」的造节点闭包**（`astNodeFor`，与 `projectNode` 里的
-    // `mk` 同一份实现）：直出版算完 kind 之后要**自己**把节点造出来，
+    // **第三格是那个「就这一格」的造节点闭包**（`ctx.Make`，与 `projectNode` 里的
+    // `mk` 是同一份实现 `astNode`）：直出版算完 kind 之后要**自己**把节点造出来，
     // 而「带坐标与尾部 trivia 剪裁」的口径只能有一份——所以递过去，不抄第二遍。
     // **第四个参数是「调用方已经算好的 kind」**（可选）：声明族的直出版自己判过一次
     // （见 `method-declaration.xl.md` 的 `PrintDirectAst`），而换 kind 的规则只在
