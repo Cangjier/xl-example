@@ -347,6 +347,53 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1204 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **开工那一趟 `cases:tsast` 就是红的**：`SignatureEndStep` 读「签名末尾那个分隔符」读错了地方（`Text.charAt` 恒越界 ⇒ **恒答 0**）⇒ `undici-types/cache.d.ts` 一族逗号分隔的 `MethodSignature` **漂移 10 / 多出 10**，改读自己那份 `Document` 上那一格之后 **1643 份语料逐字节同答（diff=0）**；1.2 去掉四处「每字符 / 每圈」都要付一次的固定开销，**同进程交替 A/B：best −4.1% ~ −6.2%、median 落在噪声里（−0.5% / −1.9%）**
+
+**一句话**：这一轮**不猜缺口**——开工先跑一遍 `npm run gates`，把 1.1 定在**当场红着的那一门**
+（`cases:tsast` 报的那 10 条）上；1.2 **不动任何判据**，只把四处固定开销（两趟 `for…of`、两处循环内属性读）
+去掉，读数如实写（best 量得出来、median 量不出来）。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `Token.SignatureEndStep` 改读**自己那份 `Document` 上 `ProjectionEnd` 那一格**（原来写 `this.Text.charAt(end - start)`） | `undici-types/cache.d.ts` 一族（`match (…): Promise<…>,` 这种**逗号分隔**的成员签名）：漂移 **10 → 0**、多出 **10 → 0**；`cases:tsast` **FAIL → ok** |
+| **1.2** | `UnitToken.ProcessChar` 的 `ProcessQueue` 那一趟：`for…of` → 下标循环 | 本方法实测 **2119425** 次/份（`tmp/r1204-count.mjs`）⇒ 每份少 211 万个迭代器对象 |
+| **1.2** | `CloseRule.ApplyTo`：`unit.Template` 提到循环外（送给 `Previous` / `Process` 的还是同一个模板） | `ApplyTo` **1924766** 次、内层 **5248548** 圈 ⇒ 每份少 525 万次属性读 |
+| **1.2** | `Token.Last`：`this.Data` 提到局部量（原来三句里读三次） | **1698992** 次调用 ⇒ 每份少 340 万次属性读 |
+| **1.2** | `Token.ApplyCloseRules` 补父亲那一趟：`for…of` → 下标循环 | **93956** 次/份 |
+
+**1.1 的根因（一句话说清，免得下一个人再踩）**：`ProjectionEnd` 是「剪掉尾部 trivia 之后的终点」，
+而这一格问的是**它后面那一格字符**；语料普查（官方用例语料 1643 份里 `IsSignatureNode` 的 token 共 **602** 个）
+说 `ProjectionEnd` **恒等于自己的 `end`** ⇒ `Text`（就是 `[start, end)`）里**根本没有那一格**
+⇒ `charAt(正文长度)` 恒越界 ⇒ 这一格从第 1172 轮起**恒答 0**。第 1172 轮之前那四行算式读的
+是 `ctx.source[剪过 trivia 的终点]`——**同一个位置**，只是取对了地方；这一轮把它放回
+**自己那份 `Document`**（与 `Text` 的 `head.Document.GetRaw`、`SemicolonAfter` 的 `GetValue` 同一处取）。
+
+**等价怎么证的**：改一处、`node tmp/r1051/xl.mjs build core typescript --force` + `npx tsc`，
+再跑 `node tmp/r1203-dump.mjs <out>`（1643 份语料逐份算 token 树 XML 与投影 JSON 的 sha256 + 节点数）
+并与开工基线 `tmp/r1204-dump-old.json` 用 `tmp/r1203-dumpdiff.mjs` 逐份比——
+**1.1 单独一份 dump：`diff=0 nodeDelta=0`；四处优化之后第二份 dump：同样 `diff=0 nodeDelta=0`**。
+
+**1.2 的墙钟怎么量的（这条路留给下一轮）**：这台机器上**跨进程**的墙钟散布比改动本身还大
+（开工基线 best 1592.4 / median 1656.1 ms，改完之后同一把尺子量到过 best 1563.5，也量到过 best 1659.6），
+所以「两趟分开跑」下不了结论。尺子改成**同一个进程里来回换**（`tmp/r1204-ab.mjs`：
+把 HEAD 那四段逐字抄成原版，与构建产物里那一份交替装上，A/B/A/B 各若干趟）：
+
+| 趟 | 原版 best / median | 现版 best / median | 差 |
+| --- | --- | --- | --- |
+| 6 轮 | 1680.4 / 1748.9 ms | 1576.0 / 1715.0 ms | best **−6.2%**、median −1.9% |
+| 8 轮 | 1799.4 / 1853.5 ms | 1725.3 / 1843.7 ms | best **−4.1%**、median −0.5% |
+
+**读数怎么写就怎么写**：best 两趟都稳定变快（−4 ~ −6%），median 落在噪声里——
+所以这一轮声称的是「**去掉的是固定开销，best 上量得出来**」，**不声称 median 变快**。
+
+**净账**：`cases:tsast` **1643 / 1643 完全一致**（开工时是红的）；`cases:direct` 无异常、固定样本通过；
+`direct:lint` 0 条违反；`samples` ok；`cases:check` 1656 条 0 不合格；`runtime:check` **243 / 0**；
+`runtime:cli` **79 / 0**；`coverage` **4263 / 4422**（blocked 25、differ 134、bad 0、加权 95.7%，
+倒退仍是那 1 条既有的 `runtime/round741/002-optional-index-then-call`，**开工那一趟就已经开着**）；
+`xl check`（core + typescript）**0 条**；`npx tsc`（strict）**0 error**——与开工 HEAD 逐项相同。
+
+**一条 commit**：`8a3ca0cb`（1.1 + 1.2 同一条；用户口径「每一轮 commit」）。
+
 ### 第 1203 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **第 985 轮那批三条 `xl:known-gap` 全清**（继承段可选链 / 继承段模板串 / 类型位 `!`），**`parse` 中位 1891 → 1732 ms（−8.4%，最好成绩 1773 → 1601 ms）**；三条优化都拿「1643 份语料的产物 XML 与投影 JSON 逐字节同答」做等价证明
 
 **一句话**：这一轮先把**基准**立起来（`node tmp/r1203-parse.mjs <文件> <轮数>` 报 best / median / worst，
