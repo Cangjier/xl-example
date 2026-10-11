@@ -5583,6 +5583,86 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       return foldBinaryFrom(chained, tail, ctx);
     }
   }
+  // ---- 0c-1. 模板后面紧跟一个**把 `!` 读成了前缀**的那一格（第 1217 轮，用户口径 1.1）----
+  //
+  // `` a`x`!(d) `` 的产物是
+  //
+  //     [Identifier(a), String(反引号), UnaryOperator(op="!", [SymbolToken(!), Bracket((d))])]
+  //
+  // ——那个 `!` 被读成了**打在后头那一格上的前缀**。TS 那边是
+  // `CallExpression > [NonNullExpression > TaggedTemplateExpression, (d)]`：**`!` 是模板那条
+  // 标签模板的后缀断言**（`` `x` !(d) `` 与 `` `x`!(d) `` 在 TS 里是同一个形状，带不带空白都一样），
+  // 后面那一格（实参括号 / `?.[…]`）才是它的**续格**。三条路（0b / 0c / 0d）都接不住它：
+  // 0b 的 `IsChainTail` 不收一元单元、0c 要找的是「装着模板的 `PropertyAccess`」，0d 要的是
+  // 运算符左脊柱 ⇒ 走通用那一支，标签模板与断言一起丢（实测缺 `CallExpression` /
+  // `NonNullExpression` / `TaggedTemplateExpression` / 模板字面量）。一份语料上 12 条：
+  // 六种前缀（`a` / `f()` / `a["b"]` / `a.b` / `(a)` / `this`）× 两种续格（`(d)` / `?.[c]`）。
+  //
+  // **形状二**：两个 `!` 的时候第一个被收进了**一元单元里当第二格**
+  //（`` a`x`!! `` 的产物是 `[Identifier(a), UnaryOperator(op="!", [String(反引号), SymbolToken(!)]), SymbolToken(!)]`）
+  // ——它说的是同一件事（模板 + 后缀断言），只是**模板在核里**；剩下那个裸 `!` 由
+  // `chainOnto` 的「一格裸 `!`」那一支接上（第 1208 轮）。这一支六条。
+  //
+  // 判据与 0b / 0c **同源**：前缀那一串仍要过 `tagIsPostfixChain`（认不出运算符、只认链的格），
+  // 尾巴仍要过 `IsChainTail`；两种形状分开找，优先级按「从右往左、先找模板那一格」。
+  let templateBangAt = -1;
+  let templateBangInner = false;
+  for (let at = kids.length - 2; at >= 1; at--) {
+    if (kids[at].IsTemplateString !== true) {
+      continue;
+    }
+    const bang = kids[at + 1];
+    if (bang.IsUnaryOperator !== true || bang.op !== "!") {
+      continue;
+    }
+    // **第一格就是那个 `!`**（前缀形态；`!` 在第一格的才是前缀，第二格那一形态走下面那一趟）
+    const parts = bang.ProjectableKids;
+    if (parts.length !== 2 || parts[0].IsNotNullSymbol !== true) {
+      continue;
+    }
+    if (tagIsPostfixChain(kids.slice(0, at)) === false || IsChainTail(kids.slice(at + 2)) === false) {
+      continue;
+    }
+    templateBangAt = at;
+    templateBangInner = false;
+    break;
+  }
+  if (templateBangAt === -1) {
+    for (let at = kids.length - 1; at >= 1; at--) {
+      const one = kids[at];
+      if (one.IsUnaryOperator !== true || one.op !== "!") {
+        continue;
+      }
+      const parts = one.ProjectableKids;
+      if (parts.length !== 2 || parts[0].IsTemplateString !== true || parts[1].IsNotNullSymbol !== true) {
+        continue;
+      }
+      if (tagIsPostfixChain(kids.slice(0, at)) === false || IsChainTail(kids.slice(at + 1)) === false) {
+        continue;
+      }
+      templateBangAt = at;
+      templateBangInner = true;
+      break;
+    }
+  }
+  if (templateBangAt !== -1) {
+    const wrapper = kids[templateBangAt];
+    const inner = templateBangInner ? wrapper.ProjectableKids : [kids[templateBangAt], kids[templateBangAt + 1]];
+    const templateUnit = inner[0];
+    const bangEnd = templateBangInner ? inner[1].end : inner[1].ProjectableKids[0].end;
+    const tail = templateBangInner ? kids.slice(templateBangAt + 1) : kids.slice(templateBangAt + 2);
+    const tag = projectExpression(kids.slice(0, templateBangAt), ctx);
+    const template = projectNode(templateUnit, ctx);
+    if (tag !== undefined && template !== undefined) {
+      const tagged = { kind: "TaggedTemplateExpression", tag, template, pos: tag.pos, end: template.end };
+      let chained: any = bangWrapped(tagged, bangEnd);
+      // 前缀形态那一格后面还挂着一个**续格**（实参括号 / `?.[…]`）——它就是外面那次调用 / 下标
+      if (templateBangInner === false) {
+        chained = chainOnto(chained, [inner[1].ProjectableKids[1]], ctx);
+      }
+      return tail.length === 0 ? chained : chainOnto(chained, tail, ctx);
+    }
+  }
   // ---- 0d. 标签模板处在**运算符的左脊柱**上（第 176 轮）----
   //
   // `` tag`abc` + 1 `` 的产物是 `[Identifier(tag), BinaryOperator(String(反引号), +, 1)]`，
