@@ -347,6 +347,63 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1133 轮：「这一格的名字住在它下面哪一格子单元上」收进被问的那一格——基类新立 `## property NameUnit`，投影页 `memberNameOf` 那一句现场 `find` 改读 `v.NameUnit`；**八道门 7 通过、读数一处没动**
+
+**一句话**：用户口径「简化 `print-ast-common`，清理它用不到的方法；投影要的信息在具体类里显式
+声明、构建完就齐全」。这一轮接着第 1106 ~ 1132 那一族往下收：投影页里还剩一处
+**手上就是那一格 token、却拿它自己的 `DeclaredName` 去它自己的 `ProjectableKids` 里现场找名字**
+的写法（`memberNameOf` 第 9211 行那一句 `v.ProjectableKids.find((k) => k.IsIdentifierUnit &&
+k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身上：要找哪个名字读 `v.DeclaredName`
+（`lookup` 就是它取了第一段），名字那一格的正文由那一格自己的 `TextValue` 答。
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明 |
+| --- | --- | --- |
+| `v.ProjectableKids.find((k) => k.IsIdentifierUnit && k.TextValue === lookup)`（**1 处**，`memberNameOf` 里「名字那一格」） | `v.NameUnit` | 基类 `core/syntax/token.xl.md`（`## property` + `### get`） |
+
+- **为什么是 `## property` + `### get`、不是构造时赋的 `## field`**：子单元是**解析期陆续挂上来**的，
+  名字那一格要到解析器认下那个名字才在——与 `HasChildren` / `ProjectableKids` / `IsBareCall` 同一形态
+  （第 1064 / 1066 / 1077 轮立的规矩）。**存储仍然只有一处**（子单元自己），这一格只是一个读数。
+- **为什么立基类一格就够**：这一问的收件人是**任何一个有名字的单元**（`Namespace` / `Import` /
+  `Export` / `Let` / `Method` / `Field` …），而算式只用两格**基类本来就有**的读数
+  （`DeclaredName` 与 `ProjectableKids`）——所以基类那一句对每一页都成立，不必逐页覆写。
+  这与 `IsBareCall` / `IsIndexFirstUnit` 那种「要那一页自己的形状才答得出」的格不同
+  （那几格基类只能给默认 `false`、由需要它的那几页覆写）。
+- **等价怎么证的**：这一格的取值就是原来那一句本身——`lookup` 的算式
+  （`dotAt > 0 ? rawNamespace.substring(0, dotAt) : name`，`rawNamespace = v.DeclaredName`）
+  逐字搬进 getter，`find` 的谓词（`IsIdentifierUnit` + `TextValue === head`）一字不改。
+  八道门读数一处没动就是这条的证据（`cases:tsast` 比 kind / 区间 / 字段名，判错会当场红；
+  `coverage` 4260 / 4422、`blocked 28` / `differ 134` / `bad 0`、加权 95.7% 逐项与第 1106 ~ 1132 轮相同）。
+- **`lookup` 为什么留着**：它还是 `synthName(lookup, v)` 的实参——名字**不住在子单元上**时
+  （`const \u0061bc = 1` 那种，名字住在 `Let.fieldName` 这个属性上）要**合成**一格 `Identifier`。
+  所以「哪一格带我的名字」与「名字不在子单元上时它长什么样」是两问，前者收进 token、后者留在原地。
+- **点号名字那一档照旧**：`namespace A.B` 的外层名字是 `A`（TS 那边是
+  `ModuleDeclaration(A) > ModuleDeclaration(B)`），getter 里 `indexOf(".")` + `substring` 与
+  `memberNameOf` 原来那一句逐字相同；`rawNamespace` / `dotAt` 两行因此**原样留在这两行前面**
+  （它们同时喂着 `synthName`）。
+- **这一轮量过的、没动的**（如实记下，免得下一位重复走一遍）：本页 **43 格声明**（42 个 `# method` +
+  3 个 `# const`，实测量法见下）逐格数过读者——**一格「全仓零读者」的声明都没有**，
+  43 个 `ctx` 出口名字**每一个都有本页之外的读者**（最少的是 `ComputedNameExpression` /
+  `StatementOfList` / `ChainWithOptional` 那一档：各 1 处，都在别的页里）。
+  第 1062 轮那两条踩坑注释（`Nothing` / `ENDS_ON_BRACE` 曾被误判成死代码）今天仍然成立：
+  `ctx.Nothing` 的读者是 `tokens/statement.xl.md`，**只数带括号的调用会漏掉这次值传递**。
+  **量法**：`^# (private )?(method|const) ` 逐行数（`.Count` 就是那一格）；
+  出口名按 `^    ([A-Z][A-Za-z0-9]*): \(` 逐行取，再按 `ctx.<名字>` 分别在本页与全仓数读者。
+- **本页的声明数**：**42 格不变**（39 个 `# method` + 3 个 `# const`，实测：改的是 1 处调用点
+  与它的说明；新立的那一格在基类那一页）。本页今天 **10792 行**（代码块 7832 行 / 不带注释 4663 行，
+  HEAD 是 10785 / 7825 / 4663——多出来的 7 行全在代码块里、都是注释）；
+  `core/syntax/token.xl.md` 2682 → **2715 行**（新那一格 33 行）。
+- **顺带订正一处过期计数**（第 1133 轮记账）：第 1132 轮那一栏当时写着「42 格不变」，
+  而同一轮删掉 `projectTypeArguments` 之前是 43 格、之后是 **42 格**——按
+  `^# (private )?(method|const) ` 在 `HEAD` / `HEAD~1` / `HEAD~3` 上逐行数的实测值是
+  43（第 1131 轮）→ 42（第 1132 轮）→ 42（今天），README 里那一栏已按实测改掉。
+- **实测**：`xl check core typescript` **156 个文件 / 0 条**；`xl build core typescript`
+  **2 个产物 / 0 error**（`token` / `print-ast-common`）、`npx tsc` 干净；
+  **八道门 7 通过、1 失败**（墙钟 32.9s），读数与第 1106 ~ 1132 轮逐项相同
+  （`coverage` **4260 / 4422**、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%；
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+
 ### 第 1132 轮：`ctx.TypeArguments` 出口删掉——那一格**全仓只有 `heritage-clause` 一个读者**，算式就地展开在那一页（第 1112 轮 `parenthesizedOf` 那一把尺子）；并记下一次**当场被门抓住的量错**；**八道门 7 通过、读数一处没动**
 
 **一句话**：用户口径「简化 `print-ast-common`，清理它用不到的方法」。第 1130 / 1131 两轮把
@@ -371,8 +428,10 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
   （`print-ast-common` / `heritage-clause`）、`npx tsc` 干净；八道门 **7 通过 / 1 失败**
   （墙钟 27.3s），读数与第 1106 ~ 1131 轮逐项相同（唯一那条「倒退」仍是 HEAD 上既有的
   `runtime/round741/002`）。
-  `print-ast-common` 本页 **10785 行**（代码块 7825 行 / 不带注释 4666 行；`^#` 声明
-  **42 格不变**——删的是出口表那一行、补的是那一格为什么留着的记账）；
+  `print-ast-common` 本页 **10785 行**（代码块 7825 行 / 不带注释 4663 行；`^#` 声明
+  **43 → 42 格**（42 → 41 个 `# method` + 3 个 `# const`，实测）——删的是出口表那一行、
+  补的是那一格为什么留着的记账；**第 1133 轮复核时发现这一栏当时写成「42 格不变」，
+  与同一轮提交信息里的「42 格不变」都对不上逐行数出来的 42 → 这里按实测订正**）；
   `heritage-clause` 427 → **440 行**（就地展开那 10 行 + 记账）。
 
 ### 第 1131 轮：把 `nameOf` 这个 helper **整格删掉**——投影页那 30 处内部调用点改读 `unit.NameNode`，「一个名字单元 → `Identifier` 节点」从此只有被问的那两页那一个入口；**八道门 7 通过、读数一处没动**

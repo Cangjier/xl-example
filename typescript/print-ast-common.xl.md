@@ -9208,7 +9208,14 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   const rawNamespace = v.DeclaredName;
   const dotAt = typeof rawNamespace === "string" ? rawNamespace.indexOf(".") : -1;
   const lookup = dotAt > 0 ? rawNamespace.substring(0, dotAt) : name;
-  const direct = v.ProjectableKids.find((k) => k.IsIdentifierUnit && k.TextValue === lookup);
+  // **「名字住在哪一格子单元上」第 1133 轮收进被问的那一格**（用户口径 1.1 ~ 1.4）：
+  // 这一句原来是现场拼出来的 `v.ProjectableKids.find((k) => k.IsIdentifierUnit &&
+  // k.TextValue === lookup)`，而**两半事实都在 `v` 自己身上**——要找哪个名字读 `v.DeclaredName`
+  // （上面那一句 `lookup` 就是它取了第一段），名字那一格自己的正文由它自己的 `TextValue` 答。
+  // 今天只读一格：`v.NameUnit`（`core/syntax/token.xl.md` 的基类那一格，`## property` + `### get`，
+  // 点号取第一段的算式与这里原来那一句逐字相同）。`lookup` 仍留着——它是 `synthName` 的实参
+  // （名字不住在子单元上时**合成**一个 `Identifier`），与「哪一格带我的名字」不是同一问。
+  const direct = v.NameUnit;
   const at = direct === undefined ? synthName(lookup, v) : projectNode(direct, ctx);
   if (at === undefined) {
     return { name: undefined, computed: null, unit: direct === undefined ? null : direct };

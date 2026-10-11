@@ -105,6 +105,39 @@ const own = (this as any).name;
 return typeof own === "string" ? own : "";
 ```
 
+## property NameUnit:Token | undefined
+
+**这一格自己声明的那个名字，是它下面哪一格子单元**（第 1133 轮）：答不出来（名字不住在子单元上、
+或者还没挂上来）给 `undefined`。
+
+**为什么要有这一格**：投影问「这个名字住在我下面哪一格」时，判据过去是现场拼出来的一句
+（`v.ProjectableKids.find((k) => k.IsIdentifierUnit && k.TextValue === lookup)`，
+`print-ast-common.xl.md` 的 `memberNameOf`）——而**两半事实都在这被问的那一格自己身上**：
+要找哪个名字读自己的 `DeclaredName`、名字那一格自己的正文是 `TextValue`。收成这一格之后，
+投影只读一个属性，「哪一格带我的名字」这一问整个消失在 token 里。
+
+**为什么是 `## property` + `### get`（不是构造时赋的 `## field`）**：子单元是**解析期陆续
+挂上来**的，名字那一格要到解析器认下那个名字才在（与 `HasChildren` / `ProjectableKids` /
+`IsBareCall` 同一形态，第 1064 / 1066 / 1077 轮立的规矩），所以「我这一格的名字子单元是哪一个」
+只能在**读的那一刻**看一次。存储仍然只有那一处（子单元自己），这一格只是一个读数。
+
+**点号名字取第一段**（`namespace A.B` 的外层名字是 `A`，与 `memberNameOf` 原来那句
+`lookup = dotAt > 0 ? rawNamespace.substring(0, dotAt) : name` 逐字相同）：
+`NameUnit` 只认「正文等于第一段」的那一格子单元。
+
+### get
+
+```ts
+const text = this.DeclaredName;
+if (typeof text !== "string" || text === "") return undefined;
+const dot = text.indexOf(".");
+const head = dot > 0 ? text.substring(0, dot) : text;
+for (const kid of this.ProjectableKids) {
+  if (kid.IsIdentifierUnit && kid.TextValue === head) return kid;
+}
+return undefined;
+```
+
 ## property NameKind:string
 
 **这一格的名字节点该用什么 kind**（第 1068 轮）：`Identifier` 或 `PrivateIdentifier`。
