@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.68,
+  "progressPercent": 95.71,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1643,
-      "pass": 1640,
-      "blocked": 3,
+      "pass": 1643,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.82
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -130,31 +130,13 @@
   ],
   "token": {
     "total": 1643,
-    "knownGap": 3,
-    "knownGapStillOpen": 3,
-    "exactFiles": 1640,
-    "scoredWithoutGap": 1640,
-    "passedWithoutGap": 1640
+    "knownGap": 0,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1643,
+    "scoredWithoutGap": 1643,
+    "passedWithoutGap": 1643
   },
   "blocked": [
-    {
-      "id": "token/declarations/gap-r985-heritage-optional-chain",
-      "category": "token",
-      "title": "继承子句里的可选链：`extends a?.b` 该投成带 `?.` 的属性访问",
-      "detail": "缺 6　第 985 轮第十批底样（嵌套宿主）量出：**继承子句里的可选链**——`class D extends a?.b {}` / `class D implements a?.b {}` 在 TypeScript 那边是 `ExpressionWithTypeArguments > PropertyAccessE"
-    },
-    {
-      "id": "token/declarations/gap-r985-heritage-template-expression",
-      "category": "token",
-      "title": "继承子句里的模板串：整条类都不见了",
-      "detail": "缺 9　多 2　第 985 轮第十批底样（嵌套宿主）量出：**继承子句里的模板串**——`class D extends `a${X}b` {}` 整条类**没有成形**（产物是 `<Statement><Keyword>class</Keyword>…<Bracket>{}</Bracket>`：缺 `ClassDe"
-    },
-    {
-      "id": "token/types/gap-r985-jsdoc-nonnull-in-type-position",
-      "category": "token",
-      "title": "类型位里的 `!`：TS 读成 `JSDocNonNullableType`（JSDoc 时代的那一档）",
-      "detail": "缺 6　多 1　第 985 轮第十批底样（嵌套宿主）量出：**类型位里的 `!`** 在 TypeScript 那边是 `JSDocNonNullableType`（`a!` 两格全包：`type T = a!` 缺 1 漂 0 多 0；`type T = (a!)` 缺 2 漂 0 多 1，那一格我们收成了 `Non"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",

@@ -347,6 +347,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1203 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **第 985 轮那批三条 `xl:known-gap` 全清**（继承段可选链 / 继承段模板串 / 类型位 `!`），**`parse` 中位 1891 → 1732 ms（−8.4%，最好成绩 1773 → 1601 ms）**；三条优化都拿「1643 份语料的产物 XML 与投影 JSON 逐字节同答」做等价证明
+
+**一句话**：这一轮先把**基准**立起来（`node tmp/r1203-parse.mjs <文件> <轮数>` 报 best / median / worst，
+`node tmp/r1203-bench.mjs` 把 `parse` 与 `Root.ToString()`、`projectRoot` 三段分开量），
+再**照 profile 动手**——`--cpu-prof` 的 self time 说解析期第一名是 `TempToString`（10.6%）、
+第二是 `UnitToken.Process`（11.6%，含它的 try 壳）；**修的三条缺口各自也先量出入手处**，
+不猜。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.2** | `BlockToken.TempToString()` **记忆化**（新 `## field TempCache` + `TempChanged()` 失效出口；页外的两处 mutation 点——`const-string` 的缩进裁剪、`compound-assignment-operator` 的复合赋值切开——各自补上失效调用） | `TempToString` 从 self time **10.6% 直接掉出前 20**；parse 中位 1891 → **1746 ms** |
+| **1.2** | `UnitToken.Process` 的 **try 壳拆开**（本体搬进新的 `ProcessChar`，`try/catch` 只剩「调它 + 建 `SyntaxException`」一层；判据、次序、`LastSource` 一字未改） | parse 中位 1746 → **1699 ms** |
+| **1.2** | `BinaryOperatorCloseRule.Previous` 的**逗号判据提到最前面**（它对非逗号一律答 `true`，所以只留 `false` 那一半；14 个实例共用同一趟） | 与上面两处合起来：中位 **1891 → 1732 ms** |
+| **1.1** | `ExpressionWithTypeArguments.PrintAst`：**「名字 + 恰好一格 `?.`」整段交给 `ctx.Expression`**（折链算式只有 `projectExpression` 那一份）+ `InterfaceBranch.TakeDottedName` **把 `?.` 也认成链上的分隔符** | `gap-r985-heritage-optional-chain` **收掉**（删指令）；顺带修好 `interface I extends a?.b {}`（原来整条退回 `ExpressionStatement`） |
+| **1.1** | `projectTypeExpression`：`JSDocNonNullableType` 的**两种形态**（平铺的末尾那个 `!`；以及值位规则已经收好的一个 `NotNull` 单元，读它自己的 `CoreKids`） | `gap-r985-jsdoc-nonnull-in-type-position` **收掉** |
+| **1.1** | `ClassBranch.ScanHead`：`extends` 后面认**第三种实体名** `String`（模板串） | `gap-r985-heritage-template-expression` **收掉** |
+
+**等价怎么证的**：改一处、`xl build` + `tsc`，再跑一遍
+`node tmp/r1203-dump.mjs <out>`（1643 份语料逐份算 token 树 XML 与投影 JSON 的 sha256 + 节点数）
+并与基线 dump `tmp/r1203-dump-old.json` 用 `node tmp/r1203-dumpdiff.mjs` 逐份比——
+**三条优化各自 0 差异**（`diff=0 nodeDelta=0`）。**探针要在真实现上装**：
+`Token.Former` 在 `Template.Initialize(ParsePipeline.Install)` 之前是**基类那一份空壳**，
+所以照着它包 `ApplyCloseRules` 会量到 **0 次调用**（第一版就是这么白跑一趟的，坑记在这里）。
+
+**一处试过又退回的（如实记）**：`IsAngleAssertionHead` 那一问看着「只对 `<` / `>` 有意义」，
+于是先试了「把它挂在 `current.Is("<")` 的闸后面」、又把 `IsOperator` 提到它前面——
+**两次都当场红**：它认的是「这一层的**第一个**实心单元是 `GenericType`」，
+而 `<number>a + b` 那个 `+` 与它**同层**、同样要被它挡住；`<T>x > y` 的 `>` 也在同一层。
+判据退回原位，理由写在 `binary-operator.xl.md` 那一节里（**那一问的闸只有它自己那两句**）。
+
+**净账**：`cases:tsast` **1643 / 1643 完全一致**（三条 `xl:known-gap` 全清，指令一并删掉）；
+`cases:direct` 无异常、固定样本通过；`direct:lint` 0 条违反；`samples` ok；
+`cases:check` 1656 条 0 不合格；`runtime:check` **243 / 0**；`runtime:cli` **79 / 0**；
+`coverage` **4263 / 4422**（blocked 25、differ 134、bad 0，加权 95.7%）；
+**倒退仍是那 1 条既有的**（`runtime/round741/002-optional-index-then-call`，本轮开工前的 HEAD 上就已经开着）。
+
+**四条 commit**：`e9eac699`（1.2 三处）、`b5a6f7d9`（继承段可选链）、`c72ddb67`（类型位 `!`）、`2c26d5af`（继承段模板串）。
+
 ### 第 1197 轮（第三支）：用户口径 1.1 / 1.2 / 1.3 / 1.4 / 1.5 / 1.7 —— 把 `innermostMethod` 那一格整格搬进 `Method.InnermostMethod`（投影层少一格声明）、`innermostCallee` 删掉一句重复的读法；代码块 **3828 → 3818** 行、`#` 声明 **57 → 56** 格；**中途踩了一个坑并当场纠正**（把 `CoreKind` 当通用属性读 ⇒ 11 条用例红，于是把那一半读法退回，并写下「一格属性只该由声明它的那一页来答」）
 
 **一句话**：这一支把「**一路走到最里面那一格 `Method`**」这一问从投影层搬回 `Method` 那一页
