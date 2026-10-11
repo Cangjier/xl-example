@@ -1429,7 +1429,21 @@ return out;
 // （见下面这一节与 `TrailingSemicolonAt`），`AllKids` 那一格随之整格删掉。
 let at = this.start;
 const self: any = this;
+// **先看一眼那一格字符**（第 1223 轮，用户口径 1.2「提升 parse 效率」，基准＝print ast 的耗时）：
+// 注释的正文一定以 `/` 起头（`IsCommentUnit` 只有 `LineAnnotation`（`//`）与
+// `AreaAnnotation`（`/*`）两页答真），所以「`at` 那一格不是 `/`」时**这一问的答案就是 `at`**——
+// 下面那趟「扫各段 + `children`」整趟不必走。它读的是**那一格字符自己**
+// （`Document.GetValue`，与 `SemicolonAfter` 那一处同一个出口），**不是** `this.Text`
+// ——后者会把整段正文拼出来（第 1048 轮立的 `Text` 是**这一格的正文**，为看一格字符去拼它
+// 正是这一轮要省掉的那一笔）。
+// **读数**（`tmp/r1223-prof`：`node --cpu-prof`，单独量投影那一趟、`typescript.d.ts` 跑 200 遍、
+// 按自身时间聚合）：这一格**3.1%**（同一张榜上 `get start` 3.5%、`get TrailingSemicolonAt` 2.1%）——
+// 而绝大多数 token 的起点**不是**注释（注释是稀疏的），那 3.1% 里的大头就是这趟白扫。
+// `head === null`（没签过的单元、非 token 的合成视图）时照旧给 `at`：原来那句
+// `this.Text` 在这种单元上答空串、`GetValue` 也答空串，两条路同答。
+const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
 for (;;) {
+  if (head === null || head.Document.GetValue(at) !== "/") break;
   // **就地扫一遍，不造那张「各段 + children」的表**（第 1161 轮，用户口径 1.6）：
   // 这一问要的是「各段 + `children` 里**第一格**『起点正好是 `at` 的注释』」，顺序与那张表
   // 逐格相同（各段按 `Segments` 的顺序、`children` 在最后），所以先扫到的那一格就是答案；
@@ -1632,7 +1646,15 @@ return this.TrailingTriviaStart(this.end);
 
 ```ts
 if (this.end <= 0) return undefined;
-if (!this.Text.endsWith(";")) return undefined;
+// **只看末尾那一格字符**（第 1223 轮，用户口径 1.2，基准＝print ast 的耗时）：原来这一句是
+// `!this.Text.endsWith(";")`——`Text` 是**这一格的整段正文**（第 1048 轮立的，
+// `Document.GetRaw` 现拼一个字符串），为了看最后一格字符把整段拼出来是白造的；
+// 而「末尾那一格字符是什么」与 `SemicolonAfter` 那一处是同一个出口
+// （`Document.GetValue`，读一格字符）。**答案逐字符相同**：`Text` 为空（没签过 / 签反了）
+// 时 `GetValue` 也答空串 ⇒ 同样在这里给 `undefined`。
+const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
+if (head === null) return undefined;
+if (head.Document.GetValue(this.end - 1) !== ";") return undefined;
 // **就地扫一遍，不造那张「各段 + children」的表**（第 1161 轮，用户口径 1.6）：
 // 这一问是**存在性**（有没有某一格盖住末尾那个 `;`），所以照「各段 + `children`」的顺序
 // 扫、**命中即答**——与 `for (const k of this.AllKids)` 逐格同答（那张表同一批子单元、
