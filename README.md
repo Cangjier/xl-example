@@ -347,6 +347,41 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1148 轮：用户口径 1.6 —— 量了「`ProjectionStart` 这一格该不该把算过的答案记下来」，**读数说不要**（每个 token 平均只读 **1.03** 次 ⇒ 记忆位只省 2.5% 的数组构造），于是**不留字段、只留这把尺子**；第 1146 / 1147 轮那一族「每调用一次白造一次」的账也一并结清（每投一趟少造 **17061 个 `Set`** + **17122 个 `RegExp`**）
+
+**一句话**：第 1146 / 1147 两轮把「每调用一次就重建一次」的集合与正则提到模块级。这一轮
+按用户口径 1.6（投影成本趋于 0）接着问**投影路径上最后一处「读一次就白算一次」的东西**：
+`core/syntax/token.xl.md` 的 `ProjectionStart`（`astNode` 每格读它，它内部每趟重建一份 `AllKids`）。
+
+- **量法**（计数器挂在 `Token.prototype` 的 `ProjectionStart` / `AllKids` 两个 getter 上，
+  跑官方用例语料 1640 份 / 21793 个节点；探针脚本进 `tmp/` 不进仓）：
+  `ProjectionStart` 被读 **9580 次**、落在 **9339 个不同的 token** 上
+  （重复读 **241** 次 ⇒ 每个 token 平均读 **1.03** 次）；`AllKids` 被建 **9581 次**、
+  **全部**来自这一格（`stmtEndOf` 那段收尾 trivia 用的是投影页**自己**那份 `allKids`，
+  与这个 getter 无关——两处各自量过）。
+- **结论（这一轮真正的产出）**：加一格记忆位（`ProjectionStartAt`）只能省掉
+  241 / 9581 = **2.5%** 的数组构造，却要在基类上多一格**只有读第二次才用得上**的字段
+  （`Clone` 还要跟着抄一格）。按第 1135 轮那条量出来的教训（**收件人先量后立**）——
+  **这一格不该立**。字段**没有留下来**，留下来的是这段读数，写在那一格的 `### get` 里，
+  免得下一轮再照「getter 里造数组」这一条去立记忆位。
+- **两轮的账一起结清**（口径 1.6 写不出的那部分由这把尺子补上）：
+
+  | 那一族 | 每一趟白造 | 出处 |
+  | --- | --- | --- |
+  | 四张常量集合（`NCO_BASE_OPERATORS` / `OP_TEXTS` / `UNARY_KINDS` / `ENDS_ON_BRACE`） | **17061 个 `Set`** | 第 1146 轮，已收成模块级常量 |
+  | 四张正则（`WHITESPACE` / `DEFAULT_TAIL` / `ONLY_CONDITION_STATEMENT_SEGMENT` / `SEMICOLONS_AND_SPACES`） | **17122 个 `RegExp`** | 第 1147 轮，已收成模块级常量 |
+  | `ProjectionStart` 的记忆位 | 只省 **241** 次数组构造 | **本轮量过、决定不立** |
+
+- **实测**：`xl check core/syntax/token.xl.md` **0 条**、
+  `xl build core/syntax/token.xl.md` **1 写 / 0 error**、`npx tsc` 干净；
+  **八道门 7 通过、1 失败**（墙钟 31.3s），读数与第 1106 ~ 1147 轮**逐项相同**：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002` ⇒ **等价**。
+- **本轮的改动**：`core/syntax/token.xl.md` 的 `ProjectionStart` 那一节多了一段读数
+  （**代码一行没动**：试验版的 `ProjectionStartAt` 字段连同读取一起还原了）。
+
 ### 第 1147 轮：用户口径 1.6 —— 投影里**每一趟调用都重新求值一次**的四张正则提到模块级（`WHITESPACE` / `DEFAULT_TAIL` / `ONLY_CONDITION_STATEMENT_SEGMENT` / `SEMICOLONS_AND_SPACES`），每投一趟少造 **17122 个 `RegExp`**；**读数一处没动**
 
 **一句话**：第 1146 轮把「每调用一次重建一次」的**集合**收成模块级常量，这一轮按同一把尺子
