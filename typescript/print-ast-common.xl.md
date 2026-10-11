@@ -74,15 +74,17 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**74 格声明**（`^# …(method|const)` 逐行数出来的实测值：70 个 `# method` +
+这是一份**纯函数库**：**71 格声明**（`^# …(method|const)` 逐行数出来的实测值：67 个 `# method` +
 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
-**这一栏的旧账与本轮实测差 2 格，如实记下**（第 1073 轮）：第 1062 轮起这里写的是
-「89 → 86 格」，而那一族往下逐轮减到「79 格」；第 1073 轮按上面那条命令逐行数出来是
-**77 格**，第 1078 轮删掉 `modifierStart` 之后是 **74 格**——差的头两格**不是那两轮改动带来的**
-（第 1072 / 1073 只动调用点、说明与三格声明），最可能是早几轮的计数把某些行重复算了一次。
+**这一栏的旧账与实测差 2 格，如实记下**（第 1073 轮起、第 1079 轮复核）：第 1062 轮起这里写的是
+「89 → 86 格」，而那一族往下逐轮减到「79 格」；照上面那条命令逐行数：
+第 1073 轮是 **77 格**、第 1077 轮（上一轮动声明之前）是 **73 格**、第 1078 轮删掉
+`modifierStart` 之后是 **72 格**、第 1079 轮删掉 `modifierSpansOf` 之后是 **71 格**
+——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
+改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 所以从这一轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
 `Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 即可（`.Count` 就是那一格）。
@@ -8274,28 +8276,15 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return { name: at, computed: null, unit: direct === undefined ? null : direct };
 ```
 
-# private method modifierSpansOf:(v:any)=>Array<any>
-
-token 记下的**每个修饰词各自的区间**（各页自己声明的那一格 `modifierSpans`，`"起:止"` 用 `,` 连接、闭区间）。
-
-解析期认下声明那一刻位置就在手上，所以这一格是**事实**；没有这一格的 token（还没记的那几档）
-返回空数组，调用方退回「回原文 `indexOf` 猜」那条路。
-
-```ts
-  const raw = v.modifierSpans;
-  if (typeof raw !== "string" || raw === "") return [];
-  const out = [];
-  for (const piece of raw.split(",")) {
-    const parts = piece.split(":");
-    if (parts.length !== 2) return [];
-    const start = Number(parts[0]);
-    const end = Number(parts[1]);
-    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) return [];
-    // 产物记的是**闭区间**（与 `nameStart` / `nameEnd` 同一口径），节点要的是右开区间。
-    out.push({ pos: start, end: end + 1 });
-  }
-  return out;
-```
+**`modifierSpansOf` 那一格第 1079 轮删掉了**（它原来就挂在这里，占第 8277~8299 行）：它把各页
+自己声明的 `modifierSpans` 字段（`"起:止"` 用 `,` 连接）拆成一串 `{ pos, end }`。
+**要拆的那个字符串就是被问的那一格自己的字段**，所以按这一族一贯的口径
+（第 1041 / 1042 / 1057 / 1068 / 1069 / 1078 那几条）它搬回了 `core/syntax/token.xl.md`：
+基类新增 `## property ModifierSpanList:Array<any>`（`## property` + `### get`，读的就是本页的
+`modifierSpans` 那一格；没有这一格的页面答空数组，解析不出来也答空数组——与原来的实现逐字相同），
+本页唯一的那处调用（`addModifiers` 里取 `spans`）改成属性读。
+`modifierSpans` 这个读法本身留在各页（`Let` / `Field` / `TypeAssign`…），基类那一格只是把它拆开——
+**同一份事实因此只有一个入口**（第 1078 轮收掉的是它的兄弟 `modifierStart`）。
 
 # private method addDecorators:(v:any, props:any, ctx:any)=>void
 
@@ -8365,7 +8354,10 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   if (words.length === 0) return;
   // **位置只有一个来源**：`modifierSpans` 与 `modifiers` **同序同长**（同一趟记下的两格），
   // 所以第 i 个词的位置就是第 i 格——这里不再有「个数对不上就换一条猜法」这一支。
-  const spans = modifierSpansOf(v);
+  // **拆那一串的地方就是这一格的页**（第 1079 轮）：`spans` 读的是 `Token.ModifierSpanList`
+  // （基类那一格，见 `core/syntax/token.xl.md`），本页那一格 `modifierSpansOf` 连同它
+  // 唯一的那处调用一起删掉——要拆的字符串本来就是各页自己声明的字段。
+  const spans = v.ModifierSpanList;
   const out = [];
   for (let i = 0; i < words.length; i++) {
     const word = words[i];

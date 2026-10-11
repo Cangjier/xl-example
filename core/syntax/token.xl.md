@@ -572,6 +572,43 @@ return this.Data;
 而且它同样靠运行期反射（与 `Segments` 同一轮、同一条口径）。
 收成这一格之后，「哪几个布尔属性是修饰词」只有本页一处声明，投影只读属性名。
 
+## property ModifierSpanList:Array<any>
+
+**我记下的每个修饰词各自的区间**（第 1079 轮）：把本页自己声明并赋好的那一格
+`modifierSpans`（`"起:止"` 用 `,` 连接、闭区间，与 `modifiers` **同序同长**）拆成一串
+`{ pos, end }`——**右开区间**（产物记的是闭区间，节点要的是右开，所以 `end` 加一）。
+
+**为什么要有这一格**：投影那一侧过去有一格 `modifierSpansOf(v)` 现场拆这一串
+（`print-ast-common.xl.md`），可**要拆的那个字符串就是本页自己的字段**——
+按这一族一贯的口径（第 1041 / 1042 / 1057 / 1068 / 1069 / 1078 那几条）它住在这里：
+`addModifiers` 只读一次属性名。
+
+**没有这一格的页面答空数组**：`modifierSpans` 只有把修饰词记成文本的那几页才有
+（`Let` / `Field` / `TypeAssign`…；`Lamda` 的 `async` 记的是布尔属性 + `ModifierWords`），
+而那一档本来就走「从 `v.start` 起量」的另一条路（见 `addModifiers`）——
+所以空数组就是「我没有位置这一格」，不是「位置丢了」。
+**解析不出来（不是 `起:止`、不是整数、`start < 0`、`end < start`）**答空数组：
+与原来的实现逐字相同——那是坏输入，不是第二份答案。
+
+### get
+
+```ts
+// **经 `(this as any)` 读**（口径同 `DeclaredName` 那一格）：`modifierSpans` 是各页自己声明的
+// 读取口（`Let` / `Field` / `TypeAssign`…），基类这一格是**兜底**——没有那一格的页面就是空数组。
+const raw = (this as any).modifierSpans;
+if (typeof raw !== "string" || raw === "") return [];
+const out: any[] = [];
+for (const piece of raw.split(",")) {
+  const parts = piece.split(":");
+  if (parts.length !== 2) return [];
+  const start = Number(parts[0]);
+  const end = Number(parts[1]);
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) return [];
+  out.push({ pos: start, end: end + 1 });
+}
+return out;
+```
+
 ## property Segments:Array<string>
 
 **我这一格有哪几段子单元**（第 1065 轮）：段名就是本页自己声明的那几个属性名
