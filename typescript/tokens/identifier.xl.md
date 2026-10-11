@@ -527,17 +527,32 @@ return items.includes(this.TempToString());
   // **文本读 token 自己的 `Temp`**（第 992 轮）：`ctx.Text(v)` 在值为空时会回原文切一刀，
   // 那是这条路上不许有的第二份近似；`Identifier` 的正文就是它自己攒下来的那串字符。
   const text = this.TempToString();
-  return ctx.Node(this.LeafKind(), { text: Translate.DecodeIdentifierEscapes(text) }, v);
+  return ctx.Node(this.LeafKind, { text: Translate.DecodeIdentifierEscapes(text) }, v);
 ```
 
-## method LeafKind:()=>string
+## property LeafKind:string
 
-**我这一格在 TS 那边是哪个 kind**（第 1029 轮）：标识符 / 数字 / 布尔字面量 / 字符串 / 私有名
+**我这一格在 TS 那边是哪个 kind**（第 1029 轮；**第 1127 轮由 `## method` 收成属性**）：
+标识符 / 数字 / 布尔字面量 / 字符串 / 私有名
 在产物里**都是 `<Identifier>` 这个文本块**，而 TS 那边各有一个 `SyntaxKind`——
 这一页是它们的家，所以由这一页按**自己的正文**答。
 
+**为什么它是属性、而且是 `## property` + `### get` 不是 `## field`**：与 `Token.TextValue`（第 1069 轮）
+/ `Keyword.KeywordKind`（第 1042 轮）/ `SymbolToken.OperatorRank`（第 1063 轮）同一条口径——
+它答的是「**我这一格正文**」的函数，而正文到 `Close()` 那一刻才攒完；有些单元没走过 `Close()`
+（第 1063 轮实测过把同族写成字段的代价：`coverage` 4260 → 4058），写成字段就会静默退回默认值。
+**取值口径与原来那一格逐字符相同**：`TextValue` 对块 token 就是 `TempToString()`（`BlockToken.value` 那一格），
+所以 `LeafKindOfText(this.TextValue)` 与原来 `LeafKindOfText(this.TempToString())` 同答。
+
+**投影那一侧**（`print-ast-common.xl.md` 绑定位默认值那一处）手上**就是这一格单元**，
+所以它读 `only.LeafKind`——不再把这一格的正文拿去问这一页的静态表
+（用户口径 1.1~1.4：token 子类构建完，信息就齐全）。静态那格 `LeafKindOfText` 留着，
+给**只有一段文本**的调用点（`method.xl.md` 那两处）。
+
+### get
+
 ```ts
-  return Identifier.LeafKindOfText(this.TempToString());
+  return Identifier.LeafKindOfText(this.TextValue);
 ```
 
 ## static method LeafKindOfText:(text:string)=>string
@@ -547,8 +562,8 @@ return items.includes(this.TempToString());
 搬过来之前它是 `typescript/print-ast-common.xl.md` 的 `# method leafKindOfText`，投影经
 `ctx.LeafKind(text)` 问它——而**键是叶子自己的正文**（`Identifier.TempToString()` /
 `Keyword.Value` 那一族），也就是**这一页自己的事实**。今天读法有两个：
-`Identifier.LeafKind()`（自己的正文）与投影里那两处「手上只有一段名字文本」的地方
-（`projectBindingElement` 的默认值、`method.xl.md` 的调用名）走这个静态入口。
+`Identifier.LeafKind`（**第 1127 轮起是属性**，读自己的正文；`Keyword.LeafKind` 也答同一格）与
+投影里那些「手上只有一段名字文本」的地方（`method.xl.md` 的调用名）走这个静态入口。
 
 ```ts
   // **`1n` 是 `BigIntLiteral`**（第 160 轮）：TS 那边整数字面量带 `n` 后缀时是**另一个 kind**

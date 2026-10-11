@@ -347,6 +347,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1127 轮：`print-ast-common` 里那两处「按文本问那一页」改成**问这一格自己**——`Identifier.LeafKind` / `SymbolToken.TokenKind` 由方法收成属性，投影持单元的那一处读 `only.LeafKind`；**八道门 7 通过、读数一处没动**
+
+**一句话**：用户口径「简化 `print-ast-common`，清理它用不到的方法；投影需要的信息要在 token
+子类构造时（或记下那个事实的那一趟）就明确、在具体类里**显式声明**、构建完就**齐全**」。
+第 1028 / 1029 两轮把那两张按文本查的词汇表搬回各自那一页之后，`ctx` 上那两个分类器出口
+（`LeafKind` / `TokenKind`）就删掉了；可**投影已经用不到的两个实例方法还留在页上**——
+`Identifier.LeafKind()` 与 `SymbolToken.TokenKind()`，各自只剩「自己那一页的 `PrintDirectAst`」
+一个读者（一行转手：把 `LeafKindOfText` / `KindOfText` 喂上自己的正文）。
+
+- **收成属性**（具体类里显式声明，`## property` + `### get`，取值一行没改）：
+  `Identifier.LeafKind` / `SymbolToken.TokenKind` 读自己的 `TextValue` 问同一份词汇表；
+  两页自己的调用点改成属性读：`this.LeafKind()` → `this.LeafKind`、
+  `this.TokenKind()` → `this.TokenKind`。
+  **为什么不是 `## field`**：与 `Token.TextValue`（第 1069 轮）/ `SymbolToken.OperatorRank`
+  （第 1063 轮）同一条——正文到 `Close()` 那一刻才攒完，而有些单元没走过 `Close()`
+  （第 1063 轮实测过把同族写成字段的代价：`coverage` 4260 → 4058），写成字段会静默退回默认值。
+- **投影那一处改成读属性**：`projectBindingElement` 的默认值那一段过去把这一格的正文
+  （`only.TextValue`）拿去问 `Identifier.LeafKindOfText`——能当一个名字的只有 `Identifier` 与
+  `Keyword` 两页（`IsNameNode`，第 1057 轮），于是**两页各自显式声明同一格 `LeafKind`**
+  （`Keyword` 那一页本轮新立；它本来就 import `Identifier`），投影改读 `only.LeafKind`。
+- **等价怎么证的**：`BlockToken.value` 那一格就是 `TempToString()`，所以
+  `LeafKindOfText(this.TextValue)` 与原来 `LeafKindOfText(this.TempToString())` 同答；
+  而投影那一处传的也正是 `only.TextValue` ⇒ 两页答的与那一次静态调用是**同一个函数、同一段文本**。
+  逐格点了名（本轮探针 `tmp/r1127`）：`const [c, d = 2]` ⇒ `NumericLiteral`、
+  `= this` ⇒ `ThisKeyword`（**新立的那一格真的被走到**）、`= e` ⇒ `Identifier`，
+  改前改后逐项相同。
+- **静态入口照旧留着**：`Identifier.LeafKindOfText` / `SymbolToken.KindOfText` 给「手上只有
+  一段文本」的调用点（`method.xl.md` 的调用名、`foldBinaryFrom` 一族的运算符文本、
+  `memberNameOf` 的数字名）——搬与删的判据仍是「**手上有没有那一格单元**」。
+- **实测**：`xl check typescript core` 156 文件 / 0 条；`xl build core typescript`
+  4 个产物 / 0 error（`print-ast-common` / `identifier` / `keyword` / `symbol-token`）、
+  `npx tsc` 干净；八道门 **7 通过 / 1 失败**（墙钟 29.1s），读数与第 1106 ~ 1126 轮逐项相同
+  （`coverage` 4260 / 4422、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%，
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+  本页声明数 43 格一格没增没减（改的是一处调用点与说明），本页今天 **10777 行**
+  （代码块 7806 行、其中不带注释的 4668 行）；三页 token **各少一个方法、多一格属性**
+  （`identifier` 723 行 / `keyword` 665 / `symbol-token` 711）。
+
 ### 第 1126 轮：一元单元里那串 11 个字面量收进被问的那两页——十个本来就是 `IsPrefixOperatorUnit`，`yield` 由 `Keyword` 另立 `IsYieldKeyword`；**八道门 7 通过、读数一处没动**
 
 **一句话**：「两层前缀叠在同一个一元单元里、操作数却掉在外面」那一支（第 739 轮）现场比了

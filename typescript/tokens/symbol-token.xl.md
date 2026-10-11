@@ -555,18 +555,26 @@ return items.includes(text);
 ```ts
   // **文本读 token 自己的 `Temp`**（第 992 轮）：见 `identifier.xl.md` 那一页的同一条说明。
   const text = this.TempToString();
-  return ctx.Node(this.TokenKind(), { text }, v);
+  return ctx.Node(this.TokenKind, { text }, v);
 ```
 
-## method TokenKind:()=>string
+## property TokenKind:string
 
-**我这一格在 TS 那边是哪个 kind**（第 1028 轮）：`SymbolToken` 的正文是运算符 / 标点，
+**我这一格在 TS 那边是哪个 kind**（第 1028 轮；**第 1127 轮由 `## method` 收成属性**）：
+`SymbolToken` 的正文是运算符 / 标点，
 TS 那边它们各有一个 `SyntaxKind`（`=` → `EqualsToken`、`=>` → `EqualsGreaterThanToken`…）。
 
 词汇表是这一页自己的（见下面的 `SYMBOL_TOKEN_KIND`），查法也收在这一页
 （`KindOfText` 管「文本 → kind」这一件事，`?? 文本` 那一条兜底只有一份）。
 过去它是投影层那张按文本查的 `TOKEN_KIND` 加上投影层的一个 `tokenKind(text)` 函数——
-同一份词汇被声明了两遍；现在投影问这一格，不替它记第二遍。
+同一份词汇被声明了两遍；现在按文本问的那几处问 `KindOfText`，**手上就是这一格单元**的那一处读本属性
+（第 1127 轮起；与 `Keyword.KeywordKind` / `SymbolToken.OperatorRank` 同一形态）。
+
+`## property` + `### get` 而不是 `## field`：与同页 `OperatorRank`（第 1063 轮）同一条理由——
+符号的正文未必关过（`let a = 1` 那一格尾巴符号是 `new SymbolToken` + `AppendAndSignOut` + `SignIn`，
+没有 `TryToClose()`），写成字段会在那些格子上静默退回默认值。
+
+### get
 
 ```ts
   return SymbolToken.KindOfText(this.TempToString());

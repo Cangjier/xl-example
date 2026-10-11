@@ -2058,7 +2058,8 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 - `TOKEN_KIND`（45 档：符号文本 → `SyntaxKind` 名）→
   `typescript/tokens/symbol-token.xl.md` 的 `# private const SYMBOL_TOKEN_KIND`，读法是
   `SymbolToken.KindOfText(text)`（静态：投影折叠二元表达式时手上只有**一段文本**，
-  问的就是这一格）与它转调的 `SymbolToken.TokenKind()`。
+  问的就是这一格）与它转调的 `SymbolToken.TokenKind`（第 1127 轮起是**属性**；
+  它有读者的那一处是 `SymbolToken.PrintDirectAst` 拿自己的正文问，投影那一侧不再调它）。
 
 两张表的**键都是那一页自己的正文**（`Keyword.Value` / `SymbolToken.TempToString()`），
 所以「这份词汇是什么」与「我这一格是什么」本来就是同一页的事实。搬完之后投影层不再有
@@ -8385,7 +8386,11 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       props.initializer =
         only !== undefined && only.IsNameNode
           ? {
-              kind: Identifier.LeafKindOfText(only.TextValue),
+              // **kind 由这一格自己答**（第 1127 轮）：过去这里把这一格的正文拿去问
+              // `Identifier.LeafKindOfText` 那张按文本查的表；能当一个名字的只有 `Identifier` 与
+              // `Keyword` 两页（`IsNameNode`，第 1057 轮），两页各自显式声明了同一格 `LeafKind`、
+              // 读自己的 `TextValue` 问同一份词汇表 ⇒ 与原来那一次静态调用逐字符同答。
+              kind: only.LeafKind,
               text: only.TextValue,
               pos: startOf(only),
               end: endOf(only),

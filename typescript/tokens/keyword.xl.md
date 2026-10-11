@@ -497,6 +497,25 @@ return `<Keyword range="${this.RangeOf()}">${this.Value}</Keyword>`;
 return this.Value;
 ```
 
+## property LeafKind:string
+
+**我这一格在 TS 那边是哪个 kind**（第 1127 轮）：`Identifier.LeafKindOfText` 那一份词汇表管的是
+「**一段叶子文本 → TS 的 kind**」，而能当一个名字的只有**两页**（`IsNameNode`，第 1057 轮：
+这一页与 `Identifier`）——投影在 `print-ast-common.xl.md` 的绑定位默认值那一处手上**就是这一格单元**
+（`const [c, d = this] = a` 里那个 `this` 关键字），所以那一格事实按用户口径 1.1~1.4
+由**这一格自己**答：读自己的 `TextValue` 问同一份词汇表，与原来
+`Identifier.LeafKindOfText(only.TextValue)` **逐字符同答**（同一个函数、同一段文本）。
+
+**为什么是 `## property` + `### get` 不是 `## field`**：与同页 `KeywordKind` 同一条口径——
+关键字兜底身份的正文是 `Value`，而它由 `SetValue` 在**记下正文那一刻**写；写成字段就得在
+每一处赋值点各抄一遍，读的那一刻问一次反而只有一份判据。
+
+### get
+
+```ts
+  return Identifier.LeafKindOfText(this.TextValue);
+```
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
