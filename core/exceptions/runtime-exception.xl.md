@@ -17,11 +17,13 @@ xl 规定一个类至多一个构造器（`E1206`），因此保留参数最全�
 
 异常信息。
 
-## field InnerException:any = null
+## field InnerException:Error | RuntimeException | null = null
 
 内层异常。
 
-BCL 类型不进规范，这里记为 `any`。
+BCL 类型不进规范，所以这一格按**能挂进来的两类**写：`Error`（BCL 的异常）与
+`RuntimeException` 自己（`Copy` 会把 `toCopy` 本身挂进来，见下）——第 1144 轮按用户口径 1.5
+把这里的 `any` 消掉：`any` 让「这一格能装什么」在读的一侧完全消失，而它其实是两件明确的事。
 
 ## field SourceRange:SourceRange
 

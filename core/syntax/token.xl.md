@@ -17,6 +17,29 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `Token` 是整棵树的地基：它记录自己覆盖的源码范围、自己的子单元、以及处理每个字符时该跑哪些跳转与收尾规则。
 
+# type SourceSpan = { pos: number, end: number }
+
+**产物里的一个右开区间**（第 1144 轮按用户口径 1.5 立起来）：`pos` 是起点、`end` 是终点，
+与 `PrintAst` 投出来的节点用的是同一套坐标口径——所以它不叫 `SourceRange`
+（那是一格 token 自己的**闭区间**存储，两者不是同一件事）。
+
+# type TypeMemberPlanShape = { separator: string | null }
+
+**「我这一批子单元要不要按类型位投、按哪个符号切」的答案**（第 1144 轮按用户口径 1.5 立起来）：
+`separator` 是符号时成员之间按它切段、是 `null` 时整批合起来是**一个**类型。
+它从前写作 `any`——那是把「答得出来」这件事本身也写没了。
+
+# type FunctionFlagsShape = { generator: boolean, async: boolean }
+
+**「我这一份是不是函数体」的答案**（第 1144 轮按用户口径 1.5 立起来）：两个标记就是函数体自己
+在收尾规则里已经拿在手上的那两件事实（`*` 记号与 `async` 这个词）。
+
+# type AstNameNode = { kind: string, text: string, pos: number, end: number }
+
+**一个名字单元投出来的那个节点**（第 1144 轮按用户口径 1.5 立起来）：
+`Identifier.Interactive` 那种 `{ kind, text, pos, end }` 四格——`kind` 恒为 `"Identifier"`、
+`text` 是解转义之后的正文、`pos` / `end` 用**原文那一格**的坐标。
+
 # class Token
 
 Token，语法树的地基。
@@ -678,7 +701,7 @@ return this.modifiers.split(",").filter((word) => word !== "");
 读法只是 `return this.ModifierSpans;`）随之整格删掉：**同一格事实回到一处声明**——
 各页构造时赋好的这个字段，XML 那一侧也直接读它。
 
-## property ModifierSpanList:Array<any>
+## property ModifierSpanList:Array<SourceSpan>
 
 **我记下的每个修饰词各自的区间**（第 1079 轮）：把本页自己声明并赋好的那一格
 `ModifierSpans`（`"起:止"` 用 `,` 连接、闭区间，与 `modifiers` **同序同长**）拆成一串
@@ -703,7 +726,7 @@ return this.modifiers.split(",").filter((word) => word !== "");
 // 读各页那个小写的投影面属性——那是个没在本类里声明的名字）。没有那一格的页面是空串 ⇒ 空数组。
 const raw = this.ModifierSpans;
 if (typeof raw !== "string" || raw === "") return [];
-const out: any[] = [];
+const out: Array<{ pos: number, end: number }> = [];
 for (const piece of raw.split(",")) {
   const parts = piece.split(":");
   if (parts.length !== 2) return [];
@@ -1573,7 +1596,7 @@ return undefined;
 在自己那一页**显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `IsInvisible` /
 `AstKind` 同一形态）。
 
-## field TypeMemberPlan:any = undefined
+## field TypeMemberPlan:TypeMemberPlanShape | undefined = undefined
 
 **我这一批子单元要不要按「类型位」投、按哪个符号切段**（第 1035 轮）：
 是类型容器的话答 `{ separator }`——`separator` 是一个符号（`"|"` / `"&"` / `","`）时
@@ -1594,7 +1617,7 @@ return undefined;
 **显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `AstKind` / `IsMemberList`
 同一形态）。
 
-## field FunctionFlags:any = undefined
+## field FunctionFlags:FunctionFlagsShape | undefined = undefined
 
 **我这一格是不是函数体**（第 1031 轮）：是的话给出 `{ generator, async }`，不是的话是 `undefined`。
 

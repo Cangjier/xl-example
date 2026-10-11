@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
-import { Token } from "../../../core/syntax/token.xl.md"
+import { Token, FunctionFlagsShape } from "../../../core/syntax/token.xl.md"
 import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack } from "../../../core/extensions/list-extension.xl.md"
@@ -1273,7 +1273,7 @@ return result;
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-## field FunctionFlags:any = undefined
+## field FunctionFlags:FunctionFlagsShape | undefined = undefined
 
 **我这一格是不是函数体**（第 1031 轮）：箭头函数就是函数体，所以它是 `{ generator, async }`——
 两个标记都取**自己的属性与子单元**，不回原文查（口径见 `core/syntax/token.xl.md` 的 `FunctionFlags`）。

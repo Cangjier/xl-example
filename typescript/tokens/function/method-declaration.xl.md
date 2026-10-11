@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
-import { Token } from "../../../core/syntax/token.xl.md"
+import { Token, FunctionFlagsShape } from "../../../core/syntax/token.xl.md"
 import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
@@ -1357,7 +1357,7 @@ return result;
 判据原来是投影层那张按 kind 查的 `SIGNATURE_KINDS` 集合，而这一页在**签名位**投出来正是
 `MethodDeclaration`——所以由本页答。
 
-## field FunctionFlags:any = undefined
+## field FunctionFlags:FunctionFlagsShape | undefined = undefined
 
 **我这一格是不是函数体**（第 1031 轮）：方法声明就是函数体，所以它是 `{ generator, async }`——
 两个标记都取**自己的属性与子单元**，不回原文查（口径见 `core/syntax/token.xl.md` 的 `FunctionFlags`）。

@@ -6,7 +6,7 @@ import { BranchConditionResult } from "../../core/syntax/branch-condition-result
 import { Document } from "../../core/syntax/document.xl.md"
 import { Source } from "../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
-import { Token } from "../../core/syntax/token.xl.md"
+import { Token, AstNameNode } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { IsLeadingDotNumber, IsUnclosedBracedEscape, IsUnicodeEscapeStart } from "../text-common-util.xl.md"
 import { Translate } from "./string/translate.xl.md"
@@ -606,7 +606,7 @@ return items.includes(this.TempToString());
   return Identifier.IsNumericLiteral(this.TextValue);
 ```
 
-## property NameNode:any
+## property NameNode:AstNameNode
 
 **我这一格当名字时投出来的那个 `Identifier` 节点**（第 1130 轮）：投影过去拿一个名字单元去问
 `ctx.NameOf(unit)`（`print-ast-common.xl.md` 的 `nameOf`，第 4463 行立的），而这一问的两半事实

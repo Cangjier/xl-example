@@ -281,6 +281,96 @@ let nameKeyHits = 0;
  */
 
 /**
+ * **用户口径 1.5：`## field` / `## property` 的声明里不许出现 `any`**（第 1144 轮）。
+ *
+ * 这一门量的本来是**代码块里的读法**（回不回原文查、按不按字符串键查、调不调方法），
+ * 而「这一格自己声明成什么类型」一条都看不见：`## field FunctionFlags:any` 与
+ * `## field FunctionFlags:FunctionFlagsShape | undefined` 在运行期**逐字节同答**，
+ * `cases:direct` / `cases:tsast` 也一律绿——`any` 让「这一格能装什么」在读的一侧整个消失。
+ *
+ * **第 1144 轮实测**：全仓 182 页规范里类型带 `any` 的声明 **24 处**（正好 `any` 的 19 处，
+ * 另有 `Map<string, any>` / `Map<any, …>` ×3 / `Array<any>` 这 5 处），全部换成了明确类型
+ * （四个具名类型立在 `core/syntax/token.xl.md`：`SourceSpan` / `TypeMemberPlanShape` /
+ * `FunctionFlagsShape` / `AstNameNode`——xl 的类型文法**不收内联对象类型**，
+ * 实测报 `E1204: type annotation … is not well formed`，所以只能立名字）。
+ * 今天这一条是 **0 处**，谁写回来就当场红。
+ */
+const DECL_RE = /^## (field|property) ([A-Za-z_]\w*):(.+)$/;
+/** 名字 -> 第一次声明它的那一页（投影要读的每一格都该在这里）。 */
+const declaredNames = new Map();
+let anyTypedDecls = 0;
+for (const file of files) {
+  const rel = path.relative(root, file).replace(/\\/g, "/");
+  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+  for (let index = 0; index < lines.length; index++) {
+    const m = DECL_RE.exec(lines[index]);
+    if (m === null) continue;
+    if (!declaredNames.has(m[2])) declaredNames.set(m[2], `${rel}:${index + 1}`);
+    const type = m[3].split(" = ")[0];
+    if (/\bany\b/.test(type)) {
+      anyTypedDecls += 1;
+      if (anyTypedDecls <= 5) {
+        violations.push({
+          file: `${rel}:${index + 1}`,
+          why: `这一格的类型写作 \`any\`：\`${lines[index].trim()}\`（用户口径 1.5：字段 / 属性的声明必须明确类型）`,
+        });
+      }
+    }
+  }
+}
+
+/**
+ * **用户口径 1.4：投影读到的每一格 PascalCase 属性，都必须在某一页显式声明过**（第 1144 轮）。
+ *
+ * 「投影需要的信息要在 token 子类构建完就齐全、在具体类里显式声明」这句话，
+ * 在第 1041~1142 轮是一格一格收出来的（每一轮收完都有一条读数），但它**从来没有一条判据**：
+ * 投影里再写一处 `next.SoleNameUnit` 而那一页没声明，运行期只是 `undefined`，
+ * 而 `cases:direct` / `cases:tsast` 只有在那一格**恰好**影响产物时才看得见它。
+ *
+ * **判据的形状**：这一仓的约定是「token 自己声明的格子一律 PascalCase」、
+ * 「局部变量与投出来的节点字段一律 camelCase」，所以投影代码块里每一个
+ * `接收者.PascalCase` 都是在读**某一格 token 的属性**——它必须在规范树里有一格
+ * `## field` / `## property` 声明过它（`declaredNames`，182 页全扫）。
+ *
+ * **三个例外，都是「不是这一格的数据」**（不是宽免，是同一条口径的另一面）：
+ *   - `Translate.DecodeIdentifierEscapes`（命名空间上的函数）；
+ *   - `SymbolToken.KindOfText`（类上的静态方法）；
+ *   - `owner.PrintAst`（第三个出口的**分发**——问的是「这一格出哪个节点」，是行为）。
+ *
+ * **第 1144 轮实测**：投影读到 130 个 PascalCase 名字，除这三个例外**全部**有声明
+ * ——所以这一条的起点是 0 处违反，它守的是「下一处新读法」。
+ */
+const PROJECTED_PROP = /([A-Za-z_$][\w$]*)\.([A-Z][A-Za-z0-9_]*)\b/g;
+/** 接收者是它们就不是 token（投影自己的上下文对象）。 */
+const PROJECTED_PROP_RECEIVERS_OK = new Set(["ctx", "context"]);
+/** 这三个是方法 / 静态方法，不是某一格的数据。 */
+const PROJECTED_PROP_OK = new Set(["DecodeIdentifierEscapes", "PrintAst", "KindOfText"]);
+let projectedPropNames = 0;
+let undeclaredPropNames = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  const text = fs.readFileSync(shared, "utf8");
+  const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+  const seen = new Set();
+  for (const m of code.matchAll(PROJECTED_PROP)) {
+    if (PROJECTED_PROP_RECEIVERS_OK.has(m[1])) continue;
+    if (PROJECTED_PROP_OK.has(m[2])) continue;
+    seen.add(m[2]);
+  }
+  projectedPropNames = seen.size;
+  for (const name of seen) {
+    if (declaredNames.has(name)) continue;
+    undeclaredPropNames += 1;
+    if (undeclaredPropNames <= 5) {
+      violations.push({
+        file: SHARED_FILE,
+        why: `投影读的 \`${name}\` 在 182 页规范里没有任何 ## field / ## property 声明过（用户口径 1.4：要在具体类里显式声明）`,
+      });
+    }
+  }
+}
+
+/**
  * **`ctx` 上不许再挂着「回原文兜底」的出口**（第 1015 轮；**第 1026 轮又补了三个**）。
  *
  * 上面那几条扫的是**方法体**（谁在这一格写了什么），而这一条扫的是**这一格拿到的东西**：
@@ -1434,6 +1524,16 @@ console.log(
 );
 // **老名字那一条读数第 1143 轮撤掉了**（见上面 STALE_NAME 那一段的说明）：
 // `PrintAst` 现在是这一格**唯一**的名字，不再是「过去的事」。
+// **用户口径 1.5 的账**（第 1144 轮）：声明里的 `any` 是 0 处
+// ——类型是「这一格能装什么」的声明，`any` 把这句话整个写没了，而它在运行期逐字节同答。
+console.log(
+  `## field / ## property 的类型里出现 any：${anyTypedDecls} 处（0 处才是对的：字段 / 属性的声明必须明确类型）`,
+);
+// **用户口径 1.4 的账**（第 1144 轮）：投影读到的每一格 PascalCase 属性都要在某一页有声明
+// ——它守的是「下一处新读法」，起点已经是 0 处违反（130 个名字里 3 个是方法，不是数据）。
+console.log(
+  `投影读到的 PascalCase 属性 ${projectedPropNames} 个（例外 3 个：Translate.DecodeIdentifierEscapes / SymbolToken.KindOfText / owner.PrintAst），其中没有声明的 ${undeclaredPropNames} 个（0 个才是对的：要在具体类里显式声明）`,
+);
 // **能力面的账**（第 1015 轮）：这一格的出口表就是它能做的事——出口少了，方法体判据守的东西
 // 才是**结构上做不到**，而不是「大家记得别写」。
 console.log(
@@ -1530,6 +1630,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格是不是一条成员访问链由被问的那一页答、这一格是不是一次非空断言由被问的那一页答、这一格是不是一次方法调用由被问的那一页答、这一格是不是一段泛型括号段由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格是不是一条成员访问链由被问的那一页答、这一格是不是一次非空断言由被问的那一页答、这一格是不是一次方法调用由被问的那一页答、这一格是不是一段泛型括号段由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答、声明里没有 any、投影读的每一格都在某一页显式声明过）`,
 );
 process.exit(0);

@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../core/syntax/close-rule.xl.md"
-import { Token } from "../../core/syntax/token.xl.md"
+import { Token, TypeMemberPlanShape } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -367,7 +367,7 @@ return result;
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-## field TypeMemberPlan:any = { separator: null }
+## field TypeMemberPlan:TypeMemberPlanShape | undefined = { separator: null }
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：可选元素里除了 `?` 记号
 之外只有**一个**类型，没有同级的分隔符，所以答 `{ separator: null }`
@@ -423,7 +423,7 @@ return result;
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-## field TypeMemberPlan:any = { separator: null }
+## field TypeMemberPlan:TypeMemberPlanShape | undefined = { separator: null }
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：变长元素里除了 `...` 记号
 之外只有**一个**类型，没有同级的分隔符，所以答 `{ separator: null }`
@@ -531,7 +531,7 @@ return result;
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-## field TypeMemberPlan:any = { separator: null }
+## field TypeMemberPlan:TypeMemberPlanShape | undefined = { separator: null }
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：具名元素里是「名字 +
 被指的类型」，它们是**一个**成员的两半、没有同级的分隔符，所以答 `{ separator: null }`

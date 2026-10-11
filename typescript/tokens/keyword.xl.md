@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../core/syntax/close-rule.xl.md"
-import { Token } from "../../core/syntax/token.xl.md"
+import { Token, AstNameNode } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -558,7 +558,7 @@ return this.Value;
   return Identifier.IsNumericLiteral(this.TextValue);
 ```
 
-## property NameNode:any
+## property NameNode:AstNameNode
 
 **这一问与 `Identifier` 那一页同一格**（第 1130 轮）：能当一个名字的就是这两页
 （`IsNameNode`，第 1057 轮），所以关键字兜底身份的那一格也按自己的 `TextValue` 答同一格

@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../core/syntax/close-rule.xl.md"
-import { Token } from "../../core/syntax/token.xl.md"
+import { Token, TypeMemberPlanShape } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { SkipNextTrivia, IsTypeContainerUnit } from "../text-common-util.xl.md"
@@ -199,7 +199,7 @@ return result;
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-## field TypeMemberPlan:any = { separator: null }
+## field TypeMemberPlan:TypeMemberPlanShape | undefined = { separator: null }
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：括号里是**一个**类型
 （`(A | B)` 的联合已经在自己那一层成形），没有同级的分隔符，所以答 `{ separator: null }`

@@ -16,7 +16,9 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `Process` 有三种用法（参数表不同），xl 同一类型内不允许成员重名（`E1205`），最常用的文档版用原名 `Process`，其余加后缀 `ProcessSingle` / `ProcessAt`。
 
-变量表的键是 `string`、值是 `any`——ts 的 `object` 只表示「非原始值」，装不下 `string` / `number`。
+变量表的键是 `string`、值是 `unknown`——ts 的 `object` 只表示「非原始值」，装不下 `string` / `number`；
+`unknown` 才是「装什么都行、读出来那一侧自己证」的那一档。第 1144 轮按用户口径 1.5 把这里的
+`any` 消掉：`GetDefault` 本来就写着一句 `value as Item`，**要证的是它**，`any` 让那句证明看起来不必要。
 
 # class SyntaxContext
 
@@ -26,7 +28,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 待消费的消息队列。
 
-## field VariableMap:Map<string, any> = new Map()
+## field VariableMap:Map<string, unknown> = new Map()
 
 上下文变量表。
 

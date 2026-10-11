@@ -347,6 +347,65 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1144 轮：用户口径 1.5 —— 声明里的 `any` **24 处清零**（四个具名类型立在基类那一页），并把口径 1.4 从「一轮一轮收」变成一条判据；**读数一处没动**
+
+**一句话**：用户口径 1.5 是「字段 / 属性声明禁止 `any`，必须明确类型」，1.4 是「字段属性必须在类中显式声明」。
+两句话过去都只有**做法**、没有**尺子**：`## field FunctionFlags:any` 与
+`## field FunctionFlags:FunctionFlagsShape | undefined` 在运行期**逐字节同答**，
+`cases:direct` / `cases:tsast` / `coverage` 一条都看不见差别。
+
+- **1.5 的账（24 处 → 0 处）**：全仓 182 页规范里类型表达式带 `any` 的声明，
+  正好 `any` 的 **19 处**、另有 `Map<string, any>` 1 处 / `Map<any, …>` 3 处 / `Array<any>` 1 处。
+  改法逐族点名：
+
+  | 原来 | 今天 | 谁读它 |
+  | --- | --- | --- |
+  | `FunctionFlags:any = undefined`（基类 + `Function` / `MethodDeclaration` / `Lamda`，**4 处**） | `FunctionFlags:FunctionFlagsShape \| undefined` | `print-ast-common` 沿 `Parent` 链读 `cursor.FunctionFlags.generator` / `.async` |
+  | `TypeMemberPlan:any = …`（基类 + **5 页**共 10 处） | `TypeMemberPlan:TypeMemberPlanShape \| undefined` | `projectEachIn` 读 `parent.TypeMemberPlan.separator` |
+  | `NameNode:any`（`Identifier` / `Keyword`，**2 处**） | `NameNode:AstNameNode` | 投影 12 处读 `unit.NameNode` |
+  | `ModifierSpanList:Array<any>`（基类，**1 处**） | `Array<SourceSpan>` | `addModifiers` 逐格读 `{ pos, end }` |
+  | `VariableMap:Map<string, any>`（`SyntaxContext`） | `Map<string, unknown>` | `GetDefault` 本来就写着 `value as Item`——**要证的是那一句**，`any` 让它看着不必要 |
+  | `InnerException:any = null`（两个异常类） | `Error \| RuntimeException \| null` / `Error \| SyntaxException \| null` | `Copy` 会把 `toCopy` 本身挂进来，所以是两类 |
+  | `Map<any, …>` ×3（`SequenceTemplate`） | `Map<Function, …>` | 那一页开头就写着「派发以**类的构造器对象**为键」 |
+
+- **四个具名类型为什么立在 `core/syntax/token.xl.md`**：xl 的类型文法**不收内联对象类型**
+  （实测：`## field A:{ pos: number }` 报 `E1204: type annotation "…" is not well formed`）。
+  所以先在**临时探针页**上量出「`# type X = { … }` 收、且用起来就是 `export type X = { … }`」
+  （探针页用完已删），再把四格立在基类那一页——那十页本来就都写着
+  `import { Token } from "…/core/syntax/token.xl.md"`，各加一个名字即可（实测十页都有这一行）。
+- **1.4 立的判据（新的一条 `direct:lint`）**：投影代码块里每一个 `接收者.PascalCase`
+  都是在读**某一格 token 的属性**（这一仓的约定：token 声明的格子一律 PascalCase、
+  局部变量与节点字段一律 camelCase），所以它必须在 182 页里有一格 `## field` / `## property`
+  声明过。**实测：读到 130 个名字，除三个例外全部有声明**——三个例外是
+  `Translate.DecodeIdentifierEscapes`（命名空间函数）、`SymbolToken.KindOfText`（静态方法）、
+  `owner.PrintAst`（分发），都不是「这一格的数据」。
+- **1.5 立的判据**：`direct:lint` 新增一条扫全部声明的——类型里出现 `any` 就红，今天是 0 处。
+- **实测**：`xl build core typescript runtime typescript-exec cjcli.xl.md tsrun.xl.md`
+  **15 写 / 167 跳过 / 0 error**、`npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 31.2s），
+  读数与第 1106 ~ 1143 轮**逐项相同**：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:direct` 1640 份不抛异常、
+  `direct:lint` 0 条违反、`samples` 逐字节一致、`cases:check` 1656 / 1656、
+  `runtime:check` 243 / 243、`runtime:cli` 79 / 79；唯一那条「倒退」仍是 HEAD 上既有的
+  `runtime/round741/002` ⇒ **这一轮只动了声明的类型，一处行为都没动**。
+
+### 第 1143 轮：用户口径 1.1 —— `PrintDirectAst` 改名 `PrintAst`（全仓 78 个文件 / 482 处一次改干净），第 1014 轮那条「老名字只许写成过去的事」的判据随之整条撤掉
+
+**一句话**：这一格从第 992 轮起叫 `PrintDirectAst`，而那个名字是**与一条已经删掉的老路成对**
+才取得出来的（老路叫 `PrintAst`，第 1013 轮整条删除）。成对的那一半没了，名字里的 `Direct`
+就不再指向任何还活着的东西 ⇒ **名字收回 `PrintAst`**。
+
+- **范围**：`core/syntax/token.xl.md` 的分节头、各 token 页自己那一节、
+  `typescript/print-ast-common.xl.md` 的调用点、`typescript-exec/lowering.xl.md`、
+  `direct-lint.mjs` 的章节头正则与例外表、`direct-ast.mjs`、`tests/gates/run.mjs`、
+  `docs/ts-ast.md`、`README.md` 的台账；一次改名器写在 `tmp/`（不进仓）。
+- **撤掉的一条判据**：第 1014 轮那条只扫散文的「`PrintAst` 这个老名字只许写在明说它不存在的行上」
+  ——改名之后这句话**本身成了反的**（今天每一页都写着 `PrintAst`），留着它会把整棵树判红。
+  撤的是判据与它的读数，理由整段记在 `direct-lint.mjs` 里，免得下一轮当成「被删掉的东西」再立一遍。
+- **自指句**：机械改名会把「现在这一格」与「已经删掉的老路」写成同一个名字
+  （「与上面的 `PrintAst` 出**同一个答案**」），77 处样板句按新口径重写成一句。
+- **实测**：`xl build` 182 页 **74 写 / 108 跳过 / 0 error**、`npx tsc` 干净；
+  八道门 7 通过 / 1 失败（墙钟 31.5s），读数与第 1106 ~ 1142 轮**逐项相同**。
+
 ### 第 1142 轮：把本页最后一句「两半的守卫」收成一格属性读（`!(unit.IsSymbolToken && unit.IsDotSymbol)` → `!unit.IsDotSymbol`），并给 `splitTopLevel` 里那句**看着像同族、其实问的是两页**的合取写下判据；**声明数一格没增没减、读数一处没动**
 
 **一句话**：用户口径 1.1 ~ 1.4。第 1118 ~ 1120 轮把「这一格是不是那个点号」收进
