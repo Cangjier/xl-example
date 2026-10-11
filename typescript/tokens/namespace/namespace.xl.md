@@ -449,7 +449,11 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
   // （`ModuleDeclaration` 在 `NO_TRAILING_SEMICOLON` 表里）。
   const hasBody = (v).ProjectableKids.some((k: any) => k.Tag === "NamespaceBody");
   if (hasBody === false) {
-    node.end = ctx.SemicolonEndOf(node.end);
+    // **第 1182 轮：这一格收的是「被问的那一格」而不是坐标**——那一问整段搬进了
+    // `core/syntax/token.xl.md` 的 `## property ProjectionEndSemicolon`，
+    // 出口只剩 `v` 这一个形参。这一档的 `node.end` 就是 `v.ProjectionEnd`
+    // （`ModuleDeclaration` 不是可调用签名 ⇒ `SignatureEndStep` 为 0），所以逐格同答。
+    node.end = ctx.SemicolonEndOf(v);
   }
   return node;
 ```

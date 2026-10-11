@@ -347,6 +347,65 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1183 轮：用户口径 1.3 / 1.6 / 1.7 —— `semicolonEndOf` 那 **8 处回原文读**整段搬进被问的那一格（新立 `## property ProjectionEndSemicolon`，`FollowingSemicolonAt` 那趟扫描提成 `## private method SemicolonAfter` 共用）；合成语句视图把这一问交给末尾那一格；print-ast-common 代码块 3849 → **3844** 行、`ctx.source` 读点 **11 → 2**、声明 54 格与 ctx 出口 39 个不变
+
+**一句话**：第 1181 轮如实登记的两个缺口里，那个**最大的**（`semicolonEndOf` 里 8 处
+`ctx.source[…]`）这一轮收掉了：算式一个字没改，只是**搬家**——从投影页搬进
+`core/syntax/token.xl.md`，由「被问的那一格」自己答。
+
+| 原来在投影页现场写的 | 今天读的那一格 | 谁答、什么时候算 |
+| --- | --- | --- |
+| `if (end > 0 && ctx.source[end - 1] === ";") return end;` | `v.ProjectionEndSemicolon` 的第一句 | `core/syntax/token.xl.md` 的 `## property ProjectionEndSemicolon:int`（读自己的 `ProjectionEnd` + 自己那份 `Text`） |
+| 往后跳空白 / `//` / `/* */` 那一段（`ctx.source.length` / `ctx.source[at]` / `startsWith` / `indexOf("*/")`） | `v.ProjectionEndSemicolon` 的第二句 | 同一页新立的 `## private method SemicolonAfter:(from:int)=>int \| undefined`（**`FollowingSemicolonAt` 与这一格共用同一条腿**——第 1165 轮那段算式整段提出来，两处只差起点） |
+| `ctx.consumedSemicolons.add(at)`（吃掉的 `;` 记一笔） | **照旧留在投影页** | 它是**投影自己的状态**（第 167 轮那条：`projectStatement` 靠它把随后那条空语句挡掉），不是原文事实 |
+
+- **合成语句视图也答这一问**（`statementOfList` 造的那一格）：它不是 token、手上没有 `Document`，
+  所以它的 `ProjectionEndSemicolon` **交给末尾那一格**（`list[list.length-1].ProjectionEndSemicolon`）。
+  这一档全语料 **7** 次（与第 1173 轮量到的 7 次同一批）。
+- **等价怎么证的**（探针挂在**编译产物**上、跑 `cases:direct --all` 的 2051 份语料，
+  脚本在 `tmp/r1182/`，不进仓）：5 个调用点共 **21799** 次调用，把「现答案」与
+  「`max(v.ProjectionEndSemicolon, 调用点手上那个坐标)`」**逐次对拍——0 次不同**。
+  这一趟探针自己**不改行为**（同一份语料上挂与不挂读数相同：515872 / 493663）。
+- **出口那一侧**：`ctx.SemicolonEndOf` 的形参从「坐标」换成「被问的那一格」
+  （`SemicolonEndOf: (v) => semicolonEndOf(v, v.ProjectionEnd, ctx)`），三个外部读者
+  （`import` / `namespace` / `signature`）各改一处实参；`namespace` 那一处的 `node.end`
+  就是 `v.ProjectionEnd`（`ModuleDeclaration` 不是可调用签名 ⇒ `SignatureEndStep` 为 0）。
+- **这一轮还剩的两处**（都还在 `print-ast-common` 的代码块里，第 1181 轮登记过）：
+  `ownsTrailingSemicolonOf` 的 `ctx.source[node.end - 1] === ";"`（1 处，手上是**投影节点**、
+  没有 token）与合成语句视图 `ProjectionEnd` 里剪尾部空白那一格（1 处）。
+
+**本页的数**：`typescript/print-ast-common.xl.md` 总 **10540** 行（代码块、不带注释与空行
+**3849 → 3844**）、`^#` 声明 **54 格不变**、ctx 出口 **39 个不变**、代码块里 `ctx.source`
+**11 → 2** 处；`core/syntax/token.xl.md` **3584 → 3679 行**（新立一格属性 + 提一条私有方法）。
+
+**实测**：`xl check`（5 页）**0 条**；`npx tsc`（strict）**0 error**；`direct:lint` **0 条违反**
+（投影读到的 PascalCase 属性 151 个、没有声明 0 个）；`cases:direct` **21793 / 16489（75.7%）不动**；
+`--all` **515875 / 493660**（**不是**与上一轮同语料的读数：`--all` 的语料含 `dist/ts/**`，
+这一轮改了 5 份规范、语料跟着换了内容）；`samples` ok；`cases:check` **1656 条 0 不合格**；
+`cases:tsast` **16 片 15 通过 / 1 失败**（仍是 HEAD 上既有的 `runtime/round741/002`）。
+
+### 第 1182 轮：用户口径 1.3 / 1.5 / 1.6 / 1.7 —— 投影层最后 **7 处「拿某一格的正文比字面量」**收进被问的那一格（`await` / `yield` 5 处、`with` / `assert` 2 处读属性）；顺带审计出 `Identifier.Close` 里缺的那两格赋值（第 1180 轮只加了声明），`yield` / `with` 两格按「同一个词两态都要认」一并立满
+
+**一句话**：第 1180 轮把 `await` / `assert` 两格在 token 侧补齐、投影侧**没敢改**
+（那一版量出来「不守恒」而撤回）。这一轮先把**基准**量清楚，再把 7 处改掉。
+
+- **第 1180 轮那个「不守恒」是基准错了** ✗：`cases:direct --all` 的语料**含 `dist/ts/**`**
+  ——改规范就换了语料，拿「改之前的语料读数」当基准必然对不上。这一轮的基准是**同语料重测**：
+  同一份语料上，把投影那 7 处改回「比正文」再跑一遍，读数 **515872 / 493663** 与读属性那一版
+  **逐项相同**。
+- **审计出来的缺口**：`identifier.xl.md` 里 `IsAwaitKeyword` / `IsAssertKeyword` 两格**只有声明、
+  没有赋值**（说明写着「同一趟赋好」，`Close()` 里没有那两行）；`IsYieldKeyword` / `IsWithKeyword`
+  两格那一页根本没有。第 1182 轮按「同一个词两态都要认」补齐**四格赋值 + 两格声明**。
+  （实测：全语料 2051 份的树里，正文是 `with` 而停在 `Identifier` 上的一格有 **5** 处、
+  `assert` **6** 处——这两个词确实会以标识符那一态存在。）
+- **7 处逐格对拍**（探针挂在编译产物上，跑 `--all` 2051 份）：两种答案**一次都没分叉**。
+- **本页的数**：`print-ast-common` 代码块 **3851 → 3849** 行、声明 54 格、ctx 出口 39 个不变；
+  `identifier.xl.md` **830 → 854 行**。
+
+**实测**：`xl check` **0 条**；`npx tsc`（strict）**0 error**；`direct:lint` **0 条违反**；
+`cases:direct` **21793 / 16489（75.7%）不动**；`samples` ok；`cases:check` **1656 条 0 不合格**；
+`cases:tsast` **15 / 16**。
+
 ### 第 1181 轮：用户口径 1.1 ~ 1.7 的**逐条核对**（不夹带任何改写）—— 七条各有**可复核的读数**，其中四条由 `direct:lint` 当门守着；三条本轮实测、两个缺口如实登记
 
 **一句话**：这一轮**一行算式都不改**，只把「用户口径 1.1 ~ 1.7 今天各自处在什么状态」

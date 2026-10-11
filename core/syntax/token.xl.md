@@ -1423,39 +1423,22 @@ const last = this.Text.charAt(end - this.start);
 return last === ";" || last === "," ? 1 : 0;
 ```
 
-## property FollowingSemicolonAt:int | undefined
+## private method SemicolonAfter:(from:int)=>int | undefined
 
-**从我这一格的终点往后、跨过 trivia 之后那个 `;` 在哪**（第 1165 轮）：跨过的是
-**空白与两种注释**（换行也算），跨不到 `;` 就给 `undefined`。
+**从 `from` 往后跨过 trivia，若第一格是 `;` 就答它的位置**（第 1182 轮）：跨过的是空白与两种
+注释（换行也算），不是 `;`（或到了文件末尾 / 块注释没闭合）就给 `undefined`。
 
-**为什么住在 token 上**（用户口径 1.2 / 1.3 / 1.6）：这一问的每一件事实都在这一格自己这一侧——
-起点是自己的 `end`，往后那些字符全在**自己那份 `Document`** 上（`SourceRange` 两头各自带着它，
-与 `Text` / `ProjectionStart` / `ProjectionEnd` 同一处取）。算式原来在
-`print-ast-common.xl.md` 的 `projectExport` 里现场写了一遍（`ctx.source[semiAt]` 一个字符一个字符
-往后读、`ctx.source.indexOf("*/")` 与 `indexOf("\n")` 跳两种注释），第 1165 轮整段搬到这里，
-投影那一侧只读一次属性。
-
-**它与 `TrailingSemicolonAt` 不是同一问**：那一格问「**我区间里面**末字符那个 `;`」
-（`export { a };` 那一族在它自己身上），这一格问「**我区间外面**紧跟的那个 `;`」——
-`export default 1/*c*/;` 里 `1` 那一格的终点落在注释**前面**，那个 `;` 只能从外面找。
-所以两格各自守着自己那一问，名字也只差一个词。
-
-**「注释没闭合 / 后面没有 `;`」一律给 `undefined`**：那是坏输入或「本来就没有尾分号」，
-与原来那一趟的答案逐格相同（原来 `break` 之后读到的还是注释开头那一格字符 ⇒ 不是 `;` ⇒ 原样返回 `end`）。
-
-**读数**（第 1165 轮，探针挂在构建产物上、跑 `cases:direct --all` 的 2051 份语料）：
-这一问被求值 **71** 次——其中 **37** 次答出一个位置（就是那个 `;`），**34** 次给 `undefined`；
-接收者逐次点名是 `Identifier` **67** / `PropertyAccess` **2** / `Keyword` **1** / `Lamda` **1**
-——**四个类都递得到**，所以它声明在基类上（不是某一页自己的那一格）。
-
-### get
+**它是两格的共同腿**：`FollowingSemicolonAt` 与 `ProjectionEndSemicolon` 问的是同一句
+「后面那个 `;` 在哪」，只差**起点**（一个是自己的 `end`、一个是自己的 `ProjectionEnd`）。
+第 1165 轮这段算式第一次搬进 `FollowingSemicolonAt` 的 `### get`，第 1182 轮**整段提出来**
+——同一份事实一处声明（用户口径 1.7：共享页与 token 页都只留一次）。
 
 ```ts
 const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
 if (head === null) return undefined;
 const doc = head.Document;
 const count = doc.GetCount();
-let at = this.end;
+let at = from;
 while (at < count) {
   const one = doc.GetValue(at);
   // **换行也一起跳**：`export default 1` 换行 `;` 在 TS 那边同样是含 `;` 的那一段。
@@ -1486,6 +1469,73 @@ while (at < count) {
 }
 return doc.GetValue(at) === ";" ? at : undefined;
 ```
+
+## property FollowingSemicolonAt:int | undefined
+
+**从我这一格的终点往后、跨过 trivia 之后那个 `;` 在哪**（第 1165 轮）：跨过的是
+**空白与两种注释**（换行也算），跨不到 `;` 就给 `undefined`。
+
+**为什么住在 token 上**（用户口径 1.2 / 1.3 / 1.6）：这一问的每一件事实都在这一格自己这一侧——
+起点是自己的 `end`，往后那些字符全在**自己那份 `Document`** 上（`SourceRange` 两头各自带着它，
+与 `Text` / `ProjectionStart` / `ProjectionEnd` 同一处取）。算式原来在
+`print-ast-common.xl.md` 的 `projectExport` 里现场写了一遍（`ctx.source[semiAt]` 一个字符一个字符
+往后读、`ctx.source.indexOf("*/")` 与 `indexOf("\n")` 跳两种注释），第 1165 轮整段搬到这里，
+投影那一侧只读一次属性；**第 1182 轮那一趟扫描提成了 `SemicolonAfter`**，这一格只剩一次调用。
+
+**它与 `TrailingSemicolonAt` 不是同一问**：那一格问「**我区间里面**末字符那个 `;`」
+（`export { a };` 那一族在它自己身上），这一格问「**我区间外面**紧跟的那个 `;`」——
+`export default 1/*c*/;` 里 `1` 那一格的终点落在注释**前面**，那个 `;` 只能从外面找。
+所以两格各自守着自己那一问，名字也只差一个词。
+
+**「注释没闭合 / 后面没有 `;`」一律给 `undefined`**：那是坏输入或「本来就没有尾分号」，
+与原来那一趟的答案逐格相同（原来 `break` 之后读到的还是注释开头那一格字符 ⇒ 不是 `;` ⇒ 原样返回 `end`）。
+
+**读数**（第 1165 轮，探针挂在构建产物上、跑 `cases:direct --all` 的 2051 份语料）：
+这一问被求值 **71** 次——其中 **37** 次答出一个位置（就是那个 `;`），**34** 次给 `undefined`；
+接收者逐次点名是 `Identifier` **67** / `PropertyAccess` **2** / `Keyword` **1** / `Lamda` **1**
+——**四个类都递得到**，所以它声明在基类上（不是某一页自己的那一格）。
+
+### get
+
+```ts
+return this.SemicolonAfter(this.end);
+```
+
+## property ProjectionEndSemicolon:int
+
+**我的投影终点收在哪个 `;` 上**（第 1182 轮，用户口径 1.2 / 1.3 / 1.6）：
+已经收在 `;` 上（`ProjectionEnd` 前面那一格是 `;`）就答 `ProjectionEnd`；否则从
+`ProjectionEnd` 往后跨过 trivia，第一格是 `;` 就答**它之后那一格**；都不是就答 `ProjectionEnd`。
+
+**为什么住在 token 上**：这一问的两件事实全在这一格自己这一侧——终点是自己的
+`ProjectionEnd`、那一格字符在自己那份 `Text` 里、往后那些字符在自己那份 `Document` 上
+（与 `FollowingSemicolonAt` 同一个取法、同一条 `SemicolonAfter` 腿）。算式原来在
+`print-ast-common.xl.md` 的 `semicolonEndOf` 里现场写了一遍（8 处 `ctx.source[…]`：读末字符
+一格、往后跳空白、跳两种注释、再读一格），第 1182 轮整段搬到这里，投影那一侧
+只剩一次属性读 + 一次「吃掉了就记一笔」。
+
+**「已经收在 `;` 上」那一档为什么不能省**（第 838 轮那条口径）：`parseSemicolon` 只吃
+**紧跟**的那一个 `;`，吃过就不吃第二个；`f();` 换行 `;` 里第二行那个 `;` 是新的空语句，
+一路往后跳会把它算成上一条的终结符。
+
+**等价证据**（第 1182 轮，探针挂在编译产物上、跑 `cases:direct --all` 的 2051 份语料）：
+`print-ast-common` 那 5 个调用点共 **21799** 次调用，把「现答案」与
+「`max(v.ProjectionEndSemicolon, 调用点手上那个坐标)`」逐次对拍——**0 次不同**；
+其中接收者不是 token 的 **7** 次（`statementOfList` 造的合成视图）由那一格自己把这一问
+交给**末尾那一格**（见 `print-ast-common.xl.md` 的 `statementOfList`）。
+
+### get
+
+```ts
+const end = this.ProjectionEnd;
+if (end <= this.start) return end;
+// **读的是这一格自己的正文**（第 1049 / 1053 / 1172 轮那几条在这里是同一条）：`Text` 从
+// `start` 起算，所以下标两头都要减 `start`；用 `charAt`（越界答空串，不是 `-1` 下标那种读法）。
+if (this.Text.charAt(end - 1 - this.start) === ";") return end;
+const at = this.SemicolonAfter(end);
+return at === undefined ? end : at + 1;
+```
+
 
 ## method ChildrenOf:(segment:Token | null | undefined)=>Array<Token>
 

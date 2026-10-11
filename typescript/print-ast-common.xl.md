@@ -3644,7 +3644,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // `gap-a-comment-01`（`break label;`）各漂 1。
       return Object.assign({ kind }, props, {
         pos: v.start,
-        end: semicolonEndOf(bareEnd, ctx),
+        end: semicolonEndOf(v, bareEnd, ctx),
       });
     }
   }
@@ -3690,6 +3690,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       if (head.IsStatementNode) {
         if (kind === "TypeAliasDeclaration") {
           projected.end = semicolonEndOf(
+            v,
             Math.max(v.ProjectionEnd, projected === undefined ? 0 : (projected.end ?? 0)),
             ctx,
           );
@@ -3701,7 +3702,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         // （实测 `decl-declare-function-trailing-comment`：缺 1 漂 1 多 1）。
         // **带体的那一档不在这一档**：它收在 `}` 上，`;` 是另一条 `EmptyStatement`。
         if (kind === "FunctionDeclaration" && projected.body === undefined) {
-          projected.end = semicolonEndOf(projected.end ?? 0, ctx);
+          projected.end = semicolonEndOf(v, projected.end ?? 0, ctx);
         }
         return projected;
       }
@@ -3713,6 +3714,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         expression: projected,
         pos: v.start,
         end: semicolonEndOf(
+          v,
           Math.max(v.ProjectionEnd, projected === undefined ? 0 : (projected.end ?? 0)),
           ctx,
         ),
@@ -3734,15 +3736,23 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     // 单元的区间只到函数体那个 `}`，而调用自己的 `()` 在 `Method` 上——
     // 于是表达式语句比 TS 短两个字符（实测 `fn-iife.ts` / `stmt-paren-start.ts` 各 2 处漂移）。
     end: semicolonEndOf(
+      v,
       Math.max(v.ProjectionEnd, expression === undefined ? 0 : expression.end),
       ctx,
     ),
   };
 ```
 
-# private method semicolonEndOf:(end:int, ctx:any)=>int
+# private method semicolonEndOf:(v:any, at:int, ctx:any)=>int
 
-`end` 之后跳过空白与注释，如果紧跟着一个 `;` 就把它算进来；否则原样返回。
+`at` 是**投影手上那个终点**（表达式自己的终点 / 语句自己的投影终点），`v` 是**被问的那一格**：
+`v.ProjectionEndSemicolon` 之后跟着的 `;` 就把它算进来；否则原样返回 `at`。
+
+**第 1182 轮：这一格从「回原文扫 8 处」收成「读一次属性」**（用户口径 1.3 / 1.6 / 1.7）——
+判据一个字没改，算式整段搬进了 `core/syntax/token.xl.md` 的 `## property ProjectionEndSemicolon`
+（那一格自己的 `ProjectionEnd` + 自己那份 `Text` + 自己那份 `Document`），这一层只剩
+**一次属性读 + 一次记笔 + 一次比较**。原来写在这里的八处 `ctx.source[…]`（读末字符、跳空白、
+跳两种注释、再读一格）连同 `ctx.source.length` / `startsWith` 一起没了。
 
 **这是 TS 自己的口径**：`parseExpressionStatement` 收尾时调 `parseSemicolon()`，
 而 `tryParseSemicolon` **不看换行**——当前 token 是 `;` 就吃掉。所以
@@ -3757,26 +3767,24 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
 **自己已经以 `;` 收尾的不再往后找**（第 838 轮）：`parseSemicolon` 只吃**紧跟**的那一个
 `;`，吃过就不再吃第二个——`f();` 换行 `;` 里第二行那个 `;` 是**新的空语句**，
 原来的写法一路跳过去把它算成了上一条的终结符（实测 `f();` 换行 `;`：上一条漂 1、
-空语句缺 1）。判据落在**这一条自己的原文**上，与 `ownsTrailingSemicolon` 那一格同源。
+空语句缺 1）。这一档住在被问的那一格上（`ProjectionEndSemicolon` 的第一句）。
+
+**等价实测**（第 1182 轮，探针挂在编译产物上、跑 `cases:direct --all` 的 2051 份语料）：
+本页 5 个调用点共 **21799** 次，现答案与「`max(v.ProjectionEndSemicolon, at)`」**逐次相同**
+（0 次不同）；接收者不是 token 的 **7** 次由合成语句视图自己把这一问交给末尾那一格
+（见下文的 `statementOfList`）。
 
 ```ts
-  if (end > 0 && ctx.source[end - 1] === ";") return end;
-  let at = end;
-  for (;;) {
-    while (at < ctx.source.length && WHITESPACE.test(ctx.source[at])) at++;
-    if (ctx.source.startsWith("//", at)) {
-      while (at < ctx.source.length && ctx.source[at] !== "\n") at++;
-      continue;
-    }
-    if (ctx.source.startsWith("/*", at)) {
-      const close = ctx.source.indexOf("*/", at + 2);
-      at = close < 0 ? ctx.source.length : close + 2;
-      continue;
-    }
-    break;
-  }
-  return ctx.source[at] === ";" ? (ctx.consumedSemicolons.add(at), at + 1) : end;
+  // **被问的那一格自己答**：token 读 `core/syntax/token.xl.md` 的 `## property
+  // ProjectionEndSemicolon`，合成语句视图读它自己那一格（交给末尾那个 token）。
+  const tokenEnd = v.ProjectionEndSemicolon;
+  if (tokenEnd === undefined) return at;
+  // **吃掉的 `;` 记一笔**（第 167 轮）：`projectStatement` 靠这一笔把随后那条空语句挡掉
+  // （`import { a } from "m"` 换行 `;` 那一族）。**这一笔是投影自己的状态**，不是原文事实。
+  if (tokenEnd > v.ProjectionEnd) ctx.consumedSemicolons.add(tokenEnd - 1);
+  return tokenEnd > at ? tokenEnd : at;
 ```
+
 
 # private method callArgumentsOf:(bracket:any, ctx:any)=>Array<any>
 
@@ -9924,6 +9932,14 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       }
       return end;
     },
+    // **尾部那个 `;` 也算在「尾部坐标」里**（第 1182 轮，用户口径 1.3 / 1.6）：这一格不是 token、
+    // 手上没有 `Document`，所以把这一问交给**末尾那一格**——`ProjectionEndSemicolon` 本来就是
+    // 「被问的那一格自己答」的那张脸（见 `core/syntax/token.xl.md` 的 `## property
+    // ProjectionEndSemicolon`）。末尾那一格不是 token 时答 `undefined`，`semicolonEndOf`
+    // 照它原本的答案（`at`）走——与原来回原文扫一遍的答案逐次相同（实测量在本页 `semicolonEndOf` 那一节）。
+    get ProjectionEndSemicolon(): int | undefined {
+      return list[list.length - 1].ProjectionEndSemicolon;
+    },
   };
   return projectStatement(rest, ctx);
 ```
@@ -10083,7 +10099,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // **尾分号那一格的出口**（第 840 轮）：`declare module "mm";` 那个 `;` 到达时
     // 声明早已成形（收尾规则问「简写」的那一刻列表只到名字），所以它由**投影侧**
     // 按「没体的声明自己吃尾分号」补进区间——与第 838 轮那条口径同一份实现。
-    SemicolonEndOf: (end) => semicolonEndOf(end, ctx),
+    SemicolonEndOf: (v) => semicolonEndOf(v, v.ProjectionEnd, ctx),
     Split: (list, separator) => splitTopLevel(list, separator),
     // **`Invisible` 那个出口第 1030 轮删掉了**：要跳过哪些单元由单元自己答
     // （`k.IsInvisible`，见 `core/syntax/token.xl.md`），所以这一层不再需要「名单」这件东西。
