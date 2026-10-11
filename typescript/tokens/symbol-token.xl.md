@@ -152,6 +152,30 @@ if (last instanceof SymbolToken) {
 （`print-ast-common.xl.md` 的 `isDot`：先问「我是不是 `SymbolToken`」、再回原文读那一格字符），
 而这两问**都是这一页自己的事实**——正文就在 `this.Temp` 里。
 
+## property IsCommaSymbol:bool
+
+**我这一格是不是那个逗号分隔符 `,`**（第 1074 轮）：投影层要把**平级列表**里的逗号滤掉
+（`projectEach` / `projectEachIn` / `typeMemberGroups` / `splitTopLevel` 四处），
+判据过去是现场拼出来的 `k.Tag === "SymbolToken" && k.TextValue === ","`——
+「我这一格的正文是什么」**只有这一页知道**（正文就在 `this.Temp` 里），所以它回到这一页。
+
+覆写的是 `core/syntax/token.xl.md` 上那一格虚属性（基类答 `false`）。
+
+**为什么它是 `## property` + `### get`、不是 `IsDotSymbol` 那样的 `## field`**
+（与 `OperatorRank` 同一条理由，第 1074 轮**又量到同一件事**）：符号的正文是**逐字符攒**起来的，
+而**不是每个符号都会走到 `Close()`**——这一轮先按 `## field` 写过一版，
+`cases:tsast` 与 `samples` 当场红：**枚举成员之间那个逗号**（`enum E { A, B }`）
+根本没关过，字段停在默认档 `false` ⇒ 它被当成语义子节点投了出去
+（`samples/declarations.ts` 的 `EnumMember` 之间多出 `CommaToken`，
+`coverage` 从 **4261 / 4422** 掉到 **4209 / 4422**、`blocked` 28 → 80）。
+读时现算（`this.Is(",")`，读的仍是本页唯一那份 `Temp`）**与搬走之前逐格等价**。
+
+### get
+
+```ts
+  return this.Is(",");
+```
+
 ## field IsTypeSeparator:bool = false
 
 **我这一格是不是类型成员之间的那个分隔符**（第 1057 轮）：`Token.IsTypeSeparator` 在投影层

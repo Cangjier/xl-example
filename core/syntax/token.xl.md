@@ -1491,6 +1491,28 @@ return false;
 return 7;
 ```
 
+## property IsCommaSymbol:bool
+
+**我这一格是不是那个逗号分隔符 `,`**（第 1074 轮）——**不是**的一律给 `false`。
+
+投影层要在**平级列表**里把逗号滤掉（`print-ast-common.xl.md` 的 `projectEach` /
+`projectEachIn` / `typeMemberGroups` / `splitTopLevel`、以及声明头与类型实参那几处），
+判据过去是现场拼出来的 `k.Tag === "SymbolToken" && k.TextValue === ","`——
+「我这一格的正文是什么」只有符号那一页知道，所以与 `NameField` / `OperatorRank`
+同一条口径：**基类给默认档、需要它的那一页覆写同一个属性**
+（`SymbolToken.IsCommaSymbol`，读时现算）。
+
+**为什么基类这一格也是 `## property` + `### get`**：它不是「构造时定下来的一格数据」，
+而是**随页面而异的一个读取口**（`OperatorRank` 那一节写了同一条理由）——
+基类答 `false`、符号那一页答自己的算式，两边都是属性读，投影的读法只有一处
+（`x.IsCommaSymbol`），**手上是哪一类 token 都不必先问一句**。
+
+### get
+
+```ts
+return false;
+```
+
 ## field IsSignatureNode:bool = false
 
 **我这一格是不是「可调用签名」**（第 1040 轮）——是的话这一格是 `true`。

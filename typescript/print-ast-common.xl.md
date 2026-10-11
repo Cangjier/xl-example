@@ -1309,7 +1309,14 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   const groups = [];
   let current = [];
   for (const item of list) {
-    if (item instanceof Token && item.Tag === "SymbolToken" && item.TextValue === separator) {
+    // **逗号那一格自己答**（第 1074 轮）：`separator` 只可能是 `|` / `&` / `,`
+    // （`Token.TypeMemberPlan` 给的那三种），前两种仍按正文比——
+    // 而 `,` 这一态读的是 `SymbolToken.IsCommaSymbol`（`Close()` 里赋好的那一格）。
+    if (
+      item instanceof Token &&
+      item.TextValue === separator &&
+      (separator !== "," || item.IsCommaSymbol)
+    ) {
       groups.push(current);
       current = [];
       continue;
@@ -1369,8 +1376,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
           inner.length > 0 &&
           inner.every(
             (k) =>
-              k.IsMemberTag ||
-              (k.Tag === "SymbolToken" && k.TextValue === ","),
+              k.IsMemberTag || k.IsCommaSymbol,
           )
         ) {
           for (const one of inner) flat.push(one);
@@ -1433,7 +1439,8 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
       if (separator !== undefined) previousSeparator = startOf(separator);
     };
     for (const item of list) {
-      if (item.Tag === "SymbolToken" && item.TextValue === ",") {
+      // **逗号那一格自己答**（第 1074 轮）：见 `SymbolToken.IsCommaSymbol`。
+      if (item.IsCommaSymbol) {
         flush(item);
         continue;
       }
@@ -1467,7 +1474,8 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     (item) =>
       item instanceof Token &&
       !item.IsInvisible &&
-      !(item.Tag === "SymbolToken" && item.TextValue === ","),
+      // **逗号那一格自己答**（第 1074 轮）：见 `SymbolToken.IsCommaSymbol`。
+      !item.IsCommaSymbol,
   );
   let i = 0;
   while (i < items.length) {
@@ -6721,7 +6729,8 @@ return false;
     // 而**形状这一层**错得更早——`cases:tsast` 一量就红）。
     let commaAt = rest.length;
     for (let k = 1; k < rest.length; k++) {
-      if (rest[k].IsOperatorUnit && rest[k].TextValue === ",") {
+      // **逗号那一格自己答**（第 1074 轮）：见 `SymbolToken.IsCommaSymbol`。
+      if (rest[k].IsOperatorUnit && rest[k].IsCommaSymbol === true) {
         commaAt = k;
         break;
       }
@@ -6985,10 +6994,19 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // **名字那一格从后往前找**：`const` / `let` / `var` / `using` 与 `await` 都可能还是
   // `Identifier`（关键字升级在本单元的那一趟里跑，投影这一趟是**之后**的事）——
   // 从前往后找会把那个词当成名字。
+  // **「我这一格是不是绑定模式」第 1074 轮改由被问的那一页自己答**（`k.IsBindingPattern`）：
+  // 名单里两个类名（`ArrayLiteral` / `ObjectLiteral`）**就是那两页自己的类名**，
+  // 它们在构造时各自答 `true`（见 `tokens/json/array-literal.xl.md` /
+  // `tokens/json/object-literal.xl.md`）——投影这一侧不再把「类名 + 括号字符」拼起来现场问。
+  // `Bracket` 那半**原样保留**：`for (const [a] of xs)` 里那个 `[` 还**没有**被收成
+  // `ArrayLiteral`（第 533 轮那条规则只在有空括号对时收），所以它仍是括号单元，
+  // 判据落在它自己的 `startBracket` 上；基类的 `IsBindingPattern` 默认 `false`，
+  // 于是这里两半合起来与改写前**逐格等价**。
   const isPatternKid = (k: any) =>
-    k.Tag === "ArrayLiteral" ||
-    k.Tag === "ObjectLiteral" ||
+    k.IsBindingPattern === true ||
     (k.Tag === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"));
+  // **声明词也是「这一格自己的正文是什么」**（与 `IsOperatorUnit` 那一族同一条口径），
+  // 但它的读者只有这一格、而且读的正是本方法刚收下的那几格单元，所以留在原处。
   const isDeclareWord = (k: any) => {
     const text = k.TextValue;
     return text === "const" || text === "let" || text === "var" || text === "using";
@@ -7059,7 +7077,8 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   const groups = [];
   let group = [];
   for (const k of kids) {
-    if (group.length > 0 && k.Tag === "SymbolToken" && k.TextValue === ",") {
+    // **逗号那一格自己答**（第 1074 轮）：见 `SymbolToken.IsCommaSymbol`。
+    if (group.length > 0 && k.IsCommaSymbol === true) {
       groups.push(group);
       group = [];
       continue;
@@ -7214,7 +7233,8 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   const commaAts = [];
   let group = [];
   for (const kid of kids) {
-    if (kid.Tag === "SymbolToken" && kid.TextValue === ",") {
+    // **逗号那一格自己答**（第 1074 轮）：见 `SymbolToken.IsCommaSymbol`。
+    if (kid.IsCommaSymbol === true) {
       groups.push(group);
       commaAts.push(startOf(kid));
       group = [];
@@ -7556,7 +7576,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 把 `|` 一并滤掉会让整条联合被当成「名字 + 实参」投成一个 `TypeReference`
   // （实测 `undici-types/header.d.ts` 的 `{ [K in HeaderNames | Lowercase<HeaderNames>]?: … }`）。
   const list = nodes.filter(
-    (k) => k instanceof Token && !k.IsInvisible && !(k.Tag === "SymbolToken" && k.TextValue === ","),
+    (k) => k instanceof Token && !k.IsInvisible && !k.IsCommaSymbol,
   );
   if (list.length === 0) return undefined;
   // **平铺的 `( … ) => T` 段**（第 927 轮（三））：这一段是**里层的函数类型**——
@@ -8039,7 +8059,8 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   const parts = [];
   let current = [];
   for (const kid of generic.ProjectableKids) {
-    if (kid.Tag === "SymbolToken" && kid.TextValue === ",") {
+    // **逗号那一格自己答**（第 1074 轮）：见 `SymbolToken.IsCommaSymbol`。
+    if (kid.IsCommaSymbol === true) {
       parts.push(current);
       current = [];
       continue;
@@ -8470,7 +8491,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       for (const child of unit.ProjectableKids) walkSpecifierUnit(child);
       return;
     }
-    if (type === "SymbolToken" && unit.TextValue === ",") {
+    if (type === "SymbolToken" && unit.IsCommaSymbol === true) {
       flush();
       return;
     }
@@ -9008,7 +9029,11 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   const groups = [];
   let current = [];
   for (const kid of kids) {
-    if (kid.Tag === "SymbolToken" && kid.TextValue === separator) {
+    // **逗号那一格自己答**（第 1074 轮）：`separator` 在这里不只逗号
+    // （`projectTypeExpression` 的联合 / 交叉给的是 `|` / `&`），所以判据是
+    // 「正文等于 separator」**加上**「逗号那一态读它自己的属性」——
+    // 与改写前的 `Tag === "SymbolToken" && TextValue === separator` 逐格等价。
+    if (kid.TextValue === separator && (separator !== "," || kid.IsCommaSymbol)) {
       groups.push(current);
       current = [];
       continue;

@@ -357,6 +357,16 @@ result.TryToClose();
 return result;
 ```
 
+## field IsBindingPattern:bool = true
+
+**我这一格能不能当「绑定模式」**（第 1074 轮）：解构声明左边的那个方括号
+（`const [a = 1, b = a] = …`）与**值位下标访问**（`xs[0]`）在产物里都叫
+`ArrayLiteral`——两者的区别只有**它出现在哪**，而投影那一侧过去只能把三格判据
+拼起来现场问（`k.Tag === "ArrayLiteral"` 再单独看 `Bracket` 是不是 `[` / `{`）。
+**「我这个类是不是绑定模式」就是本页自己的类名**，所以与 `AstKind` 同一条口径：
+本页在构造时答 `true`（`IndependentToken` 的默认档是 `false`），
+投影只读这一格属性。值位下标那一态不走本类（它是 `Bracket`，见 `../bracket.xl.md`）。
+
 ## field AstKind:string | undefined = "ArrayLiteralExpression"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），

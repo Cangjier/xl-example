@@ -303,6 +303,13 @@ result.TryToClose();
 return result;
 ```
 
+## field IsBindingPattern:bool = true
+
+**我这一格能不能当「绑定模式」**（第 1074 轮）：对象解构左边的那个花括号
+（`const { a, b } = o`）与**块 / 对象字面量**在产物里可能同名——判据与
+`ArrayLiteral.IsBindingPattern` 一字不差：**类名就是这一格事实**，
+所以本页构造时答 `true`，投影只读属性。
+
 ## field AstKind:string | undefined = "ObjectLiteralExpression"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
