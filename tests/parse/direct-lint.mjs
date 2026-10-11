@@ -699,6 +699,11 @@ for (const file of files) {
  * **第 1089 轮再补两格**：`IsParenBracket` / `IsBraceBracket`——「这一格是不是那对圆 / 花括号」
  * 与第 1058 轮收掉的 `IsIndexBracket` 是同一句话的三个面，三格都在 `Bracket` 那一页的 `Use`
  * 里赋好。同一轮的**匿名连写**由 `BRACKET_STATE_CLASSIFY` 那一条守着（见下）。
+ *
+ * **第 1090 轮再补一格**：`IsNotNullSymbol`——「这一格是不是非空断言那个 `!`」过去是投影层
+ * 11 处现场连写（`Tag === "SymbolToken" && TextValue === "!"`），今天由符号那一页读时现算
+ * （`## property` + `### get`：基类答 `false`——与 `IsCommaSymbol` 同一形态、同一理由：
+ * 不是每个符号都会走到 `Close()`）。同一轮的**匿名连写**由 `NOT_NULL_SYMBOL_CLASSIFY` 守着。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -736,6 +741,7 @@ const SELF_CLASSIFY_NAMES = [
   "IsBinaryOperatorNode",
   "IsParenBracket",
   "IsBraceBracket",
+  "IsNotNullSymbol",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -941,6 +947,42 @@ let bracketStateHits = 0;
 }
 
 /**
+ * **「这一格是不是非空断言那个 `!`」也不许在投影层现场连写**（第 1090 轮）。
+ *
+ * 投影层 11 处（9 处过滤器 + 2 处 `find`）要把 `NotNull` 单元里收尾那个 `!` 滤掉或找出来，
+ * 判据过去一律是现场拼出来的 `X.Tag === "SymbolToken" && X.TextValue === "!"`——
+ * 那是**同一格事实的第二处答案**（「我这一格的正文是什么」只有符号那一页知道），
+ * 第 1090 轮收成 `SymbolToken.IsNotNullSymbol`（`## property` + `### get`，基类答 `false`），
+ * 11 处改读属性。这里守的是**匿名连写**那一形态（同行与跨行都算、含被 `!(…)` 包起来的写法）。
+ *
+ * **泛型那一形态不算**：`const isSymbol = (k, text) => k.Tag === "SymbolToken" &&
+ * k.TextValue === text` 问的是「正文是不是**参数给的那个**」，不是某一个具体符号——
+ * 它没有一格事实的第二处答案，所以逐字保留。
+ */
+const NOT_NULL_SYMBOL_CLASSIFY =
+  /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*===\s*"SymbolToken"\s*&&\s*\1\.TextValue\s*===\s*"!"/g;
+/** 投影层现场连写「是不是那个 `!`」的处数（0 处才是对的）。 */
+let notNullSymbolHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const match of code.matchAll(NOT_NULL_SYMBOL_CLASSIFY)) {
+      notNullSymbolHits += 1;
+      if (notNullSymbolHits <= 3) {
+        violations.push({
+          file: SHARED_FILE,
+          why:
+            `「这一格是不是非空断言那个 \`!\`」又现场连写了：\`${match[0]}\`——那一格的事实住在` +
+            "被问的那一页（`SymbolToken.IsNotNullSymbol`，读时现算），投影只读属性",
+        });
+      }
+    }
+  }
+}
+
+/**
  * **「回原文配对 / 找成对符号」那一套不许回来**（第 1059 轮立；第 1060 轮并进方括号那一族）。
  *
  * 第 1041~1058 轮一直在收同一件事：**某一页自己知道的事实，由那一页答**。第 1059 轮收的是
@@ -1125,6 +1167,12 @@ console.log(
 console.log(
   `「这一格是哪一态括号」又在投影层现场连写（${SHARED_FILE} 的代码块）：${bracketStateHits} 处（0 处才是对的，读 Bracket.IsParenBracket / IsBraceBracket / IsIndexBracket）`,
 );
+// **同一形态的下一族**（第 1090 轮）：`Tag === "SymbolToken" && TextValue === "!"` 是
+// 「这一格是不是非空断言那个 `!`」现场写出来的样子——收成 `SymbolToken.IsNotNullSymbol`
+// 之后这里恰好 0 处（泛型的 `isSymbol(k, text)` 那一形态不算）。
+console.log(
+  `「这一格是不是非空断言那个 \`!\`」又在投影层现场连写（${SHARED_FILE} 的代码块）：${notNullSymbolHits} 处（0 处才是对的，读 SymbolToken.IsNotNullSymbol）`,
+);
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的
 // 第二处答案，0 处才对（见 SOURCE_BRACE_SCAN）。
@@ -1153,6 +1201,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
 );
 process.exit(0);

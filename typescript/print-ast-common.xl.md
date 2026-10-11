@@ -87,7 +87,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 一格声明没增没减）**仍是 69 格**，第 1082 ~ 1086 轮（改的都是别的页与基类）**仍是 69 格**，
 **第 1087 轮并掉三处壳之后是 66 格**，**第 1088 轮（改的全是读数与说明、新立的那一格在基类与
 `binary-operator` / `logical-operator`）仍是 66 格**，**第 1089 轮（39 处读数 + 删掉一个 `ctx`
-出口，新立的两格在 `bracket` 那一页）仍是 66 格**
+出口，新立的两格在 `bracket` 那一页）仍是 66 格**，**第 1090 轮（11 处读数，新立的那一格在
+基类与 `symbol-token`）仍是 66 格**
 ——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 所以从第 1073 轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
@@ -848,6 +849,49 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   **3 个产物** / 0 error（`print-ast-common` / `bracket` / `object-literal`）、`tsc` 干净；
   **八道门 8 通过、0 失败**（墙钟 31.0s）。
 - **本页的声明数**：**66 → 66 格**（改的全是读数与说明；新立的两格在 `tokens/bracket.xl.md`）。
+
+**第 1090 轮把「这一格是不是非空断言那个 `!`」的现场连写收进符号那一页**
+（用户口径 1.1~1.4：投影要的东西在具体类里显式声明、读时/构造时备齐；
+它跟第 1074 轮 `IsCommaSymbol` 是同一句话的另一个符号）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `(k) => !(k.Tag === "SymbolToken" && k.TextValue === "!")`（**9 处过滤器**：`NotNull` 单元的核要从子单元里滤掉收尾那个 `!`） | `(k) => !k.IsNotNullSymbol` | `SymbolToken` 那一页**显式声明** `## property IsNotNullSymbol:bool`（`### get`：`return this.TextValue === "!";`，基类答 `false`） |
+| `X.find((k) => k.Tag === "SymbolToken" && k.TextValue === "!")`（**2 处**：把那个 `!` 找出来） | `X.find((k) => k.IsNotNullSymbol)` | 同上 |
+
+- **为什么它该住在符号那一页**：「我这一格的正文是不是 `!`」**只有这一页知道**
+  （正文就在它自己的 `Temp` / `value` 上）——投影层重写一遍就是同一格事实的第二处答案
+  （第 1074 轮 `IsCommaSymbol` 收的正是同一句话的 `,`，这一轮收的是 `!`）。
+- **为什么是 `## property` + `### get` 而不是 `## field`**：第 1074 轮**量到过**那件事
+  ——符号的正文是逐字符攒起来的，而**不是每个符号都会走到 `Close()`**（枚举成员之间那个逗号
+  就没关过），按字段写会让没关过的那一格停在默认档。所以这里与 `IsCommaSymbol` 同一形态：
+  基类给默认档 `false`、符号那一页读时现算。
+- **取值口径与搬走之前逐字相同**：读的是**基类那一格 `TextValue`**（正是原来那个
+  `k.TextValue === "!"` 的后一半），不是本页的 `Is("!")`——后者读 `Temp`，与 `TextValue`
+  在**没关过**的符号上未必同答（`IsCommaSymbol` 那一格读的正是 `Temp`，两页口径因此不同，
+  这一条如实记在两页上）。
+- **它与 `IsPrefixOperatorUnit` 不是同一问**：那一格答「我是不是一个前缀运算符」（一串
+  `!` `~` `+` `-` `++` `--`），这一格只认那一个 `!`（`x!` 的收尾、`a!()` 的断言位）。
+- **泛型那一形态逐字保留**（实测点名）：`const isSymbol = (k, text) => k.Tag === "SymbolToken" &&
+  k.TextValue === text`（本页 2 处）问的是「正文是不是**参数给的那个**」，不是某一个具体符号，
+  没有第二处答案，所以不动——新判据只认字面量 `"!"`。
+- **判据跟着长两条**：`direct:lint` 第八条那一族多认一个名字（`IsNotNullSymbol`），
+  另立第十六条 `NOT_NULL_SYMBOL_CLASSIFY`——**匿名连写**那一形态（同行与跨行、
+  被 `!(…)` 包起来的写法都算）在代码块里必须恰好 0 处。**自验**（`tmp/r1090/` 的探针，
+  不进仓库）：把一处属性读写回成现场连写 ⇒ 报告 **0 → 1 处**、`FAIL`、`exit=1`；
+  逐字节还原 ⇒ **1 → 0 处**、`exit=0`。
+- **改了哪三个文件**：本页（11 处读数 + 说明）、`core/syntax/token.xl.md`（那一格虚属性，
+  基类答 `false`）、`typescript/tokens/symbol-token.xl.md`（显式声明并读时现算）、
+  `tests/parse/direct-lint.mjs`（第八条名单 + 第十六条判据 + 一行读数）。
+- **量法**：改完八道门读数**一处没动**（基线是第 1089 轮那一份）——`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` **3 条已知缺口还开着**、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+  11 处逐处等价：只有符号那一页答 `true`、且答的就是 `TextValue === "!"`。
+- **实测**：`xl check typescript core` **156 个文件 0 条**；`xl build typescript core`
+  **3 个产物** / 0 error（`token` / `symbol-token` / `print-ast-common`）、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 30.4s）。
+- **本页的声明数**：**66 → 66 格**（改的全是读数与说明；新立的那一格在基类与符号那一页）。
 
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
@@ -4944,7 +4988,7 @@ new Set([
           // `Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
           if (bareName === "" && callHead !== undefined && callHead.Tag === "NotNull") {
             const assertKids = callHead.ProjectableKids.filter(
-              (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
+              (k: any) => !k.IsNotNullSymbol,
             );
             const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
             // **断言里的核是一格 `Method`**（第 975 轮）：`a!()()!()` 的这一格是
@@ -5110,7 +5154,7 @@ new Set([
       // （实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
       if (next.Tag === "NotNull") {
         const asserted = next.ProjectableKids.filter(
-          (k) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
+          (k) => !k.IsNotNullSymbol,
         );
         const head = asserted[0];
         if (head !== undefined && head.Tag === "Method") {
@@ -5265,7 +5309,7 @@ new Set([
       // （实测漂移 76 + 30 + 33、多出 71 + 75）。
       if (next.Tag === "NotNull") {
         const inner = next.ProjectableKids.filter(
-          (k) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
+          (k) => !k.IsNotNullSymbol,
         );
         const target = inner.length > 0 ? inner[0] : undefined;
         if (target !== undefined && target.Tag === "PropertyAccess") {
@@ -5600,7 +5644,7 @@ if (kind === "Method") {
   if (mHead.IsParenBracket) return true;
   if (mHead.Tag === "NotNull") {
     const asserted = mHead.ProjectableKids.filter(
-      (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
+      (k: any) => !k.IsNotNullSymbol,
     );
     const inner = asserted.length > 0 ? asserted[0] : undefined;
     if (inner === undefined) return false;
@@ -5681,7 +5725,7 @@ return false;
 
 ```ts
   const inner = unit.ProjectableKids;
-  const bang = inner.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "!");
+  const bang = inner.find((k: any) => k.IsNotNullSymbol);
   const nameUnit = inner.find((k: any) => k !== bang);
   if (nameUnit === undefined || bang === undefined) return undefined;
   let node: any;
@@ -6241,7 +6285,7 @@ return false;
       // 再把 `!` 套在**整条链**上、位置取那一格自己的末端。
       if (member.Tag === "NotNull") {
         const bangKids = member.ProjectableKids.filter(
-          (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
+          (k: any) => !k.IsNotNullSymbol,
         );
         const innerName = bangKids.length > 0 ? bangKids[0] : undefined;
         if (innerName !== undefined) {
@@ -6299,7 +6343,7 @@ return false;
             // **做法与 `chainOnto` 那一处一字不差**：先把「下标 + `!`」折成 `NonNull`，
             // 再把外面那次调用套上去（`?.` 挂在里面那次下标上——TS 就是这么放的）。
             const assertKids = callHead.ProjectableKids.filter(
-              (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
+              (k: any) => !k.IsNotNullSymbol,
             );
             const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
             if (assertHead !== undefined && assertHead.IsIndexBracket) {
@@ -6531,7 +6575,7 @@ return false;
     // **次序是语义**：TS 是 `((a?.b![0])![1])`——先把下标接上、再把 `!` 套在那个结果上。
     if (unit.Tag === "NotNull") {
       const bangKids = unit.ProjectableKids.filter(
-        (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
+        (k: any) => !k.IsNotNullSymbol,
       );
       const bangHead = bangKids.length > 0 ? bangKids[0] : undefined;
       let asserted: any = left;
@@ -6619,7 +6663,7 @@ return false;
         //  `NonNullExpression` 的区间只到 `a!`）。
         // **判据与别的几处一字不差**：`Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
         const assertKids = callHead.ProjectableKids.filter(
-          (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
+          (k: any) => !k.IsNotNullSymbol,
         );
         const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
         if (assertHead !== undefined && assertHead.IsParenBracket) {
@@ -6756,7 +6800,7 @@ return false;
       bangUnit = next;
       bangEnd = endOf(bangUnit);
       const inner = next.ProjectableKids.filter(
-        (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
+        (k: any) => !k.IsNotNullSymbol,
       );
       if (inner.length === 0) break;
       next = inner[0];
@@ -7487,7 +7531,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     // `VariableDeclaration.exclamationToken`（`!` 是一个子节点），产物把它记成一个平级的
     // `SymbolToken("!")`。不收的话缺 `ExclamationToken` + 字段名差一格
     // （实测 `vars-definite.ts`：`VariableDeclaration` 与 `PropertyDeclaration` 各一处）。
-    const bang = one.find((k) => k.Tag === "SymbolToken" && k.TextValue === "!");
+    const bang = one.find((k) => k.IsNotNullSymbol);
     if (bang !== undefined) declaration.exclamationToken = projectNode(bang, ctx);
     return declaration;
   });

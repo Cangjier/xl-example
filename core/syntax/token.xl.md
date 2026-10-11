@@ -1650,6 +1650,29 @@ return 7;
 return false;
 ```
 
+## property IsNotNullSymbol:bool
+
+**我这一格是不是非空断言那个 `!`**（第 1090 轮）——**不是**的一律给 `false`。
+
+投影层要把 `NotNull` 单元里收尾那个 `!` 滤掉、或者把它找出来（`print-ast-common.xl.md` 里
+9 处过滤器 + 2 处 `find`），判据过去是现场拼出来的
+`k.Tag === "SymbolToken" && k.TextValue === "!"`——与 `IsCommaSymbol` 同一条口径：
+**基类给默认档、需要它的那一页覆写同一个属性**（`SymbolToken.IsNotNullSymbol`，读时现算）。
+
+**它与 `IsPrefixOperatorUnit` 不是同一问**：那一格答「我是不是一个前缀运算符」（一串 `!` `~` `+` …），
+这一格只认那一个 `!`（`x!` 的收尾、`a!()` 的断言位）。
+
+**为什么基类这一格也是 `## property` + `### get`**：理由与 `IsCommaSymbol` 那一条**逐字相同**
+（第 1074 轮量到的那件事：符号的正文是逐字符攒起来的，而不是每个符号都会走到 `Close()`，
+所以按字段写会让没关过的那一格停在默认档）——基类答 `false`、符号那一页答自己的算式，
+投影的读法只有一处（`x.IsNotNullSymbol`）。
+
+### get
+
+```ts
+return false;
+```
+
 ## property IsBareCall:bool
 
 **我这一格是不是「裸的一次调用」**（第 1077 轮）——**不是**的一律给 `false`。

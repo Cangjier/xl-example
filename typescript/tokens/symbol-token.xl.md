@@ -176,6 +176,35 @@ if (last instanceof SymbolToken) {
   return this.Is(",");
 ```
 
+## property IsNotNullSymbol:bool
+
+**我这一格是不是非空断言那个 `!`**（第 1090 轮）：投影层要把 `NotNull` 单元里收尾那个 `!`
+滤掉、或者找出它（`print-ast-common.xl.md` 里 9 处过滤器 + 2 处 `find`），判据过去是现场拼出来的
+`k.Tag === "SymbolToken" && k.TextValue === "!"`——「我这一格的正文是什么」**只有这一页知道**，
+所以它回到这一页（与 `IsCommaSymbol` 同一条口径、同一形态）。
+
+**它与 `IsPrefixOperatorUnit` 不是同一问**：那一格答「我是不是一个前缀运算符」，答 `true` 的
+是一整串（`!` `~` `+` `-` `++` `--`）；这一格只认那一个 `!`（`x!` 的收尾、`a!()` 的断言位）。
+`IsPrefixOperatorUnit` 那一节里也写着「`!x` 在产物里是 `UnaryOperator` 单元」——所以走到这一格的
+裸 `!` 就是非空断言那一位。
+
+覆写的是 `core/syntax/token.xl.md` 上那一格虚属性（基类答 `false`，与 `IsCommaSymbol` 同一形态）。
+
+**为什么它是 `## property` + `### get`、不是 `## field`**：与 `IsCommaSymbol` **同一件事**
+（第 1074 轮量到的那条）：符号的正文是**逐字符攒**起来的，而**不是每个符号都会走到 `Close()`**
+——按字段写过一版的话，没关过的那一格会停在默认档 `false`，「它是 `!`」这个事实就丢了。
+
+**取值口径与搬走之前逐字相同**：读的是基类那一格 `TextValue`（也就是原来那个
+`k.TextValue === "!"` 的后一半），不是 `Is("!")`——后者读的是本页的 `Temp`，与 `TextValue`
+在**没关过**的符号上未必同答（`IsCommaSymbol` 那一格读的正是 `Temp`，两页口径因此不同，
+如实记在这里）。
+
+### get
+
+```ts
+  return this.TextValue === "!";
+```
+
 ## field IsTypeSeparator:bool = false
 
 **我这一格是不是类型成员之间的那个分隔符**（第 1057 轮）：`Token.IsTypeSeparator` 在投影层
