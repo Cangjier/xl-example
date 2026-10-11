@@ -382,6 +382,42 @@ return index;
   return this.OuterCallEnd !== this.end;
 ```
 
+## property InnermostMethod:Method
+
+**一路走到「里面没有 `Method` 了」那一格**（第 1197 轮，用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6）：
+这一格自己算第一格；它里面那一格是 `Method` 就继续往下，不是就停。
+
+**为什么要有一格**：一个 `Method` 单元里可以盖着**好几层调用**——
+`a?.b()()()` 的 NCO 里是 `Method(name="")[Method(name="")[Method(name="b")]]`：
+名字为空的每一格都是「对结果再调一次」，而**真正带成员名的是最里面那一格**。
+所以问成员名、问区间都要先走到最里面那一格——只问第一格会把它读成空名字
+（第 966 轮那一版就是这么走的，见 `gap-r964-opt-call-triple`：三层只折出两层）。
+
+**它搬的是投影层的一格 helper**（`print-ast-common.xl.md` 从前的 `innermostMethod`，第 971 轮立）：
+那一格的每一半事实都在本页上——「往哪一格走」是本页自己的 `ProjectableKids`
+（滤掉 `GenericType`）、「走到哪停」是「那一格还是不是 `Method`」。搬过来之后投影那五处
+只读这一格，投影层那一格 helper 整格删掉。
+
+**为什么是 `## property` + `### get`**：子单元是解析期陆续挂上来的，
+「我最里面那一格是谁」只能在**读的那一刻**看一次（与 `IsBareCall` / `OuterCallEnd` 同一形态）。
+
+**上限 32 层**：与搬过来之前那一句一字不差（那是一道防环的闸门，不是语言限制）。
+
+### get
+
+```ts
+  let deepest: Method = this;
+  let depth = 0;
+  while (depth < 32) {
+    const down: any[] = deepest.ProjectableKids.filter((k: any) => k.IsGenericType === false);
+    const next = down.length > 0 ? down[0] : undefined;
+    if (next === undefined || next.IsMethodNode === false) break;
+    deepest = next;
+    depth = depth + 1;
+  }
+  return deepest;
+```
+
 ## property IsIndexFirstUnit:bool
 
 **我这一格是不是「以一次下标开头」**（第 1103 轮）——名字为空的那一格调用，若被调用者以一次

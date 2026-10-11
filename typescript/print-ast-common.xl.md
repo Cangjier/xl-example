@@ -6239,7 +6239,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
               //（实测 `gap-r973-nonnull-call-quad`：两个 `CallExpression` 的区间一路漂到
               //  `[0,10)`；三层那一档 `a!()()()` 也是同一句话少问一层）。
               // **折法与 `chainWithOptional` / `chainOnto` 的 Method 分支共用同一对**
-              //（第 971 轮立的 `innermostMethod` + `graftCallee`；「最里面那一格的被调用者
+              //（第 971 轮立的 `Method.InnermostMethod` + `graftCallee`；「最里面那一格的被调用者
               //  怎么建」第 975 轮收进 `innermostCallee`）：先走到**最里面**那一格
               // `Method`，再让 `projectNode(callHead)` 那一串壳**整体**套上去——
               // `graftCallee` 一路下到最里面那一层调用，不会像原来那样把中间几层丢掉。
@@ -6285,7 +6285,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
               // 链在下面 `break` ⇒ 三格 `CallExpression` 与那个 `NonNullExpression` 一起丢
               //（实测 `gap-r973-nonnull-call-twice-assert`：缺 3 漂 1）。
               // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**：
-              // 走到最里面那一格（`innermostMethod`）、被调用者交给 `innermostCallee`、
+              // 走到最里面那一格（`Method.InnermostMethod`）、被调用者交给 `innermostCallee`、
               // 换法交给 `graftCallee`——再把 `!` 套在整条调用链外面。
               if (coreKind === "Method") {
                 const innerCall = graftOnto(left, assertHead, ctx);
@@ -6427,7 +6427,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
             // 连同它上面那一层一起丢（实测 `gap-r973-member-call-thrice-member`：
             // 漂 3 多 2，多出来的正是那格空名字的属性访问）。
             // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**
-            //（`innermostMethod` + `innermostCallee` + `graftCallee`）：整串壳照
+            //（`Method.InnermostMethod` + `innermostCallee` + `graftCallee`）：整串壳照
             // `projectNode(next)` 给出的层数接上，只把**最里面那一格**的被调用者换掉。
             left = graftOnto(left, next, ctx);
             i += 2;
@@ -6757,10 +6757,10 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     // `b()` 整段当成一个名字（实测 `gap-r973-opt-call-assert-index`：多一格名字叫
     // `b()` 的属性访问、缺那一格 `CallExpression`，两个方向一起响）。
     // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**
-    //（`innermostMethod` + `innermostCallee` + `graftCallee`）：先走到最里面那一格、
+    //（`Method.InnermostMethod` + `innermostCallee` + `graftCallee`）：先走到最里面那一格、
     // 把她当被调用者接上，`?.` 挂在**新接出来那一格**上（TS 的放法），
     // 没那么一格时交给 `graftCallee` 挂到最里面那次调用上。
-    const callee = innermostCallee(left, innermostMethod(nameUnit), ctx);
+    const callee = innermostCallee(left, nameUnit.InnermostMethod, ctx);
     const built = callee !== left;
     if (built) markOptional(callee, questionDot);
     node = graftCallee(projectNode(nameUnit, ctx), callee, built ? undefined : questionDot);
@@ -6776,34 +6776,10 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   };
 ```
 
-# private method innermostMethod:(unit:any)=>any
-
-**一路走到「里面没有 `Method` 了」那一格**（第 971 轮）：`unit` 本身算第一格。
-
-一个 `Method` 单元里可以盖着**好几层调用**——`a?.b()()()` 的 NCO 里是
-`Method(name="")[Method(name="")[Method(name="b")]]`：名字为空的每一格都是「对结果再调一次」，
-而**真正带成员名的是最里面那一格**。所以问成员名、问区间都要先走到最里面那一格——
-只问第一格的名字会把它读成空名字（第 966 轮那一版就是这么走的，见
-`gap-r964-opt-call-triple`：三层只折出两层）。两处调用点（`chainWithOptional` 的
-「被调用者是 `Method`」那一支、`chainOnto` 的 Method 分支）**共用这一份**。
-
-```ts
-  let deepest = unit;
-  let depth = 0;
-  while (depth < 32) {
-    const down = deepest.ProjectableKids.filter((k: any) => k.IsGenericType === false);
-    const next = down.length > 0 ? down[0] : undefined;
-    if (next === undefined || next.IsMethodNode === false) break;
-    deepest = next;
-    depth = depth + 1;
-  }
-  return deepest;
-```
-
 # private method graftOnto:(left:any, unit:any, ctx:any)=>any
 
 **把 `unit` 那一串调用壳整体接到 `left` 上**（第 1160 轮，用户口径 1.7）：
-`graftCallee(projectNode(unit, ctx), innermostCallee(left, innermostMethod(unit), ctx), undefined)`
+`graftCallee(projectNode(unit, ctx), innermostCallee(left, unit.InnermostMethod, ctx), undefined)`
 ——三步（投这一格、走到最里面那一格、把壳套上去）在本页出现过 **8 次**，逐字不同的只有
 **受体名与那一格的名字**。按本文件一贯的口径收成一格，8 处各留一次调用；**净少 32 行**。
 
@@ -6813,7 +6789,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
 它们**不走这一格**）。所以这一个实参是**判据的一部分**，不是省略。
 
 ```ts
-  return graftCallee(projectNode(unit, ctx), innermostCallee(left, innermostMethod(unit), ctx), undefined);
+  return graftCallee(projectNode(unit, ctx), innermostCallee(left, unit.InnermostMethod, ctx), undefined);
 ```
 
 # private method graftCallee:(call:any, callee:any, questionDot:any)=>any
@@ -6847,10 +6823,10 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
 
 # private method innermostCallee:(left:any, deepest:any, ctx:any)=>any
 
-**把「最里面那一格 `Method`」的被调用者建出来**（第 975 轮）——`innermostMethod` 的搭档，
+**把「最里面那一格 `Method`」的被调用者建出来**（第 975 轮）——`Method.InnermostMethod` 的搭档，
 `graftCallee` 的输入。
 
-一个空名字的 `Method` 单元里可以套着好几层调用（见 `innermostMethod`），而**最里面那一格**
+一个空名字的 `Method` 单元里可以套着好几层调用（见 `Method.InnermostMethod`），而**最里面那一格**
 说的正是「对 `left` 的那一次调用」。它的核有三种，折法各不相同：
 
 | 核 | 写法 | 要建的那一格 |
@@ -6883,7 +6859,16 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   const head = kids.length > 0 ? kids[0] : undefined;
   // **「外面还有没有一层」问这一格自己**（第 1197 轮，用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6）：
   // 原来这里是区间比较 `head.end < deepest.end`——两半事实（被调用者是哪一格、这一格盖到哪）
-  // 全在 `Method` 那一页上，所以判据搬了过去（`OuterCallEnd` / `HasOuterCall`）。
+  // 全在 `Method` 那一页上，所以**那一半**搬了过去（`OuterCallEnd` / `HasOuterCall`）。
+  //
+  // **「核是不是实参括号」这一半仍然读本页的那一格**（第 1197 轮实测踩到的）：
+  // 它一度改成读 `deepest.CoreKind === "Call"`——`CoreKind` 是基类上的一格（`NotNull` 那一页
+  // 按**它自己**的核答四态），于是**别的 token** 也会照基类那一句
+  // 「第一个子单元是实参括号就答 `Call`」回答：`graftOnto` 传进来的那一格是
+  // `NotNull` 时，`HasOuterCall` 与 `CoreKind` 一起成立、而 `NotNull.CoreHead`
+  // （滤掉 `!` 之后那个核）**不是括号** ⇒ `callArgumentsOf(undefined)` 当场抛
+  //（实测 11 条用例红：`gap-r971-nonnull-call-thrice-member` 一族，`coverage` 4260 → 4249）。
+  // ⇒ **一格属性只该由声明它的那一页来答**；读别人的属性之前要先问「这一格一定是那一页吗」。
   if (head !== undefined && head.IsParenBracket
     && deepest.HasOuterCall) {
     return chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(head, ctx) }, head.end);
@@ -6944,7 +6929,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // 「对结果再调一次」，而 `?.` 与成员名属于**最里面**那一层。第 966 轮那一版只问
       // **第一格**的名字（答空串）⇒ 走的是下面「名字为空」那一支、把中间几层与 `.b` 一起丢了
       //（实测 `gap-r964-opt-call-triple`：`CallExpression[0,10) > CallExpression[0,8) >
-      // Identifier(a)`）。两件事各收在各处：走到最里面那一格是 `innermostMethod`，
+      // Identifier(a)`）。两件事各收在各处：走到最里面那一格是 `Method.InnermostMethod`，
       // 「换被调用者要下到最里面那一格调用」是 `graftCallee`——`chainOnto` 的 Method 分支
       // 用的是同一对。
       if (calleeKid !== undefined && calleeKid.IsMethodNode) {
@@ -6952,7 +6937,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         // 它按核分三档（名字 / 实参括号 / `left` 自己），其中「括号那一次」要单独建成一格——
         // 少了那一档，`a?.b()()()` 一族**每一次都少一层**
         //（实测 `gap-r973-opt-assert-call-thrice`：`CallExpression` 各漂 / 缺）。
-        const callee = innermostCallee(left, innermostMethod(calleeKid), ctx);
+        const callee = innermostCallee(left, calleeKid.InnermostMethod, ctx);
         // **`?.` 挂在这一格新接出来的那一层上**（TS 的放法）：接了名字 / 建了「括号那一次」
         // 就挂在那上面（`a?.b!()` 那一族断言已经把它挂进 `assertedMember` 里了）；
         // 什么都没接（被调用者就是 `left`）时交给 `graftCallee` 挂到最里面那次调用上
@@ -7226,10 +7211,10 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
             // 只读 `callHead` **第一格**的名字（第 966 轮那一版）会把三层当成两层：
             // 实测 `a?.b()()().c` 漂 2、字段 1、`Identifier(b)` 整格丢。
             // 折法与 `chainWithOptional` 的「被调用者是 `Method`」那一支**一字不差**：
-            // 走到最里面那一格用 `innermostMethod`，**被调用者怎么建**用 `innermostCallee`
+            // 走到最里面那一格用 `Method.InnermostMethod`，**被调用者怎么建**用 `innermostCallee`
             //（第 975 轮收拢：名字 / 实参括号 / `left` 三档一处一份），
             // 换法用 `graftCallee`（它一路下到最里面那一层调用，不会把中间几层丢掉）。
-            const callee = innermostCallee(node, innermostMethod(callHead), ctx);
+            const callee = innermostCallee(node, callHead.InnermostMethod, ctx);
             const built = callee !== node;
             if (built && pending !== undefined) callee.questionDotToken = pending;
             const innerCall = graftCallee(projectNode(callHead, ctx), callee, built ? undefined : pending);
@@ -7403,7 +7388,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // 交给 `left` 是不够的：那样**外面那一次调用没有节点**（实测
       // `gap-r964-opt-call-triple`：`CallExpression` / `PropertyAccessExpression` /
       // `Identifier` 三处漂、另多一格名字为空的属性访问）。
-      // **做法**：被调用者接在**最里面**那一格调用上——走进最里面那一格用 `innermostMethod`、
+      // **做法**：被调用者接在**最里面**那一格调用上——走进最里面那一格用 `Method.InnermostMethod`、
       // **被调用者怎么建**用 `innermostCallee`（第 975 轮收拢：名字 / 实参括号 / `left`
       // 三档各一处一份），换法交给 `graftCallee`
       //（它一路下到最里面那一层，不会把中间几层丢掉）。与 `chainWithOptional` 的
@@ -7539,7 +7524,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         // 少了它，那一格会落到下面「按成员名折」⇒ 投出一个**名字为空**的属性访问。
         if (calleeKid !== undefined && calleeKid.IsMethodNode) {
           // **折法与 `chainWithOptional` 那一处、以及本函数 Method 分支一字不差**
-          //（第 975 轮收拢）：最里面那一格用 `innermostMethod`、被调用者用
+          //（第 975 轮收拢）：最里面那一格用 `Method.InnermostMethod`、被调用者用
           // `innermostCallee`、换法用 `graftCallee`。
           const innerCall = graftOnto(left, calleeKid, ctx);
           const outerCall = projectNode(next, ctx);
@@ -7611,7 +7596,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         // 「名字」「下标」两支，`Method` 落到循环末尾那句空转的 `j += 1` ⇒ **三层调用整段丢**
         //（实测 `gap-r973-opt-assert-call-thrice-member`：缺 3）。
         // 折法与 `chainWithOptional` 子链分支那一支**同源**（第 975 轮收拢成同一对：
-        // `innermostMethod` + `innermostCallee` + `graftCallee`）。
+        // `Method.InnermostMethod` + `innermostCallee` + `graftCallee`）。
         // **核是 `NotNull` 的那一档让开**：它要按断言折（把 `!` 套在调用结果上），
         // 由 `chainWithOptional` / 本函数别处那几支管——这里只认「纯调用」那三种壳。
         // **这一问第 1153 轮搬回被问的那一页了**（用户口径 1.2 / 1.3 / 1.6）：

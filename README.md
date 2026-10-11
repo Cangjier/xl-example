@@ -347,6 +347,63 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1197 轮（第三支）：用户口径 1.1 / 1.2 / 1.3 / 1.4 / 1.5 / 1.7 —— 把 `innermostMethod` 那一格整格搬进 `Method.InnermostMethod`（投影层少一格声明）、`innermostCallee` 删掉一句重复的读法；代码块 **3828 → 3818** 行、`#` 声明 **57 → 56** 格；**中途踩了一个坑并当场纠正**（把 `CoreKind` 当通用属性读 ⇒ 11 条用例红，于是把那一半读法退回，并写下「一格属性只该由声明它的那一页来答」）
+
+**一句话**：这一支把「**一路走到最里面那一格 `Method`**」这一问从投影层搬回 `Method` 那一页
+——那一问的每一半事实都在那一页上（「往哪一格走」是它自己的 `ProjectableKids`、
+「走到哪停」是「那一格还是不是 `Method`」）。**搬的过程里踩了一个坑、当场纠正，两件事都记在下面。**
+
+| 做了什么 | 读数 |
+| --- | --- |
+| `# private method innermostMethod`（投影层那一格 helper，第 971 轮立）**整格删掉**，改成 `Method.InnermostMethod`（`## property` + `### get`） | 投影层 **56** 格声明（原 **57**）；五处调用点改成属性读 |
+| `innermostCallee` 里那句「先滤出第一个实义子单元」删掉——三格事实（名字 / 是否盖着不止一层 / 核是哪一态）分头去读对应那一页 | 代码块 **3828 → 3818** 行 |
+| `Method.CoreKind`（这一轮中途加的、**纠正之后没有读者**）**不留** | `method.xl.md` 少 33 行——按「没被验证过的改动不留」 |
+
+**踩的那个坑（这一轮最该记下来的一条）**：`innermostCallee` 里那一句本来是
+「先滤出第一个实义子单元、再看它是不是实参括号」。这一轮**先把它换成读 `deepest.CoreKind === "Call"`**
+（因为 `CoreKind` 是第 1197 轮第一支新立的一格）——**当场红 11 条**：
+
+| 症状 | 读数 |
+| --- | --- |
+| `token/expressions/gap-r971-nonnull-call-thrice-member` 一族（共 **11** 条） | `产物抛异常：TypeError: Cannot read properties of undefined (reading 'ProjectableKids')` |
+| `coverage` | **4260 → 4249**（blocked 28 → 39）、倒退 **1 → 12** |
+
+**根因**：`CoreKind` 是**基类**上的一格（`NotNull` 那一页按**它自己**的核答四态），
+所以**别的 token** 也会照基类那一句「第一个子单元是实参括号就答 `Call`」回答——
+`graftOnto` 传进来的那一格是 `NotNull` 时，`HasOuterCall` 与 `CoreKind` **一起成立**，
+而 `NotNull.CoreHead`（滤掉 `!` 之后那个核）**不是括号** ⇒ `callArgumentsOf(undefined)` 当场抛。
+**纠正**：那一半读法退回本页那一句（`head.IsParenBracket`），`Method.CoreKind` 那个没有读者的
+覆盖**一并删掉**。
+
+⇒ **一条留给下一处的口径**：**一格属性只该由声明它的那一页来答**；读别人的属性之前，
+先问「我读的这一格**一定是**那一页吗」。第一支搬 `CoreKind` 时那 7 处读点都在
+`callHead.IsNotNull` 的闸门之内（所以安全），第三支这一处**没有那道闸门**（它读的是
+`innermostCallee` 收到的任意一格），于是同一个属性在两处一安全一不安全。
+
+**等价怎么证的**（同一把尺子，两份 dump 都是 `projectRoot` 的整棵树）：
+
+| 语料 | 对拍份数 | 节点（HEAD / 第三支） | 整棵树不一致 | 抛异常 |
+| --- | --- | --- | --- | --- |
+| **宽语料**（`corpus()`） | **2051** | 516284 / **516294** | **4** | 0 / 0 |
+
+那 4 份仍是**这一轮改过的四页自己的产物**；其余 **2047 / 2047 逐字节同答**。
+
+**本页的数**（`typescript/print-ast-common.xl.md`）：代码块（不带注释）**3828 → 3818** 行、
+文件 **10565 → 10552** 行、`#` 声明 **57 → 56** 格、`projectExpression` **1377 行不动**。
+
+**三个支合起来这一轮的净账**（代码块，不带注释）：**3840 → 3818** 行（−22），
+`#` 声明 **57 → 56** 格；**六格新属性 / 两个新类型格子**落在被问的那两页上
+（`NotNull.CoreKind`、`Method.OuterCallEnd`、`Method.HasOuterCall`、`Method.InnermostMethod`、
+以及基类上补齐的 `IsIndexBracket` / `IsParenBracket` 两格默认档）。
+
+**实测**：`xl check`（core + typescript）**0 条**；`npx tsc`（strict）**0 error**；
+`cases:direct` **21793 / 16489（75.7%）**、全语料 **0 处抛异常**、固定样本六格点名通过；
+`direct:lint` **0 条违反**；`samples` ok；`cases:check` **1656 条 0 不合格**；
+`runtime:check` **243 / 0**；`runtime:cli` **79 / 0**；
+`cases:tsast` 16 片 **15 通过 / 1 失败**（仍是 HEAD 上既有的 3 条 `xl:known-gap`）；
+`coverage` **4260 / 4422**（blocked 28、differ 134、bad 0、加权 95.7%，倒退仍是那 1 条既有的）
+——**与 HEAD 逐项相同**。
+
 ### 第 1197 轮（第二支）：用户口径 1.2 / 1.6 / 1.7 —— 三处**重复的分支**并掉、一处**每个 `Method` 都要跑一遍**的门槛收成 `Method.IsBareCall` 一格判据，代码块 **3840 → 3828** 行（`projectExpression` **1384 → 1377**）；宽语料 2051 份 A/B：除改过的 **4 份产物**之外 **2047 / 2047 逐字节同答**
 
 **一句话**：第一支省的是**属性读**（判据住哪），这一支省的是**行数**——把投影层里
