@@ -8408,6 +8408,58 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     (k) => k instanceof Token && !k.IsInvisible && !k.IsCommaSymbol,
   );
   if (list.length === 0) return undefined;
+  // **类型位里那个 `!`**（第 1203 轮，用户口径 1.1）：`type T = a!` 在 TypeScript 那边是
+  // `JSDocNonNullableType[8,11) > TypeReference(a)`（把 `a!` 两格全包），而这一层原来
+  // **整个不认那个 `!`** —— 它既不在类型词汇里、也不是名字，于是 `a` 之后那一格
+  // 落到下面几条判据上被当成分隔符一类吃掉，投出来就是一个 `TypeReference(a)`
+  //（实测缺 `JSDocNonNullableType` 1、`type T = (a!)` 那一条还多出一个
+  // `NonNullExpression`——括号里那一格被值位那条规则收成了 `NotNull`）。
+  //
+  // **判据只有一条**：这一列单元的**最后一格**是不是那个 `!`
+  //（`SymbolToken.IsNotNullSymbol`，与 `NotNull` 那一页的 `Bindings` 问的是同一格）。
+  // 是就**先把它摘掉、把剩下的照常投一遍**，再套一层 `JSDocNonNullableType`——
+  // 于是 `type T = a!` 里那个 `a` 照常走「名字 ⇒ `TypeReference`」那条路
+  //（不摘的话 `[a]` 仍然问得到名字，摘掉之后问的也是 `[a]`，两边的答案同一个），
+  // `Box<a!>` 的实参、`a! | b!` 的每一段也各自走到这里。
+  //
+  // **为什么不放在值位那条规则里**：类型位的 `!` 在**三种形态**下都留在平铺层里
+  //（`type T = a!` 是 `[a, !]`、`Box<a!>` 是实参段里的 `[a, !]`、`a! | b!` 是每一段里的 `[a, !]`），
+  // 只有 `(a!)` 那一格被 `NotNullCloseRule` 收成了一个 `NotNull` 单元——
+  // 所以「摘掉末尾那个 `!`」这一句同时把三种形态都收住，比在值位那边追形态稳。
+  if (list[list.length - 1].IsNotNullSymbol) {
+    const operand = projectTypeExpression(list.slice(0, list.length - 1), ctx);
+    if (operand !== undefined) {
+      const bang = list[list.length - 1];
+      return {
+        kind: "JSDocNonNullableType",
+        type: operand,
+        pos: operand.pos,
+        end: typeof bang.end === "number" ? bang.end : operand.end,
+      };
+    }
+  }
+  // **`(a!)` 那一格：断言已经被值位那条规则收成了一个 `NotNull` 单元**（第 1203 轮）。
+  // `type U = (a!)` 的产物是 `TypeAssign > ParenthesizedType > NotNull(a, !)`——
+  // `NotNullCloseRule` 不问自己在值位还是类型位（它只认「操作数 + `!`」），
+  // 于是这一格交上来的是**一个单元**、上面那句（看末尾那个 `!` 符号）看不见它。
+  //
+  // **判据只认这一格的子单元**：`NotNull` 自己那一格 `CoreKids` 就是「被断言者」
+  // （`not-null.xl.md` 的 `## property CoreKids`，`ProjectableKids` 滤掉那个 `!`），
+  // 所以这里把**它们**再投一遍、外面套 `JSDocNonNullableType`。TS 那边 `type U = (a!)` 是
+  // `ParenthesizedType > JSDocNonNullableType > TypeReference(a)`（`!` 全包、`a` 是 `TypeReference`），
+  // 而值位那一份 `PrintAst` 给的是 `NonNullExpression > Identifier(a)`——两处差的正是这一层。
+  if (list.length === 1 && list[0].IsNotNull) {
+    const asserted = list[0];
+    const inner = projectTypeExpression(asserted.CoreKids, ctx);
+    if (inner !== undefined) {
+      return {
+        kind: "JSDocNonNullableType",
+        type: inner,
+        pos: asserted.start,
+        end: asserted.end,
+      };
+    }
+  }
   // **平铺的 `( … ) => T` 段**（第 927 轮（三））：这一段是**里层的函数类型**——
   // 柯里化（`() => () => void`）与「返回类型自己是一段函数类型」的形状在 token 层被整段收进
   // **同一个** `FunctionType` 节点（见 `function-type.xl.md` 的收集循环），于是交到这里的
