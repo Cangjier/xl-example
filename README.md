@@ -303,7 +303,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `cases:direct` | **第三个出口投不投得出来**（第 992 轮加，第 1013 / 1017 轮改口径）：`Token.PrintDirectAst` 是**唯一**的写法，所以量的是两条**绝对**的判据——① 全语料投一遍**不许抛异常**；② 固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。**第 1013 轮之前**它与 `PrintAst` 开 / 关两遍对拍，第 1013 ~ 1016 轮改量「同一份输入重投两遍逐字节相同」——**那一项第 1017 轮撤了**：两遍都在同一个进程里、问的都是同一份 `Root` 自己的子单元列表，确定性代码必然逐字节相同，**它不可能失败** |
-| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 / 1014 / 1015 / 1026 / 1027 / 1046 / 1049 / 1050 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；**扫共享投影那一页的代码块**（第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层）另有五条：① 名字那一格不许按字符串键读（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`，第 1008 轮）；② **一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintDirectAst`——那是分发不是数据，第 1046 轮）；③ `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`；扫描游标与别人的终点照旧，第 1049 轮）；④ `# private method …` 小节里**声明了 `ctx` 形参却在方法体里一处不用**的 = 0 处（形参表就是这一格需要什么，第 1050 轮）；⑤ 中间那一层的入口名（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）一个都不许留在规范页的代码块里（第 1027 轮）。还有一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算，第 1014 轮）；以及一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace` / `FirstCodeAfter` / `MatchBrace` / `MatchingParen`，第 1015 / 1026 轮）——出口删了之后，方法体那条判据才从「大家记得别写」变成**结构上做不到** |
+| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 / 1014 / 1015 / 1026 / 1027 / 1046 / 1049 / 1050 / 1053 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；**扫共享投影那一页的代码块**（第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层）另有六条：① 名字那一格不许按字符串键读（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`，第 1008 轮）；② **一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintDirectAst`——那是分发不是数据，第 1046 轮）；③ `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`；扫描游标与别人的终点照旧，第 1049 轮）；④ **按坐标从 `ctx.source` 切正文**的 = 0 处（`ctx.source.slice(startOf(x), endOf(x))` / `ctx.source.slice(startOf(x), x.end)`——这一段正文由它自己答：`x.Text` / `x.Text.slice(…)`，区间是全文坐标所以两头减 `x.start`；扫描游标与成对括号区间照旧，第 1053 轮）；⑤ `# private method …` 小节里**声明了 `ctx` 形参却在方法体里一处不用**的 = 0 处（形参表就是这一格需要什么，第 1050 轮）；⑥ 中间那一层的入口名（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）一个都不许留在规范页的代码块里（第 1027 轮）。还有一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算，第 1014 轮）；以及一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace` / `FirstCodeAfter` / `MatchBrace` / `MatchingParen`，第 1015 / 1026 轮）——出口删了之后，方法体那条判据才从「大家记得别写」变成**结构上做不到** |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `runtime:check` / `runtime:cli` | 执行侧的机制与端到端（见「构建链路」那一节） |
@@ -346,6 +346,41 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1053 轮：接上「某一格的正文只有一处来源」这条线——5 处「按坐标从 `ctx.source` 切正文」改成读这一格自己的 `Text`，并把这条口径钉成 `direct:lint` 第六条判据；**八道门全绿、读数一处没动**
+
+**一句话**：第 1048 轮给了 `Token.Text`（「这一格自己的原文」），第 1049 轮收掉了「按这一格自己的
+起点读一个字符」，第 1051 / 1052 轮收掉了名字与修饰词那两处「回原文猜位置」。**剩下的是同一族的
+最后一支：「按坐标从 `ctx.source` 切一段正文」**——`ctx.source.slice(startOf(x), endOf(x))`。
+它与 `x.Text` 逐字符同答，所以任何动态尺子都看不见它；而它是同一份事实的**第二处来源**。
+
+- **量出来的分布**（`tmp/r1051/count-source.mjs`，`print-ast-common` 的代码块）：
+  `ctx.source` 共 **64 处**——`index` 31、`.slice` 11、`.length` 8、bare 6、`.indexOf` 4、
+  `.startsWith` 2、`.lastIndexOf` 2。其中 `.slice` 的 11 处里，**6 处是扫描游标 / 成对括号区间**
+  （`ctx.source.slice(lineStart, v.start)` 那种「看这一格前面那一行」的读法，第 1049 轮就明确留着），
+  真正「按坐标取这一格的正文」的是 **5 处**。
+- **改掉的 5 处**：`foldBinaryFrom` 的 `opText` / `innerText`（`rest[0].Text` / `rest[2].Text`）、
+  同一函数里的 `ctx.source.slice(startOf(rest[2]), endOf(rest[2])).length > 1`（→ `rest[2].Text.length`）、
+  `projectString` 的模板头段与中尾段文本（→ `v.Text.slice(…)`，**区间是全文坐标，所以两头各自减去
+  `v.start`**）。四处都在 `v` / `rest[i]` 就是那一格 token 的地方——正文本来就由它自己答。
+- **`direct:lint` 第六条判据**（`tests/parse/direct-lint.mjs` 的 `TOKEN_TEXT_VIA_SOURCE`）：
+  扫 `print-ast-common` 的代码块，`ctx.source.slice(` 或 `ctx.source[` 的**下标是坐标访问器**
+  （`startOf(x)` / `endOf(x)` / `x.end`）的 = **0 处**。口径与前几条同款：只看 `SHARED_FILE`、
+  注释不算（`codeOnly`）；**扫描游标与成对括号照旧**（`ctx.source[at]` / `ctx.source[end - 1]` /
+  `matchingBrace(ctx.source, brace)`），它们是相邻字符的读法。
+- **这一条自己验过**（与第 1015 / 1047 / 1049 / 1050 轮同一手法）：把 `opText` 改回
+  `ctx.source.slice(startOf(rest[0]), endOf(rest[0]))` ⇒ 读数 **1 处**、
+  `FAIL … 按坐标从 ctx.source 取正文`、`exit=1`；还原 ⇒ **0 处**、`exit=0`。
+- **实测**：`xl build typescript` 127 个产物 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 31.7s），读数逐项与基线相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **踩到的一处环境坑**（记在这里免得下一位重走）：`xl build` 是**按指纹**增量写的，
+  改了又改回（内容与缓存里那一版相同）时它会**跳过写文件**，于是 `dist/` 里的 `mtime` 比源文件旧，
+  `coverage` 那道门报「比产物新 → 跑 `xl_build --force`」——那是**时间戳**的账，不是产物的账
+  （内容已经是新的）。把 `dist/…/print-ast-common.ts` 的 `mtime` 提到源文件之后、再 `npx tsc`，
+  那道门就绿了。
 
 ### 第 1052 轮：`synthName` 之后接着收**修饰词的位置**——`addModifiers` 那条「回原文 `indexOf` 量」的退路删掉，`Lamda` 的 `async` 改为**构造那一刻**记进自己的 `ModifierSpans`（新增一格，具体类显式声明）；**八道门全绿、读数一处没动**
 

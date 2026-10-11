@@ -387,10 +387,32 @@ const TOKEN_METHOD_NAMES_OK = new Set(["PrintDirectAst"]);
  * `ctx.source[end - 1]`（别人的终点）都不命中——原文里本来就有一批必须看**相邻**字符的读法。
  */
 const TOKEN_SOURCE_SELF = /ctx\.source\[\s*(?:startOf\(|[A-Za-z_$][\w$]*\s*\.\s*start\s*\])/g;
+/**
+ * **某一格的正文：不许按坐标从 `ctx.source` 切**（第 1053 轮）。
+ *
+ * 第 1048 轮给了 `Token.Text`（「这一格自己的原文」，走它自己 `SourceRange` 两头各自带着的
+ * 那份 `Document`），第 1049 轮收掉了「按这一格自己的起点读一个字符」，第 1051 / 1052 轮
+ * 收掉了名字与修饰词那两处「回原文猜位置」。**剩下的是「按坐标切一段正文」这一族**：
+ * `ctx.source.slice(startOf(x), endOf(x))` —— 同一段正文有两个来源（投影手上那个字符串、
+ * 以及这一格自己），而后者才是这一格的事实。
+ *
+ * **第 1053 轮实测只剩 5 处**（`print-ast-common` 代码块里 `ctx.source.slice` 共 11 处，
+ * 其中 6 处是**扫描游标 / 成对括号区间**——`ctx.source.slice(lineStart, v.start)` 那种
+ * 「看这一格前面那一行」的读法，**不在这一条里**，它们是相邻字符的读法，第 1049 轮就明确留着）。
+ * 这一条只认**下标是坐标访问器**的两种形态：`startOf(x)` / `endOf(x)` / `x.end`。
+ *
+ * **为什么必须是门** ✗：它与 `x.Text` 逐字符同答（实测八道门读数一处没动），所以动态那几门
+ * 看不见任何问题——而它是**同一份事实的第二处来源**：`Text` 一旦改了口径（比如 `Document`
+ * 换成另一份），这两处就会各说各话。口径与前面几条同款：只看 `SHARED_FILE` 的代码块。
+ */
+const TOKEN_TEXT_VIA_SOURCE =
+  /ctx\.source\s*(?:\.\s*slice\(\s*(?:startOf\(|endOf\(|[A-Za-z_$][\w$]*\s*\.\s*end\b)|\[\s*(?:startOf\(|endOf\())/g;
 /** 投影对 token 调方法的处数（0 处才是对的）。 */
 let tokenMethodHits = 0;
 /** 按某一格自己的起点读 `ctx.source` 的处数（0 处才是对的）。 */
 let sourceSelfHits = 0;
+/** 按坐标从 `ctx.source` 切正文 / 读正文的处数（0 处才是对的，见 TOKEN_TEXT_VIA_SOURCE）。 */
+let sourceTextHits = 0;
 let ctxExits = 0;
 let ctxBannedHits = 0;
 {
@@ -420,6 +442,18 @@ let ctxBannedHits = 0;
           why:
             `按某一格自己的起点读 ctx.source：\`${match[0]}…\`——这一格的正文/首字符由它自己答` +
             "（Token.Text，或各页构造时记好的那一格，如 String.stringChar）",
+        });
+      }
+    }
+    for (const match of code.matchAll(TOKEN_TEXT_VIA_SOURCE)) {
+      sourceTextHits += 1;
+      if (sourceTextHits <= 3) {
+        violations.push({
+          file: SHARED_FILE,
+          why:
+            `按坐标从 ctx.source 取正文：\`${match[0]}…\`——这一段的正文由它自己答：` +
+            "`x.Text`（第 1048 轮）、`x.Text.slice(…)`（区间是全文坐标，两头减 `x.start`）；" +
+            "扫描游标与成对括号照旧",
         });
       }
     }
@@ -586,6 +620,11 @@ console.log(
 console.log(
   `按某一格自己的起点读 ctx.source（${SHARED_FILE} 的代码块）：${sourceSelfHits} 处（0 处才是对的，这一格的正文自己答：Token.Text / String.stringChar）`,
 );
+// **「按坐标切正文」的账**（第 1053 轮）：这一族的读法一律换成 `x.Text` / `x.Text.slice(…)`
+// ——扫描游标与成对括号区间照旧，它们是相邻字符的读法（见 TOKEN_TEXT_VIA_SOURCE）。
+console.log(
+  `按坐标从 ctx.source 切正文（${SHARED_FILE} 的代码块）：${sourceTextHits} 处（0 处才是对的，这一段正文自己答：x.Text / x.Text.slice(…)）`,
+);
 // **用不到的形参表**（第 1050 轮）：helper 声明了 `ctx` 却在方法体里一处不用 = 0 处
 // ——形参表就是这一格需要什么，不需要投影的上下文就不该挂着一个。
 console.log(
@@ -608,6 +647,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、helper 的形参表就是它需要什么）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么）`,
 );
 process.exit(0);

@@ -509,7 +509,9 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     end: headEnd,
     // **段内文本**（TS 的口径：**不含**分隔符）：头段去掉开头的反引号与结尾的 `${`。
     // 按区间推出来，不扫源码：`headEnd` 落在 `{` 上，所以 `$` 在 `end - 2`。
-    text: ctx.source.slice(v.start + 1, headEnd - 2),
+    // **读这一格自己的 `Text`**（第 1053 轮）：同一段正文，只是不再把投影手上那个字符串切一遍
+    // （区间是**全文坐标**，所以两头各自减去这一格的起点）——与 `Token.Text` 同一口径。
+    text: v.Text.slice(1, headEnd - 2 - v.start),
   };
   const spans = [];
   for (let i = 0; i < interps.length; i++) {
@@ -531,8 +533,8 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     // （尾段也可能跟着一个常量段），那时按后者会算出一个**反向区间**——
     // `slice(25, 24)` 给的是空串，判据报的是「少了一个 `]`」，而线索离这里很远。
     const literalText = isLast
-      ? ctx.source.slice(endOf(interps[i]), v.end - 1)
-      : ctx.source.slice(endOf(interps[i]), endOf(consts[i + 1]) - 1);
+      ? v.Text.slice(endOf(interps[i]) - v.start, v.end - 1 - v.start)
+      : v.Text.slice(endOf(interps[i]) - v.start, endOf(consts[i + 1]) - 1 - v.start);
     const literal = {
       kind: isLast ? "TemplateTail" : "TemplateMiddle",
       // **字面量段从 `}` 起**（TS 的 `TemplateTail` / `TemplateMiddle` 含那个右花括号），
@@ -6434,7 +6436,10 @@ return false;
     // `BinaryExpression`、运算符是 `PlusEqualsToken`、右操作数是 `2`（不是 `a + 2`）。
     // 判据落在**原文**上：那个 `=` 单元的区间盖住的是 `+=` 这种两三个字符。
     // 照原样投会多出 `EqualsToken` + `PlusToken`、又缺那个复合 kind（实测 134 + 94）。
-    const opText = ctx.source.slice(startOf(rest[0]), endOf(rest[0]));
+    // **原文读这一格自己的 `Text`**（第 1053 轮）：`ctx.source.slice(startOf(x), endOf(x))`
+    // 与 `x.Text` 是同一段（它走自己 `SourceRange` 两头带着的那份 `Document`），
+    // 而后者不必把投影手上那个字符串再切一遍——「这一格的正文由这一格自己答」（第 1048 轮）。
+    const opText = rest[0].Text;
     const operatorToken =
       opText === textOfNode(rest[0])
         ? projectNode(rest[0], ctx)
@@ -6497,7 +6502,7 @@ return false;
       (rest[3].Tag === "BinaryOperator" || rest[3].Tag === "LogicalOperator") &&
       rest[2].Tag === "SymbolToken" &&
       textOfNode(rest[2]) === "=" &&
-      ctx.source.slice(startOf(rest[2]), endOf(rest[2])).length > 1
+      rest[2].Text.length > 1
     ) {
       const tailNode = projectNode(rest[3], ctx);
       const strippedTail = tailNode === undefined ? undefined : stripSelf(tailNode);
@@ -6506,7 +6511,7 @@ return false;
         strippedTail.kind === "BinaryExpression" &&
         strippedTail.left !== undefined
       ) {
-        const innerText = ctx.source.slice(startOf(rest[2]), endOf(rest[2]));
+        const innerText = rest[2].Text;
         const inner = {
           ...strippedTail,
           operatorToken: {
