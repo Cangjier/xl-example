@@ -669,6 +669,29 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**69 → 69 格**（新立的那一格在 `core/syntax/token.xl.md` 与它那两页）。
 
+**第 1086 轮把 `allKids` 最后一处「不是要找 trivia」的读者收掉**（用户口径 1.1：
+投影要的东西由 token 那一格答；顺带把一处**说明与代码不一致**修平）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 凭什么 |
+| --- | --- | --- |
+| `addDecorators` 的 `allKids(v).filter((k) => k.Tag === "Decorator")` | `v.ProjectableKids.filter((k) => k.Tag === "Decorator")` | `Decorator` **不是** trivia（它进投影、不答 `IsInvisible`），所以「含 trivia 的完整表」与「进投影的表」在这一处**逐处同答** |
+
+- **这一条是量出来的**（`tmp/r1084/decor-probe.cjs`）：给编译产物的那一处插一句，把两条路
+  （`allKids(v)` 与 `v.ProjectableKids`）滤出来的 `Decorator` 逐格记成 `start:end:Tag` 序列再比——
+  跑 `node tests/parse/direct-ast.mjs --all`（**2051 份语料**），这一处被调 **42158 次**、
+  **DIFF 0**。所以这是「同一份答案的第二条路」，不是「多半一样的近似」。
+- **第 1067 轮的说明本来就写着这一处已经改了**，而代码里读的仍是 `allKids(v)`
+  （第 1072 轮按代码块重数时**如实记下过**这条不一致，只记不改）。这一轮按当时那句说明
+  把代码改平——`allKids` 因此在代码块里的真读者只剩 **3 处**，三处问的都是「含 trivia 的那一份」。
+- **改了哪一处**：只有本页的 `addDecorators`（声明数一格没动；`allKids` 这一格照样留着，
+  它是那三处唯一的事实来源）。
+- **实测**：`xl check` 1 个文件 0 条；`xl build --force`（`core` / `typescript` / `runtime` /
+  `typescript-exec`）**180 个产物** / 0 error、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 32.2s），
+  读数与基线逐项相同：`coverage` **4261 / 4422**（`blocked 28` / `differ 133` / `bad 0`、
+  加权 95.7%）、`cases:tsast` 3 条已知缺口、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**69 → 69 格**（改的是一处读数与两段说明）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -1071,17 +1094,26 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 段名与顺序都来自**这一页自己声明的那一格**（`v.Segments`，第 1065 轮：
 口径见 `core/syntax/token.xl.md` 的 `Segments`），不是投影反射出来的。
 
-**第 1067 轮起它的读者只剩「要找 trivia / 看不见的单元」那几处**（第 1072 轮按代码块实测重数：
-代码块内 **7 处**、其中 4 处要的正是「含 trivia 的完整子单元表」——`trailingTriviaStart`（2）、
-`trailingSemicolonOf`（末尾那个 `;` 有没有落在注释里）、`astNode` 开头那段「跳过前导注释」）：
-「下面所有子单元」与「会进投影的子单元」是两件事，前者不过滤、后者过滤。
-**投影要的数**是后者，而那一格由 token 自己答（`Token.ProjectableKids`，见下）——
-第 1067 轮把「顺手拿完整子单元表遍历一遍」的那批调用点全改成了属性读，
-第 1072 轮又收掉最后一处（`projectDeclaration` 的未映射透传支，见那一节）。
+**第 1067 / 1072 / 1086 三轮把它在代码块里的真读者收成 3 处**，三处问的都是同一件事
+——「**含 trivia 的完整子单元表**」（`allKids` 不过滤，`Token.ProjectableKids` 过滤
+`IsInvisible`；这是两件事）：
 
-**这一节原来写着「它只服务 `trailingTriviaStart`，因为 `addDecorators` 问的正是有没有装饰器」——
-两半都过时了**（第 1072 轮按代码块重数）：`addDecorators` 第 1067 轮起读的是
-`v.ProjectableKids.filter((k) => k.Tag === "Decorator")`，而 `allKids` 的读者是上面那四处。
+| 谁（代码块内 1 处） | 为什么要含 trivia 的那一份 |
+| --- | --- |
+| `astNode` 开头那段「跳过前导注释」 | 前导注释正是 `IsInvisible` 的那一类 |
+| `trailingTriviaStart` | 它找的正是注释（`k.IsCommentUnit`，第 1085 轮） |
+| `trailingSemicolonOf` | 它要问的正是「末尾那个 `;` 是不是落在**注释**里」 |
+
+- **量法**：逐行判行首三反引号进出围栏，只在**围栏内**数 `allKids(` —— **6 处，其中 3 处是
+  `//` 注释行**（记的是第 1067 / 1072 / 1073 轮那几笔账），真正的调用 **3 处**。
+  **投影要的数**是「会进投影的子单元」，而那一格由 token 自己答（`Token.ProjectableKids`）——
+  第 1067 轮把「顺手拿完整子单元表遍历一遍」的那批调用点全改成了属性读，
+  第 1072 轮又收掉 `projectDeclaration` 的未映射透传支，**第 1086 轮收掉最后一处
+  `addDecorators`**（第 1067 轮那一批漏下的）：那一处找的 `Decorator` **不是** trivia，
+  两条路逐处同答（量法见 `addDecorators` 那一节）。
+- **这一节原来写着「它只服务 `trailingTriviaStart`，因为 `addDecorators` 问的正是有没有装饰器」
+  ——两半都过时了**：`addDecorators` 那一格当时读的仍是 `allKids(v).filter(…)`
+  （**说明与代码不一致**，第 1072 轮已如实记下），第 1086 轮把**代码改成与说明一致**。
 
 ```ts
   const out = [];
@@ -8421,8 +8453,15 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 
 判据只看子单元里有没有 `Decorator`：没有就一个字段都不动（连 `modifiers` 都不建）。
 
+**第 1086 轮把这里读的那一格收成 `ProjectableKids`**（第 1067 轮那一批漏下的一处）：
+`Decorator` **不是** trivia（它进投影、不答 `IsInvisible`），所以「含 trivia 的完整子单元表」
+与「进投影的子单元表」在这里**逐处同答**——量法见下面那一节（全语料 2051 份、
+本函数被调 **42158 次**，两条路的 `start:end:Tag` 序列 **DIFF 0**）。
+`allKids` 的读者因此只剩**「要找 trivia」**的那三处（`trailingTriviaStart` 2 处、
+`trailingSemicolonOf` 1 处、`astNode` 开头跳前导注释 1 处），与它自己那一节的说明一致。
+
 ```ts
-  const projected = allKids(v)
+  const projected = v.ProjectableKids
     .filter((k) => k.Tag === "Decorator")
     .map((k) => projectNode(k, ctx))
     .filter((node) => node !== undefined);
