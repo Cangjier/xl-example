@@ -81,9 +81,20 @@ return text;
 `Pre` 收一个 `Array<string>`，所以写 `source.Pre([" ", "\t"])`；它返回 `Source | null`，判定里直接用结果。
 
 ```ts
-const pre = source.Pre([" ", "\t"]);
 const result = this.Result;
-if (!((pre === null || pre.Value === "\n") && source.Value === "#")) {
+// **当前字符那一问提到最前面**（第 1209 轮，用户口径 1.2「提升 parse 效率」，与
+// `area-annotation.xl.md` / `line-annotation.xl.md` 那两处同一根）：这一支只在
+// **当前字符是 `#`** 时才可能成立，而原来第一句是 `source.Pre([" ", "\t"])`——
+// 那一次调用既**造一个数组**（实参字面量）又**造一个 `Source`**（`Document.At`）、
+// 还要往回扫空白。实测这一条 `Condition` 被问 **435039** 次、答成立 **0** 次
+// （`tmp/r1208-transit.mjs`）⇒ 43.5 万次全是为「不是 `#`」付的。
+// 判据与次序一个字没改：挪到前面的那一问本来就是同一个 `&&` 链的条件之一。
+if (source.Value !== "#") {
+  result.Success = false;
+  return result;
+}
+const pre = source.Pre([" ", "\t"]);
+if (!(pre === null || pre.Value === "\n")) {
   result.Success = false;
   return result;
 }
