@@ -347,6 +347,56 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1208 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`this` 当标签模板的标签整族收掉**（`this`x`` · `this`x`.b` · `` this`x`(d) `` · `this`x`[c]` · `` this`x``x` `` · `this`x` as T`，外加链尾那个裸 `!` 的两处落点）；1.2 收两处「每个字符都要付一次」的白活（**每份白造 236 万个空数组** + 41 万次白问上一格）
+
+**一句话**：1.1 还是从**上一轮那把组合扫描**往下看——`e3-tpl` 那一族里失败的全是 `this` 当标签的形状；投影层那张「这一格算不算链的一格」的名单里**一格关键字都没有**，于是标签那一问当场答否、模板整格丢。1.2 换了一把尺子找现场：把 `--cpu-prof` 的 `positionTicks` **按「文件:行」聚合**（`tmp/r1208-hotlines.mjs`），前几名一读就明白——不是函数名那一榜，而是几处**每个字符一次**的白活。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 关键字那一页新增 `IsTagBaseNode`（正文是不是 `this`，`SetValue` 里同一趟赋好），0b 的标签名单读它；**另立一格、不借 `IsChainBaseNode`**（那一格答「形状够不够当链的基名」，`true` / `null` 这些字面量也答能） | 片段探针 **8 → 0** 条对不上（`tmp/r1208-probe1.mjs`，14 条合法）；组合扫描 **261 → 168** |
+| **1.1** | 同一族的第二个落点（`this`x`!`）：`!` 是**非空断言**而产物里它是**一格裸符号**——`IsChainTail` 收下它、`chainOnto` 里补一格 `bangWrapped`；声明那一层的 `exclamationToken` 改成**只在 `=` 左边找** | `VariableDeclaration` 的 `FIELD` 那一格不再多出 `exclamationToken`；TS 那边是 `NonNullExpression{ expression: TaggedTemplateExpression }` |
+| **1.2** | `Source.Pre`：`skipChars ?? []` 去掉——省略与空数组走同一条路 | `Pre` **2796688** 次/份，其中无参 **2361649** 次 ⇒ 每份白造 **236 万个空数组** |
+| **1.2** | `BracketBranch.Condition`：`unit.Last()` 从最前面挪进原来那个 `if (value === "{")` | 这一条被问 **418654** 次、答成立只 **2773** 次 ⇒ **41 万次**在为「不是 `{`」白问上一格 |
+
+**1.1 的现场（读到的那一行原文）**：`const q = this`x`` 的产物是
+`Statement > [Let, =, Keyword(this), String(反引号)]`——标签与模板**平级两格**，
+而 `ts.createSourceFile` 给的是
+`TaggedTemplateExpression[9,17) > [ThisKeyword[9,14), NoSubstitutionTemplateLiteral[14,17)]`。
+**`this` 一判否，五种续写整族跟着丢**（模板后面那一串本来就有 `chainOnto` 接着：
+`this`x`.b` / `` this`x`(d) `` / `this`x`[c]` / `` this`x``x` `` / `this`x` as T`）。
+**`super` 不进名单**：`super`x`` 在 TS 那边自己就报语法错（`tmp/r1208-ts.mjs` 的 `parseDiagnostics` 非空），
+按本仓口径「TS 自己非法的形状不构成缺口」。
+
+**1.1 的第二处落点**（同一族、同一轮收）：`const q = this`x`!` 里那个 `!` **不是**声明的
+`exclamationToken`、是**非空断言**，可它是**一格裸符号**——`NotNullCloseRule` 要一个**单元**当操作数，
+而这里左边是平铺两格 ⇒ 它谁也没收上：0b 的 `IsChainTail` 答否、`chainOnto` 里也没有它那一档，
+最后被声明那一层 `one.find(IsNotNullSymbol)` 挑走（当成了明确赋值断言）。
+三处各补一格：名单收下裸 `!`、`chainOnto` 走 `bangWrapped`、声明那一层只在 `=` 左边找
+（`eq` 就是同一段里 `initKids` 用的那个下标）。
+
+**1.2 的墙钟（同进程交替，`tmp/r1208-ab3.mjs`）**：原版＝两处旧实现对调装上；A/B/A/B 各 5 趟：
+
+| 配置 | best | median | 差（best / median） |
+| --- | --- | --- | --- |
+| 原版（两处都旧） | 1363.1 ms | 1396.9 ms | — |
+| 只换 `Pre` | 1355.7 ms | 1376.6 ms | −0.54% / **−1.45%** |
+| 两处都换（现版） | 1353.5 ms | 1371.1 ms | −0.70% / **−1.84%** |
+
+`tmp/r1203-bench.mjs`（best of 4）：parse **1385.1 → 1339.3 ms**（第 1207 轮那一版量到的 1385.1 是
+best of 4，这一版 4 趟全落在 1339~1394 之间，散布也小了）。xml 45.1 / printAst 112.8（噪声里）。
+
+**1.2 的等价怎么证的**：同一个进程里把两处实现对调，对同一批 **1649 份语料**各投一遍，
+逐份比 token 树 XML 与投影 JSON 的 sha256（`tmp/r1208-equiv.mjs`）：**逐字节同答 1649 / 不同 0 / 抛异常 0**。
+
+**这一轮换的那把尺子（值得抄下来）**：`--cpu-prof` 的**函数名**那一榜到此为止（前几名全是
+`ProcessChar` / `Token` / `Condition` 这种「一个名字盖住几十个方法」的聚合，读不出可改的地方）。
+`positionTicks` 按**文件:行**聚合之后才看得见现场：第 1207 轮那 14% 的那一格、以及这一轮两处白活，
+都排在那一榜的前十。**函数的 self time 是账，行才是现场。**
+
+**净账**：`cases:tsast` **1649** 份（已知缺口 1 条还开着、0 条已经收掉）；`cases:direct` 全语料不抛异常（1649 份）、固定样本通过；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1663** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4270 / 4429**（守卫用例分子 +1、分母 +1；blocked 26、differ 133、bad 0、加权 95.7%）；`xl check` **0 条**；`npx tsc`（strict）**0 error**。
+
+**两条 commit**：`e9ea8a9a`（1.1 `this` 当标签 + 链尾裸 `!`）、`a96b9cc3`（1.2 两处白活）。
+
 ### 第 1207 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`as` / `satisfies` 后面那个类型的尾部 `!` 整族收掉**（第 289 轮那张「值位运算符」名单里带着 `!`，于是 `As` 只收到 `T`、`!` 被声明那一层收成了 `exclamationToken`）；1.2 把 `BinaryOperatorCloseRule.Previous` 的「这一格是不是本实例的运算符」**提到最前面**（**同进程交替 A/B：best −14.45%、median −13.96%**）
 
 **一句话**：1.1 的入手处是**接着上一轮那把组合扫描**（`tmp/r1206-sweep2.mjs`，2124 条合法片段）往下看剩下的对不上——第一处不同那一榜的头一名是 `FIELD:VariableDeclaration`（**130 条**），逐格读产物才看清：那个 `!` **不属于声明、属于类型**；1.2 不动任何判据，只把**同一个答案**提前算出来，省掉的是它前面那十句「本规则不接手」的判据（其中两句要扫整层单元表）。
