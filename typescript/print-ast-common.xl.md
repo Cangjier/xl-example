@@ -6250,7 +6250,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
           // `PropertyAccessExpression` 整片缺、`.c` 也跟着丢）。
           // 折法与上面那支同款：先建里层那次调用（受体是 `left`、区间到括号为止），
           // 再把这一格自己那次套在外面。
-          if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && callHead.end < ck[i].end) {
+          if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && ck[i].HasOuterCall) {
             const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
             left = shellOnto(ck[i], innerCall, ctx);
             i += 1;
@@ -6263,6 +6263,13 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
           // `Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
           if (bareName === "" && callHead !== undefined && callHead.IsNotNull) {
             const assertHead = callHead.CoreHead;
+            // **「断言盖的是什么」第 1197 轮起问这一格自己**（用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6）：
+            // 下面三支原来各自读核的**三句属性**（`IsMethodNode` / `IsParenBracket` /
+            // `IsIndexBracket`），共 **10 处**同形的判据散在 `projectExpression` /
+            // `chainWithOptional` / `chainOnto` / `assertedMember` 四处；而**答案就是这一页
+            // 自己那个核的类别**（`NotNull.CoreKind`）。收成一格字符串之后，
+            // 三支判据只剩「按那一格答的那一态各建一层」，次序也仍然只有那一处。
+            const coreKind = callHead.CoreKind;
             // **断言里的核是一格 `Method`**（第 975 轮）：`a!()()!()` 的这一格是
             // `Method(name=""[NotNull(Method(name=""[Bracket(())]), !), Bracket(())])`——
             // 断言盖的**不是一对括号**、而是**一格调用单元**（那一格自己还盖着两层调用，
@@ -6272,14 +6279,14 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
             // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**：
             // 走到最里面那一格（`innermostMethod`）、被调用者交给 `innermostCallee`、
             // 换法交给 `graftCallee`——再把 `!` 套在整条调用链外面。
-            if (assertHead !== undefined && assertHead.IsMethodNode) {
+            if (coreKind === "Method") {
               const innerCall = graftOnto(left, assertHead, ctx);
               const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
                 left = shellOnto(ck[i], assertedCall, ctx);
               i += 1;
               continue;
             }
-            if (assertHead !== undefined && assertHead.IsParenBracket) {
+            if (coreKind === "Call") {
               const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(assertHead, ctx) }, assertHead.end);
               const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
                 left = shellOnto(ck[i], assertedCall, ctx);
@@ -6293,7 +6300,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
             //（实测 `gap-r975-nonnull-index-assert-call`：缺 2 漂 2）。
             // 次序与下标那一支一字不差：先接受体、再把 `!` 套在外面；这一格自己那次调用
             // 由 `projectNode(ck[i])` 那个壳给出（它的被调用者位置正好填这一格）。
-            if (assertHead !== undefined && assertHead.IsIndexBracket) {
+            if (coreKind === "Index") {
               const element: any =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, assertHead.end);
               const assertedInner: any =chainOn("NonNullExpression", element, { expression: element }, callHead.end);
               left = shellOnto(ck[i], assertedInner, ctx);
@@ -6312,7 +6319,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
           }
           if (bareName === "" && callHead !== undefined
             && callHead.IsParenBracket
-            && callHead.end < ck[i].end) {
+            && ck[i].HasOuterCall) {
             const innerCall =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
             left = shellOnto(ck[i], innerCall, ctx);
             i += 1;
@@ -6448,7 +6455,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
           // 「外面还有没有一层」这一问就是**区间**——是**问得出来**的，所以不必靠形状猜：
           // `(f)()`（`[Bracket]` 就是被调用者、只有一层）那一档的 `Method` 与它的 Bracket **同尾**，
           // 这里因此不会误收（`(f)()` / `q = (f)()` / `return (a)(b)` 三档都在门里钉着）。
-          if (innerKids.length > 0 && innerKids[0].IsParenBracket && innerKids[0].end < next.end) {
+          if (innerKids.length > 0 && innerKids[0].IsParenBracket && next.HasOuterCall) {
             const innerArgs = {
               kind: "CallExpression",
               expression: left,
@@ -6873,8 +6880,11 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   }
   const kids = deepest.ProjectableKids.filter((k: any) => k.IsGenericType === false);
   const head = kids.length > 0 ? kids[0] : undefined;
+  // **「外面还有没有一层」问这一格自己**（第 1197 轮，用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6）：
+  // 原来这里是区间比较 `head.end < deepest.end`——两半事实（被调用者是哪一格、这一格盖到哪）
+  // 全在 `Method` 那一页上，所以判据搬了过去（`OuterCallEnd` / `HasOuterCall`）。
   if (head !== undefined && head.IsParenBracket
-    && head.end < deepest.end) {
+    && deepest.HasOuterCall) {
     return chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(head, ctx) }, head.end);
   }
   return left;
@@ -6960,7 +6970,7 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // 外层那次调用的实参是它后面的兄弟（`1`），而外层调用只体现在 `Method` 自己的区间上。
       // 只折一层会**丢掉内层那一次调用**。「外面还有没有一层」这一问就是**区间**
       //（与普通链那条路的同一句判据：`Method` 比它那个 Bracket 更靠右）。
-      if (calleeKid !== undefined && calleeKid.IsParenBracket && calleeKid.end < first.end) {
+      if (calleeKid !== undefined && calleeKid.IsParenBracket && first.HasOuterCall) {
         const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(calleeKid, ctx) }, calleeKid.end);
         markOptional(innerCall, questionDot);
         return shellOver(projectNode(first, ctx), innerCall, unit.end);
@@ -7195,7 +7205,9 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
             // **做法与 `chainOnto` 那一处一字不差**：先把「下标 + `!`」折成 `NonNull`，
             // 再把外面那次调用套上去（`?.` 挂在里面那次下标上——TS 就是这么放的）。
             const assertHead = callHead.CoreHead;
-            if (assertHead !== undefined && assertHead.IsIndexBracket) {
+            // **「断言盖的是什么」问这一格自己**（第 1197 轮）：`CoreKind` 那一格答的是
+            // 四态里的一格字符串（次序与投影层原来那三句 `if` 逐处相同）。
+            if (callHead.CoreKind === "Index") {
               const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, assertHead.end);
               if (pending !== undefined) element.questionDotToken = pending;
               const assertedCall: any =chainOn("NonNullExpression", element, { expression: element }, callHead.end);
@@ -7417,7 +7429,9 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         //  `NonNullExpression` 的区间只到 `a!`）。
         // **判据与别的几处一字不差**：`Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
         const assertHead = callHead.CoreHead;
-        if (assertHead !== undefined && assertHead.IsParenBracket) {
+        // **「断言盖的是什么」问这一格自己**（第 1197 轮）：这里要的是「实参括号」那一态
+        // （次序与原来那三句 `if` 逐处相同——`Method` 态在别处处理）。
+        if (callHead.CoreKind === "Call") {
           const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(assertHead, ctx) }, assertHead.end);
           const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
           left = shellOn(projectNode(unit, ctx), assertedCall);
@@ -7532,8 +7546,9 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
           continue;
         }
         // **被调用者是 `left`、而这一格盖着两层调用**（第 962 轮）：判据与另外两处
-        // 一字不差——`Method` 比它那个实参括号**更靠右**，说明外面还有一层调用。
-        if (calleeKid !== undefined && calleeKid.IsParenBracket && calleeKid.end < next.end) {
+        // 一字不差——**外面还有一层**由那一格自己答（`Method.HasOuterCall`，第 1197 轮：
+        // 原来这里比的是 `calleeKid.end < next.end` 两个区间）。
+        if (calleeKid !== undefined && calleeKid.IsParenBracket && next.HasOuterCall) {
           const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(calleeKid, ctx) }, calleeKid.end);
           const outerCall = projectNode(next, ctx);
           left = shellOn(outerCall, innerCall);

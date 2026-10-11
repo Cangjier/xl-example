@@ -333,6 +333,55 @@ return index;
   return head.IsMethodNode || head.IsParenBracket;
 ```
 
+## property OuterCallEnd:int
+
+**「这一格里被调用者那一层到哪结束」**（第 1197 轮，用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6）：
+名字为空的那一格 `Method` **自己盖着两层（或更多层）调用**时，它那个被调用者（第一个实义子单元）
+**先结束**，外面那层调用的实参表是它后面的兄弟——这一格给出的就是**被调用者那一层的终点**。
+
+**为什么要有这一格**：投影层判「外面还有没有一层调用」过去写的是**区间比较**
+（`callHead.end < method.end` / `calleeKid.end < next.end` / `innerKids[0].end < next.end`）——
+**11 处**（`print-ast-common.xl.md` 的 `projectExpression` 三处、`chainWithOptional` 两处、
+`chainOnto` 四处、`AssertedMember` 一族两处），而**两半事实全在这一格自己身上**：
+「哪个子单元是被调用者」是这一页的 `ProjectableKids`、「这一格盖到哪」是这一格自己的 `end`。
+按这一族一贯的口径（`IsBareCall` / `IsCallUnit` / `IsIndexFirstUnit` / `IsCallFirstUnit` 那几条）
+收成这一格：**投影那一侧只读一个数**，不再自己拿两个区间相减。
+
+**判据只有一句**：被调用者比这一格自己短 ⇒ 外面还有一层，那被调用者的终点就是「里面那一层到哪」；
+被调用者与这一格**同尾**（`(f)()` / `f()` 那一档）⇒ 答这一格自己的 `end`（**没有外面那一层**）。
+
+**为什么是 `## property` + `### get`**：与 `IsBareCall` / `IsCallUnit` 同一条理由——
+子单元是解析期陆续挂上来的，只能在**读的那一刻**看一次。
+
+### get
+
+```ts
+  const kids: any[] = this.ProjectableKids.filter((k: any) => k.IsGenericType === false);
+  const head = kids.length > 0 ? kids[0] : undefined;
+  if (head === undefined || head.end >= this.end) return this.end;
+  return head.end;
+```
+
+## property HasOuterCall:bool
+
+**「这一格盖着的调用不止一层」**（第 1197 轮，用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6）：
+`a.b()()` / `a!()()` 那一族里，**外面那一次调用只体现在这一格自己的区间上**——
+被调用者先结束、外面那层调用的实参表是它后面的兄弟。
+
+**它与 `OuterCallEnd` 不是同一问**：那一格答「被调用者那一层到哪结束」（调用方要拿那个数
+去建**里面**那一层），这一格只答「上面还有没有一层」（调用方只要一个判断，不必知道位置）。
+两者是同一件事实的两个读法，但**读者要的东西不同**——`graftCallee` 只问有没有，
+`chainWithOptional` / `chainOnto` / `projectExpression` 那些还要那个坐标去建节点。
+
+**判据是同一句**：`OuterCallEnd !== this.end`（同尾就是只有一层）。**不重复算**：
+这一格转调上面那一格，于是「两层」这件事只有一处判据。
+
+### get
+
+```ts
+  return this.OuterCallEnd !== this.end;
+```
+
 ## property IsIndexFirstUnit:bool
 
 **我这一格是不是「以一次下标开头」**（第 1103 轮）——名字为空的那一格调用，若被调用者以一次

@@ -329,6 +329,38 @@ const head = this.CoreHead;
 return head !== undefined && head.IsCallFirstUnit;
 ```
 
+## property CoreKind:string
+
+**「断言里的那个核是哪一态」**（第 1197 轮，用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6）——
+这一页把 `!` 滤掉、把问题递给核，答案只有四档：
+
+| 答案 | 什么时候 |
+| --- | --- |
+| `"Method"` | 核是一格调用单元（`a!()()!()` 那一族的 `NotNull(Method(name=""[Bracket(())]), !)`） |
+| `"Call"` | 核是一对**实参**括号（`a!()()` 那一族的 `NotNull(Bracket(()), !)`） |
+| `"Index"` | 核是一对**下标**括号（`a!()[0]!()` 那一族的 `NotNull(Bracket([0]), !)`） |
+| `""` | 核是别的（名字、数组字面量、再套一层断言…） |
+
+**判据的三半全在这一页**（用户口径 1.2）：核是 `this.CoreHead`、「是不是调用单元」由那一格
+自己的 `IsMethodNode` 答、「是哪一态括号」由那一格自己的 `IsParenBracket` / `IsIndexBracket` 答。
+**次序照投影层原来那一串 `if`**（`IsMethodNode` 排在最前、实参括号在其次、下标最后）——
+次序即语义：一格 `Method` 不会是括号，可括号与下标之间只有这一句能分开。
+
+**它与 `CoreKids` / `CoreHead` 不是同一问**：那两格答「核那一批 / 核是哪一格」，
+这一格答「核是**哪一态**」——投影层那 10 处原来各自把三种可能问一遍（三句话六个属性读），
+现在只读一个字符串（口径与理由见 `../../core/syntax/token.xl.md` 的 `CoreKind`）。
+
+### get
+
+```ts
+const head = this.CoreHead;
+if (head === undefined) return "";
+if (head.IsMethodNode) return "Method";
+if (head.IsParenBracket) return "Call";
+if (head.IsIndexBracket) return "Index";
+return "";
+```
+
 ## field AstKind:string | undefined = "NonNullExpression"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），

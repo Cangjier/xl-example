@@ -347,6 +347,67 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1197 轮（第一支）：用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6 —— 把「断言盖的是什么」与「外面还有没有一层调用」这两问从投影层的**属性比较**收进被问的那一格（`NotNull.CoreKind` / `Method.OuterCallEnd` / `Method.HasOuterCall`），投影层那 **18 处**判据变成属性读；宽语料 2051 份 A/B：除**这一轮自己改过的那 4 份产物**之外 **2047 / 2047 逐字节同答**
+
+**一句话**：这一轮动的不是算式，是**判据住在哪**——投影层有两族判据一直在**自己把被问那一格的
+两三个属性拼起来比较**（「断言里的核是哪一态」与「这一格盖着的调用是不是不止一层」），
+而两族的每一半事实都在**被问的那一格自己身上**。收成属性之后，投影那一侧只剩属性读。
+
+| 原来在投影层的算式 | 现在读的那一格 | 那一格给它自己答的判据 |
+| --- | --- | --- |
+| `callHead.IsMethodNode` / `callHead.IsParenBracket` / `callHead.IsIndexBracket` 三句属性读 + 三次比较（**7 处**：`projectExpression` 3、`chainWithOptional` 1、`chainOnto` 2、`assertedMember` 一族 1） | **`NotNull.CoreKind`**（`""` / `"Method"` / `"Call"` / `"Index"`） | `core/syntax/token.xl.md` 的 `## property CoreKind:string`（`### get` 里那句「我这一格不是断言单元就答空串」，由 `typescript/tokens/not-null.xl.md` 覆写） |
+| `callHead.end < method.end` / `calleeKid.end < next.end` / `skin.end < method.end` 这类**区间比较**（**11 处**） | **`Method.OuterCallEnd:int`** 与 **`Method.HasOuterCall:bool`** | `typescript/tokens/method.xl.md` 的 `## property OuterCallEnd` / `## property HasOuterCall`（读它自己的 `ProjectableKids` 与自己的 `end`） |
+
+**为什么这是用户口径 1.1 / 1.2 的落点**：`PrintAst` 直接构造 Ast Node 的前提是
+**被问的那一格答得出来**。这两族的判据过去散在投影层的三个函数里、每处各写一遍，
+于是「断言盖的是什么」这件事有**七份**说法、「外面还有没有一层」有**十一份**说法——
+而两件事各自都只有**一个**答案。收进 token 之后，投影层那一侧**不可能**再给出第二种答案。
+
+**为什么 `CoreKind` 是字符串而不是三个布尔**（用户口径 1.4）：四态**互斥**（一个核只可能是其中一态），
+三个布尔能表达八种、其中四种永不出现——那正是「说不清这一格装什么」。
+**次序即语义**，而且这一格**照抄投影层原来那个次序**（`Method` → `Call` → `Index`）：
+逐处核对过那 **10 处**（含用 `CoreKids[0]` 而不是 `CoreHead` 的两处，它们问的是同一个人），
+三句 `if` 的先后完全一致 ⇒ 换成字符串读之后判据的先后仍然只有一处。
+
+**两格顺带补齐的基类默认档**（口径 1.3 / 1.4 / 1.5）：`Token` 基类补了
+`## field IsIndexBracket:bool = false` 与 `## field IsParenBracket:bool = false`——
+`NotNull.CoreKind` 问的是「**我的核**是不是括号」，而那个核在类型上是 `Token`
+（`CoreHead:Token | undefined`），没有基类这一格就编译不过
+（实测 `tsc` 报 `TS2339: Property 'IsIndexBracket' does not exist on type 'Token'`）。
+**「哪一态括号」这件事仍然只有 `Bracket` 那一页一处判据**，这里只是把它在基类上说清楚——
+与既有的 `IsLessThanSymbol` / `IsIndexFirstUnit` / `IsCallFirstUnit` 同一条口径。
+
+**等价怎么证的**（`tmp/r1197/ab-dump.mjs` + `ab-diff.mjs`，**两份 dump 都是 `projectRoot` 的整棵树**）：
+
+| 语料 | 对拍份数 | 节点（HEAD / 本轮） | 整棵树不一致 | 抛异常 |
+| --- | --- | --- | --- | --- |
+| 官方用例（`corpus("cases")`） | 1640 | 21793 / 21793 | **0** | 0 / 0 |
+| **宽语料**（`corpus()`：`@types` + `typescript/lib` + `dist/ts` + `samples` + `tests/cases/**`） | **2051** | 516284 / **516366** | **4** | 0 / 0 |
+
+**那 4 份不一致的**是 `dist/ts/core/syntax/token.ts` / `dist/ts/typescript/print-ast-common.ts` /
+`dist/ts/typescript/tokens/method.ts` / `dist/ts/typescript/tokens/not-null.ts`——
+**这一轮改过的四页自己的产物**（`dist/ts` 是语料的一部分，改了规范它就变了）。
+其余 **2047 / 2047 逐字节同答**。
+
+**两处探针自己踩的坑**（写在这里免得下一个人重踩）：
+
+1. **`ToJsonText` 收的是 `projectRoot` 那一格结果**，不是 `.ast`——第一版把 `projected.ast`
+   递了进去，于是每一格的值都是 `undefined`，而 `JSON.stringify` **会把 `undefined` 的值整个丢掉**
+   ⇒ dump 文件里只有 `{}`，读数却照印「1640 份」。**判据是文件长度**（2 字节），不是那行读数。
+2. **只按「用例语料」量不足以当删除依据**（第 1188 轮那条），所以这一轮的 A/B 直接跑宽语料。
+
+**本页的数**（`typescript/print-ast-common.xl.md`）：代码块（不带注释）**3839 → 3840** 行、
+文件 **10550 → 10565** 行——**这一轮没有让这一页变短**（省下的是**属性读**，
+不是行数；两族的算式收在 token 那一侧，投影这一侧只是把三句并成一句）。
+**口径 1.7 的账如实记在这里**：这一支是 1.1 / 1.2 / 1.3 / 1.5 / 1.6 的落点，1.7 留给下一支。
+
+**实测**：`xl check`（core + typescript）**0 条**；`npx tsc`（strict）**0 error**；
+`cases:direct` **21793 / 16489（75.7%）**、全语料 **0 处抛异常**、固定样本六格点名通过；
+`direct:lint` **0 条违反**；`samples` ok；`cases:check` **1656 条 0 不合格**；
+`runtime:check` **243 / 0**；`runtime:cli` **79 / 0**；
+`cases:tsast` 16 片 **15 通过 / 1 失败**（仍是 HEAD 上既有的 3 条 `xl:known-gap`）；
+`coverage` **4260 / 4422**（blocked 28、differ 134、bad 0、加权 95.7%）——**与 HEAD 逐项相同**。
+
 ### 第 1190 轮：用户口径 1.1 ~ 1.7 的**第三次逐条核对**（第 1188 / 1189 两轮之后；不夹带任何改写）—— 七条各重测一遍，并结算这三轮的净变化：代码块 **3863 → 3852** 行、两支**被 token 层接管**的死分支删掉、三处候选记忆位量过之后**两处撤回**
 
 **一句话**：第 1181 / 1187 两轮都是「把七条量一遍」，这一轮同样一行算式不改——

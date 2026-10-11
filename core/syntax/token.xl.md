@@ -3832,6 +3832,45 @@ return [];
 return undefined;
 ```
 
+## property CoreKind:string
+
+**「断言里的那个核是哪一态」**（第 1197 轮，用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6）——
+不是断言单元的一律给**空串**；是断言单元时由 `NotNull` 那一页按**它自己的核**答：
+
+| 答案 | 什么时候 |
+| --- | --- |
+| `"Method"` | 核是一格**调用单元**（`核.IsMethodNode`） |
+| `"Call"` | 核是一对**实参**括号（`核.IsParenBracket`） |
+| `"Index"` | 核是一对**下标**括号（`核.IsIndexBracket`） |
+| `""` | 核是别的（名字、数组字面量…） |
+
+**四档互斥、次序固定**：`Method` → `Call` → `Index` → `""`。
+次序不是随手排的——它是投影层那 **10 处**判「断言盖的是什么」时**原来就写着的**那个次序
+（`projectExpression` 四处、`chainWithOptional` 两处、`chainOnto` 三处、
+`assertedMember` 一族一处，逐处核对过：三句 `if` 的先后完全一致）。
+**次序即语义**：一格 `Method` 既不是实参括号也不是下标括号，可「实参括号」与「下标括号」
+只有这一句能分开（`a!()()` 与 `a!()[0]` 两族的核都是 `Bracket`，靠 `IsParenBracket` /
+`IsIndexBracket` 分辨）。所以这一格**照抄那个次序**，而不是另排一份——
+投影那一侧换成一格字符串读之后，判据的先后仍然只有这一处。
+
+**为什么要有这一格**：投影层问「断言盖的是什么」过去写成**三句属性读 + 三次比较**
+（`assertHead.IsMethodNode` / `assertHead.IsParenBracket` / `assertHead.IsIndexBracket` /
+`assertHead.IsIndexFirstUnit` / `assertHead.IsCallFirstUnit` 的十几种组合，
+**10 处**：`projectExpression` 四处、`chainWithOptional` 两处、`chainOnto` 三处、
+`assertedMember` 一族一处），而**答案就是这一页自己那个核的类别**——
+按这一族一贯的口径（`IsBareCall` / `CoreHead` / `IsIndexFirstUnit` 那几条）收成一格字符串：
+投影只读一个属性，不再自己把三种核各问一遍。
+
+**为什么是字符串而不是三个布尔的合取**：四态**互斥**（一个核只可能是其中一态），
+三个布尔就能表达八种、其中四种永不出现——那正是用户口径 1.4 要消掉的「说不清这一格装什么」。
+字符串在这里是**闭集**：基类答 `""`、`NotNull` 那一页只答上表里那四个值。
+
+### get
+
+```ts
+return "";
+```
+
 ## property IsIndexFirstUnit:bool
 
 **我这一格是不是「以一次下标开头」**（第 1103 轮）——**不是**的一律给 `false`。
@@ -3903,7 +3942,6 @@ return false;
 ## field IsSignatureList:bool = false
 
 **我这一层装的是不是「成员签名表」**（第 1055 轮）——是的话答 `true`。
-
 它只服务一格判据：同一套产物标签在**两类容器**里叫两种名字——接口 / 类型字面量里的成员是
 `PropertySignature` / `MethodSignature`，而类体里的同名成员是 `PropertyDeclaration` /
 `MethodDeclaration`。过去这件事由投影层的一个上下文标记（`ctx.signature`）记着，
@@ -3923,6 +3961,27 @@ return false;
 **这一格是属性、不是方法**（与 `IsSignatureNode` / `IsMemberList` 同一形态）：它是
 **构造时就定下来的一格数据**——所以基类默认 `false`，需要它的 token 在自己那一页
 **显式声明同一个属性**并给出自己的值（`## field`，构造时赋值）。
+
+## field IsIndexBracket:bool = false
+
+**我这一格是不是「下标那一态括号」**（第 1197 轮，用户口径 1.2 / 1.3 / 1.4 / 1.5）：
+`[` 开头的 `Bracket` 答 `true`，`(` / `{` 两态与**别的所有 token**答 `false`。
+
+**为什么基类要有这一格**：它本来就是 `Bracket` 那一页自己声明的一格常量
+（`typescript/tokens/bracket.xl.md` 的 `## field IsIndexBracket`），可**读它的地方不止括号页**——
+`NotNull.CoreKind` 问的是「**我的核**是不是下标括号」，而那个核在类型上是 `Token`
+（`CoreHead:Token | undefined`）。没有基类这一格，那一句就编译不过
+（第 1197 轮实测：`tsc` 在 `not-null.ts` 上报 `TS2339: Property 'IsIndexBracket'
+does not exist on type 'Token'`——两份产物各说各的）。
+**给默认档之后，「哪一态括号」这件事仍然只有括号页一处判据**（这里只是把它在基类上说出来），
+与 `IsLessThanSymbol` / `IsIndexFirstUnit` / `IsCallFirstUnit` 同一条口径。
+
+## field IsParenBracket:bool = false
+
+**我这一格是不是「圆括号那一态」**（第 1197 轮）：与 `IsIndexBracket` 同一形态、同一条理由
+（`(` 开头的 `Bracket` 答 `true`，其余答 `false`；`NotNull.CoreKind` 要问「我的核是不是实参括号」）。
+`IsBraceBracket` 那一档**基类不声明**：它今天只有 `projectNode` 一处读，而那一处的接收者
+**就是那一格 token 自己**（不是「某一格 token 的核」），所以 `Bracket` 那一页那一格够用。
 
 ## method Clone:()=>Token
 
