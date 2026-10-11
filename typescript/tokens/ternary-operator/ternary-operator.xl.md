@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
-import { Token } from "../../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack, SearchFront, TakeRange } from "../../../core/extensions/list-extension.xl.md"
 import { IsTriviaUnit, IsTypeContainerUnit, MatchingQuestionIndex, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
@@ -662,7 +662,7 @@ return ReplaceCountAt(units, startIndex + 1, endIndex - startIndex - 1, ternaryO
 `falseStatement` 两档（`condition` 与目标语言同形，按「只记叫法不同的那些」的口径没写进去），
 而**进投影的是三段**——条件那一段也在这里，漏了它就是整个三元运算符的条件凭空消失。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

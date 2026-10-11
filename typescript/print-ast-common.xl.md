@@ -3,7 +3,7 @@
 // @ts-nocheck
 ```
 ```xl
-import { Token } from "../core/syntax/token.xl.md"
+import { Token, AstNode, PrintAstCtx } from "../core/syntax/token.xl.md"
 import { Translate } from "./tokens/string/translate.xl.md"
 import { SymbolToken } from "./tokens/symbol-token.xl.md"
 ```
@@ -9964,7 +9964,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 （`cases:tsast` 的退出码已经把它算进去了）。
 
 ```ts
-  const ctx = {
+  const ctx:PrintAstCtx = {
     source,
     unmapped: new Set(),
     count: 0,

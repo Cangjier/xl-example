@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Token } from "../../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ParsePipeline } from "../../parse-pipeline.xl.md"
 ```
@@ -33,7 +33,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<MappedType>成员的 XML</MappedType>`。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 998 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

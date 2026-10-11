@@ -3,10 +3,9 @@
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { SyntaxException } from "../../../core/exceptions/syntax-exception.xl.md"
-import { Token } from "../../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { Get } from "../../../core/extensions/list-extension.xl.md"
-import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
+import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { GetSkipNextWrapSymbol, IsAnnotationUnit, IsTemplateString, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Class } from "../class/class.xl.md"
@@ -435,7 +434,7 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
 （它要换名叫 `expression`），而**进投影的是两段**——`arguments` 那一段与目标语言同形、按
 「只记叫法不同的那些」的口径没写进 `SegmentNames`，漏了它 `new A(1)` 的实参就整片丢掉。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。

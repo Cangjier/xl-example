@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../core/syntax/close-rule.xl.md"
-import { Token } from "../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceRangeAt, SearchBack, SearchFront } from "../../core/extensions/list-extension.xl.md"
 import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
@@ -228,7 +228,7 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, [result]
 
 它覆写了 `ToXmlString`：标签名是运行时类名，另外把 `"||"` / `"&&"` 翻译成 `Or` / `And` 放进 `op` 属性（**不是**原样的 `||` / `&&`）。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
@@ -272,7 +272,7 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, [result]
     right,
     pos: left ? left.pos : v.start,
     end: right ? right.end : v.end,
-  };
+  } as AstNode;
 ```
 
 

@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
-import { Token, FunctionFlagsShape } from "../../../core/syntax/token.xl.md"
+import { Token, FunctionFlagsShape, PrintAstCtx, AstNode } from "../../../core/syntax/token.xl.md"
 import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack } from "../../../core/extensions/list-extension.xl.md"
@@ -944,7 +944,7 @@ Lambda 表达式。
 `modifiers` 文本里**（见 `print-ast-common.xl.md` 的 `addModifiers`）——所以由本页报出这个词名，
 投影不再反射式地把「所有值为 `true` 的属性」都当修饰词。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。

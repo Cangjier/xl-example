@@ -40,6 +40,49 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 `Identifier.Interactive` 那种 `{ kind, text, pos, end }` 四格——`kind` 恒为 `"Identifier"`、
 `text` 是解转义之后的正文、`pos` / `end` 用**原文那一格**的坐标。
 
+# type AstNode = { kind: string, pos: number, end: number }
+
+**第三个出口投出来的节点**（第 1175 轮按用户口径 1.5 立起来）：三个坐标格是**每一种**节点
+都有的（`pos` / `end` 由 `astNode` 按被投的那一格自己的坐标写进去，`kind` 就是 TS 那边的
+节点名）；其余字段随 kind 而异，所以这一格只声明**共同的那三格**。
+
+**为什么不在这一格里写 `[key: string]: any` 那种索引签名**：索引签名会把「这一格还有什么」
+整个交给运行期——而这一层的判据（`direct:lint` 的用户口径 1.4 / 1.5）要的正是
+**读得出来的那一格必须显式声明过**。共同三格之外的字段是**产物**（`ToJsonText` 那一侧读的
+是 `projected.kind` 这类已知名字），不是第三个出口要问 token 的东西。
+
+# type PrintAstCtx = { source: string, unmapped: Set<string>, count: number, direct: number, awaitingDeclaration: any, typePosition: boolean, expressionPosition: boolean, inObjectLiteral: boolean, baseStart: any, consumedSemicolons: Set<number>, Node: (kind?: any, props?: any, view?: any, extra?: any) => any, NodeHead: (kind?: any, props?: any, view?: any, extra?: any) => AstNode, Each: (view?: any, extra?: any) => any, Project: (node?: any, extra?: any) => any, SemicolonEndOf: (end?: any, extra?: any) => number, Split: (list?: any, separator?: any, extra?: any, more?: any) => Array<Array<any>>, ChainWithOptional: (node?: any, nco?: any, extra?: any) => any, Expression: (list?: any, extra?: any) => any, TypeExpression: (list?: any, extra?: any) => any, ProjectEach: (list?: any, kind?: any, extra?: any) => Array<any>, MemberList: (list?: any, view?: any, extra?: any) => Array<any>, KidsOf: (node?: any, key?: any, extra?: any) => Array<any>, NamedSpecifiers: (brace?: any, kind?: any, extra?: any) => Array<any>, MemberNameOf: (view?: any, extra?: any) => any, FoldBinaryFrom: (left?: any, list?: any, extra?: any) => any, SynthName: (text?: any, view?: any, extra?: any) => string, StatementOf: (view?: any, extra?: any) => any, StatementOfList: (list?: any, extra?: any) => any, Nothing: any, BodyBlockOf: (list?: any, brace?: any, extra?: any) => any, ParenthesizedOf: (unit?: any, extra?: any) => any, LetFrom: (list?: any, view?: any, extra?: any) => any, QualifiedNameFrom: (list?: any, extra?: any) => any, DottedExpression: (list?: any, extra?: any) => any, ConditionalNode: (list?: any, from?: any, to?: any, extra?: any) => any, Segment: (view?: any, key?: any, extra?: any) => any, TypeOf: (list?: any, extra?: any) => any, FunctionTypeProps: (kids?: any, extra?: any) => any, BlockOfBody: (list?: any, brace?: any, extra?: any) => any, SwitchClause: (seg?: any, extra?: any) => any, BindingPattern: (unit?: any, extra?: any) => any, ComputedNameExpression: (unit?: any, extra?: any) => any, Structural: (view?: any, kind?: any, extra?: any) => any, Declaration: (view?: any, kind?: any, extra?: any) => any, OperatorNode: (unit?: any, extra?: any) => any }
+
+**第三个出口那一层递过去的上下文**（第 1175 轮按用户口径 1.5 立起来）：`PrintAst` 的
+**第一个形参**就是它——从前写作 `any`，于是「这一层手上有什麼」在声明里整个消失（用户口径 1.3：
+投影要的信息要在构造 / 构建 / Close 那一刻明确在字段 / 属性上；投影那一侧读到的每一格，
+在这一格里也必须说得出来）。
+
+**这一格是「能力面」的声明**：它的每一个键就是 `print-ast-common.xl.md` 的 `const ctx = { … }`
+递出去的一个出口（第 1175 轮实测 **34 个**键），`direct:lint` 的键表判据与这一格**数的是同一张表**
+——出口删掉（补进 `CTX_BANNED`）时这一格也要同步删键，多一个键就是「这一层拿得到它、
+却没有任何一页读得到它」。
+
+**为什么第一个形参之外的格子写成 `any` 是允许的**：用户口径 1.5 的禁 `any` **只管
+`## field` / `## property` 的声明**（第 1144 轮立的那个判据），管的是「这一格能装什么」
+在 token 自己身上说不说得出来；而这一格是**投影层递过来的工具箱**，箱子里每个钩子的实参
+在 `print-ast-common.xl.md` 里各有各的算式（形参表就是它需要什么，第 1050 轮），
+在 token 这一侧只声明「有几件、叫什么、吃几个参数、吐什么」——所以能定死的都定死了
+（`Node` / `NodeHead` / `Each` / `Project` / `Expression` / `Split` / `SemicolonEndOf` …），
+剩下那些形参类型在共享页内部才收窄。**这一来 `ctx.Project` 这类出口就有了返回类型**：
+`ctx.Project(v)` 在 75 页 `PrintAst` 里不再是 `any` 而是 `AstNode`（`### get` 装得住 `any` 的
+`ctx.Nothing` 照旧——`Project` 的返回类型写 `any` 就是为此）。
+
+**为什么 `Node` 的返回类型是 `any` 而不是 `AstNode`**：它还要装得下 `NOTHING`
+（`{ __nothing: true }`，`ctx.Nothing` 那一格：**故意不出节点**），而 `NodeHead` 只服务
+「按坐标在前的键序摆键」那一支（第 1170 轮实测 47088 次调用里一次都没撞过键），
+所以 `NodeHead` 的返回类型就是 `AstNode`。
+
+**为什么 `source` 在这一格里**：`print-ast-common.xl.md` 的**通用支与 helper** 还要用它
+（扫描游标与相邻字符，第 1049 / 1053 轮明确留着的那些读法），而 token 各页自己的 `PrintAst`
+**拿不到它也不算违规**——判据扫的是「有没有用它回原文查这一格自己的东西」
+（`ctx.source[某一格自己的 start]` / 按坐标切自己那一段），不是「这一格有没有这个键」。
+
 # private const WHITESPACE:RegExp = /\s/
 
 **「这一格是不是空白」那一张正则**（第 1171 轮，用户口径 1.6）：本页两处**最热**的 `### get`
@@ -1628,7 +1671,7 @@ XML 的标签名、直出那一层的 kind 判据（`PrintAst` 里那些 `=== "I
 return undefined;
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **这一格的名字**（第 1143 轮按用户口径 1.1 定）：它原先叫 `PrintDirectAst`，与一条已经删掉的
 老路（老路叫 `PrintAst`）成对；老路删掉之后剩下的就是这一格，于是**名字收回 `PrintAst`**——

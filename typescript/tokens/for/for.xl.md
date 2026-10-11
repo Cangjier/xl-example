@@ -1,17 +1,12 @@
 # dependencies
 ```xl
-import { Get } from "../../../core/extensions/list-extension.xl.md"
-import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SearchBack } from "../../../core/extensions/list-extension.xl.md"
-import { TakeRange } from "../../../core/extensions/list-extension.xl.md"
+import { Get, ReplaceCountAt, SearchBack, TakeRange } from "../../../core/extensions/list-extension.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
-import { Token } from "../../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../../core/syntax/token.xl.md"
 import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { CommentsIn, GetSkipNextTrivia } from "../../text-common-util.xl.md"
-import { SkipNextTrivia } from "../../text-common-util.xl.md"
-import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { CommentsIn, GetSkipNextTrivia, SkipNextTrivia, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { IsWordUnit } from "../declaration-common.xl.md"
@@ -267,7 +262,7 @@ C 风格 `for` 语句单元。
 **只在「体段既没有可见子单元、也没有 `emptyBodyAt`」那条兜底支里用它**：
 正常那几支分别由 `BlockOfBody`（非空块）与 `emptyBodyAt`（空语句）说了算。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 997 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

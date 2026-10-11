@@ -94,8 +94,15 @@ for (const name of ROOTS) {
  * 就被记在**上一页的投影**名下（实测：真位置在**这一格之外**，扫描器报的行号 547 也在别处）。
  * 后果不是「多报一处」而是**判据对象错了**：被扫的那一段根本不是这一页的投影。
  * 所以章节头一律按**整行**认（`^` + `$`，`m` 标志），正文也从那一行之后找。
+ *
+ * **第 1175 轮（用户口径 1.5）：形参表本身换成带类型的签名**。原来那一行是
+ * `## method PrintAst:(ctx:any, v:any)=>any`——三个 `any` 里，`ctx` 是**这一层手上有什么**
+ * 的声明（`v` 与返回值见 `core/syntax/token.xl.md` 的 `PrintAstCtx` / `AstNode` 两格）。
+ * 全仓 **75 段**一次换成 `(ctx:PrintAstCtx, v:any)=>AstNode | undefined`。
+ * 这条正则因此把**整行写死**：谁把 `ctx` 改回 `any`，`xl check` 不会红（xl 只看文法），
+ * 这一门当场红（`directSections` 掉到 0 ⇒ 每一页都报「没有可读的方法体」）。
  */
-const HEAD_DIRECT_RE = /^## method PrintAst:\(ctx:any, v:any\)=>any$/gm;
+const HEAD_DIRECT_RE = /^## method PrintAst:\(ctx:PrintAstCtx, v:any\)=>AstNode \| undefined$/gm;
 /** 一页里所有章节头的起止（整行匹配，见上）。 */
 function headsOf(text, re) {
   const out = [];
@@ -657,7 +664,9 @@ let ctxBannedHits = 0;
       }
     }
     const raw = blocks.join("\n");
-    const start = raw.search(/^\s*const ctx = \{/m);
+    // **第 1175 轮**：这一格的声明多了一个类型标注（`const ctx:PrintAstCtx = {`，
+    // 用户口径 1.5：这一层手上有什么要在声明里说得出来），所以匹配里带上可选的 `:类型`。
+    const start = raw.search(/^\s*const ctx(?::[A-Za-z_][\w.]*)? = \{/m);
     const end = start < 0 ? -1 : raw.indexOf("\n  };", start);
     const body = start < 0 || end < 0 ? "" : raw.slice(start, end);
     for (const line of body.split("\n")) {

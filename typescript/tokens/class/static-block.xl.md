@@ -5,7 +5,7 @@ import { BranchConditionResult } from "../../../core/syntax/branch-condition-res
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { Token } from "../../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
@@ -127,7 +127,7 @@ unit.AddToMounted(block);
 `static /* { */ { }` 这种写法会命中**注释里**那个假括号。而 `StaticBlockBranch.Success`
 那一刻 `{` 就在手上（`source.Index`）⇒ 当场记下来，投影只读这一格。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

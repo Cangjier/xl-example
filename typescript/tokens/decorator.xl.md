@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../core/syntax/close-rule.xl.md"
-import { Token } from "../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { Bracket } from "./bracket.xl.md"
@@ -177,7 +177,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, decorator);
 **我这一格是不是一个装饰器单元**（第 1096 轮）：装饰器就是这一页，所以常量答 `true`——
 口径与理由见 `core/syntax/token.xl.md` 的 `IsDecoratorUnit`。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

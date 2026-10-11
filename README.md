@@ -347,6 +347,51 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1175 轮：用户口径 1.5 —— `PrintAst` 的形参表一次换成**带类型的签名**：全仓 **75 段** `(ctx:any, v:any)=>any` → `(ctx:PrintAstCtx, v:any)=>AstNode | undefined`；两个具名类型立在 `core/syntax/token.xl.md`（`PrintAstCtx` 41 个出口 / `AstNode` 共同三格），68 页补上类型 import，`npx tsc` 从 **109 error** 收成 **0**
+
+**一句话**：这一格从第 992 轮起写着三个 `any`——`ctx` 那一格是**这一层手上有什么**的声明，
+而 `any` 把这句话整个写没了（用户口径 1.5：字段 / 属性的声明禁止 `any`，必须明确类型）。
+这一轮把那一行换成一个**具名类型**，于是投影读到的每一格（`ctx.Project` / `ctx.Declaration` /
+`ctx.Structural` …）在编译期就有了返回类型。
+
+| 这一行 | 今天 |
+| --- | --- |
+| `## method PrintAst:(ctx:any, v:any)=>any` | `## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode \| undefined` |
+
+**两个新类型**（`core/syntax/token.xl.md`，都是一行——xl 的对象类型只收单行）：
+
+- `# type AstNode = { kind: string, pos: number, end: number }`——共同三格（其余字段随 kind 而异）；
+- `# type PrintAstCtx = { source: string, unmapped: Set<string>, count: number, direct: number, … }`
+  ——**41 个出口逐个列名**，与 `print-ast-common.xl.md` 的 `const ctx = { … }` **数的是同一张表**。
+
+**为什么它一次就暴露了 109 个错误**：`any` 在的时候，`v.op` / `ctx.Structural(x)` / 那一串
+`return { kind: "CallExpression", expression: … }` 一律不判。换上真类型之后 tsc 逐条报出来，
+这一轮按四类收掉（**全是类型层，运行期一行没动**）：
+
+1. `ctx` 那一格补齐 41 个出口（原来只列了 27 个——`Declaration` / `Structural` / `Segment` /
+   `TypeOf` / `BlockOfBody` / `SwitchClause` / `BindingPattern` / `ComputedNameExpression` /
+   `FunctionTypeProps` / `OperatorNode` 等 14 个漏在对象后半段）；
+2. 出口的**形参个数按实测量定**（`ProjectEach` 2、`Declaration` 1~3、`Node` 3~4、`Split` 2~3，
+   其余 1~2，尾随的可选）——量法是把全仓代码块里每一次 `ctx.X(` 的实参个数数出来；
+3. 六个「另一种 kind 的节点字面量」写成 `} as AstNode`（语句位置有字面量上下文类型，
+   多余字段会撞「多余属性检查」，而它们本来就是 `AstNode` 那一族的另一个 kind）；
+4. `v` 这一半**暂时还是 `any`**：被投的那一格有两种（真 token、以及 `statementOfList` 造的
+   合成语句视图，后者带着 `braceAt` / `questionAt` 这些**不在 `Token` 上**的格子）——
+   要收紧它得先给合成视图定形，那是下一轮的活；这一轮把**计量**留下：`v.` 上的属性读
+   正是「合成视图还差哪些格」的清单。
+
+**判据跟着改名**：`direct:lint` 的章节头正则与它能扫到的**对象**一起换
+（`/^## method PrintAst:\(ctx:PrintAstCtx, v:any\)=>AstNode \| undefined$/gm`），
+`const ctx = { … }` 那一处的定位也认新的类型标注——`ctx` 出口 **41 个**照旧逐键对着
+`CTX_BANNED` 判（这一轮**一个出口没增没减**）。
+
+**实测**：`xl check` 156 页 0 条；`xl build core typescript` **69 written / 0 error**；
+`npx tsc`（strict）**0 error**（改之前 109）；`direct:lint` 0 条违反（75 段全扫到、
+ctx 出口 41 个、`## field` / `## property` 里 `any` 0 处、投影读的 146 个 PascalCase 属性
+全部有声明）；`cases:direct` 语料 1640 份**不抛异常**、固定样本逐格点名通过
+（读数与第 1174 轮逐项相同：投影 21793 个节点、token 自己出 16489 个）；
+`cases:tsast` 16 片 **15 通过 / 1 失败**（唯一那条仍是 HEAD 上既有的 `runtime/round741/002`）。
+
 ### 第 1174 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 又一个**恒等转手出口** `ctx.Kids` 删掉：全仓代码块 **67 处调用点 / 36 页**一次换成属性读 `(x).ProjectableKids`；`ctx` 出口 42 → 41、代码块 3913 → 3912 行、声明 54 格不变
 
 **一句话**：`Kids: (node) => node.ProjectableKids` 与第 1168 轮删掉的 `StartOf` / `EndOf` 是**同一形态**

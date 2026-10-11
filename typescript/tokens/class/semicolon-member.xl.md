@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
-import { Token } from "../../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
@@ -85,7 +85,7 @@ return ReplaceCountAt(units, index, 1, result);
 **内容为空**（那个 `;` 自己不进去）：TS 那边 `SemicolonClassElement` 是一个**叶子节点**
 （`forEachChild` 一个孩子都不给，`;` 只是它的区间）——把 `;` 装进来会多出一个 `SemicolonToken`。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

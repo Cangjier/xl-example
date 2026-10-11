@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../core/syntax/close-rule.xl.md"
-import { Token } from "../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { SkipNextTrivia } from "../text-common-util.xl.md"
@@ -128,7 +128,7 @@ return ReplaceCountAt(units, index, nameIndex - index + 1, result);
 
 与 `NameStart` 同进退的终点（闭区间下标）。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 1001 轮）：这一格出哪个节点，只许用这一格自己的属性与子单元，不回原文查。
 

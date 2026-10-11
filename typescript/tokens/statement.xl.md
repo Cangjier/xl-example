@@ -5,7 +5,7 @@ import { Source } from "../../core/syntax/source.xl.md"
 import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Token } from "../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
 import { GetSkipPreviousTrivia, HasLineBreakBetween, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, IsTypeAliasAssignment, NextLineFirstCharAt, NextLineOpensAttributes, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
@@ -55,7 +55,7 @@ import { LineWrap } from "./line-wrap.xl.md"
 `Statement` 自己这一类没有专门注册 ⇒ 拿到的是通用队列。
 容器那一侧走 `ParsePipeline.InitialCloseRuleQueue`，第 564 轮起它做的也是同一句。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

@@ -3,7 +3,7 @@
 import { SyntaxException } from "../../../core/exceptions/syntax-exception.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
-import { Token } from "../../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../../core/syntax/token.xl.md"
 import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SkipNext } from "../../../core/extensions/list-extension.xl.md"
@@ -246,7 +246,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 `finally` 体那一对花括号；没有 `finally` 段时是 `-1` / `null`。
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。

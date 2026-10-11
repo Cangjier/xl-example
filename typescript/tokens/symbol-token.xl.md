@@ -5,7 +5,7 @@ import { Branch } from "../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
 import { Source } from "../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
-import { Token } from "../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { IsLeadingDotNumber, IsUnicodeEscapeStart } from "../text-common-util.xl.md"
@@ -558,7 +558,7 @@ if (text === value) {
 return items.includes(text);
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

@@ -4,7 +4,7 @@ import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { ReloadMessage } from "../../../core/syntax/messages/reload-message.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { Token } from "../../../core/syntax/token.xl.md"
+import { Token, PrintAstCtx, AstNode } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { ConstString } from "./const-string.xl.md"
@@ -381,7 +381,7 @@ const one = first as ConstString;
 return one.StringText;
 ```
 
-## method PrintAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
@@ -500,7 +500,7 @@ return one.StringText;
     templateSpans: spans,
     pos: this.start,
     end: v.ProjectionEnd,
-  };
+  } as AstNode;
 ```
 
 **这一格与共享层逐格等价，两处替换是机械的**（第 1073 轮）：
