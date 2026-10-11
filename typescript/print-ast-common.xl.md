@@ -444,6 +444,41 @@ import { Identifier } from "./tokens/identifier.xl.md"
 - **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build` 该页 **1 个产物 / 0 error**、
   `npx tsc` 干净；**八道门 7 通过、1 失败**，读数与第 1106 ~ 1122 轮逐项相同。
 
+**第 1124 轮把「`export` / `declare` / `default` 前缀词」那一对现场算式收进被问的那一页**
+（用户口径 1.1 ~ 1.4：投影要的信息由**具体 token 子类**在自己那一页**显式声明**、在
+**记下正文那一刻**（`Keyword.SetValue`）赋好，读的时候备齐）——本页代码块里还剩两处
+**按固定字面量比正文**的写法，两处问的都是同一件事（「你这一格的正文是不是那三个前缀词之一」），
+而那个正文只有 `Keyword` 那一页知道：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `["export", "declare", "default"].includes(items[j].TextValue)`（**1 处**：`projectRoot` 认「前缀词 + 一条声明」那一支的 `while`） | `items[j].IsExportKeyword === true \|\| items[j].IsDeclareKeyword === true \|\| items[j].IsDefaultKeyword === true` | 三格都是**已有的那一形态**（第 1119 轮）；`IsDeclareKeyword` 是**本轮新立**（`Keyword` 那一页显式声明 `## field … = false`，在 `SetValue` 里与那两格**同一趟**赋好） |
+| `(k) => k.IsKeywordUnit && ["export", "declare", "default"].includes(k.TextValue)`（**1 处**：`projectStatement` 同一套前缀判据那个 `every`） | `(k) => k.IsExportKeyword === true \|\| k.IsDeclareKeyword === true \|\| k.IsDefaultKeyword === true` | 同上；连写的 `k.IsKeywordUnit &&` 半句一并收掉 |
+
+- **为什么 `IsDeclareKeyword` 该由那一页答**：判据是**这一格自己的正文**（`declare`），
+  与 `IsExportKeyword` / `IsDefaultKeyword` / `IsExtendsKeyword` / `IsTypeKeyword` 逐字同形
+  ——一处声明、一处赋值、多处读，不是每个读者各写一遍三格连比。
+- **它与 `IsDeclareWord` 不是同一问**（第 1121 轮那一格）：那一格答「我是不是一个**声明词**」
+  （`const` / `let` / `var` / `using`），读它的是 `ctx.HeadDeclare`；这一格答「我是不是
+  `declare` 这**一个**词」——收件人不同，各立一格。
+- **`IsKeywordUnit` 那半句为什么能收**：两处原来都先过那一半守卫（只有 `Keyword` 那一种
+  token 进得来），而基类给这三格默认 `false`、只有 `Keyword` 那一页答 `true`
+  ——与第 1118 轮收掉 `IsAsKeyword` / `IsExportKeyword` 那几处的守卫同一条口径。
+- **赋值入口只有一个**：`Keyword.Value` 只在一处被写（`SetValue`），`UpgradeAt` 与 `Clone`
+  都走它——所以「`IsDeclareKeyword` 与正文同步」是结构上的事，不是靠约定。
+- **判据这一轮照旧没长**：这一族都在 `TextValue` 上，而 `direct:lint` 那几条门只认 `Tag`
+  （第 1118 / 1119 / 1120 三轮同一条理由）；**没有**新立一条扫固定在字面量上的门。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：改的是 2 处调用点与说明；
+  新立的那一格在基类与 `Keyword` 那一页）。本页今天 **10675 行**（代码块 7799 行，
+  其中不带注释的 4675 行）。
+- **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build core typescript`
+  **3 个产物 / 0 error**（`token` / `keyword` / `print-ast-common`）、`npx tsc` 干净；
+  **八道门 7 通过、1 失败**（墙钟 31.8s），读数与第 1106 ~ 1123 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79；唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
 这一条出口**一个读者——那一格自己的递归调用不算读者，`projectTypeExpression` 里**没有**它的
@@ -2866,12 +2901,20 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     // 判据与 `projectStatement` 那一支**同一套**：前缀词只能是 export / declare / default，
     // 后面那一格投出来必须是一条**语句**——**问那一格 token 自己**
     // （`IsStatementNode()`，第 1039 轮；原来是投影层那张按 kind 查的 `STATEMENT_KINDS`）。
+    //
+    // **第 1124 轮**：那三个前缀词改读被问那一页的**属性**（`IsExportKeyword` /
+    // `IsDeclareKeyword` / `IsDefaultKeyword`，都在 `Keyword.SetValue` 记下正文那一刻赋好）
+    // ——原来是 `["export", "declare", "default"].includes(items[j].TextValue)` 这种
+    // **按固定字面量比正文**的写法，而「我这一格的正文是什么」只有那一页知道。
+    // 原来连写的 `items[j].IsKeywordUnit &&` 半句一并收掉：基类给那三格默认 `false`
+    // （只有 `Keyword` 那一页答 `true`），非关键字永远进不来——与第 1118 轮同一条口径。
     if (items[i].IsKeywordUnit) {
       let j = i;
       while (
         j < items.length &&
-        items[j].IsKeywordUnit &&
-        ["export", "declare", "default"].includes(items[j].TextValue)
+        (items[j].IsExportKeyword === true ||
+          items[j].IsDeclareKeyword === true ||
+          items[j].IsDefaultKeyword === true)
       ) {
         j++;
       }
@@ -3302,8 +3345,11 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // namespace` 家族、`@types/node` 的 `declare module` 家族都在里面）。
     const prefixWords = kids.slice(0, kids.length - 1);
     const last = kids[kids.length - 1];
+    // **第 1124 轮**：三个前缀词改读被问那一页的属性（与上面 `projectRoot` 那一支同一份判据、
+    // 同一条理由）——`IsKeywordUnit` 那半句一并收掉，非关键字由基类的默认 `false` 挡住。
     const allPrefixes = prefixWords.every(
-      (k) => k.IsKeywordUnit && ["export", "declare", "default"].includes(k.TextValue),
+      (k) =>
+        k.IsExportKeyword === true || k.IsDeclareKeyword === true || k.IsDefaultKeyword === true,
     );
     // **「后面那一格是不是一条语句」问它自己**（`IsStatementNode()`，第 1039 轮）：
     // 原来是投影层那张按 kind 查的 `STATEMENT_KINDS`，而 kind 名就是各页自己的节点名。

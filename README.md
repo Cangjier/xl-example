@@ -347,6 +347,28 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1124 轮：`export` / `declare` / `default` 前缀词那两处现场算式收进被问的那一页——`IsDeclareKeyword` 在 `Keyword.SetValue` 记下正文那一刻赋好；**八道门 7 通过、读数一处没动**
+
+**一句话**：本页还剩两处 `["export", "declare", "default"].includes(X.TextValue)`
+（`projectRoot` 认「前缀词 + 一条声明」那一支、`projectStatement` 认同一套前缀那一支），
+问的都是「你这一格的正文是不是那三个词之一」——而那个正文只有 `Keyword` 那一页知道。
+
+| 原来的现场算式 | 今天读的那一格 |
+| --- | --- |
+| `["export", "declare", "default"].includes(items[j].TextValue)`（1 处） | `items[j].IsExportKeyword === true \|\| items[j].IsDeclareKeyword === true \|\| items[j].IsDefaultKeyword === true` |
+| `k.IsKeywordUnit && ["export", "declare", "default"].includes(k.TextValue)`（1 处） | 同样三格属性读，`IsKeywordUnit` 那半句收掉（基类默认 `false`，非关键字进不来） |
+
+- **本轮新立一格**：`Token.IsDeclareKeyword`（基类默认 `false`），`Keyword` 那一页
+  **显式声明**同一格并在 `SetValue` 里与 `IsExportKeyword` / `IsDefaultKeyword` 同一趟赋好
+  ——`Value` 只有这一个赋值入口（`UpgradeAt` / `Clone` 都走它），所以与正文同步是结构上的事。
+- **与 `IsDeclareWord` 不是同一问**（第 1121 轮）：那一格答「是不是一个声明词」
+  （`const` / `let` / `var` / `using`），这一格答「是不是 `declare` 这一个词」。
+- **实测**：`xl check typescript core` 156 文件 / 0 条；`xl build core typescript`
+  3 个产物 / 0 error（`token` / `keyword` / `print-ast-common`）、`npx tsc` 干净；
+  八道门 **7 通过 / 1 失败**，读数与第 1106 ~ 1123 轮逐项相同（`coverage` 4260 / 4422、
+  `blocked 28` / `differ 134` / `bad 0`、加权 95.7%，唯一那条「倒退」仍是 HEAD 上既有的
+  `runtime/round741/002`）。本页声明数 43 格一格没增没减。
+
 ### 第 1123 轮：`ctx.ConditionalNode` 里剩下那一格局部转手 `isExtends` 也收掉——两处改读 `k.IsExtendsKeyword`（被问那一页第 1119 轮就答好的那一格）；**八道门 7 通过、读数一处没动**
 
 **一句话**：`(k) => k.IsExtendsKeyword === true` 这一格闭包**不是判据、是转手**——

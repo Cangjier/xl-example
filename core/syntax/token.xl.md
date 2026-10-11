@@ -1785,6 +1785,21 @@ return false;
 与 `IsExportKeyword` 同一支、同一趟赋好（`projectExport` 要按这两个词决定
 `ExportKeyword` / `DefaultKeyword`、以及这是不是一次赋值式导出）。
 
+## field IsDeclareKeyword:bool = false
+
+**我这一格的正文是不是 `declare` 那个词**（第 1124 轮）——是的话答 `true`。
+
+过去投影层在两处现场比正文（`projectRoot` 认「`export` / `declare` / `default` 前缀 +
+一条声明」那一支、`projectStatement` 认同一套前缀那一支），而两处都是
+`["export", "declare", "default"].includes(X.TextValue)` 这种**按固定字面量比正文**的写法
+——「我这一格的正文是什么」只有这一页知道。口径与 `IsExportKeyword` / `IsDefaultKeyword`
+（第 1119 轮）逐字相同：`declare` 在产物里就是 `Keyword`（两处调用点本来就都先过
+`IsKeywordUnit` 那一半守卫），所以这一格由那一页自己在 `SetValue` 里赋好。
+
+**它与 `IsDeclareWord` 不是同一问**（第 1121 轮那一格）：那一格答「我是不是一个**声明词**」
+（`const` / `let` / `var` / `using`，读它的是 `ctx.HeadDeclare`），这一格答「我是不是
+`declare` 这**一个**词」——收件人不同，各立一格。
+
 ## field IsTypeKeyword:bool = false
 
 **我这一格的正文是不是 `type` 那个词**（第 1120 轮）——是的话答 `true`。
