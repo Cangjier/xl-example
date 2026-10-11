@@ -1761,10 +1761,28 @@ return false;
 与 `IsExportKeyword` 同一支、同一趟赋好（`projectExport` 要按这两个词决定
 `ExportKeyword` / `DefaultKeyword`、以及这是不是一次赋值式导出）。
 
+## field IsTypeKeyword:bool = false
+
+**我这一格的正文是不是 `type` 那个词**（第 1120 轮）——是的话答 `true`。
+
+过去投影层在 `projectExport` 里现场比一次（`const head = (k) => k.IsNameNode &&
+k.TextValue === "type"`，问的是 `export { type A }` / `export type { B }` 里那个词），
+而「我这一格的正文是什么」只有这一页知道。`type` 在这一格上**不冒充声明头**（`type X = …`
+那个 `type` 是另一条路的事），与 `IsAsKeyword` / `IsExtendsKeyword` 同一条口径：
+`Keyword` 与 `Identifier` 两页各写自己认得的词。
+
+## field IsIsKeyword:bool = false
+
+**我这一格的正文是不是 `is` 那个词**（第 1120 轮）——是的话答 `true`。
+
+过去投影层在 `projectTypeExpression` 里现场比一次（`parts.findIndex((k) =>
+k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词），而那个正文
+只有这一页知道。**它不是本工程的关键字**（`is` 在 TS 里不是保留字），产物里多数时候
+停在 `Identifier` 上，所以两页各写自己认得的词——与 `as` / `extends` 同一形态。
+
 ## field IsNewKeyword:bool = false
 
 **我这一格的正文是不是 `new` 那个词**（第 1118 轮）——是的话答 `true`。
-
 **为什么它是一格而不是投影层的一次文本比**：`print-ast-common.xl.md` 的通用支里过去有三处
 现场写法（`k.TextValue === "new"`：`projectExpression` 里「裸 `new` 起头那一串」那一支、
 `functionTypeProps` 找构造签名的 `new`、`projectTypeExpression` 里构造类型那一支），

@@ -345,6 +345,41 @@ import { Identifier } from "./tokens/identifier.xl.md"
   `runtime:check` 243 / 243、`runtime:cli` 79 / 79（唯一那条「倒退」仍是 HEAD 上既有的
   `runtime/round741/002`）。
 
+**第 1120 轮（第三趟）把本页最后三处「按正文比一个**固定**的字面量」收进被问的那两页**
+（同一把尺子：实参是字面量 ⇒ 它是「这一格是不是那个词 / 那个符号」那一问；
+按**参数**比的仍然留着）：
+
+| 原来的现场算式 | 今天读的那一格 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `parts.findIndex((k) => k.TextValue === "is")`（**1 处**：`projectTypeExpression` 里类型谓词被包在联合里那一支，找 `x is T` / `asserts x is T` 那个词） | `k.IsIsKeyword === true` | `Identifier.Close` / `Keyword.SetValue` **各自显式声明**同一格、在**记下正文那一刻**赋好（`is` 不是本工程的关键字，多半停在 `Identifier` 上）；基类默认 `false` |
+| `const head = (k) => k.IsNameNode && k.TextValue === "type"`（**1 处**：`namedExportClause` 认 `export { type A }` 段首那个标志词） | `k.IsNameNode && k.IsTypeKeyword === true` | 同上（`"type"`）——`IsNameNode` 那半句照旧（它问的是另一件事：这一格能不能当名字） |
+| `unitInner[unitInner.length - 2].TextValue !== ","`（**1 处**：折赋值式那一支认「这一段是不是逗号表达式」）与 `head.TextValue === ","`（**1 处**：往左走到最外层那个逗号单元） | `…IsCommaSymbol !== true` / `head.IsCommaSymbol === true` | `SymbolToken` 那一页**第 1074 轮就答了**这一格（`## property` + `### get` 读 `TextValue`）——这两处问的是**二元运算符单元**的正文，与符号那一页同一格事实，所以读同一格；本轮只是把该页那一句量出来的等价（第 1074 轮记过「逗号那个二元单元自己的正文，`IsCommaSymbol` 已答」）落到实处 |
+| `k.IsSymbolToken && k.TextValue === "<"`（**1 处**：`projectTypeExpression` 里平铺的 `<…>` 实参段找那个开括号） | `k.IsLessThanSymbol` | 第 1118 轮立的同一格（`SymbolToken.IsLessThanSymbol`，读时现算）——**这一处是那一轮的漏网**：同一段注释与相邻那一支（`<number>1`，本页第一趟收的）都改了，它没改；第三趟收尾时逐处数 `TextValue` 才发现（**这一条写在页面上，是因为「那一族还有没有漏网的」只能靠逐处数出来**） |
+
+- **两格词属性与 `IsAsKeyword` / `IsExtendsKeyword` 完全同形**（第 1119 轮）：`## field` 默认
+  `false`、两页各自在「记下正文那一刻」赋好——`is` / `type` 在本工程里都是**上下文词**
+  （都不是保留字：`is` 停在 `Identifier` 上、`type` 在导出子句里才当标志），
+  所以两页各写自己认得的词，不是同一份名单抄两遍。
+- **判据这一轮照旧没长**（与第 1118 / 1119 两轮同一条理由）：这一族都在 `TextValue` 上，
+  `direct:lint` 那几条门只认 `Tag`。
+- **今天本页代码块里剩下的 `TextValue` 比较是 5 处**（第一趟收完 11 处、第二趟收掉
+  `isTypeOp` 一处、第三趟收掉上面三处、同一趟又收掉平铺泛型那一处
+  `k.IsSymbolToken && k.TextValue === "<"`——那是第 1118 轮 `IsLessThanSymbol` 的
+  **漏网一处**）：`=== separator` 两处（`splitTopLevel` / `namedSpecifiersOf` 按
+  **调用方给的参数**比）、`=== lookup`（`memberNameOf` 找与**算出来的名字**同名的那一格
+  ——它**不能**改读本页的 `Is(...)`：那是**方法调用**，而这一族的判据是
+  「投影对 token 只读属性不调方法」）、`=== text` 两处（`isWord` 一族按**参数**比）。
+  **按参数比的一处没动**——那条分界是第 1118 / 1119 两轮划的。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：改的是 5 处调用点与说明；
+  新立的两格词属性在基类与 `Keyword` / `Identifier` 两页）。
+- **实测**：`xl check typescript core` **0 条**；`xl build core` **29 个产物** +
+  `xl build typescript` **127 个产物** / 0 error、`tsc` 干净；**八道门 7 通过、1 失败**
+  （墙钟 32.0s），读数与第 1106 ~ 1119 轮及本页前两趟逐项相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着
+  （八项全 0）、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79
+  （唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
 这一条出口**一个读者——那一格自己的递归调用不算读者，`projectTypeExpression` 里**没有**它的
@@ -4981,7 +5016,12 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       if (assignAt < 0) continue;
       const unitInner = unit.ProjectableKids;
       if (unitInner.length < 3) continue;
-      if (unitInner[unitInner.length - 2].TextValue !== ",") continue;
+      // **逗号那一格自己答**（第 1074 轮立、第 1120 轮收到这里）：`IsCommaSymbol` 住的
+      // 是符号那一页，而这一格读到的是**二元运算符单元**的正文——它把运算符放在
+      // `Data` 的倒数第二格上（`a, b` 折成 `BinaryOperator(a , b)`），正文由基类那一格
+      // `TextValue` 给，所以这一处与 `head.IsCommaSymbol` 逐格同答（第 1120 轮第二趟
+      // 把它从 `TextValue === ","` 换过来）。
+      if (unitInner[unitInner.length - 2].IsCommaSymbol !== true) continue;
       let level = unit;
       let leftmost: any = undefined;
       const levels: Array<Array<any>> = [];
@@ -4992,7 +5032,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const head = inner[0];
         const headIsComma =
           (head.IsBinaryOperatorNode) &&
-          head.TextValue === ",";
+          head.IsCommaSymbol === true;
         if (headIsComma) {
           level = head;
           continue;
@@ -8492,7 +8532,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `typeArguments` 的 `TypeReference`（实测 `undici-types/header.d.ts` 的
   // `KnownHeaderValues[Lowercase<K>]`：缺 `TypeReference` + `Identifier`，名字那格的区间也短）。
   const openAt = list.findIndex(
-    (k, i) => i > 0 && k.IsSymbolToken && k.TextValue === "<",
+    (k, i) => i > 0 && k.IsLessThanSymbol,
   );
   if (openAt > 0) {
     let depth = 0;
@@ -8861,7 +8901,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     const predicate = inner.find((k) => k.IsTypePredicate);
     if (predicate !== undefined && inner.length === 1) {
       const parts = predicate.ProjectableKids;
-      const isIndex = parts.findIndex((k) => k.TextValue === "is");
+      const isIndex = parts.findIndex((k) => k.IsIsKeyword === true);
       const typeKids = isIndex >= 0 ? parts.slice(isIndex + 1) : [];
       const separator = unionUnit.IsUnionType ? "|" : "&";
       const types = [];
@@ -9179,7 +9219,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     const end = endOf(ranged.length > 0 ? ranged[ranged.length - 1] : units[units.length - 1]);
     // **段首的 `type` 是标志**：`import { type B }` / `export { type D }` 的 specifier 区间含 `type`，
     // 但 `name` 只是后面那个名字。只剩一个单元的 `{ type }` 不跳（那个 `type` 就是名字）。
-    const head = (k) => k.IsNameNode && k.TextValue === "type";
+    const head = (k) => k.IsNameNode && k.IsTypeKeyword === true;
     const body = units.length > 1 && head(units[0]) ? units.slice(1) : units;
     if (body.length === 0) return;
     const asAt = body.findIndex(

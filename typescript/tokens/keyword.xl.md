@@ -166,6 +166,17 @@ return Keyword.UpgradeAt(units, index);
 **我这一格的正文是不是 `extends` 那个词**（第 1119 轮）：同上一格，同一趟赋好
 （投影层条件类型 `T extends U ? X : Y` 那一支要的就是它）。
 
+## field IsTypeKeyword:bool = false
+
+**我这一格的正文是不是 `type` 那个词**（第 1120 轮）：同上一格，同一趟赋好
+（投影层导出子句 `export { type A }` / `export type { B }` 那一支要的就是它）。
+
+## field IsIsKeyword:bool = false
+
+**我这一格的正文是不是 `is` 那个词**（第 1120 轮）：同上一格，同一趟赋好
+（投影层类型谓词 `x is T` / `asserts x is T` 那一支要的就是它；`is` 不是本工程的
+关键字、多数时候停在 `Identifier` 上，所以两页各写自己认得的词）。
+
 ## static method IsUpgradable:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `Identifier` 的内容是不是关键字。
@@ -410,6 +421,9 @@ this.IsWithKeyword = text === "with";
 this.IsExportKeyword = text === "export";
 this.IsDefaultKeyword = text === "default";
 this.IsExtendsKeyword = text === "extends";
+// **第 1120 轮**：`type` / `is` 两格同一趟赋好（导出子句那个标志词与类型谓词那个词）。
+this.IsTypeKeyword = text === "type";
+this.IsIsKeyword = text === "is";
 // **第 1075 轮**：投影侧那一问（这一格能不能当链的基名）也是同一份正文的函数——同一趟赋好。
 this.IsChainBaseNode = !(
   text === "return" ||
