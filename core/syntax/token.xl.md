@@ -2468,6 +2468,26 @@ return false;
 return false;
 ```
 
+## property IsAssignmentSymbol:bool
+
+**我这一格是不是一个赋值运算符**（第 1125 轮）——**不是**的一律给 `false`。
+
+投影层要在单元串里认出赋值号（`print-ast-common.xl.md` 的 `projectExpression` 折逗号那一支：
+「本层左边有没有一个赋值号」，取最左边那一个），判据过去是现场拼出来的
+`text === "=" || (text.length > 1 && text.endsWith("=") && !["==", "===", "!=", "!==", "<=", ">="].includes(text))`
+——那个正文**只有符号那一页知道**，所以与 `IsEqualsSymbol` / `IsCommaSymbol` 同一条口径：
+**基类给默认档、符号那一页覆写**（`SymbolToken.IsAssignmentSymbol`，读时现算）。
+
+**它与 `IsEqualsSymbol` 不是同一问**：那一格只认那个等号 `=`，这一格还认那些**复合赋值**
+（`+=` / `-=` / `**=` / `<<=` / `&&=` / `??=` …），并把六个**比较运算符**
+（`==` / `===` / `!=` / `!==` / `<=` / `>=`，它们也以 `=` 收尾）排除在外。
+
+### get
+
+```ts
+return false;
+```
+
 ## property IsArrowSymbol:bool
 
 **我这一格是不是那个箭头 `=>`**（第 1107 轮）——**不是**的一律给 `false`。

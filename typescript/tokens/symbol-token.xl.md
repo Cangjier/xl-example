@@ -252,6 +252,31 @@ if (last instanceof SymbolToken) {
   return this.TextValue === "=>";
 ```
 
+## property IsAssignmentSymbol:bool
+
+**我这一格是不是一个赋值运算符**（第 1125 轮）：投影层折逗号那一支要按它找「本层左边那个
+赋值号」（`print-ast-common.xl.md` 里 1 处），判据过去是现场拼出来的
+`text === "=" || (text.length > 1 && text.endsWith("=") && !["==", "===", "!=", "!==", "<=", ">="].includes(text))`
+——与上面 `IsEqualsSymbol` 同一条口径、同一形态（读的还是基类那格 `TextValue`，不是 `Is("=")`：
+没关过的符号上两者未必同答，第 1063 轮实测过）。
+
+**它与 `IsEqualsSymbol` 不是同一问**：那一格只认那个等号 `=`，这一格还认那些**复合赋值**
+（`+=` / `-=` / `*=` / `/=` / `%=` / `**=` / `<<=` / `>>=` / `>>>=` / `&=` / `|=` / `^=` /
+`&&=` / `||=` / `??=`），并把六个**比较运算符**（`==` / `===` / `!=` / `!==` / `<=` / `>=`）
+排除在外——判据一个字没改，只是那两半事实都住在这一页自己的正文上。
+
+### get
+
+```ts
+  const text = this.TextValue;
+  return (
+    text === "=" ||
+    (text.length > 1 &&
+      text.endsWith("=") &&
+      !["==", "===", "!=", "!==", "<=", ">="].includes(text))
+  );
+```
+
 ## property IsColonSymbol:bool
 
 **我这一格是不是那个冒号 `:`**（第 1108 轮）：投影层要按它切开成员 / 绑定元素 /

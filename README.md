@@ -347,6 +347,24 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1125 轮：折逗号那一支的「是不是赋值号」算式收进符号那一页——`SymbolToken.IsAssignmentSymbol` 读自己的正文现算；**八道门 7 通过、读数一处没动**
+
+**一句话**：本页折逗号那一支现场拼了 6 行来回答「这一格符号是不是赋值号」
+（`text === "=" || (以 = 收尾 && 不是那六个比较运算符)`），而那个正文只有 `SymbolToken` 那一页知道。
+
+| 原来的现场算式 | 今天读的那一格属性 |
+| --- | --- |
+| `text === "=" \|\| (text.length > 1 && text.endsWith("=") && !["==", "===", "!=", "!==", "<=", ">="].includes(text))`（1 处） | `one.IsAssignmentSymbol === true`（基类 `## property` + `### get` 答 `false`；`SymbolToken` 显式声明同一格、读基类那格 `TextValue` 现算），`IsSymbolToken === false` 那半句守卫一并收掉 |
+
+- **为什么是 `## property` + `### get` 不是 `## field`**：与 `IsEqualsSymbol` / `IsCommaSymbol`
+  同一件事——符号的正文未必关过（第 1063 轮实测过写成 `## field` 的代价：coverage 4260 → 4058）。
+- **判据一个字没改**：算式整段搬过去，只把 `text` 换成 `this.TextValue`。
+- **实测**：`xl check typescript core` 156 文件 / 0 条；`xl build core typescript`
+  3 个产物 / 0 error（`token` / `symbol-token` / `print-ast-common`）、`npx tsc` 干净；
+  八道门 **7 通过 / 1 失败**，读数与第 1106 ~ 1124 轮逐项相同（`coverage` 4260 / 4422、
+  `blocked 28` / `differ 134` / `bad 0`、加权 95.7%，唯一那条「倒退」仍是 HEAD 上既有的
+  `runtime/round741/002`）。本页声明数 43 格一格没增没减。
+
 ### 第 1124 轮：`export` / `declare` / `default` 前缀词那两处现场算式收进被问的那一页——`IsDeclareKeyword` 在 `Keyword.SetValue` 记下正文那一刻赋好；**八道门 7 通过、读数一处没动**
 
 **一句话**：本页还剩两处 `["export", "declare", "default"].includes(X.TextValue)`

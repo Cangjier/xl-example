@@ -444,6 +444,39 @@ import { Identifier } from "./tokens/identifier.xl.md"
 - **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build` 该页 **1 个产物 / 0 error**、
   `npx tsc` 干净；**八道门 7 通过、1 失败**，读数与第 1106 ~ 1122 轮逐项相同。
 
+**第 1125 轮把「本层左边有没有一个赋值号」那一格算式收进被问的那一页**（用户口径 1.1 ~ 1.4：
+投影要的信息由**具体 token 子类**在自己那一页**显式声明**、读的时候备齐）——本页折逗号那一支
+里那段「是不是赋值」的现场算式（6 行，含一张按固定字面量比的比较运算符表）问的是
+**这一格符号自己的正文**：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `text === "=" \|\| (text.length > 1 && text.endsWith("=") && !["==", "===", "!=", "!==", "<=", ">="].includes(text))`（**1 处**，`projectExpression` 折逗号那一支找**最左边**那个赋值号） | `one.IsAssignmentSymbol === true` | 基类 `Token` 给 `## property` + `### get`（答 `false`）；`SymbolToken` **显式声明**同一格、`### get` 读**基类那一格 `TextValue`** 现算 |
+
+- **为什么是 `## property` + `### get`、不是 `## field`**：与 `IsEqualsSymbol` / `IsCommaSymbol` /
+  `IsColonSymbol` 同一件事——符号的正文**未必关过**（`let a = 1` 那一格尾巴符号就是
+  `new SymbolToken(…)` + `AppendAndSignOut` + `SignIn`，没有 `TryToClose()`），
+  所以「我这一格是不是赋值」只能**读时现算**；第 1063 轮实测过写成 `## field` 的代价
+  （`coverage` 从 4260 / 4422 掉到 4058 / 4422）。
+- **判据一个字没改**：算式整段搬过去，只把 `text` 换成 `this.TextValue`——两半事实
+  （正文以 `=` 收尾、以及那不是那六个比较运算符）本来就是这一页自己的正文上的事。
+- **它与 `IsEqualsSymbol` 不是同一问**：那一格只认那个等号 `=`，这一格还认那些**复合赋值**
+  （`+=` / `<<=` / `&&=` / `??=` …）并把六个比较运算符排除在外。
+- **顺带收掉那半句守卫**：`one.IsSymbolToken === false` 那一句不再需要——基类给这一格
+  默认 `false`，非符号永远进不来（与第 1118 / 1124 两轮收掉 `IsKeywordUnit` 那半句同一条口径）。
+- **判据这一轮照旧没长**：这一族在 `TextValue` 上，而 `direct:lint` 那几条门只认 `Tag`；
+  **没有**新立一条扫固定字面量的门。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：改的是这一处调用点与说明；
+  新立的那一格在基类与 `SymbolToken` 那一页）。本页今天 **10707 行**（代码块 7796 行，
+  其中不带注释的 4668 行）。
+- **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build core typescript`
+  **3 个产物 / 0 error**（`token` / `symbol-token` / `print-ast-common`）、`npx tsc` 干净；
+  **八道门 7 通过、1 失败**（墙钟 31.5s），读数与第 1106 ~ 1124 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79；唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 **第 1124 轮把「`export` / `declare` / `default` 前缀词」那一对现场算式收进被问的那一页**
 （用户口径 1.1 ~ 1.4：投影要的信息由**具体 token 子类**在自己那一页**显式声明**、在
 **记下正文那一刻**（`Keyword.SetValue`）赋好，读的时候备齐）——本页代码块里还剩两处
@@ -5108,17 +5141,14 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // **判据改成「本层左边有没有一个赋值号」**，取**最左边**那一个——逗号比任何赋值都松，
       // 切点就该落在最外面那一层赋值上（`x = y = 1, z` 切在第一个 `=`，折出来是 `(x = y = 1), z`）。
       // `a = b + 1` 那一档照旧由下面「这个单元里是逗号吗」挡住，不受影响。
+      // **第 1125 轮**：那个「是不是赋值号」的算式整段收进被问的那一页
+      // （`SymbolToken.IsAssignmentSymbol`，读时现算、读它自己的正文）——原来是本页现场拼的
+      // `text === "=" || (text.length > 1 && text.endsWith("=") && !["==", …].includes(text))`，
+      // 而「我这一格的正文是不是一个赋值（而不是那六个比较运算符）」只有那一页知道。
       let assignAt = -1;
       for (let j = 1; j < at; j++) {
         const one = kids[j];
-        if (one.IsSymbolToken === false) continue;
-        const text = one.TextValue;
-        const isAssign =
-          text === "=" ||
-          (text.length > 1 &&
-            text.endsWith("=") &&
-            !["==", "===", "!=", "!==", "<=", ">="].includes(text));
-        if (isAssign) {
+        if (one.IsAssignmentSymbol === true) {
           assignAt = j;
           break;
         }
