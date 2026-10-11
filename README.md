@@ -347,6 +347,28 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1222 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`a<b>?.[0]` / `a<b>?.(1)` 那一族（实例化表达式后面紧跟一条 `?.` 链）整格丢**（组合扫描 37 → 21、十六条续写一格全收）；1.2 又一次**如实记下的负结果**（`used` 从 `Set` 换成数组，两读 mean **−7.9 / +0.1ms**，**已回退**）
+
+**一句话**：1.1 把上一轮那一族的**下一格**收掉——0a 看前两格就 `return`，尾巴那格 `?.` 落到 `foldBinaryFrom` 手上而它不是运算符；补法是**把它交给链那一支的同一份实现**（`chainWithOptional`），不新写折法。1.2 试的是「每个声明少造一个 `Set`」，两读反向 ⇒ 回退、留注。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 投影 0a 那一支：尾巴第一格是 `NullConditionalOperator` 时交给 `chainWithOptional`，剩下的兄弟再交给 `foldBinaryFrom` | 组合扫描：对不上 **37 → 21**、对上 833 → **849**、新坏 0；十六条续写全收 |
+| **1.2** | 试：`structuralProps` 的 `used` 从 `Set` 换成数组（`push` / `includes`） | 30 趟 mean **−7.9ms**（16:9）、40 趟 mean **+0.1ms**（20:17）⇒ **回退** |
+
+**1.1 的现场**：`a<b>?.[0]` 的产物是 `[Identifier(a), GenericType(<b>), NullConditionalOperator(…)]` **三格**，而 0a 那一支（第 850 / 888 / 977 / 1220 轮一格一格长出来的实例化表达式那一支）只看**前两格**就 `return`：`const rest = kids.slice(2); return foldBinaryFrom(self, rest, ctx);`——而 `foldBinaryFrom` 开头一句就是 `rest.length < 2 || !rest[0].IsOperatorUnit` 就原样返回 `left`，`?.` **不是运算符** ⇒ 那一格整格丢（实测投出来只有一条 `ExpressionWithTypeArguments`，TS 是 `ElementAccessExpression > [ExpressionWithTypeArguments, QuestionDotToken, …]`）。
+**补法**：认出这一格是「链的续接」时交给链那一支的**同一份实现** `chainWithOptional`（剩下的兄弟再交给 `foldBinaryFrom`）——与 0a0 / NCO 那几支的收尾**同一个形状**，所以这里没有第二份折法，只是把这一格递对了地方（口径 1.6：同一件事一处实现）。
+
+**1.1 的读数**：十六种续写同根——`?.[0]` / `?.(1)` 各带 `.b` / `[0]` / `(1)` / 反引号 / `!` / `as T` / `satisfies T`；新立守卫用例 [`tests/cases/token/expressions/expr-r1222-instantiation-optional.ts`](tests/cases/token/expressions/expr-r1222-instantiation-optional.ts) 单跑 **TS 节点 165、投影节点 165，缺 0 漂 0 多 0 字段 0**。
+
+**1.2 的现场与读数（负结果）**：`structuralProps` 里 `used` 是**每一条声明都要造一次**的短表（本节三次 `push`、一次 `includes`，键都是短串、表只有几个元素），看上去「数组比 `Set` 便宜」。判据与次序一个字没改、两边投影的 JSON 逐字节相同、八道门全绿。**但墙钟两读反向、都在噪声里**：`tmp/r1222-ab.mjs` 30 趟配对差 mean **−7.9ms**、16 趟更快 / 9 趟更慢（sd 42.5、se 7.8）；40 趟 mean **+0.1ms**、**20 : 17**（se 6.3）⇒ 按「一次没量出来的改动不留」的口径**整笔回退**，读数写进 `print-ast-common.xl.md` 那一格的注里。
+
+**连续两轮的 1.2 都是负结果之后留给下一轮的方向**（量出来的，不是猜的）：`print ast` 剖面（`tmp/r1220-prof-ast` / `tmp/r1221-prof-ast`）里现在最大的一格是 **`ToJsonText`＝`JSON.stringify(ast)` 12.1%**（产物 3.5 MB），其后是 `projectTypeExpression` 3.5% / `structuralProps` 2.9% / `projectEachIn` 2.7% / `GC` 3.7%；而 `parse` 那一侧的两条热点环路从来没被「按字符 / 按规则分档」碰过：`ProcessChar` **2119425** 次、`ApplyTo` **1924766** 次（内层 5248548 次 `Previous`，`tmp/r1222-count.mjs`）——第 1217 轮在**跳转分支**那一侧按「当前字符」先挡一次省了 527 万次 `Condition`，**闭规则**这一侧还没有对应的一格（要动它得先让每一页声明自己的「触发字符」，那是十几页的量）。
+
+**净账**：`cases:tsast` 语料里一条 `xl:known-gap` 都没有（0 条还开着 / 0 条收掉）；`cases:direct` 全语料不抛异常（1670 份）；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1683** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4291 / 4449**（blocked 25、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；`npx tsc`（strict）0 error；八道门墙钟 **28.5s**。`tmp/r1203-bench.mjs`（best of 5）：printAst **100.8 ms**、parse 1003.6、xml 43.8。**全语料 2081 份**（第 1219 轮那份产物 vs 现版）逐字节同答 **2078** 份，三份不同的是第 1220 / 1221 / 1222 三轮新加的那三份用例。
+
+**两条 commit**：`34f438f1`（1.1 `?.` 那一格递对地方）、`847e5b28`（1.2 的负结果与回退）。
+
 ### 第 1221 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`new C()`t`` 那一族（标签是一格 `New`）模板整格丢**（组合扫描 49 → 37、十二条续写一格全收）；1.2 是一次**如实记下的负结果**（对象展开替 `Object.assign`，两读 mean **+7.7 / −0.1ms**，**已回退**）
 
 **一句话**：1.1 只立了一格属性——`New` 自己声明 `IsTagBaseNode`（那张名单里本来就有这一档，缺的是「被问的那一页自己声明」）；1.2 试的是「少造一两个短命对象」，两读反向、都在噪声里，按「一次没量出来的改动不留」的口径整笔回退。
