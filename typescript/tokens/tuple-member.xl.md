@@ -462,15 +462,15 @@ return result;
   if (nameNode !== undefined) {
     props.name =
       nameNode.Tag === "Keyword" && nameNode.TextValue === "this"
-        ? { kind: "Identifier", text: "this", pos: ctx.StartOf(nameNode), end: ctx.EndOf(nameNode) }
+        ? { kind: "Identifier", text: "this", pos: nameNode.start, end: nameNode.end }
         : ctx.Project(nameNode);
   }
   if (dots !== undefined) {
     props.dotDotDotToken = {
       kind: "DotDotDotToken",
       text: "...",
-      pos: ctx.StartOf(dots),
-      end: ctx.StartOf(dots) + 3,
+      pos: dots.start,
+      end: dots.start + 3,
     };
   } else if (spread !== undefined) {
     props.dotDotDotToken = ctx.Project(spread);
@@ -490,7 +490,7 @@ return result;
           .KidsOf(optional, "children")
           .find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "?");
         if (mark !== undefined) {
-          const at = ctx.StartOf(mark);
+          const at = mark.start;
           props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
         }
       } else if (flat !== undefined) {

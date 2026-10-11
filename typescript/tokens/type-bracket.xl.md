@@ -476,8 +476,8 @@ return result;
     const whole = ctx.TypeExpression(kids);
     return ctx.NodeHead("IndexedAccessType", { objectType: whole }, v);
   }
-  const objectUnits = kids.filter((k: any) => ctx.StartOf(k) < open);
-  const indexUnits = kids.filter((k: any) => ctx.StartOf(k) >= open);
+  const objectUnits = kids.filter((k: any) => k.start < open);
+  const indexUnits = kids.filter((k: any) => k.start >= open);
   const props: any = {};
   const objectType = ctx.TypeExpression(objectUnits);
   const indexType = ctx.TypeExpression(indexUnits);

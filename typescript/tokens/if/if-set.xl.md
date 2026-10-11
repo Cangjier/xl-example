@@ -232,7 +232,7 @@ ifSet.MountCondition(source);
   }
   const build = (index: number): any => {
     const props: any = {};
-    const seg = { start: ctx.StartOf(segments[index]), end: ctx.EndOf(segments[index]) };
+    const seg = { start: segments[index].start, end: segments[index].end };
     const expr = conditionOf(segments[index]);
     if (expr !== undefined) props.expression = expr;
     const thenBody = ctx.BlockOfBody(bodyOf(segments[index]),

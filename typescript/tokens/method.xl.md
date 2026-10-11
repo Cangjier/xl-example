@@ -483,9 +483,9 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
     let end = ctx.StmtEndOf(v);
     if (parenAt >= 0) {
       const ownArgs = kids.find(
-        (k: any) => k.Tag === "Bracket" && k.startBracket === "(" && ctx.StartOf(k) >= parenAt,
+        (k: any) => k.Tag === "Bracket" && k.startBracket === "(" && k.start >= parenAt,
       );
-      if (ownArgs !== undefined) end = Math.max(end, ctx.EndOf(ownArgs));
+      if (ownArgs !== undefined) end = Math.max(end, ownArgs.end);
     }
     if (ncos.length === 0 && innerCall !== undefined && innerCall === kids[0]) {
       const rest = kids.filter((k: any) => k !== innerCall && k.Tag !== "GenericType");
@@ -520,7 +520,7 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
         k !== anonymousCallee &&
         k.Tag === "Bracket" &&
         k.startBracket === "(" &&
-        ctx.StartOf(k) >= ctx.EndOf(anonymousCallee),
+        k.start >= anonymousCallee.end,
     );
     if (ownCall !== undefined) {
       const at = kids.indexOf(ownCall);
@@ -530,7 +530,7 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
   const generic = kids.find((k: any) => k.Tag === "GenericType");
   const parenAfterCallee = this.ParenAt;
   const typeArgumentGeneric =
-    generic !== undefined && parenAfterCallee >= 0 && ctx.StartOf(generic) < parenAfterCallee
+    generic !== undefined && parenAfterCallee >= 0 && generic.start < parenAfterCallee
       ? generic
       : undefined;
   const args = flatKids.filter(
@@ -538,7 +538,7 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
       k !== anonymousCallee &&
       k !== typeArgumentGeneric &&
       (k.Tag !== "Bracket" ||
-        (ctx.StartOf(k) >= calleeEnd && (ctx.Kids(k).length > 0 || (flatKids[0] !== k && anonymousCallee === undefined)))),
+        (k.start >= calleeEnd && (ctx.Kids(k).length > 0 || (flatKids[0] !== k && anonymousCallee === undefined)))),
   );
   const calleeKid = kids.length > 0 ? kids[0] : undefined;
   const calleeComesFirst =
@@ -582,17 +582,17 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
     (k: any) =>
       k.Tag === "Bracket" &&
       k.startBracket === "(" &&
-      ctx.StartOf(k) >= calleeEnd &&
+      k.start >= calleeEnd &&
       ctx.Kids(k).length === 0,
   );
   const callNode = { kind: "CallExpression", ...props };
-  if (trailingCall !== undefined && callNode.end < ctx.EndOf(trailingCall)) {
+  if (trailingCall !== undefined && callNode.end < trailingCall.end) {
     return {
       kind: "CallExpression",
       expression: callNode,
       arguments: [],
       pos: callNode.pos,
-      end: ctx.EndOf(trailingCall),
+      end: trailingCall.end,
     };
   }
   return callNode;

@@ -464,6 +464,12 @@ const CTX_BANNED = [
   // 免得下一轮有人往 `ctx` 里补一行再把「替它拼节点」请回来。
   "AddModifiers",
   "Decorators",
+  // **第 1168 轮再补两个出口名**：`StartOf` / `EndOf`——它们的实现是**恒等调用**
+  // （`(node) => node.start` / `node.end`，与第 1159 轮从本页删掉的同名两格 helper 逐字相同），
+  // 全仓代码块 69 处调用点一并换成属性读。出口删了就补进这张表：下一轮谁想往 `ctx` 里
+  // 再挂一个「替某一页读坐标」的转手，写回来这一门当场红。
+  "StartOf",
+  "EndOf",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。
@@ -750,6 +756,39 @@ for (const file of files) {
   violations.push({
     file: path.relative(root, file),
     why: `\`AllKids\` 又出现在代码行里（${hits} 处）——那一格第 1161 轮整格删掉了（读一次造一张数组）；要那一批子单元的读者就地扫各段与 \`children\`，历史写在那两格的注释里`,
+  });
+}
+
+/**
+ * **「替某一页读坐标」那两个出口不许回来**（第 1168 轮，用户口径 1.6 / 1.7）。
+ *
+ * `ctx.StartOf` / `ctx.EndOf` 第 181 轮挂上来的实现是**恒等调用**
+ * （`(node) => node.start` / `node.end`）——它们与第 1159 轮从 `print-ast-common` 里删掉的
+ * 同名两格 helper（全页 242 处调用点）**逐字相同**：一次不改变任何东西的函数调用。
+ * 第 1159 轮只删了**本页自己那一份**（那 242 处换成属性读），而 `ctx` 上这两个出口
+ * 还留给别的页用——第 1168 轮把全仓代码块里 **69 处**（`StartOf` 30 / `EndOf` 39）一并
+ * 换成属性读，两个出口删掉。
+ *
+ * **为什么它必须是门**：出口删了，前面那几条方法体判据就永远绿（它们守的是「谁写了什么」，
+ * 而这一层今天**拿不到**这个能力）——能重新把它请回来的只有「往 `ctx` 里补一行」，
+ * 而那一行 `CTX_BANNED` 已经看着了。这一条看着的是**用法**：谁把 `x.start` 又写回成
+ * `ctx.StartOf(x)`，当场红。口径与 `REMOVED_LAYER` / `ALL_KIDS_REMOVED` 同款：
+ * 只看全仓 `*.xl.md` 的 **`ts` 代码块**、只数**非注释行**（散文与注释里写着它们的历史，
+ * 那是记录）。
+ */
+const CTX_COORD_EXITS_REMOVED = /\bctx\.(?:StartOf|EndOf)\s*\(/;
+let coordExitHits = 0;
+for (const file of files) {
+  const text = fs.readFileSync(file, "utf8");
+  const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => m[1]).join("\n");
+  if (code === "") continue;
+  const live = code.split("\n").filter((line) => !line.trimStart().startsWith("//")).join("\n");
+  const hits = (live.match(new RegExp(CTX_COORD_EXITS_REMOVED, "g")) ?? []).length;
+  if (hits === 0) continue;
+  coordExitHits += hits;
+  violations.push({
+    file: path.relative(root, file),
+    why: `\`ctx.StartOf\` / \`ctx.EndOf\` 又出现在代码行里（${hits} 处）——这两个出口第 1168 轮删掉了（恒等调用）；取坐标读它自己的 \`x.start\` / \`x.end\``,
   });
 }
 
@@ -1717,6 +1756,11 @@ console.log(
 // 「一张现拼的全表」不许再长回 token 页上——要它的读者就地扫各段与 `children`。
 console.log(
   `「含 trivia 的完整子单元表」又长回 token 页上（AllKids）：${allKidsHits} 处（0 处才是对的，读者就地扫各段与 children）`,
+);
+// **「替某一页读坐标」那一族**（第 1168 轮）：`ctx.StartOf` / `ctx.EndOf` 是恒等调用，
+// 出口删掉之后，全仓代码块里 `x.start` / `x.end` 不许再写回成它们。
+console.log(
+  `「替某一页读坐标」（ctx.StartOf / ctx.EndOf）：${coordExitHits} 处（0 处才是对的，取坐标读它自己的 x.start / x.end）`,
 );
 if (verbose) {
   for (const one of directPages) console.log(`  direct  ${one.file}:${one.line}`);

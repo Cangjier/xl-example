@@ -304,7 +304,7 @@ return true;
   const elements: Array<any> = [];
   let group: Array<any> = [];
   const list = ctx.Kids(v);
-  let lastEnd = ctx.StartOf(v) + 1;
+  let lastEnd = v.start + 1;
   // **上一个逗号的下标**（第 933 轮）：洞的起点是「**前一个逗号**之后那一格」——
   // `[1, , 2]` 的两个洞在 TS 那边是 `[13,13)` 与 `[15,15)`，而每个洞都是零宽的。
   let previousSeparator = -1;
@@ -324,11 +324,11 @@ return true;
       if (one !== undefined) {
         elements.push(one);
       }
-      lastEnd = ctx.EndOf(group[group.length - 1]);
+      lastEnd = group[group.length - 1].end;
     }
     group = [];
     if (separator !== undefined) {
-      previousSeparator = ctx.StartOf(separator);
+      previousSeparator = separator.start;
     }
   };
   for (const item of list) {

@@ -3364,7 +3364,10 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 而 TS 的 `Identifier(outer)` 是 `[0,5)`——所以按**名字宽度**切，不从标签单元直接抄。
 
 ```ts
-  const text = String(labelUnit.label ?? "");
+  // **名字那一格由被问的那一格自己答**（第 1168 轮）：`Label` 那一页显式声明了
+  // `## property LabelText:string`（就是它自己那个 `label` 字段、默认空串），所以这里
+  // 不再写 `String(labelUnit.label ?? "")`——「它是字符串、没有名字时是空串」是编译期就知道的事。
+  const text = labelUnit.LabelText;
   const at = labelUnit.start;
   return {
     kind: "LabeledStatement",
@@ -10036,8 +10039,13 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // **`PrintAst` 收到的 `v` 就是那一格 token 自己**（见 `projectNode` 开头那句
     // `const v = node`），坐标读的就是它自己的 `start` / `end` 两个属性——
     // 搬迁过去的代码里 `v.start` / `v.end` 就是这么用的。
-    StartOf: (node) => node.start,
-    EndOf: (node) => node.end,
+    // **`StartOf` / `EndOf` 这两个出口第 1168 轮删掉了**：它们的实现是**恒等调用**
+    // （`(node) => node.start` / `node.end`，就是上面那两行注释说的那两格属性）——一次不改变
+    // 任何东西的函数调用（用户口径 1.6：投影成本趋于 0）。全仓代码块里 **69 处**调用点
+    // （`StartOf` 30 / `EndOf` 39）一处一处换成属性读 `x.start` / `x.end`（实参按括号配平整个取出；
+    // 六处实参带下标或三元式的一并手工改）。两个名字补进 `direct:lint` 的 `CTX_BANNED`，
+    // 并且**新立一条判据**把这一族挡在门外（`ctx.StartOf(` / `ctx.EndOf(` 在全仓代码块里 = 0 处）：
+    // 出口删了，前面那几条方法体判据就永远绿——守这句话的只能是「这一层拿不到它」。
     StmtEndOf: (view) => stmtEndOf(view, ctx),
     // **尾分号那一格的出口**（第 840 轮）：`declare module "mm";` 那个 `;` 到达时
     // 声明早已成形（收尾规则问「简写」的那一刻列表只到名字），所以它由**投影侧**

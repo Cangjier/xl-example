@@ -324,10 +324,10 @@ return index;
     : kids.find(
         (k: any) =>
           (k.Tag === "Bracket" || k.Tag === "ObjectLiteral")
-          && ctx.StartOf(k) === braceOpen,
+          && k.start === braceOpen,
       );
   if (braceOpen >= 0 && equals === undefined && namedBrace === undefined) return undefined;
-  const braceClose = namedBrace === undefined ? -1 : ctx.EndOf(namedBrace) - 1;
+  const braceClose = namedBrace === undefined ? -1 : namedBrace.end - 1;
   const end = ctx.SemicolonEndOf(ctx.StmtEndOf(v));
   // —— 从这里起才投节点 ——
   const props: any = {};
@@ -362,15 +362,15 @@ return index;
           kind: "AssertEntry",
           name: nameUnit.NameNode,
           value: valueUnit === undefined ? undefined : ctx.Project(valueUnit),
-          pos: ctx.StartOf(nameUnit),
-          end: valueUnit === undefined ? ctx.EndOf(nameUnit) : ctx.EndOf(valueUnit),
+          pos: nameUnit.start,
+          end: valueUnit === undefined ? nameUnit.end : valueUnit.end,
         });
       }
       props.assertClause = {
         kind: "AssertClause",
         elements,
-        pos: ctx.StartOf(word),
-        end: ctx.EndOf(brace),
+        pos: word.start,
+        end: brace.end,
       };
       assertUnits.push(word, brace);
     }
@@ -389,8 +389,8 @@ return index;
       equalsProps.moduleReference = {
         kind: "ExternalModuleReference",
         expression: innerString === undefined ? undefined : ctx.Project(innerString),
-        pos: ctx.StartOf(callNode),
-        end: ctx.EndOf(callNode),
+        pos: callNode.start,
+        end: callNode.end,
       };
     } else {
       const names = kids.filter(
@@ -407,8 +407,8 @@ return index;
   if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
   // **`ImportClause` 的起点**：type-only 读 `TypeWordAt`（上面已经确认它记过），
   // 其余读子句第一格的起点——与 `PrintAst` 同一份判据，只是不再回原文跳空白。
-  const clauseStart = isTypeOnly ? typeWordAt : ctx.StartOf(clause[0]);
-  const clauseEnd = ctx.EndOf(clause[clause.length - 1]);
+  const clauseStart = isTypeOnly ? typeWordAt : clause[0].start;
+  const clauseEnd = clause[clause.length - 1].end;
   const clauseProps: any = {};
   const star = kids.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "*");
   const names = clause.filter((k: any) => k.Tag === "Identifier" && k.TextValue !== "as");
@@ -417,15 +417,15 @@ return index;
     clauseProps.namedBindings = {
       kind: "NamespaceImport",
       name: nsName === undefined ? undefined : ctx.Project(nsName),
-      pos: ctx.StartOf(star),
+      pos: star.start,
       end: clauseEnd,
     };
     const defaultName = names.find(
-      (k: any) => ctx.StartOf(k) < ctx.StartOf(star) && k.TextValue !== "defer",
+      (k: any) => k.start < star.start && k.TextValue !== "defer",
     );
     if (defaultName !== undefined) clauseProps.name = ctx.Project(defaultName);
   } else if (braceClose >= 0) {
-    const defaultName = names.find((k: any) => ctx.StartOf(k) < braceOpen);
+    const defaultName = names.find((k: any) => k.start < braceOpen);
     if (defaultName !== undefined) clauseProps.name = ctx.Project(defaultName);
     clauseProps.namedBindings = {
       kind: "NamedImports",

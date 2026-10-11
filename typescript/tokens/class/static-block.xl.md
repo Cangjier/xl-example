@@ -136,7 +136,7 @@ unit.AddToMounted(block);
   const statements = ctx.ProjectEach(ctx.Kids(v), "Block");
   const rawBrace = v.braceAt;
   const brace = typeof rawBrace === "number" ? rawBrace : -1;
-  const close = ctx.EndOf(v);
+  const close = v.end;
   const body =
     brace >= 0 && close > brace ? { kind: "Block", statements, pos: brace, end: close } : undefined;
   return ctx.NodeHead("ClassStaticBlockDeclaration", body === undefined ? {} : { body }, v);

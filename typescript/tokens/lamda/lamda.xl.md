@@ -1001,7 +1001,7 @@ Lambda 表达式。
       kind: "Block",
       statements: ctx.ProjectEach(raw, "Block"),
       pos: braceAt,
-      end: braceEnd >= 0 ? braceEnd : ctx.EndOf(v),
+      end: braceEnd >= 0 ? braceEnd : v.end,
     };
   } else {
     const flat: any[] = [];

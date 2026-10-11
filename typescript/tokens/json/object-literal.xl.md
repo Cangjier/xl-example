@@ -203,8 +203,8 @@ Json 对象。
       properties.push({
         kind: "SpreadAssignment",
         expression: inner.length > 0 ? ctx.Expression(inner) : undefined,
-        pos: ctx.StartOf(first),
-        end: ctx.EndOf(first),
+        pos: first.start,
+        end: first.end,
       });
       continue;
     }
@@ -230,8 +230,8 @@ Json 对象。
           properties.push({
             kind: "ShorthandPropertyAssignment",
             name: one,
-            pos: ctx.StartOf(group[0]),
-            end: ctx.EndOf(group[0]),
+            pos: group[0].start,
+            end: group[0].end,
           });
         }
       } else {
@@ -254,16 +254,16 @@ Json 对象。
             ? {
                 kind: "NumericLiteral",
                 text: nameUnits[0].TextValue,
-                pos: ctx.StartOf(nameUnits[0]),
-                end: ctx.EndOf(nameUnits[0]),
+                pos: nameUnits[0].start,
+                end: nameUnits[0].end,
               }
             : nameUnits[0].NameNode
           : ctx.Expression(nameUnits)
         : {
             kind: "ComputedPropertyName",
             expression: ctx.ComputedNameExpression(computed),
-            pos: ctx.StartOf(computed),
-            end: ctx.EndOf(computed),
+            pos: computed.start,
+            end: computed.end,
           };
     // **终点是值那一格的终点，不是「最后一格的终点」**（第 923 轮）：值单元自己可能
     // **含尾随 trivia**——`{ f: () => ({ v: 1 })/*c*/ }` 里那条注释落在箭头的体里
@@ -273,12 +273,12 @@ Json 对象。
     // 在语句族与 `Let` 上用过同一条），这里直接借它，不另写一份「往回吃注释」的循环。
     const initializer = valueUnits.length > 0 ? ctx.Expression(valueUnits) : undefined;
     const propertyEnd =
-      initializer === undefined ? ctx.EndOf(group[group.length - 1]) : initializer.end;
+      initializer === undefined ? group[group.length - 1].end : initializer.end;
     properties.push({
       kind: "PropertyAssignment",
       name,
       initializer,
-      pos: ctx.StartOf(group[0]),
+      pos: group[0].start,
       end: propertyEnd,
     });
   }

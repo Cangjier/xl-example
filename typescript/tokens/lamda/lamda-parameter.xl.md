@@ -95,15 +95,15 @@ Lambda 的一个形参。
     props.dotDotDotToken = {
       kind: "DotDotDotToken",
       text: "...",
-      pos: ctx.StartOf(dots),
-      end: ctx.StartOf(dots) + 3,
+      pos: dots.start,
+      end: dots.start + 3,
     };
   } else if (rest !== undefined) {
     props.dotDotDotToken = ctx.Project(rest);
   }
   return {
     kind: "Parameter",
-    pos: kids.length > 0 ? ctx.StartOf(kids[0]) : v.start,
+    pos: kids.length > 0 ? kids[0].start : v.start,
     end: ctx.StmtEndOf(v),
     ...props,
   };

@@ -782,10 +782,10 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   const abstractUnit = kids.find((k: any) => k.TextValue === "abstract");
   if (kind === "ConstructSignature" && abstractUnit !== undefined) {
     kind = "MethodSignature";
-    const at = ctx.StartOf(abstractUnit);
+    const at = abstractUnit.start;
     props.modifiers = [
       ...(props.modifiers ?? []),
-      { kind: "AbstractKeyword", text: "abstract", pos: at, end: ctx.EndOf(abstractUnit) },
+      { kind: "AbstractKeyword", text: "abstract", pos: at, end: abstractUnit.end },
     ];
     const newAt = this.NewAt;
     if (newAt >= 0) {

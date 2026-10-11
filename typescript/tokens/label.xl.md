@@ -356,6 +356,21 @@ return nextIndex + kept.length;
 
 标签名。
 
+## property LabelText:string
+
+**这一格的名字，直接给出来**（第 1168 轮）：就是本页那个 `label` 字段。
+
+**为什么要有这一格**（用户口径 1.2 / 1.3 / 1.6）：`label` 是**本页自己声明、构造时赋好**的一格，
+类型就是 `string`；而投影那一侧两处（`print-ast-common.xl.md` 的 `labeled` 与**本页自己的
+`PrintAst`**）都写着 `String(… ?? "")`——把编译期就知道的「它是字符串、默认空串」在运行期
+又问了一遍。两处读这一格，名字那一格因此只有一个入口。
+
+### get
+
+```ts
+return this.label;
+```
+
 ## method ToXmlString:()=>string
 
 产出标签：`<Label label="outer">…</Label>`；**还没包住语句时**是自闭合的 `<Label label="outer" />`。
@@ -382,7 +397,9 @@ return `<${name} range="${this.RangeOf()}" label="${this.label}">${temp.join("")
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
-  const text = String(v.label ?? "");
+  // **名字那一格由本页自己答**（第 1168 轮）：`String(v.label ?? "")` 换成了 `v.LabelText`
+  // ——`label` 就是本页 `## field label:string = ""` 那一格，编译期就知道它是字符串、默认空串。
+  const text = v.LabelText;
   const props: any = {
     label: { kind: "Identifier", text, pos: v.start, end: v.start + text.length },
   };

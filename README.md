@@ -347,6 +347,38 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1168 轮：用户口径 1.2 / 1.3 / 1.5 / 1.6 / 1.7 —— 两个**恒等调用**出口 `ctx.StartOf` / `ctx.EndOf` 删掉（全仓代码块 **69 处**调用点改成属性读），并新立一条扫全仓代码块的判据把这一族挡在门外
+
+**一句话**：`ctx.StartOf` / `ctx.EndOf` 的实现就是 `(node) => node.start` / `node.end`
+——**一次不改变任何东西的函数调用**（与第 1159 轮从 `print-ast-common` 里删掉的那两格 helper
+逐字相同，那一轮只删了本页自己那一份的 242 处调用点）。第 1168 轮把**别的页**在用的
+这一族也收干净，出口随之删掉：
+
+| 原来的写法 | 今天 |
+| --- | --- |
+| `ctx.StartOf(x)` / `ctx.EndOf(x)`（全仓代码块 **69 处**：`StartOf` 30 / `EndOf` 39，分布在 15 个文件） | 属性读 `x.start` / `x.end`（实参按**括号配平**整个取出；六处实参是下标或三元式的手工改：`segments[index].start` / `clause[clause.length - 1].end` / `group[group.length - 1].end` / `(catchDefine !== undefined ? catchDefine : catchBody).start`） |
+| `StartOf: (node) => node.start,` / `EndOf: (node) => node.end,`（`ctx` 表里两行） | **两行删掉**，两个名字补进 `direct:lint` 的 `CTX_BANNED` |
+| `Label` 那一页与 `print-ast-common` 的 `labeled` 各自写一遍 `String(…label ?? "")` | **`Token.LabelText`**（`label.xl.md` 的 `## property` + `### get`：就是本页那个 `field label:string = ""`）——「它是字符串、没有名字时是空串」是编译期就知道的事（用户口径 1.5 / 1.6） |
+
+- **为什么必须是门**：出口删了，前面那几条方法体判据就**永远绿**（它们守的是「谁写了什么」，
+  而这一层今天拿不到这个能力）。所以同一轮新立一条**扫全仓代码块**的判据
+  （`CTX_COORD_EXITS_REMOVED`）：`ctx.StartOf(` / `ctx.EndOf(` 在 `core` / `typescript` /
+  `runtime` / `typescript-exec` 的 `ts` 代码块里 = **0 处**（只数非注释行——散文与注释里写着
+  它们的历史，那是记录）。口径与 `REMOVED_LAYER` / `ALL_KIDS_REMOVED` 同款。
+- **等价怎么证的**：`cases:tsast` **16 片全过、41890 个投影节点 100% 对齐（字段名也 100%）**、
+  `samples` **逐字节一致**、`cases:direct` 1640 份不抛异常、`cases:check` 1656 / 1656；
+  八道门读数与第 1106 ~ 1167 轮**逐项相同**（唯一红的那一道仍是**尺子不是门**的 `coverage`：
+  `4260 / 4422`、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）。
+- **本页的声明数**：**55 格**（一格没增、一格没减：删掉的是 `ctx` 表里两行出口，不是声明）。
+  **不带注释的代码行**：**3950 → 3948**（量法与第 1164 ~ 1167 轮同一条）。
+- **实测**：`xl check typescript core` 0 条；`xl build core typescript`（`--force` 后）
+  **156 个产物 / 0 error**、`npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 32.8s），
+  那一条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+- **一处环境坑（记下来免得下一位重走）**：`coverage` 那一道会先比对**产物是否比源新**
+  （`core/syntax/token.xl.md 比产物新 → 跑 xl_build --force`）——上一轮改过的那几页如果这一轮
+  没重建，它就**不是**报覆盖率而是直接报陈旧。所以改完之后一遍 `xl_build --force core typescript`
+  加一遍 `npx tsc` 是必须的，缺一步这道门会以完全不同的理由红。
+
 ### 第 1167 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 「把修饰词 / 装饰器拼成一串节点」那一格 `addModifiers`（48 行）**整格搬回被问的那一格**，`ctx.AddModifiers` / `ctx.Decorators` 两个出口一并删掉
 
 **一句话**：`print-ast-common` 的 `addModifiers(v, props, ctx)` 做的是**投影层的活**

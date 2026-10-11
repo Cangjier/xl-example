@@ -234,8 +234,8 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     const literal = {
       kind: "StringLiteral",
       text: content === undefined ? "" : content.TextValue,
-      pos: ctx.StartOf(stringUnit),
-      end: ctx.EndOf(stringUnit),
+      pos: stringUnit.start,
+      end: stringUnit.end,
     };
     props.argument = { kind: "LiteralType", literal, pos: literal.pos, end: literal.end };
   }
@@ -266,15 +266,15 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
           kind: "AssertEntry",
           name: nameUnit.NameNode,
           value: valueUnit === undefined ? undefined : ctx.Project(valueUnit),
-          pos: ctx.StartOf(nameUnit),
-          end: valueUnit === undefined ? ctx.EndOf(nameUnit) : ctx.EndOf(valueUnit),
+          pos: nameUnit.start,
+          end: valueUnit === undefined ? nameUnit.end : valueUnit.end,
         });
       }
       props.attributes = {
         kind: "AssertClause",
         elements,
-        pos: ctx.StartOf(brace),
-        end: ctx.EndOf(brace),
+        pos: brace.start,
+        end: brace.end,
       };
     }
   }
@@ -297,7 +297,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   return {
     kind: "ImportType",
     pos: v.start,
-    end: generic === undefined ? v.end : ctx.EndOf(generic),
+    end: generic === undefined ? v.end : generic.end,
     ...props,
   };
 ```

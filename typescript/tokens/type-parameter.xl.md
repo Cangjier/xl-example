@@ -568,7 +568,7 @@ rebuilt.push(parameter);
       if (kind === undefined) {
         return ctx.Project(k);
       }
-      return { kind, text: word, pos: ctx.StartOf(k), end: ctx.EndOf(k) };
+      return { kind, text: word, pos: k.start, end: k.end };
     });
   }
   // **收尾：把被包进联合的约束补全**（见上面 `wrapped`）：只在**确实有 `extends`** 时重建约束
@@ -611,8 +611,8 @@ rebuilt.push(parameter);
         // ⇒ 每一处记「漂移 1 + 多出 1」
         //（真实语料 `vm.d.ts` / `fs.d.ts` / `querystring.d.ts` / `lib.es5.d.ts` / `globals.ts`
         // 五份一共 14 + 18 + 3 + 11 + 16 处）。
-        pos: ctx.StartOf(wrapped),
-        end: ctx.EndOf(wrapped),
+        pos: wrapped.start,
+        end: wrapped.end,
       };
     }
   }

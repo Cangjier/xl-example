@@ -289,7 +289,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
         let declType: any = undefined;
         const typeKid = ctx.Kids(catchDefine).find((k: any) => k.Tag === "TypeDefine");
         if (typeKid !== undefined) {
-          declEnd = ctx.EndOf(typeKid);
+          declEnd = typeKid.end;
           const typeUnit = ctx.Kids(typeKid).find((k: any) => !k.IsInvisible);
           if (typeUnit !== undefined) {
             declType = ctx.TypeExpression(ctx.Kids(typeKid));
@@ -301,11 +301,11 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
       }
     }
     if (catchBody !== undefined) inner.block = ctx.Project(catchBody);
-    const at = this.CatchWord.Value >= 0 ? this.CatchWord.Value : ctx.StartOf(catchDefine !== undefined ? catchDefine : catchBody);
+    const at = this.CatchWord.Value >= 0 ? this.CatchWord.Value : (catchDefine !== undefined ? catchDefine : catchBody).start;
     props.catchClause = {
       kind: "CatchClause",
       pos: at,
-      end: catchBody !== undefined ? ctx.EndOf(catchBody) : ctx.EndOf(catchDefine),
+      end: catchBody !== undefined ? catchBody.end : catchDefine.end,
       ...inner,
     };
   }
