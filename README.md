@@ -347,6 +347,49 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1177 轮：用户口径 1.3 / 1.6 —— 共享投影页里那三处「回原文读一个字符」收掉（`projectLetFrom` 的尾分号 → 新立 `Token.ProjectionEndBeforeSemicolon`、`projectDeclaration` 的两格字符 → 读那一格自己的 `Text`）；`ctx.source` 在共享页的读点 **13 → 10**、代码块 3876 行不变、声明 54 格不变
+
+**一句话**：这一轮接着第 1049 / 1053 / 1172 轮那条线——「某一格自己的那一段正文，由它自己答；
+投影手上那个字符串不是第二份来源」。共享页里还剩三处按**坐标**回 `ctx.source` 读字符，
+这一轮把**手上真有 token 的那两处**收干净（第三处真的没有 token，理由记在下面）：
+
+| 原来的现场读法 | 今天 | 谁答 |
+| --- | --- | --- |
+| `projectLetFrom`：`const stmtWhole = container.ProjectionEnd; const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;` | `const stmtEnd = container.ProjectionEndBeforeSemicolon;` | `core/syntax/token.xl.md` 的 `## property ProjectionEndBeforeSemicolon:int`（`### get`：读自己的 `ProjectionEnd` 与自己 `Text` 的那一格字符，用 `charAt`） |
+| `projectDeclaration`：`ctx.source[built.end - 1] === ","` + 同一趟的空白回退 `ctx.source[built.end - 1]` | `v.Text.charAt(built.end - 1 - v.start) === ","` + 同样写法的空白回退 | **就是那一格 token 自己的 `Text`**——`built.end` 是 `astNode(kind, props, v)` 按 `v` 自己的坐标写出来的，所以那两格字符本来就落在 `v` 的区间里（`Text` 从 `v.start` 起算，两头都减 `start`） |
+
+- **等价是并排量出来的**（`tmp/r1177-equiv.mjs` 把新旧两套判据挂在同一句上跑全语料）：
+  逗号那一问进入 **42** 次 / 不一致 **0** 次（`--all` 2051 份：**43 / 0**）；
+  空白回退在这一份语料上一次都没求值（**0** 次，两版逐字同形）；
+  尾分号那一问进入 **1004** 次 / 不一致 **0** 次（`--all`：**12482 / 0**）。
+  八道门读数一处没动是第二份证据。
+- **`ProjectionEndBeforeSemicolon` 与 `SignatureEndStep` 不是同一问**（两者名字里都有「末尾那一格」，
+  所以这一轮的说明里逐条写清）：`SignatureEndStep` 问「我终点**之后**那一格算不算 `;` / `,`」
+  （没有体的可调用签名要把紧跟的分隔符算进区间，第 1172 轮）；`TrailingSemicolonAt` 问
+  「我**区间里面**末字符那个 `;` 在哪」（注释里的 `;` 不算，第 1149 轮）；这一格问
+  「我终点**前面**那一格是不是 `;`」（声明式语句收尾那个终结符，`projectLetFrom` 要把它从
+  「语句整体」的区间里减掉）。
+- **剩下那两处为什么没顺手收掉**：`ownsTrailingSemicolonOf` 里的 `ctx.source[node.end - 1]`
+  与合成语句视图那一支的 `ctx.source[end - 1]`——**它们手上真的没有 token**：
+  `projectEach` 的 `out` 里攒的是**投影节点**、`node.statement` 那种递归也是投影节点，
+  而合成视图本来就不是 `Token`。⇒ 这一族的门要等「投影节点也记得自己出自哪一格」之后才谈得上，
+  这一轮把那句话与**新的实测处数（3 处 / 2 个写点 → 1 处 / 1 个写点）**一起记进
+  `tests/parse/direct-lint.mjs` 那一段留白说明里（判据仍然不立，理由同第 1149 轮）。
+- **共享页里 `ctx.source` 的读点账**（只看非注释的代码行）：**13 → 10**——收掉的三处是
+  `projectDeclaration` 两处与 `projectLetFrom` 一处；剩下的 10 处集中在两簇
+  （`semicolonEndOf` 那一趟跳空白与两种注释 8 处、`ownsTrailingSemicolonOf` 1 处、
+  合成语句视图那一支 1 处），都是第 1049 轮明确留着的「相邻字符 / 扫描游标」读法。
+
+**实测**：`xl check` **0 条**（core + typescript）；`xl build`（插件工具，`--force`）
+**156 written / 0 error**；`npx tsc`（strict）**0 error**；`direct:lint` **0 条违反**
+（75 段全扫到、ctx 出口 **39 个**、声明里 `any` 0 处、投影读的 146 个 PascalCase 属性全部有声明）；
+`cases:direct` 1640 份**不抛异常**、固定样本逐格点名通过（投影 **21793** / token 自己出 **16489** / 75.7%，
+与第 1176 轮逐项相同）；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`samples` ok；
+`cases:check` **1656 条 0 不合格**；`cases:tsast` 16 片 **15 通过 / 1 失败**（仍是 HEAD 上既有的
+`runtime/round741/002`）；`coverage` **4260 / 4422**（blocked 28、differ 134、bad 0、加权 95.7%）。
+本页记账：`typescript/print-ast-common.xl.md` 代码块（不带注释）**3876 行不变**、
+`^# (private )?(method|const|property) ` **54 格不变**（这一轮换的是**读法**，不是声明）。
+
 ### 第 1176 轮：用户口径 1.2 / 1.3 / 1.7 —— 两个「只有一个读者 / 被问那一格自己就答得出来」的出口删掉（`ctx.SwitchClause` 整段搬进 `switch.xl.md`、`ctx.OperatorNode` 收成基类一格 `Token.OperatorWordNode`）；`ctx` 出口 **41 → 39**、代码块 **3915 → 3876** 行、声明 54 格不变
 
 **一句话**：这一轮接着第 1167 / 1174 轮那把尺子——「一格出口只剩一个读者，就是多一层间接；

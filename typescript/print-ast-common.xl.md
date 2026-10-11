@@ -2925,15 +2925,19 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     }
   }
   // **对象字面量成员不吃尾随逗号**（第 142 轮）：见 `projectObjectLiteral` 那一处的说明。
+  // **这两格字符也改读这一格自己的正文**（第 1177 轮，用户口径 1.3 / 1.6）：原来写的是
+  // `ctx.source[built.end - 1]`——回投影手上那个字符串读一个字符；而 `built.end` 落在
+  // **被问的那一格 `v` 自己的区间**里，`Text` 就是 `[start, end)` 那一段，逐字符相同。
+  // 下标两头都减 `start`（`Text` 从 `v.start` 起算），用 `charAt`（越界答空串）。
   const built = astNode(kind, props, v);
   if (
     ctx.inObjectLiteral === true &&
     built !== undefined &&
     typeof built.end === "number" &&
-    ctx.source[built.end - 1] === ","
+    v.Text.charAt(built.end - 1 - v.start) === ","
   ) {
     built.end -= 1;
-    while (built.end > built.pos && WHITESPACE.test(ctx.source[built.end - 1])) built.end -= 1;
+    while (built.end > built.pos && WHITESPACE.test(v.Text.charAt(built.end - 1 - v.start))) built.end -= 1;
   }
   return built;
 ```
@@ -7891,7 +7895,14 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   const namePlaceholderAt = (at: int): any => ({ kind: "ArrayBindingPattern", pos: at, end: at });
   // 外层容器只用来取「语句整体」的区间（`Statement` 含分号、`For` 的段不含）。
   const stmtWhole = container.ProjectionEnd;
-  const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
+  // **末尾那个 `;` 算不算**（第 1177 轮，用户口径 1.2 / 1.3 / 1.6）：这一问过去是现场写的一句
+  // `ctx.source[stmtWhole - 1] === ";"`——回投影手上那个字符串读一个字符。而两件事实都在
+  // **这一格自己**身上（终点是自己的 `ProjectionEnd`、那一格字符在自己那份 `Text` 里），
+  // 所以收成 `core/syntax/token.xl.md` 的 `## property ProjectionEndBeforeSemicolon:int`，
+  // 这里只读一次属性。
+  // **非 token 的合成视图照样同答**：它没有 `ProjectionEnd` ⇒ 读出来 `undefined`，
+  // 与原来 `ctx.source[undefined - 1]`（`NaN` 下标读不到东西）那条路逐格相同。
+  const stmtEnd = container.ProjectionEndBeforeSemicolon;
   const letNode = kids.find((k) => k.IsLetUnit) ?? null;
   // **多声明符**（第 93 轮）：`let a = 1, b = 2` 在 TS 里是**两个 `VariableDeclaration`**
   // （同一个 `VariableDeclarationList.declarations` 的两格），而产物只有一段平铺单元。

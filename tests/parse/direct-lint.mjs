@@ -662,6 +662,19 @@ let ctxBannedHits = 0;
     // 剩下的都是合法读法，判据仍然留白；**被收掉的那一类是「token 自己答得出来的」**：
     // 第 1149 轮把 `projectEach` 里 `ctx.source[endOf(items[i]) - 1] === ";"` 连同那趟
     // 子单元循环收进了 `Token.TrailingSemicolonAt`（见 `core/syntax/token.xl.md`）。
+    //
+    // **第 1177 轮再收掉一处，并再量一遍**：`projectDeclaration` 里那一处原来是
+    // `ctx.source[built.end - 1] === ","` 加同一趟的空白回退——`built.end` 是
+    // `astNode(kind, props, v)` 按 **`v` 自己**的坐标写出来的，所以那两格字符就落在
+    // `v` 自己的区间里 ⇒ 改读 `v.Text.charAt(built.end - 1 - v.start)`
+    // （`Text` 从 `v.start` 起算，两头都减 `start`，`charAt` 越界答空串）。
+    // 同一轮 `projectLetFrom` 里"末尾那个 `;` 算不算"也收进了**被问的那一格**
+    // （`Token.ProjectionEndBeforeSemicolon`，读自己的 `ProjectionEnd` 与自己的 `Text`）。
+    // **实测量在这一段里**：`ctx.source[<…>.end - 1]` 从 **3 处 / 2 个写点** 收到
+    // **1 处 / 1 个写点**——剩下的那一处是 `ownsTrailingSemicolonOf` 的 `node`，
+    // 它**手上真的没有 token**（`out` 里攒的是投影节点，`node.statement` 那种递归也是
+    // 投影节点），所以判据仍然留白：**这一族的门要等「投影节点也记得自己出自哪一格」
+    // 之后才谈得上**（那时这一处也只剩一次属性读）。
 
     for (const match of code.matchAll(TOKEN_TEXT_VIA_SOURCE)) {
       sourceTextHits += 1;

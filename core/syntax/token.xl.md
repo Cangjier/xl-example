@@ -1184,6 +1184,38 @@ while (end > this.start) {
 return end;
 ```
 
+## property ProjectionEndBeforeSemicolon:int
+
+**我的投影终点，末尾那个 `;` 不算**（第 1177 轮）：`ProjectionEnd` 前面那一格字符是 `;` 就退一格，
+否则原样。
+
+**为什么住在 token 上**（用户口径 1.2 / 1.3 / 1.6）：这一问的两件事实都在这一格自己这一侧——
+终点是自己的 `ProjectionEnd`、那一格字符在自己那份 `Text` 里（`Text` 就是 `[start, end)` 那一段，
+与 `SignatureEndStep` 读「终点**之后**那一格」是同一处取、同一把 `charAt`）。
+算式原来在 `print-ast-common.xl.md` 的 `projectLetFrom` 里现场写了一遍
+（`ctx.source[stmtWhole - 1] === ";"`，回投影手上那个字符串读一个字符），第 1177 轮整段搬到这里，
+投影那一侧只读一次属性。
+
+**与 `SignatureEndStep` / `TrailingSemicolonAt` 各是哪一问**：`SignatureEndStep` 问「我终点**之后**
+那一格算不算 `;` / `,`」（没有体的可调用签名要把紧跟的分隔符算进区间）；
+`TrailingSemicolonAt` 问「我**区间里面**末字符那个 `;` 在哪」（注释里的 `;` 不算）；
+这一格问「我终点**前面**那一格是不是 `;`」（声明式语句收尾那个终结符，`projectLetFrom` 要把它
+从「语句整体」的区间里减掉）。
+
+**没签过 / 非 token 的合成视图**：前者两格都给同一批子单元（与原来逐格同答），后者根本没有
+`ProjectionEnd`——读出来是 `undefined`，那正是原来 `ctx.source[undefined - 1]`（`NaN` 下标，
+读不到东西）那条路的答案。
+
+### get
+
+```ts
+const end = this.ProjectionEnd;
+if (end === undefined || end <= this.start) return end;
+// **读的是这一格自己的正文**（第 1049 / 1053 / 1172 轮那几条在这里是同一条）：`Text` 从 `start`
+// 起算，所以下标两头都要减 `start`；用 `charAt`（越界答空串，不是 `-1` 下标那种读法）。
+return this.Text.charAt(end - 1 - this.start) === ";" ? end - 1 : end;
+```
+
 ## private method TrailingTriviaStart:(at:int)=>int | undefined
 
 **收尾 trivia（注释）在这条区间链上的起点**（第 1162 轮）：只在「区间终点正好是这个 `at`」
