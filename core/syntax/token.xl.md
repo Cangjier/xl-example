@@ -1666,6 +1666,74 @@ return false;
 return false;
 ```
 
+## property IsQuestionSymbol:bool
+
+**我这一格是不是那个问号 `?`**（第 1119 轮）——**不是**的一律给 `false`。
+
+投影层的两处现场写法（`structuralProps` 里把可选方法 / 方法签名的 `?` 收成
+`questionToken` 那一格、`ctx.ConditionalNode` 里找条件类型的 `?`）现在都读这一格。
+判据与 `IsColonSymbol` / `IsLessThanSymbol` 同一条口径：**基类给默认档、符号那一页覆写**
+（`SymbolToken.IsQuestionSymbol`，读时现算、读 `TextValue`）。
+
+### get
+
+```ts
+return false;
+```
+
+## property IsSemicolonSymbol:bool
+
+**我这一格是不是那个分号 `;`**（第 1119 轮）——**不是**的一律给 `false`。
+
+投影层的现场写法（`projectExport` 里把尾分号从赋值式导出的表达式里滤掉那一格）现在读这一格。
+同上：收件人是 `SymbolToken` 那一页。
+
+### get
+
+```ts
+return false;
+```
+
+## field IsExtendsKeyword:bool = false
+
+**我这一格的正文是不是 `extends` 那个词**（第 1119 轮）——是的话答 `true`。
+
+过去投影层在 `ctx.ConditionalNode` 的条件类型那一支现场比一次
+（`k.IsNameNode && k.TextValue === "extends"`）——`extends` 在产物里既有 `Keyword` 那一态、
+也有停在 `Identifier` 上的一态，所以两页各写自己认得的词。
+
+## field IsAsKeyword:bool = false
+
+**我这一格的正文是不是 `as` 那个词**（第 1119 轮）——是的话答 `true`。
+
+**它与 `IsNewKeyword` 那四格同一条口径**（第 1118 轮）：过去投影层有两处现场比正文
+（`namedSpecifiersOf` 找 `{ a as b }` 那个 `as`、`namedExportClause` 找
+`export * as ns` 那个 `as`），而「我这一格的正文是什么」只有这一页知道。
+`as` 是**上下文关键字**（`x as T` 那个是运算符单元的事，`import { a as b }` 里
+词法上仍是标识符），所以 `Keyword` 与 `Identifier` 两页各写自己认得的词。
+
+## field IsWithKeyword:bool = false
+
+**我这一格的正文是不是 `with` 那个词**（第 1119 轮）——是的话答 `true`。
+
+过去投影层在 `projectStatement` 的 `with (obj) { … }` 那一支现场比一次
+（`head.IsKeywordUnit && head.TextValue === "with"`）——`with` 在产物里就是 `Keyword`，
+所以这一格由那一页自己在 `SetValue` 里赋好。
+
+## field IsExportKeyword:bool = false
+
+**我这一格的正文是不是 `export` 那个词**（第 1119 轮）——是的话答 `true`。
+
+过去投影层在 `projectExport` 里现场比两次（给赋值式导出补 `ExportKeyword` 那一格、
+把 `export` 从剩下的单元里滤掉那一格）——「我这一格的正文是什么」只有这一页知道。
+
+## field IsDefaultKeyword:bool = false
+
+**我这一格的正文是不是 `default` 那个词**（第 1119 轮）——是的话答 `true`。
+
+与 `IsExportKeyword` 同一支、同一趟赋好（`projectExport` 要按这两个词决定
+`ExportKeyword` / `DefaultKeyword`、以及这是不是一次赋值式导出）。
+
 ## field IsNewKeyword:bool = false
 
 **我这一格的正文是不是 `new` 那个词**（第 1118 轮）——是的话答 `true`。

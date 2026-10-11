@@ -317,6 +317,29 @@ if (last instanceof SymbolToken) {
   return this.TextValue === "#";
 ```
 
+## property IsQuestionSymbol:bool
+
+**我这一格是不是那个问号 `?`**（第 1119 轮）：投影层的两处（可选方法 / 方法签名那个
+`questionToken`、条件类型里的 `?`）过去都现场拼 `k.IsSymbolToken && k.TextValue === "?"`
+——与 `IsColonSymbol` 同一条口径、同一形态。
+
+### get
+
+```ts
+  return this.TextValue === "?";
+```
+
+## property IsSemicolonSymbol:bool
+
+**我这一格是不是那个分号 `;`**（第 1119 轮）：投影层 `projectExport` 里把尾分号从
+赋值式导出的表达式里滤掉那一格过去现场拼 `k.IsSymbolToken && k.TextValue === ";"`——同上。
+
+### get
+
+```ts
+  return this.TextValue === ";";
+```
+
 ## field IsTypeSeparator:bool = false
 
 **我这一格是不是类型成员之间的那个分隔符**（第 1057 轮）：`Token.IsTypeSeparator` 在投影层

@@ -231,6 +231,41 @@ import { Identifier } from "./tokens/identifier.xl.md"
 - **本页的声明数**：**43 格**（**一格没增、一格没减**：改的是 12 处调用点与说明，
   新立的两格属性在基类与 `SymbolToken` 那一页，另外四格在基类与 `Keyword` / `Identifier` 两页）。
 
+**第 1119 轮接着往同一族里收**（用户口径 1.1 ~ 1.4）：第 1118 轮把「按正文比那五个词 /
+两个符号」收进了被问的那两页，本轮收的是**同一条尺子下剩下的那几族**——
+`direct:lint` 那几条门（认 `Tag` 比类名）依旧看不见它们，所以逐处按代码块数出来是
+**6 个词 / 2 个符号、10 处现场写法**：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `head.IsKeywordUnit && head.TextValue === "with"`（**1 处**：`projectStatement` 的 `with (obj) { … }` 那一支） | `head.IsWithKeyword === true` | `Keyword.SetValue` 里赋好（基类默认 `false`） |
+| `["export", "default"].includes(k.TextValue)`（**1 处**：`projectExport` 给赋值式导出收集修饰词） | `k.IsExportKeyword === true \|\| k.IsDefaultKeyword === true` | 同上（两格同一趟） |
+| `word.TextValue === "export" ? "ExportKeyword" : "DefaultKeyword"`（**1 处**：同一个 `map` 里分派） | `word.IsExportKeyword === true ? "ExportKeyword" : "DefaultKeyword"` | 同上 |
+| `k.IsKeywordUnit && k.TextValue === "export"`（**1 处**：把 `export` 从 `rest` 里滤掉） | `k.IsExportKeyword !== true` | 同上（`IsKeywordUnit` 那半句一并收掉） |
+| `k.IsIdentifierUnit && k.TextValue === "as"`（**1 处**：`namedSpecifiersOf` 找 `{ a as b }` 的 `as`） | `k.IsIdentifierUnit && k.IsAsKeyword === true` | 同上（`as` 是上下文关键字，`Keyword` / `Identifier` 两页各答） |
+| `k.TextValue === "as"`（**1 处**：`namedExportClause` 找 `export * as ns` 的 `as`） | `k.IsAsKeyword === true` | 同上 |
+| `k.IsNameNode && k.TextValue === "extends"`（**1 处**：`ctx.ConditionalNode` 找条件类型的 `extends`） | `k.IsExtendsKeyword === true` | 同上 |
+| `k.IsSymbolToken && k.TextValue === "?"`（**1 处**：`structuralProps` 把可选方法的 `?` 收成 `questionToken`） | `x.IsQuestionSymbol === true` | `SymbolToken` 那一页 `## property` + `### get` 读 `TextValue` 现算（基类 `### get` 答 `false`），与 `IsColonSymbol` 同形态 |
+| 局部 `isSymbol(k, "?")` / `isSymbol(k, ":")`（**4 处**：`ctx.ConditionalNode` 里找 `?` 与 `:` 各两次） | `k.IsQuestionSymbol === true` / `k.IsColonSymbol === true` | 同上（`IsColonSymbol` 第 1108 轮已立）——**局部转手 `isSymbol` 整格删掉** |
+| `k.IsSymbolToken && k.TextValue === ";"`（**1 处**：`projectExport` 把尾分号从表达式里滤掉） | `k.IsSemicolonSymbol !== true` | 同上（`";"`） |
+| `[":", "?"].includes(k.TextValue)`（**1 处**：`ctx.Segment` 只排掉分段自己的标点） | `k.IsColonSymbol === true \|\| k.IsQuestionSymbol === true` | 同上 |
+| `unit.IsSymbolToken && unit.TextValue === "."`（**1 处**：`chainTail` 认点号） | `unit.IsDotSymbol` | `SymbolToken` 那一页 `## field`（`Close()` 里赋好，第 1057 轮立） |
+
+- **同一轮补掉一处自己造的隐患**：`conditionalNodeOf` 里那个局部 `isSymbol` 换掉之后，
+  **同一个函数后半截还有两处调用它**（`tailQuestion` / `tailColon`）——`xl build` 与 `tsc`
+  都不会报（那两行在同一个 `const` 作用域里语法合法、`any` 吞掉了名字），可运行时当场
+  `isSymbol is not defined`（`coverage` 的 `blocked` 28 → 68、`cases:direct` 25 份抛异常）。
+  组件按错误改完再跑一次八道门逐项回到原读数。**这一条写在这里，是因为它是「当场看不见」
+  的那一类**：类型标注 `any` 把「名字没了」这半句一起吞了，只有真跑才现形。
+- **`TextValue` 还剩的那几处照旧**（第 1118 轮记过，本轮一处没动）：`=== ","`（逗号那个
+  二元单元自己的正文，`IsCommaSymbol` 已答、那一处读的是**运算符单元**）、`=== "is"` /
+  `=== "type"`（类型谓词与导出子句的标志词）、`=== separator`（`splitTopLevel` 按参数比）、
+  `=== text`（`isTypeOp` / `isWord` 按参数比）——它们问的是**那一格自己的正文或调用方给的参数**，
+  与「这是哪个词」不是同一件事。
+- **判据依旧没长**（与第 1118 轮同一条理由）：这几族都在 `TextValue` 上，门只认 `Tag`。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：改的是 12 处调用点与说明；
+  新立的八格属性在基类与 `Keyword` / `Identifier` / `SymbolToken` 三页）。
+
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
 这一条出口**一个读者——那一格自己的递归调用不算读者，`projectTypeExpression` 里**没有**它的
@@ -3060,7 +3095,9 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 而 TS 那边是 `WithStatement{ expression, statement }`。照通用支会整条投成一个
   // `ExpressionStatement`（实测 `st-with` / `stmt-with` 两族共 20 处）。
   // 体那个 `{` 里的语句由 `IsStatementStart` 新加的那一条（`with` 后面的括号）负责成形成 `Statement`。
-  if (head.IsKeywordUnit && head.TextValue === "with") {
+  // **第 1119 轮**：「这一格的正文是不是那个 `with`」改由被问的那一页答
+  // （`Keyword.SetValue` 里赋好的 `IsWithKeyword`；`IsKeywordUnit` 那半句随之收掉）。
+  if (head.IsWithKeyword === true) {
     const header = kids.find((k) => k.IsParenBracket);
     const body = kids.find((k) => k.IsBraceBracket);
     const withProps = {};
@@ -4973,7 +5010,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     if (unit === undefined || unit === null) return false;
     if (unit.IsBracketUnit || unit.IsPropertyAccess || unit.IsMethodNode) return true;
     if (unit.IsNotNull) return true;
-    return unit.IsSymbolToken && unit.TextValue === ".";
+    return unit.IsDotSymbol;
   };
   // **把那个二元单元摊进 `ck`**（判据与理由见上面 `chainTailInOperator`）：
   // 续格那一截按原样摊成平级（与 `IsCallFirstUnit` 那一支同一个手法），
@@ -9050,7 +9087,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     const asAt = body.findIndex(
       (k) =>
         k === AS_SEPARATOR ||
-        (k.IsIdentifierUnit && k.TextValue === "as"),
+        (k.IsIdentifierUnit && k.IsAsKeyword === true),
     );
     // **段尾那一格的名字节点**（第 1080 轮就地展开，原 `specifierNameOf`，它只有这两个调用点）：
     // 引号名（`import { "a-b" as c }`）给 `StringLiteral`（`text` 是引号里那段，位置含引号），
@@ -9180,10 +9217,10 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       const words = v.ProjectableKids.filter(
         (k) =>
           k.IsNameNode &&
-          ["export", "default"].includes(k.TextValue),
+          (k.IsExportKeyword === true || k.IsDefaultKeyword === true),
       );
       const mods = words.map((word) => ({
-        kind: word.TextValue === "export" ? "ExportKeyword" : "DefaultKeyword",
+        kind: word.IsExportKeyword === true ? "ExportKeyword" : "DefaultKeyword",
         text: word.TextValue,
         pos: startOf(word),
         end: endOf(word),
@@ -9197,7 +9234,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       return node;
     }
   }
-  const rest = kids.filter((k) => !(k.IsKeywordUnit && k.TextValue === "export"));
+  const rest = kids.filter((k) => k.IsExportKeyword !== true);
   // **`export = X` / `export default X` 的 `Export` 单元自己就是一格**（第 534 轮实测）：
   // 关掉 reorg 之后这一支走的是「解析期只把**前缀两个词**收进 `Export`」那条路
   //（`export.xl.md` 的构造函数那一段写着这条路），所以 `rest` 里那一格的文本是
@@ -9225,7 +9262,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       wordTail(k) !== "=",
   );
   const expr = [...inUnit, ...(following ?? [])].filter(
-    (k) => k instanceof Token && !(k.IsSymbolToken && k.TextValue === ";"),
+    (k) => k instanceof Token && k.IsSemicolonSymbol !== true,
   );
   if (isAssignment && expr.length > 0) {
     const value = projectExpression(expr, ctx);
@@ -9372,7 +9409,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // （实测 `ex-reexport.ts` / `mod-export-star-as-namespace.ts` / `mod-adversarial-shapes.ts`）。
   const star = kids.find((k) => k.IsAsteriskSymbol);
   if (brace === undefined && star !== undefined) {
-    const asIndex = kids.findIndex((k) => k.TextValue === "as");
+    const asIndex = kids.findIndex((k) => k.IsAsKeyword === true);
     const nameNode = asIndex < 0 ? undefined : kids[asIndex + 1];
     if (nameNode !== undefined) {
       props.exportClause = {
@@ -9652,8 +9689,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // 形参表落进 `parameters`（实测字段名差 149 处）。
       if (
         (kind === "MethodSignature" || kind === "MethodDeclaration") &&
-        x.IsSymbolToken &&
-        x.TextValue === "?"
+        x.IsQuestionSymbol === true
       ) {
         const questionAt = startOf(x);
         props.questionToken = { kind: "QuestionToken", text: "?", pos: questionAt, end: questionAt + 1 };
@@ -10121,13 +10157,16 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // 搬进来之后写成 `conditionalNodeOf(tail)`）：`tail.length` 与 `slice.length` 逐格同答
       // （`tail` 就是 `slice.slice(colonIndex + 1)`），所以两处调用逐字节相同。
       const conditionalNodeOf = (kids) => {
-        const isSymbol = (k, text) => k.IsSymbolToken && k.TextValue === text;
+        // **第 1119 轮**：三个「这一格的正文是不是那个符号 / 那个词」都改读被问的那一页
+        // （`IsQuestionSymbol` / `IsColonSymbol` 在 `SymbolToken` 那一页、
+        // `IsExtendsKeyword` 在 `Keyword` / `Identifier` 两页，都在记下正文那一刻赋好）——
+        // 原来的局部 `isSymbol(k, text)` 转手连同两次现拼一起收掉。
         const slice = kids;
         const isExtends = (k) =>
-          k.IsNameNode && k.TextValue === "extends";
+          k.IsExtendsKeyword === true;
         const extIndex = slice.findIndex(isExtends);
-        const questionIndex = slice.findIndex((k) => isSymbol(k, "?"));
-        const colonIndex = slice.findIndex((k) => isSymbol(k, ":"));
+        const questionIndex = slice.findIndex((k) => k.IsQuestionSymbol === true);
+        const colonIndex = slice.findIndex((k) => k.IsColonSymbol === true);
         const node = {
           kind: "ConditionalType",
           pos: startOf(slice[0]),
@@ -10145,8 +10184,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         if (colonIndex >= 0) {
           const tail = slice.slice(colonIndex + 1);
           const tailExt = tail.findIndex(isExtends);
-          const tailQuestion = tail.findIndex((k) => isSymbol(k, "?"));
-          const tailColon = tail.findIndex((k) => isSymbol(k, ":"));
+          const tailQuestion = tail.findIndex((k) => k.IsQuestionSymbol === true);
+          const tailColon = tail.findIndex((k) => k.IsColonSymbol === true);
           node.falseType =
             tailExt > 0 && tailQuestion > tailExt && tailColon > tailQuestion
               ? conditionalNodeOf(tail)
@@ -10190,7 +10229,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // `[i, 0]` 于是折不动、只投出第一个操作数（实测缺 `BinaryExpression` 79 +
       // `GreaterThanToken` + 右侧那个字面量，样本集中在 `? :` 的条件位上）。
       const inner = kids.filter(
-        (k) => !(k.IsSymbolToken && [":", "?"].includes(k.TextValue)),
+        (k) => !(k.IsColonSymbol === true || k.IsQuestionSymbol === true),
       );
       if (inner.length === 0) return projectNode(first, ctx);
       return projectExpression(inner, ctx);

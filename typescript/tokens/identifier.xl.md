@@ -195,6 +195,16 @@ if (last instanceof Identifier) {
 **我这一格的正文是不是 `import` 那个词**（第 1118 轮）：同上一格，同一趟赋好
 （`import.meta` 里那个词在产物里也可能还停在 `Identifier` 上）。
 
+## field IsAsKeyword:bool = false
+
+**我这一格的正文是不是 `as` 那个词**（第 1119 轮）：同上一格，同一趟赋好
+（`as` 是上下文关键字，`import { a as b }` 里那个词在产物里也可能还停在 `Identifier` 上）。
+
+## field IsExtendsKeyword:bool = false
+
+**我这一格的正文是不是 `extends` 那个词**（第 1119 轮）：同上一格，同一趟赋好
+（条件类型里那个词在产物里也可能还停在 `Identifier` 上）。
+
 ## field IsChainBaseNode:bool = true
 
 **我这一格能不能当一条链的基名**（投影侧那一问；第 1075 轮）：标识符**默认能**，
@@ -279,6 +289,9 @@ this.IsNewKeyword = this.Is("new");
 this.IsAsyncKeyword = this.Is("async");
 this.IsAbstractKeyword = this.Is("abstract");
 this.IsImportKeyword = this.Is("import");
+// **第 1119 轮**：`as` 也是上下文关键字（同一份正文的函数），同一趟赋好。
+this.IsAsKeyword = this.Is("as");
+this.IsExtendsKeyword = this.Is("extends");
 // **第 1075 轮**：投影侧那一问（这一格能不能当链的基名）的另一半是「我这一格的正文是
 // 不是那几个不走链的词」——同一趟、同一份正文。
 this.IsChainBaseNode = !this.IsAny([

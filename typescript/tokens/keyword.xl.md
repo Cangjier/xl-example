@@ -141,6 +141,31 @@ return Keyword.UpgradeAt(units, index);
 **我这一格的正文是不是 `import` 那个词**（第 1118 轮）：同上一格，同一趟赋好
 （投影层 `new.target` / `import.meta` 那一支要的就是它）。
 
+## field IsAsKeyword:bool = false
+
+**我这一格的正文是不是 `as` 那个词**（第 1119 轮）：同上一格，同一趟赋好
+（投影层 `import { a as b }` 那一支要的就是它）。口径见
+`../core/syntax/token.xl.md` 的 `IsAsKeyword`。
+
+## field IsWithKeyword:bool = false
+
+**我这一格的正文是不是 `with` 那个词**（第 1119 轮）：同上一格，同一趟赋好
+（投影层 `with (obj) { … }` 那一支要的就是它）。
+
+## field IsExportKeyword:bool = false
+
+**我这一格的正文是不是 `export` 那个词**（第 1119 轮）：同上一格，同一趟赋好。
+
+## field IsDefaultKeyword:bool = false
+
+**我这一格的正文是不是 `default` 那个词**（第 1119 轮）：同上一格，同一趟赋好
+（与上一格一起决定 `ExportKeyword` / `DefaultKeyword` 两态）。
+
+## field IsExtendsKeyword:bool = false
+
+**我这一格的正文是不是 `extends` 那个词**（第 1119 轮）：同上一格，同一趟赋好
+（投影层条件类型 `T extends U ? X : Y` 那一支要的就是它）。
+
 ## static method IsUpgradable:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `Identifier` 的内容是不是关键字。
@@ -349,7 +374,8 @@ super(template);
 `Value` 是这一页**唯一的输入**，而 `KeywordKind` / `StatementKind` / `StatementField` /
 `IsStatementNode` / `IsOperatorUnit` / `OperatorWordKind` / `IsPrefixOperatorUnit` /
 `IsTypeParameterModifier` / `IsNewKeyword` / `IsAsyncKeyword` / `IsAbstractKeyword` /
-`IsImportKeyword` 都是它的函数（前四格查本页那两张词汇表，后八格比正文里的那几个词）
+`IsImportKeyword` / `IsAsKeyword` / `IsWithKeyword` / `IsExportKeyword` / `IsDefaultKeyword` /
+`IsExtendsKeyword` 都是它的函数（前四格查本页那两张词汇表，后十三格比正文里的那几个词）
 ——所以赋值只有**这一个入口**：
 `UpgradeAt` 与 `Clone` 都走它。**为什么要有这一格**：第 1042 轮把那四格从方法改成属性之后，
 「谁保证它们与 `Value` 同步」就成了这一页自己的责任；两处赋值点各写几行就会漂，
@@ -377,6 +403,13 @@ this.IsNewKeyword = text === "new";
 this.IsAsyncKeyword = text === "async";
 this.IsAbstractKeyword = text === "abstract";
 this.IsImportKeyword = text === "import";
+// **第 1119 轮**：`as` / `with` / `export` / `default` 四格同一趟赋好
+// （投影层的导入导出那几支按它们分辨形状）。
+this.IsAsKeyword = text === "as";
+this.IsWithKeyword = text === "with";
+this.IsExportKeyword = text === "export";
+this.IsDefaultKeyword = text === "default";
+this.IsExtendsKeyword = text === "extends";
 // **第 1075 轮**：投影侧那一问（这一格能不能当链的基名）也是同一份正文的函数——同一趟赋好。
 this.IsChainBaseNode = !(
   text === "return" ||
