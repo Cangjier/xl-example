@@ -744,6 +744,16 @@ for (const file of files) {
  * `yield*` 的 `asteriskToken`、`export * as ns`、展开实参 `f(...xs)`）。今天基类三格默认
  * `false`、`SymbolToken` 那一页**显式声明同一个属性**（`## property` + `### get`，读 `TextValue`）。
  * 这一条守的仍是老问句与出口形态（`isColonSymbol(` / `ctx.IsDotDotDotSymbol` …）。
+ *
+ * **第 1115 轮再补一格**：`IsBinaryOperatorUnit`——「这一格是不是**二元**那一页的单元」过去是
+ * 投影层九处现场比类名（`X.Tag === "BinaryOperator"` / `X.Tag !== "BinaryOperator"`；其中两处
+ * 先把标签取进局部变量 `kind` 再比：`chainTailInOperator` / `indexTailInOperator`），
+ * 而那个名字**就是 `BinaryOperator` 那一页自己的类名**。今天基类默认 `false`、
+ * 那一页显式声明 `## field IsBinaryOperatorUnit:bool = true`（构造时赋好），投影只读属性。
+ * **它与 `IsBinaryOperatorNode` 不是同一问**：后者问「二元 / 逻辑运算节点」（两页都答
+ * `true`），前者只认 `BinaryOperator` 那一页（剥壳与取尾链按那一页的 `Data` 布局读）。
+ * 同一轮的**匿名连写**由 `SELF_TAG_CLASSIFY`（单比）与 `BINARY_CLASS_DISJUNCTION`
+ * （两连比、含 `!==` / `&&` 那一形态）两条一并守着。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -781,6 +791,7 @@ const SELF_CLASSIFY_NAMES = [
   "IsBareCall",
   "IsCommentUnit",
   "IsBinaryOperatorNode",
+  "IsBinaryOperatorUnit",
   "IsParenBracket",
   "IsBraceBracket",
   "IsNotNullSymbol",
@@ -968,13 +979,25 @@ let nameClassDisjunctionHits = 0;
  * 只有坏输入才显形。口径与前面几条同款：只看 `SHARED_FILE` 的**代码块**、注释不算
  * （`codeOnly`），恰好 0 处才对（两种次序都算，跨行写法也算）。
  *
- * **单比 `BinaryOperator` 的那 5 处不算**（本轮实测点名保留）：它们问的不是「是不是二元
- * 运算节点」，而是「名字是不是被折进了**二元**单元」——剥壳用的是 `headInner[length - 2]`，
- * 而逻辑单元的 `Data` 最后一格才是运算符（布局不同），所以判据不同、不该并进这一格。
+ * **单比 `BinaryOperator` 的那几处第 1115 轮收干净了**：它们问的不是「是不是二元运算节点」，
+ * 而是「这一格是不是 `BinaryOperator` 那一页的单元」——剥壳用的是 `headInner[length - 2]`，
+ * 而逻辑单元的 `Data` 最后一格才是运算符（布局不同），所以那几处**读的是另一格**
+ * （`Token.IsBinaryOperatorUnit`，只有 `BinaryOperator` 那一页答 `true`），不是并进这一格。
+ * 同一轮把这一条**补全成四种形态**（原来只认 `===` + `||` 的两连比）：`!==` + `&&` 的否定式
+ * （`X.Tag !== "BinaryOperator" && X.Tag !== "LogicalOperator"`，九处里的五处就是它）、
+ * 以及**先取进局部变量再比**那一形态（`const kind = unit.Tag;` + `kind !== …`，第 1115 轮
+ * 连局部变量一起收掉）——三条正则跟着长，本页恰好 0 处才对。
  */
 const BINARY_CLASS_DISJUNCTION = [
   /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*===\s*"BinaryOperator"\s*\|\|\s*\1\.Tag\s*===\s*"LogicalOperator"/g,
   /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*===\s*"LogicalOperator"\s*\|\|\s*\1\.Tag\s*===\s*"BinaryOperator"/g,
+  // **第 1115 轮补的否定形态**：`X.Tag !== "BinaryOperator" && X.Tag !== "LogicalOperator"`
+  // 问的是「这一格**不是**一个二元 / 逻辑运算单元」——今天读 `X.IsBinaryOperatorNode !== true`。
+  /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*!==\s*"BinaryOperator"\s*&&\s*\1\.Tag\s*!==\s*"LogicalOperator"/g,
+  /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*!==\s*"LogicalOperator"\s*&&\s*\1\.Tag\s*!==\s*"BinaryOperator"/g,
+  // **同一形态的「先取标签再比」**（第 1115 轮）：`const kind = unit.Tag;` 之后
+  // `kind !== "BinaryOperator" && kind !== "LogicalOperator"`——局部变量那一格也一起收掉。
+  /const\s+[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$][\w$]*\.Tag;?\s*\n[^\n]*!==\s*"BinaryOperator"\s*&&[^\n]*!==\s*"LogicalOperator"/g,
 ];
 /** 投影层拿类名当「是不是一个二元 / 逻辑运算单元」判的处数（0 处才是对的）。 */
 let binaryClassDisjunctionHits = 0;
@@ -1164,13 +1187,15 @@ let notNullSymbolHits = 0;
  * `IsStatementShell` / `IsSwitchCaseUnit` / `IsSwitchStatementUnit` / `IsExportUnit` /
  * `IsLabelUnit`，各页显式声明、构造时赋 `true`），9 处改属性读。这一条因此守四十五个 `<Tag>`。
  *
- * **这一条守的是那四十五个名字，不是「一个 `<Tag>` 都没有」**（第 1099 轮逐行量出来的）：
- * 名单外的**跨行形态**它看不见（`spineHead.Tag !== "BinaryOperator" && spineHead.Tag !==
- * "LogicalOperator"` 换行写开那一条就是），而「这一格是不是一条注释」那一处
- * （`k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`）与「二元 / 逻辑」那一族剩下
- * 十一处**都还没进这一条**——那两族里有几处是**窄问**（只认 `BinaryOperator`，改成
- * `IsBinaryOperatorNode` 会把 `LogicalOperator` 一起收进来，是改语义不是搬家），
- * 要逐处点名才能动手。下面的正则因此只增不减：加一格就等于「这一问以后不许再写回类名」。
+ * **第 1115 轮把名单外剩下的那一族也收干净了**：第 1099 轮如实记下的两族——
+ * 「这一格是不是一条注释」（`k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`，
+ * `astNode` 里跳前导注释那一支还剩一处，而 `IsCommentUnit` 第 1084 轮就立好了）与
+ * 「这一格是不是**二元**那一页的单元」（单比 `BinaryOperator` 的九处，含先取局部变量 `kind`
+ * 再比的两处）——本轮各归各页：注释那一处改读 `k.IsCommentUnit`（同一个属性，
+ * `IsCommentUnit` 因此**一个现场写法都不剩**），二元那九处改读 `BinaryOperator` 那一页
+ * 新立的 `IsBinaryOperatorUnit`。这一条因此把 `"BinaryOperator"` / `"LineAnnotation"` /
+ * `"AreaAnnotation"` 三个 `<Tag>` 也收了进来——**名单只增不减**：谁把它们写回成现场算式，
+ * 这一门当场红。
  */
 const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"PropertyAccess"/g,
@@ -1215,6 +1240,12 @@ const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"SwitchStatement"/g,
   /\.Tag\s*[!=]==?\s*"Export"/g,
   /\.Tag\s*[!=]==?\s*"Label"/g,
+  // **第 1115 轮补的三个 `<Tag>`**：「这一格是不是一条注释」（`IsCommentUnit`）与
+  // 「这一格是不是 `BinaryOperator` 那一页的单元」（`IsBinaryOperatorUnit`）——
+  // 两族过去都在这一条**名单之外**，本轮收进被问的那几页。
+  /\.Tag\s*[!=]==?\s*"BinaryOperator"/g,
+  /\.Tag\s*[!=]==?\s*"LineAnnotation"/g,
+  /\.Tag\s*[!=]==?\s*"AreaAnnotation"/g,
 ];
 /** 投影层拿类名当「是不是 `PropertyAccess` / `NotNull` 那一格」判的处数（0 处才是对的）。 */
 let selfTagClassifyHits = 0;

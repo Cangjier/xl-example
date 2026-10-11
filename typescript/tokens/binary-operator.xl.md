@@ -1472,3 +1472,22 @@ return result;
 
 **它与 `IsOperatorUnit` 不是同一问**：那一格答「**裸符号**能不能当运算符」（本页的子单元、
 也就是 `Data` 里那一格 `SymbolToken` 答的是它），这一格答「**我这一格整个单元**是不是二元运算节点」。
+
+## field IsBinaryOperatorUnit:bool = true
+
+**我这一格就是 `BinaryOperator` 这一页的单元**（第 1115 轮）：这一页答 `true`——与
+`LogicalOperator` 那一页**分得开**（它答基类默认的 `false`）。
+
+投影那一侧有九处问的是**类名那一问**（`new.target` 剥壳那两处、`binaryTail` 的取尾链、
+可选链那一支、折链那一支、`namedSpecifiersOf` 那一趟递归展开、以及先取 `unit.Tag` 进局部变量
+再比的 `chainTailInOperator` / `indexTailInOperator`），过去写作 `X.Tag === "BinaryOperator"` /
+`X.Tag !== "BinaryOperator"`——它们剥的是 `Data` 的**倒数第二格**（`headInner[headInner.length - 2]`），
+而逻辑单元把运算符放在**最后一格**，布局不同，所以那句话里的「二元」是**本页的类名**。
+今天由本页**显式声明**并给出自己的值（构造时就赋好，与上面的 `AstKind` /
+`IsBinaryOperatorNode` 同一形态：三者都是同一件事实的三种问法），投影只读属性
+（`x.IsBinaryOperatorUnit`）。
+
+**与 `IsBinaryOperatorNode` 不是同一问**：那一格答「我这一格整个单元是不是一个二元运算节点」
+（本页与 `LogicalOperator` 那一页**都答 `true`**），这一格答「我是不是 `BinaryOperator`
+这一页那一格」——**逻辑运算单元不在这句话里**（口径见 `core/syntax/token.xl.md` 的
+`IsBinaryOperatorUnit`）。两格各自显式声明、各自守着自己那一问。

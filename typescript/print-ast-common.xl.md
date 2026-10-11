@@ -112,6 +112,35 @@ import { Identifier } from "./tokens/identifier.xl.md"
   也按这一轮改写。
 - **本页的声明数**：**45 → 44 格**（42 → 41 个 `# method` + 3 个 `# const`，实测）。
 
+**第 1115 轮把第 1099 轮如实记下的「名单之外那两族」一次收干净**（用户口径 1.1 ~ 1.4：
+投影要的信息由**具体 token 子类**在自己那一页**显式声明**、在**构造 / `Close` 那一刻**赋好，
+读的时候备齐）——两族的答案过去都由投影层现场写类名，而**类名就是被问那一页自己的名字**：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `k.Tag === "LineAnnotation" \|\| k.Tag === "AreaAnnotation"`（`astNode` 里跳前导注释那一支，**最后 1 处**） | `k.IsCommentUnit` | `LineAnnotation` / `AreaAnnotation` **各自显式声明** `## field IsCommentUnit:bool = true`（第 1084 轮就立好了，那一处是漏网的**同一句话**） |
+| `X.Tag === "BinaryOperator"` / `X.Tag !== "BinaryOperator"`（**9 处**：`headIsBinary` 与它下面那个剥壳循环、`binaryTail` 的取尾链、可选链那一支、折链那一支、`namedSpecifiersOf` 的递归展开、先取局部变量 `kind` 再比的 `chainTailInOperator` / `indexTailInOperator`） | `X.IsBinaryOperatorUnit` | `BinaryOperator` 那一页**显式声明** `## field IsBinaryOperatorUnit:bool = true`（构造时就位；基类默认 `false`，所以 `LogicalOperator` 答 `false`） |
+| `X.Tag !== "BinaryOperator" && X.Tag !== "LogicalOperator"`（**5 处**，含先取 `const kind = unit.Tag;` 再比的两处） | `X.IsBinaryOperatorNode !== true` | 两页第 1088 轮**已经**各自显式声明 `## field IsBinaryOperatorNode:bool = true`——本轮只是把那 5 处的**否定形态**也改成属性读（第 1088 轮只改了 `===` + `\|\|` 那一形态） |
+
+- **为什么两族该分开**：注释那一族**只认两页**，二元那一族**两页同答**（`IsBinaryOperatorNode`），
+  而窄问的 9 处问的是「这一格是不是 **`BinaryOperator`** 那一页的单元」——剥壳读的是
+  `Data` 的**倒数第二格**（运算符在中间），**逻辑单元**把运算符放在最后一格（布局不同），
+  所以收成 `IsBinaryOperatorNode` 会把 `LogicalOperator` 一起收进来 = **改语义**。
+  第 1088 / 1099 轮两次逐字保留的正是这一点，本轮**照那条判据立一格自己的名字**，
+  于是「窄问」与「族那一问」各有各的属性，两页各自显式声明、各自守着自己那一问。
+- **`TextValue` 那两处照旧**（第 1107 轮记过，不在这一族里）：`ctx` 之外还有
+  `TextValue === "."` 3 处与 `TextValue === ","` 2 处，它们问的是**符号 / 二元运算符那一页**
+  的正文，与本轮的类名那一问不是同一件事，**一处没动**。
+- **判据跟着长三条**：`direct:lint` 第八条那一族多认一个名字（`IsBinaryOperatorUnit`，
+  问句形态 `isBinaryOperatorUnit(…)` / `ctx.IsBinaryOperatorUnit` 写回来当场红）；
+  第十七条 `SELF_TAG_CLASSIFY` 补上 `"BinaryOperator"` / `"LineAnnotation"` / `"AreaAnnotation"`
+  三个 `<Tag>`（单比形态 0 处）；第十四条 `BINARY_CLASS_DISJUNCTION` 补上 **`!==` + `&&`
+  的否定形态**与**先取标签再比**那一形态（它原来只认 `===` + `||`，那 5 处一直不在它的视野里）。
+  **自验**（本机探针，不进仓库）：把一处 `k.IsCommentUnit` 写回成两连比类名 ⇒ 第十七条
+  报告 0 → 1 处、退出码 1；源文件逐字节还原 ⇒ 回到 0 处。
+- **本页的声明数**：**44 格**（**一格没增、一格没减**：改的是 15 处调用点与说明，
+  新立的两个属性在基类与那三页；本页 `# const` / `# method` 仍是 41 + 3）。
+
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
 这一条出口**一个读者——那一格自己的递归调用不算读者，`projectTypeExpression` 里**没有**它的
@@ -981,12 +1010,14 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 - **它与 `IsOperatorUnit` 不是同一问**：那一格答「**裸符号**能不能当一个运算符」
   （`SymbolToken` / `in` / `instanceof`），且**明确把二元运算符排除在外**（第 1062 轮那一节）；
   这一格答「**这一格整个单元**是不是一个二元运算节点」——所以是新立一格，不是把旧那格扩宽。
-- **5 处单比 `BinaryOperator` 逐字保留**（本轮实测点名过，**不**并进这一格）：`headIsBinary`
-  与它下面那个剥壳循环（`firstName.Tag === "BinaryOperator"`）、链尾那一支的 `kids[0].Tag ===
-  "BinaryOperator"`、`prefixHasOperator` 里那一处、以及 `type === "Statement" || type ===
-  "BinaryOperator"`（那一处比的是 kind 字符串，不是 token）。前四处问的是「这个名字是不是被折进了
-  **二元**单元」——剥壳用的是 `headInner[length - 2]`（运算符在中间），而**逻辑单元的 `Data`
-  最后一格才是运算符**（布局不同），所以那几处只认 `BinaryOperator`。
+- **5 处单比 `BinaryOperator`，第 1115 轮收进那一页自己的那一格**（第 1088 轮曾逐字保留，
+  理由今天仍然成立、只是住处换了）：`headIsBinary` 与它下面那个剥壳循环、链尾那一支的
+  `kids[0].Tag === "BinaryOperator"`、`prefixHasOperator` 里那一处、以及
+  `type === "Statement" || type === "BinaryOperator"`（那一处比的是 kind 字符串，不是 token）
+  ——问的都是「这一格是不是 `BinaryOperator` 那一页的单元」（剥壳用的是
+  `headInner[length - 2]`，运算符在中间；而**逻辑单元的 `Data` 最后一格才是运算符**，
+  布局不同），所以它们读的是 `BinaryOperator` 那一页新立的 `IsBinaryOperatorUnit`，
+  **不是**上面这一格（把 `LogicalOperator` 一起收进来是改语义）。
 - **判据跟着长两条**：`direct:lint` 第八条那一族多认一个名字（`IsBinaryOperatorNode`，
   问句形态 `isBinaryOperatorNode(…)` / `ctx.IsBinaryOperatorNode` 写回来当场红），
   另立第十四条 `BINARY_CLASS_DISJUNCTION`——**两连比类名**那一形态（两种次序、跨行写法都算）
@@ -1408,7 +1439,18 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   所以「我是不是方法声明」读不出来——两问各自一格。
 - **第 1099 轮把这一族的点名范围收在这里**：`direct:lint` 第十七条那名单因此扩到 **45 个
   `<Tag>`**（三十七 + 八）。**它守的是这 45 个名字**，不是「本页代码块里一个 `<Tag>` 都没有」
-  ——**还有两族在名单之外，如实记下**（第 1099 轮逐行量出来的）：
+  ——**第 1099 轮如实记下的那两族，第 1115 轮已经收干净**：
+  - 「这一格是不是一条注释」：`pos` 那一支最后那一处（与 `startOf(k) === pos` 连写、跨行）
+    改读 `k.IsCommentUnit`——`IsCommentUnit` 第 1084 轮就立好了，只是**同一句话还剩这一处**；
+    今天这一个属性**一个现场写法都不剩**；
+  - 「这一格是不是 `BinaryOperator` 那一页的单元」：那一族 **9 处**（原来是 5 处单比 +
+    4 处两连比；第 1099 轮数成「11 处」是把两连比里两条一行当成两处数的）改读
+    `BinaryOperator` 那一页新立的 `IsBinaryOperatorUnit`；**只认二元那一页**这一点没变
+    （改成 `IsBinaryOperatorNode` 会把 `LogicalOperator` 一起收进来，是改语义不是搬家）；
+  - 同一轮把**两连比里的否定形态**（`X.Tag !== "BinaryOperator" && X.Tag !== "LogicalOperator"`，
+    含**先取进局部变量 `kind` 再比**那两处）也收成 `x.IsBinaryOperatorNode !== true`——
+    第 1088 轮那条 `BINARY_CLASS_DISJUNCTION` 只认 `===` + `||`，**看不见它们**，本轮补上。
+  下面这几行原文照录（它们是第 1099 轮量出来的现场，收完之后只剩历史意义）：
   - 「这一格是不是一条注释」：`typescript/print-ast-common.xl.md` 的 `pos` 那一支还写着
     `k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`（与 `startOf(k) === pos`
     连写、跨行），而 `IsCommentUnit` 第 1084 轮已经立好（`trailingTriviaStart` 那一处已读属性）
@@ -1950,7 +1992,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   for (;;) {
     const trivia = allKids(v).find(
       (k) =>
-        startOf(k) === pos && (k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"),
+        startOf(k) === pos && k.IsCommentUnit,
     );
     if (trivia === undefined) break;
     let at = endOf(trivia);
@@ -3341,7 +3383,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             instSpineLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
             break;
           }
-          if (spineHead.Tag !== "BinaryOperator" && spineHead.Tag !== "LogicalOperator") break;
+          if (spineHead.IsBinaryOperatorNode !== true) break;
           instSpineLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
           spine = spineHead;
         }
@@ -3933,14 +3975,16 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     //（实测 `expr-call-import-meta.ts` / `ex-meta-props.ts`：缺 `PropertyAccessExpression`
     //  + `Identifier(url)` 两个 ——而 `[PropertyAccessExpression, Identifier]` 正好是
     //  「`.url` 整段丢了」的形状）。
-    // **这两处单比 `BinaryOperator` 第 1088 轮逐字保留**：它们问的不是「是不是二元运算节点」，
-    // 而是「这个名字是不是被折进了**二元**单元」——剥壳用的是 `headInner[length - 2]`，
-    // 而**逻辑单元**的 `Data` 最后一格才是运算符（布局不同），所以这里只认 `BinaryOperator`
-    //（判据不同，不该并进 `IsBinaryOperatorNode`）。
+    // **这两处问的是「这个名字是不是被折进了二元单元」**（第 1088 轮逐字保留，第 1115 轮
+    // 收进被问的那一页）：判据不是「是不是二元运算节点」，而是「这一格是不是
+    // `BinaryOperator` 那一页的单元」——剥壳用的是 `headInner[length - 2]`，
+    // 而**逻辑单元**的 `Data` 最后一格才是运算符（布局不同），所以读的是
+    // `BinaryOperator` 那一页的 `IsBinaryOperatorUnit`（`LogicalOperator` 答 `false`），
+    // **不是** `IsBinaryOperatorNode`（那一格两页都答 `true`）。
     const headIsBinary =
       namedKids.length > 0 &&
       namedKids[0] instanceof Token &&
-      namedKids[0].Tag === "BinaryOperator";
+      namedKids[0].IsBinaryOperatorUnit === true;
     // **一直往左走到不是二元运算符为止**（第 539 轮实测）：那个 `BinaryOperator` 是**嵌套**的
     //（`target === A` 折了好几层，探针打出来 `first` 仍然是 `BinaryOperator`）——
     // 只剥一层不够，要剥到最左边那个真正的名字。
@@ -3948,7 +3992,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     let guard = 0;
     while (
       firstName instanceof Token &&
-      firstName.Tag === "BinaryOperator" &&
+      firstName.IsBinaryOperatorUnit === true &&
       guard < 32
     ) {
       const down = firstName.ProjectableKids;
@@ -4015,7 +4059,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // `[…内层, 本层运算符, 本层右操作数]` 这个顺序正好就是它。
     const binaryTail = (unit: any, depth: int): any[] => {
       if (depth > 32 || unit instanceof Token === false) return [];
-      if (unit.Tag !== "BinaryOperator") return [];
+      if (unit.IsBinaryOperatorUnit !== true) return [];
       const down = unit.ProjectableKids;
       if (down.length === 0) return [];
       return [...binaryTail(down[0], depth + 1), ...down.slice(1)];
@@ -4119,7 +4163,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       k.ProjectableKids[0]?.IsNullConditionalOperator,
   );
   // **尾巴上还挂着 `as` / `satisfies` 时，这一支也要让开**（见上面 `asAfterNco` 那一处）。
-  if (ncoIndex > 0 && hasNcoInBinary === false && asAfterNco === false && !(kids[0].Tag === "BinaryOperator" && kids.slice(1).some((k) => k.IsNullConditionalOperator || isSymbol(k, ".")))) {
+  if (ncoIndex > 0 && hasNcoInBinary === false && asAfterNco === false && !(kids[0].IsBinaryOperatorUnit && kids.slice(1).some((k) => k.IsNullConditionalOperator || isSymbol(k, ".")))) {
     // **前缀里有顶层二元运算符时，NCO 要并进「右边那个操作数段」**（第 145 轮）：
     //
     //     x.Start === y.Start?.Document
@@ -4247,8 +4291,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 「这一格的第一格以一次调用开头吗」，而它比下面那条链支**先跑**。
   const chainTailInOperator = (unit: any): bool => {
     if (unit === undefined || unit === null) return false;
-    const kind = unit.Tag;
-    if (kind !== "BinaryOperator" && kind !== "LogicalOperator") return false;
+    if (unit.IsBinaryOperatorNode !== true) return false;
     const inner = unit.ProjectableKids;
     if (inner.length < 2) return false;
     if (inner[0]?.IsCallFirstUnit) return true;
@@ -4331,7 +4374,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   if (
     (tailIsChain || tailInOperator) &&
     kids.length >= 2 &&
-    kids[0].Tag === "BinaryOperator"
+    kids[0].IsBinaryOperatorUnit
   ) {
     const headInner = kids[0].ProjectableKids;
     if (headInner.length >= 2) {
@@ -4377,7 +4420,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   if (kids.length >= 2) {
     for (let at = 1; at < kids.length; at++) {
       const unit = kids[at];
-      if (unit.Tag !== "BinaryOperator" && unit.Tag !== "LogicalOperator") {
+      if (unit.IsBinaryOperatorNode !== true) {
         continue;
       }
       const inner = unit.ProjectableKids;
@@ -4603,7 +4646,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
         break;
       }
-      if (head.Tag !== "BinaryOperator" && head.Tag !== "LogicalOperator") break;
+      if (head.IsBinaryOperatorNode !== true) break;
       layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
       spine = head;
     }
@@ -4662,7 +4705,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         emptyCallLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
         break;
       }
-      if (head.Tag !== "BinaryOperator" && head.Tag !== "LogicalOperator") break;
+      if (head.IsBinaryOperatorNode !== true) break;
       emptyCallLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
       emptyCallSpine = head;
     }
@@ -4708,7 +4751,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   if (kids.length >= 2) {
     for (let at = 1; at < kids.length; at++) {
       const unit = kids[at];
-      if (unit.Tag !== "BinaryOperator" && unit.Tag !== "LogicalOperator") continue;
+      if (unit.IsBinaryOperatorNode !== true) continue;
       // **赋值号不一定紧贴着这个单元**（第 863 轮）：`x = 1 + o["f"]().v, y` 的产物是
       //
       //     [x, «=», BinaryOperator( 1, «+», PropertyAccess(o, [f]) ),
@@ -4898,8 +4941,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // token 层认成下标，轮不到这一支——放开会换掉既有形状（实测 `o["i"] * 2` 一直是对的）。
   const indexTailInOperator = (unit: any): bool => {
     if (unit === undefined || unit === null) return false;
-    const kind = unit.Tag;
-    if (kind !== "BinaryOperator" && kind !== "LogicalOperator") return false;
+    if (unit.IsBinaryOperatorNode !== true) return false;
     const inner = unit.ProjectableKids;
     if (inner.length < 2) return false;
     if (inner[0]?.IsIndexFirstUnit) return true;
@@ -8961,8 +9003,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // 所以按文档顺序递归展开 `Statement` / `BinaryOperator`，把 `,` 当分段边界：
   // 两种形态于是走同一条路——这正是从前那段回原文切分替我们兜住的东西。
   const walkSpecifierUnit = (unit:any) => {
-    const type = unit.Tag;
-    if (type === "Statement" || type === "BinaryOperator") {
+    if (unit.IsStatementShell || unit.IsBinaryOperatorUnit) {
       for (const child of unit.ProjectableKids) walkSpecifierUnit(child);
       return;
     }
@@ -8973,12 +9014,12 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // `asAt` 找不到 ⇒ specifier 少了 `propertyName`、`name` 变成整个 `As` 单元的投影
     //（实测 `b as c` 的 `Identifier` 区间成了 `as c` / `as c //c`，缺 1 漂移 2）。
     // 这里把它摊成「一个分隔标记 + 它的子单元」，与平铺形态走同一条判据。
-    if (type === "As") {
+    if (unit.IsAsUnit) {
       segment.push(AS_SEPARATOR);
       for (const child of unit.ProjectableKids) walkSpecifierUnit(child);
       return;
     }
-    if (type === "SymbolToken" && unit.IsCommaSymbol === true) {
+    if (unit.IsSymbolToken && unit.IsCommaSymbol === true) {
       flush();
       return;
     }

@@ -1895,6 +1895,28 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 （`## field`，构造时就赋好），投影只读这一格（`x.IsBinaryOperatorNode`）——
 「我这一格是什么」因此只有一个来源，同一句话也不会在十几处各写一遍。
 
+## field IsBinaryOperatorUnit:bool = false
+
+**我这一格是不是 `BinaryOperator` 那一页的单元**（第 1115 轮）——是的话答 `true`。
+
+判据同样是关于**产物标签**的：`BinaryOperator` 那一页答 `true`
+（`typescript/tokens/binary-operator.xl.md`），其余一律 `false`——**`LogicalOperator` 答 `false`**。
+过去它在投影层是九处现场比类名（`X.Tag === "BinaryOperator"` / `X.Tag !== "BinaryOperator"`；
+其中两处先把标签取进局部变量 `kind` 再比——`chainTailInOperator` / `indexTailInOperator`）：
+`new.target` 剥壳那两处（剥壳读的是 `Data` 的**倒数第二格**）、`binaryTail` 的取尾链、
+可选链那一支、折链那一支、`namedSpecifiersOf` 里那一趟递归展开。
+
+**它与 `IsBinaryOperatorNode` 不是同一问**（两格各自显式声明、各自守着自己那一问）：
+那一格答「**我这一格整个单元**是不是一个二元运算节点」——`BinaryOperator` 与 `LogicalOperator`
+**两页都答 `true`**（两页的 `AstKind` 都是 `BinaryExpression`）；这一格答的是**类名那一问**，
+**只有 `BinaryOperator` 答 `true`**。要它的那几处问的正是「这一格是不是**二元**那一页的单元」
+（剥壳与取尾链都按 `BinaryOperator` 自己的布局读子单元，而逻辑单元的 `Data` 布局不同），
+所以收成它是**换一个更准的问题**，不是把两族并成一问。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsBinaryOperatorUnit:bool = true`，构造时就赋好），投影只读这一格
+（`x.IsBinaryOperatorUnit`）。
+
 ## field IsValueOnlyUnit:bool = false
 
 **我这一格是不是「只可能做值」的单元**（第 1097 轮）——是的话答 `true`。
