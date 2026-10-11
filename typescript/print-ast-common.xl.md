@@ -6392,6 +6392,23 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
             const bracket = bangHead;
             const argument = projectExpression(bracket.ProjectableKids, ctx);
             left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: argument }, bracket.end);
+          } else if (bangHead !== undefined && bangHead.IsPropertyAccess) {
+            // **断言的核是一条成员链**（第 1218 轮，用户口径 1.1）：`a["b"](d).b!` 的那一格是
+            // `NotNull([PropertyAccess([Bracket((d)), ., b]), !])`——上面三支只认
+            // 「核是实参括号 / 调用单元 / 先下标」，于是这一格落到末尾那句 `bangWrapped` ⇒
+            // **里层那次调用、`d`、外层那格属性访问一起丢**（实测缺 4 / 缺 3 漂 1）。
+            // 折法与 `assertedMember` 的「核是属性访问」那一支**同源**：逐格接 `membersOnto`
+            //（它认下标 / 实参括号 / 调用 / 里层那条链，与 `chainWithOptional` 是同一段代码），
+            // 接完再由末尾那句把 `!` 套在整条链外面。
+            left = membersOnto(left, bangHead.ProjectableKids, undefined, ctx);
+          } else if (bangHead !== undefined && bangHead.IsNotNull) {
+            // **核又是一格断言**（第 1218 轮，用户口径 1.1）：`a["b"](d)!!` 的那一格是
+            // `NotNull([NotNull([Bracket((d)), !]), !])`——内层那一格自己就是「先调用、再断言」，
+            // 交给 `assertedMember` 递回折（它认「断言盖的是下标 / 实参括号 / 调用 / 名字」四档）。
+            const assertInner = assertedMember(left, bangHead, ctx, undefined);
+            if (assertInner !== undefined) {
+              left = assertInner;
+            }
           }
           left = bangWrapped(left, ck[i].end);
           sawNullAssert = true;
@@ -6583,13 +6600,16 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
           // `NotNull` 里装着 `PropertyAccess(SourceRange . Start)`。照名字投会得到一个
           // 文本是整条链的 `Identifier`（实测 `dist/ts/typescript/tokens/if/if-set.ts` 一族：
           // 漂移 14 + 缺 7 + 多出 7）。逐格接上去，最后再套 `NonNullExpression`。
+          //
+          // **这一份逐格循环改成 `membersOnto`**（第 1218 轮，用户口径 1.1）：原来这里只认
+          // 「点号 + 名字」（`piece.IsSymbolToken` 跳过、其余按 `piece.NameNode` 投一格属性访问），
+          // 于是链里的**实参括号 / 下标括号 / 调用**都落进那条通用支 —— `a["b"](d).b!` 的核是
+          // `PropertyAccess([Bracket((d)), ., b])`，那个 `(d)` 被当成一个没有名字的成员，
+          // **那次调用整格丢**（实测缺 `CallExpression` / `Identifier` / `PropertyAccessExpression`）。
+          // 判据与 `assertedMember` 的「核是属性访问」那一支**同源**（两处都走 `membersOnto`，
+          // 它认下标 / 实参括号 / 调用 / 里层那条链 —— 与 `chainWithOptional` 是同一段代码）。
           const chain = head.IsPropertyAccess ? head.ProjectableKids : [head];
-          for (const piece of chain) {
-            if (piece.IsSymbolToken) {
-              continue;
-            }
-            left =chainOn("PropertyAccessExpression", left, { expression: left, name: piece.NameNode }, piece.end);
-          }
+          left = membersOnto(left, chain, undefined, ctx);
           left = bangWrapped(left, next.end);
           i += 2;
           continue;
@@ -6694,19 +6714,24 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // `Identifier` / `PropertyAccessExpression` / `NonNullExpression` 三处同时错位
       // （实测漂移 76 + 30 + 33、多出 71 + 75）。
       if (next.IsNotNull) {
-        const inner = next.CoreKids;
+        // **这一份逐格循环也改成 `membersOnto`**（第 1218 轮，用户口径 1.1）：它与上面那两份
+        // 是同一个形状的第三份抄写——只认「点号 + 名字」（`members[j].IsDotSymbol` 配
+        // `members[j + 1].NameNode`），链里的**实参括号 / 下标括号 / 调用**一概跳过。
+        // `a["b"](d).b!` 走的正是这一支（探针实测）：核是
+        // `PropertyAccess([Bracket((d)), ., b])`，那个 `(d)` 与它后面那位名字被跳过
+        // ⇒ **那次调用、`d`、外层那格属性访问一起丢**（实测缺 4 / 缺 3 漂 1）。
+        // 核本身又是一格 `NotNull` 时交给 `assertedMember`（它认「断言盖的是下标 / 实参括号 /
+        // 调用 / 名字」四档，`a["b"](d)!!` 的内层正是「实参括号 + `!`」）。
         const target = next.CoreHead;
-        if (target !== undefined && target.IsPropertyAccess) {
-          const members = target.ProjectableKids;
-          if (members.length > 0) {
-            left =chainOn("PropertyAccessExpression", left, { expression: left, name: members[0].NameNode }, members[0].end);
-            for (let j = 1; j + 1 < members.length; j += 2) {
-              if (!members[j].IsDotSymbol) break;
-              left =chainOn("PropertyAccessExpression", left, { expression: left, name: members[j + 1].NameNode }, members[j + 1].end);
+        if (target !== undefined) {
+          if (target.IsNotNull) {
+            const inner = assertedMember(left, target, ctx, undefined);
+            if (inner !== undefined) {
+              left = inner;
             }
+          } else {
+            left = membersOnto(left, target.IsPropertyAccess ? target.ProjectableKids : [target], undefined, ctx);
           }
-        } else if (target !== undefined) {
-          left =chainOn("PropertyAccessExpression", left, { expression: left, name: target.NameNode }, target.end);
         }
         left = bangWrapped(left, next.end);
         i += 2;
