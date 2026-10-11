@@ -587,6 +587,30 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**69 → 69 格**（改的是别的页与基类）。
 
+**第 1083 轮把「投影自己拆 `modifiers` 那一串」的两处收进基类**（用户口径 1.1 / 1.4：
+投影要的东西，token 子类**构造完**就该齐；拆法只有一处）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `String(v.modifiers ?? "").split(",")`（`projectDeclaration` 的 `get` / `set` 那一支） | `v.ModifierTextWords` | 基类 `Token`（`## property` + `### get`，拆的就是**基类声明的 `modifiers`**） |
+| `v.modifiers.split(",").filter((word) => word !== "")`（`addModifiers`） | 同上（分支条件仍看那一格事实在不在：`typeof v.modifiers === "string" && v.modifiers !== ""`） | 同上 |
+
+- **`modifiers` 那一格第 1083 轮在基类立起来**（`## field modifiers:string = ""`）：各页本来
+  就各自显式声明同一格、并在**认下声明那一刻**赋好（`DeclarationModifiers(...).join(",")`），
+  XML 那一侧（`modifiers="…"`）读的也是它——与第 1082 轮 `ModifierSpans` 那一条同款：
+  **读的东西必须在读的那个类里有声明**。
+- **两个形参名字不同、来源也不同的「修饰词」**：`ModifierTextWords`（文本那一档，
+  `"export,const"` → `["export","const"]`）与 `ModifierWords`（布尔属性那一档，`Lamda` 给
+  `["async"]`）——`addModifiers` 里那两支的先后与判据一个字没动。
+- **顺带收掉本页之外的一处第二读法**：`Let.DeclarationListFlags` 原来自己
+  `String(this.modifiers).split(",")`，第 1083 轮起也读 `ModifierTextWords`。
+- **实测**：`xl check` 3 个文件 0 条；`xl build --force`（`core` / `typescript` / `runtime` /
+  `typescript-exec`）**180 个产物** / 0 error、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 30.6s），
+  读数与基线逐项相同：`coverage` **4261 / 4422**（`blocked 28` / `differ 133` / `bad 0`、
+  加权 95.7%）、`cases:tsast` 3 条已知缺口、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**69 → 69 格**（这一轮改的是两处算式与注释）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -1374,7 +1398,9 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // （实测多出 102 + 缺 `GetAccessor` / `SetAccessor`）。所以换 kind 并把那个词从修饰词里摘掉。
   let stripModifier;
   if (v.Tag === "MethodDeclaration") {
-    const words = String(v.modifiers ?? "").split(",");
+    // **拆 `modifiers` 那一串的地方第 1083 轮收进了基类**：`Token.ModifierTextWords`
+    // （读的是本类声明的 `modifiers`，各页构造时赋好）——这里不再自己 `split(",")`。
+    const words = v.ModifierTextWords;
     if (words.includes("get")) {
       kind = "GetAccessor";
       stripModifier = "GetKeyword";
@@ -8361,9 +8387,12 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 
 ```ts
   let words = [];
+  // **「文本那一档」的分支条件还是看那一格事实在不在**（第 1083 轮）：`modifiers` 是基类声明、
+  // 各页构造时赋好的那一格；**拆词的算式住在基类那一格** `ModifierTextWords` 里
+  // （第 1083 轮立起来，见 `core/syntax/token.xl.md`），投影只读属性名。
   const modifiers = v.modifiers;
   if (typeof modifiers === "string" && modifiers !== "") {
-    words = modifiers.split(",").filter((word) => word !== "");
+    words = v.ModifierTextWords;
   } else {
     // **有的单元把修饰词记成布尔属性、名字就是那个词**：`Lamda` 的 `async`
     // （TS 那边 `async x => x` 的 `ArrowFunction.modifiers` 就是 `[AsyncKeyword]`）。

@@ -572,6 +572,39 @@ return this.Data;
 而且它同样靠运行期反射（与 `Segments` 同一轮、同一条口径）。
 收成这一格之后，「哪几个布尔属性是修饰词」只有本页一处声明，投影只读属性名。
 
+## field modifiers:string = ""
+
+**本单元记下的修饰词正文**（`,` 连接，例如 `"export,const"`）：把修饰词记成文本的那几页
+（`Let` / `Field` / `TypeAssign` / `Class` / `Enum` / `Function` / `MethodDeclaration` /
+`Interface` / `Namespace`）**各自显式声明这一格**，并在**认下声明那一刻**赋好；XML 那一侧
+（`modifiers="…"`）读的也是它。
+
+**基类这一格第 1083 轮才立起来**（默认空串）：下面那一格 `ModifierTextWords` 读的就是它——
+**读的东西必须在读的那个类里有声明**（第 1082 轮 `ModifierSpans` 那一条同款），
+而从前是投影拿着 `v.modifiers` **自己 `split(",")`**（`print-ast-common.xl.md` 的两处：
+`addModifiers` 与 `projectDeclaration` 的 `get` / `set` 那一支）——**拆这一串的算式住在投影层**，
+于是同一份事实在那里有了第二处读法（用户口径 1.1：投影要的东西，token 子类构造完就该齐）。
+
+## property ModifierTextWords:Array<string>
+
+**`modifiers` 那串文本拆出来的词**（第 1083 轮）：把本单元记下的那一格 `modifiers`
+（`,` 连接）拆成一串词，空段滤掉；没有那一格（空串）就是空数组。
+
+**与 `ModifierWords` 的分工**：这一格是**文本**那一档（`"export,const"` → `["export","const"]`），
+而 `ModifierWords` 是**布尔属性**那一档（`Lamda` 的 `["async"]`）——两者互斥，
+`addModifiers` 按「文本在不在」走其中一条。
+
+**为什么要有这一格**：投影那一侧过去自己 `split(",")`（两处），可**要拆的那个字符串就是
+本类自己声明、各页构造时赋好的那一格**——按这一族一贯的口径（第 1079 轮的 `ModifierSpanList`、
+第 1041 / 1042 / 1057 / 1068 / 1069 / 1078 那几条）它住在这里：投影只读属性名。
+
+### get
+
+```ts
+if (this.modifiers === "") return [];
+return this.modifiers.split(",").filter((word) => word !== "");
+```
+
 ## field ModifierSpans:string = ""
 
 **本单元记下的修饰词各自的区间**（`"起:止"` 用 `,` 连接、闭区间，与 `modifiers` **同序同长**）：

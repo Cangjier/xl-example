@@ -146,7 +146,9 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ### get
 
 ```ts
-  const words = String(this.modifiers).split(",");
+  // **第 1083 轮起拆词也读基类那一格**（`Token.ModifierTextWords`，读的是本页构造时赋好的
+  // `modifiers`）：与投影层同一个入口，拆法不再有第二份。
+  const words = this.ModifierTextWords;
   if (words.includes("using")) return words.includes("await") ? "AwaitUsing" : "Using";
   if (words.includes("const")) return "Const";
   if (words.includes("var")) return "None";
