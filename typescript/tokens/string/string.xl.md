@@ -499,7 +499,7 @@ return one.StringText;
     head,
     templateSpans: spans,
     pos: this.start,
-    end: ctx.StmtEndOf(v),
+    end: v.ProjectionEnd,
   };
 ```
 

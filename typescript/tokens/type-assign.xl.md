@@ -265,7 +265,7 @@ return ReplaceCountAt(units, startIndex, dataEnd - startIndex + 1, result);
   return {
     kind: "TypeAliasDeclaration",
     pos: baseStart === undefined ? v.start : baseStart,
-    end: ctx.StmtEndOf(v),
+    end: v.ProjectionEnd,
     ...props,
   };
 ```

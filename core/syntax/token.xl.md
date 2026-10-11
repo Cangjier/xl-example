@@ -1236,6 +1236,62 @@ for (const k of this.children) {
 return at;
 ```
 
+## property SignatureEndStep:int
+
+**这一格在投影里要不要把尾部那个 `;` / `,` 一起收进来**（第 1172 轮，用户口径 1.2 / 1.3 / 1.6）：
+这一格是**可调用签名**、而且末字符是 `;` 或 `,` 时答 `1`，其余一律答 `0`。
+
+**为什么住在 token 上**：这一问的两件事实**全在这一格自己身上**——「我这种节点算不算签名」
+是 `IsSignatureNode`（第 1040 轮起就住在各自那一页）、「我的末字符是不是 `;` / `,`」读自己的
+`Text`。算式原来四行写在 `print-ast-common.xl.md` 的 `astNode` 里：
+
+```ts
+  if (
+    v.IsSignatureNode &&
+    (props === undefined || props.body === undefined) &&
+    (ctx.source[end] === ";" || ctx.source[end] === ",")
+  ) {
+    end += 1;
+  }
+```
+
+其中第三件事实（`props.body`）是**调用点**手上的：造节点那一趟收着一个 `props`，它判的正是
+「没体的那一档」。所以这一格答「我这种节点算不算签名、末尾那一格字符算不算分隔符」，
+`astNode` 只在 `props.body` 也空时才把这 1 加上去（**判据一个字没变**，变的是「谁的属性」）。
+
+**为什么收成 0 / 1 而不是布尔**：`astNode` 那一侧于是只剩一次加法，没有分支、没有第二处
+「`;` 还是 `,`」的比较（用户口径 1.6：这一格自己的事实由它自己算完，投影只做加法）。
+
+**第 1049 / 1053 轮那两条判据在这里是同一条**：这一格读的是**自己的 `Text`**
+（不是 `ctx.source[startOf(this)]`），而 `Text` 就是 `[start, end)` 那一段、逐字符相同。
+**要读的是「剪掉尾部 trivia 之后紧跟着的那一个字符」**——投影那一侧原来读的就是它
+（`ctx.source[剪过 trivia 的终点]`）。`Text` 从这一格的 `start` 起算、`ProjectionEnd` 是全文坐标，
+所以下标是 `ProjectionEnd - start`（**不是 `-1`**：这一格问的是终点**之后**那一格，
+半开区间让那一格落在正文之外），读法用 `charAt`（越界答空串）。
+**两次实现各被读数抓出一族**：读末字符会让 `token/types/*` 30 条漂 1 / 多 1
+（那些用例签名末尾是 `; `，末字符是空白），下标越界会让 `undici-types/cache.d.ts` 那一族
+`MethodSignature` 10 条掉尾巴（终点正指着那个 `,`）。
+
+### get
+
+```ts
+if (this.IsSignatureNode !== true) return 0;
+// **要读的是「剪掉尾部 trivia 之后紧跟着的那一个字符」**（第 1172 轮）：投影那一侧原来的
+// 判据就是 `ctx.source[剪过 trivia 的终点]`（`;` 与 `,` 都算）。
+//
+// **区间是半开的 `[start, end)`，`ProjectionEnd` 是「含 trivia 的那个 `end` 剪过之后」的
+// 终点**——它落在这一格正文的**后面那一格**（`undici-types/cache.d.ts` 的
+// `match (…): Promise<…>,` 就是这一档：`ProjectionEnd` 正指着那个 `,`，而 `end` 不含它）。
+// 所以下标是 `ProjectionEnd - start`、并且用 `charAt`（越界答空串），不是 `Text[len - 1]`。
+// **两次实测各抓出一族**：读末字符（`-1`）会让 `token/types/*` 30 条漂 1 / 多 1
+// （那些签名末尾是 `; `，末字符是空白）；读 `Text[ProjectionEnd - start]` 而下标越界
+// 会让 `MethodSignature` 10 条掉尾巴（`undici-types/cache.d.ts` 那一族）。
+const end = this.ProjectionEnd;
+if (end === undefined || end <= this.start) return 0;
+const last = this.Text.charAt(end - this.start);
+return last === ";" || last === "," ? 1 : 0;
+```
+
 ## property FollowingSemicolonAt:int | undefined
 
 **从我这一格的终点往后、跨过 trivia 之后那个 `;` 在哪**（第 1165 轮）：跨过的是

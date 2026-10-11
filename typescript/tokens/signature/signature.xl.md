@@ -813,7 +813,8 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     }
     delete props.children;
   }
-  const end = ctx.SemicolonEndOf(ctx.StmtEndOf(v));
+  // **尾部坐标读这一格自己的属性**（第 1172 轮）：`ctx.StmtEndOf` 那个出口整格删掉了。
+  const end = ctx.SemicolonEndOf(v.ProjectionEnd);
   return { kind, pos: v.start, end, ...props };
 ```
 

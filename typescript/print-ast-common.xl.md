@@ -2482,9 +2482,10 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 `String.PrintAst` 自己算，而不是由共享层**替它记第二遍**。
 
 **搬走的是算式，不是能力**：那一页仍然经 `ctx.Expression` / `ctx.TypeExpression` 递归投
-内插里的正文（`token` 层不能 import 投影层，会成环），节点仍经 `ctx.Node` 造、
-尾部坐标仍经 `ctx.StmtEndOf` 剪——**与共享层是同一份实现**，所以「两条路同答」是
-结构上的事。改模板形状从此只需改那一页。
+内插里的正文（`token` 层不能 import 投影层，会成环），节点仍经 `ctx.Node` 造——
+**与共享层是同一份实现**，所以「两条路同答」是结构上的事。改模板形状从此只需改那一页。
+**（当时还写着「尾部坐标仍经 `ctx.StmtEndOf` 剪」：那个出口第 1172 轮整格删掉了，
+尾部坐标今天读的是这一格自己的 `Token.ProjectionEnd`。）**
 
 **两处替换是机械的**（与 `projectString` 逐格等价）：`startOf(x)` / `endOf(x)` →
 `x.start` / `x.end`（本文件那两个 `# const` 本就只是读这一格的两个属性），
@@ -2582,10 +2583,22 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   root.TreeFrozen = true;
 ```
 
-# private method astNode:(kind:string, props:any, v:any, ctx:any)=>any
+# private method astNode:(kind:string, props:any, v:any)=>any
 
-**造一个投影节点**：`pos` 取视图的起点，`end` 由 `stmtEndOf` 剪掉尾部 trivia，
-没有函数体的可调用签名再带上尾随分号。
+**造一个投影节点**：`pos` / `end` **都读这一格自己的属性**，末了只做一次加法。
+
+**这一格第 1172 轮收成了「两次属性读 + 一次加法」**（用户口径 1.2 / 1.3 / 1.6 / 1.7）：
+
+| 原来在这里现场算的 | 今天读的那一格 |
+| --- | --- |
+| `let end = stmtEndOf(v, ctx);`（跨页转手 + 「不是 token 的合成语句视图」兜底整支） | `v.ProjectionEnd`（`core/syntax/token.xl.md`，第 1162 轮起就在那一页） |
+| `v.IsSignatureNode && (props === undefined \|\| props.body === undefined) && (ctx.source[end] === ";" \|\| ctx.source[end] === ",")` 四句 | `v.SignatureEndStep`（同页，第 1172 轮新立） |
+| `const pos = v.ProjectionStart;` | 照旧（第 1141 轮起就是这一格） |
+
+于是这一格**不再收 `ctx` 形参**：它一件投影层的上下文都不需要了（第 1050 轮那条判据
+「形参表就是这一格需要什么」的下一步）。`stmtEndOf` 那一格随之整格删掉——它留下的兜底支
+只服务「不是 token 的合成语句视图」，而那一支**今天没有读者**：`statementOfList` 造的视图
+交给 `projectStatement` 之后，出来的每一格都是 token。
 
 这是 `projectNode` 里那个 `mk` 的**唯一实现**（`mk` 现在只是转调它）：逐节点出口
 （token 自己的 `PrintAst`）与通用支**必须是同一份坐标口径**，否则两条路的坐标会悄悄漂开——
@@ -2594,7 +2607,9 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 `props` 为 `undefined` 时只出 `{ kind, pos, end }`（自闭合那一类节点，例如 `EndOfFileToken`）。
 
 ```ts
-  let end = stmtEndOf(v, ctx);
+  // **尾部坐标由这一格自己答**（第 1172 轮）：`end` 不再跨页转手 `stmtEndOf(v, ctx)`——
+  // 那一格当时只剩「读一次 `v.ProjectionEnd`」这一句，于是连它整格删掉，这里直接读属性。
+  let end = v.ProjectionEnd;
   // **没有函数体的可调用签名要带上尾随分隔符**（第 134 轮）：`;` 与 **`,`** 都算——
   // 接口 / 类型字面量里的成员可以用逗号分隔，TS 那边那条 `MethodSignature` 的 `end`
   // **含那个逗号**（实测 `undici-types/cache.d.ts` 的
@@ -2610,13 +2625,13 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // 见 `core/syntax/token.xl.md`）：那五个 kind 名就是几页自己的节点名每一态
   // （`MethodDeclaration` 那一页在签名位答 `MethodSignature`），所以名单搬回了各自那一页。
   // **第 1041 轮起它是一格属性**（在那几页构造时就赋好），这里读属性、不问问题。
-  if (
-    v.IsSignatureNode &&
-    (props === undefined || props.body === undefined) &&
-    (ctx.source[end] === ";" || ctx.source[end] === ",")
-  ) {
-    end += 1;
-  }
+  //
+  // **「末尾那一格字符算不算分隔符」第 1172 轮也收进了被问的那一格**
+  // （同页的 `## property SignatureEndStep:int`）：它是签名就答 `1`、不是就答 `0`，
+  // 那一格读的是**它自己的 `Text`**（第 1049 / 1053 轮那两条判据在这里是同一条）。
+  // 于是这里只剩**一次加法**：没有分支、没有再回原文读一个字符、也没有第二个来源。
+  // 留下来的唯一一件事实是**调用点手上的那一件**——`props` 里有没有 `body`。
+  if (props === undefined || props.body === undefined) end += v.SignatureEndStep;
   // **`pos` 不落在前导注释上**（第 140 轮）：对拍那一侧取的是 `node.getStart()`，
   // 它**跳过**节点前面的注释；而产物常把一整行注释收进**后一个单元**的区间里——
   //
@@ -2772,9 +2787,10 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 **第 1056 轮连那个参数也删掉了**（它当时只剩 `ArrayLiteralExpression` 一个消费者，
 而那一格在父单元自己的 `AstKind` 上）。
 
-**造节点这件事只有 `astNode` 一处**（第 1163 轮）：这一格收着 `v` 与 `ctx`，所以它自己调
-`astNode(kind, props, v, ctx)`——原来那个「由调用方递进来的 `mk` 闭包」（`projectNode` 每投一格
+**造节点这件事只有 `astNode` 一处**（第 1163 轮）：这一格收着 `v`，所以它自己调
+`astNode(kind, props, v)`——原来那个「由调用方递进来的 `mk` 闭包」（`projectNode` 每投一格
 现造一个）整格删掉了，坐标口径因此仍然只有一份。
+**（第 1172 轮起 `astNode` 连 `ctx` 形参都不收了：坐标两件事实都在这一格自己身上。）**
 
 ```ts
   if (kind === undefined) {
@@ -2786,7 +2802,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
       // 而 `projectEach` 头一件事就是滤掉 `IsInvisible` 与顶层逗号（见那一节），
       // 于是「先拿完整子单元表、再滤一遍」与「直接拿滤过的那一串」逐字节同答。
       // 这一支是**唯一剩下**的一处，改完 `allKids` 的读者只剩「要找 trivia 的那几处」。
-      return astNode(v.Tag, { children: projectEach(v.ProjectableKids, ctx) }, v, ctx);
+      return astNode(v.Tag, { children: projectEach(v.ProjectableKids, ctx) }, v);
     }
   }
   // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）；
@@ -2909,7 +2925,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     }
   }
   // **对象字面量成员不吃尾随逗号**（第 142 轮）：见 `projectObjectLiteral` 那一处的说明。
-  const built = astNode(kind, props, v, ctx);
+  const built = astNode(kind, props, v);
   if (
     ctx.inObjectLiteral === true &&
     built !== undefined &&
@@ -3409,7 +3425,13 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 `## private method TrailingTriviaStart:(at:int)=>int`——算式连着说明整段搬到了
 `core/syntax/token.xl.md`，**逐格同答**（剪空白从 `ctx.source[end - 1]` 换成自己的
 `Text[end - 1 - start]`，递归那一趟从本页的 `allKids(v)` 换成自己的各段 + `children`、
-非 token 的子单元照旧跳过）。**这一格因此只剩下面那一句**：投影读一次属性。
+非 token 的子单元照旧跳过）。
+
+**`stmtEndOf` 这一格第 1172 轮**（用户口径 1.2 / 1.3 / 1.6 / 1.7）收成了两句：
+token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语句视图」那一条兜底支照旧留着
+（`statementOfList` 造的那一格仍然经它走，`ctx.StmtEndOf` 也还有 5 个外部调用点）——
+这一轮动的是 **`astNode` 那一趟**：它原来每一趟都跨页转手这一格，今天**直接读一次属性**，
+于是 `astNode` 连 `ctx` 形参都不收了（见那一节）。
 
 **兜底支留给「不是 token 的合成语句视图」**（`statementOfList` 造的那一格）：
 它们没有 token 那一格，只能照原样在这里算。**实测那 7 次**（探针挂在构建产物上、跑官方
@@ -3420,7 +3442,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // **token 由它自己答**（第 1162 轮）：本页不再为每一趟投影现造一个递归闭包。
   if (v instanceof Token) return v.ProjectionEnd;
   // **兜底支只服务「不是 token 的合成语句视图」**（`statementOfList` 造的那一格，实测
-  // 16208 次调用里只有 **7** 次）：它没有 token 那一格，只能在这里算。判据与搬走的那一份
+  // 16208 次调用里只有 **7** 次）：它没有 token 那一格，只能在这里算。判据与 token 那一侧
   // **逐字相同**，只是收尾注释那一趟改成**读子单元自己的属性**
   // （`k.TrailingCommentStart`，第 1162 轮新立）——于是本页那一格 `allKids` helper
   // 的最后一个读者也消失了（第 1162 轮整格删掉）。
@@ -3462,7 +3484,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   }
   return end;
 ```
-
 # private method projectStatement:(v:any, ctx:any)=>any
 
 ```ts
@@ -8162,7 +8183,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             "StringLiteral",
             { text: quotedBefore.StringText },
             (quotedBefore),
-            ctx,
           );
         } else if (before !== undefined) {
           props.propertyName = before.NameNode;
@@ -9181,7 +9201,13 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 **今天这一格在哪**：`structuralProps` 读一次 `v.ModifierNodes`，算式与它每一句为什么这么写的
 注释都在 `core/syntax/token.xl.md` 那一格上——这一页不再留第二份。
 
-# private method namedSpecifiersOf:(brace:any, kind:string, ctx:any)=>Array<any>
+# private method namedSpecifiersOf:(brace:any, kind:string)=>Array<any>
+
+**这一格第 1172 轮不再收 `ctx` 形参**（用户口径 1.2 / 1.3 / 1.6，与第 1050 轮那条判据同一条口径
+——形参表就是这一格需要什么）：它要的每一件东西都在**被问的那一格括号**身上
+（`brace.ProjectableKids` 与各子单元自己的 `IsStatementShell` / `IsBinaryOperatorUnit` /
+`IsAsUnit` / `IsCommaSymbol` / `NameNode` / `StringText` / `start` / `end`），
+造节点走本页的 `astNode`——方法与调用点一起改干净，判据一个字没改。
 
 具名导入 / 导出的每一项 → `ImportSpecifier` / `ExportSpecifier`（两种语句只有 `kind` 不同，所以共一份实现）。
 
@@ -9229,7 +9255,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     const lastName = body[body.length - 1];
     const name =
       lastName.IsStringLiteralUnit
-        ? astNode("StringLiteral", { text: lastName.StringText }, lastName, ctx)
+        ? astNode("StringLiteral", { text: lastName.StringText }, lastName)
         : lastName.NameNode;
     if (asAt > 0) {
       const firstName = body[asAt - 1];
@@ -9237,7 +9263,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         kind,
         propertyName:
           firstName.IsStringLiteralUnit
-            ? astNode("StringLiteral", { text: firstName.StringText }, firstName, ctx)
+            ? astNode("StringLiteral", { text: firstName.StringText }, firstName)
             : firstName.NameNode,
         name,
         pos,
@@ -9508,7 +9534,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     const close = brace.end;
     props.exportClause = {
       kind: "NamedExports",
-      elements: namedSpecifiersOf(brace, "ExportSpecifier", ctx),
+      elements: namedSpecifiersOf(brace, "ExportSpecifier"),
       pos: open,
       end: close,
     };
@@ -9994,7 +10020,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // **给 token 的 `PrintAst(ctx, v)` 用的出口助手**（见 `core/syntax/token.xl.md` 的 `PrintAst`）：
     // 覆写里不必 import 任何东西——造节点、投一批子单元、按成员切、取文本、分叶子名，
     // 全在这一组里。它们**逐个转调**上面那些共享实现，所以两条路的产物逐字节相同。
-    Node: (kind, props, view) => astNode(kind, props, view, ctx),
+    Node: (kind, props, view) => astNode(kind, props, view),
     // **`ctx.Make` 那个出口第 1163 轮删掉了**（用户口径 1.2 / 1.6 / 1.7）：它原来是
     // `(view) => (kind, props) => astNode(kind, props, view, ctx)`——「就这一格的造节点闭包」，
     // 而全仓 **6 个读者全是** `ctx.Declaration(v, ctx.Make(v), …)` 的第二个实参（那六页的
@@ -10028,7 +10054,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 分岔的输入）——而**即使真撞上，展开这一版与原循环那一版也逐字节同答**（同名键原地覆盖），
     // 所以这里**不留分支**：`{ kind, pos, end, ...node }` 就是原循环的等价写法。
     NodeHead: (kind, props, view) => {
-      const node = astNode(kind, props, view, ctx);
+      const node = astNode(kind, props, view);
       return { kind: node.kind, pos: node.pos, end: node.end, ...node };
     },
     // **空段不写这一格**：通用支里 `structuralProps` 的段循环是「`kept.length > 0` 才写」，
@@ -10087,11 +10113,14 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 六处实参带下标或三元式的一并手工改）。两个名字补进 `direct:lint` 的 `CTX_BANNED`，
     // 并且**新立一条判据**把这一族挡在门外（`ctx.StartOf(` / `ctx.EndOf(` 在全仓代码块里 = 0 处）：
     // 出口删了，前面那几条方法体判据就永远绿——守这句话的只能是「这一层拿不到它」。
-    StmtEndOf: (view) => stmtEndOf(view, ctx),
     // **尾分号那一格的出口**（第 840 轮）：`declare module "mm";` 那个 `;` 到达时
     // 声明早已成形（收尾规则问「简写」的那一刻列表只到名字），所以它由**投影侧**
     // 按「没体的声明自己吃尾分号」补进区间——与第 838 轮那条口径同一份实现。
     SemicolonEndOf: (end) => semicolonEndOf(end, ctx),
+    // **尾部坐标**（第 1162 / 1172 轮）：token 那一侧就是 `v.ProjectionEnd` 一次属性读，
+    // 剩这一格只为「不是 token 的合成语句视图」与 5 个外部调用点（`conditional-type` /
+    // `import` / `label` / `lamda-parameter` / `switch` 那五页）转手。
+    StmtEndOf: (view) => stmtEndOf(view, ctx),
     Split: (list, separator) => splitTopLevel(list, separator),
     // **`Invisible` 那个出口第 1030 轮删掉了**：要跳过哪些单元由单元自己答
     // （`k.IsInvisible`，见 `core/syntax/token.xl.md`），所以这一层不再需要「名单」这件东西。
@@ -10137,7 +10166,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // kind 名删掉了（同一格事实的第二处存储）。
     MemberList: (list, view) => projectEachIn(list, ctx, view),
     KidsOf: (node, key) => kidsOf(node, key),
-    NamedSpecifiers: (brace, kind) => namedSpecifiersOf(brace, kind, ctx),
+    NamedSpecifiers: (brace, kind) => namedSpecifiersOf(brace, kind),
     MemberNameOf: (view) => memberNameOf(view, ctx),
     // **`AddModifiers` 与 `Decorators` 这两个出口第 1167 轮删掉了**（用户口径 1.2 / 1.3 / 1.6 / 1.7）：
     // 它们做的都是「把本单元记下的修饰词 / 装饰器拼成一串节点」，而**每一件输入都在被问的那一格上**

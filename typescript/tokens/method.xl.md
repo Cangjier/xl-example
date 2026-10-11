@@ -480,7 +480,8 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
     const innerCall = kids.find((k: any) => k.Tag === "Method");
     // **外层那对括号不在树里**（IIFE / `f()()` 同一条）：终点往 `ParenAt` 之后再走一格。
     const parenAt = this.ParenAt;
-    let end = ctx.StmtEndOf(v);
+    // **尾部坐标读这一格自己的属性**（第 1172 轮）：`ctx.StmtEndOf` 那个出口整格删掉了。
+  let end = v.ProjectionEnd;
     if (parenAt >= 0) {
       const ownArgs = kids.find(
         (k: any) => k.Tag === "Bracket" && k.startBracket === "(" && k.start >= parenAt,
@@ -568,7 +569,7 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
           : { kind: Identifier.LeafKindOfText(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
     arguments: groupsToArguments(args),
     pos: v.start,
-    end: ctx.StmtEndOf(v),
+    end: v.ProjectionEnd,
   };
   if (typeArgumentGeneric !== undefined) {
     const typeArguments = [];

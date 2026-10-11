@@ -347,6 +347,55 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1172 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— **造节点那一趟（`astNode`）收成「两次属性读 + 一次加法」**：尾部坐标不再跨页转手 `stmtEndOf(v, ctx)`（`v.ProjectionEnd` 直接读），「末尾那一格字符算不算 `;` / `,`」立成一格 token 属性 `Token.SignatureEndStep:int`；`astNode` 因此**不再收 `ctx` 形参**，`print-ast-common` 代码块 3918 → 3911 行、声明 55 格不变、`ctx` 出口 43 个不变
+
+**一句话**：第 1162 轮把 `ProjectionEnd` 那一趟搬进 token 之后，`astNode` 里还留着两件事
+**每一趟造节点都要算**——「尾部坐标」与「没有体的签名要不要带上尾随分隔符」。这一轮把第二件
+也收进被问的那一格，于是那一格只剩 **`v.ProjectionEnd` + `v.SignatureEndStep` 两次属性读**。
+
+| 原来的写法（`astNode` 里每一趟都算） | 今天 |
+| --- | --- |
+| `let end = stmtEndOf(v, ctx);` | `let end = v.ProjectionEnd;` |
+| `if (v.IsSignatureNode && (props === undefined \|\| props.body === undefined) && (ctx.source[end] === ";" \|\| ctx.source[end] === ",")) end += 1;` | `if (props === undefined \|\| props.body === undefined) end += v.SignatureEndStep;` |
+| `const pos = v.ProjectionStart;` | 照旧 |
+| `# private method astNode:(kind:string, props:any, v:any, ctx:any)` | `(kind:string, props:any, v:any)`——**一件投影层的上下文都不需要了** |
+
+**为什么 `SignatureEndStep` 该住在 token 上**：原来那四句里的三件事实有两件是**这一格自己的**
+（「我这种节点算不算签名」＝ `IsSignatureNode`，第 1040 轮起就在各自那一页；
+「我的末字符 / 终点之后那一格是不是 `;` 或 `,`」＝ 读自己的 `Text`），只有第三件
+（`props.body` 空不空）**是调用点手上的**——所以留着的是它，搬走的是那两件。
+新属性答 **`0` / `1`** 而不是布尔：`astNode` 那一侧于是**没有分支、没有第二处字符比较**，
+只剩一次加法（用户口径 1.6：这一格自己的事实由它自己算完）。
+
+- **`stmtEndOf` 那一格同时收成两句**：token 由它自己答（`v.ProjectionEnd`），
+  「不是 token 的合成语句视图」那一条兜底支**照旧留着**——`statementOfList` 造的那一格仍然经它走，
+  `ctx.StmtEndOf` 也还有 **5 个外部调用点**（`conditional-type` / `import` / `label` /
+  `lamda-parameter` / `switch` 五页）。这一轮**没有**删那个出口（原计划删掉，定位到那五处之后
+  改成不动它们——两格 helper 拆成一个出口 + 一次属性读不划算，留作下一轮的账）。
+- **顺带清掉一格自第 1169 轮起就红着的死形参**：`namedSpecifiersOf` 声明了 `ctx` 却在方法体里
+  一处不用（`direct:lint` 第五条判据），方法与两处调用点一起改干净。
+
+**两次实现都被读数抓出来（如实记下，两条都是这一格自己的读数报的红）**：
+
+| 第一次实现 | 红的是什么 | 根因 |
+| --- | --- | --- |
+| 读这一格自己的**末字符**（`Text.charAt(Text.length - 1)`） | `token/types/*` **30 条**漂 1 / 多 1 | 那些用例的签名末尾是 `; `（分号后面还有空白），末字符是空白，而判据看的是**终点之后那一格** |
+| 改成 `Text.charAt(ProjectionEnd - 1 - start)`（半开区间取末字符） | `undici-types/cache.d.ts` 那一族 **10 条** `MethodSignature` 掉尾巴 | 投影要的是「`ProjectionEnd` **正指着**的那一格」——`match (…): Promise<…>,` 的 `ProjectionEnd` 就落在那个 `,` 上（它在这一格正文**之外**一格），取末字符永远取不到它 |
+
+定稿读的是 **`Text.charAt(ProjectionEnd - start)`**（`charAt` 越界答空串，正好是「后面没有
+`;` / `,`」那一档），与原来那一句 `ctx.source[剪过 trivia 的终点]` **逐格同答**。
+
+- **等价怎么证的**：`cases:tsast` **16 片全过、41890 个投影节点 100% 对齐（字段名也 100%）**、
+  `samples` **逐字节一致**、`cases:direct` 1640 份不抛异常（**固定样本的六格**照旧点名通过）、
+  `direct:lint` **0 条违反**；八道门读数与第 1106 ~ 1171 轮**逐项相同**（唯一红的那一道仍是
+  **尺子不是门**的 `coverage`：`4260 / 4422`、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%；
+  「倒退」那条仍是 HEAD 上既有的 `runtime/round741/002`）。
+- **量**：`print-ast-common` 代码块不带注释 **3918 → 3911 行**（少 7 行：`astNode` 净少 4、
+  `stmtEndOf` 收成两句净少 2、`ctx.StmtEndOf` 那一行没动）、声明数仍 **55 格**、
+  `ctx` 出口仍 **43 个**；`core/syntax/token.xl.md` 多一格属性（`SignatureEndStep`）。
+- **实测**：`xl check` 156 页 0 条；`xl build core typescript` **6 个产物 / 0 error**、`npx tsc` 干净；
+  **八道门 6 通过、2 失败**（墙钟 32.1s），两条红都是 HEAD 上既有的那两道。
+
 ### 第 1171 轮：用户口径 1.3 / 1.6 / 1.7 —— token 那两格最热 `### get`（`ProjectionStart` / `ProjectionEnd`）里写在**条件中**的正则字面量提到模块级（实测这两格被读 **640748** 次、内层按字符走 **380541** 趟 ⇒ 每投一遍 **≥1021289** 次字面量求值都读同一张）；顺带把 `addDecorators` 的三节链收成一次属性读 + 空就 return（**40476** 次里真有装饰器的只有 **21** 次）
 
 **一句话**：前两天量的是**投影页**里的白造对象（第 1170 轮 25 万张数组），这一轮量**token 那一侧**
