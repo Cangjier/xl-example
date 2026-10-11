@@ -1363,6 +1363,36 @@ if (!isTypePosition) {
   ) {
     return true;
   }
+  // **紧跟着的是一个「认泛型实参段」的词**（第 1220 轮）：TS 那句
+  // `canFollowTypeArgumentsInExpression` 的兜底是 `isBinaryOperator()`，而它认的词有四个
+  // ——`as` / `satisfies` / `in` / `instanceof`（`+` `-` `<` `>` 已经在它前面被显式挡掉）。
+  // 这四个词在表达式位里**接不上一个左操作数**：`a < b > as` 不是 TypeScript，
+  // 所以配对 `>` 后面紧跟它们之一时，`<…>` 只可能是**实例化表达式**
+  //（TS 4.7 的 `ExpressionWithTypeArguments`，与第 977 轮补的那一格是同一句话）。
+  //
+  // **少了这一格会怎样**：`a<b> as T` 里 `<b>` 退回比较运算符 ⇒ 折成
+  // `BinaryOperator(>, BinaryOperator(<, a, b), As(T))`——那个 `As` 的基名留在外面
+  //（`As` 只装 `as` 右边那一段），投影走到它时当场抛
+  // `这一格没有覆写 PrintAst（Tag=As）` ⇒ **整份文件投不出来**
+  //（实测 `a<b> as T` / `a<b> satisfies T` / `a<b> instanceof C` / `a<b> in c` 四族）。
+  //
+  // **为什么要读整词**：`assertEquals` 以 `as` 开头，可它是一个名字——一路读到非字母为止，
+  // 只有整词相等才算（先比一次首字符，`a` / `s` / `i` 三个之外的字符连读词都不必）。
+  if (item === "a" || item === "s" || item === "i") {
+    let wordEnd = index;
+    let word = "";
+    while (wordEnd < document.GetCount()) {
+      const letter = document.GetValue(wordEnd);
+      if (!unit.Template.SymbolTemplate.IsLetter(letter)) {
+        break;
+      }
+      word = word + letter;
+      wordEnd = wordEnd + 1;
+    }
+    if (word === "as" || word === "satisfies" || word === "in" || word === "instanceof") {
+      return true;
+    }
+  }
   if (this.IsOperandStartUnit(unit)) {
     // **`last` 是一个已关闭的括号时，左边其实有操作数**（第 589 轮实测）：
     // `IsOperandStartUnit` 那一支（`last instanceof Bracket ⇒ true`）本意是给

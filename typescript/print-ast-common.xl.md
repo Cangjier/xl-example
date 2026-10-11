@@ -4250,7 +4250,17 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     kids[0].IsIdentifierUnit ||
     kids[0].IsPropertyAccess ||
     kids[0].IsParenBracket;
-  if (kids.length >= 2 && instCallee && kids[1].IsGenericType) {
+  // **这一支后面还挂着 `as` / `satisfies` 时它要让开**（第 1220 轮，与第 664 轮
+  // `asAfterNco` 那条**同一个口径**，理由也一字不差）：`a<b> as T` 的产物是三格
+  // `[Identifier(a), GenericType(<b>), As(T)]`，而本支的收尾是「折出实例化表达式、
+  // 剩下的交给 `foldBinaryFrom`」——`foldBinaryFrom` 开头一句就要求 `rest` **以运算符打头**
+  //（`rest.length < 2 || !rest[0].IsOperatorUnit` 就原样返回 `left`），
+  // 而 `As` / `Satisfies` **不是二元单元** ⇒ 那一格整格丢：
+  // 实测投出来是**一条** `ExpressionWithTypeArguments`（区间还盖住了 `as T`），
+  // 而 TS 是 `AsExpression{ expression: ExpressionWithTypeArguments, type: T }`。
+  // 让开之后落到主流程第 2 节（`asIndex` 那一支）——`As` / `Satisfies` 的折法只有那一份。
+  const asAfterInst = kids.slice(2).some((k) => k.IsAsUnit || k.IsSatisfiesUnit);
+  if (kids.length >= 2 && instCallee && kids[1].IsGenericType && asAfterInst === false) {
     // **圆括号那一格要走 `projectExpression`**：`(a.b)<string>` 里的头一格是值位括号，
     // 而 TS 那边它是 `ParenthesizedExpression`（`ExpressionWithTypeArguments > ParenthesizedExpression`）。
     // `projectNode(Bracket, …)` 不认这一层（那一支在 `projectExpression` 里，
