@@ -541,6 +541,19 @@ return this.Value;
   return Identifier.PrimitiveTypeKindOf(this.TextValue);
 ```
 
+## property IsNumericLiteral:bool
+
+**这一问与 `Identifier` 那一页同一格**（第 1129 轮）：对象字面量的键那一处手上是这一格单元
+（`nameUnits[0].IsNameNode`，第 1057 轮），能当一个名字的就是这两页——所以两页各按自己的
+`TextValue` 问同一张 `NUMERIC_LITERAL`，与原来
+`Identifier.IsNumericLiteral(nameUnits[0].TextValue)` **逐字符同答**。
+
+### get
+
+```ts
+  return Identifier.IsNumericLiteral(this.TextValue);
+```
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

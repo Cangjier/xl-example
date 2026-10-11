@@ -347,6 +347,39 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1129 轮：对象字面量键那一问也改成问那一格自己——`IsNumericLiteral` 在 `Identifier` / `Keyword` 两页显式声明，`object-literal` 那一处从此不 import `Identifier`；**八道门 7 通过、读数一处没动**
+
+**一句话**：用户口径「简化 `print-ast-common`，清理它用不到的方法；投影需要的信息要在 token
+子类**构建完就齐全**」。第 1127 / 1128 两轮把投影里「手上有单元却按文本问那一页」的四处
+（绑定位默认值、类型位三处）改成属性读；这一轮收掉同一族在**另一页**的最后那一处：
+`json/object-literal.xl.md` 造键的时候手上就是这一格单元（`nameUnits[0].IsNameNode`），
+却把它的正文拿去问 `Identifier.IsNumericLiteral(...)`。
+
+| 原来的现场算式 | 今天读的那一格属性 |
+| --- | --- |
+| `Identifier.IsNumericLiteral(nameUnits[0].TextValue)`（1 处，`object-literal`） | `nameUnits[0].IsNumericLiteral` |
+
+- **两页各显式声明同一格**（`## property` + `### get`，取值一行没改）：
+  `Identifier.IsNumericLiteral` / `Keyword.IsNumericLiteral` 读自己的 `TextValue` 问同一张
+  `NUMERIC_LITERAL`——对象字面量的键那一处过的是 `IsNameNode`，而能当一个名字的就是这两页
+  （第 1057 轮）；对非数字正文两张答案同为 `false`，所以两页同答是结构上的事。
+- **`object-literal` 那一页因此不再 import `Identifier`**（唯一用处就是那次静态调用；
+  正文里提到 `Identifier` 的那句是说明、不是代码）——`xl check` 照旧 0 错 0 警。
+- **等价怎么证的**：这一格的取值就是原来那次静态调用本身（同一个函数、同一段 `TextValue`）
+  ⇒ 逐格同答；八道门读数一处没动就是这条的证据。
+- **静态入口照旧留着**：给「手上只有一段文本」的那一处——投影 `memberNameOf` 的**合成名**
+  （`synthName` 造出来的名字，手上没有单元，所以那一问只能按文本问）。
+- **与 `literal-type.xl.md` 那个同名私有方法不是同一问**（按口径如实留着，没并）：
+  那一格先剥下划线分隔符与 `n` / `d` / `f` 后缀、再分十六 / 二 / 八 / 十进制，
+  与 `NUMERIC_LITERAL` 那张正则**没有逐字符对过**，并进来就是改判据。
+- **实测**：`xl check typescript core` 156 文件 / 0 条；`xl build core typescript`
+  3 个产物 / 0 error（`identifier` / `keyword` / `object-literal`）、`npx tsc` 干净；
+  八道门 **7 通过 / 1 失败**（墙钟 30.9s），读数与第 1106 ~ 1128 轮逐项相同
+  （`coverage` 4260 / 4422、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%，
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+  `print-ast-common` 本页这一轮一个字没动（10781 行 / 代码块 7810 行 / 不带注释 4668 行）；
+  `identifier` 767 行、`keyword` 703 行、`object-literal` 351 行。
+
 ### 第 1128 轮：类型位那两问也改成问手上那一格自己——`IsLiteralTypeWord` / `PrimitiveTypeKind` 在 `Identifier` 与 `Keyword` 两页各自显式声明；**八道门 7 通过、读数一处没动**
 
 **一句话**：第 1127 轮把绑定位那一处改成读 `only.LeafKind` 之后，同一族在

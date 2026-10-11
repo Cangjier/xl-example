@@ -8,7 +8,6 @@ import { Get, GetSkipPrevious } from "../../../core/extensions/list-extension.xl
 import { IsObjectLiteralBrace, IsStatementStart } from "../../text-common-util.xl.md"
 import { ParsePipeline } from "../../parse-pipeline.xl.md"
 import { Bracket } from "../bracket.xl.md"
-import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
 ```
@@ -252,7 +251,7 @@ Json 对象。
     const name =
       computed === undefined
         ? nameUnits.length === 1 && nameUnits[0].IsNameNode
-          ? Identifier.IsNumericLiteral(nameUnits[0].TextValue)
+          ? nameUnits[0].IsNumericLiteral
             ? {
                 kind: "NumericLiteral",
                 text: nameUnits[0].TextValue,

@@ -583,6 +583,22 @@ return items.includes(this.TempToString());
   return Identifier.PrimitiveTypeKindOf(this.TextValue);
 ```
 
+## property IsNumericLiteral:bool
+
+**我这一格的正文是不是数字字面量**（**第 1129 轮由下面那一格静态入口收成属性**）：
+投影在 `json/object-literal.xl.md` 里手上**就是这一格单元**（`{ 1: "a" }` 的键，
+`nameUnits[0].IsNameNode`），所以这一问由这一格自己答：读自己的 `TextValue` 问同一张
+`NUMERIC_LITERAL`，与原来 `Identifier.IsNumericLiteral(nameUnits[0].TextValue)`
+**逐字符同答**（同一个静态入口、同一段文本）。`Keyword` 那一页也答同一格
+（能当一个名字的就是那两页，第 1057 轮；对非数字正文两张答案同为 `false`）。
+静态那一格留给「手上只有一段文本」的调用点（投影 `memberNameOf` 里那个**合成名**）。
+
+### get
+
+```ts
+  return Identifier.IsNumericLiteral(this.TextValue);
+```
+
 ## static method LeafKindOfText:(text:string)=>string
 
 **给一段叶子文本，答它在 TS 那边的 kind**（第 1029 轮从投影层搬到这里）。
