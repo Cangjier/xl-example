@@ -141,6 +141,34 @@ import { Identifier } from "./tokens/identifier.xl.md"
 - **本页的声明数**：**44 格**（**一格没增、一格没减**：改的是 15 处调用点与说明，
   新立的两个属性在基类与那三页；本页 `# const` / `# method` 仍是 41 + 3）。
 
+**第 1116 轮收的是同一句话的第三种写法——「先把 `X.Tag` 取进局部变量、再拿它比类名」**
+（用户口径 1.1 ~ 1.4 的同一把尺子；这也是第 1115 轮收完之后，本页代码块里**最后**还在按类名
+问话的那一族）。它一直躲着 `direct:lint` 那几条按行匹配的正则：比的是**局部变量**，
+`Tag` 早就不在同一行里了。本轮把**6 格局部变量、7 处比较**连同变量本身一起收掉：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `const headType = head.Tag;` + 8 处比较（`"Label"` / `"Export"` / `"Let"` / `"Keyword"` 两处 / `"Statement"` / `"TypeAssign"` / `"Bracket" && startBracket === "{"`） | `head.IsLabelUnit` / `IsExportUnit` / `IsLetUnit` / `IsKeywordUnit` / `IsStatementShell` / `IsTypeAssignUnit` / `IsBraceBracket` | 前六格都是第 1096 / 1099 轮已立的属性；`IsTypeAssignUnit` 是**本轮新立**（`tokens/type-assign.xl.md` 显式声明 `## field … = true`）——那一支要**在投它之前**认出「这一格是不是本页」（`export type T = …` 的起点在外层 `Statement` 上，要把 `ctx.baseStart` 递进去），而同页的 `IsStatementNode` 答的是**投出来的形状**，两问不同 |
+| `const instHead = kids[0].Tag;` + 2 处（`"Identifier"` / `"PropertyAccess"` / `"Bracket" && startBracket === "("`） | `kids[0].IsIdentifierUnit` / `IsPropertyAccess` / `IsParenBracket` | 三格都是既有属性（`IsParenBracket` 第 1089 轮在 `Bracket.Use` 里赋好） |
+| `const headKind = kids[0].Tag;` + 2 处（`"Keyword"` / `"Identifier" && 正文是 await / yield`） | `kids[0].IsKeywordUnit` / `IsIdentifierUnit` | 两格既有；**正文那一半照旧读 `TextValue`**（同一个词两态都要认，第 739 轮的口径没动） |
+| `const tailKind = unit.Tag;` + 4 处（`"Bracket"` / `"PropertyAccess"` / `"Method"` / `"NotNull"` / `"SymbolToken" && 正文是 "."`） | `unit.IsBracketUnit` / `IsPropertyAccess` / `IsMethodNode` / `IsNotNull` / `IsSymbolToken` | 五格既有；末尾那一句**两半都成了属性读** |
+| `const kind = one.Tag;` 两处（`tagIsPostfixChain` 的 7 个名字 / `IsChainTail` 的 7 个名字） | 逐名换成 `IsIdentifierUnit` / `IsPropertyAccess` / `IsMethodNode` / `IsBracketUnit` / `IsStringUnit` / `IsGenericType` / `IsExpressionWithTypeArguments`（前者）与 `…IsArrayLiteralUnit` / `IsNullConditionalOperator` / `IsNotNull`（后者） | 除 `IsExpressionWithTypeArguments` 外都是既有属性；那一格是**本轮新立**（`tokens/heritage-clause.xl.md` 的 `ExpressionWithTypeArguments` 类显式声明 `## field … = true`）——它与 `IsGenericType` **不是同一问**（那一行两个名字都要认），所以是两格不是一格 |
+
+- **剩下 5 处 `.Tag` 一处没动，理由是它们是「数据」不是「问话」**：
+  `ctx.unmapped.add(v.Tag)`、`mk(v.Tag, { … })`、`kind: unionUnit.Tag`、
+  `const tag: any = node.Tag;`、`/(Condition|Statement|Segment)$/.test(first.Tag)`——
+  这五处要的是**类名这个字符串本身**（未映射时原样透传的那个 kind、或按后缀判形状），
+  不是「这一格是不是某一类」那一问；把它们也改掉就是把**数据**换成问题，方向反了。
+- **判据跟着长两条**：`direct:lint` 第八条那一族多认两个名字
+  （`IsExpressionWithTypeArguments` / `IsTypeAssignUnit`）；第十七条 `SELF_TAG_CLASSIFY`
+  补 `"ExpressionWithTypeArguments"` / `"TypeAssign"` 两个 `<Tag>`；**新立第十八条**
+  `TAG_LOCAL_VAR_COMPARE`——`const X = ….Tag;` 之后又拿 `X` 比类名 = **0 处**
+  （认法带 240 字的窗口，所以「先声明、隔几行再比」也算）。
+  **自验**（本机探针，不进仓库）：把 `const instHead = kids[0].Tag;` + `instHead === "Identifier"`
+  写回一处 ⇒ 新门 **0 → 1 处**、退出码 1；源文件逐字节还原 ⇒ 回到 0 处。
+- **本页的声明数**：**44 格**（**一格没增、一格没减**：改的是 6 格局部变量与它们比过的 7 处类名，
+  新立的两个属性在基类与那两页）。
+
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
 这一条出口**一个读者——那一格自己的递归调用不算读者，`projectTypeExpression` 里**没有**它的
@@ -2892,7 +2920,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     return undefined;
   }
   const head = kids[0];
-  const headType = head.Tag;
   // **已经包住语句的标签：在这一层把它展开**（第 1022 轮）。`Statement.AbsorbLabels`
   // 会把被标的语句折进标签里（`<Label label="a"><For>…</For></Label>`，第 929 轮），
   // 于是这一格是一个单元、而它的形状**不是**声明族那一档 —— 让它落到通用支会投成
@@ -2905,7 +2932,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 这一格要的是**语句**那一套口径，而 `projectStatement` 正是它 —— 把标签自己的子单元
   // 当成平铺的一串交回 `statementOfList`（与下面平级那一支**同一份实现**），再套上标签。
   // **判形状照旧读 `HasChildren`**（它答的是「我下面**有没有**东西」，含 trivia）。
-  if (headType === "Label" && head.HasChildren) {
+  if (head.IsLabelUnit && head.HasChildren) {
     // **交给 `statementOfList` 的是「进投影的那一串」**（第 1066 轮）：标签与它标的语句之间
     // 夹着注释时，`head.children` 是 `[AreaAnnotation, For]`——注释是 trivia，交给那一条
     // 会让它去投一整条语句（实测多出 `ExpressionStatement`，`gap-a-comment-01` 一族 5 条）。
@@ -2928,7 +2955,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // **只认「还没包住语句」的标签**（第 929 轮，与 `projectEach` 那一支同一句）：
   // 包好的标签是**一个**单元（`kids.length === 1`），由它自己的 `PrintDirectAst` 出形状；
   // 这一支管的是老形状（标签 + 被标语句平级，`kids.length >= 2`）。
-  if (headType === "Label" && kids.length >= 2 && head.HasChildren === false) {
+  if (head.IsLabelUnit && kids.length >= 2 && head.HasChildren === false) {
     const labels = [];
     let at = 0;
     while (at < kids.length && kids[at].IsLabelUnit) {
@@ -2970,12 +2997,12 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 只有 `Export` **一个**单元（`{…}` 在它里面），`> 1` 的判据把它漏给了通用投影——
   // 于是括号里每个单元（含 `as` / `type` 两个词）都成了平级子节点，
   // 而 `ExportSpecifier` 一个也没投出来。
-  if (headType === "Export" && kids.length >= 1) {
+  if (head.IsExportUnit && kids.length >= 1) {
     // **语句那一格的终点**要一起递进去（第 548 轮）：具名导出的尾分号不在
     // `Export` 单元自己的区间里（见 `projectExport`）。
     return projectExport(head, ctx, kids.slice(1), stmtEndOf(v, ctx));
   }
-  if (headType === "Let") {
+  if (head.IsLetUnit) {
     // `Let` 不只是一个节点：`=` 与初始化式是它的**平级兄弟**，所以整串交给列表版
     // `projectLetFrom`（**注意这里传的是「语句」的整串子单元**，不是 `Let` 那一个单元——
     // 那个单元自己的 `PrintDirectAst` 只拿得到 `const f` 那一段，见 `tokens/let.xl.md`）。
@@ -2985,7 +3012,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 而 TS 那边是 `WithStatement{ expression, statement }`。照通用支会整条投成一个
   // `ExpressionStatement`（实测 `st-with` / `stmt-with` 两族共 20 处）。
   // 体那个 `{` 里的语句由 `IsStatementStart` 新加的那一条（`with` 后面的括号）负责成形成 `Statement`。
-  if (headType === "Keyword" && head.TextValue === "with") {
+  if (head.IsKeywordUnit && head.TextValue === "with") {
     const header = kids.find((k) => k.IsParenBracket);
     const body = kids.find((k) => k.IsBraceBracket);
     const withProps = {};
@@ -3001,7 +3028,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     return { kind: "WithStatement", pos: v.start, end: stmtEndOf(v, ctx), ...withProps };
   }
   // ---- 关键字开头的语句（`return` / `throw` / `break` / `continue` / `debugger`）----
-  if (headType === "Keyword") {
+  if (head.IsKeywordUnit) {
     // **`export` / `declare` 前缀 + 一条声明**（第 100 轮）：`export declare namespace Client {…}`
   // 的产物是 `Statement > [Keyword(export), Namespace(modifiers="declare")]`，而 TS 那边是
   // `ModuleDeclaration.modifiers = [ExportKeyword, DeclareKeyword]`（前缀词进**修饰词**、
@@ -3082,7 +3109,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // 而那一格自己会投（`Statement.PrintDirectAst` → `StatementOf`）⇒ 这里**直接交回它**。
     // 少了这一条，它会落到下面的表达式支 ⇒ 多一层 `ExpressionStatement`
     // （实测 `blk :/*c*/{ … }` / `lbl :/*c*/class C { … }` / `lbl :/*c*/function f() { … }` 一族 8 条）。
-    if (headType === "Statement") {
+    if (head.IsStatementShell) {
       return projectNode(head, ctx);
     }
     const kind = head.AstKind;
@@ -3091,7 +3118,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // 起点取外层的 `v.start`，所以把外层起点**经 `ctx.baseStart` 递进去**
       // （`TypeAssign` 的投影已搬进 `tokens/type-assign.xl.md`，入口在那边，见第 197 轮）。
       let projected;
-      if (headType === "TypeAssign") {
+      if (head.IsTypeAssignUnit) {
         const savedBaseStart = ctx.baseStart;
         ctx.baseStart = v.start;
         try {
@@ -3148,7 +3175,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // **裸块语句**（第 123 轮）：`{ … }` 在 TS 那边**本身就是一条语句**，
     // 不能再套 `ExpressionStatement`——`Bracket` 的 `AstKind()` 答 `undefined`，
     // 所以上面那一支漏掉它，整块会被套上一层壳。
-    if (headType === "Bracket" && String(head.startBracket ?? "") === "{") {
+    if (head.IsBraceBracket) {
       return projectNode(head, ctx);
     }
   }
@@ -3306,11 +3333,10 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 而比较式（`a.b.c<string> + 1`）在 token 层已经退回裸符号 ⇒ 产物里没有 `GenericType`，
   // 这一支一次都不会响（实测那一份的产物与 TS 逐格相同）。
   // `Bracket` 只认**圆括号**：`[a]<string>` / `{ a }<string>` 不是这条形状。
-  const instHead = kids[0].Tag;
   const instCallee =
-    instHead === "Identifier" ||
-    instHead === "PropertyAccess" ||
-    (instHead === "Bracket" && kids[0].startBracket === "(");
+    kids[0].IsIdentifierUnit ||
+    kids[0].IsPropertyAccess ||
+    kids[0].IsParenBracket;
   if (kids.length >= 2 && instCallee && kids[1].IsGenericType) {
     // **圆括号那一格要走 `projectExpression`**：`(a.b)<string>` 里的头一格是值位括号，
     // 而 TS 那边它是 `ParenthesizedExpression`（`ExpressionWithTypeArguments > ParenthesizedExpression`）。
@@ -3318,7 +3344,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // 见它那句「值位括号 `(expr)`」）⇒ 直接把括号单元原样投出来 ⇒ 实测「缺
     // `ParenthesizedExpression` 1 / 多一个未映射的 `Bracket` 1」。
     const expression =
-      instHead === "Bracket" ? projectExpression([kids[0]], ctx) : projectNode(kids[0], ctx);
+      kids[0].IsParenBracket ? projectExpression([kids[0]], ctx) : projectNode(kids[0], ctx);
     if (expression !== undefined) {
       const args = projectTypeArguments(kids[1], ctx);
       // ---- 0a-1。**`callee<…>` 后面紧跟模板串 ⇒ 一条 `TaggedTemplateExpression`**（第 979 轮）----
@@ -3660,9 +3686,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 它的操作数 `y` 一个字都不留下，降级期报 `name is not a local or a capture: await`
   //（**整份文件跑不进来**）。与 `IsOperatorUnit` 那一格按文本认 `in` / `instanceof`
   // 是同一个手法：**同一个词两态都要认**（在模块 / 异步函数里 `await` 不可能是一个变量名）。
-  const headKind = kids[0].Tag;
   const headWord = kids[0].TextValue;
-  if (headKind === "Keyword" || (headKind === "Identifier" && (headWord === "await" || headWord === "yield"))) {
+  if (kids[0].IsKeywordUnit || (kids[0].IsIdentifierUnit && (headWord === "await" || headWord === "yield"))) {
     const word = headWord;
     // **第三态：裸的那个词**（第 960 轮，缺口 `gap-r955-yield-await-outside-context`）。
     //
@@ -3685,13 +3710,13 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     //
     // **`word` 这一道不能省**：这一格拿到的 `Keyword` **不止这两个词**——
     // `this` 在产物里也是一格 `Keyword`（`Identifier.LeafKindOfText` 把它投成 `ThisKeyword`），
-    // 只按 `headKind === "Keyword"` 放行就会把每一格 `this` 都投成普通的 `Identifier`
+    // 只按 `kids[0].IsKeywordUnit` 放行就会把每一格 `this` 都投成普通的 `Identifier`
     //（实测：整份文件的 `ThisKeyword` 全没了、降级期报 `name is not a local or a capture: this`）。
     //
     // **区间必须收在词自己身上**：不折时这一格是**一个标识符**，TS 的 `Identifier[9,15)`
     // 就是那个词；而下面 `yield` 那一支的 `end` 会拉到操作数末尾，照抄过来就会多出一段。
     // 所以这一支**自己造 `Identifier`**、不落下去。
-    if (headKind === "Keyword" && (word === "yield" || word === "await") && kids.length === 1) {
+    if (kids[0].IsKeywordUnit && (word === "yield" || word === "await") && kids.length === 1) {
       // **这一格自己就是 token**（第 1022 轮）：`v = view(node)` 那一层早就删了
       // （见 `projectNode` 开头那条「节点就是 token 自己」），所以这里直接问它。
       // 原来写的是 `kids[0].__token`——这个字段**在 token 自己身上是 `undefined`**
@@ -4470,16 +4495,24 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // `ExpressionWithTypeArguments`（TS 4.7 的 instantiation expression），在**类型位**才是
   // `TypeReference`——而这里拿到的是**已经投好**的节点（第 977 轮第一次只加了 `GenericType`，
   // 量下来那 39 条一条没动，正是这个缘故）。
+  // **第 1116 轮起这一串名字全是属性读**（原来是 `const kind = one.Tag;` 再比类名）：
+  // 「这一格算不算链的一格」的每一半都在**被问的那一页**身上（那个名字就是它的类名），
+  // 所以七格各由自己那一页显式声明（`IsExpressionWithTypeArguments` 是这一轮新立的）。
   // **拿真 TS 复量过那一格**（`tmp/r977-ts.mjs`）：`f < T > `t`` 与 `f<T>`t``、
   // `f < T > (1)` —— 三种排版 TS 都读成**一条** `TaggedTemplateExpression` / `CallExpression`
   // 带 `TypeReference`（而 `x < y > z` 才是二元），所以这一档不是放宽、是**同一句判据少了一格**。
   const tagIsPostfixChain = (units: Array<any>): bool => {
     for (const one of units) {
-      const kind = one.Tag;
-      if (kind === "Identifier" || kind === "PropertyAccess" || kind === "Method" || kind === "Bracket" || kind === "String" || kind === "GenericType" || kind === "ExpressionWithTypeArguments") {
-        continue;
-      }
-      if (one.IsDotSymbol) {
+      if (
+        one.IsIdentifierUnit ||
+        one.IsPropertyAccess ||
+        one.IsMethodNode ||
+        one.IsBracketUnit ||
+        one.IsStringUnit ||
+        one.IsGenericType ||
+        one.IsExpressionWithTypeArguments ||
+        one.IsDotSymbol
+      ) {
         continue;
       }
       return false;
@@ -4500,15 +4533,14 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 交回下面通用那一支——宁可维持原来的错，也不把「模板不在这一格的末尾」当成标签模板。
   const IsChainTail = (units: Array<any>): bool => {
     for (const one of units) {
-      const kind = one.Tag;
       if (
-        kind === "Identifier" ||
-        kind === "PropertyAccess" ||
-        kind === "Method" ||
-        kind === "Bracket" ||
-        kind === "ArrayLiteral" ||
-        kind === "NullConditionalOperator" ||
-        kind === "NotNull"
+        one.IsIdentifierUnit ||
+        one.IsPropertyAccess ||
+        one.IsMethodNode ||
+        one.IsBracketUnit ||
+        one.IsArrayLiteralUnit ||
+        one.IsNullConditionalOperator ||
+        one.IsNotNull
       ) {
         continue;
       }
@@ -4891,10 +4923,9 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // `unimplemented: expression AwaitKeyword`。判据与下面那一支共用同一个 `chainTail`。
   const chainTail = (unit: any): bool => {
     if (unit === undefined || unit === null) return false;
-    const tailKind = unit.Tag;
-    if (tailKind === "Bracket" || tailKind === "PropertyAccess" || tailKind === "Method") return true;
-    if (tailKind === "NotNull") return true;
-    return tailKind === "SymbolToken" && unit.TextValue === ".";
+    if (unit.IsBracketUnit || unit.IsPropertyAccess || unit.IsMethodNode) return true;
+    if (unit.IsNotNull) return true;
+    return unit.IsSymbolToken && unit.TextValue === ".";
   };
   // **把那个二元单元摊进 `ck`**（判据与理由见上面 `chainTailInOperator`）：
   // 续格那一截按原样摊成平级（与 `IsCallFirstUnit` 那一支同一个手法），

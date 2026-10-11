@@ -386,3 +386,18 @@ return result;
 而 `TypeAliasDeclaration` 就是**这一页自己的节点名**（`AstKind()` 的一格）——所以那是每一页自己的事实，
 被写在投影那一页里。今天需要它的页面各自覆写，投影只问这一格
 （口径见 `core/syntax/token.xl.md` 的 `IsStatementNode`）。
+
+## field IsTypeAssignUnit:bool = true
+
+**我这一格就是 `TypeAssign` 这一页的单元**（第 1116 轮）：这一页答 `true`（构造时就赋好）。
+
+投影那一侧 `projectStatement` 的「单个子单元自己就是语句」那一支里，过去先把标签取进
+局部变量（`const headType = head.Tag;`）再比类名，其中一处就是 `headType === "TypeAssign"`
+——那一支要**把外层 `Statement` 的起点经 `ctx.baseStart` 递进去**
+（`export type T = …` 的 `pos` 在外层、修饰词在本页），所以它必须在**投这一格之前**
+认出「这一格是不是本页」；那个名字就是本页自己的类名。
+
+**它与同页的 `IsStatementNode` 不是同一问**：那一格答「我投出来的是不是一条语句节点」
+（本页答 `true`），这一格答「这一格 token 是不是 `TypeAssign` 那一页的单元」——前者说的是
+**投出来的形状**，后者说的是**我是谁**（口径见 `core/syntax/token.xl.md` 的
+`IsTypeAssignUnit`）。

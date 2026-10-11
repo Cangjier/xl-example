@@ -1917,6 +1917,41 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 （`## field IsBinaryOperatorUnit:bool = true`，构造时就赋好），投影只读这一格
 （`x.IsBinaryOperatorUnit`）。
 
+## field IsExpressionWithTypeArguments:bool = false
+
+**我这一格是不是 `ExpressionWithTypeArguments` 那一页的单元**（第 1116 轮）——是的话答 `true`。
+
+判据同样是关于**产物标签**的：`typescript/tokens/heritage-clause.xl.md` 那一页答 `true`
+（继承子句里的实体名 / 一次实例化表达式），其余一律 `false`。过去它在投影层是**后缀链那一格**
+里的一处现场比类名——`const kind = one.Tag;` 之后 `kind === "ExpressionWithTypeArguments"`
+（与 `Identifier` / `PropertyAccess` / `Method` / `Bracket` / `String` / `GenericType`
+几个名字写在同一行里），而那个名字**就是那一页自己的类名**。
+
+**它与 `IsGenericType` 不是同一问**：`GenericType`（`typescript/tokens/generic-type.xl.md`）
+与 `ExpressionWithTypeArguments` 是**两个类**（前者在类型位投成 `TypeReference`，后者是一次
+实例化表达式 / 继承子句里的实体名），两页各自答自己那一格——投影那一处**两个名字都要认**
+（`one.IsGenericType || one.IsExpressionWithTypeArguments`），所以收成两格而不是一格。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsExpressionWithTypeArguments:bool = true`，构造时就赋好），投影只读这一格。
+
+## field IsTypeAssignUnit:bool = false
+
+**我这一格是不是 `TypeAssign` 那一页的单元**（第 1116 轮）——是的话答 `true`。
+
+判据同样是关于**产物标签**的：`typescript/tokens/type-assign.xl.md` 那一页答 `true`
+（`type T = …` 那一格），其余一律 `false`。过去它在投影层是 `projectStatement` 里
+**先取进局部变量再比**的八处之一——`const headType = head.Tag;` 之后
+`headType === "TypeAssign"`，而那个名字就是那一页自己的类名。
+
+**它与同页的 `IsStatementNode` 不是同一问**：那一格答「我**投出来的形状**是不是一条语句节点」
+（`TypeAssign` 那一页答 `true`，`AstKind` 是 `TypeAliasDeclaration`）；这一格答
+「**我这一格 token** 是不是 `TypeAssign` 那一页的单元」——投影要在**投它之前**按后者分派
+（把外层 `Statement` 的起点经 `ctx.baseStart` 递进去）。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsTypeAssignUnit:bool = true`，构造时就赋好），投影只读这一格。
+
 ## field IsValueOnlyUnit:bool = false
 
 **我这一格是不是「只可能做值」的单元**（第 1097 轮）——是的话答 `true`。

@@ -792,6 +792,8 @@ const SELF_CLASSIFY_NAMES = [
   "IsCommentUnit",
   "IsBinaryOperatorNode",
   "IsBinaryOperatorUnit",
+  "IsExpressionWithTypeArguments",
+  "IsTypeAssignUnit",
   "IsParenBracket",
   "IsBraceBracket",
   "IsNotNullSymbol",
@@ -1246,6 +1248,11 @@ const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"BinaryOperator"/g,
   /\.Tag\s*[!=]==?\s*"LineAnnotation"/g,
   /\.Tag\s*[!=]==?\s*"AreaAnnotation"/g,
+  // **第 1116 轮补的两个 `<Tag>`**：「这一格是不是 `ExpressionWithTypeArguments` / `TypeAssign`
+  // 那一页的单元」——两处过去都藏在**先取局部变量再比**那一形态里（见下面
+  // `TAG_LOCAL_VAR_COMPARE`），本轮连那个形态一起收干净。
+  /\.Tag\s*[!=]==?\s*"ExpressionWithTypeArguments"/g,
+  /\.Tag\s*[!=]==?\s*"TypeAssign"/g,
 ];
 /** 投影层拿类名当「是不是 `PropertyAccess` / `NotNull` 那一格」判的处数（0 处才是对的）。 */
 let selfTagClassifyHits = 0;
@@ -1265,6 +1272,51 @@ let selfTagClassifyHits = 0;
               "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull` / `Token.IsMethodNode` / `Token.IsGenericType` / `Token.IsSymbolToken` / `Token.IsNullConditionalOperator` / `Token.IsStringUnit` / `Token.IsStringLiteralUnit` / `Token.IsBracketUnit` / `Token.IsArrayLiteralUnit` / `Token.IsTypeParameterUnit` / `Token.IsKeywordUnit` / `Token.IsIdentifierUnit` / `Token.IsLetUnit` / `Token.IsObjectLiteralUnit` / `Token.IsDecoratorUnit` / `Token.IsAsUnit` / `Token.IsSatisfiesUnit` / `Token.IsSpreadUnit` / `Token.IsValueOnlyUnit` / `Token.IsTypeUnit` / `Token.IsTypeSuffixUnit` / `Token.IsTypeDefine` / `Token.IsArrayType` / `Token.IsIndexedAccessType` / `Token.IsTypeOperator` / `Token.IsTypeQuery` / `Token.IsImportType` / `Token.IsTypePredicate` / `Token.IsUnionType` / `Token.IsIntersectionType` / `Token.IsFunctionType` / `Token.IsParameterUnit` / `Token.IsTypeWithTypeArguments` / `Token.IsMethodDeclaration` / `Token.IsUnaryOperator` / `Token.IsBindingElement` / `Token.IsStatementShell` / `Token.IsSwitchCaseUnit` / `Token.IsSwitchStatementUnit` / `Token.IsExportUnit` / `Token.IsLabelUnit`，构造时赋好），投影只读属性",
           });
         }
+      }
+    }
+  }
+}
+
+/**
+ * **同一句话的第三种写法：先把标签取进局部变量、再拿它比类名**（第 1116 轮）。
+ *
+ * `selfTagClassifyHits` 那一条抓的是**行内**形态（`X.Tag === "Label"`），
+ * 而投影层还有一族写成这样：
+ *
+ *     const kind = one.Tag;
+ *     if (kind === "Identifier" || kind === "PropertyAccess" || …) { … }
+ *
+ * ——正则看不见它（比的是局部变量，`Tag` 早就不在同一行里了），所以这一族一直躲着那几条门
+ * （第 1116 轮逐个数出来是 **7 处 / 6 格局部变量**：`headType`（8 处比较）、`instHead`、
+ * `headKind`、`tailKind`、`tagIsPostfixChain` 与 `IsChainTail` 里的 `kind`）。
+ * 本轮把这 6 格连同它们比过的类名一起收进被问的那几页（新立
+ * `Token.IsExpressionWithTypeArguments` / `Token.IsTypeAssignUnit`，其余读已有的属性），
+ * 于是这一条今天恰好 0 处。
+ *
+ * **认法**：`const <名字> = <若干层属性/下标>.Tag;` 之后**同一批代码里**又出现
+ * `<名字> === "…"` / `<名字> !== "…"`——`[\s\S]{0,240}?` 就是为了「先声明、隔几行再比」。
+ * **不算的两种**：`const tag: any = node.Tag;`（带类型标注那一格要的是**字符串本身**，
+ * 拿去当 `kind` 用，不拿来比类名）与 `ctx.unmapped.add(v.Tag)` / `mk(v.Tag, …)`
+ * （原样透传，`Tag` 就是数据）。
+ */
+const TAG_LOCAL_VAR_COMPARE =
+  /const\s+([A-Za-z_$][\w$]*)\s*=\s*[A-Za-z_$][\w$]*(?:\.\w+|\[\d+\])*\.Tag\s*;[\s\S]{0,240}?\b\1\s*[!=]==?\s*"/g;
+/** 投影层「先取标签再比类名」的处数（0 处才是对的）。 */
+let tagLocalVarHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const match of code.matchAll(new RegExp(TAG_LOCAL_VAR_COMPARE, "g"))) {
+      tagLocalVarHits += 1;
+      if (tagLocalVarHits <= 3) {
+        violations.push({
+          file: SHARED_FILE,
+          why:
+            `「这一格是不是某一类」先把标签取进局部变量再比类名：\`${match[0].slice(0, 60)}\`——` +
+            "那一格的事实住在被问的那一页（构造时赋好的那几格属性），投影只读属性",
+        });
       }
     }
   }
@@ -1463,6 +1515,11 @@ console.log(
 );
 console.log(
   `「这一格是不是一条成员访问链 / 一次非空断言 / 一次方法调用 / 一段泛型括号段 / 一个符号块 / 一个空条件运算符单元 / 一个字符串单元 / 一段字符串字面量 / 一个括号单元 / 一个数组字面量单元 / 一个类型参数单元 / 一个关键字单元 / 一个标识符单元 / 一条 let 声明单元 / 一个对象字面量单元 / 一个装饰器单元 / 一个 as 单元 / 一个 satisfies 单元 / 一个展开单元 / 一个只可能做值的单元 / 一个类型位单元 / 一个类型尾缀单元 / 一格 TypeDefine / 一格 ArrayType / 一格 IndexedAccessType / 一格 TypeOperator / 一格 TypeQuery / 一格 ImportType / 一格 TypePredicate / 一格 UnionType / 一格 IntersectionType / 一格 FunctionType / 一格 Parameter / 一格 MethodDeclaration / 一格 UnaryOperator / 一格 BindingElement / 一格 Statement / 一格 SwitchCase / 一格 SwitchStatement / 一格 Export / 一格 Label」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull / Token.IsMethodNode / Token.IsGenericType / Token.IsSymbolToken / Token.IsNullConditionalOperator / Token.IsStringUnit / Token.IsStringLiteralUnit / Token.IsBracketUnit / Token.IsArrayLiteralUnit / Token.IsTypeParameterUnit / Token.IsKeywordUnit / Token.IsIdentifierUnit / Token.IsLetUnit / Token.IsObjectLiteralUnit / Token.IsDecoratorUnit / Token.IsAsUnit / Token.IsSatisfiesUnit / Token.IsSpreadUnit / Token.IsValueOnlyUnit / Token.IsTypeUnit / Token.IsTypeSuffixUnit / Token.IsTypeDefine / Token.IsArrayType / Token.IsIndexedAccessType / Token.IsTypeOperator / Token.IsTypeQuery / Token.IsImportType / Token.IsTypePredicate / Token.IsUnionType / Token.IsIntersectionType / Token.IsFunctionType / Token.IsParameterUnit / Token.IsTypeWithTypeArguments / Token.IsMethodDeclaration / Token.IsUnaryOperator / Token.IsBindingElement / Token.IsStatementShell / Token.IsSwitchCaseUnit / Token.IsSwitchStatementUnit / Token.IsExportUnit / Token.IsLabelUnit）`,
+);
+// **同一句话的第三种写法**（第 1116 轮）：先把 `X.Tag` 取进局部变量、再拿它比类名——
+// 那种写法让上面那几条按行匹配的正则全都看不见它（第 1116 轮收掉 7 处 / 6 格局部变量）。
+console.log(
+  `「这一格是不是某一类」先取标签进局部变量再比类名（${SHARED_FILE} 的代码块）：${tagLocalVarHits} 处（0 处才是对的，读被问那一页的属性）`,
 );
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的

@@ -410,3 +410,18 @@ return result;
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
+
+## field IsExpressionWithTypeArguments:bool = true
+
+**我这一格就是 `ExpressionWithTypeArguments` 这一页的单元**（第 1116 轮）：这一页答 `true`
+（构造时就赋好，与上面的 `AstKind` 同一形态——两者答的是同一件事）。
+
+投影那一侧**后缀链那一格**（`tagIsPostfixChain`：`t<T>`x`` 的标签是**一格**实例化表达式）
+把「这一格算不算链的一格」的判据写成一行**比类名**的连写，其中一处就是
+`kind === "ExpressionWithTypeArguments"`——而那个名字**就是本页自己的类名**。
+今天由本页**显式声明**并给出自己的值，投影只读属性（`one.IsExpressionWithTypeArguments`）。
+
+**它与 `IsGenericType` 不是同一问**（那一处两个名字都要认，所以是两格不是一格）：
+`GenericType`（`typescript/tokens/generic-type.xl.md`）与本页是**两个类**——
+前者在类型位投成 `TypeReference`，本页是一次实例化表达式 / 继承子句里的实体名
+（口径见 `core/syntax/token.xl.md` 的 `IsExpressionWithTypeArguments`）。
