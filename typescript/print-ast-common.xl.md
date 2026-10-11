@@ -6210,120 +6210,121 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
         // 所以这里只补「点号不来」这一档：被调用者是 `left`、而这一格盖着两层调用
         //（判据就是**区间**：`Method` 比它那个实参括号更靠右，与另外三处一字不差）。
         if (ck[i].IsMethodNode) {
-          const callKids = ck[i].ProjectableKids.filter((k: any) => k.IsGenericType === false);
-          const callHead = callKids.length > 0 ? callKids[0] : undefined;
+          // **「这一格是不是一次裸调用」问这一格自己**（第 1197 轮，用户口径 1.1 / 1.2 / 1.5 / 1.6）：
+          // 下面这一整段要的正是「名字为空、而第一个实义子单元是内层 `Method` / 实参括号
+          // / `NotNull`」那一档——那**就是** `Method.IsBareCall` 那一格答的事（第 965 轮立判据、
+          // 第 1077 轮搬回 `method.xl.md`）。原来这里**一条判据都没有**，于是「按名字取第一格、
+          // 再逐支判 `IsMethodNode` / `IsNotNull`」这一串对**每一个** `Method` 都要跑一遍
+          //（包括名字非空的绝大多数）——`??` 与 `IsNotNull` 那两支因此还各自带了一遍
+          // 「`bareName === ""`」的重复闸门。收成一处之后，那几遍都省了，
+          // 而「我是不是裸调用」这件事也仍然只有 `Method` 那一页一处判据。
           const bareName = ck[i].DeclaredName;
-          // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：
-          // `a!()()` 的产物是 `[NotNull(a), Method(name=""[Method(name="")[Bracket(()), !], Bracket(())])]`
-          // ——内层那格 `Method(name="")` 本身就是**第一次调用**，外层这一格是**第二次**。
-          // 原来这一档只认「第一格是实参括号」，于是内层那次调用**整格丢**、
-          // 外层也只被投成一次调用（实测 `gap-r964-nonnull-call-twice-member`：缺 4 格）。
-          // 折法就是「各投各的」：内层 `projectNode(callHead)` 给出的**已经是**对 `left` 的
-          // 一次调用，只需把受体换成 `left`（它那一格本来没人填），位置取 `left.pos`；
-          // 外层再用 `projectNode(ck[i])` 套一层。
-          if (bareName === "" && callHead !== undefined && callHead.IsMethodNode
-            && callHead.DeclaredName === "") {
-            // **「最里面那一格」要一路问到底**（第 975 轮，**普查当场红的**）：
-            // `a!()()()()`（四次调用）的 `callHead` 是
-            // `Method(name=""[Method(name=""[Bracket(())])])`——里面**还套着一格**，
-            // 而这里原来只对「头一格是实参括号」那一档补一层
-            // （`deepHead.Tag === "Bracket"`）⇒ 四层调用只折出两层
-            //（实测 `gap-r973-nonnull-call-quad`：两个 `CallExpression` 的区间一路漂到
-            //  `[0,10)`；三层那一档 `a!()()()` 也是同一句话少问一层）。
-            // **折法与 `chainWithOptional` / `chainOnto` 的 Method 分支共用同一对**
-            //（第 971 轮立的 `innermostMethod` + `graftCallee`；「最里面那一格的被调用者
-            //  怎么建」第 975 轮收进 `innermostCallee`）：先走到**最里面**那一格
-            // `Method`，再让 `projectNode(callHead)` 那一串壳**整体**套上去——
-            // `graftCallee` 一路下到最里面那一层调用，不会像原来那样把中间几层丢掉。
-            const innerCall = graftOnto(left, callHead, ctx);
-            left = shellOnto(ck[i], innerCall, ctx);
-            i += 1;
-            continue;
-          }
-          // **这一格盖着两层调用、而里层那一次只留下一个实参括号**（第 966 轮）：
-          // `a!()()` 的产物是 `[NotNull(a, !), Method(name=""[Bracket(())])]`——**一个
-          // `Method` 单元里只有一对括号**，可它说的是**两次调用**：前一次是「调用 `left`」、
-          // 后一次才是这一格自己那次（两次调用共用一格 `Method` 的区间）。
-          // **判据是区间**（与另外三处一字不差）：`Method` 比它那个实参括号更靠右 ⇒
-          // 里面还裹着一层。少了这一档就只投出**一次**调用（实测
-          // `gap-r964-nonnull-call-twice-member`：`CallExpression` 与
-          // `PropertyAccessExpression` 整片缺、`.c` 也跟着丢）。
-          // 折法与上面那支同款：先建里层那次调用（受体是 `left`、区间到括号为止），
-          // 再把这一格自己那次套在外面。
-          if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && ck[i].HasOuterCall) {
-            const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
-            left = shellOnto(ck[i], innerCall, ctx);
-            i += 1;
-            continue;
-          }
-          // **断言盖的是一次调用、这一格外面还有一层调用**（第 966 轮）：`a!()!()` 的产物是
-          // `[NotNull(a, !), Method(name=""[NotNull(Bracket(()), !), Bracket(())])]`——
-          // 那个 `NotNull` 的核是**实参括号**（不是名字），所以这里要自己把内层那次调用
-          // 建出来（`assertedMember` 只认名字）。**判据与另外几处一字不差**：
-          // `Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
-          if (bareName === "" && callHead !== undefined && callHead.IsNotNull) {
-            const assertHead = callHead.CoreHead;
-            // **「断言盖的是什么」第 1197 轮起问这一格自己**（用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6）：
-            // 下面三支原来各自读核的**三句属性**（`IsMethodNode` / `IsParenBracket` /
-            // `IsIndexBracket`），共 **10 处**同形的判据散在 `projectExpression` /
-            // `chainWithOptional` / `chainOnto` / `assertedMember` 四处；而**答案就是这一页
-            // 自己那个核的类别**（`NotNull.CoreKind`）。收成一格字符串之后，
-            // 三支判据只剩「按那一格答的那一态各建一层」，次序也仍然只有那一处。
-            const coreKind = callHead.CoreKind;
-            // **断言里的核是一格 `Method`**（第 975 轮）：`a!()()!()` 的这一格是
-            // `Method(name=""[NotNull(Method(name=""[Bracket(())]), !), Bracket(())])`——
-            // 断言盖的**不是一对括号**、而是**一格调用单元**（那一格自己还盖着两层调用，
-            // 第 966 轮那句话）。原来这里只认「核是实参括号」⇒ 这一支整条不进、
-            // 链在下面 `break` ⇒ 三格 `CallExpression` 与那个 `NonNullExpression` 一起丢
-            //（实测 `gap-r973-nonnull-call-twice-assert`：缺 3 漂 1）。
-            // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**：
-            // 走到最里面那一格（`innermostMethod`）、被调用者交给 `innermostCallee`、
-            // 换法交给 `graftCallee`——再把 `!` 套在整条调用链外面。
-            if (coreKind === "Method") {
-              const innerCall = graftOnto(left, assertHead, ctx);
-              const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
-                left = shellOnto(ck[i], assertedCall, ctx);
+          if (ck[i].IsBareCall && bareName === "") {
+              const callKids = ck[i].ProjectableKids.filter((k: any) => k.IsGenericType === false);
+              const callHead = callKids.length > 0 ? callKids[0] : undefined;
+              // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：
+              // `a!()()` 的产物是 `[NotNull(a), Method(name=""[Method(name="")[Bracket(()), !], Bracket(())])]`
+              // ——内层那格 `Method(name="")` 本身就是**第一次调用**，外层这一格是**第二次**。
+              // 原来这一档只认「第一格是实参括号」，于是内层那次调用**整格丢**、
+              // 外层也只被投成一次调用（实测 `gap-r964-nonnull-call-twice-member`：缺 4 格）。
+              // 折法就是「各投各的」：内层 `projectNode(callHead)` 给出的**已经是**对 `left` 的
+              // 一次调用，只需把受体换成 `left`（它那一格本来没人填），位置取 `left.pos`；
+              // 外层再用 `projectNode(ck[i])` 套一层。
+              if (callHead !== undefined && callHead.IsMethodNode && callHead.DeclaredName === "") {
+              // **「最里面那一格」要一路问到底**（第 975 轮，**普查当场红的**）：
+              // `a!()()()()`（四次调用）的 `callHead` 是
+              // `Method(name=""[Method(name=""[Bracket(())])])`——里面**还套着一格**，
+              // 而这里原来只对「头一格是实参括号」那一档补一层
+              // （`deepHead.Tag === "Bracket"`）⇒ 四层调用只折出两层
+              //（实测 `gap-r973-nonnull-call-quad`：两个 `CallExpression` 的区间一路漂到
+              //  `[0,10)`；三层那一档 `a!()()()` 也是同一句话少问一层）。
+              // **折法与 `chainWithOptional` / `chainOnto` 的 Method 分支共用同一对**
+              //（第 971 轮立的 `innermostMethod` + `graftCallee`；「最里面那一格的被调用者
+              //  怎么建」第 975 轮收进 `innermostCallee`）：先走到**最里面**那一格
+              // `Method`，再让 `projectNode(callHead)` 那一串壳**整体**套上去——
+              // `graftCallee` 一路下到最里面那一层调用，不会像原来那样把中间几层丢掉。
+              const innerCall = graftOnto(left, callHead, ctx);
+              left = shellOnto(ck[i], innerCall, ctx);
               i += 1;
               continue;
             }
-            if (coreKind === "Call") {
-              const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(assertHead, ctx) }, assertHead.end);
-              const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
-                left = shellOnto(ck[i], assertedCall, ctx);
+            // **这一格盖着两层调用、而里层那一次只留下一个实参括号**（第 966 轮）：
+            // `a!()()` 的产物是 `[NotNull(a, !), Method(name=""[Bracket(())])]`——**一个
+            // `Method` 单元里只有一对括号**，可它说的是**两次调用**：前一次是「调用 `left`」、
+            // 后一次才是这一格自己那次（两次调用共用一格 `Method` 的区间）。
+            // **判据是区间**（与另外三处一字不差）：`Method` 比它那个实参括号更靠右 ⇒
+            // 里面还裹着一层。少了这一档就只投出**一次**调用（实测
+            // `gap-r964-nonnull-call-twice-member`：`CallExpression` 与
+            // `PropertyAccessExpression` 整片缺、`.c` 也跟着丢）。
+            // 折法与上面那支同款：先建里层那次调用（受体是 `left`、区间到括号为止），
+            // 再把这一格自己那次套在外面。
+            if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && ck[i].HasOuterCall) {
+              const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
+              left = shellOnto(ck[i], innerCall, ctx);
               i += 1;
               continue;
             }
-            // **断言里的核是一对下标括号**（第 975 轮）：`a!()[0]!()` 的第二格是
-            // `Method(name=""[NotNull([Bracket([0]), !]), Bracket(())])`——**被调用者是
-            // 「断言盖着一次下标」**（`(a!()[0])!`），而这一格自己那次调用的实参表是
-            // 后面那一对平级的括号。上面那两支只认「核是调用」⇒ 整格丢
-            //（实测 `gap-r975-nonnull-index-assert-call`：缺 2 漂 2）。
-            // 次序与下标那一支一字不差：先接受体、再把 `!` 套在外面；这一格自己那次调用
-            // 由 `projectNode(ck[i])` 那个壳给出（它的被调用者位置正好填这一格）。
-            if (coreKind === "Index") {
-              const element: any =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, assertHead.end);
-              const assertedInner: any =chainOn("NonNullExpression", element, { expression: element }, callHead.end);
-              left = shellOnto(ck[i], assertedInner, ctx);
+            // **断言盖的是一次调用、这一格外面还有一层调用**（第 966 轮）：`a!()!()` 的产物是
+            // `[NotNull(a, !), Method(name=""[NotNull(Bracket(()), !), Bracket(())])]`——
+            // 那个 `NotNull` 的核是**实参括号**（不是名字），所以这里要自己把内层那次调用
+            // 建出来（`assertedMember` 只认名字）。**判据与另外几处一字不差**：
+            // `Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
+            if (bareName === "" && callHead !== undefined && callHead.IsNotNull) {
+              const assertHead = callHead.CoreHead;
+              // **「断言盖的是什么」第 1197 轮起问这一格自己**（用户口径 1.1 / 1.2 / 1.3 / 1.5 / 1.6）：
+              // 下面三支原来各自读核的**三句属性**（`IsMethodNode` / `IsParenBracket` /
+              // `IsIndexBracket`），共 **10 处**同形的判据散在 `projectExpression` /
+              // `chainWithOptional` / `chainOnto` / `assertedMember` 四处；而**答案就是这一页
+              // 自己那个核的类别**（`NotNull.CoreKind`）。收成一格字符串之后，
+              // 三支判据只剩「按那一格答的那一态各建一层」，次序也仍然只有那一处。
+              const coreKind = callHead.CoreKind;
+              // **断言里的核是一格 `Method`**（第 975 轮）：`a!()()!()` 的这一格是
+              // `Method(name=""[NotNull(Method(name=""[Bracket(())]), !), Bracket(())])`——
+              // 断言盖的**不是一对括号**、而是**一格调用单元**（那一格自己还盖着两层调用，
+              // 第 966 轮那句话）。原来这里只认「核是实参括号」⇒ 这一支整条不进、
+              // 链在下面 `break` ⇒ 三格 `CallExpression` 与那个 `NonNullExpression` 一起丢
+              //（实测 `gap-r973-nonnull-call-twice-assert`：缺 3 漂 1）。
+              // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**：
+              // 走到最里面那一格（`innermostMethod`）、被调用者交给 `innermostCallee`、
+              // 换法交给 `graftCallee`——再把 `!` 套在整条调用链外面。
+              if (coreKind === "Method") {
+                const innerCall = graftOnto(left, assertHead, ctx);
+                const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
+                  left = shellOnto(ck[i], assertedCall, ctx);
+                i += 1;
+                continue;
+              }
+              if (coreKind === "Call") {
+                const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(assertHead, ctx) }, assertHead.end);
+                const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
+                  left = shellOnto(ck[i], assertedCall, ctx);
+                i += 1;
+                continue;
+              }
+              // **断言里的核是一对下标括号**（第 975 轮）：`a!()[0]!()` 的第二格是
+              // `Method(name=""[NotNull([Bracket([0]), !]), Bracket(())])`——**被调用者是
+              // 「断言盖着一次下标」**（`(a!()[0])!`），而这一格自己那次调用的实参表是
+              // 后面那一对平级的括号。上面那两支只认「核是调用」⇒ 整格丢
+              //（实测 `gap-r975-nonnull-index-assert-call`：缺 2 漂 2）。
+              // 次序与下标那一支一字不差：先接受体、再把 `!` 套在外面；这一格自己那次调用
+              // 由 `projectNode(ck[i])` 那个壳给出（它的被调用者位置正好填这一格）。
+              if (coreKind === "Index") {
+                const element: any =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, assertHead.end);
+                const assertedInner: any =chainOn("NonNullExpression", element, { expression: element }, callHead.end);
+                left = shellOnto(ck[i], assertedInner, ctx);
+                i += 1;
+                continue;
+              }
+              // **核既不是调用、也不是下标 ⇒ 这个 `NotNull` 是**被调用者**（第 975 轮）：
+              // `a!()[0]!()` 的第一格是 `Method(name=""[NotNull(a), Bracket(())])`——
+              // `!` 挂在**被调用者**身上，实参括号是**平级的兄弟**。这一档照 `projectNode(这一格)`
+              // 投出来就是对的（`Method` 自己的 `anonymousCallee` 那一支早就会把
+              // 「有 `!` 的被调用者 + 实参表」办成 `CallExpression > NonNullExpression`），
+              // 原来这里没有兜底 ⇒ 循环 `break`、`CallExpression[0,4)` 与后面整段一起丢。
+              left = projectNode(ck[i], ctx);
               i += 1;
               continue;
             }
-            // **核既不是调用、也不是下标 ⇒ 这个 `NotNull` 是**被调用者**（第 975 轮）：
-            // `a!()[0]!()` 的第一格是 `Method(name=""[NotNull(a), Bracket(())])`——
-            // `!` 挂在**被调用者**身上，实参括号是**平级的兄弟**。这一档照 `projectNode(这一格)`
-            // 投出来就是对的（`Method` 自己的 `anonymousCallee` 那一支早就会把
-            // 「有 `!` 的被调用者 + 实参表」办成 `CallExpression > NonNullExpression`），
-            // 原来这里没有兜底 ⇒ 循环 `break`、`CallExpression[0,4)` 与后面整段一起丢。
-            left = projectNode(ck[i], ctx);
-            i += 1;
-            continue;
-          }
-          if (bareName === "" && callHead !== undefined
-            && callHead.IsParenBracket
-            && ck[i].HasOuterCall) {
-            const innerCall =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
-            left = shellOnto(ck[i], innerCall, ctx);
-            i += 1;
-            continue;
           }
         }
         break;
@@ -7439,32 +7440,33 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
           continue;
         }
       }
-      if (bareName === "" && callHead !== undefined && callHead.IsMethodNode
-        && callHead.DeclaredName === "") {
-        // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：`a!()()` 的产物是
-        // `[NotNull(a, !), Method(name=""[Method(name=""[Bracket(()), !]), Bracket(())])]`——
-        // 内层 `Method(name="")` 本身就是**第一次调用**（它的核是那对实参括号），
-        // 外层那一格是**第二次调用**。取名字那一支在这里会把 `""` 当成成员名 ⇒ 投出一格
-        // 名字为空的属性访问（实测 `gap-r964-nonnull-call-twice-member`：整条链丢 4 格）。
-        // 折法就是「各投各的」：内层 `projectNode(callHead)` 给出的**已经是**对 `left` 的
-        // 一次调用，只需要把它的受体换成 `left`（它自己那格是空的、没人填），
-        // 位置取 `left.pos`；外层再用 `projectNode(unit)` 套一层。
-        const innerCall = shellOn(projectNode(callHead, ctx), left);
-        left = shellOnto(unit, innerCall, ctx);
-        i += 1;
-        continue;
-      }
-      if (bareName === "" && callHead !== undefined && callHead.IsMethodNode
-        && callHead.DeclaredName !== "") {
+      // **这一格盖着两层调用、而内层那一格是一格 `Method`**（第 966 轮）——
+      // 两档**各投各的**、只在「里面那一格的名字怎么用」上分岔（第 1197 轮把这一对并成一支）：
+      //
+      // · **内层名字是空的**（`a!()()`）：内层那个 `Method(name="")` 本身就是**第一次调用**
+      //   （它的核是那对实参括号），外层这一格是**第二次调用**。取名字那一支在这里会把 `""`
+      //   当成成员名 ⇒ 投出一格名字为空的属性访问（实测 `gap-r964-nonnull-call-twice-member`：
+      //   整条链丢 4 格）。所以被调用者**就是 `left`**（内层那一格自己那格是空的、没人填），
+      //   位置取 `left.pos`。
+      // · **内层名字非空**（`a?.b()()` 那一族）：先给 `left` 接一格成员访问（名字取内层那一格
+      //   自己声明的那个、起点与宽度都在它自己身上），再把内层的调用壳套上去。
+      //
+      // 两条路的**壳与套法一字不差**（`shellOn` + `shellOnto`），差别只有「被调用者怎么建」——
+      // 而那一问第 975 轮就已经收进 `innermostCallee` 了（名字 / 实参括号 / `left` 三档一处一份），
+      // 所以这里只判一次「内层有没有名字」。
+      if (bareName === "" && callHead !== undefined && callHead.IsMethodNode) {
         const innerName = callHead.DeclaredName;
-        const innerAt = callHead.start;
-        const innerMember: any =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length } }, innerAt + innerName.length);
-        const innerCall = shellOn(projectNode(callHead, ctx), innerMember);
+        let innerCallee: any = left;
+        if (innerName !== "") {
+          const innerAt = callHead.start;
+          innerCallee =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length } }, innerAt + innerName.length);
+        }
+        const innerCall = shellOn(projectNode(callHead, ctx), innerCallee);
         left = shellOnto(unit, innerCall, ctx);
         i += 1;
         continue;
       }
-      if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && callHead.end < unit.end) {
+      if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && unit.HasOuterCall) {
         const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
         left = shellOnto(unit, innerCall, ctx);
         i += 1;
