@@ -85,6 +85,27 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
 而第 1131 轮删掉 `nameOf` 那一格之后实测就是 42 格 / 39 个 `# method`——按上面那条规矩改成实测值
 （**第 1136 轮没有动声明数**：42 → 42，改的是投影那一侧读的一格属性）。
 
+**第 1137 轮把「这一格是哪一态括号」那一门**漏掉的第 28 处**收了**，并把那一门补全到
+「三种写法都认」（用户口径 1.1 ~ 1.4：投影要的信息由**被问的那一页**那一格答，本页只读属性）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `kids[kids.length - 1].IsBracketUnit && kids[kids.length - 1].startBracket === "("`（`projectExpression` 末尾「对调用结果再调一次」那一支，本页**最后 1 处裸字段读**） | `kids[kids.length - 1].IsParenBracket` | `tokens/bracket.xl.md` 第 1089 轮就立好的那一格（`## field IsParenBracket:bool = false`，`Use` 里 `this.IsParenBracket = this.startBracket === "("`、`Clone` 抄同一格，基类答 `false`） |
+
+- **它为什么漏了**：第 1089 / 1095 / 1109 轮那 27 处写的是 `X.Tag === "Bracket" && X.startBracket === "("`，
+  而 `direct:lint` 的 `BRACKET_STATE_CLASSIFY` 两条正则**都要求 `Tag === "Bracket"` 那一半在前面**
+  ——这一处没有那一半（守卫写的是 `IsBracketUnit`），所以这一门从来报不出来
+  （与第 1115 轮收掉的 `IsCommentUnit` 那一处是同一款漏网）。
+- **等价怎么证的**：`IsParenBracket` 只在 `Bracket` 那一页答 `true`（基类 `false`），
+  取值就是 `this.startBracket === "("`——所以原式那两句的合取与这一格**逐字同答**，
+  「是不是括号」那一半也被蕴含；八道门读数一处没动就是这条的证据。
+- **判据这一轮长了**：`BRACKET_STATE_CLASSIFY` 补第三条**裸字段读**
+  （`X.startBracket === "[" / "(" / "{"`，接收者连 `kids[kids.length - 1]` 这种下标都算），
+  **自验**（`tmp/r1137`，不进仓库）：把那一行写回去 ⇒ 这一门报 **1 处**并点名那一行、退出码 1；
+  改回属性读 ⇒ 0 处。本页代码块里 `.startBracket` 从此**一处不剩**（那一格是**存储**，
+  三格属性才是入口）。
+- **本页的声明数**：**42 格**（**一格没增、一格没减**：改的是一处读数、说明与 `direct:lint` 的判据）。
+
 **第 1136 轮把第 1135 轮「量过、没敢收」的那一处收成了**（用户口径 1.1 ~ 1.4：投影要的信息
 由**具体 token 子类**在自己那一页**显式声明**、在**构建过程**里赋好，读的时候备齐）。
 收的对象是 `memberNameOf` 里「我声明的这个名字是不是数字字面量」那一句：
@@ -1477,7 +1498,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 
 | 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
 | --- | --- | --- |
-| `X.Tag === "Bracket" && X.startBracket === "("`（本页 **27 处**：同行 15 + 跨行 12） | `X.IsParenBracket` | `Bracket` 那一页**显式声明** `## field IsParenBracket:bool = false`，在 `Use` 记下 `startBracket` 的那一刻赋好、`Clone` 照抄（与 `IsIndexBracket` 同页同趟） |
+| `X.Tag === "Bracket" && X.startBracket === "("`（本页 **27 处**：同行 15 + 跨行 12） | `X.IsParenBracket` | `Bracket` 那一页**显式声明** `## field IsParenBracket:bool = false`，在 `Use` 记下 `startBracket` 的那一刻赋好、`Clone` 照抄（与 `IsIndexBracket` 同页同趟）。**第 1137 轮补上第 28 处**：`projectExpression` 末尾那一支写的是同一句话的**第三种写法**（`IsBracketUnit && …startBracket === "("`，**没有 `Tag` 那一半**），从上面那两条正则里漏了过去——已改读同一格，`BRACKET_STATE_CLASSIFY` 也补了第三条（裸字段读） |
 | `X.Tag === "Bracket" && X.startBracket === "{"`（同行 2 + `String(… ?? "")` 兜底 1） | `X.IsBraceBracket` | 同上（`## field IsBraceBracket:bool = false`，同一趟赋好） |
 | `X.Tag === "Bracket" && X.startBracket === "["`（同行 6 + 跨行 3） | `X.IsIndexBracket` | 第 1058 轮那一格（本页这一轮只是把**同一格事实的匿名连写**也改成属性读） |
 
@@ -1511,6 +1532,12 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   （`X.Tag === "Bracket"` 换行到 `&& X.startBracket === "("`）——是这一门自己报出来的 15 处
   （含 3 处 `[`）把它们补齐的；改写脚本因此改成**在 ```ts 围栏内整段**匹配（散文里那句历史
   `node.Tag === "Bracket" && node.startBracket === "["` 一个字没动）。
+- **同一门第 1137 轮又逮到一处漏网**：上面那两条正则都要求 `X.Tag === "Bracket"` 那一半在前面，
+  于是**没有那一半的写法**（`kids[kids.length - 1].IsBracketUnit && …startBracket === "("`，
+  `projectExpression` 末尾「对调用结果再调一次」那一支）这一门从来报不出来。
+  这一轮把它改读 `IsParenBracket`（见 `BRACKET_STATE_CLASSIFY` 第三条与那一处的注释），
+  **自验过**：把那一行写回去 ⇒ 这一门报 **1 处**并点名 `kids[kids.length - 1].startBracket === "("`，
+  退出码 1；改回属性读 ⇒ 0 处。这一门因此第一次真正覆盖「三态括号」的**三种写法**。
 - **实测**：`xl check typescript core` **156 个文件 0 条**；`xl build typescript core`
   **3 个产物** / 0 error（`print-ast-common` / `bracket` / `object-literal`）、`tsc` 干净；
   **八道门 8 通过、0 失败**（墙钟 31.0s）。
@@ -6491,10 +6518,20 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 不接的话外层调用整个没有、内层终点也短两格（实测 `stmt-asi-paren-call.ts`：
   // `BinaryExpression` 与 `CallExpression` 各漂 2 + 多出一个短区间节点）。
   // 与上面下标那一支同款：先折前面那段，再套一层。
+  // **「末尾那一格是不是圆括号」由那一格自己答**（第 1137 轮）：这两句原来读的是
+  // `kids[kids.length - 1].IsBracketUnit && kids[kids.length - 1].startBracket === "("`
+  // ——`IsBracketUnit` 加**原始字段** `startBracket`，正是「这一格是哪一态括号」那一问的
+  // **第二种写法**：第 1089 / 1095 / 1109 轮把本页 27 处 `X.Tag === "Bracket" &&
+  // X.startBracket === "("` 收成了 `X.IsParenBracket`，**唯独这一处没有 `Tag` 那一半守卫、
+  // 于是从那一门的正则里漏了过去**（第 1115 轮收 `IsCommentUnit` 那一处同款漏网）。
+  // `Bracket` 那一页在 `Use` 里写着 `this.IsParenBracket = this.startBracket === "("`、
+  // `Clone` 抄同一格，基类答 `false`——所以这一格**与原来那两句逐字同答**，
+  // 连「是不是括号」那一半也一并蕴含（`IsParenBracket` 只在 `Bracket` 那一页答 `true`）。
+  // 同一轮 `direct:lint` 的 `BRACKET_STATE_CLASSIFY` 补了第三条：本页代码块里
+  // `.startBracket === "…"` 这种**裸字段读**从此是 0 处（写回来这一门当场红）。
   if (
     kids.length >= 2 &&
-    kids[kids.length - 1].IsBracketUnit &&
-    kids[kids.length - 1].startBracket === "("
+    kids[kids.length - 1].IsParenBracket
   ) {
     const bracket = kids[kids.length - 1];
     const base = projectExpression(kids.slice(0, kids.length - 1), ctx);

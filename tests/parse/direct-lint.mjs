@@ -1044,10 +1044,20 @@ let binaryClassDisjunctionHits = 0;
  * k.startBracket === "{"))` 那三处问的是另一句话（值位那两种括号凑成的形状），那一轮逐字保留；
  * **第 1095 轮把它们也改成读同页已有的两格**（`(k.IsIndexBracket || k.IsBraceBracket)`）——
  * 同一格事实的两种写法收成一格，`Tag === "Bracket"` 那一半从此在投影层一处不剩。
+ *
+ * **第 1137 轮补了第三条：裸字段读**（`X.startBracket === "("` 那一形态）。上面两条正则都要求
+ * 前面有 `X.Tag === "Bracket"` 那一半守卫，于是**没有那一半的写法**从这一门漏了过去——
+ * 本页 `projectExpression` 末尾「对调用结果再调一次」那一支当时写的是
+ * `kids[kids.length - 1].IsBracketUnit && kids[kids.length - 1].startBracket === "("`
+ * （第 1095 / 1109 轮那 27 处的漏网一处，与第 1115 轮收掉的 `IsCommentUnit` 那一处同款）。
+ * 那一处已改成读 `IsParenBracket`；这一条守的是「那一格事实只有被问的那一页那一格」
+ * ——`startBracket` 是**存储**（`Bracket.Use` 里赋 `IsParenBracket` / `IsBraceBracket` /
+ * `IsIndexBracket` 三格时读的就是它），投影层不该有第二个入口。
  */
 const BRACKET_STATE_CLASSIFY = [
   /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*===\s*"Bracket"\s*&&\s*\1\.startBracket\s*===\s*"[([{]"/g,
   /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*===\s*"Bracket"\s*&&\s*String\(\s*\1\.startBracket\s*\?\?\s*""\s*\)\s*===\s*"[([{]"/g,
+  /([A-Za-z_$][\w$]*(?:\s*\[[^\]]*\])?)\.startBracket\s*===\s*"[([{]"/g,
 ];
 /** 投影层现场连写「这一格是哪一态括号」的处数（0 处才是对的）。 */
 let bracketStateHits = 0;
@@ -1506,6 +1516,9 @@ console.log(
 // **同一句话的匿名连写**（第 1089 轮）：`Tag === "Bracket" && X.startBracket === "("` 是
 // 「这一格是哪一态括号」现场写出来的样子——收成三格属性（`IsParenBracket` / `IsBraceBracket` /
 // `IsIndexBracket`）之后这里恰好 0 处（两态写法那三处不算）。
+// **第 1137 轮加上第三条：连 `Tag` 那一半守卫都没有的裸字段读**（`X.startBracket === "("`）——
+// 前两条都要求 `X.Tag === "Bracket"` 在前面，于是那种写法从这一门漏过去过（本页 27 处里漏了 1 处：
+// `projectExpression` 末尾那一支的 `IsBracketUnit && …startBracket === "("`，已改读 `IsParenBracket`）。
 console.log(
   `「这一格是哪一态括号」又在投影层现场连写（${SHARED_FILE} 的代码块）：${bracketStateHits} 处（0 处才是对的，读 Bracket.IsParenBracket / IsBraceBracket / IsIndexBracket）`,
 );

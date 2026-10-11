@@ -347,6 +347,36 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1137 轮：「这一格是哪一态括号」那一门漏掉的**第 28 处**收了——`IsBracketUnit && …startBracket === "("` 改读 `IsParenBracket`；`direct:lint` 的 `BRACKET_STATE_CLASSIFY` 补第三条**裸字段读**（写回来当场红，已自验）；本页代码块里 `.startBracket` 从此一处不剩；**读数一处没动**
+
+**一句话**：用户口径 1.1 ~ 1.4。第 1089 / 1095 / 1109 轮把本页 27 处
+`X.Tag === "Bracket" && X.startBracket === "("` 收成了 `X.IsParenBracket`，
+但 `direct:lint` 那两条正则**都要求 `Tag === "Bracket"` 那一半在前面**——
+`projectExpression` 末尾「对调用结果再调一次」那一支写的是**同一句话的第三种写法**
+（守卫是 `IsBracketUnit`、没有 `Tag` 那一半），于是从那一门漏了过去，
+本页代码块里也就一直留着**唯一一处**裸字段读。
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `kids[kids.length - 1].IsBracketUnit && kids[kids.length - 1].startBracket === "("`（1 处，`projectExpression` 末尾） | `kids[kids.length - 1].IsParenBracket` | `tokens/bracket.xl.md`（`## field IsParenBracket:bool = false`，`Use` 里 `this.IsParenBracket = this.startBracket === "("`、`Clone` 抄同一格，基类答 `false`） |
+
+- **等价怎么证的**：`IsParenBracket` 只在 `Bracket` 那一页答 `true`，取值就是
+  `this.startBracket === "("`——原式那两句的合取与这一格**逐字同答**，「是不是括号」那一半也被蕴含
+  （与第 1115 轮收 `IsCommentUnit` 那一处同一款漏网、同一条判据）。
+- **判据这一轮长了，而且自验过**：`BRACKET_STATE_CLASSIFY` 补第三条正则**裸字段读**
+  （`X.startBracket === "[" / "(" / "{"`，接收者连 `kids[kids.length - 1]` 这种下标都算；
+  第一条实现按 `\[\d+\]` 写、**当场被自验逮住匹配不上**，改成 `\[[^\]]*\]`）。
+  `tmp/r1137`（不进仓库）的两把一次性尺子：把那一行**写回去** ⇒ 这一门报 **1 处**、
+  点名 `kids[kids.length - 1].startBracket === "("`、退出码 1；改回属性读 ⇒ 0 处。
+- **本页的数**：**42 格**（一格没增没减，实测）；本页 10869 → **10906 行**（与历轮同一把尺子：
+  `[\r\n]` 切出行数再扣掉末尾那一格空行；多出来的 37 行是这一轮的台账与那一处的说明）。
+- **实测**：`xl check` 该页 **0 条**；`xl build --force` 该页 **1 个产物 / 0 error**、`npx tsc` 干净；
+  **八道门 7 通过、1 失败**（墙钟 33.5s），读数与第 1106 ~ 1136 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 ### 第 1136 轮：第 1135 轮「量过、没敢收」的那一处**换对收件人再收一次、收成了**——那一格立在 `Field` / `MethodDeclaration` 两页上，投影改读 `v.IsNumericLiteralName`；本页对 `Identifier` 的最后一个代码读者随之消失（`import` 也删了）；**读数一处没动**
 
 **一句话**：用户口径 1.1 ~ 1.4。第 1135 轮留下的判据是「要收这一问，收的应该是
