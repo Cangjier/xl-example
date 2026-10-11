@@ -441,7 +441,7 @@ return result;
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-## method IsStatementNode:()=>bool
+## field IsStatementNode:bool = true
 
 **我这一格投出来的是不是一条「语句节点」**（第 1039 轮）——是的话答 `true`。
 
@@ -450,7 +450,3 @@ return result;
 而 `LabeledStatement` 就是**这一页自己的节点名**（`AstKind()` 的一格）——所以那是每一页自己的事实，
 被写在投影那一页里。今天需要它的页面各自覆写，投影只问这一格
 （口径见 `core/syntax/token.xl.md` 的 `IsStatementNode`）。
-
-```ts
-return true;
-```

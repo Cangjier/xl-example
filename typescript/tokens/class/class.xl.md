@@ -763,7 +763,7 @@ return result;
 `ClassDeclaration` 就是这一页自己的节点名，所以这一格答 `true`——过去它写在投影层那张
 `MEMBER_LIST_KINDS` 名单里。
 
-## method IsStatementNode:()=>bool
+## field IsStatementNode:bool = true
 
 **我这一格投出来的是一条「语句节点」**（第 1039 轮）：`ClassDeclaration` 在目标语言那边
 **本身就是一条语句**，所以单个子单元是我时**不再套** `ExpressionStatement`
@@ -772,11 +772,7 @@ return result;
 `ClassDeclaration` 就是这一页自己的节点名——过去它写在投影层那张按 kind 查的
 `STATEMENT_KINDS` 集合里。
 
-```ts
-return true;
-```
-
-## method EndsOnBrace:()=>bool
+## field EndsOnBrace:bool = true
 
 **我这一格在目标语言那边收在 `}`（块尾）上**（第 1040 轮）：ClassDeclaration 收在自己的 `}` 上、
 **不调** `parseSemicolon`，所以紧跟我的那个 `;` 是**新的一条空语句**、不是我的终结符
@@ -784,7 +780,3 @@ return true;
 
 判据原来是投影层那张按 kind 查的 `NO_TRAILING_SEMICOLON` 集合，而 `ClassDeclaration` 就是这一页
 自己的节点名——所以由本页答。
-
-```ts
-return true;
-```

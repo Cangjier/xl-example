@@ -894,7 +894,7 @@ return undefined;
 `undefined`，每一页**显式声明同一个属性**并给出自己的节点名（`## field`），投影只按属性名
 读一次（`v.AstKind`），不再问「有没有这一格」。
 
-## method StatementKind:()=>string | undefined
+## field StatementKind:string | undefined = undefined
 
 **我这一格是不是「语句头」**（第 1027 轮）——是的话答那条语句在目标语言那边的 kind，
 不是的话答 `undefined`。基类就是这个答案（`core` 与语言无关，不知道任何目标语言的语句名）。
@@ -905,14 +905,16 @@ return undefined;
 判据因此落在**这个词能不能当语句头**上，而词住在 `Keyword` 那一页的 `Value` 里
 （`typescript/tokens/keyword.xl.md` 覆写这一格），所以由它答，投影不按文本查第二张表。
 
-**基类答 `undefined`**：需要它的 token 在自己那一页覆写（`## method`，与 `WrapperField` /
-`BodyField` 同一形态——**它要按自己那一页的 `Value` 现场查词汇表，所以仍是方法**）。
+**第 1042 轮起它是属性**：`Keyword` 那一页在**记下自己正文的那一刻**把它赋好（`SetValue`，
+见 `typescript/tokens/keyword.xl.md`）——正文是这一格的唯一输入，值在那一趟就定下来了，
+所以投影直读（`head.StatementKind`），不再问「有没有这一格」。**基类默认 `undefined`**：
+其余 token 都不是语句头。
 
 ```ts
 return undefined;
 ```
 
-## method StatementField:()=>string | undefined
+## field StatementField:string | undefined = undefined
 
 **我这一格当语句头时，后面那段载荷进目标语言的哪个字段**（第 1037 轮）：
 是的话答那个字段名（`expression` / `label`），不是的话答 `undefined`。
@@ -925,8 +927,9 @@ return undefined;
 可那些 kind 名**就是**那一页关键字词汇表（`KEYWORD_STATEMENT_KINDS`）的**值**——
 同一份事实被声明了两遍，所以它搬回了那一页。
 
-**基类答 `undefined`**（`core` 与语言无关，不知道任何目标语言的字段名）：需要它的 token
-在自己那一页覆写（`## method`，与 `StatementKind` 同一形态——**同一页的两半一起现场算**）。
+**第 1042 轮起它是属性**：与 `StatementKind` **同一趟**赋好（`Keyword.SetValue` 里那两行是同一次
+查表的两个出口）——**基类默认 `undefined`**（`core` 与语言无关，不知道任何目标语言的字段名），
+其余 token 没有语句载荷。
 
 ```ts
 return undefined;
@@ -1049,7 +1052,7 @@ return undefined;
 **显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `TypeMemberPlan` /
 `AstKind` 同一形态）。
 
-## method IsStatementNode:()=>bool
+## field IsStatementNode:bool = false
 
 **我这一格投出来的节点是不是「语句节点」**（第 1039 轮）——是的话答 `true`：单个子单元是
 我时，投影**不再套** `ExpressionStatement`（套上去会凭空多一层壳）。
@@ -1057,21 +1060,20 @@ return undefined;
 判据的那份名单过去写成投影层的一个 `# private const STATEMENT_KINDS:Set<string>`
 （`typescript/print-ast-common.xl.md`，26 档），而**那些 kind 名就是那些类自己的节点名**
 （每一页都自己答过 `AstKind()`）——所以那是每一页自己的事实，被写在投影那一页里。
-今天基类答 `false`、需要它的页面各自覆写；投影那一侧问的是**手上那一格 token**
-（`head.IsStatementNode()`），不问 kind 名。
+今天基类这一格默认 `false`、**每一页在自己那一趟把值赋好**（第 1042 轮起它是属性）——绝大多数页面
+是常量（`## field IsStatementNode:bool = true`，构造时就赋好），`Keyword` 那一页按自己的词汇表在
+记下正文那一刻赋（`SetValue`）；投影那一侧读的是**手上那一格 token**（`head.IsStatementNode`），
+不问 kind 名。
 
-**它与 `StatementKind()` 是两件事，别混**：`StatementKind()` 说的是「**我这一格的兄弟也算我的**」
+**它与 `StatementKind` 是两件事，别混**：`StatementKind` 说的是「**我这一格的兄弟也算我的**」
 （`Keyword` 那一页据自己的词汇表答），这一格说的是「**我自己就是一整条语句**」——
-`Keyword` 覆写它正是为了那几个词（`return` / `throw` / `break` / `continue` / `debugger`）。
+`Keyword` 为那几个词（`return` / `throw` / `break` / `continue` / `debugger`）把它一起赋上。
 
-**基类答 `false`**：绝大多数 token 投出来的是表达式或类型；需要它的 token 在自己那一页覆写
-（`## method`，与 `IsMemberList` / `IsMemberTag` / `AstKind` 同一形态）。
+**基类这一格默认 `false`**：绝大多数 token 投出来的是表达式或类型；需要它的 token 在自己那一页
+**显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberList` / `IsMemberTag` / `AstKind`
+同一形态）。
 
-```ts
-return false;
-```
-
-## method EndsOnBrace:()=>bool
+## field EndsOnBrace:bool = false
 
 **我这一格在目标语言那边是不是收在 `}`（或块尾）上**（第 1040 轮）——是的话答 `true`：
 目标语言的 parser **不**在我后面调 `parseSemicolon`，所以紧跟我的那个 `;` 是**新的一条
@@ -1080,20 +1082,18 @@ return false;
 判据的那份名单过去写成投影层的一个 `# private const NO_TRAILING_SEMICOLON:Set<string>`
 （`typescript/print-ast-common.xl.md`，第 663 轮），而**那些 kind 名就是这些类自己的节点名**、
 「我收在哪个字符上」也只有我自己知道——所以那是每一页自己的事实，被写在投影那一页里。
-今天基类答 `false`、需要它的页面各自覆写；投影那一侧问的是**手上那一格 token**
-（`previousToken.EndsOnBrace()`）。
+今天基类这一格默认 `false`、**每一页在自己那一趟把值赋好**（第 1042 轮起它是属性）——绝大多数页面
+是常量（`## field EndsOnBrace:bool = true`，构造时就赋好），`Bracket` 那一页在 `Use` 记下
+`startBracket` 的那一刻赋（只有裸块是 `true`）；投影那一侧读的是**手上那一格 token**。
 
-**三档特例住在各自的页上、不在这里**：空语句（`Statement` 那一页答 `false`）、
-带标签的语句（`Label` 答**被标的那一条**的答案）、以及 `Function` **按有没有体分档**
-（有体收在 `}` 上、没体的是环境签名 / 重载，那个 `;` 归它自己）——都是「我这一格的形态」
-决定的事，所以由它们自己答。
+**三档特例不落在这一格上**：空语句（`Statement` 那一页是 `false`）；带标签的语句由投影按
+**被标的那一条**递归问（`ownsTrailingSemicolon`）；`Function` **按有没有体分档**也在那里判
+（`node.body === undefined` 的签名自己吃那个 `;`）——三档问的都是「**手上那个节点**长什么样」，
+不是某一页的常量，所以它们留在投影那一侧。
 
-**基类答 `false`**：绝大多数 token 自己吃尾分号；需要它的 token 在自己那一页覆写
-（`## method`，与 `IsStatementNode` / `IsMemberList` / `AstKind` 同一形态）。
-
-```ts
-return false;
-```
+**基类这一格默认 `false`**：绝大多数 token 自己吃尾分号；需要它的 token 在自己那一页
+**显式声明同一个属性**并给出自己的值（`## field`，与 `IsStatementNode` / `IsMemberList` /
+`AstKind` 同一形态）。
 
 ## field IsSignatureNode:bool = false
 

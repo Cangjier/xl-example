@@ -161,8 +161,8 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 - `KEYWORD_KIND`（44 档：关键字文本 → `SyntaxKind` 名）→
   `typescript/tokens/keyword.xl.md` 的 `# private const KEYWORD_KIND`，读法是那一页自己的
-  `Keyword.KeywordKind()`——投影**唯一**的用法就是 `Keyword.PrintDirectAst` 拿自己的
-  `Value` 去查（现在是 `this.KeywordKind()`）；
+  `Keyword.KeywordKind`——投影**唯一**的用法就是 `Keyword.PrintDirectAst` 拿自己的
+  `Value` 去查（现在是 `this.KeywordKind`）；
 - `TOKEN_KIND`（45 档：符号文本 → `SyntaxKind` 名）→
   `typescript/tokens/symbol-token.xl.md` 的 `# private const SYMBOL_TOKEN_KIND`，读法是
   `SymbolToken.KindOfText(text)`（静态：投影折叠二元表达式时手上只有**一段文本**，
@@ -1231,7 +1231,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
         j++;
       }
       if (j > i && j < items.length) {
-        if (items[j].IsStatementNode()) {
+        if (items[j].IsStatementNode) {
           const declaration = projectNode(items[j], ctx, parentKind);
           if (declaration !== undefined) {
             const leading = [];
@@ -1653,7 +1653,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     );
     // **「后面那一格是不是一条语句」问它自己**（`IsStatementNode()`，第 1039 轮）：
     // 原来是投影层那张按 kind 查的 `STATEMENT_KINDS`，而 kind 名就是各页自己的节点名。
-    if (prefixWords.length > 0 && allPrefixes && last.IsStatementNode()) {
+    if (prefixWords.length > 0 && allPrefixes && last.IsStatementNode) {
       const declaration = projectNode(last, ctx);
       if (declaration !== undefined) {
         const leading = prefixWords.map((k) => projectNode(k, ctx)).filter((k) => k !== undefined);
@@ -1666,8 +1666,8 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     }
     // **头部那个词决定整条语句是什么**（第 34 轮；第 1027 轮改成问 token 自己）：
     // 「哪几个词能当语句头、各自叫什么节点」是 `Keyword` 那一页自己的事实
-    // （`Keyword.StatementKind()`，键就是它的 `Value`），投影不按文本查第二张表。
-    const kind = head.StatementKind();
+    // （`Keyword.StatementKind`，键就是它的 `Value`），投影不按文本查第二张表。
+    const kind = head.StatementKind;
     if (kind !== undefined) {
       const rest = kids.slice(1);
       const props = {};
@@ -1692,11 +1692,11 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
       if (rest.length > 0) {
         const value = projectExpression(rest, ctx);
         // **载荷进哪个字段由那一格自己答**（第 1037 轮）：`return` / `throw` 是 `expression`、
-        // `break` / `continue` 是 `label`（`head.StatementField()`）。这一支只在
-        // `head.StatementKind()` 有答案时进来，而那一格**只有 `Keyword` 那一页覆写**——
+        // `break` / `continue` 是 `label`（`head.StatementField`）。这一支只在
+        // `head.StatementKind` 有答案时进来，而那一格**只有 `Keyword` 那一页覆写**——
         // 所以 `field` 在这里一定有值，与原来那张 `KEYWORD_STATEMENT_EXPRESSION` 同答；
         // 那份名单搬回了它该在的地方（那些 kind 名就是那一页词汇表的值）。
-        const field = head.StatementField();
+        const field = head.StatementField;
         if (value !== undefined && field !== undefined) props[field] = value;
       } else if (kind === "ThrowStatement") {
         props["expression"] = [{ kind: "Identifier", pos: bareEnd, end: bareEnd }];
@@ -1752,7 +1752,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
       // `ClassDeclaration` 到 `}` 为止），所以只对 `TypeAliasDeclaration` 开这一档。
       // **「单个子单元本身就是语句」问那一格自己**（`IsStatementNode()`，第 1039 轮）：
       // 原来是投影层那张按 kind 查的 `STATEMENT_KINDS`，而 kind 名就是各页自己的节点名。
-      if (head.IsStatementNode()) {
+      if (head.IsStatementNode) {
         if (kind === "TypeAliasDeclaration") {
           projected.end = semicolonEndOf(
             Math.max(stmtEndOf(v, ctx), projected === undefined ? 0 : (projected.end ?? 0)),
@@ -1898,7 +1898,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
 **这个目标语言节点名收在 `}`（块尾）上吗**（第 1040 轮）——它就是原来那张按 kind 查的
 `NO_TRAILING_SEMICOLON` 集合，改了一个说得出话的名字（下面那一格是它的数据）。
 
-**它不是第二份声明**：每一档对应的 token 页面都自己答 `Token.EndsOnBrace()`
+**它不是第二份声明**：每一档对应的 token 页面都自己答 `Token.EndsOnBrace`
 （`core/syntax/token.xl.md`；空语句那一页答 `false`、带体的函数答 `true`、裸块由 `Bracket`
 按 `startBracket` 答），这里的每一档都是那一页的 **`AstKind()` 名字**。
 
@@ -1917,7 +1917,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
 **哪些节点名收在 `}`（块尾）上**（第 1040 轮）：这份名单就是原来那张
 `NO_TRAILING_SEMICOLON`（第 663 轮照 TS parser 列的那一份），
 **它今天只是 `kindEndsOnBrace` 那一格的数据**——首选的路子问的是**那一格 token 自己**
-（`Token.EndsOnBrace()`），这一份是「手上只有名字」时的落点。
+（`Token.EndsOnBrace`），这一份是「手上只有名字」时的落点。
 
 **每一档对应的页面都会答**（句首那些类各自覆写 `EndsOnBrace()` 答 `true`）：
 `Block`（八个体类 / 裸块的 `Bracket`）、`ClassDeclaration` / `EnumDeclaration` /
@@ -1975,7 +1975,7 @@ new Set([
 
 运算符那一格的**叶子节点**（第 550 轮）。
 
-`Keyword` 那一态走现成的通用投影（`Keyword.KeywordKind()` 把它们映射成 `InKeyword` /
+`Keyword` 那一态走现成的通用投影（`Keyword.KeywordKind` 把它们映射成 `InKeyword` /
 `InstanceOfKeyword`）；`Identifier` 那一态**必须按文本自己定 kind** ——
 照通用投影会投成 `Identifier("in")`，于是同一个节点在账上**同时**记一笔「缺 `InKeyword`」
 与一笔「多出 `Identifier`」。
@@ -9359,7 +9359,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 那不是 token 层能做的事，所以实现留在 `projectString`、由 token 的 `PrintDirectAst` 转过来。
     Template: (view) => projectString(view, ctx),
     // **按文本查词的出口第 1028 / 1029 轮全删掉了**（`KeywordKind` / `TokenKind` / `LeafKind` /
-    // `NumericLiteral`）：那三张词汇表搬回了各自那一页（`Keyword.KeywordKind()` /
+    // `NumericLiteral`）：那三张词汇表搬回了各自那一页（`Keyword.KeywordKind` /
     // `SymbolToken.KindOfText` / `Identifier.LeafKindOfText`，理由见本文件上半部分那两段记录），
     // 投影层不再有第二个按文本查词的地方，
     // 所以这一层也拿不到它们——与 `Text` / `TextOf` / `StringText` 那三个出口同一手法：

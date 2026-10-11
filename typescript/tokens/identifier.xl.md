@@ -535,7 +535,7 @@ return result;
 `Identifier.PrimitiveTypeKindOf`）。
 
 它在 TS 那边**不是** `TypeReference`（见 `tokens/type-define.xl.md` 的 `PrintDirectAst`）。
-这张表与 `Keyword.KeywordKind()` 那一份词汇有重叠，但**语义不同**：那一份管的是
+这张表与 `Keyword.KeywordKind` 那一份词汇有重叠，但**语义不同**：那一份管的是
 「产物把它标成 `<Keyword>` 了」，这张表管的是「**在类型位上**该叫这个名字」——
 而产物在类型位把 `string` 标成的是 `<Identifier>`（实测 `x: string` 里 `string` 是 `Identifier`）。
 

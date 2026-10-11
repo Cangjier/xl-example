@@ -334,6 +334,40 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1042 轮：`IsStatementNode` / `EndsOnBrace` / `StatementKind` / `StatementField` 也改成**构建时赋好的属性**——**派生属性在「那个事实被记下来」的那一刻赋**，八道门全绿、读数一处没动
+
+**一句话**：第 1041 轮把八族常量答案改成了属性，剩下这几族里有一半是常量、另一半是**由本页自己的
+一个字段派生的**。这一轮把它们一起收成属性，并把「值什么时候赋」这条规矩说清楚：
+**常量在构造时赋（`## field … = true`），派生的在「那个事实被记下来的那一刻」赋**——
+赋值点与它派生的那个事实**在同一页、同一趟**，所以两格不会各说各话。
+
+- **常量那一半**（构造时就赋好）：`IsStatementNode` 27 页答 `true`（`Block` 八个体、
+  `Class` / `Enum` / `Interface` / `ModuleDeclaration` / `Switch` / `Try` / `While` / `For` /
+  `Foreach` 那一族、`export` / `import` / `type` / `label` 那一族）、`EndsOnBrace` 21 页答 `true`
+  （各体与裸块），另有 `Statement` 那一页答 `false`（空语句自己就是终结符）。基类各默认 `false`。
+- **派生那一半**（在自己的赋值点赋）：
+  - `Keyword` 的 `IsStatementNode` / `StatementKind` / `StatementField` / `KeywordKind` 四格
+    全是 `Value` 的函数 ⇒ 新增 `Keyword.SetValue(text)`：**记正文与查那两张词汇表在同一趟**，
+    `UpgradeAt` 与 `Clone` 都走它（克隆体由此与正文同源，不会一个抄到、一个留在默认值）；
+  - `Bracket` 的 `EndsOnBrace` 是 `startBracket` 的函数 ⇒ 在 `Use` 里**记下括号字符的同一趟**
+    赋好（只有裸块 `{` 是 `true`），克隆体在 `Clone` 里照抄。
+- **为什么这两族必须这样赋**：它们问的不是「我这一页是哪个类」（那在构造时就定了），而是
+  「**我这一格装了什么**」——`Keyword` 的正文、`Bracket` 是哪一对括号都是解析期才进来的。
+  把赋值点钉在**记下那个事实的那一行旁边**，才既不早（早于事实）也不晚（投影期才算）。
+- **投影那一侧**：`head.IsStatementNode` / `head.StatementKind` / `head.StatementField` 直读
+  （19 处调用点从 `x.Name()` 改成 `x.Name`，含 `Keyword.PrintDirectAst` 里的 `this.KeywordKind`）。
+  `ownsTrailingSemicolon` 那一格**不变**：它问的仍是 **kind 名**（`ENDS_ON_BRACE` 那一份落点）——
+  第 1040 轮量出来的那条结论（`projectStatement` 会把声明包进语句壳，手上那一格与 `out` 末尾那个
+  节点不是同一个单元）在这一轮没有变，所以「按名字反查一次」照旧留着。
+- **基类散文里两处不准确的说法顺手改了**：`Label` 与 `Function` **都没有**覆写 `EndsOnBrace`
+  ——「带标签的语句问被标的那一条」「`Function` 按有没有体分档」这两件事都发生在投影的
+  `ownsTrailingSemicolon` 里（它手上是**节点**不是 token），不在那两页上。上一版的说明把它们
+  记在了「各页自己答」那一栏，这一轮改成「三档特例不落在这一格上」。
+- **实测**：`xl check` 182 份 0 错 0 警；`xl build` 34 写出 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 31.7s），读数与基线逐项相同（`coverage` 仍 4260 / 4422、
+  `blocked 28` / `differ 134`、`cases:tsast` 3 条已知缺口仍开着、`cases:direct` 1640 份不抛异常、
+  `direct:lint` 0 条违反、`samples` 逐字节一致、`cases:check` 1656 / 1656、执行侧 243 / 243 与 79 / 79）。
+
 ### 第 1041 轮：八族「回答方法」改成**构造时赋好的属性**（`## field`，159 处覆写）——**八道门全绿、读数一处没动**
 
 **一句话**：用户口径「简化 `print-ast-common`；**它需要的信息在 token 子类构造时就明确**——需要新增的属性
@@ -397,8 +431,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
   `WithRangeOf` / `ToPlain` / `ToJsonString` 出现在规范页的代码块里）就是「中间那一层不许回来」的守卫；
   这一轮把 `MEMBER_LIST_KINDS` 也推进了「同一份事实只有一处声明」那一栏。
 - **同一件事在第 1039 / 1040 轮继续**（结论写在这里，不另开两条）：`STATEMENT_KINDS`（26 档）
-  → `Token.IsStatementNode()`（23 页覆写 + `Keyword` 按本页词汇表答，投影改为问**手上那一格 token**）；
-  `NO_TRAILING_SEMICOLON`（13 档）与 `SIGNATURE_KINDS`（5 档）→ `Token.EndsOnBrace()` /
+  → `Token.IsStatementNode`（23 页覆写 + `Keyword` 按本页词汇表答，投影改为问**手上那一格 token**）；
+  `NO_TRAILING_SEMICOLON`（13 档）与 `SIGNATURE_KINDS`（5 档）→ `Token.EndsOnBrace` /
   `Token.IsSignatureNode`（各自那一页覆写）。两张表搬完之后投影这一侧只剩
   `ENDS_ON_BRACE` 一份**名字 → 答案**的落点（值就是各页自己答的那一格，键就是各页 `AstKind()`）。
   **第 1040 轮踩到并记下的一处**：`ownsTrailingSemicolon` 想直接问「上一格 token」是不行的——

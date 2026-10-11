@@ -98,7 +98,7 @@ function headsOf(text, re) {
  *
  * **纯分类器（吃一段文本、吐一个 kind）从第 1029 轮起一个都不在 `ctx` 上了**：
  * 它们过去是 `ctx.LeafKind` / `ctx.KeywordKind` / `ctx.TokenKind`——那三张「文本 → kind」的
- * 词汇表第 1028 / 1029 轮搬回了各自那一页（`Keyword.KeywordKind()` /
+ * 词汇表第 1028 / 1029 轮搬回了各自那一页（`Keyword.KeywordKind` /
  * `SymbolToken.KindOfText` / `Identifier.LeafKindOfText`）。所以这里不再需要为它们留例外：
  * **这一层今天根本拿不到「按文本定 kind」这个能力**，那句话从「大家记得别用」变成了
  * 结构上做不到（与 `Text` / `TextOf` / `StringText` 那三个出口同一手法）。

@@ -242,7 +242,7 @@ const keyword = new Keyword(item.Template);
 keyword.Parent = owner;
 keyword.SignIn(item.SourceRange.Start!);
 keyword.SignOut(item.SourceRange.End!);
-keyword.Value = item.TempToString();
+keyword.SetValue(item.TempToString());
 keyword.TryToClose();
 return keyword;
 ```
@@ -258,6 +258,26 @@ super(template);
 ## field Value:string = ""
 
 关键字文本，从被替换的 `Identifier` 抄过来。
+
+## method SetValue:(text:string)=>void
+
+**记下正文，并把由它派生的那几格一起赋好**（第 1042 轮）。
+
+`Value` 是这一页**唯一的输入**，而 `KeywordKind` / `StatementKind` / `StatementField` /
+`IsStatementNode` 都是它的函数（查的都是本页那两张词汇表）——所以赋值只有**这一个入口**：
+`UpgradeAt` 与 `Clone` 都走它。**为什么要有这一格**：第 1042 轮把那四格从方法改成属性之后，
+「谁保证它们与 `Value` 同步」就成了这一页自己的责任；两处赋值点各写四行就会漂，
+收成一个入口才与「同一份事实一处声明」同一条口径。
+
+```ts
+this.Value = text;
+this.KeywordKind = KEYWORD_KIND.get(text);
+const kind = KEYWORD_STATEMENT_KINDS.get(text);
+this.StatementKind = kind;
+this.StatementField =
+  kind === undefined ? undefined : (kind === "ReturnStatement" || kind === "ThrowStatement" ? "expression" : "label");
+this.IsStatementNode = KEYWORD_STATEMENT_KINDS.has(text);
+```
 
 ## method ToXmlString:()=>string
 
@@ -291,26 +311,25 @@ return this.Value;
   const text = this.Value;
   // 上下文关键字 `get` / `set` 一律按 `Identifier` 投（理由见上面的 `PrintDirectAst`）。
   const contextual = text === "get" || text === "set";
-  const kind = contextual ? undefined : this.KeywordKind();
+  const kind = contextual ? undefined : this.KeywordKind;
   return ctx.Node(kind === undefined ? "Identifier" : kind, { text }, v);
 ```
 
 
-## method StatementKind:()=>string | undefined
+## field StatementKind:string | undefined = undefined
 
 **我这一格是不是「语句头」**（第 1027 轮）——是的话答那条语句在 TS 那边的 kind，不是的话答 `undefined`。
 
 `return a + b` 这一族在产物里是**一个 `Keyword` 加一段平级兄弟**，而 TS 那边是**一个语句节点包住表达式**。
 「哪几个词能当语句头、各自叫什么节点」说的就是**这一页自己的事实**（词住在我这里，
-`Value` 就是那个词），所以由我答；过去它住在投影层那一张按文本查的
+`Value` 就是那个词），所以由我记；过去它住在投影层那一张按文本查的
 `KEYWORD_STATEMENT_KINDS` 里——同一份事实被声明了两遍，且改一个词要跑两个地方。
-基类答 `undefined`（不决定语句 kind），覆写只此一页。
+基类默认 `undefined`（不决定语句 kind），覆写只此一页。
 
-```ts
-  return KEYWORD_STATEMENT_KINDS.get(this.Value);
-```
+**第 1042 轮起它是属性**：值在 `SetValue` 记下正文那一刻就从词汇表查好（与 `KeywordKind` /
+`StatementField` / `IsStatementNode` 同一趟），投影直读。
 
-## method KeywordKind:()=>string | undefined
+## field KeywordKind:string | undefined = undefined
 
 **我这个词在 TS 那边是哪个 kind**（第 1028 轮）——查得到就答那个 `SyntaxKind` 名，查不到答 `undefined`
 （＝投影按 `Identifier` 投它）。
@@ -319,56 +338,51 @@ return this.Value;
 过去它住在投影层那一张按文本查的 `KEYWORD_KIND` 里（44 档），于是同一份词汇被声明了两遍，
 改一个词要跑两个地方；现在与 `StatementKind()` 同一形态——**投影问这一格，不替它记第二遍**。
 
-**它不是 `AstKind()`** ✗：上下文关键字 `get` / `set` 在投影里按 `Identifier` 投
+**它不是 `AstKind`** ✗：上下文关键字 `get` / `set` 在投影里按 `Identifier` 投
 （见上面的 `PrintDirectAst`），所以「我这个词对应哪个关键字 kind」与「我这一格投成哪个节点」
-是两件事，由这一格单独答。
+是两件事，由这一格单独记。
 
-```ts
-  return KEYWORD_KIND.get(this.Value);
-```
+**第 1042 轮起它是属性**：值在 `SetValue` 记下正文那一刻查好；`PrintDirectAst` 直读
+（`this.KeywordKind`），不再问「有没有这一格」。
 
-## method StatementField:()=>string | undefined
+## field StatementField:string | undefined = undefined
 
 **我这一格当语句头时，载荷进哪个字段**（第 1037 轮）：`return` / `throw` 那句话的载荷在
 TS 那边叫 `expression`，`break` / `continue` / `debugger` 叫 `label`——两份都由**本页的
 关键字词汇表**（`KEYWORD_STATEMENT_KINDS`）定，所以这一格只读那一张表，不另立名单。
-不是语句头（`StatementKind()` 答 `undefined`）时也答 `undefined`。
+不是语句头（`StatementKind` 是 `undefined`）时也是 `undefined`。
 
 过去它是投影层的一张按**语句 kind** 查的集合（`KEYWORD_STATEMENT_EXPRESSION`），
 可那些 kind 名就是这张词汇表的**值**、词又住在我这里——同一份事实两处声明，
-改一个词要跑两个地方（与 `StatementKind()` / `KeywordKind()` 第 1027 / 1028 轮搬家同一条理由）。
+改一个词要跑两个地方（与 `StatementKind` / `KeywordKind` 第 1027 / 1028 轮搬家同一条理由）。
 
-```ts
-  const kind = KEYWORD_STATEMENT_KINDS.get(this.Value);
-  if (kind === undefined) return undefined;
-  return kind === "ReturnStatement" || kind === "ThrowStatement" ? "expression" : "label";
-```
+**第 1042 轮起它是属性**：与 `StatementKind` 同一次查表的两个出口，都在 `SetValue` 里赋好。
 
-## method IsStatementNode:()=>bool
+## field IsStatementNode:bool = false
 
 **我这一格投出来的是不是一条「语句节点」**（第 1039 轮）：`return` / `throw` / `break` /
-`continue` / `debugger` 这五个词把整条语句定下来（`StatementKind()` 的同一张词汇表），
+`continue` / `debugger` 这五个词把整条语句定下来（`StatementKind` 的同一张词汇表），
 所以它们是语句节点；别的关键字（`export` / `declare` / `if`…）不是。
 
 判据原本写成投影层的一个 `# private const STATEMENT_KINDS:Set<string>`
 （`typescript/print-ast-common.xl.md`）——单子单元的语句壳**不再套** `ExpressionStatement`，
-而「哪些词自己就是一条语句」是**本页词汇表**回答的事（与 `StatementKind()` /
-`StatementField()` 同一来源），所以由本页答，投影那一侧不再存第二份。
+而「哪些词自己就是一条语句」是**本页词汇表**回答的事（与 `StatementKind` / `StatementField`
+同一来源），所以由本页记，投影那一侧不再存第二份。
 
-```ts
-return KEYWORD_STATEMENT_KINDS.has(this.Value);
-```
+**第 1042 轮起它是属性**：值在 `SetValue` 记下正文那一刻一起赋好（`KEYWORD_STATEMENT_KINDS`
+那一次查表的第三个出口），投影直读。
 
 ## method Clone:()=>Token
 
 克隆自身。
 
-顺序是 `Sign(this)` → 抄 `Value` → `TryToClose()`。
+顺序是 `Sign(this)` → **`SetValue` 把正文与由它派生的那几格一起抄过来** → `TryToClose()`。
+抄的是 `SetValue` 而不是单个 `Value`：克隆体的那四格由此与正文**同源**，不会一个抄到、一个留在默认值。
 
 ```ts
 const result = new Keyword(this.Template);
 result.Sign(this);
-result.Value = this.Value;
+result.SetValue(this.Value);
 result.TryToClose();
 return result;
 ```

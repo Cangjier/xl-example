@@ -1002,7 +1002,7 @@ return result;
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-## method IsStatementNode:()=>bool
+## field IsStatementNode:bool = true
 
 **我这一格投出来的是不是一条「语句节点」**（第 1039 轮）——是的话答 `true`。
 
@@ -1012,11 +1012,7 @@ return result;
 被写在投影那一页里。今天需要它的页面各自覆写，投影只问这一格
 （口径见 `core/syntax/token.xl.md` 的 `IsStatementNode`）。
 
-```ts
-return true;
-```
-
-## method EndsOnBrace:()=>bool
+## field EndsOnBrace:bool = true
 
 **我这一格在目标语言那边收在 `}`（块尾）上**（第 1040 轮）：IfStatement 收在自己的 `}` 上、
 **不调** `parseSemicolon`，所以紧跟我的那个 `;` 是**新的一条空语句**、不是我的终结符
@@ -1024,7 +1020,3 @@ return true;
 
 判据原来是投影层那张按 kind 查的 `NO_TRAILING_SEMICOLON` 集合，而 `IfStatement` 就是这一页
 自己的节点名——所以由本页答。
-
-```ts
-return true;
-```

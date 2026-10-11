@@ -171,6 +171,10 @@ if (value === "(") {
 } else {
   throw new Error("未知括号");
 }
+// **第 1042 轮：派生属性在「那个事实被记下来」的这一刻一起赋好**（`EndsOnBrace` 就是
+// 「我是不是裸块」）——`Use` 是 `startBracket` 唯一的赋值点（克隆体另走 `Clone` 里的抄写），
+// 所以这两格不会各说各话。
+this.EndsOnBrace = this.startBracket === "{";
 return this;
 ```
 
@@ -288,27 +292,30 @@ return `<${name} range="${this.RangeOf()}" startBracket="${this.startBracket}" e
 
 顺序是：`Sign(this)` → 抄两个括号字符 → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`。注意 `Sign` 之后才抄字符，且抄的是**字段**而不是 `Use`，所以克隆体不会重跑 `Use` 里的 `CloseRuleQueue` 赋值；批量加入用 `AddRange`。
 
+**派生属性也要抄**（第 1042 轮 `EndsOnBrace`）：克隆体不走 `Use`，所以「我是不是裸块」那一格
+按 `this` 的值原样抄过去——`startBracket` 与它同源，两格一起抄就不会漂。
+
 ```ts
 const result = new Bracket(this.Template);
 result.Sign(this);
 result.startBracket = this.startBracket;
 result.endBracket = this.endBracket;
+result.EndsOnBrace = this.EndsOnBrace;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
 ```
 
-## method EndsOnBrace:()=>bool
+## field EndsOnBrace:bool = false
 
-**我这一格收在块尾上吗**（第 1040 轮）：只有**裸块**（`startBracket` 是 `{`）答 `true`——
+**我这一格收在块尾上吗**（第 1040 轮）：只有**裸块**（`startBracket` 是 `{`）是 `true`——
 它在目标语言那边是一个 `Block`，收在自己的 `}` 上、**不调** `parseSemicolon`，所以紧跟它的
-那个 `;` 是**新的一条空语句**；`(` / `[` 两态是分组括号 / 元素访问，与尾分号无关，答 `false`
+那个 `;` 是**新的一条空语句**；`(` / `[` 两态是分组括号 / 元素访问，与尾分号无关，是 `false`
 （口径见 `core/syntax/token.xl.md` 的 `EndsOnBrace`）。
 
 判据原来是投影层那张按 kind 查的 `NO_TRAILING_SEMICOLON` 集合里的 `Block` 那一档，而
 **「我这一格是哪种括号」就在这一页自己的字段上**（`projectNode` 也是照 `startBracket === "{"`
-认块的）——所以由本页答，必要时才问 `StartOf`。
+认块的）——所以由本页记。
 
-```ts
-return this.startBracket === "{";
-```
+**第 1042 轮起它是属性**：值在 `Use` 记下 `startBracket` 的那一刻一起赋好（克隆体在 `Clone` 里
+抄同一格），投影直读——「我是不是裸块」是**构造那一趟就定下来的数据**，不是一处现场判据。
