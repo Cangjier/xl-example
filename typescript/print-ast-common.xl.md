@@ -82,6 +82,39 @@ import { Identifier } from "./tokens/identifier.xl.md"
 **量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 （`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
 （第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
+**第 1107 轮把「这一格是不是那个等号 `=` / 那个箭头 `=>`」的现场连写收进符号那一页**
+（用户口径 1.1 ~ 1.4：投影要的信息在具体类里**显式声明**、读时备齐）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `k.IsSymbolToken && k.TextValue === "="`（**6 处**：`let` 的初值两处、`projectBindingPattern` 的 `eqAt`、`projectBindingElement` 的 `eqIndex`、`projectExport` 的赋值两处） | `k.IsEqualsSymbol` | `SymbolToken` 那一页**显式声明** `## property IsEqualsSymbol:bool`（`### get`：`return this.TextValue === "=";`，基类答 `false`） |
+| `k.IsSymbolToken && k.TextValue === "=>"`（**3 处**：`functionTypeProps` 找箭头那一格、联合 / 交叉那一支排在它前面、`new <T>(x: T) => T` 那一支） | `k.IsArrowSymbol` | 同上（`return this.TextValue === "=>";`） |
+
+- **为什么它该住在符号那一页**：「我这一格的正文是不是那一串」**只有这一页知道**
+  （正文就在它自己的 `Temp` 上）——与第 1074 轮 `IsCommaSymbol`（`,`）、第 1090 轮
+  `IsNotNullSymbol`（`!`）同一条口径，这一轮收的是 `=` 与 `=>` 两个。
+- **取值口径与搬走之前逐字相同**：两格读的都是**基类那一格 `TextValue`**（正是原来
+  `k.TextValue` 的后一半），不是本页的 `Is("=")`——后者读 `Temp`，而**不是每个符号都会走到
+  `Close()`**（`let.xl.md` 那格尾巴符号、枚举成员之间那个逗号都没关过），两处未必同答；
+  所以形态与 `IsNotNullSymbol` 一致（`## property` + `### get`，读时现算），不是 `IsDotSymbol`
+  那种 `## field`。
+- **两格各认自己那一串**：`=>` 的正文里也有一个 `=`，所以 `IsEqualsSymbol` 与 `IsArrowSymbol`
+  **不是同一问**（如实写在两页上）。
+- **`=` 那一处的 `IsSymbolToken` 半句一并收掉**（`foldBinaryFrom` 的复合赋值那一支，
+  原来写成两行：`rest[2].IsSymbolToken &&` + `rest[2].TextValue === "="`）——
+  `IsEqualsSymbol` 答 `true` 就蕴含「我是符号那一页」，两半收成一次属性读（第 1068 轮同一手法）。
+- **判据跟着长两格**：`direct:lint` 第八条那一族多认两个名字（`IsEqualsSymbol` /
+  `IsArrowSymbol`），守的是**老问句写回投影层**（`isEqualsSymbol(` / `isArrowSymbol(`）与
+  出口形态（`ctx.IsEqualsSymbol`）。**自验**（本机探针，不进仓库）：把
+  `isEqualsSymbol(` / `isArrowSymbol(` / `ctx.IsEqualsSymbol` 各写回一处 ⇒
+  报告 **0 → 3 处**、`FAIL`、`exit=1`；源文件逐字节还原 ⇒ **3 → 0 处**、`exit=0`。
+  （**逐格数过剩下没换的**：`TextValue === "."` 还有 **3 处**——那三处问的是符号那一页，
+  而 `IsDotSymbol` 是 `Close()` 里赋的 `## field`（读 `Temp`），与现场那半句 `TextValue`
+  在没关过的符号上未必同答，所以逐处保留；`TextValue` 与 `","` 比的那 **2 处**问的是
+  **`BinaryOperator` 那一页**（逗号表达式那个运算符单元），`IsCommaSymbol` 住在符号那一页，
+  盖不到它——同一条理由，保留。）
+- **本页的声明数**：**52 → 52 格**（改的全是读数与说明；新立的两格在基类与符号那一页）。
+
 **第 1106 轮收掉的是一格「现场判据」加它自己**：`operatorTokenOf`（21 行）自己按
 `op.TextValue` 认 `in` / `instanceof` 两个词、再拼出 `"InKeyword"` / `"InstanceOfKeyword"`
 两个字面量——而**两半都是被问那一格的事实**（正文只有那一页知道，那两个 kind 名本来就在
@@ -7387,8 +7420,7 @@ new Set([
       rest.length === 4 &&
       (rest[1].IsBinaryOperatorNode) &&
       (rest[3].IsBinaryOperatorNode) &&
-      rest[2].IsSymbolToken &&
-      rest[2].TextValue === "=" &&
+      rest[2].IsEqualsSymbol &&
       rest[2].Text.length > 1
     ) {
       const tailNode = projectNode(rest[3], ctx);
@@ -7610,7 +7642,7 @@ new Set([
   // `elements` 空着、里面的 `BindingElement` 与名字整片丢
   // （实测 `decl-arr-destructure-nested` / `vars-destructure-nested` /
   // `decl-destructure-nested-names` 三族共 27 处）。所以先在**整段列表里 `=` 左边**找。
-  const eqAt = kids.findIndex((k) => k.IsSymbolToken && k.TextValue === "=");
+  const eqAt = kids.findIndex((k) => k.IsEqualsSymbol);
   const headKids = eqAt >= 0 ? kids.slice(0, eqAt) : kids;
   const isPatternUnit = (k: any) =>
     k.IsArrayLiteralUnit ||
@@ -7627,7 +7659,7 @@ new Set([
   // **每个声明符一个 `VariableDeclaration`**：第一组用 `Let` 自己的 `fieldName`（名字在那上面），
   // 后面的组名字就是组里第一格（`j = 1` 的 `j`）；类型标注取**本组**的 `TypeDefine`。
   const declarations = groups.map((one, index) => {
-    const eq = one.findIndex((k) => k.IsSymbolToken && k.TextValue === "=");
+    const eq = one.findIndex((k) => k.IsEqualsSymbol);
     // **初始化式是 `=` 右边**整段**，不是一格**（第 101 轮）：`const a = this.Parent!.Data.indexOf(this)`
     // 的右边在产物里是**四个平级单元**（`NotNull` / `.` / `PropertyAccess` / …），
     // 原来只取第一格——于是整条链只剩最前面那个 `NotNull`，链尾全丢
@@ -7769,7 +7801,7 @@ new Set([
   const v = unit;
   const kids = v.ProjectableKids;
   const colonIndex = kids.findIndex((k) => k.IsSymbolToken && k.TextValue === ":");
-  const eqIndex = kids.findIndex((k) => k.IsSymbolToken && k.TextValue === "=");
+  const eqIndex = kids.findIndex((k) => k.IsEqualsSymbol);
   const dots = kids.find((k) => k.IsSymbolToken && k.TextValue === "...");
   const names = kids.filter((k) => k.IsNameNode && !k.IsTypeSeparator);
   // **绑定位里还能再嵌一层模式**（第 135 轮）：`[[a, b], …]` 的元素是**另一个**
@@ -7965,7 +7997,7 @@ new Set([
 
 ```ts
   const arrowIndex = kids.findIndex(
-    (k: any) => k.IsSymbolToken && k.TextValue === "=>",
+    (k: any) => k.IsArrowSymbol,
   );
   const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
   const generic = before.find((k: any) => k.IsGenericType);
@@ -8038,7 +8070,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `FunctionType(type = UnionType[A, B])`（`=>` 比 `|` 松），先按 `|` 切就会拆成
   // `UnionType[FunctionType(() => A), B]`——两层的方向反了。
   const flatArrowAt = list.findIndex(
-    (k, i) => i > 0 && k.IsSymbolToken && k.TextValue === "=>",
+    (k, i) => i > 0 && k.IsArrowSymbol,
   );
   if (flatArrowAt > 0 && list[0].IsBracketUnit) {
     const built = functionTypeProps(list, ctx);
@@ -8348,7 +8380,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   //（实测多出 `NewKeyword` / `TypeReference` / `Identifier`，同时缺整个 `ConstructorType`
   // 与它的形参、返回类型）。
   if (head.IsKeywordUnit && head.TextValue === "new") {
-    const arrow = list.findIndex((k) => k.IsSymbolToken && k.TextValue === "=>");
+    const arrow = list.findIndex((k) => k.IsArrowSymbol);
     if (arrow > 0) {
       const ctorProps = {};
       const ctorGeneric = list.find((k) => k.IsGenericType);
@@ -9100,12 +9132,12 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     (k.IsNameNode || k.IsExportUnit) &&
     (k.TextValue === text || wordTail(k) === text);
   const isAssignment =
-    rest.some((k) => k.IsSymbolToken && k.TextValue === "=") ||
+    rest.some((k) => k.IsEqualsSymbol) ||
     rest.some((k) => isWord(k, "default") || wordTail(k) === "=");
   // 等号 / `default` 之后的表达式：`Export` 单元里剩下的 + 语句里跟在它后面的兄弟。
   const inUnit = rest.filter(
     (k) =>
-      !(k.IsSymbolToken && k.TextValue === "=") &&
+      !k.IsEqualsSymbol &&
       !isWord(k, "default") &&
       wordTail(k) !== "=",
   );

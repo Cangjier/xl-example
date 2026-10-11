@@ -721,6 +721,14 @@ for (const file of files) {
  * `SetValue` 里各自显式声明同一个属性并按自己的正文赋好，投影只读 `x.OperatorWordKind`。
  * 这一条守的是**老 helper 名写回投影层的方法体**（`operatorTokenOf(`）与出口形态
  * （`ctx.OperatorWordKind`）。
+ *
+ * **第 1107 轮再补两格**：`IsEqualsSymbol` / `IsArrowSymbol`——「这一格是不是那个等号 `=` /
+ * 那个箭头 `=>`」过去是投影层 9 处**现场连写**（`k.IsSymbolToken && k.TextValue === "="` 6 处、
+ * `=== "=>"` 3 处：`let` 的初值、绑定的默认值、导出语句的赋值、`functionTypeProps` 找箭头那一格
+ * 与 `new <T>(x: T) => T` 那一支）。今天基类两格默认 `false`、`SymbolToken` 那一页
+ * **显式声明同一个属性**（`## property` + `### get`，读时现算——读的是基类那格 `TextValue`，
+ * 所以与搬走之前逐格同答：不是每个符号都会走到 `Close()`）。这一条守的是
+ * **老问句写回投影层**（`isEqualsSymbol(` / `isArrowSymbol(`）与出口形态（`ctx.IsEqualsSymbol`）。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -761,6 +769,8 @@ const SELF_CLASSIFY_NAMES = [
   "IsParenBracket",
   "IsBraceBracket",
   "IsNotNullSymbol",
+  "IsEqualsSymbol",
+  "IsArrowSymbol",
   "IsPropertyAccess",
   "IsNotNull",
   "IsMethodNode",

@@ -2129,6 +2129,39 @@ return false;
 return false;
 ```
 
+## property IsEqualsSymbol:bool
+
+**我这一格是不是那个等号 `=`**（第 1107 轮）——**不是**的一律给 `false`。
+
+投影层要在单元串里把等号找出来（`print-ast-common.xl.md` 的 `projectLetFrom` /
+`projectBindingPattern` / `projectBindingElement` / `projectExport` 那几处：绑定的默认值、
+`let` 的初值、导出语句的赋值），判据过去是现场拼出来的
+`k.IsSymbolToken && k.TextValue === "="`——与 `IsCommaSymbol` / `IsNotNullSymbol` 同一条口径：
+**基类给默认档、需要它的那一页覆写同一个属性**（`SymbolToken.IsEqualsSymbol`，读时现算）。
+
+**它与 `IsArrowSymbol` 不是同一问**：`=>` 的正文里也有一个 `=`，而这两格各认自己那一串。
+
+### get
+
+```ts
+return false;
+```
+
+## property IsArrowSymbol:bool
+
+**我这一格是不是那个箭头 `=>`**（第 1107 轮）——**不是**的一律给 `false`。
+
+投影层要按它把**平铺的箭头**切开（`print-ast-common.xl.md` 的 `functionTypeProps` 与
+`projectTypeExpression` 里 `new <T>(x: T) => T` 那一支），判据过去是现场拼出来的
+`k.IsSymbolToken && k.TextValue === "=>"`——同上：**基类给默认档、符号那一页覆写**
+（`SymbolToken.IsArrowSymbol`，读时现算）。
+
+### get
+
+```ts
+return false;
+```
+
 ## property IsBareCall:bool
 
 **我这一格是不是「裸的一次调用」**（第 1077 轮）——**不是**的一律给 `false`。

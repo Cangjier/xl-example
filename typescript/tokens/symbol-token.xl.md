@@ -220,6 +220,38 @@ if (last instanceof SymbolToken) {
   return this.TextValue === "!";
 ```
 
+## property IsEqualsSymbol:bool
+
+**我这一格是不是那个等号 `=`**（第 1107 轮）：投影层要在单元串里把等号找出来
+（`print-ast-common.xl.md` 里 6 处：`let` 的初值、绑定的默认值、导出语句的赋值），
+判据过去是现场拼出来的 `k.IsSymbolToken && k.TextValue === "="`——「我这一格的正文是什么」
+**只有这一页知道**，所以它与 `IsCommaSymbol` / `IsNotNullSymbol` 同一条口径、同一形态。
+
+**取值口径与搬走之前逐字相同**：读的是基类那一格 `TextValue`（也就是原来那个
+`k.TextValue` 的后一半），不是 `Is("=")`——理由与上面 `IsNotNullSymbol` 那一节**逐字相同**
+（没关过的符号上两者未必同答）。
+
+### get
+
+```ts
+  return this.TextValue === "=";
+```
+
+## property IsArrowSymbol:bool
+
+**我这一格是不是那个箭头 `=>`**（第 1107 轮）：投影层要按它把**平铺的箭头**切开
+（`print-ast-common.xl.md` 里 3 处：`functionTypeProps` 找箭头那一格、联合 / 交叉那一支
+排它前面、以及 `new <T>(x: T) => T` 那一支），判据过去是现场拼出来的
+`k.IsSymbolToken && k.TextValue === "=>"`——同一条口径、同一形态。
+
+**它与 `IsEqualsSymbol` 不是同一问**：`=>` 的正文里也有一个 `=`，两格各认自己那一串。
+
+### get
+
+```ts
+  return this.TextValue === "=>";
+```
+
 ## field IsTypeSeparator:bool = false
 
 **我这一格是不是类型成员之间的那个分隔符**（第 1057 轮）：`Token.IsTypeSeparator` 在投影层
