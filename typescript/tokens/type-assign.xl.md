@@ -244,13 +244,23 @@ return ReplaceCountAt(units, startIndex, dataEnd - startIndex + 1, result);
     if (params.length > 0) props.typeParameters = ctx.ProjectEach(params);
   }
   const baseStart = ctx.baseStart;
-  // **`AddModifiers` 不再收「外层起点」**（第 1052 轮）：修饰词的位置只有一个来源——
-  // token 自己记的 `modifierSpans`（`TypeAssign` 自己声明的那一格），所以递进去也没人读。
-  ctx.AddModifiers(v, props);
+  // **修饰词那一串由被问的那一格自己拼**（第 1167 轮）：`ctx.AddModifiers(v, props)` 与它那个
+  // 「外层起点」的旧形参都不在了（第 1052 轮起就不收）——词、位置与「哪几个布尔属性是修饰词」
+  // 都在 `v` 自己声明并赋好的那几格上（`Token.ModifierNodes`），这里只读一次属性。
+  const modifierNodes = v.ModifierNodes;
+  if (modifierNodes.length > 0) props.modifiers = modifierNodes;
   // **装饰器也进 `modifiers`**（第 610 轮）：它与关键字修饰词同住 TS 的 `modifiers` 一列，
-  // 而 `Decorator` 是带子树的**子单元**——`AddModifiers` 只看文本字段，看不见它。
-  // 与通用支共用同一份实现（`print-ast-common.xl.md` 的 `addDecorators`）。
-  ctx.Decorators(v, props);
+  // 而 `Decorator` 是带子树的**子单元**。**第 1167 轮起这一趟也由被问的那一格答**
+  // （`v.Decorators`，就是它自己的 `ProjectableKids` 里那些 `Decorator`）：
+  // 投影层只做「与上面那一串按源码位置合并」这一步——判据与原来那一份逐字相同。
+  const decorators = v.Decorators
+    .map((d: any) => ctx.Project(d))
+    .filter((d: any) => d !== undefined);
+  if (decorators.length > 0) {
+    const merged = [...decorators, ...(Array.isArray(props.modifiers) ? props.modifiers : [])];
+    merged.sort((a: any, b: any) => (a.pos ?? 0) - (b.pos ?? 0));
+    props.modifiers = merged;
+  }
   // **这一条不能走 `ctx.Node`**：`pos` 要用外层递进来的 `baseStart`（`ctx.Node` 只会用 `v.start`）。
   return {
     kind: "TypeAliasDeclaration",

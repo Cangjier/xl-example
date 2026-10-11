@@ -738,6 +738,73 @@ for (const piece of raw.split(",")) {
 return out;
 ```
 
+## property Decorators:Array<Token>
+
+**我这一格的装饰器子单元，按源码顺序**（第 1167 轮）：`ProjectableKids` 里那些 `Decorator`，
+没有就是空数组。
+
+**为什么住在这一格**（用户口径 1.2 / 1.3 / 1.6）：这一问的**两半事实都是本类自己的**——
+「我有哪些子单元进投影」是自己的 `ProjectableKids`、「哪一个是装饰器」是那一格自己声明的
+`IsDecoratorUnit`（`Decorator` 那一页的常量）。算式原来散在投影层的三处
+（`print-ast-common.xl.md` 的 `addDecorators` 与 `field.xl.md` / `type-assign.xl.md` 各自
+现写一遍 `filter` + `map` + `sort`），今天三处都只读这一格；**合并与排序那一趟仍留在原处**
+（那一趟要把装饰器与关键字修饰词按坐标混排，是调用方手上的两串之间的事）。
+
+### get
+
+```ts
+return this.ProjectableKids.filter((k: Token) => k.IsDecoratorUnit);
+```
+
+## property ModifierNodes:Array<AstNameNode>
+
+**我记下的修饰词，各自投成哪一个节点**（第 1167 轮）：按源码顺序的一串 `…Keyword` 节点
+（`export` ⇒ `{ kind: "ExportKeyword", text: "export", pos, end }`），没有修饰词就是空数组。
+
+**为什么住在这一格**（用户口径 1.2 / 1.3 / 1.6 / 1.7）：这一格的**每一件输入都是本类自己的**——
+「我有没有文本那一档修饰词」读 `modifiers`（本类声明、各页认下声明那一刻赋好）、
+词表读 `ModifierTextWords`（本类现算）、区间读 `ModifierSpanList`（本类声明的那一串拆出来）、
+布尔那一档读本页自己声明的 `ModifierWords` 与那几个**同名布尔属性**（`Lamda` 的 `async`）。
+算式原来在 `print-ast-common.xl.md` 的 `addModifiers` 里——那一格做的是**投影层的活**
+（把词拼成节点）却**一个投影层的事实都不用**，而且它按 `v[key]` **拿词名当键**读本页的属性。
+
+**与 `ModifierTextWords` / `ModifierWords` 的分工**：那两格答「有哪些词」，
+这一格答「那些词各自是什么节点」——**读法一处、拼法一处**，投影那一侧只读这一格。
+
+**没有修饰词的页面答空数组**：调用方按「`length === 0` 就不建 `modifiers` 这一列」处理，
+与原来那一支的判据逐字相同。
+
+### get
+
+```ts
+// **文本那一档**（`"export,const"`）：词由 `ModifierTextWords` 拆，位置由 `ModifierSpanList` 给
+// （两者与那一串**同序同长**，同一趟记下的三格）。
+// **布尔那一档**（`Lamda` 的 `async`）：词名由本页显式声明的 `ModifierWords` 给，
+// 取的是本页那几个**同名布尔属性**——`value === true` / `"true"` 才算数，与原来那一支逐字相同。
+const hasText = typeof this.modifiers === "string" && this.modifiers !== "";
+const words: Array<string> = hasText ? this.ModifierTextWords : [];
+if (hasText === false) {
+  for (const key of this.ModifierWords) {
+    const value = (this as any)[key];
+    if (value === true || value === "true") words.push(key);
+  }
+}
+const spans = this.ModifierSpanList;
+const out: Array<AstNameNode> = [];
+for (let i = 0; i < words.length; i++) {
+  const word = words[i];
+  // **位置只有一个来源**：第 i 个词的位置就是第 i 格；个数对不上时退到零宽（与原来那一支同答）。
+  const at = i < spans.length ? spans[i] : { pos: this.start, end: this.start };
+  out.push({
+    kind: `${word.charAt(0).toUpperCase()}${word.slice(1)}Keyword`,
+    text: word,
+    pos: at.pos,
+    end: at.end,
+  });
+}
+return out;
+```
+
 ## property Segments:Array<string>
 
 **我这一格有哪几段子单元**（第 1065 轮）：段名就是本页自己声明的那几个属性名

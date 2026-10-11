@@ -798,8 +798,14 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   if (eqIndex >= 0 && initKids.length > 0) props.initializer = ctx.Expression(initKids);
   const bang = kids.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "!");
   if (bang !== undefined) props.exclamationToken = ctx.Project(bang);
-  ctx.AddModifiers(v, props);
-  const fieldDecorators = kids.filter((k: any) => k.Tag === "Decorator");
+  // **修饰词那一串由被问的那一格自己拼**（第 1167 轮）：`ctx.AddModifiers(v, props)` 换成了
+  // 一次属性读——词、位置与「哪几个布尔属性是修饰词」都在 `v` 自己声明并赋好的那几格上
+  // （`Token.ModifierNodes`），投影层不再按词名当键去问它。
+  const modifierNodes = v.ModifierNodes;
+  if (modifierNodes.length > 0) props.modifiers = modifierNodes;
+  // **装饰器那一串也由被问的那一格自己给**（第 1167 轮，`Token.Decorators`）：这里只剩
+  // 「与上面那一串按源码位置合并」这一步——算式原来与通用支那一份逐字重复。
+  const fieldDecorators = v.Decorators;
   if (fieldDecorators.length > 0) {
     const projected = fieldDecorators
       .map((d: any) => ctx.Project(d))

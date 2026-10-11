@@ -347,6 +347,40 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1167 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 「把修饰词 / 装饰器拼成一串节点」那一格 `addModifiers`（48 行）**整格搬回被问的那一格**，`ctx.AddModifiers` / `ctx.Decorators` 两个出口一并删掉
+
+**一句话**：`print-ast-common` 的 `addModifiers(v, props, ctx)` 做的是**投影层的活**
+（把词拼成 `…Keyword` 节点），可它**一件投影层的事实都不用**——输入全是 `v` 自己的
+（`modifiers` / `ModifierTextWords` / `ModifierWords` / `ModifierSpanList`），而且它按
+`v[key]` **拿词名当键**去读本页属性。今天这一串由被问的那一格自己答
+（`core/syntax/token.xl.md` 的 `## property ModifierNodes:Array<AstNameNode>`），
+同一趟把「装饰器那一串」也立成一格（`## property Decorators:Array<Token>`）：
+
+| 原来的写法 | 今天 |
+| --- | --- |
+| 本页 `addModifiers(v, props, ctx)`（48 行：两支取词 + 逐词拼 `kind`/`text`/`pos`/`end` + 写回 `props`） | **整格删掉**；`Token.ModifierNodes`（`## property` + `### get`，算式与它每一句注释整段搬过去） |
+| `structuralProps` 里 `addModifiers(v, props, ctx)` | `const modifierNodes = v.ModifierNodes;` + 一行 `if (length > 0) props.modifiers = …` |
+| `projectLetFrom` 里造一个空 `holder` 再 `addModifiers(letView, holder)` | **`holder` 那一格删掉**，直接 `letView.ModifierNodes` |
+| `ctx.AddModifiers(v, props)`（`field.xl.md` / `type-assign.xl.md` 两页三处调用点） | 各页读 `v.ModifierNodes` 一次（`field.xl.md` 那一页**顺带把它与装饰器合并的那一段**留下，装饰器那串改读 `v.Decorators`） |
+| `ctx.Decorators(v, props)`（`type-assign.xl.md`） | `v.Decorators` + 本页做「按源码位置合并」那一步 |
+| `field.xl.md` 里 `kids.filter((k) => k.Tag === "Decorator")`（与通用支那一份逐字重复） | `v.Decorators`（两半事实：自己的 `ProjectableKids` + `Decorator.IsDecoratorUnit`，都在那一格上） |
+
+- **等价是三条判据一起给的**：`cases:tsast` **16 片全过、41890 个投影节点 100% 对齐
+  （字段名也 100%）**、`samples` **逐字节一致**（它正是按 XML 逐字节比的那一门）、
+  `cases:direct` 1640 份不抛异常；八道门读数与第 1106 ~ 1166 轮**逐项相同**。
+- **`ctx` 出口 48 → 46**：两个出口的名字补进 `direct:lint` 的 `CTX_BANNED`
+  （写回来这一门当场红）；`direct:lint` 那一条「投影对 token 只读属性不调方法」照旧 0 处
+  ——新读的两格都是 `<token>.ModifierNodes` / `<token>.Decorators` 这种**属性读**。
+- **本页的声明数**：**56 → 55 格**（删掉的是一格 `# private method`）。
+  **不带注释的代码行**：**3975 → 3950**（量法与第 1164 ~ 1166 轮同一条：行首三反引号进出围栏、
+  围栏内逐行去掉 `//` 之后的部分，空行不算）。
+- **实测**：`xl check` 该 4 页 0 条；`xl build core typescript` **4 written / 152 skipped / 0 error**、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 33.1s），唯一红的是 `coverage`
+  ——它一直是**尺子不是门**：`4260 / 4422`（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%），
+  那一条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+- **顺手修正两处过期引文**（同一页）：本页开头那句「共享实现」的例子还写着 `addModifiers`，
+  `ModifierSpanList` 那一节的「本页唯一的那处调用」也指着它——都改成事实（今天读 `Token.ModifierNodes`）。
+
 ### 第 1166 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 「在一段坐标之间回原文找第一个 `[` / `{` 再配对」那一格 `bindingSpanOf`（20 行）**整格删掉**：实测两处调用点一次都没进，只剩一个不猜路的零宽占位
 
 **一句话**：`projectLetFrom` 里那一格 `bindingSpanOf(from, limit, ctx)` 是**回原文扫**的兜底

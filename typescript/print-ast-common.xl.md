@@ -43,7 +43,7 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
   这一串今天都不在表里；
 - **共享实现**：那些**被共享层自己调用、且调用方拿不到「单元」这个入口**的函数
   （表达式重写器 `projectExpression` / `projectTypeExpression`、声明列表 `projectLetFrom`、
-  成员名判据 `memberNameOf`、修饰词 `addModifiers`……）。
+  成员名判据 `memberNameOf`、修饰词那一串 `Token.ModifierNodes`……）。
   判据是「所有调用点能不能改写成『把某个单元交给 `projectNode`』」——能就搬，不能就留。
 
 本文件是 `tests/parse/ts-shape.mjs`（原来那 2464 行 JS）的**逐字搬家**：
@@ -8024,9 +8024,10 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // **`VariableStatement` 的修饰词只有语句级那几个**：`export const q = 1` 的 TS 是
   // `VariableStatement(modifiers=[ExportKeyword])` + `List(flags=Const)`——
   // `const` / `let` / `var` 是**列表的 flags**，不是语句的修饰词（混进去会多出一个 `ConstKeyword`）。
-  const holder = {};
-  addModifiers(letView, holder);
-  const statementModifiers = holder.modifiers ?? [];
+  // **这一趟由被问的那一格自己答**（第 1167 轮）：原来这里造一个空 `holder`、把 `letView`
+  // 交给 `addModifiers(letView, holder)` 去填——那一格的每一件输入都在 `letView` 自己身上，
+  // 所以今天直接读 `letView.ModifierNodes`（`holder` 那一格随之删掉）。
+  const statementModifiers = letView.ModifierNodes;
   // **`await` / `using` 也不是语句修饰词**（第 151 轮）：它们是**列表的 flags**
   // （`VariableDeclarationList.flags = AwaitUsing`），挂到语句上会多出两个节点。
   const onlyStatementLevel = statementModifiers.filter(
@@ -9071,7 +9072,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 （第 1041 / 1042 / 1057 / 1068 / 1069 / 1078 那几条）它搬回了 `core/syntax/token.xl.md`：
 基类新增 `## property ModifierSpanList:Array<any>`（`## property` + `### get`；没有这一格的页面
 答空数组，解析不出来也答空数组——与原来的实现逐字相同），
-本页唯一的那处调用（`addModifiers` 里取 `spans`）改成属性读。
+本页唯一的那处调用（当时是 `addModifiers` 里取 `spans`；**那一格第 1167 轮搬进了
+`Token.ModifierNodes`**）改成属性读。
 **那一格的输入第 1082 轮收进了基类**：`## field ModifierSpans:string = ""` 由基类声明
 （各页本来就各自显式声明同一格、并在认下声明那一刻赋好），那一格读的就是它——
 从前读的是各页那个**小写**的 `modifierSpans`（一个没在基类里声明的名字，要经 `(this as any)`），
@@ -9110,7 +9112,15 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   props.modifiers = merged;
 ```
 
-# private method addModifiers:(v:any, props:any)=>void
+**`addModifiers` 这一格第 1167 轮整格删掉了**（用户口径 1.2 / 1.3 / 1.6 / 1.7）：
+它做的是「把本单元记下的修饰词拼成一串节点」，而**它的每一件输入都是被问的那一格自己的**
+（`modifiers` / `ModifierTextWords` / `ModifierWords` / `ModifierSpanList`），
+本页在那里既**替那一页拼节点**、又按词名当键去问它；今天这一串由被问的那一格自己答
+（`core/syntax/token.xl.md` 的 `## property ModifierNodes:Array<AstNameNode>`），
+`structuralProps` 只读一次属性。`ctx` 上那两个出口（`AddModifiers` / `Decorators`）第 1167 轮
+一并删掉：调用方各读各的属性（`field.xl.md` 与 `type-assign.xl.md` 三处调用点）。
+
+**这一节原来记的判据一个字没改**（搬走的是算式与它的位置，不是口径）：
 
 修饰词：产物那边是 `modifiers="export,const"` 这样的**字符串**，
 而 TS 那边 `modifiers` 是一串**节点**（`ExportKeyword` / `ConstKeyword`…）。
@@ -9127,49 +9137,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 留一个零宽区间的兜底比留一条猜法更糟：它是**静默错值**（实测 `declare` 是 `TS[26,33)` 而零宽给 `[26,26)`，
 一份语料里几百处），而不是当场说不出来。
 
-```ts
-  let words = [];
-  // **「文本那一档」的分支条件还是看那一格事实在不在**（第 1083 轮）：`modifiers` 是基类声明、
-  // 各页构造时赋好的那一格；**拆词的算式住在基类那一格** `ModifierTextWords` 里
-  // （第 1083 轮立起来，见 `core/syntax/token.xl.md`），投影只读属性名。
-  const modifiers = v.modifiers;
-  if (typeof modifiers === "string" && modifiers !== "") {
-    words = v.ModifierTextWords;
-  } else {
-    // **有的单元把修饰词记成布尔属性、名字就是那个词**：`Lamda` 的 `async`
-    // （TS 那边 `async x => x` 的 `ArrowFunction.modifiers` 就是 `[AsyncKeyword]`）。
-    // 这一支不是给声明层留的兜底——声明层（`Class` / `Interface` / `Namespace` / `TypeAssign` …）
-    // 一律有 `modifiers` 文本走上面那一条。
-    //
-    // **哪几个词是这一档，由那一页自己声明**（第 1065 轮）：这一支过去走
-    // `declaredKeysOf(v)`——把**所有**小写开头、值为 `true` / `"true"` 的属性都当修饰词收。
-    // 那是一份没人声明的名单：本页新加一个布尔属性就会**凭空多出一个修饰词节点**。
-    // 今天读的是那一页显式声明并赋好的 `ModifierWords`（口径见
-    // `core/syntax/token.xl.md` 的 `ModifierWords`）：`Lamda` 给 `["async"]`、
-    // 其余页面基类默认空数组 ⇒ 这一支对它们一个字都不收。
-    const declared = v.ModifierWords;
-    if (Array.isArray(declared)) {
-      for (const key of declared) {
-        const value = v[key];
-        if (value === true || value === "true") words.push(key);
-      }
-    }
-  }
-  if (words.length === 0) return;
-  // **位置只有一个来源**：`ModifierSpans` 与 `modifiers` **同序同长**（同一趟记下的两格），
-  // 所以第 i 个词的位置就是第 i 格——这里不再有「个数对不上就换一条猜法」这一支。
-  // **拆那一串的地方就是基类那一格**（第 1079 轮）：`spans` 读的是 `Token.ModifierSpanList`
-  // （见 `core/syntax/token.xl.md`），它读的输入是**基类声明的 `ModifierSpans`**
-  // （第 1082 轮；各页构造时赋好，那 10 处小写的 `modifierSpans` 属性已整格删掉）。
-  const spans = v.ModifierSpanList;
-  const out = [];
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
-    const at = i < spans.length ? spans[i] : { pos: v.start, end: v.start };
-    out.push({ kind: `${word.charAt(0).toUpperCase()}${word.slice(1)}Keyword`, text: word, pos: at.pos, end: at.end });
-  }
-  props.modifiers = out;
-```
+**今天这一格在哪**：`structuralProps` 读一次 `v.ModifierNodes`，算式与它每一句为什么这么写的
+注释都在 `core/syntax/token.xl.md` 那一格上——这一页不再留第二份。
 
 # private method namedSpecifiersOf:(brace:any, kind:string, ctx:any)=>Array<any>
 
@@ -9885,8 +9854,12 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;
     }
   }
-  // 修饰词：产物那边是字符串，TS 那边是一串节点（见 `addModifiers` 的说明）。
-  addModifiers(v, props, ctx);
+  // 修饰词：产物那边是字符串，TS 那边是一串节点——**那一串由被问的那一格自己拼**
+  // （第 1167 轮，用户口径 1.2 / 1.3 / 1.6 / 1.7）：词、位置与「哪几个布尔属性是修饰词」
+  // 全是它自己声明并赋好的那几格（`modifiers` / `ModifierTextWords` / `ModifierWords` /
+  // `ModifierSpanList`），本页只读一次属性、不再按词名当键去问它。
+  const modifierNodes = v.ModifierNodes;
+  if (modifierNodes.length > 0) props.modifiers = modifierNodes;
   // **装饰器并进 `modifiers` 并按源码位置排序**（见 `addDecorators`）：TS 的 `modifiers` 是源码顺序
   // （`@dec export class` 也好、`export class` 也好，谁在前谁先）。
   addDecorators(v, props, ctx);
@@ -10117,10 +10090,13 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     KidsOf: (node, key) => kidsOf(node, key),
     NamedSpecifiers: (brace, kind) => namedSpecifiersOf(brace, kind, ctx),
     MemberNameOf: (view) => memberNameOf(view, ctx),
-    // **第 1052 轮它不再收第三个参数**：修饰词的位置只有一个来源（token 记的 `modifierSpans`），
-    // 所以那个「外层起点」不再需要往里递——`TypeAssign` 里调用的那一处也只传两格。
-    AddModifiers: (view, props) => addModifiers(view, props),
-    Decorators: (view, props) => addDecorators(view, props, ctx),
+    // **`AddModifiers` 与 `Decorators` 这两个出口第 1167 轮删掉了**（用户口径 1.2 / 1.3 / 1.6 / 1.7）：
+    // 它们做的都是「把本单元记下的修饰词 / 装饰器拼成一串节点」，而**每一件输入都在被问的那一格上**
+    // （修饰词那一侧：`modifiers` / `ModifierTextWords` / `ModifierWords` / `ModifierSpanList`，
+    // 今天合成 `Token.ModifierNodes` 一格；装饰器那一侧：它自己的 `ProjectableKids`，
+    // 今天合成 `Token.Decorators` 一格）。
+    // 三个调用点各自读属性：`field.xl.md` 与 `type-assign.xl.md` 两页（`ctx.Project` 是它们本就有的）。
+    // 两个名字补进 `direct:lint` 的 `CTX_BANNED`，写回来这一门当场红。
     FoldBinaryFrom: (left, list) => foldBinaryFrom(left, list, ctx),
     // **`ParameterModifiers` 那个出口第 1037 轮删掉了**：那份词表（`public` / `private` /
     // `protected` / `readonly` / `override`）只有一个读者（`tokens/lamda/lamda-parameter.xl.md`

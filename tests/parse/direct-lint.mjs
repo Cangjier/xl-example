@@ -457,6 +457,13 @@ const CTX_BANNED = [
   "NameOf",
   "TypeArguments",
   "Make",
+  // **第 1167 轮再补两个出口名**：`AddModifiers` / `Decorators`——它们做的是「把被问的那一格
+  // 记下的修饰词 / 装饰器拼成一串节点」，而**每一件输入都在那一格自己身上**，所以三处调用点
+  // （`structuralProps` 与 `field.xl.md` / `type-assign.xl.md` 两页）改成读 `Token.ModifierNodes` /
+  // `Token.Decorators` 两格属性，两个出口一并删掉。出口删了就补进这张表，
+  // 免得下一轮有人往 `ctx` 里补一行再把「替它拼节点」请回来。
+  "AddModifiers",
+  "Decorators",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。
