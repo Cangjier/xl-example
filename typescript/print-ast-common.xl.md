@@ -74,8 +74,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**47 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-44 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**46 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+43 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 3 个名字**（`projectNode` /
 `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），其余一律 `# private`。
@@ -92,6 +92,28 @@ import { Identifier } from "./tokens/identifier.xl.md"
 | `ownsTrailingSemicolon(node, ctx)` + 数据表 `ENDS_ON_BRACE` | `projectEach` 里的 `ownsTrailingSemicolonOf` / `endsOnBrace`（唯一读者就是那一格函数里的一处） | 数据表的唯一读者就是这一格；两者一起搬，本页少两格声明 |
 
 三格**判据一个字没改**，只是不再单独立声明（与第 1103 / 1104 / 1101 / 1100 轮同一手法）。
+
+**第 1112 轮按同一把尺子把「值位括号 → `ParenthesizedExpression`」那一格收进它的调用点**：
+`parenthesizedOf(unit, ctx)`（16 行）的读者在**代码块里只有两处**（`projectExpression` 里
+`kids.length === 1 && kids[0].IsParenBracket` 那一支、`chainWithOptional` 里 `let left = …`
+那一格），第三处是 `ctx.ParenthesizedOf` 这条出口本身。所以：
+
+| 原来的现场算式 | 今天谁答 |
+| --- | --- |
+| `parenthesizedOf(unit, ctx)`（`unit.ProjectableKids` + `inner.length > 0 ? projectExpression(inner, ctx) : undefined` + `pos: startOf(unit)` / `end: endOf(unit)`） | 算式**就地展开**在那两个调用点（各一处，逐字相同的四句）；出口原样留在本页 |
+
+- **出口不能一起删**：`ctx.ParenthesizedOf` 在全仓有 **5 页、7 处**活读者
+  （`method` / `new` / `heritage-clause` / `enum-member` / `lamda-parameter`），
+  按第 1070 轮那条判据（**0 处**才收出口）它不该动——所以出口**名字与实参表一个字不动**，
+  只是它自己就地写同一份算式，不再转手那一格声明。
+- **为什么它是「多一层间接」**：那一格做的事只有「取这一格的子单元 / 投一次 / 抄两个坐标」，
+  三件事的答案都在**被投的那一格自己**身上；留着它，等于本页同一份算式有
+  「声明 + 两个调用点 + 出口」四个入口。收掉之后同一份算式只剩**调用点那几处**，
+  而出口那一处是**别的页**的入口（不是本页的第二份答案）。
+- **一处不按属性读的坐标照旧**：`pos` / `end` 仍读 `startOf(shape)` / `endOf(shape)`
+  （本页那两个 `# const` 就是读 token 自己的 `start` / `end`，与搬走之前逐字节相同）。
+- **本页的声明数**：**47 → 46 格**（44 → 43 个 `# method` + 3 个 `# const`，实测；
+  删掉的是一格 `# private method`，出口那一格不是声明）。
 
 **第 1111 轮按同一把尺子再走一格**：`absorbIntoTypeQuery(node, query, name)`（56 行）并进
 `projectTypeExpression` 里的 `absorbIntoTypeQueryOf`——它的读者**全在本函数里**
@@ -3522,8 +3544,21 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 判据能这么简单（只认「一个 `(` 括号」），是因为**实参表 / 形参表 / 类型括号不会走到这里**：
   // 那些括号的父单元是 `Method` / `Function` / `Lamda` / `Signature` / 类型容器，
   // 由各自的投影路径摊平；`projectExpression` 收到的单元一律是**操作数**。
+  //
+  // **这一格第 1112 轮并进这个调用点**（判据与第 1103 / 1104 / 1109 / 1110 / 1111 轮同一把尺子）：
+  // 「值位括号 → `ParenthesizedExpression`」的算式原来单独立着一格 `parenthesizedOf`，
+  // 而它在**代码块里只有本函数这两处读者**（另一处是下面 `let left = …` 那一格，见那里）
+  // 与 `ctx.ParenthesizedOf` 那一条出口——出口留着（`method` / `new` / `heritage-clause` /
+  // `enum-member` / `lamda-parameter` 五页经它走），所以这里就地展开的是**算式本身**。
   if (kids.length === 1 && kids[0].IsParenBracket) {
-    return parenthesizedOf(kids[0], ctx);
+    const shape = kids[0];
+    const inner = shape.ProjectableKids;
+    return {
+      kind: "ParenthesizedExpression",
+      expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
+      pos: startOf(shape),
+      end: endOf(shape),
+    };
   }
   // ---- 0b0. `await x` / `yield x`（第 130 轮）----
   //
@@ -4439,7 +4474,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 第 1073 轮之前那一格叫 `projectString`）。
   // 标签那一侧走 `projectExpression(kids.slice(0, 1))`：`obj.tag` / `f()` / `(…)`
   // 这些接收者本来就是**一个单元**，`projectExpression` 自己会投对
-  //（`(cond)` 那一格落在 `parenthesizedOf` 上）。
+  //（`(cond)` 那一格落在 `ctx.ParenthesizedOf` 这条出口就地写的那一份算式上——
+  // 那一格私有声明第 1112 轮已并进它的调用点）。
   //
   // 后缀那两个方向**照抄已经有的那份**（`chainOnto`）：下标 `[…]`、点号成员、
   // 点号后面跟 `Method`（调用）、成员格里又是一条链——与「二元右操作数后面那串续格」
@@ -5164,7 +5200,18 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     };
     let left =
       ck[0].IsParenBracket
-        ? parenthesizedOf(ck[0], ctx)
+        // **这一格第 1112 轮并进这个调用点**（与上面那一处同一条尺子、逐字相同的展开）：
+        // 链的头一格是值位括号时出 `ParenthesizedExpression`，算式原来住在 `parenthesizedOf`。
+        ? (() => {
+          const shape = ck[0];
+          const inner = shape.ProjectableKids;
+          return {
+            kind: "ParenthesizedExpression",
+            expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
+            pos: startOf(shape),
+            end: endOf(shape),
+          };
+        })()
         : projectChainHead(ck[0]);
     // **这一条链上出现过非空断言**（第 303 轮）：出现过之后，
     // 后面那些「按数组字面量成形的方括号」**每一格都是下标**——
@@ -5925,24 +5972,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     };
   }
   return projectNode(kids[0], ctx);
-```
-
-# private method parenthesizedOf:(unit:any, ctx:any)=>any
-
-括号表达式 `( … )` → `ParenthesizedExpression`（括号本身**属于**这个节点，与 TS 一致）。
-
-产物那边值位的括号就是一个 `Bracket` 单元（`startBracket="("`），内容在它里面。
-判据只认「括号是这一层的操作数」——实参表 / 形参表 / 类型括号不会走到这里
-（那些括号的父单元是 `Method` / `Function` / `Lamda` / `Signature` / 类型容器，各走各的投影路径）。
-
-```ts
-  const inner = unit.ProjectableKids;
-  return {
-    kind: "ParenthesizedExpression",
-    expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
-    pos: startOf(unit),
-    end: endOf(unit),
-  };
 ```
 
 # private method assertedMember:(left:any, unit:any, ctx:any, questionDot:any)=>any
@@ -9313,7 +9342,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       //
       // **区间两头都从那个字符串推**：TS 给的是 `[17,22)`，而字符串自己的区间是 `[19,22)`
       // ⇒ 起点是字符串起点**减一**（那个 `(` —— `from` 那两个字符不算），终点是字符串终点**加一**
-      //（`endOf` 在这一层给的是**闭**右端，见 `parenthesizedOf` 那一处的用法；
+      //（`endOf` 在这一层给的是**闭**右端，见 `ctx.ParenthesizedOf` 那条出口里就地写的那一份
+      // 算式——那一格私有声明第 1112 轮已并进它的调用点；
       // 而 TS 的 `ParenthesizedExpression` **不含**那个右括号）。照 `Method` 自己的两端给会多出
       // 一格 `[13,22)`（把 `from` 也圈进去，实测「缺一格 + 多一格」两边各差一格）。
       props.moduleSpecifier = {
@@ -9879,7 +9909,24 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // **`IndexBracketOf` 那个出口第 1060 轮删掉了**：下标那个 `[` 是 `IndexedAccessType`
     // 自己造出来那一刻的事实（`IndexBracketAt`），所以那一页直接读自己的属性——
     // 投影层不再有「回原文按深度配对方括号」的第二处答案。
-    ParenthesizedOf: (unit) => parenthesizedOf(unit, ctx),
+    // **`parenthesizedOf` 这一格第 1112 轮整格删掉了**（判据与第 1103 / 1104 / 1109 / 1110 /
+    // 1111 轮同一把尺子：一格声明若只剩「被本页某两处读者调用」与「被这一条出口转手」，
+    // 那它就是多一层间接）。算式**就地展开**在它的两个调用点（`projectExpression` 里
+    // `kids.length === 1` 那一支、`chainWithOptional` 里链头那一格），出口**名字与实参表
+    // 一个字不动**（`method` / `new` / `heritage-clause` / `enum-member` / `lamda-parameter`
+    // 五页经它走），这里就地写同一份算式：
+    // 括号表达式 `( … )` → `ParenthesizedExpression`（括号本身**属于**这个节点，与 TS 一致）。
+    // 产物那边值位的括号就是一个 `Bracket` 单元（`startBracket="("`），内容在它里面；
+    // 判据只认「括号是这一层的操作数」——实参表 / 形参表 / 类型括号不会走到这里。
+    ParenthesizedOf: (unit) => {
+      const inner = unit.ProjectableKids;
+      return {
+        kind: "ParenthesizedExpression",
+        expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
+        pos: startOf(unit),
+        end: endOf(unit),
+      };
+    },
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
     // **`projectHeadDeclare` 这一格第 1100 轮并进了这个出口**（同一把尺子：全仓只有
     // `foreach.xl.md` 一个读者）。它说的是**没有 `Let` 的声明段**：`for (const v of xs)` /
