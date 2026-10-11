@@ -5848,7 +5848,22 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     walk(unit);
     return { tail: tail, rest: rest };
   };
+  // **尾巴上还挂着 `as` / `satisfies` 时，这一支也要让开**（第 1213 轮，用户口径 1.1）：
+  // `a.b?.b as T` 的产物是
+  //
+  //     [Identifier(a), SymbolToken(.), Identifier(b), NullConditionalOperator(b), As(T)]
+  //
+  // ——链那一支**进得来**（第二格是点号），而它折到 `?.` 那一格时走的是尾巴那一支
+  // 「`tail0.IsNullConditionalOperator`」：那一支把剩下的 `[As]` 递给 `foldBinaryFrom`，
+  // 而它找不到运算符就**原样返回左操作数** ⇒ 整条 `as T` 丢掉（实测缺 `AsExpression` /
+  // `TypeReference` / `Identifier` 三格，四个方向里只有「缺」这一栏响）。
+  // 这与第 664 轮 `a?.b as T` 那一处**是同一个形状**：那一处由 0a0 / 0a 两条的
+  // `asAfterNco` 让开了，而这一支（链）当时没有让。
+  // 让开之后落到主流程第 2 节（`asIndex` 那一支）——**`As` / `Satisfies` 的折法只有那一份**，
+  // 而它自己会把前缀 `kids.slice(0, asIndex)` 递归投一遍：那一趟里没有 `As`，
+  // 链那一支照常进、`?.` 照常接上。
   if (
+    asAfterNco === false &&
     kids.length >= 2 &&
     (kids[1].IsDotSymbol || kids[1].IsIndexBracket ||
       (kids[0].IsNotNull && kids[1].IsArrayLiteralUnit) ||
