@@ -3,6 +3,7 @@
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, HasDeclarationLineBreak, IsDeclarationModifier, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
@@ -860,6 +861,15 @@ if (!computedName && (nameUnit instanceof Identifier || nameUnit.constructor.nam
     result.NameStart = nameStart;
     result.NameEnd = nameEnd;
   }
+  // **名字那一格自己的整段区间当着这一趟记进 `NameAt`**（第 1138 轮，用户口径 1.1 ~ 1.4）：
+  // 与 `../field.xl.md` 的 `NameAt` **同一口径、同一条件**（只认普通标识符与字符串字面量，
+  // 私有名 `#x` 不给这一格——那是两格，没有哪一格单独说得清这个名字）。
+  // 于是本页也答得出基类那一格 `NameTextSpan`（它按 `NameSpan` 与头一个字符算文本区间）：
+  // 投影 `synthName` 从此对**字符串方法名**（`{ "a-b"() {} }`）走与 `Field` 同一条路，
+  // `memberNameOf` 那一处「名字带不带引号」也不再回原文看（读 `Token.IsQuotedName`）。
+  if (privateMark === null && head !== null && (nameUnit instanceof Identifier || nameUnit instanceof String)) {
+    result.NameAt.Set(head.Index, nameUnit.SourceRange);
+  }
 }
 result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
 // **修饰词各自的位置**（见 `ModifierSpans`）：它们不进 `Data`，位置要在这一趟记下来。
@@ -1044,6 +1054,39 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ## field NameEnd:int = -1
 
 名字的终点（闭区间下标），与 `NameStart` 同进退。
+
+## field NameAt:TokenField<number> = new TokenField<number>(-1)
+
+**名字那一格自己的整段区间**（第 1138 轮；与 `../field.xl.md` 的 `NameAt` 同名同形同条件）。
+
+与 `NameStart` / `NameEnd` 的分工：那两格是**名字文本**的区间（字符串名不含引号），
+这一格是**那个单元**的区间——字符串名的引号也在里面。只认**有自己区间**的两种名字
+（普通标识符 / 字符串字面量）：计算名与关键字名不走这一格，私有名 `#x` 也不走
+（它是两格，没有哪一格单独说得清 `name` 里那串 `#x`）。
+
+**为什么第 1138 轮才补**：投影 `synthName` 与 `memberNameOf` 两处过去都因为「本页的
+字符串名没有 `NameSpan` 这一格」而回原文看字符（`ctx.source[unitSpan[0]]` 是不是引号、
+`ctx.source[at.pos - 1]` 是不是引号）——而那是**本页自己记下的那一段的形状**。
+补上这一格之后，基类那一格 `NameTextSpan` 在本页也答得出来，两处都改成属性读。
+
+## property NameSpan:Array<int>
+
+**名字那一格的整段区间**（闭区间 `[起, 止]`，字符串名的引号在里面）：读的就是上面那一格
+`## field NameAt`（与 `../field.xl.md` 的 `NameSpan` 同一份算式、同一个形状）。
+没有名字格时给空数组。
+
+### get
+
+```ts
+if (!this.NameAt.IsSet) {
+  return [];
+}
+const nameRange = this.NameAt.Range;
+if (nameRange === null || nameRange.Start === null || nameRange.End === null) {
+  return [];
+}
+return [nameRange.Start.Index, nameRange.End.Index];
+```
 
 ## field modifiers:string = ""
 
@@ -1253,6 +1296,7 @@ result.name = this.name;
 result.IsNumericLiteralName = this.IsNumericLiteralName;
 result.NameStart = this.NameStart;
 result.NameEnd = this.NameEnd;
+result.NameAt = this.NameAt;
 result.modifiers = this.modifiers;
 result.ModifierSpans = this.ModifierSpans;
 result.FunctionFlags = this.FunctionFlags;

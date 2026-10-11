@@ -85,6 +85,35 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
 而第 1131 轮删掉 `nameOf` 那一格之后实测就是 42 格 / 39 个 `# method`——按上面那条规矩改成实测值
 （**第 1136 轮没有动声明数**：42 → 42，改的是投影那一侧读的一格属性）。
 
+**第 1138 轮把「按某一格自己的坐标去读 `ctx.source`」这一族**收干净了**（用户口径 1.1 ~ 1.4：
+投影要的信息由**被问的那一页**在构造 / 认下名字那一刻记好，投影只读属性）——
+最后一只漏网是 `memberNameOf` 里那句「名字两头是不是同一个引号」：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `const before = at.pos > 0 ? ctx.source[at.pos - 1] : "";` + `(before === '"' \|\| before === "'") && ctx.source[at.end] === before`（`memberNameOf` 里**最后 1 处**回原文读） | `v.IsQuotedName === true` | 基类 `core/syntax/token.xl.md` 的 `## property IsQuotedName:bool`（`### get`，与同页 `NameTextSpan` 里那个 `quoted` **同一份算术**）；它的输入是**各页自己**显式声明的 `NameSpan` |
+
+- **为什么它以前留得住**：第 1109 轮记下的理由是「名字那一格**不是每个单元都记着** `NameSpan`
+  （`MethodDeclaration` / 方法签名的字符串名没有那一格，实测那一版 `decl-string-name-member`
+  一族 5 条当场缺 1 多 1），那时只有原文答得出来」。**这一轮把那个前提消掉了**：
+  `typescript/tokens/function/method-declaration.xl.md` 补上 `## field NameAt:TokenField<number>`
+  与 `## property NameSpan:Array<int>`（与 `tokens/field.xl.md` **同名同形同条件**：只认
+  普通标识符与字符串字面量，私有名 / 关键字名 / 计算名不给这一格），在**认下名字那一趟**
+  （`MethodDeclarationCloseRule.Process` 里那段记 `NameStart` / `NameEnd` 的地方）赋好、`Clone` 抄一格。
+- **等价分两段量，都过**：
+  ① `synthName` 那一侧——本页对字符串方法名从此走 `NameSpan` / `NameTextSpan` 那条路，
+  而两条路给出的两对数**逐字相同**（`NameStart = 起 + 1`、`NameEnd = 止 - 1`，见 `synthName` 那一节）；
+  ② `memberNameOf` 那一侧——**新旧两个判据并排挂在同一句上跑了一遍全语料**
+  （`tmp/r1138`，在构建产物的那一行前挂计数器，跑 `node tests/parse/direct-ast.mjs --all`，2051 份）：
+  **进入 42427 次、不一致 0 次**。八道门读数一处没动是第三份证据。
+- **判据那一侧不用挂例外了**：`direct:lint` 的两条读数（「按某一格自己的起点读 `ctx.source`」
+  「按坐标从 `ctx.source` 切正文」）本来就报 0 处——因为**它们扫的是 `ctx.source[startOf(x)]` /
+  `ctx.source[x.start]` 那两种写法**，而这一处写的是 `ctx.source[at.pos - 1]`（`at` 是**投出来的节点**），
+  两种写法都不匹配，于是它从那一门漏了过去。这一轮不留新判据（那一族的读取数已经是 0，
+  没有更细的形态可扫），只在两处写下「它为什么以前扫不到」。
+- **本页的声明数**：**42 格**（**一格没增、一格没减**：改的是一处读数与说明；新立的一格
+  `IsQuotedName` 在基类，补的两格在 `MethodDeclaration`）。
+
 **第 1137 轮把「这一格是哪一态括号」那一门**漏掉的第 28 处**收了**，并把那一门补全到
 「三种写法都认」（用户口径 1.1 ~ 1.4：投影要的信息由**被问的那一页**那一格答，本页只读属性）：
 
@@ -869,10 +898,16 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 照旧，而「这一格的正文 / 首字符」只有一处来源：token 自己。
 **第 1109 轮把这一族又收掉一处**：`synthName` 的 `ctx.source[unitSpan[0]]`（看名字头一格是不是
 引号）改成读这一格自己的那两对数（`Token.NameSpan` / `Token.NameTextSpan`）——**那一格有
-`NameSpan` 的页面才走这条路**（`Field` / `Namespace`），而 `memberNameOf` 同款的一问
+`NameSpan` 的页面才走这条路**（当时是 `Field` / `Namespace`），而 `memberNameOf` 同款的一问
 **如实保留在原文那一格上**：名字那一格不是每个单元都记着
 （`MethodDeclaration` / 方法签名的字符串名没有 `NameSpan`），那时只有原文答得出来。
-⇒ 「按某一格自己的坐标去读 `ctx.source`」今天只剩那一处，**理由写在那一处的旁边**。
+**第 1138 轮把那句「不是每个单元都记着」的前提消掉了**：`MethodDeclaration` 补上
+`## field NameAt` 与 `## property NameSpan`（与 `Field` 同名同形同条件），于是「引号名」这一问
+**每一页都答得出来**，`memberNameOf` 那一处改成读基类那一格 `Token.IsQuotedName`。
+⇒ 「按某一格自己的坐标去读 `ctx.source`」**今天一处不剩**（这一族收干净了），
+判据那一侧的读数也因此不用再挂着一条例外。**等价是量出来的**：`tmp/r1138`（不进仓库）
+在那两句上并排挂了一个计数器跑 `direct-ast --all`（2051 份语料），这一支**进入 42427 次、
+新旧两个判据 0 次不一致**。
 
 **第 1044 轮按可达性又量了一遍「本页还剩什么用不到」，结论是「一格死代码都没有」**：
 以 `projectRoot` / `ToJsonText` 为入口、把**第 1043 轮之后剩下的 100 格声明**连同它们互相的引用
@@ -1231,7 +1266,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 
 | 原来拆的那一串 | 今天读的那一格（哪一页声明、什么时候赋） |
 | --- | --- |
-| `v.nameRange`（`"起,止"`） | `v.NameSpan:Array<int>` —— `Field` / `Namespace` **各自显式声明**（`## property`，读的是构造时那两格：`Field.NameAt:TokenField<number>`、`Namespace.NameAt` + `NameEnd`） |
+| `v.nameRange`（`"起,止"`） | `v.NameSpan:Array<int>` —— `Field` / `Namespace` **各自显式声明**（`## property`，读的是构造时那两格：`Field.NameAt:TokenField<number>`、`Namespace.NameAt` + `NameEnd`）；**第 1138 轮 `MethodDeclaration` 也补上同一格**（`## field NameAt` + `## property NameSpan`，与 `Field` 同条件同算式） |
 | `v.bodyBraceRange`（`"起,止"`） | `v.BodyBrace:TokenField<number>` —— `While` / `For` / `Foreach` / `DoWhile` / `IfSegment` / `Lamda` **各自早就显式声明**、挂体那一刻赋好 |
 
 - **一格新声明都没有**：`BodyBrace` 六页本来就有（第 641 轮那一族），`NameSpan` 是那两页原来
@@ -2263,6 +2298,9 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 
 **字符串名那一档**（`"a-b" = 2`）走的是第一条（那一格第 645 轮叫 `nameRange`、第 1081 轮换成
 一对数的 `NameSpan`）：它是**含引号**的整段区间，开头是引号 ⇒ 文本在引号之间。
+**第 1138 轮起 `MethodDeclaration` 也答这一格**（字符串方法名 `{ "a-b"() {} }`）：
+它补上了 `NameAt` / `NameSpan`，于是与 `Field` 的字符串字段名走同一条路——
+两条路给出的两对数**逐字相同**（`NameStart = 起 + 1` / `NameEnd = 止 - 1`）。
 
 ```ts
   // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
@@ -9308,14 +9346,21 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   if (at === undefined) {
     return { name: undefined, computed: null, unit: direct === undefined ? null : direct };
   }
-  // **引号判据是「名字起点前面那一格就是引号」**（第 1109 轮**如实保留**在原文这一格上）：
-  // 成员的类型里可能正好有同名字符串（`x: "x"`），按窗口找会把类型当成名字。
-  // **它不能像 `synthName` 那样改读 `NameTextSpan`**：名字那一格**不是每个单元都记着**
-  // （`MethodDeclaration` / 方法签名的字符串名就没有 `NameSpan` 那一格，实测本轮那一版
-  // `decl-string-name-member` 一族 5 条当场缺 1 多 1），那时只有原文答得出来——
-  // 两条路在这一格上不同源，所以这一处保持原样，理由写在这里。
-  const before = at.pos > 0 ? ctx.source[at.pos - 1] : "";
-  if ((before === '"' || before === "'") && ctx.source[at.end] === before) {
+  // **「我声明的这个名字是不是引号名」由那一格自己答**（第 1138 轮，用户口径 1.1 ~ 1.4）。
+  // 这一处原来是**回原文**看名字两头那两个字符（`ctx.source[at.pos - 1]` 与
+  // `ctx.source[at.end]` 是不是同一个引号），第 1109 轮**如实保留**过它，理由写的是
+  // 「名字那一格不是每个单元都记着 NameSpan（`MethodDeclaration` / 方法签名的字符串名没有
+  // 那一格，实测那一版 `decl-string-name-member` 一族 5 条当场缺 1 多 1），那时只有原文答得出来」。
+  // **第 1138 轮把那个前提消掉了**：`MethodDeclaration` 补上 `## field NameAt` 与
+  // `## property NameSpan`（与 `Field` 同名同形同条件，认下名字那一趟赋好、`Clone` 抄一格），
+  // 于是「引号名」这一问**每一页都答得出来**——收成基类那一格 `Token.IsQuotedName`
+  // （`## property` + `### get`，与 `NameTextSpan` 里那个 `quoted` 同一份算术）。
+  // 这一处只读属性；本页代码块里「按某一格自己的坐标去读 `ctx.source`」**因此一处不剩**
+  // （第 1049 / 1109 轮那条判据的最后一只漏网）。
+  // **等价怎么证的**：`NameSpan` 就是名字那一格自己的整段区间（字符串名含那对引号），
+  // 而这一处原来比的那两个字符正是那一段的两头——`at.pos - 1` 是那一段的开头、
+  // `at.end` 是那一段的末尾（`synthName` 两条路给出的对数逐字相同）。
+  if (v.IsQuotedName === true) {
     // **`text` 是引号里的那段，不含引号**（第 183 轮修）：TS 那边字符串字面量名字的
     // `text` 是**解码后的值**（`{ "x-y"() {} }` 的名字文本就是 `x-y`），
     // 而这里原来切的是 `[pos-1, end+1)`——**把两个引号也带上了**。

@@ -347,6 +347,45 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1138 轮：「按某一格自己的坐标去读 `ctx.source`」这一族**收干净了**——`MethodDeclaration` 补上 `NameAt` / `NameSpan`，基类新立 `## property IsQuotedName`，`memberNameOf` 里最后那处回原文读改成属性读；**等价是全语料并排量出来的（42427 次、0 次不一致）**；读数一处没动
+
+**一句话**：用户口径 1.1 ~ 1.4。第 1109 轮把 `synthName` 那处「回原文看名字头一格是不是引号」
+收成了 `NameSpan` / `NameTextSpan`，但**同一句话的第二处**（`memberNameOf` 里
+「名字两头是不是同一个引号」）**如实保留**了，理由写在那一处：名字那一格**不是每个单元都记着
+`NameSpan`**（`MethodDeclaration` 的字符串方法名没有那一格，第 1109 轮实测那一版
+`decl-string-name-member` 一族 5 条当场缺 1 多 1）。这一轮**把那个前提消掉了**：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `const before = at.pos > 0 ? ctx.source[at.pos - 1] : "";` + `(before === '"' \|\| before === "'") && ctx.source[at.end] === before`（`memberNameOf` 里最后 1 处回原文读） | `v.IsQuotedName === true` | 基类 `core/syntax/token.xl.md` 的 `## property IsQuotedName:bool`（与同页 `NameTextSpan` 里那个 `quoted` 同一份算术），输入是各页自己显式声明的 `NameSpan` |
+| （`MethodDeclaration` 没有那一格 ⇒ 投影只能回原文） | `## field NameAt:TokenField<number>` + `## property NameSpan:Array<int>` | `typescript/tokens/function/method-declaration.xl.md` **新增并显式声明**（与 `Field` 同名同形同条件：只认普通标识符与字符串字面量；私有名 / 关键字名 / 计算名不给），在认下名字那一趟赋好、`Clone` 抄一格 |
+
+- **等价分两段量、两段都过**：① `synthName` 那一侧——本页对字符串方法名从此走
+  `NameSpan` / `NameTextSpan`，而两条路给出的两对数**逐字相同**（`NameStart = 起 + 1`、
+  `NameEnd = 止 - 1`）；② `memberNameOf` 那一侧——**新旧两个判据并排挂在同一句上跑了一遍全语料**
+  （`tmp/r1138`：在构建产物那一行前挂计数器，跑 `node tests/parse/direct-ast.mjs --all`，2051 份）
+  ⇒
+
+  ```text
+  {"n":42427,"mis":0,"samples":[]}
+  ```
+
+  这一支进入 **42427** 次、新旧判据 **0 次不一致**。八道门读数一处没动是第三份证据。
+- **为什么它以前从 `direct:lint` 里漏过去**（值得记下）：那两条读数扫的是
+  `ctx.source[startOf(x)]` / `ctx.source[x.start]` 两种写法，而这一处写的是
+  `ctx.source[at.pos - 1]`——`at` 是**投出来的节点**、不是某一格 token，两种写法都不匹配。
+  这一轮**不留新判据**（那一族的读取数本来就是 0，没有更细的形态可扫），只把
+  「它为什么以前扫不到」写进两处台账。
+- **本页的数**：**42 格**（一格没增没减，实测）；本页 10906 → **10951 行**
+  （与历轮同一把尺子：`[\r\n]` 切出行数再扣掉末尾那一格空行）。`core/syntax/token.xl.md`
+  2741 → **2770 行**，`function/method-declaration.xl.md` 1314 → **1358 行**。
+- **实测**：`xl check` 该 3 页 **0 条**；`xl build --force` 该 3 页 **3 个产物 / 0 error**、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 33.3s），读数与第 1106 ~ 1137 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 ### 第 1137 轮：「这一格是哪一态括号」那一门漏掉的**第 28 处**收了——`IsBracketUnit && …startBracket === "("` 改读 `IsParenBracket`；`direct:lint` 的 `BRACKET_STATE_CLASSIFY` 补第三条**裸字段读**（写回来当场红，已自验）；本页代码块里 `.startBracket` 从此一处不剩；**读数一处没动**
 
 **一句话**：用户口径 1.1 ~ 1.4。第 1089 / 1095 / 1109 轮把本页 27 处

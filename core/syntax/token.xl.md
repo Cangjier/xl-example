@@ -944,7 +944,8 @@ return typeof own.value === "string" ? own.value : "";
 同一份算术。**两端反了**（`end < pos`）答空数组：那是坏输入，不是第二份答案。
 
 **与 `NameSpan` 同进退**：声明在基类、每个单元自动就位，各页不必再写一行；
-**有 `NameSpan` 的那两页**（`Field` / `Namespace`）因此只维护那一格事实。
+**有 `NameSpan` 的那几页**（`Field` / `Namespace`，第 1138 轮起还有 `MethodDeclaration`）
+因此只维护那一格事实——其余页面答空数组（就是「这一格没有名字格」那个意思）。
 
 ### get
 
@@ -962,6 +963,34 @@ const pos = quoted ? at + 1 : at;
 const end = quoted ? stop : stop + 1;
 if (end < pos) return [];
 return [pos, end];
+```
+
+## property IsQuotedName:bool
+
+**我这一格声明的名字在原文里带引号吗**（第 1138 轮）：字符串名（`"a-b"() {}` / `"a-b" = 2`）
+答 `true`，其余形态（标识符名、关键字名、私有名 `#x`、计算名）答 `false`。
+
+**为什么要有这一格**：投影 `memberNameOf` 那一处过去**回原文**看名字两头那两个字符
+（`ctx.source[at.pos - 1]` 与 `ctx.source[at.end]` 是不是同一个引号）——
+而「我这个名字是不是引号名」正是**本页 `NameSpan` 记下的那一段的形状**
+（与 `NameTextSpan` 同一份算术：`NameSpan` 开头那个字符是 `"` / `'` ⇒ 引号名）。
+第 1138 轮给 `MethodDeclaration` 补上 `NameSpan` 之后，这一问每一页都答得出来，
+投影那一处改成只读这一格——本页代码块里「按某一格自己的坐标去读 `ctx.source`」因此**一处不剩**。
+
+**取值口径**：与 `NameTextSpan` 里那个 `quoted` 逐字符相同——先按 `SourceRange` 的头一格
+`Document.GetRaw` 读 `NameSpan` 的开头；`NameSpan` 不是一对数（没有这一格，或还没记）⇒ `false`。
+
+### get
+
+```ts
+const span: any = (this as any).NameSpan;
+if (!Array.isArray(span) || span.length !== 2) return false;
+const at = span[0];
+if (typeof at !== "number") return false;
+const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
+if (head === null) return false;
+const raw = head.Document.GetRaw(at, at);
+return raw === '"' || raw === "'";
 ```
 
 ## method RangeStart:()=>int
