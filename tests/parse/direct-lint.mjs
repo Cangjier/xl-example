@@ -630,6 +630,12 @@ for (const file of files) {
  * 并赋好的一格数据**（基类各有一处默认：`Segments` 按本页的 `SegmentNames` 排、
  * `ModifierWords` 是空数组），投影只读属性名——所以老写法（那两个 helper 名）一旦写回来，
  * 这一门当场红。
+ *
+ * **第 1066 轮再补两格**：`ProjectableKids`（别名 `projectableKids`，老名字还有
+ * `unwrapNodes` 那一份）——「这一格下面哪些子单元进投影」过去是投影层的一个 helper
+ * （收一遍段、再滤一遍 `IsInvisible`），今天由 token 自己答（那一格就是 `Segments` +
+ * `children` + `IsInvisible` 三件事实的合成，三件都在 token 上）。这一门因此也认那三个老问句名：
+ * 把它们写回投影层的方法体里，这一门当场红。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -641,6 +647,7 @@ const CLASSIFY_ALIASES = {
   HasChildren: ["labelIsFlat"],
   Segments: ["segmentKeysOf"],
   ModifierWords: ["declaredKeysOf"],
+  ProjectableKids: ["projectableKids", "unwrapNodes"],
 };
 /** 把一组问句名铺成一条或起来的分支（主名 + 缩写）。 */
 const classifyAlternation = (predicates) =>
@@ -657,6 +664,7 @@ const SELF_CLASSIFY_NAMES = [
   "HasChildren",
   "Segments",
   "ModifierWords",
+  "ProjectableKids",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -920,6 +928,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
 );
 process.exit(0);

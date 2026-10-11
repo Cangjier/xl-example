@@ -589,6 +589,51 @@ return names;
 所以「段名表」这一格不能也叫那个名字——`Segments` 是**读取口**（投影读它），
 `SegmentKeys` 是**那一页写下来的数据**（覆盖时用），两格分工写在这里免得下一位混。
 
+## property ProjectableKids:Array<Token>
+
+**我这一格下面那些「会进投影」的子单元**（第 1066 轮）：各段合起来（`Segments` 的顺序，
+`children` 在最后）、去掉 `IsInvisible` 的那些。
+
+**为什么这一格要住在 token 上**：投影那一侧原来是两个 helper——`allKids(v)`（收段）与
+`projectableKids(v)` / `unwrapNodes(node)`（把不可见的那几个滤掉），**三格合起来才是这一格的意思**。
+可「我有哪些子单元、哪些进投影」本来就住在这一格身上：
+`children` 是「我的子单元」、各段属性是「我的具名子单元」、`IsInvisible` 是「我在投影里出不出现」。
+把它们拼成一个只有投影会用的读数，等于把这一格的事实拆成三处、再在投影层装一遍。
+
+收成属性之后：投影只读 `x.ProjectableKids`（不再有 `allKids` / `unwrapNodes` / `projectableKids`
+那三格声明），而「哪几个子单元进投影」这件事与 `IsInvisible` 同页、同一个来源。
+形态与 `children` / `HasChildren` 相同（`## property` + `### get`：子单元是解析期陆续挂上来的，
+只能在读的那一刻看一次）。
+
+**`instanceof Token` 那一层过滤照旧**（与 `children` / `HasChildren` 同一处、同一个判据）：
+`statementOfList` 造的**合成语句视图**不是 token，它的 `Segments` 却是 `["children"]`，
+所以「不是 `Token` 的下一层」要在这一格上挡住——与搬掉这两个 helper 之前逐字节同答。
+
+### get
+
+```ts
+const self: any = this;
+const out: Token[] = [];
+for (const key of this.Segments) {
+  if (key === "children") continue;
+  // **段还没挂上时是空列表**（与 `ChildrenOf` 那一格同一条口径）：那一格可能整个是
+  // `undefined`（段属性还没赋值），照它迭代会当场抛 `self[key] is not iterable`。
+  const raw = self[key];
+  if (!Array.isArray(raw)) continue;
+  for (const x of raw) {
+    if (x instanceof Token && !x.IsInvisible) {
+      out.push(x);
+    }
+  }
+}
+for (const x of this.children) {
+  if (x instanceof Token && !x.IsInvisible) {
+    out.push(x);
+  }
+}
+return out;
+```
+
 ## method ChildrenOf:(segment:Token | null | undefined)=>Array<Token>
 
 **某一段的子单元**（第 1018 轮）：那一段还没挂上（`null` / `undefined`）时给**空列表**。

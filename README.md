@@ -347,6 +347,39 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1066 轮：「这一格下面哪些子单元进投影」也收进被问的那一页——`Token.ProjectableKids`（`Segments` + `children` + `IsInvisible` 三件 token 自己的事实的合成）替掉投影层那两格一字不差的 helper，139 处调用点改成属性读、6 处数组接收者就地按同一句算式写；顺手收掉两个用不到的形参（`projectHeadDeclare.container` / `bindingSpan.v`）；**八道门全绿、读数一处没动**
+
+**一句话**：第 1065 轮收的是「**我有哪些段**」，这一轮收的是「**这些段里哪些进投影**」：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `allKids(v).filter((k) => !k.IsInvisible)`（`unwrapNodes` 与 `projectableKids` 两格一字不差的同一句） | `v.ProjectableKids` | 基类 `Token`（`## property` + `### get`：`Segments` 的顺序、`children` 收在最后，逐格滤掉 `IsInvisible`） |
+
+- **为什么它该住在 token 上**：那一格的算式是**三件 token 自己的事实**拼起来的
+  （`Segments` / `children` / `IsInvisible`）——三件都在 token 上，拼起来这件事却留在投影层，
+  于是**同一件事有两个名字**，而且投影得自己知道「段按这个顺序收、`children` 收在最后」。
+- **「形参表就是它需要什么」那把尺子又扫出两处**（第 1050 轮立的规矩）：
+  `projectHeadDeclare` 的第三个形参 `container`（整函数一处不用）、`bindingSpan` 的第一个形参 `v`
+  （只用在「取不到时给零宽占位」那一句上，而那个位置由 `from` 给更贴题）——两处一并收掉。
+- **`xl check` 当场逮到一次重名**：`Switch` 早就有一个装单元的 `Segments`，与基类新加的段名表
+  撞名（E1205）⇒ 装单元的那一格让位改叫 `CaseSegments`。
+- **两处「不是 token」的东西要跟着补齐**：`statementOfList` 造的**合成语句视图**现在要同时给出
+  `Segments: ["children"]` 与 `ProjectableKids: list`；**标签那一支的两个调用点要分清哪一串**——
+  判形状照旧读 `HasChildren`（含 trivia），交给 `statementOfList` 的必须是 `head.ProjectableKids`
+  （`lab: /*c*/ for (;;) break lab;` 里 `Label.children` 是 `[AreaAnnotation, For]`，
+  把注释一起交过去会多投一条语句；这一族 5 条实测碰红、按这一句改回来逐条转绿）。
+- **判据跟着长**：`direct:lint` 第八条那一族再认一格（`ProjectableKids`，别名
+  `projectableKids` 与 `unwrapNodes`）。
+- **实测**：`xl check typescript core` 0 条；`xl build typescript core` **2 个产物** / 0 error
+  （`core/syntax/token` / `print-ast-common`）、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 32.8s），
+  读数与基线逐项相同：`coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **撞过两次、两次都是 `coverage` 当场报出来的**：① `self[key] is not iterable`——段属性可能
+  整个没赋值，读之前要 `Array.isArray` 判一下；② 一处**数组接收者**被当成 token
+  （`kids = kids.ProjectableKids`，本意是 `kids.filter(…)`）——改回「按那一格的算式就地写」。
+- **本页的声明数**：**仍是 81 格**（两个 helper 还在，但都成了一行转调；算式只有 token 上那一处）。
+
 ### 第 1065 轮：段是**反射**出来的那两格收进被问的那一页——`declaredKeysOf` / `segmentKeysOf` 整段删掉，改成各页显式声明的 `Segments`（段名与段序）与 `ModifierWords`（哪几个布尔属性是修饰词）；`Switch.Segments` 让位改名 `CaseSegments`、`statementOfList` 的合成视图补上同一格；**八道门全绿、读数一处没动**
 
 **一句话**：前几轮收的是「**某一句判据**住在投影层」，这一轮收的是「**一份名单**住在投影层」
