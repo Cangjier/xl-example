@@ -40,6 +40,18 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 `Identifier.Interactive` 那种 `{ kind, text, pos, end }` 四格——`kind` 恒为 `"Identifier"`、
 `text` 是解转义之后的正文、`pos` / `end` 用**原文那一格**的坐标。
 
+# private const WHITESPACE:RegExp = /\s/
+
+**「这一格是不是空白」那一张正则**（第 1171 轮，用户口径 1.6）：本页两处**最热**的 `### get`
+（`ProjectionStart` / `ProjectionEnd`）里各有一趟**按字符往前走**的循环，条件就是
+`/\s/.test(自己的正文[...])`。而**正则字面量写在条件里 = 每求值一次就现造一个 `RegExp` 对象**
+——与第 1147 轮在投影页做的是同一件事（那一轮把四张正则提到模块级，读数写在那四格的说明里）。
+**实测**（探针挂在构建产物上、跑官方用例语料 **2051** 份，两处都只是**加了一句计数**、
+不动算式）：这两格 getter 一共被读 **640748** 次（`ProjectionStart` 260239 / `ProjectionEnd` 380509），
+两趟内层循环的**循环体**一共走 **380541** 次——也就是说这两行条件里的字面量
+**每一趟投影至少要现求值 1021289 次**（每一次读至少判一次，加上循环体那 380541 趟）。
+提到这一格之后，那 100 万次求值都读**同一张**正则对象。
+
 # class Token
 
 Token，语法树的地基。
@@ -1074,7 +1086,7 @@ for (;;) {
   }
   if (trivia === undefined) break;
   let next = trivia.end;
-  while (next < this.end && /\s/.test(this.Text[next - this.start])) next++;
+  while (next < this.end && WHITESPACE.test(this.Text[next - this.start])) next++;
   if (next >= this.end) break;
   at = next;
 }
@@ -1113,7 +1125,7 @@ return at;
 ```ts
 let end = this.end;
 while (end > this.start) {
-  while (end > this.start && /\s/.test(this.Text[end - 1 - this.start])) end--;
+  while (end > this.start && WHITESPACE.test(this.Text[end - 1 - this.start])) end--;
   const at = this.TrailingTriviaStart(end);
   if (at === undefined || at < this.start) break;
   end = at;

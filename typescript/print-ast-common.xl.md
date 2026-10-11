@@ -9136,11 +9136,18 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 `trailingSemicolonOf` 1 处、`astNode` 开头跳前导注释 1 处），与它自己那一节的说明一致。
 
 ```ts
-  const projected = v.ProjectableKids
-    .filter((k) => k.IsDecoratorUnit)
+  // **第 1171 轮：先读那一格属性、没有装饰器就整趟不走**（用户口径 1.6 / 1.7）——
+  // 原来这里是一条三节链（`ProjectableKids.filter(…)` → `.map(…)` → `.filter(…)`），
+  // 也就是**每一趟现造三张数组 + 两个闭包**，而绝大多数单元**一个装饰器都没有**
+  // （实测官方用例语料 2051 份：这一格被调 **40476** 次，其中真有装饰器的只有 **21** 次）。
+  // 今天先读一次 `v.Decorators`（第 1167 轮立起来的那一格属性，就是「我自己的子单元里
+  // 那些 `Decorator`」），**空就 return**（那一趟只花一次属性读 + 一次 `filter`），
+  // 有装饰器才接着 `.map` / `.filter`——判据一个字没改（同一条链、同一个顺序）。
+  const decorators = v.Decorators;
+  if (decorators.length === 0) return;
+  const projected = decorators
     .map((k) => projectNode(k, ctx))
     .filter((node) => node !== undefined);
-  if (projected.length === 0) return;
   const merged = [...projected, ...(Array.isArray(props.modifiers) ? props.modifiers : [])];
   merged.sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
   props.modifiers = merged;
