@@ -2747,7 +2747,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
       kind: "Block",
       statements: projectEach(kidsOf(v, "children"), ctx),
       pos: v.start,
-      end: stmtEndOf(v, ctx),
+      end: v.ProjectionEnd,
     };
   }
   // **声明族**（第 1002 轮整段搬进 `projectDeclaration`）：`MethodDeclaration` / `Function` /
@@ -3409,81 +3409,15 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   };
 ```
 
-# private method stmtEndOf:(v:any, ctx:any)=>int
+**`stmtEndOf` 这一格第 1173 轮整格删掉了**（用户口径 1.2 / 1.3 / 1.6 / 1.7）。
+它当时只剩一句 `return v.ProjectionEnd`——而**尾部坐标的两条路各自由被问的那一格自己答**
+（token 是 `core/syntax/token.xl.md` 的 `## property ProjectionEnd:int` + `## private method
+TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视图是 `statementOfList` 造的那一格
+自己带的取值器，第 1173 轮搬去的），所以这一层不必再转一次手。
+本文件内部 **12 处**调用点一并改成读那一格自己的属性，`ctx.StmtEndOf` 那个**出口**同轮删掉
+（外部 5 页也各读各的 `v.ProjectionEnd`：`conditional-type` / `import` / `label` /
+`lamda-parameter` / `switch`）。两个名字都补进 `direct:lint` 的 `CTX_BANNED`。
 
-语句的**投影终点**：把尾部的 trivia（换行 / 空白）剪掉。
-
-本工程的语句区间**含尾部的换行**（ASI 断句时那一行软换行算在语句里），
-而 TS 的语句**从不含尾部 trivia**——实测 `A.x = 1`（无分号，下一行是 `}`）：
-产物给 `[82,90)`，TS 的 `ExpressionStatement` 是 `[82,89)`，差的就是那个换行符。
-
-注意**不能顺手剪分号**：TS 的语句是**含**分号的（`x = 1;` ⇒ `ExpressionStatement[0,6)`），
-分号的归属只在 `let` 那三层的**内两层**上另有口径（见 `projectLet`）。
-
-**第 1162 轮起这一趟由被问的那一格答**（用户口径 1.2 / 1.3 / 1.6）：token 那一侧新立
-`Token.ProjectionEnd`（`## property` + `### get`）与它的递归腿
-`## private method TrailingTriviaStart:(at:int)=>int`——算式连着说明整段搬到了
-`core/syntax/token.xl.md`，**逐格同答**（剪空白从 `ctx.source[end - 1]` 换成自己的
-`Text[end - 1 - start]`，递归那一趟从本页的 `allKids(v)` 换成自己的各段 + `children`、
-非 token 的子单元照旧跳过）。
-
-**`stmtEndOf` 这一格第 1172 轮**（用户口径 1.2 / 1.3 / 1.6 / 1.7）收成了两句：
-token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语句视图」那一条兜底支照旧留着
-（`statementOfList` 造的那一格仍然经它走，`ctx.StmtEndOf` 也还有 5 个外部调用点）——
-这一轮动的是 **`astNode` 那一趟**：它原来每一趟都跨页转手这一格，今天**直接读一次属性**，
-于是 `astNode` 连 `ctx` 形参都不收了（见那一节）。
-
-**兜底支留给「不是 token 的合成语句视图」**（`statementOfList` 造的那一格）：
-它们没有 token 那一格，只能照原样在这里算。**实测那 7 次**（探针挂在构建产物上、跑官方
-用例语料 1640 份）：`stmtEndOf` 被调 **16208** 次、接收者**不是 token** 的只有 **7** 次。
-这一支的判据与搬走的那一份**逐字相同**，只是它现在只服务那 7 次。
-
-```ts
-  // **token 由它自己答**（第 1162 轮）：本页不再为每一趟投影现造一个递归闭包。
-  if (v instanceof Token) return v.ProjectionEnd;
-  // **兜底支只服务「不是 token 的合成语句视图」**（`statementOfList` 造的那一格，实测
-  // 16208 次调用里只有 **7** 次）：它没有 token 那一格，只能在这里算。判据与 token 那一侧
-  // **逐字相同**，只是收尾注释那一趟改成**读子单元自己的属性**
-  // （`k.TrailingCommentStart`，第 1162 轮新立）——于是本页那一格 `allKids` helper
-  // 的最后一个读者也消失了（第 1162 轮整格删掉）。
-  //
-  // **剪尾部注释要剪到哪为止**（第 132 轮）：TS 的节点终点**从不含 trivia**，而产物常把
-  // **下一个声明的 JSDoc** 收进本声明的区间——
-  //
-  //     declare function request<…>(…): Promise<…>;
-  //
-  //     /** A faster version of `request`. */
-  //     declare function stream<…>(…): …;
-  //
-  // 上面那条 `FunctionDeclaration` 的区间一直撑到那段注释结束（实测 `undici-types/api.d.ts`
-  // 四条函数声明、`cache-interceptor.d.ts` 的 `type GetResult` 一族：漂移 + 多出各一份）。
-  // 注释可能嵌得很深（上面那条是落在 `ReturnType > TypeDefine` 里的），所以沿
-  // 「区间终点正好等于当前 `end`」的那条链**递归**找下去——每层最多命中一个孩子，
-  // 代价与一个节点到它最后一个叶子的深度成正比。token 那一侧由 `Token.ProjectionEnd` +
-  // `Token.TrailingTriviaStart` 答同一件事（那一页记着这一趟的全部判据）。
-  let end = v.end;
-  while (end > v.start) {
-    while (end > v.start && WHITESPACE.test(ctx.source[end - 1])) end--;
-    let at: int = undefined;
-    for (const k of v.children) {
-      // **这一格自己的两头**（第 1018 轮）：不再有 `range` 那一层，问单元自己的 `start` / `end`。
-      // **不是 token 的子单元跳过**：搬走的那一份逐段滤 `instanceof Token`，这里同答。
-      if (!(k instanceof Token) || k.end !== end) continue;
-      // **「这一格是不是一条注释」第 1084 / 1085 轮收进了被问的那一页**（用户口径 1.1 / 1.3）：
-      // 判据原来是两连比类名 `k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`，
-      // 而**类名就是那两页自己的名字**——今天基类默认 `false`、`LineAnnotation` / `AreaAnnotation`
-      // 各自显式声明 `## field IsCommentUnit:bool = true`（构造时就赋好的常量），这里只读这一格。
-      // **它不是 `IsInvisible`**：那一格答 `true` 的有四页（还有 `LineWrap` 软换行与
-      // `PreprocessorDirectives` 预处理指令），而收尾 trivia 只认两种注释——两问是两句话。
-      if (k.IsCommentUnit) { at = k.start; break; }
-      at = k.TrailingCommentStart;
-      if (at !== undefined) break;
-    }
-    if (at === undefined || at < v.start) break;
-    end = at;
-  }
-  return end;
-```
 # private method projectStatement:(v:any, ctx:any)=>any
 
 ```ts
@@ -3603,7 +3537,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
   if (head.IsExportUnit && kids.length >= 1) {
     // **语句那一格的终点**要一起递进去（第 548 轮）：具名导出的尾分号不在
     // `Export` 单元自己的区间里（见 `projectExport`）。
-    return projectExport(head, ctx, kids.slice(1), stmtEndOf(v, ctx));
+    return projectExport(head, ctx, kids.slice(1), v.ProjectionEnd);
   }
   if (head.IsLetUnit) {
     // `Let` 不只是一个节点：`=` 与初始化式是它的**平级兄弟**，所以整串交给列表版
@@ -3630,7 +3564,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
         end: body.end,
       };
     }
-    return { kind: "WithStatement", pos: v.start, end: stmtEndOf(v, ctx), ...withProps };
+    return { kind: "WithStatement", pos: v.start, end: v.ProjectionEnd, ...withProps };
   }
   // ---- 关键字开头的语句（`return` / `throw` / `break` / `continue` / `debugger`）----
   if (head.IsKeywordUnit) {
@@ -3685,7 +3619,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
       //
       // **与数组的洞那一条同一个先例**（第 176 轮的 `OmittedExpression`）：
       // 产物里那一格什么都没有时，补一个零宽节点把「这一段是空的」这件事说出来。
-      const bareEnd = stmtEndOf(v, ctx);
+      const bareEnd = v.ProjectionEnd;
       if (rest.length > 0) {
         const value = projectExpression(rest, ctx);
         // **载荷进哪个字段由那一格自己答**（第 1037 轮）：`return` / `throw` 是 `expression`、
@@ -3752,7 +3686,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
       if (head.IsStatementNode) {
         if (kind === "TypeAliasDeclaration") {
           projected.end = semicolonEndOf(
-            Math.max(stmtEndOf(v, ctx), projected === undefined ? 0 : (projected.end ?? 0)),
+            Math.max(v.ProjectionEnd, projected === undefined ? 0 : (projected.end ?? 0)),
             ctx,
           );
         }
@@ -3775,7 +3709,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
         expression: projected,
         pos: v.start,
         end: semicolonEndOf(
-          Math.max(stmtEndOf(v, ctx), projected === undefined ? 0 : (projected.end ?? 0)),
+          Math.max(v.ProjectionEnd, projected === undefined ? 0 : (projected.end ?? 0)),
           ctx,
         ),
       };
@@ -3796,7 +3730,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
     // 单元的区间只到函数体那个 `}`，而调用自己的 `()` 在 `Method` 上——
     // 于是表达式语句比 TS 短两个字符（实测 `fn-iife.ts` / `stmt-paren-start.ts` 各 2 处漂移）。
     end: semicolonEndOf(
-      Math.max(stmtEndOf(v, ctx), expression === undefined ? 0 : expression.end),
+      Math.max(v.ProjectionEnd, expression === undefined ? 0 : expression.end),
       ctx,
     ),
   };
@@ -7953,7 +7887,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
   // `ObjectLiteral` 单元、名字是 `Let.DeclaredName`，两处都由被问的那一页答）。
   const namePlaceholderAt = (at: int): any => ({ kind: "ArrayBindingPattern", pos: at, end: at });
   // 外层容器只用来取「语句整体」的区间（`Statement` 含分号、`For` 的段不含）。
-  const stmtWhole = stmtEndOf(container, ctx);
+  const stmtWhole = container.ProjectionEnd;
   const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
   const letNode = kids.find((k) => k.IsLetUnit) ?? null;
   // **多声明符**（第 93 轮）：`let a = 1, b = 2` 在 TS 里是**两个 `VariableDeclaration`**
@@ -7980,7 +7914,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
   // 「节点终点不含尾部 trivia」的那一份实现（第 132 轮，投影出的每个节点都走它），
   // 这里不另写一份「往回吃注释」的循环。**收的就是这一格的 token 本身**。
   const listEnd =
-    kids.length > 0 ? Math.min(stmtEnd, stmtEndOf(kids[kids.length - 1], ctx)) : stmtEnd;
+    kids.length > 0 ? Math.min(stmtEnd, kids[kids.length - 1].ProjectionEnd) : stmtEnd;
   // **容器就是调用方手上那一格 token**（第 1018 轮）：`projectLet`（语句位）递的是那条语句的
   // 单元，`structuralProps`（`for (let i = 0; …)` 的头部）递的是那一段里的容器单元——
   // 两种调用点递进来的都是**同一个东西**（一个 token），所以这里不再分接收者。
@@ -8048,7 +7982,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
       pos: oneName.pos,
       // **同一个口径**（第 853 轮）：声明自己的终点是「这个声明符**最后一个单元**的终点」，
       // 而那一格里面可能含着尾随注释——剪法与上面 `listEnd` 一字不差（`stmtEndOf`）。
-      end: one.length > 0 ? Math.min(stmtEnd, stmtEndOf((one[one.length - 1]), ctx)) : listEnd,
+      end: one.length > 0 ? Math.min(stmtEnd, (one[one.length - 1]).ProjectionEnd) : listEnd,
     };
     // **类型标注是声明的一部分，但它在 `Statement` 那一层**：`let a: string;` 的产物是
     // `Statement > [Let(``let a``), TypeDefine(``: string``)]`——`TypeDefine` 是 `Let` 的**兄弟**，
@@ -8225,7 +8159,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
             }
           : projectExpression(rest, ctx);
     }
-    return { kind: "BindingElement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
+    return { kind: "BindingElement", pos: v.start, end: v.ProjectionEnd, ...props };
   };
   // **括号形态也要认**（第 137 轮）：绑定位里 `{ a }` / `[a]` 有时还没被
   // `JsonObjectCloseRule` / `JsonArrayCloseRule` 收成 `ObjectLiteral` /
@@ -8267,7 +8201,7 @@ token 由它自己答（读 `v.ProjectionEnd`）；「不是 token 的合成语�
     }
     if (i < commaAts.length) cursor = commaAts[i] + 1;
   }
-  return { kind, elements, pos: v.start, end: stmtEndOf(v, ctx) };
+  return { kind, elements, pos: v.start, end: v.ProjectionEnd };
 ```
 
 # private method functionTypeProps:(kids:Array<any>, ctx:any)=>any
@@ -8500,7 +8434,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
               end: operand.end,
             },
             pos: list[0].start,
-            end: stmtEndOf(list[0], ctx),
+            end: list[0].ProjectionEnd,
           };
         }
       }
@@ -9957,6 +9891,41 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 给同一格（`Segments: ["children"]` 与 `ProjectableKids: list`）。
     Segments: ["children"],
     ProjectableKids: list,
+    // **尾部坐标也要自己答**（第 1173 轮，用户口径 1.2 / 1.3 / 1.6 / 1.7）：这一格不是 token，
+    // 拿不到 `Token.ProjectionEnd`；而 `stmtEndOf` 里那份兜底算式**实测只服务这 7 次**
+    // （探针挂在构建产物上、跑 `coverage --category token --no-batch`：`stmtEndOf` 共 **5543** 次、
+    // 接收者不是 token 的 **7** 次、**全是这一格**）——所以那一趟整段搬到这里，`stmtEndOf` 随之删掉。
+    //
+    // **判据与 token 那一侧逐字相同**（见 `core/syntax/token.xl.md` 的 `ProjectionEnd` /
+    // `TrailingTriviaStart`）：剪尾部空白 + 沿「区间终点正好等于当前 `end`」那条链找收尾注释。
+    // 这一格只有一个段（`children`），所以 token 那一侧「各段 + `children`」两趟在这里只剩 `children`。
+    // token 那一侧是一格 `## property` + `### get`，递归腿是一格 `# private method`；
+    // 这里（非 token 的合成视图）收成**一格取值器**——投影读的都是 `v.ProjectionEnd`。
+    //
+    // **判据与 `core/syntax/token.xl.md` 的 `ProjectionEnd` 逐句相同**：剪尾部空白 +
+    // 沿「区间终点正好等于当前 `end`」那条链找收尾注释。两处差别都只是这一格的形状：
+    // ① 这一格只有一个段（`children`），所以 token 那一侧「各段 + `children`」两趟在这里只剩一趟；
+    // ② 递归腿**就地展开**（不立成一格方法）——`direct:lint` 那条「投影对 token 只读属性、不调方法」
+    // 认的是 `标识符.大写名(` 这个形状，而声明与调用都写在这个对象字面量里时它照样命中。
+    get ProjectionEnd(): int {
+      const from = list[0].start;
+      let end = list[list.length - 1].end;
+      while (end > from) {
+        while (end > from && WHITESPACE.test(ctx.source[end - 1])) end--;
+        let at: int | undefined = undefined;
+        for (const k of list) {
+          // **不是 token 的子单元跳过**：token 那一侧逐段滤 `instanceof Token`，这里同答。
+          if (!(k instanceof Token)) continue;
+          if (k.end !== end) continue;
+          if (k.IsCommentUnit) { at = k.start; break; }
+          at = k.TrailingCommentStart;
+          if (at !== undefined) break;
+        }
+        if (at === undefined || at < from) break;
+        end = at;
+      }
+      return end;
+    },
   };
   return projectStatement(rest, ctx);
 ```
@@ -10117,10 +10086,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 声明早已成形（收尾规则问「简写」的那一刻列表只到名字），所以它由**投影侧**
     // 按「没体的声明自己吃尾分号」补进区间——与第 838 轮那条口径同一份实现。
     SemicolonEndOf: (end) => semicolonEndOf(end, ctx),
-    // **尾部坐标**（第 1162 / 1172 轮）：token 那一侧就是 `v.ProjectionEnd` 一次属性读，
-    // 剩这一格只为「不是 token 的合成语句视图」与 5 个外部调用点（`conditional-type` /
-    // `import` / `label` / `lamda-parameter` / `switch` 那五页）转手。
-    StmtEndOf: (view) => stmtEndOf(view, ctx),
     Split: (list, separator) => splitTopLevel(list, separator),
     // **`Invisible` 那个出口第 1030 轮删掉了**：要跳过哪些单元由单元自己答
     // （`k.IsInvisible`，见 `core/syntax/token.xl.md`），所以这一层不再需要「名单」这件东西。

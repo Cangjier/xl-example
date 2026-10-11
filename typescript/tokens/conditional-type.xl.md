@@ -385,7 +385,8 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 ```ts
   const kids = ctx.Kids(v);
   const node = ctx.ConditionalNode(kids, 0, kids.length);
-  return { ...node, end: ctx.StmtEndOf(v) };
+  // **尾部坐标读这一格自己的属性**（第 1173 轮）：`ctx.StmtEndOf` 那个出口整格删掉了。
+  return { ...node, end: v.ProjectionEnd };
 ```
 
 

@@ -328,7 +328,8 @@ return index;
       );
   if (braceOpen >= 0 && equals === undefined && namedBrace === undefined) return undefined;
   const braceClose = namedBrace === undefined ? -1 : namedBrace.end - 1;
-  const end = ctx.SemicolonEndOf(ctx.StmtEndOf(v));
+  // **尾部坐标读这一格自己的属性**（第 1173 轮）：`ctx.StmtEndOf` 那个出口整格删掉了。
+  const end = ctx.SemicolonEndOf(v.ProjectionEnd);
   // —— 从这里起才投节点 ——
   const props: any = {};
   const moduleNode = kids.find((k: any) => k.Tag === "String" || k.Tag === "ConstString");

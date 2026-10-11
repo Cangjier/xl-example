@@ -421,7 +421,8 @@ return `<${name} range="${this.RangeOf()}" label="${this.label}">${temp.join("")
     return ctx.Node("LabeledStatement", props, v);
   }
   const node = ctx.Node("LabeledStatement", props, v);
-  node.end = ctx.StmtEndOf(v);
+  // **尾部坐标读这一格自己的属性**（第 1173 轮）：`ctx.StmtEndOf` 那个出口整格删掉了。
+  node.end = v.ProjectionEnd;
   return node;
 ```
 

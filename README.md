@@ -347,6 +347,37 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1173 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 尾部坐标那一层**整个删掉**：`stmtEndOf` 与 `ctx.StmtEndOf` 一起没了，本文件 12 处调用点 + 外部 5 页各读各的 `v.ProjectionEnd`；那 7 次「不是 token 的合成语句视图」由 `statementOfList` 造的那一格**自己答**（新立取值器）；`ctx` 出口 43 → 42、声明 55 → 54、代码块 3911 → 3913 行
+
+**一句话**：第 1172 轮把 `astNode` 里的尾部坐标改成读 `v.ProjectionEnd` 之后，`stmtEndOf` 那一格
+就只剩**一句 `return v.ProjectionEnd`** 加一条**没人走的兜底支**。这一轮把兜底支也搬走，于是整格删掉。
+
+| 原来的写法 | 今天 |
+| --- | --- |
+| `# private method stmtEndOf:(v:any, ctx:any)=>int`（token 读一次属性 + 给「不是 token 的合成语句视图」现算一趟） | **整格删掉**；本文件内部 **12 处**调用点改成读那一格自己的属性（`v.ProjectionEnd` / `kids[…].ProjectionEnd` / `list[0].ProjectionEnd`），`ctx.StmtEndOf` 那个**出口**一并删掉，外部 5 页（`conditional-type` / `import` / `label` / `lamda-parameter` / `switch`）也各读各的 |
+| `statementOfList` 造的合成语句视图只有 `Tag` / `start` / `end` / `children` / `Segments` / `ProjectableKids` 六格 | 多一格取值器 `get ProjectionEnd(): int`（剪尾部空白 + 沿「区间终点正好等于当前 `end`」那条链找收尾注释），判据与 `core/syntax/token.xl.md` 的 `ProjectionEnd` / `TrailingTriviaStart` **逐句相同** |
+
+- **那 7 次是怎么量出来的**（探针挂在**构建产物**的 `stmtEndOf` 上、跑
+  `node tests/coverage/run.mjs --category token --no-batch`，1643 条用例）：
+  `stmtEndOf` 被调 **5543** 次、接收者**不是 token** 的 **7** 次，7 次的 `Tag` **全是
+  `() => "Statement"`**（就是 `statementOfList` 那一格）——所以兜底支搬进它自己就够了。
+- **递归腿为什么就地展开、不立成一格方法**：`direct:lint` 那条「投影对 token 只读属性、不调方法」
+  认的是 `标识符.大写名(` 这个形状，而**声明与调用都写在同一个对象字面量里时它照样命中**
+  （第一次写成 `TrailingCommentStart: (at) => …` + `rest.TrailingCommentStart(end)`，
+  那一门当场红 1 处）——所以合并进那一格取值器里。
+- **一条要记的坑**：12 处调用点里有 **两处逐字相同**（`Math.max(stmtEndOf(v, ctx), …)` 出现两次），
+  `String.replace` 传**字符串**只换第一处 ⇒ 少换一处、`stmtEndOf is not defined` 当场 **220 处异常**、
+  `coverage` 3043 / 4422。改法：同一句要么逐处核对、要么 `split().join()` 全换。
+- **等价怎么证的**：`cases:tsast` **16 片全过、41890 个投影节点 100% 对齐（字段名也 100%）**、
+  `samples` **逐字节一致**、`cases:direct` 1640 份不抛异常（固定样本六格照旧点名通过）、
+  `direct:lint` **0 条违反**；八道门读数与第 1106 ~ 1172 轮**逐项相同**（唯一红的那一道仍是
+  **尺子不是门**的 `coverage`：`4260 / 4422`、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）。
+- **量**：`print-ast-common` 代码块不带注释 **3911 → 3913 行**（删掉 `stmtEndOf` 那一格 **-6 行**、
+  合成视图那一格取值器 **+8 行**）、声明数 **55 → 54 格**、`ctx` 出口 **43 → 42 个**
+  （`StmtEndOf` 补进 `CTX_BANNED`，写回来当场红）。
+- **实测**：`xl check` 156 页 0 条；`xl build core typescript` **6 个产物 / 0 error**、`npx tsc` 干净；
+  **八道门 6 通过、2 失败**（墙钟 34.5s），两条红都是 HEAD 上既有的那两道。
+
 ### 第 1172 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— **造节点那一趟（`astNode`）收成「两次属性读 + 一次加法」**：尾部坐标不再跨页转手 `stmtEndOf(v, ctx)`（`v.ProjectionEnd` 直接读），「末尾那一格字符算不算 `;` / `,`」立成一格 token 属性 `Token.SignatureEndStep:int`；`astNode` 因此**不再收 `ctx` 形参**，`print-ast-common` 代码块 3918 → 3911 行、声明 55 格不变、`ctx` 出口 43 个不变
 
 **一句话**：第 1162 轮把 `ProjectionEnd` 那一趟搬进 token 之后，`astNode` 里还留着两件事

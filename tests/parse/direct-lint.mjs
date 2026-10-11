@@ -514,6 +514,12 @@ const CTX_BANNED = [
   // 读者**只有 `foreach.xl.md` 一个** ⇒ 算式整段搬进那一页的 `PrintAst`（就地展开）、出口删掉。
   // 出口删了就补进这张表，免得下一轮有人往 `ctx` 里补一行再把这一趟请回来。
   "HeadDeclare",
+  // **第 1173 轮再补一个出口名**：`StmtEndOf`——它转手的那一格 helper 第 1173 轮收成了一句
+  // `return v.ProjectionEnd`（尾部坐标的判据全在被问的那一格上：token 是 `Token.ProjectionEnd`、
+  // 合成语句视图是 `statementOfList` 那一格自己带的），出口因此删掉：本文件内部 14 处读者
+  // 直接调那一格 helper，外部 5 页（`conditional-type` / `import` / `label` /
+  // `lamda-parameter` / `switch`）各读各的 `v.ProjectionEnd`。出口删了就补进这张表。
+  "StmtEndOf",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。

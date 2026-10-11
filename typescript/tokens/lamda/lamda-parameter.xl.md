@@ -104,7 +104,7 @@ Lambda 的一个形参。
   return {
     kind: "Parameter",
     pos: kids.length > 0 ? kids[0].start : v.start,
-    end: ctx.StmtEndOf(v),
+    end: v.ProjectionEnd,
     ...props,
   };
 ```

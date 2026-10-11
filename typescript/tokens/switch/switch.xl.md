@@ -351,7 +351,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
     kind: "CaseBlock",
     clauses: segments.map((seg: any) => ctx.SwitchClause(seg)),
     pos: bodyAt >= 0 ? bodyAt : v.start,
-    end: ctx.StmtEndOf(v),
+    end: v.ProjectionEnd,
   };
   return ctx.NodeHead("SwitchStatement", props, v);
 ```
