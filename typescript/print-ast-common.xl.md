@@ -4014,6 +4014,57 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   return shellOver(projectNode(shell, ctx), callee, shell.end);
 ```
 
+# private method leftSpineOf:(top:any, mode:string)=>any
+
+**沿二元单元的「左脊柱」往下走，走到「这一层就是我认的那一格」为止**（第 1199 轮，
+用户口径 1.2 / 1.6）：`top` 是脊柱顶上那一格，`mode` 说「我在找什么」——
+`"template"` 找模板串（标签模板被运算符单元吃掉的那两族）、`"empty-call"` 找一个**空的实参括号**
+（`xs[0]() + 1` 那一族）。找着了答 `{ unit, members, layers }`，没找着答 `undefined`。
+
+**三处调用点原来是三份逐字相同的手写循环**（第 176 / 179 / 894 轮各写了一份）：
+每落一层都问三件事——「这一格的子单元够不够三格」（`inner.length < 3` 就停）、
+「头一格（或它自己那个属性访问里的头一格）是不是我认的那一格」（认着就收下、把这一层的
+`(运算符, 右操作数)` 记进 `layers`）、「不是的话它还是不是二元单元」（是就接着往下、不是就停）。
+逐字不同的只有**最后那一问的判据**与**收下的那一格放在哪**，所以收成一格、判据由 `mode` 递进来。
+
+**`layers` 是「沿途每一层的 `(运算符, 右操作数)`」**，顺序与走下来的顺序相同（从外往里）；
+三处调用点都把它**从里往外**倒着展开成一条平坦的单元串，再交给 `foldBinaryFrom`——
+左结合链本身怎么折，与通用那一支是同一段代码。
+
+**为什么是方法而不是属性**：它答的是**三格绑在一起的结果**（那一格 + 它的成员 + 沿途的层），
+而且吃一个 `mode` 实参；`## property` 那一族的形状是「一格数据、无参」。
+
+```ts
+  let spine: any = top;
+  let found: any = undefined;
+  let members: Array<any> = [];
+  const layers: Array<Array<any>> = [];
+  while (spine !== undefined) {
+    const inner = spine.ProjectableKids;
+    if (inner.length < 3) break;
+    const head = inner[0];
+    let unit: any = undefined;
+    if (mode === "template") {
+      const headKids = head.IsPropertyAccess ? head.ProjectableKids : [head];
+      if (headKids[0]?.IsTemplateString === true) {
+        unit = headKids[0];
+        members = headKids.slice(1);
+      }
+    } else if (head.IsParenBracket && head.ProjectableKids.length === 0) {
+      unit = head;
+    }
+    if (unit !== undefined) {
+      found = unit;
+      layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
+      break;
+    }
+    if (head.IsBinaryOperatorNode !== true) break;
+    layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
+    spine = head;
+  }
+  return found === undefined ? undefined : { unit: found, members, layers };
+```
+
 # private method projectExpression:(kids:Array<any>, ctx:any)=>any
 
 一串单元 → 一个表达式。
@@ -4170,32 +4221,18 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // 走法与 0d 那一支**一字不差**（沿途把每一层的 `(运算符, 右操作数)` 从里往外收起来），
       // 区别只在标签那一串以 `GenericType` 收尾（0d 那一支的标签是 `kids.slice(0, 1)`）。
       // 脊柱上任何一层不满足就整个让开——宁可维持原来的错，也不把别的形状认成标签模板。
-      let instSpineTemplate: any = undefined;
-      let instSpineMembers: Array<any> = [];
-      const instSpineLayers: Array<Array<any>> = [];
-      if (
+      // **这一支与 0d / 0e 那两支共用一格脊柱走法**（第 1199 轮，用户口径 1.2 / 1.6）：
+      // 三份手写循环逐字相同、只差「在找什么」（这里找模板串），所以收成 `leftSpineOf`。
+      const instSpine =
         instTemplateDirect === undefined &&
         !instChainHasTemplate &&
         kids.length >= 3 &&
         (kids[2].IsBinaryOperatorNode)
-      ) {
-        let spine: any = kids[2];
-        while (spine !== undefined) {
-          const inner = spine.ProjectableKids;
-          if (inner.length < 3) break;
-          const spineHead = inner[0];
-          const spineHeadKids = spineHead.IsPropertyAccess ? spineHead.ProjectableKids : [spineHead];
-          if (spineHeadKids[0]?.IsTemplateString) {
-            instSpineTemplate = spineHeadKids[0];
-            instSpineMembers = spineHeadKids.slice(1);
-            instSpineLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
-            break;
-          }
-          if (spineHead.IsBinaryOperatorNode !== true) break;
-          instSpineLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
-          spine = spineHead;
-        }
-      }
+          ? leftSpineOf(kids[2], "template")
+          : undefined;
+      const instSpineTemplate = instSpine?.unit;
+      const instSpineMembers: Array<any> = instSpine?.members ?? [];
+      const instSpineLayers: Array<Array<any>> = instSpine?.layers ?? [];
       if (instTemplateDirect !== undefined || instChainHasTemplate || instSpineTemplate !== undefined) {
         const templateUnit =
           instTemplateDirect !== undefined
@@ -5429,26 +5466,12 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     kids.length >= 2 &&
     (kids[1].IsBinaryOperatorNode)
   ) {
-    let spine = kids[1];
-    let templateUnit: any = undefined;
-    let members: Array<any> = [];
-    const layers: Array<Array<any>> = [];
-    while (spine !== undefined) {
-      const inner = spine.ProjectableKids;
-      if (inner.length < 3) break;
-      const head = inner[0];
-      const headKids = head.IsPropertyAccess ? head.ProjectableKids : [head];
-      if (headKids[0]?.IsTemplateString) {
-        templateUnit = headKids[0];
-        members = headKids.slice(1);
-        layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
-        break;
-      }
-      if (head.IsBinaryOperatorNode !== true) break;
-      layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
-      spine = head;
-    }
-    if (templateUnit !== undefined) {
+    // **脊柱走法与 0a / 0e 那两支共用一格**（第 1199 轮，用户口径 1.2 / 1.6）：这里找的是模板串。
+    const spine = leftSpineOf(kids[1], "template");
+    if (spine !== undefined) {
+      const templateUnit = spine.unit;
+      const members: Array<any> = spine.members;
+      const layers: Array<Array<any>> = spine.layers;
       const tag = projectExpression(kids.slice(0, 1), ctx);
       const template = projectNode(templateUnit, ctx);
       if (tag !== undefined && template !== undefined) {
@@ -5488,26 +5511,12 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     kids.length >= 2 &&
     (kids[1].IsBinaryOperatorNode)
   ) {
-    let emptyCallSpine = kids[1];
-    let emptyCallBracket: any = undefined;
-    const emptyCallLayers: Array<Array<any>> = [];
-    while (emptyCallSpine !== undefined) {
-      const inner = emptyCallSpine.ProjectableKids;
-      if (inner.length < 3) break;
-      const head = inner[0];
-      if (
-        head.IsParenBracket &&
-        head.ProjectableKids.length === 0
-      ) {
-        emptyCallBracket = head;
-        emptyCallLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
-        break;
-      }
-      if (head.IsBinaryOperatorNode !== true) break;
-      emptyCallLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
-      emptyCallSpine = head;
-    }
-    if (emptyCallBracket !== undefined) {
+    // **脊柱走法与 0a / 0d 那两支共用一格**（第 1199 轮，用户口径 1.2 / 1.6）：
+    // 这里找的是**空的实参括号**（`head.IsParenBracket && head.ProjectableKids.length === 0`）。
+    const emptyCall = leftSpineOf(kids[1], "empty-call");
+    if (emptyCall !== undefined) {
+      const emptyCallBracket = emptyCall.unit;
+      const emptyCallLayers: Array<Array<any>> = emptyCall.layers;
       const callee = projectExpression(kids.slice(0, 1), ctx);
       if (callee !== undefined) {
         let called: any =chainOn("CallExpression", callee, { expression: callee, arguments: [] }, emptyCallBracket.end);
