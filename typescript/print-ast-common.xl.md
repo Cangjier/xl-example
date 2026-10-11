@@ -4065,6 +4065,43 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   return found === undefined ? undefined : { unit: found, members, layers };
 ```
 
+# private method angleCloseOf:(kids:Array<any>, from:int)=>int
+
+**从 `from` 那一格起量一对尖括号，答配对 `>` 的下标**（第 1199 轮，用户口径 1.2 / 1.6）：
+`from` 那一格必须是 `<`（三处调用点都由外层的判据保证），没配上答 `-1`。
+
+**三处调用点原来是三份逐字相同的深度循环**（`projectExpression` 的尖括号断言那一趟、
+`foldBinaryFrom` 的 `angleAssertionLength`、`projectTypeExpression` 的平铺实参段那一趟）——
+第 1139 轮把三处**各自的现场写法**收成属性读之后，剩下的循环体逐行相同，
+所以这一轮把**循环本身**也收成一格。
+
+**两头那一问是属性读**（第 1139 轮立、这一轮随循环一起搬到这里）：三处原来各自现场拼一句
+`kids[i].IsSymbolToken || kids[i].IsLessThanSymbol ? kids[i].TextValue : ""` 再和 `"<"` / `">"`
+比一遍——「我这一格的正文是不是那个尖括号」是符号那一页自己的事实
+（`IsLessThanSymbol` 第 1118 轮立的、`IsGreaterThanSymbol` 第 1139 轮补齐），投影只读属性；
+非符号那几页两面都答 `false`（基类默认档），所以「跳过非符号」那一句自己就没了。
+
+**为什么 `from` 是形参而不是「从 0 起」**：三处都在**一串单元的中段**量（断言那一处虽然从 0 起，
+但 0 那一格就是那个 `<`），所以「从哪一格开始」只有调用方知道。
+
+```ts
+  let depth = 0;
+  let close = -1;
+  for (let i = from; i < kids.length; i++) {
+    const one = kids[i];
+    if (one.IsLessThanSymbol) {
+      depth += 1;
+    } else if (one.IsGreaterThanSymbol) {
+      depth -= 1;
+      if (depth === 0) {
+        close = i;
+        break;
+      }
+    }
+  }
+  return close;
+```
+
 # private method projectExpression:(kids:Array<any>, ctx:any)=>any
 
 一串单元 → 一个表达式。
@@ -4443,25 +4480,9 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   // 只有符号那一页答「正文是不是那个 `<`」——只读这一格就够（与第 1118 轮
   // `IsEqualsSymbol` / `IsArrowSymbol` 同一形态）。
   if (kids[0].IsLessThanSymbol && kids.length >= 3) {
-    let depth = 0;
-    let close = -1;
-    for (let i = 0; i < kids.length; i++) {
-      // **两头都由那一格自己答**（第 1139 轮，用户口径 1.1 ~ 1.4）：这一趟原来现场拼一句
-      // `kids[i].IsSymbolToken || kids[i].IsLessThanSymbol ? kids[i].TextValue : ""` 再和
-      // `"<"` / `">"` 比一遍——「我这一格的正文是不是那个尖括号」是符号那一页自己的事实
-      // （`IsLessThanSymbol` 第 1118 轮立的、`IsGreaterThanSymbol` 第 1139 轮补齐），
-      // 投影只读属性；非符号那几页两面都答 `false`（基类默认档），逐格等价。
-      const one = kids[i];
-      if (one.IsLessThanSymbol) {
-        depth++;
-      } else if (one.IsGreaterThanSymbol) {
-        depth--;
-        if (depth === 0) {
-          close = i;
-          break;
-        }
-      }
-    }
+    // **这一趟与另外两处共用一格**（第 1199 轮，用户口径 1.2 / 1.6）：量配对 `>` 的循环
+    // 在本页出现过三处、逐行相同 ⇒ 收成 `angleCloseOf`。
+    const close = angleCloseOf(kids, 0);
     if (close > 0 && close + 1 < kids.length) {
       const asserted = projectTypeExpression(kids.slice(1, close), ctx);
       const expression = projectExpression(kids.slice(close + 1), ctx);
@@ -7808,22 +7829,8 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     if (opener.IsLessThanSymbol !== true) {
       return 0;
     }
-    let depth = 0;
-    let close = -1;
-    for (let i = at; i < kids.length; i++) {
-      // **同一把尺子的第二处**（第 1139 轮）：这一趟的现场写法与 `projectExpression`
-      // 尖括号断言那一趟逐字相同，两头同样收成属性读（见那一处的说明）。
-      const one = kids[i];
-      if (one.IsLessThanSymbol) {
-        depth += 1;
-      } else if (one.IsGreaterThanSymbol) {
-        depth -= 1;
-        if (depth === 0) {
-          close = i;
-          break;
-        }
-      }
-    }
+    // **量配对 `>` 的循环与另外两处共用一格**（第 1199 轮，用户口径 1.2 / 1.6）。
+    const close = angleCloseOf(kids, at);
     // **`<T>` 里至少要有一样东西，后面至少要跟着一格操作数**（`< > x` 那种空段不算）。
     if (close <= at + 1 || close + 1 >= kids.length) {
       return 0;
@@ -8485,23 +8492,8 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     (k, i) => i > 0 && k.IsLessThanSymbol,
   );
   if (openAt > 0) {
-    let depth = 0;
-    let closeAt = -1;
-    for (let i = openAt; i < list.length; i++) {
-      // **同一把尺子的第三处**（第 1139 轮）：原来先问一句 `IsSymbolToken === false` 跳过
-      // 非符号、再把 `TextValue` 拿去和 `"<"` / `">"` 比；两头收成属性读之后**那一句跳过
-      // 自己就没了**——非符号那几页两面都答 `false`（基类默认档），不跳与跳逐格同答。
-      const one = list[i];
-      if (one.IsLessThanSymbol) {
-        depth++;
-      } else if (one.IsGreaterThanSymbol) {
-        depth--;
-        if (depth === 0) {
-          closeAt = i;
-          break;
-        }
-      }
-    }
+    // **量配对 `>` 的循环与另外两处共用一格**（第 1199 轮，用户口径 1.2 / 1.6）。
+    const closeAt = angleCloseOf(list, openAt);
     if (closeAt > openAt) {
       const base = projectTypeExpression(list.slice(0, openAt), ctx);
       const args = [];
