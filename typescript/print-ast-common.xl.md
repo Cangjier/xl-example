@@ -94,7 +94,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 新立的两格在基类、`symbol-token` 与 `null-conditional-operator`）仍是 64 格**，
 **第 1094 ~ 1096 轮（各 16 / 22 / 31 处读数，新立的格都在基类与别的页）仍是 64 格**，
 **第 1097 轮（11 处读数，新立的那一格在基类与 `function` / `class` / `lamda` 三页）
-照同一条命令逐行数还是 64 格**——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
+照同一条命令逐行数还是 64 格**，**第 1098 轮（16 处读数，新立的十一格在基类与类型位那十二页）
+仍是 64 格**——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 **第 1091 轮复核时又量到同一件事**：第 1087 轮那一栏收尾写的是「66 格」，可照那条命令逐行数
 （第 1087 ~ 1091 轮共五轮，一格声明没增没减）**一直是 64 格**——所以那 2 格的差从第 1087 轮起
@@ -1154,6 +1155,44 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**64 格**（一格声明没增没减：新立的八格都在别的页与基类；
   本页 31 处改的是读数算式）。
+
+**第 1097 轮收的是「只可能做值」那一族**（同一句话、同一形态）——本页代码块里一共 **11 处**
+现场比类名：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `X.Tag === "Function"` / `X.Tag === "Class"` / `X.Tag === "Lamda"`（**11 处**：补 `FunctionExpression` / `ClassExpression` 那两格、泛型箭头那两族、折链那一族「链头只可能做值」那一档） | `X.IsValueOnlyUnit`（否定式写 `!X.IsValueOnlyUnit`） | `Function` / `Class` / `Lamda` **三页各自显式声明** `## field IsValueOnlyUnit:bool = true`（常量，构造时就位） |
+
+- **三页答同一问**：函数 / 类 / 箭头函数**根本不可能是一条语句的头**——所以三页共用一格
+  （与 `IsStringLiteralUnit` 两页共用同一格局），而「**是函数还是类**」那两处改问
+  `v.AstKind`（`FunctionDeclaration` / `ClassDeclaration`，同一页自己的另一格事实）。
+- **本页的声明数**：**64 格**（一格声明没增没减：新立的那一格在三页与基类；
+  本页 11 处改的是读数算式）。
+
+**第 1098 轮收的是「类型位那一族」**（同一句话、同一形态）——本页代码块里一共 **16 处**
+现场比类名：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `k.Tag === "TypeDefine"` / `"ArrayType"` / `"IndexedAccessType"` / `"TypeOperator"` / `"TypeQuery"` / `"TypePredicate"` / `"UnionType"` / `"IntersectionType"` / `"FunctionType"` / `"ImportType"` / `"LiteralType"` / `"Parameter"`（**16 处**：`projectTypeExpression` 那一族成片都是） | 族那一问读 `x.IsTypeUnit`；**要在族里认出「就是这一个」**的那几处读 `x.IsTypeDefine` / `IsArrayType` / `IsIndexedAccessType` / `IsFunctionType` / `IsParameterUnit` / `IsTypeOperator` / `IsTypeQuery` / `IsTypePredicate` / `IsUnionType` / `IsIntersectionType`；`typeof a.b[]` 那一处的尾缀读 `k.IsTypeSuffixUnit`；`typeof X<Y>` 那一处读 `x.IsTypeWithTypeArguments` | **十二页各自显式声明** `## field IsTypeUnit:bool = true`（`TypeDefine` / `ArrayType` / `IndexedAccessType` / `TypeOperator` / `TypeQuery` / `TypePredicate` / `UnionType` / `IntersectionType` / `FunctionType` / `ImportType` / `LiteralType` / `Parameter`，常量）；其中十页**另外各立一格自己的名字**（同一趟赋 `true`），`ArrayType` / `IndexedAccessType` 两页另各答 `IsTypeSuffixUnit`，`TypeQuery` / `ImportType` 两页另各答 `IsTypeWithTypeArguments` |
+
+- **为什么有一格族、又有九格单页**：族那一问（「我是不是类型位的一员」）只够用在
+  **形状唯一**的那几处（`let a: T` 那一格、带类型实参的 `typeof` / `import()`、
+  `A.B[C]` 那一串的头一格……）；剩下那几处是**在一整串类型单元里挑出某一个**
+  （`A<T>[]` 的数组壳、`A.B[C]` 的第三格、「类型参数 + 函数类型」的第二格、平铺形参里的
+  `: T`、`readonly X[]` 的头一格、联合里那一格谓词、以及联合 / 交叉的分辨）——
+  读族那一问会**把邻近的另一族成员一起收进来**，所以那几处必须读**单页那一格**。
+- **`IsTypeSuffixUnit` 是第三种形状**：它答的不是「我是什么类」，而是「我是不是**挂在基名
+  后面的那种尾缀**」——两页（`ArrayType` / `IndexedAccessType`）答 `true`，
+  与 `IsStringLiteralUnit` 同格局（两页答同一问）。`IsTypeWithTypeArguments` 也是这一形状
+  （`TypeQuery` / `ImportType` 两页答同一问：「我能不能挂一段平级的类型实参」）。
+- **`typeof a.b` 那一处为什么不能读族那一问**（第 1098 轮的实测）：那一支的判据是
+  「`list[0]` 是类型单元、`list[1]` 是点号」——`A.B[] & C` 里那个 `list[0]` 是**别的**
+  类型单元（`ArrayType` / `IntersectionType`），读族那一问会把点号后面那串名字整段收进
+  `exprName`，于是数组 / 限定名 / 标识符**一起丢**（对拍实测 4 片红：缺 `ArrayType` /
+  `QualifiedName` / `Identifier`，漂移 2）。所以那一处读 `IsTypeQuery`（单页那一格）。
+- **本页的声明数**：**64 格**（一格声明没增没减：新立的十一格都在别的页与基类；
+  本页 16 处改的是读数算式）。
 
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
@@ -7793,7 +7832,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     // **类型标注是声明的一部分，但它在 `Statement` 那一层**：`let a: string;` 的产物是
     // `Statement > [Let(``let a``), TypeDefine(``: string``)]`——`TypeDefine` 是 `Let` 的**兄弟**，
     // 不在 `Let` 里面（`Field` 那种才在自身里面）。TS 那边 `VariableDeclaration[4,13)` = `a: string`。
-    const typeNode = one.find((k) => k.Tag === "TypeDefine");
+    const typeNode = one.find((k) => k.IsTypeUnit);
     if (typeNode !== undefined) declaration.type = ctx.Project(typeNode);
     // **明确赋值断言 `let a!: number`**（第 156 轮）：TS 那边是
     // `VariableDeclaration.exclamationToken`（`!` 是一个子节点），产物把它记成一个平级的
@@ -8215,7 +8254,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // **这一格第 1087 轮就地展开**（原来是本页那一格 `projectSignedLiteralType`，全仓只有这一个
   // 读者；判据与第 1043 / 1044 / 1070 / 1080 轮并掉那些「一格声明、一个调用点」的转发同一把尺子）：
   // 不是这个形状就不动（原来给 `undefined`、调用方照下面那条路走 ⇒ 现在直接什么都不做）。
-  if (list.length === 1 && list[0].Tag === "LiteralType") {
+  if (list.length === 1 && list[0].IsTypeUnit) {
     const signedKids = list[0].ProjectableKids;
     const signedHead = signedKids[0];
     if (signedKids.length === 2 && signedHead !== undefined && signedHead.IsSymbolToken) {
@@ -8326,7 +8365,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // TS 那边 `exprName` 是 `QualifiedName`、区间覆盖整段（也**没有** `typeof` 子节点）。
   // 不接的话后面那串名字整个丢掉——`Identifier` 缺 1581 里的另一簇就是它
   // （`buffer.d.ts` 的 `globalThis.atob` / `globalThis.btoa`）。
-  if (list.length >= 3 && list[0].Tag === "TypeQuery" && list[1].IsDotSymbol) {
+  if (list.length >= 3 && list[0].IsTypeQuery && list[1].IsDotSymbol) {
     const query = projectNode(list[0], ctx);
     const tail = list.filter((k, i) => i >= 2 && k.IsNameNode);
     // **`head` 已经是投好的节点**（`query.exprName`），而 `qualifiedNameFrom` 吃的是**单元**
@@ -8358,7 +8397,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     // `TypeQuery`（`absorbIntoTypeQuery`），外层各壳的起点跟着挪到 `typeof`。
     const suffixUnit = list
       .slice(2)
-      .find((k) => k.Tag === "IndexedAccessType" || k.Tag === "ArrayType");
+      .find((k) => k.IsTypeSuffixUnit);
     if (suffixUnit !== undefined && name !== undefined) {
       const absorbed = absorbIntoTypeQuery(projectNode(suffixUnit, ctx), query, name);
       if (absorbed !== undefined) return absorbed;
@@ -8389,8 +8428,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // **`typeof X<Y>` / `import("m").X<Y>`**（第 109 / 114 轮）：TS 的 `TypeQuery` 与
   // `ImportType` 都可以带**类型实参**（`typeArguments`），而实参段在产物里是它们的
   // **平级兄弟**。不收的话：少 `typeArguments`、区间短一截（漂移），实参里那串名字整片丢。
-  if (list[0].Tag === "TypeQuery" || list[0].Tag === "ImportType") {
-    const query = projectNode(list[0], ctx);
+  if (list[0].IsTypeWithTypeArguments) {    const query = projectNode(list[0], ctx);
     const generic = list.find((k) => k.IsGenericType);
     if (generic !== undefined && query !== undefined) {
       const typeArguments = [];
@@ -8405,7 +8443,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       }
     }
   }
-  if (list.length === 1 && list[0].Tag === "TypeDefine") {
+  if (list.length === 1 && list[0].IsTypeDefine) {
     return projectTypeExpression(list[0].ProjectableKids, ctx);
   }
   // **类型参数段 + 函数类型**（第 82 轮）：产物把 `<R, TArgs extends any[]>` 放在 `FunctionType`
@@ -8417,7 +8455,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // （`AstKind()` 给它的是 `TypeReference`）——类型参数成了它的孩子、**整个函数类型被丢掉**：
   // 真实语料 `Identifier` 缺 1616 里的一大片、`TypeReference` 缺 417，
   // 全是 `@types/node/async_hooks.d.ts` 那种「泛型函数类型」（`snapshot(): <R, TArgs…>(…) => R`）。
-  if (list.length === 2 && list[0].IsGenericType && list[1].Tag === "FunctionType") {
+  if (list.length === 2 && list[0].IsGenericType && list[1].IsFunctionType) {
     const typeParams = list[0].ProjectableKids.filter((k) => k.IsTypeParameterUnit);
     // **走通用分派而不是直调那个函数**（第 188 轮）：`FunctionType` 的投影已经搬进
     // `tokens/function-type.xl.md` 的 `PrintDirectAst`，而 `projectNode` 会先问它——
@@ -8431,7 +8469,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   }
   const head = list[0];
   let generic = list.find((k) => k.IsGenericType);
-  const arraySuffix = list.find((k) => k.Tag === "ArrayType");
+  const arraySuffix = list.find((k) => k.IsArrayType);
   // **`A<T>[]` 的产物把实参段装进了 `ArrayType` 里面**（第 104 轮）：
   // `[Identifier(Dirent), ArrayType(GenericType(NonSharedBuffer))]`——那个 `GenericType`
   // 是**基名的实参表**，不是元素类型。照原样投会得到「`TypeReference` 只盖住 `Dirent`」
@@ -8454,7 +8492,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     head.IsNameNode &&
     list.length >= 3 &&
     list[1].IsDotSymbol &&
-    list[2].Tag === "IndexedAccessType"
+    list[2].IsIndexedAccessType
   ) {
     const iat = list[2];
     const inner = iat.ProjectableKids;
@@ -8494,7 +8532,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       const bracket = list.find((k) => k.IsBracketUnit);
       if (bracket !== undefined) {
         const inner = bracket.ProjectableKids;
-        const paramUnits = inner.filter((k) => k.Tag === "Parameter");
+        const paramUnits = inner.filter((k) => k.IsParameterUnit);
         if (paramUnits.length > 0) {
           ctorProps.parameters = projectEach(paramUnits, ctx);
         } else {
@@ -8505,7 +8543,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
           for (const part of splitTopLevel(inner, ",")) {
             if (part.length === 0) continue;
             const nameUnit = part.find((k) => k.IsNameNode);
-            const typeUnit = part.find((k) => k.Tag === "TypeDefine");
+            const typeUnit = part.find((k) => k.IsTypeDefine);
             const param = {
               kind: "Parameter",
               pos: startOf(part[0]),
@@ -8571,7 +8609,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       // `TypeReference` / `ArrayType` 各一片）。
       const next = list[i + 1];
       const innerNames =
-        next.Tag === "ArrayType" ? next.ProjectableKids.filter((k) => k.IsNameNode) : null;
+        next.IsArrayType ? next.ProjectableKids.filter((k) => k.IsNameNode) : null;
       const nameUnit = innerNames !== null && innerNames.length === 1 ? innerNames[0] : next;
       if (!nameUnit.IsNameNode) break;
       const right = nameOf(nameUnit);
@@ -8600,7 +8638,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `[TypeOperator(readonly, webcrypto), ., ArrayType(KeyUsage)]`——点号名与数组后缀都在
   // 运算符单元**外面**。TS 那边 `TypeOperator.type` 是整段 `webcrypto.KeyUsage[]`
   // （`QualifiedName` 与 `ArrayType` 都在它里面）。收回来之后 `TypeOperator` 的区间也才对得上。
-  if (head.Tag === "TypeOperator" && list.length > 1) {
+  if (head.IsTypeOperator && list.length > 1) {
     const inner = head.ProjectableKids;
     const operandHead = inner.length > 0 ? inner[inner.length - 1] : undefined;
     if (operandHead !== undefined && operandHead.IsNameNode) {
@@ -8620,16 +8658,16 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 于是同时记「缺 `UnionType`」+「多出 `UnionType`」+ 缺 `UndefinedKeyword`（实测 35 处）。
   if (
     list.length === 1 &&
-    (list[0].Tag === "UnionType" || list[0].Tag === "IntersectionType")
+    (list[0].IsUnionType || list[0].IsIntersectionType)
   ) {
     const unionUnit = list[0];
     const inner = unionUnit.ProjectableKids;
-    const predicate = inner.find((k) => k.Tag === "TypePredicate");
+    const predicate = inner.find((k) => k.IsTypePredicate);
     if (predicate !== undefined && inner.length === 1) {
       const parts = predicate.ProjectableKids;
       const isIndex = parts.findIndex((k) => k.TextValue === "is");
       const typeKids = isIndex >= 0 ? parts.slice(isIndex + 1) : [];
-      const separator = unionUnit.Tag === "UnionType" ? "|" : "&";
+      const separator = unionUnit.IsUnionType ? "|" : "&";
       const types = [];
       for (const group of splitTopLevel(typeKids, separator)) {
         const one = projectTypeExpression(group, ctx);

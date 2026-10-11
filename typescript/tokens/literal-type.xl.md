@@ -360,3 +360,10 @@ return result;
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
+
+## field IsTypeUnit:bool = true
+
+**我是一个类型位的单元**（第 1098 轮）：`LiteralType` 就是这一页自己的类名，所以常量答 `true`——
+口径与理由见 `core/syntax/token.xl.md` 的 `IsTypeUnit`（投影那一侧「这一段是不是类型单元」
+过去是十几处现场比类名，今天由被问的那一页答）。
+

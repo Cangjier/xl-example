@@ -368,6 +368,27 @@ return result;
 （被数组化的那个），没有同级的分隔符，所以答 `{ separator: null }`——整批子单元合起来
 投成一个类型（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
 
+## field IsTypeUnit:bool = true
+
+**我是一个类型位的单元**（第 1098 轮）：`ArrayType` 就是这一页自己的类名，所以常量答 `true`——
+口径与理由见 `core/syntax/token.xl.md` 的 `IsTypeUnit`（投影那一侧「这一段是不是类型单元」
+过去是十几处现场比类名，今天由被问的那一页答）。
+
+## field IsArrayType:bool = true
+
+**我这一格就是 `ArrayType` 这个单元**（第 1098 轮）：类名就是这一页自己的名字，所以常量答
+`true`——它与 `IsTypeUnit` **不是同一问**：那一格答「我是不是类型位那一族的一员」（十二页答
+`true`），这一格只认本页（投影那几处要在**一整串类型单元里**认出「就是这一个」：`A<T>[]` 里
+那个数组壳、`X[K][]` 里那个尾缀）。
+
+## field IsTypeSuffixUnit:bool = true
+
+**我这一格是「基名后面挂着的那个类型尾缀」**（第 1098 轮）：`ArrayType` 与
+`IndexedAccessType` 两页都答 `true`（另一页就是本文件下面那一页），
+其余一律 `false`——口径见 `core/syntax/token.xl.md` 的 `IsTypeSuffixUnit`（投影那一处要在
+`typeof a.b[]` / `typeof a.b[K]` 那一串里认出「基名后面挂着的那个尾缀」）。
+
+
 # class TupleType extends IndependentToken
 
 元组类型（`[A, B]` / `readonly [A, B]`）。类名必须与产物的标签名一致。
@@ -506,3 +527,22 @@ return result;
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：`T[K]` 的两个成员
 （对象类型与下标类型）之间**没有**分隔符，它们是**一个**下标访问类型的两个字段，
 所以答 `{ separator: null }`（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+## field IsTypeUnit:bool = true
+
+**我是一个类型位的单元**（第 1098 轮）：`IndexedAccessType` 就是这一页自己的类名，所以常量
+答 `true`——口径与理由见 `core/syntax/token.xl.md` 的 `IsTypeUnit`（投影那一侧「这一段是不是
+类型单元」过去是十几处现场比类名，今天由被问的那一页答）。
+
+## field IsIndexedAccessType:bool = true
+
+**我这一格就是 `IndexedAccessType` 这个单元**（第 1098 轮）：类名就是这一页自己的名字，所以
+常量答 `true`——它与 `IsTypeUnit` **不是同一问**：那一格答「我是不是类型位那一族的一员」
+（十二页答 `true`），这一格只认本页（投影那一处要在 `A.B[C]` 这一串里认出**第三格就是它**）。
+
+## field IsTypeSuffixUnit:bool = true
+
+**我这一格是「基名后面挂着的那个类型尾缀」**（第 1098 轮）：`IndexedAccessType` 与
+`ArrayType` 两页都答 `true`（另一页就是本文件上面那一页），其余一律 `false`——口径见
+`core/syntax/token.xl.md` 的 `IsTypeSuffixUnit`（投影那一处要在 `typeof a.b[]` /
+`typeof a.b[K]` 那一串里认出「基名后面挂着的那个尾缀」）。

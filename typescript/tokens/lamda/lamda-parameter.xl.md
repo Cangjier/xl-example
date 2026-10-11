@@ -160,6 +160,19 @@ return result;
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
+## field IsTypeUnit:bool = true
+
+**我是一个类型位的单元**（第 1098 轮）：`Parameter` 就是这一页自己的类名，所以常量答 `true`——
+口径与理由见 `core/syntax/token.xl.md` 的 `IsTypeUnit`（投影那一侧「这一段是不是类型单元」
+过去是十几处现场比类名，今天由被问的那一页答）。
+
+## field IsParameterUnit:bool = true
+
+**我这一格就是一个形参单元**（第 1098 轮）：`Parameter` 就是这一页自己的类名，所以常量答
+`true`——它与 `IsTypeUnit` **不是同一问**：那一格答「我是不是类型位那一族的一员」（十二页答
+`true`），这一格只认本页（投影那一处在一对构造签名的圆括号里找**都是形参的那几格**）。
+
+
 # private const PARAMETER_MODIFIERS:Set<string>
 
 **形参前面哪几个词是修饰词**（第 1037 轮从投影层搬到这里）。

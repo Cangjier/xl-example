@@ -544,6 +544,20 @@ return result;
 是 `|`，所以答 `{ separator: "|" }`——切完再整段投，否则「名字 + 实参」那种一对多格的写法
 会被逐个拆散（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
 
+## field IsTypeUnit:bool = true
+
+**我是一个类型位的单元**（第 1098 轮）：`UnionType` 就是这一页自己的类名，所以常量答 `true`——
+口径与理由见 `core/syntax/token.xl.md` 的 `IsTypeUnit`（投影那一侧「这一段是不是类型单元」
+过去是十几处现场比类名，今天由被问的那一页答）。
+
+## field IsUnionType:bool = true
+
+**我这一格就是 `UnionType` 这个单元**（第 1098 轮）：类名就是这一页自己的名字，所以常量答
+`true`——它与 `IsTypeUnit` **不是同一问**：那一格答「我是不是类型位那一族的一员」（十二页答
+`true`），这一格只认本页（投影那两处要在「联合 / 交叉」两格里认出是哪一个：谓词往外套那一处，
+以及切段时那个 `|` 与 `&` 的分辨）。
+
+
 # class IntersectionType extends IndependentToken
 
 交叉类型（`A & B`）。类名必须与产物的标签名一致。
@@ -599,3 +613,15 @@ return result;
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：交叉类型的两个成员之间
 是 `&`，所以答 `{ separator: "&" }`（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
+
+## field IsTypeUnit:bool = true
+
+**我是一个类型位的单元**（第 1098 轮）：`IntersectionType` 就是这一页自己的类名，所以常量
+答 `true`——口径与理由见 `core/syntax/token.xl.md` 的 `IsTypeUnit`（投影那一侧「这一段是不是
+类型单元」过去是十几处现场比类名，今天由被问的那一页答）。
+
+## field IsIntersectionType:bool = true
+
+**我这一格就是 `IntersectionType` 这个单元**（第 1098 轮）：类名就是这一页自己的名字，所以
+常量答 `true`——它与 `IsTypeUnit` **不是同一问**：那一格答「我是不是类型位那一族的一员」
+（十二页答 `true`），这一格只认本页（投影那两处要在「联合 / 交叉」两格里认出是哪一个）。

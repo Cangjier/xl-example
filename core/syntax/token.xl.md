@@ -1856,6 +1856,58 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsValueOnlyUnit:bool = true`，构造时就赋好），投影只读这一格（`x.IsValueOnlyUnit`）。
 
+## field IsTypeUnit:bool = false
+
+**我这一格是不是一个类型位单元**（第 1098 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：类型位那一族的每一页各答自己的那一格——`TypeDefine`（`AstKind` 是
+`TypeReference`）/ `ArrayType` / `IndexedAccessType` / `TypeOperator` / `TypeQuery` / `TypePredicate` /
+`UnionType` / `IntersectionType` / `FunctionType` / `ImportType` / `LiteralType` 与 `Parameter`
+一共 **12 页**（见各自那一页的 `## field IsTypeUnit:bool = true`），
+其余一律 `false`。过去它在投影层是**十六处**现场比类名（`X.Tag === "TypeDefine"` /
+`"ArrayType"` / `"IndexedAccessType"` / `"TypeOperator"` / `"TypePredicate"` / `"UnionType"` /
+`"IntersectionType"` / `"FunctionType"` / `"ImportType"` / `"LiteralType"` / `"TypeQuery"` /
+`"Parameter"`——`projectTypeExpression` 那一族里成片都是），而那几个名字**就是那几页自己的
+类名**——所以那是每一页自己的事实，被写在投影那一页里。
+
+**它与 `IsValueOnlyUnit` 不是同一问**：那一格答「我这一格只可能出现在**值位**」（三页答 `true`）；
+这一格答「我这一格是**类型位**的一个单元」——两问的收件人没有一页重合。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsTypeUnit:bool = true`，构造时就赋好），投影只读这一格（`x.IsTypeUnit`）。
+
+## field IsTypeSuffixUnit:bool = false
+
+**我这一格是不是「基名后面挂着的那个类型尾缀」**（第 1098 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`ArrayType` 与 `IndexedAccessType` 这两页答 `true`
+（同一个 `typescript/tokens/type-bracket.xl.md` 里的两页），其余一律 `false`。过去它在投影层是
+**一处两点连写**（`k.Tag === "IndexedAccessType" || k.Tag === "ArrayType"`——`typeof a.b[]` 那
+一支要把尾缀收回 `TypeQuery` 里），而那两个名字**就是那两页自己的类名**。
+
+**它与 `IsTypeUnit` 不是同一问**：那一格答「我是不是类型位那一族的一员」（十二页答 `true`），
+这一格只认**挂在基名后面的那两种尾缀**——`typeof X` 那一支要的是后者。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsTypeSuffixUnit:bool = true`，构造时就赋好），投影只读这一格（`k.IsTypeSuffixUnit`）。
+
+## field IsTypeWithTypeArguments:bool = false
+
+**我这一格能不能挂一段平级的类型实参**（第 1098 轮）——能的话答 `true`。
+
+判据是关于**产物标签**的：`TypeQuery`（`typeof X<Y>`）与 `ImportType`（`import("m").X<Y>`）
+两页答 `true`（`typescript/tokens/type-operator.xl.md` / `import-type.xl.md`），其余一律 `false`。
+过去它在投影层是**一处两连比类名**（`list[0].Tag === "TypeQuery" || list[0].Tag === "ImportType"`
+——要把**平级的那一段 `<Y>`** 收进这一格的 `typeArguments`），而那两个名字**就是那两页自己的
+类名**。它与 `IsTypeUnit` 不是同一问：那一格答「我是不是类型位那一族的一员」（十二页答 `true`），
+这一格只认**这两页**——这一处**不能**读那一格：`typeof a.b` 那种「点号 + 名字」也走这一支
+（判据是 `list[0]` 是 `TypeQuery`、`list[1]` 是点号），把别的类型单元一起收进来会让
+`A.B[] & C` 里那段数组 / 限定名整片丢掉（第 1098 轮实测：4 片对拍红）。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsTypeWithTypeArguments:bool = true`，构造时就赋好），投影只读这一格
+（`list[0].IsTypeWithTypeArguments`）。
+
 ## property HasChildren:bool
 
 **我这一格下面还有没有实义子单元**（第 1064 轮）：有就答 `true`。
