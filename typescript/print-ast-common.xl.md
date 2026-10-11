@@ -5395,6 +5395,15 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // `this`x` as T` 五种续写同根——模板后面那一串本来有 `chainOnto` 接着，
       // 是**入口这一问**先把整族挡掉了（实测 `tmp/r1208-probe1.mjs`：15 条里 8 条对不上，
       // 全是 `this` 当标签那一族）。这一格由关键字那一页按自己的正文答。
+      // **`!` 与 `?.` 也是链的一格**（第 1209 轮，用户口径 1.1）：`a!`x`` 的标签是
+      // **一格 `NotNull`**、`a?.b`x`` 的标签是一格 `NullConditionalOperator`——
+      // 两张名单（这一张与下面 `IsChainTail`）本来就该一样：它们答的都是
+      //「这一格能不能接在操作数后面」。少了这两格，`a!`x`` / `a!`x`.b` / `a!`x`(d)` /
+      // `a!`x`!` / `a!`x`?.[c]` 与 `a?.b`x`.b` / `a?.[c]`x`.b` / `a?.(d)`x`.b` 整族让开
+      //（实测 `tmp/r1209-probe1.mjs`：15 条里 7 条对不上，全是这一族）。
+      // `ts.createSourceFile` 实测：`const q = a!`x`` 是
+      // `TaggedTemplateExpression[10,15) > [NonNullExpression[10,12), NoSubstitutionTemplateLiteral[12,15)]`。
+      one.IsNotNull || one.IsNullConditionalOperator ||
       one.IsTagBaseNode === true);
   // **模板后面那一串也要是链的续格**（第 947 轮）：判据从「**末尾**那一格是模板」
   // 放宽成「**链里有一格是模板**」，模板后面那一串交给 `chainOnto`（与 0c 同一段代码）。
