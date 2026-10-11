@@ -10152,18 +10152,26 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // （唯一读者就是这一格函数里的两处），而它问的正是「这一段是哪个 token 切的、那一格答什么」
   // ——按第 1103 / 1104 轮那把尺子（一格声明、只有本函数两处读者、函数体就是一次读表），
   // 整段搬进这一格函数，本页少一格声明。
+  //
+  // **第 1145 轮：双探收成一次 `get`**（用户口径 1.6「投影成本趋于 0」）。
+  // 原样是 `for (const name of kind === undefined ? [tag] : [kind, tag])` ——每个段都要
+  // 造一个数组、读一次 `node.Tag`、做一到两次 `Map` 探查。**实测**（打桩在 `dist` 上跑
+  // `cases:direct` 的全语料 1640 份、531 次命中）：第二把键 `tag` **一次都没命中过**
+  // （`tagHitAfterKindMiss: 0`），而 `kind === undefined` 那一支**一次都没走到**
+  // （`kindUndefined: 0`）；531 次里还有 **212 次**两把键是**同一个串**——同一个键问了两遍。
+  // 根因是各页 `SegmentNames` 的外层键**实测全是目标 kind 名**
+  // （`ClassBody` 那一页写的是 `ClassDeclaration`，`ForBody` 写的是 `Block`…），
+  // 而 `kind` 这一格拿到的**就是**那个目标 kind ⇒ 一把键就够。
+  // `table.size === 0` 那一句也一并去掉：空表上 `get` 本来就给 `undefined`，
+  // 落进下面那句 `instanceof Map` 判否、答案与原来相同。
   const fieldOf = (kind: string, key: string, node: any): string => {
     if (node === undefined) return key;
     const table = node.SegmentNames;
-    if (!(table instanceof Map) || table.size === 0) return key;
-    const tag: any = node.Tag;
-    for (const name of kind === undefined ? [tag] : [kind, tag]) {
-      const inner = table.get(name);
-      if (!(inner instanceof Map)) continue;
-      const field = inner.get(key);
-      if (typeof field === "string") return field;
-    }
-    return key;
+    if (!(table instanceof Map)) return key;
+    const inner = table.get(kind);
+    if (!(inner instanceof Map)) return key;
+    const field = inner.get(key);
+    return typeof field === "string" ? field : key;
   };
   const props = {};
   const used = new Set();
