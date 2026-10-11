@@ -95,7 +95,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 **第 1094 ~ 1096 轮（各 16 / 22 / 31 处读数，新立的格都在基类与别的页）仍是 64 格**，
 **第 1097 轮（11 处读数，新立的那一格在基类与 `function` / `class` / `lamda` 三页）
 照同一条命令逐行数还是 64 格**，**第 1098 轮（16 处读数，新立的十一格在基类与类型位那十二页）
-仍是 64 格**——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
+仍是 64 格**，**第 1099 轮（9 处读数，新立的八格在基类与那八页）
+照同一条命令逐行数仍是 64 格**——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 **第 1091 轮复核时又量到同一件事**：第 1087 轮那一栏收尾写的是「66 格」，可照那条命令逐行数
 （第 1087 ~ 1091 轮共五轮，一格声明没增没减）**一直是 64 格**——所以那 2 格的差从第 1087 轮起
@@ -1194,6 +1195,43 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 - **本页的声明数**：**64 格**（一格声明没增没减：新立的十一格都在别的页与基类；
   本页 16 处改的是读数算式）。
 
+**第 1099 轮把剩下那九处收尾**（同一句话、同一形态）——本页代码块里最后 **9 处**现场比类名：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `v.Tag === "MethodDeclaration"`（**3 处**：签名那一支、`get` / `set` 那一支、构造那一支） | `v.IsMethodDeclaration` | `MethodDeclaration` 那一页**显式声明** `## field IsMethodDeclaration:bool = true`（常量） |
+| `kids[0].Tag === "UnaryOperator"` / `ck[0].Tag === "UnaryOperator"`（**2 处**：折链时「一元前缀 + 操作数在外」那两格） | `kids[0].IsUnaryOperator` | `UnaryOperator` 那一页**显式声明** `## field IsUnaryOperator:bool = true` |
+| `item.Tag === "Statement"`（**1 处**，且与 `item instanceof Token` 连写：成员表里把包着语句的壳摊平） | `item.IsStatementShell` | `Statement` 那一页**显式声明** `## field IsStatementShell:bool = true` |
+| `items[i].Tag === "Label"` / `items[j].Tag === "Label"` / `kids[at].Tag === "Label"`（**3 处**：语句串里连着的那几格标签） | `items[i].IsLabelUnit` / `items[j].IsLabelUnit` / `kids[at].IsLabelUnit` | `Label` 那一页**显式声明** `## field IsLabelUnit:bool = true` |
+| `items[i].Tag === "Export"` / `k.Tag === "Export"`（**2 处**：声明头那一串里认 `export`、导出那一支按词尾比对） | `items[i].IsExportUnit` / `k.IsExportUnit` | `Export` 那一页**显式声明** `## field IsExportUnit:bool = true` |
+| `kid.Tag === "BindingElement"`（**1 处**：解构模式里认出绑定元素） | `kid.IsBindingElement` | `BindingElement` 那一页**显式声明** `## field IsBindingElement:bool = true` |
+| `k.Tag === "SwitchCase"` / `k.Tag === "SwitchStatement"`（**2 处**：一个 `switch` 段的两个子单元） | `k.IsSwitchCaseUnit` / `k.IsSwitchStatementUnit` | `SwitchCase` / `SwitchStatement` 两页**各自显式声明**同名属性（各答自己的类名） |
+
+- **`Statement` 那一格为什么叫 `IsStatementShell` 而不是 `IsStatementUnit`** ✗：那一页上
+  已经有一个 `static method IsStatementUnit`（解析期判「这一格算不算一条语句级单元」，四个
+  调用点共用一份名单），同名会在同一页里撞两次（`xl check` 报 `E1205`）——**字段与静态方法
+  是两件事、两问也不同**，所以字段叫 `StatementShell`。
+- **`MethodDeclaration` 那一问为什么不读同页的 `AstKind`** ✗：那一格在**关闭那一刻**会被
+  改写成 `Constructor` / `GetAccessor` / `SetAccessor`（按 `get` / `set` 与父单元是不是类体），
+  所以「我是不是方法声明」读不出来——两问各自一格。
+- **第 1099 轮把这一族的点名范围收在这里**：`direct:lint` 第十七条那名单因此扩到 **45 个
+  `<Tag>`**（三十七 + 八）。**它守的是这 45 个名字**，不是「本页代码块里一个 `<Tag>` 都没有」
+  ——**还有两族在名单之外，如实记下**（第 1099 轮逐行量出来的）：
+  - 「这一格是不是一条注释」：`typescript/print-ast-common.xl.md` 的 `pos` 那一支还写着
+    `k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`（与 `startOf(k) === pos`
+    连写、跨行），而 `IsCommentUnit` 第 1084 轮已经立好（`trailingTriviaStart` 那一处已读属性）
+    ——**同一句话还剩这一处**；
+  - 「这一格是不是一个二元 / 逻辑运算单元」：`BinaryOperator` / `LogicalOperator` 那一族还剩
+    **11 处**，形态有三种——① 只认 `BinaryOperator` 的**窄**问（`unit.Tag !== "BinaryOperator"`、
+    `namedKids[0].Tag === "BinaryOperator"`、`firstName.Tag === "BinaryOperator"`：那时候
+    逻辑运算还不在同一族里，**改成 `IsBinaryOperatorNode` 会把 `LogicalOperator` 一起收进来**，
+    是**改语义**不是搬家）；② 两连比里**只有一半跨行**（`spineHead.Tag !== "BinaryOperator" &&
+    spineHead.Tag !== "LogicalOperator"` 换行写成两条），所以第十七条那三条单行正则**看不见它**；
+    ③ 与 `&&` 连写、缩进换行的那几条。三形态都要**逐处点名**（哪几处是窄问、哪几处是真·两连问）
+    才能动手，所以留作下一轮，不在这里猜。
+- **本页的声明数**：**64 格**（一格声明没增没减：新立的八格都在别的页与基类；
+  本页 9 处改的是读数算式）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -1928,7 +1966,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // 见 `core/syntax/token.xl.md`）：那三页（`InterfaceBody` / `TypeLiteralBody` / `MappedType`）
   // 各自声明了这一格常量，投影不再维护 `ctx.signature` 那个上下文标记
   //（它还要靠 save / restore 才不会被嵌套的成员表覆盖）。
-  if (v.Parent?.IsSignatureList === true && v.Tag === "MethodDeclaration" && kind === "MethodDeclaration") kind = "MethodSignature";
+  if (v.Parent?.IsSignatureList === true && v.IsMethodDeclaration && kind === "MethodDeclaration") kind = "MethodSignature";
   // **表达式位的函数 / 类**（第 141 轮）：`(function () {…})()` / `const c = class {}` 在
   // TS 那边是 `FunctionExpression` / `ClassExpression`（带名字的也一样——`(function f(){})()`
   // 还是 `FunctionExpression`），而 `AstKind()` 给的是**声明**名。
@@ -1956,7 +1994,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     ctx.expressionPosition = false;
   }
   else if (
-    v.Tag === "MethodDeclaration" &&
+    v.IsMethodDeclaration &&
     // **「这是不是类体里的构造」问这一格的父单元自己**（第 1054 轮）：`ClassBody` 那一页
     // 声明了 `IsClassBody`（构造时就赋好的一格常量，与 `WrapperField` 同一形态），
     // 于是这一支**不再读投影自己记的 `ctx.parentKind`**——同一格事实过去在两处各存一份
@@ -1999,7 +2037,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // `get` / `set` **不是修饰词节点**——照 `modifiers` 投会多出 `GetKeyword` / `SetKeyword`
   // （实测多出 102 + 缺 `GetAccessor` / `SetAccessor`）。所以换 kind 并把那个词从修饰词里摘掉。
   let stripModifier;
-  if (v.Tag === "MethodDeclaration") {
+  if (v.IsMethodDeclaration) {
     // **拆 `modifiers` 那一串的地方第 1083 轮收进了基类**：`Token.ModifierTextWords`
     // （读的是本类声明的 `modifiers`，各页构造时赋好）——这里不再自己 `split(",")`。
     const words = v.ModifierTextWords;
@@ -2074,7 +2112,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   if (parent.IsMemberList) {
     const flat = [];
     for (const item of list) {
-      if (item instanceof Token && item.Tag === "Statement") {
+      if (item instanceof Token && item.IsStatementShell) {
         const inner = item.ProjectableKids;
         // **只有整层都是成员才摊开**：`interface` / `type` / `class`
         // 的成员位在 TS 里放不下语句，可本工程自己的样本里出现过 `{ let value: T }` 这种写法。
@@ -2233,10 +2271,10 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     // （`Statement.AbsorbLabels` 折的），那一格由标签自己的 `PrintDirectAst` 出形状；
     // 这一支留下来管**老形状**（标签与被标语句是平级兄弟，`HasChildren` 为假）。
     // 少了这个条件，包好的标签会去跟**后面那条平级语句**合并（整棵被标的子树丢掉）。
-    if (items[i].Tag === "Label" && items[i].HasChildren === false) {
+    if (items[i].IsLabelUnit && items[i].HasChildren === false) {
       const labels = [];
       let j = i;
-      while (j < items.length && items[j].Tag === "Label") {
+      while (j < items.length && items[j].IsLabelUnit) {
         labels.push(items[j]);
         j++;
       }
@@ -2362,7 +2400,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     // `export { a }` 后面跟一条声明时**不是**这个形状，语料里有那种排版）；
     // ② 紧跟那一格**自己答**它是一个声明单元（`IsDeclarationUnit`，第 1036 轮——
     // 名单里的五个标签就是那五页自己的类名，所以它住在各自那一页）。
-    if (items[i].Tag === "Export" && i + 1 < items.length) {
+    if (items[i].IsExportUnit && i + 1 < items.length) {
       const unitText = items[i].Text.trim();
       if (/\bdefault$/.test(unitText) && items[i + 1].IsDeclarationUnit) {
         const merged = projectExport(items[i], ctx, items.slice(i + 1), endOf(items[i + 1]));
@@ -2636,7 +2674,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   if (headType === "Label" && kids.length >= 2 && head.HasChildren === false) {
     const labels = [];
     let at = 0;
-    while (at < kids.length && kids[at].Tag === "Label") {
+    while (at < kids.length && kids[at].IsLabelUnit) {
       labels.push(kids[at]);
       at++;
     }
@@ -4828,7 +4866,7 @@ new Set([
       // **第二格是二元单元、续格在它里面**（第 743 轮，判据见上面 `chainTailInOperator`）。
       chainTailInOperator(kids[1]) ||
       // **一元前缀 + 操作数在外的链**（第 739 轮，判据见上面 `chainTail` 那一段）。
-      (kids[0].Tag === "UnaryOperator" && chainTail(kids[1])))
+      (kids[0].IsUnaryOperator && chainTail(kids[1])))
   ) {
     // **嵌套的链要摊平**（第 86 轮）：产物偶尔把**一整条链**塞进另一条链的成员位——
     // `this.Parent!.Data.splice(1, 2)` 实测是
@@ -4982,7 +5020,7 @@ new Set([
     // **只在后面真是链上的一格时才走这一支**（`.` / 下标 / 调用 / 成员 / 断言）：
     // `?.` 与二元那一族由下面那两条尾支管，抢过来会换掉既有形状。
     // （`chainTail` 那份判据提到上面那个入口条件那儿去了——两处必须是同一句。）
-    if (ck.length > 1 && ck[0].Tag === "UnaryOperator" && chainTail(ck[1])) {
+    if (ck.length > 1 && ck[0].IsUnaryOperator && chainTail(ck[1])) {
       const unaryKids = ck[0].ProjectableKids;
       let operandAt = 0;
       while (
@@ -7916,7 +7954,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
       elements.push({ kind: "OmittedExpression", pos: cursor, end: cursor });
     } else {
       for (const kid of groups[i]) {
-        if (kid.Tag === "BindingElement") elements.push(projectBindingElement(kid, ctx));
+        if (kid.IsBindingElement) elements.push(projectBindingElement(kid, ctx));
       }
     }
     if (i < commaAts.length) cursor = commaAts[i] + 1;
@@ -9262,8 +9300,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   const sv = seg;  // 这一格就是 `seg` 自己（不再包一层接收者）
   const kindWord = String(sv.key ?? "");
   const kids = sv.ProjectableKids;
-  const caseUnit = kids.find((k) => k.Tag === "SwitchCase");
-  const bodyUnit = kids.find((k) => k.Tag === "SwitchStatement");
+  const caseUnit = kids.find((k) => k.IsSwitchCaseUnit);
+  const bodyUnit = kids.find((k) => k.IsSwitchStatementUnit);
   const props = {};
   if (kindWord !== "default" && caseUnit !== undefined) {
     props.expression = projectExpression(caseUnit.ProjectableKids, ctx);
@@ -9362,7 +9400,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     return parts[parts.length - 1];
   };
   const isWord = (k: any, text: string) =>
-    (k.IsNameNode || k.Tag === "Export") &&
+    (k.IsNameNode || k.IsExportUnit) &&
     (k.TextValue === text || wordTail(k) === text);
   const isAssignment =
     rest.some((k) => k.IsSymbolToken && k.TextValue === "=") ||

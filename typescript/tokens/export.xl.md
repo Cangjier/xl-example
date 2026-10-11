@@ -476,3 +476,11 @@ return result;
 而 `ExportDeclaration` 就是**这一页自己的节点名**（`AstKind()` 的一格）——所以那是每一页自己的事实，
 被写在投影那一页里。今天需要它的页面各自覆写，投影只问这一格
 （口径见 `core/syntax/token.xl.md` 的 `IsStatementNode`）。
+
+## field IsExportUnit:bool = true
+
+**我这一格就是一个 `export` 单元**（第 1099 轮）：`Export` 就是这一页自己的类名，所以常量答
+`true`——它与 `IsStatementNode` / `IsDeclarationUnit` 都不是同一问：那两格答的是「投出来是
+什么节点」「我算不算一个声明单元」，这一格答「**我这一格整个单元**是不是 `Export`」
+（口径见 `core/syntax/token.xl.md` 的 `IsExportUnit`——投影那两处要在声明头那一串里认出
+「就是 `export` 那一格」）。

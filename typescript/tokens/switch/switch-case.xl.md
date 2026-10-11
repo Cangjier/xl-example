@@ -42,3 +42,9 @@ result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
 ```
+
+## field IsSwitchCaseUnit:bool = true
+
+**我这一格是不是一段 `case` 的匹配表达式**（第 1099 轮）：`SwitchCase` 就是这一页自己的类名，
+所以常量答 `true`（口径见 `core/syntax/token.xl.md` 的 `IsSwitchCaseUnit`）——投影那一处要在
+一个 `switch` 段的子单元里认出**哪一格是匹配表达式**（另一格是语句体）。

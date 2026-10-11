@@ -1278,3 +1278,11 @@ return result;
 
 **第 1045 轮起它是属性**：同样的扫描搬到 `MethodDeclarationCloseRule.Process` 的尾巴上
 （那一趟才刚把 `*` 与 `async` 搬进来），造出来就赋好，投影直读。
+
+## field IsMethodDeclaration:bool = true
+
+**我这一格就是一个方法声明单元**（第 1099 轮）：`MethodDeclaration` 就是这一页自己的类名，
+所以常量答 `true`（口径见 `core/syntax/token.xl.md` 的 `IsMethodDeclaration`）——投影那三处
+（接口 / 类型字面量里的签名、`get` / `set` 的 kind 与修饰词、构造那一条）问的都是
+「**我这一格整个单元**是不是方法声明」，而 `AstKind` 那一格会在关闭那一刻被改写成
+`Constructor` / `GetAccessor` / `SetAccessor`，所以这一问不能读它。

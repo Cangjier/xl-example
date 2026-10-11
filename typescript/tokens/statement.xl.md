@@ -3196,6 +3196,15 @@ result.TryToClose();
 return result;
 ```
 
+## field IsStatementShell:bool = true
+
+**我这一格就是核心那句 `Statement`**（第 1099 轮）：`Statement` 就是这一页自己的类名，所以常量
+答 `true`——它与本页那个 `static method IsStatementUnit`（以及各页覆写的 `IsStatementNode`）
+**不是同一问**：那两格答的是「这一格**算不算**一条语句级单元」「**我投出来**的是不是目标语言里
+的一条语句节点」，这一格答「**我这一格整个单元**是不是核心那句 `Statement`」（口径见
+`core/syntax/token.xl.md` 的 `IsStatementShell`——投影那一处要在成员表里认出**裹着一条语句的
+那层壳**，好把成员们摊平）。
+
 # class StatementBranch extends Branch
 
 **解析期造语句壳——只剩软换行那一档**（第 477 轮建、第 486 轮收窄）。

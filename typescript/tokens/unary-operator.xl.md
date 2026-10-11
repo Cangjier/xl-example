@@ -804,3 +804,11 @@ return result;
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
+
+## field IsUnaryOperator:bool = true
+
+**我这一格就是一个一元运算符单元**（第 1099 轮）：`UnaryOperator` 就是这一页自己的类名，所以
+常量答 `true`——它与本页的 `IsPrefixOperatorUnit` **不是同一问**：那一格答「**裸符号**能不能
+当一个前缀运算符」（按正文现算），这一格答「**我这一格整个单元**是不是一元运算符单元」
+（口径见 `core/syntax/token.xl.md` 的 `IsUnaryOperator`——投影那一处要在折链时认出
+「一元前缀 + 操作数在外」那两格）。

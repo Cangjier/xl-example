@@ -293,3 +293,9 @@ return result;
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
+
+## field IsBindingElement:bool = true
+
+**我这一格就是一个绑定元素单元**（第 1099 轮）：`BindingElement` 就是这一页自己的类名，所以
+常量答 `true`（口径见 `core/syntax/token.xl.md` 的 `IsBindingElement`）——投影那一处要在解构
+模式的一组分单元里认出**哪几格是绑定元素**（另一格是省略位）。

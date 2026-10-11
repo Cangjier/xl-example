@@ -1908,6 +1908,119 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 （`## field IsTypeWithTypeArguments:bool = true`，构造时就赋好），投影只读这一格
 （`list[0].IsTypeWithTypeArguments`）。
 
+## field IsStatementShell:bool = false
+
+**我这一格是不是核心那句 `Statement`**（第 1099 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：核心那一页答 `true`（`typescript/tokens/statement.xl.md`——裹着一条
+语句的那层壳），其余一律 `false`。过去它在投影层是**一处两连判**（`item instanceof Token &&
+item.Tag === "Statement"`——成员表里要把包着语句的那层壳摊平），而那个名字**就是那一页自己的
+类名**。
+
+**名字为什么不叫 `IsStatementUnit`** ✗：那一页上已经有一个 `static method IsStatementUnit`
+（解析期判「这一格算不算一条语句级单元」，四个调用点共用），同名会在同一页里撞两次
+（`E1205`）——**这一格是字段、那一格是静态方法、两问也不同**，所以它叫 `StatementShell`。
+
+**它与 `IsStatementNode` 也不是同一问**：那一格答「**我投出来**的是不是目标语言里的一条语句节点」
+（各语句壳各自覆写，几十页答 `true`）；这一格只认核心那句 `Statement` 单元。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsStatementShell:bool = true`，构造时就赋好），投影只读这一格（`item.IsStatementShell`）。
+
+## field IsLabelUnit:bool = false
+
+**我这一格是不是一个标签单元**（第 1099 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`Label` 那一页答 `true`（`typescript/tokens/label.xl.md`），
+其余一律 `false`。过去它在投影层是**三处连写比类名**（`items[i].Tag === "Label"`——语句串里
+认出连着的那几格标签），而那个名字就是那一页自己的类名。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsLabelUnit:bool = true`，构造时就赋好），投影只读这一格（`kids[at].IsLabelUnit`）。
+
+## field IsExportUnit:bool = false
+
+**我这一格是不是一个 `export` 单元**（第 1099 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`Export` 那一页答 `true`（`typescript/tokens/export.xl.md`），
+其余一律 `false`。过去它在投影层是**两处连写比类名**（`items[i].Tag === "Export"`——声明头
+那一串里认出「就是 `export` 那一格」，以及导出那一支按词尾比对 `from` / `as`），
+而那个名字就是那一页自己的类名。
+
+**它与 `IsStatementNode` / `IsDeclarationUnit` 不是同一问**：那两格答的是「投出来是什么节点」
+与「我算不算一个声明单元」（`Export` 那一页也答后者）；这一格答「我是不是 `Export` 这一格单元」。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsExportUnit:bool = true`，构造时就赋好），投影只读这一格（`items[i].IsExportUnit`）。
+
+## field IsBindingElement:bool = false
+
+**我这一格是不是一个绑定元素单元**（第 1099 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`BindingElement` 那一页答 `true`
+（`typescript/tokens/binding-element.xl.md`），其余一律 `false`。过去它在投影层是**一处连写
+比类名**（`kid.Tag === "BindingElement"`——解构模式的一组分单元里认出绑定元素），
+而那个名字就是那一页自己的类名。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsBindingElement:bool = true`，构造时就赋好），投影只读这一格（`kid.IsBindingElement`）。
+
+## field IsMethodDeclaration:bool = false
+
+**我这一格是不是一个方法声明单元**（第 1099 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`MethodDeclaration` 那一页答 `true`
+（`typescript/tokens/function/method-declaration.xl.md`），其余一律 `false`。过去它在投影层是
+**三处连写比类名**（`v.Tag === "MethodDeclaration"`——接口 / 类型字面量里的签名那一支、
+`get` / `set` 的 kind 与修饰词那一支、构造那一支），而那个名字就是那一页自己的类名。
+
+**为什么不读同页的 `AstKind`**：那一格在**关闭那一刻**会被改写成 `Constructor` /
+`GetAccessor` / `SetAccessor`（按 `get` / `set` 与父单元是不是类体），所以「我是不是方法声明」
+不能从它读出来——两问各自一格。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsMethodDeclaration:bool = true`，构造时就赋好），投影只读这一格（`v.IsMethodDeclaration`）。
+
+## field IsUnaryOperator:bool = false
+
+**我这一格是不是一个一元运算符单元**（第 1099 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`UnaryOperator` 那一页答 `true`
+（`typescript/tokens/unary-operator.xl.md`），其余一律 `false`。过去它在投影层是**两处连写
+比类名**（`kids[0].Tag === "UnaryOperator"`——折链时认出「一元前缀 + 操作数在外」那两格），
+而那个名字就是那一页自己的类名。
+
+**它与 `IsPrefixOperatorUnit` 不是同一问**：那一格答「**裸符号**能不能当一个前缀运算符」
+（按正文现算，在 `SymbolToken` / `Keyword` 那几页上）；这一格答「**我这一格整个单元**是不是
+一元运算符单元」。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsUnaryOperator:bool = true`，构造时就赋好），投影只读这一格（`kids[0].IsUnaryOperator`）。
+
+## field IsSwitchCaseUnit:bool = false
+
+**我这一格是不是一段 `case` 的匹配表达式**（第 1099 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`SwitchCase` 那一页答 `true`
+（`typescript/tokens/switch/switch-case.xl.md`），其余一律 `false`。过去它在投影层是**一处连写
+比类名**（`kids.find((k) => k.Tag === "SwitchCase")`——一个 `switch` 段的子单元里找匹配表达式），
+而那个名字就是那一页自己的类名。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsSwitchCaseUnit:bool = true`，构造时就赋好），投影只读这一格。
+
+## field IsSwitchStatementUnit:bool = false
+
+**我这一格是不是一个 `switch` 段的语句体**（第 1099 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`SwitchStatement` 那一页答 `true`
+（`typescript/tokens/switch/switch-statement.xl.md`），其余一律 `false`。过去它在投影层是
+**一处连写比类名**（`kids.find((k) => k.Tag === "SwitchStatement")`——同一个 `switch` 段的
+子单元里找语句体那一格），而那个名字就是那一页自己的类名。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsSwitchStatementUnit:bool = true`，构造时就赋好），投影只读这一格。
+
 ## property HasChildren:bool
 
 **我这一格下面还有没有实义子单元**（第 1064 轮）：有就答 `true`。

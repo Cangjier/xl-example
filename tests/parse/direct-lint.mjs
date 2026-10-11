@@ -777,6 +777,14 @@ const SELF_CLASSIFY_NAMES = [
   "IsTypeQuery",
   "IsTypeWithTypeArguments",
   "IsParameterUnit",
+  "IsLabelUnit",
+  "IsExportUnit",
+  "IsBindingElement",
+  "IsMethodDeclaration",
+  "IsUnaryOperator",
+  "IsSwitchCaseUnit",
+  "IsSwitchStatementUnit",
+  "IsStatementShell",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -1098,6 +1106,21 @@ let notNullSymbolHits = 0;
  * （「基名后面挂着的那种尾缀」——`IsStringLiteralUnit` 同格局：两页答同一问），
  * `TypeQuery` / `ImportType` 两页另各答一格 `IsTypeWithTypeArguments`（同格局）。
  * 这一条因此守三十七个 `<Tag>`。
+ *
+ * **第 1099 轮把剩下那九处收尾**（同一句话、同一形态）：投影层 **9 处**现场写
+ * `X.Tag === "MethodDeclaration"` / `"UnaryOperator"` / `"BindingElement"` / `"Statement"` /
+ * `"SwitchCase"` / `"SwitchStatement"` / `"Export"` / `"Label"`——八个名字同样是那八页自己的
+ * 类名，所以各立一格（`IsMethodDeclaration` / `IsUnaryOperator` / `IsBindingElement` /
+ * `IsStatementShell` / `IsSwitchCaseUnit` / `IsSwitchStatementUnit` / `IsExportUnit` /
+ * `IsLabelUnit`，各页显式声明、构造时赋 `true`），9 处改属性读。这一条因此守四十五个 `<Tag>`。
+ *
+ * **这一条守的是那四十五个名字，不是「一个 `<Tag>` 都没有」**（第 1099 轮逐行量出来的）：
+ * 名单外的**跨行形态**它看不见（`spineHead.Tag !== "BinaryOperator" && spineHead.Tag !==
+ * "LogicalOperator"` 换行写开那一条就是），而「这一格是不是一条注释」那一处
+ * （`k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`）与「二元 / 逻辑」那一族剩下
+ * 十一处**都还没进这一条**——那两族里有几处是**窄问**（只认 `BinaryOperator`，改成
+ * `IsBinaryOperatorNode` 会把 `LogicalOperator` 一起收进来，是改语义不是搬家），
+ * 要逐处点名才能动手。下面的正则因此只增不减：加一格就等于「这一问以后不许再写回类名」。
  */
 const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"PropertyAccess"/g,
@@ -1134,6 +1157,14 @@ const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"ImportType"/g,
   /\.Tag\s*[!=]==?\s*"LiteralType"/g,
   /\.Tag\s*[!=]==?\s*"Parameter"/g,
+  /\.Tag\s*[!=]==?\s*"MethodDeclaration"/g,
+  /\.Tag\s*[!=]==?\s*"UnaryOperator"/g,
+  /\.Tag\s*[!=]==?\s*"BindingElement"/g,
+  /\.Tag\s*[!=]==?\s*"Statement"/g,
+  /\.Tag\s*[!=]==?\s*"SwitchCase"/g,
+  /\.Tag\s*[!=]==?\s*"SwitchStatement"/g,
+  /\.Tag\s*[!=]==?\s*"Export"/g,
+  /\.Tag\s*[!=]==?\s*"Label"/g,
 ];
 /** 投影层拿类名当「是不是 `PropertyAccess` / `NotNull` 那一格」判的处数（0 处才是对的）。 */
 let selfTagClassifyHits = 0;
@@ -1149,8 +1180,8 @@ let selfTagClassifyHits = 0;
           violations.push({
             file: SHARED_FILE,
             why:
-              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` / \`Method\` / \`GenericType\` / \`SymbolToken\` / \`NullConditionalOperator\` / \`String\` / \`ConstString\` / \`Bracket\` / \`ArrayLiteral\` / \`TypeParameter\` / \`Keyword\` / \`Identifier\` / \`Let\` / \`ObjectLiteral\` / \`Decorator\` / \`As\` / \`Satisfies\` / \`Spread\` / \`Function\` / \`Class\` / \`Lamda\` / \`TypeDefine\` / \`ArrayType\` / \`IndexedAccessType\` / \`TypeOperator\` / \`TypeQuery\` / \`TypePredicate\` / \`UnionType\` / \`IntersectionType\` / \`FunctionType\` / \`ImportType\` / \`LiteralType\` / \`Parameter\` 那一类」又比类名了：\`${match[0]}\`——` +
-              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull` / `Token.IsMethodNode` / `Token.IsGenericType` / `Token.IsSymbolToken` / `Token.IsNullConditionalOperator` / `Token.IsStringUnit` / `Token.IsStringLiteralUnit` / `Token.IsBracketUnit` / `Token.IsArrayLiteralUnit` / `Token.IsTypeParameterUnit` / `Token.IsKeywordUnit` / `Token.IsIdentifierUnit` / `Token.IsLetUnit` / `Token.IsObjectLiteralUnit` / `Token.IsDecoratorUnit` / `Token.IsAsUnit` / `Token.IsSatisfiesUnit` / `Token.IsSpreadUnit` / `Token.IsValueOnlyUnit` / `Token.IsTypeUnit` / `Token.IsTypeSuffixUnit` / `Token.IsTypeDefine` / `Token.IsArrayType` / `Token.IsIndexedAccessType` / `Token.IsTypeOperator` / `Token.IsTypeQuery` / `Token.IsImportType` / `Token.IsTypePredicate` / `Token.IsUnionType` / `Token.IsIntersectionType` / `Token.IsFunctionType` / `Token.IsParameterUnit` / `Token.IsTypeWithTypeArguments`，构造时赋好），投影只读属性",
+              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` / \`Method\` / \`GenericType\` / \`SymbolToken\` / \`NullConditionalOperator\` / \`String\` / \`ConstString\` / \`Bracket\` / \`ArrayLiteral\` / \`TypeParameter\` / \`Keyword\` / \`Identifier\` / \`Let\` / \`ObjectLiteral\` / \`Decorator\` / \`As\` / \`Satisfies\` / \`Spread\` / \`Function\` / \`Class\` / \`Lamda\` / \`TypeDefine\` / \`ArrayType\` / \`IndexedAccessType\` / \`TypeOperator\` / \`TypeQuery\` / \`TypePredicate\` / \`UnionType\` / \`IntersectionType\` / \`FunctionType\` / \`ImportType\` / \`LiteralType\` / \`Parameter\` / \`MethodDeclaration\` / \`UnaryOperator\` / \`BindingElement\` / \`Statement\` / \`SwitchCase\` / \`SwitchStatement\` / \`Export\` / \`Label\` 那一类」又比类名了：\`${match[0]}\`——` +
+              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull` / `Token.IsMethodNode` / `Token.IsGenericType` / `Token.IsSymbolToken` / `Token.IsNullConditionalOperator` / `Token.IsStringUnit` / `Token.IsStringLiteralUnit` / `Token.IsBracketUnit` / `Token.IsArrayLiteralUnit` / `Token.IsTypeParameterUnit` / `Token.IsKeywordUnit` / `Token.IsIdentifierUnit` / `Token.IsLetUnit` / `Token.IsObjectLiteralUnit` / `Token.IsDecoratorUnit` / `Token.IsAsUnit` / `Token.IsSatisfiesUnit` / `Token.IsSpreadUnit` / `Token.IsValueOnlyUnit` / `Token.IsTypeUnit` / `Token.IsTypeSuffixUnit` / `Token.IsTypeDefine` / `Token.IsArrayType` / `Token.IsIndexedAccessType` / `Token.IsTypeOperator` / `Token.IsTypeQuery` / `Token.IsImportType` / `Token.IsTypePredicate` / `Token.IsUnionType` / `Token.IsIntersectionType` / `Token.IsFunctionType` / `Token.IsParameterUnit` / `Token.IsTypeWithTypeArguments` / `Token.IsMethodDeclaration` / `Token.IsUnaryOperator` / `Token.IsBindingElement` / `Token.IsStatementShell` / `Token.IsSwitchCaseUnit` / `Token.IsSwitchStatementUnit` / `Token.IsExportUnit` / `Token.IsLabelUnit`，构造时赋好），投影只读属性",
           });
         }
       }
@@ -1350,7 +1381,7 @@ console.log(
   `「这一格是不是非空断言那个 \`!\`」又在投影层现场连写（${SHARED_FILE} 的代码块）：${notNullSymbolHits} 处（0 处才是对的，读 SymbolToken.IsNotNullSymbol）`,
 );
 console.log(
-  `「这一格是不是一条成员访问链 / 一次非空断言 / 一次方法调用 / 一段泛型括号段 / 一个符号块 / 一个空条件运算符单元 / 一个字符串单元 / 一段字符串字面量 / 一个括号单元 / 一个数组字面量单元 / 一个类型参数单元 / 一个关键字单元 / 一个标识符单元 / 一条 let 声明单元 / 一个对象字面量单元 / 一个装饰器单元 / 一个 as 单元 / 一个 satisfies 单元 / 一个展开单元 / 一个只可能做值的单元 / 一个类型位单元 / 一个类型尾缀单元 / 一格 TypeDefine / 一格 ArrayType / 一格 IndexedAccessType / 一格 TypeOperator / 一格 TypeQuery / 一格 ImportType / 一格 TypePredicate / 一格 UnionType / 一格 IntersectionType / 一格 FunctionType / 一格 Parameter」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull / Token.IsMethodNode / Token.IsGenericType / Token.IsSymbolToken / Token.IsNullConditionalOperator / Token.IsStringUnit / Token.IsStringLiteralUnit / Token.IsBracketUnit / Token.IsArrayLiteralUnit / Token.IsTypeParameterUnit / Token.IsKeywordUnit / Token.IsIdentifierUnit / Token.IsLetUnit / Token.IsObjectLiteralUnit / Token.IsDecoratorUnit / Token.IsAsUnit / Token.IsSatisfiesUnit / Token.IsSpreadUnit / Token.IsValueOnlyUnit / Token.IsTypeUnit / Token.IsTypeSuffixUnit / Token.IsTypeDefine / Token.IsArrayType / Token.IsIndexedAccessType / Token.IsTypeOperator / Token.IsTypeQuery / Token.IsImportType / Token.IsTypePredicate / Token.IsUnionType / Token.IsIntersectionType / Token.IsFunctionType / Token.IsParameterUnit / Token.IsTypeWithTypeArguments）`,
+  `「这一格是不是一条成员访问链 / 一次非空断言 / 一次方法调用 / 一段泛型括号段 / 一个符号块 / 一个空条件运算符单元 / 一个字符串单元 / 一段字符串字面量 / 一个括号单元 / 一个数组字面量单元 / 一个类型参数单元 / 一个关键字单元 / 一个标识符单元 / 一条 let 声明单元 / 一个对象字面量单元 / 一个装饰器单元 / 一个 as 单元 / 一个 satisfies 单元 / 一个展开单元 / 一个只可能做值的单元 / 一个类型位单元 / 一个类型尾缀单元 / 一格 TypeDefine / 一格 ArrayType / 一格 IndexedAccessType / 一格 TypeOperator / 一格 TypeQuery / 一格 ImportType / 一格 TypePredicate / 一格 UnionType / 一格 IntersectionType / 一格 FunctionType / 一格 Parameter / 一格 MethodDeclaration / 一格 UnaryOperator / 一格 BindingElement / 一格 Statement / 一格 SwitchCase / 一格 SwitchStatement / 一格 Export / 一格 Label」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull / Token.IsMethodNode / Token.IsGenericType / Token.IsSymbolToken / Token.IsNullConditionalOperator / Token.IsStringUnit / Token.IsStringLiteralUnit / Token.IsBracketUnit / Token.IsArrayLiteralUnit / Token.IsTypeParameterUnit / Token.IsKeywordUnit / Token.IsIdentifierUnit / Token.IsLetUnit / Token.IsObjectLiteralUnit / Token.IsDecoratorUnit / Token.IsAsUnit / Token.IsSatisfiesUnit / Token.IsSpreadUnit / Token.IsValueOnlyUnit / Token.IsTypeUnit / Token.IsTypeSuffixUnit / Token.IsTypeDefine / Token.IsArrayType / Token.IsIndexedAccessType / Token.IsTypeOperator / Token.IsTypeQuery / Token.IsImportType / Token.IsTypePredicate / Token.IsUnionType / Token.IsIntersectionType / Token.IsFunctionType / Token.IsParameterUnit / Token.IsTypeWithTypeArguments / Token.IsMethodDeclaration / Token.IsUnaryOperator / Token.IsBindingElement / Token.IsStatementShell / Token.IsSwitchCaseUnit / Token.IsSwitchStatementUnit / Token.IsExportUnit / Token.IsLabelUnit）`,
 );
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的

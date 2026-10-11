@@ -450,3 +450,9 @@ return result;
 而 `LabeledStatement` 就是**这一页自己的节点名**（`AstKind()` 的一格）——所以那是每一页自己的事实，
 被写在投影那一页里。今天需要它的页面各自覆写，投影只问这一格
 （口径见 `core/syntax/token.xl.md` 的 `IsStatementNode`）。
+
+## field IsLabelUnit:bool = true
+
+**我这一格就是一个标签单元**（第 1099 轮）：`Label` 就是这一页自己的类名，所以常量答
+`true`（口径见 `core/syntax/token.xl.md` 的 `IsLabelUnit`）——投影那三处要在语句串里认出
+「连着的那几格标签」（`foo: bar: x = 1` 那种老形状，标签与被标语句是平级兄弟）。
