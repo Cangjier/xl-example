@@ -6925,6 +6925,13 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   `chainOnto` 一圈都不跑 ⇒ 那次调用没有节点、`ElementAccessExpression` 的区间也停在 `]` 上）；
 - **其余「以一次调用开头」的外壳**（`PropertyAccess([Bracket(()), ., v])` 那一族）摊成平级——
   调用括号与后面的后缀装在同一格，不摊开 `chainOnto` 在它上面既不是点号也不是括号（第 962 轮）。
+- **「以模板串开头」的外壳也摊成平级**（第 1211 轮，用户口径 1.1）：`a?.[c]`x`.b` 的 `?.` 之后
+  那一截是 `NCO[Bracket([c]), PropertyAccess([String(反引号), ., b])]`——**模板与后缀装在同一格**，
+  而 `chainOnto` 里「紧跟一格反引号模板 ⇒ 又是一条标签模板」那一支（第 979 轮）只认**裸的模板格**
+  ⇒ 不摊开的话那一格既不是点号也不是括号、`break` ⇒ 模板那一整段丢
+  （实测 `a?.[c]`x`.b` / `a?.(d)`x`.b`：缺 `TaggedTemplateExpression` + 模板字面量）。
+  判据与 `membersOnto` 里那一档同源（都问「这一格的头一格是不是反引号模板」），摊出来是
+  `[String, ., b]`——正好是 `chainOnto` 那两支要的平级形状。
 
 ```ts
 const out: Array<any> = [];
@@ -6937,7 +6944,7 @@ for (const unit of units) {
     out.push(unit);
     continue;
   }
-  if (unit.IsCallFirstUnit) {
+  if (unit.IsCallFirstUnit || (unit.IsPropertyAccess && unit.ProjectableKids[0]?.IsTemplateString === true)) {
     for (const inner of unit.ProjectableKids) out.push(inner);
     continue;
   }
@@ -7094,6 +7101,27 @@ return out;
         const call: any =chainOn("CallExpression", node, { expression: node, arguments: callArgumentsOf(member, ctx) }, member.end);
         if (pending !== undefined) call.questionDotToken = pending;
         node = call;
+      } else if (member.IsTemplateString) {
+        // **模板串也是链上的一格**（第 1211 轮，用户口径 1.1）：`a`x`.b!` 的核是
+        // `PropertyAccess([String(反引号), ., b])`——模板与它后面那一截收在**同一格**里，
+        // 而那一格的**头一格**就是模板。落进下面那条通用支会把模板当名字读（`String` 没有名字）
+        // ⇒ 整条标签模板连后缀一起丢（实测 `a`x`.b!` / `a`x`[c]!`：缺
+        // `NonNullExpression` + `TaggedTemplateExpression` + 模板字面量）。这一档只接**裸的模板格**。
+        const template = projectNode(member, ctx);
+        if (template !== undefined) {
+          node = { kind: "TaggedTemplateExpression", tag: node, template, pos: node.pos, end: member.end };
+        }
+      } else if (member.IsPropertyAccess && member.ProjectableKids.length > 0 && member.ProjectableKids[0].IsTemplateString) {
+        // **这一格是一条「以模板串开头」的子链**（第 1211 轮，用户口径 1.1）：
+        // `a?.b`x`.b` 的 NCO 内容是 `[Identifier(b), PropertyAccess([String, ., b])]`——
+        // 模板与它后面那一截被收成了**第一格的兄弟**。先把模板套在当前这条链上（标签就是它），
+        // 再把那一格**剩下的成员**接着往链上接——用的还是这一格自己（递归），不写第二份。
+        const inner = member.ProjectableKids;
+        const template = projectNode(inner[0], ctx);
+        if (template !== undefined) {
+          const tagged: any = { kind: "TaggedTemplateExpression", tag: node, template, pos: node.pos, end: inner[0].end };
+          node = membersOnto(tagged, inner.slice(1), undefined, ctx);
+        }
       } else {
         const step =chainOn("PropertyAccessExpression", node, { expression: node, name: member.NameNode }, member.end);
         if (pending !== undefined) step.questionDotToken = pending;
@@ -7349,6 +7377,17 @@ return out;
     // 剩下的兄弟交给 `chainOnto`——「紧跟一对圆括号 ⇒ 再调一次」那一支正是这一档要的，
     // 与上面 `?.[i]` 那一支里同一个写法（第 962 轮立），不写第二份。
     return kids.length > 1 ? chainOnto(node, kids.slice(1), ctx) : node;
+  }
+  // **NCO 里不止一格时，从第一格起逐格接**（第 1211 轮，用户口径 1.1）：`a?.b`x`.b` 的 NCO 内容是
+  // `[Identifier(b), PropertyAccess([String(反引号), ., b])]`——**模板与它后面那一截被收成了
+  // 第一格的兄弟**（`?.` 后面先跟一格名字、再跟一条以模板开头的子链）。下面那条通用支只按
+  // `first` 折**一格**属性访问、`end` 还取整个 NCO ⇒ 模板那一段整片丢（实测 `a?.b`x`.b` /
+  // `a?.[c]`x`.b` / `a?.(d)`x`.b` 三族：缺 `TaggedTemplateExpression` + 模板字面量）。
+  // 这一串交给 `membersOnto`——与上面 `first.IsPropertyAccess` 那一支**同一份实现**，
+  // 那里本来就有「模板当兄弟」那一档。**只在多于一格时走**：单格的形状（`a?.b` / `a?.[c]` /
+  // `a?.import`）仍旧走下面那条通用支，一个字没改。
+  if (kids.length > 1) {
+    return membersOnto(left, kids, questionDot, ctx);
   }
   // **成员名一律是 `Identifier`**（第 175 轮）：`a?.import` 里那个 `import` 在产物中是
   // `Keyword`，照通用支投会得到 `ImportKeyword`，而 TS 那边点号后面一律是**属性名**
