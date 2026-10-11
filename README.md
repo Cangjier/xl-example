@@ -438,6 +438,44 @@ token 的区间里，就读**那一格自己的 `Text`**（`[start, end)` 那一
 `cases:direct` **21793 / 16489（75.7%）不动**；`samples` ok；`cases:check` **1656 条 0 不合格**；
 `cases:tsast` **15 / 16**。
 
+### 第 1185 轮：用户口径 1.3 / 1.6 / 1.7 —— 投影层**最后一处** `ctx.source` 读点收进被问的那一格（`ownsTrailingSemicolonOf` 的末字符那一问改成读「覆盖那个字符的 token」自己的 `Text`），代码块里 `ctx.source` 读点 **1 → 0**；代价如实记下：本页代码块 **3850 → 3864** 行（1.7 上的一次退让）
+
+**一句话**：第 1181 轮登记的第一个缺口（「投影层还有 10 处按坐标回 `ctx.source` 读」）里，
+第 1183 / 1184 轮收掉了 `semicolonEndOf` 那 8 处与合成语句视图那 1 处，**只剩
+`ownsTrailingSemicolonOf` 里那一处**——它读的是 `ctx.source[node.end - 1]`（回投影手上那个
+字符串读一个字符）。这一轮把它也交给 token：那一格 token 由投影循环同步在 `prevUnit` 上
+（`out` 的四个 push 点各记一次 + 「被吃掉的 `;` 要算进上一条终点」那一步改记成那一格 `;`），
+那一问于是变成 `unit.Text.charAt(node.end - 1 - unit.start) === ";"`——**投影这一层今天
+一处 `ctx.source` 都不读**。
+
+| 原来的现场算式 | 今天读的那一格 | 谁记、什么时候记 |
+| --- | --- | --- |
+| `ctx.source[node.end - 1] === ";"`（`ownsTrailingSemicolonOf` 里那一处） | `unit.Text.charAt(node.end - 1 - unit.start)` | `core/syntax/token.xl.md` 的 `## property Text:string`（`### get`，`[start, end)` 那一段，走这一格 `SourceRange` 两头各自带着的那份 `Document`）；`unit` 是投影循环自己同步的那一格 token |
+
+- **为什么是「把 token 递进去」而不是「换一个属性读」**：被问的那一格（`previous`）是
+  **投影出来的普通对象**（`{ kind, pos, end, … }`，由各页 `PrintAst` 造），它身上既没有 `Text`、
+  也没有 `ProjectionEnd`——原样照 token 问会让 `stmt-semicolon-after-declaration` 那一族当场倒退
+  （第 1040 轮那条结论照旧成立）。所以递进去的不是「这一格自己」，而是**覆盖 `node.end - 1`
+  那个字符的 token**。
+- **等价是全语料并排量出来的**：探针挂在编译产物上，把新旧两个答案在同一次求值里并排算一遍
+  （`node tests/parse/direct-ast.mjs --all`，2051 份）⇒ `{"n":16,"mism":0,"unitUndef":0}`
+  ——这一问进 **16** 次、**0 次不一致**，而且 16 次里 `prevUnit` **一次都没落空**。
+  读数同时说明它是**冷路径**（`projectEach` 全语料被调四千多次，末字符那一问只求值 16 次），
+  所以这一轮换来的不是速度，是「投影这一层**结构上**再也拿不到原文」。
+- **`unit.Text` 与 `ctx.source` 逐字符同源**：`Text` 就是 `[start, end)` 那一段（第 1048 轮），
+  探针逐次比的是同一个字符。
+- **第 1181 轮登记的第二个缺口**（7 处「拿某一格自己的正文比字面量」）第 1182 轮已经收干净
+  （`await` / `yield` / `with` / `assert` 全部改成读属性）——所以**两个缺口今天都是关着的**，
+  1.3 / 1.6 的「还剩多少」此后由 `direct:lint` 印出来的那个属性数说话（今天 **151** 个）。
+- **本页的读数**：代码块（不带注释）**3850 → 3864** 行、文件总行数 **10552 → 10578** 行、
+  声明 **54 格**不变、ctx 出口 **39 个**不变、代码块里 `ctx.source` 读点 **1 → 0** 处。
+
+**实测**：`xl check` **0 条**；`npx tsc`（strict）**0 error**；`direct:lint` **0 条违反**
+（`## field` / `## property` 里 `any` **0 处**、投影读到的 PascalCase 属性 **151** 个、没有声明的
+**0** 个）；`cases:direct` **21793 / 16489**（75.7%）不动、`--all` 2051 份 **0 处抛异常**；
+`samples` ok；`cases:check` **1656 条 0 不合格**；`cases:tsast` 16 片 **15 通过 / 1 失败**
+（仍是 HEAD 上既有的 `runtime/round741/002`）。
+
 ### 第 1181 轮：用户口径 1.1 ~ 1.7 的**逐条核对**（不夹带任何改写）—— 七条各有**可复核的读数**，其中四条由 `direct:lint` 当门守着；三条本轮实测、两个缺口如实登记
 
 **一句话**：这一轮**一行算式都不改**，只把「用户口径 1.1 ~ 1.7 今天各自处在什么状态」

@@ -3111,12 +3111,28 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // 而原来每一趟 `projectEach` 都要重建一次（`new Set` + 13 个字面量 + 一次哈希表构造）
   // ——全语料 1640 份实测本函数被调 **4380 次**，就是四千多次白造的集合。
   // 判据一个字没改：名单仍是那 13 档、仍是 `!ENDS_ON_BRACE.has(kind)`。
-  const ownsTrailingSemicolonOf = (node: any, ctx: any): bool => {
+  //
+  // **末字符那一格第 1185 轮也交给 token 自己答**（用户口径 1.3 / 1.6）：原来读的是
+  // `ctx.source[node.end - 1]`（回投影手上那个字符串读一个字符），现在读**覆盖那个字符的那一格
+  // token 自己的 `Text`**（`[start, end)` 与原文逐字符相同）——投影这一侧于是**一处 `ctx.source`
+  // 都不读**。代价如实记下：那一格 token 由循环同步在 `prevUnit` 上（四个 push 点 + 一次
+  // 「被吃掉的 `;` 要算进上一条终点」那一步），本页代码块因此多 10 行——是 1.7 上的退让，
+  // 换来 1.3 / 1.6 的收口。实测这一问全语料只求值 **16** 次（`--all` 2051 份），且 16 次里
+  // 覆盖那个字符的 token 与「造出那一格节点的 token」**逐次同一个**（`node.end` 与它的
+  // `ProjectionEnd` 逐次相等）。
+  const ownsTrailingSemicolonOf = (node: any, unit: Token | undefined): bool => {
     const kind = String(node.kind);
     if (kind === "EmptyStatement") return false;
-    if (typeof node.end === "number" && node.end > 0 && ctx.source[node.end - 1] === ";") return false;
+    if (
+      unit !== undefined &&
+      typeof node.end === "number" &&
+      node.end > 0 &&
+      unit.Text.charAt(node.end - 1 - unit.start) === ";"
+    ) {
+      return false;
+    }
     if (kind === "LabeledStatement" && node.statement !== undefined && node.statement !== null) {
-      return ownsTrailingSemicolonOf(node.statement, ctx);
+      return ownsTrailingSemicolonOf(node.statement, unit);
     }
     if (kind === "FunctionDeclaration" && node.body === undefined) return true;
     // **这个目标语言节点名收在 `}`（块尾）上吗**（第 1040 轮）：就是原来那张按 kind 查的
@@ -3149,6 +3165,10 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
       // **逗号那一格自己答**（第 1074 轮）：见 `SymbolToken.IsCommaSymbol`。
       !item.IsCommaSymbol,
   );
+  // **「上一条语句末字符落在哪一格 token 上」**（第 1185 轮）：与 `out` 同步维护，四个 push 点各
+  // 记一次、被吃掉的那个 `;` 那一步改记成那一格 `;`（`semi` 就在它的区间里）。除此之外投影
+  // 一个字都不记——它只被 `ownsTrailingSemicolonOf` 那一问读。
+  let prevUnit: Token | undefined = undefined;
   let i = 0;
   while (i < items.length) {
     // **带标签的语句要合并**：产物那边 `outer: for (…) {}` 是**两个平级的单元**
@@ -3204,6 +3224,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
         for (let k = labels.length - 1; k >= 0; k--) {
           wrapped = labeled(labels[k], wrapped);
         }
+        prevUnit = items[j];
         out.push(wrapped);
         i = j + 1;
         continue;
@@ -3252,6 +3273,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
             modifiers.sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
             declaration.modifiers = modifiers;
             declaration.pos = items[i].start;
+            prevUnit = items[j];
             out.push(declaration);
             i = j + 1;
             continue;
@@ -3302,6 +3324,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
       if (DEFAULT_TAIL.test(unitText) && items[i + 1].IsDeclarationUnit) {
         const merged = projectExport(items[i], ctx, items.slice(i + 1), items[i + 1].end);
         if (merged !== undefined) {
+          prevUnit = items[i + 1];
           out.push(merged);
           i += 2;
           continue;
@@ -3349,25 +3372,28 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
         previous !== undefined &&
         typeof previous.end === "number" &&
         semi >= previous.end &&
-        ownsTrailingSemicolonOf(previous, ctx)
+        ownsTrailingSemicolonOf(previous, prevUnit)
       ) {
         // **被吃掉的 `;` 要算进上一条语句的终点**（第 167 轮）：`let a = 1` 换行 `;[1, 2].forEach(f)`
         // 里那个 `;` 在 TS 那边是上一条 `VariableStatement` 的**终结符**（`tryParseSemicolon`
         // 不看换行），所以上一条的区间要含它（实测 `st-asi-array.ts` / `st-asi-paren.ts`：
         // 上一条语句的终点各短一格）。
         previous.end = semi + 1;
+        prevUnit = items[i];
         i++;
         continue;
       }
       // **不成节点的**那一档要在这里补出空语句（`function f() {} /*c*/;` 里那一格是
       // 「注释 + `;`」：`projectStatement` 按起点判、起点在注释上，于是整格被丢掉）。
       if (projected === undefined && !covered) {
+        prevUnit = items[i];
         out.push({ kind: "EmptyStatement", pos: semi, end: semi + 1 });
         i++;
         continue;
       }
     }
     if (projected !== undefined) {
+      prevUnit = items[i];
       out.push(projected);
     }
     i++;
