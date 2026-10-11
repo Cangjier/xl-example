@@ -74,14 +74,24 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**52 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-48 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**48 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+45 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 3 个名字**（`projectNode` /
 `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），其余一律 `# private`。
 **量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 （`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
 （第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
+**第 1109 轮把三格「一格声明、只有本页某两处读者」并进各自那个调用点**（用户口径 1.1~1.4 的
+同一把尺子：一格声明若只剩转手与读表、而且读者就在同一个函数里，那它就是多一层间接）：
+
+| 并掉的声明 | 并进哪里 | 为什么它不该单独立一格 |
+| --- | --- | --- |
+| `fieldNameFor(kind, key, node)`（45 行） | `structuralProps` 里的 `fieldOf`（两处读者都在这一格函数） | 它问的是「这一段是哪个 token 切的、那一格答什么」（`node.SegmentNames`），读者只有本函数那两处 |
+| `bindingSpan(from, limit, ctx)`（18 行） | `projectLetFrom` 里的 `bindingSpanOf`（两处读者都在这一格函数） | 解构声明那两个分支各自拿到的就是这个区间，没有第二个调用方 |
+| `ownsTrailingSemicolon(node, ctx)` + 数据表 `ENDS_ON_BRACE` | `projectEach` 里的 `ownsTrailingSemicolonOf` / `endsOnBrace`（唯一读者就是那一格函数里的一处） | 数据表的唯一读者就是这一格；两者一起搬，本页少两格声明 |
+
+三格**判据一个字没改**，只是不再单独立声明（与第 1103 / 1104 / 1101 / 1100 轮同一手法）。
 **第 1108 轮把同一族剩下的三个符号一次收干净**（用户口径 1.1 ~ 1.4，
 尺子与第 1107 轮那一轮逐字相同）：
 
@@ -304,6 +314,12 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 而 `...namedExportClause(v, ctx)` 是展开进对象字面量；**这两格都有人用**
 （`ctx.Nothing` 的读者是 `tokens/statement.xl.md`，`namedExportClause` 的读者是 `projectExport`）。
 所以这一轮**没有删死代码**，只并掉三处「只有一格的转发」。
+
+**第 1109 轮再按同一把尺子量了一遍，结论仍然一样**：以 `projectRoot` / `ToJsonText` 为入口
+做可达性，**48 格声明全部可达**（那一轮并掉的三格不是死代码，而是「只有本页某两处读者」的
+转发/读表，搬进读者之后本页少三格）。**`ENDS_ON_BRACE` 那一格的名字因此不再存在**——
+它的唯一读者 `ownsTrailingSemicolon` 已并进 `projectEach`，数据表跟着搬成那一格函数里的
+`endsOnBrace`（上面第 309~316 行那段记录里提它的两处，读的时候要按这条口径理解）。
 
 **这一轮并掉的三层间接**（判据与第 1043 轮同一把尺子：一个声明**只有一个调用点**、
 而它自己只是把参数转手——那就把实现搬到那个调用点上）：
@@ -1780,52 +1796,6 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 `String.PrintDirectAst`——**一个字符的解释都没丢**，所以这一页不再留第二份。
 
 
-# private method fieldNameFor:(kind:string, key:string, node?:any)=>string
-
-`children` / 分段名 → TS 那边的字段名。**问这一格的主人，问不到就用原名**。
-
-**首选问单元自己**（第 988 轮）：`SegmentNames` 就住在那个 token 上，段名是它自己的事实，
-所以投影只读：读那一格属性（第 1041 轮起它是**构造时就赋好的属性**，不是方法），
-先按**父节点名**（`kind`）试、再按**这一格自己的标签名**试——包装节点
-（`FunctionBody` / `ReturnType` / `GenericType`…）是**自己**投成节点的，字段名也归自己，
-顺序「先父后己」与搬家前那张按 kind 查的中央表逐条等价。查不到就 `?? key` 用原名。
-
-**第 1043 轮把 `segmentNameOf` 并了进来**：它只服务这一格（投影里唯一一次「读段名表」就是
-这里），拆成两个声明只是多一层间接——**同一件事一处读法**。
-
-**第 989 轮把能搬的都搬完了**：那张按 kind 查的中央表
-（`FIELD_BY_KIND`）从 41 档缩到 4 档。
-
-**最后那四档第 1032 轮整张删掉了**，四档的归宿各不一样（都是一次一句的读法，不是改口径）：
-
-- `FunctionExpression → children → parameters` **真的有人查**（匿名 IIFE 走 `structuralProps`
-  时 `kind` 就是它），所以搬回 `typescript/tokens/function/function.xl.md`——
-  段是那个 token 切的、kind 也是它自己在表达式位投出来的，同一页答两档是本来的样子。
-- `TypeAliasDeclaration → GenericType → typeParameters` **永远查不到**：`fieldNameFor` 的
-  `key` 只可能来自 `segmentKeysOf`（**小写字母开头**的属性名）或 `WrapperField` 的答案，
-  而 `GenericType` 是大写开头、`WrapperField` 给的又**已经是字段名本身**——所以这一档
-  在今天的形状里一次都不会命中（`?? key` 给的是同一个字符串）。
-- `ArrayBindingPattern` / `ObjectBindingPattern → children → elements` **也永远查不到**：
-  这两个 kind 由 `projectBindingPattern` **手工造节点**（`return { kind, elements, … }`），
-  它**不经过** `structuralProps`；而全仓 `structuralProps` 只有一个调用点
-  （`projectDeclaration`），没有任何一页会拿这两个 kind 去调它。
-
-所以这一格今天只剩「问单元自己」一次：**谁切的段、谁答段名**，投影不再存第二份。
-
-```ts
-  if (node === undefined) return key;
-  const table = node.SegmentNames;
-  if (!(table instanceof Map) || table.size === 0) return key;
-  const tag: any = node.Tag;
-  for (const name of kind === undefined ? [tag] : [kind, tag]) {
-    const inner = table.get(name);
-    if (!(inner instanceof Map)) continue;
-    const field = inner.get(key);
-    if (typeof field === "string") return field;
-  }
-  return key;
-```
-
 # private const startOf:(node:any)=>int = (node) => node.start
 
 # private const endOf:(node:any)=>int = (node) => node.end
@@ -2334,6 +2304,48 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 # private method projectEach:(list:Array<any>, ctx:any)=>Array<any>
 
 ```ts
+  // **「上一条语句会不会吞掉紧跟的 `;`」就地取**（第 1109 轮）：它原来是本页一格
+  // `ownsTrailingSemicolon(node, ctx)` 连同数据表 `ENDS_ON_BRACE`（两者的读者都只有本函数里
+  // 那一处），按第 1103 / 1104 轮那把尺子整段搬进这个调用点，本页少两格声明。
+  // 判据仍只有一份：问 kind、不问原文（四档的说明见第 838 / 663 / 1040 轮的台账）。
+  const endsOnBrace: Set<string> = new Set([
+    "Block",
+    "ClassDeclaration",
+    "EnumDeclaration",
+    "ForInStatement",
+    "ForOfStatement",
+    "ForStatement",
+    "FunctionDeclaration",
+    "IfStatement",
+    "InterfaceDeclaration",
+    "ModuleDeclaration",
+    "SwitchStatement",
+    "TryStatement",
+    "WhileStatement",
+  ]);
+  const ownsTrailingSemicolonOf = (node: any, ctx: any): bool => {
+    const kind = String(node.kind);
+    if (kind === "EmptyStatement") return false;
+    if (typeof node.end === "number" && node.end > 0 && ctx.source[node.end - 1] === ";") return false;
+    if (kind === "LabeledStatement" && node.statement !== undefined && node.statement !== null) {
+      return ownsTrailingSemicolonOf(node.statement, ctx);
+    }
+    if (kind === "FunctionDeclaration" && node.body === undefined) return true;
+    // **这个目标语言节点名收在 `}`（块尾）上吗**（第 1040 轮）：就是原来那张按 kind 查的
+    // `NO_TRAILING_SEMICOLON` 集合（下面那一格是它的数据）。**第 1044 轮把它并了进来**：
+    // 全仓只有这一个调用点，拆成 `kindEndsOnBrace` 只是多一层间接——「同一件事一处读法」。
+    //
+    // **它不是第二份声明**：每一档对应的 token 页面都自己答 `Token.EndsOnBrace`
+    // （`core/syntax/token.xl.md`；空语句那一页答 `false`、带体的函数答 `true`、裸块由 `Bracket`
+    // 按 `startBracket` 答），这里的每一档都是那一页的 **`AstKind()` 名字**。
+    //
+    // **这一格为什么还是按 kind 问**（第 1040 轮实测）：调用点手上那一格 token 与 `out` 末尾那个
+    // 节点**不再是同一个单元**——`projectStatement` 会把一条声明包进语句壳（`function f() {}` 的
+    // 上一格是 `Statement`，而它的 `EndsOnBrace()` 是「不收在 `}` 上」），照 token 问会让
+    // `stmt-semicolon-after-declaration` 那一族 5 条用例当场倒退。名字与答案仍分处两页、
+    // **名字就是那一页答的**，所以这里只读一次名字，不在这里判「我这一格长什么样」。
+    return !endsOnBrace.has(kind);
+  };
   // **顶层逗号是分隔符，不是 TS 的语义子节点**（第 84 轮）：TS 的 `parameters` / `arguments` /
   // `elements` / `properties` / `types` 里都**没有**逗号子节点（逗号**运算符**是另一回事——
   // 那种早被 token 层折成 `BinaryOperator op=","`、走 `projectBinary` 那条路，不经过这里）。
@@ -2550,7 +2562,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
         previous !== undefined &&
         typeof previous.end === "number" &&
         semi >= previous.end &&
-        ownsTrailingSemicolon(previous, ctx)
+        ownsTrailingSemicolonOf(previous, ctx)
       ) {
         // **被吃掉的 `;` 要算进上一条语句的终点**（第 167 轮）：`let a = 1` 换行 `;[1, 2].forEach(f)`
         // 里那个 `;` 在 TS 那边是上一条 `VariableStatement` 的**终结符**（`tryParseSemicolon`
@@ -3057,79 +3069,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     break;
   }
   return ctx.source[at] === ";" ? (ctx.consumedSemicolons.add(at), at + 1) : end;
-```
-
-# private method ownsTrailingSemicolon:(node:any, ctx:any)=>bool
-
-**上一条语句自己会不会把紧跟的那个 `;` 当终结符**（第 838 轮的判据：问 kind，不问原文）。
-
-四档，缺一档就有一族形状错位：
-
-- **空语句不吞下一个**（`;;` 是两条 `EmptyStatement`，各自一格）；
-- **自己已经以 `;` 收尾的不吞**（`f();` 换行 `;`：`parseSemicolon` 只吃紧跟的那一个，
-  第二行那个 `;` 是新的空语句）；
-- **带标签的语句问的是被标的那条**：`lab: {}` 换行 `;` 里那个 `;` 不归标签（块收在 `}` 上），
-  而 `lab: x = 1` 换行 `;` 归它（被标的是表达式语句）⇒ 递归问下去，两档由被标的那一条自己答；
-- **收在 `}` 上的那一族自己不吃**（第 663 轮那张 `NO_TRAILING_SEMICOLON` 表，第 1040 轮改名
-  `ENDS_ON_BRACE`）。**表里的 `FunctionDeclaration` 要按有没有体分两档**（同第 663 轮的口径）：
-  没体的是环境签名 / 重载，那个 `;` 归它自己。
-
-```ts
-  const kind = String(node.kind);
-  if (kind === "EmptyStatement") return false;
-  if (typeof node.end === "number" && node.end > 0 && ctx.source[node.end - 1] === ";") return false;
-  if (kind === "LabeledStatement" && node.statement !== undefined && node.statement !== null) {
-    return ownsTrailingSemicolon(node.statement, ctx);
-  }
-  if (kind === "FunctionDeclaration" && node.body === undefined) return true;
-  // **这个目标语言节点名收在 `}`（块尾）上吗**（第 1040 轮）：就是原来那张按 kind 查的
-  // `NO_TRAILING_SEMICOLON` 集合（下面那一格是它的数据）。**第 1044 轮把它并了进来**：
-  // 全仓只有这一个调用点，拆成 `kindEndsOnBrace` 只是多一层间接——「同一件事一处读法」。
-  //
-  // **它不是第二份声明**：每一档对应的 token 页面都自己答 `Token.EndsOnBrace`
-  // （`core/syntax/token.xl.md`；空语句那一页答 `false`、带体的函数答 `true`、裸块由 `Bracket`
-  // 按 `startBracket` 答），这里的每一档都是那一页的 **`AstKind()` 名字**。
-  //
-  // **这一格为什么还是按 kind 问**（第 1040 轮实测）：调用点手上那一格 token 与 `out` 末尾那个
-  // 节点**不再是同一个单元**——`projectStatement` 会把一条声明包进语句壳（`function f() {}` 的
-  // 上一格是 `Statement`，而它的 `EndsOnBrace()` 是「不收在 `}` 上」），照 token 问会让
-  // `stmt-semicolon-after-declaration` 那一族 5 条用例当场倒退。名字与答案仍分处两页、
-  // **名字就是那一页答的**，所以这里只读一次名字，不在这里判「我这一格长什么样」。
-  return !ENDS_ON_BRACE.has(kind);
-```
-
-# private const ENDS_ON_BRACE:Set<string>
-
-**哪些节点名收在 `}`（块尾）上**（第 1040 轮）：这份名单就是原来那张
-`NO_TRAILING_SEMICOLON`（第 663 轮照 TS parser 列的那一份）——
-首选的路子问的是**那一格 token 自己**（`Token.EndsOnBrace`），
-这一份是「手上只有名字」时的落点（第 1044 轮起唯一的读者是 `ownsTrailingSemicolon` 里那一行）。
-
-**每一档对应的页面都会答**（句首那些类各自覆写 `EndsOnBrace()` 答 `true`）：
-`Block`（八个体类 / 裸块的 `Bracket`）、`ClassDeclaration` / `EnumDeclaration` /
-`InterfaceDeclaration` / `ModuleDeclaration` / `SwitchStatement` / `TryStatement` /
-`WhileStatement` / `ForStatement` / `ForOfStatement` / `ForInStatement` / `IfStatement` /
-`FunctionDeclaration`（这两态里**带体**的那一态；没体的是签名，那个 `;` 归它自己）。
-
-**`DoStatement` 不在名单里**：`do … while (c)` 后面那个 `;` 归它自己。
-**导入 / 导出 / 变量 / 表达式 / 类型别名也不在**：那几族自己就吃尾分号。
-
-```ts
-new Set([
-  "Block",
-  "ClassDeclaration",
-  "EnumDeclaration",
-  "ForInStatement",
-  "ForOfStatement",
-  "ForStatement",
-  "FunctionDeclaration",
-  "IfStatement",
-  "InterfaceDeclaration",
-  "ModuleDeclaration",
-  "SwitchStatement",
-  "TryStatement",
-  "WhileStatement",
-])
 ```
 
 # private method projectExpression:(kids:Array<any>, ctx:any)=>any
@@ -7607,6 +7546,29 @@ new Set([
 早先按单个 `Let` 投，看不到初值——`List` / `Declaration` 各短 4 个字符（实测 Δ-4）。
 
 ```ts
+  // **就地取**（第 1109 轮）：它原来是本页一格 `bindingSpan(from, limit, ctx)`（读者只有
+  // 本函数里那两处解构分支），按第 1103 / 1104 轮那把尺子整段搬进这个调用点，
+  // 本页少一格声明。取不到时给一个零宽占位（宁可窄，不要凭空盖住整条声明）。
+  const bindingSpanOf = (from: int, limit: int, ctx: any): any => {
+    const source = ctx.source;
+    for (let i = from; i < limit; i++) {
+      const ch = source[i];
+      if (ch !== "[" && ch !== "{") continue;
+      const close = ch === "[" ? "]" : "}";
+      let depth = 0;
+      for (let j = i; j < limit; j++) {
+        if (source[j] === ch) depth++;
+        else if (source[j] === close) {
+          depth--;
+          if (depth === 0) {
+            return { kind: ch === "[" ? "ArrayBindingPattern" : "ObjectBindingPattern", pos: i, end: j + 1 };
+          }
+        }
+      }
+      break;
+    }
+    return { kind: "ArrayBindingPattern", pos: from, end: from };
+  };
   // 外层容器只用来取「语句整体」的区间（`Statement` 含分号、`For` 的段不含）。
   const stmtWhole = stmtEndOf(container, ctx);
   const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
@@ -7676,7 +7638,7 @@ new Set([
     patternUnit !== null
       ? projectBindingPattern(patternUnit, ctx)
       : declared === ""
-        ? bindingSpan(listStart, listEnd, ctx)
+        ? bindingSpanOf(listStart, listEnd, ctx)
         : synthName(declared, letView, ctx);
   // **每个声明符一个 `VariableDeclaration`**：第一组用 `Let` 自己的 `fieldName`（名字在那上面），
   // 后面的组名字就是组里第一格（`j = 1` 的 `j`）；类型标注取**本组**的 `TypeDefine`。
@@ -7694,7 +7656,7 @@ new Set([
       index === 0
         ? name
         : head === undefined || (!head.IsNameNode)
-          ? bindingSpan(head === undefined ? listStart : startOf(head), listEnd, ctx)
+          ? bindingSpanOf(head === undefined ? listStart : startOf(head), listEnd, ctx)
           : projectNode(head, ctx);
     const declaration = {
       kind: "VariableDeclaration",
@@ -7925,64 +7887,6 @@ new Set([
   }
   return { kind: "BindingElement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
-
-# private method bindingSpan:(from:int, limit:int, ctx:any)=>int
-
-解构声明的**绑定模式**区间：`const [a = 1, b = a] = []` 里那个 `[a = 1, b = a]`。
-
-产物只把解构名记成 `arrayPattern="a,1,b,a"` 这样的**属性**（连括号都没记），
-所以这里从源码里把方括号 / 花括号那一段**配对扫出来**——从 `from` 往后找第一个 `[` 或 `{`，
-再按深度找它的配对括号。取不到时给一个零宽占位（宁可窄，不要凭空盖住整条声明）。
-
-**第 1066 轮删掉了第一个形参 `v`**（口径与第 1050 轮那一族同一条：**形参表就是它需要什么**）：
-它原本只用在「取不到时给零宽占位」那一句上（`pos: v.start, end: v.start`），
-而那个位置**与零宽占位要找的东西矛盾**——占位要盖住的正是**这一段里**那个模式括号，
-`from` 就是这一段自己的起点（调用方给的），比容器自己的起点更贴题。
-删掉之后这一格的形参只剩「从哪扫、扫到哪、哪里能看原文」三样，一个都不多。
-
-```ts
-  const source = ctx.source;
-  for (let i = from; i < limit; i++) {
-    const ch = source[i];
-    if (ch !== "[" && ch !== "{") continue;
-    const close = ch === "[" ? "]" : "}";
-    let depth = 0;
-    for (let j = i; j < limit; j++) {
-      if (source[j] === ch) depth++;
-      else if (source[j] === close) {
-        depth--;
-        if (depth === 0) {
-          return { kind: ch === "[" ? "ArrayBindingPattern" : "ObjectBindingPattern", pos: i, end: j + 1 };
-        }
-      }
-    }
-    break;
-  }
-  return { kind: "ArrayBindingPattern", pos: from, end: from };
-```
-
-**`modifierStart` 那一格第 1078 轮删掉了**（它原来就挂在这里，占第 7427~7456 行）：它回答的是
-「声明列表从哪里起」——`await using x` 从 `await` 起、其余从**最后一个**修饰词起，没有修饰词时
-退回本单元自己的起点。判据全是**被问的那一格自己的两格事实**（`modifiers` 与 `ModifierSpans`，
-解析期同一趟攒下、同序同长），所以按这一族一贯的口径（第 1041 / 1042 / 1057 / 1068 / 1069 那几条）
-它搬回了被问的那一页：`tokens/let.xl.md` 新增 `## field ListStart:int`，在 `LetBranch.Success`
-写下那两串的紧后面、`SignIn` / `SignOut` 之后当场赋好，`Clone` 照抄，投影这一侧只读一次属性。
-**它不是死代码**（`projectLetFrom` 有一个真实调用点）——所以删掉的是「投影层替 token 记第二遍
-这一格事实」，判据与第 1052 轮删掉「回原文 `indexOf(修饰词)` 猜」那条退路是同一条。
-`modifierSpansOf` **留着**：`addModifiers` 要的是**每个**修饰词各自的位置（不是首尾两格里的一个），
-而那一格事实（`ModifierSpans`）是各页自己声明的字段——要拆成一串区间仍得有一处解析。
-
-（**`projectSignedLiteralType` 这一格第 1087 轮删掉了**：它全仓只有 `projectTypeExpression`
-里那一处读者，而且只是「这一格是不是 `LiteralType` + 两个子单元 + 头一个是 `+` / `-`」
-——判据与第 1043 / 1044 / 1070 / 1080 轮那把尺子（**只有转手、没有独立判据的一格声明
-就是多一层间接**）逐字相同，所以整段并进了那个唯一的调用点。它原来答的那一句没变：
-`LiteralType > [加号/减号, 数字]` → `LiteralType > PrefixUnaryExpression`；不是这个形状就照
-原来那条路走（并进来之后是「什么都不做」，原来给的是 `undefined`）。
-**为什么它属于投影这一侧**：这一格要的不是「某一个 token 自己的事实」，而是
-**一串子单元凑出来的形状**（两个单元、头一个是符号、正文是 `+` / `-`）——按这一族的判据
-（第 1041 / 1042 / 1057 那几条）它落在**投影**这一侧，只是不再单独立一格声明。
-它读的都是那一格自己已经备齐的东西：`ProjectableKids`（第 1066 轮）、
-`SymbolToken.TextValue`（第 1069 轮）、`start` / `end` / `stmtEndOf`——**没有一处回原文猜**。）
 
 # private method nameOf:(node:any)=>string
 
@@ -9494,6 +9398,23 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 **提哪一层、叫什么，由那个子单元自己答**（`wrapperTarget` 只是转问它）。
 
 ```ts
+  // **段名那一格就地取**（第 1109 轮）：它原来是本页一格 `fieldNameFor(kind, key, node)`
+  // （唯一读者就是这一格函数里的两处），而它问的正是「这一段是哪个 token 切的、那一格答什么」
+  // ——按第 1103 / 1104 轮那把尺子（一格声明、只有本函数两处读者、函数体就是一次读表），
+  // 整段搬进这一格函数，本页少一格声明。
+  const fieldOf = (kind: string, key: string, node: any): string => {
+    if (node === undefined) return key;
+    const table = node.SegmentNames;
+    if (!(table instanceof Map) || table.size === 0) return key;
+    const tag: any = node.Tag;
+    for (const name of kind === undefined ? [tag] : [kind, tag]) {
+      const inner = table.get(name);
+      if (!(inner instanceof Map)) continue;
+      const field = inner.get(key);
+      if (typeof field === "string") return field;
+    }
+    return key;
+  };
   const props = {};
   const used = new Set();
   // **装饰器要收成修饰词**（第 95 轮）：TS 把 `@Component({…})` 放在被装饰声明的
@@ -9616,7 +9537,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     if (kept.length > 0) {
       // **段名先问这一格的主人**（第 988 轮）：`kept[0]` 只是这一段的第一个单元，
       // 而段是 `v` 这一格切出来的——所以问 `v`，字段名归它。
-      const field = fieldNameFor(kind, key, v);
+      const field = fieldOf(kind, key, v);
       // 同一字段**只写一次**（后写的会覆盖前写的）：一个 kind 的同一字段可能来自两处
       // （例如 `Bracket` 摊平出来的形参与自己的 `children`），合并而不是覆盖。
       const already = props[field];
@@ -9643,7 +9564,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // ⇒ 查不到 ⇒ `ClassDeclaration.heritageClauses` 整格变成 `types`，而
       // `cases:tsast` 只看 kind / 区间 / 字段名**集合**，这一格恰好两边都在（只是名字换了）
       // 所以它是绿的。`samples` 是逐字节比，它当场报出来。
-      const field = target === "children" ? fieldNameFor(kind, key, v) : fieldNameFor(kind, target, v);
+      const field = target === "children" ? fieldOf(kind, key, v) : fieldOf(kind, target, v);
       const already = props[field];
       // **包装体的成员拿到的是「外层声明」那一格 `v`**：`ClassBody` 的成员属于
       // `ClassDeclaration`（类里的 `constructor` 要按这个上下文投成 `Constructor`），
