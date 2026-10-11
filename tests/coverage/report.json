@@ -130,11 +130,11 @@
   ],
   "token": {
     "total": 1667,
-    "knownGap": 1,
+    "knownGap": 0,
     "knownGapStillOpen": 0,
     "exactFiles": 1667,
-    "scoredWithoutGap": 1666,
-    "passedWithoutGap": 1666
+    "scoredWithoutGap": 1667,
+    "passedWithoutGap": 1667
   },
   "blocked": [
     {
@@ -1146,10 +1146,6 @@
     }
   ],
   "newlyPassing": [
-    {
-      "id": "token/expressions/gap-as-bang-array-type",
-      "category": "token"
-    },
     {
       "id": "runtime/round741/003-optional-call-after-member-chain-differ",
       "category": "runtime"
