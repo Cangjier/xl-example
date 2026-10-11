@@ -337,7 +337,7 @@ return index;
   const assertUnits: any[] = [];
   const moduleAt = kids.indexOf(moduleNode);
   if (moduleNode !== undefined && moduleAt >= 0) {
-    const after = kids.slice(moduleAt + 1).filter((k: any) => !k.IsInvisible());
+    const after = kids.slice(moduleAt + 1).filter((k: any) => !k.IsInvisible);
     const braceAt = after.findIndex(
       (k: any) => k.Tag() === "Bracket" && k.startBracket === "{",
     );
@@ -403,7 +403,7 @@ return index;
   }
   const clause = kids.filter(
     (k: any) =>
-      k !== moduleNode && k !== fromNode && !assertUnits.includes(k) && !k.IsInvisible(),
+      k !== moduleNode && k !== fromNode && !assertUnits.includes(k) && !k.IsInvisible,
   );
   if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
   // **`ImportClause` 的起点**：type-only 读 `TypeWordAt`（上面已经确认它记过），
@@ -720,16 +720,12 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "ImportDeclaration"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
-
-```ts
-return "ImportDeclaration";
-```
 
 ## method IsStatementNode:()=>bool
 

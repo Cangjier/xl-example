@@ -229,7 +229,7 @@ return index;
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<Foreach>` 里依次是 Define、Enumable、Body 三段的 XML。
 
-## method SegmentNames:()=>Map<string, Map<string, string>>
+## field SegmentNames:Map<string, Map<string, string>> = new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumable", "expression"], ["body", "statement"]])], ["ForInStatement", new Map([["define", "initializer"], ["enumable", "expression"], ["body", "statement"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：每个节点名各一张表，产物那边的分段名 → 目标语言的字段名。
 
@@ -238,10 +238,6 @@ return index;
 段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `define` / `enumable` / `body` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
 
 **形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
-
-```ts
-return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumable", "expression"], ["body", "statement"]])], ["ForInStatement", new Map([["define", "initializer"], ["enumable", "expression"], ["body", "statement"]])]]);
-```
 
 ## field EmptyBodyAt:int = -1
 
@@ -290,7 +286,7 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
 
 ```ts
   const props: any = {};
-  const define = ctx.KidsOf(v, "define").filter((k: any) => !k.IsInvisible());
+  const define = ctx.KidsOf(v, "define").filter((k: any) => !k.IsInvisible);
   if (define.length > 0) {
     if (define[0].Tag() === "Let") {
       props.initializer = ctx.LetFrom(define, v).list;
@@ -310,10 +306,10 @@ return new Map([["ForOfStatement", new Map([["define", "initializer"], ["enumabl
       }
     }
   }
-  const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !k.IsInvisible());
+  const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !k.IsInvisible);
   if (enumable.length > 0) props.expression = ctx.Expression(enumable);
   const kind = v.isForIn === true ? "ForInStatement" : "ForOfStatement";
-  const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible());
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible);
   const rawEmpty = v.emptyBodyAt;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
   let statement;
@@ -529,16 +525,12 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "ForOfStatement"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
-
-```ts
-return "ForOfStatement";
-```
 
 ## method IsStatementNode:()=>bool
 

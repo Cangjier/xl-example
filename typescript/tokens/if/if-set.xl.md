@@ -184,7 +184,7 @@ ifSet.MountCondition(source);
     const cond = new Set(ctx.KidsOf(seg, "condition"));
     const kept: any[] = [];
     for (const k of ctx.AllKids(seg)) {
-      if (k.IsInvisible() || cond.has(k)) continue;
+      if (k.IsInvisible || cond.has(k)) continue;
       if (k.Tag() === "IfBody") {
         for (const inner of ctx.Kids(k)) kept.push(inner);
         continue;
@@ -995,16 +995,12 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "IfStatement"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
-
-```ts
-return "IfStatement";
-```
 
 ## method IsStatementNode:()=>bool
 

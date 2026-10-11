@@ -28,7 +28,10 @@ Token，语法树的地基。
 投影不读任何中间形态，它就是**在这些 token 本身上**读标签、子单元与坐标，直接投成目标语言的 AST 形状。
 
 **直出要的那几格全由 token 自己声明**：标签是 `Tag()`、子单元是 `children` 与各页自己那一批段属性
-（`compare` / `body` / `parameters` …）、坐标是 `start` / `end`、名字是 `NameField()`。
+（`compare` / `body` / `parameters` …）、坐标是 `start` / `end`、名字是 `NameField()`，
+**「这一格投成哪个节点 / 这些段叫什么 / 我在投影里出不出现」这一类答案是属性**
+（`AstKind` / `SegmentNames` / `IsInvisible` …）——第 1041 轮起它们由**具体类显式声明、构造时就赋好**
+（见各格自己的说明与 `SegmentNames` 那一节）。
 **没有一处是投影层替 token 记的**（没有中央键表、没有中间字典）：所以投影只读得出这一页
 **自己声明过**的那些格，「这一格缺什么」就等于「这一页少写了一个属性」——补在那一页上，
 不是补在投影层的一张表里。
@@ -764,7 +767,7 @@ return undefined;
 「这一格搬完了没有」这句话在直出版这一趟的准确说法是
 **「被问到的那 74 个类里没有一个答不出」**。
 
-## method SegmentNames:()=>Map<string, Map<string, string>>
+## field SegmentNames:Map<string, Map<string, string>> = new Map()
 
 **投成目标语言形状时，本单元的段叫什么**：`目标语言的节点名` → （`产物那边的分段名` → `目标语言的字段名`）。
 
@@ -785,20 +788,17 @@ return undefined;
 **查不到的名字原样照用**：产物那边本来就叫 `name` / `parameters` 的那些段与目标语言同形，
 所以一张 `Map` 里只写**叫法不同**的那些（与 `TokenField` 同一条口径：只记事实，不记同义反复）。
 
-**基类答空表**（`core` 与语言无关，不知道任何目标语言的字段名）：需要它的 token 在自己那一页
-覆写这一格（`## property` + `### get`，例如 `typescript/tokens/while/while.xl.md` 的 `While`），
-投影于是按「问这一格 → 空表就落到那张还没搬完的表」处理。
+**这一格是属性、不是方法**（第 1041 轮）：基类这一格是**空表**（`## field … = new Map()`，
+`core` 与语言无关、不知道任何目标语言的字段名），需要它的 token **在自己那一页显式声明同一个属性**
+并给出自己的表（`## field SegmentNames:… = new Map([…])`）——**构造时就赋好**，
+投影只按属性名读一次，不再问「有没有这一格」。
 
-**这三条形态各试过一次，只有这一条能过 `tsc` 的 `strict`**（记下来免得再试）：
-`## field` 会在派生类里报
-`TS2611: defined as a property … but is overridden here as an accessor`；
+**为什么从方法改成属性**（第 1041 轮）：它答的是**构造时就定下来的一格数据**，不是一处现场计算。
+两边形态必须一致，而三种写法里只有这一种两边都过 `tsc` 的 `strict`：
 `## property` + `### get` 在基类上生成「私有字段 + 访问器」那一对，而私有字段没有初值
-（`TS2564: has no initializer`）；**`## method` + `### get` 才是可覆写的那一条**
-（`get X()` 在结构上与 `X(): T` 相容）。
-
-```ts
-return new Map();
-```
+（`TS2564: has no initializer`）；基类一处方法、派生类一处属性会报
+`TS2611: defined as a property … but is overridden here as an accessor` 的镜像那一版
+——**两边都写 `## field`、构造时各赋各的值**（第 1041 轮在全语料 159 处上验过）。
 
 ## method WrapperField:()=>string | null | undefined
 
@@ -861,14 +861,15 @@ return undefined;
 同一个 token 两种落法，「我父亲投成了什么」是唯一分得开它的东西，所以那一格由调用方递进来
 （其余体节点用不到这个参数）。
 
-**基类答 `undefined`**（`core` 与语言无关，不知道任何目标语言的字段名）：需要它的 token 在自己那一页
-覆写这一格（`## method`，与 `SegmentNames` / `WrapperField` 同一形态）。
+**基类这一格答 `undefined`**（`core` 与语言无关，不知道任何目标语言的字段名）：需要它的 token
+在自己那一页覆写这一格（`## method`——判据要带 `parentKind` 现场分档，所以它仍是方法，
+与 `WrapperField` 同一形态）。
 
 ```ts
 return undefined;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = undefined
 
 **投成目标语言形状时我这一格叫什么节点**（第 1025 轮）——答案是我自己的事实，所以由我自己答。
 
@@ -889,23 +890,23 @@ return undefined;
 「我这一层在目标语言那边长什么样」，答案同样只有这一页知道；中央表是搬家途中的临时落点，
 搬到哪一页、哪一页就不再需要第二个答案。
 
-```ts
-return undefined;
-```
+**这一格是属性、不是方法**（第 1041 轮）：节点名是**构造时就定下来的一格数据**——基类默认
+`undefined`，每一页**显式声明同一个属性**并给出自己的节点名（`## field`），投影只按属性名
+读一次（`v.AstKind`），不再问「有没有这一格」。
 
 ## method StatementKind:()=>string | undefined
 
 **我这一格是不是「语句头」**（第 1027 轮）——是的话答那条语句在目标语言那边的 kind，
 不是的话答 `undefined`。基类就是这个答案（`core` 与语言无关，不知道任何目标语言的语句名）。
 
-**它与 `AstKind()` 是两件事**：`AstKind()` 说的是「**我这一格**投成哪个节点」，
+**它与 `AstKind` 是两件事**：`AstKind` 说的是「**我这一格**投成哪个节点」，
 而这一格说的是「**我这一格的兄弟也算我的**」——`return a + b` 在产物里是
 `Keyword(return)` 加一段平级兄弟（`BinaryOperator`），目标语言那边却是**一个语句节点包住表达式**。
 判据因此落在**这个词能不能当语句头**上，而词住在 `Keyword` 那一页的 `Value` 里
 （`typescript/tokens/keyword.xl.md` 覆写这一格），所以由它答，投影不按文本查第二张表。
 
-**基类答 `undefined`**：需要它的 token 在自己那一页覆写（`## method`，与 `AstKind` /
-`SegmentNames` / `WrapperField` / `BodyField` 同一形态）。
+**基类答 `undefined`**：需要它的 token 在自己那一页覆写（`## method`，与 `WrapperField` /
+`BodyField` 同一形态——**它要按自己那一页的 `Value` 现场查词汇表，所以仍是方法**）。
 
 ```ts
 return undefined;
@@ -925,13 +926,13 @@ return undefined;
 同一份事实被声明了两遍，所以它搬回了那一页。
 
 **基类答 `undefined`**（`core` 与语言无关，不知道任何目标语言的字段名）：需要它的 token
-在自己那一页覆写（`## method`，与 `AstKind` / `StatementKind` / `IsMemberTag` 同一形态）。
+在自己那一页覆写（`## method`，与 `StatementKind` 同一形态——**同一页的两半一起现场算**）。
 
 ```ts
 return undefined;
 ```
 
-## method IsInvisible:()=>bool
+## field IsInvisible:bool = false
 
 **我在投影出来的那棵树里出不出现**（第 1030 轮）——答 `true` 就是说「我不是一个节点」、
 投影跳过我与相邻判定都当我不存在。
@@ -941,17 +942,14 @@ return undefined;
 **按类名查的名单**（`typescript/print-ast-common.xl.md` 的 `INVISIBLE`）与
 `typescript/text-common-util.xl.md` 里**同一份名单的第二遍**（`IsTriviaUnit`，那一页的注释
 自己写着「两处必须一起改」）——同一份事实三处声明，加一条就要跑三个地方。
-今天基类答 `false`、那四页各自覆写，问法只有这一个（`item.IsInvisible()`），
-`INVISIBLE` 与 `IsTriviaUnit` 都改成转调它。
+今天基类这一格默认 `false`、那四页各自**声明同一个属性**并给 `true`（第 1041 轮起它是属性、
+构造时就赋好），读法只有这一个（`item.IsInvisible`），`INVISIBLE` 与 `IsTriviaUnit` 都改成转调它。
 
-**基类答 `false`**：绝大多数 token 在投影里都是一个节点；需要它的 token 在自己那一页覆写
-（`## method`，与 `AstKind` / `StatementKind` / `SegmentNames` 同一形态）。
+**基类这一格默认 `false`**：绝大多数 token 在投影里都是一个节点；需要它的 token 在自己那一页
+**显式声明同一个属性**并给出自己的值（`## field`，与 `AstKind` / `IsMemberTag` / `IsMemberList`
+同一形态）。
 
-```ts
-return false;
-```
-
-## method IsMemberTag:()=>bool
+## field IsMemberTag:bool = false
 
 **我在成员位上算不算一个「成员」**（第 1033 轮）。
 
@@ -962,17 +960,15 @@ return false;
 （`typescript/print-ast-common.xl.md` 的 `MEMBER_TAGS`），而**标签名就是那些类自己的名字**——
 所以那是每一页自己的事实，被写在投影那一页里。
 
-今天基类答 `false`、那五页各自覆写，投影只问这一格（`k.IsMemberTag()`）。
+今天基类默认 `false`、那五页各自**声明同一个属性**并给 `true`（第 1041 轮起它是属性、
+构造时就赋好），投影只读这一格（`k.IsMemberTag`）。
 **它不能按 `Tag()` 抄一份名单**：留一张表就还是「同一份事实两处声明」。
 
-**基类答 `false`**：绝大多数 token 在成员位上都不是成员；需要它的 token 在自己那一页覆写
-（`## method`，与 `IsInvisible` / `AstKind` / `StatementKind` 同一形态）。
+**基类这一格默认 `false`**：绝大多数 token 在成员位上都不是成员；需要它的 token 在自己那一页
+**显式声明同一个属性**并给出自己的值（`## field`，与 `IsInvisible` / `AstKind` / `IsMemberList`
+同一形态）。
 
-```ts
-return false;
-```
-
-## method IsDeclarationUnit:()=>bool
+## field IsDeclarationUnit:bool = false
 
 **我在 `export` 后面算不算一个「声明单元」**（第 1036 轮）。
 
@@ -984,18 +980,16 @@ return false;
 （`typescript/print-ast-common.xl.md` 的 `DECLARATION_UNITS`），而**标签名就是那些类自己的
 名字**（`Tag()` 答的就是类名）——所以那是每一页自己的事实，被写在投影那一页里。
 
-今天基类答 `false`、那五页各自覆写，两处入口问的都是这一格
-（`items[i + 1].IsDeclarationUnit()`，`projectEach` 与 `projectExport` 共用同一句）。
+今天基类默认 `false`、那五页各自**声明同一个属性**并给 `true`（第 1041 轮起它是属性、
+构造时就赋好），两处入口读的都是这一格
+（`items[i + 1].IsDeclarationUnit`，`projectEach` 与 `projectExport` 共用同一句）。
 
 **它不能按 `Tag()` 抄一份名单**：留一张表就还是「同一份事实两处声明」。
-**基类答 `false`**：绝大多数 token 在 `export` 后面不是一个声明单元；需要它的 token
-在自己那一页覆写（`## method`，与 `IsMemberTag` / `AstKind` / `IsInvisible` 同一形态）。
+**基类这一格默认 `false`**：绝大多数 token 在 `export` 后面不是一个声明单元；需要它的 token
+在自己那一页**显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `IsInvisible` /
+`AstKind` 同一形态）。
 
-```ts
-return false;
-```
-
-## method TypeMemberPlan:()=>any
+## field TypeMemberPlan:any = undefined
 
 **我这一批子单元要不要按「类型位」投、按哪个符号切段**（第 1035 轮）：
 是类型容器的话答 `{ separator }`——`separator` 是一个符号（`"|"` / `"&"` / `","`）时
@@ -1008,15 +1002,13 @@ return false;
 过去写成投影层**按 kind 名查**的两份名单，而**那些 kind 名就是这些类自己的名字**、
 **那个分隔符就是这些类自己的符号**——所以是每一页自己的事实，被写在投影那一页里。
 
-今天基类答 `undefined`、那十页各自覆写，投影只问这一格（`parent.TypeMemberPlan()`）。
+今天基类默认 `undefined`、那十页各自**声明同一个属性**并给出自己的那一格（第 1041 轮起它是属性、
+构造时就赋好），投影只读这一格（`parent.TypeMemberPlan`）。
 **它不能按 `AstKind()` 抄一份名单**：留一张表就还是「同一份事实两处声明」。
 
-**基类答 `undefined`**：绝大多数 token 的子单元是普通子节点；需要它的 token 在自己那一页覆写
-（`## method`，与 `IsMemberTag` / `FunctionFlags` / `AstKind` 同一形态）。
-
-```ts
-return undefined;
-```
+**基类这一格默认 `undefined`**：绝大多数 token 的子单元是普通子节点；需要它的 token 在自己那一页
+**显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `AstKind` / `IsMemberList`
+同一形态）。
 
 ## method FunctionFlags:()=>any
 
@@ -1030,13 +1022,13 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 今天由那三页各自覆写，投影只沿 `Parent` 链问这一格。
 
 **基类答 `undefined`**（`core` 与语言无关，不知道哪些类是函数体）：需要它的 token 在自己那一页覆写
-（`## method`，与 `AstKind` / `StatementKind` / `IsInvisible` 同一形态）。
+（`## method`，与 `StatementKind` 同一形态——**它要现场读自己的子单元与属性，所以仍是方法**）。
 
 ```ts
 return undefined;
 ```
 
-## method IsMemberList:()=>bool
+## field IsMemberList:bool = false
 
 **我这一格的内容是不是「成员表」**（第 1039 轮）——是的话答 `true`：我的子单元是**成员**
 （`PropertySignature` / `MethodSignature` / `IndexSignatureDeclaration`…），**不是语句**，
@@ -1045,20 +1037,17 @@ return undefined;
 判据的那份名单（`InterfaceDeclaration` / `TypeLiteral` / `ClassDeclaration` /
 `EnumDeclaration`）过去写成投影层的一个 `# private const MEMBER_LIST_KINDS:Set<string>`
 （`typescript/print-ast-common.xl.md`），而**那些 kind 名就是这四个类自己的名字**——
-所以那是每一页自己的事实，被写在投影那一页里。今天那四页各自覆写，投影只问这一格
-（`parent.IsMemberList()`）。
+所以那是每一页自己的事实，被写在投影那一页里。今天那四页各自**声明同一个属性**、给 `true`
+（第 1041 轮起它是属性、构造时就赋好），投影只读这一格（`parent.IsMemberList`）。
 
 **为什么问的是「父单元」自己、而不是一个 kind 名**：成员表是**我这一格**的性质
 （我的体里装的是成员），而投影那一侧手上正好有那一格 token（`projectEachIn` 的 `parent`），
 所以这一格不需要把 kind 名来来回回地翻译一遍——**留一张按 kind 查的表就还是
 「同一份事实两处声明」**。
 
-**基类答 `false`**：绝大多数 token 的子单元不是成员表；需要它的 token 在自己那一页覆写
-（`## method`，与 `IsMemberTag` / `TypeMemberPlan` / `AstKind` 同一形态）。
-
-```ts
-return false;
-```
+**基类这一格默认 `false`**：绝大多数 token 的子单元不是成员表；需要它的 token 在自己那一页
+**显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `TypeMemberPlan` /
+`AstKind` 同一形态）。
 
 ## method IsStatementNode:()=>bool
 
@@ -1106,9 +1095,9 @@ return false;
 return false;
 ```
 
-## method IsSignatureNode:()=>bool
+## field IsSignatureNode:bool = false
 
-**我这一格是不是「可调用签名」**（第 1040 轮）——是的话答 `true`。
+**我这一格是不是「可调用签名」**（第 1040 轮）——是的话这一格是 `true`。
 
 它决定两件事，都是目标语言那边的口径：**没有体**的签名，区间要**带上尾随的 `;` 或 `,`**
 （`declare function f(): void;` 在 TS 那边是 `FunctionDeclaration[23,51)`，含那个 `;`；
@@ -1123,12 +1112,9 @@ return false;
 **「有没有体」不在这里判**：调用点手上已经有 `props.body`（它要判断的正是「没体的那一档」），
 所以这一格只答「我这种节点算不算签名」。
 
-**基类答 `false`**：需要它的 token 在自己那一页覆写（`## method`，与 `EndsOnBrace` /
-`AstKind` 同一形态）。
-
-```ts
-return false;
-```
+**这一格是属性、不是方法**（第 1041 轮）：它是**构造时就定下来的一格数据**，不是一处现场计算
+——所以基类这一格默认 `false`，需要它的 token **在自己那一页显式声明同一个属性**并给出自己的值
+（`## field`，构造时赋值）。投影只按属性名读一次，不问「有没有这一格」。
 
 ## method Clone:()=>Token
 

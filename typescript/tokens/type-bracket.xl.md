@@ -307,17 +307,13 @@ return index;
 内容直接装在自己身上：被数组化的那个类型（`<ArrayType><Identifier>T</Identifier></ArrayType>`）。
 构造器挂**类型队列**，`readonly (A | B)[]` 这类形状里的联合 / 括号类型因此照常成形。
 
-## method SegmentNames:()=>Map<string, Map<string, string>>
+## field SegmentNames:Map<string, Map<string, string>> = new Map([["ArrayType", new Map([["children", "elementType"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。
 
 段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `children` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
 
 **形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
-
-```ts
-return new Map([["ArrayType", new Map([["children", "elementType"]])]]);
-```
 
 ## constructor:(template:Template)=>void
 
@@ -351,42 +347,30 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "ArrayType"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-```ts
-return "ArrayType";
-```
-
-## method TypeMemberPlan:()=>any
+## field TypeMemberPlan:any = { separator: null }
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：`T[]` 只有**一个**类型
 （被数组化的那个），没有同级的分隔符，所以答 `{ separator: null }`——整批子单元合起来
 投成一个类型（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
 
-```ts
-return { separator: null };
-```
-
 # class TupleType extends IndependentToken
 
 元组类型（`[A, B]` / `readonly [A, B]`）。类名必须与产物的标签名一致。
 
-## method SegmentNames:()=>Map<string, Map<string, string>>
+## field SegmentNames:Map<string, Map<string, string>> = new Map([["TupleType", new Map([["children", "elements"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。
 
 段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `children` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
 
 **形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
-
-```ts
-return new Map([["TupleType", new Map([["children", "elements"]])]]);
-```
 
 ## constructor:(template:Template)=>void
 
@@ -420,26 +404,18 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "TupleType"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-```ts
-return "TupleType";
-```
-
-## method TypeMemberPlan:()=>any
+## field TypeMemberPlan:any = { separator: "," }
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：元组的元素之间是 `,`，
 所以答 `{ separator: "," }`——切完再整段投，那个逗号本身不是元素
 （口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
-
-```ts
-return { separator: "," };
-```
 
 # class IndexedAccessType extends IndependentToken
 
@@ -492,23 +468,15 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "IndexedAccessType"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-```ts
-return "IndexedAccessType";
-```
-
-## method TypeMemberPlan:()=>any
+## field TypeMemberPlan:any = { separator: null }
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：`T[K]` 的两个成员
 （对象类型与下标类型）之间**没有**分隔符，它们是**一个**下标访问类型的两个字段，
 所以答 `{ separator: null }`（口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
-
-```ts
-return { separator: null };
-```

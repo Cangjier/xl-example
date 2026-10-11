@@ -609,16 +609,12 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "ModuleDeclaration"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
-
-```ts
-return "ModuleDeclaration";
-```
 
 ## method IsStatementNode:()=>bool
 
@@ -647,13 +643,9 @@ return true;
 return true;
 ```
 
-## method IsDeclarationUnit:()=>bool
+## field IsDeclarationUnit:bool = true
 
 **我在 `export` 后面是一个「声明单元」**（第 1036 轮）：`export default namespace N { }`
 在产物里是 `Export` 与 `Namespace` 两格平级兄弟，合成一个 `ModuleDeclaration` 时要先认出
 右边那一格是声明——`Namespace` 就是这一页自己的类名，所以这一格答 `true`
 （口径见 `core/syntax/token.xl.md` 的 `IsDeclarationUnit`）。
-
-```ts
-return true;
-```

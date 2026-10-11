@@ -110,17 +110,13 @@ member.Process(context, source);
 
 内容直接装在自己身上，**逗号留在外面**（它属于枚举声明那一级，与 TS 的分工一致）。
 
-## method SegmentNames:()=>Map<string, Map<string, string>>
+## field SegmentNames:Map<string, Map<string, string>> = new Map([["EnumMember", new Map([["children", "initializer"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。
 
 段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `children` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
 
 **形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
-
-```ts
-return new Map([["EnumMember", new Map([["children", "initializer"]])]]);
-```
 
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
@@ -226,23 +222,15 @@ result.TryToClose();
 return result;
 ```
 
-## method IsMemberTag:()=>bool
+## field IsMemberTag:bool = true
 
 **我在成员位上是一个成员**（第 1033 轮）：枚举成员只出现在枚举体里，所以这一格答 `true`
 ——枚举体的成员表里还夹着 `,`，成员之间那个逗号也靠这一条才**不**被算进来
 （口径见 `core/syntax/token.xl.md` 的 `IsMemberTag`）。
 
-```ts
-return true;
-```
-
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "EnumMember"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
-
-```ts
-return "EnumMember";
-```

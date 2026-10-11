@@ -361,26 +361,18 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "OptionalType"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-```ts
-return "OptionalType";
-```
-
-## method TypeMemberPlan:()=>any
+## field TypeMemberPlan:any = { separator: null }
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：可选元素里除了 `?` 记号
 之外只有**一个**类型，没有同级的分隔符，所以答 `{ separator: null }`
 （口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
-
-```ts
-return { separator: null };
-```
 
 # class RestType extends IndependentToken
 
@@ -426,26 +418,18 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "RestType"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-```ts
-return "RestType";
-```
-
-## method TypeMemberPlan:()=>any
+## field TypeMemberPlan:any = { separator: null }
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：变长元素里除了 `...` 记号
 之外只有**一个**类型，没有同级的分隔符，所以答 `{ separator: null }`
 （口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
-
-```ts
-return { separator: null };
-```
 
 # class NamedTupleMember extends IndependentToken
 
@@ -543,23 +527,15 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "NamedTupleMember"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-```ts
-return "NamedTupleMember";
-```
-
-## method TypeMemberPlan:()=>any
+## field TypeMemberPlan:any = { separator: null }
 
 **我这一批子单元按「类型位」投、按哪个符号切段**（第 1035 轮）：具名元素里是「名字 +
 被指的类型」，它们是**一个**成员的两半、没有同级的分隔符，所以答 `{ separator: null }`
 （口径见 `core/syntax/token.xl.md` 的 `TypeMemberPlan`）。
-
-```ts
-return { separator: null };
-```

@@ -334,6 +334,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1041 轮：八族「回答方法」改成**构造时赋好的属性**（`## field`，159 处覆写）——**八道门全绿、读数一处没动**
+
+**一句话**：用户口径「简化 `print-ast-common`；**它需要的信息在 token 子类构造时就明确**——需要新增的属性
+可以在具体类构造时赋予、**必须在具体类中显式声明**；换句话说，token 子类构建好后所有信息必须齐全」。
+第 1030~1040 轮把这些事实从投影层搬回了各自的页面，但搬回去的形态是**方法**——投影要**问**一格
+（还要带 `typeof … === "function"` 那种「有没有这一格」的兜底），而它们答的其实是**构造时就定下来的数据**。
+这一轮把其中**全部成员都是常量**的八族换成属性：`AstKind`（77）/ `SegmentNames`（43）/
+`IsStatementNode` 不改（有一页要按 `Value` 现场判）/ `IsInvisible`（4）/ `IsMemberTag`（5）/
+`IsDeclarationUnit`（5）/ `IsMemberList`（4）/ `IsSignatureNode`（3）/ `TypeMemberPlan`（10）——
+合计 **159 处覆写**、**77 个文件**（76 个 token 页 + `core/syntax/token.xl.md` 的基类默认值）。
+
+- **形态（三种写法里只有这一种两边都过 `tsc` 的 `strict`）**：基类与派生类**两边都写 `## field NAME:TYPE = 值`**。
+  第 1041 轮之前记下的结论是「`## field` 在派生类里报 `TS2611`」——那说的是**基类写方法、派生类写属性**
+  这种混搭；`## property` + `### get` 则在基类那一侧生成「私有字段 + 访问器」，而私有字段没有初值
+  （`TS2564: has no initializer`）。**两边同形态、构造时各赋各的值**才是可覆写的那一条，这一轮在全语料上验过。
+- **投影那一侧**：八族的调用点 **60 处**从 `x.Name()` 改成 `x.Name`（属性直读），`segmentNameOf` 里那句
+  `typeof node.SegmentNames === "function" ? … : undefined` 的兜底**整段删掉**——属性是构造时就有的，
+  「有没有这一格」不再是一个问题。仍需**现场算**的那几格仍是方法（`NameField` / `WrapperField` /
+  `BodyField` / `FunctionFlags` / `StatementKind` / `StatementField` / `EndsOnBrace` / `IsStatementNode`），
+  因为它们的值要等解析期（名字文本、子单元形状、词的正文）才定下来——**这不是漏掉的活，是另一档**。
+- **为什么读数一处没动（结构性原因，不是运气）**：新加的属性名**全部以大写字母开头**，而
+  `declaredKeysOf` 只收**小写字母开头**的属性、`segmentKeysOf` 又在它上面再筛「值是 token 数组」——
+  所以段表、字段名与节点形状一个都没变（`Object.keys` 里多出来的那几格被这两条判据挡在外面）。
+- **踩到的一处（记下来免得再踩）**：批量把 `.SegmentNames()` 改成 `.SegmentNames` 时，原来那句
+  `typeof node.SegmentNames === "function" ? node.SegmentNames : undefined` 被改成了
+  `typeof node.SegmentNames === "function" ? node.SegmentNames : undefined` 的**半截形态**——
+  「问一格」的兜底留在了属性上，于是它恒 `undefined`：`coverage` 当场 `4260 → 3189`（`blocked 28 → 1046`）、
+  五道门红。改成直读（`const table = node.SegmentNames;`）之后**读数逐项回到基线**。
+  **方法改属性时，那句 `typeof … === "function"` 必须整段删掉**，不能只把调用点的括号去掉。
+- **实测**：`xl check` **182 份 0 错 0 警**；`xl build` 78 写出 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 33.6s），读数与基线逐项相同——`cases:tsast` 已知缺口 3 条还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`coverage` **4260 / 4422**（`blocked 28` / `differ 134` /
+  `bad 0` / 加权 95.7%）、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **留下的判据**：`Token.SegmentNames` 那一节现在写着「两边同形态、构造时赋值」这条形态规矩（它同时是
+  这一轮换形态的**理由**与**做法**）；`direct:lint` 那几条（不许按字符串键查、不许回原文）照旧守着
+  投影那一侧，而「答案自己记在 token 上、投影只读」这件事现在在**属性**这一层也成立。
+
 ### 第 1038 轮：把 `MEMBER_LIST_KINDS` 那张按 kind 查的集合从投影层搬回四个 token 自己的页面（`Token.IsMemberList`）——**八道门全绿、读数一处没动**
 
 **一句话**：用户口径「token → AST 要直出，不许弯弯绕绕；`print-ast-common` 要简化，凡是某一页
@@ -349,7 +387,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
   `AstKind()` 也由它们自己答），所以「我的体里装的是成员、不是语句」这句话只有那四页知道。
 - **搬法**（与前几轮同一形态）：`core/syntax/token.xl.md` 加一格基类 `IsMemberList()`（答 `false`），
   `Interface` / `Class` / `Enum` / `TypeLiteral` 四页各覆写答 `true`；投影那一侧改问**那一格 token 自己**
-  （`projectEachIn` 的 `parent.IsMemberList()`）——`parent` 本来就是「投影意义上的父单元」，
+  （`projectEachIn` 的 `parent.IsMemberList`）——`parent` 本来就是「投影意义上的父单元」，
   与 `TypeMemberPlan()`（第 1035 轮）问的是同一个接收者，所以这一格连 kind 名都不用翻译。
 - **实测**：`xl check` 6 文件 0 错 0 警；`dist` 写出 6 个产物、`tsc` 干净；
   **八道门 8 通过、0 失败**（墙钟 30.2s），读数逐项与基线相同——`cases:tsast` 已知缺口 3 条还开着、
@@ -361,7 +399,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 - **同一件事在第 1039 / 1040 轮继续**（结论写在这里，不另开两条）：`STATEMENT_KINDS`（26 档）
   → `Token.IsStatementNode()`（23 页覆写 + `Keyword` 按本页词汇表答，投影改为问**手上那一格 token**）；
   `NO_TRAILING_SEMICOLON`（13 档）与 `SIGNATURE_KINDS`（5 档）→ `Token.EndsOnBrace()` /
-  `Token.IsSignatureNode()`（各自那一页覆写）。两张表搬完之后投影这一侧只剩
+  `Token.IsSignatureNode`（各自那一页覆写）。两张表搬完之后投影这一侧只剩
   `ENDS_ON_BRACE` 一份**名字 → 答案**的落点（值就是各页自己答的那一格，键就是各页 `AstKind()`）。
   **第 1040 轮踩到并记下的一处**：`ownsTrailingSemicolon` 想直接问「上一格 token」是不行的——
   `projectStatement` 会把声明包进语句壳，手上那一格与 `out` 末尾那个节点**不是同一个单元**，

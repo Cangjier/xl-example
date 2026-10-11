@@ -1020,7 +1020,7 @@ if (item === null) {
 // 问单元自己那一格（第 1030 轮）：名单只有一份，住在那四个类各自的 IsInvisible() 里
 // （基类答 false，见 core/syntax/token.xl.md）。这里过去按 constructor.name 逐名比 ——
 // 那是同一份名单的第二遍，本页的说明自己写着「两处必须一起改」。
-return item.IsInvisible();
+return item.IsInvisible;
 ```
 
 # method IsSwitchLabelColon:(units:Array<Token>, index:number, requireStatementParent?:bool)=>bool

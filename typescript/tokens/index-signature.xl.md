@@ -91,24 +91,16 @@ result.TryToClose();
 return result;
 ```
 
-## method IsMemberTag:()=>bool
+## field IsMemberTag:bool = true
 
 **我在成员位上是一个成员**（第 1033 轮）：索引签名只出现在成员表里
 （`type T = { [k: string]: number }` / `declare class C { [k: string]: any }`），
 所以这一格答 `true`——成员表那一层 `<Statement>` 要靠它才摊得开，不摊就投成
 `ExpressionStatement > IndexSignatureDeclaration`（口径见 `core/syntax/token.xl.md` 的 `IsMemberTag`）。
 
-```ts
-return true;
-```
-
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "IndexSignature"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
-
-```ts
-return "IndexSignature";
-```

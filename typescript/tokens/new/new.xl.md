@@ -411,17 +411,13 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<New>` 里依次是 Type 与 Arguments 两段的 XML。
 
-## method SegmentNames:()=>Map<string, Map<string, string>>
+## field SegmentNames:Map<string, Map<string, string>> = new Map([["NewExpression", new Map([["name", "expression"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。
 
 段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `name` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
 
 **形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
-
-```ts
-return new Map([["NewExpression", new Map([["name", "expression"]])]]);
-```
 
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
@@ -435,7 +431,7 @@ return new Map([["NewExpression", new Map([["name", "expression"]])]]);
 （那一格自己记着用哪个引号开头），不是原文里那个字符。
 
 ```ts
-  const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !k.IsInvisible());
+  const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !k.IsInvisible);
   const genericAt = nameUnits.findIndex((k: any) => k.Tag() === "GenericType");
   // **问那一格它自己**（第 1022 轮）：`view` 那一层删掉之后节点就是 token，
   // `.__token` 恒为 `undefined` ⇒ `IsTemplateString(null)` 恒为否
@@ -466,7 +462,7 @@ return new Map([["NewExpression", new Map([["name", "expression"]])]]);
     }
     if (typeArguments.length > 0) props.typeArguments = typeArguments;
   }
-  const args = ctx.KidsOf(v, "arguments").filter((k: any) => !k.IsInvisible());
+  const args = ctx.KidsOf(v, "arguments").filter((k: any) => !k.IsInvisible);
   const argGroups = ctx.Split(args, ",");
   const argumentList = [];
   for (const group of argGroups) {
@@ -569,13 +565,9 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "NewExpression"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
-
-```ts
-return "NewExpression";
-```

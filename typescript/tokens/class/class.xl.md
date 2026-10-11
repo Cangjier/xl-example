@@ -442,7 +442,7 @@ cls.MountedUnit = body;
 
 类名必须与产物里的标签名一致：`this.constructor.name` 就是 `<Class>` 的标签。
 
-## method SegmentNames:()=>Map<string, Map<string, string>>
+## field SegmentNames:Map<string, Map<string, string>> = new Map([["ClassDeclaration", new Map([["GenericType", "typeParameters"], ["HeritageClause", "heritageClauses"], ["children", "heritageClauses"]])], ["ClassExpression", new Map([["GenericType", "typeParameters"], ["HeritageClause", "heritageClauses"], ["children", "heritageClauses"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：每个节点名各一张表，产物那边的分段名 → 目标语言的字段名。
 
@@ -451,10 +451,6 @@ cls.MountedUnit = body;
 段名是**本单元自己的事实**（见 `Token.SegmentNames`）：这些段是这一个 token 切开来的，叫 `GenericType` / `HeritageClause` / `children` 的名字只有在这一页才成立——所以它住在这一页，而不是投影层那张按 kind 分几十档的中央表里。**投影只读这一格**：`structuralProps` 拿它给字段名，查不到才落到那张还没搬完的表。
 
 **形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
-
-```ts
-return new Map([["ClassDeclaration", new Map([["GenericType", "typeParameters"], ["HeritageClause", "heritageClauses"], ["children", "heritageClauses"]])], ["ClassExpression", new Map([["GenericType", "typeParameters"], ["HeritageClause", "heritageClauses"], ["children", "heritageClauses"]])]]);
-```
 
 ## constructor:(template:Template)=>void
 
@@ -743,29 +739,21 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "ClassDeclaration"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-```ts
-return "ClassDeclaration";
-```
-
-## method IsDeclarationUnit:()=>bool
+## field IsDeclarationUnit:bool = true
 
 **我在 `export` 后面是一个「声明单元」**（第 1036 轮）：`export default class C { }`
 在产物里是 `Export` 与 `Class` 两格平级兄弟，合成一个 `ClassDeclaration` 时要先认出右边
 那一格是声明——`Class` 就是这一页自己的类名，所以这一格答 `true`
 （口径见 `core/syntax/token.xl.md` 的 `IsDeclarationUnit`）。
 
-```ts
-return true;
-```
-
-## method IsMemberList:()=>bool
+## field IsMemberList:bool = true
 
 **我这一格的内容是「成员表」**（第 1039 轮）：类体里装的是类成员
 （`PropertyDeclaration` / `MethodDeclaration` / `IndexSignatureDeclaration`…），**不是语句**，
@@ -774,10 +762,6 @@ return true;
 
 `ClassDeclaration` 就是这一页自己的节点名，所以这一格答 `true`——过去它写在投影层那张
 `MEMBER_LIST_KINDS` 名单里。
-
-```ts
-return true;
-```
 
 ## method IsStatementNode:()=>bool
 

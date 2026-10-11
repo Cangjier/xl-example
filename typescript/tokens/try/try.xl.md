@@ -245,7 +245,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 也没有一处需要让开。
 
 ```ts
-  const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !k.IsInvisible());
+  const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !k.IsInvisible);
   const props: any = {};
   const blockOf = (field: any, statements: any) => {
     const range = field.Range;
@@ -260,7 +260,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
   if (catchDefine !== undefined || catchBody !== undefined) {
     const inner: any = {};
     if (catchDefine !== undefined) {
-      const binding = ctx.AllKids(catchDefine).find((k: any) => !k.IsInvisible());
+      const binding = ctx.AllKids(catchDefine).find((k: any) => !k.IsInvisible);
       const isPattern =
         binding !== undefined &&
         (binding.Tag() === "ObjectLiteral" ||
@@ -279,7 +279,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
         const typeKid = ctx.AllKids(catchDefine).find((k: any) => k.Tag() === "TypeDefine");
         if (typeKid !== undefined) {
           declEnd = ctx.EndOf(typeKid);
-          const typeUnit = ctx.AllKids(typeKid).find((k: any) => !k.IsInvisible());
+          const typeUnit = ctx.AllKids(typeKid).find((k: any) => !k.IsInvisible);
           if (typeUnit !== undefined) {
             declType = ctx.TypeExpression(ctx.Kids(typeKid));
           }
@@ -448,16 +448,12 @@ result.TryToClose();
 return result;
 ```
 
-## method AstKind:()=>string | undefined
+## field AstKind:string | undefined = "TryStatement"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
-
-```ts
-return "TryStatement";
-```
 
 ## method IsStatementNode:()=>bool
 

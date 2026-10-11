@@ -121,10 +121,20 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 当时那份逐字节对拍脚本在全语料上逐字节对拍两份实现的输出，
 那才是「搬完了还等价」的证据。类型标注仍然写全，它们是文档，也是将来真要开检查时的起点。
 
+**这一族第 1041 轮又往前走了一步：从「问一格」改成「读一格」**——`AstKind` / `SegmentNames` /
+`IsInvisible` / `IsMemberTag` / `IsDeclarationUnit` / `IsMemberList` / `IsSignatureNode` /
+`TypeMemberPlan` 这八格**从方法改成了属性**：各具体类在自己那一页**显式声明同名属性**、
+**构造时就赋好值**（`## field`），投影只按属性名读一次——不再有 `typeof … === "function"`
+那种「有没有这一格」的兜底。答案本来就是**构造时定下来的一格数据**，不是现场计算，
+所以它不该长成一个要点一下才有的东西。**仍需现场算的那几格仍是方法**（`NameField` /
+`WrapperField` / `BodyField` / `FunctionFlags` / `StatementKind` / `StatementField` /
+`EndsOnBrace` / `IsStatementNode`）——它们要读**解析期才定下来**的东西（名字文本、子单元的形状、
+词的正文），构造那一刻还没有。形态与理由写在 `core/syntax/token.xl.md` 的 `SegmentNames` 一节。
+
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
-`Token.IsInvisible()`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
+`Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
 名单的键就是**那些类自己的名字**，所以它本来就是那四页的事实；投影这一侧过去用
-`INVISIBLE.has(k.Tag())` 过滤子单元（十五处），现在是 `k.IsInvisible()`——
+`INVISIBLE.has(k.Tag())` 过滤子单元（十五处），现在是 `k.IsInvisible`——
 而且 `typescript/text-common-util.xl.md` 的 `IsTriviaUnit` 也改成转调同一格，
 **同一份名单从三处声明收成一处**（那一页的注释原来写着「两处必须一起改」）。
 
@@ -136,9 +146,10 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 **这张表第 1025 轮整张删掉了**：79 档里 **77 档说的是「标签 → 节点名」**，
 而标签就是 token 自己的类名（`Token.Tag()`）——每一档说的都是**某一页自己的事实**，
-却被写在投影层这一页里。现在改由各 token 自己答 `Token.AstKind()`
-（`core/syntax/token.xl.md`，与 `SegmentNames` / `WrapperField` / `BodyField` 同一形态），
-投影只问这一格：**同一份事实只有一处声明**，改一个 token 的名字不必再跑两个地方。
+却被写在投影层这一页里。现在改由各 token 自己记 `Token.AstKind`
+（`core/syntax/token.xl.md`；第 1041 轮起它是**构造时就赋好的属性**，与 `SegmentNames` /
+`IsInvisible` 同一形态），投影只读这一格：**同一份事实只有一处声明**，改一个 token 的名字
+不必再跑两个地方。
 
 **余下那两档是死档、随表一起没了**：`LamdaParameter` 与 `LambdaBody` **没有对应的类**——
 `Tag()` 答的是 `this.constructor.name`，而全仓没有一个类叫这两个名字
@@ -358,7 +369,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 # private method unwrapNodes:(node:any)=>Array<any>
 
 ```ts
-  return allKids(node).filter((k) => !k.IsInvisible());
+  return allKids(node).filter((k) => !k.IsInvisible);
 ```
 
 # private method textOfNode:(node:any, ctx:any)=>string
@@ -481,7 +492,10 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 **问一个单元：这一格在你投出来的那个节点里叫什么**（第 988 轮）。
 
 `SegmentNames` 是 token 自己声明的那一格（见 `core/syntax/token.xl.md`），形状是
-`Map<节点名, Map<段名, 字段名>>`。这里只是**问这一个单元自己**。
+`Map<节点名, Map<段名, 字段名>>`。这里只是**读这一个单元自己那一格属性**。
+
+**第 1041 轮起它是属性、不是方法**：那一页在构造时就把这张表赋好（`## field SegmentNames`），
+所以这里**直接读**——没有「有没有这一格」那一问，也不再有 `typeof … === "function"` 的兜底。
 
 **两个节点名都要试**（先 `kind`、再单元自己的标签名）：通用支拿到的 `kind` 是**父节点**的名字，
 而**包装节点**（`FunctionBody` / `ReturnType` / `GenericType`…）是**自己**投成节点的，
@@ -489,7 +503,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 ```ts
   if (node === null || node === undefined) return undefined;
-  const table = typeof node.SegmentNames === "function" ? node.SegmentNames() : undefined;
+  const table = node.SegmentNames;
   if (!(table instanceof Map) || table.size === 0) return undefined;
   const tag: any = typeof node.Tag === "function" ? node.Tag() : undefined;
   for (const name of kind === undefined ? [tag] : [kind, tag]) {
@@ -632,11 +646,12 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   // + `EmptyStatement[15,16)`）。原来只看 `SIGNATURE_KINDS` ⇒ 带体的一律多算一格，
   // 于是「空语句」既缺、声明又漂（实测 `stmt-generator-trailing-semicolon` 一族）。
   //
-  // **「我这种节点算不算签名」第 1040 轮改由那一格 token 自己答**（`IsSignatureNode()`，
+  // **「我这种节点算不算签名」第 1040 轮改由那一格 token 自己记**（`IsSignatureNode`，
   // 见 `core/syntax/token.xl.md`）：那五个 kind 名就是几页自己的节点名每一态
   // （`MethodDeclaration` 那一页在签名位答 `MethodSignature`），所以名单搬回了各自那一页。
+  // **第 1041 轮起它是一格属性**（在那几页构造时就赋好），这里读属性、不问问题。
   if (
-    v.IsSignatureNode() &&
+    v.IsSignatureNode &&
     (props === undefined || props.body === undefined) &&
     (ctx.source[end] === ";" || ctx.source[end] === ",")
   ) {
@@ -835,7 +850,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
 
 ```ts
   if (kind === undefined) {
-    kind = v.AstKind();
+    kind = v.AstKind;
     if (kind === undefined) {
       ctx.unmapped.add(v.Tag());
       return mk(v.Tag(), { children: projectEach(allKids(v), ctx) });
@@ -1011,7 +1026,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   // **成员位没有语句**（第 79 轮）：成员表里遇到 `<Statement>` 就**摊开**——
   // 它下面那些单元本身就是成员。
   //
-  // **「我这一格是不是成员表」第 1039 轮改由那一格自己答**（`parent.IsMemberList()`，
+  // **「我这一格是不是成员表」第 1039 轮改由那一格自己答**（`parent.IsMemberList`，
   // 见 `core/syntax/token.xl.md`）：名单里那四个 kind 名（`InterfaceDeclaration` /
   // `TypeLiteral` / `ClassDeclaration` / `EnumDeclaration`）**就是那四个类自己的名字**，
   // 所以它住在各自那一页，投影这一侧不再存第二份（原来这里是
@@ -1021,11 +1036,11 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   // `ExpressionStatement > BinaryExpression`）。
   //
   // 摊开放在最前面：它比类型容器那一条更靠外（成员表 vs 类型位）。
-  if (parent.IsMemberList()) {
+  if (parent.IsMemberList) {
     const flat = [];
     for (const item of list) {
       if (item instanceof Token && item.Tag() === "Statement") {
-        const inner = allKids((item)).filter((k) => !k.IsInvisible());
+        const inner = allKids((item)).filter((k) => !k.IsInvisible);
         // **只有整层都是成员才摊开**：`interface` / `type` / `class`
         // 的成员位在 TS 里放不下语句，可本工程自己的样本里出现过 `{ let value: T }` 这种写法。
         //
@@ -1045,7 +1060,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
           inner.length > 0 &&
           inner.every(
             (k) =>
-              k.IsMemberTag() ||
+              k.IsMemberTag ||
               (k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ","),
           )
         ) {
@@ -1059,7 +1074,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   }
   // 类型容器的子单元按**类型位**投，而且**按成员切好再投**——
   // **「哪些是类型容器、按哪个符号切」这一格第 1035 轮改由容器自己答**
-  // （`parent.TypeMemberPlan()`，见 `core/syntax/token.xl.md`）：名单里的 kind 名
+  // （`parent.TypeMemberPlan`，见 `core/syntax/token.xl.md`）：名单里的 kind 名
   // （`UnionType` / `IntersectionType` / `ArrayType` / …）**就是那些类自己的名字**、
   // 分隔符也是它们自己的符号，所以它住在各自那一页，投影这一侧不再存第二份
   // （原来这里是 `TYPE_MEMBER_KINDS` / `TYPE_MEMBER_SEPARATORS` 两张按 kind 查的表）。
@@ -1068,7 +1083,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   // 三处调用点给的都**就是**投影意义上的父单元：段循环给的是正在投的那一格 `v`、
   // 包装提层给的是**外层声明**（`ClassBody` 的成员属于 `ClassDeclaration`）、
   // 直出版给的是 `ctx.Each(view, …)` 里那个 `view`——与 `parentKind` 说的是同一格事实。
-  const typePlan = parent.TypeMemberPlan();
+  const typePlan = parent.TypeMemberPlan;
   if (typePlan !== undefined) {
     const out = [];
     for (const group of typeMemberGroups(list, typePlan.separator, ctx)) {
@@ -1153,7 +1168,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   const items = list.filter(
     (item) =>
       item instanceof Token &&
-      !item.IsInvisible() &&
+      !item.IsInvisible &&
       !(item.Tag() === "SymbolToken" && textOfNode(item, ctx) === ","),
   );
   let i = 0;
@@ -1275,7 +1290,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     // 名单里的五个标签就是那五页自己的类名，所以它住在各自那一页）。
     if (items[i].Tag() === "Export" && i + 1 < items.length) {
       const unitText = ctx.source.slice(startOf(items[i]), endOf(items[i]) + 1).trim();
-      if (/\bdefault$/.test(unitText) && items[i + 1].IsDeclarationUnit()) {
+      if (/\bdefault$/.test(unitText) && items[i + 1].IsDeclarationUnit) {
         const merged = projectExport(items[i], ctx, items.slice(i + 1), endOf(items[i + 1]));
         if (merged !== undefined) {
           out.push(merged);
@@ -1708,7 +1723,7 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
     if (headType === "Statement") {
       return projectNode(head, ctx);
     }
-    const kind = head.AstKind();
+    const kind = head.AstKind;
     if (kind !== undefined) {
       // **`export type T = …` 的 `pos` 在外层 `Statement` 上、修饰词在 `TypeAssign` 上**：
       // 起点取外层的 `v.start`，所以把外层起点**经 `ctx.baseStart` 递进去**
@@ -2001,7 +2016,7 @@ new Set([
   //
   // 不过滤的话这一串会以注释打头，通用支把它投成一个 `LineAnnotation` 节点、
   // 后面真正的表达式整段丢掉（实测 `dist/ts/typescript/ts-ast.ts` 缺 15 / 多出 3）。
-  kids = kids.filter((k) => k instanceof Token && !k.IsInvisible());
+  kids = kids.filter((k) => k instanceof Token && !k.IsInvisible);
   if (kids.length === 0) return undefined;
   // ---- 0a'。**隔空格的 async 泛型箭头** `async <T>(x: T) => x`（第 860 轮）----
   //
@@ -5040,7 +5055,7 @@ return false;
 所以调用方传的是**那一格 `?.` 自己**的位置（第一格那一路传 NCO 的起点）。
 
 ```ts
-  const inner = projectableKids((unit)).filter((k: any) => !k.IsInvisible());
+  const inner = projectableKids((unit)).filter((k: any) => !k.IsInvisible);
   const bang = inner.find((k: any) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!");
   const nameUnit = inner.find((k: any) => k !== bang);
   if (nameUnit === undefined || bang === undefined) return undefined;
@@ -6732,7 +6747,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 名字那一格**一律投 `Identifier`**：绑定名按定义就是一个标识符，不看那个词在别处是不是关键字。
 
 ```ts
-  const inner = kids.filter((k) => !k.IsInvisible());
+  const inner = kids.filter((k) => !k.IsInvisible);
   if (inner.length === 0) return undefined;
   // **名字那一格从后往前找**：`const` / `let` / `var` / `using` 与 `await` 都可能还是
   // `Identifier`（关键字升级在本单元的那一趟里跑，投影这一趟是**之后**的事）——
@@ -6920,7 +6935,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // **起点跳过前导 trivia**（第 161 轮）：`/* a */ const x = 1;` 里那个 `Statement` 从注释起，
   // 而 TS 的 `VariableStatement.getStart()` 会跳过它（实测 `lex-comment-two-on-one-line.ts`：
   // 产物 106 vs TS 114）。
-  const firstReal = kids.find((k) => k instanceof Token && !k.IsInvisible());
+  const firstReal = kids.find((k) => k instanceof Token && !k.IsInvisible);
   const statementStart = firstReal === undefined ? container.start : startOf(firstReal);
   const statement = { kind: "VariableStatement", declarationList: list, pos: statementStart, end: stmtWhole };
   // **`VariableStatement` 的修饰词只有语句级那几个**：`export const q = 1` 的 TS 是
@@ -7334,7 +7349,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 把 `|` 一并滤掉会让整条联合被当成「名字 + 实参」投成一个 `TypeReference`
   // （实测 `undici-types/header.d.ts` 的 `{ [K in HeaderNames | Lowercase<HeaderNames>]?: … }`）。
   const list = nodes.filter(
-    (k) => k instanceof Token && !k.IsInvisible() && !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ","),
+    (k) => k instanceof Token && !k.IsInvisible && !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ","),
   );
   if (list.length === 0) return undefined;
   // **平铺的 `( … ) => T` 段**（第 927 轮（三））：这一段是**里层的函数类型**——
@@ -8179,7 +8194,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   const leaf = first.Tag() === "Identifier" || first.Tag() === "Keyword" || first.Tag() === "SymbolToken";
   const wrapper =
     !leaf &&
-    first.AstKind() === undefined &&
+    first.AstKind === undefined &&
     /(Condition|Statement|Segment)$/.test(first.Tag());
   if (wrapper) {
     const inner = unwrapNodes(first).filter((k) => k.Tag() !== "SymbolToken");
@@ -8377,7 +8392,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     props.expression = projectExpression(projectableKids((caseUnit)), ctx);
   }
   if (bodyUnit !== undefined) {
-    const body = allKids((bodyUnit)).filter((k) => !k.IsInvisible());
+    const body = allKids((bodyUnit)).filter((k) => !k.IsInvisible);
     const statements = projectEach(body, ctx);
     if (statements.length > 0) props.statements = statements;
   }
@@ -8430,7 +8445,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   // （实测 `decl-interface-export-default.ts`：缺 `InterfaceDeclaration` / `ExportKeyword` /
   // `DefaultKeyword`，多出 `ExportAssignment`）。
   const declared = (following ?? []).find(
-    (k) => k instanceof Token && k.IsDeclarationUnit(),
+    (k) => k instanceof Token && k.IsDeclarationUnit,
   );
   if (declared !== undefined) {
     const node = projectNode(declared, ctx);
@@ -8714,7 +8729,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 给还没记字段的 token 与克隆体留着）。
 
 ```ts
-  const list = kids.filter((k) => k instanceof Token && !k.IsInvisible());
+  const list = kids.filter((k) => k instanceof Token && !k.IsInvisible);
   const projections = projectEach(list, ctx);
   // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
   //（`While.BodyBrace` 的 `CaptureBodyBrace` 那一处就是这个条件），
@@ -8772,7 +8787,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 反过来，体的语句都在花括号里时，配对的 `}` 一定盖住全部语句。
 
 ```ts
-  const list = kids.filter((k) => k instanceof Token && !k.IsInvisible());
+  const list = kids.filter((k) => k instanceof Token && !k.IsInvisible);
   const projections = projectEach(list, ctx);
   // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
   //（`CaptureBodyBrace` / `Try` 那两处都是这个条件），所以有它 ⇒ TS 那边就是一个 `Block`，
@@ -8948,7 +8963,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 `AnyKeyword` 缺 1408 里的一大块都是这一条：`Array<any>` / `T extends any[]` 的实参没成形）。
 
 ```ts
-  const list = nodes.filter((k) => k instanceof Token && !k.IsInvisible());
+  const list = nodes.filter((k) => k instanceof Token && !k.IsInvisible);
   if (list.length === 0) return undefined;
   return projectTypeExpression(list, ctx);
 ```
@@ -8971,7 +8986,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 # private method computedNameExpression:(unit:any, ctx:any)=>any
 
 ```ts
-  const kids = projectableKids((unit)).filter((k) => !k.IsInvisible());
+  const kids = projectableKids((unit)).filter((k) => !k.IsInvisible);
   const names = kids.filter((k) => isNameNode(k));
   const dots = kids.filter((k) => isDot(k, ctx)).length;
   if (dots > 0 && names.length === dots + 1) return dottedExpression(names, ctx);
@@ -9045,7 +9060,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     const kept = [];
     const promoted = new Map();
     for (const x of raw) {
-      if (!(x instanceof Token) || x.IsInvisible()) continue;
+      if (!(x instanceof Token) || x.IsInvisible) continue;
       // 名字那个单元已经进 `props.name` 了，不要再当成子节点收一遍。
       if (x === nameNode || x === computedUnit) continue;
       // **私有名的组成单元也要跳过**（第 138 轮）：`#m` 在产物里是
@@ -9156,7 +9171,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 # private method projectableKids:(v:any)=>Array<any>
 
 ```ts
-  return allKids(v).filter((k) => !k.IsInvisible());
+  return allKids(v).filter((k) => !k.IsInvisible);
 ```
 
 # private method labelIsFlat:(node:any)=>bool
@@ -9365,7 +9380,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     SemicolonEndOf: (end) => semicolonEndOf(end, ctx),
     Split: (list, separator) => splitTopLevel(list, ctx, separator),
     // **`Invisible` 那个出口第 1030 轮删掉了**：要跳过哪些单元由单元自己答
-    // （`k.IsInvisible()`，见 `core/syntax/token.xl.md`），所以这一层不再需要「名单」这件东西。
+    // （`k.IsInvisible`，见 `core/syntax/token.xl.md`），所以这一层不再需要「名单」这件东西。
     IsIndexBracket: (node) => isIndexBracket(node),
     IsOperatorUnit: (node) => isOperatorUnit(node, ctx),
     ChainWithOptional: (node, nco) => chainWithOptional(node, nco, ctx),
