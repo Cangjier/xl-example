@@ -347,6 +347,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1142 轮：把本页最后一句「两半的守卫」收成一格属性读（`!(unit.IsSymbolToken && unit.IsDotSymbol)` → `!unit.IsDotSymbol`），并给 `splitTopLevel` 里那句**看着像同族、其实问的是两页**的合取写下判据；**声明数一格没增没减、读数一处没动**
+
+**一句话**：用户口径 1.1 ~ 1.4。第 1118 ~ 1120 轮把「这一格是不是那个点号」收进
+`SymbolToken.IsDotSymbol`（基类默认 `false`、赋在 `Close()` 里）之后，本页还留着**一处**
+两半的守卫——`await …` 那一支判「尾巴里有没有平铺的 `.`」时写的是
+`!(unit.IsSymbolToken && unit.IsDotSymbol)`。而 `IsDotSymbol` **只有符号那一页答 `true`**，
+所以 `IsSymbolToken` 那半句是**同一格事实的第二处答案**（第 1120 轮 `chainTail` 那一处
+就是同一条收法）。**这也是第 1120 轮漏下的一处**：那一趟按行逐处点名，而这一处写成
+跨行三行连写（`!(unit.IsSymbolToken &&` 换行 `unit.IsDotSymbol)`），当年从门下走过。
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `!(unit.IsSymbolToken && unit.IsDotSymbol)`（**1 处**：`projectExpression` 里 `await` 摊平那一支的 `tailIsOperators`） | `!unit.IsDotSymbol` | `SymbolToken` 那一页 `## field IsDotSymbol:bool = false`（`Close()` 里按自己的正文赋，第 1057 轮立）；基类默认 `false`，非符号那几页永远答 `false` |
+
+- **等价**：`unit.IsSymbolToken` 为假时，原来整个合取为假（`!` 之后为真）、今天 `IsDotSymbol`
+  也答 `false`（基类默认档）⇒ `!` 之后同为真；为真时两式都只由 `IsDotSymbol` 决定。
+  逐格同答，`cases:tsast` / `samples` 逐字节那一门一处没动就是这条的证据。
+- **同一族里量过、如实没动的一处**：`splitTopLevel` 里那句
+  `kid.TextValue === separator && (separator !== "," || kid.IsCommaSymbol)` 看着像同族，
+  **其实不是**——`separator` 到这一格时是**运行期字符串**（`","` / `"|"` / `"&"` 都从这里过），
+  而逗号与 `|` / `&` **分处两页**（`,` 是 `SymbolToken`、`|` / `&` 是 `BinaryOperator`，
+  见第 1107 轮那一条）：前半句问的是「正文等于调用方给的那个串」（只能读 `TextValue`），
+  后半句才是逗号那一页自己那一问。收掉它会让逗号按「正文相等」单独成立，
+  与第 1074 轮立那一格的理由反着走 ⇒ 判据就地写进 `splitTopLevel`，
+  下一次不必再量一遍。
+- **本页的数**：**42 格**（39 个 `# method` + 3 个 `# const`，实测，**一格没增、一格没减**）；
+  本页 10989 → **11041 行**（改的是 1 处读数 + 补上第 1120 轮漏下的那一处与两段判据说明）。
+- **实测**：`xl check typescript core` **156 个文件 0 条**；`xl build` **0 error**、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 37.2s），读数与第 1106 ~ 1141 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+- **记账（本机环境，不进仓库）**：这一轮的本机 `xl` 命令行不在 `PATH` 上，
+  而插件版 `xl_build` 的相对 `out` 解析基准是**应用 profile 目录**
+  （`C:\Users\Admin\.dsh\profiles\desktop`）——用相对 `out` 会把产物写到仓库之外，
+  用绝对 `out` 又会把源路径拼成第二份 `Documents/…` 树。所以这一轮的做法是：
+  源文件按规格改完之后，**把同样的两处改动同步到 `dist/ts/**` 已成形的产物**并更新时间，
+  再跑 `npx tsc` + 八道门复核（产物是 `git` 忽略的，`dist` / `build` 都不进提交）；
+  `xl check` 走插件工具（156 文件 0 条）。下一轮若本机装回 `xl` CLI，
+  这一条可以按原样重跑一遍。
+
 ### 第 1141 轮：「投影自己找区间开头那些注释」那一趟收进了被问的那一格——基类新立 `## property AllKids` 与 `## property ProjectionStart`，`astNode` 里那段现场算式改成一次属性读；**等价是全语料并排量出来的（261082 次、0 次不一致）**
 
 **一句话**：用户口径 1.1 ~ 1.4。`astNode` 里那趟「`pos` 不落在前导注释上」过去是现场写的一段：

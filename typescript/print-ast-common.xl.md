@@ -401,6 +401,30 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
   （它的实参恒为 `"."`，12 处改读 `IsDotSymbol`），`IsSymbolToken` 那半句在
   `IsLessThanSymbol` / `IsDotSymbol` / `IsCommaSymbol` 上剩下的四处一并收掉。
 
+**第 1142 轮补掉第 1120 轮漏下的第五处**（用户口径 1.1 ~ 1.4，与上一条同一把尺子）：
+下面那张表当时写的是「`IsSymbolToken` 那半句剩下的**四处**」，可本页还有 **1 处**没在那张表上
+——`projectExpression` 里 `await` 摊平那一支的 `tailIsOperators`：
+
+| 原来的现场算式 | 今天读的那一格 | 为什么那半句是多余的 |
+| --- | --- | --- |
+| `!(unit.IsSymbolToken && unit.IsDotSymbol)`（**1 处**：`await` 摊平那一支判「尾巴里有没有平铺的 `.`」） | `!unit.IsDotSymbol` | `IsDotSymbol` 只有 `SymbolToken` 那一页答 `true`（基类默认 `false`、赋在 `Close()` 里，第 1057 轮立）——非符号那半句永远进不来，与上表四例同一条 |
+
+- **它为什么当年从门下走过**：那一处写的是**跨行的三行连写**（`!(unit.IsSymbolToken &&`
+  换行 `unit.IsDotSymbol)`），而第 1120 轮那一趟是**按行逐处点名的**——跨行形态不在眼过之处。
+  第 1140 轮收 `IsGreaterThanSymbol` 时正是同一形态（那里的 `IsSymbolToken === false` 也写成
+  单独一行），所以这一类**下一轮要点名数的就不是「几处」，而是「这一族还剩几处」**。
+- **等价**：`IsSymbolToken` 为假 ⇒ 原来整个合取为假、`!` 之后为真，今天 `IsDotSymbol` 也答
+  `false`（基类默认档）⇒ 同为真；为真时两式都只由 `IsDotSymbol` 决定。逐格同答
+  （`cases:tsast` / `samples` 逐字节那一门一处没动）。
+- **同一族里量过、如实没动的一处**：`splitTopLevel` 里那句
+  `kid.TextValue === separator && (separator !== "," || kid.IsCommaSymbol)` 看着像同族，
+  **其实不是**——`separator` 到这一格时是**运行期字符串**（`","` / `"|"` / `"&"` 都从这里过），
+  而逗号与 `|` / `&` **分处两页**（第 1107 轮那一条）：前半句问「正文等于调用方给的那个串」
+  （只能读 `TextValue`），后半句才是逗号那一页自己那一问。判据就地写在 `splitTopLevel` 那一节里。
+- **判据这一轮没长**（与第 1118 / 1120 两轮同一条理由）：门认 `Tag` 比类名与
+  `ctx` 出口表，**看不见 `IsSymbolToken && 属性` 这种两半连写**——所以这一族只能按
+  「全页逐处数」来收，数完把「还剩几处」写进这一节。
+
 **第 1120 轮把本页最后那一格「局部转手」删掉，并把 `IsSymbolToken` 那半句剩下的四处收干净**
 （用户口径 1.1 ~ 1.4：投影要的信息由**具体 token 子类**在自己那一页**显式声明**、
 构造 / `Close` 那一刻赋好，读的时候备齐）。两件事同一个来由——**同一句问话的两半里，
@@ -4374,7 +4398,11 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           (unit) =>
             !unit.IsAsUnit &&
             !unit.IsSatisfiesUnit &&
-            !(unit.IsSymbolToken && unit.IsDotSymbol),
+            // **「这一格是不是那个点号」由被问的那一格答**（第 1142 轮，用户口径 1.1 ~ 1.4）：
+            // 原来写成 `!(unit.IsSymbolToken && unit.IsDotSymbol)` 两半——而 `IsDotSymbol`
+            // 只有 `SymbolToken` 那一页答 `true`（基类默认 `false`、赋在 `Close()` 里），
+            // 所以那半句是**同一格事实的第二处答案**，与第 1120 轮 `chainTail` 那一处同一条收法。
+            !unit.IsDotSymbol,
         );
       if (tailIsOperators) {
         const operand = projectExpression(flat.slice(0, opAt), ctx);
@@ -10059,6 +10087,14 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // （`projectTypeExpression` 的联合 / 交叉给的是 `|` / `&`），所以判据是
     // 「正文等于 separator」**加上**「逗号那一态读它自己的属性」——
     // 与改写前的 `Tag === "SymbolToken" && TextValue === separator` 逐格等价。
+    //
+    // **为什么逗号那半句不能收掉**（第 1142 轮量过、如实留着）：`separator` 到这一格时
+    // 是一个**运行期字符串**（`","` / `"|"` / `"&"` 都从这里过），所以「正文等于它」
+    // 只能读 `TextValue` 比一次；而逗号与 `|` / `&` 分处**两页**
+    // （`,` 是 `SymbolToken`、`|` / `&` 是 `BinaryOperator`，见第 1107 轮那一条），
+    // 逗号那一页另答一格自己的属性。这一句因此是**两页各答自己那一问**的合取，
+    // 不是同一格事实抄两遍——收掉它会让逗号按「正文相等」单独成立，
+    // 与第 1074 轮立那一格的理由（逗号要自己认）反着走。
     if (kid.TextValue === separator && (separator !== "," || kid.IsCommaSymbol)) {
       groups.push(current);
       current = [];
