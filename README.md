@@ -347,6 +347,58 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1169 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 「**没有 `Let` 的声明段** → `VariableDeclarationList`」那一格 `ctx.HeadDeclare`（51 行）**整格搬进被问的那一页**（`foreach.xl.md` 的 `PrintAst`），并把「投影读的每一格都显式声明过」这条判据**从共享页扩到全仓 75 段 `PrintAst` 方法体**
+
+**一句话**：`print-ast-common` 的 `ctx.HeadDeclare(list)` 做的是**一段声明段自己的形态**
+（`for (const v of xs)` / `for (const k in o)` 的头部 → 一个 `VariableDeclarationList`），
+而**它的读者只有 `foreach.xl.md` 一个**（第 1100 轮那本账）、**它要的每一件东西都在那一段
+自己的单元身上**（`IsNameNode` / `IsPatternKid` / `IsDeclareWord` / `NameNode` / `TextValue` /
+`start` / `end`）⇒ 算式整段搬进那一页的 `PrintAst`，出口连同它那一行一起删掉。
+同一轮**顺手收掉那一页的第二份答案**，并把这一族判据**跟到算式的新住处**：
+
+| 原来的写法 | 今天 |
+| --- | --- |
+| 本页 `HeadDeclare: (list) => { … }`（51 行：两趟从后往前找 + 按形态分派名字 + 拼 `VariableDeclarationList`） | **整格删掉**（`ctx` 表里只剩一段「它搬去哪了、为什么这么搬」的说明） |
+| `foreach.xl.md` 里 `const head = ctx.HeadDeclare(define, v);` | **就地展开**（同一条链、同一份判据；`if (inner.length === 0) return undefined` 那半句由外层 `if (define.length > 0)` 保证，`nameKid === undefined` 那半句改写成一层 `if`——**不为它现造闭包**） |
+| 那一格入口处的 `prepareKids(list)`（每趟现滤一张数组） | **这一处不再有**：`foreach` 手上的 `define` 本来就滤过 `IsInvisible`（那一格照旧服务另外四处） |
+| `foreach.xl.md` 自己那个 `isDeclareWordKid` 闭包（一行里把 `const` / `let` / `var` / `using` 四个词连比一遍） | `define.some((k) => k.IsDeclareWord === true)`——同一问第 1121 轮已经由被问的那一格答 |
+| `head.StatementKind` 那一族同理：`headText === "const" ? "Const" : …` | **一处没动**（第 1121 轮那条分界写得很清楚：它问的是**那个声明词的正文是什么**，与 `IsDeclareWord` 不是同一问，`TextValue` 那一族按那条分界留着） |
+
+- **为什么这一轮必须同时扩一条判据**：这一条（用户口径 1.4「投影读到的每一格 PascalCase
+  属性都要在某一页 `## field` / `## property` 声明过」）第 1144 轮立起来时**只扫共享页的代码块**
+  ——而第 1100 ~ 1169 轮做的事情**正是把算式从共享页搬进各页的 `PrintAst`**。算式一搬走，
+  这一条就再也看不见它读的那几格：三道方法体判据里只有「不回原文查」与「不按字符串键查」
+  跟得过去（它们按 `## method PrintAst` 的整行头扫**全仓**），第三道**天生覆盖不到**。
+  所以第 1169 轮把这一条扫成**两处**：共享页的代码块 **+ 全仓每一段 `## method PrintAst` 的方法体**。
+  **实测起点是 0 处违反**：75 段方法体 + 共享页代码块里读到 **146** 个 PascalCase 名字，
+  没有声明的 **0** 个（例外从 3 个扩到 6 个：新增的三个都是**方法**，不是数据——
+  `this.TempToString`（`identifier.xl.md` 自己的实例方法）、`Identifier.LeafKindOfText` 与
+  `Method.ArgumentGroups`（两页各自的**静态**方法，与既有的 `SymbolToken.KindOfText` 同形）。
+  一个名字都没收掉就能扩边，是因为前面那些轮**本来就是一格一格收的**——这一条今天只是把
+  那句已经成立的话变成判据。
+- **`ctx.HeadDeclare` 的名字补进 `direct:lint` 的 `CTX_BANNED`**（写回来这一门当场红）；
+  `ctx` 出口 **44 → 43**，那一条「出口表里没有兜底出口」照旧 **0 处**。
+- **等价怎么证的**：`cases:tsast` **16 片全过、41890 个投影节点 100% 对齐（字段名也 100%）**、
+  `samples` **逐字节一致**（它正是按 XML 逐字节比的那一门）、`cases:direct` 1640 份不抛异常；
+  八道门读数与第 1106 ~ 1168 轮**逐项相同**（唯一红的那一道仍是**尺子不是门**的 `coverage`：
+  `4260 / 4422`、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）。
+- **省下的东西是量出来的**（不是估的）：探针挂在构建产物里**新算式所在的那一支**上、
+  跑 `node tests/parse/direct-ast.mjs --all`（2051 份语料）⇒ 那一支进 **329** 次
+  （＝原来 `ctx.HeadDeclare` 被调 329 次）**每一趟少造一张数组**（`prepareKids` 的
+  `list.filter(...)`）——即 **329 次数组构造 + 329 次过滤回调 + 329 次函数调用**。
+  这一轮**没有**把 `flags` 那半句或两趟从后往前找收成字段：两趟都只在那一小段自己的单元上跑，
+  而「哪一个是名字 / 哪一个是声明词」是**这个段落自己的形态**，不是某一格能单独答的。
+- **本页的声明数**：**55 格**（一格没增、一格没减：删掉的是 `ctx` 表里一格出口，不是 `# method`）。
+  **不带注释的代码行**：**3948 → 3917**（净少 **31** 行；量法与第 1164 ~ 1168 轮同一条：
+  行首三反引号进出围栏、围栏内逐行去掉 `//` 之后的部分，空行不算）。
+- **实测**：`xl check` 该 2 页 0 条；`xl build core typescript`（`--force` 后）**156 个产物 / 0 error**、
+  `npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 33.1s），唯一红的那条仍是 HEAD 上既有的
+  `runtime/round741/002`；**另跑一遍 `cases:direct --all`**：2051 份、抛异常 **0 处**、
+  投影 515661 个节点（其中 token 自己出的 493521 个 = 95.7%）。
+- **顺手修正两处过期引文**（同一页）：`prepareKids` 那一节的「这一句判据在本页出现过 5 次」
+  改成 **4 处**（第五处搬走了，而且它那一处**本来就是多滤一遍**）；`IsDeclareKeyword` 那一节
+  写着「读它的是 `ctx.HeadDeclare`」，改成「读它的那一趟第 1169 轮搬进了 `foreach.xl.md`」。
+
 ### 第 1168 轮：用户口径 1.2 / 1.3 / 1.5 / 1.6 / 1.7 —— 两个**恒等调用**出口 `ctx.StartOf` / `ctx.EndOf` 删掉（全仓代码块 **69 处**调用点改成属性读），并新立一条扫全仓代码块的判据把这一族挡在门外
 
 **一句话**：`ctx.StartOf` / `ctx.EndOf` 的实现就是 `(node) => node.start` / `node.end`

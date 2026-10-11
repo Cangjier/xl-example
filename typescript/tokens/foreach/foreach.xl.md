@@ -291,15 +291,80 @@ return index;
     if (define[0].Tag === "Let") {
       props.initializer = ctx.LetFrom(define, v).list;
     }
-    // **判据是段里有没有那个声明词**（第 982 轮）：直出版读那一格自己记的值。
-    const isDeclareWordKid = (k: any) => {
-      const text = k.TextValue;
-      return text === "const" || text === "let" || text === "var" || text === "using";
-    };
+    // **判据是段里有没有那个声明词**（第 982 轮）；**第 1169 轮起问被问的那一格自己**
+    // （`k.IsDeclareWord`）：那四个词（`const` / `let` / `var` / `using`）里哪一个进了产物、
+    // 停在哪一态，只有 `Keyword` / `Identifier` 那两页知道——这一页不再自己写一份四词连比。
     if (props.initializer === undefined) {
-      if (define.some(isDeclareWordKid)) {
-        const head = ctx.HeadDeclare(define, v);
-        if (head !== undefined) props.initializer = head;
+      if (define.some((k: any) => k.IsDeclareWord === true)) {
+        // **没有 `Let` 的声明段整段在这里成形**（第 1169 轮，用户口径 1.2 / 1.3 / 1.6 / 1.7）：
+        // 这一趟原来是共享页的 `ctx.HeadDeclare(list)`，而它的读者**只有这一页**
+        // （第 1100 轮那本账）——算式因此整段搬到这里，出口一并删掉。
+        //
+        // 它说的是**没有 `Let` 的声明段**：`for (const v of xs)` / `for (const k in o)` 的头部
+        // （第 545 轮）——TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样
+        // **直接就是 `VariableDeclarationList`**（不套 `VariableStatement`），而产物在这一档里
+        // **没有 `Let`**（`of` / `in` 不进 `LetBranch`），声明段一直是
+        // `[Keyword(const), Identifier(v)]` **两格平铺**。
+        // **这一趟要的每一件东西都在这一段自己的单元身上**（`IsNameNode` / `IsPatternKid` /
+        // `IsDeclareWord` / `NameNode` / `TextValue` / `start` / `end`），搬来之后
+        // **不再为每一趟现滤一张数组**：原来那一格的入口是 `prepareKids(list)`，
+        // 而这里的 `define` 本来就滤过 `IsInvisible` 了。
+        //
+        // **名字那一格从后往前找**：`const` / `let` / `var` / `using` 与 `await` 都可能还是
+        // `Identifier`（关键字升级在本单元的那一趟里跑，投影这一趟是**之后**的事）——
+        // 从前往后找会把那个词当成名字。
+        // ① 「我这一格是不是绑定模式」第 1074 轮起就是 `k.IsBindingPattern`（`ArrayLiteral` /
+        // `ObjectLiteral` 各自显式声明 `true`）；② 「声明段里那一格模式」这一问**不是**它——
+        // 它还要认 `for (const [a] of xs)` 里那个**还没被收成 `ArrayLiteral`** 的 `[`
+        //（第 533 轮那条规则只在有空括号对时才收），于是那一问第 1121 轮收成一格属性
+        // `k.IsPatternKid`（基类默认 `false`、四页各自显式声明：`Bracket` 按自己的
+        // `startBracket`、两个模式类常量答 `true`）。
+        let nameKid = undefined;
+        for (let at = define.length - 1; at >= 0; at--) {
+          const one = define[at];
+          if ((one.IsNameNode || one.IsPatternKid) && one.IsDeclareWord === false) {
+            nameKid = one;
+            break;
+          }
+        }
+        if (nameKid !== undefined) {
+          // **名字那一格一律投 `Identifier`**：绑定名按定义就是一个标识符；
+          // 判据与 `IsNameNode` 同一条（第 598 轮），模式那一格交给 `ctx.BindingPattern`
+          // （共享页那一格 `projectBindingPattern` 的出口，第 1169 轮同一份实现）。
+          const declared = nameKid.IsPatternKid
+            ? ctx.BindingPattern(nameKid)
+            : nameKid.NameNode;
+          // **列表的起点是那个声明词**、不是段里的第一格：`for await (const v of xs)` 的段里
+          // `await` 排在 `const` 前面（TS 那边它是 `ForOfStatement.awaitModifier`、
+          // 不是列表的一部分）——**所以这个声明词要从后往前找**（第 546 轮）。
+          let declareKid = undefined;
+          for (let at = define.length - 1; at >= 0; at--) {
+            if (define[at].IsDeclareWord) {
+              declareKid = define[at];
+              break;
+            }
+          }
+          const headUnit = declareKid === undefined ? define[0] : declareKid;
+          // **`flags` 那一格一处没动**（第 1121 轮那条分界）：它问的是**那个声明词的正文是什么**
+          // （`VariableDeclarationList.flags` 三态），与 `IsDeclareWord` 不是同一问——
+          // 这一格的正文由它自己的 `TextValue` 答，判据与搬走的那一份逐字相同。
+          const headText = headUnit.TextValue;
+          const flags = headText === "const" ? "Const" : headText === "var" ? "None" : "Let";
+          props.initializer = {
+            kind: "VariableDeclarationList",
+            declarations: [
+              {
+                kind: "VariableDeclaration",
+                name: declared,
+                pos: nameKid.start,
+                end: nameKid.end,
+              },
+            ],
+            flags,
+            pos: headUnit.start,
+            end: define[define.length - 1].end,
+          };
+        }
       } else {
         const asExpression = ctx.Expression(define);
         if (asExpression !== undefined) props.initializer = asExpression;

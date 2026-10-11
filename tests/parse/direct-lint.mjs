@@ -346,27 +346,65 @@ for (const file of files) {
 const PROJECTED_PROP = /([A-Za-z_$][\w$]*)\.([A-Z][A-Za-z0-9_]*)\b/g;
 /** 接收者是它们就不是 token（投影自己的上下文对象）。 */
 const PROJECTED_PROP_RECEIVERS_OK = new Set(["ctx", "context"]);
-/** 这三个是方法 / 静态方法，不是某一格的数据。 */
-const PROJECTED_PROP_OK = new Set(["DecodeIdentifierEscapes", "PrintAst", "KindOfText"]);
+/**
+ * **这些是方法 / 静态方法，不是某一格的数据**（不是宽免，是同一条口径的另一面）：
+ *   - `Translate.DecodeIdentifierEscapes` / `SymbolToken.KindOfText` / `owner.PrintAst`（第 1144 轮）；
+ *   - **第 1169 轮扩到全仓 `PrintAst` 方法体之后补的三个**：`this.TempToString`
+ *     （`identifier.xl.md` 自己那一页上的实例方法）、`Identifier.LeafKindOfText` 与
+ *     `Method.ArgumentGroups`（两页各自的**静态**方法，与 `KindOfText` 同形）。
+ *     它们是**行为**（吃一段正文答一个 kind / 吃一段段答一组实参），不是「这一格装了什么」。
+ */
+const PROJECTED_PROP_OK = new Set([
+  "DecodeIdentifierEscapes",
+  "PrintAst",
+  "KindOfText",
+  "TempToString",
+  "LeafKindOfText",
+  "ArgumentGroups",
+]);
 let projectedPropNames = 0;
 let undeclaredPropNames = 0;
+/** **扫的是两处**（第 1169 轮）：共享页的代码块 **加上全仓每一段 `## method PrintAst` 的方法体**。 */
+let projectedBodyCount = 0;
 {
+  const snippets = [];
   const shared = path.join(root, SHARED_FILE);
-  const text = fs.readFileSync(shared, "utf8");
-  const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
-  const seen = new Set();
-  for (const m of code.matchAll(PROJECTED_PROP)) {
-    if (PROJECTED_PROP_RECEIVERS_OK.has(m[1])) continue;
-    if (PROJECTED_PROP_OK.has(m[2])) continue;
-    seen.add(m[2]);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    snippets.push({
+      file: SHARED_FILE,
+      code: [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n"),
+    });
+  }
+  // **第 1169 轮为什么必须跟到 token 页上** ✗：这一条（用户口径 1.4）原来只扫共享页——
+  // 而第 1100 ~ 1169 轮做的事情**正是把算式从共享页搬进各页的 `PrintAst`**。
+  // 算式一搬走，这一条就再也看不见它读的那几格了：新读法若落在「搬过去的那一页」上，
+  // 三道方法体判据（不回原文、不按字符串键、能力面）里只有前两条跟得过去，
+  // 「每一格都显式声明过」这一条**天生覆盖不到**。所以这一轮的搬动与这一条扩边是同一件事。
+  for (const file of files.sort()) {
+    const text = fs.readFileSync(file, "utf8");
+    for (const one of headsOf(text, HEAD_DIRECT_RE)) {
+      const body = bodyOf(text, one.at);
+      if (body === null) continue;
+      projectedBodyCount += 1;
+      snippets.push({ file: path.relative(root, file).replace(/\\/g, "/"), code: codeOnly(body) });
+    }
+  }
+  const seen = new Map();
+  for (const one of snippets) {
+    for (const m of one.code.matchAll(PROJECTED_PROP)) {
+      if (PROJECTED_PROP_RECEIVERS_OK.has(m[1])) continue;
+      if (PROJECTED_PROP_OK.has(m[2])) continue;
+      if (!seen.has(m[2])) seen.set(m[2], one.file);
+    }
   }
   projectedPropNames = seen.size;
-  for (const name of seen) {
+  for (const [name, file] of seen) {
     if (declaredNames.has(name)) continue;
     undeclaredPropNames += 1;
     if (undeclaredPropNames <= 5) {
       violations.push({
-        file: SHARED_FILE,
+        file,
         why: `投影读的 \`${name}\` 在 182 页规范里没有任何 ## field / ## property 声明过（用户口径 1.4：要在具体类里显式声明）`,
       });
     }
@@ -470,6 +508,12 @@ const CTX_BANNED = [
   // 再挂一个「替某一页读坐标」的转手，写回来这一门当场红。
   "StartOf",
   "EndOf",
+  // **第 1169 轮再补一个出口名**：`HeadDeclare`——它做的是「**没有 `Let` 的声明段** →
+  // `VariableDeclarationList`」那一整趟，而它要的每一件东西都在**那一段自己的单元**身上
+  // （`IsNameNode` / `IsPatternKid` / `IsDeclareWord` / `NameNode` / `TextValue` / `start` / `end`），
+  // 读者**只有 `foreach.xl.md` 一个** ⇒ 算式整段搬进那一页的 `PrintAst`（就地展开）、出口删掉。
+  // 出口删了就补进这张表，免得下一轮有人往 `ctx` 里补一行再把这一趟请回来。
+  "HeadDeclare",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。
@@ -1658,10 +1702,10 @@ console.log(
 console.log(
   `## field / ## property 的类型里出现 any：${anyTypedDecls} 处（0 处才是对的：字段 / 属性的声明必须明确类型）`,
 );
-// **用户口径 1.4 的账**（第 1144 轮）：投影读到的每一格 PascalCase 属性都要在某一页有声明
-// ——它守的是「下一处新读法」，起点已经是 0 处违反（130 个名字里 3 个是方法，不是数据）。
+// **用户口径 1.4 的账**（第 1144 轮；**第 1169 轮扩到全仓 `PrintAst` 方法体**）：投影读到的
+// 每一格 PascalCase 属性都要在某一页有声明——它守的是「下一处新读法」，起点已经是 0 处违反。
 console.log(
-  `投影读到的 PascalCase 属性 ${projectedPropNames} 个（例外 3 个：Translate.DecodeIdentifierEscapes / SymbolToken.KindOfText / owner.PrintAst），其中没有声明的 ${undeclaredPropNames} 个（0 个才是对的：要在具体类里显式声明）`,
+  `投影读到的 PascalCase 属性 ${projectedPropNames} 个（扫 ${projectedBodyCount} 段 PrintAst 方法体 + ${SHARED_FILE} 的代码块；例外 6 个，都是方法：Translate.DecodeIdentifierEscapes / SymbolToken.KindOfText / owner.PrintAst / this.TempToString / Identifier.LeafKindOfText / Method.ArgumentGroups），其中没有声明的 ${undeclaredPropNames} 个（0 个才是对的：要在具体类里显式声明）`,
 );
 // **能力面的账**（第 1015 轮）：这一格的出口表就是它能做的事——出口少了，方法体判据守的东西
 // 才是**结构上做不到**，而不是「大家记得别写」。

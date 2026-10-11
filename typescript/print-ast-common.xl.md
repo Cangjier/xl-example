@@ -674,7 +674,8 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
   与 `IsExportKeyword` / `IsDefaultKeyword` / `IsExtendsKeyword` / `IsTypeKeyword` 逐字同形
   ——一处声明、一处赋值、多处读，不是每个读者各写一遍三格连比。
 - **它与 `IsDeclareWord` 不是同一问**（第 1121 轮那一格）：那一格答「我是不是一个**声明词**」
-  （`const` / `let` / `var` / `using`），读它的是 `ctx.HeadDeclare`；这一格答「我是不是
+  （`const` / `let` / `var` / `using`），读它的那一趟第 1169 轮搬进了 `foreach.xl.md`
+  （在那之前经 `ctx.HeadDeclare`）；这一格答「我是不是
   `declare` 这**一个**词」——收件人不同，各立一格。
 - **`IsKeywordUnit` 那半句为什么能收**：两处原来都先过那一半守卫（只有 `Keyword` 那一种
   token 进得来），而基类给这三格默认 `false`、只有 `Keyword` 那一页答 `true`
@@ -3826,11 +3827,12 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 **为什么立这一格**：这一句判据在本页出现过 **5 次**（`projectExpression` 的入口、`typeOf`、
 `BodyBlockOf` / `BlockOfBody` 那两格「体是一对花括号」的入口、`HeadDeclare`），
 逐字重复的只有**手上那段数组的名字**——按本文件一贯的口径收成一格。
+**第 1169 轮之后是 4 处**：第五处（`HeadDeclare` 那一格）搬进了 `foreach.xl.md` 的 `PrintAst`，
+而它原来那一处的实参**就是** `ProjectableKids`（本页那一次 `prepareKids` 是**多滤一遍**）。
 **它与 `Token.ProjectableKids` 是同一件事的两个入口**（第 1066 轮那一格住在 token 上，
 这一格是「手上已经是一段数组」时的那一份算式）。
-**判据一个字没改**：`instanceof Token` 那一层是给 `statementOfList` 的**合成语句视图**挡的
-（`HeadDeclare` 那一处本来只滤 `IsInvisible`，而它拿到的就是 `ProjectableKids`——
-那一格已经滤过 `instanceof`，所以两处逐格同答）。**实测**官方用例语料 1640 份：
+**判据一个字没改**：`instanceof Token` 那一层是给 `statementOfList` 的**合成语句视图**挡的。
+**实测**官方用例语料 1640 份：
 `ProjectableKids` 被读 **26936** 次，命中的表里**一次**都没有非 `Token` 的格、
 **一次**都没有 `IsInvisible` 的格（`{dropped: 0, nonToken: 0}`）。
 
@@ -10183,66 +10185,28 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       };
     },
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
-    // **`projectHeadDeclare` 这一格第 1100 轮并进了这个出口**（同一把尺子：全仓只有
-    // `foreach.xl.md` 一个读者）。它说的是**没有 `Let` 的声明段**：`for (const v of xs)` /
-    // `for (const k in o)` 的头部（第 545 轮）——TS 那边 `ForOfStatement.initializer` 与
-    // `for (let i = 0; …)` 一样**直接就是 `VariableDeclarationList`**（不套 `VariableStatement`），
-    // 而产物在这一档里**没有 `Let`**（`of` / `in` 不进 `LetBranch`），声明段一直是
-    // `[Keyword(const), Identifier(v)]` **两格平铺**。名字那一格是**唯一**一个名字单元 /
-    // 模式括号（`for (const [a, b] of xs)`），按形态分派给 `NameNode` / `projectBindingPattern`；
-    // 列表的标志位从头顶那个词读。名字那一格的判据与 `IsNameNode` 同一条（第 598 轮），
-    // 名字那一格**一律投 `Identifier`**：绑定名按定义就是一个标识符。
-    HeadDeclare: (list) => {
-      const inner = prepareKids(list);
-      if (inner.length === 0) return undefined;
-      // **名字那一格从后往前找**：`const` / `let` / `var` / `using` 与 `await` 都可能还是
-      // `Identifier`（关键字升级在本单元的那一趟里跑，投影这一趟是**之后**的事）——
-      // 从前往后找会把那个词当成名字。
-      // **两格判据第 1121 轮都收进被问的那一页**（用户口径 1.1~1.4：投影要的信息由具体
-      // token 子类在自己那一页显式声明、在构造 / 记下正文那一刻赋好，读时备齐）：
-      // ① 「我这一格是不是绑定模式」第 1074 轮起就是 `k.IsBindingPattern`（`ArrayLiteral` /
-      // `ObjectLiteral` 各自显式声明 `true`）；② 「声明段里那一格模式」这一问**不是**它——
-      // 它还要认 `for (const [a] of xs)` 里那个**还没被收成 `ArrayLiteral`** 的 `[`
-      //（第 533 轮那条规则只在有空括号对时才收），于是原先那个现场闭包 `isPatternKid`
-      //（`IsBindingPattern` 加三个括号属性连比）整个收成一格属性 `k.IsPatternKid`
-      //（基类默认 `false`、四页各自显式声明：`Bracket` 按自己的 `startBracket`、
-      // 两个模式类常量答 `true`）。
-      let nameKid = undefined;
-      for (let at = inner.length - 1; at >= 0; at--) {
-        const one = inner[at];
-        if ((one.IsNameNode || one.IsPatternKid) && one.IsDeclareWord === false) {
-          nameKid = one;
-          break;
-        }
-      }
-      if (nameKid === undefined) return undefined;
-      const declared = nameKid.IsPatternKid ? projectBindingPattern(nameKid, ctx) : nameKid.NameNode;
-      // **列表的起点是那个声明词**、不是段里的第一格：`for await (const v of xs)` 的段里
-      // `await` 排在 `const` 前面（TS 那边它是 `ForOfStatement.awaitModifier`、
-      // 不是列表的一部分）——**所以这个声明词要从后往前找**（第 546 轮）。
-      // **「哪几个词是声明词」第 1121 轮也收进被问的那一页**：原先那个现场闭包
-      // `isDeclareWord`（一行里把 `const` / `let` / `var` / `using` 四个词连比一遍）
-      // 收成一格属性 `k.IsDeclareWord`（`Keyword` 认 keyword 那一态的三个词、
-      // `Identifier` 认 `using`，都在记下正文那一刻赋好）——「四个词里哪一个进了产物、
-      // 停在哪一态」只有那两页知道，投影层不再替它们记第二遍。
-      let declareKid = undefined;
-      for (let at = inner.length - 1; at >= 0; at--) {
-        if (inner[at].IsDeclareWord) {
-          declareKid = inner[at];
-          break;
-        }
-      }
-      const head = declareKid === undefined ? inner[0] : declareKid;
-      const headText = head.TextValue;
-      const flags = headText === "const" ? "Const" : headText === "var" ? "None" : "Let";
-      return {
-        kind: "VariableDeclarationList",
-        declarations: [{ kind: "VariableDeclaration", name: declared, pos: nameKid.start, end: nameKid.end }],
-        flags,
-        pos: head.start,
-        end: inner[inner.length - 1].end,
-      };
-    },
+    // **`ctx.HeadDeclare` 这个出口第 1169 轮删掉了**（用户口径 1.2 / 1.3 / 1.6 / 1.7）。
+    // 它说的是**没有 `Let` 的声明段**：`for (const v of xs)` / `for (const k in o)` 的头部
+    // （第 545 轮）——TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样
+    // **直接就是 `VariableDeclarationList`**（不套 `VariableStatement`），而产物在这一档里
+    // **没有 `Let`**（`of` / `in` 不进 `LetBranch`），声明段一直是 `[Keyword(const), Identifier(v)]`
+    // **两格平铺**；名字那一格是**唯一**一个名字单元 / 模式括号（`for (const [a, b] of xs)`），
+    // 按形态分派给 `NameNode` / `ctx.BindingPattern`（名字那一格的判据与 `IsNameNode` 同一条，
+    // 第 598 轮；名单里那一格**一律投 `Identifier`**——绑定名按定义就是一个标识符）。
+    // 这一趟要的每一件东西都在**那一段自己的单元**身上（`IsNameNode` / `IsPatternKid` /
+    // `IsDeclareWord` / `NameNode` / `TextValue` / `start` / `end`），而它的读者
+    // **只有 `foreach.xl.md` 一个**（第 1100 轮那本账）⇒ 算式**整段搬进那一页**
+    // （就地展开、不再经过出口），这个出口与它那一行一起删掉；名字补进 `direct:lint` 的
+    // `CTX_BANNED`（写回来这一门当场红）。
+    // **为什么不收成「一格属性」**：它答的不是一个值、而是**一个节点**
+    // （`VariableDeclarationList` 连它的 `declarations` / `flags` / 两个坐标），
+    // 而那个名字还得先按形态分派给两条不同的投法——那一趟是那一页自己的 `PrintAst` 的活。
+    // **省下的是「每一趟现滤一张数组」**：原来这一格的入口是 `prepareKids(list)`，
+    // 而 `foreach` 手上那一串（`ctx.KidsOf(v, "define").filter(…)`）**本来就滤过了**——
+    // 搬进那一页之后这一层不再存在（`prepareKids` 照旧服务另外四处）。
+    // **顺带收掉同一页的第二份答案**：`foreach.xl.md` 原来自己写着一个「哪几个词是声明词」的
+    // 现场闭包（`isDeclareWordKid`：一行里把 `const` / `let` / `var` / `using` 四个词连比一遍），
+    // 而那一问第 1121 轮起由被问的那一格答（`Token.IsDeclareWord`）——第 1169 轮改成属性读。
     QualifiedNameFrom: (list) => dottedExpression(list, "QualifiedName"),
     DottedExpression: (list) => dottedExpression(list),
     // **`TypeArguments` 这个出口第 1132 轮删掉了**（它原来就挂在这里）：那一格
