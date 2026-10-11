@@ -146,6 +146,21 @@ if (last instanceof SymbolToken) {
 
 单元值类型是单字符的 `string`。
 
+## field IsSymbolToken:bool = true
+
+**我这一格是不是一个符号块**（第 1093 轮）：投影层折链、折调用、切类型实参那一族里
+**三十九处**连写 `X.Tag === "SymbolToken"` / `X.Tag !== "SymbolToken"`，而**类名就是这一页
+自己的名字**——所以它本来就该由这一页答，不是由投影先问一句「你是什么类」。
+
+常量：构造时就赋好（与 `IsDotSymbol` / `IsTypeSeparator` / `IsPrefixOperatorUnit` 同一个类里，
+但那三格是「正文的函数」、在 `Close()` 里赋；这一格只看类名，所以是构造时的常量）。
+
+**它不与 `IsOperatorUnit` / `IsPrefixOperatorUnit` / `IsNotNullSymbol` 重复**：那三格答的是
+「**这一格正文**是不是某一串字符」（`IsOperatorUnit` 连 `in` / `instanceof` 那一族都算，
+`IsNotNullSymbol` 只认那一个 `!`）；这一格答「**我这一格是什么类**」——就是类名本身。
+所以三格各自显式声明、各自守着自己那一问（口径见 `../../core/syntax/token.xl.md`
+的 `IsSymbolToken`）。
+
 ## field IsDotSymbol:bool = false
 
 **我这一格是不是那个点号 `.`**（第 1057 轮）：`Token.IsDotSymbol` 在投影层过去是一个现场判据

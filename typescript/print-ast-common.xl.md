@@ -90,7 +90,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 出口，新立的两格在 `bracket` 那一页）仍是 66 格**，**第 1090 轮（11 处读数，新立的那一格在
 基类与 `symbol-token`）仍是 66 格**，**第 1091 轮（33 处读数，新立的两格在基类、
 `property-access` 与 `not-null`）照同一条命令逐行数是 64 格**，**第 1092 轮（48 处读数，
-新立的两格在基类、`method` 与 `generic-type`）仍是 64 格**
+新立的两格在基类、`method` 与 `generic-type`）仍是 64 格**，**第 1093 轮（54 处读数，
+新立的两格在基类、`symbol-token` 与 `null-conditional-operator`）仍是 64 格**
 ——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 **第 1091 轮复核时又量到同一件事**：第 1087 轮那一栏收尾写的是「66 格」，可照那条命令逐行数
@@ -861,8 +862,8 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 
 | 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
 | --- | --- | --- |
-| `(k) => !(k.Tag === "SymbolToken" && k.TextValue === "!")`（**9 处过滤器**：`NotNull` 单元的核要从子单元里滤掉收尾那个 `!`） | `(k) => !k.IsNotNullSymbol` | `SymbolToken` 那一页**显式声明** `## property IsNotNullSymbol:bool`（`### get`：`return this.TextValue === "!";`，基类答 `false`） |
-| `X.find((k) => k.Tag === "SymbolToken" && k.TextValue === "!")`（**2 处**：把那个 `!` 找出来） | `X.find((k) => k.IsNotNullSymbol)` | 同上 |
+| `(k) => !(k.IsSymbolToken && k.TextValue === "!")`（**9 处过滤器**：`NotNull` 单元的核要从子单元里滤掉收尾那个 `!`） | `(k) => !k.IsNotNullSymbol` | `SymbolToken` 那一页**显式声明** `## property IsNotNullSymbol:bool`（`### get`：`return this.TextValue === "!";`，基类答 `false`） |
+| `X.find((k) => k.IsSymbolToken && k.TextValue === "!")`（**2 处**：把那个 `!` 找出来） | `X.find((k) => k.IsNotNullSymbol)` | 同上 |
 
 - **为什么它该住在符号那一页**：「我这一格的正文是不是 `!`」**只有这一页知道**
   （正文就在它自己的 `Temp` / `value` 上）——投影层重写一遍就是同一格事实的第二处答案
@@ -877,9 +878,11 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   这一条如实记在两页上）。
 - **它与 `IsPrefixOperatorUnit` 不是同一问**：那一格答「我是不是一个前缀运算符」（一串
   `!` `~` `+` `-` `++` `--`），这一格只认那一个 `!`（`x!` 的收尾、`a!()` 的断言位）。
-- **泛型那一形态逐字保留**（实测点名）：`const isSymbol = (k, text) => k.Tag === "SymbolToken" &&
+- **泛型那一形态逐字保留**（实测点名）：`const isSymbol = (k, text) => k.IsSymbolToken &&
   k.TextValue === text`（本页 2 处）问的是「正文是不是**参数给的那个**」，不是某一个具体符号，
-  没有第二处答案，所以不动——新判据只认字面量 `"!"`。
+  没有第二处答案，所以不动——新判据只认字面量 `"!"`。（**第 1093 轮如实记下**：这两处的
+  `k.IsSymbolToken` 是那一轮把「比类名」换掉之后的样子，第 1090 轮当时写的是
+  `k.Tag === "SymbolToken"`。）
 - **判据跟着长两条**：`direct:lint` 第八条那一族多认一个名字（`IsNotNullSymbol`），
   另立第十六条 `NOT_NULL_SYMBOL_CLASSIFY`——**匿名连写**那一形态（同行与跨行、
   被 `!(…)` 包起来的写法都算）在代码块里必须恰好 0 处。**自验**（`tmp/r1090/` 的探针，
@@ -978,6 +981,52 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**64 格**（一格声明没增没减：新立的两格都在别的页与基类；
   本页 48 处改的是读数算式）。
+
+**第 1093 轮把这一族里出现最多的两个名字也收了**（用户口径 1.1~1.4：token 子类**构造完**
+信息就得齐；要读的那一格由**具体页显式声明**、构造时赋好）——收的是本页代码块里
+**剩下最多的两片现场比类名**：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `X.Tag === "SymbolToken"` / `X.Tag !== "SymbolToken"`（**39 处**：折链、折调用、切类型实参、找标点那一族） | `X.IsSymbolToken` / `X.IsSymbolToken === false` | `SymbolToken` 那一页**显式声明** `## field IsSymbolToken:bool = true`（常量，构造时就位） |
+| `X.Tag === "NullConditionalOperator"`（**15 处**：折可选链那一族） | `X.IsNullConditionalOperator` | `NullConditionalOperator` 那一页**显式声明** `## field IsNullConditionalOperator:bool = true`（同上） |
+
+- **两句问的都是「你这一格是什么类」**，而那两个名字就是那两页自己的类名——判据与
+  第 1088 / 1090 / 1091 / 1092 轮同一条。收完这两片之后，本页代码块里 `SymbolToken` 与
+  `NullConditionalOperator` 的现场比类名从 **56 处收成 0 处**。
+- **有两处逐字保留**（本页两处 `const isSymbol = (k, text) => k.IsSymbolToken && k.TextValue === text`，
+  各在 `projectExpression` 的两段里）：它问的是「正文是不是**参数给的那个词**」，不是某一个
+  具体符号，没有「同一格事实的第二处答案」——**新判据只认字面量**，所以这两处不动
+  （与第 1090 轮那条 `NOT_NULL_SYMBOL_CLASSIFY` 留着同一形态的泛型 helper 是同一条口径）。
+- **两格都是 `## field`（常量）**：与第 1091 / 1092 轮那几格同一条理由——答的不是
+  「正文是什么」（正文是逐字符攒的、未必关过；`SymbolToken` 那一页的 `IsDotSymbol` /
+  `IsTypeSeparator` / `IsPrefixOperatorUnit` 正是为此住在 `Close()` 里），而是「这一格整个
+  单元是不是某一类」，类名在构造那一刻就定下来。
+- **名字为什么不与那两页既有那几格共用**：`SymbolToken` 那一页的三格（`IsDotSymbol` /
+  `IsTypeSeparator` / `IsPrefixOperatorUnit`）与 `IsNotNullSymbol`（第 1090 轮）答的都是
+  「**这一格的正文**是不是某一串字符」——本轮的 `IsSymbolToken` 答的是「**我这一格是什么类**」，
+  两问的收件人一个是「正文」、一个是「类名」，所以各立一格（第 1093 轮起该页四问并列）。
+  `NullConditionalOperator` 那一页的 `IsChainBaseNode` 答「形状够不够当一条链的基名」
+  （八页答 `true`），同样不是同一问。
+- **判据跟着长**：`direct:lint` 第八条那一族多认两个名字（`IsSymbolToken` /
+  `IsNullConditionalOperator`），第十七条 `SELF_TAG_CLASSIFY` 的名单从四个 `<Tag>` 扩到
+  **六个**（再加 `SymbolToken` / `NullConditionalOperator`，`!==` 也算）——六种现场算式
+  在代码块里都必须恰好 0 处。**自验**（本机探针，不进仓库）：把一处 `IsSymbolToken` 与
+  一处 `IsNullConditionalOperator` 分别写回现场算式 ⇒ 报告 **0 → 1 处**、`FAIL`、`exit=1`；
+  逐字节还原 ⇒ 0 处、`exit=0`。
+- **改了哪五个文件**：本页（**54 处**现场算式改成属性读——按行数是 **55 行**，
+  `X.Tag === "SymbolToken"` 那一串里没有跨行的那几处；再加这一节）、`core/syntax/token.xl.md`（那两格虚属性，
+  基类各答 `false`）、`typescript/tokens/symbol-token.xl.md` 与
+  `typescript/tokens/null-conditional-operator.xl.md`（各自显式声明并答 `true`）、
+  `tests/parse/direct-lint.mjs`（第八条名单 + 第十七条那六个 `<Tag>` + 一行读数）。
+- **实测**：`xl check` 5 个文件 0 条；`xl build`（`core` / `typescript`）**4 个产物** / 0 error
+  （`token` / `symbol-token` / `null-conditional-operator` / `print-ast-common`）、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 31.4s），读数与基线逐项相同：`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**64 格**（一格声明没增没减：新立的两格都在别的页与基类；
+  本页 54 处改的是读数算式）。
 
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
@@ -3192,11 +3241,11 @@ new Set([
   // 而 `IsAllowedFollower` 的白名单刻意不含数字（`foo(bar) > 3` 要能退回比较式），
   // 于是产物是一段平的 `[<, number, >, 1]`。判据仍然只看「第一个单元是不是 `<`」——
   // 有左操作数的比较式（`a < b > c`）第一个单元是那个 `a`，撞不到这里。
-  if (kids[0].Tag === "SymbolToken" && kids[0].TextValue === "<" && kids.length >= 3) {
+  if (kids[0].IsSymbolToken && kids[0].TextValue === "<" && kids.length >= 3) {
     let depth = 0;
     let close = -1;
     for (let i = 0; i < kids.length; i++) {
-      const text = kids[i].Tag === "SymbolToken" ? kids[i].TextValue : "";
+      const text = kids[i].IsSymbolToken ? kids[i].TextValue : "";
       if (text === "<") {
         depth++;
       } else if (text === ">") {
@@ -3317,7 +3366,7 @@ new Set([
     if (word === "yield") {
       const props: any = {};
       let rest = kids.slice(1);
-      if (rest.length > 0 && rest[0].Tag === "SymbolToken" && rest[0].TextValue === "*") {
+      if (rest.length > 0 && rest[0].IsSymbolToken && rest[0].TextValue === "*") {
         props.asteriskToken = projectNode(rest[0], ctx);
         rest = rest.slice(1);
       }
@@ -3402,7 +3451,7 @@ new Set([
           (unit) =>
             unit.Tag !== "As" &&
             unit.Tag !== "Satisfies" &&
-            !(unit.Tag === "SymbolToken" && unit.TextValue === "."),
+            !(unit.IsSymbolToken && unit.TextValue === "."),
         );
       if (tailIsOperators) {
         const operand = projectExpression(flat.slice(0, opAt), ctx);
@@ -3425,12 +3474,12 @@ new Set([
       // 本仓给 `[object Promise]1`、Node 给 `3`（**静默错值**）。
       if (tail.length === 1 && isOperatorFold(tail[0])) {
         const inner = tail[0].ProjectableKids;
-        if (inner.length >= 2 && inner[0].Tag === "NullConditionalOperator") {
+        if (inner.length >= 2 && inner[0].IsNullConditionalOperator) {
           const base = projectExpression(flat.slice(0, opAt), ctx);
           if (base !== undefined) {
             let chained = chainWithOptional(base, inner[0], ctx);
             let chainAt = 1;
-            while (chainAt < inner.length && inner[chainAt].Tag === "NullConditionalOperator") {
+            while (chainAt < inner.length && inner[chainAt].IsNullConditionalOperator) {
               chained = chainWithOptional(chained, inner[chainAt], ctx);
               chainAt += 1;
             }
@@ -3454,7 +3503,7 @@ new Set([
   // `[SymbolToken(#), Identifier(x), Keyword(in), Identifier(o)]`——`#` 与名字是两格。
   // 合成一个 `PrivateIdentifier` 之后，后面的运算符与操作数照常折（`in` 走
   // `IsOperatorUnit` 那一格：它是 `Keyword` 不是 `SymbolToken`）。
-  if (kids.length >= 2 && kids[0].Tag === "SymbolToken" && kids[0].TextValue === "#") {
+  if (kids.length >= 2 && kids[0].IsSymbolToken && kids[0].TextValue === "#") {
     const named = kids[1];
     const simple = named.IsNameNode;
     if (simple) {
@@ -3518,7 +3567,7 @@ new Set([
       ctx.expressionPosition = savedExpression;
     }
   }
-  const isSymbol = (k, text) => k.Tag === "SymbolToken" && k.TextValue === text;
+  const isSymbol = (k, text) => k.IsSymbolToken && k.TextValue === text;
 
   // ---- 0。`import.meta` / `new.target`（第 141 轮）----
   //
@@ -3663,7 +3712,7 @@ new Set([
   // **整段丢掉**——实测缺 `CallExpression` 49 / `QuestionDotToken` 40 /
   // `PropertyAccessExpression` 189 里成片，而且都会连带多出未映射的
   // `<NullConditionalOperator>` 与 `<Bracket>`。
-  const ncoIndex = kids.findIndex((k) => k.Tag === "NullConditionalOperator");
+  const ncoIndex = kids.findIndex((k) => k.IsNullConditionalOperator);
   // **链后面还挂着 `as` / `satisfies` 时，0a0 / 0a 两条都要让开**（第 664 轮）：
   // `a?.b as T` 的产物是 `[Identifier(a), NullConditionalOperator(b), As(T)]` 三格 ——
   // 那两条支路的收尾都是「把 NCO 接到左边、剩下的交给 `foldBinaryFrom`」，
@@ -3712,7 +3761,7 @@ new Set([
   const prefixHasOperator = kids.slice(0, ncoIndex).some(
     (k) =>
       k.IsBinaryOperatorNode ||
-      (k.Tag === "SymbolToken" && NCO_BASE_OPERATORS.has(k.TextValue)),
+      (k.IsSymbolToken && NCO_BASE_OPERATORS.has(k.TextValue)),
   );
   if (
     ncoIndex > 0 &&
@@ -3724,7 +3773,7 @@ new Set([
     let optional = projectExpression(kids.slice(0, ncoIndex), ctx);
     if (optional !== undefined) {
       let at = ncoIndex;
-      while (at < kids.length && kids[at].Tag === "NullConditionalOperator") {
+      while (at < kids.length && kids[at].IsNullConditionalOperator) {
         optional = chainWithOptional(optional, kids[at], ctx);
         at++;
       }
@@ -3745,10 +3794,10 @@ new Set([
   const hasNcoInBinary = kids.some(
     (k) =>
       (k.IsBinaryOperatorNode) &&
-      k.ProjectableKids[0]?.Tag === "NullConditionalOperator",
+      k.ProjectableKids[0]?.IsNullConditionalOperator,
   );
   // **尾巴上还挂着 `as` / `satisfies` 时，这一支也要让开**（见上面 `asAfterNco` 那一处）。
-  if (ncoIndex > 0 && hasNcoInBinary === false && asAfterNco === false && !(kids[0].Tag === "BinaryOperator" && kids.slice(1).some((k) => k.Tag === "NullConditionalOperator" || isSymbol(k, ".")))) {
+  if (ncoIndex > 0 && hasNcoInBinary === false && asAfterNco === false && !(kids[0].Tag === "BinaryOperator" && kids.slice(1).some((k) => k.IsNullConditionalOperator || isSymbol(k, ".")))) {
     // **前缀里有顶层二元运算符时，NCO 要并进「右边那个操作数段」**（第 145 轮）：
     //
     //     x.Start === y.Start?.Document
@@ -3771,7 +3820,7 @@ new Set([
         break;
       }
       const text = k.TextValue;
-      if (k.Tag !== "SymbolToken" || OP_TEXTS.has(text) === false) {
+      if (k.IsSymbolToken === false || OP_TEXTS.has(text) === false) {
         continue;
       }
       const rank = k.OperatorRank;
@@ -3785,7 +3834,7 @@ new Set([
       if (base !== undefined) {
         let optional = foldBinaryFrom(base, [...prefix.slice(opAt), kids[ncoIndex]], ctx);
         let at = ncoIndex + 1;
-        while (at < kids.length && kids[at].Tag === "NullConditionalOperator") {
+        while (at < kids.length && kids[at].IsNullConditionalOperator) {
           optional = chainWithOptional(optional, kids[at], ctx);
           at++;
         }
@@ -3826,7 +3875,7 @@ new Set([
     if (optional !== undefined && operandField !== "") {
       let inner:any = operandField === "expression" ? optional.expression : optional.operand;
       let unaryAt = ncoIndex;
-      while (unaryAt < kids.length && kids[unaryAt].Tag === "NullConditionalOperator") {
+      while (unaryAt < kids.length && kids[unaryAt].IsNullConditionalOperator) {
         inner = chainWithOptional(inner, kids[unaryAt], ctx);
         unaryAt++;
       }
@@ -3839,7 +3888,7 @@ new Set([
       return foldBinaryFrom(rebuilt, kids.slice(unaryAt), ctx);
     }
     let at = ncoIndex;
-    while (at < kids.length && kids[at].Tag === "NullConditionalOperator") {
+    while (at < kids.length && kids[at].IsNullConditionalOperator) {
       optional = chainWithOptional(optional, kids[at], ctx);
       at++;
     }
@@ -3936,7 +3985,7 @@ new Set([
   // 而真正的 `o["f"]().v` 整片缺失（判据 `exec/round711/p711b-b02`）。
   const tailIsChain = kids
     .slice(1)
-    .some((k) => k.Tag === "NullConditionalOperator" || isSymbol(k, ".") || isCallFirstUnit(k, ctx));
+    .some((k) => k.IsNullConditionalOperator || isSymbol(k, ".") || isCallFirstUnit(k, ctx));
   // **续格与更松的运算符一起装在下一个二元单元里**（第 863 轮）：`1 + o["f"]().v + 2` 的产物是
   //
   //     [BinaryOperator( 1, «+», PropertyAccess(o, [f]) ),
@@ -4010,7 +4059,7 @@ new Set([
         continue;
       }
       const inner = unit.ProjectableKids;
-      if (inner.length < 2 || inner[0].Tag !== "NullConditionalOperator") {
+      if (inner.length < 2 || inner[0].IsNullConditionalOperator === false) {
         continue;
       }
       const base = projectExpression(kids.slice(0, at), ctx);
@@ -4352,7 +4401,7 @@ new Set([
       let assignAt = -1;
       for (let j = 1; j < at; j++) {
         const one = kids[j];
-        if (one.Tag !== "SymbolToken") continue;
+        if (one.IsSymbolToken === false) continue;
         const text = one.TextValue;
         const isAssign =
           text === "=" ||
@@ -4436,7 +4485,7 @@ new Set([
   // `f(...xs)` 的产物把 `...` 与目标分成**两格**，而 `...` 是 `SymbolToken`
   // （`IsOperatorUnit` 对任何符号都为真），照二元那一支会把它投成一个孤立的
   // `DotDotDotToken`（实测多出 66，样本全是 `...(newValues)` / `...(items)` 这种调用实参）。
-  if (kids.length >= 2 && kids[0].Tag === "SymbolToken" && kids[0].TextValue === "...") {
+  if (kids.length >= 2 && kids[0].IsSymbolToken && kids[0].TextValue === "...") {
     const spread = projectExpression(kids.slice(1), ctx);
     if (spread !== undefined) {
       return {
@@ -4767,7 +4816,7 @@ new Set([
       let operandAt = 0;
       while (
         operandAt < unaryKids.length &&
-        (unaryKids[operandAt].Tag === "SymbolToken" || unaryKids[operandAt].Tag === "Keyword")
+        (unaryKids[operandAt].IsSymbolToken || unaryKids[operandAt].Tag === "Keyword")
       ) {
         operandAt += 1;
       }
@@ -5197,7 +5246,7 @@ new Set([
       // 而 TS 那边 `name` 是**一个** `PrivateIdentifier`（区间含那个 `#`，`#` 是它的一部分）。
       // 不合并的话点号后面只剩一个 `#`（投成一个 `Identifier("#")`、区间短一格），
       // 后面那个名字还掉成平级节点（实测 `cls-hash-in-operator.ts` / `cls-private-fields.ts`）。
-      if (next.Tag === "SymbolToken" && next.TextValue === "#" && i + 2 < ck.length) {
+      if (next.IsSymbolToken && next.TextValue === "#" && i + 2 < ck.length) {
         const after = ck[i + 2];
         const at = startOf(next);
         // **私有方法调用 `this.#m()`**（第 138 轮）：点号后面是 `[SymbolToken(#), Method(name="m")]`——
@@ -5269,7 +5318,7 @@ new Set([
           // 漂移 14 + 缺 7 + 多出 7）。逐格接上去，最后再套 `NonNullExpression`。
           const chain = head.IsPropertyAccess ? head.ProjectableKids : [head];
           for (const piece of chain) {
-            if (piece.Tag === "SymbolToken") {
+            if (piece.IsSymbolToken) {
               continue;
             }
             left = {
@@ -5453,11 +5502,11 @@ new Set([
     const tail0 = ck[i];
     const spliceOptional = (unit) => {
       const inner = unit.ProjectableKids;
-      if (inner.length === 0 || inner[0].Tag !== "NullConditionalOperator") return null;
+      if (inner.length === 0 || inner[0].IsNullConditionalOperator === false) return null;
       const extended = chainWithOptional(left, inner[0], ctx);
       return { extended, rest: inner.slice(1) };
     };
-    if (tail0.Tag === "NullConditionalOperator") {
+    if (tail0.IsNullConditionalOperator) {
       const extended = chainWithOptional(left, tail0, ctx);
       if (i + 1 >= ck.length) return extended;
       return foldBinaryFrom(extended, ck.slice(i + 1), ctx);
@@ -5857,7 +5906,7 @@ return false;
     let cur = left;
     let pending: any = questionDot;
     for (const member of members) {
-      if (member.Tag === "NullConditionalOperator") {
+      if (member.IsNullConditionalOperator) {
         cur = chainWithOptional(cur, member, ctx);
         pending = undefined;
         continue;
@@ -6200,7 +6249,7 @@ return false;
           node = element;
           continue;
         }
-        if (member.Tag === "SymbolToken") continue;
+        if (member.IsSymbolToken) continue;
         const nameText = member.TextValue;
         if (nameText === "") continue;
         node = {
@@ -6351,7 +6400,7 @@ return false;
     let j = 0;
     while (j < members.length) {
       const member = members[j];
-      if (member.Tag === "NullConditionalOperator") {
+      if (member.IsNullConditionalOperator) {
         node = chainWithOptional(node, member, ctx);
         pending = undefined;
         j += 1;
@@ -6595,7 +6644,7 @@ return false;
       i += 1;
       continue;
     }
-    if (unit.Tag === "NullConditionalOperator") {
+    if (unit.IsNullConditionalOperator) {
       left = chainWithOptional(left, unit, ctx);
       i += 1;
       continue;
@@ -6967,7 +7016,7 @@ return false;
       let j = 0;
       while (j < members.length) {
         const member = members[j];
-        if (member.Tag === "NullConditionalOperator") {
+        if (member.IsNullConditionalOperator) {
           left = chainWithOptional(left, member, ctx);
           j += 1;
           continue;
@@ -7249,7 +7298,7 @@ return false;
       rest.length === 4 &&
       (rest[1].IsBinaryOperatorNode) &&
       (rest[3].IsBinaryOperatorNode) &&
-      rest[2].Tag === "SymbolToken" &&
+      rest[2].IsSymbolToken &&
       rest[2].TextValue === "=" &&
       rest[2].Text.length > 1
     ) {
@@ -7377,13 +7426,13 @@ return false;
     return 0;
   }
   const opener = kids[at];
-  if (opener.Tag !== "SymbolToken" || opener.TextValue !== "<") {
+  if (opener.IsSymbolToken === false || opener.TextValue !== "<") {
     return 0;
   }
   let depth = 0;
   let close = -1;
   for (let i = at; i < kids.length; i++) {
-    const text = kids[i].Tag === "SymbolToken" ? kids[i].TextValue : "";
+    const text = kids[i].IsSymbolToken ? kids[i].TextValue : "";
     if (text === "<") {
       depth += 1;
     } else if (text === ">") {
@@ -7567,7 +7616,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // `elements` 空着、里面的 `BindingElement` 与名字整片丢
   // （实测 `decl-arr-destructure-nested` / `vars-destructure-nested` /
   // `decl-destructure-nested-names` 三族共 27 处）。所以先在**整段列表里 `=` 左边**找。
-  const eqAt = kids.findIndex((k) => k.Tag === "SymbolToken" && k.TextValue === "=");
+  const eqAt = kids.findIndex((k) => k.IsSymbolToken && k.TextValue === "=");
   const headKids = eqAt >= 0 ? kids.slice(0, eqAt) : kids;
   const isPatternUnit = (k: any) =>
     k.Tag === "ArrayLiteral" ||
@@ -7584,7 +7633,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // **每个声明符一个 `VariableDeclaration`**：第一组用 `Let` 自己的 `fieldName`（名字在那上面），
   // 后面的组名字就是组里第一格（`j = 1` 的 `j`）；类型标注取**本组**的 `TypeDefine`。
   const declarations = groups.map((one, index) => {
-    const eq = one.findIndex((k) => k.Tag === "SymbolToken" && k.TextValue === "=");
+    const eq = one.findIndex((k) => k.IsSymbolToken && k.TextValue === "=");
     // **初始化式是 `=` 右边**整段**，不是一格**（第 101 轮）：`const a = this.Parent!.Data.indexOf(this)`
     // 的右边在产物里是**四个平级单元**（`NotNull` / `.` / `PropertyAccess` / …），
     // 原来只取第一格——于是整条链只剩最前面那个 `NotNull`，链尾全丢
@@ -7720,9 +7769,9 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 ```ts
   const v = unit;
   const kids = v.ProjectableKids;
-  const colonIndex = kids.findIndex((k) => k.Tag === "SymbolToken" && k.TextValue === ":");
-  const eqIndex = kids.findIndex((k) => k.Tag === "SymbolToken" && k.TextValue === "=");
-  const dots = kids.find((k) => k.Tag === "SymbolToken" && k.TextValue === "...");
+  const colonIndex = kids.findIndex((k) => k.IsSymbolToken && k.TextValue === ":");
+  const eqIndex = kids.findIndex((k) => k.IsSymbolToken && k.TextValue === "=");
+  const dots = kids.find((k) => k.IsSymbolToken && k.TextValue === "...");
   const names = kids.filter((k) => k.IsNameNode && !k.IsTypeSeparator);
   // **绑定位里还能再嵌一层模式**（第 135 轮）：`[[a, b], …]` 的元素是**另一个**
   // `ArrayLiteral` / `ObjectLiteral`（`{ b: [c, d = 2] }` 里 `:` 右边也是）。
@@ -7917,7 +7966,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 
 ```ts
   const arrowIndex = kids.findIndex(
-    (k: any) => k.Tag === "SymbolToken" && k.TextValue === "=>",
+    (k: any) => k.IsSymbolToken && k.TextValue === "=>",
   );
   const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
   const generic = before.find((k: any) => k.IsGenericType);
@@ -7990,7 +8039,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `FunctionType(type = UnionType[A, B])`（`=>` 比 `|` 松），先按 `|` 切就会拆成
   // `UnionType[FunctionType(() => A), B]`——两层的方向反了。
   const flatArrowAt = list.findIndex(
-    (k, i) => i > 0 && k.Tag === "SymbolToken" && k.TextValue === "=>",
+    (k, i) => i > 0 && k.IsSymbolToken && k.TextValue === "=>",
   );
   if (flatArrowAt > 0 && list[0].Tag === "Bracket") {
     const built = functionTypeProps(list, ctx);
@@ -8002,7 +8051,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     };
   }
   // **平铺的联合 / 交叉**（第 133 轮）：见上。按**最外层**的分隔符切段、每段自己递归。
-  const isTypeOp = (k: any, text: string) => k.Tag === "SymbolToken" && k.TextValue === text;
+  const isTypeOp = (k: any, text: string) => k.IsSymbolToken && k.TextValue === text;
   for (const [op, kind] of [
     ["|", "UnionType"],
     ["&", "IntersectionType"],
@@ -8036,7 +8085,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   if (list.length === 1 && list[0].Tag === "LiteralType") {
     const signedKids = list[0].ProjectableKids;
     const signedHead = signedKids[0];
-    if (signedKids.length === 2 && signedHead !== undefined && signedHead.Tag === "SymbolToken") {
+    if (signedKids.length === 2 && signedHead !== undefined && signedHead.IsSymbolToken) {
       const signedOp = signedHead.TextValue;
       if (signedOp === "-" || signedOp === "+") {
         const operand = projectNode(signedKids[1], ctx);
@@ -8075,13 +8124,13 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `typeArguments` 的 `TypeReference`（实测 `undici-types/header.d.ts` 的
   // `KnownHeaderValues[Lowercase<K>]`：缺 `TypeReference` + `Identifier`，名字那格的区间也短）。
   const openAt = list.findIndex(
-    (k, i) => i > 0 && k.Tag === "SymbolToken" && k.TextValue === "<",
+    (k, i) => i > 0 && k.IsSymbolToken && k.TextValue === "<",
   );
   if (openAt > 0) {
     let depth = 0;
     let closeAt = -1;
     for (let i = openAt; i < list.length; i++) {
-      if (list[i].Tag !== "SymbolToken") {
+      if (list[i].IsSymbolToken === false) {
         continue;
       }
       const text = list[i].TextValue;
@@ -8301,7 +8350,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   //（实测多出 `NewKeyword` / `TypeReference` / `Identifier`，同时缺整个 `ConstructorType`
   // 与它的形参、返回类型）。
   if (head.Tag === "Keyword" && head.TextValue === "new") {
-    const arrow = list.findIndex((k) => k.Tag === "SymbolToken" && k.TextValue === "=>");
+    const arrow = list.findIndex((k) => k.IsSymbolToken && k.TextValue === "=>");
     if (arrow > 0) {
       const ctorProps = {};
       const ctorGeneric = list.find((k) => k.IsGenericType);
@@ -8838,13 +8887,13 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // 结尾」——那才是分段壳（`TernaryOperatorCondition` 这种）。
   // **不能只看「答 `undefined`」**：`PropertyAccess` 的 `AstKind()` 也答 `undefined`（它自己覆写了
   // `PrintDirectAst`），只看那一格会把 `y.z` 摊成两个裸名字。
-  const leaf = first.IsNameNode || first.Tag === "SymbolToken";
+  const leaf = first.IsNameNode || first.IsSymbolToken;
   const wrapper =
     !leaf &&
     first.AstKind === undefined &&
     /(Condition|Statement|Segment)$/.test(first.Tag);
   if (wrapper) {
-    const inner = first.ProjectableKids.filter((k) => k.Tag !== "SymbolToken");
+    const inner = first.ProjectableKids.filter((k) => k.IsSymbolToken === false);
     return inner.length === 0 ? projectNode(first, ctx) : projectExpression(inner, ctx);
   }
   // **只排掉分段自己的标点**（`?` / `:`），**不能把所有 `SymbolToken` 都排掉**（第 106 轮）：
@@ -8852,7 +8901,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // `[i, 0]` 于是折不动、只投出第一个操作数（实测缺 `BinaryExpression` 79 +
   // `GreaterThanToken` + 右侧那个字面量，样本集中在 `? :` 的条件位上）。
   const inner = kids.filter(
-    (k) => !(k.Tag === "SymbolToken" && [":", "?"].includes(k.TextValue)),
+    (k) => !(k.IsSymbolToken && [":", "?"].includes(k.TextValue)),
   );
   if (inner.length === 0) return projectNode(first, ctx);
   return projectExpression(inner, ctx);
@@ -8974,7 +9023,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 等 13 个节点（`Identifier` 缺 375 / `TypeReference` 缺 118 的样本全在这一族）。
 
 ```ts
-  const isSymbol = (k, text) => k.Tag === "SymbolToken" && k.TextValue === text;
+  const isSymbol = (k, text) => k.IsSymbolToken && k.TextValue === text;
   const slice = kids.slice(start, end);
   const isExtends = (k) =>
     k.IsNameNode && k.TextValue === "extends";
@@ -9145,17 +9194,17 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     (k.IsNameNode || k.Tag === "Export") &&
     (k.TextValue === text || wordTail(k) === text);
   const isAssignment =
-    rest.some((k) => k.Tag === "SymbolToken" && k.TextValue === "=") ||
+    rest.some((k) => k.IsSymbolToken && k.TextValue === "=") ||
     rest.some((k) => isWord(k, "default") || wordTail(k) === "=");
   // 等号 / `default` 之后的表达式：`Export` 单元里剩下的 + 语句里跟在它后面的兄弟。
   const inUnit = rest.filter(
     (k) =>
-      !(k.Tag === "SymbolToken" && k.TextValue === "=") &&
+      !(k.IsSymbolToken && k.TextValue === "=") &&
       !isWord(k, "default") &&
       wordTail(k) !== "=",
   );
   const expr = [...inUnit, ...(following ?? [])].filter(
-    (k) => k instanceof Token && !(k.Tag === "SymbolToken" && k.TextValue === ";"),
+    (k) => k instanceof Token && !(k.IsSymbolToken && k.TextValue === ";"),
   );
   if (isAssignment && expr.length > 0) {
     const value = projectExpression(expr, ctx);
@@ -9259,7 +9308,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       const elements: Array<any> = [];
       for (const part of splitTopLevel(one.ProjectableKids, ",")) {
         const colonAt = part.findIndex(
-          (k: any) => k.Tag === "SymbolToken" && k.TextValue === ":",
+          (k: any) => k.IsSymbolToken && k.TextValue === ":",
         );
         if (colonAt < 0) continue;
         const nameUnit = part.slice(0, colonAt).find((k: any) => k.IsNameNode);
@@ -9300,7 +9349,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // 产物那一段是 `[*, Keyword(as), Identifier(ns)]` 平级三格——不收的话
   // `ExportDeclaration` 少一整个 `exportClause` 字段、缺 `NamespaceExport` + `Identifier`
   // （实测 `ex-reexport.ts` / `mod-export-star-as-namespace.ts` / `mod-adversarial-shapes.ts`）。
-  const star = kids.find((k) => k.Tag === "SymbolToken" && k.TextValue === "*");
+  const star = kids.find((k) => k.IsSymbolToken && k.TextValue === "*");
   if (brace === undefined && star !== undefined) {
     const asIndex = kids.findIndex((k) => k.TextValue === "as");
     const nameNode = asIndex < 0 ? undefined : kids[asIndex + 1];
@@ -9689,7 +9738,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // 形参表落进 `parameters`（实测字段名差 149 处）。
       if (
         (kind === "MethodSignature" || kind === "MethodDeclaration") &&
-        x.Tag === "SymbolToken" &&
+        x.IsSymbolToken &&
         x.TextValue === "?"
       ) {
         const questionAt = startOf(x);

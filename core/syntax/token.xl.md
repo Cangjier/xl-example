@@ -1601,6 +1601,38 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsNotNull:bool = true`，构造时就赋好），投影只读这一格（`unit.IsNotNull`）。
 
+## field IsSymbolToken:bool = false
+
+**我这一格是不是一个符号块**（第 1093 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`SymbolToken` 那一页答 `true`（`typescript/tokens/symbol-token.xl.md`），
+其余一律 `false`。过去它在投影层是**三十九处连写比类名**（`X.Tag === "SymbolToken"` /
+`X.Tag !== "SymbolToken"`——折链、折调用、切类型实参那几族里成片都是），而那个名字
+**就是那一页自己的类名**——所以那是它自己的事实。
+
+**它与 `IsOperatorUnit` / `IsPrefixOperatorUnit` / `IsNotNullSymbol` 不是同一问**：
+那三格答的是「**这一格的正文**是不是某一串字符」（`SymbolToken` 那一页里读 `Temp` /
+`TextValue` 现算）；这一格答「**我这一格整个单元**是不是符号块」——就是类名本身。
+所以四格各自显式声明、各自守着自己那一问。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsSymbolToken:bool = true`，构造时就赋好），投影只读这一格（`unit.IsSymbolToken`）。
+
+## field IsNullConditionalOperator:bool = false
+
+**我这一格是不是一个空条件运算符单元**（第 1093 轮）——是的话答 `true`。
+
+判据同样是关于**产物标签**的：`NullConditionalOperator` 那一页答 `true`
+（`typescript/tokens/null-conditional-operator.xl.md`），其余一律 `false`。过去它在投影层是
+**十五处连写比类名**（`X.Tag === "NullConditionalOperator"`——折可选链那一族），
+而那个名字就是那一页自己的类名。
+
+**它与 `IsChainBaseNode` 不是同一问**：那一格答「手上这一格的**形状**够不够当一整条链的基名」
+（八页答 `true`）；这一格答「我是不是 `NullConditionalOperator` 这一格单元」。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsNullConditionalOperator:bool = true`，构造时就赋好）。
+
 ## field IsMethodNode:bool = false
 
 **我这一格是不是一次方法调用单元**（第 1092 轮）——是的话答 `true`。

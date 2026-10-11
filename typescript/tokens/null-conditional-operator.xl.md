@@ -159,6 +159,18 @@ return nextIndex;
 NCO（`o?.a().b` 那一族也由它起头），所以这一页常量答 `true`——口径与两条理由见
 `../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
 
+## field IsNullConditionalOperator:bool = true
+
+**我这一格是不是一个空条件运算符单元**（第 1093 轮）：投影层折可选链那一族里**十五处**
+连写 `X.Tag === "NullConditionalOperator"`，而**类名就是这一页自己的名字**——所以它本来
+就该由这一页答。
+
+常量：构造时就赋好（与 `IsChainBaseNode` 同一个位置、同一形态）。口径与「为什么必须有
+基类那一句默认」见 `../../core/syntax/token.xl.md` 的 `IsNullConditionalOperator`。
+
+**它与 `IsChainBaseNode` 不是同一问**：那一格答「手上这一格的**形状**够不够当一整条链的
+基名」（八页答 `true`）；这一格答「我是不是 `NullConditionalOperator` 这一格单元」。
+
 ## constructor:(template:Template)=>void
 
 构造器里取本类型的规则队列；运行时类型用 `this.constructor`。
