@@ -880,6 +880,25 @@ if (result.SourceRange.End === null) {
   result.SignOut(arrowEnd);
 }
 result.TryToClose();
+// **「我这一格是不是函数体、是不是 `async`」在这里定成属性**（第 1045 轮）：
+// 判据（`Process` 认下 `async` 时置真的 `IsAsync`、以及 `Data` 里那个 `async` 记号）就在手上，
+// 而这一趟正是把体与参数搬进来的那一趟——事实在哪一趟记下，就在哪一趟赋值。
+// 投影于是只沿 `Parent` 链读 `FunctionFlags`，不再调一个现场扫描
+// （那个扫描过去写在 `Lamda.FunctionFlags()` 里）。
+let generatorFlag = false;
+let asyncFlag = result.IsAsync === true;
+for (const item of result.Data) {
+  if (item instanceof Bracket && item.startBracket === "(") {
+    break;
+  }
+  if (item instanceof SymbolToken && item.Is("*")) {
+    generatorFlag = true;
+  }
+  if (item instanceof Identifier && item.Is("async")) {
+    asyncFlag = true;
+  }
+}
+result.FunctionFlags = { generator: generatorFlag, async: asyncFlag };
 index = ReplaceCountAt(units, rangeStart, endIndex - rangeStart + 1, result);
 return index;
 ```
@@ -1176,7 +1195,10 @@ return this.ChildrenOf(this.ReturnType);
 
 克隆自身。
 
-顺序是 `Sign(this)` → 拷 `IsAsync` / `BodyBrace` / `ArrowAt` → 克隆全部子单元 → `TryToClose()`。
+顺序是 `Sign(this)` → 拷 `IsAsync` / `BodyBrace` / `ArrowAt` / `FunctionFlags` → 克隆全部子单元 → `TryToClose()`。
+
+**`FunctionFlags` 也要抄**（第 1045 轮）：克隆体不走 `LamdaCloseRule`，不抄的话它就不认自己是
+函数体了（`await` 在它里面会被当成普通标识符）。
 
 ```ts
 const result = new Lamda(this.Template);
@@ -1184,6 +1206,7 @@ result.Sign(this);
 result.IsAsync = this.IsAsync;
 result.BodyBrace = this.BodyBrace;
 result.ArrowAt = this.ArrowAt;
+result.FunctionFlags = this.FunctionFlags;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
@@ -1196,28 +1219,14 @@ return result;
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
 
-## method FunctionFlags:()=>any
+## field FunctionFlags:any = undefined
 
-**我这一格是不是函数体**（第 1031 轮）：箭头函数就是函数体，答 `{ generator, async }`——
+**我这一格是不是函数体**（第 1031 轮）：箭头函数就是函数体，所以它是 `{ generator, async }`——
 两个标记都取**自己的属性与子单元**，不回原文查（口径见 `core/syntax/token.xl.md` 的 `FunctionFlags`）。
 
 - **`async`**：首选**自己那一格 `IsAsync`**（`Process` 认下 `async` 那一刻置真）；按同一份扫描再兜一遍
   `Data` 里那个内容为 `async` 的 `Identifier`，与另两页读法一致。
 - **生成器**：箭头函数没有生成器记号，这一支照抄同一份扫描（`*` 若真出现也只是自己的子单元）。
 
-```ts
-let generator = false;
-let async = this.IsAsync === true;
-for (const item of this.Data) {
-  if (item instanceof Bracket && item.startBracket === "(") {
-    break;
-  }
-  if (item instanceof SymbolToken && item.Is("*")) {
-    generator = true;
-  }
-  if (item instanceof Identifier && item.Is("async")) {
-    async = true;
-  }
-}
-return { generator: generator, async: async };
-```
+**第 1045 轮起它是属性**：同样的扫描搬到 `LamdaCloseRule.Process` 的尾巴上（那一趟才刚把参数与体
+搬进来），造出来就赋好，投影直读。

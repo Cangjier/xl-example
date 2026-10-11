@@ -139,18 +139,13 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
    ⇒ 都在 `Keyword.SetValue(text)` 里同一趟赋好；`Bracket` 的 `EndsOnBrace` 是 `startBracket`
    的函数 ⇒ 在 `Use` 里同一趟赋好。赋值点与它派生的那个事实**同页、同趟**，两格不会各说各话。
 
-**仍是方法的四格，以及各自的理由**（这一栏是给下一位读者的，免得把「还没搬」与「搬不动」混起来）：
-
-- `NameField()`：名字的**文本**要等解析期认下那个名字才有（而且来源不止一个字段：
-  `name` / `fieldName` / `namespace`）——它是那一页那一格的读取口，不是构造时的常量；
-- `WrapperField()`：`GenericType` 要按**自己的子单元**现场判（是 `<T,U>` 的括号段还是
-  `Array<T>` 的实参段）、`Bracket` 要按自己的 `startBracket` 判，答案不是一格常量；
-- `BodyField(parentKind)`：`Namespace` 的两态只有「**父亲投成了什么**」分得开——那个事实
-  根本不在这一格自己身上，所以它必须由调用方递进来；
-- `FunctionFlags()`：生成器的 `*` 记号与 `async` 词都在**子单元/属性**里，要现场读。
+**这一栏原先列着「仍是方法的四格」**（`NameField()` / `WrapperField()` / `BodyField(parentKind)` /
+`FunctionFlags()`，各自写着「为什么它还搬不动」）——**第 1045 轮把它们全部收干净了**，
+下一节按那两条规矩逐格记着收法与理由。
 
 ⇒ 判据不是「它长得多像一个问题」，而是**答案在不在这一格自己身上、以及什么时候定下来**：
-在构造（或记下那个事实）那一刻就在的，收成属性；要读子单元、要父亲、要解析期文本的，留成方法。
+在构造（或记下那个事实）那一刻就在的，**收成属性**；只有「读取口本身随页面而异」的
+`NameField` 留成 `## property` + `### get`（它读的仍是本页自己的字段，没有第二处存储）。
 
 **第 1044 轮按可达性又量了一遍「本页还剩什么用不到」，结论是「一格死代码都没有」**：
 以 `projectRoot` / `ToJsonText` 为入口、把**第 1043 轮之后剩下的 100 格声明**连同它们互相的引用
@@ -173,6 +168,29 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 ⇒ 本页 `# const` / `# method` 声明 **100 → 97 格**，可达性仍是「从入口全部可达」，
 四个出口的名字（`ctx.Make` / `ctx.NodeHead` / `ctx.Node`）与行为一格没动。
+
+**第 1045 轮把这四格也收干净了**（它们一直是本页说明里「仍是方法」的那一栏）：
+
+- `NameField`（→ `## property` + `### get`）：名字的**文本**要等解析期认下那个名字才有，
+  而且来源不止一个字段（`name` / `fieldName` / `namespace`，其中三页是 `TokenField<string>`）——
+  所以它**不另立一格存储**（那就是同一份事实的第二处声明、会漂），而是把「这一页的哪个字段装着
+  名字」这一读取口**在自己那一页声明成属性**（与 `Token.children` 同一形态：读的是「这一格有什么」，
+  不是「让它去做一件事」）。投影那一侧于是只读 `node.NameField`，不调方法；
+- `WrapperField`（→ `## field`）：四处成员表与 `ReturnType` 是常量；`Bracket` 在
+  `Use` 记下 `startBracket` 的那一趟同赋；`GenericType` 在
+  `TypeParameterCloseRule.AppendSegment` 造出那个 `TypeParameter` 的那一趟同赋；
+- `BodyField`（→ `## field`）：四处体是常量；`Namespace` 那唯一带上下文的一态由
+  `NamespaceCloseRule` 在**造出内层**的那一趟同赋——父 kind 不再往里递；
+- `FunctionFlags`（→ `## field`）：三条收尾规则在**刚造好那一份**的尾巴上把
+  `{ generator, async }` 赋好（那一趟正是把 `*` / `async` / `modifiers` 搬进来的那一趟）。
+
+⇒ 判据不是「它长得多像一个问题」，而是**答案在不在这一格自己身上、以及什么时候定下来**：
+在构造（或记下那个事实）那一刻就在的，**收成属性**；只有「读取口本身随页面而异」的
+`NameField` 留成 `## property` + `### get`（它读的仍是本页自己的字段，没有第二处存储）。
+
+**本页因此少了一格声明**：`functionContextOf`（全仓一个调用点）并进了它唯一的调用点
+——`FunctionFlags` 变成属性之后，它只剩「沿 `Parent` 链读一格」，再单独立一格就是多一层间接
+（尺子与第 1043 / 1044 轮并掉那三处转发时同一把）。
 
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
@@ -322,7 +340,9 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 # private method tokenNameOf:(node:any)=>any
 
-**这一格叫什么**：问这一格**自己**——`Token.NameField()`（名字住在哪一页的哪个字段上，那一页回答）。
+**这一格叫什么**：读这一格**自己**的那一格属性——`Token.NameField`（名字住在哪一页的哪个字段上，
+那一页回答）。**第 1045 轮起它是属性**（`## property` + `### get`，与 `Token.children` 同一形态）：
+调用方读的是「这一格叫什么」，不是「让它去做一件事」——所以不必点一下才拿得到。
 
 问不到再退回 `name` 属性：名字是**子单元**的那些页（`MethodDeclaration` 的名字是一格 `Identifier`）
 不覆写 `NameField`，所以退回的只是「这一页恰好自己声明了 `name` 属性」那一档——
@@ -332,7 +352,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 ```ts
   if (node === null || node === undefined) return undefined;
-  const own = node.NameField();
+  const own = node.NameField;
   if (typeof own === "string" && own !== "") return own;
   return node.name;
 ```
@@ -545,8 +565,8 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   时 `kind` 就是它），所以搬回 `typescript/tokens/function/function.xl.md`——
   段是那个 token 切的、kind 也是它自己在表达式位投出来的，同一页答两档是本来的样子。
 - `TypeAliasDeclaration → GenericType → typeParameters` **永远查不到**：`fieldNameFor` 的
-  `key` 只可能来自 `segmentKeysOf`（**小写字母开头**的属性名）或 `WrapperField()` 的答案，
-  而 `GenericType` 是大写开头、`WrapperField()` 给的又**已经是字段名本身**——所以这一档
+  `key` 只可能来自 `segmentKeysOf`（**小写字母开头**的属性名）或 `WrapperField` 的答案，
+  而 `GenericType` 是大写开头、`WrapperField` 给的又**已经是字段名本身**——所以这一档
   在今天的形状里一次都不会命中（`?? key` 给的是同一个字符串）。
 - `ArrayBindingPattern` / `ObjectBindingPattern → children → elements` **也永远查不到**：
   这两个 kind 由 `projectBindingPattern` **手工造节点**（`return { kind, elements, … }`），
@@ -581,46 +601,6 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 返回 `undefined`）。所以那些出口改为返回 `ctx.Nothing`，`projectNode` 见到它就**直接返回
 `undefined`**，不再往下走通用支。
 
-# private method functionContextOf:(token:any)=>any
-
-从一个产物的 token 出发，找出**最近的那一层函数体**，答 `{ generator, async }`；
-一路上没有函数体就答 `null`（脚本 / 模块顶层）。
-
-**为什么要有这一格**（第 960 轮，缺口 `gap-r955-yield-await-outside-context`）：
-`yield` / `await` 在**生成器 / `async` 之外**是**普通标识符**
-（`const v = yield;` / `function f() { return (yield); }` / `const w = await;` ——
-TS 那边都是 `Identifier`），而 `projectExpression` 那一格认的是**词本身**
-（第 130 / 739 轮为「同一个词的两态」写的判据）⇒ 一律投成 `YieldExpression` / `AwaitKeyword`。
-缺的是**第三态：不在上下文里**，而上下文只能从祖先链上问。
-
-**判据落在 token 树上**（不是 `ctx` 标志）：`projectExpression` 收到的每一格**就是**那一格
-token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 链就是产物树——
-所以从 `yield` 那一格往上一路走到函数体是**一两跳**的事（语句 → 体 → 函数）。
-带 `ctx` 标志要改的是每一处进函数体的投影路径（`Function` / `MethodDeclaration` / `Lamda` /
-对象字面量成员…），漏一处就退化成「在生成器里也不认」，而祖先链上没有可漏的地方。
-
-**这一格第 1031 轮只剩「沿链问一句」**：过去这里有一张按类名查的 `FUNCTION_LIKE_TAGS`
-（`Function` / `MethodDeclaration` / `Lamda`）与一段扫描 `Data` 的循环（在 `(` 之前找 `*` 记号、
-找内容为 `async` 的 `Identifier`，再读 `IsAsync`），最后还要用 `ctx.source` 切出 `async` 的原文——
-那三格说的都是**那一页自己的属性与子单元**，所以搬回各自那一页（`Token.FunctionFlags()`，
-见 `core/syntax/token.xl.md`）：投影只问这一格，`ctx` 这一格也一并去掉（它只用来取原文）。
-
-```ts
-  let cursor = token;
-  while (cursor !== null && cursor !== undefined) {
-    // **这一格自己答**（第 1031 轮）：不是函数体的页面答 `undefined`（基类那一格），
-    // 是函数体的那三页各答 `{ generator, async }`——「哪些类是函数体」不再由投影记第二遍。
-    // **第 1043 轮起直调**（`typeof … === "function"` 那一层兜底删掉了）：沿链走的每一格
-    // 都是一个 token，函数体那一格是基类上的一格方法（要现场读自己的子单元与属性，
-    // 所以**仍是方法**，不是属性）。
-    const flags = cursor.FunctionFlags();
-    if (flags !== undefined) {
-      return flags;
-    }
-    cursor = cursor.Parent;
-  }
-  return null;
-```
 # private method astNode:(kind:string, props:any, v:any, ctx:any)=>any
 
 **造一个投影节点**：`pos` 取视图的起点，`end` 由 `stmtEndOf` 剪掉尾部 trivia，
@@ -2400,7 +2380,7 @@ new Set([
     // | **两处都算**的裸 `await`（`const w = await;` / `return await;` / 顶层 `await;`） | **`Identifier`** |
     //
     // 所以判据是**两条一起**：①这一格**只有那个词**（`kids.length === 1`，没有操作数、
-    // 没有 `*`）；②我**不在**那个上下文里（见 `functionContextOf`）。两条都成立才是普通标识符。
+    // 没有 `*`）；②我**不在**那个上下文里（见下）。两条都成立才是普通标识符。
     // 只看 ② 会把 `await 0;` 这种**模块顶层 await** 一起判掉（那一条 TS 是 `AwaitExpression`），
     // 只看 ① 会把生成器里的裸 `yield` 判掉（那一条 TS 是 `YieldExpression`）。
     //
@@ -2416,9 +2396,24 @@ new Set([
       // **这一格自己就是 token**（第 1022 轮）：`v = view(node)` 那一层早就删了
       // （见 `projectNode` 开头那条「节点就是 token 自己」），所以这里直接问它。
       // 原来写的是 `kids[0].__token`——这个字段**在 token 自己身上是 `undefined`**
-      // ⇒ `functionContextOf` 一次都没被问到 ⇒ 上下文外的 `yield` / `await` 判不出来
+      // ⇒ 这一格一次都没被问到 ⇒ 上下文外的 `yield` / `await` 判不出来
       //（实测 `expr-yield-await-context`：缺 1 多 1）。
-      const context = functionContextOf(kids[0]);
+      //
+      // **第 1045 轮：沿 `Parent` 链读那一格属性**（`FunctionFlags` 从方法改成属性）——
+      // 函数体的那三页在**造出自己的那一趟**就把 `{ generator, async }` 赋好了
+      // （见 `core/syntax/token.xl.md` 的 `FunctionFlags`），所以这里只读、不问。
+      // 这一趟过去是本文件的一个私有方法（`functionContextOf`，全仓一个调用点，
+      // 判据是 960 / 1031 两轮定下来的）：它只做「往上走、读一格」，
+      // 并进调用点就少一层间接**且少一格声明**——链上没有可漏的地方这条理由不变。
+      let cursor = kids[0];
+      let context: any = null;
+      while (cursor !== null && cursor !== undefined) {
+        if (cursor.FunctionFlags !== undefined) {
+          context = cursor.FunctionFlags;
+          break;
+        }
+        cursor = cursor.Parent;
+      }
       const inContext = context !== null && (word === "yield" ? context.generator === true : context.async === true);
       if (inContext === false) {
         return {
@@ -9054,14 +9049,12 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
         continue;
       }
       // **体节点**：改字段名，但自己仍是一个节点（见 `Token.BodyField`）。
-      // **问那个子单元自己**：「我是体、我在父节点上叫哪个字段」是它的事实，
-      // 所以投影只读它——与下面那格「包装提层」是同一手法（都问子单元自己那一格事实）。
-      // **父亲投成了什么要一起递进去**：`Namespace` 的两态（点号命名空间的内层 vs
-      // 命名空间体里的一条语句）只有它分得开，判据住在那一页（`namespace.xl.md`）。
-      // **第 1043 轮起这里直调**（`bodyFieldOf` 那一层间接删掉了）：进来的 `x` 上面刚判过
-      // `instanceof Token`，所以「这一格有没有 `BodyField`」不是一个问题——它是基类上的一格
-      // 方法（要带 `parentKind` 现场分档，所以**仍是方法**，不是属性）。
-      const body = x.BodyField(kind);
+      // **读那个子单元自己那一格**：「我是体、我在父节点上叫哪个字段」是它的事实——
+      // 第 1045 轮起它是**构造时（或那一趟记下这个事实时）赋好的属性**，
+      // 所以投影只读属性名（`x.BodyField`），没有参数、也没有「有没有这一格」这一问。
+      // `Namespace` 那唯一一处带上下文的（点号命名空间的内层）由它自己那一页在
+      // **造出内层的那一刻**赋好，父 kind 不再往里递。
+      const body = x.BodyField;
       if (body !== undefined) {
         props[body] = projectNode(x, ctx);
         continue;
@@ -9069,9 +9062,11 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       // **包装提层**（见 `Token.WrapperField`）：三种答案——字段名（提到那一格）、
       // `null`（并进父节点的 `children`）、`undefined`（不是包装）。后两者**必须分开**：
       // 合成一个值会让分组括号变成节点，或者让块被摊平（后者是静默错值——块里的语句会被
-      // 并到父节点语句表末尾，顺序与源码相反）。**同一理由：这一格仍是方法**——`GenericType`
-      // 要按自己的子单元现场判、`Bracket` 按自己的 `startBracket` 判，答案不是构造时的一格常量。
-      const target = x.WrapperField();
+      // 并到父节点语句表末尾，顺序与源码相反）。
+      // **第 1045 轮起它是属性**：`GenericType` 在造出 `TypeParameter` 的那一趟把自己赋成
+      // `"typeParameters"`、`Bracket` 在 `Use` 记下 `startBracket` 的那一趟赋值（见各自那一页），
+      // 所以投影只读属性名，不再调一个现场判据。
+      const target = x.WrapperField;
       if (target === undefined) {
         kept.push(x);
         continue;

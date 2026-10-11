@@ -30,15 +30,12 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<TypeLiteralBody>` 里是各成员的 XML。
 
-## method WrapperField:()=>string | null | undefined
+## field WrapperField:string | null | undefined = "members"
 
-**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+**投成目标语言形状时，我这一层是不是「包装」**：是的话给出「内容提到哪个字段」，不是的话是 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
 
-类型字面量的成员表（`TypeLiteral.members`）。
-
-```ts
-return "members";
-```
+类型字面量的成员表（`TypeLiteral.members`）。只有这一种落法，所以这是一格**常量**：
+第 1045 轮从 `## method WrapperField()` 改成 `## field`，构造时就赋好，投影只读属性。
 
 ## constructor:(template:Template)=>void
 

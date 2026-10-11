@@ -90,19 +90,19 @@ unit.AddToMounted(bracket).Use(source.Value).SignIn(source);
 
 有一处刻意保留的不对称：`Use("{")` **不设** `CloseRuleQueue`，而 `Use("(")` / `Use("[")` 会设——也就是说 `{}` 里的子单元不跑重组，`()` / `[]` 里的才跑。看起来像漏写，但这是既定行为。
 
-## method WrapperField:()=>string | null | undefined
+## field WrapperField:string | null | undefined = undefined
 
-**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+**投成目标语言形状时，我这一层是不是「包装」**：是的话给出「内容提到哪个字段」，不是的话是 `undefined`；`null` 是「我是包装、内容并进父节点的 `children`」（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
 
-**三种括号答两种**：`(` / `[` 只是分组（目标语言那边没有对应节点）⇒ 内容并进
-父节点的 `children`（答 `null`）；而**语句位那个 `{ … }` 不是包装**——那边它是一个
-块节点，答 `undefined`（照常出自己那一格）。
+**三种括号两种答案**：`(` / `[` 只是分组（目标语言那边没有对应节点）⇒ 内容并进
+父节点的 `children`（`null`）；而**语句位那个 `{ … }` 不是包装**——那边它是一个
+块节点，`undefined`（照常出自己那一格）。
 **这一条踩过**：把它当包装提上去，块里的语句会被并到父节点语句表的末尾，
 顺序与源码相反——`{ console.log("in") } console.log("out")` 印出 `out / in`（静默错值）。
 
-```ts
-return String(this.startBracket) === "{" ? undefined : null;
-```
+**第 1045 轮起它是属性**：判据是这一页自己的 `startBracket`，而 `Use` 是它唯一的赋值点
+（克隆体另走 `Clone` 里的抄写）——所以两格在**同一趟**赋好，投影直读属性、
+不再问「有没有这一格」。与第 1042 轮的 `EndsOnBrace` 同一形态。
 
 ## static readonly field JumpIn:BracketBranch = new BracketBranch()
 
@@ -173,8 +173,11 @@ if (value === "(") {
 }
 // **第 1042 轮：派生属性在「那个事实被记下来」的这一刻一起赋好**（`EndsOnBrace` 就是
 // 「我是不是裸块」）——`Use` 是 `startBracket` 唯一的赋值点（克隆体另走 `Clone` 里的抄写），
-// 所以这两格不会各说各话。
+// 所以这几格不会各说各话。
+// **第 1045 轮把 `WrapperField` 也并进这一趟**：它问的是同一格事实（「我是哪种括号」），
+// 两处各判一次就是两处会漂的答案。
 this.EndsOnBrace = this.startBracket === "{";
+this.WrapperField = this.startBracket === "{" ? undefined : null;
 return this;
 ```
 
@@ -292,8 +295,9 @@ return `<${name} range="${this.RangeOf()}" startBracket="${this.startBracket}" e
 
 顺序是：`Sign(this)` → 抄两个括号字符 → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`。注意 `Sign` 之后才抄字符，且抄的是**字段**而不是 `Use`，所以克隆体不会重跑 `Use` 里的 `CloseRuleQueue` 赋值；批量加入用 `AddRange`。
 
-**派生属性也要抄**（第 1042 轮 `EndsOnBrace`）：克隆体不走 `Use`，所以「我是不是裸块」那一格
-按 `this` 的值原样抄过去——`startBracket` 与它同源，两格一起抄就不会漂。
+**派生属性也要抄**（第 1042 轮 `EndsOnBrace`、第 1045 轮 `WrapperField`）：克隆体不走 `Use`，
+所以「我是不是裸块」「我是不是包装」那两格按 `this` 的值原样抄过去——`startBracket` 与它们同源，
+三格一起抄就不会漂。
 
 ```ts
 const result = new Bracket(this.Template);
@@ -301,6 +305,7 @@ result.Sign(this);
 result.startBracket = this.startBracket;
 result.endBracket = this.endBracket;
 result.EndsOnBrace = this.EndsOnBrace;
+result.WrapperField = this.WrapperField;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

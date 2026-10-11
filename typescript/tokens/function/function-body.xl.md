@@ -32,17 +32,14 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 **形态与基类一致**（`## method` 而不是 `## property`）：基类那一格是 `## method` + 空表，写成属性会在派生类里报「类型不兼容」——两者只能同一形态。
 
-## method BodyField:(parentKind:string)=>string | undefined
+## field BodyField:string | undefined = "body"
 
 **我在父节点上叫哪个字段**（见 `core/syntax/token.xl.md` 的 `Token.BodyField`）：
 函数体在目标语言那边就是 `FunctionDeclaration.body`——**自己仍是一个节点**（`Block`），
 只是字段换了名字。
 
-函数的体只有这一种落法（无论 `function` / `declare function` / 生成器），所以不看 `parentKind`。
-
-```ts
-return "body";
-```
+函数的体只有这一种落法（无论 `function` / `declare function` / 生成器），所以这是一格**常量**：
+第 1045 轮从 `## method BodyField(parentKind)` 改成 `## field`，构造时就赋好。
 
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 

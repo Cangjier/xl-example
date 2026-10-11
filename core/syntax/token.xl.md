@@ -28,7 +28,7 @@ Token，语法树的地基。
 投影不读任何中间形态，它就是**在这些 token 本身上**读标签、子单元与坐标，直接投成目标语言的 AST 形状。
 
 **直出要的那几格全由 token 自己声明**：标签是 `Tag()`、子单元是 `children` 与各页自己那一批段属性
-（`compare` / `body` / `parameters` …）、坐标是 `start` / `end`、名字是 `NameField()`，
+（`compare` / `body` / `parameters` …）、坐标是 `start` / `end`、名字是 `NameField`，
 **「这一格投成哪个节点 / 这些段叫什么 / 我在投影里出不出现」这一类答案是属性**
 （`AstKind` / `SegmentNames` / `IsInvisible` …）——第 1041 轮起它们由**具体类显式声明、构造时就赋好**
 （见各格自己的说明与 `SegmentNames` 那一节）。
@@ -613,10 +613,10 @@ XML 的标签名、直出那一层的 kind 判据（`PrintDirectAst` 里那些 `
 return this.constructor.name;
 ```
 
-## method NameField:()=>string | undefined
+## property NameField:string | undefined
 
 **这一格自己的名字**（第 1006 轮）：名字住在**这一页自己的哪个字段**上，由这一页回答；
-名字不在字段上（是子单元、或者根本没有名字）就答 `undefined`。
+名字不在字段上（是子单元、或者根本没有名字）就给 `undefined`。
 
 **为什么这一格必须存在**：投影要问「这一格叫什么」时，过去是拿一张**字符串名单**
 在 token 上逐个试（`owner["name"]` / `owner["fieldName"]` / `owner["namespace"]`）——
@@ -625,9 +625,21 @@ return this.constructor.name;
 （`name` 六页、`namespace` 三页、`fieldName` 两页、`name:TokenField<string>` 三页）。
 名字是**这一页自己的事实**，所以由这一页答，投影只读一个入口。
 
-**基类答 `undefined`**＝「我的名字不在字段上」：名字是**子单元**的那些页
+**基类这一格是 `undefined`**＝「我的名字不在字段上」：名字是**子单元**的那些页
 （`MethodDeclaration` 的名字是一格 `Identifier`）不覆写这一格，
-投影于是退回字典那个 `name` 键（那是**段**，不是字段）。
+投影于是退回那个 `name` 属性（那是**段**，不是字段）。
+
+**它是属性、不是方法**（第 1045 轮）：调用方读的是「这一格叫什么」，不是「让它去做一件事」
+——与 `children` 同一形态、同一条理由。**投影那一侧因此只读 `node.NameField`。**
+
+**为什么它不另立一格存储**（这是它与 `AstKind` 那一族的差别）：名字的文本要等解析期认下那个名字
+才有，而且**来源不止一个字段**（`name` / `fieldName` / `namespace`，其中三页的名字装在一个
+可变的 `TokenField<string>` 里）——再存一份字符串就是**同一份事实的第二处声明**，
+两处会在「`TokenField` 被 `Set` 之后」这种时候漂开。所以这一格是**读取口**：
+每一页在自己那一页**显式声明同名属性**并读本页自己的那个字段
+（`return this.name === "" ? undefined : this.name` 这一类），存储仍然只有一处。
+
+### get
 
 ```ts
 return undefined;
@@ -800,10 +812,10 @@ return undefined;
 `TS2611: defined as a property … but is overridden here as an accessor` 的镜像那一版
 ——**两边都写 `## field`、构造时各赋各的值**（第 1041 轮在全语料 159 处上验过）。
 
-## method WrapperField:()=>string | null | undefined
+## field WrapperField:string | null | undefined = undefined
 
-**投成目标语言形状时，我这一层是不是「包装」**（第 990 轮）——是的话答「内容提到哪个字段」，
-不是的话答 `undefined`；`null` 与 `undefined` 是两件事（见下）。
+**投成目标语言形状时，我这一层是不是「包装」**（第 990 轮）——是的话给出「内容提到哪个字段」，
+不是的话是 `undefined`；`null` 与 `undefined` 是两件事（见下）。
 
 产物里这几层是分开的：类 / 接口 / 类型字面量都有各自的**体节点**（`ClassBody` /
 `InterfaceBody` / `TypeLiteralBody`…），而目标语言的形状里，体**直接挂在声明上**
@@ -824,23 +836,26 @@ return undefined;
 或者让**块被摊平**——后者是**静默错值**：块里的语句会被并到父节点语句表的末尾，
 顺序与源码相反（`{ console.log("in") } console.log("out")` 会印成 `out / in`）。
 
-**为什么 `Bracket` 三种括号答两种**：`(` / `[` 是分组（答 `null`）；
-而**语句位那个 `{ … }` 不是包装**——目标语言那边它是一个块节点（答 `undefined`）。
-判据取它自己的 `startBracket`（与投影那一层同一个来源）。
+**这一格第 1045 轮从方法改成属性**：四处成员表与 `ReturnType` 的答案本来就是常量
+（构造时 `## field … = "members"` / `= "type"`），投影只按属性名读一次（`x.WrapperField`）。
 
-**为什么 `GenericType` 是动态的一条**：`<T, U>` 的括号段（装 `TypeParameter`）是包装，
-要提到 `typeParameters`；而 `Array<T>` 里的类型实参段是**真的节点**（投成 `TypeReference`）
-——不作这个区分就会把类型实参整个提掉（那种错误在尺子上表现为「凭空少一片节点」）。
-所以它按**自己的子单元**答（见 `typescript/tokens/generic-type.xl.md`）。
+**两处「要按自己那点东西判」的也在各自那一页当场赋好**，不是现场算：
 
-```ts
-return undefined;
-```
+- `Bracket` 三种括号答两种——`(` / `[` 是分组（`null`）；而**语句位那个 `{ … }` 不是包装**
+  ——目标语言那边它是一个块节点（`undefined`）。判据是它自己的 `startBracket`，
+  而那是 `Bracket.Use` 记下的一格：**第 1045 轮起两格在同一趟赋**（`Use` 是唯一赋值点，
+  克隆体在 `Clone` 里抄），与第 1042 轮 `EndsOnBrace` 同一形态。
+- `GenericType` 按**自己的子单元**判：`<T, U>` 的括号段（装 `TypeParameter`）是包装，
+  要提到 `typeParameters`；而 `Array<T>` 里的类型实参段是**真的节点**（投成 `TypeReference`）
+  ——不作这个区分就会把类型实参整个提掉（那种错误在尺子上表现为「凭空少一片节点」）。
+  造出那个 `TypeParameter` 的正是 `TypeParameterCloseRule.AppendSegment`（`type-parameter.xl.md`），
+  **第 1045 轮起它在那趟里就把容器的这一格赋成 `"typeParameters"`**——事实在哪一趟记下，
+  就在哪一趟赋值，投影不再回子单元里数一遍。
 
-## method BodyField:(parentKind:string)=>string | undefined
+## field BodyField:string | undefined = undefined
 
-**投成目标语言形状时，我这一层是不是「体」**（第 991 轮）——是的话答「我在父节点上叫哪个字段」，
-不是的话答 `undefined`。
+**投成目标语言形状时，我这一层是不是「体」**（第 991 轮）——是的话给出「我在父节点上叫哪个字段」，
+不是的话是 `undefined`。
 
 产物里函数体 / 方法体 / 命名空间体 / lambda 体都是**独立的一层**（`FunctionBody` / `MethodBody` /
 `NamespaceBody` / `LamdaBody`），而目标语言那边它们就是父声明的一个字段
@@ -855,19 +870,22 @@ return undefined;
 合成一条路会让其中之一静默错值：提掉了就凭空少一节（块里的语句并到父节点语句表末尾），
 不收就又看不出「体」这一层该叫什么。
 
-**为什么要带 `parentKind`**：`Namespace` 有两态——点号命名空间的内层（`namespace A.B.C { }`）
-在目标语言那边是外层 `ModuleDeclaration` 的 `body`，而命名空间体里的内层命名空间
-（`namespace O { namespace I { } }`）是 `ModuleBlock` 的 `statements` 里的一条语句。
-同一个 token 两种落法，「我父亲投成了什么」是唯一分得开它的东西，所以那一格由调用方递进来
-（其余体节点用不到这个参数）。
+**这一格第 1045 轮从方法改成属性**：它答的是「我这一层在目标语言那边叫什么」这一格**数据**，
+而四处体（函数 / 方法 / lambda / 命名空间体）的答案本来就是常量——构造时就赋好
+（`## field … = "body"`），投影只按属性名读一次（`x.BodyField`），不再问「有没有这一格」。
 
-**基类这一格答 `undefined`**（`core` 与语言无关，不知道任何目标语言的字段名）：需要它的 token
-在自己那一页覆写这一格（`## method`——判据要带 `parentKind` 现场分档，所以它仍是方法，
-与 `WrapperField` 同一形态）。
+**唯一带上下文的那一处**（`Namespace` 的两态）也在**它自己的那一页**里解决，而且不靠参数：
+点号命名空间的内层（`namespace A.B.C { }`）是外层 `ModuleDeclaration` 的 `body`，而命名空间体里的
+内层命名空间（`namespace O { namespace I { } }`）是 `ModuleBlock` 的 `statements` 里的一条语句。
+两种情形在产物里的差别只有一处——**前者的父亲是一个 `Namespace`、后者的父亲是 `NamespaceBody`**
+（实测：`namespace A.B.C {}` 的树是 `Namespace(A.B.C) > Namespace(B) > Namespace(C) > NamespaceBody`，
+而 `namespace O { namespace I {} }` 的树是 `Namespace(O) > NamespaceBody > Namespace(I)`）。
+拆出内层那一格的就是 `namespace.xl.md` 自己（`NamespaceCloseRule`），所以它在**造出内层的那一刻**
+把 `BodyField` 赋成 `"body"`——事实在哪一趟记下，就在哪一趟赋值。
 
-```ts
-return undefined;
-```
+**基类这一格是 `undefined`**（`core` 与语言无关，不知道任何目标语言的字段名）：需要它的 token
+在自己那一页**显式声明同一个属性**并给出自己的值（`## field`，与 `AstKind` / `EndsOnBrace`
+同一形态）。
 
 ## field AstKind:string | undefined = undefined
 
@@ -1013,23 +1031,25 @@ return undefined;
 **显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `AstKind` / `IsMemberList`
 同一形态）。
 
-## method FunctionFlags:()=>any
+## field FunctionFlags:any = undefined
 
-**我这一格是不是函数体**（第 1031 轮）：是的话答 `{ generator, async }`，不是的话答 `undefined`。
+**我这一格是不是函数体**（第 1031 轮）：是的话给出 `{ generator, async }`，不是的话是 `undefined`。
 
 `yield` / `await` 在**生成器 / `async` 之外**是**普通标识符**，而「最近的那一层函数体是不是生成器 /
 async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`async` 这个词、箭头函数那一格 `IsAsync`
 全在它自己的属性与子单元里。过去它写在投影层——一张按类名查的 `FUNCTION_LIKE_TAGS`
 （`Function` / `MethodDeclaration` / `Lamda`）加一段扫描 `Data` 的循环，还得回原文切 `async`
 （`typescript/print-ast-common.xl.md` 的 `functionContextOf`）：同一份事实被声明了两遍。
-今天由那三页各自覆写，投影只沿 `Parent` 链问这一格。
 
-**基类答 `undefined`**（`core` 与语言无关，不知道哪些类是函数体）：需要它的 token 在自己那一页覆写
-（`## method`，与 `StatementKind` 同一形态——**它要现场读自己的子单元与属性，所以仍是方法**）。
+**这一格第 1045 轮从方法改成属性**：它问的是「**我这一份**是不是函数体、两个标记各是什么」，
+而那两个标记在**造出我这一份的那条收尾规则**里就已经全部躺在手上了（`FunctionCloseRule` /
+`MethodDeclarationCloseRule` / `LamdaCloseRule` 把 `*`、`privateMark`、`modifiers`、`IsAsync`
+逐个搬进来的正是那一趟）——所以赋值就落在那一趟的尾巴上，投影只沿 `Parent` 链**读属性**
+（`cursor.FunctionFlags`），不再调一个现场扫描。
 
-```ts
-return undefined;
-```
+**基类这一格是 `undefined`**（`core` 与语言无关，不知道哪些类是函数体）：需要它的 token
+在自己那一页**显式声明同一个属性**并给出自己的值（`## field`，与 `StatementKind` / `AstKind`
+同一形态）。**克隆体也要抄**（它不走那三条收尾规则）。
 
 ## field IsMemberList:bool = false
 

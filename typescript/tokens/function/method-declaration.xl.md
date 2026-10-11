@@ -952,6 +952,25 @@ if (bodyIndex >= 0) {
   methodBody.TryToClose();
 }
 result.TryToClose();
+// **「我这一格是不是函数体、是不是生成器 / `async`」在这里定成属性**（第 1045 轮）：
+// 判据（生成器的 `*` 记号、`async` 这个词）就在**刚造好的这一份** `Data` 与 `modifiers` 里，
+// 而这一趟正是把它们逐个搬进来的那一趟（见上面 `generator` / `privateMark` 那几行）——
+// 事实在哪一趟记下，就在哪一趟赋值。投影于是只沿 `Parent` 链读 `FunctionFlags`，
+// 不再调一个现场扫描（那个扫描过去写在 `MethodDeclaration.FunctionFlags()` 里）。
+let generatorFlag = false;
+let asyncFlag = result.modifiers.split(",").includes("async");
+for (const item of result.Data) {
+  if (item instanceof Bracket && item.startBracket === "(") {
+    break;
+  }
+  if (item instanceof SymbolToken && item.Is("*")) {
+    generatorFlag = true;
+  }
+  if (item instanceof Identifier && item.Is("async")) {
+    asyncFlag = true;
+  }
+}
+result.FunctionFlags = { generator: generatorFlag, async: asyncFlag };
 return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 ```
 
@@ -1110,7 +1129,7 @@ throw new Error("找不到匹配的子单元");
   // **形状交回共享实现**（第三格是这一格自己的造节点闭包、第四格是刚算出来的 kind）。
   return ctx.Declaration(v, undefined, ctx.Make(v), kind);
 ```
-## method NameField:()=>string | undefined
+## property NameField:string | undefined
 
 **这一格自己的名字**（第 1006 轮）：名字就在本页的 `name` 字段上，所以由这一页回答——
 投影那一层过去拿一张「哪些页把名字叫什么」的字符串名单逐个试
@@ -1119,6 +1138,8 @@ throw new Error("找不到匹配的子单元");
 
 基类那一格答 `undefined`＝「名字不在字段上」（见 `core/syntax/token.xl.md`）；
 `name` 为空时也答 `undefined`——那时名字可能在**子单元**里，交给投影那一层的下一站去问。
+
+### get
 
 ```ts
 return this.name === "" ? undefined : this.name;
@@ -1179,7 +1200,8 @@ return this.NameEnd;
 
 克隆自身。
 
-三个声明字段都要抄。
+四个声明字段都要抄，**`FunctionFlags` 也要抄**（第 1045 轮）：克隆体不走
+`MethodDeclarationCloseRule`，不抄的话它就不认自己是函数体了（`yield` / `await` 在它里面会被当成普通标识符）。
 
 ```ts
 const result = new MethodDeclaration(this.Template);
@@ -1189,6 +1211,7 @@ result.NameStart = this.NameStart;
 result.NameEnd = this.NameEnd;
 result.modifiers = this.modifiers;
 result.ModifierSpans = this.ModifierSpans;
+result.FunctionFlags = this.FunctionFlags;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
@@ -1226,28 +1249,14 @@ return result;
 判据原来是投影层那张按 kind 查的 `SIGNATURE_KINDS` 集合，而这一页在**签名位**投出来正是
 `MethodDeclaration`——所以由本页答。
 
-## method FunctionFlags:()=>any
+## field FunctionFlags:any = undefined
 
-**我这一格是不是函数体**（第 1031 轮）：方法声明就是函数体，答 `{ generator, async }`——
+**我这一格是不是函数体**（第 1031 轮）：方法声明就是函数体，所以它是 `{ generator, async }`——
 两个标记都取**自己的属性与子单元**，不回原文查（口径见 `core/syntax/token.xl.md` 的 `FunctionFlags`）。
 
 - **生成器方法**：`*` 记号是**自己的一个子单元**——它在**名字前面**（`class C { *g() {} }`），
-  `Process` 已经把它吃进 `Data`；扫到形参表那个 `(` 就收手。
+  那一趟已经把它吃进 `Data`；扫到形参表那个 `(` 就收手。
 - **`async`**：修饰词折进 `modifiers`；没折进去时它是 `Data` 里的一个 `Identifier`——两条都算。
 
-```ts
-let generator = false;
-let async = this.modifiers.split(",").includes("async");
-for (const item of this.Data) {
-  if (item instanceof Bracket && item.startBracket === "(") {
-    break;
-  }
-  if (item instanceof SymbolToken && item.Is("*")) {
-    generator = true;
-  }
-  if (item instanceof Identifier && item.Is("async")) {
-    async = true;
-  }
-}
-return { generator: generator, async: async };
-```
+**第 1045 轮起它是属性**：同样的扫描搬到 `MethodDeclarationCloseRule.Process` 的尾巴上
+（那一趟才刚把 `*` 与 `async` 搬进来），造出来就赋好，投影直读。

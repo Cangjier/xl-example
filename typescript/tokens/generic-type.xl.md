@@ -1435,18 +1435,22 @@ switch (item) {
 
 它覆写了 `ToXmlString`，形状对齐 `Bracket`：尖括号本身做属性（`startBracket` / `endBracket`），子单元照常串在标签里。属性值必须过一遍 `CommonUtil.XmlDecode`——`<` 直接写进属性会破坏 XML，而 `Bracket` 的 `(` / `)` 没有这个问题，所以那边没有这一步。
 
-## method WrapperField:()=>string | null | undefined
+## field WrapperField:string | null | undefined = undefined
 
-**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+**投成目标语言形状时，我这一层是不是「包装」**：是的话给出「内容提到哪个字段」，不是的话是 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
 
 **只有装 `TypeParameter` 时它才是包装**（`<T, U>` 的括号段，要提到 `typeParameters`）；
 装类型实参时（`Array<T>`）它是**真的节点**，得投成 `TypeReference`。
 不作这个区分就会把类型实参整个提掉——那种错误在尺子上表现为「凭空少一片节点」。
-判据取**自己的子单元**（这一层切出来的时候它就在手上），不回原文扫也不问上下文。
 
-```ts
-return this.Data.some((x) => x.constructor.name === "TypeParameter") ? "typeParameters" : undefined;
-```
+**第 1045 轮起它是属性，赋值落在造出 `TypeParameter` 的那一趟**：
+`TypeParameterCloseRule.AppendSegment`（`type-parameter.xl.md`）手里就是**容器**
+（`owner`）与它切出来的那一段，所以它在装进一个 `TypeParameter` 的同时把容器的这一格
+赋成 `"typeParameters"`——事实在哪一趟记下，就在哪一趟赋值。
+默认 `undefined` 留给「装类型实参」那一态（那里根本没有 `TypeParameter` 被造出来）。
+
+**克隆体也要抄**（见 `Clone`）：它不走那一趟规则，不抄就会把 `typeParameters` 丢掉
+（`<T, U>` 的克隆体会投成 `TypeReference`）。
 
 ## static readonly field JumpIn:GenericTypeBranch = new GenericTypeBranch()
 
@@ -1558,11 +1562,15 @@ return `<${name} range="${this.RangeOf()}" startBracket="${CommonUtil.XmlDecode(
 
 顺序与 `Bracket.Clone` 一致：`Sign` → 抄两个字段 → 整批加入克隆出来的子单元 → `TryToClose`。
 
+**`WrapperField` 也要抄**（第 1045 轮）：克隆体不走 `TypeParameterCloseRule` 那一趟，
+不抄的话 `<T, U>` 的克隆体会变回「不是包装」、投成 `TypeReference`。
+
 ```ts
 const result = new GenericType(this.Template);
 result.Sign(this);
 result.startBracket = this.startBracket;
 result.endBracket = this.endBracket;
+result.WrapperField = this.WrapperField;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

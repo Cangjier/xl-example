@@ -431,6 +431,15 @@ for (const item of content) {
   parameter.AddAndCloseLast(item);
 }
 parameter.TryToClose();
+// **容器的「我这一层是不是包装」在这一趟赋好**（第 1045 轮）：装进 `TypeParameter` 的
+// 容器（`<T, U>` 的括号段）在目标语言那边是**包装**（内容提到 `typeParameters`），
+// 而装类型实参的容器不是——分得开它们的正是「这一趟有没有造出 `TypeParameter`」，
+// 而这一趟就在这里。所以事实在哪一趟记下，就在哪一趟赋值：投影只读 `owner.WrapperField`，
+// 不再回子单元里数一遍（那个判据过去写在 `generic-type.xl.md` 的 `WrapperField()` 里）。
+// 判据取 `Tag()`（那一格自己答的类名）而不是 import 那个类：两页互相 import 会成环。
+if (owner.Tag() === "GenericType") {
+  owner.WrapperField = "typeParameters";
+}
 rebuilt.push(parameter);
 ```
 

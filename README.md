@@ -334,6 +334,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1045 轮：`print-ast-common` 的**最后四格「回答方法」也收成了属性**（`NameField` / `WrapperField` / `BodyField` / `FunctionFlags`，各 token 页 28 处）——**八道门全绿、读数一处没动**
+
+**一句话**：用户口径还是「简化 `print-ast-common`，清理它用不到的方法；投影需要的信息要在 token
+子类**构造时（或记下那个事实的那一趟）就明确**、在具体类里**显式声明**、构建完就**齐全**」。
+第 1041 / 1042 两轮已经把九族答案改成属性，本页自己的说明里也一直留着「**仍是方法的四格**」那一栏
+（各自写着「为什么它还搬不动」）——**这一轮把那一栏清空**：四格全部变成属性，投影侧只剩读。
+
+- **四格各自的收法**（判据仍是「答案在不在这一格自己身上、以及什么时候定下来」）：
+  - **`WrapperField` → `## field`**（7 页）：`ClassBody` / `InterfaceBody` / `TypeLiteralBody` /
+    `EnumBody` 是 `"members"`、`ReturnType` 是 `"type"`——**构造时常量**；
+    `Bracket` 的「`{` 是块、`(` / `[` 是分组」按自己的 `startBracket` 判，而 `Use` 是它唯一的赋值点
+    ⇒ **与第 1042 轮的 `EndsOnBrace` 同一趟赋**；`GenericType` 的「装的是 `TypeParameter` 还是
+    类型实参」由 `TypeParameterCloseRule.AppendSegment` 在**造出那个 `TypeParameter` 的那一趟**
+    把容器赋成 `"typeParameters"`（判据取 `owner.Tag() === "GenericType"`，两页互相 import 会成环）。
+  - **`BodyField` → `## field`**（5 页）：四处体（函数 / 方法 / lambda / 命名空间体）是 `"body"`；
+    `Namespace` 那唯一**带上下文**的一态不再靠参数——点号命名空间的内层与外层在产物树上只差
+    父亲那一格（`Namespace` vs `NamespaceBody`，本轮实测两棵树），而拆出内层的正是
+    `NamespaceCloseRule` 自己 ⇒ 它在 `new Namespace(template)` 的下一行赋 `"body"`，
+    **父 kind 不再往里递**（投影那一侧的 `x.BodyField(kind)` 变成 `x.BodyField`）。
+  - **`FunctionFlags` → `## field`**（3 页）：`Function` / `MethodDeclaration` / `Lamda` 的
+    `{ generator, async }` 由各自那条收尾规则在**刚造好那一份的尾巴上**赋好——那一趟正是把
+    `*` / `privateMark` / `modifiers` / `IsAsync` 逐个搬进来的那一趟（`Function` 那一处必须放在
+    **名字 `unshift` 之后**：`async` 那一支要扫 `Data`，而名字是 `TryToClose()` 之后才进去的）。
+  - **`NameField` → `## property` + `### get`**（13 页）：它**不另立一格存储**——名字来源不止一个
+    字段（`name` / `fieldName` / `namespace`，其中三页装在一个**可变的** `TokenField<string>` 里），
+    再存一份字符串就是同一份事实的第二处声明、会在 `TokenField.Set` 之后漂开。所以它是**读取口**：
+    每一页声明同名属性、读本页自己的字段（与 `children` 同一形态、同一条理由：读的是「这一格有什么」，
+    不是「让它去做一件事」）。投影那一侧 `node.NameField()` → `node.NameField`。
+- **本页少了一格声明**：`functionContextOf`（全仓一个调用点）并进它唯一的调用点——
+  `FunctionFlags` 成属性之后它只剩「沿 `Parent` 链读一格」，与第 1043 / 1044 轮并掉那三处转发同一把尺子。
+  ⇒ 本页声明 **97 → 96 格**，从 `projectRoot` / `ToJsonText` 出发**全部可达**；
+  各 token 页**去掉 28 个方法**（13 + 7 + 5 + 3），换成属性/读取口，**同一份事实仍只有一处声明**。
+- **克隆体都要抄新属性**（`Bracket` / `GenericType` / `Function` / `MethodDeclaration` / `Lamda` /
+  `Namespace`）：它们不走各自那条收尾规则，不抄就会静默退回基类默认值（`NameField` 那三页不涉及，
+  读的是本页字段）。`Namespace` 的 `Clone` 原有「不抄 `namespace` / `modifiers` / `ModifierSpans`」
+  的口径不变，只多抄 `BodyField` 这一格**投影读的形状事实**。
+- **实测**：`xl check` **182 份 0 错 0 警**；`xl build` 15 写出 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 32.3s），读数逐项与基线相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+
 ### 第 1044 轮：`print-ast-common` 按**可达性**再量一遍「还剩什么用不到」——一格死代码都没有，只并掉三处「只有一格的转发」（**100 → 97 格声明**），八道门全绿、读数一处没动
 
 **一句话**：用户口径仍是「简化 `print-ast-common`」。这一轮先把第 1043 轮那把尺子重新架起来

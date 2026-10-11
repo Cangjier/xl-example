@@ -431,7 +431,7 @@ throw new Error("找不到匹配的子单元");
 ```ts
   return ctx.Declaration(v, undefined, ctx.Make(v));
 ```
-## method NameField:()=>string | undefined
+## property NameField:string | undefined
 
 **这一格自己的名字**（第 1006 轮）：名字就在本页的 `name` 字段上（值和它在哪装在一起，
 见 `core/syntax/token-field.xl.md`），所以由这一页回答——投影那一层过去拿一张
@@ -439,6 +439,8 @@ throw new Error("找不到匹配的子单元");
 （`owner["name"]` 之后猜 `.Value`），现在只问这一格，`TokenField` 由本页走它自己的出口。
 
 基类那一格答 `undefined`＝「名字不在字段上」（见 `core/syntax/token.xl.md`）。
+
+### get
 
 ```ts
 const own = this.name.Text();

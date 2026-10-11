@@ -27,16 +27,15 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<ReturnType>` 里是返回类型的 XML。
 
-## method WrapperField:()=>string | null | undefined
+## field WrapperField:string | null | undefined = "type"
 
-**投成目标语言形状时，我这一层是不是「包装」**：是的话答「内容提到哪个字段」，不是的话答 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
+**投成目标语言形状时，我这一层是不是「包装」**：是的话给出「内容提到哪个字段」，不是的话是 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
 
 返回类型段在目标语言那边是**声明上的一个字段**（`FunctionDeclaration.type` /
 `ArrowFunction.type`），而产物里它是单独一层 `ReturnType`——所以它也是包装。
 
-```ts
-return "type";
-```
+只有这一种落法，所以这是一格**常量**：第 1045 轮从 `## method WrapperField()` 改成 `## field`，
+构造时就赋好，投影只读属性。
 
 ## constructor:(template:Template)=>void
 

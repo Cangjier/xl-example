@@ -337,6 +337,11 @@ if (isStringName === false && nameParts.length > 1) {
   for (let partIndex = 1; partIndex < nameParts.length; partIndex++) {
     const inner = new Namespace(template);
     inner.namespace = nameParts[partIndex];
+    // **「我是外层的体」这一格在造出我的这一刻就赋好**（第 1045 轮）：点号命名的内层
+    // 与「命名空间体里的一条语句」在产物树上只差父亲那一格（见 `Namespace.BodyField`），
+    // 而拆出内层的正是这一趟——事实在哪一趟记下，就在哪一趟赋值，
+    // 投影于是只读属性、不再把父 kind 递进来问一遍。
+    inner.BodyField = "body";
     // **修饰词只属于最外层那一格**：TS 那边 `declare module a.b.c { … }` 只有外层
     // `ModuleDeclaration` 带 `modifiers`，里层两层一个都没有——照抄给里层会多出
     // 两个 `modifiers` 字段（实测 `declare module a.b.c`：字段名不符 2）。
@@ -451,28 +456,27 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
 ```
 
 
-## method BodyField:(parentKind:string)=>string | undefined
+## field BodyField:string | undefined = undefined
 
 **我在父节点上叫哪个字段**（见 `core/syntax/token.xl.md` 的 `Token.BodyField`）：
-**同一个 token 两种落法**，只有「父亲投成了什么」分得开——所以这是体字段里**唯一看参数**的一处。
+**同一个 token 两种落法**——第 1045 轮起这一格是**属性**，赋值挪到了事实产生的那一趟。
 
-| 父亲投成 | 我是什么 | 我叫什么 |
+| 我是什么 | 谁在什么时候赋值 | 值 |
 | --- | --- | --- |
-| `ModuleDeclaration` | 点号命名空间的内层（`namespace A.B.C { }` 的第二、第三层） | `body`（目标语言的 `ModuleDeclaration.body` 就是里面那层） |
-| `ModuleBlock` | 命名空间体里的一条声明（`namespace O { export namespace I { } }` 里那个内层） | 不是体 → 答 `undefined`，于是它落在 `statements` 里 |
+| 点号命名空间拆出来的内层（`namespace A.B.C { }` 的第二、第三层） | 拆出我的那一格：`NamespaceCloseRule.Process` 里 `new Namespace(template)` 的下一行 | `"body"`（目标语言的 `ModuleDeclaration.body` 就是里面那层） |
+| 命名空间体里的一条声明（`namespace O { export namespace I { } }` 里那个内层） | 没人赋 | 保持基类的 `undefined`，于是它落在 `statements` 里 |
 
-**判据为什么住在这里**（第 991 轮从投影层的 `BODY_FIELDS` 搬来，口径是第 367 轮定的）：
-两种情形在产物里长得一样（都是 `Namespace` 套 `Namespace`），区别只在父亲投成了什么。
+**为什么不再看 `parentKind`**（第 991 轮从投影层的 `BODY_FIELDS` 搬来，口径是第 367 轮定的）：
+两种情形在产物里长得一样（都是 `Namespace` 套 `Namespace`），区别只在父亲投成了什么——
+而**父亲是一个 `Namespace` 还是 `NamespaceBody`**，在产物树上本来就是分开的两格
+（实测：`namespace A.B.C {}` 的树是 `Namespace(A.B.C) > Namespace(B) > Namespace(C) > NamespaceBody`，
+`namespace O { namespace I {} }` 的树是 `Namespace(O) > NamespaceBody > Namespace(I)`）。
+拆出内层的就是本页自己那一趟，所以它**在造出内层的那一刻**把这一格赋好——
+投影只读属性，不再把父 kind 递进来问一遍。
+
 一律收成 `body` 的后果（第 292 轮实测）：降级层 `ListOf(block, "statements")`
 **一个语句都取不到** ⇒ 内层命名空间根本没建 ⇒ 脚本报
 `cannot read properties of undefined`（**离现场很远**）。
-
-```ts
-if (parentKind === "ModuleDeclaration") {
-  return "body";
-}
-return undefined;
-```
 
 ## constructor:(template:Template)=>void
 
@@ -509,7 +513,7 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 与 `NameAt` 同进退的**终点**。投影按 `nameRange` 直读：开头是引号 ⇒ 取引号之间，
 否则整格就是名字——不再回原文 `indexOf(名字)` 猜（点号名的全名在原文里根本不连续）。
 
-## method NameField:()=>string | undefined
+## property NameField:string | undefined
 
 **这一格自己的名字**（第 1006 轮）：名字就在本页的 `namespace` 字段上，所以由这一页回答——
 投影那一层过去拿一张「哪些页把名字叫什么」的字符串名单逐个试
@@ -517,6 +521,8 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 （见 `typescript/print-ast-common.xl.md` 的 `tokenNameOf`）。
 
 基类那一格答 `undefined`＝「名字不在字段上」（见 `core/syntax/token.xl.md`）。
+
+### get
 
 ```ts
 return this.namespace === "" ? undefined : this.namespace;
@@ -601,9 +607,14 @@ return this.Add(new NamespaceBody(this.Template));
 克隆自身。**注意 `Clone` 不复制** `namespace` / `modifiers` / `ModifierSpans`——克隆体三个字段都是初值，
 与 `Interface.Clone` 的既有口径一致。
 
+**`BodyField` 要抄**（第 1045 轮）：那三个字段是**供人读的正文**（不复制是既定口径），
+而这一格是**投影读的形状事实**——不抄的话，点号命名空间内层的克隆体会变回「不是体」，
+形状跟着变（投影只读这一格，没有第二处能补救）。
+
 ```ts
 const result = new Namespace(this.Template);
 result.Sign(this);
+result.BodyField = this.BodyField;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
