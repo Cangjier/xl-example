@@ -347,9 +347,57 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
   const bodyAt = typeof rawBodyAt === "number" ? rawBodyAt : -1;
   const props: any = {};
   if (cond.length > 0) props.expression = ctx.Expression(cond);
+  // **一条分支（`CaseClause` / `DefaultClause`）的形状就在本页**（第 1176 轮，用户口径 1.2 / 1.7）：
+  // 这一段算式过去是 `ctx` 上的一个出口（`ctx.SwitchClause`），而**全仓只有本页这一个读者**
+  // ——按第 1043 / 1044 / 1067 / 1070 / 1080 / 1087 / 1100 / 1167 轮那把尺子
+  // （「一格出口只剩一个读者，就是多一层间接」），出口整格撤掉、实现搬到这里，
+  // `PrintAstCtx` 的出口表也跟着少一格。
+  //
+  // **同一个文件里换名的那两处**：`projectExpression(list, ctx)` 就是 `ctx.Expression(list)`、
+  // `projectEach(list, ctx)` 就是 `ctx.ProjectEach(list)`（见 `print-ast-common.xl.md` 那两行），
+  // 所以两条路出的节点**逐字节相同**。
+  //
+  // **每一件输入都是分支自己记下的**：`key`（`SwitchSegment` 认下这一段那一刻记的词）、
+  // `colonPos`（那个 `:` 的位置，第 615 轮起就在字段上）、以及它自己的子单元与坐标。
+  const clauseOf = (seg: any) => {
+    const kindWord = String(seg.key ?? "");
+    const clauseKids = seg.ProjectableKids;
+    const caseUnit = clauseKids.find((k: any) => k.IsSwitchCaseUnit);
+    const bodyUnit = clauseKids.find((k: any) => k.IsSwitchStatementUnit);
+    const clauseProps: any = {};
+    if (kindWord !== "default" && caseUnit !== undefined) {
+      clauseProps.expression = ctx.Expression(caseUnit.ProjectableKids);
+    }
+    if (bodyUnit !== undefined) {
+      const clauseStatements = ctx.ProjectEach(bodyUnit.ProjectableKids);
+      if (clauseStatements.length > 0) clauseProps.statements = clauseStatements;
+    }
+    // **区间结尾按最后一个语句算**（第 89 轮修）：`SwitchSegment` 自己的区间比 TS 多一个字符
+    // （实测 `case "\r":` 产物 [345,400) vs TS [345,399)，192 处漂移 + 192 处「多出来」——
+    // 同一个节点两边都记了一次）。没有语句的那些（`case 2:` 后面直接跟下一个 `case`）
+    // 用 segment 自己的尾巴就正好。
+    const last =
+      clauseProps.statements !== undefined ? clauseProps.statements[clauseProps.statements.length - 1] : undefined;
+    let clauseEnd = last !== undefined && typeof last.end === "number" ? last.end : seg.end;
+    // **没有语句的分支（贯穿到下一条 `case`）**：区间到那个 `:` 为止（第 97 轮）。
+    // `SwitchSegment` 自己的尾巴比 TS 多一个字符——实测 `case ",":` 产物 [1129,1139)
+    // vs TS [1129,1138)：108 处漂移 + 108 处「多出来」是同一个节点两边各记一次。
+    // **位置由 token 自己记**（`SwitchSegment.ColonPos`，第 615 轮）：认下这一段那一刻
+    // 那个 `SymbolToken` 就在手上 ⇒ 这里直读字段，不再回原文 `lastIndexOf(":")` 猜。
+    if (last === undefined) {
+      const colonPos = seg.colonPos;
+      if (typeof colonPos === "number" && colonPos >= seg.start) clauseEnd = colonPos + 1;
+    }
+    return {
+      kind: kindWord === "default" ? "DefaultClause" : "CaseClause",
+      pos: seg.start,
+      end: clauseEnd,
+      ...clauseProps,
+    };
+  };
   props.caseBlock = {
     kind: "CaseBlock",
-    clauses: segments.map((seg: any) => ctx.SwitchClause(seg)),
+    clauses: segments.map(clauseOf),
     pos: bodyAt >= 0 ? bodyAt : v.start,
     end: v.ProjectionEnd,
   };

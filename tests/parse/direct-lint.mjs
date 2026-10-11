@@ -533,6 +533,18 @@ const CTX_BANNED = [
   // 出口删了就补进这张表：下一轮谁想往 `ctx` 里再挂一个「替某一页读它自己那一格数组」的转手，
   // 写回来这一门当场红。
   "Kids",
+  // **第 1176 轮再补两个出口名**：`SwitchClause` / `OperatorNode`——两个出口做的都是
+  // 「用**被问那一格自己**的字段与子单元拼一个节点」，而且**都只有一页读者**：
+  // `SwitchClause` 读 `seg.key` / `seg.ProjectableKids` / `seg.colonPos` / `seg.start` / `seg.end`
+  // （读者只有 `switch/switch.xl.md`，算式整段搬进那一页的 `PrintAst`）；
+  // `OperatorNode` 读 `unit.OperatorWordKind` / `unit.TextValue` / `unit.start`
+  // （三件事实全在被问的那一格上 ⇒ 收成 `core/syntax/token.xl.md` 的
+  // `## property OperatorWordNode:AstNameNode | undefined`，三个读者各写一次属性读）。
+  // 两个出口一并删掉，`PrintAstCtx` 两格键同步删（本门印出来的出口数 41 → 39）。
+  // 出口删了就补进这张表：下一轮谁想往 `ctx` 里再挂一个「只有一页用得着 / 被问那一格自己
+  // 已经答得出来」的转手，写回来这一门当场红。
+  "SwitchClause",
+  "OperatorNode",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。

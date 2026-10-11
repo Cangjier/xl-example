@@ -51,7 +51,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 **读得出来的那一格必须显式声明过**。共同三格之外的字段是**产物**（`ToJsonText` 那一侧读的
 是 `projected.kind` 这类已知名字），不是第三个出口要问 token 的东西。
 
-# type PrintAstCtx = { source: string, unmapped: Set<string>, count: number, direct: number, awaitingDeclaration: any, typePosition: boolean, expressionPosition: boolean, inObjectLiteral: boolean, baseStart: any, consumedSemicolons: Set<number>, Node: (kind?: any, props?: any, view?: any, extra?: any) => any, NodeHead: (kind?: any, props?: any, view?: any, extra?: any) => AstNode, Each: (view?: any, extra?: any) => any, Project: (node?: any, extra?: any) => any, SemicolonEndOf: (end?: any, extra?: any) => number, Split: (list?: any, separator?: any, extra?: any, more?: any) => Array<Array<any>>, ChainWithOptional: (node?: any, nco?: any, extra?: any) => any, Expression: (list?: any, extra?: any) => any, TypeExpression: (list?: any, extra?: any) => any, ProjectEach: (list?: any, kind?: any, extra?: any) => Array<any>, MemberList: (list?: any, view?: any, extra?: any) => Array<any>, KidsOf: (node?: any, key?: any, extra?: any) => Array<any>, NamedSpecifiers: (brace?: any, kind?: any, extra?: any) => Array<any>, MemberNameOf: (view?: any, extra?: any) => any, FoldBinaryFrom: (left?: any, list?: any, extra?: any) => any, SynthName: (text?: any, view?: any, extra?: any) => string, StatementOf: (view?: any, extra?: any) => any, StatementOfList: (list?: any, extra?: any) => any, Nothing: any, BodyBlockOf: (list?: any, brace?: any, extra?: any) => any, ParenthesizedOf: (unit?: any, extra?: any) => any, LetFrom: (list?: any, view?: any, extra?: any) => any, QualifiedNameFrom: (list?: any, extra?: any) => any, DottedExpression: (list?: any, extra?: any) => any, ConditionalNode: (list?: any, from?: any, to?: any, extra?: any) => any, Segment: (view?: any, key?: any, extra?: any) => any, TypeOf: (list?: any, extra?: any) => any, FunctionTypeProps: (kids?: any, extra?: any) => any, BlockOfBody: (list?: any, brace?: any, extra?: any) => any, SwitchClause: (seg?: any, extra?: any) => any, BindingPattern: (unit?: any, extra?: any) => any, ComputedNameExpression: (unit?: any, extra?: any) => any, Structural: (view?: any, kind?: any, extra?: any) => any, Declaration: (view?: any, kind?: any, extra?: any) => any, OperatorNode: (unit?: any, extra?: any) => any }
+# type PrintAstCtx = { source: string, unmapped: Set<string>, count: number, direct: number, awaitingDeclaration: any, typePosition: boolean, expressionPosition: boolean, inObjectLiteral: boolean, baseStart: any, consumedSemicolons: Set<number>, Node: (kind?: any, props?: any, view?: any, extra?: any) => any, NodeHead: (kind?: any, props?: any, view?: any, extra?: any) => AstNode, Each: (view?: any, extra?: any) => any, Project: (node?: any, extra?: any) => any, SemicolonEndOf: (end?: any, extra?: any) => number, Split: (list?: any, separator?: any, extra?: any, more?: any) => Array<Array<any>>, ChainWithOptional: (node?: any, nco?: any, extra?: any) => any, Expression: (list?: any, extra?: any) => any, TypeExpression: (list?: any, extra?: any) => any, ProjectEach: (list?: any, kind?: any, extra?: any) => Array<any>, MemberList: (list?: any, view?: any, extra?: any) => Array<any>, KidsOf: (node?: any, key?: any, extra?: any) => Array<any>, NamedSpecifiers: (brace?: any, kind?: any, extra?: any) => Array<any>, MemberNameOf: (view?: any, extra?: any) => any, FoldBinaryFrom: (left?: any, list?: any, extra?: any) => any, SynthName: (text?: any, view?: any, extra?: any) => string, StatementOf: (view?: any, extra?: any) => any, StatementOfList: (list?: any, extra?: any) => any, Nothing: any, BodyBlockOf: (list?: any, brace?: any, extra?: any) => any, ParenthesizedOf: (unit?: any, extra?: any) => any, LetFrom: (list?: any, view?: any, extra?: any) => any, QualifiedNameFrom: (list?: any, extra?: any) => any, DottedExpression: (list?: any, extra?: any) => any, ConditionalNode: (list?: any, from?: any, to?: any, extra?: any) => any, Segment: (view?: any, key?: any, extra?: any) => any, TypeOf: (list?: any, extra?: any) => any, FunctionTypeProps: (kids?: any, extra?: any) => any, BlockOfBody: (list?: any, brace?: any, extra?: any) => any, BindingPattern: (unit?: any, extra?: any) => any, ComputedNameExpression: (unit?: any, extra?: any) => any, Structural: (view?: any, kind?: any, extra?: any) => any, Declaration: (view?: any, kind?: any, extra?: any) => any }
 
 **第三个出口那一层递过去的上下文**（第 1175 轮按用户口径 1.5 立起来）：`PrintAst` 的
 **第一个形参**就是它——从前写作 `any`，于是「这一层手上有什麼」在声明里整个消失（用户口径 1.3：
@@ -62,6 +62,14 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 递出去的一个出口（第 1175 轮实测 **34 个**键），`direct:lint` 的键表判据与这一格**数的是同一张表**
 ——出口删掉（补进 `CTX_BANNED`）时这一格也要同步删键，多一个键就是「这一层拿得到它、
 却没有任何一页读得到它」。
+
+**第 1176 轮按同一条规矩删了两个键**（用户口径 1.2 / 1.7）：`SwitchClause` 与 `OperatorNode`
+——两个出口**各自只有一个读者**（`switch/switch.xl.md` 与 `binary-operator.xl.md`），
+按第 1043 / 1044 / 1067 / 1070 / 1080 / 1087 / 1100 / 1167 轮那把尺子（「一格出口只剩一个读者，
+就是多一层间接」），实现整段搬进那个读者自己那一页，出口与这里的两格键一并撤掉：
+**本页的键因此从 34 个变成 32 个**，而 `direct:lint` 印出来的出口数从 **41 降到 39**
+（那两个数不是同一张表：这一格数的是「写进类型里的键」，`direct:lint` 数的是
+`const ctx = { … }` 里那一行行出口，多行出口在这一格里只落一个键）。
 
 **为什么第一个形参之外的格子写成 `any` 是允许的**：用户口径 1.5 的禁 `any` **只管
 `## field` / `## property` 的声明**（第 1144 轮立的那个判据），管的是「这一格能装什么」
@@ -2275,6 +2283,37 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 **空串不是「不知道」**：`SymbolToken`（`+` / `&&` 那一族）与其余页面**永远不是词形运算符**，
 它们的形状由自己那一页的 `PrintAst` 出，投影读到空串就走通用投影——
 所以这一格答空串就是「这一态不归我」。
+
+## property OperatorWordNode:AstNameNode | undefined
+
+**词形运算符那一格的叶子节点**（第 1176 轮）：`OperatorWordKind` 非空时给出
+`{ kind, text, pos, end }`，空串时给 `undefined`（那一态不归这一格，调用方照自己的路投）。
+
+**为什么立这一格**（用户口径 1.2 / 1.7）：投影那一侧原本经**一个出口**问同一件事
+（`ctx.OperatorNode`）——它的实体就是这一格的三件事实：`kind` 读 `OperatorWordKind`、
+`text` 读 `TextValue`、坐标读 `start` 与正文长度（`unit.start + text.length`）。
+三件都已在本页构造 / Close 那一刻赋好，所以按这一族一贯的口径（第 1041 / 1042 / 1057 /
+1067 / 1070 / 1080 / 1087 / 1100 / 1106 / 1167 那几条）收成**属性读**：
+出口整格撤掉（名字补进 `direct:lint` 的 `CTX_BANNED`），三个读者各写一次属性读——
+投影页那两处（`projectExpression` 的 `instanceof` 实例化支、`foldBinaryFrom` 的二元支）
+与 `binary-operator.xl.md` 的 `PrintAst`。
+
+**原来的兜底支没有丢**：出口在 `OperatorWordKind === ""` 时做的是 `projectNode(unit, ctx)`，
+今天由**调用方**写成 `unit.OperatorWordNode ?? ctx.Project(unit)`——`undefined` 只在空串时出现，
+两条路出的节点**逐字节相同**（`ctx.Project(unit)` 就是 `projectNode(unit, ctx)`）。
+
+**形态**（`## property` + `### get`）：值随页面而异（基类永远答空串那条路），
+与 `IsLessThanSymbol` / `OperatorRank` 同一条口径——基类声明一处、需要它的两页
+（`Identifier` / `Keyword`）一个字都不用写（它们只维护 `OperatorWordKind` 那一格）。
+
+### get
+
+```ts
+const kind = this.OperatorWordKind;
+if (kind === "") return undefined;
+const text = this.TextValue;
+return { kind, text, pos: this.start, end: this.start + text.length };
+```
 
 ## field IsPrefixOperatorUnit:bool = false
 

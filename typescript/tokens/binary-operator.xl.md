@@ -1366,18 +1366,28 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
   if (left === undefined && right === undefined) {
     return kids.length > 0 ? ctx.Expression(kids) : undefined;
   }
-  const opNode =
-    opIndex >= 0
-      // **运算符那一格的 kind 由那一格自己答**（第 550 轮起、第 1106 轮收成属性读）：
-      // `in` / `instanceof` 在深度界那一层还是 `Identifier`，`ctx.Project` 会把它投成
-      // `Identifier("in")`（同一个节点同时记「缺 `InKeyword`」与「多出 `Identifier`」），
-      // 而它的 `OperatorWordKind` 在两态里都是同一个名字（见 `core/syntax/token.xl.md`）。
-      ? ctx.OperatorNode(kids[opIndex])
-      : {
-          kind: SymbolToken.KindOfText(typeof declaredOp === "string" ? declaredOp : "?"),
-          pos: v.start,
-          end: v.start,
-        };
+  // **运算符那一格的叶子节点由那一格自己给**（第 1176 轮，用户口径 1.2 / 1.3 / 1.7）：
+  // 它过去是 `ctx` 上的一个出口（`ctx.OperatorNode`），而那三件事实**全在被问的那一格自己身上**
+  // （`kind` 读 `OperatorWordKind`、`text` 读 `TextValue`、坐标读 `start` 与正文长度）——
+  // 按第 1041 / 1042 / 1057 / 1067 / 1070 / 1080 / 1087 / 1100 / 1106 / 1167 轮那把尺子
+  // 收成 `core/syntax/token.xl.md` 的 `## property OperatorWordNode`（基类一处声明，
+  // `Identifier` / `Keyword` 两页只维护 `OperatorWordKind`），出口整格撤掉。
+  // **空串那一档照旧回落到通用投影**：`OperatorWordNode` 只在 `OperatorWordKind` 非空时给节点，
+  // 与出口里原来那条 `if (kind === "") return projectNode(unit, ctx)` 逐字节同答。
+  // `in` / `instanceof` 在深度界那一层还是 `Identifier`，照 `ctx.Project` 投会投成
+  // `Identifier("in")`（同一个节点同时记「缺 `InKeyword`」与「多出 `Identifier`」），
+  // 而它答的 `OperatorWordKind` 在两态里都是同一个名字（见 `core/syntax/token.xl.md`）。
+  let opNode;
+  if (opIndex >= 0) {
+    const opUnit = kids[opIndex];
+    opNode = opUnit.OperatorWordNode ?? ctx.Project(opUnit);
+  } else {
+    opNode = {
+      kind: SymbolToken.KindOfText(typeof declaredOp === "string" ? declaredOp : "?"),
+      pos: v.start,
+      end: v.start,
+    };
+  }
   return {
     kind: "BinaryExpression",
     left,

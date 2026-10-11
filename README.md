@@ -347,6 +347,53 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1176 轮：用户口径 1.2 / 1.3 / 1.7 —— 两个「只有一个读者 / 被问那一格自己就答得出来」的出口删掉（`ctx.SwitchClause` 整段搬进 `switch.xl.md`、`ctx.OperatorNode` 收成基类一格 `Token.OperatorWordNode`）；`ctx` 出口 **41 → 39**、代码块 **3915 → 3876** 行、声明 54 格不变
+
+**一句话**：这一轮接着第 1167 / 1174 轮那把尺子——「一格出口只剩一个读者，就是多一层间接；
+某一页自己已经答得出来的事实，投影层不该有第二个入口」。两个出口各自命中一条：
+
+| 出口 | 谁在读 | 每一件输入在哪 | 今天 |
+| --- | --- | --- | --- |
+| `ctx.SwitchClause(seg)`（19 行） | **只有** `switch/switch.xl.md` | `seg.key` / `seg.ProjectableKids` / `seg.colonPos` / `seg.start` / `seg.end`（`SwitchSegment` 认下这一段那一刻就赋好，第 615 轮起 `colonPos` 就在字段上） | 整段搬进那一页的 `PrintAst`（就地展开成 `clauseOf`），出口删掉 |
+| `ctx.OperatorNode(unit)`（9 行） | `print-ast-common` 内部 **2 处**（`projectExpression` 的 `instanceof` 实例化支、`foldBinaryFrom` 的二元支）+ `binary-operator.xl.md` **1 处** | `unit.OperatorWordKind` / `unit.TextValue` / `unit.start`（第 1106 / 1069 轮起就在那一格自己的字段上） | 收成基类一格 **`Token.OperatorWordNode:AstNameNode \| undefined`**（`## property` + `### get`），三个读者各写一次属性读，出口删掉 |
+
+**`OperatorNode` 那一格原来那条兜底支没有丢**：出口在 `OperatorWordKind === ""`（这一态不是
+词形运算符）时做的是 `projectNode(unit, ctx)`，今天由**调用方**写成
+`unit.OperatorWordNode ?? ctx.Project(unit)`——`undefined` 只在空串时出现，而
+`ctx.Project(unit)` 就是 `projectNode(unit, ctx)`（见 `print-ast-common.xl.md` 的 `Project` 那一行），
+所以两条路出的节点**逐字节相同**。
+
+- **先说这一轮第一版错在哪**（记下来免得下一轮照抄）：第一版的判据是「扫**本页之外**的
+  `ctx.<名字>(`」——那把尺子数出来的 `OperatorNode` 读者只有 `binary-operator.xl.md`
+  **一处**，于是按「单读者」把算式搬进了那一页。`cases:direct` 当场红 **188 份**
+  （`ctx.OperatorNode is not a function`）：`print-ast-common` **自己内部**还有两处调用
+  （第 4230 / 7860 行），而它们不在「本页之外」。⇒ 「单读者」这把尺子必须**把本页内部
+  与自己人**一起数进来；`SwitchClause` 是**真的**一个内部读者都没有（全仓只在注释里出现），
+  所以它那一段搬迁一次就对了。第二版因此把 `OperatorNode` 改成**收成属性**（事实搬到
+  token 上，谁都能读），而不是「搬进唯一读者那一页」。
+- **两处 `PrintAstCtx` 的键同步删**：`SwitchClause` / `OperatorNode` 两个键从
+  `core/syntax/token.xl.md` 的 `# type PrintAstCtx = { … }` 里撤掉（**34 → 32 个键**），
+  两个名字补进 `direct:lint` 的 `CTX_BANNED`——写回来这一门当场红。
+- **`SwitchClause` 搬走之后 `switch.xl.md` 那一页的形状**：`segments.map(clauseOf)`，
+  `clauseOf` 里两次换名的调用点各一个（`projectExpression(list, ctx)` → `ctx.Expression(list)`、
+  `projectEach(list, ctx)` → `ctx.ProjectEach(list)`）——两条路出的节点逐字节相同，
+  所以这一页的产物**一个字节没动**。
+- **`OperatorWordKind` 与这一格是两问、不是两处存储**：那一格答「我这一态的 kind 叫什么」
+  （`Keyword` 在 `SetValue`、`Identifier` 在 `Close()` 里赋好），这一格答「照它拼出来的那个
+  叶子节点长什么样」——后者只是把前者与 `TextValue` / `start` 摆成 `{ kind, text, pos, end }`，
+  与第 1069 / 1106 轮那两格同一条口径（答案在**被问的那一格自己**身上）。
+
+**实测**：`xl check` 180 页 **0 条**（error 0 / warning 0）；`xl build`（插件工具，`--force`）
+**180 written / 0 error**；`npx tsc`（strict）**0 error**；`direct:lint` **0 条违反**
+（75 段全扫到、**ctx 出口 39 个**、投影读的 146 个 PascalCase 属性全部有声明、
+`## field` / `## property` 里 `any` 0 处）；`cases:direct` 语料 1640 份**不抛异常**、
+固定样本逐格点名通过（读数与第 1175 轮**逐项相同**：投影 **21793** 个节点、
+token 自己出 **16489** 个 / 75.7%）；`samples` ok；`cases:check` **1656 条 0 不合格**；
+`cases:tsast` 16 片 **15 通过 / 1 失败**（唯一那条仍是 HEAD 上既有的 `runtime/round741/002`）；
+`coverage` **4260 / 4422**（blocked 28、differ 134、bad 0、加权 95.7%）——**六项读数一处没动**。
+本页的记账：`typescript/print-ast-common.xl.md` 代码块（不带注释）**3915 → 3876 行**、
+`^# (private )?(method|const|property) ` **54 格不变**（这一轮删的是两行出口、不是声明格）。
+
 ### 第 1175 轮：用户口径 1.5 —— `PrintAst` 的形参表一次换成**带类型的签名**：全仓 **75 段** `(ctx:any, v:any)=>any` → `(ctx:PrintAstCtx, v:any)=>AstNode | undefined`；两个具名类型立在 `core/syntax/token.xl.md`（`PrintAstCtx` 41 个出口 / `AstNode` 共同三格），68 页补上类型 import，`npx tsc` 从 **109 error** 收成 **0**
 
 **一句话**：这一格从第 992 轮起写着三个 `any`——`ctx` 那一格是**这一层手上有什么**的声明，

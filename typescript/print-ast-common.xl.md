@@ -4222,12 +4222,14 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       //
       // 所以这里自己把这一层二元折出来（与 `foldBinaryFrom` 的二元那一支同一个形状：
       // `pos` 取左操作数、`end` 取右操作数），尾巴上还有运算符（`as` 那种）时才交回它。
-      // 运算符节点仍走 `ctx.OperatorNode`——`instanceof` 在这一层常常还是 `Identifier`，
-      // 而那一格自己按正文答 `OperatorWordKind`（第 1106 轮）。
+      // 运算符节点读那一格自己的属性（第 1176 轮起：`ctx.OperatorNode` 那个出口整格撤掉，
+      // 它那三件事实收成 `Token.OperatorWordNode`）——`instanceof` 在这一层常常还是 `Identifier`，
+      // 而那一格自己按正文答 `OperatorWordKind`（第 1106 轮）；空串时（这一态不是词形运算符）
+      // 才回落到通用投影，与出口里原来那条兜底支逐字节同答。
       const binary: any = {
         kind: "BinaryExpression",
         left: projectNode(instanceKids[0], ctx),
-        operatorToken: ctx.OperatorNode(instanceKids[1]),
+        operatorToken: instanceKids[1].OperatorWordNode ?? ctx.Project(instanceKids[1]),
         right: self,
         pos: instanceKids[0].start,
         end: self.end,
@@ -7854,10 +7856,11 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     node = {
       kind: "BinaryExpression",
       left: node,
-      // **运算符那一格的 kind 由那一格自己答**（第 550 轮起、第 1106 轮收成属性读）：
+      // **运算符那一格的 kind 由那一格自己答**（第 550 轮起、第 1106 轮收成属性读；
+      // **第 1176 轮起连出口也撤了**：`ctx.OperatorNode` 收成 `Token.OperatorWordNode`）：
       // `in` / `instanceof` 在深度界那一层还是 `Identifier`，它答的
-      // `OperatorWordKind` 与 `Keyword` 那一态答的是同一个名字。
-      operatorToken: ctx.OperatorNode(op),
+      // `OperatorWordKind` 与 `Keyword` 那一态答的是同一个名字；空串时回落到通用投影。
+      operatorToken: op.OperatorWordNode ?? ctx.Project(op),
       right,
       pos: node.pos,
       end: right ? right.end : op.end,
@@ -10405,48 +10408,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         end: bodyEnd,
       };
     },
-    // **`projectSwitchClause` 这一格第 1100 轮并进了这个出口**（判据与第 1043 / 1044 /
-    // 1067 / 1070 / 1080 / 1087 轮并掉那些「一格声明、一个调用点」的转发同一把尺子）：
-    // 它全仓只有 `switch.xl.md` 一个读者、而且那个读者拿到的就是这一行出口返回的东西
-    // ——函数体没有第二处调用点，所以实现搬到这里，本页少一格声明、少一层间接。
-    // 说明整段也一并搬到这一行旁边（见本行下方那一段注释）。
-    SwitchClause: (seg) => {
-      const sv = seg;  // 这一格就是 `seg` 自己（不再包一层接收者）
-      const kindWord = String(sv.key ?? "");
-      const kids = sv.ProjectableKids;
-      const caseUnit = kids.find((k) => k.IsSwitchCaseUnit);
-      const bodyUnit = kids.find((k) => k.IsSwitchStatementUnit);
-      const props = {};
-      if (kindWord !== "default" && caseUnit !== undefined) {
-        props.expression = projectExpression(caseUnit.ProjectableKids, ctx);
-      }
-      if (bodyUnit !== undefined) {
-        const body = bodyUnit.ProjectableKids;
-        const statements = projectEach(body, ctx);
-        if (statements.length > 0) props.statements = statements;
-      }
-      // **区间结尾按最后一个语句算**（第 89 轮修）：`SwitchSegment` 自己的区间比 TS 多一个字符
-      // （实测 `case "\r":` 产物 [345,400) vs TS [345,399)，192 处漂移 + 192 处「多出来」——
-      // 同一个节点两边都记了一次）。没有语句的那些（`case 2:` 后面直接跟下一个 `case`）
-      // 用 segment 自己的尾巴就正好。
-      const last = props.statements !== undefined ? props.statements[props.statements.length - 1] : undefined;
-      let end = last !== undefined && typeof last.end === "number" ? last.end : sv.end;
-      // **没有语句的分支（贯穿到下一条 `case`）**：区间到那个 `:` 为止（第 97 轮）。
-      // `SwitchSegment` 自己的尾巴比 TS 多一个字符——实测 `case ",":` 产物 [1129,1139)
-      // vs TS [1129,1138)：108 处漂移 + 108 处「多出来」是同一个节点两边各记一次。
-      // **位置由 token 自己记**（`SwitchSegment.ColonPos`，第 615 轮）：认下这一段那一刻
-      // 那个 `SymbolToken` 就在手上 ⇒ 这里直读字段，不再回原文 `lastIndexOf(":")` 猜。
-      if (last === undefined) {
-        const colonPos = sv.colonPos;
-        if (typeof colonPos === "number" && colonPos >= sv.start) end = colonPos + 1;
-      }
-      return {
-        kind: kindWord === "default" ? "DefaultClause" : "CaseClause",
-        pos: sv.start,
-        end,
-        ...props,
-      };
-    },
     // **`ctx.BindingPattern` 是「模式 → `ObjectBindingPattern` / `ArrayBindingPattern`」那一格**
     // （各页调的就是它），所以这里接回原来的 `projectBindingPattern`。
     // **绑定元素那一格（原来的 `projectBindingElement`）第 1114 轮并进了它唯一的调用点**
@@ -10482,27 +10443,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // **第 1136 轮把收件人换对了再收**：那一格立在 `Field` / `MethodDeclaration` 两页上
     // （各 `## field IsNumericLiteralName`，认下名字那一趟赋好），投影改读 `v.IsNumericLiteralName`
     // ——本页对 `Identifier` 的最后一个代码读者就是那一句，于是这一页的 `import` 也没了。
-    // **运算符那一格的叶子节点**（第 550 轮）：`in` / `instanceof` 在深度界那一层
-    // 还是 `Identifier`，照 `Project` 投会投成 `Identifier("in")` ——
-    // `BinaryOperator.PrintAst` 那一支正需要它。
-    //
-    // **判据与那两个名字第 1106 轮搬回了被问的那一格**（用户口径 1.1 / 1.3）：
-    // 这里过去是一格 `operatorTokenOf`，自己按 `op.TextValue` 认那两个词、再拼出
-    // `"InKeyword"` / `"InstanceOfKeyword"` 两个字面量——而那是**被问那一格自己的正文**
-    // 与**它自己那一页的词汇**（`Keyword` 的 `KEYWORD_KIND` 里本来就写着这两条）。
-    // 今天只读一格：`unit.OperatorWordKind`（`Keyword` 在 `SetValue`、`Identifier` 在
-    // `Close()` 里按自己的正文赋好，空串＝这一态不是词形运算符），本页不再判「我这一格长什么样」。
-    OperatorNode: (unit) => {
-      const kind = unit.OperatorWordKind;
-      if (kind === "") return projectNode(unit, ctx);
-      const text = unit.TextValue;
-      return {
-        kind,
-        text,
-        pos: unit.start,
-        end: unit.start + text.length,
-      };
-    },
   };
   // **开投之前先把这棵树冻结一次**（第 1155 轮，用户口径 1.3 / 1.6）：`projectRoot` 收到的
   // `exported` 是 `Root` 的子单元，从那几格往上走一级就是根 —— 冻结根即冻结整棵树
