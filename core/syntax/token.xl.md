@@ -2888,6 +2888,19 @@ return { kind, text, pos: this.start, end: this.start + text.length };
 **基类这一格默认 `false`**：需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field`，与 `EndsOnBrace` / `IsNameNode` / `IsOperatorUnit` 同一形态）。
 
+## field IsTagBaseNode:bool = false
+
+**我这一格能不能当标签模板的标签**（投影侧那一问；第 1208 轮）——能就答 `true`。
+
+**它与 `IsChainBaseNode` 不是同一问**（与上面 `IsNotNull` / `IsChainBaseNode` 那两处同一条口径）：
+那一格答的是「手上这一格的**形状**够不够当一整条链的基名」，而这一格答的是
+**TypeScript 认不认它当标签**——`this` 两问都答能，可 `true` / `false` / `null` 这些字面量
+当链的基名没问题、**当标签 TypeScript 自己就报语法错**。两张名单本来就不一样，
+所以各立一格，不借那一格。
+
+判据同样住在被问的那一页上（正文是什么只有这一页知道）：关键字那一页在 `SetValue` 里赋好
+（关键字里只有 `this` 一个词），基类这一格默认 `false`。
+
 ## field IsImportKeyword:bool = false
 
 **我这一格的正文是不是 `import` 那个词**（第 1118 轮）——是的话答 `true`。

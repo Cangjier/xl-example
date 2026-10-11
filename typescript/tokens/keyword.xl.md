@@ -127,6 +127,20 @@ return Keyword.UpgradeAt(units, index);
 口径与理由见 `../core/syntax/token.xl.md` 的 `IsNewKeyword`——
 过去投影层的三处 `k.TextValue === "new"` 现在都读这一格。
 
+## field IsTagBaseNode:bool = false
+
+**我这一格的正文能不能当标签模板的标签**（第 1208 轮，用户口径 1.1）：关键字里**只有 `this`**
+这一个词答 `true`，在 `SetValue` 里与上面那几格**同一趟**赋好（判据同样是这一页自己的正文）。
+
+**为什么 `super` 不在名单里**：`super`x`` 在 TypeScript 那边**自己就报语法错**
+（`ts.createSourceFile` 的 `parseDiagnostics` 非空，见 `tmp/r1208-ts.mjs`），
+本工程的口径是「TS 自己非法的形状不构成缺口」，所以不进这一格。
+
+**为什么另立一格、不借 `IsChainBaseNode`**：那一格答的是「形状够不够当链的基名」
+（`this` 能、`true` / `false` / `null` 这些字面量也能），而这一格答的是
+**TypeScript 认不认它当标签**（只有 `this`）——两问的名单不一样，理由写在
+`../core/syntax/token.xl.md` 的 `IsTagBaseNode` 那一节。
+
 ## field IsAsyncKeyword:bool = false
 
 **我这一格的正文是不是 `async` 那个词**（第 1118 轮）：同上一格，同一趟赋好。
@@ -482,6 +496,9 @@ this.IsChainBaseNode = !(
   text === "await" ||
   text === "super"
 );
+// **第 1208 轮**：标签模板的标签那一格（`this`x``）也是同一份正文的函数——同一趟赋好。
+// 关键字里只有 `this` 一个词（`super` 那一档 TypeScript 自己报语法错，见上面那一格的说明）。
+this.IsTagBaseNode = text === "this";
 ```
 
 ## method ToXmlString:()=>string

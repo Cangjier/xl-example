@@ -5385,7 +5385,17 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   const tagIsPostfixChain = (units: Array<any>): bool =>
     units.length > 0 && everyUnitIs(units, (one: any) =>
       one.IsIdentifierUnit || one.IsPropertyAccess || one.IsMethodNode || one.IsBracketUnit ||
-      one.IsStringUnit || one.IsGenericType || one.IsExpressionWithTypeArguments || one.IsDotSymbol);
+      one.IsStringUnit || one.IsGenericType || one.IsExpressionWithTypeArguments || one.IsDotSymbol ||
+      // **`this` 也是一个标签**（第 1208 轮，用户口径 1.1）：`this`x`` 在 TS 那边是
+      // `TaggedTemplateExpression{ tag: ThisKeyword }`（`ts.createSourceFile` 实测
+      // `const q = this`x``：`TaggedTemplateExpression[9,17) > [ThisKeyword[9,14), NoSubstitutionTemplateLiteral[14,17)]`）。
+      // 这一串名单里原来**一格关键字都没有**，于是 `this`x`` 整条不成形：
+      // 标签与模板在产物里是平级两格，通用支只投得出一格 `ThisKeyword`，
+      // **模板整格丢**；`this`x`.b` / `` this`x`(d) `` / `this`x`[c]` / `` this`x``x` `` /
+      // `this`x` as T` 五种续写同根——模板后面那一串本来有 `chainOnto` 接着，
+      // 是**入口这一问**先把整族挡掉了（实测 `tmp/r1208-probe1.mjs`：15 条里 8 条对不上，
+      // 全是 `this` 当标签那一族）。这一格由关键字那一页按自己的正文答。
+      one.IsTagBaseNode === true);
   // **模板后面那一串也要是链的续格**（第 947 轮）：判据从「**末尾**那一格是模板」
   // 放宽成「**链里有一格是模板**」，模板后面那一串交给 `chainOnto`（与 0c 同一段代码）。
   //
@@ -5401,7 +5411,11 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   const IsChainTail = (units: Array<any>): bool =>
     everyUnitIs(units, (one: any) =>
       one.IsIdentifierUnit || one.IsPropertyAccess || one.IsMethodNode || one.IsBracketUnit ||
-      one.IsArrayLiteralUnit || one.IsNullConditionalOperator || one.IsNotNull || one.IsDotSymbol);
+      one.IsArrayLiteralUnit || one.IsNullConditionalOperator || one.IsNotNull || one.IsDotSymbol ||
+      // **裸的 `!` 也是链的一格**（第 1208 轮，用户口径 1.1）：`this`x`!` 的尾巴那一格
+      // 就是**一个感叹号符号**（不是 `NotNull` 单元——理由写在 `chainOnto` 那一支里）。
+      // 少了这一格，0b 的入口判据在 `IsChainTail` 上答否 ⇒ 整条标签模板连断言一起丢。
+      one.IsNotNullSymbol === true);
   // 从右往左找那一格模板：**最后**一格能当标签模板起点的就是它。
   // `at` 从 1 起（模板前面至少要有一格标签），标签与尾巴两问都过才认。
   let templateAt = -1;
@@ -7354,6 +7368,21 @@ return out;
       i += 1;
       continue;
     }
+    // **紧跟一格裸的 `!` ⇒ 对左边那一整条链做非空断言**（第 1208 轮，用户口径 1.1）：
+    // `this`x`!` 的产物是 `[Keyword(this), String(反引号), SymbolToken(!)]`——
+    // 前面两格由上面那条模板分支合成一条 `TaggedTemplateExpression`，可那个 `!`
+    // **一格符号**（不是 `NotNull` 单元：`NotNullCloseRule` 要的是一个**单元**当操作数，
+    // 而这里左边是平铺的两格，它收不上来）⇒ 循环里没有它那一档、`IsChainTail` 也不收它
+    // ⇒ 整条标签模板连断言一起丢（实测 `tmp/r1208-probe1.mjs` 的 `tag-this-nn`：
+    // 缺 `NonNullExpression` + `TaggedTemplateExpression` + 模板字面量）。
+    // TS 那边是 `NonNullExpression{ expression: TaggedTemplateExpression }`。
+    // 判据只认**这一格是那个感叹号**（`SymbolToken.IsNotNullSymbol`，与类型位 / 二元那两处
+    // 问的是同一格），套法走已经在用的 `bangWrapped`（`end` 取这一格自己的终点）。
+    if (unit.IsNotNullSymbol === true) {
+      left = bangWrapped(left, unit.end);
+      i += 1;
+      continue;
+    }
     if (unit.IsIndexBracket) {
       const argument = projectExpression(unit.ProjectableKids, ctx);
       left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: argument }, unit.end);
@@ -8082,7 +8111,17 @@ return out;
     // `VariableDeclaration.exclamationToken`（`!` 是一个子节点），产物把它记成一个平级的
     // `SymbolToken("!")`。不收的话缺 `ExclamationToken` + 字段名差一格
     // （实测 `vars-definite.ts`：`VariableDeclaration` 与 `PropertyDeclaration` 各一处）。
-    const bang = one.find((k) => k.IsNotNullSymbol);
+    //
+    // **这一格只在 `=` 左边找**（第 1208 轮，用户口径 1.1）：TS 的明确赋值断言是
+    // **名字后面紧跟**的那一个 `!`（`parseVariableDeclaration` 就在名字那一格上收），
+    // 初始化式**自己**结尾也可能站着一个**非空断言**——`const q = this`x`!` 的那个 `!`
+    // 是 `NonNullExpression` 的（`ts.createSourceFile` 实测 TS 那边
+    // `VariableDeclaration` 上**没有** `exclamationToken`，而我们这边多一个）。
+    // 原来 `one.find` 从整组里挑第一个 `!`，于是把它收成了 `exclamationToken`：
+    // 实测 `VariableDeclaration` 的字段名多一格 `exclamationToken`（`FIELD` 那一榜）。
+    // **切的正是同一段里 `initKids` 用的那个 `=` 下标**（`eq`），不另算一份。
+    const headUnits = eq >= 0 ? one.slice(0, eq) : one;
+    const bang = headUnits.find((k) => k.IsNotNullSymbol);
     if (bang !== undefined) declaration.exclamationToken = projectNode(bang, ctx);
     return declaration;
   });
