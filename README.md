@@ -347,6 +347,63 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1211 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`?.` 后面那一截「模板当兄弟」两族收掉**（`membersOnto` 多格入口 + `tailUnitsOf` 补一档）；1.2 把 `Source.Value` 从「每读一次回文档问一次」改成**构造时算一次**（`GetValue` **964 万 → 189 万**；**同进程交替 A/B：best −4.29%**）
+
+**一句话**：1.1 还是从组合扫描剩下的那一榜往下看——头几名全是 `?.` 后面那一截里**模板被收成了兄弟**的形状（`a?.b`x`.b` 那一族）；1.2 是「同一格字符被问 8 遍」那一笔：`Source.Value` 是个 getter，通用队列里每条分支的 `Condition` 都要读它一次。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `chainWithOptional` 新增一档：NCO 里**不止一格**时，从第一格起交给 `membersOnto`（与 `first.IsPropertyAccess` 那一支同一份实现） | 组合扫描 **96 → 90**（`om+tpl+m` 一族 6 条转绿） |
+| **1.1** | `tailUnitsOf` 补第四档：**「以模板串开头」的外壳也摊成平级**（`[String, ., b]`）——`?.[i]` / `?.(args)` 两支的尾巴走的是它 | 再 **90 → 78**（`oi+tpl+m` / `oc+tpl+m` 各 6 条转绿） |
+| **1.2** | `Source.Value`：`## property` + `### get`（读 `Document.GetValue`）→ `## field`，构造时 `this.Value = document.GetValue(index)` | `Document.GetValue` **9643035 → 1887617**（−80%） |
+
+**1.1 的现场（读到的那一行原文）**：`a?.b`x`.b` 的产物是
+`NCO[Identifier(b), PropertyAccess([String(反引号), ., b])]`——`?.` 后面先跟一格名字、
+再跟一条**以模板开头**的子链，而 `chainWithOptional` 那条通用支只按 `first` 折**一格**属性访问、
+`end` 还取整个 NCO ⇒ 模板那一整段丢（TS 是 `PropertyAccess(TaggedTemplate(PropertyAccess(a?.b), `x`), b)`）。
+`a?.[c]`x`.b` / `a?.(d)`x`.b` 是同一件事走**另一条路**：`?.[i]` 与 `?.(args)` 两支先把括号那一格
+建出来就 `return chainOnto(…, tailUnitsOf(剩下那一截))`，而 `tailUnitsOf` 只摊「以一次调用开头」的
+外壳 ⇒ 那一格 `PropertyAccess([String, …])` 既不是点号也不是括号，`chainOnto` 一圈都不跑。
+
+**两处都不是新判据**：第一处是把 `membersOnto` 那一段**已经写好的循环**再叫一次（`kids.length > 1`
+时才走，单格形状一个字没改）；第二处是把判据从「以调用开头」**加了一半**——同一句「这一格的头一格
+是不是反引号模板」在 `membersOnto` 里也有，摊出来正好是 `chainOnto` 要的平级形状。
+
+**1.1 剩下的那一榜（如实记，这一轮没做）**：`nn+tpl+m` / `tpl+tpl+m`（`a!`x`.b` / `` a`x``x`.b ``：
+模板那一截与 `NotNull` 平级、不在 NCO 里）、`tpl+m+nn` / `tpl+i+nn`（`` a`x`.b! `` 那一族，另一个入口）、
+`i+c` / `m+c` / `nn+c` / `nn+oi` / `as*` 那几族（78 条里占 54 条）。
+
+**1.2 的现场（读到的那一行读数）**：`Document.GetValue` 是个**实例字段上的闭包**
+（`TextDocument` 把 `(index) => content[index]` 交给 `Document` 的构造器），而 `Source.Value`
+每次读都要 `this.Document.GetValue(this.Index)` 走一趟。按栈采样（`tmp/r1211-gvstack2.mjs`，
+每 1000 次采一次）前十六名**全是各页 `Condition` 的第一句**：
+`Identifier.IsAppend` / 各 `Branch.Condition` / `IsLeadingDotNumber`——也就是说**同一个字符
+被通用队列里十几条分支各读了一遍**。
+
+**为什么可以在这里算一次**：`Source` 是「文档里的一个位置」，位置由 `Document` 与 `Index` 定死、
+文档不可变、`GetValue` 是纯取值 ⇒ 构造那一刻就是最终答案。读法、构造签名、`At()` 每次新建
+`Source` 这三条一个字没改。**这与第 1208 轮 `Pre` 的无参调用是同一类账**（每个字符都要付一次）。
+
+**1.2 的墙钟**：
+
+| 尺子 | 旧（getter） | 新（字段） | 差 |
+| --- | --- | --- | --- |
+| 同进程交替 A/B（`tmp/r1211-ab2.mjs`，两份独立模块图，各 8 趟）best | 1241.9 ms | **1188.7 ms** | **−4.29%** |
+| 同上 median | 1325.7 ms | 1322.5 ms | −0.24%（**噪声里，如实记**） |
+| 两个进程各 3 趟（`tmp/r1211-bench.mjs`，best of 5）best | 1213.8 ms | **1157.6 ms** | **−4.6%** |
+| 同上 median | 1277.6 ms | **1233.1 ms** | **−3.5%** |
+
+`tmp/r1203-bench.mjs`（best of 4）：parse **1273.5 ms**、xml 41.7、printAst 105.5。
+
+**1.2 的等价怎么证的**：把编译产物里那一格换回旧版（`tmp/r1211-oldvalue5.mjs`，
+`tmp/r1211-oldbuild/ts` 是一份独立副本），两份产物对**同一批 1658 份语料**各投一遍，
+逐份比 token 树 XML 与投影 JSON 的 sha256（`tmp/r1211-sig.mjs` 各写一份台账）：
+**同答 1658 / 不同 0 / 抛异常 0**。
+
+**净账**：`cases:tsast` **1658** 份（已知缺口 1 条还开着、0 条已经收掉）；`cases:direct` 全语料不抛异常（1658 份）、固定样本通过；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1672** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4279 / 4438**（三条新用例分母 +3、分子 +3；blocked 26、differ 133、bad 0、加权 95.7%）；`xl check`（`core typescript`）**0 条**；`npx tsc`（strict）**0 error**。
+
+**两条 commit**：`5bd0c064`（1.1 模板当兄弟两族）、`1e109b9c`（1.2 `Source.Value` 算一次）。
+
 ### 第 1210 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`?.` 后面那一截的两族收掉**（核是「属性访问」与核「又是一格断言」；两份成员循环合成一格 `membersOnto`）；1.2 把 `Branch.Transit` 那句「无条件调 `Failed`」改成先问一格钩子（**同进程交替 A/B：best −2.04%、median −3.49%**）
 
 **一句话**：1.1 接着上一轮那把组合扫描（`tmp/r1210-sweep.mjs`，2124 条合法片段）往下看——头几名全是 `?.` 后面那一截：`assertedMember` 里那份成员循环是 `chainWithOptional` 那条循环的**第二次抄写**，而它只认三格。1.2 是「每个判定都要付一次」的又一笔：`Transit` 每一次失败都调一遍 `this.Failed(...)`，而基类那一格是**空方法**。
