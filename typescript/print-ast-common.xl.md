@@ -153,7 +153,7 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
   （`tmp/r1138`，在构建产物的那一行前挂计数器，跑 `node tests/parse/direct-ast.mjs --all`，2051 份）：
   **进入 42427 次、不一致 0 次**。八道门读数一处没动是第三份证据。
 - **判据那一侧不用挂例外了**：`direct:lint` 的两条读数（「按某一格自己的起点读 `ctx.source`」
-  「按坐标从 `ctx.source` 切正文」）本来就报 0 处——因为**它们扫的是 `ctx.source[startOf(x)]` /
+  「按坐标从 `ctx.source` 切正文」）本来就报 0 处——因为**它们扫的是 `ctx.source[<坐标访问器>]` /
   `ctx.source[x.start]` 那两种写法**，而这一处写的是 `ctx.source[at.pos - 1]`（`at` 是**投出来的节点**），
   两种写法都不匹配，于是它从那一门漏了过去。这一轮不留新判据（那一族的读取数已经是 0，
   没有更细的形态可扫），只在两处写下「它为什么以前扫不到」。
@@ -731,8 +731,9 @@ import { SymbolToken } from "./tokens/symbol-token.xl.md"
   三件事的答案都在**被投的那一格自己**身上；留着它，等于本页同一份算式有
   「声明 + 两个调用点 + 出口」四个入口。收掉之后同一份算式只剩**调用点那几处**，
   而出口那一处是**别的页**的入口（不是本页的第二份答案）。
-- **一处不按属性读的坐标照旧**：`pos` / `end` 仍读 `startOf(shape)` / `endOf(shape)`
-  （本页那两个 `# const` 就是读 token 自己的 `start` / `end`，与搬走之前逐字节相同）。
+- **一处不按属性读的坐标照旧**：`pos` / `end` 仍读 `shape.start` / `shape.end`
+  （**第 1159 轮起这一页没有 `startOf` / `endOf` 那两格了**：它们本就只是读 token 自己的
+  `start` / `end`，242 处调用点全部换成属性读——见下面那一节）。
 - **本页的声明数**：**47 → 46 格**（44 → 43 个 `# method` + 3 个 `# const`，实测；
   删掉的是一格 `# private method`，出口那一格不是声明）。
 
@@ -957,14 +958,14 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
    `ctx.source.slice(node.start, node.end)` 改成 `node.Text`；
 4. **某一页构造时已经记下的事实，投影不许再回原文推一遍**（第 1049 轮）：
    `String.StringChar`（「本串用的引号字符。它只在构造器里赋一次」）就是这个例子——
-   「这一格是不是模板」原来是 `ctx.source[startOf(x)] === "`"`（**回原文读第一个字符**），
+   「这一格是不是模板」原来是 `ctx.source[x.start] === "`"`（**回原文读第一个字符**），
    而那一格的反引号**早就记在 token 上了**（投影读 `stringChar`）——九处一处不剩。
-   同一轮顺手把 `computedNameUnit` 的 `ctx.source[startOf(first)] === "["` 与
+   同一轮顺手把 `computedNameUnit` 的 `ctx.source[first.start] === "["` 与
    `projectStatement` 的 `ctx.source[v.start] === ";"` 也换成读这一格自己的 `Text`。
 
 ⇒ **「按某一格自己的坐标去读 `ctx.source`」在 print-ast-common 的代码块里成了 0 处**，
 `direct:lint` 因此加第四条判据（第 1049 轮）：`ctx.source[` 的下标**不许是某一格自己的 `start`**
-（`ctx.source[startOf(x)]` / `ctx.source[x.start]`）——扫描用的游标、别人的终点、成对括号的区间
+（`ctx.source[x.start]` / `ctx.source[x.start]`）——扫描用的游标、别人的终点、成对括号的区间
 照旧，而「这一格的正文 / 首字符」只有一处来源：token 自己。
 **第 1109 轮把这一族又收掉一处**：`synthName` 的 `ctx.source[unitSpan[0]]`（看名字头一格是不是
 引号）改成读这一格自己的那两对数（`Token.NameSpan` / `Token.NameTextSpan`）——**那一格有
@@ -1543,7 +1544,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   `projectStatement` 自己有语句壳，`labeled` 那一处用的是体自己的 `end`）。
 - **`projectSignedLiteralType` 的「不是这个形状」**：并进来之后是「什么都不做、照下面那条路走」
   （原来给的是 `undefined`、调用方 `if (signed !== undefined) return signed;`）——**同一句话**。
-  它读的 `startOf(head)` 就是 `signedHead.start`、`stmtEndOf(list[0], ctx)` 原样保留。
+  它读的坐标就是 `signedHead.start`、`stmtEndOf(list[0], ctx)` 原样保留。
 - **两格的判据都没有搬去 token 那一侧、理由写在并进来的注释里**：它们要的是
   「**一串子单元凑出来的形状**」（表达式结果 + kind 后缀 / 两个子单元 + 头一个是符号），
   不是「某一个 token 自己的事实」——按第 1041 / 1042 / 1057 那几条判据，它们属于投影这一侧，
@@ -2512,9 +2513,18 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 `String.PrintAst`——**一个字符的解释都没丢**，所以这一页不再留第二份。
 
 
-# private const startOf:(node:any)=>int = (node) => node.start
-
-# private const endOf:(node:any)=>int = (node) => node.end
+**`startOf` / `endOf` 这两格第 1159 轮删掉了**（用户口径 1.6 / 1.2：投影成本趋于 0）。
+它们的定义是 `(node) => node.start` / `(node) => node.end`——**一次不改变任何东西的函数调用**，
+而全页有 **242 处**调用点（`startOf` 87 / `endOf` 155）。删法是机械的：每一个
+`startOf(X)` / `endOf(X)` 换成 `X.start` / `X.end`（参数按括号配平整个取出，嵌套调用也照换），
+然后两格声明一起删掉。**读的仍是同一格自己的属性**，所以 `Token.start` / `Token.end`
+（`core/syntax/token.xl.md` 的基类字段）就是唯一来源——这两格 helper 从来没提供过别的东西。
+**量法**：一次性探针 `tmp-deinline.mjs`（不进仓库），改完围栏内 `startOf(` / `endOf(` **0 处**。
+**这一趟踩到的坑如实记下**：实参是**三元式**时必须补一对圆括号——`startOf(a ? b : c)`
+原来把整个三元式当实参，写成 `a ? b : c.start` 就**只给假支读坐标**（三元比 `.` 松）。
+全页只有一处（`walkSpecifierUnit` 里那个 `ranged.length > 0 ? ranged[0] : units[0]`），
+而它正是 `cases:direct` / `samples` **看不见**、`coverage` 当场红（91 条）的那一格
+（`tsrun` 报 `Converting circular structure to JSON`——错值一路走到 IR 才炸）。
 
 # private const NCO_BASE_OPERATORS:Set<string> = new Set(["+", "-", "*", "/", "%", "**", "<", ">", "<=", ">=", "==", "!=", "===", "!==", "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof", "="])
 
@@ -3044,7 +3054,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   if (parent.AstKind === "ArrayLiteralExpression") {
     const out = [];
     let group = [];
-    let lastEnd = list.length > 0 ? startOf(list[0]) : 0;
+    let lastEnd = list.length > 0 ? list[0].start : 0;
     // **上一个逗号的下标**（第 933 轮）：与 `tokens/json/array-literal.xl.md` 那一处同一份口径
     // ——洞的起点是「上一个**逗号**之后那一格」，而 `lastEnd + 1`（上一个元素的终点 + 1）
     // 在元素与逗号之间夹着注释 / 换行时差一格。
@@ -3056,10 +3066,10 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
       } else {
         const one = projectExpression(group, ctx);
         if (one !== undefined) out.push(one);
-        lastEnd = endOf(group[group.length - 1]);
+        lastEnd = group[group.length - 1].end;
       }
       group = [];
-      if (separator !== undefined) previousSeparator = startOf(separator);
+      if (separator !== undefined) previousSeparator = separator.start;
     };
     for (const item of list) {
       // **逗号那一格自己答**（第 1074 轮）：见 `SymbolToken.IsCommaSymbol`。
@@ -3232,7 +3242,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
             const modifiers = [...leading, ...(declaration.modifiers ?? [])];
             modifiers.sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
             declaration.modifiers = modifiers;
-            declaration.pos = startOf(items[i]);
+            declaration.pos = items[i].start;
             out.push(declaration);
             i = j + 1;
             continue;
@@ -3281,7 +3291,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     if (items[i].IsExportUnit && i + 1 < items.length) {
       const unitText = items[i].Text.trim();
       if (DEFAULT_TAIL.test(unitText) && items[i + 1].IsDeclarationUnit) {
-        const merged = projectExport(items[i], ctx, items.slice(i + 1), endOf(items[i + 1]));
+        const merged = projectExport(items[i], ctx, items.slice(i + 1), items[i + 1].end);
         if (merged !== undefined) {
           out.push(merged);
           i += 2;
@@ -3381,7 +3391,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 
 ```ts
   const text = String(labelUnit.label ?? "");
-  const at = startOf(labelUnit);
+  const at = labelUnit.start;
   return {
     kind: "LabeledStatement",
     label: { kind: "Identifier", text, pos: at, end: at + text.length },
@@ -3624,8 +3634,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       withProps.statement = {
         kind: "Block",
         statements: projectEach(kidsOf((body), "children"), ctx),
-        pos: startOf(body),
-        end: endOf(body),
+        pos: body.start,
+        end: body.end,
       };
     }
     return { kind: "WithStatement", pos: v.start, end: stmtEndOf(v, ctx), ...withProps };
@@ -3896,7 +3906,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 
 **把一格链节点接到 `left` 上**（第 1158 轮，用户口径 1.7）：`props` 就是原来那个对象字面量里
 **除了 `pos` / `end` 之外的每一格**（`expression` 也在里面），`pos` 一律取 `left.pos`、
-`end` 取调用方给的那一格终点——`end` 允许是**数**（`endOf(x)`，各格自己的终点）
+`end` 取调用方给的那一格终点——`end` 允许是**数**（`x.end`，各格自己的终点）
 或**节点**（`{ pos, end }` 的投影节点，那就读它自己的 `end`，与 `shellOver` 的第三格同一形态）。
 
 **为什么立这一格**：这一个形状在本页出现过 **61 次**（`PropertyAccessExpression` 25、
@@ -3963,7 +3973,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 壳是**没投过的 token** 时用这一格。
 
 ```ts
-  return shellOver(projectNode(shell, ctx), callee, endOf(shell));
+  return shellOver(projectNode(shell, ctx), callee, shell.end);
 ```
 
 # private method projectExpression:(kids:Array<any>, ctx:any)=>any
@@ -4030,10 +4040,10 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // **`AsyncKeyword` 得自己补进 `modifiers`**：那一格平时由 `Lamda.IsAsync` 那条路合成，
       // 而这条路的 `IsAsync` 是假（隔空格那一档规矩如此）⇒ 只在投影这一层补一个节点，
       // 位置就取 `async` 那一格自己的两端（与 `async x => x` 合成出来的形状逐格相同）。
-      const asyncNode = { kind: "AsyncKeyword", text: "async", pos: startOf(kids[0]), end: endOf(kids[0]) };
+      const asyncNode = { kind: "AsyncKeyword", text: "async", pos: kids[0].start, end: kids[0].end };
       if (Array.isArray(arrow.modifiers)) arrow.modifiers.push(asyncNode);
       else arrow.modifiers = [asyncNode];
-      arrow.pos = startOf(kids[0]);
+      arrow.pos = kids[0].start;
       return arrow;
     }
   }
@@ -4161,8 +4171,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             kind: "TaggedTemplateExpression",
             tag: expression,
             template,
-            pos: startOf(kids[0]),
-            end: endOf(templateUnit),
+            pos: kids[0].start,
+            end: templateUnit.end,
           };
           if (args.length > 0) head.typeArguments = args;
           if (instTemplateDirect !== undefined) {
@@ -4196,8 +4206,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       const self: any = {
         kind: "ExpressionWithTypeArguments",
         expression,
-        pos: startOf(kids[0]),
-        end: endOf(kids[1]),
+        pos: kids[0].start,
+        end: kids[1].end,
       };
       if (args.length > 0) self.typeArguments = args;
       const rest = kids.slice(2);
@@ -4259,8 +4269,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       const self: any = {
         kind: "ExpressionWithTypeArguments",
         expression: callee,
-        pos: startOf(instanceKids[2]),
-        end: endOf(instanceKids[3]),
+        pos: instanceKids[2].start,
+        end: instanceKids[3].end,
       };
       if (args.length > 0) self.typeArguments = args;
       // **这一格不能交回 `foldBinaryFrom` 去折**（实测）：那个函数的 `rest` 是**原始单元**
@@ -4277,7 +4287,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         left: projectNode(instanceKids[0], ctx),
         operatorToken: ctx.OperatorNode(instanceKids[1]),
         right: self,
-        pos: startOf(instanceKids[0]),
+        pos: instanceKids[0].start,
         end: self.end,
       };
       const rest = instanceKids.slice(4);
@@ -4338,7 +4348,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         kind: "TypeAssertionExpression",
         type: asserted,
         expression,
-        pos: startOf(kids[0]),
+        pos: kids[0].start,
         end: expression.end,
       };
       const rest = kids.slice(operandEnd);
@@ -4383,7 +4393,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           kind: "TypeAssertionExpression",
           type: asserted,
           expression,
-          pos: startOf(kids[0]),
+          pos: kids[0].start,
           end: expression.end,
         };
       }
@@ -4407,8 +4417,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     return {
       kind: "ParenthesizedExpression",
       expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
-      pos: startOf(shape),
-      end: endOf(shape),
+      pos: shape.start,
+      end: shape.end,
     };
   }
   // ---- 0b0. `await x` / `yield x`（第 130 轮）----
@@ -4485,8 +4495,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         return {
           kind: "Identifier",
           text: word,
-          pos: startOf(kids[0]),
-          end: endOf(kids[0]),
+          pos: kids[0].start,
+          end: kids[0].end,
         };
       }
     }
@@ -4506,8 +4516,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       return {
         kind: "YieldExpression",
         ...props,
-        pos: startOf(kids[0]),
-        end: value === undefined ? endOf(kids[kids.length - 1]) : value.end,
+        pos: kids[0].start,
+        end: value === undefined ? kids[kids.length - 1].end : value.end,
       };
     }
     // **`await` 是一元前缀、比二元与逻辑都紧**（第 739 轮）：`await x + 1` 是 `(await x) + 1`，
@@ -4594,7 +4604,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           const awaited = {
             kind: "AwaitExpression",
             expression: operand,
-            pos: startOf(kids[0]),
+            pos: kids[0].start,
             end: operand.end,
           };
           return foldBinaryFrom(awaited, tail, ctx);
@@ -4621,7 +4631,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             const awaited = {
               kind: "AwaitExpression",
               expression: chained,
-              pos: startOf(kids[0]),
+              pos: kids[0].start,
               end: chained.end,
             };
             return foldBinaryFrom(awaited, inner.slice(chainAt), ctx);
@@ -4630,7 +4640,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       }
       const value = projectExpression(kids.slice(1), ctx);
       if (value !== undefined) {
-        return { kind: "AwaitExpression", expression: value, pos: startOf(kids[0]), end: value.end };
+        return { kind: "AwaitExpression", expression: value, pos: kids[0].start, end: value.end };
       }
     }
   }
@@ -4645,8 +4655,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       const head = {
         kind: "PrivateIdentifier",
         text: "#" + named.TextValue,
-        pos: startOf(kids[0]),
-        end: endOf(named),
+        pos: kids[0].start,
+        end: named.end,
       };
       const rest = kids.slice(2);
       if (rest.length === 0) return head;
@@ -4662,8 +4672,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const head = {
           kind: "PrivateIdentifier",
           text: "#" + inner[0].TextValue,
-          pos: startOf(kids[0]),
-          end: endOf(inner[0]),
+          pos: kids[0].start,
+          end: inner[0].end,
         };
         return foldBinaryFrom(head, [...inner.slice(1), ...kids.slice(2)], ctx);
       }
@@ -4678,7 +4688,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     if (arrow !== undefined) {
       const typeParams = kids[0].ProjectableKids.filter((k) => k.IsTypeParameterUnit);
       if (typeParams.length > 0) arrow.typeParameters = projectEach(typeParams, ctx);
-      arrow.pos = startOf(kids[0]);
+      arrow.pos = kids[0].start;
       return arrow;
     }
   }
@@ -4776,14 +4786,14 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     let meta: any = {
       kind: "MetaProperty",
       name: inner[0].NameNode,
-      pos: startOf(kids[0]),
-      end: endOf(inner[0]),
+      pos: kids[0].start,
+      end: inner[0].end,
     };
     let at = 1;
     while (at < inner.length) {
       if (!inner[at].IsDotSymbol || at + 1 >= inner.length) break;
       const member = inner[at + 1];
-      meta =chainOn("PropertyAccessExpression", meta, { expression: meta, name: member.NameNode }, endOf(member));
+      meta =chainOn("PropertyAccessExpression", meta, { expression: meta, name: member.NameNode }, member.end);
       at += 2;
     }
     // **后面那些 `.名字` 也要继续接上**（第 346 轮，**实测撞到的**）：
@@ -4795,7 +4805,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     let after = 3;
     while (after + 1 < kids.length && kids[after].IsDotSymbol) {
       const member = kids[after + 1];
-      meta =chainOn("PropertyAccessExpression", meta, { expression: meta, name: member.NameNode }, endOf(member));
+      meta =chainOn("PropertyAccessExpression", meta, { expression: meta, name: member.NameNode }, member.end);
       after += 2;
     }
     const rest = kids.slice(after);
@@ -5462,7 +5472,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     if (emptyCallBracket !== undefined) {
       const callee = projectExpression(kids.slice(0, 1), ctx);
       if (callee !== undefined) {
-        let called: any =chainOn("CallExpression", callee, { expression: callee, arguments: [] }, endOf(emptyCallBracket));
+        let called: any =chainOn("CallExpression", callee, { expression: callee, arguments: [] }, emptyCallBracket.end);
         const rest: Array<any> = [];
         for (let q = emptyCallLayers.length - 1; q >= 0; q--) {
           rest.push(emptyCallLayers[q][0], emptyCallLayers[q][1]);
@@ -5603,8 +5613,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       return {
         kind: "SpreadElement",
         expression: spread,
-        pos: startOf(kids[0]),
-        end: endOf(kids[kids.length - 1]),
+        pos: kids[0].start,
+        end: kids[kids.length - 1].end,
       };
     }
   }
@@ -5802,7 +5812,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const bareHead = bareKids.length > 0 ? bareKids[0] : undefined;
         if (bareHead !== undefined && bareHead.IsMethodNode
           && bareHead.DeclaredName === ""
-          && endOf(bareHead) < endOf(k)) {
+          && bareHead.end < k.end) {
           ck.push(k);
           continue;
         }
@@ -6042,8 +6052,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           return {
             kind: "ParenthesizedExpression",
             expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
-            pos: startOf(shape),
-            end: endOf(shape),
+            pos: shape.start,
+            end: shape.end,
           };
         })()
         : projectChainHead(ck[0]);
@@ -6071,7 +6081,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         (ck[i].IsArrayLiteralUnit && sawNullAssert);
       if (indexLike) {
         const argument = projectExpression(ck[i].ProjectableKids, ctx);
-        left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: argument }, endOf(ck[i]));
+        left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: argument }, ck[i].end);
         i += 1;
         continue;
       }
@@ -6096,7 +6106,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
             .filter((a) => a !== undefined),
           pos: left.pos,
-          end: endOf(ck[i]),
+          end: ck[i].end,
         };
         i += 1;
         continue;
@@ -6124,8 +6134,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           // ⇒ **那次调用的节点整格丢**（实测 `gap-r973-nonnull-call-assert-call-assert`：
           // 最里面那个 `CallExpression` 缺、`NonNullExpression` 漂 1）。
           // 判据与下标那一支**一字不差**（`endOf(括号) < endOf(这一格)`）：先建调用、再套断言。
-          if (bangHead !== undefined && bangHead.IsParenBracket && endOf(bangHead) < endOf(ck[i])) {
-            left =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(bangHead, ctx) }, endOf(bangHead));
+          if (bangHead !== undefined && bangHead.IsParenBracket && bangHead.end < ck[i].end) {
+            left =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(bangHead, ctx) }, bangHead.end);
           } else if (bangHead !== undefined && bangHead.IsMethodNode) {
             // **断言的核是一格调用单元**（第 975 轮）：`a!()()!()` 的第二格是
             // `NotNull([Method(name=""[Bracket(())]) , !])`——那一格自己盖着**两层**调用
@@ -6142,9 +6152,9 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           } else if (bangHead !== undefined && bangHead.IsIndexFirstUnit) {
             const bracket = bangHead;
             const argument = projectExpression(bracket.ProjectableKids, ctx);
-            left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: argument }, endOf(bracket));
+            left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: argument }, bracket.end);
           }
-          left = bangWrapped(left, endOf(ck[i]));
+          left = bangWrapped(left, ck[i].end);
           sawNullAssert = true;
           i += 1;
           continue;
@@ -6202,8 +6212,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           // `PropertyAccessExpression` 整片缺、`.c` 也跟着丢）。
           // 折法与上面那支同款：先建里层那次调用（受体是 `left`、区间到括号为止），
           // 再把这一格自己那次套在外面。
-          if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && endOf(callHead) < endOf(ck[i])) {
-            const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, endOf(callHead));
+          if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && callHead.end < ck[i].end) {
+            const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
             left = shellOnto(ck[i], innerCall, ctx);
             i += 1;
             continue;
@@ -6233,14 +6243,14 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
                 innermostCallee(left, innermostMethod(assertHead), ctx),
                 undefined,
               );
-              const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, endOf(callHead));
+              const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
                 left = shellOnto(ck[i], assertedCall, ctx);
               i += 1;
               continue;
             }
             if (assertHead !== undefined && assertHead.IsParenBracket) {
-              const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(assertHead, ctx) }, endOf(assertHead));
-              const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, endOf(callHead));
+              const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(assertHead, ctx) }, assertHead.end);
+              const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
                 left = shellOnto(ck[i], assertedCall, ctx);
               i += 1;
               continue;
@@ -6253,8 +6263,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             // 次序与下标那一支一字不差：先接受体、再把 `!` 套在外面；这一格自己那次调用
             // 由 `projectNode(ck[i])` 那个壳给出（它的被调用者位置正好填这一格）。
             if (assertHead !== undefined && assertHead.IsIndexBracket) {
-              const element: any =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, endOf(assertHead));
-              const assertedInner: any =chainOn("NonNullExpression", element, { expression: element }, endOf(callHead));
+              const element: any =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, assertHead.end);
+              const assertedInner: any =chainOn("NonNullExpression", element, { expression: element }, callHead.end);
               left = shellOnto(ck[i], assertedInner, ctx);
               i += 1;
               continue;
@@ -6271,8 +6281,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           }
           if (bareName === "" && callHead !== undefined
             && callHead.IsParenBracket
-            && endOf(callHead) < endOf(ck[i])) {
-            const innerCall =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, endOf(callHead));
+            && callHead.end < ck[i].end) {
+            const innerCall =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
             left = shellOnto(ck[i], innerCall, ctx);
             i += 1;
             continue;
@@ -6287,16 +6297,16 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // 后面那个名字还掉成平级节点（实测 `cls-hash-in-operator.ts` / `cls-private-fields.ts`）。
       if (next.IsHashSymbol && i + 2 < ck.length) {
         const after = ck[i + 2];
-        const at = startOf(next);
+        const at = next.start;
         // **私有方法调用 `this.#m()`**（第 138 轮）：点号后面是 `[SymbolToken(#), Method(name="m")]`——
         // `Method` 自己盖住的是 `m()`，名字只占开头那几个字符。照「名字 + 调用」两件事办：
         // `name` 是一个含 `#` 的 `PrivateIdentifier`（区间到名字末尾），外面再套一层 `CallExpression`。
         if (after.IsMethodNode) {
           const raw = after.DeclaredName;
-          const nameEnd = startOf(after) + raw.length;
+          const nameEnd = after.start + raw.length;
           const member =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "PrivateIdentifier", text: "#" + raw, pos: at, end: nameEnd } }, nameEnd);
           const call = projectNode(after, ctx);
-          left = shellOver(call, member, endOf(after));
+          left = shellOver(call, member, after.end);
           i += 3;
           continue;
         }
@@ -6307,10 +6317,10 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             kind: "PrivateIdentifier",
             text: "#" + after.TextValue,
             pos: at,
-            end: endOf(after),
+            end: after.end,
           },
           pos: left.pos,
-          end: endOf(after),
+          end: after.end,
         };
         i += 3;
         continue;
@@ -6327,10 +6337,10 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const head = asserted[0];
         if (head !== undefined && head.IsMethodNode) {
           const raw = head.DeclaredName;
-          const nameEnd = startOf(head) + raw.length;
-          const member =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: raw, pos: startOf(head), end: nameEnd } }, nameEnd);
+          const nameEnd = head.start + raw.length;
+          const member =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: raw, pos: head.start, end: nameEnd } }, nameEnd);
           const call = shellOnto(head, member, ctx);
-          left = bangWrapped(call, endOf(next));
+          left = bangWrapped(call, next.end);
           i += 2;
           continue;
         }
@@ -6344,9 +6354,9 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             if (piece.IsSymbolToken) {
               continue;
             }
-            left =chainOn("PropertyAccessExpression", left, { expression: left, name: piece.NameNode }, endOf(piece));
+            left =chainOn("PropertyAccessExpression", left, { expression: left, name: piece.NameNode }, piece.end);
           }
-          left = bangWrapped(left, endOf(next));
+          left = bangWrapped(left, next.end);
           i += 2;
           continue;
         }
@@ -6413,7 +6423,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           // 「外面还有没有一层」这一问就是**区间**——是**问得出来**的，所以不必靠形状猜：
           // `(f)()`（`[Bracket]` 就是被调用者、只有一层）那一档的 `Method` 与它的 Bracket **同尾**，
           // 这里因此不会误收（`(f)()` / `q = (f)()` / `return (a)(b)` 三档都在门里钉着）。
-          if (innerKids.length > 0 && innerKids[0].IsParenBracket && endOf(innerKids[0]) < endOf(next)) {
+          if (innerKids.length > 0 && innerKids[0].IsParenBracket && innerKids[0].end < next.end) {
             const innerArgs = {
               kind: "CallExpression",
               expression: left,
@@ -6421,10 +6431,10 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
                 .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
                 .filter((a: any) => a !== undefined),
               pos: left.pos,
-              end: endOf(innerKids[0]),
+              end: innerKids[0].end,
             };
             const outerCall = projectNode(next, ctx);
-            left = shellOver(outerCall, innerArgs, endOf(next));
+            left = shellOver(outerCall, innerArgs, next.end);
             i += 2;
             continue;
           }
@@ -6433,7 +6443,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           i += 2;
           continue;
         }
-        const at = startOf(next);
+        const at = next.start;
         const member =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: name, pos: at, end: at + name.length } }, at + name.length);
         // 链尾是一次调用：把 `CallExpression` 的被调用者换成折好的点号链
         // （TS 的 `console.log(1)` 是 `CallExpression > PropertyAccessExpression > …`）。
@@ -6461,23 +6471,23 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         if (target !== undefined && target.IsPropertyAccess) {
           const members = target.ProjectableKids;
           if (members.length > 0) {
-            left =chainOn("PropertyAccessExpression", left, { expression: left, name: members[0].NameNode }, endOf(members[0]));
+            left =chainOn("PropertyAccessExpression", left, { expression: left, name: members[0].NameNode }, members[0].end);
             for (let j = 1; j + 1 < members.length; j += 2) {
               if (!members[j].IsDotSymbol) break;
-              left =chainOn("PropertyAccessExpression", left, { expression: left, name: members[j + 1].NameNode }, endOf(members[j + 1]));
+              left =chainOn("PropertyAccessExpression", left, { expression: left, name: members[j + 1].NameNode }, members[j + 1].end);
             }
           }
         } else if (target !== undefined) {
-          left =chainOn("PropertyAccessExpression", left, { expression: left, name: target.NameNode }, endOf(target));
+          left =chainOn("PropertyAccessExpression", left, { expression: left, name: target.NameNode }, target.end);
         }
-        left = bangWrapped(left, endOf(next));
+        left = bangWrapped(left, next.end);
         i += 2;
         continue;
       }
       // 成员名**永远是 `Identifier`**（TS 那边 `a.import` 的 `name` 就是一个文本为那个词的
       // `Identifier`，不是 `ImportKeyword`）：产物那边它可能已经被 `KeywordCloseRule`
       // 升级成 `<Keyword>`，所以这里按**名字宽度**切一段，而不是把那个词按词法身份投出来。
-      left =chainOn("PropertyAccessExpression", left, { expression: left, name: next.NameNode }, endOf(next));
+      left =chainOn("PropertyAccessExpression", left, { expression: left, name: next.NameNode }, next.end);
       i += 2;
     }
     if (i >= ck.length) return left;
@@ -6582,14 +6592,14 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         kind: unit.IsSatisfiesUnit ? "SatisfiesExpression" : "AsExpression",
         expression: node,
         type,
-        pos: node === undefined ? startOf(unit) : node.pos,
-        end: endOf(unit),
+        pos: node === undefined ? unit.start : node.pos,
+        end: unit.end,
       };
       at += 1;
     }
     // **套回 `SpreadElement` 里**（`end` 跟着里面那个节点走，`pos` 从 `...` 起算）。
     const wrapSpread = (result:any) => spreadFirst && result !== undefined
-      ? { kind: "SpreadElement", expression: result, pos: startOf(kids[0]), end: result.end }
+      ? { kind: "SpreadElement", expression: result, pos: kids[0].start, end: result.end }
       : result;
     if (at >= kids.length) return wrapSpread(node);
     return wrapSpread(foldBinaryFrom(node, kids.slice(at), ctx));
@@ -6631,7 +6641,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     const bracket = kids[kids.length - 1];
     const base = projectExpression(kids.slice(0, kids.length - 1), ctx);
     const argument = projectExpression(bracket.ProjectableKids, ctx);
-    return chainOn("ElementAccessExpression", base, { expression: base, argumentExpression: argument }, endOf(bracket));
+    return chainOn("ElementAccessExpression", base, { expression: base, argumentExpression: argument }, bracket.end);
   }
   // ---- 3b. 调用链的末尾那一格是 `(` 括号（第 168 轮）----
   //
@@ -6658,7 +6668,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   ) {
     const bracket = kids[kids.length - 1];
     const base = projectExpression(kids.slice(0, kids.length - 1), ctx);
-    return chainOn("CallExpression", base, { expression: base, arguments: callArgumentsOf(bracket, ctx) }, endOf(bracket));
+    return chainOn("CallExpression", base, { expression: base, arguments: callArgumentsOf(bracket, ctx) }, bracket.end);
   }
   return projectNode(kids[0], ctx);
 ```
@@ -6702,7 +6712,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // `Bracket(startBracket="[")` 那一支**是同一件事**——先建 `ElementAccessExpression`，
   // 再把 `!` 套在它外面（次序与 TS 一致：`NonNull(ElementAccess(a, 'b'))`）。
   if (nameUnit.IsIndexBracket) {
-    node =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(nameUnit.ProjectableKids, ctx) }, endOf(nameUnit));
+    node =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(nameUnit.ProjectableKids, ctx) }, nameUnit.end);
     markOptional(node, questionDot);
   } else if (nameUnit.IsParenBracket) {
     // **断言里的核是一对实参括号**（第 975 轮）：`a?.()!()` 的 NCO 内容是
@@ -6711,7 +6721,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // 上面那条只认**下标**括号，于是这一格落到下面那条通用支 ⇒ 投出一格名字叫 `()` 的
     // 属性访问（实测 `gap-r975-opt-call-assert-call-twice`：漂 1 多 2）。
     // 折法与上面那条下标支**一字不差**（先建那一格、再把 `!` 套在外面）。
-    node =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(nameUnit, ctx) }, endOf(nameUnit));
+    node =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(nameUnit, ctx) }, nameUnit.end);
     markOptional(node, questionDot);
   } else if (nameUnit.IsPropertyAccess) {
     // **里面那条链也要逐格接**（第 166 轮）：`a?.b.c!` 的 NCO 内容是
@@ -6730,7 +6740,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       if (member.IsDotSymbol || !member.IsNameNode) {
         continue;
       }
-      const one: any =chainOn("PropertyAccessExpression", cur, { expression: cur, name: member.NameNode }, endOf(member));
+      const one: any =chainOn("PropertyAccessExpression", cur, { expression: cur, name: member.NameNode }, member.end);
       if (pending !== undefined) {
         one.questionDotToken = pending;
         pending = undefined;
@@ -6753,14 +6763,14 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     if (built) markOptional(callee, questionDot);
     node = graftCallee(projectNode(nameUnit, ctx), callee, built ? undefined : questionDot);
   } else {
-    node =chainOn("PropertyAccessExpression", left, { expression: left, name: nameUnit.NameNode }, endOf(nameUnit));
+    node =chainOn("PropertyAccessExpression", left, { expression: left, name: nameUnit.NameNode }, nameUnit.end);
     markOptional(node, questionDot);
   }
   return {
     kind: "NonNullExpression",
     expression: node,
     pos: left.pos,
-    end: endOf(bang),
+    end: bang.end,
   };
 ```
 
@@ -6848,14 +6858,14 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 ```ts
   const name = deepest.DeclaredName;
   if (name !== "") {
-    const at = startOf(deepest);
+    const at = deepest.start;
     return chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: name, pos: at, end: at + name.length } }, at + name.length);
   }
   const kids = deepest.ProjectableKids.filter((k: any) => k.IsGenericType === false);
   const head = kids.length > 0 ? kids[0] : undefined;
   if (head !== undefined && head.IsParenBracket
-    && endOf(head) < endOf(deepest)) {
-    return chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(head, ctx) }, endOf(head));
+    && head.end < deepest.end) {
+    return chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(head, ctx) }, head.end);
   }
   return left;
 ```
@@ -6878,7 +6888,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   const first = kids.length > 0 ? kids[0] : undefined;
   // **`?.` 就在这一格的起点上**：调用方递进来的 `unit` **一定是** `NullConditionalOperator`
   //（`Process` 里 `SignInToken(那个 ?. 符号)`），所以不用回原文找。
-  const dot = startOf(unit);
+  const dot = unit.start;
   const questionDot =
     typeof dot === "number" && dot >= 0
       ? { kind: "QuestionDotToken", text: "?.", pos: dot, end: dot + 2 }
@@ -6899,7 +6909,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       if (calleeKid !== undefined && calleeKid.IsNotNull) {
         const asserted = assertedMember(left, calleeKid, ctx, questionDot);
         if (asserted !== undefined) {
-          return shellOver(projectNode(first, ctx), asserted, endOf(unit));
+          return shellOver(projectNode(first, ctx), asserted, unit.end);
         }
       }
       // **被调用者是内层那一格 `Method`**（第 962 轮）：`o?.m()()` 的产物是
@@ -6933,26 +6943,26 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           callee,
           built ? undefined : questionDot,
         );
-        return shellOver(projectNode(first, ctx), innerCall, endOf(unit));
+        return shellOver(projectNode(first, ctx), innerCall, unit.end);
       }
       // **被调用者是 `left`、而这一格盖着两层调用**（第 962 轮）：`o?.m?.()(1)` 的 `NCO` 里是
       // `Method(name="")[Bracket, 1]`——那个 Bracket 是**内层**那次调用（`?.()`）的实参表，
       // 外层那次调用的实参是它后面的兄弟（`1`），而外层调用只体现在 `Method` 自己的区间上。
       // 只折一层会**丢掉内层那一次调用**。「外面还有没有一层」这一问就是**区间**
       //（与普通链那条路的同一句判据：`Method` 比它那个 Bracket 更靠右）。
-      if (calleeKid !== undefined && calleeKid.IsParenBracket && endOf(calleeKid) < endOf(first)) {
-        const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(calleeKid, ctx) }, endOf(calleeKid));
+      if (calleeKid !== undefined && calleeKid.IsParenBracket && calleeKid.end < first.end) {
+        const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(calleeKid, ctx) }, calleeKid.end);
         markOptional(innerCall, questionDot);
-        return shellOver(projectNode(first, ctx), innerCall, endOf(unit));
+        return shellOver(projectNode(first, ctx), innerCall, unit.end);
       }
       // **这里原来还抄着第二份**（第 1152 轮删）：那一段与上面那一支**逐字同形**
       //（同一条判据、同一个函数体、最后一句都是 `return`），所以它**一次都走不到**——
       // 留着只会让人觉得「`a!()()` 那一档另有一处」。实测语料里删前删后读数一处没动。
     }
-    const nameAt = startOf(first);
+    const nameAt = first.start;
     const member =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: nameText, pos: nameAt, end: nameAt + nameText.length } }, nameAt + nameText.length);
     markOptional(member, questionDot);
-    return shellOver(projectNode(first, ctx), member, endOf(unit));
+    return shellOver(projectNode(first, ctx), member, unit.end);
   }
   // **`o.m?.().k`**（第 154 轮）：NCO 里的第一格是**属性访问**，而它的第一格是实参括号——
   // 那是 token 层的属性访问重组把 `( ) . k` 折成了一个 `PropertyAccess`
@@ -6969,7 +6979,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     const inner = first.ProjectableKids;
     const head = inner.length > 0 ? inner[0] : undefined;
     if (head !== undefined && head.IsParenBracket) {
-      const call: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(head, ctx) }, endOf(head));
+      const call: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(head, ctx) }, head.end);
       markOptional(call, questionDot);
       // **括号之后剩下的成员**（`.k` / `[i]` / `.k` 连着的几格）：逐个往链上挂。
       // 名字取那一格的 `Identifier`（token 层已经把成员名收成一个单元）；
@@ -6977,9 +6987,9 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       let node: any = call;
       for (let i = 1; i < inner.length; i++) {
         const member = inner[i];
-        const memberAt = startOf(member);
+        const memberAt = member.start;
         if (member.IsIndexBracket) {
-          const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(member.ProjectableKids, ctx) }, endOf(member));
+          const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(member.ProjectableKids, ctx) }, member.end);
           node = element;
           continue;
         }
@@ -7004,7 +7014,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // 与 `chainOnto` 里「紧跟一对圆括号 ⇒ 再调一次」那一支是同一个写法。
       arguments: callArgumentsOf(first, ctx),
       pos: left.pos,
-      end: endOf(unit),
+      end: unit.end,
     };
     markOptional(call, questionDot);
     return call;
@@ -7021,7 +7031,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // 修法与 `chainOnto` 的续格循环同款：**把剩下的兄弟交给它**——那里面
     // 「紧跟一对圆括号 ⇒ 对左边那个结果再调用一次」正是这一档要的。
     const more = kids.length > 1;
-    const element =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(first.ProjectableKids, ctx) }, more ? endOf(first) : endOf(unit));
+    const element =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(first.ProjectableKids, ctx) }, more ? first.end : unit.end);
     markOptional(element, questionDot);
     if (more) {
       // **剩下的兄弟里那些「以一次调用开头」的单元要先摊开**（第 962 轮）：
@@ -7078,7 +7088,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   if (stringUnit !== undefined && kids.length >= 2) {
     const tagName = kids.find((k) => k !== stringUnit && k.IsNameNode);
     if (tagName !== undefined) {
-      const member: any =chainOn("PropertyAccessExpression", left, { expression: left, name: tagName.NameNode }, endOf(tagName));
+      const member: any =chainOn("PropertyAccessExpression", left, { expression: left, name: tagName.NameNode }, tagName.end);
       markOptional(member, questionDot);
       // **模板串后面还跟着兄弟时，链要接着往下接**（第 965 轮）：`` a?.b`t`() `` 的产物是
       // `[Identifier(a), NCO(Identifier(b), String)]`，而那次调用是 **NCO 的下一个兄弟**
@@ -7091,7 +7101,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         tag: member,
         template: projectNode(stringUnit, ctx),
         pos: left.pos,
-        end: endOf(stringUnit),
+        end: stringUnit.end,
       };
       const afterString = kids.indexOf(stringUnit) + 1;
       if (afterString < kids.length) return chainOnto(tagged, kids.slice(afterString), ctx);
@@ -7138,19 +7148,19 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         );
         const innerName = bangKids.length > 0 ? bangKids[0] : undefined;
         if (innerName !== undefined) {
-          const holder: any =chainOn("PropertyAccessExpression", node, { expression: node, name: innerName.NameNode }, endOf(innerName));
+          const holder: any =chainOn("PropertyAccessExpression", node, { expression: node, name: innerName.NameNode }, innerName.end);
           if (pending !== undefined) {
             holder.questionDotToken = pending;
             pending = undefined;
           }
-          node =chainOn("NonNullExpression", holder, { expression: holder }, endOf(member));
+          node =chainOn("NonNullExpression", holder, { expression: holder }, member.end);
         }
         j += 1;
         continue;
       }
       if (member.IsMethodNode) {
         const nameText = member.DeclaredName;
-        const nameAt = startOf(member);
+        const nameAt = member.start;
         // **这一格是「名字为空」的调用单元**（第 964 轮补上这份副本）：
         // `o?.m()().v` 的 NCO 里那一格是
         // `PropertyAccess([Method name=""[Method name="m"]], ., v)`——**空名字 `Method` 的第一格
@@ -7182,9 +7192,9 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             );
             const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
             if (assertHead !== undefined && assertHead.IsIndexBracket) {
-              const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, endOf(assertHead));
+              const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(assertHead.ProjectableKids, ctx) }, assertHead.end);
               if (pending !== undefined) element.questionDotToken = pending;
-              const assertedCall: any =chainOn("NonNullExpression", element, { expression: element }, endOf(callHead));
+              const assertedCall: any =chainOn("NonNullExpression", element, { expression: element }, callHead.end);
               node = shellOn(projectNode(member, ctx), assertedCall);
               pending = undefined;
               j += 1;
@@ -7211,8 +7221,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
             j += 1;
             continue;
           }
-          if (callHead !== undefined && callHead.IsParenBracket && endOf(callHead) < endOf(member)) {
-            const innerCall: any =chainOn("CallExpression", node, { expression: node, arguments: callArgumentsOf(callHead, ctx) }, endOf(callHead));
+          if (callHead !== undefined && callHead.IsParenBracket && callHead.end < member.end) {
+            const innerCall: any =chainOn("CallExpression", node, { expression: node, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
             if (pending !== undefined) innerCall.questionDotToken = pending;
             node = shellOn(projectNode(member, ctx), innerCall);
             pending = undefined;
@@ -7230,11 +7240,11 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // 落到下面那条通用支会把那一格当成**一个名字**（实测投出名叫 `"[0]"` 的
         // `Identifier` ⇒ 缺 `ElementAccessExpression` 与 `NumericLiteral`、多一格属性访问）。
         // 收法与 `chainOnto` 里那一支**一字不差**：同一形状、同一个判据，不写第二份。
-        const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(member.ProjectableKids, ctx) }, endOf(member));
+        const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(member.ProjectableKids, ctx) }, member.end);
         if (pending !== undefined) element.questionDotToken = pending;
         node = element;
       } else {
-        const step =chainOn("PropertyAccessExpression", node, { expression: node, name: member.NameNode }, endOf(member));
+        const step =chainOn("PropertyAccessExpression", node, { expression: node, name: member.NameNode }, member.end);
         if (pending !== undefined) step.questionDotToken = pending;
         node = step;
       }
@@ -7266,7 +7276,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     expression: left,
     name,
     pos: left.pos,
-    end: endOf(unit),
+    end: unit.end,
   };
   markOptional(access, questionDot);
   return access;
@@ -7294,7 +7304,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     if (unit.IsTemplateString) {
       const template = projectNode(unit, ctx);
       if (template === undefined) break;
-      left = { kind: "TaggedTemplateExpression", tag: left, template, pos: left.pos, end: endOf(unit) };
+      left = { kind: "TaggedTemplateExpression", tag: left, template, pos: left.pos, end: unit.end };
       i += 1;
       continue;
     }
@@ -7305,7 +7315,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     }
     if (unit.IsIndexBracket) {
       const argument = projectExpression(unit.ProjectableKids, ctx);
-      left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: argument }, endOf(unit));
+      left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: argument }, unit.end);
       i += 1;
       continue;
     }
@@ -7321,7 +7331,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // **做法与上面那一支一字不差**（只有「从哪个形状取实参」不同）。
     if (unit.IsArrayLiteralUnit) {
       const argument = projectExpression(unit.ProjectableKids, ctx);
-      left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: argument }, endOf(unit));
+      left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: argument }, unit.end);
       i += 1;
       continue;
     }
@@ -7331,7 +7341,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // 普通的调用早被收成 `Method` 单元了，所以这里见到的圆括号只会是这一形状
     // （实测 `stmt-asi-paren-call.ts`：`BinaryExpression` 与 `CallExpression` 各漂 2）。
     if (unit.IsParenBracket) {
-      left =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(unit, ctx) }, endOf(unit));
+      left =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(unit, ctx) }, unit.end);
       i += 1;
       continue;
     }
@@ -7349,9 +7359,9 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       const bangHead = bangKids.length > 0 ? bangKids[0] : undefined;
       let asserted: any = left;
       if (bangHead !== undefined && bangHead.IsIndexBracket) {
-        asserted =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(bangHead.ProjectableKids, ctx) }, endOf(bangHead));
-      } else if (bangHead !== undefined && bangHead.IsParenBracket && endOf(bangHead) < endOf(unit)) {
-        asserted =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(bangHead, ctx) }, endOf(bangHead));
+        asserted =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(bangHead.ProjectableKids, ctx) }, bangHead.end);
+      } else if (bangHead !== undefined && bangHead.IsParenBracket && bangHead.end < unit.end) {
+        asserted =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(bangHead, ctx) }, bangHead.end);
       } else if (bangHead !== undefined && bangHead.IsMethodNode) {
         asserted = graftCallee(
           projectNode(bangHead, ctx),
@@ -7359,7 +7369,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           undefined,
         );
       }
-      left = bangWrapped(asserted, endOf(unit));
+      left = bangWrapped(asserted, unit.end);
       i += 1;
       continue;
     }
@@ -7418,8 +7428,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         );
         const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
         if (assertHead !== undefined && assertHead.IsParenBracket) {
-          const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(assertHead, ctx) }, endOf(assertHead));
-          const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, endOf(callHead));
+          const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(assertHead, ctx) }, assertHead.end);
+          const assertedCall: any =chainOn("NonNullExpression", innerCall, { expression: innerCall }, callHead.end);
           left = shellOn(projectNode(unit, ctx), assertedCall);
           i += 1;
           continue;
@@ -7443,21 +7453,21 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       if (bareName === "" && callHead !== undefined && callHead.IsMethodNode
         && callHead.DeclaredName !== "") {
         const innerName = callHead.DeclaredName;
-        const innerAt = startOf(callHead);
+        const innerAt = callHead.start;
         const innerMember: any =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length } }, innerAt + innerName.length);
         const innerCall = shellOn(projectNode(callHead, ctx), innerMember);
         left = shellOnto(unit, innerCall, ctx);
         i += 1;
         continue;
       }
-      if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && endOf(callHead) < endOf(unit)) {
-        const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, endOf(callHead));
+      if (bareName === "" && callHead !== undefined && callHead.IsParenBracket && callHead.end < unit.end) {
+        const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(callHead, ctx) }, callHead.end);
         left = shellOnto(unit, innerCall, ctx);
         i += 1;
         continue;
       }
       if (bareName !== "") {
-        const at = startOf(unit);
+        const at = unit.start;
         const member: any =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: bareName, pos: at, end: at + bareName.length } }, at + bareName.length);
         left = shellOnto(unit, member, ctx);
         i += 1;
@@ -7493,7 +7503,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     let bangEnd: number | undefined = undefined;
     if (next.IsNotNull) {
       bangUnit = next;
-      bangEnd = endOf(bangUnit);
+      bangEnd = bangUnit.end;
       const inner = next.ProjectableKids.filter(
         (k: any) => !k.IsNotNullSymbol,
       );
@@ -7539,15 +7549,15 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         }
         // **被调用者是 `left`、而这一格盖着两层调用**（第 962 轮）：判据与另外两处
         // 一字不差——`Method` 比它那个实参括号**更靠右**，说明外面还有一层调用。
-        if (calleeKid !== undefined && calleeKid.IsParenBracket && endOf(calleeKid) < endOf(next)) {
-          const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(calleeKid, ctx) }, endOf(calleeKid));
+        if (calleeKid !== undefined && calleeKid.IsParenBracket && calleeKid.end < next.end) {
+          const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(calleeKid, ctx) }, calleeKid.end);
           const outerCall = projectNode(next, ctx);
           left = shellOn(outerCall, innerCall);
           i += 2;
           continue;
         }
       }
-      const at = startOf(next);
+      const at = next.start;
       const member =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: name, pos: at, end: at + name.length } }, at + name.length);
       left = shellOn(projectNode(next, ctx), member);
     } else if (next.IsPropertyAccess) {
@@ -7576,7 +7586,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           // `chainWithOptional` 的成员循环**一字不差**：接第一格之前先把 `!` 套成
           // `NonNullExpression`，`?.` 仍然挂在**内层**那一格上。
           left = bangWrapped(left, pendingBang);
-          left =chainOn("PropertyAccessExpression", left, { expression: left, name: members[j + 1].NameNode }, endOf(members[j + 1]));
+          left =chainOn("PropertyAccessExpression", left, { expression: left, name: members[j + 1].NameNode }, members[j + 1].end);
           j += 2;
           continue;
         }
@@ -7591,7 +7601,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         if (member.IsNameNode) {
           left = bangWrapped(left, pendingBang);
           pendingBang = undefined;
-          left =chainOn("PropertyAccessExpression", left, { expression: left, name: member.NameNode }, endOf(member));
+          left =chainOn("PropertyAccessExpression", left, { expression: left, name: member.NameNode }, member.end);
           j += 1;
           continue;
         }
@@ -7629,7 +7639,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         if (member.IsParenBracket) {
           left = bangWrapped(left, pendingBang);
           pendingBang = undefined;
-          left =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(member, ctx) }, endOf(member));
+          left =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(member, ctx) }, member.end);
           j += 1;
           continue;
         }
@@ -7642,7 +7652,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         if (member.IsIndexBracket) {
           left = bangWrapped(left, pendingBang);
           pendingBang = undefined;
-          left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(member.ProjectableKids, ctx) }, endOf(member));
+          left =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(member.ProjectableKids, ctx) }, member.end);
           j += 1;
           continue;
         }
@@ -7653,11 +7663,11 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // 断言就留在这里——不补这一句它整格丢。
       left = bangWrapped(left, pendingBang);
     } else {
-      left =chainOn("PropertyAccessExpression", left, { expression: left, name: next.NameNode }, endOf(next));
+      left =chainOn("PropertyAccessExpression", left, { expression: left, name: next.NameNode }, next.end);
     }
     // **那一格自带 `!` 的话，断言套在整条链上**（见上面那一段）。
     if (bangUnit !== undefined) {
-      left = bangWrapped(left, endOf(bangUnit));
+      left = bangWrapped(left, bangUnit.end);
     }
     // **跨过几格**：点号那一档是「点号 + 成员」两格；抬出来的那一档（`unit` 自己是子链）
     // 只有 **1** 格（第 973 轮）。
@@ -7714,7 +7724,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     const operatorToken =
       opText === rest[0].TextValue
         ? projectNode(rest[0], ctx)
-        : { kind: SymbolToken.KindOfText(opText), text: opText, pos: startOf(rest[0]), end: endOf(rest[0]) };
+        : { kind: SymbolToken.KindOfText(opText), text: opText, pos: rest[0].start, end: rest[0].end };
     // **递归剥掉最左边那个 `left`**（第 168 轮）：展开式的左操作数**不只是那个左值**——
     // `a += b + c` 的产物是 `a = (a + b) + c`（token 层展开时把 `a` 埋进了内层），
     // 而 TS 要的是 `a += (b + c)`。原来只认「`right.left` 与 `left` 完全同区间」，
@@ -7787,8 +7797,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           operatorToken: {
             kind: SymbolToken.KindOfText(innerText),
             text: innerText,
-            pos: startOf(rest[2]),
-            end: endOf(rest[2]),
+            pos: rest[2].start,
+            end: rest[2].end,
           },
           pos: strippedTail.left.pos,
         };
@@ -7823,7 +7833,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       operatorToken,
       right,
       pos: left.pos,
-      end: right ? right.end : endOf(rest[0]),
+      end: right ? right.end : rest[0].end,
     };
     // **剩下的那一串逗号接着折**（左结合，`a = 1, b = 2, c = 3` 折成三层）。
     if (commaAt < rest.length) return foldBinaryFrom(assigned, rest.slice(commaAt), ctx);
@@ -7924,7 +7934,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       operatorToken: ctx.OperatorNode(op),
       right,
       pos: node.pos,
-      end: right ? right.end : endOf(op),
+      end: right ? right.end : op.end,
     };
     i = stop;
   }
@@ -8051,7 +8061,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       index === 0
         ? name
         : head === undefined || (!head.IsNameNode)
-          ? bindingSpanOf(head === undefined ? listStart : startOf(head), listEnd, ctx)
+          ? bindingSpanOf(head === undefined ? listStart : head.start, listEnd, ctx)
           : projectNode(head, ctx);
     const declaration = {
       kind: "VariableDeclaration",
@@ -8086,7 +8096,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 而 TS 的 `VariableStatement.getStart()` 会跳过它（实测 `lex-comment-two-on-one-line.ts`：
   // 产物 106 vs TS 114）。
   const firstReal = kids.find((k) => k instanceof Token && !k.IsInvisible);
-  const statementStart = firstReal === undefined ? container.start : startOf(firstReal);
+  const statementStart = firstReal === undefined ? container.start : firstReal.start;
   const statement = { kind: "VariableStatement", declarationList: list, pos: statementStart, end: stmtWhole };
   // **`VariableStatement` 的修饰词只有语句级那几个**：`export const q = 1` 的 TS 是
   // `VariableStatement(modifiers=[ExportKeyword])` + `List(flags=Const)`——
@@ -8156,7 +8166,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     const patternKid = beforeEq.find(isPatternLike);
     const props = {};
     if (dots !== undefined) {
-      props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
+      props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: dots.start, end: dots.start + 3 };
     }
     if (colonIndex >= 0) {
       // `p: q` / `p: [a, b]`：冒号左边是属性名、右边是绑定名（或一层模式）。
@@ -8165,17 +8175,17 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // `ComputedPropertyName` 2 + `Identifier` 2 + 字段名 2）。
       const computedUnit = kids.find(
         (k) =>
-          (k.IsIndexBracket || k.IsArrayLiteralUnit) && startOf(k) < startOf(kids[colonIndex]),
+          (k.IsIndexBracket || k.IsArrayLiteralUnit) && k.start < kids[colonIndex].start,
       );
       if (computedUnit !== undefined) {
         props.propertyName = {
           kind: "ComputedPropertyName",
           expression: computedNameExpression(computedUnit, ctx),
-          pos: startOf(computedUnit),
-          end: endOf(computedUnit),
+          pos: computedUnit.start,
+          end: computedUnit.end,
         };
       } else {
-        const before = names.find((k) => endOf(k) <= startOf(kids[colonIndex]));
+        const before = names.find((k) => k.end <= kids[colonIndex].start);
         // **键是一个引号名**（第 693 轮，**实测撞到的**）：`const { "x": a } = o` 的键那一格
         // 是 `<String><ConstString>x</ConstString></String>`，而 `IsNameNode` 只认
         // `Identifier` / `Keyword` ⇒ 这一格**找不到键** ⇒ `propertyName` 整个丢掉，
@@ -8187,7 +8197,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const quotedBefore = kids.find(
           (k) =>
             (k.IsStringLiteralUnit) &&
-            endOf(k) <= startOf(kids[colonIndex]),
+            k.end <= kids[colonIndex].start,
         );
         if (quotedBefore !== undefined) {
           props.propertyName = astNode(
@@ -8204,13 +8214,13 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // `ArrayLiteral` 是计算名（第 137 轮）——`patternKid` 取的是「第一个模式单元」，
       // 在这里会取错，所以要按**位置**重新找一次。
       const afterColon = kids.find(
-        (k) => isPatternLike(k) && startOf(k) > startOf(kids[colonIndex]),
+        (k) => isPatternLike(k) && k.start > kids[colonIndex].start,
       );
       const afterPattern = afterColon;
       if (afterPattern !== undefined) {
         props.name = projectBindingPattern(afterPattern, ctx);
       } else {
-        const after = names.find((k) => startOf(k) > startOf(kids[colonIndex]));
+        const after = names.find((k) => k.start > kids[colonIndex].start);
         if (after !== undefined) props.name = after.NameNode;
       }
     } else if (patternKid !== undefined) {
@@ -8232,8 +8242,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               // 读自己的 `TextValue` 问同一份词汇表 ⇒ 与原来那一次静态调用逐字符同答。
               kind: only.LeafKind,
               text: only.TextValue,
-              pos: startOf(only),
-              end: endOf(only),
+              pos: only.start,
+              end: only.end,
             }
           : projectExpression(rest, ctx);
     }
@@ -8260,7 +8270,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // **逗号那一格自己答**（第 1074 轮）：见 `SymbolToken.IsCommaSymbol`。
     if (kid.IsCommaSymbol === true) {
       groups.push(group);
-      commaAts.push(startOf(kid));
+      commaAts.push(kid.start);
       group = [];
       continue;
     }
@@ -8439,8 +8449,8 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     const built = functionTypeProps(list, ctx);
     return {
       kind: built.kind,
-      pos: startOf(list[0]),
-      end: endOf(list[list.length - 1]),
+      pos: list[0].start,
+      end: list[list.length - 1].end,
       ...built.props,
     };
   }
@@ -8477,7 +8487,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     const tail = projectTypeExpression(list.slice(start), ctx);
     if (tail !== undefined) types.push(tail);
     if (types.length > 1) {
-      return { kind, types, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
+      return { kind, types, pos: list[0].start, end: list[list.length - 1].end };
     }
   }
   // **带符号的数字字面量类型**（第 124 轮）：`type X = -1 | 0 | 1` 的产物是
@@ -8508,7 +8518,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
               // ——它当时是用来证明「值位那个节点到底是不是这里造的」的一次性探针说明。）
               operator: signedOp,
               operand,
-              pos: startOf(signedHead),
+              pos: signedHead.start,
               end: operand.end,
             },
             pos: list[0].start,
@@ -8559,7 +8569,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
         if (one !== undefined) args.push(one);
       }
       if (base !== undefined && args.length > 0) {
-        return { ...base, typeArguments: args, end: endOf(list[closeAt]) };
+        return { ...base, typeArguments: args, end: list[closeAt].end };
       }
     }
   }
@@ -8586,8 +8596,8 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       return {
         kind: "TypeReference",
         ...props,
-        pos: startOf(list[0]),
-        end: endOf(list[list.length - 1]),
+        pos: list[0].start,
+        end: list[list.length - 1].end,
       };
     }
   }
@@ -8639,7 +8649,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     }
     if (name !== undefined) {
       query.exprName = name;
-      query.end = endOf(list[list.length - 1]);
+      query.end = list[list.length - 1].end;
     }
     // **点号名 + 类型实参**（第 113 轮）：`typeof http.ServerResponse<InstanceType<Request>>`
     // 的产物是 `[TypeQuery(typeof http), ., ServerResponse, GenericType(…)]`——
@@ -8655,7 +8665,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       }
       if (typeArguments.length > 0) {
         query.typeArguments = typeArguments;
-        query.end = endOf(queryGeneric);
+        query.end = queryGeneric.end;
       }
     }
     return query;
@@ -8673,7 +8683,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       }
       if (typeArguments.length > 0) {
         query.typeArguments = typeArguments;
-        query.end = endOf(generic);
+        query.end = generic.end;
         return query;
       }
     }
@@ -8699,7 +8709,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     if (typeParams.length > 0) {
       fn.typeParameters = projectEach(typeParams, ctx);
     }
-    fn.pos = startOf(list[0]);
+    fn.pos = list[0].start;
     return fn;
   }
   const head = list[0];
@@ -8734,14 +8744,14 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     const rightUnit = inner.find((k) => k.IsNameNode);
     if (rightUnit !== undefined) {
       const text = head.TextValue;
-      const leftName = { kind: "Identifier", text, pos: startOf(head), end: endOf(head) };
+      const leftName = { kind: "Identifier", text, pos: head.start, end: head.end };
       const right = rightUnit.NameNode;
       const typeName = { kind: "QualifiedName", left: leftName, right, pos: leftName.pos, end: right.end };
       const node = {
         kind: "IndexedAccessType",
         objectType: { kind: "TypeReference", typeName, text, pos: typeName.pos, end: typeName.end },
-        pos: startOf(head),
-        end: endOf(iat),
+        pos: head.start,
+        end: iat.end,
       };
       const indexUnit = inner.find((k) => k !== rightUnit);
       const indexType = indexUnit === undefined ? undefined : projectTypeExpression([indexUnit], ctx);
@@ -8781,8 +8791,8 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
             const typeUnit = part.find((k) => k.IsTypeDefine);
             const param = {
               kind: "Parameter",
-              pos: startOf(part[0]),
-              end: endOf(part[part.length - 1]),
+              pos: part[0].start,
+              end: part[part.length - 1].end,
             };
             if (nameUnit !== undefined) param.name = projectNode(nameUnit, ctx);
             if (typeUnit !== undefined) param.type = ctx.Project(typeUnit);
@@ -8795,15 +8805,15 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       if (ctorType !== undefined) ctorProps.type = ctorType;
       return {
         kind: "ConstructorType",
-        pos: startOf(head),
-        end: endOf(list[list.length - 1]),
+        pos: head.start,
+        end: list[list.length - 1].end,
         ...ctorProps,
       };
     }
   }
   if (head.IsNameNode) {
     const text = head.TextValue;
-    const span = { pos: startOf(head), end: endOf(head) };
+    const span = { pos: head.start, end: head.end };
     const nameNode = { kind: "Identifier", text, pos: span.pos, end: span.end };
     if (generic === undefined) {
       // **`null` / `true` / `false` 在类型位要套一层 `LiteralType`**（第 76 轮）：
@@ -8829,7 +8839,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       if (primitive !== undefined) {
         return arraySuffix === undefined
           ? { kind: primitive, text, pos: span.pos, end: span.end }
-          : { kind: "ArrayType", elementType: { kind: primitive, text, pos: span.pos, end: span.end }, pos: span.pos, end: endOf(arraySuffix) };
+          : { kind: "ArrayType", elementType: { kind: primitive, text, pos: span.pos, end: span.end }, pos: span.pos, end: arraySuffix.end };
       }
     }
     // **点号类型名**（`A.B.C` / `N.M<T>`）：TS 在**类型位**用的是 `QualifiedName`（`left`/`right`）、
@@ -8873,11 +8883,11 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
             typeArguments: projectTypeArguments(generic, ctx),
             text,
             pos: span.pos,
-            end: endOf(generic),
+            end: generic.end,
           };
     // 数组后缀：`Foo<Bar>[]` 的 TS 是 `ArrayType(Foo<Bar>[]) > TypeReference(Foo<Bar>)`。
     if (arraySuffix !== undefined) {
-      return { kind: "ArrayType", elementType: base, pos: base.pos, end: endOf(arraySuffix) };
+      return { kind: "ArrayType", elementType: base, pos: base.pos, end: arraySuffix.end };
     }
     return base;
   }
@@ -9035,8 +9045,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       name: {
         kind: "ComputedPropertyName",
         expression: computedNameExpression(computed, ctx),
-        pos: startOf(computed),
-        end: endOf(computed),
+        pos: computed.start,
+        end: computed.end,
       },
       computed,
       unit: null,
@@ -9264,8 +9274,11 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 位置只从**带区间的实义单元**上取（标记本身没有 `range`）：
     // `startOf` / `endOf` 对没有 `range` 的 Map 一律给 0，落在段首 / 段尾就是一处假区间。
     const ranged = units.filter((k) => k !== AS_SEPARATOR);
-    const pos = startOf(ranged.length > 0 ? ranged[0] : units[0]);
-    const end = endOf(ranged.length > 0 ? ranged[ranged.length - 1] : units[units.length - 1]);
+    // **第 1159 轮去内联时必须补那对圆括号**：`startOf(a ? b : c)` 原来把整个三元式
+    // 当实参，写成 `a ? b : c.start` 就**只给假支读坐标**（三元比 `.` 松）——这一处
+    // 是 `cases:direct` / `samples` 看不见、`coverage` 当场红（91 条）的那一格。
+    const pos = (ranged.length > 0 ? ranged[0] : units[0]).start;
+    const end = (ranged.length > 0 ? ranged[ranged.length - 1] : units[units.length - 1]).end;
     // **段首的 `type` 是标志**：`import { type B }` / `export { type D }` 的 specifier 区间含 `type`，
     // 但 `name` 只是后面那个名字。只剩一个单元的 `{ type }` 不跳（那个 `type` 就是名字）。
     const head = (k) => k.IsNameNode && k.IsTypeKeyword === true;
@@ -9409,8 +9422,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       const mods = words.map((word) => ({
         kind: word.IsExportKeyword === true ? "ExportKeyword" : "DefaultKeyword",
         text: word.TextValue,
-        pos: startOf(word),
-        end: endOf(word),
+        pos: word.start,
+        end: word.end,
       }));
       if (mods.length > 0) {
         node.modifiers = [...mods, ...(node.modifiers ?? [])];
@@ -9464,7 +9477,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // 所以先把空白与注释跳过去再问一次「是不是 `;`」——注释是 trivia，
       // 与第 817 轮那条线一致（`export default 1/*c*/ ;` 的 TS 也是 `[0,23)`，含那个 `;`）。
       // **换行也一起跳**：`export default 1` 换行 `;` 在 TS 那边同样是 `[0,18)`（含 `;`）。
-      const end = endOf(expr[expr.length - 1]);
+      const end = expr[expr.length - 1].end;
       let semiAt = end;
       while (semiAt < ctx.source.length) {
         const one = ctx.source[semiAt];
@@ -9565,23 +9578,23 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
           kind: "AssertEntry",
           name: nameUnit.NameNode,
           value: valueUnit === undefined ? undefined : projectNode(valueUnit, ctx),
-          pos: startOf(nameUnit),
-          end: valueUnit === undefined ? endOf(nameUnit) : endOf(valueUnit),
+          pos: nameUnit.start,
+          end: valueUnit === undefined ? nameUnit.end : valueUnit.end,
         });
       }
       props.assertClause = {
         kind: "AssertClause",
         elements,
-        pos: startOf(word),
-        end: endOf(one),
+        pos: word.start,
+        end: one.end,
       };
       assertUnits.push(word, one);
     }
   }
   const brace = braces.find((k) => assertUnits.includes(k) === false);
   if (brace !== undefined) {
-    const open = startOf(brace);
-    const close = endOf(brace);
+    const open = brace.start;
+    const close = brace.end;
     props.exportClause = {
       kind: "NamedExports",
       elements: namedSpecifiersOf(brace, "ExportSpecifier", ctx),
@@ -9602,8 +9615,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       props.exportClause = {
         kind: "NamespaceExport",
         name: projectNode(nameNode, ctx),
-        pos: startOf(star),
-        end: endOf(nameNode),
+        pos: star.start,
+        end: nameNode.end,
       };
     }
   }
@@ -9683,8 +9696,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       props.moduleSpecifier = {
         kind: "ParenthesizedExpression",
         expression: projected,
-        pos: Math.max(0, startOf(module_) - 1),
-        end: endOf(module_) + 1,
+        pos: Math.max(0, module_.start - 1),
+        end: module_.end + 1,
       };
     }
   }
@@ -9881,8 +9894,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         nameNode === null &&
         props.name !== undefined &&
         props.name.kind === "PrivateIdentifier" &&
-        startOf(x) >= props.name.pos &&
-        endOf(x) <= props.name.end
+        x.start >= props.name.pos &&
+        x.end <= props.name.end
       ) {
         continue;
       }
@@ -9894,7 +9907,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         (kind === "MethodSignature" || kind === "MethodDeclaration") &&
         x.IsQuestionSymbol === true
       ) {
-        const questionAt = startOf(x);
+        const questionAt = x.start;
         props.questionToken = { kind: "QuestionToken", text: "?", pos: questionAt, end: questionAt + 1 };
         continue;
       }
@@ -9993,8 +10006,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   }
   const rest: any = {
     Tag: () => "Statement",
-    start: startOf(list[0]),
-    end: endOf(list[list.length - 1]),
+    start: list[0].start,
+    end: list[list.length - 1].end,
     value: undefined,
     children: list,
     // **这一格也要给出段名表与「进投影的子单元」**（第 1065 / 1066 轮）：它**不是** token
@@ -10150,8 +10163,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // **`PrintAst` 收到的 `v` 就是那一格 token 自己**（见 `projectNode` 开头那句
     // `const v = node`），坐标读的就是它自己的 `start` / `end` 两个属性——
     // 搬迁过去的代码里 `v.start` / `v.end` 就是这么用的。
-    StartOf: (node) => startOf(node),
-    EndOf: (node) => endOf(node),
+    StartOf: (node) => node.start,
+    EndOf: (node) => node.end,
     StmtEndOf: (view) => stmtEndOf(view, ctx),
     // **尾分号那一格的出口**（第 840 轮）：`declare module "mm";` 那个 `;` 到达时
     // 声明早已成形（收尾规则问「简写」的那一刻列表只到名字），所以它由**投影侧**
@@ -10262,7 +10275,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // 而这一格事实由 token 的 `EmptyBodyAt` 答、三个调用点各自在调本方法之前就读完了它。
       if (projections.length === 1) return projections[0];
       if (projections.length === 0) return undefined;
-      return { kind: "Block", statements: projections, pos: startOf(kids[0]), end: endOf(kids[kids.length - 1]) };
+      return { kind: "Block", statements: projections, pos: kids[0].start, end: kids[kids.length - 1].end };
     },
     // **`IndexBracketOf` 那个出口第 1060 轮删掉了**：下标那个 `[` 是 `IndexedAccessType`
     // 自己造出来那一刻的事实（`IndexBracketAt`），所以那一页直接读自己的属性——
@@ -10281,8 +10294,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       return {
         kind: "ParenthesizedExpression",
         expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
-        pos: startOf(unit),
-        end: endOf(unit),
+        pos: unit.start,
+        end: unit.end,
       };
     },
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
@@ -10340,10 +10353,10 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       const flags = headText === "const" ? "Const" : headText === "var" ? "None" : "Let";
       return {
         kind: "VariableDeclarationList",
-        declarations: [{ kind: "VariableDeclaration", name: declared, pos: startOf(nameKid), end: endOf(nameKid) }],
+        declarations: [{ kind: "VariableDeclaration", name: declared, pos: nameKid.start, end: nameKid.end }],
         flags,
-        pos: startOf(head),
-        end: endOf(inner[inner.length - 1]),
+        pos: head.start,
+        end: inner[inner.length - 1].end,
       };
     },
     QualifiedNameFrom: (list) => dottedExpression(list, "QualifiedName"),
@@ -10393,8 +10406,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         const colonIndex = slice.findIndex((k) => k.IsColonSymbol === true);
         const node = {
           kind: "ConditionalType",
-          pos: startOf(slice[0]),
-          end: endOf(slice[slice.length - 1]),
+          pos: slice[0].start,
+          end: slice[slice.length - 1].end,
         };
         if (extIndex > 0) node.checkType = typeOf(slice.slice(0, extIndex), ctx);
         if (extIndex >= 0) {
@@ -10497,8 +10510,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         //——落到这一行只可能是**真的没有体**。
         return undefined;
       }
-      const first = startOf(kids[0]);
-      const last = endOf(kids[kids.length - 1]);
+      const first = kids[0].start;
+      const last = kids[kids.length - 1].end;
       // 没有花括号：TS 那边就是那条语句本身（`if (a) f();` ⇒ `ExpressionStatement`）。
       // **终点取投影出来的那个节点自己的 `end`**（第 157 轮）：`last` 是**产物单元**的终点，
       // 它会带上尾随那个软换行，而投影节点的 `end` 已经过 `stmtEndOf` 剪过 trivia。
@@ -10607,8 +10620,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       return {
         kind,
         text,
-        pos: startOf(unit),
-        end: startOf(unit) + text.length,
+        pos: unit.start,
+        end: unit.start + text.length,
       };
     },
   };

@@ -347,6 +347,29 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1159 轮：用户口径 1.6 / 1.2（连带 1.2 的「投影成本趋于 0」）—— `startOf` / `endOf` 这两格是**恒等调用**（`(node) => node.start`），全页 **242 处**调用点（`startOf` 87 / `endOf` 155）全部换成属性读，两格声明一起删掉
+
+**一句话**：`startOf` / `endOf` 的定义就是 `(node) => node.start` / `(node) => node.end`
+——**一次不改变任何东西的函数调用**。投影里每一次坐标读取都多一层调用，而读的仍是
+`Token.start` / `Token.end`（`core/syntax/token.xl.md` 的基类字段）那一格。所以改法是机械的：
+`startOf(X)` / `endOf(X)` → `X.start` / `X.end`（实参按括号配平整个取出，嵌套调用照换）。
+
+- **为什么它算「口径 1.6 的投影成本」**：这两格从来没有提供过别的东西（判据、兜底、口径都不是），
+  它们是老实现留下的**间接层**。删掉之后「投影读坐标」在代码里就是**一个点号**。
+- **这一趟踩到的坑如实记下**（`cases:direct` / `samples` 都看不见它）：
+  实参是**三元式**时必须补一对圆括号——`startOf(a ? b : c)` 原来把整个三元式当实参，
+  写成 `a ? b : c.start` 就**只给假支读坐标**（三元比 `.` 松）。全页只有一处
+  （`walkSpecifierUnit` 里那个 `ranged.length > 0 ? ranged[0] : units[0]`），
+  而它让 `coverage` 从 **4260 掉到 4198**（91 条 `blocked`，`tsrun` 报
+  `Converting circular structure to JSON`——错值一路走到 IR 才炸）。补上括号即复原。
+- **等价怎么证的**：八道门读数与 HEAD **逐条相同**（`cases:tsast` 16 片全通过、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`coverage` **4260 / 4422**、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79——唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+- **本页的数**：**10710 行**（比上一轮多 42 行：那一节说明 + 三元那一处的两行注释 +
+  chainOn 那一节的措辞），声明 **58 → 57 格**（删两格 `# const`、补一格 `# method` 是上一轮的事，
+  这一轮只删那两格）。`core/syntax/token.xl.md` 一行没动。
+
 ### 第 1158 轮：用户口径 1.7（连带 1.2 / 1.6）—— 「把一格链节点接到手上那一格」这个形状在投影里**出现 61 次**（`PropertyAccessExpression` 25 / `CallExpression` 17 / `ElementAccessExpression` 13 / `NonNullExpression` 6），收成一格 `chainOn`；整页净少 **360 行**
 
 **一句话**：第 1156 轮那句话（「最大的那几组就是这一族节点构造的整对象写法各写好几遍」）
