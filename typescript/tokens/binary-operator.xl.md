@@ -407,6 +407,29 @@ const current = Get(units, index);
 if (current === null) {
   return false;
 }
+// **「这一格是不是本实例的运算符」提到最前面**（第 1207 轮，用户口径 1.2「提升 parse 效率」）。
+//
+// **为什么可以提前**：这一问是**纯判据**（读当前单元的文本、与本实例的 `Operators` 对一下，
+// 见 `IsOperator` / `OperatorText`），而它后面那几句**每一个出口都是 `false`**
+//（逗号 / 泛型父单元 / 类型位方括号 / 映射键 / `?.(` / `for…in` / 值位 / `instanceof` 让位 /
+// 尖括号断言两问）——所以「这一格根本不是我的运算符」时，**当场答 `false` 与走完那几句
+// 再答 `false` 是同一句话**。下面第 551 行那一句原来就在那里，这一轮只是把它挪到最前面，
+// **判据一个字没改**。
+//
+// **与第 1203 轮那次「换位」不是一件事**：那次是把 `IsOperator` 与 `IsAngleAssertionHead`
+// **对调**——`<T>a + b` 里那个 `+` 于是抢在断言那一问之前折下去，当场退回（见下面那一大段）。
+// 这里一格都不挪，只是把**同一个答案**提前算出来。
+//
+// **为什么值钱**：本规则有 **14 个实例**共用这一个 `Previous`，实测 `typescript.d.ts` 一份上
+// 它被问 **1638504** 次（第 1203 轮 `tmp/r1203-nullwork.mjs`），而问到的东西绝大多数
+// **连符号都不是**（`OperatorText` 答空串 ⇒ `IsOperator` 当场答否）。提前之后这些格子在
+// 第二句就退出去，省下的是中间那两句**要扫整层单元表**的判据
+//（`YieldsToInstanceof` / `IsAngleAssertionHead`——后者单独就是 self time **1.1%**，
+// 见 `tmp/r1207-prof/` 那一份 `--cpu-prof`）。
+// 同一份 `--cpu-prof` 里 `Previous` 自己那 6.0% 也主要是这几句判据的账。
+if (this.IsOperator(current) === false) {
+  return false;
+}
 // **逗号那一问提到最前面**（第 1203 轮，用户口径 1.2「提升 parse 效率」）。
 //
 // **为什么可以提前**：`IsCommaExpressionComma` 对**不是逗号**的单元一律答 `true`
@@ -548,9 +571,12 @@ if (this.IsAngleAssertionCloser(units, index, current)) {
 if (this.IsAngleAssertionHead(units)) {
   return false;
 }
-if (this.IsOperator(current) === false) {
-  return false;
-}
+// **「这一格是不是本实例的运算符」已经在 `Previous` 开头问过了**（第 1207 轮把它提到最前面，
+// 见那一处的说明）：走到这里说明那一问**已经成立**，所以这里不再问第二遍
+//（同一份答案只留一处）。**位置仍然在这里**：上面那两句（`YieldsToInstanceof` /
+// `IsAngleAssertionCloser` / `IsAngleAssertionHead`）必须排在它**前面**——
+// 第 1203 轮把它们与它**对调**过一次，`<T>a + b` 里的 `+` 当场抢在断言那一问之前折下去，
+// 已按实测退回。这一轮提前的那一句**只答 `false`**，不动这里的次序。
 // **左操作数必须真的在运算符左边**（第 306 轮）——**次序**这一条与「是不是操作数」
 // 是两件事：上面那一句只问「那一格长得像不像操作数」，而这一条问的是
 // 「它**真的排在运算符前面**吗」。
