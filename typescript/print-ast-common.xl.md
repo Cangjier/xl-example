@@ -74,8 +74,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**61 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-57 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**60 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+56 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 5 个名字**（`projectNode` / `isIndexFirstUnit` /
 `isCallFirstUnit` / `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），
@@ -83,12 +83,14 @@ import { Identifier } from "./tokens/identifier.xl.md"
 **量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 （`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
 （第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
-**第 1100 轮把它收掉的是四格「一格声明、一个真实调用点、而且只是转手」的转发**
+**第 1100 / 1101 两轮收掉的是五格「一格声明、一个真实调用点、而且只是转手」的转发**
 （尺子与第 1043 / 1044 / 1067 / 1070 / 1080 / 1087 轮并掉那些转发同一把）：
 `projectSegment`（唯一读者 `ternary-operator.xl.md` 经 `ctx.Segment`）、
 `projectSwitchClause`（唯一读者 `switch.xl.md` 经 `ctx.SwitchClause`）、
 `projectHeadDeclare`（唯一读者 `foreach.xl.md` 经 `ctx.HeadDeclare`）、
-`projectBindingElement`（**这一格第 1100 轮量过、按原样留着**：它的唯一读者
+`trailingSemicolonOf`（唯一读者 `projectEach` 里那一处，实现**就地**展开成一段立即执行的箭头，
+判据逐字搬过去——那里不能引用 `ctx` 上的出口，因为它在 `ctx` 造出来之前就跑）；
+`projectBindingElement`（**第 1100 轮量过、按原样留着**：它的唯一读者
 `projectBindingPattern` 就在本文件里，而函数体是 121 行真算式，不是转手）
 ——**判据**：`ctx` 上那一行出口返回的东西就是那一格的返回值，所以实现搬进出口、声明删掉，
 `ctx` 的名字与语义一个字不动（**出口的名字是别的页的调用点**，不是本页可以顺手改的）。
@@ -2412,7 +2414,27 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     // **只在「这一格自己不成节点」或「它投出来的就是那个空语句」时接管**：
     // 别的一律照旧走 `projectStatement` 的读数（`;;` 那一格、`;` 顶一条语句那一格都在里面）。
     const projected = projectNode(items[i], ctx);
-    const semi = trailingSemicolonOf(items[i], ctx);
+    // **`trailingSemicolonOf` 那一格第 1101 轮并进了这个唯一调用点**（判据与第 1043 /
+    // 1044 / 1067 / 1070 / 1080 / 1087 / 1100 轮并掉那些转发同一把尺子：全仓只有这一处
+    // 真实读者，而且拿到的就是它返回的那个数）。判据原样保留，写在下面这几行旁边：
+    //
+    // **这一格（一个产物单元）末尾那个 `;` 的位置**；末尾不是 `;` 就给 `undefined`。
+    // 判据落在**这一格自己的原文区间**上，而不是「这一格的起点是不是 `;`」：注释会把紧跟的
+    // `;` 一起收进同一格（`function f() {} /*c*/;` 的那一格起点在注释上、`;` 在末尾），
+    // 按起点判就会把整格当成 trivia 丢掉（第 838 轮，实测那一格缺一个 `EmptyStatement`）。
+    // **落在注释里面的 `;` 不算**（这一条是**普查当场红的**）：一整行注释以 `;` 收尾时
+    // （`//     : never;` 这种行——`dist/ts` 里成片都是），这一格的末字符也是 `;`，
+    // 可它属于注释、不是语句终结符。判据是「末尾那一格**有没有落在某个子单元的区间里**」：
+    // 「注释 + `;`」那一格的注释子单元只盖到 `*/`、`;` 在它后面，而这一格整个 `;` 都在注释里。
+    const semi = (() => {
+      const end = endOf(items[i]);
+      if (end <= 0) return undefined;
+      if (ctx.source[end - 1] !== ";") return undefined;
+      for (const k of allKids(items[i])) {
+        if (k.start <= end - 1 && end - 1 < k.end) return undefined;
+      }
+      return end - 1;
+    })();
     if (
       semi !== undefined &&
       !ctx.consumedSemicolons.has(semi) &&
@@ -2935,29 +2957,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     break;
   }
   return ctx.source[at] === ";" ? (ctx.consumedSemicolons.add(at), at + 1) : end;
-```
-
-# private method trailingSemicolonOf:(item:any, ctx:any)=>int
-
-**这一格（一个产物单元）末尾那个 `;` 的位置**；末尾不是 `;` 就给 `undefined`。
-
-判据落在**这一格自己的原文区间**上，而不是「这一格的起点是不是 `;`」：注释会把紧跟的
-`;` 一起收进同一格（`function f() {} /*c*/;` 的那一格起点在注释上、`;` 在末尾），
-按起点判就会把整格当成 trivia 丢掉（第 838 轮，实测那一格缺一个 `EmptyStatement`）。
-
-**落在注释里面的 `;` 不算**（这一条是**普查当场红的**）：一整行注释以 `;` 收尾时
-（`//     : never;` 这种行——`dist/ts` 里成片都是），这一格的末字符也是 `;`，
-可它属于注释、不是语句终结符。判据是「末尾那一格**有没有落在某个子单元的区间里**」：
-「注释 + `;`」那一格的注释子单元只盖到 `*/`、`;` 在它后面，而这一格整个 `;` 都在注释里。
-
-```ts
-  const end = endOf(item);
-  if (end <= 0) return undefined;
-  if (ctx.source[end - 1] !== ";") return undefined;
-  for (const k of allKids(item)) {
-    if (k.start <= end - 1 && end - 1 < k.end) return undefined;
-  }
-  return end - 1;
 ```
 
 # private method ownsTrailingSemicolon:(node:any, ctx:any)=>bool
