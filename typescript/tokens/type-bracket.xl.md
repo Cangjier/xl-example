@@ -470,7 +470,7 @@ return result;
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const open = v.IndexBracketAt;
   if (open < 0) {
     const whole = ctx.TypeExpression(kids);

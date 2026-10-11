@@ -194,10 +194,10 @@ Json 对象。
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const properties: any[] = [];
-  for (const group of ctx.Split(ctx.Kids(v), ",")) {
+  for (const group of ctx.Split((v).ProjectableKids, ",")) {
     const first = group[0];
     if (first.Tag === "Spread") {
-      const inner = ctx.Kids(first).filter(
+      const inner = (first).ProjectableKids.filter(
         (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "..."),
       );
       properties.push({

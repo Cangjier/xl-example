@@ -383,7 +383,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const node = ctx.ConditionalNode(kids, 0, kids.length);
   // **尾部坐标读这一格自己的属性**（第 1173 轮）：`ctx.StmtEndOf` 那个出口整格删掉了。
   return { ...node, end: v.ProjectionEnd };

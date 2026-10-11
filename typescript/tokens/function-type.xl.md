@@ -267,7 +267,7 @@ return ReplaceCountAt(units, firstIndex, endIndex - firstIndex + 1, result);
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
-  const built = ctx.FunctionTypeProps(ctx.Kids(v));
+  const built = ctx.FunctionTypeProps((v).ProjectableKids);
   // **坐标在前**（第 199 轮）：搬家前是 `return { kind: "FunctionType", pos: v.start, end: v.end, ...props }`；
   // `ConstructorType` 走的是同一行（另一个分支的 `new (…) => T` 在共享层里也是坐标在前）。
   return ctx.NodeHead(built.kind, built.props, v);

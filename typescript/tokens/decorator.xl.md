@@ -185,7 +185,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, decorator);
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  const kids = ctx.Kids(v).filter(
+  const kids = (v).ProjectableKids.filter(
     (k: any) => !(k.IsSymbolToken && k.TextValue === "@"),
   );
   const props: any = {};

@@ -133,7 +133,7 @@ unit.AddToMounted(block);
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
-  const statements = ctx.ProjectEach(ctx.Kids(v), "Block");
+  const statements = ctx.ProjectEach((v).ProjectableKids, "Block");
   const rawBrace = v.braceAt;
   const brace = typeof rawBrace === "number" ? rawBrace : -1;
   const close = v.end;

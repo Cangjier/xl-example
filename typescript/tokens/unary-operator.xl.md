@@ -705,7 +705,7 @@ return index + 1;
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const declaredOp = typeof v.op === "string" ? v.op : "";
   // **先按 `op` 属性找那一格**（第 623 轮）：`op` 是这一元运算的**真身**，
   // 而 `IsOperatorUnit` 只问「是不是符号 / `in` 那类词」 —— `typeof import.meta` 的操作数里

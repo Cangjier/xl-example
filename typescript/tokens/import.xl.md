@@ -308,7 +308,7 @@ return index;
 `type-only` 却没记过 `TypeWordAt`、位置在却没认出那个括号单元。答 `undefined` 交回 `PrintAst`。
 
 ```ts
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   // —— 先只读、不投：所有「让开」都在这一趟里判掉（第 998 轮的记账教训）——
   const typeOnly = v.typeOnly;
   const isTypeOnly = typeOnly === true || typeOnly === "true";
@@ -349,7 +349,7 @@ return index;
     ) {
       const brace = after[braceAt];
       const elements = [];
-      for (const part of ctx.Split(ctx.Kids(brace), ",")) {
+      for (const part of ctx.Split((brace).ProjectableKids, ",")) {
         const colonAt = part.findIndex(
           (k: any) => k.Tag === "SymbolToken" && k.TextValue === ":",
         );
@@ -383,7 +383,7 @@ return index;
       moduleNode ??
       (callNode === undefined
         ? undefined
-        : ctx.Kids(callNode).find((k: any) => k.Tag === "String" || k.Tag === "ConstString"));
+        : (callNode).ProjectableKids.find((k: any) => k.Tag === "String" || k.Tag === "ConstString"));
     const equalsProps: any = {};
     if (nameNode !== undefined) equalsProps.name = ctx.Project(nameNode);
     if (callNode !== undefined) {

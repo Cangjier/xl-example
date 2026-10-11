@@ -388,7 +388,7 @@ return head.IsCallFirstUnit;
 
 ```ts
 if (kid.Tag !== "BinaryOperator") return false;
-for (const inner of ctx.Kids(kid)) {
+for (const inner of (kid).ProjectableKids) {
   if (inner.Tag === "SymbolToken" && inner.TextValue === ",") return true;
 }
 return false;
@@ -430,7 +430,7 @@ while (true) {
   const next: any[] = [];
   for (const kid of pending) {
     if (Method.CommaOperator(ctx, kid)) {
-      for (const inner of ctx.Kids(kid)) next.push(inner);
+      for (const inner of (kid).ProjectableKids) next.push(inner);
       expanded = true;
       continue;
     }
@@ -467,7 +467,7 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
 token 自己的一格属性；不回原文兜底）——对「简单名 + 括号」两处是同一个答案。
 
 ```ts
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const rawName = v.name;
   const calleeText = typeof rawName === "string" ? rawName : "";
   const calleeEnd = v.start + calleeText.length;
@@ -501,7 +501,7 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
     const brace = kids.find(
       (k: any) => k.Tag === "Bracket" && k.startBracket === "(",
     );
-    if (ncos.length === 0 && brace !== undefined && brace === kids[0] && ctx.Kids(brace).length > 0) {
+    if (ncos.length === 0 && brace !== undefined && brace === kids[0] && (brace).ProjectableKids.length > 0) {
       const rest = kids.filter((k: any) => k !== brace && k.Tag !== "GenericType");
       return {
         kind: "CallExpression",
@@ -525,7 +525,7 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
     );
     if (ownCall !== undefined) {
       const at = kids.indexOf(ownCall);
-      flatKids = kids.slice(0, at).concat(ctx.Kids(ownCall)).concat(kids.slice(at + 1));
+      flatKids = kids.slice(0, at).concat((ownCall).ProjectableKids).concat(kids.slice(at + 1));
     }
   }
   const generic = kids.find((k: any) => k.Tag === "GenericType");
@@ -539,7 +539,7 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
       k !== anonymousCallee &&
       k !== typeArgumentGeneric &&
       (k.Tag !== "Bracket" ||
-        (k.start >= calleeEnd && (ctx.Kids(k).length > 0 || (flatKids[0] !== k && anonymousCallee === undefined)))),
+        (k.start >= calleeEnd && ((k).ProjectableKids.length > 0 || (flatKids[0] !== k && anonymousCallee === undefined)))),
   );
   const calleeKid = kids.length > 0 ? kids[0] : undefined;
   const calleeComesFirst =
@@ -573,7 +573,7 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
   };
   if (typeArgumentGeneric !== undefined) {
     const typeArguments = [];
-    for (const group of ctx.Split(ctx.Kids(typeArgumentGeneric), ",")) {
+    for (const group of ctx.Split((typeArgumentGeneric).ProjectableKids, ",")) {
       const one = ctx.TypeExpression(group);
       if (one !== undefined) typeArguments.push(one);
     }
@@ -584,7 +584,7 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
       k.Tag === "Bracket" &&
       k.startBracket === "(" &&
       k.start >= calleeEnd &&
-      ctx.Kids(k).length === 0,
+      (k).ProjectableKids.length === 0,
   );
   const callNode = { kind: "CallExpression", ...props };
   if (trailingCall !== undefined && callNode.end < trailingCall.end) {

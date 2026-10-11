@@ -271,7 +271,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
   if (catchDefine !== undefined || catchBody !== undefined) {
     const inner: any = {};
     if (catchDefine !== undefined) {
-      const binding = ctx.Kids(catchDefine).find((k: any) => !k.IsInvisible);
+      const binding = (catchDefine).ProjectableKids.find((k: any) => !k.IsInvisible);
       const isPattern =
         binding !== undefined &&
         (binding.Tag === "ObjectLiteral" ||
@@ -287,12 +287,12 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
       if (name !== undefined) {
         let declEnd = name.end;
         let declType: any = undefined;
-        const typeKid = ctx.Kids(catchDefine).find((k: any) => k.Tag === "TypeDefine");
+        const typeKid = (catchDefine).ProjectableKids.find((k: any) => k.Tag === "TypeDefine");
         if (typeKid !== undefined) {
           declEnd = typeKid.end;
-          const typeUnit = ctx.Kids(typeKid).find((k: any) => !k.IsInvisible);
+          const typeUnit = (typeKid).ProjectableKids.find((k: any) => !k.IsInvisible);
           if (typeUnit !== undefined) {
-            declType = ctx.TypeExpression(ctx.Kids(typeKid));
+            declType = ctx.TypeExpression((typeKid).ProjectableKids);
           }
         }
         inner.variableDeclaration = declType === undefined

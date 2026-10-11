@@ -472,7 +472,7 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
   }
   if (generic !== undefined) {
     const typeArguments = [];
-    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+    for (const group of ctx.Split((generic).ProjectableKids, ",")) {
       const one = ctx.TypeExpression(group);
       if (one !== undefined) typeArguments.push(one);
     }

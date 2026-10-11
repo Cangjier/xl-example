@@ -403,7 +403,7 @@ return `<${name} range="${this.RangeOf()}" label="${this.label}">${temp.join("")
   const props: any = {
     label: { kind: "Identifier", text, pos: v.start, end: v.start + text.length },
   };
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   if (kids.length === 0) {
     return ctx.Node("LabeledStatement", props, v);
   }

@@ -50,7 +50,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ```ts
   const flat: any[] = [];
-  for (const k of ctx.Kids(v)) {
+  for (const k of (v).ProjectableKids) {
     if (k.Tag === "Statement") {
       for (const inner of k.ProjectableKids) flat.push(inner);
       continue;
@@ -93,9 +93,9 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
     }
     if (word === "in") continue;
     if (kind === "ArrayLiteral" || kind === "Bracket") {
-      const parts = ctx.Kids(k);
+      const parts = (k).ProjectableKids;
       const cond = parts.find((x: any) => x.Tag === "ConditionalType");
-      const condParts = cond === undefined ? [] : ctx.Kids(cond);
+      const condParts = cond === undefined ? [] : (cond).ProjectableKids;
       const asAt = condParts.findIndex(
         (x: any) =>
           (x.Tag === "Keyword" || x.Tag === "Identifier") && x.TextValue === "as",

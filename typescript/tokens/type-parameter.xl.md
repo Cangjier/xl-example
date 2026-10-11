@@ -463,7 +463,7 @@ rebuilt.push(parameter);
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  const kids0 = ctx.Kids(v);
+  const kids0 = (v).ProjectableKids;
   // **约束被整个包进一个节点时要摊开**（第 846 轮）：`<X extends A extends B ? C : D>` 里
   // 产物把**名字 + `extends` + 条件类型**一起收成一个 `ConditionalType`
   //（`<X extends A ? B : C>` 也是这个形状，条件类型的 `extends` 让整个参数段成了那个类型节点）。
@@ -477,14 +477,14 @@ rebuilt.push(parameter);
   const wrapped = wrappedIndex >= 0 ? kids0[wrappedIndex] : undefined;
   const prefix = wrapped === undefined ? [] : kids0.slice(0, wrappedIndex);
   const tail = wrapped === undefined ? [] : kids0.slice(wrappedIndex + 1);
-  const unionKids = wrapped === undefined ? [] : ctx.Kids(wrapped);
+  const unionKids = wrapped === undefined ? [] : (wrapped).ProjectableKids;
   const flattenInner = (list: any) => {
     const head = list[0];
     if (
       head !== undefined &&
       (head.Tag === "UnionType" || head.Tag === "IntersectionType")
     ) {
-      return [...ctx.Kids(head), ...list.slice(1)];
+      return [...(head).ProjectableKids, ...list.slice(1)];
     }
     return list;
   };

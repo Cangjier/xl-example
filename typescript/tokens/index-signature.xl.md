@@ -41,7 +41,7 @@ TS 那边 `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型�
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const params = kids.filter((k: any) => k.Tag === "Parameter");
   const typeNode = kids.find((k: any) => k.Tag === "TypeDefine");
   // **修饰词那一摞**（第 893 轮）：`readonly` 与 `static` 都是子单元，按源码次序收。

@@ -303,7 +303,7 @@ return true;
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const elements: Array<any> = [];
   let group: Array<any> = [];
-  const list = ctx.Kids(v);
+  const list = (v).ProjectableKids;
   let lastEnd = v.start + 1;
   // **上一个逗号的下标**（第 933 轮）：洞的起点是「**前一个逗号**之后那一格」——
   // `[1, , 2]` 的两个洞在 TS 那边是 `[13,13)` 与 `[15,15)`，而每个洞都是零宽的。

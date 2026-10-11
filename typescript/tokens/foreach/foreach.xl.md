@@ -394,7 +394,7 @@ return index;
     statement = ctx.BodyBlockOf(body, v.BodyBrace);
   }
   if (statement !== undefined) props.statement = statement;
-  const awaitUnit = ctx.Kids(v).find(
+  const awaitUnit = (v).ProjectableKids.find(
     (k: any) => k.Tag === "Keyword" && k.TextValue === "await",
   );
   if (kind === "ForOfStatement" && awaitUnit !== undefined) {

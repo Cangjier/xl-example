@@ -520,6 +520,12 @@ const CTX_BANNED = [
   // 直接调那一格 helper，外部 5 页（`conditional-type` / `import` / `label` /
   // `lamda-parameter` / `switch`）各读各的 `v.ProjectionEnd`。出口删了就补进这张表。
   "StmtEndOf",
+  // **第 1174 轮再补一个出口名**：`Kids`——它是一个**恒等转手**
+  // （`(node) => node.ProjectableKids`，与第 1168 轮删掉的 `StartOf` / `EndOf` 同一形态）：
+  // 全仓代码块 **67 处调用点 / 36 页**一次性换成属性读 `(x).ProjectableKids`，出口于是没有一个读者。
+  // 出口删了就补进这张表：下一轮谁想往 `ctx` 里再挂一个「替某一页读它自己那一格数组」的转手，
+  // 写回来这一门当场红。
+  "Kids",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。

@@ -172,7 +172,7 @@ ifSet.MountCondition(source);
 （`ctx.Attr` / `ctx.Kids` / `ctx.KidsOf` / 单元自己的 `IsInvisible()` 都不记账），它答否就整条链让开。
 
 ```ts
-  const segments = ctx.Kids(v).filter((k: any) => k.Tag === "IfSegment");
+  const segments = (v).ProjectableKids.filter((k: any) => k.Tag === "IfSegment");
   if (segments.length === 0) {
     return ctx.NodeHead("IfStatement", {}, v);
   }
@@ -183,10 +183,10 @@ ifSet.MountCondition(source);
   const bodyOf = (seg: any) => {
     const cond = new Set(ctx.KidsOf(seg, "condition"));
     const kept: any[] = [];
-    for (const k of ctx.Kids(seg)) {
+    for (const k of (seg).ProjectableKids) {
       if (k.IsInvisible || cond.has(k)) continue;
       if (k.Tag === "IfBody") {
-        for (const inner of ctx.Kids(k)) kept.push(inner);
+        for (const inner of (k).ProjectableKids) kept.push(inner);
         continue;
       }
       kept.push(k);

@@ -347,6 +347,35 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1174 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 又一个**恒等转手出口** `ctx.Kids` 删掉：全仓代码块 **67 处调用点 / 36 页**一次换成属性读 `(x).ProjectableKids`；`ctx` 出口 42 → 41、代码块 3913 → 3912 行、声明 54 格不变
+
+**一句话**：`Kids: (node) => node.ProjectableKids` 与第 1168 轮删掉的 `StartOf` / `EndOf` 是**同一形态**
+（一次不改变任何东西的转手），只是它读的是一格**数组**而不是一个数。67 处调用点改成读那一格自己的属性，
+出口随之没有一个读者。
+
+| 原来的写法 | 今天 |
+| --- | --- |
+| `ctx.Kids(v).filter(…)` / `for (const k of ctx.Kids(x))` / `ctx.Split(ctx.Kids(b), ",")` | `(v).ProjectableKids.filter(…)` / `for (const k of (x).ProjectableKids)` / `ctx.Split((b).ProjectableKids, ",")` |
+| `const kids = ctx\n    .Kids(v)\n    .filter(…);`（两行链式排版） | `const kids = v.ProjectableKids\n    .filter(…);` |
+| `typescript/print-ast-common.xl.md` 的 `Kids: (node) => node.ProjectableKids,` | **删掉**（名字补进 `direct:lint` 的 `CTX_BANNED`，写回来当场红） |
+
+- **等价为什么是结构上的**：那一格的实现就是 `node.ProjectableKids`——**同一个属性名、同一个对象**
+  （`ctx.Kids` `=== undefined` 的那些接收者也照样答 `undefined`，逐格同答）。第 1066 / 1170 轮定下的契约
+  是「**读它，别改它**」，属性读与那一次转手是同一条契约。
+- **一条要记的坑（与第 1173 轮那条同源、但形状不同）**：第一版是**逐行**正则改的，漏掉了**两行链式**
+  的写法（`ctx` 换行再 `.Kids(k)`）——`typescript/tokens/import-type.xl.md` 与
+  `typescript/tokens/type-assign.xl.md` 各一处，运行期 `ctx.Kids is not a function` 当场
+  **256 处异常**、`coverage` 3848 / 4422。改法：**跨行的就按跨行处理**（先把形如 ctx 起头的那一段
+  拼起来、再按括号配平找实参），不要假设「一次调用写在一行里」。
+- **等价怎么证的**：`cases:tsast` **16 片全过、41890 个投影节点 100% 对齐（字段名也 100%）**、
+  `samples` **逐字节一致**、`cases:direct` 1640 份不抛异常（固定样本六格照旧点名通过）、
+  `direct:lint` **0 条违反**；八道门读数与第 1106 ~ 1173 轮**逐项相同**（唯一红的那一道仍是
+  **尺子不是门**的 `coverage`：`4260 / 4422`、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）。
+- **量**：`print-ast-common` 代码块不带注释 **3913 → 3912 行**（删掉那一行出口）、声明数仍 **54 格**、
+  `ctx` 出口 **42 → 41 个**；`typescript/tokens/**` **36 页**各改 1~8 处（`method.xl.md` 最多，8 处）。
+- **实测**：`xl check` 156 页 0 条；`xl build core typescript` **37 个产物 / 0 error**、`npx tsc` 干净；
+  **八道门 6 通过、2 失败**（墙钟 31.8s），两条红都是 HEAD 上既有的那两道。
+
 ### 第 1173 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 尾部坐标那一层**整个删掉**：`stmtEndOf` 与 `ctx.StmtEndOf` 一起没了，本文件 12 处调用点 + 外部 5 页各读各的 `v.ProjectionEnd`；那 7 次「不是 token 的合成语句视图」由 `statementOfList` 造的那一格**自己答**（新立取值器）；`ctx` 出口 43 → 42、声明 55 → 54、代码块 3911 → 3913 行
 
 **一句话**：第 1172 轮把 `astNode` 里的尾部坐标改成读 `v.ProjectionEnd` 之后，`stmtEndOf` 那一格

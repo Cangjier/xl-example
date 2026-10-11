@@ -60,7 +60,7 @@ import { CommentsIn, IsTriviaUnit, SkipPreviousTrivia } from "../text-common-uti
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
-  return ctx.LetFrom(ctx.Kids(v), v).statement;
+  return ctx.LetFrom((v).ProjectableKids, v).statement;
 ```
 
 

@@ -226,7 +226,7 @@ return ReplaceCountAt(units, index, nextIndex - index + 1, result);
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  const kids = ctx.Kids(v).filter(
+  const kids = (v).ProjectableKids.filter(
     (k: any) =>
       !(
         k.Tag === "Keyword" &&
@@ -311,14 +311,14 @@ return result;
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const names = kids.filter((k: any) => k.IsNameNode && k.TextValue !== "typeof");
   const props: any = {};
   const access = kids.find((k: any) => k.Tag === "PropertyAccess");
   const generic = kids.find((k: any) => k.Tag === "GenericType");
   if (generic !== undefined) {
     const typeArguments = [];
-    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+    for (const group of ctx.Split((generic).ProjectableKids, ",")) {
       const one = ctx.TypeExpression(group);
       if (one !== undefined) typeArguments.push(one);
     }
@@ -328,7 +328,7 @@ return result;
     props.exprName = names[0].NameNode;
   } else if (access !== undefined || names.length > 1) {
     const parts =
-      access === undefined ? names : ctx.Kids(access).filter((k: any) => k.IsNameNode);
+      access === undefined ? names : (access).ProjectableKids.filter((k: any) => k.IsNameNode);
     props.exprName = ctx.QualifiedNameFrom(parts);
   }
   return ctx.NodeHead("TypeQuery", props, v);

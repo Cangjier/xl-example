@@ -204,12 +204,12 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   （第 1069 轮起是那一格自己的属性，只读它记的 `value`）。
 
 ```ts
-  const rawKids = ctx.Kids(v);
+  const rawKids = (v).ProjectableKids;
   const flat: Array<any> = [];
   const flatten = (unit: any): void => {
     const name = unit.Tag;
     if (name === "PropertyAccess" || name === "UnaryOperator") {
-      for (const kid of ctx.Kids(unit)) {
+      for (const kid of (unit).ProjectableKids) {
         flatten(kid);
       }
       return;
@@ -222,7 +222,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   const kids = flat;
   let stringUnit = kids.find((k: any) => k.Tag === "String" || k.Tag === "ConstString");
   const call = kids.find((k: any) => k.Tag === "Method" || k.Tag === "Bracket");
-  const callKids = call === undefined ? [] : ctx.Kids(call);
+  const callKids = call === undefined ? [] : (call).ProjectableKids;
   if (stringUnit === undefined) {
     stringUnit = callKids.find((k: any) => k.Tag === "String" || k.Tag === "ConstString");
   }
@@ -241,18 +241,19 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   }
   const wrapper = [...kids, ...callKids].find((k: any) => {
     if (k.Tag !== "ObjectLiteral") return false;
-    const word = ctx
-      .Kids(k)
+    // **读这一格自己的那一格数组**（第 1174 轮）：`ctx.Kids` 那个恒等转手出口删掉了，
+    // 全仓 67 处调用点改成属性读——两行链式写法（`ctx\n  .Kids(k)`）保持原排版。
+    const word = k.ProjectableKids
       .find((c: any) => c.Tag === "Identifier" || c.Tag === "Keyword");
     if (word === undefined) return false;
     const text = word.TextValue;
     return text === "with" || text === "assert";
   });
   if (wrapper !== undefined) {
-    const brace = ctx.Kids(wrapper).find((c: any) => c.Tag === "ObjectLiteral");
+    const brace = (wrapper).ProjectableKids.find((c: any) => c.Tag === "ObjectLiteral");
     if (brace !== undefined) {
       const elements = [];
-      for (const part of ctx.Split(ctx.Kids(brace), ",")) {
+      for (const part of ctx.Split((brace).ProjectableKids, ",")) {
         const colonAt = part.findIndex(
           (c: any) => c.Tag === "SymbolToken" && c.TextValue === ":",
         );
@@ -288,7 +289,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   const generic = kids.find((k: any) => k.Tag === "GenericType");
   if (generic !== undefined) {
     const typeArguments = [];
-    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+    for (const group of ctx.Split((generic).ProjectableKids, ",")) {
       const one = ctx.TypeExpression(group);
       if (one !== undefined) typeArguments.push(one);
     }

@@ -241,7 +241,7 @@ while (index < data.length) {
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   // **子句词是节点的属性、不参与遍历**（TS 那边就是这样）——
   // 所以它**不能留在 `types` 里**（下面那一句就是干这件事的：
   // 实测「投影后多出来的节点」里 `ExtendsKeyword` 有 2192 个）。
@@ -340,7 +340,7 @@ return result;
 其余逐行与 `PrintAst` 同一份（判据都落在子单元与属性上）。
 
 ```ts
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const generic = kids.find((k: any) => k.IsGenericType);
   const names = kids.filter((k: any) => k.IsNameNode);
   const props: any = {};

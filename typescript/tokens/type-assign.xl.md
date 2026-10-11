@@ -222,8 +222,9 @@ return ReplaceCountAt(units, startIndex, dataEnd - startIndex + 1, result);
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  const kids = ctx
-    .Kids(v)
+  // **读这一格自己的那一格数组**（第 1174 轮）：`ctx.Kids` 那个恒等转手出口删掉了，
+  // 全仓 67 处调用点改成属性读——两行链式写法（`ctx\n  .Kids(v)`）保持原排版。
+  const kids = v.ProjectableKids
     .filter((k: any) => !(k.Tag === "SymbolToken" && k.TextValue === ";"));
   const eqIndex = kids.findIndex(
     (k: any) => k.Tag === "SymbolToken" && k.TextValue === "=",

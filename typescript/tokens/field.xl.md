@@ -762,7 +762,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 - 剩下那两处（`ctx.MemberNameOf` / `ctx.AddModifiers`）本来就只读这一格与它的子单元。
 
 ```ts
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const eqIndex = kids.findIndex(
     (k: any) => k.Tag === "SymbolToken" && k.TextValue === "=",
   );

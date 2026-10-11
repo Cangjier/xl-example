@@ -35,7 +35,7 @@ Lambda 的一个形参。
   直出版从自己的 `Data` 里取出那个子单元读它，不再拿源码字符去猜。
 
 ```ts
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const leadingModifiers: any[] = [];
   for (const k of kids) {
     if (k.Tag === "Keyword" && PARAMETER_MODIFIERS.has(k.TextValue)) {

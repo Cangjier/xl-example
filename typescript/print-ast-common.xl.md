@@ -10117,7 +10117,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // `ProjectableKids`）——这个出口只是把它接到 `ctx` 上，**一行实现都不留**。
     // （第 185 轮那套「手上可能是单个 token、也可能是一段单元数组，所以这里自己归一」
     // 也随之退场：各页现在读的都是**某一个 token** 的那一格。）
-    Kids: (node) => node.ProjectableKids,
     Expression: (list) => projectExpression(list, ctx),
     TypeExpression: (list) => projectTypeExpression(list, ctx),
     ProjectEach: (list) => projectEach(list, ctx),

@@ -663,7 +663,7 @@ return head !== undefined && head.IsCallFirstUnit;
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
-  return ctx.Expression(ctx.Kids(v));
+  return ctx.Expression((v).ProjectableKids);
 ```
 
 

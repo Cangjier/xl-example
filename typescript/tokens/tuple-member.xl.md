@@ -328,7 +328,7 @@ return node;
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  const kids = ctx.Kids(v).filter(
+  const kids = (v).ProjectableKids.filter(
     (k: any) => !(k.Tag === "SymbolToken" && ["...", "?"].includes(k.TextValue)),
   );
   const props: any = {};
@@ -385,7 +385,7 @@ return result;
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
-  const kids = ctx.Kids(v).filter(
+  const kids = (v).ProjectableKids.filter(
     (k: any) => !(k.Tag === "SymbolToken" && ["...", "?"].includes(k.TextValue)),
   );
   const props: any = {};
@@ -453,7 +453,7 @@ return result;
 现在改成「问那一格自己有没有那个子单元」，**同一个问句只剩一份答案**。
 
 ```ts
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const dots = kids.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "...");
   const spread = kids.find((k: any) => k.Tag === "Spread");
   const nameNode = kids.find((k: any) => k.Tag === "Identifier" || k.Tag === "Keyword");

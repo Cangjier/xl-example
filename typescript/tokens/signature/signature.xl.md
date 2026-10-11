@@ -778,7 +778,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 ```ts
   let kind = v.kind === "construct" ? "ConstructSignature" : "CallSignature";
   const props: any = ctx.Structural(v, kind);
-  const kids = ctx.Kids(v);
+  const kids = (v).ProjectableKids;
   const abstractUnit = kids.find((k: any) => k.TextValue === "abstract");
   if (kind === "ConstructSignature" && abstractUnit !== undefined) {
     kind = "MethodSignature";
@@ -799,7 +799,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   }
   const newUnit = kids.find((k: any) => k.Tag === "New");
   if (newUnit !== undefined) {
-    const inner = ctx.Kids(newUnit);
+    const inner = (newUnit).ProjectableKids;
     const bracket = inner.find((k: any) => k.Tag === "Bracket");
     if (bracket !== undefined) {
       const params = bracket.ProjectableKids.filter((k: any) => !k.IsInvisible);
