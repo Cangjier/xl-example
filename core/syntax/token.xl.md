@@ -412,6 +412,18 @@ return typeof own === "string" ? own : "";
 名字不住在子单元上时，正文要走原来 `synthName` 的**解转义**（`\u006cass` 的名字是 `Class`）
 与**点号取第一段**（`namespace A.B { … }` 的外层名字是 `A`，而 `DeclaredName` 是 `"A.B"`）。
 
+**第 1192 / 1193 两轮之后，「成员名那一问」在这五条口径上各自的读数**（这一轮逐条复核，
+每条都有可复核的出处）：
+
+| 口径 | 读数 | 出处 |
+| --- | --- | --- |
+| 1.1 这一问能直接构造 ast node | `MemberName` 三格（`name` / `computed` / `unit`）+ `fromUnit` 一格，节点由投影层一次组装（正文与计算名表达式那两处要 `ctx`） | 本节那一格 |
+| 1.2 信息在构造 / 构建 / Close 那一刻明确在字段 / 属性上 | 四态判据读的**全是这一页自己的属性**（`DeclaredName` / `NameSpan` / `NameTextSpan` / `IsQuotedName` / `IsNumericLiteralName` / `NameKind` / `nameStart` / `nameEnd` / `ProjectableKids`） | 本节那一格 |
+| 1.3 字段 / 属性在类里显式声明 | `MemberNamePlan` / `IsNumericLiteralName` 都在基类显式声明；`MemberName` / `AstComputedName` 是这一页的类型 | `direct:lint` 的「投影读的每一格都声明过」那一条 |
+| 1.4 声明禁止 `any` | 本页 `## field` / `## property` 里的 `any` = **0 处** | `direct:lint` 第 1.5 条 |
+| 1.5 投影读的每一格都声明过 | 投影读到的 PascalCase 属性**没有一个没声明** | `direct:lint` 那一门 0 违反 |
+| 1.6 高效：0 计算 / 0 投影 | 整页投影 self time **576.2 ms / 21817 ms = 2.64%**（182 份、277123 节点）；这一格没有立记忆位，实测重复读 **1.0%** | `--cpu-prof` + 4915 / 4868 的读数（见 `ProjectableKids` 那一节） |
+
 ## property NameUnit:Token | undefined
 
 **这一格自己声明的那个名字，是它下面哪一格子单元**（第 1133 轮）：答不出来（名字不住在子单元上、
@@ -1273,6 +1285,29 @@ this._TreeFrozen = value === true;
 **这条读数的意思**：继续在这一页上抠属性，最多只能碰到那 **0.8%**；
 剩下 99% 在**解析期**（token 构造、闭规则、算子回看）——要再降就得动那一边，
 不能靠投影层再搬格子。
+
+**第 1193 轮把同一把尺子量在 `dist/ts` 那一份更大的语料上**（182 份、**277123** 个节点，
+`node --cpu-prof` 一次解析 + 投影，采样总量 **21817 ms**）：
+
+| self time 前列 | 读数 |
+| --- | --- |
+| `BinaryOperator.IsCommaExpressionComma` | **3169.0 ms（14.5%）** |
+| `Token` 构造（`token.js:12`） | **2305.7 ms（10.6%）** |
+| `BlockToken.TempToString` | 1500.3 ms（6.9%） |
+| `UnitToken.Process` | 1442.4 ms（6.6%） |
+| `BinaryOperator.Previous` | 1343.0 ms（6.2%） |
+| `CloseRule.ApplyTo` | 1206.6 ms（5.5%） |
+| `RunCloseRules` / `ApplyCloseRules` | 551.2 + 771.4 ms（6.1%） |
+| **整页投影（`print-ast-common` 全部函数的 self time 之和）** | **576.2 ms（2.64%）** |
+
+**两条结论**（这一轮只用它们定方向，不据此改任何算式）：
+
+1. **解析期仍是 97%**：算子回看（`IsCommaExpressionComma` + `Previous`）、token 构造、
+   逐个字符的 `Process` / `ApplyTo` 这一族就是全部成本；投影层再优化**最多只能碰这 2.64%**。
+2. **`MemberNamePlan` 这一轮没有立记忆位，理由是量出来的**：全语料 **4915** 次读落在
+   **4868** 个不同的 token 上——**重复读只有 1.0%**（第 1179 轮 `ProjectionEnd` 立缓存时
+   重复读是 18.9%、`ProjectionStart` 不立时是 2.5%）。同一条口径：**重复读率是必要读数**，
+   1.0% 这一档立缓存只多一处会漂的第二份状态，量不出收益。
 
 **为什么这一格要住在 token 上**：投影那一侧原来是两个 helper——`allKids(v)`（收段）与
 `projectableKids(v)` / `unwrapNodes(node)`（把不可见的那几个滤掉），**三格合起来才是这一格的意思**。
