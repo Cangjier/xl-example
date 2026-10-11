@@ -128,7 +128,7 @@ return ReplaceCountAt(units, index, nameIndex - index + 1, result);
 
 与 `NameStart` 同进退的终点（闭区间下标）。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 1001 轮）：这一格出哪个节点，只许用这一格自己的属性与子单元，不回原文查。
 

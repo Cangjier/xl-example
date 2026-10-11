@@ -54,7 +54,7 @@ import { CommentsIn, IsTriviaUnit, SkipPreviousTrivia } from "../text-common-uti
 **我这一格是不是一条 `let` 声明单元**（第 1096 轮）：`let` / `const` / `var` 声明就是这一页，
 所以常量答 `true`——口径与理由见 `core/syntax/token.xl.md` 的 `IsLetUnit`。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

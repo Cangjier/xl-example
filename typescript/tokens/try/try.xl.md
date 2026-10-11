@@ -246,7 +246,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 `finally` 体那一对花括号；没有 `finally` 段时是 `-1` / `null`。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。

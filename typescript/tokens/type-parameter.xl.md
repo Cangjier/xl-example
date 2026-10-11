@@ -455,7 +455,7 @@ rebuilt.push(parameter);
 **我这一格是不是一个类型参数单元**（第 1095 轮）：类型参数就是这一页，所以常量答 `true`
 ——口径与理由见 `core/syntax/token.xl.md` 的 `IsTypeParameterUnit`。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

@@ -213,7 +213,7 @@ if (source.Value === "[") {
 
 它没有覆写 `ToXmlString`，所以 XML 由 `Token.ToXmlString` 产出（子单元串接）。正则单元没有子单元，落地就是个空标签——夹具 `24-regex.xml` 里 `let a = /ab+c/g` 的第三个单元正是 `<RegexToken></RegexToken>`（**不要**给它加 `ToXmlString` 覆写）。`Temp` / `Flags` 只暴露给执行层。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 1000 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

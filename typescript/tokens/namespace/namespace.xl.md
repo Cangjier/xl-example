@@ -432,7 +432,7 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
 
 **类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
@@ -443,7 +443,7 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
   // `ctx.Node` 的返回类型不再是 `any`，而这一层的出口本来就允许 `undefined`
   //（那表示「这一格故意不出节点」）——所以照实判一次，不靠 `any` 把这一问遮掉。
   if (node === undefined) {
-    return undefined;
+    return ctx.Nothing;
   }
   // **没体的环境模块把那个 `;` 吃进来**（第 840 轮）：`declare module "mm";` 在 TS 那边
   // `ModuleDeclaration` 的区间**含** `;`（`AmbientModuleDeclaration` 收尾调 `parseSemicolon`），

@@ -662,7 +662,7 @@ return ReplaceCountAt(units, startIndex + 1, endIndex - startIndex - 1, ternaryO
 `falseStatement` 两档（`condition` 与目标语言同形，按「只记叫法不同的那些」的口径没写进去），
 而**进投影的是三段**——条件那一段也在这里，漏了它就是整个三元运算符的条件凭空消失。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

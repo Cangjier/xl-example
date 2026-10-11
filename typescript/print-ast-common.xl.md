@@ -2562,11 +2562,14 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 
 # private const NOTHING:any = { __nothing: true }
 
-**「这一格没有节点」的哨兵**（第 198 轮）：token 的 `PrintAst` 返回 `undefined` 时，
-`projectNode` 认为「它没覆写这一格」、于是落到通用投影——但有几处出口是**故意**
-一个节点都不出的（例如 `projectStatement` 对那些「已经是上一条语句终结符」的空语句
-返回 `undefined`）。所以那些出口改为返回 `ctx.Nothing`，`projectNode` 见到它就**直接返回
-`undefined`**，不再往下走通用支。
+**「这一格没有节点」的哨兵**（第 198 轮）：有几种情形是**故意**一个节点都不出的
+（例如 `projectStatement` 对那些「已经是上一条语句终结符」的空语句、`Bracket` 对
+`(` / `[` 这种分组括号）——那些出口改为返回 `ctx.Nothing`，`projectNode` 见到它就
+**直接返回 `undefined`**。
+**第 1201 轮起它是唯一那一种「不出节点」**：从前它要与「答 `undefined`＝没覆写、走通用支」
+区分开，通用支删掉之后**答 `undefined` 是当场报错**（见 `projectNode`），
+所以这一个哨兵就是全部——`NOTHING` 的类型是 `any`，因为它是**值**上的一个标记，
+不是返回类型上的第二种（各页的 `PrintAst` 声明成 `AstNode`）。
 
 # private method freezeTree:(unit:any)=>void
 

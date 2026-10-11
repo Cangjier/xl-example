@@ -269,7 +269,7 @@ return index;
 当场记下来；投影据此分 `ForInStatement` / `ForOfStatement`，不再回原文做正则
 （见 `PrintAst` 那段说明）。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
@@ -385,7 +385,7 @@ return index;
     const headerAt = typeof rawHeader === "number" ? rawHeader : -1;
     // **头部那个 `)` 的位置不在这一格上** ⇒ 交回 `PrintAst`（它回原文里配一次括号）。
     if (headerAt < 0) {
-      return undefined;
+      return ctx.Nothing;
     }
     // **体那一对花括号直读字段**（第 1081 轮起递的是那一格本身 `BodyBrace`，
     // 不再是它印出来的 `"起,止"` 字符串——同一格事实只有一个来源）。

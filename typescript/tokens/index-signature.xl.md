@@ -33,7 +33,7 @@ TS 那边 `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型�
 
 内容直接装在自己身上：参数名、参数类型、值类型（各是一个 `TypeDefine` 或散单元）。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

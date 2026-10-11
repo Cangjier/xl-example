@@ -745,7 +745,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 类名必须与产物里的标签名一致：`this.constructor.name` 就是 `<Field>` 的标签。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 996 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

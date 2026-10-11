@@ -155,7 +155,7 @@ ifSet.MountCondition(source);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<IfSet>` 里依次是各个 `IfSegment` 的 XML。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 998 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
@@ -228,7 +228,7 @@ ifSet.MountCondition(source);
     return true;
   };
   if (!canBuild(0)) {
-    return undefined;
+    return ctx.Nothing;
   }
   const build = (index: number): any => {
     const props: any = {};
@@ -308,7 +308,7 @@ ifSet.MountCondition(source);
   };
   const out = build(0);
   if (out.node === null) {
-    return undefined;
+    return ctx.Nothing;
   }
   return out.node;
 ```

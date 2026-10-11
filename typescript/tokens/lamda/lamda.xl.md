@@ -944,7 +944,7 @@ Lambda 表达式。
 `modifiers` 文本里**（见 `print-ast-common.xl.md` 的 `addModifiers`）——所以由本页报出这个词名，
 投影不再反射式地把「所有值为 `true` 的属性」都当修饰词。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
@@ -961,7 +961,7 @@ Lambda 表达式。
   const arrowAt = typeof rawArrowAt === "number" ? rawArrowAt : -1;
   // **位置不在这一格上**（字段缺）⇒ 交回 `PrintAst`（它回原文里找一次）。
   if (!(arrowAt >= 0 && arrowAt < v.end)) {
-    return undefined;
+    return ctx.Nothing;
   }
   props.equalsGreaterThanToken = {
     kind: "EqualsGreaterThanToken",

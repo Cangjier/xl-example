@@ -391,7 +391,7 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" label="${this.label}">${temp.join("")}</${name}>`;
 ```
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
@@ -426,7 +426,7 @@ return `<${name} range="${this.RangeOf()}" label="${this.label}">${temp.join("")
   // `ctx.Node` 的返回类型不再是 `any`，而 `PrintAst` 这一层的出口本来就允许 `undefined`
   //（那表示「这一格故意不出节点」）——所以这里照实判一次，不靠 `any` 把这一问遮掉。
   if (node === undefined) {
-    return undefined;
+    return ctx.Nothing;
   }
   node.end = v.ProjectionEnd;
   return node;

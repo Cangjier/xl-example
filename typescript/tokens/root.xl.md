@@ -54,7 +54,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 **形态与基类一致**（两边都是 `## field` + `new Map()`）：基类那一格是**空表**（第 1041 轮从 `## method` 改成属性），这一页给出自己的表——第 1065 轮基类的 `Segments` 就是照这张表的键排出来的（段的**名单与顺序**都从这里来）。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

@@ -537,7 +537,7 @@ for (const kid of pending) {
 groups.push(current);
 return groups.filter((group) => group.length > 0);
 ```
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
 属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。

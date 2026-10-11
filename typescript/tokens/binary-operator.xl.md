@@ -1337,7 +1337,7 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
 
 它覆写了 `ToXmlString`：在基类的串接之外带上 `op` 属性。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
@@ -1364,7 +1364,7 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
   const right =
     opIndex >= 0 && opIndex + 1 < kids.length ? ctx.Expression(kids.slice(opIndex + 1)) : undefined;
   if (left === undefined && right === undefined) {
-    return kids.length > 0 ? ctx.Expression(kids) : undefined;
+    return kids.length > 0 ? ctx.Expression(kids) : ctx.Nothing;
   }
   // **运算符那一格的叶子节点由那一格自己给**（第 1176 轮，用户口径 1.2 / 1.3 / 1.7）：
   // 它过去是 `ctx` 上的一个出口（`ctx.OperatorNode`），而那三件事实**全在被问的那一格自己身上**

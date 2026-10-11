@@ -97,7 +97,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 **这一格是实测出来的**：先按「名字节点恒带 `text`」写成 `AstNameNode`，
 `tsc` 当场报 `TS2353`（计算名那一支的 `expression` 不存在于 `AstNameNode`）。
 
-# type PrintAstCtx = { unmapped: Set<string>, count: number, direct: number, typePosition: boolean, expressionPosition: boolean, inObjectLiteral: boolean, baseStart: any, consumedSemicolons: Set<number>, Node: (kind: string, props?: any, view?: Token, extra?: any) => AstNode | undefined, NodeInto: (kind: string, view?: any, props?: any) => AstNode | undefined, Each: (view?: any, extra?: any) => any, Project: (node?: any, extra?: any) => any, SemicolonEndOf: (end?: any, extra?: any) => number, Split: (list?: any, separator?: any, extra?: any, more?: any) => Array<Array<any>>, ChainWithOptional: (node?: any, nco?: any, extra?: any) => any, Expression: (list?: any, extra?: any) => any, TypeExpression: (list?: any, extra?: any) => any, ProjectEach: (list?: any, kind?: any, extra?: any) => Array<any>, MemberList: (list?: any, view?: any, extra?: any) => Array<any>, KidsOf: (node?: any, key?: any, extra?: any) => Array<any>, NamedSpecifiers: (brace?: any, kind?: any, extra?: any) => Array<any>, MemberNameOf: (view?: any) => MemberName, FoldBinaryFrom: (left?: any, list?: any, extra?: any) => any, SynthName: (text?: any, view?: any, extra?: any) => string, StatementOf: (view?: any, extra?: any) => any, StatementOfList: (list?: any, extra?: any) => any, Nothing: any, BodyBlockOf: (list?: any, brace?: any, extra?: any) => any, ParenthesizedOf: (unit?: any, extra?: any) => any, LetFrom: (list?: any, view?: any, extra?: any) => any, QualifiedNameFrom: (list?: any, extra?: any) => any, DottedExpression: (list?: any, extra?: any) => any, ConditionalNode: (list?: any, from?: any, to?: any, extra?: any) => any, Segment: (view?: any, key?: any, extra?: any) => any, TypeOf: (list?: any, extra?: any) => any, FunctionTypeProps: (kids?: any, extra?: any) => any, BlockOfBody: (list?: any, brace?: any, extra?: any) => any, BindingPattern: (unit?: any, extra?: any) => any, ComputedNameExpression: (unit?: any, extra?: any) => any, Structural: (view?: any, kind?: any, extra?: any) => any, Declaration: (view?: any, kind?: any, extra?: any) => any }
+# type PrintAstCtx = { unmapped: Set<string>, count: number, direct: number, typePosition: boolean, expressionPosition: boolean, inObjectLiteral: boolean, baseStart: any, consumedSemicolons: Set<number>, Node: (kind: string, props?: any, view?: Token, extra?: any) => AstNode, NodeInto: (kind: string, view?: any, props?: any) => AstNode, Each: (view?: any, extra?: any) => any, Project: (node?: any, extra?: any) => any, SemicolonEndOf: (end?: any, extra?: any) => number, Split: (list?: any, separator?: any, extra?: any, more?: any) => Array<Array<any>>, ChainWithOptional: (node?: any, nco?: any, extra?: any) => any, Expression: (list?: any, extra?: any) => any, TypeExpression: (list?: any, extra?: any) => any, ProjectEach: (list?: any, kind?: any, extra?: any) => Array<any>, MemberList: (list?: any, view?: any, extra?: any) => Array<any>, KidsOf: (node?: any, key?: any, extra?: any) => Array<any>, NamedSpecifiers: (brace?: any, kind?: any, extra?: any) => Array<any>, MemberNameOf: (view?: any) => MemberName, FoldBinaryFrom: (left?: any, list?: any, extra?: any) => any, SynthName: (text?: any, view?: any, extra?: any) => string, StatementOf: (view?: any, extra?: any) => any, StatementOfList: (list?: any, extra?: any) => any, Nothing: any, BodyBlockOf: (list?: any, brace?: any, extra?: any) => any, ParenthesizedOf: (unit?: any, extra?: any) => any, LetFrom: (list?: any, view?: any, extra?: any) => any, QualifiedNameFrom: (list?: any, extra?: any) => any, DottedExpression: (list?: any, extra?: any) => any, ConditionalNode: (list?: any, from?: any, to?: any, extra?: any) => any, Segment: (view?: any, key?: any, extra?: any) => any, TypeOf: (list?: any, extra?: any) => any, FunctionTypeProps: (kids?: any, extra?: any) => any, BlockOfBody: (list?: any, brace?: any, extra?: any) => any, BindingPattern: (unit?: any, extra?: any) => any, ComputedNameExpression: (unit?: any, extra?: any) => any, Structural: (view?: any, kind?: any, extra?: any) => any, Declaration: (view?: any, kind?: any, extra?: any) => any }
 
 **第三个出口那一层递过去的上下文**（第 1175 轮按用户口径 1.5 立起来）：`PrintAst` 的
 **第一个形参**就是它——从前写作 `any`，于是「这一层手上有什麼」在声明里整个消失（用户口径 1.3：
@@ -2106,11 +2106,22 @@ XML 的标签名、直出那一层的 kind 判据（`PrintAst` 里那些 `=== "I
 return undefined;
 ```
 
-## method PrintAst:(ctx:PrintAstCtx, v:Token)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:Token)=>AstNode
 
 **这一格的名字**（第 1143 轮按用户口径 1.1 定）：它原先叫 `PrintDirectAst`，与一条已经删掉的
 老路（老路叫 `PrintAst`）成对；老路删掉之后剩下的就是这一格，于是**名字收回 `PrintAst`**——
 全仓 78 个文件 / 482 处一次改干净（`## method PrintAst:(ctx:any, v:any)=>any` 是它唯一的分节头）。
+
+**返回类型第 1202 轮收成 `AstNode`**（用户口径 1.1 / 1.5）：从前写的是 `AstNode | undefined`，
+而 `undefined` 那一档第 1201 轮起**不再是一个合法答案**——通用支删掉了，「答不出来」当场报错。
+类型里留着它，就是让**编译期**看不见这一条约定：全仓 75 处分节头一次改干净（`=>AstNode`），
+于是「一页漏说它出哪个节点」在 `tsc` 那一层就红，而不是等到运行时。
+**故意不出节点的那些页答 `ctx.Nothing`**（`{ __nothing: true }`，类型仍是 `AstNode`
+——它是**值**上的一个哨兵，不是类型上的第二种返回）。
+
+**基类这一格答「我没有自己的投影」**：从前它 `return undefined`、让通用支接手；
+通用支删掉之后它**当场报错并报出 `Tag`**——每一页覆写它就是「把这一格出成什么」说清楚，
+漏说一页是静默少一个节点（而 `cases:tsast` 只会报一个总数），所以这一句把那件事说穿。
 
 **第三个出口的直出版**（第 992 轮）：这一格答「这一格出哪个节点」，只许用**这个 token 自己**的东西——
 属性、子单元（`Data` / 视图里的 `segments`）、以及 `Parent`。
@@ -2189,11 +2200,14 @@ return undefined;
 而**落回清单只数「这一页答不答」**、不数「这一页答得对不对」——
 所以「答一个形状」看上去能让那 43 次落回清零，实际上是把两种身份压成一种。
 
-**同一个类里两种身份要各答各的**：包装那一档答 `ctx.Nothing` 之前，
-先问「通用支那一趟会不会数到这一格」——**会数到就不能答 `Nothing`**
+**同一个类里两种身份要各答各的**：包装那一档**从前**答 `ctx.Nothing` 之前要先问
+「通用支那一趟会不会数到这一格」——**会数到就不能答 `Nothing`**
 （`projectNode` 开头的 `ctx.count++` 在**问这一格之前**，`Nothing` 是「连问都不再问」，
-于是那一格从 `count` 账上消失，`cases:direct` 的第三项当场差数）。
-让回通用支（答 `undefined`）才是「摊平与记账都还是原来那一份」。
+于是那一格从 `count` 账上消失）。
+**第 1201 轮这条顾虑随通用支一起消失了**：那一趟删掉之后，`ctx.count` 只是**读数**
+（`cases:direct` 印 `direct / count`，两者都不进退出码），
+所以「这一格该答什么」按**语义**答——分组括号不是节点，就答 `ctx.Nothing`
+（`typescript/tokens/bracket.xl.md` 的 `(` / `[` 就是这么改的）。
 
 **搬这一格还要看别的门**：`direct:lint` 只判「这一格的方法体里有没有回原文查」，
 它**看不见**「这一格把哪些场景弄坏了」——那是 `coverage` 那一栏（`blocked`）的账。
@@ -2220,7 +2234,11 @@ return undefined;
 准备的；两遍对拍撤掉之后，那条基线也没有量得到的对象了，所以一起撤掉。）
 
 ```ts
-return undefined;
+throw new Error(
+  `这一格没有覆写 PrintAst（Tag=${this.Tag}）：` +
+    `它要答一个节点，或者答 ctx.Nothing 表示「故意不出节点」——` +
+    `通用支第 1201 轮删掉了，答 undefined 不再是「照旧走那一趟」。`,
+);
 ```
 
 **这一格的读数该怎么看**（第 1009 轮量出来的账，免得下一轮按一个错的分母去找活）：

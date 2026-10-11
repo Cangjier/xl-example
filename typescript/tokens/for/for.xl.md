@@ -262,7 +262,7 @@ C 风格 `for` 语句单元。
 **只在「体段既没有可见子单元、也没有 `emptyBodyAt`」那条兜底支里用它**：
 正常那几支分别由 `BlockOfBody`（非空块）与 `emptyBodyAt`（空语句）说了算。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 997 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
@@ -300,7 +300,7 @@ C 风格 `for` 语句单元。
       props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
     } else {
       // 字段没记过 ⇒ **不猜**（原来的最后一招是回原文扫那个 `;`），交回 `PrintAst`。
-      return undefined;
+      return ctx.Nothing;
     }
   }
   return props;

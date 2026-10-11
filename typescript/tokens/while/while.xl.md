@@ -212,7 +212,7 @@ return index;
 （`while (g(")")) ;` 这种形状里第一份判据是对的、第二份要错）。
 **只在「体带了这一格」的那条路之外用它**：体是花括号块时由 `BodyBrace` 说了算（连终点都齐了）。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 997 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
@@ -244,7 +244,7 @@ return index;
   const rawHeaderClose = v.headerCloseAt;
   const headerCloseAt = typeof rawHeaderClose === "number" ? rawHeaderClose : -1;
   if (headerCloseAt < 0) {
-    return undefined;
+    return ctx.Nothing;
   }
   // **第 1084 轮不再递头部那个下标**：`BodyBlockOf` 收的是「体」与「那一对花括号」，
   // 空体语句那一档本页上面已经出完了（`emptyBodyAt`），所以它不需要 `from`（见那一页的说明）。

@@ -189,7 +189,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 内容直接装在自己身上：可选的 `typeof`、那个 `import(...)` 调用形状、以及限定名的尾巴。
 **与值位的动态 `import()` 的区别只在容器**：值位的它仍是 `<Method name="import">`。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 999 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

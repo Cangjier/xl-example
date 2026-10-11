@@ -44,7 +44,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 只有这一种落法，所以这是一格**常量**：第 1045 轮从 `## method BodyField(parentKind)` 改成
 `## field`，构造时就赋好。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

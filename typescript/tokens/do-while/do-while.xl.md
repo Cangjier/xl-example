@@ -474,7 +474,7 @@ return index;
 切进了**壳的区间**、不进 `Data` ⇒ 这一格只有在收尾规则里才拿得到
 （就是壳的右端，见 `Process` 那一支）。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。

@@ -287,7 +287,7 @@ return index;
 
 导入语句。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 999 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
@@ -314,7 +314,7 @@ return index;
   const isTypeOnly = typeOnly === true || typeOnly === "true";
   const rawTypeWordAt = v.typeWordAt;
   const typeWordAt = typeof rawTypeWordAt === "number" && rawTypeWordAt >= 0 ? rawTypeWordAt : -1;
-  if (isTypeOnly && typeWordAt < 0) return undefined;
+  if (isTypeOnly && typeWordAt < 0) return ctx.Nothing;
   const fromNode = kids.find((k: any) => k.Tag === "Identifier" && k.TextValue === "from");
   const equals = kids.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === "=");
   const rawBraceAt = v.namedBraceAt;
@@ -326,7 +326,7 @@ return index;
           (k.Tag === "Bracket" || k.Tag === "ObjectLiteral")
           && k.start === braceOpen,
       );
-  if (braceOpen >= 0 && equals === undefined && namedBrace === undefined) return undefined;
+  if (braceOpen >= 0 && equals === undefined && namedBrace === undefined) return ctx.Nothing;
   const braceClose = namedBrace === undefined ? -1 : namedBrace.end - 1;
   // **尾部坐标读这一格自己的属性**（第 1173 轮）：`ctx.StmtEndOf` 那个出口整格删掉了。
   const end = ctx.SemicolonEndOf(v);

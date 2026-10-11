@@ -228,7 +228,7 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, [result]
 
 它覆写了 `ToXmlString`：标签名是运行时类名，另外把 `"||"` / `"&&"` 翻译成 `Or` / `And` 放进 `op` 属性（**不是**原样的 `||` / `&&`）。
 
-## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode | undefined
+## method PrintAst:(ctx:PrintAstCtx, v:any)=>AstNode
 
 **第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
@@ -255,7 +255,7 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, [result]
   const right =
     opIndex >= 0 && opIndex + 1 < kids.length ? ctx.Expression(kids.slice(opIndex + 1)) : undefined;
   if (left === undefined && right === undefined) {
-    return kids.length > 0 ? ctx.Expression(kids) : undefined;
+    return kids.length > 0 ? ctx.Expression(kids) : ctx.Nothing;
   }
   const opNode =
     opIndex >= 0
