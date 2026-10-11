@@ -346,6 +346,21 @@ while (true) {
   return ctx.Node("StringLiteral", { text: content === undefined ? "" : ctx.ValueOf(content) }, v);
 ```
 
+## property StringText:string
+
+**我这段常量文本**（第 1061 轮）：就是块单元攒下来的那一段（`value`，见 `BlockToken.TempToString`）
+——不含引号、不做转义。
+
+`String.StringText` 取的是它第一个 `ConstString` 子单元的**这一格**（第 1061 轮那一页自己的
+`StringText`），而字符串单元自己（`""` / `''` / `` `` ``）没有子单元 ⇒ 它答空串。
+两页各答自己那一格，投影只读属性。
+
+### get
+
+```ts
+return this.value;
+```
+
 ## method Clone:()=>Token
 
 克隆自身：`Sign(this)` → `Temp.push(...this.Temp)` → `TryToClose()`。

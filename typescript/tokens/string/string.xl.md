@@ -334,6 +334,30 @@ return `<${name} range="${this.RangeOf()}" interpolation="${interpolation}" verb
 return this.StringChar;
 ```
 
+## property StringText:string
+
+**我这一段字符串的正文**（第 1061 轮）：第一个 `ConstString` 子单元里攒的那段文本
+（**不含引号**、也不含内插段的壳）；一个 `ConstString` 都没有 ⇒ 空串。
+
+**为什么由这一页答**：这段正文本来就是这一页自己的子单元攒下来的（`ConstString` 是块单元，
+文本在它的 `Temp` 上）——而过去它是**投影那一侧**回这一页的子单元里翻出来的
+（`print-ast-common` 的 `stringText`：`kidsOf(v, "children").find(k => k.Tag === "ConstString")`），
+同一格事实的第二处答案。第 1061 轮把它收成这一页的属性，那个 helper 一并删掉。
+
+**量过的一格**（`tmp/r1061` 的插桩，2051 份语料）：`stringText` 被调 **19335** 次，
+**每一次都是 `String`**（`ConstString` 0 次、别的标签 0 次）——所以「一个都没有 ⇒ 空串」
+这一档（554 次）是唯一要保住的那一档：`""` / `''` / `` `` `` 与「有单元但值为空串」
+在这一格上答的是同一个空串（它们本来就该同答）。
+
+### get
+
+```ts
+const first = this.Data.find((k) => k.Tag === "ConstString");
+if (first === undefined) return "";
+const one = first as ConstString;
+return one.StringText;
+```
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

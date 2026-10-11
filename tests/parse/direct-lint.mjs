@@ -713,6 +713,50 @@ let sourceBraceScanHits = 0;
   }
 }
 
+/**
+ * **某一格的正文不许由投影从它的子单元里翻出来**（第 1061 轮）。
+ *
+ * 同一条规矩的又一格：`String` 的正文（引号里那段）过去是投影回**这一页的子单元**里找出来的
+ * ——`stringText(v)` = `kidsOf(v, "children").find(k => k.Tag === "ConstString")` 再读那一格的
+ * `value`。可这段正文就是这一页自己的子单元攒下来的（`ConstString` 是块单元，文本在 `Temp` 上），
+ * 所以第 1061 轮把它收成 `String.StringText`（`ConstString.StringText` 就是它自己那段），
+ * 投影只读属性、那个 helper 删掉。
+ *
+ * **量过再删**（`tmp/r1061` 的插桩，2051 份语料）：`stringText` 被调 19335 次、**每次都是 `String`**
+ * （`ConstString` 0 次、别的标签 0 次），其中 554 次答空串（`""` / `''` / 空模板——那一档必须保住）。
+ *
+ * **为什么必须是门而不是自觉** ✗：这样写**逐字节同答**，所以方法体判据、能力面判据、
+ * `cases:tsast` 一条都看不见它；可它是**同一格事实的第二处答案**——投影层再写一遍
+ * 「哪一格装着正文」，那一页改了子单元形状它就会各说各话。
+ *
+ * 口径与前面几条同款：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`），恰好 0 处才对。
+ * 认两种形态：helper 的**调用**（`stringText(`）与 `ctx` 上那个出口（`ctx.StringText`）。
+ */
+const STRING_TEXT_NAMES = ["stringText"];
+const STRING_TEXT_VIA_CHILD = new RegExp(
+  `(?<![\\w$.])stringText\\s*\\(|\\bctx\\.(?:StringText)\\b`,
+);
+/** 投影回子单元里翻字符串正文的处数（0 处才是对的）。 */
+let stringTextHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const match of code.matchAll(new RegExp(STRING_TEXT_VIA_CHILD, "g"))) {
+      stringTextHits += 1;
+      if (stringTextHits <= 3) {
+        violations.push({
+          file: SHARED_FILE,
+          why:
+            `字符串的正文又由投影回子单元里翻了：\`${match[0]}\`——那一格由它自己答` +
+            "（`String.StringText` / `ConstString.StringText`），投影只读属性",
+        });
+      }
+    }
+  }
+}
+
 // **按字符串键查的账**（第 1005 轮）：逐键比额度——多了红（有人写回来了），
 // 少了也红（收掉了就来把例外表那一行删掉）。
 const stringKeys = [...new Set([...STRING_KEY_ALLOWED.keys(), ...stringKeyHits.keys()])].sort();
@@ -793,6 +837,11 @@ console.log(
 console.log(
   `回原文配对 / 找成对符号（${SHARED_FILE} 的代码块）：${sourceBraceScanHits} 处（0 处才是对的，体读 bodyBraceRange、下标读 IndexBracketAt）`,
 );
+// **「字符串的正文」的账**（第 1061 轮）：那段正文是 `String.StringText` / `ConstString.StringText`
+// ——投影再写一个 `stringText(…)` / `ctx.StringText(…)` 就是同一格事实的第二处答案，0 处才对。
+console.log(
+  `字符串的正文又从子单元里翻（${SHARED_FILE} 的代码块）：${stringTextHits} 处（0 处才是对的，正文读 String.StringText / ConstString.StringText）`,
+);
 // **中间那一层的账**（第 1027 轮）：投影直吃 token，那一层的入口名一个都不许留在规范页里
 // ——「token → AST 直出」这句话只有这样才有一条判据看着。
 console.log(
@@ -810,6 +859,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、成对符号的位置由 token 自己记）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
 );
 process.exit(0);

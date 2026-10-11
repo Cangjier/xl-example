@@ -262,6 +262,28 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 ⇒ 本页的 `# const` / `# method` 声明 **92 → 91 格**（`indexBracketOf`）。
 `direct:lint` 第九条因此扩成**一族**：回原文配对 / 找成对符号（花括号、方括号）一律 0 处。
 
+**第 1061 轮收的是「字符串的正文」**：`String` 那段正文（引号里那截）过去是投影回
+**这一页的子单元**里翻出来的——本页的 `stringText` = `kidsOf(v, "children").find(k => k.Tag ===
+"ConstString")` 再读那一格的 `value`。可这段正文**就是这一页自己的子单元攒下来的**
+（`ConstString` 是块单元，文本在 `Temp` 上，`BlockToken` 把它记成 `value`），
+所以第 1061 轮把它收成两页各自的属性：`String.StringText`（第一个 `ConstString` 子单元那段，
+一个都没有 ⇒ 空串）、`ConstString.StringText`（就是它自己那段）。投影那四处改成属性读，
+`stringText` 这个 helper 删掉。
+
+**量过再删**（`tmp/r1061` 的插桩，2051 份语料）：`stringText` 被调 **19335** 次、**每次都是
+`String`**（`ConstString` 0 次、别的标签 0 次），其中 **554** 次答空串。所以「一个都没有 ⇒ 空串」
+那一档必须保住（`""` / `''` / 空模板），而 `ConstString` 那一档在语料里一次都没走——
+它的答案改成「自己那段」**不改任何一格读数**（`samples` 逐字节、`cases:tsast` 全语料都作证）。
+那句「没有内容单元 = 一个字都没有」的记录也在这里：`"x"` / `'a\nb'` / `` `t` `` 都有
+`ConstString` 子单元，`` `${1}` `` / `` `a${1}` `` 的文本段照样各给一个（空段也在内），
+只有 `""` / `''` / `` `` `` 一个都没有——所以「一个都没有」只可能是空串，
+**不是「值是一对引号」**（第 119 轮修掉的老缺口：当时退回「原样切源码」，
+于是空串在降级层被报成带引号的形式）。
+
+⇒ 本页的 `# const` / `# method` 声明 **91 → 90 格**（`stringText`）。
+`direct:lint` 第十条因此立起来：字符串的正文不许再由投影回子单元里翻
+（`stringText(` / `ctx.StringText(`）。
+
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
 名单的键就是**那些类自己的名字**，所以它本来就是那四页的事实；投影这一侧过去用
@@ -542,11 +564,11 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // 值位的普通字符串（引号串）走原来的口径。
   // **「这一格是不是模板」问 token 自己**（第 1049 轮）：反引号是 `String.StringChar`
   // **在构造器里赋好的**那一格（`stringChar` 是它给投影的读法），投影不再回原文读第一个字符。
-  if (v.stringChar !== "`") return astNode("StringLiteral", { text: stringText(v) }, v, ctx);
+  if (v.stringChar !== "`") return astNode("StringLiteral", { text: v.StringText }, v, ctx);
   const kids = projectableKids(v);
   const consts = kids.filter((k) => k.Tag === "ConstString");
   const interps = kids.filter((k) => k.Tag === "InterpolationString");
-  if (interps.length === 0) return astNode("NoSubstitutionTemplateLiteral", { text: stringText(v) }, v, ctx);
+  if (interps.length === 0) return astNode("NoSubstitutionTemplateLiteral", { text: v.StringText }, v, ctx);
   const typePosition = ctx.typePosition === true;
   // **头部含那个 `{`**：`ConstString` 已经把 `$` 收进去了（`x$`），所以终点是
   // 第一段内插的起点再加一（`{` 那一格）。**先算成局部量**——在对象字面量里引用
@@ -7109,7 +7131,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
       // ⇒ `const { "x": a } = { x: 9 }` **静默给 `undefined`**（JS 给 `9`）。
       // 取法与 `specifierNameOf` 那条**一字不差**：引号名给 `StringLiteral`
       //（`text` 是引号里那段），其余走 `nameOf`——键的取法本来就只有这一种。
-      // 位置与文本都直接问这一格单元自己（`startOf` / `endOf` / `stringText` 收的就是 token）。
+      // 位置与文本都直接问这一格单元自己（`startOf` / `endOf` / `StringText` 收的就是 token）。
       const quotedBefore = kids.find(
         (k) =>
           (k.Tag === "String" || k.Tag === "ConstString") &&
@@ -7118,7 +7140,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
       if (quotedBefore !== undefined) {
         props.propertyName = astNode(
           "StringLiteral",
-          { text: stringText((quotedBefore)) },
+          { text: quotedBefore.StringText },
           (quotedBefore),
           ctx,
         );
@@ -8281,8 +8303,9 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 ```ts
   const type = unit.Tag;
   if (type === "String" || type === "ConstString") {
-    // `stringText` / `astNode` / `nameOf` 收的都是这一格 token 自己，入口只有一种。
-    return astNode("StringLiteral", { text: stringText(unit) }, unit, ctx);
+    // **这一格的正文由它自己答**（第 1061 轮）：`unit.StringText` 是那一页自己的属性
+    //（`String` 取第一个 `ConstString` 子单元那段、`ConstString` 就是自己那段）。
+    return astNode("StringLiteral", { text: unit.StringText }, unit, ctx);
   }
   return nameOf(unit);
 ```
@@ -9088,27 +9111,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     children: list,
   };
   return projectStatement(rest, ctx);
-```
-
-# private method stringText:(v:any)=>any
-
-```ts
-  const content = kidsOf(v, "children").find((k) => k.Tag === "ConstString");
-  if (content !== undefined) return textOfNode(content);
-  // **没有内容单元 = 一个字都没有**（第 119 轮修掉的那条老缺口）。
-  //
-  // 这个 token 的内容**全部**住在 `ConstString` 子单元里——实测（见台账第 119 轮的现场）：
-  //   - `"x"` / `'a\nb'` / `@"raw"` / `` `t` `` → **都有**一个 `ConstString` 子单元；
-  //   - `` `${1}` `` / `` `a${1}` `` / `` `${1}b` `` → 文本段**照样**各给一个
-  //     （**包括空段**：那个 `ConstString` 的值就是空串）；
-  //   - `""` / `''` / `` `` `` → **一个都没有**。
-  // 所以「一个都没有」只可能是**空串**，不是「值是一对引号」。
-  //
-  // **原来这里退到「原样切源码」**：那给出的是**带引号的原文**（`""`）——
-  // 于是空串与非空串在降级层分不开，判据报的是
-  // `unimplemented: an empty string literal is reported in quoted form`，
-  // 而 `let s = ""` 这种遍地都是的写法直接跑不起来（`parsing-gaps` 里记了几十轮）。
-  return "";
 ```
 
 # private method kindsInAst:(node:any, out:Set<string>)=>void

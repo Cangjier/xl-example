@@ -303,7 +303,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `cases:direct` | **第三个出口投不投得出来**（第 992 轮加，第 1013 / 1017 轮改口径）：`Token.PrintDirectAst` 是**唯一**的写法，所以量的是两条**绝对**的判据——① 全语料投一遍**不许抛异常**；② 固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。**第 1013 轮之前**它与 `PrintAst` 开 / 关两遍对拍，第 1013 ~ 1016 轮改量「同一份输入重投两遍逐字节相同」——**那一项第 1017 轮撤了**：两遍都在同一个进程里、问的都是同一份 `Root` 自己的子单元列表，确定性代码必然逐字节相同，**它不可能失败** |
-| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 / 1014 / 1015 / 1026 / 1027 / 1046 / 1049 / 1050 / 1053 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；**扫共享投影那一页的代码块**（第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层）另有六条：① 名字那一格不许按字符串键读（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`，第 1008 轮）；② **一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintDirectAst`——那是分发不是数据，第 1046 轮）；③ `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`；扫描游标与别人的终点照旧，第 1049 轮）；④ **按坐标从 `ctx.source` 切正文**的 = 0 处（`ctx.source.slice(startOf(x), endOf(x))` / `ctx.source.slice(startOf(x), x.end)`——这一段正文由它自己答：`x.Text` / `x.Text.slice(…)`，区间是全文坐标所以两头减 `x.start`；扫描游标与成对括号区间照旧，第 1053 轮）；⑤ `# private method …` 小节里**声明了 `ctx` 形参却在方法体里一处不用**的 = 0 处（形参表就是这一格需要什么，第 1050 轮）；⑥ 中间那一层的入口名（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）一个都不许留在规范页的代码块里（第 1027 轮）。还有一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算，第 1014 轮）；以及一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace` / `FirstCodeAfter` / `MatchBrace` / `MatchingParen`，第 1015 / 1026 轮）——出口删了之后，方法体那条判据才从「大家记得别写」变成**结构上做不到**；⑨ `print-ast-common` 的**代码块**里不许再有「回原文配对 / 找成对符号」的形态（`matchingBrace(` / `ctx.MatchingBrace(` / `indexBracketOf(` / `ctx.IndexBracketOf(` / `ctx.source.indexOf("{")` / `ctx.source.lastIndexOf("{")`，第 1059 / 1060 轮）——那两格（`bodyBraceRange` / `IndexBracketAt`）由 token 自己记好 |
+| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 / 1014 / 1015 / 1026 / 1027 / 1046 / 1049 / 1050 / 1053 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；**扫共享投影那一页的代码块**（第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层）另有六条：① 名字那一格不许按字符串键读（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`，第 1008 轮）；② **一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintDirectAst`——那是分发不是数据，第 1046 轮）；③ `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`；扫描游标与别人的终点照旧，第 1049 轮）；④ **按坐标从 `ctx.source` 切正文**的 = 0 处（`ctx.source.slice(startOf(x), endOf(x))` / `ctx.source.slice(startOf(x), x.end)`——这一段正文由它自己答：`x.Text` / `x.Text.slice(…)`，区间是全文坐标所以两头减 `x.start`；扫描游标与成对括号区间照旧，第 1053 轮）；⑤ `# private method …` 小节里**声明了 `ctx` 形参却在方法体里一处不用**的 = 0 处（形参表就是这一格需要什么，第 1050 轮）；⑥ 中间那一层的入口名（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）一个都不许留在规范页的代码块里（第 1027 轮）。还有一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算，第 1014 轮）；以及一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace` / `FirstCodeAfter` / `MatchBrace` / `MatchingParen`，第 1015 / 1026 轮）——出口删了之后，方法体那条判据才从「大家记得别写」变成**结构上做不到**；⑨ `print-ast-common` 的**代码块**里不许再有「回原文配对 / 找成对符号」的形态（`matchingBrace(` / `ctx.MatchingBrace(` / `indexBracketOf(` / `ctx.IndexBracketOf(` / `ctx.source.indexOf("{")` / `ctx.source.lastIndexOf("{")`，第 1059 / 1060 轮）——那两格（`bodyBraceRange` / `IndexBracketAt`）由 token 自己记好；⑩ `print-ast-common` 的**代码块**里不许再回**某一页的子单元**里翻字符串的正文（`stringText(` / `ctx.StringText(`，第 1061 轮）——那段正文由 `String.StringText` / `ConstString.StringText` 自己答 |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `runtime:check` / `runtime:cli` | 执行侧的机制与端到端（见「构建链路」那一节） |
@@ -346,6 +346,40 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1061 轮：「**字符串的正文**」也从投影层收进被问的那一页——`String.StringText` / `ConstString.StringText` 各答自己那一格，投影那四处改成属性读，`stringText` 这个 helper 删掉（先插桩量过：19335 次调用**全是 `String`**、`ConstString` 0 次），并钉成 `direct:lint` 第十条判据；**八道门全绿、读数一处没动**
+
+**一句话**：第 1059 / 1060 两轮收的是「成对符号的位置」，这一轮收的是**同一句话的第三种形态**
+——「**这一格的正文**」。`String` 那段正文（引号里那截）过去是投影回**这一页的子单元**里翻出来的：
+
+    stringText(v) = kidsOf(v, "children").find(k => k.Tag === "ConstString") → 读那一格的 value
+
+可这段正文**就是这一页自己的子单元攒下来的**（`ConstString` 是块单元，文本在 `Temp` 上，
+`BlockToken` 把它记成 `value`）——同一格事实的第二处答案。第 1061 轮把它收成**两页各自的属性**：
+
+- `typescript/tokens/string/string.xl.md` 新增 `## property StringText:string`：第一个
+  `ConstString` 子单元那段正文；**一个都没有 ⇒ 空串**（`""` / `''` / 空模板就是这一档）；
+- `typescript/tokens/string/const-string.xl.md` 新增 `## property StringText:string`：就是它自己
+  攒下的那段（`this.value`）——`String` 那一格取的就是它的这一格，两页各答自己那一格；
+- 投影那四处（`projectString` 两处、引用名那一处、`specifierNameOf` 一处）改成 `v.StringText`，
+  `print-ast-common` 的 `stringText` helper 删掉。
+- **量过再删**（`tmp/r1061` 的插桩，跑 `direct-ast.mjs --all` 的 2051 份语料）：
+  `stringText` 被调 **19335** 次、**每一次都是 `String`**（`ConstString` 0 次、别的标签 0 次），
+  其中 **554** 次答空串。⇒「一个都没有 ⇒ 空串」那一档必须保住（实现了）；而 `ConstString`
+  那一档语料里一次没走，它的答案从空串变成「自己那段」**不改任何一格读数**——
+  `samples` 逐字节与 `cases:tsast` 全语料都作证。
+- **为什么这不是「行为变更」**：改的是**同一格事实的读法**（过去由投影回子单元里翻，
+  现在由那一页自己答）。`samples` 逐字节比对、`cases:tsast` 逐节点比对、
+  `cases:direct` 1640 份不抛异常，读数一处没动；`coverage` 仍是 **4260 / 4422**。
+- **`direct:lint` 加第十条判据**（`STRING_TEXT_VIA_CHILD`）：`print-ast-common` 的**代码块**里
+  不许再出现 `stringText(` / `ctx.StringText(`。**自验**（`tmp/` 里的探针，不进仓库）：
+  正则单测 5 种写法（2 命中 / 3 不该命中）全对；探针把 helper 写回一处，这一门 **0 → 1 → 0**，
+  源文件逐字节还原。
+- **实测**：`xl check typescript core` 0 条；`xl build typescript core` 156 个产物 / 0 error、
+  `tsc` 干净；**八道门 8 通过、0 失败**（墙钟 32.3s），读数与基线逐项相同：
+  `coverage` **4260 / 4422**、`cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常且
+  固定样本逐格点名通过、`direct:lint` 0 条违反、`samples` 逐字节一致、`cases:check` 1656 / 1656、
+  `runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 
 ### 第 1060 轮：同一族的下一格也收了——「**下标那个 `[` 在哪**」由 `IndexedAccessType` 造出来那一刻记进自己那一格（新增 `## field IndexBracketAt:int`，构造时赋、`Clone` 照抄），投影的 `indexBracketOf`（回原文从终点往回配对方括号）与 `ctx.IndexBracketOf` 出口一并删掉，`direct:lint` 第九条扩成「成对符号」一族；**八道门全绿、读数一处没动**
 
