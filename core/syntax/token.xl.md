@@ -634,11 +634,22 @@ for (let i = 0; i < data.length; i++) {
 
 把所有子单元搬给 `target`，然后清空自己的。
 
+**三处收尾用的都是下标循环**（第 1226 轮，用户口径 1.2「提升 parse 效率」）：这一格与
+下面 `AddRange` 的遍历原来都写作 `for…of`——那种写法每一趟都要从数组上取一个**迭代器对象**
+（`Symbol.iterator` + `next()` + `{value,done}`），而这里只需要按下标走一遍。
+判据、次序、`Add` 那一支的语义（设 `Parent`、`push`、返回自己）**一个字没改**。
+实测这一族在 `typescript.d.ts` 一份上：`MoveDataTo` **890** 次（共搬 **3676** 格）、
+`AddRange` **8526** 次（共 **19764** 格）、`Add` **104302** 次、`AddAndCloseLast` **96584** 次
+（`tmp/r1226-count2.mjs`）——数量不大，所以**这一笔的墙钟读数落在噪声里**
+（`tmp/abparse.mjs`：20 对 × 每批 3 轮 mean −38.22ms、30 对 +17.99ms、空 A/B −9.87ms ⇒ 不可分辨），
+留下它的理由是「同一件事少造一个对象」这一条本身可数。
+
 ```ts
-for (const item of this.Data) {
-  target.Add(item);
+const data = this.Data;
+for (let i = 0; i < data.length; i++) {
+  target.Add(data[i]);
 }
-this.Data.length = 0;
+data.length = 0;
 ```
 
 ## method Add:<Item extends Token>(item:Item)=>Item
@@ -657,9 +668,13 @@ return item;
 
 它与单元素版参数个数相同，ts 无法靠重载区分，所以叫 `AddRange`。
 
+**整理那一趟用下标走**（第 1226 轮，同 `MoveDataTo` 那一条）：`for…of` 每趟都要造一个
+迭代器对象，而这里只需要按 `items` 的两头走一遍。`this.Data.push(...items)` 那一句没动
+（它是同一个数组方法，不经过迭代器协议）。
+
 ```ts
-for (const item of items) {
-  item.Parent = this;
+for (let i = 0; i < items.length; i++) {
+  items[i].Parent = this;
 }
 this.Data.push(...items);
 return this;
@@ -669,8 +684,18 @@ return this;
 
 加一个子单元；如果最后一个子单元还没关闭，先关掉它。
 
+**`Last()` 那一趟就地展开**（第 1226 轮，用户口径 1.2「提升 parse 效率」）：`Last()` 的
+正文（`Data` 在手上一份、按下标算位置、越界给 `null`）在这里**逐字**再走一遍——
+好处是省掉**一次方法调用**（`Last` 是公开方法，各页都可能覆写它，所以这里按基类那一份
+就地写、不假设任何覆写）。**判据与次序一个字没改**：还是「先看最后一个、它没关就关它」，
+然后照旧 `Add`。实测 `AddAndCloseLast` 在 `typescript.d.ts` 一份上 **96584** 次、
+而它触发的 `Last()` 占全场 **1280443** 次里的大部分（`tmp/r1226-count2.mjs`）。
+**如实记下**：这一笔与 `MoveDataTo` 那几笔一样，墙钟落在噪声里（见那一格的读数）。
+
 ```ts
-const last = this.Last();
+const data = this.Data;
+const position = data.length - 1;
+const last = position >= 0 && position < data.length ? data[position] : null;
 if (last !== null && !last.Closed) {
   last.TryToClose();
 }
