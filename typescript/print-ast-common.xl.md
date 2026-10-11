@@ -775,6 +775,34 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   `isChainBaseNode`）——下一轮谁把这一问写回投影层，这一门当场红。
 - **本页的声明数**：**75 → 74 格**（`IsChainBaseNode` 一格；两处调用点改成属性读）。
 
+**第 1076 轮把「我是不是一个名字」在投影层剩下的**另一种写法**也收干净了**——
+第 1057 轮把 `isNameNode(node)` 收成了 `Token.IsNameNode`（`Identifier` / `Keyword` 两页各自在
+构造时答 `true`），可同一句话还以**内联比类名**的样子留在本页 12 处——老写法是
+「`k.Tag === "Identifier"` 或 `k.Tag === "Keyword"`」，今天一律读 `k.IsNameNode`
+（示例不写进代码块：那正是这一轮要禁掉的连写形态，写进去这一门就自己红了）。
+
+- **十二处**（按代码块逐处改，注释里的引文不算）：私有名 `#x` 那一格（`named`）、
+  `import.meta` / `new.target` 那一格（`kids[0]`）、NCO 那支的成员名（`first`）、
+  `assertedMember` 的续格（`member`）、下标访问类型那一支（`head`）、平铺形参那一支
+  （`part.find(…)`）、类型位那个名字（`head`）、分段壳判据（`first`）、
+  `namedSpecifiersOf` 的 `type` 标志（`head`）、`conditionalNode` 的 `extends`（`k`）、
+  `projectExport` 的词表（`k`）、`namedExportClause` 的 `isWord`（`k`）。
+- **判据与第 1057 / 1062 / 1075 那几条一模一样**：那两半**都住在被问的那一页上**，
+  而且**构造时就定下来**——`IsNameNode` 本来就是「构造时赋好的属性」（第 1057 轮），
+  本页只是还没把它读全。所以这一轮**没有新声明、没有改口径**，只是把老的写法换成属性读。
+- **`Tag === "Keyword"` / `Tag === "Identifier"` 单独出现的不动**（本页还剩 13 处）：
+  那些问的是「是不是**那一个**类」（`as` / `new` / `abstract` / `export` / `declare` 那些格），
+  不是「是不是一个名字」——判据不同，混进这一条会**换掉行为**（`as` 在产物里是 `Identifier`、
+  `new` 在链基名那一处是 `Keyword`，各自都有它的理由）。
+- **判据跟着长**：`direct:lint` 新立第十三条——`X.Tag === "Identifier" || X.Tag === "Keyword"`
+  （两种次序）在本页代码块里必须恰好 0 处。**自验**（`tmp/r1076-probe.mjs`，不进仓库）：
+  把老写法写回一处 ⇒ 0 → 1 处、退出码 1；还原后逐字节相同。
+- **量法**：改完八道门读数**一处没动**——`coverage` **4261 / 4422**（`blocked 28` /
+  `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**74 格**（一格没增、一格没减；改的是 12 处调用点与这一节）。
+
 # private method synthName:(name:string, v:any, ctx:any)=>string
 
 ---------------------------------------------------------------------------
@@ -2955,7 +2983,7 @@ new Set([
   // `IsOperatorUnit` 那一格：它是 `Keyword` 不是 `SymbolToken`）。
   if (kids.length >= 2 && kids[0].Tag === "SymbolToken" && kids[0].TextValue === "#") {
     const named = kids[1];
-    const simple = named.Tag === "Identifier" || named.Tag === "Keyword";
+    const simple = named.IsNameNode;
     if (simple) {
       const head = {
         kind: "PrivateIdentifier",
@@ -3034,7 +3062,7 @@ new Set([
   // （实测 `ex-meta-props.ts`：缺 2 + 多出 4）。
   if (
     kids[0] !== undefined &&
-    (kids[0].Tag === "Keyword" || kids[0].Tag === "Identifier") &&
+    kids[0].IsNameNode &&
     (kids[0].TextValue === "new" || kids[0].TextValue === "import") &&
     isSymbol(kids[1], ".") &&
     kids.length >= 3
@@ -6083,7 +6111,7 @@ return false;
   const name =
     first === undefined
       ? undefined
-      : first.Tag === "Identifier" || first.Tag === "Keyword"
+      : first.IsNameNode
         ? nameOf(first)
         : projectNode(first, ctx);
   const access = {
@@ -6540,7 +6568,7 @@ return false;
         // 与 `Identifier` 各漂 2，`Identifier` 是那个 `d` 顶着 `c` 的位置）。
         // 折法与 `chainWithOptional` 子链分支末尾那句**一字不差**（名字接一格），
         // 顺序也一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
-        if (member.Tag === "Identifier" || member.Tag === "Keyword") {
+        if (member.IsNameNode) {
           if (pendingBang !== undefined) {
             left = {
               kind: "NonNullExpression",
@@ -7816,7 +7844,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `StringLiteral` **五个节点一起丢**，`TypeReference` 的区间也短一截
   //（实测 `StringLiteral` 缺 71 + `LiteralType` 缺 37 的样本全长得这个样子）。
   if (
-    (head.Tag === "Identifier" || head.Tag === "Keyword") &&
+    head.IsNameNode &&
     list.length >= 3 &&
     list[1].IsDotSymbol &&
     list[2].Tag === "IndexedAccessType"
@@ -7869,7 +7897,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
           const params = [];
           for (const part of splitTopLevel(inner, ",")) {
             if (part.length === 0) continue;
-            const nameUnit = part.find((k) => k.Tag === "Identifier" || k.Tag === "Keyword");
+            const nameUnit = part.find((k) => k.IsNameNode);
             const typeUnit = part.find((k) => k.Tag === "TypeDefine");
             const param = {
               kind: "Parameter",
@@ -7893,7 +7921,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       };
     }
   }
-  if (head.Tag === "Identifier" || head.Tag === "Keyword") {
+  if (head.IsNameNode) {
     const text = head.TextValue;
     const span = { pos: startOf(head), end: endOf(head) };
     const nameNode = { kind: "Identifier", text, pos: span.pos, end: span.end };
@@ -8380,7 +8408,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   // 结尾」——那才是分段壳（`TernaryOperatorCondition` 这种）。
   // **不能只看「答 `undefined`」**：`PropertyAccess` 的 `AstKind()` 也答 `undefined`（它自己覆写了
   // `PrintDirectAst`），只看那一格会把 `y.z` 摊成两个裸名字。
-  const leaf = first.Tag === "Identifier" || first.Tag === "Keyword" || first.Tag === "SymbolToken";
+  const leaf = first.IsNameNode || first.Tag === "SymbolToken";
   const wrapper =
     !leaf &&
     first.AstKind === undefined &&
@@ -8430,7 +8458,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     const end = endOf(ranged.length > 0 ? ranged[ranged.length - 1] : units[units.length - 1]);
     // **段首的 `type` 是标志**：`import { type B }` / `export { type D }` 的 specifier 区间含 `type`，
     // 但 `name` 只是后面那个名字。只剩一个单元的 `{ type }` 不跳（那个 `type` 就是名字）。
-    const head = (k) => (k.Tag === "Identifier" || k.Tag === "Keyword") && k.TextValue === "type";
+    const head = (k) => k.IsNameNode && k.TextValue === "type";
     const body = units.length > 1 && head(units[0]) ? units.slice(1) : units;
     if (body.length === 0) return;
     const asAt = body.findIndex(
@@ -8510,7 +8538,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   const isSymbol = (k, text) => k.Tag === "SymbolToken" && k.TextValue === text;
   const slice = kids.slice(start, end);
   const isExtends = (k) =>
-    (k.Tag === "Keyword" || k.Tag === "Identifier") && k.TextValue === "extends";
+    k.IsNameNode && k.TextValue === "extends";
   const extIndex = slice.findIndex(isExtends);
   const questionIndex = slice.findIndex((k) => isSymbol(k, "?"));
   const colonIndex = slice.findIndex((k) => isSymbol(k, ":"));
@@ -8642,7 +8670,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     if (node !== undefined) {
       const words = v.ProjectableKids.filter(
         (k) =>
-          (k.Tag === "Keyword" || k.Tag === "Identifier") &&
+          k.IsNameNode &&
           ["export", "default"].includes(k.TextValue),
       );
       const mods = words.map((word) => ({
@@ -8675,7 +8703,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     return parts[parts.length - 1];
   };
   const isWord = (k: any, text: string) =>
-    (k.Tag === "Keyword" || k.Tag === "Identifier" || k.Tag === "Export") &&
+    (k.IsNameNode || k.Tag === "Export") &&
     (k.TextValue === text || wordTail(k) === text);
   const isAssignment =
     rest.some((k) => k.Tag === "SymbolToken" && k.TextValue === "=") ||

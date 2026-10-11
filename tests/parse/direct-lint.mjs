@@ -768,6 +768,51 @@ let indexBracketClassifyHits = 0;
 }
 
 /**
+ * **「这一格是不是一个名字」也不许在投影层比类名**（第 1076 轮）。
+ *
+ * 第 1057 轮把 `isNameNode(node)` 收成了 `Token.IsNameNode`（`Identifier` / `Keyword` 两页
+ * 各自在构造时答 `true`），第 1075 轮又把 `IsChainBaseNode` 收了回去——可**同一句话的另一种
+ * 写法**一直留在投影层的代码块里：`k.Tag === "Identifier" || k.Tag === "Keyword"`。
+ * 那正是「这一页自己的类名」被投影层又抄了一遍，而且抄了十几处：改一页的类名、或让一页新的
+ * token 能当名字，都要回来改这里，两处一旦漂开只有坏输入才显形（与第 1005 轮那条
+ * 「按字符串键查」同一个形状：判的是「那个名字写的是什么」，不是「这一格是什么」）。
+ *
+ * 第 1076 轮把这 12 处全部改成读 `k.IsNameNode`，所以这一条守的是**连写形态**：
+ * `X.Tag === "Identifier" || X.Tag === "Keyword"`（两种次序都算）在 `SHARED_FILE` 的代码块里
+ * 必须恰好 0 处。`Tag === "Keyword"` / `Tag === "Identifier"` **单独**出现**不算**——
+ * 那些问的是「是不是**那一个**类」（`as` / `new` / `abstract` / `export` 那些格），不是「是不是
+ * 一个名字」，判据不同、也不该混进这一条。
+ *
+ * 口径与上面几条逐字相同：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`）。
+ */
+const NAME_CLASS_DISJUNCTION = [
+  /(\w+)\.Tag\s*===\s*"Identifier"\s*\|\|\s*\1\.Tag\s*===\s*"Keyword"/g,
+  /(\w+)\.Tag\s*===\s*"Keyword"\s*\|\|\s*\1\.Tag\s*===\s*"Identifier"/g,
+];
+/** 投影层拿类名当「是不是一个名字」判的处数（0 处才是对的）。 */
+let nameClassDisjunctionHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const re of NAME_CLASS_DISJUNCTION) {
+      for (const match of code.matchAll(re)) {
+        nameClassDisjunctionHits += 1;
+        if (nameClassDisjunctionHits <= 3) {
+          violations.push({
+            file: SHARED_FILE,
+            why:
+              `「这一格是不是一个名字」又比类名了：\`${match[0]}\`——那一格的事实住在被问的那一页` +
+              "（`Token.IsNameNode`，`Identifier` / `Keyword` 各自在构造时答好），投影只读属性",
+          });
+        }
+      }
+    }
+  }
+}
+
+/**
  * **「回原文配对 / 找成对符号」那一套不许回来**（第 1059 轮立；第 1060 轮并进方括号那一族）。
  *
  * 第 1041~1058 轮一直在收同一件事：**某一页自己知道的事实，由那一页答**。第 1059 轮收的是
@@ -935,6 +980,11 @@ console.log(
 console.log(
   `「这一格是不是下标那对方括号」又在投影层写成问句（${SHARED_FILE} 的代码块）：${indexBracketClassifyHits} 处（0 处才是对的，${INDEX_BRACKET_NAMES.join(" / ")} 只许属性读）`,
 );
+// **同一句话的另一种写法**（第 1076 轮）：`Tag === "Identifier" || Tag === "Keyword"` 是
+// 「我是不是一个名字」用类名写出来的样子——收成 `Token.IsNameNode` 之后这里恰好 0 处。
+console.log(
+  `「这一格是不是一个名字」又在投影层比类名（${SHARED_FILE} 的代码块）：${nameClassDisjunctionHits} 处（0 处才是对的，读 Token.IsNameNode）`,
+);
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的
 // 第二处答案，0 处才对（见 SOURCE_BRACE_SCAN）。
@@ -963,6 +1013,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
 );
 process.exit(0);
