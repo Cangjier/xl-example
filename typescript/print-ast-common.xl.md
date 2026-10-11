@@ -74,7 +74,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**66 格声明**（`^# …(method|const)` 逐行数出来的实测值：62 个 `# method` +
+这是一份**纯函数库**：**64 格声明**（`^# …(method|const)` 逐行数出来的实测值：60 个 `# method` +
 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
@@ -729,6 +729,35 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   0 error、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 30.0s）。
 - **本页的声明数**：**69 → 66 格**（`moduleSpecifierIn` / `moduleHolderOf` / `braceSpanOf` 各一格；
   三格的读者一个没增——`ctx` 上那三个出口第 1070 轮早就删了，留下的宿主声明只是本页的 helper）。
+
+**第 1087 轮（同一轮第二处）接着并掉两处同形状的壳**（判据、尺子与上一处逐字相同：
+**只有转手、没有独立判据的一格声明就是多一层间接**；用户口径 1.1~1.4 的另一半一样成立——
+两格要的东西（`ProjectableKids` / `TextValue` / `start` / `end`）**都已经是 token 构造完就备齐的**）：
+
+| 删掉的那一格 | 原来有几个读者 | 今天谁答 |
+| --- | --- | --- |
+| `asStatement(body, end)` | 1（`projectEach` 里「顶层标签」那一支） | 就地并进那一支（`ExpressionStatement` 那一层壳照旧只在这一支补） |
+| `projectSignedLiteralType(v, ctx)` | 1（`projectTypeExpression` 里 `LiteralType` 那一档） | 就地并进那一档（`LiteralType > [符号, 数字]` → `PrefixUnaryExpression`） |
+
+- **`asStatement` 那一格的 `end` 只有一种来法**：并进来之后写的是 `statement.end ?? 0`
+  ——与原来调用点递进去的那一格**同一个表达式**（壳体那一路从来不走它：
+  `projectStatement` 自己有语句壳，`labeled` 那一处用的是体自己的 `end`）。
+- **`projectSignedLiteralType` 的「不是这个形状」**：并进来之后是「什么都不做、照下面那条路走」
+  （原来给的是 `undefined`、调用方 `if (signed !== undefined) return signed;`）——**同一句话**。
+  它读的 `startOf(head)` 就是 `signedHead.start`、`stmtEndOf(list[0], ctx)` 原样保留。
+- **两格的判据都没有搬去 token 那一侧、理由写在并进来的注释里**：它们要的是
+  「**一串子单元凑出来的形状**」（表达式结果 + kind 后缀 / 两个子单元 + 头一个是符号），
+  不是「某一个 token 自己的事实」——按第 1041 / 1042 / 1057 那几条判据，它们属于投影这一侧，
+  只是不再单独立一格声明。
+- **一处旧账顺手改平**：`projectSignedLiteralType` 里那句「**临时标记**（第 66 轮）」的注释
+  是当年一次性探针的说明，随整格删除（并进来的那一份里留了一句交代它去哪了）。
+- **量法**：改完八道门读数**一处没动**——`coverage` **4261 / 4422**（`blocked 28` /
+  `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` **3 条已知缺口还开着**、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **实测**：`xl check typescript` **0 条**；`xl build --force`（`typescript`）**127 个产物** /
+  0 error、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 31.3s）。
+- **本页的声明数**：**66 → 64 格**（`asStatement` / `projectSignedLiteralType` 各一格）。
 
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
@@ -1771,12 +1800,35 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
         // **体必须是「语句」**（第 566 轮，与 `projectStatement` 那一支同一句）：
         // 这一路是根列表 / 段，手里没有语句壳 ⇒ 终点就取体自己的。
         //
-        // **这里也是「一个单元」的口径**（第 778 轮）：与 `projectStatement` 那一支同源，
-        // 只是这一条只在**顶层列表 / 段**上跑。上面那条「连续标签」的判据把标签吃光之后，
-        // 剩下那一格就是被标的语句——`outer: for (…)` 那种一个成形单元的写法一直是对的；
-        // 「标签 + 表达式语句」在顶层会先被语句规则收进一个 `Statement` 壳，
-        // 所以真正走这里的是**被别的容器收好的**那一档（见 `Statement` 壳那一支的说明）。
-        let wrapped = asStatement(statement, statement.end ?? 0);
+        // **这一格第 1087 轮就地展开**（原来是本页那一格 `asStatement`，全仓只有这一个读者；
+        // 判据与第 1043 / 1044 / 1070 / 1080 轮并掉那些「一格声明、一个调用点」的转发同一把尺子）：
+        // TS 的 `LabeledStatement.statement` 是 `Statement` —— 体是**表达式**时
+        // （`done: f()`）那边是 `ExpressionStatement > 表达式`，而产物给的是「裸表达式」
+        // ⇒ 少一整层壳（实测 `stmt-label-statement` / `am-object-vs-block` /
+        // `stmt-object-vs-block` 三份各缺一个 `ExpressionStatement`）。
+        // **判据是 kind 的后缀**、不是「那一格自己答的那一句」：`IsStatementNode`（第 1039 轮）
+        // 是「**单个子单元**是它时不再套壳」的名单，它漏了 `ExpressionStatement` 自己、
+        // `ForInStatement`、`WithStatement` 这些（`projectStatement` 那一支只在
+        // `kids.length === 1` 时才用它，而这里的体是**投影结果**，范围大得多）。
+        // TS 那边「本来就是语句」的 kind 只有三类：`*Statement` / `*Declaration` /
+        // 以及 `Block` / `ModuleBlock`——表达式 kind 一个都不沾，所以后缀判据不会误判。
+        // **终点取体自己的**（根列表这一路没有语句壳）。
+        let wrapped = statement;
+        const bodyKind = wrapped.kind;
+        if (
+          typeof bodyKind === "string" &&
+          bodyKind !== "Block" &&
+          bodyKind !== "ModuleBlock" &&
+          !bodyKind.endsWith("Statement") &&
+          !bodyKind.endsWith("Declaration")
+        ) {
+          wrapped = {
+            kind: "ExpressionStatement",
+            expression: wrapped,
+            pos: wrapped.pos,
+            end: statement.end ?? 0,
+          };
+        }
         for (let k = labels.length - 1; k >= 0; k--) {
           wrapped = labeled(labels[k], wrapped);
         }
@@ -1930,44 +1982,21 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   return out;
 ```
 
-# private method asStatement:(body:any, end:int)=>any
-
-**标签右边那一格必须是「语句」**（第 566 轮）：TS 的 `LabeledStatement.statement` 是
-`Statement` —— 体是**表达式**时（`done: f()`、`{ a: 1 }` 里的 `a: 1`）那边是
-`ExpressionStatement > 表达式`，而产物给的是「`Label` 平级兄弟 + 裸表达式」
-⇒ 少一整层壳（实测三份用例各缺一个 `ExpressionStatement`：
-`stmt-label-statement`、`am-object-vs-block`、`stmt-object-vs-block`）。
-
-**判据是 kind 的后缀** 而不是「那一格自己答的那一句」：`IsStatementNode()`（第 1039 轮）
-是「**单个子单元**是它时不再套壳」的名单，它漏了 `ExpressionStatement` 自己、
-`ForInStatement`、`WithStatement` 这些
-（`projectStatement` 那一支只在「`kids.length === 1`」时才用它，这里的体是**投影结果**，
-范围大得多）。TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declaration`、
+（**`asStatement` 这一格第 1087 轮删掉了**：它全仓只有 `projectEach` 里「顶层标签」那一支一个读者，
+所以连同这一节一起并进了那个唯一的调用点——判据与第 1043 / 1044 / 1070 / 1080 轮那把尺子
+（**只有转手、没有独立判据的一格声明就是多一层间接**）逐字相同。它原来答的那一句没有变：
+**标签右边那一格必须是「语句」**（第 566 轮）——TS 的 `LabeledStatement.statement` 是 `Statement`，
+体是**表达式**时（`done: f()`、`{ a: 1 }` 里的 `a: 1`）那边是 `ExpressionStatement > 表达式`，
+而产物给的是「`Label` 平级兄弟 + 裸表达式」⇒ 少一整层壳（实测三份用例各缺一个
+`ExpressionStatement`：`stmt-label-statement`、`am-object-vs-block`、`stmt-object-vs-block`）。
+**判据是 kind 的后缀**：`IsStatementNode`（第 1039 轮）是「**单个子单元**是它时不再套壳」的名单，
+它漏了 `ExpressionStatement` 自己、`ForInStatement`、`WithStatement` 这些（`projectStatement`
+那一支只在「`kids.length === 1`」时才用它，而那里的体是**投影结果**，范围大得多）。
+TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declaration`、
 以及 `Block` / `ModuleBlock` —— 表达式 kind 一个都不沾这三类，所以后缀判据不会误判。
-
-**`end` 由调用方给**：壳体那一路（`projectStatement`）给的是
-`max(壳的投影终点, 体的终点)` 再吃一个尾分号 —— `done: f();` 的
-`ExpressionStatement` 在 TS 那边**含那个 `;`**；根列表那一路（`projectEach`）没有壳，
-就从体自己的终点算。
-
-```ts
-  if (body === undefined || body === null) {
-    return body;
-  }
-  const kind = body.kind;
-  if (typeof kind !== "string") {
-    return body;
-  }
-  if (
-    kind === "Block" ||
-    kind === "ModuleBlock" ||
-    kind.endsWith("Statement") ||
-    kind.endsWith("Declaration")
-  ) {
-    return body;
-  }
-  return { kind: "ExpressionStatement", expression: body, pos: body.pos, end };
-```
+**`end` 由调用点给**：壳体那一路（`projectStatement`）不在这一格里——它自己就带着语句壳，
+走的是另一条路（`labeled` 那一处用的是体自己的 `end`）；根列表这一路（`projectEach`）
+没有壳，就从体自己的终点算，也就是并进来那一句 `statement.end ?? 0`。）
 
 # private method labeled:(labelUnit:any, statement:any)=>any
 
@@ -7625,41 +7654,17 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 `modifierSpansOf` **留着**：`addModifiers` 要的是**每个**修饰词各自的位置（不是首尾两格里的一个），
 而那一格事实（`ModifierSpans`）是各页自己声明的字段——要拆成一串区间仍得有一处解析。
 
-# private method projectSignedLiteralType:(v:any, ctx:any)=>any
-
-`LiteralType > [加号/减号, 数字]` → `LiteralType > PrefixUnaryExpression`；不是这个形状给 `undefined`
-（调用方照原来那条路走）。
-
-TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: MinusToken, operand: NumericLiteral }`），
-而不是「一个减号 + 一个数字」两个平级节点——所以那个 `-` 必须进 `operator` 字段、不进 `children`。
-
-```ts
-  const kids = v.ProjectableKids;
-  if (kids.length !== 2) return undefined;
-  const head = kids[0];
-  if (head.Tag !== "SymbolToken") return undefined;
-  const op = head.TextValue;
-  if (op !== "-" && op !== "+") return undefined;
-  const operand = projectNode(kids[1], ctx);
-  if (operand === undefined) return undefined;
-  return {
-    kind: "LiteralType",
-    literal: {
-      kind: "PrefixUnaryExpression",
-      // **临时标记**（第 66 轮）：用来证明「值位那个节点到底是不是这里造的」。
-      // 探针里出现它就说明是这里；不出现就说明还有第三处。查完删掉。
-      // **`operator` 放运算符文本**（不是 `tokenKind(op)` 那种名字）：**类型位与值位共用这一处**
-      // （`type X = -1` 与 `let y = -1` 的产物同形），而降级层要按文本分派。
-      // 对拍尺子只比**字段名**、不比值，所以两种写法尺子都认——文本更有用。
-      operator: op,
-      operand,
-      pos: startOf(head),
-      end: operand.end,
-    },
-    pos: v.start,
-    end: stmtEndOf(v, ctx),
-  };
-```
+（**`projectSignedLiteralType` 这一格第 1087 轮删掉了**：它全仓只有 `projectTypeExpression`
+里那一处读者，而且只是「这一格是不是 `LiteralType` + 两个子单元 + 头一个是 `+` / `-`」
+——判据与第 1043 / 1044 / 1070 / 1080 轮那把尺子（**只有转手、没有独立判据的一格声明
+就是多一层间接**）逐字相同，所以整段并进了那个唯一的调用点。它原来答的那一句没变：
+`LiteralType > [加号/减号, 数字]` → `LiteralType > PrefixUnaryExpression`；不是这个形状就照
+原来那条路走（并进来之后是「什么都不做」，原来给的是 `undefined`）。
+**为什么它属于投影这一侧**：这一格要的不是「某一个 token 自己的事实」，而是
+**一串子单元凑出来的形状**（两个单元、头一个是符号、正文是 `+` / `-`）——按这一族的判据
+（第 1041 / 1042 / 1057 那几条）它落在**投影**这一侧，只是不再单独立一格声明。
+它读的都是那一格自己已经备齐的东西：`ProjectableKids`（第 1066 轮）、
+`SymbolToken.TextValue`（第 1069 轮）、`start` / `end` / `stmtEndOf`——**没有一处回原文猜**。）
 
 # private method nameOf:(node:any)=>string
 
@@ -7808,9 +7813,38 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // **一个** `PrefixUnaryExpression`（`operator` 是 `MinusToken`、`operand` 是数字）。
   // 不折这一层的话 `-` 会投成一个孤立的 `MinusToken`、`PrefixUnaryExpression` 整类缺
   // （实测 `typescript.d.ts` 的 `pos: -1;` / `end: -1;`）。
+  //
+  // **这一格第 1087 轮就地展开**（原来是本页那一格 `projectSignedLiteralType`，全仓只有这一个
+  // 读者；判据与第 1043 / 1044 / 1070 / 1080 轮并掉那些「一格声明、一个调用点」的转发同一把尺子）：
+  // 不是这个形状就不动（原来给 `undefined`、调用方照下面那条路走 ⇒ 现在直接什么都不做）。
   if (list.length === 1 && list[0].Tag === "LiteralType") {
-    const signed = projectSignedLiteralType((list[0]), ctx);
-    if (signed !== undefined) return signed;
+    const signedKids = list[0].ProjectableKids;
+    const signedHead = signedKids[0];
+    if (signedKids.length === 2 && signedHead !== undefined && signedHead.Tag === "SymbolToken") {
+      const signedOp = signedHead.TextValue;
+      if (signedOp === "-" || signedOp === "+") {
+        const operand = projectNode(signedKids[1], ctx);
+        if (operand !== undefined) {
+          return {
+            kind: "LiteralType",
+            literal: {
+              kind: "PrefixUnaryExpression",
+              // **`operator` 放运算符文本**（不是 `tokenKind(op)` 那种名字）：**类型位与值位共用
+              // 这一处**（`type X = -1` 与 `let y = -1` 的产物同形），而降级层要按文本分派。
+              // 对拍尺子只比**字段名**、不比值，所以两种写法尺子都认——文本更有用。
+              // （原处第 66 轮那个「临时标记」注释随 `projectSignedLiteralType` 整格删除
+              // ——它当时是用来证明「值位那个节点到底是不是这里造的」的一次性探针说明。）
+              operator: signedOp,
+              operand,
+              pos: startOf(signedHead),
+              end: operand.end,
+            },
+            pos: list[0].start,
+            end: stmtEndOf(list[0], ctx),
+          };
+        }
+      }
+    }
   }
   // **点号名已经折成一个 `PropertyAccess` 单元**（第 128 轮）：类型位的限定名
   // （`NodeJS.ArrayBufferView`）本该是 `TypeReference > QualifiedName`，可链一旦在
