@@ -476,8 +476,17 @@ let projectedBodyCount = 0;
  * （`(node) => node.IsIndexBracket`），当时留着是因为 `json/object-literal` 那一页在用它；
  * 第 1089 轮把那一处（唯一一个真实读者）改成读同名的属性读，于是这个出口**零真实读者**
  * ——出口删了就补进这张表，免得下一轮有人往 `ctx` 里补一行再把问句请回来。
+ *
+ * **第 1186 轮再补一个出口名 `source`**：它是「投影手上那份原文」的最后一格，第 1185 轮
+ * 把投影层最后一处 `ctx.source` 读点（`ownsTrailingSemicolonOf` 的末字符那一问）也收进
+ * 被问的那一格之后，通用支与 helper 那一层**一个读者都没有**了 —— 于是它从
+ * `PrintAstCtx` 与 `ctx` 的键表里一起撤掉，并按同一条规矩进这张表。
+ * **注意它与上面那些名字不是同一类**：那九个是「回原文兜底的助手」，`source` 是
+ * **原文本身**——删掉它之后，`ctx.source` 那条判据（`FORBIDDEN` 第一条）守的才是
+ * 「结构上拿不到」，而不是「大家记得别用」。
  */
 const CTX_BANNED = [
+  "source",
   "Text",
   "TextOf",
   "StringText",

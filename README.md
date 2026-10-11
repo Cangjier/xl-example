@@ -438,6 +438,38 @@ token 的区间里，就读**那一格自己的 `Text`**（`[start, end)` 那一
 `cases:direct` **21793 / 16489（75.7%）不动**；`samples` ok；`cases:check` **1656 条 0 不合格**；
 `cases:tsast` **15 / 16**。
 
+### 第 1186 轮：用户口径 1.3 / 1.6 —— `ctx.source` **从投影层撤掉**（`PrintAstCtx` 的键表 + `ctx` 的键表两处一起删，并补进 `direct:lint` 的 `CTX_BANNED`）：「投影拿不到原文」从**自觉**变成**结构上做不到**
+
+**一句话**：第 1185 轮把投影层最后一处 `ctx.source` 读点收进被问的那一格之后，这一层
+**一个读者都没有**了——按第 1015 轮起那条规矩（「出口只减不增，每删一个就补进
+`direct:lint` 的 `CTX_BANNED`」）把它从两张键表上撤掉：
+
+| 删掉的那一格 | 在哪 | 为什么现在能删 |
+| --- | --- | --- |
+| `source`（`ctx` 的键表里一行 shorthand） | `typescript/print-ast-common.xl.md` 的 `const ctx:PrintAstCtx = { … }` | 投影层 `ctx.source` 读点第 1185 轮起 **0 处**；文件长度那两处（`EndOfFileToken` 的 `pos` / `end`）读的是 `projectRoot` 自己的形参，不经过 `ctx` |
+| `source: string`（`PrintAstCtx` 的第一格） | `core/syntax/token.xl.md` 的 `# type PrintAstCtx = { … }` | 同上；**75 段** `PrintAst` 的方法体判据（`FORBIDDEN` 第一条 `ctx\.source\b`）本来就是 0 处 |
+| `"source"` | `tests/parse/direct-lint.mjs` 的 `CTX_BANNED` | 出口删了就补进这张表——删掉之后 `ctx.source` 那条判据守的才是「结构上拿不到」，而不是「大家记得别用」 |
+
+- **与那一串老名字不是同一类**：`CTX_BANNED` 里原来的九个是「**回原文兜底的助手**」
+  （`Text` / `TextOf` / `StringText` / …），`source` 是**原文本身**。助手删了，原文还在手上；
+  原文也删了，这一层就**没有第二份来源**可用——`core/syntax/token.xl.md` 里那句
+  「`ctx.source` 是唯一留下的那一格原文，通用支与 helper 那一层还要用它」这一轮改写成
+  它的现状（那一段是唯一一处需要改口径的散文）。
+- **读数的口径要说清**：`direct:lint` 印的「ctx 出口 **39** 个」两个方向都没动——因为
+  `source` 原来是**shorthand**（`source,`，没有冒号），而那一门数键的正则要求 `键:`，
+  所以它**从来没被数进那 39 里**。这一轮真正的读数变化是**那两条 `ctx.source` 判据的对象没了**：
+  出口表里没有这个名字，`CTX_BANNED` 里多一条，命中 **0 处**。
+- **本页的读数**：`print-ast-common` 代码块（不带注释）**3864 → 3863** 行（删掉的是那一行
+  shorthand，加的全是说明），文件总行数 **10578 → 10582** 行、声明 **54 格**不变、
+  ctx 出口 **39 个**不变；`core/syntax/token.xl.md` **3634 → 3636** 行（改写一段散文、
+  删掉类型里那一段）。
+
+**实测**：`xl check` 2 页 **0 条**；`npx tsc`（strict）**0 error**（`PrintAstCtx` 少一格之后
+68 个 import 它的页面一处都不用改）；`direct:lint` **0 条违反**；`cases:direct`
+**21793 / 16489**（75.7%）不动；`cases:direct --all` 2051 份 **0 处抛异常**；
+`samples` ok；`cases:check` **1656 条 0 不合格**；`cases:tsast` 16 片 **15 通过 / 1 失败**
+（仍是 HEAD 上既有的 `runtime/round741/002`）。
+
 ### 第 1185 轮：用户口径 1.3 / 1.6 / 1.7 —— 投影层**最后一处** `ctx.source` 读点收进被问的那一格（`ownsTrailingSemicolonOf` 的末字符那一问改成读「覆盖那个字符的 token」自己的 `Text`），代码块里 `ctx.source` 读点 **1 → 0**；代价如实记下：本页代码块 **3850 → 3864** 行（1.7 上的一次退让）
 
 **一句话**：第 1181 轮登记的第一个缺口（「投影层还有 10 处按坐标回 `ctx.source` 读」）里，

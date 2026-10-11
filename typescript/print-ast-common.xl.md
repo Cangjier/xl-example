@@ -10017,8 +10017,12 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 （`cases:tsast` 的退出码已经把它算进去了）。
 
 ```ts
+  // **`source` 这一格第 1186 轮从 `ctx` 上撤掉了**（用户口径 1.3 / 1.6）：投影层最后一处
+  // `ctx.source` 读点第 1185 轮收进被问的那一格之后，这一层**一个读者都没有**——按第 1015 轮起
+  // 那条规矩（「出口只减不增，每删一个就补进 `direct:lint` 的 `CTX_BANNED`」）把它从表上撤掉，
+  // 于是「投影这一层拿不到原文」从**自觉**变成**结构上做不到**。文件长度那两处
+  // （`EndOfFileToken` 的 `pos` / `end`）读的是 `projectRoot` 自己的形参，不经过 `ctx`。
   const ctx:PrintAstCtx = {
-    source,
     unmapped: new Set(),
     count: 0,
     // **这一趟由 token 自己出的节点数**（第 992 轮；第 1013 轮起这一问是唯一的一条路）：
