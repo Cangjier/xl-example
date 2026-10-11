@@ -347,6 +347,31 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1121 轮：`ctx.HeadDeclare` 里最后两个现场闭包也收进被问的那几页——`isDeclareWord` → `Token.IsDeclareWord`（`Keyword` 在 `SetValue`、`Identifier` 在 `Close` 各写自己认得的词）、`isPatternKid` → `Token.IsPatternKid`（`Bracket` 按 `startBracket`、两个模式类常量答 `true`）；**八道门 7 通过、读数一处没动**
+
+**一句话**：`for (const v of xs)` 那一格（`ctx.HeadDeclare`）里有两行局部判据一直把
+**几个词 / 几个括号属性**连比一遍，而**两半事实都在被问的那一页上**（词在哪一态、
+括号是哪一态）——按用户口径 1.1 ~ 1.4（投影要的信息由具体 token 子类**显式声明**、
+在**构造 / 记下正文那一刻**赋好，读时备齐）各自收成一格属性。
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `isDeclareWord(k)`（1 格局部闭包、2 处读者：找「名字那一格」与「列表的起点」各滤一遍）——`const text = k.TextValue; return text === "const" \|\| "let" \|\| "var" \|\| "using";` | `k.IsDeclareWord` | 基类 `Token` 给默认 `false`；`Keyword` 在 `SetValue` 认 keyword 那一态的三个词、`Identifier` 在 `Close` 认 `using`（它不是本工程的关键字，多半停在 `Identifier` 上）——与 `IsAsKeyword` / `IsExportKeyword` 同形 |
+| `isPatternKid(k)`（1 格局部闭包、2 处读者）——`k.IsBindingPattern \|\| k.IsIndexBracket \|\| k.IsBraceBracket` | `k.IsPatternKid` | 基类默认 `false`；`ArrayLiteral` / `ObjectLiteral` 显式声明 `true`；`Bracket` 在 `Use` 记下 `startBracket` 那一刻赋好（克隆体抄同一格） |
+
+- **为什么第二问不能读 `IsBindingPattern`**：那一格问的是「我**这一类**是不是绑定模式」，
+  可 `for (const [a] of xs)` 里那个 `[` 还**没有**被收成 `ArrayLiteral`（第 533 轮那条规则
+  只在有空括号对时才收）——它是 `Bracket`，答的是「我是哪一态括号」。合成一格
+  `IsPatternKid`，两页各按自己的事实答，投影层因此少一个**把三格拼起来**的现场判据。
+- **`flags` 那一处没动**：`headText === "const" ? "Const" : …` 问的是那个声明词的**正文**
+  （三态里挑一个），与 `IsDeclareWord` 不是同一问。
+- **判据这一轮没长**（与第 1118 ~ 1120 轮同一条理由）：这一族都在 `TextValue` / 局部名字上，
+  `direct:lint` 那几条门只认 `Tag`。
+- **实测**：`xl check typescript core` 156 文件 / 0 条；`xl build` 156 产物 / 0 error、
+  `npx tsc` 干净；八道门 **7 通过 / 1 失败**，读数与第 1106 ~ 1120 轮逐项相同
+  （`coverage` 4260 / 4422、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%，
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+
 ### 第 1067 轮：`ProjectableKids` 立起来之后，把「顺手拿完整子单元表遍历一遍」的最后一批评干净——`addDecorators` / `projectRoot` 的透传支 / `moduleSpecifierIn` / `moduleHolderOf` 改成那一格读数，`ctx.AllKids` 出口随之删掉（三处调用点改用同一格读数的别名 `ctx.Kids`）并补进 `CTX_BANNED`；**八道门全绿、读数一处没动**
 
 **一句话**：第 1066 轮立起 `Token.ProjectableKids`（「哪些子单元进投影」），这一轮把

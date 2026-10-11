@@ -321,6 +321,12 @@ return result;
 `ArrayLiteral.IsBindingPattern` 一字不差：**类名就是这一格事实**，
 所以本页构造时答 `true`，投影只读属性。
 
+## field IsPatternKid:bool = true
+
+**我这一格能不能当「声明段里那一格模式」**（第 1121 轮）：与 `ArrayLiteral.IsPatternKid`
+一字不差——解构声明的左边（`for (const { a } of o)`）就是它；这一格与 `IsBindingPattern`
+不是同一问，口径见 `../../../core/syntax/token.xl.md` 的 `IsPatternKid`。
+
 ## field AstKind:string | undefined = "ObjectLiteralExpression"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），

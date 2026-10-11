@@ -378,7 +378,41 @@ import { Identifier } from "./tokens/identifier.xl.md"
   （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着
   （八项全 0）、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
   `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79
-  （唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+  （唯一那条「倒退」仍是 HEAD 上既有的 `runtime/741002`）。
+
+**第 1121 轮把 `ctx.HeadDeclare` 里剩下那两个现场闭包也收进被问的那几页**
+（用户口径 1.1 ~ 1.4：投影要的信息由**具体 token 子类**在自己那一页**显式声明**、
+在**构造 / 记下正文那一刻**赋好，读的时候备齐）——它们各是一行里把几个词 / 几个括号属性
+连比一遍的**局部判据**，而**两半事实都在被问的那一页上**（词在哪一态、括号是哪一态）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `isDeclareWord(k)`（**1 格局部闭包、2 处读者**：`ctx.HeadDeclare` 找「名字那一格」与「列表的起点」那两趟都拿它滤一遍）——`const text = k.TextValue; return text === "const" \|\| text === "let" \|\| text === "var" \|\| text === "using";` | `k.IsDeclareWord` | 基类 `Token` 给 `## field … = false`；`Keyword` 在 `SetValue` 里认 keyword 那一态的三个词（`const` / `let` / `var`）、`Identifier` 在 `Close` 里认 `using`（**不是本工程的关键字，多半就停在 `Identifier` 上**）——与 `IsAsKeyword` / `IsTypeKeyword` / `IsExportKeyword` 同一形态、同一条口径 |
+| `isPatternKid(k)`（**1 格局部闭包、2 处读者**：同一格函数里选名字那一趟与分派 `nameOf` / `projectBindingPattern` 那一趟）——`k.IsBindingPattern \|\| k.IsIndexBracket \|\| k.IsBraceBracket` | `k.IsPatternKid` | 基类 `Token` 给 `## field … = false`；`ArrayLiteral` / `ObjectLiteral` **显式声明** `## field … = true`（类名就是这一格事实，与同页 `IsBindingPattern` 同款）；`Bracket` 在 `Use` 记下 `startBracket` 那一刻赋好（`this.IsIndexBracket \|\| this.IsBraceBracket`，克隆体在 `Clone` 里抄同一格） |
+
+- **为什么第二问不能读 `IsBindingPattern`**：那一格（第 1074 轮）问的是「我**这一类**
+  是不是绑定模式」，可 `for (const [a] of xs)` 里那个 `[` 还**没有**被收成 `ArrayLiteral`
+  （第 533 轮那条规则只在有空括号对时才收）——它是 `Bracket`，那一页答的是
+  「我是哪一态括号」。把两句合成一格 `IsPatternKid`，**两页各自按自己的事实答**，
+  投影层因此少一个把三格拼起来的现场判据（拼法本身就是第二处声明）。
+- **`flags` 那一格一处没动**：`headText === "const" ? "Const" : headText === "var" ? "None" : "Let"`
+  问的是**那个声明词的正文是什么**（`VariableDeclarationList.flags` 三态），
+  与 `IsDeclareWord` 不是同一问——它是「这一格的正文」的第三态读数，
+  同页 `TextValue` 那一族（按调用方给的参数比）留着，本轮按那条分界不动。
+- **判据这一轮照旧没长**（与第 1118 ~ 1120 三轮同一条理由）：这一族都在 `TextValue` /
+  局部名字上，`direct:lint` 那几条门只认 `Tag`。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：删掉的是两格**函数体内的**局部闭包，
+  不在 `# method` / `# const` 的账上；新立的两格属性在基类与 `Keyword` / `Identifier` /
+  `Bracket` / `ArrayLiteral` / `ObjectLiteral` 五页）。本页 10601 行
+  （代码块 7794 行，其中不带注释的 4685 行）。
+- **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build typescript core`
+  **156 个产物 / 0 error**、`npx tsc` 干净；**八道门 7 通过、1 失败**，读数与第 1106 ~ 1120 轮
+  逐项相同：`coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79（唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+  这一轮动的文件共 7 个（本页 + `core/syntax/token.xl.md` + `Keyword` / `Identifier` /
+  `Bracket` / `ArrayLiteral` / `ObjectLiteral` 五页）。
 
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
@@ -10227,35 +10261,36 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // **名字那一格从后往前找**：`const` / `let` / `var` / `using` 与 `await` 都可能还是
       // `Identifier`（关键字升级在本单元的那一趟里跑，投影这一趟是**之后**的事）——
       // 从前往后找会把那个词当成名字。
-      // **「我这一格是不是绑定模式」第 1074 轮改由被问的那一页自己答**（`k.IsBindingPattern`）。
-      // `Bracket` 那半**原样保留**：`for (const [a] of xs)` 里那个 `[` 还**没有**被收成
-      // `ArrayLiteral`（第 533 轮那条规则只在有空括号对时收），所以它仍是括号单元，
-      // 判据落在它自己的 `startBracket` 上；基类的 `IsBindingPattern` 默认 `false`。
-      const isPatternKid = (k: any) =>
-        k.IsBindingPattern === true ||
-        ((k.IsIndexBracket || k.IsBraceBracket));
-      // **声明词也是「这一格自己的正文是什么」**（与 `IsOperatorUnit` 那一族同一条口径），
-      // 但它的读者只有这一格、而且读的正是这里刚收下的那几格单元，所以留在原处。
-      const isDeclareWord = (k: any) => {
-        const text = k.TextValue;
-        return text === "const" || text === "let" || text === "var" || text === "using";
-      };
+      // **两格判据第 1121 轮都收进被问的那一页**（用户口径 1.1~1.4：投影要的信息由具体
+      // token 子类在自己那一页显式声明、在构造 / 记下正文那一刻赋好，读时备齐）：
+      // ① 「我这一格是不是绑定模式」第 1074 轮起就是 `k.IsBindingPattern`（`ArrayLiteral` /
+      // `ObjectLiteral` 各自显式声明 `true`）；② 「声明段里那一格模式」这一问**不是**它——
+      // 它还要认 `for (const [a] of xs)` 里那个**还没被收成 `ArrayLiteral`** 的 `[`
+      //（第 533 轮那条规则只在有空括号对时才收），于是原先那个现场闭包 `isPatternKid`
+      //（`IsBindingPattern` 加三个括号属性连比）整个收成一格属性 `k.IsPatternKid`
+      //（基类默认 `false`、四页各自显式声明：`Bracket` 按自己的 `startBracket`、
+      // 两个模式类常量答 `true`）。
       let nameKid = undefined;
       for (let at = inner.length - 1; at >= 0; at--) {
         const one = inner[at];
-        if ((one.IsNameNode || isPatternKid(one)) && !isDeclareWord(one)) {
+        if ((one.IsNameNode || one.IsPatternKid) && one.IsDeclareWord === false) {
           nameKid = one;
           break;
         }
       }
       if (nameKid === undefined) return undefined;
-      const declared = isPatternKid(nameKid) ? projectBindingPattern(nameKid, ctx) : nameOf(nameKid);
+      const declared = nameKid.IsPatternKid ? projectBindingPattern(nameKid, ctx) : nameOf(nameKid);
       // **列表的起点是那个声明词**、不是段里的第一格：`for await (const v of xs)` 的段里
       // `await` 排在 `const` 前面（TS 那边它是 `ForOfStatement.awaitModifier`、
       // 不是列表的一部分）——**所以这个声明词要从后往前找**（第 546 轮）。
+      // **「哪几个词是声明词」第 1121 轮也收进被问的那一页**：原先那个现场闭包
+      // `isDeclareWord`（一行里把 `const` / `let` / `var` / `using` 四个词连比一遍）
+      // 收成一格属性 `k.IsDeclareWord`（`Keyword` 认 keyword 那一态的三个词、
+      // `Identifier` 认 `using`，都在记下正文那一刻赋好）——「四个词里哪一个进了产物、
+      // 停在哪一态」只有那两页知道，投影层不再替它们记第二遍。
       let declareKid = undefined;
       for (let at = inner.length - 1; at >= 0; at--) {
-        if (isDeclareWord(inner[at])) {
+        if (inner[at].IsDeclareWord) {
           declareKid = inner[at];
           break;
         }

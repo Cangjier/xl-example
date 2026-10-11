@@ -185,6 +185,9 @@ this.EndsOnBrace = this.startBracket === "{";
 this.IsIndexBracket = this.startBracket === "[";
 this.IsParenBracket = this.startBracket === "(";
 this.IsBraceBracket = this.startBracket === "{";
+// **第 1121 轮 `IsPatternKid` 也并进这一趟**：声明段里那个还没被收成 `ArrayLiteral` /
+// `ObjectLiteral` 的模式括号就是 `[` / `{` 两态——同一格事实（`startBracket`）的第四个面。
+this.IsPatternKid = this.IsIndexBracket || this.IsBraceBracket;
 this.WrapperField = this.startBracket === "{" ? undefined : null;
 return this;
 ```
@@ -304,9 +307,9 @@ return `<${name} range="${this.RangeOf()}" startBracket="${this.startBracket}" e
 顺序是：`Sign(this)` → 抄两个括号字符 → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`。注意 `Sign` 之后才抄字符，且抄的是**字段**而不是 `Use`，所以克隆体不会重跑 `Use` 里的 `CloseRuleQueue` 赋值；批量加入用 `AddRange`。
 
 **派生属性也要抄**（第 1042 轮 `EndsOnBrace`、第 1045 轮 `WrapperField`、第 1058 轮
-`IsIndexBracket`、第 1089 轮 `IsParenBracket` / `IsBraceBracket`）：克隆体不走 `Use`，
-所以「我是不是裸块」「我是不是包装」「我是哪一态括号」那几格按 `this` 的值原样抄过去
-——`startBracket` 与它们同源，六格一起抄就不会漂。
+`IsIndexBracket`、第 1089 轮 `IsParenBracket` / `IsBraceBracket`、第 1121 轮 `IsPatternKid`）：
+克隆体不走 `Use`，所以「我是不是裸块」「我是不是包装」「我是哪一态括号」「我能不能当声明段
+那一格模式」那几格按 `this` 的值原样抄过去——`startBracket` 与它们同源，七格一起抄就不会漂。
 
 ```ts
 const result = new Bracket(this.Template);
@@ -317,6 +320,7 @@ result.EndsOnBrace = this.EndsOnBrace;
 result.IsIndexBracket = this.IsIndexBracket;
 result.IsParenBracket = this.IsParenBracket;
 result.IsBraceBracket = this.IsBraceBracket;
+result.IsPatternKid = this.IsPatternKid;
 result.WrapperField = this.WrapperField;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
@@ -365,6 +369,18 @@ return result;
 那一格答「我这一格的内容是不是收在一对花括号里」（基类字段、本页按 `startBracket` 覆盖），
 这一格答「我这一格是不是那对花括号本身」——**问句的收件人不同**，所以不能互相顶替
 （判据同上一条：`EndsOnBrace` 在别的页上也是 `true`）。
+
+## field IsPatternKid:bool = false
+
+**我这一格能不能当「声明段里那一格模式」**（第 1121 轮）：本页只有 `[` **与 `{`** 两态答
+`true`——`for (const [a] of xs)` 里那个 `[` 还**没有**被收成 `ArrayLiteral`（第 533 轮那条
+规则只在有空括号对时才收），`for (const { a } of xs)` 同形，而 `(` 那一态只能是分组 / 形参表。
+
+判据过去在投影层（`ctx.HeadDeclare` 里的现场闭包 `isPatternKid`：`IsBindingPattern` 加上
+本页三个括号属性连比），而这一半问的正是**本页自己的 `startBracket`**——所以由本页记。
+与同页 `IsIndexBracket` / `IsParenBracket` / `IsBraceBracket` **不是同一问**：那三格答
+「我是哪一态括号」，这一格答「声明段里能不能把我当模式接下去」。克隆体在 `Clone` 里抄同一格
+（与那三格同一手法）。
 
 ## field EndsOnBrace:bool = false
 

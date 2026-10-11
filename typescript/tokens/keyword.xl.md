@@ -177,6 +177,13 @@ return Keyword.UpgradeAt(units, index);
 （投影层类型谓词 `x is T` / `asserts x is T` 那一支要的就是它；`is` 不是本工程的
 关键字、多数时候停在 `Identifier` 上，所以两页各写自己认得的词）。
 
+## field IsDeclareWord:bool = false
+
+**我这一格的正文是不是一个声明词**（第 1121 轮）：同上一格，同一趟赋好——本页认
+`const` / `let` / `var` 三个（`using` 不是本工程的关键字，由 `Identifier` 那一页认），
+投影层 `ctx.HeadDeclare` 认出「名字那一格」与「列表的起点」要的就是它。
+口径与理由见 `../core/syntax/token.xl.md` 的 `IsDeclareWord`。
+
 ## static method IsUpgradable:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `Identifier` 的内容是不是关键字。
@@ -386,7 +393,8 @@ super(template);
 `IsStatementNode` / `IsOperatorUnit` / `OperatorWordKind` / `IsPrefixOperatorUnit` /
 `IsTypeParameterModifier` / `IsNewKeyword` / `IsAsyncKeyword` / `IsAbstractKeyword` /
 `IsImportKeyword` / `IsAsKeyword` / `IsWithKeyword` / `IsExportKeyword` / `IsDefaultKeyword` /
-`IsExtendsKeyword` 都是它的函数（前四格查本页那两张词汇表，后十三格比正文里的那几个词）
+`IsExtendsKeyword` / `IsTypeKeyword` / `IsIsKeyword` / `IsDeclareWord` 都是它的函数
+（前四格查本页那两张词汇表，后十四格比正文里的那几个词）
 ——所以赋值只有**这一个入口**：
 `UpgradeAt` 与 `Clone` 都走它。**为什么要有这一格**：第 1042 轮把那四格从方法改成属性之后，
 「谁保证它们与 `Value` 同步」就成了这一页自己的责任；两处赋值点各写几行就会漂，
@@ -424,6 +432,9 @@ this.IsExtendsKeyword = text === "extends";
 // **第 1120 轮**：`type` / `is` 两格同一趟赋好（导出子句那个标志词与类型谓词那个词）。
 this.IsTypeKeyword = text === "type";
 this.IsIsKeyword = text === "is";
+// **第 1121 轮**：声明词那一格也是同一份正文的函数——本页认 keyword 那一态的三个词
+// （`using` 停在 `Identifier` 上，由那一页认），投影层 `ctx.HeadDeclare` 读这一格。
+this.IsDeclareWord = text === "const" || text === "let" || text === "var";
 // **第 1075 轮**：投影侧那一问（这一格能不能当链的基名）也是同一份正文的函数——同一趟赋好。
 this.IsChainBaseNode = !(
   text === "return" ||

@@ -1536,6 +1536,30 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 （`## field`，构造时就赋好），投影只读这一格（`node.IsNameNode`）——
 「这一格是什么」与「它能不能当名字」因此只有一个来源，同一句话也不会在两个地方各写一遍。
 
+## field IsDeclareWord:bool = false
+
+**我这一格的正文是不是一个「声明词」**（第 1121 轮）——是的话答 `true`。
+
+那一族词是 `const` / `let` / `var` / `using`：它们各自开始一段**没有 `Let` 单元**的声明
+（`for (const v of xs)` / `for (let i = 0; …)`），投影层按它们认出「名字那一格」与「列表的起点」。
+
+过去它是投影层 `ctx.HeadDeclare` 里的一个现场闭包（`isDeclareWord`：一行里把四个词连比一遍），
+而**四个词里哪一个进了产物、停在哪一态**只有那些 token 自己知道——`const` / `let` / `var`
+是关键字（`Keyword` 那一页答），`using` **不是本工程的关键字**（多半就停在 `Identifier` 上），
+所以判据与 `IsAsKeyword` / `IsTypeKeyword` 同一条口径：**基类给默认档、认得的页各自按自己的正文赋好**。
+
+## field IsPatternKid:bool = false
+
+**我这一格能不能当「声明段里那一格模式」**（第 1121 轮）——能的话答 `true`。
+
+它答的是**名字那一格**的第二种形态：`ArrayLiteral` / `ObjectLiteral`（`for (const [a, b] of xs)` /
+`for (const { a } of xs)`，各自继承 `IndependentToken.IsBindingPattern`）与**还没被收成
+`ArrayLiteral` 的那个 `[`**（`Bracket`，判据是它自己的 `startBracket`）。
+
+过去它是投影层 `ctx.HeadDeclare` 里的一个现场闭包（`isPatternKid`：`IsBindingPattern` 加上
+三个括号属性连比），**两半都是被问那一页自己的事实**——模式那两个类在声明里，
+括号那一态在 `startBracket` 里。今天基类默认 `false`、四页各自显式声明并按自己的事实赋好。
+
 ## field IsDotSymbol:bool = false
 
 **我这一格是不是那个点号 `.`**（第 1057 轮）——是的话答 `true`。

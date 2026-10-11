@@ -215,6 +215,13 @@ if (last instanceof Identifier) {
 **我这一格的正文是不是 `is` 那个词**（第 1120 轮）：同上一格，同一趟赋好
 （`is` 不是本工程的关键字，类型谓词 `x is T` 里那个词多半就停在 `Identifier` 上）。
 
+## field IsDeclareWord:bool = false
+
+**我这一格的正文是不是一个声明词**（第 1121 轮）：同上一格，同一趟赋好——本页只认
+`using` 那一个（它不是本工程的关键字，`for (using x of xs)` 里那个词就停在这里；
+`const` / `let` / `var` 由 `Keyword` 那一页认）。两页各写自己认得的词，
+口令与理由见 `../../core/syntax/token.xl.md` 的 `IsDeclareWord`。
+
 ## field IsChainBaseNode:bool = true
 
 **我这一格能不能当一条链的基名**（投影侧那一问；第 1075 轮）：标识符**默认能**，
@@ -305,6 +312,9 @@ this.IsExtendsKeyword = this.Is("extends");
 // **第 1120 轮**：`type` / `is` 两格同一趟赋好（导出子句那个标志词与类型谓词那个词）。
 this.IsTypeKeyword = this.Is("type");
 this.IsIsKeyword = this.Is("is");
+// **第 1121 轮**：声明词那一格同一趟赋好——本页只认 `using`（它不是本工程的关键字，
+// `for (using x of xs)` 里那个词就停在 `Identifier` 上），投影层 `ctx.HeadDeclare` 读这一格。
+this.IsDeclareWord = this.Is("using");
 // **第 1075 轮**：投影侧那一问（这一格能不能当链的基名）的另一半是「我这一格的正文是
 // 不是那几个不走链的词」——同一趟、同一份正文。
 this.IsChainBaseNode = !this.IsAny([

@@ -394,6 +394,14 @@ return result;
 本页在构造时答 `true`（`IndependentToken` 的默认档是 `false`），
 投影只读这一格属性。值位下标那一态不走本类（它是 `Bracket`，见 `../bracket.xl.md`）。
 
+## field IsPatternKid:bool = true
+
+**我这一格能不能当「声明段里那一格模式」**（第 1121 轮）：本类答 `true`——解构声明的左边
+（`for (const [a, b] of xs)`）就是它。它与同页的 `IsBindingPattern` **不是同一问**：
+那一格答「我这一类是不是绑定模式」，这一格答「投影在声明段里能不能把我当名字那一格接下去」
+（基类默认 `false`，`Bracket` 那一页按自己的 `startBracket` 也答）。口径与理由见
+`../../../core/syntax/token.xl.md` 的 `IsPatternKid`。
+
 ## field AstKind:string | undefined = "ArrayLiteralExpression"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
