@@ -572,10 +572,24 @@ return this.Data;
 而且它同样靠运行期反射（与 `Segments` 同一轮、同一条口径）。
 收成这一格之后，「哪几个布尔属性是修饰词」只有本页一处声明，投影只读属性名。
 
+## field ModifierSpans:string = ""
+
+**本单元记下的修饰词各自的区间**（`"起:止"` 用 `,` 连接、闭区间，与 `modifiers` **同序同长**）：
+把修饰词记成文本的那几页（`Let` / `Field` / `TypeAssign` / `Class` / `Enum` / `Function` /
+`MethodDeclaration` / `Interface` / `Namespace`…）**各自显式声明这一格**，并在**认下声明那一刻**
+把它赋好（修饰词不进 `Data`，位置只有那一刻知道）。
+
+**基类这一格第 1082 轮才立起来**（默认空串）：`ModifierSpanList` 那一格读的就是它，
+而**读的东西必须在读的那个类里有声明**——从前 `ModifierSpanList` 是经
+`(this as any).modifierSpans` 读各页那个**小写**的投影面属性的（一个没在基类里声明的名字，
+用户口径 1.3 说的正是这一条）。那一格（各页 10 处 `## property modifierSpans:string`，
+读法只是 `return this.ModifierSpans;`）随之整格删掉：**同一格事实回到一处声明**——
+各页构造时赋好的这个字段，XML 那一侧也直接读它。
+
 ## property ModifierSpanList:Array<any>
 
 **我记下的每个修饰词各自的区间**（第 1079 轮）：把本页自己声明并赋好的那一格
-`modifierSpans`（`"起:止"` 用 `,` 连接、闭区间，与 `modifiers` **同序同长**）拆成一串
+`ModifierSpans`（`"起:止"` 用 `,` 连接、闭区间，与 `modifiers` **同序同长**）拆成一串
 `{ pos, end }`——**右开区间**（产物记的是闭区间，节点要的是右开，所以 `end` 加一）。
 
 **为什么要有这一格**：投影那一侧过去有一格 `modifierSpansOf(v)` 现场拆这一串
@@ -583,7 +597,7 @@ return this.Data;
 按这一族一贯的口径（第 1041 / 1042 / 1057 / 1068 / 1069 / 1078 那几条）它住在这里：
 `addModifiers` 只读一次属性名。
 
-**没有这一格的页面答空数组**：`modifierSpans` 只有把修饰词记成文本的那几页才有
+**没有这一格的页面答空数组**：`ModifierSpans` 只有把修饰词记成文本的那几页才有
 （`Let` / `Field` / `TypeAssign`…；`Lamda` 的 `async` 记的是布尔属性 + `ModifierWords`），
 而那一档本来就走「从 `v.start` 起量」的另一条路（见 `addModifiers`）——
 所以空数组就是「我没有位置这一格」，不是「位置丢了」。
@@ -593,9 +607,9 @@ return this.Data;
 ### get
 
 ```ts
-// **经 `(this as any)` 读**（口径同 `DeclaredName` 那一格）：`modifierSpans` 是各页自己声明的
-// 读取口（`Let` / `Field` / `TypeAssign`…），基类这一格是**兜底**——没有那一格的页面就是空数组。
-const raw = (this as any).modifierSpans;
+// **第 1082 轮起读的就是基类声明的 `ModifierSpans`**（从前经 `(this as any).modifierSpans`
+// 读各页那个小写的投影面属性——那是个没在本类里声明的名字）。没有那一格的页面是空串 ⇒ 空数组。
+const raw = this.ModifierSpans;
 if (typeof raw !== "string" || raw === "") return [];
 const out: any[] = [];
 for (const piece of raw.split(",")) {

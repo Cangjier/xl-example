@@ -1035,15 +1035,10 @@ Lambda 表达式。
 与 `Field` / `Let` / `TypeAssign` 的 `ModifierSpans` **同一形态**（同一把尺子：那一格是 token 的事实，
 不该由投影回原文量）。
 
-## property modifierSpans:string
-
-`modifierSpans` 这一格**由这一页自己声明**（第 1052 轮）：投影读的就是这一页自己的这一格。
-
-### get
-
-```ts
-return this.ModifierSpans;
-```
+**`modifierSpans` 那一格第 1082 轮删掉了**（它原来就占这里，读法只是 `return this.ModifierSpans;`）：
+投影早已不再读它——`print-ast-common` 的 `addModifiers` 读的是 `Token.ModifierSpanList`
+（第 1079 轮立的那一格），而那一格的输入第 1082 轮起是**基类声明的 `ModifierSpans`**
+（这一页构造时就赋好的那一格，XML 那一侧也直接读它）。
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 

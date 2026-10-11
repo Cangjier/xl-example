@@ -566,6 +566,27 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**69 → 69 格**（这一轮只改形参与方法体，一格声明没增没减）。
 
+**第 1082 轮把「投影要读的那一格挂在没声明它的那个类上」这一条收掉**（用户口径 1.3）：
+`Token.ModifierSpanList` 是第 1079 轮立的基类属性，可它读的 `modifierSpans` 是**各页那个小写的
+投影面属性**——基类里没有这个名字，所以当时是经 `(this as any).modifierSpans` 读的。
+这一轮把**输入那一格收到基类声明上**（`## field ModifierSpans:string = ""`，各页本来就各自
+显式声明同一格、并在认下声明那一刻赋好），于是：
+
+| 改掉的 | 怎么改的 |
+| --- | --- |
+| 基类 `ModifierSpanList` 的 `(this as any).modifierSpans` | 读 `this.ModifierSpans`（第 1082 轮在基类声明的那一格） |
+| 各页 10 处 `## property modifierSpans:string`（`let` / `field` / `type-assign` / `class` / `enum` / `function` / `method-declaration` / `interface` / `lamda` / `namespace`） | **整格删掉**：全仓只有基类那一格读它（量法：`-cmatch 'modifierSpans'` 逐行看，代码里的读者只有 `token.xl.md` 那一行；其余全是 XML 属性名与散文） |
+
+- **为什么这一格该在基类声明**：读它的那一格（`ModifierSpanList`）在基类，而「读的东西要在
+  读的那个类里有声明」——小写那一格是第 1018 轮留下的**投影面读法**，`ModifierSpans` 才是
+  各页构造时赋好的**事实**。收完之后**同一份事实只剩一处声明、一处入口**。
+- **实测**：`xl check` 12 个文件 0 条；`xl build --force`（`core` / `typescript` / `runtime` /
+  `typescript-exec`）**180 个产物** / 0 error、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 27.8s），
+  读数与基线逐项相同：`coverage` **4261 / 4422**（`blocked 28` / `differ 133` / `bad 0`、
+  加权 95.7%）、`cases:tsast` 3 条已知缺口、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**69 → 69 格**（改的是别的页与基类）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -8288,11 +8309,15 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 自己声明的 `modifierSpans` 字段（`"起:止"` 用 `,` 连接）拆成一串 `{ pos, end }`。
 **要拆的那个字符串就是被问的那一格自己的字段**，所以按这一族一贯的口径
 （第 1041 / 1042 / 1057 / 1068 / 1069 / 1078 那几条）它搬回了 `core/syntax/token.xl.md`：
-基类新增 `## property ModifierSpanList:Array<any>`（`## property` + `### get`，读的就是本页的
-`modifierSpans` 那一格；没有这一格的页面答空数组，解析不出来也答空数组——与原来的实现逐字相同），
+基类新增 `## property ModifierSpanList:Array<any>`（`## property` + `### get`；没有这一格的页面
+答空数组，解析不出来也答空数组——与原来的实现逐字相同），
 本页唯一的那处调用（`addModifiers` 里取 `spans`）改成属性读。
-`modifierSpans` 这个读法本身留在各页（`Let` / `Field` / `TypeAssign`…），基类那一格只是把它拆开——
-**同一份事实因此只有一个入口**（第 1078 轮收掉的是它的兄弟 `modifierStart`）。
+**那一格的输入第 1082 轮收进了基类**：`## field ModifierSpans:string = ""` 由基类声明
+（各页本来就各自显式声明同一格、并在认下声明那一刻赋好），那一格读的就是它——
+从前读的是各页那个**小写**的 `modifierSpans`（一个没在基类里声明的名字，要经 `(this as any)`），
+**那 10 处小写属性第 1082 轮整格删掉**（`let` / `field` / `type-assign` / `class` / `enum` /
+`function` / `method-declaration` / `interface` / `lamda` / `namespace`），
+**同一份事实因此只有一个入口、一处声明**（第 1078 轮收掉的是它的兄弟 `modifierStart`）。
 
 # private method addDecorators:(v:any, props:any, ctx:any)=>void
 
@@ -8360,11 +8385,11 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     }
   }
   if (words.length === 0) return;
-  // **位置只有一个来源**：`modifierSpans` 与 `modifiers` **同序同长**（同一趟记下的两格），
+  // **位置只有一个来源**：`ModifierSpans` 与 `modifiers` **同序同长**（同一趟记下的两格），
   // 所以第 i 个词的位置就是第 i 格——这里不再有「个数对不上就换一条猜法」这一支。
-  // **拆那一串的地方就是这一格的页**（第 1079 轮）：`spans` 读的是 `Token.ModifierSpanList`
-  // （基类那一格，见 `core/syntax/token.xl.md`），本页那一格 `modifierSpansOf` 连同它
-  // 唯一的那处调用一起删掉——要拆的字符串本来就是各页自己声明的字段。
+  // **拆那一串的地方就是基类那一格**（第 1079 轮）：`spans` 读的是 `Token.ModifierSpanList`
+  // （见 `core/syntax/token.xl.md`），它读的输入是**基类声明的 `ModifierSpans`**
+  // （第 1082 轮；各页构造时赋好，那 10 处小写的 `modifierSpans` 属性已整格删掉）。
   const spans = v.ModifierSpanList;
   const out = [];
   for (let i = 0; i < words.length; i++) {
