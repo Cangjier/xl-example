@@ -347,6 +347,29 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1217 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **模板后面那个 `!` 被读成了前缀一元单元**（18 条）；1.2 **跳转队列入口按「当前字符」先挡一次**（`Branch.TriggerChars`，少进 **527 万**次 `Condition`，**30 趟 23:7、mean −115.0ms**，parse **1096.8 → 996.0ms**）
+
+**一句话**：1.1 把 0c-1 那一支补上（两种形状各一趟），组合扫描 **21 → 3**；1.2 是**这一轮真正大的一笔**——跳转队列里 13 支分支的第一句本来就是「当前字符是不是我认的那一个字」，把那一句提到**进 `Transit` 之前**，76% 的 `Condition` 根本不必进。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `projectExpression` 补 0c-1：模板后面紧跟的一元单元若把 `!` 读成了**前缀**（`[SymbolToken(!), 续格]`），或 `!` 被收进一元单元当**第二格**，都按「标签模板 + 后缀断言 + 续格」接 | 组合扫描 **21 → 3**（收 18 条、新坏 0） |
+| **1.2** | `Branch` 加一格 `TriggerChars`（13 支按各自 `Condition` 的第一句声明）；`UnitToken.ProcessChar` 进 `Transit` **之前**先比这一格 | 13 支合计 **5270842** 次 `Condition` 不再进（全队列 **6935798** 的 **76.0%**） |
+| **1.2** | 墙钟（同进程交替、CPU 时间） | 20 趟 mean **−136.3ms**、17:3；30 趟 mean **−115.0ms**、**23 : 7**（se 25.3） |
+| **1.2** | `tmp/r1203-bench.mjs`（best of 5） | parse **1096.8 → 996.0 ms**（**−9.2%**） |
+
+**1.1 的现场**：`` a`x`!(d) `` 的产物是 `[Identifier(a), String(反引号), UnaryOperator(op="!", [SymbolToken(!), Bracket((d))])]`——那个 `!` 被读成了**打在后头那一格上的前缀**；TS 那边是 `CallExpression > [NonNullExpression > TaggedTemplateExpression, (d)]`，`!` 是**标签模板的后缀断言**（`` `x` !(d) `` 与 `` `x`!(d) `` 在 TS 里是同一个形状，带不带空白都一样），后面那一格才是它的**续格**。三条路都接不住：0b 的 `IsChainTail` 不收一元单元、0c 要找的是「装着模板的 `PropertyAccess`」、0d 要的是运算符左脊柱。补的 0c-1 分两种形状：① `[SymbolToken(!), 续格]`——接完断言把续格交给 `chainOnto`（实参括号 ⇒ 一次调用、`?.[…]` ⇒ 可选下标）；② `` a`x`!! `` 的 `!` 被收进一元单元当**第二格**，剩下那个裸 `!` 由 `chainOnto` 第 1208 轮那一支接上。六种前缀（`a` / `f()` / `a["b"]` / `a.b` / `(a)` / `this`）× 三种续写（`(d)` / `?.[c]` / `!`）各一条，守卫用例 `tests/cases/token/expressions/expr-tagged-template-bang-suffix.ts` **108 / 108 节点逐格一致**。剩下的 3 条是 `a["b"](d).b!` 那一族（属性访问与 `NotNull` 两个兄弟没接上），留给下一轮。
+
+**1.2 的现场与读数**：`ProcessChar` 是**每个字符**都要走一遍整个跳转队列的那一格，而队列里那些格**第一句就是「当前字符是不是我认的那一个字」**——`Class` / `Enum` / `Interface` / `StaticBlock` 四支都是 `!== "{"`、`LineAnnotation` 是 `!== "/"`、`Statement` / `WrapSymbol` 是 `!== "\n"`、`IfSet` 是 `!== "("`、`GenericType` 是 `!== "<"`……按类统计（`tmp/r1217-count2.mjs`，挂在 `Branch.prototype.Transit` 上）这 13 支各被问 **21 万 ~ 43.6 万次**、答成立加起来不到 **10 万次**。改法：基类加一格 `TriggerChars:string = ""`（空串 = 任何字符都要问），13 支按各自 `Condition` 的**第一句**逐格声明；`ProcessChar` 进 `Transit` **之前**先比这一格（单字那一档直接 `!==`，多字那一档才走 `includes`）。**判据与次序一个字没改**：被挡掉的那一批原来就是「进 `Condition`、第一句答否、立刻 `return`」的那一批；这一格说的是那一句的**前提**、不是第二份答案（`Condition` 里那一句照旧留着）。
+
+**墙钟**（`tmp/r1217-ab.mjs`，同一进程交替、尺子＝CPU 时间，原版＝`tmp/r1217-oldbuild/ts`）：20 趟配对差 mean **−136.3ms**、median −188.0ms、**17 趟更快 / 3 趟更慢**；30 趟 mean **−115.0ms**、median −110.0ms、**23 : 7**（sd 138.4、se 25.3 ⇒ mean 是 se 的 **4.5 倍**）——**这一笔算数**。`tmp/r1203-bench.mjs`（best of 5）：parse **1096.8 → 996.0 ms**（−9.2%）、xml 44.1、printAst 103.3。
+
+**1.2 的等价**：`tmp/r1217-sig2.json` 台账 **1665 份逐字节同答（diff=0）**；片段扫描 2124 条仍 **3**（一个形状都没动）。
+
+**净账**：`cases:tsast` 已知缺口 1 条还开着、0 条已经收掉；`cases:direct` 全语料不抛异常（1665 份）、固定样本通过；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1679** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4285 / 4444 → 4286 / 4445**（新增守卫用例 `tests/cases/token/expressions/expr-tagged-template-bang-suffix.ts`，分子 +1、分母 +1；blocked 26、differ 133、bad 0、加权 95.7%）；`xl check`（`core typescript`）**0 条**；`npx tsc`（strict）**0 error**。八道门墙钟 **28.5s**。
+
+**两条 commit**：`2780c06c`（1.1 模板后面那个 `!`）、`3cc4d49c`（1.2 `TriggerChars` 队列入口先挡一次）。
+
 ### 第 1216 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **标签模板的标签本身又是一条标签模板**（六种前缀）；1.2 两处白造（每字符的 `ProcessSource` **588452** 个 + 收敛环的 `slice` 与闭包各 **93956** 个，**墙钟在噪声里如实记**）
 
 **一句话**：1.1 收掉 `X`x``x`.b` 一族（六种前缀共 6 条）——根在 **0b 那一支先认了第一个模板**；1.2 是两笔**数得出来、量不出来**的白造：一支一支都改成「不造那个对象」，读数如实分成**直出数**与**噪声里的墙钟**两栏。
