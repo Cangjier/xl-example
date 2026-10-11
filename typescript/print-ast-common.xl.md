@@ -249,7 +249,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 | 局部 `isSymbol(k, "?")` / `isSymbol(k, ":")`（**4 处**：`ctx.ConditionalNode` 里找 `?` 与 `:` 各两次） | `k.IsQuestionSymbol === true` / `k.IsColonSymbol === true` | 同上（`IsColonSymbol` 第 1108 轮已立）——**局部转手 `isSymbol` 整格删掉** |
 | `k.IsSymbolToken && k.TextValue === ";"`（**1 处**：`projectExport` 把尾分号从表达式里滤掉） | `k.IsSemicolonSymbol !== true` | 同上（`";"`） |
 | `[":", "?"].includes(k.TextValue)`（**1 处**：`ctx.Segment` 只排掉分段自己的标点） | `k.IsColonSymbol === true \|\| k.IsQuestionSymbol === true` | 同上 |
-| `unit.IsSymbolToken && unit.TextValue === "."`（**1 处**：`chainTail` 认点号） | `unit.IsDotSymbol` | `SymbolToken` 那一页 `## field`（`Close()` 里赋好，第 1057 轮立） |
+| `unit.IsSymbolToken && unit.TextValue === "."`（**1 处**：`chainTail` 认点号） | `unit.IsDotSymbol` | `SymbolToken` 那一页 `## field`（`Close()` 里赋好，第 1057 轮立）；**这一处里 `IsSymbolToken` 那半句第 1120 轮收掉** |
 
 - **同一轮补掉一处自己造的隐患**：`conditionalNodeOf` 里那个局部 `isSymbol` 换掉之后，
   **同一个函数后半截还有两处调用它**（`tailQuestion` / `tailColon`）——`xl build` 与 `tsc`
@@ -265,6 +265,48 @@ import { Identifier } from "./tokens/identifier.xl.md"
 - **判据依旧没长**（与第 1118 轮同一条理由）：这几族都在 `TextValue` 上，门只认 `Tag`。
 - **本页的声明数**：**43 格**（**一格没增、一格没减**：改的是 12 处调用点与说明；
   新立的八格属性在基类与 `Keyword` / `Identifier` / `SymbolToken` 三页）。
+- **第 1120 轮接着收了两件事**（见下）：本页那一格「局部转手」的 `isSymbol` 也删掉了
+  （它的实参恒为 `"."`，12 处改读 `IsDotSymbol`），`IsSymbolToken` 那半句在
+  `IsLessThanSymbol` / `IsDotSymbol` / `IsCommaSymbol` 上剩下的四处一并收掉。
+
+**第 1120 轮把本页最后那一格「局部转手」删掉，并把 `IsSymbolToken` 那半句剩下的四处收干净**
+（用户口径 1.1 ~ 1.4：投影要的信息由**具体 token 子类**在自己那一页**显式声明**、
+构造 / `Close` 那一刻赋好，读的时候备齐）。两件事同一个来由——**同一句问话的两半里，
+有一半早就由被问的那一页答完了**：
+
+| 原来的现场算式 | 今天读的那一格 | 为什么那半句是多余的 |
+| --- | --- | --- |
+| `const isSymbol = (k, text) => k.IsSymbolToken && k.TextValue === text;`（`projectExpression` 里那一格局部转手）+ **12 处** `isSymbol(k, ".")`（`import.meta` 那一支、链上找点号那三处、NCO 那两处、链尾那几处、`projectBindingPattern` 那一处、`typeOf` 那一处） | 逐处 `k.IsDotSymbol`，**局部转手整格删掉** | 12 处的实参**全是 `"."`**（逐处量过），而「我这一格的正文是不是那个点号」那一页第 1057 轮就答了（`SymbolToken.IsDotSymbol`，`Close()` 里赋的 `## field`）——第 1118 轮已经这样读过 3 处，本轮把剩下的收尾 |
+| `kids[0].IsSymbolToken && kids[0].IsLessThanSymbol`（**1 处**：`<number>1` 里那个平铺的 `<`） | `kids[0].IsLessThanSymbol` | `IsLessThanSymbol` 基类答 `false`（只有符号那一页读 `TextValue` 现算），非符号那半句永远进不来 |
+| `opener.IsSymbolToken === false \|\| opener.TextValue !== "<"`（**1 处**：`angleAssertionLength` 认那个 `<`） | `opener.IsLessThanSymbol !== true` | 同上——第 1118 轮立的正是这一格，本条只是把「类名 + 正文」两半换成一次属性读 |
+| `unit.IsSymbolToken && unit.IsCommaSymbol === true`（**1 处**：`namedSpecifiersOf` 分段那个逗号） | `unit.IsCommaSymbol === true` | `IsCommaSymbol` 同样只有符号那一页答 `true`（基类默认档，第 1074 轮立） |
+
+- **为什么删的是「局部转手」而不是别的**：`isSymbol` 这一格**没有自己的判据**——它是
+  「正文是不是参数给的那串字符」的转手，而 12 处调用点给的字符是同一个 `"."`；
+  第 1090 / 1093 两轮把它逐字留下来，理由是当时那两门只认字面量、而它按参数比（见上面
+  两节）。本轮量的正是**那个参数**：全是点号 ⇒ 它不再是一句泛问，而是一句已经答好的问话。
+- **判据跟着长一处**：`direct:lint` 第八条那一族本来就认 `IsDotSymbol`（第 1057 轮），
+  本轮它顺便量到的是**这一格局部转手**——名字没了，`xl build` / `tsc` 都不报（`any` 吞），
+  所以**自验按第 1119 轮那条教训来做**：逐处改完直接跑八道门（`coverage` 的 `blocked`
+  一涨就说明还有调用点没换）。
+- **剩下没换的 `TextValue` 逐处点名**（代码块里共 11 处比较）：`=== separator` 两处
+  （`splitTopLevel` / `namedSpecifiersOf` 按**调用方给的参数**比）、`!== ","` 与 `=== ","`
+  两处（逗号那个**二元单元**自己的正文，`IsCommaSymbol` 住符号那一页、收件人不同）、
+  `TextValue === text`（`isTypeOp` 一格局部转手，实参是 `"|"` / `"&"`，两个符号还没各立一格）、
+  `=== "is"`（类型谓词那个词，`is` 不是本工程的关键字、产物里停在 `Identifier` 上）、
+  `=== "type"`（导出子句的标志词）、`=== lookup`（`ImportClause` 找与参数同名的那一格）。
+  **一处没动**：它们问的是「这一格自己的正文是不是**调用方给的那串**」，不是「这是哪个词」
+  ——与第 1118 / 1119 两轮的分界同一条。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：删掉的是一格局部 `const`——它不在
+  `# method` / `# const` 的账上；改的是 16 处调用点；`IsDotSymbol` / `IsLessThanSymbol` /
+  `IsCommaSymbol` 都是既有属性，新立的零格）。
+- **实测**：`xl check typescript core` **0 条**；`xl build typescript` **127 个产物** / 0 error、
+  `tsc` 干净；**八道门 7 通过、1 失败**（墙钟 31.3s），读数与第 1106 ~ 1119 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79（唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+  八道门这一轮唯一红的是 `coverage` 那一道——它一直是**尺子不是门**，红的那一条与 HEAD 逐字相同。
 
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
@@ -1230,11 +1272,12 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   这一条如实记在两页上）。
 - **它与 `IsPrefixOperatorUnit` 不是同一问**：那一格答「我是不是一个前缀运算符」（一串
   `!` `~` `+` `-` `++` `--`），这一格只认那一个 `!`（`x!` 的收尾、`a!()` 的断言位）。
-- **泛型那一形态逐字保留**（实测点名）：`const isSymbol = (k, text) => k.IsSymbolToken &&
-  k.TextValue === text`（本页 2 处）问的是「正文是不是**参数给的那个**」，不是某一个具体符号，
-  没有第二处答案，所以不动——新判据只认字面量 `"!"`。（**第 1093 轮如实记下**：这两处的
-  `k.IsSymbolToken` 是那一轮把「比类名」换掉之后的样子，第 1090 轮当时写的是
-  `k.Tag === "SymbolToken"`。）
+- **泛型那一形态当时逐字保留、第 1120 轮收干净了**：`const isSymbol = (k, text) => k.IsSymbolToken &&
+  k.TextValue === text` 问的是「正文是不是**参数给的那个**」，第 1090 轮没有第二处答案、
+  所以当时不动（新判据只认字面量 `"!"`）。**第 1120 轮按「唯一一个实参恒为 `"."`」量过**：
+  剩下的 12 处调用点实参全是那个点号，于是这一格连同局部转手一起删掉、逐处改读
+  `k.IsDotSymbol`（见下面第 1120 轮那一节）。第 1093 轮记的「本页 2 处」是两段里各一处
+  同形声明，第 1119 轮已随 `ctx.ConditionalNode` 里那一份删掉一处，这是最后一处。
 - **判据跟着长两条**：`direct:lint` 第八条那一族多认一个名字（`IsNotNullSymbol`），
   另立第十六条 `NOT_NULL_SYMBOL_CLASSIFY`——**匿名连写**那一形态（同行与跨行、
   被 `!(…)` 包起来的写法都算）在代码块里必须恰好 0 处。**自验**（`tmp/r1090/` 的探针，
@@ -1346,10 +1389,11 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 - **两句问的都是「你这一格是什么类」**，而那两个名字就是那两页自己的类名——判据与
   第 1088 / 1090 / 1091 / 1092 轮同一条。收完这两片之后，本页代码块里 `SymbolToken` 与
   `NullConditionalOperator` 的现场比类名从 **56 处收成 0 处**。
-- **有两处逐字保留**（本页两处 `const isSymbol = (k, text) => k.IsSymbolToken && k.TextValue === text`，
-  各在 `projectExpression` 的两段里）：它问的是「正文是不是**参数给的那个词**」，不是某一个
-  具体符号，没有「同一格事实的第二处答案」——**新判据只认字面量**，所以这两处不动
-  （与第 1090 轮那条 `NOT_NULL_SYMBOL_CLASSIFY` 留着同一形态的泛型 helper 是同一条口径）。
+- **当时有两处逐字保留、第 1120 轮都收了**（`const isSymbol = (k, text) => k.IsSymbolToken &&
+  k.TextValue === text`）：第 1090 轮留着它的理由写在这里——它问的是「正文是不是**参数给的那个词**」，
+  不是某一个具体符号，第 1093 轮那一门又只认字面量。第 1120 轮把**实参**量了一遍
+  （剩下 12 处全是 `"."`），于是这一族改读 `k.IsDotSymbol`、局部转手整格删掉；
+  第 1119 轮删掉的是 `ctx.ConditionalNode` 里那一份（`"?"` / `":"` 两态）。
 - **两格都是 `## field`（常量）**：与第 1091 / 1092 轮那几格同一条理由——答的不是
   「正文是什么」（正文是逐字符攒的、未必关过；`SymbolToken` 那一页的 `IsDotSymbol` /
   `IsTypeSeparator` / `IsPrefixOperatorUnit` 正是为此住在 `Close()` 里），而是「这一格整个
@@ -3703,11 +3747,14 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 而 `IsAllowedFollower` 的白名单刻意不含数字（`foo(bar) > 3` 要能退回比较式），
   // 于是产物是一段平的 `[<, number, >, 1]`。判据仍然只看「第一个单元是不是 `<`」——
   // 有左操作数的比较式（`a < b > c`）第一个单元是那个 `a`，撞不到这里。
-  if (kids[0].IsSymbolToken && kids[0].IsLessThanSymbol && kids.length >= 3) {
+  // **`IsSymbolToken` 那半句第 1120 轮收掉**：`IsLessThanSymbol` 基类答 `false`、
+  // 只有符号那一页答「正文是不是那个 `<`」——只读这一格就够（与第 1118 轮
+  // `IsEqualsSymbol` / `IsArrowSymbol` 同一形态）。
+  if (kids[0].IsLessThanSymbol && kids.length >= 3) {
     let depth = 0;
     let close = -1;
     for (let i = 0; i < kids.length; i++) {
-      const text = kids[i].IsSymbolToken ? kids[i].TextValue : "";
+      const text = kids[i].IsSymbolToken || kids[i].IsLessThanSymbol ? kids[i].TextValue : "";
       if (text === "<") {
         depth++;
       } else if (text === ">") {
@@ -4041,8 +4088,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       ctx.expressionPosition = savedExpression;
     }
   }
-  const isSymbol = (k, text) => k.IsSymbolToken && k.TextValue === text;
-
   // ---- 0。`import.meta` / `new.target`（第 141 轮）----
   //
   // TS 那边它们是 `MetaProperty`（**只有 `name` 一个子节点**——`forEachChild` 对
@@ -4060,7 +4105,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     kids[0] !== undefined &&
     kids[0].IsNameNode &&
     (kids[0].IsNewKeyword === true || kids[0].IsImportKeyword === true) &&
-    isSymbol(kids[1], ".") &&
+    kids[1].IsDotSymbol &&
     kids.length >= 3
   ) {
     const named = kids[2];
@@ -4122,7 +4167,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     };
     let at = 1;
     while (at < inner.length) {
-      if (!isSymbol(inner[at], ".") || at + 1 >= inner.length) break;
+      if (!inner[at].IsDotSymbol || at + 1 >= inner.length) break;
       const member = inner[at + 1];
       meta = {
         kind: "PropertyAccessExpression",
@@ -4140,7 +4185,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     //  **一句话里没有一个字提到 `new.target`**）。
     // 所以先把点号链**走完**，再把手里的余下部分交给二元那一支。
     let after = 3;
-    while (after + 1 < kids.length && isSymbol(kids[after], ".")) {
+    while (after + 1 < kids.length && kids[after].IsDotSymbol) {
       const member = kids[after + 1];
       meta = {
         kind: "PropertyAccessExpression",
@@ -4273,7 +4318,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       k.ProjectableKids[0]?.IsNullConditionalOperator,
   );
   // **尾巴上还挂着 `as` / `satisfies` 时，这一支也要让开**（见上面 `asAfterNco` 那一处）。
-  if (ncoIndex > 0 && hasNcoInBinary === false && asAfterNco === false && !(kids[0].IsBinaryOperatorUnit && kids.slice(1).some((k) => k.IsNullConditionalOperator || isSymbol(k, ".")))) {
+  if (ncoIndex > 0 && hasNcoInBinary === false && asAfterNco === false && !(kids[0].IsBinaryOperatorUnit && kids.slice(1).some((k) => k.IsNullConditionalOperator || k.IsDotSymbol))) {
     // **前缀里有顶层二元运算符时，NCO 要并进「右边那个操作数段」**（第 145 轮）：
     //
     //     x.Start === y.Start?.Document
@@ -4460,7 +4505,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 而真正的 `o["f"]().v` 整片缺失（判据 `exec/round711/p711b-b02`）。
   const tailIsChain = kids
     .slice(1)
-    .some((k) => k.IsNullConditionalOperator || isSymbol(k, ".") || k?.IsCallFirstUnit);
+    .some((k) => k.IsNullConditionalOperator || k.IsDotSymbol || k?.IsCallFirstUnit);
   // **续格与更松的运算符一起装在下一个二元单元里**（第 863 轮）：`1 + o["f"]().v + 2` 的产物是
   //
   //     [BinaryOperator( 1, «+», PropertyAccess(o, [f]) ),
@@ -5111,7 +5156,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   };
   if (
     kids.length >= 2 &&
-    (isSymbol(kids[1], ".") || kids[1].IsIndexBracket ||
+    (kids[1].IsDotSymbol || kids[1].IsIndexBracket ||
       (kids[0].IsNotNull && kids[1].IsArrayLiteralUnit) ||
       // **`!` 后面那一格以一次下标开头**（第 333 轮）：`[1]!` 与 `[0].id`
       // 两种外壳（`NotNull` / `PropertyAccess`）都要认——判据与理由见
@@ -5182,7 +5227,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         for (const inner of k.ProjectableKids) ck.push(inner);
         continue;
       }
-      if (k.IsPropertyAccess && at > 0 && isSymbol(kids[at - 1], ".")) {
+      if (k.IsPropertyAccess && at > 0 && kids[at - 1].IsDotSymbol) {
         for (const inner of k.ProjectableKids) ck.push(inner);
         continue;
       }
@@ -5224,7 +5269,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       if (
         (k.IsBinaryOperatorNode) &&
         at > 0 &&
-        isSymbol(kids[at - 1], ".")
+        kids[at - 1].IsDotSymbol
       ) {
         const inner = k.ProjectableKids;
         if (inner.length >= 2) {
@@ -5472,7 +5517,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         i += 1;
         continue;
       }
-      if (!isSymbol(ck[i], ".") || i + 1 >= ck.length) {
+      if (!ck[i].IsDotSymbol || i + 1 >= ck.length) {
         // **`!` 非空断言接在链中间**（第 143 轮）：`source.Pre()!.Pre()` 的产物是
         // `[…, Method(Pre), NotNull, ., Method(Pre)]`——`!` 是**一个单元**，它把左边整段
         // 包成 `NonNullExpression`，链再照常往下接。不认它的话循环在这里 break，
@@ -5536,7 +5581,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         }
         // **这一格自己就是一个调用单元**（第 962 轮）：`o!()()` 的产物是
         // `[NotNull(o!), Method name=""[Bracket( () )]]`——那一次调用**不是**跟着点号来的，
-        // 于是它在上面那条 `isSymbol(".")` 的门槛前就掉出去了（`break` ⇒ 整格消失，
+        // 于是它在上面那条 `IsDotSymbol` 的门槛前就掉出去了（`break` ⇒ 整格消失，
         // 实测只剩一个 `NonNullExpression`，两个 `CallExpression` 都不成形）。
         // 折法与下面「点号后面那一格是 `Method`」那一段是**同一件事**
         //（第 366 轮的两步走 + 第 962 轮那两格），区别只是**点号没有出现**——
@@ -5951,7 +5996,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
               end: endOf(members[0]),
             };
             for (let j = 1; j + 1 < members.length; j += 2) {
-              if (!isSymbol(members[j], ".")) break;
+              if (!members[j].IsDotSymbol) break;
               left = {
                 kind: "PropertyAccessExpression",
                 expression: left,
@@ -7712,13 +7757,16 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       return 0;
     }
     const opener = kids[at];
-    if (opener.IsSymbolToken === false || opener.TextValue !== "<") {
+    // **两半都收成这一格**（第 1120 轮）：原来写的是 `opener.IsSymbolToken === false ||
+    // opener.TextValue !== "<"`——前半句给非符号用的，可 `IsLessThanSymbol` 在那几页
+    // 本来就答 `false`（基类默认档），所以只读这一格逐格等价。
+    if (opener.IsLessThanSymbol !== true) {
       return 0;
     }
     let depth = 0;
     let close = -1;
     for (let i = at; i < kids.length; i++) {
-      const text = kids[i].IsSymbolToken ? kids[i].TextValue : "";
+      const text = kids[i].IsSymbolToken || kids[i].IsLessThanSymbol ? kids[i].TextValue : "";
       if (text === "<") {
         depth += 1;
       } else if (text === ">") {
