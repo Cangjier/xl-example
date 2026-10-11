@@ -2441,9 +2441,23 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 **这一格的那一段子单元**：段名就是这一页声明出来的那个属性名（`compare` / `body` / `parameters` …），
 所以这里是**读这一页自己的一个属性**——属性名是编译期就知道的那个词，不经任何字符串键。
 
+**第 1170 轮：一格都不用滤就原样交回**（用户口径 1.3 / 1.6）——`instanceof Token` 那一层
+是**运行期把编译期的类型再判一遍**（各页那个字段本来就声明成一段 token），而判一遍的代价
+是**现造一张数组、把同样的元素再 push 一遍**。实测（官方用例语料 **2051** 份，探针挂在
+构建产物里这一个函数上）：被调 **57182** 次、扫过 **122987** 格、**滤掉的非 token 格 0 个**、
+拿到的段不是数组的 **0 次**——也就是说 **57182 次数组构造里没有一次改变了元素**。
+所以这一格现在**先扫一遍看有没有要滤的**：没有就把**这一页自己的那一段**交回去
+（与 `ctx.Kids` 交回 `ProjectableKids` 是同一条契约：**读它，别改它**），
+真碰上非 token（合成语句视图那种）才走原来那一句。
+
 ```ts
   const raw = v[key];
-  return Array.isArray(raw) ? raw.filter((x) => x instanceof Token) : [];
+  if (!Array.isArray(raw)) return [];
+  // **有要滤的才滤**（第 1170 轮）：命中即停，没有就把这一段自己交回去（0 次数组构造）。
+  for (let at = 0; at < raw.length; at++) {
+    if (!(raw[at] instanceof Token)) return raw.filter((x) => x instanceof Token);
+  }
+  return raw;
 ```
 
 **`# private method allKids` 第 1162 轮整格删掉了**（用户口径 1.2 / 1.3 / 1.6 / 1.7）。
@@ -3836,8 +3850,23 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 `ProjectableKids` 被读 **26936** 次，命中的表里**一次**都没有非 `Token` 的格、
 **一次**都没有 `IsInvisible` 的格（`{dropped: 0, nonToken: 0}`）。
 
+**第 1170 轮：一格都不用滤就原样交回**（用户口径 1.6 / 1.7）——这一格是**本页最热的一格**
+（`projectExpression` 的入口、`typeOf`、`BodyBlockOf` / `BlockOfBody` 每投一趟都要过它），
+而它每一趟都**现造一张数组、把同样的元素再 push 一遍**。第 1157 轮那句读数是在**读的一侧**
+量的（`ProjectableKids` 的表里没有要滤的格），这一轮直接挂在**这个函数自己**上量了一遍，
+读数是 **195619** 次调用、扫过 **293089** 格、**真的滤掉了东西的只有 7 次**
+（＝其余 **195612** 次是白造一张数组 + 293089 次 `push`）。
+所以这一格与 `kidsOf` 同一改法：**先扫一遍看有没有要滤的**，没有就**把手上那一段原样交回**
+（同样是一条「读它，别改它」的契约），那 7 次照走原来那一句。
+
 ```ts
-  return list.filter((k) => k instanceof Token && !k.IsInvisible);
+  // **有要滤的才滤**（第 1170 轮）：195619 次调用里只有 7 次真的滤掉了东西——
+  // 其余每一趟省的是一张数组 + 逐格 push。命中即停，扫完没有就交回原数组。
+  for (let at = 0; at < list.length; at++) {
+    const one = list[at];
+    if (!(one instanceof Token) || one.IsInvisible === true) return list.filter((k) => k instanceof Token && !k.IsInvisible);
+  }
+  return list;
 ```
 
 # private method bangWrapped:(left:any, pendingBang:any)=>any
@@ -9981,16 +10010,19 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 所以这一支只为「搬家前的键序」存在：**实现复用 `astNode`**（同一个坐标口径不抄第二遍），
     // 拿到结果后按 `kind` / `pos` / `end` 重新排一遍键——**值原封不动**。新写的节点用 `ctx.Node` 即可。
     // **第 1044 轮把 `astNodeHead` 那一格并了进来**：它本来就只有这一个调用点。
+    //
+    // **第 1170 轮：那个「重新排一遍键」的循环删掉了**（用户口径 1.6 / 1.7）——它每一趟都要
+    // `Object.keys(node)`（现造一张键数组）再把非坐标的那些键**逐格抄进第二个对象**；
+    // 而**展开运算符对已经存在的键只改值、不移位**，所以
+    // `{ kind, pos, end, ...node }` 的键序与「先摆坐标、再把其余键按原顺序补上」**逐格相同**，
+    // 值是 `node` 自己的值（同名键原地覆盖，还是同一个值）——**一个循环换一行展开**。
+    // **实测**（官方用例语料 **2051** 份，探针挂在这一格上）：被调 **47088** 次、
+    // `props` 里**一次都没有**出现过 `kind` / `pos` / `end` 这三个撞键（那是这一支唯一会
+    // 分岔的输入）——而**即使真撞上，展开这一版与原循环那一版也逐字节同答**（同名键原地覆盖），
+    // 所以这里**不留分支**：`{ kind, pos, end, ...node }` 就是原循环的等价写法。
     NodeHead: (kind, props, view) => {
       const node = astNode(kind, props, view, ctx);
-      const ordered: any = { kind: node.kind, pos: node.pos, end: node.end };
-      for (const key of Object.keys(node)) {
-        if (key === "kind" || key === "pos" || key === "end") {
-          continue;
-        }
-        ordered[key] = node[key];
-      }
-      return ordered;
+      return { kind: node.kind, pos: node.pos, end: node.end, ...node };
     },
     // **空段不写这一格**：通用支里 `structuralProps` 的段循环是「`kept.length > 0` 才写」，
     // 所以 `<TupleType></TupleType>`（空元组）在 TS 那边是 `{kind,pos,end}`、**没有** `elements`。
