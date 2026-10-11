@@ -627,19 +627,6 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   return out;
 ```
 
-# private method unwrapNodes:(node:any)=>Array<any>
-
-**这一格下面那些进投影的子单元**（第 1066 轮）：转调 **`Token.ProjectableKids`**。
-
-它从「投影自己收一遍段、滤一遍 `IsInvisible`」变成**一次属性读**：那一格现在是
-**这一格自己的事实**（见 `core/syntax/token.xl.md` 的 `ProjectableKids`）——
-`children` 与各段是「我有什么」，`IsInvisible` 是「我在投影里出不出现」，两半都在 token 上，
-拼起来这件事也就不该留在投影层。
-
-```ts
-  return node.ProjectableKids;
-```
-
 # private method textOfNode:(node:any)=>string
 
 **这一格的文本**：叶子**自己声明的那一格**先答（`value`——关键字 / 注释 / 预处理指令那几页），
