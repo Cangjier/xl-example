@@ -491,6 +491,14 @@ let ctxBannedHits = 0;
         });
       }
     }
+    // **投影节点的坐标也收进同一条**（第 1109 轮）：`ctx.source[at.pos - 1]` / `ctx.source[at.end]`
+    // 问的是「这一格自己那一格的正文」（名字头一格是不是引号），而那个问题有 token 自己的一格
+    // 属性答（`Token.NameSpan` / `Token.NameTextSpan`）。**实测收干净之后全仓 0 处**，
+    // 但这一条**没有写成判据**：同一写法里还有「相邻字符」的合法读法
+    // （`ctx.source[built.end - 1] === ","` 那种「这一格末尾那一格字符是什么」），
+    // 而正则分不出这两种意图——写成门会把它一起判红（第 1049 轮留着的正是这一族）。
+    // 所以口径记在这里、判据留白：下一轮若要立门，得先给「相邻字符」找出可判的形态。
+
     for (const match of code.matchAll(TOKEN_TEXT_VIA_SOURCE)) {
       sourceTextHits += 1;
       if (sourceTextHits <= 3) {

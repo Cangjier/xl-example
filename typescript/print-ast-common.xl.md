@@ -305,6 +305,12 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 `direct:lint` 因此加第四条判据（第 1049 轮）：`ctx.source[` 的下标**不许是某一格自己的 `start`**
 （`ctx.source[startOf(x)]` / `ctx.source[x.start]`）——扫描用的游标、别人的终点、成对括号的区间
 照旧，而「这一格的正文 / 首字符」只有一处来源：token 自己。
+**第 1109 轮把这一族又收掉一处**：`synthName` 的 `ctx.source[unitSpan[0]]`（看名字头一格是不是
+引号）改成读这一格自己的那两对数（`Token.NameSpan` / `Token.NameTextSpan`）——**那一格有
+`NameSpan` 的页面才走这条路**（`Field` / `Namespace`），而 `memberNameOf` 同款的一问
+**如实保留在原文那一格上**：名字那一格不是每个单元都记着
+（`MethodDeclaration` / 方法签名的字符串名没有 `NameSpan`），那时只有原文答得出来。
+⇒ 「按某一格自己的坐标去读 `ctx.source`」今天只剩那一处，**理由写在那一处的旁边**。
 
 **第 1044 轮按可达性又量了一遍「本页还剩什么用不到」，结论是「一格死代码都没有」**：
 以 `projectRoot` / `ToJsonText` 为入口、把**第 1043 轮之后剩下的 100 格声明**连同它们互相的引用
@@ -1639,7 +1645,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
 - **本页的声明数**：**74 → 73 格**（`isBareCallMethod` 一格；唯一的调用点改成属性读）。
 
-# private method synthName:(name:string, v:any, ctx:any)=>string
+# private method synthName:(name:string, v:any)=>string
 
 ---------------------------------------------------------------------------
 
@@ -1691,8 +1697,9 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   const nameKind = v.NameKind === "PrivateIdentifier" ? "PrivateIdentifier" : "Identifier";
   if (name === "") return undefined;
   // **名字那一格的整段区间**（`NameSpan`，第 645 / **1081** 轮）：闭区间 `[起, 止]`、
-  // **引号也在里面**。有它就能**按那一格自己**推出文本区间：
-  // 开头是引号 ⇒ 引号名，文本在引号之间；否则整格就是文本。
+  // **引号也在里面**。有它就能**按那一格自己**推出文本区间——
+  // **第 1109 轮起「要不要去掉那对引号」也由那一格自己答**（`NameTextSpan`，
+  // 见 `core/syntax/token.xl.md`）：这一页只读那一对数，不再回原文看头一个字符。
   // **这是「token 出字段、投影直读」那一格**：`Namespace` 的字符串模块名、`Field` 的字符串名
   // 都从这里出——它们原先只能回原文 `indexOf(名字文本)` 猜，而带转义的名字 `indexOf` 根本找不到。
   // **第 1081 轮起这一格自己就是一对数**（`Field` / `Namespace` 各自显式声明的那一格
@@ -1701,12 +1708,18 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // 同一格事实的第二处答案（用户口径 1.1~1.4：token 子类构造完，信息就齐）。
   const unitSpan = v.NameSpan;
   if (Array.isArray(unitSpan) && unitSpan.length === 2) {
-    const head = ctx.source[unitSpan[0]];
-    const quoted = head === '"' || head === "'";
-    const pos = quoted ? unitSpan[0] + 1 : unitSpan[0];
-    const end = quoted ? unitSpan[1] : unitSpan[1] + 1;
-    if (end >= pos) {
-      return { kind: nameKind, text: nameText, pos, end };
+    // **引号由这一格自己答**（第 1109 轮）：原来这里读 `ctx.source[unitSpan[0]]` 看头一个字符
+    // 是不是引号——而「我这一格的名字带不带引号」正是**这一格自己记下的那一段**的形状，
+    // 所以它收成了 `Token.NameTextSpan`（基类：`## property` + `### get`，按 `NameSpan`
+    // 与那一格自己的 `Document` 现算，口径与这里原来那两行逐字符相同）。
+    // 本页于是**一处都不按某一格自己的坐标去读 `ctx.source`**（第 1049 / 1109 轮那条判据）。
+    const span = v.NameTextSpan;
+    if (Array.isArray(span) && span.length === 2) {
+      const pos = span[0];
+      const end = span[1];
+      if (end >= pos) {
+        return { kind: nameKind, text: nameText, pos, end };
+      }
     }
   }
   // **位置只有一个来源：token 认下名字那一刻记下的那一格**（各页的 `NameStart` / `NameEnd`，
@@ -7639,7 +7652,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       ? projectBindingPattern(patternUnit, ctx)
       : declared === ""
         ? bindingSpanOf(listStart, listEnd, ctx)
-        : synthName(declared, letView, ctx);
+        : synthName(declared, letView);
   // **每个声明符一个 `VariableDeclaration`**：第一组用 `Let` 自己的 `fieldName`（名字在那上面），
   // 后面的组名字就是组里第一格（`j = 1` 的 `j`）；类型标注取**本组**的 `TypeDefine`。
   const declarations = groups.map((one, index) => {
@@ -8621,7 +8634,9 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   （`name=""`），原来那个 `name !== ""` 的闸门直接把它挡在外面，整个名字节点都没有；
 - **引号判据是「名字起点前面那一格就是引号」**，不是「窗口里找得到 `"name"`」：成员的类型里
   可能正好有同名字符串（`x: "x"`），按窗口找会把类型当成名字。`synthName` 已经把名字的位置
-  算好了（推过修饰词、优先用 `nameStart` / `nameEnd`），直接问它左边那一格。
+  算好了（推过修饰词、优先用 `NameSpan`），**但名字那一格不是每个单元都记着**
+  （`MethodDeclaration` 的字符串名就没有 `NameSpan`），所以这一处读的是投影出来那一格的
+  两头（`at.pos` / `at.end`）——第 1109 轮试过改读 `NameTextSpan`，那一族当场红，如实保留。
 
 ```ts
   // **名字那一格直读 `v.DeclaredName`**（第 1068 轮）：`NameField`（名字住在哪一页的哪个字段上）
@@ -8673,10 +8688,16 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   const dotAt = typeof rawNamespace === "string" ? rawNamespace.indexOf(".") : -1;
   const lookup = dotAt > 0 ? rawNamespace.substring(0, dotAt) : name;
   const direct = v.ProjectableKids.find((k) => k.IsIdentifierUnit && k.TextValue === lookup);
-  const at = direct === undefined ? synthName(lookup, v, ctx) : projectNode(direct, ctx);
+  const at = direct === undefined ? synthName(lookup, v) : projectNode(direct, ctx);
   if (at === undefined) {
     return { name: undefined, computed: null, unit: direct === undefined ? null : direct };
   }
+  // **引号判据是「名字起点前面那一格就是引号」**（第 1109 轮**如实保留**在原文这一格上）：
+  // 成员的类型里可能正好有同名字符串（`x: "x"`），按窗口找会把类型当成名字。
+  // **它不能像 `synthName` 那样改读 `NameTextSpan`**：名字那一格**不是每个单元都记着**
+  // （`MethodDeclaration` / 方法签名的字符串名就没有 `NameSpan` 那一格，实测本轮那一版
+  // `decl-string-name-member` 一族 5 条当场缺 1 多 1），那时只有原文答得出来——
+  // 两条路在这一格上不同源，所以这一处保持原样，理由写在这里。
   const before = at.pos > 0 ? ctx.source[at.pos - 1] : "";
   if ((before === '"' || before === "'") && ctx.source[at.end] === before) {
     // **`text` 是引号里的那段，不含引号**（第 183 轮修）：TS 那边字符串字面量名字的
@@ -8690,7 +8711,9 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     return {
       name: {
         kind: "StringLiteral",
-        text: ctx.source.slice(at.pos, at.end),
+        // **正文用已经投影出来那一格自己的 `text`**（第 1109 轮）：它就是名字文本
+        // （`ctx.source.slice(at.pos, at.end)` 的逐字符同答）——这一页于是不再回原文切一次。
+        text: at.text,
         pos: at.pos - 1,
         end: at.end + 1,
       },
@@ -9806,7 +9829,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // **`ParameterModifiers` 那个出口第 1037 轮删掉了**：那份词表（`public` / `private` /
     // `protected` / `readonly` / `override`）只有一个读者（`tokens/lamda/lamda-parameter.xl.md`
     // 的 `PrintDirectAst`），所以它搬回了那一页——投影层不再替它记一份，`ctx` 也不再递它。
-    SynthName: (text, view) => synthName(text, view, ctx),
+    SynthName: (text, view) => synthName(text, view),
     StatementOf: (view) => projectStatement(view, ctx),
     // **第 1070 轮删掉的是「别的页一处不用」的那几格**：判据只有一条——把
     // `ctx.<名字>` 在全仓（`core` / `typescript` / `typescript-exec` / `runtime` 的

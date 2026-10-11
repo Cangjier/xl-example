@@ -866,6 +866,45 @@ const own: any = this;
 return typeof own.value === "string" ? own.value : "";
 ```
 
+## property NameTextSpan:Array<int>
+
+**这一格名字文本的区间**（第 1109 轮）：把各页自己显式声明的那一格 `NameSpan`
+（`Array<int>`，闭区间 `[起, 止]`）翻成**名字文本**那一段的**右开区间** `[pos, end)`——
+**字符串名去掉那对引号**（`"a-b"` 的 `NameSpan` 是含引号的整段），其余形态整段就是文本。
+
+**为什么要有这一格**：投影那一侧过去拿 `NameSpan` 之后还要**回原文看头一个字符是不是引号**
+（`ctx.source[unitSpan[0]] === '"'`，见 `print-ast-common.xl.md` 的 `synthName`），
+而「我这一格的名字带不带引号」正是**这一格自己记下的那一段**的形状——
+按这一族一贯的口径（第 1049 / 1068 / 1069 / 1081 那几条：某一页构造时已经记下的事实，
+投影不许再回原文推一遍），它收成这一格属性。
+
+**取值口径与原来那两行逐字符相同**：`NameSpan` 不是一对数（没有这一格，或还没记）⇒ 空数组；
+否则按 `Document.GetRaw` 读**头一个字符**（读不到就当不是引号），
+是 `"` / `'` 就取 `[起 + 1, 止)`、否则取 `[起, 止 + 1)`——与
+`const pos = quoted ? unitSpan[0] + 1 : unitSpan[0]; const end = quoted ? unitSpan[1] : unitSpan[1] + 1;`
+同一份算术。**两端反了**（`end < pos`）答空数组：那是坏输入，不是第二份答案。
+
+**与 `NameSpan` 同进退**：声明在基类、每个单元自动就位，各页不必再写一行；
+**有 `NameSpan` 的那两页**（`Field` / `Namespace`）因此只维护那一格事实。
+
+### get
+
+```ts
+const span: any = (this as any).NameSpan;
+if (!Array.isArray(span) || span.length !== 2) return [];
+const at = span[0];
+const stop = span[1];
+if (typeof at !== "number" || typeof stop !== "number") return [];
+const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
+if (head === null) return [];
+const raw = head.Document.GetRaw(at, at);
+const quoted = raw === '"' || raw === "'";
+const pos = quoted ? at + 1 : at;
+const end = quoted ? stop : stop + 1;
+if (end < pos) return [];
+return [pos, end];
+```
+
 ## method RangeStart:()=>int
 
 本单元的起点：`SourceRange.Start` 的 `Index`；**还没签入**时写 `0`（`start` / `end` 两格的来源）。
