@@ -74,8 +74,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**44 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-41 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**43 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+40 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 3 个名字**（`projectNode` /
 `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），其余一律 `# private`。
@@ -168,6 +168,29 @@ import { Identifier } from "./tokens/identifier.xl.md"
   写回一处 ⇒ 新门 **0 → 1 处**、退出码 1；源文件逐字节还原 ⇒ 回到 0 处。
 - **本页的声明数**：**44 格**（**一格没增、一格没减**：改的是 6 格局部变量与它们比过的 7 处类名，
   新立的两个属性在基类与那两页）。
+
+**第 1117 轮按同一把尺子收掉本页最后一格「只有本页一处读者」的声明**：
+`trailingTriviaStart(v, end)`（10 行递归）在本页代码块里**只有 `stmtEndOf` 里那一处**读者
+（它自己的递归不算读者），所以算式连着说明一起搬进 `stmtEndOf` 里就地展开成
+`trailingTriviaStartOf(unit, at)`——形参 `v` / `end` 换成调用点的 `unit` / `at`，
+算式本身一字不动。本页 **44 → 43 格**（40 个 `# method` + 3 个 `# const`，实测）。
+
+- **它是「多一层间接」而不是死代码**：那一格是**真算式**（沿「区间终点正好是这个 `end`」的
+  那条链递归找收尾注释），但答案只服务**一个**调用点——判据与第 1103 / 1104 / 1109 ~ 1114
+  轮同一把尺子（并的是多一层间接，不是删没人用的东西）。
+- **`functionTypeProps` 形状相同、但这一轮没动，理由是它多一个身份**：它在本页也只有
+  `projectTypeExpression` 里那一处读者，可它**同时是 `ctx` 上的一个出口**
+  （`ctx.FunctionTypeProps`）——`typescript/tokens/function-type.xl.md` 有一处**活读者**
+  （`ctx.FunctionTypeProps(ctx.Kids(v))`）。那是**别的页的入口**，按第 1070 轮那把尺子
+  （出口**零**读者才收）不该动：并掉实现等于把那一页的入口一起并掉。
+- **过期引文一并改掉**：本页三处旧记录（第 1085 轮那一段、`allKids` 那一节的两处）原样写着
+  `trailingTriviaStart` 这个名字——**它今天不再是一个声明**，代码在 `stmtEndOf` 里
+  （那两处已按这一轮改写；后面再有人读到旧提交信息里的这个名字，按这条口径理解）。
+- **同一轮按「过期的过程账不留」这条口径删掉一段散文**：第 1099 轮那条「还有两族在名单之外」的
+  现场照录（第 1115 / 1116 两轮已把两族收干净、当时留着当历史）整段删掉——今天的规格是
+  **0 处**，历史在 git 提交信息里。
+- **本页的声明数**：**44 → 43 格**（40 个 `# method` + 3 个 `# const`，实测；
+  删掉的是一格 `# private method`）。
 
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
@@ -1467,7 +1490,8 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   所以「我是不是方法声明」读不出来——两问各自一格。
 - **第 1099 轮把这一族的点名范围收在这里**：`direct:lint` 第十七条那名单因此扩到 **45 个
   `<Tag>`**（三十七 + 八）。**它守的是这 45 个名字**，不是「本页代码块里一个 `<Tag>` 都没有」
-  ——**第 1099 轮如实记下的那两族，第 1115 轮已经收干净**：
+  ——**第 1099 轮如实记下的那两族，第 1115 / 1116 两轮已经收干净**（那两轮的现场与量法
+  写在下面那两节里，这里不再抄第二遍）：
   - 「这一格是不是一条注释」：`pos` 那一支最后那一处（与 `startOf(k) === pos` 连写、跨行）
     改读 `k.IsCommentUnit`——`IsCommentUnit` 第 1084 轮就立好了，只是**同一句话还剩这一处**；
     今天这一个属性**一个现场写法都不剩**；
@@ -1478,19 +1502,8 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   - 同一轮把**两连比里的否定形态**（`X.Tag !== "BinaryOperator" && X.Tag !== "LogicalOperator"`，
     含**先取进局部变量 `kind` 再比**那两处）也收成 `x.IsBinaryOperatorNode !== true`——
     第 1088 轮那条 `BINARY_CLASS_DISJUNCTION` 只认 `===` + `||`，**看不见它们**，本轮补上。
-  下面这几行原文照录（它们是第 1099 轮量出来的现场，收完之后只剩历史意义）：
-  - 「这一格是不是一条注释」：`typescript/print-ast-common.xl.md` 的 `pos` 那一支还写着
-    `k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`（与 `startOf(k) === pos`
-    连写、跨行），而 `IsCommentUnit` 第 1084 轮已经立好（`trailingTriviaStart` 那一处已读属性）
-    ——**同一句话还剩这一处**；
-  - 「这一格是不是一个二元 / 逻辑运算单元」：`BinaryOperator` / `LogicalOperator` 那一族还剩
-    **11 处**，形态有三种——① 只认 `BinaryOperator` 的**窄**问（`unit.Tag !== "BinaryOperator"`、
-    `namedKids[0].Tag === "BinaryOperator"`、`firstName.Tag === "BinaryOperator"`：那时候
-    逻辑运算还不在同一族里，**改成 `IsBinaryOperatorNode` 会把 `LogicalOperator` 一起收进来**，
-    是**改语义**不是搬家）；② 两连比里**只有一半跨行**（`spineHead.Tag !== "BinaryOperator" &&
-    spineHead.Tag !== "LogicalOperator"` 换行写成两条），所以第十七条那三条单行正则**看不见它**；
-    ③ 与 `&&` 连写、缩进换行的那几条。三形态都要**逐处点名**（哪几处是窄问、哪几处是真·两连问）
-    才能动手，所以留作下一轮，不在这里猜。
+  - **第 1117 轮把这一段里那几行「第 1099 轮的现场照录」整段删掉**：两族都收完了，
+    今天的规格是**0 处**，历史在 git 提交信息里（本页的规矩：过期的过程账不留）。
 - **本页的声明数**：**64 格**（一格声明没增没减：新立的八格都在别的页与基类；
   本页 9 处改的是读数算式）。
 
@@ -1650,7 +1663,8 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   已复核产物里不再有裸 `allKids(one)`）。
 - **结论**：两个集合在这一格上同答（`Method` 的子单元里没有 `IsInvisible` 的那一类），
   **等价是量出来的、不是推出来的**；源码照改，两处都成了属性读。
-- **`allKids` 的读者因此只剩 2 处**（代码块内 6 → 4 处）：`trailingTriviaStart`（2）与
+- **`allKids` 的读者因此只剩 2 处**（代码块内 6 → 4 处）：`stmtEndOf` 里那段收尾 trivia
+  （**第 1117 轮就地展开**，原来是单独一格 `trailingTriviaStart`）与
   `trailingSemicolonOf` 那一处、`astNode` 开头那段「跳过前导注释」——**要的正是含 trivia 的
   完整表**的地方，这一格因此照旧留着（第 1066 / 1067 / 1072 / 1073 四轮已经把「不是要找 trivia」
   的那批全改完了）。
@@ -1910,7 +1924,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 | 谁（代码块内 1 处） | 为什么要含 trivia 的那一份 |
 | --- | --- |
 | `astNode` 开头那段「跳过前导注释」 | 前导注释正是 `IsInvisible` 的那一类 |
-| `trailingTriviaStart` | 它找的正是注释（`k.IsCommentUnit`，第 1085 轮） |
+| `stmtEndOf` 里那段收尾 trivia（**第 1117 轮就地展开**，原来是单独一格 `trailingTriviaStart`） | 它找的正是注释（`k.IsCommentUnit`，第 1085 轮） |
 | `trailingSemicolonOf` | 它要问的正是「末尾那个 `;` 是不是落在**注释**里」 |
 
 - **量法**：逐行判行首三反引号进出围栏，只在**围栏内**数 `allKids(` —— **6 处，其中 3 处是
@@ -2811,38 +2825,33 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 注释可能嵌得很深（上面那条是落在 `ReturnType > TypeDefine` 里的），所以沿
   // 「区间终点正好等于当前 `end`」的那条链**递归**找下去——每层最多命中一个孩子，
   // 代价与一个节点到它最后一个叶子的深度成正比。
+  // **收尾 trivia（注释）在这条区间链上的起点**（第 1117 轮就地展开；它原来是本页单独一格
+  // `trailingTriviaStart`，**唯一读者就是下面这一处**）：只在「区间终点正好是这个 `at`」的
+  // 子孙里找，所以每一层至多一个候选——这既是正确性（别的注释不属于本节点的尾巴），
+  // 也是代价的上界。
+  // **「这一格是不是一条注释」第 1084 / 1085 轮收进了被问的那一页**（用户口径 1.1 / 1.3）：
+  // 判据原来是两连比类名 `k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`，
+  // 而**类名就是那两页自己的名字**——今天基类默认 `false`、`LineAnnotation` / `AreaAnnotation`
+  // 各自显式声明 `## field IsCommentUnit:bool = true`（构造时就赋好的常量），这里只读这一格。
+  // **它不是 `IsInvisible`**：那一格答 `true` 的有四页（还有 `LineWrap` 软换行与
+  // `PreprocessorDirectives` 预处理指令），而收尾 trivia 只认两种注释——两问是两句话。
+  const trailingTriviaStartOf = (unit: any, at: int): int => {
+    for (const k of allKids(unit)) {
+      // **这一格自己的两头**（第 1018 轮）：不再有 `range` 那一层，问单元自己的 `start` / `end`。
+      if (k.end !== at) continue;
+      if (k.IsCommentUnit) return k.start;
+      const inner = trailingTriviaStartOf(k, at);
+      if (inner !== undefined) return inner;
+    }
+    return undefined;
+  };
   while (end > v.start) {
     while (end > v.start && /\s/.test(ctx.source[end - 1])) end--;
-    const at = trailingTriviaStart(v, end);
+    const at = trailingTriviaStartOf(v, end);
     if (at === undefined || at < v.start) break;
     end = at;
   }
   return end;
-```
-
-# private method trailingTriviaStart:(v:any, end:int)=>int
-
-**收尾 trivia**（注释）在这条区间链上的起点；没有就给 `undefined`。
-
-只在「区间终点正好是这个 `end`」的子孙里找，所以每一层至多一个候选——这既是正确性
-（别的注释不属于本节点的尾巴），也是代价的上界。
-
-**「这一格是不是一条注释」第 1084 轮收进了被问的那一页**（用户口径 1.1 / 1.3）：
-判据原来是这里的两连比类名 `k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`，
-而**类名就是那两页自己的名字**——今天基类默认 `false`、`LineAnnotation` / `AreaAnnotation`
-各自显式声明 `## field IsCommentUnit:bool = true`（构造时就赋好的常量），投影只读这一格。
-**它不是 `IsInvisible`**：那一格答 `true` 的有四页（还有 `LineWrap` 软换行与
-`PreprocessorDirectives` 预处理指令），而收尾 trivia 只认两种注释——两问是两句话。
-
-```ts
-  for (const k of allKids(v)) {
-    // **这一格自己的两头**（第 1018 轮）：不再有 `range` 那一层，问单元自己的 `start` / `end`。
-    if (k.end !== end) continue;
-    if (k.IsCommentUnit) return k.start;
-    const inner = trailingTriviaStart((k), end);
-    if (inner !== undefined) return inner;
-  }
-  return undefined;
 ```
 
 # private method projectStatement:(v:any, ctx:any)=>any
@@ -8890,7 +8899,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 `Decorator` **不是** trivia（它进投影、不答 `IsInvisible`），所以「含 trivia 的完整子单元表」
 与「进投影的子单元表」在这里**逐处同答**——量法见下面那一节（全语料 2051 份、
 本函数被调 **42158 次**，两条路的 `start:end:Tag` 序列 **DIFF 0**）。
-`allKids` 的读者因此只剩**「要找 trivia」**的那三处（`trailingTriviaStart` 2 处、
+`allKids` 的读者因此只剩**「要找 trivia」**的那三处（`stmtEndOf` 里那段收尾 trivia，
+**第 1117 轮起就地展开**、原来是单独一格 `trailingTriviaStart`、
 `trailingSemicolonOf` 1 处、`astNode` 开头跳前导注释 1 处），与它自己那一节的说明一致。
 
 ```ts
