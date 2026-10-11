@@ -992,7 +992,13 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 做可达性，**48 格声明全部可达**（那一轮并掉的三格不是死代码，而是「只有本页某两处读者」的
 转发/读表，搬进读者之后本页少三格）。**`ENDS_ON_BRACE` 那一格的名字因此不再存在**——
 它的唯一读者 `ownsTrailingSemicolon` 已并进 `projectEach`，数据表跟着搬成那一格函数里的
-`endsOnBrace`（上面第 309~316 行那段记录里提它的两处，读的时候要按这条口径理解）。
+`endsOnBrace`（下面「并掉的三层间接」那一栏里提它的两处，读的时候要按这条口径理解）。
+**第 1146 轮它又回到模块级**（名字仍叫 `ENDS_ON_BRACE`）：搬进调用点是「少一层间接」，
+可代价变成了**每一趟调用都重建一次**——全语料 1640 份实测 `projectEach` 被调 **4380 次**、
+`projectExpression` 被调 **5687 次**（它里面那三张同类名单同样每趟重建），
+合计 **17061 个白造的 `Set`**。同一张常量名单因此从「函数里那一格局部 `endsOnBrace`」
+改立为**本页一格 `# private const`**。两轮的口径不冲突：第 1109 轮收的是**转手**，
+第 1146 轮收的是**每调用一次的重建**。
 
 **这一轮并掉的三层间接**（判据与第 1043 轮同一把尺子：一个声明**只有一个调用点**、
 而它自己只是把参数转手——那就把实现搬到那个调用点上）：
@@ -2503,6 +2509,25 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 
 # private const endOf:(node:any)=>int = (node) => node.end
 
+# private const NCO_BASE_OPERATORS:Set<string> = new Set(["+", "-", "*", "/", "%", "**", "<", ">", "<=", ">=", "==", "!=", "===", "!==", "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof", "="])
+
+**四张常量名单**（第 1146 轮从各自的调用点搬回模块级）：它们是**常量数据**
+（基础运算符词、运算符词、一元表达式 kind、收在 `}` 上的节点 kind），而过去每一趟
+`projectExpression` / `projectEach` 都要把其中一张 `new Set([...])` 重建一遍。
+**实测**（官方用例语料 1640 份 / 21793 个节点）：`projectExpression` 被调 **5687 次**
+（里面三张）、`projectEach` 被调 **4380 次**（一张）⇒ 每投一趟白造 **17061 个 `Set`**。
+四条判据一个字没动（名单、顺序、`has` 的读法全原样）。**如实记下**：同一进程里两版各投
+40 遍，best-of-4 提上去的 3090.7ms vs 每趟重建的 3068.9ms——**墙钟上量不出差别**
+（差 −21.8ms，两次测量之间的波动 ±300ms）；省掉的是**构造次数**，不是可测量的时间。
+各张名单**为什么是这些档**写在它们各自的调用点旁边（`projectExpression` 的 NCO 那一支、
+`projectEach` 的尾分号那一支），这里只记「它们今天是模块级的常量」。
+
+# private const OP_TEXTS:Set<string> = new Set(["+", "-", "*", "/", "%", "**", "<", ">", "<=", ">=", "==", "!=", "===", "!==", "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof"])
+
+# private const UNARY_KINDS:Set<string> = new Set(["DeleteExpression", "TypeOfExpression", "VoidExpression", "PrefixUnaryExpression"])
+
+# private const ENDS_ON_BRACE:Set<string> = new Set(["Block", "ClassDeclaration", "EnumDeclaration", "ForInStatement", "ForOfStatement", "ForStatement", "FunctionDeclaration", "IfStatement", "InterfaceDeclaration", "ModuleDeclaration", "SwitchStatement", "TryStatement", "WhileStatement"])
+
 # private const NOTHING:any = { __nothing: true }
 
 **「这一格没有节点」的哨兵**（第 198 轮）：token 的 `PrintAst` 返回 `undefined` 时，
@@ -3012,21 +3037,11 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // `ownsTrailingSemicolon(node, ctx)` 连同数据表 `ENDS_ON_BRACE`（两者的读者都只有本函数里
   // 那一处），按第 1103 / 1104 轮那把尺子整段搬进这个调用点，本页少两格声明。
   // 判据仍只有一份：问 kind、不问原文（四档的说明见第 838 / 663 / 1040 轮的台账）。
-  const endsOnBrace: Set<string> = new Set([
-    "Block",
-    "ClassDeclaration",
-    "EnumDeclaration",
-    "ForInStatement",
-    "ForOfStatement",
-    "ForStatement",
-    "FunctionDeclaration",
-    "IfStatement",
-    "InterfaceDeclaration",
-    "ModuleDeclaration",
-    "SwitchStatement",
-    "TryStatement",
-    "WhileStatement",
-  ]);
+  //
+  // **那张名单第 1146 轮搬到模块级**（用户口径 1.6「投影成本趋于 0」）：它是**常量数据**，
+  // 而原来每一趟 `projectEach` 都要重建一次（`new Set` + 13 个字面量 + 一次哈希表构造）
+  // ——全语料 1640 份实测本函数被调 **4380 次**，就是四千多次白造的集合。
+  // 判据一个字没改：名单仍是那 13 档、仍是 `!ENDS_ON_BRACE.has(kind)`。
   const ownsTrailingSemicolonOf = (node: any, ctx: any): bool => {
     const kind = String(node.kind);
     if (kind === "EmptyStatement") return false;
@@ -3048,18 +3063,16 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     // 上一格是 `Statement`，而它的 `EndsOnBrace()` 是「不收在 `}` 上」），照 token 问会让
     // `stmt-semicolon-after-declaration` 那一族 5 条用例当场倒退。名字与答案仍分处两页、
     // **名字就是那一页答的**，所以这里只读一次名字，不在这里判「我这一格长什么样」。
-    return !endsOnBrace.has(kind);
+    return !ENDS_ON_BRACE.has(kind);
   };
   // **顶层逗号是分隔符，不是 TS 的语义子节点**（第 84 轮）：TS 的 `parameters` / `arguments` /
   // `elements` / `properties` / `types` 里都**没有**逗号子节点（逗号**运算符**是另一回事——
   // 那种早被 token 层折成 `BinaryOperator op=","`、走 `projectBinary` 那条路，不经过这里）。
   // 实测「投影后多出来的节点」里 `CommaToken` 占 **18568 个**（第一名），全是各处平级列表漏掉的。
+  // **第 1146 轮删掉了这一段的一份逐字重复**：同一段话在下面 `const items = list.filter(` 前面
+  // 又写了一遍（第 84 轮搬家时留下的），两处字字相同——留一处。
   if (Array.isArray(list) === false) return [];
   const out = [];
-  // **顶层逗号是分隔符，不是 TS 的语义子节点**（第 84 轮）：TS 的 `parameters` / `arguments` /
-  // `elements` / `properties` / `types` 里都**没有**逗号子节点（逗号**运算符**是另一回事——
-  // 那种早被 token 层折成 `BinaryOperator op=","`、走 `projectBinary` 那条路，不经过这里）。
-  // 实测「投影后多出来的节点」里 `CommaToken` 占 **18568 个**（第一名），全是各处平级列表漏掉的。
   const items = list.filter(
     (item) =>
       item instanceof Token &&
@@ -4705,10 +4718,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   //      `this.Start?.Document === other.Start?.Document` 照本支走会把前面那一整段
   //      （连同那个二元单元）吞进一个 `PropertyAccessExpression`
   //      （实测 `source-range.ts` 漂移 2 + 多出 2）。
-  const NCO_BASE_OPERATORS = new Set([
-    "+", "-", "*", "/", "%", "**", "<", ">", "<=", ">=", "==", "!=", "===", "!==",
-    "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof", "=",
-  ]);
   const prefixHasOperator = kids.slice(0, ncoIndex).some(
     (k) =>
       k.IsBinaryOperatorNode ||
@@ -4758,10 +4767,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // （实测 `cy.ts` 的 a3：漂移 1 + 多出 2，区间一路撑到表达式末尾）。
     // 做法与 0a2 同款：在运算符处切开，把 NCO 接到尾巴上再交回 `foldBinaryFrom`。
     const prefix = kids.slice(0, ncoIndex);
-    const OP_TEXTS = new Set([
-      "+", "-", "*", "/", "%", "**", "<", ">", "<=", ">=", "==", "!=", "===", "!==",
-      "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof",
-    ]);
     let opAt = -1;
     let bestRank = 99;
     for (let i = 1; i < prefix.length; i++) {
@@ -4806,12 +4811,6 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     // `?.p` 被接到**那个一元节点的结果**上（`(!o)?.p`）⇒ 本仓给 `undefined`、Node 给 `false`
     //（`-o?.p` 本仓给 `undefined`、Node 给 `-1`，**静默错值**）。
     // 这与第 711 / 739 两轮在链那一支踩到的是**同一格**（同一个形状两处各写一遍就会漂）。
-    const UNARY_KINDS = new Set([
-      "DeleteExpression",
-      "TypeOfExpression",
-      "VoidExpression",
-      "PrefixUnaryExpression",
-    ]);
     // **这一支写成 `if` / `else if` 而不是嵌套三元**（第 740 轮实测）：`cases:tsast` 的语料
     // **包含产物自己**，而嵌套条件表达式那一格这一版还认不全（缺 `ConditionalExpression` +
     // `ColonToken`，实测 13 缺 1 漂 2 多）——写成一条条的 `if` 就没有这一格。
