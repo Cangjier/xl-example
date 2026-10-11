@@ -611,6 +611,17 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 基名（`a.b(1).c` 的第二次），所以这一页常量答 `true`——口径与两条理由见
 `../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
 
+## field IsPropertyAccess:bool = true
+
+**我这一格是不是一条成员访问链**（第 1091 轮）：投影层折链时要认它（`projectExpression` 一族里
+**14 处**连写 `Tag === "PropertyAccess"`），而**类名就是这一页自己的名字**——所以它本来就该由
+这一页答，不是由投影先问一句「你是什么类」。
+
+常量：构造时就赋好、克隆体照抄（与 `IsChainBaseNode` 同一形态、同一个位置）。
+口径与「为什么必须有基类那一句默认」见 `../../core/syntax/token.xl.md` 的 `IsPropertyAccess`。
+`IsChainBaseNode` **不是同一问**：那一格答「能不能当一整条链的基名」（八页答 `true`，
+**不含** `Bracket` / `NotNull` / `RegexToken`），这一格答「我是不是 `PropertyAccess` 这一格」。
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

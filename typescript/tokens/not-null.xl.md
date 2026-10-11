@@ -241,6 +241,20 @@ result.TryToClose();
 return result;
 ```
 
+## field IsNotNull:bool = true
+
+**我这一格是不是一次非空断言单元**（第 1091 轮）：投影层折链、折调用与「断言位」那几族里
+**19 处**连写 `Tag === "NotNull"`，而**类名就是这一页自己的名字**——所以它本来就该由这一页答，
+不是由投影先问一句「你是什么类」。
+
+常量：构造时就赋好（与 `AstKind` 同一个位置）。口径与「为什么必须有基类那一句默认」见
+`../../core/syntax/token.xl.md` 的 `IsNotNull`。
+
+**它与 `SymbolToken.IsNotNullSymbol` 不是同一问**（名字只差 `Symbol`）：那一格答「我这一格
+**符号的正文**是不是那个 `!`」（第 1090 轮，读 `TextValue`）；这一格答「我是不是 `NotNull`
+这一格单元」——一次断言在产物里是**一个** `NotNull` 单元（装着被断言者 + 那个 `!`），
+所以两问的收件人根本不同（一个在 `SymbolToken` 那一页、一个在这里）。
+
 ## field AstKind:string | undefined = "NonNullExpression"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），

@@ -742,6 +742,8 @@ const SELF_CLASSIFY_NAMES = [
   "IsParenBracket",
   "IsBraceBracket",
   "IsNotNullSymbol",
+  "IsPropertyAccess",
+  "IsNotNull",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -983,6 +985,52 @@ let notNullSymbolHits = 0;
 }
 
 /**
+ * **「这一格是不是一条成员访问链 / 一次非空断言」也不许在投影层比类名**（第 1091 轮）。
+ *
+ * 第 1090 轮收的是「符号的正文是不是那个 `!`」（那一页读 `TextValue`）；这一条收的是**同一句
+ * 判据的另一种收件人**：投影层折链、折调用与断言位那几族里，一共 **14 处**连写
+ * `X.Tag === "PropertyAccess"`、**19 处**连写 `X.Tag === "NotNull"`——问的都是「**你这一格
+ * 是什么类**」，而那两个名字**就是那两页自己的类名**（`tokens/property-access.xl.md` /
+ * `tokens/not-null.xl.md`）。按第 1041 / 1042 / 1057 / 1062 / 1075 / 1088 轮那条判据：
+ * 常量在构造时赋（两页各写一句 `## field IsPropertyAccess:bool = true` / `IsNotNull:bool = true`），
+ * 投影只读属性（`unit.IsPropertyAccess` / `unit.IsNotNull`），33 处一起改完。
+ *
+ * **两问与既有那两格不是同一问**（名字都不共用，所以这里守的是新名字）：
+ * `IsChainBaseNode` 答的是「手上这一格的**形状**够不够当一整条链的基名」（八页答 `true`，
+ * 不认 `Bracket` / `NotNull` / `RegexToken`）；`IsNotNullSymbol` 答的是「**符号**的正文是不是
+ * 那个 `!`」。这一条守的是「**你这一格是不是那一类单元**」——就是类名本身。
+ *
+ * 口径：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`），恰好 0 处才对；
+ * 两页的 `<Tag>` 只许以属性读的形态出现。
+ */
+const SELF_TAG_CLASSIFY = [
+  /\.Tag\s*[!=]==?\s*"PropertyAccess"/g,
+  /\.Tag\s*[!=]==?\s*"NotNull"/g,
+];
+/** 投影层拿类名当「是不是 `PropertyAccess` / `NotNull` 那一格」判的处数（0 处才是对的）。 */
+let selfTagClassifyHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const re of SELF_TAG_CLASSIFY) {
+      for (const match of code.matchAll(re)) {
+        selfTagClassifyHits += 1;
+        if (selfTagClassifyHits <= 3) {
+          violations.push({
+            file: SHARED_FILE,
+            why:
+              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` 那一类」又比类名了：\`${match[0]}\`——` +
+              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull`，构造时赋好），投影只读属性",
+          });
+        }
+      }
+    }
+  }
+}
+
+/**
  * **「回原文配对 / 找成对符号」那一套不许回来**（第 1059 轮立；第 1060 轮并进方括号那一族）。
  *
  * 第 1041~1058 轮一直在收同一件事：**某一页自己知道的事实，由那一页答**。第 1059 轮收的是
@@ -1173,6 +1221,9 @@ console.log(
 console.log(
   `「这一格是不是非空断言那个 \`!\`」又在投影层现场连写（${SHARED_FILE} 的代码块）：${notNullSymbolHits} 处（0 处才是对的，读 SymbolToken.IsNotNullSymbol）`,
 );
+console.log(
+  `「这一格是不是一条成员访问链 / 一次非空断言」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull）`,
+);
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的
 // 第二处答案，0 处才对（见 SOURCE_BRACE_SCAN）。
@@ -1201,6 +1252,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格是不是一条成员访问链由被问的那一页答、这一格是不是一次非空断言由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
 );
 process.exit(0);

@@ -1569,6 +1569,38 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 **基类这一格默认 `false`**：需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field`，与 `EndsOnBrace` / `IsNameNode` / `IsOperatorUnit` 同一形态）。
 
+## field IsPropertyAccess:bool = false
+
+**我这一格是不是一条成员访问链**（第 1091 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`PropertyAccess` 那一页答 `true`（`tokens/property-access.xl.md`），
+其余一律 `false`。过去它在投影层是**十四处连写比类名**（`X.Tag === "PropertyAccess"`），
+而那个名字**就是那一页自己的类名**——所以那是它自己的事实，被写在投影那一页里。
+
+**它与 `IsChainBaseNode` 不是同一问**：那一格答「手上这一格的**形状**够不够当一整条链的基名」
+（八页答 `true`，且**不认** `Bracket` / `NotNull` / `RegexToken`）；这一格答「我**是不是**
+`PropertyAccess` 这一格单元」——两问的名单与收件人都不一样，所以名字不共用。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsPropertyAccess:bool = true`，构造时就赋好、克隆体照抄），投影只读这一格
+（`unit.IsPropertyAccess`）——「我这一格是什么」因此只有一个来源。
+
+## field IsNotNull:bool = false
+
+**我这一格是不是一次非空断言单元**（第 1091 轮）——是的话答 `true`。
+
+判据同样是关于**产物标签**的：`NotNull` 那一页答 `true`（`tokens/not-null.xl.md`，产物里
+`expr!` 是**一个** `NotNull` 单元，装着被断言者 + 那个 `!`），其余一律 `false`。
+过去它在投影层是**十九处连写比类名**（`X.Tag === "NotNull"`），而那个名字就是那一页自己的类名。
+
+**它与 `SymbolToken.IsNotNullSymbol` 不是同一问**（名字只差一个词）：那一格（第 1090 轮）
+答「我这一格**符号的正文**是不是非空断言那个 `!`」（读 `TextValue`，收件人是 `SymbolToken`）；
+这一格答「我**是不是** `NotNull` 这一格单元」（收件人是 `NotNull` 那一页）。
+所以两格各自显式声明、各自守着自己那一问。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsNotNull:bool = true`，构造时就赋好），投影只读这一格（`unit.IsNotNull`）。
+
 ## field IsBinaryOperatorNode:bool = false
 
 **我这一格是不是一个二元（或逻辑）运算符节点**（第 1088 轮）——是的话答 `true`。

@@ -88,9 +88,13 @@ import { Identifier } from "./tokens/identifier.xl.md"
 **第 1087 轮并掉三处壳之后是 66 格**，**第 1088 轮（改的全是读数与说明、新立的那一格在基类与
 `binary-operator` / `logical-operator`）仍是 66 格**，**第 1089 轮（39 处读数 + 删掉一个 `ctx`
 出口，新立的两格在 `bracket` 那一页）仍是 66 格**，**第 1090 轮（11 处读数，新立的那一格在
-基类与 `symbol-token`）仍是 66 格**
+基类与 `symbol-token`）仍是 66 格**，**第 1091 轮（33 处读数，新立的两格在基类、
+`property-access` 与 `not-null`）照同一条命令逐行数是 64 格**
 ——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
+**第 1091 轮复核时又量到同一件事**：第 1087 轮那一栏收尾写的是「66 格」，可照那条命令逐行数
+（第 1087 ~ 1091 轮共五轮，一格声明没增没减）**一直是 64 格**——所以那 2 格的差从第 1087 轮起
+就被抄进了后面每一栏。从第 1091 轮起本页一律按实测值写。
 所以从第 1073 轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
 `Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 即可（`.Count` 就是那一格）。
@@ -892,6 +896,46 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   **3 个产物** / 0 error（`token` / `symbol-token` / `print-ast-common`）、`tsc` 干净；
   **八道门 8 通过、0 失败**（墙钟 30.4s）。
 - **本页的声明数**：**66 → 66 格**（改的全是读数与说明；新立的那一格在基类与符号那一页）。
+
+**第 1091 轮把「这一格是不是一条成员访问链 / 一次非空断言」的两连比类名收进被问的那两页**
+（用户口径 1.1~1.4：token 子类**构造完**信息就得齐；要读的那一格由**具体页显式声明**、
+构造时赋好）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `X.Tag === "PropertyAccess"`（**14 处**：`projectExpression` 一族折链时要认「手上这一格是不是一条链」） | `X.IsPropertyAccess` | `PropertyAccess` 那一页**显式声明** `## field IsPropertyAccess:bool = true`（常量，构造时就位、克隆体照抄） |
+| `X.Tag === "NotNull"`（**19 处**：折链、折调用、断言位那几族） | `X.IsNotNull` | `NotNull` 那一页**显式声明** `## field IsNotNull:bool = true`（同上） |
+
+- **为什么这两问该住在被问的那一页**：两句问的都是「**你这一格是什么类**」，而那两个名字
+  **就是那两页自己的类名**（`constructor.name` 就是产物的标签名）——投影先问一句「你是什么类」
+  再自己拿名字去比，等于把那一页自己的事实抄在投影里（与第 1088 轮 `IsBinaryOperatorNode`、
+  第 1085 轮 `IsCommentUnit` 同一把尺子）。
+- **两格都是 `## field`（常量）、不是 `## property` + `### get`**：与 `IsDotSymbol` /
+  `IsCommaSymbol` 那一族的分界同一条理由——**那两格不是「正文的函数」**（正文是逐字符攒的、
+  未必关过），而是「这一格整个单元是不是某一类」，类名在构造那一刻就定下来、之后不会改
+  （`IsChainBaseNode` / `IsBinaryOperatorNode` 也是这么写的）。
+- **名字为什么不与既有两格共用**（抄一次会漂）：`IsChainBaseNode` 答的是「手上这一格的
+  **形状**够不够当一整条链的基名」（八页答 `true`，**不认** `Bracket` / `NotNull` / `RegexToken`）；
+  `IsNotNullSymbol` 答的是「**符号的正文**是不是那个 `!`」（第 1090 轮，读 `TextValue`）。
+  这一轮的两格答的是「**你这一格是不是那一类单元**」——名单与收件人都不同，所以各立一格。
+- **判据跟着长两条**：`direct:lint` 第八条那一族多认两个名字（`IsPropertyAccess` / `IsNotNull`），
+  另立第十七条 `SELF_TAG_CLASSIFY`——**匿名连写**那一形态（`.Tag === "PropertyAccess"` /
+  `.Tag === "NotNull"`，`!==` 也算）在代码块里必须恰好 0 处。**自验**（本机探针，不进仓库）：
+  两种连写各写回一处 ⇒ 报告 **0 → 1 处**、`FAIL`、`exit=1`；逐字节还原 ⇒ 0 处、`exit=0`。
+- **改了哪四个文件**：本页（33 处读数 + 这一节）、`core/syntax/token.xl.md`（那两格虚属性，
+  基类各答 `false`）、`typescript/tokens/property-access.xl.md` 与
+  `typescript/tokens/not-null.xl.md`（各自显式声明并答 `true`）、
+  `tests/parse/direct-lint.mjs`（第八条名单 + 第十七条判据 + 一行读数）。
+- **实测**：`xl check` 4 个文件 0 条；`xl build`（`core` / `typescript`）**4 个产物** / 0 error
+  （`token` / `property-access` / `not-null` / `print-ast-common`）、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 30.6s），读数与基线逐项相同：`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**66 → 64 格**（**如实记下**：第 1090 轮那一栏写「66 格」比实测多 2 格
+  ——照顶上那条命令逐行数，第 1090 轮当时就是 **64 格**，与第 1087 轮那一栏的收尾数一致；
+  差的那两格是更早某一轮把某些行重复算了一次，这一轮起按实测值记。本轮一格声明没增没减：
+  新立的两格都在别的页与基类）。
 
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
@@ -2867,7 +2911,7 @@ new Set([
           ? kids[2]
           : undefined;
       const instTemplateChain =
-        instTemplateDirect === undefined && kids.length >= 3 && kids[2].Tag === "PropertyAccess"
+        instTemplateDirect === undefined && kids.length >= 3 && kids[2].IsPropertyAccess
           ? kids[2].ProjectableKids
           : [];
       const instChainHasTemplate =
@@ -2893,7 +2937,7 @@ new Set([
           const inner = spine.ProjectableKids;
           if (inner.length < 3) break;
           const spineHead = inner[0];
-          const spineHeadKids = spineHead.Tag === "PropertyAccess" ? spineHead.ProjectableKids : [spineHead];
+          const spineHeadKids = spineHead.IsPropertyAccess ? spineHead.ProjectableKids : [spineHead];
           if (spineHeadKids[0]?.Tag === "String" && spineHeadKids[0].stringChar === "`") {
             instSpineTemplate = spineHeadKids[0];
             instSpineMembers = spineHeadKids.slice(1);
@@ -3464,7 +3508,7 @@ new Set([
     //（运算符左边那一格就是名字）。探针现场（`tmp/recon/probe-meta.cjs`）：
     //
     //     MP1DBG kids=Keyword(new),SymbolToken(.),BinaryOperator()
-    const namedKids = named.Tag === "PropertyAccess" ? named.ProjectableKids : [named];
+    const namedKids = named.IsPropertyAccess ? named.ProjectableKids : [named];
     // **「名字那一格是不是被折进了二元单元」要单独记下来**（第 560 轮）：
     // 下面那个「一直往左走到不是二元运算符为止」的循环只有在**第一格就是二元单元**时才有意义
     //（`new.target === A`：`target === A` 被折成一格，名字要从它左边取）。
@@ -4081,7 +4125,7 @@ new Set([
   // 标签取它**前面全部**——上面那条 `kids.length === 2` 的口径在这里自然被覆盖。
   let templateChainAt = -1;
   for (let at = 1; at < kids.length; at++) {
-    if (kids[at].Tag !== "PropertyAccess") {
+    if (kids[at].IsPropertyAccess === false) {
       continue;
     }
     if (tagIsPostfixChain(kids.slice(0, at)) === false) {
@@ -4138,7 +4182,7 @@ new Set([
       const inner = spine.ProjectableKids;
       if (inner.length < 3) break;
       const head = inner[0];
-      const headKids = head.Tag === "PropertyAccess" ? head.ProjectableKids : [head];
+      const headKids = head.IsPropertyAccess ? head.ProjectableKids : [head];
       if (headKids[0]?.Tag === "String" && headKids[0].stringChar === "`") {
         templateUnit = headKids[0];
         members = headKids.slice(1);
@@ -4411,7 +4455,7 @@ new Set([
       //（`innermostCallee` + `graftCallee`）。
       // **`PropertyAccess` 那一档照旧摊开**：`o["f"]().v` 那一格才是「调用 + 后缀」
       // 两件事装在一个外壳里，摊平之后循环里那两支各办一件。
-      if (inner[0].Tag === "PropertyAccess") {
+      if (inner[0].IsPropertyAccess) {
         for (const one of inner[0].ProjectableKids) out.push(one);
       } else {
         out.push(inner[0]);
@@ -4496,12 +4540,12 @@ new Set([
   if (
     kids.length >= 2 &&
     (isSymbol(kids[1], ".") || kids[1].IsIndexBracket ||
-      (kids[0].Tag === "NotNull" && kids[1].Tag === "ArrayLiteral") ||
+      (kids[0].IsNotNull && kids[1].Tag === "ArrayLiteral") ||
       // **`!` 后面那一格以一次下标开头**（第 333 轮）：`[1]!` 与 `[0].id`
       // 两种外壳（`NotNull` / `PropertyAccess`）都要认——判据与理由见
       // `isIndexFirstUnit` 那一段。少了它，`o.b![1]![0]` 与 `data.list![0].id`
       // **整条链都进不来**（后两个方括号连着丢）。
-      (kids[0].Tag === "NotNull" && isIndexFirstUnit(kids[1], ctx)) ||
+      (kids[0].IsNotNull && isIndexFirstUnit(kids[1], ctx)) ||
       // **函数 / 类表达式后面紧跟的方括号是下标**（第 775 轮）：`function () { }["length"]` /
       // `class { }["name"]` 里那个方括号与前一条（`o.b![1]`）**是同一处境**——
       // 前面那一格不是「标识符 / 已折好的链」，于是它按**数组字面量**成形；
@@ -4552,7 +4596,7 @@ new Set([
       //（实测 `gap-r964-nonnull-call-twice-member`：缺 4 格）。
       // **做法**：摊开这件事交给 `chainOnto` 的 Method 分支——它按**区间**判「外面还有一层」，
       // 正是这一档需要的（那一支第 966 轮补齐了）。
-      if (k.Tag === "PropertyAccess" && at > 0 && isIndexFirstUnit(k, ctx)) {
+      if (k.IsPropertyAccess && at > 0 && isIndexFirstUnit(k, ctx)) {
         const bareKids = k.ProjectableKids;
         const bareHead = bareKids.length > 0 ? bareKids[0] : undefined;
         if (bareHead !== undefined && bareHead.Tag === "Method"
@@ -4562,11 +4606,11 @@ new Set([
           continue;
         }
       }
-      if (k.Tag === "PropertyAccess" && at > 0 && isCallFirstUnit(k, ctx)) {
+      if (k.IsPropertyAccess && at > 0 && isCallFirstUnit(k, ctx)) {
         for (const inner of k.ProjectableKids) ck.push(inner);
         continue;
       }
-      if (k.Tag === "PropertyAccess" && at > 0 && isSymbol(kids[at - 1], ".")) {
+      if (k.IsPropertyAccess && at > 0 && isSymbol(kids[at - 1], ".")) {
         for (const inner of k.ProjectableKids) ck.push(inner);
         continue;
       }
@@ -4627,7 +4671,7 @@ new Set([
     // 而 Node 给 `1`——**静默错值**，判据 `c331-ex-nonnull-and-optional-mix`）。
     // **`NotNull` 那一档不在这里摊**：它自带「断言」那一半，
     // 摊成两格反而会把那个 `!` 丢成一枚裸符号——它由循环里那一支一起办（见下面）。
-    const headAssert = kids.length > 0 && kids[0].Tag === "NotNull";
+    const headAssert = kids.length > 0 && kids[0].IsNotNull;
     if (headAssert && ck.length > 0) {
       const flattened: Array<any> = [];
       for (let at = 0; at < ck.length; at++) {
@@ -4639,14 +4683,14 @@ new Set([
         // `gap-r975-nonnull-call-assert-index` / `gap-r975-nonnull-call-thrice-assert-member`）。
         // **与上面那条 `isIndexFirstUnit` 的分工**：那一支管「先下标、再断言」，
         // 这一支管「先调用、再断言」（判据就是 `isCallFirstUnit(头一格)`）。
-        const oneHead = one.Tag === "PropertyAccess"
+        const oneHead = one.IsPropertyAccess
           ? one.ProjectableKids[0]
           : undefined;
-        const assertCallCell = oneHead !== undefined && oneHead.Tag === "NotNull"
+        const assertCallCell = oneHead !== undefined && oneHead.IsNotNull
           && isCallFirstUnit(oneHead, ctx);
         if (
           at > 0 &&
-          one.Tag === "PropertyAccess" &&
+          one.IsPropertyAccess &&
           (isIndexFirstUnit(one, ctx) || assertCallCell)
         ) {
           for (const inner of one.ProjectableKids) flattened.push(inner);
@@ -4793,7 +4837,7 @@ new Set([
     // 那一档（`o.b![1]`），**函数 / 类**是第 775 轮新加的一档（`function () { }["length"]`）——
     // 两者处境一字不差：token 层认不出「前面那一格是个值」，于是那个方括号按数组字面量成形。
     let sawNullAssert =
-      ck[0].Tag === "NotNull" ||
+      ck[0].IsNotNull ||
       ck[0].Tag === "Function" ||
       ck[0].Tag === "Class";
     let i = 1;
@@ -4849,7 +4893,7 @@ new Set([
         // `[…, Method(Pre), NotNull, ., Method(Pre)]`——`!` 是**一个单元**，它把左边整段
         // 包成 `NonNullExpression`，链再照常往下接。不认它的话循环在这里 break，
         // 后面那整段链会掉成平级节点（实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
-        if (ck[i].Tag === "NotNull") {
+        if (ck[i].IsNotNull) {
           // **`[1]!` 这种「先下标、再断言」的一格**（第 333 轮）：见 `isIndexFirstUnit`
           // 那一段的表——中间那一格的外壳是 `NotNull`，里层却是一个方括号。
           // **次序是语义**：TS 是 `((o.b!)[1])!`——先下标、再把 `!` 套在那个结果上。
@@ -4986,7 +5030,7 @@ new Set([
           // 那个 `NotNull` 的核是**实参括号**（不是名字），所以这里要自己把内层那次调用
           // 建出来（`assertedMember` 只认名字）。**判据与另外几处一字不差**：
           // `Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
-          if (bareName === "" && callHead !== undefined && callHead.Tag === "NotNull") {
+          if (bareName === "" && callHead !== undefined && callHead.IsNotNull) {
             const assertKids = callHead.ProjectableKids.filter(
               (k: any) => !k.IsNotNullSymbol,
             );
@@ -5152,7 +5196,7 @@ new Set([
       // 单元——名字只占 `Method` 开头的几个字符，`!` 是调用**之后**的断言。
       // 照名字那一支投会得到一个盖住整段 `Pre()` 的 `Identifier`
       // （实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
-      if (next.Tag === "NotNull") {
+      if (next.IsNotNull) {
         const asserted = next.ProjectableKids.filter(
           (k) => !k.IsNotNullSymbol,
         );
@@ -5181,7 +5225,7 @@ new Set([
           // `NotNull` 里装着 `PropertyAccess(SourceRange . Start)`。照名字投会得到一个
           // 文本是整条链的 `Identifier`（实测 `dist/ts/typescript/tokens/if/if-set.ts` 一族：
           // 漂移 14 + 缺 7 + 多出 7）。逐格接上去，最后再套 `NonNullExpression`。
-          const chain = head.Tag === "PropertyAccess" ? head.ProjectableKids : [head];
+          const chain = head.IsPropertyAccess ? head.ProjectableKids : [head];
           for (const piece of chain) {
             if (piece.Tag === "SymbolToken") {
               continue;
@@ -5245,7 +5289,7 @@ new Set([
           // 少了它，下面那句 `expression: left` 会把**被调用者当成 `left`**，
           // 于是成员名 `m` 与它那个 `!` **整段丢**（实测：缺 `PropertyAccessExpression`
           // 与 `Identifier` 各一、`NonNullExpression` 的区间只到 `o!` 那两格）。
-          if (innerKids.length > 0 && innerKids[0].Tag === "NotNull") {
+          if (innerKids.length > 0 && innerKids[0].IsNotNull) {
             const asserted = assertedMember(left, innerKids[0], ctx, undefined);
             if (asserted !== undefined) {
               const outerCall = projectNode(next, ctx);
@@ -5307,12 +5351,12 @@ new Set([
       // 照下面那一支会把它当成一个成员名（`nameOf` 取到整段原文），于是
       // `Identifier` / `PropertyAccessExpression` / `NonNullExpression` 三处同时错位
       // （实测漂移 76 + 30 + 33、多出 71 + 75）。
-      if (next.Tag === "NotNull") {
+      if (next.IsNotNull) {
         const inner = next.ProjectableKids.filter(
           (k) => !k.IsNotNullSymbol,
         );
         const target = inner.length > 0 ? inner[0] : undefined;
-        if (target !== undefined && target.Tag === "PropertyAccess") {
+        if (target !== undefined && target.IsPropertyAccess) {
           const members = target.ProjectableKids;
           if (members.length > 0) {
             left = {
@@ -5642,7 +5686,7 @@ if (kind === "Method") {
   const mHead = mKids.length > 0 ? mKids[0] : undefined;
   if (mHead === undefined) return false;
   if (mHead.IsParenBracket) return true;
-  if (mHead.Tag === "NotNull") {
+  if (mHead.IsNotNull) {
     const asserted = mHead.ProjectableKids.filter(
       (k: any) => !k.IsNotNullSymbol,
     );
@@ -5691,7 +5735,7 @@ if (kind === "PropertyAccess" || kind === "NotNull") {
     // `PropertyAccess([NotNull(Bracket(()), !), Bracket([0])])`——那一格的头是
     // 「断言盖着一次调用」，同样是「以一次调用开头」；原来只认 `Method` ⇒ 链那一支
     // 整个进不来（实测 `gap-r975-nonnull-call-assert-index`：缺 3 漂 1）。
-    if (head.Tag === "NotNull") return isCallFirstUnit(head, ctx);
+    if (head.IsNotNull) return isCallFirstUnit(head, ctx);
     return head.Tag === "Method" && isCallFirstUnit(head, ctx);
   }
 }
@@ -5762,7 +5806,7 @@ return false;
       end: endOf(nameUnit),
     };
     if (questionDot !== undefined) node.questionDotToken = questionDot;
-  } else if (nameUnit.Tag === "PropertyAccess") {
+  } else if (nameUnit.IsPropertyAccess) {
     // **里面那条链也要逐格接**（第 166 轮）：`a?.b.c!` 的 NCO 内容是
     // `NotNull(PropertyAccess([b, ., c]))`，TS 那边是两层
     // `PropertyAccessExpression`（第一格带 `?.`）外面套 `NonNullExpression`——
@@ -5971,7 +6015,7 @@ return false;
       const calleeKid = first.ProjectableKids.filter(
         (k: any) => k.Tag !== "GenericType",
       )[0];
-      if (calleeKid !== undefined && calleeKid.Tag === "NotNull") {
+      if (calleeKid !== undefined && calleeKid.IsNotNull) {
         const asserted = assertedMember(left, calleeKid, ctx, questionDot);
         if (asserted !== undefined) {
           const call = projectNode(first, ctx);
@@ -6082,7 +6126,7 @@ return false;
   // 不拆的话它会落到下面「按成员名折属性访问」那一支，
   // 把括号当成名字，投出一个名叫 `()` 的属性访问（实测就是这个形状），
   // 运行期于是**静默**给 `undefined`（JS 给 `3`）。
-  if (first !== undefined && first.Tag === "PropertyAccess") {
+  if (first !== undefined && first.IsPropertyAccess) {
     const inner = first.ProjectableKids;
     const head = inner.length > 0 ? inner[0] : undefined;
     if (head !== undefined && head.IsParenBracket) {
@@ -6207,7 +6251,7 @@ return false;
   // 的属性访问，再把 `!` 套到整条链上；不这么收的话 `!` 会留在成员名上，
   // `PropertyAccessExpression` 的区间多一格、`NonNullExpression` 少一层
   // （实测 `expr-nonnull-optional.ts` 与 `expr-optional-call-nodes.ts`）。
-  if (first !== undefined && first.Tag === "NotNull") {
+  if (first !== undefined && first.IsNotNull) {
     // 折法收在 `assertedMember` 里（第 852 轮）：`a?.b!` 与 `a?.b!()` / `a?.b!.c!()`
     // 是同一格，`!` 都套在**整条链**上，差的是它后面还接不接东西。
     const asserted = assertedMember(left, first, ctx, questionDot);
@@ -6256,7 +6300,7 @@ return false;
   // `PropertyAccessExpression` 少一层、`Identifier` 多一个、区间也跟着漂
   // （实测 `a?.b.c` / `x?.Parent.Parent` 这一族）。逐格接上去，
   // `questionDotToken` 挂在**第一格**上（TS 就是这么放的：`a?.b.c` 的 `?.` 属于内层那个节点）。
-  if (first !== undefined && first.Tag === "PropertyAccess") {
+  if (first !== undefined && first.IsPropertyAccess) {
     const members = first.ProjectableKids;
     let node = left;
     // **`?.` 挂在链的下一格上**（TS 的放法）：`a?.b.c` 里它是**内层**那个
@@ -6283,7 +6327,7 @@ return false;
       // 多一格属性访问（实测 `gap-r964-opt-assert-member-member` 的漂移正是它）。
       // 折法与 `chainOnto` 的子链分支**一字不差**：先接成员（`?.` 挂在**内层**那一格），
       // 再把 `!` 套在**整条链**上、位置取那一格自己的末端。
-      if (member.Tag === "NotNull") {
+      if (member.IsNotNull) {
         const bangKids = member.ProjectableKids.filter(
           (k: any) => !k.IsNotNullSymbol,
         );
@@ -6324,7 +6368,7 @@ return false;
         if (nameText === "") {
           const callKids = member.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
           const callHead = callKids.length > 0 ? callKids[0] : undefined;
-          if (callHead !== undefined && callHead.Tag === "NotNull") {
+          if (callHead !== undefined && callHead.IsNotNull) {
             const asserted = assertedMember(node, callHead, ctx, pending);
             if (asserted !== undefined) {
               node = Object.assign({}, projectNode(member, ctx), {
@@ -6573,7 +6617,7 @@ return false;
     // 循环在它前面就 `break` ⇒ **断言与那个下标一起丢**（实测
     // `gap-r973-opt-assert-index-index-member`：缺 5 漂 2）。
     // **次序是语义**：TS 是 `((a?.b![0])![1])`——先把下标接上、再把 `!` 套在那个结果上。
-    if (unit.Tag === "NotNull") {
+    if (unit.IsNotNull) {
       const bangKids = unit.ProjectableKids.filter(
         (k: any) => !k.IsNotNullSymbol,
       );
@@ -6647,7 +6691,7 @@ return false;
         i += 1;
         continue;
       }
-      if (bareName === "" && callHead !== undefined && callHead.Tag === "NotNull") {
+      if (bareName === "" && callHead !== undefined && callHead.IsNotNull) {
         const asserted = assertedMember(left, callHead, ctx, undefined);
         if (asserted !== undefined) {
           const call = projectNode(unit, ctx);
@@ -6777,7 +6821,7 @@ return false;
     // `gap-r971-opt-assert-index-member`：缺 3 漂 1）。抬出来之后这一格照子链折，
     // 跨过的格子数是 **1**（没有点号要跨），`pendingBang` 那两格照旧。
     const dotStep = unit.IsDotSymbol && i + 1 < units.length;
-    const loneSubChain = dotStep === false && unit.Tag === "PropertyAccess";
+    const loneSubChain = dotStep === false && unit.IsPropertyAccess;
     if (dotStep === false && loneSubChain === false) break;
     // **点号后面那一格可能自带一个 `!`**（第 333 轮）：`o?.a!.b!` 的 NCO 里是
     // `[NotNull(a), ., NotNull(b)]`——那个 `!` 与成员名**在同一格里**
@@ -6796,7 +6840,7 @@ return false;
     // 接的是**断言之后**那一条链，而「把 `!` 套上去」这件事发生在**子链分支内部**——
     // 那里需要知道终点在哪，`bangEnd` 就是那一格 `NotNull` 自己的末端。
     let bangEnd: number | undefined = undefined;
-    if (next.Tag === "NotNull") {
+    if (next.IsNotNull) {
       bangUnit = next;
       bangEnd = endOf(bangUnit);
       const inner = next.ProjectableKids.filter(
@@ -6815,7 +6859,7 @@ return false;
         const calleeKid = next.ProjectableKids.filter(
           (k: any) => k.Tag !== "GenericType",
         )[0];
-        if (calleeKid !== undefined && calleeKid.Tag === "NotNull") {
+        if (calleeKid !== undefined && calleeKid.IsNotNull) {
           const asserted = assertedMember(left, calleeKid, ctx, undefined);
           if (asserted !== undefined) {
             const call = projectNode(next, ctx);
@@ -6870,7 +6914,7 @@ return false;
       };
       const call = projectNode(next, ctx);
       left = Object.assign({}, call, { expression: member, pos: member.pos });
-    } else if (next.Tag === "PropertyAccess") {
+    } else if (next.IsPropertyAccess) {
       // 成员格自己又是一条链单元（`[Start, NCO(Document)]`）：逐格接上去。
       const members = next.ProjectableKids;
       // **断言还没套上去的话，它盖到哪一格由 `bangEnd` 给**（第 966 轮）：
@@ -8021,7 +8065,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       }
     }
   }
-  const paUnit = list.find((k) => k.Tag === "PropertyAccess");
+  const paUnit = list.find((k) => k.IsPropertyAccess);
   // **后面还可能跟着类型实参段**（第 161 轮）：`x is A.B<C>` 的产物是
   // `[PropertyAccess(A.B), GenericType(<C>)]` **两格**——只认「整段就一格」时实参整个丢
   // （实测 `type-new-nodes-adversarial.ts` 的 `x is A.B<C>`：缺 `TypeReference` + `Identifier`）。
