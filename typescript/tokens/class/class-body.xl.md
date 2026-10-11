@@ -44,6 +44,21 @@ import { Identifier } from "../identifier.xl.md"
 只有这一种落法，所以这是一格**常量**：第 1045 轮从 `## method WrapperField()` 改成 `## field`，
 构造时就赋好，投影只读属性。
 
+## field IsClassBody:bool = true
+
+**我这一层是不是「类体」**（第 1054 轮）：投影那边只有一处要问它——**类里那个叫 `constructor`
+的方法要投成 `Constructor`**（见 `print-ast-common.xl.md` 的 `projectDeclaration`）。
+
+**为什么它由本页答，而不是由投影递一个「父 kind」进来**：那一格判据说的是
+「**这一格是不是类体**」，而这件事就是本页自己的身份——投影过去靠 `ctx.parentKind` 这个
+**上下文标记**（`projectEachIn` 记、`projectDeclaration` 读）来近似它，于是同一格事实
+在两处各存了一份（标记一份、树的形状一份），而标记还会被**嵌套**的成员表覆盖
+（见 `projectDeclaration` 那一支的 save / restore）。改成读这一格之后，
+投影不必再为它维护一份可以漂的状态：**父单元是类体，`constructor` 才是构造**。
+
+名单只有一格（`ClassBody`），所以这是一格**常量**：构造时就赋好，与
+`WrapperField` / `IsMemberList` / `IsSignatureNode` 同一形态（声明在本页、投影只读属性）。
+
 ## constructor:(template:Template)=>void
 
 创建后立刻做两件事：挂**成员列表**的跳转队列、挂**语句**规则队列。

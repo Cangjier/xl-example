@@ -1091,10 +1091,11 @@ throw new Error("找不到匹配的子单元");
 
 **这一页是「同一个产物标签、按上下文换 kind」最多的一页**：
 接口 / 类型字面量里是 `MethodSignature`（`ctx.signature`）、
-类体里那个叫 `constructor` 的是 `Constructor`（读 `ctx.parentKind`）、
+类体里那个叫 `constructor` 的是 `Constructor`（**问父单元自己**：`v.Parent.IsClassBody`，
+第 1054 轮——`ClassBody` 那一页声明了这一格常量）、
 `modifiers` 里带 `get` / `set` 的是 `GetAccessor` / `SetAccessor`，
-其余才是 `MethodDeclaration`。四档判据**全部落在这一格自己的属性与上下文标记上**
-（`name` / `modifiers` / `ctx.signature` / `ctx.parentKind`）——没有一处回原文查。
+其余才是 `MethodDeclaration`。四档判据**全部落在这一格自己的属性、父单元与上下文标记上**
+（`name` / `modifiers` / `v.Parent` / `ctx.signature`）——没有一处回原文查。
 
 **回落到形状那一格是必须的**（不是「偷懒转手」）：算 kind 与造形状是同一件事的两半
 （`projectDeclaration` 里换 kind 之后立刻就是 `structuralProps` 与三处收尾），
@@ -1114,7 +1115,11 @@ throw new Error("找不到匹配的子单元");
   let kind = "MethodDeclaration";
   if (ctx.expressionPosition === true) kind = "MethodDeclaration";
   else if (
-    (ctx.parentKind === "ClassDeclaration" || ctx.parentKind === "ClassExpression") &&
+    // **「这是不是类体里的构造」问这一格的父单元自己**（第 1054 轮）：判据是
+    // 「这一格的父单元是不是类体」——`ClassBody.IsClassBody` 是那一页构造时就赋好的常量，
+    // 所以这里不再读投影递过来的 `ctx.parentKind`（同一格事实的第二处存储）。
+    // 与 `projectDeclaration` 的同一支**逐字符同答**（两处读的都是父单元那一格）。
+    v.Parent?.IsClassBody === true &&
     declaredName === "constructor"
   ) {
     // **判据是 `name` 属性、不是文本**（与 `projectDeclaration` 同一句理由）：

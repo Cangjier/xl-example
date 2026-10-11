@@ -347,6 +347,39 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1054 轮：`parentKind` 那一格上下文标记的**第二份存储删掉了**——「类体里的 `constructor`」改由父单元自己答（`ClassBody` 新增一格常量 `IsClassBody`，具体类显式声明、构造时赋好）；**八道门全绿、读数一处没动**
+
+**一句话**：第 1041~1053 轮一直在做同一件事——**某一页自己知道的事实，由那一页答**。
+这一轮收的是**最后一份「投影自己记的状态」**：`ctx.parentKind`。它是 `projectEachIn`
+记下、`projectDeclaration` 读的那一格上下文标记，而它唯一服务的判据只有一条
+——「类体里那个叫 `constructor` 的方法要投成 `Constructor`」。
+可那件事就是**「这一格的父单元是不是类体」**，而父单元是产物树里的 `ClassBody`、
+它自己就知道自己是谁：所以标记是**同一格事实的第二处存储**，而且它还会被**嵌套的成员表覆盖**
+（`projectEachIn` 里那一对 save / restore 就是为它写的）。
+
+- **收法**（用户口径：需要的信息在具体子类构造时就明确、新属性必须在具体类里显式声明）：
+  `typescript/tokens/class/class-body.xl.md` 新增
+  `## field IsClassBody:bool = true`（构造时就赋好的一格**常量**，与 `WrapperField` /
+  `IsMemberList` / `IsSignatureNode` 同一形态、同一理由）；
+  `print-ast-common` 的 `projectDeclaration` 与 `method-declaration.xl.md` 的
+  `PrintDirectAst` 两处同一支改读 **`v.Parent?.IsClassBody === true`**——
+  两条路读的都是**父单元那一格**，所以仍然逐字符同答（这正是「两半一起写」要的那条性质）。
+- **删掉的东西**：`ctx` 上那一格 `parentKind: ""`（连同它那段「为什么直出版非要读它」的说明）、
+  `projectEachIn` 里那一对 `savedParentKind` save / restore（三处）、
+  `ctx.Declaration` 里的 `parentKind ?? ctx.parentKind` 那条退路（现在参数就是全部来源）。
+  `parentKind` **参数本身留着**：它还喂着签名那一档（`MethodSignature` / `PropertySignature`），
+  那一格判据的上下文确实只有投影知道。
+- **为什么这不是「行为变更」**：两条判据是同一句话——「父单元是类体」。
+  过去的标记是投影**算出来的**（`structuralProps` 提层时把外层声明的 kind 递下去），
+  而产物树里 `constructor` 的方法单元**本来就挂在 `ClassBody` 底下**；
+  类表达式那一档（`ClassExpression`）同样落在 `ClassBody` 里，所以两处旧判据的
+  `ClassDeclaration || ClassExpression` 正好等于「父单元是类体」。八道门逐项与基线相同。
+- **实测**：`xl build typescript core` 156 个产物 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 32.3s），读数逐项与基线相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+
 ### 第 1053 轮：接上「某一格的正文只有一处来源」这条线——5 处「按坐标从 `ctx.source` 切正文」改成读这一格自己的 `Text`，并把这条口径钉成 `direct:lint` 第六条判据；**八道门全绿、读数一处没动**
 
 **一句话**：第 1048 轮给了 `Token.Text`（「这一格自己的原文」），第 1049 轮收掉了「按这一格自己的

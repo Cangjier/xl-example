@@ -699,9 +699,10 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 一个产物节点 → 一个 TS 形状节点。
 
-`parentKind` 是**投影意义上的父 kind**（不是产物树里的父亲）——只有
-「同一套产物标签在两个上下文里叫两种名字」的那几处要问它：
-现在只有一处，类体里的 `constructor` 是 `ConstructorDeclaration` 而不是 `MethodSignature`。
+`parentKind` 是**投影意义上的父 kind**（不是产物树里的父亲）——它现在只喂
+「同一套产物标签在两个上下文里叫两种名字」的**签名那一档**（`MethodSignature` /
+`PropertySignature`）。**类体里那个 `constructor` 第 1054 轮起不再问它**：
+那一格判据是「这一格的父单元是不是类体」，由 `ClassBody.IsClassBody` 自己答。
 取值由 `structuralProps` 在摊平包装体时往下传（`ClassBody` 的成员拿到的是 `ClassDeclaration`）。
 
 ```ts
@@ -785,8 +786,9 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // 所以两条路出的形状是**同一份实现**，不是各写一遍再对拍。
   //
   // **`parentKind` 一路递到这儿**（`projectEachIn` / `structuralProps` 都记着它）：
-  // 类体里的 `constructor` 要按这个上下文投成 `Constructor`，而直出版是从 `ctx.parentKind`
-  // 读同一格事实、不从产物树的父亲猜（那是第二份近似）。
+  // 它是签名那一档的上下文（`MethodSignature` / `PropertySignature`）。
+  // **类体里的 `constructor` 第 1054 轮起不再由它决定**——那一支读 `v.Parent.IsClassBody`
+  // （由 `class-body.xl.md` 自己声明的那一格常量），所以投影不再为它维护 `ctx.parentKind`。
   return projectDeclaration(v, ctx, parentKind, mk);
 ```
 
@@ -807,9 +809,11 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 （那条路会先问 `PrintDirectAst`，于是自己问自己）。所以把这一格抽出来，
 两条路**都调它**——同答就成了结构上的事实，而不是两处各写一遍再靠对拍发现漂移。
 
-**`parentKind` 是投影意义上的父 kind**（不是产物树里的父亲），它由 `projectEachIn` 记在
-`ctx.parentKind` 上、也在参数里递着：类体里的 `constructor` 要按这个上下文投成 `Constructor`，
-`ctx.Declaration` / 直出版读的都是**同一格事实**（直出版读 `ctx.parentKind`、不回产物树的父亲猜）。
+**`parentKind` 是投影意义上的父 kind**（不是产物树里的父亲），它由 `projectEachIn` 在参数里递着：
+它现在决定的是**签名那一档**（`MethodSignature` / `PropertySignature`）。
+**类体里那个 `constructor` 第 1054 轮起改由父单元自己答**（`v.Parent.IsClassBody`，
+见 `class-body.xl.md`）——同一格事实过去在 `ctx.parentKind` 那个上下文标记里存了第二份，
+而那个标记还会被嵌套的成员表覆盖（save / restore 一对）；现在它整格删掉了。
 
 **`mk` 由调用方递进来**：它就是 `projectNode` 里那个「带着这一格坐标与尾部 trivia 剪裁」
 的造节点闭包（`astNode`），换一份写就是两份坐标口径。
@@ -851,7 +855,13 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   }
   else if (
     v.Tag === "MethodDeclaration" &&
-    (parentKind === "ClassDeclaration" || parentKind === "ClassExpression") &&
+    // **「这是不是类体里的构造」问这一格的父单元自己**（第 1054 轮）：`ClassBody` 那一页
+    // 声明了 `IsClassBody`（构造时就赋好的一格常量，与 `WrapperField` 同一形态），
+    // 于是这一支**不再读投影自己记的 `ctx.parentKind`**——同一格事实过去在两处各存一份
+    // （上下文标记一份、树的形状一份）。产物树里 `constructor` 的方法单元**就挂在
+    // `ClassBody` 底下**（`structuralProps` 提层时递下去的父单元也是那一格 `v`），
+    // 所以父单元读得到。
+    v.Parent?.IsClassBody === true &&
     tokenNameOf(v) === "constructor"
   ) {
     // **判据是「这一格叫什么」那一格事实、不是 `textOf`**（第 1008 轮改成走 `tokenNameOf`）：
@@ -1096,17 +1106,8 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     return out;
   }
   const signature = parentKind === "InterfaceDeclaration" || parentKind === "TypeLiteral";
-  // **记下「这一批成员的父 kind 是什么」**（第 1002 轮）：声明族的直出版要问它
-  // （类体里的 `constructor` 投成 `Constructor`），而直出版手上只有 token 自己——
-  // 所以这一格事实由投影层递过去，与 `signature` 同一种上下文标记。
-  const savedParentKind = ctx.parentKind;
-  ctx.parentKind = parentKind;
   if (!signature) {
-    try {
-      return projectEach(list, ctx, parentKind);
-    } finally {
-      ctx.parentKind = savedParentKind;
-    }
+    return projectEach(list, ctx, parentKind);
   }
   const saved = ctx.signature;
   ctx.signature = true;
@@ -1114,7 +1115,6 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     return projectEach(list, ctx, parentKind);
   } finally {
     ctx.signature = saved;
-    ctx.parentKind = savedParentKind;
   }
 ```
 
@@ -9282,14 +9282,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 它是「这一格自己出不出」的那把尺子（`cases:direct` 印它；`count` 是问到的次数，
     // 两者之比就是自己出的比例）。
     direct: 0,
-    // **当前正在投的这一格，它的父 kind 是什么**（第 1002 轮）：`projectEachIn` 记它、
-    // 声明族的直出版读它。与 `signature` / `expressionPosition` 同一种上下文标记，
-    // 只是它**在成员表那一层设一次**就够——因为问它的只有「类体里的 `constructor`」
-    // 那一支（`projectDeclaration` 的换 kind 规则）。
-    // **为什么直出版非要读这一格**：换 kind 的判据是「谁在投它」，而直出版手上只有
-    // 这个 token 自己——`Parent` 是产物树的父亲（`ClassBody`），不是投影意义上的父 kind
-    //（`ClassDeclaration`）。后者只有投影层知道，所以由 `ctx` 递过来，而不是回原文猜。
-    parentKind: "",
     // **声明族直出版的「回落」那一格**（第 1002 轮）：`undefined` = 当前没有回落。
     // 它是**一个只认自己那一格的闭包**（见 `projectNode` 里那一支）：直出版把
     // 「造这一格形状」的事交回来时，`projectNode` 拿它造完就**不再问一次直出版**——
@@ -9460,8 +9452,12 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // （见 `method-declaration.xl.md` 的 `PrintDirectAst`），而换 kind 的规则只在
     // `projectDeclaration` 里有一份——所以递进来之后那几条规则**照跑**，
     // 两边对同一种上下文因此不可能给出两个答案。
+    // **第二个参数保留了**（`parentKind`）：它还喂着 `signature` 与
+    // `ArrayLiteralExpression` 那两格上下文；`?? ctx.parentKind` 那一格退路
+    // **第 1054 轮随「构造那一格改由 `ClassBody` 自己答」一起删掉了**——
+    // 类体里那条 `constructor` 现在读 `v.Parent.IsClassBody`，投影不再维护那一份状态。
     Declaration: (view, parentKind, make, kind) =>
-      projectDeclaration(view, ctx, parentKind ?? ctx.parentKind, make ?? ctx.Make(view), kind),
+      projectDeclaration(view, ctx, parentKind, make ?? ctx.Make(view), kind),
     IsTypeParameterModifier: (node) => isTypeParameterModifier(node),
     // **`MemberInObject` 那个出口第 1037 轮删掉了**：那份名单（`MethodDeclaration` /
     // `GetAccessor` / `SetAccessor` / `PropertyAssignment` / `ShorthandPropertyAssignment` /
