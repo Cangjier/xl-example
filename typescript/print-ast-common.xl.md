@@ -9916,8 +9916,21 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     get ProjectionEnd(): int {
       const from = list[0].start;
       let end = list[list.length - 1].end;
+      // **尾部空白读「覆盖这一格位置的那一格」自己的正文**（第 1184 轮，用户口径 1.3 / 1.6 / 1.7）：
+      // 这一格不是 token，拿不到 `Token.ProjectionEnd`；原来剪空白是回投影手上那份原文读
+      // （`ctx.source[end - 1]`）——而 `[start, end)` 那一段就是某一格自己的正文
+      // （`Token.Text` 与那份原文逐字符相同），所以按覆盖关系读**它自己**的那一格。
+      // **游标只往前走**：`end` 只减不增，覆盖它的那一格也只会更靠前（实测：全语料 2051 份、
+      // 这一格被读 14 次，`owner` 一次都没落空）。
+      let owner = list.length - 1;
       while (end > from) {
-        while (end > from && WHITESPACE.test(ctx.source[end - 1])) end--;
+        while (end > from) {
+          while (owner > 0 && !(list[owner] instanceof Token && list[owner].start < end)) owner--;
+          const one: any = list[owner];
+          // **不是 token、或这一格落在它的区间之外**（`charAt` 越界答空串、`WHITESPACE` 不认它）⇒ 停手。
+          if (!(one instanceof Token) || !WHITESPACE.test(one.Text.charAt(end - 1 - one.start))) break;
+          end--;
+        }
         let at: int | undefined = undefined;
         for (const k of list) {
           // **不是 token 的子单元跳过**：token 那一侧逐段滤 `instanceof Token`，这里同答。
