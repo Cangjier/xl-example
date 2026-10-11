@@ -347,6 +347,27 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1223 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`a<b>?.[0]?.b` 那一族（实例化表达式后面跟着一整串 `?.` 链）整串丢**（组合扫描 21 → 15、六条续写一格全收）；1.2 **「回原文只看一格字符」**（`ProjectionStart` 先比一格 `/`、`TrailingSemicolonAt` 不再拼整段正文，两读 mean **−8.6 / −6.2ms**，空 A/B −0.5ms）
+
+**一句话**：1.1 是上一轮的**下一句**——上一轮把尾巴**第一格**递对了地方，这一轮把「递一格」变成「递一串」（链在 token 层有两种形状：平铺的一串兄弟、或收在一格空名字 `Method` 里，还可能一层套一层）。1.2 是**剖面先说出来的**一笔：两处「为看一格字符把整段正文拼出来 / 白扫一遍子单元」。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 投影 0a 那一支：尾巴摊平成**一串** `?.`（`chainSeqOf`：平铺的 `?.` 就是它自己，空名字 `Method` 里的递归摊平），逐格交给 `chainWithOptional` | 组合扫描：对不上 **21 → 15**、对上 849 → **855**、新坏 0；六条续写全收 |
+| **1.2** | `ProjectionStart` 起点先比一格 `/`（注释的正文只可能是 `//` / `/*`）；`TrailingSemicolonAt` 的末字符改读 `Document.GetValue(end-1)`，不再 `this.Text.endsWith(";")` | 两读 mean **−8.56ms**（20 对，13:6）/ **−6.16ms**（30 对，21:9）；空 A/B −0.51ms |
+
+**1.1 的现场**：上一轮那一句只认 `rest[0]`，折完第一格就把剩下的兄弟交给 `foldBinaryFrom`（它要求 `rest` 以运算符打头）⇒ 第二个 `?.` 整格丢。而一条 `?.` 链在 token 层**没有统一形状**，两种都要认：`a<b>?.[0]?.b` 是 `[Identifier(a), GenericType(<b>), NCO(…), NCO(…)]` **平铺四格**；`a<b>?.[0]?.(1)` 是 `[Identifier(a), GenericType(<b>), Method(name="", [NCO(…), NCO(…)] )]`——第二个 `?.` 是**调用**时 token 层的 `OptionalCallCloseRule` 先响（它只要求「紧挨着的那一格是被调者尾巴」，前一个 `?.` 单元正好答是），而它的被调者链往回走到 `GenericType` 就停（`IsChainLink` 不收实例化表达式那一格）⇒ 接收者留在 `Method` 外面；三层以上还**一层套一层**（`a<b>?.(1)?.(1)?.(1)` 是 `Method(name="", [Method(name="", [NCO, NCO]), NCO])`）。
+**补法**：形状不同、事实是同一个——那些单元每一格都只是「链的续接」，所以先**摊平成一串**（`chainSeqOf`），再照口径 1.6 **逐格**交给链那一支的同一份实现 `chainWithOptional`；一格都不是 `?.` 时走原样的 `foldBinaryFrom`，这一支对旧形状一个字没改。
+
+**1.1 的读数**：六种续写同根——`?.[0]` / `?.(1)` × `.b` / `[0]` / `(1)`（外加三层那一档）；新立守卫用例 [`tests/cases/token/expressions/expr-r1223-instantiation-optional-twice.ts`](tests/cases/token/expressions/expr-r1223-instantiation-optional-twice.ts)（八条形状）单跑 **TS 节点 105、投影节点 105，缺 0 漂 0 多 0 字段 0**。
+
+**1.2 的现场与读数**：剖面（`tmp/r1223-prof`：`node --cpu-prof`，只投影不解析、`typescript.d.ts` 跑 200 遍、按自身时间聚合）里 **`ProjectionStart` 3.1%**、**`TrailingSemicolonAt` 2.1%**（同一张榜上 `ToJsonText` 21.4%、`get start` 3.5%）。两处是同一款白活：前者的第一句本来是「扫各段 + `children` 找那一格注释」，可注释是**稀疏**的（`IsCommentUnit` 只有 `LineAnnotation` / `AreaAnnotation` 两页答真 ⇒ 正文一定以 `/` 起头），起点不是 `/` 时答案就是 `at` 本身；后者为看**最后一格字符**把整段正文拼出来（`Text` 是 `Document.GetRaw` 现拼的字符串）。两处都改成读**那一格字符**（`Document.GetValue`，与 `SemicolonAfter` 同一个出口）。
+**量法也换了一把**（`tmp/r1223-ab2.mjs`）：原来的 A/B 每趟只量**一轮**，而 Windows 上进程 CPU 时间的分辨力是一个调度节拍（实测逐趟配对差全是 ~15.6ms 的整数倍：0/±16/±31/±47/±63…）——比它小的改动在那把尺子上**量不出来**（前两轮的负结果多半栽在这里）。新版把一轮放进一批（8 轮）、量一批再除回每一轮，并跑一把**空 A/B**（`tmp/r1223-ab0.mjs`：两边都是原版）当对照：空 A/B 20 对 mean **−0.51ms**、10:8 ⇒ 位置偏差解释不了那 6~8ms。等价性：全语料 **2082 份**（原版 `tmp/r1223-ab-old/ts` vs 现版）XML 与投影 JSON **逐字节同答 2082 份**、diff 0、抛异常 0。
+
+**净账**：`cases:tsast` 语料里一条 `xl:known-gap` 都没有（0 条还开着 / 0 条收掉）；`cases:direct` 全语料不抛异常（1671 份）；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1684** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4292 / 4450**（blocked 25、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；`npx tsc`（strict）0 error；八道门墙钟 **28.9s**。`tmp/r1203-bench.mjs`（best of 5）：printAst **106.1 ms**、parse 1040.1、xml 46.5。
+
+**两条 commit**：`a5e6ea9c`（1.1 那一串 `?.`）、`a26efee9`（1.2 回原文只看一格字符）。
+
 ### 第 1222 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`a<b>?.[0]` / `a<b>?.(1)` 那一族（实例化表达式后面紧跟一条 `?.` 链）整格丢**（组合扫描 37 → 21、十六条续写一格全收）；1.2 又一次**如实记下的负结果**（`used` 从 `Set` 换成数组，两读 mean **−7.9 / +0.1ms**，**已回退**）
 
 **一句话**：1.1 把上一轮那一族的**下一格**收掉——0a 看前两格就 `return`，尾巴那格 `?.` 落到 `foldBinaryFrom` 手上而它不是运算符；补法是**把它交给链那一支的同一份实现**（`chainWithOptional`），不新写折法。1.2 试的是「每个声明少造一个 `Set`」，两读反向 ⇒ 回退、留注。
