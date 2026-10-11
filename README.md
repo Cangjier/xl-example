@@ -347,6 +347,26 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1221 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`new C()`t`` 那一族（标签是一格 `New`）模板整格丢**（组合扫描 49 → 37、十二条续写一格全收）；1.2 是一次**如实记下的负结果**（对象展开替 `Object.assign`，两读 mean **+7.7 / −0.1ms**，**已回退**）
+
+**一句话**：1.1 只立了一格属性——`New` 自己声明 `IsTagBaseNode`（那张名单里本来就有这一档，缺的是「被问的那一页自己声明」）；1.2 试的是「少造一两个短命对象」，两读反向、都在噪声里，按「一次没量出来的改动不留」的口径整笔回退。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `typescript/tokens/new/new.xl.md` 新立 `## field IsTagBaseNode:bool = true`（与 `keyword.xl.md` 为 `this` 立的那一格同一口径、与同页 `IsChainBaseNode` 同一件事的另一个问法） | 组合扫描：对不上 **49 → 37**、对上 821 → **833**、新坏 0；十二条续写全收 |
+| **1.2** | 试：`astNode` / 语句壳 / 链那三处 `Object.assign({ kind }, props, { pos, end })` 换成对象展开 | 25 趟 mean **+7.7ms**（8:15）、40 趟 mean **−0.1ms**（16:20）⇒ **回退** |
+
+**1.1 的现场**：`` new C()`t` `` 的产物是 `[New, String(反引号)]` **两格平级**，而投影 0b 那一支的入口 `tagIsPostfixChain`（第 947 / 977 / 1208 / 1209 轮一格一格长出来的那张名单）里没有 `New` ⇒ 整个让开 ⇒ 通用支只投得出一格 `NewExpression`、**模板那一格整片丢**。TS 那边是 `TaggedTemplateExpression{ tag: NewExpression, template: NoSubstitutionTemplateLiteral }`（`ts.createSourceFile` 实测 `` new C()`t` ``：`TaggedTemplateExpression[0,7) > [NewExpression[0,6), NoSubstitutionTemplateLiteral[6,9)]`）。
+**补法**：那张名单里**本来就有** `one.IsTagBaseNode === true` 这一档（第 1208 轮为 `this` 立的第一格），缺的只是**被问的那一页自己声明**——于是补的是 `New` 那一页的一格属性，判据与次序一个字没改。
+
+**1.1 的读数**：这一族不是一格，是**十二条续写**——`` `t`.b `` / `` `t`[0] `` / `` `t`(1) `` / `` `t`! `` / `` `t`?.b `` / `` `t`?.[0] `` / `` `t`?.(1) `` / `` `t` as T `` / `` `t` satisfies T `` / 再标一次模板 / `` new C()(1)`t` ``（标签后面那一串本来就有 `chainOnto` 接着，是**入口这一问**先把整族挡掉的），新立守卫用例 [`tests/cases/token/expressions/expr-r1221-new-tagged-template.ts`](tests/cases/token/expressions/expr-r1221-new-tagged-template.ts) 单跑 **TS 节点 92、投影节点 92，缺 0 漂 0 多 0 字段 0**。
+
+**1.2 的现场与读数（负结果）**：`astNode` 那一句（以及 `projectStatement`、链那两处同形状的）改成 `{ kind, ...props, pos, end }` 会比 `Object.assign({ kind }, props, { pos, end })` **少造一两个短命对象**（`{ kind }`、`props === undefined` 时白造的那个 `{}`、`{ pos, end }`），键序与答案**逐字节相同**（A/B 脚本第一句就断言两版投影的 JSON 相等，一次都没响），八道门也全绿。**但墙钟两读都量不出来**：`tmp/r1221-ab.mjs`（同进程交替、尺子＝CPU 时间、量的是 print ast）25 趟配对差 mean **+7.7ms**、8 趟更快 / 15 趟更慢（sd 37.0、se 7.4）；40 趟 mean **−0.1ms**、**16 : 20**（se 5.9）——两读反向、都在噪声里。按「**一次没量出来的改动不留**」的口径**整笔回退**（三处逐字节回到原样），读数与那句提示写进 `print-ast-common.xl.md` 那一格的注里（下一个人多半也会先看上这一句）。
+
+**净账**：`cases:tsast` 语料里一条 `xl:known-gap` 都没有（0 条还开着 / 0 条收掉）；`cases:direct` 全语料不抛异常（1669 份）；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1682** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4290 / 4448**（blocked 25、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；`npx tsc`（strict）0 error；八道门墙钟 **29.2s**。**全语料 2080 份**（第 1219 轮那份产物 vs 现版）逐字节同答 **2078** 份，两份不同的是这一轮与上一轮新加的那两份用例（一份在原版上**仍然抛异常**，另一份的 `new C()`t`` 原来投影不出来）。
+
+**两条 commit**：`b49de757`（1.1 `New` 那一格）、`379aa4c8`（1.2 的负结果与回退）。
+
 ### 第 1220 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`a<b> as T` 那一族整份文件投不出来**（组合扫描 8 条 CRASH → 0、新坏 0）；1.2 把 `projectRoot` 末尾那把对账的尺子在 `ctx.unmapped` 空着时整个不走（print ast 配对差 mean **−10.4ms / −11.7ms**，两读同向同量级）
 
 **一句话**：1.1 收掉的是「实例化表达式 `a<b>` 后面跟 `as` / `satisfies` / `in` / `instanceof`」那一族——两个根（token 层的后继闸少四个词、投影层 0a 那一支把尾巴那格 `As` 丢给 `foldBinaryFrom`）；1.2 是**profile 先说出来的**一笔：`collectKinds` 在一份语料上自身占 **3.7%**，而它那趟遍历在绝大多数调用上**白走**。
