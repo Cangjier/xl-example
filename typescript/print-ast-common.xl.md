@@ -2528,6 +2528,27 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 
 # private const ENDS_ON_BRACE:Set<string> = new Set(["Block", "ClassDeclaration", "EnumDeclaration", "ForInStatement", "ForOfStatement", "ForStatement", "FunctionDeclaration", "IfStatement", "InterfaceDeclaration", "ModuleDeclaration", "SwitchStatement", "TryStatement", "WhileStatement"])
 
+**四张正则也立在这里**（第 1147 轮，与上面四张集合同一把尺子）：它们是**常量**
+（不变量、不带 `g` / `y` 那一类有状态的标志），而原来它们写在方法体里——每一趟调用都要
+重新求值一次字面量、造一个 `RegExp` 对象。**实测**（官方用例语料 1640 份，逐处挂计数器）：
+`WHITESPACE` 那一张在三处共被求值 **17091 次**（`stmtEndOf` 的收尾空白 16230、
+`stmtEndOf` 的同一趟里往前跳空白 20、`projectStatement` 的补分号那一支 841）；
+`SEMICOLONS_AND_SPACES` 29 次、`ONLY_CONDITION_STATEMENT_SEGMENT` 2 次、
+`DEFAULT_TAIL` **0 次**（那一支要「`export` 单独一格 + 后面跟一条声明」，用例语料里没有这种排版
+——它在真实语料上照样可能响，判据一个字没动）。
+⇒ 每投一趟少造 **17122 个 `RegExp` 对象**。**判据一个字没改**：四张的正文与标志全原样。
+**如实记下**（与上一轮同一条）：第 1146 轮的 A/B 量过同一类改动，**墙钟在噪声里**
+（±300ms 的测量波动 vs 十几毫秒的账）；这一轮不再重复量同一件事，
+记的是**构造次数**这一本账。
+
+# private const WHITESPACE:RegExp = /\s/
+
+# private const DEFAULT_TAIL:RegExp = /\bdefault$/
+
+# private const ONLY_CONDITION_STATEMENT_SEGMENT:RegExp = /(Condition|Statement|Segment)$/
+
+# private const SEMICOLONS_AND_SPACES:RegExp = /^[;\s]*$/
+
 # private const NOTHING:any = { __nothing: true }
 
 **「这一格没有节点」的哨兵**（第 198 轮）：token 的 `PrintAst` 返回 `undefined` 时，
@@ -2868,7 +2889,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     ctx.source[built.end - 1] === ","
   ) {
     built.end -= 1;
-    while (built.end > built.pos && /\s/.test(ctx.source[built.end - 1])) built.end -= 1;
+    while (built.end > built.pos && WHITESPACE.test(ctx.source[built.end - 1])) built.end -= 1;
   }
   return built;
 ```
@@ -3230,7 +3251,7 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     // 名单里的五个标签就是那五页自己的类名，所以它住在各自那一页）。
     if (items[i].IsExportUnit && i + 1 < items.length) {
       const unitText = items[i].Text.trim();
-      if (/\bdefault$/.test(unitText) && items[i + 1].IsDeclarationUnit) {
+      if (DEFAULT_TAIL.test(unitText) && items[i + 1].IsDeclarationUnit) {
         const merged = projectExport(items[i], ctx, items.slice(i + 1), endOf(items[i + 1]));
         if (merged !== undefined) {
           out.push(merged);
@@ -3395,7 +3416,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     return undefined;
   };
   while (end > v.start) {
-    while (end > v.start && /\s/.test(ctx.source[end - 1])) end--;
+    while (end > v.start && WHITESPACE.test(ctx.source[end - 1])) end--;
     const at = trailingTriviaStartOf(v, end);
     if (at === undefined || at < v.start) break;
     end = at;
@@ -3442,7 +3463,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // 而 TS 那边两个各是一个 `EmptyStatement`（实测 `stmt-empty-semicolon.ts`：
       // 只投出第一个）。所以「行首」的判据放宽成「这一行到这里为止只有空白与 `;`」。
       const beforeOnLine = ctx.source.slice(lineStart, v.start);
-      if (beforeOnLine.trim() !== "" && !/^[;\s]*$/.test(beforeOnLine)) {
+      if (beforeOnLine.trim() !== "" && !SEMICOLONS_AND_SPACES.test(beforeOnLine)) {
         return undefined;
       }
       // **行首的 `;` 也可能是上一条语句的终结符**（第 167 轮）：TS 的 `tryParseSemicolon`
@@ -3452,7 +3473,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // 是注释行或空行时（`// 注释` 换行 `;(function(){})()`、文件开头的 `;;`）才是真空语句
       // （实测 `st-asi-array.ts` / `st-asi-paren.ts` 与反例 `fn-iife.ts` / `stmt-empty-semicolon.ts`）。
       let previousChar = v.start - 1;
-      while (previousChar >= 0 && /\s/.test(ctx.source[previousChar])) previousChar--;
+      while (previousChar >= 0 && WHITESPACE.test(ctx.source[previousChar])) previousChar--;
       if (previousChar >= 0) {
         // **块 / 语句之后的分号照收**（第 178 轮）：`function f() {` 换行 `;` 里那个 `;` 是
         // TS 的 `EmptyStatement`（`st-misc-keywords.ts` 缺的就是它），`;;` 的第二个同理。
@@ -3780,7 +3801,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   if (end > 0 && ctx.source[end - 1] === ";") return end;
   let at = end;
   for (;;) {
-    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+    while (at < ctx.source.length && WHITESPACE.test(ctx.source[at])) at++;
     if (ctx.source.startsWith("//", at)) {
       while (at < ctx.source.length && ctx.source[at] !== "\n") at++;
       continue;
@@ -10802,7 +10823,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       const wrapper =
         !leaf &&
         first.AstKind === undefined &&
-        /(Condition|Statement|Segment)$/.test(first.Tag);
+        ONLY_CONDITION_STATEMENT_SEGMENT.test(first.Tag);
       if (wrapper) {
         const inner = first.ProjectableKids.filter((k) => k.IsSymbolToken === false);
         return inner.length === 0 ? projectNode(first, ctx) : projectExpression(inner, ctx);
