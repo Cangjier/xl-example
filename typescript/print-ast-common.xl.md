@@ -2800,6 +2800,20 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // `startBracket` 的那一刻赋好（原来这里写的是 `v.Tag === "Bracket" && String(v.startBracket
   // ?? "") === "{"`——`Tag` 那一半是多余的前缀，`?? ""` 那半是给「合成视图没有这一格」兜底的，
   // 而属性读在那种接收者上同样答假）。
+  // **这一支与它下面那一支到底还活不活**（第 1200 轮实测量过一遍，读数写在这里，
+  // 免得下一个人再花一轮去找「通用支里还有多少能删的」）：全语料 1640 份里
+  // `PrintAst` 被问 **21793** 次（＝ `ctx.count`），其中答 `undefined`（＝落到这里）
+  // 的只有 **13** 次，且**全是 `Bracket` 类的实例**、**13 次里 `IsBraceBracket` 一次都不是真**、
+  // **一次都没有 `AstKind`**——按 `Bracket` 那一页自己的写法（`{` 由它自己出 `Block`、
+  // `(` / `[` 答 `undefined`），这 13 次就是值位那两个括号**摊平之前**被问到的那一趟。
+  // 所以这一支今天**只服务 `(` / `[` 的透传**，`{` 那一半由 `Bracket.PrintAst` 接管
+  // （第 1004 轮），13 次里一次都没走到。
+  // `unmapped` 那一本账也复核过：1640 份语料里 `projectRoot(...).unmapped` **一共 0 个 tag**
+  // ——`ctx.unmapped.add(v.Tag)` 那一句没有留下任何一条记录（它是「报了也要看落没落地」，
+  // 见 `projectRoot` 末尾那一趟 `collectKinds`）。
+  // **结论**：通用支不是「还没搬完的大头」，剩下的只是这一条透传；
+  // 真正产出形状的是 `ctx.Structural` 那条路（六个 token 页自己经出口调用，
+  // 见 `# private method structuralProps`）。
   if (v.IsBraceBracket) {
     return {
       kind: "Block",
