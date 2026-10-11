@@ -74,46 +74,35 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**64 格声明**（`^# …(method|const)` 逐行数出来的实测值：60 个 `# method` +
-4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**61 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+57 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
-那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
-`# const` / `# method`，其余一律 `# private`。
-**这一栏的旧账与实测差 2 格，如实记下**（第 1073 轮起、第 1081 轮复核）：第 1062 轮起这里写的是
-「89 → 86 格」，而那一族往下逐轮减到「79 格」；照上面那条命令逐行数：
-第 1073 轮是 **77 格**、第 1077 轮（动声明之前）是 **73 格**、第 1078 轮删掉 `modifierStart`
-之后是 **72 格**、第 1079 轮删掉 `modifierSpansOf` 之后是 **71 格**、第 1080 轮就地展开
-`typeMemberGroups` 与 `specifierNameOf` 之后是 **69 格**、第 1081 轮（只改形参与方法体、
-一格声明没增没减）**仍是 69 格**，第 1082 ~ 1086 轮（改的都是别的页与基类）**仍是 69 格**，
-**第 1087 轮并掉三处壳之后是 66 格**，**第 1088 轮（改的全是读数与说明、新立的那一格在基类与
-`binary-operator` / `logical-operator`）仍是 66 格**，**第 1089 轮（39 处读数 + 删掉一个 `ctx`
-出口，新立的两格在 `bracket` 那一页）仍是 66 格**，**第 1090 轮（11 处读数，新立的那一格在
-基类与 `symbol-token`）仍是 66 格**，**第 1091 轮（33 处读数，新立的两格在基类、
-`property-access` 与 `not-null`）照同一条命令逐行数是 64 格**，**第 1092 轮（48 处读数，
-新立的两格在基类、`method` 与 `generic-type`）仍是 64 格**，**第 1093 轮（54 处读数，
-新立的两格在基类、`symbol-token` 与 `null-conditional-operator`）仍是 64 格**，
-**第 1094 ~ 1096 轮（各 16 / 22 / 31 处读数，新立的格都在基类与别的页）仍是 64 格**，
-**第 1097 轮（11 处读数，新立的那一格在基类与 `function` / `class` / `lamda` 三页）
-照同一条命令逐行数还是 64 格**，**第 1098 轮（16 处读数，新立的十一格在基类与类型位那十二页）
-仍是 64 格**，**第 1099 轮（9 处读数，新立的八格在基类与那八页）
-照同一条命令逐行数仍是 64 格**——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
-改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
-**第 1091 轮复核时又量到同一件事**：第 1087 轮那一栏收尾写的是「66 格」，可照那条命令逐行数
-（第 1087 ~ 1091 轮共五轮，一格声明没增没减）**一直是 64 格**——所以那 2 格的差从第 1087 轮起
-就被抄进了后面每一栏。从第 1091 轮起本页一律按实测值写。
-所以从第 1073 轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
-`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
-即可（`.Count` 就是那一格）。
-**那两个别名第 1073 轮已经删掉了**：第 1066 轮留下的 `unwrapNodes` / `projectableKids`
-（都只是 `node.ProjectableKids` 的一行转调）连同 `ctx.UnwrapNodes` 出口一起收干净——
-**取子单元今天只有一格事实的一处读法**：`token.ProjectableKids`。
-（历史：第 1066 轮留着那两个名字，是因为当时**调用点的读法**分成了两族
-「拆包装再取」与「取进投影的那一串」；这一轮数出来两族都已经是属性读，所以名字也该走。）
+那会把「等价迁移」变成「重写」。**导出面只有 5 个名字**（`projectNode` / `isIndexFirstUnit` /
+`isCallFirstUnit` / `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），
+其余一律 `# private`。
+**量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
+（`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
+（第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
+**第 1100 轮把它收掉的是四格「一格声明、一个真实调用点、而且只是转手」的转发**
+（尺子与第 1043 / 1044 / 1067 / 1070 / 1080 / 1087 轮并掉那些转发同一把）：
+`projectSegment`（唯一读者 `ternary-operator.xl.md` 经 `ctx.Segment`）、
+`projectSwitchClause`（唯一读者 `switch.xl.md` 经 `ctx.SwitchClause`）、
+`projectHeadDeclare`（唯一读者 `foreach.xl.md` 经 `ctx.HeadDeclare`）、
+`projectBindingElement`（**这一格第 1100 轮量过、按原样留着**：它的唯一读者
+`projectBindingPattern` 就在本文件里，而函数体是 121 行真算式，不是转手）
+——**判据**：`ctx` 上那一行出口返回的东西就是那一格的返回值，所以实现搬进出口、声明删掉，
+`ctx` 的名字与语义一个字不动（**出口的名字是别的页的调用点**，不是本页可以顺手改的）。
+**第 1099 轮之前本页的旧账**（89 → 86 → … → 64 格那一串逐轮记录，以及第 1073 / 1081 /
+1091 那三次计数订正）已经整段删掉：它们是**过期的过程账**，不是今天的规格；
+每一轮的根因 / 量法 / 实测都留在 git 提交信息里（`git log --oneline` 按「第 N 轮」认），
+本页只保留**今天仍然成立的口径**与**实测值**。
 类型口径：树上的动态值（token、投影上下文）标 `any`——它们的形状由
 [`core/syntax/token.xl.md`](../core/syntax/token.xl.md) 里各页自己声明的那几格给出
 （`Token` 的那一批属性 + 每一页自己的段属性）；标量（`source` / `text` / 字段名 / 下标）按中立类型标。
 `ctx` 不另立 class：它的几个字段（`source` / `unmapped` / `count` / `direct` / …）在树里
 以 `ctx.source` 这种写法出现 30 多处，立 class 就要连名带点一起改——**那属于改写，不属于搬家**。
+今天 `ctx` 上一共 **51 个键**（其中 `unmapped` / `count` / `direct` / `typePosition` /
+`consumedSemicolons` / `awaitingDeclaration` 六格是**本文件自己的状态**，其余 45 格是出口）。
 
 叶子那张词汇表（数字字面量的写法 `NUMERIC_LITERAL`、`LeafKindOfText`）第 1029 轮搬到了
 `tokens/identifier.xl.md`：它标 `RegExp`，TS 目标上这一格是准的；换到 C++ 目标时这一类要另想办法
@@ -7667,98 +7656,6 @@ return false;
   return operandEnd + 1 - at;
 ```
 
-# private method projectHeadDeclare:(kids:Array<any>, ctx:any)=>any
-
-**没有 `Let` 的声明段**：`for (const v of xs)` / `for (const k in o)` 的头部（第 545 轮）。
-
-TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接就是
-`VariableDeclarationList`**（不套 `VariableStatement`）。可产物在这一档里**没有 `Let`**：
-解析期的 `LetBranch` 只在 `=` / `:` / `;` / `,` / 换行那几格进门，`of` / `in` 不在其中，
-所以声明段一直是 `[Keyword(const), Identifier(v)]` **两格平铺**——投影那一支
-（`foreach.xl.md` 的 `PrintDirectAst`）只认「第一个子单元是 `Let`」⇒ 整段被当表达式投
-⇒ `initializer` 成了 `Identifier("const")`（实测 6 份：`st-for-of` / `stmt-for-of-call` /
-`stmt-for-of-no-block` / `st-for-await` / `stmt-for-await` / `fn-async-generator`）。
-
-名字那一格是**唯一**一个名字单元 / 模式括号（`for (const [a, b] of xs)`），
-按形态分派给 `nameOf` / `projectBindingPattern`；列表的标志位从头顶那个词读
-（`DeclarationListFlags` 读的是 `modifiers` 属性，这一档没有那个属性）。
-
-**名字那一格的判据与 `IsNameNode` 同一条**（第 598 轮）：`Keyword` 也算名字 不是风格问题——
-`for (const set of xs)` 里那个 `set` 会被 `KeywordCloseRule` 升成 `<Keyword>set</Keyword>`
-（`keyword.xl.md` 的 `IsUpgradable`），只认 `Identifier` 就**整段找不到名字** ⇒ 本方法给
-`undefined` ⇒ `initializer` 整格消失 ⇒ 降级层报
-`ast node ForOfStatement has no child initializer`（**整份文件进不来**，判据
-`c305-e2e-event-emitter-generic`；`get` / `override` 当绑定名同理）。
-名字那一格**一律投 `Identifier`**：绑定名按定义就是一个标识符，不看那个词在别处是不是关键字。
-
-```ts
-  const inner = kids.filter((k) => !k.IsInvisible);
-  if (inner.length === 0) return undefined;
-  // **名字那一格从后往前找**：`const` / `let` / `var` / `using` 与 `await` 都可能还是
-  // `Identifier`（关键字升级在本单元的那一趟里跑，投影这一趟是**之后**的事）——
-  // 从前往后找会把那个词当成名字。
-  // **「我这一格是不是绑定模式」第 1074 轮改由被问的那一页自己答**（`k.IsBindingPattern`）：
-  // 名单里两个类名（`ArrayLiteral` / `ObjectLiteral`）**就是那两页自己的类名**，
-  // 它们在构造时各自答 `true`（见 `tokens/json/array-literal.xl.md` /
-  // `tokens/json/object-literal.xl.md`）——投影这一侧不再把「类名 + 括号字符」拼起来现场问。
-  // `Bracket` 那半**原样保留**：`for (const [a] of xs)` 里那个 `[` 还**没有**被收成
-  // `ArrayLiteral`（第 533 轮那条规则只在有空括号对时收），所以它仍是括号单元，
-  // 判据落在它自己的 `startBracket` 上；基类的 `IsBindingPattern` 默认 `false`，
-  // 于是这里两半合起来与改写前**逐格等价**。
-  const isPatternKid = (k: any) =>
-    k.IsBindingPattern === true ||
-    ((k.IsIndexBracket || k.IsBraceBracket));
-  // **声明词也是「这一格自己的正文是什么」**（与 `IsOperatorUnit` 那一族同一条口径），
-  // 但它的读者只有这一格、而且读的正是本方法刚收下的那几格单元，所以留在原处。
-  const isDeclareWord = (k: any) => {
-    const text = k.TextValue;
-    return text === "const" || text === "let" || text === "var" || text === "using";
-  };
-  let nameKid = undefined;
-  for (let at = inner.length - 1; at >= 0; at--) {
-    const one = inner[at];
-    if ((one.IsNameNode || isPatternKid(one)) && !isDeclareWord(one)) {
-      nameKid = one;
-      break;
-    }
-  }
-  if (nameKid === undefined) return undefined;
-  const declared = isPatternKid(nameKid) ? projectBindingPattern(nameKid, ctx) : nameOf(nameKid);
-  // **列表的起点是那个声明词**、不是段里的第一格：`for await (const v of xs)` 的段里
-  // `await` 排在 `const` 前面（TS 那边它是 `ForOfStatement.awaitModifier`、
-  // 不是列表的一部分）——**所以这个声明词要从后往前找**（第 546 轮）：
-  // 从前往后找时 `await` 自己就是 `Identifier`、`textOfNode` 也答 `"await"`，
-  // 可 `inner.find` 只认「是不是声明词」 ⇒ 第一格 `await` 被当成起点
-  // ⇒ 列表区间从 `await` 起（实测 `st-for-await` / `stmt-for-await` / `fn-async-generator`
-  // 三份都是 `[82,96)` 对 TS 的 `[89,96)`）。声明词在名字前面、`await` 更靠前，
-  // 从后往前找拿到的就是**离名字最近**的那个声明词（判据 `isDeclareWord` 与上面共用）。
-  let declareKid = undefined;
-  for (let at = inner.length - 1; at >= 0; at--) {
-    if (isDeclareWord(inner[at])) {
-      declareKid = inner[at];
-      break;
-    }
-  }
-  const head = declareKid === undefined ? inner[0] : declareKid;
-  const headText = head.TextValue;
-  const flags = headText === "const" ? "Const" : headText === "var" ? "None" : "Let";
-  return {
-    kind: "VariableDeclarationList",
-    declarations: [{ kind: "VariableDeclaration", name: declared, pos: startOf(nameKid), end: endOf(nameKid) }],
-    flags,
-    pos: startOf(head),
-    end: endOf(inner[inner.length - 1]),
-  };
-```
-
-**「值位下标访问的那对方括号」这一问第 1058 轮回了它自己的那一页**：判据过去是本文件的
-一个 helper（`node.Tag === "Bracket" && node.startBracket === "["`），今天读 `node.IsIndexBracket`
-——那一格在 `typescript/tokens/bracket.xl.md` 里**显式声明**、在 `Use` 记下 `startBracket`
-的那一趟一起赋好（克隆体在 `Clone` 里抄同一格），与 `EndsOnBrace` / `WrapperField` 同一形态。
-**判据只有「是不是 `[` 括号」**：值位里前面有操作数的 `[` 就是下标（见 `projectExpression`
-那一支的说明），没有操作数的那些早被 `ArrayLiteral` 收走，类型位的那些是 `IndexedAccessType`。
-（与 `IsDotSymbol` / `IsNameNode` 那几个小判据同一个位置——这一族今天一个都不到投影层来。）
-
 # private method projectLetFrom:(kids:Array<any>, ctx:any, container:any)=>Array<any>
 
 `let` 声明的**单元列表版**：列表本身才是主角，`Statement` 那层壳由调用方决定。
@@ -7975,6 +7872,11 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 | `a = 1` | `name`(`a`) + `initializer`(`1`) |
 | `...rest` | `dotDotDotToken`(`...`) + `name`(`rest`)——**两点号是子节点**（`forEachChild` 会访问它，
 第 93 轮修：早先按「属性」处理，实测 `BindingElement` 字段名差 8 处） |
+
+**第 1100 轮量过它一个外部读者都没有**（`ctx.BindingPattern` 是**模式**那一格，由
+`projectBindingPattern` 答；本方法全仓只有 `projectBindingPattern` 里那一处调用）
+——它**不是死代码**，所以这一轮留着；下一轮按同一把尺子（一格声明、一个调用点且只是转手）
+再决定是否并进那一处。
 
 ```ts
   const v = unit;
@@ -9078,44 +8980,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   props.modifiers = out;
 ```
 
-# private method projectSegment:(v:any, key:string, ctx:any)=>any
-
-```ts
-  const kids = kidsOf(v, key);
-  if (kids.length === 0) return undefined;
-  const first = kids[0];
-  // **整段一起投，只在遇到「分段壳」时才摊平一层**（第 97 轮）：
-  // `TernaryOperator` 的三个段在段数组里**已经摊平**（`trueStatement` 直接就是
-  // `Method(f(1))` 那一格、`falseStatement` 直接就是 `PropertyAccess(y.z)`）——
-  // 照「先摊平一层」的老写法会把那个单元**自己的子单元**当成整段，
-  // 于是 `f(1)` 只剩 `1`、`y.z` 只剩 `y`、`p === q` 只剩 `p`：
-  // 实测缺 `PropertyAccessExpression` 502 / `CallExpression` 246 / `BinaryExpression` 273
-  // 里成片都是它（三元的两个分支 + 条件）。
-  //
-  // 判据是「这一格自己的 `AstKind()` 答 `undefined`**且**名字以 `Condition` / `Statement` / `Segment`
-  // 结尾」——那才是分段壳（`TernaryOperatorCondition` 这种）。
-  // **不能只看「答 `undefined`」**：`PropertyAccess` 的 `AstKind()` 也答 `undefined`（它自己覆写了
-  // `PrintDirectAst`），只看那一格会把 `y.z` 摊成两个裸名字。
-  const leaf = first.IsNameNode || first.IsSymbolToken;
-  const wrapper =
-    !leaf &&
-    first.AstKind === undefined &&
-    /(Condition|Statement|Segment)$/.test(first.Tag);
-  if (wrapper) {
-    const inner = first.ProjectableKids.filter((k) => k.IsSymbolToken === false);
-    return inner.length === 0 ? projectNode(first, ctx) : projectExpression(inner, ctx);
-  }
-  // **只排掉分段自己的标点**（`?` / `:`），**不能把所有 `SymbolToken` 都排掉**（第 106 轮）：
-  // 条件里就有比较运算符——`i > 0 ? a : b` 的 `>` 会被整条丢掉，`projectExpression` 拿到
-  // `[i, 0]` 于是折不动、只投出第一个操作数（实测缺 `BinaryExpression` 79 +
-  // `GreaterThanToken` + 右侧那个字面量，样本集中在 `? :` 的条件位上）。
-  const inner = kids.filter(
-    (k) => !(k.IsSymbolToken && [":", "?"].includes(k.TextValue)),
-  );
-  if (inner.length === 0) return projectNode(first, ctx);
-  return projectExpression(inner, ctx);
-```
-
 # private method namedSpecifiersOf:(brace:any, kind:string, ctx:any)=>Array<any>
 
 具名导入 / 导出的每一项 → `ImportSpecifier` / `ExportSpecifier`（两种语句只有 `kind` 不同，所以共一份实现）。
@@ -9281,57 +9145,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     node = { kind: "PropertyAccessExpression", expression: node, name: right, pos: node.pos, end: right.end };
   }
   return node;
-```
-
-# private method projectSwitchClause:(seg:any, ctx:any)=>any
-
-一个 `case` / `default` 分支 → **`CaseClause` / `DefaultClause`**（第 89 轮）。
-
-产物那边是 `<SwitchSegment key="case|default">`，里面一层 `<SwitchCase>表达式</SwitchCase>`
-与一层 `<SwitchStatement>`（装分支体那些 `<Statement>`）；TS 那边是
-`CaseClause > [expression, statements]` / `DefaultClause > [statements]`，**区间含 `case` 这个词**
-（就是 segment 自己的区间）。
-
-早先这里把整段交给通用投影，于是 `SwitchSegment` / 内层 `SwitchStatement` / `SwitchCase`
-三个标签**原样透传**成了三个 kind——实测「多出来」203 + 203 + 192，
-而 TS 那边是 `SwitchStatement > caseBlock: CaseBlock > clauses: (CaseClause|DefaultClause)`。
-
-```ts
-  const sv = seg;  // 这一格就是 `seg` 自己（不再包一层接收者）
-  const kindWord = String(sv.key ?? "");
-  const kids = sv.ProjectableKids;
-  const caseUnit = kids.find((k) => k.IsSwitchCaseUnit);
-  const bodyUnit = kids.find((k) => k.IsSwitchStatementUnit);
-  const props = {};
-  if (kindWord !== "default" && caseUnit !== undefined) {
-    props.expression = projectExpression(caseUnit.ProjectableKids, ctx);
-  }
-  if (bodyUnit !== undefined) {
-    const body = bodyUnit.ProjectableKids;
-    const statements = projectEach(body, ctx);
-    if (statements.length > 0) props.statements = statements;
-  }
-  // **区间结尾按最后一个语句算**（第 89 轮修）：`SwitchSegment` 自己的区间比 TS 多一个字符
-  // （实测 `case "\r":` 产物 [345,400) vs TS [345,399)，192 处漂移 + 192 处「多出来」——
-  // 同一个节点两边都记了一次）。没有语句的那些（`case 2:` 后面直接跟下一个 `case`）
-  // 用 segment 自己的尾巴就正好。
-  const last = props.statements !== undefined ? props.statements[props.statements.length - 1] : undefined;
-  let end = last !== undefined && typeof last.end === "number" ? last.end : sv.end;
-  // **没有语句的分支（贯穿到下一条 `case`）**：区间到那个 `:` 为止（第 97 轮）。
-  // `SwitchSegment` 自己的尾巴比 TS 多一个字符——实测 `case ",":` 产物 [1129,1139)
-  // vs TS [1129,1138)：108 处漂移 + 108 处「多出来」是同一个节点两边各记一次。
-  // **位置由 token 自己记**（`SwitchSegment.ColonPos`，第 615 轮）：认下这一段那一刻
-  // 那个 `SymbolToken` 就在手上 ⇒ 这里直读字段，不再回原文 `lastIndexOf(":")` 猜。
-  if (last === undefined) {
-    const colonPos = sv.colonPos;
-    if (typeof colonPos === "number" && colonPos >= sv.start) end = colonPos + 1;
-  }
-  return {
-    kind: kindWord === "default" ? "DefaultClause" : "CaseClause",
-    pos: sv.start,
-    end,
-    ...props,
-  };
 ```
 
 # private method projectExport:(v:any, ctx:any, following:Array<any>, stmtEnd:int)=>any
@@ -10311,12 +10124,108 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 投影层不再有「回原文按深度配对方括号」的第二处答案。
     ParenthesizedOf: (unit) => parenthesizedOf(unit, ctx),
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
-    HeadDeclare: (list) => projectHeadDeclare(list, ctx),
+    // **`projectHeadDeclare` 这一格第 1100 轮并进了这个出口**（同一把尺子：全仓只有
+    // `foreach.xl.md` 一个读者）。它说的是**没有 `Let` 的声明段**：`for (const v of xs)` /
+    // `for (const k in o)` 的头部（第 545 轮）——TS 那边 `ForOfStatement.initializer` 与
+    // `for (let i = 0; …)` 一样**直接就是 `VariableDeclarationList`**（不套 `VariableStatement`），
+    // 而产物在这一档里**没有 `Let`**（`of` / `in` 不进 `LetBranch`），声明段一直是
+    // `[Keyword(const), Identifier(v)]` **两格平铺**。名字那一格是**唯一**一个名字单元 /
+    // 模式括号（`for (const [a, b] of xs)`），按形态分派给 `nameOf` / `projectBindingPattern`；
+    // 列表的标志位从头顶那个词读。名字那一格的判据与 `IsNameNode` 同一条（第 598 轮），
+    // 名字那一格**一律投 `Identifier`**：绑定名按定义就是一个标识符。
+    HeadDeclare: (list) => {
+      const inner = list.filter((k) => !k.IsInvisible);
+      if (inner.length === 0) return undefined;
+      // **名字那一格从后往前找**：`const` / `let` / `var` / `using` 与 `await` 都可能还是
+      // `Identifier`（关键字升级在本单元的那一趟里跑，投影这一趟是**之后**的事）——
+      // 从前往后找会把那个词当成名字。
+      // **「我这一格是不是绑定模式」第 1074 轮改由被问的那一页自己答**（`k.IsBindingPattern`）。
+      // `Bracket` 那半**原样保留**：`for (const [a] of xs)` 里那个 `[` 还**没有**被收成
+      // `ArrayLiteral`（第 533 轮那条规则只在有空括号对时收），所以它仍是括号单元，
+      // 判据落在它自己的 `startBracket` 上；基类的 `IsBindingPattern` 默认 `false`。
+      const isPatternKid = (k: any) =>
+        k.IsBindingPattern === true ||
+        ((k.IsIndexBracket || k.IsBraceBracket));
+      // **声明词也是「这一格自己的正文是什么」**（与 `IsOperatorUnit` 那一族同一条口径），
+      // 但它的读者只有这一格、而且读的正是这里刚收下的那几格单元，所以留在原处。
+      const isDeclareWord = (k: any) => {
+        const text = k.TextValue;
+        return text === "const" || text === "let" || text === "var" || text === "using";
+      };
+      let nameKid = undefined;
+      for (let at = inner.length - 1; at >= 0; at--) {
+        const one = inner[at];
+        if ((one.IsNameNode || isPatternKid(one)) && !isDeclareWord(one)) {
+          nameKid = one;
+          break;
+        }
+      }
+      if (nameKid === undefined) return undefined;
+      const declared = isPatternKid(nameKid) ? projectBindingPattern(nameKid, ctx) : nameOf(nameKid);
+      // **列表的起点是那个声明词**、不是段里的第一格：`for await (const v of xs)` 的段里
+      // `await` 排在 `const` 前面（TS 那边它是 `ForOfStatement.awaitModifier`、
+      // 不是列表的一部分）——**所以这个声明词要从后往前找**（第 546 轮）。
+      let declareKid = undefined;
+      for (let at = inner.length - 1; at >= 0; at--) {
+        if (isDeclareWord(inner[at])) {
+          declareKid = inner[at];
+          break;
+        }
+      }
+      const head = declareKid === undefined ? inner[0] : declareKid;
+      const headText = head.TextValue;
+      const flags = headText === "const" ? "Const" : headText === "var" ? "None" : "Let";
+      return {
+        kind: "VariableDeclarationList",
+        declarations: [{ kind: "VariableDeclaration", name: declared, pos: startOf(nameKid), end: endOf(nameKid) }],
+        flags,
+        pos: startOf(head),
+        end: endOf(inner[inner.length - 1]),
+      };
+    },
     QualifiedNameFrom: (list) => qualifiedNameFrom(list),
     DottedExpression: (list) => dottedExpression(list),
     TypeArguments: (generic) => projectTypeArguments(generic, ctx),
     ConditionalNode: (list, from, to) => conditionalNode(list, from, to, ctx),
-    Segment: (view, key) => projectSegment(view, key, ctx),
+    // **`projectSegment` 这一格第 1100 轮并进了这个出口**（同一把尺子：全仓只有
+    // `ternary-operator.xl.md` 一个读者，而它拿到的就是这一行出口返回的东西）。
+    // 说明整段搬在这里：**整段一起投，只在遇到「分段壳」时才摊平一层**（第 97 轮）……
+    // （原来那一节的全文见 git 历史；这里只留判据）
+    Segment: (view, key) => {
+      const kids = kidsOf(view, key);
+      if (kids.length === 0) return undefined;
+      const first = kids[0];
+      // **整段一起投，只在遇到「分段壳」时才摊平一层**（第 97 轮）：
+      // `TernaryOperator` 的三个段在段数组里**已经摊平**（`trueStatement` 直接就是
+      // `Method(f(1))` 那一格、`falseStatement` 直接就是 `PropertyAccess(y.z)`）——
+      // 照「先摊平一层」的老写法会把那个单元**自己的子单元**当成整段，
+      // 于是 `f(1)` 只剩 `1`、`y.z` 只剩 `y`、`p === q` 只剩 `p`：
+      // 实测缺 `PropertyAccessExpression` 502 / `CallExpression` 246 / `BinaryExpression` 273
+      // 里成片都是它（三元的两个分支 + 条件）。
+      //
+      // 判据是「这一格自己的 `AstKind` 答 `undefined`**且**名字以 `Condition` / `Statement` / `Segment`
+      // 结尾」——那才是分段壳（`TernaryOperatorCondition` 这种）。
+      // **不能只看「答 `undefined`」**：`PropertyAccess` 的 `AstKind` 也答 `undefined`（它自己覆写了
+      // `PrintDirectAst`），只看那一格会把 `y.z` 摊成两个裸名字。
+      const leaf = first.IsNameNode || first.IsSymbolToken;
+      const wrapper =
+        !leaf &&
+        first.AstKind === undefined &&
+        /(Condition|Statement|Segment)$/.test(first.Tag);
+      if (wrapper) {
+        const inner = first.ProjectableKids.filter((k) => k.IsSymbolToken === false);
+        return inner.length === 0 ? projectNode(first, ctx) : projectExpression(inner, ctx);
+      }
+      // **只排掉分段自己的标点**（`?` / `:`），**不能把所有 `SymbolToken` 都排掉**（第 106 轮）：
+      // 条件里就有比较运算符——`i > 0 ? a : b` 的 `>` 会被整条丢掉，`projectExpression` 拿到
+      // `[i, 0]` 于是折不动、只投出第一个操作数（实测缺 `BinaryExpression` 79 +
+      // `GreaterThanToken` + 右侧那个字面量，样本集中在 `? :` 的条件位上）。
+      const inner = kids.filter(
+        (k) => !(k.IsSymbolToken && [":", "?"].includes(k.TextValue)),
+      );
+      if (inner.length === 0) return projectNode(first, ctx);
+      return projectExpression(inner, ctx);
+    },
     // **`UnwrapNodes` 这个出口第 1073 轮删掉了**（它原来就挂在这里）：它读的就是那一格自己的
     // `ProjectableKids`（第 1066 轮起实现只有 token 上那一处），全仓 5 处调用点
     // （`lamda` 2 / `signature` 2 / `mapped-type` 1 / `type-assign` 1）全改成属性读。
@@ -10331,7 +10240,52 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     TypeOf: (list) => typeOf(list, ctx),
     FunctionTypeProps: (kids) => functionTypeProps(kids, ctx),
     BlockOfBody: (list, brace) => blockOfBody(list, ctx, brace),
-    SwitchClause: (seg) => projectSwitchClause(seg, ctx),
+    // **`projectSwitchClause` 这一格第 1100 轮并进了这个出口**（判据与第 1043 / 1044 /
+    // 1067 / 1070 / 1080 / 1087 轮并掉那些「一格声明、一个调用点」的转发同一把尺子）：
+    // 它全仓只有 `switch.xl.md` 一个读者、而且那个读者拿到的就是这一行出口返回的东西
+    // ——函数体没有第二处调用点，所以实现搬到这里，本页少一格声明、少一层间接。
+    // 说明整段也一并搬到这一行旁边（见本行下方那一段注释）。
+    SwitchClause: (seg) => {
+      const sv = seg;  // 这一格就是 `seg` 自己（不再包一层接收者）
+      const kindWord = String(sv.key ?? "");
+      const kids = sv.ProjectableKids;
+      const caseUnit = kids.find((k) => k.IsSwitchCaseUnit);
+      const bodyUnit = kids.find((k) => k.IsSwitchStatementUnit);
+      const props = {};
+      if (kindWord !== "default" && caseUnit !== undefined) {
+        props.expression = projectExpression(caseUnit.ProjectableKids, ctx);
+      }
+      if (bodyUnit !== undefined) {
+        const body = bodyUnit.ProjectableKids;
+        const statements = projectEach(body, ctx);
+        if (statements.length > 0) props.statements = statements;
+      }
+      // **区间结尾按最后一个语句算**（第 89 轮修）：`SwitchSegment` 自己的区间比 TS 多一个字符
+      // （实测 `case "\r":` 产物 [345,400) vs TS [345,399)，192 处漂移 + 192 处「多出来」——
+      // 同一个节点两边都记了一次）。没有语句的那些（`case 2:` 后面直接跟下一个 `case`）
+      // 用 segment 自己的尾巴就正好。
+      const last = props.statements !== undefined ? props.statements[props.statements.length - 1] : undefined;
+      let end = last !== undefined && typeof last.end === "number" ? last.end : sv.end;
+      // **没有语句的分支（贯穿到下一条 `case`）**：区间到那个 `:` 为止（第 97 轮）。
+      // `SwitchSegment` 自己的尾巴比 TS 多一个字符——实测 `case ",":` 产物 [1129,1139)
+      // vs TS [1129,1138)：108 处漂移 + 108 处「多出来」是同一个节点两边各记一次。
+      // **位置由 token 自己记**（`SwitchSegment.ColonPos`，第 615 轮）：认下这一段那一刻
+      // 那个 `SymbolToken` 就在手上 ⇒ 这里直读字段，不再回原文 `lastIndexOf(":")` 猜。
+      if (last === undefined) {
+        const colonPos = sv.colonPos;
+        if (typeof colonPos === "number" && colonPos >= sv.start) end = colonPos + 1;
+      }
+      return {
+        kind: kindWord === "default" ? "DefaultClause" : "CaseClause",
+        pos: sv.start,
+        end,
+        ...props,
+      };
+    },
+    // **`ctx.BindingPattern` 是「模式 → `ObjectBindingPattern` / `ArrayBindingPattern`」那一格**
+    // （各页调的就是它），所以这里接回原来的 `projectBindingPattern`。
+    // **绑定元素那一格（`projectBindingElement`）第 1100 轮并进了它唯一的调用点**
+    // ——下面本文件里那个 `bindingElementOf`（见它那一节）。
     BindingPattern: (unit) => projectBindingPattern(unit, ctx),
     ComputedNameExpression: (unit) => computedNameExpression(unit, ctx),
     Structural: (view, kind) => structuralProps(view, kind, ctx),
