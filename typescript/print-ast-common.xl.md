@@ -4483,6 +4483,70 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
           return tailAt === rest.length ? chained : foldBinaryFrom(chained, rest.slice(tailAt), ctx);
         }
       }
+      // **尾巴第一格是一条「点号 + 名字」的成员续格**（第 1226 轮，用户口径 1.1）：
+      // `a<b>.b` 的产物是四格 `[Identifier(a), GenericType(<b>), SymbolToken(.), Identifier(b)]`
+      //（token 层那一格由 `GenericTypeBranch.IsAllowedFollower` 表达式位新放行的 `.` 决定），
+      // 而本节原来的收尾一律交给 `foldBinaryFrom`——它开头一句要求 `rest` **以运算符打头**
+      // （`rest[0].IsOperatorUnit`），而这个点号**是**运算符单元 ⇒ 折出来的是
+      // `BinaryExpression(op=".")`（实测：`DotToken` 出现在 `operatorToken` 上、
+      // `PropertyAccessExpression` 整格缺）。TS 那边是
+      // `PropertyAccessExpression > [ExpressionWithTypeArguments, Identifier]`。
+      // 判据与上面 `?.` 那一串**同源**：这一格是不是「链的续接」——照「同一件事一处实现」
+      // （口径 1.6）交给链那一支的同一份实现（`chainOnto`，它那一支收的正是
+      // 「一格点号 + 后面那一格」），**剩下的兄弟也交给它**（`a<b>.b?.c` 的尾巴那格
+      // `?.c` 正是链的续格）。
+      //
+      // **这一档挡不掉的形状**（如实记下）：`a<b>.b + 1` 的产物只是**三格**
+      // `[Identifier(a), GenericType(<b>), SymbolToken(.), BinaryOperator(b + 1)]`——
+      // 点号后面那一格不是名字、而是**已经把 `b + 1` 折好的二元单元**
+      //（它一个单元就装着「名字 + 运算符 + 右操作数」）⇒ 这里 `every` 答否、落到下面那条
+      // `foldBinaryFrom`，而它在「点号当运算符 + 右操作数那一格自己就是二元」这形状上
+      // 折出来的是 `(a<b>) . (b + 1)`（实测 `DotToken` 当 `operatorToken`），
+      // TS 要的是 `((a<b>).b) + 1`。**这一形状在 TS 里本来就带一条语义错**
+      //（实例化表达式不能带类型实参，见 `generic-type.xl.md` 那一格），本轮不动它。
+      if (rest[0].IsDotSymbol && rest.length >= 2 && rest.every((one: any) =>
+        one.IsIdentifierUnit || one.IsPropertyAccess || one.IsMethodNode || one.IsBracketUnit ||
+        one.IsArrayLiteralUnit || one.IsNullConditionalOperator || one.IsNotNull || one.IsDotSymbol ||
+        one.IsStringUnit || one.IsNotNullSymbol === true)) {
+        const chained = chainOnto(self, [rest[0], rest[1]], ctx);
+        if (rest.length === 2) return chained;
+        const tail = rest.slice(2);
+        // **尾巴上那一串 `?.` 逐格接上去**：`a<b>.b?.c` 的产物是四格
+        // `[Identifier(a), GenericType(<b>), SymbolToken(.), NullConditionalOperator(c)]`，
+        // 而 `chainOnto` 的循环只认「点号 + 成员」与几种括号 / `Method`——`?.` 那一格
+        // 在它那里既不是点号也不是子链 ⇒ `break` ⇒ **`?.c` 整格丢**
+        //（实测投出来只有一条 `PropertyAccessExpression[61,67)`，`QuestionDotToken`
+        // 与那个名字都不见）。`?.` 那一格自己就是「链的续接」，交给链那一支的
+        // **同一份实现**（`chainWithOptional`）——与 0a0 那一支的收尾同一个形状。
+        let at2 = 0;
+        let onward: any = chained;
+        while (at2 < tail.length && tail[at2].IsNullConditionalOperator) {
+          const next = chainWithOptional(onward, tail[at2], ctx);
+          if (next === undefined) break;
+          onward = next;
+          at2++;
+        }
+        if (at2 === tail.length) return onward;
+        const rest2 = tail.slice(at2);
+        // **接完 `?.` 之后第一格是模板串**：`a<b>.b`t`` 的产物是**平铺的五格**
+        // `[Identifier(a), GenericType(<b>), SymbolToken(.), Identifier(b), String(反引号)]`，
+        // 模板与点号在**同一串兄弟**里。这一格交给 `chainOnto` 的**循环**（「紧跟一格
+        // 反引号模板 ⇒ 又是一条标签模板」，第 979 轮）——它正是 TS 的形状
+        //（`TaggedTemplateExpression > [PropertyAccessExpression, 模板]`）。
+        // **不能交回本函数递归那一趟**：那会把已经投好的节点当 kids 递进去，
+        // 而本函数头一句 `prepareKids` 只留 `Token` ⇒ 它被滤掉、那一趟手上只剩模板那一格
+        //（实测只投出一格 `NoSubstitutionTemplateLiteral`）。
+        // **也不能走 `chainOnto` 顶端那一支**：那一支把 `node` 当**标签**另起一层
+        //（它是给 `` tag`a``b` `` 那种「模板接模板」用的），在这里会多套一层。
+        if (rest2[0].IsTemplateString) {
+          const tagged = chainOnto(onward, [rest2[0]], ctx);
+          // **模板接完还要把**后面**的续格接上**（`a<b>.b`t`.c`）：`chainOnto` 那一次
+          // 只吃一格模板、**不吃后面的点号成员**（实测：整段一起交给它，返回的只是
+          // `TaggedTemplateExpression` 之前那一条属性访问）⇒ 余下的续格另走一趟。
+          return rest2.length === 1 ? tagged : chainOnto(tagged, rest2.slice(1), ctx);
+        }
+        return foldBinaryFrom(onward, rest2, ctx);
+      }
       return foldBinaryFrom(self, rest, ctx);
     }
   }

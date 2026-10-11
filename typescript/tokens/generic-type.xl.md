@@ -1348,10 +1348,32 @@ if (!isTypePosition) {
   // 三种排版 TS 都读成一条 `TaggedTemplateExpression` / `CallExpression` 带 `TypeReference`
   //（而 `x < y > z` 才是二元）。少了这一格，`inst-tagged` 那一个底样的**每个位置 ×
   // 三种 trivia 共 39 条**片段全部对不上（症状：`f<T>` 被折成 `BinaryExpression`）。
+  //
+  // **点号是第 1226 轮补的**（`a<b>.b` / `a<b>.b`t`` / `a<b>.b(1)` 那一族）：
+  // 配对 `>` 后面紧跟一个点号时，右边接上的是一个**名字**（`.` 后面只能是成员名或私有名），
+  // 而 `a < b > .名字` 在 TS 里**没有**这一读法——那一格只可能是实例化表达式的成员访问。
+  // 拿真 TS 复量过（`tmp/r1226-ts2.mjs`）：
+  //
+  //     a<b>.b       PropertyAccessExpression > [ExpressionWithTypeArguments, Identifier]
+  //     a<b>.b`t`    TaggedTemplateExpression > [PropertyAccessExpression > [ExpressionWithTypeArguments, Identifier], …]
+  //     a<b>.b(1)    CallExpression > [PropertyAccessExpression > [ExpressionWithTypeArguments, Identifier], …]
+  //
+  // 三形状都带着 TS 自己的一条**语义**错（`checkExpressionWithTypeArguments`：
+  // 实例化表达式不能带类型实参），可**语法层它是这么读的**——而本仓的判据只算语法
+  //（kind / 区间 / 字段名），语义错不进账，所以三形状照收。
+  //
+  // **后一位是数字时不放行**（与上面那条 `=` 同一款理由）：`a < b > .5` 在 TS 里是
+  // **合法的比较式**（右边是一个数字字面量 `.5`，实测 `a < b > .5` 的 parseDiagnostics 为 0，
+  // 树是 `BinaryExpression(BinaryExpression(a<b), >, .5)`）——`>` 后面那个 `.` 与它后一位数字
+  // **合起来才是**那个词法单元，所以这里必须再看一格；只看 `.` 会当场把 `.5` 读成成员名。
+  // `.` 后面是成员名那一档（真 TS 复量的三条）本来一个都不在语料里，
+  // 所以这一格与「不放行」在今天的语料上读数一样——它担的是**形状对得上**这件事，
+  // 由下面那条守卫用例担着（`tests/cases/token/expressions/expr-r1226-inst-dot.ts`）。
   const nextChar = index + 1 < document.GetCount() ? document.GetValue(index + 1) : "";
   if (
     item === "(" ||
     item === "`" ||
+    (item === "." && !(nextChar >= "0" && nextChar <= "9")) ||
     item === ";" ||
     item === ")" ||
     item === "," ||
