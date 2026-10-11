@@ -280,6 +280,14 @@ if (IsEmptyContentUnit(current) === false && hasOperand) {
   const indexed = new IndexedAccessType(current.Template);
   indexed.SignIn(Get(units, operandIndex)!.SourceRange.Start!);
   indexed.SignOut(current.SourceRange.End!);
+  // **下标那个 `[` 当场记进 `IndexBracketAt`**（第 1060 轮）：这一格就是手上那个方括号的起点
+  //（`current` 是 `[` 开头的 `Bracket` 或被 `JsonArrayCloseRule` 收成的 `ArrayLiteral`，
+  // 两者的 `SourceRange.Start` 都是那个 `[`）——投影那一侧因此**不必回原文从终点往回配对扫**
+  //（原来那是 `print-ast-common` 的 `indexBracketOf`，本轮随这一格一起删掉）。
+  const bracketStart = current.SourceRange.Start;
+  if (bracketStart !== null) {
+    indexed.IndexBracketAt = bracketStart.Index;
+  }
   indexed.AddAndCloseLast(Get(units, operandIndex)!);
   if (operandIndex !== previousIndex) {
     indexed.AddAndCloseLast(previous!);
@@ -423,6 +431,20 @@ return result;
 
 **与值位下标访问的区别只在容器**：`a[i]` 的父单元是语句 / 表达式，`T[K]` 的父单元是类型容器。
 
+## field IndexBracketAt:int = -1
+
+**下标那对方括号的左括号在哪**（第 1060 轮）。
+
+它是**造这一格那一刻的事实**：`TypeBracketCloseRule.Process` 的 `current` 就是那个方括号
+（`Bracket` 或 `ArrayLiteral`），所以两端都拿得到——与 `While.BodyBrace` / `IfSegment.BodyBrace`
+（第 618 / 637 轮）同一条口径：**token 认下这一格时就把位置记好，投影直读**。
+没记过时是 `-1`（投影那一支退回「整段一次投」）。
+
+**为什么不让投影回原文扫**：原来 `print-ast-common` 的 `indexBracketOf` 从这一格的终点往回
+找 `]`、再按深度配出那个 `[`——同一格事实的第二处答案，而且它按**字符**数括号，
+块里的字符串或注释里的假方括号就会骗到它（`T["]"]` 那种）。第 1060 轮起这一格自己答，
+那个 helper 与 `ctx.IndexBracketOf` 出口一并删掉。
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
@@ -431,7 +453,7 @@ return result;
 
 ```ts
   const kids = ctx.Kids(v);
-  const open = ctx.IndexBracketOf(v);
+  const open = v.IndexBracketAt;
   if (open < 0) {
     const whole = ctx.TypeExpression(kids);
     return ctx.NodeHead("IndexedAccessType", { objectType: whole }, v);
@@ -460,8 +482,12 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 
 克隆自身。
 
+**第 1060 轮起照抄 `IndexBracketAt`**（同族几页的 `BodyBrace` 就是这么抄的）：克隆体也是
+「下标访问类型」这一格，位置是它自己的事实，漏抄就只剩 `-1` 那条退路。
+
 ```ts
 const result = new IndexedAccessType(this.Template);
+result.IndexBracketAt = this.IndexBracketAt;
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

@@ -664,27 +664,35 @@ let indexBracketClassifyHits = 0;
 }
 
 /**
- * **「回原文配对花括号」那一套不许回来**（第 1059 轮）。
+ * **「回原文配对 / 找成对符号」那一套不许回来**（第 1059 轮立；第 1060 轮并进方括号那一族）。
  *
- * 第 1041~1058 轮一直在收同一件事：**某一页自己知道的事实，由那一页答**。这一轮收的是
- * 「体是不是一对花括号」：四个循环体（`While` / `For` / `Foreach` / `DoWhile`）与 `IfSegment`
- * 各自在**挂体那一刻**把整对区间记进自己那一格（`BodyBrace`），克隆体也照抄
+ * 第 1041~1058 轮一直在收同一件事：**某一页自己知道的事实，由那一页答**。第 1059 轮收的是
+ * 「**体是不是一对花括号**」：四个循环体（`While` / `For` / `Foreach` / `DoWhile`）与
+ * `IfSegment` 各自在**挂体那一刻**把整对区间记进自己那一格（`BodyBrace`），克隆体也照抄
  * ⇒ 投影只读 `v.bodyBraceRange`（`braceSpanOf`），**不必回原文找 `{` 再按深度配对扫一遍**。
- * 那套兜底（`blockOfBody` / `bodyBlockOf` 里的三支 + `matchingBrace` 这个 helper）本轮整段删掉，
- * 八道门读数一处没动——**也就是说它早就是死代码，只是一直没人量**。
+ * 那套兜底（`blockOfBody` / `bodyBlockOf` 里的三支 + `matchingBrace` 这个 helper）第 1059 轮
+ * 整段删掉，八道门读数一处没动——**也就是说它早就是死代码，只是一直没人量**。
+ *
+ * 第 1060 轮是**同一族的下一格**：「**下标那个 `[` 在哪**」。`IndexedAccessType` 是
+ * `TypeBracketCloseRule.Process` 在手上那个方括号（`Bracket` / `ArrayLiteral`）上造出来的，
+ * 所以位置是**造这一格那一刻的事实**（`IndexBracketAt`）；投影那一侧的
+ * `indexBracketOf`（从终点往回找 `]` 再按深度配 `[`）与 `ctx.IndexBracketOf` 出口一并删掉。
+ * 两条**同一句话**，所以合成一条判据、共用一份名单：**成对符号的位置由那一页自己记，
+ * 投影不回原文数括号**。
  *
  * **为什么必须是门而不是自觉** ✗：回原文扫一遍**逐字节同答**（语料里块内的字符串 / 注释里的
- * 假括号都被 `matchingBrace` 自己绕开了），所以方法体判据、能力面判据、`cases:tsast` 一条都
- * 看不见它。可它是**同一格事实的第二处答案**：那一格一旦改了口径（比如 token 记的区间口径
- * 变了），这两处就会各说各话，而假括号那种输入迟早会教它做人（见 `matchingBrace` 老注释里
+ * 假括号都被配对扫描自己绕开了），所以方法体判据、能力面判据、`cases:tsast` 一条都看不见它。
+ * 可它是**同一格事实的第二处答案**：那一格一旦改了口径（比如 token 记的区间口径变了），
+ * 这两处就会各说各话，而假括号那种输入迟早会教它做人（见 `matchingBrace` 老注释里
  * 第 96 轮那次实测）。
  *
  * 口径与前面几条同款：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`），恰好 0 处才对。
- * 认两种形态：**配对那一趟**（`matchingBrace(…)`，含 `ctx.MatchingBrace(…)` 那种出口写法）
- * 与**回原文找花括号**（`ctx.source.indexOf("{")` / `ctx.source.lastIndexOf("{")`）。
+ * 认两种形态：**那一趟配对 / 查找本身**（`matchingBrace(` / `indexBracketOf(`，含 `ctx.` 出口写法）
+ * 与**回原文找那个开符号**（`ctx.source.indexOf("{")` / `ctx.source.lastIndexOf("{")`）。
  */
-const SOURCE_BRACE_SCAN = /(?<![\w$])(?:ctx\.)?(?:matchingBrace|MatchingBrace)\s*\(|ctx\.source\s*\.\s*(?:lastIndexOf|indexOf)\s*\(\s*"\{"/g;
-/** 投影层回原文配对 / 找花括号的处数（0 处才是对的）。 */
+const SOURCE_BRACE_SCAN =
+  /(?<![\w$])(?:ctx\.)?(?:matchingBrace|MatchingBrace|indexBracketOf|IndexBracketOf)\s*\(|ctx\.source\s*\.\s*(?:lastIndexOf|indexOf)\s*\(\s*"\{"/g;
+/** 投影层回原文配对 / 找成对符号的处数（0 处才是对的）。 */
 let sourceBraceScanHits = 0;
 {
   const shared = path.join(root, SHARED_FILE);
@@ -697,8 +705,8 @@ let sourceBraceScanHits = 0;
         violations.push({
           file: SHARED_FILE,
           why:
-            `回原文配对 / 找花括号又写回投影层了：\`${match[0]}\`——「体是不是一对花括号」是这一格` +
-            "自己记下的那一格（`bodyBraceRange` / `braceSpanOf`），投影不回原文扫第二遍",
+            `回原文配对 / 找成对符号又写回投影层了：\`${match[0]}\`——成对符号的位置是这一格` +
+            "自己记下的那一格（体读 `bodyBraceRange`、下标读 `IndexBracketAt`），投影不回原文扫第二遍",
         });
       }
     }
@@ -779,10 +787,11 @@ console.log(
 console.log(
   `「这一格是不是下标那对方括号」又在投影层写成问句（${SHARED_FILE} 的代码块）：${indexBracketClassifyHits} 处（0 处才是对的，${INDEX_BRACKET_NAMES.join(" / ")} 只许属性读）`,
 );
-// **「回原文配对花括号」的账**（第 1059 轮）：体是不是一对花括号由这一格自己记下的那一格答
-// ——投影再回原文扫一遍就是同一格事实的第二处答案，0 处才对（见 SOURCE_BRACE_SCAN）。
+// **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
+// 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的
+// 第二处答案，0 处才对（见 SOURCE_BRACE_SCAN）。
 console.log(
-  `回原文配对 / 找花括号（${SHARED_FILE} 的代码块）：${sourceBraceScanHits} 处（0 处才是对的，体的那对括号由 token 自己记：bodyBraceRange）`,
+  `回原文配对 / 找成对符号（${SHARED_FILE} 的代码块）：${sourceBraceScanHits} 处（0 处才是对的，体读 bodyBraceRange、下标读 IndexBracketAt）`,
 );
 // **中间那一层的账**（第 1027 轮）：投影直吃 token，那一层的入口名一个都不许留在规范页里
 // ——「token → AST 直出」这句话只有这样才有一条判据看着。
@@ -801,6 +810,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、体的那对括号由 token 自己记）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、成对符号的位置由 token 自己记）`,
 );
 process.exit(0);

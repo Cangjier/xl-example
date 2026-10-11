@@ -252,6 +252,16 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 `ctx.source.indexOf("{")` / `ctx.source.lastIndexOf("{")`）。
 自验（`tmp/` 里的探针，不进仓库）：把两种形态各写回一处，这一门**两处全红**；还原后 0 处。
 
+**第 1060 轮是同一族的下一格：「下标那个 `[` 在哪」**。`IndexedAccessType` 是
+`TypeBracketCloseRule.Process` 在**手上那个方括号**（`Bracket` 或 `ArrayLiteral`）上造出来的，
+所以位置是**造这一格那一刻的事实**——那一页第 1060 轮显式声明了 `## field IndexBracketAt:int`、
+在 `Process` 里那一趟赋好、`Clone` 照抄。投影这一侧于是只读 `v.IndexBracketAt`：
+本页的 `indexBracketOf`（从终点往回找 `]`、再按深度配 `[`）与 `ctx.IndexBracketOf` 出口
+**一并删掉**——又是一处「按字符数括号」的第二份答案（`T["]"]` 那种输入正是它的软肋）。
+
+⇒ 本页的 `# const` / `# method` 声明 **92 → 91 格**（`indexBracketOf`）。
+`direct:lint` 第九条因此扩成**一族**：回原文配对 / 找成对符号（花括号、方括号）一律 0 处。
+
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
 名单的键就是**那些类自己的名字**，所以它本来就是那四页的事实；投影这一侧过去用
@@ -7955,32 +7965,6 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   return node;
 ```
 
-# private method indexBracketOf:(v:any, ctx:any)=>int
-
-下标访问类型 `A[K]` 里**下标那一对方括号的左括号**位置。
-
-从节点终点往回找**与最后那个 `]` 配对**的 `[`：这样 `A["k"]["j"]` 找到的是**外层**那个
-（从前往后找会先撞上内层的 `[`，把 `A` 当成对象类型、`["k"]["j"]` 全当下标）。
-找不到时给 `-1`（调用方退回「整段一次投」）。
-
-```ts
-  const source = ctx.source;
-  // `v` 就是那一格 token 自己（`projectNode` 收进来的一格），所以起止取 `v.start` / `v.end`。
-  let end = v.end - 1;
-  while (end > v.start && source[end] !== "]") end--;
-  if (source[end] !== "]") return -1;
-  let depth = 0;
-  for (let i = end; i >= v.start; i--) {
-    const ch = source[i];
-    if (ch === "]") depth++;
-    else if (ch === "[") {
-      depth--;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
-```
-
 # private method memberNameOf:(v:any, ctx:any)=>any
 
 **成员的名字节点**（`Field` / 方法声明 / 方法签名 / 命名空间…都要问它）。
@@ -9339,7 +9323,9 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     StatementOfList: (list) => statementOfList(list, ctx),
     Nothing: NOTHING,
     BodyBlockOf: (from, list, braceRange) => bodyBlockOf(from, list, ctx, braceRange),
-    IndexBracketOf: (view) => indexBracketOf(view, ctx),
+    // **`IndexBracketOf` 那个出口第 1060 轮删掉了**：下标那个 `[` 是 `IndexedAccessType`
+    // 自己造出来那一刻的事实（`IndexBracketAt`），所以那一页直接读自己的属性——
+    // 投影层不再有「回原文按深度配对方括号」的第二处答案。
     ParenthesizedOf: (unit) => parenthesizedOf(unit, ctx),
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
     HeadDeclare: (list, view) => projectHeadDeclare(list, ctx, view),
