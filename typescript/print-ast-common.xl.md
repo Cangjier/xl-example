@@ -1110,6 +1110,49 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 - **本页的声明数**：**64 格**（一格声明没增没减：新立的三格都在别的页与基类；
   本页 22 处改的是读数算式）。
 
+**第 1096 轮收的是「名字 / 声明头」那一族**（用户口径 1.1~1.4：token 子类**构造完**信息就得齐；
+要读的那一格由**具体页显式声明**、构造时赋好）——本页代码块里这一族一共 **31 处**现场比类名：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `X.Tag === "Keyword"`（**6 处**：声明头、`new` / `abstract` / `export`、`in` / `instanceof` 那几族） | `X.IsKeywordUnit` | `Keyword` 那一页**显式声明** `## field IsKeywordUnit:bool = true`（常量） |
+| `X.Tag === "Identifier"`（**5 处**：找那一格名字、比对名字文本）＋ `X.Tag !== "Identifier"`（1 处） | `X.IsIdentifierUnit` / `!X.IsIdentifierUnit` | `Identifier` 那一页**显式声明** `## field IsIdentifierUnit:bool = true`（常量） |
+| `head.Tag !== "Identifier" && head.Tag !== "Keyword"`（**1 处**） | `!head.IsNameNode` | **第 1057 / 1076 轮那一族的否定式**——问的是「这一格**不是**一个名字」，所以读 `IsNameNode` 的否定，不是新格 |
+| `X.Tag === "Let"`（**2 处**） | `X.IsLetUnit` | `Let` 那一页**显式声明** `## field IsLetUnit:bool = true` |
+| `X.Tag === "ObjectLiteral"`（**2 处**） | `X.IsObjectLiteralUnit` | `ObjectLiteral` 那一页**显式声明** `## field IsObjectLiteralUnit:bool = true` |
+| `X.Tag === "Decorator"`（**2 处**） | `X.IsDecoratorUnit` | `Decorator` 那一页**显式声明** `## field IsDecoratorUnit:bool = true` |
+| `X.Tag === "As"` / `X.Tag !== "As"`（**3 处**）、`X.Tag === "Satisfies"` / `X.Tag !== "Satisfies"`（**3 处**） | `X.IsAsUnit` / `X.IsSatisfiesUnit`（否定式写 `!…`） | `As` / `Satisfies` **两页各自显式声明**同名属性（各答自己的类名，构造时赋 `true`） |
+| `kids[0].Tag === "Spread"`（**1 处**） | `kids[0].IsSpreadUnit` | `Spread` 那一页**显式声明** `## field IsSpreadUnit:bool = true` |
+
+- **八问都是「你这一格是什么类」**，那八个名字就是那八页自己的类名——判据与第 1088 / 1091 /
+  1092 / 1093 / 1094 / 1095 轮同一条；八格都是 `## field`（常量、构造时赋好）。
+- **否定式一律写成 `!x.IsXxxUnit`，不是 `x.IsXxxUnit === false`**：这一族里手上有几格**不是
+  token**（合成语句视图），`!undefined` 与 `Tag !== "…"` 逐格同答，而 `=== false` 不是。
+  第 1092 / 1093 轮那几处用的是 `=== false`（收件人保证是 token），这一轮按同一句话的更强写法收。
+- **`IsKeywordUnit` / `IsIdentifierUnit` 与 `IsNameNode` 不是同一问**（三页的说明里都写清了）：
+  `IsNameNode` 答「能不能当一个名字」（`Keyword` 与 `Identifier` 都答 `true`），这两个各认自己
+  那一页——所以「两连比类名」的**肯定式**读 `x.IsNameNode`、**否定式**读 `!x.IsNameNode`。
+- **顺手改平了别的页两处同类遗留**：`typescript/tokens/decorator.xl.md` 的
+  `k.Tag === "SymbolToken"`（第 1093 轮已立 `IsSymbolToken`）改成属性读。
+- **判据跟着长三条**：`direct:lint` 第八条那一族多认八个名字；第十七条 `SELF_TAG_CLASSIFY` 的名单
+  从十一个 `<Tag>` 扩到 **十九个**；`NAME_CLASS_DISJUNCTION` 补上**否定形态**
+  （`Tag !== "Identifier" && Tag !== "Keyword"`，两种次序）——它原来只守 `=== || ===`。
+  **自验**（本机探针，不进仓库）：`IsKeywordUnit` / `IsIdentifierUnit` 各写回一处、
+  以及把 `!head.IsNameNode` 写回成两连比类名 ⇒ 三次都是报告 **0 → 1 处**、`FAIL`、`exit=1`；
+  逐字节还原 ⇒ 0 处、`exit=0`（三次自查一并通过、源文件逐字节相同）。
+- **改了哪十一个文件**：本页（**31 处**现场算式改成属性读 + 这一节）、`core/syntax/token.xl.md`
+  （八格虚属性，基类各答 `false`）、`keyword` / `identifier` / `let` / `json/object-literal` /
+  `decorator` / `as` / `satisfies` / `spread` 八页（各自显式声明并答 `true`；`decorator` 另改一处
+  `SymbolToken` 遗留）、`tests/parse/direct-lint.mjs`（第八条名单 + 第十七条那十九个 `<Tag>` +
+  一行读数 + `NAME_CLASS_DISJUNCTION` 的两种否定形态）。
+- **实测**：`xl check` 156 个文件 0 条；`xl build`（`core` / `typescript`）**10 个产物** / 0 error、
+  `tsc` 干净；**八道门 8 通过、0 失败**（墙钟 31.5s），读数与基线逐项相同：`coverage`
+  **4261 / 4422**（`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口
+  还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**64 格**（一格声明没增没减：新立的八格都在别的页与基类；
+  本页 31 处改的是读数算式）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -2205,11 +2248,11 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
     // 判据与 `projectStatement` 那一支**同一套**：前缀词只能是 export / declare / default，
     // 后面那一格投出来必须是一条**语句**——**问那一格 token 自己**
     // （`IsStatementNode()`，第 1039 轮；原来是投影层那张按 kind 查的 `STATEMENT_KINDS`）。
-    if (items[i].Tag === "Keyword") {
+    if (items[i].IsKeywordUnit) {
       let j = i;
       while (
         j < items.length &&
-        items[j].Tag === "Keyword" &&
+        items[j].IsKeywordUnit &&
         ["export", "declare", "default"].includes(items[j].TextValue)
       ) {
         j++;
@@ -2626,7 +2669,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     const prefixWords = kids.slice(0, kids.length - 1);
     const last = kids[kids.length - 1];
     const allPrefixes = prefixWords.every(
-      (k) => k.Tag === "Keyword" && ["export", "declare", "default"].includes(k.TextValue),
+      (k) => k.IsKeywordUnit && ["export", "declare", "default"].includes(k.TextValue),
     );
     // **「后面那一格是不是一条语句」问它自己**（`IsStatementNode()`，第 1039 轮）：
     // 原来是投影层那张按 kind 查的 `STATEMENT_KINDS`，而 kind 名就是各页自己的节点名。
@@ -2927,7 +2970,7 @@ new Set([
 
 ```ts
   const text = op.TextValue;
-  if (op.Tag !== "Identifier" || (text !== "in" && text !== "instanceof")) {
+  if (!op.IsIdentifierUnit || (text !== "in" && text !== "instanceof")) {
     return projectNode(op, ctx);
   }
   return {
@@ -2990,9 +3033,9 @@ new Set([
   // **为什么两格不会误伤**（`[async, () => 1]` / `f(async, () => 1)`）：那些地方的逗号
   // 是**平级的一格 `SymbolToken`**（逗号表达式成形的除外），kids 长度不是 2；
   // 两条语句（`async;` 换行 `() => 1`）也不会落进同一串单元。
-  const asyncHead = kids[0].Tag === "Identifier" && kids[0].TextValue === "async";
+  const asyncHead = kids[0].IsIdentifierUnit && kids[0].TextValue === "async";
   const asyncPlain = asyncHead && kids.length === 2 && kids[1].Tag === "Lamda";
-  if ((kids.length === 3 && kids[0].Tag === "Identifier" && kids[1].IsGenericType && kids[2].Tag === "Lamda" && kids[0].TextValue === "async") || asyncPlain) {
+  if ((kids.length === 3 && kids[0].IsIdentifierUnit && kids[1].IsGenericType && kids[2].Tag === "Lamda" && kids[0].TextValue === "async") || asyncPlain) {
     const arrow: any = projectNode(kids[kids.length - 1], ctx);
     if (arrow !== undefined) {
       if (kids.length === 3) {
@@ -3221,7 +3264,7 @@ new Set([
     instanceKids.length >= 4 &&
     instanceKids[1].IsOperatorUnit &&
     instanceKids[1].TextValue === "instanceof" &&
-    instanceKids[2].Tag === "Identifier" &&
+    instanceKids[2].IsIdentifierUnit &&
     instanceKids[3].IsGenericType
   ) {
     const callee = projectNode(instanceKids[2], ctx);
@@ -3530,8 +3573,8 @@ new Set([
         tail.length >= 2 &&
         tail.every(
           (unit) =>
-            unit.Tag !== "As" &&
-            unit.Tag !== "Satisfies" &&
+            !unit.IsAsUnit &&
+            !unit.IsSatisfiesUnit &&
             !(unit.IsSymbolToken && unit.TextValue === "."),
         );
       if (tailIsOperators) {
@@ -3803,7 +3846,7 @@ new Set([
   // **`f(o?.a as T)` 那种实参位同样受益**：让开之后 0a0 不再抢，主流程照折。
   const asAfterNco = kids
     .slice(ncoIndex + 1)
-    .some((k) => k.Tag === "As" || k.Tag === "Satisfies");
+    .some((k) => k.IsAsUnit || k.IsSatisfiesUnit);
   // ---- 0a0. **基名与 `?.` 平级**：`f(o?.a)` 那一种（第 143 轮）----
   //
   // **症状**：`?.` 出现在**实参位 / 下标位 / 模板插值位**时，产物是
@@ -4897,7 +4940,7 @@ new Set([
       let operandAt = 0;
       while (
         operandAt < unaryKids.length &&
-        (unaryKids[operandAt].IsSymbolToken || unaryKids[operandAt].Tag === "Keyword")
+        (unaryKids[operandAt].IsSymbolToken || unaryKids[operandAt].IsKeywordUnit)
       ) {
         operandAt += 1;
       }
@@ -5618,7 +5661,7 @@ new Set([
   // 运算符词右边的类型装在 `As` 里，**左边的操作数是它的前一个兄弟**。
   // 原来这里既不认 `As` 也不认 `satisfies`，于是整段只剩第一个操作数
   // （实测缺 `AsExpression` + 缺 `AnyKeyword` + 多出一个只盖住 `as any` 的节点）。
-  const asIndex = kids.findIndex((k) => k.Tag === "As" || k.Tag === "Satisfies");
+  const asIndex = kids.findIndex((k) => k.IsAsUnit || k.IsSatisfiesUnit);
   if (asIndex > 0) {
     // **`as` / `satisfies` 是关系级运算符**（`OperatorRank` 给 7，与 `<` / `in` / `instanceof` 同档）。
     // 所以它左边如果坐着**更松**的运算符（`,` = -1、赋值 = 0、`||` / `??` = 1、`&&` = 2、
@@ -5659,7 +5702,7 @@ new Set([
     // 再把整条 `as` / `satisfies` 链**套回 `SpreadElement` 里面**——
     // 括号化那一档（`...([1, 2, 3] as any)`）产物本来就把它装在同一格，所以一直是对的，
     // 这一句只是把**同一件事的另一种排版**折成同一个形状。
-    const spreadFirst = asIndex === 1 && kids[0].Tag === "Spread";
+    const spreadFirst = asIndex === 1 && kids[0].IsSpreadUnit;
     let node = projectExpression(kids.slice(0, asIndex), ctx);
     if (spreadFirst && node !== undefined && node.kind === "SpreadElement") {
       node = node.expression;
@@ -5667,13 +5710,13 @@ new Set([
     let at = asIndex;
     while (at < kids.length) {
       const unit = kids[at];
-      if (unit.Tag !== "As" && unit.Tag !== "Satisfies") {
+      if (!unit.IsAsUnit && !unit.IsSatisfiesUnit) {
         break;
       }
       const typeKids = unit.ProjectableKids;
       const type = typeKids.length > 0 ? projectTypeExpression(typeKids, ctx) : undefined;
       node = {
-        kind: unit.Tag === "Satisfies" ? "SatisfiesExpression" : "AsExpression",
+        kind: unit.IsSatisfiesUnit ? "SatisfiesExpression" : "AsExpression",
         expression: node,
         type,
         pos: node === undefined ? startOf(unit) : node.pos,
@@ -7643,7 +7686,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // 外层容器只用来取「语句整体」的区间（`Statement` 含分号、`For` 的段不含）。
   const stmtWhole = stmtEndOf(container, ctx);
   const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
-  const letNode = kids.find((k) => k.Tag === "Let") ?? null;
+  const letNode = kids.find((k) => k.IsLetUnit) ?? null;
   // **多声明符**（第 93 轮）：`let a = 1, b = 2` 在 TS 里是**两个 `VariableDeclaration`**
   // （同一个 `VariableDeclarationList.declarations` 的两格），而产物只有一段平铺单元。
   // 顶层逗号就是那个分隔符——`f(x, y)` / `[a, b]` / `{ a: 1 }` / `T<A, B>` 里的逗号都在
@@ -7701,7 +7744,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   const headKids = eqAt >= 0 ? kids.slice(0, eqAt) : kids;
   const isPatternUnit = (k: any) =>
     k.IsArrayLiteralUnit ||
-    k.Tag === "ObjectLiteral" ||
+    k.IsObjectLiteralUnit ||
     ((k.IsIndexBracket || k.IsBraceBracket));
   const patternUnit =
     headKids.find(isPatternUnit) ?? letView.ProjectableKids.find(isPatternUnit) ?? null;
@@ -7726,7 +7769,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     const oneName =
       index === 0
         ? name
-        : head === undefined || (head.Tag !== "Identifier" && head.Tag !== "Keyword")
+        : head === undefined || (!head.IsNameNode)
           ? bindingSpan(head === undefined ? listStart : startOf(head), listEnd, ctx)
           : projectNode(head, ctx);
     const declaration = {
@@ -7861,7 +7904,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // （实测三族嵌套解构用例共 27 处）。
   const isPatternLike = (k: any) =>
     k.IsArrayLiteralUnit ||
-    k.Tag === "ObjectLiteral" ||
+    k.IsObjectLiteralUnit ||
     ((k.IsIndexBracket || k.IsBraceBracket));
   // **默认值那一侧的括号不算绑定名**（第 355 轮，**实测撞到的**）：
   // `{ tags = [] as string[] }` 里 `=` **右边**那个 `[]` 是**默认值**（值位），
@@ -8051,12 +8094,12 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   );
   const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
   const generic = before.find((k: any) => k.IsGenericType);
-  const newUnit = before.find((k: any) => k.Tag === "Keyword" && k.TextValue === "new");
+  const newUnit = before.find((k: any) => k.IsKeywordUnit && k.TextValue === "new");
   const props: any = {};
   const params = [];
   for (const k of before) {
     if (k === generic || k === newUnit) continue;
-    if (k.Tag === "Keyword" && k.TextValue === "abstract") {
+    if (k.IsKeywordUnit && k.TextValue === "abstract") {
       props.modifiers = [...(props.modifiers ?? []), projectNode(k, ctx)];
       continue;
     }
@@ -8430,7 +8473,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 照通用支会投出一个盖住 `new <T>` 的 `TypeReference` + 一个 `Identifier(new)`
   //（实测多出 `NewKeyword` / `TypeReference` / `Identifier`，同时缺整个 `ConstructorType`
   // 与它的形参、返回类型）。
-  if (head.Tag === "Keyword" && head.TextValue === "new") {
+  if (head.IsKeywordUnit && head.TextValue === "new") {
     const arrow = list.findIndex((k) => k.IsSymbolToken && k.TextValue === "=>");
     if (arrow > 0) {
       const ctorProps = {};
@@ -8813,7 +8856,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   const rawNamespace = v.DeclaredName;
   const dotAt = typeof rawNamespace === "string" ? rawNamespace.indexOf(".") : -1;
   const lookup = dotAt > 0 ? rawNamespace.substring(0, dotAt) : name;
-  const direct = v.ProjectableKids.find((k) => k.Tag === "Identifier" && k.TextValue === lookup);
+  const direct = v.ProjectableKids.find((k) => k.IsIdentifierUnit && k.TextValue === lookup);
   const at = direct === undefined ? synthName(lookup, v, ctx) : projectNode(direct, ctx);
   if (at === undefined) {
     return { name: undefined, computed: null, unit: direct === undefined ? null : direct };
@@ -8880,7 +8923,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 
 ```ts
   const projected = v.ProjectableKids
-    .filter((k) => k.Tag === "Decorator")
+    .filter((k) => k.IsDecoratorUnit)
     .map((k) => projectNode(k, ctx))
     .filter((node) => node !== undefined);
   if (projected.length === 0) return;
@@ -9024,7 +9067,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     const asAt = body.findIndex(
       (k) =>
         k === AS_SEPARATOR ||
-        (k.Tag === "Identifier" && k.TextValue === "as"),
+        (k.IsIdentifierUnit && k.TextValue === "as"),
     );
     // **段尾那一格的名字节点**（第 1080 轮就地展开，原 `specifierNameOf`，它只有这两个调用点）：
     // 引号名（`import { "a-b" as c }`）给 `StringLiteral`（`text` 是引号里那段，位置含引号），
@@ -9257,7 +9300,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       return node;
     }
   }
-  const rest = kids.filter((k) => !(k.Tag === "Keyword" && k.TextValue === "export"));
+  const rest = kids.filter((k) => !(k.IsKeywordUnit && k.TextValue === "export"));
   // **`export = X` / `export default X` 的 `Export` 单元自己就是一格**（第 534 轮实测）：
   // 关掉 reorg 之后这一支走的是「解析期只把**前缀两个词**收进 `Export`」那条路
   //（`export.xl.md` 的构造函数那一段写着这条路），所以 `rest` 里那一格的文本是
@@ -9827,7 +9870,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         continue;
       }
       // **装饰器是修饰词、不是子节点**（见上面 `decorators`）。
-      if (x.Tag === "Decorator") {
+      if (x.IsDecoratorUnit) {
         decorators.push(x);
         continue;
       }
@@ -9870,7 +9913,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // `VariableDeclarationList`**（不套 `VariableStatement`），而初值是这个段里的平级兄弟——
       // 所以整段交给列表版去投，不能逐个单元投。
       const projected =
-        kept[0].Tag === "Let"
+        kept[0].IsLetUnit
           ? [projectLetFrom(kept, ctx, (kept[kept.length - 1])).list]
           : projectEachIn(kept, ctx, v);
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;

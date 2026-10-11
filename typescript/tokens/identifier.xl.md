@@ -124,6 +124,12 @@ if (last instanceof Identifier) {
 
 它没有覆写 `ToXmlString`，XML 由 `BlockToken` 产出：`<Identifier>转义后的文本</Identifier>`。
 
+## field IsIdentifierUnit:bool = true
+
+**我这一格是不是一个标识符单元**（第 1096 轮）：标识符就是这一页，所以常量答 `true`——
+口径与理由见 `../core/syntax/token.xl.md` 的 `IsIdentifierUnit`。它与下面那一格 `IsNameNode`
+（`Identifier` / `Keyword` 都答 `true`，第 1057 轮）不是同一问。
+
 ## field IsNameNode:bool = true
 
 **我这一格能不能当「一个名字」**（第 1057 轮）：这一页答 `true`——标识符在名字位上出现

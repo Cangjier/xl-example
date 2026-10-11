@@ -172,6 +172,11 @@ return ReplaceCountAt(units, index, endIndex - index + 1, decorator);
 
 它覆写了 `ToXmlString`：标签名是运行时类名，开标签上带 `name` 属性。
 
+## field IsDecoratorUnit:bool = true
+
+**我这一格是不是一个装饰器单元**（第 1096 轮）：装饰器就是这一页，所以常量答 `true`——
+口径与理由见 `core/syntax/token.xl.md` 的 `IsDecoratorUnit`。
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
@@ -182,7 +187,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, decorator);
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "@"),
+    (k: any) => !(k.IsSymbolToken && k.TextValue === "@"),
   );
   const props: any = {};
   if (kids.length > 0) {

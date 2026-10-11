@@ -1717,6 +1717,76 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsTypeParameterUnit:bool = true`，构造时就赋好），投影只读这一格。
 
+## field IsKeywordUnit:bool = false
+
+**我这一格是不是一个关键字单元**（第 1096 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`Keyword` 那一页答 `true`（`typescript/tokens/keyword.xl.md`），
+其余一律 `false`。过去它在投影层是**若干处连写比类名**（`X.Tag === "Keyword"`——声明头、
+`new` / `abstract` / `export` 那几族），而那个名字**就是那一页自己的类名**。
+
+**它与 `IsNameNode` 不是同一问**：那一格答「我这一格能不能当**一个名字**」（`Keyword` /
+`Identifier` 都答 `true`），这一格只认 `Keyword` 那一页——所以 `Tag !== "Identifier" &&
+Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsKeywordUnit:bool = true`，构造时就赋好），投影只读这一格。
+
+## field IsIdentifierUnit:bool = false
+
+**我这一格是不是一个标识符单元**（第 1096 轮）——是的话答 `true`。
+
+判据同上：`Identifier` 那一页答 `true`（`typescript/tokens/identifier.xl.md`），其余一律 `false`；
+过去在投影层写作 `X.Tag === "Identifier"`（找那一格名字、比对名字文本那几族），
+而那个名字就是那一页自己的类名。它与 `IsNameNode` 同样不是同一问（理由见上一条）。
+
+## field IsLetUnit:bool = false
+
+**我这一格是不是一条 `let` 声明单元**（第 1096 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`Let` 那一页答 `true`（`typescript/tokens/let.xl.md`——
+`let` / `const` / `var` 三态共用这一页），其余一律 `false`；过去在投影层写作
+`X.Tag === "Let"`（`projectStatement` 与声明列表那两处找它）。
+
+## field IsObjectLiteralUnit:bool = false
+
+**我这一格是不是一个对象字面量单元**（第 1096 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`ObjectLiteral` 那一页答 `true`
+（`typescript/tokens/json/object-literal.xl.md`），其余一律 `false`；过去在投影层写作
+`X.Tag === "ObjectLiteral"`（值位那几种括号凑成的形状、绑定模式那一族）。
+
+## field IsDecoratorUnit:bool = false
+
+**我这一格是不是一个装饰器单元**（第 1096 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`Decorator` 那一页答 `true`
+（`typescript/tokens/decorator.xl.md`），其余一律 `false`；过去在投影层写作
+`X.Tag === "Decorator"`（`addDecorators` 与 `structuralProps` 那两处找它）。
+
+## field IsAsUnit:bool = false
+
+**我这一格是不是一个 `as` 单元**（第 1096 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`As` 那一页答 `true`（`typescript/tokens/as.xl.md`），
+其余一律 `false`；过去在投影层写作 `X.Tag === "As"`（`as` / `satisfies` 那一族折链时要认它）。
+它与下面那一格是**两页各自的类名**，所以各立一格。
+
+## field IsSatisfiesUnit:bool = false
+
+**我这一格是不是一个 `satisfies` 单元**（第 1096 轮）——是的话答 `true`。
+
+判据同上：`Satisfies` 那一页答 `true`（`typescript/tokens/satisfies.xl.md`），其余一律 `false`；
+`as` / `satisfies` 交替出现那一串里两者各自答自己的那一格（投影读
+`unit.IsAsUnit` / `unit.IsSatisfiesUnit`，不再比类名）。
+
+## field IsSpreadUnit:bool = false
+
+**我这一格是不是一个展开单元**（第 1096 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`Spread` 那一页答 `true`（`typescript/tokens/spread.xl.md`），
+其余一律 `false`；过去在投影层写作 `X.Tag === "Spread"`（`as` 前面那个展开位那一处）。
+
 ## field IsMethodNode:bool = false
 
 **我这一格是不是一次方法调用单元**（第 1092 轮）——是的话答 `true`。

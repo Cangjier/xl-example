@@ -256,6 +256,12 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它**没有**覆写 `ToXmlString`，XML 由基类 `Token` 产出：`<As>子单元的 XML 串接</As>`（标签名即运行时类名）。
 
+## field IsAsUnit:bool = true
+
+**我这一格是不是一个 `as` 单元**（第 1096 轮）：`as` 表达式就是这一页，所以常量答 `true`——
+口径与理由见 `core/syntax/token.xl.md` 的 `IsAsUnit`。它与 `satisfies.xl.md` 那一页的
+`IsSatisfiesUnit` 是**两页各自的类名**，所以各立一格。
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并把**类型队列**挂上来。

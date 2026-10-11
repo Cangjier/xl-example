@@ -49,6 +49,11 @@ import { CommentsIn, IsTriviaUnit, SkipPreviousTrivia } from "../text-common-uti
 
 它覆写了 `ToXmlString`，而且**三种形态的 XML 完全不同**——标签名后的属性名随 `LetType` 走，都是自闭合标签。
 
+## field IsLetUnit:bool = true
+
+**我这一格是不是一条 `let` 声明单元**（第 1096 轮）：`let` / `const` / `var` 声明就是这一页，
+所以常量答 `true`——口径与理由见 `core/syntax/token.xl.md` 的 `IsLetUnit`。
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

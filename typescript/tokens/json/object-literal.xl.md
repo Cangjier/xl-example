@@ -167,6 +167,11 @@ Json 对象。
 
 它**没有**覆写 `ToXmlString`，XML 由基类 `Token.ToXmlString` 产出：`<ObjectLiteral>子单元的 XML 串接</ObjectLiteral>`（标签名即运行时类名）。
 
+## field IsObjectLiteralUnit:bool = true
+
+**我这一格是不是一个对象字面量单元**（第 1096 轮）：对象字面量就是这一页，所以常量答 `true`
+——口径与理由见 `../../../core/syntax/token.xl.md` 的 `IsObjectLiteralUnit`。
+
 ## field IsChainBaseNode:bool = true
 
 **我这一格能不能当一条链的基名**（投影侧那一问，第 1075 轮）：`({}).x` 那族（对象字面量结果再取

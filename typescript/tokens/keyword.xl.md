@@ -58,6 +58,12 @@ return Keyword.UpgradeAt(units, index);
 **三个静态方法都在这个类上**（第 487 轮抽出）：判据 `IsUpgradable`、替换 `UpgradeAt`、
 解析期那一趟（`Token.TryToClose` → `ApplyCloseRules`）也用这一份。
 
+## field IsKeywordUnit:bool = true
+
+**我这一格是不是一个关键字单元**（第 1096 轮）：关键字就是这一页，所以常量答 `true`——
+口径与理由见 `core/syntax/token.xl.md` 的 `IsKeywordUnit`。它与下面那一格 `IsNameNode`
+（关键字也能当名字，第 1057 轮）不是同一问。
+
 ## field IsNameNode:bool = true
 
 **我这一格能不能当「一个名字」**（第 1057 轮）：关键字答 `true`——`in` / `instanceof`

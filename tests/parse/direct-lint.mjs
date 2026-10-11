@@ -754,6 +754,14 @@ const SELF_CLASSIFY_NAMES = [
   "IsBracketUnit",
   "IsArrayLiteralUnit",
   "IsTypeParameterUnit",
+  "IsKeywordUnit",
+  "IsIdentifierUnit",
+  "IsLetUnit",
+  "IsObjectLiteralUnit",
+  "IsDecoratorUnit",
+  "IsAsUnit",
+  "IsSatisfiesUnit",
+  "IsSpreadUnit",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -840,8 +848,12 @@ let indexBracketClassifyHits = 0;
  * 口径与上面几条逐字相同：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`）。
  */
 const NAME_CLASS_DISJUNCTION = [
-  /(\w+)\.Tag\s*===\s*"Identifier"\s*\|\|\s*\1\.Tag\s*===\s*"Keyword"/g,
-  /(\w+)\.Tag\s*===\s*"Keyword"\s*\|\|\s*\1\.Tag\s*===\s*"Identifier"/g,
+  /(\w+(?:\[\w+\])?)\.Tag\s*===\s*"Identifier"\s*\|\|\s*\1\.Tag\s*===\s*"Keyword"/g,
+  /(\w+(?:\[\w+\])?)\.Tag\s*===\s*"Keyword"\s*\|\|\s*\1\.Tag\s*===\s*"Identifier"/g,
+  // **第 1096 轮补的否定形态**：`X.Tag !== "Identifier" && X.Tag !== "Keyword"` 问的是
+  // 「这一格**不是**一个名字」——今天读 `!x.IsNameNode`（投影层那一处已改，这一形态也归 0）。
+  /(\w+(?:\[\w+\])?)\.Tag\s*!==\s*"Identifier"\s*&&\s*\1\.Tag\s*!==\s*"Keyword"/g,
+  /(\w+(?:\[\w+\])?)\.Tag\s*!==\s*"Keyword"\s*&&\s*\1\.Tag\s*!==\s*"Identifier"/g,
 ];
 /** 投影层拿类名当「是不是一个名字」判的处数（0 处才是对的）。 */
 let nameClassDisjunctionHits = 0;
@@ -1037,6 +1049,18 @@ let notNullSymbolHits = 0;
  * 三个名字同样是那三页自己的类名，所以各立一格（`IsBracketUnit` / `IsArrayLiteralUnit` /
  * `IsTypeParameterUnit`，构造时赋 `true`），22 处改属性读——其中两态那三处改成读同页已有的
  * `IsIndexBracket` / `IsBraceBracket`（同一格事实的两种写法）。这一条因此守十一个 `<Tag>`。
+ *
+ * **第 1096 轮再收「名字 / 声明头」那一族**（同一句话、同一形态）：投影层 **26 处**现场写
+ * `X.Tag === "Keyword"` / `"Identifier"` / `"Let"` / `"ObjectLiteral"` / `"Decorator"` /
+ * `"As"` / `"Satisfies"` / `"Spread"`（再加 5 处 `!==` 的否定式），八个名字同样是那八页自己的
+ * 类名，所以各立一格（`IsKeywordUnit` / `IsIdentifierUnit` / `IsLetUnit` /
+ * `IsObjectLiteralUnit` / `IsDecoratorUnit` / `IsAsUnit` / `IsSatisfiesUnit` / `IsSpreadUnit`，
+ * 构造时赋 `true`），31 处改属性读（否定式一律写成 `!x.IsXxxUnit`——对手上不是 token 的那几格
+ * 与 `Tag !== "…"` 逐格同答）。这一条因此守十九个 `<Tag>`。
+ *
+ * 同一轮还改平了 `head.Tag !== "Identifier" && head.Tag !== "Keyword"` 那一处——它问的是
+ * 「这一格**不是**一个名字」，所以读的是 `!head.IsNameNode`（第 1057 / 1076 轮那一族的否定式）；
+ * `NAME_CLASS_DISJUNCTION` 因此也补上这一形态（见那一条）。
  */
 const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"PropertyAccess"/g,
@@ -1050,6 +1074,14 @@ const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"Bracket"/g,
   /\.Tag\s*[!=]==?\s*"ArrayLiteral"/g,
   /\.Tag\s*[!=]==?\s*"TypeParameter"/g,
+  /\.Tag\s*[!=]==?\s*"Keyword"/g,
+  /\.Tag\s*[!=]==?\s*"Identifier"/g,
+  /\.Tag\s*[!=]==?\s*"Let"/g,
+  /\.Tag\s*[!=]==?\s*"ObjectLiteral"/g,
+  /\.Tag\s*[!=]==?\s*"Decorator"/g,
+  /\.Tag\s*[!=]==?\s*"As"/g,
+  /\.Tag\s*[!=]==?\s*"Satisfies"/g,
+  /\.Tag\s*[!=]==?\s*"Spread"/g,
 ];
 /** 投影层拿类名当「是不是 `PropertyAccess` / `NotNull` 那一格」判的处数（0 处才是对的）。 */
 let selfTagClassifyHits = 0;
@@ -1065,8 +1097,8 @@ let selfTagClassifyHits = 0;
           violations.push({
             file: SHARED_FILE,
             why:
-              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` / \`Method\` / \`GenericType\` / \`SymbolToken\` / \`NullConditionalOperator\` / \`String\` / \`ConstString\` / \`Bracket\` / \`ArrayLiteral\` / \`TypeParameter\` 那一类」又比类名了：\`${match[0]}\`——` +
-              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull` / `Token.IsMethodNode` / `Token.IsGenericType` / `Token.IsSymbolToken` / `Token.IsNullConditionalOperator` / `Token.IsStringUnit` / `Token.IsStringLiteralUnit` / `Token.IsBracketUnit` / `Token.IsArrayLiteralUnit` / `Token.IsTypeParameterUnit`，构造时赋好），投影只读属性",
+              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` / \`Method\` / \`GenericType\` / \`SymbolToken\` / \`NullConditionalOperator\` / \`String\` / \`ConstString\` / \`Bracket\` / \`ArrayLiteral\` / \`TypeParameter\` / \`Keyword\` / \`Identifier\` / \`Let\` / \`ObjectLiteral\` / \`Decorator\` / \`As\` / \`Satisfies\` / \`Spread\` 那一类」又比类名了：\`${match[0]}\`——` +
+              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull` / `Token.IsMethodNode` / `Token.IsGenericType` / `Token.IsSymbolToken` / `Token.IsNullConditionalOperator` / `Token.IsStringUnit` / `Token.IsStringLiteralUnit` / `Token.IsBracketUnit` / `Token.IsArrayLiteralUnit` / `Token.IsTypeParameterUnit` / `Token.IsKeywordUnit` / `Token.IsIdentifierUnit` / `Token.IsLetUnit` / `Token.IsObjectLiteralUnit` / `Token.IsDecoratorUnit` / `Token.IsAsUnit` / `Token.IsSatisfiesUnit` / `Token.IsSpreadUnit`，构造时赋好），投影只读属性",
           });
         }
       }
@@ -1266,7 +1298,7 @@ console.log(
   `「这一格是不是非空断言那个 \`!\`」又在投影层现场连写（${SHARED_FILE} 的代码块）：${notNullSymbolHits} 处（0 处才是对的，读 SymbolToken.IsNotNullSymbol）`,
 );
 console.log(
-  `「这一格是不是一条成员访问链 / 一次非空断言 / 一次方法调用 / 一段泛型括号段 / 一个符号块 / 一个空条件运算符单元 / 一个字符串单元 / 一段字符串字面量 / 一个括号单元 / 一个数组字面量单元 / 一个类型参数单元」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull / Token.IsMethodNode / Token.IsGenericType / Token.IsSymbolToken / Token.IsNullConditionalOperator / Token.IsStringUnit / Token.IsStringLiteralUnit / Token.IsBracketUnit / Token.IsArrayLiteralUnit / Token.IsTypeParameterUnit）`,
+  `「这一格是不是一条成员访问链 / 一次非空断言 / 一次方法调用 / 一段泛型括号段 / 一个符号块 / 一个空条件运算符单元 / 一个字符串单元 / 一段字符串字面量 / 一个括号单元 / 一个数组字面量单元 / 一个类型参数单元 / 一个关键字单元 / 一个标识符单元 / 一条 let 声明单元 / 一个对象字面量单元 / 一个装饰器单元 / 一个 as 单元 / 一个 satisfies 单元 / 一个展开单元」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull / Token.IsMethodNode / Token.IsGenericType / Token.IsSymbolToken / Token.IsNullConditionalOperator / Token.IsStringUnit / Token.IsStringLiteralUnit / Token.IsBracketUnit / Token.IsArrayLiteralUnit / Token.IsTypeParameterUnit / Token.IsKeywordUnit / Token.IsIdentifierUnit / Token.IsLetUnit / Token.IsObjectLiteralUnit / Token.IsDecoratorUnit / Token.IsAsUnit / Token.IsSatisfiesUnit / Token.IsSpreadUnit）`,
 );
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的

@@ -333,6 +333,11 @@ return ReplaceCountAt(units, index, operandEnd - index + 1, result);
 
 # class Spread extends IndependentToken
 
+## field IsSpreadUnit:bool = true
+
+**我这一格是不是一个展开单元**（第 1096 轮）：展开元素就是这一页，所以常量答 `true`——
+口径与理由见 `core/syntax/token.xl.md` 的 `IsSpreadUnit`。
+
 ## field SegmentNames:Map<string, Map<string, string>> = new Map([["SpreadElement", new Map([["children", "expression"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。

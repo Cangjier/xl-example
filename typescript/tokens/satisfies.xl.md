@@ -33,6 +33,11 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 类型约束 `satisfies` 表达式。
 
+## field IsSatisfiesUnit:bool = true
+
+**我这一格是不是一个 `satisfies` 单元**（第 1096 轮）：`satisfies` 表达式就是这一页，
+所以常量答 `true`——口径与理由见 `core/syntax/token.xl.md` 的 `IsSatisfiesUnit`。
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并把**类型队列**挂上来——与 `As` 完全同款（见 `as.xl.md` 的同名构造器）。
