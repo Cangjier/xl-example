@@ -8964,8 +8964,19 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     return { name: undefined, computed: null, unit };
   }
   // **正文只有这一个来源**（与原来那一份逐字节相同）：名字住在**子单元**上时用那一格
-  // 自己投出来的 `text`（解转义后的正文），否则用这一格自己声明的 `DeclaredName`。
-  const text = at === undefined ? v.DeclaredName : at.text;
+  // 自己投出来的 `text`（`Identifier.PrintAst` 已经按 `Translate.DecodeIdentifierEscapes`
+  // 解好转义）；否则用这一格自己声明的 `DeclaredName`——**但要走原来 `synthName` 那两行**：
+  //   - **解转义**（`\u006cass` 的名字是 `Class`，第 381 / 382 轮，那一族实测踩过两次）；
+  //   - **点号名只取第一段**（`namespace A.B { … }` 外层那个 `ModuleDeclaration` 的名字是
+  //     `A`，而 `DeclaredName` 是**全名** `"A.B"`）。
+  // 两句都只对「名字不住在子单元上」那一支生效（名字住在子单元上时正文以那一格为准，
+  // 那一格自己已经解好转义、点号名那几格自己的正文就是一段）。
+  let text = at === undefined ? v.DeclaredName : at.text;
+  if (at === undefined && typeof text === "string") {
+    const dotAt = text.indexOf(".");
+    if (dotAt > 0) text = text.substring(0, dotAt);
+    if (text.indexOf("\\u") >= 0) text = Translate.DecodeIdentifierEscapes(text);
+  }
   if (typeof text !== "string") {
     return { name: undefined, computed: null, unit };
   }

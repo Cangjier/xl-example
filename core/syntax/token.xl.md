@@ -296,7 +296,21 @@ return typeof own === "string" ? own : "";
   const computed =
     head !== undefined && head.IsArrayLiteralUnit && head.Text.startsWith("[") ? head : null;
   if (computed !== null) return { name: undefined, fromUnit: true, computed, unit: null };
-  if (name === "") return { name: undefined, fromUnit: false, computed: null, unit: null };
+  // **名字那一格子单元先认下**（`NameUnit`，第 1133 轮）：函数 / 类 / 接口 / 枚举 / 变量声明
+  // 那一族的名字就是**一格 `Identifier` 子单元**，而段循环靠 `nameNode = named.unit` 把那一格
+  // 从**别的段**（`parameters` / `children`）里跳过——所以四条出口都把它带上。
+  // **位置与原来那一份逐字相同**（第 1192 轮实测）：空名那一支之后、坐标分派之前。
+  const unit = this.NameUnit;
+  if (name === "") return { name: undefined, fromUnit: false, computed: null, unit };
+  // **私有名（`#m`）没有「名字子单元」这一档**（第 1192 轮实测逼出来的）：`#m` 在产物里是
+  // `[SymbolToken(#), Identifier(m)]` **两格**，而那两格合起来才是名字（名字本身是从
+  // `name` 属性合成的一个 `PrivateIdentifier`）——`NameUnit` 会答出里面那格 `Identifier(m)`，
+  // 但它**不是**「名字那一格」（区间对不上：`m` 从 1 开始、名字从 `#` 开始）。
+  // 原来那一份在这个形态上答的就是「没有单元」（`projectNode` 那条路只对**整体等于名字**
+  // 的那一格成立），于是一边跳过 `SymbolToken(#)`、一边让 `Identifier(m)` 落进 `parameters`
+  // ⇒ 运行期 `unimplemented: parameter without a name`。所以这一档把单元收回去交给
+  // `structuralProps` 那个「私有名的组成单元按区间跳过」的判据（它本来就为这一族写的）。
+  const privateName = this.NameKind === "PrivateIdentifier";
   // **名字那一格自己记下的整段区间先判**（`NameSpan`，第 645 / 1081 / 1138 轮）：它是
   // `Field` / `Namespace` / `MethodDeclaration` 三页**各自显式声明**的那一格，读的是构造时
   // 记下的 `NameAt` / `NameEnd`。**它先于 `nameStart` / `nameEnd`**（第 1192 轮实测纠的一处）：
@@ -307,12 +321,30 @@ return typeof own === "string" ? own : "";
   // **其余形态的节点是 `[起, 止 + 1)`**（`NameSpan` 是闭区间）——两句话与原来投影那一侧
   // `at.pos - 1` / `at.end + 1` 以及 `synthName` 的两个出口逐字符相同。
   const span: any = (this as any).NameSpan;
+  if (
+    this.IsNumericLiteralName === true &&
+    this.IsQuotedName === false &&
+    unit === undefined &&
+    typeof (this as any).nameStart === "number" &&
+    typeof (this as any).nameEnd === "number"
+  ) {
+    // **数字名那一档要先于 `NameSpan`**（`class { 1() {} }` / `{ 2: v }`，「我声明的这个名字
+    // 是不是数字字面量」由这一页在认下名字那一趟赋好，第 1136 轮）：**那一页同时也记了
+    // `NameSpan`**（`MethodDeclaration.NameAt`），所以按「有 `NameSpan` 就走那一支」会把它
+    // 投成 `Identifier`——实测 `cls-string-method-names` / `lex-member-number-name` 两族当场红。
+    // 三个附加条件各挡一族：`IsQuotedName` 挡引号名（它也记 `NameSpan`）、
+    // `unit === undefined` 挡名字住在子单元上的那些（那时那一格自己就是 `NumericLiteral`）、
+    // 两个下标挡没记坐标的那些。
+    const start = (this as any).nameStart;
+    const stop = (this as any).nameEnd;
+    return { name: { kind: "NumericLiteral", text: "", pos: start, end: stop + 1 }, fromUnit: false, computed: null, unit: null };
+  }
   if (Array.isArray(span) && span.length === 2 && typeof span[0] === "number" && typeof span[1] === "number") {
     const pos = span[0];
     const end = span[1] + 1;
     if (end >= pos) {
-      const kind = this.IsQuotedName === true ? "StringLiteral" : this.NameKind;
-      return { name: { kind, text: "", pos, end }, fromUnit: false, computed: null, unit: null };
+      const kind = this.IsQuotedName === true ? "StringLiteral" : unit !== undefined ? unit.NameKind : this.NameKind;
+      return { name: { kind, text: "", pos, end }, fromUnit: false, computed: null, unit: privateName ? null : unit };
     }
   }
   const start = (this as any).nameStart;
@@ -320,23 +352,29 @@ return typeof own === "string" ? own : "";
   if (typeof start === "number" && typeof stop === "number" && start >= 0 && stop >= start) {
     // **数字名那一档**（`class { 1() {} }` / `{ 2: v }`）：「我声明的这个名字是不是数字字面量」
     // 由这一页在**认下名字那一趟**赋好（`IsNumericLiteralName`，第 1136 轮按实测名单立的格：
-    // 只有 `Field` / `MethodDeclaration` 两页会答真）——名字住在**属性**上才是数字名。
-    if (this.IsNumericLiteralName === true) {
+    // 只有 `Field` / `MethodDeclaration` 两页会答真）——但**只有名字住在属性上才算**
+    // （`unit === undefined`）：名字住在一格 `Identifier` 子单元上时，那一格自己就是
+    // `Identifier`（原来那一份写的就是 `direct === undefined && v.IsNumericLiteralName`，
+    // 第 1192 轮实测：漏掉这个条件会让 `class { 1() {} }` 投成 `Identifier` 而不是
+    // `NumericLiteral`——`cls-string-method-names` / `lex-member-number-name` 两族当场红）。
+    if (unit === undefined && this.IsNumericLiteralName === true) {
       return { name: { kind: "NumericLiteral", text: "", pos: start, end: stop + 1 }, fromUnit: false, computed: null, unit: null };
     }
-    return { name: { kind: this.NameKind, text: "", pos: start, end: stop + 1 }, fromUnit: false, computed: null, unit: null };
+    // **不是数字名时 kind 读名字那一格子单元自己**（`unit.NameKind`，原来那一份读的是
+    // `at.kind`，也就是那一格投出来的那一格的 kind）：**点号名那一族就靠它**——
+    // `namespace A.B.C` 的外层名字是 `A`（`NameSpan` 只覆盖第一段），而这一格自己的
+    // `name` 属性是**全名** `"A.B.C"`、`NameKind` 也因此答 `Identifier`；正文由投影层
+    // 从那一格子单元取（`at.text` = `"A"`）。
+    return {
+      name: { kind: unit !== undefined ? unit.NameKind : this.NameKind, text: "", pos: start, end: stop + 1 },
+      fromUnit: false,
+      computed: null,
+      unit: privateName ? null : unit,
+    };
   }
-  // **这一格自己没记名字的坐标 ⇒ 问名字那一格子单元**（`fromUnit`，第 1192 轮）：
-  // 函数 / 类 / 接口 / 枚举 / 变量声明那一族的名字就是**一格 `Identifier` 子单元**，
-  // 它的 kind 与坐标由那一格**自己投出来的那一格**答——正是原来投影那一侧
+  // **这一格自己没记名字的坐标 ⇒ 节点由名字那一格子单元自己答**（`fromUnit`，第 1192 轮）：
+  // 它的 kind / 坐标 / 正文由那一格**自己投出来的那一格**给——正是原来投影那一侧
   // `projectNode(direct, ctx)` 的同一份答案。
-  // **这一格只在走到这里时才读**（用户口径 1.6：读得越晚越少）：`NameUnit` 要扫一遍
-  // `ProjectableKids`，而前面两支（记了 `NameSpan` / 记了下标的那几页）一次都用不到它。
-  // **它不能提到函数开头**（第 1192 轮实测踩的坑，与「早读一格属性」那条同族）：提前读
-  // 会让**私有方法**（`#m()`）那种格子的名字节点从 `named.unit` 那条路走掉，
-  // 于是 `structuralProps` 段循环里那个「私有名的组成单元要跳过」的判据认不出名字单元、
-  // `#` 与 `m` 两格落进 `parameters` ⇒ 运行期当场 `unimplemented: parameter without a name`。
-  const unit = this.NameUnit;
   if (unit !== undefined) return { name: undefined, fromUnit: true, computed: null, unit };
   // **记不到位置、也没有名字子单元**（第 1051 轮）：这一格**根本没带名字的位置**，
   // 不必替它近似一个——原来投影那一侧这一档的答案就是「没有名字节点」。
@@ -359,6 +397,20 @@ return typeof own === "string" ? own : "";
 
 **`text: ""` 是占位**：这两态（引号名 / 数字名 / 标识符名）的正文**只有一个来源**（投影层那一栏），
 所以这里不写第二份；投影层拿到节点后一次赋值就把它改成真的正文。
+
+**第 1192 轮把这一格与原来 `synthName` 逐出口对拍，纠了四处**（每一处都是全语料实测抓出来的，
+八道门读数在纠完之后与 HEAD 逐项相同——`cases:tsast` 15/16、`coverage` 4260 / 4422）：
+
+| 这一格原来的写法 | 纠成 | 不纠会红在哪 |
+| --- | --- | --- |
+| 名字那一格子单元**推迟到四支都没命中**才读 | **空名那一支之后就读**、四条出口都带上 | 带返回值类型的生成器方法（`public *GetEnumerator(): Generator<Parameter> { … }`）——它既记了下标、又有一格名字子单元——会把那一格落进 `parameters` |
+| 私有名（`NameKind === "PrivateIdentifier"`）也把子单元交回去 | **私有名不交**（`unit: privateName ? null : unit`） | `#m()` 那一族的 `SymbolToken(#)` 与 `Identifier(m)` 两格落进 `parameters`（运行期 `unimplemented: parameter without a name`） |
+| 数字名那一支排在 `NameSpan` 那一支**后面** | **数字名先判**（三个附加条件各挡一族） | `MethodDeclaration` **同时记了 `NameSpan`**，于是 `class { 1() {} }` 投成 `Identifier`（`cls-string-method-names` / `lex-member-number-name` 两族） |
+| 有 `unit` 时 kind 读 `this.NameKind` | 读 **`unit.NameKind`** | 点号名（`namespace A.B.C` 的外层名字是 `A`）那一族——这一格自己的 `name` 是全名 |
+
+**投影层那一侧另外补的两句**（也在同一次对拍里定的，属 `memberNameOf`）：
+名字不住在子单元上时，正文要走原来 `synthName` 的**解转义**（`\u006cass` 的名字是 `Class`）
+与**点号取第一段**（`namespace A.B { … }` 的外层名字是 `A`，而 `DeclaredName` 是 `"A.B"`）。
 
 ## property NameUnit:Token | undefined
 
