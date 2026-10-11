@@ -1694,6 +1694,33 @@ return false;
 return false;
 ```
 
+## property IsPipeSymbol:bool
+
+**我这一格是不是那个竖线 `|`**（第 1120 轮）——**不是**的一律给 `false`。
+
+投影层的现场写法（`projectTypeExpression` 里切平铺的联合类型那一格：`const isTypeOp =
+(k, text) => k.IsSymbolToken && k.TextValue === text`，两处调用点给的实参是 `"|"` 与 `"&"`）
+现在读这一格。判据与 `IsColonSymbol` / `IsLessThanSymbol` 同一条口径：
+**基类给默认档、符号那一页覆写**（`SymbolToken.IsPipeSymbol`，读时现算、读 `TextValue`）。
+
+### get
+
+```ts
+return false;
+```
+
+## property IsAmpersandSymbol:bool
+
+**我这一格是不是那个和号 `&`**（第 1120 轮）——**不是**的一律给 `false`。
+
+与 `IsPipeSymbol` 同一句话的另一个符号（交叉类型那一支），同一轮立、同一形态。
+
+### get
+
+```ts
+return false;
+```
+
 ## field IsExtendsKeyword:bool = false
 
 **我这一格的正文是不是 `extends` 那个词**（第 1119 轮）——是的话答 `true`。

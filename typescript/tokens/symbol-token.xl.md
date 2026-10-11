@@ -340,6 +340,31 @@ if (last instanceof SymbolToken) {
   return this.TextValue === ";";
 ```
 
+## property IsPipeSymbol:bool
+
+**我这一格是不是那个竖线 `|`**（第 1120 轮）：投影层切平铺的联合类型
+（`type A = B | C`，`projectTypeExpression` 里那一支）的那一格过去现场拼
+`const isTypeOp = (k, text) => k.IsSymbolToken && k.TextValue === text`，
+两处调用点给的实参**逐处量过**只有 `"|"` 与 `"&"`——于是两半各立一格
+（局部转手连同它那半句 `IsSymbolToken` 一起删掉，与第 1118 / 1120 轮同一条口径）。
+
+### get
+
+```ts
+  return this.TextValue === "|";
+```
+
+## property IsAmpersandSymbol:bool
+
+**我这一格是不是那个和号 `&`**（第 1120 轮）：同一支里交叉类型那一格
+（`type A = B & C`），与 `IsPipeSymbol` 同一轮立、同一形态、同一句话的另一个符号。
+
+### get
+
+```ts
+  return this.TextValue === "&";
+```
+
 ## field IsTypeSeparator:bool = false
 
 **我这一格是不是类型成员之间的那个分隔符**（第 1057 轮）：`Token.IsTypeSeparator` 在投影层

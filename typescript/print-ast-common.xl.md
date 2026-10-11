@@ -289,14 +289,14 @@ import { Identifier } from "./tokens/identifier.xl.md"
   本轮它顺便量到的是**这一格局部转手**——名字没了，`xl build` / `tsc` 都不报（`any` 吞），
   所以**自验按第 1119 轮那条教训来做**：逐处改完直接跑八道门（`coverage` 的 `blocked`
   一涨就说明还有调用点没换）。
-- **剩下没换的 `TextValue` 逐处点名**（代码块里共 11 处比较）：`=== separator` 两处
+- **剩下没换的 `TextValue` 逐处点名**（本页第一趟收完是 11 处比较，第二趟又收掉 `isTypeOp`
+  那一格 ⇒ 今天 **9 处**）：`=== separator` 两处
   （`splitTopLevel` / `namedSpecifiersOf` 按**调用方给的参数**比）、`!== ","` 与 `=== ","`
   两处（逗号那个**二元单元**自己的正文，`IsCommaSymbol` 住符号那一页、收件人不同）、
-  `TextValue === text`（`isTypeOp` 一格局部转手，实参是 `"|"` / `"&"`，两个符号还没各立一格）、
   `=== "is"`（类型谓词那个词，`is` 不是本工程的关键字、产物里停在 `Identifier` 上）、
   `=== "type"`（导出子句的标志词）、`=== lookup`（`ImportClause` 找与参数同名的那一格）。
   **一处没动**：它们问的是「这一格自己的正文是不是**调用方给的那串**」，不是「这是哪个词」
-  ——与第 1118 / 1119 两轮的分界同一条。
+  ——与第 1118 / 1119 两轮的分界同一条（第 1120 轮第二趟收掉的正是这一族里**不再是参数**的那一例）。
 - **本页的声明数**：**43 格**（**一格没增、一格没减**：删掉的是一格局部 `const`——它不在
   `# method` / `# const` 的账上；改的是 16 处调用点；`IsDotSymbol` / `IsLessThanSymbol` /
   `IsCommaSymbol` 都是既有属性，新立的零格）。
@@ -307,6 +307,43 @@ import { Identifier } from "./tokens/identifier.xl.md"
   `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
   `runtime:cli` 79 / 79（唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
   八道门这一轮唯一红的是 `coverage` 那一道——它一直是**尺子不是门**，红的那一条与 HEAD 逐字相同。
+
+**第 1120 轮（第二趟）把联合 / 交叉那一支剩下的那一格局部转手也收了**
+（同一把尺子：`isTypeOp(k, text)` 的实参逐处量过只有 `"|"` 与 `"&"` 两个**字面量**，
+不是「参数给的那串」）：
+
+| 原来的现场算式 | 今天读的那一格 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `const isTypeOp = (k, text) => k.IsSymbolToken && k.TextValue === text;`（`projectTypeExpression` 里那一格局部转手，2 处调用点） | 循环里现拼的 `isThisOp(k)`：`(pipe ? k.IsPipeSymbol : k.IsAmpersandSymbol) === true` | `SymbolToken` 那一页**显式声明** `IsPipeSymbol` / `IsAmpersandSymbol`（`## property` + `### get`，读 `this.TextValue` 现算；基类 `### get` 答 `false`）——与 `IsColonSymbol` / `IsLessThanSymbol` 同一形态、同一条口径 |
+
+- **为什么它该住在符号那一页**：它问的是「我这一格的正文是不是那个竖线 / 那个和号」，
+  而正文就在那一页自己的 `Temp` / `value` 上（第 1069 轮起基类那一格 `TextValue` 就是它）。
+  投影层重写一遍 `IsSymbolToken && TextValue === "|"` 就是**同一格事实的第二处答案**
+  ——判据与第 1074 / 1090 / 1107 / 1108 / 1118 / 1119 轮那几族逐字相同。
+- **两格都是 `## property` + `### get`（读时现算）、不是 `## field`**：理由与 `IsEqualsSymbol` /
+  `IsArrowSymbol` / `IsNotNullSymbol` 那几节**逐字相同**——符号的正文是**逐字符攒**的、
+  而**不是每个符号都会走到 `Close()`**（`let.xl.md` 那格尾巴符号就没关过），
+  写成字段会让没关过的那一格停在默认档（第 1063 轮 `OperatorRank` 上量到过这件事）。
+- **同一轮实测下来的一处「本仓解析器的缺口」（如实记下，页面上留下了形状）**：
+  最初写成 `[(k: any) => k.IsPipeSymbol, "UnionType"], …] as Array<[(k: any) => bool, string]>`
+  ——**`tsc` 干净、`node` 跑得对**，可本仓解析器在**类型位**读不了它：
+  `as` 后面的类型实参里那个 `(k: any) => bool` 被投成 `ArrowFunction` + `EqualsGreaterThanToken`，
+  而 TS 那边是 `FunctionType` + `TypeReference(bool)`。`cases:tsast` 当场报
+  **缺 2 / 多 2**（`node tests/parse/ts-ast.mjs --file dist/ts/typescript/print-ast-common.ts`
+  逐条点名：`MISS FunctionType` / `MISS TypeReference(bool)` / `EXTRA ArrowFunction` /
+  `EXTRA EqualsGreaterThanToken`）——**本页自己的 dist 产物就在语料里**，所以这一页怎么写，
+  自己就是被测对象。改成「表里放事实、谓词在循环里现拼」之后逐项回到 **0 / 0**。
+  这条缺口的形状与复现留在代码块那一段注释里（没有新立 `xl:known-gap` 用例：
+  登记缺口要另起一条语料并逐条核，留给下一轮）。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：删掉的是一格局部 `const`——不在
+  `# method` / `# const` 的账上；新立的两格属性在基类与 `SymbolToken` 那一页）。
+- **实测**：`xl check typescript core` **0 条**；`xl build typescript` **127 个产物** / 0 error、
+  `tsc` 干净；**八道门 7 通过、1 失败**（墙钟 29.3s），读数与第 1106 ~ 1119 轮及本页第一趟
+  逐项相同：`coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着（**八项全 0**）、`cases:direct` 1640 份不抛异常、
+  `direct:lint` 0 条违反、`samples` 逐字节一致、`cases:check` 1656 / 1656、
+  `runtime:check` 243 / 243、`runtime:cli` 79 / 79（唯一那条「倒退」仍是 HEAD 上既有的
+  `runtime/round741/002`）。
 
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
@@ -8369,18 +8406,31 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     };
   }
   // **平铺的联合 / 交叉**（第 133 轮）：见上。按**最外层**的分隔符切段、每段自己递归。
-  const isTypeOp = (k: any, text: string) => k.IsSymbolToken && k.TextValue === text;
-  for (const [op, kind] of [
-    ["|", "UnionType"],
-    ["&", "IntersectionType"],
-  ] as Array<[string, string]>) {
+  //
+  // **局部转手 `isTypeOp` 第 1120 轮删掉**：它问的是「这一格是不是那个 `|` / 那个 `&`」，
+  // 两处调用点给的实参逐处量过只有这两个符号——于是两半各立一格（`SymbolToken` 那一页
+  // 第 1120 轮显式声明 `IsPipeSymbol` / `IsAmpersandSymbol`，读时现算、读 `TextValue`），
+  // 这一格连同它那半句 `IsSymbolToken` 一起收掉（`pipe` 那一格就是这一趟的谓词）。
+  //
+  // **为什么谓词由 `pipe` 那一格现拼、而不是把两个箭头函数摆进那张表**（第 1120 轮**实测**）：
+  // 「`[(k: any) => k.IsPipeSymbol, "UnionType"], …] as Array<[(k: any) => bool, string]>`
+  // 这一写法本身合法（`tsc` 干净、`node` 也跑得对），可**本仓的解析器在类型位读不了它**：
+  // `as` 后面的类型实参里那个 `(k: any) => bool` 被投成 `ArrowFunction` + `EqualsGreaterThanToken`，
+  // 而 TS 那边是 `FunctionType` + `TypeReference(bool)`——`cases:tsast` 当场两条缺、两条多
+  // （语料里有本页自己的 dist 产物，所以这一页怎么写自己就是被测对象）。换成「表里放事实、
+  // 谓词在循环里现拼」之后逐项回到 0/0。
+  for (const [pipe, kind] of [
+    [true, "UnionType"],
+    [false, "IntersectionType"],
+  ] as Array<[bool, string]>) {
     // `&` 比 `|` 紧：收 `|` 时可以穿过 `&`（`A | B & C` 是 `A | (B & C)`），反过来不行。
-    const at = list.findIndex((k, i) => i > 0 && i + 1 < list.length && isTypeOp(k, op));
+    const isThisOp = (k: any) => (pipe ? k.IsPipeSymbol : k.IsAmpersandSymbol) === true;
+    const at = list.findIndex((k, i) => i > 0 && i + 1 < list.length && isThisOp(k));
     if (at <= 0) continue;
     const types = [];
     let start = 0;
     for (let i = 1; i < list.length; i++) {
-      if (!isTypeOp(list[i], op) || i + 1 >= list.length) continue;
+      if (!isThisOp(list[i]) || i + 1 >= list.length) continue;
       const one = projectTypeExpression(list.slice(start, i), ctx);
       if (one !== undefined) types.push(one);
       start = i + 1;
