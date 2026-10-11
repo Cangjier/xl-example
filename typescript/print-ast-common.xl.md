@@ -74,8 +74,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**46 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-43 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**45 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+42 个 `# method` + 3 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 3 个名字**（`projectNode` /
 `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），其余一律 `# private`。
@@ -92,6 +92,26 @@ import { Identifier } from "./tokens/identifier.xl.md"
 | `ownsTrailingSemicolon(node, ctx)` + 数据表 `ENDS_ON_BRACE` | `projectEach` 里的 `ownsTrailingSemicolonOf` / `endsOnBrace`（唯一读者就是那一格函数里的一处） | 数据表的唯一读者就是这一格；两者一起搬，本页少两格声明 |
 
 三格**判据一个字没改**，只是不再单独立声明（与第 1103 / 1104 / 1101 / 1100 轮同一手法）。
+
+**第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
+`conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
+这一条出口**一个读者——那一格自己的递归调用不算读者，`projectTypeExpression` 里**没有**它的
+调用点（第 1109 轮那一栏写「5 处读者」是把出口的读者与「本页自己那两处」混在一起数了，
+本轮按代码块逐处重数：**出口一个**）。所以：
+
+| 原来的现场算式 | 今天谁答 |
+| --- | --- |
+| `conditionalNode(kids, start, end, ctx)`（`slice = kids.slice(start, end)` + 三个下标 + 右嵌套假分支那一段递归） | 算式整段搬进 `ctx.ConditionalNode` 这条出口（**实参表 `list` / `from` / `to` 与三个调用点一个字不动**），递归改走出口里那一格自己 `conditionalNodeOf` |
+
+- **三个调用点不动**：`conditional-type.xl.md` / `mapped-type.xl.md` / `type-parameter.xl.md`
+  走的是 `ctx.ConditionalNode(list, from, to)`——出口的名字、形参个数、返回形状逐字相同，
+  所以「搬走的是算式所在的那一页」而不是能力（与第 1112 轮 `ParenthesizedOf` 同一条）。
+- **递归那一句逐字节同答**：原来写 `conditionalNode(tail, 0, tail.length, ctx)`，
+  今天写 `conditionalNodeOf(tail)`——`tail` 就是 `slice.slice(colonIndex + 1)`，
+  而 `slice` 是 `kids.slice(start, end)`；出口那一层先做 `list.slice(from, to)` 再交给它，
+  两层 `slice` 合起来与原来那一句逐格同答（`Array.prototype.slice` 对同一段区间是幂等的）。
+- **本页的声明数**：**46 → 45 格**（43 → 42 个 `# method` + 3 个 `# const`，实测；
+  删掉的是一格 `# private method`）。
 
 **第 1112 轮按同一把尺子把「值位括号 → `ParenthesizedExpression`」那一格收进它的调用点**：
 `parenthesizedOf(unit, ctx)`（16 行）的读者在**代码块里只有两处**（`projectExpression` 里
@@ -8959,53 +8979,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 就地展开——引号名给 `StringLiteral`、其余走 `nameOf`，两处逐字照抄原来那一格的判据。
 `ctx.SpecifierNameOf` 那个出口本来就是零真实读者（第 1070 轮已记），本轮连同导出一起删掉，
 名字补进 `direct:lint` 的 `CTX_BANNED`。
-# private method conditionalNode:(kids:Array<any>, start:int, end:int, ctx:any)=>any
-
-`[T, extends, U, ?, A, :, B]` 那一段单元 → 一个 `ConditionalType`。
-
-**假分支又是条件类型时要递归**（第 116 轮）：TS 的条件类型是**右嵌套**的——
-`A extends B ? C : D extends E ? F : G` 的 `falseType` 是一个 `ConditionalType`。
-产物把它们**平铺在同一串单元里**，而 `typeOf`（→ `projectTypeExpression`）折不动平铺的
-`extends` / `?` / `:`——于是内层那条条件类型只剩几个孤立的名字：实测 `@types/node/test.d.ts` 的
-`ReturnType = F extends (...) => infer T ? T ⏎ : F extends abstract new(...) => infer T ? T ⏎ : unknown`
-缺 `ConditionalType` / `ConstructorType` / `AbstractKeyword` / `Parameter` / `DotDotDotToken`
-等 13 个节点（`Identifier` 缺 375 / `TypeReference` 缺 118 的样本全在这一族）。
-
-```ts
-  const isSymbol = (k, text) => k.IsSymbolToken && k.TextValue === text;
-  const slice = kids.slice(start, end);
-  const isExtends = (k) =>
-    k.IsNameNode && k.TextValue === "extends";
-  const extIndex = slice.findIndex(isExtends);
-  const questionIndex = slice.findIndex((k) => isSymbol(k, "?"));
-  const colonIndex = slice.findIndex((k) => isSymbol(k, ":"));
-  const node = {
-    kind: "ConditionalType",
-    pos: startOf(slice[0]),
-    end: endOf(slice[slice.length - 1]),
-  };
-  if (extIndex > 0) node.checkType = typeOf(slice.slice(0, extIndex), ctx);
-  if (extIndex >= 0) {
-    const stop = questionIndex > extIndex ? questionIndex : slice.length;
-    node.extendsType = typeOf(slice.slice(extIndex + 1, stop), ctx);
-  }
-  if (questionIndex >= 0) {
-    const stop = colonIndex > questionIndex ? colonIndex : slice.length;
-    node.trueType = typeOf(slice.slice(questionIndex + 1, stop), ctx);
-  }
-  if (colonIndex >= 0) {
-    const tail = slice.slice(colonIndex + 1);
-    const tailExt = tail.findIndex(isExtends);
-    const tailQuestion = tail.findIndex((k) => isSymbol(k, "?"));
-    const tailColon = tail.findIndex((k) => isSymbol(k, ":"));
-    node.falseType =
-      tailExt > 0 && tailQuestion > tailExt && tailColon > tailQuestion
-        ? conditionalNode(tail, 0, tail.length, ctx)
-        : typeOf(tail, ctx);
-  }
-  return node;
-```
-
 # private method dottedExpression:(names:Array<any>, kindOf?:string)=>any
 
 一串名字 → **左结合的点号链**（第 1105 轮起这一格按 `kind` 出两种节点，原来那两格
@@ -9990,7 +9963,62 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     QualifiedNameFrom: (list) => dottedExpression(list, "QualifiedName"),
     DottedExpression: (list) => dottedExpression(list),
     TypeArguments: (generic) => projectTypeArguments(generic, ctx),
-    ConditionalNode: (list, from, to) => conditionalNode(list, from, to, ctx),
+    // **`conditionalNode` 这一格第 1113 轮整格删掉了**——它在本页代码块里**只有这一条出口**
+    // 一个读者（`projectTypeExpression` 那两处读者都在**本函数自己的body**里：递归那一句与
+    // 那一格自己的调用），而出口的实参表（`list` / `from` / `to`）与三个调用点
+    // （`conditional-type` / `mapped-type` / `type-parameter`）一个字不动——
+    // 所以算式整段搬进这条出口，本页少一格声明。判据与第 1103 / 1104 / 1109 / 1110 / 1111 /
+    // 1112 轮同一把尺子。
+    //
+    // `[T, extends, U, ?, A, :, B]` 那一段单元 → 一个 `ConditionalType`。
+    //
+    // **假分支又是条件类型时要递归**（第 116 轮）：TS 的条件类型是**右嵌套**的——
+    // `A extends B ? C : D extends E ? F : G` 的 `falseType` 是一个 `ConditionalType`。
+    // 产物把它们**平铺在同一串单元里**，而 `typeOf`（→ `projectTypeExpression`）折不动平铺的
+    // `extends` / `?` / `:`——于是内层那条条件类型只剩几个孤立的名字：实测 `@types/node/test.d.ts` 的
+    // `ReturnType = F extends (...) => infer T ? T ⏎ : F extends abstract new(...) => infer T ? T ⏎ : unknown`
+    // 缺 `ConditionalType` / `ConstructorType` / `AbstractKeyword` / `Parameter` / `DotDotDotToken`
+    // 等 13 个节点（`Identifier` 缺 375 / `TypeReference` 缺 118 的样本全在这一族）。
+    ConditionalNode: (list, from, to) => {
+      // **递归就靠这一格自己的名字**（原来那一格声明里的 `conditionalNode(tail, 0, tail.length, ctx)`
+      // 搬进来之后写成 `conditionalNodeOf(tail)`）：`tail.length` 与 `slice.length` 逐格同答
+      // （`tail` 就是 `slice.slice(colonIndex + 1)`），所以两处调用逐字节相同。
+      const conditionalNodeOf = (kids) => {
+        const isSymbol = (k, text) => k.IsSymbolToken && k.TextValue === text;
+        const slice = kids;
+        const isExtends = (k) =>
+          k.IsNameNode && k.TextValue === "extends";
+        const extIndex = slice.findIndex(isExtends);
+        const questionIndex = slice.findIndex((k) => isSymbol(k, "?"));
+        const colonIndex = slice.findIndex((k) => isSymbol(k, ":"));
+        const node = {
+          kind: "ConditionalType",
+          pos: startOf(slice[0]),
+          end: endOf(slice[slice.length - 1]),
+        };
+        if (extIndex > 0) node.checkType = typeOf(slice.slice(0, extIndex), ctx);
+        if (extIndex >= 0) {
+          const stop = questionIndex > extIndex ? questionIndex : slice.length;
+          node.extendsType = typeOf(slice.slice(extIndex + 1, stop), ctx);
+        }
+        if (questionIndex >= 0) {
+          const stop = colonIndex > questionIndex ? colonIndex : slice.length;
+          node.trueType = typeOf(slice.slice(questionIndex + 1, stop), ctx);
+        }
+        if (colonIndex >= 0) {
+          const tail = slice.slice(colonIndex + 1);
+          const tailExt = tail.findIndex(isExtends);
+          const tailQuestion = tail.findIndex((k) => isSymbol(k, "?"));
+          const tailColon = tail.findIndex((k) => isSymbol(k, ":"));
+          node.falseType =
+            tailExt > 0 && tailQuestion > tailExt && tailColon > tailQuestion
+              ? conditionalNodeOf(tail)
+              : typeOf(tail, ctx);
+        }
+        return node;
+      };
+      return conditionalNodeOf(list.slice(from, to));
+    },
     // **`projectSegment` 这一格第 1100 轮并进了这个出口**（同一把尺子：全仓只有
     // `ternary-operator.xl.md` 一个读者，而它拿到的就是这一行出口返回的东西）。
     // 说明整段搬在这里：**整段一起投，只在遇到「分段壳」时才摊平一层**（第 97 轮）……
