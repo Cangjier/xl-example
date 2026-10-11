@@ -9007,9 +9007,17 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       // 而外层的 `ArrayType` 又套错了位置（实测 `Identifier` 缺 1050 里成片、
       // `TypeReference` / `ArrayType` 各一片）。
       const next = list[i + 1];
-      const innerNames =
-        next.IsArrayType ? next.ProjectableKids.filter((k) => k.IsNameNode) : null;
-      const nameUnit = innerNames !== null && innerNames.length === 1 ? innerNames[0] : next;
+      // **「只有名字的那种 `ArrayType`」第 1133 轮收进被问的那一格**（用户口径 1.1 ~ 1.4）：
+      // 这一句原来是现场拼出来的
+      // `next.ProjectableKids.filter((k) => k.IsNameNode)` + `length === 1 ? [0] : next`，
+      // 而「我下面是不是恰好只有一个名字子单元」**就是 `next` 自己那一格上的一件事**
+      // （两半都在它身上：子单元表是它的 `ProjectableKids`、名字那一格由它自己的 `IsNameNode` 认）。
+      // 今天只读一格：`next.SoleNameUnit`（`core/syntax/token.xl.md` 的基类那一格，
+      // `## property` + `### get`，「恰好一格才给、否则 `undefined`」逐字相同）。
+      // 它**不是 `NameUnit`**：那一格答「我声明的那个名字住在哪一格子单元上」（读 `DeclaredName`），
+      // 这一格根本不看名字、只数名字子单元的个数——两问的收件人不同，所以各立一格。
+      const soleName = next.IsArrayType ? next.SoleNameUnit : undefined;
+      const nameUnit = soleName !== undefined ? soleName : next;
       if (!nameUnit.IsNameNode) break;
       const right = nameUnit.NameNode;
       typeName = { kind: "QualifiedName", left: typeName, right, pos: typeName.pos, end: right.end };

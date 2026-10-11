@@ -138,6 +138,32 @@ for (const kid of this.ProjectableKids) {
 return undefined;
 ```
 
+## property SoleNameUnit:Token | undefined
+
+**这一格下面**恰好**只有一格子单元是名字**时，就是那一格（第 1133 轮）：一格都没有、或者有两格
+以上，给 `undefined`。
+
+**为什么另立一格、不并进 `NameUnit`**：两问的收件人不同——`NameUnit` 答「**我声明的那个名字**
+住在哪一格子单元上」（拿自己的 `DeclaredName` 去自己的子单元里对），这一格答
+「**我下面是不是恰好只有一个名字子单元**」（根本不看 `DeclaredName`）。
+`A.B[]` 那一档要的是后者：`ArrayType` 那一条类型引用链上，**只有名字的那种 `ArrayType`**
+（`A.B[]` 的产物是 `[Identifier(A), ., ArrayType(Identifier(B))]`，里层那个 `ArrayType`
+只装着一格名字）才是限定名的右半，而「恰好一格」正是它区别于别的 `ArrayType` 的那一半事实。
+把两问合成一格会**改判据**（`NameUnit` 在「声明名与子单元名不同」的页上答得出、
+这一格在那时答 `undefined`），所以各立一格。
+
+**它为什么是 `## property` + `### get`**：与 `NameUnit` 同一条理由——子单元是解析期陆续挂上来的。
+
+### get
+
+```ts
+const names = [];
+for (const kid of this.ProjectableKids) {
+  if (kid.IsNameNode) names.push(kid);
+}
+return names.length === 1 ? names[0] : undefined;
+```
+
 ## property NameKind:string
 
 **这一格的名字节点该用什么 kind**（第 1068 轮）：`Identifier` 或 `PrivateIdentifier`。

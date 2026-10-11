@@ -347,6 +347,43 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1134 轮：「只有名字的那种 `ArrayType`」收进被问的那一格——基类另立 `## property SoleNameUnit`，`projectTypeExpression` 限定名链上那一句现场 `filter` 改读 `next.SoleNameUnit`；**八道门 7 通过、读数一处没动**
+
+**一句话**：用户口径 1.1 ~ 1.4。第 1133 轮把「名字住在哪一格子单元上」（`NameUnit`）收进 token
+之后，同一页还剩**同一族**的另一种写法：`projectTypeExpression` 的限定名链上（第 9011 行），
+`.` 右边那个单元**先看它是不是只有名字的那种 `ArrayType`**——原来是现场拼的
+`next.ProjectableKids.filter((k) => k.IsNameNode)` 加一句 `length === 1 ? [0] : next`，
+而「我下面是不是恰好只有一个名字子单元」**就是 `next` 自己那一格上的一件事**。
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明 |
+| --- | --- | --- |
+| `next.ProjectableKids.filter((k) => k.IsNameNode)` + `innerNames.length === 1 ? innerNames[0] : next`（**1 处**，限定名链右半） | `next.SoleNameUnit`（`undefined` ⇒ 不是那种 `ArrayType`，落回 `next`） | 基类 `core/syntax/token.xl.md`（`## property` + `### get`） |
+
+- **为什么另立一格、不并进 `NameUnit`**：两问的**收件人不同**——`NameUnit` 答「**我声明的那个名字**
+  住在哪一格子单元上」（拿自己的 `DeclaredName` 去自己的子单元里对正文），`SoleNameUnit` 答
+  「**我下面是不是恰好只有一个名字子单元**」（根本不看 `DeclaredName`）。把两问合成一格就是**改判据**
+  （在「声明的名字与子单元里的名字不同」的那些页上，`NameUnit` 答得出而这一格答 `undefined`），
+  所以各立一格。
+- **等价怎么证的**：这一格的取值就是原来那一句本身——同一份 `ProjectableKids`、同一个
+  `IsNameNode` 谓词、同一个「恰好一格才给」的判据；调用点那一行只是把 `null` 那一档
+  换成 `undefined`（`soleName !== undefined ? soleName : next`，两条路逐格同答：
+  原来 `filter` 给的数组长度不是 1 时也落回 `next`）。八道门读数一处没动就是这条的证据。
+- **`A.B[]` 那一档为什么值得单独一读**（第 103 轮那一段注释仍留在原地）：`A.B[]` 的产物是
+  `[Identifier(A), ., ArrayType(Identifier(B))]`，里层那个 `ArrayType` **只装着一格名字**，
+  它是限定名的右半；只认 `IsNameNode(list[i+1])` 时链会在这里断掉
+  （实测 `Identifier` 缺 1050 里成片、`TypeReference` / `ArrayType` 各一片）。
+- **本页的声明数**：**42 格不变**（39 个 `# method` + 3 个 `# const`，实测：改的是 1 处调用点
+  与它的说明；新立的那一格在基类那一页）。`core/syntax/token.xl.md` 再 +33 行（两格属性各占一节）。
+
+- **实测**：`xl check core typescript` **156 个文件 / 0 条**；`xl build core typescript`
+  **2 个产物 / 0 error**（`token` / `print-ast-common`）、`npx tsc` 干净；
+  **八道门 7 通过、1 失败**（墙钟 33.8s），读数与第 1106 ~ 1133 轮逐项相同
+  （`coverage` **4260 / 4422**、`blocked 28` / `differ 134` / `bad 0`、加权 95.7%；
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`）。
+  本页 10792 → **10800 行**（代码块 7832 → 7840 行、不带注释 4663 → 4662 行）；
+  `core/syntax/token.xl.md` 2715 → **2741 行**（这一格 26 行）。
 ### 第 1133 轮：「这一格的名字住在它下面哪一格子单元上」收进被问的那一格——基类新立 `## property NameUnit`，投影页 `memberNameOf` 那一句现场 `find` 改读 `v.NameUnit`；**八道门 7 通过、读数一处没动**
 
 **一句话**：用户口径「简化 `print-ast-common`，清理它用不到的方法；投影要的信息在具体类里显式
