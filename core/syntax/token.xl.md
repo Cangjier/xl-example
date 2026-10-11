@@ -922,6 +922,40 @@ for (;;) {
 return at;
 ```
 
+## property TrailingSemicolonAt:int | undefined
+
+**这一格末尾那个 `;` 的位置**（第 1149 轮）：末尾不是 `;` 就给 `undefined`。
+**落在它自己某个子单元区间里的 `;` 不算**——那属于注释（`//     : never;` 这种行）。
+
+**为什么住在 token 上**（用户口径 1.1 ~ 1.4）：这一问的每一件事实都是这一格自己的——
+「我的末字符是不是 `;`」读自己的 `Text`、「那个 `;` 有没有被某个子单元盖住」读自己的
+`AllKids`。算式原来在 `print-ast-common.xl.md` 的 `projectEach` 里现场写了一遍
+（`ctx.source[endOf(x) - 1]` + `allKids(x)`），现在由这一页答、投影只读属性。
+
+**整段是注释时为什么不算**（第 838 轮实测）：`function f() {} /*c*/;` 这一格把注释与
+`;` 一起收进来，末字符也是 `;`，可它属于注释、不是语句终结符。
+
+**读数**（第 1149 轮，全语料 1640 份 / 21793 个节点；探针脚本进 `tmp/` 不进仓）：
+这一格被求值 **11034 次**——其中 **9098** 次在「末字符不是 `;`」那一句就给了 `undefined`、
+**1936** 次进到子单元那趟循环，答出一个位置的 **1891** 次（**45** 次因为那个 `;`
+落在注释里而答 `undefined`）。
+
+**不立记忆位**（与第 1148 轮同一把尺子）：同一批探针另挂一个 `Set` 量了「同一个 token
+有没有被问第二次」——**11034** 次里落在 **11010** 个不同的 token 上，重复读只有 **24** 次
+⇒ 缓存省下的是 24 / 11034 = **0.2%** 的数组构造，而基类要多一格只有第二次才用得到的字段
+（`Clone` 还要跟着抄一格）⇒ **这一格不该立**。
+
+### get
+
+```ts
+if (this.end <= 0) return undefined;
+if (!this.Text.endsWith(";")) return undefined;
+for (const k of this.AllKids) {
+  if (k.start <= this.end - 1 && this.end - 1 < k.end) return undefined;
+}
+return this.end - 1;
+```
+
 ## method ChildrenOf:(segment:Token | null | undefined)=>Array<Token>
 
 **某一段的子单元**（第 1018 轮）：那一段还没挂上（`null` / `undefined`）时给**空列表**。

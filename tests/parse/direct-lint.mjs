@@ -560,6 +560,16 @@ let ctxBannedHits = 0;
     // （`ctx.source[built.end - 1] === ","` 那种「这一格末尾那一格字符是什么」），
     // 而正则分不出这两种意图——写成门会把它一起判红（第 1049 轮留着的正是这一族）。
     // 所以口径记在这里、判据留白：下一轮若要立门，得先给「相邻字符」找出可判的形态。
+    //
+    // **第 1149 轮把这一族又量了一遍**（同一份代码块、同样去掉注释行）：
+    // `ctx.source[<某一格>.end - 1]` 还剩 **3 处 / 2 个写点**，两处读的**都不是 token**——
+    // 一处是 `projectDeclaration` 里的 `built`（`mk(kind, props)` 造出来的**投影节点**，
+    // 「对象字面量成员吃不吃尾随逗号」），另一处是 `ownsTrailingSemicolonOf` 的 `node`
+    // （`out` 末尾那个**投影节点**，「上一条语句末尾那个字符是不是 `;`」）。两者手上都没有
+    // token——他们的 `.end` 是投影出来的坐标，问的是**相邻那一格原文**。所以这一族今天
+    // 剩下的都是合法读法，判据仍然留白；**被收掉的那一类是「token 自己答得出来的」**：
+    // 第 1149 轮把 `projectEach` 里 `ctx.source[endOf(items[i]) - 1] === ";"` 连同那趟
+    // 子单元循环收进了 `Token.TrailingSemicolonAt`（见 `core/syntax/token.xl.md`）。
 
     for (const match of code.matchAll(TOKEN_TEXT_VIA_SOURCE)) {
       sourceTextHits += 1;
