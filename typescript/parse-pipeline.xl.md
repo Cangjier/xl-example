@@ -731,6 +731,13 @@ unit.CloseRuleQueue = unit.Template.CloseRuleTemplate.Get(unit.constructor);
 所以这道深度界**暂时留着**：`Depth >= 8` 就跳过这一层（深层那几条规则不跑，
 形状与对照态因此不同 —— 这笔账还挂着）。
 
+## field SnapshotPool:Array<Array<Token>> = []
+
+**收敛环那一格草稿纸的池子**（第 1216 轮，用户口径 1.2「提升 parse 效率」）：一格 `Array<Token>`，
+按**当前递归深度**取用（`Depth` 那一格的下标）。这一趟会递归——规则造出来的单元自己也会关一次
+（`ApplyCloseRules` 里 `Depth` 那道界管的就是它）——所以**一层一格**：
+共用一格会让外层那一趟比到自己内层的快照上，那就不是等价改动了。池子最多 9 格，永不回收。
+
 ## method FormStatement:(unit:Token, terminator:Token)=>void
 
 转发给 `Statement.FormFrom`——判据、切片、区间只有那一份实现。
@@ -806,12 +813,38 @@ if (TokenFormerImpl.Depth >= 8) {
 }
 TokenFormerImpl.Depth = TokenFormerImpl.Depth + 1;
 try {
+// **那一格「上一趟的样子」用草稿纸、不再每趟现切一份**（第 1216 轮，用户口径 1.2「提升 parse 效率」）：
+// 原来每趟一句 `unit.Data.slice()` 外加一个 `every((item, at) => …)` 的闭包，而这一层是
+// **每个单元关闭一次**都要走的（实测 `typescript.d.ts` 一份上 93956 次，`tmp/r1216-count2.mjs`）
+// ⇒ 一份文件白造 93956 个数组 + 93956 个闭包。判据一个字没改：还是「长度相同、逐格 `===`」。
+// **草稿纸按深度分格**（`SnapshotPool`）：这一趟会递归（规则造出来的单元自己也会关一次，
+// 上界就是上面那道 `Depth >= 8`），共用一格会让**外层**那一趟比到自己内层的快照上 —— 那不是等价改动。
+// 池子最多 9 格，一格只在它自己那一层用。
 const maxPasses = Math.min(16, unit.Data.length + 2);
+const pool = this.SnapshotPool;
+while (pool.length <= TokenFormerImpl.Depth) {
+  pool.push([]);
+}
+const snapshot = pool[TokenFormerImpl.Depth];
 for (let pass = 0; pass < maxPasses; pass++) {
-  const snapshot = unit.Data.slice();
+  const data = unit.Data;
+  const count = data.length;
+  snapshot.length = 0;
+  for (let at = 0; at < count; at++) {
+    snapshot.push(data[at]);
+  }
   this.RunCloseRules(unit);
-  if (unit.Data.length === snapshot.length && unit.Data.every((item, at) => item === snapshot[at])) {
-    break;
+  if (unit.Data.length === count) {
+    let same = true;
+    for (let at = 0; at < count; at++) {
+      if (unit.Data[at] !== snapshot[at]) {
+        same = false;
+        break;
+      }
+    }
+    if (same) {
+      break;
+    }
   }
 }
 // **标签包住它标的那条语句**（第 929 轮，见 `Statement.AbsorbLabels`）——

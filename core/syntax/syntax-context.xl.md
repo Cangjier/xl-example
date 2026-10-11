@@ -134,24 +134,35 @@ this.Root.TryToClose();
 - 快路里嵌套的 `ProcessAt` 仍然**当场**处理自己那一格（那边同样走快路）；
 - `DrainMessages()` 之后队列里若又有了东西（`ReloadMessage` 会插回队首），再走 `DrainQueue`。
 
+**第 1215 轮那一笔的读数**（`tmp/r1215-ab3.mjs`，同一进程交替、尺子＝CPU 时间）：
+20 趟配对差 mean **−112.5ms**、median −78.0ms、17 趟更快 / 3 趟更慢；30 趟 mean **−87.4ms**、19:10。
+
+**快路上不必造那个 `ProcessSource`**（第 1216 轮，用户口径 1.2「提升 parse 效率」）：那一格只是
+「处理者 + 位置」两格数据，而 `ProcessSource.Process` 的实现就是
+`this.ProcessOwner.Process(context, this.Source)` ——**快路上的处理者恒为 `this.Root`**（队列那一条
+路才是别人的处理者）。所以把构造挪进队列那一支，快路直接 `this.Root.Process(this, item)`：
+判据、次序一个字没改（构造没有副作用），一份 `typescript.d.ts` 上少造 **588452** 个
+`ProcessSource`（实测 `tmp/r1216-count6.mjs`：`ProcessSingle` 被调 588452 次、`Source` 也正好
+588452 个——一个字符一次）。
+
 ```ts
-const source = new ProcessSource(this.Root, item);
 if (this.SourceQueue.length > 0) {
-  this.SourceQueue.push(source);
+  this.SourceQueue.push(new ProcessSource(this.Root, item));
   this.DrainQueue();
   return;
 }
-source.Process(this);
+this.Root.Process(this, item);
 this.DrainMessages();
 if (this.SourceQueue.length > 0) {
   this.DrainQueue();
 }
 ```
 
-实测（`tmp/r1215-ab3.mjs`，同一进程交替、尺子＝CPU 时间，一份 `typescript.d.ts`）：
-20 趟配对差 mean **−112.5ms**、median −78.0ms、**17 趟更快 / 3 趟更慢**；
-30 趟 mean **−87.4ms**、median −93.0ms、19:10。**等价**：`tmp/r1211-sig.mjs` 台账
-**1663 份逐字节同答（diff=0）**——这一笔一个形状都没动（它只是不绕那一圈队列）。
+实测（`tmp/r1216-ab.mjs`，同一进程交替、尺子＝CPU 时间，一份 `typescript.d.ts`）：
+20 趟配对差 mean **−64.7ms**、median −61.0ms、**13 趟更快 / 6 趟更慢 / 1 趟持平**；
+30 趟 mean **−15.3ms**、median −1.0ms、17:13 ——**长那一趟落在噪声里**（第 1214 轮标定的
+配对差标准差 ~110–135ms），如实记。**等价**：`tmp/r1216-sig.json` 台账
+**1663 份逐字节同答（diff=0）**——这一笔一个形状都没动。
 
 ## method ProcessAt:(processOwner:Token, item:Source)=>void
 
