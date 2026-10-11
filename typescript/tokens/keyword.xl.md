@@ -119,6 +119,28 @@ return Keyword.UpgradeAt(units, index);
 第三处落点**（`Identifier` 那一页按自己的正文答同一问），两页各写自己认得的词，
 与 `IsTypeParameterModifier` 那一格同一条口径。
 
+## field IsNewKeyword:bool = false
+
+**我这一格的正文是不是 `new` 那个词**（第 1118 轮）：是的话答 `true`，
+在 `SetValue` 里与上面那几格**同一趟**赋好（判据同样是这一页自己的正文）。
+口径与理由见 `../core/syntax/token.xl.md` 的 `IsNewKeyword`——
+过去投影层的三处 `k.TextValue === "new"` 现在都读这一格。
+
+## field IsAsyncKeyword:bool = false
+
+**我这一格的正文是不是 `async` 那个词**（第 1118 轮）：同上一格，同一趟赋好。
+（`async` 在本工程里多数时候停在 `Identifier` 上，所以那一页也答同一问——两页各写
+自己认得的词，与 `IsTypeParameterModifier` 同一条口径。）
+
+## field IsAbstractKeyword:bool = false
+
+**我这一格的正文是不是 `abstract` 那个词**（第 1118 轮）：同上一格，同一趟赋好。
+
+## field IsImportKeyword:bool = false
+
+**我这一格的正文是不是 `import` 那个词**（第 1118 轮）：同上一格，同一趟赋好
+（投影层 `new.target` / `import.meta` 那一支要的就是它）。
+
 ## static method IsUpgradable:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `Identifier` 的内容是不是关键字。
@@ -326,7 +348,8 @@ super(template);
 
 `Value` 是这一页**唯一的输入**，而 `KeywordKind` / `StatementKind` / `StatementField` /
 `IsStatementNode` / `IsOperatorUnit` / `OperatorWordKind` / `IsPrefixOperatorUnit` /
-`IsTypeParameterModifier` 都是它的函数（前四格查本页那两张词汇表，后四格比正文里的那几个词）
+`IsTypeParameterModifier` / `IsNewKeyword` / `IsAsyncKeyword` / `IsAbstractKeyword` /
+`IsImportKeyword` 都是它的函数（前四格查本页那两张词汇表，后八格比正文里的那几个词）
 ——所以赋值只有**这一个入口**：
 `UpgradeAt` 与 `Clone` 都走它。**为什么要有这一格**：第 1042 轮把那四格从方法改成属性之后，
 「谁保证它们与 `Value` 同步」就成了这一页自己的责任；两处赋值点各写几行就会漂，
@@ -348,6 +371,12 @@ this.OperatorWordKind = this.IsOperatorUnit ? (this.KeywordKind ?? "") : "";
 this.IsPrefixOperatorUnit =
   text === "typeof" || text === "void" || text === "delete" || text === "await";
 this.IsTypeParameterModifier = text === "in" || text === "const";
+// **第 1118 轮**：投影层那几处 `k.TextValue === "new"` / `"import"` 收成属性读——
+// 判据仍是这一页自己的正文，所以与上面那几格**同一趟**赋好。
+this.IsNewKeyword = text === "new";
+this.IsAsyncKeyword = text === "async";
+this.IsAbstractKeyword = text === "abstract";
+this.IsImportKeyword = text === "import";
 // **第 1075 轮**：投影侧那一问（这一格能不能当链的基名）也是同一份正文的函数——同一趟赋好。
 this.IsChainBaseNode = !(
   text === "return" ||

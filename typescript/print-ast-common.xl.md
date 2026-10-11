@@ -192,6 +192,45 @@ import { Identifier } from "./tokens/identifier.xl.md"
 - **本页的声明数**：**44 → 43 格**（40 个 `# method` + 3 个 `# const`，实测；
   删掉的是一格 `# private method`）。
 
+**第 1118 轮把「按正文比那几个词 / 那几个符号」这一族收进被问的那两页**
+（用户口径 1.1 ~ 1.4：投影要的信息由**具体 token 子类**在自己那一页**显式声明**，
+在**构造 / `Close` / `SetValue` 那一刻**赋好，读的时候备齐）。第 1115 / 1116 两轮收的是
+**类名**那一问（`X.Tag === "Label"` 这种），本页代码块里那一族已经 0 处；而**同一句话的
+第四种写法**——`X.TextValue === "new"` / `=== "<"` / `=== "#"` 这种**按正文比**——
+一直不在任何一条门的视野里（门只认 `Tag`）。本轮把**5 个词 / 符号、9 处现场写法**收干净：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候算 |
+| --- | --- | --- |
+| `k.TextValue === "new"`（**3 处**：`projectExpression` 的 `new.target` 那一支、`functionTypeProps` 找构造签名那一格、`projectTypeExpression` 的平铺构造类型那一支） | `k.IsNewKeyword === true` | `Keyword.SetValue` / `Identifier.Close` **各自显式声明**同一格、在**记下正文那一刻**赋好（`TextValue === "new"`）；基类默认 `false` |
+| `kids[0].TextValue === "async"`（**2 处**：`projectExpression` 里 `async` 起头的语句壳那一支，含它下面那条三格连写） | `kids[0].IsAsyncKeyword === true` | 同上（`"async"`）——`async` 在本工程里多数时候停在 `Identifier` 上，那一页也答 |
+| `k.TextValue === "abstract"`（**1 处**：`functionTypeProps` 里把 `abstract` 收进 `modifiers`） | `k.IsAbstractKeyword === true` | 同上（`"abstract"`） |
+| `TextValue === "new" \|\| TextValue === "import"`（**1 处**：`new.target` / `import.meta` 那一支） | `IsNewKeyword` / `IsImportKeyword` | 同上（`"import"`） |
+| `k.IsSymbolToken && k.TextValue === "<"`（**2 处**：`projectExpression` 的 `<T>x` 断言那一支、`projectTypeExpression` 平铺的 `A[Lowercase<K>]` 实参段） | `k.IsLessThanSymbol` | `SymbolToken` 那一页 `## property` + `### get`：`return this.TextValue === "<";`（**读时现算**，与 `IsColonSymbol` / `IsAsteriskSymbol` 同一形态；基类 `### get` 答 `false`） |
+| `k.IsSymbolToken && k.TextValue === "#"`（**2 处**：`projectExpression` 里表达式位的私有名 `#x`、`chainOnto` 里 `this.#x`） | `k.IsHashSymbol` | 同上（`"#"`） |
+
+而 `TextValue === "."` 的**3 处**本轮**一并收掉**（它们问的是「我这一格的正文是不是那个点号」，
+而那一格**早就有了**：`SymbolToken.IsDotSymbol`，`Close()` 里赋的 `## field`，第 1057 轮立的）：
+`projectExpression` 里「`.` 不是切点」那一格与「尾巴里有没有平铺的 `.`」那一格、
+`projectTypeExpression` 里算点号个数那一格——三处都改读 `unit.IsDotSymbol`。
+**`IsDotSymbol` 那半句 `IsSymbolToken` 也随之收掉**（基类默认 `false`，只读那一格就够）。
+
+- **为什么不与 `IsOperatorUnit` / `IsPrefixOperatorUnit` 合并**：那两格问的是「我这一格的正文
+  是不是**某一串**词里的一个」（一份名单、一个布尔），而这一轮这五格各自问**一个词**
+  （`new` / `async` / `abstract` / `import` / `<` / `#`）——名字各写各的，与
+  `IsColonSymbol` / `IsEqualsSymbol` 那一族同一条口径：**一个问题一个名字**，
+  免得下一个词进来时去改一格本来答别的问题的属性。
+- **词法身份两页各答**（与第 1062 轮 `IsTypeParameterModifier` 同一条口径）：`new` / `import`
+  在产物里通常是 `Keyword`，可「还停在标识符上的那一格」也递得到投影（`async` / `abstract`
+  尤其如此），所以 `Keyword` 与 `Identifier` 两页各写自己认得的词，**不是同一份名单抄两遍**。
+- **判据这一轮没长**（如实记下）：`direct:lint` 那几条门认的是 `Tag` 比类名（`SELF_TAG_CLASSIFY`
+  / `TAG_LOCAL_VAR_COMPARE`），**看不见 `TextValue` 比正文**——所以这一族过去与今后都能从门下走过。
+  本轮**没有**新立一条扫 `TextValue` 的门：`TextValue === "?"` / `=== ","` / `=== ";"` /
+  `=== "is"` / `=== "type"` 那几处问的是**那一格自己的正文**（`SymbolToken` / 二元单元上的
+  分隔符、类型谓词那个 `is`、导出子句那个 `type`），与「这是哪个词」是两件事，写成门会一起判红。
+  要立门得先给这两类找出可判的形态——留给下一轮。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：改的是 12 处调用点与说明，
+  新立的两格属性在基类与 `SymbolToken` 那一页，另外四格在基类与 `Keyword` / `Identifier` 两页）。
+
 **第 1113 轮按同一把尺子把「条件类型 → `ConditionalType`」那一格收进它唯一的出口**：
 `conditionalNode(kids, start, end, ctx)`（47 行）在本页代码块里**只有 `ctx.ConditionalNode`
 这一条出口**一个读者——那一格自己的递归调用不算读者，`projectTypeExpression` 里**没有**它的
@@ -3293,9 +3332,9 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // **为什么两格不会误伤**（`[async, () => 1]` / `f(async, () => 1)`）：那些地方的逗号
   // 是**平级的一格 `SymbolToken`**（逗号表达式成形的除外），kids 长度不是 2；
   // 两条语句（`async;` 换行 `() => 1`）也不会落进同一串单元。
-  const asyncHead = kids[0].IsIdentifierUnit && kids[0].TextValue === "async";
+  const asyncHead = kids[0].IsIdentifierUnit && kids[0].IsAsyncKeyword === true;
   const asyncPlain = asyncHead && kids.length === 2 && kids[1].IsValueOnlyUnit;
-  if ((kids.length === 3 && kids[0].IsIdentifierUnit && kids[1].IsGenericType && kids[2].IsValueOnlyUnit && kids[0].TextValue === "async") || asyncPlain) {
+  if ((kids.length === 3 && kids[0].IsIdentifierUnit && kids[1].IsGenericType && kids[2].IsValueOnlyUnit && kids[0].IsAsyncKeyword === true) || asyncPlain) {
     const arrow: any = projectNode(kids[kids.length - 1], ctx);
     if (arrow !== undefined) {
       if (kids.length === 3) {
@@ -3627,7 +3666,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 而 `IsAllowedFollower` 的白名单刻意不含数字（`foo(bar) > 3` 要能退回比较式），
   // 于是产物是一段平的 `[<, number, >, 1]`。判据仍然只看「第一个单元是不是 `<`」——
   // 有左操作数的比较式（`a < b > c`）第一个单元是那个 `a`，撞不到这里。
-  if (kids[0].IsSymbolToken && kids[0].TextValue === "<" && kids.length >= 3) {
+  if (kids[0].IsSymbolToken && kids[0].IsLessThanSymbol && kids.length >= 3) {
     let depth = 0;
     let close = -1;
     for (let i = 0; i < kids.length; i++) {
@@ -3831,7 +3870,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // `(await Promise) . resolve`，降级期报 `name is not a local or a capture: resolve`。
         // 它是**成员访问的续接**、不是二元运算符，跳过它之后这一支自然回落到老路
         //（老路把 `[Promise, ., resolve(…)]` 折成一条链，正是要的形状）。
-        if (unit.TextValue === ".") continue;
+        if (unit.IsDotSymbol) continue;
         opAt = at;
         break;
       }
@@ -3849,7 +3888,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           (unit) =>
             !unit.IsAsUnit &&
             !unit.IsSatisfiesUnit &&
-            !(unit.IsSymbolToken && unit.TextValue === "."),
+            !(unit.IsSymbolToken && unit.IsDotSymbol),
         );
       if (tailIsOperators) {
         const operand = projectExpression(flat.slice(0, opAt), ctx);
@@ -3901,7 +3940,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // `[SymbolToken(#), Identifier(x), Keyword(in), Identifier(o)]`——`#` 与名字是两格。
   // 合成一个 `PrivateIdentifier` 之后，后面的运算符与操作数照常折（`in` 走
   // `IsOperatorUnit` 那一格：它是 `Keyword` 不是 `SymbolToken`）。
-  if (kids.length >= 2 && kids[0].IsSymbolToken && kids[0].TextValue === "#") {
+  if (kids.length >= 2 && kids[0].IsHashSymbol) {
     const named = kids[1];
     const simple = named.IsNameNode;
     if (simple) {
@@ -3983,7 +4022,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   if (
     kids[0] !== undefined &&
     kids[0].IsNameNode &&
-    (kids[0].TextValue === "new" || kids[0].TextValue === "import") &&
+    (kids[0].IsNewKeyword === true || kids[0].IsImportKeyword === true) &&
     isSymbol(kids[1], ".") &&
     kids.length >= 3
   ) {
@@ -5663,7 +5702,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       // 而 TS 那边 `name` 是**一个** `PrivateIdentifier`（区间含那个 `#`，`#` 是它的一部分）。
       // 不合并的话点号后面只剩一个 `#`（投成一个 `Identifier("#")`、区间短一格），
       // 后面那个名字还掉成平级节点（实测 `cls-hash-in-operator.ts` / `cls-private-fields.ts`）。
-      if (next.IsSymbolToken && next.TextValue === "#" && i + 2 < ck.length) {
+      if (next.IsHashSymbol && i + 2 < ck.length) {
         const after = ck[i + 2];
         const at = startOf(next);
         // **私有方法调用 `this.#m()`**（第 138 轮）：点号后面是 `[SymbolToken(#), Method(name="m")]`——
@@ -8103,12 +8142,12 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   );
   const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
   const generic = before.find((k: any) => k.IsGenericType);
-  const newUnit = before.find((k: any) => k.IsKeywordUnit && k.TextValue === "new");
+  const newUnit = before.find((k: any) => k.IsKeywordUnit && k.IsNewKeyword === true);
   const props: any = {};
   const params = [];
   for (const k of before) {
     if (k === generic || k === newUnit) continue;
-    if (k.IsKeywordUnit && k.TextValue === "abstract") {
+    if (k.IsKeywordUnit && k.IsAbstractKeyword === true) {
       props.modifiers = [...(props.modifiers ?? []), projectNode(k, ctx)];
       continue;
     }
@@ -8542,7 +8581,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 照通用支会投出一个盖住 `new <T>` 的 `TypeReference` + 一个 `Identifier(new)`
   //（实测多出 `NewKeyword` / `TypeReference` / `Identifier`，同时缺整个 `ConstructorType`
   // 与它的形参、返回类型）。
-  if (head.IsKeywordUnit && head.TextValue === "new") {
+  if (head.IsKeywordUnit && head.IsNewKeyword === true) {
     const arrow = list.findIndex((k) => k.IsArrowSymbol);
     if (arrow > 0) {
       const ctorProps = {};

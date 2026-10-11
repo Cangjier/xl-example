@@ -292,6 +292,31 @@ if (last instanceof SymbolToken) {
   return this.TextValue === "*";
 ```
 
+## property IsLessThanSymbol:bool
+
+**我这一格是不是那个小于号 `<`**（第 1118 轮）：投影层要认出「`GenericType` 没成形的尖括号断言」
+（`<number>1`）与「平铺的 `<…>` 实参段」（`A[Lowercase<K>]`）那两处
+（`print-ast-common.xl.md` 里 2 处），判据过去是现场拼出来的
+`k.IsSymbolToken && k.TextValue === "<"`——与 `IsColonSymbol` 同一条口径、同一形态。
+
+### get
+
+```ts
+  return this.TextValue === "<";
+```
+
+## property IsHashSymbol:bool
+
+**我这一格是不是那个 `#`**（第 1118 轮）：投影层要认出表达式位的私有名 `#x` 与
+`this.#x` 的私有成员名那两处（`print-ast-common.xl.md` 里 2 处），判据过去是现场拼出来的
+`k.IsSymbolToken && k.TextValue === "#"`——同上。
+
+### get
+
+```ts
+  return this.TextValue === "#";
+```
+
 ## field IsTypeSeparator:bool = false
 
 **我这一格是不是类型成员之间的那个分隔符**（第 1057 轮）：`Token.IsTypeSeparator` 在投影层

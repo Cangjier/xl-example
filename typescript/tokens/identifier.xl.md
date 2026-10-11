@@ -171,6 +171,30 @@ if (last instanceof Identifier) {
 这三个词（`out` 是上下文修饰、词法上仍是标识符；`in` / `const` 的另一态是 `Keyword`），
 同样按**这一格自己的正文**判、同样在 `Close()` 里赋好。
 
+## field IsNewKeyword:bool = false
+
+**我这一格的正文是不是 `new` 那个词**（第 1118 轮）：是的话答 `true`，
+在 `Close()` 里与上面那几格**同一趟**赋好。口径与理由见
+`../core/syntax/token.xl.md` 的 `IsNewKeyword`——过去投影层三处 `k.TextValue === "new"`
+现在都读这一格（`new` 在产物里是 `Keyword`，但「还停在标识符上的那一格」也递得到投影，
+所以两页各写自己认得的词）。
+
+## field IsAsyncKeyword:bool = false
+
+**我这一格的正文是不是 `async` 那个词**（第 1118 轮）：同上一格，同一趟赋好。
+`async` 在本工程里**多数时候就停在 `Identifier` 上**（它是上下文关键字），所以这一页
+正是它最常见的收件人。
+
+## field IsAbstractKeyword:bool = false
+
+**我这一格的正文是不是 `abstract` 那个词**（第 1118 轮）：同上一格，同一趟赋好
+（`abstract` 也是上下文关键字，类成员那一页把它当修饰词）。
+
+## field IsImportKeyword:bool = false
+
+**我这一格的正文是不是 `import` 那个词**（第 1118 轮）：同上一格，同一趟赋好
+（`import.meta` 里那个词在产物里也可能还停在 `Identifier` 上）。
+
 ## field IsChainBaseNode:bool = true
 
 **我这一格能不能当一条链的基名**（投影侧那一问；第 1075 轮）：标识符**默认能**，
@@ -234,14 +258,14 @@ return IsUnclosedBracedEscape(this.TempToString());
 
 ## protected method Close:()=>void
 
-关闭：把自己标记为已关闭，**并把由这一格正文派生的四格一起赋好**（第 1062 / 1075 / 1106 轮）。
+关闭：把自己标记为已关闭，**并把由这一格正文派生的那几格一起赋好**（第 1062 / 1075 / 1106 / 1118 轮）。
 
 **为什么赋值点在这里**：标识符是**逐字符攒起来**的，而 `Close()` 正是「攒完了」那一刻
 （`SymbolToken` 那一页把同款的三格放在同一处，理由同一条：读得到的一定是收完的正文）。
 
 ```ts
 this.Closed = true;
-// 三格都是「我这一格的正文是什么」的函数，所以在同一个时刻、同一趟里赋好。
+// 这几格都是「我这一格的正文是什么」的函数，所以在同一个时刻、同一趟里赋好。
 this.IsOperatorUnit = this.IsAny(["in", "instanceof"]);
 // **第 1106 轮**：同一份事实的第二个出口——是那两个词的话，名字也在这里一起答
 // （判据读上一行那一格，这一页因此只有一份「那两个词」的名单）。
@@ -249,6 +273,12 @@ this.OperatorWordKind = this.IsOperatorUnit
   ? (this.TempToString() === "in" ? "InKeyword" : "InstanceOfKeyword")
   : "";
 this.IsTypeParameterModifier = this.IsAny(["in", "out", "const"]);
+// **第 1118 轮**：投影层那几处 `k.TextValue === "new"` / `"async"` / `"abstract"` /
+// `"import"` 收成属性读——判据仍是这一页自己的正文，所以与上面那几格**同一趟**赋好。
+this.IsNewKeyword = this.Is("new");
+this.IsAsyncKeyword = this.Is("async");
+this.IsAbstractKeyword = this.Is("abstract");
+this.IsImportKeyword = this.Is("import");
 // **第 1075 轮**：投影侧那一问（这一格能不能当链的基名）的另一半是「我这一格的正文是
 // 不是那几个不走链的词」——同一趟、同一份正文。
 this.IsChainBaseNode = !this.IsAny([

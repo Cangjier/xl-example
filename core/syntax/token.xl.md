@@ -1629,6 +1629,79 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 **基类这一格默认 `false`**：需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field`，与 `EndsOnBrace` / `IsNameNode` / `IsOperatorUnit` 同一形态）。
 
+## field IsImportKeyword:bool = false
+
+**我这一格的正文是不是 `import` 那个词**（第 1118 轮）——是的话答 `true`。
+
+**它与 `IsNewKeyword` / `IsAsyncKeyword` / `IsAbstractKeyword` 同一条口径**：过去投影层
+在 `projectExpression` 的 `new.target` / `import.meta` 那一支现场比两串文本
+（`kids[0].TextValue === "new" || kids[0].TextValue === "import"`），而「我这一格的正文是
+什么」只有这一页知道。词法身份同样两页各答（`Keyword.SetValue` / `Identifier.Close`）。
+
+## property IsLessThanSymbol:bool
+
+**我这一格是不是那个小于号 `<`**（第 1118 轮）——**不是**的一律给 `false`。
+
+投影层的两处现场写法（`projectExpression` 里「`GenericType` 没成形的那种」那一支、
+`projectTypeExpression` 里平铺的 `<…>` 实参段）现在都读这一格。判据与
+`IsColonSymbol` / `IsAsteriskSymbol` / `IsDotDotDotSymbol` 同一条口径：
+**基类给默认档、符号那一页覆写**（`SymbolToken.IsLessThanSymbol`，读时现算、读 `TextValue`）。
+
+### get
+
+```ts
+return false;
+```
+
+## property IsHashSymbol:bool
+
+**我这一格是不是那个 `#`**（第 1118 轮）——**不是**的一律给 `false`。
+
+投影层的两处现场写法（`projectExpression` 里表达式位的私有名 `#x`、`chainOnto` 里
+`this.#x` 的私有成员名）现在都读这一格。同上：收件人是 `SymbolToken` 那一页。
+
+### get
+
+```ts
+return false;
+```
+
+## field IsNewKeyword:bool = false
+
+**我这一格的正文是不是 `new` 那个词**（第 1118 轮）——是的话答 `true`。
+
+**为什么它是一格而不是投影层的一次文本比**：`print-ast-common.xl.md` 的通用支里过去有三处
+现场写法（`k.TextValue === "new"`：`projectExpression` 里「裸 `new` 起头那一串」那一支、
+`functionTypeProps` 找构造签名的 `new`、`projectTypeExpression` 里构造类型那一支），
+而**「我这一格的正文是什么」只有这一页知道**——与
+`IsTypeParameterModifier` / `IsPrefixOperatorUnit` / `IsChainBaseNode` 同一句话。
+
+**词法身份两页各答**（与 `IsTypeParameterModifier` 同一条口径）：`new` 在产物里是
+`Keyword`，但产物把「已经升级成了关键字的那一格」与「还停在标识符上的那一格」都递得到投影，
+两页各写自己认得的词——不是同一份名单抄两遍。
+
+**判据是这一格自己的正文**，所以两页都在**记下正文那一刻**赋好（`Keyword.SetValue` /
+`Identifier.Close`），基类默认 `false`。
+
+## field IsAsyncKeyword:bool = false
+
+**我这一格的正文是不是 `async` 那个词**（第 1118 轮）——是的话答 `true`。
+
+**它与 `IsNewKeyword` 同一条口径**：过去投影层有两处现场写法（`projectStatement` 里
+「`async` 起头的语句壳」那一支：`kids[0].IsIdentifierUnit && kids[0].TextValue === "async"`，
+含它下面那条三格连写），而那个正文只有这一页知道。
+
+**名单是 `async` 一个词**（`await` 是另一格：它在 `IsPrefixOperatorUnit` 里）。
+
+## field IsAbstractKeyword:bool = false
+
+**我这一格的正文是不是 `abstract` 那个词**（第 1118 轮）——是的话答 `true`。
+
+**它与上两格同一条口径**：过去投影层在 `functionTypeProps` 里现场比一次
+（`k.IsKeywordUnit && k.TextValue === "abstract"`，问的是「这一段函数类型是不是抽象的」）——
+`abstract` 是**类成员的修饰词**，词法上是上下文关键字（产物那边既有 `Keyword` 也有
+`Identifier`），所以两页各答自己那一格。
+
 ## field IsPropertyAccess:bool = false
 
 **我这一格是不是一条成员访问链**（第 1091 轮）——是的话答 `true`。
