@@ -74,14 +74,19 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**54 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-50 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**53 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+49 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 3 个名字**（`projectNode` /
 `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），其余一律 `# private`。
 **量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 （`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
 （第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
+**第 1105 轮合掉的是一对「同形不同 kind」的格**：`qualifiedNameFrom`（16 行）与
+`dottedExpression`（17 行）的算式逐行相同（`nameOf(names[0])` + 一个从 `i = 1` 起的循环 +
+`pos: node.pos` / `end: right.end`），差别只有节点 `kind` 与两个字段名（`left`/`right`
+对 `expression`/`name`）——所以留一格、多一个 `kindOf` 形参，`ctx.QualifiedNameFrom` 那一条
+出口与两个调用点一个字不动，本页少一格声明。
 **第 1104 轮收掉的是两格「只有一个真实调用点、而且读的就是调用点手上那一份」的格**
 （尺子与第 1100 ~ 1102 轮同一把，只是这两格的读者**在本页之内**）：
 `angleAssertionLength`（52 行，唯一读者 `foldBinaryFrom` 里那一处，而且是**同一格问两次**——
@@ -4667,7 +4672,7 @@ new Set([
   // ---- 0b2. 标签模板**后面还跟着后缀**：第 173 轮在这里加过一条判据——**退回来了** ----
   //
   // 判据写的是「第二格是 `PropertyAccess` 且它第一个子单元是反引号 String」，
-  // 拼法是把标签模板拼好后按 `dottedExpression` 那条形状挂成员。
+  // 拼法是把标签模板拼好后按 `dottedExpression` 那条形状挂成员（第 1105 轮起经 `kindOf` 给 kind）。
   // **实测它一次都没生效**：`cases:tsast` 照样 1434/1434、
   // `` tag`abc`.length `` 照样给 `[Function (anonymous)]`、
   // AST 照样是 `VariableDeclaration{ Identifier r, Identifier tag }`
@@ -8162,7 +8167,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     const names = members.filter((k) => k.IsNameNode);
     if (pureName && names.length > 1) {
       const generic = list.length === 2 ? list[1] : undefined;
-      const props: any = { typeName: qualifiedNameFrom(names) };
+      const props: any = { typeName: dottedExpression(names, "QualifiedName") };
       if (generic !== undefined) {
         const args = projectTypeArguments(generic, ctx);
         if (args !== undefined) {
@@ -8189,9 +8194,9 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   if (list.length >= 3 && list[0].IsTypeQuery && list[1].IsDotSymbol) {
     const query = projectNode(list[0], ctx);
     const tail = list.filter((k, i) => i >= 2 && k.IsNameNode);
-    // **`head` 已经是投好的节点**（`query.exprName`），而 `qualifiedNameFrom` 吃的是**单元**
-    // （它自己会调 `nameOf`）——所以这里手工往右套（踩过一次：把投好的节点喂给
-    // `qualifiedNameFrom` 会 `node.get is not a function`）。
+    // **`head` 已经是投好的节点**（`query.exprName`），而 `dottedExpression(…, "QualifiedName")`
+    // 吃的是**单元**（它自己会调 `nameOf`）——所以这里手工往右套（踩过一次：把投好的节点喂给
+    // 那一格会 `node.get is not a function`）。
     // `query.exprName` 已经是**投好的节点**（不是单元）——判它看 `kind`，
     // 不能拿 `IsNameNode` 去问（那个判据吃的是别的接收者；踩过一次：会 `node.get is not a function`）。
     const head = query.exprName;
@@ -8629,22 +8634,6 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   return undefined;
 ```
 
-# private method qualifiedNameFrom:(names:Array<any>)=>any
-
-一串名字 → **限定名**（`A.B.C` 折成左结合的 `QualifiedName` 嵌套）。
-
-与 `dottedExpression` 是**同形不同 kind**的一对：类型位（类型引用的名字、导入类型的限定名）
-用 `QualifiedName`，值位（`extends` / `implements` 的表达式）用 `PropertyAccessExpression`。
-
-```ts
-  let node = nameOf(names[0]);
-  for (let i = 1; i < names.length; i++) {
-    const right = nameOf(names[i]);
-    node = { kind: "QualifiedName", left: node, right, pos: node.pos, end: right.end };
-  }
-  return node;
-```
-
 # private method memberNameOf:(v:any, ctx:any)=>any
 
 **成员的名字节点**（`Field` / 方法声明 / 方法签名 / 命名空间…都要问它）。
@@ -9011,19 +9000,32 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return node;
 ```
 
-# private method dottedExpression:(names:Array<any>)=>any
+# private method dottedExpression:(names:Array<any>, kindOf?:string)=>any
 
-一串名字 → 点号表达式。
+一串名字 → **左结合的点号链**（第 1105 轮起这一格按 `kind` 出两种节点，原来那两格
+`dottedExpression` / `qualifiedNameFrom` 是同一份实现抄了两遍；第 1105 轮把后者并进前者，
+按 `kindOf` 分派出 `PropertyAccessExpression` / `QualifiedName` 两种节点）。
 
-**`ExpressionWithTypeArguments` 里用的是 `PropertyAccessExpression`**（不是 `QualifiedName`）：
-`extends globalThis.Iterator` 的 TS 是 `ExpressionWithTypeArguments > PropertyAccessExpression`。
-（`QualifiedName` 是**类型引用**那一支的写法，见 `projectTypeExpression`——两者别混。）
+**为什么要合**：两格的算式逐行相同（`let node = nameOf(names[0])` + 一个从 `i = 1` 起的循环 +
+`pos: node.pos` / `end: right.end`），差别只有 `kind` 与两个字段名——
+而它们**本来就是一问的两面**：「这一串名字该折成哪一种点号链」。所以留一格、按 `kind` 分派。
+
+| `kindOf` | 用在哪 | 两个字段名 |
+| --- | --- | --- |
+| `PropertyAccessExpression`（默认） | 值位：`ExpressionWithTypeArguments` 里的 `extends globalThis.Iterator`（TS 是 `PropertyAccessExpression`） | `expression` / `name` |
+| `QualifiedName` | 类型位：类型引用的名字、导入类型的限定名（见 `projectTypeExpression`） | `left` / `right` |
+
+**两者别混**：`ExpressionWithTypeArguments` 里用的是 `PropertyAccessExpression`，
+`QualifiedName` 是**类型引用**那一支的写法——所以 `kindOf` 由调用方给，这一格不猜。
 
 ```ts
+  const kind = kindOf ?? "PropertyAccessExpression";
   let node = nameOf(names[0]);
   for (let i = 1; i < names.length; i++) {
     const right = nameOf(names[i]);
-    node = { kind: "PropertyAccessExpression", expression: node, name: right, pos: node.pos, end: right.end };
+    node = kind === "QualifiedName"
+      ? { kind, left: node, right, pos: node.pos, end: right.end }
+      : { kind, expression: node, name: right, pos: node.pos, end: right.end };
   }
   return node;
 ```
@@ -9944,7 +9946,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         end: endOf(inner[inner.length - 1]),
       };
     },
-    QualifiedNameFrom: (list) => qualifiedNameFrom(list),
+    QualifiedNameFrom: (list) => dottedExpression(list, "QualifiedName"),
     DottedExpression: (list) => dottedExpression(list),
     TypeArguments: (generic) => projectTypeArguments(generic, ctx),
     ConditionalNode: (list, from, to) => conditionalNode(list, from, to, ctx),
