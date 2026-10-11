@@ -1140,7 +1140,7 @@ throw new Error("找不到匹配的子单元");
 **这一格自己的名字**（第 1006 轮）：名字就在本页的 `name` 字段上，所以由这一页回答——
 投影那一层过去拿一张「哪些页把名字叫什么」的字符串名单逐个试
 （`owner["name"]` / `owner["fieldName"]` / `owner["namespace"]`），现在只问这一格
-（见 `typescript/print-ast-common.xl.md` 的 `tokenNameOf`）。
+（见 `typescript/print-ast-common.xl.md` 的 `DeclaredName`）。
 
 基类那一格答 `undefined`＝「名字不在字段上」（见 `core/syntax/token.xl.md`）；
 `name` 为空时也答 `undefined`——那时名字可能在**子单元**里，交给投影那一层的下一站去问。
@@ -1149,6 +1149,23 @@ throw new Error("找不到匹配的子单元");
 
 ```ts
 return this.name === "" ? undefined : this.name;
+```
+
+## property NameKind:string
+
+**这一格的名字节点该投成什么 kind**（第 1068 轮）：私有方法 `#m()` 的答案是 `PrivateIdentifier`
+（`method.xl.md` 那条规则把 `#m()` 收成 `MethodDeclaration name="#m"`，
+`nameStart` 从 `#` 算起——见 `NameStart` 那一节）。
+
+判据只有这一页自己的事实（`name` 是不是 `#` 开头），所以由这一页答；
+投影不再把名字文本拿去问 `Identifier.LeafKindOfText` 再贴一个 kind 回来
+（同一格事实的第二个入口）。**为什么是 `## property`**：`name` 是解析期才认下的，
+这一格读的就是本页那个字段，存储仍然只有一处。
+
+### get
+
+```ts
+return this.name.length > 1 && this.name[0] === "#" ? "PrivateIdentifier" : "Identifier";
 ```
 
 ## method ToXmlString:()=>string

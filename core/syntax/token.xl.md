@@ -81,6 +81,49 @@ Token，语法树的地基。
 
 本单元是否已关闭；关闭后不再接收字符。
 
+## property DeclaredName:string
+
+**这一格自己声明的那个名字**（第 1068 轮）：把 `NameField`（名字住在**哪个字段**上）
+再往前走一步——直接给出那个名字**本身**，没有名字时是空串。
+
+**为什么要有这一格**：投影问「这一格叫什么」时，过去要经两跳
+（`tokenNameOf` 问 `NameField`、问不到再退回 `name` 段，**21 处**）。第二跳是**一条兜底**：
+它让「某些页的名字住在段上、某些页住在字段上」这件事留在投影层，
+而那是**每一页自己的事实**。收成这一格之后，投影只读一个字符串属性，
+「名字在哪」这一问整个消失在 token 里；`tokenNameOf` 那一格也随之删掉。
+
+**它为什么是 `## property` + `### get`**：名字的文本要等解析期认下那个名字才有
+（`NameField` 那一节写了为什么不另立一份存储），所以这一格**读的是本页 `NameField`
+指的那个字段**——存储仍然只有那一处。基类这一句给所有页兜底（含「名字是子单元」的那些页）：
+
+### get
+
+```ts
+const field = this.NameField;
+if (typeof field === "string" && field !== "") return field;
+const own = (this as any).name;
+return typeof own === "string" ? own : "";
+```
+
+## property NameKind:string
+
+**这一格的名字节点该用什么 kind**（第 1068 轮）：`Identifier` 或 `PrivateIdentifier`。
+
+**为什么它是构造时赋好的一格数据**：判据只有一句——「这一格自己声明的那个名字
+是不是 `#` 开头」——而**这句话的收件人就是这一格自己**。私有名在产物里是一个普通文本块
+（`Field` / `MethodDeclaration` 的名字住在本页自己的字段上），
+所以「我出的是私有名」本来就该由这一页答，而不是由投影把名字文本拿去问
+`Identifier.LeafKindOfText` 再贴一个 kind 回来（那是同一格事实的第二个入口）。
+
+基类这一格是**默认档 `Identifier`**（构造器里赋一次）；真正会出私有名的页
+**各自显式覆写这一格**（`Field` / `MethodDeclaration` 按自己的名字文本答），投影只读属性。
+
+### get
+
+```ts
+return "Identifier";
+```
+
 ## constructor:(template:Template)=>void
 
 以模板创建。
@@ -88,6 +131,13 @@ Token，语法树的地基。
 **`Tag` 就在这一趟赋好**（第 1045 轮）：`this.constructor.name` 在构造这一刻就是那一页的类名，
 之后再也不会变——所以它不留在方法里现场算，而是**构造时赋成属性**
 （见 `Tag` 那一节：各页一个字都不必写，这一格对任何一页都是同一个表达式）。
+
+**`NameKind` 也在构造那一刻定下来**（第 1068 轮）：这一格是**名字节点该用什么 kind**
+（`Identifier` 还是 `PrivateIdentifier`）。基类这一格是 `## property` + `### get`，
+答的正是默认档 `Identifier`（不随实例而异，与 `Text` / `Tag` 同一形态）；
+真正会出私有名的那两页（`Field` / `MethodDeclaration`）**各自覆写这一格**，
+按自己的名字文本答——投影那一侧因此不再拿名字文本
+回头问一遍「`#` 开头吗」（那一问的判据住在 `Identifier` 那一页，不该由投影替它答）。
 
 ```ts
 this.Template = template;

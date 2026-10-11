@@ -523,6 +523,10 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 合一个**声明名**的节点（`class A` / `function f` / `x: T` 的 `x`…）。
 
+**这一格的名字与 kind 都只读 token 自己的属性**（第 1068 轮）：名字是**参数给的那个串**
+（调用方从 `v.DeclaredName` 读出来），kind 是 **`v.NameKind`**——那一页构造时就赋好的一格。
+两件事都不回原文查、也不把名字文本拿去别的页问一遍。
+
 **位置只有一个来源：token 认下名字那一刻记下的那一格**——`Class` / `Interface` / `Enum` / `Let` /
 `TypeAssign` / `Field` / `MethodDeclaration` / `NamespaceExport` 都在那一刻把名字的下标记成
 `nameStart` / `nameEnd`（闭区间，见各自的 `NameStart`），于是这里**不做任何猜测**。
@@ -548,8 +552,9 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 ```ts
   // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
-  // 由这一页的判断合成（**判据只有一份**：`Identifier.LeafKindOfText`——第 1029 轮起
-  // 这一族的词汇住在 `identifier.xl.md`），产物那边它只是一个普通文本块。
+  // 由这一页的判断合成。**判据第 1068 轮收进了被问的那一页**：`v.NameKind` 是
+  // 那一页**构造时就赋好**的一格（`core/syntax/token.xl.md` 的 `NameKind`）——
+  // 投影不再把名字文本拿去问 `Identifier.LeafKindOfText` 再贴一个 kind 回来。
   // **位置用「原文」，`text` 用解开的**（第 381 轮）——两件事要的字符串不一样：
   // `\u0066` 这个名字在源码里占 **6 个字符**（`indexOf` 与 `end` 都按它算），
   // 而它的**名字**是 `f`（TS 的 AST `text` 也是 `f`）。
@@ -557,9 +562,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // ⇒ 函数声明的名字区间短一截 ⇒ 参数表跟着错位（`function f\u0066() {}` 报
   // `unimplemented: parameter without a name`）。
   const nameText = Translate.DecodeIdentifierEscapes(name);
-  // **私有名那一格只问一次**（第 1029 轮）：判据在 `Identifier.LeafKindOfText` 那一页，
-  // 这里不再自己写一遍 `#` 前缀的比较（同一份事实两处声明就是这么长出来的）。
-  const nameKind = Identifier.LeafKindOfText(nameText) === "PrivateIdentifier" ? "PrivateIdentifier" : "Identifier";
+  const nameKind = v.NameKind === "PrivateIdentifier" ? "PrivateIdentifier" : "Identifier";
   if (name === "") return undefined;
   // **名字那一格的整段区间**（`nameRange`，第 645 轮）：闭区间 `"起,止"`、**引号也在里面**——
   // 与 `bodyBraceRange` 同一形状。有它就能**按那一格自己**推出文本区间：
@@ -591,25 +594,6 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   return undefined;
 ```
 
-
-# private method tokenNameOf:(node:any)=>any
-
-**这一格叫什么**：读这一格**自己**的那一格属性——`Token.NameField`（名字住在哪一页的哪个字段上，
-那一页回答）。**第 1045 轮起它是属性**（`## property` + `### get`，与 `Token.children` 同一形态）：
-调用方读的是「这一格叫什么」，不是「让它去做一件事」——所以不必点一下才拿得到。
-
-问不到再退回 `name` 属性：名字是**子单元**的那些页（`MethodDeclaration` 的名字是一格 `Identifier`）
-不覆写 `NameField`，所以退回的只是「这一页恰好自己声明了 `name` 属性」那一档——
-读的还是**这一页自己的属性**（第 1018 轮起没有中间那一层可退）。
-
-**为什么不在投影层列一张字段名单**：名字是 token 自己的事实，由那一页答（见 `core/syntax/token.xl.md`）。
-
-```ts
-  if (node === null || node === undefined) return undefined;
-  const own = node.NameField;
-  if (typeof own === "string" && own !== "") return own;
-  return node.name;
-```
 
 # private method kidsOf:(v:any, key:string)=>Array<any>
 
@@ -1089,11 +1073,13 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     // `ClassBody` 底下**（`structuralProps` 提层时递下去的父单元也是那一格 `v`），
     // 所以父单元读得到。
     v.Parent?.IsClassBody === true &&
-    tokenNameOf(v) === "constructor"
+    v.DeclaredName === "constructor"
   ) {
-    // **判据是「这一格叫什么」那一格事实、不是 `textOf`**（第 1008 轮改成走 `tokenNameOf`）：
-    // 它问的是 token 自己的 `NameField`（第 1006 轮）、问不到才退回它自己那个 `name` 属性；
-    // 直接写 `v.name` 会**绕开 `NameField` 这一格事实**——这条口径对 **helper** 一样成立
+    // **判据是「这一格叫什么」那一格事实、不是 `textOf`**（第 1008 轮）：
+    // 它问的是 token 自己的 `DeclaredName`（第 1068 轮：那一格已经把
+    // 「名字住在哪个字段上」与「问不到时退回 `name` 段」两跳都收进 token 里了，
+    // 见 `core/syntax/token.xl.md`）；直接写 `v.name` 会**绕开那一格事实**
+    // ——这条口径对 **helper** 一样成立
     // （直出版那一趟投一个类要经过 `projectDeclaration`，它就在这条 helper 里）。
     // 方法单元自己没有 `value`，
     // `textOf` 会退回 `source.slice(v.start, v.end)`（那是整段方法体，不是名字）。
@@ -3992,7 +3978,7 @@ new Set([
         const bareKids = k.ProjectableKids;
         const bareHead = bareKids.length > 0 ? bareKids[0] : undefined;
         if (bareHead !== undefined && bareHead.Tag === "Method"
-          && tokenNameOf(bareHead) !== undefined && String(tokenNameOf(bareHead)) === ""
+          && String(bareHead.DeclaredName) === ""
           && endOf(bareHead) < endOf(k)) {
           ck.push(k);
           continue;
@@ -4354,7 +4340,7 @@ new Set([
         if (ck[i].Tag === "Method") {
           const callKids = ck[i].ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
           const callHead = callKids.length > 0 ? callKids[0] : undefined;
-          const bareName = String(tokenNameOf(ck[i]) ?? "");
+          const bareName = String(ck[i].DeclaredName);
           // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：
           // `a!()()` 的产物是 `[NotNull(a), Method(name=""[Method(name="")[Bracket(()), !], Bracket(())])]`
           // ——内层那格 `Method(name="")` 本身就是**第一次调用**，外层这一格是**第二次**。
@@ -4364,7 +4350,7 @@ new Set([
           // 一次调用，只需把受体换成 `left`（它那一格本来没人填），位置取 `left.pos`；
           // 外层再用 `projectNode(ck[i])` 套一层。
           if (bareName === "" && callHead !== undefined && callHead.Tag === "Method"
-            && String(tokenNameOf(callHead) ?? "") === "") {
+            && String(callHead.DeclaredName) === "") {
             // **「最里面那一格」要一路问到底**（第 975 轮，**普查当场红的**）：
             // `a!()()()()`（四次调用）的 `callHead` 是
             // `Method(name=""[Method(name=""[Bracket(())])])`——里面**还套着一格**，
@@ -4558,7 +4544,7 @@ new Set([
         // `Method` 自己盖住的是 `m()`，名字只占开头那几个字符。照「名字 + 调用」两件事办：
         // `name` 是一个含 `#` 的 `PrivateIdentifier`（区间到名字末尾），外面再套一层 `CallExpression`。
         if (after.Tag === "Method") {
-          const raw = String(tokenNameOf(after) ?? "");
+          const raw = String(after.DeclaredName);
           const nameEnd = startOf(after) + raw.length;
           const member = {
             kind: "PropertyAccessExpression",
@@ -4598,7 +4584,7 @@ new Set([
         );
         const head = asserted[0];
         if (head !== undefined && head.Tag === "Method") {
-          const raw = String(tokenNameOf(head) ?? "");
+          const raw = String(head.DeclaredName);
           const nameEnd = startOf(head) + raw.length;
           const member = {
             kind: "PropertyAccessExpression",
@@ -4643,7 +4629,7 @@ new Set([
         // `console.log(1)` 的产物是 `[console, ., Method(name="log")]`——
         // 那个 `Method` 盖住的是 `log(1)`，而**名字**只占开头的几个字符，
         // 所以这里按名字宽度切一段 `Identifier` 出来（TS 的 `Identifier(log)` 正是这一段）。
-        const name = String(tokenNameOf(next) ?? "");
+        const name = String(next.DeclaredName);
         // **空名字的 `Method` = 「把左边那个值再调一次」**（第 366 轮，**实测撞到的**）：
         // `x.get()()` 的产物是
         // `PropertyAccess{ Identifier(x), ., Method(name="", child=Method(name="get")) }`
@@ -5109,7 +5095,7 @@ return false;
 
 ```ts
   if (unit === undefined || unit === null || unit.Tag !== "Method") return false;
-  if (String(tokenNameOf(unit) ?? "") !== "") return false;
+  if (String(unit.DeclaredName) !== "") return false;
   const kids = unit.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
   if (kids.length === 0) return false;
   const head = kids[0];
@@ -5431,7 +5417,7 @@ return false;
 `chainOnto` 那一支没有 `?.`）——调用方自己决定。
 
 ```ts
-  const name = String(tokenNameOf(deepest) ?? "");
+  const name = String(deepest.DeclaredName);
   if (name !== "") {
     const at = startOf(deepest);
     return {
@@ -5485,7 +5471,7 @@ return false;
   // **`?.name(args)`**（第 107 轮）：那一格是一个 `Method`（调用）——先折出带 `?.` 的
   // 属性访问，再把调用套上去（TS：`CallExpression > PropertyAccessExpression(?.)`）。
   if (first !== undefined && first.Tag === "Method") {
-    const nameText = String(tokenNameOf(first) ?? "");
+    const nameText = String(first.DeclaredName);
     // **被调用者自己带 `!`**（第 852 轮）：`a?.b!()` 里那一格是
     // `Method(name="")[NotNull(b, !), Bracket]`——`?.` 属于 `NotNull` 里面那条链、
     // 断言套在链上、调用在最外面（TS：`CallExpression > NonNull > PropertyAccess(?.)`）。
@@ -5834,7 +5820,7 @@ return false;
         continue;
       }
       if (member.Tag === "Method") {
-        const nameText = String(tokenNameOf(member) ?? "");
+        const nameText = String(member.DeclaredName);
         const nameAt = startOf(member);
         // **这一格是「名字为空」的调用单元**（第 964 轮补上这份副本）：
         // `o?.m()().v` 的 NCO 里那一格是
@@ -6146,7 +6132,7 @@ return false;
     if (unit.Tag === "Method") {
       const callKids = unit.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
       const callHead = callKids.length > 0 ? callKids[0] : undefined;
-      const bareName = String(tokenNameOf(unit) ?? "");
+      const bareName = String(unit.DeclaredName);
       // **这一格盖着两层（或更多层）调用**（第 966 轮立、第 971 轮按「最里面那一格」补齐）：
       // `a?.b()()()` 的 NCO 里最外面那一格是
       // `Method(name="")[Method(name="")[Method(name="b")]]`——`projectNode(unit)` 对
@@ -6217,7 +6203,7 @@ return false;
         }
       }
       if (bareName === "" && callHead !== undefined && callHead.Tag === "Method"
-        && String(tokenNameOf(callHead) ?? "") === "") {
+        && String(callHead.DeclaredName) === "") {
         // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：`a!()()` 的产物是
         // `[NotNull(a, !), Method(name=""[Method(name=""[Bracket(()), !]), Bracket(())])]`——
         // 内层 `Method(name="")` 本身就是**第一次调用**（它的核是那对实参括号），
@@ -6239,8 +6225,8 @@ return false;
         continue;
       }
       if (bareName === "" && callHead !== undefined && callHead.Tag === "Method"
-        && String(tokenNameOf(callHead) ?? "") !== "") {
-        const innerName = String(tokenNameOf(callHead) ?? "");
+        && String(callHead.DeclaredName) !== "") {
+        const innerName = String(callHead.DeclaredName);
         const innerAt = startOf(callHead);
         const innerMember: any = {
           kind: "PropertyAccessExpression",
@@ -6335,7 +6321,7 @@ return false;
       next = inner[0];
     }
     if (next.Tag === "Method") {
-      const name = String(tokenNameOf(next) ?? "");
+      const name = String(next.DeclaredName);
       // **被调用者自己带 `!`**（第 852 轮）：`a?.b!.c!()` 里 `.c!()` 那一格是
       // `Method(name="")[NotNull(c, !), Bracket]`——断言套在**接上 `c` 之后**的那条链上，
       // 调用在最外面。按名字折会投出名字为空的属性访问（实测三处漂），
@@ -6480,7 +6466,7 @@ return false;
         // **核是 `NotNull` 的那一档让开**：它要按断言折（把 `!` 套在调用结果上），
         // 由 `chainWithOptional` / 本函数别处那几支管——这里只认「纯调用」那三种壳。
         const memberIsCall = (unit: any): bool => {
-          const name = String(tokenNameOf(unit) ?? "");
+          const name = String(unit.DeclaredName);
           if (name !== "") return true;
           const inner = unit.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
           const head = inner.length > 0 ? inner[0] : undefined;
@@ -6980,9 +6966,10 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // **`modifierStart` 不再要 `ctx`**（第 1052 轮）：它的位置只有一个来源——token 自己记的
   // `modifierSpans`（见那一格），所以这一层不必把投影上下文递进去（形参表就是它需要什么）。
   const listStart = modifierStart(letView);
-  // **声明名那一格走 `tokenNameOf`**（第 1008 轮）：`fieldName` 是 `Let` 自己 `NameField`
-  // 回答的那一格事实，读法只有一个入口（见 `tokenNameOf`：收的就是那一格 token）。
-  const declared = String(tokenNameOf(letView) ?? "");
+  // **声明名那一格直读 `letView.DeclaredName`**（第 1068 轮）：`fieldName` 是 `Let` 自己
+  // `NameField` 回答的那一格事实，而「名字在哪、问不到看哪」两跳都收进了 token 那一页
+  // （`core/syntax/token.xl.md` 的 `DeclaredName`）——投影这一侧只读一个字符串属性。
+  const declared = String(letView.DeclaredName);
   // **解构声明的名字用产物自己的那个 `ArrayLiteral` / `ObjectLiteral`**（踩过）：
   // 它们就是绑定模式（`ArrayLiteral[6,21]` 与 TS 的 `ArrayBindingPattern[6,22)` 逐格一致），
   // 里面还带着结构化的 `BindingElement`。早先我从源码括号里**另造了一个空壳**，
@@ -8079,11 +8066,12 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   算好了（推过修饰词、优先用 `nameStart` / `nameEnd`），直接问它左边那一格。
 
 ```ts
-  // **名字那一格走 `tokenNameOf`**（第 1008 轮）：它先问 token 自己的 `NameField`
-  // （第 1006 轮：`name` / `fieldName` / `namespace` 由各页自己回答），问不到才看它自己的 `name` 属性。
-  // 原来这里是一张三词名单（`tokenNameOf(attrs) ?? …("fieldName") ?? …("namespace")`）——
-  // 那是**把同一格事实抄成三处**，而且与 `()` 那一格是同一句话的第二个入口（两处会漂）。
-  const rawName = tokenNameOf(v);
+  // **名字那一格直读 `v.DeclaredName`**（第 1068 轮）：`NameField`（名字住在哪一页的哪个字段上）
+  // 与「问不到才看的 `name` 段」两跳都收进了 token 那一页，
+  // 投影这一侧只读一个字符串属性。
+  // 从前这里是一张三词名单（`tokenNameOf(v) ?? …("fieldName") ?? …("namespace")`）——
+  // 那是**把同一格事实抄成三处**（两处会漂）。
+  const rawName = v.DeclaredName;
   // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
   // `Let.fieldName` 这个**属性**上（不是子单元），`x.\u0061` 的键同理。
   // **与 `Identifier.PrintDirectAst` 共用一份解码**（`text-common-util.xl.md` 的
@@ -8110,10 +8098,10 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // `ModuleDeclaration(A) > ModuleDeclaration(B) > …`）：那一段的区间由 `Namespace`
   // 重组时记进 `nameRange`，这里直读。只有 `namespace` 这一个属性会带点号
   // （引号名 `"a.b"` 走的是别的属性），所以按它分流不会误伤。
-  // **这一格也走 `tokenNameOf`**（第 1008 轮）：`namespace` 是 `Namespace` / `Import` / `Export`
-  // 三页 `NameField` 回答的那一格事实；上面那个 `rawName` 与它是**同一格**，
-  // 所以这里不再按字符串键另读一遍（两处会漂——`name` 与 `namespace` 一度就是两个入口）。
-  const rawNamespace = tokenNameOf(v);
+  // **这一点名字也只读那一格**（第 1068 轮）：`namespace` 是 `Namespace` / `Import` / `Export`
+  // 三页 `NameField` 回答的那一格事实，而 `DeclaredName` 已经把它与上面那个 `rawName`
+  // 收成**同一个入口**（两处会漂——`name` 与 `namespace` 一度就是两个入口）。
+  const rawNamespace = v.DeclaredName;
   const dotAt = typeof rawNamespace === "string" ? rawNamespace.indexOf(".") : -1;
   const lookup = dotAt > 0 ? rawNamespace.substring(0, dotAt) : name;
   const direct = v.ProjectableKids.find((k) => k.Tag === "Identifier" && textOfNode(k) === lookup);
@@ -8968,10 +8956,11 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   // `Decorator` 整类缺（实测 12 处），以及 `ClassDeclaration.children` 被当成继承段
   // （`heritageClauses` 字段凭空多出，因为那张表把 `children` 映射成了 `heritageClauses`）。
   const decorators = [];
-  // **`name` 按这一格自己的那一格事实给**（第 1008 轮），不维护 kind 白名单——白名单漏一个 kind，
-  // 「字段名对拍」就多一处看不出根因的假差异；也不把同一格事实抄成几处（见 `tokenNameOf`）。
+  // **`name` 按这一格自己的那一格事实给**（第 1008 轮；第 1068 轮起直读 `DeclaredName`），
+  // 不维护 kind 白名单——白名单漏一个 kind，
+  // 「字段名对拍」就多一处看不出根因的假差异；也不把同一格事实抄成几处。
   // 命名空间那个例外也随之消失：`namespace` 是各页 `NameField` 自己答的那一格之一。
-  const rawName = tokenNameOf(v);
+  const rawName = v.DeclaredName;
   // **属性里那个名字也要解转义**（第 381 轮）：`const \u0061bc = 1` 的名字住在
   // `Let.fieldName` 这个**属性**上（不是子单元），`x.\u0061` 的键同理。
   // **与 `Identifier.PrintDirectAst` 共用一份解码**（`text-common-util.xl.md` 的

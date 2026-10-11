@@ -878,7 +878,7 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 **这一格自己的名字**（第 1006 轮）：名字就在本页的 `fieldName` 字段上，所以由这一页回答——
 投影那一层过去拿一张「哪些页把名字叫什么」的字符串名单逐个试
 （`owner["name"]` / `owner["fieldName"]` / `owner["namespace"]`），现在只问这一格
-（见 `typescript/print-ast-common.xl.md` 的 `tokenNameOf`）。
+（见 `typescript/print-ast-common.xl.md` 的 `DeclaredName`）。
 
 基类那一格答 `undefined`＝「名字不在字段上」（见 `core/syntax/token.xl.md`）。
 
@@ -886,6 +886,23 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 ```ts
 return this.fieldName === "" ? undefined : this.fieldName;
+```
+
+## property NameKind:string
+
+**这一格的名字节点该投成什么 kind**（第 1068 轮）：私有字段 `#x` 的答案是 `PrivateIdentifier`。
+判据只有这一页自己的事实——`fieldName` 记的是 `#x` 整个名字（`FieldCloseRule.Process`
+认下名字那一刻写进去的，见 `NameStart` 那一节「私有名 `#x` 从 `#` 算起」），
+所以「我出的名字带不带 `#`」由这一页答，投影不再把名字文本拿去问
+`Identifier.LeafKindOfText` 再贴一个 kind 回来（同一格事实的第二个入口）。
+
+**为什么是 `## property` 而不是构造时赋的 `## field`**：`fieldName` 是解析期才认下的，
+所以这一格读的是本页自己的那个字段——存储仍然只有一处（与 `NameField` 同一条理由）。
+
+### get
+
+```ts
+return this.fieldName.length > 1 && this.fieldName[0] === "#" ? "PrivateIdentifier" : "Identifier";
 ```
 
 ## method ToXmlString:()=>string
