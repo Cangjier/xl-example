@@ -347,6 +347,28 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1218 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **断言那一格的核是一条成员链**（组合扫描 **3 → 0，清单清空**）；1.2 `StringGuideBranch` 也声明入口那一格（再少进 **419998** 次 `Condition`，**墙钟两读都在噪声里，如实记**）
+
+**一句话**：1.1 把组合片段扫描**收干净**（21 → 3 → **0**）——根是那条链循环里**第四份**「只认点号 + 名字」的副本；1.2 把第 1217 轮那一格在剩下最热的一支上也声明了（起点集合是运行时补的，所以两格由 `AddStringChar` 一处维护）。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 「`!` 接在链中间」那一支补两档：核是 `PropertyAccess` ⇒ 逐格交 `membersOnto`；核又是一格 `NotNull` ⇒ 交 `assertedMember` 递回折。同形状的另外两份副本一并换成同一对实现 | 组合扫描 **3 → 0**（清单清空） |
+| **1.2** | `StringGuideBranch.TriggerChars`，与 `StringChars` 同一个入口（`AddStringChar`）维护 | 再少进 **419998** 次 `Condition` |
+| **1.2** | 墙钟（同进程交替、CPU 时间） | 25 趟 mean **+8.8ms**、9:16；30 趟 mean **−20.4ms**、14:16 ⇒ **在噪声里** |
+
+**1.1 的现场**：`` a["b"](d).b! `` 的产物是 `[PropertyAccess([Identifier(a), Bracket(["b"])]), NotNull([PropertyAccess([Bracket((d)), ., Identifier(b)]), !])]`——断言里装着「实参括号 + 点号 + 名字」。投影那条链循环里「`!` 非空断言接在链中间」那一支（第 143 轮立）只认三种核：**实参括号 / 调用单元 / 先下标**，于是这一格落到末尾那句 `bangWrapped` ⇒ **里层那次调用、`d`、外层那格属性访问一起丢**（缺 4 / 缺 3 漂 1）。这一支是同一个形状的**第四份**抄写（另外两份在 `projectExpression` 的「点号后面那一段是一个 `NotNull`」两处、还有一份在同一支里的逐格循环里）——四处原来各写一份「只认点号 + 名字」的循环，这一轮**三处一并换成**既有那一对实现（`membersOnto` / `assertedMember`，与 `assertedMember` 的「核是属性访问」那一支同源）。守卫用例 `tests/cases/token/expressions/expr-assert-kernel-member-chain.ts` **64 / 64 节点逐格一致**。**组合片段扫描至此 2124 条合法片段 0 条对不上**（`tmp/r1210-sweep.mjs tmp/r1206-sweep2.mjs`）。
+
+**1.2 的现场与读数**：第 1217 轮把入口那一格（`Branch.TriggerChars`）在 13 支上声明了，剩下最热的一支是 `StringGuideBranch`——它只有一句 `this.StringChars.includes(source.Value)`，实测被问 **419998** 次、答成立 **420** 次。它的起点集合是**运行时**补的（模板层装 `"` / `'` / 反引号三个），所以那一格不能写死：**由 `AddStringChar` 一处同时维护两格**（两个字段说的是同一批字符，写在同一个入口里不会分家）。**判据与次序一个字没改**。
+
+**墙钟**（`tmp/r1218-ab.mjs`，同一进程交替、尺子＝CPU 时间，原版＝`tmp/r1218-oldbuild/ts`，只差这一格）：25 趟配对差 mean **+8.8ms**、9 : 16；30 趟 mean **−20.4ms**、median +33.0ms、14 : 16 —— 两读一致地说明这一笔的效应（理论上是省 419998 次「多态调用 + `includes`」，约 1% 量级）**在这台机器的分辨力之下**，如实记。`tmp/r1203-bench.mjs`（best of 5）：parse **1006.4 ms**、xml 45.2、printAst 115.8（与上一轮 996.0 同档，噪声）。
+
+**1.2 的等价**：`tmp/r1218-sig3.json` 台账 **1666 份逐字节同答（diff=0）**；片段扫描 2124 条 **0**（一个形状都没动）。
+
+**净账**：`cases:tsast` 已知缺口 1 条还开着、0 条已经收掉；`cases:direct` 全语料不抛异常（1666 份）、固定样本通过；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1680** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4286 / 4445 → 4287 / 4446**（新增守卫用例 `tests/cases/token/expressions/expr-assert-kernel-member-chain.ts`，分子 +1、分母 +1；blocked 26、differ 133、bad 0、加权 95.7%）；`xl check`（`core typescript`）**0 条**；`npx tsc`（strict）**0 error**。八道门墙钟 **29.2s**。
+
+**两条 commit**：`619e7864`（1.1 断言那一格的核是一条成员链）、`08e7f53e`（1.2 `StringGuideBranch` 的入口那一格）。
+
 ### 第 1217 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **模板后面那个 `!` 被读成了前缀一元单元**（18 条）；1.2 **跳转队列入口按「当前字符」先挡一次**（`Branch.TriggerChars`，少进 **527 万**次 `Condition`，**30 趟 23:7、mean −115.0ms**，parse **1096.8 → 996.0ms**）
 
 **一句话**：1.1 把 0c-1 那一支补上（两种形状各一趟），组合扫描 **21 → 3**；1.2 是**这一轮真正大的一笔**——跳转队列里 13 支分支的第一句本来就是「当前字符是不是我认的那一个字」，把那一句提到**进 `Transit` 之前**，76% 的 `Condition` 根本不必进。
