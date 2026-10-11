@@ -773,8 +773,24 @@ return out;
 ### get
 
 ```ts
+// **第 1150 轮量出来的读数：这一格是全投影里被读得最多、也是重复计算最多的那一格**
+// （计数器挂在 `Token.prototype.Segments` 上，跑官方用例语料 1640 份 / 21793 个节点；
+// 探针脚本进 `tmp/` 不进仓）：读 **64821** 次、落在 **27753** 个不同的 token 上
+// ⇒ **重复读 37068 次**。其中走「本页自己写了 `SegmentKeys`」那一支的只有 **1637** 次，
+// **63184** 次都走下面那条「照 `SegmentNames` 现排一遍」的路——数组构造、双层 `Map`
+// 遍历、`includes` 去重**每次重来一遍**。
+// 口径 1.3 / 1.6（token 把 printAst 要的信息记在自己身上、投影成本趋于 0）说的正是这一格：
+// `SegmentKeys` / `SegmentNames` **都是构造时就赋好的字段**（各页 `## field … = …` 初始值），
+// 之后再没人写过它们（全仓实测：除这两格的声明外没有第二处赋值）⇒ 答案在 token 那一生里
+// 是**常量**，算一次就够了。所以第 1150 轮把算过的答案记进 `CachedSegments` 那一格。
+// **不是「第一次读之前还有人会改它」**：`Segments` 只有本页那两个循环（`ProjectableKids` /
+// `AllKids`）与投影那一侧的两处只读遍历在读，构造期一处都没有——所以第一读一定发生在
+// 两个来源都就位之后。
+const cached = this.CachedSegments;
+if (cached !== null) return cached;
 const own = this.SegmentKeys;
 if (Array.isArray(own) && own.length > 0) {
+  this.CachedSegments = own;
   return own;
 }
 const names: string[] = [];
@@ -791,8 +807,22 @@ for (const inner of this.SegmentNames.values()) {
 if (!names.includes("children")) {
   names.push("children");
 }
+this.CachedSegments = names;
 return names;
 ```
+
+## field CachedSegments:Array<string> | null = null
+
+**这一格排出来的段名表**（第 1150 轮）：`Segments` 算过一次就记在这里，`null` = 还没算过。
+
+**为什么立这一格**（用户口径 1.3 / 1.6）：`Segments` 的两个来源（`SegmentKeys` /
+`SegmentNames`）都是**构造时就赋好的常量**，而它自己在本语料上被读 **64821** 次、
+其中 **37068** 次是同一个 token 上的重复读（读数写在上面那一节）——**算第二遍是没有理由的**。
+记成字段而不是每次现算，省下的正是那 37068 次数组构造与同样多次的双层 `Map` 遍历 +
+`includes` 去重。判据一个字没改：两条路给的仍是同一份表，`children` 仍然只补一次。
+
+**`Clone` 不用抄它**：各页 `Clone` 是 `new 本页(this.Template)`（见 `AreaAnnotation.Clone`），
+新实例的 `## field` 初始值就是 `null` ⇒ 克隆体第一次读时自己算一遍，与原来逐字同答。
 
 ## field SegmentKeys:Array<string> = []
 
