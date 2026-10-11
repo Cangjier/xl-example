@@ -347,6 +347,48 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1205 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **逗号分隔的成员签名整族收掉**（`HasSignatureTail` 只认 `;`，而它那份镜像判据早就认两个；`SignatureEndStep` 顺势从 0/1 改成「跨 trivia 量距离」）；1.2 把「每问一次 `new` 一个 `BranchConditionResult`」换成**一条 `Branch` 实例一格草稿纸**（每份少 **659 万个**临时对象），**同进程交替 A/B：median −5.7% / −6.7%、best −8.8% / −11.5%**
+
+**一句话**：1.1 走的是**探针翻出来的真缺口**（不是猜的）：`interface I { (a: number): string, (b: string): number }`
+这种**逗号分隔**的成员签名整条不成形——根因是一处**判据写少了一半**；1.2 动的不是判据而是
+**一处分配**：`Branch.Condition` 每次现造一个结果对象，而 `Transit` 走 **6935798** 次、
+**95.0% 是不成立**，也就是说每份文件里 659 万个对象**只为答一个「不」**。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `SignatureCloseRule.HasSignatureTail` 的收尾判据认 `,`（**与 `method-declaration.xl.md` 那份镜像判据逐字对齐**——它从第 920 轮起就是 `;` / `,` 两个，这一份漏了） | `interface I { (a: number): string, (b: string): number }`：缺 4 → 0；`new (a: number): I, new (b: string): I` 的第一条从 `MethodSignature` + `Identifier(new)` 变成 `ConstructSignature` |
+| **1.1** | `Token.SignatureEndStep` 从 **0 / 1** 改成「**跨过 trivia 找那个分隔符的距离**」（新 `SeparatorAfter`，与 `SemicolonAfter` 共用新提出来的一趟 `TriviaSkip`） | `interface I { m(): void , n(): void }` 那一档（分隔符与正文之间夹着空白，TS 含 `" ,"`）差 **2** 格也能答对；`Signature.PrintAst` 的 `end` 取 `SemicolonEndOf` 与它的**较大者**（`;` 那一档与原来逐字同答，`consumedSemicolons` 那一笔照记） |
+| **1.2** | `Branch.Result`（一条 `Branch` 实例一份草稿纸）替掉各页 `Condition` 里的 `const result = new BranchConditionResult();`（**31 处**） | `tmp/r1205-transit.mjs`：`Transit` **6935798** 次、成立 **346351** / 不成立 **6589447**（95.0%）⇒ 每份少 **659 万个**临时对象 |
+| **1.2** | `BranchConditionResult.FromBool` / `FromInt` / `Clone` 三个出口**删掉**（草稿纸之后全仓读者 0） | 按「没有读者的格子不留」（第 1197 轮删 `Method.CoreKind` 同一条口径） |
+
+**1.1 的证据（三层，从窄到宽）**：
+
+| 尺子 | 读数 |
+| --- | --- |
+| 片段探针（`tmp/r1205-probe1.mjs`，15 条合法 / 1 条 TS 自己非法） | 修前 **7 条**对不上，修后 **0 条**（`iface-call-sig-comma` / `iface-ctor-sig-comma` / `iface-abstract-ctor-comma` / `tl-call-sig-comma` / `iface-bare-call-comma` / `iface-call-sig-comma-space` / `iface-call-sig-last-comma`） |
+| 新增用例（两条，进语料当守卫） | `tests/cases/token/types/type-comma-separated-{call,construct}-signature.ts`：`cases:check` **1656 → 1658**、`coverage` 过 **4263 → 4265**（分母 4422 → 4424，blocked / differ 一处没动） |
+| 老语料逐字节同答 | 1643 份的 dump 与开工基线比：**共有里不同 0 / nodeDelta 0**（新增的那 2 份是这一轮自己添的用例） |
+
+**1.2 的墙钟（同进程交替，`tmp/r1205-ab.mjs`）**：原版＝在 `Transit` 那一趟里现造结果对象
+（= 各页 `Condition` 里那句 `new` 的位置与次数），现版＝构建产物里那一份；A/B/A/B 交替：
+
+| 趟 | 原版 best / median | 现版 best / median | 差 |
+| --- | --- | --- | --- |
+| 6 轮 | 1858.2 / 1912.8 ms | 1695.3 / 1803.7 ms | best **−8.8%**、median **−5.7%** |
+| 8 轮 | 1842.5 / 1902.7 ms | 1631.3 / 1776.0 ms | best **−11.5%**、median **−6.7%** |
+
+**为什么这一轮量得出来、而第 1204 轮那四处量不出来**：那四处省的是**每圈一次属性读 / 一次迭代器**，
+散布盖得住；这一处省的是**每份 659 万次分配**，量级不同——同一个进程里交替跑，两侧的 median
+**分开得清清楚楚**。
+
+**净账**：`cases:tsast` **1645 / 1645 完全一致**（两条新用例在内）；`cases:direct` 无异常、固定样本通过；
+`direct:lint` 0 条违反；`samples` ok；`cases:check` **1658** 条 0 不合格；`runtime:check` **243 / 0**；
+`runtime:cli` **79 / 0**；`coverage` **4265 / 4424**（blocked 25、differ 134、bad 0、加权 95.7%，
+倒退仍是那 1 条既有的 `runtime/round741/002-optional-index-then-call`）；`xl check` **0 条**；
+`npx tsc`（strict）**0 error**。
+
+**一条 commit**：`d4a54b71`（1.1 + 1.2 同一条）。
+
 ### 第 1204 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **开工那一趟 `cases:tsast` 就是红的**：`SignatureEndStep` 读「签名末尾那个分隔符」读错了地方（`Text.charAt` 恒越界 ⇒ **恒答 0**）⇒ `undici-types/cache.d.ts` 一族逗号分隔的 `MethodSignature` **漂移 10 / 多出 10**，改读自己那份 `Document` 上那一格之后 **1643 份语料逐字节同答（diff=0）**；1.2 去掉四处「每字符 / 每圈」都要付一次的固定开销，**同进程交替 A/B：best −4.1% ~ −6.2%、median 落在噪声里（−0.5% / −1.9%）**
 
 **一句话**：这一轮**不猜缺口**——开工先跑一遍 `npm run gates`，把 1.1 定在**当场红着的那一门**
