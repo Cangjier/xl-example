@@ -124,10 +124,34 @@ this.Root.TryToClose();
 
 处理单个位置，处理者用根单元。
 
+**队列空着时不必「先压进去、再 `shift()` 取出来」**（第 1215 轮，用户口径 1.2「提升 parse 效率」）：
+这一格是**每个字符一次**（`Typescript.TextContext.Process` 的主循环里那一句），而队列在绝大多数
+时候**是空的**——原来那一对 `push` / `shift`（含 `shift` 在快数组上的整体挪动与长度改写）
+一分钱都不产出（这一格在 `node --cpu-prof` 里 self time **3.03%**，`tmp/r1215-prof`）。
+快路就是**就地处理那一格**；语义与原来逐格相同：
+
+- 队列**非空**时照旧走 `push` + `DrainQueue`（那才是「边处理边插队」那条路）；
+- 快路里嵌套的 `ProcessAt` 仍然**当场**处理自己那一格（那边同样走快路）；
+- `DrainMessages()` 之后队列里若又有了东西（`ReloadMessage` 会插回队首），再走 `DrainQueue`。
+
 ```ts
-this.SourceQueue.push(new ProcessSource(this.Root, item));
-this.DrainQueue();
+const source = new ProcessSource(this.Root, item);
+if (this.SourceQueue.length > 0) {
+  this.SourceQueue.push(source);
+  this.DrainQueue();
+  return;
+}
+source.Process(this);
+this.DrainMessages();
+if (this.SourceQueue.length > 0) {
+  this.DrainQueue();
+}
 ```
+
+实测（`tmp/r1215-ab3.mjs`，同一进程交替、尺子＝CPU 时间，一份 `typescript.d.ts`）：
+20 趟配对差 mean **−112.5ms**、median −78.0ms、**17 趟更快 / 3 趟更慢**；
+30 趟 mean **−87.4ms**、median −93.0ms、19:10。**等价**：`tmp/r1211-sig.mjs` 台账
+**1663 份逐字节同答（diff=0）**——这一笔一个形状都没动（它只是不绕那一圈队列）。
 
 ## method ProcessAt:(processOwner:Token, item:Source)=>void
 
