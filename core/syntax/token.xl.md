@@ -532,10 +532,16 @@ this.Tag = this.constructor.name;
 
 倒数第 `index` 个子单元；越界返回 `null`。
 
+**`Data` 在手上一份**（第 1204 轮，用户口径 1.2「提升 parse 效率」）：这一格实测在
+`typescript.d.ts` 一份上被问 **1698992** 次（`tmp/r1204-count.mjs`），而原来那三句里
+`this.Data` 被读了三次（两次取长度、一次取下标）。改成一个局部量之后
+**读到的还是同一格、同一个答案**（`Data` 不会在这三句之间变）。
+
 ```ts
-const position = this.Data.length - 1 - (index ?? 0);
-if (position >= 0 && position < this.Data.length) {
-  return this.Data[position];
+const data = this.Data;
+const position = data.length - 1 - (index ?? 0);
+if (position >= 0 && position < data.length) {
+  return data[position];
 }
 return null;
 ```
@@ -612,7 +618,12 @@ this.ApplyCloseRules();
 
 ```ts
 Token.Former.ApplyCloseRules(this);
-for (const item of this.Data) {
+// **这一趟用下标走**（第 1204 轮，用户口径 1.2「提升 parse 效率」）：这是**每个单元关闭时**
+// 都要走一遍的那一格（实测 `typescript.d.ts` 一份上 **93956** 次，`tmp/r1204-count.mjs`），
+// 而 `for…of` 每次都要造一个迭代器对象。**补父亲的判据与次序一个字没改**。
+const data = this.Data;
+for (let i = 0; i < data.length; i++) {
+  const item = data[i];
   if (item.Parent === null) {
     item.Parent = this;
   }
@@ -1668,15 +1679,25 @@ return at;
 **为什么收成 0 / 1 而不是布尔**：`astNode` 那一侧于是只剩一次加法，没有分支、没有第二处
 「`;` 还是 `,`」的比较（用户口径 1.6：这一格自己的事实由它自己算完，投影只做加法）。
 
-**第 1049 / 1053 轮那两条判据在这里是同一条**：这一格读的是**自己的 `Text`**
-（不是 `ctx.source[startOf(this)]`），而 `Text` 就是 `[start, end)` 那一段、逐字符相同。
+**第 1049 / 1053 轮那两条判据在这里是同一条**：这一格读的是**自己的正文**
+（不是 `ctx.source[startOf(this)]`），而那份正文与自己那份 `Document` 同源、逐字符相同。
 **要读的是「剪掉尾部 trivia 之后紧跟着的那一个字符」**——投影那一侧原来读的就是它
-（`ctx.source[剪过 trivia 的终点]`）。`Text` 从这一格的 `start` 起算、`ProjectionEnd` 是全文坐标，
-所以下标是 `ProjectionEnd - start`（**不是 `-1`**：这一格问的是终点**之后**那一格，
-半开区间让那一格落在正文之外），读法用 `charAt`（越界答空串）。
-**两次实现各被读数抓出一族**：读末字符会让 `token/types/*` 30 条漂 1 / 多 1
-（那些用例签名末尾是 `; `，末字符是空白），下标越界会让 `undici-types/cache.d.ts` 那一族
-`MethodSignature` 10 条掉尾巴（终点正指着那个 `,`）。
+（`ctx.source[剪过 trivia 的终点]`）。`ProjectionEnd` 是全文坐标，所以下标是 `ProjectionEnd - start`
+（**不是 `-1`**：这一格问的是终点**之后**那一格，半开区间 `[start, end)` 让那一格落在正文之外）。
+
+**第 1204 轮改正：那一格经常在正文之外，所以不能只读自己的 `Text`**。第 1172 轮把它写成
+`this.Text.charAt(end - this.start)`，而那一次**两次都答 0**——语料普查（宽语料 2051 份、
+602 个 `IsSignatureNode` 的 token）里 `ProjectionEnd` **恒等于自己的 `end`**，
+于是 `charAt(正文长度)` 永远越界、答案恒为空串：
+
+| 写法 | 读的是哪一格 | 实测 |
+| --- | --- | --- |
+| `Text[len - 1]`（第 1172 轮之前试过） | 正文**末**字符 | `token/types/*` 30 条漂 1 / 多 1（那些签名末尾是 `; `，末字符是空白） |
+| `Text.charAt(end - start)`（第 1172 轮） | 正文**后**那一格，可是下标正好是正文长度 ⇒ 恒越界 | `undici-types/cache.d.ts` 那一族 `MethodSignature` **10 条掉尾巴**（终点正指着那个 `,`，而它不在自己的正文里） |
+| **自己那份 `Document` 上的 `ProjectionEnd` 那一格**（第 1204 轮） | 与第 1172 轮**同一个位置**，只是取对了地方 | 与第 1172 轮之前那四行算式（`ctx.source[剪过 trivia 的终点]`）逐格同答 |
+
+**为什么这一格仍然住在 token 上**：那一格字符在**每个 `Source` 自带的 `Document`** 上
+（`Text` / `SemicolonAfter` 同一处取），token 自己就答得出来，不必回投影手上那个字符串。
 
 ### get
 
@@ -1688,14 +1709,26 @@ if (this.IsSignatureNode !== true) return 0;
 // **区间是半开的 `[start, end)`，`ProjectionEnd` 是「含 trivia 的那个 `end` 剪过之后」的
 // 终点**——它落在这一格正文的**后面那一格**（`undici-types/cache.d.ts` 的
 // `match (…): Promise<…>,` 就是这一档：`ProjectionEnd` 正指着那个 `,`，而 `end` 不含它）。
-// 所以下标是 `ProjectionEnd - start`、并且用 `charAt`（越界答空串），不是 `Text[len - 1]`。
-// **两次实测各抓出一族**：读末字符（`-1`）会让 `token/types/*` 30 条漂 1 / 多 1
-// （那些签名末尾是 `; `，末字符是空白）；读 `Text[ProjectionEnd - start]` 而下标越界
-// 会让 `MethodSignature` 10 条掉尾巴（`undici-types/cache.d.ts` 那一族）。
+// 所以下标是 `ProjectionEnd - start`，不是 `Text[len - 1]`。
 const end = this.ProjectionEnd;
 if (end === undefined || end <= this.start) return 0;
-const last = this.Text.charAt(end - this.start);
-return last === ";" || last === "," ? 1 : 0;
+const at = end - this.start;
+// **在这一格自己的正文里**（尾部 trivia 被 `ProjectionEnd` 剪掉时，要读的那一格就落回正文内）：
+// 读自己的 `Text` 就够，一个字都不必回原文。
+const text = this.Text;
+if (at < text.length) {
+  const inside = text.charAt(at);
+  return inside === ";" || inside === "," ? 1 : 0;
+}
+// **正文之外那一格**（第 1204 轮改正，实测这是常走的那一档：语料里 `ProjectionEnd` 恒等于
+// 自己的 `end`）：它仍然在**自己那一份 `Document`** 上——与 `Text`（`head.Document.GetRaw`）
+// 和 `SemicolonAfter`（`head.Document.GetValue`）同一处取，所以这一格仍旧只答自己的事实。
+// 过去写成 `text.charAt(at)`，下标正好是正文长度 ⇒ 恒越界 ⇒ 恒答 0
+// （`undici-types/cache.d.ts` 那一族 `MethodSignature` 10 条掉尾巴就是这么来的）。
+const head = this.SourceRange.Start !== null ? this.SourceRange.Start : this.SourceRange.End;
+if (head === null) return 0;
+const outside = head.Document.GetValue(end);
+return outside === ";" || outside === "," ? 1 : 0;
 ```
 
 ## private method SemicolonAfter:(from:int)=>int | undefined

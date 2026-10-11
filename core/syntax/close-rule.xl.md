@@ -58,10 +58,16 @@ const units = unit.Data;
 if (Array.isArray(units) === false || units.length === 0) {
   return;
 }
+// **模板在手上一份**（第 1204 轮，用户口径 1.2「提升 parse 效率」）：`unit.Template` 原来是
+// **每一圈**都从 `unit` 上读一次，而整段循环里它一个字都不会变。实测 `typescript.d.ts` 一份上
+// `ApplyTo` 被调 **1924766** 次、内层循环共走 **5248548** 圈（`tmp/r1204-count.mjs`）——
+// 也就是说这一次hoist 省掉的是 525 万次属性读。**送给 `Previous` / `Process` 的还是同一个模板**，
+// 判据与次序一个字没改。
+const template = unit.Template;
 for (let i = 0; i < units.length; i++) {
-  if (this.Previous(unit.Template, units, i)) {
+  if (this.Previous(template, units, i)) {
     const replacedAt = i;
-    i = this.Process(unit.Template, units, i);
+    i = this.Process(template, units, i);
     // **换进来的节点当场认父亲**（第 623 轮）：`Process` 走的是 `ReplaceCountAt`，
     // 那是核心的 `splice`、**不设 `Parent`** ⇒ 新节点 `Parent` 为 `null`，
     // 而**同一趟里排在后面的规则**马上就要问「你的容器是谁」

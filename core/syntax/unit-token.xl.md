@@ -101,9 +101,16 @@ if (this.ExitOrPre(context, source) === BranchStates.Done) {
   this.LastSource = source;
   return;
 }
-if (this.ProcessQueue !== null) {
-  for (const item of this.ProcessQueue.Data) {
-    if (item.Transit(context, this, source) === BranchStates.Done) {
+// **这一趟用下标走、不用 `for…of`**（第 1204 轮，用户口径 1.2「提升 parse 效率」）：
+// 本方法是**每个字符**都要走一次的那一格，实测 `typescript.d.ts` 一份上被调 **2119425** 次
+//（`tmp/r1204-count.mjs`）——`for…of` 每次调用都要造一个数组迭代器对象，
+// 那 211 万次分配一分钱都不产出（这里只需要按下标走一遍、命中就早退）。
+// **判据、次序、早退的写法一个字没改**：走的还是同一个队列、同一个顺序、同一条 `Done` 就 `return`。
+const queue = this.ProcessQueue;
+if (queue !== null) {
+  const branches = queue.Data;
+  for (let i = 0; i < branches.length; i++) {
+    if (branches[i].Transit(context, this, source) === BranchStates.Done) {
       this.LastSource = source;
       return;
     }
