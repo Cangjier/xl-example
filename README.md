@@ -347,6 +347,45 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1158 轮：用户口径 1.7（连带 1.2 / 1.6）—— 「把一格链节点接到手上那一格」这个形状在投影里**出现 61 次**（`PropertyAccessExpression` 25 / `CallExpression` 17 / `ElementAccessExpression` 13 / `NonNullExpression` 6），收成一格 `chainOn`；整页净少 **360 行**
+
+**一句话**：第 1156 轮那句话（「最大的那几组就是这一族节点构造的整对象写法各写好几遍」）
+这一轮**按它指的去做**——四族链节点的整对象写法在 `typescript/print-ast-common.xl.md`
+的代码块里逐字重复 **61 次**，逐字不同的只有 **kind 名、受体名、中间那几格与终点**：
+
+```ts
+        left = {
+          kind: "PropertyAccessExpression",
+          expression: left,
+          name: piece.NameNode,
+          pos: left.pos,
+          end: endOf(piece),
+        };
+```
+
+- **改法**：新立 `# private method chainOn:(kind:string, left:any, props:any, end:any)=>any`
+  —— `props` 就是原来那个对象字面量里**除了 `pos` / `end` 之外的每一格**（`expression` 也在里面），
+  `pos` 一律取 `left.pos`，`end` 允许是**数**（`endOf(x)`）或**节点**（`{ pos, end }`，
+  与 `shellOver` 的第三格同一形态）。上面那一格于是收成一行：
+  `left = chainOn("PropertyAccessExpression", left, { expression: left, name: piece.NameNode }, endOf(piece));`
+- **量法是机械的**（一次性探针 `tmp-chainon3.mjs`，跑完即弃）：只看围栏内、只认「`kind:` 那一行
+  + 若干 `属性: 值,` 行 + `pos: X.pos,` + `end: …,` + 收尾那一行」这种**多行整对象写法**，
+  而且**只收「第一个属性是 `expression:` 且它的值就是 `X`」**的那些——于是「`pos` 与受体同源」
+  是**结构上证的**，不是人眼对的。`NonNullExpression` 另外那一处（`assertedMember` 末尾，
+  `expression` 与 `pos` 来自两格）**没进这一格**。
+  **这一轮同时量到一处自己的错并如实记下**：第一版把「第一个属性」那一格**漏进了 `props` 之外**，
+  于是 61 处里最先改的那一批投出来的 `PropertyAccessExpression` **没有 `expression` 字段**——
+  `cases:direct` / `samples` 照样绿（它们比形状与逐字节），是 `coverage` 当场红
+  （`4260 → 1413`，`tsrun` 报 `ast node PropertyAccessExpression has no child expression`）
+  才把它抓出来。修法是从备份**重跑整趟转换**（不是手工补 61 处）。
+- **等价怎么证的**：八道门读数与 HEAD **逐条相同**（`cases:tsast` 16 片全通过、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`coverage` **4260 / 4422**——唯一那条「倒退」仍是 HEAD 上既有的
+  `runtime/round741/002`）。
+- **本页的数**：整页 **11028 → 10668 行**（净少 360；其中围栏内那 61 处算式由 366 行收成 61 行，
+  新声明一格含说明 32 行）；声明 **57 → 58 格**。
+  `core/syntax/token.xl.md` 这一轮一行没动。
+
 ### 第 1157 轮：用户口径 1.7（连带 1.2 / 1.3 / 1.6）—— 「一段单元数组里进投影的那些」那句判据**出现 5 次**，收成一格 `prepareKids`；并**实测**它那两层过滤在投影期**一次都没挡掉过东西**（`ProjectableKids` 26936 次读数里 `{dropped: 0, nonToken: 0}`）
 
 **一句话**：`list.filter((k) => k instanceof Token && !k.IsInvisible)` 这一句在本页出现过 5 次
