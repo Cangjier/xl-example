@@ -361,7 +361,26 @@ return result;
       end: body.end,
     };
   } else if (names.length > 0) {
-    props.expression = ctx.DottedExpression(names);
+    // **名字后面还跟着 `?.` 时，整条可选链交给表达式的投影**（第 1203 轮）：
+    // `class D extends a?.b {}` 在 TypeScript 那边是
+    // `ExpressionWithTypeArguments > PropertyAccessExpression(expression=a, name=b, questionDotToken=?)`，
+    // 而这一格原来只看 `names`（被问的那几格 `IsNameNode`）⇒ 基名 `a` 之后那一截
+    // **整段丢掉**（实测：`<ExpressionWithTypeArguments><Identifier>a</Identifier><NullConditionalOperator>b</NullConditionalOperator></ExpressionWithTypeArguments>`
+    // 投出来只剩一个 `Identifier(a)` —— 缺 `PropertyAccessExpression` / `QuestionDotToken` / `Identifier` 共 3）。
+    //
+    // **不在这里再写一份折链的算式**：`[Identifier(a), NullConditionalOperator(b)]`
+    // 这一串的折法在值位与实参位早就有唯一一份（`PrintAstCtx.Expression` →
+    // `print-ast-common.xl.md` 的 `projectExpression` 0a0 那一支），
+    // 所以这里只是**把整串交给它**——与后面 `expr` 那一支是同一个出口。
+    // **闸门**是「链的形状」：第一个名字 + 恰好一格 `?.`，别的形状一概走原来的路。
+    const trailing = kids.filter((k: any) => k.IsNullConditionalOperator);
+    if (trailing.length === 1 && names.length === 1) {
+      const chained = ctx.Expression([names[0], trailing[0]]);
+      if (chained !== undefined) props.expression = chained;
+      else props.expression = ctx.DottedExpression(names);
+    } else {
+      props.expression = ctx.DottedExpression(names);
+    }
   } else {
     const paren = kids.find((k: any) => k.Tag === "Bracket" && k.startBracket === "(");
     if (paren !== undefined) {

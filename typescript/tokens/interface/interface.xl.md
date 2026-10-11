@@ -122,11 +122,25 @@ meta 信息只用字段表达）——`name` 字段已经完整表达了它（�
 `index` 处不是 `Identifier` 时返回 `-1`。
 
 `text` 为真时把名字的文本写进**第二个返回值**——xl 没有元组，所以文本走一个字段：
-`ScannedNames`。探路（`Condition`）时传假，不写任何状态。
+`ScannedNames`。探路（`Condition`）传假，不写任何状态。
 
 **为什么要认点号**：`interface I extends a.b.Base` 是合法的 TypeScript，
 实体名是一个限定名而不是单个词。老写法只认一个 `Identifier` 时 `a.b.Base` 匹配不上，
 整条接口声明反而消失。
+
+**`?.` 也算链上的一个分隔符**（第 1203 轮）：`interface I extends a?.b {}` 里的实体名
+与值位的可选链同形——产物是 `[Identifier(a), SymbolToken(?.), Identifier(b)]` 三格
+（实测 `tmp/r1203-iface.mjs`）。原来只认 `.` ⇒ 这一格在 `a` 之后就断了，
+而 `ScanHead` 最后那句 `Get(units, nextIndex) === null`（「整个头恰好用完」）
+于是不成立 ⇒ **整条接口退回 `ExpressionStatement`**
+（实测 `interface I extends a?.b {}`：产物是 `interface` 那个词自己的属性访问，
+`InterfaceDeclaration` 整条没有）。它也是 `gap-r985-heritage-optional-chain`
+那条用例里 `class E implements a?.b {}` 没被收掉的原因（类那一侧走的是另一段扫描）。
+
+**文本按 `.` 接**：`?.` 那一格接进来的成员名同样以 `.` 相连（`a?.b` → `"a.b"`）——
+这一格只答「实体名是个什么样的点号链」，可选链那个 `?.` 的语义由
+`ExpressionWithTypeArguments.PrintAst` 从子单元上投（见 `heritage-clause.xl.md`，
+它读的是 `IsNullConditionalOperator` 那一格）。这里再判一次 `?.` 就是第二份答案。
 
 ```ts
 let nextIndex = index;
@@ -138,7 +152,9 @@ name = (Get(units, nextIndex) as Identifier).TempToString();
 nextIndex = SkipNextTrivia(units, nextIndex);
 while (true) {
   const dot = Get(units, nextIndex);
-  if (!(dot instanceof SymbolToken) || dot.Is(".") === false) {
+  const isDot = dot instanceof SymbolToken && dot.Is(".");
+  const isOptionalDot = dot instanceof SymbolToken && dot.Is("?.");
+  if (isDot === false && isOptionalDot === false) {
     break;
   }
   const nameIndex = SkipNextTrivia(units, nextIndex);
