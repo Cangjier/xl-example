@@ -1456,3 +1456,18 @@ return result;
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
+
+## field IsBinaryOperatorNode:bool = true
+
+**我这一格是一个二元运算符节点**（第 1088 轮）：这一页答 `true`——`<BinaryOperator>` 就是
+一段 `left op right`，投影那一侧十几处「这是不是一个二元 / 逻辑运算单元」的判据过去写作
+**两连比类名**（`X.Tag === "BinaryOperator" || X.Tag === "LogicalOperator"`），
+而那两个名字**就是本页与 `LogicalOperator` 那一页自己的类名**。
+
+所以 `Token.IsBinaryOperatorNode` 这一格由本页**显式声明**并给出自己的值（构造时就赋好，
+与上面的 `AstKind` 同一形态：两者答的是同一件事——`"BinaryExpression"`）。
+投影那一侧只读属性（`x.IsBinaryOperatorNode`），不再比类名
+（口径见 `core/syntax/token.xl.md` 的 `IsBinaryOperatorNode`）。
+
+**它与 `IsOperatorUnit` 不是同一问**：那一格答「**裸符号**能不能当运算符」（本页的子单元、
+也就是 `Data` 里那一格 `SymbolToken` 答的是它），这一格答「**我这一格整个单元**是不是二元运算节点」。

@@ -85,7 +85,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 之后是 **72 格**、第 1079 轮删掉 `modifierSpansOf` 之后是 **71 格**、第 1080 轮就地展开
 `typeMemberGroups` 与 `specifierNameOf` 之后是 **69 格**、第 1081 轮（只改形参与方法体、
 一格声明没增没减）**仍是 69 格**，第 1082 ~ 1086 轮（改的都是别的页与基类）**仍是 69 格**，
-**第 1087 轮并掉三处壳之后是 66 格**
+**第 1087 轮并掉三处壳之后是 66 格**，**第 1088 轮（改的全是读数与说明、新立的那一格在基类与
+`binary-operator` / `logical-operator`）仍是 66 格**
 ——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 所以从第 1073 轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
@@ -758,6 +759,48 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 - **实测**：`xl check typescript` **0 条**；`xl build --force`（`typescript`）**127 个产物** /
   0 error、`tsc` 干净；**八道门 8 通过、0 失败**（墙钟 31.3s）。
 - **本页的声明数**：**66 → 64 格**（`asStatement` / `projectSignedLiteralType` 各一格）。
+
+**第 1088 轮把投影层「这一格是不是一个二元 / 逻辑运算单元」的十几处两连比类名收进被问的那两页**
+（用户口径 1.1~1.4：投影要的东西在**具体类**里显式声明、构造时就赋好；判据与第 1057 / 1062 /
+1076 那几轮**逐字相同**——「我这一格是什么类」就是那一页自己的类名）：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `X.Tag === "BinaryOperator" \|\| X.Tag === "LogicalOperator"`（本页 **19 处**，其中 1 处跨行） | `X.IsBinaryOperatorNode` | 基类 `Token` 给默认 `false`；`BinaryOperator` / `LogicalOperator` **各自显式声明** `## field IsBinaryOperatorNode:bool = true`（构造时赋好的常量，与 `AstKind` 同一形态——两页的节点名本来就是同一个 `BinaryExpression`） |
+| `const kind = unit === undefined ? "" : unit.Tag;` + `return kind === "BinaryOperator" \|\| kind === "LogicalOperator";`（`await` 那一支的局部闭包） | `unit === undefined ? false : unit.IsBinaryOperatorNode` | 同上；顺带把只转手一次的局部变量 `kind` 收掉 |
+| `const oneKind = one.Tag;` + `(oneKind === "BinaryOperator" \|\| oneKind === "LogicalOperator") &&`（链尾摊开那一支） | `one.IsBinaryOperatorNode &&` | 同上；局部变量 `oneKind` 一并收掉 |
+
+- **为什么它该住在 token 上**：那一问的两半（「我这一格是什么类」与「我投成哪个节点」）
+  **都在被问的那一页上**——`Tag` 就是这一页的类名、`AstKind` 就是 `"BinaryExpression"`；
+  投影层重写一遍就又是两处会漂的地方（改一页的类名、或让第三页也当二元运算节点，
+  都要回来改这十几处）。
+- **它与 `IsOperatorUnit` 不是同一问**：那一格答「**裸符号**能不能当一个运算符」
+  （`SymbolToken` / `in` / `instanceof`），且**明确把二元运算符排除在外**（第 1062 轮那一节）；
+  这一格答「**这一格整个单元**是不是一个二元运算节点」——所以是新立一格，不是把旧那格扩宽。
+- **5 处单比 `BinaryOperator` 逐字保留**（本轮实测点名过，**不**并进这一格）：`headIsBinary`
+  与它下面那个剥壳循环（`firstName.Tag === "BinaryOperator"`）、链尾那一支的 `kids[0].Tag ===
+  "BinaryOperator"`、`prefixHasOperator` 里那一处、以及 `type === "Statement" || type ===
+  "BinaryOperator"`（那一处比的是 kind 字符串，不是 token）。前四处问的是「这个名字是不是被折进了
+  **二元**单元」——剥壳用的是 `headInner[length - 2]`（运算符在中间），而**逻辑单元的 `Data`
+  最后一格才是运算符**（布局不同），所以那几处只认 `BinaryOperator`。
+- **判据跟着长两条**：`direct:lint` 第八条那一族多认一个名字（`IsBinaryOperatorNode`，
+  问句形态 `isBinaryOperatorNode(…)` / `ctx.IsBinaryOperatorNode` 写回来当场红），
+  另立第十四条 `BINARY_CLASS_DISJUNCTION`——**两连比类名**那一形态（两种次序、跨行写法都算）
+  在代码块里必须恰好 0 处。**自验**（`tmp/r1088/` 的探针，不进仓库）：把一处写回成两连比类名
+  ⇒ 报告 **0 → 1 处**、`FAIL … 又在比类名了`、`exit=1`；逐字节还原 ⇒ **1 → 0 处**、`exit=0`。
+- **改了哪五个文件**：本页（21 处读数 + 3 处说明）、`core/syntax/token.xl.md`（新立基类那一格）、
+  `tokens/binary-operator` / `tokens/logical-operator`（各自显式声明并答 `true`）、
+  `tests/parse/direct-lint.mjs`（第八条名单 + 第十四条判据 + 一行读数）。
+- **量法**：改完八道门读数**一处没动**（基线是第 1087 轮那一份）——`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` **3 条已知缺口还开着**、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+  21 处逐处等价：接收者都是**手上那一格 token**，两页答 `true`、其余页由基类答 `false`
+  ⇒ 与两条 `===` 的合取逐格同答（`cases:direct` 的固定样本与 `cases:tsast` 那 16 片都作证）。
+- **实测**：`xl check typescript core` **156 个文件 0 条**；`xl build typescript core`
+  **4 个产物** / 0 error（`token` / `binary-operator` / `logical-operator` / `print-ast-common`）、
+  `tsc` 干净；**八道门 8 通过、0 失败**（墙钟 30.4s）。
+- **本页的声明数**：**66 → 66 格**（改的全是读数与说明；新立的那一格在基类与那两页）。
 
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
@@ -2748,7 +2791,7 @@ new Set([
         instTemplateDirect === undefined &&
         !instChainHasTemplate &&
         kids.length >= 3 &&
-        (kids[2].Tag === "BinaryOperator" || kids[2].Tag === "LogicalOperator")
+        (kids[2].IsBinaryOperatorNode)
       ) {
         let spine: any = kids[2];
         while (spine !== undefined) {
@@ -2855,7 +2898,7 @@ new Set([
     kids.length >= 4 ? kids : [];
   if (
     kids.length === 2 &&
-    (kids[0].Tag === "BinaryOperator" || kids[0].Tag === "LogicalOperator") &&
+    (kids[0].IsBinaryOperatorNode) &&
     kids[1].Tag === "GenericType"
   ) {
     const folded = kids[0].ProjectableKids;
@@ -3122,9 +3165,12 @@ new Set([
     //（摊平之后一个运算符都没有），`await x + 1 as any` 的尾巴里也有 `As`——
     // 这两种一律回落到下面那条老路（`as` 的结合性本仓另有口径，抢过来会把那一格丢掉）。
     if (word === "await" && kids.length >= 2) {
+      // **这一问第 1088 轮改成读 token 自己那一格**：原来是本页**两连比类名**
+      //（`unit.Tag === "BinaryOperator" || unit.Tag === "LogicalOperator"`），
+      // 而那两个名字就是那两页自己的类名（两页各自答 `IsBinaryOperatorNode`）——
+      // 顺带把只转手一次的局部变量 `kind` 收掉（口径见 `Token.IsBinaryOperatorNode`）。
       const isOperatorFold = (unit:any):bool => {
-        const kind = unit === undefined ? "" : unit.Tag;
-        return kind === "BinaryOperator" || kind === "LogicalOperator";
+        return unit === undefined ? false : unit.IsBinaryOperatorNode;
       };
       // **先把最左边那条脊摊平**：`await x * 2 + 3` 的产物是
       // `BinaryOperator(+)( BinaryOperator(*)(x, *, 2), +, 3 )`——一直摊到「头一格不是
@@ -3245,7 +3291,7 @@ new Set([
     // `[SymbolToken(#), BinaryOperator(in)( Identifier(x), «in», Identifier(o) )]`——
     // 那个二元单元的**第一个孩子才是名字**，其余是运算符与右操作数。
     // 不拆的话整个 `x in o` 会被当成名字（`PrivateIdentifier` 的区间一路撑到 `o`）。
-    if (named.Tag === "BinaryOperator" || named.Tag === "LogicalOperator") {
+    if (named.IsBinaryOperatorNode) {
       const inner = named.ProjectableKids;
       if (inner.length >= 2) {
         const head = {
@@ -3335,6 +3381,10 @@ new Set([
     //（实测 `expr-call-import-meta.ts` / `ex-meta-props.ts`：缺 `PropertyAccessExpression`
     //  + `Identifier(url)` 两个 ——而 `[PropertyAccessExpression, Identifier]` 正好是
     //  「`.url` 整段丢了」的形状）。
+    // **这两处单比 `BinaryOperator` 第 1088 轮逐字保留**：它们问的不是「是不是二元运算节点」，
+    // 而是「这个名字是不是被折进了**二元**单元」——剥壳用的是 `headInner[length - 2]`，
+    // 而**逻辑单元**的 `Data` 最后一格才是运算符（布局不同），所以这里只认 `BinaryOperator`
+    //（判据不同，不该并进 `IsBinaryOperatorNode`）。
     const headIsBinary =
       namedKids.length > 0 &&
       namedKids[0] instanceof Token &&
@@ -3480,8 +3530,7 @@ new Set([
   ]);
   const prefixHasOperator = kids.slice(0, ncoIndex).some(
     (k) =>
-      k.Tag === "BinaryOperator" ||
-      k.Tag === "LogicalOperator" ||
+      k.IsBinaryOperatorNode ||
       (k.Tag === "SymbolToken" && NCO_BASE_OPERATORS.has(k.TextValue)),
   );
   if (
@@ -3514,7 +3563,7 @@ new Set([
   // 再连**后面的兄弟**一起折。
   const hasNcoInBinary = kids.some(
     (k) =>
-      (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") &&
+      (k.IsBinaryOperatorNode) &&
       k.ProjectableKids[0]?.Tag === "NullConditionalOperator",
   );
   // **尾巴上还挂着 `as` / `satisfies` 时，这一支也要让开**（见上面 `asAfterNco` 那一处）。
@@ -3536,7 +3585,7 @@ new Set([
     let bestRank = 99;
     for (let i = 1; i < prefix.length; i++) {
       const k = prefix[i];
-      if (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") {
+      if (k.IsBinaryOperatorNode) {
         opAt = i;
         break;
       }
@@ -3669,7 +3718,7 @@ new Set([
     }
     if (
       inner.length >= 2 &&
-      (inner[0].Tag === "BinaryOperator" || inner[0].Tag === "LogicalOperator") &&
+      (inner[0].IsBinaryOperatorNode) &&
       chainTailInOperator(inner[0])
     ) {
       unwindChainTailInOperator(inner[0], out);
@@ -3724,7 +3773,7 @@ new Set([
     .slice(1)
     .some(
       (k) =>
-        (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") &&
+        (k.IsBinaryOperatorNode) &&
         chainTailInOperator(k),
     );
   if (
@@ -3742,9 +3791,10 @@ new Set([
         //它自己的运算符与右操作数原样跟在后面、由 `foldBinaryFrom` 折。
         const tail: Array<any> = [];
         for (const one of kids.slice(1)) {
-          const oneKind = one.Tag;
+          // **第 1088 轮**：这一问改读 `one.IsBinaryOperatorNode`（原来是两连比类名），
+          // 局部变量 `oneKind` 只是 `one.Tag` 的转手，一并收掉。
           if (
-            (oneKind === "BinaryOperator" || oneKind === "LogicalOperator") &&
+            one.IsBinaryOperatorNode &&
             chainTailInOperator(one)
           ) {
             unwindChainTailInOperator(one, tail);
@@ -3983,7 +4033,7 @@ new Set([
   if (
     tagIsComplete &&
     kids.length >= 2 &&
-    (kids[1].Tag === "BinaryOperator" || kids[1].Tag === "LogicalOperator")
+    (kids[1].IsBinaryOperatorNode)
   ) {
     let spine = kids[1];
     let templateUnit: any = undefined;
@@ -4042,7 +4092,7 @@ new Set([
   // 脊柱上任何一层不满足就整个让开——宁可维持原来的错，也不能把别的形状认成调用。
   if (
     kids.length >= 2 &&
-    (kids[1].Tag === "BinaryOperator" || kids[1].Tag === "LogicalOperator")
+    (kids[1].IsBinaryOperatorNode)
   ) {
     let emptyCallSpine = kids[1];
     let emptyCallBracket: any = undefined;
@@ -4147,7 +4197,7 @@ new Set([
         levels.push([inner[inner.length - 2], inner[inner.length - 1]]);
         const head = inner[0];
         const headIsComma =
-          (head.Tag === "BinaryOperator" || head.Tag === "LogicalOperator") &&
+          (head.IsBinaryOperatorNode) &&
           head.TextValue === ",";
         if (headIsComma) {
           level = head;
@@ -4277,7 +4327,7 @@ new Set([
     }
     if (
       inner.length >= 2 &&
-      (inner[0].Tag === "BinaryOperator" || inner[0].Tag === "LogicalOperator") &&
+      (inner[0].IsBinaryOperatorNode) &&
       chainTailInOperator(inner[0])
     ) {
       flattenChainTailInOperator(inner[0], out);
@@ -4314,7 +4364,7 @@ new Set([
     }
     if (
       inner.length >= 2 &&
-      (inner[0].Tag === "BinaryOperator" || inner[0].Tag === "LogicalOperator") &&
+      (inner[0].IsBinaryOperatorNode) &&
       indexTailInOperator(inner[0])
     ) {
       flattenIndexTailInOperator(inner[0], out);
@@ -4437,7 +4487,7 @@ new Set([
       // 运算符与右操作数原样留在后面，由尾巴那一支折成二元。
       if (
         at > 0 &&
-        (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") &&
+        (k.IsBinaryOperatorNode) &&
         chainTailInOperator(k)
       ) {
         flattenChainTailInOperator(k, ck);
@@ -4448,7 +4498,7 @@ new Set([
       // **只在链头是函数 / 类时走**：那一档才有「方括号被收成数组字面量」这件事。
       if (
         at > 0 &&
-        (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") &&
+        (k.IsBinaryOperatorNode) &&
         (kids[0].Tag === "Function" || kids[0].Tag === "Class") &&
         indexTailInOperator(k)
       ) {
@@ -4462,7 +4512,7 @@ new Set([
       // `PropertyAccessExpression` / `QuestionQuestionToken` / `NumericLiteral` 全丢
       // （实测 `dist/ts/typescript/ts-ast.ts` 与 `lib.es5.d.ts` 成片）。
       if (
-        (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") &&
+        (k.IsBinaryOperatorNode) &&
         at > 0 &&
         isSymbol(kids[at - 1], ".")
       ) {
@@ -5237,7 +5287,7 @@ new Set([
       if (i + 1 >= ck.length) return extended;
       return foldBinaryFrom(extended, ck.slice(i + 1), ctx);
     }
-    if (tail0.Tag === "BinaryOperator" || tail0.Tag === "LogicalOperator") {
+    if (tail0.IsBinaryOperatorNode) {
       const spliced = spliceOptional(tail0);
       if (spliced !== null) {
         const folded = foldBinaryFrom(spliced.extended, spliced.rest, ctx);
@@ -7031,8 +7081,8 @@ return false;
     if (
       opText.length > 1 &&
       rest.length === 4 &&
-      (rest[1].Tag === "BinaryOperator" || rest[1].Tag === "LogicalOperator") &&
-      (rest[3].Tag === "BinaryOperator" || rest[3].Tag === "LogicalOperator") &&
+      (rest[1].IsBinaryOperatorNode) &&
+      (rest[3].IsBinaryOperatorNode) &&
       rest[2].Tag === "SymbolToken" &&
       rest[2].TextValue === "=" &&
       rest[2].Text.length > 1

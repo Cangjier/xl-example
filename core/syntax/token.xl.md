@@ -1569,6 +1569,23 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 **基类这一格默认 `false`**：需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field`，与 `EndsOnBrace` / `IsNameNode` / `IsOperatorUnit` 同一形态）。
 
+## field IsBinaryOperatorNode:bool = false
+
+**我这一格是不是一个二元（或逻辑）运算符节点**（第 1088 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`BinaryOperator` 与 `LogicalOperator` 这两页答 `true`
+（两者的 `AstKind` 都是 `BinaryExpression`——逻辑运算在产物里是同一族节点），其余一律 `false`。
+过去它在投影层是**十几处两连比类名**（`X.Tag === "BinaryOperator" || X.Tag === "LogicalOperator"`），
+而那两个名字**就是那两页自己的类名**——所以那是每一页自己的事实，被写在投影那一页里。
+
+**它与 `IsOperatorUnit` 不是同一问**：那一格答的是「**裸符号**能不能当一个运算符」
+（`SymbolToken` / `in` / `instanceof` 那几个词），**二元运算符明确不在那里**（见上面那一节）；
+这一格答的是「**这一格整个单元**是不是一个二元运算节点」——两问的收件人都不一样。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field`，构造时就赋好），投影只读这一格（`x.IsBinaryOperatorNode`）——
+「我这一格是什么」因此只有一个来源，同一句话也不会在十几处各写一遍。
+
 ## property HasChildren:bool
 
 **我这一格下面还有没有实义子单元**（第 1064 轮）：有就答 `true`。

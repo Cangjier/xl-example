@@ -682,6 +682,13 @@ for (const file of files) {
  * 它与 `IsInvisible` **不是同一问**：后者答 `true` 的有四页（多出 `LineWrap` 与
  * `PreprocessorDirectives`），所以这里守的是新名字，而不是把 `IsInvisible` 也一并钉住
  * （那一格在投影层是**允许**读的：`Kids` / `ProjectableKids` 那一族就靠它）。
+ *
+ * **第 1088 轮再补一格**：`IsBinaryOperatorNode`——「这一格是不是一个二元 / 逻辑运算单元」
+ * 过去是投影层十几处**两连比类名**（`Tag === "BinaryOperator" || Tag === "LogicalOperator"`），
+ * 而那两个名字就是 `BinaryOperator` / `LogicalOperator` 两页自己的类名（两页的 `AstKind`
+ * 都是 `BinaryExpression`）。今天基类默认 `false`、那两页各自显式声明 `## field … = true`，
+ * 投影只读属性。**同一形状的「匿名比类名」还有一条**（`BINARY_CLASS_DISJUNCTION`，
+ * 见下），这一条守的是「名字写回成问句」那一形态。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -716,6 +723,7 @@ const SELF_CLASSIFY_NAMES = [
   "IsChainBaseNode",
   "IsBareCall",
   "IsCommentUnit",
+  "IsBinaryOperatorNode",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -821,6 +829,54 @@ let nameClassDisjunctionHits = 0;
             why:
               `「这一格是不是一个名字」又比类名了：\`${match[0]}\`——那一格的事实住在被问的那一页` +
               "（`Token.IsNameNode`，`Identifier` / `Keyword` 各自在构造时答好），投影只读属性",
+          });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * **同一句话在下一族的写法：`BinaryOperator` / `LogicalOperator` 的两连比类名**
+ * （第 1088 轮）。
+ *
+ * 第 1076 轮收的是「这一格是不是一个名字」用类名写出来的样子
+ * （`Tag === "Identifier" || Tag === "Keyword"`）；第 1088 轮收的是**同一形状的下一族**：
+ * 投影里十几处问「这一格是不是一个二元 / 逻辑运算单元」，过去一律写作
+ * `X.Tag === "BinaryOperator" || X.Tag === "LogicalOperator"`——**那两个名字就是那两页
+ * 自己的类名**（两页的 `AstKind` 都是 `BinaryExpression`），所以它本来就该由那两页各自答
+ * （`Token.IsBinaryOperatorNode`：基类默认 `false`、两页显式声明 `## field … = true`）。
+ *
+ * 为什么必须是门而不是自觉 ✗：与第 1076 轮那条逐字相同——这样写**逐字节同答**，
+ * 方法体判据、能力面判据、`cases:tsast` / `cases:direct` 一条都看不见它；
+ * 可改一页的类名、或让第三页也当二元运算节点，都要回来改这十几处，两处一旦漂开
+ * 只有坏输入才显形。口径与前面几条同款：只看 `SHARED_FILE` 的**代码块**、注释不算
+ * （`codeOnly`），恰好 0 处才对（两种次序都算，跨行写法也算）。
+ *
+ * **单比 `BinaryOperator` 的那 5 处不算**（本轮实测点名保留）：它们问的不是「是不是二元
+ * 运算节点」，而是「名字是不是被折进了**二元**单元」——剥壳用的是 `headInner[length - 2]`，
+ * 而逻辑单元的 `Data` 最后一格才是运算符（布局不同），所以判据不同、不该并进这一格。
+ */
+const BINARY_CLASS_DISJUNCTION = [
+  /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*===\s*"BinaryOperator"\s*\|\|\s*\1\.Tag\s*===\s*"LogicalOperator"/g,
+  /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*===\s*"LogicalOperator"\s*\|\|\s*\1\.Tag\s*===\s*"BinaryOperator"/g,
+];
+/** 投影层拿类名当「是不是一个二元 / 逻辑运算单元」判的处数（0 处才是对的）。 */
+let binaryClassDisjunctionHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const re of BINARY_CLASS_DISJUNCTION) {
+      for (const match of code.matchAll(re)) {
+        binaryClassDisjunctionHits += 1;
+        if (binaryClassDisjunctionHits <= 3) {
+          violations.push({
+            file: SHARED_FILE,
+            why:
+              `「这一格是不是一个二元 / 逻辑运算单元」又在比类名了：\`${match[0]}\`——那一格的事实` +
+              "住在被问的那一页（`Token.IsBinaryOperatorNode`，两页各自在构造时答好），投影只读属性",
           });
         }
       }
@@ -1001,6 +1057,12 @@ console.log(
 console.log(
   `「这一格是不是一个名字」又在投影层比类名（${SHARED_FILE} 的代码块）：${nameClassDisjunctionHits} 处（0 处才是对的，读 Token.IsNameNode）`,
 );
+// **同一形状的下一族**（第 1088 轮）：`Tag === "BinaryOperator" || Tag === "LogicalOperator"`
+// 是「这一格是不是一个二元 / 逻辑运算单元」用类名写出来的样子——收成
+// `Token.IsBinaryOperatorNode` 之后这里恰好 0 处（单比 `BinaryOperator` 的 5 处不算）。
+console.log(
+  `「这一格是不是一个二元 / 逻辑运算单元」又在投影层比类名（${SHARED_FILE} 的代码块）：${binaryClassDisjunctionHits} 处（0 处才是对的，读 Token.IsBinaryOperatorNode）`,
+);
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的
 // 第二处答案，0 处才对（见 SOURCE_BRACE_SCAN）。
@@ -1029,6 +1091,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
 );
 process.exit(0);
