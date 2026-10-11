@@ -474,16 +474,16 @@ return result;
   const open = v.IndexBracketAt;
   if (open < 0) {
     const whole = ctx.TypeExpression(kids);
-    return ctx.NodeHead("IndexedAccessType", { objectType: whole }, v);
+    return ctx.NodeInto("IndexedAccessType", v, { objectType: whole });
   }
   const objectUnits = kids.filter((k: any) => k.start < open);
   const indexUnits = kids.filter((k: any) => k.start >= open);
-  const props: any = {};
+  const props: any = ctx.NodeInto("IndexedAccessType", v);
   const objectType = ctx.TypeExpression(objectUnits);
   const indexType = ctx.TypeExpression(indexUnits);
   if (objectType !== undefined) props.objectType = objectType;
   if (indexType !== undefined) props.indexType = indexType;
-  return ctx.NodeHead("IndexedAccessType", props, v);
+  return props;
 ```
 
 

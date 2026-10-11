@@ -282,8 +282,12 @@ return index;
 不许有的第二份近似 ⇒ 答 `undefined`，交回它走那一条。
 
 ```ts
-  const props: any = {};
   const define = ctx.KidsOf(v, "define").filter((k: any) => !k.IsInvisible);
+  // **节点名先算出来**（第 1195 轮）：这一格有两种身份（`for…of` / `for…in`），
+  // 而它原来是在方法末尾才算的——`ctx.NodeInto` 要一开始就拿到它（造节点与填字段是同一个对象，
+  // 见用户口径 1.1 / 1.5 / 1.6）。判据一个字没动，只是把那一行挪到这一格之前。
+  const kind = v.isForIn === true ? "ForInStatement" : "ForOfStatement";
+  const props: any = ctx.NodeInto(kind, v);
   if (define.length > 0) {
     if (define[0].Tag === "Let") {
       props.initializer = ctx.LetFrom(define, v).list;
@@ -370,7 +374,6 @@ return index;
   }
   const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !k.IsInvisible);
   if (enumable.length > 0) props.expression = ctx.Expression(enumable);
-  const kind = v.isForIn === true ? "ForInStatement" : "ForOfStatement";
   const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible);
   const rawEmpty = v.emptyBodyAt;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
@@ -397,7 +400,7 @@ return index;
   if (kind === "ForOfStatement" && awaitUnit !== undefined) {
     props.awaitModifier = ctx.Project(awaitUnit);
   }
-  return ctx.NodeHead(kind, props, v);
+  return props;
 ```
 
 ## constructor:(template:Template)=>void

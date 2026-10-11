@@ -458,7 +458,7 @@ return result;
   const spread = kids.find((k: any) => k.Tag === "Spread");
   const nameNode = kids.find((k: any) => k.Tag === "Identifier" || k.Tag === "Keyword");
   const typeNode = kids.find((k: any) => k.Tag === "TypeDefine");
-  const props: any = {};
+  const props: any = ctx.NodeInto("NamedTupleMember", v);
   if (nameNode !== undefined) {
     props.name =
       nameNode.Tag === "Keyword" && nameNode.TextValue === "this"
@@ -499,7 +499,7 @@ return result;
     }
     props.type = ctx.Project(typeNode);
   }
-  return ctx.NodeHead("NamedTupleMember", props, v);
+  return props;
 ```
 
 ## constructor:(template:Template)=>void

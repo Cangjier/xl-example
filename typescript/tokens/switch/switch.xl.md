@@ -345,7 +345,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
   const segments = ctx.KidsOf(v, "segments");
   const rawBodyAt = v.bodyAt;
   const bodyAt = typeof rawBodyAt === "number" ? rawBodyAt : -1;
-  const props: any = {};
+  const props: any = ctx.NodeInto("SwitchStatement", v);
   if (cond.length > 0) props.expression = ctx.Expression(cond);
   // **一条分支（`CaseClause` / `DefaultClause`）的形状就在本页**（第 1176 轮，用户口径 1.2 / 1.7）：
   // 这一段算式过去是 `ctx` 上的一个出口（`ctx.SwitchClause`），而**全仓只有本页这一个读者**
@@ -401,7 +401,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
     pos: bodyAt >= 0 ? bodyAt : v.start,
     end: v.ProjectionEnd,
   };
-  return ctx.NodeHead("SwitchStatement", props, v);
+  return props;
 ```
 
 

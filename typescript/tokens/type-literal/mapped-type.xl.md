@@ -60,7 +60,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
     }
     flat.push(k);
   }
-  const props: any = {};
+  const props: any = ctx.NodeInto("MappedType", v);
   let readonlyToken;
   let questionToken;
   let typeParameter;
@@ -155,7 +155,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
   // **第三格给的是「父单元」**（第 1035 轮）：映射类型自己那一格就是这批成员的投影父单元
   // ——`ctx.MemberList` 要拿它问 `TypeMemberPlan`（映射类型不是类型容器，答 `undefined`）。
   if (members.length > 0) props.members = ctx.MemberList(members, "TypeLiteral", v);
-  return ctx.NodeHead("MappedType", props, v);
+  return props;
 ```
 
 ## field IsSignatureList:bool = true

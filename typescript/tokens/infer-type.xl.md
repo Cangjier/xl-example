@@ -301,9 +301,9 @@ return WordText(before) === "extends";
 
 ```ts
   const param = (v).ProjectableKids.find((k: any) => k.Tag === "TypeParameter");
-  const props: any = {};
+  const props: any = ctx.NodeInto("InferType", v);
   if (param !== undefined) props.typeParameter = ctx.Project(param);
-  return ctx.NodeHead("InferType", props, v);
+  return props;
 ```
 
 

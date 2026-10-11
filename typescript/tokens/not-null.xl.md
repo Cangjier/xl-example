@@ -206,10 +206,10 @@ return ReplaceCountAt(units, previousIndex, index - previousIndex + 1, notNull);
   const kids = (v).ProjectableKids.filter(
     (k: any) => !(k.Tag === "SymbolToken" && k.TextValue === "!"),
   );
-  const props: any = {};
+  const props: any = ctx.NodeInto("NonNullExpression", v);
   const expression = kids.length > 0 ? ctx.Expression(kids) : undefined;
   if (expression !== undefined) props.expression = expression;
-  return ctx.NodeHead("NonNullExpression", props, v);
+  return props;
 ```
 
 

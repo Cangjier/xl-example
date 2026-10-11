@@ -668,11 +668,13 @@ return ReplaceCountAt(units, startIndex + 1, endIndex - startIndex - 1, ternaryO
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
-  const props: any = {
-    condition: ctx.Segment(v, "condition"),
-    whenTrue: ctx.Segment(v, "trueStatement"),
-    whenFalse: ctx.Segment(v, "falseStatement"),
-  };
+  // **一个节点一次分配**（第 1195 轮，用户口径 1.1 / 1.5 / 1.6）：`ctx.NodeInto` 一开始就给出
+  // `{ kind, pos, end }`，三格字段按源码次序写在它后面——原来那条路是「先拼一个 `props`、
+  // 再交给 `ctx.NodeHead` 重摆一次」= 一个节点两个对象。
+  const props: any = ctx.NodeInto("ConditionalExpression", v);
+  props.condition = ctx.Segment(v, "condition");
+  props.whenTrue = ctx.Segment(v, "trueStatement");
+  props.whenFalse = ctx.Segment(v, "falseStatement");
   const questionPos = v.questionPos;
   const colonPos = v.colonPos;
   if (typeof questionPos === "number" && questionPos >= 0) {
@@ -681,7 +683,7 @@ return ReplaceCountAt(units, startIndex + 1, endIndex - startIndex - 1, ternaryO
   if (typeof colonPos === "number" && colonPos >= 0) {
     props.colonToken = { kind: "ColonToken", text: ":", pos: colonPos, end: colonPos + 1 };
   }
-  return ctx.NodeHead("ConditionalExpression", props, v);
+  return props;
 ```
 
 

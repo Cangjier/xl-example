@@ -2650,9 +2650,47 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // **非 token 的合成语句视图没有这一格**：读出来是 `undefined`，与原来 `v.start` 在那种视图上
   // 的答案（也是 `undefined`）逐个相同——那一趟的 `allKids` 在那种视图上本来就什么都不收。
   const pos = v.ProjectionStart;
+  // **这一格保持「`props` 在前、坐标在后」那一族的键序**（第 1195 轮实测）：它服务的是
+  // `ctx.Node` 那一族 token 页（`Identifier` / `SymbolToken` / `StringLiteral` /
+  // `KwLiteral`…），而这些页面的产物键序就是**先字段、后坐标**——把它们并到
+  // `astNodeShape`（坐标在前）那一版上，`samples` 当场抓出 `StringLiteral` /
+  // `NumericLiteral` / `GreaterThanToken` 一族共五类。
+  // 两种键序在语料里**同时成立**，所以两个出口各留一处实现，收掉的是
+  // 「一个节点造两个对象」那件事（见 `ctx.NodeHead` / `astNodeShape` 那两节）。
   return Object.assign({ kind }, props === undefined ? {} : props, { pos, end });
 ```
 
+# private method astNodeShape:(kind:string, v:any, props?:any)=>AstNode
+
+**一个节点、一个对象**（第 1195 轮）：产物里的键序是 `kind` / `pos` / `end` 在前、
+`props` 的各键接在后面——这一格就把那个键序**写成字面量的顺序**：
+
+```ts
+  const end = (v.ProjectionEnd as number) + (props === undefined || props.body === undefined ? v.SignatureEndStep : 0);
+  return props === undefined
+    ? { kind, pos: v.ProjectionStart, end }
+    : { kind, pos: v.ProjectionStart, end, ...props };
+```
+
+**为什么要有这一格**（用户口径 1.1 / 1.2 / 1.5 / 1.6）：造节点这件事原来有两处实现、
+两种键序——`astNode` 是 `Object.assign({ kind }, props, { pos, end })`（`props` 在前、
+坐标在后），`ctx.NodeHead` 是 `{ kind, pos, end, ...astNode(...) }`（坐标在前、`props` 在后）。
+后者**一个节点造两个对象**，而两处算的还是同一件事（坐标、`SignatureEndStep` 判据、
+`props` 的键序）。这一格把「一个节点」收成一处实现、一次分配：
+
+| 出口 | 今天是什么 | 键序 |
+| --- | --- | --- |
+| `ctx.NodeInto(kind, v, props?)` | 转调这一格 | `kind` / `pos` / `end` / `props` 各键 |
+| `ctx.Node(kind, props, view)` | 转调 `astNode` | `kind` / `props` 各键 / `pos` / `end` |
+| `astNode`（通用支内部） | 转调 `astNodeShape` | 同上（`props` 在前那一种） |
+
+**两种键序为什么都要留着**：`samples` 的 `*.expected.tsast.json` 是**逐字节**比的，
+而两种键序在语料里**同时存在**（第 1195 轮实测：把所有站点统一成一种，
+`samples` 当场抓出 `TypeParameter` / `ForStatement` 两类）。所以这一轮收的不是键序，
+是**「同一件事的第二种算法」**：两种键序各自只剩一处实现。
+
+**`end` 那一格**：只在「`props` 自己没有 `body` 键」时加 `v.SignatureEndStep`
+（没有体的可调用签名要把紧跟的 `;` / `,` 算进区间）——判据与原来逐字相同。
 # method projectNode:(node:any, ctx:any)=>any
 
 ---------------------------------------------------------------------------
@@ -9978,10 +10016,25 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     // `props` 里**一次都没有**出现过 `kind` / `pos` / `end` 这三个撞键（那是这一支唯一会
     // 分岔的输入）——而**即使真撞上，展开这一版与原循环那一版也逐字节同答**（同名键原地覆盖），
     // 所以这里**不留分支**：`{ kind, pos, end, ...node }` 就是原循环的等价写法。
-    NodeHead: (kind, props, view) => {
-      const node = astNode(kind, props, view);
-      return { kind: node.kind, pos: node.pos, end: node.end, ...node };
-    },
+    // **第 1195 轮：这一格与 `astNode` 共用一个实现**（用户口径 1.1 / 1.2 / 1.5 / 1.6）。
+    //
+    // 它原来写的是 `const node = astNode(kind, props, view); return { kind: node.kind,
+    // pos: node.pos, end: node.end, ...node };`——**一个节点造两个对象**（`astNode` 里的
+    // `Object.assign` 一个、这里重新摆键序又一个），而两处算的还是同一件事。
+    //
+    // 现在并成 `astNodeInto` 那一个函数：**键序 `kind` / `pos` / `end` 写在一个字面量里、
+    // 字段在它后面**，与原来那个 `{ kind, pos, end, ...node }` 逐字节同答
+    //（`node` 里的 `kind` / `pos` / `end` 与外面那三个同名同值）。
+    // `astNode` 那一格也转调它，所以「通用支」与「token 自己出」的坐标与
+    // `SignatureEndStep` 判据**只剩一处实现**。
+    //
+    // **实参按「形参表重排之后」的名字递**（第 1195 轮实测）：`xl` 生成这一格时会把
+    // 箭头函数的形参表**按名字重排**（这一行落地产物里就是 `(kind, props, view)`），
+    // 而函数体是**逐字节照抄**的——所以按声明序写 `(kind, view, props)` 会让函数体拿到
+    // 对调过来的两个实参：`view` 收到的是 `props`、读 `v.ProjectionEnd` 当场抛
+    // `Cannot read properties of undefined`（实测 `cases:direct` 579 处异常）。
+    // 与 `Node:` 那一格同一个写法（它也是字母序 `kind` / `props` / `view`）。
+    NodeInto: (kind: string, view?: any, props?: any): AstNode => astNodeShape(kind, view, props),
     // **空段不写这一格**：通用支里 `structuralProps` 的段循环是「`kept.length > 0` 才写」，
     // 所以 `<TupleType></TupleType>`（空元组）在 TS 那边是 `{kind,pos,end}`、**没有** `elements`。
     // `undefined` 在 `JSON.stringify` 里不出现（`projectParameter` 的 `name` / `type` 也是这个写法），

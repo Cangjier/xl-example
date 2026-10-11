@@ -91,7 +91,7 @@ return ReplaceCountAt(units, index, 1, result);
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
-  return ctx.NodeHead("SemicolonClassElement", {}, v);
+  return ctx.NodeInto("SemicolonClassElement", v);
 ```
 
 

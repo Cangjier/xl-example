@@ -480,7 +480,7 @@ return index;
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
-  const props: any = {};
+  const props: any = ctx.NodeInto("DoStatement", v);
   const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible);
   // **体那一对花括号直读字段**（第 619 轮那一格，第 641 轮带上整段，与 `While` 同一条）：
   // 两端都是**挂体那一刻**的事实 ⇒ 空块与带块的体都由 `BodyBlockOf` 直接给出
@@ -502,7 +502,7 @@ return index;
   }
   const compare = ctx.KidsOf(v, "compare").filter((k: any) => !k.IsInvisible);
   if (compare.length > 0) props.expression = ctx.Expression(compare);
-  return ctx.NodeHead("DoStatement", props, v);
+  return props;
 ```
 
 

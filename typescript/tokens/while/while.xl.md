@@ -225,7 +225,7 @@ return index;
 让开的范围小到一格，而且**次数是量得出来的**）。
 
 ```ts
-  const props: any = {};
+  const props: any = ctx.NodeInto("WhileStatement", v);
   const compare = ctx.KidsOf(v, "compare").filter((k: any) => !k.IsInvisible);
   if (compare.length > 0) props.expression = ctx.Expression(compare);
   const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible);
@@ -234,7 +234,7 @@ return index;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
   if (emptyAt >= 0) {
     props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
-    return ctx.NodeHead("WhileStatement", props, v);
+    return props;
   }
   // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
   // **第 1081 轮起递过去的就是那一格本身**（`BodyBrace`，不再是它印出来的 `"起,止"` 字符串）：
@@ -250,7 +250,7 @@ return index;
   // 空体语句那一档本页上面已经出完了（`emptyBodyAt`），所以它不需要 `from`（见那一页的说明）。
   const statement = ctx.BodyBlockOf(body, rawBrace);
   if (statement !== undefined) props.statement = statement;
-  return ctx.NodeHead("WhileStatement", props, v);
+  return props;
 ```
 
 ## constructor:(template:Template)=>void

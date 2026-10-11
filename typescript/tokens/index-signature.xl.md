@@ -50,7 +50,7 @@ TS 那边 `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型�
       (k.Tag === "Keyword" || k.Tag === "Identifier") &&
       (k.TextValue === "readonly" || k.TextValue === "static"),
   );
-  const props: any = {};
+  const props: any = ctx.NodeInto("IndexSignature", v);
   if (params.length > 0) {
     props.parameters = ctx.ProjectEach(params, "IndexSignature").map((one: any) => ({
       ...one,
@@ -64,7 +64,7 @@ TS 那边 `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型�
   if (modifierUnits.length > 0) {
     props.modifiers = modifierUnits.map((one: any) => ctx.Project(one));
   }
-  return ctx.NodeHead("IndexSignature", props, v);
+  return props;
 ```
 
 

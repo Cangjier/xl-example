@@ -439,6 +439,12 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
 
 ```ts
   const node = ctx.Node("ModuleDeclaration", ctx.Structural(v, "ModuleDeclaration"), v);
+  // **返回值收成 `AstNode | undefined` 之后这一句要判一次**（第 1195 轮，用户口径 1.4）：
+  // `ctx.Node` 的返回类型不再是 `any`，而这一层的出口本来就允许 `undefined`
+  //（那表示「这一格故意不出节点」）——所以照实判一次，不靠 `any` 把这一问遮掉。
+  if (node === undefined) {
+    return undefined;
+  }
   // **没体的环境模块把那个 `;` 吃进来**（第 840 轮）：`declare module "mm";` 在 TS 那边
   // `ModuleDeclaration` 的区间**含** `;`（`AmbientModuleDeclaration` 收尾调 `parseSemicolon`），
   // 而收尾规则问「简写」的那一刻列表**只到名字**（那个 `;` 还没进来，见 `ShorthandEnd`）

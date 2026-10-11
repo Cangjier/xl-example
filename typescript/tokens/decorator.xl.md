@@ -188,12 +188,12 @@ return ReplaceCountAt(units, index, endIndex - index + 1, decorator);
   const kids = (v).ProjectableKids.filter(
     (k: any) => !(k.IsSymbolToken && k.TextValue === "@"),
   );
-  const props: any = {};
+  const props: any = ctx.NodeInto("Decorator", v);
   if (kids.length > 0) {
     const inner = ctx.Expression(kids);
     if (inner !== undefined) props.expression = inner;
   }
-  return ctx.NodeHead("Decorator", props, v);
+  return props;
 ```
 
 

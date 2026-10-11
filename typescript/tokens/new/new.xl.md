@@ -459,7 +459,7 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
     IsTemplateString(nameUnits[genericAt + 1]);
   const generic = genericAt >= 0 && !templateAfterGeneric ? nameUnits[genericAt] : undefined;
   const calleeUnits = nameUnits.filter((k: any) => k !== generic);
-  const props: any = {};
+  const props: any = ctx.NodeInto("NewExpression", v);
   if (
     calleeUnits.length === 1 &&
     calleeUnits[0].Tag === "Bracket" &&
@@ -486,7 +486,7 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
     if (one !== undefined) argumentList.push(one);
   }
   if (argumentList.length > 0) props.arguments = argumentList;
-  return ctx.NodeHead("NewExpression", props, v);
+  return props;
 ```
 
 ## constructor:(template:Template)=>void

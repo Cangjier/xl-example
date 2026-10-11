@@ -275,7 +275,7 @@ C 风格 `for` 语句单元。
 （与 `Lamda` / `Foreach` 那两处同一个约定）。
 
 ```ts
-  const props: any = {};
+  const props: any = ctx.NodeInto("ForStatement", v);
   const initial = ctx.KidsOf(v, "initial").filter((k: any) => !k.IsInvisible);
   if (initial.length > 0) {
     props.initializer =
@@ -303,7 +303,7 @@ C 风格 `for` 语句单元。
       return undefined;
     }
   }
-  return ctx.NodeHead("ForStatement", props, v);
+  return props;
 ```
 
 ## constructor:(template:Template)=>void

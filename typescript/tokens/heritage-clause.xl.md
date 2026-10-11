@@ -274,9 +274,9 @@ while (index < data.length) {
     kept.push(k);
   }
   const projected = ctx.ProjectEach(kept, "HeritageClause");
-  const props: any = clauseWord === "" ? {} : { token: clauseWord };
+  const props: any = ctx.NodeInto("HeritageClause", v, clauseWord === "" ? {} : { token: clauseWord });
   if (projected.length > 0) props.types = projected;
-  return ctx.NodeHead("HeritageClause", props, v);
+  return props;
 ```
 
 
@@ -343,7 +343,7 @@ return result;
   const kids = (v).ProjectableKids;
   const generic = kids.find((k: any) => k.IsGenericType);
   const names = kids.filter((k: any) => k.IsNameNode);
-  const props: any = {};
+  const props: any = ctx.NodeInto("ExpressionWithTypeArguments", v);
   // **名字后面紧跟模板串 ⇒ `TaggedTemplateExpression`**（第 986 轮）：判据是那个 `String`
   // 的**引号是反引号**——读的是它自己记下的那一格（`IsTemplateString`，第 1094 轮起是命名属性；
   // 第 1001 / 1049 轮读的是 `stringChar`），不是原文里那个字符。
@@ -385,7 +385,7 @@ return result;
     }
     props.typeArguments = args;
   }
-  return ctx.NodeHead("ExpressionWithTypeArguments", props, v);
+  return props;
 ```
 
 ## constructor:(template:Template)=>void

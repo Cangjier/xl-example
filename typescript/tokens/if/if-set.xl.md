@@ -174,7 +174,7 @@ ifSet.MountCondition(source);
 ```ts
   const segments = (v).ProjectableKids.filter((k: any) => k.Tag === "IfSegment");
   if (segments.length === 0) {
-    return ctx.NodeHead("IfStatement", {}, v);
+    return ctx.NodeInto("IfStatement", v);
   }
   const conditionOf = (seg: any) => {
     const cond = ctx.KidsOf(seg, "condition");

@@ -422,6 +422,12 @@ return `<${name} range="${this.RangeOf()}" label="${this.label}">${temp.join("")
   }
   const node = ctx.Node("LabeledStatement", props, v);
   // **尾部坐标读这一格自己的属性**（第 1173 轮）：`ctx.StmtEndOf` 那个出口整格删掉了。
+  // **返回值收成 `AstNode | undefined` 之后这一句要判一次**（第 1195 轮，用户口径 1.4）：
+  // `ctx.Node` 的返回类型不再是 `any`，而 `PrintAst` 这一层的出口本来就允许 `undefined`
+  //（那表示「这一格故意不出节点」）——所以这里照实判一次，不靠 `any` 把这一问遮掉。
+  if (node === undefined) {
+    return undefined;
+  }
   node.end = v.ProjectionEnd;
   return node;
 ```

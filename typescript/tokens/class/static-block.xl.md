@@ -139,7 +139,7 @@ unit.AddToMounted(block);
   const close = v.end;
   const body =
     brace >= 0 && close > brace ? { kind: "Block", statements, pos: brace, end: close } : undefined;
-  return ctx.NodeHead("ClassStaticBlockDeclaration", body === undefined ? {} : { body }, v);
+  return ctx.NodeInto("ClassStaticBlockDeclaration", v, body === undefined ? {} : { body });
 ```
 
 

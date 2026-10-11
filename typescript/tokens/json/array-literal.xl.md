@@ -341,8 +341,8 @@ return true;
   if (group.length > 0) {
     flush(undefined);
   }
-  const props = elements.length === 0 ? {} : { elements };
-  return ctx.NodeHead("ArrayLiteralExpression", props, v);
+  const props: any = ctx.NodeInto("ArrayLiteralExpression", v, elements.length === 0 ? {} : { elements });
+  return props;
 ```
 
 

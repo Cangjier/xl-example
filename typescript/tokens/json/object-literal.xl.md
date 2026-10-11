@@ -282,8 +282,8 @@ Json 对象。
       end: propertyEnd,
     });
   }
-  const props = properties.length === 0 ? {} : { properties };
-  return ctx.NodeHead("ObjectLiteralExpression", props, v);
+  const props: any = ctx.NodeInto("ObjectLiteralExpression", v, properties.length === 0 ? {} : { properties });
+  return props;
 ```
 
 

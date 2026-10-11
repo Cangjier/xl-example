@@ -257,7 +257,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ```ts
   const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !k.IsInvisible);
-  const props: any = {};
+  const props: any = ctx.NodeInto("TryStatement", v);
   const blockOf = (field: any, statements: any) => {
     const range = field.Range;
     if (range === null || range.Start === null || range.End === null) return undefined;
@@ -311,7 +311,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
   }
   const finallyBlock = blockOf(this.FinallyBrace, ctx.ProjectEach(seg("finally"), "Block"));
   if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
-  return ctx.NodeHead("TryStatement", props, v);
+  return props;
 ```
 
 ## constructor:(template:Template)=>void

@@ -233,10 +233,10 @@ return ReplaceCountAt(units, index, nextIndex - index + 1, result);
         (k.TextValue === "keyof" || k.TextValue === "readonly" || k.TextValue === "unique")
       ),
   );
-  const props: any = {};
+  const props: any = ctx.NodeInto("TypeOperator", v);
   const operand = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
   if (operand !== undefined) props.type = operand;
-  return ctx.NodeHead("TypeOperator", props, v);
+  return props;
 ```
 
 
@@ -313,7 +313,7 @@ return result;
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const kids = (v).ProjectableKids;
   const names = kids.filter((k: any) => k.IsNameNode && k.TextValue !== "typeof");
-  const props: any = {};
+  const props: any = ctx.NodeInto("TypeQuery", v);
   const access = kids.find((k: any) => k.Tag === "PropertyAccess");
   const generic = kids.find((k: any) => k.Tag === "GenericType");
   if (generic !== undefined) {
@@ -331,7 +331,7 @@ return result;
       access === undefined ? names : (access).ProjectableKids.filter((k: any) => k.IsNameNode);
     props.exprName = ctx.QualifiedNameFrom(parts);
   }
-  return ctx.NodeHead("TypeQuery", props, v);
+  return props;
 ```
 
 

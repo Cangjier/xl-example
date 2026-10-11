@@ -768,7 +768,16 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   );
   const typeNode = kids.find((k: any) => k.Tag === "TypeDefine");
   const named = ctx.MemberNameOf(v);
-  const props: any = {};
+  // **一个节点一次分配**（第 1195 轮，用户口径 1.1 / 1.5 / 1.6）：`ctx.NodeInto` 一开始就给出
+  // `{ kind, pos, end }`，后面每一条 `props.k = e` 都写在**同一格键序的同一位次**上——
+  // 原来那条路是「先拼一个 `props`、再交给 `ctx.NodeHead` 重摆一次」= 一个节点两个对象。
+  // 节点名读的是**父单元那一格**（第 1055 轮）：`PropertySignature` 还是 `PropertyDeclaration`
+  // 由「我这一层的父单元是不是签名表」答（`InterfaceBody` / `TypeLiteralBody` / `MappedType`
+  // 三页各自声明了 `IsSignatureList`），不再读投影递过来的 `ctx.signature`。
+  const props: any = ctx.NodeInto(
+    v.Parent?.IsSignatureList === true ? "PropertySignature" : "PropertyDeclaration",
+    v,
+  );
   if (named.name !== undefined) {
     props.name = named.name;
   }
@@ -814,13 +823,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     merged.sort((a: any, b: any) => (a.pos ?? 0) - (b.pos ?? 0));
     props.modifiers = merged;
   }
-  // **`PropertySignature` 还是 `PropertyDeclaration` 问父单元自己**（第 1055 轮）：
-  // 判据是「我这一层的父单元是不是签名表」——`InterfaceBody` / `TypeLiteralBody` /
-  // `MappedType` 三页各自声明了 `IsSignatureList`（构造时就赋好的一格常量），
-  // 所以这里读的是**父单元那一格**，不再读投影递过来的 `ctx.signature`
-  //（同一格事实的第二处存储，而且那一份还要靠 save / restore 才不被嵌套成员表覆盖）。
-  const kind = v.Parent?.IsSignatureList === true ? "PropertySignature" : "PropertyDeclaration";
-  return ctx.NodeHead(kind, props, v);
+  return props;
 ```
 
 ## constructor:(template:Template)=>void

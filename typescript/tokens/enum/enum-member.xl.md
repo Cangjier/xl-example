@@ -131,7 +131,7 @@ member.Process(context, source);
     (k: any) => k.Tag === "SymbolToken" && k.TextValue === "=",
   );
   const nameNode = kids.find((k: any) => k.Tag !== "SymbolToken") ?? null;
-  const props: any = {};
+  const props: any = ctx.NodeInto("EnumMember", v);
   if (nameNode !== null) props.name = ctx.Project(nameNode);
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) {
     // **初始化式可能就是一对其中的括号**（第 681 轮，与形参默认值**同一个根**、
@@ -144,7 +144,7 @@ member.Process(context, source);
         ? ctx.ParenthesizedOf(init)
         : ctx.Project(init);
   }
-  return ctx.NodeHead("EnumMember", props, v);
+  return props;
 ```
 
 

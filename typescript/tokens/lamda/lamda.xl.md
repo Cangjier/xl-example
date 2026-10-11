@@ -956,7 +956,7 @@ Lambda 表达式。
 体的那对括号两端读 `BodyBrace`（第 1081 轮起不再读它印出来的 `bodyBraceRange`）。
 
 ```ts
-  const props: any = ctx.Structural(v, "ArrowFunction");
+  const props: any = ctx.NodeInto("ArrowFunction", v, ctx.Structural(v, "ArrowFunction"));
   const rawArrowAt = v.arrowAt;
   const arrowAt = typeof rawArrowAt === "number" ? rawArrowAt : -1;
   // **位置不在这一格上**（字段缺）⇒ 交回 `PrintAst`（它回原文里找一次）。
@@ -1015,7 +1015,7 @@ Lambda 表达式。
     const projected = ctx.Expression(flat);
     if (projected !== undefined) props.body = projected;
   }
-  return ctx.NodeHead("ArrowFunction", props, v);
+  return props;
 ```
 
 ## field IsAsync:bool = false

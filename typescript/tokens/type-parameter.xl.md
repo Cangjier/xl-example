@@ -508,7 +508,11 @@ rebuilt.push(parameter);
       !k.IsTypeParameterModifier,
   );
   const nameNode = nameIndex >= 0 ? kids[nameIndex] : undefined;
-  const props: any = { name: nameNode === undefined ? undefined : ctx.Project(nameNode) };
+  // **一个节点一次分配**（第 1195 轮，用户口径 1.1 / 1.5 / 1.6）：`ctx.NodeInto` 一开始就给出
+  // `{ kind, pos, end }`，随后每一条字段都写在**同一格键序的同一位次**上——
+  // 原来那条路是「先拼一个 `props`、再交给 `ctx.NodeHead` 重摆一次」= 一个节点两个对象。
+  const props: any = ctx.NodeInto("TypeParameter", v);
+  props.name = nameNode === undefined ? undefined : ctx.Project(nameNode);
   // **`extends` 必须真的在约束位上**（第 846 轮）：`<ReturnType = F extends (…args: any) => infer T ? T>`
   // 里那个 `extends` 属于**默认值**（`=` 后面的条件类型），不是约束——不挡这一下会多出一个
   // `constraint` 键（实测 `@types/node/test.d.ts` 两处 `FIELD`：产物 `[constraint,default,name]`
@@ -616,7 +620,7 @@ rebuilt.push(parameter);
       };
     }
   }
-  return ctx.NodeHead("TypeParameter", props, v);
+  return props;
 ```
 
 

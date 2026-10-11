@@ -293,7 +293,7 @@ return ReplaceCountAt(units, index, units.length - index, result);
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const kids = (v).ProjectableKids;
-  const props: any = {};
+  const props: any = ctx.NodeInto("TypePredicate", v);
   let i = 0;
   if (i < kids.length && kids[i].Tag === "Keyword" && kids[i].TextValue === "asserts") {
     props.assertsModifier = ctx.Project(kids[i]);
@@ -310,7 +310,7 @@ return ReplaceCountAt(units, index, units.length - index, result);
     const type = ctx.TypeExpression(kids.slice(i));
     if (type !== undefined) props.type = type;
   }
-  return ctx.NodeHead("TypePredicate", props, v);
+  return props;
 ```
 
 
