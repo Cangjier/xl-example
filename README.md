@@ -347,6 +347,57 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1153 轮：用户口径 1.2 / 1.3 / 1.6 / 1.5 —— 投影层**最后一格本地闭包**收进被问的那一页（`Token.IsCallUnit` + `Method` 覆写），并去掉 **15 处** `String(x.DeclaredName)` 恒等拷贝（`DeclaredName` 声明就是 `string`）；两条新判据当场自验
+
+**一句话**：这一轮按口径 1.2 / 1.3 找的是**投影自己还在算的那两件事**——一件是
+`chainOnto` 里**写在循环体里的箭头函数**（问「这一格自己算不算一次调用」），
+一件是把**编译期就知道是 `string`** 的那一格在运行期再拷一遍。
+
+- **量法**（`tmp/` 里的探针，不进仓；计数器挂在 `build/ts` 的两个 getter 上，
+  跑 `node tests/parse/direct-ast.mjs --all`，**2051 份**）：
+
+  | 量的是谁 | 读数 | 说明 |
+  | --- | --- | --- |
+  | `Token.DeclaredName` | **212193** | 全语料每投一趟读这么多次（第 1150 轮那张表里它是「一次 `typeof`」，今天这一格声明就是 `string`） |
+  | 投影这一页里的 `.DeclaredName` | **169739**（**23** 处） | 其中 **15 处**改前还各套着一层 `String(…)` |
+  | `Method.IsCallUnit` | **1** | **如实记下**：全语料只走到那一支**一次**（`gap-r973-opt-assert-call-thrice-member` 那一条）——所以这一轮省下的**不是一个可测的开销**，而是投影层**最后一格问句式本地闭包** |
+
+- **改法一（闭包 → 被问的那一页）**：`core/syntax/token.xl.md` 新立
+  `## property IsCallUnit:bool`（基类默认 `false`）+ `typescript/tokens/method.xl.md` 覆写同一格
+  （`## property` + `### get`，读时现算：名字非空 ⇒ `true`，否则看第一个实义子单元是内层
+  `Method` 还是实参括号——**逐字**是原来那个箭头函数的两句）。投影那一侧
+  `const memberIsCall = (unit) => { … }; if (member.IsMethodNode && memberIsCall(member))`
+  整段换成 `if (member.IsCallUnit)`：**9 行算式 → 1 行属性读**，
+  `member.IsMethodNode === false` 那一句随之消失（不是漏写：非 `Method` 的 token 拿到的是默认档，
+  与第 1077 轮 `IsBareCall` 那一句消失同一手法）。
+- **改法二（恒等拷贝 → 不拷贝）**：`Token.DeclaredName` 是 `## property DeclaredName:string`
+  （没有名字时是空串，两条路都判过 `typeof … === "string"`），所以投影层 15 处
+  `String(x.DeclaredName)` 是**恒等映射**（`method.xl.md` 的 `IsBareCall` 里第 16 处一并去掉）。
+  如实记：这一条省掉的是一次 `String()` 调用（V8 里通常内联成一次类型检查），**墙钟量不出**
+  ——能证明的只有「八道门读数一处没动」与两条新判据。
+- **判据跟着长**（`tests/parse/direct-lint.mjs`，两条都**当场自验**过）：
+  ① `IsCallUnit` 进 `SELF_CLASSIFY_NAMES`、老问句 `memberIsCall` 进别名表
+  ——把 `memberIsCall(member)` 写回投影那一页，这一门 **0 → 1 处**、退出码 1；
+  ② 新立 `NAME_COPY`：`print-ast-common` 代码块里 `String(x.DeclaredName)` = 0 处
+  ——把 `String(x.DeclaredName)` 写回一处，这一门 **0 → 1 处**、退出码 1（两次都已还原）。
+- **这一轮自己踩到的一个坑，如实记下**：`method.xl.md` 那一格第一次写的时候**漏了 `### get`**，
+  于是 xl 把它生成成「带后备字段的属性」（`#IsCallUnit: boolean;` 没人赋值）——
+  `npx tsc` 报 `TS2564`，`coverage` 同时红了一条
+  （`token/expressions/gap-r973-opt-assert-call-thrice-member` 缺 3，正好是上面那个「只走到一次」
+  的那一支）。补上 `### get` 之后两处一起好了。**这条记下来是因为它是那道门有用的证据**：
+  一个「只走到一次」的分支，照样被 `coverage` 当场抓住。
+- **实测**：`xl check` 三个改动页 **0 条**、
+  `xl build core typescript runtime typescript-exec cjcli.xl.md tsrun.xl.md` **182 个产物 / 0 error**
+  （3 written）、`npx tsc` 干净；**八道门 7 通过、1 失败**（墙钟 33.0s），读数与第 1106 ~ 1152 轮
+  **逐项相同**：`coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002` ⇒ **等价**。
+- **本页的数**（`print-ast-common`）：**10986 → 10983 行**（围栏内 7753 → **7750 行** /
+  不带注释 4485 → **4476 行**——跑起来的那几行净少 **9** 行，多出来的 6 行是那一格的说明）；
+  **声明 54 → 54 格**（43 个 `# method` + 11 个 `# const`，一格没增没减——这一轮删的是算式，
+  新立的那两格在 token 那一侧）。`Token` 那一页 +1 格属性、`Method` 那一页 +1 格属性。
+
 ### 第 1152 轮：用户口径 1.7（连带 1.2 / 1.6）—— 全投影里「**壳还在、只把被填那一格换掉**」那个 `Object.assign` 形状收成三格（`shellOn` / `shellOver` / `shellOnto`），**34 处各留一次调用**；顺手删掉一条与上一支**逐字同形、永远走不到**的分支，`print-ast-common` 代码块不带注释 **4574 → 4485 行**
 
 **一句话**：上一轮收的是「一次调用的实参」（18 处），这一轮按同一把尺子收**第二族**——

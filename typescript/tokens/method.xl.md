@@ -299,13 +299,38 @@ return index;
 ### get
 
 ```ts
-  if (String(this.DeclaredName) !== "") return false;
+  if (this.DeclaredName !== "") return false;
   const kids: any[] = this.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
   if (kids.length === 0) return false;
   const head = kids[0];
   return head.Tag === "Method"
     || (head.Tag === "Bracket" && head.startBracket === "(")
     || head.Tag === "NotNull";
+```
+
+## property IsCallUnit:bool
+
+**我这一格自己算不算「一次（或好几层）调用」**（第 1153 轮）：名字非空（有名字的 `Method`
+本身就是一次成员调用）⇒ `true`；名字为空时看第一个实义子单元是内层 `Method` 还是实参括号。
+
+**为什么它住在这一页、为什么是现算**：判据的三半（我是什么类、我的名字空不空、
+我第一个实义子单元是什么）全在这一页上——与 `IsBareCall` / `IsCallFirstUnit` 同一条口径
+（基类给默认档 `false`，本页覆写同一个属性；子单元是解析期陆续挂上来的，所以只能读时现算）。
+它与那两格**都不是同一问**：口径与理由见 `../../core/syntax/token.xl.md` 的 `IsCallUnit`。
+
+**它搬走的是投影层写在循环体里的一个闭包**：`print-ast-common.xl.md` 的 `chainOnto` 原来
+在成员循环里现定义一个箭头函数 `memberIsCall`（子链每转一圈造一个闭包 + 一次 `filter`），
+调用点还带着一句 `member.IsMethodNode &&`——那一句搬过来就没了（不是漏写：
+「我是不是 `Method`」由基类那一格的默认档管）。
+
+### get
+
+```ts
+  if (this.DeclaredName !== "") return true;
+  const kids: any[] = this.ProjectableKids.filter((k: any) => k.IsGenericType === false);
+  const head = kids.length > 0 ? kids[0] : undefined;
+  if (head === undefined) return false;
+  return head.IsMethodNode || head.IsParenBracket;
 ```
 
 ## property IsIndexFirstUnit:bool

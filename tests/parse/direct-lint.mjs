@@ -37,6 +37,9 @@
 //   第 1050 轮再加一条**扫形参表**的：`print-ast-common` 的 `# private method …` 小节里，
 //   声明了 `ctx` 形参却在方法体里一处不用的 = 0 处（见 `SHARED_HEAD` 那一段）——
 //   形参表就是这一格需要什么，不需要投影的上下文就不该挂着一个。
+//   第 1153 轮再加一条**扫恒等拷贝**的：`String(<某一格>.DeclaredName)` = 0 处
+//   （见 `NAME_COPY` 那一段）——`Token.DeclaredName` 声明就是 `string`，
+//   投影再套一层 `String(…)` 是把编译期就知道的事在运行期又算一遍（用户口径 1.5 / 1.6）。
 //
 // **第 1013 轮删掉的判据**：原来还有一条「覆写了直出版的页面，同页必须还有另一条路」——
 // 它是「同答」那条动态判据的**基线**（搬完之前不许先把老路删掉）。现在老路删了、
@@ -655,6 +658,40 @@ let deadCtxHits = 0;
 }
 
 /**
+ * **已知是 `string` 的那一格，不许再拷一遍**（第 1153 轮）。
+ *
+ * 用户口径 1.5 要求每一格都声明成明确类型，而 `core/syntax/token.xl.md` 的
+ * `## property DeclaredName:string` **答的就是一个字符串**（没有名字时是空串：那一格的 `### get`
+ * 两条路都判过 `typeof … === "string"` 才返回）。所以投影层那 15 处 `String(x.DeclaredName)`
+ * 是一次**恒等映射**——换成属性读之后八道门读数一处没动（逐字节同答）。
+ *
+ * **为什么必须是门而不是自觉** ✗：它与属性读逐字节同答，`cases:direct` / `cases:tsast` /
+ * `samples` / `coverage` 一条都看不见差别；能看见的只有口径本身——
+ * 「这一格的类型在编译期就是 `string`」这句话不必在运行期再算一遍（用户口径 1.6）。
+ * 口径与前面几条同款：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`），恰好 0 处才对。
+ */
+const NAME_COPY = /\bString\(([^()]*\.DeclaredName)\)/g;
+let nameCopyHits = 0;
+{
+  const shared = path.join(root, SHARED_FILE);
+  if (fs.existsSync(shared)) {
+    const text = fs.readFileSync(shared, "utf8");
+    const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => codeOnly(m[1])).join("\n");
+    for (const match of code.matchAll(NAME_COPY)) {
+      nameCopyHits += 1;
+      if (nameCopyHits <= 3) {
+        violations.push({
+          file: SHARED_FILE,
+          why:
+            `把已经声明成 string 的名字又拷了一遍：\`${match[0]}\`——` +
+            "`Token.DeclaredName` 本身就是字符串（没有名字时是空串），投影只读属性",
+        });
+      }
+    }
+  }
+}
+
+/**
  * **中间那一层不许再回来**（第 1027 轮）。
  *
  * 第 1018~1024 轮把投影与 token 之间那一层（「字典 / 视图 + 逐 token 字段表」）整个删掉了：
@@ -841,6 +878,7 @@ const CLASSIFY_ALIASES = {
   ModifierWords: ["declaredKeysOf"],
   ProjectableKids: ["projectableKids", "unwrapNodes"],
   isBareCall: ["isBareCallMethod"],
+  isCallUnit: ["memberIsCall"],
 };
 /** 把一组问句名铺成一条或起来的分支（主名 + 缩写）。 */
 const classifyAlternation = (predicates) =>
@@ -919,6 +957,7 @@ const SELF_CLASSIFY_NAMES = [
   "IsStatementShell",
   "IsIndexFirstUnit",
   "IsCallFirstUnit",
+  "IsCallUnit",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -1569,6 +1608,11 @@ console.log(
 console.log(
   `helper 声明了 ctx 形参却一处不用（${SHARED_FILE}）：${deadCtxHits} 处（0 处才是对的，形参表就是它需要什么）`,
 );
+// **「已知是 string 的那一格」的账**（第 1153 轮）：`Token.DeclaredName` 声明就是 `string`
+// ——投影再套一层 `String(…)` 是恒等映射，0 处才对（用户口径 1.5 / 1.6）。
+console.log(
+  `把声明成 string 的名字又拷一遍（${SHARED_FILE} 的代码块）：${nameCopyHits} 处（0 处才是对的，Token.DeclaredName 本身就是字符串）`,
+);
 // **「这一格是不是某一类」的账**（第 1057 轮）：那一问的答案住在被问的那一页
 // ——投影层再写一个 `isXxx(…)` / `ctx.IsXxx(…)` 就是同一格事实的第二处声明，0 处才对。
 console.log(
@@ -1640,6 +1684,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格是不是一条成员访问链由被问的那一页答、这一格是不是一次非空断言由被问的那一页答、这一格是不是一次方法调用由被问的那一页答、这一格是不是一段泛型括号段由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答、声明里没有 any、投影读的每一格都在某一页显式声明过）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格是不是一条成员访问链由被问的那一页答、这一格是不是一次非空断言由被问的那一页答、这一格是不是一次方法调用由被问的那一页答、这一格是不是一段泛型括号段由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答、声明里没有 any、投影读的每一格都在某一页显式声明过、已知是 string 的名字不再拷一遍）`,
 );
 process.exit(0);

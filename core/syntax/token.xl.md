@@ -2852,6 +2852,29 @@ return false;
 return false;
 ```
 
+## property IsCallUnit:bool
+
+**我这一格自己算不算「一次（或好几层）调用」**（第 1153 轮）——**不是**的一律给 `false`。
+
+判据过去是投影层 `chainOnto` 里的一格**局部箭头函数**（`print-ast-common.xl.md` 的
+`memberIsCall`：名字非空就答 `true`，否则看第一个实义子单元是内层 `Method` 还是实参括号）——
+**两半事实全在这一格自己身上**，所以与 `IsBareCall` / `IsIndexFirstUnit` 同一条口径：
+**基类给默认档、需要它的那一页覆写同一个属性**（`Method.IsCallUnit`，读时现算）。
+
+**它与 `IsBareCall` / `IsCallFirstUnit` 都不是同一问**：`IsBareCall` 要求**名字为空**
+（「裸的一次调用」，第一格还可以是 `NotNull`）；`IsCallFirstUnit` 问的是「**以**一次调用开头」
+（`a!()()[0]` 那一族）；这一格问的是「**这一格自己**就是一次调用单元」——
+名字非空（有名字的 `Method` 本身就是一次成员调用）**或**第一格是内层 `Method` / 实参括号。
+
+**为什么它必须从投影层搬走** ✗：那一格是**写在循环体里的箭头函数**，
+子链每转一圈就多造一个闭包 + 一次 `filter`；而它问的每一半都是这一格自己的事。
+
+### get
+
+```ts
+return false;
+```
+
 ## property IsIndexFirstUnit:bool
 
 **我这一格是不是「以一次下标开头」**（第 1103 轮）——**不是**的一律给 `false`。

@@ -5715,7 +5715,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         const bareKids = k.ProjectableKids;
         const bareHead = bareKids.length > 0 ? bareKids[0] : undefined;
         if (bareHead !== undefined && bareHead.IsMethodNode
-          && String(bareHead.DeclaredName) === ""
+          && bareHead.DeclaredName === ""
           && endOf(bareHead) < endOf(k)) {
           ck.push(k);
           continue;
@@ -6092,7 +6092,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         if (ck[i].IsMethodNode) {
           const callKids = ck[i].ProjectableKids.filter((k: any) => k.IsGenericType === false);
           const callHead = callKids.length > 0 ? callKids[0] : undefined;
-          const bareName = String(ck[i].DeclaredName);
+          const bareName = ck[i].DeclaredName;
           // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：
           // `a!()()` 的产物是 `[NotNull(a), Method(name=""[Method(name="")[Bracket(()), !], Bracket(())])]`
           // ——内层那格 `Method(name="")` 本身就是**第一次调用**，外层这一格是**第二次**。
@@ -6102,7 +6102,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
           // 一次调用，只需把受体换成 `left`（它那一格本来没人填），位置取 `left.pos`；
           // 外层再用 `projectNode(ck[i])` 套一层。
           if (bareName === "" && callHead !== undefined && callHead.IsMethodNode
-            && String(callHead.DeclaredName) === "") {
+            && callHead.DeclaredName === "") {
             // **「最里面那一格」要一路问到底**（第 975 轮，**普查当场红的**）：
             // `a!()()()()`（四次调用）的 `callHead` 是
             // `Method(name=""[Method(name=""[Bracket(())])])`——里面**还套着一格**，
@@ -6263,7 +6263,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // `Method` 自己盖住的是 `m()`，名字只占开头那几个字符。照「名字 + 调用」两件事办：
         // `name` 是一个含 `#` 的 `PrivateIdentifier`（区间到名字末尾），外面再套一层 `CallExpression`。
         if (after.IsMethodNode) {
-          const raw = String(after.DeclaredName);
+          const raw = after.DeclaredName;
           const nameEnd = startOf(after) + raw.length;
           const member = {
             kind: "PropertyAccessExpression",
@@ -6303,7 +6303,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         );
         const head = asserted[0];
         if (head !== undefined && head.IsMethodNode) {
-          const raw = String(head.DeclaredName);
+          const raw = head.DeclaredName;
           const nameEnd = startOf(head) + raw.length;
           const member = {
             kind: "PropertyAccessExpression",
@@ -6344,7 +6344,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // `console.log(1)` 的产物是 `[console, ., Method(name="log")]`——
         // 那个 `Method` 盖住的是 `log(1)`，而**名字**只占开头的几个字符，
         // 所以这里按名字宽度切一段 `Identifier` 出来（TS 的 `Identifier(log)` 正是这一段）。
-        const name = String(next.DeclaredName);
+        const name = next.DeclaredName;
         // **空名字的 `Method` = 「把左边那个值再调一次」**（第 366 轮，**实测撞到的**）：
         // `x.get()()` 的产物是
         // `PropertyAccess{ Identifier(x), ., Method(name="", child=Method(name="get")) }`
@@ -6901,7 +6901,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 `chainOnto` 那一支没有 `?.`）——调用方自己决定。
 
 ```ts
-  const name = String(deepest.DeclaredName);
+  const name = deepest.DeclaredName;
   if (name !== "") {
     const at = startOf(deepest);
     return {
@@ -6953,7 +6953,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // **`?.name(args)`**（第 107 轮）：那一格是一个 `Method`（调用）——先折出带 `?.` 的
   // 属性访问，再把调用套上去（TS：`CallExpression > PropertyAccessExpression(?.)`）。
   if (first !== undefined && first.IsMethodNode) {
-    const nameText = String(first.DeclaredName);
+    const nameText = first.DeclaredName;
     // **被调用者自己带 `!`**（第 852 轮）：`a?.b!()` 里那一格是
     // `Method(name="")[NotNull(b, !), Bracket]`——`?.` 属于 `NotNull` 里面那条链、
     // 断言套在链上、调用在最外面（TS：`CallExpression > NonNull > PropertyAccess(?.)`）。
@@ -7269,7 +7269,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         continue;
       }
       if (member.IsMethodNode) {
-        const nameText = String(member.DeclaredName);
+        const nameText = member.DeclaredName;
         const nameAt = startOf(member);
         // **这一格是「名字为空」的调用单元**（第 964 轮补上这份副本）：
         // `o?.m()().v` 的 NCO 里那一格是
@@ -7559,7 +7559,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
     if (unit.IsMethodNode) {
       const callKids = unit.ProjectableKids.filter((k: any) => k.IsGenericType === false);
       const callHead = callKids.length > 0 ? callKids[0] : undefined;
-      const bareName = String(unit.DeclaredName);
+      const bareName = unit.DeclaredName;
       // **这一格盖着两层（或更多层）调用**（第 966 轮立、第 971 轮按「最里面那一格」补齐）：
       // `a?.b()()()` 的 NCO 里最外面那一格是
       // `Method(name="")[Method(name="")[Method(name="b")]]`——`projectNode(unit)` 对
@@ -7622,7 +7622,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         }
       }
       if (bareName === "" && callHead !== undefined && callHead.IsMethodNode
-        && String(callHead.DeclaredName) === "") {
+        && callHead.DeclaredName === "") {
         // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：`a!()()` 的产物是
         // `[NotNull(a, !), Method(name=""[Method(name=""[Bracket(()), !]), Bracket(())])]`——
         // 内层 `Method(name="")` 本身就是**第一次调用**（它的核是那对实参括号），
@@ -7637,8 +7637,8 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         continue;
       }
       if (bareName === "" && callHead !== undefined && callHead.IsMethodNode
-        && String(callHead.DeclaredName) !== "") {
-        const innerName = String(callHead.DeclaredName);
+        && callHead.DeclaredName !== "") {
+        const innerName = callHead.DeclaredName;
         const innerAt = startOf(callHead);
         const innerMember: any = {
           kind: "PropertyAccessExpression",
@@ -7715,7 +7715,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       next = inner[0];
     }
     if (next.IsMethodNode) {
-      const name = String(next.DeclaredName);
+      const name = next.DeclaredName;
       // **被调用者自己带 `!`**（第 852 轮）：`a?.b!.c!()` 里 `.c!()` 那一格是
       // `Method(name="")[NotNull(c, !), Bracket]`——断言套在**接上 `c` 之后**的那条链上，
       // 调用在最外面。按名字折会投出名字为空的属性访问（实测三处漂），
@@ -7855,16 +7855,13 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
         // `innermostMethod` + `innermostCallee` + `graftCallee`）。
         // **核是 `NotNull` 的那一档让开**：它要按断言折（把 `!` 套在调用结果上），
         // 由 `chainWithOptional` / 本函数别处那几支管——这里只认「纯调用」那三种壳。
-        const memberIsCall = (unit: any): bool => {
-          const name = String(unit.DeclaredName);
-          if (name !== "") return true;
-          const inner = unit.ProjectableKids.filter((k: any) => k.IsGenericType === false);
-          const head = inner.length > 0 ? inner[0] : undefined;
-          if (head === undefined) return false;
-          return head.IsMethodNode
-            || (head.IsParenBracket);
-        };
-        if (member.IsMethodNode && memberIsCall(member)) {
+        // **这一问第 1153 轮搬回被问的那一页了**（用户口径 1.2 / 1.3 / 1.6）：
+        // 原来这里是**循环体里现定义的一个箭头函数**（`memberIsCall`：名字非空 ⇒ `true`，
+        // 否则看第一个实义子单元是内层 `Method` 还是实参括号），子链每转一圈就多造一个闭包
+        // 加一次 `filter`；而它问的两半全在那一格自己身上 ⇒ 今天读 `Method.IsCallUnit`
+        // （基类默认 `false`，见 `typescript/tokens/method.xl.md`）。
+        // 原来那句 `member.IsMethodNode &&` 随之消失：非 `Method` 的 token 拿到的是默认档。
+        if (member.IsCallUnit) {
           if (pendingBang !== undefined) {
             left = {
               kind: "NonNullExpression",
@@ -8301,7 +8298,7 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // **声明名那一格直读 `letView.DeclaredName`**（第 1068 轮）：`fieldName` 是 `Let` 自己
   // `NameField` 回答的那一格事实，而「名字在哪、问不到看哪」两跳都收进了 token 那一页
   // （`core/syntax/token.xl.md` 的 `DeclaredName`）——投影这一侧只读一个字符串属性。
-  const declared = String(letView.DeclaredName);
+  const declared = letView.DeclaredName;
   // **解构声明的名字用产物自己的那个 `ArrayLiteral` / `ObjectLiteral`**（踩过）：
   // 它们就是绑定模式（`ArrayLiteral[6,21]` 与 TS 的 `ArrayBindingPattern[6,22)` 逐格一致），
   // 里面还带着结构化的 `BindingElement`。早先我从源码括号里**另造了一个空壳**，
