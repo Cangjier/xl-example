@@ -347,6 +347,27 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1215 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **标签模板那一格外面套着一层 `!`**；1.2 `ProcessSingle` 的快路（队列空着时不再「先进队再 `shift()`」，**20 趟配对 17:3、mean −112.5ms**）
+
+**一句话**：1.1 把「标签模板 + 后缀」那一族里**同一个根**的 12 条收掉（六种前缀 × 点号 / 下标）；1.2 是这一轮轮到现在**第一笔在墙钟上量得出来的**——尺子换成了**配对差 + 符号检验**，并且先标定过噪声。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 0c 找「装着模板的那一格」时**往里看一层**：`NotNull` 的核（`CoreHead`）是 `PropertyAccess` 且第一格是模板串时也算；接完内核再用 `bangWrapped` 把 `!` 套回整条链外面 | 组合扫描 **39 → 27**（收 12 条、新坏 0） |
+| **1.2** | `ProcessSingle`：**队列空着时就地处理**那一格（不再 `push` + `DrainQueue` 里那次 `shift()`）；非空、以及快路里嵌套 `ProcessAt` 的语义一个字没改 | `shift` 那一格 self time **3.03%** 抹掉；parse **1190.6 → 1132.7 ms** |
+
+**1.1 的现场**：`a`x`.b!` 的产物是 `[Identifier(a), NotNull([PropertyAccess([String(反引号), ., Identifier(b)]), SymbolToken(!)])]`——装着模板的那个 `PropertyAccess` 在 **`NotNull` 的核**里，而 0c 那条判据问的是 `kids[at].IsPropertyAccess` ⇒ 答否、`templateChainAt` 留在 `-1`、**连标签模板本身一起丢**（只有「缺」那一栏响）。这一族一份语料上 12 条：六种前缀（`a` / `f()` / `a[0]` / `a.b` / `(a)` / `this`）× 两种后缀（`.b!` / `[c]!`）。剩下的 27 条是 `X`x`[c](d)` / `X`x`!(d)` / `X`x`!!` / `X`x`!?.[c]` 与 `` X`x``x`.b ``——**token 形状各不相同**（有把 `!` 读成一元单元的、有模板与调用平级的），不是一处能收的，留给下一轮。
+
+**1.2 的现场与读数**：`node --cpu-prof` 的行级读数里 `const item = this.SourceQueue.shift();` 一格 self time **3.03%**（`tmp/r1215-prof`）。而 `ProcessSingle` 是**每个字符一次**：它先 `push`、紧接着 `DrainQueue()` 又 `shift()` 把它取回来——队列绝大多数时候是空的，这一对 push / shift（含快数组上的整体挪动与长度改写）纯粹白做。快路：空着就地处理、非空照旧走队列、嵌套 `ProcessAt` 仍然当场处理、`DrainMessages()` 之后队列若又有了东西再 `DrainQueue`。
+
+**这一笔的墙钟量得出来（同进程交替 + 配对差 + 符号检验，`tmp/r1215-ab3.mjs` 尺子＝CPU 时间）**：20 趟 mean **−112.5ms**、median −78.0ms、**17 : 3**；30 趟 mean **−87.4ms**、median −93.0ms、19 : 10。**墙钟那把尺子**（`tmp/r1215-ab2.mjs`）20 趟 mean **−73.7ms**、median −48.0ms、**15 : 5**。对照第 1214 轮标定的噪声（同一份产物空转：逐趟配对差标准差 ~110–135ms），**17:3 且 mean 是 se 的 4 倍**才算数——这一笔算数。`tmp/r1203-bench.mjs`（best of 5）：parse **1190.6 → 1132.7 ms**、xml 42.5、printAst 107.6。
+
+**1.2 的等价**：`tmp/r1211-sig.mjs` 台账 **1663 份逐字节同答（diff=0）**——这一笔一个形状都没动（它只是不绕那一圈队列）；片段扫描 2124 条仍 **27**。
+
+**净账**：`cases:tsast` **1662** 份（已知缺口 1 条还开着、0 条已经收掉）；`cases:direct` 全语料不抛异常（1663 份）、固定样本通过；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1677** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4283 / 4442 → 4284 / 4443**（新增守卫用例 `tests/cases/token/expressions/expr-r1215-tagged-template-nonnull.ts`，分母 +1、分子 +1；blocked 26、differ 133、bad 0、加权 95.7%）；`xl check`（`core typescript`）**0 条**；`npx tsc`（strict）**0 error**。
+
+**三条 commit**：`2d15d0ee`（1.1 标签模板那一格外面那层 `!`）、`7398a38c`（1.2 `ProcessSingle` 快路）。
+
 ### 第 1214 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **可选链 `?.(…)` 后面那一截的两族**；1.2 `Document.At` 四格备忘（`GetValue` **1066638 → 622992**，−41.6%；**墙钟在噪声里如实记，并把噪声本身也量了一遍**）
 
 **一句话**：1.1 收掉组合扫描里的整个 `oc-*` 族（`X?.(d).b(d)` / `X?.(d)[c](d)` 各 6 条基底共 **12 条**）——根是第 154 轮那一支**自己抄的第二份成员循环**。1.2 沿第 1213 轮那把「按调用点采样」的尺子往下看：`GetValue` 只剩两个读者，其中一个（`Source.Pre()`）读的正是**主循环刚刚读过的那一格**。
