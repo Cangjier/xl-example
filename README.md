@@ -334,6 +334,37 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1043 轮：清掉 `print-ast-common` 里最后一格死代码与三层间接（104 格声明 → 100）——**八道门全绿、读数一处没动**
+
+**一句话**：第 1041 / 1042 两轮把答案搬到 token 上之后，这一轮回头把 `print-ast-common` 自己
+**用不到的东西**删干净：一格真正的死代码、两层只服务一处的间接、三处「这一格有没有这个方法」
+的兜底——它们问的都是**基类上一定有**的东西，或者只是把一次调用拆成两次。
+
+- **死代码 `textOf` 删掉**：它全仓**一个消费者都没有**（只出现在两条注释里）。这一轮的清法是
+  **去掉注释与字符串之后再建调用图**（第 1026 轮那次是按字面引用数，注释里的名字会造成假边）：
+  以「外部真实引用（`projectRoot` / `ToJsonText`）+ `export { … }`」为入口做可达性分析，
+  104 格声明里只有它不可达。⇒ 死代码的判据从此是**可达性**，不是「名字出现过几次」。
+- **两层只服务一处的间接并掉**：
+  - `segmentNameOf`（只被 `fieldNameFor` 调用）**并进 `fieldNameFor`**——投影里读段名表只有
+    这一次，「同一件事一处读法」；
+  - `wrapperTarget` / `bodyFieldOf` 各只有一个调用点（`structuralProps` 的段循环），而那个循环
+    已经判过 `x instanceof Token` ⇒ 直接写 `x.WrapperField()` / `x.BodyField(kind)`。
+    两格**仍是方法**的理由（`GenericType` / `Bracket` 要按自己的子单元与 `startBracket` 现场判；
+    `BodyField` 要拿调用方的 `parentKind`）搬进了调用点的注释里，没有丢。
+- **三处兜底删掉**（`typeof … === "function"`）：`tokenNameOf` 的 `NameField`、
+  `functionContextOf` 的 `FunctionFlags`、以及 `projectNode` 入口那一层 `if (typeof owner.PrintDirectAst
+  === "function")`。问的都是「这一格有没有这个方法」，而这三格都是**基类上的方法、每个 token 都有**
+  ——那一问没有第二个答案。`projectNode` 因此少一层嵌套（`owner.PrintDirectAst(ctx, v)` 直调，
+  `ctx.Nothing` / `undefined` 两条分流照旧）。
+- **结果**：本文件 `# const` / `# method` 声明 **104 → 100 格**，可达性仍是「从入口全部可达」；
+  **仍是方法的四格**（`NameField` / `WrapperField` / `BodyField` / `FunctionFlags`）连同各自
+  「为什么不能是属性」的理由写进了页首那一栏——判据是**答案在不在这一格自己身上、什么时候定下来**：
+  在构造（或记下那个事实）那一刻就在的收成属性；要读子单元、要父亲、要解析期文本的留成方法。
+- **实测**：`xl check` 182 份 0 错 0 警；`xl build` 1 写出 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 33.2s），读数逐项与基线相同（`coverage` 4260 / 4422、
+  `blocked 28` / `differ 134`、`cases:tsast` 3 条已知缺口、`cases:direct` 1640 份不抛异常、
+  `direct:lint` 0 条违反、`samples` 逐字节一致、`cases:check` 1656 / 1656、执行侧 243 / 243 与 79 / 79）。
+
 ### 第 1042 轮：`IsStatementNode` / `EndsOnBrace` / `StatementKind` / `StatementField` 也改成**构建时赋好的属性**——**派生属性在「那个事实被记下来」的那一刻赋**，八道门全绿、读数一处没动
 
 **一句话**：第 1041 轮把八族常量答案改成了属性，剩下这几族里有一半是常量、另一半是**由本页自己的

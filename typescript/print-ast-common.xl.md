@@ -126,10 +126,31 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 `TypeMemberPlan` 这八格**从方法改成了属性**：各具体类在自己那一页**显式声明同名属性**、
 **构造时就赋好值**（`## field`），投影只按属性名读一次——不再有 `typeof … === "function"`
 那种「有没有这一格」的兜底。答案本来就是**构造时定下来的一格数据**，不是现场计算，
-所以它不该长成一个要点一下才有的东西。**仍需现场算的那几格仍是方法**（`NameField` /
-`WrapperField` / `BodyField` / `FunctionFlags` / `StatementKind` / `StatementField` /
-`EndsOnBrace` / `IsStatementNode`）——它们要读**解析期才定下来**的东西（名字文本、子单元的形状、
-词的正文），构造那一刻还没有。形态与理由写在 `core/syntax/token.xl.md` 的 `SegmentNames` 一节。
+所以它不该长成一个要点一下才有的东西。形态与理由写在 `core/syntax/token.xl.md` 的
+`SegmentNames` 一节。
+
+**第 1042 轮把「解析期才定下来」的那几族也收了进来**，规矩因此完整成两条
+（下文说「属性」时都指这两条）：
+
+1. **常量答案在构造时赋**（`## field NAME:TYPE = 值`）：`IsStatementNode` / `EndsOnBrace`
+   那一族（各体、各语句节点、各裸块自己答 `true`）；
+2. **派生答案在「那个事实被记下来的那一刻」赋**：`Keyword` 的
+   `KeywordKind` / `StatementKind` / `StatementField` / `IsStatementNode` 是 `Value` 的函数
+   ⇒ 都在 `Keyword.SetValue(text)` 里同一趟赋好；`Bracket` 的 `EndsOnBrace` 是 `startBracket`
+   的函数 ⇒ 在 `Use` 里同一趟赋好。赋值点与它派生的那个事实**同页、同趟**，两格不会各说各话。
+
+**仍是方法的四格，以及各自的理由**（这一栏是给下一位读者的，免得把「还没搬」与「搬不动」混起来）：
+
+- `NameField()`：名字的**文本**要等解析期认下那个名字才有（而且来源不止一个字段：
+  `name` / `fieldName` / `namespace`）——它是那一页那一格的读取口，不是构造时的常量；
+- `WrapperField()`：`GenericType` 要按**自己的子单元**现场判（是 `<T,U>` 的括号段还是
+  `Array<T>` 的实参段）、`Bracket` 要按自己的 `startBracket` 判，答案不是一格常量；
+- `BodyField(parentKind)`：`Namespace` 的两态只有「**父亲投成了什么**」分得开——那个事实
+  根本不在这一格自己身上，所以它必须由调用方递进来；
+- `FunctionFlags()`：生成器的 `*` 记号与 `async` 词都在**子单元/属性**里，要现场读。
+
+⇒ 判据不是「它长得多像一个问题」，而是**答案在不在这一格自己身上、以及什么时候定下来**：
+在构造（或记下那个事实）那一刻就在的，收成属性；要读子单元、要父亲、要解析期文本的，留成方法。
 
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
@@ -289,7 +310,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 ```ts
   if (node === null || node === undefined) return undefined;
-  const own = typeof node.NameField === "function" ? node.NameField() : undefined;
+  const own = node.NameField();
   if (typeof own === "string" && own !== "") return own;
   return node.name;
 ```
@@ -380,13 +401,6 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   const value = node.value;
   if (typeof value === "string") return value;
   return ctx.source.slice(node.start, node.end);
-```
-
-# private method textOf:(v:any, ctx:any)=>string
-
-```ts
-  if (typeof v.value === "string" && v.value !== "") return v.value;
-  return ctx.source.slice(v.start, v.end);
 ```
 
 # private method projectString:(v:any, ctx:any)=>any
@@ -487,40 +501,20 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   };
 ```
 
-# private method segmentNameOf:(node:any, kind:string | undefined, key:string)=>string | undefined
-
-**问一个单元：这一格在你投出来的那个节点里叫什么**（第 988 轮）。
-
-`SegmentNames` 是 token 自己声明的那一格（见 `core/syntax/token.xl.md`），形状是
-`Map<节点名, Map<段名, 字段名>>`。这里只是**读这一个单元自己那一格属性**。
-
-**第 1041 轮起它是属性、不是方法**：那一页在构造时就把这张表赋好（`## field SegmentNames`），
-所以这里**直接读**——没有「有没有这一格」那一问，也不再有 `typeof … === "function"` 的兜底。
-
-**两个节点名都要试**（先 `kind`、再单元自己的标签名）：通用支拿到的 `kind` 是**父节点**的名字，
-而**包装节点**（`FunctionBody` / `ReturnType` / `GenericType`…）是**自己**投成节点的，
-字段名也归自己。顺序是「先父后己」，与搬家前那张按 kind 查的中央表逐条等价。
-
-```ts
-  if (node === null || node === undefined) return undefined;
-  const table = node.SegmentNames;
-  if (!(table instanceof Map) || table.size === 0) return undefined;
-  const tag: any = typeof node.Tag === "function" ? node.Tag() : undefined;
-  for (const name of kind === undefined ? [tag] : [kind, tag]) {
-    const inner = table.get(name);
-    if (!(inner instanceof Map)) continue;
-    const field = inner.get(key);
-    if (typeof field === "string") return field;
-  }
-  return undefined;
-```
-
 # private method fieldNameFor:(kind:string, key:string, node?:any)=>string
 
 `children` / 分段名 → TS 那边的字段名。**问这一格的主人，问不到就用原名**。
 
-**首选问单元自己**（第 988 轮）：`SegmentNames` 就住在那个 token 上（见 `segmentNameOf`）——
-段名是它自己的事实，所以投影只读。**第 989 轮把能搬的都搬完了**：那张按 kind 查的中央表
+**首选问单元自己**（第 988 轮）：`SegmentNames` 就住在那个 token 上，段名是它自己的事实，
+所以投影只读：读那一格属性（第 1041 轮起它是**构造时就赋好的属性**，不是方法），
+先按**父节点名**（`kind`）试、再按**这一格自己的标签名**试——包装节点
+（`FunctionBody` / `ReturnType` / `GenericType`…）是**自己**投成节点的，字段名也归自己，
+顺序「先父后己」与搬家前那张按 kind 查的中央表逐条等价。查不到就 `?? key` 用原名。
+
+**第 1043 轮把 `segmentNameOf` 并了进来**：它只服务这一格（投影里唯一一次「读段名表」就是
+这里），拆成两个声明只是多一层间接——**同一件事一处读法**。
+
+**第 989 轮把能搬的都搬完了**：那张按 kind 查的中央表
 （`FIELD_BY_KIND`）从 41 档缩到 4 档。
 
 **最后那四档第 1032 轮整张删掉了**，四档的归宿各不一样（都是一次一句的读法，不是改口径）：
@@ -540,37 +534,17 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 所以这一格今天只剩「问单元自己」一次：**谁切的段、谁答段名**，投影不再存第二份。
 
 ```ts
-  const own = node === undefined ? undefined : segmentNameOf(node, kind, key);
-  return own ?? key;
-```
-
-# private method wrapperTarget:(node:any)=>string | null | undefined
-
-这个子单元是不是**包装**（该把内容提上去），是的话返回到哪个字段——**问它自己**
-（`WrapperField`，见 `core/syntax/token.xl.md`）。
-
-**三种答案**：字段名（提到那一格）、`null`（并进父节点的 `children`）、`undefined`（不是包装）。
-`null` 与 `undefined` 必须分开：合成一个值会让分组括号变成节点，或者让块被摊平
-（后者是静默错值——块里的语句会被并到父节点语句表的末尾，顺序与源码相反）。
-
-```ts
-  if (node === null || node === undefined) return undefined;
-  return typeof node.WrapperField === "function" ? node.WrapperField() : undefined;
-```
-
-# private method bodyFieldOf:(node:any, parentKind:string)=>string | undefined
-
-这个子单元是不是**体**（该把父节点上的字段改个名字），是的话返回那个字段名——**问它自己**
-（`BodyField`，见 `core/syntax/token.xl.md`）。
-
-**与 `wrapperTarget` 的分工**：这一格问「**我自己是节点**、字段改名」，`wrapperTarget` 问
-「**我不出节点**、内容提上去」。两者不能合成一条：合成会让体被摊平（静默错值）或让包装变成节点。
-
-**`parentKind` 要一路递过去**：`Namespace` 的两态只有「父亲投成了什么」分得开。
-
-```ts
-  if (node === null || node === undefined) return undefined;
-  return typeof node.BodyField === "function" ? node.BodyField(parentKind) : undefined;
+  if (node === undefined) return key;
+  const table = node.SegmentNames;
+  if (!(table instanceof Map) || table.size === 0) return key;
+  const tag: any = node.Tag();
+  for (const name of kind === undefined ? [tag] : [kind, tag]) {
+    const inner = table.get(name);
+    if (!(inner instanceof Map)) continue;
+    const field = inner.get(key);
+    if (typeof field === "string") return field;
+  }
+  return key;
 ```
 
 # private const startOf:(node:any)=>int = (node) => node.start
@@ -614,7 +588,10 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   while (cursor !== null && cursor !== undefined) {
     // **这一格自己答**（第 1031 轮）：不是函数体的页面答 `undefined`（基类那一格），
     // 是函数体的那三页各答 `{ generator, async }`——「哪些类是函数体」不再由投影记第二遍。
-    const flags = typeof cursor.FunctionFlags === "function" ? cursor.FunctionFlags() : undefined;
+    // **第 1043 轮起直调**（`typeof … === "function"` 那一层兜底删掉了）：沿链走的每一格
+    // 都是一个 token，函数体那一格是基类上的一格方法（要现场读自己的子单元与属性，
+    // 所以**仍是方法**，不是属性）。
+    const flags = cursor.FunctionFlags();
     if (flags !== undefined) {
       return flags;
     }
@@ -756,34 +733,36 @@ token（第 1018 轮起没有 `view` / `__token` 那一层），它的 `Parent` 
   // 现在这一格只有这一个入口：`PrintDirectAst` 答 `undefined` 直接落通用支。
   // **老名字不再出现在这一页的理由里**：`PrintAst` 已经不存在了，
   // 再写它只会让读者去索引一个查不到的方法。
+  //
+  // **第 1043 轮：那一问也不需要了**——`node` 就是一个 token（第 1018 轮起接收者只有这一种），
+  // 而 `PrintDirectAst` 是基类上的一格方法、每一页都有，所以「它有没有这一格」不是一个问题；
+  // 少一层 `if` 就少一处「两份读法」的余地。
   const owner: any = node;
-  if (typeof owner.PrintDirectAst === "function") {
-    const own = owner.PrintDirectAst(ctx, v);
-    // **`ctx.Nothing` 表示「这一格故意不出节点」**（见 `NOTHING` 的说明）：
-    // 与 `undefined`（＝没覆写、请走通用支）是两回事。
-    if (own === ctx.Nothing) return undefined;
-    if (own !== undefined) {
-      ctx.direct++;
-      return own;
-    }
-    // **直出版「回落到形状」那一格**（第 1002 轮）：声明族的直出版算完 kind 之后
-    // 要**自己**把形状造出来，而那件事与通用支是同一份实现（`projectDeclaration`）——
-    // 于是它经 `ctx.Declaration` 转回来。这里必须**跳过 `PrintDirectAst` 那一问**，
-    // 否则「自己问自己」：直出版 → 回落 → 又问直出版 → … 无限递归。
-    //
-    // **为什么是「换成局部闭包」而不是一个布尔标记**：这个回落只对**这一格**成立——
-    // 直出版回落之后要走的那条路会去投它的**子节点**，而那些子节点各有自己的直出版、
-    // 必须照常被问。闭包只认自己那一格（**参数只有节点**，`ctx` 已经闭在里面），
-    // 于是「只跳这一问、不跳后面的」是结构上的事；换成标记就得额外管一层栈。
-    const awaiting = ctx.awaitingDeclaration;
-    let made;
-    try {
-      made = awaiting === undefined ? undefined : awaiting(v);
-    } finally {
-      ctx.awaitingDeclaration = undefined;
-    }
-    if (made !== undefined) return made;
+  const own = owner.PrintDirectAst(ctx, v);
+  // **`ctx.Nothing` 表示「这一格故意不出节点」**（见 `NOTHING` 的说明）：
+  // 与 `undefined`（＝没覆写、请走通用支）是两回事。
+  if (own === ctx.Nothing) return undefined;
+  if (own !== undefined) {
+    ctx.direct++;
+    return own;
   }
+  // **直出版「回落到形状」那一格**（第 1002 轮）：声明族的直出版算完 kind 之后
+  // 要**自己**把形状造出来，而那件事与通用支是同一份实现（`projectDeclaration`）——
+  // 于是它经 `ctx.Declaration` 转回来。这里必须**跳过 `PrintDirectAst` 那一问**，
+  // 否则「自己问自己」：直出版 → 回落 → 又问直出版 → … 无限递归。
+  //
+  // **为什么是「换成局部闭包」而不是一个布尔标记**：这个回落只对**这一格**成立——
+  // 直出版回落之后要走的那条路会去投它的**子节点**，而那些子节点各有自己的直出版、
+  // 必须照常被问。闭包只认自己那一格（**参数只有节点**，`ctx` 已经闭在里面），
+  // 于是「只跳这一问、不跳后面的」是结构上的事；换成标记就得额外管一层栈。
+  const awaiting = ctx.awaitingDeclaration;
+  let made;
+  try {
+    made = awaiting === undefined ? undefined : awaiting(v);
+  } finally {
+    ctx.awaitingDeclaration = undefined;
+  }
+  if (made !== undefined) return made;
   // **尾部 trivia 一律剪掉**：TS 的节点 `end` **从不含尾部 trivia**，而本工程的区间常常含
   // （语句行尾的软换行、正则字面量后面的换行…）。第 23 轮只修了语句族，实测还漏着
   // 正则（`Δ1`）等零散几类——所以这里**不再按 kind 白名单**，改成统一剪：
@@ -9105,12 +9084,20 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       // 所以投影只读它——与下面那格「包装提层」是同一手法（都问子单元自己那一格事实）。
       // **父亲投成了什么要一起递进去**：`Namespace` 的两态（点号命名空间的内层 vs
       // 命名空间体里的一条语句）只有它分得开，判据住在那一页（`namespace.xl.md`）。
-      const body = bodyFieldOf(x, kind);
+      // **第 1043 轮起这里直调**（`bodyFieldOf` 那一层间接删掉了）：进来的 `x` 上面刚判过
+      // `instanceof Token`，所以「这一格有没有 `BodyField`」不是一个问题——它是基类上的一格
+      // 方法（要带 `parentKind` 现场分档，所以**仍是方法**，不是属性）。
+      const body = x.BodyField(kind);
       if (body !== undefined) {
         props[body] = projectNode(x, ctx);
         continue;
       }
-      const target = wrapperTarget(x);
+      // **包装提层**（见 `Token.WrapperField`）：三种答案——字段名（提到那一格）、
+      // `null`（并进父节点的 `children`）、`undefined`（不是包装）。后两者**必须分开**：
+      // 合成一个值会让分组括号变成节点，或者让块被摊平（后者是静默错值——块里的语句会被
+      // 并到父节点语句表末尾，顺序与源码相反）。**同一理由：这一格仍是方法**——`GenericType`
+      // 要按自己的子单元现场判、`Bracket` 按自己的 `startBracket` 判，答案不是构造时的一格常量。
+      const target = x.WrapperField();
       if (target === undefined) {
         kept.push(x);
         continue;
