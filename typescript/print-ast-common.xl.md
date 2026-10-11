@@ -74,14 +74,21 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**56 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-52 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**54 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+50 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 3 个名字**（`projectNode` /
 `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），其余一律 `# private`。
 **量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 （`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
 （第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
+**第 1104 轮收掉的是两格「只有一个真实调用点、而且读的就是调用点手上那一份」的格**
+（尺子与第 1100 ~ 1102 轮同一把，只是这两格的读者**在本页之内**）：
+`angleAssertionLength`（52 行，唯一读者 `foldBinaryFrom` 里那一处，而且是**同一格问两次**——
+实现整段搬成那个循环前面的一段 `const`，两问收成一问）与
+`kindsInAst`（23 行，唯一读者 `projectRoot` 报 `unmapped` 之前那次对账，而它读的正是
+**刚造出来的 `ast`**——实现搬成那两行前面的一段局部递归 `collectKinds`，`out` 这个形参随之消失）；
+两格的判据一条没改、说明跟着实现走。
 **第 1103 轮收掉的是两格「现场判据」**：`IsIndexFirstUnit`（31 行）与 `IsCallFirstUnit`（104 行）
 ——两格都**只问「这一格自己长什么样」**（读 `Tag` / `IsIndexBracket` / `ProjectableKids` 再递归问
 头一格），所以按第 1090 ~ 1099 轮那把尺子（「这一格是不是某一类」由被问的那一页答）搬回各页：
@@ -513,7 +520,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 | `ComputedNameUnit`（计算名那个 `ArrayLiteral`） | 本页 `memberNameOf` | **就地展开**进 `memberNameOf`（见那一节），本页少一格声明 |
 | `TrailingSemicolonOf`（末尾那个 `;` 落在谁里面） | 本页 `projectEach` | 出口删掉，实现留在本页 |
 | `SpecifierNameOf`（一个名字单元 → `StringLiteral` / `Identifier`） | 本页 `namedSpecifiersOf` 两处 | 出口第 1070 轮删掉、实现**第 1080 轮就地展开**（判据与记录见那一节） |
-| `KindsInAst`（把投影出来的 `kind` 收进一个集合） | 本页 `projectRoot` | 出口删掉，实现留在本页 |
+| `KindsInAst`（把投影出来的 `kind` 收进一个集合） | 本页 `projectRoot` | 出口删掉、实现**第 1104 轮就地展开**（`collectKinds`，判据与记录见那一节） |
 
 - **为什么这五个该删**：`ctx` 是**跨页**的那条路（`PrintDirectAst` 拿不到本文件的 import，
   只能经它转调），而每一页自己在用的名字**个个都有本页之外的读者**——只有这五个是
@@ -3367,7 +3374,7 @@ new Set([
       // **这一格不能交回 `foldBinaryFrom` 去折**（实测）：那个函数的 `rest` 是**原始单元**
       // （`Map`，它按 `k.Tag` 问类型），而这里要交给它的是一个**已经投好的节点**
       // ——折到那一格会当场 `TypeError: opener.get is not a function`
-      //（`angleAssertionLength` 对着一格普通对象问 `.get`）。
+      //（`angleAssertionLength` 那一格当时对着一格普通对象问 `.get`）。
       //
       // 所以这里自己把这一层二元折出来（与 `foldBinaryFrom` 的二元那一支同一个形状：
       // `pos` 取左操作数、`end` 取右操作数），尾巴上还有运算符（`as` 那种）时才交回它。
@@ -7434,6 +7441,52 @@ new Set([
     if (commaAt < rest.length) return foldBinaryFrom(assigned, rest.slice(commaAt), ctx);
     return assigned;
   }
+  // **从 `at` 起是不是一个「平的尖括号断言」**（`<T>操作数`）：是的话返回它有多长，
+  // 不是就返回 `0`（第 379 轮；第 1104 轮从本页那一格 helper 就地搬进这里——
+  // 全仓只有下面那一处真实调用点，而且是**两次问同一格**）。
+  //
+  // `x < <number>y` 里的第二个 `<` 在产物里是**平的符号**（它不在表达式的最开头，
+  // 所以 token 层没把它收成 `GenericType`——第 379 轮把「运算符之后」那一档也放行了，
+  // 于是现在多半已经收起来了，可**收不起来的那些**（后继闸没过）仍然会走到这里）。
+  // 把它当成比较运算符就会切出空的右操作数 ⇒ 折出一个没有 `right` 的节点。
+  //
+  // **判据只看形状**：`<`、配对到 `>`、`>` 后面**还有一格操作数**（前缀运算符可以连着几格）。
+  // **「这个 `<` 前面有没有左操作数」由调用方判**（那一格信息只有它手上有）。
+  const angleAssertionLength = (kids: Array<any>, at: int): int => {
+    if (at >= kids.length) {
+      return 0;
+    }
+    const opener = kids[at];
+    if (opener.IsSymbolToken === false || opener.TextValue !== "<") {
+      return 0;
+    }
+    let depth = 0;
+    let close = -1;
+    for (let i = at; i < kids.length; i++) {
+      const text = kids[i].IsSymbolToken ? kids[i].TextValue : "";
+      if (text === "<") {
+        depth += 1;
+      } else if (text === ">") {
+        depth -= 1;
+        if (depth === 0) {
+          close = i;
+          break;
+        }
+      }
+    }
+    // **`<T>` 里至少要有一样东西，后面至少要跟着一格操作数**（`< > x` 那种空段不算）。
+    if (close <= at + 1 || close + 1 >= kids.length) {
+      return 0;
+    }
+    let operandEnd = close + 1;
+    while (operandEnd < kids.length && kids[operandEnd].IsPrefixOperatorUnit) {
+      operandEnd += 1;
+    }
+    if (operandEnd >= kids.length) {
+      return 0;
+    }
+    return operandEnd + 1 - at;
+  };
   let node = left;
   let i = 0;
   while (i + 1 < rest.length) {
@@ -7456,8 +7509,11 @@ new Set([
       // **只在操作数位置上认**：`k` 前面那一格是运算符（或它就是这一段的第一格）
       // ⇒ 这个 `<` 前面**没有左操作数** ⇒ 只可能是断言。
       // 比较式 `a < b < c` 的第二个 `<` 前面是 `b`（一个名字）⇒ 这里不跳，照旧切段。
-      if ((k === 0 || rest[k - 1].IsOperatorUnit) && angleAssertionLength(rest, k) > 0) {
-        k += angleAssertionLength(rest, k) - 1;
+      // **这一格只问一次**（第 1104 轮）：原来连着问两遍同一格（判据 + 跳长），
+      // 现在是搬进来的那份实现在这里读一次。
+      const assertion = angleAssertionLength(rest, k);
+      if ((k === 0 || rest[k - 1].IsOperatorUnit) && assertion > 0) {
+        k += assertion - 1;
         continue;
       }
       if (rest[k].IsOperatorUnit && rest[k].OperatorRank <= rank) {
@@ -7479,59 +7535,6 @@ new Set([
     i = stop;
   }
   return node;
-```
-
-# private method angleAssertionLength:(kids:Array<any>, at:int)=>int
-
-**从 `at` 起是不是一个「平的尖括号断言」**（`<T>操作数`），是的话返回它有多长；
-不是就返回 `0`（第 379 轮）。
-
-**为什么需要它**：`x < <number>y` 里的第二个 `<` 在产物里是**平的符号**
-（它不在表达式的最开头，所以 token 层没把它收成 `GenericType`——
-第 379 轮把「运算符之后」那一档也放行了，于是**现在多半已经收起来了**，
-可**收不起来的那些**（后继闸没过）仍然会走到这里）。
-把它当成比较运算符就会切出空的右操作数 ⇒ 折出一个没有 `right` 的节点
-（实测 `ast node BinaryExpression has no child right`）。
-
-**判据只看形状**：`<`、配对到 `>`、`>` 后面**还有一格操作数**
-（前缀运算符可以连着几格，与断言那一支同一口径）。
-**「这个 `<` 前面有没有左操作数」由调用方判**（那一格信息只有它手上有）——
-所以这里不做位置判断，只回答「这一组长得像不像断言」。
-
-```ts
-  if (at >= kids.length) {
-    return 0;
-  }
-  const opener = kids[at];
-  if (opener.IsSymbolToken === false || opener.TextValue !== "<") {
-    return 0;
-  }
-  let depth = 0;
-  let close = -1;
-  for (let i = at; i < kids.length; i++) {
-    const text = kids[i].IsSymbolToken ? kids[i].TextValue : "";
-    if (text === "<") {
-      depth += 1;
-    } else if (text === ">") {
-      depth -= 1;
-      if (depth === 0) {
-        close = i;
-        break;
-      }
-    }
-  }
-  // **`<T>` 里至少要有一样东西，后面至少要跟着一格操作数**（`< > x` 那种空段不算）。
-  if (close <= at + 1 || close + 1 >= kids.length) {
-    return 0;
-  }
-  let operandEnd = close + 1;
-  while (operandEnd < kids.length && kids[operandEnd].IsPrefixOperatorUnit) {
-    operandEnd += 1;
-  }
-  if (operandEnd >= kids.length) {
-    return 0;
-  }
-  return operandEnd + 1 - at;
 ```
 
 # private method projectLetFrom:(kids:Array<any>, ctx:any, container:any)=>Array<any>
@@ -8582,7 +8585,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 实参属于 `TypeQuery`（与第 113 轮那条「点号名 + 类型实参」同一口径）。
   // **递归只管往左走到名字那一格**（它已经把 `query.exprName` 写好了），所以这里
   // **不能**把它的返回值再赋给 `exprName`——那个返回值就是 `query` 自己，
-  // 赋值会当场造出一个自环（实测 `kindsInAst` 报 `Maximum call stack size exceeded`）。
+  // 赋值会当场造出一个自环（实测 `collectKinds` 报 `Maximum call stack size exceeded`）。
   if (node.kind === "TypeReference") {
     const absorbed = absorbIntoTypeQuery(node.typeName, query, name);
     if (absorbed === undefined) return undefined;
@@ -9629,30 +9632,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return projectStatement(rest, ctx);
 ```
 
-# private method kindsInAst:(node:any, out:Set<string>)=>void
-
-把一棵投影出来的 AST 里的 **`kind` 名**收进 `out`（只认节点：有 `kind` 字段的对象）。
-
-用途只有一个：`projectRoot` 报 `unmapped` 之前拿它**对一次账**（见下面那一节）。
-
-```ts
-  if (node === null || typeof node !== "object" || !("kind" in node)) {
-    return;
-  }
-  out.add(node.kind);
-  for (const key of Object.keys(node)) {
-    if (key === "kind" || key === "pos" || key === "end" || key === "text") {
-      continue;
-    }
-    const value = node[key];
-    if (Array.isArray(value)) {
-      for (const item of value) kindsInAst(item, out);
-    } else {
-      kindsInAst(value, out);
-    }
-  }
-```
-
 # method projectRoot:(exported:Array<any>, source:string)=>any
 
 投影整棵树 → `ts.createSourceFile` 同形的单根节点。
@@ -9677,7 +9656,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 **第 1013 轮删掉了第三个参数 `useDirect`**：它原来是「要不要优先问 `PrintDirectAst`」的开关，
 而 `PrintAst` 那条老路与它的派发分支已经整条删除——这一趟只有一条路，开关没有第二种取值。
 
-**为什么末尾要拿 `kindsInAst` 对一次账**（第 199 轮）：`ctx.unmapped.add(v.type)` 记在
+**为什么末尾要拿那把对账的尺子（`collectKinds`；第 1104 轮前是本页的 `kindsInAst`）对一次账**（第 199 轮）：`ctx.unmapped.add(v.type)` 记在
 `projectNode` 的通用支里，而**有些调用点只是「问一下」这个子单元能投出什么**——
 结果被调用方丢掉、根本不落进 AST（实测全语料 9137 处这样的访问，散布在 48 个文件里；
 最典型的是各种参数括号 `(a, b)`：投影总是先问一遍再自己摊平）。
@@ -10157,8 +10136,28 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   };
   // **只报真的透传进产物的那一批**（第 199 轮）：`ctx.unmapped` 里混着「投影只是问了一下、
   // 结果被调用方丢掉」的标签（见上面那一节的实测数），拿产物自己的 `kind` 集合对一次账就干净了。
+  //
+  // 对账那把尺子就地收在这里（第 1104 轮）：它全仓只有这一处真实调用点，而它读的正是
+  // **刚造出来的 `ast`**——所以不必占本页一格声明（原来是 `kindsInAst`）。
   const landed: Set<string> = new Set<string>();
-  kindsInAst(ast, landed);
+  const collectKinds = (node: any): void => {
+    if (node === null || typeof node !== "object" || !("kind" in node)) {
+      return;
+    }
+    landed.add(node.kind);
+    for (const key of Object.keys(node)) {
+      if (key === "kind" || key === "pos" || key === "end" || key === "text") {
+        continue;
+      }
+      const value = node[key];
+      if (Array.isArray(value)) {
+        for (const item of value) collectKinds(item);
+      } else {
+        collectKinds(value);
+      }
+    }
+  };
+  collectKinds(ast);
   return {
     ast,
     unmapped: [...ctx.unmapped].filter((tag) => landed.has(tag)).sort(),
