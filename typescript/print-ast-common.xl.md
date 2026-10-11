@@ -2445,49 +2445,14 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   return Array.isArray(raw) ? raw.filter((x) => x instanceof Token) : [];
 ```
 
-# private method allKids:(v:any)=>Array<any>
-
-**这一格下面所有的子单元**：自己声明的那些段（`children` 除外）先收，`children` 最后收——
-段名与顺序都来自**这一页自己声明的那一格**（`v.Segments`，第 1065 轮：
-口径见 `core/syntax/token.xl.md` 的 `Segments`），不是投影反射出来的。
-
-**第 1067 / 1072 / 1086 三轮把它在代码块里的真读者收成 3 处、第 1149 轮再收成 1 处**——
-最后那一处问的是同一件事：「**含 trivia 的完整子单元表**」（`allKids` 不过滤，
-`Token.ProjectableKids` 过滤 `IsInvisible`；这是两件事）：
-
-| 谁（代码块内 1 处） | 为什么要含 trivia 的那一份 |
-| --- | --- |
-| `stmtEndOf` 里那段收尾 trivia（**第 1117 轮就地展开**，原来是单独一格 `trailingTriviaStart`） | 它找的正是注释（`k.IsCommentUnit`，第 1085 轮） |
-
-- **第 1149 轮少掉的那一处**是 `projectEach` 里「这一格末尾那个 `;` 是不是落在注释里」——
-  它连 `ctx.source` 一起收进了**被问的那一格**（`core/syntax/token.xl.md` 的
-  `Token.TrailingSemicolonAt`，读数记在那一页）：那一问的每一件事实都是那一格自己的
-  （末字符读自己的 `Text`、有没有被盖住读自己的 `AllKids`），投影这一侧只剩一次属性读。
-  **注意它不是「投影不能用 `allKids`」**：那一页答这一问时读的是 `Token.AllKids`（同一批
-  子单元，只是长在 token 上），所以本页那一格 helper 少一个读者、`AllKids` 那个 getter
-  多一个读者——两边的构造次数逐次相同。
-  另一处 `astNode` 开头「跳过前导注释」**在这一轮之前就已经不是本页 helper 的读者**了
-  （第 1141 轮起读 `Token.ProjectionStart`），所以这里只少了这一处。
-- **量法**：逐行判行首三反引号进出围栏，只在**围栏内**数 `allKids(` —— **5 处，其中 4 处是
-  `//` 注释行**（记的是第 1067 / 1072 / 1073 / 1149 轮那几笔账），真正的调用 **1 处**。
-  **投影要的数**是「会进投影的子单元」，而那一格由 token 自己答（`Token.ProjectableKids`）——
-  第 1067 轮把「顺手拿完整子单元表遍历一遍」的那批调用点全改成了属性读，
-  第 1072 轮又收掉 `projectDeclaration` 的未映射透传支，**第 1086 轮收掉最后一处
-  `addDecorators`**（第 1067 轮那一批漏下的）：那一处找的 `Decorator` **不是** trivia，
-  两条路逐处同答（量法见 `addDecorators` 那一节）。
-- **这一节原来写着「它只服务 `trailingTriviaStart`，因为 `addDecorators` 问的正是有没有装饰器」
-  ——两半都过时了**：`addDecorators` 那一格当时读的仍是 `allKids(v).filter(…)`
-  （**说明与代码不一致**，第 1072 轮已如实记下），第 1086 轮把**代码改成与说明一致**。
-
-```ts
-  const out = [];
-  for (const key of v.Segments) {
-    if (key === "children") continue;
-    for (const x of kidsOf(v, key)) out.push(x);
-  }
-  for (const x of kidsOf(v, "children")) out.push(x);
-  return out;
-```
+**`# private method allKids` 第 1162 轮整格删掉了**（用户口径 1.2 / 1.3 / 1.6 / 1.7）。
+它原来是「本页那一份『含 trivia 的完整子单元表』」（各段 + `children`、逐段滤 `instanceof Token`），
+第 1067 / 1072 / 1086 三轮把「顺手拿完整表遍历一遍」的调用点全改成属性读（`Token.ProjectableKids`）、
+第 1149 轮再少一个读者之后，**最后一个读者就是 `stmtEndOf` 里那段收尾 trivia**。
+第 1162 轮那一趟整段搬进了被问的那一格（`Token.ProjectionEnd` + `Token.TrailingTriviaStart`），
+`stmtEndOf` 只剩「token 读一次属性 + 给合成语句视图留的兜底支」，而兜底支问的是
+**子单元自己**（`k.TrailingTriviaStart(end)`）——于是这一格 helper 一个读者都没有了。
+**量法**：围栏内数 `allKids(` —— **0 处**（曾经 1 处调用 + 4 处注释）。
 
 **`projectString` 第 1073 轮整格删掉了**（连同 `ctx` 上那个 `Template` 出口）。
 它原来是「字符串 → `StringLiteral` / `NoSubstitutionTemplateLiteral` / 模板字面量」那一格，
@@ -3412,9 +3377,28 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
 注意**不能顺手剪分号**：TS 的语句是**含**分号的（`x = 1;` ⇒ `ExpressionStatement[0,6)`），
 分号的归属只在 `let` 那三层的**内两层**上另有口径（见 `projectLet`）。
 
+**第 1162 轮起这一趟由被问的那一格答**（用户口径 1.2 / 1.3 / 1.6）：token 那一侧新立
+`Token.ProjectionEnd`（`## property` + `### get`）与它的递归腿
+`## private method TrailingTriviaStart:(at:int)=>int`——算式连着说明整段搬到了
+`core/syntax/token.xl.md`，**逐格同答**（剪空白从 `ctx.source[end - 1]` 换成自己的
+`Text[end - 1 - start]`，递归那一趟从本页的 `allKids(v)` 换成自己的各段 + `children`、
+非 token 的子单元照旧跳过）。**这一格因此只剩下面那一句**：投影读一次属性。
+
+**兜底支留给「不是 token 的合成语句视图」**（`statementOfList` 造的那一格）：
+它们没有 token 那一格，只能照原样在这里算。**实测那 7 次**（探针挂在构建产物上、跑官方
+用例语料 1640 份）：`stmtEndOf` 被调 **16208** 次、接收者**不是 token** 的只有 **7** 次。
+这一支的判据与搬走的那一份**逐字相同**，只是它现在只服务那 7 次。
+
 ```ts
-  let end = v.end;
-  // **尾部注释也要剪掉**（第 132 轮）：TS 的节点终点**从不含 trivia**，而产物常把
+  // **token 由它自己答**（第 1162 轮）：本页不再为每一趟投影现造一个递归闭包。
+  if (v instanceof Token) return v.ProjectionEnd;
+  // **兜底支只服务「不是 token 的合成语句视图」**（`statementOfList` 造的那一格，实测
+  // 16208 次调用里只有 **7** 次）：它没有 token 那一格，只能在这里算。判据与搬走的那一份
+  // **逐字相同**，只是收尾注释那一趟改成**读子单元自己的属性**
+  // （`k.TrailingCommentStart`，第 1162 轮新立）——于是本页那一格 `allKids` helper
+  // 的最后一个读者也消失了（第 1162 轮整格删掉）。
+  //
+  // **剪尾部注释要剪到哪为止**（第 132 轮）：TS 的节点终点**从不含 trivia**，而产物常把
   // **下一个声明的 JSDoc** 收进本声明的区间——
   //
   //     declare function request<…>(…): Promise<…>;
@@ -3426,30 +3410,26 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
   // 四条函数声明、`cache-interceptor.d.ts` 的 `type GetResult` 一族：漂移 + 多出各一份）。
   // 注释可能嵌得很深（上面那条是落在 `ReturnType > TypeDefine` 里的），所以沿
   // 「区间终点正好等于当前 `end`」的那条链**递归**找下去——每层最多命中一个孩子，
-  // 代价与一个节点到它最后一个叶子的深度成正比。
-  // **收尾 trivia（注释）在这条区间链上的起点**（第 1117 轮就地展开；它原来是本页单独一格
-  // `trailingTriviaStart`，**唯一读者就是下面这一处**）：只在「区间终点正好是这个 `at`」的
-  // 子孙里找，所以每一层至多一个候选——这既是正确性（别的注释不属于本节点的尾巴），
-  // 也是代价的上界。
-  // **「这一格是不是一条注释」第 1084 / 1085 轮收进了被问的那一页**（用户口径 1.1 / 1.3）：
-  // 判据原来是两连比类名 `k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`，
-  // 而**类名就是那两页自己的名字**——今天基类默认 `false`、`LineAnnotation` / `AreaAnnotation`
-  // 各自显式声明 `## field IsCommentUnit:bool = true`（构造时就赋好的常量），这里只读这一格。
-  // **它不是 `IsInvisible`**：那一格答 `true` 的有四页（还有 `LineWrap` 软换行与
-  // `PreprocessorDirectives` 预处理指令），而收尾 trivia 只认两种注释——两问是两句话。
-  const trailingTriviaStartOf = (unit: any, at: int): int => {
-    for (const k of allKids(unit)) {
-      // **这一格自己的两头**（第 1018 轮）：不再有 `range` 那一层，问单元自己的 `start` / `end`。
-      if (k.end !== at) continue;
-      if (k.IsCommentUnit) return k.start;
-      const inner = trailingTriviaStartOf(k, at);
-      if (inner !== undefined) return inner;
-    }
-    return undefined;
-  };
+  // 代价与一个节点到它最后一个叶子的深度成正比。token 那一侧由 `Token.ProjectionEnd` +
+  // `Token.TrailingTriviaStart` 答同一件事（那一页记着这一趟的全部判据）。
+  let end = v.end;
   while (end > v.start) {
     while (end > v.start && WHITESPACE.test(ctx.source[end - 1])) end--;
-    const at = trailingTriviaStartOf(v, end);
+    let at: int = undefined;
+    for (const k of v.children) {
+      // **这一格自己的两头**（第 1018 轮）：不再有 `range` 那一层，问单元自己的 `start` / `end`。
+      // **不是 token 的子单元跳过**：搬走的那一份逐段滤 `instanceof Token`，这里同答。
+      if (!(k instanceof Token) || k.end !== end) continue;
+      // **「这一格是不是一条注释」第 1084 / 1085 轮收进了被问的那一页**（用户口径 1.1 / 1.3）：
+      // 判据原来是两连比类名 `k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"`，
+      // 而**类名就是那两页自己的名字**——今天基类默认 `false`、`LineAnnotation` / `AreaAnnotation`
+      // 各自显式声明 `## field IsCommentUnit:bool = true`（构造时就赋好的常量），这里只读这一格。
+      // **它不是 `IsInvisible`**：那一格答 `true` 的有四页（还有 `LineWrap` 软换行与
+      // `PreprocessorDirectives` 预处理指令），而收尾 trivia 只认两种注释——两问是两句话。
+      if (k.IsCommentUnit) { at = k.start; break; }
+      at = k.TrailingCommentStart;
+      if (at !== undefined) break;
+    }
     if (at === undefined || at < v.start) break;
     end = at;
   }

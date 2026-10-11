@@ -347,6 +347,50 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1162 轮：用户口径 1.2 / 1.3 / 1.6 / 1.7 —— 「收尾 trivia 剪到哪」整趟搬进被问的那一格（`Token.ProjectionEnd` + `Token.TrailingTriviaStart` + `Token.TrailingCommentStart`），投影那一侧的 `stmtEndOf` 只剩一次属性读 + 给合成视图留的兜底支；`allKids` helper 整格删掉
+
+**一句话**：`stmtEndOf(v, ctx)` 原来是投影页里的一整趟算式——剪尾部空白 + 沿「区间终点正好
+等于当前 `end`」那条链**递归**找注释，而那条递归是**每一趟调用现定义的一个箭头函数**、
+每层还要现拼一张「含 trivia 的全部子单元表」。这一趟的每一件事实都在 `v` 自己的子树上，
+所以第 1162 轮整段搬进 `core/syntax/token.xl.md`：
+
+| 投影这一侧（第 1161 轮之前） | 今天 |
+| --- | --- |
+| `stmtEndOf(v, ctx)`：剪空白读 `ctx.source[end - 1]` | token ⇒ **一次属性读** `v.ProjectionEnd` |
+| `const trailingTriviaStartOf = (unit, at) => { … allKids(unit) … }`（每趟一个新闭包） | `Token.TrailingTriviaStart(at)`——**方法**，不再造闭包；它读自己的各段与 `children` |
+| 每一层 `allKids(unit)` 现拼一张数组 | 就地扫各段与 `children`（与第 1161 轮同一把尺子） |
+| 合成语句视图（`statementOfList` 造）也走这一趟 | 投影留一条兜底支（实测 **7** 次），它问的是**子单元自己的属性** `k.TrailingCommentStart` |
+
+- **实测（改前的读数；探针挂在构建产物上、跑官方用例语料 1640 份，脚本进 `tmp/` 不进仓）**：
+  `stmtEndOf` 被调 **16208** 次、落在 **14106** 个不同的对象上（重复 **2102** 次），
+  其中接收者**不是 token** 的只有 **7** 次（`statementOfList` 的合成语句视图）。
+  改完之后同一把探针里新立的 `ProjectionEnd` 被读 **16201** 次 = **16208 − 7**
+  ——那 7 次走的正是兜底支；`stmtEndOf` 里那个递归闭包从「每趟一个」变成「只在兜底支里」。
+- **三格各自只答一句话**（口径 1.3：一格一个问题一个名字）：
+  `ProjectionEnd` =「我的投影终点在哪」、`TrailingTriviaStart(at)` =「终点正好是这个位置的
+  那条注释从哪开始」（私有，本页内部两个读者）、`TrailingCommentStart` = 上一格把参数填成
+  `this.end` 之后的**可读**形态（投影那一侧只许读属性，这是 `direct:lint` 的判据）。
+- **与原来逐格同答**：剪空白从 `ctx.source[end - 1]` 换成自己的 `Text[end - 1 - start]`
+  （`Token.Text` 就是 `[start, end)` 那一段，第 1048 轮起就是这个口径）；
+  递归那一趟从「投影页的 `allKids(v)`」换成「自己的各段 + `children`、非 token 跳过」。
+  **八道门读数一处没动**就是这条的证据（见下）。
+- **判据这一轮没有新立**：这一族的形态**已经被现有两条看着**——① 「投影对 token 只读属性
+  不调方法」（第 1046 轮）当场拦住了第一版写法（那一版让投影调 `k.TrailingTriviaStart(end)`，
+  `direct:lint` 报 `k.TrailingTriviaStart(…)` 1 处 + 「没有任何 `## field` / `## property`
+  声明过」1 处，于是这一格才改成投影读 `TrailingCommentStart`）；② 「投影读的每一格都要在
+  某一页显式声明过」（第 1144 轮）看着新立的三个名字。**如实记下**：第一版是被门拦下来的，
+  不是自己想明白的。
+- **量**（同一把逐行尺子，围栏内、去掉空行与整行注释）：`print-ast-common` 的代码块
+  **4059 → 4050 行**（净少 **9** 行）、声明数 **58 → 57 格**（`allKids` 那一格整格删掉，
+  最后一处调用随之消失：代码行里的 `allKids(` **1 → 0**）；`core/syntax/token.xl.md`
+  的代码块 **329 → 359 行**（搬进来的那一趟 + 新立的两格）。
+  ⇒ 这就是用户口径 1.7 说的那个方向：**算的搬进 token，共享层只剩读属性**。
+- **实测八道门**：**7 通过、1 失败**（墙钟 33.1s），读数与第 1106 ~ 1161 轮**逐项相同**：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` **0 条违反**、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79；
+  唯一那条红仍是 HEAD 上既有的 `runtime/round741/002`。
+
 ### 第 1161 轮：用户口径 1.6 / 1.7（连带 1.3）—— 「含 trivia 的完整子单元表」那一格（`Token.AllKids`）**整格删掉**：它那两个读者改成就地扫，**每投一趟少造 11516 张数组**
 
 **一句话**：`Token.AllKids`（第 1141 轮立）把「各段 + `children`、不滤 `IsInvisible`」现拼成一张

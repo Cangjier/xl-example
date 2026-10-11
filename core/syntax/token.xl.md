@@ -1014,6 +1014,100 @@ for (;;) {
 return at;
 ```
 
+## property ProjectionEnd:int
+
+**这一格的投影终点**（第 1162 轮）：把**尾部的 trivia**（空白与注释）剪掉之后的位置——
+与 `ProjectionStart` 是同一件事的两头，而那两头都用同一格的同一批事实（自己的 `Text`、
+自己的各段与 `children`、各格的 `IsCommentUnit`）。
+
+**为什么住在 token 上**（用户口径 1.2 / 1.3 / 1.6）：本工程的语句区间**含尾部的换行**
+（ASI 断句时那一行软换行算在语句里），TS 的节点**从不含尾部 trivia**；而尾部那个注释
+还可能**嵌在很深的子孙里**（`declare function stream<…>(…): …;` 前面那段 JSDoc 收在
+前一条声明的区间里）。这一问的每一件事实都在这一格自己的子树上，所以由这一页答。
+算式原来在 `print-ast-common.xl.md` 的 `stmtEndOf` 里——**每一趟投影节点都要为它现造一个
+递归闭包**、里面还要现拼「含 trivia 的全部子单元表」：
+
+| 原来的现场算式 | 今天读的那一格 | 谁答、什么时候算 |
+| --- | --- | --- |
+| `stmtEndOf(v, ctx)` 那一整趟（剪尾部空白 + `trailingTriviaStartOf` 递归 + 每层 `allKids(unit)`） | `v.ProjectionEnd` | 本页的 `### get` + 同页 `## private method TrailingTriviaStart:(at:int)=>int | undefined`（**方法而不是闭包**：每读一次不再造一个闭包） |
+
+- **读数**（第 1162 轮，探针挂在构建产物上、跑官方用例语料 1640 份）：`stmtEndOf` 被调
+  **16208** 次、落在 **14106** 个不同的对象上（重复 **2102** 次）；接收者里 **7** 次**不是 token**
+  （`statementOfList` 造的合成语句视图）——所以投影那一侧**留一条兜底支**给它们
+  （见 `print-ast-common.xl.md` 的 `stmtEndOf`），token 这一侧只按 token 答。
+- **与原来逐格同答**：剪空白从 `ctx.source[end - 1]` 换成自己的 `Text[end - 1 - start]`
+  （`Text` 就是 `[start, end)` 那一段，逐字符相同，见 `Text` 那一节）；递归那一趟从
+  「投影页的 `allKids(v)`」换成「自己的各段 + `children`」，顺序逐格相同，
+  **非 token 的子单元照旧跳过**（投影那一侧的 `allKids` 就是这么滤的）。
+- **合成视图没有这一格**：它们由投影那一侧的兜底支照旧算（那 7 次），读出来 `undefined`。
+
+### get
+
+```ts
+let end = this.end;
+while (end > this.start) {
+  while (end > this.start && /\s/.test(this.Text[end - 1 - this.start])) end--;
+  const at = this.TrailingTriviaStart(end);
+  if (at === undefined || at < this.start) break;
+  end = at;
+}
+return end;
+```
+
+## private method TrailingTriviaStart:(at:int)=>int | undefined
+
+**收尾 trivia（注释）在这条区间链上的起点**（第 1162 轮）：只在「区间终点正好是这个 `at`」
+的子孙里找，所以每一层至多一个候选——这既是正确性（别的注释不属于本节点的尾巴），
+也是代价的上界。它是 `ProjectionEnd` 那一趟的递归腿，收成**方法**（第 1162 轮之前它是
+`print-ast-common.xl.md` 的 `stmtEndOf` 里现定义的箭头函数：每一趟调用都要现造一个闭包）。
+
+**为什么是私有的**：投影那一侧只许**读属性**（`direct:lint` 的判据），所以给它的那一份是
+下面 `TrailingCommentStart` 那一格；带参数的那一趟是本页内部两个读者在用
+（`ProjectionEnd` 的循环与 `TrailingCommentStart`）。
+```ts
+const self: any = this;
+for (const key of this.Segments) {
+  if (key === "children") continue;
+  const raw = self[key];
+  if (!Array.isArray(raw)) continue;
+  for (const k of raw) {
+    // **不是 token 的子单元跳过**：投影那一侧的 `allKids` 逐段滤 `instanceof Token`，
+    // 这一格照它同答（本页的合成视图不是 token，投影那一侧另有兜底支）。
+    if (!(k instanceof Token)) continue;
+    if (k.end !== at) continue;
+    if (k.IsCommentUnit) return k.start;
+    const inner = k.TrailingTriviaStart(at);
+    if (inner !== undefined) return inner;
+  }
+}
+for (const k of this.children) {
+  if (!(k instanceof Token)) continue;
+  if (k.end !== at) continue;
+  if (k.IsCommentUnit) return k.start;
+  const inner = k.TrailingTriviaStart(at);
+  if (inner !== undefined) return inner;
+}
+return undefined;
+```
+
+## property TrailingCommentStart:int | undefined
+
+**「正好在我这一格终点上收尾的那条注释，从哪开始」**（第 1162 轮）：
+就是 `this.TrailingTriviaStart(this.end)`——参数被这一格自己填上了，
+因此它可以被**读**（而不是调用）。
+
+**为什么要有这一格**：投影那一侧的兜底支服务 `statementOfList` 造的**合成语句视图**
+（实测 `stmtEndOf` 16208 次调用里 **7** 次）——它自己不是 token、没有 `ProjectionEnd`，
+而它那几格子单元**都是 token**；兜底支要问的正是「这一格子单元的尾巴上有没有一条注释」。
+第 1162 轮之前那一趟在投影页里现写（连同 `allKids` helper），今天只读这一格。
+
+### get
+
+```ts
+return this.TrailingTriviaStart(this.end);
+```
+
+
 ## property TrailingSemicolonAt:int | undefined
 
 **这一格末尾那个 `;` 的位置**（第 1149 轮）：末尾不是 `;` 就给 `undefined`。
