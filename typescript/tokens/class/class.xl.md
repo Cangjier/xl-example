@@ -18,6 +18,7 @@ import { HeritageClause } from "../heritage-clause.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
+import { String } from "../string/string.xl.md"
 import { Decorator } from "../decorator.xl.md"
 ```
 
@@ -226,7 +227,21 @@ if (extendsUnit instanceof Identifier && extendsUnit.Is("extends")) {
   const baseName = Get(units, i);
   if (baseName instanceof Identifier) {
     extendsName = this.TakeDottedName(units, i);
-  } else if (!(baseName instanceof Bracket)) {
+  } else if (!(baseName instanceof Bracket) && !(baseName instanceof String)) {
+    // **继承子句里可以是一段模板串**（第 1203 轮，用户口径 1.1）：
+    // `class D extends `a${X}b` {}` 里 `extends` 后面那一格是一个 `String` 单元
+    //（模板串在 token 层就是它），而这一格原来只认 `Identifier` 与 `Bracket`
+    // ⇒ 整个类头不成立 ⇒ **整条类没有成形**（实测产物是
+    // `<Statement><Keyword>class</Keyword>…<Bracket>{}</Bracket>`：缺
+    // `ClassDeclaration` / `Identifier` / `HeritageClause` / `ExpressionWithTypeArguments` /
+    // `TemplateExpression` / `TemplateHead` 共 9、多 2 —— 那就是
+    // `gap-r985-heritage-template-expression` 那条已知缺口）。
+    //
+    // **文本不收**（与「继承表达式」那条 `class D extends (Base) {}` 同一口径）：
+    // 模板串里是什么由 `ExpressionWithTypeArguments.PrintAst` 自己投，
+    // 而它早就有模板那一支（`IsTemplateString` ⇒ `TaggedTemplateExpression`）。
+    // 这里只要**别把它当成「这不是一个类头」**，下面那个 `while` 就会照常跨过它
+    // 找到类体那个 `{`。
     return false;
   }
   while (i < units.length) {
