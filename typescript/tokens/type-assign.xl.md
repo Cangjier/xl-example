@@ -245,7 +245,9 @@ return ReplaceCountAt(units, startIndex, dataEnd - startIndex + 1, result);
     if (params.length > 0) props.typeParameters = ctx.ProjectEach(params);
   }
   const baseStart = ctx.baseStart;
-  ctx.AddModifiers(v, props, baseStart);
+  // **`AddModifiers` 不再收「外层起点」**（第 1052 轮）：修饰词的位置只有一个来源——
+  // token 自己记的 `modifierSpans`（`TypeAssign` 自己声明的那一格），所以递进去也没人读。
+  ctx.AddModifiers(v, props);
   // **装饰器也进 `modifiers`**（第 610 轮）：它与关键字修饰词同住 TS 的 `modifiers` 一列，
   // 而 `Decorator` 是带子树的**子单元**——`AddModifiers` 只看文本字段，看不见它。
   // 与通用支共用同一份实现（`print-ast-common.xl.md` 的 `addDecorators`）。

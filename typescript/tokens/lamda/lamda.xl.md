@@ -680,6 +680,15 @@ const asyncUnit = Get(units, asyncIndex);
 if (asyncUnit instanceof Identifier && asyncUnit.Is("async")) {
   rangeStart = asyncIndex;
   result.IsAsync = true;
+  // **`async` 的位置当场记进 `ModifierSpans`**（第 1052 轮）：就是这一刻它就在手上
+  // （`asyncUnit.SourceRange`），记成闭区间 `"起:止"`——与 `Field` / `Let` / `TypeAssign`
+  // 那一格同一形态、同一口径。投影那边因此不必回原文 `indexOf("async")` 猜
+  // （猜法给的是零宽区间，见 `ModifierSpans` 那一节）。
+  const asyncBegin = asyncUnit.SourceRange.Start;
+  const asyncEnd = asyncUnit.SourceRange.End;
+  if (asyncBegin !== null && asyncEnd !== null) {
+    result.ModifierSpans = `${asyncBegin.Index}:${asyncEnd.Index}`;
+  }
 }
 // **「`async` 与形参表之间隔着一个泛型段」那一支整个撤掉了**（第 862 轮）：
 // 它原来（第 856 轮）管 `async<T>(x) => x`——把 `rangeStart` 拉到 `async`、`IsAsync` 置真。
@@ -992,6 +1001,29 @@ Lambda 表达式。
 
 这个 lambda 前面是不是有 `async`。纯数据字段，没有访问器。
 
+## field ModifierSpans:string = ""
+
+**前面那个 `async` 自己的区间**（闭区间，`"起:止"`）；没有 `async` 时空串。
+
+第 1052 轮补的这一格：`Lamda` 的 `async` **不走 `modifiers` 文本**（它是布尔属性
+`IsAsync`／`async`，见 `print-ast-common.xl.md` 的 `addModifiers` 那一支），
+于是投影那边「每个修饰词各自在哪」只剩**回原文 `indexOf("async")` 猜**——而 `async` 这个词
+在别处也常见（前面一格的外层起点、注释里），猜出来的是**零宽区间**（实测全语料 7 处：
+`ArrowFunction.modifiers` 里那个 `AsyncKeyword` 的 `pos`/`end` 都是 lambda 的起点）。
+认下 `async` 的那一刻它就在手上（`asyncUnit.SourceRange`），所以**当场记进这一格**——
+与 `Field` / `Let` / `TypeAssign` 的 `ModifierSpans` **同一形态**（同一把尺子：那一格是 token 的事实，
+不该由投影回原文量）。
+
+## property modifierSpans:string
+
+`modifierSpans` 这一格**由这一页自己声明**（第 1052 轮）：投影读的就是这一页自己的这一格。
+
+### get
+
+```ts
+return this.ModifierSpans;
+```
+
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
 **体是花括号块时，那一对花括号的起点（`Value`）与整段（`Range`）**；体是表达式时未记过。
@@ -1195,15 +1227,20 @@ return this.ChildrenOf(this.ReturnType);
 
 克隆自身。
 
-顺序是 `Sign(this)` → 拷 `IsAsync` / `BodyBrace` / `ArrowAt` / `FunctionFlags` → 克隆全部子单元 → `TryToClose()`。
+顺序是 `Sign(this)` → 拷 `IsAsync` / `ModifierSpans` / `BodyBrace` / `ArrowAt` / `FunctionFlags` → 克隆全部子单元 → `TryToClose()`。
 
 **`FunctionFlags` 也要抄**（第 1045 轮）：克隆体不走 `LamdaCloseRule`，不抄的话它就不认自己是
 函数体了（`await` 在它里面会被当成普通标识符）。
+
+**`ModifierSpans` 也要抄**（第 1052 轮）：`async` 的位置是**构造那一刻**记下的，
+克隆体不重跑 `Process`，不抄的话投影在克隆体上就拿不到那一格（而它与 `IsAsync` 是同一件事的两半：
+「是不是 async」与「那个 `async` 在哪」——两格必须同进退）。
 
 ```ts
 const result = new Lamda(this.Template);
 result.Sign(this);
 result.IsAsync = this.IsAsync;
+result.ModifierSpans = this.ModifierSpans;
 result.BodyBrace = this.BodyBrace;
 result.ArrowAt = this.ArrowAt;
 result.FunctionFlags = this.FunctionFlags;

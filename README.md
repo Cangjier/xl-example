@@ -303,7 +303,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `cases:direct` | **第三个出口投不投得出来**（第 992 轮加，第 1013 / 1017 轮改口径）：`Token.PrintDirectAst` 是**唯一**的写法，所以量的是两条**绝对**的判据——① 全语料投一遍**不许抛异常**；② 固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。**第 1013 轮之前**它与 `PrintAst` 开 / 关两遍对拍，第 1013 ~ 1016 轮改量「同一份输入重投两遍逐字节相同」——**那一项第 1017 轮撤了**：两遍都在同一个进程里、问的都是同一份 `Root` 自己的子单元列表，确定性代码必然逐字节相同，**它不可能失败** |
-| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 轮各加一条、第 1013 轮撤掉两条基线判据、第 1014 轮再加一条、**第 1015 轮再加一条**）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；扫**共享投影那一页的代码块**那一末条：`typescript/print-ast-common.xl.md` 里不许再按字符串键读**名字那一格**（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`）——第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层；第 1014 轮再加一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算）；**第 1015 轮**再加一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的九个出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace`）——出口删掉之后，方法体那条判据才从「大家记得别写」变成**结构上做不到**；**第 1046 轮**再加一条扫**调用形态**的：`print-ast-common` 的代码块里**一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintDirectAst`——那是分发不是数据）——第 1041~1046 轮把「投影要问 token 的每一格」全收成了属性，这一条把那个结论钉住 |
+| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 / 1014 / 1015 / 1026 / 1027 / 1046 / 1049 / 1050 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；**扫共享投影那一页的代码块**（第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层）另有五条：① 名字那一格不许按字符串键读（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`，第 1008 轮）；② **一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintDirectAst`——那是分发不是数据，第 1046 轮）；③ `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`；扫描游标与别人的终点照旧，第 1049 轮）；④ `# private method …` 小节里**声明了 `ctx` 形参却在方法体里一处不用**的 = 0 处（形参表就是这一格需要什么，第 1050 轮）；⑤ 中间那一层的入口名（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）一个都不许留在规范页的代码块里（第 1027 轮）。还有一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算，第 1014 轮）；以及一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace` / `FirstCodeAfter` / `MatchBrace` / `MatchingParen`，第 1015 / 1026 轮）——出口删了之后，方法体那条判据才从「大家记得别写」变成**结构上做不到** |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `runtime:check` / `runtime:cli` | 执行侧的机制与端到端（见「构建链路」那一节） |
@@ -346,6 +346,72 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1052 轮：`synthName` 之后接着收**修饰词的位置**——`addModifiers` 那条「回原文 `indexOf` 量」的退路删掉，`Lamda` 的 `async` 改为**构造那一刻**记进自己的 `ModifierSpans`（新增一格，具体类显式声明）；**八道门全绿、读数一处没动**
+
+**一句话**：第 1051 轮把「名字的位置」收成了一格事实之后，**同一族里还剩一处回原文量的地方**
+——`addModifiers` 在「`modifiers` 有词、`modifierSpans` 个数对不上」时，从外层起点起
+`ctx.source.indexOf(词)` 逐个往后找。量出来那一支全语料**只走 7 次**，而且 7 次**全是 `Lamda` 的 `async`**。
+
+- **读数**（`tmp/r1051/probe-addmodifiers.cjs` / `probe-addmodifiers-who.cjs`，2051 份语料）：
+  `addModifiers` 被调 75672 次（75665 次没有词、当场返回），「个数对不上」那一支 **7 次**，
+  7 次都是 `{"tag":"Lamda","words":"async","spans":0,"modifiers":"(none)"}`——
+  即**布尔属性那一支**（`Lamda.async`），而 `Lamda` 是全仓唯一一页把修饰词记成布尔属性的 token。
+- **那 7 次给的是零宽区间**：`indexOf("async", v.start)` 在 `v.start` 上就命中（lambda 的起点就是
+  `async`），于是 `pos === end`——`AsyncKeyword` 的区间是零宽的。零宽不是「说不出来」而是
+  **静默错值**（第 1015 轮那批兜底出口删掉的理由与此同源）。
+- **收法**（用户口径：需要的新属性在具体类构造时赋予、且显式声明）：
+  `Lamda` 新增 `## field ModifierSpans:string = ""` + 给投影读的 `## property modifierSpans`
+  （与 `Field` / `Let` / `TypeAssign` **同一形态、同一格名**），在 `LamdaCloseRule.Process`
+  **认下 `async` 的那一趟**就赋好（`asyncUnit.SourceRange` 两头，闭区间 `"起:止"`）；
+  `Clone` 也要抄（它与 `IsAsync` 是同一件事的两半，两格必须同进退）。
+- **删掉的东西**：`addModifiers` 的第三个形参 `baseStart`（连同 `ctx` 一起，它俩在那条退路里
+  才被用到）与「个数对不上」那一整段；`modifierStart` 的 `ctx` 形参（同一轮，同一把尺子：
+  它那条 `ctx.source.indexOf(修饰词)` 的退路也删了——`modifierSpans` 与 `modifiers` 是同一趟记下的
+  两格，全语料「有词没位置」一次都没发生）。三个调用点（`print-ast-common` 两处、`type-assign` 一处）
+  与 `ctx.AddModifiers` 那个转调箭头跟着少一个参数。
+- **与第 1050 轮那条判据的关系**：形参表就是这一格需要什么——`ctx` / `baseStart` 都没人读了，
+  留着就是给下一处回原文查留入口。本轮删的两个形参正是那条判据（`direct:lint` 第五条）指的方向。
+- **实测**：`xl build typescript core` 156 个产物 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 32.7s），读数逐项与基线相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+
+### 第 1051 轮：`synthName` 里那套「回原文猜名字位置」的**三级兜底整段删掉**——插桩量出全语料 2051 份、调用 160491 次里它**一次都没走**；顺手把 `xl` 命令行的落点记进本页；**八道门全绿、读数一处没动**
+
+**一句话**：第 645 / 646 轮把「名字的位置」搬成 token 自己的字段（`NameStart` / `NameEnd` /
+`NameRange`）之后，投影里那条 `indexOf` 补偿就**再也没有跑过**——但它还留着，
+而且留着的是**三级**（推过修饰词、推过装饰器、再搜一遍）。这一轮先把它量死，再整段删掉。
+
+- **量法**（`tmp/r1051/probe.cjs`）：把构建产物 `build/ts/typescript/print-ast-common.js` 里
+  `synthName` 的**每个 `return` 前面插一句计数**，跑 `node tests/parse/direct-ast.mjs --all`，
+  退出时把计数写成 JSON。读数：
+
+  ```json
+  {"calls":160491,"hits":{"emptyName":53497,"nameRange":21373,"nameStartField":32124}}
+  ```
+
+  **三级兜底一级都没进过**（标签一个都没有）。所以「字段那条路」不是在**多数时候**替掉这套近似，
+  而是**完全替掉了**。
+- **删掉的东西**（`typescript/print-ast-common.xl.md`）：`v.modifiers` / `v.start` /
+  `modifierSpansOf` 那一支与它下面那句 `ctx.source.indexOf(last, v.start)`；装饰器那一段
+  （`allKids(v).filter((k) => k.Tag === "Decorator")` 与 `from = Math.max(from, endOf(lastDecorator))`）；
+  最后一次 `ctx.source.indexOf(name, from)` 与那两行 `limit` / `pos` 的计算。
+  删完这一格只剩三句：空名 ⇒ `undefined`；`nameRange` 在 ⇒ 按它推（引号名那一档）；
+  `nameStart` / `nameEnd` 在 ⇒ 直读——**都不在就 `undefined`**（这一格没带名字的位置，
+  不替它近似一个）。原来那三级里的坑（`export class A` 的声明从 `export` 起、`const f` 里那个 `f`
+  落在 `Let` 的末字符上、装饰器里的同名 `a`）整段搬进散文当记录。
+- **为什么这不是「行为变更」**：这三条都是**第二份近似**——按文本猜位置，只在坏输入上给出与
+  token 自己记的那个**不一致**的答案。删掉它们不改变任何一格读数（八道门逐项与基线相同），
+  改变的是「这一层还能不能猜」。
+- **顺手记下 `xl` 在哪**（本页「构建链路」那一节）：它是 DSH 的**插件行**，只在名为 `xl` 的 profile
+  里挂着，那一行用 `link:` 指向 `C:/Users/Admin/Documents/GitHub/xl`——所以本仓里
+  `npx xl build` 报 `could not determine executable to run`。读数与真命令行同一份的走法是
+  `node tmp/r1051/xl.mjs build typescript`（直调那边 `src/core` 的 `runBuild` / `runCheck`），
+  **路径要显式给**（不给就扫整个工作目录，`tmp/` 下的历史副本会被当成规范读，报一串 `E1006` / `E1104`）。
+- **实测**：`xl build typescript` 127 个产物 / 0 error；`tsc` 干净；**八道门 8 通过、0 失败**
+  （墙钟 33.1s），读数逐项与基线相同（同上一轮那一串）。
 
 ### 第 1050 轮：`print-ast-common` 里**用不到的 `ctx` 形参一次收干净**（不动点上 16 个 helper / 213 处调用点，其中 12 个是连锁的），并把这条口径钉成 `direct:lint` 第五条判据；**八道门全绿、读数一处没动**
 

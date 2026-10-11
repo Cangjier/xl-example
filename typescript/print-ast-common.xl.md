@@ -6827,7 +6827,9 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // 两种调用点递进来的都是**同一个东西**（一个 token），所以这里不再分接收者。
   const containerView = container;
   const letView = letNode === null ? containerView : (letNode);
-  const listStart = modifierStart(letView, ctx);
+  // **`modifierStart` 不再要 `ctx`**（第 1052 轮）：它的位置只有一个来源——token 自己记的
+  // `modifierSpans`（见那一格），所以这一层不必把投影上下文递进去（形参表就是它需要什么）。
+  const listStart = modifierStart(letView);
   // **声明名那一格走 `tokenNameOf`**（第 1008 轮）：`fieldName` 是 `Let` 自己 `NameField`
   // 回答的那一格事实，读法只有一个入口（见 `tokenNameOf`：收的就是那一格 token）。
   const declared = String(tokenNameOf(letView) ?? "");
@@ -6917,7 +6919,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // `VariableStatement(modifiers=[ExportKeyword])` + `List(flags=Const)`——
   // `const` / `let` / `var` 是**列表的 flags**，不是语句的修饰词（混进去会多出一个 `ConstKeyword`）。
   const holder = {};
-  addModifiers(letView, holder, ctx);
+  addModifiers(letView, holder);
   const statementModifiers = holder.modifiers ?? [];
   // **`await` / `using` 也不是语句修饰词**（第 151 轮）：它们是**列表的 flags**
   // （`VariableDeclarationList.flags = AwaitUsing`），挂到语句上会多出两个节点。
@@ -7131,11 +7133,18 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   return { kind: "ArrayBindingPattern", pos: from, end: from };
 ```
 
-# private method modifierStart:(v:any, ctx:any)=>int
+# private method modifierStart:(v:any)=>int
 
 列表层的起点：**最后一个修饰词**的位置（`modifiers="export,const"` → `const` 在哪）。
 
 取不到时退回声明自己的起点（没有修饰词的情形，例如 `Let` 就从名字起）。
+
+**位置只有一个来源：token 记下的那一格**（`modifierSpans`，见 `modifierSpansOf`）。
+**第 1052 轮删掉了「回原文 `indexOf(修饰词)` 猜」那条退路**：`modifiers` 非空而这一格对不上，
+全语料一次都没发生——`modifiers` 与 `modifierSpans` 是**同一趟记下的两格**（`declaration-common.xl.md`
+的 `DeclarationModifiers` / `DeclarationModifierSpans` 走的是同一个判据、同一个顺序），
+所以「有词没位置」不是一种状态。投影里留着 `ctx.source.indexOf` 只会给坏输入留第二份答案
+（`@exported export class C {}` 里那个 `export` 会先命中的是装饰器里的同名文本）。
 
 ```ts
   const modifiers = v.modifiers;
@@ -7148,14 +7157,11 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // （`export const x` 的列表从 `const` 起，而语句从 `export` 起）。
   // 实测 `decl-await-using-basic.ts` / `vars-await-using.ts`：列表起点差 6 格，
   // 语句上还多出 `AwaitKeyword` / `UsingKeyword` 两个节点。
-  const from = words[0] === "await" ? words[0] : words[words.length - 1];
-  // **位置首选 token 记的字段**（见 `modifierSpansOf`）：有它就不回原文猜。
+  // **平行取位置**：`modifierSpans` 与 `modifiers` 同序同长，所以「列表起点」就是它第一格
+  // （`await using`）或最后一格（其余）——与上面取词的那两处**同序**，不是第二份判据。
   const spans = modifierSpansOf(v);
-  if (spans.length === words.length) {
-    return words[0] === "await" ? spans[0].pos : spans[spans.length - 1].pos;
-  }
-  const at = ctx.source.indexOf(from, v.start);
-  return at >= 0 ? at : v.start;
+  if (spans.length === 0) return v.start;
+  return words[0] === "await" ? spans[0].pos : spans[spans.length - 1].pos;
 ```
 
 # private method flagsOf:(v:any)=>int
@@ -8093,22 +8099,22 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   props.modifiers = merged;
 ```
 
-# private method addModifiers:(v:any, props:any, ctx:any, baseStart:int)=>void
+# private method addModifiers:(v:any, props:any)=>void
 
 修饰词：产物那边是 `modifiers="export,const"` 这样的**字符串**，
 而 TS 那边 `modifiers` 是一串**节点**（`ExportKeyword` / `ConstKeyword`…）。
 
-**每个修饰词的区间要从原文里量出来**（踩过）：早先一律写成
-`pos = v.start, end = v.start`（零宽），于是尺子上整类报「同 kind 同起点、终点差 6~9」——
-实测 `declare` 是 `TS[26,33)` 而我给 `[26,26)`，一份语料里几百处。
+**每个修饰词的区间由 token 自己记的那一格给**（各 token 的 `ModifierSpans`）：修饰词在源码里
+各自占哪一格，认下声明那一刻就在手上，所以这一格**不做任何猜测**。
 
-**位置首选 token 记的字段**（各 token 的 `ModifierSpans`）：修饰词在源码里各自占哪一格，
-认下声明那一刻就在手上，有它就不做任何猜测。
-
-没有字段时才退回**从原文里量**：带修饰词的节点自己的起点就是第一个修饰词的起点
-（实测 `Field[12,34]` 的 `modifiers="private,readonly"`：12 正是 `private` 的开头），
-所以从 `v.start` 起按顺序找每个词。这条近似会被**前面装饰器里的同名文本**骗到——
-`@exported export class C {}` 里量出来的是 `exported` 里那一段（实测缺 `ExportKeyword` 1 + 多出 1）。
+**第 1052 轮把「回原文量」那条退路与它的 `baseStart` 形参一起删掉了**：
+早先没有字段时是从 `v.start` 起按顺序 `indexOf(词)` 量——那条近似会被**前面装饰器里的同名文本**
+骗到（`@exported export class C {}` 里量出来的是 `exported` 里那一段，实测缺 `ExportKeyword` 1 + 多出 1）。
+它与 `modifierSpans` 是**同一趟记下的两格**（`declaration-common.xl.md` 的 `DeclarationModifiers`
+与 `DeclarationModifierSpans` 同判据、同顺序），所以「有词没位置」不是一种状态；
+全语料里那条退路一次都没走（见 `modifierStart` 那一节的读数）。
+留一个零宽区间的兜底比留一条猜法更糟：它是**静默错值**（实测 `declare` 是 `TS[26,33)` 而零宽给 `[26,26)`，
+一份语料里几百处），而不是当场说不出来。
 
 ```ts
   let words = [];
@@ -8126,24 +8132,14 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     }
   }
   if (words.length === 0) return;
-  // **字段是主路**：个数对不上（还没记这一格的 token）才退回下面的猜法。
+  // **位置只有一个来源**：`modifierSpans` 与 `modifiers` **同序同长**（同一趟记下的两格），
+  // 所以第 i 个词的位置就是第 i 格——这里不再有「个数对不上就换一条猜法」这一支。
   const spans = modifierSpansOf(v);
-  if (spans.length === words.length) {
-    const out = [];
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      out.push({ kind: `${word.charAt(0).toUpperCase()}${word.slice(1)}Keyword`, text: word, pos: spans[i].pos, end: spans[i].end });
-    }
-    props.modifiers = out;
-    return;
-  }
   const out = [];
-  let at = baseStart === undefined ? v.start : baseStart;
-  for (const word of words) {
-    const found = ctx.source.indexOf(word, at);
-    const pos = found >= 0 && found < v.end ? found : at;
-    out.push({ kind: `${word.charAt(0).toUpperCase()}${word.slice(1)}Keyword`, text: word, pos, end: pos + word.length });
-    at = pos + word.length;
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const at = i < spans.length ? spans[i] : { pos: v.start, end: v.start };
+    out.push({ kind: `${word.charAt(0).toUpperCase()}${word.slice(1)}Keyword`, text: word, pos: at.pos, end: at.end });
   }
   props.modifiers = out;
 ```
@@ -9411,7 +9407,9 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     KidsOf: (node, key) => kidsOf(node, key),
     NamedSpecifiers: (brace, kind) => namedSpecifiersOf(brace, kind, ctx),
     MemberNameOf: (view) => memberNameOf(view, ctx),
-    AddModifiers: (view, props, baseStart) => addModifiers(view, props, ctx, baseStart),
+    // **第 1052 轮它不再收第三个参数**：修饰词的位置只有一个来源（token 记的 `modifierSpans`），
+    // 所以那个「外层起点」不再需要往里递——`TypeAssign` 里调用的那一处也只传两格。
+    AddModifiers: (view, props) => addModifiers(view, props),
     Decorators: (view, props) => addDecorators(view, props, ctx),
     OperatorRank: (text) => operatorRank(text),
     FoldBinaryFrom: (left, list) => foldBinaryFrom(left, list, ctx),
