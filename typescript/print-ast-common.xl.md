@@ -556,6 +556,40 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 - **本页的声明数**：**80 → 79 格**（删掉 `textOfNode` 一格；`ctx.TextOf` 只是出口，
   宿主那一格本来就只剩这一行转手）。
 
+**第 1072 轮把第 1067 轮「完整子单元表」那一批的最后一处调用点收完，顺手把那一节的账改成实测值**：
+
+| 改掉的调用点 | 原来 | 今天 |
+| --- | --- | --- |
+| `projectDeclaration` 的**未映射透传支**（`AstKind` 也没有的那一档） | `projectEach(allKids(v), ctx)` | `projectEach(v.ProjectableKids, ctx)` |
+
+- **判据与第 1067 轮那句话逐字相同**：`projectEach` 头一件事就是
+  `list.filter((item) => item instanceof Token && !item.IsInvisible && !(…逗号…))`，
+  所以「先拿含 trivia 的完整子单元表、再滤一遍」与「直接拿已经滤过的那一串」逐字节同答。
+  第 1067 轮已经按同一句改过 `projectRoot` 的未映射透传支——这一处是当时漏下的**同一个形状**
+  （`projectDeclaration` 里那一支也是「没映射的标签原样透传」）。
+- **改完 `allKids` 的读者只剩「要找 trivia / 看不见的单元」那几处**（代码块内 **7 → 6 处**）：
+  `trailingTriviaStart`（2）、`trailingSemicolonOf`（末尾那个 `;` 有没有落在注释里）、
+  `astNode` 开头那段「跳过前导注释」——这三处**要的正是**含 trivia 的完整表，
+  所以它们照旧读 `allKids`（第 1066 / 1067 轮已经把「不是要找 trivia」的那批全改完了）。
+- **同一轮把 `allKids` 那一节的说明改成实测值**：它原来写着「第 1067 轮起它只服务
+  `trailingTriviaStart` 那一格……这一格留着是因为 `addDecorators` 问的正是有没有装饰器」——
+  **两半都过时了**：`addDecorators` 第 1067 轮起读的是
+  `v.ProjectableKids.filter((k) => k.Tag === "Decorator")`，而读者是上面那三处（含
+  `astNode`）。**这一节是按代码块重数出来的**（散文里的调用字样不算），
+  量法与第 1071 轮同一条：逐行判行首三反引号进出围栏，只在围栏内数。
+- **还发现一处「说明与代码不一致」，本轮只记不改**（它不影响任何读数）：第 1067 轮那张表
+  第 454 行写着 `moduleSpecifierIn` / `moduleHolderOf` 已经 `for (const inner of allKids(one))`
+  → `one.ProjectableKids`，而今天这两格（第 9511 / 9543 行）**仍写着 `allKids(one)`**。
+  这两支找的是 `Method` 内部的 `String` 子单元；`Method` 那一页**没有声明 `Segments`**，
+  所以 `ProjectableKids` 在它身上是不是同一个集合**没有量过**——按这一族的规矩
+  （「先证明等价，再谈改写」）不猜着改，留给下一位。
+- **实测**：`xl check typescript core` 0 条；`xl build --force` **156 个产物** / 0 error、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 32.2s），读数与第 1071 轮逐项相同：`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**79 格**（这一轮一格没增、一格没减；改的是调用点与说明）。
+
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
 名单的键就是**那些类自己的名字**，所以它本来就是那四页的事实；投影这一侧过去用
@@ -700,11 +734,17 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 段名与顺序都来自**这一页自己声明的那一格**（`v.Segments`，第 1065 轮：
 口径见 `core/syntax/token.xl.md` 的 `Segments`），不是投影反射出来的。
 
-**第 1067 轮起它只服务 `trailingTriviaStart` 那一格**（找尾部 trivia：注释）：
+**第 1067 轮起它的读者只剩「要找 trivia / 看不见的单元」那几处**（第 1072 轮按代码块实测重数：
+代码块内 **7 处**、其中 4 处要的正是「含 trivia 的完整子单元表」——`trailingTriviaStart`（2）、
+`trailingSemicolonOf`（末尾那个 `;` 有没有落在注释里）、`astNode` 开头那段「跳过前导注释」）：
 「下面所有子单元」与「会进投影的子单元」是两件事，前者不过滤、后者过滤。
-**投影要的数**是后者，而那一格现在由 token 自己答
-（`Token.ProjectableKids`，见下）——这一格留着是因为 `addDecorators` 问的正是「有没有装饰器，
-不管它可不可见」。
+**投影要的数**是后者，而那一格由 token 自己答（`Token.ProjectableKids`，见下）——
+第 1067 轮把「顺手拿完整子单元表遍历一遍」的那批调用点全改成了属性读，
+第 1072 轮又收掉最后一处（`projectDeclaration` 的未映射透传支，见那一节）。
+
+**这一节原来写着「它只服务 `trailingTriviaStart`，因为 `addDecorators` 问的正是有没有装饰器」——
+两半都过时了**（第 1072 轮按代码块重数）：`addDecorators` 第 1067 轮起读的是
+`v.ProjectableKids.filter((k) => k.Tag === "Decorator")`，而 `allKids` 的读者是上面那四处。
 
 ```ts
   const out = [];
@@ -1073,7 +1113,12 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     kind = v.AstKind;
     if (kind === undefined) {
       ctx.unmapped.add(v.Tag);
-      return mk(v.Tag, { children: projectEach(allKids(v), ctx) });
+      // **这一支读的也是那一格「进投影的子单元」**（第 1072 轮，与第 1067 轮改
+      // `projectRoot` 的未映射透传支同一句）：原来这里是 `projectEach(allKids(v), ctx)`——
+      // 而 `projectEach` 头一件事就是滤掉 `IsInvisible` 与顶层逗号（见那一节），
+      // 于是「先拿完整子单元表、再滤一遍」与「直接拿滤过的那一串」逐字节同答。
+      // 这一支是**唯一剩下**的一处，改完 `allKids` 的读者只剩「要找 trivia 的那几处」。
+      return mk(v.Tag, { children: projectEach(v.ProjectableKids, ctx) });
     }
   }
   // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）；
