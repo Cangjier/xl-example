@@ -5592,6 +5592,14 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   // `f(...xs)` 的产物把 `...` 与目标分成**两格**，而 `...` 是 `SymbolToken`
   // （`IsOperatorUnit` 对任何符号都为真），照二元那一支会把它投成一个孤立的
   // `DotDotDotToken`（实测多出 66，样本全是 `...(newValues)` / `...(items)` 这种调用实参）。
+  //
+  // **第 1188 轮量过它、但没敢删**：`cases:direct` / `cases:tsast` 那一份语料
+  // （`tests/cases/token/**` + `node_modules` + `dist/ts`）里这一支**一次都没成立**
+  // （37258 次求值 / 0 次成立，探针 `tmp/r1188/probe-ifs.mjs`）——可是**那一份语料不是全部**：
+  // `tests/cases/` 下的 `exec` / `runtime` / `stdlib` / `e2e` 四类**不进那一份**
+  //（它们由 `coverage` 那一门跑），而那四类里真的会走到这里。删掉之后 `coverage` 当场红四条
+  // （`stdlib/array/159-array-construction` 与三份 e2e 全报 `unimplemented: expression DotDotDotToken`），
+  // 按「先证明等价再谈改写」撤回，并留这段读数给下一处探针当尺子。
   if (kids.length >= 2 && kids[0].IsDotDotDotSymbol) {
     const spread = projectExpression(kids.slice(1), ctx);
     if (spread !== undefined) {
@@ -6584,54 +6592,25 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   if (opIndex > 0) {
     return foldBinaryFrom(projectExpression(kids.slice(0, opIndex), ctx), kids.slice(opIndex), ctx);
   }
-  // ---- 3. 下标访问 `a[i]`（第 79 轮）----
+  // ---- 3. 下标访问 `a[i]`（第 79 轮）：**第 1188 轮删掉** ----
   //
-  // **必须排在二元切分之后**（踩过）：`a = b[i]` 里 `[]` 绑得比 `=` 紧，先折会把整条赋值
-  // 当成下标表达式（`ElementAccessExpression.expression` 成了 `BinaryExpression`）。
-  // 二元切分先走，递归到 `[b, [i]]` 这一段时再折，优先级才对。
+  // 它认的是「末尾那一格是 `[` 括号」的**平铺两格** `[b, Bracket]`。而第 70 轮 token 层立起
+  // `PropertyAccess` 之后，下标进链这件事已经在**上面第 1 节**办掉了（那一页自己写着
+  // `a[i] → [a, Bracket[i]]` 并折成左结合的嵌套）；留下来的这一支是**同一件事的第二处答案**。
+  // 实测：`--all` 2051 份里走到这一格的 **1144** 次**没有一次成立**（探针 `tmp/r1188/probe-ifs.mjs`），
+  // 用例 1640 份里是 11 次 / 0 次。
+  // **为什么敢删**：它那 1144 次全部落进下面最后那一句 `return projectNode(kids[0], ctx)`
+  // 之前——也就是说**这些形状一个都没有走它**（`a[i]` 由第 1 节折、`T[K]` 是
+  // `IndexedAccessType` 单元、没有操作数的 `[` 由 `json/array-literal.xl.md` 收成 `ArrayLiteral`）。
+  // ---- 3b. 调用链的末尾那一格是 `(` 括号（第 168 轮）：**第 1188 轮删掉** ----
   //
-  // 产物那边下标访问是**平级的两格**（`Identifier(b)` + `[` 括号），TS 那边是
-  // `ElementAccessExpression > [expression, argumentExpression]`。缺这一支的后果：
-  // `ElementAccessExpression` 整类缺 300 处，而且**右操作数会在括号处截断**
-  // （`options.Output = args[index + 1]` 的区间止于 `args`）。
+  // 与上一支同一条口径：`y(function () { … })()` 那对**末尾括号**由第 1 节的链循环认
+  // （`IsCallFirstUnit` 那一族折出来的就是同一个 `CallExpression`）。实测：
+  // `--all` 2051 份里走到这一格的 **1144** 次**一次都没有成立**，用例 1640 份里 11 次 / 0 次
+  // （同一次实测、同一支探针）。
   //
-  // 判据是**末尾那一格是 `[` 括号**：值位里前面有操作数的 `[` 就是下标
-  // （没有操作数的由 `json/array-literal.xl.md` 收成 `ArrayLiteral`，到不了这里；
-  // 类型位的 `T[K]` 是 `IndexedAccessType` 单元，也到不了这里）。
-  // 递归写法顺带覆盖 `a[i][j]` 与 `f(a)[0]`：先折前面那段，再套一层。
-  if (kids.length >= 2 && kids[kids.length - 1].IsIndexBracket) {
-    const bracket = kids[kids.length - 1];
-    const base = projectExpression(kids.slice(0, kids.length - 1), ctx);
-    const argument = projectExpression(bracket.ProjectableKids, ctx);
-    return chainOn("ElementAccessExpression", base, { expression: base, argumentExpression: argument }, bracket.end);
-  }
-  // ---- 3b. 调用链的末尾那一格是 `(` 括号（第 168 轮）----
-  //
-  // `y(function () { … })()` 的产物是 `[Method(name="y"), Bracket( () )]`——末尾那对括号是
-  // **对调用结果再调一次**的实参表，而它不在 `Method` 里（`Method` 的区间只到函数体那个 `}`）。
-  // TS 那边是外面再套一层 `CallExpression`，区间一直到那个 `)`。
-  // 不接的话外层调用整个没有、内层终点也短两格（实测 `stmt-asi-paren-call.ts`：
-  // `BinaryExpression` 与 `CallExpression` 各漂 2 + 多出一个短区间节点）。
-  // 与上面下标那一支同款：先折前面那段，再套一层。
-  // **「末尾那一格是不是圆括号」由那一格自己答**（第 1137 轮）：这两句原来读的是
-  // `kids[kids.length - 1].IsBracketUnit && kids[kids.length - 1].startBracket === "("`
-  // ——`IsBracketUnit` 加**原始字段** `startBracket`，正是「这一格是哪一态括号」那一问的
-  // **第二种写法**：第 1089 / 1095 / 1109 轮把本页 27 处 `X.Tag === "Bracket" &&
-  // X.startBracket === "("` 收成了 `X.IsParenBracket`，**唯独这一处没有 `Tag` 那一半守卫、
-  // 于是从那一门的正则里漏了过去**（第 1115 轮收 `IsCommentUnit` 那一处同款漏网）。
-  // `Bracket` 那一页在 `Use` 里写着 `this.IsParenBracket = this.startBracket === "("`、
-  // `Clone` 抄同一格，基类答 `false`——所以这一格**与原来那两句逐字同答**，
-  // 连「是不是括号」那一半也一并蕴含（`IsParenBracket` 只在 `Bracket` 那一页答 `true`）。
-  // 同一轮 `direct:lint` 的 `BRACKET_STATE_CLASSIFY` 补了第三条：本页代码块里
-  // `.startBracket === "…"` 这种**裸字段读**从此是 0 处（写回来这一门当场红）。
-  if (
-    kids.length >= 2 &&
-    kids[kids.length - 1].IsParenBracket
-  ) {
-    const bracket = kids[kids.length - 1];
-    const base = projectExpression(kids.slice(0, kids.length - 1), ctx);
-    return chainOn("CallExpression", base, { expression: base, arguments: callArgumentsOf(bracket, ctx) }, bracket.end);
-  }
+  // **第 1137 轮留下的那句话仍然成立**（`Bracket.IsParenBracket` 是这一问的唯一读法）：
+  // 这一轮删掉的是**问它的那个分支**，不是那一格属性——链那一节照旧读它。
   return projectNode(kids[0], ctx);
 ```
 
