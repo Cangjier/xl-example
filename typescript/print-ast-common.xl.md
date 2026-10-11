@@ -3,7 +3,7 @@
 // @ts-nocheck
 ```
 ```xl
-import { Token, AstNode, PrintAstCtx } from "../core/syntax/token.xl.md"
+import { Token, AstNode, PrintAstCtx, SourceSpan } from "../core/syntax/token.xl.md"
 import { Translate } from "./tokens/string/translate.xl.md"
 import { SymbolToken } from "./tokens/symbol-token.xl.md"
 ```
@@ -3918,6 +3918,33 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
     if (!(one instanceof Token) || one.IsInvisible === true) return list.filter((k) => k instanceof Token && !k.IsInvisible);
   }
   return list;
+```
+
+# private method bodyRangeOf:(brace:any)=>SourceSpan | null
+
+**被问的那一格 `BodyBrace` 记下的那一对花括号的整段区间**（第 1200 轮，用户口径 1.2 / 1.6）：
+`{ pos, end }`（`end` 是**闭**右端，第 641 轮的口径），体不是花括号块时给 `null`。
+
+**为什么立这一格**：同一段算式在本页出现过 **2 次**——
+`ctx.BodyBlockOf` 与 `ctx.BlockOfBody` 两条出口里各一次（`brace.IsSet === true` 那一问 +
+`brace.Range` + 两头都不为 `null` 那一问），第 1087 轮删掉的那一格 `braceSpanOf` 当时
+就是为这两处立的。这一轮按同一把尺子把它收回来：
+
+- **判据一条没少**：`brace` 为 `null` / `undefined` ⇒ `null`；`IsSet` 不为真 ⇒ `null`；
+  `Range` 本身为空 ⇒ `null`；两头只要有一头是 `null` ⇒ `null`。
+- **只删掉两处 `undefined` 与 `typeof … !== "number"`**：那三问在类型的意义上**恒为假**
+  （`Range` 是 `SourceSpan | null`，两头的类型就是 `int`，不带 `undefined`）——
+  原来是照着通用写法抄的，投影层从来没有一支走过它；类型标注仍然是那一份保证。
+
+**它答的是「那一格字段记的是什么」**：三条来源全是被问的那一格自己的字段
+（`IsSet` / `Range` / `Range.Start.Index` / `Range.End.Index`），
+与 `braceSpanOf` 当时那条口径相同——**token 记下的事实，投影只读**。
+
+```ts
+  if (brace === null || brace === undefined || brace.IsSet !== true) return null;
+  const span = brace.Range;
+  if (span === null || span === undefined || span.Start === null || span.End === null) return null;
+  return { pos: span.Start.Index, end: span.End.Index + 1 };
 ```
 
 # private method bangWrapped:(left:any, pendingBang:any)=>any
@@ -10181,16 +10208,13 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       // **整对读字段那一支**（第 641 轮）：字段只在「体就是一对花括号」时才会被 token 写下
       //（`While.BodyBrace` 的 `CaptureBodyBrace` 那一处就是这个条件），
       // 所以有它 ⇒ TS 那边就是一个 `Block`——空块那一档（`while (c) {}`）也一并落在这里。
-      const knownBrace = brace !== null && brace !== undefined && brace.IsSet === true
-        ? brace.Range
-        : null;
-      if (knownBrace !== null && knownBrace !== undefined
-        && knownBrace.Start !== null && knownBrace.End !== null) {
+      const knownBrace = bodyRangeOf(brace);
+      if (knownBrace !== null) {
         return {
           kind: "Block",
           statements: projections,
-          pos: knownBrace.Start.Index,
-          end: knownBrace.End.Index + 1,
+          pos: knownBrace.pos,
+          end: knownBrace.end,
         };
       }
       // **空体语句那一支的兜底第 1084 轮删掉了**：它在全语料里进入 0 次，
@@ -10375,18 +10399,16 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     BlockOfBody: (list, brace) => {
       const kids = prepareKids(list);
       const projections = projectEach(kids, ctx);
-      const known = brace !== null && brace !== undefined && brace.IsSet === true
-        ? brace.Range
-        : null;
-      if (known !== null && known !== undefined && known.Start !== null && known.End !== null) {
+      const known = bodyRangeOf(brace);
+      if (known !== null) {
         return {
           node: {
             kind: "Block",
             statements: projections,
-            pos: known.Start.Index,
-            end: known.End.Index + 1,
+            pos: known.pos,
+            end: known.end,
           },
-          end: known.End.Index + 1,
+          end: known.end,
         };
       }
       if (projections.length === 0) {
