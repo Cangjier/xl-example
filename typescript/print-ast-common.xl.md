@@ -5479,7 +5479,15 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   const tagUnit = kids[0];
   const tagIsComplete =
     tagUnit.IsChainBaseNode ||
-    (tagUnit.IsParenBracket);
+    tagUnit.IsParenBracket ||
+    // **`a!`x`` 的标签是一格 `NonNullExpression`**（第 1212 轮，用户口径 1.1）：`a!`x`.b` 的产物是
+    // `[NotNull([Identifier(a), !]), PropertyAccess([String(反引号), ., b])]`——标签那一格是
+    // **一格 `NotNull`**，而上面那张「形状够不够当链的基名」的名单里没有它（那一格答的是
+    // 「够不够当一条链的基名」，`a!` 确实是完整表达式、却不在那张名单里）⇒ `tagIsComplete`
+    // 答否 ⇒ 0c 整支让开、模板那一段丢（实测缺 `PropertyAccessExpression` +
+    // `TaggedTemplateExpression` + 模板字面量）。它与 `IsParenBracket` 是同一档：
+    // **这一格已经是一个完整的表达式**，拿它当标签不会把运算符那一段误认成标签。
+    tagUnit.IsNotNull;
   // **标签本身可能是一整段平铺的链**（第 947 轮（二））：`o/*c*/.tag`t`.b` 的产物是
   // `[Identifier(o), ., Identifier(tag), PropertyAccess(String, ., b)]`——那条注释把
   // `o.tag` 那一段**拆平了**（链规则没把它们折成一格），于是 `kids[1]` 是**点号**、
@@ -5514,7 +5522,17 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       };
       const chained = chainOnto(head, inner.slice(1), ctx);
       const tail = kids.slice(templateChainAt + 1);
-      return tail.length === 0 ? chained : foldBinaryFrom(chained, tail, ctx);
+      if (tail.length === 0) return chained;
+      // **尾巴那一格可能是一次调用的实参括号**（第 1212 轮，用户口径 1.1）：`a`x`[c](d)` 的产物是
+      // `[Identifier(a), PropertyAccess([String(反引号), Bracket([c])]), Bracket((d))]`——
+      // 模板与下标收在**同一格**里，而外面那次调用的实参括号是**下一个兄弟**。原来无条件交给
+      // `foldBinaryFrom`，而实参括号不是运算符单元 ⇒ **那次调用整格丢**
+      //（实测缺 `CallExpression` + `Identifier`）。
+      // 判据按「这一格是不是链的续格」分：实参括号交给 `chainOnto`（它那一支正是
+      //「紧跟一对圆括号 ⇒ 对左边那个结果再调一次」），其余照旧走二元那一支
+      //（`` tag`x`.b + 1 `` 那一族一个字没改）。
+      if (tail[0].IsParenBracket) return chainOnto(chained, tail, ctx);
+      return foldBinaryFrom(chained, tail, ctx);
     }
   }
   // ---- 0d. 标签模板处在**运算符的左脊柱**上（第 176 轮）----
