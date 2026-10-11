@@ -783,9 +783,10 @@ return out;
 // `SegmentKeys` / `SegmentNames` **都是构造时就赋好的字段**（各页 `## field … = …` 初始值），
 // 之后再没人写过它们（全仓实测：除这两格的声明外没有第二处赋值）⇒ 答案在 token 那一生里
 // 是**常量**，算一次就够了。所以第 1150 轮把算过的答案记进 `CachedSegments` 那一格。
-// **不是「第一次读之前还有人会改它」**：`Segments` 只有本页那两个循环（`ProjectableKids` /
-// `AllKids`）与投影那一侧的两处只读遍历在读，构造期一处都没有——所以第一读一定发生在
-// 两个来源都就位之后。
+// **不是「第一次读之前还有人会改它」**：`Segments` 只有本页那两个读者
+// （`ProjectableKids` 那一格，以及第 1161 轮之后 `ProjectionStart` /
+// `TrailingSemicolonAt` 两格各自就地扫的那两趟）与投影那一侧的两处只读遍历在读，
+// 构造期一处都没有——所以第一读一定发生在两个来源都就位之后。
 const cached = this.CachedSegments;
 if (cached !== null) return cached;
 const own = this.SegmentKeys;
@@ -841,7 +842,7 @@ return names;
 在开投之前把**根**那一格置上（`exported[0].Parent.TreeFrozen = true`），子单元**沿 `Parent` 链看得见**
 ——冻结根即冻结整棵树（每一格都有一条到根的 `Parent` 链）。
 
-**为什么要有这一格**：`ProjectableKids` / `AllKids` 两格读的都是「各段 + `children`」现拼出来的表，
+**为什么要有这一格**：`ProjectableKids` 那一格读的是「各段 + `children`」现拼出来的表，
 而**投影期这棵树是只读的**（置上之后没有任何一处再动 `Data`）——于是第一次问出来的答案
 在整段投影里一直成立，可以记下来（见 `ProjectableKids` 那一节的实测读法）。
 **为什么用「冻结」而不是「谁改了谁清缓存」**：改子单元的地方有十几处
@@ -936,33 +937,14 @@ if (this.TreeFrozen) this.KidsCache = out;
 return out;
 ```
 
-## property AllKids:Array<Token>
-
-**我这一格下面的**全部**子单元**（第 1141 轮）：各段合起来（`Segments` 的顺序、`children` 在最后），
-**不滤 `IsInvisible`**——它就是投影那一侧 `allKids(v)` 那一格 helper 的同一个读数。
-
-**与 `ProjectableKids` 的分工**：那一格是「进投影的那些」（滤掉 trivia），这一格是「要找 trivia 时
-的那些」（注释 / 软换行 / 预处理指令都要看得见）。两格拼的是同一批事实（`Segments` + 各段属性 +
-`children`），差别只有滤不滤那一下。
-
-**为什么要住在 token 上**（用户口径 1.1 ~ 1.4）：投影要问「我这一格区间开头那段注释是哪一格」时，
-只能用「含 trivia 的全部子单元」，而那一串本来就在这一格身上。形态与 `ProjectableKids` /
-`children` 相同（`## property` + `### get`：子单元是解析期陆续挂上来的）。
-
-### get
-
-```ts
-const self: any = this;
-const out: any[] = [];
-for (const key of this.Segments) {
-  if (key === "children") continue;
-  const raw = self[key];
-  if (!Array.isArray(raw)) continue;
-  for (const x of raw) out.push(x);
-}
-for (const x of this.children) out.push(x);
-return out;
-```
+**`## property AllKids` 第 1161 轮整格删掉了**（用户口径 1.6：投影成本趋于 0）。它原来
+（第 1141 轮立）把「各段 + `children`、不滤 `IsInvisible`」现拼成一张数组，而它的**两个读者
+都在这一页上**（`ProjectionStart` 找「起点正好是这个位置的那一格注释」、`TrailingSemicolonAt`
+问「末尾那个 `;` 有没有被某一格盖住」）——两问都只用得着**一格一格地看**，不需要那张表。
+**实测**（官方用例语料 1640 份，计数器挂在 `Token.prototype.AllKids` 那个 getter 上）：
+它被读 **11516** 次（`ProjectionStart` 9580 + `TrailingSemicolonAt` 1936），
+**每一次都重造一张数组**。第 1161 轮把两处读者改成就地扫（各段 + `children`、命中即停），
+那张表因此**一次都不用再造**；`AllKids` 这个名字在代码块里从此一处不剩。
 
 ## property ProjectionStart:int
 
@@ -972,9 +954,10 @@ return out;
 `UnionType` 的区间就从前一行那条注释开始）。
 
 **为什么住在 token 上**（用户口径 1.1 ~ 1.4）：这一问的每一件事实都是这一格自己的——
-「我区间开头那一格是不是注释」读 `AllKids` 与 `IsCommentUnit`、「注释后面第一个非空白字符在哪」
-读自己的 `Text`。算式原来在 `print-ast-common.xl.md` 的 `astNode` 里现场写了一遍
-（`allKids(v)` + `ctx.source`），现在由这一页答、投影只读属性。
+「我区间开头那一格是不是注释」读自己的各段与 `children`（第 1161 轮起**就地扫**）与
+`IsCommentUnit`、「注释后面第一个非空白字符在哪」读自己的 `Text`。算式原来在
+`print-ast-common.xl.md` 的 `astNode` 里现场写了一遍（`allKids(v)` + `ctx.source`），
+现在由这一页答、投影只读属性。
 
 **整段都是注释时不动**（否则 `pos` 会越过 `end`）：`at >= this.end` 那一句就是它。
 **没有签过的单元 / 非 token 的合成视图**：前者的两格给同一批子单元（与原来逐格同答），
@@ -996,9 +979,32 @@ return out;
 // 却要在基类上多一格**永远只被读第二次才用得上**的字段（`Clone` 还要跟着抄一格）——
 // 按本仓那条量出来的口径（第 1135 轮的教训：收件人先量后立），**这一格不该立**。
 // 量在这一段里，是为了让下一轮**不要**再照「getter 里造数组」这一条去立记忆位。
+// **第 1161 轮把那一趟数组整个拿掉了**（不是立记忆位）：上面那个「每一趟都重建一份 `AllKids`」
+// 的读数说的正是代价所在，而解法不是缓存那张表、是**不造它**——两处读者各就地扫一遍
+// （见下面这一节与 `TrailingSemicolonAt`），`AllKids` 那一格随之整格删掉。
 let at = this.start;
+const self: any = this;
 for (;;) {
-  const trivia = this.AllKids.find((k) => k.start === at && k.IsCommentUnit);
+  // **就地扫一遍，不造那张「各段 + children」的表**（第 1161 轮，用户口径 1.6）：
+  // 这一问要的是「各段 + `children` 里**第一格**『起点正好是 `at` 的注释』」，顺序与那张表
+  // 逐格相同（各段按 `Segments` 的顺序、`children` 在最后），所以先扫到的那一格就是答案；
+  // 命中即停，连扫都不扫完。它原来是 `this.AllKids.find(...)`（第 1141 轮），
+  // 而那一格每读一次就要现造一张数组（见 `AllKids` 整格删除那一笔的实测读数）。
+  let trivia: any = undefined;
+  for (const key of this.Segments) {
+    if (key === "children") continue;
+    const raw = self[key];
+    if (!Array.isArray(raw)) continue;
+    for (const k of raw) {
+      if (k.start === at && k.IsCommentUnit) { trivia = k; break; }
+    }
+    if (trivia !== undefined) break;
+  }
+  if (trivia === undefined) {
+    for (const k of this.children) {
+      if (k.start === at && k.IsCommentUnit) { trivia = k; break; }
+    }
+  }
   if (trivia === undefined) break;
   let next = trivia.end;
   while (next < this.end && /\s/.test(this.Text[next - this.start])) next++;
@@ -1015,7 +1021,8 @@ return at;
 
 **为什么住在 token 上**（用户口径 1.1 ~ 1.4）：这一问的每一件事实都是这一格自己的——
 「我的末字符是不是 `;`」读自己的 `Text`、「那个 `;` 有没有被某个子单元盖住」读自己的
-`AllKids`。算式原来在 `print-ast-common.xl.md` 的 `projectEach` 里现场写了一遍
+各段与 `children`（第 1161 轮起**就地扫**，不再经 `AllKids` 那张现拼的表）。算式原来在
+`print-ast-common.xl.md` 的 `projectEach` 里现场写了一遍
 （`ctx.source[endOf(x) - 1]` + `allKids(x)`），现在由这一页答、投影只读属性。
 
 **整段是注释时为什么不算**（第 838 轮实测）：`function f() {} /*c*/;` 这一格把注释与
@@ -1036,10 +1043,24 @@ return at;
 ```ts
 if (this.end <= 0) return undefined;
 if (!this.Text.endsWith(";")) return undefined;
-for (const k of this.AllKids) {
-  if (k.start <= this.end - 1 && this.end - 1 < k.end) return undefined;
+// **就地扫一遍，不造那张「各段 + children」的表**（第 1161 轮，用户口径 1.6）：
+// 这一问是**存在性**（有没有某一格盖住末尾那个 `;`），所以照「各段 + `children`」的顺序
+// 扫、**命中即答**——与 `for (const k of this.AllKids)` 逐格同答（那张表同一批子单元、
+// 同一个顺序），只是不必先把它拼出来。
+const at = this.end - 1;
+const self: any = this;
+for (const key of this.Segments) {
+  if (key === "children") continue;
+  const raw = self[key];
+  if (!Array.isArray(raw)) continue;
+  for (const k of raw) {
+    if (k.start <= at && at < k.end) return undefined;
+  }
 }
-return this.end - 1;
+for (const k of this.children) {
+  if (k.start <= at && at < k.end) return undefined;
+}
+return at;
 ```
 
 ## method ChildrenOf:(segment:Token | null | undefined)=>Array<Token>

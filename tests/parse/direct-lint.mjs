@@ -712,6 +712,39 @@ let nameCopyHits = 0;
  * 而代码块里出现就是**这一层又有一条路可走**——那才是要拦的东西。
  */
 const REMOVED_LAYER = ["ToDictionary", "ToList", "WithRange", "WithRangeOf", "ToPlain", "ToJsonString"];
+
+/**
+ * **「含 trivia 的完整子单元表」这一格不许回到 token 页上**（第 1161 轮，用户口径 1.6 / 1.7）。
+ *
+ * `Token.AllKids` 第 1141 轮立、**第 1161 轮整格删掉**：它那两个读者（`ProjectionStart` 找
+ * 「起点正好是这个位置的那一格注释」、`TrailingSemicolonAt` 问「末尾那个 `;` 有没有被某一格
+ * 盖住」）都只用得着**一格一格地看**，而那一格**每读一次就现造一张数组**——实测官方用例语料
+ * 1640 份：被读 **11516** 次 = **11516** 次数组构造（`ProjectionStart` 9580 +
+ * `TrailingSemicolonAt` 1936）。
+ *
+ * **为什么它必须是门**：删掉的东西**能被重新写回来**——谁想再要一张全表，在基类上写一格
+ * `AllKids` 就绕开了这一门其余的判据（那几条看的是投影层，而这一格长在 token 上）。
+ * 与 `REMOVED_LAYER` 同一条口径：「口径」这两个字只有这样才有一条判据看着。
+ *
+ * **只看非注释行**：那一页的注释里写着它的历史（`this.AllKids.find(…)` 原来长什么样、
+ * 第 1148 轮量过什么），那是**记录**；代码行里出现才是「这一格又回来了」。
+ */
+const ALL_KIDS_REMOVED = /\bAllKids\b/;
+let allKidsHits = 0;
+for (const file of files) {
+  const text = fs.readFileSync(file, "utf8");
+  const code = [...text.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => m[1]).join("\n");
+  if (code === "") continue;
+  const live = code.split("\n").filter((line) => !line.trimStart().startsWith("//")).join("\n");
+  const hits = (live.match(new RegExp(ALL_KIDS_REMOVED, "g")) ?? []).length;
+  if (hits === 0) continue;
+  allKidsHits += hits;
+  violations.push({
+    file: path.relative(root, file),
+    why: `\`AllKids\` 又出现在代码行里（${hits} 处）——那一格第 1161 轮整格删掉了（读一次造一张数组）；要那一批子单元的读者就地扫各段与 \`children\`，历史写在那两格的注释里`,
+  });
+}
+
 let removedLayerHits = 0;
 for (const file of files) {
   const text = fs.readFileSync(file, "utf8");
@@ -1672,6 +1705,11 @@ console.log(
 console.log(
   `中间那一层的入口名（${REMOVED_LAYER.join(" / ")}）：${removedLayerHits} 处（0 处才是对的，历史写在 docs/ 与 README 里）`,
 );
+// **「含 trivia 的完整子单元表」的账**（第 1161 轮）：`Token.AllKids` 那一格整格删掉之后，
+// 「一张现拼的全表」不许再长回 token 页上——要它的读者就地扫各段与 `children`。
+console.log(
+  `「含 trivia 的完整子单元表」又长回 token 页上（AllKids）：${allKidsHits} 处（0 处才是对的，读者就地扫各段与 children）`,
+);
 if (verbose) {
   for (const one of directPages) console.log(`  direct  ${one.file}:${one.line}`);
 }
@@ -1684,6 +1722,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格是不是一条成员访问链由被问的那一页答、这一格是不是一次非空断言由被问的那一页答、这一格是不是一次方法调用由被问的那一页答、这一格是不是一段泛型括号段由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答、声明里没有 any、投影读的每一格都在某一页显式声明过、已知是 string 的名字不再拷一遍）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格是不是一条成员访问链由被问的那一页答、这一格是不是一次非空断言由被问的那一页答、这一格是不是一次方法调用由被问的那一页答、这一格是不是一段泛型括号段由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、含 trivia 的完整子单元表不回到 token 页上、成对符号的位置由 token 自己记、字符串的正文由 token 自己答、声明里没有 any、投影读的每一格都在某一页显式声明过、已知是 string 的名字不再拷一遍）`,
 );
 process.exit(0);

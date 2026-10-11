@@ -303,7 +303,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
 | `cases:direct` | **第三个出口投不投得出来**（第 992 轮加，第 1013 / 1017 轮改口径）：`Token.PrintAst` 是**唯一**的写法，所以量的是两条**绝对**的判据——① 全语料投一遍**不许抛异常**；② 固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintAst`）。**第 1013 轮之前**它与老路开 / 关两遍对拍，第 1013 ~ 1016 轮改量「同一份输入重投两遍逐字节相同」——**那一项第 1017 轮撤了**：两遍都在同一个进程里、问的都是同一份 `Root` 自己的子单元列表，确定性代码必然逐字节相同，**它不可能失败** |
-| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 / 1014 / 1015 / 1026 / 1027 / 1046 / 1049 / 1050 / 1053 / 1057 / 1058 / 1059 / 1060 / 1061 / 1062 / 1063 / 1064 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；**扫共享投影那一页的代码块**（第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层）另有六条：① 名字那一格不许按字符串键读（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`，第 1008 轮）；② **一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintAst`——那是分发不是数据，第 1046 轮）；③ `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`；扫描游标与别人的终点照旧，第 1049 轮）；④ **按坐标从 `ctx.source` 切正文**的 = 0 处（`ctx.source.slice(startOf(x), endOf(x))` / `ctx.source.slice(startOf(x), x.end)`——这一段正文由它自己答：`x.Text` / `x.Text.slice(…)`，区间是全文坐标所以两头减 `x.start`；扫描游标与成对括号区间照旧，第 1053 轮）；⑤ `# private method …` 小节里**声明了 `ctx` 形参却在方法体里一处不用**的 = 0 处（形参表就是这一格需要什么，第 1050 轮）；⑥ 中间那一层的入口名（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）一个都不许留在规范页的代码块里（第 1027 轮）。还有一条只扫**散文**的老名字判据在**第 1143 轮撤掉了**（用户口径 1.1 把 `PrintDirectAst` 改名成 `PrintAst`，全仓 78 个文件 / 482 处，于是「`PrintAst` 是老名字」这句话本身成了反的，见 `tests/parse/direct-lint.mjs` 里那一整段说明）；以及一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace` / `FirstCodeAfter` / `MatchBrace` / `MatchingParen`，第 1015 / 1026 轮；第 1062 轮再补 `IsOperatorUnit` / `IsTypeParameterModifier`；第 1063 轮再补 `OperatorRank`）——出口删了之后，方法体那条判据才从「大家记得别写」变成**结构上做不到**；⑨ `print-ast-common` 的**代码块**里不许再有「回原文配对 / 找成对符号」的形态（`matchingBrace(` / `ctx.MatchingBrace(` / `indexBracketOf(` / `ctx.IndexBracketOf(` / `ctx.source.indexOf("{")` / `ctx.source.lastIndexOf("{")`，第 1059 / 1060 轮）——那两格（`bodyBraceRange` / `IndexBracketAt`）由 token 自己记好；⑩ `print-ast-common` 的**代码块**里不许再回**某一页的子单元**里翻字符串的正文（`stringText(` / `ctx.StringText(`，第 1061 轮）——那段正文由 `String.StringText` / `ConstString.StringText` 自己答；⑪ `print-ast-common` 的**代码块**里不许再把「这一格是不是某一类」写成问句（`isDotSymbol(` / `isTypeSeparator(` / `isNameNode(` / `isOperatorUnit(` / `isPrefixOperatorUnit(` / `isTypeParameterModifier(`，以及 `ctx.Is…` 那种出口写法；`isDot` 这类缩写一起认，第 1057 / 1058 / 1062 轮）——那一格的事实住在**被问的那一页**（`Token.IsDotSymbol` / `Token.IsOperatorUnit` …），投影只读属性；第 1063 轮这一族多认一格**「这一格的值是什么」**的形态（属性名 `OperatorRank` 与老问句别名 `operatorRank(`）——优先级那张词汇表搬进了 `symbol-token.xl.md`（`SymbolToken.OperatorRank` / `SymbolToken.RankOfText`），投影只读属性；第 1064 轮再补两格（`DeclarationListFlags` 配别名 `flagsOf`、`HasChildren` 配别名 `labelIsFlat`——两问都是从这一格自己的属性读出来的：`Let.modifiers` 与基类 `children`） |
+| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 / 1014 / 1015 / 1026 / 1027 / 1046 / 1049 / 1050 / 1053 / 1057 / 1058 / 1059 / 1060 / 1061 / 1062 / 1063 / 1064 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；**扫共享投影那一页的代码块**（第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层）另有六条：① 名字那一格不许按字符串键读（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`，第 1008 轮）；② **一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintAst`——那是分发不是数据，第 1046 轮）；③ `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`；扫描游标与别人的终点照旧，第 1049 轮）；④ **按坐标从 `ctx.source` 切正文**的 = 0 处（`ctx.source.slice(startOf(x), endOf(x))` / `ctx.source.slice(startOf(x), x.end)`——这一段正文由它自己答：`x.Text` / `x.Text.slice(…)`，区间是全文坐标所以两头减 `x.start`；扫描游标与成对括号区间照旧，第 1053 轮）；⑤ `# private method …` 小节里**声明了 `ctx` 形参却在方法体里一处不用**的 = 0 处（形参表就是这一格需要什么，第 1050 轮）；⑥ 中间那一层的入口名（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）一个都不许留在规范页的代码块里（第 1027 轮）。还有一条只扫**散文**的老名字判据在**第 1143 轮撤掉了**（用户口径 1.1 把 `PrintDirectAst` 改名成 `PrintAst`，全仓 78 个文件 / 482 处，于是「`PrintAst` 是老名字」这句话本身成了反的，见 `tests/parse/direct-lint.mjs` 里那一整段说明）；以及一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace` / `FirstCodeAfter` / `MatchBrace` / `MatchingParen`，第 1015 / 1026 轮；第 1062 轮再补 `IsOperatorUnit` / `IsTypeParameterModifier`；第 1063 轮再补 `OperatorRank`）——出口删了之后，方法体那条判据才从「大家记得别写」变成**结构上做不到**；⑨ `print-ast-common` 的**代码块**里不许再有「回原文配对 / 找成对符号」的形态（`matchingBrace(` / `ctx.MatchingBrace(` / `indexBracketOf(` / `ctx.IndexBracketOf(` / `ctx.source.indexOf("{")` / `ctx.source.lastIndexOf("{")`，第 1059 / 1060 轮）——那两格（`bodyBraceRange` / `IndexBracketAt`）由 token 自己记好；⑩ `print-ast-common` 的**代码块**里不许再回**某一页的子单元**里翻字符串的正文（`stringText(` / `ctx.StringText(`，第 1061 轮）——那段正文由 `String.StringText` / `ConstString.StringText` 自己答；⑪ `print-ast-common` 的**代码块**里不许再把「这一格是不是某一类」写成问句（`isDotSymbol(` / `isTypeSeparator(` / `isNameNode(` / `isOperatorUnit(` / `isPrefixOperatorUnit(` / `isTypeParameterModifier(`，以及 `ctx.Is…` 那种出口写法；`isDot` 这类缩写一起认，第 1057 / 1058 / 1062 轮）——那一格的事实住在**被问的那一页**（`Token.IsDotSymbol` / `Token.IsOperatorUnit` …），投影只读属性；第 1063 轮这一族多认一格**「这一格的值是什么」**的形态（属性名 `OperatorRank` 与老问句别名 `operatorRank(`）——优先级那张词汇表搬进了 `symbol-token.xl.md`（`SymbolToken.OperatorRank` / `SymbolToken.RankOfText`），投影只读属性；第 1064 轮再补两格（`DeclarationListFlags` 配别名 `flagsOf`、`HasChildren` 配别名 `labelIsFlat`——两问都是从这一格自己的属性读出来的：`Let.modifiers` 与基类 `children`）；第 1161 轮再加一条：**`AllKids` 不许出现在代码行里**（那一格第 1161 轮整格删掉——读一次造一张数组，见下面第 1161 轮那一节；只看非注释行，注释里提它是记录） |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `runtime:check` / `runtime:cli` | 执行侧的机制与端到端（见「构建链路」那一节） |
@@ -346,6 +346,47 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
+
+### 第 1161 轮：用户口径 1.6 / 1.7（连带 1.3）—— 「含 trivia 的完整子单元表」那一格（`Token.AllKids`）**整格删掉**：它那两个读者改成就地扫，**每投一趟少造 11516 张数组**
+
+**一句话**：`Token.AllKids`（第 1141 轮立）把「各段 + `children`、不滤 `IsInvisible`」现拼成一张
+数组，而它的**两个读者都在同一页上**、且都只用得着**一格一格地看**：
+
+| 读者 | 它问的那句话 | 原来怎么读 |
+| --- | --- | --- |
+| `Token.ProjectionStart`（第 1141 轮立） | 「各段 + `children` 里**第一格**『起点正好是这个位置的那一格注释』」 | `this.AllKids.find((k) => k.start === at && k.IsCommentUnit)` |
+| `Token.TrailingSemicolonAt`（第 1149 轮立） | 「末尾那个 `;` 有没有被**某一格**盖住」（存在性） | `for (const k of this.AllKids) { … }` |
+
+- **实测（这一轮改动前的读数）**：探针把计数器挂在 `Token.prototype` 上、跑官方用例语料
+  **1640 份**（`tmp/r1161-getters.mjs`，不进仓）——`AllKids` 被读 **11516** 次
+  （`ProjectionStart` **9580** + `TrailingSemicolonAt` **1936**），**每一次都重造一张数组**
+  ⇒ 每投一趟 **11516 次数组构造**。改完之后同一把探针里 `AllKids` 这一行**整个消失**
+  （包装到的 getter 从 33 个落到 32 个；`ProjectionStart` 的 **9580** 次读数一处没动）。
+- **改法**：两处读者各自**就地扫**「各段（按 `Segments` 的顺序、跳过 `children`）+ `children`」，
+  **命中即停**——顺序与那张表逐格相同，所以「先扫到的那一格就是原来 `find` 给的那一格」；
+  `ProjectionStart` 那一支仍然照原样跳注释后面的空白，`TrailingSemicolonAt` 那一支仍然是存在性。
+  **`## property AllKids` 那一格随之整格删掉**（`AllKids` 这个名字在代码块里从此一处不剩）。
+- **为什么不是「给它立个记忆位」**：第 1148 轮已经量过同一个方向（那时量的是 `ProjectionStart`
+  自己要不要缓存：**9580** 次读落在 **9339** 个不同的 token 上、重复读只有 **241** 次）
+  ——**缓存省不掉这一趟的数组构造**，因为绝大多数 token 只读一次；省得掉的是
+  「**不造那张表**」。这一轮就是照那个读数做的，而第 1148 轮写下的那一段量法留在原处
+  （它正是这一轮的判据来源），只在末尾补了一句「第 1161 轮把那一趟数组整个拿掉了」。
+- **钉成判据**（`direct:lint` 新加一条）：`AllKids` **不许再出现在代码行里**
+  （只看非注释行——那一页的注释里写着它的历史，那是记录）。理由与 `REMOVED_LAYER` 同源：
+  **删掉的东西能被重新写回来**，而这一格长在 token 页上、这一门其余的判据看不见它。
+  **自验**（本机探针，不进仓库）：把 `const probe = this.AllKids;` 写进 `ProjectionStart` 那一格
+  ⇒ 新判据报 **1 处**并点名那一行、退出码 1；逐字节还原 ⇒ 回到 **0 处**。
+- **如实记下这一轮的「快」是什么**：顺手用 `node --cpu-prof` 采了一趟整投影
+  （1640 份 × 2 遍 / **4757ms**）：采样前几名是 `readFileUtf8` / `Token` 构造 /
+  `CloseRule.ApplyTo` / `RunCloseRules` / `Process`——**投影那几个函数都在 0.5% 以下**。
+  ⇒ 这类改动省的是**构造次数**（一本书账），墙钟上量不出（与第 1146 / 1147 轮同一条结论）。
+- **声明数**：`print-ast-common` **58 格**（一格没增没减：它是**读**的那一侧）；`core/syntax/token.xl.md`
+  **少一格属性**（`AllKids`），两处读者各多一段就地扫的算式。
+- **实测八道门**：**7 通过、1 失败**（墙钟 32.3s），读数与第 1106 ~ 1160 轮**逐项相同**：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` **0 条违反**
+  （新判据 0 处）、`samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79；唯一那条红仍是 HEAD 上既有的 `runtime/round741/002`（尺子不是门）。
 
 ### 第 1160 轮：用户口径 1.7（连带 1.2 / 1.6）—— 「把一格的调用壳整体接到左手那一格上」这个三步形状在投影里**出现 8 次**（`graftCallee(projectNode(U, ctx), innermostCallee(left, innermostMethod(U), ctx), undefined)`），收成一格 `graftOnto`
 
