@@ -43,12 +43,12 @@ TS 那边 `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型�
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
-  const params = kids.filter((k: any) => k.Tag() === "Parameter");
-  const typeNode = kids.find((k: any) => k.Tag() === "TypeDefine");
+  const params = kids.filter((k: any) => k.Tag === "Parameter");
+  const typeNode = kids.find((k: any) => k.Tag === "TypeDefine");
   // **修饰词那一摞**（第 893 轮）：`readonly` 与 `static` 都是子单元，按源码次序收。
   const modifierUnits = kids.filter(
     (k: any) =>
-      (k.Tag() === "Keyword" || k.Tag() === "Identifier") &&
+      (k.Tag === "Keyword" || k.Tag === "Identifier") &&
       (ctx.ValueOf(k) === "readonly" || ctx.ValueOf(k) === "static"),
   );
   const props: any = {};
@@ -100,7 +100,7 @@ return result;
 
 ## field AstKind:string | undefined = "IndexSignature"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

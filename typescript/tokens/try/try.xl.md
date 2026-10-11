@@ -255,17 +255,17 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
   const tryBlock = blockOf(this.TryBrace, ctx.ProjectEach(seg("body"), "Block"));
   if (tryBlock !== undefined) props.tryBlock = tryBlock;
   const catches = seg("catches");
-  const catchDefine = catches.find((k: any) => k.Tag() === "CatchDefine");
-  const catchBody = catches.find((k: any) => k.Tag() === "CatchBody");
+  const catchDefine = catches.find((k: any) => k.Tag === "CatchDefine");
+  const catchBody = catches.find((k: any) => k.Tag === "CatchBody");
   if (catchDefine !== undefined || catchBody !== undefined) {
     const inner: any = {};
     if (catchDefine !== undefined) {
       const binding = ctx.AllKids(catchDefine).find((k: any) => !k.IsInvisible);
       const isPattern =
         binding !== undefined &&
-        (binding.Tag() === "ObjectLiteral" ||
-          binding.Tag() === "ArrayLiteral" ||
-          (binding.Tag() === "Bracket" &&
+        (binding.Tag === "ObjectLiteral" ||
+          binding.Tag === "ArrayLiteral" ||
+          (binding.Tag === "Bracket" &&
             (binding.startBracket === "{" || binding.startBracket === "[")));
       const name =
         binding === undefined
@@ -276,7 +276,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
       if (name !== undefined) {
         let declEnd = name.end;
         let declType: any = undefined;
-        const typeKid = ctx.AllKids(catchDefine).find((k: any) => k.Tag() === "TypeDefine");
+        const typeKid = ctx.AllKids(catchDefine).find((k: any) => k.Tag === "TypeDefine");
         if (typeKid !== undefined) {
           declEnd = ctx.EndOf(typeKid);
           const typeUnit = ctx.AllKids(typeKid).find((k: any) => !k.IsInvisible);
@@ -450,7 +450,7 @@ return result;
 
 ## field AstKind:string | undefined = "TryStatement"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

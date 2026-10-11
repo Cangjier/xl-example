@@ -436,8 +436,8 @@ parameter.TryToClose();
 // 而装类型实参的容器不是——分得开它们的正是「这一趟有没有造出 `TypeParameter`」，
 // 而这一趟就在这里。所以事实在哪一趟记下，就在哪一趟赋值：投影只读 `owner.WrapperField`，
 // 不再回子单元里数一遍（那个判据过去写在 `generic-type.xl.md` 的 `WrapperField()` 里）。
-// 判据取 `Tag()`（那一格自己答的类名）而不是 import 那个类：两页互相 import 会成环。
-if (owner.Tag() === "GenericType") {
+// 判据取 `Tag`（那一格自己答的类名）而不是 import 那个类：两页互相 import 会成环。
+if (owner.Tag === "GenericType") {
   owner.WrapperField = "typeParameters";
 }
 rebuilt.push(parameter);
@@ -468,7 +468,7 @@ rebuilt.push(parameter);
   //（实测 `type-param-conditional-constraint`：`TypeParameter` 的 `name` / `constraint` 全丢、缺 10）。
   const wrappedIndex = kids0.findIndex(
     (k: any) =>
-      k.Tag() === "UnionType" || k.Tag() === "IntersectionType" || k.Tag() === "ConditionalType",
+      k.Tag === "UnionType" || k.Tag === "IntersectionType" || k.Tag === "ConditionalType",
   );
   const wrapped = wrappedIndex >= 0 ? kids0[wrappedIndex] : undefined;
   const prefix = wrapped === undefined ? [] : kids0.slice(0, wrappedIndex);
@@ -478,7 +478,7 @@ rebuilt.push(parameter);
     const head = list[0];
     if (
       head !== undefined &&
-      (head.Tag() === "UnionType" || head.Tag() === "IntersectionType")
+      (head.Tag === "UnionType" || head.Tag === "IntersectionType")
     ) {
       return [...ctx.Kids(head), ...list.slice(1)];
     }
@@ -487,19 +487,19 @@ rebuilt.push(parameter);
   const kids = wrapped === undefined ? kids0 : flattenInner([...prefix, ...unionKids, ...tail]);
   const extIndex = kids.findIndex(
     (k: any) =>
-      (k.Tag() === "Keyword" || k.Tag() === "Identifier") && ctx.ValueOf(k) === "extends",
+      (k.Tag === "Keyword" || k.Tag === "Identifier") && ctx.ValueOf(k) === "extends",
   );
   const eqIndex = kids.findIndex(
-    (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=",
+    (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=",
   );
   const inIndex = kids.findIndex(
-    (k: any) => (k.Tag() === "Keyword" || k.Tag() === "Identifier") && ctx.ValueOf(k) === "in",
+    (k: any) => (k.Tag === "Keyword" || k.Tag === "Identifier") && ctx.ValueOf(k) === "in",
   );
   // 名字 = 第一个 Identifier，但要排掉 `extends`（词法身份不固定）与修饰词
   //（`out` 在产物里就是 `Identifier`，不排掉的话 `<out T>` 会把 `out` 当成名字）。
   const nameIndex = kids.findIndex(
     (k: any) =>
-      k.Tag() === "Identifier" &&
+      k.Tag === "Identifier" &&
       ctx.ValueOf(k) !== "extends" &&
       !ctx.IsTypeParameterModifier(k),
   );
@@ -519,11 +519,11 @@ rebuilt.push(parameter);
       // 后面三个名字整片丢掉（实测 `type-param-conditional-constraint`：缺 `ConditionalType`
       // + `B` / `C` / `D` 三对 `TypeReference`/`Identifier`）。
       // 判据与 `conditionalNode` 自己那一套同源：这一段里有顶层 `?` 与 `:`，且 `extends` 前面有 checkType。
-      const isSym = (k: any, text: string) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === text;
+      const isSym = (k: any, text: string) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === text;
       const hasQuestion = body.some((k: any) => isSym(k, "?"));
       const hasColon = body.some((k: any) => isSym(k, ":"));
       const bodyExt = body.findIndex(
-        (k: any) => (k.Tag() === "Keyword" || k.Tag() === "Identifier") && ctx.ValueOf(k) === "extends",
+        (k: any) => (k.Tag === "Keyword" || k.Tag === "Identifier") && ctx.ValueOf(k) === "extends",
       );
       props.constraint =
         hasQuestion && hasColon && bodyExt > 0
@@ -541,11 +541,11 @@ rebuilt.push(parameter);
         ? kids0[wrappedIndex - 1]
         : undefined;
     const isDefaultUnion =
-      eqUnit !== undefined && eqUnit.Tag() === "SymbolToken" && ctx.ValueOf(eqUnit) === "=";
+      eqUnit !== undefined && eqUnit.Tag === "SymbolToken" && ctx.ValueOf(eqUnit) === "=";
     props.default = isDefaultUnion ? ctx.Project(wrapped) : ctx.TypeOf(kids.slice(eqIndex + 1));
   } else {
     const tailEq = tail.findIndex(
-      (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=",
+      (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=",
     );
     if (tailEq >= 0) props.default = ctx.TypeOf(tail.slice(tailEq + 1));
   }
@@ -577,15 +577,15 @@ rebuilt.push(parameter);
   if (
     wrapped !== undefined &&
     extIndex >= 0 &&
-    (wrapped.Tag() === "UnionType" || wrapped.Tag() === "IntersectionType")
+    (wrapped.Tag === "UnionType" || wrapped.Tag === "IntersectionType")
   ) {
-    const separator = wrapped.Tag() === "UnionType" ? "|" : "&";
+    const separator = wrapped.Tag === "UnionType" ? "|" : "&";
     // 切的是**联合单元自己的内容**，不是上面那个「前缀 + 联合 + 尾巴」的拼合序列。
     const members = ctx.Split(flattenInner(unionKids), separator);
     const firstMember = members.length > 0 ? members[0] : [];
     const extAt = firstMember.findIndex(
       (k: any) =>
-        (k.Tag() === "Keyword" || k.Tag() === "Identifier") && ctx.ValueOf(k) === "extends",
+        (k.Tag === "Keyword" || k.Tag === "Identifier") && ctx.ValueOf(k) === "extends",
     );
     const head = extAt >= 0 ? firstMember.slice(extAt + 1) : firstMember;
     const types: any[] = [];
@@ -599,7 +599,7 @@ rebuilt.push(parameter);
       props.constraint = types[0];
     } else if (types.length > 1) {
       props.constraint = {
-        kind: wrapped.Tag(),
+        kind: wrapped.Tag,
         types,
         // **坐标取那个 `UnionType` 单元自己的**（第 586 轮）：重切出来的 `types` 里
         // **没有分隔符**，按 `types[0].pos` 起会从第一个**成员**起 —— 而前导 `|` 那种写法
@@ -646,7 +646,7 @@ return result;
 
 ## field AstKind:string | undefined = "TypeParameter"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

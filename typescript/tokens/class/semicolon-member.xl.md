@@ -119,7 +119,7 @@ super(template);
 （见 `core/syntax/token.xl.md` 的 `ToXmlString` 那一节）——今天它是靠口径、不是靠判据。
 
 ```ts
-return "<" + this.constructor.name + " range=\"" + this.RangeOf() + "\" />";
+return "<" + this.Tag + " range=\"" + this.RangeOf() + "\" />";
 ```
 
 ## method Clone:()=>Token

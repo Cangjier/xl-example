@@ -262,9 +262,9 @@ return index;
 （那一段的文本就是 `"1, 2"`），拿原文比 `","` 永远为假。
 
 ```ts
-if (kid.Tag() !== "BinaryOperator") return false;
+if (kid.Tag !== "BinaryOperator") return false;
 for (const inner of ctx.Kids(kid)) {
-  if (inner.Tag() === "SymbolToken" && ctx.ValueOf(inner) === ",") return true;
+  if (inner.Tag === "SymbolToken" && ctx.ValueOf(inner) === ",") return true;
 }
 return false;
 ```
@@ -317,7 +317,7 @@ while (true) {
 const groups: any[] = [];
 let current: any[] = [];
 for (const kid of pending) {
-  if (kid.Tag() === "SymbolToken" && ctx.ValueOf(kid) === ",") {
+  if (kid.Tag === "SymbolToken" && ctx.ValueOf(kid) === ",") {
     groups.push(current);
     current = [];
     continue;
@@ -346,24 +346,24 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
   const rawName = v.name;
   const calleeText = typeof rawName === "string" ? rawName : "";
   const calleeEnd = v.start + calleeText.length;
-  const ncos = kids.filter((k: any) => k.Tag() === "NullConditionalOperator");
+  const ncos = kids.filter((k: any) => k.Tag === "NullConditionalOperator");
   const groupsToArguments = (rest: any[]) =>
     Method.ArgumentGroups(ctx, rest)
       .map((group: any) => (group.length === 0 ? undefined : ctx.Expression(group)))
       .filter((a: any) => a !== undefined);
   if (calleeText === "") {
-    const innerCall = kids.find((k: any) => k.Tag() === "Method");
+    const innerCall = kids.find((k: any) => k.Tag === "Method");
     // **外层那对括号不在树里**（IIFE / `f()()` 同一条）：终点往 `ParenAt` 之后再走一格。
     const parenAt = this.ParenAt;
     let end = ctx.StmtEndOf(v);
     if (parenAt >= 0) {
       const ownArgs = kids.find(
-        (k: any) => k.Tag() === "Bracket" && k.startBracket === "(" && ctx.StartOf(k) >= parenAt,
+        (k: any) => k.Tag === "Bracket" && k.startBracket === "(" && ctx.StartOf(k) >= parenAt,
       );
       if (ownArgs !== undefined) end = Math.max(end, ctx.EndOf(ownArgs));
     }
     if (ncos.length === 0 && innerCall !== undefined && innerCall === kids[0]) {
-      const rest = kids.filter((k: any) => k !== innerCall && k.Tag() !== "GenericType");
+      const rest = kids.filter((k: any) => k !== innerCall && k.Tag !== "GenericType");
       return {
         kind: "CallExpression",
         expression: ctx.Expression([innerCall]),
@@ -373,10 +373,10 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
       };
     }
     const brace = kids.find(
-      (k: any) => k.Tag() === "Bracket" && k.startBracket === "(",
+      (k: any) => k.Tag === "Bracket" && k.startBracket === "(",
     );
     if (ncos.length === 0 && brace !== undefined && brace === kids[0] && ctx.Kids(brace).length > 0) {
-      const rest = kids.filter((k: any) => k !== brace && k.Tag() !== "GenericType");
+      const rest = kids.filter((k: any) => k !== brace && k.Tag !== "GenericType");
       return {
         kind: "CallExpression",
         expression: ctx.ParenthesizedOf(brace),
@@ -387,13 +387,13 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
     }
   }
   const anonymousCallee =
-    calleeText === "" ? kids.find((k: any) => k.Tag() === "NotNull") : undefined;
+    calleeText === "" ? kids.find((k: any) => k.Tag === "NotNull") : undefined;
   let flatKids = kids;
   if (anonymousCallee !== undefined) {
     const ownCall = kids.find(
       (k: any) =>
         k !== anonymousCallee &&
-        k.Tag() === "Bracket" &&
+        k.Tag === "Bracket" &&
         k.startBracket === "(" &&
         ctx.StartOf(k) >= ctx.EndOf(anonymousCallee),
     );
@@ -402,7 +402,7 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
       flatKids = kids.slice(0, at).concat(ctx.Kids(ownCall)).concat(kids.slice(at + 1));
     }
   }
-  const generic = kids.find((k: any) => k.Tag() === "GenericType");
+  const generic = kids.find((k: any) => k.Tag === "GenericType");
   const parenAfterCallee = this.ParenAt;
   const typeArgumentGeneric =
     generic !== undefined && parenAfterCallee >= 0 && ctx.StartOf(generic) < parenAfterCallee
@@ -412,7 +412,7 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
     (k: any) =>
       k !== anonymousCallee &&
       k !== typeArgumentGeneric &&
-      (k.Tag() !== "Bracket" ||
+      (k.Tag !== "Bracket" ||
         (ctx.StartOf(k) >= calleeEnd && (ctx.Kids(k).length > 0 || (flatKids[0] !== k && anonymousCallee === undefined)))),
   );
   const calleeKid = kids.length > 0 ? kids[0] : undefined;
@@ -420,7 +420,7 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
     calleeText === "" ||
     (calleeKid !== undefined && ctx.ValueOf(calleeKid) === calleeText);
   if (ncos.length > 0 && calleeComesFirst) {
-    const firstNco = kids.findIndex((k: any) => k.Tag() === "NullConditionalOperator");
+    const firstNco = kids.findIndex((k: any) => k.Tag === "NullConditionalOperator");
     const beforeNco = firstNco > 0 ? kids.slice(0, firstNco) : [];
     let node =
       beforeNco.length === 0
@@ -455,7 +455,7 @@ IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（
   }
   const trailingCall = kids.find(
     (k: any) =>
-      k.Tag() === "Bracket" &&
+      k.Tag === "Bracket" &&
       k.startBracket === "(" &&
       ctx.StartOf(k) >= calleeEnd &&
       ctx.Kids(k).length === 0,
@@ -541,7 +541,7 @@ return this.name === "" ? undefined : this.name;
 这一处直接决定最终 XML。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
@@ -567,7 +567,7 @@ return result;
 
 ## field AstKind:string | undefined = "CallExpression"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

@@ -249,7 +249,7 @@ return this.Add(new IfStatement(this.Template));
 `bodyBraceRange` 只在非空串时写。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());

@@ -208,7 +208,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   const rawKids = ctx.Kids(v);
   const flat: Array<any> = [];
   const flatten = (unit: any): void => {
-    const name = unit.Tag();
+    const name = unit.Tag;
     if (name === "PropertyAccess" || name === "UnaryOperator") {
       for (const kid of ctx.Kids(unit)) {
         flatten(kid);
@@ -221,17 +221,17 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     flatten(kid);
   }
   const kids = flat;
-  let stringUnit = kids.find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString");
-  const call = kids.find((k: any) => k.Tag() === "Method" || k.Tag() === "Bracket");
+  let stringUnit = kids.find((k: any) => k.Tag === "String" || k.Tag === "ConstString");
+  const call = kids.find((k: any) => k.Tag === "Method" || k.Tag === "Bracket");
   const callKids = call === undefined ? [] : ctx.Kids(call);
   if (stringUnit === undefined) {
-    stringUnit = callKids.find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString");
+    stringUnit = callKids.find((k: any) => k.Tag === "String" || k.Tag === "ConstString");
   }
   const props: any = {};
   if (stringUnit !== undefined) {
     // **文本读那一格自己的 `ConstString` 子单元**（`StringText` 的实现里就是这一步，
     // 只是它还给不出值时回原文 `slice`——直出版不回原文，给空串）。
-    const content = ctx.KidsOf(stringUnit, "children").find((k: any) => k.Tag() === "ConstString");
+    const content = ctx.KidsOf(stringUnit, "children").find((k: any) => k.Tag === "ConstString");
     const literal = {
       kind: "StringLiteral",
       text: content === undefined ? "" : ctx.ValueOf(content),
@@ -241,28 +241,28 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     props.argument = { kind: "LiteralType", literal, pos: literal.pos, end: literal.end };
   }
   const wrapper = [...kids, ...callKids].find((k: any) => {
-    if (k.Tag() !== "ObjectLiteral") return false;
+    if (k.Tag !== "ObjectLiteral") return false;
     const word = ctx
       .Kids(k)
-      .find((c: any) => c.Tag() === "Identifier" || c.Tag() === "Keyword");
+      .find((c: any) => c.Tag === "Identifier" || c.Tag === "Keyword");
     if (word === undefined) return false;
     const text = ctx.ValueOf(word);
     return text === "with" || text === "assert";
   });
   if (wrapper !== undefined) {
-    const brace = ctx.Kids(wrapper).find((c: any) => c.Tag() === "ObjectLiteral");
+    const brace = ctx.Kids(wrapper).find((c: any) => c.Tag === "ObjectLiteral");
     if (brace !== undefined) {
       const elements = [];
       for (const part of ctx.Split(ctx.Kids(brace), ",")) {
         const colonAt = part.findIndex(
-          (c: any) => c.Tag() === "SymbolToken" && ctx.ValueOf(c) === ":",
+          (c: any) => c.Tag === "SymbolToken" && ctx.ValueOf(c) === ":",
         );
         if (colonAt < 0) continue;
         const nameUnit = part.slice(0, colonAt).find((c: any) => ctx.IsNameNode(c));
         if (nameUnit === undefined) continue;
         const valueUnit = part
           .slice(colonAt + 1)
-          .find((c: any) => c.Tag() === "String" || c.Tag() === "ConstString");
+          .find((c: any) => c.Tag === "String" || c.Tag === "ConstString");
         elements.push({
           kind: "AssertEntry",
           name: ctx.NameOf(nameUnit),
@@ -281,12 +281,12 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
   }
   const names = kids.filter((k: any) => {
     if (!ctx.IsNameNode(k)) return false;
-    if (k.Tag() !== "Keyword") return true;
+    if (k.Tag !== "Keyword") return true;
     const word = ctx.ValueOf(k);
     return word !== "typeof" && word !== "import";
   });
   if (names.length > 0) props.qualifier = ctx.QualifiedNameFrom(names);
-  const generic = kids.find((k: any) => k.Tag() === "GenericType");
+  const generic = kids.find((k: any) => k.Tag === "GenericType");
   if (generic !== undefined) {
     const typeArguments = [];
     for (const group of ctx.Split(ctx.Kids(generic), ",")) {
@@ -330,7 +330,7 @@ return result;
 
 ## field AstKind:string | undefined = "ImportType"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

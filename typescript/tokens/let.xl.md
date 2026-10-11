@@ -149,7 +149,7 @@ return this.fieldName === "" ? undefined : this.fieldName;
 `modifierSpans` 只在非空时写。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 // 名字的两个下标三种形态都印（解构形态给 -1）——与投影那两个字段逐字同源。
 const nameSpan = ` nameStart="${this.NameStart}" nameEnd="${this.NameEnd}"`;
 const spans = this.ModifierSpans === "" ? "" : ` modifierSpans="${this.ModifierSpans}"`;
@@ -220,7 +220,7 @@ return result;
 
 ## field AstKind:string | undefined = "VariableDeclaration"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

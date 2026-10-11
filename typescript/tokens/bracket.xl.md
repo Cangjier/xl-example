@@ -240,7 +240,7 @@ return source.Value === this.endBracket;
 这一处直接决定最终 XML。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());

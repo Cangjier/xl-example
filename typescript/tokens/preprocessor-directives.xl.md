@@ -163,7 +163,7 @@ return true;
 标签名取 `this.constructor.name`；内容**不做 XML 转义**——这一处与 `BlockToken.ToXmlString` 的 `CommonUtil.XmlDecode` 不同。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 return `<${name} range="${this.RangeOf()}">${this.Tmp}</${name}>`;
 ```
 

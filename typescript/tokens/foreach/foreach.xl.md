@@ -288,7 +288,7 @@ return index;
   const props: any = {};
   const define = ctx.KidsOf(v, "define").filter((k: any) => !k.IsInvisible);
   if (define.length > 0) {
-    if (define[0].Tag() === "Let") {
+    if (define[0].Tag === "Let") {
       props.initializer = ctx.LetFrom(define, v).list;
     }
     // **判据是段里有没有那个声明词**（第 982 轮）：直出版读那一格自己记的值。
@@ -326,7 +326,7 @@ return index;
   }
   if (statement !== undefined) props.statement = statement;
   const awaitUnit = ctx.Kids(v).find(
-    (k: any) => k.Tag() === "Keyword" && ctx.ValueOf(k) === "await",
+    (k: any) => k.Tag === "Keyword" && ctx.ValueOf(k) === "await",
   );
   if (kind === "ForOfStatement" && awaitUnit !== undefined) {
     props.awaitModifier = ctx.Project(awaitUnit);
@@ -527,7 +527,7 @@ return result;
 
 ## field AstKind:string | undefined = "ForOfStatement"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

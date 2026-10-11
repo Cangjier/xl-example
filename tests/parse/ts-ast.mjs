@@ -213,7 +213,7 @@ function flattenProduct(exported, stats, source) {
     const start = node.RangeStart();
     const end = node.RangeEnd() + 1;
     const range = [start, end - 1];
-    const type = node.Tag();
+    const type = node.Tag;
     const value = node.value;
     stats.total++;
     if (range[0] === undefined) {

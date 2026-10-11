@@ -27,7 +27,7 @@ Token，语法树的地基。
 （[`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md) 的 `projectNode`）：
 投影不读任何中间形态，它就是**在这些 token 本身上**读标签、子单元与坐标，直接投成目标语言的 AST 形状。
 
-**直出要的那几格全由 token 自己声明**：标签是 `Tag()`、子单元是 `children` 与各页自己那一批段属性
+**直出要的那几格全由 token 自己声明**：标签是 `Tag`、子单元是 `children` 与各页自己那一批段属性
 （`compare` / `body` / `parameters` …）、坐标是 `start` / `end`、名字是 `NameField`，
 **「这一格投成哪个节点 / 这些段叫什么 / 我在投影里出不出现」这一类答案是属性**
 （`AstKind` / `SegmentNames` / `IsInvisible` …）——第 1041 轮起它们由**具体类显式声明、构造时就赋好**
@@ -85,8 +85,13 @@ Token，语法树的地基。
 
 以模板创建。
 
+**`Tag` 就在这一趟赋好**（第 1045 轮）：`this.constructor.name` 在构造这一刻就是那一页的类名，
+之后再也不会变——所以它不留在方法里现场算，而是**构造时赋成属性**
+（见 `Tag` 那一节：各页一个字都不必写，这一格对任何一页都是同一个表达式）。
+
 ```ts
 this.Template = template;
+this.Tag = this.constructor.name;
 ```
 
 ## method Last:(index?:int)=>Token | null
@@ -463,7 +468,7 @@ this.Parent.Data.splice(index, 1);
 按「类名 + `range` + 各自那几个属性」的顺序写，顺序不影响任何判据（按名取值）。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
@@ -590,9 +595,9 @@ return end;
 return "[" + this.RangeStart() + "," + this.RangeEnd() + "]";
 ```
 
-## method Tag:()=>string
+## field Tag:string = ""
 
-**这一格是什么**（第 1005 轮）：答**自己的类名**。
+**这一格是什么**（第 1005 轮）：就是**自己的类名**。
 
 它是「产物标签」这一格事实的**唯一出口**——两种读法说的都是「这一格叫什么」：
 XML 的标签名、直出那一层的 kind 判据（`PrintDirectAst` 里那些 `=== "Identifier"` 这一类的比较）。
@@ -603,15 +608,19 @@ XML 的标签名、直出那一层的 kind 判据（`PrintDirectAst` 里那些 `
 而「这一格是不是 `SymbolToken`」过去写成 `k.get("type") === "SymbolToken"` ——
 **字符串键进一个中间映射里取值**，正是那条判据要消掉的东西（全语料 173 处）。
 类名本来就是 `this.constructor.name`，**不必经任何中间形态**：各处产出的 type 都是按它写的
-（XML 取 `this.constructor.name`、直出按同一个串判 kind），所以两种读法说的是同一份事实。
+（XML 取同一个串、直出按同一个串判 kind），所以两种读法说的是同一份事实。
 
-**直出那一侧**（`print-ast-common.xl.md` 的 `projectNode`）也问同一格、得到同一个串，
-因为 `Tag()` 的接收者有时是**别的 token 自己的子单元**而不是当前这一格——
-两边必须同名同值，否则同一个问句会按接收者给出两个答案。
+**它是属性、不是方法**（第 1045 轮）：类名在**构造那一刻**就定下来了（`this.constructor.name`），
+之后再也不会变——所以它是**构造时赋好的一格数据**，不该长成一个要点一下才有的东西。
+赋值就在基类构造器里（见下），于是**每一个 token 一造出来这一格就是齐的**：
+投影与 XML 都只读 `x.Tag`，不问「这一格叫什么」。
 
-```ts
-return this.constructor.name;
-```
+**为什么声明在基类而不是各具体类**：这一格的值不随页面而异（`this.constructor.name` 对任何一页
+都是那一页的类名），所以「显式声明」的落点就是基类这一处；各页**一个字都不用写**——
+与 `Data` / `Parent` / `start` / `end` 同一形态（那几格也是基类声明、每个单元自动就位）。
+
+**它是「别的 token 自己的子单元」也读得动的那一格**（`print-ast-common.xl.md` 的 `projectNode`
+读的正是子单元的 `Tag`）：两边必须同名同值，否则同一个问句会按接收者给出两个答案。
 
 ## property NameField:string | undefined
 
@@ -891,7 +900,7 @@ return undefined;
 
 **投成目标语言形状时我这一格叫什么节点**（第 1025 轮）——答案是我自己的事实，所以由我自己答。
 
-产物标签就是我的类名（`Tag()`），而「这个标签在目标语言那边叫哪个节点」过去住在投影层
+产物标签就是我的类名（`Tag`），而「这个标签在目标语言那边叫哪个节点」过去住在投影层
 （`typescript/print-ast-common.xl.md`）那张按标签查的 `KIND_BY_TAG` 中央表里：
 **同一份事实被声明了两遍**（我这里一次、表里一次），而表在另一棵树里，
 改一个 token 的名字要跑两个地方才不至于错位。
@@ -983,7 +992,7 @@ return undefined;
 
 今天基类默认 `false`、那五页各自**声明同一个属性**并给 `true`（第 1041 轮起它是属性、
 构造时就赋好），投影只读这一格（`k.IsMemberTag`）。
-**它不能按 `Tag()` 抄一份名单**：留一张表就还是「同一份事实两处声明」。
+**它不能按 `Tag` 抄一份名单**：留一张表就还是「同一份事实两处声明」。
 
 **基类这一格默认 `false`**：绝大多数 token 在成员位上都不是成员；需要它的 token 在自己那一页
 **显式声明同一个属性**并给出自己的值（`## field`，与 `IsInvisible` / `AstKind` / `IsMemberList`
@@ -999,13 +1008,13 @@ return undefined;
 就得先认出「右边那一格是一条声明」——判据的那份名单（`Interface` / `Class` / `Function` /
 `Enum` / `Namespace`）过去写成投影层的一个**按标签名查的集合**
 （`typescript/print-ast-common.xl.md` 的 `DECLARATION_UNITS`），而**标签名就是那些类自己的
-名字**（`Tag()` 答的就是类名）——所以那是每一页自己的事实，被写在投影那一页里。
+名字**（`Tag` 答的就是类名）——所以那是每一页自己的事实，被写在投影那一页里。
 
 今天基类默认 `false`、那五页各自**声明同一个属性**并给 `true`（第 1041 轮起它是属性、
 构造时就赋好），两处入口读的都是这一格
 （`items[i + 1].IsDeclarationUnit`，`projectEach` 与 `projectExport` 共用同一句）。
 
-**它不能按 `Tag()` 抄一份名单**：留一张表就还是「同一份事实两处声明」。
+**它不能按 `Tag` 抄一份名单**：留一张表就还是「同一份事实两处声明」。
 **基类这一格默认 `false`**：绝大多数 token 在 `export` 后面不是一个声明单元；需要它的 token
 在自己那一页**显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `IsInvisible` /
 `AstKind` 同一形态）。

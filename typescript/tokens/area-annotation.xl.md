@@ -150,7 +150,7 @@ return BranchStates.Undo;
 JSDoc 里的 `@type {Array<T>}` 这类写法必须转义，否则产物不是合法 XML（与 `LineAnnotation` 同一处理）。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Tmp)}</${name}>`;
 ```
 

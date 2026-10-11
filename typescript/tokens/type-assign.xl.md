@@ -225,23 +225,23 @@ return ReplaceCountAt(units, startIndex, dataEnd - startIndex + 1, result);
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx
     .Kids(v)
-    .filter((k: any) => !(k.Tag() === "SymbolToken" && ctx.ValueOf(k) === ";"));
+    .filter((k: any) => !(k.Tag === "SymbolToken" && ctx.ValueOf(k) === ";"));
   const eqIndex = kids.findIndex(
-    (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=",
+    (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=",
   );
   const rawAlias = v.alias;
   const aliasText = typeof rawAlias === "string" ? rawAlias : "";
   const lhs = eqIndex >= 0 ? kids.slice(0, eqIndex) : kids;
   const rhs = eqIndex >= 0 ? kids.slice(eqIndex + 1) : [];
-  const nameNode = lhs.find((k: any) => k.Tag() === "Identifier");
+  const nameNode = lhs.find((k: any) => k.Tag === "Identifier");
   const nameText = nameNode === undefined ? aliasText : ctx.ValueOf(nameNode);
-  const generic = lhs.find((k: any) => k.Tag() === "GenericType");
+  const generic = lhs.find((k: any) => k.Tag === "GenericType");
   const props: any = {
     name: nameNode === undefined ? ctx.SynthName(nameText, v) : ctx.Project(nameNode),
     type: ctx.TypeOf(rhs),
   };
   if (generic !== undefined) {
-    const params = ctx.UnwrapNodes(generic).filter((k: any) => k.Tag() === "TypeParameter");
+    const params = ctx.UnwrapNodes(generic).filter((k: any) => k.Tag === "TypeParameter");
     if (params.length > 0) props.typeParameters = ctx.ProjectEach(params);
   }
   const baseStart = ctx.baseStart;
@@ -315,7 +315,7 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 （**那一门第 1016 轮随命令行的 `--ast-json` 一起删了**：这条「逐字相同」今天靠的是口径，不再有判据）。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
@@ -375,7 +375,7 @@ return result;
 
 ## field AstKind:string | undefined = "TypeAliasDeclaration"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

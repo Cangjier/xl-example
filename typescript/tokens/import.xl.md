@@ -316,15 +316,15 @@ return index;
   const rawTypeWordAt = v.typeWordAt;
   const typeWordAt = typeof rawTypeWordAt === "number" && rawTypeWordAt >= 0 ? rawTypeWordAt : -1;
   if (isTypeOnly && typeWordAt < 0) return undefined;
-  const fromNode = kids.find((k: any) => k.Tag() === "Identifier" && ctx.ValueOf(k) === "from");
-  const equals = kids.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=");
+  const fromNode = kids.find((k: any) => k.Tag === "Identifier" && ctx.ValueOf(k) === "from");
+  const equals = kids.find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=");
   const rawBraceAt = v.namedBraceAt;
   const braceOpen = typeof rawBraceAt === "number" && rawBraceAt >= 0 ? rawBraceAt : -1;
   const namedBrace = braceOpen < 0 || equals !== undefined
     ? undefined
     : kids.find(
         (k: any) =>
-          (k.Tag() === "Bracket" || k.Tag() === "ObjectLiteral")
+          (k.Tag === "Bracket" || k.Tag === "ObjectLiteral")
           && ctx.StartOf(k) === braceOpen,
       );
   if (braceOpen >= 0 && equals === undefined && namedBrace === undefined) return undefined;
@@ -332,33 +332,33 @@ return index;
   const end = ctx.SemicolonEndOf(ctx.StmtEndOf(v));
   // —— 从这里起才投节点 ——
   const props: any = {};
-  const moduleNode = kids.find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString");
+  const moduleNode = kids.find((k: any) => k.Tag === "String" || k.Tag === "ConstString");
   if (moduleNode !== undefined) props.moduleSpecifier = ctx.Project(moduleNode);
   const assertUnits: any[] = [];
   const moduleAt = kids.indexOf(moduleNode);
   if (moduleNode !== undefined && moduleAt >= 0) {
     const after = kids.slice(moduleAt + 1).filter((k: any) => !k.IsInvisible);
     const braceAt = after.findIndex(
-      (k: any) => k.Tag() === "Bracket" && k.startBracket === "{",
+      (k: any) => k.Tag === "Bracket" && k.startBracket === "{",
     );
     const word = braceAt > 0 ? after[braceAt - 1] : undefined;
     if (
       word !== undefined &&
-      word.Tag() === "Identifier" &&
+      word.Tag === "Identifier" &&
       ["with", "assert"].includes(ctx.ValueOf(word))
     ) {
       const brace = after[braceAt];
       const elements = [];
       for (const part of ctx.Split(ctx.Kids(brace), ",")) {
         const colonAt = part.findIndex(
-          (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === ":",
+          (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === ":",
         );
         if (colonAt < 0) continue;
         const nameUnit = part.slice(0, colonAt).find((k: any) => ctx.IsNameNode(k));
         if (nameUnit === undefined) continue;
         const valueUnit = part
           .slice(colonAt + 1)
-          .find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString");
+          .find((k: any) => k.Tag === "String" || k.Tag === "ConstString");
         elements.push({
           kind: "AssertEntry",
           name: ctx.NameOf(nameUnit),
@@ -377,13 +377,13 @@ return index;
     }
   }
   if (equals !== undefined) {
-    const nameNode = kids.find((k: any) => k.Tag() === "Identifier" && k !== fromNode);
-    const callNode = kids.find((k: any) => k.Tag() === "Method");
+    const nameNode = kids.find((k: any) => k.Tag === "Identifier" && k !== fromNode);
+    const callNode = kids.find((k: any) => k.Tag === "Method");
     const innerString =
       moduleNode ??
       (callNode === undefined
         ? undefined
-        : ctx.Kids(callNode).find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString"));
+        : ctx.Kids(callNode).find((k: any) => k.Tag === "String" || k.Tag === "ConstString"));
     const equalsProps: any = {};
     if (nameNode !== undefined) equalsProps.name = ctx.Project(nameNode);
     if (callNode !== undefined) {
@@ -395,7 +395,7 @@ return index;
       };
     } else {
       const names = kids.filter(
-        (k: any) => k.Tag() === "Identifier" && k !== nameNode && k !== fromNode,
+        (k: any) => k.Tag === "Identifier" && k !== nameNode && k !== fromNode,
       );
       if (names.length > 0) equalsProps.moduleReference = ctx.QualifiedNameFrom(names);
     }
@@ -411,8 +411,8 @@ return index;
   const clauseStart = isTypeOnly ? typeWordAt : ctx.StartOf(clause[0]);
   const clauseEnd = ctx.EndOf(clause[clause.length - 1]);
   const clauseProps: any = {};
-  const star = kids.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "*");
-  const names = clause.filter((k: any) => k.Tag() === "Identifier" && ctx.ValueOf(k) !== "as");
+  const star = kids.find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "*");
+  const names = clause.filter((k: any) => k.Tag === "Identifier" && ctx.ValueOf(k) !== "as");
   if (star !== undefined) {
     const nsName = names[names.length - 1];
     clauseProps.namedBindings = {
@@ -670,7 +670,7 @@ return this.namespace === "" ? undefined : this.namespace;
 `typeOnly` 写成 `true` / `false`——与 `Interface` 的 `export` 同款。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 let body = "";
 for (const item of this.Data) {
   body = body + item.ToXmlString();
@@ -724,7 +724,7 @@ return result;
 
 ## field AstKind:string | undefined = "ImportDeclaration"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

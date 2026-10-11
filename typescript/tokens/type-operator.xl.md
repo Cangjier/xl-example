@@ -230,7 +230,7 @@ return ReplaceCountAt(units, index, nextIndex - index + 1, result);
   const kids = ctx.Kids(v).filter(
     (k: any) =>
       !(
-        k.Tag() === "Keyword" &&
+        k.Tag === "Keyword" &&
         (ctx.ValueOf(k) === "keyof" || ctx.ValueOf(k) === "readonly" || ctx.ValueOf(k) === "unique")
       ),
   );
@@ -264,7 +264,7 @@ return result;
 
 ## field AstKind:string | undefined = "TypeOperator"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
@@ -302,8 +302,8 @@ return result;
   const kids = ctx.Kids(v);
   const names = kids.filter((k: any) => ctx.IsNameNode(k) && ctx.ValueOf(k) !== "typeof");
   const props: any = {};
-  const access = kids.find((k: any) => k.Tag() === "PropertyAccess");
-  const generic = kids.find((k: any) => k.Tag() === "GenericType");
+  const access = kids.find((k: any) => k.Tag === "PropertyAccess");
+  const generic = kids.find((k: any) => k.Tag === "GenericType");
   if (generic !== undefined) {
     const typeArguments = [];
     for (const group of ctx.Split(ctx.Kids(generic), ",")) {
@@ -346,7 +346,7 @@ return result;
 
 ## field AstKind:string | undefined = "TypeQuery"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

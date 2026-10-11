@@ -265,7 +265,7 @@ while (index < data.length) {
   for (let i = 0; i < kids.length; i++) {
     const k = kids[i];
     if (
-      (k.Tag() === "Keyword" || k.Tag() === "Identifier") &&
+      (k.Tag === "Keyword" || k.Tag === "Identifier") &&
       (ctx.ValueOf(k) === "extends" || ctx.ValueOf(k) === "implements")
     ) {
       // **一条子句里只可能有一个子句词**，取到就走（后面那几个是实体名）。
@@ -309,7 +309,7 @@ return result;
 
 ## field AstKind:string | undefined = "HeritageClause"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
@@ -343,13 +343,13 @@ return result;
 
 ```ts
   const kids = ctx.Kids(v);
-  const generic = kids.find((k: any) => k.Tag() === "GenericType");
+  const generic = kids.find((k: any) => k.Tag === "GenericType");
   const names = kids.filter((k: any) => ctx.IsNameNode(k));
   const props: any = {};
   // **名字后面紧跟模板串 ⇒ `TaggedTemplateExpression`**（第 986 轮）：判据是那个 `String`
   // 的**引号是反引号**——读的是它自己记的 `stringChar`（第 1001 轮），不是原文里那个字符。
   const template = kids.find(
-    (k: any) => k.Tag() === "String" && k.stringChar === "\`",
+    (k: any) => k.Tag === "String" && k.stringChar === "\`",
   );
   if (template !== undefined && names.length > 0) {
     const tag = ctx.DottedExpression(names);
@@ -364,7 +364,7 @@ return result;
   } else if (names.length > 0) {
     props.expression = ctx.DottedExpression(names);
   } else {
-    const paren = kids.find((k: any) => k.Tag() === "Bracket" && k.startBracket === "(");
+    const paren = kids.find((k: any) => k.Tag === "Bracket" && k.startBracket === "(");
     if (paren !== undefined) {
       props.expression = ctx.ParenthesizedOf(paren);
     } else {
@@ -405,7 +405,7 @@ return result;
 
 ## field AstKind:string | undefined = "ExpressionWithTypeArguments"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

@@ -301,7 +301,7 @@ return WordText(before) === "extends";
 口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
 
 ```ts
-  const param = ctx.Kids(v).find((k: any) => k.Tag() === "TypeParameter");
+  const param = ctx.Kids(v).find((k: any) => k.Tag === "TypeParameter");
   const props: any = {};
   if (param !== undefined) props.typeParameter = ctx.Project(param);
   return ctx.NodeHead("InferType", props, v);
@@ -332,7 +332,7 @@ return result;
 
 ## field AstKind:string | undefined = "InferType"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

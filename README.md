@@ -334,6 +334,31 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1046 轮：`Token.Tag()` 也变成**构造时赋好的属性**（`Tag`），投影与 XML 两侧 619 处 `.Tag()` → `.Tag`——**八道门全绿、读数一处没动**
+
+**一句话**：第 1045 轮把本页说明里那「仍是方法的四格」清空了，但 `print-ast-common` 问 token 问得
+**最多**的那一格还留着方法壳：`k.Tag()`（本页 446 处、全仓 619 处）。它答的是
+`this.constructor.name`——**构造那一刻就定下来、之后再也不会变的一格数据**，正合用户那条
+「投影需要的信息要在 token 子类构造时就明确、构建完就齐全」。所以这一轮把它也收成属性。
+
+- **收法**：`core/syntax/token.xl.md` 的 `## method Tag:()=>string` → `## field Tag:string = ""`，
+  赋值落在**基类构造器**里（`this.Tag = this.constructor.name;`）——
+  这一格的值**不随页面而异**（对任何一页都是那个表达式），所以「显式声明」的落点就是基类那一处，
+  **各页一个字都不用写**（与 `Data` / `Parent` / `start` / `end` 同一形态）。
+  派生类的字段初始化式在 `super()` **之后**才跑，而各页都没有重声明这一格，所以构造器赋的值不会被盖掉。
+- **调用点**：`.Tag()` → `.Tag` **619 处**（33 份 xl 源 + `tests/parse/ts-ast.mjs` 1 处），
+  另有 84 处正文里的 `` `Tag()` `` 一并改成 `` `Tag` ``。这是纯改名，没有一格行为改动。
+- **顺带把标签名的产出收成一处**：34 个 `const name = this.constructor.name;`（各页 `ToXmlString` 的
+  开标签名）与 1 处内联改成读 `this.Tag`——**「这一格叫什么」从此只有一个产生点**
+  （基类构造器），XML 与直出两条读法读的是同一个值。
+- **为什么 `Clone` 不用抄**：它不是「收尾规则里赋的那一类」——克隆体走的是**构造器**，
+  `Tag` 自动就位（这与第 1045 轮那几格刚好相反，那几格必须逐页抄写）。
+- **实测**：`xl check` 182 份 0 错 0 警；`xl build` 81 写出 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 31.7s），读数逐项与基线相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+
 ### 第 1045 轮：`print-ast-common` 的**最后四格「回答方法」也收成了属性**（`NameField` / `WrapperField` / `BodyField` / `FunctionFlags`，各 token 页 28 处）——**八道门全绿、读数一处没动**
 
 **一句话**：用户口径还是「简化 `print-ast-common`，清理它用不到的方法；投影需要的信息要在 token
@@ -347,7 +372,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
     `Bracket` 的「`{` 是块、`(` / `[` 是分组」按自己的 `startBracket` 判，而 `Use` 是它唯一的赋值点
     ⇒ **与第 1042 轮的 `EndsOnBrace` 同一趟赋**；`GenericType` 的「装的是 `TypeParameter` 还是
     类型实参」由 `TypeParameterCloseRule.AppendSegment` 在**造出那个 `TypeParameter` 的那一趟**
-    把容器赋成 `"typeParameters"`（判据取 `owner.Tag() === "GenericType"`，两页互相 import 会成环）。
+    把容器赋成 `"typeParameters"`（判据取 `owner.Tag === "GenericType"`，两页互相 import 会成环）。
   - **`BodyField` → `## field`**（5 页）：四处体（函数 / 方法 / lambda / 命名空间体）是 `"body"`；
     `Namespace` 那唯一**带上下文**的一态不再靠参数——点号命名空间的内层与外层在产物树上只差
     父亲那一格（`Namespace` vs `NamespaceBody`，本轮实测两棵树），而拆出内层的正是

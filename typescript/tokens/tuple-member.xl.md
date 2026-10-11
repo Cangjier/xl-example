@@ -330,7 +330,7 @@ return node;
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.Tag() === "SymbolToken" && ["...", "?"].includes(ctx.ValueOf(k))),
+    (k: any) => !(k.Tag === "SymbolToken" && ["...", "?"].includes(ctx.ValueOf(k))),
   );
   const props: any = {};
   const inner = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
@@ -363,7 +363,7 @@ return result;
 
 ## field AstKind:string | undefined = "OptionalType"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
@@ -388,7 +388,7 @@ return result;
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf` —— 只读那一格**自己记的**值，
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v).filter(
-    (k: any) => !(k.Tag() === "SymbolToken" && ["...", "?"].includes(ctx.ValueOf(k))),
+    (k: any) => !(k.Tag === "SymbolToken" && ["...", "?"].includes(ctx.ValueOf(k))),
   );
   const props: any = {};
   const inner = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
@@ -420,7 +420,7 @@ return result;
 
 ## field AstKind:string | undefined = "RestType"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。
@@ -457,14 +457,14 @@ return result;
 
 ```ts
   const kids = ctx.Kids(v);
-  const dots = kids.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "...");
-  const spread = kids.find((k: any) => k.Tag() === "Spread");
-  const nameNode = kids.find((k: any) => k.Tag() === "Identifier" || k.Tag() === "Keyword");
-  const typeNode = kids.find((k: any) => k.Tag() === "TypeDefine");
+  const dots = kids.find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "...");
+  const spread = kids.find((k: any) => k.Tag === "Spread");
+  const nameNode = kids.find((k: any) => k.Tag === "Identifier" || k.Tag === "Keyword");
+  const typeNode = kids.find((k: any) => k.Tag === "TypeDefine");
   const props: any = {};
   if (nameNode !== undefined) {
     props.name =
-      nameNode.Tag() === "Keyword" && ctx.ValueOf(nameNode) === "this"
+      nameNode.Tag === "Keyword" && ctx.ValueOf(nameNode) === "this"
         ? { kind: "Identifier", text: "this", pos: ctx.StartOf(nameNode), end: ctx.EndOf(nameNode) }
         : ctx.Project(nameNode);
   }
@@ -486,12 +486,12 @@ return result;
     } else {
       // **`?` 落在成员中间时它是 `OptionalType` 的尾巴**（第 900 轮）：那一格自己带着
       // 那个 `SymbolToken("?")`（它把 `?` 从内容里排掉，所以只在这一格上找得到）。
-      const optional = kids.find((k: any) => k.Tag() === "OptionalType");
-      const flat = kids.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "?");
+      const optional = kids.find((k: any) => k.Tag === "OptionalType");
+      const flat = kids.find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "?");
       if (optional !== undefined) {
         const mark = ctx
           .KidsOf(optional, "children")
-          .find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "?");
+          .find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "?");
         if (mark !== undefined) {
           const at = ctx.StartOf(mark);
           props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
@@ -529,7 +529,7 @@ return result;
 
 ## field AstKind:string | undefined = "NamedTupleMember"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

@@ -39,7 +39,7 @@ Lambda 的一个形参。
   const kids = ctx.Kids(v);
   const leadingModifiers: any[] = [];
   for (const k of kids) {
-    if (k.Tag() === "Keyword" && PARAMETER_MODIFIERS.has(ctx.ValueOf(k))) {
+    if (k.Tag === "Keyword" && PARAMETER_MODIFIERS.has(ctx.ValueOf(k))) {
       leadingModifiers.push(k);
       continue;
     }
@@ -48,29 +48,29 @@ Lambda 的一个形参。
   const body = leadingModifiers.length > 0 ? kids.slice(leadingModifiers.length) : kids;
   const nameNode = body.find(
     (k: any) =>
-      k.Tag() === "Identifier" ||
-      k.Tag() === "Keyword" ||
-      k.Tag() === "ArrayLiteral" ||
-      k.Tag() === "ObjectLiteral",
+      k.Tag === "Identifier" ||
+      k.Tag === "Keyword" ||
+      k.Tag === "ArrayLiteral" ||
+      k.Tag === "ObjectLiteral",
   );
-  const typeNode = body.find((k: any) => k.Tag() === "TypeDefine");
+  const typeNode = body.find((k: any) => k.Tag === "TypeDefine");
   const question = body.find(
-    (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "?",
+    (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "?",
   );
-  const dots = body.find((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "...");
-  const rest = body.find((k: any) => k.Tag() === "Spread");
+  const dots = body.find((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "...");
+  const rest = body.find((k: any) => k.Tag === "Spread");
   const props: any = {
     name:
       nameNode === undefined
         ? undefined
-        : nameNode.Tag() === "ArrayLiteral" || nameNode.Tag() === "ObjectLiteral"
+        : nameNode.Tag === "ArrayLiteral" || nameNode.Tag === "ObjectLiteral"
           ? ctx.BindingPattern(nameNode)
-          : nameNode.Tag() === "Keyword" || nameNode.Tag() === "Identifier"
+          : nameNode.Tag === "Keyword" || nameNode.Tag === "Identifier"
             ? ctx.NameOf(nameNode)
             : ctx.Project(nameNode),
     type: typeNode === undefined ? undefined : ctx.Project(typeNode),
   };
-  const paramDecorators = body.filter((k: any) => k.Tag() === "Decorator");
+  const paramDecorators = body.filter((k: any) => k.Tag === "Decorator");
   if (leadingModifiers.length > 0 || paramDecorators.length > 0) {
     props.modifiers = [...ctx.ProjectEach(paramDecorators), ...ctx.ProjectEach(leadingModifiers)];
   }
@@ -84,11 +84,11 @@ Lambda 的一个形参。
       props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
     }
   }
-  const eq = body.findIndex((k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=");
+  const eq = body.findIndex((k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=");
   if (eq >= 0 && eq + 1 < body.length) {
     const init = body[eq + 1];
     props.initializer =
-      init.Tag() === "Bracket" && init.startBracket === "("
+      init.Tag === "Bracket" && init.startBracket === "("
         ? ctx.ParenthesizedOf(init)
         : ctx.Expression(body.slice(eq + 1));
   }
@@ -155,7 +155,7 @@ return result;
 
 ## field AstKind:string | undefined = "Parameter"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

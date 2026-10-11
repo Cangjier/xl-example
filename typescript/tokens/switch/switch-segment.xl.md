@@ -92,7 +92,7 @@ return null;
 **两级出口的键名表必须一样**。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());

@@ -90,7 +90,7 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 里面的 `<` / `>` / `&` 必须转义，否则产物不是合法 XML。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Tmp)}</${name}>`;
 ```
 

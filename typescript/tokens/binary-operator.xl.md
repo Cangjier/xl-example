@@ -1359,7 +1359,7 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
   }
   const declaredOp = v.op;
   const left = opIndex > 0 ? ctx.Expression(kids.slice(0, opIndex)) : undefined;
-  if (opIndex > 0 && kids[opIndex].Tag() === "SymbolToken") {
+  if (opIndex > 0 && kids[opIndex].Tag === "SymbolToken") {
     return ctx.FoldBinaryFrom(left, kids.slice(opIndex));
   }
   const right =
@@ -1421,7 +1421,7 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 `InitialKeywordCloseRuleQueue`（与 `TypeDefine` / `Export` / `Let` 同一做法）。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 let body = "";
 for (const item of this.Data) {
   body = body + item.ToXmlString();
@@ -1452,7 +1452,7 @@ return result;
 
 ## field AstKind:string | undefined = "BinaryExpression"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

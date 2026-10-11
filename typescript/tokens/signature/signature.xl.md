@@ -798,15 +798,15 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
       (p: any) => !(p !== null && p !== undefined && p.kind === "NewKeyword"),
     );
   }
-  const newUnit = kids.find((k: any) => k.Tag() === "New");
+  const newUnit = kids.find((k: any) => k.Tag === "New");
   if (newUnit !== undefined) {
     const inner = ctx.Kids(newUnit);
-    const bracket = inner.find((k: any) => k.Tag() === "Bracket");
+    const bracket = inner.find((k: any) => k.Tag === "Bracket");
     if (bracket !== undefined) {
       const params = ctx.UnwrapNodes(bracket).filter((k: any) => !k.IsInvisible);
       props.parameters = ctx.ProjectEach(params, kind);
     }
-    const returnType = inner.find((k: any) => k.Tag() === "ReturnType");
+    const returnType = inner.find((k: any) => k.Tag === "ReturnType");
     if (returnType !== undefined) {
       const inner2 = ctx.UnwrapNodes(returnType).filter((k: any) => !k.IsInvisible);
       const t = ctx.TypeOf(inner2);
@@ -857,7 +857,7 @@ return this.Add(new ReturnType(this.Template));
 产出 XML：开标签上带 `kind` 属性，内容是参数表（构造签名还带 `new`）与返回类型段的 XML。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
@@ -887,7 +887,7 @@ return result;
 
 ## field AstKind:string | undefined = "CallSignature"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

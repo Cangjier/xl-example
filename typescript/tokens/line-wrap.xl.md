@@ -111,7 +111,7 @@ this.Closed = true;
 注意与基类的 `<Name>…</Name>` 不同，这里是 `<Name />`；标签名取运行时类名。这一处直接决定 XML 产物。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 return `<${name} range="${this.RangeOf()}" />`;
 ```
 

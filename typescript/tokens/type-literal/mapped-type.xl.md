@@ -52,11 +52,11 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 ```ts
   const flat: any[] = [];
   for (const k of ctx.Kids(v)) {
-    if (k.Tag() === "Statement") {
+    if (k.Tag === "Statement") {
       for (const inner of ctx.UnwrapNodes(k)) flat.push(inner);
       continue;
     }
-    if (k.Tag() === "SymbolToken" && ctx.ValueOf(k) === ";") {
+    if (k.Tag === "SymbolToken" && ctx.ValueOf(k) === ";") {
       continue;
     }
     flat.push(k);
@@ -71,7 +71,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
   let sawValueType = false;
   for (let i = 0; i < flat.length; i++) {
     const k = flat[i];
-    const kind = k.Tag();
+    const kind = k.Tag;
     const word =
       kind === "Keyword" || kind === "Identifier" || kind === "SymbolToken" ? ctx.ValueOf(k) : "";
     if (word === "readonly") {
@@ -95,14 +95,14 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
     if (word === "in") continue;
     if (kind === "ArrayLiteral" || kind === "Bracket") {
       const parts = ctx.Kids(k);
-      const cond = parts.find((x: any) => x.Tag() === "ConditionalType");
+      const cond = parts.find((x: any) => x.Tag === "ConditionalType");
       const condParts = cond === undefined ? [] : ctx.Kids(cond);
       const asAt = condParts.findIndex(
         (x: any) =>
-          (x.Tag() === "Keyword" || x.Tag() === "Identifier") && ctx.ValueOf(x) === "as",
+          (x.Tag === "Keyword" || x.Tag === "Identifier") && ctx.ValueOf(x) === "as",
       );
       if (asAt > 0) {
-        const tp = condParts.find((x: any) => x.Tag() === "TypeParameter");
+        const tp = condParts.find((x: any) => x.Tag === "TypeParameter");
         if (tp !== undefined) typeParameter = ctx.Project(tp);
         const nameKids = condParts.slice(asAt + 1);
         if (nameKids.length > 0) nameType = ctx.ConditionalNode(nameKids, 0, nameKids.length);
@@ -110,16 +110,16 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
       }
       const flatAs = parts.findIndex(
         (x: any) =>
-          (x.Tag() === "Keyword" || x.Tag() === "Identifier") && ctx.ValueOf(x) === "as",
+          (x.Tag === "Keyword" || x.Tag === "Identifier") && ctx.ValueOf(x) === "as",
       );
       if (flatAs > 0) {
-        const tp = parts.find((x: any) => x.Tag() === "TypeParameter");
+        const tp = parts.find((x: any) => x.Tag === "TypeParameter");
         if (tp !== undefined) typeParameter = ctx.Project(tp);
         const nameKids = parts.slice(flatAs + 1);
         if (nameKids.length > 0) nameType = ctx.TypeExpression(nameKids);
         continue;
       }
-      const inner = parts.find((x: any) => x.Tag() === "TypeParameter");
+      const inner = parts.find((x: any) => x.Tag === "TypeParameter");
       if (inner !== undefined) {
         typeParameter = ctx.Project(inner);
         continue;
@@ -188,7 +188,7 @@ return result;
 
 ## field AstKind:string | undefined = "MappedType"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

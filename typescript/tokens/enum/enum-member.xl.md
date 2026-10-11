@@ -129,9 +129,9 @@ member.Process(context, source);
   // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
   const kids = ctx.Kids(v);
   const eqIndex = kids.findIndex(
-    (k: any) => k.Tag() === "SymbolToken" && ctx.ValueOf(k) === "=",
+    (k: any) => k.Tag === "SymbolToken" && ctx.ValueOf(k) === "=",
   );
-  const nameNode = kids.find((k: any) => k.Tag() !== "SymbolToken") ?? null;
+  const nameNode = kids.find((k: any) => k.Tag !== "SymbolToken") ?? null;
   const props: any = {};
   if (nameNode !== null) props.name = ctx.Project(nameNode);
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) {
@@ -141,7 +141,7 @@ member.Process(context, source);
     //（**整份文件进不来**）。值位括号的映射走 `ctx.ParenthesizedOf`。
     const init = kids[eqIndex + 1];
     props.initializer =
-      init.Tag() === "Bracket" && init.startBracket === "("
+      init.Tag === "Bracket" && init.startBracket === "("
         ? ctx.ParenthesizedOf(init)
         : ctx.Project(init);
   }
@@ -230,7 +230,7 @@ return result;
 
 ## field AstKind:string | undefined = "EnumMember"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

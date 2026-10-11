@@ -145,7 +145,7 @@ this.SourceRange.End = source;
 它的坐标只在这里出现，`Identifier` / `String` / 注释这些单元全都走这一条。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 return `<${name} range="${this.RangeOf()}">${CommonUtil.XmlDecode(this.Temp.join(""))}</${name}>`;
 ```
 

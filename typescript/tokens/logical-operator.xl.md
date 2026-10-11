@@ -127,7 +127,7 @@ return [startIndex, endIndex];
 少这一格的症状是**整份文件跑不进来**：`yield 1 && 2` 的 `yield` 被当成链子的左操作数
 ⇒ 产物是 `LogicalOperator[yield, 1, &&, 2]` ⇒ 投影取 `kids[0]`（那个词）当 `left`、
 `1` **一个字都没留下**，而那个词在链子里是 `Identifier`（不是 `Keyword`）
-⇒ 投影层给 `yield` / `await` 准备的那两支（`kids[0].Tag() === "Keyword"`）
+⇒ 投影层给 `yield` / `await` 准备的那两支（`kids[0].Tag === "Keyword"`）
 够不着它 ⇒ 降级期报 `name is not a local or a capture: yield`。
 
 **与 `return` 同一句判定、同一处**：段从**那个词的后面一格**开始，
@@ -250,7 +250,7 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, [result]
   }
   const declaredOp = v.op;
   const left = opIndex > 0 ? ctx.Expression(kids.slice(0, opIndex)) : undefined;
-  if (opIndex > 0 && kids[opIndex].Tag() === "SymbolToken") {
+  if (opIndex > 0 && kids[opIndex].Tag === "SymbolToken") {
     return ctx.FoldBinaryFrom(left, kids.slice(opIndex));
   }
   const right =
@@ -302,7 +302,7 @@ super(template);
 标签名取 `this.constructor.name`，属性值是 `op === "||" ? "Or" : "And"`，内容是每个子单元的 `ToXmlString()` 串接。
 
 ```ts
-const name = this.constructor.name;
+const name = this.Tag;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
@@ -328,7 +328,7 @@ return result;
 
 ## field AstKind:string | undefined = "BinaryExpression"
 
-**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag()`），
+**我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
 节点名也是我自己的事实——过去它住在投影层那张按标签查的 `KIND_BY_TAG` 中央表里，
 同一份事实于是被声明了两遍（我这一页一次、表里一次）。
 基类答 `undefined`＝「这个标签没有对应节点」（原样透传 + 记 `unmapped`）。

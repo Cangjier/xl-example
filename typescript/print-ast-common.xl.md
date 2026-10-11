@@ -195,7 +195,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
 名单的键就是**那些类自己的名字**，所以它本来就是那四页的事实；投影这一侧过去用
-`INVISIBLE.has(k.Tag())` 过滤子单元（十五处），现在是 `k.IsInvisible`——
+`INVISIBLE.has(k.Tag)` 过滤子单元（十五处），现在是 `k.IsInvisible`——
 而且 `typescript/text-common-util.xl.md` 的 `IsTriviaUnit` 也改成转调同一格，
 **同一份名单从三处声明收成一处**（那一页的注释原来写着「两处必须一起改」）。
 
@@ -206,14 +206,14 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 `synthName` 的私有名），走的是本文件 import 进来的静态入口——**一份词汇、一个入口**。
 
 **这张表第 1025 轮整张删掉了**：79 档里 **77 档说的是「标签 → 节点名」**，
-而标签就是 token 自己的类名（`Token.Tag()`）——每一档说的都是**某一页自己的事实**，
+而标签就是 token 自己的类名（`Token.Tag`）——每一档说的都是**某一页自己的事实**，
 却被写在投影层这一页里。现在改由各 token 自己记 `Token.AstKind`
 （`core/syntax/token.xl.md`；第 1041 轮起它是**构造时就赋好的属性**，与 `SegmentNames` /
 `IsInvisible` 同一形态），投影只读这一格：**同一份事实只有一处声明**，改一个 token 的名字
 不必再跑两个地方。
 
 **余下那两档是死档、随表一起没了**：`LamdaParameter` 与 `LambdaBody` **没有对应的类**——
-`Tag()` 答的是 `this.constructor.name`，而全仓没有一个类叫这两个名字
+`Tag` 答的是 `this.constructor.name`，而全仓没有一个类叫这两个名字
 （真名是 `Parameter`，它自己那一档就在表里；`LamdaBody` 从来不在表里——它走的是
 `Token.BodyField` 那一格）。所以这两档**永远查不到**，删掉它们不改变任何一格读数。
 
@@ -324,7 +324,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // **装饰器也要推过**（第 170 轮）：`@observable` 换行 `a = 1` 里 `indexOf("a")` 会先命中
   // 装饰器名里的那个 `a`（`observable` 的第 5 个字符），于是字段名节点的区间落在装饰器里
   // （实测 `decl-class-decorator-property.ts`：`Identifier` 从 88 掉到 81）。
-  const decoratorKids = allKids(v).filter((k) => k.Tag() === "Decorator");
+  const decoratorKids = allKids(v).filter((k) => k.Tag === "Decorator");
   if (decoratorKids.length > 0) {
     const lastDecorator = decoratorKids[decoratorKids.length - 1];
     from = Math.max(from, endOf(lastDecorator));
@@ -470,8 +470,8 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // 值位的普通字符串（引号串）走原来的口径。
   if (ctx.source[v.start] !== "`") return astNode("StringLiteral", { text: stringText(v, ctx) }, v, ctx);
   const kids = projectableKids(v);
-  const consts = kids.filter((k) => k.Tag() === "ConstString");
-  const interps = kids.filter((k) => k.Tag() === "InterpolationString");
+  const consts = kids.filter((k) => k.Tag === "ConstString");
+  const interps = kids.filter((k) => k.Tag === "InterpolationString");
   if (interps.length === 0) return astNode("NoSubstitutionTemplateLiteral", { text: stringText(v, ctx) }, v, ctx);
   const typePosition = ctx.typePosition === true;
   // **头部含那个 `{`**：`ConstString` 已经把 `$` 收进去了（`x$`），所以终点是
@@ -579,7 +579,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   if (node === undefined) return key;
   const table = node.SegmentNames;
   if (!(table instanceof Map) || table.size === 0) return key;
-  const tag: any = node.Tag();
+  const tag: any = node.Tag;
   for (const name of kind === undefined ? [tag] : [kind, tag]) {
     const inner = table.get(name);
     if (!(inner instanceof Map)) continue;
@@ -651,7 +651,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   for (;;) {
     const trivia = allKids(v).find(
       (k) =>
-        startOf(k) === pos && (k.Tag() === "LineAnnotation" || k.Tag() === "AreaAnnotation"),
+        startOf(k) === pos && (k.Tag === "LineAnnotation" || k.Tag === "AreaAnnotation"),
     );
     if (trivia === undefined) break;
     let at = endOf(trivia);
@@ -743,7 +743,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // **只认 `{`**：`(` / `[` 是分组括号，它们由 `projectExpression` / 类型那几条路径摊平，
   // 走到这里的一律是块。判据取 `startBracket` 属性（与 `projectExpression` 里
   // 那个值位括号分支同一个来源）。
-  if (v.Tag() === "Bracket" && String(v.startBracket ?? "") === "{") {
+  if (v.Tag === "Bracket" && String(v.startBracket ?? "") === "{") {
     return {
       kind: "Block",
       statements: projectEach(kidsOf(v, "children"), ctx),
@@ -791,8 +791,8 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   if (kind === undefined) {
     kind = v.AstKind;
     if (kind === undefined) {
-      ctx.unmapped.add(v.Tag());
-      return mk(v.Tag(), { children: projectEach(allKids(v), ctx) });
+      ctx.unmapped.add(v.Tag);
+      return mk(v.Tag, { children: projectEach(allKids(v), ctx) });
     }
   }
   // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）；
@@ -801,7 +801,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // **签名那一支认的是 `v.type`、不是已经算出来的 `kind`**：声明族的 `PrintDirectAst` 会把
   // `kind` 一起递进来（`ctx.Declaration(v, kind)`），那时 `kind` 可能已经是 `Constructor`——
   // 而这一条说的是「这个产物标签在签名位叫什么」，判据本来就在标签上。
-  if (ctx.signature && v.Tag() === "MethodDeclaration" && kind === "MethodDeclaration") kind = "MethodSignature";
+  if (ctx.signature && v.Tag === "MethodDeclaration" && kind === "MethodDeclaration") kind = "MethodSignature";
   // **表达式位的函数 / 类**（第 141 轮）：`(function () {…})()` / `const c = class {}` 在
   // TS 那边是 `FunctionExpression` / `ClassExpression`（带名字的也一样——`(function f(){})()`
   // 还是 `FunctionExpression`），而 `AstKind()` 给的是**声明**名。
@@ -810,8 +810,8 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // 少了这一条，`fn-iife` / `stmt-paren-start` / `cls-expression` / `samples/generic.ts`
   // 这些地方各成一族（实测 `FunctionExpression` 缺 4、`ClassDeclaration` 多出 11）。
   if (ctx.expressionPosition === true) {
-    if (v.Tag() === "Function") kind = "FunctionExpression";
-    else if (v.Tag() === "Class") kind = "ClassExpression";
+    if (v.Tag === "Function") kind = "FunctionExpression";
+    else if (v.Tag === "Class") kind = "ClassExpression";
     // **用完就还回去**（第 134 轮修的）：这个标记说的是「**这一个**节点在表达式位」，
     // 不是「它的整棵子树也在」。不还的话，`(function () { function f() { … } … })()`
     // 里**体里那条函数声明会被当成表达式**——它投成 `FunctionExpression`，
@@ -823,7 +823,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     ctx.expressionPosition = false;
   }
   else if (
-    v.Tag() === "MethodDeclaration" &&
+    v.Tag === "MethodDeclaration" &&
     (parentKind === "ClassDeclaration" || parentKind === "ClassExpression") &&
     tokenNameOf(v) === "constructor"
   ) {
@@ -858,7 +858,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // `get` / `set` **不是修饰词节点**——照 `modifiers` 投会多出 `GetKeyword` / `SetKeyword`
   // （实测多出 102 + 缺 `GetAccessor` / `SetAccessor`）。所以换 kind 并把那个词从修饰词里摘掉。
   let stripModifier;
-  if (v.Tag() === "MethodDeclaration") {
+  if (v.Tag === "MethodDeclaration") {
     const words = String(v.modifiers ?? "").split(",");
     if (words.includes("get")) {
       kind = "GetAccessor";
@@ -942,7 +942,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   const groups = [];
   let current = [];
   for (const item of list) {
-    if (item instanceof Token && item.Tag() === "SymbolToken" && textOfNode(item, ctx) === separator) {
+    if (item instanceof Token && item.Tag === "SymbolToken" && textOfNode(item, ctx) === separator) {
       groups.push(current);
       current = [];
       continue;
@@ -978,7 +978,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   if (parent.IsMemberList) {
     const flat = [];
     for (const item of list) {
-      if (item instanceof Token && item.Tag() === "Statement") {
+      if (item instanceof Token && item.Tag === "Statement") {
         const inner = allKids((item)).filter((k) => !k.IsInvisible);
         // **只有整层都是成员才摊开**：`interface` / `type` / `class`
         // 的成员位在 TS 里放不下语句，可本工程自己的样本里出现过 `{ let value: T }` 这种写法。
@@ -1000,7 +1000,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
           inner.every(
             (k) =>
               k.IsMemberTag ||
-              (k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ","),
+              (k.Tag === "SymbolToken" && textOfNode(k, ctx) === ","),
           )
         ) {
           for (const one of inner) flat.push(one);
@@ -1059,7 +1059,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
       if (separator !== undefined) previousSeparator = startOf(separator);
     };
     for (const item of list) {
-      if (item.Tag() === "SymbolToken" && textOfNode(item, ctx) === ",") {
+      if (item.Tag === "SymbolToken" && textOfNode(item, ctx) === ",") {
         flush(item);
         continue;
       }
@@ -1108,7 +1108,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     (item) =>
       item instanceof Token &&
       !item.IsInvisible &&
-      !(item.Tag() === "SymbolToken" && textOfNode(item, ctx) === ","),
+      !(item.Tag === "SymbolToken" && textOfNode(item, ctx) === ","),
   );
   let i = 0;
   while (i < items.length) {
@@ -1121,10 +1121,10 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     // （`Statement.AbsorbLabels` 折的），那一格由标签自己的 `PrintDirectAst` 出形状；
     // 这一支留下来管**老形状**（标签与被标语句是平级兄弟，`labelIsFlat` 为真）。
     // 少了这个条件，包好的标签会去跟**后面那条平级语句**合并（整棵被标的子树丢掉）。
-    if (items[i].Tag() === "Label" && labelIsFlat(items[i])) {
+    if (items[i].Tag === "Label" && labelIsFlat(items[i])) {
       const labels = [];
       let j = i;
-      while (j < items.length && items[j].Tag() === "Label") {
+      while (j < items.length && items[j].Tag === "Label") {
         labels.push(items[j]);
         j++;
       }
@@ -1160,11 +1160,11 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     // 判据与 `projectStatement` 那一支**同一套**：前缀词只能是 export / declare / default，
     // 后面那一格投出来必须是一条**语句**——**问那一格 token 自己**
     // （`IsStatementNode()`，第 1039 轮；原来是投影层那张按 kind 查的 `STATEMENT_KINDS`）。
-    if (items[i].Tag() === "Keyword") {
+    if (items[i].Tag === "Keyword") {
       let j = i;
       while (
         j < items.length &&
-        items[j].Tag() === "Keyword" &&
+        items[j].Tag === "Keyword" &&
         ["export", "declare", "default"].includes(textOfNode(items[j], ctx))
       ) {
         j++;
@@ -1227,7 +1227,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     // `export { a }` 后面跟一条声明时**不是**这个形状，语料里有那种排版）；
     // ② 紧跟那一格**自己答**它是一个声明单元（`IsDeclarationUnit`，第 1036 轮——
     // 名单里的五个标签就是那五页自己的类名，所以它住在各自那一页）。
-    if (items[i].Tag() === "Export" && i + 1 < items.length) {
+    if (items[i].Tag === "Export" && i + 1 < items.length) {
       const unitText = ctx.source.slice(startOf(items[i]), endOf(items[i]) + 1).trim();
       if (/\bdefault$/.test(unitText) && items[i + 1].IsDeclarationUnit) {
         const merged = projectExport(items[i], ctx, items.slice(i + 1), endOf(items[i + 1]));
@@ -1396,7 +1396,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   for (const k of allKids(v)) {
     // **这一格自己的两头**（第 1018 轮）：不再有 `range` 那一层，问单元自己的 `start` / `end`。
     if (k.end !== end) continue;
-    const type = k.Tag();
+    const type = k.Tag;
     if (type === "LineAnnotation" || type === "AreaAnnotation") return k.start;
     const inner = trailingTriviaStart((k), end);
     if (inner !== undefined) return inner;
@@ -1475,7 +1475,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     return undefined;
   }
   const head = kids[0];
-  const headType = head.Tag();
+  const headType = head.Tag;
   // **已经包住语句的标签：在这一层把它展开**（第 1022 轮）。`Statement.AbsorbLabels`
   // 会把被标的语句折进标签里（`<Label label="a"><For>…</For></Label>`，第 929 轮），
   // 于是这一格是一个单元、而它的形状**不是**声明族那一档 —— 让它落到通用支会投成
@@ -1508,7 +1508,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   if (headType === "Label" && kids.length >= 2 && labelIsFlat(head)) {
     const labels = [];
     let at = 0;
-    while (at < kids.length && kids[at].Tag() === "Label") {
+    while (at < kids.length && kids[at].Tag === "Label") {
       labels.push(kids[at]);
       at++;
     }
@@ -1563,8 +1563,8 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // `ExpressionStatement`（实测 `st-with` / `stmt-with` 两族共 20 处）。
   // 体那个 `{` 里的语句由 `IsStatementStart` 新加的那一条（`with` 后面的括号）负责成形成 `Statement`。
   if (headType === "Keyword" && textOfNode(head, ctx) === "with") {
-    const header = kids.find((k) => k.Tag() === "Bracket" && k.startBracket === "(");
-    const body = kids.find((k) => k.Tag() === "Bracket" && k.startBracket === "{");
+    const header = kids.find((k) => k.Tag === "Bracket" && k.startBracket === "(");
+    const body = kids.find((k) => k.Tag === "Bracket" && k.startBracket === "{");
     const withProps = {};
     if (header !== undefined) withProps.expression = projectExpression(projectableKids((header)), ctx);
     if (body !== undefined) {
@@ -1588,7 +1588,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     const prefixWords = kids.slice(0, kids.length - 1);
     const last = kids[kids.length - 1];
     const allPrefixes = prefixWords.every(
-      (k) => k.Tag() === "Keyword" && ["export", "declare", "default"].includes(textOfNode(k, ctx)),
+      (k) => k.Tag === "Keyword" && ["export", "declare", "default"].includes(textOfNode(k, ctx)),
     );
     // **「后面那一格是不是一条语句」问它自己**（`IsStatementNode()`，第 1039 轮）：
     // 原来是投影层那张按 kind 查的 `STATEMENT_KINDS`，而 kind 名就是各页自己的节点名。
@@ -1898,7 +1898,7 @@ new Set([
 **按文本认词** 与 `WordText` 那条口径同一条（同一个词两态都要认）。
 
 ```ts
-  const type = node.Tag();
+  const type = node.Tag;
   if (type === "SymbolToken") return true;
   if (type !== "Keyword" && type !== "Identifier") return false;
   return ["in", "instanceof"].includes(textOfNode(node, ctx));
@@ -1915,7 +1915,7 @@ new Set([
 
 ```ts
   const text = textOfNode(op, ctx);
-  if (op.Tag() !== "Identifier" || (text !== "in" && text !== "instanceof")) {
+  if (op.Tag !== "Identifier" || (text !== "in" && text !== "instanceof")) {
     return projectNode(op, ctx);
   }
   return {
@@ -1975,13 +1975,13 @@ new Set([
   // **为什么两格不会误伤**（`[async, () => 1]` / `f(async, () => 1)`）：那些地方的逗号
   // 是**平级的一格 `SymbolToken`**（逗号表达式成形的除外），kids 长度不是 2；
   // 两条语句（`async;` 换行 `() => 1`）也不会落进同一串单元。
-  const asyncHead = kids[0].Tag() === "Identifier" && textOfNode(kids[0], ctx) === "async";
-  const asyncPlain = asyncHead && kids.length === 2 && kids[1].Tag() === "Lamda";
-  if ((kids.length === 3 && kids[0].Tag() === "Identifier" && kids[1].Tag() === "GenericType" && kids[2].Tag() === "Lamda" && textOfNode(kids[0], ctx) === "async") || asyncPlain) {
+  const asyncHead = kids[0].Tag === "Identifier" && textOfNode(kids[0], ctx) === "async";
+  const asyncPlain = asyncHead && kids.length === 2 && kids[1].Tag === "Lamda";
+  if ((kids.length === 3 && kids[0].Tag === "Identifier" && kids[1].Tag === "GenericType" && kids[2].Tag === "Lamda" && textOfNode(kids[0], ctx) === "async") || asyncPlain) {
     const arrow: any = projectNode(kids[kids.length - 1], ctx);
     if (arrow !== undefined) {
       if (kids.length === 3) {
-        const typeParams = unwrapNodes(kids[1]).filter((k) => k.Tag() === "TypeParameter");
+        const typeParams = unwrapNodes(kids[1]).filter((k) => k.Tag === "TypeParameter");
         if (typeParams.length > 0) arrow.typeParameters = projectEach(typeParams, ctx);
       }
       // **`AsyncKeyword` 得自己补进 `modifiers`**：那一格平时由 `Lamda.IsAsync` 那条路合成，
@@ -2024,12 +2024,12 @@ new Set([
   // 而比较式（`a.b.c<string> + 1`）在 token 层已经退回裸符号 ⇒ 产物里没有 `GenericType`，
   // 这一支一次都不会响（实测那一份的产物与 TS 逐格相同）。
   // `Bracket` 只认**圆括号**：`[a]<string>` / `{ a }<string>` 不是这条形状。
-  const instHead = kids[0].Tag();
+  const instHead = kids[0].Tag;
   const instCallee =
     instHead === "Identifier" ||
     instHead === "PropertyAccess" ||
     (instHead === "Bracket" && kids[0].startBracket === "(");
-  if (kids.length >= 2 && instCallee && kids[1].Tag() === "GenericType") {
+  if (kids.length >= 2 && instCallee && kids[1].Tag === "GenericType") {
     // **圆括号那一格要走 `projectExpression`**：`(a.b)<string>` 里的头一格是值位括号，
     // 而 TS 那边它是 `ParenthesizedExpression`（`ExpressionWithTypeArguments > ParenthesizedExpression`）。
     // `projectNode(Bracket, …)` 不认这一层（那一支在 `projectExpression` 里，
@@ -2063,16 +2063,16 @@ new Set([
       // 产物里两者属性一模一样）；而 `<…>` 能成形本身就说明 token 层的 `IsAllowedFollower`
       // 认了「`>` 后面接不上普通表达式」（见 `generic-type.xl.md` 的名字闸）。
       const instTemplateDirect =
-        kids.length >= 3 && kids[2].Tag() === "String" && ctx.source[startOf(kids[2])] === "`"
+        kids.length >= 3 && kids[2].Tag === "String" && ctx.source[startOf(kids[2])] === "`"
           ? kids[2]
           : undefined;
       const instTemplateChain =
-        instTemplateDirect === undefined && kids.length >= 3 && kids[2].Tag() === "PropertyAccess"
+        instTemplateDirect === undefined && kids.length >= 3 && kids[2].Tag === "PropertyAccess"
           ? projectableKids((kids[2]))
           : [];
       const instChainHasTemplate =
         instTemplateChain.length >= 2 &&
-        instTemplateChain[0].Tag() === "String" &&
+        instTemplateChain[0].Tag === "String" &&
         ctx.source[startOf(instTemplateChain[0])] === "`";
       // **第三档：模板被包在运算符单元的**左脊柱**里**（`` f<T>`t` + 1 ``）：产物是
       // `[Identifier(f), GenericType, BinaryOperator(String(反引号), +, 1)]`——
@@ -2086,21 +2086,21 @@ new Set([
         instTemplateDirect === undefined &&
         !instChainHasTemplate &&
         kids.length >= 3 &&
-        (kids[2].Tag() === "BinaryOperator" || kids[2].Tag() === "LogicalOperator")
+        (kids[2].Tag === "BinaryOperator" || kids[2].Tag === "LogicalOperator")
       ) {
         let spine: any = kids[2];
         while (spine !== undefined) {
           const inner = projectableKids((spine));
           if (inner.length < 3) break;
           const spineHead = inner[0];
-          const spineHeadKids = spineHead.Tag() === "PropertyAccess" ? projectableKids((spineHead)) : [spineHead];
-          if (spineHeadKids[0]?.Tag() === "String" && ctx.source[startOf(spineHeadKids[0])] === "`") {
+          const spineHeadKids = spineHead.Tag === "PropertyAccess" ? projectableKids((spineHead)) : [spineHead];
+          if (spineHeadKids[0]?.Tag === "String" && ctx.source[startOf(spineHeadKids[0])] === "`") {
             instSpineTemplate = spineHeadKids[0];
             instSpineMembers = spineHeadKids.slice(1);
             instSpineLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
             break;
           }
-          if (spineHead.Tag() !== "BinaryOperator" && spineHead.Tag() !== "LogicalOperator") break;
+          if (spineHead.Tag !== "BinaryOperator" && spineHead.Tag !== "LogicalOperator") break;
           instSpineLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
           spine = spineHead;
         }
@@ -2135,7 +2135,7 @@ new Set([
             // ——第二格模板是对**整条属性访问**再标一次（TS 是外面再套一层
             // `TaggedTemplateExpression`），交给 `chainOnto` 那一档；交给 `foldBinaryFrom`
             // 会把它当成一个操作数（实测那一格整片丢）。
-            if (tail[0].Tag() === "String" && ctx.source[startOf(tail[0])] === "`") {
+            if (tail[0].Tag === "String" && ctx.source[startOf(tail[0])] === "`") {
               return chainOnto(chained, tail, ctx);
             }
             return foldBinaryFrom(chained, tail, ctx);
@@ -2193,8 +2193,8 @@ new Set([
     kids.length >= 4 ? kids : [];
   if (
     kids.length === 2 &&
-    (kids[0].Tag() === "BinaryOperator" || kids[0].Tag() === "LogicalOperator") &&
-    kids[1].Tag() === "GenericType"
+    (kids[0].Tag === "BinaryOperator" || kids[0].Tag === "LogicalOperator") &&
+    kids[1].Tag === "GenericType"
   ) {
     const folded = unwrapNodes(kids[0]);
     if (folded.length === 3) {
@@ -2205,8 +2205,8 @@ new Set([
     instanceKids.length >= 4 &&
     isOperatorUnit(instanceKids[1], ctx) &&
     textOfNode(instanceKids[1], ctx) === "instanceof" &&
-    instanceKids[2].Tag() === "Identifier" &&
-    instanceKids[3].Tag() === "GenericType"
+    instanceKids[2].Tag === "Identifier" &&
+    instanceKids[3].Tag === "GenericType"
   ) {
     const callee = projectNode(instanceKids[2], ctx, "");
     if (callee !== undefined) {
@@ -2219,7 +2219,7 @@ new Set([
       };
       if (args.length > 0) self.typeArguments = args;
       // **这一格不能交回 `foldBinaryFrom` 去折**（实测）：那个函数的 `rest` 是**原始单元**
-      // （`Map`，它按 `k.Tag()` 问类型），而这里要交给它的是一个**已经投好的节点**
+      // （`Map`，它按 `k.Tag` 问类型），而这里要交给它的是一个**已经投好的节点**
       // ——折到那一格会当场 `TypeError: opener.get is not a function`
       //（`angleAssertionLength` 对着一格普通对象问 `.get`）。
       //
@@ -2248,7 +2248,7 @@ new Set([
   //
   // **泛型箭头函数不走这里**（`<T>(x: T): T => x` 也是 `[GenericType, Lamda]` 两格）——
   // 那一支在后面，这里先让开（判据是第二格是不是 `Lamda`）。
-  if (kids[0].Tag() === "GenericType" && kids.length >= 2 && kids[1].Tag() !== "Lamda") {
+  if (kids[0].Tag === "GenericType" && kids.length >= 2 && kids[1].Tag !== "Lamda") {
     // **被断言的是「一个一元表达式」，不是后面全部**（第 379 轮）。
     //
     // TS 里 `<T>expr` 是**前缀**那一档（与 `!x` / `typeof x` 同一档）——
@@ -2306,11 +2306,11 @@ new Set([
   // 而 `IsAllowedFollower` 的白名单刻意不含数字（`foo(bar) > 3` 要能退回比较式），
   // 于是产物是一段平的 `[<, number, >, 1]`。判据仍然只看「第一个单元是不是 `<`」——
   // 有左操作数的比较式（`a < b > c`）第一个单元是那个 `a`，撞不到这里。
-  if (kids[0].Tag() === "SymbolToken" && textOfNode(kids[0], ctx) === "<" && kids.length >= 3) {
+  if (kids[0].Tag === "SymbolToken" && textOfNode(kids[0], ctx) === "<" && kids.length >= 3) {
     let depth = 0;
     let close = -1;
     for (let i = 0; i < kids.length; i++) {
-      const text = kids[i].Tag() === "SymbolToken" ? textOfNode(kids[i], ctx) : "";
+      const text = kids[i].Tag === "SymbolToken" ? textOfNode(kids[i], ctx) : "";
       if (text === "<") {
         depth++;
       } else if (text === ">") {
@@ -2341,7 +2341,7 @@ new Set([
   // 判据能这么简单（只认「一个 `(` 括号」），是因为**实参表 / 形参表 / 类型括号不会走到这里**：
   // 那些括号的父单元是 `Method` / `Function` / `Lamda` / `Signature` / 类型容器，
   // 由各自的投影路径摊平；`projectExpression` 收到的单元一律是**操作数**。
-  if (kids.length === 1 && kids[0].Tag() === "Bracket" && kids[0].startBracket === "(") {
+  if (kids.length === 1 && kids[0].Tag === "Bracket" && kids[0].startBracket === "(") {
     return parenthesizedOf(kids[0], ctx);
   }
   // ---- 0b0. `await x` / `yield x`（第 130 轮）----
@@ -2361,7 +2361,7 @@ new Set([
   // 它的操作数 `y` 一个字都不留下，降级期报 `name is not a local or a capture: await`
   //（**整份文件跑不进来**）。与 `isOperatorUnit` 按文本认 `in` / `instanceof`
   // 是同一个手法：**同一个词两态都要认**（在模块 / 异步函数里 `await` 不可能是一个变量名）。
-  const headKind = kids[0].Tag();
+  const headKind = kids[0].Tag;
   const headWord = textOfNode(kids[0], ctx);
   if (headKind === "Keyword" || (headKind === "Identifier" && (headWord === "await" || headWord === "yield"))) {
     const word = headWord;
@@ -2431,7 +2431,7 @@ new Set([
     if (word === "yield") {
       const props: any = {};
       let rest = kids.slice(1);
-      if (rest.length > 0 && rest[0].Tag() === "SymbolToken" && textOfNode(rest[0], ctx) === "*") {
+      if (rest.length > 0 && rest[0].Tag === "SymbolToken" && textOfNode(rest[0], ctx) === "*") {
         props.asteriskToken = projectNode(rest[0], ctx);
         rest = rest.slice(1);
       }
@@ -2461,7 +2461,7 @@ new Set([
     // 这两种一律回落到下面那条老路（`as` 的结合性本仓另有口径，抢过来会把那一格丢掉）。
     if (word === "await" && kids.length >= 2) {
       const isOperatorFold = (unit:any):bool => {
-        const kind = unit === undefined ? "" : unit.Tag();
+        const kind = unit === undefined ? "" : unit.Tag;
         return kind === "BinaryOperator" || kind === "LogicalOperator";
       };
       // **先把最左边那条脊摊平**：`await x * 2 + 3` 的产物是
@@ -2511,9 +2511,9 @@ new Set([
         tail.length >= 2 &&
         tail.every(
           (unit) =>
-            unit.Tag() !== "As" &&
-            unit.Tag() !== "Satisfies" &&
-            !(unit.Tag() === "SymbolToken" && textOfNode(unit, ctx) === "."),
+            unit.Tag !== "As" &&
+            unit.Tag !== "Satisfies" &&
+            !(unit.Tag === "SymbolToken" && textOfNode(unit, ctx) === "."),
         );
       if (tailIsOperators) {
         const operand = projectExpression(flat.slice(0, opAt), ctx);
@@ -2536,12 +2536,12 @@ new Set([
       // 本仓给 `[object Promise]1`、Node 给 `3`（**静默错值**）。
       if (tail.length === 1 && isOperatorFold(tail[0])) {
         const inner = projectableKids((tail[0]));
-        if (inner.length >= 2 && inner[0].Tag() === "NullConditionalOperator") {
+        if (inner.length >= 2 && inner[0].Tag === "NullConditionalOperator") {
           const base = projectExpression(flat.slice(0, opAt), ctx);
           if (base !== undefined) {
             let chained = chainWithOptional(base, inner[0], ctx);
             let chainAt = 1;
-            while (chainAt < inner.length && inner[chainAt].Tag() === "NullConditionalOperator") {
+            while (chainAt < inner.length && inner[chainAt].Tag === "NullConditionalOperator") {
               chained = chainWithOptional(chained, inner[chainAt], ctx);
               chainAt += 1;
             }
@@ -2565,9 +2565,9 @@ new Set([
   // `[SymbolToken(#), Identifier(x), Keyword(in), Identifier(o)]`——`#` 与名字是两格。
   // 合成一个 `PrivateIdentifier` 之后，后面的运算符与操作数照常折（`in` 走
   // `isOperatorUnit` 那一支：它是 `Keyword` 不是 `SymbolToken`）。
-  if (kids.length >= 2 && kids[0].Tag() === "SymbolToken" && textOfNode(kids[0], ctx) === "#") {
+  if (kids.length >= 2 && kids[0].Tag === "SymbolToken" && textOfNode(kids[0], ctx) === "#") {
     const named = kids[1];
-    const simple = named.Tag() === "Identifier" || named.Tag() === "Keyword";
+    const simple = named.Tag === "Identifier" || named.Tag === "Keyword";
     if (simple) {
       const head = {
         kind: "PrivateIdentifier",
@@ -2583,7 +2583,7 @@ new Set([
     // `[SymbolToken(#), BinaryOperator(in)( Identifier(x), «in», Identifier(o) )]`——
     // 那个二元单元的**第一个孩子才是名字**，其余是运算符与右操作数。
     // 不拆的话整个 `x in o` 会被当成名字（`PrivateIdentifier` 的区间一路撑到 `o`）。
-    if (named.Tag() === "BinaryOperator" || named.Tag() === "LogicalOperator") {
+    if (named.Tag === "BinaryOperator" || named.Tag === "LogicalOperator") {
       const inner = projectableKids((named));
       if (inner.length >= 2) {
         const head = {
@@ -2600,10 +2600,10 @@ new Set([
   // `[GenericType(<T>), Lamda(…)]`——`<T>` **不在** `Lamda` 里面。TS 那边它是
   // `ArrowFunction.typeParameters`。照通用支投会把它当成一个类型引用（`TypeReference`），
   // `ArrowFunction` 与它的形参、返回类型整片丢（实测 `expr-arrow-generic.ts` 缺 16）。
-  if (kids.length === 2 && kids[0].Tag() === "GenericType" && kids[1].Tag() === "Lamda") {
+  if (kids.length === 2 && kids[0].Tag === "GenericType" && kids[1].Tag === "Lamda") {
     const arrow: any = projectNode(kids[1], ctx);
     if (arrow !== undefined) {
-      const typeParams = unwrapNodes(kids[0]).filter((k) => k.Tag() === "TypeParameter");
+      const typeParams = unwrapNodes(kids[0]).filter((k) => k.Tag === "TypeParameter");
       if (typeParams.length > 0) arrow.typeParameters = projectEach(typeParams, ctx);
       arrow.pos = startOf(kids[0]);
       return arrow;
@@ -2629,7 +2629,7 @@ new Set([
       ctx.expressionPosition = savedExpression;
     }
   }
-  const isSymbol = (k, text) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === text;
+  const isSymbol = (k, text) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === text;
 
   // ---- 0。`import.meta` / `new.target`（第 141 轮）----
   //
@@ -2646,7 +2646,7 @@ new Set([
   // （实测 `ex-meta-props.ts`：缺 2 + 多出 4）。
   if (
     kids[0] !== undefined &&
-    (kids[0].Tag() === "Keyword" || kids[0].Tag() === "Identifier") &&
+    (kids[0].Tag === "Keyword" || kids[0].Tag === "Identifier") &&
     (textOfNode(kids[0], ctx) === "new" || textOfNode(kids[0], ctx) === "import") &&
     isSymbol(kids[1], ".") &&
     kids.length >= 3
@@ -2661,7 +2661,7 @@ new Set([
     //（运算符左边那一格就是名字）。探针现场（`tmp/recon/probe-meta.cjs`）：
     //
     //     MP1DBG kids=Keyword(new),SymbolToken(.),BinaryOperator()
-    const namedKids = named.Tag() === "PropertyAccess" ? projectableKids((named)) : [named];
+    const namedKids = named.Tag === "PropertyAccess" ? projectableKids((named)) : [named];
     // **「名字那一格是不是被折进了二元单元」要单独记下来**（第 560 轮）：
     // 下面那个「一直往左走到不是二元运算符为止」的循环只有在**第一格就是二元单元**时才有意义
     //（`new.target === A`：`target === A` 被折成一格，名字要从它左边取）。
@@ -2676,7 +2676,7 @@ new Set([
     const headIsBinary =
       namedKids.length > 0 &&
       namedKids[0] instanceof Token &&
-      namedKids[0].Tag() === "BinaryOperator";
+      namedKids[0].Tag === "BinaryOperator";
     // **一直往左走到不是二元运算符为止**（第 539 轮实测）：那个 `BinaryOperator` 是**嵌套**的
     //（`target === A` 折了好几层，探针打出来 `first` 仍然是 `BinaryOperator`）——
     // 只剥一层不够，要剥到最左边那个真正的名字。
@@ -2684,7 +2684,7 @@ new Set([
     let guard = 0;
     while (
       firstName instanceof Token &&
-      firstName.Tag() === "BinaryOperator" &&
+      firstName.Tag === "BinaryOperator" &&
       guard < 32
     ) {
       const down = projectableKids((firstName));
@@ -2751,7 +2751,7 @@ new Set([
     // `[…内层, 本层运算符, 本层右操作数]` 这个顺序正好就是它。
     const binaryTail = (unit: any, depth: int): any[] => {
       if (depth > 32 || unit instanceof Token === false) return [];
-      if (unit.Tag() !== "BinaryOperator") return [];
+      if (unit.Tag !== "BinaryOperator") return [];
       const down = projectableKids((unit));
       if (down.length === 0) return [];
       return [...binaryTail(down[0], depth + 1), ...down.slice(1)];
@@ -2770,7 +2770,7 @@ new Set([
   // **整段丢掉**——实测缺 `CallExpression` 49 / `QuestionDotToken` 40 /
   // `PropertyAccessExpression` 189 里成片，而且都会连带多出未映射的
   // `<NullConditionalOperator>` 与 `<Bracket>`。
-  const ncoIndex = kids.findIndex((k) => k.Tag() === "NullConditionalOperator");
+  const ncoIndex = kids.findIndex((k) => k.Tag === "NullConditionalOperator");
   // **链后面还挂着 `as` / `satisfies` 时，0a0 / 0a 两条都要让开**（第 664 轮）：
   // `a?.b as T` 的产物是 `[Identifier(a), NullConditionalOperator(b), As(T)]` 三格 ——
   // 那两条支路的收尾都是「把 NCO 接到左边、剩下的交给 `foldBinaryFrom`」，
@@ -2780,7 +2780,7 @@ new Set([
   // **`f(o?.a as T)` 那种实参位同样受益**：让开之后 0a0 不再抢，主流程照折。
   const asAfterNco = kids
     .slice(ncoIndex + 1)
-    .some((k) => k.Tag() === "As" || k.Tag() === "Satisfies");
+    .some((k) => k.Tag === "As" || k.Tag === "Satisfies");
   // ---- 0a0. **基名与 `?.` 平级**：`f(o?.a)` 那一种（第 143 轮）----
   //
   // **症状**：`?.` 出现在**实参位 / 下标位 / 模板插值位**时，产物是
@@ -2816,21 +2816,21 @@ new Set([
   ]);
   const prefixHasOperator = kids.slice(0, ncoIndex).some(
     (k) =>
-      k.Tag() === "BinaryOperator" ||
-      k.Tag() === "LogicalOperator" ||
-      (k.Tag() === "SymbolToken" && NCO_BASE_OPERATORS.has(textOfNode(k, ctx))),
+      k.Tag === "BinaryOperator" ||
+      k.Tag === "LogicalOperator" ||
+      (k.Tag === "SymbolToken" && NCO_BASE_OPERATORS.has(textOfNode(k, ctx))),
   );
   if (
     ncoIndex > 0 &&
     asAfterNco === false &&
     prefixHasOperator === false &&
     IsChainBaseNode(kids[ncoIndex - 1]) &&
-    projectableKids((kids[ncoIndex]))[0]?.Tag() !== "Method"
+    projectableKids((kids[ncoIndex]))[0]?.Tag !== "Method"
   ) {
     let optional = projectExpression(kids.slice(0, ncoIndex), ctx);
     if (optional !== undefined) {
       let at = ncoIndex;
-      while (at < kids.length && kids[at].Tag() === "NullConditionalOperator") {
+      while (at < kids.length && kids[at].Tag === "NullConditionalOperator") {
         optional = chainWithOptional(optional, kids[at], ctx);
         at++;
       }
@@ -2850,11 +2850,11 @@ new Set([
   // 再连**后面的兄弟**一起折。
   const hasNcoInBinary = kids.some(
     (k) =>
-      (k.Tag() === "BinaryOperator" || k.Tag() === "LogicalOperator") &&
-      projectableKids((k))[0]?.Tag() === "NullConditionalOperator",
+      (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") &&
+      projectableKids((k))[0]?.Tag === "NullConditionalOperator",
   );
   // **尾巴上还挂着 `as` / `satisfies` 时，这一支也要让开**（见上面 `asAfterNco` 那一处）。
-  if (ncoIndex > 0 && hasNcoInBinary === false && asAfterNco === false && !(kids[0].Tag() === "BinaryOperator" && kids.slice(1).some((k) => k.Tag() === "NullConditionalOperator" || isSymbol(k, ".")))) {
+  if (ncoIndex > 0 && hasNcoInBinary === false && asAfterNco === false && !(kids[0].Tag === "BinaryOperator" && kids.slice(1).some((k) => k.Tag === "NullConditionalOperator" || isSymbol(k, ".")))) {
     // **前缀里有顶层二元运算符时，NCO 要并进「右边那个操作数段」**（第 145 轮）：
     //
     //     x.Start === y.Start?.Document
@@ -2872,12 +2872,12 @@ new Set([
     let bestRank = 99;
     for (let i = 1; i < prefix.length; i++) {
       const k = prefix[i];
-      if (k.Tag() === "BinaryOperator" || k.Tag() === "LogicalOperator") {
+      if (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") {
         opAt = i;
         break;
       }
       const text = textOfNode(k, ctx);
-      if (k.Tag() !== "SymbolToken" || OP_TEXTS.has(text) === false) {
+      if (k.Tag !== "SymbolToken" || OP_TEXTS.has(text) === false) {
         continue;
       }
       const rank = operatorRank(text);
@@ -2891,7 +2891,7 @@ new Set([
       if (base !== undefined) {
         let optional = foldBinaryFrom(base, [...prefix.slice(opAt), kids[ncoIndex]], ctx);
         let at = ncoIndex + 1;
-        while (at < kids.length && kids[at].Tag() === "NullConditionalOperator") {
+        while (at < kids.length && kids[at].Tag === "NullConditionalOperator") {
           optional = chainWithOptional(optional, kids[at], ctx);
           at++;
         }
@@ -2932,7 +2932,7 @@ new Set([
     if (optional !== undefined && operandField !== "") {
       let inner:any = operandField === "expression" ? optional.expression : optional.operand;
       let unaryAt = ncoIndex;
-      while (unaryAt < kids.length && kids[unaryAt].Tag() === "NullConditionalOperator") {
+      while (unaryAt < kids.length && kids[unaryAt].Tag === "NullConditionalOperator") {
         inner = chainWithOptional(inner, kids[unaryAt], ctx);
         unaryAt++;
       }
@@ -2945,7 +2945,7 @@ new Set([
       return foldBinaryFrom(rebuilt, kids.slice(unaryAt), ctx);
     }
     let at = ncoIndex;
-    while (at < kids.length && kids[at].Tag() === "NullConditionalOperator") {
+    while (at < kids.length && kids[at].Tag === "NullConditionalOperator") {
       optional = chainWithOptional(optional, kids[at], ctx);
       at++;
     }
@@ -2982,7 +2982,7 @@ new Set([
   // 「这一格的第一格以一次调用开头吗」，而它比下面那条链支**先跑**。
   const chainTailInOperator = (unit: any): bool => {
     if (unit === undefined || unit === null) return false;
-    const kind = unit.Tag();
+    const kind = unit.Tag;
     if (kind !== "BinaryOperator" && kind !== "LogicalOperator") return false;
     const inner = projectableKids((unit));
     if (inner.length < 2) return false;
@@ -3005,7 +3005,7 @@ new Set([
     }
     if (
       inner.length >= 2 &&
-      (inner[0].Tag() === "BinaryOperator" || inner[0].Tag() === "LogicalOperator") &&
+      (inner[0].Tag === "BinaryOperator" || inner[0].Tag === "LogicalOperator") &&
       chainTailInOperator(inner[0])
     ) {
       unwindChainTailInOperator(inner[0], out);
@@ -3042,7 +3042,7 @@ new Set([
   // 而真正的 `o["f"]().v` 整片缺失（判据 `exec/round711/p711b-b02`）。
   const tailIsChain = kids
     .slice(1)
-    .some((k) => k.Tag() === "NullConditionalOperator" || isSymbol(k, ".") || isCallFirstUnit(k, ctx));
+    .some((k) => k.Tag === "NullConditionalOperator" || isSymbol(k, ".") || isCallFirstUnit(k, ctx));
   // **续格与更松的运算符一起装在下一个二元单元里**（第 863 轮）：`1 + o["f"]().v + 2` 的产物是
   //
   //     [BinaryOperator( 1, «+», PropertyAccess(o, [f]) ),
@@ -3060,13 +3060,13 @@ new Set([
     .slice(1)
     .some(
       (k) =>
-        (k.Tag() === "BinaryOperator" || k.Tag() === "LogicalOperator") &&
+        (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") &&
         chainTailInOperator(k),
     );
   if (
     (tailIsChain || tailInOperator) &&
     kids.length >= 2 &&
-    kids[0].Tag() === "BinaryOperator"
+    kids[0].Tag === "BinaryOperator"
   ) {
     const headInner = projectableKids((kids[0]));
     if (headInner.length >= 2) {
@@ -3078,7 +3078,7 @@ new Set([
         //它自己的运算符与右操作数原样跟在后面、由 `foldBinaryFrom` 折。
         const tail: Array<any> = [];
         for (const one of kids.slice(1)) {
-          const oneKind = one.Tag();
+          const oneKind = one.Tag;
           if (
             (oneKind === "BinaryOperator" || oneKind === "LogicalOperator") &&
             chainTailInOperator(one)
@@ -3111,11 +3111,11 @@ new Set([
   if (kids.length >= 2) {
     for (let at = 1; at < kids.length; at++) {
       const unit = kids[at];
-      if (unit.Tag() !== "BinaryOperator" && unit.Tag() !== "LogicalOperator") {
+      if (unit.Tag !== "BinaryOperator" && unit.Tag !== "LogicalOperator") {
         continue;
       }
       const inner = projectableKids((unit));
-      if (inner.length < 2 || inner[0].Tag() !== "NullConditionalOperator") {
+      if (inner.length < 2 || inner[0].Tag !== "NullConditionalOperator") {
         continue;
       }
       const base = projectExpression(kids.slice(0, at), ctx);
@@ -3166,7 +3166,7 @@ new Set([
   // 带 `TypeReference`（而 `x < y > z` 才是二元），所以这一档不是放宽、是**同一句判据少了一格**。
   const tagIsPostfixChain = (units: Array<any>): bool => {
     for (const one of units) {
-      const kind = one.Tag();
+      const kind = one.Tag;
       if (kind === "Identifier" || kind === "PropertyAccess" || kind === "Method" || kind === "Bracket" || kind === "String" || kind === "GenericType" || kind === "ExpressionWithTypeArguments") {
         continue;
       }
@@ -3191,7 +3191,7 @@ new Set([
   // 交回下面通用那一支——宁可维持原来的错，也不把「模板不在这一格的末尾」当成标签模板。
   const IsChainTail = (units: Array<any>): bool => {
     for (const one of units) {
-      const kind = one.Tag();
+      const kind = one.Tag;
       if (
         kind === "Identifier" ||
         kind === "PropertyAccess" ||
@@ -3215,7 +3215,7 @@ new Set([
   let templateAt = -1;
   for (let at = kids.length - 1; at >= 1; at--) {
     const one = kids[at];
-    if (one.Tag() !== "String" || ctx.source[startOf(one)] !== "`") {
+    if (one.Tag !== "String" || ctx.source[startOf(one)] !== "`") {
       continue;
     }
     if (tagIsPostfixChain(kids.slice(0, at)) && IsChainTail(kids.slice(at + 1))) {
@@ -3262,7 +3262,7 @@ new Set([
   const tagUnit = kids[0];
   const tagIsComplete =
     IsChainBaseNode(tagUnit) ||
-    (tagUnit.Tag() === "Bracket" && tagUnit.startBracket === "(");
+    (tagUnit.Tag === "Bracket" && tagUnit.startBracket === "(");
   // **标签本身可能是一整段平铺的链**（第 947 轮（二））：`o/*c*/.tag`t`.b` 的产物是
   // `[Identifier(o), ., Identifier(tag), PropertyAccess(String, ., b)]`——那条注释把
   // `o.tag` 那一段**拆平了**（链规则没把它们折成一格），于是 `kids[1]` 是**点号**、
@@ -3271,14 +3271,14 @@ new Set([
   // 标签取它**前面全部**——上面那条 `kids.length === 2` 的口径在这里自然被覆盖。
   let templateChainAt = -1;
   for (let at = 1; at < kids.length; at++) {
-    if (kids[at].Tag() !== "PropertyAccess") {
+    if (kids[at].Tag !== "PropertyAccess") {
       continue;
     }
     if (tagIsPostfixChain(kids.slice(0, at)) === false) {
       continue;
     }
     const probe = projectableKids((kids[at]));
-    if (probe.length >= 2 && probe[0].Tag() === "String" && ctx.source[startOf(probe[0])] === "`") {
+    if (probe.length >= 2 && probe[0].Tag === "String" && ctx.source[startOf(probe[0])] === "`") {
       templateChainAt = at;
       break;
     }
@@ -3318,7 +3318,7 @@ new Set([
   if (
     tagIsComplete &&
     kids.length >= 2 &&
-    (kids[1].Tag() === "BinaryOperator" || kids[1].Tag() === "LogicalOperator")
+    (kids[1].Tag === "BinaryOperator" || kids[1].Tag === "LogicalOperator")
   ) {
     let spine = kids[1];
     let templateUnit: any = undefined;
@@ -3328,14 +3328,14 @@ new Set([
       const inner = projectableKids((spine));
       if (inner.length < 3) break;
       const head = inner[0];
-      const headKids = head.Tag() === "PropertyAccess" ? projectableKids((head)) : [head];
-      if (headKids[0]?.Tag() === "String" && ctx.source[startOf(headKids[0])] === "`") {
+      const headKids = head.Tag === "PropertyAccess" ? projectableKids((head)) : [head];
+      if (headKids[0]?.Tag === "String" && ctx.source[startOf(headKids[0])] === "`") {
         templateUnit = headKids[0];
         members = headKids.slice(1);
         layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
         break;
       }
-      if (head.Tag() !== "BinaryOperator" && head.Tag() !== "LogicalOperator") break;
+      if (head.Tag !== "BinaryOperator" && head.Tag !== "LogicalOperator") break;
       layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
       spine = head;
     }
@@ -3377,7 +3377,7 @@ new Set([
   // 脊柱上任何一层不满足就整个让开——宁可维持原来的错，也不能把别的形状认成调用。
   if (
     kids.length >= 2 &&
-    (kids[1].Tag() === "BinaryOperator" || kids[1].Tag() === "LogicalOperator")
+    (kids[1].Tag === "BinaryOperator" || kids[1].Tag === "LogicalOperator")
   ) {
     let emptyCallSpine = kids[1];
     let emptyCallBracket: any = undefined;
@@ -3387,7 +3387,7 @@ new Set([
       if (inner.length < 3) break;
       const head = inner[0];
       if (
-        head.Tag() === "Bracket" &&
+        head.Tag === "Bracket" &&
         head.startBracket === "(" &&
         projectableKids((head)).length === 0
       ) {
@@ -3395,7 +3395,7 @@ new Set([
         emptyCallLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
         break;
       }
-      if (head.Tag() !== "BinaryOperator" && head.Tag() !== "LogicalOperator") break;
+      if (head.Tag !== "BinaryOperator" && head.Tag !== "LogicalOperator") break;
       emptyCallLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
       emptyCallSpine = head;
     }
@@ -3441,7 +3441,7 @@ new Set([
   if (kids.length >= 2) {
     for (let at = 1; at < kids.length; at++) {
       const unit = kids[at];
-      if (unit.Tag() !== "BinaryOperator" && unit.Tag() !== "LogicalOperator") continue;
+      if (unit.Tag !== "BinaryOperator" && unit.Tag !== "LogicalOperator") continue;
       // **赋值号不一定紧贴着这个单元**（第 863 轮）：`x = 1 + o["f"]().v, y` 的产物是
       //
       //     [x, «=», BinaryOperator( 1, «+», PropertyAccess(o, [f]) ),
@@ -3457,7 +3457,7 @@ new Set([
       let assignAt = -1;
       for (let j = 1; j < at; j++) {
         const one = kids[j];
-        if (one.Tag() !== "SymbolToken") continue;
+        if (one.Tag !== "SymbolToken") continue;
         const text = textOfNode(one, ctx);
         const isAssign =
           text === "=" ||
@@ -3482,7 +3482,7 @@ new Set([
         levels.push([inner[inner.length - 2], inner[inner.length - 1]]);
         const head = inner[0];
         const headIsComma =
-          (head.Tag() === "BinaryOperator" || head.Tag() === "LogicalOperator") &&
+          (head.Tag === "BinaryOperator" || head.Tag === "LogicalOperator") &&
           textOfNode(head, ctx) === ",";
         if (headIsComma) {
           level = head;
@@ -3541,7 +3541,7 @@ new Set([
   // `f(...xs)` 的产物把 `...` 与目标分成**两格**，而 `...` 是 `SymbolToken`
   // （`isOperatorUnit` 对任何符号都为真），照二元那一支会把它投成一个孤立的
   // `DotDotDotToken`（实测多出 66，样本全是 `...(newValues)` / `...(items)` 这种调用实参）。
-  if (kids.length >= 2 && kids[0].Tag() === "SymbolToken" && textOfNode(kids[0], ctx) === "...") {
+  if (kids.length >= 2 && kids[0].Tag === "SymbolToken" && textOfNode(kids[0], ctx) === "...") {
     const spread = projectExpression(kids.slice(1), ctx);
     if (spread !== undefined) {
       return {
@@ -3581,7 +3581,7 @@ new Set([
   // `unimplemented: expression AwaitKeyword`。判据与下面那一支共用同一个 `chainTail`。
   const chainTail = (unit: any): bool => {
     if (unit === undefined || unit === null) return false;
-    const tailKind = unit.Tag();
+    const tailKind = unit.Tag;
     if (tailKind === "Bracket" || tailKind === "PropertyAccess" || tailKind === "Method") return true;
     if (tailKind === "NotNull") return true;
     return tailKind === "SymbolToken" && textOfNode(unit, ctx) === ".";
@@ -3602,7 +3602,7 @@ new Set([
       //（`innermostCallee` + `graftCallee`）。
       // **`PropertyAccess` 那一档照旧摊开**：`o["f"]().v` 那一格才是「调用 + 后缀」
       // 两件事装在一个外壳里，摊平之后循环里那两支各办一件。
-      if (inner[0].Tag() === "PropertyAccess") {
+      if (inner[0].Tag === "PropertyAccess") {
         for (const one of projectableKids((inner[0]))) out.push(one);
       } else {
         out.push(inner[0]);
@@ -3612,7 +3612,7 @@ new Set([
     }
     if (
       inner.length >= 2 &&
-      (inner[0].Tag() === "BinaryOperator" || inner[0].Tag() === "LogicalOperator") &&
+      (inner[0].Tag === "BinaryOperator" || inner[0].Tag === "LogicalOperator") &&
       chainTailInOperator(inner[0])
     ) {
       flattenChainTailInOperator(inner[0], out);
@@ -3631,7 +3631,7 @@ new Set([
   // token 层认成下标，轮不到这一支——放开会换掉既有形状（实测 `o["i"] * 2` 一直是对的）。
   const indexTailInOperator = (unit: any): bool => {
     if (unit === undefined || unit === null) return false;
-    const kind = unit.Tag();
+    const kind = unit.Tag;
     if (kind !== "BinaryOperator" && kind !== "LogicalOperator") return false;
     const inner = projectableKids((unit));
     if (inner.length < 2) return false;
@@ -3649,7 +3649,7 @@ new Set([
     }
     if (
       inner.length >= 2 &&
-      (inner[0].Tag() === "BinaryOperator" || inner[0].Tag() === "LogicalOperator") &&
+      (inner[0].Tag === "BinaryOperator" || inner[0].Tag === "LogicalOperator") &&
       indexTailInOperator(inner[0])
     ) {
       flattenIndexTailInOperator(inner[0], out);
@@ -3687,12 +3687,12 @@ new Set([
   if (
     kids.length >= 2 &&
     (isSymbol(kids[1], ".") || isIndexBracket(kids[1]) ||
-      (kids[0].Tag() === "NotNull" && kids[1].Tag() === "ArrayLiteral") ||
+      (kids[0].Tag === "NotNull" && kids[1].Tag === "ArrayLiteral") ||
       // **`!` 后面那一格以一次下标开头**（第 333 轮）：`[1]!` 与 `[0].id`
       // 两种外壳（`NotNull` / `PropertyAccess`）都要认——判据与理由见
       // `isIndexFirstUnit` 那一段。少了它，`o.b![1]![0]` 与 `data.list![0].id`
       // **整条链都进不来**（后两个方括号连着丢）。
-      (kids[0].Tag() === "NotNull" && isIndexFirstUnit(kids[1], ctx)) ||
+      (kids[0].Tag === "NotNull" && isIndexFirstUnit(kids[1], ctx)) ||
       // **函数 / 类表达式后面紧跟的方括号是下标**（第 775 轮）：`function () { }["length"]` /
       // `class { }["name"]` 里那个方括号与前一条（`o.b![1]`）**是同一处境**——
       // 前面那一格不是「标识符 / 已折好的链」，于是它按**数组字面量**成形；
@@ -3701,7 +3701,7 @@ new Set([
       // 方括号整段丢（降级期报 `unimplemented: expression FunctionDeclaration`）。
       // **续格后面还跟着运算符时**形状又换一格（`["s"] * 16` 折进了同一个二元单元）——
       // 那一档由 `indexTailInOperator` 认（判据见上面那一段）。
-      ((kids[0].Tag() === "Function" || kids[0].Tag() === "Class") &&
+      ((kids[0].Tag === "Function" || kids[0].Tag === "Class") &&
         (isIndexFirstUnit(kids[1], ctx) || indexTailInOperator(kids[1]))) ||
       // **第二格以一次调用开头**（第 692 轮）：`o["f"]().v` 的产物是
       // `[PropertyAccess(o, [f]), PropertyAccess(Bracket(()), ., v)]`——
@@ -3713,7 +3713,7 @@ new Set([
       // **第二格是二元单元、续格在它里面**（第 743 轮，判据见上面 `chainTailInOperator`）。
       chainTailInOperator(kids[1]) ||
       // **一元前缀 + 操作数在外的链**（第 739 轮，判据见上面 `chainTail` 那一段）。
-      (kids[0].Tag() === "UnaryOperator" && chainTail(kids[1])))
+      (kids[0].Tag === "UnaryOperator" && chainTail(kids[1])))
   ) {
     // **嵌套的链要摊平**（第 86 轮）：产物偶尔把**一整条链**塞进另一条链的成员位——
     // `this.Parent!.Data.splice(1, 2)` 实测是
@@ -3743,21 +3743,21 @@ new Set([
       //（实测 `gap-r964-nonnull-call-twice-member`：缺 4 格）。
       // **做法**：摊开这件事交给 `chainOnto` 的 Method 分支——它按**区间**判「外面还有一层」，
       // 正是这一档需要的（那一支第 966 轮补齐了）。
-      if (k.Tag() === "PropertyAccess" && at > 0 && isIndexFirstUnit(k, ctx)) {
+      if (k.Tag === "PropertyAccess" && at > 0 && isIndexFirstUnit(k, ctx)) {
         const bareKids = projectableKids((k));
         const bareHead = bareKids.length > 0 ? bareKids[0] : undefined;
-        if (bareHead !== undefined && bareHead.Tag() === "Method"
+        if (bareHead !== undefined && bareHead.Tag === "Method"
           && tokenNameOf(bareHead) !== undefined && String(tokenNameOf(bareHead)) === ""
           && endOf(bareHead) < endOf(k)) {
           ck.push(k);
           continue;
         }
       }
-      if (k.Tag() === "PropertyAccess" && at > 0 && isCallFirstUnit(k, ctx)) {
+      if (k.Tag === "PropertyAccess" && at > 0 && isCallFirstUnit(k, ctx)) {
         for (const inner of projectableKids((k))) ck.push(inner);
         continue;
       }
-      if (k.Tag() === "PropertyAccess" && at > 0 && isSymbol(kids[at - 1], ".")) {
+      if (k.Tag === "PropertyAccess" && at > 0 && isSymbol(kids[at - 1], ".")) {
         for (const inner of projectableKids((k))) ck.push(inner);
         continue;
       }
@@ -3772,7 +3772,7 @@ new Set([
       // 运算符与右操作数原样留在后面，由尾巴那一支折成二元。
       if (
         at > 0 &&
-        (k.Tag() === "BinaryOperator" || k.Tag() === "LogicalOperator") &&
+        (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") &&
         chainTailInOperator(k)
       ) {
         flattenChainTailInOperator(k, ck);
@@ -3783,8 +3783,8 @@ new Set([
       // **只在链头是函数 / 类时走**：那一档才有「方括号被收成数组字面量」这件事。
       if (
         at > 0 &&
-        (k.Tag() === "BinaryOperator" || k.Tag() === "LogicalOperator") &&
-        (kids[0].Tag() === "Function" || kids[0].Tag() === "Class") &&
+        (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") &&
+        (kids[0].Tag === "Function" || kids[0].Tag === "Class") &&
         indexTailInOperator(k)
       ) {
         flattenIndexTailInOperator(k, ck);
@@ -3797,7 +3797,7 @@ new Set([
       // `PropertyAccessExpression` / `QuestionQuestionToken` / `NumericLiteral` 全丢
       // （实测 `dist/ts/typescript/ts-ast.ts` 与 `lib.es5.d.ts` 成片）。
       if (
-        (k.Tag() === "BinaryOperator" || k.Tag() === "LogicalOperator") &&
+        (k.Tag === "BinaryOperator" || k.Tag === "LogicalOperator") &&
         at > 0 &&
         isSymbol(kids[at - 1], ".")
       ) {
@@ -3818,7 +3818,7 @@ new Set([
     // 而 Node 给 `1`——**静默错值**，判据 `c331-ex-nonnull-and-optional-mix`）。
     // **`NotNull` 那一档不在这里摊**：它自带「断言」那一半，
     // 摊成两格反而会把那个 `!` 丢成一枚裸符号——它由循环里那一支一起办（见下面）。
-    const headAssert = kids.length > 0 && kids[0].Tag() === "NotNull";
+    const headAssert = kids.length > 0 && kids[0].Tag === "NotNull";
     if (headAssert && ck.length > 0) {
       const flattened: Array<any> = [];
       for (let at = 0; at < ck.length; at++) {
@@ -3830,14 +3830,14 @@ new Set([
         // `gap-r975-nonnull-call-assert-index` / `gap-r975-nonnull-call-thrice-assert-member`）。
         // **与上面那条 `isIndexFirstUnit` 的分工**：那一支管「先下标、再断言」，
         // 这一支管「先调用、再断言」（判据就是 `isCallFirstUnit(头一格)`）。
-        const oneHead = one.Tag() === "PropertyAccess"
+        const oneHead = one.Tag === "PropertyAccess"
           ? projectableKids((one))[0]
           : undefined;
-        const assertCallCell = oneHead !== undefined && oneHead.Tag() === "NotNull"
+        const assertCallCell = oneHead !== undefined && oneHead.Tag === "NotNull"
           && isCallFirstUnit(oneHead, ctx);
         if (
           at > 0 &&
-          one.Tag() === "PropertyAccess" &&
+          one.Tag === "PropertyAccess" &&
           (isIndexFirstUnit(one, ctx) || assertCallCell)
         ) {
           for (const inner of projectableKids((one))) flattened.push(inner);
@@ -3867,12 +3867,12 @@ new Set([
     // **只在后面真是链上的一格时才走这一支**（`.` / 下标 / 调用 / 成员 / 断言）：
     // `?.` 与二元那一族由下面那两条尾支管，抢过来会换掉既有形状。
     // （`chainTail` 那份判据提到上面那个入口条件那儿去了——两处必须是同一句。）
-    if (ck.length > 1 && ck[0].Tag() === "UnaryOperator" && chainTail(ck[1])) {
+    if (ck.length > 1 && ck[0].Tag === "UnaryOperator" && chainTail(ck[1])) {
       const unaryKids = projectableKids((ck[0]));
       let operandAt = 0;
       while (
         operandAt < unaryKids.length &&
-        (unaryKids[operandAt].Tag() === "SymbolToken" || unaryKids[operandAt].Tag() === "Keyword")
+        (unaryKids[operandAt].Tag === "SymbolToken" || unaryKids[operandAt].Tag === "Keyword")
       ) {
         operandAt += 1;
       }
@@ -3959,7 +3959,7 @@ new Set([
     // **判据只看这一格自己**：标记置宽了（留给整棵子树）会让体里的声明也被当成表达式
     //（第 134 轮那条注释记的就是这个坑），所以只对 `Function` / `Class` 这两个标签置位。
     const projectChainHead = (unit: any): any => {
-      if (unit.Tag() !== "Function" && unit.Tag() !== "Class") {
+      if (unit.Tag !== "Function" && unit.Tag !== "Class") {
         return projectNode(unit, ctx);
       }
       const savedExpression = ctx.expressionPosition;
@@ -3971,7 +3971,7 @@ new Set([
       }
     };
     let left =
-      ck[0].Tag() === "Bracket" && ck[0].startBracket === "("
+      ck[0].Tag === "Bracket" && ck[0].startBracket === "("
         ? parenthesizedOf(ck[0], ctx)
         : projectChainHead(ck[0]);
     // **这一条链上出现过非空断言**（第 303 轮）：出现过之后，
@@ -3984,9 +3984,9 @@ new Set([
     // 那一档（`o.b![1]`），**函数 / 类**是第 775 轮新加的一档（`function () { }["length"]`）——
     // 两者处境一字不差：token 层认不出「前面那一格是个值」，于是那个方括号按数组字面量成形。
     let sawNullAssert =
-      ck[0].Tag() === "NotNull" ||
-      ck[0].Tag() === "Function" ||
-      ck[0].Tag() === "Class";
+      ck[0].Tag === "NotNull" ||
+      ck[0].Tag === "Function" ||
+      ck[0].Tag === "Class";
     let i = 1;
     while (i < ck.length) {
       // **下标链接**：`a[i]` → `ElementAccessExpression`（第 80 轮）。
@@ -3996,7 +3996,7 @@ new Set([
       // 而它在**链上**（前一格是 `NotNull`）就只能是下标——
       // 数组字面量不会紧跟在表达式后面出现（`o.b [1]` 在 JS 里就是 `o.b[1]`）。
       const indexLike = isIndexBracket(ck[i]) ||
-        (ck[i].Tag() === "ArrayLiteral" && sawNullAssert);
+        (ck[i].Tag === "ArrayLiteral" && sawNullAssert);
       if (indexLike) {
         const argument = projectExpression(projectableKids((ck[i])), ctx);
         left = {
@@ -4022,7 +4022,7 @@ new Set([
       // ——区别只是这里在处理**一条已经开始的链**。
       // **它必须排在下标那一支之后**：`a[i]` 与 `a(i)` 长得像，
       // 而那个 `[` / `(` 的分别正是 `startBracket` 那一格。
-      if (ck[i].Tag() === "Bracket" && ck[i].startBracket === "(") {
+      if (ck[i].Tag === "Bracket" && ck[i].startBracket === "(") {
         left = {
           kind: "CallExpression",
           expression: left,
@@ -4040,7 +4040,7 @@ new Set([
         // `[…, Method(Pre), NotNull, ., Method(Pre)]`——`!` 是**一个单元**，它把左边整段
         // 包成 `NonNullExpression`，链再照常往下接。不认它的话循环在这里 break，
         // 后面那整段链会掉成平级节点（实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
-        if (ck[i].Tag() === "NotNull") {
+        if (ck[i].Tag === "NotNull") {
           // **`[1]!` 这种「先下标、再断言」的一格**（第 333 轮）：见 `isIndexFirstUnit`
           // 那一段的表——中间那一格的外壳是 `NotNull`，里层却是一个方括号。
           // **次序是语义**：TS 是 `((o.b!)[1])!`——先下标、再把 `!` 套在那个结果上。
@@ -4058,7 +4058,7 @@ new Set([
           // ⇒ **那次调用的节点整格丢**（实测 `gap-r973-nonnull-call-assert-call-assert`：
           // 最里面那个 `CallExpression` 缺、`NonNullExpression` 漂 1）。
           // 判据与下标那一支**一字不差**（`endOf(括号) < endOf(这一格)`）：先建调用、再套断言。
-          if (bangHead !== undefined && bangHead.Tag() === "Bracket"
+          if (bangHead !== undefined && bangHead.Tag === "Bracket"
             && bangHead.startBracket === "(" && endOf(bangHead) < endOf(ck[i])) {
             left = {
               kind: "CallExpression",
@@ -4069,7 +4069,7 @@ new Set([
               pos: left.pos,
               end: endOf(bangHead),
             };
-          } else if (bangHead !== undefined && bangHead.Tag() === "Method") {
+          } else if (bangHead !== undefined && bangHead.Tag === "Method") {
             // **断言的核是一格调用单元**（第 975 轮）：`a!()()!()` 的第二格是
             // `NotNull([Method(name=""[Bracket(())]) , !])`——那一格自己盖着**两层**调用
             // （第 966 轮那句话：一格说两次调用），而上面那两支只认「核是实参括号」
@@ -4106,8 +4106,8 @@ new Set([
         //（第 366 轮的两步走 + 第 962 轮那两格），区别只是**点号没有出现**——
         // 所以这里只补「点号不来」这一档：被调用者是 `left`、而这一格盖着两层调用
         //（判据就是**区间**：`Method` 比它那个实参括号更靠右，与另外三处一字不差）。
-        if (ck[i].Tag() === "Method") {
-          const callKids = projectableKids((ck[i])).filter((k: any) => k.Tag() !== "GenericType");
+        if (ck[i].Tag === "Method") {
+          const callKids = projectableKids((ck[i])).filter((k: any) => k.Tag !== "GenericType");
           const callHead = callKids.length > 0 ? callKids[0] : undefined;
           const bareName = String(tokenNameOf(ck[i]) ?? "");
           // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：
@@ -4118,13 +4118,13 @@ new Set([
           // 折法就是「各投各的」：内层 `projectNode(callHead)` 给出的**已经是**对 `left` 的
           // 一次调用，只需把受体换成 `left`（它那一格本来没人填），位置取 `left.pos`；
           // 外层再用 `projectNode(ck[i])` 套一层。
-          if (bareName === "" && callHead !== undefined && callHead.Tag() === "Method"
+          if (bareName === "" && callHead !== undefined && callHead.Tag === "Method"
             && String(tokenNameOf(callHead) ?? "") === "") {
             // **「最里面那一格」要一路问到底**（第 975 轮，**普查当场红的**）：
             // `a!()()()()`（四次调用）的 `callHead` 是
             // `Method(name=""[Method(name=""[Bracket(())])])`——里面**还套着一格**，
             // 而这里原来只对「头一格是实参括号」那一档补一层
-            // （`deepHead.Tag() === "Bracket"`）⇒ 四层调用只折出两层
+            // （`deepHead.Tag === "Bracket"`）⇒ 四层调用只折出两层
             //（实测 `gap-r973-nonnull-call-quad`：两个 `CallExpression` 的区间一路漂到
             //  `[0,10)`；三层那一档 `a!()()()` 也是同一句话少问一层）。
             // **折法与 `chainWithOptional` / `chainOnto` 的 Method 分支共用同一对**
@@ -4155,7 +4155,7 @@ new Set([
           // `PropertyAccessExpression` 整片缺、`.c` 也跟着丢）。
           // 折法与上面那支同款：先建里层那次调用（受体是 `left`、区间到括号为止），
           // 再把这一格自己那次套在外面。
-          if (bareName === "" && callHead !== undefined && callHead.Tag() === "Bracket"
+          if (bareName === "" && callHead !== undefined && callHead.Tag === "Bracket"
             && callHead.startBracket === "(" && endOf(callHead) < endOf(ck[i])) {
             const innerCall: any = {
               kind: "CallExpression",
@@ -4179,9 +4179,9 @@ new Set([
           // 那个 `NotNull` 的核是**实参括号**（不是名字），所以这里要自己把内层那次调用
           // 建出来（`assertedMember` 只认名字）。**判据与另外几处一字不差**：
           // `Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
-          if (bareName === "" && callHead !== undefined && callHead.Tag() === "NotNull") {
+          if (bareName === "" && callHead !== undefined && callHead.Tag === "NotNull") {
             const assertKids = projectableKids((callHead)).filter(
-              (k: any) => !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!"),
+              (k: any) => !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!"),
             );
             const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
             // **断言里的核是一格 `Method`**（第 975 轮）：`a!()()!()` 的这一格是
@@ -4193,7 +4193,7 @@ new Set([
             // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**：
             // 走到最里面那一格（`innermostMethod`）、被调用者交给 `innermostCallee`、
             // 换法交给 `graftCallee`——再把 `!` 套在整条调用链外面。
-            if (assertHead !== undefined && assertHead.Tag() === "Method") {
+            if (assertHead !== undefined && assertHead.Tag === "Method") {
               const innerCall = graftCallee(
                 projectNode(assertHead, ctx),
                 innermostCallee(left, innermostMethod(assertHead), ctx),
@@ -4213,7 +4213,7 @@ new Set([
               i += 1;
               continue;
             }
-            if (assertHead !== undefined && assertHead.Tag() === "Bracket"
+            if (assertHead !== undefined && assertHead.Tag === "Bracket"
               && assertHead.startBracket === "(") {
               const innerCall: any = {
                 kind: "CallExpression",
@@ -4245,7 +4245,7 @@ new Set([
             //（实测 `gap-r975-nonnull-index-assert-call`：缺 2 漂 2）。
             // 次序与下标那一支一字不差：先接受体、再把 `!` 套在外面；这一格自己那次调用
             // 由 `projectNode(ck[i])` 那个壳给出（它的被调用者位置正好填这一格）。
-            if (assertHead !== undefined && assertHead.Tag() === "Bracket"
+            if (assertHead !== undefined && assertHead.Tag === "Bracket"
               && assertHead.startBracket === "[") {
               const element: any = {
                 kind: "ElementAccessExpression",
@@ -4279,7 +4279,7 @@ new Set([
             continue;
           }
           if (bareName === "" && callHead !== undefined
-            && callHead.Tag() === "Bracket" && callHead.startBracket === "("
+            && callHead.Tag === "Bracket" && callHead.startBracket === "("
             && endOf(callHead) < endOf(ck[i])) {
             const innerCall = {
               kind: "CallExpression",
@@ -4306,13 +4306,13 @@ new Set([
       // 而 TS 那边 `name` 是**一个** `PrivateIdentifier`（区间含那个 `#`，`#` 是它的一部分）。
       // 不合并的话点号后面只剩一个 `#`（投成一个 `Identifier("#")`、区间短一格），
       // 后面那个名字还掉成平级节点（实测 `cls-hash-in-operator.ts` / `cls-private-fields.ts`）。
-      if (next.Tag() === "SymbolToken" && textOfNode(next, ctx) === "#" && i + 2 < ck.length) {
+      if (next.Tag === "SymbolToken" && textOfNode(next, ctx) === "#" && i + 2 < ck.length) {
         const after = ck[i + 2];
         const at = startOf(next);
         // **私有方法调用 `this.#m()`**（第 138 轮）：点号后面是 `[SymbolToken(#), Method(name="m")]`——
         // `Method` 自己盖住的是 `m()`，名字只占开头那几个字符。照「名字 + 调用」两件事办：
         // `name` 是一个含 `#` 的 `PrivateIdentifier`（区间到名字末尾），外面再套一层 `CallExpression`。
-        if (after.Tag() === "Method") {
+        if (after.Tag === "Method") {
           const raw = String(tokenNameOf(after) ?? "");
           const nameEnd = startOf(after) + raw.length;
           const member = {
@@ -4347,12 +4347,12 @@ new Set([
       // 单元——名字只占 `Method` 开头的几个字符，`!` 是调用**之后**的断言。
       // 照名字那一支投会得到一个盖住整段 `Pre()` 的 `Identifier`
       // （实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
-      if (next.Tag() === "NotNull") {
+      if (next.Tag === "NotNull") {
         const asserted = projectableKids((next)).filter(
-          (k) => !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!"),
+          (k) => !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!"),
         );
         const head = asserted[0];
-        if (head !== undefined && head.Tag() === "Method") {
+        if (head !== undefined && head.Tag === "Method") {
           const raw = String(tokenNameOf(head) ?? "");
           const nameEnd = startOf(head) + raw.length;
           const member = {
@@ -4376,9 +4376,9 @@ new Set([
           // `NotNull` 里装着 `PropertyAccess(SourceRange . Start)`。照名字投会得到一个
           // 文本是整条链的 `Identifier`（实测 `dist/ts/typescript/tokens/if/if-set.ts` 一族：
           // 漂移 14 + 缺 7 + 多出 7）。逐格接上去，最后再套 `NonNullExpression`。
-          const chain = head.Tag() === "PropertyAccess" ? projectableKids((head)) : [head];
+          const chain = head.Tag === "PropertyAccess" ? projectableKids((head)) : [head];
           for (const piece of chain) {
-            if (piece.Tag() === "SymbolToken") {
+            if (piece.Tag === "SymbolToken") {
               continue;
             }
             left = {
@@ -4394,7 +4394,7 @@ new Set([
           continue;
         }
       }
-      if (next.Tag() === "Method") {
+      if (next.Tag === "Method") {
         // `console.log(1)` 的产物是 `[console, ., Method(name="log")]`——
         // 那个 `Method` 盖住的是 `log(1)`，而**名字**只占开头的几个字符，
         // 所以这里按名字宽度切一段 `Identifier` 出来（TS 的 `Identifier(log)` 正是这一段）。
@@ -4415,7 +4415,7 @@ new Set([
           // 直接 `projectNode(外层)` 得到的是**被调者为空**的调用（那一格要靠下面这段填），
           // 所以先把**内层**当成普通的成员调用折一遍、再把「调用这个结果」套上去。
           const innerKids = projectableKids((next));
-          const innerMethod = innerKids.length > 0 && innerKids[0].Tag() === "Method" ? innerKids[0] : undefined;
+          const innerMethod = innerKids.length > 0 && innerKids[0].Tag === "Method" ? innerKids[0] : undefined;
           if (innerMethod !== undefined) {
             // **最里面那一格要一路问到底**（第 975 轮）：`a.b()()().c` 的外层空名字 `Method`
             // 里**套着两格**（`Method("")[Method("")[Method("b")]]`）——原来只问**第一格**
@@ -4440,7 +4440,7 @@ new Set([
           // 少了它，下面那句 `expression: left` 会把**被调用者当成 `left`**，
           // 于是成员名 `m` 与它那个 `!` **整段丢**（实测：缺 `PropertyAccessExpression`
           // 与 `Identifier` 各一、`NonNullExpression` 的区间只到 `o!` 那两格）。
-          if (innerKids.length > 0 && innerKids[0].Tag() === "NotNull") {
+          if (innerKids.length > 0 && innerKids[0].Tag === "NotNull") {
             const asserted = assertedMember(left, innerKids[0], ctx, undefined);
             if (asserted !== undefined) {
               const outerCall = projectNode(next, ctx);
@@ -4456,7 +4456,7 @@ new Set([
           // 「外面还有没有一层」这一问就是**区间**——是**问得出来**的，所以不必靠形状猜：
           // `(f)()`（`[Bracket]` 就是被调用者、只有一层）那一档的 `Method` 与它的 Bracket **同尾**，
           // 这里因此不会误收（`(f)()` / `q = (f)()` / `return (a)(b)` 三档都在门里钉着）。
-          if (innerKids.length > 0 && innerKids[0].Tag() === "Bracket"
+          if (innerKids.length > 0 && innerKids[0].Tag === "Bracket"
             && innerKids[0].startBracket === "(" && endOf(innerKids[0]) < endOf(next)) {
             const innerArgs = {
               kind: "CallExpression",
@@ -4503,12 +4503,12 @@ new Set([
       // 照下面那一支会把它当成一个成员名（`nameOf` 取到整段原文），于是
       // `Identifier` / `PropertyAccessExpression` / `NonNullExpression` 三处同时错位
       // （实测漂移 76 + 30 + 33、多出 71 + 75）。
-      if (next.Tag() === "NotNull") {
+      if (next.Tag === "NotNull") {
         const inner = projectableKids((next)).filter(
-          (k) => !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!"),
+          (k) => !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!"),
         );
         const target = inner.length > 0 ? inner[0] : undefined;
-        if (target !== undefined && target.Tag() === "PropertyAccess") {
+        if (target !== undefined && target.Tag === "PropertyAccess") {
           const members = projectableKids((target));
           if (members.length > 0) {
             left = {
@@ -4563,16 +4563,16 @@ new Set([
     const tail0 = ck[i];
     const spliceOptional = (unit) => {
       const inner = projectableKids((unit));
-      if (inner.length === 0 || inner[0].Tag() !== "NullConditionalOperator") return null;
+      if (inner.length === 0 || inner[0].Tag !== "NullConditionalOperator") return null;
       const extended = chainWithOptional(left, inner[0], ctx);
       return { extended, rest: inner.slice(1) };
     };
-    if (tail0.Tag() === "NullConditionalOperator") {
+    if (tail0.Tag === "NullConditionalOperator") {
       const extended = chainWithOptional(left, tail0, ctx);
       if (i + 1 >= ck.length) return extended;
       return foldBinaryFrom(extended, ck.slice(i + 1), ctx);
     }
-    if (tail0.Tag() === "BinaryOperator" || tail0.Tag() === "LogicalOperator") {
+    if (tail0.Tag === "BinaryOperator" || tail0.Tag === "LogicalOperator") {
       const spliced = spliceOptional(tail0);
       if (spliced !== null) {
         const folded = foldBinaryFrom(spliced.extended, spliced.rest, ctx);
@@ -4598,7 +4598,7 @@ new Set([
   // 运算符词右边的类型装在 `As` 里，**左边的操作数是它的前一个兄弟**。
   // 原来这里既不认 `As` 也不认 `satisfies`，于是整段只剩第一个操作数
   // （实测缺 `AsExpression` + 缺 `AnyKeyword` + 多出一个只盖住 `as any` 的节点）。
-  const asIndex = kids.findIndex((k) => k.Tag() === "As" || k.Tag() === "Satisfies");
+  const asIndex = kids.findIndex((k) => k.Tag === "As" || k.Tag === "Satisfies");
   if (asIndex > 0) {
     // **`as` / `satisfies` 是关系级运算符**（`operatorRank` 给 7，与 `<` / `in` / `instanceof` 同档）。
     // 所以它左边如果坐着**更松**的运算符（`,` = -1、赋值 = 0、`||` / `??` = 1、`&&` = 2、
@@ -4639,7 +4639,7 @@ new Set([
     // 再把整条 `as` / `satisfies` 链**套回 `SpreadElement` 里面**——
     // 括号化那一档（`...([1, 2, 3] as any)`）产物本来就把它装在同一格，所以一直是对的，
     // 这一句只是把**同一件事的另一种排版**折成同一个形状。
-    const spreadFirst = asIndex === 1 && kids[0].Tag() === "Spread";
+    const spreadFirst = asIndex === 1 && kids[0].Tag === "Spread";
     let node = projectExpression(kids.slice(0, asIndex), ctx);
     if (spreadFirst && node !== undefined && node.kind === "SpreadElement") {
       node = node.expression;
@@ -4647,13 +4647,13 @@ new Set([
     let at = asIndex;
     while (at < kids.length) {
       const unit = kids[at];
-      if (unit.Tag() !== "As" && unit.Tag() !== "Satisfies") {
+      if (unit.Tag !== "As" && unit.Tag !== "Satisfies") {
         break;
       }
       const typeKids = projectableKids((unit));
       const type = typeKids.length > 0 ? projectTypeExpression(typeKids, ctx) : undefined;
       node = {
-        kind: unit.Tag() === "Satisfies" ? "SatisfiesExpression" : "AsExpression",
+        kind: unit.Tag === "Satisfies" ? "SatisfiesExpression" : "AsExpression",
         expression: node,
         type,
         pos: node === undefined ? startOf(unit) : node.pos,
@@ -4723,7 +4723,7 @@ new Set([
   // 与上面下标那一支同款：先折前面那段，再套一层。
   if (
     kids.length >= 2 &&
-    kids[kids.length - 1].Tag() === "Bracket" &&
+    kids[kids.length - 1].Tag === "Bracket" &&
     kids[kids.length - 1].startBracket === "("
   ) {
     const bracket = kids[kids.length - 1];
@@ -4780,7 +4780,7 @@ new Set([
 if (!(node instanceof Token)) {
   return false;
 }
-const type = node.Tag();
+const type = node.Tag;
 if (type === "Identifier" || type === "Keyword") {
   const value = node.value;
   const text = typeof value === "string" ? value : "";
@@ -4838,7 +4838,7 @@ return (
 而它的**第一格**才是那个方括号——判据递归一层就够。
 
 ```ts
-const kind = unit.Tag();
+const kind = unit.Tag;
 if (kind === "ArrayLiteral" || isIndexBracket(unit)) return true;
 if (kind === "NotNull" || kind === "PropertyAccess") {
   const inner = projectableKids((unit));
@@ -4863,14 +4863,14 @@ return false;
 `Method(name="")[NotNull(b, !), …]`，摊开之后断言与名字都会掉出去。
 
 ```ts
-  if (unit === undefined || unit === null || unit.Tag() !== "Method") return false;
+  if (unit === undefined || unit === null || unit.Tag !== "Method") return false;
   if (String(tokenNameOf(unit) ?? "") !== "") return false;
-  const kids = projectableKids((unit)).filter((k: any) => k.Tag() !== "GenericType");
+  const kids = projectableKids((unit)).filter((k: any) => k.Tag !== "GenericType");
   if (kids.length === 0) return false;
   const head = kids[0];
-  return head.Tag() === "Method"
-    || (head.Tag() === "Bracket" && head.startBracket === "(")
-    || head.Tag() === "NotNull";
+  return head.Tag === "Method"
+    || (head.Tag === "Bracket" && head.startBracket === "(")
+    || head.Tag === "NotNull";
 ```
 
 # method isCallFirstUnit:(unit:any, ctx:any)=>bool
@@ -4905,7 +4905,7 @@ return false;
 
 ```ts
 if (unit === undefined || unit === null) return false;
-const kind = unit.Tag();
+const kind = unit.Tag;
 // **这一格自己就是一次调用**（第 966 轮）：`a!()!()` 的产物是
 // `[NotNull(a, !), Method(name=""[NotNull(Bracket(()), !), Bracket(())])]`——
 // 第二格是**一次调用**（名字为空），而链那一支的入口判据原来只认
@@ -4917,23 +4917,23 @@ const kind = unit.Tag();
 // 它的「以一次调用开头」有两种壳：实参括号自己（`a!()()`）、或断言盖着实参括号
 //（`a!()!()` 里那一格是 `NotNull(Bracket(()), !)`）。
 if (kind === "Method") {
-  const mKids = projectableKids((unit)).filter((k: any) => k.Tag() !== "GenericType");
+  const mKids = projectableKids((unit)).filter((k: any) => k.Tag !== "GenericType");
   const mHead = mKids.length > 0 ? mKids[0] : undefined;
   if (mHead === undefined) return false;
-  if (mHead.Tag() === "Bracket" && mHead.startBracket === "(") return true;
-  if (mHead.Tag() === "NotNull") {
+  if (mHead.Tag === "Bracket" && mHead.startBracket === "(") return true;
+  if (mHead.Tag === "NotNull") {
     const asserted = projectableKids((mHead)).filter(
-      (k: any) => !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!"),
+      (k: any) => !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!"),
     );
     const inner = asserted.length > 0 ? asserted[0] : undefined;
     if (inner === undefined) return false;
-    if (inner.Tag() === "Bracket" && inner.startBracket === "(") return true;
+    if (inner.Tag === "Bracket" && inner.startBracket === "(") return true;
     // **断言里的核是一个下标括号**（第 975 轮）：`a!()[0]!()` 的第二格是
     // `Method(name=""[NotNull(Bracket([0]), !), Bracket(())])`——被调用者是「先下标、再断言」，
     // 而这一格自己那次调用的实参括号是**平级的兄弟**（那一格盖着整段 `[0]!()`）⇒
     // 它同样是「以一次调用开头」。少了这一句链那一支整个进不来
     //（实测 `gap-r975-nonnull-index-assert-call`：缺 2 漂 2）。
-    if (inner.Tag() === "Bracket") return isIndexFirstUnit(inner, ctx);
+    if (inner.Tag === "Bracket") return isIndexFirstUnit(inner, ctx);
     // **断言里的核自己也是一次调用**（第 975 轮）：`a!()()!()` 的第一格是
     // `NotNull(Method(name=""[Bracket(())]), !)`——`!` 盖在一格 `Method` 上，而那一格
     // 本身就是「以一次调用开头」。上面那一句只认「核是实参括号」⇒ 判据答否 ⇒
@@ -4946,17 +4946,17 @@ if (kind === "Method") {
   // 说的是**三次**调用（每一格空名字的 `Method` 都盖着一次调用，见第 971 轮那一族）。
   // 头一格是 `Method` 时它自己就是「里面那次调用」⇒ 这一格同样是「以一次调用开头」，
   // 判据与上面那一档同源，递归问它即可（`Method` 是**完整单元**，与平级的裸 `(` 兄弟不是一件事）。
-  // 少了这一句：第 971 轮补的 `head.Tag() === "Method" && isCallFirstUnit(head, ctx)`
+  // 少了这一句：第 971 轮补的 `head.Tag === "Method" && isCallFirstUnit(head, ctx)`
   // 在这里答否 ⇒ 链那一支整个进不来、`kids[0]` 单独投出去（实测 `gap-r971-nonnull-call-thrice-member`：
   // 只剩一个盖到 `a!` 的 `NonNullExpression`，缺 5 格）。
-  if (mHead.Tag() === "Method") return isCallFirstUnit(mHead, ctx);
+  if (mHead.Tag === "Method") return isCallFirstUnit(mHead, ctx);
   return false;
 }
 if (kind === "PropertyAccess" || kind === "NotNull") {
   const inner = projectableKids((unit));
   if (inner.length >= 1) {
     const head = inner[0];
-    if (head.Tag() === "Bracket" && head.startBracket === "(") return true;
+    if (head.Tag === "Bracket" && head.startBracket === "(") return true;
     // **头一格是「外面那次调用」在 `Method` 里**（第 971 轮，**普查当场红的**）：
     // `a!()().c` 的第二格是
     // `PropertyAccess(Method(name=""[Bracket(())]), ., c)`——实参括号在 `Method`
@@ -4970,8 +4970,8 @@ if (kind === "PropertyAccess" || kind === "NotNull") {
     // `PropertyAccess([NotNull(Bracket(()), !), Bracket([0])])`——那一格的头是
     // 「断言盖着一次调用」，同样是「以一次调用开头」；原来只认 `Method` ⇒ 链那一支
     // 整个进不来（实测 `gap-r975-nonnull-call-assert-index`：缺 3 漂 1）。
-    if (head.Tag() === "NotNull") return isCallFirstUnit(head, ctx);
-    return head.Tag() === "Method" && isCallFirstUnit(head, ctx);
+    if (head.Tag === "NotNull") return isCallFirstUnit(head, ctx);
+    return head.Tag === "Method" && isCallFirstUnit(head, ctx);
   }
 }
 return false;
@@ -5004,7 +5004,7 @@ return false;
 
 ```ts
   const inner = projectableKids((unit)).filter((k: any) => !k.IsInvisible);
-  const bang = inner.find((k: any) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!");
+  const bang = inner.find((k: any) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!");
   const nameUnit = inner.find((k: any) => k !== bang);
   if (nameUnit === undefined || bang === undefined) return undefined;
   let node: any;
@@ -5015,7 +5015,7 @@ return false;
   //  多一格名叫 `['b']` 的属性访问）。**那一格是下标**：与 `chainOnto` 里
   // `Bracket(startBracket="[")` 那一支**是同一件事**——先建 `ElementAccessExpression`，
   // 再把 `!` 套在它外面（次序与 TS 一致：`NonNull(ElementAccess(a, 'b'))`）。
-  if (nameUnit.Tag() === "Bracket" && nameUnit.startBracket === "[") {
+  if (nameUnit.Tag === "Bracket" && nameUnit.startBracket === "[") {
     node = {
       kind: "ElementAccessExpression",
       expression: left,
@@ -5024,7 +5024,7 @@ return false;
       end: endOf(nameUnit),
     };
     if (questionDot !== undefined) node.questionDotToken = questionDot;
-  } else if (nameUnit.Tag() === "Bracket" && nameUnit.startBracket === "(") {
+  } else if (nameUnit.Tag === "Bracket" && nameUnit.startBracket === "(") {
     // **断言里的核是一对实参括号**（第 975 轮）：`a?.()!()` 的 NCO 内容是
     // `NotNull([Bracket(()), !])`——那个括号是**一次调用**（`a?.()`），`!` 套在它的结果上
     //（TS：`NonNull(CallExpression(a with ?.) )`，`?.` 挂在那次调用上）。
@@ -5041,7 +5041,7 @@ return false;
       end: endOf(nameUnit),
     };
     if (questionDot !== undefined) node.questionDotToken = questionDot;
-  } else if (nameUnit.Tag() === "PropertyAccess") {
+  } else if (nameUnit.Tag === "PropertyAccess") {
     // **里面那条链也要逐格接**（第 166 轮）：`a?.b.c!` 的 NCO 内容是
     // `NotNull(PropertyAccess([b, ., c]))`，TS 那边是两层
     // `PropertyAccessExpression`（第一格带 `?.`）外面套 `NonNullExpression`——
@@ -5050,7 +5050,7 @@ return false;
     let cur = left;
     let pending: any = questionDot;
     for (const member of members) {
-      if (member.Tag() === "NullConditionalOperator") {
+      if (member.Tag === "NullConditionalOperator") {
         cur = chainWithOptional(cur, member, ctx);
         pending = undefined;
         continue;
@@ -5072,7 +5072,7 @@ return false;
       cur = one;
     }
     node = cur;
-  } else if (nameUnit.Tag() === "Method") {
+  } else if (nameUnit.Tag === "Method") {
     // **断言里的核是一格调用单元**（第 975 轮）：`a?.b()!` 的 NCO 内容是
     // `NotNull([Method(name="b"), !])`——`!` 盖在**那次调用**的结果上
     //（TS：`NonNull(CallExpression(PropertyAccess(a?.b)))`）。照下面那条通用支走会把
@@ -5119,9 +5119,9 @@ return false;
   let deepest = unit;
   let depth = 0;
   while (depth < 32) {
-    const down = projectableKids((deepest)).filter((k: any) => k.Tag() !== "GenericType");
+    const down = projectableKids((deepest)).filter((k: any) => k.Tag !== "GenericType");
     const next = down.length > 0 ? down[0] : undefined;
-    if (next === undefined || next.Tag() !== "Method") break;
+    if (next === undefined || next.Tag !== "Method") break;
     deepest = next;
     depth = depth + 1;
   }
@@ -5197,9 +5197,9 @@ return false;
       end: at + name.length,
     };
   }
-  const kids = projectableKids((deepest)).filter((k: any) => k.Tag() !== "GenericType");
+  const kids = projectableKids((deepest)).filter((k: any) => k.Tag !== "GenericType");
   const head = kids.length > 0 ? kids[0] : undefined;
-  if (head !== undefined && head.Tag() === "Bracket" && head.startBracket === "("
+  if (head !== undefined && head.Tag === "Bracket" && head.startBracket === "("
     && endOf(head) < endOf(deepest)) {
     return {
       kind: "CallExpression",
@@ -5239,7 +5239,7 @@ return false;
       : undefined;
   // **`?.name(args)`**（第 107 轮）：那一格是一个 `Method`（调用）——先折出带 `?.` 的
   // 属性访问，再把调用套上去（TS：`CallExpression > PropertyAccessExpression(?.)`）。
-  if (first !== undefined && first.Tag() === "Method") {
+  if (first !== undefined && first.Tag === "Method") {
     const nameText = String(tokenNameOf(first) ?? "");
     // **被调用者自己带 `!`**（第 852 轮）：`a?.b!()` 里那一格是
     // `Method(name="")[NotNull(b, !), Bracket]`——`?.` 属于 `NotNull` 里面那条链、
@@ -5248,9 +5248,9 @@ return false;
     //（实测缺 `NonNullExpression`、多一格空名属性访问），所以这一档交给 `assertedMember`。
     if (nameText === "") {
       const calleeKid = projectableKids((first)).filter(
-        (k: any) => k.Tag() !== "GenericType",
+        (k: any) => k.Tag !== "GenericType",
       )[0];
-      if (calleeKid !== undefined && calleeKid.Tag() === "NotNull") {
+      if (calleeKid !== undefined && calleeKid.Tag === "NotNull") {
         const asserted = assertedMember(left, calleeKid, ctx, questionDot);
         if (asserted !== undefined) {
           const call = projectNode(first, ctx);
@@ -5275,7 +5275,7 @@ return false;
       // Identifier(a)`）。两件事各收在各处：走到最里面那一格是 `innermostMethod`，
       // 「换被调用者要下到最里面那一格调用」是 `graftCallee`——`chainOnto` 的 Method 分支
       // 用的是同一对。
-      if (calleeKid !== undefined && calleeKid.Tag() === "Method") {
+      if (calleeKid !== undefined && calleeKid.Tag === "Method") {
         // **最里面那一格的被调用者怎么建，收在 `innermostCallee` 里**（第 975 轮）：
         // 它按核分三档（名字 / 实参括号 / `left` 自己），其中「括号那一次」要单独建成一格——
         // 少了那一档，`a?.b()()()` 一族**每一次都少一层**
@@ -5304,7 +5304,7 @@ return false;
       // 外层那次调用的实参是它后面的兄弟（`1`），而外层调用只体现在 `Method` 自己的区间上。
       // 只折一层会**丢掉内层那一次调用**。「外面还有没有一层」这一问就是**区间**
       //（与普通链那条路的同一句判据：`Method` 比它那个 Bracket 更靠右）。
-      if (calleeKid !== undefined && calleeKid.Tag() === "Bracket"
+      if (calleeKid !== undefined && calleeKid.Tag === "Bracket"
         && calleeKid.startBracket === "(" && endOf(calleeKid) < endOf(first)) {
         const innerCall: any = {
           kind: "CallExpression",
@@ -5324,7 +5324,7 @@ return false;
       // 一对括号**，可它说的是两次调用（两次共用这一格的区间）。判据与上面那一支一字不差：
       // `Method` 比它那个括号更靠右 ⇒ 里面还裹着一层。少了它只投出一次调用
       //（实测 `gap-r964-nonnull-call-twice-member` 的 NCO 那一半：缺 4 格）。
-      if (calleeKid !== undefined && calleeKid.Tag() === "Bracket"
+      if (calleeKid !== undefined && calleeKid.Tag === "Bracket"
         && calleeKid.startBracket === "(" && endOf(calleeKid) < endOf(first)) {
         const innerCall: any = {
           kind: "CallExpression",
@@ -5363,10 +5363,10 @@ return false;
   // 不拆的话它会落到下面「按成员名折属性访问」那一支，
   // 把括号当成名字，投出一个名叫 `()` 的属性访问（实测就是这个形状），
   // 运行期于是**静默**给 `undefined`（JS 给 `3`）。
-  if (first !== undefined && first.Tag() === "PropertyAccess") {
+  if (first !== undefined && first.Tag === "PropertyAccess") {
     const inner = projectableKids((first));
     const head = inner.length > 0 ? inner[0] : undefined;
-    if (head !== undefined && head.Tag() === "Bracket" && head.startBracket === "(") {
+    if (head !== undefined && head.Tag === "Bracket" && head.startBracket === "(") {
       const call: any = {
         kind: "CallExpression",
         expression: left,
@@ -5384,7 +5384,7 @@ return false;
       for (let i = 1; i < inner.length; i++) {
         const member = inner[i];
         const memberAt = startOf(member);
-        if (member.Tag() === "Bracket" && member.startBracket === "[") {
+        if (member.Tag === "Bracket" && member.startBracket === "[") {
           const element: any = {
             kind: "ElementAccessExpression",
             expression: node,
@@ -5395,7 +5395,7 @@ return false;
           node = element;
           continue;
         }
-        if (member.Tag() === "SymbolToken") continue;
+        if (member.Tag === "SymbolToken") continue;
         const nameText = textOfNode(member, ctx);
         if (nameText === "") continue;
         node = {
@@ -5410,7 +5410,7 @@ return false;
     }
   }
   // **`?.(args)`**（第 107 轮）：那一格是实参括号，TS 是带 `questionDotToken` 的 `CallExpression`。
-  if (first !== undefined && first.Tag() === "Bracket" && first.startBracket === "(") {
+  if (first !== undefined && first.Tag === "Bracket" && first.startBracket === "(") {
     const call = {
       kind: "CallExpression",
       expression: left,
@@ -5432,7 +5432,7 @@ return false;
   // **`?.[i]`**（第 124 轮）：实参是括号**里面**那一段——早先这里直接 `projectNode(first)`，
   // 把整个 `[…]` 括号投成一个节点（未映射的 `<Bracket>`），于是 TS 那边
   // `ElementAccessExpression` 有了、却凭空多出一个 `Bracket`。
-  if (first !== undefined && first.Tag() === "Bracket" && first.startBracket === "[") {
+  if (first !== undefined && first.Tag === "Bracket" && first.startBracket === "[") {
     // **这一格后面还跟着兄弟时，下标只是链上的一格**（第 962 轮）：`o?.['m']()` 的 NCO 里
     // **两个括号装在同一格**（`NCO[Bracket([), Bracket(())]`）——原来这里无条件把整格 NCO
     // 当成一个下标（`end: endOf(unit)` 一路盖到 `()` 后面）就返回，
@@ -5485,7 +5485,7 @@ return false;
   // 的属性访问，再把 `!` 套到整条链上；不这么收的话 `!` 会留在成员名上，
   // `PropertyAccessExpression` 的区间多一格、`NonNullExpression` 少一层
   // （实测 `expr-nonnull-optional.ts` 与 `expr-optional-call-nodes.ts`）。
-  if (first !== undefined && first.Tag() === "NotNull") {
+  if (first !== undefined && first.Tag === "NotNull") {
     // 折法收在 `assertedMember` 里（第 852 轮）：`a?.b!` 与 `a?.b!()` / `a?.b!.c!()`
     // 是同一格，`!` 都套在**整条链**上，差的是它后面还接不接东西。
     const asserted = assertedMember(left, first, ctx, questionDot);
@@ -5497,7 +5497,7 @@ return false;
   // NoSubstitutionTemplateLiteral]`（实测 `ex-optional-call-new.ts`：缺
   // `TaggedTemplateExpression` + `NoSubstitutionTemplateLiteral`，`PropertyAccessExpression`
   // 的区间一路撑到模板串末尾）。
-  const stringUnit = kids.find((k) => k.Tag() === "String" || k.Tag() === "ConstString");
+  const stringUnit = kids.find((k) => k.Tag === "String" || k.Tag === "ConstString");
   if (stringUnit !== undefined && kids.length >= 2) {
     const tagName = kids.find((k) => k !== stringUnit && isNameNode(k));
     if (tagName !== undefined) {
@@ -5534,7 +5534,7 @@ return false;
   // `PropertyAccessExpression` 少一层、`Identifier` 多一个、区间也跟着漂
   // （实测 `a?.b.c` / `x?.Parent.Parent` 这一族）。逐格接上去，
   // `questionDotToken` 挂在**第一格**上（TS 就是这么放的：`a?.b.c` 的 `?.` 属于内层那个节点）。
-  if (first !== undefined && first.Tag() === "PropertyAccess") {
+  if (first !== undefined && first.Tag === "PropertyAccess") {
     const members = projectableKids((first));
     let node = left;
     // **`?.` 挂在链的下一格上**（TS 的放法）：`a?.b.c` 里它是**内层**那个
@@ -5543,7 +5543,7 @@ return false;
     let j = 0;
     while (j < members.length) {
       const member = members[j];
-      if (member.Tag() === "NullConditionalOperator") {
+      if (member.Tag === "NullConditionalOperator") {
         node = chainWithOptional(node, member, ctx);
         pending = undefined;
         j += 1;
@@ -5561,9 +5561,9 @@ return false;
       // 多一格属性访问（实测 `gap-r964-opt-assert-member-member` 的漂移正是它）。
       // 折法与 `chainOnto` 的子链分支**一字不差**：先接成员（`?.` 挂在**内层**那一格），
       // 再把 `!` 套在**整条链**上、位置取那一格自己的末端。
-      if (member.Tag() === "NotNull") {
+      if (member.Tag === "NotNull") {
         const bangKids = projectableKids((member)).filter(
-          (k: any) => !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!"),
+          (k: any) => !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!"),
         );
         const innerName = bangKids.length > 0 ? bangKids[0] : undefined;
         if (innerName !== undefined) {
@@ -5588,7 +5588,7 @@ return false;
         j += 1;
         continue;
       }
-      if (member.Tag() === "Method") {
+      if (member.Tag === "Method") {
         const nameText = String(tokenNameOf(member) ?? "");
         const nameAt = startOf(member);
         // **这一格是「名字为空」的调用单元**（第 964 轮补上这份副本）：
@@ -5600,9 +5600,9 @@ return false;
         // **这一份是那条判据的第五处副本**：另外四处已由第 962 / 963 轮补齐，
         // 补上这一处之后五处同形；「五处收成一份实现」登记为下一步（见 README 第 964 轮那一节）。
         if (nameText === "") {
-          const callKids = projectableKids((member)).filter((k: any) => k.Tag() !== "GenericType");
+          const callKids = projectableKids((member)).filter((k: any) => k.Tag !== "GenericType");
           const callHead = callKids.length > 0 ? callKids[0] : undefined;
-          if (callHead !== undefined && callHead.Tag() === "NotNull") {
+          if (callHead !== undefined && callHead.Tag === "NotNull") {
             const asserted = assertedMember(node, callHead, ctx, pending);
             if (asserted !== undefined) {
               node = Object.assign({}, projectNode(member, ctx), {
@@ -5621,10 +5621,10 @@ return false;
             // **做法与 `chainOnto` 那一处一字不差**：先把「下标 + `!`」折成 `NonNull`，
             // 再把外面那次调用套上去（`?.` 挂在里面那次下标上——TS 就是这么放的）。
             const assertKids = projectableKids((callHead)).filter(
-              (k: any) => !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!"),
+              (k: any) => !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!"),
             );
             const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
-            if (assertHead !== undefined && assertHead.Tag() === "Bracket"
+            if (assertHead !== undefined && assertHead.Tag === "Bracket"
               && assertHead.startBracket === "[") {
               const element: any = {
                 kind: "ElementAccessExpression",
@@ -5649,7 +5649,7 @@ return false;
               continue;
             }
           }
-          if (callHead !== undefined && callHead.Tag() === "Method") {
+          if (callHead !== undefined && callHead.Tag === "Method") {
             // **这一格盖着一层或好几层调用**（第 966 轮立、第 971 轮按「最里面那一格」补齐）：
             // `a?.b()()` / `a?.b()()()` / `a?.b()()().c` 的 NCO 里那一格都是
             // `Method(name="")[Method(name="")[…]]`——名字为空的每一格都是「对结果再调一次」，
@@ -5672,7 +5672,7 @@ return false;
             j += 1;
             continue;
           }
-          if (callHead !== undefined && callHead.Tag() === "Bracket"
+          if (callHead !== undefined && callHead.Tag === "Bracket"
             && callHead.startBracket === "(" && endOf(callHead) < endOf(member)) {
             const innerCall: any = {
               kind: "CallExpression",
@@ -5703,7 +5703,7 @@ return false;
         if (pending !== undefined) holder.questionDotToken = pending;
         const call = projectNode(member, ctx);
         node = Object.assign({}, call, { expression: holder, pos: holder.pos });
-      } else if (member.Tag() === "Bracket" && member.startBracket === "[") {
+      } else if (member.Tag === "Bracket" && member.startBracket === "[") {
         // **下标括号也是链上的一格**（第 962 轮）：`o?.m()[0]` 的 NCO 里那一格是
         // `PropertyAccess([Method(m), Bracket([0])])`——`[0]` 与成员名**平级**。
         // 落到下面那条通用支会被 `nameOf` 当成**一个名字**（实测投出名叫 `"[0]"` 的
@@ -5749,7 +5749,7 @@ return false;
   const name =
     first === undefined
       ? undefined
-      : first.Tag() === "Identifier" || first.Tag() === "Keyword"
+      : first.Tag === "Identifier" || first.Tag === "Keyword"
         ? nameOf(first, ctx)
         : projectNode(first, ctx);
   const access = {
@@ -5781,14 +5781,14 @@ return false;
     // **外面那一层整格丢**（实测 `` f<T>`t``u` ``：外层的 `TaggedTemplateExpression` 区间
     // 只到第一个模板、第二格模板不见）。判据与 0b 同源：**只有反引号才算模板**
     //（普通字符串与模板在产物里的属性一模一样，靠原文的引号分）。
-    if (unit.Tag() === "String" && ctx.source[startOf(unit)] === "`") {
+    if (unit.Tag === "String" && ctx.source[startOf(unit)] === "`") {
       const template = projectNode(unit, ctx);
       if (template === undefined) break;
       left = { kind: "TaggedTemplateExpression", tag: left, template, pos: left.pos, end: endOf(unit) };
       i += 1;
       continue;
     }
-    if (unit.Tag() === "NullConditionalOperator") {
+    if (unit.Tag === "NullConditionalOperator") {
       left = chainWithOptional(left, unit, ctx);
       i += 1;
       continue;
@@ -5815,7 +5815,7 @@ return false;
     // 不认它的话这个下标**整段丢掉**：Node 给 `7`、本仓给 `[7]`——**静默错值**
     //（判据 `c323-ex-nonnull-in-chains` 现场量的就是它）。
     // **做法与上面那一支一字不差**（只有「从哪个形状取实参」不同）。
-    if (unit.Tag() === "ArrayLiteral") {
+    if (unit.Tag === "ArrayLiteral") {
       const argument = projectExpression(projectableKids((unit)), ctx);
       left = {
         kind: "ElementAccessExpression",
@@ -5832,7 +5832,7 @@ return false;
     // （不在 `Method` 里），TS 那边是外面再套一层 `CallExpression`（区间到那个 `)`）。
     // 普通的调用早被收成 `Method` 单元了，所以这里见到的圆括号只会是这一形状
     // （实测 `stmt-asi-paren-call.ts`：`BinaryExpression` 与 `CallExpression` 各漂 2）。
-    if (unit.Tag() === "Bracket" && unit.startBracket === "(") {
+    if (unit.Tag === "Bracket" && unit.startBracket === "(") {
       left = {
         kind: "CallExpression",
         expression: left,
@@ -5852,13 +5852,13 @@ return false;
     // 循环在它前面就 `break` ⇒ **断言与那个下标一起丢**（实测
     // `gap-r973-opt-assert-index-index-member`：缺 5 漂 2）。
     // **次序是语义**：TS 是 `((a?.b![0])![1])`——先把下标接上、再把 `!` 套在那个结果上。
-    if (unit.Tag() === "NotNull") {
+    if (unit.Tag === "NotNull") {
       const bangKids = projectableKids((unit)).filter(
-        (k: any) => !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!"),
+        (k: any) => !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!"),
       );
       const bangHead = bangKids.length > 0 ? bangKids[0] : undefined;
       let asserted: any = left;
-      if (bangHead !== undefined && bangHead.Tag() === "Bracket"
+      if (bangHead !== undefined && bangHead.Tag === "Bracket"
         && bangHead.startBracket === "[") {
         asserted = {
           kind: "ElementAccessExpression",
@@ -5867,7 +5867,7 @@ return false;
           pos: left.pos,
           end: endOf(bangHead),
         };
-      } else if (bangHead !== undefined && bangHead.Tag() === "Bracket"
+      } else if (bangHead !== undefined && bangHead.Tag === "Bracket"
         && bangHead.startBracket === "(" && endOf(bangHead) < endOf(unit)) {
         asserted = {
           kind: "CallExpression",
@@ -5878,7 +5878,7 @@ return false;
           pos: left.pos,
           end: endOf(bangHead),
         };
-      } else if (bangHead !== undefined && bangHead.Tag() === "Method") {
+      } else if (bangHead !== undefined && bangHead.Tag === "Method") {
         asserted = graftCallee(
           projectNode(bangHead, ctx),
           innermostCallee(left, innermostMethod(bangHead), ctx),
@@ -5897,8 +5897,8 @@ return false;
     // 判据与 `chainWithOptional` 的「内层是 `Method`」那一支**同源**（第 962 轮立的两步走
     // 加区间判据），区别只是**点号没有出现**；空名字那一档也走同一条路
     //（`Method(name="")[Bracket(...)]` 的投影本身就是「被调用者是 `left` 的一次调用」）。
-    if (unit.Tag() === "Method") {
-      const callKids = projectableKids((unit)).filter((k: any) => k.Tag() !== "GenericType");
+    if (unit.Tag === "Method") {
+      const callKids = projectableKids((unit)).filter((k: any) => k.Tag !== "GenericType");
       const callHead = callKids.length > 0 ? callKids[0] : undefined;
       const bareName = String(tokenNameOf(unit) ?? "");
       // **这一格盖着两层（或更多层）调用**（第 966 轮立、第 971 轮按「最里面那一格」补齐）：
@@ -5914,7 +5914,7 @@ return false;
       // 三档各一处一份），换法交给 `graftCallee`
       //（它一路下到最里面那一层，不会把中间几层丢掉）。与 `chainWithOptional` 的
       // 「被调用者是 `Method`」那一支**共用同一对**。
-      if (bareName === "" && callHead !== undefined && callHead.Tag() === "Method") {
+      if (bareName === "" && callHead !== undefined && callHead.Tag === "Method") {
         const innerCall = graftCallee(
           projectNode(callHead, ctx),
           innermostCallee(left, innermostMethod(callHead), ctx),
@@ -5928,7 +5928,7 @@ return false;
         i += 1;
         continue;
       }
-      if (bareName === "" && callHead !== undefined && callHead.Tag() === "NotNull") {
+      if (bareName === "" && callHead !== undefined && callHead.Tag === "NotNull") {
         const asserted = assertedMember(left, callHead, ctx, undefined);
         if (asserted !== undefined) {
           const call = projectNode(unit, ctx);
@@ -5944,10 +5944,10 @@ return false;
         //  `NonNullExpression` 的区间只到 `a!`）。
         // **判据与别的几处一字不差**：`Method` 比它那个实参括号更靠右 ⇒ 外面还有一层。
         const assertKids = projectableKids((callHead)).filter(
-          (k: any) => !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!"),
+          (k: any) => !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!"),
         );
         const assertHead = assertKids.length > 0 ? assertKids[0] : undefined;
-        if (assertHead !== undefined && assertHead.Tag() === "Bracket"
+        if (assertHead !== undefined && assertHead.Tag === "Bracket"
           && assertHead.startBracket === "(") {
           const innerCall: any = {
             kind: "CallExpression",
@@ -5970,7 +5970,7 @@ return false;
           continue;
         }
       }
-      if (bareName === "" && callHead !== undefined && callHead.Tag() === "Method"
+      if (bareName === "" && callHead !== undefined && callHead.Tag === "Method"
         && String(tokenNameOf(callHead) ?? "") === "") {
         // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：`a!()()` 的产物是
         // `[NotNull(a, !), Method(name=""[Method(name=""[Bracket(()), !]), Bracket(())])]`——
@@ -5992,7 +5992,7 @@ return false;
         i += 1;
         continue;
       }
-      if (bareName === "" && callHead !== undefined && callHead.Tag() === "Method"
+      if (bareName === "" && callHead !== undefined && callHead.Tag === "Method"
         && String(tokenNameOf(callHead) ?? "") !== "") {
         const innerName = String(tokenNameOf(callHead) ?? "");
         const innerAt = startOf(callHead);
@@ -6015,7 +6015,7 @@ return false;
         i += 1;
         continue;
       }
-      if (bareName === "" && callHead !== undefined && callHead.Tag() === "Bracket"
+      if (bareName === "" && callHead !== undefined && callHead.Tag === "Bracket"
         && callHead.startBracket === "(" && endOf(callHead) < endOf(unit)) {
         const innerCall: any = {
           kind: "CallExpression",
@@ -6060,7 +6060,7 @@ return false;
     // `gap-r971-opt-assert-index-member`：缺 3 漂 1）。抬出来之后这一格照子链折，
     // 跨过的格子数是 **1**（没有点号要跨），`pendingBang` 那两格照旧。
     const dotStep = isDot(unit, ctx) && i + 1 < units.length;
-    const loneSubChain = dotStep === false && unit.Tag() === "PropertyAccess";
+    const loneSubChain = dotStep === false && unit.Tag === "PropertyAccess";
     if (dotStep === false && loneSubChain === false) break;
     // **点号后面那一格可能自带一个 `!`**（第 333 轮）：`o?.a!.b!` 的 NCO 里是
     // `[NotNull(a), ., NotNull(b)]`——那个 `!` 与成员名**在同一格里**
@@ -6079,16 +6079,16 @@ return false;
     // 接的是**断言之后**那一条链，而「把 `!` 套上去」这件事发生在**子链分支内部**——
     // 那里需要知道终点在哪，`bangEnd` 就是那一格 `NotNull` 自己的末端。
     let bangEnd: number | undefined = undefined;
-    if (next.Tag() === "NotNull") {
+    if (next.Tag === "NotNull") {
       bangUnit = next;
       bangEnd = endOf(bangUnit);
       const inner = projectableKids((next)).filter(
-        (k: any) => !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!"),
+        (k: any) => !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!"),
       );
       if (inner.length === 0) break;
       next = inner[0];
     }
-    if (next.Tag() === "Method") {
+    if (next.Tag === "Method") {
       const name = String(tokenNameOf(next) ?? "");
       // **被调用者自己带 `!`**（第 852 轮）：`a?.b!.c!()` 里 `.c!()` 那一格是
       // `Method(name="")[NotNull(c, !), Bracket]`——断言套在**接上 `c` 之后**的那条链上，
@@ -6096,9 +6096,9 @@ return false;
       // 所以这一档交给 `assertedMember`。与上面 `chainWithOptional` 那一处同形同修。
       if (name === "") {
         const calleeKid = projectableKids((next)).filter(
-          (k: any) => k.Tag() !== "GenericType",
+          (k: any) => k.Tag !== "GenericType",
         )[0];
-        if (calleeKid !== undefined && calleeKid.Tag() === "NotNull") {
+        if (calleeKid !== undefined && calleeKid.Tag === "NotNull") {
           const asserted = assertedMember(left, calleeKid, ctx, undefined);
           if (asserted !== undefined) {
             const call = projectNode(next, ctx);
@@ -6111,7 +6111,7 @@ return false;
         // 那一处**同形同修**（第 366 轮立的两步走）——`a?.b.c()()` 里 `.c()()` 那一格是
         // `Method(name="")[Method(name="c")]`，先把内层折成成员调用、再把外层那次调用套上去；
         // 少了它，那一格会落到下面「按成员名折」⇒ 投出一个**名字为空**的属性访问。
-        if (calleeKid !== undefined && calleeKid.Tag() === "Method") {
+        if (calleeKid !== undefined && calleeKid.Tag === "Method") {
           // **折法与 `chainWithOptional` 那一处、以及本函数 Method 分支一字不差**
           //（第 975 轮收拢）：最里面那一格用 `innermostMethod`、被调用者用
           // `innermostCallee`、换法用 `graftCallee`。
@@ -6127,7 +6127,7 @@ return false;
         }
         // **被调用者是 `left`、而这一格盖着两层调用**（第 962 轮）：判据与另外两处
         // 一字不差——`Method` 比它那个实参括号**更靠右**，说明外面还有一层调用。
-        if (calleeKid !== undefined && calleeKid.Tag() === "Bracket"
+        if (calleeKid !== undefined && calleeKid.Tag === "Bracket"
           && calleeKid.startBracket === "(" && endOf(calleeKid) < endOf(next)) {
           const innerCall: any = {
             kind: "CallExpression",
@@ -6154,7 +6154,7 @@ return false;
       };
       const call = projectNode(next, ctx);
       left = Object.assign({}, call, { expression: member, pos: member.pos });
-    } else if (next.Tag() === "PropertyAccess") {
+    } else if (next.Tag === "PropertyAccess") {
       // 成员格自己又是一条链单元（`[Start, NCO(Document)]`）：逐格接上去。
       const members = projectableKids((next));
       // **断言还没套上去的话，它盖到哪一格由 `bangEnd` 给**（第 966 轮）：
@@ -6165,7 +6165,7 @@ return false;
       let j = 0;
       while (j < members.length) {
         const member = members[j];
-        if (member.Tag() === "NullConditionalOperator") {
+        if (member.Tag === "NullConditionalOperator") {
           left = chainWithOptional(left, member, ctx);
           j += 1;
           continue;
@@ -6205,7 +6205,7 @@ return false;
         // 与 `Identifier` 各漂 2，`Identifier` 是那个 `d` 顶着 `c` 的位置）。
         // 折法与 `chainWithOptional` 子链分支末尾那句**一字不差**（名字接一格），
         // 顺序也一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
-        if (member.Tag() === "Identifier" || member.Tag() === "Keyword") {
+        if (member.Tag === "Identifier" || member.Tag === "Keyword") {
           if (pendingBang !== undefined) {
             left = {
               kind: "NonNullExpression",
@@ -6236,13 +6236,13 @@ return false;
         const memberIsCall = (unit: any): bool => {
           const name = String(tokenNameOf(unit) ?? "");
           if (name !== "") return true;
-          const inner = projectableKids((unit)).filter((k: any) => k.Tag() !== "GenericType");
+          const inner = projectableKids((unit)).filter((k: any) => k.Tag !== "GenericType");
           const head = inner.length > 0 ? inner[0] : undefined;
           if (head === undefined) return false;
-          return head.Tag() === "Method"
-            || (head.Tag() === "Bracket" && head.startBracket === "(");
+          return head.Tag === "Method"
+            || (head.Tag === "Bracket" && head.startBracket === "(");
         };
-        if (member.Tag() === "Method" && memberIsCall(member)) {
+        if (member.Tag === "Method" && memberIsCall(member)) {
           if (pendingBang !== undefined) {
             left = {
               kind: "NonNullExpression",
@@ -6266,7 +6266,7 @@ return false;
         // ⇒ 圆括号落到循环末尾那句空转的 `j += 1` ⇒ **那次调用整格丢**
         //（实测 `gap-r973-opt-assert-index-call-member`：缺 1）。
         // 顺序与上面两支一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
-        if (member.Tag() === "Bracket" && member.startBracket === "(") {
+        if (member.Tag === "Bracket" && member.startBracket === "(") {
           if (pendingBang !== undefined) {
             left = {
               kind: "NonNullExpression",
@@ -6294,7 +6294,7 @@ return false;
         // `gap-r971-opt-assert-index-member`：缺 `ElementAccessExpression` / `NumericLiteral`）。
         // 折法与 `chainWithOptional` 子链分支里那一支**一字不差**（同一形状、同一个判据），
         // 顺序也一致：**先把手上那个 `!` 套成 `NonNullExpression`，再接这一格**。
-        if (member.Tag() === "Bracket" && member.startBracket === "[") {
+        if (member.Tag === "Bracket" && member.startBracket === "[") {
           if (pendingBang !== undefined) {
             left = {
               kind: "NonNullExpression",
@@ -6357,7 +6357,7 @@ return false;
 不是一个裸符号，所以 `a + b` 的那个 `+` 撞不到这一支。
 
 ```ts
-  const type = node.Tag();
+  const type = node.Tag;
   if (type === "UnaryOperator") return true;
   if (type !== "SymbolToken") {
     const text = textOfNode(node, ctx);
@@ -6466,9 +6466,9 @@ return false;
     if (
       opText.length > 1 &&
       rest.length === 4 &&
-      (rest[1].Tag() === "BinaryOperator" || rest[1].Tag() === "LogicalOperator") &&
-      (rest[3].Tag() === "BinaryOperator" || rest[3].Tag() === "LogicalOperator") &&
-      rest[2].Tag() === "SymbolToken" &&
+      (rest[1].Tag === "BinaryOperator" || rest[1].Tag === "LogicalOperator") &&
+      (rest[3].Tag === "BinaryOperator" || rest[3].Tag === "LogicalOperator") &&
+      rest[2].Tag === "SymbolToken" &&
       textOfNode(rest[2], ctx) === "=" &&
       ctx.source.slice(startOf(rest[2]), endOf(rest[2])).length > 1
     ) {
@@ -6596,13 +6596,13 @@ return false;
     return 0;
   }
   const opener = kids[at];
-  if (opener.Tag() !== "SymbolToken" || textOfNode(opener, ctx) !== "<") {
+  if (opener.Tag !== "SymbolToken" || textOfNode(opener, ctx) !== "<") {
     return 0;
   }
   let depth = 0;
   let close = -1;
   for (let i = at; i < kids.length; i++) {
-    const text = kids[i].Tag() === "SymbolToken" ? textOfNode(kids[i], ctx) : "";
+    const text = kids[i].Tag === "SymbolToken" ? textOfNode(kids[i], ctx) : "";
     if (text === "<") {
       depth += 1;
     } else if (text === ">") {
@@ -6701,9 +6701,9 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // `Identifier`（关键字升级在本单元的那一趟里跑，投影这一趟是**之后**的事）——
   // 从前往后找会把那个词当成名字。
   const isPatternKid = (k: any) =>
-    k.Tag() === "ArrayLiteral" ||
-    k.Tag() === "ObjectLiteral" ||
-    (k.Tag() === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"));
+    k.Tag === "ArrayLiteral" ||
+    k.Tag === "ObjectLiteral" ||
+    (k.Tag === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"));
   const isDeclareWord = (k: any) => {
     const text = textOfNode(k, ctx);
     return text === "const" || text === "let" || text === "var" || text === "using";
@@ -6754,7 +6754,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 （与 `isDot` / `isNameNode` 那几个小判据同一个位置。）
 
 ```ts
-  return node.Tag() === "Bracket" && node.startBracket === "[";
+  return node.Tag === "Bracket" && node.startBracket === "[";
 ```
 
 # private method projectLetFrom:(kids:Array<any>, ctx:any, container:any)=>Array<any>
@@ -6770,7 +6770,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // 外层容器只用来取「语句整体」的区间（`Statement` 含分号、`For` 的段不含）。
   const stmtWhole = stmtEndOf(container, ctx);
   const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
-  const letNode = kids.find((k) => k.Tag() === "Let") ?? null;
+  const letNode = kids.find((k) => k.Tag === "Let") ?? null;
   // **多声明符**（第 93 轮）：`let a = 1, b = 2` 在 TS 里是**两个 `VariableDeclaration`**
   // （同一个 `VariableDeclarationList.declarations` 的两格），而产物只有一段平铺单元。
   // 顶层逗号就是那个分隔符——`f(x, y)` / `[a, b]` / `{ a: 1 }` / `T<A, B>` 里的逗号都在
@@ -6778,7 +6778,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   const groups = [];
   let group = [];
   for (const k of kids) {
-    if (group.length > 0 && k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ",") {
+    if (group.length > 0 && k.Tag === "SymbolToken" && textOfNode(k, ctx) === ",") {
       groups.push(group);
       group = [];
       continue;
@@ -6819,12 +6819,12 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // `elements` 空着、里面的 `BindingElement` 与名字整片丢
   // （实测 `decl-arr-destructure-nested` / `vars-destructure-nested` /
   // `decl-destructure-nested-names` 三族共 27 处）。所以先在**整段列表里 `=` 左边**找。
-  const eqAt = kids.findIndex((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "=");
+  const eqAt = kids.findIndex((k) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === "=");
   const headKids = eqAt >= 0 ? kids.slice(0, eqAt) : kids;
   const isPatternUnit = (k: any) =>
-    k.Tag() === "ArrayLiteral" ||
-    k.Tag() === "ObjectLiteral" ||
-    (k.Tag() === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"));
+    k.Tag === "ArrayLiteral" ||
+    k.Tag === "ObjectLiteral" ||
+    (k.Tag === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"));
   const patternUnit =
     headKids.find(isPatternUnit) ?? projectableKids(letView).find(isPatternUnit) ?? null;
   const name =
@@ -6836,7 +6836,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // **每个声明符一个 `VariableDeclaration`**：第一组用 `Let` 自己的 `fieldName`（名字在那上面），
   // 后面的组名字就是组里第一格（`j = 1` 的 `j`）；类型标注取**本组**的 `TypeDefine`。
   const declarations = groups.map((one, index) => {
-    const eq = one.findIndex((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "=");
+    const eq = one.findIndex((k) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === "=");
     // **初始化式是 `=` 右边**整段**，不是一格**（第 101 轮）：`const a = this.Parent!.Data.indexOf(this)`
     // 的右边在产物里是**四个平级单元**（`NotNull` / `.` / `PropertyAccess` / …），
     // 原来只取第一格——于是整条链只剩最前面那个 `NotNull`，链尾全丢
@@ -6848,7 +6848,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     const oneName =
       index === 0
         ? name
-        : head === undefined || (head.Tag() !== "Identifier" && head.Tag() !== "Keyword")
+        : head === undefined || (head.Tag !== "Identifier" && head.Tag !== "Keyword")
           ? bindingSpan(container, head === undefined ? listStart : startOf(head), listEnd, ctx)
           : projectNode(head, ctx);
     const declaration = {
@@ -6863,13 +6863,13 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     // **类型标注是声明的一部分，但它在 `Statement` 那一层**：`let a: string;` 的产物是
     // `Statement > [Let(``let a``), TypeDefine(``: string``)]`——`TypeDefine` 是 `Let` 的**兄弟**，
     // 不在 `Let` 里面（`Field` 那种才在自身里面）。TS 那边 `VariableDeclaration[4,13)` = `a: string`。
-    const typeNode = one.find((k) => k.Tag() === "TypeDefine");
+    const typeNode = one.find((k) => k.Tag === "TypeDefine");
     if (typeNode !== undefined) declaration.type = ctx.Project(typeNode);
     // **明确赋值断言 `let a!: number`**（第 156 轮）：TS 那边是
     // `VariableDeclaration.exclamationToken`（`!` 是一个子节点），产物把它记成一个平级的
     // `SymbolToken("!")`。不收的话缺 `ExclamationToken` + 字段名差一格
     // （实测 `vars-definite.ts`：`VariableDeclaration` 与 `PropertyDeclaration` 各一处）。
-    const bang = one.find((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "!");
+    const bang = one.find((k) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === "!");
     if (bang !== undefined) declaration.exclamationToken = projectNode(bang, ctx);
     return declaration;
   });
@@ -6917,7 +6917,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // `ArrayLiteral`（`[k2]: { a }` 里右边那一格就是一对裸花括号）——只认那两种标签时
   // 整层 `ObjectBindingPattern` 连里面的 `BindingElement` 一起丢。
   const braceKind =
-    v.Tag() === "ArrayLiteral" || (v.Tag() === "Bracket" && v.startBracket === "[")
+    v.Tag === "ArrayLiteral" || (v.Tag === "Bracket" && v.startBracket === "[")
       ? "ArrayBindingPattern"
       : "ObjectBindingPattern";
   const kind = braceKind;
@@ -6930,7 +6930,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   const commaAts = [];
   let group = [];
   for (const kid of kids) {
-    if (kid.Tag() === "SymbolToken" && textOfNode(kid, ctx) === ",") {
+    if (kid.Tag === "SymbolToken" && textOfNode(kid, ctx) === ",") {
       groups.push(group);
       commaAts.push(startOf(kid));
       group = [];
@@ -6946,7 +6946,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
       elements.push({ kind: "OmittedExpression", pos: cursor, end: cursor });
     } else {
       for (const kid of groups[i]) {
-        if (kid.Tag() === "BindingElement") elements.push(projectBindingElement(kid, ctx));
+        if (kid.Tag === "BindingElement") elements.push(projectBindingElement(kid, ctx));
       }
     }
     if (i < commaAts.length) cursor = commaAts[i] + 1;
@@ -6971,9 +6971,9 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 ```ts
   const v = unit;
   const kids = projectableKids(v);
-  const colonIndex = kids.findIndex((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ":");
-  const eqIndex = kids.findIndex((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "=");
-  const dots = kids.find((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "...");
+  const colonIndex = kids.findIndex((k) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === ":");
+  const eqIndex = kids.findIndex((k) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === "=");
+  const dots = kids.find((k) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === "...");
   const names = kids.filter((k) => isNameNode(k) && !isTypeSeparator(k, ctx));
   // **绑定位里还能再嵌一层模式**（第 135 轮）：`[[a, b], …]` 的元素是**另一个**
   // `ArrayLiteral` / `ObjectLiteral`（`{ b: [c, d = 2] }` 里 `:` 右边也是）。
@@ -6981,9 +6981,9 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // 嵌套的 `ArrayBindingPattern` / `ObjectBindingPattern` 与它们里面的名字整片丢
   // （实测三族嵌套解构用例共 27 处）。
   const isPatternLike = (k: any) =>
-    k.Tag() === "ArrayLiteral" ||
-    k.Tag() === "ObjectLiteral" ||
-    (k.Tag() === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"));
+    k.Tag === "ArrayLiteral" ||
+    k.Tag === "ObjectLiteral" ||
+    (k.Tag === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"));
   // **默认值那一侧的括号不算绑定名**（第 355 轮，**实测撞到的**）：
   // `{ tags = [] as string[] }` 里 `=` **右边**那个 `[]` 是**默认值**（值位），
   // 而照「第一个像模式的单元」找会把它当成**绑定名** ⇒ 投出一个**没有 text** 的
@@ -7004,7 +7004,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     // `ComputedPropertyName` 2 + `Identifier` 2 + 字段名 2）。
     const computedUnit = kids.find(
       (k) =>
-        (isIndexBracket(k) || k.Tag() === "ArrayLiteral") && startOf(k) < startOf(kids[colonIndex]),
+        (isIndexBracket(k) || k.Tag === "ArrayLiteral") && startOf(k) < startOf(kids[colonIndex]),
     );
     if (computedUnit !== undefined) {
       props.propertyName = {
@@ -7025,7 +7025,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
       // 位置与文本都直接问这一格单元自己（`startOf` / `endOf` / `stringText` 收的就是 token）。
       const quotedBefore = kids.find(
         (k) =>
-          (k.Tag() === "String" || k.Tag() === "ConstString") &&
+          (k.Tag === "String" || k.Tag === "ConstString") &&
           endOf(k) <= startOf(kids[colonIndex]),
       );
       if (quotedBefore !== undefined) {
@@ -7158,7 +7158,7 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
   const kids = projectableKids(v);
   if (kids.length !== 2) return undefined;
   const head = kids[0];
-  if (head.Tag() !== "SymbolToken") return undefined;
+  if (head.Tag !== "SymbolToken") return undefined;
   const op = textOfNode(head, ctx);
   if (op !== "-" && op !== "+") return undefined;
   const operand = projectNode(kids[1], ctx);
@@ -7185,20 +7185,20 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
 # private method isTypeSeparator:(node:any, ctx:any)=>bool
 
 ```ts
-  if (node.Tag() !== "SymbolToken") return false;
+  if (node.Tag !== "SymbolToken") return false;
   return [",", "|", "&"].includes(textOfNode(node, ctx));
 ```
 
 # private method isDot:(node:any, ctx:any)=>bool
 
 ```ts
-  return node.Tag() === "SymbolToken" && textOfNode(node, ctx) === ".";
+  return node.Tag === "SymbolToken" && textOfNode(node, ctx) === ".";
 ```
 
 # private method isNameNode:(node:any)=>bool
 
 ```ts
-  const type = node.Tag();
+  const type = node.Tag;
   return type === "Identifier" || type === "Keyword";
 ```
 
@@ -7237,20 +7237,20 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
 
 ```ts
   const arrowIndex = kids.findIndex(
-    (k: any) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "=>",
+    (k: any) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === "=>",
   );
   const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
-  const generic = before.find((k: any) => k.Tag() === "GenericType");
-  const newUnit = before.find((k: any) => k.Tag() === "Keyword" && textOfNode(k, ctx) === "new");
+  const generic = before.find((k: any) => k.Tag === "GenericType");
+  const newUnit = before.find((k: any) => k.Tag === "Keyword" && textOfNode(k, ctx) === "new");
   const props: any = {};
   const params = [];
   for (const k of before) {
     if (k === generic || k === newUnit) continue;
-    if (k.Tag() === "Keyword" && textOfNode(k, ctx) === "abstract") {
+    if (k.Tag === "Keyword" && textOfNode(k, ctx) === "abstract") {
       props.modifiers = [...(props.modifiers ?? []), projectNode(k, ctx)];
       continue;
     }
-    if (k.Tag() === "Bracket") {
+    if (k.Tag === "Bracket") {
       for (const part of splitTopLevel(unwrapNodes(k), ctx, ",")) {
         for (const inner of part) params.push(inner);
       }
@@ -7259,7 +7259,7 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
     params.push(k);
   }
   if (generic !== undefined) {
-    const typeParams = unwrapNodes(generic).filter((k: any) => k.Tag() === "TypeParameter");
+    const typeParams = unwrapNodes(generic).filter((k: any) => k.Tag === "TypeParameter");
     if (typeParams.length > 0) props.typeParameters = projectEach(typeParams, ctx);
   }
   props.parameters = projectEach(params, ctx);
@@ -7297,7 +7297,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 把 `|` 一并滤掉会让整条联合被当成「名字 + 实参」投成一个 `TypeReference`
   // （实测 `undici-types/header.d.ts` 的 `{ [K in HeaderNames | Lowercase<HeaderNames>]?: … }`）。
   const list = nodes.filter(
-    (k) => k instanceof Token && !k.IsInvisible && !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ","),
+    (k) => k instanceof Token && !k.IsInvisible && !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === ","),
   );
   if (list.length === 0) return undefined;
   // **平铺的 `( … ) => T` 段**（第 927 轮（三））：这一段是**里层的函数类型**——
@@ -7310,9 +7310,9 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `FunctionType(type = UnionType[A, B])`（`=>` 比 `|` 松），先按 `|` 切就会拆成
   // `UnionType[FunctionType(() => A), B]`——两层的方向反了。
   const flatArrowAt = list.findIndex(
-    (k, i) => i > 0 && k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "=>",
+    (k, i) => i > 0 && k.Tag === "SymbolToken" && textOfNode(k, ctx) === "=>",
   );
-  if (flatArrowAt > 0 && list[0].Tag() === "Bracket") {
+  if (flatArrowAt > 0 && list[0].Tag === "Bracket") {
     const built = functionTypeProps(list, ctx);
     return {
       kind: built.kind,
@@ -7322,7 +7322,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     };
   }
   // **平铺的联合 / 交叉**（第 133 轮）：见上。按**最外层**的分隔符切段、每段自己递归。
-  const isTypeOp = (k: any, text: string) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === text;
+  const isTypeOp = (k: any, text: string) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === text;
   for (const [op, kind] of [
     ["|", "UnionType"],
     ["&", "IntersectionType"],
@@ -7349,7 +7349,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // **一个** `PrefixUnaryExpression`（`operator` 是 `MinusToken`、`operand` 是数字）。
   // 不折这一层的话 `-` 会投成一个孤立的 `MinusToken`、`PrefixUnaryExpression` 整类缺
   // （实测 `typescript.d.ts` 的 `pos: -1;` / `end: -1;`）。
-  if (list.length === 1 && list[0].Tag() === "LiteralType") {
+  if (list.length === 1 && list[0].Tag === "LiteralType") {
     const signed = projectSignedLiteralType((list[0]), ctx);
     if (signed !== undefined) return signed;
   }
@@ -7366,13 +7366,13 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `typeArguments` 的 `TypeReference`（实测 `undici-types/header.d.ts` 的
   // `KnownHeaderValues[Lowercase<K>]`：缺 `TypeReference` + `Identifier`，名字那格的区间也短）。
   const openAt = list.findIndex(
-    (k, i) => i > 0 && k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "<",
+    (k, i) => i > 0 && k.Tag === "SymbolToken" && textOfNode(k, ctx) === "<",
   );
   if (openAt > 0) {
     let depth = 0;
     let closeAt = -1;
     for (let i = openAt; i < list.length; i++) {
-      if (list[i].Tag() !== "SymbolToken") {
+      if (list[i].Tag !== "SymbolToken") {
         continue;
       }
       const text = textOfNode(list[i], ctx);
@@ -7398,13 +7398,13 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       }
     }
   }
-  const paUnit = list.find((k) => k.Tag() === "PropertyAccess");
+  const paUnit = list.find((k) => k.Tag === "PropertyAccess");
   // **后面还可能跟着类型实参段**（第 161 轮）：`x is A.B<C>` 的产物是
   // `[PropertyAccess(A.B), GenericType(<C>)]` **两格**——只认「整段就一格」时实参整个丢
   // （实测 `type-new-nodes-adversarial.ts` 的 `x is A.B<C>`：缺 `TypeReference` + `Identifier`）。
   if (
     paUnit !== undefined &&
-    (list.length === 1 || (list.length === 2 && list[1].Tag() === "GenericType"))
+    (list.length === 1 || (list.length === 2 && list[1].Tag === "GenericType"))
   ) {
     const members = projectableKids((paUnit));
     const pureName = members.every((k) => isNameNode(k) || isDot(k, ctx));
@@ -7435,7 +7435,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // TS 那边 `exprName` 是 `QualifiedName`、区间覆盖整段（也**没有** `typeof` 子节点）。
   // 不接的话后面那串名字整个丢掉——`Identifier` 缺 1581 里的另一簇就是它
   // （`buffer.d.ts` 的 `globalThis.atob` / `globalThis.btoa`）。
-  if (list.length >= 3 && list[0].Tag() === "TypeQuery" && isDot(list[1], ctx)) {
+  if (list.length >= 3 && list[0].Tag === "TypeQuery" && isDot(list[1], ctx)) {
     const query = projectNode(list[0], ctx);
     const tail = list.filter((k, i) => i >= 2 && isNameNode(k));
     // **`head` 已经是投好的节点**（`query.exprName`），而 `qualifiedNameFrom` 吃的是**单元**
@@ -7467,7 +7467,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     // `TypeQuery`（`absorbIntoTypeQuery`），外层各壳的起点跟着挪到 `typeof`。
     const suffixUnit = list
       .slice(2)
-      .find((k) => k.Tag() === "IndexedAccessType" || k.Tag() === "ArrayType");
+      .find((k) => k.Tag === "IndexedAccessType" || k.Tag === "ArrayType");
     if (suffixUnit !== undefined && name !== undefined) {
       const absorbed = absorbIntoTypeQuery(projectNode(suffixUnit, ctx), query, name);
       if (absorbed !== undefined) return absorbed;
@@ -7481,7 +7481,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     // 上面那一支只管点号名，实参段还是平级兄弟。TS 那边 `TypeQuery.typeArguments` 要照收，
     // 否则实参里那串名字整片丢（实测缺 `Identifier` 394 / `TypeReference` 140 的样本
     // 全是 `https.d.ts` 的这一族）。
-    const queryGeneric = list.find((k) => k.Tag() === "GenericType");
+    const queryGeneric = list.find((k) => k.Tag === "GenericType");
     if (queryGeneric !== undefined) {
       const typeArguments = [];
       for (const group of splitTopLevel(projectableKids((queryGeneric)), ctx, ",")) {
@@ -7498,9 +7498,9 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // **`typeof X<Y>` / `import("m").X<Y>`**（第 109 / 114 轮）：TS 的 `TypeQuery` 与
   // `ImportType` 都可以带**类型实参**（`typeArguments`），而实参段在产物里是它们的
   // **平级兄弟**。不收的话：少 `typeArguments`、区间短一截（漂移），实参里那串名字整片丢。
-  if (list[0].Tag() === "TypeQuery" || list[0].Tag() === "ImportType") {
+  if (list[0].Tag === "TypeQuery" || list[0].Tag === "ImportType") {
     const query = projectNode(list[0], ctx);
-    const generic = list.find((k) => k.Tag() === "GenericType");
+    const generic = list.find((k) => k.Tag === "GenericType");
     if (generic !== undefined && query !== undefined) {
       const typeArguments = [];
       for (const group of splitTopLevel(projectableKids((generic)), ctx, ",")) {
@@ -7514,7 +7514,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       }
     }
   }
-  if (list.length === 1 && list[0].Tag() === "TypeDefine") {
+  if (list.length === 1 && list[0].Tag === "TypeDefine") {
     return projectTypeExpression(projectableKids((list[0])), ctx);
   }
   // **类型参数段 + 函数类型**（第 82 轮）：产物把 `<R, TArgs extends any[]>` 放在 `FunctionType`
@@ -7526,8 +7526,8 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // （`AstKind()` 给它的是 `TypeReference`）——类型参数成了它的孩子、**整个函数类型被丢掉**：
   // 真实语料 `Identifier` 缺 1616 里的一大片、`TypeReference` 缺 417，
   // 全是 `@types/node/async_hooks.d.ts` 那种「泛型函数类型」（`snapshot(): <R, TArgs…>(…) => R`）。
-  if (list.length === 2 && list[0].Tag() === "GenericType" && list[1].Tag() === "FunctionType") {
-    const typeParams = unwrapNodes(list[0]).filter((k) => k.Tag() === "TypeParameter");
+  if (list.length === 2 && list[0].Tag === "GenericType" && list[1].Tag === "FunctionType") {
+    const typeParams = unwrapNodes(list[0]).filter((k) => k.Tag === "TypeParameter");
     // **走通用分派而不是直调那个函数**（第 188 轮）：`FunctionType` 的投影已经搬进
     // `tokens/function-type.xl.md` 的 `PrintDirectAst`，而 `projectNode` 会先问它——
     // 输入与原来那次直调完全相同，产出的节点逐字节一样。
@@ -7539,8 +7539,8 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     return fn;
   }
   const head = list[0];
-  let generic = list.find((k) => k.Tag() === "GenericType");
-  const arraySuffix = list.find((k) => k.Tag() === "ArrayType");
+  let generic = list.find((k) => k.Tag === "GenericType");
+  const arraySuffix = list.find((k) => k.Tag === "ArrayType");
   // **`A<T>[]` 的产物把实参段装进了 `ArrayType` 里面**（第 104 轮）：
   // `[Identifier(Dirent), ArrayType(GenericType(NonSharedBuffer))]`——那个 `GenericType`
   // 是**基名的实参表**，不是元素类型。照原样投会得到「`TypeReference` 只盖住 `Dirent`」
@@ -7548,7 +7548,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   //（实测 `TypeReference` 缺 220 / 漂移 50、`Identifier` 缺 553 里成片就是这个形状，
   // `@types/node/fs.d.ts` 的 `Dirent<NonSharedBuffer>[]` 一眼可见）。
   if (generic === undefined && arraySuffix !== undefined) {
-    const inside = projectableKids((arraySuffix)).find((k) => k.Tag() === "GenericType");
+    const inside = projectableKids((arraySuffix)).find((k) => k.Tag === "GenericType");
     if (inside !== undefined) generic = inside;
   }
 
@@ -7560,10 +7560,10 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `StringLiteral` **五个节点一起丢**，`TypeReference` 的区间也短一截
   //（实测 `StringLiteral` 缺 71 + `LiteralType` 缺 37 的样本全长得这个样子）。
   if (
-    (head.Tag() === "Identifier" || head.Tag() === "Keyword") &&
+    (head.Tag === "Identifier" || head.Tag === "Keyword") &&
     list.length >= 3 &&
     isDot(list[1], ctx) &&
-    list[2].Tag() === "IndexedAccessType"
+    list[2].Tag === "IndexedAccessType"
   ) {
     const iat = list[2];
     const inner = projectableKids((iat));
@@ -7591,19 +7591,19 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 照通用支会投出一个盖住 `new <T>` 的 `TypeReference` + 一个 `Identifier(new)`
   //（实测多出 `NewKeyword` / `TypeReference` / `Identifier`，同时缺整个 `ConstructorType`
   // 与它的形参、返回类型）。
-  if (head.Tag() === "Keyword" && textOfNode(head, ctx) === "new") {
-    const arrow = list.findIndex((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "=>");
+  if (head.Tag === "Keyword" && textOfNode(head, ctx) === "new") {
+    const arrow = list.findIndex((k) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === "=>");
     if (arrow > 0) {
       const ctorProps = {};
-      const ctorGeneric = list.find((k) => k.Tag() === "GenericType");
+      const ctorGeneric = list.find((k) => k.Tag === "GenericType");
       if (ctorGeneric !== undefined) {
-        const typeParams = unwrapNodes(ctorGeneric).filter((k) => k.Tag() === "TypeParameter");
+        const typeParams = unwrapNodes(ctorGeneric).filter((k) => k.Tag === "TypeParameter");
         if (typeParams.length > 0) ctorProps.typeParameters = projectEach(typeParams, ctx);
       }
-      const bracket = list.find((k) => k.Tag() === "Bracket");
+      const bracket = list.find((k) => k.Tag === "Bracket");
       if (bracket !== undefined) {
         const inner = unwrapNodes(bracket);
-        const paramUnits = inner.filter((k) => k.Tag() === "Parameter");
+        const paramUnits = inner.filter((k) => k.Tag === "Parameter");
         if (paramUnits.length > 0) {
           ctorProps.parameters = projectEach(paramUnits, ctx);
         } else {
@@ -7613,8 +7613,8 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
           const params = [];
           for (const part of splitTopLevel(inner, ctx, ",")) {
             if (part.length === 0) continue;
-            const nameUnit = part.find((k) => k.Tag() === "Identifier" || k.Tag() === "Keyword");
-            const typeUnit = part.find((k) => k.Tag() === "TypeDefine");
+            const nameUnit = part.find((k) => k.Tag === "Identifier" || k.Tag === "Keyword");
+            const typeUnit = part.find((k) => k.Tag === "TypeDefine");
             const param = {
               kind: "Parameter",
               pos: startOf(part[0]),
@@ -7637,7 +7637,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       };
     }
   }
-  if (head.Tag() === "Identifier" || head.Tag() === "Keyword") {
+  if (head.Tag === "Identifier" || head.Tag === "Keyword") {
     const text = textOfNode(head, ctx);
     const span = { pos: startOf(head), end: endOf(head) };
     const nameNode = { kind: "Identifier", text, pos: span.pos, end: span.end };
@@ -7680,7 +7680,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       // `TypeReference` / `ArrayType` 各一片）。
       const next = list[i + 1];
       const innerNames =
-        next.Tag() === "ArrayType" ? projectableKids((next)).filter((k) => isNameNode(k)) : null;
+        next.Tag === "ArrayType" ? projectableKids((next)).filter((k) => isNameNode(k)) : null;
       const nameUnit = innerNames !== null && innerNames.length === 1 ? innerNames[0] : next;
       if (!isNameNode(nameUnit)) break;
       const right = nameOf(nameUnit, ctx);
@@ -7709,7 +7709,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `[TypeOperator(readonly, webcrypto), ., ArrayType(KeyUsage)]`——点号名与数组后缀都在
   // 运算符单元**外面**。TS 那边 `TypeOperator.type` 是整段 `webcrypto.KeyUsage[]`
   // （`QualifiedName` 与 `ArrayType` 都在它里面）。收回来之后 `TypeOperator` 的区间也才对得上。
-  if (head.Tag() === "TypeOperator" && list.length > 1) {
+  if (head.Tag === "TypeOperator" && list.length > 1) {
     const inner = projectableKids((head));
     const operandHead = inner.length > 0 ? inner[inner.length - 1] : undefined;
     if (operandHead !== undefined && isNameNode(operandHead)) {
@@ -7729,16 +7729,16 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 于是同时记「缺 `UnionType`」+「多出 `UnionType`」+ 缺 `UndefinedKeyword`（实测 35 处）。
   if (
     list.length === 1 &&
-    (list[0].Tag() === "UnionType" || list[0].Tag() === "IntersectionType")
+    (list[0].Tag === "UnionType" || list[0].Tag === "IntersectionType")
   ) {
     const unionUnit = list[0];
     const inner = projectableKids((unionUnit));
-    const predicate = inner.find((k) => k.Tag() === "TypePredicate");
+    const predicate = inner.find((k) => k.Tag === "TypePredicate");
     if (predicate !== undefined && inner.length === 1) {
       const parts = projectableKids((predicate));
       const isIndex = parts.findIndex((k) => textOfNode(k, ctx) === "is");
       const typeKids = isIndex >= 0 ? parts.slice(isIndex + 1) : [];
-      const separator = unionUnit.Tag() === "UnionType" ? "|" : "&";
+      const separator = unionUnit.Tag === "UnionType" ? "|" : "&";
       const types = [];
       for (const group of splitTopLevel(typeKids, ctx, separator)) {
         const one = projectTypeExpression(group, ctx);
@@ -7747,7 +7747,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       const node = projectNode(predicate, ctx);
       if (node !== undefined && types.length > 0) {
         node.type = {
-          kind: unionUnit.Tag(),
+          kind: unionUnit.Tag,
           types,
           pos: types[0].pos,
           end: types[types.length - 1].end,
@@ -7780,7 +7780,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   const parts = [];
   let current = [];
   for (const kid of projectableKids((generic))) {
-    if (kid.Tag() === "SymbolToken" && textOfNode(kid, ctx) === ",") {
+    if (kid.Tag === "SymbolToken" && textOfNode(kid, ctx) === ",") {
       parts.push(current);
       current = [];
       continue;
@@ -7988,7 +7988,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   const rawNamespace = tokenNameOf(v);
   const dotAt = typeof rawNamespace === "string" ? rawNamespace.indexOf(".") : -1;
   const lookup = dotAt > 0 ? rawNamespace.substring(0, dotAt) : name;
-  const direct = projectableKids(v).find((k) => k.Tag() === "Identifier" && textOfNode(k, ctx) === lookup);
+  const direct = projectableKids(v).find((k) => k.Tag === "Identifier" && textOfNode(k, ctx) === lookup);
   const at = direct === undefined ? synthName(lookup, v, ctx) : projectNode(direct, ctx);
   if (at === undefined) {
     return { name: undefined, computed: null, unit: direct === undefined ? null : direct };
@@ -8057,7 +8057,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 
 ```ts
   const projected = allKids(v)
-    .filter((k) => k.Tag() === "Decorator")
+    .filter((k) => k.Tag === "Decorator")
     .map((k) => projectNode(k, ctx))
     .filter((node) => node !== undefined);
   if (projected.length === 0) return;
@@ -8139,13 +8139,13 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   // 结尾」——那才是分段壳（`TernaryOperatorCondition` 这种）。
   // **不能只看「答 `undefined`」**：`PropertyAccess` 的 `AstKind()` 也答 `undefined`（它自己覆写了
   // `PrintDirectAst`），只看那一格会把 `y.z` 摊成两个裸名字。
-  const leaf = first.Tag() === "Identifier" || first.Tag() === "Keyword" || first.Tag() === "SymbolToken";
+  const leaf = first.Tag === "Identifier" || first.Tag === "Keyword" || first.Tag === "SymbolToken";
   const wrapper =
     !leaf &&
     first.AstKind === undefined &&
-    /(Condition|Statement|Segment)$/.test(first.Tag());
+    /(Condition|Statement|Segment)$/.test(first.Tag);
   if (wrapper) {
-    const inner = unwrapNodes(first).filter((k) => k.Tag() !== "SymbolToken");
+    const inner = unwrapNodes(first).filter((k) => k.Tag !== "SymbolToken");
     return inner.length === 0 ? projectNode(first, ctx) : projectExpression(inner, ctx);
   }
   // **只排掉分段自己的标点**（`?` / `:`），**不能把所有 `SymbolToken` 都排掉**（第 106 轮）：
@@ -8153,7 +8153,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   // `[i, 0]` 于是折不动、只投出第一个操作数（实测缺 `BinaryExpression` 79 +
   // `GreaterThanToken` + 右侧那个字面量，样本集中在 `? :` 的条件位上）。
   const inner = kids.filter(
-    (k) => !(k.Tag() === "SymbolToken" && [":", "?"].includes(textOfNode(k, ctx))),
+    (k) => !(k.Tag === "SymbolToken" && [":", "?"].includes(textOfNode(k, ctx))),
   );
   if (inner.length === 0) return projectNode(first, ctx);
   return projectExpression(inner, ctx);
@@ -8189,13 +8189,13 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     const end = endOf(ranged.length > 0 ? ranged[ranged.length - 1] : units[units.length - 1]);
     // **段首的 `type` 是标志**：`import { type B }` / `export { type D }` 的 specifier 区间含 `type`，
     // 但 `name` 只是后面那个名字。只剩一个单元的 `{ type }` 不跳（那个 `type` 就是名字）。
-    const head = (k) => (k.Tag() === "Identifier" || k.Tag() === "Keyword") && textOfNode(k, ctx) === "type";
+    const head = (k) => (k.Tag === "Identifier" || k.Tag === "Keyword") && textOfNode(k, ctx) === "type";
     const body = units.length > 1 && head(units[0]) ? units.slice(1) : units;
     if (body.length === 0) return;
     const asAt = body.findIndex(
       (k) =>
         k === AS_SEPARATOR ||
-        (k.Tag() === "Identifier" && textOfNode(k, ctx) === "as"),
+        (k.Tag === "Identifier" && textOfNode(k, ctx) === "as"),
     );
     const name = specifierNameOf(body[body.length - 1], ctx);
     if (asAt > 0) {
@@ -8210,7 +8210,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   // 所以按文档顺序递归展开 `Statement` / `BinaryOperator`，把 `,` 当分段边界：
   // 两种形态于是走同一条路——这正是从前那段回原文切分替我们兜住的东西。
   const walkSpecifierUnit = (unit:any) => {
-    const type = unit.Tag();
+    const type = unit.Tag;
     if (type === "Statement" || type === "BinaryOperator") {
       for (const child of projectableKids((unit))) walkSpecifierUnit(child);
       return;
@@ -8244,7 +8244,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 其余走 `nameOf`（`Identifier`）。位置一律**含引号**（TS 的字符串名节点就是这么记的）。
 
 ```ts
-  const type = unit.Tag();
+  const type = unit.Tag;
   if (type === "String" || type === "ConstString") {
     // `stringText` / `astNode` / `nameOf` 收的都是这一格 token 自己，入口只有一种。
     return astNode("StringLiteral", { text: stringText(unit, ctx) }, unit, ctx);
@@ -8265,10 +8265,10 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 等 13 个节点（`Identifier` 缺 375 / `TypeReference` 缺 118 的样本全在这一族）。
 
 ```ts
-  const isSymbol = (k, text) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === text;
+  const isSymbol = (k, text) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === text;
   const slice = kids.slice(start, end);
   const isExtends = (k) =>
-    (k.Tag() === "Keyword" || k.Tag() === "Identifier") && textOfNode(k, ctx) === "extends";
+    (k.Tag === "Keyword" || k.Tag === "Identifier") && textOfNode(k, ctx) === "extends";
   const extIndex = slice.findIndex(isExtends);
   const questionIndex = slice.findIndex((k) => isSymbol(k, "?"));
   const colonIndex = slice.findIndex((k) => isSymbol(k, ":"));
@@ -8333,8 +8333,8 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   const sv = seg;  // 这一格就是 `seg` 自己（不再包一层接收者）
   const kindWord = String(sv.key ?? "");
   const kids = projectableKids(sv);
-  const caseUnit = kids.find((k) => k.Tag() === "SwitchCase");
-  const bodyUnit = kids.find((k) => k.Tag() === "SwitchStatement");
+  const caseUnit = kids.find((k) => k.Tag === "SwitchCase");
+  const bodyUnit = kids.find((k) => k.Tag === "SwitchStatement");
   const props = {};
   if (kindWord !== "default" && caseUnit !== undefined) {
     props.expression = projectExpression(projectableKids((caseUnit)), ctx);
@@ -8400,7 +8400,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     if (node !== undefined) {
       const words = projectableKids(v).filter(
         (k) =>
-          (k.Tag() === "Keyword" || k.Tag() === "Identifier") &&
+          (k.Tag === "Keyword" || k.Tag === "Identifier") &&
           ["export", "default"].includes(textOfNode(k, ctx)),
       );
       const mods = words.map((word) => ({
@@ -8418,7 +8418,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       return node;
     }
   }
-  const rest = kids.filter((k) => !(k.Tag() === "Keyword" && textOfNode(k, ctx) === "export"));
+  const rest = kids.filter((k) => !(k.Tag === "Keyword" && textOfNode(k, ctx) === "export"));
   // **`export = X` / `export default X` 的 `Export` 单元自己就是一格**（第 534 轮实测）：
   // 关掉 reorg 之后这一支走的是「解析期只把**前缀两个词**收进 `Export`」那条路
   //（`export.xl.md` 的构造函数那一段写着这条路），所以 `rest` 里那一格的文本是
@@ -8433,20 +8433,20 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     return parts[parts.length - 1];
   };
   const isWord = (k: any, text: string) =>
-    (k.Tag() === "Keyword" || k.Tag() === "Identifier" || k.Tag() === "Export") &&
+    (k.Tag === "Keyword" || k.Tag === "Identifier" || k.Tag === "Export") &&
     (textOfNode(k, ctx) === text || wordTail(k) === text);
   const isAssignment =
-    rest.some((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "=") ||
+    rest.some((k) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === "=") ||
     rest.some((k) => isWord(k, "default") || wordTail(k) === "=");
   // 等号 / `default` 之后的表达式：`Export` 单元里剩下的 + 语句里跟在它后面的兄弟。
   const inUnit = rest.filter(
     (k) =>
-      !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "=") &&
+      !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === "=") &&
       !isWord(k, "default") &&
       wordTail(k) !== "=",
   );
   const expr = [...inUnit, ...(following ?? [])].filter(
-    (k) => k instanceof Token && !(k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ";"),
+    (k) => k instanceof Token && !(k.Tag === "SymbolToken" && textOfNode(k, ctx) === ";"),
   );
   if (isAssignment && expr.length > 0) {
     const value = projectExpression(expr, ctx);
@@ -8542,7 +8542,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   const braces: Array<any> = [];
   for (let i = 0; i < kids.length; i++) {
     const one = kids[i];
-    if (one.Tag() === "Bracket" && one.startBracket === "{") {
+    if (one.Tag === "Bracket" && one.startBracket === "{") {
       braces.push(one);
       const word = i > 0 ? kids[i - 1] : undefined;
       const wordText = word === undefined ? "" : textOfNode(word, ctx);
@@ -8550,14 +8550,14 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       const elements: Array<any> = [];
       for (const part of splitTopLevel(projectableKids((one)), ctx, ",")) {
         const colonAt = part.findIndex(
-          (k: any) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === ":",
+          (k: any) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === ":",
         );
         if (colonAt < 0) continue;
         const nameUnit = part.slice(0, colonAt).find((k: any) => isNameNode(k));
         if (nameUnit === undefined) continue;
         const valueUnit = part
           .slice(colonAt + 1)
-          .find((k: any) => k.Tag() === "String" || k.Tag() === "ConstString");
+          .find((k: any) => k.Tag === "String" || k.Tag === "ConstString");
         elements.push({
           kind: "AssertEntry",
           name: nameOf(nameUnit, ctx),
@@ -8591,7 +8591,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   // 产物那一段是 `[*, Keyword(as), Identifier(ns)]` 平级三格——不收的话
   // `ExportDeclaration` 少一整个 `exportClause` 字段、缺 `NamespaceExport` + `Identifier`
   // （实测 `ex-reexport.ts` / `mod-export-star-as-namespace.ts` / `mod-adversarial-shapes.ts`）。
-  const star = kids.find((k) => k.Tag() === "SymbolToken" && textOfNode(k, ctx) === "*");
+  const star = kids.find((k) => k.Tag === "SymbolToken" && textOfNode(k, ctx) === "*");
   if (brace === undefined && star !== undefined) {
     const asIndex = kids.findIndex((k) => textOfNode(k, ctx) === "as");
     const nameNode = asIndex < 0 ? undefined : kids[asIndex + 1];
@@ -8876,7 +8876,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   const groups = [];
   let current = [];
   for (const kid of kids) {
-    if (kid.Tag() === "SymbolToken" && textOfNode(kid, ctx) === separator) {
+    if (kid.Tag === "SymbolToken" && textOfNode(kid, ctx) === separator) {
       groups.push(current);
       current = [];
       continue;
@@ -8896,7 +8896,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 所以两种都认，否则 `out` 会被当成约束内容。
 
 ```ts
-  const type = node.Tag();
+  const type = node.Tag;
   if (type !== "Keyword" && type !== "Identifier") return false;
   return ["in", "out", "const"].includes(textOfNode(node, ctx));
 ```
@@ -8927,7 +8927,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   const kids = projectableKids(v);
   if (kids.length === 0) return null;
   const first = kids[0];
-  if (first.Tag() !== "ArrayLiteral") return null;
+  if (first.Tag !== "ArrayLiteral") return null;
   return ctx.source[startOf(first)] === "[" ? first : null;
 ```
 
@@ -9036,7 +9036,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       // 形参表落进 `parameters`（实测字段名差 149 处）。
       if (
         (kind === "MethodSignature" || kind === "MethodDeclaration") &&
-        x.Tag() === "SymbolToken" &&
+        x.Tag === "SymbolToken" &&
         textOfNode(x, ctx) === "?"
       ) {
         const questionAt = startOf(x);
@@ -9044,7 +9044,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
         continue;
       }
       // **装饰器是修饰词、不是子节点**（见上面 `decorators`）。
-      if (x.Tag() === "Decorator") {
+      if (x.Tag === "Decorator") {
         decorators.push(x);
         continue;
       }
@@ -9087,7 +9087,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       // `VariableDeclarationList`**（不套 `VariableStatement`），而初值是这个段里的平级兄弟——
       // 所以整段交给列表版去投，不能逐个单元投。
       const projected =
-        kept[0].Tag() === "Let"
+        kept[0].Tag === "Let"
           ? [projectLetFrom(kept, ctx, (kept[kept.length - 1])).list]
           : projectEachIn(kept, ctx, kind, v);
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;
@@ -9170,7 +9170,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 # private method stringText:(v:any, ctx:any)=>any
 
 ```ts
-  const content = kidsOf(v, "children").find((k) => k.Tag() === "ConstString");
+  const content = kidsOf(v, "children").find((k) => k.Tag === "ConstString");
   if (content !== undefined) return textOfNode(content, ctx);
   // **没有内容单元 = 一个字都没有**（第 119 轮修掉的那条老缺口）。
   //
@@ -9489,17 +9489,17 @@ TS 那边这条语句照样是一条 `ExportDeclaration`（`moduleSpecifier` 是
 ```ts
   for (const kid of kids) {
     if (!(kid instanceof Token)) continue;
-    if (kid.Tag() === "String") return kid;
+    if (kid.Tag === "String") return kid;
   }
   // **只往 `Method` 里面看**（第 877 轮）：`export { a } ⏎ from("m")` 里那个字符串装在
   // `Method(name="from")` 里面。**不能一律递归**——`export { "a-b" as c }` 的字符串名就在
   // 具名子句的**花括号里**，那是 `ExportSpecifier` 的名字、不是模块路径
   //（实测 `mod-export-string-name` 当场红：字段名差 1）。
   for (const kid of kids) {
-    if (!(kid instanceof Token) || kid.Tag() !== "Method") continue;
+    if (!(kid instanceof Token) || kid.Tag !== "Method") continue;
     const one = kid;
     for (const inner of allKids(one)) {
-      if (inner instanceof Token && inner.Tag() === "String") return inner;
+      if (inner instanceof Token && inner.Tag === "String") return inner;
     }
   }
   return undefined;
@@ -9514,7 +9514,7 @@ TS 那边这条语句照样是一条 `ExportDeclaration`（`moduleSpecifier` 是
 
 ```ts
   for (const kid of kids) {
-    if (!(kid instanceof Token) || kid.Tag() !== "Method") continue;
+    if (!(kid instanceof Token) || kid.Tag !== "Method") continue;
     const one = kid;
     for (const inner of allKids(one)) {
       if (inner === target) return kid;
