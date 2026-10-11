@@ -7525,7 +7525,101 @@ return out;
 
 # private method chainWithOptional:(left:any, unit:any, ctx:any)=>any
 
-`a.b?.c` / `a?.[i]` → 在链上再加一格（带 `questionDotToken`）。
+**`?.` 那一格：先把「末尾那一截模板」摘下来，剩下的交给 `chainWithOptionalCore`**
+（第 1227 轮，用户口径 1.1）。
+
+**为什么要有这一层**：`?.` 后面那一截**末尾跟一格反引号模板**时，那一格模板在 token 层
+被收进了同一个 `NullConditionalOperator` 里，而模板前面那一截**不是一格名字**：
+
+| 式子 | NCO 的内容 | 第 175 轮那一支认不认 |
+| --- | --- | --- |
+| `a?.b`t`` | `[Identifier(b), String]` | 认（模板前面恰好一格名字） |
+| `a?.b.c`t`` | `[PropertyAccess([b, ., c]), String]` | 不认 |
+| `a?.b()`t`` | `[Method(name="b"), String]` | 不认（`Method` 是**被调用者**，实参表与模板是它的**兄弟**） |
+| `a?.b(1)`t`` | `[Method(name="b"), Bracket((1)), String]` | 不认 |
+| `a?.b!()`t`` | `[NotNull([Method(…)]), String]` | 不认 |
+
+第 175 轮那一支只认第一种（模板前面**恰好**一格名字），其余几种在 `chainWithOptional`
+里各有各的早退支（`first.IsMethodNode` / `first.IsNotNull` / `first.IsPropertyAccess` …）
+⇒ **模板那一格没人接**：`TaggedTemplateExpression` 与 `NoSubstitutionTemplateLiteral`
+整片缺，而里面那次调用的区间一路撑到模板串末尾。
+
+**做法**：这一层只做一件事——**末尾连续那一串模板**（`IsTemplateString`，不是
+`IsStringLiteralUnit`：普通字符串在这一格上不能当模板，理由见 `chainOnto` 那一节）
+**摘下来记着**，把余下的兄弟（`pre`）原样交给 `chainWithOptionalCore`（判据、次序、
+每一条支一个字没改），出来那个节点就**替在模板那个位置**上：`[模板, …后面的兄弟…]`
+整串交给 `chainOnto`（它本来就有「紧跟一格反引号模板 ⇒ 又是一条标签模板」那一支）。
+**这一格只多一层、不改任何既有支**：`NCO` 里没有模板时 `pre === kids`、
+`tail.length === 0`，核心拿到的是**同一个数组**，第二条 `if` 一句话都不会执行。
+
+```ts
+  const kids = unit.ProjectableKids;
+  // **先把「以模板串开头的那一格」摊平**：模板后面还有续格时，token 层把它收成**一格**
+  // `PropertyAccess([String, ., d])`（`a?.b()`t`.d` 的 NCO 内容是
+  // `[Method(name="b"), PropertyAccess([String, ., d])]`）——不摊开的话这一格的顶层
+  // 一格模板都没有，下面那条「从头找第一格模板」判否、整串落到本体那几条支上
+  // ⇒ 模板与 `.d` 一起丢。摊法与 `membersOnto` / `tailUnitsOf` 里那一档**同源**
+  //（都问「这一格的头一格是不是反引号模板」），摊出来是 `[String, ., d]` 平级三格。
+  const flat: Array<any> = [];
+  for (const one of kids) {
+    if (one.IsPropertyAccess && one.ProjectableKids.length > 0 && one.ProjectableKids[0].IsTemplateString === true) {
+      for (const inner of one.ProjectableKids) flat.push(inner);
+      continue;
+    }
+    flat.push(one);
+  }
+  // **从头找第一格模板**：它（连同它后面的兄弟）整串交给 `chainOnto`。
+  // 模板后面还跟着续格（`a?.b()`t`.d` / `a?.b()`t`()`）时，那一串正是 `chainOnto`
+  // 最擅长的形状（`.` + 名字 / 实参括号 / 下标括号 / 再一格模板），所以**从模板起整段递过去**
+  // ——不是只递模板那一格。
+  let templateAt = -1;
+  for (let at = 0; at < flat.length; at++) {
+    if (flat[at].IsTemplateString === true) {
+      templateAt = at;
+      break;
+    }
+  }
+  if (templateAt < 0) {
+    return chainWithOptionalCore(left, unit, ctx, kids);
+  }
+  const pre = templateAt === 0 ? [] : flat.slice(0, templateAt);
+  // **余下那一截的末尾**：核心那一趟里凡是要「这一格的末尾」的地方，原来看的都是
+  // `unit.end`（整个 NCO 的末尾，含被摘掉的那几格模板）——摘掉之后那些位置会**多盖一截**
+  //（实测 `a?.b(1)`t``：`CallExpression` 的区间一路盖到模板串末尾）。
+  // 所以这里把「末尾」显式算出来、并让核心读到的 `end` 就是它（见下面 `endAt`）
+  // ——核心那一侧一个字没改，只是那个属性读回来的值换了。
+  const endValue = pre.length > 0 ? pre[pre.length - 1].end : unit.end;
+  const base = chainWithOptionalCore(left, endAt(unit, endValue), ctx, pre);
+  if (base === undefined) return base;
+  return chainOnto(base, flat.slice(templateAt), ctx);
+```
+
+# private method endAt:(unit:any, end:any)=>any
+
+**把一格的「末尾」换成一个给定的值**（第 1227 轮）：`chainWithOptional` 那一层摘掉末尾
+连续那一串模板之后，余下那一截的末尾**不再等于**这一格自己的 `end`，而核心那一趟里
+十几处「这一格的末尾」读的都是它 ⇒ 换一个**只改 `end` 这一格读法**的壳。
+
+**做法是原型继承、不是拷贝**：`Object.create(unit)` 之后只写一个自己的 `end`
+——别的属性（`start` / `ProjectableKids` / `Tagged` …）照旧从这一格自己身上取，
+所以「拷一份 token 就丢了几格事实」那条风险不存在（第 1227 轮实测：核心那一趟只读
+`unit.start` / `unit.ProjectableKids` / `unit.end` 三样）。
+
+**`end` 要用 `defineProperty` 写**（第 1227 轮实测踩到的）：`Token.end` 是**取值器**
+（`## property` + `### get`，从 `SourceRange` 两头算），原型链上那个取值器没有 setter
+⇒ 直接 `shadow.end = …` 当场抛 `Cannot set property end of #<Token> which has only a getter`。
+写成一个**自己的数据属性**正好把它盖住（与直接赋值同义，只是绕开那个只读取值器）。
+
+```ts
+  const shadow: any = Object.create(unit);
+  Object.defineProperty(shadow, "end", { value: end, writable: true, enumerable: true, configurable: true });
+  return shadow;
+```
+
+# private method chainWithOptionalCore:(left:any, unit:any, ctx:any, kids:Array<any>)=>any
+
+**`chainWithOptional` 的本体**（第 1227 轮拆出来）：`a.b?.c` / `a?.[i]` → 在链上再加一格
+（带 `questionDotToken`）。
 
 产物把 `?.` 之后的成员收成一个 `NullConditionalOperator` 单元（里面只有成员名 / 下标括号），
 而 TS 那边它是**前一个表达式链上的一格**：`PropertyAccessExpression` / `ElementAccessExpression`
@@ -7536,8 +7630,14 @@ return out;
 直接就是那个 `?`。**从前是回原文量的**（成员名的起点往前 `lastIndexOf("?")`），
 那是第二份近似：还要自己挡住「抓到更早的那个 `?`」（上一条三元、上一个可选链，第 124 轮踩过）。
 
+**为什么名单由外面递进来**：`chainWithOptional` 那一层要在**同一份名单**上先摘掉末尾的模板，
+摘完剩下的与原来那一份必须**是同一张表**——所以这一格不再自己算
+`unit.ProjectableKids`，改用形参。`unit` 仍然是原来那一格（`?.` 的坐标从它上面取）。
+
 ```ts
-  const kids = unit.ProjectableKids;
+  // **这一趟的「末尾」**：调用方可能在 `endAt` 那个壳上换过它（摘掉末尾模板之后
+  // 余下那一截的末尾）；没换过时它就是这个对象自己的 `end`。
+  const endOf: any = unit.end;
   const first = kids.length > 0 ? kids[0] : undefined;
   // **`?.` 就在这一格的起点上**：调用方递进来的 `unit` **一定是** `NullConditionalOperator`
   //（`Process` 里 `SignInToken(那个 ?. 符号)`），所以不用回原文找。
@@ -7562,7 +7662,7 @@ return out;
       if (calleeKid !== undefined && calleeKid.IsNotNull) {
         const asserted = assertedMember(left, calleeKid, ctx, questionDot);
         if (asserted !== undefined) {
-          return shellOver(projectNode(first, ctx), asserted, unit.end);
+          return shellOver(projectNode(first, ctx), asserted, endOf);
         }
       }
       // **被调用者是内层那一格 `Method`**（第 962 轮）：`o?.m()()` 的产物是
@@ -7596,7 +7696,7 @@ return out;
           callee,
           built ? undefined : questionDot,
         );
-        return shellOver(projectNode(first, ctx), innerCall, unit.end);
+        return shellOver(projectNode(first, ctx), innerCall, endOf);
       }
       // **被调用者是 `left`、而这一格盖着两层调用**（第 962 轮）：`o?.m?.()(1)` 的 `NCO` 里是
       // `Method(name="")[Bracket, 1]`——那个 Bracket 是**内层**那次调用（`?.()`）的实参表，
@@ -7606,7 +7706,7 @@ return out;
       if (calleeKid !== undefined && calleeKid.IsParenBracket && first.HasOuterCall) {
         const innerCall: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(calleeKid, ctx) }, calleeKid.end);
         markOptional(innerCall, questionDot);
-        return shellOver(projectNode(first, ctx), innerCall, unit.end);
+        return shellOver(projectNode(first, ctx), innerCall, endOf);
       }
       // **这里原来还抄着第二份**（第 1152 轮删）：那一段与上面那一支**逐字同形**
       //（同一条判据、同一个函数体、最后一句都是 `return`），所以它**一次都走不到**——
@@ -7615,7 +7715,7 @@ return out;
     const nameAt = first.start;
     const member =chainOn("PropertyAccessExpression", left, { expression: left, name: { kind: "Identifier", text: nameText, pos: nameAt, end: nameAt + nameText.length } }, nameAt + nameText.length);
     markOptional(member, questionDot);
-    return shellOver(projectNode(first, ctx), member, unit.end);
+    return shellOver(projectNode(first, ctx), member, endOf);
   }
   // **`o.m?.().k`**（第 154 轮）：NCO 里的第一格是**属性访问**，而它的第一格是实参括号——
   // 那是 token 层的属性访问重组把 `( ) . k` 折成了一个 `PropertyAccess`
@@ -7671,7 +7771,7 @@ return out;
       // **区间只到自己那对实参括号**（第 1206 轮）：后面还有续格时，原来这里写的是
       // `unit.end`（NCO 的末尾）⇒ 这一格一路盖住续格（实测 `a?.(d)` 加模板串：
       // `CallExpression` 漂 3、`TaggedTemplateExpression` 整格丢）。与 `?.[i]` 那一支同款。
-      end: kids.length > 1 ? first.end : unit.end,
+      end: kids.length > 1 ? first.end : endOf,
     };
     markOptional(call, questionDot);
     // **剩下的兄弟接着往下接**（第 1206 轮）：与 `?.[i]` 那一支同一件事——
@@ -7686,13 +7786,13 @@ return out;
   if (first !== undefined && first.IsIndexBracket) {
     // **这一格后面还跟着兄弟时，下标只是链上的一格**（第 962 轮）：`o?.['m']()` 的 NCO 里
     // **两个括号装在同一格**（`NCO[Bracket([), Bracket(())]`）——原来这里无条件把整格 NCO
-    // 当成一个下标（`end: endOf(unit)` 一路盖到 `()` 后面）就返回，
+    // 当成一个下标（`end: unit.end` 一路盖到 `()` 后面）就返回，
     // 于是那次调用整格丢掉、`ElementAccessExpression` 的区间也漂（实测缺一个
     // `CallExpression`、`ElementAccessExpression` 漂 2）。
     // 修法与 `chainOnto` 的续格循环同款：**把剩下的兄弟交给它**——那里面
     // 「紧跟一对圆括号 ⇒ 对左边那个结果再调用一次」正是这一档要的。
     const more = kids.length > 1;
-    const element =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(first.ProjectableKids, ctx) }, more ? first.end : unit.end);
+    const element =chainOn("ElementAccessExpression", left, { expression: left, argumentExpression: projectExpression(first.ProjectableKids, ctx) }, more ? first.end : endOf);
     markOptional(element, questionDot);
     if (more) {
       // **剩下的兄弟里那些「以一次调用开头」的单元要先摊开**（第 962 轮）：
@@ -7769,6 +7869,26 @@ return out;
     // 与上面 `?.[i]` 那一支里同一个写法（第 962 轮立），不写第二份。
     return kids.length > 1 ? chainOnto(node, kids.slice(1), ctx) : node;
   }
+  // **NCO 里那一串「先接几格、末尾跟一格模板」交给 `chainOnto`**（第 1227 轮，用户口径 1.1）：
+  // `a?.b()`t`` / `a?.b(1)`t`` / `a?.b.c`t`` 的 NCO 内容是
+  // `[Method(name="b"), String(反引号)]` / `[PropertyAccess([b, ., c]), String(反引号)]`
+  // ——**末尾那一格是模板，而它前面那一截不是一格名字**（名字在 `Method` / `PropertyAccess` 里）
+  // ⇒ 上面「`a?.b` 加模板串」那一支（它只认模板前面有一格名字）判否，而下面
+  // 「NCO 里不止一格」那一支会把整串逐格接成一个属性访问、**末尾那格模板没人接** ⇒
+  // `TaggedTemplateExpression` 整格丢（实测：缺 `TaggedTemplateExpression` +
+  // `NoSubstitutionTemplateLiteral`，那次调用的 `CallExpression` 区间一路撑到模板串末尾）。
+  //
+  // **折法不新写一份**：模板前面那一截当成 `left` 的续格、末尾那一格模板跟着一起交给
+  // `chainOnto`——它本来就有「一格 `Method` ⇒ 对左边那个结果再调一次」（第 965 轮）与
+  // 「紧跟一格反引号模板 ⇒ 又是一条标签模板」（第 979 轮）这两支，判据、次序、区间口径
+  // 都是那一份。**排在这里**（在「NCO 里不止一格」那一支之前）：那一支会把整串吃掉，
+  // 排在它后面这一格永远轮不到。`?.` 已经由 `left` 那一侧带进来（`markOptional` 在
+  // 上面几条支上都挂过了），这一支只管接续格。
+  const ncoTemplate = kids.find((k) => k.IsTemplateString);
+  if (ncoTemplate !== undefined && kids.indexOf(ncoTemplate) > 0) {
+    const head = projectExpression(kids.slice(0, kids.indexOf(ncoTemplate)), ctx);
+    if (head !== undefined) return chainOnto(head, kids.slice(kids.indexOf(ncoTemplate)), ctx);
+  }
   // **NCO 里不止一格时，从第一格起逐格接**（第 1211 轮，用户口径 1.1）：`a?.b`x`.b` 的 NCO 内容是
   // `[Identifier(b), PropertyAccess([String(反引号), ., b])]`——**模板与它后面那一截被收成了
   // 第一格的兄弟**（`?.` 后面先跟一格名字、再跟一条以模板开头的子链）。下面那条通用支只按
@@ -7795,7 +7915,7 @@ return out;
     expression: left,
     name,
     pos: left.pos,
-    end: unit.end,
+    end: endOf,
   };
   markOptional(access, questionDot);
   return access;

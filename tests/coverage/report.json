@@ -20,6 +20,11 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     },
     {
+      "id": "token/expressions/expr-r1227-opt-tagged-template",
+      "category": "token",
+      "why": "xl:ts-invalid（故意写非法 TS）"
+    },
+    {
       "id": "token/lexical/lex-jsx-children",
       "category": "token",
       "why": "TSX（TSX 语法）"
