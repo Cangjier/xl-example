@@ -193,10 +193,6 @@ ifSet.MountCondition(source);
     }
     return kept;
   };
-  const bodyFrom = (seg: any) => {
-    const cond = ctx.KidsOf(seg, "condition");
-    return cond.length === 0 ? -1 : ctx.EndOf(cond[cond.length - 1]);
-  };
   // **只读字段的预判**（不投任何节点 ⇒ 不记账）：体段一个可见子单元都没有时，
   // 那一格的位置只能来自字段（整对花括号 `bodyBraceRange` 或空语句 `emptyBodyAt`）。
   const hasSpan = (seg: any) => {
@@ -237,7 +233,7 @@ ifSet.MountCondition(source);
     const seg = { start: ctx.StartOf(segments[index]), end: ctx.EndOf(segments[index]) };
     const expr = conditionOf(segments[index]);
     if (expr !== undefined) props.expression = expr;
-    const thenBody = ctx.BlockOfBody(bodyOf(segments[index]), bodyFrom(segments[index]),
+    const thenBody = ctx.BlockOfBody(bodyOf(segments[index]),
       segments[index].bodyBraceRange);
     let emptyBodyEnd = -1;
     if (thenBody !== undefined) props.thenStatement = thenBody.node;
@@ -271,7 +267,7 @@ ifSet.MountCondition(source);
         inner.node.pos = rawIfAt;
         end = inner.end;
       } else {
-        const elseBody = ctx.BlockOfBody(bodyOf(segments[index + 1]), bodyFrom(segments[index + 1]),
+        const elseBody = ctx.BlockOfBody(bodyOf(segments[index + 1]),
           segments[index + 1].bodyBraceRange);
         if (elseBody !== undefined) {
           props.elseStatement = elseBody.node;

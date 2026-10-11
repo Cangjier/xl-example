@@ -292,7 +292,7 @@ C 风格 `for` 语句单元。
   if (next.length > 0) props.incrementor = ctx.Expression(next);
   const body = ctx.KidsOf(v, "body").filter((k: any) => !k.IsInvisible);
   // **体那一对花括号直读字段**（第 641 轮）：两端都是挂体那一刻的事实。
-  const built = ctx.BlockOfBody(body, -1, v.bodyBraceRange);
+  const built = ctx.BlockOfBody(body, v.bodyBraceRange);
   if (built !== undefined) {
     props.statement = built.node;
   }

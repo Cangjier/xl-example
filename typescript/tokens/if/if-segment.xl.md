@@ -419,7 +419,7 @@ return this.ChildrenOf(this.Body);
 
 克隆自身。
 
-新建一个、**先把 `key` / `IfWordAt` / `BodyBraceAt` / `EmptyBodyAt` 复制过去**（漏了它克隆体就丢掉关键字、`else if` 与体的位置）、`Sign(this)`、把子单元逐个克隆后 `AddRange`、最后 `TryToClose()`。
+新建一个、**先把 `key` / `IfWordAt` / `BodyBraceAt` / `EmptyBodyAt` / `BodyBrace` 复制过去**（漏了它克隆体就丢掉关键字、`else if` 与体的位置；**`BodyBrace` 那一格第 1059 轮补上**——那是「体就是一对花括号」的整对区间，克隆体漏了它，投影就得回原文再扫一遍括号）、`Sign(this)`、把子单元逐个克隆后 `AddRange`、最后 `TryToClose()`。
 
 ```ts
 const result = new IfSegment(this.Template);
@@ -427,6 +427,7 @@ result.key = this.key;
 result.IfWordAt = this.IfWordAt;
 result.BodyBraceAt = this.BodyBraceAt;
 result.EmptyBodyAt = this.EmptyBodyAt;
+result.BodyBrace = this.BodyBrace;
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

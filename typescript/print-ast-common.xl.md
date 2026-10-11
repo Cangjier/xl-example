@@ -52,7 +52,9 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `DECLARATION_TAGS` / `skipSourceTrivia` / `firstCodeAfter` / `matchBrace` / `matchingParenOf`
 七格**全仓一个消费者都没有**，连同 `ctx` 上那三个同样没人用的出口（`FirstCodeAfter` /
 `MatchBrace` / `MatchingParen`）一起删掉——它们是搬家时照原样留的（口径是「先证明等价，再谈改写」，
-留着只是因为还没轮到动它们）；`matchingBrace` **留着**（`braceSpanOf` 还在用它）。
+留着只是因为还没轮到动它们）；**`matchingBrace` 当时留着**（那时 `braceSpanOf` 与
+`blockOfBody` / `bodyBlockOf` 的兜底支还在用它），**第 1059 轮随那几支一起删掉了**——
+「体是不是一对花括号」今天由 token 自己记的那一格说了算（见下）。
 量法是**点号访问与裸调用都算、定义那一行不算**：本文件的每一格 `# const` / `# method`
 与它的生成物逐名对账，别处 0 次引用才算死。
 `projectLogical`（够不着的那个 `case`）已在第 196 轮随搬迁删掉。
@@ -230,6 +232,25 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 ⇒ 本页的 `# const` / `# method` 声明 **96 → 93 格**；三格的读者（`IsDotSymbol` 12 处 /
 `IsNameNode` 15 处 / `IsTypeSeparator` 1 处）全部改成属性读，`ctx` 上那个 `IsNameNode` 出口
 与它在五页里的 7 处调用点一并换成属性读（**出口删了，同一格事实就不会有第二个入口**）。
+
+**第 1059 轮按同一条规矩收的是「体是不是一对花括号」**：`for` / `while` / `do…while` /
+`foreach` 四个循环体与 `IfSegment` **各自在挂体那一刻**就把整对区间记进了自己那一格
+（`BodyBrace`，读法是那一页自己的 `bodyBraceRange`），克隆体也照抄——
+于是投影那一侧「回原文找 `{`、再按深度配对扫一遍」的三支兜底（`blockOfBody` 两支 +
+`bodyBlockOf` 一支）**一格读者都没有**，连同 `matchingBrace` 这个 helper 与 `blockOfBody`
+那个只服务兜底的 `from` 形参一起删掉。
+
+判据与前面几条一样：那一格的事实**在这一格自己身上**（挂体那一刻那个 `Bracket` 就在手上），
+所以它该由这一页答，而不是由投影回原文再猜一遍（`document.GetValue(index + 2) === "{"`
+那种输入正是「回原文猜」会翻车的地方）。**量法**：删掉之后八道门读数一处没动
+（`coverage` 仍是 4260 / 4422、`cases:tsast` 3 条已知缺口、`samples` 逐字节一致）——
+也就是说那三支**早就是死代码**，只是一直没人量它。
+
+⇒ 本页的 `# const` / `# method` 声明 **93 → 92 格**（`matchingBrace`）；`blockOfBody` 少一个形参，
+`if-set.xl.md` 里那个只喂它的 `bodyFrom` 也跟着没了。`direct:lint` 因此加第九条判据：
+本页代码块里不许再出现「回原文配对 / 找花括号」的形态（`matchingBrace(` /
+`ctx.source.indexOf("{")` / `ctx.source.lastIndexOf("{")`）。
+自验（`tmp/` 里的探针，不进仓库）：把两种形态各写回一处，这一门**两处全红**；还原后 0 处。
 
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
@@ -8693,18 +8714,14 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
 
 **循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
 
-**第一判据是 token 记下的整对花括号**（第 641 轮，`braceRange` = 各页自己声明的那一格
+**判据只有一条：token 记下的整对花括号**（第 641 轮，`braceRange` = 各页自己声明的那一格
 `bodyBraceRange`）：`While.BodyBrace` 在挂体那一刻就把那对括号记下了，
-有它 ⇒ TS 那边就是一个 `Block`（**空块也在内**），下面那一套「找 `{` + `MatchingBrace`」
-一步都不跑。
+有它 ⇒ TS 那边就是一个 `Block`（**空块也在内**）。
 
-与 `blockOfBody` 的分工：那一支的 `kids` 里已经有成形的语句、靠「第一个语句之前有没有 `{`」
-判断；而 `for` / `while` / `do…while` / `for…of` 的体段进段数组时**只有语句**
-（花括号那层壳不在树里），所以**没有字段时**括号只能**从原文找**——`from` 传头部结束的位置。
-
-**这一格今天四个循环体全都记了**（`While` / `For` / `Foreach` / `DoWhile` 各自的 `BodyBrace`，
-第 618 / 619 / 598 / 641 轮陆续补齐 ⇒ 下面那套「找 `{` + `MatchingBrace`」是**兜底**，
-给还没记字段的 token 与克隆体留着）。
+**第 1059 轮把「没有字段就回原文找 `{` 再配对扫一遍」那一支整段删掉了**：四个循环体早就各自
+记了这一格（`While` / `For` / `Foreach` / `DoWhile`），而**克隆体也照抄**（第 598 / 618 / 619 /
+641 轮记字段、本轮核对克隆体）——于是「没记字段」只可能是「体不是花括号」，
+回原文再扫一遍就是**同一格事实的第二处答案**。`from` 只用来认「空体语句 `while (c);`」。
 
 ```ts
   const list = kids.filter((k) => k instanceof Token && !k.IsInvisible);
@@ -8718,8 +8735,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   }
   // **空体语句 `while (c);` / `for (const x of y);`**（第 127 轮）：体段为空、
   // 原文里头部之后紧跟一个 `;` ⇒ TS 那边是一个 `EmptyStatement`。
-  // 这一支要**排在找花括号之前**：`while (c) ;  return { … };` 里后面那个 `{`
-  // 是下一条语句的，先找括号会把它认成循环体。
+  // 这一支只在**没有整对花括号**时才走（有花括号的空体是上面那一支的 `Block`）。
   if (projections.length === 0) {
     let at = from;
     while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
@@ -8727,42 +8743,27 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
       return { kind: "EmptyStatement", pos: at, end: at + 1 };
     }
   }
-  const first = list.length > 0 ? startOf(list[0]) : -1;
-  const brace = ctx.source.indexOf("{", from);
-  // **花括号必须在第一个语句之前**（第 127 轮）：`while (c) f();` 换行 `return { … };`
-  // 里 `indexOf("{", from)` 找到的是下一条语句里那个 `{`。原来只查「配对的 `}` 不早于
-  // 最后一条语句的终点」——那个判据在「括号整个落在语句之后」时**恒真**
-  // （实测 `dist/ts/typescript/ts-ast.ts` 两处：`while (…) end++;` 换行 `return { kind: … };`
-  // 与 `const props = { … }` 前一个函数体，各多出一个 `Block` 包住整个对象字面量）。
-  if (brace >= 0 && (first < 0 || brace < first)) {
-    const close = matchingBrace(ctx.source, brace);
-    const last = list.length > 0 ? endOf(list[list.length - 1]) : -1;
-    // 括号还必须**盖住全部语句**，否则那个 `{` 是下一条语句的（见 `blockOfBody` 的说明）。
-    if (close >= brace && close >= last) {
-      return { kind: "Block", statements: projections, pos: brace, end: close + 1 };
-    }
-  }
   if (projections.length === 1) return projections[0];
   if (projections.length === 0) return undefined;
   return { kind: "Block", statements: projections, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
 ```
 
-# private method blockOfBody:(kids:Array<any>, ctx:any, from:int, braceRange:string = "")=>any
+# private method blockOfBody:(kids:Array<any>, ctx:any, braceRange:string = "")=>any
 
 一个段的体 → `Block`（或没有花括号时的单条语句）。
 
-**第一判据是 token 记下的整对花括号**（第 641 轮，`braceRange` = 各页自己声明的那一格
+**判据只有一条：token 记下的整对花括号**（第 641 轮，`braceRange` = 各页自己声明的那一格
 `bodyBraceRange`）：`IfSegment.BodyBrace` 在挂体那一刻就把那对括号记下了，
-有它就**直接**是那个 `Block`——下面那套「找 `{` + `MatchingBrace` + 比对语句表」
-一步都不跑（那套是回原文猜的第二份答案）。
+有它就**直接**是那个 `Block`（空块 `if (a) {}` 也在内，第 1015 轮起连 `Bracket` 找不到的那种
+也记得到）。
 
-**没有字段时才回原文猜**（`For` / `While` / `DoWhile` / `Foreach` 的体段**今天也都记了这一格**，
-所以这一支是留给克隆体与还没记字段的 token 的兜底）：
-判据（两处都得看，不能只看第一个 `{`）：先找**第一个语句起点之前**的那个 `{`，
-再要求它配对出来的 `}` **不早于最后一个语句的终点**——
-`if (a) b(); { c(); }` 里那个 `{` 属于**下一条语句**，第一个语句的终点在它之前，
-所以「第一个 `{` 就认块」会造出一个 TS 那边不存在的 `Block`。
-反过来，体的语句都在花括号里时，配对的 `}` 一定盖住全部语句。
+**第 1059 轮把「没有字段就回原文猜」那三支整段删掉了**：它们分别猜「体里只有注释的块」、
+「空块」、「第一个语句往回找 `{`」——三支都靠 `matchingBrace` 扫原文，而今天
+`For` / `While` / `DoWhile` / `Foreach` 的体段与 `IfSegment` 全都记了这一格
+（克隆体也一样：`IfSegment.Clone` 本轮补齐），所以「没记字段」只可能是「体不是花括号」
+⇒ 那三支是**同一格事实的第二处答案**，而且会被块里的字符串或注释里的假括号骗到。
+**`from` 那个形参也随之删掉**（它只服务那三支里的第二支，调用方也不再递）。
+`matchingBrace` 那个 helper 因此全仓一个读者都没有，一并删除。
 
 ```ts
   const list = kids.filter((k) => k instanceof Token && !k.IsInvisible);
@@ -8779,72 +8780,13 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   }
   if (projections.length === 0) {
     // **体里只有注释**（第 140 轮）：`} else if (item === "_") { // 注释 }` 的产物里那条
-    // `Statement` 只剩一个注释单元（trivia），`projectEach` 投出 `undefined`——
-    // 于是这里返回 `undefined`，而 TS 那边那个 `Block` 是**实打实存在**的（空的 `statements`）。
-    // 少了它 `IfStatement` 的字段名差一格、`Block` 缺一个
-    // （实测 `dist/ts/typescript/tokens/identifier.ts` 两处 `else if` 的注释体，全语料同类 15 处）。
-    // 位置从**原始子单元**上取：注释虽然是 trivia，但它所在的那个 `Statement` 是有区间的。
-    const at = list.length > 0 ? startOf(list[0]) : -1;
-    if (at >= 0) {
-      const open = ctx.source.lastIndexOf("{", at);
-      if (open >= 0) {
-        const close = matchingBrace(ctx.source, open);
-        const between = ctx.source.slice(open + 1, at).replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "");
-        if (close >= open && between.trim() === "") {
-          return {
-            node: { kind: "Block", statements: [], pos: open, end: close + 1 },
-            end: close + 1,
-          };
-        }
-      }
-    }
-    // **空体 `if (a) {}`**（第 150 轮）：体段一个单元都没有（连注释都没有），但原文里那对
-    // 花括号是实打实的——TS 那边是一个空的 `Block`。从 `from`（条件段末尾）往后只允许
-    // 空白 / `)` / 注释，撞上 `{` 就是那个体
-    // （实测 `ex-regex.ts` 的 `if (/x/.test(s)) {\n}`：缺 `Block` 1 + `IfStatement` 漂移 1）。
-    if (from !== undefined && from >= 0) {
-      let at = from;
-      while (at < ctx.source.length) {
-        const ch = ctx.source[at];
-        if (/\s/.test(ch) || ch === ")") {
-          at++;
-          continue;
-        }
-        if (ch === "/" && ctx.source[at + 1] === "/") {
-          while (at < ctx.source.length && ctx.source[at] !== "\n") at++;
-          continue;
-        }
-        if (ch === "/" && ctx.source[at + 1] === "*") {
-          const close = ctx.source.indexOf("*/", at + 2);
-          at = close < 0 ? ctx.source.length : close + 2;
-          continue;
-        }
-        break;
-      }
-      if (ctx.source[at] === "{") {
-        const open = at;
-        const close = matchingBrace(ctx.source, open);
-        if (close >= open) {
-          return { node: { kind: "Block", statements: [], pos: open, end: close + 1 }, end: close + 1 };
-        }
-      }
-    }
+    // `Statement` 只剩一个注释单元（trivia），`projectEach` 投出 `undefined`。
+    // 那种体**带着整对花括号**，所以上面那一支已经把它接住了（第 1015 轮起 `CaptureBodyBrace`
+    // 连「找不到 `Bracket`」的空块也记得下）——落到这一行只可能是**真的没有体**。
     return undefined;
   }
   const first = startOf(list[0]);
   const last = endOf(list[list.length - 1]);
-  const brace = ctx.source.lastIndexOf("{", first);
-  if (brace >= 0) {
-    const close = matchingBrace(ctx.source, brace);
-    // **`{` 与第一条语句之间只能有空白与注释**（第 97 轮）：只要求「配对的 `}` 不早于最后一条」
-    // 是不够的——`if (name === "") return undefined;` 会往回找到**别处**（下一个函数）的 `{`，
-    // 那个 `}` 当然「不早于」，于是凭空造出一个盖住半个文件的 `Block`：
-    // 实测 `IfStatement` 漂移 99 + 多出 99 全是它（产物区间 14595 vs TS 13479）。
-    const between = ctx.source.slice(brace + 1, first).replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "");
-    if (close >= last && between.trim() === "") {
-      return { node: { kind: "Block", statements: projections, pos: brace, end: close + 1 }, end: close + 1 };
-    }
-  }
   // 没有花括号：TS 那边就是那条语句本身（`if (a) f();` ⇒ `ExpressionStatement`）。
   // **终点取投影出来的那个节点自己的 `end`**（第 157 轮）：`last` 是**产物单元**的终点，
   // 它会带上尾随那个软换行（`if (skip()) continue loop` 换行 ⇒ 单元到 169、TS 到 168）。
@@ -8859,39 +8801,6 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
         : { kind: "Block", statements: projections, pos: first, end: last },
     end: bodyEnd,
   };
-```
-
-# private method matchingBrace:(source:string, open:int)=>int
-
-```ts
-  let depth = 0;
-  for (let i = open; i < source.length; i++) {
-    const c = source[i];
-    // **字符串与注释里的花括号不算括号**（第 96 轮）：`document.GetValue(index + 2) === "{"`
-    // 这种写法让深度永远回不到 0、配对直接失败——于是体被判成「没有花括号」，
-    // `IfStatement` / `Block` 的终点停在最后一条语句上（实测 137 处漂移 + 137 处「多出来」是同一处）。
-    if (c === '"' || c === "'" || c === "`") {
-      for (i++; i < source.length && source[i] !== c; i++) {
-        if (source[i] === "\\") i++;
-      }
-      continue;
-    }
-    if (c === "/" && source[i + 1] === "/") {
-      while (i < source.length && source[i] !== "\n") i++;
-      continue;
-    }
-    if (c === "/" && source[i + 1] === "*") {
-      for (i += 2; i < source.length && !(source[i] === "*" && source[i + 1] === "/"); i++);
-      i++;
-      continue;
-    }
-    if (c === "{") depth++;
-    else if (c === "}") {
-      depth--;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
 ```
 
 # private method splitTopLevel:(kids:Array<any>, separator:string)=>Array<Array<any>>
@@ -9442,7 +9351,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     UnwrapNodes: (unit) => unwrapNodes(unit),
     TypeOf: (list) => typeOf(list, ctx),
     FunctionTypeProps: (kids) => functionTypeProps(kids, ctx),
-    BlockOfBody: (list, from, braceRange) => blockOfBody(list, ctx, from, braceRange),
+    BlockOfBody: (list, braceRange) => blockOfBody(list, ctx, braceRange),
     SwitchClause: (seg) => projectSwitchClause(seg, ctx),
     AllKids: (node) => allKids(node),
     BindingPattern: (unit) => projectBindingPattern(unit, ctx),
