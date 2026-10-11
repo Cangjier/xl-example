@@ -30,6 +30,9 @@
 //   第 1027 轮再加一条**扫名字**的：投影与 token 之间那一层的入口名
 //   （`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）
 //   不许再出现在规范页里（见 `REMOVED_LAYER`）——那句话（token → AST 直出）本来一条判据都没有。
+//   第 1049 轮再加一条**扫「这一格自己的那一格字符」**的：`ctx.source[` 的下标不许是某一格
+//   自己的 `start`（见 `TOKEN_SOURCE_SELF`）——那一格的正文由它自己答（`Token.Text`，或
+//   `String.stringChar` 这类构造时就记好的字段）；扫描游标与别人的终点照旧。
 //
 // **第 1013 轮删掉的判据**：原来还有一条「覆写了直出版的页面，同页必须还有 `PrintAst`」——
 // 它是「同答」那条动态判据的**基线**（搬完之前不许先把老路删掉）。现在老路删了、
@@ -369,8 +372,22 @@ const TOKEN_METHOD_CALL = /(?<![A-Za-z0-9_.$])([a-z][A-Za-z0-9_]*)\.([A-Z][A-Za-
 const TOKEN_METHOD_RECEIVERS_OK = new Set(["ctx"]);
 /** 方法名是它就不是「取数据」而是行为。 */
 const TOKEN_METHOD_NAMES_OK = new Set(["PrintDirectAst"]);
+/**
+ * **这一格自己的那一格字符：不许再回原文读**（第 1049 轮）。
+ *
+ * 第 1048 轮给了 `Token.Text`（基类的一格 `## property`：本单元的正文，走它自己 `SourceRange`
+ * 两头各自带着的那份 `Document`），第 1049 轮又把「这一格是不是模板」从
+ * `ctx.source[startOf(x)] === "`"` 换成读 `String.StringChar`——那一格是**构造器里赋好的**
+ * （`stringChar` 是它给投影的读法）。九处一处不剩。
+ *
+ * **这个正则只认「下标是某一格自己的起点」**：`ctx.source[at]`（扫描游标）、
+ * `ctx.source[end - 1]`（别人的终点）都不命中——原文里本来就有一批必须看**相邻**字符的读法。
+ */
+const TOKEN_SOURCE_SELF = /ctx\.source\[\s*(?:startOf\(|[A-Za-z_$][\w$]*\s*\.\s*start\s*\])/g;
 /** 投影对 token 调方法的处数（0 处才是对的）。 */
 let tokenMethodHits = 0;
+/** 按某一格自己的起点读 `ctx.source` 的处数（0 处才是对的）。 */
+let sourceSelfHits = 0;
 let ctxExits = 0;
 let ctxBannedHits = 0;
 {
@@ -389,6 +406,17 @@ let ctxBannedHits = 0;
           why:
             `投影对 token 调了方法：\`${match[1]}.${match[2]}(…)\`——取数据只读属性` +
             "（见 core/syntax/token.xl.md 的 Tag / NameField / WrapperField / BodyField / FunctionFlags）",
+        });
+      }
+    }
+    for (const match of code.matchAll(TOKEN_SOURCE_SELF)) {
+      sourceSelfHits += 1;
+      if (sourceSelfHits <= 3) {
+        violations.push({
+          file: SHARED_FILE,
+          why:
+            `按某一格自己的起点读 ctx.source：\`${match[0]}…\`——这一格的正文/首字符由它自己答` +
+            "（Token.Text，或各页构造时记好的那一格，如 String.stringChar）",
         });
       }
     }
@@ -502,6 +530,11 @@ console.log(
 console.log(
   `投影对 token 调方法（${SHARED_FILE} 的代码块）：${tokenMethodHits} 处（0 处才是对的，取数据只读属性；例外只有 ctx.* 与 PrintDirectAst）`,
 );
+// **「这一格自己的那一格字符」的账**（第 1049 轮）：按某一格自己的起点去读 `ctx.source` 是 0 处
+// ——这一格的正文由它自己答（`Token.Text` / 各页构造时记好的那一格），扫描游标与别人的终点照旧。
+console.log(
+  `按某一格自己的起点读 ctx.source（${SHARED_FILE} 的代码块）：${sourceSelfHits} 处（0 处才是对的，这一格的正文自己答：Token.Text / String.stringChar）`,
+);
 // **中间那一层的账**（第 1027 轮）：投影直吃 token，那一层的入口名一个都不许留在规范页里
 // ——「token → AST 直出」这句话只有这样才有一条判据看着。
 console.log(
@@ -519,6 +552,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答）`,
 );
 process.exit(0);

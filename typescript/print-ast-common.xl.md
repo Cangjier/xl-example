@@ -147,6 +147,27 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 在构造（或记下那个事实）那一刻就在的，**收成属性**；只有「读取口本身随页面而异」的
 `NameField` 留成 `## property` + `### get`（它读的仍是本页自己的字段，没有第二处存储）。
 
+**第 1048 / 1049 轮把同一条判据推到了「坐标与正文」上**——那一类过去不在这几格里，
+因为它的答案是**投影自己回原文算的**（`ctx.source`）。两句新规矩：
+
+3. **这一格自己的正文由这一格自己答**（`Token.Text`，第 1048 轮）：它是**基类**的一格
+   `## property` + `### get`，取值走这一格自己的 `SourceRange` 两头——`Source` 在构造时就
+   带着自己那份 `Document`，所以「我这段正文是什么」**不必经过外面的字符串**。
+   形态与 `Tag` / `start` / `end` 相同（值不随页面而异 ⇒ 声明一处、每个单元自动就位），
+   取文本那一格（`textOfNode`）的最后一行因此从 `ctx.source.slice(node.start, node.end)`
+   改成 `node.Text`；
+4. **某一页构造时已经记下的事实，投影不许再回原文推一遍**（第 1049 轮）：
+   `String.StringChar`（「本串用的引号字符。它只在构造器里赋一次」）就是这个例子——
+   「这一格是不是模板」原来是 `ctx.source[startOf(x)] === "`"`（**回原文读第一个字符**），
+   而那一格的反引号**早就记在 token 上了**（投影读 `stringChar`）——九处一处不剩。
+   同一轮顺手把 `computedNameUnit` 的 `ctx.source[startOf(first)] === "["` 与
+   `projectStatement` 的 `ctx.source[v.start] === ";"` 也换成读这一格自己的 `Text`。
+
+⇒ **「按某一格自己的坐标去读 `ctx.source`」在 print-ast-common 的代码块里成了 0 处**，
+`direct:lint` 因此加第四条判据（第 1049 轮）：`ctx.source[` 的下标**不许是某一格自己的 `start`**
+（`ctx.source[startOf(x)]` / `ctx.source[x.start]`）——扫描用的游标、别人的终点、成对括号的区间
+照旧，而「这一格的正文 / 首字符」只有一处来源：token 自己。
+
 **第 1044 轮按可达性又量了一遍「本页还剩什么用不到」，结论是「一格死代码都没有」**：
 以 `projectRoot` / `ToJsonText` 为入口、把**第 1043 轮之后剩下的 100 格声明**连同它们互相的引用
 做成图，**100 格全部可达**（第 1043 轮删掉 `textOf` 之后就没有剩下的了）。
@@ -475,7 +496,9 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 ```ts
   // 值位的普通字符串（引号串）走原来的口径。
-  if (ctx.source[v.start] !== "`") return astNode("StringLiteral", { text: stringText(v, ctx) }, v, ctx);
+  // **「这一格是不是模板」问 token 自己**（第 1049 轮）：反引号是 `String.StringChar`
+  // **在构造器里赋好的**那一格（`stringChar` 是它给投影的读法），投影不再回原文读第一个字符。
+  if (v.stringChar !== "`") return astNode("StringLiteral", { text: stringText(v, ctx) }, v, ctx);
   const kids = projectableKids(v);
   const consts = kids.filter((k) => k.Tag === "ConstString");
   const interps = kids.filter((k) => k.Tag === "InterpolationString");
@@ -1235,7 +1258,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
     // ② 紧跟那一格**自己答**它是一个声明单元（`IsDeclarationUnit`，第 1036 轮——
     // 名单里的五个标签就是那五页自己的类名，所以它住在各自那一页）。
     if (items[i].Tag === "Export" && i + 1 < items.length) {
-      const unitText = ctx.source.slice(startOf(items[i]), endOf(items[i]) + 1).trim();
+      const unitText = items[i].Text.trim();
       if (/\bdefault$/.test(unitText) && items[i + 1].IsDeclarationUnit) {
         const merged = projectExport(items[i], ctx, items.slice(i + 1), endOf(items[i + 1]));
         if (merged !== undefined) {
@@ -1425,7 +1448,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // `EmptyStatement`（区间正好是那个 `;`）。三处形态都在语料里：`;` 顶一条语句、
   // `if (a) ;` 的体、函数体里的空语句。
   if (kids.length === 0) {
-    if (ctx.source[v.start] === ";") {
+    if (v.Text.startsWith(";")) {
       // **已经被上一条语句吃掉的 `;` 不再是空语句**：TS 的 `parseExpressionStatement`
       // 收尾会把紧跟的那个 `;` 算作自己的终结符（`tryParseSemicolon` 不看换行），
       // 所以 `;(function(){})()` 换行 `;…` 里第二行的 `;` 属于**上一条**语句。
@@ -2065,11 +2088,13 @@ new Set([
       // 两档的分工照抄 0b / 0c：直接那一档把剩下的一串交给 `chainOnto`，装在 `PropertyAccess`
       // 里那一档先 `chainOnto` 那一格自己的续格、再把外面的兄弟交给 `foldBinaryFrom`。
       //
-      // 模板那一格凭什么敢认：与 0b 同一条——**原文的引号**（反引号才是模板，`"` / `'` 是普通字符串，
-      // 产物里两者属性一模一样）；而 `<…>` 能成形本身就说明 token 层的 `IsAllowedFollower`
+      // 模板那一格凭什么敢认：与 0b 同一条——**引号**（反引号才是模板，`"` / `'` 是普通字符串，
+      // 产物里两者属性一模一样）；**而那个引号由 token 自己记着**（`String.StringChar`，
+      // 构造器里赋好、投影读 `stringChar`，第 1049 轮）——不再回原文读第一个字符。
+      // 而 `<…>` 能成形本身就说明 token 层的 `IsAllowedFollower`
       // 认了「`>` 后面接不上普通表达式」（见 `generic-type.xl.md` 的名字闸）。
       const instTemplateDirect =
-        kids.length >= 3 && kids[2].Tag === "String" && ctx.source[startOf(kids[2])] === "`"
+        kids.length >= 3 && kids[2].Tag === "String" && kids[2].stringChar === "`"
           ? kids[2]
           : undefined;
       const instTemplateChain =
@@ -2079,7 +2104,7 @@ new Set([
       const instChainHasTemplate =
         instTemplateChain.length >= 2 &&
         instTemplateChain[0].Tag === "String" &&
-        ctx.source[startOf(instTemplateChain[0])] === "`";
+        instTemplateChain[0].stringChar === "`";
       // **第三档：模板被包在运算符单元的**左脊柱**里**（`` f<T>`t` + 1 ``）：产物是
       // `[Identifier(f), GenericType, BinaryOperator(String(反引号), +, 1)]`——
       // 走法与 0d 那一支**一字不差**（沿途把每一层的 `(运算符, 右操作数)` 从里往外收起来），
@@ -2100,7 +2125,7 @@ new Set([
           if (inner.length < 3) break;
           const spineHead = inner[0];
           const spineHeadKids = spineHead.Tag === "PropertyAccess" ? projectableKids((spineHead)) : [spineHead];
-          if (spineHeadKids[0]?.Tag === "String" && ctx.source[startOf(spineHeadKids[0])] === "`") {
+          if (spineHeadKids[0]?.Tag === "String" && spineHeadKids[0].stringChar === "`") {
             instSpineTemplate = spineHeadKids[0];
             instSpineMembers = spineHeadKids.slice(1);
             instSpineLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
@@ -2141,7 +2166,7 @@ new Set([
             // ——第二格模板是对**整条属性访问**再标一次（TS 是外面再套一层
             // `TaggedTemplateExpression`），交给 `chainOnto` 那一档；交给 `foldBinaryFrom`
             // 会把它当成一个操作数（实测那一格整片丢）。
-            if (tail[0].Tag === "String" && ctx.source[startOf(tail[0])] === "`") {
+            if (tail[0].Tag === "String" && tail[0].stringChar === "`") {
               return chainOnto(chained, tail, ctx);
             }
             return foldBinaryFrom(chained, tail, ctx);
@@ -3221,7 +3246,7 @@ new Set([
   let templateAt = -1;
   for (let at = kids.length - 1; at >= 1; at--) {
     const one = kids[at];
-    if (one.Tag !== "String" || ctx.source[startOf(one)] !== "`") {
+    if (one.Tag !== "String" || one.stringChar !== "`") {
       continue;
     }
     if (tagIsPostfixChain(kids.slice(0, at)) && IsChainTail(kids.slice(at + 1))) {
@@ -3284,7 +3309,7 @@ new Set([
       continue;
     }
     const probe = projectableKids((kids[at]));
-    if (probe.length >= 2 && probe[0].Tag === "String" && ctx.source[startOf(probe[0])] === "`") {
+    if (probe.length >= 2 && probe[0].Tag === "String" && probe[0].stringChar === "`") {
       templateChainAt = at;
       break;
     }
@@ -3335,7 +3360,7 @@ new Set([
       if (inner.length < 3) break;
       const head = inner[0];
       const headKids = head.Tag === "PropertyAccess" ? projectableKids((head)) : [head];
-      if (headKids[0]?.Tag === "String" && ctx.source[startOf(headKids[0])] === "`") {
+      if (headKids[0]?.Tag === "String" && headKids[0].stringChar === "`") {
         templateUnit = headKids[0];
         members = headKids.slice(1);
         layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
@@ -5786,8 +5811,9 @@ return false;
     // `template`）——左边那一条当外层的 `tag`。原来这一格没有分支，落到循环末尾被跳过 ⇒
     // **外面那一层整格丢**（实测 `` f<T>`t``u` ``：外层的 `TaggedTemplateExpression` 区间
     // 只到第一个模板、第二格模板不见）。判据与 0b 同源：**只有反引号才算模板**
-    //（普通字符串与模板在产物里的属性一模一样，靠原文的引号分）。
-    if (unit.Tag === "String" && ctx.source[startOf(unit)] === "`") {
+    //（普通字符串与模板在产物里的属性一模一样，靠**那一格自己记着的引号**分：
+    // `String.stringChar`——第 1049 轮起不再回原文读第一个字符）。
+    if (unit.Tag === "String" && unit.stringChar === "`") {
       const template = projectNode(unit, ctx);
       if (template === undefined) break;
       left = { kind: "TaggedTemplateExpression", tag: left, template, pos: left.pos, end: endOf(unit) };
@@ -8934,7 +8960,7 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
   if (kids.length === 0) return null;
   const first = kids[0];
   if (first.Tag !== "ArrayLiteral") return null;
-  return ctx.source[startOf(first)] === "[" ? first : null;
+  return first.Text.startsWith("[") ? first : null;
 ```
 
 # private method computedNameExpression:(unit:any, ctx:any)=>any

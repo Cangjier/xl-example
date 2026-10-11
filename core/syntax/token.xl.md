@@ -697,7 +697,7 @@ return undefined;
 直出版把这一格**重新按解析期已有的东西说一遍**；缺什么就**给 token 补上那个属性**
 （与 `NameAt` / `NameRange` / `BodyBrace` 那几格同一条口径），而不是回原文猜。
 
-**三条判据（都已经进 `npm run gates`）**：
+**四条判据（都已经进 `npm run gates`）**：
 
 1. **同答**：覆写了这一格的 token，投影**优先问它**；整个语料跑两遍（直出通道开 / 关）
    产物必须**逐字节相同**——那是 `cases:direct`。不一样就是这一格写错了，不是「另一种口径」；
@@ -717,6 +717,17 @@ return undefined;
    「那个事实被记下来的那一刻」赋、名字那一格是 `## property` + `### get`），
    于是投影读 token 的方式只剩属性名（`k.Tag` / `x.BodyField` / `node.NameField` …）——
    这一条把那个结论**钉住**：方法能在任何时候被写回来，而它逐字节同答、上面两条判据都看不见。
+4. **这一格自己的那一格字符也由它自己答**（第 1049 轮）：`typescript/print-ast-common.xl.md`
+   的**代码块**里，`ctx.source[` 的下标**不许是某一格自己的 `start`**
+   （`ctx.source[startOf(x)]` / `ctx.source[x.start]`）。第 1048 轮给基类加了
+   `## property Text:string`（本单元的正文，走它自己 `SourceRange` 两头各自带着的那份
+   `Document`——`Source` 在构造时就带着它），第 1049 轮又把九处
+   `ctx.source[startOf(x)] === "`"` 换成读 `String.stringChar`（**构造器里赋一次**的那一格，
+   见 `typescript/tokens/string/string.xl.md`）⇒ 这一条今天是 0 处。
+   **扫描用的游标与别人的终点照旧**（`ctx.source[at]` / `ctx.source[end - 1]`）：
+   原文里本来就有一批必须看**相邻**字符的读法（ASI、尾分号、注释、配对括号）。
+   **为什么它必须是门**：`ctx.source[startOf(x)]` 与 `x.Text[0]` / `x.stringChar` 逐字节同答，
+   上面三条判据一条都看不见它——而它正是「同一份事实的第二处来源」。
 
 **基类答 `undefined`**＝「我没有直出版，照旧走 `PrintDirectAst` / 通用支」：与 `PrintDirectAst` 同一个约定，
 所以这一格可以**逐页**搬——搬一页多一页直出，`projectRoot` 返回的 `direct` 记账量的就是这个数。

@@ -334,6 +334,41 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1049 轮：「这一格是不是模板」不再回原文读第一个字符——九处 `ctx.source[startOf(x)] === "`"` 改成读 `String.stringChar`（**构造器里赋一次**的那一格），并把这条口径钉成 `direct:lint` 第四条判据；**八道门全绿、读数一处没动**
+
+**一句话**：第 1048 轮把「这一格的正文」收成了 `Token.Text`，这一轮接着收**「这一格的
+首字符」**。判据现成：`String.StringChar` 这一页自己就写着「本串用的引号字符。**它只在构造器里
+赋值一次**」——也就是说，「这一格是不是模板」这件事**早就记在 token 上了**，而投影那一侧
+九处还在写 `ctx.source[startOf(x)] === "`"`（**回投影手上那个字符串读第一个字符**）。
+同一份事实的第二处来源，与第 1041~1048 轮收掉的是同一族。
+
+- **九处调用点**（`typescript/print-ast-common.xl.md`，全在「标签模板 / 实例化模板」那几族里）：
+  `ctx.source[startOf(x)]` / `ctx.source[x.start]` → **`x.stringChar`**。那一格是**具体类
+  `String` 显式声明的**（`## field StringChar`，第 1018 轮起另有给投影读的 `## property stringChar`），
+  所以投影读的是「这一页构造时记好的那一格」——不是投影自己再推一遍。
+  取值的两种写法逐字符同答：产物里普通字符串与模板**属性一模一样**，分它们的只有引号，
+  而引号就在 token 上。
+- **顺手两处**（同一把尺子：读这一格自己的正文，不读 `ctx.source`）：`computedNameUnit` 的
+  `ctx.source[startOf(first)] === "["` → `first.Text.startsWith("[")`；`projectStatement` 的
+  `ctx.source[v.start] === ";"` → **`v.Text.startsWith(";")`**（`Text` 的第一个字符就是
+  `source[start]`，所以这两句是同一句）。
+- **`direct:lint` 第四条判据**（`tests/parse/direct-lint.mjs` 的 `TOKEN_SOURCE_SELF`）：扫
+  `print-ast-common` 的**代码块**（注释不算），`ctx.source[` 的下标**不许是某一格自己的 `start`**
+  ——`ctx.source[startOf(x)]` / `ctx.source[x.start]` 恰好 0 处。**扫描用的游标与别人的终点照旧**
+  （`ctx.source[at]` / `ctx.source[end - 1]` / `ctx.source[built.end - 1]`）：原文里本来就有一批
+  必须看**相邻**字符的读法（ASI、尾分号、注释、配对括号），这一条只钉「这一格自己的那一格字符」。
+- **这一条自己验过**（与第 1015 / 1047 两轮同一手法）：把其中一处改回
+  `ctx.source[v.start] !== "`"` ⇒ 读数 **1 处**、`FAIL 按某一格自己的起点读 ctx.source`、`exit=1`；
+  还原 ⇒ **0 处**、`exit=0`。
+- **说明同步落到三处**：`core/syntax/token.xl.md` 的 `PrintDirectAst`（「三条判据」改成
+  「四条判据」，第四条写明为什么前三条看不见它）、`docs/ts-ast.md` 的判据表（同一个格子）、
+  本页 `print-ast-common` 开头那两条规矩之后的第 3 / 4 条（连同「这一格自己的正文自己答」）。
+- **实测**：`xl check` 2 份 0 错 0 警；`xl build` 1 写出 / 0 error；`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 33.3s），读数逐项与基线相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常且固定样本逐格点名通过、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+
 ### 第 1048 轮：**这一格的正文改由 token 自己答**（`Token.Text`，与 `start` / `end` 同一形态的基类属性）——`print-ast-common` 的取文本那一格不再回原文切，并清掉 `semicolonEndOf` 里一句重复语句；**八道门全绿、读数一处没动**
 
 **一句话**：第 1041~1047 轮把「投影要问 token 的每一格」都搬成了属性，可**「这一格的正文是什么」
