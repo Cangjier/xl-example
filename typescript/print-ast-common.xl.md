@@ -7277,24 +7277,25 @@ return out;
     if (head !== undefined && head.IsParenBracket) {
       const call: any =chainOn("CallExpression", left, { expression: left, arguments: callArgumentsOf(head, ctx) }, head.end);
       markOptional(call, questionDot);
-      // **括号之后剩下的成员**（`.k` / `[i]` / `.k` 连着的几格）：逐个往链上挂。
-      // 名字取那一格的 `Identifier`（token 层已经把成员名收成一个单元）；
-      // 下标那一格是 `[` 括号——两种都按下面「按成员名折」那一段的同一口径写。
-      let node: any = call;
-      for (let i = 1; i < inner.length; i++) {
-        const member = inner[i];
-        const memberAt = member.start;
-        if (member.IsIndexBracket) {
-          const element: any =chainOn("ElementAccessExpression", node, { expression: node, argumentExpression: projectExpression(member.ProjectableKids, ctx) }, member.end);
-          node = element;
-          continue;
-        }
-        if (member.IsSymbolToken) continue;
-        const nameText = member.TextValue;
-        if (nameText === "") continue;
-        node =chainOn("PropertyAccessExpression", node, { expression: node, name: { kind: "Identifier", text: nameText, pos: memberAt, end: memberAt + nameText.length } }, memberAt + nameText.length);
-      }
-      return node;
+      // **括号之后剩下的成员交给 `membersOnto`**（第 1214 轮，用户口径 1.1）：
+      // 这一段原来是**第二份抄写**（它只认两种格子：下标括号、以及靠 `TextValue` 取名的成员格），
+      // 而 `a?.(d).b(d)` / `a?.b?.(d).b(d)` 那一族括号后面跟的是**一格 `Method`**
+      //（`.b(d)` 的名字与实参表在**同一格**里，`TextValue` 是空串）⇒ `nameText === ""` 那一句
+      // **静默跳过** ⇒ 后面那一截整段丢（实测 `CallExpression` 的区间只到 `a?.(d)`、
+      // 缺 `PropertyAccessExpression` 与两个 `Identifier`，缺口 3 漂 1）。
+      // 折法只有 `membersOnto` 那一份（`chainWithOptional` 的成员循环、`chainOnto` 的子链分支
+      // 走的都是它）：`?.` 已经由上面那一句 `markOptional(call, …)` 挂掉了，所以第三格传 `undefined`。
+      const done = membersOnto(call, inner.slice(1), undefined, ctx);
+      // **NCO 里还剩兄弟时接着往下接**（第 1214 轮，用户口径 1.1；与第 1206 轮 `?.(args)` /
+      // `?.[i]` 那两支同款）：`a?.(d)[c](d)` 的产物是
+      // `Method(name="a")[Identifier(a), NCO([PropertyAccess([Bracket((d)), Bracket([c])]), Bracket((d))])]`
+      // ——**括号之后那一次下标与这一格外面那对实参括号分住在 NCO 的两层**（前者在属性访问里、
+      // 后者是 NCO 的第二个孩子）。原来这一支 `return node` 就完了 ⇒ 外面那对括号整格丢
+      //（实测 `ElementAccessExpression[0,9)` 外面那层 `CallExpression` 缺、`Identifier(d)` 缺）。
+      // 剩下的兄弟与 `?.[i]` 那一支走同一格（`tailUnitsOf` 摊「以一次调用开头」的外壳、
+      // 裸实参括号整格留着），再接 `chainOnto`——它那一支正是「紧跟一对圆括号 ⇒ 再调一次」。
+      if (kids.length > 1) return chainOnto(done, tailUnitsOf(kids.slice(1)), ctx);
+      return done;
     }
   }
   // **`?.(args)`**（第 107 轮）：那一格是实参括号，TS 是带 `questionDotToken` 的 `CallExpression`。
