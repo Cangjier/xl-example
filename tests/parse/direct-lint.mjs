@@ -744,6 +744,8 @@ const SELF_CLASSIFY_NAMES = [
   "IsNotNullSymbol",
   "IsPropertyAccess",
   "IsNotNull",
+  "IsMethodNode",
+  "IsGenericType",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -1002,10 +1004,19 @@ let notNullSymbolHits = 0;
  *
  * 口径：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`），恰好 0 处才对；
  * 两页的 `<Tag>` 只许以属性读的形态出现。
+ *
+ * **第 1092 轮把 `Method` 与 `GenericType` 也收进这一条**（同一句话、同一形态）：
+ * 投影层折链、折调用、投类型那几族里 25 处连写 `X.Tag === "Method"`、23 处连读
+ * `X.Tag === / !== "GenericType"`——两个名字同样是那两页自己的类名，所以在
+ * `typescript/tokens/method.xl.md` / `typescript/tokens/generic-type.xl.md` 各立一格
+ * （`IsMethodNode` / `IsGenericType`，构造时赋 `true`），48 处改属性读。
+ * 这一条因此守四个 `<Tag>`：谁把它们写回成现场算式，这一门当场红。
  */
 const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"PropertyAccess"/g,
   /\.Tag\s*[!=]==?\s*"NotNull"/g,
+  /\.Tag\s*[!=]==?\s*"Method"/g,
+  /\.Tag\s*[!=]==?\s*"GenericType"/g,
 ];
 /** 投影层拿类名当「是不是 `PropertyAccess` / `NotNull` 那一格」判的处数（0 处才是对的）。 */
 let selfTagClassifyHits = 0;
@@ -1021,8 +1032,8 @@ let selfTagClassifyHits = 0;
           violations.push({
             file: SHARED_FILE,
             why:
-              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` 那一类」又比类名了：\`${match[0]}\`——` +
-              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull`，构造时赋好），投影只读属性",
+              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` / \`Method\` / \`GenericType\` 那一类」又比类名了：\`${match[0]}\`——` +
+              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull` / `Token.IsMethodNode` / `Token.IsGenericType`，构造时赋好），投影只读属性",
           });
         }
       }
@@ -1222,7 +1233,7 @@ console.log(
   `「这一格是不是非空断言那个 \`!\`」又在投影层现场连写（${SHARED_FILE} 的代码块）：${notNullSymbolHits} 处（0 处才是对的，读 SymbolToken.IsNotNullSymbol）`,
 );
 console.log(
-  `「这一格是不是一条成员访问链 / 一次非空断言」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull）`,
+  `「这一格是不是一条成员访问链 / 一次非空断言 / 一次方法调用 / 一段泛型括号段」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull / Token.IsMethodNode / Token.IsGenericType）`,
 );
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的
@@ -1252,6 +1263,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 console.log(
-  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格是不是一条成员访问链由被问的那一页答、这一格是不是一次非空断言由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
+  `第三出口的约定 0 条违反（不回原文查、不按字符串键查、ctx 出口表里没有兜底出口、投影对 token 只读属性不调方法、这一格的正文自己答、按坐标切正文也走这一格自己、helper 的形参表就是它需要什么、这一格是不是某一类由被问的那一页答、这一格是不是一个名字由被问的那一页答、这一格是不是一个二元 / 逻辑运算单元由被问的那一页答、这一格是哪一态括号由被问的那一页答、这一格是不是那个感叹号由被问的那一页答、这一格是不是一条成员访问链由被问的那一页答、这一格是不是一次非空断言由被问的那一页答、这一格是不是一次方法调用由被问的那一页答、这一格是不是一段泛型括号段由被问的那一页答、这一格有哪些段由被问的那一页答、这一格哪些子单元进投影由被问的那一页答、成对符号的位置由 token 自己记、字符串的正文由 token 自己答）`,
 );
 process.exit(0);

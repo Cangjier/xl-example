@@ -1601,6 +1601,37 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsNotNull:bool = true`，构造时就赋好），投影只读这一格（`unit.IsNotNull`）。
 
+## field IsMethodNode:bool = false
+
+**我这一格是不是一次方法调用单元**（第 1092 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`Method` 那一页答 `true`（`typescript/tokens/method.xl.md`），
+其余一律 `false`。过去它在投影层是**二十五处连写比类名**（`X.Tag === "Method"`，
+折链、折调用那一族里成片都是），而那个名字**就是那一页自己的类名**——所以那是它自己的事实。
+
+**名字为什么不叫 `IsMethod`**：与 `IsChainBaseNode` / `IsBinaryOperatorNode` 同一条——
+`Method` 这一页上已经有一格 `IsBareCall`（问的是「这一格**自己**的形状够不够当一次裸调用」），
+再加一个 `Is…` 属性时把「这是节点那一问」写进名字里，两问一眼分得开。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsMethodNode:bool = true`，构造时就赋好），投影只读这一格（`unit.IsMethodNode`）。
+
+## field IsGenericType:bool = false
+
+**我这一格是不是一段泛型括号段**（第 1092 轮）——是的话答 `true`。
+
+判据同样是关于**产物标签**的：`GenericType` 那一页答 `true`
+（`typescript/tokens/generic-type.xl.md`），其余一律 `false`。过去它在投影层是
+**二十三处**连读比类名（`X.Tag === "GenericType"` 与 `X.Tag !== "GenericType"`——
+滤掉泛型段那一族），而那个名字就是那一页自己的类名。
+
+**它与 `WrapperField` 不是同一问**：那一格答「投出来时我这一层是不是包装、内容提到哪个字段」
+（装 `TypeParameter` 时才是包装）；这一格答「我是不是 `GenericType` 这一格单元」。
+两格各自显式声明、各自守着自己那一问。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsGenericType:bool = true`，构造时就赋好），投影只读这一格（`unit.IsGenericType`）。
+
 ## field IsBinaryOperatorNode:bool = false
 
 **我这一格是不是一个二元（或逻辑）运算符节点**（第 1088 轮）——是的话答 `true`。

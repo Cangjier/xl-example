@@ -260,6 +260,19 @@ return index;
 的基名就是一格完整的 `Method`，所以这一页常量答 `true`——口径与两条理由见
 `../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
 
+## field IsMethodNode:bool = true
+
+**我这一格是不是一次方法调用单元**（第 1092 轮）：投影层折链、折调用那一族里 **25 处**
+连写 `X.Tag === "Method"`，而**类名就是这一页自己的名字**——所以它本来就该由这一页答，
+不是由投影先问一句「你是什么类」。
+
+常量：构造时就赋好（与 `IsChainBaseNode` 同一个位置、同一形态）。口径与「为什么必须
+有基类那一句默认」见 `../../core/syntax/token.xl.md` 的 `IsMethodNode`。
+
+**它与 `IsBareCall` 不是同一问**：那一格答「我是不是**裸的**一次调用」（名字为空、
+第一个实义子单元是内层 `Method` / 实参括号 / `NotNull`——是**这一格**的子单元形状的函数）；
+这一格答「我是不是 `Method` 这一格单元」——就是类名本身。
+
 ## property IsBareCall:bool
 
 **我这一格是不是「裸的一次调用」**（第 965 轮立判据、第 1077 轮搬回本页）——名字为空、

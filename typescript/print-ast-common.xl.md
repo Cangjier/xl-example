@@ -89,7 +89,8 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `binary-operator` / `logical-operator`）仍是 66 格**，**第 1089 轮（39 处读数 + 删掉一个 `ctx`
 出口，新立的两格在 `bracket` 那一页）仍是 66 格**，**第 1090 轮（11 处读数，新立的那一格在
 基类与 `symbol-token`）仍是 66 格**，**第 1091 轮（33 处读数，新立的两格在基类、
-`property-access` 与 `not-null`）照同一条命令逐行数是 64 格**
+`property-access` 与 `not-null`）照同一条命令逐行数是 64 格**，**第 1092 轮（48 处读数，
+新立的两格在基类、`method` 与 `generic-type`）仍是 64 格**
 ——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 **第 1091 轮复核时又量到同一件事**：第 1087 轮那一栏收尾写的是「66 格」，可照那条命令逐行数
@@ -937,6 +938,47 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   差的那两格是更早某一轮把某些行重复算了一次，这一轮起按实测值记。本轮一格声明没增没减：
   新立的两格都在别的页与基类）。
 
+**第 1092 轮把同一句话剩下的两大片一次收干净**（用户口径 1.1~1.4：token 子类**构造完**
+信息就得齐；要读的那一格由**具体页显式声明**、构造时赋好）——第 1088 / 1091 轮收的是
+「两连比类名」与「最简单的两个面」，这一轮收的是**折链 / 折调用 / 投类型那几族里出现最多的
+两个名字**：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `X.Tag === "Method"`（**25 处**：折调用、折链、裸调用、断言位那几族） | `X.IsMethodNode` | `Method` 那一页**显式声明** `## field IsMethodNode:bool = true`（常量，构造时就位） |
+| `X.Tag === "GenericType"` / `X.Tag !== "GenericType"`（**23 处**：滤掉泛型段、按泛型段找类型实参、`<T>` 那一支） | `X.IsGenericType` / `X.IsGenericType === false` | `GenericType` 那一页**显式声明** `## field IsGenericType:bool = true`（同上） |
+
+- **两句问的都是「你这一格是什么类」**，而那两个名字**就是那两页自己的类名**
+  （`constructor.name` 就是产物的标签名）——判据与第 1088 / 1090 / 1091 轮同一条。
+  这一轮是**名字最长的那两片**：本页代码块里 `Method` 与 `GenericType` 的现场比类名
+  因此从 55 处收成 **0 处**。
+- **两格都是 `## field`（常量）、不是 `## property` + `### get`**：与第 1091 轮那两格同一条
+  理由——答的不是「正文是什么」（正文是逐字符攒的、未必关过），而是「这一格整个单元是不是
+  某一类」，类名在构造那一刻就定下来（`IsChainBaseNode` / `IsBinaryOperatorNode` 也是这么写的）。
+- **名字为什么不与那两页既有那几格共用**（抄一次会漂）：`Method` 那一页的 `IsBareCall` 答
+  「我这一格的**子单元形状**够不够当一次裸调用」（读自己的 `ProjectableKids`）；
+  `GenericType` 那一页的 `WrapperField` 答「投出来时我这一层**是不是包装**、内容提到哪个字段」
+  （装 `TypeParameter` 时才是）。这一轮两格答的是「**你这一格是不是那一类单元**」——
+  名单与收件人都不同，所以各立一格（`IsMethodNode` 带 `Node` 后缀，与 `IsChainBaseNode` /
+  `IsBinaryOperatorNode` 同一拼法）。
+- **判据跟着长**：`direct:lint` 第八条那一族多认两个名字（`IsMethodNode` / `IsGenericType`），
+  第十七条 `SELF_TAG_CLASSIFY` 的名单从两个 `<Tag>` 扩到**四个**（`PropertyAccess` /
+  `NotNull` / `Method` / `GenericType`，`!==` 也算）——四种现场算式在代码块里都必须恰好 0 处。
+  **自验**（本机探针，不进仓库）：把一处 `IsMethodNode` 与一处 `IsGenericType` 分别写回现场算式
+  ⇒ 报告 **0 → 1 处**、`FAIL`、`exit=1`；逐字节还原 ⇒ 0 处、`exit=0`。
+- **改了哪五个文件**：本页（48 处读数 + 这一节；另 7 处是散文里的名字）、
+  `core/syntax/token.xl.md`（那两格虚属性，基类各答 `false`）、
+  `typescript/tokens/method.xl.md` 与 `typescript/tokens/generic-type.xl.md`（各自显式声明
+  并答 `true`）、`tests/parse/direct-lint.mjs`（第八条名单 + 第十七条那四个 `<Tag>` + 一行读数）。
+- **实测**：`xl check` 5 个文件 0 条；`xl build`（`core` / `typescript`）**4 个产物** / 0 error
+  （`token` / `method` / `generic-type` / `print-ast-common`）、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 29.8s），读数与基线逐项相同：`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**64 格**（一格声明没增没减：新立的两格都在别的页与基类；
+  本页 48 处改的是读数算式）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -1215,13 +1257,13 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 
 | 改掉的那一格 | 原来 | 今天 |
 | --- | --- | --- |
-| 「名字为空、第一个实义子单元是内层 `Method` / 实参括号 / `NotNull`」 | 本页 `isBareCallMethod`（第一句先问 `unit.Tag !== "Method"`） | `Method.IsBareCall`（`## property` + `### get`，基类默认 `false`） |
+| 「名字为空、第一个实义子单元是内层 `Method` / 实参括号 / `NotNull`」 | 本页 `isBareCallMethod`（第一句先问 `unit.IsMethodNode === false`） | `Method.IsBareCall`（`## property` + `### get`，基类默认 `false`） |
 
 - **为什么它属于那一页**（判据与第 1041 / 1057 / 1062 / 1075 那几条同一条）：那一格的**每一半
   事实都是 `Method` 自己的**——「我是不是 `Method`」就是这一页的类名、「我的名字空不空」读
   `DeclaredName`、「我下面第一个实义子单元是什么」读自己的 `ProjectableKids`。本页留着它，
   等于**替那一页记第二遍**。
-- **`unit.Tag !== "Method"` 那一句搬过去就没了**（不是漏写）：它是**基类那一格默认 `false`**
+- **`unit.IsMethodNode === false` 那一句搬过去就没了**（不是漏写）：它是**基类那一格默认 `false`**
   现在的职责——不是 `Method` 的 token 拿到的是默认档，而这里读的是属性、不必先问一句
   「你是什么类」（与第 1074 轮 `IsCommaSymbol` 把 `Tag === "SymbolToken"` 那半句收进基类默认档
   是同一手法）。
@@ -2819,7 +2861,7 @@ new Set([
   // 两条语句（`async;` 换行 `() => 1`）也不会落进同一串单元。
   const asyncHead = kids[0].Tag === "Identifier" && kids[0].TextValue === "async";
   const asyncPlain = asyncHead && kids.length === 2 && kids[1].Tag === "Lamda";
-  if ((kids.length === 3 && kids[0].Tag === "Identifier" && kids[1].Tag === "GenericType" && kids[2].Tag === "Lamda" && kids[0].TextValue === "async") || asyncPlain) {
+  if ((kids.length === 3 && kids[0].Tag === "Identifier" && kids[1].IsGenericType && kids[2].Tag === "Lamda" && kids[0].TextValue === "async") || asyncPlain) {
     const arrow: any = projectNode(kids[kids.length - 1], ctx);
     if (arrow !== undefined) {
       if (kids.length === 3) {
@@ -2871,7 +2913,7 @@ new Set([
     instHead === "Identifier" ||
     instHead === "PropertyAccess" ||
     (instHead === "Bracket" && kids[0].startBracket === "(");
-  if (kids.length >= 2 && instCallee && kids[1].Tag === "GenericType") {
+  if (kids.length >= 2 && instCallee && kids[1].IsGenericType) {
     // **圆括号那一格要走 `projectExpression`**：`(a.b)<string>` 里的头一格是值位括号，
     // 而 TS 那边它是 `ParenthesizedExpression`（`ExpressionWithTypeArguments > ParenthesizedExpression`）。
     // `projectNode(Bracket, …)` 不认这一层（那一支在 `projectExpression` 里，
@@ -3038,7 +3080,7 @@ new Set([
   if (
     kids.length === 2 &&
     (kids[0].IsBinaryOperatorNode) &&
-    kids[1].Tag === "GenericType"
+    kids[1].IsGenericType
   ) {
     const folded = kids[0].ProjectableKids;
     if (folded.length === 3) {
@@ -3050,7 +3092,7 @@ new Set([
     instanceKids[1].IsOperatorUnit &&
     instanceKids[1].TextValue === "instanceof" &&
     instanceKids[2].Tag === "Identifier" &&
-    instanceKids[3].Tag === "GenericType"
+    instanceKids[3].IsGenericType
   ) {
     const callee = projectNode(instanceKids[2], ctx);
     if (callee !== undefined) {
@@ -3092,7 +3134,7 @@ new Set([
   //
   // **泛型箭头函数不走这里**（`<T>(x: T): T => x` 也是 `[GenericType, Lamda]` 两格）——
   // 那一支在后面，这里先让开（判据是第二格是不是 `Lamda`）。
-  if (kids[0].Tag === "GenericType" && kids.length >= 2 && kids[1].Tag !== "Lamda") {
+  if (kids[0].IsGenericType && kids.length >= 2 && kids[1].Tag !== "Lamda") {
     // **被断言的是「一个一元表达式」，不是后面全部**（第 379 轮）。
     //
     // TS 里 `<T>expr` 是**前缀**那一档（与 `!x` / `typeof x` 同一档）——
@@ -3447,7 +3489,7 @@ new Set([
   // `[GenericType(<T>), Lamda(…)]`——`<T>` **不在** `Lamda` 里面。TS 那边它是
   // `ArrowFunction.typeParameters`。照通用支投会把它当成一个类型引用（`TypeReference`），
   // `ArrowFunction` 与它的形参、返回类型整片丢（实测 `expr-arrow-generic.ts` 缺 16）。
-  if (kids.length === 2 && kids[0].Tag === "GenericType" && kids[1].Tag === "Lamda") {
+  if (kids.length === 2 && kids[0].IsGenericType && kids[1].Tag === "Lamda") {
     const arrow: any = projectNode(kids[1], ctx);
     if (arrow !== undefined) {
       const typeParams = kids[0].ProjectableKids.filter((k) => k.Tag === "TypeParameter");
@@ -3677,7 +3719,7 @@ new Set([
     asAfterNco === false &&
     prefixHasOperator === false &&
     kids[ncoIndex - 1].IsChainBaseNode &&
-    kids[ncoIndex].ProjectableKids[0]?.Tag !== "Method"
+    kids[ncoIndex].ProjectableKids[0]?.IsMethodNode === false
   ) {
     let optional = projectExpression(kids.slice(0, ncoIndex), ctx);
     if (optional !== undefined) {
@@ -4599,7 +4641,7 @@ new Set([
       if (k.IsPropertyAccess && at > 0 && isIndexFirstUnit(k, ctx)) {
         const bareKids = k.ProjectableKids;
         const bareHead = bareKids.length > 0 ? bareKids[0] : undefined;
-        if (bareHead !== undefined && bareHead.Tag === "Method"
+        if (bareHead !== undefined && bareHead.IsMethodNode
           && String(bareHead.DeclaredName) === ""
           && endOf(bareHead) < endOf(k)) {
           ck.push(k);
@@ -4921,7 +4963,7 @@ new Set([
               pos: left.pos,
               end: endOf(bangHead),
             };
-          } else if (bangHead !== undefined && bangHead.Tag === "Method") {
+          } else if (bangHead !== undefined && bangHead.IsMethodNode) {
             // **断言的核是一格调用单元**（第 975 轮）：`a!()()!()` 的第二格是
             // `NotNull([Method(name=""[Bracket(())]) , !])`——那一格自己盖着**两层**调用
             // （第 966 轮那句话：一格说两次调用），而上面那两支只认「核是实参括号」
@@ -4958,8 +5000,8 @@ new Set([
         //（第 366 轮的两步走 + 第 962 轮那两格），区别只是**点号没有出现**——
         // 所以这里只补「点号不来」这一档：被调用者是 `left`、而这一格盖着两层调用
         //（判据就是**区间**：`Method` 比它那个实参括号更靠右，与另外三处一字不差）。
-        if (ck[i].Tag === "Method") {
-          const callKids = ck[i].ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
+        if (ck[i].IsMethodNode) {
+          const callKids = ck[i].ProjectableKids.filter((k: any) => k.IsGenericType === false);
           const callHead = callKids.length > 0 ? callKids[0] : undefined;
           const bareName = String(ck[i].DeclaredName);
           // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：
@@ -4970,7 +5012,7 @@ new Set([
           // 折法就是「各投各的」：内层 `projectNode(callHead)` 给出的**已经是**对 `left` 的
           // 一次调用，只需把受体换成 `left`（它那一格本来没人填），位置取 `left.pos`；
           // 外层再用 `projectNode(ck[i])` 套一层。
-          if (bareName === "" && callHead !== undefined && callHead.Tag === "Method"
+          if (bareName === "" && callHead !== undefined && callHead.IsMethodNode
             && String(callHead.DeclaredName) === "") {
             // **「最里面那一格」要一路问到底**（第 975 轮，**普查当场红的**）：
             // `a!()()()()`（四次调用）的 `callHead` 是
@@ -5044,7 +5086,7 @@ new Set([
             // 折法与 `chainWithOptional` / `chainOnto` 的 Method 分支**共用同一对**：
             // 走到最里面那一格（`innermostMethod`）、被调用者交给 `innermostCallee`、
             // 换法交给 `graftCallee`——再把 `!` 套在整条调用链外面。
-            if (assertHead !== undefined && assertHead.Tag === "Method") {
+            if (assertHead !== undefined && assertHead.IsMethodNode) {
               const innerCall = graftCallee(
                 projectNode(assertHead, ctx),
                 innermostCallee(left, innermostMethod(assertHead), ctx),
@@ -5161,7 +5203,7 @@ new Set([
         // **私有方法调用 `this.#m()`**（第 138 轮）：点号后面是 `[SymbolToken(#), Method(name="m")]`——
         // `Method` 自己盖住的是 `m()`，名字只占开头那几个字符。照「名字 + 调用」两件事办：
         // `name` 是一个含 `#` 的 `PrivateIdentifier`（区间到名字末尾），外面再套一层 `CallExpression`。
-        if (after.Tag === "Method") {
+        if (after.IsMethodNode) {
           const raw = String(after.DeclaredName);
           const nameEnd = startOf(after) + raw.length;
           const member = {
@@ -5201,7 +5243,7 @@ new Set([
           (k) => !k.IsNotNullSymbol,
         );
         const head = asserted[0];
-        if (head !== undefined && head.Tag === "Method") {
+        if (head !== undefined && head.IsMethodNode) {
           const raw = String(head.DeclaredName);
           const nameEnd = startOf(head) + raw.length;
           const member = {
@@ -5243,7 +5285,7 @@ new Set([
           continue;
         }
       }
-      if (next.Tag === "Method") {
+      if (next.IsMethodNode) {
         // `console.log(1)` 的产物是 `[console, ., Method(name="log")]`——
         // 那个 `Method` 盖住的是 `log(1)`，而**名字**只占开头的几个字符，
         // 所以这里按名字宽度切一段 `Identifier` 出来（TS 的 `Identifier(log)` 正是这一段）。
@@ -5264,7 +5306,7 @@ new Set([
           // 直接 `projectNode(外层)` 得到的是**被调者为空**的调用（那一格要靠下面这段填），
           // 所以先把**内层**当成普通的成员调用折一遍、再把「调用这个结果」套上去。
           const innerKids = next.ProjectableKids;
-          const innerMethod = innerKids.length > 0 && innerKids[0].Tag === "Method" ? innerKids[0] : undefined;
+          const innerMethod = innerKids.length > 0 && innerKids[0].IsMethodNode ? innerKids[0] : undefined;
           if (innerMethod !== undefined) {
             // **最里面那一格要一路问到底**（第 975 轮）：`a.b()()().c` 的外层空名字 `Method`
             // 里**套着两格**（`Method("")[Method("")[Method("b")]]`）——原来只问**第一格**
@@ -5682,7 +5724,7 @@ const kind = unit.Tag;
 // 它的「以一次调用开头」有两种壳：实参括号自己（`a!()()`）、或断言盖着实参括号
 //（`a!()!()` 里那一格是 `NotNull(Bracket(()), !)`）。
 if (kind === "Method") {
-  const mKids = unit.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
+  const mKids = unit.ProjectableKids.filter((k: any) => k.IsGenericType === false);
   const mHead = mKids.length > 0 ? mKids[0] : undefined;
   if (mHead === undefined) return false;
   if (mHead.IsParenBracket) return true;
@@ -5711,10 +5753,10 @@ if (kind === "Method") {
   // 说的是**三次**调用（每一格空名字的 `Method` 都盖着一次调用，见第 971 轮那一族）。
   // 头一格是 `Method` 时它自己就是「里面那次调用」⇒ 这一格同样是「以一次调用开头」，
   // 判据与上面那一档同源，递归问它即可（`Method` 是**完整单元**，与平级的裸 `(` 兄弟不是一件事）。
-  // 少了这一句：第 971 轮补的 `head.Tag === "Method" && isCallFirstUnit(head, ctx)`
+  // 少了这一句：第 971 轮补的 `head.IsMethodNode && isCallFirstUnit(head, ctx)`
   // 在这里答否 ⇒ 链那一支整个进不来、`kids[0]` 单独投出去（实测 `gap-r971-nonnull-call-thrice-member`：
   // 只剩一个盖到 `a!` 的 `NonNullExpression`，缺 5 格）。
-  if (mHead.Tag === "Method") return isCallFirstUnit(mHead, ctx);
+  if (mHead.IsMethodNode) return isCallFirstUnit(mHead, ctx);
   return false;
 }
 if (kind === "PropertyAccess" || kind === "NotNull") {
@@ -5736,7 +5778,7 @@ if (kind === "PropertyAccess" || kind === "NotNull") {
     // 「断言盖着一次调用」，同样是「以一次调用开头」；原来只认 `Method` ⇒ 链那一支
     // 整个进不来（实测 `gap-r975-nonnull-call-assert-index`：缺 3 漂 1）。
     if (head.IsNotNull) return isCallFirstUnit(head, ctx);
-    return head.Tag === "Method" && isCallFirstUnit(head, ctx);
+    return head.IsMethodNode && isCallFirstUnit(head, ctx);
   }
 }
 return false;
@@ -5837,7 +5879,7 @@ return false;
       cur = one;
     }
     node = cur;
-  } else if (nameUnit.Tag === "Method") {
+  } else if (nameUnit.IsMethodNode) {
     // **断言里的核是一格调用单元**（第 975 轮）：`a?.b()!` 的 NCO 内容是
     // `NotNull([Method(name="b"), !])`——`!` 盖在**那次调用**的结果上
     //（TS：`NonNull(CallExpression(PropertyAccess(a?.b)))`）。照下面那条通用支走会把
@@ -5884,9 +5926,9 @@ return false;
   let deepest = unit;
   let depth = 0;
   while (depth < 32) {
-    const down = deepest.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
+    const down = deepest.ProjectableKids.filter((k: any) => k.IsGenericType === false);
     const next = down.length > 0 ? down[0] : undefined;
-    if (next === undefined || next.Tag !== "Method") break;
+    if (next === undefined || next.IsMethodNode === false) break;
     deepest = next;
     depth = depth + 1;
   }
@@ -5962,7 +6004,7 @@ return false;
       end: at + name.length,
     };
   }
-  const kids = deepest.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
+  const kids = deepest.ProjectableKids.filter((k: any) => k.IsGenericType === false);
   const head = kids.length > 0 ? kids[0] : undefined;
   if (head !== undefined && head.IsParenBracket
     && endOf(head) < endOf(deepest)) {
@@ -6004,7 +6046,7 @@ return false;
       : undefined;
   // **`?.name(args)`**（第 107 轮）：那一格是一个 `Method`（调用）——先折出带 `?.` 的
   // 属性访问，再把调用套上去（TS：`CallExpression > PropertyAccessExpression(?.)`）。
-  if (first !== undefined && first.Tag === "Method") {
+  if (first !== undefined && first.IsMethodNode) {
     const nameText = String(first.DeclaredName);
     // **被调用者自己带 `!`**（第 852 轮）：`a?.b!()` 里那一格是
     // `Method(name="")[NotNull(b, !), Bracket]`——`?.` 属于 `NotNull` 里面那条链、
@@ -6013,7 +6055,7 @@ return false;
     //（实测缺 `NonNullExpression`、多一格空名属性访问），所以这一档交给 `assertedMember`。
     if (nameText === "") {
       const calleeKid = first.ProjectableKids.filter(
-        (k: any) => k.Tag !== "GenericType",
+        (k: any) => k.IsGenericType === false,
       )[0];
       if (calleeKid !== undefined && calleeKid.IsNotNull) {
         const asserted = assertedMember(left, calleeKid, ctx, questionDot);
@@ -6040,7 +6082,7 @@ return false;
       // Identifier(a)`）。两件事各收在各处：走到最里面那一格是 `innermostMethod`，
       // 「换被调用者要下到最里面那一格调用」是 `graftCallee`——`chainOnto` 的 Method 分支
       // 用的是同一对。
-      if (calleeKid !== undefined && calleeKid.Tag === "Method") {
+      if (calleeKid !== undefined && calleeKid.IsMethodNode) {
         // **最里面那一格的被调用者怎么建，收在 `innermostCallee` 里**（第 975 轮）：
         // 它按核分三档（名字 / 实参括号 / `left` 自己），其中「括号那一次」要单独建成一格——
         // 少了那一档，`a?.b()()()` 一族**每一次都少一层**
@@ -6354,7 +6396,7 @@ return false;
         j += 1;
         continue;
       }
-      if (member.Tag === "Method") {
+      if (member.IsMethodNode) {
         const nameText = String(member.DeclaredName);
         const nameAt = startOf(member);
         // **这一格是「名字为空」的调用单元**（第 964 轮补上这份副本）：
@@ -6366,7 +6408,7 @@ return false;
         // **这一份是那条判据的第五处副本**：另外四处已由第 962 / 963 轮补齐，
         // 补上这一处之后五处同形；「五处收成一份实现」登记为下一步（见 README 第 964 轮那一节）。
         if (nameText === "") {
-          const callKids = member.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
+          const callKids = member.ProjectableKids.filter((k: any) => k.IsGenericType === false);
           const callHead = callKids.length > 0 ? callKids[0] : undefined;
           if (callHead !== undefined && callHead.IsNotNull) {
             const asserted = assertedMember(node, callHead, ctx, pending);
@@ -6414,7 +6456,7 @@ return false;
               continue;
             }
           }
-          if (callHead !== undefined && callHead.Tag === "Method") {
+          if (callHead !== undefined && callHead.IsMethodNode) {
             // **这一格盖着一层或好几层调用**（第 966 轮立、第 971 轮按「最里面那一格」补齐）：
             // `a?.b()()` / `a?.b()()()` / `a?.b()()().c` 的 NCO 里那一格都是
             // `Method(name="")[Method(name="")[…]]`——名字为空的每一格都是「对结果再调一次」，
@@ -6641,7 +6683,7 @@ return false;
           pos: left.pos,
           end: endOf(bangHead),
         };
-      } else if (bangHead !== undefined && bangHead.Tag === "Method") {
+      } else if (bangHead !== undefined && bangHead.IsMethodNode) {
         asserted = graftCallee(
           projectNode(bangHead, ctx),
           innermostCallee(left, innermostMethod(bangHead), ctx),
@@ -6660,8 +6702,8 @@ return false;
     // 判据与 `chainWithOptional` 的「内层是 `Method`」那一支**同源**（第 962 轮立的两步走
     // 加区间判据），区别只是**点号没有出现**；空名字那一档也走同一条路
     //（`Method(name="")[Bracket(...)]` 的投影本身就是「被调用者是 `left` 的一次调用」）。
-    if (unit.Tag === "Method") {
-      const callKids = unit.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
+    if (unit.IsMethodNode) {
+      const callKids = unit.ProjectableKids.filter((k: any) => k.IsGenericType === false);
       const callHead = callKids.length > 0 ? callKids[0] : undefined;
       const bareName = String(unit.DeclaredName);
       // **这一格盖着两层（或更多层）调用**（第 966 轮立、第 971 轮按「最里面那一格」补齐）：
@@ -6677,7 +6719,7 @@ return false;
       // 三档各一处一份），换法交给 `graftCallee`
       //（它一路下到最里面那一层，不会把中间几层丢掉）。与 `chainWithOptional` 的
       // 「被调用者是 `Method`」那一支**共用同一对**。
-      if (bareName === "" && callHead !== undefined && callHead.Tag === "Method") {
+      if (bareName === "" && callHead !== undefined && callHead.IsMethodNode) {
         const innerCall = graftCallee(
           projectNode(callHead, ctx),
           innermostCallee(left, innermostMethod(callHead), ctx),
@@ -6732,7 +6774,7 @@ return false;
           continue;
         }
       }
-      if (bareName === "" && callHead !== undefined && callHead.Tag === "Method"
+      if (bareName === "" && callHead !== undefined && callHead.IsMethodNode
         && String(callHead.DeclaredName) === "") {
         // **这一格盖着两层调用、而内层那一格的名字也是空的**（第 966 轮）：`a!()()` 的产物是
         // `[NotNull(a, !), Method(name=""[Method(name=""[Bracket(()), !]), Bracket(())])]`——
@@ -6754,7 +6796,7 @@ return false;
         i += 1;
         continue;
       }
-      if (bareName === "" && callHead !== undefined && callHead.Tag === "Method"
+      if (bareName === "" && callHead !== undefined && callHead.IsMethodNode
         && String(callHead.DeclaredName) !== "") {
         const innerName = String(callHead.DeclaredName);
         const innerAt = startOf(callHead);
@@ -6849,7 +6891,7 @@ return false;
       if (inner.length === 0) break;
       next = inner[0];
     }
-    if (next.Tag === "Method") {
+    if (next.IsMethodNode) {
       const name = String(next.DeclaredName);
       // **被调用者自己带 `!`**（第 852 轮）：`a?.b!.c!()` 里 `.c!()` 那一格是
       // `Method(name="")[NotNull(c, !), Bracket]`——断言套在**接上 `c` 之后**的那条链上，
@@ -6857,7 +6899,7 @@ return false;
       // 所以这一档交给 `assertedMember`。与上面 `chainWithOptional` 那一处同形同修。
       if (name === "") {
         const calleeKid = next.ProjectableKids.filter(
-          (k: any) => k.Tag !== "GenericType",
+          (k: any) => k.IsGenericType === false,
         )[0];
         if (calleeKid !== undefined && calleeKid.IsNotNull) {
           const asserted = assertedMember(left, calleeKid, ctx, undefined);
@@ -6872,7 +6914,7 @@ return false;
         // 那一处**同形同修**（第 366 轮立的两步走）——`a?.b.c()()` 里 `.c()()` 那一格是
         // `Method(name="")[Method(name="c")]`，先把内层折成成员调用、再把外层那次调用套上去；
         // 少了它，那一格会落到下面「按成员名折」⇒ 投出一个**名字为空**的属性访问。
-        if (calleeKid !== undefined && calleeKid.Tag === "Method") {
+        if (calleeKid !== undefined && calleeKid.IsMethodNode) {
           // **折法与 `chainWithOptional` 那一处、以及本函数 Method 分支一字不差**
           //（第 975 轮收拢）：最里面那一格用 `innermostMethod`、被调用者用
           // `innermostCallee`、换法用 `graftCallee`。
@@ -6996,13 +7038,13 @@ return false;
         const memberIsCall = (unit: any): bool => {
           const name = String(unit.DeclaredName);
           if (name !== "") return true;
-          const inner = unit.ProjectableKids.filter((k: any) => k.Tag !== "GenericType");
+          const inner = unit.ProjectableKids.filter((k: any) => k.IsGenericType === false);
           const head = inner.length > 0 ? inner[0] : undefined;
           if (head === undefined) return false;
-          return head.Tag === "Method"
+          return head.IsMethodNode
             || (head.IsParenBracket);
         };
-        if (member.Tag === "Method" && memberIsCall(member)) {
+        if (member.IsMethodNode && memberIsCall(member)) {
           if (pendingBang !== undefined) {
             left = {
               kind: "NonNullExpression",
@@ -7878,7 +7920,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     (k: any) => k.Tag === "SymbolToken" && k.TextValue === "=>",
   );
   const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
-  const generic = before.find((k: any) => k.Tag === "GenericType");
+  const generic = before.find((k: any) => k.IsGenericType);
   const newUnit = before.find((k: any) => k.Tag === "Keyword" && k.TextValue === "new");
   const props: any = {};
   const params = [];
@@ -8071,7 +8113,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // （实测 `type-new-nodes-adversarial.ts` 的 `x is A.B<C>`：缺 `TypeReference` + `Identifier`）。
   if (
     paUnit !== undefined &&
-    (list.length === 1 || (list.length === 2 && list[1].Tag === "GenericType"))
+    (list.length === 1 || (list.length === 2 && list[1].IsGenericType))
   ) {
     const members = paUnit.ProjectableKids;
     const pureName = members.every((k) => k.IsNameNode || k.IsDotSymbol);
@@ -8148,7 +8190,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     // 上面那一支只管点号名，实参段还是平级兄弟。TS 那边 `TypeQuery.typeArguments` 要照收，
     // 否则实参里那串名字整片丢（实测缺 `Identifier` 394 / `TypeReference` 140 的样本
     // 全是 `https.d.ts` 的这一族）。
-    const queryGeneric = list.find((k) => k.Tag === "GenericType");
+    const queryGeneric = list.find((k) => k.IsGenericType);
     if (queryGeneric !== undefined) {
       const typeArguments = [];
       for (const group of splitTopLevel(queryGeneric.ProjectableKids, ",")) {
@@ -8167,7 +8209,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // **平级兄弟**。不收的话：少 `typeArguments`、区间短一截（漂移），实参里那串名字整片丢。
   if (list[0].Tag === "TypeQuery" || list[0].Tag === "ImportType") {
     const query = projectNode(list[0], ctx);
-    const generic = list.find((k) => k.Tag === "GenericType");
+    const generic = list.find((k) => k.IsGenericType);
     if (generic !== undefined && query !== undefined) {
       const typeArguments = [];
       for (const group of splitTopLevel(generic.ProjectableKids, ",")) {
@@ -8193,7 +8235,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // （`AstKind()` 给它的是 `TypeReference`）——类型参数成了它的孩子、**整个函数类型被丢掉**：
   // 真实语料 `Identifier` 缺 1616 里的一大片、`TypeReference` 缺 417，
   // 全是 `@types/node/async_hooks.d.ts` 那种「泛型函数类型」（`snapshot(): <R, TArgs…>(…) => R`）。
-  if (list.length === 2 && list[0].Tag === "GenericType" && list[1].Tag === "FunctionType") {
+  if (list.length === 2 && list[0].IsGenericType && list[1].Tag === "FunctionType") {
     const typeParams = list[0].ProjectableKids.filter((k) => k.Tag === "TypeParameter");
     // **走通用分派而不是直调那个函数**（第 188 轮）：`FunctionType` 的投影已经搬进
     // `tokens/function-type.xl.md` 的 `PrintDirectAst`，而 `projectNode` 会先问它——
@@ -8206,7 +8248,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     return fn;
   }
   const head = list[0];
-  let generic = list.find((k) => k.Tag === "GenericType");
+  let generic = list.find((k) => k.IsGenericType);
   const arraySuffix = list.find((k) => k.Tag === "ArrayType");
   // **`A<T>[]` 的产物把实参段装进了 `ArrayType` 里面**（第 104 轮）：
   // `[Identifier(Dirent), ArrayType(GenericType(NonSharedBuffer))]`——那个 `GenericType`
@@ -8215,7 +8257,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   //（实测 `TypeReference` 缺 220 / 漂移 50、`Identifier` 缺 553 里成片就是这个形状，
   // `@types/node/fs.d.ts` 的 `Dirent<NonSharedBuffer>[]` 一眼可见）。
   if (generic === undefined && arraySuffix !== undefined) {
-    const inside = arraySuffix.ProjectableKids.find((k) => k.Tag === "GenericType");
+    const inside = arraySuffix.ProjectableKids.find((k) => k.IsGenericType);
     if (inside !== undefined) generic = inside;
   }
 
@@ -8262,7 +8304,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     const arrow = list.findIndex((k) => k.Tag === "SymbolToken" && k.TextValue === "=>");
     if (arrow > 0) {
       const ctorProps = {};
-      const ctorGeneric = list.find((k) => k.Tag === "GenericType");
+      const ctorGeneric = list.find((k) => k.IsGenericType);
       if (ctorGeneric !== undefined) {
         const typeParams = ctorGeneric.ProjectableKids.filter((k) => k.Tag === "TypeParameter");
         if (typeParams.length > 0) ctorProps.typeParameters = projectEach(typeParams, ctx);
@@ -9299,7 +9341,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   }
   if (module_ === undefined) {
     for (const kid of kids) {
-      if (!(kid instanceof Token) || kid.Tag !== "Method") continue;
+      if (!(kid instanceof Token) || kid.IsMethodNode === false) continue;
       const one = kid;
       // **第 1073 轮量过等价、改成读属性**：这里原来读 `allKids(one)`（含 trivia 的完整子单元表），
       // 而 `Method` 那一页**没有声明 `Segments`**，所以基类那句 `ProjectableKids` 在它身上
@@ -9322,7 +9364,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // `moduleHolderOf`：那个字符串**装在谁里面**（它自己就在 `kids` 这一层时给 `undefined`）。
     let moduleHolder: any = undefined;
     for (const kid of kids) {
-      if (!(kid instanceof Token) || kid.Tag !== "Method") continue;
+      if (!(kid instanceof Token) || kid.IsMethodNode === false) continue;
       const one = kid;
       for (const inner of one.ProjectableKids) {
         if (inner === module_) moduleHolder = kid;

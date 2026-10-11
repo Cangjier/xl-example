@@ -1435,6 +1435,19 @@ switch (item) {
 
 它覆写了 `ToXmlString`，形状对齐 `Bracket`：尖括号本身做属性（`startBracket` / `endBracket`），子单元照常串在标签里。属性值必须过一遍 `CommonUtil.XmlDecode`——`<` 直接写进属性会破坏 XML，而 `Bracket` 的 `(` / `)` 没有这个问题，所以那边没有这一步。
 
+## field IsGenericType:bool = true
+
+**我这一格是不是一段泛型括号段**（第 1092 轮）：投影层折链、折调用、投类型那一族里
+**23 处**连读它（`X.Tag === "GenericType"` 与 `X.Tag !== "GenericType"`），而**类名就是这一页
+自己的名字**——所以它本来就该由这一页答，不是由投影先问一句「你是什么类」。
+
+常量：构造时就赋好。口径与「为什么必须有基类那一句默认」见
+`../../core/syntax/token.xl.md` 的 `IsGenericType`。
+
+**它与 `WrapperField` 不是同一问**：那一格答「投出来时我这一层是不是包装、内容提到哪个字段」
+（装 `TypeParameter` 时才是，装类型实参时不是）；这一格答「我是不是 `GenericType` 这一格单元」
+——就是类名本身。所以两格各自显式声明、各自守着自己那一问。
+
 ## field WrapperField:string | null | undefined = undefined
 
 **投成目标语言形状时，我这一层是不是「包装」**：是的话给出「内容提到哪个字段」，不是的话是 `undefined`（见 `core/syntax/token.xl.md` 那一节——`null` 与 `undefined` 是两件事）。
