@@ -1524,6 +1524,27 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 （`## field`，构造 / 记下正文那一刻赋好），投影只读这一格（`unit.IsOperatorUnit`）——
 同一份事实只有一处声明，也不必先问一句「你是哪一类」。
 
+## field OperatorWordKind:string = ""
+
+**我这一格的正文是一个「词形运算符」的话，它在 TS 那边叫哪个关键字节点**（第 1106 轮）——
+是的话答那个 `SyntaxKind` 名（`InKeyword` / `InstanceOfKeyword`），不是答**空串**。
+
+这是 `IsOperatorUnit` 那一格的**第二个出口**：两问都只由「我这一格的正文是不是 `in` /
+`instanceof`」决定，所以递的仍是同一个事实，只是从「是不是」换成「是的话叫什么」——
+投影那一侧要的是**名字**（`BinaryExpression.operatorToken` 的 `kind`），
+过去它自己按文本判一次再拼出那两个字面量（见 `print-ast-common.xl.md` 的
+`operatorTokenOf`，第 1106 轮整格删掉）。
+
+**为什么归被问的那一页**：与 `IsOperatorUnit` / `IsTypeParameterModifier` / `KeywordKind`
+同一条判据——「我这一格的正文是什么」只有这一页知道，而**答案（那个 kind 名）也是这一页
+自己的词汇**（`Keyword` 那一页的 `KEYWORD_KIND` 里本来就写着这两条）。所以
+`Keyword` 在 `SetValue` 里、`Identifier` 在 `Close()` 里**同一趟赋好**，
+基类默认空串、需要它的两页各自**显式声明同一个属性**。
+
+**空串不是「不知道」**：`SymbolToken`（`+` / `&&` 那一族）与其余页面**永远不是词形运算符**，
+它们的形状由自己那一页的 `PrintDirectAst` 出，投影读到空串就走通用投影——
+所以这一格答空串就是「这一态不归我」。
+
 ## field IsPrefixOperatorUnit:bool = false
 
 **我这一格是不是一个前缀运算符**（第 1062 轮）——是的话答 `true`。

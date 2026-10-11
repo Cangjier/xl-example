@@ -712,6 +712,15 @@ for (const file of files) {
  * `ArrayLiteral` / `Bracket` / `NotNull` / `PropertyAccess` / `Method` 五页各自显式声明
  * 同一个属性（`## property` + `### get`），投影只读属性（`x?.IsIndexFirstUnit`）。
  * 这一条守的就是**名字写回成问句**那一形态：`isIndexFirstUnit(` / `isCallFirstUnit(` / `ctx.Is…`。
+ *
+ * **第 1106 轮再补一格**：`OperatorWordKind`——「这一格是词形运算符（`in` / `instanceof`）的话，
+ * 它在 TS 那边叫什么」过去是投影层的一格 helper（`print-ast-common.xl.md` 的 `operatorTokenOf`：
+ * 按 `op.TextValue` 认那两个词、再自己拼出 `"InKeyword"` / `"InstanceOfKeyword"`），
+ * 而那两半**都在被问的那一页上**（正文只有那一页知道；那两个 kind 名本来就在 `Keyword` 的
+ * `KEYWORD_KIND` 里）。今天基类一格默认空串、`Identifier` 在 `Close()`、`Keyword` 在
+ * `SetValue` 里各自显式声明同一个属性并按自己的正文赋好，投影只读 `x.OperatorWordKind`。
+ * 这一条守的是**老 helper 名写回投影层的方法体**（`operatorTokenOf(`）与出口形态
+ * （`ctx.OperatorWordKind`）。
  */
 /** **属性名 → 那一问的写法**：`IsDotSymbol` → `isDotSymbol`，`IsIndexBracket` → `isIndexBracket`。 */
 const classifyPredicate = (name) => (name.startsWith("Is") ? "is" + name.slice(2) : name);
@@ -720,6 +729,7 @@ const CLASSIFY_ALIASES = {
   isDotSymbol: ["isDot"],
   isChainBaseNode: ["IsChainBaseNode"],
   OperatorRank: ["operatorRank"],
+  OperatorWordKind: ["operatorTokenOf"],
   DeclarationListFlags: ["flagsOf"],
   HasChildren: ["labelIsFlat"],
   Segments: ["segmentKeysOf"],
@@ -735,6 +745,7 @@ const SELF_CLASSIFY_NAMES = [
   "IsTypeSeparator",
   "IsNameNode",
   "IsOperatorUnit",
+  "OperatorWordKind",
   "IsPrefixOperatorUnit",
   "IsTypeParameterModifier",
   "OperatorRank",
@@ -814,7 +825,8 @@ let selfClassifyHits = 0;
           why:
             `「这一格是不是某一类」又写回投影层了：\`${match[0]}\`——那一格的事实住在被问的那一页` +
             "（`Token.IsDotSymbol` / `Token.IsTypeSeparator` / `Token.IsNameNode` / `Token.IsOperatorUnit` / " +
-            "`Token.IsPrefixOperatorUnit` / `Token.IsTypeParameterModifier` / `Token.IsCommentUnit`），投影只读属性",
+            "`Token.OperatorWordKind` / `Token.IsPrefixOperatorUnit` / `Token.IsTypeParameterModifier` / " +
+            "`Token.IsCommentUnit`），投影只读属性",
         });
       }
     }

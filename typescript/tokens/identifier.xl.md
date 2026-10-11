@@ -152,6 +152,19 @@ if (last instanceof Identifier) {
 按 `Keyword` 判就一格也认不出来，所以**同一个词两态都要认**——而这件事判的正是
 「我这一格的正文是不是那个词」。
 
+## field OperatorWordKind:string = ""
+
+**我这一格的正文是词形运算符的话，它在 TS 那边叫什么**（第 1106 轮）：`in` / `instanceof`
+两态各自答 `InKeyword` / `InstanceOfKeyword`，其余（含正文还没攒完的空串）答**空串**。
+判据与赋值点与上一格**同一份正文、同一趟**（`Close()` 里紧跟着那一行），
+口径见 `../core/syntax/token.xl.md` 的 `OperatorWordKind`。
+
+**为什么这一页也要答**：与 `IsOperatorUnit` 同一件事实的两半（第 550 / 1062 轮那条
+「同一个词两态都要认」）——关掉 reorg 之后最里面那一层的 `in` / `instanceof`
+**永远停在 `Identifier`**，投影要的是那个关键字节点名，而这个名字与 `LeafKindOfText` 里
+`true` / `null` / `this` / `super` 那几档同一条口径：**这一页的正文对应哪个 TS 叶子节点**，
+由这一页自己答（那一格答的是语法位置上的叶子，这一格答的是运算符位上的那一态）。
+
 ## field IsTypeParameterModifier:bool = false
 
 **我这一格是不是类型参数的修饰词**（第 1062 轮）：标识符里是 `in` / `out` / `const`
@@ -221,7 +234,7 @@ return IsUnclosedBracedEscape(this.TempToString());
 
 ## protected method Close:()=>void
 
-关闭：把自己标记为已关闭，**并把由这一格正文派生的三格一起赋好**（第 1062 / 1075 轮）。
+关闭：把自己标记为已关闭，**并把由这一格正文派生的四格一起赋好**（第 1062 / 1075 / 1106 轮）。
 
 **为什么赋值点在这里**：标识符是**逐字符攒起来**的，而 `Close()` 正是「攒完了」那一刻
 （`SymbolToken` 那一页把同款的三格放在同一处，理由同一条：读得到的一定是收完的正文）。
@@ -230,6 +243,11 @@ return IsUnclosedBracedEscape(this.TempToString());
 this.Closed = true;
 // 三格都是「我这一格的正文是什么」的函数，所以在同一个时刻、同一趟里赋好。
 this.IsOperatorUnit = this.IsAny(["in", "instanceof"]);
+// **第 1106 轮**：同一份事实的第二个出口——是那两个词的话，名字也在这里一起答
+// （判据读上一行那一格，这一页因此只有一份「那两个词」的名单）。
+this.OperatorWordKind = this.IsOperatorUnit
+  ? (this.TempToString() === "in" ? "InKeyword" : "InstanceOfKeyword")
+  : "";
 this.IsTypeParameterModifier = this.IsAny(["in", "out", "const"]);
 // **第 1075 轮**：投影侧那一问（这一格能不能当链的基名）的另一半是「我这一格的正文是
 // 不是那几个不走链的词」——同一趟、同一份正文。

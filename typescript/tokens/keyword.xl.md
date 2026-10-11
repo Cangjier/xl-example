@@ -81,6 +81,17 @@ return Keyword.UpgradeAt(units, index);
 过去它是投影层的一个现场判据（`print-ast-common.xl.md` 的 `isOperatorUnit`），
 而「我这一格的正文是什么」只有这一页知道。
 
+## field OperatorWordKind:string = ""
+
+**我这一格的正文是词形运算符的话，它在 TS 那边叫什么**（第 1106 轮）：`in` / `instanceof`
+两态各自答 `InKeyword` / `InstanceOfKeyword`，其余（含正文还是空串的默认态）答**空串**。
+判据与赋值点与上一格**同一趟**（`SetValue` 里紧跟着那一行）。
+
+**这一页不另立一份词表**：上一格答「是不是那两个词」，而「是的话叫什么」本页早已有答案
+——`KeywordKind` 就是按 `Value` 查 `KEYWORD_KIND` 得到的那个 `SyntaxKind` 名，
+所以这一格读的是**本页自己的另一格**（`this.KeywordKind`），这两条词的 kind 仍然只有一处声明。
+口径见 `../core/syntax/token.xl.md` 的 `OperatorWordKind`。
+
 ## field IsPrefixOperatorUnit:bool = false
 
 **我这一格是不是一个前缀运算符**（第 1062 轮）：关键字里是 `typeof` / `void` /
@@ -314,8 +325,9 @@ super(template);
 **记下正文，并把由它派生的那几格一起赋好**（第 1042 / 1062 轮）。
 
 `Value` 是这一页**唯一的输入**，而 `KeywordKind` / `StatementKind` / `StatementField` /
-`IsStatementNode` / `IsOperatorUnit` / `IsPrefixOperatorUnit` / `IsTypeParameterModifier`
-都是它的函数（前四格查本页那两张词汇表，后三格比正文里的那几个词）——所以赋值只有**这一个入口**：
+`IsStatementNode` / `IsOperatorUnit` / `OperatorWordKind` / `IsPrefixOperatorUnit` /
+`IsTypeParameterModifier` 都是它的函数（前四格查本页那两张词汇表，后四格比正文里的那几个词）
+——所以赋值只有**这一个入口**：
 `UpgradeAt` 与 `Clone` 都走它。**为什么要有这一格**：第 1042 轮把那四格从方法改成属性之后，
 「谁保证它们与 `Value` 同步」就成了这一页自己的责任；两处赋值点各写几行就会漂，
 收成一个入口才与「同一份事实一处声明」同一条口径。
@@ -330,6 +342,9 @@ this.StatementField =
 this.IsStatementNode = KEYWORD_STATEMENT_KINDS.has(text);
 // **三格小判据都是「我这一格的正文是什么」的函数**（第 1062 轮）：与上面那几格同一趟赋好。
 this.IsOperatorUnit = text === "in" || text === "instanceof";
+// **第 1106 轮**：同一份事实的第二个出口——是那两个词的话，名字也从本页那一格抄过来
+// （「是的话叫什么」本页早就有答案，见 `KeywordKind`）。
+this.OperatorWordKind = this.IsOperatorUnit ? (this.KeywordKind ?? "") : "";
 this.IsPrefixOperatorUnit =
   text === "typeof" || text === "void" || text === "delete" || text === "await";
 this.IsTypeParameterModifier = text === "in" || text === "const";

@@ -74,14 +74,33 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**53 格声明**（`^# …(method|const)` 逐行数出来的实测值：
-49 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
+这是一份**纯函数库**：**52 格声明**（`^# …(method|const)` 逐行数出来的实测值：
+48 个 `# method` + 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面只有 3 个名字**（`projectNode` /
 `projectRoot` / `ToJsonText`，由 `xl` 按 `# method` 的可见性生成），其余一律 `# private`。
 **量法**：`Select-String -Path typescript\print-ast-common.xl.md -Pattern '^# (private )?(method|const) '`
 （`.Count` 就是那一格）；本页从第 1073 轮起一律只写**实测值**，不写「上一轮减去几格」的推算
 （第 1062 ~ 1090 轮那一栏曾连续抄错 2 格，第 1091 轮复核时逐行数出来的与那一栏不符）。
+**第 1106 轮收掉的是一格「现场判据」加它自己**：`operatorTokenOf`（21 行）自己按
+`op.TextValue` 认 `in` / `instanceof` 两个词、再拼出 `"InKeyword"` / `"InstanceOfKeyword"`
+两个字面量——而**两半都是被问那一格的事实**（正文只有那一页知道，那两个 kind 名本来就在
+`Keyword` 那一页的 `KEYWORD_KIND` 里）——所以按用户口径 1.1 / 1.3 与第 1041 / 1042 /
+1057 / 1062 轮那条判据收成**一格属性**：`core/syntax/token.xl.md` 立基类一格
+`OperatorWordKind:string`（默认空串），`Identifier` 在 `Close()`、`Keyword` 在 `SetValue` 里
+**各自显式声明同一个属性**并按**自己的正文**赋好（`Keyword` 那一页读的是它自己的
+`KeywordKind`，所以那两条词的 kind 仍只有一处声明）；赋值点在「正文攒完 / 记下正文」那一刻
+⇒ **构造好之后这一格的信息就是齐的**，本页只读一次。
+本页三处读者随之改属性读：`ctx.OperatorNode` 那一行出口（它原来就是那一格唯一的实体）、
+`projectExpression` 里 `instanceof` 实例化那一支（原来 `IsOperatorUnit && TextValue ===
+"instanceof"` 两行，`OperatorWordKind` 答出名字就蕴含前一半，两半收成一次属性读），以及
+`foldBinaryFrom` 里那一处——**helper 一格删掉、本页声明 53 → 52 格**，
+`ctx.OperatorNode` 这个名字与它的实参表一个字不动（出口的名字是别的页的调用点）。
+**判据跟着长一格**：`direct:lint` 第八条那一族（「这一格是不是某一类 / 这一格的值是什么」
+由被问的那一页答）多认一个名字 `OperatorWordKind`，别名就是那一格的老写法
+`operatorTokenOf`——**自验**（本机探针，不进仓库）：把 `ctx.OperatorWordKind` 与
+`operatorTokenOf(unit, ctx)` 各写回代码块一处，这一门 **0 → 2 处**、退出码 1；
+源文件逐字节还原后回到 0 处。
 **第 1105 轮合掉的是一对「同形不同 kind」的格**：`qualifiedNameFrom`（16 行）与
 `dottedExpression`（17 行）的算式逐行相同（`nameOf(names[0])` + 一个从 `i = 1` 起的循环 +
 `pos: node.pos` / `end: right.end`），差别只有节点 `kind` 与两个字段名（`left`/`right`
@@ -3058,28 +3077,6 @@ new Set([
 ])
 ```
 
-# private method operatorTokenOf:(op:any, ctx:any)=>any
-
-运算符那一格的**叶子节点**（第 550 轮）。
-
-`Keyword` 那一态走现成的通用投影（`Keyword.KeywordKind` 把它们映射成 `InKeyword` /
-`InstanceOfKeyword`）；`Identifier` 那一态**必须按文本自己定 kind** ——
-照通用投影会投成 `Identifier("in")`，于是同一个节点在账上**同时**记一笔「缺 `InKeyword`」
-与一笔「多出 `Identifier`」。
-
-```ts
-  const text = op.TextValue;
-  if (!op.IsIdentifierUnit || (text !== "in" && text !== "instanceof")) {
-    return projectNode(op, ctx);
-  }
-  return {
-    kind: text === "in" ? "InKeyword" : "InstanceOfKeyword",
-    text,
-    pos: startOf(op),
-    end: startOf(op) + text.length,
-  };
-```
-
 # private method projectExpression:(kids:Array<any>, ctx:any)=>any
 
 一串单元 → 一个表达式。
@@ -3361,8 +3358,10 @@ new Set([
   }
   if (
     instanceKids.length >= 4 &&
-    instanceKids[1].IsOperatorUnit &&
-    instanceKids[1].TextValue === "instanceof" &&
+    // **「是不是 `instanceof` 这个词」由那一格自己答**（第 1106 轮）：原来这里是
+    // `IsOperatorUnit && TextValue === "instanceof"` 两行，而 `OperatorWordKind` 答出名字
+    // 就蕴含了「是词形运算符」那一半——两半收成一次属性读（第 1068 轮同一手法）。
+    instanceKids[1].OperatorWordKind === "InstanceOfKeyword" &&
     instanceKids[2].IsIdentifierUnit &&
     instanceKids[3].IsGenericType
   ) {
@@ -3383,11 +3382,12 @@ new Set([
       //
       // 所以这里自己把这一层二元折出来（与 `foldBinaryFrom` 的二元那一支同一个形状：
       // `pos` 取左操作数、`end` 取右操作数），尾巴上还有运算符（`as` 那种）时才交回它。
-      // 运算符节点仍走 `operatorTokenOf`——`instanceof` 在这一层常常还是 `Identifier`。
+      // 运算符节点仍走 `ctx.OperatorNode`——`instanceof` 在这一层常常还是 `Identifier`，
+      // 而那一格自己按正文答 `OperatorWordKind`（第 1106 轮）。
       const binary: any = {
         kind: "BinaryExpression",
         left: projectNode(instanceKids[0], ctx),
-        operatorToken: operatorTokenOf(instanceKids[1], ctx),
+        operatorToken: ctx.OperatorNode(instanceKids[1]),
         right: self,
         pos: startOf(instanceKids[0]),
         end: self.end,
@@ -7530,9 +7530,10 @@ new Set([
     node = {
       kind: "BinaryExpression",
       left: node,
-      // **运算符那一格按文本定 kind**（第 550 轮）：`in` / `instanceof` 在深度界那一层
-      // 还是 `Identifier`，见 `operatorTokenOf`。
-      operatorToken: operatorTokenOf(op, ctx),
+      // **运算符那一格的 kind 由那一格自己答**（第 550 轮起、第 1106 轮收成属性读）：
+      // `in` / `instanceof` 在深度界那一层还是 `Identifier`，它答的
+      // `OperatorWordKind` 与 `Keyword` 那一态答的是同一个名字。
+      operatorToken: ctx.OperatorNode(op),
       right,
       pos: node.pos,
       end: right ? right.end : endOf(op),
@@ -10119,8 +10120,25 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 递一个问句，不把整张表复制到 `ctx` 上。
     // **运算符那一格的叶子节点**（第 550 轮）：`in` / `instanceof` 在深度界那一层
     // 还是 `Identifier`，照 `Project` 投会投成 `Identifier("in")` ——
-    // `BinaryOperator.PrintDirectAst` 那一支正需要它（见 `operatorTokenOf`）。
-    OperatorNode: (unit) => operatorTokenOf(unit, ctx),
+    // `BinaryOperator.PrintDirectAst` 那一支正需要它。
+    //
+    // **判据与那两个名字第 1106 轮搬回了被问的那一格**（用户口径 1.1 / 1.3）：
+    // 这里过去是一格 `operatorTokenOf`，自己按 `op.TextValue` 认那两个词、再拼出
+    // `"InKeyword"` / `"InstanceOfKeyword"` 两个字面量——而那是**被问那一格自己的正文**
+    // 与**它自己那一页的词汇**（`Keyword` 的 `KEYWORD_KIND` 里本来就写着这两条）。
+    // 今天只读一格：`unit.OperatorWordKind`（`Keyword` 在 `SetValue`、`Identifier` 在
+    // `Close()` 里按自己的正文赋好，空串＝这一态不是词形运算符），本页不再判「我这一格长什么样」。
+    OperatorNode: (unit) => {
+      const kind = unit.OperatorWordKind;
+      if (kind === "") return projectNode(unit, ctx);
+      const text = unit.TextValue;
+      return {
+        kind,
+        text,
+        pos: startOf(unit),
+        end: startOf(unit) + text.length,
+      };
+    },
   };
   const statements = projectEach(exported, ctx);
 
