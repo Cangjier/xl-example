@@ -269,26 +269,28 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 合一个**声明名**的节点（`class A` / `function f` / `x: T` 的 `x`…）。
 
-**位置的首选来源是 token 记的字段**：`Class` / `Interface` / `Enum` / `Let` / `TypeAssign` /
-`Field` / `MethodDeclaration` 都在认下名字那一刻把它的下标记成 `nameStart` / `nameEnd`
-（闭区间，见各自的 `NameStart`）——有这对字段就**不做任何猜测**，下面那套补偿一步都不跑。
+**位置只有一个来源：token 认下名字那一刻记下的那一格**——`Class` / `Interface` / `Enum` / `Let` /
+`TypeAssign` / `Field` / `MethodDeclaration` / `NamespaceExport` 都在那一刻把名字的下标记成
+`nameStart` / `nameEnd`（闭区间，见各自的 `NameStart`），于是这里**不做任何猜测**。
 
-没有这对字段时（字符串名 / 计算名那一档，以及还没记字段的 token）退回按原文量：
+**第 1051 轮把「按原文猜」的那一套整段删掉了**。它原先的样子是一条三级兜底：
+先按最后一次 `indexOf` 搜，搜之前还要推过修饰词（`modifiers="const"`）与装饰器
+（`@observable` 换行 `a = 1` 里 `indexOf("a")` 会先命中装饰器名里的那个 `a`），
+而上界又不能用声明自己的 `end`（`const f` 里那个 `f` 正好落在 `Let` 的末字符上）。
+三条都踩过坑，所以每一条都留了一句注释——但它们**一次都不跑**：
 
-1. 位置不能拿声明自己的 `start` 充数（踩过两次，症状不同）：`export class A` 的声明从 `export` 起，
-   而名字 `A` 在更后面——用声明开头会让**整类名字的区间都错位**（尺子上表现为「TS 有 82 个
-   `Identifier` 产物没有」）；
-2. 光用 `source.indexOf(name, start)` 还不够：`function f` 里那个 `f` 会在 **`function`** 里
-   先被找到——所以搜索起点要**推过修饰词**（`modifiers="const"`）与装饰器。
+**量法**（`tmp/r1051/probe.cjs`）：把构建产物里本函数的每个 `return` 前面插一句计数，
+跑 `node tests/parse/direct-ast.mjs --all`（2051 份语料），读数是
+`{"calls":160491,"hits":{"emptyName":53497,"nameRange":21373,"nameStartField":32124}}`。
 
-这套补偿是**第二份近似**：它按文本猜位置，猜不中时（名字的首字母落在修饰词里、注释里有同样的词）
-给出的区间与 token 自己记的那个不一致。字段那条路就是为了**把这份近似从投影里删掉**。
+三级兜底**一级都没进过**（读数里没有它们的标签）。所以「字段那条路」不是在**多数时候**替掉
+这套近似，而是**完全替掉了**：留着一个不走的兜底，等于给「回原文猜」留一条路，
+而那条路只会在坏输入上给出**第二份答案**（名字的首字母落在修饰词里、注释里有同样的词）。
+删掉之后本函数的形状只剩三句：空名 ⇒ `undefined`；`nameRange` 在 ⇒ 按它推；
+`nameStart` / `nameEnd` 在 ⇒ 直读——都不在就 `undefined`（这一格没带位置，不替它近似）。
 
-**还剩多少**（全语料 1517 份实测）：第 645 轮从 **1324 处降到 270 处**（`Field` **917 → 0**、
-`Namespace` **401 → 264**），第 646 轮把 `Namespace`（三种名字共用一格 `nameRange`）、
-`NamespaceExport` 与 `MethodDeclaration` 的字符串名都记上位置之后**降到 0 处**——
-投影里那条 `indexOf` 补偿**一次都不再跑**（它是给还没记字段的 token 留的兜底，
-今天全语料没有这样的 token；`Clone` 出来的克隆体仍走它）。
+**字符串名那一档**（`"a-b" = 2`）走的是第一条：`nameRange` 是**含引号**的整段区间，
+开头是引号 ⇒ 文本在引号之间。
 
 ```ts
   // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
@@ -320,42 +322,19 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
       return { kind: nameKind, text: nameText, pos, end };
     }
   }
-  // **首选 token 记的位置**：认下名字那一刻它就在手上（`SourceRange`），于是被记成
-  // `nameStart` / `nameEnd` 两个下标（闭区间；见各 token 的 `NameStart`）。
-  // 有它就**不做任何猜测**——下面的 `indexOf` 补偿只是给没有这对字段的那几档兜底。
+  // **位置只有一个来源：token 认下名字那一刻记下的那一格**（各页的 `NameStart` / `NameEnd`，
+  // 闭区间下标）。它在构造时就赋好了，所以这里**不做任何猜测**。
+  // **第 1051 轮把「猜」的那一段整段删掉了**：原来下面还有一套补偿——推过修饰词、推过装饰器、
+  // 再回原文 `indexOf(名字)` 搜一遍——量出来**一次都没走**（全语料 2051 份、本函数被调 160491 次，
+  // 三个出口的计数是 `nameRange` 21373 / `nameStart` 32124 / 空名 53497，兜底 0 处）。
+  // 留在投影里就是给「回原文猜」留一条路，而那条路只会在坏输入上给出**第二份答案**；
+  // 记不到位置就是 `undefined`——这一格**根本没带名字的位置**，不必替它近似一个。
   const start = v.nameStart;
   const end = v.nameEnd;
   if (typeof start === "number" && typeof end === "number" && start >= 0 && end >= start) {
     return { kind: nameKind, text: nameText, pos: start, end: end + 1 };
   }
-  const modifiers = v.modifiers;
-  let from = v.start;
-  // **修饰词的位置首选 token 记的字段**（见 `modifierSpansOf`）：搜名字要从最后一个修饰词之后起，
-  // 而那只差一格的位置 token 早就知道；没有字段时才回原文 `indexOf` 猜。
-  const spans = modifierSpansOf(v);
-  if (spans.length > 0) {
-    from = spans[spans.length - 1].end;
-  } else if (typeof modifiers === "string" && modifiers !== "") {
-    const last = modifiers.split(",").filter((w) => w !== "").pop();
-    if (last !== undefined) {
-      const at = ctx.source.indexOf(last, v.start);
-      if (at >= 0) from = at + last.length;
-    }
-  }
-  // **装饰器也要推过**（第 170 轮）：`@observable` 换行 `a = 1` 里 `indexOf("a")` 会先命中
-  // 装饰器名里的那个 `a`（`observable` 的第 5 个字符），于是字段名节点的区间落在装饰器里
-  // （实测 `decl-class-decorator-property.ts`：`Identifier` 从 88 掉到 81）。
-  const decoratorKids = allKids(v).filter((k) => k.Tag === "Decorator");
-  if (decoratorKids.length > 0) {
-    const lastDecorator = decoratorKids[decoratorKids.length - 1];
-    from = Math.max(from, endOf(lastDecorator));
-  }
-  const found = ctx.source.indexOf(name, from);
-  // **上界是「声明段的末尾」而不是 `v.end`**：`const f` 里那个 `f` 正好落在 `Let` 的末字符上，
-  // 用 `found < v.end` 会把它判成越界（踩过：`const f = <T>(x: T): T => x` 的名字一直取不到）。
-  const limit = ctx.source.length;
-  const pos = found >= 0 && found < limit ? found : from;
-  return { kind: nameKind, text: nameText, pos, end: pos + name.length };
+  return undefined;
 ```
 
 

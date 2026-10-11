@@ -80,6 +80,19 @@ node build/ts/cjcli.js samples/hello.ts
 node build/ts/tsrun.js tests/runtime/cases/01-values-and-operators.ts   # **直接执行 .ts**
 ```
 
+**`xl` 这个命令不在 PATH 上**（第 1051 轮实测）：它是 DSH 的**插件行**，只在名为 `xl` 的
+profile 里挂着，那一行用 `link:` 指向 `C:/Users/Admin/Documents/GitHub/xl`。所以这一仓里
+`npx xl build` 会报 `could not determine executable to run`，而**读数与真命令行同一份**的走法是
+
+```bash
+node tmp/r1051/xl.mjs build typescript    # 只重建 typescript/ 这一棵（全仓扫会把 tmp/ 里的历史副本读进来）
+node tmp/r1051/xl.mjs check typescript
+```
+
+它直接调那个仓的 `src/core`（`runBuild` / `runCheck`）。**路径要显式给**：
+不给就扫整个工作目录，`tmp/` 下的历史副本（`r1026/backup.xl.md` 之类）会被当成规范读，报一串
+`E1006` / `E1104`——那不是这一仓的问题。
+
 **第二个命令行是 `tsrun`**：它把一份 `.ts` 装进执行侧那条真链路
 （真解析器 → 降级 → IR → VM）跑一遍，**stdout 与 `node <文件.ts>` 逐字节相同**——
 判据 `npm run runtime:cli` 就是这么比的（裁判是真 Node，语料在 `tests/runtime/cases/`）。
