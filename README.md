@@ -347,6 +347,58 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1210 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`?.` 后面那一截的两族收掉**（核是「属性访问」与核「又是一格断言」；两份成员循环合成一格 `membersOnto`）；1.2 把 `Branch.Transit` 那句「无条件调 `Failed`」改成先问一格钩子（**同进程交替 A/B：best −2.04%、median −3.49%**）
+
+**一句话**：1.1 接着上一轮那把组合扫描（`tmp/r1210-sweep.mjs`，2124 条合法片段）往下看——头几名全是 `?.` 后面那一截：`assertedMember` 里那份成员循环是 `chainWithOptional` 那条循环的**第二次抄写**，而它只认三格。1.2 是「每个判定都要付一次」的又一笔：`Transit` 每一次失败都调一遍 `this.Failed(...)`，而基类那一格是**空方法**。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `chainWithOptional` 的子链循环搬成一格 `membersOnto`（正文**逐字**，`left` → 形参、`node` → 返回值），`assertedMember` 那份**缺三格**的副本改成调它 | 组合扫描 **144 → 108** 条对不上（收掉 36、新坏 0） |
+| **1.1** | `membersOnto` 补上**实参括号那一格**（`a?.(d).b!` 的核是 `PropertyAccess([Bracket((d)), ., b])`，原来把 `(d)` 当名字读） | 再 **108 → 96**（`oc+m+nn` / `oc+i+nn` 两族转绿） |
+| **1.1** | `assertedMember` 新增「核又是 `NotNull`」那一格（`a?.b!!` 的 NCO 内容是 `NotNull([NotNull([b, !]), !])`） | `nn+nn` 一族 **24 → 6**（剩下的 6 条是 `tpl` 那一族，另一个根，如实记） |
+| **1.2** | `Branch` 新增 `HasFailedHook`（基类 `false`，两个覆写者各 `true`），`Transit` 里那一句改成 `if (this.HasFailedHook) { … }` | `Failed` 被调 **6589447** 次、其中 **6113961 次（92.8%）** 落在基类那个空方法上（`tmp/r1210-count2.mjs`） |
+
+**1.1 的现场（读到的那一行原文）**：`const q = a?.[c].b!` 的产物是
+`PropertyAccessExpression[10,18)`，字段是 `expression,name,questionDotToken`，而 TS 那边是
+`NonNullExpression > PropertyAccessExpression > [ElementAccessExpression(a?.[c]), b]`——
+**缺 `ElementAccessExpression` 与它里面那个 `Identifier(c)`、`?.` 还挂错了层**。
+读 token 树才看清根：`NullConditionalOperator > NotNull > PropertyAccess([Bracket([c]), ., b])`，
+`assertedMember` 的那份副本对 `Bracket` 一路 `continue` ⇒ 下标整格丢。
+
+**同一族的三处落点**（这一轮一起收）：① `a?.[c].b!`（下标在**前**）、② `a?.b[c]!`（下标在**后**）、
+③ `a?.[c][c]!`（两个下标连着 ⇒ 原来整条链只剩一个 `Identifier`）；第四处是
+`a?.(d).b!`——核的头一格是**实参括号**，那份副本连这一格也没有。
+两处修正都不是新判据：**第一处是把第二份实现删掉**（`membersOnto` 的正文逐字来自
+`chainWithOptional` 那一支），第二处是把 `chainWithOptional` 那条循环里本来就有的三格补齐；
+`chainWithOptional` 的「`o.m?.().k`」那一支（首格是实参括号时先建调用再往下接）排在这条循环**之前**、
+自己 `return`，所以搬走之后那一档的走法一格未动。
+
+**第二族**：`a?.b!!` 的核是**内层那一整格 `NotNull`**，它不在任何一条分支里，落到最后那条通用支去读
+`NameNode`（把「名字 + `!`」当成一个名字）。新增一格「核又是 `NotNull`」：
+递回这一格自己折内层、外面再套一层 `NonNullExpression`（TS 就是 `NonNull(NonNull(…))`）。
+
+**1.1 剩下的那一榜（如实记，这一轮没做）**：`tpl+m` 那 30 条（`` a`x`.b `` 那一族：模板不在顶层那一串里）、
+`as*` 15 条、`i+c` / `m+c` 18 条、`nn+c` / `nn+oi` 12 条。
+
+**1.2 的墙钟（同进程交替，`tmp/r1210-ab.mjs`）**：原版＝`Transit` 里无条件调 `Failed`；A/B/A/B 各 5 趟：
+
+| 配置 | best | median | 差（best / median） |
+| --- | --- | --- | --- |
+| 原版（无条件调） | 1314.9 ms | 1368.1 ms | — |
+| 现版（先问钩子） | 1288.0 ms | 1320.3 ms | **−2.04% / −3.49%** |
+
+`tmp/r1203-bench.mjs`（best of 4）：parse **1344 ms**、xml 42.9、printAst 103.9。
+
+**1.2 的等价怎么证的**：**同一个进程**里把两份 `Transit` 来回换上，对**同一批 1655 份语料**各投一遍，
+逐份比 token 树 XML 与投影 JSON 的 sha256（`tmp/r1210-equiv.mjs`）：**逐字节同答 1655 / 不同 0 / 抛异常 0**。
+为什么等价是结构上证到的：全仓覆写 `Failed` 的**只有两处**（扫描编译产物：`Failed` 方法共 3 处 = 基类 +
+`CommonBranch` + `SymbolBranch`，两个覆写体都非空），两处都显式声明了 `HasFailedHook = true`
+——所以「钩子答否」与「基类空实现」是同一句话。
+
+**净账**：`cases:tsast` **1650** 份（已知缺口 1 条还开着、0 条已经收掉）；`cases:direct` 全语料不抛异常（1655 份）、固定样本通过；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1669** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4276 / 4435**（五条新用例分母 +5、分子 +5；blocked 26、differ 133、bad 0、加权 95.7%）；`xl check`（`core typescript`）**0 条**；`npx tsc`（strict）**0 error**。
+
+**两条 commit**：`01f25754`（1.1 两族收掉）、`d25e21d1`（1.2 那一句先问钩子）。
+
 ### 第 1209 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **标签模板的标签可以是一格 `NotNull` / `?.` 链**（`a!`x`` 那一族；两张「这一格能不能接在操作数后面」的名单本来就该一样）；1.2 把三条**每个字符都要走一次**的分支的 `Condition` 里「当前字符那一问」提到最前面（**同进程交替 A/B：best −4.49%、median −7.56%**）
 
 **一句话**：1.1 还是从组合扫描剩下的那一榜往下看——`e3-tpl` 那一族的头几名全是「标签不是一格名字」的形状；投影层有**两张**答同一句话的名单（标签那一张与尾巴那一张），标签那一张少了两格。1.2 是第 1208 轮那把「按行聚合 `positionTicks`」的尺子量出来的**第三批**：三条每字符一次的分支，都在问当前字符之前先造了一个 `Source`（或一个数组）。
