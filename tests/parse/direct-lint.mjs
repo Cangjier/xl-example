@@ -751,6 +751,9 @@ const SELF_CLASSIFY_NAMES = [
   "IsStringUnit",
   "IsStringLiteralUnit",
   "IsTemplateString",
+  "IsBracketUnit",
+  "IsArrayLiteralUnit",
+  "IsTypeParameterUnit",
 ];
 const SELF_CLASSIFY = new RegExp(
   `(?<![\\w$.])(?:${classifyAlternation(SELF_CLASSIFY_NAMES.map(classifyPredicate))})\\s*\\(|\\bctx\\.(?:${SELF_CLASSIFY_NAMES.join("|")})\\b`,
@@ -925,8 +928,10 @@ let binaryClassDisjunctionHits = 0;
  * 函数名或一个 `ctx` 出口；这一条守的是**匿名连写**（一个名字都没有的现场算式）。
  * 两条管的形态不同，所以各有一条判据（与第 1076 轮那条 `NAME_CLASS_DISJUNCTION` 同一格局）。
  *
- * **两态写法不算**：`(k.Tag === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"))`
- * 那三处问的是另一句话（值位那两种括号凑成的形状），本轮逐字保留。
+ * **两态写法第 1089 轮当时不算**：`(k.Tag === "Bracket" && (k.startBracket === "[" ||
+ * k.startBracket === "{"))` 那三处问的是另一句话（值位那两种括号凑成的形状），那一轮逐字保留；
+ * **第 1095 轮把它们也改成读同页已有的两格**（`(k.IsIndexBracket || k.IsBraceBracket)`）——
+ * 同一格事实的两种写法收成一格，`Tag === "Bracket"` 那一半从此在投影层一处不剩。
  */
 const BRACKET_STATE_CLASSIFY = [
   /([A-Za-z_$][\w$]*(?:\[\d+\])?)\.Tag\s*===\s*"Bracket"\s*&&\s*\1\.startBracket\s*===\s*"[([{]"/g,
@@ -1024,6 +1029,14 @@ let notNullSymbolHits = 0;
  * `tokens/string/string.xl.md` / `const-string.xl.md` 各立一格并**构造时赋好**
  * （`IsStringUnit` / `IsStringLiteralUnit` / `IsTemplateString`），16 处改属性读。
  * 这一条因此守六个 `<Tag>`。
+ *
+ * **第 1095 轮再把括号 / 数组字面量 / 类型参数三族收进这一条**（同一句话、同一形态）：
+ * 投影层 **22 处**现场写 `X.Tag === "Bracket"` / `"ArrayLiteral"` / `"TypeParameter"`
+ * （含 `Tag === "Bracket" && startBracket === "("` 与两态的
+ * `Tag === "Bracket" && (startBracket === "[" || startBracket === "{")`），
+ * 三个名字同样是那三页自己的类名，所以各立一格（`IsBracketUnit` / `IsArrayLiteralUnit` /
+ * `IsTypeParameterUnit`，构造时赋 `true`），22 处改属性读——其中两态那三处改成读同页已有的
+ * `IsIndexBracket` / `IsBraceBracket`（同一格事实的两种写法）。这一条因此守十一个 `<Tag>`。
  */
 const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"PropertyAccess"/g,
@@ -1034,6 +1047,9 @@ const SELF_TAG_CLASSIFY = [
   /\.Tag\s*[!=]==?\s*"NullConditionalOperator"/g,
   /\.Tag\s*[!=]==?\s*"String"/g,
   /\.Tag\s*[!=]==?\s*"ConstString"/g,
+  /\.Tag\s*[!=]==?\s*"Bracket"/g,
+  /\.Tag\s*[!=]==?\s*"ArrayLiteral"/g,
+  /\.Tag\s*[!=]==?\s*"TypeParameter"/g,
 ];
 /** 投影层拿类名当「是不是 `PropertyAccess` / `NotNull` 那一格」判的处数（0 处才是对的）。 */
 let selfTagClassifyHits = 0;
@@ -1049,8 +1065,8 @@ let selfTagClassifyHits = 0;
           violations.push({
             file: SHARED_FILE,
             why:
-              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` / \`Method\` / \`GenericType\` / \`SymbolToken\` / \`NullConditionalOperator\` / \`String\` / \`ConstString\` 那一类」又比类名了：\`${match[0]}\`——` +
-              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull` / `Token.IsMethodNode` / `Token.IsGenericType` / `Token.IsSymbolToken` / `Token.IsNullConditionalOperator` / `Token.IsStringUnit` / `Token.IsStringLiteralUnit`，构造时赋好），投影只读属性",
+              `「这一格是不是 \`PropertyAccess\` / \`NotNull\` / \`Method\` / \`GenericType\` / \`SymbolToken\` / \`NullConditionalOperator\` / \`String\` / \`ConstString\` / \`Bracket\` / \`ArrayLiteral\` / \`TypeParameter\` 那一类」又比类名了：\`${match[0]}\`——` +
+              "那一格的事实住在被问的那一页（`Token.IsPropertyAccess` / `Token.IsNotNull` / `Token.IsMethodNode` / `Token.IsGenericType` / `Token.IsSymbolToken` / `Token.IsNullConditionalOperator` / `Token.IsStringUnit` / `Token.IsStringLiteralUnit` / `Token.IsBracketUnit` / `Token.IsArrayLiteralUnit` / `Token.IsTypeParameterUnit`，构造时赋好），投影只读属性",
           });
         }
       }
@@ -1250,7 +1266,7 @@ console.log(
   `「这一格是不是非空断言那个 \`!\`」又在投影层现场连写（${SHARED_FILE} 的代码块）：${notNullSymbolHits} 处（0 处才是对的，读 SymbolToken.IsNotNullSymbol）`,
 );
 console.log(
-  `「这一格是不是一条成员访问链 / 一次非空断言 / 一次方法调用 / 一段泛型括号段 / 一个符号块 / 一个空条件运算符单元 / 一个字符串单元 / 一段字符串字面量」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull / Token.IsMethodNode / Token.IsGenericType / Token.IsSymbolToken / Token.IsNullConditionalOperator / Token.IsStringUnit / Token.IsStringLiteralUnit）`,
+  `「这一格是不是一条成员访问链 / 一次非空断言 / 一次方法调用 / 一段泛型括号段 / 一个符号块 / 一个空条件运算符单元 / 一个字符串单元 / 一段字符串字面量 / 一个括号单元 / 一个数组字面量单元 / 一个类型参数单元」又在投影层比类名（${SHARED_FILE} 的代码块）：${selfTagClassifyHits} 处（0 处才是对的，读 Token.IsPropertyAccess / Token.IsNotNull / Token.IsMethodNode / Token.IsGenericType / Token.IsSymbolToken / Token.IsNullConditionalOperator / Token.IsStringUnit / Token.IsStringLiteralUnit / Token.IsBracketUnit / Token.IsArrayLiteralUnit / Token.IsTypeParameterUnit）`,
 );
 // **「回原文配对 / 找成对符号」的账**（第 1059 / 1060 轮）：体那对花括号与下标那个 `[` 都由
 // 这一格自己记（`bodyBraceRange` / `IndexBracketAt`）——投影再回原文扫一遍就是同一格事实的

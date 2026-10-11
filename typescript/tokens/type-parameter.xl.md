@@ -450,6 +450,11 @@ rebuilt.push(parameter);
 
 内容直接装在自己身上：名字、`in` 标记（映射键才有）、`extends` 约束、`=` 默认值。
 
+## field IsTypeParameterUnit:bool = true
+
+**我这一格是不是一个类型参数单元**（第 1095 轮）：类型参数就是这一页，所以常量答 `true`
+——口径与理由见 `core/syntax/token.xl.md` 的 `IsTypeParameterUnit`。
+
 ## method PrintDirectAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，

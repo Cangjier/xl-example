@@ -1073,6 +1073,43 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
 - **本页的声明数**：**64 格**（一格声明没增没减：新立的三格都在别的页与基类；
   本页 16 处改的是读数算式）。
 
+**第 1095 轮接着收括号 / 数组字面量 / 类型参数三族**（用户口径 1.1~1.4：token 子类**构造完**
+信息就得齐；要读的那一格由**具体页显式声明**、构造时赋好）——本页代码块里这三个名字的
+现场比类名一共 **22 处**：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `X.Tag === "Bracket"`（**5 处**：找 `find` 出来那一格、判「这一格是不是括号」那几族） | `X.IsBracketUnit` | `Bracket` 那一页**显式声明** `## field IsBracketUnit:bool = true`（常量，构造时就位） |
+| `X.Tag === "Bracket" && X.startBracket === "("`（**1 处**） | `X.IsParenBracket` | 同页第 1089 轮那一格（`Use` 记下 `startBracket` 那一趟赋好）——本轮只是把**同一格事实的匿名连写**也改成属性读 |
+| `X.Tag === "Bracket" && (X.startBracket === "[" \|\| X.startBracket === "{")`（**3 处**） | `(X.IsIndexBracket \|\| X.IsBraceBracket)` | 同页第 1058 / 1089 轮那两格（同一趟赋好）——第 1089 轮逐字保留的那三处，这一轮收成一格 |
+| `X.Tag === "ArrayLiteral"`（**8 处**：值位那几种括号凑成的形状、绑定模式那一族） | `X.IsArrayLiteralUnit` | `ArrayLiteral` 那一页**显式声明** `## field IsArrayLiteralUnit:bool = true`（常量） |
+| `X.Tag === "TypeParameter"`（**5 处**：`X.ProjectableKids.filter((k) => …)` 取泛型段里那几格参数） | `X.IsTypeParameterUnit` | `TypeParameter` 那一页**显式声明** `## field IsTypeParameterUnit:bool = true`（常量） |
+
+- **三问都是「你这一格是什么类」**，那三个名字就是那三页自己的类名——判据与第 1088 / 1091 /
+  1092 / 1093 / 1094 轮同一条。三格都是 `## field`（常量、构造时赋好），与 `IsMethodNode` /
+  `IsGenericType` 同一形态。
+- **三态括号那一族因此只剩「我是哪一态」这一半**：`Tag === "Bracket"` 那一半由 `IsBracketUnit`
+  顶掉，后半由同页三格自己答——**同一格事实的现场连写一处不剩**（第 1089 轮留着的那三处两态
+  写法也在这一轮改成两格属性读：`IsIndexBracket` 与 `IsBraceBracket` 本来就是同一趟赋好的）。
+- **判据跟着长**：`direct:lint` 第八条那一族多认三个名字，第十七条 `SELF_TAG_CLASSIFY` 的名单从
+  八个 `<Tag>` 扩到 **十一个**（再加 `Bracket` / `ArrayLiteral` / `TypeParameter`）。
+  **自验**（本机探针，不进仓库）：三族的属性读**各**写回一处 ⇒ 三次都是报告 **0 → 1 处**、
+  `FAIL`、`exit=1`；逐字节还原 ⇒ 0 处、`exit=0`（三次自查一并通过、源文件逐字节相同）。
+  另外把 `BRACKET_STATE_CLASSIFY` 那条判据的说明改平（它原来写着「两态写法本轮逐字保留」）。
+- **改了哪六个文件**：本页（**22 处**现场算式改成属性读 + 这一节）、`core/syntax/token.xl.md`
+  （三格虚属性，基类各答 `false`）、`typescript/tokens/bracket.xl.md`、
+  `typescript/tokens/json/array-literal.xl.md`、`typescript/tokens/type-parameter.xl.md`
+  （各自显式声明并答 `true`）、`tests/parse/direct-lint.mjs`（第八条名单 + 第十七条那十一个
+  `<Tag>` + 一行读数 + 第十五条那一句说明）。
+- **实测**：`xl check` 156 个文件 0 条；`xl build`（`core` / `typescript`）**5 个产物** / 0 error
+  （`token` / `bracket` / `array-literal` / `type-parameter` / `print-ast-common`）、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 29.6s），读数与基线逐项相同：`coverage` **4261 / 4422**
+  （`blocked 28` / `differ 133` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**64 格**（一格声明没增没减：新立的三格都在别的页与基类；
+  本页 22 处改的是读数算式）。
+
 **第 1071 轮把「取这一格的正文」那两跳收成一跳**：`textOfNode`（本页一格 helper）+ `ctx.TextOf`
 （它的出口）**整对删掉**，全仓改成读 **`Token.TextValue`**（第 1069 轮立的基类属性）。
 
@@ -2959,7 +2996,7 @@ new Set([
     const arrow: any = projectNode(kids[kids.length - 1], ctx);
     if (arrow !== undefined) {
       if (kids.length === 3) {
-        const typeParams = kids[1].ProjectableKids.filter((k) => k.Tag === "TypeParameter");
+        const typeParams = kids[1].ProjectableKids.filter((k) => k.IsTypeParameterUnit);
         if (typeParams.length > 0) arrow.typeParameters = projectEach(typeParams, ctx);
       }
       // **`AsyncKeyword` 得自己补进 `modifiers`**：那一格平时由 `Lamda.IsAsync` 那条路合成，
@@ -3585,7 +3622,7 @@ new Set([
   if (kids.length === 2 && kids[0].IsGenericType && kids[1].Tag === "Lamda") {
     const arrow: any = projectNode(kids[1], ctx);
     if (arrow !== undefined) {
-      const typeParams = kids[0].ProjectableKids.filter((k) => k.Tag === "TypeParameter");
+      const typeParams = kids[0].ProjectableKids.filter((k) => k.IsTypeParameterUnit);
       if (typeParams.length > 0) arrow.typeParameters = projectEach(typeParams, ctx);
       arrow.pos = startOf(kids[0]);
       return arrow;
@@ -4675,7 +4712,7 @@ new Set([
   if (
     kids.length >= 2 &&
     (isSymbol(kids[1], ".") || kids[1].IsIndexBracket ||
-      (kids[0].IsNotNull && kids[1].Tag === "ArrayLiteral") ||
+      (kids[0].IsNotNull && kids[1].IsArrayLiteralUnit) ||
       // **`!` 后面那一格以一次下标开头**（第 333 轮）：`[1]!` 与 `[0].id`
       // 两种外壳（`NotNull` / `PropertyAccess`）都要认——判据与理由见
       // `isIndexFirstUnit` 那一段。少了它，`o.b![1]![0]` 与 `data.list![0].id`
@@ -4984,7 +5021,7 @@ new Set([
       // 而它在**链上**（前一格是 `NotNull`）就只能是下标——
       // 数组字面量不会紧跟在表达式后面出现（`o.b [1]` 在 JS 里就是 `o.b[1]`）。
       const indexLike = ck[i].IsIndexBracket ||
-        (ck[i].Tag === "ArrayLiteral" && sawNullAssert);
+        (ck[i].IsArrayLiteralUnit && sawNullAssert);
       if (indexLike) {
         const argument = projectExpression(ck[i].ProjectableKids, ctx);
         left = {
@@ -5010,7 +5047,7 @@ new Set([
       // ——区别只是这里在处理**一条已经开始的链**。
       // **它必须排在下标那一支之后**：`a[i]` 与 `a(i)` 长得像，
       // 而那个 `[` / `(` 的分别正是 `startBracket` 那一格。
-      if (ck[i].Tag === "Bracket" && ck[i].startBracket === "(") {
+      if (ck[i].IsParenBracket) {
         left = {
           kind: "CallExpression",
           expression: left,
@@ -5706,7 +5743,7 @@ new Set([
   // 与上面下标那一支同款：先折前面那段，再套一层。
   if (
     kids.length >= 2 &&
-    kids[kids.length - 1].Tag === "Bracket" &&
+    kids[kids.length - 1].IsBracketUnit &&
     kids[kids.length - 1].startBracket === "("
   ) {
     const bracket = kids[kids.length - 1];
@@ -5833,7 +5870,7 @@ if (kind === "Method") {
     // 而这一格自己那次调用的实参括号是**平级的兄弟**（那一格盖着整段 `[0]!()`）⇒
     // 它同样是「以一次调用开头」。少了这一句链那一支整个进不来
     //（实测 `gap-r975-nonnull-index-assert-call`：缺 2 漂 2）。
-    if (inner.Tag === "Bracket") return isIndexFirstUnit(inner, ctx);
+    if (inner.IsBracketUnit) return isIndexFirstUnit(inner, ctx);
     // **断言里的核自己也是一次调用**（第 975 轮）：`a!()()!()` 的第一格是
     // `NotNull(Method(name=""[Bracket(())]), !)`——`!` 盖在一格 `Method` 上，而那一格
     // 本身就是「以一次调用开头」。上面那一句只认「核是实参括号」⇒ 判据答否 ⇒
@@ -6715,7 +6752,7 @@ return false;
     // 不认它的话这个下标**整段丢掉**：Node 给 `7`、本仓给 `[7]`——**静默错值**
     //（判据 `c323-ex-nonnull-in-chains` 现场量的就是它）。
     // **做法与上面那一支一字不差**（只有「从哪个形状取实参」不同）。
-    if (unit.Tag === "ArrayLiteral") {
+    if (unit.IsArrayLiteralUnit) {
       const argument = projectExpression(unit.ProjectableKids, ctx);
       left = {
         kind: "ElementAccessExpression",
@@ -7541,7 +7578,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // 于是这里两半合起来与改写前**逐格等价**。
   const isPatternKid = (k: any) =>
     k.IsBindingPattern === true ||
-    (k.Tag === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"));
+    ((k.IsIndexBracket || k.IsBraceBracket));
   // **声明词也是「这一格自己的正文是什么」**（与 `IsOperatorUnit` 那一族同一条口径），
   // 但它的读者只有这一格、而且读的正是本方法刚收下的那几格单元，所以留在原处。
   const isDeclareWord = (k: any) => {
@@ -7663,9 +7700,9 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   const eqAt = kids.findIndex((k) => k.IsSymbolToken && k.TextValue === "=");
   const headKids = eqAt >= 0 ? kids.slice(0, eqAt) : kids;
   const isPatternUnit = (k: any) =>
-    k.Tag === "ArrayLiteral" ||
+    k.IsArrayLiteralUnit ||
     k.Tag === "ObjectLiteral" ||
-    (k.Tag === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"));
+    ((k.IsIndexBracket || k.IsBraceBracket));
   const patternUnit =
     headKids.find(isPatternUnit) ?? letView.ProjectableKids.find(isPatternUnit) ?? null;
   const name =
@@ -7758,7 +7795,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // `ArrayLiteral`（`[k2]: { a }` 里右边那一格就是一对裸花括号）——只认那两种标签时
   // 整层 `ObjectBindingPattern` 连里面的 `BindingElement` 一起丢。
   const braceKind =
-    v.Tag === "ArrayLiteral" || (v.IsIndexBracket)
+    v.IsArrayLiteralUnit || (v.IsIndexBracket)
       ? "ArrayBindingPattern"
       : "ObjectBindingPattern";
   const kind = braceKind;
@@ -7823,9 +7860,9 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // 嵌套的 `ArrayBindingPattern` / `ObjectBindingPattern` 与它们里面的名字整片丢
   // （实测三族嵌套解构用例共 27 处）。
   const isPatternLike = (k: any) =>
-    k.Tag === "ArrayLiteral" ||
+    k.IsArrayLiteralUnit ||
     k.Tag === "ObjectLiteral" ||
-    (k.Tag === "Bracket" && (k.startBracket === "[" || k.startBracket === "{"));
+    ((k.IsIndexBracket || k.IsBraceBracket));
   // **默认值那一侧的括号不算绑定名**（第 355 轮，**实测撞到的**）：
   // `{ tags = [] as string[] }` 里 `=` **右边**那个 `[]` 是**默认值**（值位），
   // 而照「第一个像模式的单元」找会把它当成**绑定名** ⇒ 投出一个**没有 text** 的
@@ -7846,7 +7883,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     // `ComputedPropertyName` 2 + `Identifier` 2 + 字段名 2）。
     const computedUnit = kids.find(
       (k) =>
-        (k.IsIndexBracket || k.Tag === "ArrayLiteral") && startOf(k) < startOf(kids[colonIndex]),
+        (k.IsIndexBracket || k.IsArrayLiteralUnit) && startOf(k) < startOf(kids[colonIndex]),
     );
     if (computedUnit !== undefined) {
       props.propertyName = {
@@ -8023,7 +8060,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
       props.modifiers = [...(props.modifiers ?? []), projectNode(k, ctx)];
       continue;
     }
-    if (k.Tag === "Bracket") {
+    if (k.IsBracketUnit) {
       for (const part of splitTopLevel(k.ProjectableKids, ",")) {
         for (const inner of part) params.push(inner);
       }
@@ -8032,7 +8069,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     params.push(k);
   }
   if (generic !== undefined) {
-    const typeParams = generic.ProjectableKids.filter((k: any) => k.Tag === "TypeParameter");
+    const typeParams = generic.ProjectableKids.filter((k: any) => k.IsTypeParameterUnit);
     if (typeParams.length > 0) props.typeParameters = projectEach(typeParams, ctx);
   }
   props.parameters = projectEach(params, ctx);
@@ -8085,7 +8122,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   const flatArrowAt = list.findIndex(
     (k, i) => i > 0 && k.IsSymbolToken && k.TextValue === "=>",
   );
-  if (flatArrowAt > 0 && list[0].Tag === "Bracket") {
+  if (flatArrowAt > 0 && list[0].IsBracketUnit) {
     const built = functionTypeProps(list, ctx);
     return {
       kind: built.kind,
@@ -8329,7 +8366,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 真实语料 `Identifier` 缺 1616 里的一大片、`TypeReference` 缺 417，
   // 全是 `@types/node/async_hooks.d.ts` 那种「泛型函数类型」（`snapshot(): <R, TArgs…>(…) => R`）。
   if (list.length === 2 && list[0].IsGenericType && list[1].Tag === "FunctionType") {
-    const typeParams = list[0].ProjectableKids.filter((k) => k.Tag === "TypeParameter");
+    const typeParams = list[0].ProjectableKids.filter((k) => k.IsTypeParameterUnit);
     // **走通用分派而不是直调那个函数**（第 188 轮）：`FunctionType` 的投影已经搬进
     // `tokens/function-type.xl.md` 的 `PrintDirectAst`，而 `projectNode` 会先问它——
     // 输入与原来那次直调完全相同，产出的节点逐字节一样。
@@ -8399,10 +8436,10 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       const ctorProps = {};
       const ctorGeneric = list.find((k) => k.IsGenericType);
       if (ctorGeneric !== undefined) {
-        const typeParams = ctorGeneric.ProjectableKids.filter((k) => k.Tag === "TypeParameter");
+        const typeParams = ctorGeneric.ProjectableKids.filter((k) => k.IsTypeParameterUnit);
         if (typeParams.length > 0) ctorProps.typeParameters = projectEach(typeParams, ctx);
       }
-      const bracket = list.find((k) => k.Tag === "Bracket");
+      const bracket = list.find((k) => k.IsBracketUnit);
       if (bracket !== undefined) {
         const inner = bracket.ProjectableKids;
         const paramUnits = inner.filter((k) => k.Tag === "Parameter");
@@ -8747,7 +8784,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   const nameKids = v.ProjectableKids;
   const nameFirst = nameKids.length > 0 ? nameKids[0] : undefined;
   const computed =
-    nameFirst !== undefined && nameFirst.Tag === "ArrayLiteral" && nameFirst.Text.startsWith("[")
+    nameFirst !== undefined && nameFirst.IsArrayLiteralUnit && nameFirst.Text.startsWith("[")
       ? nameFirst
       : null;
   if (computed !== null) {

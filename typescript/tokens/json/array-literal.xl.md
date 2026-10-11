@@ -264,6 +264,11 @@ Json 数组。
 `ArrayLiteral`，所以这一页常量答 `true`——口径与两条理由见
 `../../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
 
+## field IsArrayLiteralUnit:bool = true
+
+**我这一格是不是一个数组字面量单元**（第 1095 轮）：数组字面量就是这一页，所以常量答 `true`
+——口径与理由见 `../../../core/syntax/token.xl.md` 的 `IsArrayLiteralUnit`。
+
 ## field SegmentNames:Map<string, Map<string, string>> = new Map([["ArrayLiteralExpression", new Map([["children", "elements"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。

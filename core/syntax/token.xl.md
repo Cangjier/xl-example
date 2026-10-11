@@ -1678,6 +1678,45 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （构造时就赋好），投影只读这一格（`unit.IsTemplateString`）。
 
+## field IsBracketUnit:bool = false
+
+**我这一格是不是一个括号单元**（第 1095 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`Bracket` 那一页答 `true`（`typescript/tokens/bracket.xl.md`），
+其余一律 `false`。过去它在投影层是**九处连写比类名**（`X.Tag === "Bracket"`——找配对的括号、
+找 `find` 出来的那一格、判「这一格是不是括号」那几族），而那个名字**就是那一页自己的类名**。
+
+**它与同页那三态不是同一问**：`IsIndexBracket` / `IsParenBracket` / `IsBraceBracket` 答的是
+「我是哪一态括号」（`Use` 记下 `startBracket` 那一趟赋好），这一格答「我是不是括号这一格单元」
+——所以三态问句里的 `Tag === "Bracket"` 那一半由这一格顶掉，后半仍由三态自己答。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsBracketUnit:bool = true`，构造时就赋好），投影只读这一格（`unit.IsBracketUnit`）。
+
+## field IsArrayLiteralUnit:bool = false
+
+**我这一格是不是一个数组字面量单元**（第 1095 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`ArrayLiteral` 那一页答 `true`
+（`typescript/tokens/json/array-literal.xl.md`），其余一律 `false`。过去它在投影层是
+**八处连写比类名**（`X.Tag === "ArrayLiteral"`——值位那几种括号凑成的形状、绑定模式那一族），
+而那个名字就是那一页自己的类名。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsArrayLiteralUnit:bool = true`，构造时就赋好），投影只读这一格。
+
+## field IsTypeParameterUnit:bool = false
+
+**我这一格是不是一个类型参数单元**（第 1095 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`TypeParameter` 那一页答 `true`
+（`typescript/tokens/type-parameter.xl.md`），其余一律 `false`。过去它在投影层是**五处连写比类名**
+（`X.ProjectableKids.filter((k) => k.Tag === "TypeParameter")`——泛型段里取那几格参数），
+而那个名字就是那一页自己的类名。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsTypeParameterUnit:bool = true`，构造时就赋好），投影只读这一格。
+
 ## field IsMethodNode:bool = false
 
 **我这一格是不是一次方法调用单元**（第 1092 轮）——是的话答 `true`。

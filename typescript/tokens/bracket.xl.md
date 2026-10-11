@@ -323,6 +323,13 @@ result.TryToClose();
 return result;
 ```
 
+## field IsBracketUnit:bool = true
+
+**我这一格是不是一个括号单元**（第 1095 轮）：括号单元就是这一页，所以常量答 `true`——
+三态（`IsIndexBracket` / `IsParenBracket` / `IsBraceBracket`）答的是「我是哪一态」，
+这一格答的是「我是不是括号这一格单元」，两者不是同一问。口径与理由见
+`../../core/syntax/token.xl.md` 的 `IsBracketUnit`。
+
 ## field IsIndexBracket:bool = false
 
 **我这一格是不是「值位下标访问」的那对方括号吗**（第 1058 轮）：只有 `[` 那一态是 `true`
