@@ -271,7 +271,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
   if (catchDefine !== undefined || catchBody !== undefined) {
     const inner: any = {};
     if (catchDefine !== undefined) {
-      const binding = ctx.AllKids(catchDefine).find((k: any) => !k.IsInvisible);
+      const binding = ctx.Kids(catchDefine).find((k: any) => !k.IsInvisible);
       const isPattern =
         binding !== undefined &&
         (binding.Tag === "ObjectLiteral" ||
@@ -287,10 +287,10 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
       if (name !== undefined) {
         let declEnd = name.end;
         let declType: any = undefined;
-        const typeKid = ctx.AllKids(catchDefine).find((k: any) => k.Tag === "TypeDefine");
+        const typeKid = ctx.Kids(catchDefine).find((k: any) => k.Tag === "TypeDefine");
         if (typeKid !== undefined) {
           declEnd = ctx.EndOf(typeKid);
-          const typeUnit = ctx.AllKids(typeKid).find((k: any) => !k.IsInvisible);
+          const typeUnit = ctx.Kids(typeKid).find((k: any) => !k.IsInvisible);
           if (typeUnit !== undefined) {
             declType = ctx.TypeExpression(ctx.Kids(typeKid));
           }

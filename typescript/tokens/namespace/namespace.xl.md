@@ -448,7 +448,7 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
   // `consumedSemicolons`，紧跟的那一格于是不再投成 `EmptyStatement`）。
   // **带体的一档不吃**：`module M { };` 里那个 `;` 是**另一条** `EmptyStatement`
   // （`ModuleDeclaration` 在 `NO_TRAILING_SEMICOLON` 表里）。
-  const hasBody = ctx.AllKids(v).some((k: any) => k.Tag === "NamespaceBody");
+  const hasBody = ctx.Kids(v).some((k: any) => k.Tag === "NamespaceBody");
   if (hasBody === false) {
     node.end = ctx.SemicolonEndOf(node.end);
   }

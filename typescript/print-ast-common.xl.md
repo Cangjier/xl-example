@@ -440,6 +440,33 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   以及一处**数组接收者**被当成 token（`kids = kids.ProjectableKids`），
   两次都是 `coverage` 当场报出来、按同一句算式改回去的。）
 
+**第 1067 轮把「顺手拿完整子单元表遍历一遍」的最后一批评干净**：
+`ProjectableKids` 立起来之后，`allKids` 只剩「找 trivia」这一处真的需要它，
+其余调用点都是在**已经滤过的那一串**上再找可见的东西——同一份读数、两种写法。
+**注意分界**：`ProjectableKids` 是**某一格 token** 的属性，所以能改的只有
+「接收者就是那一格 token」的那几处；手上是**一段单元数组**时（`typeOf` 的入参、
+`projectExpression` 开头那一段）**只能照那一格的算式就地写一遍**：
+
+| 改掉的调用点 | 原来 | 今天 |
+| --- | --- | --- |
+| `addDecorators`（找 `Decorator`） | `allKids(v).filter(…)` | `v.ProjectableKids.filter(…)` |
+| `projectRoot` 的**未映射透传支** | `projectEach(allKids(v), ctx)` | `projectEach(v.ProjectableKids, ctx)` |
+| `moduleSpecifierIn` / `moduleHolderOf`（找 `String`） | `for (const inner of allKids(one))` | `for (const inner of one.ProjectableKids)` |
+| **一段单元数组**（`typeOf` 的入参、`projectExpression` 的段过滤） | `kids.filter((k) => k instanceof Token && !k.IsInvisible)` | **原样保留**：数组没有那一格 |
+| `trailingSemicolonOf`（末尾那个 `;` 落在谁里面） | `for (const k of allKids(item))` | **原样保留**：它要问的正是「那个 `;` 是不是落在**注释**里」，而注释正是 `IsInvisible` 的那一类——改成 `ProjectableKids` 之后注释里收尾的 `;` 当场不再被排除（`lx-comments` / `type-tail-linecomment` 一族 7 条一起红，按实测撤回） |
+
+- **`ctx.AllKids` 这个出口随之删掉**：三处调用点（`try` ×2 / `if-set` ×1）查的都是可见的东西，
+  `ctx.Kids` 就是同一格读数的另一个名字、语义逐字相同。名字补进 `direct:lint` 的 `CTX_BANNED`
+  ——留一个「我也看得见 trivia」的出口，等于给下一页留了一条「自己滤一遍」的现成入口。
+- **实测**：`xl check typescript core` 0 条；`xl build typescript core` **4 个产物** / 0 error
+  （`print-ast-common` / `try` / `if-set` / `namespace`）、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 28.4s），读数与基线逐项相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+- **本页的声明数**：**81 格**（这一轮一格没增、一格没减：删掉的是一个 `ctx` 出口，
+  宿主 `allKids` 那一格还在，只是读者从「三处」收成「一处」）。
+
 **「哪些标签在投影里不出现」那一格第 1030 轮也搬走了**（`# const INVISIBLE:Set<string>` →
 `Token.IsInvisible`，四个类各自覆写，见 `core/syntax/token.xl.md`）：
 名单的键就是**那些类自己的名字**，所以它本来就是那四页的事实；投影这一侧过去用
@@ -600,7 +627,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 段名与顺序都来自**这一页自己声明的那一格**（`v.Segments`，第 1065 轮：
 口径见 `core/syntax/token.xl.md` 的 `Segments`），不是投影反射出来的。
 
-**第 1066 轮起它只服务 `addDecorators` 那一格**（找子单元里的 `Decorator`）：
+**第 1067 轮起它只服务 `trailingTriviaStart` 那一格**（找尾部 trivia：注释）：
 「下面所有子单元」与「会进投影的子单元」是两件事，前者不过滤、后者过滤。
 **投影要的数**是后者，而那一格现在由 token 自己答
 （`Token.ProjectableKids`，见下）——这一格留着是因为 `addDecorators` 问的正是「有没有装饰器，
@@ -9365,11 +9392,15 @@ token 记下的**每个修饰词各自的区间**（各页自己声明的那一�
     // 同一件事的两种叫法（老名字说的是「把包装拆开」），所以两个出口读的是同一格；
     // 实现仍然只有 token 上那一处。
     UnwrapNodes: (unit) => unit.ProjectableKids,
+    // **`AllKids` 这个出口第 1067 轮删掉了**（它原来就挂在这里）：给 token 页面看
+    // 「含 trivia 的完整子单元表」。三处调用点（`try` 两处、`if-set` 一处）查的都是**可见**的
+    // 东西，而同一格读数在这一层已经有一个 `Kids` ⇒ 多一个「我也看得见 trivia」的出口
+    // 只会诱着下一页再写一遍「自己滤一遍」的算式（与第 1065 / 1066 轮删掉的那些同一条口径）。
+    // 名字补进了 `direct:lint` 的 `CTX_BANNED`，写回来这一门当场红。
     TypeOf: (list) => typeOf(list, ctx),
     FunctionTypeProps: (kids) => functionTypeProps(kids, ctx),
     BlockOfBody: (list, braceRange) => blockOfBody(list, ctx, braceRange),
     SwitchClause: (seg) => projectSwitchClause(seg, ctx),
-    AllKids: (node) => allKids(node),
     BindingPattern: (unit) => projectBindingPattern(unit, ctx),
     ComputedNameExpression: (unit) => computedNameExpression(unit, ctx),
     Structural: (view, kind) => structuralProps(view, kind, ctx),

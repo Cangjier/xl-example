@@ -183,7 +183,7 @@ ifSet.MountCondition(source);
   const bodyOf = (seg: any) => {
     const cond = new Set(ctx.KidsOf(seg, "condition"));
     const kept: any[] = [];
-    for (const k of ctx.AllKids(seg)) {
+    for (const k of ctx.Kids(seg)) {
       if (k.IsInvisible || cond.has(k)) continue;
       if (k.Tag === "IfBody") {
         for (const inner of ctx.Kids(k)) kept.push(inner);

@@ -340,6 +340,12 @@ let staleNameHits = 0;
  * **第 1063 轮再补 `OperatorRank`**：那张「运算符 → 优先级」的中央词汇表搬回了
  * `symbol-token.xl.md`（`SymbolToken.OperatorRank` / `SymbolToken.RankOfText`），
  * `ctx.OperatorRank` 出口一并删掉。
+ *
+ * **第 1067 轮再补一个出口名 `AllKids`**：它是「含 trivia 的完整子单元表」唯一的出口，
+ * 而 `ProjectableKids` 立起来之后，**投影层只剩 `trailingTriviaStart` 一处真的要看它**
+ * （它找的正是注释）——那个出口随之删掉，三处调用点（`try` 两处、`if-set` 一处）改成
+ * `ctx.Kids`（同一格读数的另一个名字，语义逐字相同）。出口删了就补进这张表，
+ * 免得下一轮有人往 `ctx` 里补一行再把「我看得见 trivia」请回来。
  */
 const CTX_BANNED = [
   "Text",
@@ -357,6 +363,7 @@ const CTX_BANNED = [
   "IsOperatorUnit",
   "IsTypeParameterModifier",
   "OperatorRank",
+  "AllKids",
 ];
 /**
  * **投影对 token 只读属性、不调方法**（第 1046 轮）。

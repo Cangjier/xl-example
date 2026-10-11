@@ -347,6 +347,35 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1067 轮：`ProjectableKids` 立起来之后，把「顺手拿完整子单元表遍历一遍」的最后一批评干净——`addDecorators` / `projectRoot` 的透传支 / `moduleSpecifierIn` / `moduleHolderOf` 改成那一格读数，`ctx.AllKids` 出口随之删掉（三处调用点改用同一格读数的别名 `ctx.Kids`）并补进 `CTX_BANNED`；**八道门全绿、读数一处没动**
+
+**一句话**：第 1066 轮立起 `Token.ProjectableKids`（「哪些子单元进投影」），这一轮把
+**同一份读数的两种写法**收成一种——凡是「在子单元里找一个可见的东西」，一律读那一格。
+
+| 改掉的调用点 | 原来 | 今天 |
+| --- | --- | --- |
+| `addDecorators`（找 `Decorator`） | `allKids(v).filter(…)` | `v.ProjectableKids.filter(…)` |
+| `projectRoot` 的**未映射透传支** | `projectEach(allKids(v), ctx)` | `projectEach(v.ProjectableKids, ctx)` |
+| `moduleSpecifierIn` / `moduleHolderOf`（找 `String`） | `for (const inner of allKids(one))` | `for (const inner of one.ProjectableKids)` |
+| **一段单元数组**（`typeOf` 的入参、`projectExpression` 的段过滤） | `kids.filter((k) => k instanceof Token && !k.IsInvisible)` | **原样保留**：`ProjectableKids` 是**某一格 token** 的属性，数组没有这一格 |
+| `trailingSemicolonOf`（末尾那个 `;` 落在谁里面） | `for (const k of allKids(item))` | **原样保留**：它要问的正是「那个 `;` 是不是落在**注释**里」，而注释正是 `IsInvisible` 的那一类 |
+
+- **`allKids` 因此只剩一个真读者**：`trailingTriviaStart`（它找的正是注释）——「要看 trivia 的
+  只有这一处」是这一轮量出来的结论，写在 `allKids` 那一节上。
+- **`ctx.AllKids` 这个出口删掉**：三处调用点（`try` 两处、`if-set` 一处）查的都是可见的东西，
+  `ctx.Kids` 就是同一格读数的另一个名字、语义逐字相同。名字补进 `direct:lint` 的 `CTX_BANNED`
+  ——留一个「我也看得见 trivia」的出口，等于给下一页留了一条「自己滤一遍」的现成入口。
+- **两次「按实测撤回」，都记在页面上**：① 把**一段单元数组**当成 token
+  （`kids = kids.ProjectableKids`）⇒ `coverage` 报 `Cannot read properties of undefined`；
+  ② `trailingSemicolonOf` 改成读 `ProjectableKids` ⇒ 注释里收尾的 `;` 不再被排除，
+  `lx-comments` / `type-tail-linecomment` 一族 7 条一起红。**一处都没留**。
+- **实测**：`xl check typescript core` 0 条；`xl build typescript core` **4 个产物** / 0 error
+  （`print-ast-common` / `try` / `if-set` / `namespace`）、`tsc` 干净；
+  **八道门 8 通过、0 失败**（墙钟 28.4s），读数与基线逐项相同：`coverage` **4260 / 4422**
+  （`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、`cases:tsast` 3 条已知缺口还开着、
+  `cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、`samples` 逐字节一致、
+  `cases:check` 1656 / 1656、`runtime:check` 243 / 243、`runtime:cli` 79 / 79。
+
 ### 第 1066 轮：「这一格下面哪些子单元进投影」也收进被问的那一页——`Token.ProjectableKids`（`Segments` + `children` + `IsInvisible` 三件 token 自己的事实的合成）替掉投影层那两格一字不差的 helper，139 处调用点改成属性读、6 处数组接收者就地按同一句算式写；顺手收掉两个用不到的形参（`projectHeadDeclare.container` / `bindingSpan.v`）；**八道门全绿、读数一处没动**
 
 **一句话**：第 1065 轮收的是「**我有哪些段**」，这一轮收的是「**这些段里哪些进投影**」：
