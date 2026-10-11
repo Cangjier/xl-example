@@ -58,8 +58,12 @@ this.Index = index;
 `skipChars` 省略或为空时返回下标减一的位置（越界返回 `null`）；给了 `skipChars` 时不断向前跳过这些字符，直到遇到不在其中的字符（一路跳到底则返回 `null`）。
 
 ```ts
-const skip = skipChars ?? [];
-if (skip.length === 0) {
+// **不跳任何字符时不再造一个空数组**（第 1208 轮，用户口径 1.2「提升 parse 效率」）：
+// 原来写的是 `const skip = skipChars ?? []`，而**无参调用占绝大多数**——
+// 实测 `typescript.d.ts` 一份上 `Pre` 被调 **2796688** 次，其中无参 **2361649** 次
+//（`tmp/r1208-pre.mjs`）⇒ 每一份文件**白造 236 万个空数组**。
+// 判据一个字没改：省略与空数组走的是同一条路，`skipChars` 非空那一支才用它自己。
+if (skipChars === undefined || skipChars.length === 0) {
   if (this.Index - 1 < 0 || this.Index - 1 >= this.Document.GetCount()) {
     return null;
   }
@@ -67,7 +71,7 @@ if (skip.length === 0) {
 }
 let last: Source | null = this.Pre();
 while (last !== null) {
-  if (skip.includes(last.Value)) {
+  if (skipChars.includes(last.Value)) {
     last = last.Pre();
   } else {
     return last;

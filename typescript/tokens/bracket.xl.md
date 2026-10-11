@@ -39,10 +39,18 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 ```ts
 const value = source.Value;
 const result = this.Result;
-const last = unit.Last();
-if (value === "{" && last instanceof BlockToken && last.Closed === false && IsUnclosedBracedEscape(last.TempToString())) {
-  result.Success = false;
-  return result;
+// **上一格只在 `{` 那一档才问**（第 1208 轮，用户口径 1.2「提升 parse 效率」）：
+// 这一问原来**无条件**跑（`const last = unit.Last();` 写在最前面），而 `last` 只有一个读者
+// ——`value === "{"` 那一支。实测 `typescript.d.ts` 一份上这一条 `Condition` 被问
+// **418654** 次、答成立只 **2773** 次（`tmp/r1208-transit.mjs` 的读数），
+// 也就是说那 41 万次里 **41 万次**都是在为「不是 `{`」白问一次上一格。
+// 判据与次序一个字没改：`last` 只在原来那个 `if` 里出现。
+if (value === "{") {
+  const last = unit.Last();
+  if (last instanceof BlockToken && last.Closed === false && IsUnclosedBracedEscape(last.TempToString())) {
+    result.Success = false;
+    return result;
+  }
 }
 result.Success = value === "(" || value === "{" || value === "[";
 return result;
