@@ -435,12 +435,12 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
 （它要换名叫 `expression`），而**进投影的是两段**——`arguments` 那一段与目标语言同形、按
 「只记叫法不同的那些」的口径没写进 `SegmentNames`，漏了它 `new A(1)` 的实参就整片丢掉。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 995 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
-属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+**第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
+属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
 
-**这一页本来就是「全字段」的**（`PrintDirectAst` 里的每一问都读 `name` / `arguments` 两个段与子单元自己的东西），
+**这一页本来就是「全字段」的**（`PrintAst` 里的每一问都读 `name` / `arguments` 两个段与子单元自己的东西），
 所以直出版是**逐行同一份**：`ctx.KidsOf` / 单元自己的 `IsInvisible()` / `ctx.ParenthesizedOf` / `ctx.Expression` /
 `ctx.Split` / `ctx.TypeExpression` / `ctx.NodeHead` 都是出口助手，没有一处回原文查。
 唯一一处「判据落在 token 自己的字段上」的是 `IsTemplateString`——它读的是 `String.StringChar`

@@ -19,11 +19,10 @@ Lambda 的一个形参。
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<Parameter>子单元</Parameter>`。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 996 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 996 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 **两处回原文查各换掉了什么**：
 
@@ -181,7 +180,7 @@ return result;
 只有这一页知道它们不是参数名的一部分。这一份词表过去写在
 `typescript/print-ast-common.xl.md`（`# private const PARAMETER_MODIFIERS`）、
 并挂在 `ctx.ParameterModifiers` 上递过来，可它**全仓只有一个读者**——就是本页的
-`PrintDirectAst`：一份只服务一处的词表住在投影层，搬回来说的是同一件事，而 `ctx` 上
+`PrintAst`：一份只服务一处的词表住在投影层，搬回来说的是同一件事，而 `ctx` 上
 那一格出口也随之删掉（出口表 64 → 62）。
 
 ```ts

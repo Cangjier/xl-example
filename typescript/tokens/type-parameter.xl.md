@@ -455,15 +455,14 @@ rebuilt.push(parameter);
 **我这一格是不是一个类型参数单元**（第 1095 轮）：类型参数就是这一页，所以常量答 `true`
 ——口径与理由见 `core/syntax/token.xl.md` 的 `IsTypeParameterUnit`。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
-  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const kids0 = ctx.Kids(v);
   // **约束被整个包进一个节点时要摊开**（第 846 轮）：`<X extends A extends B ? C : D>` 里
   // 产物把**名字 + `extends` + 条件类型**一起收成一个 `ConditionalType`

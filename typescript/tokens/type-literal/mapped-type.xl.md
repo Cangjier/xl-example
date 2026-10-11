@@ -33,11 +33,10 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<MappedType>成员的 XML</MappedType>`。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 998 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 998 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 **两处回原文查各换掉了什么**：
 
@@ -165,7 +164,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 （TS 的 `parseMappedType` 在值类型之后照样 `parseTypeMembers()`），而那一批成员在目标语言那边
 就是 `PropertySignature` / `MethodSignature`——与类体里的同名成员是两种 kind。
 
-本页的 `PrintDirectAst` 把那一批成员按成员位投一次，**第三格递的就是本页自己**
+本页的 `PrintAst` 把那一批成员按成员位投一次，**第三格递的就是本页自己**
 （`ctx.MemberList(members, "TypeLiteral", v)`：那一格是「父单元」，第 1035 轮），
 所以成员读 `v.Parent.IsSignatureList` 时读到的就是这一格——它是**这一层的身份**，
 由本页答而不是由投影递一个 kind 名进来。

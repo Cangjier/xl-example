@@ -573,17 +573,16 @@ return this.Value;
   return { kind: "Identifier", text: Translate.DecodeIdentifierEscapes(text), pos: at, end: at + text.length };
 ```
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   // **文本读 token 自己的 `Value`**（第 992 轮）：关键字兜底身份的正文就记在那一格上
   // （投影读的 `value` 与它同源），不必回原文切。
   const text = this.Value;
-  // 上下文关键字 `get` / `set` 一律按 `Identifier` 投（理由见上面的 `PrintDirectAst`）。
+  // 上下文关键字 `get` / `set` 一律按 `Identifier` 投（理由见上面的 `PrintAst`）。
   const contextual = text === "get" || text === "set";
   const kind = contextual ? undefined : this.KeywordKind;
   return ctx.Node(kind === undefined ? "Identifier" : kind, { text }, v);
@@ -613,10 +612,10 @@ return this.Value;
 改一个词要跑两个地方；现在与 `StatementKind()` 同一形态——**投影问这一格，不替它记第二遍**。
 
 **它不是 `AstKind`** ✗：上下文关键字 `get` / `set` 在投影里按 `Identifier` 投
-（见上面的 `PrintDirectAst`），所以「我这个词对应哪个关键字 kind」与「我这一格投成哪个节点」
+（见上面的 `PrintAst`），所以「我这个词对应哪个关键字 kind」与「我这一格投成哪个节点」
 是两件事，由这一格单独记。
 
-**第 1042 轮起它是属性**：值在 `SetValue` 记下正文那一刻查好；`PrintDirectAst` 直读
+**第 1042 轮起它是属性**：值在 `SetValue` 记下正文那一刻查好；`PrintAst` 直读
 （`this.KeywordKind`），不再问「有没有这一格」。
 
 ## field StatementField:string | undefined = undefined
@@ -691,7 +690,7 @@ new Map([
 
 这一格是 `KeywordKind()` 要读的那份词汇——键与值都是**这一页自己的事实**
 （词住在我这里，`Value` 就是那个词）。搬过来之前它叫 `KEYWORD_KIND`、住在
-`typescript/print-ast-common.xl.md`，而投影对它的用法只有一处（`Keyword.PrintDirectAst`
+`typescript/print-ast-common.xl.md`，而投影对它的用法只有一处（`Keyword.PrintAst`
 拿自己的 `Value` 去查），于是同一份词汇在两个地方各有一份声明：改一个词要跑两个地方，
 而投影那一份的读者其实只有这一个 token 页。
 

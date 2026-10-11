@@ -1168,11 +1168,10 @@ for (const item of this.Data) {
 throw new Error("找不到匹配的子单元");
 ```
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1002 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 1002 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 **这一页是「同一个产物标签、按上下文换 kind」最多的一页**：
 接口 / 类型字面量里是 `MethodSignature`（**问父单元自己**：`v.Parent.IsSignatureList`，

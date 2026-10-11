@@ -185,15 +185,14 @@ Json 对象。
 
 **形态与基类一致**（两边都是 `## field` + `new Map()`）：基类那一格是**空表**（第 1041 轮从 `## method` 改成属性），这一页给出自己的表——第 1065 轮基类的 `Segments` 就是照这张表的键排出来的（段的**名单与顺序**都从这里来）。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
-  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const properties: any[] = [];
   for (const group of ctx.Split(ctx.Kids(v), ",")) {
     const first = group[0];
@@ -342,7 +341,7 @@ return result;
 
 这一份名单过去写在 `typescript/print-ast-common.xl.md`（`# private const MEMBER_IN_OBJECT`）、
 并挂在 `ctx.MemberInObject` 上递过来，可它**全仓只有一个读者**——就是本页的
-`PrintDirectAst`：判的就是「我刚投出来的那一格是不是成员」，那是**本页的上下文**，
+`PrintAst`：判的就是「我刚投出来的那一格是不是成员」，那是**本页的上下文**，
 搬回来说的是同一件事，而 `ctx` 上那一格出口也随之删掉（出口表 64 → 62）。
 
 ```ts

@@ -302,8 +302,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 | --- | --- |
 | `cases:tsast` | 逐节点对 `ts.createSourceFile` 比 **kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界 / 抛异常——**八条全 0 才退出码 0**；语料里带 `xl:known-gap` 的那些用例走**另一条账**（见下） |
 | `cases:tsast:cli` | **发布路径**：真开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 对拍（全语料，按需跑） |
-| `cases:direct` | **第三个出口投不投得出来**（第 992 轮加，第 1013 / 1017 轮改口径）：`Token.PrintDirectAst` 是**唯一**的写法，所以量的是两条**绝对**的判据——① 全语料投一遍**不许抛异常**；② 固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。**第 1013 轮之前**它与 `PrintAst` 开 / 关两遍对拍，第 1013 ~ 1016 轮改量「同一份输入重投两遍逐字节相同」——**那一项第 1017 轮撤了**：两遍都在同一个进程里、问的都是同一份 `Root` 自己的子单元列表，确定性代码必然逐字节相同，**它不可能失败** |
-| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 / 1014 / 1015 / 1026 / 1027 / 1046 / 1049 / 1050 / 1053 / 1057 / 1058 / 1059 / 1060 / 1061 / 1062 / 1063 / 1064 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintDirectAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；**扫共享投影那一页的代码块**（第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层）另有六条：① 名字那一格不许按字符串键读（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`，第 1008 轮）；② **一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintDirectAst`——那是分发不是数据，第 1046 轮）；③ `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`；扫描游标与别人的终点照旧，第 1049 轮）；④ **按坐标从 `ctx.source` 切正文**的 = 0 处（`ctx.source.slice(startOf(x), endOf(x))` / `ctx.source.slice(startOf(x), x.end)`——这一段正文由它自己答：`x.Text` / `x.Text.slice(…)`，区间是全文坐标所以两头减 `x.start`；扫描游标与成对括号区间照旧，第 1053 轮）；⑤ `# private method …` 小节里**声明了 `ctx` 形参却在方法体里一处不用**的 = 0 处（形参表就是这一格需要什么，第 1050 轮）；⑥ 中间那一层的入口名（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）一个都不许留在规范页的代码块里（第 1027 轮）。还有一条只扫**散文**的：`PrintAst` 这个老名字只许写在「明说它已经不存在」的那一行（词边界匹配，`PrintDirectAst` 不算，第 1014 轮）；以及一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace` / `FirstCodeAfter` / `MatchBrace` / `MatchingParen`，第 1015 / 1026 轮；第 1062 轮再补 `IsOperatorUnit` / `IsTypeParameterModifier`；第 1063 轮再补 `OperatorRank`）——出口删了之后，方法体那条判据才从「大家记得别写」变成**结构上做不到**；⑨ `print-ast-common` 的**代码块**里不许再有「回原文配对 / 找成对符号」的形态（`matchingBrace(` / `ctx.MatchingBrace(` / `indexBracketOf(` / `ctx.IndexBracketOf(` / `ctx.source.indexOf("{")` / `ctx.source.lastIndexOf("{")`，第 1059 / 1060 轮）——那两格（`bodyBraceRange` / `IndexBracketAt`）由 token 自己记好；⑩ `print-ast-common` 的**代码块**里不许再回**某一页的子单元**里翻字符串的正文（`stringText(` / `ctx.StringText(`，第 1061 轮）——那段正文由 `String.StringText` / `ConstString.StringText` 自己答；⑪ `print-ast-common` 的**代码块**里不许再把「这一格是不是某一类」写成问句（`isDotSymbol(` / `isTypeSeparator(` / `isNameNode(` / `isOperatorUnit(` / `isPrefixOperatorUnit(` / `isTypeParameterModifier(`，以及 `ctx.Is…` 那种出口写法；`isDot` 这类缩写一起认，第 1057 / 1058 / 1062 轮）——那一格的事实住在**被问的那一页**（`Token.IsDotSymbol` / `Token.IsOperatorUnit` …），投影只读属性；第 1063 轮这一族多认一格**「这一格的值是什么」**的形态（属性名 `OperatorRank` 与老问句别名 `operatorRank(`）——优先级那张词汇表搬进了 `symbol-token.xl.md`（`SymbolToken.OperatorRank` / `SymbolToken.RankOfText`），投影只读属性；第 1064 轮再补两格（`DeclarationListFlags` 配别名 `flagsOf`、`HasChildren` 配别名 `labelIsFlat`——两问都是从这一格自己的属性读出来的：`Let.modifiers` 与基类 `children`） |
+| `cases:direct` | **第三个出口投不投得出来**（第 992 轮加，第 1013 / 1017 轮改口径）：`Token.PrintAst` 是**唯一**的写法，所以量的是两条**绝对**的判据——① 全语料投一遍**不许抛异常**；② 固定样本 `const a = b(c);` 必须投出六格（`SourceFile` / `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `Identifier` / `CallExpression`）且每个节点都带 `pos` / `end`；自己出的比例只印（见 `core/syntax/token.xl.md` 的 `PrintAst`）。**第 1013 轮之前**它与老路开 / 关两遍对拍，第 1013 ~ 1016 轮改量「同一份输入重投两遍逐字节相同」——**那一项第 1017 轮撤了**：两遍都在同一个进程里、问的都是同一份 `Root` 自己的子单元列表，确定性代码必然逐字节相同，**它不可能失败** |
+| `direct:lint` | **第三个出口只用 token 自己的东西**（第 992 轮加；第 1005 / 1008 / 1012 / 1014 / 1015 / 1026 / 1027 / 1046 / 1049 / 1050 / 1053 / 1057 / 1058 / 1059 / 1060 / 1061 / 1062 / 1063 / 1064 轮各加一条、第 1013 轮撤掉两条基线判据）：逐页扫 `PrintAst` 的方法体（注释不算），不许出现 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`，逐键计数、例外表已归零）；**扫共享投影那一页的代码块**（第三个出口是坐 helper 出去的，只扫方法体的那几条看不见这一层）另有六条：① 名字那一格不许按字符串键读（`.attrs.get("name"/"fieldName"/"namespace")`，只许走 `tokenNameOf`，第 1008 轮）；② **一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintAst`——那是分发不是数据，第 1046 轮）；③ `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`；扫描游标与别人的终点照旧，第 1049 轮）；④ **按坐标从 `ctx.source` 切正文**的 = 0 处（`ctx.source.slice(startOf(x), endOf(x))` / `ctx.source.slice(startOf(x), x.end)`——这一段正文由它自己答：`x.Text` / `x.Text.slice(…)`，区间是全文坐标所以两头减 `x.start`；扫描游标与成对括号区间照旧，第 1053 轮）；⑤ `# private method …` 小节里**声明了 `ctx` 形参却在方法体里一处不用**的 = 0 处（形参表就是这一格需要什么，第 1050 轮）；⑥ 中间那一层的入口名（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` / `ToJsonString`）一个都不许留在规范页的代码块里（第 1027 轮）。还有一条只扫**散文**的老名字判据在**第 1143 轮撤掉了**（用户口径 1.1 把 `PrintDirectAst` 改名成 `PrintAst`，全仓 78 个文件 / 482 处，于是「`PrintAst` 是老名字」这句话本身成了反的，见 `tests/parse/direct-lint.mjs` 里那一整段说明）；以及一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的出口（`Text` / `TextOf` / `StringText` / `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace` / `FirstCodeAfter` / `MatchBrace` / `MatchingParen`，第 1015 / 1026 轮；第 1062 轮再补 `IsOperatorUnit` / `IsTypeParameterModifier`；第 1063 轮再补 `OperatorRank`）——出口删了之后，方法体那条判据才从「大家记得别写」变成**结构上做不到**；⑨ `print-ast-common` 的**代码块**里不许再有「回原文配对 / 找成对符号」的形态（`matchingBrace(` / `ctx.MatchingBrace(` / `indexBracketOf(` / `ctx.IndexBracketOf(` / `ctx.source.indexOf("{")` / `ctx.source.lastIndexOf("{")`，第 1059 / 1060 轮）——那两格（`bodyBraceRange` / `IndexBracketAt`）由 token 自己记好；⑩ `print-ast-common` 的**代码块**里不许再回**某一页的子单元**里翻字符串的正文（`stringText(` / `ctx.StringText(`，第 1061 轮）——那段正文由 `String.StringText` / `ConstString.StringText` 自己答；⑪ `print-ast-common` 的**代码块**里不许再把「这一格是不是某一类」写成问句（`isDotSymbol(` / `isTypeSeparator(` / `isNameNode(` / `isOperatorUnit(` / `isPrefixOperatorUnit(` / `isTypeParameterModifier(`，以及 `ctx.Is…` 那种出口写法；`isDot` 这类缩写一起认，第 1057 / 1058 / 1062 轮）——那一格的事实住在**被问的那一页**（`Token.IsDotSymbol` / `Token.IsOperatorUnit` …），投影只读属性；第 1063 轮这一族多认一格**「这一格的值是什么」**的形态（属性名 `OperatorRank` 与老问句别名 `operatorRank(`）——优先级那张词汇表搬进了 `symbol-token.xl.md`（`SymbolToken.OperatorRank` / `SymbolToken.RankOfText`），投影只读属性；第 1064 轮再补两格（`DeclarationListFlags` 配别名 `flagsOf`、`HasChildren` 配别名 `labelIsFlat`——两问都是从这一格自己的属性读出来的：`Let.modifiers` 与基类 `children`） |
 | `samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | `cases:check` | 用例文件本身合不合格（文件名 / area / id 唯一 / 指令语法 / 标签名 / TS 合法性） |
 | `runtime:check` / `runtime:cli` | 执行侧的机制与端到端（见「构建链路」那一节） |
@@ -893,7 +893,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 子类构造时（或记下那个事实的那一趟）就明确、在具体类里**显式声明**、构建完就**齐全**」。
 第 1028 / 1029 两轮把那两张按文本查的词汇表搬回各自那一页之后，`ctx` 上那两个分类器出口
 （`LeafKind` / `TokenKind`）就删掉了；可**投影已经用不到的两个实例方法还留在页上**——
-`Identifier.LeafKind()` 与 `SymbolToken.TokenKind()`，各自只剩「自己那一页的 `PrintDirectAst`」
+`Identifier.LeafKind()` 与 `SymbolToken.TokenKind()`，各自只剩「自己那一页的 `PrintAst`」
 一个读者（一行转手：把 `LeafKindOfText` / `KindOfText` 喂上自己的正文）。
 
 - **收成属性**（具体类里显式声明，`## property` + `### get`，取值一行没改）：
@@ -1296,7 +1296,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   同趟赋好（`bracketStart.Index`，空起点时不赋、留 `-1`），`Clone` 照抄——
   「构造 / 克隆之后这一格的事实必须齐全」这三句在这一族上是同一个动作。
 - **删掉的东西**：`print-ast-common` 的 `indexBracketOf`（从这一格的终点往回找 `]`，
-  再按深度配对找 `[`）与 `ctx.IndexBracketOf` 那个出口；`IndexedAccessType.PrintDirectAst`
+  再按深度配对找 `[`）与 `ctx.IndexBracketOf` 那个出口；`IndexedAccessType.PrintAst`
   改成读 `v.IndexBracketAt`（`-1` 那一支照旧退回「整段一次投」）。
   这一格又是一处「**按字符数括号**」的第二份答案：`T["]"]` 这种输入正是它的软肋。
 - **为什么这不是「行为变更」**：改的是**同一格事实的读法**（过去由投影回原文配对，
@@ -1492,9 +1492,9 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   **三页各自显式声明并答 `true`**：`InterfaceBody` / `TypeLiteralBody`（那两页就是成员表本身）、
   `MappedType`（它的值类型之后还能再跟成员，而那一批成员**挂在它自己下面**——
   `ctx.MemberList(members, "TypeLiteral", v)` 的第三格递的就是它，第 1035 轮）。
-- **消费面改读父单元**：`field.xl.md` 的 `Field.PrintDirectAst`
+- **消费面改读父单元**：`field.xl.md` 的 `Field.PrintAst`
   （`v.Parent?.IsSignatureList === true ? "PropertySignature" : "PropertyDeclaration"`）、
-  `method-declaration.xl.md` 的 `PrintDirectAst`（同一个判据读 `MethodSignature`）、
+  `method-declaration.xl.md` 的 `PrintAst`（同一个判据读 `MethodSignature`）、
   `print-ast-common` 的 `projectDeclaration`（同一个判据）——三处读的都是**父单元那一格**。
 - **删掉的东西**：`ctx` 上那一格 `signature`、`projectEachIn` 里那段
   `const signature = parentKind === …` 与它的一对 save / restore（整段），
@@ -1525,7 +1525,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   `## field IsClassBody:bool = true`（构造时就赋好的一格**常量**，与 `WrapperField` /
   `IsMemberList` / `IsSignatureNode` 同一形态、同一理由）；
   `print-ast-common` 的 `projectDeclaration` 与 `method-declaration.xl.md` 的
-  `PrintDirectAst` 两处同一支改读 **`v.Parent?.IsClassBody === true`**——
+  `PrintAst` 两处同一支改读 **`v.Parent?.IsClassBody === true`**——
   两条路读的都是**父单元那一格**，所以仍然逐字符同答（这正是「两半一起写」要的那条性质）。
 - **删掉的东西**：`ctx` 上那一格 `parentKind: ""`（连同它那段「为什么直出版非要读它」的说明）、
   `projectEachIn` 里那一对 `savedParentKind` save / restore（三处）、
@@ -1669,7 +1669,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   = **0 处**。口径与前面几条同款：只看 `SHARED_FILE`、注释不算（`codeOnly`）。
 - **这一条自己验过**：把 `textOfNode:(node:any)=>string` 改回 `(node:any, ctx:any)`（方法体仍不用）
   ⇒ 读数 **1 处**、`FAIL … 声明了 ctx 形参、方法体里一处都不用`、`exit=1`；还原 ⇒ **0 处**、`exit=0`。
-- **说明同步三处**：`core/syntax/token.xl.md` 的 `PrintDirectAst`（「四条判据」改成「五条判据」）、
+- **说明同步三处**：`core/syntax/token.xl.md` 的 `PrintAst`（「四条判据」改成「五条判据」）、
   `docs/ts-ast.md` 的判据表（同一个格子）、本页 `textOfNode` 那一节（形参表就是它需要什么）。
 - **实测**：`xl check` 2 份 0 错 0 警；`xl build` 1 写出 / 0 error；`tsc` 干净；
   **八道门 8 通过、0 失败**（墙钟 32.3s），读数逐项与基线相同：`coverage` **4260 / 4422**
@@ -1703,7 +1703,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 - **这一条自己验过**（与第 1015 / 1047 两轮同一手法）：把其中一处改回
   `ctx.source[v.start] !== "`"` ⇒ 读数 **1 处**、`FAIL 按某一格自己的起点读 ctx.source`、`exit=1`；
   还原 ⇒ **0 处**、`exit=0`。
-- **说明同步落到三处**：`core/syntax/token.xl.md` 的 `PrintDirectAst`（「三条判据」改成
+- **说明同步落到三处**：`core/syntax/token.xl.md` 的 `PrintAst`（「三条判据」改成
   「四条判据」，第四条写明为什么前三条看不见它）、`docs/ts-ast.md` 的判据表（同一个格子）、
   本页 `print-ast-common` 开头那两条规矩之后的第 3 / 4 条（连同「这一格自己的正文自己答」）。
 - **实测**：`xl check` 2 份 0 错 0 警；`xl build` 1 写出 / 0 error；`tsc` 干净；
@@ -1750,11 +1750,11 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 
 - **新判据（`tests/parse/direct-lint.mjs`）**：扫 `typescript/print-ast-common.xl.md` 的**代码块**
   （注释不算），一次 `(?<![\w.$])([a-z]\w*)\.([A-Z]\w*)\s*\(` 都不许有。**两处例外，都不是取数据**：
-  接收者 `ctx`（投影自己的上下文对象）；方法名 `PrintDirectAst`（第三个出口的**分发**，
+  接收者 `ctx`（投影自己的上下文对象）；方法名 `PrintAst`（第三个出口的**分发**，
   问的是「这一格出哪个节点」，是行为不是这一格的数据）。
   口径与第 1008 轮那条「名字那一格」同款：只看代码块、恰好 0 处才对，读数照旧印出来。
 - **实测读数**：这条判据落上去时，同一份代码块里只剩三处匹配——`ctx.Project(` ×2、`ctx.Make(` ×1
-  （接收者是 `ctx`）、`owner.PrintDirectAst(` ×1（分发）⇒ **token 方法调用 0 处**。
+  （接收者是 `ctx`）、`owner.PrintAst(` ×1（分发）⇒ **token 方法调用 0 处**。
   于是「投影读 token 只读属性」这句话有一处会红的读数看着：今天读的是
   `k.Tag` / `k.IsInvisible` / `k.IsMemberTag` / `k.IsDeclarationUnit` / `x.BodyField` /
   `x.WrapperField` / `node.NameField` / `cursor.FunctionFlags` / `parent.TypeMemberPlan` /
@@ -1766,7 +1766,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   `FAIL 投影对 token 调了方法：\`x.WrapperField(…)\``、`exit=1`；还原 ⇒ **0 处**、`exit=0`，
   且 `git diff` 对那一页**逐字节无变化**。
 - **判据的说明同步落到三处**（免得下一位只从读数里猜）：`core/syntax/token.xl.md` 的
-  `PrintDirectAst` 那一节（「两条判据」改成「三条判据」，第三条写明为什么前两条看不见它）、
+  `PrintAst` 那一节（「两条判据」改成「三条判据」，第三条写明为什么前两条看不见它）、
   README 的门的台账那一行（`direct:lint` 那条）、`docs/ts-ast.md` 的判据表。
 - **实测**：`xl check` 182 份 0 错 0 警；`xl build` 刷新 1 写出 / 0 error；`tsc` 干净；
   **八道门 8 通过、0 失败**（墙钟 31.3s），读数逐项与基线相同：`coverage` **4260 / 4422**
@@ -1896,9 +1896,9 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
     两格**仍是方法**的理由（`GenericType` / `Bracket` 要按自己的子单元与 `startBracket` 现场判；
     `BodyField` 要拿调用方的 `parentKind`）搬进了调用点的注释里，没有丢。
 - **三处兜底删掉**（`typeof … === "function"`）：`tokenNameOf` 的 `NameField`、
-  `functionContextOf` 的 `FunctionFlags`、以及 `projectNode` 入口那一层 `if (typeof owner.PrintDirectAst
+  `functionContextOf` 的 `FunctionFlags`、以及 `projectNode` 入口那一层 `if (typeof owner.PrintAst
   === "function")`。问的都是「这一格有没有这个方法」，而这三格都是**基类上的方法、每个 token 都有**
-  ——那一问没有第二个答案。`projectNode` 因此少一层嵌套（`owner.PrintDirectAst(ctx, v)` 直调，
+  ——那一问没有第二个答案。`projectNode` 因此少一层嵌套（`owner.PrintAst(ctx, v)` 直调，
   `ctx.Nothing` / `undefined` 两条分流照旧）。
 - **结果**：本文件 `# const` / `# method` 声明 **104 → 100 格**，可达性仍是「从入口全部可达」；
   **仍是方法的四格**（`NameField` / `WrapperField` / `BodyField` / `FunctionFlags`）连同各自
@@ -1930,7 +1930,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   「**我这一格装了什么**」——`Keyword` 的正文、`Bracket` 是哪一对括号都是解析期才进来的。
   把赋值点钉在**记下那个事实的那一行旁边**，才既不早（早于事实）也不晚（投影期才算）。
 - **投影那一侧**：`head.IsStatementNode` / `head.StatementKind` / `head.StatementField` 直读
-  （19 处调用点从 `x.Name()` 改成 `x.Name`，含 `Keyword.PrintDirectAst` 里的 `this.KeywordKind`）。
+  （19 处调用点从 `x.Name()` 改成 `x.Name`，含 `Keyword.PrintAst` 里的 `this.KeywordKind`）。
   `ownsTrailingSemicolon` 那一格**不变**：它问的仍是 **kind 名**（`ENDS_ON_BRACE` 那一份落点）——
   第 1040 轮量出来的那条结论（`projectStatement` 会把声明包进语句壳，手上那一格与 `out` 末尾那个
   节点不是同一个单元）在这一轮没有变，所以「按名字反查一次」照旧留着。
@@ -2112,7 +2112,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 **一句话**：用户口径「**如果 Token 缺少属性，就完善 Token**」。上一轮把 `ctx` 收干净了，
 这一轮先把「直出版**答不出**的那些格」逐格量出来，再一条一条补上 token 那一格事实。
 
-- **量法**（`tmp-r1015/ifset-giveway.mjs`）：把 `IfSet.prototype.PrintDirectAst` 包一层，
+- **量法**（`tmp-r1015/ifset-giveway.mjs`）：把 `IfSet.prototype.PrintAst` 包一层，
   答 `undefined` 就记一次，并把**那一段 token 自己的字段**（`BodyBraceAt` / `EmptyBodyAt` /
   `BodyBrace.IsSet` / `BraceRangeText()` / `Data` 里各单元的类名）一起打出来。
   读数：1640 份语料让开 **13 次 / 13 份文件**，**全部落在同一件事上——体是空块 `{}`**。
@@ -2137,7 +2137,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   与 TS 原生 AST 对不上，这正是 `coverage` 那 13 条 `blocked` 与 `cases:tsast` 那 8 片红。
 - **⇒ 十一道门 11 通过 0 失败**（第 992 轮以来第二次全绿，且这次不是靠改口径换来的）。
 
-### 第 1015 轮（一）：把 `PrintDirectAst` 的 `ctx` 收干净——老路删掉之后空出来的 9 个出口整条删掉，`ctx.TextOf` 最后两处真实调用改成 `ctx.ValueOf`
+### 第 1015 轮（一）：把 `PrintAst` 的 `ctx` 收干净——老路删掉之后空出来的 9 个出口整条删掉，`ctx.TextOf` 最后两处真实调用改成 `ctx.ValueOf`
 
 **一句话**：上一个 commit 把 `PrintAst` 与它的派发分支删了，这一轮量的是
 「`ctx` 上还剩多少出口**一个消费者都没有**」——逐出口全仓数一遍
@@ -2173,18 +2173,18 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 - **顺手核出来的一件事**：`const a = b(c);` 这一趟 `projectNode` 只被问 3 次（`count=3`），
   而这 3 次**都没有走 token 自己那一格**（`node.__token` 没挂上，节点由通用支出形状；
   `direct=3` 记的是别处的直出）——所以这项判据量的是**整条投影链的地板**，不是
-  「`PrintDirectAst` 被调了几次」。这一点写进探针注释里，免得下一轮把它当成「直出版的覆盖率」读。
+  「`PrintAst` 被调了几次」。这一点写进探针注释里，免得下一轮把它当成「直出版的覆盖率」读。
 - **探针**（`tmp/r1014/`）：`scan-stale-name.mjs`（全仓量「老名字」那 154 行的分布）、
   `probe-who-asks.cjs`（上面那 3 次问路是谁问的）、`probe-direct-shape.cjs`（打补丁那一版）。
 
 ### 第 1014 轮：把「成对方法合并」这句话**逐段核对**了一遍（75 对里 68 对与老那一节逐字节同一份），并把「老名字」这条残留学进 `direct:lint`
 
 **一句话**：第 1013 轮删 `PrintAst` 时，全仓 200 处引用是**按名字整批改名**的——于是同一页里
-出现了一处自指错句（「先问 `PrintDirectAst`、再问 `PrintDirectAst`」）。这一轮先**核对**那批合并
+出现了一处自指错句（「先问 `PrintAst`、再问 `PrintAst`」）。这一轮先**核对**那批合并
 到底有没有改变投影，再把「老名字只许写成过去的事」变成门。
 
 - **核对（`tmp-r1014/pair-audit.mjs`，一次性探针）**：取改动前那一版（`fc6c828c^`）的每一段
-  `## method PrintAst` / `## method PrintDirectAst`，与工作树里对应的那段逐行比——
+  `## method PrintAst` / `## method PrintAst`，与工作树里对应的那段逐行比——
   **75 对**里 **21 对**老的两节本来就逐字节同一份、**47 对**新方法与**老直出版**逐字节同一份
   （＝确实「留后者、删前者」）、**7 对**有实质差异，而这 7 对**全是第 992~1013 轮的既定改写**：
   5 对是 `k.get("type")` → `k.Tag()`（第 1005 轮那一格事实），`import` 与 `lamda` 各一对是
@@ -2192,9 +2192,9 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   合并没有动过任何一格投影**；老段落里那些「引用、新段落里不见」的成员（54 处）也逐条对得上，
   它们全是被判据逼掉的回原文查（`ctx.source` / `ctx.TextOf` / `ctx.Attr` / `ctx.MatchingParen` …）。
 - **改的那一句**：`projectNode` 里那处自指错句改写成现状陈述（「这一格只有这一个入口：
-  `PrintDirectAst` 答 `undefined` 直接落通用支」），并写清「老名字为什么不再出现在这一页的理由里」。
+  `PrintAst` 答 `undefined` 直接落通用支」），并写清「老名字为什么不再出现在这一页的理由里」。
 - **新判据（`direct:lint` 第 1014 轮）**：`PrintAst` 这个老名字只许出现在**明说它已经不存在**的行上
-  ——词边界匹配（`PrintDirectAst` 不算），同一行里要有「老 / 旧 / 删 / 原先 / 原来 / 曾经 / 不再 /
+  ——词边界匹配（`PrintAst` 不算），同一行里要有「老 / 旧 / 删 / 原先 / 原来 / 曾经 / 不再 /
   已经」这类过去时标记。**为什么它必须是门**：这种错**不改行为**，前几条判据扫的是代码块、
   `cases:direct` 量的是重投一致，两处都看不见散文里的名字；而它偏偏最容易复发（下一轮写
   「搬这一格之前老路是这么写的」时手一滑就写回去了）。当前读数：**3 处放行、0 处违规**，
@@ -2205,19 +2205,19 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   `npm run compile`）；`npm run gates` **11 道门 9 通过 2 失败**，那 2 道（`cases:tsast` 的 3 条
   `xl:known-gap`、`coverage` 的 4247 / 4422）读数与改动前逐项相同。
 
-### 第 1013 轮：第三个出口**只剩一格**——`PrintAst` 与它的派发分支整条删除，`PrintDirectAst` 成为唯一实现（68 页 / 75 段成对方法合并、全仓 200 处引用改名、两道门跟着改口径）
+### 第 1013 轮：第三个出口**只剩一格**——`PrintAst` 与它的派发分支整条删除，`PrintAst` 成为唯一实现（68 页 / 75 段成对方法合并、全仓 200 处引用改名、两道门跟着改口径）
 
-**一句话**：用户口径是「`PrintDirectAst` 的输出与 `PrintAst` **完全一致**，而 `PrintAst`
+**一句话**：用户口径是「`PrintAst` 的输出与 `PrintAst` **完全一致**，而 `PrintAst`
 **连同它的所有相关代码一起移除**」。同答本来就是既成事实——`cases:direct` 在三千多份语料上
 逐字节对拍从没红过——所以这一轮就是把冗余的那一份删掉：**68 页、75 段**成对方法合并成一格
-（留 `PrintDirectAst`、删 `PrintAst`，章节头落回原来的位置），`projectNode` 里那两问合成一问，
+（留 `PrintAst`、删 `PrintAst`，章节头落回原来的位置），`projectNode` 里那两问合成一问，
 `projectRoot` 的第三个参数 `useDirect` 与上下文的 `directEnabled` 一起消失。
 
 - **合并规则**：每个 token 页上两节**相邻**且 `PrintAst` 在前，所以留后者、删前者。
   一个文件里几个类的也逐对配（`heritage-clause` 2 对、`tuple-member` / `type-bracket` 各 3 对、
   `type-operator` / `type-union` 各 2 对）。规范里现在**一处 `PrintAst` 都不剩**。
-- **`projectNode` 只剩一问**：原先「先问 `PrintDirectAst`（带 `ctx.directEnabled` 开关）→
-  再问 `PrintAst` → 再落通用支」；现在只问 `PrintDirectAst`，`ctx.direct++` 记在同一个分支里。
+- **`projectNode` 只剩一问**：原先「先问 `PrintAst`（带 `ctx.directEnabled` 开关）→
+  再问 `PrintAst` → 再落通用支」；现在只问 `PrintAst`，`ctx.direct++` 记在同一个分支里。
   **回落那一格的顺序原样保留**（先问这一格、再走 `awaitingDeclaration`）——这一条是实测出来的：
   反过来会把声明族「算完 kind 再回落到共享实现」压掉（`cases:tsast` 16 片里立刻多坏几片）。
 - **两道门跟着改口径**：`cases:direct` 从「开关两遍对拍」改成「同一份输入**重投两遍**逐字节一致
@@ -2235,7 +2235,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 
 ### 第 1012 轮：直出版**按字符串键查属性**那一格收干净（`ctx.Attr(视图, "键")` 23 处 / 10 页 → 0），判据加第四条；顺手修掉**扫描器自己**的一处错——章节头必须整行认
 
-**一句话**：用户对 `PrintDirectAst` 的要求是「只用 token 自己的属性、子单元与 `Parent`，
+**一句话**：用户对 `PrintAst` 的要求是「只用 token 自己的属性、子单元与 `Parent`，
 **禁止字符串查询**」。第 1005 / 1008 两轮收掉的是**字典读法**（`.get("…")` / `.set("…")` / `.has("…")`），
 而**同一件事还有另一个写法一路留着**：`ctx.Attr(视图, "键")`——它内部就是 `view(node).attrs.get(key)`，
 问的仍然是「字典里那个键存了什么」，不是「这一格自己的属性是什么」。这一轮把它收掉并写进判据。
@@ -2246,7 +2246,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   `while` / `for` / `foreach` / `do-while` / `switch` / `static-block` / `mapped-type` 各 1）。
 - **判据**：`direct:lint` 的「按字符串键查」那一族加一条 `ctx.Attr(…, "字面量")`（**只认字面量**，
   `ctx.Attr(x, 某个变量)` 不算），逐键计数照旧、例外表仍是 0 ⇒ **多一处红、少一处也红**。
-- **顺手修掉扫描器自己的一处错**：这一轮先按 `indexOf("## method PrintDirectAst:…")` 定位章节，
+- **顺手修掉扫描器自己的一处错**：这一轮先按 `indexOf("## method PrintAst:…")` 定位章节，
   结果它**匹配到了代码块里引用这句话的那一行**（`tuple-member.xl.md` 的直出版正文里引用了它），
   于是从那行往后找的第一块 ```ts 是**别的类的方法体**，那一块里的一处 `ctx.Attr` 被记成
   「这一页直出版的违反」，报出来的行号（547）与真位置（564，且**在直出版之外**）也对不上。
@@ -2262,9 +2262,9 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 
 **一句话**：第 1009 / 1010 两轮量出的三格事实，只留在探针输出与 `cases:direct` 页头里；
 这一轮把第三格（**没被问到的类不需要直出版**）钉进 `core/syntax/token.xl.md` 的
-`PrintDirectAst` 那一节，与前面两格放在一起，让「还差多少」这个问题有一条可核对的判据。
+`PrintAst` 那一节，与前面两格放在一起，让「还差多少」这个问题有一条可核对的判据。
 
-- **落点**：`core/syntax/token.xl.md` 的 `PrintDirectAst`。补的是**第三段读数**——
+- **落点**：`core/syntax/token.xl.md` 的 `PrintAst`。补的是**第三段读数**——
   语料里 117 个 token 类里 74 个被问到且都覆写了这一格、43 个一次都没被问到
   （`IfSegment` / `NewType` / `ClassBody` / `SwitchCase` / `ReturnType` / `GenericType` /
   `ForBody` / `WhileBody` / `TernaryOperatorCondition` …），理由是它们的节点由父单元摊平或丢弃；
@@ -2282,8 +2282,8 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 
 - **量法**（`tmp/r1010-coverage.mjs` / `tmp/r1010-asked.mjs`，跑完即删）：先从语料解析出的树上
   把每一个 token 类登记下来（**不能再只包基类**——第 1009 轮第一版探针就是这么错的：
-  子类覆写的看不见），再对每个类**各包各的** `PrintDirectAst`，数「被问几次、答几次」。
-- **读数**：运行期见到 **117 个 token 类**，其中 **74 个覆写了 `PrintDirectAst`**、
+  子类覆写的看不见），再对每个类**各包各的** `PrintAst`，数「被问几次、答几次」。
+- **读数**：运行期见到 **117 个 token 类**，其中 **74 个覆写了 `PrintAst`**、
   **43 个一次都没被问到**——`IfSegment` / `NewType` / `ClassBody` / `SwitchCase` / `ReturnType` /
   `GenericType` / `ForBody` / `WhileBody` / `TernaryOperatorCondition` …（全清单在探针输出里）。
   这 43 个**不是漏搬**：它们的节点由父单元直接摊平（`IfBody` 那一族）或丢弃（问路的那些），
@@ -2302,7 +2302,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   `--all` **2051 份 / 540896 节点 / 直出 518778（95.9%）/ 0 处不一致**；
   **十一道门 11 通过、0 失败**、其余读数一处没动。
 
-### 第 1009 轮：把 `PrintDirectAst` 的**分母拆开量**——1640 份语料里「答 `ctx.Nothing`」5291 次（约定，不是缺口）、**真正还没搬的只有 26 次 = 0.12%**，而它们分别属于两类**答不了**；顺带实测否掉一个长得像答案的写法（给 `Bracket` 补 `WrapperField`）
+### 第 1009 轮：把 `PrintAst` 的**分母拆开量**——1640 份语料里「答 `ctx.Nothing`」5291 次（约定，不是缺口）、**真正还没搬的只有 26 次 = 0.12%**，而它们分别属于两类**答不了**；顺带实测否掉一个长得像答案的写法（给 `Bracket` 补 `WrapperField`）
 
 **一句话**：台账上那句「直出 75.7%」容易被读成「还有 24.3% 没搬」——这一轮把 `projectNode`
 那一问的三种去向**逐个数出来**：其中 24.2% 是**问完就丢**的（调用点先问一遍再自己摊平），
@@ -2322,13 +2322,13 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 - **实测否掉的一个写法**：给 `Bracket` 补一格 `WrapperField`（`(` / `[` 答 `null` = 包装、
   内容并进父节点；`{` 让开）——`cases:direct` 逐字节同答，而 `Bracket` 让回**仍是 13 次**：
   `NewType` / `NotNull` 里那两格**根本没经过 `structuralProps` 的段循环**
-  （`wrapperTarget` 只在那里被问）。⇒ **`WrapperField` 与 `PrintDirectAst` 回答的是同一句问话
+  （`wrapperTarget` 只在那里被问）。⇒ **`WrapperField` 与 `PrintAst` 回答的是同一句问话
   的两个位置**：前者只在**父节点的段循环**里被问，后者才在 `projectNode` 的**入口**被问。
   这条记下来是因为它长得像答案（试之前读代码「应该能收掉」）。
 - **数字**：`cases:direct` **1640 份 / 21874 节点 / 直出 16557（75.7%）/ 同答 0 / 抛异常 0**；
   `coverage 4260 / 4422`（`blocked 28` / `differ 134` / 加权 95.7%）、`cases:tsast` 已知缺口 3 条、
   `cases:astjson` 六项全 0——**读数一处没动**；**十一道门 11 通过、0 失败**。
-- **落点**：这套账写进 `core/syntax/token.xl.md` 的 `PrintDirectAst` 那一节
+- **落点**：这套账写进 `core/syntax/token.xl.md` 的 `PrintAst` 那一节
   （分母拆成一张四行的表 + 「26 次是哪些、为什么答不了」+ 被否掉的那个写法），
   免得下一轮照一个**混着 24.2% 问路的分母**去找活。
 
@@ -2336,7 +2336,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 
 **一句话**：第 1005 / 1006 两轮把「这一格叫什么」收成了 token 事实，但**直出版那一趟要经过 helper**
 （`projectDeclaration` / `memberNameOf` / `structuralProps` / `projectLet` / 命名空间那一段），
-而那几处仍在按字符串键读字典——静态门只扫 `PrintDirectAst` 的**方法体**，扫不到 helper。
+而那几处仍在按字符串键读字典——静态门只扫 `PrintAst` 的**方法体**，扫不到 helper。
 
 - **量出来的形状**：`typescript/print-ast-common.xl.md` 的代码块里一共 **5 处**按字符串键读名字那一格
   （`attrs.get("name")` 一处、三词名单两处、`attrs.get("fieldName")` 一处、`attrs.get("namespace")` 一处）。
@@ -2359,7 +2359,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   **读数一处没动**；`direct:lint` **0 条违反**，新增的第四条报「名字那一格按字符串键读 **0** 处」；
   **十一道门 11 通过、0 失败**。
 - **可复用的判据**：**「门扫的是方法体，而直出版是坐 helper 出去的」**——
-  一条只扫 `PrintDirectAst` 方法体的静态判据**天生覆盖不到 helper 那一层**；
+  一条只扫 `PrintAst` 方法体的静态判据**天生覆盖不到 helper 那一层**；
   这一轮把那句口径钉成第四条门（扫**代码块**、注释不算，恰好 0 处）。
   另一条：**换读法之前先量「接收者有几种」**——五处里三处的接收者是视图、两处是字典格，
   而旧函数只认后者（改完当场红掉 1756 份语料）。
@@ -2441,7 +2441,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 
 ### 第 1005 轮：直出版的「字符串键查字典」**220 / 220 全部收掉**（例外表归零）——`Token.Tag`、字典格/视图上的同名属性、以及 `tokenNameOf` 补的那一格 `name` 事实；`direct:lint` 加第三条（按字符串键查，逐键计数）；`cases:direct` 全语料 2050 份逐字节同答、其余十道门读数一处没动
 
-**一句话**：`PrintDirectAst` 的判据是「只用 token 自己的属性 / 子单元 / `Parent`」，
+**一句话**：`PrintAst` 的判据是「只用 token 自己的属性 / 子单元 / `Parent`」，
 而它里面**全是** `k.get("type") === "SymbolToken"` 这类**按字符串键查字典**的问句
 （全语料 220 处）——这一轮把那条路收干净，并把「谁也别再写回来」变成一道门。
 
@@ -2575,7 +2575,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   所以「`startBracket === "{"` ⇒ `Block`」在这一层是**完整的**判据，不是近似。
 - **`(` / `[` 这一半为什么不搬**：通用支给它们造的形状要**先把内容提上去**
   （`WrapperField` 答 `null` ⇒ 并进父节点的 `children`），而「提到哪个字段」要问**父节点的 kind**
-  （`fieldNameFor(parentKind, "children")`）——`PrintDirectAst` 手上只有这一棵子树与 `Parent`
+  （`fieldNameFor(parentKind, "children")`）——`PrintAst` 手上只有这一棵子树与 `Parent`
   （产物树的父亲，**不是**投影意义上的父 kind）。所以这一半明写 `undefined` **让回通用支**。
 - **让回时为什么不答 `ctx.Nothing`**（第 1003 轮那条判据的**正面用法**）：
   `Nothing` 是「连问都不再问」，会让这一格从 `ctx.count` 账上消失；而通用支那一趟
@@ -2599,7 +2599,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   另一条：**「让回」与「不出节点」是两件事**，判据是「通用支那一趟会不会数到这一格」——
   会数到就只能让回（答 `undefined`），答 `ctx.Nothing` 会让记账少一格。
 - **第二轮（同轮的第二趟）试的是 `(` / `[` 那一半，结论是「这一半不能直出」**——
-  用的是**实测**、不是读代码：临时探针（探针脚本已删）把 `Token.prototype.PrintDirectAst`
+  用的是**实测**、不是读代码：临时探针（探针脚本已删）把 `Token.prototype.PrintAst`
   包一层、只记「`Bracket` 且不是 `{`」的那一格，跑用例语料——**自检那一趟一次都没命中**
   （`interface I { new (): void }` 与 `b[0]!` 这两格都没走到这一问，说明那 13 次落回发生在
   「子单元还没成形」的那一刻，而不是在我先前以为的那两条路上）；
@@ -2621,14 +2621,14 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 - **这一格是什么**（量出来的形状，`tmp/bracket-probe.mjs`）：43 次落回按 `startBracket` + 父单元分——
   `(` 11 次（`NewType` 的构造签名）、`{` **30 次**（`Root` 9 / `Label` 9 / `SwitchStatement` 8 /
   `Statement` 3 / `FunctionBody` 1）、`[` 2 次（`NotNull` 的下标）。
-  也就是说**三种括号都走 `PrintDirectAst`**，而它们的「这一格出什么」**三种都不一样**：
+  也就是说**三种括号都走 `PrintAst`**，而它们的「这一格出什么」**三种都不一样**：
   `{` 出 `Block`、`(` / `[` 是分组（`WrapperField` 答 `null`、内容并进父节点）。
 - **试法一：自己判**（`startBracket === "{"` ⇒ `Block`，否则 `ctx.Nothing`）——
   **`cases:direct` 红 22 份**（`case 1: { break }` 那一族：关直出的产物是**未映射的 `<Bracket>` 原样透传**，
   开直出变成 `Block`），外加 `count` 记账差 2（`ctx.Nothing` 是「这一格连问都不再问」，
   而通用支**是会数到这一格的**）。⇒ **`{` 什么时候是块，比 `startBracket` 这一格多**
   （还牵着 `label.xl.md` 给语句位括号补语句队列那一支）。
-- **试法二：转手共享实现**（`PrintDirectAst` 与 `PrintAst` 逐行同一份：`ctx.Declaration(v)`）——
+- **试法二：转手共享实现**（`PrintAst` 与 `PrintAst` 逐行同一份：`ctx.Declaration(v)`）——
   `cases:direct` / `direct:lint` / `cases:direct --all` **全绿**，落回清单**清零**、直出 75.7% / 96.1%，
   但 **`coverage` 从 4259 / 4422（blocked 29）掉到 4162 / 4422（blocked 133）**——
   **「不比昨天差」那一把尺子当场说话**，所以**撤回**（本轮的判据是：任何一扇门变红都不算搬完）。
@@ -2656,9 +2656,9 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   对象字面量成员不吃尾随逗号）——那些不是一句 `ctx.Structural` 能盖住的。
 - **抽出来的那一份叫 `projectDeclaration`**（从 `projectNode` 整段搬来）：换 kind + `structuralProps`
   + 三处收尾。`projectNode` 只剩一句 `return projectDeclaration(v, ctx, parentKind, mk)`，
-  六页的 `PrintAst` 是 `ctx.Declaration(v)`，六页的 `PrintDirectAst` 是
+  六页的 `PrintAst` 是 `ctx.Declaration(v)`，六页的 `PrintAst` 是
   `ctx.Declaration(v, undefined, ctx.Make(v), kind)`——**四处调用、一份实现**。
-- **直出版不能顺着 `projectNode` 走**（那会**自己问自己**：`projectNode` 先问 `PrintDirectAst`）。
+- **直出版不能顺着 `projectNode` 走**（那会**自己问自己**：`projectNode` 先问 `PrintAst`）。
   所以给这一格开了一条**只认自己那一格的回落**：`ctx.awaitingDeclaration` 是一个**局部闭包**
   （参数只有节点、`ctx` 已经闭在里面），`projectNode` 拿它造完形状就**不再问一次直出版**。
   **为什么不是布尔标记**：直出版回落之后要走的那条路会去投它的**子节点**，而那些子节点
@@ -2697,12 +2697,12 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 **一句话**：跨过第 997 轮记下的那条分水岭——搬「**连 `PrintAst` 都没有**」的那一族。
 它们的形状一直由投影的**通用支**给（`KIND_BY_TAG` 换名 + `structuralProps` 给字段名 + 段名表），
 所以两半一起写：`PrintAst` 把那一趟**写下来**（形状从此有了一份逐字节对拍的基线），
-`PrintDirectAst` 再逐句去掉回原文查。
+`PrintAst` 再逐句去掉回原文查。
 
 - **五页走的其实是两条不同的路**：
   - **`LiteralType`（83）/ `ParenthesizedType`（71）/ `NamespaceExport`（5）**：三页本来就
     **一处回原文查都没有**（内容全在子单元上，名字与它的位置在属性上），
-    于是 `PrintAst` 与 `PrintDirectAst` **逐行同一份**：`ctx.Node("X", ctx.Structural(v, "X"), v)`。
+    于是 `PrintAst` 与 `PrintAst` **逐行同一份**：`ctx.Node("X", ctx.Structural(v, "X"), v)`。
     `ctx.Structural` 与通用支**同一份实现**（`structuralProps`），所以产物逐字节相同——
     这一页换来的只是「**谁来说这一格**」（段名本来就是这一页自己的事实，见 `SegmentNames`）。
   - **`ExpressionWithTypeArguments`（85）与 `NamedTupleMember`（21）**：两页原来**有** `PrintAst`，
@@ -2779,7 +2779,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   `Enum` 29 / `NamedTupleMember` 21 / `NamespaceExport` 5；全语料（2050 份）**41736 次 / 同样这 12 个类**，
   榜首 `LiteralType` 13843。**这 12 个类与「待搬」那 5 页不是一回事**：
   它们**连 `PrintAst` 都没有**（投影走的是通用支 `KIND_BY_TAG` + `structuralProps`），
-  所以搬它们要**两半一起写**（`PrintAst` + `PrintDirectAst`）——`direct:lint` 的判据②要求同页留着
+  所以搬它们要**两半一起写**（`PrintAst` + `PrintAst`）——`direct:lint` 的判据②要求同页留着
   `PrintAst` 当同答的基线。这正是第 997 轮记下的那条分水岭。
 
 ### 第 999 轮：`Import` 与 `ImportType` 两页拿到直出版——一页要**给 token 补一格并把它写进字典**（`NamedBraceAt` 从来没进过字典）；用例语料直出 **68.5% → 69.1%**、全语料 **88.1%**
@@ -2804,7 +2804,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 - **`ImportType`（60 → 0）**：`ctx.StringText(stringUnit)` 的实现是「找那一格的 `ConstString` 子单元、
   读它记的 `value`、空则回原文 `slice`」——直出版自己做前两步（`ctx.KidsOf(unit, "children")` + `ctx.ValueOf`），
   不回原文兜底；另一处是词形那一批 `ctx.TextOf` → `ctx.ValueOf`（`with` / `assert` / `:`）。
-  与 `String.PrintDirectAst` 转给 `ctx.Template` 是同一条口径：**文本在那一格自己的子单元上**。
+  与 `String.PrintAst` 转给 `ctx.Template` 是同一条口径：**文本在那一格自己的子单元上**。
 - **记账**：`cases:direct` **1639 份 / 21818 节点，直出 14940 → 15080（68.5% → 69.1%）**，同答 0、抛异常 0；
   `cases:direct --all` **2050 份 / 538780 节点，直出 474675（88.1%）**、0 处不一致；
   `direct:lint` **直出版 60 段 / 60 页、0 条违反**，待搬 **5 → 3 页**（`import` / `import-type` 出列；
@@ -2855,7 +2855,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
   榜首仍是**没有 `PrintAst` 的那一族**——`MethodDeclaration` 309 / `Function` 259 / `Class` 230 /
   `Interface` 152 / `TypeLiteral` 94 / `ExpressionWithTypeArguments` 85 / `LiteralType` 83 /
   `ParenthesizedType` 71；余下 5 页「待搬」里的 `Import` 80 / `ImportType` 60 也在这张表里。
-  ⇒ **下一轮的分叉点就是第 997 轮记下的那句**：那一族要**两半一起写**（`PrintAst` + `PrintDirectAst`），
+  ⇒ **下一轮的分叉点就是第 997 轮记下的那句**：那一族要**两半一起写**（`PrintAst` + `PrintAst`），
   而这 5 页只要把剩下的几处回原文去掉。
 
 ### 第 997 轮：两页「只差格」的循环语句拿到直出版（`while` 28 / `for` 45 → 0）——直出 **67.7% → 68.1%**，全语料 **86.1%**
@@ -2965,7 +2965,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 ### 第 994 轮：直出版**逐页计数**（47 个类 / 全语料 2050 份）——量出 `Let` 与 `Root` **一次都没被问到**；顺带记下「构建要盖满规范树」这条纪律
 
 **一句话**：上一轮把「这一格有没有被用到」交给门去看（静态门扫方法体、动态门比产物），
-这一轮**直接数**：把每一个 `PrintDirectAst` 在运行期包一层计数，跑全语料，
+这一轮**直接数**：把每一个 `PrintAst` 在运行期包一层计数，跑全语料，
 看「搬过去的 47 个类里，谁真的被问到了」。结论与第 991 轮量 `BodyField` 那一族时**同一种**：
 **不是每一格都被问到**——`Let` 与 `Root` 是 **0**。
 
@@ -3040,18 +3040,18 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 所以脚本在写盘前逐段核「换完之后那三个出口一个都不剩」，而不是换完靠门去发现；
 门（`cases:direct`）管的是**行为**（逐字节同答），两者不重复。
 
-### 第 992 轮：`Token.PrintDirectAst` 落地——第三个出口多一条**直出版**通道；一次搬 27 段，直出覆盖 **45.7%**
+### 第 992 轮：`Token.PrintAst` 落地——第三个出口多一条**直出版**通道；一次搬 27 段，直出覆盖 **45.7%**
 
 **一句话**：`PrintAst` 那一层里混着**回原文查**的路（`ctx.Text` / `ctx.TextOf` / `ctx.StringText` /
 `ctx.source`，以及跟在后面的 `indexOf` / `slice`——光 `print-ast-common.xl.md` 里就有 84 处，
 另外 29 页 token 自己的方法体里还有一批）。回原文查是**第二份近似**：同一个事实解析期已经知道过一次
 （名字在哪里、括号配对到哪、这个 `;` 属不属于上一条语句），投影再猜一次，两份答案就会在
 「注释里有个同名的词」「字符串里有个假括号」这种输入上悄悄分叉。
-这一轮把「这一格出哪个节点」**重新按 token 自己已有的东西说一遍**：新立一格 `PrintDirectAst`，
+这一轮把「这一格出哪个节点」**重新按 token 自己已有的东西说一遍**：新立一格 `PrintAst`，
 投影**优先问它**，并给它配了**两条判据**（同答 / 只用 token 自己的东西）。缺属性的那一档，
 规矩是**给 token 补上那个属性**（`NameRange` / `BodyBrace` 那条线），不是绕过去。
 
-- **新增 `Token.PrintDirectAst(ctx, v)`**（[core/syntax/token.xl.md](core/syntax/token.xl.md)）：
+- **新增 `Token.PrintAst(ctx, v)`**（[core/syntax/token.xl.md](core/syntax/token.xl.md)）：
   基类答 `undefined`（＝「我没有直出版，照旧走 `PrintAst` / 通用支」），与 `PrintAst` 同一个约定，
   所以可以**逐页**搬。两条判据写在那一节里，也就写在 `npm run gates` 里。
 - **投影分派**（[print-ast-common.xl.md](typescript/print-ast-common.xl.md) 的 `projectNode`）：
@@ -3088,7 +3088,7 @@ k.TextValue === lookup)`）——而这句话的两半事实都在 `v` 自己身
 （整条语句退化成一个 `ExpressionStatement` + `Identifier "for"`）。**判它是「本轮之前就在」用的是产物档案**：
 同一份内容在本轮之前的版本 `dist/ts/.xl/cache/typescript/print-ast-common.ts.171` 上量出**同样的**
 缺 51 / 多 2（单文件跑 `compareSource` 逐项一致），而直出版开关两遍的产物**逐字节相同**——
-也就是说这一格与 `PrintDirectAst` 无关。最小复现是
+也就是说这一格与 `PrintAst` 无关。最小复现是
 `for (const x of a ? [b] : [c]) { … }`（`for…of` 的枚举对象是**条件表达式**），
 `for (const x of [a, b])` 这一条形态是好的。它按规矩**登记进语料**：
 [tests/cases/token/statements/gap-r992-forof-ternary-iterable.ts](tests/cases/token/statements/gap-r992-forof-ternary-iterable.ts)

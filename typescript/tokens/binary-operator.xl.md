@@ -234,7 +234,7 @@ return true;
 本规则看到的左边就是这个节点。不认它的话 `+` 会因为找不到左操作数而丢节点。
 
 **优先级的账**：段内的运算符由投影那一层按「最低优先级的那个运算符先切」折
-（`LogicalOperator.PrintDirectAst` 的 `OperatorRank`），所以 `0 && 1 + 2` 折成 `0 && (1 + 2)`
+（`LogicalOperator.PrintAst` 的 `OperatorRank`），所以 `0 && 1 + 2` 折成 `0 && (1 + 2)`
 （实测给 `0`，JS 同）。**一处仍然不准确**：段边界只认赋值符号与
 `FromCompoundAssignment` 那一份副本（第 603 轮），所以段里如果还躺着**别的东西**
 （`a = b + c || d` 那种，左边那个 `+` 不在本段的运算数里）就得靠各条规则自己的
@@ -1337,15 +1337,14 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
 
 它覆写了 `ToXmlString`：在基类的串接之外带上 `op` 属性。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
-  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const kids = ctx.Kids(v);
   let opIndex = -1;
   let bestRank = 999;

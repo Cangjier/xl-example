@@ -362,7 +362,7 @@ if (this.IsPrefixSymbol(current)) {
   // 上又跑这一趟通用队列 —— 此刻那一格词的 `Parent` **正是 `TypeQuery`**
   //（实测三份文件都是 `UP1DBG typeof parent=TypeQuery idx=0 n=2`）。
   // 这里若照折，产物就成了 `TypeQuery > UnaryOperator > [Keyword(typeof), Identifier(x)]`
-  // ⇒ `TypeQuery.PrintDirectAst` 的 `ctx.Kids` **只看得到 `UnaryOperator`** ⇒ 名字节点一个都找不到
+  // ⇒ `TypeQuery.PrintAst` 的 `ctx.Kids` **只看得到 `UnaryOperator`** ⇒ 名字节点一个都找不到
   // ⇒ `exprName` 空、`Identifier` 也不投（实测 8 份文件：`type-op-typeof.ts` /
   // `type-op-keyof-typeof.ts` / `type-op-unique-symbol-property.ts` / `type-paren-content-nodes.ts` /
   // `type-query-in-generic.ts` / `type-query-in-index-access.ts` / `type-query-in-paren-type.ts` /
@@ -697,15 +697,14 @@ return index + 1;
 
 它覆写了 `ToXmlString`：在基类的串接之外带上 `op` 属性。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
-  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const kids = ctx.Kids(v);
   const declaredOp = typeof v.op === "string" ? v.op : "";
   // **先按 `op` 属性找那一格**（第 623 轮）：`op` 是这一元运算的**真身**，

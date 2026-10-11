@@ -1,13 +1,13 @@
-// 第三个出口（`Token.PrintDirectAst`）的静态门（第 992 轮起，第 1013 轮只剩这一条判据）。
+// 第三个出口（`Token.PrintAst`）的静态门（第 992 轮起，第 1013 轮只剩这一条判据；
+// **第 1143 轮按用户口径 1.1 改名**：`PrintDirectAst` → `PrintAst`，全仓 78 个文件 / 482 处）。
 //
 //   node tests/parse/direct-lint.mjs
 //
 // ## 为什么要有这一门
 //
-// `core/syntax/token.xl.md` 的 `PrintDirectAst` 写着一条**读代码就能判**的约定：
+// `core/syntax/token.xl.md` 的 `PrintAst` 写着一条**读代码就能判**的约定：
 // 这一格的方法体里**不许回原文查**——`ctx.source` / `ctx.Text(` / `ctx.TextOf(` /
-// `ctx.StringText(`，也不许把问题**转手**回去（原先禁的是 `this.PrintAst`；
-// 第 1013 轮 `PrintAst` 整条删掉之后，第三个出口只剩这一格，转手在规范里已经无路可走）。
+// `ctx.StringText(`，也不许把问题**转手**回去（`this.PrintAst` 自己问自己）。
 //
 // **为什么这一条必须是门而不是自觉** ✗：回原文查**不会当场坏**——它只在
 // 「注释里有个同名的词」「字符串里有个假括号」这种输入上给出**第二份近似**，
@@ -21,8 +21,9 @@
 //      `ctx.Attr(视图, "键")`（逐键计数，例外表已归零，见 `STRING_KEY_ALLOWED`）；
 //   ② 扫描本身不抛异常（页面读不出来就是红，不是跳过）。
 //   另有一条只扫共享投影那一页的代码块（名字那一格，第 1008 轮，见 `NAME_KEY`）。
-//   第 1014 轮又加一条**只扫散文**的：`PrintAst` 这个老名字只许出现在「明说它已经不存在」的行上
-//   （词边界匹配，`PrintDirectAst` 不算；见 `STALE_NAME`）——它不改行为，所以前面几条都看不见它。
+//   **第 1014 轮那条「只扫散文」的老名字判据在第 1143 轮撤掉了**：它守的是
+//   「`PrintAst` 这个老名字只许出现在明说它已经不存在的行上」，而用户口径 1.1 把
+//   `PrintDirectAst` 改名成 `PrintAst` 之后，这句话本身成了反的——`PrintAst` 就是现状的名字。
 //   第 1015 轮再加一条**扫能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现
 //   回原文兜底 / 已无人用的九个出口（见 `CTX_BANNED`）——①那是「谁写了什么」，这一条是
 //   「这一格手上有什麼」；出口删了之后，①守的那句话才从「大家记得别写」变成**结构上做不到**。
@@ -37,11 +38,11 @@
 //   声明了 `ctx` 形参却在方法体里一处不用的 = 0 处（见 `SHARED_HEAD` 那一段）——
 //   形参表就是这一格需要什么，不需要投影的上下文就不该挂着一个。
 //
-// **第 1013 轮删掉的判据**：原来还有一条「覆写了直出版的页面，同页必须还有 `PrintAst`」——
+// **第 1013 轮删掉的判据**：原来还有一条「覆写了直出版的页面，同页必须还有另一条路」——
 // 它是「同答」那条动态判据的**基线**（搬完之前不许先把老路删掉）。现在老路删了、
-// 同答由 `cases:direct` 的「重投一致」接手，所以这一条连同它的读数一起撤掉。
+// 这一格只剩一处实现，所以这一条连同它的读数一起撤掉。
 //
-// **章节头按整行认**（第 1012 轮修掉的一处自查错误）：`indexOf("## method PrintDirectAst…")`
+// **章节头按整行认**（第 1012 轮修掉的一处自查错误）：`indexOf("## method PrintAst…")`
 // 会匹配到**代码块里**引用这句话的那一行，于是被扫的正文根本不是这一页的投影。
 // 现在是 `^…$` 整行匹配（`HEAD_DIRECT_RE`）。
 //
@@ -84,14 +85,14 @@ for (const name of ROOTS) {
  * **章节头必须整行匹配**（第 1012 轮修掉的一个自查错误）。
  *
  * 原来这里（以及 `bodyOf` 的定位）用的是 `text.indexOf(HEAD)`——它会**匹配到代码块里**那一行：
- * `tuple-member.xl.md` 的一页 `PrintDirectAst` 正文里**引用**了 `## method PrintDirectAst:…`
+ * `tuple-member.xl.md` 的一页 `PrintAst` 正文里**引用**了 `## method PrintAst:…`
  * 这句话（说明「这一格的返回约定」），于是 `indexOf` 从那一行起往后找第一块 ```ts，
  * 找到的是**下一个类的方法体**，而那一块里的 `ctx.Attr(typeNode, "questionAt")`
  * 就被记在**上一页的投影**名下（实测：真位置在**这一格之外**，扫描器报的行号 547 也在别处）。
  * 后果不是「多报一处」而是**判据对象错了**：被扫的那一段根本不是这一页的投影。
  * 所以章节头一律按**整行**认（`^` + `$`，`m` 标志），正文也从那一行之后找。
  */
-const HEAD_DIRECT_RE = /^## method PrintDirectAst:\(ctx:any, v:any\)=>any$/gm;
+const HEAD_DIRECT_RE = /^## method PrintAst:\(ctx:any, v:any\)=>any$/gm;
 /** 一页里所有章节头的起止（整行匹配，见上）。 */
 function headsOf(text, re) {
   const out = [];
@@ -109,8 +110,8 @@ function headsOf(text, re) {
  * **这一层今天根本拿不到「按文本定 kind」这个能力**，那句话从「大家记得别用」变成了
  * 结构上做不到（与 `Text` / `TextOf` / `StringText` 那三个出口同一手法）。
  *
- * **第 1013 轮删掉的那一条**：原先是 `this.PrintAst(`（「不许把问题转手回去」），
- * 而 `PrintAst` 与它的派发分支已经整条删除——第三个出口只剩这一格，转手无路可走。
+ * **第 1013 轮删掉的那一条**：原先是「不许把问题转手给另一条路」（`this.某名字(`），
+ * 而那一条路已经整条删除——第三个出口只剩这一格，转手无路可走。
  */
 const FORBIDDEN = [
   ["ctx.source", /ctx\.source\b/],
@@ -238,7 +239,7 @@ for (const file of files.sort()) {
  * 这三格是**各页 `NameField` 自己回答的同一格事实**（第 1006 轮，
  * `core/syntax/token.xl.md`），读法只有一个入口：`tokenNameOf`。
  *
- * **为什么这一条要单独扫、不并进上面那两条** ✗：上面那些判据只扫 `PrintDirectAst` 的
+ * **为什么这一条要单独扫、不并进上面那两条** ✗：上面那些判据只扫 `PrintAst` 的
  * **方法体**，而第 1008 轮实测到——投影投一个类要经过 helper
  * （`projectDeclaration` / `memberNameOf` / `structuralProps`），
  * **按字符串键查字典正是在 helper 里活下来的**：静态门扫不到，动态那一门更看不见
@@ -267,48 +268,17 @@ let nameKeyHits = 0;
 }
 
 /**
- * **`PrintAst` 这个老名字：只在「说它已经不存在」的地方许出现**（第 1014 轮）。
+ * **`PrintAst` 这个老名字那一条判据在第 1143 轮整条撤掉了。**
  *
- * 第 1013 轮删掉 `PrintAst` 时，全仓 200 处引用是**按名字整批改名**的，
- * 于是 `typescript/print-ast-common.xl.md` 里那句「先问 `PrintDirectAst`、再问 `PrintAst`」
- * 被改成了「先问 `PrintDirectAst`、再问 `PrintDirectAst`」——**同一页里两个名字一样**，
- * 读起来像同一问写了两遍，而它说的其实是那条**已经删掉的老路**。
- * 这一格正是**第三个出口的规格页**，错在这里的代价是「照着规格读代码，读出来的是幻觉」。
+ * 它守的是一句**已经反过来**的话：第 1013 轮把老路删掉之后，`PrintAst` 是「过去的名字」，
+ * 于是第 1014 轮立了一条只扫散文的判据——`PrintAst` 只许写在明说它不存在的那一行，
+ * 免得「照着规格读代码，读出来的是幻觉」。
  *
- * **为什么必须是门而不是顺手改一次** ✗：这种错**不改行为**——`direct:lint` 的前几条扫的是
- * 代码块、`cases:direct` 量的是重投一致，两者都看不见散文里的名字。而它偏偏最容易复发：
- * 下一轮写「搬这一格之前老路是这么写的」时，手一滑就又把老名字当现状写进去了。
- * 所以口径是**词边界 + 允许名单**：`PrintDirectAst` 里的 `PrintAst` 前一个字符是 `t`
- * （词内），`\b` 不成立 ⇒ 不命中；真要提老名字，只有「同一行里同时出现
- * `PrintDirectAst`（说现在）与 `PrintAst`（说过去）、并且带一个「删 / 老 / 原先 / 原先 / 已经」
- * 这类过去时标记」才放行——也就是**它必须被明确写成过去的事**。
+ * **用户口径 1.1 把两个名字合并了**：`PrintDirectAst` 改名成 `PrintAst`，于是现名就是 `PrintAst`，
+ * 全仓 78 个文件 / 482 处都是它。原来那条判据今天会把每一页都判红——它量的东西不存在了，
+ * 所以连同它的读数一起删掉，不改成别的形状：改名之后的等价物是「改名本身一次改干净」，
+ * 而那件事由**生成物的门**（`cases:direct` / `cases:tsast` / `gates`）当场看得见。
  */
-const STALE_NAME_ALLOWED = [
-  // 行号会漂，所以按**内容特征**放行：同一行里既有现在、又有过去时标记。
-];
-const STALE_NAME = /\bPrintAst\b/;
-const PAST_MARK = /(老|旧|删|原先|原来|曾经|不再|已经)/;
-let staleNameHits = 0;
-{
-  for (const file of files) {
-    const rel = path.relative(root, file).replace(/\\/g, "/");
-    const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
-    for (let index = 0; index < lines.length; index++) {
-      const line = lines[index];
-      if (!STALE_NAME.test(line)) continue;
-      if (PAST_MARK.test(line)) continue;
-      staleNameHits += 1;
-      if (staleNameHits <= 5) {
-        violations.push({
-          file: `${rel}:${index + 1}`,
-          why:
-            "这里写着 `PrintAst` 却看不出它已经是过去的事——第 1013 轮起这一格只有 " +
-            "`PrintDirectAst`（要提老名字就把「老 / 删 / 原先」一起写在同一行）",
-        });
-      }
-    }
-  }
-}
 
 /**
  * **`ctx` 上不许再挂着「回原文兜底」的出口**（第 1015 轮；**第 1026 轮又补了三个**）。
@@ -357,7 +327,7 @@ let staleNameHits = 0;
  * 构造时赋好的 `String.StringChar`、「我攒下哪些段」= 自己的 `ConstString` /
  * `InterpolationString` 子单元、「我的正文与坐标」= 自己的 `Text` / `start` / `end`）——
  * 所以 `projectString` 整格搬进了 `typescript/tokens/string/string.xl.md` 的
- * `String.PrintDirectAst`（那一页仍然经 `ctx.Expression` / `ctx.TypeExpression` 递归投内插里的
+ * `String.PrintAst`（那一页仍然经 `ctx.Expression` / `ctx.TypeExpression` 递归投内插里的
  * 正文，所以搬走的是**算式所在的那一页**、不是能力），出口随之删掉。同上：出口删了就补进这张表。
  *
  * **第 1073 轮（同一轮第二处）再补一个出口名 `UnwrapNodes`**：它读的就是那一格自己的
@@ -412,8 +382,8 @@ const CTX_BANNED = [
  *
  * **两处例外，都是「不是取数据」**：
  *   - 接收者是 `ctx`（那是投影自己的上下文对象，不是 token）；
- *   - 方法名是 `PrintDirectAst`——第三个出口的**分发**，问的是「这一格出哪个节点」，
- *     那是行为而不是这一格的数据（`core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+ *   - 方法名是 `PrintAst`——第三个出口的**分发**，问的是「这一格出哪个节点」，
+ *     那是行为而不是这一格的数据（`core/syntax/token.xl.md` 的 `PrintAst`）。
  *
  * 口径与 `NAME_KEY` 那一条同款：只看 `SHARED_FILE` 的**代码块**、注释不算（`codeOnly`），
  * 恰好 0 处才对。
@@ -422,7 +392,7 @@ const TOKEN_METHOD_CALL = /(?<![A-Za-z0-9_.$])([a-z][A-Za-z0-9_]*)\.([A-Z][A-Za-
 /** 接收者是它就不是 token（投影自己的上下文对象）。 */
 const TOKEN_METHOD_RECEIVERS_OK = new Set(["ctx"]);
 /** 方法名是它就不是「取数据」而是行为。 */
-const TOKEN_METHOD_NAMES_OK = new Set(["PrintDirectAst"]);
+const TOKEN_METHOD_NAMES_OK = new Set(["PrintAst"]);
 /**
  * **这一格自己的那一格字符：不许再回原文读**（第 1049 轮）。
  *
@@ -589,7 +559,7 @@ let deadCtxHits = 0;
  *
  * 第 1018~1024 轮把投影与 token 之间那一层（「字典 / 视图 + 逐 token 字段表」）整个删掉了：
  * 投影今天**直吃 token**——`projectNode(node)` 收到的那一格就是 token 自己，
- * 形状由 token 自己的 `PrintDirectAst` / `AstKind()` / `SegmentNames` / `BodyField` 说。
+ * 形状由 token 自己的 `PrintAst` / `AstKind()` / `SegmentNames` / `BodyField` 说。
  * 那一层的入口名字（`ToDictionary` / `ToList` / `WithRange` / `WithRangeOf` / `ToPlain` /
  * `ToJsonString`）今天在**规范页里 0 处**——但删掉的东西**能被重新写回来**：
  * 谁想给投影加一条方便的通道，写一个 `ToDictionary` 就绕开了这一门所有的判据
@@ -1452,7 +1422,7 @@ for (const key of stringKeys) {
   }
 }
 
-console.log(`direct:lint —— ${files.length} 页规范，第三出口（PrintDirectAst）${directSections} 段`);
+console.log(`direct:lint —— ${files.length} 页规范，第三出口（PrintAst）${directSections} 段`);
 console.log(`自己出这一格的页面 ${directPages.length} 页（同一个类里可能不止一段：一个类几种身份各答各的）`);
 console.log(
   `按字符串键查：${stringKeyTotal} 处（例外 ${stringKeyLeft} 处：${[...STRING_KEY_ALLOWED.entries()]
@@ -1462,12 +1432,8 @@ console.log(
 console.log(
   `名字那一格（${SHARED_FILE} 的代码块）：按字符串键读 ${nameKeyHits} 处（0 处才是对的，读法只走 tokenNameOf）`,
 );
-// **老名字的账**（第 1014 轮）：`PrintAst` 只在「明说它已经不存在」的行上出现，
-// 而那三行全在同一个文件里 ⇒ 这条读数有两个用途：一是「改名的残留」当场可见，
-// 二是「下一个人想提老名字」时知道要把它写成过去的事（见 STALE_NAME 的说明）。
-console.log(
-  `老名字 \`PrintAst\`（词边界，不含 PrintDirectAst）：${staleNameHits} 处没写成过去的事（0 处才是对的）`,
-);
+// **老名字那一条读数第 1143 轮撤掉了**（见上面 STALE_NAME 那一段的说明）：
+// `PrintAst` 现在是这一格**唯一**的名字，不再是「过去的事」。
 // **能力面的账**（第 1015 轮）：这一格的出口表就是它能做的事——出口少了，方法体判据守的东西
 // 才是**结构上做不到**，而不是「大家记得别写」。
 console.log(
@@ -1476,7 +1442,7 @@ console.log(
 // **「只读属性、不调方法」的账**（第 1046 轮）：投影读 token 的每一格都是属性，
 // 这一条读数就是那句话的反面——多一处 `receiver.Method(` 就红。
 console.log(
-  `投影对 token 调方法（${SHARED_FILE} 的代码块）：${tokenMethodHits} 处（0 处才是对的，取数据只读属性；例外只有 ctx.* 与 PrintDirectAst）`,
+  `投影对 token 调方法（${SHARED_FILE} 的代码块）：${tokenMethodHits} 处（0 处才是对的，取数据只读属性；例外只有 ctx.* 与 PrintAst）`,
 );
 // **「这一格自己的那一格字符」的账**（第 1049 轮）：按某一格自己的起点去读 `ctx.source` 是 0 处
 // ——这一格的正文由它自己答（`Token.Text` / 各页构造时记好的那一格），扫描游标与别人的终点照旧。

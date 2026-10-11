@@ -691,7 +691,7 @@ if (abstractUnit !== null) {
 }
 if (isNewUnit) {
   // `New` 整段（含它自己的 `NewType` 与 `NewArguments` 两段）作为一个子单元收进来：
-  // 投影在它里面找那个括号（见 `PrintDirectAst` 的 `newUnit` 那一支）。
+  // 投影在它里面找那个括号（见 `PrintAst` 的 `newUnit` 那一支）。
   result.AddAndCloseLast(current);
 } else if (isConstruct || isGenericCall) {
   result.AddAndCloseLast(current);
@@ -762,11 +762,10 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 **形态与基类一致**（两边都是 `## field` + `new Map()`）：基类那一格是**空表**（第 1041 轮从 `## method` 改成属性），这一页给出自己的表——第 1065 轮基类的 `Segments` 就是照这张表的键排出来的（段的**名单与顺序**都从这里来）。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1000 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 1000 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 上面那一份里只有两处回原文查：
 

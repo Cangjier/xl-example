@@ -85,11 +85,10 @@ return ReplaceCountAt(units, index, 1, result);
 **内容为空**（那个 `;` 自己不进去）：TS 那边 `SemicolonClassElement` 是一个**叶子节点**
 （`forEachChild` 一个孩子都不给，`;` 只是它的区间）——把 `;` 装进来会多出一个 `SemicolonToken`。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   return ctx.NodeHead("SemicolonClassElement", {}, v);

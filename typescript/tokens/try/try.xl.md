@@ -226,7 +226,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 `try` 体那一对花括号：**值是开括号的偏移**，`Range` 是**整对括号**（含两边）。
 
 **为什么要有这一格**：投影原来**回原文里找**——`ctx.source.indexOf("{", tryAt)` 再 `ctx.MatchingBrace`
-（见下面 `PrintDirectAst` 第 586 轮之前那一版）。那是**第二份位置答案**：块里的字符串与注释同样有
+（见下面 `PrintAst` 第 586 轮之前那一版）。那是**第二份位置答案**：块里的字符串与注释同样有
 花括号，而打包那一刻（`TryCloseRule.Process`）**括号就在手上** ⇒ 当场记下来，
 投影只读这一格。`TokenField` 的「值 + 区间」正好装下「开括号在哪、整对到哪」。
 
@@ -246,10 +246,10 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 `finally` 体那一对花括号；没有 `finally` 段时是 `-1` / `null`。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 995 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
-属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+**第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
+属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
 
 **这一页早就把三处「回原文找」搬成字段了**（第 586 / 893 轮：`TryBrace` / `CatchBrace` /
 `FinallyBrace` / `CatchWord`），所以直出版与上面是**逐行同一份**——没有一处回原文查，

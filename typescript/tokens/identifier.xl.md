@@ -517,11 +517,10 @@ return true;
 return items.includes(this.TempToString());
 ```
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   // **文本读 token 自己的 `Temp`**（第 992 轮）：`ctx.Text(v)` 在值为空时会回原文切一刀，
@@ -629,7 +628,7 @@ return items.includes(this.TempToString());
 **位置用原文、`text` 用解开的**（第 382 轮挑出来的那一处，第 1131 轮随这一格一起搬进本页）：
 `{ \u0061: 1 }` 那个键在源码里占 **6 个字符**（`end` 要按它算），而它的**名字**是 `a`
 （TS 的 AST `text` 也是 `a`）。**这一格第 381 轮漏过**——那时候改的是
-`Identifier.PrintDirectAst`（**子单元**那条路）与投影读**属性**那三处，而对象字面量那一支是
+`Identifier.PrintAst`（**子单元**那条路）与投影读**属性**那三处，而对象字面量那一支是
 **自己拿文本合一个节点**的，压根不经过前两条 ⇒ `Object.keys({ \u0061: 1 })` 给 `["\u0061"]`、
 `x.a` 给 `undefined`（**静默错值**）。所以这一格的两截必须这么分：`text` 走
 `DecodeIdentifierEscapes`、长度走**原文那一格**。
@@ -783,7 +782,7 @@ return result;
 **原始类型**名 → `SyntaxKind` 名（第 1032 轮从投影层搬到这里，读法是
 `Identifier.PrimitiveTypeKindOf`）。
 
-它在 TS 那边**不是** `TypeReference`（见 `tokens/type-define.xl.md` 的 `PrintDirectAst`）。
+它在 TS 那边**不是** `TypeReference`（见 `tokens/type-define.xl.md` 的 `PrintAst`）。
 这张表与 `Keyword.KeywordKind` 那一份词汇有重叠，但**语义不同**：那一份管的是
 「产物把它标成 `<Keyword>` 了」，这张表管的是「**在类型位上**该叫这个名字」——
 而产物在类型位把 `string` 标成的是 `<Identifier>`（实测 `x: string` 里 `string` 是 `Identifier`）。

@@ -41,11 +41,10 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 函数的体只有这一种落法（无论 `function` / `declare function` / 生成器），所以这是一格**常量**：
 第 1045 轮从 `## method BodyField(parentKind)` 改成 `## field`，构造时就赋好。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
 return ctx.Node("Block", { statements: ctx.Each(v) }, v);

@@ -50,7 +50,7 @@ const GATES = [
   //（`ToJsonString()` 第 1017 轮删了——它在全仓一个调用者都没有；
   // 序列化那一步今天只有 TS 形状出口的 `ToJsonText()` 在做。）
   // **`cases:direct` + `direct:lint`（第 992 轮加，第 1013 / 1017 轮改口径）**：第三个出口
-  // （`Token.PrintDirectAst`，现在是它**唯一**的写法）的两条判据，一动态一静态——
+  // （`Token.PrintAst`，现在是它**唯一**的写法）的两条判据，一动态一静态——
   // `cases:direct` 把全语料投一遍（**不抛异常**）并对一份**固定样本**逐格点名（六格 kind + `pos` / `end`），
   // `direct:lint` 逐页扫方法体（不许 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，
   // 也不许按字符串键查）。两条分开是因为它们坏的方式不同：

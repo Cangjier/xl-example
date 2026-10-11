@@ -478,11 +478,10 @@ return index;
 切进了**壳的区间**、不进 `Data` ⇒ 这一格只有在收尾规则里才拿得到
 （就是壳的右端，见 `Process` 那一支）。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   const props: any = {};
@@ -491,7 +490,7 @@ return index;
   // 两端都是**挂体那一刻**的事实 ⇒ 空块与带块的体都由 `BodyBlockOf` 直接给出
   //（`do {} while (c);` 的右端取**配对的花括号**，不是本单元的终点——那后面还有
   //  `while (c);`，见 `DoWhileCloseRule.Process` 签在体段上的区间）。
-  // **空语句体那一格也直读字段**（第 635 轮，与 `While.PrintDirectAst` 同一条）：
+  // **空语句体那一格也直读字段**（第 635 轮，与 `While.PrintAst` 同一条）：
   // `do ; while (c);` 的体是 `EmptyStatement`。
   const rawEmpty = v.emptyBodyAt;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;

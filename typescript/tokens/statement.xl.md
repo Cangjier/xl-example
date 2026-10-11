@@ -55,11 +55,10 @@ import { LineWrap } from "./line-wrap.xl.md"
 `Statement` 自己这一类没有专门注册 ⇒ 拿到的是通用队列。
 容器那一侧走 `ParsePipeline.InitialCloseRuleQueue`，第 564 轮起它做的也是同一句。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   const node = ctx.StatementOf(v);
@@ -146,7 +145,7 @@ if (owner === "InterpolationString") {
 // **成员**，不是语句 —— 判据与 `JsonObjectCloseRule` 问的是**同一句**
 //（`IsObjectLiteralBrace`，见 `../text-common-util.xl.md`）。
 // 少了它会怎样：多行对象字面量里每个成员被包成一个 `Statement` ⇒
-// `ObjectLiteral.PrintDirectAst` 按顶层逗号切出来的每一组都是**一格 `Statement`**
+// `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`**
 // ⇒ 整片投成 `ExpressionStatement`（实测 `ex-object-literal.ts` 缺 37）；
 // 而且壳里那个 `b:` 还会被 `Label` 收走（壳的父亲是 `Statement` ⇒ `IsStatementStart` 答「是」）。
 //
@@ -3290,7 +3289,7 @@ if (owner === "IfCondition") {
 // **成员**，不是语句 —— 判据与 `JsonObjectCloseRule` 问的是**同一句**
 //（`IsObjectLiteralBrace`，见 `../text-common-util.xl.md`）。
 // 少了它会怎样：多行对象字面量里每个成员被包成一个 `Statement` ⇒
-// `ObjectLiteral.PrintDirectAst` 按顶层逗号切出来的每一组都是**一格 `Statement`**
+// `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`**
 // ⇒ 整片投成 `ExpressionStatement`（实测 `ex-object-literal.ts` 缺 37）；
 // 而且壳里那个 `b:` 还会被 `Label` 收走（壳的父亲是 `Statement` ⇒ `IsStatementStart` 答「是」）。
 // **绑定模式的花括号同一条口径**（第 825 轮，`IsBindingPatternBrace`）：`const { a` 换行

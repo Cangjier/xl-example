@@ -944,14 +944,14 @@ Lambda 表达式。
 `modifiers` 文本里**（见 `print-ast-common.xl.md` 的 `addModifiers`）——所以由本页报出这个词名，
 投影不再反射式地把「所有值为 `true` 的属性」都当修饰词。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 995 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
-属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+**第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
+属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
 
 **唯一让开的一处**：`ArrowAt` 那一格是 `-1` 时（理论上不该有：它由重组那一刻当场记下），
-`PrintDirectAst` 会**回原文里找** `=>`。那正是直出版不许有的第二份近似 ⇒ 直出版答 `undefined`，
-交回 `PrintDirectAst` 走那一条（与基类「我没有直出版」同一个约定，只是让开的范围小到一格）。
+`PrintAst` 会**回原文里找** `=>`。那正是直出版不许有的第二份近似 ⇒ 直出版答 `undefined`，
+交回 `PrintAst` 走那一条（与基类「我没有直出版」同一个约定，只是让开的范围小到一格）。
 **其余全部直读字段**：箭头的两个字符宽度由「它占两个字符」这一事实给（不是回原文比一次），
 体的那对括号两端读 `BodyBrace`（第 1081 轮起不再读它印出来的 `bodyBraceRange`）。
 
@@ -959,7 +959,7 @@ Lambda 表达式。
   const props: any = ctx.Structural(v, "ArrowFunction");
   const rawArrowAt = v.arrowAt;
   const arrowAt = typeof rawArrowAt === "number" ? rawArrowAt : -1;
-  // **位置不在这一格上**（字段缺）⇒ 交回 `PrintDirectAst`（它回原文里找一次）。
+  // **位置不在这一格上**（字段缺）⇒ 交回 `PrintAst`（它回原文里找一次）。
   if (!(arrowAt >= 0 && arrowAt < v.end)) {
     return undefined;
   }
@@ -1096,7 +1096,7 @@ return this.Add(new LamdaParameters(this.Template));
 **`bodyBraceRange` 那一格第 1081 轮删掉了**（它原来就占这里）：它就是 `BodyBrace.Range` 印出来的
 `"起,止"`（闭区间），**那是产品格式**（XML 那一侧照旧从 `BodyBrace.Range` 印），而投影要的是
 构造时赋好的那一格 `BodyBrace`（`TokenField<number>`）。所以这一页读那对括号的仅有两处
-（`PrintDirectAst` 里算 `braceEnd`、`PrintDirectAst` 那一支的 `Block` 两端）都改成直读那一格，
+（`PrintAst` 里算 `braceEnd`、`PrintAst` 那一支的 `Block` 两端）都改成直读那一格，
 这一格整格删掉。
 
 ## property children:Array<Token>

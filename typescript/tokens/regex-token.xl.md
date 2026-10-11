@@ -213,11 +213,10 @@ if (source.Value === "[") {
 
 它没有覆写 `ToXmlString`，所以 XML 由 `Token.ToXmlString` 产出（子单元串接）。正则单元没有子单元，落地就是个空标签——夹具 `24-regex.xml` 里 `let a = /ab+c/g` 的第三个单元正是 `<RegexToken></RegexToken>`（**不要**给它加 `ToXmlString` 覆写）。`Temp` / `Flags` 只暴露给执行层。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1000 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 1000 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 上面那一趟是**从那个 `/` 起回原文扫一遍**（跳 `\` 转义与 `[…]` 字符类、吃掉 flags），
 而那件事**正则单元自己已经做过一次**：`Temp` 是正文、`Flags` 是旗标，
@@ -287,7 +286,7 @@ this.IsInClass = false;
 结尾标志字符（`m` / `g` / `i` / `s` / `u` / `y` / `d` / `v`）逐个攒进来；用 `string` 就好。
 
 **这一格还决定单元自己的区间**（第 1000 轮）：签出落在最后收进来的那个标志字符上，
-所以少认一个字母，本单元的区间就短一格——`PrintDirectAst` 直接交出去的正是这个区间
+所以少认一个字母，本单元的区间就短一格——`PrintAst` 直接交出去的正是这个区间
 （见下面那一格），于是「认不出 `d`」这件事会当场显形。
 
 ## method Append:(source:Source)=>void
@@ -342,7 +341,7 @@ if (!this.IsTranslate) {
       // **签出要落在正则的最后一个字符上**（第 931 轮）：走到这里时 `source` 是**紧跟
       // 字面量后面**的那一格（标志位之后的第一个字符，或者收尾 `/` 之后那个字符），
       // `SignOut(source)` 于是让本单元的终点**比字面量多一个字符**——
-      // `typeof /re/;` 里那个 `;` 也算进正则的区间。`PrintDirectAst` 那边用「从 `/` 扫到配对的 `/`」
+      // `typeof /re/;` 里那个 `;` 也算进正则的区间。`PrintAst` 那边用「从 `/` 扫到配对的 `/`」
       // 重新量过一遍（所以 `RegularExpressionLiteral` 自己是对的），可**父节点**是按
       // `v.end` 算的：`typeof /re/;` 的 `TypeOfExpression` 因此是 `[10,22)` 而不是 `[10,21)`
       //（实测 `gap-r931-typeof-regex-range`：漂 1 多 1）。往回退一格就对了。

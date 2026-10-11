@@ -155,19 +155,18 @@ ifSet.MountCondition(source);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<IfSet>` 里依次是各个 `IfSegment` 的 XML。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 998 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 998 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
-**这一页的三处兜底都换成了「让开」**：`PrintDirectAst` 里三条回原文的路
+**这一页的三处兜底都换成了「让开」**：`PrintAst` 里三条回原文的路
 （头部 `)` 附近找 `;`、`else` 那一段里 `indexOf("if")`、空块找 `{` + 配对 `}`）
 各自都有**对应的那一格字段**（`emptyBodyAt` / `ifWordAt` / `BodyBrace`，第 657 / 634 / 637 轮；
 第三格那串 `"起,止"` 的 `bodyBraceRange` 第 1081 轮删掉了——投影直读 `IfSegment.BodyBrace`）。
 
 **让开必须发生在「一个节点都还没投」之前**（第 998 轮实测到的坑）：`ctx.Expression` /
-`ctx.BlockOfBody` 一调用就**记一次账**（`projectNode` 的 `count`），而让开之后 `PrintDirectAst`
+`ctx.BlockOfBody` 一调用就**记一次账**（`projectNode` 的 `count`），而让开之后 `PrintAst`
 会把同一格再投一遍 ⇒ 两趟的 `count` 差出来（实测 `stmt-empty-blocks` +1、`stmt-if-empty-else-block` +2，
 产物字节一模一样、只有记账不等）。所以这里先跑一趟**只看字段、不投任何东西**的 `canBuild`
 （`ctx.Attr` / `ctx.Kids` / `ctx.KidsOf` / 单元自己的 `IsInvisible()` 都不记账），它答否就整条链让开。

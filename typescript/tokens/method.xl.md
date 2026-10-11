@@ -427,17 +427,17 @@ for (const kid of pending) {
 groups.push(current);
 return groups.filter((group) => group.length > 0);
 ```
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 995 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
-属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+**第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
+属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
 
-**搬的是什么、留的是什么**：`PrintDirectAst` 那一格里有**两处第二份近似**回原文里查位置——
+**搬的是什么、留的是什么**：`PrintAst` 那一格里有**两处第二份近似**回原文里查位置——
 IIFE（`(function () { … })()`）与「被调用者本身是一次调用」（`f()()`）里
 「外层的终点要往被调用者之后再走一格」。直出版不查原文：那一格就是
 `ParenAt`（`Process` 认下这次调用时**当场记的**实参表 `(` 的位置）之后的第一个 `(` 括号单元。
 
-**「第一个子单元与被调用者同名」也照直出版的规矩改**：`PrintDirectAst` 里那句走的是
+**「第一个子单元与被调用者同名」也照直出版的规矩改**：`PrintAst` 里那句走的是
 `ctx.TextOf`，直出版读 **`calleeKid.TextValue`**（那一格自己记的 `value`，第 1069 轮起是
 token 自己的一格属性；不回原文兜底）——对「简单名 + 括号」两处是同一个答案。
 
@@ -582,7 +582,7 @@ token 自己的一格属性；不回原文兜底）——对「简单名 + 括�
 **实参表那个 `(` 的下标**。
 
 **为什么要有这一格**：投影判「第一个 `GenericType` 是类型实参段还是实参里的尖括号断言」时，
-要看**实参表那个 `(` 与 `GenericType` 的先后**（见下面 `PrintDirectAst`）。原来用
+要看**实参表那个 `(` 与 `GenericType` 的先后**（见下面 `PrintAst`）。原来用
 `ctx.source.indexOf("(", calleeEnd)` **回原文里找**——那是**第二份位置答案**：
 `o.m /* ( */ ()` 会命中注释里那个假括号。而触发本规则的那一刻（`Process`）
 那对括号就是 `bracketUnit`，当场记下来即可，投影只读这一格。

@@ -259,16 +259,16 @@ for (const item of this.Data) {
 return `<${name} range="${this.RangeOf()}" startBracket="${this.startBracket}" endBracket="${this.endBracket}">${temp.join("")}</${name}>`;
 ```
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
 **第三个出口的直出版**（第 1004 轮）：与通用支出**同一个答案**，但只许用这个 token 自己的
 属性、子单元与 `Parent`（不回原文查）——口径与两条判据见 `core/syntax/token.xl.md` 的
-`PrintDirectAst`。
+`PrintAst`。
 
-**这一页是「连 `PrintDirectAst` 都没有」那一族**（第 997 轮那条分水岭）：`Bracket` 的形状一直由
-投影的**通用支**给，所以这一轮两半一起写——上面那一格 `PrintDirectAst` 把「这一页出什么」写下来
+**这一页是「连 `PrintAst` 都没有」那一族**（第 997 轮那条分水岭）：`Bracket` 的形状一直由
+投影的**通用支**给，所以这一轮两半一起写——上面那一格 `PrintAst` 把「这一页出什么」写下来
 （同答从此有一条逐字节的基线），这一格再把那一趟里回原文查的部分去掉。
-**两半逐句同一份**：`{` 走同一条裸块分支，`(` / `[` 两条路都答 `undefined` 让回通用支。
+**这一格没有第二份实现**：`{` 走同一条裸块分支，`(` / `[` 两条路都答 `undefined` 让回通用支。
 
 **三种括号在这一页上有两种身份**（第 1003 轮量出来的）：
 
@@ -284,7 +284,7 @@ return `<${name} range="${this.RangeOf()}" startBracket="${this.startBracket}" e
   让回通用支，摊平与记账都还是原来那一份。
 
 **`(` / `[` 这一半为什么还不能直出**：通用支给它们造的形状要问**父节点的 kind**
-（`structuralProps` 先问这一格的段名、再让子单元按父 kind 投），而 `PrintDirectAst`
+（`structuralProps` 先问这一格的段名、再让子单元按父 kind 投），而 `PrintAst`
 手上只有这一棵子树与 `Parent`（产物树的父亲，**不是**投影意义上的父 kind）。
 所以这一半留着，是「这一页量清了、但没有照模板搬」的那一半。
 

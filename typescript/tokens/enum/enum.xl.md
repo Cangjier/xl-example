@@ -305,15 +305,14 @@ for (const item of this.Data) {
 throw new Error("找不到匹配的子单元");
 ```
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1002 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 1002 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
-**这一页的直出版换掉的是「谁替这一格算形状」这件事**：原来这一族**连 `PrintDirectAst` 都没有**，
+**这一页的直出版换掉的是「谁替这一格算形状」这件事**：原来这一族**连 `PrintAst` 都没有**，
 形状一直由投影层的通用支给（`KIND_BY_TAG` 换名 + `structuralProps` 给字段名）——
-所以两半一起写：`PrintDirectAst` 先把那一趟**写下来**（形状从此有了一份逐字节对拍的基线），
+所以两半一起写：`PrintAst` 先把那一趟**写下来**（形状从此有了一份逐字节对拍的基线），
 直出版再把它按 `ctx.Declaration` 说一遍。
 
 **回落到形状那一格是必须的**（不是「偷懒转手」）：算 kind 与造形状是同一件事的两半

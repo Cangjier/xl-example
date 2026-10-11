@@ -266,8 +266,8 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 没有任何叶子承载它——只活在 `TypeDefine` 自己的区间起点上（`SignIn(current…)`）。
 要判「有没有那个 `?`」而**不回原文读那个字符**，就得把位置记在这一格上。
 
-消费它的有 `field.xl.md` / `lamda/lamda-parameter.xl.md` 的 `PrintDirectAst`：
-它们从自己的 `Data` 里取出那个 `TypeDefine`，读这一格（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+消费它的有 `field.xl.md` / `lamda/lamda-parameter.xl.md` 的 `PrintAst`：
+它们从自己的 `Data` 里取出那个 `TypeDefine`，读这一格（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
 
 ## property questionAt:int
 
@@ -279,15 +279,14 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 return this.QuestionAt;
 ```
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
-  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const kids = ctx.Kids(v);
   const colon = kids.find((k: any) => k.Tag === "SymbolToken" && k.TextValue === ":");
   const afterColon = colon === undefined ? kids : kids.slice(kids.indexOf(colon) + 1);

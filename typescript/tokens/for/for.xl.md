@@ -158,7 +158,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   // **体那一对花括号当场记进 `BodyBrace`**（第 598 轮那一格，第 641 轮带上整段）：
   // 空块（`for (;;) {}`）的体段一个可见子单元都没有，投影那边要造一个空 `Block` 就只能回原文里
   // `indexOf(")")` + `indexOf("{")` + `MatchingBrace` 重扫一遍（那是同一条判据的第二份近似）。
-  // 记成**整对区间**之后投影直读（见 `PrintDirectAst`），连配对那一趟都不走。
+  // 记成**整对区间**之后投影直读（见 `PrintAst`），连配对那一趟都不走。
   result.BodyBrace.Set(statementBracket.SourceRange.Start!.Index, statementBracket.SourceRange);
   statementBracket.MoveDataTo(forBody);
   forBody.SignIn(statementBracket.SourceRange.Start!);
@@ -183,7 +183,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
     // ⇒ `SearchStatementEnd` 与 `LastMeaningfulIndex` 都给 `-1`。
     // 从前这里抛错（`dist/ts/typescript/print-ast-common.ts` 那份 `for (…);` 就是它挡下的）。
     // 体为空、`endIndex` 退到 `)` 那一格：区间借宿主的右端（下面那一支），
-    // 而 `;` 由投影侧读 `EmptyBodyAt` 补成 `EmptyStatement`（见 `For.PrintDirectAst`）。
+    // 而 `;` 由投影侧读 `EmptyBodyAt` 补成 `EmptyStatement`（见 `For.PrintAst`）。
     if (endIndex === -1) {
       endIndex = currentIndex - 1;
       emptyBody = true;
@@ -245,7 +245,7 @@ C 风格 `for` 语句单元。
 `ForCloseRule.Process` 那一处拿得到全部信息——那个 `;` 触发规则时**还没进单元列表**，
 所以那边算的是「借宿主 `Statement` 的右端」。投影若再判一次，就得拿
 `MatchingParen` + 跳空白**重扫一遍原文**，那是同一条判据的第二份近似。
-记成字段之后，投影只做一次字段读取（见 `PrintDirectAst`）。
+记成字段之后，投影只做一次字段读取（见 `PrintAst`）。
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
@@ -267,17 +267,16 @@ C 风格 `for` 语句单元。
 **只在「体段既没有可见子单元、也没有 `emptyBodyAt`」那条兜底支里用它**：
 正常那几支分别由 `BlockOfBody`（非空块）与 `emptyBodyAt`（空语句）说了算。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 997 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 997 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 **这一页差的只有一格**：`BodyBrace` / `emptyBodyAt` **早就在 token 上**（第 641 / 590 轮；
 那一串 `"起,止"` 的 `bodyBraceRange` 第 1081 轮删掉了，投影直读 `BodyBrace` 那一格），
-`PrintDirectAst` 里回原文的那一段是**空体语句 `for (…);` 的最后一招**——
+`PrintAst` 里回原文的那一段是**空体语句 `for (…);` 的最后一招**——
 拿头部 `)` 之后再扫一遍空白找那个 `;`（`ctx.source` + `ctx.MatchingParen`）。
-直出版把这一招去掉：体段既非块、`emptyBodyAt` 又没记过时**答 `undefined` 交回 `PrintDirectAst`**
+直出版把这一招去掉：体段既非块、`emptyBodyAt` 又没记过时**答 `undefined` 交回 `PrintAst`**
 （与 `Lamda` / `Foreach` 那两处同一个约定）。
 
 ```ts
@@ -305,7 +304,7 @@ C 风格 `for` 语句单元。
     if (emptyAt >= 0) {
       props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
     } else {
-      // 字段没记过 ⇒ **不猜**（原来的最后一招是回原文扫那个 `;`），交回 `PrintDirectAst`。
+      // 字段没记过 ⇒ **不猜**（原来的最后一招是回原文扫那个 `;`），交回 `PrintAst`。
       return undefined;
     }
   }

@@ -244,7 +244,7 @@ return index;
 **体是那条空语句（`foreach/for (…);`）时，那个 `;` 的下标**；不是这一档就是 `-1`。
 
 与 `For.EmptyBodyAt` / `While.EmptyBodyAt` 同一个来由：判据只在收尾规则那一处算得起，
-投影只读一次（见 `PrintDirectAst`），不再拿 `MatchingParen` + `BodyBlockOf` 重扫原文。
+投影只读一次（见 `PrintAst`），不再拿 `MatchingParen` + `BodyBlockOf` 重扫原文。
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
@@ -270,18 +270,18 @@ return index;
 
 `Process` 切 Define / Enumable 时手里就有那个词（`conditionBracket.Data[defineEnd]`），
 当场记下来；投影据此分 `ForInStatement` / `ForOfStatement`，不再回原文做正则
-（见 `PrintDirectAst` 那段说明）。
+（见 `PrintAst` 那段说明）。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 995 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
-属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+**第三个出口的直出版**（第 995 轮）：这一格出哪个节点，只许用**这个 token 自己**的东西——
+属性、子单元与 `Parent`（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
 
 **换了什么**：三处 `ctx.TextOf` 换 `ctx.ValueOf`（声明词那四格与 `await` 都只读
 那一格自己记的 `value`）。
 
 **唯一让开的一处**：头部那个 `)` 的位置（`HeaderCloseAt`，收尾规则当场记的）**不在这一格上**时，
-`PrintDirectAst` 会 `ctx.MatchingParen(ctx.source, v.start)` **回原文里配一次括号**——那正是直出版
+`PrintAst` 会 `ctx.MatchingParen(ctx.source, v.start)` **回原文里配一次括号**——那正是直出版
 不许有的第二份近似 ⇒ 答 `undefined`，交回它走那一条。
 
 ```ts
@@ -318,7 +318,7 @@ return index;
   } else {
     const rawHeader = v.headerCloseAt;
     const headerAt = typeof rawHeader === "number" ? rawHeader : -1;
-    // **头部那个 `)` 的位置不在这一格上** ⇒ 交回 `PrintDirectAst`（它回原文里配一次括号）。
+    // **头部那个 `)` 的位置不在这一格上** ⇒ 交回 `PrintAst`（它回原文里配一次括号）。
     if (headerAt < 0) {
       return undefined;
     }
@@ -543,5 +543,5 @@ return result;
 不是我的终结符（口径见 `core/syntax/token.xl.md` 的 `EndsOnBrace`）。
 
 判据原来是投影层那张按 kind 查的 `NO_TRAILING_SEMICOLON` 集合，而**我这一格有两种身份**
-（`isForIn` 那一位——见上面 `PrintDirectAst` 里 `ForInStatement` / `ForOfStatement` 的分派），
+（`isForIn` 那一位——见上面 `PrintAst` 里 `ForInStatement` / `ForOfStatement` 的分派），
 **两态在这一问上同答**，所以答案与那一位无关：两张 kind 名都在那张表里。

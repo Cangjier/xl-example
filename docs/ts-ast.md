@@ -3,7 +3,7 @@
 > 本文是 **token 树的第三个出口**（TS 形状）的规格：形状、API、验收，以及它与 XML / AST JSON
 > 两个出口的关系。实现分两处：**通用支**（三张表 + 横切助手）在
 > [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md)，
-> **逐标签的投影**在各 token 自己的 `PrintDirectAst(ctx, v)`（第 181~198 轮逐块搬完，
+> **逐标签的投影**在各 token 自己的 `PrintAst(ctx, v)`（第 181~198 轮逐块搬完，
 > 第 992 轮起改写成「只用 token 自己的属性 / 子单元 / `Parent`」的直出版，
 > 第 1013 轮 `PrintAst` 与它的派发分支整条删除、这一格成了第三个出口**唯一**的写法；
 > 原来的 `typescript/ts-ast.xl.md` 已删（`git mv` 成 [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md)），搬迁手册见 [print-ast-migration.md](history/print-ast-migration.md)）；
@@ -79,9 +79,9 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 | 判据 | 命令 | 口径 |
 | --- | --- | --- |
 | 与 TS 原生 AST 对拍 | `npm run cases:tsast` | 逐节点比 **kind、区间、字段名**；缺（没投出来）与漂移（位置差一点）分开报。退出码按**八条**算：四方向 + 未映射（透传进产物的标签）+ 缺 range + 区间越界 + **抛异常 0**（第 674 轮加的） |
-| **第三个出口投不投得出来** | `npm run cases:direct` | 两条**绝对**判据：① 全语料投一遍**不抛异常**；② **固定样本的形状逐格点名**（第 1014 轮加：`const a = b(c);` 必须投出六格、且每个节点都带 `pos` / `end`）。第三个出口第 1013 轮起只有 `PrintDirectAst` 一条路。**第 1017 轮撤掉的第①项**是「同一份输入重投两遍逐字节相同」（第 1013 轮起）与更早的「与 `PrintAst` 同答」（第 992 轮起，开 / 关两遍对拍）——**它不可能失败**：两遍都在同一个进程里、问的都是同一棵 `Root`，确定性代码必然逐字节相同（见第 4 节） |
-| **只用 token 自己的东西** | `npm run direct:lint` | 逐页扫 `PrintDirectAst` 的方法体（注释不算）：不许 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（第 992 轮加；第 1013 轮撤掉「同页必须还有 `PrintAst`」那条基线判据；第 1014 轮加一条**只扫散文**的：「`PrintAst` 这个老名字只许写在明说它已经不存在的那一行」，词边界匹配、`PrintDirectAst` 不算；**第 1015 轮**再加一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的九个出口——三个回原文兜底的 `Text` / `TextOf` / `StringText`（值为空时会去 `source.slice(...)`）与六个已无人用的 `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace`。**为什么删了还要立一条**：出口没了，上面那条方法体判据就永远绿——它守的是一句已经无路可走的话；真正要守住的是「这一层拿不到原文」这件事本身，而 helper 那一层的方法体判据天生覆盖不到（第 1008 轮实测过）；**第 1046 轮**再加一条扫**调用形态**的：`print-ast-common` 的代码块里**一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintDirectAst`——分发不是数据）——第 1041~1046 轮把「投影要问 token 的每一格」全收成了属性，这一条把那个结论钉住；**第 1049 轮**再加一条扫**「这一格自己的那一格字符」**的：`print-ast-common` 的代码块里 `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`）——第 1048 轮给基类加了 `Token.Text`（本单元的正文，走它自己 `SourceRange` 两头各自带着的那份 `Document`），第 1049 轮又把九处 `ctx.source[startOf(x)] === "`"` 换成读 `String.stringChar`（构造器里赋一次的那一格）⇒ 今天 0 处；扫描用的游标与别人的终点照旧，原文里本来就有一批必须看**相邻**字符的读法；**第 1050 轮**再加一条扫**形参表**的：`print-ast-common` 的 `# private method …` 小节里声明了 `ctx` 形参却在方法体里**一处都不用**的 = 0 处（第 1048 / 1049 轮收完之后 `textOfNode` / `labeled` / `isBareCallMethod` / `computedNameUnit` 四个 helper 的 `ctx` 已无用处，连形参带调用点的实参一起删掉——`textOfNode` 111 处；留一个用不到的上下文就是给下一处回原文查留了个现成的入口） |
-| **成对方法合并的等价性**（一次性） | —— | 第 1014 轮把「每个 token 页上 `PrintAst` 与 `PrintDirectAst` 两节相邻成对、留后者删前者」这句话**逐段核对**了一遍：75 对里 **21 对逐字节同一份**（老那两节本来就同答）、**47 对**新方法与**老直出版**逐字节同一份（＝留后者）、**7 对**有实质差异而这 7 对**全是第 992~1013 轮的既定改写**（5 对是 `k.get("type")` → `k.Tag()`；`import` 与 `lamda` 各一对是「回原文扫一遍」改成读 token 上的字段）⇒ 「除了那批有判据的改写，合并没有动过任何一格投影」 |
+| **第三个出口投不投得出来** | `npm run cases:direct` | 两条**绝对**判据：① 全语料投一遍**不抛异常**；② **固定样本的形状逐格点名**（第 1014 轮加：`const a = b(c);` 必须投出六格、且每个节点都带 `pos` / `end`）。第三个出口第 1013 轮起只有 `PrintAst` 一条路。**第 1017 轮撤掉的第①项**是「同一份输入重投两遍逐字节相同」（第 1013 轮起）与更早的「与老路同答」（第 992 轮起，开 / 关两遍对拍）——**它不可能失败**：两遍都在同一个进程里、问的都是同一棵 `Root`，确定性代码必然逐字节相同（见第 4 节） |
+| **只用 token 自己的东西** | `npm run direct:lint` | 逐页扫 `PrintAst` 的方法体（注释不算）：不许 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`，也不许按字符串键查（第 992 轮加；第 1013 轮撤掉「同页必须还有 `PrintAst`」那条基线判据；第 1014 轮加的那条**只扫散文**的老名字判据在**第 1143 轮撤掉了**（用户口径 1.1：`PrintDirectAst` 改名成 `PrintAst`，全仓 78 个文件 / 482 处，于是「`PrintAst` 是老名字」这句话本身成了反的）；**第 1015 轮**再加一条扫**能力面**的：`print-ast-common` 的 `const ctx = { … }` 键表里不许出现回原文兜底 / 已无人用的九个出口——三个回原文兜底的 `Text` / `TextOf` / `StringText`（值为空时会去 `source.slice(...)`）与六个已无人用的 `Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` / `MatchingBrace`。**为什么删了还要立一条**：出口没了，上面那条方法体判据就永远绿——它守的是一句已经无路可走的话；真正要守住的是「这一层拿不到原文」这件事本身，而 helper 那一层的方法体判据天生覆盖不到（第 1008 轮实测过）；**第 1046 轮**再加一条扫**调用形态**的：`print-ast-common` 的代码块里**一次 `receiver.Method(` 都不许有**（取数据只读属性；例外只有接收者 `ctx` 与方法名 `PrintAst`——分发不是数据）——第 1041~1046 轮把「投影要问 token 的每一格」全收成了属性，这一条把那个结论钉住；**第 1049 轮**再加一条扫**「这一格自己的那一格字符」**的：`print-ast-common` 的代码块里 `ctx.source[` 的下标**不许是某一格自己的 `start`**（`ctx.source[startOf(x)]` / `ctx.source[x.start]`）——第 1048 轮给基类加了 `Token.Text`（本单元的正文，走它自己 `SourceRange` 两头各自带着的那份 `Document`），第 1049 轮又把九处 `ctx.source[startOf(x)] === "`"` 换成读 `String.stringChar`（构造器里赋一次的那一格）⇒ 今天 0 处；扫描用的游标与别人的终点照旧，原文里本来就有一批必须看**相邻**字符的读法；**第 1050 轮**再加一条扫**形参表**的：`print-ast-common` 的 `# private method …` 小节里声明了 `ctx` 形参却在方法体里**一处都不用**的 = 0 处（第 1048 / 1049 轮收完之后 `textOfNode` / `labeled` / `isBareCallMethod` / `computedNameUnit` 四个 helper 的 `ctx` 已无用处，连形参带调用点的实参一起删掉——`textOfNode` 111 处；留一个用不到的上下文就是给下一处回原文查留了个现成的入口） |
+| **成对方法合并的等价性**（一次性） | —— | 第 1014 轮把「每个 token 页上两条投影两节相邻成对、留后者删前者」这句话**逐段核对**了一遍：75 对里 **21 对逐字节同一份**（老那两节本来就同答）、**47 对**新方法与**老直出版**逐字节同一份（＝留后者）、**7 对**有实质差异而这 7 对**全是第 992~1013 轮的既定改写**（5 对是 `k.get("type")` → `k.Tag()`；`import` 与 `lamda` 各一对是「回原文扫一遍」改成读 token 上的字段）⇒ 「除了那批有判据的改写，合并没有动过任何一格投影」 |
 | **发布路径**端到端 | `node tests/parse/ts-ast.mjs --cli` | 真的开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 与 `ts.createSourceFile` 对拍（每个文件一个进程，按需跑） |
 | 逐字节确定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比对，**不做归一化**（紧凑单行、键序与 `pos` / `end` 都是确定性的） |
 | 「命令行 = 库 API」 | `npm run samples` | 同一份源码，`cjcli` 进程与库 API 的输出必须逐字节相同 |
@@ -111,7 +111,7 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 
 ## 4. 改这个出口时要动的地方
 
-1. **加/改一个标签的投影**：先找这个标签**自己的 token 文件**里的 `PrintDirectAst(ctx, v)`
+1. **加/改一个标签的投影**：先找这个标签**自己的 token 文件**里的 `PrintAst(ctx, v)`
    （第 181~198 轮逐块搬过去的那 49 块，第 992~1013 轮逐页改写成直出版）；只有**通用支**的东西才动
    [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md)——
    那里的 `KIND_BY_TAG` / `FIELD_BY_KIND` 与共享助手。
@@ -120,7 +120,7 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
    碰到这三格先问那一页，别在投影层找表。
    剩下那两张表的**重复键**会静默覆盖（`new Map([...])` 同键后写胜），改表时自己过一眼——
    钉它的那把 `cases:shapelint` 已随测试集收窄删除（脚本在 git 历史里）。
-2. **改一格就是改那一格自己的投影**（第 1013 轮起只有这一条路）：`Token.PrintDirectAst(ctx, v)`
+2. **改一格就是改那一格自己的投影**（第 1013 轮起只有这一条路）：`Token.PrintAst(ctx, v)`
    （[`core/syntax/token.xl.md`](../core/syntax/token.xl.md)）——第三个出口**唯一**的写法
    （原先还有一份 `PrintAst`，第 1013 轮整条删掉），只许用这个 token 自己的属性、子单元与 `Parent`，
    **不许回原文查**（`ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`）。

@@ -287,26 +287,25 @@ return index;
 
 导入语句。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 999 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 999 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 上面那一份里有**四处回原文查**，直出版逐处换成 token 上已经记过的那一格：
 
-| `PrintDirectAst` 里的那一句 | 直出版读哪一格 |
+| `PrintAst` 里的那一句 | 直出版读哪一格 |
 | --- | --- |
 | `ctx.TextOf(word)` / `ctx.TextOf(k)`（`with` / `assert` / `:` / `from` / `=` / `as` / `*`） | **`k.TextValue`**——那一格自己记的 `value`（第 1069 轮起是 token 自己的一格属性，投影层的 `ctx.ValueOf` 出口随之删掉） |
 | `ctx.FirstCodeAfter(source, v.start + "import".length)` | `TypeWordAt`（`ReadClause` 认出 `type` 那一刻记的） |
 | `source.indexOf("{", clauseStart)` | `NamedBraceAt`（同一处记的具名子句左花括号下标） |
 | `ctx.MatchBrace(source, braceOpen)` | 那个括号**单元自己的终点**（`EndOf(namedBrace) - 1`） |
 
-尾分号那一趟换成 `ctx.SemicolonEndOf`——它与 `PrintDirectAst` 里「跳空白与注释再看一个字符」
+尾分号那一趟换成 `ctx.SemicolonEndOf`——它与 `PrintAst` 里「跳空白与注释再看一个字符」
 **同一份实现**（第 838 / 840 轮那条口径，`Namespace` 的直出版也是这么写的）。
 
 **让开的三档**（都发生在**投出第一个节点之前**，否则 `cases:direct` 的 `count` 记账会多记）：
-`type-only` 却没记过 `TypeWordAt`、位置在却没认出那个括号单元。答 `undefined` 交回 `PrintDirectAst`。
+`type-only` 却没记过 `TypeWordAt`、位置在却没认出那个括号单元。答 `undefined` 交回 `PrintAst`。
 
 ```ts
   const kids = ctx.Kids(v);
@@ -407,7 +406,7 @@ return index;
   );
   if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
   // **`ImportClause` 的起点**：type-only 读 `TypeWordAt`（上面已经确认它记过），
-  // 其余读子句第一格的起点——与 `PrintDirectAst` 同一份判据，只是不再回原文跳空白。
+  // 其余读子句第一格的起点——与 `PrintAst` 同一份判据，只是不再回原文跳空白。
   const clauseStart = isTypeOnly ? typeWordAt : ctx.StartOf(clause[0]);
   const clauseEnd = ctx.EndOf(clause[clause.length - 1]);
   const clauseProps: any = {};
@@ -496,7 +495,7 @@ super(template);
 `ReadClause` 进三种子句分支**之前**先记一次——原来只有「头一格就是 `Bracket`」那一支记，
 于是 `import d, { A } from "m"`（默认导入 + 具名子句）这一格**一直是 `-1`**，
 投影的兜底于是永远在回原文找。**这一格现在也由本页自己声明**（与 `questionAt` 同款：
-`>= 0` 时才写），`PrintDirectAst` 读的就是它。
+`>= 0` 时才写），`PrintAst` 读的就是它。
 
 **为什么这些属性值得加**：原来 `Import` 只带 `From`，两条形状完全不同的导入只能靠子单元去分辨；
 而且 `From` **根本没有进 XML**（`Import` 没有覆写 `ToXmlString`）——下游拿不到路径。
@@ -625,7 +624,7 @@ if (head instanceof Bracket && head.startBracket === "{") {
 **为什么 `ObjectLiteral` 也算**（第 999 轮）：`import d, { A } from "m"` 里那一对花括号
 不在 `ReadClause` 的 `Bracket` 分支上（头一格是默认名，那一支当场 `return`），
 而它被值位的对象字面量规则收成了 `ObjectLiteral`（没有 `startBracket` 属性）——
-按标签分会漏掉这一种，所以两种都认（与 `PrintDirectAst` 找 `namedBrace` 那一句同一份判据）。
+按标签分会漏掉这一种，所以两种都认（与 `PrintAst` 找 `namedBrace` 那一句同一份判据）。
 
 **位置从哪来**：括号单元自己的 `SourceRange.Start`——它就在手上，不必回原文 `indexOf`。
 

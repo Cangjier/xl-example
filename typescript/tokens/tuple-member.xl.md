@@ -320,15 +320,14 @@ return node;
 
 元组里的可选元素（`A?`）。类名必须与产物的标签名一致。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
-  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const kids = ctx.Kids(v).filter(
     (k: any) => !(k.Tag === "SymbolToken" && ["...", "?"].includes(k.TextValue)),
   );
@@ -378,15 +377,14 @@ return result;
 
 元组里的变长元素（`...B`）。类名必须与产物的标签名一致。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   // **第 993 轮**：`ctx.TextOf` → `ctx.ValueOf`（第 1069 轮起是那一页自己的 `TextValue` 属性）—— 只读那一格**自己记的**值，
-  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintDirectAst`）。
+  // 不回原文兜底（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
   const kids = ctx.Kids(v).filter(
     (k: any) => !(k.Tag === "SymbolToken" && ["...", "?"].includes(k.TextValue)),
   );
@@ -437,21 +435,20 @@ return result;
 
 名字与 `:` 都留在自己身上（TS 那边名字是成员的子节点）。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 1001 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 上面那一份里的位置答案一共有三条，逐条换成 token 上已经记过的那一格：
 
-| `PrintDirectAst` 里的那一句 | 直出版读哪一格 |
+| `PrintAst` 里的那一句 | 直出版读哪一格 |
 | --- | --- |
 | `ctx.TextOf(k)`（`...` / `this` / `?`） | `k.TextValue`——只读那一格记的 `value` |
 | `ctx.source[typeStart] === "?"`（问号被吞进 `TypeDefine`） | `TypeDefine.QuestionAt`（第 996 轮补的那一格，`>= 0` 就是「这一格以 `?` 开头」） |
 | `ctx.source[EndOf(optional) - 1] === "?"`（问号夹在名字与冒号之间） | 那个 `OptionalType` **自己的** `SymbolToken("?")` 子单元——位置就是它的起点 |
 
-**为什么第三条能这么换**：`OptionalType.PrintDirectAst` 把 `?` 从内容里**排掉**（它只是语法记号），
+**为什么第三条能这么换**：`OptionalType.PrintAst` 把 `?` 从内容里**排掉**（它只是语法记号），
 所以那个 `SymbolToken` 只在这一格上找得到——原来那一句是「拿区间的**尾字符**回原文比一下」，
 现在改成「问那一格自己有没有那个子单元」，**同一个问句只剩一份答案**。
 

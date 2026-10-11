@@ -189,18 +189,17 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 内容直接装在自己身上：可选的 `typeof`、那个 `import(...)` 调用形状、以及限定名的尾巴。
 **与值位的动态 `import()` 的区别只在容器**：值位的它仍是 `<Method name="import">`。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 999 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 999 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 上面那一份里只有两处回原文查，直出版逐处换掉：
 
 - **字符串字面量那一格**（`ctx.StringText(stringUnit)`）：`StringText` 找的是那一格的
   **`ConstString` 子单元**、值为空时还会回原文 `slice`。直出版自己走那一步——
   取 `children` 里的 `ConstString`、读**它自己记的 `value`**（`content.TextValue`，不回原文兜底）。
-  与 `String.PrintDirectAst` 转给 `ctx.Template` 是同一件事：**文本在那一格自己的子单元上**；
+  与 `String.PrintAst` 转给 `ctx.Template` 是同一件事：**文本在那一格自己的子单元上**；
 - **词形那一批**（`with` / `assert` / `:` / `typeof` / `import`）：`ctx.TextOf` → **`k.TextValue`**
   （第 1069 轮起是那一格自己的属性，只读它记的 `value`）。
 

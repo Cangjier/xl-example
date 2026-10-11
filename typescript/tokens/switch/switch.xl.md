@@ -323,7 +323,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 `Segments`（它见到这一格非空就用它）。
 
 **为什么本页不能照基类那句「按 `SegmentNames` 排」**：本页**根本没有 `SegmentNames`**
-（`CaseBlock` 那一层由本页自己的 `PrintDirectAst` 出形状、段名与目标语言同形），
+（`CaseBlock` 那一层由本页自己的 `PrintAst` 出形状、段名与目标语言同形），
 所以这一格是本页唯一一处「哪几段进投影」的声明——与 `IfSegment` 同一处境。
 **这一格与上面那个 `CaseSegments` 属性不是一回事**：那是这一段**装的单元**，这一格是**段名表**。
 
@@ -335,11 +335,10 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 而 `SwitchCloseRule.Process` 那一刻括号就在手上 ⇒ 当场记下来。投影若回原文里找
 （`ctx.source.indexOf("{", v.start)`），`switch (a) /* { */ { }` 会命中**注释里**那个假括号。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   const cond = ctx.KidsOf(v, "compare");

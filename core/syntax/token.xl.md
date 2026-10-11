@@ -965,7 +965,7 @@ return head.Document.GetRaw(from, to);
 `typeof one.value === "string" ? one.value : ""`，而 `value` 是**各页自己的一个字段**
 （`SymbolToken` / `Keyword` / `LineAnnotation` / `AreaAnnotation` / `PreprocessorDirectives` …），
 于是「这一格记的正文是什么」这个问句挂在投影层的出口表上，16 页 58 处都在借它。
-按这一族的判据（见 `PrintDirectAst`）：答案在**这一格自己**身上（就是它自己的字段）、
+按这一族的判据（见 `PrintAst`）：答案在**这一格自己**身上（就是它自己的字段）、
 而且**收完正文那一刻**就定下来了 ⇒ 收成这一格属性，投影那一侧只读 `x.TextValue`。
 
 **取值口径与原来那句逐字符相同**：`typeof this.value === "string"` 才给，
@@ -1104,7 +1104,7 @@ return "[" + this.RangeStart() + "," + this.RangeEnd() + "]";
 **这一格是什么**（第 1005 轮）：就是**自己的类名**。
 
 它是「产物标签」这一格事实的**唯一出口**——两种读法说的都是「这一格叫什么」：
-XML 的标签名、直出那一层的 kind 判据（`PrintDirectAst` 里那些 `=== "Identifier"` 这一类的比较）。
+XML 的标签名、直出那一层的 kind 判据（`PrintAst` 里那些 `=== "Identifier"` 这一类的比较）。
 **第 1016 轮只删了命令行那一条路**（`--ast-json` 与它的尺子 `cases:astjson`）：
 直出这一侧的两种读法仍然都在，[docs/ast-json.md](../docs/ast-json.md) 那份形状规格也还在。
 
@@ -1158,25 +1158,31 @@ XML 的标签名、直出那一层的 kind 判据（`PrintDirectAst` 里那些 `
 return undefined;
 ```
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与 `PrintDirectAst` 出**同一个答案**，但只许用**这个 token 自己**的东西——
+**这一格的名字**（第 1143 轮按用户口径 1.1 定）：它原先叫 `PrintDirectAst`，与一条已经删掉的
+老路（老路叫 `PrintAst`）成对；老路删掉之后剩下的就是这一格，于是**名字收回 `PrintAst`**——
+全仓 78 个文件 / 482 处一次改干净（`## method PrintAst:(ctx:any, v:any)=>any` 是它唯一的分节头）。
+
+**第三个出口的直出版**（第 992 轮）：这一格答「这一格出哪个节点」，只许用**这个 token 自己**的东西——
 属性、子单元（`Data` / 视图里的 `segments`）、以及 `Parent`。
 
-**它与 `PrintDirectAst` 的分工**：`PrintDirectAst` 是「这一格出哪个节点」的**现状**，而那一层里混着
+**它要消掉的是「回原文查」**：这一层里混着
 **回原文查**的路（`ctx.Text` / `ctx.TextOf` / `ctx.StringText` / `ctx.source`，以及跟在后面的
 `indexOf` / `slice` 这类二次搜刮）。回原文查是**第二份近似**：同一个事实解析期已经知道过一次
 （名字在哪里、括号配对到哪里、这个 `;` 属不属于上一条语句），投影再猜一次，
 两份答案就会在「注释里有个同名的词」「字符串里有个假括号」这种输入上悄悄分叉。
-直出版把这一格**重新按解析期已有的东西说一遍**；缺什么就**给 token 补上那个属性**
+这一格把**重新按解析期已有的东西说一遍**；缺什么就**给 token 补上那个属性**
 （与 `NameAt` / `NameRange` / `BodyBrace` 那几格同一条口径），而不是回原文猜。
 
 **五条判据（都已经进 `npm run gates`）**：
 
-1. **同答**：覆写了这一格的 token，投影**优先问它**；整个语料跑两遍（直出通道开 / 关）
-   产物必须**逐字节相同**——那是 `cases:direct`。不一样就是这一格写错了，不是「另一种口径」；
+1. **投得出来**（第 1013 / 1017 轮的口径）：整个语料投一遍**不许抛异常**，且固定样本
+   （`const a = b(c);`）必须投出六格、每格都带 `pos` / `end`——那是 `cases:direct`。
+   （原先还有一条「投影**优先问它**、开 / 关两遍逐字节相同」的**同答**判据：老路删掉之后
+   两遍问的是同一格，那一项**不可能失败**，第 1017 轮撤掉。）
 2. **只用 token 自己的东西**：这一格的方法体里**不许**出现 `ctx.source` / `ctx.Text` /
-   `ctx.TextOf` / `ctx.StringText`，也不许把问题**转手**回 `this.PrintDirectAst`——`direct:lint` 逐页扫。
+   `ctx.TextOf` / `ctx.StringText`，也不许把问题**转手**出去（问回自己不算答）——`direct:lint` 逐页扫。
    要问「某个子单元的值」时走 `ctx.ValueOf`（只读那一格自己记的值，**不回原文兜底**）。
    **也不许按字符串键查**：`.get("…")` / `.set("…")` / `.has("…")` 与 `ctx.Attr(视图, "键")`
    （第 1012 轮补上最后这一族，实测 23 处 / 10 页，全部换成属性读）。
@@ -1186,7 +1192,7 @@ return undefined;
    只认**字面量**那一档：`ctx.Attr(x, 某个变量)` 不是按字符串键查。
 3. **投影对 token 只读属性、不调方法**（第 1046 轮）：`typescript/print-ast-common.xl.md` 的**代码块**里
    **一次 `receiver.Method(` 都不许有**（例外只有接收者 `ctx`——那是投影自己的上下文对象；
-   以及方法名 `PrintDirectAst`——那是**分发**，问的是「这一格出哪个节点」，是行为不是数据）。
+   以及方法名 `PrintAst`——那是**分发**，问的是「这一格出哪个节点」，是行为不是数据）。
    第 1041~1046 轮把「投影要问的这一格」全部收成了属性（常量在构造时赋、派生答案在
    「那个事实被记下来的那一刻」赋、名字那一格是 `## property` + `### get`），
    于是投影读 token 的方式只剩属性名（`k.Tag` / `x.BodyField` / `node.NameField` …）——
@@ -1210,11 +1216,11 @@ return undefined;
    **为什么它必须是门**：留一个用不到的上下文，就是给**下一处回原文查**留了个现成的入口，
    而上面四条判据一条都看不见「这个形参没人用」。
 
-**基类答 `undefined`**＝「我没有直出版，照旧走 `PrintDirectAst` / 通用支」：与 `PrintDirectAst` 同一个约定，
-所以这一格可以**逐页**搬——搬一页多一页直出，`projectRoot` 返回的 `direct` 记账量的就是这个数。
+**基类答 `undefined`**＝「我没有自己的投影，照旧走通用支」：基类这一格就是这一条约定，
+所以各页可以**逐页**搬——搬一页多一页直出，`projectRoot` 返回的 `direct` 记账量的就是这个数。
 
 **第 1015 轮：`ctx` 上那三个「回原文」的出口整条删掉了**——判据②从「大家记得别写」
-变成**结构上做不到**。老路（`PrintAst`）删掉之后，`typescript/print-ast-common.xl.md` 的
+变成**结构上做不到**。老路删掉之后，`typescript/print-ast-common.xl.md` 的
 `const ctx = { … }` 里 `Text` / `TextOf` / `StringText` 三个出口就只剩注解里的名字
 （全仓唯一一处真实调用是 `method.xl.md` 的 `ctx.TextOf(inner) === ","`，改成 `ctx.ValueOf`），
 于是连同另外六个没人用的（`Value` / `Members` / `IsSymbol` / `IsDot` / `SkipSourceTrivia` /
@@ -1255,11 +1261,13 @@ return undefined;
 两次都是**按实测撤回**（一次红 `cases:direct` 22 份、一次把 `coverage` 的
 `blocked` 从 29 顶到 133）——两次都错在「按读代码的印象把它当成一件事」。
 
-**同页要留着 `PrintDirectAst`**（见下一条判据）：`Bracket` 原来**连 `PrintDirectAst` 都没有**
-（形状一直由通用支给），所以搬它时要**两半一起写**——`PrintDirectAst` 把「这一页出什么」写下来
-（同答从此有一条逐字节的基线），`PrintDirectAst` 再照着它去掉回原文查。
-判据②要求的是**同页存在** `PrintDirectAst`，**不是**「它必须与直出版不同」：两条路逐句同一份
-正是这一格想要的结果。
+**搬一页就是给这一页补上这一格**：`Bracket` 原来**连这一格都没有**
+（形状一直由通用支给），所以搬它时要把「这一页出什么」写下来——
+从此这一页不再靠通用支猜，也顺手把「这一页要不要回原文查」这件事一次说清。
+判据②要求的是**这一格的方法体干净**，不是「它必须与通用支给出不同的形状」：
+与通用支逐句同一份**可以**，只要那句是照着这一格自己的属性写的。
+（**第 1013 轮之前**这里还有一条「同页必须留着老路」的基线判据——那是为「开 / 关两遍对拍」
+准备的；两遍对拍撤掉之后，那条基线也没有量得到的对象了，所以一起撤掉。）
 
 ```ts
 return undefined;
@@ -1282,7 +1290,7 @@ return undefined;
 **「75.8%」的分母里混着 24.2% 的问路**，而真正的缺口是 **13 / 21874 = 0.06%**。
 
 **第 1015 轮：`IfSet` 那 13 次收掉了**（同一份探针的重量法：`tmp-r1015/giveway-all.mjs`，
-把每个类**自己的** `PrintDirectAst` 各包一层，74 个类）——它让开的根因是**体是空块 `{}`** 时
+把每个类**自己的** `PrintAst` 各包一层，74 个类）——它让开的根因是**体是空块 `{}`** 时
 少了两格事实（`BodyBrace` 记不到、`else` 那一支连 `BodyBraceAt` 都没记），
 补上之后让开 13 → 0，`coverage` 4247 / 4422 → **4260 / 4422**、`cases:tsast` 转绿。
 
@@ -1296,7 +1304,7 @@ return undefined;
 「`(` / `[` 答 `null`（包装、内容并进父节点）、`{` 让开」这一格，`cases:direct` 逐字节同答、
 `Bracket` 让回**仍是 13 次**——`NewType` / `NotNull` 里那两格根本没经过 `structuralProps`
 的段循环（`wrapperTarget` 只在那里被问），所以这一格答什么都不改变它们的去向。
-**这条记下来，是因为它长得像答案**：`WrapperField` 与 `PrintDirectAst` 都在回答
+**这条记下来，是因为它长得像答案**：`WrapperField` 与 `PrintAst` 都在回答
 「这一格出什么」，但**被问的位置不同**——前者只在父节点的段循环里被问，后者才在
 `projectNode` 的入口被问。
 
@@ -1304,7 +1312,7 @@ return undefined;
 语料里见得到的 **117 个 token 类**里，**74 个被问到过**（也都覆写了这一格），
 另外 **43 个一次都没被问到**——`IfSegment` / `NewType` / `ClassBody` / `SwitchCase` /
 `ReturnType` / `GenericType` / `ForBody` / `WhileBody` / `TernaryOperatorCondition` …
-它们的节点由**父单元直接摊平或丢弃**（`IfBody` 那一族被父节点的 `PrintDirectAst` 收进去；
+它们的节点由**父单元直接摊平或丢弃**（`IfBody` 那一族被父节点的 `PrintAst` 收进去；
 问路的那些答完就不落进产物），**根本走不到这一问**，所以**不需要直出版**。
 
 ⇒ **数「还差几页」要按运行期被问到的类数，不能按源码上的页数数**：按页数数会数出
@@ -1313,7 +1321,7 @@ return undefined;
 
 **这一趟的通用支一次都没有真的出过节点**（同一轮实测）：直出版这一趟的 `unmapped`
 （＝通用支里「查不到 kind ⇒ 原样透传」那一支的产物）在 1640 份用例语料与 2051 份全语料上
-**都是 0**——覆盖不到的格走的是 `PrintDirectAst` 覆写或「问完就丢」。所以
+**都是 0**——覆盖不到的格走的是 `PrintAst` 覆写或「问完就丢」。所以
 「这一格搬完了没有」这句话在直出版这一趟的准确说法是
 **「被问到的那 74 个类里没有一个答不出」**。
 
@@ -1322,8 +1330,8 @@ return undefined;
 **投成目标语言形状时，本单元的段叫什么**：`目标语言的节点名` → （`产物那边的分段名` → `目标语言的字段名`）。
 
 `ToXmlString` 说的是「这棵树在 XML 里长什么样」，这一格说的是
-「**把这棵树投成另一个形状时，我这些段该叫什么**」——所以它与 `PrintDirectAst` 是同一件事的两半：
-`PrintDirectAst` 说「这一格出哪个节点」，`SegmentNames` 说「这个节点的字段叫什么」。
+「**把这棵树投成另一个形状时，我这些段该叫什么**」——所以它与 `PrintAst` 是同一件事的两半：
+`PrintAst` 说「这一格出哪个节点」，`SegmentNames` 说「这个节点的字段叫什么」。
 
 **为什么住在 token 上而不是投影层的一张中央表里**：段名是**这个 token 自己的事实**。
 `compare` 对 `While` 是 `expression`、对 `For` 是 `condition`——同一张表要按 kind 分几十档去记，
@@ -1752,7 +1760,7 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 基类默认空串、需要它的两页各自**显式声明同一个属性**。
 
 **空串不是「不知道」**：`SymbolToken`（`+` / `&&` 那一族）与其余页面**永远不是词形运算符**，
-它们的形状由自己那一页的 `PrintDirectAst` 出，投影读到空串就走通用投影——
+它们的形状由自己那一页的 `PrintAst` 出，投影读到空串就走通用投影——
 所以这一格答空串就是「这一态不归我」。
 
 ## field IsPrefixOperatorUnit:bool = false

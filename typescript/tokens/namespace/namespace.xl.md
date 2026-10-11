@@ -152,7 +152,7 @@ TS 的 `AmbientModuleDeclaration` 允许**只有名字、没有体**：`declare 
 各问一次**，而问「简写」的那一刻 `units` **正好停在名字上**（`[declare, module, "mm"]`，
 那个 `;` 还没进来）。所以「后面没有了」就是简写的信号；而那个 `;` 到达时它已经成了
 **另一格单元**（`Statement`），由**投影侧**按「没体的声明自己吃尾分号」补进区间
-（`Namespace.PrintDirectAst` 的 `ctx.SemicolonEndOf`，与第 838 轮那条口径同一份）。
+（`Namespace.PrintAst` 的 `ctx.SemicolonEndOf`，与第 838 轮那条口径同一份）。
 
 **`SkipNext*` 那一族每调一次都至少前进一格**（第 840 轮踩到的）：`SkipNextWrapSymbol(units,
 SkipNextTrivia(units, nameIndex))` 会**多跨一格**（第一个已经落在名字后面了），
@@ -432,11 +432,10 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
 
 **类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 992 轮）：与上面的 `PrintDirectAst` 出**同一个答案**，
-但只许用这个 token 自己的属性、子单元与 `Parent`（不回原文查）——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+**第三个出口的直出版**（第 992 轮）：这一格出哪个节点，只许用这个 token 自己的属性、子单元与 `Parent`，不回原文查——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
   const node = ctx.Node("ModuleDeclaration", ctx.Structural(v, "ModuleDeclaration"), v);

@@ -1,4 +1,4 @@
-// 第三个出口（`Token.PrintDirectAst`）的专属尺子（第 992 轮起，第 1013 / 1017 轮改口径）。
+// 第三个出口（`Token.PrintAst`）的专属尺子（第 992 轮起，第 1013 / 1017 轮改口径）。
 //
 //   node tests/parse/direct-ast.mjs            # 全语料（用例 + samples）
 //   node tests/parse/direct-ast.mjs --all      # 再加上 node_modules / dist/ts（搬页时跑一遍）
@@ -7,7 +7,7 @@
 // ## 为什么要有这一把
 //
 // `core/syntax/token.xl.md` 给第三个出口只留了一条路（第 1013 轮）：
-// **`PrintDirectAst` 就是这一格的唯一写法**，`PrintAst` 与它那条派发分支已经删掉。
+// **`PrintAst` 就是这一格的唯一写法**，`PrintAst` 与它那条派发分支已经删掉。
 // 于是这一门量的是这一趟本身**成不成立**：全语料投一遍**不许抛异常**，
 // 并且一份**固定样本**必须逐格投出形状（见下面判据②）。
 //
@@ -48,7 +48,7 @@
 //
 // **第二件：通用支**在这一趟**一次都没有真的出过节点**：这一项在实测里是 **0**（`--all` 2051 份也是 0）——
 // 覆盖不到的那些格，走的都是这一格自己的覆写或「问完就丢」，没有一格透传。
-// 同一轮数出来：运行期见到的 **117 个 token 类里 74 个覆写了 `PrintDirectAst`**，
+// 同一轮数出来：运行期见到的 **117 个 token 类里 74 个覆写了 `PrintAst`**，
 // 另外 **43 个一次都没被问到过**（`IfSegment` / `NewType` / `ClassBody` / `SwitchCase` …）——
 // 它们的节点由父单元直接摊平或丢弃，所以**不需要**自己出。
 // ⇒ 判断「还差什么」，看的是**被问到的那 74 个类里谁答不出**，不是数源码上有几页。
@@ -109,7 +109,7 @@ for (const file of run) {
     const context = new TextContext(new Template());
     context.Process(new TextDocument(source));
     parsed++;
-    // **一趟**（第 1017 轮起）：第三个出口只剩 `PrintDirectAst` 一条路，
+    // **一趟**（第 1017 轮起）：第三个出口只剩 `PrintAst` 一条路，
     // 这里量的是这一趟**能不能投出来**——出多少节点、由 token 自己出了多少个；
     // 形状对不对由下面那条**固定样本**点名（重投一致那一项第 1017 轮撤了，理由见文件头）。
     const projected = projectRoot(context.Root.Data, source);

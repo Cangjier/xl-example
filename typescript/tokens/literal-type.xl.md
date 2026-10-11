@@ -318,13 +318,13 @@ return index;
 
 **形态与基类一致**（两边都是 `## field` + `new Map()`）：基类那一格是**空表**（第 1041 轮从 `## method` 改成属性），这一页给出自己的表——第 1065 轮基类的 `Segments` 就是照这张表的键排出来的（段的**名单与顺序**都从这里来）。
 
-## method PrintDirectAst:(ctx:any, v:any)=>any
+## method PrintAst:(ctx:any, v:any)=>any
 
-**第三个出口的直出版**（第 1001 轮）：与上面的 `PrintDirectAst` 出**同一个答案**。
+**第三个出口的直出版**（第 1001 轮）：这一格出哪个节点，只许用这一格自己的属性与子单元，不回原文查。
 
 这一页**一处回原文查都没有**：名字（如果有）走属性、段内内容由 `ctx.Structural`
-按子单元投（那是投影层的事），所以两半逐行同一份——
-口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintDirectAst`。
+按子单元投（那是投影层的事），所以这一格没有第二份实现——
+口径与两条判据见 `core/syntax/token.xl.md` 的 `PrintAst`。
 
 ```ts
 return ctx.Node("LiteralType", ctx.Structural(v, "LiteralType"), v);
