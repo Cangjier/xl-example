@@ -27,13 +27,27 @@ import { String } from "./string.xl.md"
 
 本分支认哪些字符是**字符串起点**。初始只有双引号，反引号与单引号由模板层在运行时补进来。
 
+## field TriggerChars:string = '"'
+
+**这一格的 `TriggerChars` 与 `StringChars` 是同一批字符**（第 1217 轮，用户口径 1.2「提升 parse 效率」）：
+`Condition` 只有一句 `this.StringChars.includes(source.Value)`，所以「当前字符在不在这一批里」
+就是这一格的**前提**——`UnitToken.ProcessChar` 在队列入口先比它一次，
+那一次 `Transit`（多态调用 + `includes`）就不必进了（实测这一条被问 **419998** 次、
+答成立 **420** 次，`tmp/r1217-count2.mjs`）。
+**两格由同一个入口维护**：`AddStringChar` 一处同时写两格（下面那一格），
+所以「起点集合」与「入口挡的那一批」不会分家。初始值就是 `StringChars` 的那一个双引号。
+
 ## method AddStringChar:(item:string)=>void
 
 把一个字符加进起点集合；已经有了就不重复加。
 
+**顺手把入口那一格也写上**（第 1217 轮）：`TriggerChars` 与 `StringChars` 说的是同一批字符，
+写在同一个入口里，免得两处分家（`UnitToken.ProcessChar` 只看 `TriggerChars`）。
+
 ```ts
 if (!this.StringChars.includes(item)) {
   this.StringChars.push(item);
+  this.TriggerChars = this.TriggerChars + item;
 }
 ```
 
