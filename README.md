@@ -347,6 +347,26 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1126 轮：一元单元里那串 11 个字面量收进被问的那两页——十个本来就是 `IsPrefixOperatorUnit`，`yield` 由 `Keyword` 另立 `IsYieldKeyword`；**八道门 7 通过、读数一处没动**
+
+**一句话**：「两层前缀叠在同一个一元单元里、操作数却掉在外面」那一支（第 739 轮）现场比了
+`["await","yield","typeof","void","delete","!","~","+","-","++","--"]`，而那 11 个字面量
+本来就是住处在两页的两族——只是 `yield` 过去没人立过。
+
+| 原来的现场算式 | 今天读的那一格属性 |
+| --- | --- |
+| `["await", "yield", "typeof", "void", "delete", "!", "~", "+", "-", "++", "--"].includes(lastText)`（1 处） | `lastUnit.IsPrefixOperatorUnit === true \|\| lastUnit.IsYieldKeyword === true`（前者是已有的那一格：`UnaryOperator` 常量、`SymbolToken.Close()` 认六个符号、`Keyword.SetValue` 认四个词；后者本轮新立在基类默认 `false` + `Keyword.SetValue` 赋好） |
+
+- **为什么 `yield` 不并进 `IsPrefixOperatorUnit`**：那一格还有两处活读者（两个「跳前缀」的
+  `while`），并进去会改语义——按收件人分开立。
+- **等价怎么证的**：上面那个 `while` 已保证这一格是符号或关键字，两页各自答的正是这一格自己的
+  正文；改完八道门读数一处没动。
+- **实测**：`xl check typescript core` 156 文件 / 0 条；`xl build core typescript`
+  3 个产物 / 0 error（`token` / `keyword` / `print-ast-common`）、`npx tsc` 干净；
+  八道门 **7 通过 / 1 失败**，读数与第 1106 ~ 1125 轮逐项相同（`coverage` 4260 / 4422、
+  `blocked 28` / `differ 134` / `bad 0`、加权 95.7%，唯一那条「倒退」仍是 HEAD 上既有的
+  `runtime/round741/002`）。本页声明数 43 格一格没增没减。
+
 ### 第 1125 轮：折逗号那一支的「是不是赋值号」算式收进符号那一页——`SymbolToken.IsAssignmentSymbol` 读自己的正文现算；**八道门 7 通过、读数一处没动**
 
 **一句话**：本页折逗号那一支现场拼了 6 行来回答「这一格符号是不是赋值号」

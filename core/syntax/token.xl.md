@@ -1854,6 +1854,17 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 `abstract` 是**类成员的修饰词**，词法上是上下文关键字（产物那边既有 `Keyword` 也有
 `Identifier`），所以两页各答自己那一格。
 
+## field IsYieldKeyword:bool = false
+
+**我这一格的正文是不是 `yield` 那个词**（第 1126 轮）——是的话答 `true`。
+
+过去投影层在 `projectExpression` 认「两层前缀叠在同一个一元单元里、操作数掉在外面」那一支
+现场比一次（`["await", "yield", "typeof", "void", "delete", "!", "~", "+", "-", "++", "--"].includes(lastText)`），
+而那 11 个字面量**本来分成住处在两页的两族**：十个是 `IsPrefixOperatorUnit`
+（`SymbolToken` 在 `Close()` / `Keyword` 在 `SetValue` 各答自己认得的），只剩 `yield`
+不在那一格里——所以本页补这一格，与 `IsNewKeyword` / `IsAsyncKeyword` 同一形态、
+**在记下正文那一刻**赋好（`Keyword.SetValue`），基类默认 `false`。
+
 ## field IsPropertyAccess:bool = false
 
 **我这一格是不是一条成员访问链**（第 1091 轮）——是的话答 `true`。

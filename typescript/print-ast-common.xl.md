@@ -444,6 +444,32 @@ import { Identifier } from "./tokens/identifier.xl.md"
 - **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build` 该页 **1 个产物 / 0 error**、
   `npx tsc` 干净；**八道门 7 通过、1 失败**，读数与第 1106 ~ 1122 轮逐项相同。
 
+**第 1126 轮把「最后那个前缀词自己也要吃操作数」那一串 11 个字面量收进被问的那两页**
+（用户口径 1.1 ~ 1.4：投影要的信息由**具体 token 子类**在自己那一页**显式声明**、
+在**记下正文那一刻**／`Close()` 赋好）——本页「两层前缀叠在同一个一元单元里、操作数却掉在外面」
+那一支（第 739 轮）现场比了 11 个字面量，而它们**本来就是住处在两页的两族**：
+
+| 原来的现场算式 | 今天读的那一格属性 | 谁声明、什么时候赋 |
+| --- | --- | --- |
+| `["await", "yield", "typeof", "void", "delete", "!", "~", "+", "-", "++", "--"].includes(lastText)`（**1 处**，`chainWithOptional` 里「往回退一格」那一支） | `lastUnit.IsPrefixOperatorUnit === true \|\| lastUnit.IsYieldKeyword === true` | 十个字面量是**已有的那一格** `IsPrefixOperatorUnit`（`UnaryOperator` 常量答 `true`、`SymbolToken` 在 `Close()` 认六个符号、`Keyword` 在 `SetValue` 认四个词，第 1057 / 1062 轮）；只剩 `yield` 不在那一格里，于是由 `Keyword` 那一页**本轮另立一格** `IsYieldKeyword`（`SetValue` 里与那几格同一趟赋好），基类默认 `false` |
+
+- **为什么 `yield` 另立一格、不并进 `IsPrefixOperatorUnit`**：那一格在全仓还有**两处活读者**
+  （`projectExpression` 与 `chainOnto` 里那两个「跳前缀」的 `while`），把 `yield` 并进去会
+  **改语义**（那些位置本来不把 `yield` 当前缀运算符）；所以按被问的那一格各自的收件人分开立。
+- **判据一个字没改**：上面那个 `while` 已经保证这一格是**符号或关键字**
+  （`IsSymbolToken || IsKeywordUnit`），而这两页各自答的正是这一格自己的正文——
+  所以两格属性读与原来那张表**逐格同答**（八道门读数一处没动就是这条的证据）。
+- **本页的声明数**：**43 格**（**一格没增、一格没减**：改的是这一处调用点与说明；
+  新立的那一格在基类与 `Keyword` 那一页）。本页今天 **10746 行**（代码块 7802 行，
+  其中不带注释的 4668 行）。
+- **实测**：`xl check typescript core` **156 个文件 / 0 条**；`xl build core typescript`
+  **3 个产物 / 0 error**（`token` / `keyword` / `print-ast-common`）、`npx tsc` 干净；
+  **八道门 7 通过、1 失败**（墙钟 30.7s），读数与第 1106 ~ 1125 轮逐项相同：
+  `coverage` **4260 / 4422**（`blocked 28` / `differ 134` / `bad 0`、加权 95.7%）、
+  `cases:tsast` 3 条已知缺口还开着、`cases:direct` 1640 份不抛异常、`direct:lint` 0 条违反、
+  `samples` 逐字节一致、`cases:check` 1656 / 1656、`runtime:check` 243 / 243、
+  `runtime:cli` 79 / 79；唯一那条「倒退」仍是 HEAD 上既有的 `runtime/round741/002`。
+
 **第 1125 轮把「本层左边有没有一个赋值号」那一格算式收进被问的那一页**（用户口径 1.1 ~ 1.4：
 投影要的信息由**具体 token 子类**在自己那一页**显式声明**、读的时候备齐）——本页折逗号那一支
 里那段「是不是赋值」的现场算式（6 行，含一张按固定字面量比的比较运算符表）问的是
@@ -5570,9 +5596,15 @@ TS 那边「本来就是语句」的 kind 只有三类：`*Statement`、`*Declar
       //（降级期报 `unimplemented: expression AwaitKeyword`，离现场很远）。
       // **往回退一格**：最后那个词自己也是要吃操作数的，把它与后面的兄弟接起来递归折完
       //（折出来的是 `typeof (await p)`，与 Node 的语义一致）。
+      //
+      // **第 1126 轮**：那一串 11 个字面量的判定收进被问的那两页——其中十个本来就是
+      // `IsPrefixOperatorUnit`（`SymbolToken` 在 `Close()` 认六个符号、`Keyword` 在
+      // `SetValue` 认 `typeof` / `void` / `delete` / `await`），只剩 `yield` 不在那一格里，
+      // 于是它由 `Keyword` 那一页另立一格 `IsYieldKeyword`（同一趟赋好）。
+      // 上面那个循环已经保证这一格是符号或关键字，所以两格属性读与原来那张表逐格同答。
       if (operandAt === unaryKids.length && operandAt > 1) {
-        const lastText = unaryKids[operandAt - 1].TextValue;
-        if (["await", "yield", "typeof", "void", "delete", "!", "~", "+", "-", "++", "--"].includes(lastText)) {
+        const lastUnit = unaryKids[operandAt - 1];
+        if (lastUnit.IsPrefixOperatorUnit === true || lastUnit.IsYieldKeyword === true) {
           operandAt -= 1;
         }
       }

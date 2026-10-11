@@ -161,6 +161,14 @@ return Keyword.UpgradeAt(units, index);
 **我这一格的正文是不是 `default` 那个词**（第 1119 轮）：同上一格，同一趟赋好
 （与上一格一起决定 `ExportKeyword` / `DefaultKeyword` 两态）。
 
+## field IsYieldKeyword:bool = false
+
+**我这一格的正文是不是 `yield` 那个词**（第 1126 轮）：同上一格，同一趟赋好
+（投影层「两层前缀叠在同一个一元单元里、操作数掉在外面」那一支要的就是它——
+`yield` 与 `await` / `typeof` / `void` / `delete` 一样，自己也要吃一个操作数）。
+口径与理由见 `../core/syntax/token.xl.md` 的 `IsYieldKeyword`；它**不在**
+本页 `IsPrefixOperatorUnit` 的名单里（那一格答的是那四个词与六个符号），两格各立。
+
 ## field IsDeclareKeyword:bool = false
 
 **我这一格的正文是不是 `declare` 那个词**（第 1124 轮）：同上一格，同一趟赋好
@@ -401,7 +409,7 @@ super(template);
 `IsStatementNode` / `IsOperatorUnit` / `OperatorWordKind` / `IsPrefixOperatorUnit` /
 `IsTypeParameterModifier` / `IsNewKeyword` / `IsAsyncKeyword` / `IsAbstractKeyword` /
 `IsImportKeyword` / `IsAsKeyword` / `IsWithKeyword` / `IsExportKeyword` / `IsDefaultKeyword` /
-`IsDeclareKeyword` / `IsExtendsKeyword` / `IsTypeKeyword` / `IsIsKeyword` / `IsDeclareWord` 都是它的函数
+`IsDeclareKeyword` / `IsYieldKeyword` / `IsExtendsKeyword` / `IsTypeKeyword` / `IsIsKeyword` / `IsDeclareWord` 都是它的函数
 （前四格查本页那两张词汇表，后十四格比正文里的那几个词）
 ——所以赋值只有**这一个入口**：
 `UpgradeAt` 与 `Clone` 都走它。**为什么要有这一格**：第 1042 轮把那四格从方法改成属性之后，
@@ -438,6 +446,8 @@ this.IsExportKeyword = text === "export";
 this.IsDefaultKeyword = text === "default";
 // **第 1124 轮**：`declare` 那一格同一趟赋好（投影层那两处按固定字面量比正文的前缀词表）。
 this.IsDeclareKeyword = text === "declare";
+// **第 1126 轮**：`yield` 那一格同一趟赋好（投影层「前缀叠在同一个一元单元里」那一支）。
+this.IsYieldKeyword = text === "yield";
 this.IsExtendsKeyword = text === "extends";
 // **第 1120 轮**：`type` / `is` 两格同一趟赋好（导出子句那个标志词与类型谓词那个词）。
 this.IsTypeKeyword = text === "type";
