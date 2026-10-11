@@ -75,17 +75,17 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.73,
+  "progressPercent": 95.74,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
       "total": 1667,
-      "pass": 1666,
-      "blocked": 1,
+      "pass": 1667,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.94
+      "coverage": 100
     },
     {
       "category": "exec",
@@ -131,18 +131,12 @@
   "token": {
     "total": 1667,
     "knownGap": 1,
-    "knownGapStillOpen": 1,
-    "exactFiles": 1666,
+    "knownGapStillOpen": 0,
+    "exactFiles": 1667,
     "scoredWithoutGap": 1666,
     "passedWithoutGap": 1666
   },
   "blocked": [
-    {
-      "id": "token/expressions/gap-as-bang-array-type",
-      "category": "token",
-      "title": "",
-      "detail": "缺 2　`as T![]`：`As` 里那一对空下标落成了 `TupleType`（`as T[]` 那一档落的是 `ArrayType`），"
-    },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
       "category": "exec",
@@ -1152,6 +1146,10 @@
     }
   ],
   "newlyPassing": [
+    {
+      "id": "token/expressions/gap-as-bang-array-type",
+      "category": "token"
+    },
     {
       "id": "runtime/round741/003-optional-call-after-member-chain-differ",
       "category": "runtime"

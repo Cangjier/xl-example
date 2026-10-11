@@ -41,6 +41,42 @@ TypeScript 自己的 AST 里它就是 `NonNullExpression`，差分引擎能直�
 
 唯一的实例。
 
+## private method InsideTypeBracket:(unit:Token)=>bool
+
+`unit` 是不是已经**被方括号的三种类型构造收进去**了（它的父亲链上有 `ArrayType` /
+`TupleType` / `IndexedAccessType`）。
+
+**第 1219 轮（用户口径 1.1）**：`T![]` 在 TypeScript 那边是
+`ArrayType > JSDocNonNullableType > TypeReference(T)`——那个 `!` 是**类型位**的后缀，
+`type-bracket.xl.md` 的 `OperandIndex` 因此把它一起收进 `ArrayType` 的内容里；
+可这一条规则只认「操作数 + `!`」，会紧接着把刚收进去的那两格再折成一个 `NotNull`
+⇒ 那个 `!` 从 `ArrayType` 的内容里消失（实测：产物
+`<ArrayType><Identifier>T</Identifier></ArrayType>`，缺 `JSDocNonNullableType`）。
+
+判据是**位置**，不是「这个 `!` 长什么样」：收了 `!` 的那种类型括号在造节点的**同一段代码里**
+就把 `!` `Add` 进了自己（`Add` 会设 `Parent`），所以这里顺着父亲链问一遍就知道
+该不该让路——**不问「父亲是不是类型容器」那一问**（值位的 `a![0]` 里那个 `ArrayLiteral`
+也让 `!` 挂在自己下面，而那里 `!` 正是**值位**的非空断言，必须照旧折）。
+
+`type-bracket` 那一侧先跑（它把 `!` 收进去）；这一格是**第二道闸**——
+两边合起来才让「`!` 属于类型括号」这件事在两条判据上是同一个答案
+（与 `IsAssertableOperand` 那三处同源的理由一字不差）。
+
+```ts
+let at:Token | null = unit.Parent;
+for (let step = 0; step < 16; step++) {
+  if (at === null) {
+    return false;
+  }
+  const name = at.constructor.name;
+  if (name === "ArrayType" || name === "TupleType" || name === "IndexedAccessType") {
+    return true;
+  }
+  at = at.Parent;
+}
+return false;
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个非空断言的 `!`。
@@ -62,6 +98,12 @@ if (!(current instanceof SymbolToken)) {
   return false;
 }
 if (!(current as SymbolToken).Is("!")) {
+  return false;
+}
+// **已经进了类型括号的那个 `!` 不归我**（第 1219 轮，用户口径 1.1）：见上面 `InsideTypeBracket`
+// 那一节——`T![]` 的 `!` 此刻的父亲就是那个 `ArrayType`，它属于「被数组化的那个类型」，
+// 折成 `NotNull` 会让它从 `ArrayType` 的内容里消失（缺 `JSDocNonNullableType`）。
+if (this.InsideTypeBracket(current)) {
   return false;
 }
 if (this.IsDefiniteAssignment(units, index)) {

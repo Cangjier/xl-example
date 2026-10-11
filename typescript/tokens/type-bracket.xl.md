@@ -7,6 +7,7 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { SkipPreviousWrapSymbol, SkipPreviousTrivia, IsTypeContainerUnit, IsEmptyContentUnit, IsOwnContentRange, IsTypeMemberStart, IsTypeOperandUnit, IsTriviaUnit, WordText, HasLineBreakBetween } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
+import { SymbolToken } from "./symbol-token.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 ```
@@ -189,6 +190,54 @@ if (IsTypeOperandUnit(operand)) {
 return true;
 ```
 
+## private method OperandIndex:(units:Array<Token>, index:int)=>int
+
+`index` 处那个方括号左边**被操作的那一格**在哪（找不到时回 `-1`）。
+
+第 1219 轮（用户口径 1.1）：TypeScript 的 `parsePostfixTypeOrHigher` 里，
+**非空断言的 `!` 是后缀类型运算**（`case SyntaxKind.ExclamationToken:`
+`type = factory.createJSDocNonNullableType(type, …)`），
+所以 `T![]` 在 TS 那边是 `ArrayType > JSDocNonNullableType > TypeReference(T)`：
+那个 `!` 属于**被数组化的那个类型**，不是方括号左边的另一格。
+
+本仓原来只跳 trivia ⇒ 紧邻的那一格是 `SymbolToken("!")` ⇒ `IsTypeOperandUnit` 答否
+（符号一律不算操作数）⇒ 空方括号落进「左边没有操作数」那一支、被当成**空元组**
+（缺口用例 `gap-as-bang-array-type`：`as T![]` 投出 `As > [T, !, TupleType([])]`，
+缺 `ArrayType` + `JSDocNonNullableType`）。
+
+判据是**形状**：从紧邻那一格起**往左一格一格走**，`!` 与 trivia 各跳一格，
+第一个「不是 trivia、也不是 `!`」的实义单元才是被操作的类型；走到头（`-1`）就是没有操作数。
+`T!![]`（两个 `!`）与 `T! /*c*/ []`（中间夹注释）都是同一条路的落点。
+
+**为什么不走 `SkipPreviousTrivia`**（本轮实测）：那一格跳的是 `IsTriviaUnit` 那张**不挡相邻判定**
+的名单（注释 / 软换行），而 `!` 不在那张名单里——它按「这是不是被操作者」那一问跳过的正是
+`SymbolToken`。于是 `T![]` 里它一次就跨过 `!` 落到 `T` 上，**没有第二次机会**去认那个 `!`
+（本轮第一版就是这么写的，读数与改之前一字不差：`previousIndex` 直接是 `T` 那一格）。
+所以这一格要自己走下标，判据只有「跳过 trivia」与「跳过 `!`」两句。
+
+```ts
+let step = index - 1;
+for (let count = 0; count < 32; count++) {
+  if (step < 0) {
+    return -1;
+  }
+  const item = Get(units, step);
+  if (item === null) {
+    return -1;
+  }
+  if (item instanceof SymbolToken && item.IsNotNullSymbol) {
+    step -= 1;
+    continue;
+  }
+  if (IsTriviaUnit(item)) {
+    step -= 1;
+    continue;
+  }
+  return step;
+}
+return -1;
+```
+
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把 `index` 处那个方括号（连同它左边被操作的类型）包成一个 `ArrayType` / `TupleType` /
@@ -231,7 +280,12 @@ if (current === null) {
 // `hasOperand` 假 ⇒ 这个空方括号被当成**空元组**（实测 `mut-type-union-after-readonly-111`：
 // 缺一个 `ArrayType`、多出一个 `TypeOperator`）。
 // 注释是 trivia，`T /* c */ []` 与 `T[]` 在 TypeScript 里是同一个类型。
-const previousIndex = SkipPreviousTrivia(units, index);
+//
+// **第 1219 轮（用户口径 1.1）起这一格改走 `OperandIndex`**：它比原来多走一段——
+// 紧邻的那一格是 `!`（非空断言）时把那个 `!` 也算进**被操作的类型**里
+// （`T![]` / `T!![]` / `a.b![]`，判据与理由见上面那一节）。
+// `previousIndex` 因此可能落在 `!` 上，而 `operandIndex` 落在被断言的那个类型上。
+const previousIndex = this.OperandIndex(units, index);
 const previous = Get(units, previousIndex);
 const hasOperand = IsTypeOperandUnit(previous);
 // **`X<A, D>[]`：实参段前面那个名字也要一起收进来**（第 172 轮）：产物把「名字」与
@@ -240,12 +294,27 @@ const hasOperand = IsTypeOperandUnit(previous);
 // 而 TS 是 `ArrayType > TypeReference(X<A, D>)`（实测 `type-generic-array-suffix.ts`：
 // `ArrayType` 漂 2 + `TypeReference` / `Identifier` 各缺 1）。
 // 所以遇到 `GenericType` 时把下标再往回推一格，让新节点的范围从名字起算。
+//
+// **第 1219 轮把这一句收成「起点那一格 + 它后面那些 `!`」**（用户口径 1.1）：`T![]` 与
+// `a.b![]`（点号名已经折成一格 `PropertyAccess`）、`X<Y>![]`（名字 + 实参段）是同一件事，
+// 只是**起点必须是这一格真正的头**——起点不是 `!`、也不是 `GenericType` / `PropertyAccess`
+// 本身，而是它们**最左边那个名字**（第 172 轮那条「`X<A, D>[]` 要把名字一起收进来」的同一口径）。
+// 少了这一条：`a.b![]` 只收 `a.b!` 之外的东西（TS 那边 `ArrayType > JSDocNonNullableType > a.b!`）。
 let operandIndex = previousIndex;
-if (previous !== null && previous.constructor.name === "GenericType") {
-  const beforeGeneric = SkipPreviousWrapSymbol(units, previousIndex);
-  const nameUnit = Get(units, beforeGeneric);
+const bangHead = Get(units, index - 1);
+if (bangHead !== null && bangHead.IsNotNullSymbol) {
+  const walked = this.OperandIndex(units, index - 1);
+  if (walked >= 0) {
+    operandIndex = walked;
+  }
+}
+const operandHead = Get(units, operandIndex);
+const operandName = operandHead === null ? "" : operandHead.constructor.name;
+if (operandName === "GenericType" || operandName === "PropertyAccess") {
+  const beforeHead = SkipPreviousWrapSymbol(units, operandIndex);
+  const nameUnit = Get(units, beforeHead);
   if (IsTypeOperandUnit(nameUnit)) {
-    operandIndex = beforeGeneric;
+    operandIndex = beforeHead;
   }
 }
 if (IsEmptyContentUnit(current) && hasOperand) {
@@ -265,9 +334,19 @@ if (IsEmptyContentUnit(current) && hasOperand) {
   const array = new ArrayType(current.Template);
   array.SignIn(Get(units, operandIndex)!.SourceRange.Start!);
   array.SignOut(current.SourceRange.End!);
-  array.AddAndCloseLast(Get(units, operandIndex)!);
-  if (operandIndex !== previousIndex) {
-    array.AddAndCloseLast(previous!);
+  // **从被操作的类型到方括号前面那一格，一格不落地搬进来**（第 1219 轮，用户口径 1.1）：
+  // 起点是 `operandIndex`（与第 172 轮那句「实参段前面的名字也要收进来」同一个起点），
+  // 终点是**方括号前面那一格**——于是中间那几格（`!`、以及被数组化那个 `GenericType`）
+  // 都进了这一格的内容里；TS 那边它们正是 `ArrayType` 的内容
+  //（`ArrayType > JSDocNonNullableType > T` / `ArrayType > TypeReference(X<A, D>)`）。
+  // trivia 由 `AddAndCloseLast` 自己按各自的老口径跟着搬（与这一段替换出去的那几格一致）。
+  // **少了这一步**：`T![]` 造出的 `ArrayType` 只装 `T`、那个 `!` 留在外面
+  //（实测产物 `<ArrayType><Identifier>T</Identifier></ArrayType>`，缺 `JSDocNonNullableType`）。
+  for (let at = operandIndex; at < index; at++) {
+    const one = Get(units, at);
+    if (one !== null) {
+      array.AddAndCloseLast(one);
+    }
   }
   current.MoveDataTo(array);
   array.TryToClose();
@@ -288,9 +367,13 @@ if (IsEmptyContentUnit(current) === false && hasOperand) {
   if (bracketStart !== null) {
     indexed.IndexBracketAt = bracketStart.Index;
   }
-  indexed.AddAndCloseLast(Get(units, operandIndex)!);
-  if (operandIndex !== previousIndex) {
-    indexed.AddAndCloseLast(previous!);
+  // 与 `ArrayType` 那一支同一句：从被操作的类型起、到方括号前面那一格为止，一格不落
+  // （第 1219 轮，用户口径 1.1：`T![K]` 在 TS 那边是 `IndexedAccessType > JSDocNonNullableType > T`）。
+  for (let at = operandIndex; at < index; at++) {
+    const one = Get(units, at);
+    if (one !== null) {
+      indexed.AddAndCloseLast(one);
+    }
   }
   current.MoveDataTo(indexed);
   indexed.TryToClose();

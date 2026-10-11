@@ -1,9 +1,11 @@
-// xl:known-gap `as T![]`：`As` 里那一对空下标落成了 `TupleType`（`as T[]` 那一档落的是 `ArrayType`），
-// 投影的类型那一趟认不出它 ⇒ 缺 `ArrayType` + `JSDocNonNullableType`（实测缺 2）。
-// 第 1207 轮量到：把 `!` 收进 `As` 之后，`as T![]` 的产物是
-// `As > [Identifier(T), SymbolToken(!), TupleType([])]`，而 `as T[]` 的产物是
-// `As > [ArrayType > Identifier(T)]`——空下标对前面夹着一个 `!` 时括号上下文判成了元组。
-// xl:round 1207
+// xl:note 第 1219 轮转绿（`xl:known-gap` 按规矩撤掉，用例留着当守卫）：缺口原来是
+// 「`as T![]` 里那一对空下标落成了 `TupleType`」——根在两处：
+// ① `TypeBracketCloseRule.Process` 只看紧邻那一格 ⇒ 它是 `SymbolToken("!")` ⇒
+// `IsTypeOperandUnit` 答否 ⇒ 空方括号被当成空元组（第 1219 轮补 `OperandIndex`：
+// `!` 与 trivia 各跳一格，被操作的类型是它左边那个类型）；② `!` 收进 `ArrayType` 之后
+// `NotNullCloseRule` 又把它折成 `NotNull` ⇒ 从 `ArrayType` 的内容里消失
+// （第 1219 轮补 `InsideTypeBracket`：父亲链上有三种类型括号之一就不折）。
+// `as T[]` 那一档（`ArrayType > TypeReference`）一直是对的，这一条只有 `!` 那一支显形。
 // xl:end
 declare const f: any;
 type T = any;
