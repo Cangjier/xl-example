@@ -760,6 +760,17 @@ return result;
 `ClassDeclaration` 就是这一页自己的节点名，所以这一格答 `true`——过去它写在投影层那张
 `MEMBER_LIST_KINDS` 名单里。
 
+## field IsValueOnlyUnit:bool = true
+
+**我这一格只可能做值**（第 1097 轮）：类单元根本不可能是一条语句的**头**——
+`(class { })` / `const c = class { }` 里它都在值位上，而投影那一侧
+「链头只可能做值 ⇒ 后面那个方括号只能是下标」「表达式位这一格要投成 `ClassExpression`」
+这几族判据问的就是这一句，所以这一格答 `true`（口径见 `core/syntax/token.xl.md` 的
+`IsValueOnlyUnit`）。
+
+它与本页的 `AstKind` 不是同一问：那一格答**声明**名（`ClassDeclaration`），
+表达式位由投影改成 `ClassExpression`；这一格不随谁在投它而变。
+
 ## field IsStatementNode:bool = true
 
 **我这一格投出来的是一条「语句节点」**（第 1039 轮）：`ClassDeclaration` 在目标语言那边

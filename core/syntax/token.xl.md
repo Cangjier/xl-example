@@ -1835,6 +1835,27 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 （`## field`，构造时就赋好），投影只读这一格（`x.IsBinaryOperatorNode`）——
 「我这一格是什么」因此只有一个来源，同一句话也不会在十几处各写一遍。
 
+## field IsValueOnlyUnit:bool = false
+
+**我这一格是不是「只可能做值」的单元**（第 1097 轮）——是的话答 `true`。
+
+判据是关于**产物标签**的：`Function` / `Class` 与 `Lamda` 这三页答 `true`
+（`typescript/tokens/function/function.xl.md` / `class/class.xl.md` / `lamda/lamda.xl.md`），
+其余一律 `false`。过去它在投影层是**十一处**现场写（`X.Tag === "Function"` /
+`"Class"` / `"Lamda"`——补 `FunctionExpression` / `ClassExpression` 那两格、泛型箭头那两族、
+折链那一族「链头只可能做值」那一档），而那几个名字**就是那几页自己的类名**。
+
+**这一问与 `AstKind` 不是同一问**：`Function` / `Class` 两页的 `AstKind` 答的是**声明**名
+（`FunctionDeclaration` / `ClassDeclaration`），在表达式位由投影改成 `…Expression`；
+这一格答的是「**我这一格只可能出现在值位**」——不随谁在投它而变，所以是构造时就定下来的一格常量。
+
+**它与 `IsChainBaseNode` / `IsNotNull` 不是同一问**：那两格答的是「手上这一格的**形状**
+够不够当一整条链的基名」（`IsNotNull` 也在内，但它不是「只可能做值」——非空断言后面可以是下标、
+也可以是点号）；这一格只认那三页，判据是它们**根本不可能是一条语句**。
+
+今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
+（`## field IsValueOnlyUnit:bool = true`，构造时就赋好），投影只读这一格（`x.IsValueOnlyUnit`）。
+
 ## property HasChildren:bool
 
 **我这一格下面还有没有实义子单元**（第 1064 轮）：有就答 `true`。

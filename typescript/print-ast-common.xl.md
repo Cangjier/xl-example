@@ -91,8 +91,10 @@ import { Identifier } from "./tokens/identifier.xl.md"
 基类与 `symbol-token`）仍是 66 格**，**第 1091 轮（33 处读数，新立的两格在基类、
 `property-access` 与 `not-null`）照同一条命令逐行数是 64 格**，**第 1092 轮（48 处读数，
 新立的两格在基类、`method` 与 `generic-type`）仍是 64 格**，**第 1093 轮（54 处读数，
-新立的两格在基类、`symbol-token` 与 `null-conditional-operator`）仍是 64 格**
-——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
+新立的两格在基类、`symbol-token` 与 `null-conditional-operator`）仍是 64 格**，
+**第 1094 ~ 1096 轮（各 16 / 22 / 31 处读数，新立的格都在基类与别的页）仍是 64 格**，
+**第 1097 轮（11 处读数，新立的那一格在基类与 `function` / `class` / `lamda` 三页）
+照同一条命令逐行数还是 64 格**——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 **第 1091 轮复核时又量到同一件事**：第 1087 轮那一栏收尾写的是「66 格」，可照那条命令逐行数
 （第 1087 ~ 1091 轮共五轮，一格声明没增没减）**一直是 64 格**——所以那 2 格的差从第 1087 轮起
@@ -1895,9 +1897,15 @@ token 子类**构造完**，信息就得齐；要读的那一格由**具体页�
   // （与模板字面量靠 `ctx.typePosition` 分辨 `TemplateLiteralType` 是同一手法）。
   // 少了这一条，`fn-iife` / `stmt-paren-start` / `cls-expression` / `samples/generic.ts`
   // 这些地方各成一族（实测 `FunctionExpression` 缺 4、`ClassDeclaration` 多出 11）。
+  //
+  // **第 1097 轮把判据收进被问的那两页**：`v.Tag === "Function"` / `"Class"` 换成了
+  // `v.IsValueOnlyUnit`（`Function` / `Class` / `Lamda` 三页构造时就答 `true` 的一格，
+  // 口径见 `core/syntax/token.xl.md`）——函数 / 类**只可能做值**，而这里要分辨
+  // 「是函数还是类」问的是**它投成哪个声明节点**（`v.AstKind`：`FunctionDeclaration` /
+  // `ClassDeclaration`），不再回比类名。
   if (ctx.expressionPosition === true) {
-    if (v.Tag === "Function") kind = "FunctionExpression";
-    else if (v.Tag === "Class") kind = "ClassExpression";
+    if (v.IsValueOnlyUnit && v.AstKind === "FunctionDeclaration") kind = "FunctionExpression";
+    else if (v.IsValueOnlyUnit && v.AstKind === "ClassDeclaration") kind = "ClassExpression";
     // **用完就还回去**（第 134 轮修的）：这个标记说的是「**这一个**节点在表达式位」，
     // 不是「它的整棵子树也在」。不还的话，`(function () { function f() { … } … })()`
     // 里**体里那条函数声明会被当成表达式**——它投成 `FunctionExpression`，
@@ -3034,8 +3042,8 @@ new Set([
   // 是**平级的一格 `SymbolToken`**（逗号表达式成形的除外），kids 长度不是 2；
   // 两条语句（`async;` 换行 `() => 1`）也不会落进同一串单元。
   const asyncHead = kids[0].IsIdentifierUnit && kids[0].TextValue === "async";
-  const asyncPlain = asyncHead && kids.length === 2 && kids[1].Tag === "Lamda";
-  if ((kids.length === 3 && kids[0].IsIdentifierUnit && kids[1].IsGenericType && kids[2].Tag === "Lamda" && kids[0].TextValue === "async") || asyncPlain) {
+  const asyncPlain = asyncHead && kids.length === 2 && kids[1].IsValueOnlyUnit;
+  if ((kids.length === 3 && kids[0].IsIdentifierUnit && kids[1].IsGenericType && kids[2].IsValueOnlyUnit && kids[0].TextValue === "async") || asyncPlain) {
     const arrow: any = projectNode(kids[kids.length - 1], ctx);
     if (arrow !== undefined) {
       if (kids.length === 3) {
@@ -3307,7 +3315,7 @@ new Set([
   //
   // **泛型箭头函数不走这里**（`<T>(x: T): T => x` 也是 `[GenericType, Lamda]` 两格）——
   // 那一支在后面，这里先让开（判据是第二格是不是 `Lamda`）。
-  if (kids[0].IsGenericType && kids.length >= 2 && kids[1].Tag !== "Lamda") {
+  if (kids[0].IsGenericType && kids.length >= 2 && !kids[1].IsValueOnlyUnit) {
     // **被断言的是「一个一元表达式」，不是后面全部**（第 379 轮）。
     //
     // TS 里 `<T>expr` 是**前缀**那一档（与 `!x` / `typeof x` 同一档）——
@@ -3662,7 +3670,7 @@ new Set([
   // `[GenericType(<T>), Lamda(…)]`——`<T>` **不在** `Lamda` 里面。TS 那边它是
   // `ArrowFunction.typeParameters`。照通用支投会把它当成一个类型引用（`TypeReference`），
   // `ArrowFunction` 与它的形参、返回类型整片丢（实测 `expr-arrow-generic.ts` 缺 16）。
-  if (kids.length === 2 && kids[0].IsGenericType && kids[1].Tag === "Lamda") {
+  if (kids.length === 2 && kids[0].IsGenericType && kids[1].IsValueOnlyUnit) {
     const arrow: any = projectNode(kids[1], ctx);
     if (arrow !== undefined) {
       const typeParams = kids[0].ProjectableKids.filter((k) => k.IsTypeParameterUnit);
@@ -4769,7 +4777,7 @@ new Set([
       // 方括号整段丢（降级期报 `unimplemented: expression FunctionDeclaration`）。
       // **续格后面还跟着运算符时**形状又换一格（`["s"] * 16` 折进了同一个二元单元）——
       // 那一档由 `indexTailInOperator` 认（判据见上面那一段）。
-      ((kids[0].Tag === "Function" || kids[0].Tag === "Class") &&
+      (kids[0].IsValueOnlyUnit &&
         (isIndexFirstUnit(kids[1], ctx) || indexTailInOperator(kids[1]))) ||
       // **第二格以一次调用开头**（第 692 轮）：`o["f"]().v` 的产物是
       // `[PropertyAccess(o, [f]), PropertyAccess(Bracket(()), ., v)]`——
@@ -4852,7 +4860,7 @@ new Set([
       if (
         at > 0 &&
         (k.IsBinaryOperatorNode) &&
-        (kids[0].Tag === "Function" || kids[0].Tag === "Class") &&
+        (kids[0].IsValueOnlyUnit) &&
         indexTailInOperator(k)
       ) {
         flattenIndexTailInOperator(k, ck);
@@ -5025,9 +5033,11 @@ new Set([
     // 而 `(function () { })()` 那一半一直是好的——分界正是「体后面跟的是 `(` 还是 `.`」：
     // 末尾那对实参括号走 3b 那一支、**递回 `projectExpression`**，于是标记照常置上）。
     // **判据只看这一格自己**：标记置宽了（留给整棵子树）会让体里的声明也被当成表达式
-    //（第 134 轮那条注释记的就是这个坑），所以只对 `Function` / `Class` 这两个标签置位。
+    //（第 134 轮那条注释记的就是这个坑），所以只对「只可能做值」的那几页置位
+    //（`unit.IsValueOnlyUnit`——`Function` / `Class` / `Lamda` 三页构造时答 `true`，
+    // 第 1097 轮起不再在这里比类名）。
     const projectChainHead = (unit: any): any => {
-      if (unit.Tag !== "Function" && unit.Tag !== "Class") {
+      if (!unit.IsValueOnlyUnit) {
         return projectNode(unit, ctx);
       }
       const savedExpression = ctx.expressionPosition;
@@ -5053,8 +5063,7 @@ new Set([
     // 两者处境一字不差：token 层认不出「前面那一格是个值」，于是那个方括号按数组字面量成形。
     let sawNullAssert =
       ck[0].IsNotNull ||
-      ck[0].Tag === "Function" ||
-      ck[0].Tag === "Class";
+      ck[0].IsValueOnlyUnit;
     let i = 1;
     while (i < ck.length) {
       // **下标链接**：`a[i]` → `ElementAccessExpression`（第 80 轮）。

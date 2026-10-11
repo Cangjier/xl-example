@@ -1022,6 +1022,16 @@ Lambda 表达式。
 
 这个 lambda 前面是不是有 `async`。纯数据字段，没有访问器。
 
+## field IsValueOnlyUnit:bool = true
+
+**我这一格只可能做值**（第 1097 轮）：箭头函数单元根本不可能是一条语句的**头**——
+`x => x` / `async x => x` 都在值位上，而投影那一侧「`<T>` 后面跟的是不是箭头函数」
+「泛型箭头的类型参数段是平级兄弟」这几族判据问的就是这一句，所以这一格答 `true`
+（口径见 `core/syntax/token.xl.md` 的 `IsValueOnlyUnit`）。
+
+它与本页的 `AstKind`（`ArrowFunction`）不是同一问：那一格答**投成哪个节点**，
+这一格答「我这一格能不能当一条语句的开头」——本页答的就是「不能」。
+
 ## field ModifierSpans:string = ""
 
 **前面那个 `async` 自己的区间**（闭区间，`"起:止"`）；没有 `async` 时空串。

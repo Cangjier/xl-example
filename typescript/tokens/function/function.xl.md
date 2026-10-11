@@ -479,6 +479,17 @@ return result;
 右边那一格是声明——`Function` 就是这一页自己的类名，所以这一格答 `true`
 （口径见 `core/syntax/token.xl.md` 的 `IsDeclarationUnit`）。
 
+## field IsValueOnlyUnit:bool = true
+
+**我这一格只可能做值**（第 1097 轮）：函数单元根本不可能是一条语句的**头**——
+`(function () { })()` / `const c = function () { }` 里它都在值位上，而投影那一侧
+「链头只可能做值 ⇒ 后面那个方括号只能是下标」「表达式位这一格要投成 `FunctionExpression`」
+这几族判据问的就是这一句，所以这一格答 `true`（口径见 `core/syntax/token.xl.md` 的
+`IsValueOnlyUnit`）。
+
+它与本页的 `AstKind` 不是同一问：那一格答**声明**名（`FunctionDeclaration`），
+表达式位由投影改成 `FunctionExpression`；这一格不随谁在投它而变。
+
 ## field IsStatementNode:bool = true
 
 **我这一格投出来的是一条「语句节点」**（第 1039 轮）：带**函数体**的 `Function` 投成
