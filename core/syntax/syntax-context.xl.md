@@ -144,10 +144,17 @@ this.DrainQueue();
 
 队列是「边处理边插队」的，所以必须用 `while` 而不是 `for`——处理过程中可能又有新位置进来（含 `ReloadMessage` 插回队首的）。
 
+**`shift()` 而不是「读 `[0]` 再 `splice(0, 1)`」**（第 1206 轮，用户口径 1.2）：两者的答案逐格相同
+（弹出队首、剩下的往前挪），而 `splice` 会**为「被摘掉的那几个元素」造一个数组**
+——这一趟是**每个位置一次**（`node --cpu-prof` 量 `typescript.d.ts` 一份：这一格 self time **1.4%**），
+所以那是个纯粹白造的数组。`unshift` 与 `splice(0, 0, …)` 的关系同款（见 `DrainMessages`）。
+
 ```ts
 while (this.SourceQueue.length > 0) {
-  const item = this.SourceQueue[0];
-  this.SourceQueue.splice(0, 1);
+  const item = this.SourceQueue.shift();
+  if (item === undefined) {
+    break;
+  }
   item.Process(this);
   this.DrainMessages();
 }
@@ -163,16 +170,17 @@ while (this.SourceQueue.length > 0) {
 
 把消息队列抽干：`ReloadMessage` 插回位置队列的**队首**，其余交给 `HandleMessage`。
 
+**两个入口都换成不造中间数组的那一对**（第 1206 轮，与上面 `DrainQueue` 同一条）：`shift()` 取队首、
+`unshift()` 插队首——判据、次序与「插回队首」这件事一个字没改。
+
 ```ts
 while (this.Messages.length > 0) {
-  const item = this.Messages[0];
-  this.Messages.splice(0, 1);
+  const item = this.Messages.shift();
+  if (item === undefined) {
+    break;
+  }
   if (item instanceof ReloadMessage) {
-    this.SourceQueue.splice(
-      0,
-      0,
-      new ProcessSource(item.ProcessOwner ?? this.Root, item.Source),
-    );
+    this.SourceQueue.unshift(new ProcessSource(item.ProcessOwner ?? this.Root, item.Source));
   } else {
     this.HandleMessage(item);
   }
