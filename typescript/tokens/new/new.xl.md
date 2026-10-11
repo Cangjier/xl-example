@@ -416,6 +416,23 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
 `New`，所以这一页常量答 `true`——口径与两条理由见
 `../../../core/syntax/token.xl.md` 的 `IsChainBaseNode`。
 
+## field IsTagBaseNode:bool = true
+
+**我这一格能不能当一条标签模板的标签**（投影侧那一问，第 1221 轮）：`new C()`t`` 在 TS 那边是
+`TaggedTemplateExpression{ tag: NewExpression, template: NoSubstitutionTemplateLiteral }`——
+标签就是一格完整的 `New`（`ts.createSourceFile` 实测 `new C()`t``：
+`TaggedTemplateExpression[0,7) > [NewExpression[0,6), NoSubstitutionTemplateLiteral[6,9)]`）。
+
+**少了这一格会怎样**：产物是 `[New, String(反引号)]` 两格平级，而 0b 那一支的入口
+（`tagIsPostfixChain`）名单里没有 `New` ⇒ 整个让开 ⇒ 模板**整格丢**（实测缺
+`TaggedTemplateExpression` + `NoSubstitutionTemplateLiteral`），而且这一族不是一格：
+`new C()`t`.b` / `` new C()`t`(1) `` / `` new C()`t`! `` / `` new C()`t`?.[0] `` /
+`` new C()`t` as T `` / `` new C()(1)`t` `` / `` new C()`t``t` `` 十二种续写同根
+（标签后面那一串由 `chainOnto` 接着，是**入口这一问**先把整族挡掉的）。
+
+口径与理由见 `../keyword.xl.md` 的 `IsTagBaseNode`（那一页为 `this` 立的第一格）与
+`print-ast-common.xl.md` 第 0b 那一支的 `tagIsPostfixChain`——**两张名单本来就该一样**。
+
 ## field SegmentNames:Map<string, Map<string, string>> = new Map([["NewExpression", new Map([["name", "expression"]])]])
 
 **本单元的段，投成目标语言形状时叫什么**：产物那边的分段名 → 目标语言的字段名。
