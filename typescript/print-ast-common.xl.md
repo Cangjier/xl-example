@@ -74,15 +74,16 @@ import { Identifier } from "./tokens/identifier.xl.md"
 `ToPlain` 那一层第 1019 轮已随中间层一起删掉，现在是这个函数直接在投影出来的节点上做）；
 现在收成一处，`cjcli --ts-ast` 与 `samples/check.mjs` 共用同一个函数。
 
-这是一份**纯函数库**：**71 格声明**（`^# …(method|const)` 逐行数出来的实测值：67 个 `# method` +
+这是一份**纯函数库**：**69 格声明**（`^# …(method|const)` 逐行数出来的实测值：65 个 `# method` +
 4 个 `# const`）都不依赖 `this`、彼此只靠参数耦合，所以按模块级
 陈列，而不是收进一个 class——收进 class 要改掉几百处调用点，
 那会把「等价迁移」变成「重写」。**导出面与原来一致**：`export { … }` 里那 10 个名字是
 `# const` / `# method`，其余一律 `# private`。
-**这一栏的旧账与实测差 2 格，如实记下**（第 1073 轮起、第 1079 轮复核）：第 1062 轮起这里写的是
+**这一栏的旧账与实测差 2 格，如实记下**（第 1073 轮起、第 1080 轮复核）：第 1062 轮起这里写的是
 「89 → 86 格」，而那一族往下逐轮减到「79 格」；照上面那条命令逐行数：
-第 1073 轮是 **77 格**、第 1077 轮（上一轮动声明之前）是 **73 格**、第 1078 轮删掉
-`modifierStart` 之后是 **72 格**、第 1079 轮删掉 `modifierSpansOf` 之后是 **71 格**
+第 1073 轮是 **77 格**、第 1077 轮（动声明之前）是 **73 格**、第 1078 轮删掉 `modifierStart`
+之后是 **72 格**、第 1079 轮删掉 `modifierSpansOf` 之后是 **71 格**、第 1080 轮就地展开
+`typeMemberGroups` 与 `specifierNameOf` 之后是 **69 格**
 ——所以第 1077 轮那一栏写的「75 格」**比实测多 2 格**，差的那两格**不是第 1072 / 1073 那两轮
 改动带来的**（那两轮只动调用点、说明与三格声明），最可能是更早某一轮的计数把某些行重复算了一次。
 所以从这一轮起本页**只写实测值**，并写明量法；下一位若要复核，跑
@@ -491,7 +492,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 | `ModuleSpecifierIn` / `ModuleHolderOf`（在一串单元里找模块路径那个 `String`） | 本页 `namedExportClause` | 全仓只有那两处调用，出口删掉、实现留在本页 |
 | `ComputedNameUnit`（计算名那个 `ArrayLiteral`） | 本页 `memberNameOf` | **就地展开**进 `memberNameOf`（见那一节），本页少一格声明 |
 | `TrailingSemicolonOf`（末尾那个 `;` 落在谁里面） | 本页 `projectEach` | 出口删掉，实现留在本页 |
-| `SpecifierNameOf`（一个名字单元 → `StringLiteral` / `Identifier`） | 本页 `namedSpecifiersOf` 两处 | 出口删掉，实现留在本页 |
+| `SpecifierNameOf`（一个名字单元 → `StringLiteral` / `Identifier`） | 本页 `namedSpecifiersOf` 两处 | 出口第 1070 轮删掉、实现**第 1080 轮就地展开**（判据与记录见那一节） |
 | `KindsInAst`（把投影出来的 `kind` 收进一个集合） | 本页 `projectRoot` | 出口删掉，实现留在本页 |
 
 - **为什么这五个该删**：`ctx` 是**跨页**的那条路（`PrintDirectAst` 拿不到本文件的 import，
@@ -517,11 +518,11 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   已经有一个 `const direct`，所以新变量取 `nameKids` / `nameFirst`，第三句就着空列表写成
   `nameKids.length > 0 ? nameKids[0] : undefined`（`undefined` 与原来的 `null` 一样过
   `!== null`，判据一个字没动）。
-- **两处「一格声明、一个读者」这次没动**（留着并记下理由，免得下一轮再量一遍）：
-  `specifierNameOf` 是两个调用点、而且它承载的是「引号名 → `StringLiteral`、其余 → `nameOf`」
-  这一条与 `projectBindingElement` **一字不差**的取法（那一页的注释就这么记着）；
-  `typeMemberGroups`（一个读者 `projectEachIn`）的 13 行代码外面裹着 12 行注释，
-  展开会把「为什么只有三种容器要切」那段记录并进调用点——两处都不是「多一跳的转发」。
+- **两处「一格声明、一个读者」第 1070 轮当时没动**，第 1080 轮按同一把尺子收掉了：
+  `specifierNameOf`（两个调用点都在 `namedSpecifiersOf` 的 `flush` 里，而且它承载的是
+  「引号名 → `StringLiteral`、其余 → `nameOf`」这一条）与
+  `typeMemberGroups`（一个读者 `projectEachIn`）**都已就地展开**——展开的是算式，
+  判据仍由被问的那一页答（`Token.TypeMemberPlan`），原记录留在各自那一节的记账里。
 - **`StatementOfList` 与 `SwitchClause` 留着**：它们各自有本页之外的读者
   （`label.xl.md` / `switch.xl.md`），按上面那条判据**不算**「没人用」。
 - **实测**：`xl check typescript core` 0 条；`xl build --force` **156 个产物** / 0 error、`tsc` 干净；
@@ -1358,64 +1359,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   return built;
 ```
 
-# private method typeMemberGroups:(list:Array<any>, separator:string | null)=>Array<Array<any>>
-
-类型容器的一批子单元 → **切好的若干组**（每组是「一个类型」的全部单元）。
-
-**分隔符是问容器自己要来的**（第 1035 轮）：过去这里按 `parentKind` 查投影层那张
-`TYPE_MEMBER_SEPARATORS`（`UnionType` → `|`、`IntersectionType` → `&`、`TupleType` → `,`），
-而**那些 kind 名就是那些类自己的名字、那个符号就是那些类自己的符号**——所以它搬回了各自
-那一页（`Token.TypeMemberPlan`），这一格只收一个 `separator`。
-
-**第 76 轮的根因**（那两张表的说明原来挂在这里，随判据一起搬到用法那一处）：原来对类型容器的
-子单元**逐个**投（`projectTypeExpression([item])`），可产物在类型位把「名字 + 实参」摆成
-**平级的两格**（`ArrayLike` 与 `GenericType(<number>)` 是兄弟），于是
-
-    ArrayLike<number> | string
-      → TypeReference[7780,7789)      ← 只有名字，实参整片丢掉
-        TypeReference[7789,7797)      ← 实参自己成了**另一个**节点（区间是 `<number>`）
-        StringKeyword(string)
-
-而 TS 那边是 `UnionType > [TypeReference(ArrayLike<number>)[7780,7797), StringKeyword]`。
-同一类根因还压在**限定名**上：`ArrayBuffer | NodeJS.TypedArray` 的点号两边是两个平级单元，
-`projectTypeExpression` 里那个限定名循环**一次都进不去**（`QualifiedName` 缺 844 处、
-`TypeReference` 漂移 1761 处，实测数字见 README 第 76 轮）。
-
-**只有三种容器要切**（它们的成员之间**真的有**分隔符）：`separator` 是 `null` 时
-整批子单元合起来就是**一个**类型（`T[]` / `(A \| B)` / `keyof T` / `A[K]` /
-`A?` / `...A` / `name: T`），没有「同级的另一个类型」这回事——那里维持整段一个。
-
-分隔符那一格**不进任何一组**：它不是类型的一部分（与 `projectTypeArguments` 切逗号同一口径），
-留下的空组（`type A = | B` 的前导 `|`、尾随逗号）由 `filter` 挡掉。
-
-```ts
-  // **没有分隔符的容器整段算一个类型**（第 164 轮）：`T[]` / `(A | B)` / `keyof T` / `A[K]`
-  // 的子单元合起来就是**一个**类型，没有「同级的另一个类型」这回事——原先这里返回
-  // `list.map((item) => [item])`（逐个成组），于是 `(F<A>)[]` 里那个「名字 + 实参段」
-  // 被拆成两个节点（实测 `type-paren-content-nodes.ts`：`TypeReference[11,12)` 与
-  // 一个盖住 `<A>` 的 `TypeReference`，缺的是 `F<A>` 那一格）。
-  if (separator === null) return list.length === 0 ? [] : [list];
-  const groups = [];
-  let current = [];
-  for (const item of list) {
-    // **逗号那一格自己答**（第 1074 轮）：`separator` 只可能是 `|` / `&` / `,`
-    // （`Token.TypeMemberPlan` 给的那三种），前两种仍按正文比——
-    // 而 `,` 这一态读的是 `SymbolToken.IsCommaSymbol`（`Close()` 里赋好的那一格）。
-    if (
-      item instanceof Token &&
-      item.TextValue === separator &&
-      (separator !== "," || item.IsCommaSymbol)
-    ) {
-      groups.push(current);
-      current = [];
-      continue;
-    }
-    current.push(item);
-  }
-  groups.push(current);
-  return groups.filter((group) => group.length > 0);
-```
-
+**`typeMemberGroups` 那一格第 1080 轮就地展开了**（它原来占第 1361~1418 行，全仓只有 `projectEachIn` 一个调用点）： 展开的是**算式**，不是判据——「哪三种容器要切、按哪个符号切」仍然由容器自己答 （`Token.TypeMemberPlan`，第 1035 轮），`separator` 只可能来自那一格。 所以原来那一节里的记录一并搬到这里（下一段），展开处只留一句指回本节的说明。  **原记录（第 76 / 164 / 1035 / 1074 轮）**：类型容器的一批子单元 → 切好的若干组，每组是「一个类型」的全部单元。  - **分隔符是问容器自己要来的**（第 1035 轮）：过去这里按 `parentKind` 查投影层那张 `TYPE_MEMBER_SEPARATORS`   （`UnionType` → `|`、`IntersectionType` → `&`、`TupleType` → `,`），而**那些 kind 名就是那些类自己的名字、   那个符号就是那些类自己的符号**——所以它搬回了各自那一页（`Token.TypeMemberPlan`），展开处只收一个 `separator`。 - **第 76 轮的根因**：原来对类型容器的子单元**逐个**投（`projectTypeExpression([item])`），可产物在类型位把   「名字 + 实参」摆成**平级的两格**（`ArrayLike` 与 `GenericType(<number>)` 是兄弟），于是   `ArrayLike<number> | string` 投成「只有名字的 `TypeReference` + 一个盖住 `<number>` 的 `TypeReference` + `StringKeyword`」，   而 TS 那边是 `UnionType > [TypeReference(ArrayLike<number>), StringKeyword]`。同一类根因还压在**限定名**上：   `ArrayBuffer | NodeJS.TypedArray` 的点号两边是两个平级单元，`projectTypeExpression` 里那个限定名循环**一次都进不去**   （`QualifiedName` 缺 844 处、`TypeReference` 漂移 1761 处，实测数字见 README 第 76 轮）。 - **只有三种容器要切**（它们的成员之间**真的有**分隔符）：`separator` 是 `null` 时整批子单元合起来就是**一个**类型   （`T[]` / `(A | B)` / `keyof T` / `A[K]` / `A?` / `...A` / `name: T`），没有「同级的另一个类型」这回事——那里维持整段一个。 - **分隔符那一格不进任何一组**：它不是类型的一部分（与 `projectTypeArguments` 切逗号同一口径），   留下的空组（`type A = | B` 的前导 `|`、尾随逗号）由 `filter` 挡掉。
 # private method projectEachIn:(list:Array<any>, ctx:any, parent:any)=>Array<any>
 
 投影一批子单元，并在**成员位**上按父单元自己的两格属性切换形状。
@@ -1489,8 +1433,34 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
   // 直出版给的是 `ctx.Each(view)` 里那个 `view`（第 1056 轮起它只收这一格）。
   const typePlan = parent.TypeMemberPlan;
   if (typePlan !== undefined) {
+    // **`typeMemberGroups(list, separator)` 第 1080 轮就地展开**（它全仓只有这一个调用点）：
+    // 下面这一段的判据与那一格逐字相同——没有分隔符的容器整段算一个类型、
+    // 分隔符那一格不进任何一组、留下的空组由 `filter` 挡掉；
+    // `,` 那一态读的是 `SymbolToken.IsCommaSymbol`（第 1074 轮），`|` / `&` 仍按正文比。
+    // 那段「为什么只有三种容器要切」的记录留在原来那一格的记账里（见本文件 `typeMemberGroups` 那一节）。
+    const separator = typePlan.separator;
+    const groups: any[] = [];
+    if (separator === null) {
+      if (list.length > 0) groups.push(list);
+    } else {
+      let current: any[] = [];
+      for (const item of list) {
+        if (
+          item instanceof Token &&
+          item.TextValue === separator &&
+          (separator !== "," || item.IsCommaSymbol)
+        ) {
+          groups.push(current);
+          current = [];
+          continue;
+        }
+        current.push(item);
+      }
+      groups.push(current);
+    }
     const out = [];
-    for (const group of typeMemberGroups(list, typePlan.separator)) {
+    for (const group of groups) {
+      if (group.length === 0) continue;
       const projected = projectTypeExpression(group, ctx);
       if (projected !== undefined) out.push(projected);
     }
@@ -8443,9 +8413,27 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
         k === AS_SEPARATOR ||
         (k.Tag === "Identifier" && k.TextValue === "as"),
     );
-    const name = specifierNameOf(body[body.length - 1], ctx);
+    // **段尾那一格的名字节点**（第 1080 轮就地展开，原 `specifierNameOf`，它只有这两个调用点）：
+    // 引号名（`import { "a-b" as c }`）给 `StringLiteral`（`text` 是引号里那段，位置含引号），
+    // 其余走 `nameOf`（`Identifier`）。**这一格的正文由它自己答**（第 1061 轮）：
+    // `unit.StringText` 是那一页自己的属性。
+    const lastName = body[body.length - 1];
+    const name =
+      lastName.Tag === "String" || lastName.Tag === "ConstString"
+        ? astNode("StringLiteral", { text: lastName.StringText }, lastName, ctx)
+        : nameOf(lastName);
     if (asAt > 0) {
-      out.push({ kind, propertyName: specifierNameOf(body[asAt - 1], ctx), name, pos, end });
+      const firstName = body[asAt - 1];
+      out.push({
+        kind,
+        propertyName:
+          firstName.Tag === "String" || firstName.Tag === "ConstString"
+            ? astNode("StringLiteral", { text: firstName.StringText }, firstName, ctx)
+            : nameOf(firstName),
+        name,
+        pos,
+        end,
+      });
       return;
     }
     out.push({ kind, name, pos, end });
@@ -8484,21 +8472,12 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return out;
 ```
 
-# private method specifierNameOf:(unit:any, ctx:any)=>any
-
-一个名字单元 → 节点：引号名（`import { "a-b" as c }`）给 `StringLiteral`（`text` 是引号里那段），
-其余走 `nameOf`（`Identifier`）。位置一律**含引号**（TS 的字符串名节点就是这么记的）。
-
-```ts
-  const type = unit.Tag;
-  if (type === "String" || type === "ConstString") {
-    // **这一格的正文由它自己答**（第 1061 轮）：`unit.StringText` 是那一页自己的属性
-    //（`String` 取第一个 `ConstString` 子单元那段、`ConstString` 就是自己那段）。
-    return astNode("StringLiteral", { text: unit.StringText }, unit, ctx);
-  }
-  return nameOf(unit);
-```
-
+**`specifierNameOf` 那一格第 1080 轮就地展开了**（它原来占上面到下面两个标题之间的那一段）：
+它把「一个名字单元 → 节点」这件事包了一层，而**两个调用点都在同一格函数里**（`namedSpecifiersOf`
+的 `flush`），所以按第 1043 / 1044 / 1056 / 1070 轮那把尺子（「只有一个调用点、只是把参数转手」）
+就地展开——引号名给 `StringLiteral`、其余走 `nameOf`，两处逐字照抄原来那一格的判据。
+`ctx.SpecifierNameOf` 那个出口本来就是零真实读者（第 1070 轮已记），本轮连同导出一起删掉，
+名字补进 `direct:lint` 的 `CTX_BANNED`。
 # private method conditionalNode:(kids:Array<any>, start:int, end:int, ctx:any)=>any
 
 `[T, extends, U, ?, A, :, B]` 那一段单元 → 一个 `ConditionalType`。
