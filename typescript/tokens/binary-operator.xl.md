@@ -31,6 +31,7 @@ import { As } from "./as.xl.md"
 import { Satisfies } from "./satisfies.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Function } from "./function/function.xl.md"
+import { Statement } from "./statement.xl.md"
 ```
 
 # namespace cangjie
@@ -605,7 +606,8 @@ if (this.IsAngleAssertionHead(units)) {
 // ⇒ 整格根本不折（实测枚举成员初始值缺 `BinaryExpression` / 运算符 / 字面量 3 条）。
 // `Process` 那两处必须成对改（第 816 轮）：只改这里会让节点「判得下却搬不进来」。
 const opStart = current.SourceRange.Start;
-const leftUnit = Get(units, SkipPreviousTrivia(units, index));
+const leftIndex = SkipPreviousTrivia(units, index);
+const leftUnit = Get(units, leftIndex);
 if (leftUnit !== null && opStart !== null) {
   const leftEnd = leftUnit.SourceRange.End;
   if (leftEnd !== null && leftEnd.Index > opStart.Index) {
@@ -613,6 +615,31 @@ if (leftUnit !== null && opStart !== null) {
   }
 }
 if (this.IsOperand(leftUnit) === false) {
+  return false;
+}
+// **声明位置上的 `function` / `class` 不是操作数**（第 1232 轮，用户口径 1.1）。
+//
+// `function w() { }` 换行 `/re/g;` 里那一格 `Function` 是**声明**：它自己就是一条语句，
+// 后面那个 `/` 属于**下一条语句**（TS 给 `FunctionDeclaration` + `ExpressionStatement` +
+// `RegularExpressionLiteral`）。而 `IsOperand` 第 692 轮把 `Function`（以及第 328 轮的
+// `Class`）补进名单，为的是 `typeof function () {}` / `function () {} + 1` 那一档——
+// **表达式位**的两档。两档的差不在类名上，在**位置**上：`Statement.IsDeclarationPosition`
+// （第 679 轮立的，`IsStatementBoundary` 用的就是同一句）问的正是这件事，所以这里复用，
+// 不另写一份会漂的近似。
+//
+// **为什么值这一问**：不挡的话，这一档把整条函数声明折成二元左操作数——
+// `FunctionDeclaration` 与 `ExpressionStatement` 一起丢、多出 8 格
+// （第 1231 轮登记的 `gap-r1231-decl-newline-operator`：`function` / `class` 两族、
+// `/` `+` `-` 三种续写、以及「后面还跟着模板」那一档）。
+//
+// **次序**：排在 `IsOperand` 之后 ⇒ 只有「已经像操作数」的那一格才多问一句
+// （两个 `instanceof` 加一次 `IsDeclarationPosition`），本规则 14 个实例共用这一个
+// `Previous`、实测一份 `typescript.d.ts` 上被问 **1638504** 次（第 1203 轮读数），
+// 所以这一问必须待在窄路上（第 1232 轮 A/B 的读数见那一轮的 README）。
+if (
+  (leftUnit instanceof Function || leftUnit instanceof Class) &&
+  Statement.IsDeclarationPosition(units, leftIndex)
+) {
   return false;
 }
 // **右结合的运算符要先折右边那一处**（第 164 轮）。

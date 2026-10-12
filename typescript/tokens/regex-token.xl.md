@@ -12,7 +12,7 @@ import { UnitToken } from "../../core/syntax/unit-token.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
-import { SkipPreviousTrivia } from "../text-common-util.xl.md"
+import { SkipPreviousTrivia, IsObjectLiteralBrace, IsStatementStart } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -60,6 +60,87 @@ if (name === "SymbolToken") {
   return text === "++" || text === "--";
 }
 return false;
+```
+
+## static method IsStatementBrace:(units:Array<Token>, index:int)=>bool
+
+`index` 处那个 `{` 括号是不是**一条语句的体**的收尾——是的话，紧跟在它后面的那个 `/`
+只能新起一条语句（正则），不可能是除号。
+
+**为什么单立这一格**（第 1232 轮，用户口径 1.1）：`function w() { }` / `for (;;) { }` /
+`while (a) { }` 换行 `/re/g;` 里，紧挨着 `/` 的那一格是**体的花括号**，而它在解析期
+（`Condition` 跑在字符 `r` 上、`source.Pre()` 是那个 `/`）**还是裸 `Bracket`**
+——`ObjectLiteralCloseRule` 那一趟收尾还没轮到它。原来的 `previous instanceof Bracket`
+于是把整族读成除法：`/` 退化成 `SlashToken`、正则整格丢（第 1231 轮登记的
+`gap-r1231-decl-newline-operator` 里那三档）。
+
+**问的是位置、不是括号自己**：值位的花括号（`const o = { … }` 换行 `/re/g`）那一档由
+`IsObjectLiteralBrace`（第 556 轮）挡在调用点，本方法只管「剩下的那些 `{` 里，哪些是语句的体」。
+两档的分界线也不在「括号里装的是什么」，而在**这一格所属那个构造的头站在哪**——
+同一个 `{}` 在 `function w() { }`（声明）里是语句的收尾，在
+`const v = function () { }`（表达式）里前面那个 `/` 就是**除号**（TS 给
+`BinaryExpression`）。所以本方法一路往回找到那个构造的**头**，再拿
+`IsStatementStart` 那一句（`LabelCloseRule` / `JsonObjectCloseRule` 用的就是它）问它站不站在语句位。
+
+**往回那一趟跳过三类格子**（它们都是头与体之间夹着的东西，不是头本身）：
+
+- 紧挨着的 `(` 参数表 / 控制头（`while (a) {` / `function f() {`）；
+- 名字那一族（`function f() {` 的 `f`、`interface I {` 的 `I`、`declare module "x" {` 的字符串）；
+- trivia（注释与软换行），与 `Condition` 那一侧同一个跳过口径。
+
+**头不是「最左那个词」，而是「往回走第一个站在语句位的词」**：`export default function f() {`
+里 `f` / `function` / `default` 三格问 `IsStatementStart` 都答否（它们前面各是一个词），
+走到 `export` 才答是。所以这一趟是**逐个词问、有一个答是就算**——比硬写一张
+「哪些词算头」的表准（那张表要列全 `export` / `default` / `declare` / `async` / `static` …，
+漏一个就是一族静默错值）。
+
+**`=>` 是唯一的例外，而且必须单列**：箭头函数**永远在表达式位**，它的体后面那个 `/`
+是除号（`const f = (a) => { }` 换行 `/re/g` 在 TS 里是 `((a) => {}) / re / g`），
+所以撞上 `=>` 直接答否，不问 `IsStatementStart`。
+
+```ts
+// 花括号前面那一格：紧挨着的 `(` 参数表 / 控制头要跳过，头在它左边
+let at = SkipPreviousTrivia(units, index);
+const beforeBrace = Get(units, at);
+if (beforeBrace instanceof Bracket && beforeBrace.startBracket === "(") {
+  const parenAt = units.indexOf(beforeBrace);
+  at = SkipPreviousTrivia(units, parenAt);
+}
+// 往**左逐个词**问「这一格站在语句位吗」——见上面那一段（`export default function f() {`）
+while (true) {
+  const item = Get(units, at);
+  if (item === null) {
+    // 列表开头就是这一格体（`{ … }` 单独成句）：语句收尾
+    return true;
+  }
+  // **名字与字符串那一族按类名认**（与 `IsOperandUnit` 同一条理由：
+  // 本文件 import 不进 `String`）
+  const name = item.constructor.name;
+  if (item instanceof Identifier || name === "String") {
+    if (IsStatementStart(units, at)) {
+      return true;
+    }
+    at = SkipPreviousTrivia(units, at);
+    continue;
+  }
+  break;
+}
+const head = Get(units, at);
+if (head === null) {
+  // 往回走到底都没有词（列表开头的裸块）：语句收尾
+  return true;
+}
+if (head.constructor.name === "SymbolToken") {
+  // **符号那一格定生死**（同一条理由：本文件 import 不进 `SymbolToken`）：
+  // `;` 与冒号（标签 / `case`）后面那个 `{` 是块；`=` / `,` / `=>` 后面那些是**表达式**
+  // ——走到这里说明这一趟**一个站在语句位的词都没找到**，那就是表达式位。
+  return (head as any).Is(";") || (head as any).Is(":");
+}
+if (head instanceof Bracket) {
+  // `} {` 是块（`IsStatementStart` 的同一句）；`(` / `[` 后面顶着 `{` 不成话，答否
+  return head.startBracket === "}";
+}
+return true;
 ```
 
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
@@ -152,7 +233,8 @@ if (closed === false) {
 //（实测：缺两条 `BinaryExpression` + 两个 `SlashToken` + 两个 `NumericLiteral`，
 // 而 `<RegexToken>` 里躺着 ` 2 `）。
 // 「相邻的那一格一律走 trivia 口径」是本仓的老规矩（第 817 轮），这一处是它的又一个落点。
-const previous = Get(unit.Data, SkipPreviousTrivia(unit.Data, unit.Data.length - 1));
+const previousIndex = SkipPreviousTrivia(unit.Data, unit.Data.length - 1);
+const previous = Get(unit.Data, previousIndex);
 const result = this.Result;
 if (previous === null) {
   // 这一格之前没有任何实义单元（只有那个 `/`，或者只有注释）：新起的一条语句以 `/` 开头
@@ -172,12 +254,49 @@ if (previous instanceof Identifier) {
   }
   result.Success = previous.Template.KeywordTemplate.IsKeyword(text);
 } else if (previous instanceof Bracket) {
+  // **头 / 语句的体那个花括号不算操作数**（第 1232 轮，用户口径 1.1）。
+  //
+  // `function w() { }` / `for (;;) { }` / `while (a) { }` 换行 `/re/g;` 里，紧挨着的
+  // 那一格是**体的花括号**：它是一条语句的收尾，后面那个 `/` 属于**下一条语句**
+  //（TS 给 `…Declaration` + `ExpressionStatement > RegularExpressionLiteral`）。
+  // 而「凡是 `Bracket` 都答除号」这一句把那一族读成了除法：`/` 退化成 `SlashToken`、
+  // 正则整格丢（第 1231 轮登记的 `gap-r1231-decl-newline-operator` 里那三档）。
+  //
+  // 分界线不在括号自己、也不在括号里装的是什么，而在**这一格所属那个构造的头站在哪**：
+  // 那一问由 `RegexTokenBranch.IsStatementBrace` 回答（往回找到头，再问 `IsStatementStart`），
+  // 值位的花括号先由 `IsObjectLiteralBrace` 挡掉。`(` / `[` 结尾的括号没有「体」这一档，
+  // 照旧一律答除号（`(a) / 2` / `xs[0] / 2`）。
+  if (
+    previous.startBracket === "{" &&
+    IsObjectLiteralBrace(unit.Data, previousIndex) === false &&
+    RegexTokenBranch.IsStatementBrace(unit.Data, previousIndex)
+  ) {
+    result.Success = true;
+    return result;
+  }
   result.Success = false;
 } else if (RegexTokenBranch.IsOperandUnit(previous)) {
   // **其余能当被除数的单元**（第 931 轮）：字符串（含模板串）、正则、后缀 `++` / `--`
   // ——它们在 TS 里都能**结束一个表达式**，所以后面那个 `/` 是除号。
   // 原来它们一并落到最后那个 `else` ⇒ `"s" / 2 / 3` / `` `t` / 2 / 3 `` / `/re/ / 2` /
   // `i++ / 2` 四族全被读成正则（实测各缺两条 `BinaryExpression`）。
+  result.Success = false;
+} else if (
+  previousIndex >= 0 &&
+  (previous.constructor.name === "Function" || previous.constructor.name === "Class") &&
+  IsStatementStart(unit.Data, previousIndex) === false
+) {
+  // **表达式位的函数 / 类后面那个 `/` 也是除号**（第 1232 轮，与上一支同一条口径）。
+  //
+  // `const v = class { }` 换行 `/re/g;` 在 TS 里是**除法**（`(class {}) / re / g`）——
+  // 那一格里 `Class` 已经是一个成形的单元（类体先收好了），于是它既不是 `Identifier`
+  // 也不是 `Bracket`，直接落到最后那个 `else`（「其余类型一律答正则」）⇒ 整族读成正则：
+  // 实测缺 `ClassExpression` / 两条 `BinaryExpression`、多一格 `RegexToken`。
+  //
+  // 分界线还是**位置**：声明位的 `class C { }` 后面那个 `/` 新起一条语句（正则），
+  // 表达式位的 `= class { }` 后面那个 `/` 是除号。这一问由 `IsStatementStart`
+  // （`IsStatementBrace` 用的同一句）回答——它只看「前一个实义单元是什么」，
+  // 而函数 / 类两页在**词法阶段都还没有自己的类名**，所以这里按类名认（同 `IsOperandUnit`）。
   result.Success = false;
 } else {
   result.Success = true;

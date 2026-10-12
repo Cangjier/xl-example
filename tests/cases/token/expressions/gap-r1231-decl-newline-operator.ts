@@ -1,40 +1,39 @@
 // xl:note 第 1231 轮**新登记**的一族（换了一片地形普查撞出来的：`tmp/r1231-sweep.mjs` 拿
 // 82 个底样 × 3 个位置问「X`t`」，其中 4 个底样对不上，这一族是**新的一类根**）：
-// **二元规则跨行把「函数声明」折成了左操作数** —— `function w() { }` 换行之后那一行以
-// `/` / `+` / `-` 开头时，产物是
 //
-//     <BinaryOperator op="/"><BinaryOperator op="/">
-//       <Function range="[22,37]" name="w" …>…</Function>
-//       <SymbolToken>/</SymbolToken><Identifier>re</Identifier>
-//     </BinaryOperator><SymbolToken>/</SymbolToken><Identifier>g</Identifier></BinaryOperator>
+// 第 1232 轮把这一族的**前半截收掉了**（`function` / `class` / `for` / `while` / 裸块换行
+// `/re/g`、以及 `function` / `class` 换行 `+` `-` 那几档——守卫用例见
+// `expr-r1232-decl-newline-operator.ts`），这里留下的是**同一片地形里还开着的三档**：
 //
-// ——`function` 那一格与下一行的 `/` 折进了同一个 `BinaryOperator`，于是**整条函数声明丢**
-//（实测缺 `FunctionDeclaration` + 后一条 `ExpressionStatement`、多 8 格）。
-// 判据本来是该问「左操作数**真的在运算符左边**」（`binary-operator.xl.md` 第 580 行那一段，
-// 第 306 轮立的），可那一格此刻**看不出自己是声明**（同一格 `function` 既可以是声明也可以是
-// 表达式，`IsOperand` 第 692 轮又刻意把 `Function` 补进了名单——`typeof function () {}` 要它）；
-// `class C { }` / `const w = function () { }` / `if (a) { }` 三种对照**都对上**，
-// 说明这一格缺的是「这一格站在语句位」这个事实，而不是名单少一格。
-// 同一族还有两档（读数都在 `tmp/r1231-asi.mjs` / `tmp/r1231-obj.mjs`）：
-//   · `for (;;) { }` 换行 `/re/g;` —— 正则**没成形**（多一个 `SlashToken`、缺 `RegularExpressionLiteral`）；
-//   · 语句位的 `{ p: 1 }`t`` —— TS 读成「块 + 一条模板表达式语句」，产物折成**一条**标签模板
-//     （缺 1 多 2）。
-// 按本仓规矩**先登记、不猜**：用例进语料，缺口走 `xl:known-gap` 那条账。
-// xl:known-gap 二元规则跨行把语句位的 `function` 声明 / 块折成左操作数（那一格此刻看不出自己是声明）
+// ① **语句位的 `{ p: 1 }`t``**：TS 读成「块 + 一条模板表达式语句」，产物折成**一条**
+//    标签模板（缺 1 多 2）。与 `const v = { p: 1 }`t`` 是两回事——那一档第 1231 轮已经收掉，
+//    差的是「这一格站在语句位」这个事实（与第 1232 轮补的那两处同源，但落点在块与对象
+//    字面量的分岔上，不在二元 / 正则那两处）。
+// ② `try { }` 换行 `catch (e) { }` 换行 `/re/g;`：正则**没成形**（多一个 `SlashToken`、
+//    缺 `RegularExpressionLiteral`）。体那个花括号的「头」是 `catch (e)`，而 `catch` 前面的
+//    实义单元是 `try` 的体那一格——`IsStatementBrace` 那一趟还没走通这一档。
+// ③ `do { }` 换行 `while (a)` 换行 `/re/g;`：`/` 前面的实义单元是 `while` 的**头括号**
+//    （不是体），所以「体那一档」的判据根本够不到它。
+// ④ **裸块** `{ }` 换行 `/re/g;`：token 那一半第 1232 轮已经读对了（正则成形），
+//    可语句壳仍把块与 `/re/g;` 收进**同一条**语句（缺 `Block` 与那条表达式语句、
+//    多一条 `ExpressionStatement`）——那是块 / 对象字面量分岔上的另一格。
+//
+// （②③④ 是按本仓规矩**只登记、不收**：第 1232 轮量出来时与旧产物逐字节相同 ⇒ 不是那一轮
+// 改坏的，是这一族里本来就还没做的那几格。）
+// xl:known-gap 语句位花括号当块 / `try…catch` 体 / `do…while` 尾 / 裸块后面那一行以 `/` 开头
 // xl:round 1231
 // xl:end
 declare const a: any;
 
-function w1() { }
+try { }
+catch (e) { }
 /re/g;
 
-function w2() { }
-+1;
+do { }
+while (a)
+/re/g;
 
-function w3() { }
--1;
-
-function w4() { }
-/re/g`t`;
+{ }
+/re/g;
 
 { p: 1 }`t`;
