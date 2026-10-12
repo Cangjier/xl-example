@@ -347,6 +347,45 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1233 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **控制头之后那一行以 `/` 开头那一族**（口径 1.1，第 1232 轮那一族的**另一半**；`gap-r1231-decl-newline-operator.ts` 收得只剩两格）；1.2 是**又一次如实记下的负结果**（`ApplyTo` 那前半截提到调用点，14 对 mean **+18.54ms**、se 22.52 ⇒ 不可分辨）
+
+**一句话**：1.1 收的是「**头**括号之后」那一半——`while (a)` / `for (;;)` / `if (a)` / `do { } while (a)` 换行 `/re/g;` 里紧挨着 `/` 的那一格是**控制头的 `)`**，而第 1232 轮那一支只管花括号 ⇒ 全落回除号；判据是**位置**（控制头的 `)` 之后一定是新的一条语句，语句开头的 `/` 只能是正则），新立的 `RegexTokenBranch.IsControlHeader` 问的就是「这个 `(` 前面那一格是不是控制词」，并把 `.while` / `?.while`（成员名后面那个调用括号）排掉；同一轮还给 `IsStatementBrace` 补了一格（**已经收好的块也是站在语句位的头**，`try…catch` 那一档）。1.2 把闭规则那一趟里「每次 `ApplyTo` 都重算一遍的前半截」提到调用点量了一遍：**与 0 不可分辨**（与第 1231 轮删 `Array.isArray` 那一笔同一条结论）。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 两处：① `regex-token.xl.md` 的 `Condition` 补一支——`previous` 是 `(` 括号且新立的 `RegexTokenBranch.IsControlHeader` 答是 ⇒ 正则；② `IsStatementBrace` 的收尾那一句放开到「`startBracket === "{" && endBracket === "}"`」（收好的块） | `tmp/r1233-ctl.mjs`：该收的 **5 档全对上**（`while` / `for` / `if` / `do…while` / `try…catch`）；对照档 **10 条一条没动**（`(a)` / `(a + 1)` / `[a][0]` / `o.m(a)` / `obj.while(a)` / `obj.if(a)` / `o.for(a)` / `typeof (a)` / `a ? (a) : (a)` / `a`）；新立守卫用例 [expr-r1233-control-head-regex.ts](tests/cases/token/expressions/expr-r1233-control-head-regex.ts) 单跑 **173 / 173**（缺 0 漂 0 多 0 字段名 0）；`gap-r1231-decl-newline-operator.ts` 只剩**两格**（语句位的裸块、语句位的 `{ p: 1 }`t``） |
+| **1.2** | **什么都没留**：只改 `build/` 里那两份产物做实验（`close-rule.js` 加 `ApplyToData(template, units)`、`parse-pipeline.js` 的 `RunCloseRules` 改调它），量出来与 0 不可分辨 ⇒ **整笔撤掉**，只把读数写进 `close-rule.xl.md` 的 `ApplyTo` 那一格 | parse A/B 14 对 × 每批 2 轮 mean **+18.54ms/轮**（sd 84.27、se 22.52、**7:6** 另有一对持平、median 0.00）⇒ 不可分辨；同轮另外两处如实记：`ReorganizeDeclarationDecorators` 一份语料被调 **1201** 次、来回走 **603782** 格、里面 **0 个 `@`**（约 1.6%，不动） |
+
+**1.1 的现场**（`tmp/r1233-debug.mjs` 插桩读出的那一刻）：
+
+```text
+do { } / while (a) / +换行后 /re/g;   的 unit.Data：
+  Statement|LineWrap|Identifier|Bracket({)|LineWrap|Identifier|Bracket(()|Bracket({)|LineWrap|SymbolToken(/)
+  —— 紧挨着 `/` 的那一格是第二个 `Bracket({)`（catch 的体），parent=Root
+try { } / catch (e) { } / 换行 /re/g; 走到「往回找头」那一趟时，头正是 try 的体那个块
+```
+
+判据两条都不看括号里装的是什么，只看**它属于谁**：控制词那一格按词形认（这一趟跑得比
+`KeywordCloseRule` 早，`if` / `while` / `for` 此刻还是 `Identifier`，与 `this` / `super` 那一支同）；
+`.while` 那一档与 `Statement.IsLineBreakBoundary` 里「点号后面的名字不算期待操作数」同一口径。
+
+**1.2 的读数（负结果）**：
+
+```text
+把 ApplyTo 的前半截（unit.Data / Array.isArray / length===0 / unit.Template）提到 RunCloseRules
+  只改 build/ 两份产物    14 对 × 每批 2 轮  mean +18.54ms/轮（sd 84.27、se 22.52）7:6
+——与第 1231 轮「删掉 Array.isArray 那一问」的 +6.54ms（se 23.62）同一条结论：
+  192 万次调用的账全落在噪声底下（那一份语料一轮 parse ~800ms，配对 sd 就是 80ms 量级）
+```
+
+**净账**：`cases:tsast` 16 片全过、已知缺口 **1 条还开着、0 条已经收掉**（就是这一族里还留着的那两格）；
+`cases:direct` 全语料不抛异常（**1678 份**）；`direct:lint` 0 条违反；`samples` ok；
+`cases:check` **1695** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；
+`coverage` **4300 / 4459**（blocked 26、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；
+`npx tsc`（strict）0 error；八道门墙钟 **29.2s**；`best of 5`：parse **864.0**、xml 35.5、printAst 80.7。
+
+**两条 commit**：`8220e9e4`（1.1 控制头之后那一行）、`67c3c2b7`（1.2 负结果：`ApplyTo` 前半截的读数）。
+
 ### 第 1232 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **语句位的声明 / 体之后那一行以运算符或 `/` 开头那一族**（口径 1.1，两处根因都在**位置**上，第 1231 轮登记的那一族**前半截全部收掉**）；1.2 是**一次如实记下的负结果**（挂载委派那 **72.1%** 与收敛环那 **62ms**，两条路都量不出来）
 
 **一句话**：1.1 收的是第 1231 轮登记的 `gap-r1231-decl-newline-operator` 那一族——**两处根因、同一件事的两半，两半都不在名单上、在位置上**：① `function w() { }` 换行 `/re/g;` 里那一格 `Function` 是**声明**，而 `IsOperand` 名单里它（与 `Class`）是为**表达式位**那两档补的 ⇒ 整条声明被折成二元左操作数；② 体那个花括号（`function` / `for` / `while` / 裸块）在解析期还是**裸 `Bracket`**，「凡是 `Bracket` 都答除号」⇒ `/` 退化成 `SlashToken`、正则整格丢。1.2 把「挂载委派那七成」与「收敛环那份草稿纸」两处量到底：**上界 62ms 全在多出来的那几趟上**，拷一份与逐格比那一半量不出来 ⇒ 两条路都按口径整笔撤掉，只留读数。
