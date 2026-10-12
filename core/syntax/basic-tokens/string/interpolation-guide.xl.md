@@ -1,18 +1,18 @@
 # dependencies
 ```xl
-import { GuideToken } from "../../../../core/syntax/guide-token.xl.md"
-import { Source } from "../../../../core/syntax/source.xl.md"
-import { SyntaxContext } from "../../../../core/syntax/syntax-context.xl.md"
-import { Token } from "../../../../core/syntax/token.xl.md"
-import { Template } from "../../../../core/syntax/templates/template.xl.md"
+import { GuideToken } from "../../guide-token.xl.md"
+import { Source } from "../../source.xl.md"
+import { SyntaxContext } from "../../syntax-context.xl.md"
+import { Token } from "../../token.xl.md"
+import { Template } from "../../templates/template.xl.md"
 import { InterpolationString } from "./interpolation-string.xl.md"
-import { ReloadMessage } from "../../../../core/syntax/messages/reload-message.xl.md"
+import { ReloadMessage } from "../../messages/reload-message.xl.md"
 import { String } from "./string.xl.md"
 ```
 
 # namespace cangjie
 
-`Dawn/Text`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
 插值引导：原始/内插混合的字符串（`StringGuide` 认出来的 `$` + `"""` 那一族）遇到 `{` 时挂上本向导，由它数**连续的左花括号**，再决定这串括号是「字面量」还是「插值的开头」。
 
@@ -32,7 +32,7 @@ return (this.Parent as String)!;
 
 ## private field Items:Array<Source> = []
 
-已经数过的左花括号位置（每个 `{` 一个），按遇到顺序排列。因为两个分支都会提前 `return`，方法末尾那句 `push` 实际上只在「当前字符就是 `{`」时执行，所以这里只装 `{`。
+已经数过的左花括号位置（每个 `{` 一个），按遇到顺序排列；只有当前字符就是 `{` 时才会记进来。
 
 ## private field BracketCount:int = 0
 
@@ -53,7 +53,7 @@ super(template);
 两条支路：
 
 - **够数**（`BracketCount >= ParentString.InterpolationCount`）：先把自己摘掉，然后把多出来的 `Next = BracketCount - InterpolationCount` 个 `{` 当作字面量还给常量字符串（`AppendToLastConstString`，并在 `i == 0` 时用 `TrySignIn` 给新建的常量字符串签入）；接着挂一个新的 `InterpolationString` 并用 `Items[0]` 签入，最后把当前字符 `ReloadMessage` 回队首重新处理一遍，然后返回。
-  - 注意 `Items[0]` 是**第一个** `{` 的位置（不是第 `Next` 个）——这里就是这样实现的，不"修正"。
+  - 注意 `Items[0]` 是**第一个** `{` 的位置（不是第 `Next` 个）。
 - **不够数**（`BracketCount < ParentString.InterpolationCount`）：这串 `{` 全是字面量，逐个 `AppendToLastConstString(…).TrySignIn(…)` 还回去，再 `ReloadMessage`。
 
 两个分支都 `return`，所以只有 `{` 会走到末尾的 `Items.push(source)`。
@@ -92,7 +92,7 @@ this.Items.push(source);
 
 ## method Clone:()=>Token
 
-克隆自身——这个向导是一次性的，所以克隆直接抛错。
+克隆自身——这个向导是一次性的，直接抛错。
 
 ```ts
 throw new Error("抽象成员未实现");

@@ -6,9 +6,9 @@ import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
 import { DeclarationEnd } from "../declaration-common.xl.md"
-import { Bracket } from "../bracket.xl.md"
+import { Bracket } from "../../../../core/syntax/basic-tokens/bracket.xl.md"
 import { InterfaceBody } from "./interface-body.xl.md"
-import { Common } from "../common.xl.md"
+import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { Symbol } from "../symbol.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
@@ -309,7 +309,7 @@ return `<${name} InterfaceName="${this.InterfaceName}" ExtendsInterfaceNames="${
 
 新建接口体段并挂到自己名下，返回新单元。
 
-接口体单独成段是必须的：`{ }` 括号自己**没有**重组队列（见 `../bracket.xl.md` 的 `Use`），
+接口体单独成段是必须的：`{ }` 括号自己**没有**重组队列（见 `../../../../core/syntax/basic-tokens/bracket.xl.md` 的 `Use`），
 成员要成形就得由这一段在构造时挂上语句队列（见 `./interface-body.xl.md`）。
 
 ```ts

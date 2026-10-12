@@ -13,7 +13,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 `function` 的函数体段：`FunctionReorganization.Process` 把 `{ ... }` 那对括号的内容搬进来，
 之后这一段自己再跑一遍**语句**重组，把函数体啃成语句树。
 
-与 `ClassBody` / `ForBody` / `TryBody` 是同一族：`{ }` 括号没有重组队列（见 `../bracket.xl.md` 的 `Use`），
+与 `ClassBody` / `ForBody` / `TryBody` 是同一族：`{ }` 括号没有重组队列（见 `../../../../core/syntax/basic-tokens/bracket.xl.md` 的 `Use`），
 语句队列必须挂在搬完内容的那一段上。
 
 语句重组队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。

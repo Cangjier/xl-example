@@ -93,7 +93,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `if` / `for` / `foreach` / `while` / `try` | `<IfSet>` `<For>` `<Foreach>` `<While>` `<Try>` 及各自的分段 | 见各自文件 |
 | `name(...)`（调用）/ `name: Type`（类型标注） | `<Method>` / `<TypeDefine>` | `MethodName` |
 | 泛型实参段与类型参数段（`Array<T>` / `<T extends X = Y>`） | `<GenericType>` | `StartBracketChar` `EndBracketChar` |
-| 字符串（常量 / 内插 / 逐字 / 原始 / 模板） | `<String>` + `<ConstString>` / `<InterpolationString>` | 见 `tokens/string/` |
+| 字符串（常量 / 内插 / 逐字 / 原始 / 模板） | `<String>` + `<ConstString>` / `<InterpolationString>` | 见 `core/syntax/basic-tokens/string/` |
 | `async` / `await` / `return` / `throw` / `readonly` … | `<Keyword>` | — |
 
 `Modifiers` 是声明前面那一串修饰词按源码顺序 `join(",")`（`export` / `declare` / `default` / `abstract` /

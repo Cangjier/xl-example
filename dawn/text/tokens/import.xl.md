@@ -5,10 +5,10 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { Common } from "./common.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "./symbol.xl.md"
-import { ConstString } from "./string/const-string.xl.md"
-import { String } from "./string/string.xl.md"
+import { ConstString } from "../../../core/syntax/basic-tokens/string/const-string.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { WrapSymbol } from "./wrap-symbol.xl.md"
 ```
 

@@ -1,12 +1,12 @@
 # dependencies
 ```xl
-import { BranchStates } from "../../../../core/syntax/branch-states.xl.md"
-import { ReloadMessage } from "../../../../core/syntax/messages/reload-message.xl.md"
-import { Source } from "../../../../core/syntax/source.xl.md"
-import { SyntaxContext } from "../../../../core/syntax/syntax-context.xl.md"
-import { Token } from "../../../../core/syntax/token.xl.md"
-import { Template } from "../../../../core/syntax/templates/template.xl.md"
-import { UnitToken } from "../../../../core/syntax/unit-token.xl.md"
+import { BranchStates } from "../../branch-states.xl.md"
+import { ReloadMessage } from "../../messages/reload-message.xl.md"
+import { Source } from "../../source.xl.md"
+import { SyntaxContext } from "../../syntax-context.xl.md"
+import { Token } from "../../token.xl.md"
+import { Template } from "../../templates/template.xl.md"
+import { UnitToken } from "../../unit-token.xl.md"
 import { ConstString } from "./const-string.xl.md"
 import { InterpolationGuide } from "./interpolation-guide.xl.md"
 import { InterpolationString } from "./interpolation-string.xl.md"
@@ -17,15 +17,15 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 # namespace cangjie
 
-`Dawn/Text/Tokens/String`：字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+
+字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
 
 字符串单元：`StringGuide` 判定出是哪种字符串后就换成它。它是**单元**（能挂载子单元），按五个开关 `IsSupportInterpolation` / `IsSupportVerbatim` / `IsSupportRaw` 分成七条完全不同的处理路径：内插看到 `{` 就挂载 `InterpolationString`，逐字看到引号就挂载 `VerbatimQuoteGuide`，原始串看到引号就挂载 `RawQuoteExitGuide`，其余字符一律攒进常量块 `ConstString`。
 
-三个开关与两个计数会**直接印在 XML 标签上**（`ToXmlString`），是本文件最不能出错的地方。
+三个开关与两个计数会直接印在 XML 标签上（`ToXmlString`）。
 
-本文件里的 `String` 类与内置的 `String` 无关：本模块里的 `String` 会遮蔽全局 `String`，这是**故意的**，因为 `ToXmlString` 拿类名当标签名，改了就变了 XML 标签名。
-
-`char` 表示单字符，规范里一律写 `string`。本文件没有需要排在前面的展平嵌套类；同命名空间的 `StringGuide` 是**另一个顶层类**，在 `string-guide.xl.md` 里。
+标签名取类名，所以本类的类名就是它产出的 XML 标签名。
 
 # class String extends UnitToken
 
@@ -33,37 +33,35 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 ## field IsSupportInterpolation:bool = false
 
-是否支持内插字符串（`$"{a}"`）。写在 XML 标签上，一字不能差。
+是否支持内插字符串（`$"{a}"`），会写进 XML 标签。
 
 ## field IsSupportVerbatim:bool = false
 
-是否支持逐字字符串（`@"D:\1"`）。写在 XML 标签上。
+是否支持逐字字符串（`@"D:\1"`），会写进 XML 标签。
 
 ## field IsSupportRaw:bool = false
 
-是否支持原始字符串（`""" a """`）。写在 XML 标签上。
+是否支持原始字符串（`""" a """`），会写进 XML 标签。
 
 ## field InterpolationCount:int = 0
 
-内插前缀 `$` 的个数（与内插串里 `{` 的数量一致）。写在 XML 标签上。
+内插前缀 `$` 的个数（与内插串里 `{` 的数量一致），会写进 XML 标签。
 
 ## field RawQuoteCount:int = 0
 
-原始字符串的开引号个数。写在 XML 标签上。
+原始字符串的开引号个数，会写进 XML 标签。
 
 ## field StringChar:string = ""
 
-本串用的引号字符。它只在构造器里赋值一次，所以按字段表达。
+本串用的引号字符，只在构造器里赋值一次。
 
 ## private field Translate:Translate = new Translate()
 
-转义累加器：`\` 之后的字符逐个进来，凑够一个转义序列再解码。字段名与类名同名，ts 里合法。
-
-`Translate` 来自同目录的 `translate.xl.md`，本文件只用到它的 `IsTranslating` / `Append` / `DecodeClear` 三个成员。
+转义累加器：`\` 之后的字符逐个进来，凑够一个转义序列再解码。本文件只用到 `IsTranslating` / `Append` / `DecodeClear` 三个成员。
 
 ## private field LastTranslateSource:Source | null = null
 
-上一次解码转义序列时用的位置。用 `null` 表达「还没设过」的状态，与下面的比较行为一致（`Source.Same` 对 `null` 与非 `null` 判不等）。
+上一次解码转义序列时用的位置；`null` 表示还没设过。
 
 ## field IsRawIndentFormated:bool = false
 
@@ -75,7 +73,7 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 ## constructor:(template:Template, stringChar:string)=>void
 
-以模板与引号字符创建，并顺手把本单元的跳转/重组队列从模板上取下来：记下 `StringChar`，`ProcessQueue = template.BranchTemplate.Get(this.constructor, null)`，`ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)`（`SequenceTemplate` 以**构造器对象**为键做派发）。
+以模板与引号字符创建：记下 `StringChar`，并把本单元的跳转队列与重组队列从模板上取下来。
 
 ```ts
 super(template);
@@ -94,7 +92,7 @@ return false;
 
 ## method Undo:(source:Source)=>void
 
-回退转交给**最后一个**子单元；它不是 `ConstString` 就抛错。`!(last instanceof ConstString)` 在 `last` 为 `null` 时同样成立，所以空单元也走抛错那一支。
+回退转交给**最后一个**子单元；它不是 `ConstString`（包括还没有子单元）就抛错。
 
 ```ts
 const last = this.Last();
@@ -118,8 +116,8 @@ this.Closed = true;
 把 `value` 追加到最后一个常量块上，并返回那个常量块。三步：
 
 1. 还没有子单元、或最后一个子单元不是 `ConstString`——新建一个 `ConstString`、把它的 `ParentString` 指回自己、`SignIn` 后 `AddAndCloseLast`。
-2. `value` 非 `null` 就 `AppendValueAndSignOut(value, signSource)` 把字符收进常量块；参数本身就是 `string | null`，可直接传。
-3. `value` 为 `null` 时只 `SignOut(signSource)`——「这个位置只签出、不加字符」，`Translate.DecodeClear()` 返回 `null`（如 `\` + 换行）时走这条路。
+2. `value` 非 `null` 就用 `AppendValueAndSignOut(value, signSource)` 把字符收进常量块。
+3. `value` 为 `null` 时只 `SignOut(signSource)`：这个位置只签出、不加字符。
 
 ```ts
 if (this.Data.length === 0 || !(this.Last() instanceof ConstString)) {
@@ -150,8 +148,6 @@ return result;
 5. **内插 + 原始**：`{` 挂 `InterpolationGuide` 并插 `ReloadMessage`；引号挂 `RawQuoteExitGuide` 并插 `ReloadMessage`；其余进常量块。
 6. **纯字符**（三个开关全关，如反引号串）：与第 2 条同款转义处理，但多一条特例——`{` 且前一个字符是 `$` 且那个 `$` 不是刚解码出来的（`!= LastTranslateSource`）且 `StringChar` 是反引号时，判为 ts 模板串的内插起点：`InterpolationCount = 1`、把前一个字符 `$` 从单元上 `Undo` 掉、挂 `InterpolationString`。
 7. 其余组合直接抛错，文案里带上三个开关的当前值。
-
-两处写法值得说明：`source.Pre()!` 取出的是前一个 `Source` 本身；`!Source.Same(source.Pre(), this.LastTranslateSource)` 是「当前位置与上一次解码转义的位置不是同一个」。
 
 ```ts
 const value = source.Value;
@@ -230,7 +226,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
 
 强制退出：签出、尝试关闭、然后从父单元卸载自己。
 
-它把这个方法暴露出来给向导使用——`StringGuide` 判定串已经结束时靠它收尾。
+供 `StringGuide` 在判定串已经结束时调用。
 
 ```ts
 this.SignOut(source);
@@ -247,8 +243,6 @@ this.Quit();
 3. `RawIndent = GetRowIndent()`，再把末行的行尾空格与换行符删掉（`RemoveLastLine`）。
 4. `Data[0]` 不是 `ConstString` 就抛「原始字符串首行异常」；否则删掉它的首行（`RemoveFirstLine`）。
 5. 遍历所有子单元，`ConstString` 逐个 `RemoveIndent(RawIndent, IsFirst)`——只有**第一个**常量块需要额外处理首行，`IsFirst` 在第一次迭代后置 `false`。
-
-`instanceof ConstString` 用来逐个判定常量块。
 
 ```ts
 if (!this.IsSupportRaw) {
@@ -302,14 +296,7 @@ return BranchStates.Undo;
 
 产出 XML：标签名是运行时类型名，标签上带**五个属性**，内容是所有子单元的 XML 串接。
 
-最后一句拼串（下面是节选，属性顺序与分隔符一字不差）：
-
-`return $"<{Name} IsSupportInterpolation={IsSupportInterpolation}" + " IsSupportVerbatim={...}" + " IsSupportRaw={...}" + " InterpolationCount={...}" + " RawQuoteCount={...}>{Tmp.Join("")}</{Name}>";`
-
-**两个必须留意的细节**：
-
-- 三个 `bool` 属性要印成 `True` / `False`（**首字母大写**），不是 ts 原生的 `true` / `false`。夹具 `tests/fixtures/xml/04-string.xml` 里写的正是 `IsSupportInterpolation=False`，所以显式三元成 `"True"` / `"False"`。
-- 标签名取自 `this.constructor.name`；属性之间、属性与 `>` 之间都是**单个空格**，属性之间没有任何换行。
+两个细节：三个 `bool` 属性印成 `True` / `False`（首字母大写），不是 `true` / `false`；标签名取运行时类型名，属性之间、属性与 `>` 之间都是单个空格。
 
 ```ts
 const name = this.constructor.name;

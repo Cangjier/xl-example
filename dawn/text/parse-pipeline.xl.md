@@ -5,11 +5,11 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Sequence } from "../../core/syntax/templates/sequence.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
-import { AreaAnnotation } from "./tokens/area-annotation.xl.md"
+import { AreaAnnotation } from "../../core/syntax/basic-tokens/area-annotation.xl.md"
 import { AsReorganization } from "./tokens/as.xl.md"
-import { Bracket } from "./tokens/bracket.xl.md"
+import { Bracket } from "../../core/syntax/basic-tokens/bracket.xl.md"
 import { ClassReorganization } from "./tokens/class/class.xl.md"
-import { Common } from "./tokens/common.xl.md"
+import { Common } from "../../core/syntax/basic-tokens/common.xl.md"
 import { CompoundAssignmentOperatorReorganization } from "./tokens/compound-assignment-operator.xl.md"
 import { Decorator, DecoratorReorganization } from "./tokens/decorator.xl.md"
 import { EnumReorganization } from "./tokens/enum/enum.xl.md"
@@ -27,7 +27,7 @@ import { KeywordReorganization } from "./tokens/keyword.xl.md"
 import { LabelReorganization } from "./tokens/label.xl.md"
 import { LamdaReorganization } from "./tokens/lamda/lamda.xl.md"
 import { LetReorganization } from "./tokens/let.xl.md"
-import { LineAnnotation } from "./tokens/line-annotation.xl.md"
+import { LineAnnotation } from "../../core/syntax/basic-tokens/line-annotation.xl.md"
 import { LogicalOperatorReorganization } from "./tokens/logical-operator.xl.md"
 import { MethodReorganization } from "./tokens/method.xl.md"
 import { MethodDeclarationReorganization } from "./tokens/function/method-declaration.xl.md"
@@ -35,9 +35,9 @@ import { NotNullReorganization } from "./tokens/not-null.xl.md"
 import { NullConditionalOperatorReorganization } from "./tokens/null-conditional-operator.xl.md"
 import { NewReorganization } from "./tokens/new/new.xl.md"
 import { PreprocessorDirectives } from "./tokens/preprocessor-directives.xl.md"
-import { RegexToken } from "./tokens/regex-token.xl.md"
+import { RegexToken } from "../../core/syntax/basic-tokens/regex-token.xl.md"
 import { StatementReorganization2, StatementReorganization3 } from "./tokens/statement.xl.md"
-import { StringGuide } from "./tokens/string/string-guide.xl.md"
+import { StringGuide } from "../../core/syntax/basic-tokens/string/string-guide.xl.md"
 import { SwitchReorganization } from "./tokens/switch/switch.xl.md"
 import { Symbol } from "./tokens/symbol.xl.md"
 import { TernaryOperatorReorganization } from "./tokens/ternary-operator/ternary-operator.xl.md"
@@ -107,7 +107,7 @@ return new Sequence<Branch>([
 **注释不在这里被摘掉**：跳转队列把行注释与区域注释解析成独立单元（见 `CreateGeneralQueue`），
 而重组队列里没有摘除它们的规则，所以它们会以 `<LineAnnotation>…</LineAnnotation>` /
 `<AreaAnnotation>…</AreaAnnotation>` 的形式出现在 XML 里。要让注释不进产物，就在这张表的前面加两条
-「把注释从父单元 `Data` 里删掉」的规则（`tokens/line-annotation.xl.md` / `tokens/area-annotation.xl.md`
+「把注释从父单元 `Data` 里删掉」的规则（`../../core/syntax/basic-tokens/line-annotation.xl.md` / `../../core/syntax/basic-tokens/area-annotation.xl.md`
 各写一个 `Reorganization` 子类即可）。
 
 **队首这段的顺序本身就是语义**（每一条各自的理由见对应文件）：

@@ -7,7 +7,7 @@ import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { Common } from "./common.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 ```
 
 # namespace cangjie

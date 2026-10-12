@@ -7,8 +7,8 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
 import { DeclarationEnd } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
-import { Bracket } from "../bracket.xl.md"
-import { Common } from "../common.xl.md"
+import { Bracket } from "../../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../symbol.xl.md"
 import { SwitchCompare } from "./switch-compare.xl.md"
 import { SwitchSegment } from "./switch-segment.xl.md"
@@ -21,7 +21,7 @@ import { SwitchSegment } from "./switch-segment.xl.md"
 `switch` 语句：把 `switch (判别) { case …: … default: … }` 整段收成一个 `Switch`，
 里面依次是判别段与若干 `SwitchSegment`。
 
-**分段在括号的 `Data` 上做，不靠重组。** `{ }` 括号没有重组队列（见 `../bracket.xl.md` 的 `Use`），
+**分段在括号的 `Data` 上做，不靠重组。** `{ }` 括号没有重组队列（见 `../../../../core/syntax/basic-tokens/bracket.xl.md` 的 `Use`），
 所以 `switch` 体里的 `case` / `default` 到这一段重组跑起来时**还是散着的** `Common` ——
 正好可以从头扫一遍切段。这也是为什么 `switch` 不需要像 `if` 那样在 `Root` 的队列里兜圈子：
 它一次就把所有段都切完。

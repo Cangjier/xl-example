@@ -1,31 +1,31 @@
 # dependencies
 ```xl
-import { Branch } from "../../../../core/syntax/branch.xl.md"
-import { BranchConditionResult } from "../../../../core/syntax/branch-condition-result.xl.md"
-import { GuideToken } from "../../../../core/syntax/guide-token.xl.md"
-import { ReloadMessage } from "../../../../core/syntax/messages/reload-message.xl.md"
-import { Source } from "../../../../core/syntax/source.xl.md"
-import { SyntaxContext } from "../../../../core/syntax/syntax-context.xl.md"
-import { Token } from "../../../../core/syntax/token.xl.md"
-import { Template } from "../../../../core/syntax/templates/template.xl.md"
+import { Branch } from "../../branch.xl.md"
+import { BranchConditionResult } from "../../branch-condition-result.xl.md"
+import { GuideToken } from "../../guide-token.xl.md"
+import { ReloadMessage } from "../../messages/reload-message.xl.md"
+import { Source } from "../../source.xl.md"
+import { SyntaxContext } from "../../syntax-context.xl.md"
+import { Token } from "../../token.xl.md"
+import { Template } from "../../templates/template.xl.md"
 import { String } from "./string.xl.md"
 ```
 
 # namespace cangjie
 
-`Dawn/Text/Tokens/String`：字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+
+字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
 
 引号向导：只看**开引号**那一个字符。它先向前回看有没有 `$`（内插）或 `@`（逐字）前缀，把它们退回去并记在自己身上；再看紧跟着的第二、第三个引号，据此判定这是空串、普通串还是原始字符串，然后把自己**替换**成一个真正的 `String` 单元。
 
-展平出来的嵌套类 `StringGuide.Branch` 写在 `StringGuide` **之前**——`StringGuide` 的静态字段 `JumpIn` 在类定义时立即 `new StringGuideBranch()`，写反了会命中 ts 的暂时性死区（TDZ）。
-
 # class StringGuideBranch extends Branch
 
-它永远不进 `Data`、不进 XML，所以这个类名不出现在产物里。但**成员名不能改**：模板层由 `template.BranchTemplate.AddModifyItem(typeof(StringGuide.Branch), …)` 拿到这个分支实例，再调 `AddStringChar` 两次，分别传入反引号与单引号，给本项目补上这两种字符串起点——那是模板层的就地修改器（`SequenceTemplate.ModifyItem`），所以 `AddStringChar` 这个名字必须一字不差。
+它永远不进 `Data`、不进 XML。模板层拿到这个分支实例后调 `AddStringChar` 两次，分别传入反引号与单引号，补上这两种字符串起点。
 
 ## field StringChars:Array<string> = ['"']
 
-本分支认哪些字符是**字符串起点**。初始只有双引号，反引号与单引号由模板层在运行时补进来。
+本分支认哪些字符是字符串起点。初始只有双引号，反引号与单引号由模板层在运行时补进来。
 
 ## method AddStringChar:(item:string)=>void
 
@@ -41,7 +41,7 @@ if (!this.StringChars.includes(item)) {
 
 当前字符是不是字符串起点。
 
-用 `FromBool` 工厂把判定结果包成 `BranchConditionResult`，`Message` 保持 `0`。
+`Message` 保持 `0`。
 
 ```ts
 return BranchConditionResult.FromBool(this.StringChars.includes(source.Value));
@@ -51,9 +51,7 @@ return BranchConditionResult.FromBool(this.StringChars.includes(source.Value));
 
 认下这个引号：新建一个 `StringGuide`，向前回看前缀，再把它挂到 `unit` 上。
 
-回看循环：从当前字符往前一个位置起，只要还是 `$` 或 `@` 就记进 `undoSources` 继续往前走，遇到别的字符就停。随后**逆序处理**记下来的每个前缀：`@` 置 `IsSupportVerbatim`，`$` 置 `IsSupportInterpolation` 并把 `InterpolationCount` 加一；无论哪种都调 `unit.Undo(i)` 把那个字符从 `unit` 上退掉（引号前的前缀不属于任何单元）。
-
-注意 `last!.Pre()` 取出的是前一个 `Source` 本身、不是字符；`last` 是可空引用，`last !== null && last.Value === "$"` 用来判「前一个字符是 `$`」。
+回看循环：从当前字符往前一个位置起，只要还是 `$` 或 `@` 就记进 `undoSources` 继续往前走，遇到别的字符就停。随后逆序处理记下来的每个前缀：`@` 置 `IsSupportVerbatim`，`$` 置 `IsSupportInterpolation` 并把 `InterpolationCount` 加一；无论哪种都调 `unit.Undo(i)` 把那个字符从 `unit` 上退掉。
 
 ```ts
 const item = new StringGuide(unit.Template, source.Value);
@@ -89,8 +87,6 @@ unit.AddToMounted(item).SignIn(source);
 
 把 `StringGuideBranch` 注册进 `Root` 的通用跳转队列用的实例。
 
-调用点只把它塞进序列一次（`Root.GeneralQueue`），所以共享一份实例即可。
-
 ## field IsSupportInterpolation:bool = false
 
 是否支持内插字符串——由前缀 `$` 的个数决定（每个 `$` 都让 `InterpolationCount` 加一）。
@@ -109,7 +105,7 @@ unit.AddToMounted(item).SignIn(source);
 
 ## field StringChar:string = ""
 
-本次识别的字符串用的引号字符（双引号、单引号或反引号）。它只在构造器里赋值一次，按字段表达即可。
+本次识别的字符串用的引号字符（双引号、单引号或反引号），只在构造器里赋值一次。
 
 ## constructor:(template:Template, stringChar:string)=>void
 
@@ -129,8 +125,6 @@ this.StringChar = stringChar;
 1. `QuoteCount == 1`——当前字符又是引号就只把计数加到 `2`（可能是空串、全量串或 `@` 下的转义双引号）；否则说明是单引号串（`"x"`），就地换成一个 `IsSupportRaw = false`、`RawQuoteCount = 1` 的 `String`，并以**前一个位置**签入，最后插一条 `ReloadMessage` 让它把当前字符重新处理一遍。
 2. `QuoteCount == 2`——当前字符又是引号时计数加到 `3`：若 `IsSupportVerbatim`，这就是逐字串里表达一个双引号的三引号，替换成 `String` 后用「前前一个位置」签入，并**插两条** `ReloadMessage`（分别重处理前一个位置与当前位置）；不逐字则什么都不做，继续往原始字符串走。当前字符不是引号时就是空串 `""`：替换成 `String` 后从前前一个位置签入、从前一个位置签出，把 `Parent!.MountedUnit` 清空，再插一条 `ReloadMessage`。
 3. 其余（`QuoteCount >= 3`）——当前字符又是引号就继续加计数；否则确定为原始字符串，替换成 `IsSupportRaw = true`、`RawQuoteCount = QuoteCount` 的 `String`，以 `SourceRange.Start` 签入，再插一条 `ReloadMessage`。
-
-ts 没有对象初始化器语法，所以每个分支先建实例再逐个赋属性。另有两处写法值得说明：`source.Pre()!` 取出的是前一个 `Source` 本身；构造 `ReloadMessage` 走静态工厂 `ReloadMessage.WithoutProcessOwner`。
 
 ```ts
 const value = source.Value;

@@ -1,23 +1,23 @@
 # dependencies
 ```xl
-import { UnitToken } from "../../../../core/syntax/unit-token.xl.md"
-import { BranchStates } from "../../../../core/syntax/branch-states.xl.md"
-import { Source } from "../../../../core/syntax/source.xl.md"
-import { SyntaxContext } from "../../../../core/syntax/syntax-context.xl.md"
-import { Token } from "../../../../core/syntax/token.xl.md"
-import { Template } from "../../../../core/syntax/templates/template.xl.md"
-import { ReloadMessage } from "../../../../core/syntax/messages/reload-message.xl.md"
+import { UnitToken } from "../../unit-token.xl.md"
+import { BranchStates } from "../../branch-states.xl.md"
+import { Source } from "../../source.xl.md"
+import { SyntaxContext } from "../../syntax-context.xl.md"
+import { Token } from "../../token.xl.md"
+import { Template } from "../../templates/template.xl.md"
+import { ReloadMessage } from "../../messages/reload-message.xl.md"
 import { InterpolationExitGuide } from "./interpolation-exit-guide.xl.md"
 import { String } from "./string.xl.md"
 ```
 
 # namespace cangjie
 
-`Dawn/Text`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
 插值字符串：`{ … }` 这一段本身。它是**单元**（不是向导），括号里的内容由挂载的子单元自己啃；只有那个 `}` 归它管——它把 `}` 转交给 `InterpolationExitGuide` 去数。
 
-它的 XML 由基类 `Token.ToXmlString` 产出：`<InterpolationString>子单元</InterpolationString>`（它没有覆写 `ToXmlString`），所以类名必须正好是 `InterpolationString`，否则 XML 标签名就变了。
+没有覆写 `ToXmlString`，XML 由基类 `Token.ToXmlString` 产出：`<InterpolationString>子单元</InterpolationString>`；标签名取类名。
 
 # class InterpolationString extends UnitToken
 
@@ -25,7 +25,7 @@ import { String } from "./string.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建时按自己的运行时类型取跳转队列与重组队列：用 `this.constructor` 去模板上查（`SequenceTemplate` 以**构造器对象**为键做派发）。
+创建时按自己的运行时类型取跳转队列与重组队列。
 
 ```ts
 super(template);
@@ -66,8 +66,6 @@ if (Value === "\r" || Value === "\n" || Value === " " || Value === "\t") {
 
 强制退出：签出到 `source`，尝试关闭（关自己并跑重组），再从父单元卸载自己。
 
-注意它**没有**用 `context`，参数只是为了给 `InterpolationExitGuide` 一个统一调用形态。同名的 `String.ForceExit` 只收一个参数，别混。
-
 ```ts
 this.SignOut(source);
 this.TryToClose();
@@ -77,8 +75,6 @@ this.Quit();
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 遇到 `}` 就把退出向导挂到自己身上，并把当前 `}` 重新插回队首，让向导拿到它。
-
-注意 `AddToMounted` 之后**没有** `SignIn`（与 `String.Default` 里的用法不同）。
 
 ```ts
 if (source.Value === "}") {
@@ -91,7 +87,7 @@ return BranchStates.Undo;
 
 ## method Clone:()=>Token
 
-克隆自身：`Sign(this)` → `AddRange(Data.map(...))` → `TryToClose()`。`AddRange` 传的是一批克隆出来的子单元。
+克隆自身：`Sign(this)` → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`。
 
 ```ts
 const result = new InterpolationString(this.Template);

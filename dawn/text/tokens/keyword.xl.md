@@ -5,7 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { Common } from "./common.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 ```
 
 # namespace cangjie

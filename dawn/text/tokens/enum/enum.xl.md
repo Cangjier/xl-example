@@ -7,8 +7,8 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
 import { DeclarationEnd, DeclarationModifiers, DeclarationStart, TakeDeclarationDecorators } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
-import { Bracket } from "../bracket.xl.md"
-import { Common } from "../common.xl.md"
+import { Bracket } from "../../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
 import { EnumBody } from "./enum-body.xl.md"
 ```
 

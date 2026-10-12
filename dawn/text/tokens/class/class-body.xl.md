@@ -13,7 +13,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 `class` 的类体段：`ClassReorganization.Process` 把 `{ ... }` 那对括号的内容搬进来，
 之后这一段自己再跑一遍**语句**重组，把成员（方法声明、字段、静态块）逐个收成语句级的节点。
 
-`{ }` 括号本身**没有**重组队列（见 `../bracket.xl.md` 的 `Use`），所以类体在括号关闭时是散着的
+`{ }` 括号本身**没有**重组队列（见 `../../../../core/syntax/basic-tokens/bracket.xl.md` 的 `Use`），所以类体在括号关闭时是散着的
 `Common` / `Symbol` / `WrapSymbol`；把语句队列挂在这一段上，成员才有成形的时机。
 `Interface` 没有这一步——它把括号原样留在树里，类体则要往下啃一层。
 

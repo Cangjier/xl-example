@@ -1,31 +1,31 @@
 # dependencies
 ```xl
-import { BlockToken } from "../../../../core/syntax/block-token.xl.md"
-import { Source } from "../../../../core/syntax/source.xl.md"
-import { Token } from "../../../../core/syntax/token.xl.md"
-import { Template } from "../../../../core/syntax/templates/template.xl.md"
+import { BlockToken } from "../../block-token.xl.md"
+import { Source } from "../../source.xl.md"
+import { Token } from "../../token.xl.md"
+import { Template } from "../../templates/template.xl.md"
 import { String } from "./string.xl.md"
 ```
 
 # namespace cangjie
 
-`Dawn/Text/Tokens/String`：字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-常量文本块：一个 `String` 里所有**真正是文本**的字符都攒在它里面。它自己是块 token，字符进 `Temp`；它的 XML 与基类不同——`<ConstString>` 里放的是**转义后**的文本（换行变 `\n`、`<` 变 `&lt;`…），这一处直接决定 XML 产物。
+字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
 
-`String` 里那个「上一个常量块」的引用（`ParentString`）指回本类的宿主，所以本文件与 `string.xl.md` 互相引用。
+常量文本块：一个 `String` 里所有真正是文本的字符都攒在它里面。它自己是块 token，字符进 `Temp`；它的 XML 与基类不同——`<ConstString>` 里放的是转义后的文本（换行变 `\n`、`<` 变 `&lt;`…）。
 
 # class ConstString extends BlockToken
 
 字符串里的常量文本块。
 
-它只被 `String.AppendToLastConstString` 创建与追加：`String.AppendToLastConstString` 先 `AppendValueAndSignOut` 收字符，`RemoveLastLine` / `RemoveFirstLine` / `RemoveIndent` 这一族方法则在原串缩进格式化时被 `String.FormatRawIndent` 调用——它们都是**原地改 `Temp`**。
+它只被 `String.AppendToLastConstString` 创建与追加；`RemoveLastLine` / `RemoveFirstLine` / `RemoveIndent` 这一族方法在原串缩进格式化时被 `String.FormatRawIndent` 调用，都是原地改 `Temp`。
 
 ## field ParentString:String | null = null
 
 宿主字符串单元（拥有本常量块的 `String`）。
 
-注意这里的 `String` 是**本项目**的 `String` 类（`dawn/text/tokens/string/string.xl.md`），与内置的 `String` 无关。ts 侧这个 import 会遮蔽全局 `String`，这是**故意的**。
+本项目自己的 `String` 类，与内置的 `String` 无关。
 
 ## constructor:(Template:Template)=>void
 
@@ -37,7 +37,7 @@ super(Template);
 
 ## method IsAppend:(Src:Source)=>bool
 
-常量块的字符永远由 `String` 显式推给它，不接受「自己并进自己」的判定，所以恒为 `false`。
+恒为 `false`：常量块的字符由 `String` 显式推给它，不靠并块判定。
 
 ```ts
 return false;
@@ -45,7 +45,7 @@ return false;
 
 ## method IsUndo:(source:Source)=>bool
 
-块 token 可以回退；常量块额外永远允许——`Undo` 由它自己实现。
+恒为 `true`：常量块自己实现 `Undo`。
 
 ```ts
 return true;
@@ -54,8 +54,6 @@ return true;
 ## method Undo:(source:Source)=>void
 
 回退一个字符：`Temp` 的**最后一个**字符必须正好是 `source.Value`，是就弹掉它，否则抛错。
-
-`this.Temp[this.Temp.length - 1]` 对空数组给出 `undefined`，于是走 `else` 抛下面的错。
 
 ```ts
 if (this.Temp[this.Temp.length - 1] === source.Value) {
@@ -75,9 +73,7 @@ this.Closed = true;
 
 ## method TrySignIn:(Src:Source)=>ConstString
 
-「没签入过就签入」：`SourceRange.Start` 为 `null` 时才 `SignIn`，然后返回自身便于链式调用。
-
-注意它与基类的 `SignIn` 不同——**重复调用不抛错**。
+「没签入过就签入」：`SourceRange.Start` 为 `null` 时才 `SignIn`，然后返回自身便于链式调用；与基类的 `SignIn` 不同，重复调用不抛错。
 
 ```ts
 if (this.SourceRange.Start === null) {
@@ -90,17 +86,13 @@ return this;
 
 产出 XML：标签名是运行时类型名，内容是 `Temp` 里**转义后**的文本。
 
-它自带一张 13 项的 `switch`，逐个字符追加：
+逐个字符按下表替换：
 
 | 原字符 | 替换成 | 说明 |
 | --- | --- | --- |
 | `'\r'` `'\n'` `'\t'` `'\a'` `'\b'` `'\f'` `'\\'` `'\''` `'\"'` `'\v'` | `\\r` `\\n` `\\t` `\\a` `\\b` `\\f` `\\\\` `\\'` `\\"` `\\v` | 控制字符与引号/反斜杠转成反斜杠转义 |
 | `'>'` `'<'` `'&'` | `&gt;` `&lt;` `&amp;` | XML 实体 |
 | 其余 | 原字符 | 原样 |
-
-注意它**没有**走基类 `BlockToken.ToXmlString`，而是自己重写了同一张表——表的内容与 `CommonUtil.XmlDecode` 逐项相同，这里仍在本方法里写全，免得产物依赖另一个文件的口径。`String.ToXmlString` 会逐个调用子单元的 `ToXmlString`，所以这段就是 `<String …><ConstString>…</ConstString></String>` 里那截文本，直接决定 XML 产物 `tests/fixtures/xml/04-string.xml`（`<ConstString>hello</ConstString>`）。
-
-这里有一处差异必须留意：响铃字符要写成 `"\x07"`，因为 ts 的 `"\a"` 只等于字母 `"a"`；标签名取自 `this.constructor.name`。
 
 ```ts
 let str = "";
@@ -159,19 +151,13 @@ return `<${name}>${str}</${name}>`;
 
 `Temp` 里是否含某个字符。
 
-ts 侧用 `includes`：
-
 ```ts
 return this.Temp.includes(Value);
 ```
 
 ## method SkipContains:(SkipValue:string, FindValue:string)=>bool
 
-从后往前找：跳过所有 `SkipValue`，遇到的第一个其它字符若是 `FindValue` 就返回 `true`，否则返回 `false`。
-
-循环从 `this.Temp.length - 1` 递减到 `0`；`Temp` 全由 `SkipValue` 组成时循环走完返回 `false`。
-
-`String.FormatRawIndent` 用 `SkipContains(' ', '\n')` 判断原串末行是不是「只剩空格就到行尾」。
+从后往前找：跳过所有 `SkipValue`，遇到的第一个其它字符若是 `FindValue` 就返回 `true`，否则返回 `false`；`Temp` 全由 `SkipValue` 组成时返回 `false`。
 
 ```ts
 for (let i = this.Temp.length - 1; i >= 0; i--) {
@@ -208,8 +194,6 @@ return RowIndent;
 
 删掉末行的尾部：从后往前先把行尾的连续空格删掉，再删掉那个 `\n`（随后若有 `\r` 也一并删掉）；途中遇到别的字符就抛错。
 
-局部 `flag` 分两段处理（`0` = 还在行尾空格段，`1` = 已删掉 `\n`、正在找可选的 `\r`）。
-
 ```ts
 let flag = 0;
 for (let i = this.Temp.length - 1; i >= 0; i--) {
@@ -236,8 +220,6 @@ for (let i = this.Temp.length - 1; i >= 0; i--) {
 ## method RemoveFirstLine:()=>void
 
 删掉首行的头部：从前往后删连续空格，删到 `\r\n` 或 `\n` 就**连行尾符一起删掉并返回**；途中遇到别的字符就抛错。
-
-`splice` 删掉一个元素后要写 `i--` 来抵消 `for` 的自增。
 
 ```ts
 let Flag = 0;
@@ -272,8 +254,6 @@ for (let i = 0; i < this.Temp.length; i++) {
 
 从 `Index` 起删掉正好 `Count` 个空格；中途遇到非空格就抛错，删不够 `Count` 个就抛另一个错。
 
-`splice` 删掉一个元素后同样要写 `i--` 来抵消 `for` 的自增。
-
 注意 `Count` 为 `0` 时它并不会立刻返回——循环仍会走，第一个字符是空格就会被删掉。
 
 ```ts
@@ -299,8 +279,6 @@ throw new Error("原始字符串缩进时未正常退出");
 按原串的缩进宽度削掉每一行行首的 `Count` 个空格。
 
 `Count == 0` 直接返回；`IsFirst` 为真时先削首行（首字符不是空格就抛错）；随后从前往后逐个找 `\n`，对每个 `\n` 的下一个位置削一次缩进。
-
-`Array.indexOf` 支持带起点查找，找不到返回 `-1`。
 
 ```ts
 if (Count === 0) {

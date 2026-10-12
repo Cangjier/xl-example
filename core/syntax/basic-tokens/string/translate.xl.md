@@ -4,7 +4,7 @@
 
 # namespace cangjie
 
-`Dawn/Text`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
 转义累积器：普通字符串里遇到 `\` 就进入转义模式，之后逐个字符攒进 `Temp`，攒够一次性解出一个字符交回字符串单元。它不是 token，不进 `Data`、不进 XML，只被 `String` 私有持有。
 
@@ -12,7 +12,7 @@
 
 转义。
 
-它是个普通工具类，不是 token。本文件没有依赖，也不需要 import 任何东西。
+普通工具类，不是 token；本文件没有依赖。
 
 ## field IsTranslating:bool = false
 
@@ -21,8 +21,6 @@
 ## field Temp:string = ""
 
 转义过程中攒下来的原始字符。
-
-这里用 `string` 累加：`this.Temp += item` 追加、`this.Temp = ""` 清空、`this.Temp.length` 取长度、`this.Temp[i]` 取第 `i` 个字符。它只被 `Append` / `DecodeClear` 读写，没有被别处当容器用，所以字符串足够。
 
 ## method Append:(item:string)=>bool
 
@@ -47,15 +45,9 @@ if (this.Temp[0] === "u") {
 - 攒了 4 个字符：按十六进制解析成字符码。
 - 其它长度：抛「未知转义字符」。
 
-三处对应写法，都写进了散文以免被当成笔误：
+`'\n' => null` 是唯一返回 `null` 的一支（需要回退上一个字符）。
 
-1. 单字符只在它是数字时才算数字（`"+"` / `" "` 都不算），这里等价地判 `"0" <= Temp <= "9"`。
-2. 解出的字符码用 `String.fromCharCode(N)` 换成字符（按 16 位截断）。
-3. 字母表里 `"a"` 解出响铃字符，必须写作 `"\u0007"`，因为 ts 的 `"\a"` 只等于 `"a"`。
-
-`'\n' => null` 是唯一返回 `null` 的一支（需要回退上一个字符），`String.Default` 拿它当作「这次转义吃掉的是换行，得把上一个字符退回去」。
-
-**一处刻意对齐**：`Append` 在 `Temp` 以 `u` 开头时数到 4 就停，也就是只收 `u` 加**三位**十六进制（`\uXXXX` 收不全，`Temp` 形如 `"u004"`）。`Number.parseInt(..., 16)` 对 `"u004"` 只给 `NaN`，而 `String.fromCharCode(NaN)` 会**静默**变成 `"\u0000"`。为了不让它被静默吞掉，这里显式判 `NaN` 并抛出「未知转义字符」。
+`Append` 在 `Temp` 以 `u` 开头时数到 4 就停，即只收 `u` 加三位十六进制（`Temp` 形如 `"u004"`）。这种 `Temp` 解析出来是 `NaN`，这里显式判 `NaN` 并抛「未知转义字符」。
 
 ```ts
 let result: string | null = null;

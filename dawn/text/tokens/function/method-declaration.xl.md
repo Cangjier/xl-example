@@ -7,8 +7,8 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
 import { DeclarationEnd, DeclarationModifiers, DeclarationStart, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
-import { Bracket } from "../bracket.xl.md"
-import { Common } from "../common.xl.md"
+import { Bracket } from "../../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { MethodBody } from "./method-body.xl.md"
 import { ReturnType } from "./return-type.xl.md"
@@ -107,7 +107,7 @@ return this.BodyIndex(units, parametersIndex) >= 0;
   修饰词折进 `Modifiers`（`join(",")`），装饰器作为子单元搬进 `MethodDeclaration`。
 - 名字与参数表之间允许一个 `GenericType`（`find<U>(key: U)`）。
 - 参数表括号作为子单元留着；参数括号的内容已经由它自己的重组队列啃过
-  （`(` 括号有队列，见 `../bracket.xl.md` 的 `Use`），不重复处理。
+  （`(` 括号有队列，见 `../../../../core/syntax/basic-tokens/bracket.xl.md` 的 `Use`），不重复处理。
 - 返回类型段（`:` 与类型单元）单独搬给 `ReturnType` 并 `TryToClose()`——**必须自成一段**，
   否则 `TypeDefine` 会从 `:` 一路吞到方法体里去（见 `./return-type.xl.md`）。
   它的边界由 `ScanDeclarationBody` / `ScanDeclarationTailEnd` 给出（见 `../declaration-common.xl.md`）。

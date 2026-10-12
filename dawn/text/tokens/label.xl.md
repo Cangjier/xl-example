@@ -7,7 +7,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { IsDeclarationModifier } from "./declaration-common.xl.md"
 import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
-import { Common } from "./common.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "./symbol.xl.md"
 ```
 
