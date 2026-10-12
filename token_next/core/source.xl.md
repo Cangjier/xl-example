@@ -1,8 +1,6 @@
 # namespace cangjie
 
-catalog guide 与 shape token：与语言无关的那一半（`core`）。
-
-`Source` 是**字符流**：谁都不许回原文重新扫一遍（设计 §3 的 C3），所以这一页只管
+`Source`：core 的**字符流**——谁都不许回原文重新扫一遍（设计 §3 的 C3），所以这一页只管
 「走一格、看当前字符、按坐标取一段正文」，不带任何词法判断。
 
 # class Source
@@ -78,30 +76,4 @@ return this.Text.charAt(index);
 
 ```ts
 return this.Text.length;
-```
-
-# class Document
-
-一份**文档**：值来自字符串。它只做两件事——记住正文、按需造一个 `Source`。
-
-它不持有模板：模板是**每次解析新建一份**的（设计 §1.1），由装配入口造。
-
-## field Text:string = ""
-
-整份正文。
-
-## constructor:(text:string)=>void
-
-以整份正文创建。
-
-```ts
-this.Text = text;
-```
-
-## method CreateSource:()=>Source
-
-造一个从头开始的游标。
-
-```ts
-return new Source(this.Text);
 ```

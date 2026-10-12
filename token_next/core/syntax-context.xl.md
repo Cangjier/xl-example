@@ -1,18 +1,18 @@
 # dependencies
 ```xl
-import { Document } from "./source.xl.md"
+import { Document } from "./document.xl.md"
 ```
 
 # namespace cangjie
 
-catalog guide 与 shape token：与语言无关的那一半（`core`）。
+`SyntaxContext`：解析期的**上下文**——手上那一份文档，外加一本**账**。
+
+# class SyntaxContext
 
 解析期的**上下文**：手上那一份文档，外加一本**账**。
 
 账是本设计里失败那三种（§5）唯一的出口：收敛到 0、构造结束仍 > 1、以及「池 = 1 但是错的」
 那一条**逐字节等价**的兜底，全部记在这本账上——不许混成一句话，也不许只抛一个异常了事。
-
-# class SyntaxContext
 
 ## field Document:Document
 
