@@ -347,6 +347,46 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1230 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **函数表达式与类表达式当标签模板的标签那一族**（口径 1.1，两页各补同一格，普查底样 **4 → 1**、条数 **25 → 7**）；1.2 把**基类那三个常量容器**（`ModifierWords` / `SegmentKeys` / `SegmentNames`）也从每实例一份搬到原型上一份（parse A/B 20 对 mean **−38.75ms/轮**、se 18.78、`13:7`）
+
+**一句话**：1.1 与上一轮那三处**同一条口径**——`tagIsPostfixChain` 认的是「这一格能不能当标签」，而 `Function` / `Class` 两页各自依上下文投成两种节点（`FunctionDeclaration` / `FunctionExpression`、`ClassDeclaration` / `ClassExpression`），**两页都只有声明名那一格、没有这一格** ⇒ 入口判否 ⇒ 通用支把那一格按**声明**投出来（多一格 `FunctionDeclaration`），模板整格丢；1.2 接着上一轮那条「构造期白写」的线：基类还剩三格**每实例白造的对象**（两个空数组 + 一个空 `Map`），它们与那 94 格一样**只写这一次**。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `Function` / `Class` 两页各补 `## field IsTagBaseNode:bool = true`（`New` 第 1221 轮、正则与 `new` / `import` 第 1229 轮补的是同一格） | `tmp/r1230-fnexpr.mjs` 24 条 **12 对上 / 12 对不上 → 24 条全对上**；`tmp/r1230-fnbody.mjs`（非空体 / 换行体 / 类体的成员与字段）9 条全对上；普查 824 条「X\`t\`」对不上的**底样 4 → 1、条数 25 → 7**（只剩 `<T>a`t`` 那一族：尖括号断言的区间）；新立守卫用例 [expr-r1230-fn-class-tag.ts](tests/cases/token/expressions/expr-r1230-fn-class-tag.ts) 单跑 **252 / 252**（缺 0 漂 0 多 0 字段名 0） |
+| **1.2** | 基类那三格常量容器去掉初值，`InstallPrototypeDefaults` 末尾补三句（`proto.ModifierWords = []` / `proto.SegmentKeys = []` / `proto.SegmentNames = new Map()`）；各页自己的同名格一行不动 | parse A/B 20 对 × 每批 2 轮 mean **−38.75ms/轮**（sd 83.97、se 18.78、median −38.50、13:7）；投影 A/B 20 对 mean **+2.48ms**（se 2.31、9:11 ⇒ 分辨不出来，逐字节断言没过响）；`best of 5`：parse **804.5 → 769.6**、xml 43.3 → 40.1、printAst 114.2 → 109.5 |
+
+**1.1 的现场**（`cjcli` 的 XML 实测，`const v = function () {}`t`;` 那一族**四格平铺**）：
+
+    <Let … fieldName="v" …/><SymbolToken>=</SymbolToken>
+    <Function range="[40,53]" name="" modifiers=""><Bracket …/><FunctionBody …/></Function>
+    <String range="[54,56]" …><ConstString>t</ConstString></String>
+
+TS 那边是 `TaggedTemplateExpression > [FunctionExpression, NoSubstitutionTemplateLiteral]`
+（`class {}`t`` / `class extends K {}`t`` 同形，换成 `ClassExpression`）。**认下这一格之后
+投影走的是 `projectExpression(前缀)`**——那一趟本来就按**表达式位**投（与不带模板的
+`const v = function () {};` 同一份算式），所以这一档不是放宽：语句位的 `function () {}`t``
+是 TypeScript 自己报语法错的形状（第 1227 轮普查里那 8 个位置），而合法的「声明换行 +
+模板语句」是两条语句、这一支看不到那一对。
+
+**1.2 的现场与读数**：那三格是第 1229 轮**有意留下的**——上一轮搬的是**常量标量**
+（`false` / `true` / `""` / `0` / `null` / `undefined`），而它们的初值不是标量。可它们
+**同样只写这一次**：全仓逐文件扫过，除构造期那一处赋值外没有任何 `.push` / `.set` / 再赋值，
+`Segments` 那一格的正文里本来就写着同一句实测结论 ⇒ 共享一份等价。
+
+```text
+tmp/r1230-alloc.mjs（只搬基类那三格）     12 对 × 每批 2 轮  mean +38.42ms/轮（se 27.18）3:9
+tmp/r1230-alloc2b.mjs（再加各页 53 格）   12 对 × 每批 2 轮  mean +37.79ms/轮（se 16.36）2:10
+```
+
+⇒ **两读同量级（都是 ~38ms/轮）**：这一笔的账全在**基类那三格**上（每个 token 省一个数组 +
+一个数组 + 一个 `Map`），各页自己那些（`Class` / `Function` / `MethodDeclaration` …）在这份
+语料上**量不出第二笔** ⇒ 各页一行不动（本仓口径：一次没量出来的改动不留）。
+
+**净账**：`cases:tsast` 语料里一条 `xl:known-gap` 都没有（16 片全过）；`cases:direct` 全语料不抛异常（**1676 份**）；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1691** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4297 / 4455**（blocked 25、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；`npx tsc`（strict）0 error；八道门墙钟 **28.2s**。
+
+**两条 commit**：`06da7fcf`（1.1 函数 / 类表达式当标签）、`1fbe9ce8`（1.2 三个常量容器搬原型）。
+
 ### 第 1229 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **正则字面量 / `new.target` / `import.meta` 当标签模板的标签那一族**（口径 1.1，三处根因，普查底样 **7 → 4**、条数 **49 → 25**）；1.2 把**基类那 94 格常量默认值从「每实例一份」搬到原型上一份**（parse A/B **20 对全负**、mean **−213.25ms/轮**、se 21.78）
 
 **一句话**：1.1 收的是 `/re/g`t`` / `new.target`t`` / `import.meta`t`` 那一族（连同 `.d` / `[0]` / `()` / `!` / `as` / 「又一个模板」六种续写）——**这三格的标签在 token 层都不是一格折叠好的单元**：正则是一格 `RegexToken`，`new.target` / `import.meta` 是 `[Keyword, ., Identifier]` **三格平铺**，而「能不能当标签」那一问的名单与「完整表达式」那一档里各缺了几格；1.2 是这一轮量到的**最大一笔**：解析期 **17%** 的时间花在「每个 token 把基类那 94 格常量默认值各写一遍」上，把它们搬到 `Token.prototype` 之后 parse **20 对全负、mean −213.25ms/轮**。
