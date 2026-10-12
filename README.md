@@ -347,6 +347,44 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1234 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **裸块之后那一行以 `/` 开头那一格**（口径 1.1，第 1231 轮那一族的**倒数第二格**，ASI 那一支；那一问同时**收归一份**到 `IsStatementBraceTail`）；1.2 是**第三次如实记下的负结果**（`CommonBranch.Condition` 那一句白算的 `unit.Last()`，16 对 mean **+0.91ms**、se 19.30 ⇒ 不可分辨）
+
+**一句话**：1.1 收的是**ASI 那一支**——`{ }` 换行 `/re/g;` 在 TS 里是**两条语句**（`Block` + `ExpressionStatement > RegularExpressionLiteral`），而解析期续接表里 `/` 本来是「能续接」（`a` 换行 `/ b` 就是除法）⇒ 换行处不收壳 ⇒ 块与那条正则被收进同一条语句；`NextLineContinuesExpression` 那句「上一格是 `;` / `}` 早就早退了」**对裸块不成立**（上一格是一个**收好的块**：`startBracket === "{"`、`endBracket === "}"`）。同一轮把「这一格体是不是一条语句的收尾」这一问**收归一份**（`statement.xl.md` 成了第二个用户 ⇒ 搬到 `text-common-util.xl.md` 的 `IsStatementBraceTail`）。1.2 量的是字符那一趟最常走的那一支里一句白算的 `unit.Last()`：**与 0 不可分辨**——这是连续第三笔同一个结论。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 两处：① `statement.xl.md` 的 `NextLineContinuesExpression` 在 `head === "/"` 那一支里补一句——上一格是**块**（`IsObjectLiteralBrace` 答否 **且** `IsStatementBraceTail` 答是）⇒ 答「不续接」；② 那一问从 `RegexTokenBranch` **搬到 `text-common-util.xl.md`**（`IsStatementBraceTail`），`RegexTokenBranch.IsStatementBrace` 留成转发 | 新立守卫用例 [expr-r1234-bare-block-regex.ts](tests/cases/token/expressions/expr-r1234-bare-block-regex.ts) 单跑 **69 / 69**（缺 0 漂 0 多 0 字段名 0）；三片现场重跑**只有该收的收了**；`gap-r1231-decl-newline-operator.ts` 只剩**两格**（语句位的 `{ p: 1 }`t``、箭头函数的体之后） |
+| **1.2** | **什么都没留**：只改 `build/` 里那一份产物做实验（`identifier.js` 的 `CommonBranch.Condition` 把 `unit.Last()` 内联成 `unit.Data[length-1]`，判据一字未改）⇒ 与 0 不可分辨 ⇒ **整笔撤掉**，只把读数写进 `identifier.xl.md` | parse A/B 16 对 × 每批 2 轮 mean **+0.91ms/轮**（sd 77.18、se 19.30、**9:7**、median −15.50）⇒ 不可分辨 |
+
+**1.1 里踩到的坑（这一轮最值钱的一步）**：第一版只按 `IsObjectLiteralBrace` 判「不是对象字面量
+就断句」，`const w = function () { }` 换行 `/re/g;` 当场从「对上」变**缺 6 漂 3 多 5**——
+函数表达式的体也是「不是对象字面量的花括号」，可它前面那个 `/` 是**除号**。
+修法不是再加一张表，而是把第 1232 / 1233 轮那一问（往回找到构造的头、问 `IsStatementStart`）
+**收归一份**、两处共用：`statement.xl.md` import 不进 `regex-token.xl.md`
+（它 → `bracket` → `parse-pipeline` → `regex-token`，已经绕着了）⇒ 按
+`IsObjectLiteralBrace` 第 556 轮那条老规矩搬到 `text-common-util.xl.md`。
+
+**1.2 的三笔读数（同一个结论）**：
+
+```text
+第 1231 轮  删掉 Array.isArray 那一问（恒为假）              mean  +6.54ms/轮（se 23.62）
+第 1233 轮  ApplyTo 前半截提到 RunCloseRules                  mean +18.54ms/轮（se 22.52）
+第 1234 轮  CommonBranch.Condition 里白算的 unit.Last() 内联   mean  +0.91ms/轮（se 19.30）
+```
+
+⇒ 一处微改动（一个内建调用 / 一次方法调用 / 几次属性读）全落在噪声底下（那份语料一轮
+parse ~800ms，配对 sd 就是 80ms 量级）。**剩下能动的是结构性的那一处**：闭规则那一趟
+**按单元类型分档**——`ApplyTo` 一份语料被调 **192 万**次（`RunCloseRules` **38239** 次 ×
+每队列约 50 条规则），绝大多数第一句就答否；要动它得让**每一页声明自己的触发条件**。
+
+**净账**：`cases:tsast` 16 片全过、已知缺口 **1 条还开着、0 条已经收掉**；
+`cases:direct` 全语料不抛异常（**1679 份**）；`direct:lint` 0 条违反；`samples` ok；
+`cases:check` **1696** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；
+`coverage` **4301 / 4460**（blocked 26、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；
+`npx tsc`（strict）0 error；八道门墙钟 **27.0s**；`best of 5`：parse **810.9**、xml 36.8、printAst 71.8。
+
+**两条 commit**：`79842224`（1.1 裸块之后那一行）、`ad12d559`（1.2 负结果：`unit.Last()` 的读数）。
+
 ### 第 1233 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **控制头之后那一行以 `/` 开头那一族**（口径 1.1，第 1232 轮那一族的**另一半**；`gap-r1231-decl-newline-operator.ts` 收得只剩两格）；1.2 是**又一次如实记下的负结果**（`ApplyTo` 那前半截提到调用点，14 对 mean **+18.54ms**、se 22.52 ⇒ 不可分辨）
 
 **一句话**：1.1 收的是「**头**括号之后」那一半——`while (a)` / `for (;;)` / `if (a)` / `do { } while (a)` 换行 `/re/g;` 里紧挨着 `/` 的那一格是**控制头的 `)`**，而第 1232 轮那一支只管花括号 ⇒ 全落回除号；判据是**位置**（控制头的 `)` 之后一定是新的一条语句，语句开头的 `/` 只能是正则），新立的 `RegexTokenBranch.IsControlHeader` 问的就是「这个 `(` 前面那一格是不是控制词」，并把 `.while` / `?.while`（成员名后面那个调用括号）排掉；同一轮还给 `IsStatementBrace` 补了一格（**已经收好的块也是站在语句位的头**，`try…catch` 那一档）。1.2 把闭规则那一趟里「每次 `ApplyTo` 都重算一遍的前半截」提到调用点量了一遍：**与 0 不可分辨**（与第 1231 轮删 `Array.isArray` 那一笔同一条结论）。
