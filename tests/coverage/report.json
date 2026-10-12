@@ -151,7 +151,7 @@
       "id": "token/expressions/gap-r1231-decl-newline-operator",
       "category": "token",
       "title": "第 1231 轮**新登记**的一族（换了一片地形普查撞出来的：`tmp/r1231-sweep.mjs` 拿",
-      "detail": "缺 5　多 5　语句位花括号当块 / `try…catch` 体 / `do…while` 尾 / 裸块后面那一行以 `/` 开头"
+      "detail": "缺 3　多 3　语句位花括号当块 / `try…catch` 体 / `do…while` 尾 / 裸块后面那一行以 `/` 开头"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",

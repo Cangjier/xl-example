@@ -137,8 +137,59 @@ if (head.constructor.name === "SymbolToken") {
   return (head as any).Is(";") || (head as any).Is(":");
 }
 if (head instanceof Bracket) {
-  // `} {` 是块（`IsStatementStart` 的同一句）；`(` / `[` 后面顶着 `{` 不成话，答否
-  return head.startBracket === "}";
+  // **一个已经收好的块也是一个站在语句位的头**（第 1233 轮）：`try { }` 换行 `catch (e) { }`
+  // 换行 `/re/g;` 那一档走到这里，头正是 `try` 的体那个 `Bracket({)`——它是一条块语句，
+  // 后面那个 `catch` 从句就站在语句位上。上一版只认 `startBracket === "}"`（裸的收尾括号），
+  // 于是那一档答否 ⇒ 又落回除号（实测：缺 `RegularExpressionLiteral`、多一格 `SlashToken`）。
+  // `(` / `[` 后面顶着 `{` 不成话，仍然答否。
+  return head.startBracket === "}" || (head.startBracket === "{" && head.endBracket === "}");
+}
+return true;
+```
+
+## static method IsControlHeader:(units:Array<Token>, index:int)=>bool
+
+`index` 处那个 `(` 括号是不是一个**控制语句的头**（`if` / `while` / `for` / `foreach` / `until` / `with`）。
+
+**为什么单立这一格**（第 1233 轮，与 `IsStatementBrace` 同一件事的另一半）：`do { }` 换行
+`while (a)` 换行 `/re/g;` 与 `while (a)` 换行 `/re/g;` / `for (;;)` 换行 `/re/g;` 里，
+紧挨着 `/` 的那一格**不是体、是头括号**——上一版那一支只管花括号，于是这一族全落回除号
+（实测各缺 `RegularExpressionLiteral`、各多一格 `SlashToken`）。
+
+**判据是位置**：一个控制头的 `)` 之后**一定**是新的一条语句（体，或者 do-while 之后的下一条）
+——语句开头那个 `/` 只能是正则，不可能是除号。所以这一问只要「括号前面那一格是不是控制词」。
+
+**`obj.while(a)` 不算**：`.while` / `?.while` 后面那个 `(` 是**调用**，成员名不是控制词
+（与 `Statement.IsLineBreakBoundary` 里那条「点号后面的名字不算期待操作数」同一条口径）。
+控制词这一格按词形认（`Identifier.TempToString()`）：本文件 import 不进 `Keyword`，
+而这一趟跑得比 `KeywordCloseRule` 早，那些词此刻还是 `Identifier`（与 `this` / `super` 那一支同）。
+
+```ts
+const brace = Get(units, index);
+if (brace === null || brace instanceof Bracket === false || brace.startBracket !== "(") {
+  return false;
+}
+const headIndex = SkipPreviousTrivia(units, index);
+const head = Get(units, headIndex);
+if (head === null || head instanceof Identifier === false) {
+  return false;
+}
+const word = head.TempToString();
+if (
+  word !== "if" &&
+  word !== "while" &&
+  word !== "for" &&
+  word !== "foreach" &&
+  word !== "until" &&
+  word !== "with"
+) {
+  return false;
+}
+const before = Get(units, SkipPreviousTrivia(units, headIndex));
+if (before !== null && before.constructor.name === "SymbolToken") {
+  if ((before as any).Is(".") || (before as any).Is("?.")) {
+    return false;
+  }
 }
 return true;
 ```
@@ -264,13 +315,22 @@ if (previous instanceof Identifier) {
   //
   // 分界线不在括号自己、也不在括号里装的是什么，而在**这一格所属那个构造的头站在哪**：
   // 那一问由 `RegexTokenBranch.IsStatementBrace` 回答（往回找到头，再问 `IsStatementStart`），
-  // 值位的花括号先由 `IsObjectLiteralBrace` 挡掉。`(` / `[` 结尾的括号没有「体」这一档，
-  // 照旧一律答除号（`(a) / 2` / `xs[0] / 2`）。
+  // 值位的花括号先由 `IsObjectLiteralBrace` 挡掉。`[` 结尾的括号没有「体」这一档，
+  // 照旧一律答除号（`xs[0] / 2`）。
   if (
     previous.startBracket === "{" &&
     IsObjectLiteralBrace(unit.Data, previousIndex) === false &&
     RegexTokenBranch.IsStatementBrace(unit.Data, previousIndex)
   ) {
+    result.Success = true;
+    return result;
+  }
+  // **控制头的 `)` 之后也是新的一条语句**（第 1233 轮，同一件事的另一半）：
+  // `do { }` 换行 `while (a)` 换行 `/re/g;`、`while (a)` 换行 `/re/g;`、
+  // `for (;;)` 换行 `/re/g;` 里紧挨着 `/` 的那一格是**头括号**，不是体——上一版这一支
+  // 只管花括号，于是这一族全落回除号。判据见 `RegexTokenBranch.IsControlHeader`
+  // （`(a) / 2` 那种**表达式括号**仍然答除号：括号前面那一格不是控制词）。
+  if (previous.startBracket === "(" && RegexTokenBranch.IsControlHeader(unit.Data, previousIndex)) {
     result.Success = true;
     return result;
   }
