@@ -232,6 +232,28 @@ xl 的 `## field X:bool = false` 生成 `public X: boolean = false;`，而 `tsc`
 `Token.prototype.X = …`，把规范页上对应的 94 行 `## field … = <常量>` 改成「只要类型」，
 再把 `InstallPrototypeDefaults` 与那个 `## static field` 插进来）。临时脚本不进仓库。
 
+**第 1230 轮续：三个「常量容器」也照同一条口径搬上去**。第 1229 轮只搬了**常量标量**
+（`false` / `true` / `""` / `0` / `null` / `undefined`），可基类还留着三格**每实例白造的对象**：
+
+    this.ModifierWords = [];          // 数组
+    this.SegmentKeys = [];            // 数组
+    this.SegmentNames = new Map();    // 对象（Map）
+
+这三格与上面 94 格不同——它们的初值**不是标量**，所以第 1229 轮那一趟没动它们；
+可它们**同样只写这一次**（全仓扫过：除构造期那一处赋值外没有任何 `.push` / `.set` / 再赋值，
+`Segments` 那一格的正文里也写着同一句实测结论）⇒ 共享一份是等价的。
+
+```text
+tmp/r1230-alloc.mjs（实验：只改 build/ 里那一份产物，把这三格搬到 Token.prototype 上）
+  tmp/abparse.mjs 12 对 × 每批 2 轮   mean +38.42ms/轮（sd 94.15、se 27.18）3:9
+tmp/r1230-alloc2b.mjs（同一实验**再加**各页自己的 53 格 —— 43 个文件）
+  tmp/abparse.mjs 12 对 × 每批 2 轮   mean +37.79ms/轮（sd 56.66、se 16.36）2:10
+```
+
+⇒ **两读同量级（都是 ~38ms/轮）**：这一笔的账全在**基类那三格**上（每一个 token 都省一个
+数组 + 一个数组 + 一个 `Map`），各页自己那些（`Class` / `Function` / `MethodDeclaration` …）
+在这份语料上**量不出第二笔** ⇒ 只搬基类那三格，各页一行不动（本仓口径：一次没量出来的改动不留）。
+
 ## field Template:Template
 
 本单元使用的模板。
@@ -895,6 +917,17 @@ proto.IsSignatureList = false;
 proto.IsIndexBracket = false;
 proto.IsParenBracket = false;
 proto.IsBraceBracket = false;
+// **三个「常量容器」也在这里装一份**（第 1230 轮，用户口径 1.2）：基类原来给**每个实例**
+// 各造一个空数组 / 空 `Map`（`this.ModifierWords = []` / `this.SegmentKeys = []` /
+// `this.SegmentNames = new Map()`，见 `tsconfig.json` 那一格 `useDefineForClassFields: false`
+// 之下产物里的形态），而这三格**全仓只有构造期那一次写入**（除声明外没有任何 `.push` /
+// `.set` / 再赋值；`Segments` 那一格的正文里也写着同一句实测结论）⇒ 共享安全。
+// **各页自己的同名格照旧**：`SegmentNames` / `SegmentKeys` / `ModifierWords` 有各自值的页面
+// （`Class` / `Function` / `New` / `Lamda` …）在自己那一页声明同一格，构造期赋值照旧**盖住**
+// 原型上这一份；所以这一笔只省「基类那一份白造」，不改任何一页的读法。
+proto.ModifierWords = [];
+proto.SegmentKeys = [];
+proto.SegmentNames = new Map();
 ```
 
 ## static field DefaultsInstalled:any = Token.InstallPrototypeDefaults(Token.prototype)
@@ -1141,7 +1174,7 @@ return this.ToXmlString();
 return this.Data;
 ```
 
-## field ModifierWords:Array<string> = []
+## field ModifierWords:Array<string>
 
 **我这一格的修饰词里，哪些是「记成布尔属性」的那几个**（第 1065 轮）：没有就是空数组。
 
@@ -1393,7 +1426,7 @@ return names;
 **`Clone` 不用抄它**：各页 `Clone` 是 `new 本页(this.Template)`（见 `AreaAnnotation.Clone`），
 新实例的 `## field` 初始值就是 `null` ⇒ 克隆体第一次读时自己算一遍，与原来逐字同答。
 
-## field SegmentKeys:Array<string> = []
+## field SegmentKeys:Array<string>
 
 **我这一格自己写下来的段名与段序**（第 1065 轮）：基类默认空数组＝「照 `SegmentNames` 排」，
 只有基类那一句排不出来的页面才显式声明它（`IfSegment` / `Switch` / `Try` / `Lamda` / `New` /
@@ -2584,7 +2617,7 @@ throw new Error(
 「这一格搬完了没有」这句话在直出版这一趟的准确说法是
 **「被问到的那 74 个类里没有一个答不出」**。
 
-## field SegmentNames:Map<string, Map<string, string>> = new Map()
+## field SegmentNames:Map<string, Map<string, string>>
 
 **投成目标语言形状时，本单元的段叫什么**：`目标语言的节点名` → （`产物那边的分段名` → `目标语言的字段名`）。
 
