@@ -42,6 +42,14 @@ import { Translate } from "./string/translate.xl.md"
 
 判断要不要接手当前字符，以及是「新增」还是「追加」。
 
+**`unit.Last()` 那一句第 1234 轮量过（如实记在这里，免得下一个人再量一遍）**：这一支是
+**每个字符**都要走一次的那一格，而 `last` 只在「上一格是 `Identifier`」那一支里用得到——
+最常见的那条路（上一格不是 `Identifier`）上它白算。把它按 `unit.Data` 直接读出来
+（`Last()` 是纯读，判据一个字没改）只改 `build/` 里那一份产物做实验：
+`tmp/abparse.mjs` 16 对 × 每批 2 轮读 **mean +0.91ms/轮（sd 77.18、se 19.30）9:7**
+（median −15.50）——**与 0 不可分辨**。按本仓口径「一次没量出来的改动不留」，
+**这一句照旧留着**。
+
 ```ts
 const value = source.Value;
 const last = unit.Last();
