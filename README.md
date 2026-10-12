@@ -173,8 +173,8 @@ node samples/check.mjs --update # 用当前产物重写夹具
 真正的原因在内层异常里（`Token.Process` 会把任何异常包一层，可能包好几层）。
 
 [samples/catalog.mjs](samples/catalog.mjs)：`CatalogGuideToken` / `PossibleShape` 的端到端演示——
-向导攒 basic 单元、逐个淘汰候选、只剩一个（或候选直接「接受」）就建成形状。它每个用例都同时量
-「不挂向导」「挂了向导但目录为空」「挂了向导且有候选」三种产物，最后一种应当正好是第一种里那一段被形状接住。
+向导攒 basic 单元，basic token 关闭时向上通知、逐个淘汰候选，**当且仅当只剩一个候选**就建成形状；
+一个候选都不剩、或跳转队列接不了的字符，都当场报错。
 
 ```bash
 npm run catalog
