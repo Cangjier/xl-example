@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token, PrintAstCtx, AstNode } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, IsArrowReturnTypeBracket, IsSwitchLabelColon, IsLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, EnclosingBraceContext, IsBindingPatternBrace, IsImportExportTypeClauseBrace, IsMappedKeyBracket } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, SkipPreviousTrivia, SkipNextTrivia, IsArrowReturnTypeBracket, IsSwitchLabelColon, IsLabelColon, IsTriviaUnit, BraceInExpression, EnclosingBraceToken, EnclosingBraceContext, IsBindingPatternBrace, IsImportExportTypeClauseBrace, IsMappedKeyBracket } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -578,12 +578,42 @@ for (let i = index - 1; i >= 0; i--) {
     // **为什么只有第一个实参中招**：第二个实参前面隔着一个 `,`，而符号那一支
     // 「其它符号 → 值位」先把它接住了（实测 `new Box(1, { n: 3 })` 一直是好的）。
     if (text === "new") {
+      // **`new` 后面紧跟的那个花括号是值位**（第 1244 轮）：上面那条判据说的是
+      // 「`new` 与这个 `{` 之间有没有跨过实义单元」，可它盖不住**一个单元都没跨过**的那一档——
+      // 而那一档里 `new` 后面紧跟的就是这个 `{` 本身，于是被判成**构造签名**。
+      // **构造签名后面一定先跟形参表那个 `(`**（`new () => T` / `new <A>(a: A) => T` /
+      // `interface I { new (): T }`），所以「紧跟在 `new` 后面的实义单元就是这个 `{`」
+      // 只可能是 **`new { … }` 这个表达式**（TS 那边是 `NewExpression` + 被构造者
+      // `ObjectLiteralExpression`，实测 `new { a: 1 }()` 缺 5 多 1）。
+      // 判据只看**紧跟**这一格（跳过 trivia），所以 `new /*c*/ { … }` 与 `new` 换行 `{ … }`
+      // 一起在这条里；`new (` / `new <A>(` 那几档一个单元都不动。
+      if (SkipNextTrivia(units, i) === index) {
+        return false;
+      }
       return crossedUnit === false;
     }
     // **跨过了一个实义单元**（被构造者那个名字、或者类型标注里别的名字）——
     // 记下来给上面那一档用，然后照旧继续往前扫。
     crossedUnit = true;
     continue;
+  }
+  // **`new` 到这里时已经不是 `Identifier` 了**（第 1244 轮实测的那一格）：
+  // `KeywordCloseRule` 排在 `TypeLiteralCloseRule` **之前**（见 `parse-pipeline.xl.md` 的
+  // `GeneralCloseRule`），所以「全上下文都是关键字」的那些词在收尾期**已经换过身份**——
+  // 回扫撞上的是一格 `Keyword`，而上面那一支只认 `Identifier`（`item instanceof Identifier`）
+  // ⇒ 整个 `new` 分支**一次都进不去**（插桩实测：`const v = new { a: 1 }();` 的 `{` 在第 3 格，
+  // `IsTypePosition` 被问到时 units 是 `[Let, =(SymbolToken), Keyword(new), Bracket{…}, Bracket()]`，
+  // 回扫在第 2 格撞上那格 `Keyword`、既不是 `Identifier` 也不是 `SymbolToken` ⇒ 直接落到
+  // 循环末尾的 `return false`——**答案碰巧是对的，走的却是「一路找到头没有边界」那一条**）。
+  //
+  // **同一个词两态都要认**（这条口径本仓早有先例：`readonly` 与 `in` 各写了两支，
+  // 见 `IsMappedKeyBracket` 与 `IsTypeParameterModifier` 那两处）。所以这一支与上面那一支
+  // **共用同一句结论**，只把「怎么认出 `new` 这个词」写两遍。
+  if (item instanceof Keyword && item.Value === "new") {
+    if (SkipNextTrivia(units, i) === index) {
+      return false;
+    }
+    return crossedUnit === false;
   }
   return false;
 }

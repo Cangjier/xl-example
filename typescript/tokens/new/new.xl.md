@@ -105,6 +105,31 @@ if (!(current instanceof Identifier) || !current.Is("new")) {
 const nextIndex = SkipNextTrivia(units, index);
 const next = Get(units, nextIndex);
 if (next instanceof Bracket) {
+  // **`new` 后面紧跟一个花括号时，那个花括号就是被构造者**（第 1244 轮）：
+  // `new { a: 1 }()` / `new {}()` 在 TS 那边是 `NewExpression > ObjectLiteralExpression`
+  // ——与下面「匿名 `class` / `function`」那一支是同一件事的第三种排版
+  //（被构造者是一个**表达式字面量**，与「括号里的被构造者」`new (getCtor())()` 同一格形状）。
+  //
+  // **它到这里时还是一格没收的 `{` 括号**：花括号的两种命运（对象字面量 / 类型字面量）由
+  // `JsonObjectCloseRule` 与 `TypeLiteralCloseRule` 决定，而这两条都排在 `NewCloseRule`
+  // **之后**（见 `parse-pipeline.xl.md` 的 `GeneralCloseRule`），所以本规则跑的时候它还是
+  // 一格 `Bracket`（`startBracket === "{"`）。
+  //
+  // **为什么不能只认 `Identifier`**：`new { a: 1 }()` 的下一格既不是名字、也不是已经成形的
+  // `Class` / `Function`，于是本判据答否 ⇒ `new` 留在树里当裸 `Keyword`、对象字面量另起一格、
+  // 末尾那对括号成了对它的又一次调用（实测 `new { a: 1 }()` 缺 `NewExpression` /
+  // `ObjectLiteralExpression` / `PropertyAssignment` / `Identifier(a)` / `NumericLiteral` 共 5、多 1）。
+  //
+  // **类型位的构造签名不会被它抢走**：`new () => T` 那一档走的是下面那个 `(` 分支
+  //（下一格是 `(`），而 `new { … }` 在类型位里根本不成立——类型字面量不能当构造签名
+  //（TS 自己在 `type T = new { a: 1 }` 上报「'(' expected」）。所以这一支只可能在值位命中。
+  //
+  // **它必须排在 `(` 那个分支的前面**（第 1244 轮实测踩到的那一格）：原来这一整块写成
+  // 「`if (next instanceof Bracket) { if (startBracket !== "(") return false; … }`」——
+  // 花括号在**第一句**就被 `!== "("` 挡掉了，写在这块**后面**的判据一次都到不了。
+  if (next.startBracket === "{") {
+    return true;
+  }
   if (next.startBracket !== "(") {
     return false;
   }
@@ -169,6 +194,16 @@ let i = calleeIndex;
 let bracketIndex = -1;
 const callee = Get(units, i);
 if (callee instanceof Bracket && callee.startBracket === "(") {
+  i = SkipNextTrivia(units, i);
+}
+// **`new` 后面紧跟一个花括号时，跳过它去找实参表**（第 1244 轮）：与上面那一支
+// （`new (getCtor())()` 的「被构造者」括号）同一件事——`new { a: 1 }()` 的被构造者是
+// `{ a: 1 }` 这个字面量，它**后面**那对括号才是实参表。
+// **这一格是本规则自己声明进来的**（见 `Previous` 里新补的那一支），所以这里也由它跨过去。
+// 判据同样只看**紧跟**这一格（`SkipNextTrivia`），`new { … }` 换行 `()` 一起在这条里。
+// **跳过去之后 `bracketIndex` 落在那对实参括号上**：花括号自己落进 `NewType` 段
+// （与 `Class` / `Function` 那一支走同一条路——它们都是「被构造者表达式」）。
+if (callee instanceof Bracket && callee.startBracket === "{") {
   i = SkipNextTrivia(units, i);
 }
 while (i < units.length) {

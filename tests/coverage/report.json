@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4470,
+  "total": 4471,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -90,8 +90,8 @@
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1691,
-      "pass": 1688,
+      "total": 1692,
+      "pass": 1689,
       "blocked": 3,
       "differ": 0,
       "nodefail": 0,
@@ -139,12 +139,12 @@
     }
   ],
   "token": {
-    "total": 1691,
+    "total": 1692,
     "knownGap": 3,
     "knownGapStillOpen": 3,
-    "exactFiles": 1688,
-    "scoredWithoutGap": 1688,
-    "passedWithoutGap": 1688
+    "exactFiles": 1689,
+    "scoredWithoutGap": 1689,
+    "passedWithoutGap": 1689
   },
   "blocked": [
     {
@@ -154,16 +154,16 @@
       "detail": "缺 2　漂 3　多 9　箭头函数的体之后那一行以 `/` 开头（TS 给一条新的正则语句）"
     },
     {
-      "id": "token/expressions/gap-r1236-new-object-literal",
-      "category": "token",
-      "title": "第 1236 轮**新登记**的一格（用户口径 1.1）：**`new` 后面那个花括号**。",
-      "detail": "缺 28　多 6　`new` 后面那个花括号被 `TypeLiteralCloseRule` 认成类型字面量"
-    },
-    {
       "id": "token/types/gap-r1237-type-position-brace",
       "category": "token",
       "title": "第 1237 轮**新登记**的一族（用户口径 1.1，换地形普查「某个词 + 花括号」那一层撞出来的）：",
       "detail": "缺 18　漂 2　多 13　类型位「词 + `{`」三档（`extends` 的类型字面量实体名、谓词里的类型字面量）"
+    },
+    {
+      "id": "token/types/gap-r1244-ctor-signature-generic-return-type",
+      "category": "token",
+      "title": "第 1244 轮普查量出的一格（用户口径 1.1）：**泛型构造签名后面那个返回类型字面量**。",
+      "detail": "缺 3　多 2　泛型构造签名（`new <A>(…) => …`）后面那个返回类型字面量被判成值位（`crossedUnit` 把 `<A>` 算成了被构造者）"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
@@ -441,7 +441,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2298.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2299.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -717,7 +717,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3286.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3287.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -741,7 +741,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3334.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3335.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/051-builtin-regexp-constructor",
@@ -909,7 +909,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3977.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3978.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

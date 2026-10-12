@@ -13,11 +13,16 @@
 // （后面跟构造签名）」。同一轮量到的排版全在这份用例里（语句位 / 变量位 / 调用实参 /
 // 带实参 / 不带圆括号 / 空对象），六条**全对不上**。
 //
-// （按本仓规矩**只登记、不收**：这是 `TypeLiteralCloseRule` 那一侧的判据，
-// 与这一轮改的 `IsStatementStart` 不是同一句。）
-// xl:known-gap `new` 后面那个花括号被 `TypeLiteralCloseRule` 认成类型字面量
-// xl:round 1236
-// xl:end
+// 第 1244 轮转绿（`xl:known-gap` 按规矩撤掉，用例留着当守卫）：根因**不是**那一句判据答错了，
+// 而是**它一次都没被问到** —— 回扫撞上的那格 `new` 在收尾期已经是 `Keyword`
+// （`KeywordCloseRule` 排在 `TypeLiteralCloseRule` 之前），而 `IsTypePosition` 的 `new`
+// 那一支只认 `Identifier` ⇒ 整个分支从不进入、一路落到循环末尾的「没有边界 ⇒ 值位」。
+// 两处各补一格之后：`IsTypePosition` 认下 `Keyword(new)` 两态（同一个词两态都要认），
+// `NewCloseRule` 认下「`new` 后面紧跟一个 `{` 括号」的被构造者（与匿名 `class` / `function`
+// 同一支），六条全对。
+//
+// （按本仓规矩**先登记、后收**：第 1236 轮只登记不收，第 1244 轮收掉。）
+// xl:expect Statement:5
 new { a: 1 }();
 
 const v1 = new { a: 1 }();
