@@ -347,6 +347,36 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1240 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **把那一格做成「类型字面量已经在树里、分支却读不到它」的那一句话**（口径 1.1：18/22 不变；1.2 是**第三次如实记下的负结果**，但根因这一轮落到了**两个 `Data` 不是同一份**这一句上）
+
+**一句话**：这一轮把第 1239 轮剩下的那半句补上——第 1239 轮量到「`Condition` 那一刻 `Data` 里没有那个括号」，这一轮量到**它之后也没有**：插桩三个点得到
+① `IsObjectLiteralBrace(units, 3)` **答 `false`**（`extends` 不在那张「类型位词」名单里 ⇒ 第一格 `{` 判成「值位之外」——不是对象字面量），
+② `TypeLiteralCloseRule.Previous(units, 3)` **答 `true`**（`IsTypePosition` 那一侧本来就把 `extends` 当类型位），
+③ **`JsonObjectCloseRule.Process` 一次都没有被调到**（全趟插桩 0 条）。
+三者合起来是一句反直觉的话：**那一格 `{ … }` 确实被收成了 `TypeLiteral`（最终 XML 里就是它），可 `InterfaceBranch.Condition` 读的那份 `unit.Data` 里始终只有三格 `Identifier`** ——
+也就是说 **`ScanHead` 手里的 `units` 与 `TypeLiteral` 所在的那份表不是同一份**（差值不是「时序早一步」，是「根本不在一个容器里」）。
+**所以第 1238 / 1239 两轮写的那两条入手处（认一格 `TypeLiteral`、把括号先关掉）都不会成立**；下一步要先把**「那个 `{` 进的是谁的 `Data`」**这一问量出来（候选：`unit.MountedUnit` 那条挂载链 vs `unit.Data`，见第 1239 轮那条读数 `hostMounted=Bracket hostDataLen=4 inData=true`——那一刻 `Data` 里**是有**它的）。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 同一族再量一遍（`tmp/r1238-probe.mjs`） | 22 条合法片段里 **18 条对不上**（与第 1238 / 1239 两轮逐条相同）；`interface I extends ({ a: 1 }) { }` 缺 2 多 3 |
+| **1.2** | **什么都没留**：插桩（`tmp/r1240-instr.mjs`、`tmp/r1240-try-iob.mjs` 用完即撤；`tmp/r1240base/ts` 是本轮对照快照） | `DBG_IOB previous=extends -> false`；`DBG_TL_PREV at=3 -> true`；`DBG_OBJ_PROCESS` **0 条**。另试把 `extends` / `implements` 加进 `IsObjectLiteralBrace` 那张名单：`interface I extends { a: 1 } { }` 的产物**一个字没变**（同一个 `ExpressionStatement` + `TypeLiteral`）⇒ 那一条不是这一格的闸 ⇒ 撤掉 |
+
+**这一轮量出来的两条硬结论**（下一处入手点就按这两条走）：
+
+1. **闸在别处**：把 `extends` / `implements` 加进 `IsObjectLiteralBrace` 的判据里**对这个产物零影响** ——
+   抓这一格不要再从 `JsonObjectCloseRule` 那一侧下手。
+2. **两个 `Data` 的问题优先于时序问题**：`TypeLiteral` 在最终树里、`Condition` 读的 `units` 里没有它 ——
+   下一步应当先量「`InterfaceBranch.Condition` 的 `unit` 到底是哪一格、它的 `Data` 与
+   `TypeLiteralCloseRule.Process` 收到的 `units` 是不是同一份」（第 1239 轮那次插桩的
+   `hostMounted=Bracket hostDataLen=4 inData=true` 说明**括号进过 `Data`**，
+   而 `Condition` 读到的 `Data` 长度是 3 —— 这两条读数合起来指向**不同的宿主**）。
+
+**净账**：八道门 8 通过 / 0 失败；`cases:tsast` 已知缺口 **4 条还开着 / 0 条已经收掉**；`cases:direct` 1682 份不抛异常；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1701** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4303 / 4465**（blocked 29、differ 133、bad 0、加权 95.7%）；`npx tsc`（strict）0 error；等价性（`tmp/r1238-equiv.mjs`，对照 `tmp/r1240base/ts`）**4435 份 0 份不同**。
+
+**进程超时**：每一趟都在预算内——`xl build typescript` 约 2s、`npx tsc` 约 5s、片段探针约 6s、
+等价性 4435 份约 37s、八道门约 30s。
+
 ### 第 1239 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **把第 1238 轮那一格追到「`Condition` 那一刻 `Data` 里根本没有那个括号」**（口径 1.1：整族读数不变，18/22；1.2 是**又一次如实记下的负结果**——两笔改动仍然过不了等价性，整笔撤掉，但**根因这一轮量到底了**）
 
 **一句话**：第 1238 轮把根因写成「第一个括号还没收成 `TypeLiteral`」，这一轮**插桩把它量成了两句话**：① 分支成立那一刻 `Condition` 手里的 `unit.Data` 是 `Identifier(interface) | Identifier(I) | Identifier(extends)` 三格，**第一个 `{` 的 `Bracket` 那时还没进 `Data`**（`BracketBranch.Success` 里那句 `unit.AddToMounted(bracket)` 的插桩读数：`index=20 hostMounted=Bracket hostDataLen=4 inData=true` —— 它是在 `Condition` 判否**之后**才进 `Data` 的）；② 因此 `ScanHead` 的 `Get(units, nextIndex) === null`（「头恰好用完」）**永远不可能**被那一格满足。**所以第 1238 轮写的入手处（「`ScanHead` 再认一格 `TypeLiteral`」）在时序上不成立**；能动的地方只有两处，且都必须**在 `Condition` 里先把那一格收掉**或**认下「还没闭合的括号」这一形状**。
