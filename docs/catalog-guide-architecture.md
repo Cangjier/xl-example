@@ -1,5 +1,8 @@
 # catalog guide 与 shape token：设计
 
+**实现见 [token_next/README.md](../token_next/README.md)**：那一页记着「设计没写死、实现必须选一种」的那些缝
+各自选了哪一档，以及探针实测逼出来的三处改动。
+
 ## 1. token 的树
 
 ```
