@@ -347,6 +347,75 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1232 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **语句位的声明 / 体之后那一行以运算符或 `/` 开头那一族**（口径 1.1，两处根因都在**位置**上，第 1231 轮登记的那一族**前半截全部收掉**）；1.2 是**一次如实记下的负结果**（挂载委派那 **72.1%** 与收敛环那 **62ms**，两条路都量不出来）
+
+**一句话**：1.1 收的是第 1231 轮登记的 `gap-r1231-decl-newline-operator` 那一族——**两处根因、同一件事的两半，两半都不在名单上、在位置上**：① `function w() { }` 换行 `/re/g;` 里那一格 `Function` 是**声明**，而 `IsOperand` 名单里它（与 `Class`）是为**表达式位**那两档补的 ⇒ 整条声明被折成二元左操作数；② 体那个花括号（`function` / `for` / `while` / 裸块）在解析期还是**裸 `Bracket`**，「凡是 `Bracket` 都答除号」⇒ `/` 退化成 `SlashToken`、正则整格丢。1.2 把「挂载委派那七成」与「收敛环那份草稿纸」两处量到底：**上界 62ms 全在多出来的那几趟上**，拷一份与逐格比那一半量不出来 ⇒ 两条路都按口径整笔撤掉，只留读数。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 两处：① `binary-operator.xl.md` 的 `Previous` 补一句 `Statement.IsDeclarationPosition`（**排在 `IsOperand` 之后**的窄路上）；② `regex-token.xl.md` 的 `Condition` 补一支——先由 `IsObjectLiteralBrace` 挡掉值位那一档，再由新立的 `RegexTokenBranch.IsStatementBrace`（往回找到构造的头、逐个词问 `IsStatementStart`）判「这一格体是不是一条语句的收尾」；顺带收掉同支上「表达式位的函数 / 类后面那个 `/` 也当正则」那一格（**旧产物也坏，不是这一轮改坏的**） | 12 条主档 + 对照档：改前 **6 对上** → 改后**全对上**；新立守卫用例 [expr-r1232-decl-newline-operator.ts](tests/cases/token/expressions/expr-r1232-decl-newline-operator.ts) 单跑 **206 / 206**（缺 0 漂 0 多 0 字段名 0）；`gap-r1231-decl-newline-operator.ts` 换成同片地形里还开着的四档（语句位 `{ p: 1 }`t``、`try…catch` 体、`do…while` 尾、裸块）；与旧产物（`tmp/r1231-old/ts`）逐字节 A/B：**只有这几族变了**，其余同 |
+| **1.2** | **什么都没留**：两个改法各只改 `build/` 里的产物试量（挂载委派走链尾 / 提到 `try` 之前；收敛环只跑一趟 / 只比长度），三笔读数见下 ⇒ **整笔撤掉**，只把读数与两处比例写进 `core/syntax/unit-token.xl.md` 与 `typescript/parse-pipeline.xl.md` | 见下面两张读数表；`RunCloseRules` 一份语料 **38239** 次、其中 `{` 括号 **0** 次 ⇒「按需现算 `IsObjectLiteralBrace`」那条一条都省不下来 |
+
+**1.1 的两处根因**（都是插桩量出来的，不是读代码猜的）：
+
+- **① 位置不在名单上**（`tmp/r1232-patch.mjs` 插桩读出的现场）：折下去那一刻
+  `leftUnit=Function idx=1 parent=Statement leftIdx=0`——`Function` 站在 `Statement` 的**第一格**上，
+  它就是那条声明；而 `IsOperand` 第 692 轮（`Class` 是第 328 轮）把它补进名单，为的是
+  `typeof function () {}` / `function () {} + 1` 那一档。两档的差在**位置**上，于是补的那一句
+  直接复用 `Statement.IsDeclarationPosition`（第 679 轮立的、`IsStatementBoundary` 用的同一句），
+  **不另写一份会漂的近似**；**次序**排在 `IsOperand` 之后——本规则 14 个实例共用这个
+  `Previous`、一份 `typescript.d.ts` 上被问 **1638504** 次（第 1203 轮读数），这一问必须待在窄路上。
+- **② 体那个花括号在解析期还看不出是什么**（`tmp/r1232-patchr.mjs` 插桩）：
+  `Condition` 跑在字符 `r` 上那一刻，`unit.Data` 是
+  `Statement|LineWrap|Identifier|Bracket(()|Bracket({)|LineWrap|SymbolToken`——紧挨着 `/` 的
+  那一格是**体的花括号**（`ObjectLiteralCloseRule` 那一趟收尾还没轮到它）。分界线不在括号自己、
+  也不在括号里装的是什么，而在**这一格所属那个构造的头站在哪**：
+  `RegexTokenBranch.IsStatementBrace` 往回跳过参数表 / 名字 / trivia，**逐个词**问 `IsStatementStart`
+  （有一个答是就算——`export default function f() {` 里 `f` / `function` / `default` 都答否、
+  走到 `export` 才答是；硬写一张「哪些词算头」的表漏一个就是一族静默错值），
+  `=>` 单列答否（箭头函数永远在表达式位）。
+
+**1.1 的现场**（`tmp/r1232-gap.mjs`，12 条主档 + 对照档）：
+
+```text
+function w1() { }
+/re/g;                缺 3 多 8 → 对上      function w2() { }
+                                          +1;                 缺 3 多 4 → 对上
+function w4() { }
+/re/g`t`;             缺 5 多 8 → 对上      while (a) { }
+                                          /re/g;              缺 1 多 1 → 对上
+const v2 = class { }
+/re/g;                缺 7 多 1 → 对上   ← 同一支上顺带收掉的那一格（旧产物也坏）
+—— 对照档（必须仍是除号）：表达式位的函数 / 类 / 箭头、值位对象字面量、`(a) / 2`、`"s" / 2`、`/re/ / 2`
+```
+
+**1.2 的读数（负结果，两张表）**：两处都只改 `build/` 里那一份产物试量，
+尺子是 `tmp/abparse.mjs`（parse、同进程交替、12 对 × 每批 2 轮）：
+
+```text
+① 挂载委派（Process / ProcessChar 各 2119425 次，其中 MountedUnit 那一支 1528421 次 = 72.1%）
+一路走到链尾再一次 Process          mean +35.08ms/轮（sd 53.57、se 15.46）4:8 ⇒ 反而更慢
+把委派提到 try 之前                 mean  −9.96ms/轮（sd 56.01、se 16.17）8:4 ⇒ 与 0 不可分辨
+
+② 收敛环那一格草稿纸（ApplyCloseRules，一份语料 93956 趟）
+上界：整个 pass 循环换成只跑一趟   mean −61.96ms/轮（sd 49.10、se 14.17）11:1
+只把逐格比换成「长度没变就收」      mean  +1.33ms/轮（sd 39.28、se 11.34）6:5
+```
+
+⇒ ① 那一层 `try/catch` **不是**那七成的账；「走链尾」更慢的原因是链尾那一次 `Process`
+的调用点上接收者类型比原来杂得多。② 那 **62ms 全在「多出来的那几趟」上**（同一份单位上平均
+2.46 趟），拷一份与逐格比那一半量不出来——**要动的是「哪些规则根本不用跑」**：
+`RunCloseRules` 只被调 **38239** 次，而 `ApplyTo` 被调 **192 万**次（38239 × 每队列约 50 条规则）。
+按本仓口径「一次没量出来的改动不留」，两条都**整笔撤掉**。
+
+**净账**：`cases:tsast` 16 片全过、已知缺口 **1 条还开着、0 条已经收掉**（就是这一族里还留着的那四档）；
+`cases:direct` 全语料不抛异常（**1678 份**）；`direct:lint` 0 条违反；`samples` ok；
+`cases:check` **1694** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；
+`coverage` **4299 / 4458**（blocked 26、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；
+`npx tsc`（strict）0 error；八道门墙钟 **28.3s**；`best of 5`：parse **760.2**、xml 34.1、printAst 73.3。
+
+**两条 commit**：`3432851b`（1.1 语句位的声明 / 体之后那一行）、`ef702e0c`（1.2 负结果：挂载委派与收敛环的读数）。
+
 ### 第 1231 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **对象字面量当标签模板的标签那一族**（口径 1.1，名单再补一格，新地形普查 6 → 4 条、并**新登记**一族「二元规则跨行把语句位的 `function` 折成左操作数」）；1.2 是**一次如实记下的负结果**（`ApplyTo` 开头那一问恒为假，可删掉它 12 对 mean **+6.54ms**、se 23.62、`5:7` ⇒ 不可分辨，整笔撤掉、只留读数）
 
 **一句话**：1.1 与第 1228 ~ 1230 轮那几处**同一条口径**——`tagIsPostfixChain` 那张「这一格能不能当标签」的名单里**少一格**（`ObjectLiteral` 那一页第 1025 轮就显式声明了 `IsObjectLiteralUnit`，本页另外两处链名单早就读它）⇒ `{ p: 1 }`t`` 整族在入口判否、模板整格丢；1.2 量了 `ApplyTo` 开头那一问（`Array.isArray(units)`，**恒为假**）**删掉值不值**——192 万次，可读数与 0 不可分辨 ⇒ 按「一次没量出来的改动不留」整笔撤掉。
