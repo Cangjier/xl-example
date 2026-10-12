@@ -347,6 +347,28 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1239 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **把第 1238 轮那一格追到「`Condition` 那一刻 `Data` 里根本没有那个括号」**（口径 1.1：整族读数不变，18/22；1.2 是**又一次如实记下的负结果**——两笔改动仍然过不了等价性，整笔撤掉，但**根因这一轮量到底了**）
+
+**一句话**：第 1238 轮把根因写成「第一个括号还没收成 `TypeLiteral`」，这一轮**插桩把它量成了两句话**：① 分支成立那一刻 `Condition` 手里的 `unit.Data` 是 `Identifier(interface) | Identifier(I) | Identifier(extends)` 三格，**第一个 `{` 的 `Bracket` 那时还没进 `Data`**（`BracketBranch.Success` 里那句 `unit.AddToMounted(bracket)` 的插桩读数：`index=20 hostMounted=Bracket hostDataLen=4 inData=true` —— 它是在 `Condition` 判否**之后**才进 `Data` 的）；② 因此 `ScanHead` 的 `Get(units, nextIndex) === null`（「头恰好用完」）**永远不可能**被那一格满足。**所以第 1238 轮写的入手处（「`ScanHead` 再认一格 `TypeLiteral`」）在时序上不成立**；能动的地方只有两处，且都必须**在 `Condition` 里先把那一格收掉**或**认下「还没闭合的括号」这一形状**。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 同一族再量一遍（`tmp/r1238-probe.mjs`），把第 1238 轮那张名单当**对照档**核 | 22 条合法片段里 **18 条对不上**（与第 1238 轮逐条相同）；`interface I extends ({ a: 1 })` 缺 2 多 3、泛型约束与条件类型两条对照档**一直是好的** |
+| **1.2** | **什么都没留**：插桩定位（`tmp/r1239-instr4.mjs` / `tmp/r1239-probe-instr.mjs` 是插桩用完即撤的脚本；`tmp/r1239base/ts` 是本轮那份对照快照） | 三个读数：`DBG_EXT head=null at=3 len=3 units=0:Identifier\|1:Identifier\|2:Identifier`（`ScanHead` 眼里没有括号）；`DBG_BRACKET host=Root value="{" index=20 hostMounted=Bracket hostDataLen=4 inData=true`（括号是 `AddToMounted` 之后才进 `Data` 的）；`unit.Last()` 那一刻是 `Identifier`、`unit.MountedUnit` 是 `null`（`Condition` 手里没有任何「挂着的括号」可关） ⇒ 两笔改动（`IsTypePosition` 单列 `extends` / `implements` 一支；`ScanHead` 按类名认 `TypeLiteral`）照旧只收下 `({ a: 1 })` 那一格 ⇒ **不是恒等变换 ⇒ 整笔撤掉** |
+
+**这一族真正的入手处（下一轮照这个做）**：`InterfaceBranch.Condition` / `ClassBranch.Condition` 要在**判头之前**做一件现在没人做的事——
+那两个字符 `{` 到达时，「`extends` 后面那一格」在 `Data` 里是**上一格实义单元**（`Identifier(extends)`），
+**没有任何单元带着那个 `{` 的位置**；能用的只有 `source` 自己的位置与 `unit.MountedUnit`
+（`BracketBranch.Success` 把开括号挂在 `host.MountedUnit` 上、之后才 `Add` 进 `Data`）。
+所以两条路都要**改 `BracketBranch` 与两个分支的时序**（例如让 `BracketBranch.Success` 在
+`AddToMounted` 之后**立刻**把括号留在 `Data` 里，再让 `Condition` 认「`extends` + 一格**已入表但未闭合**的 `{`」），
+而不是在 `ScanHead` 里加一格判据。**这一轮就是把这句量出来的**。
+
+**净账**：八道门 8 通过 / 0 失败；`cases:tsast` 已知缺口 **4 条还开着 / 0 条已经收掉**；`cases:direct` 1682 份不抛异常；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1701** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4303 / 4465**（blocked 29、differ 133、bad 0、加权 95.7%）；`npx tsc`（strict）0 error；`tmp/r1238-equiv.mjs`（对照 `tmp/r1239base/ts`）**4435 份 0 份不同**。
+
+**进程超时**：每一趟都在预算内——`xl build typescript` 约 2s、`npx tsc` 约 5s、片段探针约 6s、
+等价性 4435 份约 37s、八道门约 30s。
+
 ### 第 1238 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **继承子句里的实体名是一个类型字面量（`{ … }`）那一族**（口径 1.1：22 条合法片段里 **18 条对不上**，`interface` 与 `class` 两侧、`extends` 与 `implements` 两段）；1.2 是**又一次如实记下的负结果 + 一条量法上的教训**（两笔改动**都通不过 `tsc` 之后的语义等价**：4435 份语料里 `interface I extends ({ a: 1 }) { }` 那一格从「错」变「对」⇒ 不是恒等变换 ⇒ 按本仓规矩整笔撤掉，只留读数与根因）
 
 **一句话**：1.1 把第 1237 轮登记的那三档里**第一档**（`extends { a: 1 }`）单独摊成一族——`tmp/r1238-probe.mjs` 24 条（`interface` / `class` 两侧 × `extends` / `implements` 两段 × 裸的 / 空的 / 两个 / 混合 / 联合 / 交叉 / 带类型实参 / 嵌套 / 映射 / 括号化 / 换行 / 夹注释 / 泛型约束 / 谓词），**18 条对不上**：`interface I extends { a: 1 } { }` 缺 8 多 2、`class C extends { a: 1 } { }` 缺 8 多 2、`class C implements { a: 1 } { }` 缺 3 漂 2 多 5……只有 `interface I extends ({ a: 1 }) { }` 与 `type T<U extends { a: 1 }> = U;` 是好的。**根因与第 1237 轮那条判断相反**：不是「谁先吃掉第一个 `{`」，是**分支的成立时点**——`InterfaceBranch.Condition` 在**第二个 `{` 到达那一刻**跑，而**那一刻第一个括号还在 `unit.Data` 里、还没收成 `TypeLiteral`**（插桩实测：`ScanHead` 看到的是 `Identifier(interface) | Identifier(I) | Identifier(extends)`，`head=null`）⇒ `Get(units, nextIndex) === null` 不成立 ⇒ 整条头判否 ⇒ `TypeLiteralCloseRule` 之后才把那一格收成 `TypeLiteral`，**迟了一步**。1.2 试的那两笔（`IsTypePosition` 把 `extends` / `implements` 从类型位词表里拿出来单列一支、`ScanHead` 再认一格 `TypeLiteral`）**都留下读数但不留代码**。
