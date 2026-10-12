@@ -587,7 +587,39 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**13 条**）
+## 已知仍开着的缺口（**本节按轮次倒序归档**；`cases:tsast` 当前读数 = **5 条**）
+
+**第 1241 轮：同一句判据的两份副本漂了——`IsStatementList` 漏了 `IfBody` 与 `StaticBlock`（各补一格、两族转绿）；同轮新登记两族**
+
+- **收掉的那一格**（第 1236 轮登记，`xl:known-gap` 按规矩撤掉、用例留着当守卫）：
+  [`gap-r1236-else-block-label.ts`](../../tests/cases/token/statements/gap-r1236-else-block-label.ts)
+  ——`if (a) { } else { b: 1 }`（一行写完、末尾无分号）里那条标签收不出来。
+  **根因是一句比这一格更值钱的话**：`text-common-util.xl.md` 的 `IsStatementList`
+  与 `statement.xl.md` 里 `FormTail` 自己那份白名单**问的是同一件事，成员却不一样** ——
+  `FormTail` 有 `IfBody` / `StaticBlock`，`IsStatementList` 两个都没有；谁缺谁坏。
+  补上之后 `tmp/r1241-probe.mjs` 34 条合法片段 **22 → 2** 条对不上、
+  `tmp/r1241-probe4.mjs` 6 条 **2 → 0**；守卫用例
+  [`stmt-r1241-body-statement-list.ts`](../../tests/cases/token/statements/stmt-r1241-body-statement-list.ts)
+  八行 × 每个体宿主 **74 / 74 逐节点一致**。
+  **两份副本不能直接合并**：`FormTail` 里写明 `Statement` 那一档是**故意不要**的
+  （壳里再套壳是收敛环里的自激），而 `IsStatementList` 有 `Statement` / `IfSegment` /
+  `DoWhileBody` / `SwitchCase` 四格是 `FormTail` 没有的 ⇒ **差集是两个方向都有的**，
+  所以这一轮只补类名、不动结构。**下一步**：`FormTail` 与 `IsStatementList` 的差集里
+  还剩 `Statement` / `IfSegment` / `DoWhileBody` / `SwitchCase` 四格没量过（`IfBody` 与
+  `StaticBlock` 这一轮量完都是真缺口）——按同一片探针一台一台量。
+- **新登记的两格**（各自带现场与入手处）：
+  1. [`gap-r1241-label-body-literal-head.ts`](../../tests/cases/token/statements/gap-r1241-label-body-literal-head.ts)
+     ——**标签体以非 `Identifier` 单元开头**（`b: 'x'` / `b: (x)` / `b: [1]` / `b: -1` / `` b: `x` ``）：
+     七个体宿主 × 带不带分号**一样坏** ⇒ 与 `IfBody` 那一笔**无关**，根在
+     `LabelCloseRule.StatementStartsHere` 最后那句 `if (!(item instanceof Identifier)) return false;`
+     （数字 / 布尔能过是因为它们在词法层就是 `Identifier` 实例）。四行合计 **缺 15 漂 0 多 4**。
+  2. [`gap-r1241-ifbody-bare-block.ts`](../../tests/cases/token/statements/gap-r1241-ifbody-bare-block.ts)
+     ——**`IfBody` 里再套一个裸块**时外层那个 `}` 丢区间（**缺 0 漂 2 多 1**，五档内容一样坏）；
+     `while` / `for` / 函数 / 方法 / 箭头 / 顶层裸块 / **`StaticBlock`** 都是好的 ⇒ 根不在
+     「体拿到了什么队列」，只能在 `IfBody.ExitOrPre` / `QuitOuter`（体收尾时顺手把**段**也退掉）
+     或它挂载的那一格 `Bracket` 的 `QuitOuter` 上。
+- **数字**：`cases:tsast` 已知缺口 **4 → 5 条**（收掉 1 条、登记 2 条）；`coverage` **4305 / 4468**
+  （守卫用例分子 +1、登记用例分母 +2；blocked 29 → 30、differ 133 一处没动、加权 95.7%）。
 
 **第 1237 轮：换地形再摊一层——「`}` 之后下一行以什么开头」那一族 24 条只剩已知那一格；「类型位的词 + `{`」量出三档、整族登记**
 

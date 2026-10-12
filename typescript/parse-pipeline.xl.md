@@ -833,6 +833,29 @@ try {
 // `RunCloseRules` 一份 `typescript.d.ts` 上只被调 **38239** 次（`tmp/r1232-runcount.mjs`），
 // 而 `ApplyTo` 被调 **192 万**次（38239 × 每队列约 50 条规则）——**要动的是「哪些规则根本不用跑」**，
 // 不是这一格草稿纸。按本仓口径「一次没量出来的改动不留」，这一轮这里**一个字没改**。
+//
+// **第 1241 轮补两笔**（用户口径 1.2，一次剖面向导 + 一次照旧量不出来的微改动）：
+//
+// ```text
+// 剖面（node --cpu-prof --cpu-prof-interval=500，tmp/r1241-prof-parse.mjs 跑 4 轮 parse，
+//       自耗时按「函数名 @ 文件:行」合计、见 tmp/r1241-profread3.mjs）：
+//   样本 4403 条、合计 4550ms（剖面开销在内）
+//   ProcessChar      @ unit-token.js:32       570.4ms  12.5%
+//   ApplyTo          @ close-rule.js:14       357.1ms   7.8%
+//   Process          @ unit-token.js:22       230.5ms   5.1%
+//   ApplyCloseRules  @ parse-pipeline.js:294  226.0ms   5.0%  ← 就是下面这一格（拷一份 + 逐格比）
+//   RunCloseRules    @ parse-pipeline.js:373  146.3ms   3.2%
+//   ApplyCloseRules  @ token.js:166           114.1ms   2.5%
+//   Transit          @ branch.js:22           105.3ms   2.3%
+//   ReorganizeDeclarationDecorators @ declaration-common.js:71   65.3ms  1.4%
+// 这一格动了一刀的读数（`snapshot.length = 0` + 逐格 `push` ⇒ `snapshot.length = count` + 逐格写，
+// 只改拷贝的写法、判据一字未改；第 1232 轮量的是「逐格比」那一半，拷贝这一半没人量过）：
+//   tmp/abparse.mjs 24 对 × 每批 2 轮   mean −13.65ms/轮（sd 77.83、se 15.89）11:12、median +7.00
+// ```
+//
+// ⇒ 拷贝那一半**也量不出来**（与第 1232 轮那第二行同一条结论）；`ApplyCloseRules` 这一格在剖面里
+// 占 **5.0%**，可它的自耗时几乎全在「**多出来的那几趟**」上（第 1232 轮的上界实验已经指出这一点），
+// 而「少跑几趟」到今天没有一条**等价**的判据。按本仓口径**整笔撤掉**，这一格照旧一个字没改。
 const maxPasses = Math.min(16, unit.Data.length + 2);
 const pool = this.SnapshotPool;
 while (pool.length <= TokenFormerImpl.Depth) {

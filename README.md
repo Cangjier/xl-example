@@ -347,6 +347,68 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1241 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **同一句判据写了两份、两份的成员漂了：`IsStatementList` 漏了 `IfBody`（还有 `StaticBlock`）**（口径 1.1：`if` / `else` 体里那一族 34 条片段 **22 条对不上 → 2 条**，第 1236 轮登记的那一格**转绿**；1.2 是**一张新立的剖面读数** + 一次量不出来的微改动）
+
+**一句话**：1.1 收的是第 1236 轮登记的那一格（`else` 体里那条裸标签），这一轮把它的根因量到了一句更值钱的话上——**同一句判据有两份副本，而两份的成员不一样**。`text-common-util.xl.md` 的 `IsStatementList`（判「这个单元的 `Data` 里装的是语句吗」）与 `statement.xl.md` 里 `FormTail` 自己那份白名单问的是**同一件事**，可 `FormTail` 有 `IfBody` 与 `StaticBlock`、`IsStatementList` **两个都没有**。`FormTail` 有 `IfBody` 正是那条体一直没坏的原因；而 `IsStatementList` 缺这一格 ⇒ `IsStatementStart(那个名字)` 在 `if` / `else` 的花括号体里一律给假 ⇒ `LabelCloseRule.Previous` 判不下标签 ⇒ 体里那条 `b: 1` 被一条 `ExpressionStatement` 整段装走（缺 `LabeledStatement` + `ExpressionStatement` + `NumericLiteral`、多 1）。**同一片探针立刻量出同一格的第二次**：`class C { static { b: 1 } }` 读数**一字不差**（缺 3 多 1）。两格各补一个类名之后：`tmp/r1241-probe.mjs` 22 → **2** 条、`tmp/r1241-probe4.mjs` 2 → **0** 条。1.2 这一轮的产出是**一次剖面向导**（`node --cpu-prof` + 一份按「函数名 @ 文件:行」合计自耗时的读法）与一次照旧量不出来的微改动（收敛环里那份草稿纸的**拷贝写法**——第 1232 轮量的是「逐格比」那一半，拷贝这一半没人量过）。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 两处各补一个类名：`IsStatementList` 收下 `IfBody`（`if` / `else` 的花括号体）与 `StaticBlock`；守卫用例 [stmt-r1241-body-statement-list.ts](tests/cases/token/statements/stmt-r1241-body-statement-list.ts)（八行 × 每个体宿主）**74 / 74 逐节点一致** | `tmp/r1241-probe.mjs` 34 条合法片段：**22 条对不上 → 2 条**（`else` / `if` 体 / 嵌套 / 注释三种位置 / 换行三档 / 七种体宿主全绿）；`tmp/r1241-probe4.mjs` 6 条：**2 → 0**（`static { b: 1 }` / `static { g() }`） |
+| **1.2** | **什么都没留**：先立剖面向导（`tmp/r1241-prof-parse.mjs` + `tmp/r1241-profread3.mjs`），再照第 1232 轮那套只改 `build/` 产物量一刀 | 剖面见下面那张表；那一刀 `tmp/abparse.mjs` 24 对 × 每批 2 轮 mean **−13.65ms/轮**（sd 77.83、se 15.89、**11:12**、median +7.00）⇒ 与 0 不可分辨 ⇒ 整笔撤掉，读数落进 `parse-pipeline.xl.md` 的 `ApplyCloseRules` 那一格 |
+
+**两处根因（都是探针量出来的，不是读代码猜的）**：
+
+1. **`IfBody`**（第 1236 轮登记的那一格）：`while` / `for` / 函数 / 方法 / 箭头的体都在白名单里，
+   只有 `if` / `else` 的花括号体没登记。**为什么只有「一行写完 + 末尾无分号」那一档坏**：
+   带分号、或换行处那一趟 ASI 会**先在解析期**收一条 `Statement` 壳，标签规则那一刻看到的
+   父单元是 `Statement`（在白名单里）⇒ 碰巧对；一行写完时体里的单元**直接挂在 `IfBody` 下**
+   ⇒ 只有这一格能显形（这也解释了第 1236 轮量到的那条分界线）。
+2. **`StaticBlock`**（同一片探针量出的第二次）：`FormTail` 的白名单里**早就有它**，
+   只有这里的副本漏了 ⇒ `class C { static { b: 1 } }` 与 `if (a) { } else { b: 1 }` 读数一字不差。
+   **两份副本不能直接合并成一份**：`FormTail` 自己那一份注释里写明了 `Statement` 那一档是
+   **故意不要**的（壳里再套壳就是收敛环里的自激），而 `IsStatementList` 有 `Statement` /
+   `IfSegment` / `DoWhileBody` / `SwitchCase` 四格 `FormTail` 没有 ⇒ 差集是两个方向都有的，
+   所以这一轮**只补类名、不动结构**。
+
+**还开着的两条（同一轮按规矩登记，各自带现场与入手处）**：
+
+- [gap-r1241-label-body-literal-head.ts](tests/cases/token/statements/gap-r1241-label-body-literal-head.ts)
+  ——**标签体以非 `Identifier` 单元开头**（`b: 'x'` / `b: (x)` / `b: [1]` / `b: -1` / `` b: `x` ``）：
+  七个体宿主、带不带分号**一样坏** ⇒ 与 `IfBody` 那一笔无关，根在
+  `LabelCloseRule.StatementStartsHere` 最后那句 `if (!(item instanceof Identifier)) return false;`
+  （数字 / 布尔能过是因为它们在词法层就是 `Identifier` 实例，`String` / `(` / `[` / 一元前缀不是）。
+  本用例四行合计 **缺 15 漂 0 多 4**。
+- [gap-r1241-ifbody-bare-block.ts](tests/cases/token/statements/gap-r1241-ifbody-bare-block.ts)
+  ——**`IfBody` 里再套一个裸块**时外层那个 `}` 丢区间：五档内容（空块 / 调用 / `let` / 标签 / `break`）
+  一样坏、**缺 0 漂 2 多 1**；`while` / `for` / 函数 / 方法 / 箭头体 / 顶层裸块都是好的，
+  **`StaticBlock` 也是好的** ⇒ 根不在「体拿到了什么队列」（两者都是 `UnitToken` + `InitialCloseRuleQueue`），
+  只能在 `IfBody.ExitOrPre` / `QuitOuter`（体收尾时顺手把**段**也退掉）或它挂载的那一格
+  `Bracket` 的 `QuitOuter` 上——**这是下一轮的入手处**。
+
+**1.2 的剖面读数**（新立的量法：`node --cpu-prof --cpu-prof-interval=500 tmp/r1241-prof-parse.mjs <文件> 4`，自耗时按「函数名 @ 文件:行」合计）：
+
+```text
+样本 4403 条、合计 4550ms（4 轮 parse，剖面开销在内）
+  ProcessChar      @ unit-token.js:32       570.4ms  12.5%
+  ApplyTo          @ close-rule.js:14       357.1ms   7.8%
+  Process          @ unit-token.js:22       230.5ms   5.1%
+  ApplyCloseRules  @ parse-pipeline.js:294  226.0ms   5.0%   ← 收敛环（拷一份 + 逐格比）
+  RunCloseRules    @ parse-pipeline.js:373  146.3ms   3.2%
+  ApplyCloseRules  @ token.js:166           114.1ms   2.5%
+  Transit          @ branch.js:22           105.3ms   2.3%
+  ReorganizeDeclarationDecorators @ declaration-common.js:71   65.3ms  1.4%
+```
+
+⇒ 闭规则那一趟（`ApplyTo` + 两个 `ApplyCloseRules` + `RunCloseRules` + 各条 `Previous`）合计约 **四分之一**，
+其中 `ApplyTo` 那 **192 万**次调用的**每次**开销（≈46ns）比它内层真正跑的判据还贵 ——
+**要动的是「哪些规则根本不用跑」**（第 1232 轮写下、第 1241 轮由剖面再次指向同一处）。
+**试的那一刀**：把草稿纸的拷贝从「`snapshot.length = 0` + 逐格 `push`」换成「`snapshot.length = count` + 逐格写」，
+判据一字未改 ⇒ mean **−13.65ms/轮**（se 15.89、11:12）⇒ 不可分辨 ⇒ 撤掉。
+
+**净账**：八道门 8 通过 / 0 失败（墙钟 **29.5s**）；`cases:tsast` 已知缺口 **4 → 5 条还开着、1 条已经收掉**（第 1236 轮那一条按规矩撤掉 `xl:known-gap`、用例留着当守卫；同轮登记 2 条）；`cases:direct` **1684** 份不抛异常；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1704** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4305 / 4468**（blocked 30、differ 133、bad 0、加权 95.7%）；`npx tsc`（strict）0 error；等价性（`tmp/r1238-equiv.mjs`，对照 `tmp/r1240base/ts`）**4435 份 0 份不同**；`best of 5`（`tmp/r1232-best.mjs`）：parse **794.8**、xml 35.0、printAst **72.0**。
+
+**进程超时**：每一趟都在预算内——`xl build typescript` 约 2s、`npx tsc` 约 5s、片段探针约 6s、八道门约 31s、等价性 4435 份约 37s、`abparse` 24 对 × 每批 2 轮约 40s、剖面 4 轮约 5s。
+
 ### 第 1240 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **把那一格做成「类型字面量已经在树里、分支却读不到它」的那一句话**（口径 1.1：18/22 不变；1.2 是**第三次如实记下的负结果**，但根因这一轮落到了**两个 `Data` 不是同一份**这一句上）
 
 **一句话**：这一轮把第 1239 轮剩下的那半句补上——第 1239 轮量到「`Condition` 那一刻 `Data` 里没有那个括号」，这一轮量到**它之后也没有**：插桩三个点得到

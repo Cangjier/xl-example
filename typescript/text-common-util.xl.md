@@ -2034,7 +2034,28 @@ return (
   name === "TryBody" ||
   name === "CatchBody" ||
   name === "FinallyBody" ||
-  name === "NamespaceBody"
+  name === "NamespaceBody" ||
+  // **`IfBody` 也漏了一格**（第 1241 轮，第 776 轮 `LamdaBody` 那一条的同形第二次）：
+  // `if` / `else` 的花括号体在这里**没登记**，而 `while` / `for` / 函数 / 方法的体都登记了
+  // ⇒ 同一份「体里那一格标签」的量法在 `if` 体上给假、在邻居身上给真。症状是
+  // `if (a) { } else { b: 1 }` 的体里**收不出那条 `LabeledStatement`**
+  //（缺 `LabeledStatement` + `ExpressionStatement` + `NumericLiteral`，多一个把三者
+  // 装在一起的 `ExpressionStatement`；实测 `tmp/r1241-probe.mjs` 34 条里 22 条对不上，
+  // 补上这一格之后全绿）。
+  // **为什么只有「末尾没有分号、也不换行」的那一档坏**：`;` 与「换行处那一趟 ASI」
+  // 会先在**解析期**收一条 `Statement` 壳，标签规则那一刻看到的父单元是 `Statement`
+  //（在白名单里）⇒ 碰巧对；一行写完、末尾无分号时体里的单元**直接挂在 `IfBody` 下**
+  // ⇒ 只有这一格能显形。`IfBody` 的 `Data` 里装的就是语句
+  //（`if-body.xl.md` 的 `InitialCloseRuleQueue`），与 `FunctionBody` / `MethodBody` /
+  // `LamdaBody` **并列**。
+  name === "IfBody" ||
+  // **`StaticBlock` 是同一格的第二次**（第 1241 轮，同一片探针量出来的）：
+  // `class C { static { b: 1 } }` 与 `if (a) { } else { b: 1 }` **读数一字不差**（缺 3 多 1）。
+  // 这一格更说明问题：**`FormTail` 的白名单里早就有 `StaticBlock`**（`statement.xl.md`），
+  // 只有这里的副本漏了 ⇒ 同一句判据的两份副本**成员不一样**，谁漏谁坏。
+  // `tmp/r1241-probe4.mjs` 6 条片段：补这一格之前两条对不上（`static { b: 1 }` 与
+  // `static { { g() } }`），补上之后只剩裸块那一格（它就是新登记的那一条）。
+  name === "StaticBlock"
 );
 ```
 
