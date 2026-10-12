@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 4457,
+  "total": 4458,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -90,8 +90,8 @@
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1678,
-      "pass": 1677,
+      "total": 1679,
+      "pass": 1678,
       "blocked": 1,
       "differ": 0,
       "nodefail": 0,
@@ -139,19 +139,19 @@
     }
   ],
   "token": {
-    "total": 1678,
+    "total": 1679,
     "knownGap": 1,
     "knownGapStillOpen": 1,
-    "exactFiles": 1677,
-    "scoredWithoutGap": 1677,
-    "passedWithoutGap": 1677
+    "exactFiles": 1678,
+    "scoredWithoutGap": 1678,
+    "passedWithoutGap": 1678
   },
   "blocked": [
     {
       "id": "token/expressions/gap-r1231-decl-newline-operator",
       "category": "token",
       "title": "第 1231 轮**新登记**的一族（换了一片地形普查撞出来的：`tmp/r1231-sweep.mjs` 拿",
-      "detail": "缺 1　多 2　二元规则跨行把语句位的 `function` 声明 / 块折成左操作数（那一格此刻看不出自己是声明）"
+      "detail": "缺 5　多 5　语句位花括号当块 / `try…catch` 体 / `do…while` 尾 / 裸块后面那一行以 `/` 开头"
     },
     {
       "id": "exec/classes/099-class-extends-builtin-blocked",
@@ -429,7 +429,7 @@
       "id": "exec/round708/033-console-log-error-differ",
       "category": "exec",
       "title": "console.log 的 Error 不带栈（账）",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2285.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/2286.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/040-string-search-and-match-differ",
@@ -705,7 +705,7 @@
       "id": "stdlib/console/011-console-log-error-stack-differ",
       "category": "stdlib",
       "title": "`console.log(new Error(\"boom\"))` 的栈没有渲染",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3273.ts:3:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3274.ts:3:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -729,7 +729,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3321.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///<work>/src/3322.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/globals/051-builtin-regexp-constructor",
@@ -897,7 +897,7 @@
       "id": "stdlib/round751/003-error-instance-stack-differ",
       "category": "stdlib",
       "title": "`Error` 实例的 `stack`",
-      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3964.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
+      "detail": "stdout 不同：第 2 行：node «    at file:///<work>/src/3965.ts:9:48» vs tsrun «typeof new Error('x').stac ok:string:string»"
     },
     {
       "id": "stdlib/round751/004-console-constructor-cell-differ",

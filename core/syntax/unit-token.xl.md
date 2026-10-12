@@ -92,6 +92,19 @@ try {
 分出来之后 `try/catch` 只剩「调本方法 + 建异常」这一层壳，
 **判据、次序、`LastSource` 的写法一个字没改**（逐字搬过来）。
 
+**第 1232 轮把「挂载委派」那一支的账量到底了（如实记在这里）**：插桩数过（`tmp/r1232-runcount.mjs`），
+一份 `typescript.d.ts` 上 `Process` 与 `ProcessChar` 各 **2119425** 次，其中
+`this.MountedUnit !== null` 那一支占 **1528421** 次（**72.1%**）——也就是说这七成
+只是「转给挂载单元」。两个改法都量过，都**不留**：
+
+| 改法（只改 `build/`，`tmp/abparse.mjs` 12 对 × 每批 2 轮） | 配对差 | 胜负 |
+| --- | --- | --- |
+| 一路走到链尾再一次 `Process`（省掉中间每一层的 `Process` + `ProcessChar`） | mean **+35.08ms/轮**（sd 53.57、se 15.46） | 4:8 ⇒ **反而更慢** |
+| 把委派提到 `try` 之前（这一层不建 `try/catch`，调用点多态形状一字不变） | mean **−9.96ms/轮**（sd 56.01、se 16.17） | 8:4 ⇒ 与 0 不可分辨 |
+
+⇒ 那一层 `try/catch` **不是**这七成的账（提前算出来也量不出来），而「走链尾」更慢：
+走到链尾那一次 `Process` 的调用点上看到的接收者类型比原来杂得多。**两条都整笔撤掉**。
+
 ```ts
 if (this.MountedUnit !== null) {
   this.MountedUnit.Process(context, source);
