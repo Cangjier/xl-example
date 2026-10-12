@@ -178,15 +178,69 @@ Token，语法树的地基。
 不存在「某一层统一给子节点补坐标」这一趟——只有起点没签过终点的单元（`IfSegment` 那种）
 由 `RangeEnd` 自己兜底，所以每一格给的坐标都是它自己那一份。
 
+**基类的字段为什么搬到原型上**（第 1229 轮，用户口径 1.2「提升 parse 效率」）：
+
+**一句话**：本页那 94 格**常量默认值**字段（`Parent` / `Closed` / `ProcessQueue` / 每一个
+`IsXxx:bool` …）原来**每个实例各写一遍**，现在只在 `Token.prototype` 上装一遍
+（`InstallPrototypeDefaults`，由 `## static field DefaultsInstalled` 在类定义时跑一次）。
+**判据一个字没改**：读到的还是同一个值，写入还是写在这一格自己身上（写一个「原型上有初值的」
+数据属性，就是在实例上造一个自有属性把它盖住，与从前逐字同形）。
+
+**为什么要动它**：解析期的剖面里**基类构造器是最大的一格**。`node --cpu-prof` 跑
+`node_modules/typescript/lib/typescript.d.ts` 六遍（`tmp/r1229-pprof`，总样本 7380ms、每遍 1202.6ms）：
+`Token @ syntax/token.js:12` **666.5ms（9.03%）** 加 `Token @ syntax/token.js:148` **551.0ms（7.47%）**
+——两格都是同一个「基类构造器」帧在两种调用上下文下的样子，**合计 17% 的解析时间**花在
+「每个 token 把这 94 格写一遍」上。
+
+**先量后改**（`tmp/r1229-nofields.mjs` 只改 `build/` 里那一份产物做实验）：
+
+```text
+tmp/abparse.mjs（parse，同进程交替，12 对 × 每批 2 轮）
+  实验版 best=820.5 median=906.5   现版 best=1031.0 median=1148.0
+  配对差 mean=+215.38ms/轮（sd=96.51、se=27.86）  现版更快 0 对 / 更慢 12 对
+tmp/r1203-bench.mjs（best of 5）  parse 987.6 → 828.9、xml 42.6 → 36.5、printAst 92.7 → 113.7
+tmp/abgen.mjs（投影，同进程交替，20 对 × 每批 8 轮）  配对差 mean −6.51ms/轮（se 4.26、13:7）
+```
+
+⇒ **解析那一侧 12 对全负、量级 −215ms/轮（≈ −16%）**；投影那一侧两把尺子都读不出好处
+（`abgen` 那一读 13:7、mean 只是 se 的 1.5 倍；`best of 5` 那一读还偏慢）——**投影不是这一笔的收益，
+是它可能付的代价**，所以口径记成「整条 print ast 流水线（parse + 投影）大幅变快，
+单看投影那一趟两读都在噪声里」。`abgen` 第一句那句「两版投影 JSON 必须逐字节相同」的断言
+在这一笔上是过的（一次都没响）。
+
+**为什么必须配 `useDefineForClassFields: false`**（`tsconfig.json`，同一轮加的）：
+xl 的 `## field X:bool = false` 生成 `public X: boolean = false;`，而 `tsc` 在
+`useDefineForClassFields: true`（ES2022 的默认）下把它译成**构造器里一次 `defineProperty`**
+——**去掉初值也照样每个实例写一遍 `undefined`**，那样既没省下代价、又改坏了语义。
+把这一格关掉之后，**没有初值的字段在产物里一行都不剩**（类型还在，`tsc --strict` 照旧全绿）：
+`tmp/r1229-strip2.mjs` 把 94 格改成「只要类型」之后 `npx tsc --useDefineForClassFields false`
+留下的 8 条错误全是那一版把类型写成 `any` 引出来的（与本次无关），
+**真改时类型一个字没动、`npx tsc` 0 error**。
+**这一格关掉的另一面**：有初值的字段从「`defineProperty` 语义」变成「**赋值**语义」。
+本仓里两者的分别只在一处成立——「子类的字段名撞上基类的取值器」——而这一族全仓一处都没有
+（基类那些 `## property` 各有自己的 `### get`，没有哪一页再把同一个名字声明成字段）；
+其余场合赋值与 `defineProperty` 对**自有属性**是同一件事（`useDefineForClassFields: false`
+的产物形态就是构造器里一串 `this.X = …`，读写的收件人一个字没变）。
+
+**留下来的代价与它的边界**（写在这里，免得下一个人以为这一笔白拿）：实例上那一格在**被写之前
+不在自己身上**了——读它要走一层原型链（`item.Parent === null` 那一族因此变成原型读），
+而**写它**会在实例上造一个自有属性、当场走一次隐藏类迁移。所以这一笔的账是
+「**每实例 94 次构造期写入**」换「**读那一格多一跳 + 首次写一次迁移**」——
+两个方向都量过：解析那一侧 12 对全负，投影那一侧不显著。
+
+**搬迁是机械的，所以留一份可复现的脚本**：`tmp/r1229-apply.mjs`（读实验版产物尾巴上那 94 条
+`Token.prototype.X = …`，把规范页上对应的 94 行 `## field … = <常量>` 改成「只要类型」，
+再把 `InstallPrototypeDefaults` 与那个 `## static field` 插进来）。临时脚本不进仓库。
+
 ## field Template:Template
 
 本单元使用的模板。
 
-## field ProcessQueue:Sequence<Branch> | null = null
+## field ProcessQueue:Sequence<Branch> | null
 
 从当前单元跳到下一个单元的跳转队列。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。
 
-## field CloseRuleQueue:Sequence<CloseRule> | null = null
+## field CloseRuleQueue:Sequence<CloseRule> | null
 
 本单元关闭之后 `ApplyCloseRules` 要跑的规则队列（第 562 轮从 `CloseRuleQueue` 改名）。
 
@@ -195,7 +249,7 @@ Token，语法树的地基。
 
 `null` = 这个类没有收尾规则 —— 收敛环对它就一条规则都不跑（`FormStatement` 那条钩子照旧跑）。
 
-## field Parent:Token | null = null
+## field Parent:Token | null
 
 父单元。
 
@@ -203,7 +257,7 @@ Token，语法树的地基。
 
 子单元。
 
-## field MountedUnit:Token | null = null
+## field MountedUnit:Token | null
 
 当前挂载的子单元：非空时本单元把 `Process` 直接转给它。
 
@@ -211,11 +265,11 @@ Token，语法树的地基。
 
 本单元覆盖的源码范围。
 
-## field LastSource:Source | null = null
+## field LastSource:Source | null
 
 上一次处理的字符位置。
 
-## field Closed:bool = false
+## field Closed:bool
 
 本单元是否已关闭；关闭后不再接收字符。
 
@@ -739,6 +793,115 @@ return this.Parent;
 return false;
 ```
 
+## static method InstallPrototypeDefaults:(proto:any)=>void
+
+**把基类那些「常量默认值」装到原型上**（第 1229 轮，用户口径 1.2「提升 parse 效率」）。
+
+本页上面那些 `## field` 全都没有初值 —— 它们的初值在**这里**，装一次、装在 `Token.prototype` 上。
+理由与读数见本页开头的「基类的字段为什么搬到原型上」那一节。
+
+```ts
+proto.ProcessQueue = null;
+proto.CloseRuleQueue = null;
+proto.Parent = null;
+proto.MountedUnit = null;
+proto.LastSource = null;
+proto.Closed = false;
+proto.modifiers = "";
+proto.ModifierSpans = "";
+proto.CachedSegments = null;
+proto._TreeFrozen = undefined;
+proto.KidsCache = null;
+proto.ProjectionEndCache = null;
+proto.IsNumericLiteralName = false;
+proto.Tag = "";
+proto.WrapperField = undefined;
+proto.BodyField = undefined;
+proto.AstKind = undefined;
+proto.StatementKind = undefined;
+proto.StatementField = undefined;
+proto.IsInvisible = false;
+proto.IsCommentUnit = false;
+proto.IsMemberTag = false;
+proto.IsDeclarationUnit = false;
+proto.TypeMemberPlan = undefined;
+proto.FunctionFlags = undefined;
+proto.IsMemberList = false;
+proto.IsStatementNode = false;
+proto.EndsOnBrace = false;
+proto.IsNameNode = false;
+proto.IsDeclareWord = false;
+proto.IsPatternKid = false;
+proto.IsDotSymbol = false;
+proto.IsOperatorUnit = false;
+proto.OperatorWordKind = "";
+proto.IsPrefixOperatorUnit = false;
+proto.IsTypeParameterModifier = false;
+proto.IsChainBaseNode = false;
+proto.IsTagBaseNode = false;
+proto.IsImportKeyword = false;
+proto.IsExtendsKeyword = false;
+proto.IsAsKeyword = false;
+proto.IsWithKeyword = false;
+proto.IsExportKeyword = false;
+proto.IsDefaultKeyword = false;
+proto.IsDeclareKeyword = false;
+proto.IsTypeKeyword = false;
+proto.IsIsKeyword = false;
+proto.IsAwaitKeyword = false;
+proto.IsAssertKeyword = false;
+proto.IsNewKeyword = false;
+proto.IsAsyncKeyword = false;
+proto.IsAbstractKeyword = false;
+proto.IsYieldKeyword = false;
+proto.IsPropertyAccess = false;
+proto.IsNotNull = false;
+proto.IsSymbolToken = false;
+proto.IsNullConditionalOperator = false;
+proto.IsStringUnit = false;
+proto.IsStringLiteralUnit = false;
+proto.IsTemplateString = false;
+proto.IsBracketUnit = false;
+proto.IsArrayLiteralUnit = false;
+proto.IsTypeParameterUnit = false;
+proto.IsKeywordUnit = false;
+proto.IsIdentifierUnit = false;
+proto.IsLetUnit = false;
+proto.IsObjectLiteralUnit = false;
+proto.IsDecoratorUnit = false;
+proto.IsAsUnit = false;
+proto.IsSatisfiesUnit = false;
+proto.IsSpreadUnit = false;
+proto.IsMethodNode = false;
+proto.IsGenericType = false;
+proto.IsBinaryOperatorNode = false;
+proto.IsBinaryOperatorUnit = false;
+proto.IsExpressionWithTypeArguments = false;
+proto.IsTypeAssignUnit = false;
+proto.IsValueOnlyUnit = false;
+proto.IsTypeUnit = false;
+proto.IsTypeSuffixUnit = false;
+proto.IsTypeWithTypeArguments = false;
+proto.IsStatementShell = false;
+proto.IsLabelUnit = false;
+proto.IsExportUnit = false;
+proto.IsBindingElement = false;
+proto.IsMethodDeclaration = false;
+proto.IsUnaryOperator = false;
+proto.IsSwitchCaseUnit = false;
+proto.IsSwitchStatementUnit = false;
+proto.IsSignatureNode = false;
+proto.IsSignatureList = false;
+proto.IsIndexBracket = false;
+proto.IsParenBracket = false;
+proto.IsBraceBracket = false;
+```
+
+## static field DefaultsInstalled:any = Token.InstallPrototypeDefaults(Token.prototype)
+
+**上面那一趟在类定义时跑一次**（`## static field` 的初值）：静态字段的初值按声明次序求值，
+而这一句排在 `Former` 之前 —— 所以第一个 `Token` 实例造出来之前，原型上那 94 格已经就位。
+
 ## static field Former:TokenFormer = new TokenFormer()
 
 **成形器**（第 486–488 轮）：`FormStatement` 与 `ApplyCloseRules` 的落地实现。
@@ -992,7 +1155,7 @@ return this.Data;
 而且它同样靠运行期反射（与 `Segments` 同一轮、同一条口径）。
 收成这一格之后，「哪几个布尔属性是修饰词」只有本页一处声明，投影只读属性名。
 
-## field modifiers:string = ""
+## field modifiers:string
 
 **本单元记下的修饰词正文**（`,` 连接，例如 `"export,const"`）：把修饰词记成文本的那几页
 （`Let` / `Field` / `TypeAssign` / `Class` / `Enum` / `Function` / `MethodDeclaration` /
@@ -1025,7 +1188,7 @@ if (this.modifiers === "") return [];
 return this.modifiers.split(",").filter((word) => word !== "");
 ```
 
-## field ModifierSpans:string = ""
+## field ModifierSpans:string
 
 **本单元记下的修饰词各自的区间**（`"起:止"` 用 `,` 连接、闭区间，与 `modifiers` **同序同长**）：
 把修饰词记成文本的那几页（`Let` / `Field` / `TypeAssign` / `Class` / `Enum` / `Function` /
@@ -1217,7 +1380,7 @@ this.CachedSegments = names;
 return names;
 ```
 
-## field CachedSegments:Array<string> | null = null
+## field CachedSegments:Array<string> | null
 
 **这一格排出来的段名表**（第 1150 轮）：`Segments` 算过一次就记在这里，`null` = 还没算过。
 
@@ -1278,13 +1441,13 @@ return answer;
 this._TreeFrozen = value === true;
 ```
 
-## field _TreeFrozen:bool | undefined = undefined
+## field _TreeFrozen:bool | undefined
 
 **`TreeFrozen` 的存储**（第 1155 轮）：`undefined` ＝「还没问过、要往上看」，
 `true` / `false` ＝「问过了、这一格已经定下来」。只有根上那一份是**被置**的，
 其余每一格都是**第一次读时落下来的答案**。
 
-## field KidsCache:Array<Token> | null = null
+## field KidsCache:Array<Token> | null
 
 **冻结之后第一次问 `ProjectableKids` 得到的答案**（第 1155 轮）：`null` ＝还没问过。
 它只在 `TreeFrozen` 为真时被写入与读取（见 `ProjectableKids` 那一节）。
@@ -1294,7 +1457,7 @@ this._TreeFrozen = value === true;
 （落在 20355 个 token 上）里，每一次都少一次属性读——省下的是**每次调用一次 `TreeFrozen`**
 （实测这一格全投影被读 **70828** 次、只在 23259 个 token 上有意义，重复读 47569 次）。
 
-## field ProjectionEndCache:int | null = null
+## field ProjectionEndCache:int | null
 
 **冻结之后第一次问 `ProjectionEnd` 得到的答案**（第 1179 轮，用户口径 1.3 / 1.6）：`null` ＝还没问过。
 它只在 `TreeFrozen` 为真时被写入与读取（与 `KidsCache` 同一形态、同一条判据）。
@@ -2106,7 +2269,7 @@ const raw = head.Document.GetRaw(at, at);
 return raw === '"' || raw === "'";
 ```
 
-## field IsNumericLiteralName:bool = false
+## field IsNumericLiteralName:bool
 
 **「我这一格声明的那个名字是不是数字字面量」**（第 1192 轮按用户口径 1.2 / 1.3 收到基类默认档）。
 
@@ -2175,7 +2338,7 @@ return end;
 return "[" + this.RangeStart() + "," + this.RangeEnd() + "]";
 ```
 
-## field Tag:string = ""
+## field Tag:string
 
 **这一格是什么**（第 1005 轮）：就是**自己的类名**。
 
@@ -2454,7 +2617,7 @@ throw new Error(
 `TS2611: defined as a property … but is overridden here as an accessor` 的镜像那一版
 ——**两边都写 `## field`、构造时各赋各的值**（第 1041 轮在全语料 159 处上验过）。
 
-## field WrapperField:string | null | undefined = undefined
+## field WrapperField:string | null | undefined
 
 **投成目标语言形状时，我这一层是不是「包装」**（第 990 轮）——是的话给出「内容提到哪个字段」，
 不是的话是 `undefined`；`null` 与 `undefined` 是两件事（见下）。
@@ -2494,7 +2657,7 @@ throw new Error(
   **第 1045 轮起它在那趟里就把容器的这一格赋成 `"typeParameters"`**——事实在哪一趟记下，
   就在哪一趟赋值，投影不再回子单元里数一遍。
 
-## field BodyField:string | undefined = undefined
+## field BodyField:string | undefined
 
 **投成目标语言形状时，我这一层是不是「体」**（第 991 轮）——是的话给出「我在父节点上叫哪个字段」，
 不是的话是 `undefined`。
@@ -2529,7 +2692,7 @@ throw new Error(
 在自己那一页**显式声明同一个属性**并给出自己的值（`## field`，与 `AstKind` / `EndsOnBrace`
 同一形态）。
 
-## field AstKind:string | undefined = undefined
+## field AstKind:string | undefined
 
 **投成目标语言形状时我这一格叫什么节点**（第 1025 轮）——答案是我自己的事实，所以由我自己答。
 
@@ -2554,7 +2717,7 @@ throw new Error(
 `undefined`，每一页**显式声明同一个属性**并给出自己的节点名（`## field`），投影只按属性名
 读一次（`v.AstKind`），不再问「有没有这一格」。
 
-## field StatementKind:string | undefined = undefined
+## field StatementKind:string | undefined
 
 **我这一格是不是「语句头」**（第 1027 轮）——是的话答那条语句在目标语言那边的 kind，
 不是的话答 `undefined`。基类就是这个答案（`core` 与语言无关，不知道任何目标语言的语句名）。
@@ -2568,13 +2731,17 @@ throw new Error(
 **第 1042 轮起它是属性**：`Keyword` 那一页在**记下自己正文的那一刻**把它赋好（`SetValue`，
 见 `typescript/tokens/keyword.xl.md`）——正文是这一格的唯一输入，值在那一趟就定下来了，
 所以投影直读（`head.StatementKind`），不再问「有没有这一格」。**基类默认 `undefined`**：
-其余 token 都不是语句头。
+其余 token 都不是语句头（第 1229 轮起这一格与其余 93 格一样，初值装在 `Token.prototype` 上，
+见本页开头「基类的字段为什么搬到原型上」）。
 
-```ts
-return undefined;
-```
+**第 1229 轮删掉的那一块**：这一节末尾原来还留着一份 `## property` 时代的取值器正文
+（一个 ```ts return undefined; ``` 块）——第 1042 轮把它改成字段时那一块**没跟着删**，
+而 xl 把「字段后面跟着的那个块」当成这一格的**初值**：初值留在这一行时它被无视，
+可初值一搬走，它就当场变成非法产物（实测 `dist/ts/core/syntax/token.ts` 里那一行
+`public StatementKind: string | undefined = return undefined;;`）⇒ 这一轮把它删掉。
 
-## field StatementField:string | undefined = undefined
+
+## field StatementField:string | undefined
 
 **我这一格当语句头时，后面那段载荷进目标语言的哪个字段**（第 1037 轮）：
 是的话答那个字段名（`expression` / `label`），不是的话答 `undefined`。
@@ -2589,13 +2756,14 @@ return undefined;
 
 **第 1042 轮起它是属性**：与 `StatementKind` **同一趟**赋好（`Keyword.SetValue` 里那两行是同一次
 查表的两个出口）——**基类默认 `undefined`**（`core` 与语言无关，不知道任何目标语言的字段名），
-其余 token 没有语句载荷。
+其余 token 没有语句载荷（第 1229 轮起初值装在 `Token.prototype` 上）。
 
-```ts
-return undefined;
-```
+**同一轮删掉的那一块**：与 `StatementKind` 一样，这一节末尾也留着一份
+`## property` 时代的取值器正文（```ts return undefined; ```），而 xl 会把字段后面那个块当成初值
+⇒ 与上面那一格一起删掉。
 
-## field IsInvisible:bool = false
+
+## field IsInvisible:bool
 
 **我在投影出来的那棵树里出不出现**（第 1030 轮）——答 `true` 就是说「我不是一个节点」、
 投影跳过我与相邻判定都当我不存在。
@@ -2612,7 +2780,7 @@ return undefined;
 **显式声明同一个属性**并给出自己的值（`## field`，与 `AstKind` / `IsMemberTag` / `IsMemberList`
 同一形态）。
 
-## field IsCommentUnit:bool = false
+## field IsCommentUnit:bool
 
 **我是不是一条注释**（第 1084 轮）。
 
@@ -2629,7 +2797,7 @@ return undefined;
 **基类这一格默认 `false`**：需要它的 token 在自己那一页**显式声明同一个属性**并给 `true`
 （`## field`，与 `IsInvisible` / `IsMemberTag` / `IsMemberList` 同一形态，构造时就赋好）。
 
-## field IsMemberTag:bool = false
+## field IsMemberTag:bool
 
 **我在成员位上算不算一个「成员」**（第 1033 轮）。
 
@@ -2648,7 +2816,7 @@ return undefined;
 **显式声明同一个属性**并给出自己的值（`## field`，与 `IsInvisible` / `AstKind` / `IsMemberList`
 同一形态）。
 
-## field IsDeclarationUnit:bool = false
+## field IsDeclarationUnit:bool
 
 **我在 `export` 后面算不算一个「声明单元」**（第 1036 轮）。
 
@@ -2669,7 +2837,7 @@ return undefined;
 在自己那一页**显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `IsInvisible` /
 `AstKind` 同一形态）。
 
-## field TypeMemberPlan:TypeMemberPlanShape | undefined = undefined
+## field TypeMemberPlan:TypeMemberPlanShape | undefined
 
 **我这一批子单元要不要按「类型位」投、按哪个符号切段**（第 1035 轮）：
 是类型容器的话答 `{ separator }`——`separator` 是一个符号（`"|"` / `"&"` / `","`）时
@@ -2690,7 +2858,7 @@ return undefined;
 **显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `AstKind` / `IsMemberList`
 同一形态）。
 
-## field FunctionFlags:FunctionFlagsShape | undefined = undefined
+## field FunctionFlags:FunctionFlagsShape | undefined
 
 **我这一格是不是函数体**（第 1031 轮）：是的话给出 `{ generator, async }`，不是的话是 `undefined`。
 
@@ -2710,7 +2878,7 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 在自己那一页**显式声明同一个属性**并给出自己的值（`## field`，与 `StatementKind` / `AstKind`
 同一形态）。**克隆体也要抄**（它不走那三条收尾规则）。
 
-## field IsMemberList:bool = false
+## field IsMemberList:bool
 
 **我这一格的内容是不是「成员表」**（第 1039 轮）——是的话答 `true`：我的子单元是**成员**
 （`PropertySignature` / `MethodSignature` / `IndexSignatureDeclaration`…），**不是语句**，
@@ -2731,7 +2899,7 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 **显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberTag` / `TypeMemberPlan` /
 `AstKind` 同一形态）。
 
-## field IsStatementNode:bool = false
+## field IsStatementNode:bool
 
 **我这一格投出来的节点是不是「语句节点」**（第 1039 轮）——是的话答 `true`：单个子单元是
 我时，投影**不再套** `ExpressionStatement`（套上去会凭空多一层壳）。
@@ -2752,7 +2920,7 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 **显式声明同一个属性**并给出自己的值（`## field`，与 `IsMemberList` / `IsMemberTag` / `AstKind`
 同一形态）。
 
-## field EndsOnBrace:bool = false
+## field EndsOnBrace:bool
 
 **我这一格在目标语言那边是不是收在 `}`（或块尾）上**（第 1040 轮）——是的话答 `true`：
 目标语言的 parser **不**在我后面调 `parseSemicolon`，所以紧跟我的那个 `;` 是**新的一条
@@ -2774,7 +2942,7 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 **显式声明同一个属性**并给出自己的值（`## field`，与 `IsStatementNode` / `IsMemberList` /
 `AstKind` 同一形态）。
 
-## field IsNameNode:bool = false
+## field IsNameNode:bool
 
 **我这一格能不能当「一个名字」**（第 1057 轮）——能的话答 `true`。
 
@@ -2787,7 +2955,7 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 （`## field`，构造时就赋好），投影只读这一格（`node.IsNameNode`）——
 「这一格是什么」与「它能不能当名字」因此只有一个来源，同一句话也不会在两个地方各写一遍。
 
-## field IsDeclareWord:bool = false
+## field IsDeclareWord:bool
 
 **我这一格的正文是不是一个「声明词」**（第 1121 轮）——是的话答 `true`。
 
@@ -2799,7 +2967,7 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 是关键字（`Keyword` 那一页答），`using` **不是本工程的关键字**（多半就停在 `Identifier` 上），
 所以判据与 `IsAsKeyword` / `IsTypeKeyword` 同一条口径：**基类给默认档、认得的页各自按自己的正文赋好**。
 
-## field IsPatternKid:bool = false
+## field IsPatternKid:bool
 
 **我这一格能不能当「声明段里那一格模式」**（第 1121 轮）——能的话答 `true`。
 
@@ -2811,7 +2979,7 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 三个括号属性连比），**两半都是被问那一页自己的事实**——模式那两个类在声明里，
 括号那一态在 `startBracket` 里。今天基类默认 `false`、四页各自显式声明并按自己的事实赋好。
 
-## field IsDotSymbol:bool = false
+## field IsDotSymbol:bool
 
 **我这一格是不是那个点号 `.`**（第 1057 轮）——是的话答 `true`。
 
@@ -2823,7 +2991,7 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 再加上回原文读那一格字符），而那句话**两半都是这一页自己的事实**——判定「我是不是点号」
 不必先问别人我是哪一类、也不需要投影手上的那串原文。今天读法只有一处（`one.IsDotSymbol`）。
 
-## field IsOperatorUnit:bool = false
+## field IsOperatorUnit:bool
 
 **我这一格能不能当「一个运算符」**（第 1062 轮）——能的话答 `true`。
 
@@ -2838,7 +3006,7 @@ async」这件事只有**函数体自己**知道：生成器的 `*` 记号、`as
 （`## field`，构造 / 记下正文那一刻赋好），投影只读这一格（`unit.IsOperatorUnit`）——
 同一份事实只有一处声明，也不必先问一句「你是哪一类」。
 
-## field OperatorWordKind:string = ""
+## field OperatorWordKind:string
 
 **我这一格的正文是一个「词形运算符」的话，它在 TS 那边叫哪个关键字节点**（第 1106 轮）——
 是的话答那个 `SyntaxKind` 名（`InKeyword` / `InstanceOfKeyword`），不是答**空串**。
@@ -2890,7 +3058,7 @@ const text = this.TextValue;
 return { kind, text, pos: this.start, end: this.start + text.length };
 ```
 
-## field IsPrefixOperatorUnit:bool = false
+## field IsPrefixOperatorUnit:bool
 
 **我这一格是不是一个前缀运算符**（第 1062 轮）——是的话答 `true`。
 
@@ -2904,7 +3072,7 @@ return { kind, text, pos: this.start, end: this.start + text.length };
 **二元运算符不在这里**——它们住在 `BinaryOperator` / `LogicalOperator` 单元里、不是一个裸符号，
 所以 `a + b` 的那个 `+` 撞不到这一格。
 
-## field IsTypeParameterModifier:bool = false
+## field IsTypeParameterModifier:bool
 
 **我这一格是不是类型参数的修饰词**（第 1062 轮）——是的话答 `true`：
 变型标注 `in` / `out` 与 `const` 类型参数。
@@ -2916,7 +3084,7 @@ return { kind, text, pos: this.start, end: this.start + text.length };
 判据是**我这一格自己的正文**，所以由 `Keyword` / `Identifier` 两页各自答；过去它是投影层的
 一个现场判据（`isTypeParameterModifier`：比 `Tag` 再回原文读文本）。
 
-## field IsChainBaseNode:bool = false
+## field IsChainBaseNode:bool
 
 **我这一格能不能当一条成员访问 / 可选链的基名**（投影侧那一问；第 1075 轮）——能就答 `true`。
 
@@ -2935,7 +3103,7 @@ return { kind, text, pos: this.start, end: this.start + text.length };
 **基类这一格默认 `false`**：需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field`，与 `EndsOnBrace` / `IsNameNode` / `IsOperatorUnit` 同一形态）。
 
-## field IsTagBaseNode:bool = false
+## field IsTagBaseNode:bool
 
 **我这一格能不能当标签模板的标签**（投影侧那一问；第 1208 轮）——能就答 `true`。
 
@@ -2946,9 +3114,13 @@ return { kind, text, pos: this.start, end: this.start + text.length };
 所以各立一格，不借那一格。
 
 判据同样住在被问的那一页上（正文是什么只有这一页知道）：关键字那一页在 `SetValue` 里赋好
-（关键字里只有 `this` 一个词），基类这一格默认 `false`。
+（关键字里 `this` / `new` / `import` 三个词——第 1208 轮先立 `this`，第 1229 轮补后两个：
+`new.target`t`` / `import.meta`t`` 的标签在 token 层是三格平铺、头一个词就是这里那一格），
+基类这一格默认 `false`；`RegexToken` 那一页常量答 `true`（第 1229 轮：`/re/g`t`` 的标签是
+一格正则字面量，`ts.createSourceFile` 读成 `TaggedTemplateExpression > [RegularExpressionLiteral,
+NoSubstitutionTemplateLiteral]`）。
 
-## field IsImportKeyword:bool = false
+## field IsImportKeyword:bool
 
 **我这一格的正文是不是 `import` 那个词**（第 1118 轮）——是的话答 `true`。
 
@@ -3056,7 +3228,7 @@ return false;
 return false;
 ```
 
-## field IsExtendsKeyword:bool = false
+## field IsExtendsKeyword:bool
 
 **我这一格的正文是不是 `extends` 那个词**（第 1119 轮）——是的话答 `true`。
 
@@ -3064,7 +3236,7 @@ return false;
 （`k.IsNameNode && k.TextValue === "extends"`）——`extends` 在产物里既有 `Keyword` 那一态、
 也有停在 `Identifier` 上的一态，所以两页各写自己认得的词。
 
-## field IsAsKeyword:bool = false
+## field IsAsKeyword:bool
 
 **我这一格的正文是不是 `as` 那个词**（第 1119 轮）——是的话答 `true`。
 
@@ -3074,7 +3246,7 @@ return false;
 `as` 是**上下文关键字**（`x as T` 那个是运算符单元的事，`import { a as b }` 里
 词法上仍是标识符），所以 `Keyword` 与 `Identifier` 两页各写自己认得的词。
 
-## field IsWithKeyword:bool = false
+## field IsWithKeyword:bool
 
 **我这一格的正文是不是 `with` 那个词**（第 1119 轮）——是的话答 `true`。
 
@@ -3082,21 +3254,21 @@ return false;
 （`head.IsKeywordUnit && head.TextValue === "with"`）——`with` 在产物里就是 `Keyword`，
 所以这一格由那一页自己在 `SetValue` 里赋好。
 
-## field IsExportKeyword:bool = false
+## field IsExportKeyword:bool
 
 **我这一格的正文是不是 `export` 那个词**（第 1119 轮）——是的话答 `true`。
 
 过去投影层在 `projectExport` 里现场比两次（给赋值式导出补 `ExportKeyword` 那一格、
 把 `export` 从剩下的单元里滤掉那一格）——「我这一格的正文是什么」只有这一页知道。
 
-## field IsDefaultKeyword:bool = false
+## field IsDefaultKeyword:bool
 
 **我这一格的正文是不是 `default` 那个词**（第 1119 轮）——是的话答 `true`。
 
 与 `IsExportKeyword` 同一支、同一趟赋好（`projectExport` 要按这两个词决定
 `ExportKeyword` / `DefaultKeyword`、以及这是不是一次赋值式导出）。
 
-## field IsDeclareKeyword:bool = false
+## field IsDeclareKeyword:bool
 
 **我这一格的正文是不是 `declare` 那个词**（第 1124 轮）——是的话答 `true`。
 
@@ -3111,7 +3283,7 @@ return false;
 （`const` / `let` / `var` / `using`，读它的是 `ctx.HeadDeclare`），这一格答「我是不是
 `declare` 这**一个**词」——收件人不同，各立一格。
 
-## field IsTypeKeyword:bool = false
+## field IsTypeKeyword:bool
 
 **我这一格的正文是不是 `type` 那个词**（第 1120 轮）——是的话答 `true`。
 
@@ -3121,7 +3293,7 @@ k.TextValue === "type"`，问的是 `export { type A }` / `export type { B }` �
 那个 `type` 是另一条路的事），与 `IsAsKeyword` / `IsExtendsKeyword` 同一条口径：
 `Keyword` 与 `Identifier` 两页各写自己认得的词。
 
-## field IsIsKeyword:bool = false
+## field IsIsKeyword:bool
 
 **我这一格的正文是不是 `is` 那个词**（第 1120 轮）——是的话答 `true`。
 
@@ -3130,7 +3302,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 只有这一页知道。**它不是本工程的关键字**（`is` 在 TS 里不是保留字），产物里多数时候
 停在 `Identifier` 上，所以两页各写自己认得的词——与 `as` / `extends` 同一形态。
 
-## field IsAwaitKeyword:bool = false
+## field IsAwaitKeyword:bool
 
 **我这一格的正文是不是 `await` 那个词**（第 1180 轮，用户口径 1.3 / 1.6）——是的话答 `true`。
 
@@ -3158,7 +3330,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 `await` / `yield` 一格都没有；它按口径留着，与 `IsAbstractKeyword` 那几个「大多是 `Keyword`
 的词」同一处境）——所以这一格是**照口径写满**，不是照读数补的。
 
-## field IsAssertKeyword:bool = false
+## field IsAssertKeyword:bool
 
 **我这一格的正文是不是 `assert` 那个词**（第 1180 轮，用户口径 1.3 / 1.6）——是的话答 `true`。
 
@@ -3172,7 +3344,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 `assert` 只有导入导出那一支——两问的 **收件人不同**（一个是语句头、一个是子句标志词），
 按「一个问题一个名字」各立一格。
 
-## field IsNewKeyword:bool = false
+## field IsNewKeyword:bool
 
 **我这一格的正文是不是 `new` 那个词**（第 1118 轮）——是的话答 `true`。
 **为什么它是一格而不是投影层的一次文本比**：`print-ast-common.xl.md` 的通用支里过去有三处
@@ -3188,7 +3360,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 **判据是这一格自己的正文**，所以两页都在**记下正文那一刻**赋好（`Keyword.SetValue` /
 `Identifier.Close`），基类默认 `false`。
 
-## field IsAsyncKeyword:bool = false
+## field IsAsyncKeyword:bool
 
 **我这一格的正文是不是 `async` 那个词**（第 1118 轮）——是的话答 `true`。
 
@@ -3198,7 +3370,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 
 **名单是 `async` 一个词**（`await` 是另一格：它在 `IsPrefixOperatorUnit` 里）。
 
-## field IsAbstractKeyword:bool = false
+## field IsAbstractKeyword:bool
 
 **我这一格的正文是不是 `abstract` 那个词**（第 1118 轮）——是的话答 `true`。
 
@@ -3207,7 +3379,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 `abstract` 是**类成员的修饰词**，词法上是上下文关键字（产物那边既有 `Keyword` 也有
 `Identifier`），所以两页各答自己那一格。
 
-## field IsYieldKeyword:bool = false
+## field IsYieldKeyword:bool
 
 **我这一格的正文是不是 `yield` 那个词**（第 1126 轮）——是的话答 `true`。
 
@@ -3218,7 +3390,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 不在那一格里——所以本页补这一格，与 `IsNewKeyword` / `IsAsyncKeyword` 同一形态、
 **在记下正文那一刻**赋好（`Keyword.SetValue`），基类默认 `false`。
 
-## field IsPropertyAccess:bool = false
+## field IsPropertyAccess:bool
 
 **我这一格是不是一条成员访问链**（第 1091 轮）——是的话答 `true`。
 
@@ -3234,7 +3406,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 （`## field IsPropertyAccess:bool = true`，构造时就赋好、克隆体照抄），投影只读这一格
 （`unit.IsPropertyAccess`）——「我这一格是什么」因此只有一个来源。
 
-## field IsNotNull:bool = false
+## field IsNotNull:bool
 
 **我这一格是不是一次非空断言单元**（第 1091 轮）——是的话答 `true`。
 
@@ -3250,7 +3422,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsNotNull:bool = true`，构造时就赋好），投影只读这一格（`unit.IsNotNull`）。
 
-## field IsSymbolToken:bool = false
+## field IsSymbolToken:bool
 
 **我这一格是不是一个符号块**（第 1093 轮）——是的话答 `true`。
 
@@ -3267,7 +3439,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsSymbolToken:bool = true`，构造时就赋好），投影只读这一格（`unit.IsSymbolToken`）。
 
-## field IsNullConditionalOperator:bool = false
+## field IsNullConditionalOperator:bool
 
 **我这一格是不是一个空条件运算符单元**（第 1093 轮）——是的话答 `true`。
 
@@ -3282,7 +3454,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsNullConditionalOperator:bool = true`，构造时就赋好）。
 
-## field IsStringUnit:bool = false
+## field IsStringUnit:bool
 
 **我这一格是不是一个字符串单元**（第 1094 轮）——是的话答 `true`。
 
@@ -3297,7 +3469,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsStringUnit:bool = true`，构造时就赋好），投影只读这一格（`unit.IsStringUnit`）。
 
-## field IsStringLiteralUnit:bool = false
+## field IsStringLiteralUnit:bool
 
 **我这一格是不是一段字符串字面量**（第 1094 轮）——是的话答 `true`。
 
@@ -3311,7 +3483,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 （`## field IsStringLiteralUnit:bool = true`，构造时就赋好），投影只读这一格
 （`unit.IsStringLiteralUnit`）。
 
-## field IsTemplateString:bool = false
+## field IsTemplateString:bool
 
 **我这一格是不是一个模板串**（第 1094 轮）——是的话答 `true`。
 
@@ -3327,7 +3499,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （构造时就赋好），投影只读这一格（`unit.IsTemplateString`）。
 
-## field IsBracketUnit:bool = false
+## field IsBracketUnit:bool
 
 **我这一格是不是一个括号单元**（第 1095 轮）——是的话答 `true`。
 
@@ -3342,7 +3514,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsBracketUnit:bool = true`，构造时就赋好），投影只读这一格（`unit.IsBracketUnit`）。
 
-## field IsArrayLiteralUnit:bool = false
+## field IsArrayLiteralUnit:bool
 
 **我这一格是不是一个数组字面量单元**（第 1095 轮）——是的话答 `true`。
 
@@ -3354,7 +3526,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsArrayLiteralUnit:bool = true`，构造时就赋好），投影只读这一格。
 
-## field IsTypeParameterUnit:bool = false
+## field IsTypeParameterUnit:bool
 
 **我这一格是不是一个类型参数单元**（第 1095 轮）——是的话答 `true`。
 
@@ -3366,7 +3538,7 @@ k.TextValue === "is")`，找的是 `x is T` / `asserts x is T` 那个谓词词�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsTypeParameterUnit:bool = true`，构造时就赋好），投影只读这一格。
 
-## field IsKeywordUnit:bool = false
+## field IsKeywordUnit:bool
 
 **我这一格是不是一个关键字单元**（第 1096 轮）——是的话答 `true`。
 
@@ -3381,7 +3553,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsKeywordUnit:bool = true`，构造时就赋好），投影只读这一格。
 
-## field IsIdentifierUnit:bool = false
+## field IsIdentifierUnit:bool
 
 **我这一格是不是一个标识符单元**（第 1096 轮）——是的话答 `true`。
 
@@ -3389,7 +3561,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 过去在投影层写作 `X.Tag === "Identifier"`（找那一格名字、比对名字文本那几族），
 而那个名字就是那一页自己的类名。它与 `IsNameNode` 同样不是同一问（理由见上一条）。
 
-## field IsLetUnit:bool = false
+## field IsLetUnit:bool
 
 **我这一格是不是一条 `let` 声明单元**（第 1096 轮）——是的话答 `true`。
 
@@ -3397,7 +3569,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 `let` / `const` / `var` 三态共用这一页），其余一律 `false`；过去在投影层写作
 `X.Tag === "Let"`（`projectStatement` 与声明列表那两处找它）。
 
-## field IsObjectLiteralUnit:bool = false
+## field IsObjectLiteralUnit:bool
 
 **我这一格是不是一个对象字面量单元**（第 1096 轮）——是的话答 `true`。
 
@@ -3405,7 +3577,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 （`typescript/tokens/json/object-literal.xl.md`），其余一律 `false`；过去在投影层写作
 `X.Tag === "ObjectLiteral"`（值位那几种括号凑成的形状、绑定模式那一族）。
 
-## field IsDecoratorUnit:bool = false
+## field IsDecoratorUnit:bool
 
 **我这一格是不是一个装饰器单元**（第 1096 轮）——是的话答 `true`。
 
@@ -3413,7 +3585,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 （`typescript/tokens/decorator.xl.md`），其余一律 `false`；过去在投影层写作
 `X.Tag === "Decorator"`（`addDecorators` 与 `structuralProps` 那两处找它）。
 
-## field IsAsUnit:bool = false
+## field IsAsUnit:bool
 
 **我这一格是不是一个 `as` 单元**（第 1096 轮）——是的话答 `true`。
 
@@ -3421,7 +3593,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 其余一律 `false`；过去在投影层写作 `X.Tag === "As"`（`as` / `satisfies` 那一族折链时要认它）。
 它与下面那一格是**两页各自的类名**，所以各立一格。
 
-## field IsSatisfiesUnit:bool = false
+## field IsSatisfiesUnit:bool
 
 **我这一格是不是一个 `satisfies` 单元**（第 1096 轮）——是的话答 `true`。
 
@@ -3429,14 +3601,14 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 `as` / `satisfies` 交替出现那一串里两者各自答自己的那一格（投影读
 `unit.IsAsUnit` / `unit.IsSatisfiesUnit`，不再比类名）。
 
-## field IsSpreadUnit:bool = false
+## field IsSpreadUnit:bool
 
 **我这一格是不是一个展开单元**（第 1096 轮）——是的话答 `true`。
 
 判据是关于**产物标签**的：`Spread` 那一页答 `true`（`typescript/tokens/spread.xl.md`），
 其余一律 `false`；过去在投影层写作 `X.Tag === "Spread"`（`as` 前面那个展开位那一处）。
 
-## field IsMethodNode:bool = false
+## field IsMethodNode:bool
 
 **我这一格是不是一次方法调用单元**（第 1092 轮）——是的话答 `true`。
 
@@ -3451,7 +3623,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsMethodNode:bool = true`，构造时就赋好），投影只读这一格（`unit.IsMethodNode`）。
 
-## field IsGenericType:bool = false
+## field IsGenericType:bool
 
 **我这一格是不是一段泛型括号段**（第 1092 轮）——是的话答 `true`。
 
@@ -3467,7 +3639,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsGenericType:bool = true`，构造时就赋好），投影只读这一格（`unit.IsGenericType`）。
 
-## field IsBinaryOperatorNode:bool = false
+## field IsBinaryOperatorNode:bool
 
 **我这一格是不是一个二元（或逻辑）运算符节点**（第 1088 轮）——是的话答 `true`。
 
@@ -3484,7 +3656,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 （`## field`，构造时就赋好），投影只读这一格（`x.IsBinaryOperatorNode`）——
 「我这一格是什么」因此只有一个来源，同一句话也不会在十几处各写一遍。
 
-## field IsBinaryOperatorUnit:bool = false
+## field IsBinaryOperatorUnit:bool
 
 **我这一格是不是 `BinaryOperator` 那一页的单元**（第 1115 轮）——是的话答 `true`。
 
@@ -3506,7 +3678,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 （`## field IsBinaryOperatorUnit:bool = true`，构造时就赋好），投影只读这一格
 （`x.IsBinaryOperatorUnit`）。
 
-## field IsExpressionWithTypeArguments:bool = false
+## field IsExpressionWithTypeArguments:bool
 
 **我这一格是不是 `ExpressionWithTypeArguments` 那一页的单元**（第 1116 轮）——是的话答 `true`。
 
@@ -3524,7 +3696,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsExpressionWithTypeArguments:bool = true`，构造时就赋好），投影只读这一格。
 
-## field IsTypeAssignUnit:bool = false
+## field IsTypeAssignUnit:bool
 
 **我这一格是不是 `TypeAssign` 那一页的单元**（第 1116 轮）——是的话答 `true`。
 
@@ -3541,7 +3713,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsTypeAssignUnit:bool = true`，构造时就赋好），投影只读这一格。
 
-## field IsValueOnlyUnit:bool = false
+## field IsValueOnlyUnit:bool
 
 **我这一格是不是「只可能做值」的单元**（第 1097 轮）——是的话答 `true`。
 
@@ -3562,7 +3734,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsValueOnlyUnit:bool = true`，构造时就赋好），投影只读这一格（`x.IsValueOnlyUnit`）。
 
-## field IsTypeUnit:bool = false
+## field IsTypeUnit:bool
 
 **我这一格是不是一个类型位单元**（第 1098 轮）——是的话答 `true`。
 
@@ -3582,7 +3754,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsTypeUnit:bool = true`，构造时就赋好），投影只读这一格（`x.IsTypeUnit`）。
 
-## field IsTypeSuffixUnit:bool = false
+## field IsTypeSuffixUnit:bool
 
 **我这一格是不是「基名后面挂着的那个类型尾缀」**（第 1098 轮）——是的话答 `true`。
 
@@ -3597,7 +3769,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsTypeSuffixUnit:bool = true`，构造时就赋好），投影只读这一格（`k.IsTypeSuffixUnit`）。
 
-## field IsTypeWithTypeArguments:bool = false
+## field IsTypeWithTypeArguments:bool
 
 **我这一格能不能挂一段平级的类型实参**（第 1098 轮）——能的话答 `true`。
 
@@ -3614,7 +3786,7 @@ Tag !== "Keyword"` 那种否定式该读 `!x.IsNameNode`，不是读这一格。
 （`## field IsTypeWithTypeArguments:bool = true`，构造时就赋好），投影只读这一格
 （`list[0].IsTypeWithTypeArguments`）。
 
-## field IsStatementShell:bool = false
+## field IsStatementShell:bool
 
 **我这一格是不是核心那句 `Statement`**（第 1099 轮）——是的话答 `true`。
 
@@ -3633,7 +3805,7 @@ item.Tag === "Statement"`——成员表里要把包着语句的那层壳摊平�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsStatementShell:bool = true`，构造时就赋好），投影只读这一格（`item.IsStatementShell`）。
 
-## field IsLabelUnit:bool = false
+## field IsLabelUnit:bool
 
 **我这一格是不是一个标签单元**（第 1099 轮）——是的话答 `true`。
 
@@ -3644,7 +3816,7 @@ item.Tag === "Statement"`——成员表里要把包着语句的那层壳摊平�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsLabelUnit:bool = true`，构造时就赋好），投影只读这一格（`kids[at].IsLabelUnit`）。
 
-## field IsExportUnit:bool = false
+## field IsExportUnit:bool
 
 **我这一格是不是一个 `export` 单元**（第 1099 轮）——是的话答 `true`。
 
@@ -3666,7 +3838,7 @@ item.Tag === "Statement"`——成员表里要把包着语句的那层壳摊平�
 两次属性读（拿函数、拿 `.name`）加一次字符串比较，换成一格属性读，**判据同答**
 （那一页答 `true`、其余答 `false`，与类名比较是同一问）。
 
-## field IsBindingElement:bool = false
+## field IsBindingElement:bool
 
 **我这一格是不是一个绑定元素单元**（第 1099 轮）——是的话答 `true`。
 
@@ -3678,7 +3850,7 @@ item.Tag === "Statement"`——成员表里要把包着语句的那层壳摊平�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsBindingElement:bool = true`，构造时就赋好），投影只读这一格（`kid.IsBindingElement`）。
 
-## field IsMethodDeclaration:bool = false
+## field IsMethodDeclaration:bool
 
 **我这一格是不是一个方法声明单元**（第 1099 轮）——是的话答 `true`。
 
@@ -3694,7 +3866,7 @@ item.Tag === "Statement"`——成员表里要把包着语句的那层壳摊平�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsMethodDeclaration:bool = true`，构造时就赋好），投影只读这一格（`v.IsMethodDeclaration`）。
 
-## field IsUnaryOperator:bool = false
+## field IsUnaryOperator:bool
 
 **我这一格是不是一个一元运算符单元**（第 1099 轮）——是的话答 `true`。
 
@@ -3710,7 +3882,7 @@ item.Tag === "Statement"`——成员表里要把包着语句的那层壳摊平�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsUnaryOperator:bool = true`，构造时就赋好），投影只读这一格（`kids[0].IsUnaryOperator`）。
 
-## field IsSwitchCaseUnit:bool = false
+## field IsSwitchCaseUnit:bool
 
 **我这一格是不是一段 `case` 的匹配表达式**（第 1099 轮）——是的话答 `true`。
 
@@ -3722,7 +3894,7 @@ item.Tag === "Statement"`——成员表里要把包着语句的那层壳摊平�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsSwitchCaseUnit:bool = true`，构造时就赋好），投影只读这一格。
 
-## field IsSwitchStatementUnit:bool = false
+## field IsSwitchStatementUnit:bool
 
 **我这一格是不是一个 `switch` 段的语句体**（第 1099 轮）——是的话答 `true`。
 
@@ -4108,7 +4280,7 @@ return false;
 return false;
 ```
 
-## field IsSignatureNode:bool = false
+## field IsSignatureNode:bool
 
 **我这一格是不是「可调用签名」**（第 1040 轮）——是的话这一格是 `true`。
 
@@ -4129,7 +4301,7 @@ return false;
 ——所以基类这一格默认 `false`，需要它的 token **在自己那一页显式声明同一个属性**并给出自己的值
 （`## field`，构造时赋值）。投影只按属性名读一次，不问「有没有这一格」。
 
-## field IsSignatureList:bool = false
+## field IsSignatureList:bool
 
 **我这一层装的是不是「成员签名表」**（第 1055 轮）——是的话答 `true`。
 它只服务一格判据：同一套产物标签在**两类容器**里叫两种名字——接口 / 类型字面量里的成员是
@@ -4152,7 +4324,7 @@ return false;
 **构造时就定下来的一格数据**——所以基类默认 `false`，需要它的 token 在自己那一页
 **显式声明同一个属性**并给出自己的值（`## field`，构造时赋值）。
 
-## field IsIndexBracket:bool = false
+## field IsIndexBracket:bool
 
 **我这一格是不是「下标那一态括号」**（第 1197 轮，用户口径 1.2 / 1.3 / 1.4 / 1.5）：
 `[` 开头的 `Bracket` 答 `true`，`(` / `{` 两态与**别的所有 token**答 `false`。
@@ -4166,12 +4338,12 @@ does not exist on type 'Token'`——两份产物各说各的）。
 **给默认档之后，「哪一态括号」这件事仍然只有括号页一处判据**（这里只是把它在基类上说出来），
 与 `IsLessThanSymbol` / `IsIndexFirstUnit` / `IsCallFirstUnit` 同一条口径。
 
-## field IsParenBracket:bool = false
+## field IsParenBracket:bool
 
 **我这一格是不是「圆括号那一态」**（第 1197 轮）：与 `IsIndexBracket` 同一形态、同一条理由
 （`(` 开头的 `Bracket` 答 `true`，其余答 `false`；`NotNull.CoreKind` 要问「我的核是不是实参括号」）。
 
-## field IsBraceBracket:bool = false
+## field IsBraceBracket:bool
 
 **我这一格是不是「花括号那一态」**（第 1228 轮升到基类）：`{` 开头的 `Bracket` 答 `true`，
 `(` / `[` 两态与**别的所有 token**答 `false`。判据仍然只有一处——`Bracket` 那一页在 `Use`
