@@ -587,7 +587,32 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**本节按轮次倒序归档**；`cases:tsast` 当前读数 = **4 条**）
+## 已知仍开着的缺口（**本节按轮次倒序归档**；`cases:tsast` 当前读数 = **3 条**）
+
+**第 1243 轮：`IfBody` 裸块那一族收掉（11 → 0）——体的区间只有一份答案；1.2 把「按容器装门」的上界量成 66% ~ 90%**
+
+- **收掉的那一格**（第 1241 轮登记，`xl:known-gap` 按规矩撤掉、用例留着当守卫）：
+  [`gap-r1241-ifbody-bare-block.ts`](../../tests/cases/token/statements/gap-r1241-ifbody-bare-block.ts)
+  ——`if (a) { { g() } }` 外层那个 `}` 丢区间。
+  **根因**：token 树是对的（`tmp/r1243-xml.mjs`：`IfBody [7,17)`、内层 `Bracket [9,15)`），
+  错的是段上给投影直读的 `BodyBrace` —— `IfSegment.CaptureBodyBrace` 先在 `IfBody.Data` 里
+  `find` 一个 `{` 的 `Bracket`，而**体的开括号由 `MountBody` 消费、闭括号由 `IfBody.ExitOrPre` 认，
+  两者都不进 `Data`** ⇒ 那个 `{` 只可能是体**里面**的块 ⇒ 记下的是内层括号。
+  改成一律读 `IfBody` 自己的区间（空块那一档本来就走这一支）之后：
+  `tmp/r1241-probe3.mjs` **11 → 0**、`tmp/r1241-probe2.mjs` **5 → 0**、
+  `tmp/r1241-probe.mjs` **1 → 0**；守卫用例
+  [`stmt-r1243-ifbody-bare-block.ts`](../../tests/cases/token/statements/stmt-r1243-ifbody-bare-block.ts)
+  **162 / 162 逐节点一致**。等价性对照 `tmp/r1242-old/ts` **4435 份 0 份不同**
+  （这一格在外部语料里没出现过，`cases:tsast` 那一条才是它的哨兵）。
+- **1.2 的读数**（只插桩、不落改动；`tmp/r1243-rulecount.mjs`，读数落进
+  `core/syntax/close-rule.xl.md` 的 `ApplyTo`）：按「本页真正动过手的那些容器类名」装一道 O(1) 的门，
+  `typescript.d.ts` **90.0%**、`print-ast-common.ts` **66.6%**、`statement.ts` **75.5%**
+  的 `ApplyTo` 调用落在「从没在这一类容器上动过手」那一档。**它是上界不是改法**：
+  `BinaryOperatorCloseRule` 在 `.d.ts` 上 36 万次调用 0 次动手、在代码文件上却在 9 类容器上动手
+  ⇒ 观测集合当门一定会错；下一步从「只在一两类容器上动手」的规则（`TupleMemberCloseRule` /
+  `ConditionalTypeCloseRule`）开始一页一页写显式容器门。
+- **数字**：`cases:tsast` 已知缺口 **4 → 3 条**（收掉 1 条、加 1 条守卫用例）；
+  `coverage` **4309 / 4470**（分母 +1、分子 +2；blocked 29 → 28、differ 133 一处没动、加权 95.7%）。
 
 **第 1242 轮：标签体以「不是 `Identifier` 的单元」开头那一族收掉（8 → 0）；1.2 把闭规则那一趟量成四个数**
 
@@ -642,6 +667,7 @@
      `while` / `for` / 函数 / 方法 / 箭头 / 顶层裸块 / **`StaticBlock`** 都是好的 ⇒ 根不在
      「体拿到了什么队列」，只能在 `IfBody.ExitOrPre` / `QuitOuter`（体收尾时顺手把**段**也退掉）
      或它挂载的那一格 `Bracket` 的 `QuitOuter` 上。
+     **第 1243 轮收掉**（11 → 0，根因在段上那一格 `BodyBrace`，见本节最上面那一条）。
 - **数字**：`cases:tsast` 已知缺口 **4 → 5 条**（收掉 1 条、登记 2 条）；`coverage` **4305 / 4468**
   （守卫用例分子 +1、登记用例分母 +2；blocked 29 → 30、differ 133 一处没动、加权 95.7%）。
 

@@ -326,12 +326,17 @@ for (const item of this.Data) {
   if (!(item instanceof IfBody)) {
     continue;
   }
-  const brace = item.Data.find((x) => x instanceof Bracket && x.startBracket === "{");
-  if (brace !== undefined && brace.SourceRange.Start !== null && brace.SourceRange.End !== null) {
-    this.BodyBrace.Set(brace.SourceRange.Start!.Index, brace.SourceRange);
-    return;
-  }
-  // **空块那一档**：`Data` 里没有那个 `Bracket`（见上），改读 `IfBody` 自己的区间。
+  // **体的区间只有一份答案：`IfBody` 自己**（第 1243 轮实测订正）。
+  // 从前这里先在 `IfBody.Data` 里 `find` 一个 `{` 的 `Bracket`，那是**第二份答案**：
+  // 体的开括号由 `MountBody` 消费（`{` 由 `IfSet` 吃掉、不进 `Data`）、闭括号由
+  // `IfBody.ExitOrPre` 认（也不进 `Data`）⇒ `Data` 里那个 `{` **只可能是体里面**的那个块。
+  // 于是 `if (a) { { g() } }` 记下的是**内层**括号 `[39,45)`，投影把外层体写成
+  // `Block[39,46)`、整个 `IfStatement` 跟着少一格（实测**缺 0 漂 2 多 1**；
+  // 而 token 树本身是对的——`IfBody [37,47)`、内层 `Bracket [39,45)`，见 `tmp/r1243-xml.mjs`）。
+  // **空块那一档**（`if (a) {}`）本来走的就是这一支（见上），两支合起来就是一句话：
+  // 那一对括号的起点由 `MountBody` 签、终点由 `ExitOrPre` 签，两头都在 `IfBody` 自己身上。
+  // **与体里装什么无关**：`while` / `for` / 函数 / 方法 / 箭头体 / 顶层裸块 / `StaticBlock`
+  // 里套同样的裸块都一直是好的（它们不读这一格）。
   if (item.SourceRange.Start !== null && item.SourceRange.End !== null) {
     this.BodyBrace.Set(item.SourceRange.Start!.Index, item.SourceRange);
   }
