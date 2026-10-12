@@ -347,6 +347,24 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1228 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **数组字面量当标签模板的标签那一族**（口径 1.1，两张名单恢复了逐字同源，16 条全对）；1.2 是**`RunCloseRules` 那两问不再按类名问**（40 对 mean **−28.27ms/轮**、se 13.29、`27:13`）
+
+**一句话**：1.1 收的是 `[a, b]`t`` / `[...a]`t`` 那一族——投影层「后缀链」那两张名单（`tagIsPostfixChain` 与 `IsChainTail`）答的是**同一句话**（「这一格能不能接在操作数后面」），`IsArrayLiteralUnit` 从第 947 轮起就一直在后者上、**只有前者少它** ⇒ 入口判否、模板字面量与整条 `TaggedTemplateExpression` 一起丢；1.2 收的是 `RunCloseRules` 开头那两问——它们是**收敛环的每一趟**都要走的（一份语料 **1471601** 次），而问法一直是 `unit.constructor.name === …`，可答案**本来就是两页各自声明好的那一格**。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `tagIsPostfixChain` 的名单补上 `one.IsArrayLiteralUnit`（**一行**；那一格早就在 `IsChainTail` 上、也在 `ArrayLiteral` 那一页显式声明着） | 普查 824 条「X`t`」里对不上的底样 **9 → 7**（65 → 49 条）；两个底样 × 8 位置共 **16 条全对上**；守卫用例 **193 / 193**（缺 0 漂 0 多 0 字段名 0） |
+| **1.2** | `RunCloseRules` 那两问读属性而不再比类名：`unit.IsBraceBracket` / `unit.IsExportUnit`（两页各补一格**基类默认档**，判据仍各只有一处） | 微读 **−67.7 ns/单元**（12 趟全负，按 1471601 次折算 **−99.6ms**）；整轮 parse A/B 40 对 mean **−28.27ms/轮**（se 13.29、**27:13**、median −31.33） |
+
+**1.1 的现场**：`tagIsPostfixChain` 与它下面的 `IsChainTail` 是**两问合成一格**（第 1198 轮）的产物——同一个遍历、同一句 `return false`，只差「收哪些格」与「空串答什么」。可两张名单的**格子数不一样**：`IsChainTail` 有 `IsArrayLiteralUnit`（第 947 轮就在），`tagIsPostfixChain` 没有。于是 `[a, b]`t`` 在入口就被挡掉——标签与模板在产物里是**平级两格**，通用支只投得出一格 `ArrayLiteralExpression`。
+拿真 TS 复量过那一格（`tmp/r1227-tag.mjs`）：`const v = [a, b]`t`` 在 TS 那边是 `TaggedTemplateExpression[10,20) > [ArrayLiteralExpression[10,16), NoSubstitutionTemplateLiteral[16,20)]`——**不是放宽，是同一句判据少了一格**。
+
+**1.2 的现场**：`RunCloseRules` 被调 **1471601** 次一份语料（`38239` 次 × 每单元平均 38.5 趟，收敛环每一趟一次，`tmp/r1228-readcount.mjs`），而它开头那两问是第 1226 轮从「每个单元关一次」降到「每一趟一次」的：
+- `isBraceBracket`：`{` 那一态的括号才答是——`Bracket` 那一页在 `Use` 记下 `startBracket` 的那一刻就把 `IsBraceBracket` 赋好了（第 1089 轮，与 `IsIndexBracket` / `IsParenBracket` 同趟）；
+- `isExportUnit`：只有 `Export` 那一页答是——`## field IsExportUnit:bool = true`（第 1096 轮），而**投影层早就在同一问上读这一格**（`head.IsExportUnit` / `items[i].IsExportUnit`）。
+
+所以这一轮是**同一句判据换个问法**（两页各补一格基类默认档，`tsc` 的 `TS2339` 就是第 1197 轮为同一件事给 `IsIndexBracket` 立的），跳过的对象、跳过的规矩、循环里其余每一句都没动。**微读与整轮 A/B 同号**（−99.6ms 折算 vs −28.27ms/轮实测）：微读是在**热循环**里问那两句、真实那一趟中间隔着别的活，所以实测只有折算值的三成量级——两条读数一起看才是这一支的全貌。
+
 ### 第 1227 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`?.` 后面那一截末尾跟模板、而模板前面不是一格名字的那一族**（口径 1.1，一次收掉五档形状，`a?.…` 那一族 90 条全对）；1.2 是**如实记下的负结果**（收尾规则那一趟按类记一份名单，60 对 mean **+1.71ms**、se 12.34 ⇒ **已回退**）
 
 **一句话**：1.1 收的是 `a?.b.c`t`` / `a?.b()`t`` / `a?.b(1)`t`` / `a?.b!()`t`` 那一族——末尾那格模板在 token 层被收进了**同一个** `NullConditionalOperator`，而模板前面站的是 `PropertyAccess` / `Method` / `NotNull`（名字在里面、不在顶层），第 175 轮那一支只认「模板前面恰好一格名字」⇒ **模板那格没人接**；1.2 试的是「收尾规则那一趟按单元类记一份该跑的名单」——**确定性读数证明它一条规则都没少跑**（`ApplyTo` 两边同为 **1924766**），可墙钟在两把尺子上都读不出来。
