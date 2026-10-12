@@ -464,6 +464,31 @@ result.TryToClose();
 return result;
 ```
 
+## field IsTagBaseNode:bool = true
+
+**我这一格能不能当标签模板的标签**（投影侧那一问，第 1230 轮，用户口径 1.1）：
+
+    const v = function () {}`t`;   ⇒   TaggedTemplateExpression[68,85)
+                                        > [FunctionExpression[68,82), NoSubstitutionTemplateLiteral[82,85)]
+
+**少了这一格会怎样**：产物是 `[Let, =, Function, String(反引号)]` 四格平铺（`cjcli` 实测），
+而 0b 那一支的入口（`tagIsPostfixChain`）名单里没有这一页 ⇒ 整个让开 ⇒ 通用支把
+`Function` 那一格按**声明**投出来（多一格 `FunctionDeclaration`），模板整格丢
+（实测 `tmp/r1230-fnexpr.mjs`：`const v = function () {}`t`` 记「缺 3 多 1」）。
+`f(function () {}`t`)` 与 `class Z { p = function () {}`t`; }` 同一根（各 6 个位置）。
+
+**为什么这一格在这里也成立**：这一页**依上下文投成两种节点**（`FunctionDeclaration` 声明位 /
+`FunctionExpression` 表达式位，见本页 `SegmentNames` 与 `AstKind` 那两节），而「拿它当标签」
+这句话只在**表达式位**说得通——投影那一侧认下这一格之后走的是 `projectExpression(前缀)`，
+那一趟本来就按**表达式位**投（与不带模板的 `const v = function () {};` 同一份算式）。
+**声明位不会因此被放宽**：`function () {}`t`` 写在语句位 TypeScript 自己报语法错
+（`ts.createSourceFile` 的 `parseDiagnostics` 非空，第 1227 轮普查里那 8 个位置就是它），
+本工程的口径是「TS 自己非法的形状不构成缺口」；而**合法的**「声明换行 + 模板语句」
+是两条语句（换行处已经收壳），本支看不到那一对。
+
+口径与理由见 `../core/syntax/token.xl.md` 的 `IsTagBaseNode`（`this` 第 1208 轮、
+`new` 第 1221 轮、`new` / `import` 与正则第 1229 轮）——**名单本来就该一样**。
+
 ## field AstKind:string | undefined = "FunctionDeclaration"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），

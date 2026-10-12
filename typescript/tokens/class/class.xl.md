@@ -757,6 +757,27 @@ result.TryToClose();
 return result;
 ```
 
+## field IsTagBaseNode:bool = true
+
+**我这一格能不能当标签模板的标签**（投影侧那一问，第 1230 轮，用户口径 1.1）：
+
+    const v = class {}`t`;   ⇒   TaggedTemplateExpression[68,79)
+                                 > [ClassExpression[68,76), NoSubstitutionTemplateLiteral[76,79)]
+
+**少了这一格会怎样**：产物是 `[Let, =, Class, String(反引号)]` 四格平铺（`cjcli` 实测：
+`<Class range="[40,47]"><ClassBody range="[46,47]"/></Class><String range="[48,50]">…</String>`），
+而 0b 那一支的入口（`tagIsPostfixChain`）名单里没有这一页 ⇒ 整个让开 ⇒ 通用支把 `Class`
+那一格按**声明**投出来（多一格 `ClassDeclaration`），模板整格丢
+（实测 `tmp/r1230-fnexpr.mjs`：`const v = class {}`t`` / `class Z { p = class {}`t`; }` /
+`f(class {}`t`)` 各「缺 3 多 1」）。
+与 `function () {}`t`` 那一族**同一条口径、同一轮**（见 `function.xl.md` 的同一格）。
+
+**为什么这一格在这里也成立**：这一页依上下文投成 `ClassDeclaration`（声明位）与
+`ClassExpression`（表达式位）两种节点（见本页 `SegmentNames` 与 `AstKind` 那两节），
+而投影认下这一格之后走的是 `projectExpression(前缀)` —— 那一趟本来就按**表达式位**投
+（与不带模板的 `const v = class {};` 同一份算式）。声明位不会因此被放宽：
+`class {}`t`` 写在语句位 TypeScript 自己报语法错；合法的「声明换行 + 模板语句」是两条语句。
+
 ## field AstKind:string | undefined = "ClassDeclaration"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），
