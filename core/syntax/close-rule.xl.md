@@ -52,6 +52,17 @@ throw new Error("abstract member: Process");
 与这一趟原本共用同一句推进下标的写法 ⇒ 只留下这一份 ——
 `Process` 会把多个子单元换成一个，下标必须跟着走。
 
+**第 1233 轮把「这前半截能不能提到调用点去算一次」量到底了（如实记在这里）**：
+这一格是**每条规则、每个单元**都要走一次的那一格（实测 `typescript.d.ts` 一份上被调
+**1924766** 次，`tmp/r1204-count.mjs`），而前半截（`unit.Data` / `Array.isArray` /
+`units.length === 0` / `unit.Template`）对**同一次 `RunCloseRules` 里的所有规则**是同一份。
+只改 `build/` 里那两份产物试量（`close-rule.js` 加一个 `ApplyToData(template, units)`、
+`parse-pipeline.js` 的 `RunCloseRules` 改调它；`tmp/r1233-applyto-patch.mjs`）：
+`tmp/abparse.mjs` 14 对 × 每批 2 轮读 **mean +18.54ms/轮（sd 84.27、se 22.52）7:6**
+（另有一对持平、median 0.00）——**与 0 不可分辨**，与第 1231 轮「把 `Array.isArray` 那一问
+删掉也量不出来」是同一件事的两面。按本仓口径「一次没量出来的改动不留」，
+**前半截照旧留在这一格里**，读数记在这里，免得下一个人再量一遍。
+
 ```ts
 const units = unit.Data;
 // **`Array.isArray(units)` 这一问是**恒为假**的（第 1231 轮量过，如实记在这里）**：
