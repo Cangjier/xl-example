@@ -347,6 +347,74 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1229 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **正则字面量 / `new.target` / `import.meta` 当标签模板的标签那一族**（口径 1.1，三处根因，普查底样 **7 → 4**、条数 **49 → 25**）；1.2 把**基类那 94 格常量默认值从「每实例一份」搬到原型上一份**（parse A/B **20 对全负**、mean **−213.25ms/轮**、se 21.78）
+
+**一句话**：1.1 收的是 `/re/g`t`` / `new.target`t`` / `import.meta`t`` 那一族（连同 `.d` / `[0]` / `()` / `!` / `as` / 「又一个模板」六种续写）——**这三格的标签在 token 层都不是一格折叠好的单元**：正则是一格 `RegexToken`，`new.target` / `import.meta` 是 `[Keyword, ., Identifier]` **三格平铺**，而「能不能当标签」那一问的名单与「完整表达式」那一档里各缺了几格；1.2 是这一轮量到的**最大一笔**：解析期 **17%** 的时间花在「每个 token 把基类那 94 格常量默认值各写一遍」上，把它们搬到 `Token.prototype` 之后 parse **20 对全负、mean −213.25ms/轮**。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 三处：① `RegexToken` 补一格 `IsTagBaseNode`（与 `New` 第 1221 轮同一格）；② `Keyword.SetValue` 那一格补 `new` / `import` 两个词；③ 0c 的 `tagIsComplete` 认 `IsTagBaseNode`，并且第 0 支（`import.meta` / `new.target`）在**后面跟着模板链**时整支让开、交给 0b / 0c | 普查 824 条「X\`t\`」：对不上的**底样 7 → 4、条数 49 → 25**；`tmp/r1229-tag2.mjs` 那一族 35 条续写形状**全对上**；新立守卫用例 [expr-r1229-regex-meta-tag.ts](tests/cases/token/expressions/expr-r1229-regex-meta-tag.ts) 单跑 **188 / 188**（缺 0 漂 0 多 0 字段名 0） |
+| **1.2** | 基类那 94 格**常量默认值**（`Parent` / `Closed` / `ProcessQueue` / 每一个 `IsXxx:bool` …）从「每实例一次字段初值」改成「原型上一份」：规范页那 94 行去掉初值 + `InstallPrototypeDefaults` + `## static field DefaultsInstalled`；`tsconfig.json` 同轮加两格（`useDefineForClassFields: false` 与 `strictPropertyInitialization: false`） | parse A/B **20 对全负**、mean **−213.25ms/轮**（sd 97.41、se 21.78、median −203.50；旧版 best 1000.0 → 现版 859.5）；投影 A/B 20 对 mean **+1.67ms**（se 3.81、8:12 ⇒ 与 0 不可分辨）；`best of 5`：parse **987.6 → 804.5**、xml 42.6 → 43.3、printAst **92.7 → 114.2** |
+
+**1.1 的三处根因**（都是插桩量出来的，不是读代码猜的）：
+
+- **① `/re/g`t``**：标签是一格 `RegexToken`，`cjcli` 的 XML 是**平级两格**——
+  `<Statement><RegexToken range="[114,118]"/><String range="[119,121]">…</String></Statement>`；
+  `tagIsPostfixChain` 那张名单里没有正则那一页 ⇒ 入口判否 ⇒ `TaggedTemplateExpression` 与
+  `NoSubstitutionTemplateLiteral` 一起丢（实测 2 条「缺 2」）。TS 那边是
+  `TaggedTemplateExpression > [RegularExpressionLiteral, NoSubstitutionTemplateLiteral]`。
+- **② `new.target`t`` / `import.meta`t``**：标签是**三格平铺**
+  （`<Keyword>new</Keyword><SymbolToken>.</SymbolToken><Identifier>target</Identifier>`），
+  头一个词那一格由 `Keyword` 答，而那一页第 1208 轮只为 `this` 答是 ⇒ `SetValue` 里补
+  `new` / `import` 两个词。
+- **③ 光补名单还不够，还有两处「让开」**：
+  `projectExpression` 的**第 0 支**（专门认 `import.meta` / `new.target`）排在 0b **前面**，
+  它原来把后面那一格模板串当**二元尾巴**交给 `foldBinaryFrom` ⇒ 那一支现在在「后面紧跟模板串、
+  或紧跟**装着模板串的那一格 `PropertyAccess`**（外面还可能套一层 `!`）」时整支让开，
+  交给 0b / 0c（`TaggedTemplateExpression` 那一份搭法全仓只有它们一处，这里不抄第二份）；
+  另一处是 0c 的 `tagIsComplete` 原来只认 `IsChainBaseNode` / 值位括号 / `NotNull`，而
+  `/re/g`t`.d` 的标签是一格 `RegexToken`（三档都不认）⇒ 认 `IsTagBaseNode`
+  （同一句话的第二个落点；`1 + t`abc`` 那一族不会被放宽——那里的 `kids[0]` 是二元单元，
+  它不答这一格）。
+
+**1.1 之后还开着的 4 个底样**（同一次普查）：`function () {}`t`` / `class {}`t`` /
+`class extends K {}`t``（**值位当标签**：产物把它们读成 `FunctionDeclaration` /
+`ClassDeclaration`，是语句层那一档的缺口，不是名单）与 `<T>a`t``（尖括号断言的**区间**）。
+
+**1.2 的现场与读数**：
+
+- **剖面**（`tmp/r1229-pprof`，6 遍 / 总样本 7380ms、每遍 1202.6ms）：
+  `Token @ syntax/token.js:12` **666.5ms（9.03%）** + `Token @ syntax/token.js:148`
+  **551.0ms（7.47%）**——两格都是同一个「基类构造器」帧在两种调用上下文下的样子，
+  合计 **17%** 的解析时间花在「每个 token 把这 94 格写一遍」上。
+- **先量后改**：`tmp/r1229-nofields.mjs` 只改 `build/` 里那一份产物（94 格搬到原型上）
+  ⇒ `tmp/abparse.mjs` 12 对 × 每批 2 轮 **0:12**、mean **+215.38ms/轮**（se 27.86）；
+  照着同一个形状做在**规范页**上之后 20 对 × 每批 2 轮 **20:0**、mean **−213.25ms/轮**
+  （se 21.78）——两读同量级。
+- **投影那一侧两把尺子读数不同**：`tmp/abgen.mjs`（同进程交替、批量 8）20 对
+  mean **+1.67ms**（se 3.81、8:12 ⇒ 分辨不出来；它第一句那句「两版投影 JSON 逐字节相同」
+  一次都没响），而 `tmp/r1203-bench.mjs`（best of 5）里 printAst **92.7 → 114.2**
+  ——**这一读偏慢 21.5ms**。所以口径如实写成：**整条 print ast 流水线（parse + 投影）
+  1080.3 → 918.7ms（−161.6ms）；单看投影那一趟，一把尺子说没变、另一把说慢二十几毫秒**。
+- **为什么必须动 `tsconfig.json` 两格**：`useDefineForClassFields: false`（ES2022 默认 true
+  时，**没有初值的字段照样每实例 `defineProperty` 一次 `undefined`**——去掉初值既没省代价又
+  改坏语义；关掉之后这类字段在产物里一行都不剩）；`strictPropertyInitialization: false`
+  （松掉的那一条正是「字段必须在构造器里赋值」，而这一笔的全部内容就是把 94 格从构造器里
+  搬出去）。**代价与边界**写在 `core/syntax/token.xl.md` 那一节：实例上那一格在**被写之前
+  不在自己身上**了，读它多走一层原型链、写它会在实例上造一个自有属性（一次隐藏类迁移）——
+  这一笔的账是「每实例 94 次构造期写入」换「读那一格多一跳 + 首次写一次迁移」。
+- **等价性**：八道门全绿（见净账）、`abgen` 的逐字节断言没过响；机械搬迁的可复现脚本是
+  `tmp/r1229-apply.mjs`（临时脚本不进仓库）。顺手删掉了 `StatementKind` / `StatementField`
+  两节末尾留着的、`## property` 时代的取值器正文（那两个 `return undefined;` 块）：
+  第 1042 轮把它们改成字段时没跟着删，初值留在那一行时被无视，**初值一搬走就当场变成非法产物**
+  （`public StatementKind: string | undefined = return undefined;;`）。
+
+**净账**：`cases:tsast` 语料里一条 `xl:known-gap` 都没有（16 片全过）；`cases:direct` 全语料不抛异常（**1675 份**）；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1690** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4296 / 4454**（blocked 25、differ 133、bad 0、加权 95.7%）；`xl check` 0 条（4 份改动页）；`npx tsc`（strict）0 error；八道门墙钟 **28.3s**。
+
+**两条 commit**：`b4eb994a`（1.1 正则与 `new.target` / `import.meta` 当标签）、`d3ec9824`（1.2 基类默认值搬原型）。
+（同一份文件 `core/syntax/token.xl.md` 里还带着 1.1 的那一小段——`IsTagBaseNode` 那一格补
+`new` / `import` / 正则的说明；两支挨在同一个文件里，按文件提交。）
+
 ### 第 1228 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **数组字面量当标签模板的标签那一族**（口径 1.1，两张名单恢复了逐字同源，16 条全对）；1.2 是**`RunCloseRules` 那两问不再按类名问**（40 对 mean **−28.27ms/轮**、se 13.29、`27:13`）
 
 **一句话**：1.1 收的是 `[a, b]`t`` / `[...a]`t`` 那一族——投影层「后缀链」那两张名单（`tagIsPostfixChain` 与 `IsChainTail`）答的是**同一句话**（「这一格能不能接在操作数后面」），`IsArrayLiteralUnit` 从第 947 轮起就一直在后者上、**只有前者少它** ⇒ 入口判否、模板字面量与整条 `TaggedTemplateExpression` 一起丢；1.2 收的是 `RunCloseRules` 开头那两问——它们是**收敛环的每一趟**都要走的（一份语料 **1471601** 次），而问法一直是 `unit.constructor.name === …`，可答案**本来就是两页各自声明好的那一格**。
