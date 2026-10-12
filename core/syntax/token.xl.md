@@ -2,7 +2,6 @@
 ```xl
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { Branch } from "./branch.xl.md"
-import { Reorganization } from "./reorganization.xl.md"
 import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
@@ -14,7 +13,7 @@ import { Sequence } from "./templates/sequence.xl.md"
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-`Token` 是整棵树的地基：它记录自己覆盖的源码范围、自己的子单元、以及处理每个字符时该跑哪些跳转与重组。
+`Token` 是整棵树的地基：它记录自己覆盖的源码范围、自己的子单元、以及处理每个字符时该跑哪些跳转。
 
 # class Token
 
@@ -29,10 +28,6 @@ Token，语法树的地基。
 ## field ProcessQueue:Sequence<Branch> | null = null
 
 从当前单元跳到下一个单元的跳转队列。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。
-
-## field ReorganizationQueue:Sequence<Reorganization> | null = null
-
-本单元关闭时要跑的重组队列。
 
 ## field Parent:Token | null = null
 
@@ -100,7 +95,7 @@ throw new Error("abstract member: Close");
 
 ## method TryToClose:()=>void
 
-尝试关闭：范围必须已签入签出，然后关闭并跑一遍重组。
+尝试关闭：范围必须已签入签出，然后关闭。
 
 约定：`SourceRange` 只能赋值一次；`Close` 之前它必须已赋值；新建单元时上一个单元必须已关闭。
 
@@ -109,26 +104,6 @@ if (this.SourceRange.Start === null || this.SourceRange.End === null) {
   throw SourceException.SourceRangeContainsNull;
 }
 this.Close();
-this.Reorganize();
-```
-
-## method Reorganize:()=>void
-
-跑一遍重组队列：对每个重组规则、对每个下标，先问 `Previous`，命中就 `Process`。
-
-`Process` 用返回值推进下标，所以这里写 `i = item.Process(..., i)`——重组会把多个子单元换成一个，下标必须跟着走。
-
-```ts
-if (this.ReorganizationQueue === null) {
-  return;
-}
-for (const item of this.ReorganizationQueue.Data) {
-  for (let i = 0; i < this.Data.length; i++) {
-    if (item.Previous(this.Template, this.Data, i)) {
-      i = item.Process(this.Template, this.Data, i);
-    }
-  }
-}
 ```
 
 ## method MoveDataTo:(target:Token)=>void

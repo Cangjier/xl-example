@@ -79,12 +79,11 @@ regexToken.Append(source);
 
 ## constructor:(template:Template)=>void
 
-以模板创建，并把本类型的跳转队列与重组队列都取出来（两者都取默认队列）；取运行时类型用 `this.constructor`。
+以模板创建，并把本类型的跳转队列取出来（取默认队列）；取运行时类型用 `this.constructor`。
 
 ```ts
 super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor, null);
 ```
 
 ## protected method Close:()=>void

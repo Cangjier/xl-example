@@ -25,12 +25,11 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ## constructor:(template:Template)=>void
 
-创建时按自己的运行时类型取跳转队列与重组队列。
+创建时按自己的运行时类型取跳转队列。
 
 ```ts
 super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
 ## property ParentString:String

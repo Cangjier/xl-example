@@ -73,13 +73,12 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ## constructor:(template:Template, stringChar:string)=>void
 
-以模板与引号字符创建：记下 `StringChar`，并把本单元的跳转队列与重组队列从模板上取下来。
+以模板与引号字符创建：记下 `StringChar`，并把本单元的跳转队列从模板上取下来。
 
 ```ts
 super(template);
 this.StringChar = stringChar;
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
 ## method IsUndo:(source:Source)=>bool

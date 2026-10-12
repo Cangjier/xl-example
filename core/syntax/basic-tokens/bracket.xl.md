@@ -47,8 +47,6 @@ unit.AddToMounted(new Bracket(unit.Template)).Use(source.Value).SignIn(source);
 
 单元值类型是单字符的 `string`。
 
-`Use("{")` 不设 `ReorganizationQueue`，`Use("(")` / `Use("[")` 会设：`{}` 里的子单元不跑重组，`()` / `[]` 里的才跑。
-
 ## static readonly field JumpIn:BracketBranch = new BracketBranch()
 
 把 `BracketBranch` 注册进 `Root` 的通用跳转队列用的实例。
@@ -84,14 +82,12 @@ return this.StartBracketChar === start[0] && this.EndBracketChar === end[0];
 
 ```ts
 if (value === "(") {
-  this.ReorganizationQueue = this.Template.ReorganizationTemplate.Get(this.constructor);
   this.StartBracketChar = "(";
   this.EndBracketChar = ")";
 } else if (value === "{") {
   this.StartBracketChar = "{";
   this.EndBracketChar = "}";
 } else if (value === "[") {
-  this.ReorganizationQueue = this.Template.ReorganizationTemplate.Get(this.constructor);
   this.StartBracketChar = "[";
   this.EndBracketChar = "]";
 } else {
@@ -122,7 +118,7 @@ while (ancestor !== null) {
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
-遇到配对的结束括号就退出：先签出到该字符，再尝试关闭（关自己并跑重组），然后从父单元卸载自己，返回 `Done`；否则返回 `Undo`，让这一个字符继续往下走。
+遇到配对的结束括号就退出：先签出到该字符，再尝试关闭，然后从父单元卸载自己，返回 `Done`；否则返回 `Undo`，让这一个字符继续往下走。
 
 ```ts
 if (source.Value === this.EndBracketChar) {
