@@ -1,5 +1,5 @@
 // CatalogGuideToken / PossibleShape 的端到端演示：
-// 向导攒 basic 单元 → basic token 关闭时向上通知 → **当且仅当只剩一个候选**就建成形状；
+// 向导攒 basic 单元 → basic token 关闭时逐层往上找向导 → **当且仅当只剩一个候选**就建成形状；
 // 一个候选都不剩抛错。「接受」不短路（它和「不确定」在判定上同义）。
 //
 //   node samples/catalog.mjs
@@ -8,9 +8,10 @@
 // 根单元上：整个输入都先落到向导名下。
 //
 // 向导不覆写 `Process` / `Default`（与 `UnitToken` 一致），所以：
-//   - 触发只有一条路径——子单元关闭 → 逐层上溯 → `NotifyClosed`；
+//   - 触发只有一条路径——basic token 关闭 → 逐层上溯找到向导；
 //   - 末尾能触发，是因为向导自己的 `Close` 会把最后一个子单元也关掉（与 `Root` 同款）；
-//   - 跳转队列接不了的字符落到 `Token.Default` 的抽象桩上，当场抛错。
+//   - 跳转队列接不了的字符落到 `Token.Default` 的抽象桩上，当场抛错；
+//   - `BuildShape` 只是把本单元交给 `PossibleShape.Build`，所以形状要**自己**接进树里（见 install）。
 
 import { CatalogGuideToken } from "../build/ts/core/syntax/catalog-guide-token.js";
 import { Common } from "../build/ts/core/syntax/basic-tokens/common.js";
@@ -44,12 +45,30 @@ function classify(units, pattern) {
   return pattern.test(text) ? ShapeStates.Uncertain : ShapeStates.Reject;
 }
 
+/** 把建好的形状接进树里：按向导覆盖的范围签入签出、接管向导攒下的子单元、顶替向导。 */
+function install(catalog, built) {
+  const parent = catalog.Parent;
+  const start = catalog.SourceRange.Start;
+  const end = catalog.SourceRange.End ?? catalog.LastSource;
+  if (start !== null) {
+    built.SignIn(start);
+  }
+  catalog.MoveDataTo(built);
+  if (end !== null) {
+    built.SignOut(end);
+  }
+  catalog.Replace(built);
+  if (parent !== null && parent.MountedUnit === built) {
+    parent.MountedUnit = null;
+  }
+}
+
 class LetterShape extends PossibleShape {
   Compute(units) {
     return classify(units, /^[A-Za-z]+$/);
   }
   Build(catalog) {
-    return new LetterShapeToken(catalog.Template);
+    install(catalog, new LetterShapeToken(catalog.Template));
   }
 }
 
@@ -58,7 +77,7 @@ class DigitShape extends PossibleShape {
     return classify(units, /^[0-9]+$/);
   }
   Build(catalog) {
-    return new DigitShapeToken(catalog.Template);
+    install(catalog, new DigitShapeToken(catalog.Template));
   }
 }
 
@@ -68,7 +87,7 @@ class TwoUnitShape extends PossibleShape {
     return units.length >= 2 ? ShapeStates.Accept : ShapeStates.Uncertain;
   }
   Build(catalog) {
-    return new TwoUnitShapeToken(catalog.Template);
+    install(catalog, new TwoUnitShapeToken(catalog.Template));
   }
 }
 
@@ -78,7 +97,7 @@ class AnyUnitShape extends PossibleShape {
     return ShapeStates.Uncertain;
   }
   Build(catalog) {
-    return new AnyUnitShapeToken(catalog.Template);
+    install(catalog, new AnyUnitShapeToken(catalog.Template));
   }
 }
 

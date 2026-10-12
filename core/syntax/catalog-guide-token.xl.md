@@ -22,7 +22,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 形状目录向导：先当成「还不知道是哪种形状」的宿主，用 basic tokens 的跳转队列把一串子单元攒在自己名下。
 
-只有一条触发路径：basic token 关闭时向上通知，落到本单元的 `NotifyClosed`，由它问一遍目录里的候选（`PossibleShape.Compute`）；被拒的候选逐个出局，**当且仅当只剩一个候选**时把它交给 `PossibleShape.Build` 建成形状单元并顶替自己，一个候选都不剩就抛错。
+只有一条触发路径：basic token 关闭时逐层往上找到本单元（认的是 `ComputePossibleShapes` 这个名字），由它问一遍目录里的候选（`PossibleShape.Compute`）；被拒的候选当场移除，**当且仅当只剩一个候选**时把它交给 `PossibleShape.Build` 建成形状单元并顶替自己，一个候选都不剩就抛错，还有多个就继续等后面的单元。
 
 处理字符的方式与 `UnitToken` 一致：本单元不覆写 `Process` 与 `Default`。
 

@@ -105,11 +105,18 @@ return !(this.Template.SymbolTemplate.IsSymbol(Src.Value) || this.Template.Symbo
 
 ## protected method Close:()=>void
 
-关闭：只把自己标记为已关闭，并向上通知一次。
+关闭：只把自己标记为已关闭，然后逐层往上找最近一个声明了 `ComputePossibleShapes` 的祖先（形状目录向导），由它重算候选。
 
 ```ts
 this.Closed = true;
-this.NotifyClosed();
+let ancestor = this.Parent;
+while (ancestor !== null) {
+  if ("ComputePossibleShapes" in ancestor) {
+    (ancestor as any).ComputePossibleShapes();
+    break;
+  }
+  ancestor = ancestor.Parent;
+}
 ```
 
 ## method IsNumberWithoutDecimal:()=>bool

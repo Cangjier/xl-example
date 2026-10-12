@@ -131,18 +131,6 @@ for (const item of this.ReorganizationQueue.Data) {
 }
 ```
 
-## method NotifyClosed:()=>void
-
-本单元关闭时向祖先通知。
-
-默认把自己关闭这件事转给 `Parent`；`CatalogGuideToken` 覆写它，用来触发形状重算。
-
-```ts
-if (this.Parent !== null) {
-  this.Parent.NotifyClosed();
-}
-```
-
 ## method MoveDataTo:(target:Token)=>void
 
 把所有子单元搬给 `target`，然后清空自己的。
