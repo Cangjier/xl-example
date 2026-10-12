@@ -1220,10 +1220,33 @@ if (previous instanceof Identifier || previous instanceof String) {
 // `return` / `throw` 在**语句开头**会被 `KeywordCloseRule` 收成 `Identifier`，
 // 所以那一支对它们有效、对 `typeof` 一直无效。
 //
-// **没量到的那两个词这一轮不改**：`void { … }` 与 `delete` 后面的对象字面量
-// **一条判据都没有**——**改了也没有证据说它对**，缺口写在台账里。
-if (previous instanceof Keyword && WordText(previous) === "typeof") {
-  return false;
+// **第 1236 轮把那句「没量到的那两个词这一轮不改」量到底了**（用户口径 1.1）：摊成
+// `tmp/r1236-probe3.mjs` 18 条「引出一个值的词 + 花括号」——**`void` / `delete` /
+// `await` / `yield` / `typeof` 那几档本来就是好的**（它们在树里还是 `Identifier`，
+// 上面那条 `previous instanceof Identifier` 那一支接住了），而**量出另外四个词**：
+//
+//     `const v = a in { b: 1 };`          缺 2 多 3   ← `in` 后面那个 `{`
+//     `const v = a instanceof { b: 1 };`  缺 2 多 3   ← `instanceof`
+//     `const v = new { a: 1 }();`         缺 5 多 1   ← `new`（整条 `NewExpression` 丢）
+//     `switch (x) { case { a: 1 }: … }`   缺 2 多 3   ← `case`（连同 `case {}:` 那一档）
+//
+// 四个词与 `typeof` **同一句判据**（`in` / `instanceof` 独有：它们不是 `KeywordCloseRule`
+// 收的，一直在树上就是 `Keyword`），所以从「只认 `typeof`」扩成这五个词。
+// **`else` / `do` / `try` / `finally` 一个都不加**（上面那段理由照旧）；名单与
+// `GenericType` 那一支的那张表**同源**——那张表里本来就写着 `case` / `typeof` / `in` /
+// `instanceof` / `new` 五个（`void` / `delete` / `await` 也在，但它们走的是 `Identifier`
+// 那一支，加在这里是空转）。
+if (previous instanceof Keyword) {
+  const word = WordText(previous);
+  if (
+    word === "typeof" ||
+    word === "in" ||
+    word === "instanceof" ||
+    word === "new" ||
+    word === "case"
+  ) {
+    return false;
+  }
 }
 // **尖括号断言右操作数位置上的 `{`**（第 589 轮）：`const a = <{ n: number }>{ n: 1 }` 里
 // 第二个花括号的前一个实义单元是那个 `GenericType` ⇒ 照下面那句判成「语句开头」

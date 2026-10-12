@@ -590,6 +590,38 @@
 
 ## 已知仍开着的缺口（**13 条**）
 
+**第 1236 轮：「引出一个值的词 + 花括号」摊成 18 条语句位排版——同族收掉三格、新登记两格**
+
+- **口径**：`IsStatementStart` 里那条「前一个是 `Keyword`、而那个词后面跟的是**值** ⇒ 这一格不是
+  语句开头（`{` 是对象字面量）」原来**只认 `typeof`**（第 233 轮），理由写着「有些关键词后面
+  真的跟一个块（`else` / `try` / `finally` / `do`）」。这一轮把那一族摊开量了一遍
+  （`tmp/r1236-probe3.mjs`，18 条语句位排版）：`void` / `delete` / `await` / `yield` / `typeof`
+  **本来就是好的**（它们在树上还是 `Identifier`，走 `previous instanceof Identifier` 那一支），
+  而量出**另外三个词**：
+  ```text
+  const v = a in { b: 1 };            缺 2 多 3   → 收掉
+  const v = a instanceof { b: 1 };    缺 2 多 3   → 收掉
+  switch (x) { case { a: 1 }: … }     缺 2 多 3   → 收掉（`case {}:` 那一档缺 1 多 1 一起）
+  ```
+  判据从「只认 `typeof`」扩成**五个词**（`typeof` / `in` / `instanceof` / `new` / `case`），
+  名单与同一页 `GenericType` 那一支的那张表同源；守卫用例
+  [`stmt-r1236-value-word-brace.ts`](../../tests/cases/token/statements/stmt-r1236-value-word-brace.ts)
+  未打补丁时**缺 7 多 6**、打上之后 **80 / 80 逐节点一致**（对照档三档：`else` / `do…while` / `try…catch`
+  那几个**真的是块**的花括号）。
+- **新登记的两格**（两格都与上面那一句判据**不是同一处**，各自带现场）：
+  1. [`gap-r1236-new-object-literal.ts`](../../tests/cases/token/expressions/gap-r1236-new-object-literal.ts)
+     ——**`new` 后面那个花括号被 `TypeLiteralCloseRule` 认成类型字面量**：`new { a: 1 }()`
+     整条 `NewExpression` 不见（缺 5 多 1），产物里那个 `{` 是
+     `<TypeLiteral><TypeLiteralBody><Field name="a">…`。要分开的是「`new` 是**运算符**（后面跟值）」
+     与「`new` 是**类型修饰词**（后面跟构造签名）」。**六种排版全对不上**（语句位 / 变量位 /
+     调用实参 / 带实参 / 不带圆括号 / 空对象）。
+  2. [`gap-r1236-else-block-label.ts`](../../tests/cases/token/statements/gap-r1236-else-block-label.ts)
+     ——`if (a) { } else { b: 1 }`（**一行写完、末尾没有分号**）里那条标签被收成类型标注
+     （缺 `LabeledStatement` / `ExpressionStatement` / `NumericLiteral`，多一格把两者都装进去的
+     `ExpressionStatement`）。**分界线量得很清楚**：带分号那一档与**换行写**的同一形状都逐节点一致
+     ⇒ 这一格是「标签体什么时候算写完」在**同一行就到体末尾**时答错了，不是「`else` 的体里认不出标签」。
+- **数字**：`cases:tsast` 已知缺口 **1 → 3 条**（1 条旧的 + 2 条登记）。
+
 **第 972 / 973 / 974 轮：第 971 轮登记的两格收掉（清单第十五次清空），同一轮的普查又量出 13 格**
 
 - **收掉的两格**（`xl:known-gap` 按规矩撤掉，用例留着当守卫）：
