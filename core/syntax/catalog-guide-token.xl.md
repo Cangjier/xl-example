@@ -34,9 +34,9 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 本类的跳转队列：basic tokens 的分支，相对顺序与通用队列一致。
 
-## field PossibleShapes:Array<PossibleShape> = []
+## field PossibleShapes:Array<PossibleShape>
 
-本次尝试剩下的候选。构造时从传入的候选拷一份，判定过程中被拒的逐个去掉。
+本次尝试剩下的候选。构造时直接取传入的候选数组，判定过程中被拒的当场移除。
 
 ## field PossibleShapesComputeCache:Map<string, any> = new Map()
 
@@ -44,20 +44,12 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ## constructor:(template:Template, shapes:Array<PossibleShape>)=>void
 
-以模板与候选目录创建：取本类的跳转队列，并把候选拷进 `PossibleShapes`。
+以模板与候选目录创建：取本类的跳转队列，并把 `PossibleShapes` 指向传入的候选。
 
 ```ts
 super(template);
 this.ProcessQueue = CatalogGuideToken.BranchQueue;
-this.PossibleShapes.push(...shapes);
-```
-
-## method NotifyClosed:()=>void
-
-子单元关闭的通知：问一遍候选。
-
-```ts
-this.ComputePossibleShapes();
+this.PossibleShapes = shapes;
 ```
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
@@ -84,47 +76,23 @@ if (last !== null) {
 
 ## method ComputePossibleShapes:()=>void
 
-问一遍剩下的候选，把被拒的去掉，然后按**个数**行动：只剩一个就建它，一个都不剩就抛错，还有多个就继续等后面的单元。
+问一遍剩下的候选，被拒的**当场移除**，然后按**个数**行动：只剩一个就建它，一个都不剩就抛错，还有多个就继续等后面的单元。
 
 「接受」与「不确定」在这一次判定里同义——建不建只看剩下几个候选。
 
 ```ts
-const remain: PossibleShape[] = [];
-for (const item of this.PossibleShapes) {
-  const state = item.Compute(this.Data, this.PossibleShapesComputeCache);
-  if (state === ShapeStates.Reject) {
-    continue;
+for (let index = 0; index < this.PossibleShapes.length; index++) {
+  const item = this.PossibleShapes[index];
+  if (item.Compute(this.Data, this.PossibleShapesComputeCache) === ShapeStates.Reject) {
+    this.PossibleShapes.splice(index, 1);
+    index--;
   }
-  remain.push(item);
 }
-this.PossibleShapes = remain;
-if (remain.length === 1) {
-  this.BuildShape(remain[0]);
+if (this.PossibleShapes.length === 1) {
+  this.PossibleShapes[0].Build(this);
   return;
 }
-if (remain.length === 0) {
+if (this.PossibleShapes.length === 0) {
   throw new Error(`CatalogGuideToken: 没有候选形状可以构成（已攒 ${this.Data.length} 个子单元）`);
-}
-```
-
-## private method BuildShape:(shape:PossibleShape)=>void
-
-建形状：`Build` 拿到的单元接住已经攒下的子单元、按本单元覆盖的范围签入签出，然后顶替自己；建成的形状不再接收字符，父单元的挂载位一并清掉。
-
-```ts
-const parent = this.Parent;
-const start = this.SourceRange.Start;
-const end = this.SourceRange.End ?? this.LastSource;
-const built = shape.Build(this);
-if (start !== null) {
-  built.SignIn(start);
-}
-this.MoveDataTo(built);
-if (end !== null) {
-  built.SignOut(end);
-}
-this.Replace(built);
-if (parent !== null && parent.MountedUnit === built) {
-  parent.MountedUnit = null;
 }
 ```

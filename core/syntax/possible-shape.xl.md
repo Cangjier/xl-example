@@ -29,11 +29,9 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 throw new Error("abstract member: Compute");
 ```
 
-## method Build:(catalog:CatalogGuideToken)=>Token
+## method Build:(catalog:CatalogGuideToken)=>void
 
-把这个形状建出来并返回。
-
-抽象方法，由各形状实现；返回的单元由 `CatalogGuideToken` 接管已经攒下的子单元、按向导覆盖的范围签入签出。
+把这个形状建出来。
 
 ```ts
 throw new Error("abstract member: Build");
