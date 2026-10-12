@@ -7,24 +7,6 @@ import { Template } from "./template.xl.md"
 
 # namespace cangjie
 
-catalog guide 与 shape token：与语言无关的那一半（`core`）。
-
-`Token` 是**唯一的骨架**（设计 §1 第 1 条）：子单元表、父亲、挂载与卸载、搬移、开启与关闭、区间
-——全部在它上面。**不设第二层骨架**：词法单元（`CommonToken` … `RegexToken`）与语言层
-（`LanguageToken` 下面那些）都直接继承这一页。
-
-**这一页定下来的三条接口**（设计没写死，但实现必须选一种）：
-
-1. **`Process` 返回「这个字符被我吃了」**。所以「我没吃」有两种情形——我不认这个字符、
-   或者我关掉之后让开了——调用方（容器）拿回 `false` 就接着问下一个单元。
-   这条口径就是设计 §4 里「关闭只是一个触发信号」落地的地方：**关闭不改树**，只是让上面那一层
-   有机会再挂一个单元、把同一个字符重问一遍。
-2. **`OnChildClosed` 是往上找 catalog guide 的那条路**（§4 的 converge）。
-   一个单元关闭时 `NotifyClosed` 沿 `Parent` 往上走，**第一个答 `true` 的祖先吃掉这次事件**。
-   core 因此不必认识 catalog guide 这个类——向导只要覆写这一格就接上了。
-3. **`Finish` 是「构造结束」事件**（§5 的第二种失败）：输入结束、或外层 shape 关闭时，
-   沿挂载链往下走一趟，让还开着的向导有机会判一次。
-
 # method EscapeXmlText:(text:string)=>string
 
 把正文里那三个字符转义，好让 XML 里只有一个意思。
