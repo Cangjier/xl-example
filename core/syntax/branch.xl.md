@@ -96,6 +96,23 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 探针版三读 **+7.45 / −1.52 / −1.69ms**（全是噪声），而 `IsSymbol` 一慢，
 跳转那一侧省下来的全还回去。
 
+**第 1237 轮把上面那条教训「做对」又量了一遍（又是一次如实记下的负结果）**：既然「跳过整支」
+等于「那一趟 `Failed` 也不跑」，那就**只跳过 `Condition`、`Failed` 照跑**：
+触发字符对不上时直接 `branch.Failed(context, unit, source, branch.Result)` 再 `continue`。
+这一版**语义上是等价的**（`TriggerChars` 声明对了 ⇒ `Condition` 必然答否 ⇒ `Transit` 原本就会
+走到 `Failed`），实测也证明是：
+
+    tmp/r1237-equiv.mjs（1700 份语料逐字节比 XML 与投影 JSON，旧版 = tmp/r1237-old/ts）
+      0 份不同
+
+**可它量不出来**（`tmp/abparse.mjs`，24 对 × 每批 2 轮）：
+
+    mean +16.81ms/轮（sd 87.46、se 17.85）11:13、median +16.00
+
+⇒ 省下的 `Condition` 与补上的 `Failed`（一次多态调用 + `unit.Last()` + 一个 `instanceof`）
+**大致抵消**；第 1235 轮那 −39ms 里，有一大半本来就是「不跑 `Failed`」换来的。
+按本仓口径「一次没量出来的改动不留」，这一版**也整笔撤掉**，只留读数。
+
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 判断本次跳转是否成立，并给出 `Message` 号。
