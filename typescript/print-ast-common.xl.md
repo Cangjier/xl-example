@@ -5584,6 +5584,16 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // `ts.createSourceFile` 实测：`const q = a!`x`` 是
       // `TaggedTemplateExpression[10,15) > [NonNullExpression[10,12), NoSubstitutionTemplateLiteral[12,15)]`。
       one.IsNotNull || one.IsNullConditionalOperator ||
+      // **数组字面量也是一个标签**（第 1228 轮，用户口径 1.1）：`[a, b]`t`` / `[...a]`t`` 在 TS 那边是
+      // `TaggedTemplateExpression{ tag: ArrayLiteralExpression }`（`ts.createSourceFile` 实测
+      // `const v = [a, b]`t``：`TaggedTemplateExpression[10,20) > [ArrayLiteralExpression[10,16),
+      // NoSubstitutionTemplateLiteral[16,20)]`）。这一格与下面 `IsChainTail` 的名单**本来就该一样**
+      //（两张名单答的都是「这一格能不能接在操作数后面」），而 `IsArrayLiteralUnit` 那一格
+      // 一直在 `IsChainTail` 上（第 947 轮就在）、**只有这一张名单少它** ⇒ `[a, b]`t`` 整族
+      // 在入口判否：标签与模板在产物里是平级两格，通用支只投得出一格 `ArrayLiteralExpression`，
+      // **模板字面量与整条 `TaggedTemplateExpression` 一起丢**（实测 `tmp/r1227-tag.mjs`：
+      // `[a, b]` 与 `[...a]` 两个底样 × 8 个位置 = 16 条里 8 + 8 条对不上）。
+      one.IsArrayLiteralUnit ||
       one.IsTagBaseNode === true);
   // **模板后面那一串也要是链的续格**（第 947 轮）：判据从「**末尾**那一格是模板」
   // 放宽成「**链里有一格是模板**」，模板后面那一串交给 `chainOnto`（与 0c 同一段代码）。
