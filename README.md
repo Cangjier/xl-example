@@ -347,6 +347,34 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1235 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **语句位的裸块后面那一截**（口径 1.1，第 1231 轮那一族的**第 ① 格**：壳拆开那一趟的头认下裸块、空壳那一支认下「裸块不吃尾分号」）；1.2 是**一次如实记下的负结果**（`SymbolBranch` 的 30 个符号字符当触发字符，三读 mean **−28.98 / −38.21 / −39.13ms** 每轮，**可它量的是一个错的解析**，于是整笔撤掉、只留一句守卫）
+
+**一句话**：1.1 收的是那一族里「与块 / 对象字面量的分岔」那一格——`declare const a: any;` 换行 `` { p: 1 }`t`; `` 在 TS 里是**两条语句**（`Block` + `ExpressionStatement > TaggedTemplateExpression`），产物却把整段收进**同一个** `Statement` 壳、折成一条标签模板（缺 1 多 2）；同一个盲点的第二面是**空语句**（`{ q: 2 };` 那个 `;` 是 `EmptyStatement`，实测缺 1）。两处根因都在**两份名单的用户**上：壳拆开那一趟（`SplitShell`）只认「第一个孩子是 `IsStatementUnit`」，而裸块**刻意不在那张名单里**；空壳那一支要问 `BlockClosedStatement`，裸块也不在里面。1.2 量的是跳转队列里被问得第二多的一支（`SymbolBranch`，**407695** 次/轮、九成以上当场答否）——它的触发字符**就是那张符号表**，三读都省 30~39ms，**可它跳过的是「那一趟 `Failed` 也不跑」**（`SymbolBranch.Failed` 把上一格 `SymbolToken` 关掉）⇒ `- -x` 当场折成 `--`，整笔撤掉。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 两处各放开一格，判据都抄 `IsStatementBoundary` 里那条现成的裸块（`startBracket === "{"`，`SplitShell` 那一处再问一句 `IsStatementStart`）；`IsStatementUnit` / `BlockClosedStatement` 两份名单**一个字没动** | `tmp/r1235-probe2/3/4.mjs`：裸块那一格摊开 8 条 **3 → 0**、那一族同族 15 条 **9 → 0**；新守卫用例 [stmt-r1235-bare-block-tail.ts](tests/cases/token/statements/stmt-r1235-bare-block-tail.ts) 未打补丁 **缺 5 多 3**、打上 **64/64 逐节点一致**；`gap-r1231-decl-newline-operator.ts` 只剩**一格**（箭头体那一格） |
+| **1.2** | **什么都没留**：三读都省 30~39ms，但 1697 份语料逐字节比 XML 与投影 JSON **2 份不同**（`- -x` 折成 `--`）⇒ 整笔撤掉；换来的是一句守卫——`HasFailedHook` 答是的分支 `TriggerChars` 一律不生效（**零影响**，0 份不同） | `tmp/abparse.mjs` 20/26/24 对：mean **−28.98**（se 16.93、13:7）/ **−38.21**（se 14.64、17:9）/ **−39.13**（se 14.22、18:6）；等价性 `tmp/r1235-equiv.mjs` **2 份不同 → 0 份不同** |
+
+**1.1 的现场**（`tmp/r1235-probe4.mjs` 量出来的那条口径，写进守卫用例的头里）：前一条语句与那个裸块之间**夹一条注释**时这一族**本来就对**（`SplitShell` 的头那一趟因为前导 trivia 早退，壳在上游就是另一种收法）⇒ 夹注释的排版守不住这一格，守卫用例里三格连排、注释全写在头上。
+
+**1.2 的现场（负结果，连同它的教训）**：
+
+```text
+只改 build/ 里那一份产物（SymbolBranch 写死那 30 个符号字符当 TriggerChars）
+  tmp/abparse.mjs 三读 −28.98 / −38.21 / −39.13ms 每轮（se 16.93 / 14.64 / 14.22）
+  tmp/r1235-equiv.mjs 1697 份语料：XML 与投影 JSON 逐字节 2 份不同
+    expr-nested-unary.ts   `- -x` → `UnaryOperator(op="--")`（TS 是 `-` 套 `-` 两层）
+  ⇒ 根因：Transit 答否时还会调一次 Failed，而 SymbolBranch.Failed 有副作用
+  ⇒ 守卫：HasFailedHook 答是的分支不吃 TriggerChars（零影响，0 份不同）
+同一轮还量到：不写死、改成加载时拿 IsSymbol 扫一遍（0…0x2fff，12288 次）会把这把
+  switch 喂成 megamorphic ⇒ 探针版三读 +7.45 / −1.52 / −1.69ms（全是噪声）
+```
+
+**净账**：八道门 8 通过 / 0 失败（墙钟 31.7s）；`cases:tsast` 16 片全过、已知缺口 **1 条还开着**（只剩箭头体那一格）；`cases:direct` 1681 份不抛异常；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1697** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4302 / 4461**（blocked 26、differ 133、bad 0、加权 95.7%）；`npx tsc`（strict）0 error；`best of 5`：parse **787.1**、xml 39.9、printAst **118.2**。
+
+**两条 commit**：`9e9fac87`（1.1 语句位的裸块后面那一截）、`72c191f5`（1.2 负结果 + `HasFailedHook` 那一句守卫）。
+
 ### 第 1234 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **裸块之后那一行以 `/` 开头那一格**（口径 1.1，第 1231 轮那一族的**倒数第二格**，ASI 那一支；那一问同时**收归一份**到 `IsStatementBraceTail`）；1.2 是**第三次如实记下的负结果**（`CommonBranch.Condition` 那一句白算的 `unit.Last()`，16 对 mean **+0.91ms**、se 19.30 ⇒ 不可分辨）
 
 **一句话**：1.1 收的是**ASI 那一支**——`{ }` 换行 `/re/g;` 在 TS 里是**两条语句**（`Block` + `ExpressionStatement > RegularExpressionLiteral`），而解析期续接表里 `/` 本来是「能续接」（`a` 换行 `/ b` 就是除法）⇒ 换行处不收壳 ⇒ 块与那条正则被收进同一条语句；`NextLineContinuesExpression` 那句「上一格是 `;` / `}` 早就早退了」**对裸块不成立**（上一格是一个**收好的块**：`startBracket === "{"`、`endBracket === "}"`）。同一轮把「这一格体是不是一条语句的收尾」这一问**收归一份**（`statement.xl.md` 成了第二个用户 ⇒ 搬到 `text-common-util.xl.md` 的 `IsStatementBraceTail`）。1.2 量的是字符那一趟最常走的那一支里一句白算的 `unit.Last()`：**与 0 不可分辨**——这是连续第三笔同一个结论。
