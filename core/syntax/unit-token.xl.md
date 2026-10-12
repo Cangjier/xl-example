@@ -137,6 +137,10 @@ if (queue !== null) {
   // 就等于「那一趟 `Failed` 也不跑」：实测 `- -x` 当场折成 `--`（1697 份语料里 2 份不同）。
   // 所以带钩子的分支**一律不吃 `TriggerChars`**。当时声明的四支都没有钩子 ⇒ 这一句零影响
   //（读数与现场写在 `core/syntax/branch.xl.md` 的 `TriggerChars` 那一节）。
+  //
+  // **第 1237 轮量过「只跳 `Condition`、`Failed` 照跑」那一版**（把上面那条教训做对）：
+  // 语义等价（1700 份语料逐字节 0 份不同），**可墙钟 24 对 mean +16.81ms/轮**（se 17.85）——
+  // 省下的 `Condition` 与补上的 `Failed` 大致抵消 ⇒ 这一句守卫照旧留着，不留那一版。
   const value = source.Value;
   for (let i = 0; i < branches.length; i++) {
     const branch = branches[i];
