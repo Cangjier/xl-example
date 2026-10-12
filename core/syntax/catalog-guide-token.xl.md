@@ -30,19 +30,9 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 形状目录向导。
 
-## static method CreateBranchQueue:()=>Sequence<Branch>
+## static readonly field BranchQueue:Sequence<Branch> = new Sequence<Branch>([AreaAnnotation.JumpIn, LineAnnotation.JumpIn, RegexToken.JumpIn, Bracket.JumpIn, Common.AppendIn])
 
 本类的跳转队列：basic tokens 的分支，相对顺序与通用队列一致。
-
-```ts
-return new Sequence<Branch>([
-  AreaAnnotation.JumpIn,
-  LineAnnotation.JumpIn,
-  RegexToken.JumpIn,
-  Bracket.JumpIn,
-  Common.AppendIn,
-]);
-```
 
 ## field PossibleShapes:Array<PossibleShape> = []
 
@@ -62,7 +52,7 @@ return new Sequence<Branch>([
 
 ```ts
 super(template);
-this.ProcessQueue = template.BranchTemplate.Get(this.constructor, (defaultValue: any) => CatalogGuideToken.CreateBranchQueue());
+this.ProcessQueue = template.BranchTemplate.Get(this.constructor, (defaultValue: any) => CatalogGuideToken.BranchQueue);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor, null);
 this.PossibleShapes.push(...shapes);
 ```
