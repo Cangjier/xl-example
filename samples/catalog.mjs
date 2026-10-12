@@ -1,16 +1,11 @@
 // CatalogGuideToken / PossibleShape 的端到端演示：
-// 向导攒 basic 单元 → 每有一个子单元关闭就问一遍候选 → 只剩一个候选（或候选「接受」）就建成形状。
+// 向导攒 basic 单元 → 每有一个子单元关闭就问一遍候选 → **当且仅当只剩一个候选**就建成形状；
+// 一个候选都不剩抛错；「接受」不短路（它和「不确定」在判定上同义）。
 //
 //   node samples/catalog.mjs
 //
 // 通用队列里**没有**装目录的入口分支（向导挂在哪里是语言层的决定），所以这里把向导直接挂在
 // 根单元上：整个输入都先落到向导名下，它处理不了的字符由兜底还给根单元。
-//
-// 每个用例量三件事：
-//   1. 不挂向导的产物 —— 与 `cjcli` 同一套装配，作为基准；
-//   2. 挂了向导但目录为空 —— 向导应当完全透明（永远只剩 0 个候选 → 溶解回父单元）；
-//   3. 挂了向导且有候选 —— 产物应当正好是「基准里那一段被形状接住」。
-// 第 2 条是溶解的证据，第 3 条（硬编码的 expected）是接管的证据。
 
 import { CatalogGuideToken } from "../build/ts/core/syntax/catalog-guide-token.js";
 import { Common } from "../build/ts/core/syntax/basic-tokens/common.js";
@@ -62,7 +57,7 @@ class DigitShape extends PossibleShape {
   }
 }
 
-/** 攒够两个单元就「接受」——用来演示接受直接短路构建。 */
+/** 两个单元就「接受」。按本版判据，接受不短路——它只在「只剩我一个候选」时才被建。 */
 class TwoUnitShape extends PossibleShape {
   Compute(units) {
     return units.length >= 2 ? ShapeStates.Accept : ShapeStates.Uncertain;
@@ -72,7 +67,7 @@ class TwoUnitShape extends PossibleShape {
   }
 }
 
-/** 永远「不确定」——它让「只剩一个候选」这条规则在 TwoUnitShape 之外不成立。 */
+/** 永远「不确定」，用来把候选数压在 2。 */
 class AnyUnitShape extends PossibleShape {
   Compute() {
     return ShapeStates.Uncertain;
@@ -88,7 +83,7 @@ class TwoUnitShapeToken extends ShapeIndependentToken {}
 class AnyUnitShapeToken extends ShapeIndependentToken {}
 
 /** 跑一遍输入：mountGuide 为假时不挂向导，产物就是基准。 */
-function parse(source, shapes, mountGuide) {
+function run(source, shapes, mountGuide) {
   CatalogGuideToken.Catalog.length = 0;
   for (const shape of shapes) {
     CatalogGuideToken.Register(shape);
@@ -105,61 +100,103 @@ function parse(source, shapes, mountGuide) {
   return context.Root.ToString();
 }
 
-const cases = [
-  {
-    name: "只剩一个候选 → 建成字母形状",
-    source: "abc",
-    shapes: [new LetterShape(), new DigitShape()],
-    expected:
-      "<Root><Statement><LetterShapeToken><Common>abc</Common></LetterShapeToken></Statement></Root>",
-  },
-  {
-    name: "只剩一个候选 → 建成数字形状",
-    source: "12",
-    shapes: [new LetterShape(), new DigitShape()],
-    expected:
-      "<Root><Statement><DigitShapeToken><Common>12</Common></DigitShapeToken></Statement></Root>",
-  },
-  {
-    name: "候选「接受」→ 立刻构建，压过另一个仍不确定的候选",
-    source: "(a)b",
-    shapes: [new TwoUnitShape(), new AnyUnitShape()],
-    expected:
-      '<Root><Statement><TwoUnitShapeToken><Bracket StartBracketChar="(" EndBracketChar=")"><Common>a</Common></Bracket><Common>b</Common></TwoUnitShapeToken></Statement></Root>',
-  },
-  {
-    name: "basic 队列处理不了 → 溶解，字符还给通用队列",
-    source: "+",
-    shapes: [new LetterShape(), new DigitShape()],
-    expected: "<Root><Statement><Symbol>+</Symbol></Statement></Root>",
-  },
-];
+/** 把异常链上的消息连起来（`Token.Process` 会把内层异常包成 `SyntaxException`）。 */
+function errorText(error) {
+  const parts = [];
+  let current = error;
+  for (let depth = 0; depth < 12 && current !== null && current !== undefined; depth++) {
+    parts.push(String(current.Message ?? current.message ?? current));
+    current = current.InnerException;
+  }
+  return parts.join(" | ");
+}
 
 let failed = 0;
-for (const item of cases) {
-  const baseline = parse(item.source, [], false);
-  const transparent = parse(item.source, [], true);
-  const actual = parse(item.source, item.shapes, true);
+for (const item of cases()) {
+  const baseline = run(item.source, [], false);
+  let problem = null;
+  let actual = "";
 
-  const problems = [];
-  if (transparent !== baseline) {
-    problems.push(`目录为空时向导不透明：\n           baseline:    ${baseline}\n           transparent: ${transparent}`);
-  }
-  if (actual !== item.expected) {
-    problems.push(`形状接管的结果不符：\n           expected: ${item.expected}\n           actual:   ${actual}`);
+  try {
+    actual = run(item.source, item.shapes, true);
+  } catch (error) {
+    const text = errorText(error);
+    if (item.error === undefined) {
+      problem = `不该抛错：${text}`;
+    } else if (!text.includes(item.error)) {
+      problem = `抛错内容不含 ${JSON.stringify(item.error)}：${text}`;
+    }
   }
 
-  if (problems.length === 0) {
+  if (problem === null && item.error === undefined) {
+    if (item.sameAsBaseline === true) {
+      if (actual !== baseline) {
+        problem = `应当与不挂向导的产物逐字节相同：\n           baseline: ${baseline}\n           actual:   ${actual}`;
+      }
+    } else if (actual !== item.expected) {
+      problem = `形状接管的结果不符：\n           expected: ${item.expected}\n           actual:   ${actual}`;
+    }
+  }
+
+  if (problem === null) {
     console.log(`ok       ${item.name}`);
     continue;
   }
   failed++;
   console.log(`DIFF     ${item.name}`);
   console.log(`         source:   ${JSON.stringify(item.source)}`);
-  console.log(`         baseline: ${baseline}`);
-  for (const problem of problems) {
-    console.log(`         ${problem}`);
-  }
+  console.log(`         ${problem}`);
 }
 
 process.exitCode = failed === 0 ? 0 : 1;
+
+function cases() {
+  return [
+    {
+      name: "只剩一个候选（字母）→ 建成形状",
+      source: "abc",
+      shapes: [new LetterShape(), new DigitShape()],
+      expected:
+        "<Root><Statement><LetterShapeToken><Common>abc</Common></LetterShapeToken></Statement></Root>",
+    },
+    {
+      name: "只剩一个候选（数字）→ 建成形状",
+      source: "12",
+      shapes: [new LetterShape(), new DigitShape()],
+      expected:
+        "<Root><Statement><DigitShapeToken><Common>12</Common></DigitShapeToken></Statement></Root>",
+    },
+    {
+      name: "一个候选都不剩 → 抛错",
+      source: "abc",
+      shapes: [new DigitShape()],
+      error: "没有候选形状可以构成",
+    },
+    {
+      name: "空目录 → 抛错（0 个候选同样是收不了场）",
+      source: "abc",
+      shapes: [],
+      error: "没有候选形状可以构成",
+    },
+    {
+      name: "候选「接受」不短路：个数说了算",
+      source: "(a)b",
+      shapes: [new TwoUnitShape()],
+      expected:
+        '<Root><Statement><TwoUnitShapeToken><Bracket StartBracketChar="(" EndBracketChar=")"><Common>a</Common></Bracket></TwoUnitShapeToken><Common>b</Common></Statement></Root>',
+    },
+    {
+      name: "多个候选到收尾都判不出来 → 抛错",
+      source: "(a)b",
+      shapes: [new TwoUnitShape(), new AnyUnitShape()],
+      error: "形状不确定",
+    },
+    {
+      name: "队列接不了的字符 → 溶解，字符还给通用队列",
+      source: "+",
+      shapes: [new LetterShape(), new DigitShape()],
+      expected: "<Root><Statement><Symbol>+</Symbol></Statement></Root>",
+      sameAsBaseline: true,
+    },
+  ];
+}
