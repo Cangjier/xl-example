@@ -347,6 +347,35 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1237 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **换地形再摊一层（两片共 44 条）**（口径 1.1：第一片「`}` 之后下一行以什么开头」24 条**只剩已知那一格**；第二片「类型位的词 + `{`」量出三档、整族登记）；1.2 是**又一次如实记下的负结果**（把第 1235 轮那条教训**做对**——只跳 `Condition`、`Failed` 照跑：1700 份语料**逐字节 0 份不同**，可 24 对 mean **+16.81ms**、se 17.85、11:13 ⇒ 省下的与补上的大致抵消）
+
+**一句话**：1.1 做的是本仓那条「**清单里量不动了就换一批底样再量一遍**」。**第一片地形**把第 1232 ~ 1235 轮那条线再摊一层——一个体收在 `}` 上、下一行以 `(` / `[` / `!` / `typeof` / `new` / `++` / `--` / `=` / `==` / `&&` / `||` / `as` / `~` / `void` / `delete` / `instanceof` / `in` / `*` / `?` 开头，外加五档 `/re/g` 对照：**24 条里只有箭头体那一格对不上**（就是早就登记着的那一格），其余 23 条全对。**第二片地形**（类型位的「词 + `{`」20 条）量出三档、整族登记：`interface I extends { a: 1 } { }`（缺 8 多 2，整条 `InterfaceDeclaration` 不见）、谓词里的类型字面量 `x is { a: 1 }`（缺 4 漂 1 多 5）与 `asserts x is { a: 1 }`（缺 6 漂 1 多 6）——`keyof` / `as` / `satisfies` / `readonly` 那几档一条没动。1.2 把第 1235 轮那条教训**做对**（触发字符对不上时只跳 `Condition`、`Failed` 照跑），语义等价（**1700 份语料逐字节 0 份不同**）但墙钟量不出来。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 两片地形普查（44 条），第一片确认干净、第二片整族登记；新用例 [gap-r1237-type-position-brace.ts](tests/cases/token/types/gap-r1237-type-position-brace.ts)（缺 18 漂 2 多 13），现场与入手处写在头里 | `tmp/r1237-probe2.mjs` **24 条：1 条对不上**（就是已登记那一格）；`tmp/r1237-probe.mjs` **20 条：3 条对不上**（`extends` / `is` / `asserts`）⇒ 全族登记 |
+| **1.2** | **什么都没留**：`ProcessChar` 的触发字符那一支改成「对不上就只跳 `Condition`、`Failed` 照跑」（`branch.Failed(context, this, source, branch.Result)` 再 `continue`），等价性先证明、再量 | `tmp/r1237-equiv.mjs` **1700 份 0 份不同**；`tmp/abparse.mjs` 24 对 mean **+16.81ms/轮**（sd 87.46、se 17.85、**11:13**）⇒ 整笔撤掉，读数落进 `branch.xl.md` 与 `unit-token.xl.md` |
+
+**第二片那三档的现场**（都进用例头里）：
+
+    interface I extends { a: 1 } { }                       缺 8 多 2   ← token 树一格不缺，缺的是整条 InterfaceDeclaration
+    function f(x: any): x is { a: 1 } { return true; }     缺 4 漂 1 多 5
+    function f(x: any): asserts x is { a: 1 } { }          缺 6 漂 1 多 6
+
+`extends` 那一档与第 955 轮补的「括号化实体名」**同形不同类**（那一支只认 `Identifier`）；
+`is` / `asserts` 那一档与第 957 ~ 959 轮「谓词里括号化的类型」**同一个落点**，只是这回类型是一格**类型字面量**。
+
+**1.2 的读数（负结果）**：
+
+    tmp/r1237-equiv.mjs（1700 份语料逐字节比 XML 与投影 JSON）  0 份不同 ⇒ 语义等价
+    tmp/abparse.mjs 24 对 × 每批 2 轮                          mean +16.81ms/轮（se 17.85）11:13
+    ⇒ 省下的一次 Condition 与补上的一次 Failed（多态调用 + unit.Last() + 一个 instanceof）大致抵消；
+      第 1235 轮那 −39ms 里有一大半本来就是「不跑 Failed」换来的
+
+**净账**：八道门 8 通过 / 0 失败（墙钟 29.1s）；`cases:tsast` 16 片全过、已知缺口 **3 → 4 条**（0 条已经收掉）；`cases:direct` 1684 份不抛异常；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1701** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4303 / 4465**（blocked 29、differ 133、bad 0、加权 95.7%）；`npx tsc`（strict）0 error。
+
+**两条 commit**：`699d9038`（1.1 换地形普查 + 第二片整族登记）、`1ec7e564`（1.2 负结果：只跳 `Condition`、`Failed` 照跑那一版）。
+
 ### 第 1236 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **「引出一个值的词」后面那个花括号**（口径 1.1，第 233 轮 `typeof` 那一格的同族第三条：`in` / `instanceof` / `case` 三个词进名单，同轮**登记**两格）；1.2 是**又一次如实记下的负结果**（`Source.Pre` 那一趟边界检查里的 `Document.GetCount()`，20 对 mean **+25.13ms**、se 16.85、8:12 ⇒ 反而更慢）
 
 **一句话**：1.1 收的是 `IsStatementStart` 里那条「前一个是 `Keyword`、而那个词后面跟的是**值** ⇒ 这一格不是语句开头」——它原来**只认 `typeof` 一个词**（第 233 轮），理由是「有些关键词后面真的跟一个块（`else` / `try` / `finally` / `do`）」。这一轮把那一族摊成 **18 条语句位排版**量了一遍：`void` / `delete` / `await` / `yield` 那几档**本来就是好的**（它们在树上还是 `Identifier`，走 `previous instanceof Identifier` 那一支），而 `in` / `instanceof` / `case` 三个词后面那个 `{` 全被当成块（各缺 2 多 3，`case {}:` 那一档缺 1 多 1）⇒ 判据扩成**五个词**，**`else` / `do` / `try` / `finally` 一个都不加**。同一轮摊出**两格**、按规矩**只登记不收**（`new` 后面那个花括号被 `TypeLiteralCloseRule` 认成类型字面量；`else` 的体里那条标签在「一行写完、末尾没有分号」时被收成类型标注）。1.2 量的是 `Source.Pre` 边界检查里那句 `Document.GetCount()`（闭包调用，一份语料 236 万次）：**换成一次属性读反而更慢**。
