@@ -1,8 +1,14 @@
 # dependencies
 ```xl
 import { Branch } from "../branch.xl.md"
+import { AreaAnnotation } from "../basic-tokens/area-annotation.xl.md"
+import { Bracket } from "../basic-tokens/bracket.xl.md"
+import { Common } from "../basic-tokens/common.xl.md"
+import { LineAnnotation } from "../basic-tokens/line-annotation.xl.md"
+import { RegexToken } from "../basic-tokens/regex-token.xl.md"
 import { KeywordTemplate } from "./keyword-template.xl.md"
 import { MethodNameTemplate } from "./method-name-template.xl.md"
+import { Sequence } from "./sequence.xl.md"
 import { SequenceTemplate } from "./sequence-template.xl.md"
 import { SymbolTemplate } from "./symbol-template.xl.md"
 ```
@@ -40,6 +46,23 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 ## field MethodNameTemplate:MethodNameTemplate = new MethodNameTemplate()
 
 方法名模板。
+
+## private static field BasicBranchQueueCache:Sequence<Branch> | null = null
+
+`BasicBranchQueue` 的缓存；`null` 表示还没建过。
+
+## static method BasicBranchQueue:()=>Sequence<Branch>
+
+basic tokens 的跳转队列：相对顺序与通用队列一致。
+
+**为什么是方法而不是 static 字段。** 模板与 basic tokens 互为依赖（模板要列出它们的分支，它们的构造器要问模板要自己的队列），写成类定义期求值的 `static readonly field` 会读到 `undefined`——require 环里先执行的那一半还没把类定义出来。改成方法 + 缓存之后，那 5 个静态分支实例只在第一次调用时才读，那时所有模块都已加载完。
+
+```ts
+if (Template.BasicBranchQueueCache === null) {
+  Template.BasicBranchQueueCache = new Sequence<Branch>([AreaAnnotation.JumpIn, LineAnnotation.JumpIn, RegexToken.JumpIn, Bracket.JumpIn, Common.AppendIn]);
+}
+return Template.BasicBranchQueueCache;
+```
 
 ## method Initialize:(onInitialize:TemplateInitializer)=>Template
 

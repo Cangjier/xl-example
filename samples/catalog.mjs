@@ -1,19 +1,20 @@
-// CatalogGuideToken / PossibleShape 的端到端演示：
-// 向导攒 basic 单元 → basic token 关闭时逐层往上找向导 → **当且仅当只剩一个候选**就建成形状；
+// CatalogGuide / PossibleShape 的端到端演示：
+// 宿主（UnitToken 子类）攒 basic 单元 → basic token 关闭时逐层上溯找「实现了 IComputePossibleShapes 且
+// CatalogGuide 非空」的宿主 → 宿主把向导叫起来 → **当且仅当只剩一个候选**就建成形状、顶替宿主；
 // 一个候选都不剩抛错。「接受」不短路（它和「不确定」在判定上同义）。
 //
 //   node samples/catalog.mjs
 //
-// 通用队列里**没有**装目录的入口分支（向导挂在哪里是语言层的决定），所以这里把向导直接挂在
-// 根单元上：整个输入都先落到向导名下。
+// ⚠️ 跑不起来：旧语言层 dawn/（ParsePipeline / Root / TextDocument）已删除，下面的 import 会 MODULE_NOT_FOUND。
 //
-// 向导不覆写 `Process` / `Default`（与 `UnitToken` 一致），所以：
-//   - 触发只有一条路径——basic token 关闭 → 逐层上溯找到向导；
-//   - 末尾能触发，是因为向导自己的 `Close` 会把最后一个子单元也关掉（与 `Root` 同款）；
-//   - 跳转队列接不了的字符落到 `Token.Default` 的抽象桩上，当场抛错；
-//   - `BuildShape` 只是把本单元交给 `PossibleShape.Build`，所以形状要**自己**接进树里（见 install）。
+// 向导**不继承任何东西、不在树里**：攒下来的子单元与字符处理都归宿主，向导只在判定时被传进宿主。
+// 所以：
+//   - 宿主要有 BasicBranchQueue（收字符的是它），并把自己的 CatalogGuide 指到向导上；
+//   - 触发只有一条路径——basic token 关闭 → 逐层上溯找宿主 → 宿主把向导叫起来；
+//   - `PossibleShape.Build(host, catalog)` 要**返回建好的那个单元**，向导接着拿它跑 `BuildShapes`；
+//   - 形状顶替的是**宿主**，不是向导（向导不在树里）。
 
-import { CatalogGuideToken } from "../build/ts/core/syntax/catalog-guide-token.js";
+import { CatalogGuide } from "../build/ts/core/syntax/catalog-guide.js";
 import { Common } from "../build/ts/core/syntax/basic-tokens/common.js";
 import { PossibleShape } from "../build/ts/core/syntax/possible-shape.js";
 import { ShapeStates } from "../build/ts/core/syntax/shape-states.js";
@@ -45,30 +46,32 @@ function classify(units, pattern) {
   return pattern.test(text) ? ShapeStates.Uncertain : ShapeStates.Reject;
 }
 
-/** 把建好的形状接进树里：按向导覆盖的范围签入签出、接管向导攒下的子单元、顶替向导。 */
-function install(catalog, built) {
-  const parent = catalog.Parent;
-  const start = catalog.SourceRange.Start;
-  const end = catalog.SourceRange.End ?? catalog.LastSource;
+/** 把建好的形状接进树里：按向导覆盖的范围签入签出、接管向导攒下的子单元、顶替向导；返回建好的单元。 */
+/** 把建好的形状接进树里：按**宿主**覆盖的范围签入签出、接管宿主攒下的子单元、顶替宿主；返回建好的单元。 */
+function install(host, built) {
+  const parent = host.Parent;
+  const start = host.SourceRange.Start;
+  const end = host.SourceRange.End ?? host.LastSource;
   if (start !== null) {
     built.SignIn(start);
   }
-  catalog.MoveDataTo(built);
+  host.MoveDataTo(built);
   if (end !== null) {
     built.SignOut(end);
   }
-  catalog.Replace(built);
+  host.Replace(built);
   if (parent !== null && parent.MountedUnit === built) {
     parent.MountedUnit = null;
   }
+  return built;
 }
 
 class LetterShape extends PossibleShape {
   Compute(units) {
     return classify(units, /^[A-Za-z]+$/);
   }
-  Build(catalog) {
-    install(catalog, new LetterShapeToken(catalog.Template));
+  Build(host, catalog) {
+    return install(host, new LetterShapeToken(catalog.Template));
   }
 }
 
@@ -76,8 +79,8 @@ class DigitShape extends PossibleShape {
   Compute(units) {
     return classify(units, /^[0-9]+$/);
   }
-  Build(catalog) {
-    install(catalog, new DigitShapeToken(catalog.Template));
+  Build(host, catalog) {
+    return install(host, new DigitShapeToken(catalog.Template));
   }
 }
 
@@ -86,8 +89,8 @@ class TwoUnitShape extends PossibleShape {
   Compute(units) {
     return units.length >= 2 ? ShapeStates.Accept : ShapeStates.Uncertain;
   }
-  Build(catalog) {
-    install(catalog, new TwoUnitShapeToken(catalog.Template));
+  Build(host, catalog) {
+    return install(host, new TwoUnitShapeToken(catalog.Template));
   }
 }
 
@@ -96,8 +99,8 @@ class AnyUnitShape extends PossibleShape {
   Compute() {
     return ShapeStates.Uncertain;
   }
-  Build(catalog) {
-    install(catalog, new AnyUnitShapeToken(catalog.Template));
+  Build(host, catalog) {
+    return install(host, new AnyUnitShapeToken(catalog.Template));
   }
 }
 
@@ -106,16 +109,19 @@ class DigitShapeToken extends ShapeIndependentToken {}
 class TwoUnitShapeToken extends ShapeIndependentToken {}
 class AnyUnitShapeToken extends ShapeIndependentToken {}
 
-/** 跑一遍输入。 */
+/** 跑一遍输入。（⚠️ `Root` 来自已删除的 dawn/；这里只把新接线写清楚。） */
 function run(source, shapes) {
   const template = new Template().Initialize(ParsePipeline.Install);
   const document = new TextDocument(source);
-  const context = new SyntaxContext(new Root(template));
-  const guide = new CatalogGuideToken(template, shapes);
-  context.Root.AddToMounted(guide);
-  guide.SignIn(document.At(0));
+  const root = new Root(template);
+  const context = new SyntaxContext(root);
+  const guide = new CatalogGuide(template, shapes);
+  // 向导不在树里：收字符与攒子单元都是**宿主**的事，所以两样都要接在宿主上。
+  root.ProcessQueue = Template.BasicBranchQueue();
+  root.CatalogGuide = guide;
+  root.SignIn(document.At(0));
   context.Process(document);
-  return context.Root.ToString();
+  return root.ToString();
 }
 
 /** 把异常链上的消息连起来（`Token.Process` 会把内层异常包成 `SyntaxException`）。 */
@@ -164,17 +170,20 @@ const cases = [
     error: "没有候选形状可以构成",
   },
   {
-    name: "多个候选到收尾都判不出来 → 向导留在树上",
+    name: "多个候选到收尾都判不出来 → 子单元留在宿主名下（向导不在树里）",
     source: "(a)b",
     shapes: [new TwoUnitShape(), new AnyUnitShape()],
+    // ⚠️ 向导不再进树，产物里不会再有 <CatalogGuide> 这层壳。这条 expected 要等 dawn/ 回来、
+    // 真跑一次之后重新基线化。
     expected:
-      '<Root><Statement><CatalogGuideToken><Bracket StartBracketChar="(" EndBracketChar=")"><Common>a</Common></Bracket><Common>b</Common></CatalogGuideToken></Statement></Root>',
+      '<Root><Statement><Bracket StartBracketChar="(" EndBracketChar=")"><Common>a</Common></Bracket><Common>b</Common></Statement></Root>',
   },
   {
-    name: "队列接不了的字符 → 落到 Token.Default 的抽象桩上抛错",
+    name: "队列接不了的字符 → 落到宿主 Default 上抛错",
     source: "+",
     shapes: [new LetterShape(), new DigitShape()],
-    error: "abstract member: Default",
+    // ⚠️ 兜底现在是**宿主**（Root）的 Default，不再是向导自己的抽象桩；具体消息等能跑时再定。
+    error: "未知字符",
   },
 ];
 

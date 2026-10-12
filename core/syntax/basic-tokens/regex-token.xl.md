@@ -88,13 +88,15 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 ## protected method Close:()=>void
 
-关闭：只把自己标记为已关闭，然后逐层往上找最近一个声明了 `ComputePossibleShapes` 的祖先（形状目录向导），由它重算候选。
+关闭：只把自己标记为已关闭，然后逐层往上找最近一个实现了 `IComputePossibleShapes`、且 `CatalogGuide` 非空（真挂着目录向导）的祖先，由它转交向导重算候选。
+
+`CatalogGuide` 为空表示那个单元没挂向导——上溯会**穿过**它继续往上。
 
 ```ts
 this.Closed = true;
 let ancestor = this.Parent;
 while (ancestor !== null) {
-  if ("ComputePossibleShapes" in ancestor) {
+  if ("ComputePossibleShapes" in ancestor && (ancestor as any).CatalogGuide !== null) {
     (ancestor as any).ComputePossibleShapes();
     break;
   }

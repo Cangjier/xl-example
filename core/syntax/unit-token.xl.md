@@ -2,6 +2,8 @@
 ```xl
 import { SyntaxException } from "../exceptions/syntax-exception.xl.md"
 import { BranchStates } from "./branch-states.xl.md"
+import { CatalogGuide } from "./catalog-guide.xl.md"
+import { IComputePossibleShapes } from "./i-compute-possible-shapes.xl.md"
 import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
@@ -15,9 +17,45 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元：能够「挂载」子单元的 token。它是 `Root` / `Statement` / `BlockToken` 这一族的共同父类，负责把「先问退出条件、再跑跳转队列、最后兜底」这套调度固定下来。
 
-# class UnitToken extends Token
+它同时实现 `IComputePossibleShapes`：`CatalogGuide` 指向**宿主在自己名下的**目录向导（默认 `null`）。这就是 basic token 上溯的终点——上溯逐层找 `IComputePossibleShapes`，且要求那个单元的 `CatalogGuide` 非空。
+
+向导本身不继承任何东西、不在树里，所以它是一个**普通引用**，不是挂载的子单元：本单元的 `Data` 里装的仍是那批 basic token。
+
+# class UnitToken extends Token implements IComputePossibleShapes
 
 单元。
+
+## field CatalogGuide:CatalogGuide | null = null
+
+宿主在本单元名下的目录向导；`null` 表示没有。
+
+它是普通引用而不是子单元——向导不进 `Data`、不进 XML。
+
+普通单元默认没有，所以 basic token 上溯会**穿过**它们继续往上。
+
+## method ComputePossibleShapes:()=>void
+
+重算宿主在本单元名下的目录向导的候选，把自己作为宿主转交给它。
+
+没向导时什么都不做——这正是「普通单元对上溯透明」的由来。
+
+```ts
+if (this.CatalogGuide !== null) {
+  this.CatalogGuide.ComputePossibleShapes(this);
+}
+```
+
+## method ComputePossibleShapesByIndex:(tokenIndex:int)=>void
+
+按下标重算候选，把**自己（宿主）与下标**一起转交给向导的同名方法。
+
+向导的方法要两个参数（宿主 + 下标），而接口这里是单参——两者的差由本方法补上。
+
+```ts
+if (this.CatalogGuide !== null) {
+  this.CatalogGuide.ComputePossibleShapesByIndex(this, tokenIndex);
+}
+```
 
 ## constructor:(template:Template)=>void
 
