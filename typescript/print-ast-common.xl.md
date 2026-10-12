@@ -5625,6 +5625,18 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       // **模板字面量与整条 `TaggedTemplateExpression` 一起丢**（实测 `tmp/r1227-tag.mjs`：
       // `[a, b]` 与 `[...a]` 两个底样 × 8 个位置 = 16 条里 8 + 8 条对不上）。
       one.IsArrayLiteralUnit ||
+      // **对象字面量也是一个标签**（第 1231 轮，用户口径 1.1）：`{ p: 1 }`t`` 在 TS 那边是
+      // `TaggedTemplateExpression{ tag: ObjectLiteralExpression }`（`ts.createSourceFile` 实测
+      // `const v = { p: 1 }`t``：`TaggedTemplateExpression[48,59) > [ObjectLiteralExpression[48,56),
+      // NoSubstitutionTemplateLiteral[56,59)]`）。这一格由 `ObjectLiteral` 那一页显式声明
+      // （`## field IsObjectLiteralUnit:bool = true`，第 1025 轮起），本页另外两处链名单早就读它
+      // （`allKids` 那一族），**只有这一张名单少它** ⇒ 入口判否 ⇒ 标签与模板在产物里是平级两格、
+      // 通用支只投得出一格 `ObjectLiteralExpression`，模板整格丢
+      // （实测 `tmp/r1231-obj.mjs`：`const v = { p: 1 }`t`` 记「缺 2」，
+      //  加 `.d` / `()` / `!` / `[0]` 四种续写各缺 3~4 条）。
+      // **括号那一档本来就是对上的**（`const v = ({ p: 1 })`t`` 缺 0）——那一格是 `Bracket`，
+      // 早就由 `IsBracketUnit` 认下了，差的只有**没有括号**的这一条写法。
+      one.IsObjectLiteralUnit ||
       one.IsTagBaseNode === true);
   // **模板后面那一串也要是链的续格**（第 947 轮）：判据从「**末尾**那一格是模板」
   // 放宽成「**链里有一格是模板**」，模板后面那一串交给 `chainOnto`（与 0c 同一段代码）。
