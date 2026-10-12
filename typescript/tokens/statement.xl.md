@@ -525,8 +525,25 @@ for (;;) {
   headAt = headAt + 1;
 }
 const head = Get(data, headAt);
-if (head === null || Statement.IsStatementUnit(head) === false) {
+if (head === null) {
   return;
+}
+if (Statement.IsStatementUnit(head) === false) {
+  // **裸块也是「自己成句」的头**（第 1235 轮，用户口径 1.1）：`IsStatementUnit` 那张名单
+  // **刻意不含裸块**（它是「语句级构造」的表，裸块连节点都没有），可裸块在 TS 里
+  // 就是一条 `Block`——`declare const a: any;` 换行 `{ p: 1 }`t`` 是**两条**语句，
+  // 而壳把整段收成了一个 ⇒ 尾巴（那条模板）被折成块的标签（缺 1 多 2，实测）。
+  //
+  // 判据抄 `IsStatementBoundary` 里那条裸块（**同一句**：`{` 括号 + `IsStatementStart`），
+  // 只是这里的 `data` 是壳自己的列表、`headAt` 是头那一格 ⇒ 与那边「先问闭括号、
+  // 这里问开括号」是同一件事的两面。**没有第二份判据**：`IsStatementStart` 一个字节没动。
+  const isStatementBlock =
+    head instanceof Bracket &&
+    head.startBracket === "{" &&
+    IsStatementStart(data, headAt);
+  if (isStatementBlock === false) {
+    return;
+  }
 }
 if (headAt !== 0) {
   if (head.constructor.name !== "Label" || head.Data.length !== 0) {
@@ -790,6 +807,17 @@ if (name === "Function" || name === "MethodDeclaration") {
   return item.Data.some(
     (one) => one.constructor.name === "FunctionBody" || one.constructor.name === "MethodBody",
   );
+}
+// **裸块也不吃尾分号**（第 1235 轮，用户口径 1.1）：`{ q: 2 };` 在 TS 里是
+// `Block` + `EmptyStatement` 两条，而裸块**不在上面那张名单里**（那张名单列的是
+// 「自己有 `}`」的构造，裸块连名字都没有）⇒ `SplitShell` 的空壳那一支答否
+// ⇒ 那个 `;` 没被收成一条空语句（实测缺 `EmptyStatement` 1）。
+//
+// 判据与 `IsStatementBoundary` 里那条裸块判据**同一句形状**（`startBracket === "{"`）；
+// 走到这一格的 `item` 已经是**某条壳的第一个实义单元**，所以不必再问「是不是语句位」
+// ——壳的头就是语句的头。
+if (item instanceof Bracket && item.startBracket === "{" && item.endBracket === "}") {
+  return true;
 }
 return false;
 ```
