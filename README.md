@@ -347,6 +347,33 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1236 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **「引出一个值的词」后面那个花括号**（口径 1.1，第 233 轮 `typeof` 那一格的同族第三条：`in` / `instanceof` / `case` 三个词进名单，同轮**登记**两格）；1.2 是**又一次如实记下的负结果**（`Source.Pre` 那一趟边界检查里的 `Document.GetCount()`，20 对 mean **+25.13ms**、se 16.85、8:12 ⇒ 反而更慢）
+
+**一句话**：1.1 收的是 `IsStatementStart` 里那条「前一个是 `Keyword`、而那个词后面跟的是**值** ⇒ 这一格不是语句开头」——它原来**只认 `typeof` 一个词**（第 233 轮），理由是「有些关键词后面真的跟一个块（`else` / `try` / `finally` / `do`）」。这一轮把那一族摊成 **18 条语句位排版**量了一遍：`void` / `delete` / `await` / `yield` 那几档**本来就是好的**（它们在树上还是 `Identifier`，走 `previous instanceof Identifier` 那一支），而 `in` / `instanceof` / `case` 三个词后面那个 `{` 全被当成块（各缺 2 多 3，`case {}:` 那一档缺 1 多 1）⇒ 判据扩成**五个词**，**`else` / `do` / `try` / `finally` 一个都不加**。同一轮摊出**两格**、按规矩**只登记不收**（`new` 后面那个花括号被 `TypeLiteralCloseRule` 认成类型字面量；`else` 的体里那条标签在「一行写完、末尾没有分号」时被收成类型标注）。1.2 量的是 `Source.Pre` 边界检查里那句 `Document.GetCount()`（闭包调用，一份语料 236 万次）：**换成一次属性读反而更慢**。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `text-common-util.xl.md` 的 `IsStatementStart`：那一句从「`word === "typeof"`」扩成五个词（`typeof` / `in` / `instanceof` / `new` / `case`）——名单与同一页 `GenericType` 那一支的那张表**同源** | `tmp/r1236-probe3.mjs` 18 条：**3 条对不上 → 0 条**（`in` / `instanceof` / `case`），`void` / `delete` / `await` / `yield` 对照档一条没动；新守卫用例 [stmt-r1236-value-word-brace.ts](tests/cases/token/statements/stmt-r1236-value-word-brace.ts) 未打补丁 **缺 7 多 6**、打上 **80 / 80 逐节点一致** |
+| **1.2** | **什么都没留**：把长度在 `Document` 构造时算一次（`this.Count`）、`Pre` 读它 ⇒ 那一趟闭包调用**没在账上**，整笔撤掉，只把读数写进 `source.xl.md` 的 `Pre` 那一格 | `tmp/abparse.mjs` 20 对 × 每批 2 轮：mean **+25.13ms/轮**（sd 75.34、se 16.85、**8:12**）⇒ 更慢 |
+
+**1.1 的现场**（`tmp/r1236-probe2.mjs` / `probe3.mjs`，两族各自摊开）：
+
+    const v = a in { b: 1 };            缺 2 多 3   → 收掉
+    const v = a instanceof { b: 1 };    缺 2 多 3   → 收掉
+    switch (x) { case { a: 1 }: … }     缺 2 多 3   → 收掉（含 case {}: 那一档）
+    new { a: 1 }()                      缺 5 多 1   → 登记（TypeLiteralCloseRule 先把 { 认成类型字面量）
+    if (a) { } else { b: 1 }            缺 3 多 1   → 登记（分界线是「一行写完 + 末尾没有分号」）
+
+**1.2 的读数（负结果）**：
+
+    tmp/abparse.mjs（parse，同进程交替）  旧版 = tmp/r1236-old/ts
+      20 对 × 每批 2 轮   mean +25.13ms/轮（sd 75.34、se 16.85）8:12
+    ⇒ 那句闭包调用被 V8 在这个调用点上内联掉了，换成属性读反而多一层
+
+**净账**：八道门 8 通过 / 0 失败（墙钟 29.8s）；`cases:tsast` 16 片全过、已知缺口 **1 → 3 条**（1 条旧的 + 2 条登记、0 条已经收掉）；`cases:direct` 1683 份不抛异常；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1700** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4303 / 4464**（blocked 28、differ 133、bad 0、加权 95.7%）；`npx tsc`（strict）0 error。
+
+**两条 commit**：`e0221c3c`（1.1 引出一个值的词后面那个花括号）、`9ee57080`（1.2 负结果：`Pre` 那一趟 `GetCount()` 的读数）。
+
 ### 第 1235 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **语句位的裸块后面那一截**（口径 1.1，第 1231 轮那一族的**第 ① 格**：壳拆开那一趟的头认下裸块、空壳那一支认下「裸块不吃尾分号」）；1.2 是**一次如实记下的负结果**（`SymbolBranch` 的 30 个符号字符当触发字符，三读 mean **−28.98 / −38.21 / −39.13ms** 每轮，**可它量的是一个错的解析**，于是整笔撤掉、只留一句守卫）
 
 **一句话**：1.1 收的是那一族里「与块 / 对象字面量的分岔」那一格——`declare const a: any;` 换行 `` { p: 1 }`t`; `` 在 TS 里是**两条语句**（`Block` + `ExpressionStatement > TaggedTemplateExpression`），产物却把整段收进**同一个** `Statement` 壳、折成一条标签模板（缺 1 多 2）；同一个盲点的第二面是**空语句**（`{ q: 2 };` 那个 `;` 是 `EmptyStatement`，实测缺 1）。两处根因都在**两份名单的用户**上：壳拆开那一趟（`SplitShell`）只认「第一个孩子是 `IsStatementUnit`」，而裸块**刻意不在那张名单里**；空壳那一支要问 `BlockClosedStatement`，裸块也不在里面。1.2 量的是跳转队列里被问得第二多的一支（`SymbolBranch`，**407695** 次/轮、九成以上当场答否）——它的触发字符**就是那张符号表**，三读都省 30~39ms，**可它跳过的是「那一趟 `Failed` 也不跑」**（`SymbolBranch.Failed` 把上一格 `SymbolToken` 关掉）⇒ `- -x` 当场折成 `--`，整笔撤掉。
