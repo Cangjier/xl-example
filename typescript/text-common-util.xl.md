@@ -1324,6 +1324,92 @@ const name = Get(units, nameIndex);
 return name instanceof Identifier && IsStatementStart(units, nameIndex);
 ```
 
+# method IsStatementBraceTail:(units:Array<Token>, index:number)=>bool
+
+`index` 处那个 `{` 括号是不是**一条语句（的体）**的收尾——是的话，紧跟在它后面的那个 `/`
+只能新起一条语句（正则），而上一行到这里也就写完了（ASI 该断句）。
+
+**为什么住在这里**（第 1234 轮）：这一问**有两个用户**——`regex-token.xl.md` 的
+`RegexTokenBranch.Condition`（那个 `/` 是除号还是正则）与 `statement.xl.md` 的
+`NextLineContinuesExpression`（那个换行是不是语句边界），两处问的是**同一句话**。
+第 1232 / 1233 轮它先长在 `RegexTokenBranch` 上，第 1234 轮第二个用户出现时按本仓规矩
+（`IsObjectLiteralBrace` 第 556 轮就是这么搬下来的：**两个用户问同一句，各写一份会漂**）
+搬到这一层：`statement.xl.md` 那边 import 不进 `regex-token.xl.md`（后者被
+`parse-pipeline.xl.md` 引用，而 `statement` → `bracket` → `parse-pipeline` 已经绕着了）。
+
+**问的是位置、不是括号自己**：值位的花括号（`const o = { … }`）那一档由
+`IsObjectLiteralBrace` 挡在调用点，本方法只管「剩下的那些 `{` 里，哪些是语句的体」。
+两档的分界线不在「括号里装的是什么」，而在**这一格所属那个构造的头站在哪**——
+同一个 `{}` 在 `function w() { }`（声明）里是语句的收尾，在
+`const v = function () { }`（表达式）里前面那个 `/` 就是**除号**（TS 给
+`BinaryExpression`）。所以本方法一路往回找到那个构造的**头**，再拿 `IsStatementStart`
+问它站不站在语句位。
+
+**往回那一趟跳过三类格子**（它们都是头与体之间夹着的东西，不是头本身）：
+
+- 紧挨着的 `(` 参数表 / 控制头（`while (a) {` / `function f() {`）；
+- 名字那一族（`function f() {` 的 `f`、`interface I {` 的 `I`、`declare module "x" {` 的字符串）；
+- trivia（注释与软换行），与调用点那一侧同一个跳过口径。
+
+**头不是「最左那个词」，而是「往回走第一个站在语句位的词」**：`export default function f() {`
+里 `f` / `function` / `default` 三格问 `IsStatementStart` 都答否（它们前面各是一个词），
+走到 `export` 才答是。所以这一趟是**逐个词问、有一个答是就算**——比硬写一张
+「哪些词算头」的表准（那张表要列全 `export` / `default` / `declare` / `async` / `static` …，
+漏一个就是一族静默错值）。
+
+**`=>` 是唯一的例外，而且必须单列**：箭头函数**永远在表达式位**，它的体后面那个 `/`
+是除号（`const f = (a) => { }` 换行 `/re/g` 在 TS 里是 `((a) => {}) / re / g`），
+所以撞上 `=>` 直接答否，不问 `IsStatementStart`。
+
+```ts
+// 花括号前面那一格：紧挨着的 `(` 参数表 / 控制头要跳过，头在它左边
+let at = SkipPreviousTrivia(units, index);
+const beforeBrace = Get(units, at);
+if (beforeBrace instanceof Bracket && beforeBrace.startBracket === "(") {
+  const parenAt = units.indexOf(beforeBrace);
+  at = SkipPreviousTrivia(units, parenAt);
+}
+// 往**左逐个词**问「这一格站在语句位吗」——见上面那一段（`export default function f() {`）
+while (true) {
+  const item = Get(units, at);
+  if (item === null) {
+    // 列表开头就是这一格体（`{ … }` 单独成句）：语句收尾
+    return true;
+  }
+  // **名字与字符串那一族按类名认**（与 `IsOperandUnit` 同一条理由：这一层
+  // import 不进 `String`；`Identifier` 是本文件的常客）
+  const name = item.constructor.name;
+  if (item instanceof Identifier || name === "String") {
+    if (IsStatementStart(units, at)) {
+      return true;
+    }
+    at = SkipPreviousTrivia(units, at);
+    continue;
+  }
+  break;
+}
+const head = Get(units, at);
+if (head === null) {
+  // 往回走到底都没有词（列表开头的裸块）：语句收尾
+  return true;
+}
+if (head.constructor.name === "SymbolToken") {
+  // **符号那一格定生死**（同一条理由：这一层 import 不进 `SymbolToken`）：
+  // `;` 与冒号（标签 / `case`）后面那个 `{` 是块；`=` / `,` / `=>` 后面那些是**表达式**
+  // ——走到这里说明这一趟**一个站在语句位的词都没找到**，那就是表达式位。
+  return (head as any).Is(";") || (head as any).Is(":");
+}
+if (head instanceof Bracket) {
+  // **一个已经收好的块也是一个站在语句位的头**（第 1233 轮）：`try { }` 换行 `catch (e) { }`
+  // 换行 `/re/g;` 那一档走到这里，头正是 `try` 的体那个 `Bracket({)`——它是一条块语句，
+  // 后面那个 `catch` 从句就站在语句位上。只认 `startBracket === "}"`（裸的收尾括号）时
+  // 那一档答否 ⇒ 又落回除号（实测：缺 `RegularExpressionLiteral`、多一格 `SlashToken`）。
+  // `(` / `[` 后面顶着 `{` 不成话，仍然答否。
+  return head.startBracket === "}" || (head.startBracket === "{" && head.endBracket === "}");
+}
+return true;
+```
+
 # method IsObjectLiteralBrace:(units:Array<Token>, index:number)=>bool
 
 `index` 处那个 `{` 是不是**值位的花括号**——对象字面量（也含类型字面量那种「装成员」的花括号）。

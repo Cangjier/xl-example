@@ -12,7 +12,7 @@ import { UnitToken } from "../../core/syntax/unit-token.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
-import { SkipPreviousTrivia, IsObjectLiteralBrace, IsStatementStart } from "../text-common-util.xl.md"
+import { SkipPreviousTrivia, IsObjectLiteralBrace, IsStatementStart, IsStatementBraceTail } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -98,53 +98,14 @@ return false;
 是除号（`const f = (a) => { }` 换行 `/re/g` 在 TS 里是 `((a) => {}) / re / g`），
 所以撞上 `=>` 直接答否，不问 `IsStatementStart`。
 
+**判据本体不在这里**（第 1234 轮）：这一问**两个用户问同一句**——本页那一支（`/` 是除号还是
+正则）与 `statement.xl.md` 的 `NextLineContinuesExpression`（那个换行是不是语句边界）。
+按本仓规矩（`IsObjectLiteralBrace` 第 556 轮同一条理由：**两个用户问同一句，各写一份会漂**）
+判据搬到了 `text-common-util.xl.md` 的 `IsStatementBraceTail`，这里只留一个转发，
+`statement.xl.md` 那边 import 不进本页（它 → `bracket` → `parse-pipeline` → 本页，已经绕着了）。
+
 ```ts
-// 花括号前面那一格：紧挨着的 `(` 参数表 / 控制头要跳过，头在它左边
-let at = SkipPreviousTrivia(units, index);
-const beforeBrace = Get(units, at);
-if (beforeBrace instanceof Bracket && beforeBrace.startBracket === "(") {
-  const parenAt = units.indexOf(beforeBrace);
-  at = SkipPreviousTrivia(units, parenAt);
-}
-// 往**左逐个词**问「这一格站在语句位吗」——见上面那一段（`export default function f() {`）
-while (true) {
-  const item = Get(units, at);
-  if (item === null) {
-    // 列表开头就是这一格体（`{ … }` 单独成句）：语句收尾
-    return true;
-  }
-  // **名字与字符串那一族按类名认**（与 `IsOperandUnit` 同一条理由：
-  // 本文件 import 不进 `String`）
-  const name = item.constructor.name;
-  if (item instanceof Identifier || name === "String") {
-    if (IsStatementStart(units, at)) {
-      return true;
-    }
-    at = SkipPreviousTrivia(units, at);
-    continue;
-  }
-  break;
-}
-const head = Get(units, at);
-if (head === null) {
-  // 往回走到底都没有词（列表开头的裸块）：语句收尾
-  return true;
-}
-if (head.constructor.name === "SymbolToken") {
-  // **符号那一格定生死**（同一条理由：本文件 import 不进 `SymbolToken`）：
-  // `;` 与冒号（标签 / `case`）后面那个 `{` 是块；`=` / `,` / `=>` 后面那些是**表达式**
-  // ——走到这里说明这一趟**一个站在语句位的词都没找到**，那就是表达式位。
-  return (head as any).Is(";") || (head as any).Is(":");
-}
-if (head instanceof Bracket) {
-  // **一个已经收好的块也是一个站在语句位的头**（第 1233 轮）：`try { }` 换行 `catch (e) { }`
-  // 换行 `/re/g;` 那一档走到这里，头正是 `try` 的体那个 `Bracket({)`——它是一条块语句，
-  // 后面那个 `catch` 从句就站在语句位上。上一版只认 `startBracket === "}"`（裸的收尾括号），
-  // 于是那一档答否 ⇒ 又落回除号（实测：缺 `RegularExpressionLiteral`、多一格 `SlashToken`）。
-  // `(` / `[` 后面顶着 `{` 不成话，仍然答否。
-  return head.startBracket === "}" || (head.startBracket === "{" && head.endBracket === "}");
-}
-return true;
+return IsStatementBraceTail(units, index);
 ```
 
 ## static method IsControlHeader:(units:Array<Token>, index:int)=>bool

@@ -8,7 +8,7 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Token, PrintAstCtx, AstNode } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasLineBreakBetween, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementStart, IsTriviaUnit, IsTypeAliasAssignment, NextLineFirstCharAt, NextLineOpensAttributes, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasLineBreakBetween, HasTypeColonBefore, IsBindingPatternBrace, IsObjectLiteralBrace, IsPendingTypeModifier, IsStatementBraceTail, IsStatementStart, IsTriviaUnit, IsTypeAliasAssignment, NextLineFirstCharAt, NextLineOpensAttributes, NextLineStartsWithWord, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol, SkipSourceTriviaFrom, WordText } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class, ClassBranch } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -1551,6 +1551,31 @@ if (head === "`") {
 // （注释与空白一起跳过），所以走到这里的一定是**注释之后的**实义字符——
 // `1 /*c*/` 换行 `/ 2` 里那一格同样是除号（实测 `num-comment-nl`）。
 if (head === "/") {
+  // **上一行收在一个「块语句」上时，这个 `/` 起的是新语句**（第 1234 轮，用户口径 1.1）。
+  //
+  // 上面那段注释里那句「真的另起一条正则语句时，`IsStatementBoundary` 早就因为上一格是
+  // `;` / `}` 而早退了」**对裸块不成立**：`{ }` 换行 `/re/g;` 里上一格是一个**收好的块**
+  // （`Bracket` 的 `startBracket === "{"`、`endBracket === "}"`），既不是 `;` 也不是裸 `}`
+  // ⇒ 走到这里照旧答「续接」⇒ 块与那条正则被收进**同一条**语句
+  //（实测：缺 `Block` 与那条 `ExpressionStatement`、多一条把两者都装进去的 `ExpressionStatement`）。
+  // 而 `{ }` 是一条语句，它后面不可能再挂一个运算符。
+  //
+  // **值位的花括号仍然是续接**（同一条分界线，与 `regex-token.xl.md` 那一支对齐）：
+  // `const o = { a: 1 }` 换行 `/re/g` 在 TS 里是除法 ⇒ 用 `IsObjectLiteralBrace` 分开；
+  // 「这一格体是不是一条语句的收尾」那一问**两处共用一份**（`IsStatementBraceTail`，
+  // 第 1234 轮从 `RegexTokenBranch` 搬到 `text-common-util.xl.md`——
+  // 本页 import 不进 `regex-token.xl.md`，而两处各写一份必然会漂）。
+  const lastIndex = SkipPreviousTrivia(data, data.length);
+  const last = Get(data, lastIndex);
+  if (
+    last instanceof Bracket &&
+    last.startBracket === "{" &&
+    last.endBracket === "}" &&
+    IsObjectLiteralBrace(data, lastIndex) === false &&
+    IsStatementBraceTail(data, lastIndex)
+  ) {
+    return false;
+  }
   return true;
 }
 // **双目运算符开头**（第 589 轮）：`return a * 86400000` 换行 `+ b * 3600000` 是**一条**表达式
@@ -2961,6 +2986,23 @@ const previous = Get(units, previousRealIndex);
 // 判成续行，注释与 `!x;` 被并成一条语句
 // （实测 `expr-unary-prefix.ts`：缺整条 `ExpressionStatement`）。
 if (previous === null) {
+  return true;
+}
+// **上一行收在一个「块语句」上 ⇒ 这一行一定不续接**（第 1234 轮，用户口径 1.1）。
+//
+// `{ }` 换行 `/re/g;` 在 TS 里是**两条语句**（`Block` + `ExpressionStatement >
+// RegularExpressionLiteral`），而续接表里 `/` 本来是「能续接」（`a` 换行 `/ b` 就是除法）
+// ⇒ 换行处不收壳 ⇒ 块与那条正则被收进**同一条**语句（实测：缺 `Block` 与那条表达式语句、
+// 多一条把两者都装进去的 `ExpressionStatement`）。
+//
+// **分界线与 `regex-token.xl.md` 那一支同一条**（第 1232 / 1233 轮）：值位的花括号
+// （`const o = { a: 1 }` 换行 `/re/g`）**仍然是续接**，只有**块**（`IsObjectLiteralBrace`
+// 答否）之后才断句——`{ }` 是一条语句，它后面不可能再挂一个运算符。
+if (
+  previous instanceof Bracket &&
+  previous.startBracket === "{" &&
+  IsObjectLiteralBrace(units, previousRealIndex) === false
+) {
   return true;
 }
 // **下一行以 `;` 开头 ⇒ 这个换行不是语句边界**（第 944 轮）：TypeScript 的
