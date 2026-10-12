@@ -84,15 +84,11 @@ class AnyUnitShapeToken extends ShapeIndependentToken {}
 
 /** 跑一遍输入：mountGuide 为假时不挂向导，产物就是基准。 */
 function run(source, shapes, mountGuide) {
-  CatalogGuideToken.Catalog.length = 0;
-  for (const shape of shapes) {
-    CatalogGuideToken.Register(shape);
-  }
   const template = new Template().Initialize(ParsePipeline.Install);
   const document = new TextDocument(source);
   const context = new SyntaxContext(new Root(template));
   if (mountGuide) {
-    const guide = new CatalogGuideToken(template);
+    const guide = new CatalogGuideToken(template, shapes);
     context.Root.AddToMounted(guide);
     guide.SignIn(document.At(0));
   }

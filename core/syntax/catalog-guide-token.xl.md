@@ -30,21 +30,6 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 形状目录向导。
 
-## static readonly field Catalog:Array<PossibleShape> = []
-
-形状目录。语言层往这里登记候选，每个向导实例构造时拷一份。
-
-## static method Register:(shape:PossibleShape)=>void
-
-往目录里登记一个候选；已经在目录里就抛错。
-
-```ts
-if (CatalogGuideToken.Catalog.includes(shape)) {
-  throw new Error("CatalogGuideToken: the shape is already registered");
-}
-CatalogGuideToken.Catalog.push(shape);
-```
-
 ## static method CreateBranchQueue:()=>Sequence<Branch>
 
 本类的跳转队列：basic tokens 的分支，相对顺序与通用队列一致。
@@ -61,7 +46,7 @@ return new Sequence<Branch>([
 
 ## field PossibleShapes:Array<PossibleShape> = []
 
-本次尝试剩下的候选。构造时从 `Catalog` 拷一份，判定过程中被拒的逐个去掉。
+本次尝试剩下的候选。构造时从传入的候选拷一份，判定过程中被拒的逐个去掉。
 
 ## field PossibleShapesComputeCache:Map<string, any> = new Map()
 
@@ -71,15 +56,15 @@ return new Sequence<Branch>([
 
 「有子单元关闭过、需要重算」的标记。
 
-## constructor:(template:Template)=>void
+## constructor:(template:Template, shapes:Array<PossibleShape>)=>void
 
-以模板创建：取本类的跳转队列、不设重组队列，并把目录拷进 `PossibleShapes`。
+以模板与候选目录创建：取本类的跳转队列、不设重组队列，并把候选拷进 `PossibleShapes`。
 
 ```ts
 super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, (defaultValue: any) => CatalogGuideToken.CreateBranchQueue());
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor, null);
-this.PossibleShapes.push(...CatalogGuideToken.Catalog);
+this.PossibleShapes.push(...shapes);
 ```
 
 ## method NotifyClosed:()=>void
