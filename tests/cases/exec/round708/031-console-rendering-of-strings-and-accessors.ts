@@ -1,0 +1,17 @@
+// xl:title console.log 的换行与访问器不求值
+// xl:round 708
+// xl:judge stdout
+// xl:end
+
+const show = (v) => (v === null ? "null"
+  : v === undefined ? "undefined"
+  : typeof v + ":" + String(v).split("\n").join("\\n"));
+const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
+
+console.log("a\nb");
+console.log([1, 2].join(","));
+
+(() => {
+const o = { get a() { throw new Error("no"); } };
+console.log(o);
+})();

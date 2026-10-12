@@ -184,6 +184,18 @@ node samples/check.mjs --update # 用当前产物重写夹具
 不需要 shebang 的话（例如只用 `node build/ts/cjcli.js`），把 `bin` 直接指到 `build/ts/cjcli.js` 也行。
 检出时必须保持 LF：仓库根的 `.gitattributes` 用 `* text=auto eol=lf` 钉死了。
 
+## 测试
+
+`tests/` 整套从 `feature/print-direct-ast` 搬来（那个分支比本分支晚约 1250 轮），语料与尺子都在：
+
+```bash
+npm run cases:check     # 语料体检：唯一一道现在就绿、且真的量了本分支的门
+npm run gates           # 8 道门一次跑完
+```
+
+**哪几道门跑得动、其余各缺什么、以及 `build/` + `dist/` 里那批别的分支的旧产物为什么会让门假绿**，
+都记在 [tests/MIGRATION.md](tests/MIGRATION.md)。
+
 ## 改这个项目
 
 - 规范是 `*.xl.md`：`# dependencies` 写依赖、`# namespace` 之后是声明。

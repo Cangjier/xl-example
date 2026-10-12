@@ -11,8 +11,22 @@
     "check": "xl check",
     "build": "xl build && tsc",
     "compile": "tsc",
+    "gates": "node ./tests/gates/run.mjs",
     "samples": "node ./samples/check.mjs",
-    "cjcli": "node ./build/ts/cjcli.js"
+    "cjcli": "node ./build/ts/cjcli.js",
+    "tsrun": "node ./build/ts/tsrun.js",
+    "cases:check": "node ./tests/parse/validate.mjs",
+    "runtime:check": "node ./tests/runtime/check.mjs",
+    "runtime:cli": "node ./tests/runtime/run-cli.mjs",
+    "cases:tsast": "node ./tests/parse/ts-ast.mjs",
+    "cases:direct": "node ./tests/parse/direct-ast.mjs",
+    "direct:lint": "node ./tests/parse/direct-lint.mjs",
+    "cases:tsast:cases": "node ./tests/parse/ts-ast.mjs cases",
+    "cases:tsast:cli": "node ./tests/parse/ts-ast.mjs --cli",
+    "coverage": "node ./tests/coverage/run.mjs",
+    "coverage:sweep": "node ./tests/coverage/sweep.mjs",
+    "cpp:check": "node tests/cpp/check.mjs",
+    "gates:verbose": "node ./tests/gates/run.mjs --verbose"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
