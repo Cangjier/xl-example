@@ -70,6 +70,17 @@ this.Value = document.GetValue(index);
 // 实测 `typescript.d.ts` 一份上 `Pre` 被调 **2796688** 次，其中无参 **2361649** 次
 //（`tmp/r1208-pre.mjs`）⇒ 每一份文件**白造 236 万个空数组**。
 // 判据一个字没改：省略与空数组走的是同一条路，`skipChars` 非空那一支才用它自己。
+//
+// **那一趟边界检查里的 `Document.GetCount()` 不动**（第 1236 轮量过，用户口径 1.2
+// 「提升 parse 效率」）：它是个闭包（`() => content.length`），无参那一支**每次都要调一次**
+// （同 2796688 次里 236 万次），看上去是最顺理成章的一笔——把长度在 `Document` 构造时
+// 算一次（`this.Count`），`Pre` 读它。**量出来是更慢**：
+//
+//     tmp/abparse.mjs（parse，同进程交替）  旧版 = tmp/r1236-old/ts
+//       20 对 × 每批 2 轮   mean **+25.13ms/轮**（sd 75.34、se 16.85）8:12
+//
+// ⇒ 那一趟闭包调用**没在账上**（V8 在这个调用点上把它内联掉了），换成一次属性读反而多一层。
+// 按本仓口径「一次没量出来的改动不留」，**这一笔整笔撤掉**，只留读数。
 if (skipChars === undefined || skipChars.length === 0) {
   if (this.Index - 1 < 0 || this.Index - 1 >= this.Document.GetCount()) {
     return null;
