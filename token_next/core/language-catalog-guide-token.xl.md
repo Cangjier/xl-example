@@ -60,10 +60,6 @@ catalog guide 与 shape token：与语言无关的那一半（`core`）。
 
 构造结束事件来过没有。
 
-## field Unresolved:bool = false
-
-**构造结束仍 > 1**（§5 第二种失败）：池太宽，或缺一条判别事件。
-
 ## constructor:(template:Template, pool:Array<string>)=>void
 
 以模板与挂载方声明的池创建。
@@ -199,7 +195,6 @@ if (this.Shape !== null) {
   return;
 }
 if (this.Pool.length <= 1) return;
-this.Unresolved = true;
 const history = this.Events.length === 0 ? "(一次收敛都没有)" : this.Events.join(" / ");
 context.Note(
   "构造结束仍 > 1（池太宽，或缺一条判别事件）—— 挂我的形状=" + this.Owner +

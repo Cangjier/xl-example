@@ -35,9 +35,9 @@ import { TypeScriptToken } from "./typescript-token.xl.md"
 
 账（收敛失败、没认领的字符）；没有账就是空串。
 
-## field ShapeCount:int = 0
+## field ProductCount:int = 0
 
-产物里形状 token 的个数（`Tag` 以 `Shape` 结尾的那些）。
+产物里有多少格（`InProduct` 答真的单元：词法单元与形状都算）。
 
 ## field NoteCount:int = 0
 
@@ -75,13 +75,15 @@ report.Xml = root.ToXmlString();
 report.Formatted = root.FormatXml();
 report.Notes = context.Report();
 report.NoteCount = context.Notes.length;
-report.ShapeCount = CountShapes(root);
+report.ProductCount = CountProducts(root);
 return report;
 ```
 
-# method CountShapes:(unit:Token)=>int
+# method CountProducts:(unit:Token)=>int
 
-数一数树上形状 token 的个数（用显式栈走，不递归——树的深度由输入决定）。
+数一数产物里有多少格（用显式栈走，不递归——树的深度由输入决定）。
+
+判据是**每一格自己的声明**（`InProduct`），不是类名后缀——向导答 `false`，所以它就算被误收进树也不会被算成一格。
 
 ```ts
 let count = 0;
@@ -89,7 +91,7 @@ const stack: Token[] = [unit];
 while (stack.length > 0) {
   const item = stack.pop();
   if (item === undefined) continue;
-  if (item.Tag.endsWith("Shape")) count = count + 1;
+  if (item.InProduct()) count = count + 1;
   for (let i = 0; i < item.Data.length; i++) stack.push(item.Data[i]);
 }
 return count;

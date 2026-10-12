@@ -192,14 +192,6 @@ const partner = this.PairTable.get(ch);
 return partner === undefined ? "" : partner;
 ```
 
-## method IsWord:(text:string)=>bool
-
-三张词表里有没有它（关键字 / 修饰词 / 声明词）。
-
-```ts
-return this.Keywords.has(text) || this.ModifierWords.has(text) || this.DeclarationWords.has(text);
-```
-
 ## method HasOperatorPrefix:(text:string)=>bool
 
 五张运算符表里**有没有一个以 `text` 开头**的词。

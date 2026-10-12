@@ -364,14 +364,6 @@ for (let i = 0; i < kids.length; i++) parts.push(kids[i].ToXmlString());
 return "<" + head + ">" + parts.join("") + "</" + this.Tag + ">";
 ```
 
-## method ToString:()=>string
-
-紧凑单行形态，与 `ToXmlString` 同一份（本设计的 XML 一个字符都不缩进）。
-
-```ts
-return this.ToXmlString();
-```
-
 ## method FormatXml:()=>string
 
 **缩进形态**：每个元素一行、按嵌套缩进两格，只有正文没有子元素的叶子留在同一行。

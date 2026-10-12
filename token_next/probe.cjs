@@ -35,7 +35,7 @@ for (const [name, text] of cases) {
   const report = Parse(text);
   console.log("=".repeat(72));
   console.log("用例：" + name + "    输入：" + JSON.stringify(text));
-  console.log("形状 " + report.ShapeCount + " 个；账 " + report.NoteCount + " 条；没认领的字符 " + report.DroppedCount + " 个");
+  console.log("进产物的格子 " + report.ProductCount + " 个；账 " + report.NoteCount + " 条；没认领的字符 " + report.DroppedCount + " 个");
   if (report.Notes !== "") {
     console.log("--- 账 ---");
     console.log(report.Notes);

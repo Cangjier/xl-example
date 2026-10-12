@@ -83,10 +83,41 @@ node token_next/probe.cjs                   # 21 段输入 + 池 = 0 那一格�
    不退回最后一格，未闭合的构造会多记一格（`f(a` 的 `CallShape` 曾量到 `[1,3]`）。
    改法：`Source.Rewind` + `CloseChain` **从最里面往外**关（反过来的话，`f(a` 的参数会整段丢掉）。
 
+## 一次死代码体检（同一轮里做的）
+
+`Token` 上那三个成员，有人怀疑在 `Bracket.Process` 覆写之后成了遗留——量下来**三个都还在用**：
+
+| 成员 | 调用点 | 场景 |
+| --- | --- | --- |
+| `Attrs` | **1**（`Token.ToXmlString` 里那一句）+ 14 处覆写 | 产物里每一条属性（`kind` / `quote` / `open` / `close` / `count` / `delimiter`）都由它出 |
+| `ClaimedByAncestor` | **1**（`MountFor` 第一句） | 闭符号必须先问「上面某一层要不要」 |
+| `Owns` | **4**（三处自己问自己 + `ClaimedByAncestor` 里那一句） | 上面那一问的答主只有 `Bracket`；基类答假是这条向上走的终点 |
+
+**为什么 `Bracket.Process` 覆写之后 `Owns` 还必要**：那一版覆写只把「**开**符号先认自己」写死了；
+**闭**符号仍要靠这一支从内容手里把 `)` 要回来。
+
+**量法**（只改 `build/` 里的产物、用完还原）：把 `ClaimedByAncestor` 改成恒假之后重跑探针——
+**283 行 → 115 行就断了**，产物里冒出把 `)` 吃成 `<SymbolToken>` 的坏形状，最后抛
+`ConvergenceException`，而它的证据直接点出是哪两格事件把池清空的（`⇒ 池 [GroupShape] → []`）；
+还原后与基准**逐字节相同**（`Get-FileHash` 相等）。⇒ 它不只是「还在用」，是**拆了就红**。
+
+同一次体检里清掉的（定义在、调用点 **0**）：
+
+    Lexicon.IsWord、LanguageToken.IsKeyword / IsModifier / IsDeclarationWord / OperatorKindOf
+    SymbolToken.IsOperator（后者的唯一调用者是前者）
+    Token.ToString、Source.IsEnd、Source.Slice、Document.Length
+    LanguageCatalogGuideToken.Unresolved（只写不读）
+
+`InProduct` **没删**：它改成 `CountProducts` 的判据——报格里那个数从「类名以 `Shape` 结尾的格子」
+变成「自己声明进产物的格子」（`foo` 从 2 变 3：容器 + 形状 + 词法单元），
+于是 C6 那句「不进产物这一点必须显式声明」在代码里有了一个真读者。
+
 ## 这一版的边界（没做的，记在这里）
 
 - **没有语句层**：`const x = 1;` 里那个 `const` 现在是一格 `NameShape`——词表（`Keywords` /
-  `ModifierWords` / `DeclarationWords`）已经装进表里，但还没有哪一族去读它。
+  `ModifierWords` / `DeclarationWords`）已经在表里，但这一版**一个读者都没有**：身份判据那一族
+  （`Lexicon.IsWord`、`LanguageToken.IsKeyword` / `IsModifier` / `IsDeclarationWord` / `OperatorKindOf`、
+  `SymbolToken.IsOperator`）按「没有人读的代码不留」清掉了，语句层落地时再加回来。
 - **判别事件那一格落进形状的子单元**：`(a) ;` 的 `;`、`(a) => b` 的 `=>` 现在排在形状内容的后面
   （次序是对的：左邻 → 内容 → 判别事件），但它们本该归语句层——语句层还没有。
 - **类型位没分**：`Array<T>` 那一类现在与值位同形（`<>` 是符号，还没有那一族）。

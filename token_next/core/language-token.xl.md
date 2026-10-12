@@ -138,48 +138,6 @@ return null;
 throw new Error("abstract member: BuildShape");
 ```
 
-## method OperatorKindOf:(text:string)=>string
-
-**身份判据**：这一串符号是哪一类运算符。
-
-`assign` / `compare` / `compound` / `member` / `end` / `punctuation`，都不是给空串。
-判据全部读表。
-
-```ts
-const lexicon = this.LexiconOf();
-if (lexicon.AssignOperators.has(text)) return "assign";
-if (lexicon.CompareOperators.has(text)) return "compare";
-if (lexicon.CompoundAssignOperators.has(text)) return "compound";
-if (lexicon.MemberOperators.has(text)) return "member";
-if (lexicon.StatementEndOperators.has(text)) return "end";
-if (lexicon.PunctuationOperators.has(text)) return "punctuation";
-return "";
-```
-
-## method IsKeyword:(text:string)=>bool
-
-**身份判据**：这一格正文是不是一个关键字。读词表。
-
-```ts
-return this.LexiconOf().Keywords.has(text);
-```
-
-## method IsModifier:(text:string)=>bool
-
-**身份判据**：修饰词。
-
-```ts
-return this.LexiconOf().ModifierWords.has(text);
-```
-
-## method IsDeclarationWord:(text:string)=>bool
-
-**身份判据**：声明词。
-
-```ts
-return this.LexiconOf().DeclarationWords.has(text);
-```
-
 ## method LexiconOf:()=>Lexicon
 
 这一门语言的词法表。

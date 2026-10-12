@@ -63,14 +63,6 @@ this.Index = this.Text.length - 1;
 this.Value = this.Text.charAt(this.Index);
 ```
 
-## method IsEnd:()=>bool
-
-当前是不是最后一个字符（空输入也算结束）。
-
-```ts
-return this.Index >= this.Text.length - 1;
-```
-
 ## method At:(index:int)=>string
 
 按坐标取一个字符；越界给空串。
@@ -78,14 +70,6 @@ return this.Index >= this.Text.length - 1;
 ```ts
 if (index < 0 || index >= this.Text.length) return "";
 return this.Text.charAt(index);
-```
-
-## method Slice:(from:int,to:int)=>string
-
-按坐标取一段正文：**左闭右开**（`to` 不在里面）。
-
-```ts
-return this.Text.slice(from, to);
 ```
 
 ## method Length:()=>int
@@ -120,12 +104,4 @@ this.Text = text;
 
 ```ts
 return new Source(this.Text);
-```
-
-## method Length:()=>int
-
-正文长度。
-
-```ts
-return this.Text.length;
 ```

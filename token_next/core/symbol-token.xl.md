@@ -54,17 +54,6 @@ if (!lexicon.IsSymbol(value)) return false;
 return lexicon.HasOperatorPrefix(this.Buffer + value);
 ```
 
-## method IsOperator:(name:string)=>bool
-
-这一格的正文是不是某一类运算符——**身份判据**由语言层实现（`LanguageToken`），
-这一格只是把「我是谁」递过去。
-
-```ts
-const language = this.Template.Language;
-if (language === null) return false;
-return language.OperatorKindOf(this.Text) === name;
-```
-
 ## protected method Close:()=>void
 
 收尾：正文落地，终点按吃掉的格数算。
