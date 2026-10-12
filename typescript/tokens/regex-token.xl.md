@@ -405,6 +405,23 @@ result.TryToClose();
 return result;
 ```
 
+## field IsTagBaseNode:bool = true
+
+**我这一格能不能当标签模板的标签**（投影侧那一问，第 1229 轮，用户口径 1.1）：`/re/g`t`` 在 TS 那边是
+`TaggedTemplateExpression{ tag: RegularExpressionLiteral, template: NoSubstitutionTemplateLiteral }`
+（`ts.createSourceFile` 实测 `const v = /re/g`t``：
+`TaggedTemplateExpression[10,20) > [RegularExpressionLiteral[10,15), NoSubstitutionTemplateLiteral[15,18)]`）。
+
+**少了这一格会怎样**：产物是 `[RegexToken, String(反引号)]` 两格平级（实测 `cjcli` 的 XML：
+`<Statement><RegexToken range="[114,118]"/><String range="[119,121]">…</String></Statement>`），
+而 0b 那一支的入口（`tagIsPostfixChain`）名单里没有正则那一页 ⇒ 整个让开 ⇒
+`TaggedTemplateExpression` 与 `NoSubstitutionTemplateLiteral` **两格一起丢**（实测 `tmp/r1229-tag.mjs`：
+`/re/g`t`` 在语句位与实参位两条都是「缺 2」）。
+
+口径与理由见 `../core/syntax/token.xl.md` 的 `IsTagBaseNode`（`this` 那一格第 1208 轮立的第一处、
+`new` / `import` 两格第 1229 轮补上）与 `print-ast-common.xl.md` 第 0b 那一支的 `tagIsPostfixChain`
+——**两张名单本来就该一样**。
+
 ## field AstKind:string | undefined = "RegularExpressionLiteral"
 
 **我这一格投成目标语言形状时叫什么节点**（第 1025 轮）：标签是我的类名（`Tag`），

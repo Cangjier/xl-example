@@ -498,7 +498,26 @@ this.IsChainBaseNode = !(
 );
 // **第 1208 轮**：标签模板的标签那一格（`this`x``）也是同一份正文的函数——同一趟赋好。
 // 关键字里只有 `this` 一个词（`super` 那一档 TypeScript 自己报语法错，见上面那一格的说明）。
-this.IsTagBaseNode = text === "this";
+// **第 1229 轮补 `new` / `import` 两格**（用户口径 1.1）：`new.target`t`` 与 `import.meta`t``
+// 的标签在 token 层**不是**一格折叠好的单元，而是**三格平铺**——
+// 实测 `node tmp/r1227-dump.mjs "new.target\`t\`"`（`cjcli` 那一份 XML 的最后一条 `<Statement>`）：
+//
+//     <Keyword range="[114,116]">new</Keyword>
+//     <SymbolToken range="[117,117]">.</SymbolToken>
+//     <Identifier range="[118,123]">target</Identifier>
+//     <String range="[124,126]" …><ConstString>t</ConstString></String>
+//
+// ——`import.meta`t`` 同形（`Keyword(import)` / `.` / `Identifier(meta)` / 模板串四格平铺）。
+// 于是 0b 那一支的入口（`tagIsPostfixChain`）拿到的是 `[Keyword, ., Identifier]` 这一整串：
+// 点号那一格由 `IsDotSymbol` 认、名字那一格由 `IsIdentifierUnit` 认，**只有头一个词那一格没人认**
+// ⇒ 入口判否 ⇒ 标签与模板在产物里是**平级两格**，通用支只投得出平铺的那几格，
+// `TaggedTemplateExpression` 与 `NoSubstitutionTemplateLiteral` 一起丢（实测 `tmp/r1229-tag.mjs`：
+// `new.target`t`` 与 `import.meta`t`` 两个底样 × 2 个位置 = 4 条全部「缺 2」）。
+// **拿真 TS 复量过那一格**：`ts.createSourceFile` 把 `new.target`t`` 读成
+// `TaggedTemplateExpression > [MetaProperty[190,200), NoSubstitutionTemplateLiteral[200,203)]`
+// ——所以这一档不是放宽，是**同一句判据少了两格**（`this` 那一格第 1208 轮就是这么补上的）。
+// `super` 仍然不进名单：`super`t`` 在 TypeScript 那边自己报语法错（见上面那一格）。
+this.IsTagBaseNode = text === "this" || text === "new" || text === "import";
 ```
 
 ## method ToXmlString:()=>string

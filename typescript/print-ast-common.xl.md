@@ -5155,9 +5155,40 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
       if (down.length === 0) return [];
       return [...binaryTail(down[0], depth + 1), ...down.slice(1)];
     };
-    const tail = headIsBinary ? [...binaryTail(named, 0), ...rest] : rest;
-    if (tail.length === 0) return meta;
-    return foldBinaryFrom(meta, tail, ctx);
+    // **紧跟一格模板串时整支让开**（第 1229 轮，用户口径 1.1）：`new.target`t`` / `import.meta`t``
+    // 在 TS 那边是 `TaggedTemplateExpression{ tag: MetaProperty, template: 模板 }`
+    //（`ts.createSourceFile` 实测：`TaggedTemplateExpression[190,203) > [MetaProperty[190,200),
+    // NoSubstitutionTemplateLiteral[200,203)]`），而这一支是**先**认下 `[Keyword, ., 名字]`
+    // 那一截的：原来它把后面那一格模板串当成**二元尾巴**交给了 `foldBinaryFrom`
+    // ⇒ `TaggedTemplateExpression` 与 `NoSubstitutionTemplateLiteral` 一起丢（实测
+    // `tmp/r1229-tag.mjs`：`new.target`t`` 与 `import.meta`t`` × 2 个位置 = 4 条「缺 2」）。
+    // 让开的判据是一句「后面那一格就是模板串」，接手的是下面 **0b** ——
+    // `TaggedTemplateExpression` 那一份搭法**全仓只有 0b 一处**，这里不抄第二份。
+    //
+    // **后缀那一档要连「装着模板的那一格」一起让**（第 1229 轮，同一次读数）：
+    // `new.target`t`.d` 的产物是
+    // `[Keyword(new), ., Identifier(target), PropertyAccess([String(反引号), ., Identifier(d)])]`
+    //（`cjcli` 实测）——模板**不在**平铺的那一串里，而在后面那一格 `PropertyAccess` 的头上
+    //（外面还可能再套一层 `!`：`new.target`t`.d!` 的 `NotNull` 核才是它）。
+    // 那一档归下面 **0c** 管（它找的正是「第一格是模板串的那一格 `PropertyAccess`」），
+    // 所以这里的判据写成「后面那一格是模板串，**或者**它就是 0c 要找的那一格」——
+    // 与 0c 那一趟问的是同一句（`probe.length >= 2 && probe[0].IsTemplateString`）。
+    // 不让的话那六条（`new.target` / `import.meta` × `.d` / `[0]`，正则那两条同时修好）全是「缺 8」。
+    // （`headIsBinary` 为真时不在这里让：那一格的尾巴是折进来的二元运算符，
+    //   `IsChainTail` 本来就不收它，让开反而会掉到通用那一支去。）
+    const restHead = rest.length > 0 ? rest[0] : undefined;
+    const restWrap = restHead !== undefined && restHead.IsNotNull === true &&
+      restHead.CoreHead !== undefined && restHead.CoreHead.IsPropertyAccess === true;
+    const restHolder = restWrap ? restHead.CoreHead : restHead;
+    const restHoldsTemplate = restHolder !== undefined && restHolder.IsPropertyAccess === true &&
+      restHolder.ProjectableKids.length >= 2 && restHolder.ProjectableKids[0].IsTemplateString === true;
+    const headIsTemplate = headIsBinary === false &&
+      (restHoldsTemplate || (restHead !== undefined && restHead.IsTemplateString === true));
+    if (headIsTemplate === false) {
+      const tail = headIsBinary ? [...binaryTail(named, 0), ...rest] : rest;
+      if (tail.length === 0) return meta;
+      return foldBinaryFrom(meta, tail, ctx);
+    }
   }
 
   // ---- 0a. 可选链 / 可选调用（第 107 轮）----
@@ -5692,6 +5723,20 @@ TrailingTriviaStart`，第 1162 轮搬去的；不是 token 的合成语句视�
   // 静默算成另一个值。那一族（模板单元**跟在运算符单元后面**）记在台账里，本轮不做。
   const tagUnit = kids[0];
   const tagIsComplete =
+    // **`IsTagBaseNode` 也是「完整表达式」那一档**（第 1229 轮，用户口径 1.1）：
+    // 0c 这一支要的是「这一格已经是一个完整的表达式，拿它当标签不会把运算符那一段误认成标签」，
+    // 而那正是 `IsTagBaseNode` 答的那一句（第 1208 / 1221 / 1229 轮：`this` / `new` /
+    // `import` / 正则字面量 / `New` 各自答是）——两张名单答同一句话时少一格就会让整支让开：
+    // `/re/g`t`.d` 的产物是 `[RegexToken, PropertyAccess([String(反引号), ., Identifier(d)])]`
+    //（`cjcli` 实测），`templateChainAt` 找得到、`tagIsPostfixChain` 也过得去，
+    // 可 `RegexToken.IsChainBaseNode` 答否 ⇒ **0c 整支不进** ⇒ 标签模板与后缀两格一起丢
+    //（实测 `tmp/r1229-tag2.mjs`：`/re/g`t`.d` / `/re/g`t`[0]` / `new.target`t`.d` /
+    // `new.target`t`[0]` / `import.meta`t`.d` / `import.meta`t`[0]` 六条全是「缺 8」，
+    // 而同族的 `() / ! / as / 第二个模板` 四条早就对上）。
+    // **不会放宽到 `1 + t`abc`` 那一族**：那里的 `kids[0]` 是 `1` 与 `+` 折成的那一格
+    // `BinaryOperator`，它不答 `IsTagBaseNode`（那一格答的是「我这一格能不能当标签」，
+    // 二元单元不在名单里）⇒ 判据照旧答否。
+    tagUnit.IsTagBaseNode ||
     tagUnit.IsChainBaseNode ||
     tagUnit.IsParenBracket ||
     // **`a!`x`` 的标签是一格 `NonNullExpression`**（第 1212 轮，用户口径 1.1）：`a!`x`.b` 的产物是
