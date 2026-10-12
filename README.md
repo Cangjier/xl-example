@@ -347,6 +347,49 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1238 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **继承子句里的实体名是一个类型字面量（`{ … }`）那一族**（口径 1.1：22 条合法片段里 **18 条对不上**，`interface` 与 `class` 两侧、`extends` 与 `implements` 两段）；1.2 是**又一次如实记下的负结果 + 一条量法上的教训**（两笔改动**都通不过 `tsc` 之后的语义等价**：4435 份语料里 `interface I extends ({ a: 1 }) { }` 那一格从「错」变「对」⇒ 不是恒等变换 ⇒ 按本仓规矩整笔撤掉，只留读数与根因）
+
+**一句话**：1.1 把第 1237 轮登记的那三档里**第一档**（`extends { a: 1 }`）单独摊成一族——`tmp/r1238-probe.mjs` 24 条（`interface` / `class` 两侧 × `extends` / `implements` 两段 × 裸的 / 空的 / 两个 / 混合 / 联合 / 交叉 / 带类型实参 / 嵌套 / 映射 / 括号化 / 换行 / 夹注释 / 泛型约束 / 谓词），**18 条对不上**：`interface I extends { a: 1 } { }` 缺 8 多 2、`class C extends { a: 1 } { }` 缺 8 多 2、`class C implements { a: 1 } { }` 缺 3 漂 2 多 5……只有 `interface I extends ({ a: 1 }) { }` 与 `type T<U extends { a: 1 }> = U;` 是好的。**根因与第 1237 轮那条判断相反**：不是「谁先吃掉第一个 `{`」，是**分支的成立时点**——`InterfaceBranch.Condition` 在**第二个 `{` 到达那一刻**跑，而**那一刻第一个括号还在 `unit.Data` 里、还没收成 `TypeLiteral`**（插桩实测：`ScanHead` 看到的是 `Identifier(interface) | Identifier(I) | Identifier(extends)`，`head=null`）⇒ `Get(units, nextIndex) === null` 不成立 ⇒ 整条头判否 ⇒ `TypeLiteralCloseRule` 之后才把那一格收成 `TypeLiteral`，**迟了一步**。1.2 试的那两笔（`IsTypePosition` 把 `extends` / `implements` 从类型位词表里拿出来单列一支、`ScanHead` 再认一格 `TypeLiteral`）**都留下读数但不留代码**。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | 换地形普查（24 条，`tmp/r1238-probe.mjs`），把第 1237 轮那三档里的第一档摊成整族 | **22 条合法片段里 18 条对不上**（`interface` 侧 13 条、`class` 侧 3 条、谓词 2 条）；对照档 `type T<U extends { a: 1 }> = U` 与 `type T = U extends { a: 1 } ? 1 : 2` **一直是好的** |
+| **1.2** | **什么都没留**：两笔都试过、都用等价性证明挡掉了（见下） | ① `IsTypePosition` 那一支：`interface I extends { a: 1 } { }` 的产物**从「全是平铺的 `Identifier`」变成「`TypeLiteral` + `Bracket`」**——`cases:tsast` 那八项一个都没动（那条分支本来就全是缺），可**语义变了**；② `ScanHead` 那一支（按类名认 `TypeLiteral`）：插桩实测**这一格永远拿不到 `TypeLiteral`**（`Condition` 跑在它成形之前）⇒ 与①合起来只收下 `interface I extends ({ a: 1 })` 那一格（缺 2 多 3 → 全对） |
+
+**这一族的现场**（`tmp/r1238-probe.mjs`，`node tests/parse/ts-ast.mjs --snippets tmp/r1238-probe.mjs`）：
+
+    interface I extends { a: 1 } { }              缺 8 多 2    ← 整条 InterfaceDeclaration 不见
+    interface I extends ( ) / 空的 / 两个 / 混合 / 嵌套 / 映射   缺 5 ~ 13   ← 同一格的各档排版
+    class C extends { a: 1 } { }                  缺 8 多 2    ← 类那一侧同形（ClassBranch 也一样）
+    class C implements { a: 1 } { }               缺 3 漂 2 多 5
+    function f(x: any): x is { a: 1 } { … }       缺 4 漂 1 多 5   ← 第 1237 轮登记的第二档
+    function f(x: any): asserts x is { a: 1 } { }  缺 6 漂 1 多 6   ← 第三档
+    type T<U extends { a: 1 }> = U;               对          ← 对照档：泛型约束那一侧一直是好的
+    type T = U extends { a: 1 } ? 1 : 2;          对          ← 对照档：条件类型那一侧一直是好的
+
+**1.2 的读数（负结果 + 量法上的教训）**：
+
+    tmp/r1238-equiv.mjs（4435 份语料逐字节比 XML 与投影 JSON）
+      撤掉那两笔之后： 0 份不同   ← 确认「工作区回到 HEAD」这件事本身量的出来
+      留着那两笔时：   1 份不同（tests/cases/token/types/gap-r1237-type-position-brace.ts）
+                       ⇒ 那一份里的 `interface I extends ({ a: 1 }) { }` 从「错」变「对」
+    ⇒ 「这一趟改的是不是恒等变换」这一步**必须在撤掉之后再量一遍**：
+      否则「0 份不同」既可能是「没改坏」，也可能是「根本没生效」（本轮两次撞上后者）
+
+**根因那一格为什么改不动**（这一条留给下一处入手点）：判据在**解析期**只能用**已经读到的单元**，
+而第 1237 轮记的入手处（「照第 955 轮那一支的形状，再放开『这一格是已收好的 `TypeLiteral`』」）
+**在时序上不成立**——那一刻它还没收好。真正能动的是**两处之一**：
+① `IsObjectLiteralBrace`（`text-common-util.xl.md`）里那条「上一个实义单元是 `Identifier` ⇒ 块」的分支，
+   把 `extends` / `implements` 后面那个 `{` 先判成**值位之外的类型位**（与它旁边那张
+   第 567 轮的类型位五词表同一句），让第一个 `{` 走 `TypeLiteralCloseRule` 而不是 `JsonObjectCloseRule`；
+② `InterfaceBranch` / `ClassBranch` 的`Condition` 认下「`extends` 后面紧跟一格**还没闭合的** `{` 括号」
+   这一形状（头恰好用完的判据里把那一格算进去），把体让给后面的那一格 `{`。
+
+**净账**：八道门 8 通过 / 0 失败（墙钟 29.4s）；`cases:tsast` 已知缺口 **4 条还开着、0 条已经收掉**（与第 1237 轮同）；`cases:direct` 1682 份不抛异常；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1701** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4303 / 4465**（blocked 29、differ 133、bad 0、加权 95.7%）；`npx tsc`（strict）0 error。parse 那一把尺子（`tmp/abparse.mjs`，`typescript.d.ts`）当轮现版 best **859.7ms** / median **932.3ms**（对数 = `tmp/r1238-old/ts` 这份快照，读到 859.7 那一侧 —— **这份快照比 HEAD 老，这一栏只当基线读数、不当 A/B**）。
+
+**进程超时**：每一趟都在预算内 —— `xl build typescript` 约 2s、`npx tsc` 约 5s、片段探针约 6s、
+等价性 4435 份约 37s、八道门约 30s。
+
 ### 第 1237 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **换地形再摊一层（两片共 44 条）**（口径 1.1：第一片「`}` 之后下一行以什么开头」24 条**只剩已知那一格**；第二片「类型位的词 + `{`」量出三档、整族登记）；1.2 是**又一次如实记下的负结果**（把第 1235 轮那条教训**做对**——只跳 `Condition`、`Failed` 照跑：1700 份语料**逐字节 0 份不同**，可 24 对 mean **+16.81ms**、se 17.85、11:13 ⇒ 省下的与补上的大致抵消）
 
 **一句话**：1.1 做的是本仓那条「**清单里量不动了就换一批底样再量一遍**」。**第一片地形**把第 1232 ~ 1235 轮那条线再摊一层——一个体收在 `}` 上、下一行以 `(` / `[` / `!` / `typeof` / `new` / `++` / `--` / `=` / `==` / `&&` / `||` / `as` / `~` / `void` / `delete` / `instanceof` / `in` / `*` / `?` 开头，外加五档 `/re/g` 对照：**24 条里只有箭头体那一格对不上**（就是早就登记着的那一格），其余 23 条全对。**第二片地形**（类型位的「词 + `{`」20 条）量出三档、整族登记：`interface I extends { a: 1 } { }`（缺 8 多 2，整条 `InterfaceDeclaration` 不见）、谓词里的类型字面量 `x is { a: 1 }`（缺 4 漂 1 多 5）与 `asserts x is { a: 1 }`（缺 6 漂 1 多 6）——`keyof` / `as` / `satisfies` / `readonly` 那几档一条没动。1.2 把第 1235 轮那条教训**做对**（触发字符对不上时只跳 `Condition`、`Failed` 照跑），语义等价（**1700 份语料逐字节 0 份不同**）但墙钟量不出来。
