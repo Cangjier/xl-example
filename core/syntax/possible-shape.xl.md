@@ -1,6 +1,6 @@
 # dependencies
 ```xl
-import { CatalogGuideToken } from "./basic-tokens/catalog-guide-token.xl.md"
+import { CatalogGuideToken } from "./catalog-guide-token.xl.md"
 import { ShapeStates } from "./shape-states.xl.md"
 import { Token } from "./token.xl.md"
 ```

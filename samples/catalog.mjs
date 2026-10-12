@@ -12,7 +12,7 @@
 //   3. 挂了向导且有候选 —— 产物应当正好是「基准里那一段被形状接住」。
 // 第 2 条是溶解的证据，第 3 条（硬编码的 expected）是接管的证据。
 
-import { CatalogGuideToken } from "../build/ts/core/syntax/basic-tokens/catalog-guide-token.js";
+import { CatalogGuideToken } from "../build/ts/core/syntax/catalog-guide-token.js";
 import { Common } from "../build/ts/core/syntax/basic-tokens/common.js";
 import { PossibleShape } from "../build/ts/core/syntax/possible-shape.js";
 import { ShapeStates } from "../build/ts/core/syntax/shape-states.js";
