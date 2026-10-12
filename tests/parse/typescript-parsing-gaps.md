@@ -587,7 +587,30 @@
   括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
   都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
 
-## 已知仍开着的缺口（**本节按轮次倒序归档**；`cases:tsast` 当前读数 = **5 条**）
+## 已知仍开着的缺口（**本节按轮次倒序归档**；`cases:tsast` 当前读数 = **4 条**）
+
+**第 1242 轮：标签体以「不是 `Identifier` 的单元」开头那一族收掉（8 → 0）；1.2 把闭规则那一趟量成四个数**
+
+- **收掉的那一族**（第 1241 轮登记，`xl:known-gap` 按规矩撤掉、用例留着当守卫）：
+  [`gap-r1241-label-body-literal-head.ts`](../../tests/cases/token/statements/gap-r1241-label-body-literal-head.ts)
+  ——`lbl: 'x'` / `` lbl: `x` `` / `lbl: (x)` / `lbl: [1]` / `lbl: -1` / `lbl: !x`。
+  **根因一行**：`LabelCloseRule.StatementStartsHere` 最后那句
+  `if (!(item instanceof Identifier)) return false;` —— 数字 / 布尔字面量能过只是因为
+  **它们在词法层就是 `Identifier` 实例**，字符串 / 模板串 / `(` / `[` / 一元前缀是别的类。
+  补三档（`String` / `ConstString` 按类名、`(` / `[` 括号、六个一元前缀）之后，
+  `tmp/r1242-probe.mjs` **8 → 0** 条对不上，同一片里 22 条对照档（三元 / 变量类型标注 /
+  对象字面量属性 / 接口与类成员 / 形参类型 / `case` 段 / 嵌套三元 / `lbl: new C()` /
+  `lbl: typeof x`）**逐字节不变**；守卫用例
+  [`stmt-r1242-label-body-literal-head.ts`](../../tests/cases/token/statements/stmt-r1242-label-body-literal-head.ts)
+  **141 / 141 逐节点一致**（六种开头 × 七个体宿主 + 值位 / 类型位 / 三元三组对照哨兵）。
+- **1.2 的读数**（只插桩、不落改动；`tmp/r1242-count.mjs`，读数落进
+  `core/syntax/close-rule.xl.md` 的 `ApplyTo`）：`ApplyTo` **1924766** 次、
+  空表早退 96328、内层总圈数 **5211689**、其中 `Previous` 答是（真的调了 `Process`）
+  **26648 次 = 0.51%**、每次平均 **2.85** 圈、`Data.length ≤ 2` 的占 **70.5%**
+  ⇒ **这一格的账在「190 万次多态调用」上，不在「扫」上**（第 1241 轮剖面里 `ApplyTo`
+  自耗时 7.8%、≈46ns/次）。
+- **数字**：`cases:tsast` 已知缺口 **5 → 4 条**（收掉 1 条、加 1 条守卫用例）；
+  `coverage` **4307 / 4469**（分母 +1、分子 +2；blocked 30 → 29、differ 133 一处没动、加权 95.7%）。
 
 **第 1241 轮：同一句判据的两份副本漂了——`IsStatementList` 漏了 `IfBody` 与 `StaticBlock`（各补一格、两族转绿）；同轮新登记两族**
 
@@ -613,6 +636,7 @@
      七个体宿主 × 带不带分号**一样坏** ⇒ 与 `IfBody` 那一笔**无关**，根在
      `LabelCloseRule.StatementStartsHere` 最后那句 `if (!(item instanceof Identifier)) return false;`
      （数字 / 布尔能过是因为它们在词法层就是 `Identifier` 实例）。四行合计 **缺 15 漂 0 多 4**。
+     **第 1242 轮收掉**（8 → 0，见本节最上面那一条）。
   2. [`gap-r1241-ifbody-bare-block.ts`](../../tests/cases/token/statements/gap-r1241-ifbody-bare-block.ts)
      ——**`IfBody` 里再套一个裸块**时外层那个 `}` 丢区间（**缺 0 漂 2 多 1**，五档内容一样坏）；
      `while` / `for` / 函数 / 方法 / 箭头 / 顶层裸块 / **`StaticBlock`** 都是好的 ⇒ 根不在

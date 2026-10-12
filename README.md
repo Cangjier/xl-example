@@ -347,6 +347,41 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1242 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **「冒号后面那一格」只要是一条语句的开头，这一对就是标签**（口径 1.1：第 1241 轮登记的那一族 **8 条 → 0 条**、22 条对照档一条没动；1.2 把闭规则那一趟量成了四个数：**520 万圈里只有 0.51% 真的动手**）
+
+**一句话**：1.1 收的是第 1241 轮登记的那一格——**标签体以「不是 `Identifier` 的那个单元」开头**时标签收不出来。根因一行：`LabelCloseRule.StatementStartsHere` 的最后那句 `if (!(item instanceof Identifier)) return false;`，而**数字 / 布尔字面量能过只是因为它们在词法层就是 `Identifier` 实例**（`identifier.xl.md`：标识符 / 数字 / 布尔字面量的文本块），字符串 / 模板串 / `(` / `[` / 一元前缀都是**别的 token 类**。补上三档之后：`lbl: 'x'` / `` lbl: `x` `` / `lbl: (x)` / `lbl: [1]` / `lbl: -1` / `lbl: !x` 全部收成 `LabeledStatement`，同一片 30 条探针里那 22 条对照档（三元 / 变量类型标注 / 对象字面量属性 / 接口与类成员 / 形参类型 / `case` 段 / 嵌套三元 / `lbl: new C()` / `lbl: typeof x`）**逐字节不变**。1.2 不再试微改动，而是**把「闭规则那一趟有多少活」插桩量成四个数**：`ApplyTo` 190 万次、其中七成扫的是一两格、内层 520 万圈里只有 **0.51%** 真的调了 `Process` ⇒ **这一格的账在「调」上、不在「扫」上**。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `label.xl.md` 的 `StatementStartsHere` 补三档：字符串（`String` / `ConstString` 按**类名**认，与那一页已有的 `formed` 一串同一条理由）、`(` / `[` 两种括号（与 `{` 同一档：括号表达式与数组字面量都是合法的表达式语句开头）、`!` `-` `+` `~` `++` `--` 六个一元前缀（`SymbolToken` 上按文本认）；守卫用例 [stmt-r1242-label-body-literal-head.ts](tests/cases/token/statements/stmt-r1242-label-body-literal-head.ts) **141 / 141 逐节点一致** | `tmp/r1242-probe.mjs` 30 条合法片段：**8 条对不上 → 0 条**（六种非 `Identifier` 开头 × 七个体宿主）；第 1241 轮那三片跟着动：`tmp/r1241-probe.mjs` **2 → 1**（只剩 `IfBody` 裸块那一格）、`tmp/r1241-probe2.mjs` **19 → 5**（只剩同一个裸块族）、`tmp/r1241-probe4.mjs` 仍是 0 |
+| **1.2** | **什么都没留**（只插桩、不落改动）：`tmp/r1242-count.mjs` 改 `build/` 里那一份 `close-rule.js` 数四个数，跑完从快照 `tmp/r1242-new/ts` 还原 | 见下；结论落进 `core/syntax/close-rule.xl.md` 的 `ApplyTo` 那一格 |
+
+**1.2 的四个数**（`node tmp/r1242-count.mjs`，一份 `typescript.d.ts`）：
+
+```text
+ApplyTo 调用（含空表早退）      1924766
+  其中空表早退                    96328
+  真的扫了内层循环               1828438
+内层循环总圈数（Previous 调用）  5211689
+其中 Previous 答是（Process）      26648   ← 命中率 0.51%
+每次 ApplyTo 平均圈数               2.85
+Data.length ≤ 2 的 ApplyTo      1357085   ← 占 70.5%（1 格 781176、2 格 575909）
+```
+
+⇒ 成本的大头是 **190 万次多态调用本身**（第 1241 轮剖面里 `ApplyTo` 自耗时 **7.8%**、≈46ns/次），
+不是它内层跑的那几条判据（每次平均只扫 2.85 圈）。**要让这 190 万次降下来，只能由每一页自己声明
+「我在什么形状的容器上才有可能成立」**（O(1) 的那种）——第 1232 轮写下的那句「要动的是
+『哪些规则根本不用跑』」到这一轮有了上界形状。同一趟插桩顺带订正了第 1226 轮记下的内层圈数
+（**5248548 → 5211689**：中间几轮改过树形，这一栏以当轮实测为准）。
+
+**为什么不试微改动**：第 1231 / 1233 / 1234 / 1237 / 1240 / 1241 六次微改动**全部**落在噪声底下
+（配对 sd 就是 80ms 量级、se 15~23ms，而能动的单点都在 20ms 以下）——这一轮把预算换成
+**一次能定方向的数量**，而不是第七次同形状的负结果。
+
+**净账**：八道门 8 通过 / 0 失败（墙钟 **29.2s**）；`cases:tsast` 已知缺口 **5 → 4 条还开着、1 条已经收掉**（第 1241 轮登记的那一族按规矩撤掉 `xl:known-gap`、用例留着当守卫；同轮加 1 条守卫用例）；`cases:direct` **1686** 份不抛异常；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1705** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4307 / 4469**（blocked **29**、differ 133、bad 0、加权 95.7%）；`npx tsc`（strict）0 error；等价性（`tmp/r1238-equiv.mjs`，对照 **`tmp/r1242-old/ts`**，也就是本轮改动之前的那份产物）**4435 份 0 份不同**；`best of 5`（`tmp/r1232-best.mjs`）：parse **863.5**、xml 37.1、printAst **74.3**。
+
+**进程超时**：每一趟都在预算内——`xl build typescript` 约 2s、`npx tsc` 约 5s、片段探针约 6s、八道门约 30s、等价性 4435 份约 37s、插桩计数一次 parse 约 3s。
+
 ### 第 1241 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **同一句判据写了两份、两份的成员漂了：`IsStatementList` 漏了 `IfBody`（还有 `StaticBlock`）**（口径 1.1：`if` / `else` 体里那一族 34 条片段 **22 条对不上 → 2 条**，第 1236 轮登记的那一格**转绿**；1.2 是**一张新立的剖面读数** + 一次量不出来的微改动）
 
 **一句话**：1.1 收的是第 1236 轮登记的那一格（`else` 体里那条裸标签），这一轮把它的根因量到了一句更值钱的话上——**同一句判据有两份副本，而两份的成员不一样**。`text-common-util.xl.md` 的 `IsStatementList`（判「这个单元的 `Data` 里装的是语句吗」）与 `statement.xl.md` 里 `FormTail` 自己那份白名单问的是**同一件事**，可 `FormTail` 有 `IfBody` 与 `StaticBlock`、`IsStatementList` **两个都没有**。`FormTail` 有 `IfBody` 正是那条体一直没坏的原因；而 `IsStatementList` 缺这一格 ⇒ `IsStatementStart(那个名字)` 在 `if` / `else` 的花括号体里一律给假 ⇒ `LabelCloseRule.Previous` 判不下标签 ⇒ 体里那条 `b: 1` 被一条 `ExpressionStatement` 整段装走（缺 `LabeledStatement` + `ExpressionStatement` + `NumericLiteral`、多 1）。**同一片探针立刻量出同一格的第二次**：`class C { static { b: 1 } }` 读数**一字不差**（缺 3 多 1）。两格各补一个类名之后：`tmp/r1241-probe.mjs` 22 → **2** 条、`tmp/r1241-probe4.mjs` 2 → **0** 条。1.2 这一轮的产出是**一次剖面向导**（`node --cpu-prof` + 一份按「函数名 @ 文件:行」合计自耗时的读法）与一次照旧量不出来的微改动（收敛环里那份草稿纸的**拷贝写法**——第 1232 轮量的是「逐格比」那一半，拷贝这一半没人量过）。

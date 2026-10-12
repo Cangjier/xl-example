@@ -90,7 +90,51 @@ if (item instanceof SymbolToken && item.Is("{")) {
   return true;
 }
 if (item instanceof Bracket) {
-  return item.startBracket === "{";
+  if (item.startBracket === "{") {
+    return true;
+  }
+  // **`(` / `[` 也能起一条语句**（第 1242 轮）：`lbl: (x);` / `lbl: [1];` ——
+  // 括号表达式与数组字面量都是合法的表达式语句开头，与 `{`（块 / 对象字面量）**同一档**。
+  // 旧版只认 `{` ⇒ 这两档的标签收不出来（缺 `LabeledStatement` + 那条表达式语句 + 里面的节点、
+  // 多一个把整段装走的 `ExpressionStatement`，实测 `tmp/r1242-probe.mjs` E03 / E04）。
+  // **不会误伤类型标注**：`let v: (a: any) => void` 那一格的名字由入口那关
+  //（`IsStatementStart`，`v` 前面是 `let`）挡着，走到这里来的名字都是在语句开头的。
+  return item.startBracket === "(" || item.startBracket === "[";
+}
+// **字面量与一元前缀也是「能起一条语句」的单元**（第 1242 轮，用户口径 1.1）：
+// `lbl: 'x'` / `` lbl: `x` `` / `lbl: -1` / `lbl: !x` / `lbl: ++x`。它们与 `Identifier`
+// 那一档**问的是同一句话**（「冒号后面那一格能不能起一条语句」），差的只是 token 类：
+// **数字 / 布尔字面量在词法层就是 `Identifier` 实例**（`identifier.xl.md`：标识符 / 数字 /
+// 布尔字面量的文本块）⇒ 那一半一直能过，而字符串 / 模板串 / 一元前缀是别的类
+// ⇒ 走到下面那句 `if (!(item instanceof Identifier)) return false;` 上给假。
+// 判据按**类名**认字符串（与 `formed` 那一串同一条理由：本层不能 import 那几个类）。
+//
+//     lbl: 'x';      缺 3 多 1      lbl: `x`;     缺 3 多 1
+//     lbl: (x);      缺 4 多 1      lbl: [1];     缺 4 多 1
+//     lbl: -1;       缺 4 多 1      lbl: !x;      缺 4 多 1
+//
+// **对照档一条都不许动**（同一片探针 30 条里量过）：`a ? b : 'x'`（三元，`b` 前面是 `?`
+// ⇒ `IsStatementStart` 在入口就给假）、`let v: 'a'`（名字前面是 `let`）、
+// `const o = { a: 'x' }`（值位花括号 ⇒ 本规则整条不跑）、`interface I { a: 'x' }` /
+// `class C { a: 'x' }`（体不是语句列表）、`function f(a: 'x')`（圆括号里）、
+// `switch (a) { case 1: 'x'; }`（`IsSwitchLabelColon`）—— 六档读数字节不变。
+if (item.constructor.name === "String" || item.constructor.name === "ConstString") {
+  return true;
+}
+if (item instanceof SymbolToken) {
+  const sign = item.TempToString();
+  if (
+    sign === "!" ||
+    sign === "-" ||
+    sign === "+" ||
+    sign === "~" ||
+    sign === "++" ||
+    sign === "--" ||
+    sign === "(" ||
+    sign === "["
+  ) {
+    return true;
+  }
 }
 // **已经成形的语句单元也要认**（第 392 轮）——名单与 `LoopStatementWords` **一一对应**，
 // 所以往后每把一条控制流规则改成向导，这里一个字都不用动。
