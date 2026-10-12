@@ -52,8 +52,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ```ts
 super(template);
-this.ProcessQueue = template.BranchTemplate.Get(this.constructor, (defaultValue: any) => CatalogGuideToken.BranchQueue);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor, null);
+this.ProcessQueue = CatalogGuideToken.BranchQueue;
 this.PossibleShapes.push(...shapes);
 ```
 
