@@ -3659,6 +3659,13 @@ item.Tag === "Statement"`——成员表里要把包着语句的那层壳摊平�
 今天基类这一格默认 `false`、需要它的 token 在自己那一页**显式声明同一个属性**并给出自己的值
 （`## field IsExportUnit:bool = true`，构造时就赋好），投影只读这一格（`items[i].IsExportUnit`）。
 
+**第 1228 轮起解析期那一趟也读它**（用户口径 1.2「提升 parse 效率」）：
+`typescript/parse-pipeline.xl.md` 的 `RunCloseRules` 里「要不要跳过导出那一族规则」那一问
+原来写作 `unit.constructor.name === "Export"`，而那一趟是**收敛环的每一趟**
+（`typescript.d.ts` 一份上被调 **1471601** 次，实测见 `tmp/r1228-readcount.mjs`）——
+两次属性读（拿函数、拿 `.name`）加一次字符串比较，换成一格属性读，**判据同答**
+（那一页答 `true`、其余答 `false`，与类名比较是同一问）。
+
 ## field IsBindingElement:bool = false
 
 **我这一格是不是一个绑定元素单元**（第 1099 轮）——是的话答 `true`。
@@ -4163,8 +4170,21 @@ does not exist on type 'Token'`——两份产物各说各的）。
 
 **我这一格是不是「圆括号那一态」**（第 1197 轮）：与 `IsIndexBracket` 同一形态、同一条理由
 （`(` 开头的 `Bracket` 答 `true`，其余答 `false`；`NotNull.CoreKind` 要问「我的核是不是实参括号」）。
-`IsBraceBracket` 那一档**基类不声明**：它今天只有 `projectNode` 一处读，而那一处的接收者
-**就是那一格 token 自己**（不是「某一格 token 的核」），所以 `Bracket` 那一页那一格够用。
+
+## field IsBraceBracket:bool = false
+
+**我这一格是不是「花括号那一态」**（第 1228 轮升到基类）：`{` 开头的 `Bracket` 答 `true`，
+`(` / `[` 两态与**别的所有 token**答 `false`。判据仍然只有一处——`Bracket` 那一页在 `Use`
+记下 `startBracket` 的那一刻赋好（第 1089 轮，与 `IsIndexBracket` / `IsParenBracket` 同趟，
+克隆体在 `Clone` 里抄同一格）；这里只是把它在基类上说出来。
+
+**为什么第 1228 轮升上来**：它与 `IsIndexBracket` / `IsParenBracket` 是同一格事实的三个面，
+而读它的地方**不止括号页**——`typescript/parse-pipeline.xl.md` 的 `RunCloseRules` 里那一问的
+接收者是 `unit:Token`，那一趟是**收敛环的每一趟**（`typescript.d.ts` 一份上被调 **1471601** 次，
+实测见 `tmp/r1228-readcount.mjs`）。第 1226 轮那一问写作
+`unit.constructor.name === "Bracket" && startBracket === "{"`（两次属性读 + 一次字符串比较），
+第 1228 轮改成读这一格：**同答，而后者是一次属性读**。括号页那一页那一格照旧
+（`Use` 里赋、`Clone` 里抄），基类这一格只是默认档。
 
 ## method Clone:()=>Token
 

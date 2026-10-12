@@ -899,8 +899,26 @@ if (queue === null) {
 // `isValueBrace` 与 `isExportUnit` 原来**每趟都先算**，可它们分别是
 // `{` 括号那一格（要看 `IsObjectLiteralBrace`）与 `Export` 那一格才用得上的东西——
 // 别的单元上算了也没人读。改成**按需现算**（`isValueBrace` 只在 `{}` 括号、`isExportUnit`
-// 只在 `Export` 那一格），`unit.constructor.name`（一次字符串比较）也因此只走一趟，
-// 而不是每个单元关一次。
+// 只在 `Export` 那一格）。
+//
+// **第 1228 轮：这两问不再按类名问**（用户口径 1.2「提升 parse 效率」）。
+// 第 1226 轮那次换位把 `unit.constructor.name` 从「每个单元关一次」降到「每一趟一次」，
+// 可这一趟本身是**收敛环的每一趟**（实测 `typescript.d.ts` 一份上 `RunCloseRules`
+// 被调 **1471601** 次，见 `tmp/r1228-readcount.mjs`：`RunCloseRules` 38239 次 × 每单元
+// 平均 38.5 趟）——所以那两次 `constructor.name`（一次属性读拿到那个函数、再一次
+// `.name` 属性读拿到字符串，外加一次字符串比较）仍然是**一份语料上 294 万次**。
+//
+// 判据**本来就是两页各自显式声明好的那一格**，一个字都没换：
+// · `isBraceBracket` 问的是「我是不是 `{` 那一态的括号」——`Bracket` 那一页在 `Use` 记下
+//   `startBracket` 的那一刻就把 `IsBraceBracket` 赋好了（第 1089 轮，与 `IsParenBracket` /
+//   `IsIndexBracket` 同一趟），所以 `unit.IsBraceBracket` 与
+//   `unit.constructor.name === "Bracket" && startBracket === "{"` **同答**，而前者是一次属性读。
+// · `isExportUnit` 问的是「我是不是 `Export` 那一页」——那一页显式声明了
+//   `## field IsExportUnit:bool = true`（第 1096 轮），基类答 `false`。这一格**早就在投影层
+//   的同一问上用着**（`print-ast-common.xl.md` 里 `head.IsExportUnit` / `items[i].IsExportUnit`
+//   那一族），所以这一趟是**同一句判据的第三处写法收归一处**，不是新立判据。
+//
+// 这一次改的只是**问法**：跳过的对象、跳过的规矩、循环里其余每一句都没动。
 //
 // **只有「值位的花括号」才不跑 `Label`**（第 577 轮）：第 507 轮下这道闸时问的是
 // 「是不是 `{` 括号」 ⇒ **语句位的块**（`{ a: 1 }`）也被一并挡住 ⇒
@@ -913,7 +931,7 @@ if (queue === null) {
 // 判据换成 `IsObjectLiteralBrace`：与 `JsonObjectCloseRule` 问的是**同一句** ——
 // 它正是第 556 轮从那条规则里搬出来的（「两个用户问同一句，各写一份会漂」），
 // 块 / 标签块 / 对象字面量 / 类型字面量四档在这一句上分得开。
-const isBraceBracket = unit.constructor.name === "Bracket" && (unit as Bracket).startBracket === "{";
+const isBraceBracket = unit.IsBraceBracket;
 let isValueBrace = false;
 if (isBraceBracket) {
   const holder = unit.Parent;
@@ -922,7 +940,7 @@ if (isBraceBracket) {
     isValueBrace = at >= 0 && IsObjectLiteralBrace(holder.Data, at);
   }
 }
-const isExportUnit = unit.constructor.name === "Export";
+const isExportUnit = unit.IsExportUnit;
 // **整理那一趟用下标走**（第 1226 轮，同 `Token.MoveDataTo` 那一条）：本方法在
 // `typescript.d.ts` 一份上被调 **1471601** 次（收敛环每一趟都调一次），`for…of`
 // 每一趟都要从队列的数组上取一个迭代器对象。次序、跳过的那两档、`Statement.FormTail`
