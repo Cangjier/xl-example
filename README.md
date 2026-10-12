@@ -347,6 +347,60 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1231 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **对象字面量当标签模板的标签那一族**（口径 1.1，名单再补一格，新地形普查 6 → 4 条、并**新登记**一族「二元规则跨行把语句位的 `function` 折成左操作数」）；1.2 是**一次如实记下的负结果**（`ApplyTo` 开头那一问恒为假，可删掉它 12 对 mean **+6.54ms**、se 23.62、`5:7` ⇒ 不可分辨，整笔撤掉、只留读数）
+
+**一句话**：1.1 与第 1228 ~ 1230 轮那几处**同一条口径**——`tagIsPostfixChain` 那张「这一格能不能当标签」的名单里**少一格**（`ObjectLiteral` 那一页第 1025 轮就显式声明了 `IsObjectLiteralUnit`，本页另外两处链名单早就读它）⇒ `{ p: 1 }`t`` 整族在入口判否、模板整格丢；1.2 量了 `ApplyTo` 开头那一问（`Array.isArray(units)`，**恒为假**）**删掉值不值**——192 万次，可读数与 0 不可分辨 ⇒ 按「一次没量出来的改动不留」整笔撤掉。
+**同一轮换了一片地形再普查**（82 个底样 × 3 个位置，比第 1227 轮那张名单宽得多），撞出**新的一类根**并按规矩登记成 `xl:known-gap`。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `tagIsPostfixChain` 的名单补上 `one.IsObjectLiteralUnit`（**一行**；那一格早就在本页另外两处链名单上、也在 `ObjectLiteral` 那一页显式声明着） | `tmp/r1231-obj.mjs` 14 条 **10 对上 / 4 对不上 → 除「语句位」那一条外全对上**；新立守卫用例 [expr-r1231-object-tag.ts](tests/cases/token/expressions/expr-r1231-object-tag.ts) **183 / 183**（缺 0 漂 0 多 0 字段名 0）；新地形普查 246 条 **6 → 4 条对不上**；老地形（824 条）**一条没动** |
+| **1.2** | **什么都没留**：`tmp/r1231-arr.mjs` 只改 `build/` 里那一份产物做实验（`ApplyTo` 开头那一问恒为假，删掉它），量出来与 0 不可分辨 ⇒ **整笔撤掉**，只把读数写进那一句的注里 | parse A/B 12 对 × 每批 2 轮 mean **+6.54ms/轮**（sd 81.81、se 23.62、**5:7**、median +23.50）⇒ 不可分辨；同一轮另外三处同形状的（`AbsorbLabels` / `FormTail` / `SplitShell`）调用数只有 **27816 / 38239 / 38239**，比 `ApplyTo` 少两个数量级 ⇒ **连量都没量** |
+
+**1.1 的现场**（`tmp/r1231-obj.mjs`）：
+
+```text
+const v = { p: 1 }`t`;        缺 2（TaggedTemplateExpression + NoSubstitutionTemplateLiteral）
+const v = { p: 1 }`t`.d;      缺 4（外面那条成员链一起丢）
+const v = { p: 1 }`t`();      缺 3
+const v = { p: 1 }`t`!;       缺 3
+const v = { p: 1 }`t`[0];     缺 4
+const v = ({ p: 1 })`t`;      缺 0  ← 带括号那一档本来就是对上的（那一格是 `Bracket`）
+```
+
+TS 那边是 `TaggedTemplateExpression > [ObjectLiteralExpression, NoSubstitutionTemplateLiteral]`
+（`ts.createSourceFile` 实测），所以这一档不是放宽、是**同一句判据少一格**。
+
+**同一轮新登记的一族（`xl:known-gap`，只登记不收）**：新地形 246 条里剩下那 4 条对不上是
+**新的一类根**——**二元规则跨行把语句位的 `function` 声明 / 块折成了左操作数**：
+
+```text
+function w() { }        ⇒  <BinaryOperator op="/">
+/re/g;                     <Function range="[22,37]" name="w" …/> … </BinaryOperator>
+```
+
+（`class C { }` / `const w = function () { }` / `if (a) { }` 三种对照**都对上**，
+所以缺的不是名单里的一格，而是「这一格站在语句位」这个事实。）用例进语料
+[gap-r1231-decl-newline-operator.ts](tests/cases/token/expressions/gap-r1231-decl-newline-operator.ts)
+（整份读数：TS 节点 39 / 投影节点 50，缺 15 多 26），那一行 `xl:known-gap` 写着根因；
+`cases:tsast` 从此每次真跑它，收掉了会红着要你去删指令。
+
+**1.2 的现场（负结果）**：`ApplyTo` 是闭规则那一趟的内层循环，一份语料上被调 **1924766** 次
+（第 1226 轮读数），开头那一问 `Array.isArray(units) === false` **恒为假**——全仓扫过，`Data`
+只有字段声明那一处赋值（`\.Data\s*=[^=]` 在全部 `*.xl.md` 里 **0 命中**；
+`MoveDataTo` 的 `data.length = 0` 仍是同一张数组）。删掉它的实验读数见上表：
+**192 万次内建调用落在噪声底下**。⇒ 按本仓口径整笔撤掉，只留读数与「这一问恒为假」这一句注。
+
+**这一轮 1.2 没有收口，收口的是现场**：`ApplyTo` 那一问、`AbsorbLabels` 那几处、
+以及「192 万次 / 2.8 万次」这两个量级差，都写下来了。真正的下一处大格是**闭规则那一趟的
+「按单元类型分档」**（第 1222 轮写下的方向）：`ApplyTo` 被调 192 万次、内层又调 `Previous`
+**5248548** 次（第 1226 轮读数），而绝大多数格子第一句就答否 —— 要动它得先让每一页声明
+自己的触发条件。
+
+**净账**：`cases:tsast` **已知缺口 1 条还开着、0 条已经收掉**（其余语料一条不差，16 片全过）；`cases:direct` 全语料不抛异常（**1677 份**）；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1693** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4298 / 4457**（blocked 26、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；`npx tsc`（strict）0 error；八道门墙钟 **29.2s**；`best of 5`：parse **769.6**、xml 37.0、printAst 102.3。
+
+**两条 commit**：`42959293`（1.1 对象字面量当标签 + 新登记一族）、`b702a551`（1.2 负结果：`ApplyTo` 那一问的读数）。
+
 ### 第 1230 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **函数表达式与类表达式当标签模板的标签那一族**（口径 1.1，两页各补同一格，普查底样 **4 → 1**、条数 **25 → 7**）；1.2 把**基类那三个常量容器**（`ModifierWords` / `SegmentKeys` / `SegmentNames`）也从每实例一份搬到原型上一份（parse A/B 20 对 mean **−38.75ms/轮**、se 18.78、`13:7`）
 
 **一句话**：1.1 与上一轮那三处**同一条口径**——`tagIsPostfixChain` 认的是「这一格能不能当标签」，而 `Function` / `Class` 两页各自依上下文投成两种节点（`FunctionDeclaration` / `FunctionExpression`、`ClassDeclaration` / `ClassExpression`），**两页都只有声明名那一格、没有这一格** ⇒ 入口判否 ⇒ 通用支把那一格按**声明**投出来（多一格 `FunctionDeclaration`），模板整格丢；1.2 接着上一轮那条「构造期白写」的线：基类还剩三格**每实例白造的对象**（两个空数组 + 一个空 `Map`），它们与那 94 格一样**只写这一次**。
