@@ -54,6 +54,16 @@ throw new Error("abstract member: Process");
 
 ```ts
 const units = unit.Data;
+// **`Array.isArray(units)` 这一问是**恒为假**的（第 1231 轮量过，如实记在这里）**：
+// 全仓扫过——`Data` 只有字段声明那一处赋值（`## field Data:Array<Token> = []`，
+// 第 1229 轮起那一个初值装在 `Token.prototype` 上），`\.Data\s*=[^=]` 在全部 `*.xl.md`
+// 里 **0 命中**（`MoveDataTo` 那一句是 `data.length = 0`，仍是同一张数组）⇒ `units`
+// 永远是一个数组，这一问恒答 `false`。
+// **可它取不掉**：`tmp/r1231-arr.mjs` 只改 `build/` 里那一份产物做实验（把这一问删掉），
+// `tmp/abparse.mjs` 12 对 × 每批 2 轮读 **mean +6.54ms/轮（sd 81.81、se 23.62）5:7**
+// —— **与 0 不可分辨**（本实例被调 **1924766** 次一份语料，可 `Array.isArray` 是内建、
+// 一次调用落在噪声底下）。按本仓口径「一次没量出来的改动不留」，**这一问照旧留着**，
+// 只把读数记在这里，免得下一个人再量一遍。
 if (Array.isArray(units) === false || units.length === 0) {
   return;
 }
