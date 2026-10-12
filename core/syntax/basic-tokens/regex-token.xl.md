@@ -89,10 +89,11 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor,
 
 ## protected method Close:()=>void
 
-关闭：只把自己标记为已关闭。
+关闭：只把自己标记为已关闭，并向上通知一次。
 
 ```ts
 this.Closed = true;
+this.NotifyClosed();
 ```
 
 ## field Temp:string = ""

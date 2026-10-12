@@ -97,10 +97,11 @@ return true;
 
 ## protected method Close:()=>void
 
-关闭：只把自己标记为已关闭。
+关闭：只把自己标记为已关闭，并向上通知一次。
 
 ```ts
 this.Closed = true;
+this.NotifyClosed();
 ```
 
 ## protected method Default:(context:SyntaxContext, source:Source)=>void

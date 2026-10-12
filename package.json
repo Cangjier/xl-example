@@ -13,6 +13,7 @@
     "compile": "tsc",
     "gates": "node ./tests/gates/run.mjs",
     "samples": "node ./samples/check.mjs",
+    "catalog": "node ./samples/catalog.mjs",
     "cjcli": "node ./build/ts/cjcli.js",
     "tsrun": "node ./build/ts/tsrun.js",
     "cases:check": "node ./tests/parse/validate.mjs",
