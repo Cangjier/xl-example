@@ -71,6 +71,31 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 **声明错了要出事**（那一格会被整批跳过），所以每一格都按「`Condition` 的第一句」逐个对过，
 并由 `cases:tsast` / `runtime:cli` / `samples` 那几道门兜底。
 
+**带 `HasFailedHook` 的分支不许声明这一格**（第 1235 轮实测，用户口径 1.2「提升 parse 效率」）
+——这一条是量出来的，不是想出来的：`SymbolBranch` 的第一句是
+`SymbolTemplate.IsSymbol(value)`，而它的 `Failed` **有副作用**（把上一个断开的 `SymbolToken` 关掉），
+于是「字符不是符号 ⇒ 跳过这一支」等于**把那一趟 `Failed` 也跳过了** ⇒ 上一格 `SymbolToken`
+在该断开的地方不断开：`const doubleNegate = - -x;`（两个减号中间夹一个空格）当场折成
+`UnaryOperator(op="--")`，而 TS 是 `-` 套 `-` 两层。
+
+读数如实记（**这一笔整笔撤掉**，只留判据）：
+
+    只改 build/ 里那一份产物（SymbolBranch 写死 30 个符号字符当 TriggerChars）
+      tmp/abparse.mjs 20 对 × 每批 2 轮   mean −28.98ms/轮（sd 75.70、se 16.93）13:7
+      tmp/abparse.mjs 26 对 × 每批 2 轮   mean −38.21ms/轮（sd 74.66、se 14.64）17:9
+      tmp/abparse.mjs 24 对 × 每批 2 轮   mean −39.13ms/轮（sd 69.64、se 14.22）18:6
+    ⇒ 三读同向同量级，**可它量的是一个错的解析**：
+      tmp/r1235-equiv.mjs 1697 份语料逐字节比 XML 与投影 JSON，**2 份不同**
+      （expr-nested-unary.ts 的 `- -x`、gap-r922-mapped-modifier-space-before-colon.ts）
+    ⇒ 于是这一格多了一句守卫：**`HasFailedHook` 答是的分支，`TriggerChars` 一律不生效**
+      （写法见 `unit-token.xl.md` 的 `ProcessChar`）。守卫本身是**零影响**的
+      （当时声明的四支都没有 `Failed`），1697 份语料逐字节 0 份不同。
+
+**为什么改用「探针」也不行**（同一轮，如实记）：不写死、改成加载时拿 `IsSymbol` 扫一遍
+（`for code = 0…0x2fff`，12288 次）会把这把 `switch` 喂成 megamorphic ——
+探针版三读 **+7.45 / −1.52 / −1.69ms**（全是噪声），而 `IsSymbol` 一慢，
+跳转那一侧省下来的全还回去。
+
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 判断本次跳转是否成立，并给出 `Message` 号。

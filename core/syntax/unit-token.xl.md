@@ -130,11 +130,18 @@ if (queue !== null) {
   // **在这里先比一次**：对不上就不进这一格（省掉一次多态调用 + `Condition` + 往 `Result` 上写一格）。
   // 判据与次序一个字没改：被挡掉的原来就是「第一句答否、立刻 `return`」的那一批；
   // 空串（绝大多数分支）= 任何字符都要问。单字那一档直接比 `!==`（最常见的那一档少一次调用）。
+  //
+  // **`HasFailedHook` 那一问是这一格的安全阀**（第 1235 轮，用户口径 1.2「提升 parse 效率」）：
+  // `Transit` 在答否时还会调一次 `Failed`，而**有的 `Failed` 有副作用**
+  // （`SymbolBranch.Failed` 把上一个断开的 `SymbolToken` 关掉）——那时候「按字符跳过这一支」
+  // 就等于「那一趟 `Failed` 也不跑」：实测 `- -x` 当场折成 `--`（1697 份语料里 2 份不同）。
+  // 所以带钩子的分支**一律不吃 `TriggerChars`**。当时声明的四支都没有钩子 ⇒ 这一句零影响
+  //（读数与现场写在 `core/syntax/branch.xl.md` 的 `TriggerChars` 那一节）。
   const value = source.Value;
   for (let i = 0; i < branches.length; i++) {
     const branch = branches[i];
     const trigger = branch.TriggerChars;
-    if (trigger !== "" && (trigger.length === 1 ? trigger !== value : trigger.includes(value) === false)) {
+    if (branch.HasFailedHook === false && trigger !== "" && (trigger.length === 1 ? trigger !== value : trigger.includes(value) === false)) {
       continue;
     }
     if (branch.Transit(context, this, source) === BranchStates.Done) {
