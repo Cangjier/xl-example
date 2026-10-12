@@ -347,6 +347,52 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里——**第 101
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 1227 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **`?.` 后面那一截末尾跟模板、而模板前面不是一格名字的那一族**（口径 1.1，一次收掉五档形状，`a?.…` 那一族 90 条全对）；1.2 是**如实记下的负结果**（收尾规则那一趟按类记一份名单，60 对 mean **+1.71ms**、se 12.34 ⇒ **已回退**）
+
+**一句话**：1.1 收的是 `a?.b.c`t`` / `a?.b()`t`` / `a?.b(1)`t`` / `a?.b!()`t`` 那一族——末尾那格模板在 token 层被收进了**同一个** `NullConditionalOperator`，而模板前面站的是 `PropertyAccess` / `Method` / `NotNull`（名字在里面、不在顶层），第 175 轮那一支只认「模板前面恰好一格名字」⇒ **模板那格没人接**；1.2 试的是「收尾规则那一趟按单元类记一份该跑的名单」——**确定性读数证明它一条规则都没少跑**（`ApplyTo` 两边同为 **1924766**），可墙钟在两把尺子上都读不出来。
+
+| 口径 | 做了什么 | 读数 |
+| --- | --- | --- |
+| **1.1** | `chainWithOptional` 加一层前置处理（本体改名 `chainWithOptionalCore`、形参表多一格「已经算好的名单」）：① 把「以模板串开头的那一格 `PropertyAccess`」摊平；② 从头找第一格模板，**它连同后面的兄弟**整串交给 `chainOnto`；③ 余下那一截交给本体，但把「这一格的末尾」换成余下那一截的末尾（新立 `endAt`） | `a?.…` 那一族 **90 条 / 0 条对不上**（原来 13 条）；「后面直接跟模板」那一族 824 条里对不上的底样 **12 → 9**（81 → 65 条）；守卫用例 186 / 186（缺 0 漂 0 多 0） |
+| **1.2** | 试：`RunCloseRules` 那一趟按 `unit.Tag` 记一份「这一类该跑哪几条」（新立 `TokenFormerImpl.RulesFor` + `RuleCache`），`unit.constructor.name` 换 `unit.Tag` | 60 对 mean **+1.71ms**（se 12.34、29:31 符号）；单读 1391 → 1295ms 是**假的**（下一读就反过来）⇒ **回退** |
+
+**1.1 的现场**：`?.` 之后那一截在 token 层是**同一个** `NullConditionalOperator`，末尾那格反引号模板前面站的是投影层认得的那几种「一整格」：
+
+```text
+a?.b.c`t`       NCO[PropertyAccess([b, ., c]), String]
+a?.b()`t`       NCO[Method(name="b"), String]
+a?.b(1)`t`      NCO[Method(name="b"), Bracket((1)), String]
+a?.b!()`t`      NCO[NotNull([Method(…)]), String]
+a?.b()`t`.d     NCO[Method(name="b"), PropertyAccess([String, ., d])]
+```
+
+第 175 轮那一支只认「模板前面**恰好**一格名字」（`a?.b`t``），其余几种在 `chainWithOptional` 里各有各的早退支（`first.IsMethodNode` / `first.IsNotNull` / `first.IsPropertyAccess` …）⇒ **末尾那格模板没人接**：`TaggedTemplateExpression` 与 `NoSubstitutionTemplateLiteral` 整片缺，而里面那次调用的区间还一路撑到模板串末尾。
+
+**1.1 的补法**（三处，都是**原来就有的那一份实现**，不新写折法）：
+① **摊平**「以模板串开头的那一格 `PropertyAccess`」——`a?.b()`t`.d` 的续格收在里面，不摊开顶层一格模板都没有（摊法与 `membersOnto` / `tailUnitsOf` 里那一档同源）；
+② **从头找第一格模板**，它连同后面的兄弟整串交给 `chainOnto`（那里面本来就有「紧跟一格反引号模板 ⇒ 又是一条标签模板」与「`.` / `[` / `(` 续格」那几支）；
+③ 余下那一截交给**本体**（`chainWithOptionalCore`，形参表多一格「已经算好的名单」），但「这一格的末尾」要换成余下那一截的末尾——新立 `endAt`：`Object.create(unit)` 一个**只改 `end` 读法**的壳。不换的话 `a?.b(1)`t`` 的 `CallExpression` 区间会多盖一截（模板串那两位）。
+**`end` 要用 `defineProperty` 写**（实测踩到的）：`Token.end` 是取值器（`## property` + `### get`），原型链上那个取值器没有 setter ⇒ 直接赋值当场抛 `Cannot set property end of #<Token> which has only a getter`。
+
+**1.1 的读数**：新立守卫用例 [`tests/cases/token/expressions/expr-r1227-opt-tagged-template.ts`](tests/cases/token/expressions/expr-r1227-opt-tagged-template.ts)（16 条排版：五档形状 × `.d` / `()` 续写，外加 `a?.[0]`t`` / `a?.(1)`t`` / `const` 位 / `return` 位）单跑 **TS 节点 186 / 投影节点 186，缺 0 漂 0 多 0 字段名 0**；`tmp/r1227-opt.mjs` 那一族 **90 条 / 0 条对不上**（修前 13 条）；`tmp/r1227-tag.mjs`（「后面直接跟模板」普查 824 条）对不上的底样 **12 → 9**（81 → 65 条）。
+
+**1.1 之后还开着的 9 个底样**（同一次普查量出来的，`tagIsPostfixChain` 那张领名单少几格）：`[a, b]`t`` / `[...a]`t``（数组字面量当标签）、`` /re/g`t` ``、`` new.target`t` `` / `` import.meta`t` ``、`` function () {}`t` `` / `` class {}`t` ``（属性位）、`` <T>a`t` ``（尖括号断言的区间）。
+
+**1.2 的现场与负结果**：`RunCloseRules` 是**收敛环每一趟都调一次**的那一格（`typescript.d.ts` 一份上 **1471601** 次），每一趟都要在整张队列上把两道闸门重算一遍——「这一格是不是 `Bracket`」（`unit.constructor.name === "Bracket"`，一次字符串比较）、值位花括号那一格还要比 `startBracket`、「这一格是不是 `Export`」——而**三问的答案只取决于这一格的类**，队列本身也在构造那一刻装好之后**从没变过**。改法是按 `unit.Tag` 记一份「这一类该跑哪几条」（`TokenFormerImpl.RulesFor` + `RuleCache`），命中的直接就是那一串。
+**确定性读数（这一轮新立的 `tmp/r1227-rules.mjs`，两个**独立进程**分别量现版与基线）**：`RunCloseRules` 次数 **38239**、规则被调次数 **1924766**、`ApplyTo` 两边**逐位相同** ⇒ **一条规则都没少跑、次序也没变**（换掉的只是「每趟重算那两道闸门、重读 `Data[i]`」那一层）。
+**墙钟**（`tmp/abparse.mjs`，基线 = 上一版产物 `tmp/r1227-ab-old/ts`）：
+
+    20 对 × 每批 3 轮   mean −15.95ms/轮（sd 75.09、se 16.79）  11:8
+    60 对 × 每批 2 轮   mean  +1.71ms/轮（sd 95.57、se 12.34）  28:30
+    空 A/B（两边同一份产物） mean  0.00ms/轮（sd 83.10、se 18.58） 10:10
+
+——**空 A/B 的 se 就是 18.58ms**，而这一族的量级是十几 ms ⇒ 60 对那一读（se 12.34）才是可信的那一读，它说**没有变化**；20 对那一读的 −15.95 落在空 A/B 自己的 sd 里。**单读更骗人**：同一个改动单读一次是 1391 → 1295ms（像 −7%），再读一次就反过来 ⇒ 一律回退。
+**留着的两条量法结论**：①「同进程交替」那把尺子的**空 A/B 必须是 0** 才算校准好了（第 1226 轮空 A/B 是 −36.21ms，这一轮是 0.00ms —— 交替顺序那一改兑现了）；②**确定性计数器（`ApplyTo` 次数）与墙钟是两件事**：它能证明「没少跑」，不能证明「更快」。
+
+**净账**：`cases:tsast` 语料里一条 `xl:known-gap` 都没有；`cases:direct` 全语料不抛异常（1673 份）；`direct:lint` 0 条违反；`samples` ok；`cases:check` **1688** 条 0 不合格；`runtime:check` 243 / 0；`runtime:cli` 79 / 0；`coverage` **4294 / 4452**（blocked 25、differ 133、bad 0、加权 95.7%）；`xl check` 0 条；`npx tsc`（strict）0 error；八道门墙钟 **27.2s**。
+
+**两条 commit**：`220eb9c3`（1.1 `?.` 后面末尾跟模板那一族）。
+
 ### 第 1226 轮：用户口径 **1.1 修复 + 1.2 提升 parse 效率**（基准＝print ast 的耗时）—— **实例化表达式后面跟点号成员那一族整族丢**（口径 1.1，两种根、一次收掉十五种形状）；1.2 是**如实记下的「读数不可分辨」**（三格热路少造一个迭代器 / 少一次方法调用，两读反向、空 A/B 同量级）
 
 **一句话**：1.1 收掉的是 `a<b>.b` 那一族——**token 层那张后继白名单里少一个点号、投影层那条收尾把点号交给了二元那一支**，两处各补一句、不新写折法；1.2 试的是 `for…of` 的迭代器对象与一次多余的 `Last()` 调用——**今天的尺子分辨不出来**，留下它的理由是计数不是墙钟。
