@@ -2,37 +2,33 @@
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-形状判定的缓存：**两层 `Map`**——外层键是形状名，内层键是形状自己的键。形状在自己名下读写，既不用自己拼键名，形状之间也不会撞键。
+形状判定的缓存：**每个形状一个槽**——键是形状名，值是这个形状自己那一份判定状态。形状在自己名下读写，不必自己拼键名，形状之间也不会撞。
+
+状态是每个形状自己立的**具名类**（各形状的 `…Scan`）。底层只能写 `any`：xl 的类型标注不接受 `{[key:string]:any}`（`E1204`），`Map<string, any>` 是这套规范里唯一能写的字符串键映射——明确性由取值那一侧的泛型补回来（与 `SyntaxContext.GetDefault` 同款）。
 
 # class PossibleShapeCache
 
-## field Values:Map<string, Map<string, any>> = new Map()
+## field Values:Map<string, any> = new Map()
 
-外层：形状名 → 该形状的键值对。内层那一张在第一次写值时才建。
+形状名 → 该形状的判定状态。
 
-## method Get:(possibleShapeName:string, key:string)=>any
+## method GetState:<Item>(possibleShapeName:string)=>Item | null
 
-按形状名取那一层，再按键取值；形状还没写过、或键不存在时给 `null`。
+取这个形状的状态；还没写过给 `null`。类型由调用方点明：`cache.GetState<XxxScan>(name)`。
 
 ```ts
-const inner = this.Values.get(possibleShapeName);
-if (inner === undefined) {
-  return null;
+if (this.Values.has(possibleShapeName)) {
+  return this.Values.get(possibleShapeName) as Item;
 }
-return inner.get(key) ?? null;
+return null;
 ```
 
-## method Set:(possibleShapeName:string, key:string, value:any)=>void
+## method SetState:<Item>(possibleShapeName:string, state:Item)=>void
 
-按形状名与键名写值；那一层还没有就地建出来。
+写这个形状的状态。**只在第一次建状态时调**——状态对象建出来之后由形状就地改，缓存里握着的是同一个对象。
 
 ```ts
-let inner = this.Values.get(possibleShapeName);
-if (inner === undefined) {
-  inner = new Map<string, any>();
-  this.Values.set(possibleShapeName, inner);
-}
-inner.set(key, value);
+this.Values.set(possibleShapeName, state);
 ```
 
 ## method Clear:()=>void
