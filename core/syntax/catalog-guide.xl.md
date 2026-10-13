@@ -11,7 +11,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 形状目录向导：一份「候选目录 + 判定缓存」。
 
-触发只有一条路径：basic token 关闭时逐层往上找到宿主（认的是 `IComputePossibleShapes`，且宿主的 `CatalogGuide` 指向本向导），由宿主把 `this` 转交进来；本向导问一遍候选（`PossibleShape.Compute`），被拒的当场移除，**当且仅当只剩一个候选**时把它交给 `PossibleShape.Build` 建成形状、顶替宿主，一个候选都不剩就抛错，还有多个就继续等后面的单元。
+触发只有一条路径：basic token 关闭时逐层往上找到宿主（认的是 `IComputePossibleShapes`，且宿主的 `CatalogGuide` 指向本向导），由宿主把 `this` 转交进来；本向导问一遍候选（`PossibleShape.Compute`），被拒的当场移除，**当且仅当只剩一个候选**时把它交给 `PossibleShape.Build`，一个候选都不剩就抛错，还有多个就继续等后面的单元。
 
 # class CatalogGuide
 
@@ -37,7 +37,7 @@ this.PossibleShapes = shapes;
 
 拿**宿主**攒下的子单元问一遍剩下的候选，被拒的**当场移除**，然后按**个数**行动：只剩一个就建它，一个都不剩就抛错，还有多个就继续等后面的单元。
 
-`host` 是参数不是字段；`PossibleShape.Build` 要用宿主才能顶替它，所以由这里往下传。
+`host` 是参数不是字段；`PossibleShape.Build` 要用宿主，所以由这里往下传。
 
 「接受」与「不确定」在这一次判定里同义——建不建只看剩下几个候选。
 

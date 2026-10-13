@@ -45,8 +45,6 @@ throw new Error("abstract member: ComputeByIndex");
 
 把这个形状建出来，**返回建好的那个单元**。
 
-`host` 是向导的宿主——攒下这批子单元的那个单元。形状要顶替的是**它**，不是向导：向导不继承任何东西、根本不在树里。
-
 ```ts
 throw new Error("abstract member: Build");
 ```
