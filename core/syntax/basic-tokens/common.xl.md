@@ -83,6 +83,10 @@ if (last instanceof Common) {
 
 没有覆写 `ToXmlString`，XML 由 `BlockToken` 产出：`<Common>转义后的文本</Common>`。
 
+## field IsBasicToken:bool = true
+
+basic 单元：由 `Template.BasicBranchQueue()` 收出来。
+
 ## static readonly field AppendIn:CommonBranch = new CommonBranch()
 
 注册进通用跳转队列用的实例。

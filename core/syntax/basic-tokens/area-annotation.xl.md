@@ -50,6 +50,14 @@ unit.AddToMounted(new AreaAnnotation(unit.Template)).SignIn(source.Pre()!);
 
 覆写了 `ToXmlString`（`<AreaAnnotation>正文</AreaAnnotation>`，不转义），这是注释在 XML 里的最终形态。
 
+## field IsBasicToken:bool = true
+
+basic 单元：由 `Template.BasicBranchQueue()` 收出来。
+
+## field IsAnnotationToken:bool = true
+
+注释单元：`/* */` 是 trivia。
+
 ## static readonly field JumpIn:AreaAnnotationBranch = new AreaAnnotationBranch()
 
 把 `AreaAnnotationBranch` 注册进 `Root` 的通用跳转队列用的实例。

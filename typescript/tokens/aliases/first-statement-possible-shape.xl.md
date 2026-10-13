@@ -2,6 +2,7 @@
 ```xl
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 ```
@@ -10,22 +11,10 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 # class FirstStatementPossibleShape extends PossibleShape
 
-## method Compute:(units:Array<Token>, cache:Map<string, any>)=>ShapeStates
-
-```ts
-throw new Error("FirstStatementPossibleShape.Compute 未实现");
-```
-
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:Map<string, any>)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
 throw new Error("FirstStatementPossibleShape.ComputeByIndex 未实现");
-```
-
-## method Build:(host:Token, catalog:CatalogGuide)=>Token
-
-```ts
-throw new Error("FirstStatementPossibleShape.Build 未实现");
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token

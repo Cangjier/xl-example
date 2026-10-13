@@ -53,6 +53,14 @@ Token，语法树的地基。
 
 本单元是否已关闭；关闭后不再接收字符。
 
+## field IsBasicToken:bool = false
+
+是不是 basic 单元——basic 跳转队列（`Template.BasicBranchQueue()`）收出来的那五种：区域注释 / 行注释 / 正则 / 括号 / 通用块。各子类就地覆写成 `true`。
+
+## field IsAnnotationToken:bool = false
+
+是不是注释单元——区域注释（`/* */`）与行注释（`//`）。注释是 trivia：判定形状时跳过，收进形状时保留。
+
 ## constructor:(template:Template)=>void
 
 以模板创建。

@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { CatalogGuide } from "./catalog-guide.xl.md"
+import { PossibleShapeCache } from "./possible-shape-cache.xl.md"
 import { ShapeStates } from "./shape-states.xl.md"
 import { Token } from "./token.xl.md"
 ```
@@ -17,19 +18,19 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 形状候选。
 
-`Compute` / `ComputeByIndex` / `Build` / `BuildByIndex` 都是抽象方法，写成抛错桩。
+`ComputeByIndex` 与 `BuildByIndex` 是抽象方法，写成抛错桩；`Compute` / `Build` 在基类里**转调**它们——每个形状只需要实现 ByIndex 那两条。
 
-## method Compute:(units:Array<Token>, cache:Map<string, any>)=>ShapeStates
+## method Compute:(units:Array<Token>, cache:PossibleShapeCache)=>ShapeStates
 
 看已经攒下的单元能不能构成这个形状。
 
-抽象方法，由各形状实现。缓存的键与值都由形状自己约定，调用方只负责把它传给同一个向导的每一次判定。
+**基类转调 `ComputeByIndex`**：判全段就是判到最后一格为止，形状只实现那条。缓存是 `PossibleShapeCache`：形状在自己名下读写，调用方只负责把同一份传给同一个向导的每一次判定。
 
 ```ts
-throw new Error("abstract member: Compute");
+return this.ComputeByIndex(units, units.length - 1, cache);
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:Map<string, any>)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 **猜这个下标之前的形状**：判定 `units[0..tokenIndex]`——**到这个下标为止已经攒下的那一段**（含该下标本身）能不能构成这个形状。
 
@@ -45,8 +46,10 @@ throw new Error("abstract member: ComputeByIndex");
 
 把这个形状建出来，**返回建好的那个单元**。
 
+**基类转调 `BuildByIndex`**：建全段就是建到最后一格为止，形状只实现那条。
+
 ```ts
-throw new Error("abstract member: Build");
+return this.BuildByIndex(host, host.Data.length - 1, catalog);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token

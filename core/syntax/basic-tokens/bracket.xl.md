@@ -47,6 +47,10 @@ unit.AddToMounted(new Bracket(unit.Template)).Use(source.Value).SignIn(source);
 
 单元值类型是单字符的 `string`。
 
+## field IsBasicToken:bool = true
+
+basic 单元：由 `Template.BasicBranchQueue()` 收出来。
+
 ## static readonly field JumpIn:BracketBranch = new BracketBranch()
 
 把 `BracketBranch` 注册进 `Root` 的通用跳转队列用的实例。

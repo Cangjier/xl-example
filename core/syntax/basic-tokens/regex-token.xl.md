@@ -73,6 +73,10 @@ regexToken.Append(source);
 
 没有覆写 `ToXmlString`，XML 由 `Token.ToXmlString` 产出（子单元串接）：正则单元没有子单元，落地是一个空标签。
 
+## field IsBasicToken:bool = true
+
+basic 单元：由 `Template.BasicBranchQueue()` 收出来。
+
 ## static readonly field JumpIn:RegexTokenBranch = new RegexTokenBranch()
 
 把 `RegexTokenBranch` 注册进 `Root` 的通用跳转队列用的实例。

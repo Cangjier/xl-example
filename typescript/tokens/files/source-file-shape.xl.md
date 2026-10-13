@@ -95,5 +95,5 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     new DebuggerStatementPossibleShape(),
   ];
 }
-return SourceFileShape.CreatePossibleShapesCache.slice();
+return SourceFileShape.CreatePossibleShapesCache;
 ```

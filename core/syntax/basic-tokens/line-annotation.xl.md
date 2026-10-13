@@ -52,6 +52,14 @@ unit.AddToMounted(new LineAnnotation(unit.Template)).SignIn(preUnit);
 
 覆写了 `ToXmlString`（`<LineAnnotation>正文</LineAnnotation>`，不转义），这是注释在 XML 里的最终形态。
 
+## field IsBasicToken:bool = true
+
+basic 单元：由 `Template.BasicBranchQueue()` 收出来。
+
+## field IsAnnotationToken:bool = true
+
+注释单元：`//` 是 trivia。
+
 ## static readonly field JumpIn:LineAnnotationBranch = new LineAnnotationBranch()
 
 把 `LineAnnotationBranch` 注册进 `Root` 的通用跳转队列用的实例。
