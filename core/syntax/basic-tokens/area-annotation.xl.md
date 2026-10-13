@@ -97,19 +97,15 @@ return true;
 
 ## protected method Close:()=>void
 
-关闭：只把自己标记为已关闭，然后逐层往上找最近一个实现了 `IComputePossibleShapes`、且 `CatalogGuide` 非空（真挂着目录向导）的祖先，由它转交向导重算候选。
+关闭：只把自己标记为已关闭，然后**只问父单元**要不要重算候选——父单元没实现 `IComputePossibleShapes` 就不问，也不再往上找。
 
-`CatalogGuide` 为空表示那个单元没挂向导——上溯会**穿过**它继续往上。
+父单元是不是宿主由它自己的 `CatalogGuide` 说了算：为空就等于没挂向导，被问到也不做任何事。
 
 ```ts
 this.Closed = true;
-let ancestor = this.Parent;
-while (ancestor !== null) {
-  if ("ComputePossibleShapes" in ancestor && (ancestor as any).CatalogGuide !== null) {
-    (ancestor as any).ComputePossibleShapes();
-    break;
-  }
-  ancestor = ancestor.Parent;
+const parent = this.Parent;
+if (parent !== null && "ComputePossibleShapes" in parent) {
+  (parent as any).ComputePossibleShapes();
 }
 ```
 

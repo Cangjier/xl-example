@@ -7,15 +7,15 @@ import { CatalogGuide } from "./catalog-guide.xl.md"
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-候选形状计算接口：把「谁能被上溯命中」变成一条**成员契约**——basic token 关闭时只认这个接口，不认具体类型。
+候选形状计算接口：把「谁能被 basic token 命中」变成一条**成员契约**——basic token 关闭时只认这个接口，不认具体类型。
 
-这样 basic token 不需要 import 目录向导，上溯也不会形成 require 环。
+这样 basic token 不需要 import 目录向导，也不会形成 require 环。
 
 # interface IComputePossibleShapes
 
 候选形状计算的接口。
 
-`CatalogGuide` 是宿主指向目录向导的引用：`null` 表示本单元没挂向导，上溯时跳过它。
+`CatalogGuide` 是宿主指向目录向导的引用：`null` 表示本单元没挂向导，被问到也不做任何事。
 
 ## property CatalogGuide:CatalogGuide | null
 

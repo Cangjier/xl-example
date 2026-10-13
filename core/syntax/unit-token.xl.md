@@ -17,7 +17,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元：能够「挂载」子单元的 token。它是 `Root` / `Statement` / `BlockToken` 这一族的共同父类，负责把「先问退出条件、再跑跳转队列、最后兜底」这套调度固定下来。
 
-它同时实现 `IComputePossibleShapes`：`CatalogGuide` 指向**宿主在自己名下的**目录向导（默认 `null`）。这就是 basic token 上溯的终点——上溯逐层找 `IComputePossibleShapes`，且要求那个单元的 `CatalogGuide` 非空。
+它同时实现 `IComputePossibleShapes`：`CatalogGuide` 指向**宿主在自己名下的**目录向导（默认 `null`）。basic token 关闭时**只问自己的父单元**，所以要被命中，本单元必须是那批 basic token 的直接父单元。
 
 向导本身不继承任何东西、不在树里，所以它是一个**普通引用**，不是挂载的子单元：本单元的 `Data` 里装的仍是那批 basic token。
 
@@ -31,13 +31,13 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 它是普通引用而不是子单元——向导不进 `Data`、不进 XML。
 
-普通单元默认没有，所以 basic token 上溯会**穿过**它们继续往上。
+普通单元默认没有，所以父单元不是宿主时，basic token 关闭不触发任何判定。
 
 ## method ComputePossibleShapes:()=>void
 
 重算宿主在本单元名下的目录向导的候选，把自己作为宿主转交给它。
 
-没向导时什么都不做——这正是「普通单元对上溯透明」的由来。
+没向导时什么都不做。
 
 ```ts
 if (this.CatalogGuide !== null) {
