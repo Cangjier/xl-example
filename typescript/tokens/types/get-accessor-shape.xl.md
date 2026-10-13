@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class GetAccessorShape extends UnitToken
 
-对应 `SyntaxKind.GetAccessor` 的写法：
-
 ```txt
 class C { get a() { return 1; } }
 ```

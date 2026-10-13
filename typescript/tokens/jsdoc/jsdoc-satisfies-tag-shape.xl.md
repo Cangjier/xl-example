@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocSatisfiesTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocSatisfiesTag` 的写法：
-
 ```txt
 /** @satisfies {A} */
 function f() {}

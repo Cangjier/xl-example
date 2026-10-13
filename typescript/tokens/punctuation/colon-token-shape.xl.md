@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ColonTokenShape extends UnitToken
 
-对应 `SyntaxKind.ColonToken` 的写法：
-
 ```txt
 :
 ```

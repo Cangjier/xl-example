@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class PrivateIdentifierShape extends UnitToken
 
-对应 `SyntaxKind.PrivateIdentifier` 的写法：
-
 ```txt
 class C { #n = 1; }
 ```

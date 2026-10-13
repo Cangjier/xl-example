@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ExportAssignmentShape extends UnitToken
 
-对应 `SyntaxKind.ExportAssignment` 的写法：
-
 ```txt
 export default a;
 export default 1;

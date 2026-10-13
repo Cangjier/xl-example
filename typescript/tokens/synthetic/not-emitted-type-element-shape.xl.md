@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class NotEmittedTypeElementShape extends UnitToken
 
-对应 `SyntaxKind.NotEmittedTypeElement`（没有源码形态）：
-
 ```txt
 无源码形态：被擦除的类型成员，转换阶段才出现。
 ```

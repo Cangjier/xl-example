@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class AmpersandAmpersandEqualsTokenShape extends UnitToken
 
-对应 `SyntaxKind.AmpersandAmpersandEqualsToken` 的写法：
-
 ```txt
 &&=
 ```

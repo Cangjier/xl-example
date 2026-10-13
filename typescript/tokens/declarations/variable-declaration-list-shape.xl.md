@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class VariableDeclarationListShape extends UnitToken
 
-对应 `SyntaxKind.VariableDeclarationList` 的写法：
-
 ```txt
 let x = 1, y = 2;
 ```

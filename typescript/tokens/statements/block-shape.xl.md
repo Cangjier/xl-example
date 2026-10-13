@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class BlockShape extends UnitToken
 
-对应 `SyntaxKind.Block` 的写法：
-
 ```txt
 { }
 { let x = 1; }

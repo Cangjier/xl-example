@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ContinueStatementShape extends UnitToken
 
-对应 `SyntaxKind.ContinueStatement` 的写法：
-
 ```txt
 continue;
 continue lbl;

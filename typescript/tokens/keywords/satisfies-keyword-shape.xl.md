@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class SatisfiesKeywordShape extends UnitToken
 
-对应 `SyntaxKind.SatisfiesKeyword` 的写法：
-
 ```txt
 satisfies
 ```

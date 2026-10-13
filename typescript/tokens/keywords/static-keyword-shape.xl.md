@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class StaticKeywordShape extends UnitToken
 
-对应 `SyntaxKind.StaticKeyword` 的写法：
-
 ```txt
 static
 ```

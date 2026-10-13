@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocParameterTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocParameterTag` 的写法：
-
 ```txt
 /** @param a */
 function f() {}

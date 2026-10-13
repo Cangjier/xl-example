@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class IntrinsicKeywordShape extends UnitToken
 
-对应 `SyntaxKind.IntrinsicKeyword` 的写法：
-
 ```txt
 intrinsic
 ```

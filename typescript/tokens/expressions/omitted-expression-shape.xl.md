@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class OmittedExpressionShape extends UnitToken
 
-对应 `SyntaxKind.OmittedExpression` 的写法：
-
 ```txt
 let a = [, 1];
 ```

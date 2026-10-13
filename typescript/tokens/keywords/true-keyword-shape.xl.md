@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TrueKeywordShape extends UnitToken
 
-对应 `SyntaxKind.TrueKeyword` 的写法：
-
 ```txt
 true
 ```

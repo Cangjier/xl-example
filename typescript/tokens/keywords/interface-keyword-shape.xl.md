@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class InterfaceKeywordShape extends UnitToken
 
-对应 `SyntaxKind.InterfaceKeyword` 的写法：
-
 ```txt
 interface
 ```

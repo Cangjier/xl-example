@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TildeTokenShape extends UnitToken
 
-对应 `SyntaxKind.TildeToken` 的写法：
-
 ```txt
 ~
 ```

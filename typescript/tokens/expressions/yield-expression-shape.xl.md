@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class YieldExpressionShape extends UnitToken
 
-对应 `SyntaxKind.YieldExpression` 的写法：
-
 ```txt
 function* g() { yield 1; }
 ```

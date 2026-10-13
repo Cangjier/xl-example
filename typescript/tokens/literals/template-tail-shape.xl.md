@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TemplateTailShape extends UnitToken
 
-对应 `SyntaxKind.TemplateTail` 的写法：
-
 ```txt
 `a${b}`
 ```

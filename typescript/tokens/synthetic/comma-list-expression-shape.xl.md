@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class CommaListExpressionShape extends UnitToken
 
-对应 `SyntaxKind.CommaListExpression`（没有源码形态）：
-
 ```txt
 无源码形态：转换阶段把逗号表达式折成列表。
 ```

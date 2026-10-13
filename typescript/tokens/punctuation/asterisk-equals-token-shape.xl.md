@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class AsteriskEqualsTokenShape extends UnitToken
 
-对应 `SyntaxKind.AsteriskEqualsToken` 的写法：
-
 ```txt
 *=
 ```

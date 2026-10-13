@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class BreakStatementShape extends UnitToken
 
-对应 `SyntaxKind.BreakStatement` 的写法：
-
 ```txt
 break;
 break lbl;

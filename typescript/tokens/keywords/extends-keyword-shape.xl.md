@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ExtendsKeywordShape extends UnitToken
 
-对应 `SyntaxKind.ExtendsKeyword` 的写法：
-
 ```txt
 extends
 ```

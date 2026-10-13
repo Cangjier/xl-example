@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class CallSignatureShape extends UnitToken
 
-对应 `SyntaxKind.CallSignature` 的写法：
-
 ```txt
 interface I { (): void; }
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class PropertyAssignmentShape extends UnitToken
 
-对应 `SyntaxKind.PropertyAssignment` 的写法：
-
 ```txt
 let o = { a: 1 };
 ```

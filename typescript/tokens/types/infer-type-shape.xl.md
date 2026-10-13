@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class InferTypeShape extends UnitToken
 
-对应 `SyntaxKind.InferType` 的写法：
-
 ```txt
 type T<U> = U extends Array<infer V> ? V : never;
 ```

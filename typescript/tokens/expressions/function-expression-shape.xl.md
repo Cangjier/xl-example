@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FunctionExpressionShape extends UnitToken
 
-对应 `SyntaxKind.FunctionExpression` 的写法：
-
 ```txt
 let f = function () {};
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FunctionDeclarationShape extends UnitToken
 
-对应 `SyntaxKind.FunctionDeclaration` 的写法：
-
 ```txt
 function f() {}
 async function f() {}

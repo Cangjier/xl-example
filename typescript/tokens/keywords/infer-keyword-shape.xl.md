@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class InferKeywordShape extends UnitToken
 
-对应 `SyntaxKind.InferKeyword` 的写法：
-
 ```txt
 infer
 ```

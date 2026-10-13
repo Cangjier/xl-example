@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocThrowsTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocThrowsTag` 的写法：
-
 ```txt
 /** @throws {Error} */
 function f() {}

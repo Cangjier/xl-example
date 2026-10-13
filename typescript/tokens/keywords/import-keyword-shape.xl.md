@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ImportKeywordShape extends UnitToken
 
-对应 `SyntaxKind.ImportKeyword` 的写法：
-
 ```txt
 import
 ```

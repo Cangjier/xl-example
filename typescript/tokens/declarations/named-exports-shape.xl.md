@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class NamedExportsShape extends UnitToken
 
-对应 `SyntaxKind.NamedExports` 的写法：
-
 ```txt
 export { a };
 ```

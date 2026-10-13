@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class BarEqualsTokenShape extends UnitToken
 
-对应 `SyntaxKind.BarEqualsToken` 的写法：
-
 ```txt
 |=
 ```

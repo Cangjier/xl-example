@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocOverloadTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocOverloadTag` 的写法：
-
 ```txt
 /** @overload */
 function f() {}

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ElseKeywordShape extends UnitToken
 
-对应 `SyntaxKind.ElseKeyword` 的写法：
-
 ```txt
 else
 ```

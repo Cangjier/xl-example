@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ThisTypeShape extends UnitToken
 
-对应 `SyntaxKind.ThisType` 的写法：
-
 ```txt
 class C { m(): this { return this; } }
 ```

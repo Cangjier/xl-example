@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocUnknownTypeShape extends UnitToken
 
-对应 `SyntaxKind.JSDocUnknownType` 的写法：
-
 ```txt
 /** @type {?} */
 function f() {}

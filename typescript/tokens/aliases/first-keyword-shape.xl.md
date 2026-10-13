@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FirstKeywordShape extends UnitToken
 
-对应 `SyntaxKind.FirstKeyword`（`BreakKeyword` 的别名，同一个值）：
-
 ```txt
 ≡ BreakKeyword
 break

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class UnknownShape extends UnitToken
 
-对应 `SyntaxKind.Unknown`（没有源码形态）：
-
 ```txt
 扫描器哨兵：不是任何源码形态。
 ```

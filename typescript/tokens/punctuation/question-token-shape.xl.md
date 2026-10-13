@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class QuestionTokenShape extends UnitToken
 
-对应 `SyntaxKind.QuestionToken` 的写法：
-
 ```txt
 ?
 ```

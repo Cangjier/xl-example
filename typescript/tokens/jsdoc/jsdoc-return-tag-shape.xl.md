@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocReturnTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocReturnTag` 的写法：
-
 ```txt
 /** @returns {number} */
 function f() {}

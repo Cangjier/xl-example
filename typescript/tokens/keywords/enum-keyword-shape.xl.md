@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class EnumKeywordShape extends UnitToken
 
-对应 `SyntaxKind.EnumKeyword` 的写法：
-
 ```txt
 enum
 ```

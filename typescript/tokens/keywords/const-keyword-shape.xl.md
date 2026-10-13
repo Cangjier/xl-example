@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ConstKeywordShape extends UnitToken
 
-对应 `SyntaxKind.ConstKeyword` 的写法：
-
 ```txt
 const
 ```

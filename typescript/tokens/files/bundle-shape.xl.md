@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class BundleShape extends UnitToken
 
-对应 `SyntaxKind.Bundle`（没有源码形态）：
-
 ```txt
 无源码形态：多文件打包（Bundle）由 API 合成，源码里写不出来。
 ```

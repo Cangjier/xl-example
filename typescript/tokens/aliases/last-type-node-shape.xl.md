@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class LastTypeNodeShape extends UnitToken
 
-对应 `SyntaxKind.LastTypeNode`（`ImportType` 的别名，同一个值）：
-
 ```txt
 ≡ ImportType
 let x: import("m").A;

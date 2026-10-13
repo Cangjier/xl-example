@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ModuleBlockShape extends UnitToken
 
-对应 `SyntaxKind.ModuleBlock` 的写法：
-
 ```txt
 namespace N { let a = 1; }
 ```

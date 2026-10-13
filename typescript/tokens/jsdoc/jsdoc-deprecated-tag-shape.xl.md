@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocDeprecatedTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocDeprecatedTag` 的写法：
-
 ```txt
 /** @deprecated */
 function f() {}

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class DoKeywordShape extends UnitToken
 
-对应 `SyntaxKind.DoKeyword` 的写法：
-
 ```txt
 do
 ```

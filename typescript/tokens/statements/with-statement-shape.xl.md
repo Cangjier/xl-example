@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class WithStatementShape extends UnitToken
 
-对应 `SyntaxKind.WithStatement` 的写法：
-
 ```txt
 with (o) {}
 with (o) a;

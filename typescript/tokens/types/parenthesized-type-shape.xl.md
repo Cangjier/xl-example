@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ParenthesizedTypeShape extends UnitToken
 
-对应 `SyntaxKind.ParenthesizedType` 的写法：
-
 ```txt
 let x: (A);
 ```

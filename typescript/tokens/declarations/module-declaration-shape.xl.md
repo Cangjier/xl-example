@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ModuleDeclarationShape extends UnitToken
 
-对应 `SyntaxKind.ModuleDeclaration` 的写法：
-
 ```txt
 namespace N {}
 module M {}

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class IntersectionTypeShape extends UnitToken
 
-对应 `SyntaxKind.IntersectionType` 的写法：
-
 ```txt
 let x: A & B;
 ```

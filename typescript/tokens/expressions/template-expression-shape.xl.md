@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TemplateExpressionShape extends UnitToken
 
-对应 `SyntaxKind.TemplateExpression` 的写法：
-
 ```txt
 let s = `a${b}`;
 ```

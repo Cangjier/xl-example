@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class GlobalKeywordShape extends UnitToken
 
-对应 `SyntaxKind.GlobalKeyword` 的写法：
-
 ```txt
 global
 ```

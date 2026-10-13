@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ArrayLiteralExpressionShape extends UnitToken
 
-对应 `SyntaxKind.ArrayLiteralExpression` 的写法：
-
 ```txt
 let a = [1];
 ```

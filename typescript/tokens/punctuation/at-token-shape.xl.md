@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class AtTokenShape extends UnitToken
 
-对应 `SyntaxKind.AtToken` 的写法：
-
 ```txt
 @
 ```

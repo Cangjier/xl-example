@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ThrowKeywordShape extends UnitToken
 
-对应 `SyntaxKind.ThrowKeyword` 的写法：
-
 ```txt
 throw
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class InterfaceDeclarationShape extends UnitToken
 
-对应 `SyntaxKind.InterfaceDeclaration` 的写法：
-
 ```txt
 interface I {}
 interface I extends A, B {}

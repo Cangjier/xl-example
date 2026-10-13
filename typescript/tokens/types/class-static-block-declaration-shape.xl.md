@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ClassStaticBlockDeclarationShape extends UnitToken
 
-对应 `SyntaxKind.ClassStaticBlockDeclaration` 的写法：
-
 ```txt
 class C { static {} }
 ```

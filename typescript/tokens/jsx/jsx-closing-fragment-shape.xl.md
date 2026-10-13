@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JsxClosingFragmentShape extends UnitToken
 
-对应 `SyntaxKind.JsxClosingFragment` 的写法：
-
 ```txt
 <></>
 ```

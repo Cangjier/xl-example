@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FirstFutureReservedWordShape extends UnitToken
 
-对应 `SyntaxKind.FirstFutureReservedWord`（`ImplementsKeyword` 的别名，同一个值）：
-
 ```txt
 ≡ ImplementsKeyword
 implements

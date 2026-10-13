@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ReturnKeywordShape extends UnitToken
 
-对应 `SyntaxKind.ReturnKeyword` 的写法：
-
 ```txt
 return
 ```

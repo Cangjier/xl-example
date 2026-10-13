@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class UndefinedKeywordShape extends UnitToken
 
-对应 `SyntaxKind.UndefinedKeyword` 的写法：
-
 ```txt
 undefined
 ```

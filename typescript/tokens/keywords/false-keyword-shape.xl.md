@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FalseKeywordShape extends UnitToken
 
-对应 `SyntaxKind.FalseKeyword` 的写法：
-
 ```txt
 false
 ```

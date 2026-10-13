@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class DoStatementShape extends UnitToken
 
-对应 `SyntaxKind.DoStatement` 的写法：
-
 ```txt
 do {} while (a);
 do a; while (b);

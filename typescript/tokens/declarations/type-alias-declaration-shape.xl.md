@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TypeAliasDeclarationShape extends UnitToken
 
-对应 `SyntaxKind.TypeAliasDeclaration` 的写法：
-
 ```txt
 type T = number;
 type T<U> = U[];

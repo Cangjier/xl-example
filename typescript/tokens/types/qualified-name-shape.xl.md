@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class QualifiedNameShape extends UnitToken
 
-对应 `SyntaxKind.QualifiedName` 的写法：
-
 ```txt
 import x = A.B;
 ```

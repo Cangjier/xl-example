@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class PrivateKeywordShape extends UnitToken
 
-对应 `SyntaxKind.PrivateKeyword` 的写法：
-
 ```txt
 private
 ```

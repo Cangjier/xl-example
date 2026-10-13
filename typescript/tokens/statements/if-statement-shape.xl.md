@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class IfStatementShape extends UnitToken
 
-对应 `SyntaxKind.IfStatement` 的写法：
-
 ```txt
 if (a) {}
 if (a) b; else c;

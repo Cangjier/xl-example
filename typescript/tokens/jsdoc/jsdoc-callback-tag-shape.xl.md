@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocCallbackTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocCallbackTag` 的写法：
-
 ```txt
 /** @callback CB */
 function f() {}

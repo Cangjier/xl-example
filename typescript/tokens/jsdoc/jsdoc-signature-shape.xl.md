@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocSignatureShape extends UnitToken
 
-对应 `SyntaxKind.JSDocSignature` 的写法：
-
 ```txt
 /** @callback CB
  * @returns {number} */

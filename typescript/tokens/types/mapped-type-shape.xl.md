@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class MappedTypeShape extends UnitToken
 
-对应 `SyntaxKind.MappedType` 的写法：
-
 ```txt
 type T = { [K in keyof U]: U[K] };
 ```

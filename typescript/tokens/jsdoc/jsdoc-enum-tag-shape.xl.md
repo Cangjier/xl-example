@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocEnumTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocEnumTag` 的写法：
-
 ```txt
 /** @enum {number} */
 function f() {}

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class RegularExpressionLiteralShape extends UnitToken
 
-对应 `SyntaxKind.RegularExpressionLiteral` 的写法：
-
 ```txt
 /re/g
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class IsKeywordShape extends UnitToken
 
-对应 `SyntaxKind.IsKeyword` 的写法：
-
 ```txt
 is
 ```

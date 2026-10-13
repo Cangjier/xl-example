@@ -40,8 +40,6 @@ import { WithStatementPossibleShape } from "../statements/with-statement-possibl
 
 # class SourceFileShape extends UnitToken
 
-整份源码的顶点，对应 `SyntaxKind.SourceFile`：
-
 ```txt
 （空文件）
 import a from "m";

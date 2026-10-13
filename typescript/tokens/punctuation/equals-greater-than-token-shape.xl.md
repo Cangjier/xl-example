@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class EqualsGreaterThanTokenShape extends UnitToken
 
-对应 `SyntaxKind.EqualsGreaterThanToken` 的写法：
-
 ```txt
 =>
 ```

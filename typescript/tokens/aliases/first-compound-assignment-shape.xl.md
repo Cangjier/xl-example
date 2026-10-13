@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FirstCompoundAssignmentShape extends UnitToken
 
-对应 `SyntaxKind.FirstCompoundAssignment`（`PlusEqualsToken` 的别名，同一个值）：
-
 ```txt
 ≡ PlusEqualsToken
 +=

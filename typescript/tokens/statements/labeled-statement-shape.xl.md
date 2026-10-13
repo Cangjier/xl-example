@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class LabeledStatementShape extends UnitToken
 
-对应 `SyntaxKind.LabeledStatement` 的写法：
-
 ```txt
 lbl: ;
 lbl: while (a) break lbl;

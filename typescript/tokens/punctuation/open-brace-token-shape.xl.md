@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class OpenBraceTokenShape extends UnitToken
 
-对应 `SyntaxKind.OpenBraceToken` 的写法：
-
 ```txt
 {
 ```

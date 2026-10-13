@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ElementAccessExpressionShape extends UnitToken
 
-对应 `SyntaxKind.ElementAccessExpression` 的写法：
-
 ```txt
 a[0];
 ```

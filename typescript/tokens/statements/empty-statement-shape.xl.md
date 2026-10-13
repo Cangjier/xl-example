@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class EmptyStatementShape extends UnitToken
 
-对应 `SyntaxKind.EmptyStatement` 的写法：
-
 ```txt
 ;
 ```

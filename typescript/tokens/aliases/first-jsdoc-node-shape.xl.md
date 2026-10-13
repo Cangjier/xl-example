@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FirstJSDocNodeShape extends UnitToken
 
-对应 `SyntaxKind.FirstJSDocNode`（`JSDocTypeExpression` 的别名，同一个值）：
-
 ```txt
 ≡ JSDocTypeExpression
 /** @type {number} */

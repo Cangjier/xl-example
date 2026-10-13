@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class SwitchStatementShape extends UnitToken
 
-对应 `SyntaxKind.SwitchStatement` 的写法：
-
 ```txt
 switch (a) {}
 switch (a) { case 1: break; default: break; }

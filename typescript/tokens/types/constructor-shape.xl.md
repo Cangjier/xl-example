@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ConstructorShape extends UnitToken
 
-对应 `SyntaxKind.Constructor` 的写法：
-
 ```txt
 class C { constructor() {} }
 ```

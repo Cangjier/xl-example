@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class AwaitKeywordShape extends UnitToken
 
-对应 `SyntaxKind.AwaitKeyword` 的写法：
-
 ```txt
 await
 ```

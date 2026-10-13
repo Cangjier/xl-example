@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TypeLiteralShape extends UnitToken
 
-对应 `SyntaxKind.TypeLiteral` 的写法：
-
 ```txt
 let x: { a: number };
 ```

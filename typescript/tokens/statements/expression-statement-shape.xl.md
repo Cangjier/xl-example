@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ExpressionStatementShape extends UnitToken
 
-对应 `SyntaxKind.ExpressionStatement` 的写法：
-
 ```txt
 a = 1;
 f();

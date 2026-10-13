@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class MissingDeclarationShape extends UnitToken
 
-对应 `SyntaxKind.MissingDeclaration`（没有源码形态）：
-
 ```txt
 无源码形态：解析出错恢复时的占位声明（`declare` 后面什么都没有那种坏输入）。
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JsxAttributesShape extends UnitToken
 
-对应 `SyntaxKind.JsxAttributes` 的写法：
-
 ```txt
 <a b={1} />
 ```

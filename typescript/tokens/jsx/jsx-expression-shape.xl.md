@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JsxExpressionShape extends UnitToken
 
-对应 `SyntaxKind.JsxExpression` 的写法：
-
 ```txt
 <a>{b}</a>
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class LastAssignmentShape extends UnitToken
 
-对应 `SyntaxKind.LastAssignment`（`CaretEqualsToken` 的别名，同一个值）：
-
 ```txt
 ≡ CaretEqualsToken
 ^=

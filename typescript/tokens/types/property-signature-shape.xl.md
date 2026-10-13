@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class PropertySignatureShape extends UnitToken
 
-对应 `SyntaxKind.PropertySignature` 的写法：
-
 ```txt
 interface I { a: number; }
 ```

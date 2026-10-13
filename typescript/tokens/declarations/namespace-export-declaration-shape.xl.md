@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class NamespaceExportDeclarationShape extends UnitToken
 
-对应 `SyntaxKind.NamespaceExportDeclaration` 的写法：
-
 ```txt
 export as namespace NS;
 ```

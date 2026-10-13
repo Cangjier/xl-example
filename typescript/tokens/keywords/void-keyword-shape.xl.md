@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class VoidKeywordShape extends UnitToken
 
-对应 `SyntaxKind.VoidKeyword` 的写法：
-
 ```txt
 void
 ```

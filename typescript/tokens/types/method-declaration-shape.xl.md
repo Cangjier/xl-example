@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class MethodDeclarationShape extends UnitToken
 
-对应 `SyntaxKind.MethodDeclaration` 的写法：
-
 ```txt
 class C { m() {} }
 ```

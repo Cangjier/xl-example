@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class PercentEqualsTokenShape extends UnitToken
 
-对应 `SyntaxKind.PercentEqualsToken` 的写法：
-
 ```txt
 %=
 ```

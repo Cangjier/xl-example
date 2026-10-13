@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class IndexedAccessTypeShape extends UnitToken
 
-对应 `SyntaxKind.IndexedAccessType` 的写法：
-
 ```txt
 let x: A["k"];
 ```

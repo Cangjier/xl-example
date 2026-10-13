@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class DeleteKeywordShape extends UnitToken
 
-对应 `SyntaxKind.DeleteKeyword` 的写法：
-
 ```txt
 delete
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ArrayTypeShape extends UnitToken
 
-对应 `SyntaxKind.ArrayType` 的写法：
-
 ```txt
 let x: A[];
 ```

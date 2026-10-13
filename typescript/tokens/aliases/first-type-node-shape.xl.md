@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FirstTypeNodeShape extends UnitToken
 
-对应 `SyntaxKind.FirstTypeNode`（`TypePredicate` 的别名，同一个值）：
-
 ```txt
 ≡ TypePredicate
 function f(x): x is T { return true; }

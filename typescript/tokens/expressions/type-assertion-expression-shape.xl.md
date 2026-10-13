@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TypeAssertionExpressionShape extends UnitToken
 
-对应 `SyntaxKind.TypeAssertionExpression` 的写法：
-
 ```txt
 let a = <T>x;
 ```

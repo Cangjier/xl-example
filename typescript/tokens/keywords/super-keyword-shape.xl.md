@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class SuperKeywordShape extends UnitToken
 
-对应 `SyntaxKind.SuperKeyword` 的写法：
-
 ```txt
 super
 ```

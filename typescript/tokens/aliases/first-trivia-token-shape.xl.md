@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FirstTriviaTokenShape extends UnitToken
 
-对应 `SyntaxKind.FirstTriviaToken`（`SingleLineCommentTrivia` 的别名，同一个值）：
-
 ```txt
 ≡ SingleLineCommentTrivia
 // c

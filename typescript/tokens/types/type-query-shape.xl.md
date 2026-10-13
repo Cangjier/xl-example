@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TypeQueryShape extends UnitToken
 
-对应 `SyntaxKind.TypeQuery` 的写法：
-
 ```txt
 let x: typeof y;
 ```

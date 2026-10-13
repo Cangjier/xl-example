@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class NonNullExpressionShape extends UnitToken
 
-对应 `SyntaxKind.NonNullExpression` 的写法：
-
 ```txt
 a!;
 ```

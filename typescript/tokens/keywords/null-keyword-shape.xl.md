@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class NullKeywordShape extends UnitToken
 
-对应 `SyntaxKind.NullKeyword` 的写法：
-
 ```txt
 null
 ```

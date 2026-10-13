@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocLinkPlainShape extends UnitToken
 
-对应 `SyntaxKind.JSDocLinkPlain` 的写法：
-
 ```txt
 /** {@linkplain A} */
 function f() {}

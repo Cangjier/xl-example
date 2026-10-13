@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class OpenParenTokenShape extends UnitToken
 
-对应 `SyntaxKind.OpenParenToken` 的写法：
-
 ```txt
 (
 ```

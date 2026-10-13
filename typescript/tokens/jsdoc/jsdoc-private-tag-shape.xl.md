@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocPrivateTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocPrivateTag` 的写法：
-
 ```txt
 /** @private */
 function f() {}

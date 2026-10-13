@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class WhileStatementShape extends UnitToken
 
-对应 `SyntaxKind.WhileStatement` 的写法：
-
 ```txt
 while (a) {}
 while (a) b;

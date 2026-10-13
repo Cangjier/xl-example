@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class UnknownKeywordShape extends UnitToken
 
-对应 `SyntaxKind.UnknownKeyword` 的写法：
-
 ```txt
 unknown
 ```

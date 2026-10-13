@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class DefaultKeywordShape extends UnitToken
 
-对应 `SyntaxKind.DefaultKeyword` 的写法：
-
 ```txt
 default
 ```

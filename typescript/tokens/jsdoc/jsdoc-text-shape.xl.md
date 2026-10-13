@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocTextShape extends UnitToken
 
-对应 `SyntaxKind.JSDocText` 的写法：
-
 ```txt
 /** a {@link b} c */
 function f() {}

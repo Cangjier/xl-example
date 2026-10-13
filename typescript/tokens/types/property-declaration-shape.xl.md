@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class PropertyDeclarationShape extends UnitToken
 
-对应 `SyntaxKind.PropertyDeclaration` 的写法：
-
 ```txt
 class C { a = 1; }
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class CaretTokenShape extends UnitToken
 
-对应 `SyntaxKind.CaretToken` 的写法：
-
 ```txt
 ^
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TypeParameterShape extends UnitToken
 
-对应 `SyntaxKind.TypeParameter` 的写法：
-
 ```txt
 function f<T>() {}
 ```

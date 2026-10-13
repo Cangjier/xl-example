@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class AssertKeywordShape extends UnitToken
 
-对应 `SyntaxKind.AssertKeyword` 的写法：
-
 ```txt
 assert
 ```

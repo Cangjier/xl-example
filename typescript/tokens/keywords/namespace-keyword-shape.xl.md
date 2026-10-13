@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class NamespaceKeywordShape extends UnitToken
 
-对应 `SyntaxKind.NamespaceKeyword` 的写法：
-
 ```txt
 namespace
 ```

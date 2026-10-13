@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JsxFragmentShape extends UnitToken
 
-对应 `SyntaxKind.JsxFragment` 的写法：
-
 ```txt
 <></>
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class BigIntLiteralShape extends UnitToken
 
-对应 `SyntaxKind.BigIntLiteral` 的写法：
-
 ```txt
 1n
 ```

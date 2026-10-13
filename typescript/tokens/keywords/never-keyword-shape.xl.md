@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class NeverKeywordShape extends UnitToken
 
-对应 `SyntaxKind.NeverKeyword` 的写法：
-
 ```txt
 never
 ```

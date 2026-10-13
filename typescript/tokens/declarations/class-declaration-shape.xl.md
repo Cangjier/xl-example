@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ClassDeclarationShape extends UnitToken
 
-对应 `SyntaxKind.ClassDeclaration` 的写法：
-
 ```txt
 class C {}
 abstract class C {}

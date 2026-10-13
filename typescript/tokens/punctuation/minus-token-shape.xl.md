@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class MinusTokenShape extends UnitToken
 
-对应 `SyntaxKind.MinusToken` 的写法：
-
 ```txt
 -
 ```

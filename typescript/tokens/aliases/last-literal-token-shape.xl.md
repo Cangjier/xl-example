@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class LastLiteralTokenShape extends UnitToken
 
-对应 `SyntaxKind.LastLiteralToken`（`NoSubstitutionTemplateLiteral` 的别名，同一个值）：
-
 ```txt
 ≡ NoSubstitutionTemplateLiteral
 `t`

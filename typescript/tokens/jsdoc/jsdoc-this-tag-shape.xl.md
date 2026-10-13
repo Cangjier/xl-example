@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocThisTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocThisTag` 的写法：
-
 ```txt
 /** @this A */
 function f() {}

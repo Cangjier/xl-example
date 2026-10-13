@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TryStatementShape extends UnitToken
 
-对应 `SyntaxKind.TryStatement` 的写法：
-
 ```txt
 try {} catch {}
 try {} finally {}

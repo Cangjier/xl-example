@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class SpreadAssignmentShape extends UnitToken
 
-对应 `SyntaxKind.SpreadAssignment` 的写法：
-
 ```txt
 let o = { ...p };
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class BooleanKeywordShape extends UnitToken
 
-对应 `SyntaxKind.BooleanKeyword` 的写法：
-
 ```txt
 boolean
 ```

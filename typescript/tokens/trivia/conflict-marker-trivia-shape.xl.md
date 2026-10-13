@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ConflictMarkerTriviaShape extends UnitToken
 
-对应 `SyntaxKind.ConflictMarkerTrivia` 的写法：
-
 ```txt
 <<<<<<< HEAD
 ```

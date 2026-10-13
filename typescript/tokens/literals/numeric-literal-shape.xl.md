@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class NumericLiteralShape extends UnitToken
 
-对应 `SyntaxKind.NumericLiteral` 的写法：
-
 ```txt
 1
 ```

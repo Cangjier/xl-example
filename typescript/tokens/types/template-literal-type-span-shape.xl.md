@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TemplateLiteralTypeSpanShape extends UnitToken
 
-对应 `SyntaxKind.TemplateLiteralTypeSpan` 的写法：
-
 ```txt
 type T = `a${B}c`;
 ```

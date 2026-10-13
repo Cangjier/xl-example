@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocMemberNameShape extends UnitToken
 
-对应 `SyntaxKind.JSDocMemberName` 的写法：
-
 ```txt
 /** @see A#b */
 function f() {}

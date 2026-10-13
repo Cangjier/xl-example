@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocCommentShape extends UnitToken
 
-对应 `SyntaxKind.JSDocComment`（`JSDoc` 的别名，同一个值）：
-
 ```txt
 ≡ JSDoc
 /** doc */

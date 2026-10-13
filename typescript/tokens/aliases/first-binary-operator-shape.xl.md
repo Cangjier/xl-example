@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FirstBinaryOperatorShape extends UnitToken
 
-对应 `SyntaxKind.FirstBinaryOperator`（`LessThanToken` 的别名，同一个值）：
-
 ```txt
 ≡ LessThanToken
 <

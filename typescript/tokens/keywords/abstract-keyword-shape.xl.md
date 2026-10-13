@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class AbstractKeywordShape extends UnitToken
 
-对应 `SyntaxKind.AbstractKeyword` 的写法：
-
 ```txt
 abstract
 ```

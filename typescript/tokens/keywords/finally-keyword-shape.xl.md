@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class FinallyKeywordShape extends UnitToken
 
-对应 `SyntaxKind.FinallyKeyword` 的写法：
-
 ```txt
 finally
 ```

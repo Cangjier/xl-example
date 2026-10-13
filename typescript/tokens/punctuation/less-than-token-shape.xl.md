@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class LessThanTokenShape extends UnitToken
 
-对应 `SyntaxKind.LessThanToken` 的写法：
-
 ```txt
 <
 ```

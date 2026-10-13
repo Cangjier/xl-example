@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ForInStatementShape extends UnitToken
 
-对应 `SyntaxKind.ForInStatement` 的写法：
-
 ```txt
 for (const k in o) {}
 for (k in o) {}

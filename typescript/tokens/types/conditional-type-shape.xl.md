@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ConditionalTypeShape extends UnitToken
 
-对应 `SyntaxKind.ConditionalType` 的写法：
-
 ```txt
 type T<U> = U extends A ? B : C;
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class DebuggerStatementShape extends UnitToken
 
-对应 `SyntaxKind.DebuggerStatement` 的写法：
-
 ```txt
 debugger;
 ```

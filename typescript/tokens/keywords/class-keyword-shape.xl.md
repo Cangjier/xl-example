@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ClassKeywordShape extends UnitToken
 
-对应 `SyntaxKind.ClassKeyword` 的写法：
-
 ```txt
 class
 ```

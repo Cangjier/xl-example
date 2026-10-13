@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class PackageKeywordShape extends UnitToken
 
-对应 `SyntaxKind.PackageKeyword` 的写法：
-
 ```txt
 package
 ```

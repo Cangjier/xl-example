@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class AsyncKeywordShape extends UnitToken
 
-对应 `SyntaxKind.AsyncKeyword` 的写法：
-
 ```txt
 async
 ```

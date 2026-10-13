@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ConstructSignatureShape extends UnitToken
 
-对应 `SyntaxKind.ConstructSignature` 的写法：
-
 ```txt
 interface I { new (): C; }
 ```

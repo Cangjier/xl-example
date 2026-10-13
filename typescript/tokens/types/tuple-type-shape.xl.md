@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TupleTypeShape extends UnitToken
 
-对应 `SyntaxKind.TupleType` 的写法：
-
 ```txt
 let x: [A, B];
 ```

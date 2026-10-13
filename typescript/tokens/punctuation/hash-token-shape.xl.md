@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class HashTokenShape extends UnitToken
 
-对应 `SyntaxKind.HashToken`（没有源码形态）：
-
 ```txt
 TS 6 的扫描器不产出：`#` 一律按 PrivateIdentifier 扫（后面不是标识符字符也一样）。
 ```

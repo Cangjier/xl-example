@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TypeOperatorShape extends UnitToken
 
-对应 `SyntaxKind.TypeOperator` 的写法：
-
 ```txt
 let x: keyof A;
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ObjectBindingPatternShape extends UnitToken
 
-对应 `SyntaxKind.ObjectBindingPattern` 的写法：
-
 ```txt
 const { a } = o;
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class WhitespaceTriviaShape extends UnitToken
 
-对应 `SyntaxKind.WhitespaceTrivia` 的写法：
-
 ```txt
 const a = 1;
 // ↑ 词与词之间的空格

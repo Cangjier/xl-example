@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocTypeExpressionShape extends UnitToken
 
-对应 `SyntaxKind.JSDocTypeExpression` 的写法：
-
 ```txt
 /** @type {number} */
 function f() {}

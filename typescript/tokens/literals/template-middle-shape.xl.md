@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TemplateMiddleShape extends UnitToken
 
-对应 `SyntaxKind.TemplateMiddle` 的写法：
-
 ```txt
 `a${b}c${d}`
 ```

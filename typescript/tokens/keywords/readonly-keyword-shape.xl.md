@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ReadonlyKeywordShape extends UnitToken
 
-对应 `SyntaxKind.ReadonlyKeyword` 的写法：
-
 ```txt
 readonly
 ```

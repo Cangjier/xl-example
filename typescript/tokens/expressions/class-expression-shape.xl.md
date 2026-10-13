@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ClassExpressionShape extends UnitToken
 
-对应 `SyntaxKind.ClassExpression` 的写法：
-
 ```txt
 let c = class {};
 ```

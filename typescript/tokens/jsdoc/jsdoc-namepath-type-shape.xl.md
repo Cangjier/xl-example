@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocNamepathTypeShape extends UnitToken
 
-对应 `SyntaxKind.JSDocNamepathType` 的写法：
-
 ```txt
 /** @type {module:a/b.C} */
 function f() {}

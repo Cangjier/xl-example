@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TypeOfExpressionShape extends UnitToken
 
-对应 `SyntaxKind.TypeOfExpression` 的写法：
-
 ```txt
 typeof a;
 ```

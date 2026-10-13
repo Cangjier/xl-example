@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class CatchClauseShape extends UnitToken
 
-对应 `SyntaxKind.CatchClause` 的写法：
-
 ```txt
 try {} catch {}
 ```

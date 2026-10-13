@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class LastStatementShape extends UnitToken
 
-对应 `SyntaxKind.LastStatement`（`DebuggerStatement` 的别名，同一个值）：
-
 ```txt
 ≡ DebuggerStatement
 debugger;

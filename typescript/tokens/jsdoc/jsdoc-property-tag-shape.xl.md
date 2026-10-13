@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocPropertyTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocPropertyTag` 的写法：
-
 ```txt
 /** @typedef {Object} T
  * @property {number} a */

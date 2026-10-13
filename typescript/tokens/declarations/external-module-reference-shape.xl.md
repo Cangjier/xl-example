@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ExternalModuleReferenceShape extends UnitToken
 
-对应 `SyntaxKind.ExternalModuleReference` 的写法：
-
 ```txt
 import x = require("m");
 ```

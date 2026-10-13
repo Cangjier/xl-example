@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class CallExpressionShape extends UnitToken
 
-对应 `SyntaxKind.CallExpression` 的写法：
-
 ```txt
 f();
 ```

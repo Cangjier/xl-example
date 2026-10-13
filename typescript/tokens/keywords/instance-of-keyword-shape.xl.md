@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class InstanceOfKeywordShape extends UnitToken
 
-对应 `SyntaxKind.InstanceOfKeyword` 的写法：
-
 ```txt
 instanceof
 ```

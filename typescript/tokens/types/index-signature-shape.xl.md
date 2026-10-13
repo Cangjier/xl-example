@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class IndexSignatureShape extends UnitToken
 
-对应 `SyntaxKind.IndexSignature` 的写法：
-
 ```txt
 interface I { [k: string]: number; }
 ```

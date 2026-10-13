@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class SatisfiesExpressionShape extends UnitToken
 
-对应 `SyntaxKind.SatisfiesExpression` 的写法：
-
 ```txt
 let a = x satisfies T;
 ```

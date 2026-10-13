@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JsxOpeningElementShape extends UnitToken
 
-对应 `SyntaxKind.JsxOpeningElement` 的写法：
-
 ```txt
 <a></a>
 ```

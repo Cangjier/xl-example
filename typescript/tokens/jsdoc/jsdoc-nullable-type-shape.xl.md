@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocNullableTypeShape extends UnitToken
 
-对应 `SyntaxKind.JSDocNullableType` 的写法：
-
 ```txt
 /** @type {?number} */
 function f() {}

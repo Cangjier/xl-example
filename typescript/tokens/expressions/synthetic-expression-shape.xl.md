@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class SyntheticExpressionShape extends UnitToken
 
-对应 `SyntaxKind.SyntheticExpression`（没有源码形态）：
-
 ```txt
 无源码形态：转换阶段合成的表达式节点，源码里写不出来。
 ```

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TaggedTemplateExpressionShape extends UnitToken
 
-对应 `SyntaxKind.TaggedTemplateExpression` 的写法：
-
 ```txt
 tag`t`;
 ```

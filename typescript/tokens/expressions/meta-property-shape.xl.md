@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class MetaPropertyShape extends UnitToken
 
-对应 `SyntaxKind.MetaProperty` 的写法：
-
 ```txt
 new.target;
 ```

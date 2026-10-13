@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ShebangTriviaShape extends UnitToken
 
-对应 `SyntaxKind.ShebangTrivia` 的写法：
-
 ```txt
 #!/usr/bin/env node
 ```

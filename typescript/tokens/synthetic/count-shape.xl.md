@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class CountShape extends UnitToken
 
-对应 `SyntaxKind.Count`（没有源码形态）：
-
 ```txt
 哨兵：`SyntaxKind` 的成员个数，不是节点。
 ```

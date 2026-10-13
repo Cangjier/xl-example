@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class LastTokenShape extends UnitToken
 
-对应 `SyntaxKind.LastToken`（`DeferKeyword` 的别名，同一个值）：
-
 ```txt
 ≡ DeferKeyword
 defer

@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ExpressionWithTypeArgumentsShape extends UnitToken
 
-对应 `SyntaxKind.ExpressionWithTypeArguments` 的写法：
-
 ```txt
 class C extends B<D> {}
 ```

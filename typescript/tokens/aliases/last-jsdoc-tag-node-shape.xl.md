@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class LastJSDocTagNodeShape extends UnitToken
 
-对应 `SyntaxKind.LastJSDocTagNode`（`JSDocImportTag` 的别名，同一个值）：
-
 ```txt
 ≡ JSDocImportTag
 /** @import { A } from "m" */

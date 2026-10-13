@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class TypePredicateShape extends UnitToken
 
-对应 `SyntaxKind.TypePredicate` 的写法：
-
 ```txt
 function f(x): x is T { return true; }
 ```

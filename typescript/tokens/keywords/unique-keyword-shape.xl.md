@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class UniqueKeywordShape extends UnitToken
 
-对应 `SyntaxKind.UniqueKeyword` 的写法：
-
 ```txt
 unique
 ```

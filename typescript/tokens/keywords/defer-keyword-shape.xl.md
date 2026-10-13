@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class DeferKeywordShape extends UnitToken
 
-对应 `SyntaxKind.DeferKeyword` 的写法：
-
 ```txt
 defer
 ```

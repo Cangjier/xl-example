@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class JSDocReadonlyTagShape extends UnitToken
 
-对应 `SyntaxKind.JSDocReadonlyTag` 的写法：
-
 ```txt
 /** @readonly */
 function f() {}

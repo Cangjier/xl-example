@@ -8,8 +8,6 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class ThrowStatementShape extends UnitToken
 
-对应 `SyntaxKind.ThrowStatement` 的写法：
-
 ```txt
 throw a;
 throw new Error("x");
