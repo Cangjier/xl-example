@@ -62,8 +62,7 @@ for (let index = 0; index < this.PossibleShapes.length; index++) {
   }
 }
 if (this.PossibleShapes.length === 1) {
-  const built = this.PossibleShapes[0].Build(host, this);
-  this.PossibleShapes[0].BuildShapes(this, built);
+  this.PossibleShapes[0].Build(host, this);
   return;
 }
 if (this.PossibleShapes.length === 0) {
@@ -73,13 +72,15 @@ if (this.PossibleShapes.length === 0) {
 
 ## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int)=>void
 
-按**一个下标**重算候选：只看宿主 `Data[tokenIndex]` 那一个子单元，其余与 `ComputePossibleShapes` 完全同款。
+按**一个下标**重算候选：判定范围是宿主 `Data[0..tokenIndex]`——**到这个下标为止**那一段（含该下标），其余与 `ComputePossibleShapes` 完全同款。
 
-**为什么要它（`BuildShapes` 的规则记在这里）**：形状建好之后，若它的子树里存在一个 `Bracket`，而那个 `Bracket` 的 `Data` **全是 basic token**，就说明括号里的内容还没成形——此时需要 `BuildShapes`：`PossibleShape` 为那个 `Bracket` 新建一个 `CatalogGuide`，**以那个 `Bracket` 自己作宿主**遍历它的 `Data`，对每个下标调用的就是本方法。
+判定本身交给 `PossibleShape.ComputeByIndex`：传进去的是宿主 `Data` **整个数组加一个下标**，由形状自己取前缀、自己决定还要看什么（`Compute` 那侧收到的是全部子单元，那是 `ComputePossibleShapes` 的事）。它是抽象方法、基类没有默认实现——每个形状都得自己写。
 
-也就是说本方法是「逐个喂子单元」那一侧的入口，`BuildShapes` 只负责找出该被继续成形的括号。
+**为什么要它**：`ComputePossibleShapes` 一次看全部子单元，本方法是它的**逐个喂**版本——调用方按下标递增地喂，判定范围随下标推进。
 
-下标越界直接返回（调用方可能按旧长度遍历）。
+也就是说本方法是「逐个喂子单元」那一侧的入口：只剩一个候选时交给 `PossibleShape.BuildByIndex`——它比 `Build` 多拿一个下标，知道这次建的是第几个位置上的那一批。
+
+下标越界直接返回（调用方可能按旧长度遍历）：越界时那个窗口里还缺单元，判定没有意义；更不能据此把候选摘掉，或者刚好只剩一个就在一个不存在的位置上建形状。
 
 ```ts
 const token = host.Data[tokenIndex];
@@ -88,14 +89,13 @@ if (token === undefined) {
 }
 for (let index = 0; index < this.PossibleShapes.length; index++) {
   const item = this.PossibleShapes[index];
-  if (item.Compute([token], this.PossibleShapesComputeCache) === ShapeStates.Reject) {
+  if (item.ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache) === ShapeStates.Reject) {
     this.PossibleShapes.splice(index, 1);
     index--;
   }
 }
 if (this.PossibleShapes.length === 1) {
-  const built = this.PossibleShapes[0].Build(host, this);
-  this.PossibleShapes[0].BuildShapes(this, built);
+  this.PossibleShapes[0].BuildByIndex(host, tokenIndex, this);
   return;
 }
 if (this.PossibleShapes.length === 0) {

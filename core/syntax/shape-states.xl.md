@@ -6,7 +6,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 # enum ShapeStates
 
-`PossibleShape.Compute` 的返回值。
+`PossibleShape.Compute` 与 `PossibleShape.ComputeByIndex` 的返回值。
 
 - case Reject
 拒绝：已经攒下的单元不可能构成这个形状，本候选出局。

@@ -176,7 +176,6 @@ node samples/check.mjs --update # 用当前产物重写夹具
 **宿主单元**（`UnitToken` 子类）攒 basic 单元；basic token 关闭时逐层上溯，找**实现了 `IComputePossibleShapes`
 且 `CatalogGuide` 非空**的宿主（普通单元默认 `null`，上溯会穿过它们），由宿主转交向导、逐个淘汰候选，
 **当且仅当只剩一个候选**就建成形状、顶替宿主；一个候选都不剩、或跳转队列接不了的字符，都当场报错。
-形状建好之后 `PossibleShape.BuildShapes` 还会检查「`Data` 全是 basic token 的 `Bracket`」，给它们补上形状。
 
 `CatalogGuide` **不继承任何东西**、不进 token 树：子单元与字符处理都归宿主，向导只在判定时被传入宿主
 （`ComputePossibleShapes(host)`）。
