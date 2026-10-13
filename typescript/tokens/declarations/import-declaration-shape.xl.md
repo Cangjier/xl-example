@@ -4,12 +4,12 @@ import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 ```
 
 # namespace cangjie
 
-# class ImportDeclarationShape extends UnitToken
+# class ImportDeclarationShape extends ShapeToken
 
 ```txt
 import a from "m";
@@ -25,7 +25,6 @@ import a from "m" with { type: "json" };
 
 ```ts
 super(template);
-this.ProcessQueue = Template.BasicBranchQueue();
 ```
 
 ## protected method Close:()=>void

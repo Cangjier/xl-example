@@ -2,7 +2,7 @@
 ```xl
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
 import { BreakStatementPossibleShape } from "../statements/break-statement-possible-shape.xl.md"
@@ -38,7 +38,7 @@ import { WithStatementPossibleShape } from "../statements/with-statement-possibl
 
 # namespace cangjie
 
-# class SourceFileShape extends UnitToken
+# class SourceFileShape extends ShapeToken
 
 ```txt
 （空文件）
@@ -50,7 +50,6 @@ const x = 1;
 
 ```ts
 super(template);
-this.ProcessQueue = Template.BasicBranchQueue();
 this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes());
 ```
 

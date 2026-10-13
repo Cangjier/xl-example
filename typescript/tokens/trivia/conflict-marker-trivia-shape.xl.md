@@ -1,12 +1,12 @@
 # dependencies
 ```xl
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 ```
 
 # namespace cangjie
 
-# class ConflictMarkerTriviaShape extends UnitToken
+# class ConflictMarkerTriviaShape extends ShapeToken
 
 ```txt
 <<<<<<< HEAD

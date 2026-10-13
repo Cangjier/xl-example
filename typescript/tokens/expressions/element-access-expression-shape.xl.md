@@ -1,12 +1,12 @@
 # dependencies
 ```xl
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 ```
 
 # namespace cangjie
 
-# class ElementAccessExpressionShape extends UnitToken
+# class ElementAccessExpressionShape extends ShapeToken
 
 ```txt
 a[0];
