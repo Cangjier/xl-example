@@ -1,0 +1,21 @@
+# dependencies
+```xl
+import { Template } from "../../../core/syntax/templates/template.xl.md"
+import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+```
+
+# namespace cangjie
+
+# class MetaPropertyShape extends UnitToken
+
+对应 `SyntaxKind.MetaProperty` 的写法：
+
+```txt
+new.target;
+```
+
+## constructor:(template:Template)=>void
+
+```ts
+super(template);
+```
