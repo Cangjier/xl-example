@@ -172,21 +172,6 @@ node samples/check.mjs --update # 用当前产物重写夹具
 [samples/diag.mjs](samples/diag.mjs) 打印完整的诊断链：`cjcli` 只打最外层 `SyntaxException` 的位置，
 真正的原因在内层异常里（`Token.Process` 会把任何异常包一层，可能包好几层）。
 
-[samples/catalog.mjs](samples/catalog.mjs)：`CatalogGuide` / `PossibleShape` 的端到端演示——
-**宿主单元**（`UnitToken` 子类）攒 basic 单元；basic token 关闭时逐层上溯，找**实现了 `IComputePossibleShapes`
-且 `CatalogGuide` 非空**的宿主（普通单元默认 `null`，上溯会穿过它们），由宿主转交向导、逐个淘汰候选，
-**当且仅当只剩一个候选**就建成形状、顶替宿主；一个候选都不剩、或跳转队列接不了的字符，都当场报错。
-
-`CatalogGuide` **不继承任何东西**、不进 token 树：子单元与字符处理都归宿主，向导只在判定时被传入宿主
-（`ComputePossibleShapes(host)`）。
-
-> ⚠️ 这个样本当前**跑不起来**：它 import 的 `dawn/`（`ParsePipeline` / `Root` / `TextDocument`）已随旧语言层删除，
-> 要跑得先给新架构接一个根单元。
-
-```bash
-npm run catalog
-```
-
 ## 为什么留了一个 `bin/cjcli.js`
 
 整条链路上 xl 表达不了的只有 **shebang** 一行：
