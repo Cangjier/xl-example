@@ -51,7 +51,7 @@ if (at >= 0) {
     unit.SignOut(last.SourceRange.End);
   }
 }
-unit.TryToClose();
+unit.TryToClose(context);
 unit.Quit();
 return host;
 ```

@@ -63,12 +63,12 @@ this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes());
 this.Closed = true;
 for (const item of this.Data.slice()) {
   if (!item.Closed) {
-    item.TryToClose();
+    item.TryToClose(context);
   }
 }
 for (const item of this.Data) {
   if (!item.Closed) {
-    item.TryToClose();
+    item.TryToClose(context);
   }
 }
 for (const item of this.Data) {

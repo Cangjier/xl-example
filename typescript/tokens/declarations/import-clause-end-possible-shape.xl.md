@@ -9,6 +9,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { ReloadMessage } from "../../../core/syntax/messages/reload-message.xl.md"
 ```
 
 # namespace cangjie
@@ -55,7 +56,7 @@ if (at >= 0) {
     unit.SignOut(last.SourceRange.End);
   }
 }
-unit.TryToClose();
+unit.TryToClose(context);
 unit.Quit();
 if (unit.Parent !== null) {
   (unit.Parent as any).MountedUnit = null;
