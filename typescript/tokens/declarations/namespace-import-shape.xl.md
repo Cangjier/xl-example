@@ -1,7 +1,10 @@
 # dependencies
 ```xl
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
+import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -12,8 +15,40 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import * as ns from "m";
 ```
 
+## field Name:IdentifierShape | null = null
+
 ## constructor:(template:Template)=>void
 
 ```ts
 super(template);
+```
+
+## static method FromTokens:(units:Array<Token>)=>NamespaceImportShape | null
+
+```ts
+const code:Array<Token> = [];
+for (const item of units) {
+  if (!item.IsTriviaToken) {
+    code.push(item);
+  }
+}
+if (code.length === 0) {
+  return null;
+}
+const shape = new NamespaceImportShape(code[0].Template);
+const lastUnit = code[code.length - 1];
+if (lastUnit instanceof Common) {
+  const identifier = IdentifierShape.FromBasicToken(lastUnit as Common);
+  shape.Name = identifier;
+  shape.Data.push(identifier);
+  identifier.Parent = shape;
+}
+if (code[0].SourceRange.Start !== null) {
+  shape.SignIn(code[0].SourceRange.Start);
+}
+if (lastUnit.SourceRange.End !== null) {
+  shape.SignOut(lastUnit.SourceRange.End);
+}
+shape.TryToClose();
+return shape;
 ```

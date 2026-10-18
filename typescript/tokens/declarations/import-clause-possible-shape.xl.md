@@ -2,6 +2,7 @@
 ```xl
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
@@ -11,6 +12,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ImportClauseShape } from "./import-clause-shape.xl.md"
 import { NamedImportsShape } from "./named-imports-shape.xl.md"
+import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -128,7 +130,28 @@ if (previousCode >= 0) {
   clause.Pos = firstUnit.SourceRange.Start.Index;
 }
 let lastUnit = firstUnit;
-if (firstUnit instanceof Bracket && (firstUnit as Bracket).StartBracketChar === "{") {
+if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
+  let at = cursor + 1;
+  while (at < host.Data.length && host.Data[at].IsTriviaToken) {
+    at++;
+  }
+  const asUnit = host.Data[at];
+  if (asUnit instanceof Common && (asUnit as Common).Is("as")) {
+    at++;
+    while (at < host.Data.length && host.Data[at].IsTriviaToken) {
+      at++;
+    }
+    if (at < host.Data.length && host.Data[at] instanceof Common) {
+      const ns = NamespaceImportShape.FromTokens(host.Data.slice(cursor, at + 1));
+      if (ns !== null) {
+        clause.NamedBindings = ns;
+        ns.Parent = clause;
+        clause.Data.push(ns);
+        lastUnit = host.Data[at];
+      }
+    }
+  }
+} else if (firstUnit instanceof Bracket && (firstUnit as Bracket).StartBracketChar === "{") {
   const named = NamedImportsShape.FromBracket(firstUnit as Bracket);
   clause.NamedBindings = named;
   named.Parent = clause;

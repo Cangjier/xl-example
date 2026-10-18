@@ -816,8 +816,25 @@
             {
               "kind": "ImportClauseShape",
               "start": 7,
-              "end": 7,
-              "pos": 6
+              "end": 13,
+              "pos": 6,
+              "NamedBindings": "NamespaceImportShape",
+              "children": [
+                {
+                  "kind": "NamespaceImportShape",
+                  "start": 7,
+                  "end": 13,
+                  "Name": "IdentifierShape",
+                  "children": [
+                    {
+                      "kind": "IdentifierShape",
+                      "start": 12,
+                      "end": 13,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "kind": "StringLiteralShape",
@@ -844,8 +861,25 @@
             {
               "kind": "ImportClauseShape",
               "start": 7,
-              "end": 7,
-              "pos": 6
+              "end": 13,
+              "pos": 6,
+              "NamedBindings": "NamespaceImportShape",
+              "children": [
+                {
+                  "kind": "NamespaceImportShape",
+                  "start": 7,
+                  "end": 13,
+                  "Name": "IdentifierShape",
+                  "children": [
+                    {
+                      "kind": "IdentifierShape",
+                      "start": 12,
+                      "end": 13,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "kind": "StringLiteralShape",
@@ -872,8 +906,25 @@
             {
               "kind": "ImportClauseShape",
               "start": 8,
-              "end": 8,
-              "pos": 6
+              "end": 16,
+              "pos": 6,
+              "NamedBindings": "NamespaceImportShape",
+              "children": [
+                {
+                  "kind": "NamespaceImportShape",
+                  "start": 8,
+                  "end": 16,
+                  "Name": "IdentifierShape",
+                  "children": [
+                    {
+                      "kind": "IdentifierShape",
+                      "start": 15,
+                      "end": 16,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "kind": "StringLiteralShape",
@@ -1063,9 +1114,26 @@
             {
               "kind": "ImportClauseShape",
               "start": 12,
-              "end": 12,
+              "end": 18,
               "pos": 11,
-              "isTypeOnly": true
+              "isTypeOnly": true,
+              "NamedBindings": "NamespaceImportShape",
+              "children": [
+                {
+                  "kind": "NamespaceImportShape",
+                  "start": 12,
+                  "end": 18,
+                  "Name": "IdentifierShape",
+                  "children": [
+                    {
+                      "kind": "IdentifierShape",
+                      "start": 17,
+                      "end": 18,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "kind": "StringLiteralShape",
