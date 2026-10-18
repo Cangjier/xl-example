@@ -15,6 +15,13 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 # class ShapeToken extends UnitToken
 
+## field Pos:int = -1
+
+AST 的起始位置（**含前导 trivia**，与 TS 的 `pos` 一致）：建形状时按「前一个非 trivia 单元的
+`End.Index + 1`」算出来；`-1` 表示还没算。
+
+它独立于 `SourceRange`：后者是**代码**的闭区间，前者是 AST 要的半开区间起点。
+
 ## constructor:(template:Template)=>void
 
 以模板创建，并接上 basic token 的跳转队列。

@@ -86,8 +86,24 @@ if (index < 0 || !(host.Data[index] instanceof Common)) {
   return host;
 }
 const common = host.Data[index] as Common;
+let previousCode = -1;
+for (let at = index - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    previousCode = at;
+    break;
+  }
+}
+let pos = common.SourceRange.Start !== null ? common.SourceRange.Start.Index : -1;
+if (previousCode >= 0) {
+  const prevUnit = host.Data[previousCode];
+  if (prevUnit.SourceRange.End !== null) {
+    pos = prevUnit.SourceRange.End.Index + 1;
+  }
+}
 const identifier = IdentifierShape.FromBasicToken(common);
+identifier.Pos = pos;
 const clause = new ImportClauseShape(host.Template);
+clause.Pos = pos;
 let startIndex = index;
 for (let at = index - 1; at >= 0; at--) {
   const unit = host.Data[at];

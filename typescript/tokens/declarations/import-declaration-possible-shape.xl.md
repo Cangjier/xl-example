@@ -94,6 +94,20 @@ const begin = consumed[0].SourceRange.Start;
 if (begin !== null) {
   built.SignIn(begin);
 }
+let previousCode = -1;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    previousCode = at;
+    break;
+  }
+}
+built.Pos = begin !== null ? begin.Index : -1;
+if (previousCode >= 0) {
+  const prevUnit = host.Data[previousCode];
+  if (prevUnit.SourceRange.End !== null) {
+    built.Pos = prevUnit.SourceRange.End.Index + 1;
+  }
+}
 host.Data.splice(start, consumed.length, built);
 built.Parent = host;
 host.MountedUnit = built;

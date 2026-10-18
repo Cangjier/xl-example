@@ -22,7 +22,8 @@ const source = fs.readFileSync(path.join(here, "import.ts"), "utf8");
 const cases = source
   .split("\n")
   .map((line) => line.trim())
-  .filter((line) => line.length > 0 && !line.startsWith("//"));
+  .filter((line) => line.length > 0 && !line.startsWith("//"))
+  .map((line) => line.replace(/\\n/g, "\n"));
 
 function tsAst(node) {
   const out = { kind: ts.SyntaxKind[node.kind], pos: node.pos, end: node.end };
@@ -59,6 +60,7 @@ function cjAst(shape) {
   ]) {
     if (typeof shape[field] === "string" && shape[field] !== "") out[label] = shape[field];
   }
+  if (shape.Pos >= 0) out.pos = shape.Pos;
   if (shape.IsTypeOnly === true) out.isTypeOnly = true;
   for (const field of ["ImportClause", "ModuleSpecifier", "Name", "NamedBindings"]) {
     const value = shape[field];

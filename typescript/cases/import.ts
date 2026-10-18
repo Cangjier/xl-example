@@ -1,44 +1,61 @@
-// import 声明场景全集：一行一个形态，覆盖 ts 允许的 import 写法。
-// 解析器按行验收：能建出 ImportDeclarationShape（含子形状）的记 OK。
+// import 声明场景：每条以 base 起，再叠加对抗信息（空白 / 注释 / 换行 / 修饰词）。
+// 一行一个用例；行内的 \n 由 ast-json.mjs 还原成真实换行（这样多行语句也能逐行对齐）。
 
-// 1. 默认导入
+// ===== base 1：默认导入 =====
 import a from "m";
+// + 前导空格
+  import a from "m";
+// + 前导块注释
+/* c */ import a from "m";
+// + 词间块注释
+import /* c */ a from "m";
+// + 词间多空格
+import    a    from    "m";
+// + import 与子句之间有换行
+import\na from "m";
+// + 子句与 from 之间有换行
+import a\nfrom "m";
+// + 行注释夹在中间
+import // c\na from "m";
+// + 行尾注释
+import a from "m"; // c
 
-// 2. 具名导入
+// ===== base 2：具名导入 =====
 import { a } from "m";
 import { a, b } from "m";
 import { a as b } from "m";
 import { a, b as c } from "m";
 import {} from "m";
+import { a } from "m";
+import /* c */ { a } from "m";
+import {\n  a,\n  b,\n} from "m";
 
-// 3. 命名空间导入
+// ===== base 3：命名空间导入 =====
 import * as ns from "m";
+import * as ns from "m";
+import  *  as  ns  from  "m";
 
-// 4. 默认 + 具名
+// ===== base 4：默认 + 具名 / 命名空间 =====
 import a, { b } from "m";
-import a, { b as c } from "m";
-
-// 5. 默认 + 命名空间
 import a, * as ns from "m";
 
-// 6. 副作用导入（只执行模块）
+// ===== base 5：副作用导入 =====
 import "m";
+import  "m";
+import /* c */ "m";
 
-// 7. type-only
+// ===== base 6：type-only =====
 import type { T } from "m";
 import type a from "m";
 import type * as ns from "m";
-import type { T as U } from "m";
+import  type  a  from  "m";
+import type\n{ T } from "m";
 
-// 8. 属性 / 断言
+// ===== base 7：属性 / 断言 =====
 import a from "m" with { type: "json" };
 import a from "m" assert { type: "json" };
 
-// 9. 修饰词
+// ===== base 8：修饰词 =====
 export import a from "m";
 declare import a from "m";
 export declare import a from "m";
-
-// 10. 三种引号
-import a from 'm';
-import a from `m`;

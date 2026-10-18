@@ -86,7 +86,22 @@ if (index < 0 || !(host.Data[index] instanceof String)) {
   return host;
 }
 const token = host.Data[index] as String;
+let previousCode = -1;
+for (let at = index - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    previousCode = at;
+    break;
+  }
+}
 const shape = StringLiteralShape.FromBasicToken(token);
+if (previousCode >= 0 && host.Data[previousCode].SourceRange.End !== null) {
+  const prevUnit = host.Data[previousCode];
+  if (prevUnit.SourceRange.End !== null) {
+    shape.Pos = prevUnit.SourceRange.End.Index + 1;
+  }
+} else if (token.SourceRange.Start !== null) {
+  shape.Pos = token.SourceRange.Start.Index;
+}
 host.Data.splice(index, 1, shape);
 shape.Parent = host;
 return shape;
