@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { Branch } from "../branch.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
@@ -17,31 +16,6 @@ import { UnitToken } from "../unit-token.xl.md"
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
 行注释 `// …`：从 `//` 吃到行尾，正文攒进 `Tmp`。换行本身不属于注释，处理完由 `ReloadMessage` 重新插回队列。注释单元留在树里、会进 XML，产出里能看到 `<LineAnnotation>正文</LineAnnotation>`。
-
-# class LineAnnotationBranch extends Branch
-
-行注释的跳转规则：认出 `//` 的开头，并把已经落树的第一个 `/` 回退给 `LineAnnotation`。
-
-它永远不进 `Data`、不进 XML。
-
-## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
-
-判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符也是 `/`。
-
-认下就回退已吃掉的那个 `/`（它归本单元所有），再挂一个新的 `LineAnnotation` 并用同一个 `/` 签入；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
-
-```ts
-const preUnit = source.Pre();
-if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value !== "/") {
-  return BranchStates.Undo;
-}
-unit.Undo(preUnit);
-if (unit.AddToMounted(new LineAnnotation(unit.Template)) === CloseStates.Built) {
-  return BranchStates.Reload;
-}
-(unit.MountedUnit as LineAnnotation)!.SignIn(preUnit);
-return BranchStates.Done;
-```
 
 # class LineAnnotation extends UnitToken
 
@@ -62,10 +36,6 @@ basic 单元：由 `Template.BasicBranchQueue()` 收出来。
 ## field IsTriviaToken:bool = true
 
 trivia 单元：判形状时跳过。
-
-## static readonly field JumpIn:LineAnnotationBranch = new LineAnnotationBranch()
-
-把 `LineAnnotationBranch` 注册进 `Root` 的通用跳转队列用的实例。
 
 ## constructor:(template:Template)=>void
 
@@ -176,4 +146,23 @@ result.Sign(this);
 result.Tmp += this.Tmp;
 result.TryToClose();
 return result;
+```
+
+## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+
+判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符也是 `/`。
+
+认下就回退已吃掉的那个 `/`（它归本单元所有），再挂一个新的 `LineAnnotation` 并用同一个 `/` 签入；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
+
+```ts
+const preUnit = source.Pre();
+if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value !== "/") {
+  return BranchStates.Undo;
+}
+unit.Undo(preUnit);
+if (unit.AddToMounted(new LineAnnotation(unit.Template)) === CloseStates.Built) {
+  return BranchStates.Reload;
+}
+(unit.MountedUnit as LineAnnotation)!.SignIn(preUnit);
+return BranchStates.Done;
 ```

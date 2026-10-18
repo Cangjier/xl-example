@@ -2,6 +2,7 @@
 ```xl
 import { BranchStates } from "../../branch-states.xl.md"
 import { CloseStates } from "../../close-states.xl.md"
+import { ComputePossibleShapesStates } from "../../compute-possible-shapes-states.xl.md"
 import { ReloadMessage } from "../../messages/reload-message.xl.md"
 import { Source } from "../../source.xl.md"
 import { SyntaxContext } from "../../syntax-context.xl.md"
@@ -31,6 +32,12 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 # class String extends UnitToken
 
 字符串单元。
+
+**它是 basic token**：词法层的一个记号，内容由 `ConstString` 子单元承载。它由 `StringGuide` 从引号那一格直接造出来，不走 basic 跳转队列本身；`IsBasicToken` 这一格的作用是「它属于词法层」——形状提取完字段之后，`Data` 里不该再留着它。
+
+## field IsBasicToken:bool = true
+
+basic 单元：词法层记号。收集它的是 `StringGuide`，不是 `BasicBranchQueue`。
 
 ## field IsSupportInterpolation:bool = false
 
@@ -105,10 +112,19 @@ if (!(last instanceof ConstString)) {
 
 ## protected method Close:()=>CloseStates
 
-关闭：只把自己标记为已关闭，返回 `Nothing`。
+关闭：把自己标记为已关闭，然后**只问父单元**要不要重算候选——和 `Common.Close` 同款。
+
+字符串 token 关闭就是「一个字符串字面量信息完备」的时刻：`StringLiteralShape` 的候选在这一刻才可能 Accept。所以这里必须把父级的重算结果原样带上去。
 
 ```ts
 this.Closed = true;
+const parent = this.Parent;
+if (parent !== null && "ComputePossibleShapes" in parent) {
+  const state = (parent as any).ComputePossibleShapes();
+  if (state === ComputePossibleShapesStates.Built) {
+    return CloseStates.Built;
+  }
+}
 return CloseStates.Nothing;
 ```
 

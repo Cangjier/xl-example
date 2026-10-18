@@ -1,7 +1,6 @@
 # dependencies
 ```xl
 import { BlockToken } from "../block-token.xl.md"
-import { Branch } from "../branch.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { Source } from "../source.xl.md"
@@ -24,33 +23,6 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `WrapSymbolBranch` 写在 `WrapSymbol` **之前**：`WrapSymbol.AppendIn` 这个静态字段会在类定义时立即 `new WrapSymbolBranch()`，写反了会命中 ts 的暂时性死区。
 
-# class WrapSymbolBranch extends Branch
-
-空白块的跳转规则：当前字符是空白就接手；上一个 `WrapSymbol` 没关闭就续进去，否则开新块。
-
-## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
-
-当前字符是空白就接手；不是就先关掉还开着的上一个 `WrapSymbol`（它是一整段空白，遇到非空白就该收尾），再让路。
-
-```ts
-const last = unit.Last();
-if (!unit.Template.SymbolTemplate.IsWhiteSpace(source.Value)) {
-  if (last instanceof WrapSymbol && !last.Closed && last.TryToClose() === CloseStates.Built) {
-    return BranchStates.Reload;
-  }
-  return BranchStates.Undo;
-}
-if (last instanceof WrapSymbol && !last.Closed) {
-  last.AppendAndSignOut(source);
-  return BranchStates.Done;
-}
-if (unit.AddAndCloseLast(new WrapSymbol(unit.Template)) === CloseStates.Built) {
-  return BranchStates.Reload;
-}
-(unit.Last() as WrapSymbol)!.AppendAndSignOut(source).SignIn(source);
-return BranchStates.Done;
-```
-
 # class WrapSymbol extends BlockToken
 
 空白块。
@@ -64,10 +36,6 @@ basic 单元：由 `Template.BasicBranchQueue()` 收出来。
 ## field IsTriviaToken:bool = true
 
 trivia 单元：判形状时跳过。
-
-## static readonly field AppendIn:WrapSymbolBranch = new WrapSymbolBranch()
-
-注册进通用跳转队列用的实例。
 
 ## constructor:(Template:Template)=>void
 
@@ -106,4 +74,27 @@ result.Sign(this);
 result.Temp.push(...this.Temp);
 result.TryToClose();
 return result;
+```
+
+## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+
+当前字符是空白就接手；不是就先关掉还开着的上一个 `WrapSymbol`（它是一整段空白，遇到非空白就该收尾），再让路。
+
+```ts
+const last = unit.Last();
+if (!unit.Template.SymbolTemplate.IsWhiteSpace(source.Value)) {
+  if (last instanceof WrapSymbol && !last.Closed && last.TryToClose() === CloseStates.Built) {
+    return BranchStates.Reload;
+  }
+  return BranchStates.Undo;
+}
+if (last instanceof WrapSymbol && !last.Closed) {
+  last.AppendAndSignOut(source);
+  return BranchStates.Done;
+}
+if (unit.AddAndCloseLast(new WrapSymbol(unit.Template)) === CloseStates.Built) {
+  return BranchStates.Reload;
+}
+(unit.Last() as WrapSymbol)!.AppendAndSignOut(source).SignIn(source);
+return BranchStates.Done;
 ```

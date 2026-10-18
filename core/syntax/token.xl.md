@@ -2,7 +2,7 @@
 ```xl
 import { CloseStates } from "./close-states.xl.md"
 import { SourceException } from "../exceptions/source-exception.xl.md"
-import { Branch } from "./branch.xl.md"
+import { BranchTransiter } from "./branch-transiter.xl.md"
 import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
@@ -26,9 +26,9 @@ Token，语法树的地基。
 
 本单元使用的模板。
 
-## field ProcessQueue:Sequence<Branch> | null = null
+## field ProcessQueue:Sequence<BranchTransiter> | null = null
 
-从当前单元跳到下一个单元的跳转队列。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。
+从当前单元跳到下一个单元的跳转队列（一列 `BranchTransiter` 函数）。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。
 
 ## field Parent:Token | null = null
 

@@ -108,7 +108,7 @@ try {
   }
   if (this.ProcessQueue !== null) {
     for (const item of this.ProcessQueue.Data) {
-      const state = item.Transit(context, this, source);
+      const state = item(context, this, source);
       if (state === BranchStates.Reload) {
         context.Messages.push(new ReloadMessage(this, this, source));
         this.LastSource = source;

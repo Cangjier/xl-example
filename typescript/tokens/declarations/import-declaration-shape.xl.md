@@ -3,7 +3,7 @@
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -67,24 +67,15 @@ if (fromIndex >= 0) {
       break;
     }
   }
-  let openIndex = -1;
-  let closeIndex = -1;
   for (let index = fromIndex + 1; index < this.Data.length; index++) {
     const unit = this.Data[index];
-    if (unit instanceof Symbol && unit.Is("\"")) {
-      if (openIndex < 0) {
-        openIndex = index;
-      } else {
-        closeIndex = index;
-      }
+    if (unit instanceof String) {
+      this.ModuleSpecifier = ImportDeclarationShape.BuildStringLiteral(unit);
+      break;
     }
-  }
-  if (openIndex >= 0) {
-    const endIndex = closeIndex < 0 ? this.Data.length - 1 : closeIndex;
-    this.ModuleSpecifier = ImportDeclarationShape.BuildStringLiteral(
-      this.Data.slice(openIndex, endIndex + 1),
-      closeIndex < 0,
-    );
+    if (!unit.IsTriviaToken) {
+      break;
+    }
   }
 }
 const kept: Array<Token> = [];
@@ -143,22 +134,17 @@ clause.TryToClose();
 return clause;
 ```
 
-## private static method BuildStringLiteral:(units:Array<Token>, unterminated:bool)=>StringLiteralShape
+## private static method BuildStringLiteral:(token:String)=>StringLiteralShape
 
 ```ts
-const first = units[0];
-const last = units[units.length - 1];
-const shape = new StringLiteralShape(first.Template);
-if (first.SourceRange.Start !== null) {
-  shape.SignIn(first.SourceRange.Start);
+const shape = new StringLiteralShape(token.Template);
+if (token.SourceRange.Start !== null) {
+  shape.SignIn(token.SourceRange.Start);
 }
-if (last.SourceRange.End !== null) {
-  shape.SignOut(last.SourceRange.End);
+if (token.SourceRange.End !== null) {
+  shape.SignOut(token.SourceRange.End);
 }
-shape.IsUnterminated = unterminated;
-for (const item of units) {
-  shape.Add(item);
-}
+shape.Add(token);
 shape.TryToClose();
 return shape;
 ```

@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { Branch } from "../../branch.xl.md"
 import { BranchStates } from "../../branch-states.xl.md"
 import { CloseStates } from "../../close-states.xl.md"
 import { GuideToken } from "../../guide-token.xl.md"
@@ -18,34 +17,29 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
 
-引号向导：只看**开引号**那一个字符。它先向前回看有没有 `$`（内插）或 `@`（逐字）前缀，把它们退回去并记在自己身上；再看紧跟着的第二、第三个引号，据此判定这是空串、普通串还是原始字符串，然后把自己**替换**成一个真正的 `String` 单元。
+引号向导：只看**开引号**那一个字符。它先按模板的 `StringTemplate` 回看有没有 `$`（内插）或 `@`（逐字）前缀，把它们退回去并记在自己身上；再按模板有没有原始串 / 逐字串，决定是「立刻换成 `String` 并把当前字符重放给它」还是「继续数连续引号」，最后把自己**替换**成一个真正的 `String` 单元。
 
-# class StringGuideBranch extends Branch
+`StringGuide` 自己不进 `Data`、不进 XML，是把「开引号」这一格接住的那个跳转函数。
 
-它永远不进 `Data`、不进 XML。模板层拿到这个分支实例后调 `AddStringChar` 两次，分别传入反引号与单引号，补上这两种字符串起点。
+# class StringGuide extends GuideToken
 
-## field StringChars:Array<string> = ['"']
+复杂字符串的引号向导。
 
-本分支认哪些字符是字符串起点。初始只有双引号，反引号与单引号由模板层在运行时补进来。
+它要盖住四种字符串：常规 `""`、无转义 `@"D:\1"`、内嵌表达式 `$"{a}"`、原始文本 `""" a """`。它自己**不持有字符**，只判断这是哪种串，然后把自己换成一个配置好的 `String`。
 
-## method AddStringChar:(item:string)=>void
+**哪些引号算起点、有没有那三种形态，都从模板取**：`Template.StringTemplate` 的 `Quotes` / `HasVerbatim` / `HasInterpolation` / `HasRaw`。它自己不带 `StringChars` 这类字段——配置归模板，形状归 `String`。
 
-把一个字符加进起点集合；已经有了就不重复加。
+## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
-```ts
-if (!this.StringChars.includes(item)) {
-  this.StringChars.push(item);
-}
-```
+当前字符是模板声明的字符串起点就认下：新建一个 `StringGuide`，按模板回看前缀，再把它挂到 `unit` 上；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
 
-## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+回看循环：从当前字符往前一个位置起，前缀字符只有在模板打开了对应形态时才算——`HasInterpolation` 打开才认 `$`，`HasVerbatim` 打开才认 `@`；遇到别的字符就停。随后逆序处理记下来的每个前缀：逐字前缀置 `IsSupportVerbatim`，内插前缀置 `IsSupportInterpolation` 并把 `InterpolationCount` 加一；无论哪种都调 `unit.Undo(i)` 把那个字符从 `unit` 上退掉。
 
-当前字符是字符串起点就认下：新建一个 `StringGuide`，向前回看前缀，再把它挂到 `unit` 上；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
-
-回看循环：从当前字符往前一个位置起，只要还是 `$` 或 `@` 就记进 `undoSources` 继续往前走，遇到别的字符就停。随后逆序处理记下来的每个前缀：`@` 置 `IsSupportVerbatim`，`$` 置 `IsSupportInterpolation` 并把 `InterpolationCount` 加一；无论哪种都调 `unit.Undo(i)` 把那个字符从 `unit` 上退掉。
+ts 的模板把这两个开关都关掉，所以 `@"…"` / `$"…"` 不会在这里被当成字符串起点，`@` 与 `$` 留给别的 token。
 
 ```ts
-if (!this.StringChars.includes(source.Value)) {
+const config = unit.Template.StringTemplate;
+if (!config.Quotes.includes(source.Value)) {
   return BranchStates.Undo;
 }
 const item = new StringGuide(unit.Template, source.Value);
@@ -53,16 +47,21 @@ const undoSources: Source[] = [];
 let last: Source | null = source;
 while (true) {
   last = last!.Pre();
-  if (last !== null && (last.Value === "$" || last.Value === "@")) {
+  if (last === null) {
+    break;
+  }
+  if (config.HasInterpolation && last.Value === config.InterpolationPrefix) {
+    undoSources.push(last);
+  } else if (config.HasVerbatim && last.Value === config.VerbatimPrefix) {
     undoSources.push(last);
   } else {
     break;
   }
 }
 for (const i of undoSources) {
-  if (i.Value === "@") {
+  if (i.Value === config.VerbatimPrefix) {
     item.IsSupportVerbatim = true;
-  } else if (i.Value === "$") {
+  } else {
     item.IsSupportInterpolation = true;
     item.InterpolationCount++;
   }
@@ -75,31 +74,23 @@ if (unit.AddToMounted(item) === CloseStates.Built) {
 return BranchStates.Done;
 ```
 
-# class StringGuide extends GuideToken
-
-复杂字符串的引号向导。
-
-它要盖住四种字符串：常规 `""`、无转义 `@"D:\1"`、内嵌表达式 `$"{a}"`、原始文本 `""" a """`。它自己**不持有字符**，只判断这是哪种串，然后把自己换成一个配置好的 `String`。
-
-## static readonly field JumpIn:StringGuideBranch = new StringGuideBranch()
-
-把 `StringGuideBranch` 注册进 `Root` 的通用跳转队列用的实例。
-
 ## field IsSupportInterpolation:bool = false
 
-是否支持内插字符串——由前缀 `$` 的个数决定（每个 `$` 都让 `InterpolationCount` 加一）。
-
-## field InterpolationCount:int = 0
-
-内插前缀 `$` 的个数。它与内插串里 `{` 的数量一致，最终会写进 `String` 的 XML 标签。
+本次识别出的串是不是**前缀式**内插（`$"…"`）——由回看到的内插前缀决定。
 
 ## field IsSupportVerbatim:bool = false
 
-是否支持逐字字符串——由前缀 `@` 决定。
+本次识别出的串是不是逐字串（`@"…"`）——由回看到的逐字前缀决定。
+
+## field InterpolationCount:int = 0
+
+本次识别出的串前面有几个内插前缀 `$`。它与内插串里 `{` 的数量一致，最终会抄进 `String` 并写进 XML 标签。
 
 ## private field QuoteCount:int = 1
 
 已经吃到了几个连续引号。`1` 是刚吃到开引号；`2` 说明可能是空串、也可能在往原始字符串走；`3` 以上基本确定是原始字符串。
+
+这四个分支只在模板打开 `HasRaw` / `HasVerbatim` 时才走；两个都关时，开引号之后立刻换成 `String`。
 
 ## field StringChar:string = ""
 
@@ -116,26 +107,46 @@ super(template);
 this.StringChar = stringChar;
 ```
 
-## protected method Navigate:(context:SyntaxContext, source:Source)=>void
+## private method CreateString:(isRaw:bool, rawQuoteCount:int)=>String
 
-引到目标：按已经吃到的引号个数决定这是哪种字符串，然后把自己替换成对应的 `String`。三条分支：
-
-1. `QuoteCount == 1`——当前字符又是引号就只把计数加到 `2`（可能是空串、全量串或 `@` 下的转义双引号）；否则说明是单引号串（`"x"`），就地换成一个 `IsSupportRaw = false`、`RawQuoteCount = 1` 的 `String`，并以**前一个位置**签入，最后插一条 `ReloadMessage` 让它把当前字符重新处理一遍。
-2. `QuoteCount == 2`——当前字符又是引号时计数加到 `3`：若 `IsSupportVerbatim`，这就是逐字串里表达一个双引号的三引号，替换成 `String` 后用「前前一个位置」签入，并**插两条** `ReloadMessage`（分别重处理前一个位置与当前位置）；不逐字则什么都不做，继续往原始字符串走。当前字符不是引号时就是空串 `""`：替换成 `String` 后从前前一个位置签入、从前一个位置签出，把 `Parent!.MountedUnit` 清空，再插一条 `ReloadMessage`。
-3. 其余（`QuoteCount >= 3`）——当前字符又是引号就继续加计数；否则确定为原始字符串，替换成 `IsSupportRaw = true`、`RawQuoteCount = QuoteCount` 的 `String`，以 `SourceRange.Start` 签入，再插一条 `ReloadMessage`。
+按本向导记下的形状造一个 `String`：把两个开关与内插计数抄过去，`RawQuoteCount` 由调用方给。
 
 ```ts
+const item = new String(this.Template, this.StringChar);
+item.IsSupportInterpolation = this.IsSupportInterpolation;
+item.IsSupportRaw = isRaw;
+item.IsSupportVerbatim = this.IsSupportVerbatim;
+item.InterpolationCount = this.InterpolationCount;
+item.RawQuoteCount = rawQuoteCount;
+return item;
+```
+
+## protected method Navigate:(context:SyntaxContext, source:Source)=>void
+
+引到目标：按模板与已经吃到的引号个数决定这是哪种字符串，然后把自己替换成对应的 `String`。
+
+**模板既没有原始串、也没有逐字串时（ts）**：开引号之后直接换成普通 `String`，签入到**前一个位置**（那个开引号），并把当前字符重放给 `String` 自己处理——空串、普通串都由它自己的 `ExitOrPre` 收尾，不需要在这里数引号。
+
+**否则（C# 语义）**按引号个数分三条：
+
+1. `QuoteCount == 1`——当前字符又是引号就只把计数加到 `2`；否则就是单引号串（`"x"`），换成 `String` 并用前一个位置签入，再把当前字符重放。
+2. `QuoteCount == 2`——当前字符又是引号时计数加到 `3`：若逐字串打开，这就是逐字串里表达一个双引号的三引号，换成 `String` 后用「前前一个位置」签入，并插两条 `ReloadMessage`；不逐字则继续往原始字符串走。当前字符不是引号时就是空串 `""`：换成 `String` 后从前前一个位置签入、从前一个位置签出，清空父单元的挂载，再重放当前字符。
+3. 其余（`QuoteCount >= 3`）——当前字符又是引号就继续加计数；否则确定为原始字符串，换成 `String`（`IsSupportRaw = true`，`RawQuoteCount = QuoteCount`），以自己的起点签入，再重放当前字符。
+
+```ts
+const config = this.Template.StringTemplate;
 const value = source.Value;
+if (!config.HasRaw && !config.HasVerbatim) {
+  const item = this.CreateString(false, 1);
+  this.Replace(item).SignIn(source.Pre()!);
+  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+  return;
+}
 if (this.QuoteCount === 1) {
   if (value === this.StringChar) {
     this.QuoteCount++;
   } else {
-    const item = new String(this.Template, this.StringChar);
-    item.IsSupportInterpolation = this.IsSupportInterpolation;
-    item.IsSupportRaw = false;
-    item.IsSupportVerbatim = this.IsSupportVerbatim;
-    item.InterpolationCount = this.InterpolationCount;
-    item.RawQuoteCount = 1;
+    const item = this.CreateString(false, 1);
     this.Replace(item).SignIn(source.Pre()!);
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   }
@@ -143,23 +154,13 @@ if (this.QuoteCount === 1) {
   if (value === this.StringChar) {
     this.QuoteCount++;
     if (this.IsSupportVerbatim) {
-      const item = new String(this.Template, this.StringChar);
-      item.IsSupportInterpolation = this.IsSupportInterpolation;
-      item.IsSupportRaw = false;
-      item.IsSupportVerbatim = this.IsSupportVerbatim;
-      item.InterpolationCount = this.InterpolationCount;
-      item.RawQuoteCount = 1;
+      const item = this.CreateString(false, 1);
       this.Replace(item).SignIn(source.Pre()!.Pre()!);
       context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source.Pre()!));
       context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     }
   } else {
-    const item = new String(this.Template, this.StringChar);
-    item.IsSupportInterpolation = this.IsSupportInterpolation;
-    item.IsSupportRaw = false;
-    item.IsSupportVerbatim = this.IsSupportVerbatim;
-    item.InterpolationCount = this.InterpolationCount;
-    item.RawQuoteCount = 1;
+    const item = this.CreateString(false, 1);
     this.Replace(item).SignIn(source.Pre()!.Pre()!).SignOut(source.Pre()!);
     this.Parent!.MountedUnit = null;
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
@@ -168,12 +169,7 @@ if (this.QuoteCount === 1) {
   if (value === this.StringChar) {
     this.QuoteCount++;
   } else {
-    const item = new String(this.Template, this.StringChar);
-    item.IsSupportInterpolation = this.IsSupportInterpolation;
-    item.IsSupportRaw = true;
-    item.IsSupportVerbatim = this.IsSupportVerbatim;
-    item.InterpolationCount = this.InterpolationCount;
-    item.RawQuoteCount = this.QuoteCount;
+    const item = this.CreateString(true, this.QuoteCount);
     this.Replace(item).SignIn(this.SourceRange.Start!);
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   }
@@ -188,12 +184,7 @@ if (this.QuoteCount === 1) {
 
 ```ts
 if (this.QuoteCount === 2) {
-  const item = new String(this.Template, this.StringChar);
-  item.IsSupportInterpolation = this.IsSupportInterpolation;
-  item.IsSupportRaw = false;
-  item.IsSupportVerbatim = this.IsSupportVerbatim;
-  item.InterpolationCount = this.InterpolationCount;
-  item.RawQuoteCount = 1;
+  const item = this.CreateString(false, 1);
   this.Replace(item).SignIn(this.SourceRange.Start!).SignOut(this.SourceRange.End!);
 }
 return super.Close();

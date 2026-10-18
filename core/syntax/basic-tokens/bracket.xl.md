@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { Branch } from "../branch.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
@@ -17,30 +16,6 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 括号单元：`( )` / `{ }` / `[ ]` 三对括号共用这一个类，靠 `StartBracketChar` / `EndBracketChar` 两个字段区分。它只认「配对的结束括号」这一个字符——括号里的内容全靠挂载的子单元自己啃。
 
-# class BracketBranch extends Branch
-
-括号的跳转规则：认出三种开括号字符，认下时挂一个新的 `Bracket`。
-
-它永远不进 `Data`、不进 XML。
-
-## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
-
-只认 `(` / `{` / `[` 三种开括号字符：认下就新建一个 `Bracket`、配成对应的括号对、挂到 `unit` 上并签入。
-
-挂之前先看关闭的结果：关闭上一个 token 的过程可能建出了形状，这时返回 `Reload`，字符交给新形状重吃。
-
-```ts
-const value = source.Value;
-if (value !== "(" && value !== "{" && value !== "[") {
-  return BranchStates.Undo;
-}
-if (unit.AddToMounted(new Bracket(unit.Template)) === CloseStates.Built) {
-  return BranchStates.Reload;
-}
-(unit.MountedUnit as Bracket)!.Use(source.Value).SignIn(source);
-return BranchStates.Done;
-```
-
 # class Bracket extends UnitToken
 
 括号。
@@ -50,10 +25,6 @@ return BranchStates.Done;
 ## field IsBasicToken:bool = true
 
 basic 单元：由 `Template.BasicBranchQueue()` 收出来。
-
-## static readonly field JumpIn:BracketBranch = new BracketBranch()
-
-把 `BracketBranch` 注册进 `Root` 的通用跳转队列用的实例。
 
 ## constructor:(template:Template)=>void
 
@@ -163,4 +134,22 @@ result.EndBracketChar = this.EndBracketChar;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
+```
+
+## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+
+只认 `(` / `{` / `[` 三种开括号字符：认下就新建一个 `Bracket`、配成对应的括号对、挂到 `unit` 上并签入。
+
+挂之前先看关闭的结果：关闭上一个 token 的过程可能建出了形状，这时返回 `Reload`，字符交给新形状重吃。
+
+```ts
+const value = source.Value;
+if (value !== "(" && value !== "{" && value !== "[") {
+  return BranchStates.Undo;
+}
+if (unit.AddToMounted(new Bracket(unit.Template)) === CloseStates.Built) {
+  return BranchStates.Reload;
+}
+(unit.MountedUnit as Bracket)!.Use(source.Value).SignIn(source);
+return BranchStates.Done;
 ```

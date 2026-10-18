@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { Branch } from "../branch.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
@@ -20,39 +19,6 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 正则字面量 `/pattern/flags`：前一个 `/` 已经作为符号落在树上时，从第二个 `/` 开始把整段正则收成一个单元——正文进 `Temp`，结尾的 `m` / `g` / `i` / `s` / `u` / `y` 进 `Flags`。
 
-# class RegexTokenBranch extends Branch
-
-正则字面量的跳转规则：认出第二个 `/`，并把已经落树的那个 `/` 回退给 `RegexToken`。
-
-它永远不进 `Data`、不进 XML。
-
-## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
-
-判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符不是 `/`。成立后再看 `unit.Data` 的倒数第二个单元：单元数不超过 1 就成立；它是 `Common` 或 `Bracket` 时不成立；其余类型成立。
-
-认下就先把那个已经被吃掉的 `/` 回退掉（它归 `RegexToken` 所有，不属于前一个单元），然后挂一个新的 `RegexToken`，用同一个 `/` 签入，再把当前字符补进去；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
-
-```ts
-const preUnit = source.Pre();
-if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value === "/") {
-  return BranchStates.Undo;
-}
-if (unit.Data.length > 1) {
-  const last = unit.Last(1);
-  if (last instanceof Common || last instanceof Bracket) {
-    return BranchStates.Undo;
-  }
-}
-unit.Undo(preUnit);
-if (unit.AddToMounted(new RegexToken(unit.Template)) === CloseStates.Built) {
-  return BranchStates.Reload;
-}
-const regexToken = unit.MountedUnit as RegexToken;
-regexToken.SignIn(preUnit);
-regexToken.Append(source);
-return BranchStates.Done;
-```
-
 # class RegexToken extends UnitToken
 
 正则字面量单元。
@@ -64,10 +30,6 @@ return BranchStates.Done;
 ## field IsBasicToken:bool = true
 
 basic 单元：由 `Template.BasicBranchQueue()` 收出来。
-
-## static readonly field JumpIn:RegexTokenBranch = new RegexTokenBranch()
-
-把 `RegexTokenBranch` 注册进 `Root` 的通用跳转队列用的实例。
 
 ## constructor:(template:Template)=>void
 
@@ -181,4 +143,31 @@ result.Temp += this.Temp;
 result.Flags += this.Flags;
 result.TryToClose();
 return result;
+```
+
+## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+
+判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符不是 `/`。成立后再看 `unit.Data` 的倒数第二个单元：单元数不超过 1 就成立；它是 `Common` 或 `Bracket` 时不成立；其余类型成立。
+
+认下就先把那个已经被吃掉的 `/` 回退掉（它归 `RegexToken` 所有，不属于前一个单元），然后挂一个新的 `RegexToken`，用同一个 `/` 签入，再把当前字符补进去；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
+
+```ts
+const preUnit = source.Pre();
+if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value === "/") {
+  return BranchStates.Undo;
+}
+if (unit.Data.length > 1) {
+  const last = unit.Last(1);
+  if (last instanceof Common || last instanceof Bracket) {
+    return BranchStates.Undo;
+  }
+}
+unit.Undo(preUnit);
+if (unit.AddToMounted(new RegexToken(unit.Template)) === CloseStates.Built) {
+  return BranchStates.Reload;
+}
+const regexToken = unit.MountedUnit as RegexToken;
+regexToken.SignIn(preUnit);
+regexToken.Append(source);
+return BranchStates.Done;
 ```
