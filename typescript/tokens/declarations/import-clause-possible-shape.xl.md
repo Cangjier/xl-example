@@ -13,6 +13,14 @@ import { ImportClauseShape } from "./import-clause-shape.xl.md"
 
 # namespace cangjie
 
+# class ImportClauseScan
+
+## field Start:int = 0
+
+## field Checked:int = 0
+
+## field HasClause:bool = false
+
 # class ImportClausePossibleShape extends PossibleShape
 
 ```txt
@@ -25,12 +33,27 @@ import a from "m";
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-for (const unit of units) {
-  if (unit instanceof ImportClauseShape) {
-    return ShapeStates.Reject;
+const name = this.constructor.name;
+let state = cache.GetState<ImportClauseScan>(name);
+if (state === null) {
+  state = new ImportClauseScan();
+  state.Start = ItemUtil.ItemStart(units);
+  cache.SetState(name, state);
+}
+if (state.Checked > tokenIndex + 1) {
+  state.Checked = 0;
+  state.HasClause = false;
+}
+for (let at = state.Checked; at <= tokenIndex; at++) {
+  if (units[at] instanceof ImportClauseShape) {
+    state.HasClause = true;
   }
 }
-const start = ItemUtil.NextCode(units, ItemUtil.ItemStart(units));
+state.Checked = tokenIndex + 1;
+if (state.HasClause) {
+  return ShapeStates.Reject;
+}
+const start = ItemUtil.NextCode(units, state.Start);
 if (start >= units.length) {
   return ShapeStates.Uncertain;
 }

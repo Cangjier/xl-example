@@ -13,6 +13,14 @@ import { StringLiteralShape } from "./string-literal-shape.xl.md"
 
 # namespace cangjie
 
+# class StringLiteralScan
+
+## field Start:int = 0
+
+## field Checked:int = 0
+
+## field HasLiteral:bool = false
+
 # class StringLiteralPossibleShape extends PossibleShape
 
 ```txt
@@ -25,10 +33,25 @@ import { StringLiteralShape } from "./string-literal-shape.xl.md"
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-for (const unit of units) {
-  if (unit instanceof StringLiteralShape) {
-    return ShapeStates.Reject;
+const name = this.constructor.name;
+let state = cache.GetState<StringLiteralScan>(name);
+if (state === null) {
+  state = new StringLiteralScan();
+  state.Start = ItemUtil.ItemStart(units);
+  cache.SetState(name, state);
+}
+if (state.Checked > tokenIndex + 1) {
+  state.Checked = 0;
+  state.HasLiteral = false;
+}
+for (let at = state.Checked; at <= tokenIndex; at++) {
+  if (units[at] instanceof StringLiteralShape) {
+    state.HasLiteral = true;
   }
+}
+state.Checked = tokenIndex + 1;
+if (state.HasLiteral) {
+  return ShapeStates.Reject;
 }
 const last = ItemUtil.LastCodeInItem(units);
 if (last < 0) {
