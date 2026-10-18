@@ -132,6 +132,16 @@ if (value === ";") {
   return BranchStates.Done;
 }
 if (value === "\n" || value === "\r") {
+  let complete = false;
+  for (const item of this.Data) {
+    if (item instanceof StringLiteralShape) {
+      complete = true;
+      break;
+    }
+  }
+  if (!complete) {
+    return BranchStates.Undo;
+  }
   const previous = source.Pre();
   if (previous === null) {
     return BranchStates.Undo;
