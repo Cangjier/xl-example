@@ -25,8 +25,8 @@ import { ImportClauseAstNode } from "./import-clause-ast-node.xl.md"
 
 ## field Attributes:ImportAttributesAstNode | null = null
 
-## static method ParseFromToken:(token:ImportDeclarationShape)=>ImportDeclarationAstNode
+## static method ParseFromShape:(shape:ImportDeclarationShape)=>ImportDeclarationAstNode
 
 ```ts
-throw new Error("ImportDeclarationAstNode.ParseFromToken 未实现");
+throw new Error("ImportDeclarationAstNode.ParseFromShape 未实现");
 ```
