@@ -35,7 +35,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 普通单元默认没有，所以父单元不是宿主时，basic token 关闭不触发任何判定。
 
-## method ComputePossibleShapes:()=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
 
 重算宿主在本单元名下的目录向导的候选，把自己作为宿主转交给它。
 
@@ -48,7 +48,7 @@ if (this.CatalogGuide !== null) {
 return ComputePossibleShapesStates.Nothing;
 ```
 
-## method ComputePossibleShapesByIndex:(tokenIndex:int)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext)=>ComputePossibleShapesStates
 
 按下标重算候选，把**自己（宿主）与下标**一起转交给向导的同名方法。
 

@@ -41,7 +41,7 @@ this.ProcessQueue = Template.BasicBranchQueue();
 
 不写 ts 体，打印器产出空方法。
 
-## method TryToClose:()=>CloseStates
+## method TryToClose:(context:SyntaxContext)=>CloseStates
 
 关闭前**自检范围**：终点还没定就用「最后一个子单元的终点」补上，没有子单元就退到「自己处理过的最后一个位置」。
 
