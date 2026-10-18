@@ -102,7 +102,7 @@ return CloseStates.Nothing;
 ```ts
 if (source.Value === this.EndBracketChar) {
   this.SignOut(source);
-  this.TryToClose();
+  this.TryToClose(context);
   this.Quit();
   return BranchStates.Done;
 }
@@ -134,7 +134,7 @@ if (value !== "(" && value !== "{" && value !== "[") {
   return BranchStates.Undo;
 }
 const lastOfMounted = unit.Last();
-if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose() === CloseStates.Built) {
+if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
 const mounted = new Bracket(unit.Template);

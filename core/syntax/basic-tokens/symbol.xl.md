@@ -111,14 +111,14 @@ return CloseStates.Nothing;
 - 上一个 `Symbol` 未关闭且能续接（组合符号）→ 追加，`Done`；
 - 上一个 `Symbol` 未关闭但接不上 → 关掉它，然后开新块；
 - `.` 跟在纯数字 `Common` 后面 → `Undo`，小数点归 `Common` 吃；
-- 其余开新块：先 `last.TryToClose()`，建出形状就返回 `Reload`。
+- 其余开新块：先 `last.TryToClose(context)`，建出形状就返回 `Reload`。
 
 ```ts
 const value = source.Value;
 const template = unit.Template;
 const last = unit.Last();
 if (!template.SymbolTemplate.IsSymbol(value)) {
-  if (last instanceof Symbol && !last.Closed && last.TryToClose() === CloseStates.Built) {
+  if (last instanceof Symbol && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
     return BranchStates.Reload;
   }
   return BranchStates.Undo;
@@ -128,13 +128,13 @@ if (last instanceof Symbol && !last.Closed) {
     last.AppendAndSignOut(source);
     return BranchStates.Done;
   }
-  if (last.TryToClose() === CloseStates.Built) {
+  if (last.TryToClose(context) === CloseStates.Built) {
     return BranchStates.Reload;
   }
 } else if (value === "." && last instanceof Common && last.IsNumberWithoutDecimal()) {
   return BranchStates.Undo;
 }
-if (last !== null && !last.Closed && last.TryToClose() === CloseStates.Built) {
+if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
 unit.Add(new Symbol(unit.Template));

@@ -110,7 +110,7 @@ if (!this.IsTranslate) {
       this.Flags += source.Value;
     } else {
       this.SignOut(source);
-      this.TryToClose();
+      this.TryToClose(context);
       this.Quit();
       context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     }
@@ -151,7 +151,7 @@ if (unit.Data.length > 1) {
 }
 unit.Undo(preUnit);
 const lastOfMounted = unit.Last();
-if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose() === CloseStates.Built) {
+if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
 const mounted = new RegexToken(unit.Template);

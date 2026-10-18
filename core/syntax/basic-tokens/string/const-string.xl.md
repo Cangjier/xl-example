@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { SyntaxContext } from "../../syntax-context.xl.md"
 import { BlockToken } from "../../block-token.xl.md"
 import { CloseStates } from "../../close-states.xl.md"
 import { Source } from "../../source.xl.md"

@@ -130,7 +130,7 @@ if (preSource !== null && preSource.Value === "\r") {
 } else {
   this.SignOut(source.Pre()!);
 }
-this.TryToClose();
+this.TryToClose(context);
 this.Quit();
 context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
 return BranchStates.Done;
@@ -149,7 +149,7 @@ if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source
 }
 unit.Undo(preUnit);
 const lastOfMounted = unit.Last();
-if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose() === CloseStates.Built) {
+if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
 const mounted = new LineAnnotation(unit.Template);

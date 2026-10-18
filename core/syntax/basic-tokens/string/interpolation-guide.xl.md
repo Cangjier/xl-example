@@ -75,7 +75,7 @@ if (Value !== "{") {
     {
       const lastOfMounted = this.ParentString.Last();
       if (lastOfMounted !== null && !lastOfMounted.Closed) {
-        lastOfMounted.TryToClose();
+        lastOfMounted.TryToClose(context);
       }
       const mounted = new InterpolationString(this.Template);
       this.ParentString.Add(mounted);

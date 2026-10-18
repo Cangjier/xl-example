@@ -69,7 +69,7 @@ if (Value === "\r" || Value === "\n" || Value === " " || Value === "\t") {
 
 ```ts
 this.SignOut(source);
-this.TryToClose();
+this.TryToClose(context);
 this.Quit();
 ```
 
@@ -82,7 +82,7 @@ if (source.Value === "}") {
   {
     const lastOfMounted = this.Last();
     if (lastOfMounted !== null && !lastOfMounted.Closed) {
-      lastOfMounted.TryToClose();
+      lastOfMounted.TryToClose(context);
     }
     const mounted = new InterpolationExitGuide(this.Template);
     this.Add(mounted);

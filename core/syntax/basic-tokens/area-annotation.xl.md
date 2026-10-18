@@ -114,7 +114,7 @@ const pre = source.Pre();
 if (pre !== null && pre.Value === "*" && source.Value === "/") {
   this.SignOut(source);
   this.Undo(pre);
-  this.TryToClose();
+  this.TryToClose(context);
   this.Quit();
   return BranchStates.Done;
 }
@@ -143,7 +143,7 @@ if (pre === null || pre.Value !== "/" || !unit.IsUndo(pre) || source.Value !== "
 }
 unit.Undo(pre);
 const lastOfMounted = unit.Last();
-if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose() === CloseStates.Built) {
+if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
 const mounted = new AreaAnnotation(unit.Template);

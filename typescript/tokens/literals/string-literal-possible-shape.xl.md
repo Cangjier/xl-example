@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"

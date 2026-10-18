@@ -71,7 +71,7 @@ return CloseStates.Nothing;
 ```ts
 const last = unit.Last();
 if (!unit.Template.SymbolTemplate.IsWhiteSpace(source.Value)) {
-  if (last instanceof WrapSymbol && !last.Closed && last.TryToClose() === CloseStates.Built) {
+  if (last instanceof WrapSymbol && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
     return BranchStates.Reload;
   }
   return BranchStates.Undo;
@@ -80,7 +80,7 @@ if (last instanceof WrapSymbol && !last.Closed) {
   last.AppendAndSignOut(source);
   return BranchStates.Done;
 }
-if (last !== null && !last.Closed && last.TryToClose() === CloseStates.Built) {
+if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
 unit.Add(new WrapSymbol(unit.Template));
