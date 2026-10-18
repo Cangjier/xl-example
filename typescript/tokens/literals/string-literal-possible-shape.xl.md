@@ -65,7 +65,11 @@ if (previous < 0) {
   return ShapeStates.Reject;
 }
 const before = units[previous];
-if (!(before instanceof Common) || !(before as Common).Is("from")) {
+if (!(before instanceof Common)) {
+  return ShapeStates.Reject;
+}
+const keyword = before as Common;
+if (!keyword.Is("from") && !keyword.Is("import")) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
