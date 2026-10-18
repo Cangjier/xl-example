@@ -39,7 +39,7 @@ super(template);
   this.CatalogGuide = new CatalogGuide([new NamedImportsPossibleShape(), new NamespaceImportPossibleShape()], new ImportClauseEndPossibleShape());
 ```
 
-## protected method Close:()=>CloseStates
+## protected method Close(context?:SyntaxContext)=>CloseStates
 
 ```ts
 this.Closed = true;

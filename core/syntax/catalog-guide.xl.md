@@ -2,6 +2,7 @@
 ```xl
 import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
 import { PossibleShape } from "./possible-shape.xl.md"
+import { SyntaxContext } from "./syntax-context.xl.md"
 import { PossibleShapeCache } from "./possible-shape-cache.xl.md"
 import { ShapeStates } from "./shape-states.xl.md"
 import { Token } from "./token.xl.md"
@@ -49,15 +50,15 @@ for (let index = 0; index < shapes.length; index++) {
 }
 ```
 
-## method ComputePossibleShapes:(host:Token)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(host:Token, context?:SyntaxContext)=>ComputePossibleShapesStates
 
 判全段就是判到最后一格为止：直接转调 `ComputePossibleShapesByIndex`。
 
 ```ts
-return this.ComputePossibleShapesByIndex(host, host.Data.length - 1);
+return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context);
 ```
 
-## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int, context?:SyntaxContext)=>ComputePossibleShapesStates
 
 拿**宿主**攒下的子单元问一遍还活着的候选——`Candidates` 里那些下标，被拒的从 `Candidates` 里去掉——然后按**个数**行动：只剩一个就建它并复位，一个都不剩就抛错，还有多个就继续等后面的单元。
 
@@ -85,7 +86,7 @@ if (this.EndPossible !== null) {
   }
 }
 if (ended && this.EndPossible !== null) {
-  this.EndPossible.BuildByIndex(host, tokenIndex, this);
+  this.EndPossible.BuildByIndex(host, tokenIndex, this, context);
   this.Reset();
   return ComputePossibleShapesStates.Built;
 }
@@ -104,7 +105,7 @@ for (const index of this.Candidates) {
   }
 }
 for (const index of this.Candidates) {
-  this.PossibleShapes[index].BuildByIndex(host, tokenIndex, this);
+  this.PossibleShapes[index].BuildByIndex(host, tokenIndex, this, context);
 }
 this.Reset();
 return ComputePossibleShapesStates.Built;

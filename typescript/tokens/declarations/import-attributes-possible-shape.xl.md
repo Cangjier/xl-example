@@ -52,7 +52,7 @@ if (!(keyword as Common).Is("with") && !(keyword as Common).Is("assert")) {
 return ShapeStates.Accept;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
 
 ```ts
 let index = tokenIndex;

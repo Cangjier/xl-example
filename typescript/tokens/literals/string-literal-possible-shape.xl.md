@@ -75,7 +75,7 @@ if (!keyword.Is("from") && !keyword.Is("import")) {
 return ShapeStates.Accept;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
 
 ```ts
 let index = tokenIndex;

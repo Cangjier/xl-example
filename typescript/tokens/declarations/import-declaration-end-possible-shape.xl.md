@@ -36,7 +36,7 @@ if (tail instanceof Symbol && (tail as Symbol).Is(";")) {
 return ShapeStates.Reject;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
 
 ```ts
 const unit = host as UnitToken;

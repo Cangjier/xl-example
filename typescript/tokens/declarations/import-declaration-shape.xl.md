@@ -109,7 +109,7 @@ if (unit instanceof Common) {
 return super.ComputePossibleShapes();
 ```
 
-## protected method Close:()=>CloseStates
+## protected method Close(context?:SyntaxContext)=>CloseStates
 
 ```ts
 this.Closed = true;

@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { CloseStates } from "./close-states.xl.md"
+import { SyntaxContext } from "./syntax-context.xl.md"
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { BranchTransiter } from "./branch-transiter.xl.md"
 import { Source } from "./source.xl.md"
@@ -98,7 +99,7 @@ return null;
 throw new Error("abstract member: Default");
 ```
 
-## protected method Close:()=>CloseStates
+## protected method Close(context?:SyntaxContext)=>CloseStates
 
 关闭本单元，并回答**关闭过程中有没有建出形状**。
 
@@ -108,7 +109,7 @@ throw new Error("abstract member: Default");
 throw new Error("abstract member: Close");
 ```
 
-## method TryToClose:()=>CloseStates
+## method TryToClose(context?:SyntaxContext)=>CloseStates
 
 尝试关闭：范围必须已签入签出，然后关闭，并把关闭的结果透传出去。
 
@@ -118,7 +119,7 @@ throw new Error("abstract member: Close");
 if (this.SourceRange.Start === null || this.SourceRange.End === null) {
   throw SourceException.SourceRangeContainsNull;
 }
-return this.Close();
+return this.Close(context);
 ```
 
 ## method MoveDataTo:(target:Token)=>void

@@ -31,7 +31,7 @@ super(template);
 
 独立单元不接收任何字符，所以这个覆写是**空的**：不写 ts 体，打印器产出空方法。
 
-## protected method Close:()=>CloseStates
+## protected method Close(context?:SyntaxContext)=>CloseStates
 
 关闭：只把自己标记为已关闭，返回 `Nothing`。
 

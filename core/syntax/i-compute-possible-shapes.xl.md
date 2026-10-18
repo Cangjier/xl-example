@@ -24,7 +24,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 本单元挂着的目录向导；`null` 表示没挂。
 
-## method ComputePossibleShapes:()=>ComputePossibleShapesStates
+## method ComputePossibleShapes(context?:SyntaxContext)=>ComputePossibleShapesStates
 
 重算本单元目录里的候选。
 

@@ -64,7 +64,7 @@ if (this.Temp[this.Temp.length - 1] === source.Value) {
 }
 ```
 
-## protected method Close:()=>CloseStates
+## protected method Close(context?:SyntaxContext)=>CloseStates
 
 关闭：只把自己标记为已关闭，返回 `Nothing`。
 

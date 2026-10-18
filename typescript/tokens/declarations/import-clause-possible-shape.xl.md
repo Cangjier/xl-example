@@ -91,7 +91,7 @@ if ((tail as Common).Is("import") || (tail as Common).Is("from")) {
 return ShapeStates.Accept;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
 
 ```ts
 const scan = catalog.PossibleShapesComputeCache.GetState<ImportClauseScan>(this.constructor.name);

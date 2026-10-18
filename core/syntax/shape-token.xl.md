@@ -60,7 +60,7 @@ if (this.SourceRange.End === null) {
 return super.TryToClose();
 ```
 
-## protected method Close:()=>CloseStates
+## protected method Close(context?:SyntaxContext)=>CloseStates
 
 默认关闭：只把自己标记为已关闭。
 

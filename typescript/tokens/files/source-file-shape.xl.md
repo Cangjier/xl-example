@@ -57,7 +57,7 @@ super(template);
 this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes());
 ```
 
-## protected method Close:()=>CloseStates
+## protected method Close(context?:SyntaxContext)=>CloseStates
 
 ```ts
 this.Closed = true;

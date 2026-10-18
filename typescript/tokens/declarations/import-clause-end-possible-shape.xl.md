@@ -36,10 +36,14 @@ if (tail instanceof Common && (tail as Common).Is("from")) {
 return ShapeStates.Reject;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
 
 ```ts
 const unit = host as UnitToken;
+const fromUnit = host.Data[tokenIndex];
+if (fromUnit.SourceRange.Start !== null) {
+  context?.Messages.push(new ReloadMessage(null, host, fromUnit.SourceRange.Start));
+}
 let at = tokenIndex - 1;
 while (at >= 0 && host.Data[at].IsTriviaToken) {
   at--;

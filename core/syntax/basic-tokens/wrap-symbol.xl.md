@@ -53,7 +53,7 @@ super(Template);
 return this.Template.SymbolTemplate.IsWhiteSpace(Src.Value);
 ```
 
-## protected method Close:()=>CloseStates
+## protected method Close(context?:SyntaxContext)=>CloseStates
 
 关闭：只把自己标记为已关闭，返回 `Nothing`，**不问父单元**。
 

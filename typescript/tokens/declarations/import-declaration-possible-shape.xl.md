@@ -82,7 +82,7 @@ if (state.Stage === 2) {
 return ShapeStates.Uncertain;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<ImportDeclarationScan>(this.constructor.name);

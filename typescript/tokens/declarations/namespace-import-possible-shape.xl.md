@@ -53,7 +53,7 @@ if (units[last] instanceof Common) {
 return ShapeStates.Reject;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
 
 ```ts
 let star = -1;
