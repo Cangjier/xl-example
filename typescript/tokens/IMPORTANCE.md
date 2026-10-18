@@ -10,6 +10,8 @@
    做法：shape 提供 `FromBasicToken(basicToken)` 之类的入口，在入口里签范围、取字段、关闭；候选形状的
    `BuildByIndex` 调它，然后丢掉 token。
 
+   **例外：挂载期（见第 8 条）。** 形状 Build 后尚未关闭、以 `MountedUnit` 接收后续字符时，`Data` 里允许暂存 basic token；**关闭时必须收敛**——`Close` 之后 `Data` 里只剩子节点形状，basic token 全部丢弃或已被提取进字段。
+
 4. `PossibleShape.Compute` / `ComputeByIndex` **必须使用 `PossibleShapeCache`**（`cache.GetState` / `SetState`），把「已经扫到哪」记进状态，不得每次从头上全量重扫。
 
    **case（微基准：同一份 `Data`，逐格调用 n 次）**
@@ -26,7 +28,9 @@
 
    **原因**：目录在每个 basic token 关闭时都会被问一次，而 `Data` 在一条语句内只增不减；每次全量重扫就是 O(N²)。`CatalogGuide.Reset` 只在建出形状之后清缓存，所以一个建立周期内 `units` 只追加、不重排，扫描点（`Checked` / `Start`）可以一直往前推——这是这套状态能成立的前提。候选自己要保证：窗口被截短（`Checked > tokenIndex + 1`）时重置扫描点。
 
-5. **区间口径**：shape 的 `SourceRange` 是**闭区间**（`start` / `end` 都是字符下标，含两端）；AST 节点的 `Pos` / `End` 是**左闭右开**（与 TS 一致）。换算只发生在 `ParseFromShape` 里：`Pos = shape.SourceRange.Start.Index`、`End = shape.SourceRange.End.Index + 1`。shape 层不得为了迁就 AST 去改自己的区间。
+5. **区间口径**：shape 的 `SourceRange` 是**闭区间**（`start` / `end` 都是字符下标，含两端）；AST 节点的 `Pos` / `End` 是**左闭右开**（与 TS 一致）。shape 另有 `Pos` 字段：**含前导 trivia**（= 前一个非 trivia 单元的 `End.Index + 1`），与 TS 的 `pos` 同口径。
+   换算只发生在 `ParseFromShape` 里：`Pos = shape.Pos`、`End = shape.SourceRange.End.Index + 1`。
+   shape 层不得为了迁就 AST 去改自己的区间。
 
 6. `typescript/cases/*.ts` 的用例规范：每个语句形态必须**先有一条 base**（不含任何干扰信息），
    再基于同一个 base 给出叠加干扰信息的变体（前导空格 / 前导注释 / 词间注释 / 词间多空格 /
@@ -36,6 +40,12 @@
 
    原因：`Source.Value` 是**单个字符**，shape 层拿它去比对一个多字符关键字永远是错的；而「结束」本质上是「哪些单元已经到齐」，那是候选的职责。
 
+   终结候选**不是普通候选**：它放在 `CatalogGuide.EndPossible`（可为 `null`）里单独一份，**不进 `PossibleShapes`、不参与 `Candidates` 的淘汰**。目录每次判定都问它一次：
+
+   - 它 `Accept` 且 `Candidates == 0` → 建它（结束）；
+   - 它 `Accept` 且 `Candidates > 0` → **抛错**（既像结束、又像还能长）；
+   - 它不 `Accept` 且 `Candidates == 0` → 允许，继续等（有终结候选时不因 0 候选抛错）。
+
    **触发结束的那个字符不能直接塞回父级队列，必须走 `Reload`。** 两条理由：
    一是 shape 不知道父级是什么结构（父级可能还有别的 shape 在等同一个字符）；
    二是直接塞进队列不会让父级的机会重新走一遍判定，触发不了它的 `Close`。
@@ -44,3 +54,5 @@
 8. 候选判出唯一目标，就已经确定了「建的是哪个形状」：`Build` 之后若它还没结束，形状以**「未关闭 + 挂载」**的状态存在——`host.MountedUnit = shape`，既不 `SignOut` 也不 `TryToClose`。后续字符继续流进它，直到**终结候选**在「单元到齐」时签名并关闭。
 
    所以「只剩一个候选」不是提前构建，而是一次正确的选择。构建得早不早，看的是形状建完之后**是关掉还是挂上**。
+
+   这条只约束 `PossibleShapes` 里的候选；终结候选走第 7 条的 `EndPossible` 路径：它 `Accept` 且 `Candidates == 0` 时才 Build。

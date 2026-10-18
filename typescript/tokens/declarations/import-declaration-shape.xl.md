@@ -147,7 +147,6 @@ return CloseStates.Nothing;
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
-只返回 `Undo`：结束由终结候选判定。
 
 ```ts
 return BranchStates.Undo;
