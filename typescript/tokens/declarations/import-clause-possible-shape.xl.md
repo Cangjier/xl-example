@@ -79,6 +79,9 @@ if (tail instanceof Bracket) {
   }
   return ShapeStates.Accept;
 }
+if (tail instanceof Symbol && (tail as Symbol).Is("*")) {
+  return ShapeStates.Accept;
+}
 if (!(tail instanceof Common)) {
   return ShapeStates.Reject;
 }
@@ -181,11 +184,8 @@ clause.IsTypeOnly = typeOnly;
 if (firstUnit.SourceRange.Start !== null) {
   clause.SignIn(firstUnit.SourceRange.Start);
 }
-if (lastUnit.SourceRange.End !== null) {
-  clause.SignOut(lastUnit.SourceRange.End);
-}
-clause.TryToClose();
 host.Data.splice(cursor, tokenIndex - cursor + 1, clause);
 clause.Parent = host;
+host.MountedUnit = clause;
 return clause;
 ```

@@ -3,6 +3,7 @@
 import { BlockToken } from "../block-token.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
+import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
 import { Source } from "../source.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -92,6 +93,13 @@ return items.includes(this.TempToString());
 
 ```ts
 this.Closed = true;
+const parent = this.Parent;
+if (parent !== null && "ComputePossibleShapes" in parent) {
+  const state = (parent as any).ComputePossibleShapes();
+  if (state === ComputePossibleShapesStates.Built) {
+    return CloseStates.Built;
+  }
+}
 return CloseStates.Nothing;
 ```
 

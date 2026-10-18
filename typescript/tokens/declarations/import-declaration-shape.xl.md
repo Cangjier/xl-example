@@ -18,6 +18,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { ImportAttributesShape } from "../members/import-attributes-shape.xl.md"
 import { ImportAttributesPossibleShape } from "./import-attributes-possible-shape.xl.md"
+import { ImportDeclarationEndPossibleShape } from "./import-declaration-end-possible-shape.xl.md"
 import { ImportClausePossibleShape } from "./import-clause-possible-shape.xl.md"
 import { ImportClauseShape } from "./import-clause-shape.xl.md"
 import { StringLiteralPossibleShape } from "../literals/string-literal-possible-shape.xl.md"
@@ -51,7 +52,7 @@ import a from "m" with { type: "json" };
 
 ```ts
 super(template);
-this.CatalogGuide = new CatalogGuide(ImportDeclarationShape.CreatePossibleShapes());
+this.CatalogGuide = new CatalogGuide(ImportDeclarationShape.CreatePossibleShapes(), new ImportDeclarationEndPossibleShape());
 ```
 
 ## private static field CreatePossibleShapesCache:Array<PossibleShape> | null = null
@@ -146,39 +147,8 @@ return CloseStates.Nothing;
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
+只返回 `Undo`：结束由终结候选判定。
+
 ```ts
-const value = source.Value;
-if (value === ";") {
-  this.SignOut(source);
-  const state = this.TryToClose();
-  this.Quit();
-  if (state === CloseStates.Built) {
-    return BranchStates.Reload;
-  }
-  return BranchStates.Done;
-}
-if (value === "\n" || value === "\r") {
-  let complete = false;
-  for (const item of this.Data) {
-    if (item instanceof StringLiteralShape) {
-      complete = true;
-      break;
-    }
-  }
-  if (!complete) {
-    return BranchStates.Undo;
-  }
-  const previous = source.Pre();
-  if (previous === null) {
-    return BranchStates.Undo;
-  }
-  this.SignOut(previous);
-  const state = this.TryToClose();
-  this.Quit();
-  if (state === CloseStates.Built) {
-    return BranchStates.Reload;
-  }
-  return BranchStates.Done;
-}
 return BranchStates.Undo;
 ```

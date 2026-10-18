@@ -27,16 +27,23 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 还活着的候选下标。构造时填满 `0..PossibleShapes.length-1`，判定中被拒的去掉一个，建完一条形状后重新填满。
 
+## field EndPossible:PossibleShape | null = null
+
+**终结候选**：单独一个，不进 `PossibleShapes`、不参与 `Candidates` 的淘汰。它回答的是「这条语句到这里该结束了」。
+
+只有它 `Accept` 时才可能构建；它`Accept`而 `Candidates` 里还有候选，说明「既像结束、又像还能长」，直接抛错。
+
 ## field PossibleShapesComputeCache:PossibleShapeCache = new PossibleShapeCache()
 
 判定缓存。形状在自己名下读写，同一向导的所有判定共用这一份。
 
-## constructor:(shapes:Array<PossibleShape>)=>void
+## constructor:(shapes:Array<PossibleShape>, endPossible?:PossibleShape | null)=>void
 
-以候选目录创建，把所有下标放进 `Candidates`。
+以候选目录创建，把所有下标放进 `Candidates`；终结候选单独收下。
 
 ```ts
 this.PossibleShapes = shapes;
+this.EndPossible = endPossible ?? null;
 for (let index = 0; index < shapes.length; index++) {
   this.Candidates.add(index);
 }
@@ -70,8 +77,23 @@ for (const index of this.Candidates) {
     this.Candidates.delete(index);
   }
 }
+let ended = false;
+if (this.EndPossible !== null) {
+  ended = this.EndPossible.ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache) === ShapeStates.Accept;
+  if (ended && this.Candidates.size > 0) {
+    throw new Error(`CatalogGuide: 终结候选与其它候选同时成立（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
+  }
+}
+if (ended && this.EndPossible !== null) {
+  this.EndPossible.BuildByIndex(host, tokenIndex, this);
+  this.Reset();
+  return ComputePossibleShapesStates.Built;
+}
 if (this.Candidates.size === 0) {
-  throw new Error(`CatalogGuide: 没有候选形状可以构成（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
+  if (this.EndPossible === null) {
+    throw new Error(`CatalogGuide: 没有候选形状可以构成（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
+  }
+  return ComputePossibleShapesStates.Waiting;
 }
 if (this.Candidates.size > 1) {
   return ComputePossibleShapesStates.Waiting;

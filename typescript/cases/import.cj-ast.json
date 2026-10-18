@@ -2,355 +2,39 @@
   "cases": [
     {
       "src": "import a from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 17,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
-              "pos": 6,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 14,
-              "end": 16,
-              "text": "m",
-              "pos": 13
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import a from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 17,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
-              "pos": 6,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 14,
-              "end": 16,
-              "text": "m",
-              "pos": 13
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "/* c */ import a from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 25,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 15,
-              "end": 15,
-              "pos": 14,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 15,
-                  "end": 15,
-                  "text": "a",
-                  "pos": 14
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 22,
-              "end": 24,
-              "text": "m",
-              "pos": 21
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import /* c */ a from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 25,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 15,
-              "end": 15,
-              "pos": 6,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 15,
-                  "end": 15,
-                  "text": "a",
-                  "pos": 6
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 22,
-              "end": 24,
-              "text": "m",
-              "pos": 21
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import    a    from    \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 26,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 10,
-              "end": 10,
-              "pos": 6,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 10,
-                  "end": 10,
-                  "text": "a",
-                  "pos": 6
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 23,
-              "end": 25,
-              "text": "m",
-              "pos": 19
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import\na from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 17,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
-              "pos": 6,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 14,
-              "end": 16,
-              "text": "m",
-              "pos": 13
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import a\nfrom \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 17,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
-              "pos": 6,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 14,
-              "end": 16,
-              "text": "m",
-              "pos": 13
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import // c\na from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 22,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 12,
-              "end": 12,
-              "pos": 6,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 12,
-                  "end": 12,
-                  "text": "a",
-                  "pos": 6
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 19,
-              "end": 21,
-              "text": "m",
-              "pos": 18
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import a from \"m\"; // c",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 17,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
-              "pos": 6,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 14,
-              "end": 16,
-              "text": "m",
-              "pos": 13
-            }
-          ]
-        },
-        {
-          "kind": "WrapSymbol",
-          "start": 18,
-          "end": 18
-        },
-        {
-          "kind": "LineAnnotation",
-          "start": 19,
-          "end": 22
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import { a } from \"m\";",
@@ -808,146 +492,23 @@
     },
     {
       "src": "import * as ns from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 23,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 13,
-              "pos": 6,
-              "NamedBindings": "NamespaceImportShape",
-              "children": [
-                {
-                  "kind": "NamespaceImportShape",
-                  "start": 7,
-                  "end": 13,
-                  "Name": "IdentifierShape",
-                  "children": [
-                    {
-                      "kind": "IdentifierShape",
-                      "start": 12,
-                      "end": 13,
-                      "text": "ns"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 20,
-              "end": 22,
-              "text": "m",
-              "pos": 19
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import * as ns from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 23,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 13,
-              "pos": 6,
-              "NamedBindings": "NamespaceImportShape",
-              "children": [
-                {
-                  "kind": "NamespaceImportShape",
-                  "start": 7,
-                  "end": 13,
-                  "Name": "IdentifierShape",
-                  "children": [
-                    {
-                      "kind": "IdentifierShape",
-                      "start": 12,
-                      "end": 13,
-                      "text": "ns"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 20,
-              "end": 22,
-              "text": "m",
-              "pos": 19
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import  *  as  ns  from  \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 28,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 8,
-              "end": 16,
-              "pos": 6,
-              "NamedBindings": "NamespaceImportShape",
-              "children": [
-                {
-                  "kind": "NamespaceImportShape",
-                  "start": 8,
-                  "end": 16,
-                  "Name": "IdentifierShape",
-                  "children": [
-                    {
-                      "kind": "IdentifierShape",
-                      "start": 15,
-                      "end": 16,
-                      "text": "ns"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 25,
-              "end": 27,
-              "text": "m",
-              "pos": 23
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import a, { b } from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 5）"
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import a, * as ns from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 9）"
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import \"m\";",
@@ -1067,127 +628,15 @@
     },
     {
       "src": "import type a from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 22,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 12,
-              "end": 12,
-              "pos": 11,
-              "isTypeOnly": true,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 12,
-                  "end": 12,
-                  "text": "a",
-                  "pos": 11
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 19,
-              "end": 21,
-              "text": "m",
-              "pos": 18
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import type * as ns from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 28,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 12,
-              "end": 18,
-              "pos": 11,
-              "isTypeOnly": true,
-              "NamedBindings": "NamespaceImportShape",
-              "children": [
-                {
-                  "kind": "NamespaceImportShape",
-                  "start": 12,
-                  "end": 18,
-                  "Name": "IdentifierShape",
-                  "children": [
-                    {
-                      "kind": "IdentifierShape",
-                      "start": 17,
-                      "end": 18,
-                      "text": "ns"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 25,
-              "end": 27,
-              "text": "m",
-              "pos": 24
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import  type  a  from  \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 26,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 14,
-              "end": 14,
-              "pos": 12,
-              "isTypeOnly": true,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 14,
-                  "end": 14,
-                  "text": "a",
-                  "pos": 12
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 23,
-              "end": 25,
-              "text": "m",
-              "pos": 21
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import type\n{ T } from \"m\";",
@@ -1244,281 +693,23 @@
     },
     {
       "src": "import a from \"m\" with { type: \"json\" };",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 39,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "Attributes": "ImportAttributesShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
-              "pos": 6,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 14,
-              "end": 16,
-              "text": "m",
-              "pos": 13
-            },
-            {
-              "kind": "ImportAttributesShape",
-              "start": 23,
-              "end": 38,
-              "children": [
-                {
-                  "kind": "ImportAttributeShape",
-                  "start": 25,
-                  "end": 36,
-                  "children": [
-                    {
-                      "kind": "IdentifierShape",
-                      "start": 25,
-                      "end": 28,
-                      "text": "type"
-                    },
-                    {
-                      "kind": "StringLiteralShape",
-                      "start": 31,
-                      "end": 36,
-                      "text": "json"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "import a from \"m\" assert { type: \"json\" };",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 41,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "AssertClause": "ImportAttributesShape",
-          "children": [
-            {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
-              "pos": 6,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 14,
-              "end": 16,
-              "text": "m",
-              "pos": 13
-            },
-            {
-              "kind": "ImportAttributesShape",
-              "start": 25,
-              "end": 40,
-              "children": [
-                {
-                  "kind": "ImportAttributeShape",
-                  "start": 27,
-                  "end": 38,
-                  "children": [
-                    {
-                      "kind": "IdentifierShape",
-                      "start": 27,
-                      "end": 30,
-                      "text": "type"
-                    },
-                    {
-                      "kind": "StringLiteralShape",
-                      "start": 33,
-                      "end": 38,
-                      "text": "json"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "export import a from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 24,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "Modifiers": [
-            "ExportKeywordShape"
-          ],
-          "children": [
-            {
-              "kind": "ExportKeywordShape",
-              "start": 0,
-              "end": 5,
-              "pos": 0
-            },
-            {
-              "kind": "ImportClauseShape",
-              "start": 14,
-              "end": 14,
-              "pos": 13,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 14,
-                  "end": 14,
-                  "text": "a",
-                  "pos": 13
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 21,
-              "end": 23,
-              "text": "m",
-              "pos": 20
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "declare import a from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 25,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "Modifiers": [
-            "DeclareKeywordShape"
-          ],
-          "children": [
-            {
-              "kind": "DeclareKeywordShape",
-              "start": 0,
-              "end": 6,
-              "pos": 0
-            },
-            {
-              "kind": "ImportClauseShape",
-              "start": 15,
-              "end": 15,
-              "pos": 14,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 15,
-                  "end": 15,
-                  "text": "a",
-                  "pos": 14
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 22,
-              "end": 24,
-              "text": "m",
-              "pos": 21
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     },
     {
       "src": "export declare import a from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 32,
-          "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
-          "Modifiers": [
-            "ExportKeywordShape",
-            "DeclareKeywordShape"
-          ],
-          "children": [
-            {
-              "kind": "ExportKeywordShape",
-              "start": 0,
-              "end": 5,
-              "pos": 0
-            },
-            {
-              "kind": "DeclareKeywordShape",
-              "start": 7,
-              "end": 13,
-              "pos": 7
-            },
-            {
-              "kind": "ImportClauseShape",
-              "start": 22,
-              "end": 22,
-              "pos": 21,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 22,
-                  "end": 22,
-                  "text": "a",
-                  "pos": 21
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteralShape",
-              "start": 29,
-              "end": 31,
-              "text": "m",
-              "pos": 28
-            }
-          ]
-        }
-      ]
+      "error": "abstract member: ExitOrPre"
     }
   ]
 }
