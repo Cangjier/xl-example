@@ -41,8 +41,6 @@
    二是直接塞进队列不会让父级的机会重新走一遍判定，触发不了它的 `Close`。
    统一处理：`Quit()` 之后返回 `BranchStates.Reload`，由机制把该字符重新投给宿主。
 
-   现状：`ImportDeclarationShape.ExitOrPre` 仍靠 `;` / 换行关闭（待改成终结候选）；`SourceFileShape.ExitOrPre` 已是 `Undo`，合规。所有 basic token 的 `Close`（含 `Symbol`）都问父单元，保持一致。
-
 8. 候选判出唯一目标，就已经确定了「建的是哪个形状」：`Build` 之后若它还没结束，形状以**「未关闭 + 挂载」**的状态存在——`host.MountedUnit = shape`，既不 `SignOut` 也不 `TryToClose`。后续字符继续流进它，直到**终结候选**在「单元到齐」时签名并关闭。
 
    所以「只剩一个候选」不是提前构建，而是一次正确的选择。构建得早不早，看的是形状建完之后**是关掉还是挂上**。
