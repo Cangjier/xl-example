@@ -100,7 +100,7 @@ if (this.Candidates.size > 1) {
   return ComputePossibleShapesStates.Waiting;
 }
 for (const index of this.Candidates) {
-  if (!this.PossibleShapes[index].IsBuildable(host.Data, tokenIndex, this.PossibleShapesComputeCache)) {
+  if (!this.PossibleShapes[index].IsBuildable(host.Data, tokenIndex, this.PossibleShapesComputeCache, context)) {
     return ComputePossibleShapesStates.Waiting;
   }
 }

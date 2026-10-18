@@ -105,7 +105,7 @@ for (let i = 0; i < count; i++) {
     this.Root.SignOut(documents.At(i));
   }
 }
-this.Root.TryToClose();
+this.Root.TryToClose(this);
 ```
 
 ## method ProcessSingle:(item:Source)=>void

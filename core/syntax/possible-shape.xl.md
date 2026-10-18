@@ -53,7 +53,7 @@ throw new Error("abstract member: ComputeByIndex");
 return this.BuildByIndex(host, host.Data.length - 1, catalog);
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 能不能现在建。默认可以；候选若还缺后续单元（例如语句还没走到关键字之后），返回 false 让目录继续等。
 

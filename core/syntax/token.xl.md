@@ -6,7 +6,6 @@ import { SourceException } from "../exceptions/source-exception.xl.md"
 import { BranchTransiter } from "./branch-transiter.xl.md"
 import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
-import { SyntaxContext } from "./syntax-context.xl.md"
 import { Template } from "./templates/template.xl.md"
 import { Sequence } from "./templates/sequence.xl.md"
 ```
