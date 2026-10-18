@@ -98,11 +98,3 @@ if (Value !== "{") {
 
 this.Items.push(source);
 ```
-
-## method Clone:()=>Token
-
-克隆自身——这个向导是一次性的，直接抛错。
-
-```ts
-throw new Error("抽象成员未实现");
-```

@@ -400,24 +400,3 @@ for (const item of this.Data) {
 }
 return `<${name} IsSupportInterpolation=${interpolation} IsSupportVerbatim=${verbatim} IsSupportRaw=${raw} InterpolationCount=${this.InterpolationCount} RawQuoteCount=${this.RawQuoteCount}>${temp.join("")}</${name}>`;
 ```
-
-## method Clone:()=>Token
-
-克隆自身：连同五个开关/计数与所有子单元的克隆一起复制。顺序是 `Sign(this)` → 逐个复制开关 → `Add(i.Clone())` → `TryToClose()`。
-
-```ts
-const result = new String(this.Template, this.StringChar);
-result.Sign(this);
-result.IsSupportInterpolation = this.IsSupportInterpolation;
-result.IsSupportVerbatim = this.IsSupportVerbatim;
-result.IsSupportRaw = this.IsSupportRaw;
-result.InterpolationCount = this.InterpolationCount;
-result.RawQuoteCount = this.RawQuoteCount;
-result.RawIndent = this.RawIndent;
-result.IsRawIndentFormated = this.IsRawIndentFormated;
-for (const item of this.Data) {
-  result.Add(item.Clone());
-}
-result.TryToClose();
-return result;
-```

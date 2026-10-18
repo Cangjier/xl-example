@@ -64,18 +64,6 @@ this.Closed = true;
 return CloseStates.Nothing;
 ```
 
-## method Clone:()=>Token
-
-克隆自身。顺序是 `Sign(this)` → 把 `Temp` 追加到自身 → `TryToClose()`。
-
-```ts
-const result = new WrapSymbol(this.Template);
-result.Sign(this);
-result.Temp.push(...this.Temp);
-result.TryToClose();
-return result;
-```
-
 ## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
 当前字符是空白就接手；不是就先关掉还开着的上一个 `WrapSymbol`（它是一整段空白，遇到非空白就该收尾），再让路。

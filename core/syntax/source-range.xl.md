@@ -267,18 +267,3 @@ ts 没有值哈希，这里退化成起点下标；本方法只用于诊断，�
 ```ts
 return this.Start === null ? 0 : this.Start.Index;
 ```
-
-## method Clone:()=>SourceRange
-
-值语义复制的显式入口。
-
-`SourceRange` 按值语义使用：把它整体赋给另一个字段、放进列表、当参数传出去时，都要显式 `Clone()`。
-
-`Source` 不可变，所以这里浅拷贝两个引用就够了。
-
-```ts
-const copy = new SourceRange();
-copy.Start = this.Start;
-copy.End = this.End;
-return copy;
-```

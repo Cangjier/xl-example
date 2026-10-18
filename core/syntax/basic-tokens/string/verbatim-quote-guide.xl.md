@@ -37,14 +37,6 @@ super(Template);
 return (this.Parent as String)!;
 ```
 
-## method Clone:()=>Token
-
-克隆自身——这个向导是一次性的，直接抛错。
-
-```ts
-throw new Error("抽象成员未实现");
-```
-
 ## protected method Navigate:(context:SyntaxContext, source:Source)=>void
 
 当前字符是不是引号，决定这次引号是转义还是结尾。

@@ -93,15 +93,3 @@ if (source.Value === "}") {
 }
 return BranchStates.Undo;
 ```
-
-## method Clone:()=>Token
-
-克隆自身：`Sign(this)` → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`。
-
-```ts
-const result = new InterpolationString(this.Template);
-result.Sign(this);
-result.AddRange(this.Data.map((item) => item.Clone()));
-result.TryToClose();
-return result;
-```

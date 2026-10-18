@@ -122,20 +122,6 @@ for (const item of this.Data) {
 return `<${name} StartBracketChar="${this.StartBracketChar}" EndBracketChar="${this.EndBracketChar}">${temp.join("")}</${name}>`;
 ```
 
-## method Clone:()=>Token
-
-克隆自身。顺序是：`Sign(this)` → 抄两个括号字符 → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`。
-
-```ts
-const result = new Bracket(this.Template);
-result.Sign(this);
-result.StartBracketChar = this.StartBracketChar;
-result.EndBracketChar = this.EndBracketChar;
-result.AddRange(this.Data.map((item) => item.Clone()));
-result.TryToClose();
-return result;
-```
-
 ## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
 只认 `(` / `{` / `[` 三种开括号字符：认下就新建一个 `Bracket`、配成对应的括号对、挂到 `unit` 上并签入。

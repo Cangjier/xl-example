@@ -305,15 +305,3 @@ while (true) {
   LastIndex = LineStartIndex + 1;
 }
 ```
-
-## method Clone:()=>Token
-
-克隆自身：`Sign(this)` → `Temp.push(...this.Temp)` → `TryToClose()`。
-
-```ts
-const result = new ConstString(this.Template);
-result.Sign(this);
-result.Temp.push(...this.Temp);
-result.TryToClose();
-return result;
-```

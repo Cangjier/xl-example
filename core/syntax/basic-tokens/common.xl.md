@@ -151,18 +151,6 @@ return true;
 return items.includes(this.TempToString());
 ```
 
-## method Clone:()=>Token
-
-克隆自身。顺序是 `Sign(this)` → 把 `Temp` 追加到自身 → `TryToClose()`。
-
-```ts
-const result = new Common(this.Template);
-result.Sign(this);
-result.Temp.push(...this.Temp);
-result.TryToClose();
-return result;
-```
-
 ## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
 判定、收尾、新开都在这一个方法里：

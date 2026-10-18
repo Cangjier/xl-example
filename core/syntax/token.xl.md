@@ -350,11 +350,3 @@ return `<${name}>${temp.join("")}</${name}>`;
 ```ts
 return this.ToXmlString();
 ```
-
-## method Clone:()=>Token
-
-克隆自身。
-
-```ts
-throw new Error("abstract member: Clone");
-```

@@ -192,11 +192,3 @@ if (this.QuoteCount === 2) {
 }
 return super.Close();
 ```
-
-## method Clone:()=>Token
-
-克隆自身——**没有实现**，调用即抛 `Error("抽象成员未实现")`。
-
-```ts
-throw new Error("抽象成员未实现");
-```

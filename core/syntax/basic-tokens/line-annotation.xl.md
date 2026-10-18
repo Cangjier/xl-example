@@ -136,18 +136,6 @@ context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
 return BranchStates.Done;
 ```
 
-## method Clone:()=>Token
-
-克隆自身。顺序是 `Sign(this)` → 把 `Tmp` 追加到自身 → `TryToClose()`。
-
-```ts
-const result = new LineAnnotation(this.Template);
-result.Sign(this);
-result.Tmp += this.Tmp;
-result.TryToClose();
-return result;
-```
-
 ## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
 判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符也是 `/`。

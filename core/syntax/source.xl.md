@@ -107,13 +107,3 @@ ts 没有值哈希，这里退化成下标；本方法只用于诊断，不参�
 ```ts
 return this.Index;
 ```
-
-## method Clone:()=>Source
-
-值语义复制的显式入口。
-
-`Source` 按值语义使用：赋值、作参数、存进字段时都要显式调用 `Clone()`。
-
-```ts
-return new Source(this.Document, this.Index);
-```

@@ -132,19 +132,6 @@ this.IsTranslate = false;
 return BranchStates.Done;
 ```
 
-## method Clone:()=>Token
-
-克隆自身。顺序是 `Sign(this)` → 把 `Temp` 追加到自身 → 把 `Flags` 追加到自身 → `TryToClose()`。
-
-```ts
-const result = new RegexToken(this.Template);
-result.Sign(this);
-result.Temp += this.Temp;
-result.Flags += this.Flags;
-result.TryToClose();
-return result;
-```
-
 ## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
 判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符不是 `/`。成立后再看 `unit.Data` 的倒数第二个单元：单元数不超过 1 就成立；它是 `Common` 或 `Bracket` 时不成立；其余类型成立。
