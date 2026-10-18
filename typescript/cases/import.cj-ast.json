@@ -19,11 +19,6 @@
                   "pos": 6,
                   "end": 8,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 13,
-                  "end": 14
                 }
               ]
             }
@@ -50,11 +45,6 @@
                   "pos": 6,
                   "end": 8,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 13,
-                  "end": 14
                 }
               ]
             }
@@ -81,11 +71,6 @@
                   "pos": 14,
                   "end": 16,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 21,
-                  "end": 22
                 }
               ]
             }
@@ -112,11 +97,6 @@
                   "pos": 6,
                   "end": 16,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 21,
-                  "end": 22
                 }
               ]
             }
@@ -143,11 +123,6 @@
                   "pos": 6,
                   "end": 11,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 19,
-                  "end": 20
                 }
               ]
             }
@@ -174,11 +149,6 @@
                   "pos": 6,
                   "end": 8,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 13,
-                  "end": 14
                 }
               ]
             }
@@ -205,11 +175,6 @@
                   "pos": 6,
                   "end": 8,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 13,
-                  "end": 14
                 }
               ]
             }
@@ -236,11 +201,6 @@
                   "pos": 6,
                   "end": 13,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 18,
-                  "end": 19
                 }
               ]
             }
@@ -267,20 +227,15 @@
                   "pos": 6,
                   "end": 8,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 13,
-                  "end": 14
                 }
               ]
-            },
-            {
-              "kind": "WrapSymbol",
-              "pos": 18,
-              "end": 19
             }
           ]
+        },
+        {
+          "kind": "WrapSymbol",
+          "pos": 18,
+          "end": 19
         },
         {
           "kind": "LineAnnotation",
@@ -706,14 +661,7 @@
             {
               "kind": "ImportClause",
               "pos": 6,
-              "end": 14,
-              "children": [
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 19,
-                  "end": 20
-                }
-              ]
+              "end": 14
             }
           ]
         }
@@ -730,14 +678,7 @@
             {
               "kind": "ImportClause",
               "pos": 6,
-              "end": 14,
-              "children": [
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 19,
-                  "end": 20
-                }
-              ]
+              "end": 14
             }
           ]
         }
@@ -754,14 +695,7 @@
             {
               "kind": "ImportClause",
               "pos": 6,
-              "end": 17,
-              "children": [
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 23,
-                  "end": 24
-                }
-              ]
+              "end": 17
             }
           ]
         }
@@ -786,11 +720,6 @@
                   "pos": 6,
                   "end": 8,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 20,
-                  "end": 21
                 }
               ]
             }
@@ -817,11 +746,6 @@
                   "pos": 6,
                   "end": 8,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 22,
-                  "end": 23
                 }
               ]
             }
@@ -950,11 +874,6 @@
                   "pos": 11,
                   "end": 13,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 18,
-                  "end": 19
                 }
               ]
             }
@@ -974,14 +893,7 @@
               "kind": "ImportClause",
               "pos": 11,
               "end": 19,
-              "isTypeOnly": true,
-              "children": [
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 24,
-                  "end": 25
-                }
-              ]
+              "isTypeOnly": true
             }
           ]
         }
@@ -1007,11 +919,6 @@
                   "pos": 12,
                   "end": 15,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 21,
-                  "end": 22
                 }
               ]
             }
@@ -1085,11 +992,6 @@
                   "pos": 6,
                   "end": 8,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 13,
-                  "end": 14
                 }
               ]
             }
@@ -1116,11 +1018,6 @@
                   "pos": 6,
                   "end": 8,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 13,
-                  "end": 14
                 }
               ]
             }
@@ -1152,11 +1049,6 @@
                   "pos": 13,
                   "end": 15,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 20,
-                  "end": 21
                 }
               ]
             }
@@ -1188,11 +1080,6 @@
                   "pos": 14,
                   "end": 16,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 21,
-                  "end": 22
                 }
               ]
             }
@@ -1229,11 +1116,6 @@
                   "pos": 21,
                   "end": 23,
                   "text": "a"
-                },
-                {
-                  "kind": "WrapSymbol",
-                  "pos": 28,
-                  "end": 29
                 }
               ]
             }
