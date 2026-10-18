@@ -43,8 +43,4 @@
 
    现状：`ImportDeclarationShape.ExitOrPre` 仍靠 `;` / 换行关闭（待改成终结候选）；`SourceFileShape.ExitOrPre` 已是 `Undo`，合规。所有 basic token 的 `Close`（含 `Symbol`）都问父单元，保持一致。
 
-   **前提**：把 `Symbol.Close` 改成问父单元之前，候选必须能容忍「中间符号」的时刻。
-   实测（`* as ns`）：`*` 一关闭就问到目录，此时子句候选的尾单元是 `Symbol("*")`，
-   若它 `Reject` 就变成 0 候选抛错；若它 `Uncertain` 又会因「只剩一个」被提前建掉。
-   所以这两类时刻要同时满足：候选返回 `Uncertain`，且 `IsBuildable` 为 false。
 
