@@ -92,9 +92,10 @@ if (last instanceof WrapSymbol && !last.Closed) {
   last.AppendAndSignOut(source);
   return BranchStates.Done;
 }
-if (unit.AddAndCloseLast(new WrapSymbol(unit.Template)) === CloseStates.Built) {
+if (last !== null && !last.Closed && last.TryToClose() === CloseStates.Built) {
   return BranchStates.Reload;
 }
+unit.Add(new WrapSymbol(unit.Template));
 (unit.Last() as WrapSymbol)!.AppendAndSignOut(source).SignIn(source);
 return BranchStates.Done;
 ```
