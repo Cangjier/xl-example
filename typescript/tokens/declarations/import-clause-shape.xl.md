@@ -1,11 +1,16 @@
 # dependencies
 ```xl
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
+import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { ImportClauseEndPossibleShape } from "./import-clause-end-possible-shape.xl.md"
+import { NamedImportsPossibleShape } from "./named-imports-possible-shape.xl.md"
+import { NamespaceImportPossibleShape } from "./namespace-import-possible-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NamedImportsShape } from "./named-imports-shape.xl.md"
 import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
@@ -31,7 +36,7 @@ import a from "m";
 
 ```ts
 super(template);
-  this.CatalogGuide = new CatalogGuide([], new ImportClauseEndPossibleShape());
+  this.CatalogGuide = new CatalogGuide([new NamedImportsPossibleShape(), new NamespaceImportPossibleShape()], new ImportClauseEndPossibleShape());
 ```
 
 ## protected method Close:()=>CloseStates
@@ -60,4 +65,10 @@ for (const item of this.Data) {
   }
 }
 return CloseStates.Nothing;
+```
+
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+
+```ts
+return BranchStates.Undo;
 ```
