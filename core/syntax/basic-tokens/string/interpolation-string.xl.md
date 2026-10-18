@@ -79,7 +79,15 @@ this.Quit();
 
 ```ts
 if (source.Value === "}") {
-  this.AddToMounted(new InterpolationExitGuide(this.Template));
+  {
+    const lastOfMounted = this.Last();
+    if (lastOfMounted !== null && !lastOfMounted.Closed) {
+      lastOfMounted.TryToClose();
+    }
+    const mounted = new InterpolationExitGuide(this.Template);
+    this.Add(mounted);
+    this.MountedUnit = mounted;
+  }
   context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   return BranchStates.Done;
 }

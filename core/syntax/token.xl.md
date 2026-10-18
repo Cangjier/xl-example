@@ -156,39 +156,6 @@ this.Data.push(...items);
 return this;
 ```
 
-## method AddAndCloseLast:<Item extends Token>(item:Item)=>CloseStates
-
-加一个子单元；如果最后一个子单元还没关闭，先关掉它。
-
-关掉上一个子单元可能**触发形状建造**。建出来了就**不加**这个新单元，并把 `Built` 原样返回：调用方要把它翻译成 `BranchStates.Reload`，让当前字符重放。加了进去（`Nothing`）时，新单元就是 `Last()`。
-
-```ts
-const last = this.Last();
-let state = CloseStates.Nothing;
-if (last !== null && !last.Closed) {
-  state = last.TryToClose();
-}
-if (state === CloseStates.Built) {
-  return state;
-}
-this.Add(item);
-return state;
-```
-
-## method AddToMounted:<Item extends Token>(item:Item)=>CloseStates
-
-加一个子单元并把它设为 `MountedUnit`。
-
-加不进去时（关闭上一个时建出了形状）原样返回结果，`MountedUnit` 一个字不动；加进去了它就指向这个新单元。
-
-```ts
-const state = this.AddAndCloseLast(item);
-if (state === CloseStates.Nothing) {
-  this.MountedUnit = item;
-}
-return state;
-```
-
 ## method Quit:()=>Token | null
 
 从父单元卸载自己，返回父单元。

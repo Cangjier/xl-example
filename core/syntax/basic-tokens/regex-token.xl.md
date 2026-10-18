@@ -163,9 +163,13 @@ if (unit.Data.length > 1) {
   }
 }
 unit.Undo(preUnit);
-if (unit.AddToMounted(new RegexToken(unit.Template)) === CloseStates.Built) {
+const lastOfMounted = unit.Last();
+if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose() === CloseStates.Built) {
   return BranchStates.Reload;
 }
+const mounted = new RegexToken(unit.Template);
+unit.Add(mounted);
+unit.MountedUnit = mounted;
 const regexToken = unit.MountedUnit as RegexToken;
 regexToken.SignIn(preUnit);
 regexToken.Append(source);

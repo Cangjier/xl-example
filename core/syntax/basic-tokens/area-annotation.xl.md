@@ -154,9 +154,13 @@ if (pre === null || pre.Value !== "/" || !unit.IsUndo(pre) || source.Value !== "
   return BranchStates.Undo;
 }
 unit.Undo(pre);
-if (unit.AddToMounted(new AreaAnnotation(unit.Template)) === CloseStates.Built) {
+const lastOfMounted = unit.Last();
+if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose() === CloseStates.Built) {
   return BranchStates.Reload;
 }
+const mounted = new AreaAnnotation(unit.Template);
+unit.Add(mounted);
+unit.MountedUnit = mounted;
 (unit.MountedUnit as AreaAnnotation)!.SignIn(pre);
 return BranchStates.Done;
 ```

@@ -147,9 +147,13 @@ const value = source.Value;
 if (value !== "(" && value !== "{" && value !== "[") {
   return BranchStates.Undo;
 }
-if (unit.AddToMounted(new Bracket(unit.Template)) === CloseStates.Built) {
+const lastOfMounted = unit.Last();
+if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose() === CloseStates.Built) {
   return BranchStates.Reload;
 }
+const mounted = new Bracket(unit.Template);
+unit.Add(mounted);
+unit.MountedUnit = mounted;
 (unit.MountedUnit as Bracket)!.Use(source.Value).SignIn(source);
 return BranchStates.Done;
 ```

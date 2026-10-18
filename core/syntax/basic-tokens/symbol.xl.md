@@ -123,7 +123,7 @@ return result;
 - 上一个 `Symbol` 未关闭且能续接（组合符号）→ 追加，`Done`；
 - 上一个 `Symbol` 未关闭但接不上 → 关掉它，然后开新块；
 - `.` 跟在纯数字 `Common` 后面 → `Undo`，小数点归 `Common` 吃；
-- 其余开新块：`AddAndCloseLast` 建出形状就返回 `Reload`。
+- 其余开新块：先 `last.TryToClose()`，建出形状就返回 `Reload`。
 
 ```ts
 const value = source.Value;
@@ -146,9 +146,10 @@ if (last instanceof Symbol && !last.Closed) {
 } else if (value === "." && last instanceof Common && last.IsNumberWithoutDecimal()) {
   return BranchStates.Undo;
 }
-if (unit.AddAndCloseLast(new Symbol(unit.Template)) === CloseStates.Built) {
+if (last !== null && !last.Closed && last.TryToClose() === CloseStates.Built) {
   return BranchStates.Reload;
 }
+unit.Add(new Symbol(unit.Template));
 (unit.Last() as Symbol)!.AppendAndSignOut(source).SignIn(source);
 return BranchStates.Done;
 ```

@@ -169,7 +169,7 @@ return result;
 
 - 上一个单元是未关闭的 `Common`：`.` 且它是纯数字 → 追加；`IsAppend` → 追加；否则先 `TryToClose` 它，建出形状就返回 `Reload`；
 - 收尾之后（或本来就没有 `Common` 可续接）：当前字符是符号或空白 → `Undo`，交给后面的分支；
-- 其余 → 开新块：`AddAndCloseLast` 建出形状就返回 `Reload`，否则签入当前字符并 `Done`。
+- 其余 → 开新块：先 `last.TryToClose()`，建出形状就返回 `Reload`，否则加新单元、签入当前字符并 `Done`。
 
 ```ts
 const value = source.Value;
@@ -191,9 +191,10 @@ if (last instanceof Common && !last.Closed) {
 if (template.SymbolTemplate.IsSymbol(value) || template.SymbolTemplate.IsWhiteSpace(value)) {
   return BranchStates.Undo;
 }
-if (unit.AddAndCloseLast(new Common(unit.Template)) === CloseStates.Built) {
+if (last !== null && !last.Closed && last.TryToClose() === CloseStates.Built) {
   return BranchStates.Reload;
 }
+unit.Add(new Common(unit.Template));
 (unit.Last() as Common)!.AppendAndSignOut(source).SignIn(source);
 return BranchStates.Done;
 ```

@@ -160,9 +160,13 @@ if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source
   return BranchStates.Undo;
 }
 unit.Undo(preUnit);
-if (unit.AddToMounted(new LineAnnotation(unit.Template)) === CloseStates.Built) {
+const lastOfMounted = unit.Last();
+if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose() === CloseStates.Built) {
   return BranchStates.Reload;
 }
+const mounted = new LineAnnotation(unit.Template);
+unit.Add(mounted);
+unit.MountedUnit = mounted;
 (unit.MountedUnit as LineAnnotation)!.SignIn(preUnit);
 return BranchStates.Done;
 ```

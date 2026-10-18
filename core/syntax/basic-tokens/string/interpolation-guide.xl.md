@@ -72,7 +72,15 @@ if (Value !== "{") {
         Const.TrySignIn(Item);
       }
     }
-    this.ParentString.AddToMounted(new InterpolationString(this.Template));
+    {
+      const lastOfMounted = this.ParentString.Last();
+      if (lastOfMounted !== null && !lastOfMounted.Closed) {
+        lastOfMounted.TryToClose();
+      }
+      const mounted = new InterpolationString(this.Template);
+      this.ParentString.Add(mounted);
+      this.ParentString.MountedUnit = mounted;
+    }
     (this.ParentString.MountedUnit as InterpolationString)!.SignIn(this.Items[0]);
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     return;

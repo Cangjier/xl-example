@@ -67,9 +67,12 @@ for (const i of undoSources) {
   }
   unit.Undo(i);
 }
-if (unit.AddToMounted(item) === CloseStates.Built) {
+const lastOfMounted = unit.Last();
+if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose() === CloseStates.Built) {
   return BranchStates.Reload;
 }
+unit.Add(item);
+unit.MountedUnit = item;
 (unit.MountedUnit as StringGuide)!.SignIn(source);
 return BranchStates.Done;
 ```
