@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { SyntaxContext } from "./syntax-context.xl.md"
 import { Document } from "./document.xl.md"
 import { Message } from "./message.xl.md"
 import { ProcessSource } from "./process-source.xl.md"
