@@ -52,6 +52,14 @@ throw new Error("abstract member: ComputeByIndex");
 return this.BuildByIndex(host, host.Data.length - 1, catalog);
 ```
 
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+
+能不能现在建。默认可以；候选若还缺后续单元（例如语句还没走到关键字之后），返回 false 让目录继续等。
+
+```ts
+return true;
+```
+
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token
 
 按**一个下标**把这个形状建出来，**返回建好的那个单元**。

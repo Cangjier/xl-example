@@ -138,3 +138,10 @@ built.Parent = host;
 host.MountedUnit = built;
 return built;
 ```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+
+```ts
+const state = cache.GetState<ImportDeclarationScan>(this.constructor.name);
+return state !== null && state.Stage !== 0;
+```

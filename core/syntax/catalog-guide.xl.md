@@ -77,6 +77,11 @@ if (this.Candidates.size > 1) {
   return ComputePossibleShapesStates.Waiting;
 }
 for (const index of this.Candidates) {
+  if (!this.PossibleShapes[index].IsBuildable(host.Data, tokenIndex, this.PossibleShapesComputeCache)) {
+    return ComputePossibleShapesStates.Waiting;
+  }
+}
+for (const index of this.Candidates) {
   this.PossibleShapes[index].BuildByIndex(host, tokenIndex, this);
 }
 this.Reset();

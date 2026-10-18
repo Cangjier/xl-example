@@ -341,10 +341,14 @@
           ]
         },
         {
-          "kind": "ImportDeclarationShape",
+          "kind": "WrapSymbol",
           "start": 18,
-          "end": 22,
-          "pos": 18
+          "end": 18
+        },
+        {
+          "kind": "LineAnnotation",
+          "start": 19,
+          "end": 22
         }
       ]
     },
@@ -1410,7 +1414,57 @@
     },
     {
       "src": "export declare import a from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 2）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 32,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "Modifiers": [
+            "ExportKeywordShape",
+            "DeclareKeywordShape"
+          ],
+          "children": [
+            {
+              "kind": "ExportKeywordShape",
+              "start": 0,
+              "end": 5,
+              "pos": 0
+            },
+            {
+              "kind": "DeclareKeywordShape",
+              "start": 7,
+              "end": 13,
+              "pos": 7
+            },
+            {
+              "kind": "ImportClauseShape",
+              "start": 22,
+              "end": 22,
+              "pos": 21,
+              "Name": "IdentifierShape",
+              "children": [
+                {
+                  "kind": "IdentifierShape",
+                  "start": 22,
+                  "end": 22,
+                  "text": "a",
+                  "pos": 21
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 29,
+              "end": 31,
+              "text": "m",
+              "pos": 28
+            }
+          ]
+        }
+      ]
     }
   ]
 }

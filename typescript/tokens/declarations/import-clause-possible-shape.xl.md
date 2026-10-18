@@ -57,7 +57,10 @@ state.Checked = tokenIndex + 1;
 if (state.HasClause) {
   return ShapeStates.Reject;
 }
-const start = ItemUtil.NextCode(units, state.Start);
+let start = ItemUtil.NextCode(units, state.Start);
+while (start < units.length && units[start] instanceof Common && ((units[start] as Common).Is("export") || (units[start] as Common).Is("declare"))) {
+  start = ItemUtil.NextCode(units, start + 1);
+}
 if (start >= units.length) {
   return ShapeStates.Uncertain;
 }
