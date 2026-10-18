@@ -7,14 +7,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 18,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 8,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -42,14 +39,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 18,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 8,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -77,14 +71,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 26,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 14,
               "end": 16,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -112,14 +103,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 26,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 16,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -147,14 +135,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 27,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 11,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -182,14 +167,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 18,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 8,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -217,14 +199,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 18,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 8,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -252,14 +231,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 23,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 13,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -287,14 +263,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 18,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 8,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -322,15 +295,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 22,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 12,
-              "isTypeOnly": false,
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "NamedImports",
@@ -371,15 +340,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 25,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 15,
-              "isTypeOnly": false,
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "NamedImports",
@@ -433,15 +398,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 27,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 17,
-              "isTypeOnly": false,
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "NamedImports",
@@ -488,15 +449,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 30,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 20,
-              "isTypeOnly": false,
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "NamedImports",
@@ -556,15 +513,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 19,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 9,
-              "isTypeOnly": false,
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "NamedImports",
@@ -590,15 +543,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 22,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 12,
-              "isTypeOnly": false,
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "NamedImports",
@@ -639,15 +588,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 30,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 20,
-              "isTypeOnly": false,
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "NamedImports",
@@ -688,15 +633,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 30,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 20,
-              "isTypeOnly": false,
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "NamedImports",
@@ -750,15 +691,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 24,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 14,
-              "isTypeOnly": false,
-              "namedBindings": "NamespaceImport",
               "children": [
                 {
                   "kind": "NamespaceImport",
@@ -792,15 +729,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 24,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 14,
-              "isTypeOnly": false,
-              "namedBindings": "NamespaceImport",
               "children": [
                 {
                   "kind": "NamespaceImport",
@@ -834,15 +767,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 29,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 17,
-              "isTypeOnly": false,
-              "namedBindings": "NamespaceImport",
               "children": [
                 {
                   "kind": "NamespaceImport",
@@ -876,16 +805,12 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 25,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 15,
-              "isTypeOnly": false,
               "name": "a",
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "Identifier",
@@ -932,16 +857,12 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 27,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 17,
-              "isTypeOnly": false,
               "name": "a",
-              "namedBindings": "NamespaceImport",
               "children": [
                 {
                   "kind": "Identifier",
@@ -981,8 +902,6 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 11,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "StringLiteral",
@@ -1001,8 +920,6 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 12,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "StringLiteral",
@@ -1021,8 +938,6 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 19,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "StringLiteral",
@@ -1042,14 +957,12 @@
           "pos": 0,
           "end": 27,
           "isTypeOnly": true,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 17,
               "isTypeOnly": true,
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "NamedImports",
@@ -1091,14 +1004,13 @@
           "pos": 0,
           "end": 23,
           "isTypeOnly": true,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 13,
-              "isTypeOnly": true,
               "name": "a",
+              "isTypeOnly": true,
               "children": [
                 {
                   "kind": "Identifier",
@@ -1126,14 +1038,12 @@
           "pos": 0,
           "end": 29,
           "isTypeOnly": true,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 19,
               "isTypeOnly": true,
-              "namedBindings": "NamespaceImport",
               "children": [
                 {
                   "kind": "NamespaceImport",
@@ -1168,14 +1078,13 @@
           "pos": 0,
           "end": 27,
           "isTypeOnly": true,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 15,
-              "isTypeOnly": true,
               "name": "a",
+              "isTypeOnly": true,
               "children": [
                 {
                   "kind": "Identifier",
@@ -1203,14 +1112,12 @@
           "pos": 0,
           "end": 27,
           "isTypeOnly": true,
-          "attributes": false,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 17,
               "isTypeOnly": true,
-              "namedBindings": "NamedImports",
               "children": [
                 {
                   "kind": "NamedImports",
@@ -1251,14 +1158,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 40,
-          "isTypeOnly": false,
-          "attributes": true,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 8,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -1312,14 +1216,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 42,
-          "isTypeOnly": false,
-          "attributes": true,
           "children": [
             {
               "kind": "ImportClause",
               "pos": 6,
               "end": 8,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -1373,8 +1274,6 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 25,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ExportKeyword",
@@ -1385,7 +1284,6 @@
               "kind": "ImportClause",
               "pos": 13,
               "end": 15,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -1413,8 +1311,6 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 26,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "DeclareKeyword",
@@ -1425,7 +1321,6 @@
               "kind": "ImportClause",
               "pos": 14,
               "end": 16,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {
@@ -1453,8 +1348,6 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 33,
-          "isTypeOnly": false,
-          "attributes": false,
           "children": [
             {
               "kind": "ExportKeyword",
@@ -1470,7 +1363,6 @@
               "kind": "ImportClause",
               "pos": 21,
               "end": 23,
-              "isTypeOnly": false,
               "name": "a",
               "children": [
                 {

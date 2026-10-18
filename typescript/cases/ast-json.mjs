@@ -25,6 +25,15 @@ const cases = source
   .filter((line) => line.length > 0 && !line.startsWith("//"))
   .map((line) => line.replace(/\\n/g, "\n"));
 
+function norm(node) {
+  const out = { kind: node.kind, pos: node.pos, end: node.end };
+  if (node.text !== undefined) out.text = node.text;
+  if (node.name !== undefined) out.name = node.name;
+  if (node.isTypeOnly === true) out.isTypeOnly = true;
+  if (node.children && node.children.length > 0) out.children = node.children;
+  return out;
+}
+
 function tsAst(node) {
   const out = { kind: ts.SyntaxKind[node.kind], pos: node.pos, end: node.end };
   if (ts.isIdentifier(node) || ts.isStringLiteral(node)) {
@@ -43,24 +52,21 @@ function tsAst(node) {
   node.forEachChild((child) => {
     children.push(tsAst(child));
   });
-  if (children.length > 0) out.children = children;
-  return out;
+  if (children.length > 0) out.children = children.map(norm);
+  return norm(out);
 }
 
 function cjAst(shape) {
   const range = shape.SourceRange || {};
   const out = {
-    kind: shape.constructor.name,
-    start: range.Start == null ? null : range.Start.Index,
-    end: range.End == null ? null : range.End.Index,
+    kind: shape.constructor.name.replace("Shape", ""),
+    pos: shape.Pos >= 0 ? shape.Pos : (range.Start == null ? 0 : range.Start.Index),
+    end: range.End == null ? 0 : range.End.Index + 1,
   };
-  for (const [field, label] of [
-    ["EscapedText", "text"],
-    ["Text", "text"],
-  ]) {
-    if (typeof shape[field] === "string" && shape[field] !== "") out[label] = shape[field];
-  }
-  if (shape.Pos >= 0) out.pos = shape.Pos;
+  if (typeof shape.EscapedText === "string" && shape.EscapedText !== "") out.text = shape.EscapedText;
+  if (typeof shape.Text === "string" && shape.Text !== "") out.text = shape.Text;
+  if (shape.Name && shape.Name.text !== undefined) out.name = shape.Name.text;
+  if (shape.Name && shape.Name.EscapedText) out.name = shape.Name.EscapedText;
   if (shape.IsTypeOnly === true) out.isTypeOnly = true;
   for (const field of ["ImportClause", "ModuleSpecifier", "Name", "NamedBindings", "Attributes", "AssertClause"]) {
     const value = shape[field];
@@ -71,7 +77,7 @@ function cjAst(shape) {
   }
   const children = (shape.Data || []).map(cjAst);
   if (children.length > 0) out.children = children;
-  return out;
+  return norm(out);
 }
 
 const tsCases = [];

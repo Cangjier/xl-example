@@ -4,30 +4,26 @@
       "src": "import a from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 17,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 18,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 8,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 13,
-                  "end": 13
+                  "pos": 13,
+                  "end": 14
                 }
               ]
             }
@@ -39,30 +35,26 @@
       "src": "import a from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 17,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 18,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 8,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 13,
-                  "end": 13
+                  "pos": 13,
+                  "end": 14
                 }
               ]
             }
@@ -74,30 +66,26 @@
       "src": "/* c */ import a from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 25,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 26,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 15,
-              "end": 15,
+              "kind": "ImportClause",
               "pos": 14,
-              "Name": "IdentifierShape",
+              "end": 16,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 15,
-                  "end": 15,
-                  "text": "a",
-                  "pos": 14
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 21,
-                  "end": 21
+                  "pos": 21,
+                  "end": 22
                 }
               ]
             }
@@ -109,30 +97,26 @@
       "src": "import /* c */ a from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 25,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 26,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 15,
-              "end": 15,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 16,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 15,
-                  "end": 15,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 16,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 21,
-                  "end": 21
+                  "pos": 21,
+                  "end": 22
                 }
               ]
             }
@@ -144,30 +128,26 @@
       "src": "import    a    from    \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 26,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 27,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 10,
-              "end": 10,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 11,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 10,
-                  "end": 10,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 11,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 19,
-                  "end": 19
+                  "pos": 19,
+                  "end": 20
                 }
               ]
             }
@@ -179,30 +159,26 @@
       "src": "import\na from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 17,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 18,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 8,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 13,
-                  "end": 13
+                  "pos": 13,
+                  "end": 14
                 }
               ]
             }
@@ -214,30 +190,26 @@
       "src": "import a\nfrom \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 17,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 18,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 8,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 13,
-                  "end": 13
+                  "pos": 13,
+                  "end": 14
                 }
               ]
             }
@@ -249,30 +221,26 @@
       "src": "import // c\na from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 22,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 23,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 12,
-              "end": 12,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 13,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 12,
-                  "end": 12,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 13,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 18,
-                  "end": 18
+                  "pos": 18,
+                  "end": 19
                 }
               ]
             }
@@ -284,44 +252,40 @@
       "src": "import a from \"m\"; // c",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 17,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 18,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 8,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 13,
-                  "end": 13
+                  "pos": 13,
+                  "end": 14
                 }
               ]
             },
             {
               "kind": "WrapSymbol",
-              "start": 18,
-              "end": 18
+              "pos": 18,
+              "end": 19
             }
           ]
         },
         {
           "kind": "LineAnnotation",
-          "start": 19,
-          "end": 22
+          "pos": 19,
+          "end": 23
         }
       ]
     },
@@ -329,35 +293,30 @@
       "src": "import { a } from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 21,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 22,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 11,
+              "kind": "ImportClause",
               "pos": 6,
-              "NamedBindings": "NamedImportsShape",
+              "end": 12,
               "children": [
                 {
-                  "kind": "NamedImportsShape",
-                  "start": 7,
-                  "end": 11,
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 12,
                   "children": [
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 9,
-                      "end": 9,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 9,
+                      "end": 10,
+                      "name": "a",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 9,
-                          "end": 9,
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 10,
                           "text": "a"
                         }
                       ]
@@ -367,11 +326,10 @@
               ]
             },
             {
-              "kind": "StringLiteralShape",
-              "start": 18,
-              "end": 20,
-              "text": "m",
-              "pos": 17
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
             }
           ]
         }
@@ -381,49 +339,44 @@
       "src": "import { a, b } from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 24,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 25,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 14,
+              "kind": "ImportClause",
               "pos": 6,
-              "NamedBindings": "NamedImportsShape",
+              "end": 15,
               "children": [
                 {
-                  "kind": "NamedImportsShape",
-                  "start": 7,
-                  "end": 14,
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 15,
                   "children": [
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 9,
-                      "end": 9,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 9,
+                      "end": 10,
+                      "name": "a",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 9,
-                          "end": 9,
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 10,
                           "text": "a"
                         }
                       ]
                     },
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 12,
-                      "end": 12,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 12,
+                      "end": 13,
+                      "name": "b",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 12,
-                          "end": 12,
+                          "kind": "Identifier",
+                          "pos": 12,
+                          "end": 13,
                           "text": "b"
                         }
                       ]
@@ -433,11 +386,10 @@
               ]
             },
             {
-              "kind": "StringLiteralShape",
-              "start": 21,
-              "end": 23,
-              "text": "m",
-              "pos": 20
+              "kind": "StringLiteral",
+              "pos": 20,
+              "end": 24,
+              "text": "m"
             }
           ]
         }
@@ -447,41 +399,36 @@
       "src": "import { a as b } from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 26,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 27,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 16,
+              "kind": "ImportClause",
               "pos": 6,
-              "NamedBindings": "NamedImportsShape",
+              "end": 17,
               "children": [
                 {
-                  "kind": "NamedImportsShape",
-                  "start": 7,
-                  "end": 16,
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 17,
                   "children": [
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 9,
-                      "end": 14,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 9,
+                      "end": 15,
+                      "name": "b",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 9,
-                          "end": 9,
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 10,
                           "text": "a"
                         },
                         {
-                          "kind": "IdentifierShape",
-                          "start": 14,
-                          "end": 14,
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 15,
                           "text": "b"
                         }
                       ]
@@ -491,11 +438,10 @@
               ]
             },
             {
-              "kind": "StringLiteralShape",
-              "start": 23,
-              "end": 25,
-              "text": "m",
-              "pos": 22
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
             }
           ]
         }
@@ -505,55 +451,50 @@
       "src": "import { a, b as c } from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 29,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 30,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 19,
+              "kind": "ImportClause",
               "pos": 6,
-              "NamedBindings": "NamedImportsShape",
+              "end": 20,
               "children": [
                 {
-                  "kind": "NamedImportsShape",
-                  "start": 7,
-                  "end": 19,
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 20,
                   "children": [
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 9,
-                      "end": 9,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 9,
+                      "end": 10,
+                      "name": "a",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 9,
-                          "end": 9,
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 10,
                           "text": "a"
                         }
                       ]
                     },
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 12,
-                      "end": 17,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 12,
+                      "end": 18,
+                      "name": "c",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 12,
-                          "end": 12,
+                          "kind": "Identifier",
+                          "pos": 12,
+                          "end": 13,
                           "text": "b"
                         },
                         {
-                          "kind": "IdentifierShape",
-                          "start": 17,
-                          "end": 17,
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 18,
                           "text": "c"
                         }
                       ]
@@ -563,11 +504,10 @@
               ]
             },
             {
-              "kind": "StringLiteralShape",
-              "start": 26,
-              "end": 28,
-              "text": "m",
-              "pos": 25
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
             }
           ]
         }
@@ -577,33 +517,27 @@
       "src": "import {} from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 18,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 19,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 8,
+              "kind": "ImportClause",
               "pos": 6,
-              "NamedBindings": "NamedImportsShape",
+              "end": 9,
               "children": [
                 {
-                  "kind": "NamedImportsShape",
-                  "start": 7,
-                  "end": 8
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 9
                 }
               ]
             },
             {
-              "kind": "StringLiteralShape",
-              "start": 15,
-              "end": 17,
-              "text": "m",
-              "pos": 14
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
             }
           ]
         }
@@ -613,35 +547,30 @@
       "src": "import { a } from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 21,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 22,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 11,
+              "kind": "ImportClause",
               "pos": 6,
-              "NamedBindings": "NamedImportsShape",
+              "end": 12,
               "children": [
                 {
-                  "kind": "NamedImportsShape",
-                  "start": 7,
-                  "end": 11,
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 12,
                   "children": [
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 9,
-                      "end": 9,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 9,
+                      "end": 10,
+                      "name": "a",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 9,
-                          "end": 9,
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 10,
                           "text": "a"
                         }
                       ]
@@ -651,11 +580,10 @@
               ]
             },
             {
-              "kind": "StringLiteralShape",
-              "start": 18,
-              "end": 20,
-              "text": "m",
-              "pos": 17
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
             }
           ]
         }
@@ -665,35 +593,30 @@
       "src": "import /* c */ { a } from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 29,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 30,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 15,
-              "end": 19,
+              "kind": "ImportClause",
               "pos": 6,
-              "NamedBindings": "NamedImportsShape",
+              "end": 20,
               "children": [
                 {
-                  "kind": "NamedImportsShape",
-                  "start": 15,
-                  "end": 19,
+                  "kind": "NamedImports",
+                  "pos": 15,
+                  "end": 20,
                   "children": [
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 17,
-                      "end": 17,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 17,
+                      "end": 18,
+                      "name": "a",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 17,
-                          "end": 17,
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 18,
                           "text": "a"
                         }
                       ]
@@ -703,11 +626,10 @@
               ]
             },
             {
-              "kind": "StringLiteralShape",
-              "start": 26,
-              "end": 28,
-              "text": "m",
-              "pos": 25
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
             }
           ]
         }
@@ -717,49 +639,44 @@
       "src": "import {\n  a,\n  b,\n} from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 29,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 30,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 19,
+              "kind": "ImportClause",
               "pos": 6,
-              "NamedBindings": "NamedImportsShape",
+              "end": 20,
               "children": [
                 {
-                  "kind": "NamedImportsShape",
-                  "start": 7,
-                  "end": 19,
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 20,
                   "children": [
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 11,
-                      "end": 11,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 11,
+                      "end": 12,
+                      "name": "a",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 11,
-                          "end": 11,
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
                           "text": "a"
                         }
                       ]
                     },
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 16,
-                      "end": 16,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 16,
+                      "end": 17,
+                      "name": "b",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 16,
-                          "end": 16,
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 17,
                           "text": "b"
                         }
                       ]
@@ -769,11 +686,10 @@
               ]
             },
             {
-              "kind": "StringLiteralShape",
-              "start": 26,
-              "end": 28,
-              "text": "m",
-              "pos": 25
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
             }
           ]
         }
@@ -783,22 +699,19 @@
       "src": "import * as ns from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 23,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 24,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 13,
+              "kind": "ImportClause",
               "pos": 6,
+              "end": 14,
               "children": [
                 {
                   "kind": "WrapSymbol",
-                  "start": 19,
-                  "end": 19
+                  "pos": 19,
+                  "end": 20
                 }
               ]
             }
@@ -810,22 +723,19 @@
       "src": "import * as ns from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 23,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 24,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 13,
+              "kind": "ImportClause",
               "pos": 6,
+              "end": 14,
               "children": [
                 {
                   "kind": "WrapSymbol",
-                  "start": 19,
-                  "end": 19
+                  "pos": 19,
+                  "end": 20
                 }
               ]
             }
@@ -837,22 +747,19 @@
       "src": "import  *  as  ns  from  \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 28,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 29,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 8,
-              "end": 16,
+              "kind": "ImportClause",
               "pos": 6,
+              "end": 17,
               "children": [
                 {
                   "kind": "WrapSymbol",
-                  "start": 23,
-                  "end": 23
+                  "pos": 23,
+                  "end": 24
                 }
               ]
             }
@@ -864,30 +771,26 @@
       "src": "import a, { b } from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 24,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 25,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 14,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 15,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 20,
-                  "end": 20
+                  "pos": 20,
+                  "end": 21
                 }
               ]
             }
@@ -899,30 +802,26 @@
       "src": "import a, * as ns from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 26,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 27,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 16,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 17,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 22,
-                  "end": 22
+                  "pos": 22,
+                  "end": 23
                 }
               ]
             }
@@ -934,18 +833,15 @@
       "src": "import \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 10,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 11,
           "children": [
             {
-              "kind": "StringLiteralShape",
-              "start": 7,
-              "end": 9,
-              "text": "m",
-              "pos": 6
+              "kind": "StringLiteral",
+              "pos": 6,
+              "end": 10,
+              "text": "m"
             }
           ]
         }
@@ -955,18 +851,15 @@
       "src": "import  \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 11,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 12,
           "children": [
             {
-              "kind": "StringLiteralShape",
-              "start": 8,
-              "end": 10,
-              "text": "m",
-              "pos": 6
+              "kind": "StringLiteral",
+              "pos": 6,
+              "end": 11,
+              "text": "m"
             }
           ]
         }
@@ -976,18 +869,15 @@
       "src": "import /* c */ \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 18,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 19,
           "children": [
             {
-              "kind": "StringLiteralShape",
-              "start": 15,
-              "end": 17,
-              "text": "m",
-              "pos": 6
+              "kind": "StringLiteral",
+              "pos": 6,
+              "end": 18,
+              "text": "m"
             }
           ]
         }
@@ -997,36 +887,31 @@
       "src": "import type { T } from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 26,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 27,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 12,
-              "end": 16,
+              "kind": "ImportClause",
               "pos": 11,
+              "end": 17,
               "isTypeOnly": true,
-              "NamedBindings": "NamedImportsShape",
               "children": [
                 {
-                  "kind": "NamedImportsShape",
-                  "start": 12,
-                  "end": 16,
+                  "kind": "NamedImports",
+                  "pos": 12,
+                  "end": 17,
                   "children": [
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 14,
-                      "end": 14,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 14,
+                      "end": 15,
+                      "name": "T",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 14,
-                          "end": 14,
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 15,
                           "text": "T"
                         }
                       ]
@@ -1036,11 +921,10 @@
               ]
             },
             {
-              "kind": "StringLiteralShape",
-              "start": 23,
-              "end": 25,
-              "text": "m",
-              "pos": 22
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
             }
           ]
         }
@@ -1050,31 +934,27 @@
       "src": "import type a from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 22,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 23,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 12,
-              "end": 12,
+              "kind": "ImportClause",
               "pos": 11,
+              "end": 13,
+              "name": "a",
               "isTypeOnly": true,
-              "Name": "IdentifierShape",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 12,
-                  "end": 12,
-                  "text": "a",
-                  "pos": 11
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 18,
-                  "end": 18
+                  "pos": 18,
+                  "end": 19
                 }
               ]
             }
@@ -1086,23 +966,20 @@
       "src": "import type * as ns from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 28,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 29,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 12,
-              "end": 18,
+              "kind": "ImportClause",
               "pos": 11,
+              "end": 19,
               "isTypeOnly": true,
               "children": [
                 {
                   "kind": "WrapSymbol",
-                  "start": 24,
-                  "end": 24
+                  "pos": 24,
+                  "end": 25
                 }
               ]
             }
@@ -1114,31 +991,27 @@
       "src": "import  type  a  from  \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 26,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 27,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 14,
-              "end": 14,
+              "kind": "ImportClause",
               "pos": 12,
+              "end": 15,
+              "name": "a",
               "isTypeOnly": true,
-              "Name": "IdentifierShape",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 14,
-                  "end": 14,
-                  "text": "a",
-                  "pos": 12
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 15,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 21,
-                  "end": 21
+                  "pos": 21,
+                  "end": 22
                 }
               ]
             }
@@ -1150,36 +1023,31 @@
       "src": "import type\n{ T } from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 26,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "ModuleSpecifier": "StringLiteralShape",
+          "end": 27,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 12,
-              "end": 16,
+              "kind": "ImportClause",
               "pos": 11,
+              "end": 17,
               "isTypeOnly": true,
-              "NamedBindings": "NamedImportsShape",
               "children": [
                 {
-                  "kind": "NamedImportsShape",
-                  "start": 12,
-                  "end": 16,
+                  "kind": "NamedImports",
+                  "pos": 12,
+                  "end": 17,
                   "children": [
                     {
-                      "kind": "ImportSpecifierShape",
-                      "start": 14,
-                      "end": 14,
-                      "Name": "IdentifierShape",
+                      "kind": "ImportSpecifier",
+                      "pos": 14,
+                      "end": 15,
+                      "name": "T",
                       "children": [
                         {
-                          "kind": "IdentifierShape",
-                          "start": 14,
-                          "end": 14,
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 15,
                           "text": "T"
                         }
                       ]
@@ -1189,11 +1057,10 @@
               ]
             },
             {
-              "kind": "StringLiteralShape",
-              "start": 23,
-              "end": 25,
-              "text": "m",
-              "pos": 22
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
             }
           ]
         }
@@ -1203,30 +1070,26 @@
       "src": "import a from \"m\" with { type: \"json\" };",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 39,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 40,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 8,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 13,
-                  "end": 13
+                  "pos": 13,
+                  "end": 14
                 }
               ]
             }
@@ -1238,30 +1101,26 @@
       "src": "import a from \"m\" assert { type: \"json\" };",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 41,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
+          "end": 42,
           "children": [
             {
-              "kind": "ImportClauseShape",
-              "start": 7,
-              "end": 7,
+              "kind": "ImportClause",
               "pos": 6,
-              "Name": "IdentifierShape",
+              "end": 8,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 7,
-                  "end": 7,
-                  "text": "a",
-                  "pos": 6
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 13,
-                  "end": 13
+                  "pos": 13,
+                  "end": 14
                 }
               ]
             }
@@ -1273,39 +1132,31 @@
       "src": "export import a from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 24,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "Modifiers": [
-            "ExportKeywordShape"
-          ],
+          "end": 25,
           "children": [
             {
-              "kind": "ExportKeywordShape",
-              "start": 0,
-              "end": 5,
-              "pos": 0
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
             },
             {
-              "kind": "ImportClauseShape",
-              "start": 14,
-              "end": 14,
+              "kind": "ImportClause",
               "pos": 13,
-              "Name": "IdentifierShape",
+              "end": 15,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 14,
-                  "end": 14,
-                  "text": "a",
-                  "pos": 13
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 20,
-                  "end": 20
+                  "pos": 20,
+                  "end": 21
                 }
               ]
             }
@@ -1317,39 +1168,31 @@
       "src": "declare import a from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 25,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "Modifiers": [
-            "DeclareKeywordShape"
-          ],
+          "end": 26,
           "children": [
             {
-              "kind": "DeclareKeywordShape",
-              "start": 0,
-              "end": 6,
-              "pos": 0
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
             },
             {
-              "kind": "ImportClauseShape",
-              "start": 15,
-              "end": 15,
+              "kind": "ImportClause",
               "pos": 14,
-              "Name": "IdentifierShape",
+              "end": 16,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 15,
-                  "end": 15,
-                  "text": "a",
-                  "pos": 14
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 21,
-                  "end": 21
+                  "pos": 21,
+                  "end": 22
                 }
               ]
             }
@@ -1361,46 +1204,36 @@
       "src": "export declare import a from \"m\";",
       "ast": [
         {
-          "kind": "ImportDeclarationShape",
-          "start": 0,
-          "end": 32,
+          "kind": "ImportDeclaration",
           "pos": 0,
-          "ImportClause": "ImportClauseShape",
-          "Modifiers": [
-            "ExportKeywordShape",
-            "DeclareKeywordShape"
-          ],
+          "end": 33,
           "children": [
             {
-              "kind": "ExportKeywordShape",
-              "start": 0,
-              "end": 5,
-              "pos": 0
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
             },
             {
-              "kind": "DeclareKeywordShape",
-              "start": 7,
-              "end": 13,
-              "pos": 7
+              "kind": "DeclareKeyword",
+              "pos": 7,
+              "end": 14
             },
             {
-              "kind": "ImportClauseShape",
-              "start": 22,
-              "end": 22,
+              "kind": "ImportClause",
               "pos": 21,
-              "Name": "IdentifierShape",
+              "end": 23,
+              "name": "a",
               "children": [
                 {
-                  "kind": "IdentifierShape",
-                  "start": 22,
-                  "end": 22,
-                  "text": "a",
-                  "pos": 21
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "a"
                 },
                 {
                   "kind": "WrapSymbol",
-                  "start": 28,
-                  "end": 28
+                  "pos": 28,
+                  "end": 29
                 }
               ]
             }
