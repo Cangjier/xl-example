@@ -4,6 +4,8 @@
 
 2. `typescript/tokens/` 下的 `*.xl.md`：禁止散文
 
+   **散文 = 代码围栏之外、标题之外的说明文字**；```txt``` 围栏内的示例与中文注释不算散文。
+
 3. basic token 构建 shape 时：把 shape 需要的数据**全部提取到字段上**，让 shape 的信息在构建那一刻就完整；basic token 用完即**丢弃**，不得留给 `Close` 反向提取。
 
    `Data` 是**未定型期间的暂存**：形状还没确定时，里面会存在 basic token；形状 `Close` 时，`Data` 就等价于 AST 的 children——只剩子节点形状。
