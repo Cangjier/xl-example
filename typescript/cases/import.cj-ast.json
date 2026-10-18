@@ -135,7 +135,7 @@
           "children": [
             {
               "kind": "ImportClauseShape",
-              "start": 12,
+              "start": 7,
               "end": 12,
               "isTypeOnly": true,
               "Name": "IdentifierShape",

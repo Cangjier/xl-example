@@ -88,15 +88,7 @@ if (index < 0 || !(host.Data[index] instanceof Common)) {
 const common = host.Data[index] as Common;
 const identifier = IdentifierShape.FromBasicToken(common);
 const clause = new ImportClauseShape(host.Template);
-if (common.SourceRange.Start !== null) {
-  clause.SignIn(common.SourceRange.Start);
-}
-if (common.SourceRange.End !== null) {
-  clause.SignOut(common.SourceRange.End);
-}
-clause.Name = identifier;
-clause.Data.push(identifier);
-identifier.Parent = clause;
+let startIndex = index;
 for (let at = index - 1; at >= 0; at--) {
   const unit = host.Data[at];
   if (unit.IsTriviaToken) {
@@ -104,9 +96,20 @@ for (let at = index - 1; at >= 0; at--) {
   }
   if (unit instanceof Common && (unit as Common).Is("type")) {
     clause.IsTypeOnly = true;
+    startIndex = at;
   }
   break;
 }
+const startSource = host.Data[startIndex].SourceRange.Start;
+if (startSource !== null) {
+  clause.SignIn(startSource);
+}
+if (common.SourceRange.End !== null) {
+  clause.SignOut(common.SourceRange.End);
+}
+clause.Name = identifier;
+clause.Data.push(identifier);
+identifier.Parent = clause;
 clause.TryToClose();
 host.Data.splice(index, 1, clause);
 clause.Parent = host;
