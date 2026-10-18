@@ -43,8 +43,8 @@ return ShapeStates.Reject;
 ```ts
 const unit = host as UnitToken;
 const fromUnit = host.Data[tokenIndex];
-if (fromUnit.SourceRange.Start !== null) {
-  context?.Messages.push(new ReloadMessage(null, host, fromUnit.SourceRange.Start));
+if (fromUnit.SourceRange.Start !== null && fromUnit.SourceRange.End !== null) {
+  context.Messages.push(ReloadMessage.FromRange(host, fromUnit.SourceRange.Start, fromUnit.SourceRange.End));
 }
 let at = tokenIndex - 1;
 while (at >= 0 && host.Data[at].IsTriviaToken) {

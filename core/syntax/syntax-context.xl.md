@@ -156,11 +156,14 @@ while (this.Messages.length > 0) {
   const item = this.Messages[0];
   this.Messages.splice(0, 1);
   if (item instanceof ReloadMessage) {
-    this.SourceQueue.splice(
-      0,
-      0,
-      new ProcessSource(item.ProcessOwner ?? this.Root, item.Source),
-    );
+    const owner = item.ProcessOwner ?? this.Root;
+    if (item.End === null) {
+      this.SourceQueue.splice(0, 0, new ProcessSource(owner, item.Source));
+    } else {
+      for (let at = item.End.Index; at >= item.Source.Index; at--) {
+        this.SourceQueue.splice(0, 0, new ProcessSource(owner, new Source(item.Source.Document, at)));
+      }
+    }
   } else {
     this.HandleMessage(item);
   }
