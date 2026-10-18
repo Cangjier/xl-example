@@ -32,12 +32,14 @@
    再基于同一个 base 给出叠加干扰信息的变体（前导空格 / 前导注释 / 词间注释 / 词间多空格 /
    词间换行 / 行尾注释）。一行一个用例；行内 `\n` 由生成器还原成真实换行。
 
-7. shape **禁止用 `ExitOrPre` 结束自己**：`ExitOrPre` 只归 basic token（它认的是字符）。
-   shape 的结束必须由**一个辅助 possible（终结候选）**通过 `CatalogGuide` 判定——候选 Accept 时，
-   它的 `BuildByIndex` 给宿主签名、`TryToClose()`。shape 里的 `ExitOrPre` 只允许 `return BranchStates.Undo`。
+7. shape **禁止用 `ExitOrPre` 结束自己**：`ExitOrPre` 只归 basic token（它认的是字符）。shape 的结束必须由**一个辅助 possible（终结候选）**通过 `CatalogGuide` 判定——候选 Accept 时，它的 `BuildByIndex` 给宿主签名、`TryToClose()`。shape 里的 `ExitOrPre` 只允许 `return BranchStates.Undo`。
 
-   原因：`Source.Value` 是**单个字符**，在 shape 层写 `value === "from"` 这类判断永远是错的；
-   而「结束」本质上是「哪些单元已经到齐」，那是候选的职责，不是逐字符的职责。
+   原因：`Source.Value` 是**单个字符**，shape 层拿它去比对一个多字符关键字永远是错的；而「结束」本质上是「哪些单元已经到齐」，那是候选的职责。
 
-   现状：`ImportDeclarationShape.ExitOrPre` 仍靠 `;` / 换行关闭（待改成终结候选）；
-   `SourceFileShape.ExitOrPre` 已是 `Undo`，合规。
+   **触发结束的那个字符不能直接塞回父级队列，必须走 `Reload`。** 两条理由：
+   一是 shape 不知道父级是什么结构（父级可能还有别的 shape 在等同一个字符）；
+   二是直接塞进队列不会让父级的机会重新走一遍判定，触发不了它的 `Close`。
+   统一处理：`Quit()` 之后返回 `BranchStates.Reload`，由机制把该字符重新投给宿主。
+
+   现状：`ImportDeclarationShape.ExitOrPre` 仍靠 `;` / 换行关闭（待改成终结候选）；`SourceFileShape.ExitOrPre` 已是 `Undo`，合规。所有 basic token 的 `Close`（含 `Symbol`）都问父单元，保持一致。
+
