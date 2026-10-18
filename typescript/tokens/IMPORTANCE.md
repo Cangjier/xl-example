@@ -4,13 +4,11 @@
 
 2. `typescript/tokens/` 下的 `*.xl.md`：禁止散文
 
-3. basic token 构建 shape 时：把 shape 需要的数据**全部提取到字段上**，让 shape 的信息在构建那一刻就完整；basic token 用完即**丢弃**——不得把它挂进 shape 的 `Data` 留给 `Close` 再反向提取。
+3. basic token 构建 shape 时：把 shape 需要的数据**全部提取到字段上**，让 shape 的信息在构建那一刻就完整；basic token 用完即**丢弃**，不得留给 `Close` 反向提取。
 
-   `Data` 只承载**子节点形状**（与 AST 的 children 对齐）；词法 token 不是节点，不进 `Data`。
-   做法：shape 提供 `FromBasicToken(basicToken)` 之类的入口，在入口里签范围、取字段、关闭；候选形状的
-   `BuildByIndex` 调它，然后丢掉 token。
+   `Data` 是**未定型期间的暂存**：形状还没确定时，里面会存在 basic token；形状 `Close` 时，`Data` 就等价于 AST 的 children——只剩子节点形状。
 
-   **例外：挂载期（见第 8 条）。** 形状 Build 后尚未关闭、以 `MountedUnit` 接收后续字符时，`Data` 里允许暂存 basic token；**关闭时必须收敛**——`Close` 之后 `Data` 里只剩子节点形状，basic token 全部丢弃或已被提取进字段。
+   做法：shape 提供 `FromBasicToken(basicToken)` 之类的入口，在入口里签范围、取字段、关闭；候选形状的 `BuildByIndex` 调它，然后丢掉 token。
 
 4. `PossibleShape.Compute` / `ComputeByIndex` **必须使用 `PossibleShapeCache`**（`cache.GetState` / `SetState`），把「已经扫到哪」记进状态，不得每次从头上全量重扫。
 
