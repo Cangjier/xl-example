@@ -22,7 +22,7 @@ return 0;
 
 ```ts
 for (let at = index; at < units.length; at++) {
-  if (!units[at].IsAnnotationToken) {
+  if (!units[at].IsTriviaToken) {
     return at;
   }
 }
@@ -33,7 +33,7 @@ return units.length;
 
 ```ts
 for (let at = index; at >= 0; at--) {
-  if (!units[at].IsAnnotationToken) {
+  if (!units[at].IsTriviaToken) {
     return at;
   }
 }
@@ -45,7 +45,7 @@ return -1;
 ```ts
 const start = ItemUtil.ItemStart(units);
 for (let at = units.length - 1; at >= start; at--) {
-  if (!units[at].IsAnnotationToken) {
+  if (!units[at].IsTriviaToken) {
     return at;
   }
 }

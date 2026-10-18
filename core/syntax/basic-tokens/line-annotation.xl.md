@@ -67,6 +67,10 @@ basic 单元：由 `Template.BasicBranchQueue()` 收出来。
 
 注释单元：`//` 是 trivia。
 
+## field IsTriviaToken:bool = true
+
+trivia 单元：判形状时跳过。
+
 ## static readonly field JumpIn:LineAnnotationBranch = new LineAnnotationBranch()
 
 把 `LineAnnotationBranch` 注册进 `Root` 的通用跳转队列用的实例。

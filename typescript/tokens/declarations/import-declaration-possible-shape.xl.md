@@ -53,7 +53,7 @@ if (state === null) {
 for (let index = state.At + 1; index <= tokenIndex; index++) {
   state.At = index;
   const unit = units[index];
-  if (unit.IsAnnotationToken) {
+  if (unit.IsTriviaToken) {
     continue;
   }
   if (state.Stage === 0) {

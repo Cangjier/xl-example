@@ -57,11 +57,17 @@ Token，语法树的地基。
 
 ## field IsBasicToken:bool = false
 
-是不是 basic 单元——basic 跳转队列（`Template.BasicBranchQueue()`）收出来的那五种：区域注释 / 行注释 / 正则 / 括号 / 通用块。各子类就地覆写成 `true`。
+是不是 basic 单元——basic 跳转队列（`Template.BasicBranchQueue()`）收出来的那几种：区域注释 / 行注释 / 正则 / 括号 / 空白 / 符号 / 通用块。各子类就地覆写成 `true`。
 
 ## field IsAnnotationToken:bool = false
 
 是不是注释单元——区域注释（`/* */`）与行注释（`//`）。注释是 trivia：判定形状时跳过，收进形状时保留。
+
+## field IsTriviaToken:bool = false
+
+是不是 trivia 单元——注释与空白。**判定形状时一律跳过**（`ItemUtil` 的 `NextCode` / `PreviousCode` / `LastCodeInItem` 与各形状的 `ComputeByIndex` 都按这一格过滤）；收进形状后由 `Close` 提取字段时丢弃。
+
+它跟 `IsAnnotationToken` 是两个问题：后者回答「这是不是注释」，本格回答「判形状要不要跳过它」。注释两格都是 `true`，空白只有本格是 `true`。
 
 ## constructor:(template:Template)=>void
 
