@@ -52,5 +52,8 @@ if (at >= 0) {
 }
 unit.TryToClose();
 unit.Quit();
+if (unit.Parent !== null) {
+  (unit.Parent as any).MountedUnit = null;
+}
 return host;
 ```

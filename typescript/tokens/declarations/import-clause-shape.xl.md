@@ -43,18 +43,16 @@ super(template);
 
 ```ts
 this.Closed = true;
-const kept: Array<Token> = [];
+const kept:Array<Token> = [];
 for (const item of this.Data) {
   if (item instanceof IdentifierShape) {
-    this.Name = item;
-    kept.push(item);
-  } else if (item instanceof NamespaceImportShape) {
-    this.NamedBindings = item;
+    this.Name = item as IdentifierShape;
     kept.push(item);
   } else if (item instanceof NamedImportsShape) {
-    this.NamedBindings = item;
+    this.NamedBindings = item as NamedImportsShape;
     kept.push(item);
-  } else if (!item.IsBasicToken) {
+  } else if (item instanceof NamespaceImportShape) {
+    this.NamedBindings = item as NamespaceImportShape;
     kept.push(item);
   }
 }
@@ -66,7 +64,6 @@ for (const item of this.Data) {
 }
 return CloseStates.Nothing;
 ```
-
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 ```ts
