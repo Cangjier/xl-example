@@ -2,6 +2,7 @@
 ```xl
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -63,10 +64,11 @@ if (ImportDeclarationShape.CreatePossibleShapesCache === null) {
 return ImportDeclarationShape.CreatePossibleShapesCache;
 ```
 
-## protected method Close:()=>void
+## protected method Close:()=>CloseStates
 
 ```ts
 this.Closed = true;
+return CloseStates.Nothing;
 ```
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates

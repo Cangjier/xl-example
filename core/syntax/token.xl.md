@@ -1,5 +1,7 @@
 # dependencies
 ```xl
+import { AddResult } from "./add-result.xl.md"
+import { CloseStates } from "./close-states.xl.md"
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { Branch } from "./branch.xl.md"
 import { Source } from "./source.xl.md"
@@ -91,19 +93,19 @@ return null;
 throw new Error("abstract member: Default");
 ```
 
-## protected method Close:()=>void
+## protected method Close:()=>CloseStates
 
-关闭本单元。
+关闭本单元，并回答**关闭过程中有没有建出形状**。
 
-抽象方法；绝大多数实现只做 `Closed = true`。
+抽象方法；绝大多数实现只做 `Closed = true` 并返回 `CloseStates.Nothing`。basic token 的 `Close` 会把「父单元重算候选」的结果带上来——那一步可能建出形状。
 
 ```ts
 throw new Error("abstract member: Close");
 ```
 
-## method TryToClose:()=>void
+## method TryToClose:()=>CloseStates
 
-尝试关闭：范围必须已签入签出，然后关闭。
+尝试关闭：范围必须已签入签出，然后关闭，并把关闭的结果透传出去。
 
 约定：`SourceRange` 只能赋值一次；`Close` 之前它必须已赋值；新建单元时上一个单元必须已关闭。
 
@@ -111,7 +113,7 @@ throw new Error("abstract member: Close");
 if (this.SourceRange.Start === null || this.SourceRange.End === null) {
   throw SourceException.SourceRangeContainsNull;
 }
-this.Close();
+return this.Close();
 ```
 
 ## method MoveDataTo:(target:Token)=>void
@@ -149,25 +151,38 @@ this.Data.push(...items);
 return this;
 ```
 
-## method AddAndCloseLast:<Item extends Token>(item:Item)=>Item
+## method AddAndCloseLast:<Item extends Token>(item:Item)=>AddResult<Item>
 
 加一个子单元；如果最后一个子单元还没关闭，先关掉它。
 
+关掉上一个子单元可能**触发形状建造**。建出来了就**不加**这个新单元：返回 `Created = null`、`State = Built`，由调用方把这个字符 reload 给新形状重吃——新 token 的归属问题因此不存在。
+
 ```ts
 const last = this.Last();
+let state = CloseStates.Nothing;
 if (last !== null && !last.Closed) {
-  last.TryToClose();
+  state = last.TryToClose();
 }
-return this.Add(item);
+if (state === CloseStates.Built) {
+  return new AddResult<Item>(null, state);
+}
+return new AddResult<Item>(this.Add(item), state);
 ```
 
-## method AddToMounted:<Item extends Token>(item:Item)=>Item
+## method AddToMounted:<Item extends Token>(item:Item)=>AddResult<Item>
 
 加一个子单元并把它设为 `MountedUnit`。
 
+加不进去时（关闭上一个时建出了形状）原样返回结果，`MountedUnit` 一个字不动。
+
+判据同样只看 `State`：`Nothing` 才说明这次真加进去了。
+
 ```ts
-this.MountedUnit = this.AddAndCloseLast(item);
-return item;
+const result = this.AddAndCloseLast(item);
+if (result.State === CloseStates.Nothing) {
+  this.MountedUnit = result.Created!;
+}
+return result;
 ```
 
 ## method Quit:()=>Token | null

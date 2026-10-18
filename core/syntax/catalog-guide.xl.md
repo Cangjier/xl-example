@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
 import { PossibleShape } from "./possible-shape.xl.md"
 import { PossibleShapeCache } from "./possible-shape-cache.xl.md"
 import { ShapeStates } from "./shape-states.xl.md"
@@ -41,15 +42,15 @@ for (let index = 0; index < shapes.length; index++) {
 }
 ```
 
-## method ComputePossibleShapes:(host:Token)=>void
+## method ComputePossibleShapes:(host:Token)=>ComputePossibleShapesStates
 
 判全段就是判到最后一格为止：直接转调 `ComputePossibleShapesByIndex`。
 
 ```ts
-this.ComputePossibleShapesByIndex(host, host.Data.length - 1);
+return this.ComputePossibleShapesByIndex(host, host.Data.length - 1);
 ```
 
-## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int)=>void
+## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int)=>ComputePossibleShapesStates
 
 拿**宿主**攒下的子单元问一遍还活着的候选——`Candidates` 里那些下标，被拒的从 `Candidates` 里去掉——然后按**个数**行动：只剩一个就建它并复位，一个都不剩就抛错，还有多个就继续等后面的单元。
 
@@ -57,12 +58,12 @@ this.ComputePossibleShapesByIndex(host, host.Data.length - 1);
 
 「接受」与「不确定」在这一次判定里同义——建不建只看剩下几个候选。
 
-下标越界直接返回（调用方可能按旧长度遍历）。
+下标越界直接返回 `Nothing`（调用方可能按旧长度遍历）。
 
 ```ts
 const token = host.Data[tokenIndex];
 if (token === undefined) {
-  return;
+  return ComputePossibleShapesStates.Nothing;
 }
 for (const index of this.Candidates) {
   if (this.PossibleShapes[index].ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache) === ShapeStates.Reject) {
@@ -73,12 +74,13 @@ if (this.Candidates.size === 0) {
   throw new Error(`CatalogGuide: 没有候选形状可以构成（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
 }
 if (this.Candidates.size > 1) {
-  return;
+  return ComputePossibleShapesStates.Waiting;
 }
 for (const index of this.Candidates) {
   this.PossibleShapes[index].BuildByIndex(host, tokenIndex, this);
 }
 this.Reset();
+return ComputePossibleShapesStates.Built;
 ```
 
 ## private method Reset:()=>void

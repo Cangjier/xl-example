@@ -2,6 +2,7 @@
 ```xl
 import { Branch } from "../../branch.xl.md"
 import { BranchConditionResult } from "../../branch-condition-result.xl.md"
+import { CloseStates } from "../../close-states.xl.md"
 import { GuideToken } from "../../guide-token.xl.md"
 import { ReloadMessage } from "../../messages/reload-message.xl.md"
 import { Source } from "../../source.xl.md"
@@ -74,7 +75,7 @@ for (const i of undoSources) {
   }
   unit.Undo(i);
 }
-unit.AddToMounted(item).SignIn(source);
+unit.AddToMounted(item).Created!.SignIn(source);
 ```
 
 # class StringGuide extends GuideToken
@@ -182,9 +183,11 @@ if (this.QuoteCount === 1) {
 }
 ```
 
-## protected method Close:()=>void
+## protected method Close:()=>CloseStates
 
 关闭向导：只有在恰好吃到两个引号（`QuoteCount == 2`）时才收尾——那是源码末尾就断掉的 `""`，替换成一个空 `String` 并从自己的起止位置签入签出；其余情况交回基类（把自己标记为已关闭）。
+
+返回值也交回基类：向导不参与形状建造，恒为 `Nothing`。
 
 ```ts
 if (this.QuoteCount === 2) {
@@ -196,7 +199,7 @@ if (this.QuoteCount === 2) {
   item.RawQuoteCount = 1;
   this.Replace(item).SignIn(this.SourceRange.Start!).SignOut(this.SourceRange.End!);
 }
-super.Close();
+return super.Close();
 ```
 
 ## method Clone:()=>Token

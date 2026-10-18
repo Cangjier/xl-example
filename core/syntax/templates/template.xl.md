@@ -6,6 +6,7 @@ import { Bracket } from "../basic-tokens/bracket.xl.md"
 import { Common } from "../basic-tokens/common.xl.md"
 import { LineAnnotation } from "../basic-tokens/line-annotation.xl.md"
 import { RegexToken } from "../basic-tokens/regex-token.xl.md"
+import { Symbol } from "../basic-tokens/symbol.xl.md"
 import { KeywordTemplate } from "./keyword-template.xl.md"
 import { MethodNameTemplate } from "./method-name-template.xl.md"
 import { Sequence } from "./sequence.xl.md"
@@ -53,13 +54,15 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 ## static method BasicBranchQueue:()=>Sequence<Branch>
 
-basic tokens 的跳转队列：相对顺序与通用队列一致。
+basic tokens 的跳转队列：相对顺序与通用队列一致——注释 → 正则 → 括号 → 符号 → 通用字符。
 
-**为什么是方法而不是 static 字段。** 模板与 basic tokens 互为依赖（模板要列出它们的分支，它们的构造器要问模板要自己的队列），写成类定义期求值的 `static readonly field` 会读到 `undefined`——require 环里先执行的那一半还没把类定义出来。改成方法 + 缓存之后，那 5 个静态分支实例只在第一次调用时才读，那时所有模块都已加载完。
+**`Symbol` 必须排在 `Common` 之前、`Bracket` 之后**：标点只归符号块，而三个开括号已经被 `Bracket` 认领完了，再问符号块才轮得到 `;` / `"` / `=` 这些；反过来把 `Symbol` 放在 `Bracket` 前面，`(` 会先被当成单字符符号。
+
+**为什么是方法而不是 static 字段。** 模板与 basic tokens 互为依赖（模板要列出它们的分支，它们的构造器要问模板要自己的队列），写成类定义期求值的 `static readonly field` 会读到 `undefined`——require 环里先执行的那一半还没把类定义出来。改成方法 + 缓存之后，那 6 个静态分支实例只在第一次调用时才读，那时所有模块都已加载完。
 
 ```ts
 if (Template.BasicBranchQueueCache === null) {
-  Template.BasicBranchQueueCache = new Sequence<Branch>([AreaAnnotation.JumpIn, LineAnnotation.JumpIn, RegexToken.JumpIn, Bracket.JumpIn, Common.AppendIn]);
+  Template.BasicBranchQueueCache = new Sequence<Branch>([AreaAnnotation.JumpIn, LineAnnotation.JumpIn, RegexToken.JumpIn, Bracket.JumpIn, Symbol.AppendIn, Common.AppendIn]);
 }
 return Template.BasicBranchQueueCache;
 ```

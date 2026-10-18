@@ -2,6 +2,7 @@
 ```xl
 import { UnitToken } from "../../unit-token.xl.md"
 import { BranchStates } from "../../branch-states.xl.md"
+import { CloseStates } from "../../close-states.xl.md"
 import { Source } from "../../source.xl.md"
 import { SyntaxContext } from "../../syntax-context.xl.md"
 import { Token } from "../../token.xl.md"
@@ -42,12 +43,13 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 return (this.Parent as String)!;
 ```
 
-## protected method Close:()=>void
+## protected method Close:()=>CloseStates
 
-关闭：只把自己标记为已关闭。
+关闭：只把自己标记为已关闭，返回 `Nothing`。
 
 ```ts
 this.Closed = true;
+return CloseStates.Nothing;
 ```
 
 ## protected method Default:(context:SyntaxContext, source:Source)=>void

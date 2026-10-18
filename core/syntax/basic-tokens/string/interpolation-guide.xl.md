@@ -72,7 +72,7 @@ if (Value !== "{") {
         Const.TrySignIn(Item);
       }
     }
-    this.ParentString.AddToMounted(new InterpolationString(this.Template)).SignIn(this.Items[0]);
+    this.ParentString.AddToMounted(new InterpolationString(this.Template)).Created!.SignIn(this.Items[0]);
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     return;
   } else {

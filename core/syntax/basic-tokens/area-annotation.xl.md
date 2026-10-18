@@ -3,6 +3,9 @@
 import { Branch } from "../branch.xl.md"
 import { BranchConditionResult } from "../branch-condition-result.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
+import { CloseStates } from "../close-states.xl.md"
+import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
+import { ReloadMessage } from "../messages/reload-message.xl.md"
 import { Source } from "../source.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -37,9 +40,16 @@ return result;
 
 认下 `/*`：先回退已吃掉的那个 `/`（它归本单元所有），再挂一个新的 `AreaAnnotation` 并用同一个 `/` 签入。
 
+挂之前先看关闭的结果（`State`）：关闭上一个 token 的过程可能建出了形状，这时当前字符要 reload 给新形状重吃。`Created` 只是结果，不拿它当判据。
+
 ```ts
 unit.Undo(source.Pre()!);
-unit.AddToMounted(new AreaAnnotation(unit.Template)).SignIn(source.Pre()!);
+const created = unit.AddToMounted(new AreaAnnotation(unit.Template));
+if (created.State === CloseStates.Built) {
+  context.Messages.push(new ReloadMessage(unit, unit, source));
+  return;
+}
+created.Created!.SignIn(source.Pre()!);
 ```
 
 # class AreaAnnotation extends UnitToken
@@ -103,18 +113,24 @@ if (undoUnit !== null) {
 return true;
 ```
 
-## protected method Close:()=>void
+## protected method Close:()=>CloseStates
 
 关闭：只把自己标记为已关闭，然后**只问父单元**要不要重算候选——父单元没实现 `IComputePossibleShapes` 就不问，也不再往上找。
 
 父单元是不是宿主由它自己的 `CatalogGuide` 说了算：为空就等于没挂向导，被问到也不做任何事。
 
+重算的返回值原样带上去：建出了形状时，正在收尾的这个 token 要让当前字符重放。
+
 ```ts
 this.Closed = true;
 const parent = this.Parent;
 if (parent !== null && "ComputePossibleShapes" in parent) {
-  (parent as any).ComputePossibleShapes();
+  const state = (parent as any).ComputePossibleShapes();
+  if (state === ComputePossibleShapesStates.Built) {
+    return CloseStates.Built;
+  }
 }
+return CloseStates.Nothing;
 ```
 
 ## protected method Default:(context:SyntaxContext, source:Source)=>void

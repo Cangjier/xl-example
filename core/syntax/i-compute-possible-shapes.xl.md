@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { CatalogGuide } from "./catalog-guide.xl.md"
+import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
 ```
 
 # namespace cangjie
@@ -17,17 +18,19 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `CatalogGuide` 是宿主指向目录向导的引用：`null` 表示本单元没挂向导，被问到也不做任何事。
 
+返回值统一是 `ComputePossibleShapesStates`：调用方要判断的是「这次有没有建出形状」，而不是「建了什么」——形状是谁由目录自己知道。
+
 ## property CatalogGuide:CatalogGuide | null
 
 本单元挂着的目录向导；`null` 表示没挂。
 
-## method ComputePossibleShapes:()=>void
+## method ComputePossibleShapes:()=>ComputePossibleShapesStates
 
 重算本单元目录里的候选。
 
 无参：触发者是谁由实现自己决定（`UnitToken` 的实现把自己转交给向导）。
 
-## method ComputePossibleShapesByIndex:(tokenIndex:int)=>void
+## method ComputePossibleShapesByIndex:(tokenIndex:int)=>ComputePossibleShapesStates
 
 按子单元下标重算本单元目录里的候选。
 

@@ -3,6 +3,9 @@
 import { BlockToken } from "../block-token.xl.md"
 import { Branch } from "../branch.xl.md"
 import { BranchConditionResult } from "../branch-condition-result.xl.md"
+import { CloseStates } from "../close-states.xl.md"
+import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
+import { ReloadMessage } from "../messages/reload-message.xl.md"
 import { Source } from "../source.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -56,9 +59,16 @@ return result;
 
 `Message` 为 `0` 就新建一个 `Common` 并签入；为 `1` 就追加到上一个 `Common`。
 
+新建时**先看关闭的结果**（`State`）：`Built` 说明关闭上一个 `Common` 的过程建出了形状，当前字符要 reload 给新形状重吃，不能再建 token；`Created` 只是「加进去了没有」的结果，不拿它当判据。
+
 ```ts
 if (result.Message === 0) {
-  unit.AddAndCloseLast(new Common(unit.Template)).AppendAndSignOut(source).SignIn(source);
+  const created = unit.AddAndCloseLast(new Common(unit.Template));
+  if (created.State === CloseStates.Built) {
+    context.Messages.push(new ReloadMessage(unit, unit, source));
+    return;
+  }
+  created.Created!.AppendAndSignOut(source).SignIn(source);
 } else {
   (unit.Last() as Common)!.AppendAndSignOut(source);
 }
@@ -107,18 +117,24 @@ super(Template);
 return !(this.Template.SymbolTemplate.IsSymbol(Src.Value) || this.Template.SymbolTemplate.IsWhiteSpace(Src.Value));
 ```
 
-## protected method Close:()=>void
+## protected method Close:()=>CloseStates
 
 关闭：只把自己标记为已关闭，然后**只问父单元**要不要重算候选——父单元没实现 `IComputePossibleShapes` 就不问，也不再往上找。
 
 父单元是不是宿主由它自己的 `CatalogGuide` 说了算：为空就等于没挂向导，被问到也不做任何事。
 
+重算的返回值要**原样带上去**：建出了形状时，正在被建的那个 token 的收尾就变成了「形状已就位，当前字符该重放」。
+
 ```ts
 this.Closed = true;
 const parent = this.Parent;
 if (parent !== null && "ComputePossibleShapes" in parent) {
-  (parent as any).ComputePossibleShapes();
+  const state = (parent as any).ComputePossibleShapes();
+  if (state === ComputePossibleShapesStates.Built) {
+    return CloseStates.Built;
+  }
 }
+return CloseStates.Nothing;
 ```
 
 ## method IsNumberWithoutDecimal:()=>bool

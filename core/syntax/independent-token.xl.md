@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { CloseStates } from "./close-states.xl.md"
 import { Source } from "./source.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { Token } from "./token.xl.md"
@@ -30,12 +31,13 @@ super(template);
 
 独立单元不接收任何字符，所以这个覆写是**空的**：不写 ts 体，打印器产出空方法。
 
-## protected method Close:()=>void
+## protected method Close:()=>CloseStates
 
-关闭：只把自己标记为已关闭。
+关闭：只把自己标记为已关闭，返回 `Nothing`。
 
 ```ts
 this.Closed = true;
+return CloseStates.Nothing;
 ```
 
 ## protected method Default:(context:SyntaxContext, source:Source)=>void

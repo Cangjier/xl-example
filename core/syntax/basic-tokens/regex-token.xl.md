@@ -3,6 +3,8 @@
 import { Branch } from "../branch.xl.md"
 import { BranchConditionResult } from "../branch-condition-result.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
+import { CloseStates } from "../close-states.xl.md"
+import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
 import { ReloadMessage } from "../messages/reload-message.xl.md"
 import { Source } from "../source.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
@@ -60,7 +62,12 @@ return result;
 ```ts
 const preUnit = source.Pre()!;
 unit.Undo(preUnit);
-const regexToken = unit.AddToMounted(new RegexToken(unit.Template));
+const created = unit.AddToMounted(new RegexToken(unit.Template));
+if (created.State === CloseStates.Built) {
+  context.Messages.push(new ReloadMessage(unit, unit, source));
+  return;
+}
+const regexToken = created.Created!;
 regexToken.SignIn(preUnit);
 regexToken.Append(source);
 ```
@@ -90,18 +97,24 @@ super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 ```
 
-## protected method Close:()=>void
+## protected method Close:()=>CloseStates
 
 关闭：只把自己标记为已关闭，然后**只问父单元**要不要重算候选——父单元没实现 `IComputePossibleShapes` 就不问，也不再往上找。
 
 父单元是不是宿主由它自己的 `CatalogGuide` 说了算：为空就等于没挂向导，被问到也不做任何事。
 
+重算的返回值原样带上去：建出了形状时，正在收尾的这个 token 要让当前字符重放。
+
 ```ts
 this.Closed = true;
 const parent = this.Parent;
 if (parent !== null && "ComputePossibleShapes" in parent) {
-  (parent as any).ComputePossibleShapes();
+  const state = (parent as any).ComputePossibleShapes();
+  if (state === ComputePossibleShapesStates.Built) {
+    return CloseStates.Built;
+  }
 }
+return CloseStates.Nothing;
 ```
 
 ## field Temp:string = ""

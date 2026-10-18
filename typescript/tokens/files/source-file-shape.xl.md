@@ -1,8 +1,12 @@
 # dependencies
 ```xl
+import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
 import { BreakStatementPossibleShape } from "../statements/break-statement-possible-shape.xl.md"
@@ -51,6 +55,43 @@ const x = 1;
 ```ts
 super(template);
 this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes());
+```
+
+## protected method Close:()=>CloseStates
+
+```ts
+this.Closed = true;
+for (const item of this.Data.slice()) {
+  if (!item.Closed) {
+    item.TryToClose();
+  }
+}
+for (const item of this.Data) {
+  if (!item.Closed) {
+    item.TryToClose();
+  }
+}
+for (const item of this.Data) {
+  if (!item.Closed) {
+    throw new Error("SourceFileShape.Close: 有子单元无法关闭");
+  }
+}
+return CloseStates.Nothing;
+```
+
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+
+```ts
+return BranchStates.Undo;
+```
+
+## method Process:(context:SyntaxContext, source:Source)=>void
+
+```ts
+if (this.SourceRange.Start === null) {
+  this.SourceRange.Start = source;
+}
+super.Process(context, source);
 ```
 
 ## private static field CreatePossibleShapesCache:Array<PossibleShape> | null = null

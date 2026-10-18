@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { CloseStates } from "./close-states.xl.md"
 import { Source } from "./source.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { Token } from "./token.xl.md"
@@ -24,12 +25,13 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 super(Template);
 ```
 
-## protected method Close:()=>void
+## protected method Close:()=>CloseStates
 
-关闭：只把自己标记为已关闭。
+关闭：只把自己标记为已关闭，返回 `Nothing`。
 
 ```ts
 this.Closed = true;
+return CloseStates.Nothing;
 ```
 
 ## protected method Default:(context:SyntaxContext, Src:Source)=>void

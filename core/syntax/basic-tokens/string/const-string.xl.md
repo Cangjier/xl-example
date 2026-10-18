@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { BlockToken } from "../../block-token.xl.md"
+import { CloseStates } from "../../close-states.xl.md"
 import { Source } from "../../source.xl.md"
 import { Token } from "../../token.xl.md"
 import { Template } from "../../templates/template.xl.md"
@@ -63,12 +64,13 @@ if (this.Temp[this.Temp.length - 1] === source.Value) {
 }
 ```
 
-## protected method Close:()=>void
+## protected method Close:()=>CloseStates
 
-关闭：只把自己标记为已关闭。
+关闭：只把自己标记为已关闭，返回 `Nothing`。
 
 ```ts
 this.Closed = true;
+return CloseStates.Nothing;
 ```
 
 ## method TrySignIn:(Src:Source)=>ConstString
