@@ -50,7 +50,7 @@ for (let index = 0; index < shapes.length; index++) {
 }
 ```
 
-## method ComputePossibleShapes:(host:Token, context?:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(host:Token, context:SyntaxContext)=>ComputePossibleShapesStates
 
 判全段就是判到最后一格为止：直接转调 `ComputePossibleShapesByIndex`。
 
@@ -58,7 +58,7 @@ for (let index = 0; index < shapes.length; index++) {
 return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context);
 ```
 
-## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int, context?:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int, context:SyntaxContext)=>ComputePossibleShapesStates
 
 拿**宿主**攒下的子单元问一遍还活着的候选——`Candidates` 里那些下标，被拒的从 `Candidates` 里去掉——然后按**个数**行动：只剩一个就建它并复位，一个都不剩就抛错，还有多个就继续等后面的单元。
 

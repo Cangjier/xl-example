@@ -43,7 +43,7 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 return (this.Parent as String)!;
 ```
 
-## protected method Close(context?:SyntaxContext)=>CloseStates
+## protected method Close:(context:SyntaxContext)=>CloseStates
 
 关闭：只把自己标记为已关闭，返回 `Nothing`。
 

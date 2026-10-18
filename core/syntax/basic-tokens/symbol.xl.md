@@ -85,7 +85,7 @@ return true;
 return items.includes(this.TempToString());
 ```
 
-## protected method Close(context?:SyntaxContext)=>CloseStates
+## protected method Close:(context:SyntaxContext)=>CloseStates
 
 关闭：只把自己标记为已关闭，返回 `Nothing`。
 

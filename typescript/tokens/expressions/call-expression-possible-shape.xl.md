@@ -17,7 +17,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 throw new Error("CallExpressionPossibleShape.ComputeByIndex 未实现");
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
 throw new Error("CallExpressionPossibleShape.BuildByIndex 未实现");

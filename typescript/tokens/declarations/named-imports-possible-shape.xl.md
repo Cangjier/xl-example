@@ -40,7 +40,7 @@ if (tail instanceof Bracket && (tail as Bracket).StartBracketChar === "{") {
 return ShapeStates.Reject;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
 let index = tokenIndex;

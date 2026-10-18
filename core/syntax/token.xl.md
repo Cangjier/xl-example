@@ -99,7 +99,7 @@ return null;
 throw new Error("abstract member: Default");
 ```
 
-## protected method Close(context?:SyntaxContext)=>CloseStates
+## protected method Close:(context:SyntaxContext)=>CloseStates
 
 关闭本单元，并回答**关闭过程中有没有建出形状**。
 
@@ -109,7 +109,7 @@ throw new Error("abstract member: Default");
 throw new Error("abstract member: Close");
 ```
 
-## method TryToClose(context?:SyntaxContext)=>CloseStates
+## method TryToClose:(context:SyntaxContext)=>CloseStates
 
 尝试关闭：范围必须已签入签出，然后关闭，并把关闭的结果透传出去。
 

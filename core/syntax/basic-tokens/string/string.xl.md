@@ -110,7 +110,7 @@ if (!(last instanceof ConstString)) {
 }
 ```
 
-## protected method Close(context?:SyntaxContext)=>CloseStates
+## protected method Close:(context:SyntaxContext)=>CloseStates
 
 关闭：把自己标记为已关闭，然后**只问父单元**要不要重算候选——和 `Common.Close` 同款。
 

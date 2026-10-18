@@ -179,7 +179,7 @@ if (this.QuoteCount === 1) {
 }
 ```
 
-## protected method Close(context?:SyntaxContext)=>CloseStates
+## protected method Close:(context:SyntaxContext)=>CloseStates
 
 关闭向导：只有在恰好吃到两个引号（`QuoteCount == 2`）时才收尾——那是源码末尾就断掉的 `""`，替换成一个空 `String` 并从自己的起止位置签入签出；其余情况交回基类（把自己标记为已关闭）。
 

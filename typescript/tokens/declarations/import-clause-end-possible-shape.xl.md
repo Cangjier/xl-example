@@ -36,7 +36,7 @@ if (tail instanceof Common && (tail as Common).Is("from")) {
 return ShapeStates.Reject;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
 const unit = host as UnitToken;

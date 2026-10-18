@@ -25,7 +25,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 super(Template);
 ```
 
-## protected method Close(context?:SyntaxContext)=>CloseStates
+## protected method Close:(context:SyntaxContext)=>CloseStates
 
 关闭：只把自己标记为已关闭，返回 `Nothing`。
 

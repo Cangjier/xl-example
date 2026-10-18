@@ -40,7 +40,7 @@ super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 ```
 
-## protected method Close(context?:SyntaxContext)=>CloseStates
+## protected method Close:(context:SyntaxContext)=>CloseStates
 
 关闭：只把自己标记为已关闭，然后**只问父单元**要不要重算候选——父单元没实现 `IComputePossibleShapes` 就不问，也不再往上找。
 

@@ -17,7 +17,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 throw new Error("JsxOpeningFragmentPossibleShape.ComputeByIndex 未实现");
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
 throw new Error("JsxOpeningFragmentPossibleShape.BuildByIndex 未实现");

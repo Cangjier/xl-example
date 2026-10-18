@@ -60,7 +60,7 @@ return this.BuildByIndex(host, host.Data.length - 1, catalog);
 return true;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context?:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 按**一个下标**把这个形状建出来，**返回建好的那个单元**。
 
