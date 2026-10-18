@@ -50,7 +50,7 @@ throw new Error("abstract member: ComputeByIndex");
 **基类转调 `BuildByIndex`**：建全段就是建到最后一格为止，形状只实现那条。
 
 ```ts
-return this.BuildByIndex(host, host.Data.length - 1, catalog);
+return this.BuildByIndex(host, host.Data.length - 1, catalog, context);
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool

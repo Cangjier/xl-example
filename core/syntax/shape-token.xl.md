@@ -57,7 +57,7 @@ if (this.SourceRange.End === null) {
     this.SourceRange.End = tail;
   }
 }
-return super.TryToClose();
+return super.TryToClose(context);
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates

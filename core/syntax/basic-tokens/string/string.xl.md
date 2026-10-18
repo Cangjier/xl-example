@@ -201,7 +201,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
   if (this.Translate.IsTranslating) {
     if (this.Translate.Append(value)) {
-      this.AppendToLastConstString(this.Translate.DecodeClear(), source);
+      this.AppendToLastConstString(this.Translate.DecodeClear(), source, context);
     }
   } else {
     if (value === "\\") {
@@ -286,7 +286,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
   if (this.Translate.IsTranslating) {
     if (this.Translate.Append(value)) {
       this.LastTranslateSource = source;
-      this.AppendToLastConstString(this.Translate.DecodeClear(), source);
+      this.AppendToLastConstString(this.Translate.DecodeClear(), source, context);
     }
   } else {
     if (value === "\\") {

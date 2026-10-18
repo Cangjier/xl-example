@@ -43,7 +43,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ```ts
 if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputePossibleShapes(this);
+  return this.CatalogGuide.ComputePossibleShapes(this, context);
 }
 return ComputePossibleShapesStates.Nothing;
 ```
@@ -56,7 +56,7 @@ return ComputePossibleShapesStates.Nothing;
 
 ```ts
 if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputePossibleShapesByIndex(this, tokenIndex);
+  return this.CatalogGuide.ComputePossibleShapesByIndex(this, tokenIndex, context);
 }
 return ComputePossibleShapesStates.Nothing;
 ```

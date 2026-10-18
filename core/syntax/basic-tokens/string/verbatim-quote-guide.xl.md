@@ -57,7 +57,7 @@ if (value === "\"") {
   //说明 字符串已结束
   this.RemoveSelf();
   //手动强制退出
-  this.ParentString.ForceExit(source.Pre()!);
+  this.ParentString.ForceExit(source.Pre()!, context);
   //最后一个字符需要重载
   context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
 }

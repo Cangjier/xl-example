@@ -190,5 +190,5 @@ if (this.QuoteCount === 2) {
   const item = this.CreateString(false, 1);
   this.Replace(item).SignIn(this.SourceRange.Start!).SignOut(this.SourceRange.End!);
 }
-return super.Close();
+return super.Close(context);
 ```
