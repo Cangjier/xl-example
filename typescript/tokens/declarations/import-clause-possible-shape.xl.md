@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
@@ -9,6 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ImportClauseShape } from "./import-clause-shape.xl.md"
+import { NamedImportsShape } from "./named-imports-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -66,6 +68,12 @@ if (last < 0) {
   return ShapeStates.Uncertain;
 }
 const tail = units[last];
+if (tail instanceof Bracket) {
+  if ((tail as Bracket).StartBracketChar !== "{") {
+    return ShapeStates.Reject;
+  }
+  return ShapeStates.Accept;
+}
 if (!(tail instanceof Common)) {
   return ShapeStates.Reject;
 }
@@ -80,68 +88,78 @@ return ShapeStates.Accept;
 ```ts
 const scan = catalog.PossibleShapesComputeCache.GetState<ImportClauseScan>(this.constructor.name);
 const itemStart = scan === null ? ItemUtil.ItemStart(host.Data) : scan.Start;
-let index = tokenIndex;
-while (index >= 0 && host.Data[index].IsTriviaToken) {
-  index--;
+let first = itemStart;
+while (first < host.Data.length && host.Data[first].IsTriviaToken) {
+  first++;
 }
-if (index < 0 || !(host.Data[index] instanceof Common)) {
+if (first >= host.Data.length) {
   return host;
 }
-const common = host.Data[index] as Common;
+let cursor = first + 1;
+while (cursor < host.Data.length && host.Data[cursor].IsTriviaToken) {
+  cursor++;
+}
+let typeOnly = false;
+if (cursor < host.Data.length && host.Data[cursor] instanceof Common && (host.Data[cursor] as Common).Is("type")) {
+  typeOnly = true;
+  cursor++;
+  while (cursor < host.Data.length && host.Data[cursor].IsTriviaToken) {
+    cursor++;
+  }
+}
+if (cursor >= host.Data.length) {
+  return host;
+}
 let previousCode = -1;
-for (let at = index - 1; at >= itemStart; at--) {
+for (let at = cursor - 1; at >= itemStart; at--) {
   if (!host.Data[at].IsTriviaToken) {
     previousCode = at;
     break;
   }
 }
-let pos = common.SourceRange.Start !== null ? common.SourceRange.Start.Index : -1;
+const clause = new ImportClauseShape(host.Template);
+const firstUnit = host.Data[cursor];
 if (previousCode >= 0) {
   const prevUnit = host.Data[previousCode];
   if (prevUnit.SourceRange.End !== null) {
-    pos = prevUnit.SourceRange.End.Index + 1;
+    clause.Pos = prevUnit.SourceRange.End.Index + 1;
+  }
+} else if (firstUnit.SourceRange.Start !== null) {
+  clause.Pos = firstUnit.SourceRange.Start.Index;
+}
+let lastUnit = firstUnit;
+if (firstUnit instanceof Bracket && (firstUnit as Bracket).StartBracketChar === "{") {
+  const named = NamedImportsShape.FromBracket(firstUnit as Bracket);
+  clause.NamedBindings = named;
+  named.Parent = clause;
+  clause.Data.push(named);
+} else if (firstUnit instanceof Common) {
+  const identifier = IdentifierShape.FromBasicToken(firstUnit as Common);
+  identifier.Pos = clause.Pos;
+  clause.Name = identifier;
+  identifier.Parent = clause;
+  clause.Data.push(identifier);
+  let at = cursor + 1;
+  while (at < host.Data.length && host.Data[at].IsTriviaToken) {
+    at++;
+  }
+  if (at < host.Data.length && host.Data[at] instanceof Bracket && (host.Data[at] as Bracket).StartBracketChar === "{") {
+    const named = NamedImportsShape.FromBracket(host.Data[at] as Bracket);
+    clause.NamedBindings = named;
+    named.Parent = clause;
+    clause.Data.push(named);
+    lastUnit = host.Data[at];
   }
 }
-const identifier = IdentifierShape.FromBasicToken(common);
-identifier.Pos = pos;
-const clause = new ImportClauseShape(host.Template);
-clause.Pos = pos;
-let startIndex = index;
-for (let at = index - 1; at >= itemStart; at--) {
-  const unit = host.Data[at];
-  if (unit.IsTriviaToken) {
-    continue;
-  }
-  if (unit instanceof Common && (unit as Common).Is("type")) {
-    clause.IsTypeOnly = true;
-    startIndex = at;
-  }
-  break;
+clause.IsTypeOnly = typeOnly;
+if (firstUnit.SourceRange.Start !== null) {
+  clause.SignIn(firstUnit.SourceRange.Start);
 }
-if (startIndex !== index) {
-  for (let at = startIndex - 1; at >= itemStart; at--) {
-    const unit = host.Data[at];
-    if (unit.IsTriviaToken) {
-      continue;
-    }
-    if (unit.SourceRange.End !== null) {
-      clause.Pos = unit.SourceRange.End.Index + 1;
-    }
-    break;
-  }
+if (lastUnit.SourceRange.End !== null) {
+  clause.SignOut(lastUnit.SourceRange.End);
 }
-const startSource = host.Data[startIndex].SourceRange.Start;
-if (startSource !== null) {
-  clause.SignIn(startSource);
-}
-if (common.SourceRange.End !== null) {
-  clause.SignOut(common.SourceRange.End);
-}
-clause.Name = identifier;
-clause.Data.push(identifier);
-identifier.Parent = clause;
 clause.TryToClose();
-host.Data.splice(index, 1, clause);
+host.Data.splice(cursor, tokenIndex - cursor + 1, clause);
 clause.Parent = host;
 return clause;
 ```

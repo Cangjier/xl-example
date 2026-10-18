@@ -350,35 +350,457 @@
     },
     {
       "src": "import { a } from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 2）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 21,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "children": [
+            {
+              "kind": "ImportClauseShape",
+              "start": 7,
+              "end": 11,
+              "pos": 6,
+              "NamedBindings": "NamedImportsShape",
+              "children": [
+                {
+                  "kind": "NamedImportsShape",
+                  "start": 7,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 9,
+                      "end": 9,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 9,
+                          "end": 9,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 18,
+              "end": 20,
+              "text": "m",
+              "pos": 17
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import { a, b } from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 2）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 24,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "children": [
+            {
+              "kind": "ImportClauseShape",
+              "start": 7,
+              "end": 14,
+              "pos": 6,
+              "NamedBindings": "NamedImportsShape",
+              "children": [
+                {
+                  "kind": "NamedImportsShape",
+                  "start": 7,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 9,
+                      "end": 9,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 9,
+                          "end": 9,
+                          "text": "a"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 12,
+                      "end": 12,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 12,
+                          "end": 12,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 21,
+              "end": 23,
+              "text": "m",
+              "pos": 20
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import { a as b } from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 2）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 26,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "children": [
+            {
+              "kind": "ImportClauseShape",
+              "start": 7,
+              "end": 16,
+              "pos": 6,
+              "NamedBindings": "NamedImportsShape",
+              "children": [
+                {
+                  "kind": "NamedImportsShape",
+                  "start": 7,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 9,
+                      "end": 14,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 9,
+                          "end": 9,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 14,
+                          "end": 14,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 23,
+              "end": 25,
+              "text": "m",
+              "pos": 22
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import { a, b as c } from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 2）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 29,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "children": [
+            {
+              "kind": "ImportClauseShape",
+              "start": 7,
+              "end": 19,
+              "pos": 6,
+              "NamedBindings": "NamedImportsShape",
+              "children": [
+                {
+                  "kind": "NamedImportsShape",
+                  "start": 7,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 9,
+                      "end": 9,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 9,
+                          "end": 9,
+                          "text": "a"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 12,
+                      "end": 17,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 12,
+                          "end": 12,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 17,
+                          "end": 17,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 26,
+              "end": 28,
+              "text": "m",
+              "pos": 25
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import {} from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 2）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 18,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "children": [
+            {
+              "kind": "ImportClauseShape",
+              "start": 7,
+              "end": 8,
+              "pos": 6,
+              "NamedBindings": "NamedImportsShape",
+              "children": [
+                {
+                  "kind": "NamedImportsShape",
+                  "start": 7,
+                  "end": 8
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 15,
+              "end": 17,
+              "text": "m",
+              "pos": 14
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import { a } from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 2）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 21,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "children": [
+            {
+              "kind": "ImportClauseShape",
+              "start": 7,
+              "end": 11,
+              "pos": 6,
+              "NamedBindings": "NamedImportsShape",
+              "children": [
+                {
+                  "kind": "NamedImportsShape",
+                  "start": 7,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 9,
+                      "end": 9,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 9,
+                          "end": 9,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 18,
+              "end": 20,
+              "text": "m",
+              "pos": 17
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import /* c */ { a } from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 4）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 29,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "children": [
+            {
+              "kind": "ImportClauseShape",
+              "start": 15,
+              "end": 19,
+              "pos": 6,
+              "NamedBindings": "NamedImportsShape",
+              "children": [
+                {
+                  "kind": "NamedImportsShape",
+                  "start": 15,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 17,
+                      "end": 17,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 17,
+                          "end": 17,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 26,
+              "end": 28,
+              "text": "m",
+              "pos": 25
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import {\n  a,\n  b,\n} from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 2）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 29,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "children": [
+            {
+              "kind": "ImportClauseShape",
+              "start": 7,
+              "end": 19,
+              "pos": 6,
+              "NamedBindings": "NamedImportsShape",
+              "children": [
+                {
+                  "kind": "NamedImportsShape",
+                  "start": 7,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 11,
+                      "end": 11,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 11,
+                          "end": 11,
+                          "text": "a"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 16,
+                      "end": 16,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 16,
+                          "end": 16,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 26,
+              "end": 28,
+              "text": "m",
+              "pos": 25
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import * as ns from \"m\";",
@@ -393,19 +815,9 @@
           "children": [
             {
               "kind": "ImportClauseShape",
-              "start": 12,
-              "end": 13,
-              "pos": 11,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 12,
-                  "end": 13,
-                  "text": "ns",
-                  "pos": 11
-                }
-              ]
+              "start": 7,
+              "end": 7,
+              "pos": 6
             },
             {
               "kind": "StringLiteralShape",
@@ -431,19 +843,9 @@
           "children": [
             {
               "kind": "ImportClauseShape",
-              "start": 12,
-              "end": 13,
-              "pos": 11,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 12,
-                  "end": 13,
-                  "text": "ns",
-                  "pos": 11
-                }
-              ]
+              "start": 7,
+              "end": 7,
+              "pos": 6
             },
             {
               "kind": "StringLiteralShape",
@@ -469,19 +871,9 @@
           "children": [
             {
               "kind": "ImportClauseShape",
-              "start": 15,
-              "end": 16,
-              "pos": 13,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 15,
-                  "end": 16,
-                  "text": "ns",
-                  "pos": 13
-                }
-              ]
+              "start": 8,
+              "end": 8,
+              "pos": 6
             },
             {
               "kind": "StringLiteralShape",
@@ -567,7 +959,56 @@
     },
     {
       "src": "import type { T } from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 4）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 26,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "children": [
+            {
+              "kind": "ImportClauseShape",
+              "start": 12,
+              "end": 16,
+              "pos": 11,
+              "isTypeOnly": true,
+              "NamedBindings": "NamedImportsShape",
+              "children": [
+                {
+                  "kind": "NamedImportsShape",
+                  "start": 12,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 14,
+                      "end": 14,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 14,
+                          "end": 14,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 23,
+              "end": 25,
+              "text": "m",
+              "pos": 22
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import type a from \"m\";",
@@ -582,9 +1023,9 @@
           "children": [
             {
               "kind": "ImportClauseShape",
-              "start": 7,
+              "start": 12,
               "end": 12,
-              "pos": 6,
+              "pos": 11,
               "isTypeOnly": true,
               "Name": "IdentifierShape",
               "children": [
@@ -621,19 +1062,10 @@
           "children": [
             {
               "kind": "ImportClauseShape",
-              "start": 17,
-              "end": 18,
-              "pos": 16,
-              "Name": "IdentifierShape",
-              "children": [
-                {
-                  "kind": "IdentifierShape",
-                  "start": 17,
-                  "end": 18,
-                  "text": "ns",
-                  "pos": 16
-                }
-              ]
+              "start": 12,
+              "end": 12,
+              "pos": 11,
+              "isTypeOnly": true
             },
             {
               "kind": "StringLiteralShape",
@@ -659,9 +1091,9 @@
           "children": [
             {
               "kind": "ImportClauseShape",
-              "start": 8,
+              "start": 14,
               "end": 14,
-              "pos": 6,
+              "pos": 12,
               "isTypeOnly": true,
               "Name": "IdentifierShape",
               "children": [
@@ -687,7 +1119,56 @@
     },
     {
       "src": "import type\n{ T } from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 4）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 26,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "children": [
+            {
+              "kind": "ImportClauseShape",
+              "start": 12,
+              "end": 16,
+              "pos": 11,
+              "isTypeOnly": true,
+              "NamedBindings": "NamedImportsShape",
+              "children": [
+                {
+                  "kind": "NamedImportsShape",
+                  "start": 12,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifierShape",
+                      "start": 14,
+                      "end": 14,
+                      "Name": "IdentifierShape",
+                      "children": [
+                        {
+                          "kind": "IdentifierShape",
+                          "start": 14,
+                          "end": 14,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 23,
+              "end": 25,
+              "text": "m",
+              "pos": 22
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import a from \"m\" with { type: \"json\" };",
