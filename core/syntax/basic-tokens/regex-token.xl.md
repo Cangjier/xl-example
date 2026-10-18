@@ -1,7 +1,6 @@
 # dependencies
 ```xl
 import { Branch } from "../branch.xl.md"
-import { BranchConditionResult } from "../branch-condition-result.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
@@ -27,49 +26,31 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 它永远不进 `Data`、不进 XML。
 
-## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
 判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符不是 `/`。成立后再看 `unit.Data` 的倒数第二个单元：单元数不超过 1 就成立；它是 `Common` 或 `Bracket` 时不成立；其余类型成立。
+
+认下就先把那个已经被吃掉的 `/` 回退掉（它归 `RegexToken` 所有，不属于前一个单元），然后挂一个新的 `RegexToken`，用同一个 `/` 签入，再把当前字符补进去；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
 
 ```ts
 const preUnit = source.Pre();
 if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value === "/") {
-  const result = new BranchConditionResult();
-  result.Success = false;
-  return result;
+  return BranchStates.Undo;
 }
-if (unit.Data.length <= 1) {
-  const result = new BranchConditionResult();
-  result.Success = true;
-  return result;
+if (unit.Data.length > 1) {
+  const last = unit.Last(1);
+  if (last instanceof Common || last instanceof Bracket) {
+    return BranchStates.Undo;
+  }
 }
-const last = unit.Last(1);
-const result = new BranchConditionResult();
-if (last instanceof Common) {
-  result.Success = false;
-} else if (last instanceof Bracket) {
-  result.Success = false;
-} else {
-  result.Success = true;
-}
-return result;
-```
-
-## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
-
-认下这段正则的开头：先把那个已经被吃掉的 `/` 回退掉（它归 `RegexToken` 所有，不属于前一个单元），然后挂一个新的 `RegexToken`，用同一个 `/` 签入，再把当前字符补进去。
-
-```ts
-const preUnit = source.Pre()!;
 unit.Undo(preUnit);
-const created = unit.AddToMounted(new RegexToken(unit.Template));
-if (created.State === CloseStates.Built) {
-  context.Messages.push(new ReloadMessage(unit, unit, source));
-  return;
+if (unit.AddToMounted(new RegexToken(unit.Template)) === CloseStates.Built) {
+  return BranchStates.Reload;
 }
-const regexToken = created.Created!;
+const regexToken = unit.MountedUnit as RegexToken;
 regexToken.SignIn(preUnit);
 regexToken.Append(source);
+return BranchStates.Done;
 ```
 
 # class RegexToken extends UnitToken

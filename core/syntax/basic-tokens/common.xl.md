@@ -2,10 +2,9 @@
 ```xl
 import { BlockToken } from "../block-token.xl.md"
 import { Branch } from "../branch.xl.md"
-import { BranchConditionResult } from "../branch-condition-result.xl.md"
+import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
-import { ReloadMessage } from "../messages/reload-message.xl.md"
 import { Source } from "../source.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -22,67 +21,39 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 通用字符块的跳转规则：判断当前字符是开一个新的 `Common`，还是追加到上一个 `Common`。
 
-## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
-上一个单元是 `Common` 时按三条分支判定：当前字符是 `.` 且算符号时，只有上一个 `Common` 是纯数字才接手，`Message = 1`；上一个 `Common` 已关闭时，以「不是符号、也不是空白」开新块，`Message = 0`；否则问上一个 `Common` 的 `IsAppend`，`Message = 1`。没有上一个 `Common` 时与「已关闭」同款判定。
+判定、收尾、新开都在这一个方法里：
+
+- 上一个单元是未关闭的 `Common`：`.` 且它是纯数字 → 追加；`IsAppend` → 追加；否则先 `TryToClose` 它，建出形状就返回 `Reload`；
+- 收尾之后（或本来就没有 `Common` 可续接）：当前字符是符号或空白 → `Undo`，交给后面的分支；
+- 其余 → 开新块：`AddAndCloseLast` 建出形状就返回 `Reload`，否则签入当前字符并 `Done`。
 
 ```ts
 const value = source.Value;
+const template = unit.Template;
 const last = unit.Last();
-if (last instanceof Common) {
-  if (value === "." && unit.Template.SymbolTemplate.IsSymbol(value)) {
-    const result = new BranchConditionResult();
-    result.Success = last.IsNumberWithoutDecimal();
-    if (result.Success) {
-      result.Message = 1;
-    }
-    return result;
+if (last instanceof Common && !last.Closed) {
+  if (value === "." && template.SymbolTemplate.IsSymbol(value) && last.IsNumberWithoutDecimal()) {
+    last.AppendAndSignOut(source);
+    return BranchStates.Done;
   }
-  if (last.Closed) {
-    const result = new BranchConditionResult();
-    result.Success = !(unit.Template.SymbolTemplate.IsSymbol(source.Value) || unit.Template.SymbolTemplate.IsWhiteSpace(source.Value));
-    result.Message = 0;
-    return result;
+  if (last.IsAppend(source)) {
+    last.AppendAndSignOut(source);
+    return BranchStates.Done;
   }
-  const result = new BranchConditionResult();
-  result.Success = last.IsAppend(source);
-  result.Message = 1;
-  return result;
-}
-const result = new BranchConditionResult();
-result.Success = !(unit.Template.SymbolTemplate.IsSymbol(source.Value) || unit.Template.SymbolTemplate.IsWhiteSpace(source.Value));
-result.Message = 0;
-return result;
-```
-
-## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
-
-`Message` 为 `0` 就新建一个 `Common` 并签入；为 `1` 就追加到上一个 `Common`。
-
-新建时**先看关闭的结果**（`State`）：`Built` 说明关闭上一个 `Common` 的过程建出了形状，当前字符要 reload 给新形状重吃，不能再建 token；`Created` 只是「加进去了没有」的结果，不拿它当判据。
-
-```ts
-if (result.Message === 0) {
-  const created = unit.AddAndCloseLast(new Common(unit.Template));
-  if (created.State === CloseStates.Built) {
-    context.Messages.push(new ReloadMessage(unit, unit, source));
-    return;
+  if (last.TryToClose() === CloseStates.Built) {
+    return BranchStates.Reload;
   }
-  created.Created!.AppendAndSignOut(source).SignIn(source);
-} else {
-  (unit.Last() as Common)!.AppendAndSignOut(source);
 }
-```
-
-## method Failed:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
-
-失败时把上一个 `Common` 关闭。
-
-```ts
-const last = unit.Last();
-if (last instanceof Common) {
-  last.TryToClose();
+if (template.SymbolTemplate.IsSymbol(value) || template.SymbolTemplate.IsWhiteSpace(value)) {
+  return BranchStates.Undo;
 }
+if (unit.AddAndCloseLast(new Common(unit.Template)) === CloseStates.Built) {
+  return BranchStates.Reload;
+}
+(unit.Last() as Common)!.AppendAndSignOut(source).SignIn(source);
+return BranchStates.Done;
 ```
 
 # class Common extends BlockToken

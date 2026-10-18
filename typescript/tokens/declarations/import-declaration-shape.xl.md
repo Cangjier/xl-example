@@ -169,8 +169,11 @@ return shape;
 const value = source.Value;
 if (value === ";") {
   this.SignOut(source);
-  this.TryToClose();
+  const state = this.TryToClose();
   this.Quit();
+  if (state === CloseStates.Built) {
+    return BranchStates.Reload;
+  }
   return BranchStates.Done;
 }
 if (value === "\n" || value === "\r") {
@@ -179,8 +182,11 @@ if (value === "\n" || value === "\r") {
     return BranchStates.Undo;
   }
   this.SignOut(previous);
-  this.TryToClose();
+  const state = this.TryToClose();
   this.Quit();
+  if (state === CloseStates.Built) {
+    return BranchStates.Reload;
+  }
   return BranchStates.Done;
 }
 return BranchStates.Undo;

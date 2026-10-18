@@ -1,11 +1,9 @@
 # dependencies
 ```xl
 import { Branch } from "../branch.xl.md"
-import { BranchConditionResult } from "../branch-condition-result.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
-import { ReloadMessage } from "../messages/reload-message.xl.md"
 import { Source } from "../source.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -25,30 +23,22 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 它永远不进 `Data`、不进 XML。
 
-## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
-只有 `(` / `{` / `[` 三种开括号字符才成立，`Message` 保持 `0`。
+只认 `(` / `{` / `[` 三种开括号字符：认下就新建一个 `Bracket`、配成对应的括号对、挂到 `unit` 上并签入。
+
+挂之前先看关闭的结果：关闭上一个 token 的过程可能建出了形状，这时返回 `Reload`，字符交给新形状重吃。
 
 ```ts
 const value = source.Value;
-const result = new BranchConditionResult();
-result.Success = value === "(" || value === "{" || value === "[";
-return result;
-```
-
-## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
-
-认下这个开括号：新建一个 `Bracket`、用当前字符配成对应的括号对、挂到 `unit` 上并签入。
-
-挂之前先看关闭的结果（`State`）：关闭上一个 token 的过程可能建出了形状，这时当前字符要 reload 给新形状重吃。`Created` 只是结果，不拿它当判据。
-
-```ts
-const created = unit.AddToMounted(new Bracket(unit.Template));
-if (created.State === CloseStates.Built) {
-  context.Messages.push(new ReloadMessage(unit, unit, source));
-  return;
+if (value !== "(" && value !== "{" && value !== "[") {
+  return BranchStates.Undo;
 }
-created.Created!.Use(source.Value).SignIn(source);
+if (unit.AddToMounted(new Bracket(unit.Template)) === CloseStates.Built) {
+  return BranchStates.Reload;
+}
+(unit.MountedUnit as Bracket)!.Use(source.Value).SignIn(source);
+return BranchStates.Done;
 ```
 
 # class Bracket extends UnitToken

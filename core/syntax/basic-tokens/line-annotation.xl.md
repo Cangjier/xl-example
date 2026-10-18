@@ -1,7 +1,6 @@
 # dependencies
 ```xl
 import { Branch } from "../branch.xl.md"
-import { BranchConditionResult } from "../branch-condition-result.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
@@ -25,30 +24,23 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 它永远不进 `Data`、不进 XML。
 
-## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
 判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符也是 `/`。
 
+认下就回退已吃掉的那个 `/`（它归本单元所有），再挂一个新的 `LineAnnotation` 并用同一个 `/` 签入；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
+
 ```ts
 const preUnit = source.Pre();
-const result = new BranchConditionResult();
-result.Success = preUnit !== null && preUnit.Value === "/" && unit.IsUndo(preUnit) && source.Value === "/";
-return result;
-```
-
-## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
-
-认下 `//`：先回退已吃掉的那个 `/`（它归本单元所有），再挂一个新的 `LineAnnotation` 并用同一个 `/` 签入。
-
-```ts
-const preUnit = source.Pre()!;
-unit.Undo(preUnit);
-const created = unit.AddToMounted(new LineAnnotation(unit.Template));
-if (created.State === CloseStates.Built) {
-  context.Messages.push(new ReloadMessage(unit, unit, source));
-  return;
+if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value !== "/") {
+  return BranchStates.Undo;
 }
-created.Created!.SignIn(preUnit);
+unit.Undo(preUnit);
+if (unit.AddToMounted(new LineAnnotation(unit.Template)) === CloseStates.Built) {
+  return BranchStates.Reload;
+}
+(unit.MountedUnit as LineAnnotation)!.SignIn(preUnit);
+return BranchStates.Done;
 ```
 
 # class LineAnnotation extends UnitToken

@@ -154,9 +154,11 @@ return result;
 const value = source.Value;
 if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw) {
   if (value === this.StringChar) {
-    this.AddToMounted(new VerbatimQuoteGuide(this.Template)).Created!.SignIn(source);
+    this.AddToMounted(new VerbatimQuoteGuide(this.Template));
+    (this.MountedUnit as VerbatimQuoteGuide)!.SignIn(source);
   } else if (value === "{") {
-    this.AddToMounted(new InterpolationString(this.Template)).Created!.SignIn(source);
+    this.AddToMounted(new InterpolationString(this.Template));
+    (this.MountedUnit as InterpolationString)!.SignIn(source);
   } else {
     this.AppendToLastConstString(value, source);
   }
@@ -169,14 +171,16 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     if (value === "\\") {
       this.Translate.IsTranslating = true;
     } else if (value === "{") {
-      this.AddToMounted(new InterpolationString(this.Template)).Created!.SignIn(source);
+      this.AddToMounted(new InterpolationString(this.Template));
+    (this.MountedUnit as InterpolationString)!.SignIn(source);
     } else {
       this.AppendToLastConstString(value, source);
     }
   }
 } else if (!this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw) {
   if (value === this.StringChar) {
-    this.AddToMounted(new VerbatimQuoteGuide(this.Template)).Created!.SignIn(source);
+    this.AddToMounted(new VerbatimQuoteGuide(this.Template));
+    (this.MountedUnit as VerbatimQuoteGuide)!.SignIn(source);
   } else {
     this.AppendToLastConstString(value, source);
   }
@@ -184,19 +188,22 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
   if (value === this.StringChar) {
     const guide = new RawQuoteExitGuide(this.Template);
     guide.StringChar = this.StringChar;
-    this.AddToMounted(guide).Created!.SignIn(source);
+    this.AddToMounted(guide);
+    (this.MountedUnit as RawQuoteExitGuide)!.SignIn(source);
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   } else {
     this.AppendToLastConstString(value, source);
   }
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && this.IsSupportRaw) {
   if (value === "{") {
-    this.AddToMounted(new InterpolationGuide(this.Template)).Created!.SignIn(source);
+    this.AddToMounted(new InterpolationGuide(this.Template));
+    (this.MountedUnit as InterpolationGuide)!.SignIn(source);
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   } else if (value === this.StringChar) {
     const guide = new RawQuoteExitGuide(this.Template);
     guide.StringChar = this.StringChar;
-    this.AddToMounted(guide).Created!.SignIn(source);
+    this.AddToMounted(guide);
+    (this.MountedUnit as RawQuoteExitGuide)!.SignIn(source);
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   } else {
     this.AppendToLastConstString(value, source);
@@ -213,7 +220,8 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     } else if (value === "{" && source.Pre()?.Value === "$" && !Source.Same(source.Pre(), this.LastTranslateSource) && this.StringChar === "`") {
       this.InterpolationCount = 1;
       this.Undo(source.Pre()!);
-      this.AddToMounted(new InterpolationString(this.Template)).Created!.SignIn(source);
+      this.AddToMounted(new InterpolationString(this.Template));
+    (this.MountedUnit as InterpolationString)!.SignIn(source);
     } else {
       this.AppendToLastConstString(value, source);
     }

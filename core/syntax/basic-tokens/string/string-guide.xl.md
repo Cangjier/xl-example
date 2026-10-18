@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Branch } from "../../branch.xl.md"
-import { BranchConditionResult } from "../../branch-condition-result.xl.md"
+import { BranchStates } from "../../branch-states.xl.md"
 import { CloseStates } from "../../close-states.xl.md"
 import { GuideToken } from "../../guide-token.xl.md"
 import { ReloadMessage } from "../../messages/reload-message.xl.md"
@@ -38,23 +38,16 @@ if (!this.StringChars.includes(item)) {
 }
 ```
 
-## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
-当前字符是不是字符串起点。
-
-`Message` 保持 `0`。
-
-```ts
-return BranchConditionResult.FromBool(this.StringChars.includes(source.Value));
-```
-
-## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
-
-认下这个引号：新建一个 `StringGuide`，向前回看前缀，再把它挂到 `unit` 上。
+当前字符是字符串起点就认下：新建一个 `StringGuide`，向前回看前缀，再把它挂到 `unit` 上；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
 
 回看循环：从当前字符往前一个位置起，只要还是 `$` 或 `@` 就记进 `undoSources` 继续往前走，遇到别的字符就停。随后逆序处理记下来的每个前缀：`@` 置 `IsSupportVerbatim`，`$` 置 `IsSupportInterpolation` 并把 `InterpolationCount` 加一；无论哪种都调 `unit.Undo(i)` 把那个字符从 `unit` 上退掉。
 
 ```ts
+if (!this.StringChars.includes(source.Value)) {
+  return BranchStates.Undo;
+}
 const item = new StringGuide(unit.Template, source.Value);
 const undoSources: Source[] = [];
 let last: Source | null = source;
@@ -75,7 +68,11 @@ for (const i of undoSources) {
   }
   unit.Undo(i);
 }
-unit.AddToMounted(item).Created!.SignIn(source);
+if (unit.AddToMounted(item) === CloseStates.Built) {
+  return BranchStates.Reload;
+}
+(unit.MountedUnit as StringGuide)!.SignIn(source);
+return BranchStates.Done;
 ```
 
 # class StringGuide extends GuideToken

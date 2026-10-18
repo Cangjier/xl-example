@@ -2,9 +2,8 @@
 ```xl
 import { BlockToken } from "../block-token.xl.md"
 import { Branch } from "../branch.xl.md"
-import { BranchConditionResult } from "../branch-condition-result.xl.md"
+import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
-import { ReloadMessage } from "../messages/reload-message.xl.md"
 import { Source } from "../source.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -29,51 +28,27 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 空白块的跳转规则：当前字符是空白就接手；上一个 `WrapSymbol` 没关闭就续进去，否则开新块。
 
-## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
-上一个单元是未关闭的 `WrapSymbol` 时按它的 `IsAppend` 决定追加（`Message = 1`）；否则看当前字符是不是空白，是就开新块（`Message = 0`）。
+当前字符是空白就接手；不是就先关掉还开着的上一个 `WrapSymbol`（它是一整段空白，遇到非空白就该收尾），再让路。
 
 ```ts
 const last = unit.Last();
-const result = new BranchConditionResult();
-if (last instanceof WrapSymbol && !last.Closed) {
-  result.Success = last.IsAppend(source);
-  result.Message = 1;
-  return result;
-}
-result.Success = unit.Template.SymbolTemplate.IsWhiteSpace(source.Value);
-result.Message = 0;
-return result;
-```
-
-## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
-
-`Message` 为 `0` 就开一个新 `WrapSymbol` 并签入；为 `1` 就追加到上一个。
-
-新建时**先看关闭的结果**（`State`）：关闭上一个 token 的过程可能建出了形状，当前字符要 reload 给新形状重吃。`Created` 只是结果，不拿它当判据。
-
-```ts
-if (result.Message === 0) {
-  const created = unit.AddAndCloseLast(new WrapSymbol(unit.Template));
-  if (created.State === CloseStates.Built) {
-    context.Messages.push(new ReloadMessage(unit, unit, source));
-    return;
+if (!unit.Template.SymbolTemplate.IsWhiteSpace(source.Value)) {
+  if (last instanceof WrapSymbol && !last.Closed && last.TryToClose() === CloseStates.Built) {
+    return BranchStates.Reload;
   }
-  created.Created!.AppendAndSignOut(source).SignIn(source);
-} else {
-  (unit.Last() as WrapSymbol)!.AppendAndSignOut(source);
+  return BranchStates.Undo;
 }
-```
-
-## method Failed:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
-
-失败时把上一个 `WrapSymbol` 关闭——它是一整段空白，遇到非空白就该收尾。
-
-```ts
-const last = unit.Last();
-if (last instanceof WrapSymbol) {
-  last.TryToClose();
+if (last instanceof WrapSymbol && !last.Closed) {
+  last.AppendAndSignOut(source);
+  return BranchStates.Done;
 }
+if (unit.AddAndCloseLast(new WrapSymbol(unit.Template)) === CloseStates.Built) {
+  return BranchStates.Reload;
+}
+(unit.Last() as WrapSymbol)!.AppendAndSignOut(source).SignIn(source);
+return BranchStates.Done;
 ```
 
 # class WrapSymbol extends BlockToken

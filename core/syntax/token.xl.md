@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { AddResult } from "./add-result.xl.md"
 import { CloseStates } from "./close-states.xl.md"
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { Branch } from "./branch.xl.md"
@@ -157,11 +156,11 @@ this.Data.push(...items);
 return this;
 ```
 
-## method AddAndCloseLast:<Item extends Token>(item:Item)=>AddResult<Item>
+## method AddAndCloseLast:<Item extends Token>(item:Item)=>CloseStates
 
 加一个子单元；如果最后一个子单元还没关闭，先关掉它。
 
-关掉上一个子单元可能**触发形状建造**。建出来了就**不加**这个新单元：返回 `Created = null`、`State = Built`，由调用方把这个字符 reload 给新形状重吃——新 token 的归属问题因此不存在。
+关掉上一个子单元可能**触发形状建造**。建出来了就**不加**这个新单元，并把 `Built` 原样返回：调用方要把它翻译成 `BranchStates.Reload`，让当前字符重放。加了进去（`Nothing`）时，新单元就是 `Last()`。
 
 ```ts
 const last = this.Last();
@@ -170,25 +169,24 @@ if (last !== null && !last.Closed) {
   state = last.TryToClose();
 }
 if (state === CloseStates.Built) {
-  return new AddResult<Item>(null, state);
+  return state;
 }
-return new AddResult<Item>(this.Add(item), state);
+this.Add(item);
+return state;
 ```
 
-## method AddToMounted:<Item extends Token>(item:Item)=>AddResult<Item>
+## method AddToMounted:<Item extends Token>(item:Item)=>CloseStates
 
 加一个子单元并把它设为 `MountedUnit`。
 
-加不进去时（关闭上一个时建出了形状）原样返回结果，`MountedUnit` 一个字不动。
-
-判据同样只看 `State`：`Nothing` 才说明这次真加进去了。
+加不进去时（关闭上一个时建出了形状）原样返回结果，`MountedUnit` 一个字不动；加进去了它就指向这个新单元。
 
 ```ts
-const result = this.AddAndCloseLast(item);
-if (result.State === CloseStates.Nothing) {
-  this.MountedUnit = result.Created!;
+const state = this.AddAndCloseLast(item);
+if (state === CloseStates.Nothing) {
+  this.MountedUnit = item;
 }
-return result;
+return state;
 ```
 
 ## method Quit:()=>Token | null

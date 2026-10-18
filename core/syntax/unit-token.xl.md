@@ -5,6 +5,7 @@ import { SyntaxException } from "../exceptions/syntax-exception.xl.md"
 import { BranchStates } from "./branch-states.xl.md"
 import { CatalogGuide } from "./catalog-guide.xl.md"
 import { IComputePossibleShapes } from "./i-compute-possible-shapes.xl.md"
+import { ReloadMessage } from "./messages/reload-message.xl.md"
 import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
@@ -84,6 +85,8 @@ throw new Error("abstract member: ExitOrPre");
 
 处理顺序：有挂载单元就转给它；否则先问 `ExitOrPre`，`Done` 就记下 `LastSource` 返回；再依次跑 `ProcessQueue` 里的跳转，哪个返回 `Done` 就返回；都不接手才走 `Default`；无论走哪条路都把 `LastSource` 设为当前字符。
 
+**`Reload` 是这套调度的转折点。** 一次关闭可能触发形状建造（关掉上一个 token 时），建造发生在分支内部，分支只能把结果报上来。拿到 `Reload` 就**停止本字符的处理**、把字符插回队首：新形状已经 mount 在本单元上，重放时第一行就会把它转过去。`ProcessOwner` 用本单元而不是根，嵌套形状里字符才会回到正确那一层。
+
 整个流程包在 `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个位置到当前位置」。注意用 `source.Pre()` 建范围时取出来的是前一个 `Source` 本身，不是字符。
 
 ```ts
@@ -92,13 +95,26 @@ try {
     this.MountedUnit.Process(context, source);
     return;
   }
-  if (this.ExitOrPre(context, source) === BranchStates.Done) {
+  const exitState = this.ExitOrPre(context, source);
+  if (exitState === BranchStates.Reload) {
+    const owner = this.Closed && this.Parent !== null ? this.Parent : this;
+    context.Messages.push(new ReloadMessage(owner, owner, source));
+    this.LastSource = source;
+    return;
+  }
+  if (exitState === BranchStates.Done) {
     this.LastSource = source;
     return;
   }
   if (this.ProcessQueue !== null) {
     for (const item of this.ProcessQueue.Data) {
-      if (item.Transit(context, this, source) === BranchStates.Done) {
+      const state = item.Transit(context, this, source);
+      if (state === BranchStates.Reload) {
+        context.Messages.push(new ReloadMessage(this, this, source));
+        this.LastSource = source;
+        return;
+      }
+      if (state === BranchStates.Done) {
         this.LastSource = source;
         return;
       }

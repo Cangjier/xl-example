@@ -1,11 +1,9 @@
 # dependencies
 ```xl
 import { Branch } from "../branch.xl.md"
-import { BranchConditionResult } from "../branch-condition-result.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
-import { ReloadMessage } from "../messages/reload-message.xl.md"
 import { Source } from "../source.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -25,31 +23,23 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 它永远不进 `Data`、不进 XML。
 
-## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+## method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
 判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符是 `*`。
 
+认下就回退已吃掉的那个 `/`（它归本单元所有），再挂一个新的 `AreaAnnotation` 并用同一个 `/` 签入；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
+
 ```ts
 const pre = source.Pre();
-const result = new BranchConditionResult();
-result.Success = pre !== null && pre.Value === "/" && unit.IsUndo(pre) && source.Value === "*";
-return result;
-```
-
-## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
-
-认下 `/*`：先回退已吃掉的那个 `/`（它归本单元所有），再挂一个新的 `AreaAnnotation` 并用同一个 `/` 签入。
-
-挂之前先看关闭的结果（`State`）：关闭上一个 token 的过程可能建出了形状，这时当前字符要 reload 给新形状重吃。`Created` 只是结果，不拿它当判据。
-
-```ts
-unit.Undo(source.Pre()!);
-const created = unit.AddToMounted(new AreaAnnotation(unit.Template));
-if (created.State === CloseStates.Built) {
-  context.Messages.push(new ReloadMessage(unit, unit, source));
-  return;
+if (pre === null || pre.Value !== "/" || !unit.IsUndo(pre) || source.Value !== "*") {
+  return BranchStates.Undo;
 }
-created.Created!.SignIn(source.Pre()!);
+unit.Undo(pre);
+if (unit.AddToMounted(new AreaAnnotation(unit.Template)) === CloseStates.Built) {
+  return BranchStates.Reload;
+}
+(unit.MountedUnit as AreaAnnotation)!.SignIn(pre);
+return BranchStates.Done;
 ```
 
 # class AreaAnnotation extends UnitToken
