@@ -68,7 +68,14 @@ return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context);
 
 下标越界直接返回 `Nothing`（调用方可能按旧长度遍历）。
 
+`context` 必须由形参传进来：这里是把消息（`ReloadMessage`）挂进上下文的唯一入口，
+传成 `undefined` 时消息会被静默丢掉（`context?.Messages.push` 那个写法就是这么漏的），
+所以这里**先验一刀**，漏了当场炸，而不是等到某条终结规则不生效才发现。
+
 ```ts
+if (typeof context === "undefined") {
+  throw new Error(`CatalogGuide: context 必须通过形参传入（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
+}
 const token = host.Data[tokenIndex];
 if (token === undefined) {
   return ComputePossibleShapesStates.Nothing;

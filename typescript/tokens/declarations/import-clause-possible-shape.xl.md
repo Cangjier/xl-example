@@ -149,7 +149,7 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
       at++;
     }
     if (at < host.Data.length && host.Data[at] instanceof Common) {
-      const ns = NamespaceImportShape.FromTokens(host.Data.slice(cursor, at + 1));
+      const ns = NamespaceImportShape.FromTokens(host.Data.slice(cursor, at + 1), context);
       if (ns !== null) {
         clause.NamedBindings = ns;
         ns.Parent = clause;

@@ -70,7 +70,7 @@ if (ImportDeclarationShape.CreatePossibleShapesCache === null) {
 return ImportDeclarationShape.CreatePossibleShapesCache;
 ```
 
-## method ComputePossibleShapes:()=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
 
 ```ts
 const last = ItemUtil.LastCodeInItem(this.Data);
@@ -83,7 +83,7 @@ if (lastCode >= 0 && this.Data[lastCode] instanceof Bracket) {
   if (beforeCode >= 0 && this.Data[beforeCode] instanceof Common) {
     const keyword = this.Data[beforeCode] as Common;
     if (keyword.Is("with") || keyword.Is("assert")) {
-      return super.ComputePossibleShapes();
+      return super.ComputePossibleShapes(context);
     }
   }
 }
@@ -106,7 +106,7 @@ if (unit instanceof Common) {
     return ComputePossibleShapesStates.Nothing;
   }
 }
-return super.ComputePossibleShapes();
+return super.ComputePossibleShapes(context);
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates

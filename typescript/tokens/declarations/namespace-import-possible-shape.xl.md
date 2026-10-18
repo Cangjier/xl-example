@@ -67,7 +67,7 @@ for (let at = 0; at <= tokenIndex; at++) {
 if (star < 0) {
   return host;
 }
-const shape = NamespaceImportShape.FromTokens(host.Data.slice(star, tokenIndex + 1));
+const shape = NamespaceImportShape.FromTokens(host.Data.slice(star, tokenIndex + 1), context);
 if (shape === null) {
   return host;
 }
