@@ -6,6 +6,8 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
+import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ImportDeclarationShape } from "./import-declaration-shape.xl.md"
@@ -57,6 +59,9 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     continue;
   }
   if (state.Stage === 0) {
+    if (unit instanceof Common && ((unit as Common).Is("export") || (unit as Common).Is("declare"))) {
+      continue;
+    }
     state.Stage = unit instanceof Common && unit.Is("import") ? 1 : 3;
     continue;
   }
@@ -87,8 +92,28 @@ if (start > tokenIndex) {
 }
 const consumed:Array<Token> = host.Data.slice(start, tokenIndex + 1);
 const built = new ImportDeclarationShape(host.Template);
-for (const item of consumed) {
-  built.Add(item);
+let at = 0;
+while (at < consumed.length) {
+  const unit = consumed[at];
+  if (unit.IsTriviaToken) {
+    built.Add(unit);
+    at++;
+    continue;
+  }
+  if (unit instanceof Common && (unit as Common).Is("export")) {
+    built.Add(ExportKeywordShape.FromBasicToken(unit as Common));
+    at++;
+    continue;
+  }
+  if (unit instanceof Common && (unit as Common).Is("declare")) {
+    built.Add(DeclareKeywordShape.FromBasicToken(unit as Common));
+    at++;
+    continue;
+  }
+  break;
+}
+for (let index = at; index < consumed.length; index++) {
+  built.Add(consumed[index]);
 }
 const begin = consumed[0].SourceRange.Start;
 if (begin !== null) {

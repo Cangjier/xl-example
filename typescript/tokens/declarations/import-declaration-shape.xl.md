@@ -107,6 +107,12 @@ for (const item of this.Data) {
   } else if (item instanceof StringLiteralShape) {
     this.ModuleSpecifier = item;
     kept.push(item);
+  } else if (item instanceof ExportKeywordShape) {
+    this.Modifiers.push(item);
+    kept.push(item);
+  } else if (item instanceof DeclareKeywordShape) {
+    this.Modifiers.push(item);
+    kept.push(item);
   }
 }
 this.Data = kept;

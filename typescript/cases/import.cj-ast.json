@@ -1316,15 +1316,101 @@
     },
     {
       "src": "export import a from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 SourceFileShape，下标 0）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 24,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "Modifiers": [
+            "ExportKeywordShape"
+          ],
+          "children": [
+            {
+              "kind": "ExportKeywordShape",
+              "start": 0,
+              "end": 5,
+              "pos": 0
+            },
+            {
+              "kind": "ImportClauseShape",
+              "start": 14,
+              "end": 14,
+              "pos": 13,
+              "Name": "IdentifierShape",
+              "children": [
+                {
+                  "kind": "IdentifierShape",
+                  "start": 14,
+                  "end": 14,
+                  "text": "a",
+                  "pos": 13
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 21,
+              "end": 23,
+              "text": "m",
+              "pos": 20
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "declare import a from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 SourceFileShape，下标 0）"
+      "ast": [
+        {
+          "kind": "ImportDeclarationShape",
+          "start": 0,
+          "end": 25,
+          "pos": 0,
+          "ImportClause": "ImportClauseShape",
+          "ModuleSpecifier": "StringLiteralShape",
+          "Modifiers": [
+            "DeclareKeywordShape"
+          ],
+          "children": [
+            {
+              "kind": "DeclareKeywordShape",
+              "start": 0,
+              "end": 6,
+              "pos": 0
+            },
+            {
+              "kind": "ImportClauseShape",
+              "start": 15,
+              "end": 15,
+              "pos": 14,
+              "Name": "IdentifierShape",
+              "children": [
+                {
+                  "kind": "IdentifierShape",
+                  "start": 15,
+                  "end": 15,
+                  "text": "a",
+                  "pos": 14
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteralShape",
+              "start": 22,
+              "end": 24,
+              "text": "m",
+              "pos": 21
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export declare import a from \"m\";",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 SourceFileShape，下标 0）"
+      "error": "CatalogGuide: 没有候选形状可以构成（宿主 ImportDeclarationShape，下标 2）"
     }
   ]
 }
