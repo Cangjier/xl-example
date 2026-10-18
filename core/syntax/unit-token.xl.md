@@ -90,8 +90,7 @@ throw new Error("abstract member: ExitOrPre");
 整个流程包在 `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个位置到当前位置」。注意用 `source.Pre()` 建范围时取出来的是前一个 `Source` 本身，不是字符。
 
 ```ts
-this.Context = context;
-  try {
+try {
   if (this.MountedUnit !== null) {
     this.MountedUnit.Process(context, source);
     return;

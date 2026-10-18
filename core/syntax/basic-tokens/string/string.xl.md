@@ -143,7 +143,7 @@ if (this.Data.length === 0 || !(this.Last() instanceof ConstString)) {
   created.SignIn(signSource);
   const lastOfAdd = this.Last();
   if (lastOfAdd !== null && !lastOfAdd.Closed) {
-    lastOfAdd.TryToClose(this.Context!);
+    lastOfAdd.TryToClose(context);
   }
   this.Add(created);
 }
@@ -177,7 +177,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     {
       const lastOfMounted = this.Last();
       if (lastOfMounted !== null && !lastOfMounted.Closed) {
-        lastOfMounted.TryToClose(this.Context!);
+        lastOfMounted.TryToClose(context);
       }
       const mounted = new VerbatimQuoteGuide(this.Template);
       this.Add(mounted);
@@ -188,7 +188,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     {
       const lastOfMounted = this.Last();
       if (lastOfMounted !== null && !lastOfMounted.Closed) {
-        lastOfMounted.TryToClose(this.Context!);
+        lastOfMounted.TryToClose(context);
       }
       const mounted = new InterpolationString(this.Template);
       this.Add(mounted);
@@ -210,7 +210,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
       {
         const lastOfMounted = this.Last();
         if (lastOfMounted !== null && !lastOfMounted.Closed) {
-          lastOfMounted.TryToClose(this.Context!);
+          lastOfMounted.TryToClose(context);
         }
         const mounted = new InterpolationString(this.Template);
         this.Add(mounted);
@@ -226,7 +226,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     {
       const lastOfMounted = this.Last();
       if (lastOfMounted !== null && !lastOfMounted.Closed) {
-        lastOfMounted.TryToClose(this.Context!);
+        lastOfMounted.TryToClose(context);
       }
       const mounted = new VerbatimQuoteGuide(this.Template);
       this.Add(mounted);
@@ -243,7 +243,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     {
       const lastOfMounted = this.Last();
       if (lastOfMounted !== null && !lastOfMounted.Closed) {
-        lastOfMounted.TryToClose(this.Context!);
+        lastOfMounted.TryToClose(context);
       }
       this.Add(guide);
       this.MountedUnit = guide;
@@ -258,7 +258,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     {
       const lastOfMounted = this.Last();
       if (lastOfMounted !== null && !lastOfMounted.Closed) {
-        lastOfMounted.TryToClose(this.Context!);
+        lastOfMounted.TryToClose(context);
       }
       const mounted = new InterpolationGuide(this.Template);
       this.Add(mounted);
@@ -272,7 +272,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     {
       const lastOfMounted = this.Last();
       if (lastOfMounted !== null && !lastOfMounted.Closed) {
-        lastOfMounted.TryToClose(this.Context!);
+        lastOfMounted.TryToClose(context);
       }
       this.Add(guide);
       this.MountedUnit = guide;
@@ -297,7 +297,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
       {
         const lastOfMounted = this.Last();
         if (lastOfMounted !== null && !lastOfMounted.Closed) {
-          lastOfMounted.TryToClose(this.Context!);
+          lastOfMounted.TryToClose(context);
         }
         const mounted = new InterpolationString(this.Template);
         this.Add(mounted);
@@ -321,7 +321,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
 
 ```ts
 this.SignOut(source);
-this.TryToClose(this.Context!);
+this.TryToClose(context);
 this.Quit();
 ```
 

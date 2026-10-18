@@ -26,10 +26,6 @@ Token，语法树的地基。
 
 本单元使用的模板。
 
-## field Context:SyntaxContext | null = null
-
-当前处理所在的上下文；`Process` 每次进来都刷新它，供没有 `context` 形参的方法使用。
-
 ## field ProcessQueue:Sequence<BranchTransiter> | null = null
 
 从当前单元跳到下一个单元的跳转队列（一列 `BranchTransiter` 函数）。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。
