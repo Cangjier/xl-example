@@ -97,7 +97,10 @@ try {
   }
   const exitState = this.ExitOrPre(context, source);
   if (exitState === BranchStates.Reload) {
-    const owner = this.Closed && this.Parent !== null ? this.Parent : this;
+    let owner = this.Closed && this.Parent !== null ? this.Parent : this;
+    while (owner.Closed && owner.Parent !== null) {
+      owner = owner.Parent;
+    }
     context.Messages.push(new ReloadMessage(owner, owner, source));
     this.LastSource = source;
     return;
