@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "./syntax-context.xl.md"
+import { SyntaxContext } from "./syntax-context.xl.md"
 import { CatalogGuide } from "./catalog-guide.xl.md"
 import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
 ```
@@ -31,7 +32,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 无参：触发者是谁由实现自己决定（`UnitToken` 的实现把自己转交给向导）。
 
-## method ComputePossibleShapesByIndex:(tokenIndex:int)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext)=>ComputePossibleShapesStates
 
 按子单元下标重算本单元目录里的候选。
 
