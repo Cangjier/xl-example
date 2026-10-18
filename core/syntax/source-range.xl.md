@@ -38,7 +38,7 @@ this.Start = start ?? null;
 this.End = end ?? null;
 ```
 
-## static method FromRanges:(start:SourceRange, end:SourceRange)=>SourceRange
+## static method FromRanges:(start:SourceRange, end:SourceRange, context:SyntaxContext)=>SourceRange
 
 从两个范围构造：取 `start` 的起点与 `end` 的终点。
 

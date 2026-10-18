@@ -102,12 +102,12 @@ while (at < consumed.length) {
     continue;
   }
   if (unit instanceof Common && (unit as Common).Is("export")) {
-    built.Add(ExportKeywordShape.FromBasicToken(unit as Common));
+    built.Add(ExportKeywordShape.FromBasicToken(unit as Common, context));
     at++;
     continue;
   }
   if (unit instanceof Common && (unit as Common).Is("declare")) {
-    built.Add(DeclareKeywordShape.FromBasicToken(unit as Common));
+    built.Add(DeclareKeywordShape.FromBasicToken(unit as Common, context));
     at++;
     continue;
   }

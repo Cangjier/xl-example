@@ -25,7 +25,7 @@ import { a } from "m";
 super(template);
 ```
 
-## static method FromBracket:(bracket:Bracket)=>NamedImportsShape
+## static method FromBracket:(bracket:Bracket, context:SyntaxContext)=>NamedImportsShape
 
 ```ts
 const shape = new NamedImportsShape(bracket.Template);
@@ -33,7 +33,7 @@ const elements:Array<ImportSpecifierShape> = [];
 let group:Array<Token> = [];
 for (const item of bracket.Data) {
   if (item instanceof Symbol && (item as Symbol).Is(",")) {
-    const specifier = ImportSpecifierShape.FromTokens(group);
+    const specifier = ImportSpecifierShape.FromTokens(group, context);
     if (specifier !== null) {
       elements.push(specifier);
     }
@@ -42,7 +42,7 @@ for (const item of bracket.Data) {
   }
   group.push(item);
 }
-const tail = ImportSpecifierShape.FromTokens(group);
+const tail = ImportSpecifierShape.FromTokens(group, context);
 if (tail !== null) {
   elements.push(tail);
 }
@@ -57,6 +57,6 @@ if (bracket.SourceRange.Start !== null) {
 if (bracket.SourceRange.End !== null) {
   shape.SignOut(bracket.SourceRange.End);
 }
-shape.TryToClose();
+shape.TryToClose(context);
 return shape;
 ```

@@ -52,7 +52,7 @@ if (index < 0 || !(host.Data[index] instanceof Bracket)) {
   return host;
 }
 const bracket = host.Data[index] as Bracket;
-const shape = NamedImportsShape.FromBracket(bracket);
+const shape = NamedImportsShape.FromBracket(bracket, context);
 host.Data.splice(index, 1, shape);
 shape.Parent = host;
 return shape;

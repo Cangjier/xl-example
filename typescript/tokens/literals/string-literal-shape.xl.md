@@ -26,7 +26,7 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 super(template);
 ```
 
-## static method FromBasicToken:(token:String)=>StringLiteralShape
+## static method FromBasicToken:(token:String, context:SyntaxContext)=>StringLiteralShape
 
 ```ts
 const shape = new StringLiteralShape(token.Template);
@@ -44,6 +44,6 @@ for (const part of token.Data) {
 }
 shape.Text = text;
 shape.IsUnterminated = !token.Closed;
-shape.TryToClose();
+shape.TryToClose(context);
 return shape;
 ```

@@ -28,7 +28,7 @@ import { a as b } from "m";
 super(template);
 ```
 
-## static method FromTokens:(units:Array<Token>)=>ImportSpecifierShape | null
+## static method FromTokens:(units:Array<Token>, context:SyntaxContext)=>ImportSpecifierShape | null
 
 ```ts
 const code:Array<Token> = [];
@@ -49,14 +49,14 @@ if (code[at] instanceof Common && (code[at] as Common).Is("type")) {
 if (at >= code.length || !(code[at] instanceof Common)) {
   return null;
 }
-const first = IdentifierShape.FromBasicToken(code[at] as Common);
+const first = IdentifierShape.FromBasicToken(code[at] as Common, context);
 shape.PropertyName = first;
 shape.Data.push(first);
 first.Parent = shape;
 let last = code[at];
 at++;
 if (at + 1 < code.length && code[at] instanceof Common && (code[at] as Common).Is("as") && code[at + 1] instanceof Common) {
-  const second = IdentifierShape.FromBasicToken(code[at + 1] as Common);
+  const second = IdentifierShape.FromBasicToken(code[at + 1] as Common, context);
   shape.Name = second;
   shape.Data.push(second);
   second.Parent = shape;
@@ -72,6 +72,6 @@ if (code[0].SourceRange.Start !== null) {
 if (last.SourceRange.End !== null) {
   shape.SignOut(last.SourceRange.End);
 }
-shape.TryToClose();
+shape.TryToClose(context);
 return shape;
 ```

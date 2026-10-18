@@ -23,7 +23,7 @@ import * as ns from "m";
 super(template);
 ```
 
-## static method FromTokens:(units:Array<Token>)=>NamespaceImportShape | null
+## static method FromTokens:(units:Array<Token>, context:SyntaxContext)=>NamespaceImportShape | null
 
 ```ts
 const code:Array<Token> = [];
@@ -38,7 +38,7 @@ if (code.length === 0) {
 const shape = new NamespaceImportShape(code[0].Template);
 const lastUnit = code[code.length - 1];
 if (lastUnit instanceof Common) {
-  const identifier = IdentifierShape.FromBasicToken(lastUnit as Common);
+  const identifier = IdentifierShape.FromBasicToken(lastUnit as Common, context);
   shape.Name = identifier;
   shape.Data.push(identifier);
   identifier.Parent = shape;
@@ -49,6 +49,6 @@ if (code[0].SourceRange.Start !== null) {
 if (lastUnit.SourceRange.End !== null) {
   shape.SignOut(lastUnit.SourceRange.End);
 }
-shape.TryToClose();
+shape.TryToClose(context);
 return shape;
 ```

@@ -28,7 +28,7 @@ with { type: "json" }
 super(template);
 ```
 
-## static method FromTokens:(units:Array<Token>)=>ImportAttributeShape | null
+## static method FromTokens:(units:Array<Token>, context:SyntaxContext)=>ImportAttributeShape | null
 
 ```ts
 const code:Array<Token> = [];
@@ -42,18 +42,18 @@ if (code.length === 0) {
 }
 const shape = new ImportAttributeShape(code[0].Template);
 if (code[0] instanceof Common) {
-  const key = IdentifierShape.FromBasicToken(code[0] as Common);
+  const key = IdentifierShape.FromBasicToken(code[0] as Common, context);
   shape.Key = key;
   shape.Data.push(key);
   key.Parent = shape;
 } else if (code[0] instanceof String) {
-  const key = StringLiteralShape.FromBasicToken(code[0] as String);
+  const key = StringLiteralShape.FromBasicToken(code[0] as String, context);
   shape.Key = key;
   shape.Data.push(key);
   key.Parent = shape;
 }
 if (code.length >= 3 && code[1] instanceof Symbol && code[2] instanceof String) {
-  const value = StringLiteralShape.FromBasicToken(code[2] as String);
+  const value = StringLiteralShape.FromBasicToken(code[2] as String, context);
   shape.Value = value;
   shape.Data.push(value);
   value.Parent = shape;
@@ -65,6 +65,6 @@ if (code[0].SourceRange.Start !== null) {
 if (last.SourceRange.End !== null) {
   shape.SignOut(last.SourceRange.End);
 }
-shape.TryToClose();
+shape.TryToClose(context);
 return shape;
 ```

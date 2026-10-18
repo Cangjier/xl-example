@@ -124,6 +124,6 @@ try {
 } catch (e) {
   const previous = source.Pre();
   const range = new SourceRange(previous, source);
-  throw SyntaxException.FromInner(range, e);
+  throw SyntaxException.FromInner(range, e, context);
 }
 ```

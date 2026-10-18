@@ -26,7 +26,7 @@ import a from "m" with { type: "json" };
 super(template);
 ```
 
-## static method FromBracket:(bracket:Bracket, token:string)=>ImportAttributesShape
+## static method FromBracket:(bracket:Bracket, token:string, context:SyntaxContext)=>ImportAttributesShape
 
 ```ts
 const shape = new ImportAttributesShape(bracket.Template);
@@ -35,7 +35,7 @@ const elements:Array<ImportAttributeShape> = [];
 let group:Array<Token> = [];
 for (const item of bracket.Data) {
   if (item instanceof Symbol && (item as Symbol).Is(",")) {
-    const attribute = ImportAttributeShape.FromTokens(group);
+    const attribute = ImportAttributeShape.FromTokens(group, context);
     if (attribute !== null) {
       elements.push(attribute);
     }
@@ -44,7 +44,7 @@ for (const item of bracket.Data) {
   }
   group.push(item);
 }
-const tail = ImportAttributeShape.FromTokens(group);
+const tail = ImportAttributeShape.FromTokens(group, context);
 if (tail !== null) {
   elements.push(tail);
 }
@@ -59,6 +59,6 @@ if (bracket.SourceRange.Start !== null) {
 if (bracket.SourceRange.End !== null) {
   shape.SignOut(bracket.SourceRange.End);
 }
-shape.TryToClose();
+shape.TryToClose(context);
 return shape;
 ```

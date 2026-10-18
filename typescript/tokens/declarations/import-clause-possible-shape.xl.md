@@ -159,12 +159,12 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
     }
   }
 } else if (firstUnit instanceof Bracket && (firstUnit as Bracket).StartBracketChar === "{") {
-  const named = NamedImportsShape.FromBracket(firstUnit as Bracket);
+  const named = NamedImportsShape.FromBracket(firstUnit as Bracket, context);
   clause.NamedBindings = named;
   named.Parent = clause;
   clause.Data.push(named);
 } else if (firstUnit instanceof Common) {
-  const identifier = IdentifierShape.FromBasicToken(firstUnit as Common);
+  const identifier = IdentifierShape.FromBasicToken(firstUnit as Common, context);
   identifier.Pos = clause.Pos;
   clause.Name = identifier;
   identifier.Parent = clause;
@@ -174,7 +174,7 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
     at++;
   }
   if (at < host.Data.length && host.Data[at] instanceof Bracket && (host.Data[at] as Bracket).StartBracketChar === "{") {
-    const named = NamedImportsShape.FromBracket(host.Data[at] as Bracket);
+    const named = NamedImportsShape.FromBracket(host.Data[at] as Bracket, context);
     clause.NamedBindings = named;
     named.Parent = clause;
     clause.Data.push(named);

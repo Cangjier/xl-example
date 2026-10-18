@@ -21,7 +21,7 @@ name
 super(template);
 ```
 
-## static method FromBasicToken:(token:Common)=>IdentifierShape
+## static method FromBasicToken:(token:Common, context:SyntaxContext)=>IdentifierShape
 
 ```ts
 const shape = new IdentifierShape(token.Template);
@@ -32,6 +32,6 @@ if (token.SourceRange.End !== null) {
   shape.SignOut(token.SourceRange.End);
 }
 shape.EscapedText = token.TempToString();
-shape.TryToClose();
+shape.TryToClose(context);
 return shape;
 ```

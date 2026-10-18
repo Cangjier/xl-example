@@ -96,7 +96,7 @@ for (let at = index - 1; at >= itemStart; at--) {
     break;
   }
 }
-const shape = StringLiteralShape.FromBasicToken(token);
+const shape = StringLiteralShape.FromBasicToken(token, context);
 if (previousCode >= 0 && host.Data[previousCode].SourceRange.End !== null) {
   const prevUnit = host.Data[previousCode];
   if (prevUnit.SourceRange.End !== null) {

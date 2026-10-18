@@ -2,143 +2,1126 @@
   "cases": [
     {
       "src": "import a from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import a from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "/* c */ import a from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 14,
+              "end": 16,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import /* c */ a from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 16,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 16,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import    a    from    \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 11,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 11,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import\na from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import a\nfrom \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import // c\na from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 13,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 13,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import a from \"m\"; // c",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "WrapSymbol",
+          "pos": 18,
+          "end": 19
+        },
+        {
+          "kind": "LineAnnotation",
+          "pos": 19,
+          "end": 23
+        }
+      ]
     },
     {
       "src": "import { a } from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 9,
+                      "end": 10,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 10,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import { a, b } from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 9,
+                      "end": 10,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 10,
+                          "text": "a"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 12,
+                      "end": 13,
+                      "name": "b",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 12,
+                          "end": 13,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 20,
+              "end": 24,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import { a as b } from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 9,
+                      "end": 15,
+                      "name": "b",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 10,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 15,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import { a, b as c } from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 9,
+                      "end": 10,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 10,
+                          "text": "a"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 12,
+                      "end": 18,
+                      "name": "c",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 12,
+                          "end": 13,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 18,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import {} from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 9
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import { a } from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 9,
+                      "end": 10,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 10,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import /* c */ { a } from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 15,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 17,
+                      "end": 18,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 18,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import {\n  a,\n  b,\n} from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 7,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 11,
+                      "end": 12,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
+                          "text": "a"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 16,
+                      "end": 17,
+                      "name": "b",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 17,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import * as ns from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 14
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import * as ns from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 14
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import  *  as  ns  from  \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 17
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import a, { b } from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 15,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import a, * as ns from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 17,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 6,
+              "end": 10,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import  \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 6,
+              "end": 11,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import /* c */ \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 6,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import type { T } from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 11,
+              "end": 17,
+              "isTypeOnly": true,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 12,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 14,
+                      "end": 15,
+                      "name": "T",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 15,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import type a from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 11,
+              "end": 13,
+              "name": "a",
+              "isTypeOnly": true,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import type * as ns from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 11,
+              "end": 19,
+              "isTypeOnly": true
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import  type  a  from  \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 12,
+              "end": 15,
+              "name": "a",
+              "isTypeOnly": true,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 15,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import type\n{ T } from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 11,
+              "end": 17,
+              "isTypeOnly": true,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 12,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 14,
+                      "end": 15,
+                      "name": "T",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 15,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import a from \"m\" with { type: \"json\" };",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import a from \"m\" assert { type: \"json\" };",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export import a from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "ImportClause",
+              "pos": 13,
+              "end": 15,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "declare import a from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "ImportClause",
+              "pos": 14,
+              "end": 16,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export declare import a from \"m\";",
-      "error": "context is not defined"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 7,
+              "end": 14
+            },
+            {
+              "kind": "ImportClause",
+              "pos": 21,
+              "end": 23,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

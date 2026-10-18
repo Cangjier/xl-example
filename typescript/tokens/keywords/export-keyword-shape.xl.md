@@ -20,7 +20,7 @@ export
 super(template);
 ```
 
-## static method FromBasicToken:(token:Common)=>Token
+## static method FromBasicToken:(token:Common, context:SyntaxContext)=>Token
 
 ```ts
 const shape = new ExportKeywordShape(token.Template);
@@ -31,6 +31,6 @@ if (token.SourceRange.End !== null) {
   shape.SignOut(token.SourceRange.End);
 }
 shape.Pos = token.SourceRange.Start !== null ? token.SourceRange.Start.Index : -1;
-shape.TryToClose();
+shape.TryToClose(context);
 return shape;
 ```
