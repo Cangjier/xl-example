@@ -63,7 +63,7 @@ if (value === this.StringChar) {
   if (this.QuoteCount === this.ParentString.RawQuoteCount) {
     //达到原始字符串退出的要求
     this.RemoveSelf();
-    this.ParentString.ForceExit(source);
+    this.ParentString.ForceExit(source, context);
     this.ParentString.FormatRawIndent();
     return;
   } else if (this.QuoteCount < this.ParentString.RawQuoteCount) {
@@ -76,7 +76,7 @@ if (value === this.StringChar) {
 
   //把双引号都当作常量字符串
   for (const i of this.Items) {
-    this.ParentString.AppendToLastConstString(i.Value, i).TrySignIn(i);
+    this.ParentString.AppendToLastConstString(i.Value, i, context).TrySignIn(i);
   }
 
   //将非双引号字符重载

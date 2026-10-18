@@ -49,7 +49,7 @@ const value = source.Value;
 if (value === "\"") {
   //说明 双引号是转义字符
   this.RemoveSelf();
-  const Const = this.ParentString.AppendToLastConstString(value, source);
+  const Const = this.ParentString.AppendToLastConstString(value, source, context);
   if (Const.SourceRange.Start === null) {
     Const.SignIn(source.Pre()!);
   }

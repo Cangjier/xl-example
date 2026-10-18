@@ -67,7 +67,7 @@ if (Value !== "{") {
     const Next = this.BracketCount - this.ParentString.InterpolationCount;
     for (let i = 0; i < Next; i++) {
       const Item = this.Items[i];
-      const Const = this.ParentString.AppendToLastConstString(Item.Value, Item);
+      const Const = this.ParentString.AppendToLastConstString(Item.Value, Item, context);
       if (i === 0) {
         Const.TrySignIn(Item);
       }
@@ -88,7 +88,7 @@ if (Value !== "{") {
     //不满足情况
     this.RemoveSelf();
     for (const i of this.Items) {
-      this.ParentString.AppendToLastConstString(i.Value, i).TrySignIn(i);
+      this.ParentString.AppendToLastConstString(i.Value, i, context).TrySignIn(i);
     }
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   }
