@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { ConstString } from "../../../core/syntax/basic-tokens/string/const-string.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"

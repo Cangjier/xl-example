@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"

@@ -72,7 +72,7 @@ if (at < 0 || !(host.Data[at] instanceof Common)) {
   return host;
 }
 const keyword = host.Data[at] as Common;
-const shape = ImportAttributesShape.FromBracket(bracket, keyword.TempToString());
+const shape = ImportAttributesShape.FromBracket(bracket, keyword.TempToString(), context);
 host.Data.splice(at, index - at + 1, shape);
 shape.Parent = host;
 return shape;

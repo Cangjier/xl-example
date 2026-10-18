@@ -1,7 +1,6 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "./syntax-context.xl.md"
-import { SyntaxContext } from "./syntax-context.xl.md"
 import { CatalogGuide } from "./catalog-guide.xl.md"
 import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
 ```

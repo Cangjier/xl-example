@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { SyntaxContext } from "./syntax-context.xl.md"
 import { Document } from "./document.xl.md"
 import { Source } from "./source.xl.md"
 import { SourceException } from "../exceptions/source-exception.xl.md"

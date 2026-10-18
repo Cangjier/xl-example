@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { SyntaxContext } from "./syntax-context.xl.md"
 import { Token } from "./token.xl.md"
 ```
 

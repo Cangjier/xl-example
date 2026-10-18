@@ -43,7 +43,7 @@ return this.ComputeByIndex(units, units.length - 1, cache);
 throw new Error("abstract member: ComputeByIndex");
 ```
 
-## method Build:(host:Token, catalog:CatalogGuide)=>Token
+## method Build:(host:Token, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 把这个形状建出来，**返回建好的那个单元**。
 
