@@ -63,7 +63,7 @@ if (index < 0 || !(host.Data[index] instanceof Common)) {
   return host;
 }
 const common = host.Data[index] as Common;
-const identifier = IdentifierShape.FromToken(common);
+const identifier = IdentifierShape.FromBasicToken(common);
 const clause = new ImportClauseShape(host.Template);
 if (common.SourceRange.Start !== null) {
   clause.SignIn(common.SourceRange.Start);

@@ -21,7 +21,7 @@ name
 super(template);
 ```
 
-## static method FromToken:(token:Common)=>IdentifierShape
+## static method FromBasicToken:(token:Common)=>IdentifierShape
 
 ```ts
 const shape = new IdentifierShape(token.Template);

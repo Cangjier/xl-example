@@ -26,7 +26,7 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 super(template);
 ```
 
-## static method FromToken:(token:String)=>StringLiteralShape
+## static method FromBasicToken:(token:String)=>StringLiteralShape
 
 ```ts
 const shape = new StringLiteralShape(token.Template);
