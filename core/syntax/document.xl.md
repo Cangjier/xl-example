@@ -54,8 +54,23 @@ this.Parent = Parent ?? null;
 
 每次访问都新建一个 `Source`，调用点不要依赖对象身份。
 
+**不做边界检查**：调用点必须已经保证 `0 <= index <= GetCount() - 1`；可能越界时用 `GetSource`。
+
 ```ts
 return new Source(this, index);
+```
+
+## method GetSource:(index:int)=>Source | null
+
+取下标对应的位置，**带边界检查**：只接受 `0 <= index <= GetCount() - 1`（即小于最新那个 `Source.Index`），越界返回 `null`。
+
+给「回看 / 重放」用：`ExitOrPre` 里退一个源、`ReloadMessage` 重放一个已消费的源，都要先确认它还在文档范围内。
+
+```ts
+if (index < 0 || index >= this.GetCount()) {
+  return null;
+}
+return this.At(index);
 ```
 
 ## method GetRangeString:(range:SourceRange)=>string
