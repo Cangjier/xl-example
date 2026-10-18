@@ -78,6 +78,8 @@ return ShapeStates.Accept;
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide)=>Token
 
 ```ts
+const scan = catalog.PossibleShapesComputeCache.GetState<ImportClauseScan>(this.constructor.name);
+const itemStart = scan === null ? ItemUtil.ItemStart(host.Data) : scan.Start;
 let index = tokenIndex;
 while (index >= 0 && host.Data[index].IsTriviaToken) {
   index--;
@@ -87,7 +89,7 @@ if (index < 0 || !(host.Data[index] instanceof Common)) {
 }
 const common = host.Data[index] as Common;
 let previousCode = -1;
-for (let at = index - 1; at >= 0; at--) {
+for (let at = index - 1; at >= itemStart; at--) {
   if (!host.Data[at].IsTriviaToken) {
     previousCode = at;
     break;
@@ -105,7 +107,7 @@ identifier.Pos = pos;
 const clause = new ImportClauseShape(host.Template);
 clause.Pos = pos;
 let startIndex = index;
-for (let at = index - 1; at >= 0; at--) {
+for (let at = index - 1; at >= itemStart; at--) {
   const unit = host.Data[at];
   if (unit.IsTriviaToken) {
     continue;
@@ -115,6 +117,18 @@ for (let at = index - 1; at >= 0; at--) {
     startIndex = at;
   }
   break;
+}
+if (startIndex !== index) {
+  for (let at = startIndex - 1; at >= itemStart; at--) {
+    const unit = host.Data[at];
+    if (unit.IsTriviaToken) {
+      continue;
+    }
+    if (unit.SourceRange.End !== null) {
+      clause.Pos = unit.SourceRange.End.Index + 1;
+    }
+    break;
+  }
 }
 const startSource = host.Data[startIndex].SourceRange.Start;
 if (startSource !== null) {

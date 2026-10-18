@@ -584,7 +584,7 @@
               "kind": "ImportClauseShape",
               "start": 7,
               "end": 12,
-              "pos": 11,
+              "pos": 6,
               "isTypeOnly": true,
               "Name": "IdentifierShape",
               "children": [
@@ -661,7 +661,7 @@
               "kind": "ImportClauseShape",
               "start": 8,
               "end": 14,
-              "pos": 12,
+              "pos": 6,
               "isTypeOnly": true,
               "Name": "IdentifierShape",
               "children": [

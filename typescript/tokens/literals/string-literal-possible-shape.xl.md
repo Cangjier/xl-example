@@ -85,9 +85,11 @@ while (index >= 0 && host.Data[index].IsTriviaToken) {
 if (index < 0 || !(host.Data[index] instanceof String)) {
   return host;
 }
+const scan = catalog.PossibleShapesComputeCache.GetState<StringLiteralScan>(this.constructor.name);
+const itemStart = scan === null ? ItemUtil.ItemStart(host.Data) : scan.Start;
 const token = host.Data[index] as String;
 let previousCode = -1;
-for (let at = index - 1; at >= 0; at--) {
+for (let at = index - 1; at >= itemStart; at--) {
   if (!host.Data[at].IsTriviaToken) {
     previousCode = at;
     break;
