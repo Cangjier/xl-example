@@ -30,7 +30,7 @@ for (const unit of units) {
     return ShapeStates.Reject;
   }
 }
-const start = ItemUtil.ItemStart(units);
+const start = ItemUtil.NextCode(units, ItemUtil.ItemStart(units));
 if (start >= units.length) {
   return ShapeStates.Uncertain;
 }
