@@ -31,3 +31,13 @@
 6. `typescript/cases/*.ts` 的用例规范：每个语句形态必须**先有一条 base**（不含任何干扰信息），
    再基于同一个 base 给出叠加干扰信息的变体（前导空格 / 前导注释 / 词间注释 / 词间多空格 /
    词间换行 / 行尾注释）。一行一个用例；行内 `\n` 由生成器还原成真实换行。
+
+7. shape **禁止用 `ExitOrPre` 结束自己**：`ExitOrPre` 只归 basic token（它认的是字符）。
+   shape 的结束必须由**一个辅助 possible（终结候选）**通过 `CatalogGuide` 判定——候选 Accept 时，
+   它的 `BuildByIndex` 给宿主签名、`TryToClose()`。shape 里的 `ExitOrPre` 只允许 `return BranchStates.Undo`。
+
+   原因：`Source.Value` 是**单个字符**，在 shape 层写 `value === "from"` 这类判断永远是错的；
+   而「结束」本质上是「哪些单元已经到齐」，那是候选的职责，不是逐字符的职责。
+
+   现状：`ImportDeclarationShape.ExitOrPre` 仍靠 `;` / 换行关闭（待改成终结候选）；
+   `SourceFileShape.ExitOrPre` 已是 `Undo`，合规。
