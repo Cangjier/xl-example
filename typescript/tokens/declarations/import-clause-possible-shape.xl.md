@@ -63,15 +63,7 @@ if (index < 0 || !(host.Data[index] instanceof Common)) {
   return host;
 }
 const common = host.Data[index] as Common;
-const identifier = new IdentifierShape(host.Template);
-if (common.SourceRange.Start !== null) {
-  identifier.SignIn(common.SourceRange.Start);
-}
-if (common.SourceRange.End !== null) {
-  identifier.SignOut(common.SourceRange.End);
-}
-identifier.Add(common);
-identifier.TryToClose();
+const identifier = IdentifierShape.FromToken(common);
 const clause = new ImportClauseShape(host.Template);
 if (common.SourceRange.Start !== null) {
   clause.SignIn(common.SourceRange.Start);
@@ -79,7 +71,9 @@ if (common.SourceRange.Start !== null) {
 if (common.SourceRange.End !== null) {
   clause.SignOut(common.SourceRange.End);
 }
-clause.Add(identifier);
+clause.Name = identifier;
+clause.Data.push(identifier);
+identifier.Parent = clause;
 clause.TryToClose();
 host.Data.splice(index, 1, clause);
 clause.Parent = host;

@@ -59,15 +59,7 @@ if (index < 0 || !(host.Data[index] instanceof String)) {
   return host;
 }
 const token = host.Data[index] as String;
-const shape = new StringLiteralShape(host.Template);
-if (token.SourceRange.Start !== null) {
-  shape.SignIn(token.SourceRange.Start);
-}
-if (token.SourceRange.End !== null) {
-  shape.SignOut(token.SourceRange.End);
-}
-shape.Add(token);
-shape.TryToClose();
+const shape = StringLiteralShape.FromToken(token);
 host.Data.splice(index, 1, shape);
 shape.Parent = host;
 return shape;

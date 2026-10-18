@@ -1,10 +1,7 @@
 # dependencies
 ```xl
-import { CloseStates } from "../../../core/syntax/close-states.xl.md"
-import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ConstString } from "../../../core/syntax/basic-tokens/string/const-string.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
-import { WrapSymbol } from "../../../core/syntax/basic-tokens/wrap-symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 ```
@@ -29,25 +26,24 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 super(template);
 ```
 
-## protected method Close:()=>CloseStates
+## static method FromToken:(token:String)=>StringLiteralShape
 
 ```ts
-this.Closed = true;
+const shape = new StringLiteralShape(token.Template);
+if (token.SourceRange.Start !== null) {
+  shape.SignIn(token.SourceRange.Start);
+}
+if (token.SourceRange.End !== null) {
+  shape.SignOut(token.SourceRange.End);
+}
 let text = "";
-for (const item of this.Data) {
-  if (item instanceof String) {
-    for (const part of item.Data) {
-      if (part instanceof ConstString) {
-        text += (part as ConstString).TempToString();
-      }
-    }
-  } else if (item instanceof Common) {
-    text += (item as Common).TempToString();
-  } else if (item instanceof WrapSymbol) {
-    text += (item as WrapSymbol).TempToString();
+for (const part of token.Data) {
+  if (part instanceof ConstString) {
+    text += (part as ConstString).TempToString();
   }
 }
-this.Text = text;
-this.Data = [];
-return CloseStates.Nothing;
+shape.Text = text;
+shape.IsUnterminated = !token.Closed;
+shape.TryToClose();
+return shape;
 ```
