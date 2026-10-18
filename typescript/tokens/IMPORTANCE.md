@@ -22,3 +22,5 @@
    n=4000 时相差约 **340 倍**，曲线从二次变平。
 
    **原因**：目录在每个 basic token 关闭时都会被问一次，而 `Data` 在一条语句内只增不减；每次全量重扫就是 O(N²)。`CatalogGuide.Reset` 只在建出形状之后清缓存，所以一个建立周期内 `units` 只追加、不重排，扫描点（`Checked` / `Start`）可以一直往前推——这是这套状态能成立的前提。候选自己要保证：窗口被截短（`Checked > tokenIndex + 1`）时重置扫描点。
+
+5. **区间口径**：shape 的 `SourceRange` 是**闭区间**（`start` / `end` 都是字符下标，含两端）；AST 节点的 `Pos` / `End` 是**左闭右开**（与 TS 一致）。换算只发生在 `ParseFromShape` 里：`Pos = shape.SourceRange.Start.Index`、`End = shape.SourceRange.End.Index + 1`。shape 层不得为了迁就 AST 去改自己的区间。

@@ -97,6 +97,16 @@ if (common.SourceRange.End !== null) {
 clause.Name = identifier;
 clause.Data.push(identifier);
 identifier.Parent = clause;
+for (let at = index - 1; at >= 0; at--) {
+  const unit = host.Data[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Common && (unit as Common).Is("type")) {
+    clause.IsTypeOnly = true;
+  }
+  break;
+}
 clause.TryToClose();
 host.Data.splice(index, 1, clause);
 clause.Parent = host;

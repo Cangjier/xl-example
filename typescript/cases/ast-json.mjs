@@ -59,6 +59,7 @@ function cjAst(shape) {
   ]) {
     if (typeof shape[field] === "string" && shape[field] !== "") out[label] = shape[field];
   }
+  if (shape.IsTypeOnly === true) out.isTypeOnly = true;
   for (const field of ["ImportClause", "ModuleSpecifier", "Name", "NamedBindings"]) {
     const value = shape[field];
     if (value && typeof value === "object") out[field] = value.constructor.name;
