@@ -128,7 +128,7 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## method AppendToLastConstString:(value:string | null, signSource:Source)=>ConstString
+## method AppendToLastConstString:(value:string | null, signSource:Source, context:SyntaxContext)=>ConstString
 
 把 `value` 追加到最后一个常量块上，并返回那个常量块。三步：
 
@@ -196,7 +196,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     }
     (this.MountedUnit as InterpolationString)!.SignIn(source);
   } else {
-    this.AppendToLastConstString(value, source);
+    this.AppendToLastConstString(value, source, context);
   }
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
   if (this.Translate.IsTranslating) {
@@ -218,7 +218,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
       }
     (this.MountedUnit as InterpolationString)!.SignIn(source);
     } else {
-      this.AppendToLastConstString(value, source);
+      this.AppendToLastConstString(value, source, context);
     }
   }
 } else if (!this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw) {
@@ -234,7 +234,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     }
     (this.MountedUnit as VerbatimQuoteGuide)!.SignIn(source);
   } else {
-    this.AppendToLastConstString(value, source);
+    this.AppendToLastConstString(value, source, context);
   }
 } else if (!this.IsSupportInterpolation && !this.IsSupportVerbatim && this.IsSupportRaw) {
   if (value === this.StringChar) {
@@ -251,7 +251,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     (this.MountedUnit as RawQuoteExitGuide)!.SignIn(source);
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   } else {
-    this.AppendToLastConstString(value, source);
+    this.AppendToLastConstString(value, source, context);
   }
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && this.IsSupportRaw) {
   if (value === "{") {
@@ -280,7 +280,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     (this.MountedUnit as RawQuoteExitGuide)!.SignIn(source);
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   } else {
-    this.AppendToLastConstString(value, source);
+    this.AppendToLastConstString(value, source, context);
   }
 } else if (!this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
   if (this.Translate.IsTranslating) {
@@ -305,7 +305,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
       }
     (this.MountedUnit as InterpolationString)!.SignIn(source);
     } else {
-      this.AppendToLastConstString(value, source);
+      this.AppendToLastConstString(value, source, context);
     }
   }
 } else {
@@ -313,7 +313,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
 }
 ```
 
-## method ForceExit:(source:Source)=>void
+## method ForceExit:(source:Source, context:SyntaxContext)=>void
 
 强制退出：签出、尝试关闭、然后从父单元卸载自己。
 
@@ -377,7 +377,7 @@ for (const i of this.Data) {
 
 ```ts
 if (source.Value === this.StringChar && this.Translate.IsTranslating === false && !this.IsSupportRaw && !this.IsSupportVerbatim) {
-  this.ForceExit(source);
+  this.ForceExit(source, context);
   return BranchStates.Done;
 }
 return BranchStates.Undo;
