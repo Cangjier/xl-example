@@ -1,7 +1,12 @@
 # dependencies
 ```xl
+import { CloseStates } from "../../../core/syntax/close-states.xl.md"
+import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { NamedImportsShape } from "./named-imports-shape.xl.md"
+import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -12,8 +17,44 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import a from "m";
 ```
 
+## field IsTypeOnly:bool = false
+
+## field PhaseModifier:string = ""
+
+## field Name:IdentifierShape | null = null
+
+## field NamedBindings:NamespaceImportShape | NamedImportsShape | null = null
+
 ## constructor:(template:Template)=>void
 
 ```ts
 super(template);
+```
+
+## protected method Close:()=>CloseStates
+
+```ts
+this.Closed = true;
+const kept: Array<Token> = [];
+for (const item of this.Data) {
+  if (item instanceof IdentifierShape) {
+    this.Name = item;
+    kept.push(item);
+  } else if (item instanceof NamespaceImportShape) {
+    this.NamedBindings = item;
+    kept.push(item);
+  } else if (item instanceof NamedImportsShape) {
+    this.NamedBindings = item;
+    kept.push(item);
+  } else if (!item.IsBasicToken) {
+    kept.push(item);
+  }
+}
+this.Data = kept;
+for (const item of this.Data) {
+  if (item.IsBasicToken) {
+    throw new Error("ImportClauseShape.Close: Data 里还有 basic token");
+  }
+}
+return CloseStates.Nothing;
 ```
