@@ -62,7 +62,7 @@ function cjAst(shape) {
   }
   if (shape.Pos >= 0) out.pos = shape.Pos;
   if (shape.IsTypeOnly === true) out.isTypeOnly = true;
-  for (const field of ["ImportClause", "ModuleSpecifier", "Name", "NamedBindings"]) {
+  for (const field of ["ImportClause", "ModuleSpecifier", "Name", "NamedBindings", "Attributes", "AssertClause"]) {
     const value = shape[field];
     if (value && typeof value === "object") out[field] = value.constructor.name;
   }

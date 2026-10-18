@@ -3,6 +3,7 @@
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
@@ -16,6 +17,7 @@ import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { ImportAttributesShape } from "../members/import-attributes-shape.xl.md"
+import { ImportAttributesPossibleShape } from "./import-attributes-possible-shape.xl.md"
 import { ImportClausePossibleShape } from "./import-clause-possible-shape.xl.md"
 import { ImportClauseShape } from "./import-clause-shape.xl.md"
 import { StringLiteralPossibleShape } from "../literals/string-literal-possible-shape.xl.md"
@@ -61,6 +63,7 @@ if (ImportDeclarationShape.CreatePossibleShapesCache === null) {
   ImportDeclarationShape.CreatePossibleShapesCache = [
     new ImportClausePossibleShape(),
     new StringLiteralPossibleShape(),
+    new ImportAttributesPossibleShape(),
   ];
 }
 return ImportDeclarationShape.CreatePossibleShapesCache;
@@ -72,6 +75,16 @@ return ImportDeclarationShape.CreatePossibleShapesCache;
 const last = ItemUtil.LastCodeInItem(this.Data);
 if (last < 0) {
   return ComputePossibleShapesStates.Nothing;
+}
+const lastCode = ItemUtil.LastCodeInItem(this.Data);
+if (lastCode >= 0 && this.Data[lastCode] instanceof Bracket) {
+  const beforeCode = ItemUtil.PreviousCode(this.Data, lastCode - 1);
+  if (beforeCode >= 0 && this.Data[beforeCode] instanceof Common) {
+    const keyword = this.Data[beforeCode] as Common;
+    if (keyword.Is("with") || keyword.Is("assert")) {
+      return super.ComputePossibleShapes();
+    }
+  }
 }
 for (const item of this.Data) {
   if (item instanceof StringLiteralShape) {
@@ -112,6 +125,13 @@ for (const item of this.Data) {
     kept.push(item);
   } else if (item instanceof DeclareKeywordShape) {
     this.Modifiers.push(item);
+    kept.push(item);
+  } else if (item instanceof ImportAttributesShape) {
+    if ((item as ImportAttributesShape).Token === "assert" && this.AssertClause === null) {
+      this.AssertClause = item as ImportAttributesShape;
+    } else {
+      this.Attributes = item as ImportAttributesShape;
+    }
     kept.push(item);
   }
 }

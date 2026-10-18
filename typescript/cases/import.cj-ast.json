@@ -1252,6 +1252,7 @@
           "pos": 0,
           "ImportClause": "ImportClauseShape",
           "ModuleSpecifier": "StringLiteralShape",
+          "Attributes": "ImportAttributesShape",
           "children": [
             {
               "kind": "ImportClauseShape",
@@ -1275,6 +1276,32 @@
               "end": 16,
               "text": "m",
               "pos": 13
+            },
+            {
+              "kind": "ImportAttributesShape",
+              "start": 23,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "ImportAttributeShape",
+                  "start": 25,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "IdentifierShape",
+                      "start": 25,
+                      "end": 28,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteralShape",
+                      "start": 31,
+                      "end": 36,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
@@ -1290,6 +1317,7 @@
           "pos": 0,
           "ImportClause": "ImportClauseShape",
           "ModuleSpecifier": "StringLiteralShape",
+          "AssertClause": "ImportAttributesShape",
           "children": [
             {
               "kind": "ImportClauseShape",
@@ -1313,6 +1341,32 @@
               "end": 16,
               "text": "m",
               "pos": 13
+            },
+            {
+              "kind": "ImportAttributesShape",
+              "start": 25,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "ImportAttributeShape",
+                  "start": 27,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "IdentifierShape",
+                      "start": 27,
+                      "end": 30,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteralShape",
+                      "start": 33,
+                      "end": 38,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
