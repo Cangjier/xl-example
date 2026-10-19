@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { RegexToken } from "../../core/syntax/basic-tokens/regex-token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 ```
 
@@ -20,6 +21,11 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 ```ts
 const template = new Template();
 template.BranchTemplate.DefaultValue = Template.BasicBranchQueue();
+// 这一批用例暂不支持正则字面量（`/a/`），而 `a / b` 里的 `/` 会被正则跳转误认成
+// 「前一个 `/` 已经落在树上」——正则跳转按 `Data[-2]` 判，中间隔着空白 token 就判错。
+// 先在本语言模板里禁掉正则跳转；等实现正则字面量时再把它放回来并修判据。
+template.BranchTemplate.Ban([RegexToken.Transit]);
+template.SymbolTemplate.AllowCombineSymbol(["**", "**=", "<<", ">>", ">>>", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "%=", "&&=", "||=", "??="]);
 template.StringTemplate.Quotes = ['"', "'", "`"];
 template.StringTemplate.HasVerbatim = false;
 template.StringTemplate.HasInterpolation = false;

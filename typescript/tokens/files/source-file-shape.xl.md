@@ -53,6 +53,12 @@ const x = 1;
 
 ```ts
 super(template);
+// 根单元的跳转队列要取「本语言模板」算出来的那份（模板可以禁用某些 basic 跳转），
+// 不能直接用全局缓存的 `Template.BasicBranchQueue()`。
+const queue = template.BranchTemplate.Get(this.constructor);
+if (queue !== null) {
+  this.ProcessQueue = queue;
+}
 this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes());
 ```
 
@@ -111,7 +117,7 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     // new VariableStatementPossibleShape(),
     // new BlockPossibleShape(),
     // new EmptyStatementPossibleShape(),
-    // new ExpressionStatementPossibleShape(),
+    new ExpressionStatementPossibleShape(),
     // new IfStatementPossibleShape(),
     // new DoStatementPossibleShape(),
     // new WhileStatementPossibleShape(),
