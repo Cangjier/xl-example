@@ -62,6 +62,8 @@ return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context);
 
 拿**宿主**攒下的子单元问一遍还活着的候选——`Candidates` 里那些下标，被拒的从 `Candidates` 里去掉——然后按**个数**行动：只剩一个就建它并复位，一个都不剩就抛错，还有多个就继续等后面的单元。
 
+走到建之前再断言一次「恰好一个」。它不是重复判断，而是把不变量钉在取下标之前：上面的 `size === 0` / `size > 1` 两处已经把另外两种情况分走，若将来被绕过，这里当场炸，而不是取到 `undefined` 下标继续往下跑。
+
 `host` 是参数不是字段；形状的 `BuildByIndex` 要用宿主，所以由这里往下传。
 
 「接受」与「不确定」在这一次判定里同义——建不建只看剩下几个候选。
@@ -106,14 +108,14 @@ if (this.Candidates.size === 0) {
 if (this.Candidates.size > 1) {
   return ComputePossibleShapesStates.Waiting;
 }
-for (const index of this.Candidates) {
-  if (!this.PossibleShapes[index].IsBuildable(host.Data, tokenIndex, this.PossibleShapesComputeCache, context)) {
-    return ComputePossibleShapesStates.Waiting;
-  }
+if (this.Candidates.size !== 1) {
+  throw new Error(`CatalogGuide: 唯一候选不变量被破坏（宿主 ${host.constructor.name}，下标 ${tokenIndex}，候选 ${this.Candidates.size} 个）`);
 }
-for (const index of this.Candidates) {
-  this.PossibleShapes[index].BuildByIndex(host, tokenIndex, this, context);
+const index = Array.from(this.Candidates)[0];
+if (!this.PossibleShapes[index].IsBuildable(host.Data, tokenIndex, this.PossibleShapesComputeCache, context)) {
+  return ComputePossibleShapesStates.Waiting;
 }
+this.PossibleShapes[index].BuildByIndex(host, tokenIndex, this, context);
 this.Reset();
 return ComputePossibleShapesStates.Built;
 ```
