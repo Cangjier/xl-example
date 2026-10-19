@@ -70,45 +70,6 @@ if (ImportDeclarationShape.CreatePossibleShapesCache === null) {
 return ImportDeclarationShape.CreatePossibleShapesCache;
 ```
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
-
-```ts
-const last = ItemUtil.LastCodeInItem(this.Data);
-if (last < 0) {
-  return ComputePossibleShapesStates.Nothing;
-}
-const lastCode = ItemUtil.LastCodeInItem(this.Data);
-if (lastCode >= 0 && this.Data[lastCode] instanceof Bracket) {
-  const beforeCode = ItemUtil.PreviousCode(this.Data, lastCode - 1);
-  if (beforeCode >= 0 && this.Data[beforeCode] instanceof Common) {
-    const keyword = this.Data[beforeCode] as Common;
-    if (keyword.Is("with") || keyword.Is("assert")) {
-      return super.ComputePossibleShapes(context);
-    }
-  }
-}
-for (const item of this.Data) {
-  if (item instanceof StringLiteralShape) {
-    return ComputePossibleShapesStates.Nothing;
-  }
-}
-const unit = this.Data[last];
-if (unit instanceof Common) {
-  const keyword = unit as Common;
-  if (
-    keyword.Is("import") ||
-    keyword.Is("from") ||
-    keyword.Is("with") ||
-    keyword.Is("type") ||
-    keyword.Is("as") ||
-    keyword.Is("assert")
-  ) {
-    return ComputePossibleShapesStates.Nothing;
-  }
-}
-return super.ComputePossibleShapes(context);
-```
-
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
 ```ts
@@ -143,11 +104,4 @@ for (const item of this.Data) {
   }
 }
 return CloseStates.Nothing;
-```
-
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
-
-
-```ts
-return BranchStates.Undo;
 ```
