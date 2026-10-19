@@ -89,3 +89,7 @@
    - possible build不对
    - end compute不对
    - end build不对
+
+7. possible 质量标准
+   质量等级为：差/一般/好
+   - compute/build 如果每轮都进行寻找/遍历，则质量等级为差。解决思路：复用cache，将寻找的结果记录到cache，便于下次直接复用。
