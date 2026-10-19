@@ -310,6 +310,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 8,
                       "end": 10,
+                      "name": "a",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -355,6 +356,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 8,
                       "end": 10,
+                      "name": "a",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -368,6 +370,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 11,
                       "end": 13,
+                      "name": "b",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -413,6 +416,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 8,
                       "end": 15,
+                      "name": "b",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -464,6 +468,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 8,
                       "end": 10,
+                      "name": "a",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -477,6 +482,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 11,
                       "end": 18,
+                      "name": "c",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -558,6 +564,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 8,
                       "end": 10,
+                      "name": "a",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -603,6 +610,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 16,
                       "end": 18,
+                      "name": "a",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -648,6 +656,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 8,
                       "end": 12,
+                      "name": "a",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -661,6 +670,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 13,
                       "end": 17,
+                      "name": "b",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -827,6 +837,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 11,
                       "end": 13,
+                      "name": "b",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -973,6 +984,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 13,
                       "end": 15,
+                      "name": "T",
                       "children": [
                         {
                           "kind": "Identifier",
@@ -1128,6 +1140,7 @@
                       "kind": "ImportSpecifier",
                       "pos": 13,
                       "end": 15,
+                      "name": "T",
                       "children": [
                         {
                           "kind": "Identifier",

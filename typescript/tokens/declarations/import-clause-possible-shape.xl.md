@@ -160,6 +160,15 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
   }
 } else if (firstUnit instanceof Bracket && (firstUnit as Bracket).StartBracketChar === "{") {
   const named = NamedImportsShape.FromBracket(firstUnit as Bracket, context);
+  // 具名导入的 Pos 是括号前那个非 trivia 单元（`import` 或 `type`）的 End+1——括号外的那一格只有这里看得到。
+  if (previousCode >= 0) {
+    const previousEnd = host.Data[previousCode].SourceRange.End;
+    if (previousEnd !== null) {
+      named.Pos = previousEnd.Index + 1;
+    }
+  } else if (firstUnit.SourceRange.Start !== null) {
+    named.Pos = firstUnit.SourceRange.Start.Index;
+  }
   clause.NamedBindings = named;
   named.Parent = clause;
   clause.Data.push(named);
@@ -175,6 +184,17 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
   }
   if (at < host.Data.length && host.Data[at] instanceof Bracket && (host.Data[at] as Bracket).StartBracketChar === "{") {
     const named = NamedImportsShape.FromBracket(host.Data[at] as Bracket, context);
+    // 默认导入后面这一组具名导入：括号前是逗号，它的 End+1 才是 Pos。
+    let before = at - 1;
+    while (before >= itemStart && host.Data[before].IsTriviaToken) {
+      before--;
+    }
+    if (before >= itemStart) {
+      const beforeEnd = host.Data[before].SourceRange.End;
+      if (beforeEnd !== null) {
+        named.Pos = beforeEnd.Index + 1;
+      }
+    }
     clause.NamedBindings = named;
     named.Parent = clause;
     clause.Data.push(named);

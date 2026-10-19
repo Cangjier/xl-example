@@ -29,7 +29,7 @@ import { a as b } from "m";
 super(template);
 ```
 
-## static method FromTokens:(units:Array<Token>, context:SyntaxContext)=>ImportSpecifierShape | null
+## static method FromTokens:(units:Array<Token>, context:SyntaxContext, pos:int)=>ImportSpecifierShape | null
 
 ```ts
 const code:Array<Token> = [];
@@ -43,6 +43,8 @@ if (code.length === 0) {
 }
 let at = 0;
 const shape = new ImportSpecifierShape(code[0].Template);
+// pos 由调用方给：它前面那个非 trivia 单元（`{` 或 `,`）的 End+1，组内看不到那一格。
+shape.Pos = pos;
 if (code[at] instanceof Common && (code[at] as Common).Is("type")) {
   shape.IsTypeOnly = true;
   at++;
@@ -51,6 +53,15 @@ if (at >= code.length || !(code[at] instanceof Common)) {
   return null;
 }
 const first = IdentifierShape.FromBasicToken(code[at] as Common, context);
+// 带 `type` 修饰时，标识符的前导 trivia 起点在 `type` 之后，形状的 Pos 仍在 `type` 之前。
+let firstPos = pos;
+if (shape.IsTypeOnly) {
+  const typeEnd = code[at - 1].SourceRange.End;
+  if (typeEnd !== null) {
+    firstPos = typeEnd.Index + 1;
+  }
+}
+first.Pos = firstPos;
 shape.PropertyName = first;
 shape.Data.push(first);
 first.Parent = shape;
@@ -58,6 +69,8 @@ let last = code[at];
 at++;
 if (at + 1 < code.length && code[at] instanceof Common && (code[at] as Common).Is("as") && code[at + 1] instanceof Common) {
   const second = IdentifierShape.FromBasicToken(code[at + 1] as Common, context);
+  const asEnd = code[at].SourceRange.End;
+  second.Pos = asEnd !== null ? asEnd.Index + 1 : -1;
   shape.Name = second;
   shape.Data.push(second);
   second.Parent = shape;

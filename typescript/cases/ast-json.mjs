@@ -48,6 +48,9 @@ function tsAst(node) {
     if (node.name && node.name.text) out.name = node.name.text;
     if (node.namedBindings) out.namedBindings = ts.SyntaxKind[node.namedBindings.kind];
   }
+  if (ts.isImportSpecifier(node) && node.name && node.name.text) {
+    out.name = node.name.text;
+  }
   const children = [];
   node.forEachChild((child) => {
     children.push(tsAst(child));
