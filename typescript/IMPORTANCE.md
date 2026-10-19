@@ -46,6 +46,7 @@
    
    需要注意的是：
    - shape **禁止用 `ExitOrPre` 结束自己**，禁止覆盖`ExitOrPre`。
+   - shape 禁止覆盖 ComputePossibleShapes
    - 被真实消费的baisc tokens一律丢弃，对未真实消费的basic tokens一律走`Reload Message`。basic tokens要么丢弃，要么Reload，禁止其他操作。
 
    3.4 cache 的重要性：possible 与 build 两个阶段都要读同一份。
