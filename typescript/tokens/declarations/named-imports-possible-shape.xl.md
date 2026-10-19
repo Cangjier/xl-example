@@ -26,20 +26,17 @@ import { NamedImportsShape } from "./named-imports-shape.xl.md"
 import a, { b } from "m";
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const name = this.constructor.name;
-const state = cache.GetOrComputeState<NamedImportsScan>(name, "Checked", units, tokenIndex, context, (units, tokenIndex, context, state) => {
-  state.Checked = 0;
-  state.HasShape = false;
-  state.LastCode = -1;
-});
+let state = cache.GetState<NamedImportsScan>(name);
 if (state === null) {
-  return ShapeStates.Uncertain;
+  state = new NamedImportsScan();
+  cache.SetState(name, state);
 }
 if (state.Checked > tokenIndex + 1) {
   state.Checked = 0;

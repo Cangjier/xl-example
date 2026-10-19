@@ -36,22 +36,18 @@ import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
 import a from "m";
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const name = this.constructor.name;
-const state = cache.GetOrComputeState<ImportClauseScan>(name, "Start", units, tokenIndex, context, (units, tokenIndex, context, state) => {
-  state.Start = ItemUtil.ItemStart(units);
-  state.Checked = 0;
-  state.HasClause = false;
-  state.Head = -1;
-  state.LastCode = -1;
-});
+let state = cache.GetState<ImportClauseScan>(name);
 if (state === null) {
-  return ShapeStates.Uncertain;
+  state = new ImportClauseScan();
+  state.Start = ItemUtil.ItemStart(units);
+  cache.SetState(name, state);
 }
 if (state.Checked > tokenIndex + 1) {
   state.Checked = 0;

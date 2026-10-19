@@ -36,20 +36,19 @@ import a, { b } from "m";
 import a from "m" with { type: "json" };
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const name = this.constructor.name;
-const state = cache.GetOrComputeState<ImportDeclarationScan>(name, "Start", units, tokenIndex, context, (units, tokenIndex, context, state) => {
+let state = cache.GetState<ImportDeclarationScan>(name);
+if (state === null) {
+  state = new ImportDeclarationScan();
   state.Start = ItemUtil.ItemStart(units);
   state.At = state.Start - 1;
-  state.Stage = 0;
-});
-if (state === null) {
-  return ShapeStates.Uncertain;
+  cache.SetState(name, state);
 }
 if (state.At > tokenIndex) {
   state.At = state.Start - 1;

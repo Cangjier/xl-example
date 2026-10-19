@@ -32,22 +32,18 @@ import { StringLiteralShape } from "./string-literal-shape.xl.md"
 "s"
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const name = this.constructor.name;
-const state = cache.GetOrComputeState<StringLiteralScan>(name, "Start", units, tokenIndex, context, (units, tokenIndex, context, state) => {
-  state.Start = ItemUtil.ItemStart(units);
-  state.Checked = 0;
-  state.HasLiteral = false;
-  state.LastCode = -1;
-  state.PreviousCode = -1;
-});
+let state = cache.GetState<StringLiteralScan>(name);
 if (state === null) {
-  return ShapeStates.Uncertain;
+  state = new StringLiteralScan();
+  state.Start = ItemUtil.ItemStart(units);
+  cache.SetState(name, state);
 }
 if (state.Checked > tokenIndex + 1) {
   state.Checked = 0;

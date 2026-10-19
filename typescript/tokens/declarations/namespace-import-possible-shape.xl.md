@@ -31,22 +31,17 @@ import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
 import * as ns from "m";
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const name = this.constructor.name;
-const state = cache.GetOrComputeState<NamespaceImportScan>(name, "Checked", units, tokenIndex, context, (units, tokenIndex, context, state) => {
-  state.Checked = 0;
-  state.HasShape = false;
-  state.Star = -1;
-  state.As = -1;
-  state.LastCode = -1;
-});
+let state = cache.GetState<NamespaceImportScan>(name);
 if (state === null) {
-  return ShapeStates.Uncertain;
+  state = new NamespaceImportScan();
+  cache.SetState(name, state);
 }
 if (state.Checked > tokenIndex + 1) {
   state.Checked = 0;
