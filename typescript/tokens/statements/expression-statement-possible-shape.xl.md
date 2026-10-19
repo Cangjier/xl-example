@@ -7,6 +7,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -45,6 +46,9 @@ a = b, c = d;
 ```ts
 if (unit instanceof Bracket) {
   return (unit as Bracket).StartBracketChar === "(";
+}
+if (unit instanceof RegexToken) {
+  return true;
 }
 if (unit instanceof String) {
   return true;

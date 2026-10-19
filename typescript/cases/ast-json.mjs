@@ -107,7 +107,8 @@ function cjAst(shape) {
     end: range.End == null ? 0 : range.End.Index + 1,
   };
   if (typeof shape.EscapedText === "string" && shape.EscapedText !== "") out.text = shape.EscapedText;
-  if (typeof shape.Text === "string" && shape.Text !== "") out.text = shape.Text;
+  // 字面量的 text 可以是空串（`""`），空串也是一个真实取值；只有带 Text 字段的那几种字面量会走到这里。
+  if (typeof shape.Text === "string") out.text = shape.Text;
   if (shape.Name && shape.Name.text !== undefined) out.name = shape.Name.text;
   if (shape.Name && shape.Name.EscapedText) out.name = shape.Name.EscapedText;
   if (shape.IsTypeOnly === true) out.isTypeOnly = true;

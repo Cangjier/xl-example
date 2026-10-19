@@ -3,6 +3,7 @@
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -72,6 +73,7 @@ import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
+import { RegularExpressionLiteralShape } from "../literals/regular-expression-literal-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 ```
 
@@ -584,6 +586,12 @@ const start = this.At;
 const unit = this.Peek(0);
 if (unit === null) {
   throw new Error("表达式意外结束");
+}
+if (unit instanceof RegexToken) {
+  this.At++;
+  const shape = RegularExpressionLiteralShape.FromBasicToken(unit as RegexToken, this.Context);
+  shape.Pos = this.Positions[start];
+  return shape;
 }
 if (unit instanceof Bracket) {
   const bracket = unit as Bracket;

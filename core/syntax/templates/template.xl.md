@@ -11,6 +11,7 @@ import { Symbol } from "../basic-tokens/symbol.xl.md"
 import { WrapSymbol } from "../basic-tokens/wrap-symbol.xl.md"
 import { KeywordTemplate } from "./keyword-template.xl.md"
 import { MethodNameTemplate } from "./method-name-template.xl.md"
+import { RegexTemplate } from "./regex-template.xl.md"
 import { Sequence } from "./sequence.xl.md"
 import { SequenceTemplate } from "./sequence-template.xl.md"
 import { StringTemplate } from "./string-template.xl.md"
@@ -33,7 +34,7 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 模板：一个上下文里所有单元共用的规则表。
 
-五个模板字段都在初值里 `new` 出来。
+六个模板字段都在初值里 `new` 出来。
 
 ## field BranchTemplate:SequenceTemplate<BranchTransiter> = new SequenceTemplate<BranchTransiter>()
 
@@ -54,6 +55,10 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 ## field MethodNameTemplate:MethodNameTemplate = new MethodNameTemplate()
 
 方法名模板。
+
+## field RegexTemplate:RegexTemplate = new RegexTemplate()
+
+正则模板：这门语言的正则字面量长什么样（flags 字符集、可以起表达式的关键字、以及「这个 `/` 该不该起正则」的默认判据）。
 
 ## private static field BasicBranchQueueCache:Sequence<BranchTransiter> | null = null
 
