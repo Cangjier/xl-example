@@ -715,7 +715,23 @@
             {
               "kind": "ImportClause",
               "pos": 6,
-              "end": 14
+              "end": 14,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 6,
+                  "end": 14,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "kind": "StringLiteral",
@@ -738,7 +754,23 @@
             {
               "kind": "ImportClause",
               "pos": 6,
-              "end": 14
+              "end": 14,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 6,
+                  "end": 14,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "kind": "StringLiteral",
@@ -761,7 +793,23 @@
             {
               "kind": "ImportClause",
               "pos": 6,
-              "end": 17
+              "end": 17,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 6,
+                  "end": 17,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 17,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "kind": "StringLiteral",
@@ -986,7 +1034,23 @@
               "kind": "ImportClause",
               "pos": 6,
               "end": 19,
-              "isTypeOnly": true
+              "isTypeOnly": true,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 11,
+                  "end": 19,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 19,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "kind": "StringLiteral",

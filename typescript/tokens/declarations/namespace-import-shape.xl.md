@@ -40,6 +40,13 @@ const shape = new NamespaceImportShape(code[0].Template);
 const lastUnit = code[code.length - 1];
 if (lastUnit instanceof Common) {
   const identifier = IdentifierShape.FromBasicToken(lastUnit as Common, context);
+  // 名字的 Pos 取它前面那个非 trivia 单元（`as`）的 End+1。
+  if (code.length >= 2) {
+    const previous = code[code.length - 2];
+    if (previous.SourceRange.End !== null) {
+      identifier.Pos = previous.SourceRange.End.Index + 1;
+    }
+  }
   shape.Name = identifier;
   shape.Data.push(identifier);
   identifier.Parent = shape;

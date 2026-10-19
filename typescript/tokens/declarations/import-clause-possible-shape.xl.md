@@ -93,10 +93,17 @@ if (tail instanceof Bracket) {
   return ShapeStates.Accept;
 }
 if (tail instanceof Symbol && (tail as Symbol).Is("*")) {
-  return ShapeStates.Accept;
+  // 只有 `*` 还不是子句：等 `as` 与名字到齐（见 IsBuildable），build 时才能把 NamespaceImport 一次提出来。
+  return ShapeStates.Uncertain;
 }
 if (!(tail instanceof Common)) {
   return ShapeStates.Reject;
+}
+const previous = ItemUtil.PreviousCode(units, last - 1);
+const afterStar = previous >= 0 && units[previous] instanceof Symbol && (units[previous] as Symbol).Is("*");
+if (afterStar && (tail as Common).Is("as")) {
+  // `* as` 也还不是子句：名字还没到。
+  return ShapeStates.Uncertain;
 }
 if ((tail as Common).Is("import") || (tail as Common).Is("from")) {
   return ShapeStates.Uncertain;
@@ -172,6 +179,15 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
     if (at < host.Data.length && host.Data[at] instanceof Common) {
       const ns = NamespaceImportShape.FromTokens(host.Data.slice(cursor, at + 1), context);
       if (ns !== null) {
+        // NamespaceImport 的 Pos 是 `*` 前面那个非 trivia 单元（`import` / `type`）的 End+1——那格只有宿主还看得见。
+        if (previousCode >= 0) {
+          const previousEnd = host.Data[previousCode].SourceRange.End;
+          if (previousEnd !== null) {
+            ns.Pos = previousEnd.Index + 1;
+          }
+        } else if (firstUnit.SourceRange.Start !== null) {
+          ns.Pos = firstUnit.SourceRange.Start.Index;
+        }
         clause.NamedBindings = ns;
         ns.Parent = clause;
         clause.Data.push(ns);
@@ -236,4 +252,27 @@ host.Data.splice(cursor, tokenIndex - cursor + 1, clause);
 clause.Parent = host;
 host.MountedUnit = clause;
 return clause;
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+
+```ts
+const state = cache.GetState<ImportClauseScan>(this.constructor.name);
+if (state === null) {
+  return false;
+}
+const last = state.LastCode;
+if (last < 0) {
+  return false;
+}
+const tail = units[last];
+if (tail instanceof Symbol && (tail as Symbol).Is("*")) {
+  return false;
+}
+const previous = ItemUtil.PreviousCode(units, last - 1);
+const afterStar = previous >= 0 && units[previous] instanceof Symbol && (units[previous] as Symbol).Is("*");
+if (afterStar && tail instanceof Common && (tail as Common).Is("as")) {
+  return false;
+}
+return true;
 ```

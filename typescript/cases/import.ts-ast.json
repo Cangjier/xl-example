@@ -711,6 +711,7 @@
                   "kind": "NamespaceImport",
                   "pos": 6,
                   "end": 14,
+                  "name": "ns",
                   "children": [
                     {
                       "kind": "Identifier",
@@ -749,6 +750,7 @@
                   "kind": "NamespaceImport",
                   "pos": 6,
                   "end": 14,
+                  "name": "ns",
                   "children": [
                     {
                       "kind": "Identifier",
@@ -787,6 +789,7 @@
                   "kind": "NamespaceImport",
                   "pos": 6,
                   "end": 17,
+                  "name": "ns",
                   "children": [
                     {
                       "kind": "Identifier",
@@ -885,6 +888,7 @@
                   "kind": "NamespaceImport",
                   "pos": 9,
                   "end": 17,
+                  "name": "ns",
                   "children": [
                     {
                       "kind": "Identifier",
@@ -1061,6 +1065,7 @@
                   "kind": "NamespaceImport",
                   "pos": 11,
                   "end": 19,
+                  "name": "ns",
                   "children": [
                     {
                       "kind": "Identifier",

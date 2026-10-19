@@ -59,6 +59,9 @@ function tsAst(node) {
   if (ts.isImportSpecifier(node) && node.name && node.name.text) {
     out.name = node.name.text;
   }
+  if (ts.isNamespaceImport(node) && node.name && node.name.text) {
+    out.name = node.name.text;
+  }
   const children = [];
   node.forEachChild((child) => {
     children.push(tsAst(child));
