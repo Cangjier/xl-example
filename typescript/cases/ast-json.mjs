@@ -76,7 +76,7 @@ function norm(node) {
 function tsAst(node) {
   const kind = ts.SyntaxKind[node.kind];
   const out = { kind: TS_KIND_ALIASES.get(kind) || kind, pos: node.pos, end: node.end };
-  if (ts.isIdentifier(node) || ts.isStringLiteral(node) || ts.isNumericLiteral(node)) {
+  if (ts.isIdentifier(node) || ts.isStringLiteral(node) || ts.isNumericLiteral(node) || ts.isRegularExpressionLiteral(node)) {
     out.text = node.text;
   }
   // 与投影字段同名的那些：没出现的键不写，diff 两侧都缺就是一致。

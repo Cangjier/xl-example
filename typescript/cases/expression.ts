@@ -327,11 +327,11 @@ a = 1; b = 2;
 // 函数 / 类表达式               (function () {});   (class {});
 // 数组 / 对象字面量             [a, b];   ({ a: b });   ← 语句首的 { } 与块歧义
 // 模板 / 标签模板               `t`;   tag`t`;
-// 正则 / bigint               /a/;   1n;
+// 正则 / bigint               /a/;   1n;              ← 正则单独立表：regex.ts（改造方案见 docs/regex-token-analysis.md）
 // await / yield / new.target / import.meta
 // ASI / 多语句边界              a\n+b;   a\n++b;   （换行是否断句单独一轮，本批只收“换行后仍可延续”的写法）
 // 以下是本批想收、但当前收不进来的写法（原因在箭头后）：
-// 正则字面量                  /a/;   /a/g;             ← RegexToken.Transit 被 ts 模板 Ban（a / b 会被误判），恢复跳转并补形状前收不了
+// 正则字面量                  /a/;   /a/g;             ← RegexToken.Transit 被 ts 模板 Ban（a / b 会被误判）；用例见 regex.ts
 // 指数带符号 / 数字分隔符 / 前导点  1e-3;   1_000;   .5;    ← basic token 在符号处断开（1e-3 被拆成 1e - 3）
 // 字符串里的 \u / \x 转义      "\u0041";   "\x41";       ← String basic token 不解码这两种转义
 // 字符串里的 \n 转义           "a\nb";                 ← 用例生成器把行内 \n 还原成真换行，写不进用例
