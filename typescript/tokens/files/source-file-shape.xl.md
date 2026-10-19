@@ -75,6 +75,8 @@ for (const item of this.Data) {
     throw new Error("SourceFileShape.Close: 有子单元无法关闭");
   }
 }
+// AST 的 children 只有子形状：文件末尾没人认领的 trivia（空格 / 行尾注释 / 换行）在收尾时丢掉。
+this.Data = this.Data.filter((item) => !item.IsTriviaToken);
 return CloseStates.Nothing;
 ```
 

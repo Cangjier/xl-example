@@ -6,6 +6,7 @@ import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { NamedImportsShape } from "./named-imports-shape.xl.md"
 ```
@@ -63,6 +64,10 @@ const tail = units[last];
 if (tail instanceof Bracket && (tail as Bracket).StartBracketChar === "{") {
   return ShapeStates.Accept;
 }
+if (tail instanceof Symbol && (tail as Symbol).Is(",")) {
+  // 逗号只是「具名导入还没开始」：子句要在它后面继续长，候选不能在这里判死。
+  return ShapeStates.Uncertain;
+}
 return ShapeStates.Reject;
 ```
 
@@ -78,6 +83,22 @@ if (index < 0 || !(host.Data[index] instanceof Bracket)) {
 }
 const bracket = host.Data[index] as Bracket;
 const shape = NamedImportsShape.FromBracket(bracket, context);
+// Pos 是 `{` 前面那一格（默认导入后是逗号）的 End+1——括号外的那一格只有宿主看得见。
+let previous = -1;
+for (let at = index - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    previous = at;
+    break;
+  }
+}
+if (previous >= 0) {
+  const previousEnd = host.Data[previous].SourceRange.End;
+  if (previousEnd !== null) {
+    shape.Pos = previousEnd.Index + 1;
+  }
+} else if (bracket.SourceRange.Start !== null) {
+  shape.Pos = bracket.SourceRange.Start.Index;
+}
 host.Data.splice(index, 1, shape);
 shape.Parent = host;
 return shape;

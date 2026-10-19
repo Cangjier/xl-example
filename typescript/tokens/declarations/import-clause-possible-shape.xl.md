@@ -164,7 +164,6 @@ if (clausePrevious >= 0) {
 } else if (firstUnit.SourceRange.Start !== null) {
   clause.Pos = firstUnit.SourceRange.Start.Index;
 }
-let lastUnit = firstUnit;
 if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
   let at = cursor + 1;
   while (at < host.Data.length && host.Data[at].IsTriviaToken) {
@@ -191,7 +190,6 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
         clause.NamedBindings = ns;
         ns.Parent = clause;
         clause.Data.push(ns);
-        lastUnit = host.Data[at];
       }
     }
   }
@@ -221,28 +219,6 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
   clause.Name = identifier;
   identifier.Parent = clause;
   clause.Data.push(identifier);
-  let at = cursor + 1;
-  while (at < host.Data.length && host.Data[at].IsTriviaToken) {
-    at++;
-  }
-  if (at < host.Data.length && host.Data[at] instanceof Bracket && (host.Data[at] as Bracket).StartBracketChar === "{") {
-    const named = NamedImportsShape.FromBracket(host.Data[at] as Bracket, context);
-    // 默认导入后面这一组具名导入：括号前是逗号，它的 End+1 才是 Pos。
-    let before = at - 1;
-    while (before >= itemStart && host.Data[before].IsTriviaToken) {
-      before--;
-    }
-    if (before >= itemStart) {
-      const beforeEnd = host.Data[before].SourceRange.End;
-      if (beforeEnd !== null) {
-        named.Pos = beforeEnd.Index + 1;
-      }
-    }
-    clause.NamedBindings = named;
-    named.Parent = clause;
-    clause.Data.push(named);
-    lastUnit = host.Data[at];
-  }
 }
 clause.IsTypeOnly = typeOnly;
 if (firstUnit.SourceRange.Start !== null) {

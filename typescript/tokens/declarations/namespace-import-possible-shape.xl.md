@@ -67,14 +67,27 @@ state.Checked = tokenIndex + 1;
 if (state.HasShape) {
   return ShapeStates.Reject;
 }
-if (state.Star < 0 || state.As < 0) {
-  return ShapeStates.Reject;
-}
 const last = state.LastCode;
-if (last <= state.As) {
+if (last < 0) {
   return ShapeStates.Uncertain;
 }
-if (units[last] instanceof Common) {
+const tail = units[last];
+if (tail instanceof Common && (tail as Common).Is("from")) {
+  // 子句已经走到 from：只剩 `* as` 骨架说明它不是这个子句，别在收口处还活着。
+  return ShapeStates.Reject;
+}
+if (state.Star < 0) {
+  // 还没见到 `*`：只有逗号后面才可能轮到我（默认导入之后的第二段），`{` / 名字都判死。
+  if (tail instanceof Symbol && (tail as Symbol).Is(",")) {
+    return ShapeStates.Uncertain;
+  }
+  return ShapeStates.Reject;
+}
+if (state.As < 0 || last <= state.As) {
+  // `* as` 的骨架到了、名字还没到：不能定案（见 IsBuildable）。
+  return ShapeStates.Uncertain;
+}
+if (tail instanceof Common) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Reject;
@@ -97,7 +110,48 @@ const shape = NamespaceImportShape.FromTokens(host.Data.slice(star, tokenIndex +
 if (shape === null) {
   return host;
 }
+// Pos 是 `*` 前面那一格（默认导入后是逗号）的 End+1——`*` 之前那格只有宿主看得见。
+let previous = -1;
+for (let at = star - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    previous = at;
+    break;
+  }
+}
+if (previous >= 0) {
+  const previousEnd = host.Data[previous].SourceRange.End;
+  if (previousEnd !== null) {
+    shape.Pos = previousEnd.Index + 1;
+  }
+} else if (shape.SourceRange.Start !== null) {
+  shape.Pos = shape.SourceRange.Start.Index;
+}
 host.Data.splice(star, tokenIndex - star + 1, shape);
 shape.Parent = host;
 return shape;
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+
+```ts
+const state = cache.GetState<NamespaceImportScan>(this.constructor.name);
+if (state === null) {
+  return false;
+}
+const last = state.LastCode;
+if (last < 0) {
+  return false;
+}
+const tail = units[last];
+if (tail instanceof Common && (tail as Common).Is("from")) {
+  return false;
+}
+if (state.Star < 0) {
+  return false;
+}
+if (state.As < 0 || last <= state.As) {
+  // `*` / `* as` 都已到、名字还没到：现在建出来只会得到一个残缺的命名空间导入。
+  return false;
+}
+return true;
 ```
