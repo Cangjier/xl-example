@@ -48,6 +48,8 @@ import a from "m" with { type: "json" };
 
 ## field Attributes:ImportAttributesShape | null = null
 
+## field IsTypeOnly:bool = false
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -98,6 +100,9 @@ for (const item of this.Data) {
   }
 }
 this.Data = kept;
+if (this.ImportClause !== null) {
+  this.IsTypeOnly = this.ImportClause.IsTypeOnly;
+}
 for (const item of this.Data) {
   if (item.IsBasicToken) {
     throw new Error("ImportDeclarationShape.Close: Data 里还有 basic token");

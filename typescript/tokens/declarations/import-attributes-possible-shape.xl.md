@@ -77,6 +77,19 @@ if (at < 0 || !(host.Data[at] instanceof Common)) {
 }
 const keyword = host.Data[at] as Common;
 const shape = ImportAttributesShape.FromBracket(bracket, keyword.TempToString(), context);
+// ImportAttributes 的 Pos 在 `with` / `assert` 关键字之前那一格（模块字符串的右边界之后）。
+let before = at - 1;
+while (before >= 0 && host.Data[before].IsTriviaToken) {
+  before--;
+}
+if (before >= 0) {
+  const beforeEnd = host.Data[before].SourceRange.End;
+  if (beforeEnd !== null) {
+    shape.Pos = beforeEnd.Index + 1;
+  }
+} else if (bracket.SourceRange.Start !== null) {
+  shape.Pos = bracket.SourceRange.Start.Index;
+}
 host.Data.splice(at, index - at + 1, shape);
 shape.Parent = host;
 return shape;

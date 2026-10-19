@@ -21,7 +21,7 @@ export
 super(template);
 ```
 
-## static method FromBasicToken:(token:Common, context:SyntaxContext)=>Token
+## static method FromBasicToken:(token:Common, context:SyntaxContext)=>ExportKeywordShape
 
 ```ts
 const shape = new ExportKeywordShape(token.Template);

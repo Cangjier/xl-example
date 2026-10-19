@@ -1193,12 +1193,12 @@
               "text": "m"
             },
             {
-              "kind": "AssertClause",
+              "kind": "ImportAttributes",
               "pos": 17,
               "end": 39,
               "children": [
                 {
-                  "kind": "AssertEntry",
+                  "kind": "ImportAttribute",
                   "pos": 24,
                   "end": 37,
                   "children": [
@@ -1251,12 +1251,12 @@
               "text": "m"
             },
             {
-              "kind": "AssertClause",
+              "kind": "ImportAttributes",
               "pos": 17,
               "end": 41,
               "children": [
                 {
-                  "kind": "AssertEntry",
+                  "kind": "ImportAttribute",
                   "pos": 26,
                   "end": 39,
                   "children": [

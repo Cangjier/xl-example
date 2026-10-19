@@ -94,6 +94,8 @@ if (start > tokenIndex) {
 const consumed:Array<Token> = host.Data.slice(start, tokenIndex + 1);
 const built = new ImportDeclarationShape(host.Template);
 let at = 0;
+// 修饰词的 Pos = 前一个单元（上一修饰词 / 没有就自己）的右边界；`export declare` 里 declare 取 export 的 End+1。
+let modifierPos = -1;
 while (at < consumed.length) {
   const unit = consumed[at];
   if (unit.IsTriviaToken) {
@@ -102,12 +104,18 @@ while (at < consumed.length) {
     continue;
   }
   if (unit instanceof Common && (unit as Common).Is("export")) {
-    built.Add(ExportKeywordShape.FromBasicToken(unit as Common, context));
+    const shape = ExportKeywordShape.FromBasicToken(unit as Common, context);
+    shape.Pos = modifierPos >= 0 ? modifierPos : (unit.SourceRange.Start !== null ? unit.SourceRange.Start.Index : -1);
+    built.Add(shape);
+    modifierPos = unit.SourceRange.End !== null ? unit.SourceRange.End.Index + 1 : -1;
     at++;
     continue;
   }
   if (unit instanceof Common && (unit as Common).Is("declare")) {
-    built.Add(DeclareKeywordShape.FromBasicToken(unit as Common, context));
+    const shape = DeclareKeywordShape.FromBasicToken(unit as Common, context);
+    shape.Pos = modifierPos >= 0 ? modifierPos : (unit.SourceRange.Start !== null ? unit.SourceRange.Start.Index : -1);
+    built.Add(shape);
+    modifierPos = unit.SourceRange.End !== null ? unit.SourceRange.End.Index + 1 : -1;
     at++;
     continue;
   }

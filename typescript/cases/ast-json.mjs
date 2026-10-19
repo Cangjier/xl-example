@@ -34,8 +34,16 @@ function norm(node) {
   return out;
 }
 
+// TS 的 SyntaxKind 301/302 在本版里反查出来印的是别名 `AssertClause` / `AssertEntry`，
+// 但 `with` 与 `assert` 用的是同一个 kind（301/302），产物侧叫 ImportAttributes / ImportAttribute：
+// 先归一，否则每一行 attributes 都会凭空多出“结构差”。
+const TS_KIND_ALIASES = new Map([
+  ["AssertClause", "ImportAttributes"],
+  ["AssertEntry", "ImportAttribute"],
+]);
+
 function tsAst(node) {
-  const out = { kind: ts.SyntaxKind[node.kind], pos: node.pos, end: node.end };
+  const out = { kind: TS_KIND_ALIASES.get(ts.SyntaxKind[node.kind]) || ts.SyntaxKind[node.kind], pos: node.pos, end: node.end };
   if (ts.isIdentifier(node) || ts.isStringLiteral(node)) {
     out.text = node.text;
   }

@@ -29,7 +29,7 @@ with { type: "json" }
 super(template);
 ```
 
-## static method FromTokens:(units:Array<Token>, context:SyntaxContext)=>ImportAttributeShape | null
+## static method FromTokens:(units:Array<Token>, context:SyntaxContext, pos:int)=>ImportAttributeShape | null
 
 ```ts
 const code:Array<Token> = [];
@@ -42,19 +42,25 @@ if (code.length === 0) {
   return null;
 }
 const shape = new ImportAttributeShape(code[0].Template);
+// pos 由调用方给：它前面那个非 trivia 单元（`{` 或 `,`）的 End+1，组内看不到那一格。
+shape.Pos = pos;
 if (code[0] instanceof Common) {
   const key = IdentifierShape.FromBasicToken(code[0] as Common, context);
+  key.Pos = pos;
   shape.Key = key;
   shape.Data.push(key);
   key.Parent = shape;
 } else if (code[0] instanceof String) {
   const key = StringLiteralShape.FromBasicToken(code[0] as String, context);
+  key.Pos = pos;
   shape.Key = key;
   shape.Data.push(key);
   key.Parent = shape;
 }
 if (code.length >= 3 && code[1] instanceof Symbol && code[2] instanceof String) {
   const value = StringLiteralShape.FromBasicToken(code[2] as String, context);
+  const colonEnd = code[1].SourceRange.End;
+  value.Pos = colonEnd !== null ? colonEnd.Index + 1 : -1;
   shape.Value = value;
   shape.Data.push(value);
   value.Parent = shape;

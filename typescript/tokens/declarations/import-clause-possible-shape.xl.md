@@ -108,6 +108,8 @@ let cursor = first + 1;
 while (cursor < host.Data.length && host.Data[cursor].IsTriviaToken) {
   cursor++;
 }
+// 子句自己的第一个单元（`type`，或名字 / 括号）；clause.Pos 要取它**前面**那一格。
+const clauseStart = cursor;
 let typeOnly = false;
 if (cursor < host.Data.length && host.Data[cursor] instanceof Common && (host.Data[cursor] as Common).Is("type")) {
   typeOnly = true;
@@ -119,6 +121,13 @@ if (cursor < host.Data.length && host.Data[cursor] instanceof Common && (host.Da
 if (cursor >= host.Data.length) {
   return host;
 }
+let clausePrevious = -1;
+for (let at = clauseStart - 1; at >= itemStart; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    clausePrevious = at;
+    break;
+  }
+}
 let previousCode = -1;
 for (let at = cursor - 1; at >= itemStart; at--) {
   if (!host.Data[at].IsTriviaToken) {
@@ -128,10 +137,10 @@ for (let at = cursor - 1; at >= itemStart; at--) {
 }
 const clause = new ImportClauseShape(host.Template);
 const firstUnit = host.Data[cursor];
-if (previousCode >= 0) {
-  const prevUnit = host.Data[previousCode];
-  if (prevUnit.SourceRange.End !== null) {
-    clause.Pos = prevUnit.SourceRange.End.Index + 1;
+if (clausePrevious >= 0) {
+  const clausePrevEnd = host.Data[clausePrevious].SourceRange.End;
+  if (clausePrevEnd !== null) {
+    clause.Pos = clausePrevEnd.Index + 1;
   }
 } else if (firstUnit.SourceRange.Start !== null) {
   clause.Pos = firstUnit.SourceRange.Start.Index;
@@ -174,7 +183,13 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
   clause.Data.push(named);
 } else if (firstUnit instanceof Common) {
   const identifier = IdentifierShape.FromBasicToken(firstUnit as Common, context);
-  identifier.Pos = clause.Pos;
+  // 名字的 Pos 取它前面那一格（type-only 时是 `type`，否则是 `import`），与 clause.Pos 不一定相同。
+  if (previousCode >= 0) {
+    const previousEnd = host.Data[previousCode].SourceRange.End;
+    identifier.Pos = previousEnd !== null ? previousEnd.Index + 1 : clause.Pos;
+  } else {
+    identifier.Pos = clause.Pos;
+  }
   clause.Name = identifier;
   identifier.Parent = clause;
   clause.Data.push(identifier);

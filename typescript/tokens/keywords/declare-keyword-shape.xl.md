@@ -21,7 +21,7 @@ declare
 super(template);
 ```
 
-## static method FromBasicToken:(token:Common, context:SyntaxContext)=>Token
+## static method FromBasicToken:(token:Common, context:SyntaxContext)=>DeclareKeywordShape
 
 ```ts
 const shape = new DeclareKeywordShape(token.Template);

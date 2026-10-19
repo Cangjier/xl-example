@@ -898,10 +898,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 27,
+          "isTypeOnly": true,
           "children": [
             {
               "kind": "ImportClause",
-              "pos": 11,
+              "pos": 6,
               "end": 17,
               "isTypeOnly": true,
               "children": [
@@ -945,10 +946,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 23,
+          "isTypeOnly": true,
           "children": [
             {
               "kind": "ImportClause",
-              "pos": 11,
+              "pos": 6,
               "end": 13,
               "name": "a",
               "isTypeOnly": true,
@@ -978,10 +980,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 29,
+          "isTypeOnly": true,
           "children": [
             {
               "kind": "ImportClause",
-              "pos": 11,
+              "pos": 6,
               "end": 19,
               "isTypeOnly": true
             },
@@ -1002,10 +1005,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 27,
+          "isTypeOnly": true,
           "children": [
             {
               "kind": "ImportClause",
-              "pos": 12,
+              "pos": 6,
               "end": 15,
               "name": "a",
               "isTypeOnly": true,
@@ -1035,10 +1039,11 @@
           "kind": "ImportDeclaration",
           "pos": 0,
           "end": 27,
+          "isTypeOnly": true,
           "children": [
             {
               "kind": "ImportClause",
-              "pos": 11,
+              "pos": 6,
               "end": 17,
               "isTypeOnly": true,
               "children": [
@@ -1105,23 +1110,23 @@
             },
             {
               "kind": "ImportAttributes",
-              "pos": 23,
+              "pos": 17,
               "end": 39,
               "children": [
                 {
                   "kind": "ImportAttribute",
-                  "pos": 25,
+                  "pos": 24,
                   "end": 37,
                   "children": [
                     {
                       "kind": "Identifier",
-                      "pos": 25,
+                      "pos": 24,
                       "end": 29,
                       "text": "type"
                     },
                     {
                       "kind": "StringLiteral",
-                      "pos": 31,
+                      "pos": 30,
                       "end": 37,
                       "text": "json"
                     }
@@ -1163,23 +1168,23 @@
             },
             {
               "kind": "ImportAttributes",
-              "pos": 25,
+              "pos": 17,
               "end": 41,
               "children": [
                 {
                   "kind": "ImportAttribute",
-                  "pos": 27,
+                  "pos": 26,
                   "end": 39,
                   "children": [
                     {
                       "kind": "Identifier",
-                      "pos": 27,
+                      "pos": 26,
                       "end": 31,
                       "text": "type"
                     },
                     {
                       "kind": "StringLiteral",
-                      "pos": 33,
+                      "pos": 32,
                       "end": 39,
                       "text": "json"
                     }
@@ -1280,7 +1285,7 @@
             },
             {
               "kind": "DeclareKeyword",
-              "pos": 7,
+              "pos": 6,
               "end": 14
             },
             {

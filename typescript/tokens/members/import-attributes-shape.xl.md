@@ -34,18 +34,21 @@ const shape = new ImportAttributesShape(bracket.Template);
 shape.Token = token;
 const elements:Array<ImportAttributeShape> = [];
 let group:Array<Token> = [];
+// 每个 attribute 的 Pos 是它前面那个非 trivia 单元（`{` 或 `,`）的 End+1。
+let pos = bracket.SourceRange.Start === null ? -1 : bracket.SourceRange.Start.Index + 1;
 for (const item of bracket.Data) {
   if (item instanceof Symbol && (item as Symbol).Is(",")) {
-    const attribute = ImportAttributeShape.FromTokens(group, context);
+    const attribute = ImportAttributeShape.FromTokens(group, context, pos);
     if (attribute !== null) {
       elements.push(attribute);
     }
     group = [];
+    pos = item.SourceRange.End === null ? -1 : item.SourceRange.End.Index + 1;
     continue;
   }
   group.push(item);
 }
-const tail = ImportAttributeShape.FromTokens(group, context);
+const tail = ImportAttributeShape.FromTokens(group, context, pos);
 if (tail !== null) {
   elements.push(tail);
 }
