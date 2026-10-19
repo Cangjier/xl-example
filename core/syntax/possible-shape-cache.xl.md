@@ -14,7 +14,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 # type PossibleStateComputer = (units:Array<Token>, tokenIndex:number, context:SyntaxContext, state:any)=>void
 
-「建状态」的委托：拿到缓存里那个状态对象，把扫描起点等初始字段写上去。返回值没有意义，写没写上看 `stateKey` 在不在。
+「建状态」的委托：拿到缓存里那个状态对象，把扫描起点等初始字段写上去。返回值没有意义，写没写上看 `stateField` 在不在。
 
 参数里的 `number` 不能写成 `int`：类型别名里的类型是**原文照抄**进产物的，`int` 只方法形参那一层才换成 `number`。
 
@@ -43,15 +43,15 @@ if (this.Values.has(possibleShapeName)) {
 return null;
 ```
 
-## method GetOrComputeState:<Item>(possibleShapeName:string, stateKey:string, units:Array<Token>, tokenIndex:int, context:SyntaxContext, compute:PossibleStateComputer)=>Item | null
+## method GetOrComputeState:<Item>(possibleShapeName:string, stateField:string, units:Array<Token>, tokenIndex:int, context:SyntaxContext, compute:PossibleStateComputer)=>Item | null
 
 取这个形状的状态；**这份状态还没有时**建一个空对象，再让 `compute` 把初始字段写上去。
 
-`stateKey` 是**状态对象上的一个键**，用来标记「这份状态建好了」——一般取 `compute` 会写的那第一个字段（例如 `Start`）。判定顺序：
+`stateField` 是**状态对象上的一个键**，用来标记「这份状态建好了」——一般取 `compute` 会写的那第一个字段（例如 `Start`）。判定顺序：
 
 - 缓存里这个槽还是空的 → 建 `{}` 放进去；
-- `stateKey` 不在状态对象上 → 调 `compute(units, tokenIndex, context, state)`；
-- 调完再查一次，`stateKey` 还不在 → **抛错**：`compute` 漏写状态，静默放过去只会每轮都重算；
+- `stateField` 不在状态对象上 → 调 `compute(units, tokenIndex, context, state)`；
+- 调完再查一次，`stateField` 还不在 → **抛错**：`compute` 漏写状态，静默放过去只会每轮都重算；
 - 返回这份状态（整体交给调用方的 `Item`），调用方再在它上面做增量扫描。
 
 `compute` **只在建状态那一轮跑**：状态建好之后每次判定直接返回同一份对象，扫描游标由形状自己在外面往后推——这样就不会每轮都从头遍历。
@@ -64,10 +64,10 @@ if (state === undefined || state === null) {
   state = {};
   this.Values.set(possibleShapeName, state);
 }
-if (!(stateKey in state)) {
+if (!(stateField in state)) {
   compute(units, tokenIndex, context, state);
-  if (!(stateKey in state)) {
-    throw new Error(`PossibleShapeCache: ${possibleShapeName} 的 compute 没有写入 stateKey "${stateKey}"`);
+  if (!(stateField in state)) {
+    throw new Error(`PossibleShapeCache: ${possibleShapeName} 的 compute 没有写入 stateField "${stateField}"`);
   }
 }
 return state as Item;
