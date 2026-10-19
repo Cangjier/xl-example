@@ -7,6 +7,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { StringLiteralShape } from "./string-literal-shape.xl.md"
@@ -71,6 +72,15 @@ if (last < 0) {
 if (!(units[last] instanceof String)) {
   // `from` 只是分隔符，模块字符串还在后面：候选继续活着，等 String 单元到了再判。
   if (units[last] instanceof Common && (units[last] as Common).Is("from")) {
+    return ShapeStates.Uncertain;
+  }
+  // `export *` 的 `*` 后面既可能接 `as ns`、也可能直接接 `from "m"`：先别判死。
+  if (units[last] instanceof Symbol && (units[last] as Symbol).Is("*")) {
+    return ShapeStates.Uncertain;
+  }
+  // 已经攒出形状（例如具名导出子句）时，字符串仍可能接在 ``from`` 后面；一次 trivia 收尾
+  // 不该把候选判死——判死之后本目录要到下一次 Reset 才会把它放回来，字符串就再也建不出来。
+  if (!units[last].IsBasicToken) {
     return ShapeStates.Uncertain;
   }
   return ShapeStates.Reject;

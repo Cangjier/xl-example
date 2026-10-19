@@ -98,8 +98,8 @@ super.Process(context, source);
 if (SourceFileShape.CreatePossibleShapesCache === null) {
   SourceFileShape.CreatePossibleShapesCache = [
     new ImportDeclarationPossibleShape(),
+    new ExportDeclarationPossibleShape(),
     // new ImportEqualsDeclarationPossibleShape(),
-    // new ExportDeclarationPossibleShape(),
     // new ExportAssignmentPossibleShape(),
     // new NamespaceExportDeclarationPossibleShape(),
     // new ClassDeclarationPossibleShape(),

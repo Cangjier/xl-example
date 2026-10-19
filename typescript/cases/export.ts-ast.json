@@ -1,0 +1,2752 @@
+{
+  "cases": [
+    {
+      "src": "export { a };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a, b };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 11,
+                  "end": 13,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a as b };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 15,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a, b as c };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 11,
+                  "end": 18,
+                  "name": "c",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export {};",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 9
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ export { a };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 14,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 16,
+                  "end": 18,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export /* c */ { a };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 16,
+                  "end": 18,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { /* c */ a };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 18,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 18,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export    {   a   };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 11,
+                  "end": 15,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 15,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export\n{ a };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export // c\n{ a };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 15,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a }; // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a as b } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 15,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export {} from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 9
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a, b, c } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 11,
+                  "end": 13,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 14,
+                  "end": 16,
+                  "name": "c",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 23,
+              "end": 27,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a, b, c, d, e } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 11,
+                  "end": 13,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 14,
+                  "end": 16,
+                  "name": "c",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "c"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 17,
+                  "end": 19,
+                  "name": "d",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "d"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 20,
+                  "end": 22,
+                  "name": "e",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 22,
+                      "text": "e"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 29,
+              "end": 33,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a as b, c, d as e } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 15,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 16,
+                  "end": 18,
+                  "name": "c",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "c"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 19,
+                  "end": 26,
+                  "name": "e",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "d"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "e"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 33,
+              "end": 37,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a, b, } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 11,
+                  "end": 13,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 21,
+              "end": 25,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export {\n  a,\n  b,\n} from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 12,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 12,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 17,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 17,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ export { a } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 14,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 16,
+                  "end": 18,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export /* c */ { a } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 16,
+                  "end": 18,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } /* c */ from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a }\nfrom \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export    {   a   }    from    \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 11,
+                  "end": 15,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 15,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 27,
+              "end": 34,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\"; // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export {\n  a, // c\n  b,\n} from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 12,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 12,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 22,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 22,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 30,
+              "end": 34,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * as ns from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "NamespaceExport",
+              "pos": 6,
+              "end": 14,
+              "name": "ns",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 14,
+                  "text": "ns"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 19,
+              "end": 23,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export  *  from  \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 15,
+              "end": 20,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * /* c */ from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 21,
+              "end": 25,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * as /* c */ ns from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "NamespaceExport",
+              "pos": 6,
+              "end": 22,
+              "name": "ns",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 22,
+                  "text": "ns"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 27,
+              "end": 31,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export *\nfrom \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * as ns\nfrom \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "NamespaceExport",
+              "pos": 6,
+              "end": 14,
+              "name": "ns",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 14,
+                  "text": "ns"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 19,
+              "end": 23,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * from \"m\"; // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type { T };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 11,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 15,
+                  "name": "T",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type { T } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 11,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 15,
+                  "name": "T",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type { T as U } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 32,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 11,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 20,
+                  "name": "U",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 27,
+              "end": 31,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type { T, U } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 11,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 15,
+                  "name": "T",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 16,
+                  "end": 18,
+                  "name": "U",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type { T, U as V } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 35,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 11,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 15,
+                  "name": "T",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 16,
+                  "end": 23,
+                  "name": "V",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "U"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "V"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 30,
+              "end": 34,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type {\n  T,\n  U,\n} from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 35,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 11,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 17,
+                  "name": "T",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 17,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 18,
+                  "end": 22,
+                  "name": "U",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 22,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 30,
+              "end": 34,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type * from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 23,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 18,
+              "end": 22,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type * as ns from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 29,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamespaceExport",
+              "pos": 11,
+              "end": 19,
+              "name": "ns",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 19,
+                  "text": "ns"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 24,
+              "end": 28,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export  type  {  T  }  from  \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 33,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 12,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 15,
+                  "end": 18,
+                  "name": "T",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 18,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 27,
+              "end": 32,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export /* c */ type { T } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 35,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 19,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 21,
+                  "end": 23,
+                  "name": "T",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 30,
+              "end": 34,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type\n{ T } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 11,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 15,
+                  "name": "T",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\" with { type: \"json\" };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 21,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 28,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 33,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 34,
+                      "end": 41,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * from \"m\" with { type: \"json\" };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 17,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 24,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 29,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 30,
+                      "end": 37,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\" assert { type: \"json\" };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 21,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 30,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 35,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 36,
+                      "end": 43,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\" with { type: \"json\", other: \"x\" };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 21,
+              "end": 55,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 28,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 33,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 34,
+                      "end": 41,
+                      "text": "json"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 42,
+                  "end": 53,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 42,
+                      "end": 48,
+                      "text": "other"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 49,
+                      "end": 53,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\" assert { type: \"json\", other: \"x\" };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 58,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 21,
+              "end": 57,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 30,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 35,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 36,
+                      "end": 43,
+                      "text": "json"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 44,
+                  "end": 55,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 44,
+                      "end": 50,
+                      "text": "other"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 51,
+                      "end": 55,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a }\nfrom \"m\" with { type: \"json\" };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 21,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 28,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 33,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 34,
+                      "end": 41,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\" with { type: \"json\" }; // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 21,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 28,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 33,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 34,
+                      "end": 41,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { default as x } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 21,
+                  "name": "x",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 16,
+                      "text": "default"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 28,
+              "end": 32,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { default, a } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 16,
+                  "name": "default",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 16,
+                      "text": "default"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 17,
+                  "end": 19,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 26,
+              "end": 30,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a as default };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 21,
+                  "name": "default",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 21,
+                      "text": "default"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a }; export { b };",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 13,
+          "end": 27,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 20,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 22,
+                  "end": 24,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\"; export { b } from \"n\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 22,
+          "end": 45,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 29,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 31,
+                  "end": 33,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 40,
+              "end": 44,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\"; export * from \"n\"; // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 22,
+          "end": 41,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 36,
+              "end": 40,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type { T } from \"m\"; export { a } from \"n\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 11,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 15,
+                  "name": "T",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 27,
+          "end": 50,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 34,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 36,
+                  "end": 38,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 45,
+              "end": 49,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

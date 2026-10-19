@@ -1,0 +1,110 @@
+// export 声明场景：每条以 base 起，再叠加对抗信息（空白 / 注释 / 换行 / 修饰词 / 重复形）。
+// 一行一个用例；行内的 \n 由 ast-json.mjs 还原成真实换行（这样多行语句也能逐行对齐）。
+
+// ===== base 1：具名导出（不带模块路径） =====
+export { a };
+export { a, b };
+export { a as b };
+export { a, b as c };
+export {};
+// + 前导空格
+  export { a };
+// + 前导块注释
+/* c */ export { a };
+// + 词间块注释
+export /* c */ { a };
+// + 花括号内注释
+export { /* c */ a };
+// + 词间多空格
+export    {   a   };
+// + export 与子句之间有换行
+export\n{ a };
+// + 行注释夹在中间
+export // c\n{ a };
+// + 行尾注释
+export { a }; // c
+
+// ===== base 2：具名导出 + from =====
+export { a } from "m";
+export { a as b } from "m";
+export {} from "m";
+export { a, b, c } from "m";
+export { a, b, c, d, e } from "m";
+export { a as b, c, d as e } from "m";
+export { a, b, } from "m";
+export {\n  a,\n  b,\n} from "m";
+// + 前导空格
+  export { a } from "m";
+// + 前导块注释
+/* c */ export { a } from "m";
+// + 词间块注释
+export /* c */ { a } from "m";
+// + 子句与 from 之间块注释
+export { a } /* c */ from "m";
+// + 子句与 from 之间有换行
+export { a }\nfrom "m";
+// + 词间多空格
+export    {   a   }    from    "m";
+// + 行尾注释
+export { a } from "m"; // c
+// + 重复形 × 行注释
+export {\n  a, // c\n  b,\n} from "m";
+
+// ===== base 3：星号导出 =====
+export * from "m";
+export * as ns from "m";
+export  *  from  "m";
+// + 词间块注释
+export * /* c */ from "m";
+// + as 与名字之间块注释
+export * as /* c */ ns from "m";
+// + 星号与 from 之间有换行
+export *\nfrom "m";
+// + 命名空间名与 from 之间有换行
+export * as ns\nfrom "m";
+// + 行尾注释
+export * from "m"; // c
+
+// ===== base 4：type-only =====
+export type { T };
+export type { T } from "m";
+export type { T as U } from "m";
+export type { T, U } from "m";
+export type { T, U as V } from "m";
+export type {\n  T,\n  U,\n} from "m";
+export type * from "m";
+export type * as ns from "m";
+// + 词间多空格
+export  type  {  T  }  from  "m";
+// + 词间块注释
+export /* c */ type { T } from "m";
+// + type 与括号之间有换行
+export type\n{ T } from "m";
+
+// ===== base 5：属性段（with / assert） =====
+export { a } from "m" with { type: "json" };
+export * from "m" with { type: "json" };
+export { a } from "m" assert { type: "json" };
+export { a } from "m" with { type: "json", other: "x" };
+export { a } from "m" assert { type: "json", other: "x" };
+export { a }\nfrom "m" with { type: "json" };
+// + 行尾注释
+export { a } from "m" with { type: "json" }; // c
+
+// ===== base 6：关键字当导出名 =====
+export { default as x } from "m";
+export { default, a } from "m";
+export { a as default };
+
+// ===== base 7：重复语句（同一文件多条 export） =====
+export { a }; export { b };
+export { a } from "m"; export { b } from "n";
+export { a } from "m"; export * from "n"; // c
+export type { T } from "m"; export { a } from "n";
+
+// ===== 暂缓（不在这张用例集里） =====
+// export default a;          —— ExportAssignment，依赖表达式层
+// export = a;                —— ExportAssignment，依赖表达式层
+// export as namespace NS;    —— NamespaceExportDeclaration，单独一条形态
+// export { "a-b" as c };     —— 引号名，TS 4.5 起的任意模块名
+

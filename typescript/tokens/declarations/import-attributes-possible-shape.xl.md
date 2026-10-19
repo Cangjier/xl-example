@@ -70,6 +70,10 @@ if (!(tail instanceof Bracket) || (tail as Bracket).StartBracketChar !== "{") {
   if (tail instanceof Common && ((tail as Common).Is("with") || (tail as Common).Is("assert"))) {
     return ShapeStates.Uncertain;
   }
+  // 已经攒出形状时（例如模块字符串），属性段仍可能接在后面；trivia 的一次收尾不该把候选判死。
+  if (!tail.IsBasicToken) {
+    return ShapeStates.Uncertain;
+  }
   return ShapeStates.Reject;
 }
 const previous = state.PreviousCode;
