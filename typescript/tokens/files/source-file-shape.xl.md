@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
@@ -79,11 +78,6 @@ for (const item of this.Data) {
 return CloseStates.Nothing;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
-
-```ts
-return BranchStates.Undo;
-```
 
 ## method Process:(context:SyntaxContext, source:Source)=>void
 

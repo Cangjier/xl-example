@@ -21,12 +21,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 13,
-              "end": 17,
-              "text": "m"
             }
           ]
         }
@@ -53,12 +47,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 13,
-              "end": 17,
-              "text": "m"
             }
           ]
         }
@@ -85,12 +73,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 21,
-              "end": 25,
-              "text": "m"
             }
           ]
         }
@@ -117,12 +99,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 21,
-              "end": 25,
-              "text": "m"
             }
           ]
         }
@@ -149,12 +125,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 19,
-              "end": 26,
-              "text": "m"
             }
           ]
         }
@@ -181,12 +151,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 13,
-              "end": 17,
-              "text": "m"
             }
           ]
         }
@@ -213,12 +177,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 13,
-              "end": 17,
-              "text": "m"
             }
           ]
         }
@@ -245,12 +203,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 18,
-              "end": 22,
-              "text": "m"
             }
           ]
         }
@@ -277,12 +229,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 13,
-              "end": 17,
-              "text": "m"
             }
           ]
         },
@@ -333,12 +279,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 17,
-              "end": 21,
-              "text": "m"
             }
           ]
         }
@@ -393,12 +333,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 20,
-              "end": 24,
-              "text": "m"
             }
           ]
         }
@@ -445,12 +379,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 22,
-              "end": 26,
-              "text": "m"
             }
           ]
         }
@@ -511,12 +439,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 25,
-              "end": 29,
-              "text": "m"
             }
           ]
         }
@@ -541,12 +463,6 @@
                   "end": 9
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 14,
-              "end": 18,
-              "text": "m"
             }
           ]
         }
@@ -587,12 +503,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 17,
-              "end": 21,
-              "text": "m"
             }
           ]
         }
@@ -633,12 +543,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 25,
-              "end": 29,
-              "text": "m"
             }
           ]
         }
@@ -693,12 +597,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 25,
-              "end": 29,
-              "text": "m"
             }
           ]
         }
@@ -716,12 +614,6 @@
               "kind": "ImportClause",
               "pos": 6,
               "end": 14
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 19,
-              "end": 23,
-              "text": "m"
             }
           ]
         }
@@ -739,12 +631,6 @@
               "kind": "ImportClause",
               "pos": 6,
               "end": 14
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 19,
-              "end": 23,
-              "text": "m"
             }
           ]
         }
@@ -762,12 +648,6 @@
               "kind": "ImportClause",
               "pos": 6,
               "end": 17
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 23,
-              "end": 28,
-              "text": "m"
             }
           ]
         }
@@ -794,12 +674,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 20,
-              "end": 24,
-              "text": "m"
             }
           ]
         }
@@ -826,12 +700,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 22,
-              "end": 26,
-              "text": "m"
             }
           ]
         }
@@ -927,12 +795,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 22,
-              "end": 26,
-              "text": "m"
             }
           ]
         }
@@ -960,12 +822,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 18,
-              "end": 22,
-              "text": "m"
             }
           ]
         }
@@ -984,12 +840,6 @@
               "pos": 11,
               "end": 19,
               "isTypeOnly": true
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 24,
-              "end": 28,
-              "text": "m"
             }
           ]
         }
@@ -1017,12 +867,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 21,
-              "end": 26,
-              "text": "m"
             }
           ]
         }
@@ -1064,12 +908,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 22,
-              "end": 26,
-              "text": "m"
             }
           ]
         }
@@ -1096,38 +934,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 13,
-              "end": 17,
-              "text": "m"
-            },
-            {
-              "kind": "ImportAttributes",
-              "pos": 23,
-              "end": 39,
-              "children": [
-                {
-                  "kind": "ImportAttribute",
-                  "pos": 25,
-                  "end": 37,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 25,
-                      "end": 29,
-                      "text": "type"
-                    },
-                    {
-                      "kind": "StringLiteral",
-                      "pos": 31,
-                      "end": 37,
-                      "text": "json"
-                    }
-                  ]
-                }
-              ]
             }
           ]
         }
@@ -1152,38 +958,6 @@
                   "pos": 6,
                   "end": 8,
                   "text": "a"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 13,
-              "end": 17,
-              "text": "m"
-            },
-            {
-              "kind": "ImportAttributes",
-              "pos": 25,
-              "end": 41,
-              "children": [
-                {
-                  "kind": "ImportAttribute",
-                  "pos": 27,
-                  "end": 39,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 27,
-                      "end": 31,
-                      "text": "type"
-                    },
-                    {
-                      "kind": "StringLiteral",
-                      "pos": 33,
-                      "end": 39,
-                      "text": "json"
-                    }
-                  ]
                 }
               ]
             }
@@ -1217,12 +991,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 20,
-              "end": 24,
-              "text": "m"
             }
           ]
         }
@@ -1254,12 +1022,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 21,
-              "end": 25,
-              "text": "m"
             }
           ]
         }
@@ -1296,12 +1058,6 @@
                   "text": "a"
                 }
               ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 28,
-              "end": 32,
-              "text": "m"
             }
           ]
         }

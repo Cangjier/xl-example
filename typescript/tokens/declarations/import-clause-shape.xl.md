@@ -1,8 +1,6 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { Source } from "../../../core/syntax/source.xl.md"
-import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -63,9 +61,4 @@ for (const item of this.Data) {
   }
 }
 return CloseStates.Nothing;
-```
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
-
-```ts
-return BranchStates.Undo;
 ```

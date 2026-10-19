@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { BranchStates } from "./branch-states.xl.md"
 import { CloseStates } from "./close-states.xl.md"
 import { Source } from "./source.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
@@ -69,5 +70,11 @@ return super.TryToClose(context);
 ```ts
 this.Closed = true;
 return CloseStates.Nothing;
+```
+
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+
+```ts
+return BranchStates.Undo;
 ```
 
