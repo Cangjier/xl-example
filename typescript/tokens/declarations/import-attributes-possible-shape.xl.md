@@ -37,6 +37,10 @@ if (last < 0) {
 }
 const tail = units[last];
 if (!(tail instanceof Bracket) || (tail as Bracket).StartBracketChar !== "{") {
+  // `with` / `assert` 只是属性段的分隔关键字，`{` 还在后面：候选继续活着。
+  if (tail instanceof Common && ((tail as Common).Is("with") || (tail as Common).Is("assert"))) {
+    return ShapeStates.Uncertain;
+  }
   return ShapeStates.Reject;
 }
 const previous = ItemUtil.PreviousCode(units, last - 1);

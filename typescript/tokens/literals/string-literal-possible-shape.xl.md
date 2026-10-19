@@ -59,6 +59,10 @@ if (last < 0) {
   return ShapeStates.Uncertain;
 }
 if (!(units[last] instanceof String)) {
+  // `from` 只是分隔符，模块字符串还在后面：候选继续活着，等 String 单元到了再判。
+  if (units[last] instanceof Common && (units[last] as Common).Is("from")) {
+    return ShapeStates.Uncertain;
+  }
   return ShapeStates.Reject;
 }
 const previous = ItemUtil.PreviousCode(units, last - 1);
