@@ -86,4 +86,6 @@
    - 缺少possible
    - 缺少end
    - possible compute不对
-   - end 不对
+   - possible build不对
+   - end compute不对
+   - end build不对
