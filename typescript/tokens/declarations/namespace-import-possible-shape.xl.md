@@ -8,11 +8,22 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { ItemUtil } from "../item-util.xl.md"
 import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
 ```
 
 # namespace cangjie
+
+# class NamespaceImportScan
+
+## field Checked:int = 0
+
+## field HasShape:bool = false
+
+## field Star:int = -1
+
+## field As:int = -1
+
+## field LastCode:int = -1
 
 # class NamespaceImportPossibleShape extends PossibleShape
 
@@ -20,32 +31,52 @@ import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
 import * as ns from "m";
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-for (const unit of units) {
-  if (unit instanceof NamespaceImportShape) {
-    return ShapeStates.Reject;
-  }
+const name = this.constructor.name;
+const state = cache.GetOrComputeState<NamespaceImportScan>(name, "Checked", units, tokenIndex, context, (units, tokenIndex, context, state) => {
+  state.Checked = 0;
+  state.HasShape = false;
+  state.Star = -1;
+  state.As = -1;
+  state.LastCode = -1;
+});
+if (state === null) {
+  return ShapeStates.Uncertain;
 }
-let star = -1;
-let as = -1;
-for (let at = 0; at < units.length; at++) {
+if (state.Checked > tokenIndex + 1) {
+  state.Checked = 0;
+  state.HasShape = false;
+  state.Star = -1;
+  state.As = -1;
+  state.LastCode = -1;
+}
+for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
-  if (unit instanceof Symbol && (unit as Symbol).Is("*")) {
-    star = at;
-  } else if (star >= 0 && as < 0 && unit instanceof Common && (unit as Common).Is("as")) {
-    as = at;
+  if (!unit.IsTriviaToken) {
+    state.LastCode = at;
+  }
+  if (unit instanceof NamespaceImportShape) {
+    state.HasShape = true;
+  } else if (unit instanceof Symbol && (unit as Symbol).Is("*")) {
+    state.Star = at;
+  } else if (state.Star >= 0 && state.As < 0 && unit instanceof Common && (unit as Common).Is("as")) {
+    state.As = at;
   }
 }
-if (star < 0 || as < 0) {
+state.Checked = tokenIndex + 1;
+if (state.HasShape) {
   return ShapeStates.Reject;
 }
-const last = ItemUtil.LastCodeInItem(units);
-if (last <= as) {
+if (state.Star < 0 || state.As < 0) {
+  return ShapeStates.Reject;
+}
+const last = state.LastCode;
+if (last <= state.As) {
   return ShapeStates.Uncertain;
 }
 if (units[last] instanceof Common) {

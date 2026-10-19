@@ -26,30 +26,43 @@ import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
 
 ## field HasClause:bool = false
 
+## field Head:int = -1
+
+## field LastCode:int = -1
+
 # class ImportClausePossibleShape extends PossibleShape
 
 ```txt
 import a from "m";
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const name = this.constructor.name;
-let state = cache.GetState<ImportClauseScan>(name);
-if (state === null) {
-  state = new ImportClauseScan();
+const state = cache.GetOrComputeState<ImportClauseScan>(name, "Start", units, tokenIndex, context, (units, tokenIndex, context, state) => {
   state.Start = ItemUtil.ItemStart(units);
-  cache.SetState(name, state);
+  state.Checked = 0;
+  state.HasClause = false;
+  state.Head = -1;
+  state.LastCode = -1;
+});
+if (state === null) {
+  return ShapeStates.Uncertain;
 }
 if (state.Checked > tokenIndex + 1) {
   state.Checked = 0;
   state.HasClause = false;
+  state.Head = -1;
+  state.LastCode = -1;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
+  if (!units[at].IsTriviaToken) {
+    state.LastCode = at;
+  }
   if (units[at] instanceof ImportClauseShape) {
     state.HasClause = true;
   }
@@ -58,18 +71,21 @@ state.Checked = tokenIndex + 1;
 if (state.HasClause) {
   return ShapeStates.Reject;
 }
-let start = ItemUtil.NextCode(units, state.Start);
-while (start < units.length && units[start] instanceof Common && ((units[start] as Common).Is("export") || (units[start] as Common).Is("declare"))) {
-  start = ItemUtil.NextCode(units, start + 1);
+if (state.Head < 0) {
+  let start = ItemUtil.NextCode(units, state.Start);
+  while (start < units.length && units[start] instanceof Common && ((units[start] as Common).Is("export") || (units[start] as Common).Is("declare"))) {
+    start = ItemUtil.NextCode(units, start + 1);
+  }
+  if (start >= units.length) {
+    return ShapeStates.Uncertain;
+  }
+  const candidate = units[start];
+  if (!(candidate instanceof Common) || !(candidate as Common).Is("import")) {
+    return ShapeStates.Reject;
+  }
+  state.Head = start;
 }
-if (start >= units.length) {
-  return ShapeStates.Uncertain;
-}
-const head = units[start];
-if (!(head instanceof Common) || !(head as Common).Is("import")) {
-  return ShapeStates.Reject;
-}
-const last = ItemUtil.LastCodeInItem(units);
+const last = state.LastCode;
 if (last < 0) {
   return ShapeStates.Uncertain;
 }

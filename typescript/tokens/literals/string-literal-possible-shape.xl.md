@@ -22,30 +22,44 @@ import { StringLiteralShape } from "./string-literal-shape.xl.md"
 
 ## field HasLiteral:bool = false
 
+## field LastCode:int = -1
+
+## field PreviousCode:int = -1
+
 # class StringLiteralPossibleShape extends PossibleShape
 
 ```txt
 "s"
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const name = this.constructor.name;
-let state = cache.GetState<StringLiteralScan>(name);
-if (state === null) {
-  state = new StringLiteralScan();
+const state = cache.GetOrComputeState<StringLiteralScan>(name, "Start", units, tokenIndex, context, (units, tokenIndex, context, state) => {
   state.Start = ItemUtil.ItemStart(units);
-  cache.SetState(name, state);
+  state.Checked = 0;
+  state.HasLiteral = false;
+  state.LastCode = -1;
+  state.PreviousCode = -1;
+});
+if (state === null) {
+  return ShapeStates.Uncertain;
 }
 if (state.Checked > tokenIndex + 1) {
   state.Checked = 0;
   state.HasLiteral = false;
+  state.LastCode = -1;
+  state.PreviousCode = -1;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
+  if (!units[at].IsTriviaToken) {
+    state.PreviousCode = state.LastCode;
+    state.LastCode = at;
+  }
   if (units[at] instanceof StringLiteralShape) {
     state.HasLiteral = true;
   }
@@ -54,7 +68,7 @@ state.Checked = tokenIndex + 1;
 if (state.HasLiteral) {
   return ShapeStates.Reject;
 }
-const last = ItemUtil.LastCodeInItem(units);
+const last = state.LastCode;
 if (last < 0) {
   return ShapeStates.Uncertain;
 }
@@ -65,7 +79,7 @@ if (!(units[last] instanceof String)) {
   }
   return ShapeStates.Reject;
 }
-const previous = ItemUtil.PreviousCode(units, last - 1);
+const previous = state.PreviousCode;
 if (previous < 0) {
   return ShapeStates.Reject;
 }

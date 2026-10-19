@@ -21,21 +21,25 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `ComputeByIndex` 与 `BuildByIndex` 是抽象方法，写成抛错桩；`Compute` / `Build` 在基类里**转调**它们——每个形状只需要实现 ByIndex 那两条。
 
-## method Compute:(units:Array<Token>, cache:PossibleShapeCache)=>ShapeStates
+## method Compute:(units:Array<Token>, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
 
 看已经攒下的单元能不能构成这个形状。
 
 **基类转调 `ComputeByIndex`**：判全段就是判到最后一格为止，形状只实现那条。缓存是 `PossibleShapeCache`：形状在自己名下读写，调用方只负责把同一份传给同一个向导的每一次判定。
 
+`context` 由向导往下传：判定状态第一次建出来时，形状可能要借它做初始化（`GetOrComputeState` 的 `compute` 委托就收这一份）。
+
 ```ts
-return this.ComputeByIndex(units, units.length - 1, cache);
+return this.ComputeByIndex(units, units.length - 1, cache, context);
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
 
 **猜这个下标之前的形状**：判定 `units[0..tokenIndex]`——**到这个下标为止已经攒下的那一段**（含该下标本身）能不能构成这个形状。
 
 与 `Compute` 的差别是「判到哪儿为止」：`Compute` 判的是全段，本方法判的是**前缀**。
+
+状态走 `cache.GetOrComputeState`：第一次判定时建状态并把扫描起点写进去，之后每次都用同一份、只扫新增的单元。
 
 抽象方法，**基类不给实现**：前缀取到哪儿、看出什么算「是我」，每个形状都不一样，没有普适写法。
 

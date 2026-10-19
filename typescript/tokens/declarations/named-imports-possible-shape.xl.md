@@ -7,11 +7,18 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { ItemUtil } from "../item-util.xl.md"
 import { NamedImportsShape } from "./named-imports-shape.xl.md"
 ```
 
 # namespace cangjie
+
+# class NamedImportsScan
+
+## field Checked:int = 0
+
+## field HasShape:bool = false
+
+## field LastCode:int = -1
 
 # class NamedImportsPossibleShape extends PossibleShape
 
@@ -19,18 +26,39 @@ import { NamedImportsShape } from "./named-imports-shape.xl.md"
 import a, { b } from "m";
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-for (const unit of units) {
-  if (unit instanceof NamedImportsShape) {
-    return ShapeStates.Reject;
+const name = this.constructor.name;
+const state = cache.GetOrComputeState<NamedImportsScan>(name, "Checked", units, tokenIndex, context, (units, tokenIndex, context, state) => {
+  state.Checked = 0;
+  state.HasShape = false;
+  state.LastCode = -1;
+});
+if (state === null) {
+  return ShapeStates.Uncertain;
+}
+if (state.Checked > tokenIndex + 1) {
+  state.Checked = 0;
+  state.HasShape = false;
+  state.LastCode = -1;
+}
+for (let at = state.Checked; at <= tokenIndex; at++) {
+  if (!units[at].IsTriviaToken) {
+    state.LastCode = at;
+  }
+  if (units[at] instanceof NamedImportsShape) {
+    state.HasShape = true;
   }
 }
-const last = ItemUtil.LastCodeInItem(units);
+state.Checked = tokenIndex + 1;
+if (state.HasShape) {
+  return ShapeStates.Reject;
+}
+const last = state.LastCode;
 if (last < 0) {
   return ShapeStates.Uncertain;
 }

@@ -8,11 +8,16 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
-import { ItemUtil } from "../item-util.xl.md"
 import { ReloadMessage } from "../../../core/syntax/messages/reload-message.xl.md"
 ```
 
 # namespace cangjie
+
+# class ImportClauseEndScan
+
+## field Checked:int = 0
+
+## field LastCode:int = -1
 
 # class ImportClauseEndPossibleShape extends PossibleShape
 
@@ -21,13 +26,31 @@ import a from "m";
          ^^^^ 子句在这里结束
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const trimmed = ItemUtil.LastCodeInItem(units);
+const name = this.constructor.name;
+const state = cache.GetOrComputeState<ImportClauseEndScan>(name, "Checked", units, tokenIndex, context, (units, tokenIndex, context, state) => {
+  state.Checked = 0;
+  state.LastCode = -1;
+});
+if (state === null) {
+  return ShapeStates.Uncertain;
+}
+if (state.Checked > tokenIndex + 1) {
+  state.Checked = 0;
+  state.LastCode = -1;
+}
+for (let at = state.Checked; at <= tokenIndex; at++) {
+  if (!units[at].IsTriviaToken) {
+    state.LastCode = at;
+  }
+}
+state.Checked = tokenIndex + 1;
+const trimmed = state.LastCode;
 if (trimmed < 0) {
   return ShapeStates.Uncertain;
 }

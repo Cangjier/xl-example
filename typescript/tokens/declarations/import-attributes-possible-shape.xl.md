@@ -8,11 +8,20 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { ItemUtil } from "../item-util.xl.md"
 import { ImportAttributesShape } from "../members/import-attributes-shape.xl.md"
 ```
 
 # namespace cangjie
+
+# class ImportAttributesScan
+
+## field Checked:int = 0
+
+## field HasShape:bool = false
+
+## field LastCode:int = -1
+
+## field PreviousCode:int = -1
 
 # class ImportAttributesPossibleShape extends PossibleShape
 
@@ -20,18 +29,42 @@ import { ImportAttributesShape } from "../members/import-attributes-shape.xl.md"
 import a from "m" with { type: "json" };
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-for (const unit of units) {
-  if (unit instanceof ImportAttributesShape) {
-    return ShapeStates.Reject;
+const name = this.constructor.name;
+const state = cache.GetOrComputeState<ImportAttributesScan>(name, "Checked", units, tokenIndex, context, (units, tokenIndex, context, state) => {
+  state.Checked = 0;
+  state.HasShape = false;
+  state.LastCode = -1;
+  state.PreviousCode = -1;
+});
+if (state === null) {
+  return ShapeStates.Uncertain;
+}
+if (state.Checked > tokenIndex + 1) {
+  state.Checked = 0;
+  state.HasShape = false;
+  state.LastCode = -1;
+  state.PreviousCode = -1;
+}
+for (let at = state.Checked; at <= tokenIndex; at++) {
+  if (!units[at].IsTriviaToken) {
+    state.PreviousCode = state.LastCode;
+    state.LastCode = at;
+  }
+  if (units[at] instanceof ImportAttributesShape) {
+    state.HasShape = true;
   }
 }
-const last = ItemUtil.LastCodeInItem(units);
+state.Checked = tokenIndex + 1;
+if (state.HasShape) {
+  return ShapeStates.Reject;
+}
+const last = state.LastCode;
 if (last < 0) {
   return ShapeStates.Uncertain;
 }
@@ -43,7 +76,7 @@ if (!(tail instanceof Bracket) || (tail as Bracket).StartBracketChar !== "{") {
   }
   return ShapeStates.Reject;
 }
-const previous = ItemUtil.PreviousCode(units, last - 1);
+const previous = state.PreviousCode;
 if (previous < 0) {
   return ShapeStates.Reject;
 }
