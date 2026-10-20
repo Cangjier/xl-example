@@ -284,6 +284,10 @@ while (inner.At < inner.Units.length) {
     inner.At++;
     continue;
   }
+  // Parameter decorators: consume the `@...` prefix first (TS parser accepts them on plain function
+  // parameters too), then dispatch as before. Children order: Decorator(s) before name/type.
+  const groupStart = inner.At;
+  const decorators:Array<Token> = inner.ParseDecorators();
   const nameIndex = inner.At;
   let typed = false;
   if (nameIndex + 1 < inner.Units.length) {
@@ -296,8 +300,22 @@ while (inner.At < inner.Units.length) {
       typed = true;
     }
   }
-  if (typed) {
-    parameters.push(inner.ParseParameter());
+  // A rest parameter after decorators (`@dec ...x: A[]`) is routed to ParseParameter too (it owns `...`).
+  const headIsRest = nameIndex < inner.Units.length && inner.TextOf(inner.Units[nameIndex]) === "...";
+  if (typed || headIsRest) {
+    const parameter = inner.ParseParameter() as ParameterShape;
+    if (decorators.length > 0) {
+      for (let i = decorators.length - 1; i >= 0; i--) {
+        decorators[i].Parent = parameter;
+        parameter.Data.unshift(decorators[i]);
+      }
+      const firstDecorator = decorators[0];
+      if (firstDecorator.SourceRange.Start !== null) {
+        parameter.SourceRange.Start = firstDecorator.SourceRange.Start;
+      }
+      parameter.Pos = (firstDecorator as ShapeToken).Pos;
+    }
+    parameters.push(parameter);
     continue;
   }
   const nameUnit = inner.Units[nameIndex];
@@ -306,6 +324,9 @@ while (inner.At < inner.Units.length) {
   }
   inner.At++;
   const parameter = new ParameterShape(host.Template);
+  for (const decorator of decorators) {
+    parameter.Add(decorator);
+  }
   const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
   name.Pos = inner.Positions[nameIndex];
   parameter.ParameterName = name;
@@ -313,6 +334,13 @@ while (inner.At < inner.Units.length) {
   parameter.SignInToken(nameUnit);
   parameter.SignOutToken(nameUnit);
   parameter.Pos = inner.Positions[nameIndex];
+  if (decorators.length > 0) {
+    const firstDecorator = decorators[0];
+    if (firstDecorator.SourceRange.Start !== null) {
+      parameter.SourceRange.Start = firstDecorator.SourceRange.Start;
+    }
+    parameter.Pos = (firstDecorator as ShapeToken).Pos;
+  }
   parameter.TryToClose(context);
   parameters.push(parameter);
 }

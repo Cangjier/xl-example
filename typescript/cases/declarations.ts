@@ -758,3 +758,35 @@ class C { m(@dec x?: A) {} }
 // this chunk's write scope -> reported as deferred owner: declarations/function-declaration-shape BuildParameters.
 // `// ` function f(@dec x: A) {}
 // `// ` (function (@dec x: A) { return x; });
+
+// ===== base 17: function parameter decorators (function-declaration shape BuildParameters) =====
+function f(@dec x: A) {}
+function f(@a @b x: A) {}
+function f(x: A, @dec y: B) {}
+function f(@dec x: A, y: B) {}
+function f(@dec x: A, @dec2 y: B) {}
+function f(@dec() x: A) {}
+function f(@a.b x: A) {}
+function f(@dec x?: A) {}
+function f(@dec ...x: A[]) {}
+// + declare / async / generator combos
+declare function f(@dec x: A): void;
+async function f(@dec x: A) {}
+function* f(@dec x: A) {}
+async function* f(@dec x: A) {}
+// + trivia
+function f(/* c */ @dec x: A) {}
+function f(@dec /* c */ x: A) {}
+function f(@ /* c */ dec x: A) {}
+function f(@dec\nx: A) {}
+function f(@dec x: A /* c */) {}
+// + return type predicates coexist
+function f(@dec x: A): x is A { return true; }
+// ===== deferred =====
+// function EXPRESSION parameter decorators: `(function (@dec x: A) { return x; });` -- TS parse-legal (diag=0),
+// but function expressions are built by expression-builder ParseFunctionParameters (expressions family scope),
+// not by function-declaration-shape BuildParameters; reported owner: expressions family.
+// `// ` (function (@dec x: A) { return x; });
+// arrow function parameter decorators: `const g = (@dec x: A) => x;` -- TS parser REJECTS it (diag=4),
+// so not a legal form to collect.
+// `// ` const g = (@dec x: A) => x;
