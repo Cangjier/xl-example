@@ -1,4 +1,4 @@
-// module / namespace 块 chunk 3：模块体里带体声明（class/interface/enum/function）+ export 修饰。
+// module / namespace 块 chunk 4：ambient module / namespace 里的无体函数声明（base + trivia）。
 // 一行一个用例；行内 \n 由 ast-json.mjs 还原成真实换行。以 // 开头的行是暂缓目标，不照进用例。
 // M1 namespace 基形
 namespace N {}
@@ -42,7 +42,7 @@ declare module "m" { interface I {} }
 namespace N { interface I {} }
 // M11 augmentation 的 trivia
 declare module "m" { // c\nlet x: number; }
-// M12 暂缓：`declare module "m" { function f(): void; }`（无体函数要声明 end 候选）、`export as namespace X;`（cover-module-1 所有者）
+// M12 暂缓：`export as namespace X;`（cover-module-1 所有者）
 // M13 带体声明进 namespace（class / interface / function / enum，chunk 3）
 namespace N { class C {} }
 namespace N { function f() {} }
@@ -59,4 +59,29 @@ namespace N { export interface I {} }
 declare module "m" { class C {} }
 declare module "m" { enum E { A } }
 declare module "m" { interface I {}\nclass C {} }
-// M16 暂缓：`declare module "m" { function f(): void; }`（ambient 无体函数）、`namespace N { function f(): void; }`、`export as namespace X;`
+// M16 无体函数声明进 ambient module / namespace（chunk 4）
+declare module "m" { function f(): void; }
+declare module "m" { function f(a: A): B; }
+declare namespace N { function f(): void; }
+declare namespace N { function f(a: A): B; }
+// 两条无体函数同体 / 与变量、接口成员混合
+declare module "m" { function f(): void; function g(): void; }
+declare module "m" { let x: number; function f(): void; }
+declare module "m" { function f(): void; interface I {} }
+declare module "m" { interface I {} function f(): void; }
+declare module "m" { function f(): void; let x: number; }
+// export 修饰的无体函数（BuildMember 提出 export 后按无体函数建，再插回 Data 最前）
+declare module "m" { export function f(): void; }
+declare namespace N { export function f(): void; }
+// trivia
+declare module "m" { function f(): void /* c */ ; }
+declare module "m" {function f():void;}
+// 有体函数回归（chunk 3 已收；ambient 里带体在 TS 是语法层允许、语义报错，这里只比 AST）
+namespace N { function f() {} }
+// M17 暂缓（原因见 docs/coverage-module-blocks.md §7）
+// declare module "m" { function f(); }                ← TS 合法（ambient 上下文隐含 declare），但 FunctionDeclarationShape
+//                                                       要求「无体且无 declare 时必须有返回类型」，需声明形状侧改
+// namespace N { function* f() {} }                    ← FunctionDeclarationShape / BuildMember 都不认 `*`（generator star）
+// declare module "m" { function* f(): void; }         ← 同上
+// declare module "m" { async function f(): void; }    ← async 修饰：BuildMember 只认 export，async 也不在声明形状里
+// export as namespace X;                              ← cover-module-1 所有者

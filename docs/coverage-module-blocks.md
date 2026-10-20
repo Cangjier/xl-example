@@ -84,6 +84,36 @@ M15 ambient 模块里的 class / enum / interface+class。`\n` 由生成器还�
 
 ## 6. 读数
 
-- `module-blocks`：**44 / 44 完全一致**（结构差 0、位置差 0、字段差 0）；chunk 3 新增 13 条。
-- 全量：integration 基线 1561 → 合并 declarations-2 + chunk2 后 1592（含 module-blocks 31）→ chunk 3 后
-  **1605 / 1605 全绿**（16 个构造，0 结构差 / 0 位置差 / 0 字段差，无回归）。
+- `module-blocks`：**58 / 58 完全一致**（结构差 0、位置差 0、字段差 0）；chunk 4 新增 14 条。
+- 全量：integration 基线 **2337 / 2337**（23 个构造）→ chunk 4 后 **2351 / 2351 全绿**，无回归。
+
+## 7. chunk 4：ambient module / namespace 里的无体函数声明
+
+**新增用例**（`module-blocks.ts` 44 → 58，append-only +14）：
+
+- `declare module "m" { function f(): void; }`、`declare module "m" { function f(a: A): B; }`、
+  `declare namespace N { function f(): void; }`、`declare namespace N { function f(a: A): B; }`；
+- 两条无体函数同体：`declare module "m" { function f(): void; function g(): void; }`；
+- 与已有成员混合：`let x: number; function f(): void;`、`function f(): void; interface I {}`、
+  `interface I {} function f(): void;`、`function f(): void; let x: number;`；
+- `export` 修饰的无体函数：`declare module "m" { export function f(): void; }`、
+  `declare namespace N { export function f(): void; }`（`BuildMember` 先提出 `ExportKeyword`，建完无体函数后插回 `Data` 最前）；
+- trivia：`function f(): void /* c */ ;`、`{function f():void;}`。
+
+**修法**（`module-block-shape.xl.md` 的 `BuildMember` 一处）：
+
+- 原来只扫本层第一个 `{` 括号当体；现在扫的时候对 `function` 家族额外认**本层第一个 `;`**：
+  `;` 先到 → 无体函数，`dataEnd` 取 `;` 在括号 `Data` 里的下标，直接
+  `FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd)`（该形状本来就支持「最后一块是 `;`」）；
+  `{` 先到 → 有体函数，走原路径。`Pos` 仍用本层 `Positions` 覆盖。
+- 不需要零宽合成 `;`：模块体里的 `;` 是真实 token（`declare module "m" { function f(): void; }` 里那个分号就在
+  `Bracket.Data` 里），直接以它为 `tokenIndex` 即可。`from core/**` 一行未动，function/class/interface 声明文件也一行未改。
+
+**仍红 / 暂缓**（TS 合法，用例里写成 `//` 目标）：
+
+| 写法 | 原因 |
+| --- | --- |
+| `declare module "m" { function f(); }` | `FunctionDeclarationShape` 规则是「无体且无 `declare` 时必须有返回类型」；ambient 上下文隐含 `declare`，需要声明形状侧改（不在本块 write scope） |
+| `namespace N { function* f() {} }` / `declare module "m" { function* f(): void; }` | `BuildMember` 与 `FunctionDeclarationShape` 都不认 `*`（generator star）——generator 形状还没接到函数声明路径 |
+| `declare module "m" { async function f(): void; }` | `BuildMember` 只认 `export` 修饰；`async` 也不在声明形状里 |
+| `export as namespace X;` | cover-module-1 所有者（`NamespaceExportDeclaration`） |
