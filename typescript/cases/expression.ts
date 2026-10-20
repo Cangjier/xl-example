@@ -803,3 +803,23 @@ a as /* c */ T;
 const g2 = f /* c */ <string>(1);
 // 暂缓（原因）：instantiation expressions 无调用形：`const g = f<string>;`、`const h = new C<number>;`、
 //                    `const k = a.b<T>;` —— 需要 expression-builder 在类型实参后接受语句结束，属 expressions 家族，本 chunk 写范围外。
+
+// ===== base 38：instantiation expressions（TS 4.7）/ const 类型参数 =====
+// TS 节点是 ExpressionWithTypeArguments（expression + 类型实参），不是 CallExpression。
+const g = f<string>;
+const h = new C<number>;
+const k = a.b<T>;
+// 顶层 , 会被 declarations 的声明切分吃掉，所以多实参的 instantiation 用括号/表达式语句形态
+const m = (f<string, number>);
+f<string, number>;
+f<string>(1);
+f<string>;
+// + trivia
+const g2 = f /* c */ <string>;
+const k2 = a. b<T>;
+// const 类型参数（TS 5.0）：TypeParameter 的第一个 child 是 ConstKeyword
+const cf = <const T>(x: T) => x;
+// 同上：顶层 , 走声明切分，箭头放括号里
+const cf2 = (<const T, U>(x: T, y: U) => x);
+// 暂缓：`<const T, U extends A>`（ParseAngleTypeParameters 还不吃 extends）；`f<string> + 1`
+//   在 TS 里解析成比较链而不是 instantiation，故不按 instantiation 收。

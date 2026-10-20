@@ -524,3 +524,46 @@ expression  598 / 598      # 592 + 6（function 内的 new.target 4 + trivia 2�
 expression  609 / 609      # 598 + 11（base 37：谓词箭头/函数表达式 + 普通返回类型 + 嵌套 + trivia）
 全量       3430 / 3430     # 3419 + 11；结构差 0 / 位置差 0 / 字段差 0
 ```
+## chunk 16（cover-instantiation-1）：instantiation expressions / const 类型参数 / 泛型类表达式 / 泛型对象方法
+
+### 实现落点（只改 expression-builder）
+
+- **Instantiation expression（TS 4.7）**：新增 `CanStartTypeArguments(index)` —— 与 `CanStartTypeArgumentCall`
+  同样的 `<`/`>` 配对扫描，但 `>` 后必须跟「不能再续比较链」的单元（`;` `,` `)` `]` `}` `=` `.` `!` `?` `:` `=>` `?.` 或单元结束）。
+  `ParsePostfix` 在泛型调用分支之前先走该分支，把 `<...>` 建成 TS 的 `ExpressionWithTypeArguments`
+  （expression + 每个类型实参；复用既有 shape，Expression/TypeArguments 字段 + SignIn/SignOut 到 `>`）；
+  `ParseNew` 的类型实参条件也接受该形态（`new C<number>` 无实参列表）。
+- **const 类型参数（TS 5.0）**：`ParseAngleTypeParameters` 支持每个参数名前可选的 `const`，建 `ConstKeyword`
+  作为 `TypeParameter` 的第一个 child（`<const T>` → TypeParameter[ConstKeyword, Identifier]）。
+- **泛型类表达式（TS 5.0）**：`ParseClassExpression` 在 `class` 之后可选 `<...>`，TypeParameter 排在名字之前，
+  heritage 起点与类体扫描从 `>` 之后开始。
+- **泛型对象字面量方法（TS 5.0）**：`ParseObjectLiteral` 方法分支在名字之后可选 `<...>`，TypeParameter 排在
+  名字之后、参数之前（`({ m<T>(x: T): T {...} })`）。
+
+### AST 口径（TS 实测）
+
+| 构造 | TS children |
+| --- | --- |
+| `f<string>` | `ExpressionWithTypeArguments` → `Identifier f`、`StringKeyword` |
+| `a.b<T>` | `ExpressionWithTypeArguments` → `PropertyAccessExpression`、`TypeReference T` |
+| `new C<number>` | `NewExpression` → `Identifier C`、`NumberKeyword`（无实参列表） |
+| `<const T>(x: T) => x` | `ArrowFunction` → `TypeParameter`（`ConstKeyword` + `Identifier T`）、`Parameter`、`=>`、body |
+| `class<T> {}` | `ClassExpression` → `TypeParameter`（在名字之前） |
+| `({ m<T>(x: T): T {...} })` | `MethodDeclaration` → `Identifier m`、`TypeParameter`、`Parameter`、返回类型、`Block` |
+
+### 读数
+
+```
+expression        630 / 630      # 619 + 11（instantiation 形态 + const 箭头 + trivia）
+class-expressions  22 / 22       # 17 + 5（class<T> / class<T, U> / trivia）
+members           187 / 187      # 181 + 6（对象泛型方法 / const / async / generator）
+全量             3663 / 3663     # 3641 + 22；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 暂缓（注释目标 + 原因）
+
+- 顶层逗号的形态（`const m = f<string, number>;`、`const cf2 = <const T, U>(...) => ...;`、`const D = class<T, U> {...};`）
+  在 declarations / statements 的声明切分处会先按 `,` 断开（不属于 expressions 家族），因此语料里改用
+  括号 / 表达式语句形态（`(f<string, number>)`、`(<const T, U>(...) => ...)`、`(class<T, U> {...})`）；行为本身已支持。
+- `<const T, U extends A>` / `class<T extends A>`：`ParseAngleTypeParameters` 只收名字（extends/默认值留给 types 家族）；
+- `f<string> + 1` 在 TS 里是**比较链**而不是 instantiation，故不按 instantiation 收（既有比较语料覆盖）。

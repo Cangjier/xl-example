@@ -31,3 +31,12 @@
 // static block          (class { static {} });         ← class extras（另一分支）
 // private field         (class { #x = 1; });           ← class extras（另一分支）
 // class 表达式做 heritage  (class extends (class {}) {}) ← 需要 heritage 里 ParseExpression，暂缓
+
+// ===== generic class expressions（TS 5.0）：TypeParameter 在名字之前 =====
+const C = class<T> { m(x: T): T { return x; } };
+(class<T> {});
+// 顶层 , 走声明切分，泛型类表达式放括号里
+const D = (class<T, U> { a: T; b: U; });
+(class /* c */ <T> {});
+(class<T> /* c */ {});
+// 暂缓：`class<T extends A> {}`（ParseAngleTypeParameters 还不吃 extends）

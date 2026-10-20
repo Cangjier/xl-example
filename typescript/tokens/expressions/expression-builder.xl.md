@@ -91,6 +91,8 @@ import { ImportKeywordShape } from "../keywords/import-keyword-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { TypeParameterShape } from "../types/type-parameter-shape.xl.md"
+import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
+import { ExpressionWithTypeArgumentsShape } from "./expression-with-type-arguments-shape.xl.md"
 import { TypeAssertionExpressionShape } from "./type-assertion-expression-shape.xl.md"
 import { MetaPropertyShape } from "./meta-property-shape.xl.md"
 import { AwaitExpressionShape } from "./await-expression-shape.xl.md"
@@ -518,6 +520,60 @@ for (let at = index; at < this.Units.length; at++) {
 return false;
 ```
 
+## method CanStartTypeArguments:(index:int)=>bool
+
+Instantiation expression lookahead (`f<string>` with no call): same `<`/`>` pairing scan as
+`CanStartTypeArgumentCall`, but the `>` must be followed by a unit that cannot continue a
+comparison chain (`;` `,` `)` `]` `}` `=` `.` `!` `?` `:` `=>` `?.` or end of units). TS keeps
+`f<string> + 1` as comparison, so no binary-operator terminator is accepted here.
+
+```ts
+if (index < 0 || index >= this.Units.length) {
+  return false;
+}
+if (!this.IsText(this.Units[index], "<")) {
+  return false;
+}
+let depth = 0;
+for (let at = index; at < this.Units.length; at++) {
+  const unit = this.Units[at];
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    if (text === "<") {
+      depth++;
+      continue;
+    }
+    if (text === ">") {
+      depth--;
+      if (depth === 0) {
+        if (at + 1 >= this.Units.length) {
+          return true;
+        }
+        const after = this.Units[at + 1];
+        if (after instanceof Symbol) {
+          const afterText = (after as Symbol).TempToString();
+          if (afterText === ";" || afterText === "," || afterText === ")" || afterText === "]"
+              || afterText === "}" || afterText === "=" || afterText === "." || afterText === "!"
+              || afterText === "?" || afterText === ":" || afterText === "=>" || afterText === "?.") {
+            return true;
+          }
+        }
+        return false;
+      }
+      continue;
+    }
+    if (text === ",") {
+      continue;
+    }
+    return false;
+  }
+  if (depth === 0) {
+    return false;
+  }
+}
+return false;
+```
+
 ## method ParseTypeArgumentsAtCurrent:()=>Array<Token>
 
 `At` 停在 `<` 上时读 `<A, B>`：返回实参数组并把 `At` 推进到 `>` 之后；`>` 本身不进 AST。
@@ -651,6 +707,26 @@ while (true) {
   const unit = this.Peek(0);
   if (unit === null) {
     break;
+  }
+  if (!this.CanStartTypeArgumentCall(this.At) && this.CanStartTypeArguments(this.At)) {
+    // Instantiation expression: `f<string>`, `a.b<T>`, `f<string, number>` — a type argument
+    // list with no call. TS models it as ExpressionWithTypeArguments (expression + type nodes).
+    const typeArguments = this.ParseTypeArgumentsAtCurrent();
+    const instantiation = new ExpressionWithTypeArgumentsShape(this.Template);
+    instantiation.Expression = expression;
+    instantiation.TypeArguments = typeArguments;
+    instantiation.Add(expression);
+    for (const typeArgument of typeArguments) {
+      instantiation.Add(typeArgument);
+    }
+    if (expression.SourceRange.Start !== null) {
+      instantiation.SignIn(expression.SourceRange.Start);
+    }
+    instantiation.SignOutToken(this.Units[this.At - 1]);
+    instantiation.Pos = (expression as ShapeToken).Pos;
+    instantiation.TryToClose(this.Context);
+    expression = instantiation;
+    continue;
   }
   if (this.CanStartTypeArgumentCall(this.At)) {
     // `f<T>(a)` 的前瞻在 CanStartTypeArgumentCall 里完成（`<` 扫到配对的 `>` 且后随 `(`）：
@@ -866,7 +942,7 @@ while (true) {
 }
 const shape = new NewExpressionShape(this.Template);
 shape.Add(callee);
-if (this.CanStartTypeArgumentCall(this.At)) {
+if (this.CanStartTypeArgumentCall(this.At) || this.CanStartTypeArguments(this.At)) {
   const typeArguments = this.ParseTypeArgumentsAtCurrent();
   for (const typeArgument of typeArguments) {
     shape.Add(typeArgument);
@@ -1132,10 +1208,21 @@ while (inner.At < inner.Units.length) {
     name = inner.ParsePropertyName();
   }
   const next = inner.Peek(0);
-  if (next !== null && inner.IsBracketStart(next, "(")) {
+  let methodTypeParameters:Array<Token> = [];
+  if (next !== null && inner.IsText(next, "<")) {
+    // Generic object literal method `({ m<T>(x: T): T {...} })`: TypeParameter(s) after the name.
+    const angleClose = inner.MatchAngleClose(inner.At);
+    if (angleClose < 0) {
+      throw new Error("对象字面量方法的类型参数缺少配对的 >");
+    }
+    methodTypeParameters = inner.ParseAngleTypeParameters(inner.At, angleClose);
+    inner.At = angleClose + 1;
+  }
+  const parameterUnit = inner.Peek(0);
+  if (parameterUnit !== null && inner.IsBracketStart(parameterUnit, "(")) {
     // method / get / set / async / generator：与 class element 同一套子节点建法（消费 declarations 的静态助手）。
     const host = inner.Units[memberIndex];
-    const parameterBracket = next as Bracket;
+    const parameterBracket = parameterUnit as Bracket;
     inner.At++;
     const parameters = ClassDeclarationShape.BuildParameters(host, parameterBracket, this.Context);
     let returnType:Token | null = null;
@@ -1184,6 +1271,9 @@ while (inner.At < inner.Units.length) {
       memberShape.Add(inner.MakeOperatorToken(asteriskUnit, asteriskIndex));
     }
     memberShape.Add(name);
+    for (const typeParameter of methodTypeParameters) {
+      memberShape.Add(typeParameter);
+    }
     for (const parameter of parameters) {
       memberShape.Add(parameter);
     }
@@ -1381,8 +1471,26 @@ const start = this.At;
 const keywordUnit = this.Units[start];
 this.At++;
 const shape = new ClassExpressionShape(this.Template);
+const typeParameters:Array<Token> = [];
+let afterClass = keywordUnit.SourceRange.End === null ? 0 : keywordUnit.SourceRange.End.Index + 1;
+const angleUnit = this.Peek(0);
+if (angleUnit !== null && this.IsText(angleUnit, "<")) {
+  // Generic class expression `class<T> { ... }` (TS 5.0): TypeParameter children come first.
+  const angleClose = this.MatchAngleClose(this.At);
+  if (angleClose < 0) {
+    throw new Error("类表达式的类型参数缺少配对的 >");
+  }
+  const parsedTypeParameters = this.ParseAngleTypeParameters(this.At, angleClose);
+  for (const typeParameter of parsedTypeParameters) {
+    typeParameters.push(typeParameter);
+  }
+  if (this.Units[angleClose].SourceRange.End !== null) {
+    afterClass = this.Units[angleClose].SourceRange.End.Index + 1;
+  }
+  this.At = angleClose + 1;
+}
 let name:Token | null = null;
-let heritageBase = keywordUnit.SourceRange.End === null ? 0 : keywordUnit.SourceRange.End.Index + 1;
+let heritageBase = afterClass;
 const nameUnit = this.Peek(0);
 if (nameUnit !== null && nameUnit instanceof Common
     && !(nameUnit as Common).Is("extends") && !(nameUnit as Common).Is("implements")) {
@@ -1401,6 +1509,11 @@ while (bodyIndex < this.Units.length && !this.IsBracketStart(this.Units[bodyInde
 }
 if (bodyIndex >= this.Units.length) {
   throw new Error("类表达式缺少类体");
+}
+if (typeParameters.length > 0) {
+  for (const typeParameter of typeParameters) {
+    shape.Add(typeParameter);
+  }
 }
 if (name !== null) {
   shape.Add(name);
@@ -1666,13 +1779,24 @@ return type;
 const parameters:Array<Token> = [];
 let at = openIndex + 1;
 while (at < closeIndex) {
-  const unit = this.Units[at];
+  let unit = this.Units[at];
   if (unit instanceof Symbol && (unit as Symbol).Is(",")) {
     at++;
     continue;
   }
   if (unit instanceof Symbol && (unit as Symbol).Is("<")) {
     throw new Error("泛型箭头的类型参数暂不支持嵌套类型参数");
+  }
+  const parameterStart = at;
+  let constKeyword:Token | null = null;
+  if (unit instanceof Common && (unit as Common).Is("const")) {
+    // `const T` (TS 5.0 const type parameters): ConstKeyword is a child of TypeParameter.
+    constKeyword = this.MakeKeywordLeaf(new ConstKeywordShape(this.Template), at);
+    at++;
+    if (at >= closeIndex) {
+      throw new Error("const 类型参数缺少名字");
+    }
+    unit = this.Units[at];
   }
   if (!(unit instanceof Common) || (unit as Common).CanStartNumber()) {
     throw new Error("泛型箭头的类型参数只支持名字");
@@ -1681,8 +1805,11 @@ while (at < closeIndex) {
   name.Pos = this.Positions[at];
   const parameter = new TypeParameterShape(this.Template);
   parameter.TypeParameterName = name;
+  if (constKeyword !== null) {
+    parameter.Add(constKeyword);
+  }
   parameter.Add(name);
-  this.SpanNode(parameter, at, at);
+  this.SpanNode(parameter, parameterStart, at);
   parameters.push(parameter);
   at++;
 }
