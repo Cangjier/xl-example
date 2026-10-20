@@ -95,6 +95,7 @@
    - end build不对
 
    解决问题思路：
+   - basic token 哪些场景存在问题，交给用户决定
    - 正确的应该什么时候build
    - build时应该提取哪些信息
    - 什么时候close
