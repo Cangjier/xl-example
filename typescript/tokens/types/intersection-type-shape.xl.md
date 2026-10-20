@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { Template } from "../../../core/syntax/templates/template.xl.md"
+import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 ```
 
@@ -9,8 +10,13 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 # class IntersectionTypeShape extends ShapeToken
 
 ```txt
-let x: A & B;
+type T = A & B;
+type T = A & B & C;
 ```
+
+children = 逐个成员（与 `UnionType` 同为平铺）；`&` 不进 AST。
+
+## field Types:Array<Token> = []
 
 ## constructor:(template:Template)=>void
 
