@@ -192,3 +192,33 @@ export { "a-b" as c } from "m"; export { "x-y" as z } from "n";
 // export default function* f() {};     —— generator `*` 未处理
 // export declare\ntype T = A;          —— declare 与 type 之间换行时 TS 侧 TypeAliasDeclaration 的 pos 是 14 而不是 0
 // export declare const x;              —— declare 变量必须有类型或初始化式（TS 语义）
+// ===== base 12：export forms sweep（measurement-only，不改 token 源） =====
+export { };
+export { a, b, c };
+export { a as b, c as d };
+export { a as b } from "m";
+export type { T } from "m";
+// export { type T } from "m";        —— inline type specifier：TS 置 ExportSpecifier.isTypeOnly=true 且 name=T；本仓把 `type` 当 Identifier（pos 8..13 vs ts 13..15），未支持
+export * as ns from "m" with { type: "json" };
+export * as ns from "m" with { type: "json", other: "x" };
+export { a as default };
+export { default as a };
+export {};
+export { a }; export { b }; /* c */\n export * from "m"; // d
+export {\n};\n
+export\n{\n  a,\n  b,\n};
+// + 前导空格
+  export { };
+  export { a, b, c };
+// + 行内注释
+export { /* c */ a, b };
+export { a as b, /* c */ c as d };
+// + 行尾注释
+export { a, b, c }; // c
+export * as ns from "m"; // c
+// + 换行
+export\n{\n  a,\n  b,\n  c,\n};
+export *\nas\nns\nfrom "m";
+
+// ===== sweep 暂缓（measurement-only，未改 token 源） =====
+// export { type T } from "m";  —— inline type-only specifier（见上方注释；不支持）
