@@ -142,9 +142,36 @@ export default class D {} // c
 // + 词间块注释
 export /* c */ default 1;
 
+// ===== base 10：export declare / default function / 引号导出名 =====
+export declare class C {}
+export declare interface I {}
+export declare enum E { A }
+export default function f() {}
+export default function () {}
+export declare function f(): void;
+export { "a-b" as c } from "m";
+// + 前导空格
+  export declare class C {}
+// + 词间块注释
+export /* c */ declare class C {}
+export declare /* c */ interface I {}
+// + 行尾注释
+export declare class C {} // c
+export default function f() {} // c
+export { "a-b" as c } from "m"; // c
+// + 换行
+export\ndeclare class C {}
+export default\nfunction f() {}
+// + 重复形
+export declare class C {} export declare interface I {}
+export { "a-b" as c } from "m"; export { "x-y" as z } from "n";
+
 // ===== 暂缓（不在本用例集） =====
-// export default function f() {};   —— 函数声明未合并
-// export declare class C {}         —— declare 修饰词属 declarations 侧，本 chunk 不扩
-// export as namespace NS;           —— NamespaceExportDeclaration，cover-module-1 已实现
-// export = a;                       —— ExportAssignment(isExportEquals)，cover-module-1 的文件
-// export { "a-b" as c };            —— 引号导出名，TS 4.5 起的任意模块名
+// export default function* f() {};      —— generator 的 `*` 未处理
+// export { a as "b-c" } from "m";       —— 名字是字符串；TS 侧 `name` = 字符串文本，cjAst 只认
+//                                          IdentifierShape.EscapedText，harness 缺该语义（报告，不硬改）
+// export { "a-b" } from "m";            —— 同上（无 as 时 name 也是字符串文本）
+// export declare const x: number;       —— declare 变量语句，statements 侧 declare 修饰词未打通
+// export as namespace NS;               —— cover-module-1 已合并
+// export = a;                           —— cover-module-1 已合并
+// export * as ns from "m" with {…};     —— 属性段已由既有 62 条覆盖

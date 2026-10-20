@@ -3600,6 +3600,628 @@
           ]
         }
       ]
+    },
+    {
+      "src": "export declare class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare enum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 23,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function () {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Block",
+              "pos": 26,
+              "end": 29
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare function f(): void;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 28,
+              "end": 33
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { \"a-b\" as c } from \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 19,
+                  "name": "c",
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 8,
+                      "end": 14,
+                      "text": "a-b"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 26,
+              "end": 30,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export /* c */ declare class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 22
+            },
+            {
+              "kind": "Identifier",
+              "pos": 28,
+              "end": 30,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare /* c */ interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 32,
+              "end": 34,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare class C {} // c",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function f() {} // c",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { \"a-b\" as c } from \"m\"; // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 19,
+                  "name": "c",
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 8,
+                      "end": 14,
+                      "text": "a-b"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 26,
+              "end": 30,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export\ndeclare class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default\nfunction f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare class C {} export declare interface I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 25,
+          "end": 55,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 25,
+              "end": 32
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 32,
+              "end": 40
+            },
+            {
+              "kind": "Identifier",
+              "pos": 50,
+              "end": 52,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { \"a-b\" as c } from \"m\"; export { \"x-y\" as z } from \"n\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 19,
+                  "name": "c",
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 8,
+                      "end": 14,
+                      "text": "a-b"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 26,
+              "end": 30,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 31,
+          "end": 63,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 38,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 40,
+                  "end": 51,
+                  "name": "z",
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 40,
+                      "end": 46,
+                      "text": "x-y"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 49,
+                      "end": 51,
+                      "text": "z"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 58,
+              "end": 62,
+              "text": "n"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
