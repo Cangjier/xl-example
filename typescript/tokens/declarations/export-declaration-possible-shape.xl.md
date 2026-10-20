@@ -410,6 +410,10 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       // type parameters (`class C<T>`) / heritage type arguments (`extends D<E>`) 里的符号先过去。
       continue;
     }
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar !== "{") {
+      // heritage call arguments (`extends mixin<T>(B)`) 里的 `(` / `[` 等括号先过去；`{` 仍是唯一类体终结点。
+      continue;
+    }
     if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "{") {
       state.Stage = 3;
       continue;
@@ -683,7 +687,7 @@ if (kind === 15 || kind === 17) {
 }
 if (kind === 16) {
   // export default abstract class …：ClassDeclarationShape 自带 abstract child，再补 Default/Export。
-  const built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  const built = ClassDeclarationShape.FromUnitsAllowAnonymous(host, declIndex, tokenIndex, context);
   const defaultUnit = host.Data[secondIndex];
   const defaultModifier = new DefaultKeywordShape(host.Template);
   if (defaultUnit.SourceRange.Start !== null) {
@@ -778,7 +782,7 @@ if (kind === 20) {
   return built;
 }
 if (kind === 5) {
-  const built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  const built = ClassDeclarationShape.FromUnitsAllowAnonymous(host, declIndex, tokenIndex, context);
   const defaultUnit = host.Data[secondIndex];
   const defaultModifier = new DefaultKeywordShape(host.Template);
   if (defaultUnit.SourceRange.Start !== null) {

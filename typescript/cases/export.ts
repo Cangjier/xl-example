@@ -323,3 +323,28 @@ export * from "m";
 export { a };
 export * as ns from "m";
 export { a } from "m";
+// ===== anonymous default class with type parameters（chunk default-generic-class） =====
+export default class<T> {}
+export default class<T extends A> {}
+export default class<T = A> {}
+export default class<T, U> extends B {}
+export default class extends B {}
+export default class implements I {}
+export default abstract class {}
+export default abstract class<T> {}
+export default class<T> { m(x: T): T { return x; } }
+export default class {}
+// + trivia
+export default class<T> /* c */ {}
+export default class /* c */ <T> {}
+export default class<T>\n{ m(x: T): T { return x; } }
+export default class<T> {} // c
+// + named default class with type params / heritage 组合（task-351 复核补充）
+export default class D<T> extends B {}
+export default abstract class D extends B {}
+export default class D<T extends A> extends B<C> implements I {}
+export default class D extends mixin<T>(B) {}
+export default abstract class D<T> extends B implements I {}
+export default class D<T> extends B<C> implements I, J {}
+export default class D /* c */ extends B {}
+export default class D<T> extends B {} // c

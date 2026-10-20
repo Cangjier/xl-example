@@ -80,6 +80,20 @@ super(template);
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>ClassDeclarationShape
 
 ```ts
+return ClassDeclarationShape.BuildFromUnits(host, start, tokenIndex, context, false);
+```
+
+## static method FromUnitsAllowAnonymous:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>ClassDeclarationShape
+
+```ts
+// Used by the export-declaration family: `export default class {}` / `export default class<T> {}` are
+// anonymous ClassDeclarations in TS (no Identifier child), so the name is optional there.
+return ClassDeclarationShape.BuildFromUnits(host, start, tokenIndex, context, true);
+```
+
+## private static method BuildFromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, allowAnonymous:bool)=>ClassDeclarationShape
+
+```ts
 const code:Array<Token> = [];
 for (let at = start; at <= tokenIndex; at++) {
   if (!host.Data[at].IsTriviaToken) {
@@ -164,18 +178,20 @@ index++;
 if (!(keyword instanceof Common) || !(keyword as Common).Is("class")) {
   throw new Error("类声明缺少 class 关键字");
 }
+let nameUnit:Token | null = null;
+if (index < code.length && code[index] instanceof Common
+  && !(code[index] as Common).Is("extends") && !(code[index] as Common).Is("implements")) {
+  nameUnit = code[index];
+  index++;
+} else if (!allowAnonymous) {
+  throw new Error("class declaration requires a name");
+}
 if (index >= code.length) {
-  throw new Error("类声明缺少名字");
+  throw new Error("class declaration is incomplete");
 }
-const nameUnit = code[index];
-index++;
-if (!(nameUnit instanceof Common)) {
-  throw new Error("类声明的名字不是标识符");
-}
-if (index >= code.length) {
-  throw new Error("类声明缺少类体");
-}
-let heritageBasePos = nameUnit.SourceRange.End === null ? 0 : nameUnit.SourceRange.End.Index + 1;
+let heritageBasePos = nameUnit === null
+  ? (keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1)
+  : (nameUnit.SourceRange.End === null ? 0 : nameUnit.SourceRange.End.Index + 1);
 const typeParameters:Array<Token> = [];
 if (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("<")) {
   const typeParameterBuilder = new TypeBuilder(host.Template, context);
@@ -223,9 +239,12 @@ const bodyUnit = code[code.length - 1];
 if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
   throw new Error("类声明的类体不是花括号");
 }
-const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
-name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
-const heritageBase = heritageBasePos;
+let name:IdentifierShape | null = null;
+if (nameUnit !== null) {
+  const builtName = IdentifierShape.FromBasicToken(nameUnit as Common, context);
+  builtName.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+  name = builtName;
+}const heritageBase = heritageBasePos;
 const clauses:Array<Token> = heritageUnits.length === 0
   ? []
   : HeritageClauseShape.BuildClauses(host, heritageUnits, heritageBase, context);
@@ -272,7 +291,9 @@ for (let at = decoratorUnitCount; at < decoratorUnitCount + modifierCount; at++)
     modifierPos = modifierUnit.SourceRange.End.Index + 1;
   }
 }
-shape.Add(name);
+if (name !== null) {
+  shape.Add(name);
+}
 for (const typeParameter of typeParameters) {
   shape.Add(typeParameter);
 }

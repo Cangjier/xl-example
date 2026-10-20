@@ -8823,6 +8823,1294 @@
           ]
         }
       ]
+    },
+    {
+      "src": "export default class<T> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 21,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class<T extends A> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 21,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "T"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 30,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class<T = A> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 21,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "T"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 24,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class<T, U> extends B {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 21,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 23,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 26,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class extends B {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 20,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 28,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class implements I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 20,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 31,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default abstract class {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 14,
+              "end": 23
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default abstract class<T> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 14,
+              "end": 23
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 30,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 30,
+                  "end": 31,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class<T> { m(x: T): T { return x; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 21,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 25,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 28,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 29,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 30,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 30,
+                          "end": 32,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 36,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 38,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 45,
+                          "end": 47,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class<T> /* c */ {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 21,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class /* c */ <T> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 30,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 30,
+                  "end": 31,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class<T>\n{ m(x: T): T { return x; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 21,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 25,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 28,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 29,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 30,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 30,
+                          "end": 32,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 36,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 38,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 45,
+                          "end": 47,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class<T> {} // c",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 21,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class D<T> extends B {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "D"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 23,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 24,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 25,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 33,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default abstract class D extends B {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 14,
+              "end": 23
+            },
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "D"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 31,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 39,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 39,
+                      "end": 41,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class D<T extends A> extends B<C> implements I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 64,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "D"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 23,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 24,
+                  "text": "T"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 32,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 32,
+                      "end": 34,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 35,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 43,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 43,
+                      "end": 45,
+                      "text": "B"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 46,
+                      "end": 47,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 46,
+                          "end": 47,
+                          "text": "C"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 48,
+              "end": 61,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 59,
+                  "end": 61,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 59,
+                      "end": 61,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class D extends mixin<T>(B) {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "D"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 22,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 30,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 30,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 30,
+                          "end": 36,
+                          "text": "mixin"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 37,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 37,
+                              "end": 38,
+                              "text": "T"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 40,
+                          "end": 41,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default abstract class D<T> extends B implements I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 60,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 14,
+              "end": 23
+            },
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "D"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 32,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 33,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 34,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 42,
+                  "end": 44,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 42,
+                      "end": 44,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 44,
+              "end": 57,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 55,
+                  "end": 57,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 55,
+                      "end": 57,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class D<T> extends B<C> implements I, J {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 57,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "D"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 23,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 24,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 25,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 33,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "B"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 36,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 36,
+                          "end": 37,
+                          "text": "C"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 38,
+              "end": 54,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 49,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 49,
+                      "end": 51,
+                      "text": "I"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 52,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 52,
+                      "end": 54,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class D /* c */ extends B {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "D"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 22,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 38,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 40,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class D<T> extends B {} // c",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "D"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 23,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 24,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 25,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 33,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

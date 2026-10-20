@@ -200,3 +200,12 @@ InterfaceDeclarationShape / ClassDeclarationShape 提供（本 chunk 未改任�
 - `cover-export-decls-3+4` @ `e1cf6149` — (export declare/specifier strings)；cases +26/-9（export）；impl: export-declaration-possible-shape,export-specifier-shape,source-file-shape
 - `cover-export-decls-2` @ `6f9f46de` — (chunk3) into chunk4 branch；cases +28/-5（export）；impl: export-declaration-possible-shape,source-file-shape
 - `cover-export-decls-2` @ `6f9f46de` — (export type aliases + candidate list)；cases +32/-5（export）；impl: export-declaration-possible-shape,export-specifier-shape,source-file-shape
+
+## 匿名 default class 的类型参数（chunk default-generic-class）
+
+- 修法：`ClassDeclarationShape` 拆成公开 `FromUnits`（必须有名字）+ 新 `FromUnitsAllowAnonymous` + 私有 `BuildFromUnits(..., allowAnonymous)`；
+  允许匿名时 class 关键字之后若直接是 `<`（类型参数）/ `extends` / `implements` / `{` 则不建 Identifier child（TS 的匿名 ClassDeclaration 没有 Identifier），
+  类型参数 / heritage / 成员照常构建；`export-declaration-possible-shape` 只在 Kind 5（`export default class`）与 Kind 16
+  （`export default abstract class`）两处调用 AllowAnonymous，命名 class 路径保持原行为。
+- 新增 export.ts 用例（+14）：`export default class<T> {}`、`<T extends A>`、`<T = A>`、`<T, U> extends B`、
+  `extends B` / `implements I`、`abstract class {}` / `abstract class<T>`、带成员、空体，以及注释/换行 trivia；export 219/219 全绿。
