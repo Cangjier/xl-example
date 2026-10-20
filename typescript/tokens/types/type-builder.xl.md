@@ -1168,12 +1168,76 @@ return true;
 ## method ParseTypeQuery:(start:int)=>Token
 
 `typeof a` / `typeof a.b`：`typeof` 不进 AST，children 只有一个实体名（Identifier 或限定名）。
+
+`typeof import("m")` 例外：TS 的节点**就是 `ImportType`**（没有再包一层 TypeQuery），children = `LiteralType`（模块字符串）
+＋可选限定名；`typeof` / `import` / `(` / `)` / `.` 都不进 AST。所以这里直接建 `ImportTypeShape` 返回。
 实测 `typeof a` → `TypeQuery[8,17) → Identifier[15,17)`（标识符 `pos` 是 `typeof` 之后）。
 
 调用前 `At` 已越过 `typeof`。
 
 ```ts
 const operatorUnit = this.Units[start];
+// typeof import("m")：TS AST 是 ImportType（Argument + 可选 Qualifier），不是 TypeQuery。
+const importUnit = this.Peek(0);
+if (importUnit !== null && this.IsText(importUnit, "import")) {
+  this.At++;
+  const bracketUnit = this.Peek(0);
+  if (bracketUnit === null || !this.IsBracket(bracketUnit, "(", ")")) {
+    throw new Error("typeof import 缺少参数表");
+  }
+  const bracket = bracketUnit as Bracket;
+  this.At++;
+  let pathToken:String | null = null;
+  for (const item of bracket.Data) {
+    if (!item.IsTriviaToken && item instanceof String) {
+      pathToken = item as String;
+      break;
+    }
+  }
+  if (pathToken === null) {
+    throw new Error("typeof import 缺少模块字符串");
+  }
+  let pathPos = 0;
+  if (bracket.SourceRange.Start !== null) {
+    pathPos = bracket.SourceRange.Start.Index + 1;
+  }
+  const stringShape = StringLiteralShape.FromBasicToken(pathToken, this.Context);
+  stringShape.Pos = pathPos;
+  const argument = new LiteralTypeShape(this.Template);
+  argument.Literal = stringShape;
+  argument.Add(stringShape);
+  if (pathToken.SourceRange.Start !== null) {
+    argument.SignIn(pathToken.SourceRange.Start);
+  }
+  if (pathToken.SourceRange.End !== null) {
+    argument.SignOut(pathToken.SourceRange.End);
+  }
+  argument.Pos = pathPos;
+  argument.TryToClose(this.Context);
+  let qualifier:Token | null = null;
+  const dot = this.Peek(0);
+  if (dot !== null && this.IsText(dot, ".")) {
+    this.At++;
+    qualifier = this.ParseEntityName();
+  }
+  const imported = new ImportTypeShape(this.Template);
+  imported.Argument = argument;
+  imported.Qualifier = qualifier;
+  imported.Add(argument);
+  if (qualifier !== null) {
+    imported.Add(qualifier);
+  }
+  if (operatorUnit.SourceRange.Start !== null) {
+    imported.SignIn(operatorUnit.SourceRange.Start);
+  }
+  const lastUnit = this.Units[this.At - 1];
+  if (lastUnit.SourceRange.End !== null) {
+    imported.SignOut(lastUnit.SourceRange.End);
+  }
+  imported.Pos = this.Positions[start];
+  imported.TryToClose(this.Context);
+  return imported;
+}
 const name = this.ParseEntityName();
 const shape = new TypeQueryShape(this.Template);
 shape.ExprName = name;
