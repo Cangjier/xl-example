@@ -181,3 +181,22 @@ InterfaceDeclarationShape / ClassDeclarationShape 提供（本 chunk 未改任�
   `export default function () {}`、`export default function f() {}`、`export default (a, b);`。
 - 暂缓：`@dec export default class C {}`（TS 6.0.3 合法）—— 根候选是 class-declaration 家族，需要在
   class-declaration-possible-shape 里让 decorator 前缀后接受 `export`+`default`，不属于本 chunk 的 write scope；已写注释目标。
+
+## 分支合并补记（docs 补全，数据由 git 推导）
+
+> 用例行增量取 `git diff <merge>^1 <merge> -- typescript/cases/*.ts` 的 numstat（仅 .ts）；
+> 实现文件取 `git diff --name-only <merge>^1 <merge> -- typescript/tokens`；tip = `git rev-parse <merge>^2`。
+> 合并提交未记录 deferred，详见对应分支提交与报告。
+
+- `cover-export-build-1` @ `25fb6529` — (module-body export star/named + export FromUnits)；cases +22/-2（export,module-blocks）；impl: export-declaration-shape,module-block-shape
+- `cover-export-combos-1` @ `a47d8d5f` — (export declaration combinations)；cases +23/-0（export）；impl: export-declaration-possible-shape
+- `cover-export-import-type-1` @ `7705593b` — (export import type aliases)；cases +8/-1（import）；impl: import-equals-declaration-possible-shape
+- `cover-export-import-alias-1` @ `ff654862` — (export import A = B.C aliases)；cases +14/-1（export,import）；impl: import-equals-declaration-possible-shape,import-equals-declaration-shape
+- `cover-export-typespec-1` @ `e71a3ad1` — (inline type-only export specifiers)；cases +19/-2（export）；impl: export-specifier-shape
+- `cover-export-decls-6` @ `c2cd6b55` — (export default interface)；cases +22/-0（export）；impl: export-declaration-possible-shape
+- `cover-export-decls-4` @ `6879138d` — (abstract/default-abstract/declare-abstract/const-enum forms)；cases +31/-0（export）；impl: export-declaration-possible-shape
+- `cover-export-fn-1` @ `60b2f90b` — (export functions)；cases +47/-0（export-functions）；impl: export-declaration-possible-shape
+- `cover-export-sweep-1` @ `14fd3654` — (named/star/type-only export cases)；cases +31/-1（export）；impl: 
+- `cover-export-decls-3+4` @ `e1cf6149` — (export declare/specifier strings)；cases +26/-9（export）；impl: export-declaration-possible-shape,export-specifier-shape,source-file-shape
+- `cover-export-decls-2` @ `6f9f46de` — (chunk3) into chunk4 branch；cases +28/-5（export）；impl: export-declaration-possible-shape,source-file-shape
+- `cover-export-decls-2` @ `6f9f46de` — (export type aliases + candidate list)；cases +32/-5（export）；impl: export-declaration-possible-shape,export-specifier-shape,source-file-shape

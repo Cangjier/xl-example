@@ -264,3 +264,14 @@ chunk 3 之后，模块体里的这些成员已经全部能与 TS AST 对齐（o
   回归 `{ function f(): void; }` / `{ function f() {} }` / `{ export function f(): void; }`。
 - 读数：module-blocks 189 → **201 / 201 完全一致**；全量 **4225 / 4225**（基线 4213 + 12）。
 - 未改 core/**、未改 function-declaration shape（只消费）、未改 class/statement 文件。
+## 分支合并补记（docs 补全，数据由 git 推导）
+> 用例行增量取 `git diff <merge>^1 <merge> -- typescript/cases/*.ts` 的 numstat（仅 .ts）；
+> 实现文件取 `git diff --name-only <merge>^1 <merge> -- typescript/tokens`；tip = `git rev-parse <merge>^2`。
+> 合并提交未记录 deferred，详见对应分支提交与报告。
+- `cover-module-const-enum-1` @ `bc0eb11b` — (const enum in module bodies)；cases +28/-1（module-blocks）；impl: module-block-shape
+- `cover-module-imports-2` @ `7b24e60c` — (module import attributes/aliases/export-import)；cases +17/-1（import,module-blocks）；impl: import-declaration-shape
+- `cover-module-imports-1` @ `1bd20f0e` — (imports inside declare module/namespace)；cases +15/-0（module-blocks）；impl: import-declaration-shape,module-block-shape
+- `cover-module-blocks-4` @ `8b6f76c4` — (module blocks chunk 4)；cases +28/-3（module-blocks）；impl: module-block-shape
+- `cover-module-blocks-3` @ `778e1763` — (module blocks chunk 3)；cases +20/-3（module-blocks）；impl: module-block-shape
+- `cover-module-blocks-1` @ `39d94a7a` — (namespace/module blocks)；cases +30/-0（module-blocks）；impl: module-block-shape,module-declaration-possible-shape,module-declaration-shape,source-file-shape
+- `cover-module-blocks-1` @ `39d94a7a` — (module/namespace chunk 1)；cases +30/-0（module-blocks）；impl: module-block-shape,module-declaration-possible-shape,module-declaration-shape,source-file-shape

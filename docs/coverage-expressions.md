@@ -705,3 +705,16 @@ expression  687 / 687      # 685 + 2（base 42 的 2 条）
 
 - `obj?.x.#y`、`this?.#x`：oracle 实测 `ts.createSourceFile` 直接报诊断（`?.#` 非法），不入语料；
   optional private access 的非法性已在 chunk 13 记录。
+
+## 分支合并补记（docs 补全，数据由 git 推导）
+
+> 用例行增量取 `git diff <merge>^1 <merge> -- typescript/cases/*.ts` 的 numstat（仅 .ts）；
+> 实现文件取 `git diff --name-only <merge>^1 <merge> -- typescript/tokens`；tip = `git rev-parse <merge>^2`。
+> 合并提交未记录 deferred，详见对应分支提交与报告。
+
+- `cover-private-in-1` @ `d2066991` — (private brand check #x in obj)；cases +19/-1（expression）；impl: expression-builder
+- `cover-param-patterns-1` @ `ff191fee` — (destructured/default/optional/generic params)；cases +32/-0（expression）；impl: expression-builder
+- `cover-await-1` @ `4eb21369` — (await expressions)；cases +48/-0（await-expressions）；impl: expression-builder,expression-statement-possible-shape
+- `cover-chain-cases-1` @ `044cf3d5` — (expression chains + call forms)；cases +101/-0（call-forms,expression-chains）；impl: 
+- `cover-operators-1` @ `08728ca2` — (operator precedence corpus)；cases +115/-0（expression）；impl: 
+- `cover-async-1` @ `a77afb55` — (async arrows)；cases +38/-0（async-arrows）；impl: expression-builder,expression-statement-possible-shape
