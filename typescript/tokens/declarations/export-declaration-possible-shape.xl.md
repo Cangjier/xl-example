@@ -988,13 +988,35 @@ if (kind === 23) {
     }
     built = FunctionDeclarationShape.FromUnits(host, asyncIndex, bodyIndex, context);
   } else {
-    // anonymous default async function: children = AsyncKeyword, Block (Export/Default unshifted below).
-    const paramsUnit = host.Data[firstAfter];
-    if (!(paramsUnit instanceof Bracket) || (paramsUnit as Bracket).StartBracketChar !== "(") {
+    // anonymous default async function / async generator:
+    // children = AsyncKeyword, [AsteriskToken,] Block (Export/Default unshifted below).
+    let paramsIndex = firstAfter;
+    let asteriskShape:Token | null = null;
+    if (host.Data[paramsIndex] instanceof Symbol && (host.Data[paramsIndex] as Symbol).Is("*")) {
+      const asteriskUnit = host.Data[paramsIndex];
+      const functionUnitForAsterisk = host.Data[functionIndex];
+      const asteriskPos = functionUnitForAsterisk.SourceRange.End === null ? pos : functionUnitForAsterisk.SourceRange.End.Index + 1;
+      const asterisk = new AsteriskTokenShape(host.Template);
+      asterisk.SignInToken(asteriskUnit);
+      asterisk.SignOutToken(asteriskUnit);
+      asterisk.Pos = asteriskPos;
+      asterisk.TryToClose(context);
+      asteriskShape = asterisk;
+      let shifted = -1;
+      for (let at = paramsIndex + 1; at <= tokenIndex; at++) {
+        if (!host.Data[at].IsTriviaToken) {
+          shifted = at;
+          break;
+        }
+      }
+      paramsIndex = shifted;
+    }
+    if (paramsIndex < 0 || !(host.Data[paramsIndex] instanceof Bracket) || (host.Data[paramsIndex] as Bracket).StartBracketChar !== "(") {
       return host;
     }
+    const paramsUnit = host.Data[paramsIndex] as Bracket;
     let bodyIndex = -1;
-    for (let at = firstAfter + 1; at <= tokenIndex; at++) {
+    for (let at = paramsIndex + 1; at <= tokenIndex; at++) {
       if (!host.Data[at].IsTriviaToken) {
         bodyIndex = at;
         break;
@@ -1023,6 +1045,10 @@ if (kind === 23) {
     anonymous.ReturnType = null;
     anonymous.Body = body;
     anonymous.Add(asyncShape);
+    if (asteriskShape !== null) {
+      asteriskShape.Parent = anonymous;
+      anonymous.Data.push(asteriskShape);
+    }
     anonymous.Add(body);
     anonymous.SignInToken(exportUnit);
     if (bodyUnit.SourceRange.End !== null) {

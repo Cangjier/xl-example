@@ -370,6 +370,16 @@ export default async /* c */ function f() {}
 export default function f() {} // c
 export default function* f() {} // c
 export default async function f() {} // c
-// ===== deferred =====
-// `export default async function* f() {}`: TS 6.0.3 语法上合法，但本仓 export 前缀的 async+generator 组合
-// 组合还没收（async 分支在 function-declaration 侧，export 前缀分派只做 function/function*）；报告归属 export-declaration。
+// ===== base 23: export async generator（async function*，task-359，oracle diag=0 全合法）=====
+export default async function* f() {}
+export default async function* () {}
+export default async function* g(): AsyncGenerator<number> { yield 1; }
+export async function* f() {}
+// + trivia
+export default async /* c */ function* f() {}
+export default async function* /* c */ f() {}
+export default async function* f() {} // c
+export default async function* /* c */ () {}
+// ===== 已收（原 deferred，task-359 关闭）=====
+// `export default async function* f() {}` 与匿名形 `export default async function* () {}` 均已覆盖于 base 23；
+// AST 口径：children = ExportKeyword, DefaultKeyword, AsyncKeyword, AsteriskToken, [Identifier, TypeReference,] Block。
