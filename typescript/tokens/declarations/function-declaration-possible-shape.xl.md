@@ -48,6 +48,8 @@ import { ItemUtil } from "../item-util.xl.md"
 
 ## field FunctionAt:int = -1
 
+## field Angle:int = 0
+
 # class FunctionDeclarationPossibleShape extends PossibleShape
 
 ```txt
@@ -89,6 +91,7 @@ if (state.Checked > tokenIndex + 1) {
   state.HasAsync = false;
   state.SplitDeclare = false;
   state.FunctionAt = -1;
+  state.Angle = 0;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -150,11 +153,43 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 2) {
+    if (unit instanceof Symbol && (unit as Symbol).Is("<")) {
+      // Generic function: type parameter list between name and "(".
+      state.Angle = 1;
+      state.Stage = 7;
+      continue;
+    }
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
       state.Stage = 3;
       continue;
     }
     state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 7) {
+    // Inside "<...>": nested angle brackets are counted, ">>" closes two levels.
+    if (unit instanceof Symbol) {
+      const angleText = (unit as Symbol).TempToString();
+      if (angleText === "<") {
+        state.Angle++;
+        continue;
+      }
+      if (angleText === ">") {
+        state.Angle--;
+        if (state.Angle <= 0) {
+          state.Stage = 2;
+        }
+        continue;
+      }
+      if (angleText === ">>") {
+        state.Angle -= 2;
+        if (state.Angle <= 0) {
+          state.Stage = 2;
+        }
+        continue;
+      }
+    }
+    // Type parameter names / "extends" / "=" / default / constraint types are all content here.
     continue;
   }
   if (state.Stage === 3) {
