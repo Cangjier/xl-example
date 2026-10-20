@@ -43,7 +43,7 @@
               "end": 26,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 13,
                   "end": 24,
                   "children": [
@@ -101,7 +101,7 @@
               "end": 28,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 13,
                   "end": 26,
                   "children": [
@@ -159,7 +159,7 @@
               "end": 37,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 13,
                   "end": 24,
                   "children": [
@@ -192,7 +192,7 @@
                   ]
                 },
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 24,
                   "end": 35,
                   "children": [
@@ -285,7 +285,7 @@
                   "end": 28,
                   "children": [
                     {
-                      "kind": "FirstStatement",
+                      "kind": "VariableStatement",
                       "pos": 15,
                       "end": 26,
                       "children": [
@@ -396,7 +396,7 @@
               "end": 37,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 13,
                   "end": 24,
                   "children": [
@@ -429,7 +429,7 @@
                   ]
                 },
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 24,
                   "end": 35,
                   "children": [
@@ -510,7 +510,7 @@
               "end": 23,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 10,
                   "end": 21,
                   "children": [
@@ -601,7 +601,7 @@
               "end": 33,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 20,
                   "end": 31,
                   "children": [
@@ -692,7 +692,7 @@
               "end": 35,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 20,
                   "end": 33,
                   "children": [
@@ -773,7 +773,7 @@
               "end": 31,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 13,
                   "end": 29,
                   "children": [
@@ -831,7 +831,7 @@
               "end": 28,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 13,
                   "end": 26,
                   "children": [
@@ -985,7 +985,7 @@
                   "end": 28,
                   "children": [
                     {
-                      "kind": "FirstStatement",
+                      "kind": "VariableStatement",
                       "pos": 15,
                       "end": 26,
                       "children": [
@@ -1078,7 +1078,7 @@
               "end": 37,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 20,
                   "end": 35,
                   "children": [
@@ -1140,7 +1140,7 @@
               "end": 44,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 20,
                   "end": 42,
                   "children": [
@@ -1207,7 +1207,7 @@
               "end": 35,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 20,
                   "end": 33,
                   "children": [
@@ -1270,7 +1270,7 @@
               "end": 52,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 20,
                   "end": 35,
                   "children": [
@@ -1302,7 +1302,7 @@
                   ]
                 },
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 35,
                   "end": 50,
                   "children": [
@@ -1364,7 +1364,7 @@
               "end": 52,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 20,
                   "end": 35,
                   "children": [
@@ -1396,7 +1396,7 @@
                   ]
                 },
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 35,
                   "end": 50,
                   "children": [
@@ -1458,7 +1458,7 @@
               "end": 33,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 16,
                   "end": 31,
                   "children": [
@@ -1520,7 +1520,7 @@
               "end": 31,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 16,
                   "end": 29,
                   "children": [
@@ -1664,7 +1664,7 @@
               "end": 42,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 20,
                   "end": 40,
                   "children": [
@@ -2006,7 +2006,7 @@
               "end": 39,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 13,
                   "end": 26,
                   "children": [
@@ -2753,7 +2753,7 @@
               "end": 57,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 20,
                   "end": 35,
                   "children": [
@@ -2973,7 +2973,7 @@
                   ]
                 },
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 40,
                   "end": 55,
                   "children": [

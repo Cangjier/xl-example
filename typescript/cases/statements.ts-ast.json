@@ -29,7 +29,7 @@
           "end": 14,
           "children": [
             {
-              "kind": "FirstStatement",
+              "kind": "VariableStatement",
               "pos": 1,
               "end": 12,
               "children": [
@@ -91,7 +91,7 @@
           "end": 25,
           "children": [
             {
-              "kind": "FirstStatement",
+              "kind": "VariableStatement",
               "pos": 1,
               "end": 12,
               "children": [
@@ -124,7 +124,7 @@
               ]
             },
             {
-              "kind": "FirstStatement",
+              "kind": "VariableStatement",
               "pos": 12,
               "end": 23,
               "children": [
@@ -202,7 +202,7 @@
       "src": "let x = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 10,
           "children": [
@@ -240,7 +240,7 @@
       "src": "var a, b;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 9,
           "children": [
@@ -285,7 +285,7 @@
       "src": "const c = 2, d = 3;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 19,
           "children": [
@@ -342,7 +342,7 @@
       "src": "var z;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 6,
           "children": [
@@ -374,7 +374,7 @@
       "src": "let a1 = 1, b1 = 2, c1 = 3;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 27,
           "children": [
@@ -450,7 +450,7 @@
       "src": "let x: number = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 18,
           "children": [
@@ -493,7 +493,7 @@
       "src": "var t: boolean;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 15,
           "children": [
@@ -530,7 +530,7 @@
       "src": "let s: string = \"a\";",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 20,
           "children": [
@@ -573,7 +573,7 @@
       "src": "let x : number = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 19,
           "children": [
@@ -701,7 +701,7 @@
       "src": "let [a, b] = x;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 15,
           "children": [
@@ -766,7 +766,7 @@
       "src": "let [a] = x;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 12,
           "children": [
@@ -818,7 +818,7 @@
       "src": "let {a, b} = x;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 15,
           "children": [
@@ -883,7 +883,7 @@
       "src": "let {a: c} = x;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 15,
           "children": [
@@ -941,7 +941,7 @@
       "src": "let [ a , b ] = x ;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 19,
           "children": [
@@ -1006,7 +1006,7 @@
       "src": "let { a , b } = x ;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 19,
           "children": [
@@ -3935,7 +3935,7 @@
       "src": "/* c */ let x = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 18,
           "children": [
@@ -3973,7 +3973,7 @@
       "src": "let /* c */ x = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 18,
           "children": [
@@ -4011,7 +4011,7 @@
       "src": "let   x   =   1 ;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 17,
           "children": [
@@ -4087,7 +4087,7 @@
       "src": "let x = 1; // tail",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 10,
           "children": [
@@ -4401,7 +4401,7 @@
       "src": "let x = 1;\nlet y = 2;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 10,
           "children": [
@@ -4434,7 +4434,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 10,
           "end": 21,
           "children": [
@@ -4497,7 +4497,7 @@
           "end": 19,
           "children": [
             {
-              "kind": "FirstStatement",
+              "kind": "VariableStatement",
               "pos": 6,
               "end": 17,
               "children": [
@@ -4590,7 +4590,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 27,
           "end": 38,
           "children": [
@@ -4709,7 +4709,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 31,
           "end": 42,
           "children": [
@@ -5959,7 +5959,7 @@
               "end": 45,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 29,
                   "end": 40,
                   "children": [
@@ -6297,7 +6297,7 @@
       "src": "let a = 1, b, c = 2;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 20,
           "children": [
@@ -6367,7 +6367,7 @@
       "src": "var a, b, c;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 12,
           "children": [
@@ -6425,7 +6425,7 @@
       "src": "let /* c */ a = 1, /* c */ b = 2;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 33,
           "children": [
@@ -6482,7 +6482,7 @@
       "src": "let a = 1, /* c */ b = 2;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 25,
           "children": [
@@ -6539,7 +6539,7 @@
       "src": "let a = f(1), b = g(2);",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 23,
           "children": [
@@ -6622,7 +6622,7 @@
       "src": "var a = 1, b = 2; // tail",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 17,
           "children": [
@@ -6679,7 +6679,7 @@
       "src": "let x = 1; /* c */",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 10,
           "children": [
@@ -6717,7 +6717,7 @@
       "src": "let x = 1;\nlet y = 2;\nlet z = 3;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 10,
           "children": [
@@ -6750,7 +6750,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 10,
           "end": 21,
           "children": [
@@ -6783,7 +6783,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 21,
           "end": 32,
           "children": [
@@ -6821,7 +6821,7 @@
       "src": "let x = 1, y = 2;\nvar z;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 17,
           "children": [
@@ -6873,7 +6873,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 17,
           "end": 24,
           "children": [
@@ -6905,7 +6905,7 @@
       "src": "const a = 1, b = 2, c = 3;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 26,
           "children": [
@@ -8962,7 +8962,7 @@
       "src": "let x = 1;\nif (a) {\nb;\n}\nwhile (c) d;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 10,
           "children": [
@@ -9193,7 +9193,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 59,
           "end": 70,
           "children": [
@@ -9231,7 +9231,7 @@
       "src": "/* c */ let x = 1;\n/* c */ if (a) b;\n/* c */ while (c) d;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 18,
           "children": [
@@ -9321,7 +9321,7 @@
       "src": "let x = 1; if (a) b; while (c) d; for (;;) {}",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 10,
           "children": [
@@ -12622,7 +12622,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 41,
           "end": 52,
           "children": [
