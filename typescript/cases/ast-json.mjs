@@ -59,9 +59,13 @@ function readCases(stem) {
 // TS 的 SyntaxKind 301/302 在本版里反查出来印的是旧名 AssertClause / AssertEntry，
 // 但 `with` 与 `assert` 用的是同一个 kind（301/302），产物侧叫 ImportAttributes / ImportAttribute；
 // 先归一，否则每一行 attributes 都会凭空多出「结构差」。
+// 模板的两个 kind 同理：别名枚举值反查印 FirstTemplateToken / LastTemplateToken，
+// 产物侧按规范名叫 NoSubstitutionTemplateLiteral / TemplateTail。
 const TS_KIND_ALIASES = new Map([
   ["AssertClause", "ImportAttributes"],
   ["AssertEntry", "ImportAttribute"],
+  ["FirstTemplateToken", "NoSubstitutionTemplateLiteral"],
+  ["LastTemplateToken", "TemplateTail"],
 ]);
 
 function norm(node) {
@@ -76,7 +80,17 @@ function norm(node) {
 function tsAst(node) {
   const kind = ts.SyntaxKind[node.kind];
   const out = { kind: TS_KIND_ALIASES.get(kind) || kind, pos: node.pos, end: node.end };
-  if (ts.isIdentifier(node) || ts.isStringLiteral(node) || ts.isNumericLiteral(node) || ts.isBigIntLiteral(node) || ts.isRegularExpressionLiteral(node)) {
+  // 模板的几种节点（NoSubstitutionTemplateLiteral / TemplateHead / TemplateMiddle / TemplateTail）
+  // 在 ts 里 `isStringLiteral` 为 false，但 `node.text` 有 cooked 文本；漏了它们会变成「字段差」。
+  if (ts.isIdentifier(node)
+    || ts.isStringLiteral(node)
+    || ts.isNoSubstitutionTemplateLiteral(node)
+    || ts.isTemplateHead(node)
+    || ts.isTemplateMiddle(node)
+    || ts.isTemplateTail(node)
+    || ts.isNumericLiteral(node)
+    || ts.isBigIntLiteral(node)
+    || ts.isRegularExpressionLiteral(node)) {
     out.text = node.text;
   }
   // 与投影字段同名的那些：没出现的键不写，diff 两侧都缺就是一致。

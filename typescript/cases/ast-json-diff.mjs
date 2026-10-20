@@ -50,6 +50,8 @@ function selectedStems(args) {
 const TS_KIND_ALIASES = new Map([
   ["FirstStatement", "VariableStatement"],
   ["FirstLiteralToken", "NumericLiteral"],
+  ["FirstTemplateToken", "NoSubstitutionTemplateLiteral"],
+  ["LastTemplateToken", "TemplateTail"],
 ]);
 
 const kindOf = (kind) => TS_KIND_ALIASES.get(kind) || kind;

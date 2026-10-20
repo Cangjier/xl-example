@@ -3,9 +3,12 @@
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { ConstString } from "../../../core/syntax/basic-tokens/string/const-string.xl.md"
+import { InterpolationString } from "../../../core/syntax/basic-tokens/string/interpolation-string.xl.md"
 import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -52,6 +55,7 @@ import { QuestionQuestionTokenShape } from "../punctuation/question-question-tok
 import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { SlashEqualsTokenShape } from "../punctuation/slash-equals-token-shape.xl.md"
 import { SlashTokenShape } from "../punctuation/slash-token-shape.xl.md"
+import { ArrayLiteralExpressionShape } from "./array-literal-expression-shape.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
 import { CallExpressionShape } from "./call-expression-shape.xl.md"
 import { ConditionalExpressionShape } from "./conditional-expression-shape.xl.md"
@@ -59,10 +63,14 @@ import { DeleteExpressionShape } from "./delete-expression-shape.xl.md"
 import { ElementAccessExpressionShape } from "./element-access-expression-shape.xl.md"
 import { NewExpressionShape } from "./new-expression-shape.xl.md"
 import { NonNullExpressionShape } from "./non-null-expression-shape.xl.md"
+import { ObjectLiteralExpressionShape } from "./object-literal-expression-shape.xl.md"
 import { ParenthesizedExpressionShape } from "./parenthesized-expression-shape.xl.md"
 import { PostfixUnaryExpressionShape } from "./postfix-unary-expression-shape.xl.md"
 import { PrefixUnaryExpressionShape } from "./prefix-unary-expression-shape.xl.md"
 import { PropertyAccessExpressionShape } from "./property-access-expression-shape.xl.md"
+import { TaggedTemplateExpressionShape } from "./tagged-template-expression-shape.xl.md"
+import { TemplateExpressionShape } from "./template-expression-shape.xl.md"
+import { TemplateSpanShape } from "./template-span-shape.xl.md"
 import { TypeOfExpressionShape } from "./type-of-expression-shape.xl.md"
 import { VoidExpressionShape } from "./void-expression-shape.xl.md"
 import { FalseKeywordShape } from "../keywords/false-keyword-shape.xl.md"
@@ -72,10 +80,15 @@ import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
+import { NoSubstitutionTemplateLiteralShape } from "../literals/no-substitution-template-literal-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { RegularExpressionLiteralShape } from "../literals/regular-expression-literal-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
+import { TemplateHeadShape } from "../literals/template-head-shape.xl.md"
+import { TemplateMiddleShape } from "../literals/template-middle-shape.xl.md"
+import { TemplateTailShape } from "../literals/template-tail-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -449,6 +462,22 @@ while (true) {
   if (unit === null) {
     break;
   }
+  if (this.IsTemplateToken(unit)) {
+    const template = this.ParseTemplateToken();
+    const shape = new TaggedTemplateExpressionShape(this.Template);
+    shape.Add(expression);
+    shape.Add(template);
+    if (expression.SourceRange.Start !== null) {
+      shape.SignIn(expression.SourceRange.Start);
+    }
+    if (template.SourceRange.End !== null) {
+      shape.SignOut(template.SourceRange.End);
+    }
+    shape.Pos = (expression as ShapeToken).Pos;
+    shape.TryToClose(this.Context);
+    expression = shape;
+    continue;
+  }
   if (unit instanceof Symbol) {
     const text = (unit as Symbol).TempToString();
     if (text === ".") {
@@ -585,6 +614,227 @@ if (argsUnit !== null && this.IsBracketStart(argsUnit, "(")) {
 return this.SpanNode(shape, start, this.At - 1);
 ```
 
+## method IsTemplateToken:(unit:Token)=>bool
+
+是不是「引号内式内插」的模板串单元：`String`、开了内插、且它的引号属于模板配置的 `InterpolationQuoteChars`（ts 只有反引号）。
+C# 的 `$"…"` 也开 `IsSupportInterpolation`，但引号不在这个集合里，不会被当成模板。
+
+```ts
+if (!(unit instanceof String)) {
+  return false;
+}
+const token = unit as String;
+if (!token.IsSupportInterpolation) {
+  return false;
+}
+const config = this.Template.StringTemplate;
+return config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(token.StringChar);
+```
+
+## method SourceAfter:(source:Source, offset:int)=>Source
+
+同一文档里、`source` 之后第 `offset` 个位置（`offset` 为 1 就是下一个字符）。
+
+```ts
+return source.Document.At(source.Index + offset);
+```
+
+## method ParseTemplateToken:()=>Token
+
+把「当前 At 上的模板 `String` 单元」拆成模板 AST。`At` 要停在模板单元上，方法自己前进一格。
+
+`String.Data` 里 `ConstString` 与 `InterpolationString` 交替：没有 `InterpolationString` → 无内插模板（一个叶子）；
+有 → `TemplateExpression` = `TemplateHead` + 若干个 `TemplateSpan`（每个 span = 插值表达式 + `TemplateMiddle` / `TemplateTail`）。
+
+区间口径（与 TS 对齐）：
+
+- 模板整体 / 头：`[String.Start, String.End]` / `[String.Start, interp.Start]`（`interp.Start` 是 `${` 的 `{`）；
+- 中段：`[interp.End, nextInterp.Start]`（从 `}` 到下一个 `${` 的 `{`）；尾段：`[interp.End, String.End]`；
+- span：`[interp.Start + 1, tail.End]`；插值里的表达式从 `interp.Start + 1` 起（含前导 trivia 的 `Pos` 口径）。
+
+```ts
+const start = this.At;
+const token = this.Units[start] as String;
+this.At++;
+const texts:Array<string> = [];
+const interps:Array<Token> = [];
+let current = "";
+for (const part of token.Data) {
+  if (part instanceof ConstString) {
+    current += (part as ConstString).TempToString();
+    continue;
+  }
+  if (part instanceof InterpolationString) {
+    texts.push(current);
+    current = "";
+    interps.push(part);
+  }
+}
+texts.push(current);
+if (interps.length === 0) {
+  const literal = NoSubstitutionTemplateLiteralShape.FromBasicToken(token, this.Context);
+  literal.Pos = this.Positions[start];
+  return literal;
+}
+const expression = new TemplateExpressionShape(this.Template);
+const head = new TemplateHeadShape(this.Template);
+head.Text = texts[0];
+if (token.SourceRange.Start !== null) {
+  head.SignIn(token.SourceRange.Start);
+}
+if (interps[0].SourceRange.Start !== null) {
+  head.SignOut(interps[0].SourceRange.Start);
+}
+head.Pos = this.Positions[start];
+head.TryToClose(this.Context);
+expression.Add(head);
+for (let index = 0; index < interps.length; index++) {
+  const interp = interps[index];
+  const inner = new ExpressionBuilder(this.Template, this.Context);
+  let base = 0;
+  if (interp.SourceRange.Start !== null) {
+    base = interp.SourceRange.Start.Index + 1;
+  }
+  inner.Load(interp.Data, base);
+  if (inner.Units.length === 0) {
+    throw new Error("插值里没有表达式");
+  }
+  const value = inner.ParseExpression();
+  if (inner.At !== inner.Units.length) {
+    throw new Error("插值里的表达式没有读完");
+  }
+  // 尾段 / 中段的 Pos 是 `}` 这个 token 的 pos（含表达式后面的 trivia）：取「表达式最后一个字符的下一个位置」。
+  let tailPos = 0;
+  if (value.SourceRange.End !== null) {
+    tailPos = value.SourceRange.End.Index + 1;
+  } else if (interp.SourceRange.End !== null) {
+    tailPos = interp.SourceRange.End.Index;
+  }
+  let tail:ShapeToken;
+  if (index + 1 < interps.length) {
+    const middle = new TemplateMiddleShape(this.Template);
+    middle.Text = texts[index + 1];
+    middle.Pos = tailPos;
+    if (interp.SourceRange.End !== null) {
+      middle.SignIn(interp.SourceRange.End);
+    }
+    const nextInterp = interps[index + 1];
+    if (nextInterp.SourceRange.Start !== null) {
+      middle.SignOut(nextInterp.SourceRange.Start);
+    }
+    middle.TryToClose(this.Context);
+    tail = middle;
+  } else {
+    const lastTail = new TemplateTailShape(this.Template);
+    lastTail.Text = texts[index + 1];
+    lastTail.Pos = tailPos;
+    if (interp.SourceRange.End !== null) {
+      lastTail.SignIn(interp.SourceRange.End);
+    }
+    if (token.SourceRange.End !== null) {
+      lastTail.SignOut(token.SourceRange.End);
+    }
+    lastTail.TryToClose(this.Context);
+    tail = lastTail;
+  }
+  const span = new TemplateSpanShape(this.Template);
+  span.Add(value);
+  span.Add(tail);
+  if (interp.SourceRange.Start !== null) {
+    span.SignIn(this.SourceAfter(interp.SourceRange.Start, 1));
+    span.Pos = interp.SourceRange.Start.Index + 1;
+  }
+  if (tail.SourceRange.End !== null) {
+    span.SignOut(tail.SourceRange.End);
+  }
+  span.TryToClose(this.Context);
+  expression.Add(span);
+}
+if (token.SourceRange.Start !== null) {
+  expression.SignIn(token.SourceRange.Start);
+}
+if (token.SourceRange.End !== null) {
+  expression.SignOut(token.SourceRange.End);
+}
+expression.Pos = this.Positions[start];
+expression.TryToClose(this.Context);
+return expression;
+```
+
+## method ParseObjectLiteral:(bracket:Bracket, start:int)=>Token
+
+`{…}` 对象字面量：逐个属性解析（`名字 : 值`），逗号不进 AST。TS 的 `PropertyAssignment` 只有两个子节点（名 / 值），冒号不是节点。
+
+```ts
+const inner = new ExpressionBuilder(this.Template, this.Context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+const shape = new ObjectLiteralExpressionShape(this.Template);
+while (inner.At < inner.Units.length) {
+  const unit = inner.Units[inner.At];
+  if (inner.IsText(unit, ",")) {
+    inner.At++;
+    continue;
+  }
+  const nameIndex = inner.At;
+  const name = inner.ParseName();
+  const colon = inner.Peek(0);
+  if (colon === null || !inner.IsText(colon, ":")) {
+    throw new Error("对象字面量缺少冒号");
+  }
+  inner.At++;
+  const value = inner.ParseAssign();
+  const property = new PropertyAssignmentShape(this.Template);
+  property.Add(name);
+  property.Add(value);
+  inner.SpanNode(property, nameIndex, inner.At - 1);
+  shape.Add(property);
+}
+if (bracket.SourceRange.Start !== null) {
+  shape.SignIn(bracket.SourceRange.Start);
+}
+if (bracket.SourceRange.End !== null) {
+  shape.SignOut(bracket.SourceRange.End);
+}
+shape.Pos = this.Positions[start];
+shape.TryToClose(this.Context);
+return shape;
+```
+
+## method ParseArrayLiteral:(bracket:Bracket, start:int)=>Token
+
+`[…]` 数组字面量：逐个元素解析，逗号不进 AST。
+
+```ts
+const inner = new ExpressionBuilder(this.Template, this.Context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+const shape = new ArrayLiteralExpressionShape(this.Template);
+while (inner.At < inner.Units.length) {
+  const unit = inner.Units[inner.At];
+  if (inner.IsText(unit, ",")) {
+    inner.At++;
+    continue;
+  }
+  shape.Add(inner.ParseAssign());
+}
+if (bracket.SourceRange.Start !== null) {
+  shape.SignIn(bracket.SourceRange.Start);
+}
+if (bracket.SourceRange.End !== null) {
+  shape.SignOut(bracket.SourceRange.End);
+}
+shape.Pos = this.Positions[start];
+shape.TryToClose(this.Context);
+return shape;
+```
+
 ## method ParsePrimary:()=>Token
 
 ```ts
@@ -601,6 +851,14 @@ if (unit instanceof RegexToken) {
 }
 if (unit instanceof Bracket) {
   const bracket = unit as Bracket;
+  if (bracket.StartBracketChar === "{") {
+    this.At++;
+    return this.ParseObjectLiteral(bracket, start);
+  }
+  if (bracket.StartBracketChar === "[") {
+    this.At++;
+    return this.ParseArrayLiteral(bracket, start);
+  }
   if (bracket.StartBracketChar !== "(") {
     throw new Error("表达式里出现了不支持的括号");
   }
@@ -611,6 +869,9 @@ if (unit instanceof Bracket) {
   return this.SpanNode(shape, start, start);
 }
 if (unit instanceof String) {
+  if (this.IsTemplateToken(unit)) {
+    return this.ParseTemplateToken();
+  }
   this.At++;
   const shape = StringLiteralShape.FromBasicToken(unit as String, this.Context);
   shape.Pos = this.Positions[start];

@@ -128,7 +128,11 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   仍然落成 `<Statement>` + `<Method>` + `<TypeDefine>`；类里的 `static { … }` 块也没有节点。
 - **`Label` 只是标记节点**，不包含它标的那条语句（产物形如 `<Label LabelName="outer" /><While>…</While>`）：
   标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
-- **模板字符串**（`` `a${b}c` ``）与 `$"…"` 内插走的还是老的字符串路径，产物不对。
+- **模板字符串的 AST**（`` `a${b}c` ``）：已支持——词法层把 `${…}` 收成 `<String IsSupportInterpolation=True>` + `ConstString` / `InterpolationString`，
+  形状层按它切出 `NoSubstitutionTemplateLiteral` / `TemplateHead` / `TemplateMiddle` / `TemplateTail` / `TemplateExpression` /
+  `TemplateSpan` / `TaggedTemplateExpression`，`typescript/cases/string.ts` 的 S3–S6 全绿（75/75）。`$"…"` 是 C# 的前缀式内插，ts 没有，按普通 `Symbol` + `String` 解析。
+- **对象 / 数组字面量的表达式**：`({ a: b })`、`f([1, 2])`、`{…}` / `[…]` 作为插值内容都已能建对；
+  语句首的裸 `[a, b];` 仍卡在 `CanStart`（缺 possible，不在表达式形状层）。
 - **JSX / TSX** 没有支持。
 - 实测：`node_modules` 下 200 个真实 `.d.ts`（`lib.es5` / `lib.dom` / `@types/node` / undici-types）
   全部解析成功、零异常；TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别

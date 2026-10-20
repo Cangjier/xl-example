@@ -1,0 +1,2210 @@
+{
+  "cases": [
+    {
+      "src": "\"\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 2,
+              "text": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "'a';",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"hello world\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 13,
+              "text": "hello world"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a b\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "a b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a-b_c.1\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 9,
+              "text": "a-b_c.1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"'\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "'"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "'\"';",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a{b}\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "a{b}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a}b\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "a}b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a$b\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "a$b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a$\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "a$"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"${\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "${"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"{\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "{"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a\\\\b\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "a\\b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a\\\"b\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "a\"b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "'a\\'b';",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "a'b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a\\tb\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "a\tb"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a\\$b\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "a$b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a\\`b\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "a`b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\\\\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "\\"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\\"\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "'\\'';",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "'"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\u0041\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 8,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\x41\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\u{1F600}\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 11,
+              "text": "😀"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\uD83D\\uDE00\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 14,
+              "text": "😀"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\a\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\d\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "d"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\{\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "{"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\ \";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": " "
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`t`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "``;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 2,
+              "text": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "a b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`$`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "$"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a$b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "a$b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a$`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "a$"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`{`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "{"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a{b}c`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 7,
+              "text": "a{b}c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a\\`b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "a`b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a\\\\b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "a\\b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a\\tb`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "a\tb"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a\nb`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "a\nb"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`t`; `u`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "t"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 9,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 4,
+              "end": 8,
+              "text": "u"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ `t`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 11,
+              "text": "t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`${a}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 3,
+                  "text": ""
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 3,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 4,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 4,
+                      "end": 6,
+                      "text": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${b}c`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 5,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${b}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 5,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 5,
+                      "end": 7,
+                      "text": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`${a}c`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 3,
+                  "text": ""
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 3,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 4,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 4,
+                      "end": 7,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${b}${c}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 5,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TemplateMiddle",
+                      "pos": 5,
+                      "end": 8,
+                      "text": ""
+                    }
+                  ]
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 8,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 9,
+                      "text": "c"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 9,
+                      "end": 11,
+                      "text": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${b}c${d}e`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 5,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TemplateMiddle",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "c"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 9,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 10,
+                      "text": "d"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 10,
+                      "end": 13,
+                      "text": "e"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`${a}${b}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 3,
+                  "text": ""
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 3,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 4,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TemplateMiddle",
+                      "pos": 4,
+                      "end": 7,
+                      "text": ""
+                    }
+                  ]
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 7,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 7,
+                      "end": 8,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 8,
+                      "end": 10,
+                      "text": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`$${a}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "$"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 5,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 5,
+                      "end": 7,
+                      "text": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`$a${b}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "$a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 5,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 6,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 6,
+                      "end": 8,
+                      "text": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`$${a}${b}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "$"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 5,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TemplateMiddle",
+                      "pos": 5,
+                      "end": 8,
+                      "text": ""
+                    }
+                  ]
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 8,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 9,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 9,
+                      "end": 11,
+                      "text": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`\\${a}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 7,
+              "text": "${a}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`\\\\${a}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "\\"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 5,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 6,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 6,
+                      "end": 8,
+                      "text": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a\\${b}c`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 9,
+              "text": "a${b}c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a$b${c}d`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 6,
+                  "text": "a$b"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 6,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 7,
+                      "text": "c"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 7,
+                      "end": 10,
+                      "text": "d"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${ {x:1} }b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 4,
+                      "end": 10,
+                      "children": [
+                        {
+                          "kind": "PropertyAssignment",
+                          "pos": 6,
+                          "end": 9,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 6,
+                              "end": 7,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 8,
+                              "end": 9,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 10,
+                      "end": 14,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${{x:1}}b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 4,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "PropertyAssignment",
+                          "pos": 5,
+                          "end": 8,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 7,
+                              "end": 8,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 9,
+                      "end": 12,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${f()}b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 4,
+                      "end": 7,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 4,
+                          "end": 5,
+                          "text": "f"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 7,
+                      "end": 10,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${f(1, 2)}b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 4,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 4,
+                          "end": 5,
+                          "text": "f"
+                        },
+                        {
+                          "kind": "FirstLiteralToken",
+                          "pos": 6,
+                          "end": 7,
+                          "text": "1"
+                        },
+                        {
+                          "kind": "FirstLiteralToken",
+                          "pos": 8,
+                          "end": 10,
+                          "text": "2"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${\"}\"}b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 4,
+                      "end": 7,
+                      "text": "}"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 7,
+                      "end": 10,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${'}'}b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 4,
+                      "end": 7,
+                      "text": "}"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 7,
+                      "end": 10,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${(1 + 2)}b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "ParenthesizedExpression",
+                      "pos": 4,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 5,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "1"
+                            },
+                            {
+                              "kind": "PlusToken",
+                              "pos": 6,
+                              "end": 8
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 8,
+                              "end": 10,
+                              "text": "2"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${[1, 2]}b`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "ArrayLiteralExpression",
+                      "pos": 4,
+                      "end": 10,
+                      "children": [
+                        {
+                          "kind": "FirstLiteralToken",
+                          "pos": 5,
+                          "end": 6,
+                          "text": "1"
+                        },
+                        {
+                          "kind": "FirstLiteralToken",
+                          "pos": 7,
+                          "end": 9,
+                          "text": "2"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 10,
+                      "end": 13,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${`b`}c`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "NoSubstitutionTemplateLiteral",
+                      "pos": 4,
+                      "end": 7,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 7,
+                      "end": 10,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${`b${c}d`}e`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "TemplateExpression",
+                      "pos": 4,
+                      "end": 12,
+                      "children": [
+                        {
+                          "kind": "TemplateHead",
+                          "pos": 4,
+                          "end": 8,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "TemplateSpan",
+                          "pos": 8,
+                          "end": 12,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 8,
+                              "end": 9,
+                              "text": "c"
+                            },
+                            {
+                              "kind": "TemplateTail",
+                              "pos": 9,
+                              "end": 12,
+                              "text": "d"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 12,
+                      "end": 15,
+                      "text": "e"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "tag`t`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "TaggedTemplateExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 3,
+                  "text": "tag"
+                },
+                {
+                  "kind": "NoSubstitutionTemplateLiteral",
+                  "pos": 3,
+                  "end": 6,
+                  "text": "t"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "tag`a${b}c`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "TaggedTemplateExpression",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 3,
+                  "text": "tag"
+                },
+                {
+                  "kind": "TemplateExpression",
+                  "pos": 3,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "TemplateHead",
+                      "pos": 3,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TemplateSpan",
+                      "pos": 7,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 7,
+                          "end": 8,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "TemplateTail",
+                          "pos": 8,
+                          "end": 11,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a\"; \"b\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 9,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 4,
+              "end": 8,
+              "text": "b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ \"a\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 11,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a\"; // c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
