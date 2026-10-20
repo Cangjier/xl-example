@@ -222,3 +222,34 @@ export *\nas\nns\nfrom "m";
 
 // ===== sweep 暂缓（measurement-only，未改 token 源） =====
 // export { type T } from "m";  —— inline type-only specifier（见上方注释；不支持）
+
+// ===== base 13：export default/abstract/extends/implements/const enum（chunk5） =====
+export default class D extends B {}
+export default class D implements I {}
+export default class D extends B implements I {}
+export abstract class C {}
+export default abstract class C {}
+export abstract class C extends D {}
+export declare abstract class C {}
+export class C extends D implements I {}
+export interface I extends J {}
+export default class C { m() {} }
+export const enum E { A }
+export declare const enum E { A }
+// + 前导空格
+  export default class D extends B {}
+  export abstract class C {}
+// + 行尾注释
+export default class D extends B {} // c
+export const enum E { A } // c
+// + 词间块注释
+export /* c */ default class D extends B {}
+export /* c */ abstract class C {}
+export declare /* c */ abstract class C {}
+// + 换行
+export\ndefault class D extends B {}
+// export abstract\nclass C {}          —— abstract 与 class 之间换行时 TS 的 ClassDeclaration pos=15（非 0），ruler 口径问题，暂缓
+// export default abstract\nclass C {}  —— 同上（pos=23），暂缓
+// + 重复形
+export class C extends D implements I {} export interface I extends J {}
+export const enum E { A } export declare const enum F { B }

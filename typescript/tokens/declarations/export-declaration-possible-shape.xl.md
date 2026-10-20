@@ -19,6 +19,7 @@ import { ExportDeclarationShape } from "./export-declaration-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
+import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
@@ -134,12 +135,18 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     } else if (unit instanceof Common && (unit as Common).Is("enum")) {
       state.Stage = 12;
       state.Kind = 3;
-    } else if (unit instanceof Common
-      && ((unit as Common).Is("const") || (unit as Common).Is("let") || (unit as Common).Is("var"))) {
+    } else if (unit instanceof Common && (unit as Common).Is("const")) {
+      // `const enum` 需要看下一个单元，先挂起。
+      state.Stage = 27;
+      state.Kind = 0;
+    } else if (unit instanceof Common && ((unit as Common).Is("let") || (unit as Common).Is("var"))) {
       state.Stage = 13;
       state.Kind = 4;
+    } else if (unit instanceof Common && (unit as Common).Is("abstract")) {
+      state.Stage = 24;
+      state.Kind = 15;
     } else if (unit instanceof Common && (unit as Common).Is("function")) {
-      // `export function [*] name(…) {…}`：带函数体的导出函数（generator 的 `*` 在 Stage 16 里放行）。
+      // export function [*] name(… {…}: body-bearing export function (generator `*` handled in Stage 16).
       state.Stage = 16;
       state.Kind = 14;
     } else if (unit instanceof Common && (unit as Common).Is("default")) {
@@ -185,9 +192,20 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
         state.Kind = 11;
         continue;
       }
-      if (text === "const" || text === "let" || text === "var") {
+      if (text === "let" || text === "var") {
         state.Stage = 13;
         state.Kind = 12;
+        continue;
+      }
+      if (text === "const") {
+        // export declare const …：等下一个单元区分 `const enum` 与 declare 变量。
+        state.Stage = 26;
+        state.Kind = 0;
+        continue;
+      }
+      if (text === "abstract") {
+        state.Stage = 24;
+        state.Kind = 17;
         continue;
       }
       if (text === "type") {
@@ -199,8 +217,55 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     state.Stage = 3;
     continue;
   }
-  if (state.Stage === 20) {
+  if (state.Stage === 24) {
+    // export [declare] abstract class …（Kind 15 / 17 保留在分派处）。
+    if (unit instanceof Common && (unit as Common).Is("abstract")) {
+      continue;
+    }
     if (unit instanceof Common && (unit as Common).Is("class")) {
+      state.Stage = 10;
+      continue;
+    }
+    state.Stage = 3;
+    continue;
+  }
+  if (state.Stage === 25) {
+    // export default abstract class …。
+    if (unit instanceof Common && (unit as Common).Is("class")) {
+      state.Stage = 21;
+      state.Kind = 16;
+      continue;
+    }
+    state.Stage = 3;
+    continue;
+  }
+  if (state.Stage === 26) {
+    // export declare const …：enum 走 const enum，其余按 declare 变量语句。
+    if (unit instanceof Common && (unit as Common).Is("enum")) {
+      state.Stage = 12;
+      state.Kind = 19;
+      continue;
+    }
+    state.Stage = 13;
+    state.Kind = 12;
+    continue;
+  }
+  if (state.Stage === 27) {
+    // export const …：enum 走 const enum，其余按变量语句。
+    if (unit instanceof Common && (unit as Common).Is("enum")) {
+      state.Stage = 12;
+      state.Kind = 18;
+      continue;
+    }
+    state.Stage = 13;
+    state.Kind = 4;
+    continue;
+  }
+  if (state.Stage === 20) {
+    if (unit instanceof Common && (unit as Common).Is("abstract")) {
+      state.Stage = 25;
+      state.Kind = 0;
+    } else if (unit instanceof Common && (unit as Common).Is("class")) {
       state.Stage = 21;
       state.Kind = 5;
     } else if (unit instanceof Common && (unit as Common).Is("function")) {
@@ -267,7 +332,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       }
     }
     // class / interface 的类体、接口体成员未实现：非空就先退出（不静默丢成员）。
-    if ((state.Stage === 10 || state.Stage === 11 || state.Stage === 21) && !empty) {
+    if (state.Stage === 11 && !empty) {
       state.Stage = 3;
       continue;
     }
@@ -401,7 +466,7 @@ if (exportModifier.SourceRange.End === null && exportUnit.SourceRange.End !== nu
   exportModifier.SignOut(exportUnit.SourceRange.End);
 }
 let declIndex = secondIndex;
-if (kind === 5 || kind === 10) {
+if (kind === 5 || kind === 10 || kind === 16) {
   // default class / default function：跳过 `default`，声明从声明词起。
   for (let at = secondIndex + 1; at <= tokenIndex; at++) {
     if (!host.Data[at].IsTriviaToken) {
@@ -506,6 +571,90 @@ if (kind === 13) {
   const built = TypeAliasDeclarationShape.FromUnits(host, typeIndex, tokenIndex, context);
   built.Data.unshift(declareModifier);
   declareModifier.Parent = built;
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 15 || kind === 17) {
+  // export [declare] abstract class …：ClassDeclarationShape.FromUnits 认 abstract/declare 修饰词。
+  const built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 16) {
+  // export default abstract class …：ClassDeclarationShape 自带 abstract child，再补 Default/Export。
+  const built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  const defaultUnit = host.Data[secondIndex];
+  const defaultModifier = new DefaultKeywordShape(host.Template);
+  if (defaultUnit.SourceRange.Start !== null) {
+    defaultModifier.SignIn(defaultUnit.SourceRange.Start);
+  }
+  if (defaultUnit.SourceRange.End !== null) {
+    defaultModifier.SignOut(defaultUnit.SourceRange.End);
+  }
+  defaultModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  defaultModifier.TryToClose(context);
+  built.Data.unshift(defaultModifier);
+  defaultModifier.Parent = built;
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 18 || kind === 19) {
+  // export [declare] const enum …：EnumDeclarationShape 不认 const，手工补 ConstKeyword。
+  let constIndex = secondIndex;
+  if (kind === 19) {
+    for (let at = secondIndex + 1; at <= tokenIndex; at++) {
+      if (!host.Data[at].IsTriviaToken) {
+        constIndex = at;
+        break;
+      }
+    }
+  }
+  let enumIndex = -1;
+  for (let at = constIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      enumIndex = at;
+      break;
+    }
+  }
+  if (enumIndex < 0) {
+    return host;
+  }
+  const constToken = host.Data[constIndex];
+  const built = EnumDeclarationShape.FromUnits(host, enumIndex, tokenIndex, context);
+  const constModifier = new ConstKeywordShape(host.Template);
+  if (constToken.SourceRange.Start !== null) {
+    constModifier.SignIn(constToken.SourceRange.Start);
+  }
+  if (constToken.SourceRange.End !== null) {
+    constModifier.SignOut(constToken.SourceRange.End);
+  }
+  const constPrev = kind === 19 ? host.Data[secondIndex] : exportUnit;
+  constModifier.Pos = constPrev.SourceRange.End === null ? pos : constPrev.SourceRange.End.Index + 1;
+  constModifier.TryToClose(context);
+  built.Data.unshift(constModifier);
+  constModifier.Parent = built;
+  if (kind === 19) {
+    const declareUnit = host.Data[secondIndex];
+    const declareModifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
+    declareModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+    if (declareModifier.SourceRange.End === null && declareUnit.SourceRange.End !== null) {
+      declareModifier.SignOut(declareUnit.SourceRange.End);
+    }
+    built.Data.unshift(declareModifier);
+    declareModifier.Parent = built;
+  }
   built.Data.unshift(exportModifier);
   exportModifier.Parent = built;
   built.Pos = pos;
