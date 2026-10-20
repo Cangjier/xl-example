@@ -23319,6 +23319,490 @@
           ]
         }
       ]
+    },
+    {
+      "src": "a satisfies T;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "SatisfiesExpression",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 11,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a satisfies T;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "SatisfiesExpression",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 11,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(a) satisfies T;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "SatisfiesExpression",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "ParenthesizedExpression",
+                  "pos": 0,
+                  "end": 3,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 2,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a: 1 }) as const;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "ParenthesizedExpression",
+                  "pos": 0,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 1,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "PropertyAssignment",
+                          "pos": 2,
+                          "end": 7,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 19,
+                      "text": "const"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "[1, 2] as const;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "ArrayLiteralExpression",
+                  "pos": 0,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 1,
+                      "end": 2,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "2"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 9,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 15,
+                      "text": "const"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f({} as const);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                },
+                {
+                  "kind": "AsExpression",
+                  "pos": 2,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 2,
+                      "end": 4
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 7,
+                      "end": 13,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 7,
+                          "end": 13,
+                          "text": "const"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "x = a satisfies T;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstAssignment",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "SatisfiesExpression",
+                  "pos": 3,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 15,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a /* c */ satisfies T;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "SatisfiesExpression",
+              "pos": 0,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a satisfies /* c */ T;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "SatisfiesExpression",
+              "pos": 0,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 11,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 21,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a: 1 } /* c */) as const;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 0,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ParenthesizedExpression",
+                  "pos": 0,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 1,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "PropertyAssignment",
+                          "pos": 2,
+                          "end": 7,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 27,
+                      "text": "const"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

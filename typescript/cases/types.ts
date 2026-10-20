@@ -307,3 +307,48 @@ type T<U extends A = B, V = C> = [U, V]; // c
 // declare type T<U> = U;
 // class / interface / function 的泛型参数（declarations-3/4）
 // 默认值引用后面参数等语义层形态
+
+// ===== 测量 sweep：模板字面量类型 =====
+type T = `x`;
+type T = `a${U}b`;
+type T = `${U}-${V}`;
+type T = `a${U}b${V}c`;
+type T = /* c */ `a${U}b`;
+type T = `a${ U }b`;
+
+// ===== 测量 sweep：conditional / infer =====
+type T<U> = U extends A ? B : C;
+type T<U> = U extends infer R ? R : never;
+type T<U> = U extends { a: infer R } ? R : never;
+// 暂缓：元组解构里的 rest 元素（`[infer R, ...infer S]`）—— 元组类型的 rest 分支未实现
+//   （oracle 侧合法，本仓 TypeBuilder 报「不支持的类型起点」）。
+// `// ` type T<U> = U extends [infer R, ...infer S] ? R : never;
+type T<U> = U extends A ? B : U extends C ? D : E;
+type T<U> = U extends any ? 1 : 2;
+
+// ===== 测量 sweep：mapped 类型与修饰 =====
+type T = { [K in keyof U]: U[K] };
+type T = { readonly [K in keyof U]: U[K] };
+type T = { [K in keyof U]?: U[K] };
+type T = { +readonly [K in keyof U]-?: U[K] };
+type T = { -readonly [K in keyof U]+?: U[K] };
+type T = { [K in keyof U as `get${string & K}`]: U[K] };
+type T = { /* c */ readonly [K in keyof U]: U[K] };
+
+// ===== 测量 sweep：类型算子 =====
+type T = keyof typeof a;
+type T = typeof f;
+type T = import("m").T;
+type T = readonly U[];
+type T = U[K];
+type T = keyof U;
+type T = U | V;
+type T = U & V;
+type T = () => U;
+type T = new () => U;
+type T = { a: U; b?: V };
+
+// ===== 测量 sweep：暂缓（注释目标 + 原因）=====
+// 条件类型里 `infer R extends A` 的约束形式（TS 4.7+）：本仓 TypeBuilder 的 infer 分支只认名字。
+// type T<U> = U extends infer R extends A ? R : never;
+// 模板字面量类型里的内插类型谓词（复杂占位符）与 mapped `as` 里组合键名的更多形态，留待后续 sweep。

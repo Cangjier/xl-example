@@ -14045,6 +14045,2110 @@
           ]
         }
       ]
+    },
+    {
+      "src": "type T = `x`;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "LiteralType",
+              "pos": 8,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "NoSubstitutionTemplateLiteral",
+                  "pos": 8,
+                  "end": 12,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = `a${U}b`;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TemplateLiteralType",
+              "pos": 8,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 8,
+                  "end": 13,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateLiteralTypeSpan",
+                  "pos": 13,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 13,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 14,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 14,
+                      "end": 17,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = `${U}-${V}`;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TemplateLiteralType",
+              "pos": 8,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 8,
+                  "end": 12,
+                  "text": ""
+                },
+                {
+                  "kind": "TemplateLiteralTypeSpan",
+                  "pos": 12,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 12,
+                      "end": 13,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 12,
+                          "end": 13,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateMiddle",
+                      "pos": 13,
+                      "end": 17,
+                      "text": "-"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TemplateLiteralTypeSpan",
+                  "pos": 17,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 17,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 18,
+                          "text": "V"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 18,
+                      "end": 20,
+                      "text": ""
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = `a${U}b${V}c`;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TemplateLiteralType",
+              "pos": 8,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 8,
+                  "end": 13,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateLiteralTypeSpan",
+                  "pos": 13,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 13,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 14,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateMiddle",
+                      "pos": 14,
+                      "end": 18,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TemplateLiteralTypeSpan",
+                  "pos": 18,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 18,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 19,
+                          "text": "V"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 19,
+                      "end": 22,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = /* c */ `a${U}b`;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TemplateLiteralType",
+              "pos": 8,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 8,
+                  "end": 21,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateLiteralTypeSpan",
+                  "pos": 21,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 21,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 22,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 22,
+                      "end": 25,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = `a${ U }b`;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TemplateLiteralType",
+              "pos": 8,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 8,
+                  "end": 13,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateLiteralTypeSpan",
+                  "pos": 13,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 13,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 15,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 15,
+                      "end": 19,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T<U> = U extends A ? B : C;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 7,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 11,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 11,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 25,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 27,
+                      "text": "B"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 29,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T<U> = U extends infer R ? R : never;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 7,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 11,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 11,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "InferType",
+                  "pos": 21,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "TypeParameter",
+                      "pos": 27,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "R"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 31,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "R"
+                    }
+                  ]
+                },
+                {
+                  "kind": "NeverKeyword",
+                  "pos": 35,
+                  "end": 41
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T<U> = U extends { a: infer R } ? R : never;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 7,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 11,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 11,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeLiteral",
+                  "pos": 21,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "PropertySignature",
+                      "pos": 23,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 25,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "InferType",
+                          "pos": 26,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "TypeParameter",
+                              "pos": 32,
+                              "end": 34,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 32,
+                                  "end": 34,
+                                  "text": "R"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 38,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 40,
+                      "text": "R"
+                    }
+                  ]
+                },
+                {
+                  "kind": "NeverKeyword",
+                  "pos": 42,
+                  "end": 48
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T<U> = U extends A ? B : U extends C ? D : E;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 50,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 7,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 11,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 11,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 25,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 27,
+                      "text": "B"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ConditionalType",
+                  "pos": 29,
+                  "end": 49,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 29,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 39,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 39,
+                          "end": 41,
+                          "text": "C"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 43,
+                      "end": 45,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 43,
+                          "end": 45,
+                          "text": "D"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 47,
+                      "end": 49,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 47,
+                          "end": 49,
+                          "text": "E"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T<U> = U extends any ? 1 : 2;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 7,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 11,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 11,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 21,
+                  "end": 25
+                },
+                {
+                  "kind": "LiteralType",
+                  "pos": 27,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "LiteralType",
+                  "pos": 31,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { [K in keyof U]: U[K] };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 8,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 12,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 13,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 16,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 22,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 22,
+                              "end": 24,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "IndexedAccessType",
+                  "pos": 26,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 26,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 26,
+                          "end": 28,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 29,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 30,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { readonly [K in keyof U]: U[K] };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 8,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 10,
+                  "end": 19
+                },
+                {
+                  "kind": "TypeParameter",
+                  "pos": 21,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 22,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 25,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 31,
+                          "end": 33,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 31,
+                              "end": 33,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "IndexedAccessType",
+                  "pos": 35,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 35,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 35,
+                          "end": 37,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 38,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 38,
+                          "end": 39,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { [K in keyof U]?: U[K] };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 8,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 12,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 13,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 16,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 22,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 22,
+                              "end": 24,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 25,
+                  "end": 26
+                },
+                {
+                  "kind": "IndexedAccessType",
+                  "pos": 27,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 27,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 30,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 30,
+                          "end": 31,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { +readonly [K in keyof U]-?: U[K] };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 8,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "PlusToken",
+                  "pos": 10,
+                  "end": 12
+                },
+                {
+                  "kind": "TypeParameter",
+                  "pos": 22,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 23,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 26,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 32,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 32,
+                              "end": 34,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "MinusToken",
+                  "pos": 35,
+                  "end": 36
+                },
+                {
+                  "kind": "IndexedAccessType",
+                  "pos": 38,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 38,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 38,
+                          "end": 40,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 41,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 41,
+                          "end": 42,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { -readonly [K in keyof U]+?: U[K] };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 8,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "MinusToken",
+                  "pos": 10,
+                  "end": 12
+                },
+                {
+                  "kind": "TypeParameter",
+                  "pos": 22,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 23,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 26,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 32,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 32,
+                              "end": 34,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "PlusToken",
+                  "pos": 35,
+                  "end": 36
+                },
+                {
+                  "kind": "IndexedAccessType",
+                  "pos": 38,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 38,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 38,
+                          "end": 40,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 41,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 41,
+                          "end": 42,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { [K in keyof U as `get${string & K}`]: U[K] };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 8,
+              "end": 55,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 12,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 13,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 16,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 22,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 22,
+                              "end": 24,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TemplateLiteralType",
+                  "pos": 27,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "TemplateHead",
+                      "pos": 27,
+                      "end": 34,
+                      "text": "get"
+                    },
+                    {
+                      "kind": "TemplateLiteralTypeSpan",
+                      "pos": 34,
+                      "end": 46,
+                      "children": [
+                        {
+                          "kind": "IntersectionType",
+                          "pos": 34,
+                          "end": 44,
+                          "children": [
+                            {
+                              "kind": "StringKeyword",
+                              "pos": 34,
+                              "end": 40
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 42,
+                              "end": 44,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 42,
+                                  "end": 44,
+                                  "text": "K"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TemplateTail",
+                          "pos": 44,
+                          "end": 46,
+                          "text": ""
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "IndexedAccessType",
+                  "pos": 48,
+                  "end": 53,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 48,
+                      "end": 50,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 48,
+                          "end": 50,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 51,
+                      "end": 52,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 51,
+                          "end": 52,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { /* c */ readonly [K in keyof U]: U[K] };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 51,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 8,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 10,
+                  "end": 27
+                },
+                {
+                  "kind": "TypeParameter",
+                  "pos": 29,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 30,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 33,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 39,
+                          "end": 41,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 39,
+                              "end": 41,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "IndexedAccessType",
+                  "pos": 43,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 43,
+                      "end": 45,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 43,
+                          "end": 45,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 46,
+                      "end": 47,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 46,
+                          "end": 47,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = keyof typeof a;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeOperator",
+              "pos": 8,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "TypeQuery",
+                  "pos": 14,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = typeof f;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeQuery",
+              "pos": 8,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = import(\"m\").T;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "ImportType",
+              "pos": 8,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "LiteralType",
+                  "pos": 16,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 16,
+                      "end": 19,
+                      "text": "m"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = readonly U[];",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeOperator",
+              "pos": 8,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ArrayType",
+                  "pos": 17,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 17,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "U"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = U[K];",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "IndexedAccessType",
+              "pos": 8,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 8,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 11,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 12,
+                      "text": "K"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = keyof U;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeOperator",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 14,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = U | V;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "UnionType",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 8,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 12,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "V"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = U & V;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "IntersectionType",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 8,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 12,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "V"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = () => U;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "FunctionType",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 14,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = new () => U;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "ConstructorType",
+              "pos": 8,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 18,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { a: U; b?: V };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeLiteral",
+              "pos": 8,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "PropertySignature",
+                  "pos": 10,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 13,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 15,
+                          "text": "U"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "PropertySignature",
+                  "pos": 16,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "QuestionToken",
+                      "pos": 18,
+                      "end": 19
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 20,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 22,
+                          "text": "V"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
