@@ -79,6 +79,8 @@ import { TypeReferenceShape } from "./type-reference-shape.xl.md"
 import { UnionTypeShape } from "./union-type-shape.xl.md"
 import { DecoratorShape } from "./decorator-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { GetAccessorShape } from "./get-accessor-shape.xl.md"
+import { SetAccessorShape } from "./set-accessor-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -865,8 +867,62 @@ if (unit instanceof Bracket) {
 if (!(unit instanceof Common)) {
   throw new Error("不支持的对象类型成员");
 }
+// get / set 访问器：TS 节点是 GetAccessor / SetAccessor（children = 名字 + [参数] + [返回类型]）。
+const accessorText = this.TextOf(unit);
+if (accessorText === "get" || accessorText === "set") {
+  const accessorNameUnit = this.Peek(1);
+  const accessorBracketUnit = this.Peek(2);
+  if (accessorNameUnit !== null && accessorNameUnit instanceof Common
+    && accessorBracketUnit !== null && accessorBracketUnit instanceof Bracket
+    && (accessorBracketUnit as Bracket).Is("(", ")")) {
+    this.At++;
+    const accessorName = this.ParseName();
+    const accessorBracket = this.Peek(0) as Bracket;
+    this.At++;
+    const accessorParameters = this.ParseParameterList(accessorBracket);
+    let accessorReturn:Token | null = null;
+    const accessorColon = this.Peek(0);
+    if (accessorColon !== null && this.IsText(accessorColon, ":")) {
+      this.At++;
+      accessorReturn = this.ParseReturnType();
+    }
+    let accessor:ShapeToken;
+    if (accessorText === "get") {
+      accessor = new GetAccessorShape(this.Template);
+    } else {
+      accessor = new SetAccessorShape(this.Template);
+    }
+    accessor.Add(accessorName);
+    for (const accessorParameter of accessorParameters) {
+      accessor.Add(accessorParameter);
+    }
+    if (accessorReturn !== null) {
+      accessor.Add(accessorReturn);
+    }
+    return this.SpanTypeMember(accessor, start);
+  }
+}
 const name = this.ParseName();
-const next = this.Peek(0);
+let next = this.Peek(0);
+// 可选方法 `m?()`：`?` 紧跟参数表（或泛型参数表）时是 MethodSignature 的 QuestionToken。
+let questionToken:Token | null = null;
+if (next !== null) {
+  const markText = this.TextOf(next);
+  if (markText === "?" || markText === "?:") {
+    const afterMark = this.Peek(1);
+    if (afterMark !== null
+      && ((afterMark instanceof Bracket && (afterMark as Bracket).Is("(", ")")) || this.IsText(afterMark, "<"))) {
+      questionToken = this.ParseOptionalMark();
+      next = this.Peek(0);
+    }
+  }
+}
+// 泛型方法 `m<T>(x: T): T`：TypeParameter 们在名字之后、参数之前。
+let methodTypeParameters:Array<Token> = [];
+if (next !== null && this.IsText(next, "<")) {
+  methodTypeParameters = this.ParseTypeParameterList();
+  next = this.Peek(0);
+}
 if (next !== null && this.IsBracket(next, "(", ")")) {
   const bracket = next as Bracket;
   this.At++;
@@ -886,6 +942,12 @@ if (next !== null && this.IsBracket(next, "(", ")")) {
     shape.Add(modifier);
   }
   shape.Add(name);
+  if (questionToken !== null) {
+    shape.Add(questionToken);
+  }
+  for (const typeParameter of methodTypeParameters) {
+    shape.Add(typeParameter);
+  }
   for (const parameter of parameters) {
     shape.Add(parameter);
   }

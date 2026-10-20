@@ -910,3 +910,14 @@ interface I { m(this: A): void; }
 function f(this /* c */: A) {}
 function f(this: A, ...rest: B[]) {}
 // deferred：function f(x: B, this: A) {} —— TS parseDiagnostics 为空（语法可解析），但 checker 要求 this 必须是第一个参数（语义非法），故不写进用例
+
+// ===== type members sweep：interface 成员（call/new/index/get/set/overload/optional/generic） =====
+interface I { (a: A): B; new (): C; }
+interface I { [k: symbol]: A }
+interface I { get x(): A; }
+interface I { set x(v: A); }
+interface I { m(a: A): B; m(a: C): D; }
+interface I { m?(): void; }
+interface I { m<T>(x: T): T; }
+// trivia
+interface I { m /* c */ (a: A): B; }
