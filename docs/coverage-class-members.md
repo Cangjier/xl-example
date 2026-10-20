@@ -82,3 +82,24 @@
 - decorators: `@dec class C {}` / `class C { @dec m() {} }` / `@dec x = 1`: needs class candidate accepting "@"+decorator expression
   (and Decorator shape; types/decorator-shape is still a shell) -- not done in this chunk.
 - abstract accessors, parameter decorators, decorator metadata.
+
+## chunk 4 (decorators, branch cover-decorators-1 @ origin/integration d3c27487)
+
+- class decorators: `@dec class C {}`, `@a @b class C {}`, `@a @b @c`, `@dec()`, `@dec(a)`, `@a.b`,
+  `@dec abstract class C {}`, `@dec declare class C {}`, two decorated classes, + trivia.
+- member decorators: `@dec m() {}`, `@dec x = 1;`, `@a @b m() {}`, `@dec get x()`, `@dec set x(v)`,
+  `@dec m(a: A): B {...}`, `@dec() m()`, `@dec() x = 1`, `@a.b m()`, one decorator per member, `@dec x;`, + trivia.
+- implementation: types/decorator-shape.xl.md gets DecoratorShape.FromParts(atToken, expression, pos)
+  (children = expression only; pos starts at `@`, end = expression end).
+  class candidate: new Stage 6 accepts `@` + decorator expression tokens then `class`/`declare`/`abstract`
+  (no regression: non-decorated declarations keep the old Stage 0 strictness),
+  class FromUnits + BuildMembers parse the decorator prefix with a minimal inline ExpressionBuilder entry
+  (Load(code.slice(...), afterAt) + ParseExpression; no expression-builder source change was needed),
+  decorators are added before modifiers (TS child order) and member pos starts at the first `@`.
+- readings: declarations 305/305 (baseline 276 + 29); full suite 2820/2820 (baseline 2791); tsc 0 error.
+
+### deferred
+- newline between decorator and declaration (`@dec\\nclass C {}`): root end candidate treats `dec` as an
+  expression-complete item at the newline (IsAsiBoundary) and conflicts with the class candidate;
+  same family as newline-before-body, fix belongs to files/source-file-end-possible-shape scope.
+- parameter decorators, decorator metadata, decorators on interfaces/enums.

@@ -12780,6 +12780,1511 @@
           ]
         }
       ]
+    },
+    {
+      "src": "@dec class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@a @b class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "Decorator",
+              "pos": 2,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 11,
+              "end": 13,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@a @b @c class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "Decorator",
+              "pos": 2,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            },
+            {
+              "kind": "Decorator",
+              "pos": 5,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "c"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec() class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "CallExpression",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 4,
+                      "text": "dec"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 12,
+              "end": 14,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec(a) class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "CallExpression",
+                  "pos": 1,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 4,
+                      "text": "dec"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 6,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 13,
+              "end": 15,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@a.b class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "PropertyAccessExpression",
+                  "pos": 1,
+                  "end": 4,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 2,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 4,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec abstract class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 4,
+              "end": 13
+            },
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec declare class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 4,
+              "end": 12
+            },
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec class C {} @dec2 class D {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 15,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 15,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 21,
+                  "text": "dec2"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 29,
+              "text": "D"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 18,
+                  "end": 21
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "x"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @a @b m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 12,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Decorator",
+                  "pos": 12,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 15,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 19,
+                  "end": 22
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec get x() { return 1; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "GetAccessor",
+              "pos": 9,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 22,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 24,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 31,
+                          "end": 33,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec set x(v) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "SetAccessor",
+              "pos": 9,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 21,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 22,
+                      "text": "v"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 26
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec m(a: A): B { return a; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 17,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 18,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 19,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 23,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "B"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 25,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 27,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 34,
+                          "end": 36,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec() m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 11,
+                      "end": 16,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 14,
+                          "text": "dec"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 18,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 20,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec() x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 11,
+                      "end": 16,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 14,
+                          "text": "dec"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 18,
+                  "text": "x"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 20,
+                  "end": 22,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @a.b m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 11,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 14,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 18,
+                  "end": 21
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec x = 1; @dec2 y = 2; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "x"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 21,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 21,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 27,
+                      "text": "dec2"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 27,
+                  "end": 29,
+                  "text": "y"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 31,
+                  "end": 33,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec x; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec /* c */ class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@ /* c */ dec class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 13,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@a /* c */ @b class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "Decorator",
+              "pos": 2,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 13,
+                  "text": "b"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec /* c */ m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 24,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 26,
+                  "end": 29
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @ /* c */ dec m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 23,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 27,
+                  "end": 30
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @a /* c */ @b m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 12,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Decorator",
+                  "pos": 12,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 23,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 27,
+                  "end": 30
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec\nm() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 18,
+                  "end": 21
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec /* c */ x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 24,
+                  "text": "x"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec class C { @m2 dec() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 14,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 14,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "m2"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 22,
+                  "text": "dec"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 24,
+                  "end": 27
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
