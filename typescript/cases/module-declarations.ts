@@ -34,3 +34,8 @@ import x = require(\n"m"\n);
   import x = require("m");
 export = x; export as namespace N;
 import x = require("m"); import y = A.B;
+
+// ===== 无体 ambient module（cover-module-globals-1） =====
+declare module "m";
+declare module "m"; // c
+declare /* c */ module "m2" ;

@@ -4555,6 +4555,867 @@
           ]
         }
       ]
+    },
+    {
+      "src": "namespace A.B.C {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "A"
+            },
+            {
+              "kind": "ModuleDeclaration",
+              "pos": 12,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 13,
+                  "text": "B"
+                },
+                {
+                  "kind": "ModuleDeclaration",
+                  "pos": 14,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 15,
+                      "text": "C"
+                    },
+                    {
+                      "kind": "ModuleBlock",
+                      "pos": 15,
+                      "end": 18
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "module A.B {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "A"
+            },
+            {
+              "kind": "ModuleDeclaration",
+              "pos": 9,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 10,
+                  "text": "B"
+                },
+                {
+                  "kind": "ModuleBlock",
+                  "pos": 10,
+                  "end": 13
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace A { namespace B {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "A"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "ModuleDeclaration",
+                  "pos": 13,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "B"
+                    },
+                    {
+                      "kind": "ModuleBlock",
+                      "pos": 25,
+                      "end": 28
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace A { namespace B { interface I {} } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "A"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "ModuleDeclaration",
+                  "pos": 13,
+                  "end": 44,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "B"
+                    },
+                    {
+                      "kind": "ModuleBlock",
+                      "pos": 25,
+                      "end": 44,
+                      "children": [
+                        {
+                          "kind": "InterfaceDeclaration",
+                          "pos": 27,
+                          "end": 42,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 37,
+                              "end": 39,
+                              "text": "I"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace A.B { function f() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "A"
+            },
+            {
+              "kind": "ModuleDeclaration",
+              "pos": 12,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 13,
+                  "text": "B"
+                },
+                {
+                  "kind": "ModuleBlock",
+                  "pos": 13,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "FunctionDeclaration",
+                      "pos": 15,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 26,
+                          "text": "f"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 28,
+                          "end": 31
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare namespace Global { namespace Inner { class C {} } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 59,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 24,
+              "text": "Global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 24,
+              "end": 59,
+              "children": [
+                {
+                  "kind": "ModuleDeclaration",
+                  "pos": 26,
+                  "end": 57,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 42,
+                      "text": "Inner"
+                    },
+                    {
+                      "kind": "ModuleBlock",
+                      "pos": 42,
+                      "end": 57,
+                      "children": [
+                        {
+                          "kind": "ClassDeclaration",
+                          "pos": 44,
+                          "end": 55,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 50,
+                              "end": 52,
+                              "text": "C"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare global {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 7,
+              "end": 14,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 14,
+              "end": 17
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare global { interface Window {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 7,
+              "end": 14,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 14,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 16,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 33,
+                      "text": "Window"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export as namespace X; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "NamespaceExportDeclaration",
+                  "pos": 20,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 40,
+                      "end": 42,
+                      "text": "X"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import x = require(\"n\"); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "ImportEqualsDeclaration",
+                  "pos": 20,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "ExternalModuleReference",
+                      "pos": 31,
+                      "end": 44,
+                      "children": [
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 40,
+                          "end": 43,
+                          "text": "n"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export import x = require(\"n\"); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 54,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 54,
+              "children": [
+                {
+                  "kind": "ImportEqualsDeclaration",
+                  "pos": 20,
+                  "end": 52,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "ExternalModuleReference",
+                      "pos": 38,
+                      "end": 51,
+                      "children": [
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 47,
+                          "end": 50,
+                          "text": "n"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "module M { export namespace N {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "M"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 8,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ModuleDeclaration",
+                  "pos": 10,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 10,
+                      "end": 17
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "N"
+                    },
+                    {
+                      "kind": "ModuleBlock",
+                      "pos": 29,
+                      "end": 32
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace A . B { }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "A"
+            },
+            {
+              "kind": "ModuleDeclaration",
+              "pos": 13,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "B"
+                },
+                {
+                  "kind": "ModuleBlock",
+                  "pos": 15,
+                  "end": 19
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace A { /* c */ namespace B {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "A"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "ModuleDeclaration",
+                  "pos": 13,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "B"
+                    },
+                    {
+                      "kind": "ModuleBlock",
+                      "pos": 33,
+                      "end": 36
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare global { /* c */ interface Window {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 7,
+              "end": 14,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 14,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 16,
+                  "end": 44,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 41,
+                      "text": "Window"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { /* c */ export as namespace X; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 53,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "NamespaceExportDeclaration",
+                  "pos": 20,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 48,
+                      "end": 50,
+                      "text": "X"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import /* c */ x = require(\"n\"); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 55,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 55,
+              "children": [
+                {
+                  "kind": "ImportEqualsDeclaration",
+                  "pos": 20,
+                  "end": 53,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 37,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "ExternalModuleReference",
+                      "pos": 39,
+                      "end": 52,
+                      "children": [
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 48,
+                          "end": 51,
+                          "text": "n"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import x = require(\"n\") /* c */ ; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 56,
+              "children": [
+                {
+                  "kind": "ImportEqualsDeclaration",
+                  "pos": 20,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "ExternalModuleReference",
+                      "pos": 31,
+                      "end": 44,
+                      "children": [
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 40,
+                          "end": 43,
+                          "text": "n"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

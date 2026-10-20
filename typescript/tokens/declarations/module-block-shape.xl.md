@@ -10,6 +10,9 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
+import { ImportEqualsDeclarationShape } from "./import-equals-declaration-shape.xl.md"
+import { ModuleDeclarationShape } from "./module-declaration-shape.xl.md"
+import { NamespaceExportDeclarationShape } from "./namespace-export-declaration-shape.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
@@ -81,20 +84,26 @@ return shape;
 
 ## static method BuildMember:(inner:StatementBuilder, bracket:Bracket, block:ModuleBlockShape, context:SyntaxContext)=>void
 
-建模块体里的一个成员并 `Add` 进模块体。分派顺序：
+建模块体里的一个成员并 Add 进模块体。分派顺序：
 
-1. 先看有没有 `export` 修饰（只吞一个），有就提出 `ExportKeywordShape`（`Pos` 取修饰词的 `Pos`）；
-2. 声明族（`class` / `interface` / `enum` / `function`）：从当前格往后扫第一个 `{` 括号单元当体，
-   按关键字把 `Data` 下标交给对应形状的 `FromUnits`；`Pos` 用本层 `Positions` 覆盖，`At` 推到体之后；
-3. 其余交 `StatementBuilder.BuildStatement`；
-4. 有修饰词时把它插到成员 `Data` 最前、`Parent` 指回去，并把成员 `Pos` 改回修饰词起点。
+1. 先看有没有 export 修饰（只吞一个），有就提出 ExportKeywordShape（Pos 取修饰词的 Pos）；
+2. export as namespace（export as namespace X;）：TS 的 NamespaceExportDeclaration children 里没有 ExportKeyword，
+   所以这个成员由本类直接调 NamespaceExportDeclarationShape.FromUnits（起始格含 export），修饰词不再插回；
+3. import-equals（import x = require("n"); / export import x = require("n");）：调 ImportEqualsDeclarationShape.FromUnits，
+   有 export 时仍按普通修饰词插回成员 Data 最前（TS 的 children 是 [ExportKeyword, Identifier, ExternalModuleReference]）；
+   import x from "n" 形仍暂缓（ImportDeclaration 没有 FromUnits，需要 import 侧改动）；
+4. 声明族（class / interface / enum / function / namespace / module）：从当前格往后扫第一个 { 括号单元当体，
+   按关键字把 Data 下标交给对应形状的 FromUnits；namespace / module 交 ModuleDeclarationShape.FromUnits
+   （它要 code / positions 两个数组，直接用本层非 trivia 单元与 Positions 切片）；Pos 用本层 Positions 覆盖，At 推到体之后；
+5. 其余交 StatementBuilder.BuildStatement；
+6. 有修饰词（且不是 namespace-export）时把它插到成员 Data 最前、Parent 指回去，并把成员 Pos 改回修饰词起点。
 
-暂缓：`function f(): void;`（无体函数）在这里扫不到 `{` 括号，会落到 `BuildStatement`，
-需要 declarations 侧的「声明 end 候选」才能收——本 chunk 不收这类成员。
+暂缓（原因见 docs）：function f(); 这类无体无返回类型的 ambient 函数、import x from "n" 成员。
 
 ```ts
 const first = inner.At;
 let modifier:Token | null = null;
+let skipModifier = false;
 const headUnit = first < inner.Units.length ? inner.Units[first] : null;
 if (headUnit !== null && headUnit instanceof Common && (headUnit as Common).Is("export")) {
   modifier = ExportKeywordShape.FromBasicToken(headUnit as Common, context);
@@ -107,16 +116,62 @@ let keyword = "";
 if (unit !== null && unit instanceof Common) {
   keyword = (unit as Common).TempToString();
 }
+let special:Token | null = null;
+let specialEnd = -1;
+if (keyword === "as") {
+  // export as namespace X;  —— NamespaceExportDeclaration 的 children 没有 ExportKeyword
+  for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+    if (inner.IsSymbol(inner.Units[scan], ";")) {
+      specialEnd = scan;
+      break;
+    }
+  }
+  if (specialEnd > declStart) {
+    const dataStart = bracket.Data.indexOf(inner.Units[first]);
+    const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+    special = NamespaceExportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+    (special as ShapeToken).Pos = inner.Positions[first];
+    skipModifier = true;
+  }
+} else if (keyword === "import") {
+  let equalsAt = -1;
+  for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+    const scanned = inner.Units[scan];
+    if (inner.IsSymbol(scanned, ";")) {
+      break;
+    }
+    if (inner.IsSymbol(scanned, "=")) {
+      equalsAt = scan;
+      break;
+    }
+  }
+  if (equalsAt > declStart) {
+    for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+      if (inner.IsSymbol(inner.Units[scan], ";")) {
+        specialEnd = scan;
+        break;
+      }
+    }
+    if (specialEnd > declStart) {
+      const dataStart = bracket.Data.indexOf(inner.Units[declStart]);
+      const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+      special = ImportEqualsDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+      (special as ShapeToken).Pos = inner.Positions[declStart];
+    }
+  }
+}
 let bodyInner = -1;
 let semiInner = -1;
-if (keyword === "class" || keyword === "interface" || keyword === "enum" || keyword === "function") {
+if (special === null
+  && (keyword === "class" || keyword === "interface" || keyword === "enum" || keyword === "function"
+    || keyword === "namespace" || keyword === "module")) {
   for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
     const scanned = inner.Units[scan];
     if (scanned instanceof Bracket && (scanned as Bracket).StartBracketChar === "{") {
       bodyInner = scan;
       break;
     }
-    // 无体函数声明（ambient / 重载签名）：本层终结符是 `;`，`FunctionDeclarationShape.FromUnits` 认它以 `;` 收尾。
+    // 无体函数声明（ambient / 重载签名）：本层终结符是分号。
     if (keyword === "function" && scanned instanceof Symbol && (scanned as Symbol).Is(";")) {
       semiInner = scan;
       break;
@@ -124,7 +179,10 @@ if (keyword === "class" || keyword === "interface" || keyword === "enum" || keyw
   }
 }
 let member:Token;
-if (bodyInner > declStart) {
+if (special !== null) {
+  member = special;
+  inner.At = specialEnd + 1;
+} else if (bodyInner > declStart) {
   const dataStart = bracket.Data.indexOf(unit as Token);
   const dataEnd = bracket.Data.indexOf(inner.Units[bodyInner]);
   if (keyword === "class") {
@@ -133,6 +191,12 @@ if (bodyInner > declStart) {
     member = InterfaceDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
   } else if (keyword === "enum") {
     member = EnumDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+  } else if (keyword === "namespace" || keyword === "module") {
+    member = ModuleDeclarationShape.FromUnits(
+      inner.Units.slice(declStart, bodyInner + 1),
+      inner.Positions.slice(declStart, bodyInner + 1),
+      context,
+    );
   } else {
     member = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
   }
@@ -148,10 +212,11 @@ if (bodyInner > declStart) {
 } else {
   member = inner.BuildStatement();
 }
-if (modifier !== null) {
+if (modifier !== null && !skipModifier) {
   member.Data.splice(0, 0, modifier);
   modifier.Parent = member;
   (member as ShapeToken).Pos = inner.Positions[first];
 }
 block.Add(member);
 ```
+

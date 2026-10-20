@@ -134,3 +134,20 @@ chunk 3 之后，模块体里的这些成员已经全部能与 TS AST 对齐（o
 「扫第一个 `{` 括号 → FunctionDeclarationShape.FromUnits」；`async function` / `async function*` / `using` /
 `export using` 则落到 `StatementBuilder.BuildStatement`（嵌套函数与 using 分派在 statements 家族已实现），
 `export` 修饰词仍由 BuildMember 提出、插回成员 `Data` 最前并修正 `Pos`。本 chunk 的工作是补测量并确认这些路径。
+
+## module globals / 嵌套 namespace / 无体模块（cover-module-globals-1）
+
+- 点分与嵌套 namespace：namespace A.B.C {}、module A.B {}、namespace A { namespace B {} }、
+  namespace A { namespace B { interface I {} } }、declare namespace N { namespace Inner { class C {} } }；
+  实现：ModuleBlockShape.BuildMember 新增 namespace / module 分派，直接调 ModuleDeclarationShape.FromUnits
+  （传本层非 trivia 单元切片与对应 Positions），内层声明按 TS 的嵌套 ModuleDeclaration 结构建。
+- declare global {} / declare global { interface Window {} }：module-declaration 候选与形状原本已支持，本 chunk 补测量。
+- export as namespace X;：顶层已绿；模块体内的 declare module "m" { export as namespace X; } 新增成员分派——
+  TS 的 NamespaceExportDeclaration children 没有 ExportKeyword，所以该成员由 BuildMember 直接调
+  NamespaceExportDeclarationShape.FromUnits（起始格含 export）并跳过修饰词插回。
+- declare module "m"; 无体 ambient module：候选 Scan 增加「declare + module + 字符串名 + 分号」到齐分支；
+  ModuleDeclarationShape.FromUnits 支持无体形态（children 只有修饰词 + 名字，区间到分号为止）。
+- 模块体内 import x = require("n"); / export import x = require("n");：BuildMember 新增 import-equals 分派，
+  复用 ImportEqualsDeclarationShape.FromUnits；有 export 时仍按普通修饰词插回最前。
+- 暂缓（原因）：declare module "m" { import x from "n"; } —— ImportDeclarationShape 没有 FromUnits，
+  需要 import 家族改动，超出本 chunk 写范围；function f(); 这类无体无返回类型 ambient 函数同理留在 deferred。

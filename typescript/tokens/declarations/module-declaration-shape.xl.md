@@ -89,6 +89,7 @@ if (headUnit instanceof Common && (headUnit as Common).Is("global")) {
 const nameIndices:Array<number> = [];
 const nameShapes:Array<ShapeToken> = [];
 let bodyIndex = -1;
+let terminatorIndex = -1;
 if (at >= code.length) {
   throw new Error("模块声明缺少名字");
 }
@@ -108,10 +109,47 @@ while (at < code.length) {
     bodyIndex = at;
     break;
   }
+  // 无体 ambient module：最后一个是分号
+  if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
+    terminatorIndex = at;
+    break;
+  }
   throw new Error("模块声明里出现无法识别的单元");
 }
-if (bodyIndex < 0) {
+if (bodyIndex < 0 && terminatorIndex < 0) {
   throw new Error("模块声明缺少模块体");
+}
+if (bodyIndex < 0) {
+  // declare module "m";：没有体，children 只有修饰词 + 名字；区间到分号为止（AST 的 End 含分号）。
+  if (nameIndices.length !== 1) {
+    throw new Error("无体模块声明不支持限定名");
+  }
+  const bodyless = new ModuleDeclarationShape(code[0].Template);
+  for (const item of modifiers) {
+    bodyless.Add(item);
+  }
+  const bodylessUnit = code[nameIndices[0]];
+  let bodylessName:ShapeToken;
+  if (bodylessUnit instanceof String) {
+    bodylessName = StringLiteralShape.FromBasicToken(bodylessUnit as String, context);
+  } else if (bodylessUnit instanceof Common) {
+    bodylessName = IdentifierShape.FromBasicToken(bodylessUnit as Common, context);
+  } else {
+    throw new Error("无体模块声明的名字不是标识符或字符串");
+  }
+  bodylessName.Pos = positions[nameIndices[0]];
+  bodyless.Add(bodylessName);
+  const bodylessStart = code[0].SourceRange.Start;
+  if (bodylessStart !== null) {
+    bodyless.SignIn(bodylessStart);
+  }
+  const bodylessEnd = code[terminatorIndex].SourceRange.End;
+  if (bodylessEnd !== null) {
+    bodyless.SignOut(bodylessEnd);
+  }
+  bodyless.Pos = positions[0];
+  bodyless.TryToClose(context);
+  return bodyless;
 }
 for (const index of nameIndices) {
   const unit = code[index];

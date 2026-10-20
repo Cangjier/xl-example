@@ -124,6 +124,11 @@ while (at < code.length) {
   if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
     return new StatementScanResult(1, at);
   }
+  // 无体 ambient module：declare module "m";（只有 declare + module + 字符串名 + 分号）。
+  if (hasDeclare && keyword === "module" && first instanceof String
+    && unit instanceof Symbol && (unit as Symbol).Is(";")) {
+    return new StatementScanResult(1, at);
+  }
   return new StatementScanResult(2, -1);
 }
 return new StatementScanResult(0, -1);
