@@ -103,6 +103,8 @@ import { MethodDeclarationShape } from "../types/method-declaration-shape.xl.md"
 import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
 import { SetAccessorShape } from "../types/set-accessor-shape.xl.md"
 import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
+import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
+import { ObjectBindingPatternShape } from "../bindings/object-binding-pattern-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
 import { SpreadAssignmentShape } from "../members/spread-assignment-shape.xl.md"
@@ -1469,26 +1471,56 @@ while (inner.At < inner.Units.length) {
   }
   const nameIndex = inner.At;
   const nameUnit = inner.Peek(0);
-  if (nameUnit === null || !(nameUnit instanceof Common) || (nameUnit as Common).CanStartNumber()) {
-    throw new Error("函数参数只支持标识符");
+  let name:Token;
+  if (nameUnit !== null && nameUnit instanceof Bracket
+      && (nameUnit as Bracket).StartBracketChar !== "(") {
+    // destructuring parameter: `[...]` / `{...}` 交给 bindings 家族的 FromBracket 建 pattern。
+    const nameBracket = nameUnit as Bracket;
+    if ((nameBracket as Bracket).StartBracketChar === "[") {
+      name = ArrayBindingPatternShape.FromBracket(nameBracket, this.Context);
+    } else {
+      name = ObjectBindingPatternShape.FromBracket(nameBracket, this.Context);
+    }
+    (name as ShapeToken).Pos = inner.Positions[nameIndex];
+    inner.At++;
+  } else if (nameUnit !== null && nameUnit instanceof Common && !(nameUnit as Common).CanStartNumber()) {
+    const identifier = IdentifierShape.FromBasicToken(nameUnit as Common, this.Context);
+    identifier.Pos = inner.Positions[nameIndex];
+    name = identifier;
+    inner.At++;
+  } else {
+    throw new Error("函数参数只支持标识符或绑定模式");
   }
-  const name = IdentifierShape.FromBasicToken(nameUnit as Common, this.Context);
-  name.Pos = inner.Positions[nameIndex];
-  inner.At++;
   const parameter = new ParameterShape(this.Template);
   if (restUnit !== null) {
     parameter.Add(inner.MakeOperatorToken(restUnit, restIndex));
   }
   parameter.Add(name);
-  if (inner.At < inner.Units.length && inner.IsText(inner.Units[inner.At], "?")) {
+  if (inner.At < inner.Units.length && inner.IsText(inner.Units[inner.At], "?:")) {
+    // `?` 与 `:` 相邻时会被 token 层并成一颗组合符号 `?:`；QuestionToken 只覆盖前一个 `?`。
     const questionUnit = inner.Units[inner.At];
-    const questionIndex = inner.At;
-    inner.At++;
-    parameter.Add(inner.MakeOperatorToken(questionUnit, questionIndex));
-  }
-  if (inner.At < inner.Units.length && inner.IsText(inner.Units[inner.At], ":")) {
+    const questionShape = new QuestionTokenShape(this.Template);
+    const questionSource = questionUnit.SourceRange.Start;
+    if (questionSource !== null) {
+      questionShape.SignIn(questionSource);
+      questionShape.SignOut(questionSource);
+    }
+    questionShape.Pos = inner.Positions[inner.At];
+    questionShape.TryToClose(this.Context);
+    parameter.Add(questionShape);
     inner.At++;
     parameter.Add(inner.ParseFollowingType());
+  } else {
+    if (inner.At < inner.Units.length && inner.IsText(inner.Units[inner.At], "?")) {
+      const questionUnit = inner.Units[inner.At];
+      const questionIndex = inner.At;
+      inner.At++;
+      parameter.Add(inner.MakeOperatorToken(questionUnit, questionIndex));
+    }
+    if (inner.At < inner.Units.length && inner.IsText(inner.Units[inner.At], ":")) {
+      inner.At++;
+      parameter.Add(inner.ParseFollowingType());
+    }
   }
   if (inner.At < inner.Units.length && inner.IsText(inner.Units[inner.At], "=")) {
     inner.At++;
