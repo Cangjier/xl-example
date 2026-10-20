@@ -437,11 +437,49 @@ x = [function () {}];
 (function () /* c */ {});
 /* c */ (function () {});
 
+// ===== base 27：箭头参数：类型标注 / 默认值 / rest / 混合 =====
+(a: A) => a;
+(a: A, b: B) => a;
+(a = 1) => a;
+(a, b = 2) => a;
+(...a) => a;
+(a, ...b) => a;
+(a: A, b = 1, ...c) => a;
+(...a: A[]) => a;
+(a = b + c) => a;
+(a: A) => { return a; };
+(a = 1) => { return a; };
+(...a) => { return a; };
+// + trivia：名后 / 类型后 / 等号两侧 / `...` 后注释、换行
+(a /* c */ : A) => a;
+(a : A /* c */) => a;
+(a /* c */ = 1) => a;
+(a = /* c */ 1) => a;
+(... /* c */ a) => a;
+(a,\n...b) => a;
+
+// ===== base 28：函数表达式参数：默认值 / rest / 可选 / 混合 =====
+(function (a = 1) {});
+(function (a, b = 2) {});
+(function (...a) {});
+(function (a, ...b) {});
+(function (a?) {});
+(function (a?, b: B) {});
+(function (a: A, b = 1, ...c) { return a; });
+(function (a = f(b)) {});
+(function (...a: A[]) {});
+(function (a, b = 2, c) {});
+// + trivia
+(function (/* c */ a = 1) {});
+(function (a = /* c */ 1) {});
+(function (... /* c */ a) {});
+(function (a /* c */) {});
+(function (a: /* c */ A) {});
+
 // ===== 暂缓（不在这张用例集里）=====
-// 箭头函数：base 21 收表达式体；base 25 收块体；以下依赖后续块：
+// 箭头 / 函数表达式参数：base 27/28 收类型标注、默认值、rest、可选（`?` 只对函数表达式合法）；
 //   async 箭头                  async (a) => a;   async () => {};   ← 依赖 cover-end-1：CanStart 放行 async
-//   默认参数 / 可选参数 / rest   (a = 1) => a;   (a?) => a;   (function (a = 1) {})   ← 参数默认值 / 可选参数 / rest 未做
-//   箭头参数类型标注            (a: T) => a;   ← 箭头参数目前只收标识符（函数表达式参数已收 `a: T`）
+//   解构参数 / 参数装饰器        (function ({ a }) {})   ← 依赖 bindings / decorator 家族
 // 泛型调用：base 24 已收 `f<T>(a)` / `f<T, U>(a, b)` / `f<T<U> >(a)`；仍暂缓：
 //   泛型箭头 / 尖括号断言        <T>(a) => a;   <T>a;   ← 依赖 cover-end-1 的 CanStart 放行 `<`
 //   `f<T<U>>(a)`                连写的 `>>` 是单个组合 Symbol，要拆它属 basic token 用户决策项

@@ -31,6 +31,7 @@ import { BarTokenShape } from "../punctuation/bar-token-shape.xl.md"
 import { CaretTokenShape } from "../punctuation/caret-token-shape.xl.md"
 import { ColonTokenShape } from "../punctuation/colon-token-shape.xl.md"
 import { CommaTokenShape } from "../punctuation/comma-token-shape.xl.md"
+import { DotDotDotTokenShape } from "../punctuation/dot-dot-dot-token-shape.xl.md"
 import { EqualsEqualsEqualsTokenShape } from "../punctuation/equals-equals-equals-token-shape.xl.md"
 import { EqualsEqualsTokenShape } from "../punctuation/equals-equals-token-shape.xl.md"
 import { EqualsGreaterThanTokenShape } from "../punctuation/equals-greater-than-token-shape.xl.md"
@@ -1058,32 +1059,14 @@ return shape;
 
 ## method ParseArrowFromBracket:(bracket:Bracket, start:int)=>Token
 
-`(…) => body` 的箭头：`bracket.Data` 里只允许「标识符 (`,` 标识符)*」，每个标识符产出一个 `Parameter`（子节点是 `Identifier`）；`=>` 走 `EqualsGreaterThanToken`，body 按赋值表达式解析。TS 的 children 顺序是 Parameter 们、EqualsGreaterThanToken、body；无参箭头没有 Parameter。
+`(…) => body` 的箭头：参数括号与函数表达式共用 `ParseFunctionParameters`（支持类型标注 / 默认值 / rest / 可选），
+`=>` 走 `EqualsGreaterThanToken`，body 交给 `ParseArrowBody`（表达式体或块体）。
+TS 的 children 顺序是 Parameter 们、EqualsGreaterThanToken、body；无参箭头没有 Parameter。
 
 ```ts
 const arrow = new ArrowFunctionShape(this.Template);
-const inner = new ExpressionBuilder(this.Template, this.Context);
-let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
-}
-inner.Load(bracket.Data, base);
-while (inner.At < inner.Units.length) {
-  const unit = inner.Units[inner.At];
-  if (inner.IsText(unit, ",")) {
-    inner.At++;
-    continue;
-  }
-  if (!(unit instanceof Common) || (unit as Common).CanStartNumber()) {
-    throw new Error("箭头函数的参数只支持标识符");
-  }
-  const nameIndex = inner.At;
-  const name = IdentifierShape.FromBasicToken(unit as Common, this.Context);
-  name.Pos = inner.Positions[nameIndex];
-  inner.At++;
-  const parameter = new ParameterShape(this.Template);
-  parameter.Add(name);
-  inner.SpanNode(parameter, nameIndex, nameIndex);
+const parameters = this.ParseFunctionParameters(bracket);
+for (const parameter of parameters) {
   arrow.Add(parameter);
 }
 const arrowUnit = this.Peek(0);
@@ -1192,9 +1175,10 @@ return this.SpanNode(shape, start, this.At - 1);
 
 ## method ParseFunctionParameters:(bracket:Bracket)=>Array<Token>
 
-参数括号里的逐个参数：本批只收 `标识符` 与 `标识符 : 类型`（类型走 `TypeBuilder`）。
-每个参数是一个 `ParameterShape`，children 与 TS 一致（`Identifier`、可选的 `TypeReference`），
-`Pos` 取名字的含前导 trivia 起点，区间到类型标注结束。
+参数括号里的逐个参数（箭头与函数表达式共用）：`...`? 名字（`?`）?（`: 类型`）?（`= 默认值`）?。
+children 顺序与 TS 的 `Parameter` 完全一致：`DotDotDotToken`、`Identifier`、`QuestionToken`、类型节点、initializer。
+注意 TS 的 `Parameter` **不含** `=` 这个 EqualsToken（实测 `{ a = 1 }` 那种 shorthand 才含），所以默认值只加 initializer。
+`Pos` 取参数第一个单元（`...` 或名字）的含前导 trivia 起点，区间到最后一个子节点结束；类型走 `TypeBuilder`。
 
 ```ts
 const parameters:Array<Token> = [];
@@ -1210,19 +1194,40 @@ while (inner.At < inner.Units.length) {
     inner.At++;
     continue;
   }
-  if (!(unit instanceof Common) || (unit as Common).CanStartNumber()) {
+  const parameterIndex = inner.At;
+  let restUnit:Token | null = null;
+  let restIndex = -1;
+  if (inner.IsText(unit, "...")) {
+    restUnit = unit;
+    restIndex = inner.At;
+    inner.At++;
+  }
+  const nameIndex = inner.At;
+  const nameUnit = inner.Peek(0);
+  if (nameUnit === null || !(nameUnit instanceof Common) || (nameUnit as Common).CanStartNumber()) {
     throw new Error("函数参数只支持标识符");
   }
-  const parameterIndex = inner.At;
-  const name = IdentifierShape.FromBasicToken(unit as Common, this.Context);
-  name.Pos = inner.Positions[parameterIndex];
+  const name = IdentifierShape.FromBasicToken(nameUnit as Common, this.Context);
+  name.Pos = inner.Positions[nameIndex];
   inner.At++;
   const parameter = new ParameterShape(this.Template);
+  if (restUnit !== null) {
+    parameter.Add(inner.MakeOperatorToken(restUnit, restIndex));
+  }
   parameter.Add(name);
-  const next = inner.Peek(0);
-  if (next !== null && inner.IsText(next, ":")) {
+  if (inner.At < inner.Units.length && inner.IsText(inner.Units[inner.At], "?")) {
+    const questionUnit = inner.Units[inner.At];
+    const questionIndex = inner.At;
+    inner.At++;
+    parameter.Add(inner.MakeOperatorToken(questionUnit, questionIndex));
+  }
+  if (inner.At < inner.Units.length && inner.IsText(inner.Units[inner.At], ":")) {
     inner.At++;
     parameter.Add(inner.ParseFollowingType());
+  }
+  if (inner.At < inner.Units.length && inner.IsText(inner.Units[inner.At], "=")) {
+    inner.At++;
+    parameter.Add(inner.ParseAssign());
   }
   inner.SpanNode(parameter, parameterIndex, inner.At - 1);
   parameters.push(parameter);
@@ -1394,6 +1399,8 @@ const text = this.TextOf(unit);
 let shape:ShapeToken;
 if (text === "=") {
   shape = new FirstAssignmentShape(this.Template);
+} else if (text === "...") {
+  shape = new DotDotDotTokenShape(this.Template);
 } else if (text === "=>") {
   shape = new EqualsGreaterThanTokenShape(this.Template);
 } else if (text === "+=") {
