@@ -85,3 +85,27 @@ namespace N { function f() {} }
 // declare module "m" { function* f(): void; }         ← 同上
 // declare module "m" { async function f(): void; }    ← async 修饰：BuildMember 只认 export，async 也不在声明形状里
 // export as namespace X;                              ← cover-module-1 所有者
+
+// ===== module body: nested function / async / generator / using（cover-module-body-1） =====
+namespace N { function f() {} }
+namespace N { async function f() {} }
+namespace N { function* g() { yield 1; } }
+namespace N { async function* h() {} }
+namespace N { using x = a; }
+namespace N { await using x = a; }
+namespace N { export function f() {} }
+namespace N { export async function f() {} }
+namespace N { export function* g() { yield 1; } }
+namespace N { export async function* h() {} }
+namespace N { export using x = a; }
+declare namespace N { async function f(): void; }
+declare module "m" { function* g(): void; }
+declare module "m" { async function f(): void; }
+namespace N { async function f() { await g(); } }
+namespace N { function* g() { yield 1; yield 2; } }
+namespace N { export async function* h() { yield 1; } }
+namespace N { function /* c */ * g() {} }
+namespace N { export  async  function  f  ( )  { } }
+namespace N { using  x  =  a ; }
+namespace N { /* c */ async function f() {} }
+namespace N { class C {} async function f() {} }

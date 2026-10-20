@@ -117,3 +117,20 @@ M15 ambient 模块里的 class / enum / interface+class。`\n` 由生成器还�
 | `namespace N { function* f() {} }` / `declare module "m" { function* f(): void; }` | `BuildMember` 与 `FunctionDeclarationShape` 都不认 `*`（generator star）——generator 形状还没接到函数声明路径 |
 | `declare module "m" { async function f(): void; }` | `BuildMember` 只认 `export` 修饰；`async` 也不在声明形状里 |
 | `export as namespace X;` | cover-module-1 所有者（`NamespaceExportDeclaration`） |
+
+## module body：嵌套 function / async / generator / using（cover-module-body-1）
+
+chunk 3 之后，模块体里的这些成员已经全部能与 TS AST 对齐（oracle 用 `ts.createSourceFile` 逐条验过 `parseDiagnostics` 为空）：
+
+- 嵌套 function：`namespace N { function f() {} }`、`async function f() {}`、`function* g() { yield 1; }`、
+  `async function* h() {}`，以及 `declare namespace` / `declare module` 里无体的 `async function f(): void;`、
+  `function* g(): void;`；
+- `using` / `await using` 在模块体里：`namespace N { using x = a; }`、`namespace N { await using x = a; }`；
+- export 修饰：`namespace N { export function f() {} }`、`export async function f() {}`、`export function* g() { … }`、
+  `export async function* h() { … }`、`export using x = a;`（TS 的 children 顺序是 `[ExportKeyword, …成员自己的 children]`）；
+- 已有的 class / interface / enum 成员无回归。
+
+机制说明：这几种成员**不需要改 `ModuleBlockShape.BuildMember`**——`function` 族（含 `*` / 无体 `;`）早已走
+「扫第一个 `{` 括号 → FunctionDeclarationShape.FromUnits」；`async function` / `async function*` / `using` /
+`export using` 则落到 `StatementBuilder.BuildStatement`（嵌套函数与 using 分派在 statements 家族已实现），
+`export` 修饰词仍由 BuildMember 提出、插回成员 `Data` 最前并修正 `Pos`。本 chunk 的工作是补测量并确认这些路径。

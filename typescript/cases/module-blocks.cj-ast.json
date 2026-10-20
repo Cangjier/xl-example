@@ -3254,6 +3254,1307 @@
           ]
         }
       ]
+    },
+    {
+      "src": "namespace N { function f() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 26,
+                      "end": 29
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { async function f() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 13,
+                      "end": 19
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 32,
+                      "end": 35
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { function* g() { yield 1; } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 22,
+                      "end": 23
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 27,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 29,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "YieldExpression",
+                              "pos": 29,
+                              "end": 37,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 35,
+                                  "end": 37,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { async function* h() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 13,
+                      "end": 19
+                    },
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 28,
+                      "end": 29
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "h"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 33,
+                      "end": 36
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { using x = a; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 13,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 13,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 19,
+                          "end": 25,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 19,
+                              "end": 21,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 23,
+                              "end": 25,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { await using x = a; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 13,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 13,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 25,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 27,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 29,
+                              "end": 31,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { export function f() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 13,
+                      "end": 20
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 33,
+                      "end": 36
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { export async function f() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 13,
+                      "end": 20
+                    },
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 39,
+                      "end": 42
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { export function* g() { yield 1; } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 13,
+                      "end": 20
+                    },
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 29,
+                      "end": 30
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 34,
+                      "end": 47,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 36,
+                          "end": 45,
+                          "children": [
+                            {
+                              "kind": "YieldExpression",
+                              "pos": 36,
+                              "end": 44,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 42,
+                                  "end": 44,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { export async function* h() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 13,
+                      "end": 20
+                    },
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 35,
+                      "end": 36
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "h"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 40,
+                      "end": 43
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { export using x = a; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 13,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 13,
+                      "end": 20
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 26,
+                          "end": 32,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 30,
+                              "end": 32,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare namespace N { async function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 19,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 21,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 21,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 41,
+                      "end": 46
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { function* g(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 29,
+                      "end": 30
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 35,
+                      "end": 40
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { async function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 40,
+                      "end": 45
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { async function f() { await g(); } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 13,
+                      "end": 19
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 32,
+                      "end": 47,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 34,
+                          "end": 45,
+                          "children": [
+                            {
+                              "kind": "AwaitExpression",
+                              "pos": 34,
+                              "end": 44,
+                              "children": [
+                                {
+                                  "kind": "CallExpression",
+                                  "pos": 40,
+                                  "end": 44,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 40,
+                                      "end": 42,
+                                      "text": "g"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { function* g() { yield 1; yield 2; } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 51,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 49,
+                  "children": [
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 22,
+                      "end": 23
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 27,
+                      "end": 49,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 29,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "YieldExpression",
+                              "pos": 29,
+                              "end": 37,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 35,
+                                  "end": 37,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 38,
+                          "end": 47,
+                          "children": [
+                            {
+                              "kind": "YieldExpression",
+                              "pos": 38,
+                              "end": 46,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 44,
+                                  "end": 46,
+                                  "text": "2"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { export async function* h() { yield 1; } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 55,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 55,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 53,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 13,
+                      "end": 20
+                    },
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 35,
+                      "end": 36
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "h"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 40,
+                      "end": 53,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 42,
+                          "end": 51,
+                          "children": [
+                            {
+                              "kind": "YieldExpression",
+                              "pos": 42,
+                              "end": 50,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 48,
+                                  "end": 50,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { function /* c */ * g() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 22,
+                      "end": 32
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 32,
+                      "end": 34,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 36,
+                      "end": 39
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { export  async  function  f  ( )  { } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 13,
+                      "end": 20
+                    },
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 40,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 45,
+                      "end": 50
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { using  x  =  a ; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 13,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 13,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 19,
+                          "end": 28,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 19,
+                              "end": 22,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 28,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { /* c */ async function f() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 13,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 40,
+                      "end": 43
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { class C {} async function f() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 13,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "C"
+                    }
+                  ]
+                },
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 24,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 24,
+                      "end": 30
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 39,
+                      "end": 41,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 43,
+                      "end": 46
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
