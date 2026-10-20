@@ -2,6 +2,7 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
@@ -17,16 +18,20 @@ import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 
 # class TypeAliasDeclarationScan
 
-判定状态。`Admitted` = 已经见过第一个代码单元（必须是 `type`）；`Done` = 见到顶层 `;`。
+判定状态。`Stage`：0 = 等 `[export|declare] type`，1 = 刚见过 `type`（下一格决定是不是别名），
+2 = 别名正文（等顶层 `;`）；`Done` = 见到顶层 `;`。
 
 括号是整块单元（`Bracket` 把 `(…)` / `[…]` / `{…}` 收在 `Data` 里），所以顶层扫描不必数括号深度：
 本层出现 `;` 就是语句结束。
+
+`type` 之后紧跟 `{` / `*` 的是 **export 声明**（`export type { T }` / `export type * from "m"`），不是别名，
+Stage 1 直接 `Reject`，把位置留给 export 候选。
 
 ## field Start:int = -1
 
 ## field Checked:int = 0
 
-## field Admitted:bool = false
+## field Stage:int = 0
 
 ## field Done:bool = false
 
@@ -40,11 +45,12 @@ import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 type T = number;
 type T = A | B;
 type T = A<B>;
-type T = [A, B];
+declare type T = A;
+export declare type T = A;
 ```
 
-第一个代码单元必须是 `type`（其余声明候选 / 表达式语句候选各自会在同一格淘汰，见
-`ExpressionStatementPossibleShape.CanStart` 的保留字表），扫描到顶层 `;` 时 `Accept`，
+条目可以带 `export` / `declare` 修饰（`[export] [declare] type …`，顺序与 TS 一致；`export type T = A` 也合法），
+所以 Stage 0 先吞修饰词，见到 `type` 才进 Stage 1。扫描到顶层 `;` 时 `Accept`，
 `IsBuildable` 只在 `;` 那一格为真——与 `ExpressionStatementPossibleShape` 同一套时机。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
@@ -64,7 +70,7 @@ if (state === null) {
 if (state.Checked > tokenIndex + 1) {
   state.Start = ItemUtil.ItemStart(units);
   state.Checked = state.Start;
-  state.Admitted = false;
+  state.Stage = 0;
   state.Done = false;
   state.DoneAt = -1;
   state.Rejected = false;
@@ -79,11 +85,39 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     state.Rejected = true;
     continue;
   }
-  if (!state.Admitted) {
-    state.Admitted = true;
-    if (!(unit instanceof Common) || !(unit as Common).Is("type")) {
-      state.Rejected = true;
+  if (state.Stage === 0) {
+    if (unit instanceof Common && (unit as Common).Is("declare")) {
+      // `declare type …`：declare 是本候选的修饰词。
+      continue;
     }
+    if (unit instanceof Common && (unit as Common).Is("export")) {
+      // `export type …`（后面直接是 type）；`export declare …` 交给 export 声明候选。
+      state.Stage = 3;
+      continue;
+    }
+    if (unit instanceof Common && (unit as Common).Is("type")) {
+      state.Stage = 1;
+      continue;
+    }
+    state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 3) {
+    if (unit instanceof Common && (unit as Common).Is("type")) {
+      state.Stage = 1;
+      continue;
+    }
+    state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 1) {
+    if ((unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{")
+      || (unit instanceof Symbol && (unit as Symbol).Is("*"))) {
+      // `export type { T }` / `export type * from …`：export 声明，不是别名。
+      state.Rejected = true;
+      continue;
+    }
+    state.Stage = 2;
     continue;
   }
   if (unit instanceof Symbol && (unit as Symbol).Is(";")) {

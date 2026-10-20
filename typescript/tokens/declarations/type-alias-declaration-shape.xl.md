@@ -3,6 +3,8 @@
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
+import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
@@ -42,14 +44,14 @@ measurement 载体：`type T[<U, …>] = <type>;`。TS 的 children 是 `Identif
 super(template);
 ```
 
-## static method FindTypeParameterClose:(code:Array<Token>)=>int
+## static method FindTypeParameterClose:(code:Array<Token>, start:int)=>int
 
-从下标 2 的 `<` 开始，按 `<` / `>` 深度找类型参数表的闭合 `>`；`>>` / `>>>` 是一个 `Symbol`，按 2 / 3 个闭合算。
+从 `start` 的 `<` 开始，按 `<` / `>` 深度找类型参数表的闭合 `>`；`>>` / `>>>` 是一个 `Symbol`，按 2 / 3 个闭合算。
 找不到返回 `-1`。
 
 ```ts
 let depth = 0;
-for (let at = 2; at < code.length; at++) {
+for (let at = start; at < code.length; at++) {
   const unit = code[at];
   if (!(unit instanceof Symbol)) {
     continue;
@@ -91,9 +93,23 @@ for (let at = start; at <= tokenIndex; at++) {
 if (code.length < 5) {
   throw new Error("类型别名声明不完整");
 }
-const keyword = code[0];
-const nameUnit = code[1];
-const third = code[2];
+let cursor = 0;
+let exportUnit:Token | null = null;
+if (code[0] instanceof Common && (code[0] as Common).Is("export")) {
+  exportUnit = code[0];
+  cursor = 1;
+}
+let declareUnit:Token | null = null;
+if (code[cursor] instanceof Common && (code[cursor] as Common).Is("declare")) {
+  declareUnit = code[cursor];
+  cursor++;
+}
+if (code.length < cursor + 5) {
+  throw new Error("类型别名声明不完整");
+}
+const keyword = code[cursor];
+const nameUnit = code[cursor + 1];
+const third = code[cursor + 2];
 if (!(keyword instanceof Common) || !(keyword as Common).Is("type")) {
   throw new Error("类型别名声明缺少 type 关键字");
 }
@@ -103,14 +119,14 @@ if (!(nameUnit instanceof Common)) {
 if (!(third instanceof Symbol)) {
   throw new Error("类型别名声明缺少等号或类型参数");
 }
-let equalIndex = 2;
+let equalIndex = cursor + 2;
 let paramsUnits:Array<Token> = [];
 if ((third as Symbol).Is("<")) {
-  const closeIndex = TypeAliasDeclarationShape.FindTypeParameterClose(code);
+  const closeIndex = TypeAliasDeclarationShape.FindTypeParameterClose(code, cursor + 2);
   if (closeIndex < 0) {
     throw new Error("类型参数表缺少 >");
   }
-  paramsUnits = code.slice(2, closeIndex + 1);
+  paramsUnits = code.slice(cursor + 2, closeIndex + 1);
   equalIndex = closeIndex + 1;
 }
 const equal = code[equalIndex];
@@ -165,12 +181,30 @@ const shape = new TypeAliasDeclarationShape(host.Template);
 shape.AliasName = name;
 shape.AliasParameters = parameters;
 shape.AliasType = type;
+if (exportUnit !== null) {
+  const modifier = ExportKeywordShape.FromBasicToken(exportUnit as Common, context);
+  modifier.Pos = pos;
+  shape.Add(modifier);
+}
+if (declareUnit !== null) {
+  const modifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
+  modifier.Pos = pos;
+  shape.Add(modifier);
+}
 shape.Add(name);
 for (const parameter of parameters) {
   shape.Add(parameter);
 }
 shape.Add(type);
-if (keyword.SourceRange.Start !== null) {
+if (exportUnit !== null) {
+  if (exportUnit.SourceRange.Start !== null) {
+    shape.SignIn(exportUnit.SourceRange.Start);
+  }
+} else if (declareUnit !== null) {
+  if (declareUnit.SourceRange.Start !== null) {
+    shape.SignIn(declareUnit.SourceRange.Start);
+  }
+} else if (keyword.SourceRange.Start !== null) {
   shape.SignIn(keyword.SourceRange.Start);
 }
 if (last.SourceRange.End !== null) {
